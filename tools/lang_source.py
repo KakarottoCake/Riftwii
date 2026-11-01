@@ -1408,16 +1408,46 @@ T = {
         "コードModはそれぞれ違います。Project+など多くのModは、RiftWiiの追加機能があっても動きます。画面が黒いままのModは、Mod自身のローダーと同じように追加機能なしで起動してください。",
         "Cada mod de códigos é diferente. A maioria, como o Project+, funciona bem com os extras do RiftWii. Se um mod ficar com a tela preta, inicie-o sem eles, como o próprio carregador dele faria.",
         "Ogni mod di codici è diverso. La maggior parte, come Project+, funziona bene con gli extra di RiftWii. Se un mod resta su uno schermo nero, avvialo senza, come farebbe il suo loader."),
+    "Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it.": (
+        "La mayoría de los mods de códigos, como Project+, usan los extras de RiftWii. Si queda en negro, inícialo sin ellos. RiftWii lo recordará para {1}; cámbialo en Mods.",
+        "Project+など多くのコードModは、RiftWiiの追加機能ありで動きます。画面が黒いままなら、追加機能なしで起動してください。{1}ではこの選択を保存します。MODのページで変えられます。",
+        "A maioria dos mods de códigos, como o Project+, usa os extras do RiftWii. Se a tela ficar preta, inicie sem. O RiftWii vai lembrar para {1}; a página Mods muda isso.",
+        "La maggior parte dei mod di codici, come Project+, funziona con gli extra di RiftWii. Se resta nero, avvialo senza. RiftWii lo ricorderà per {1}; la pagina Mod lo cambia."),
+    "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes.": (
+        "No se pudo escribir sd:/riftwii/codemods.txt: la respuesta durará hasta que cierres RiftWii.",
+        "sd:/riftwii/codemods.txt に書き込めませんでした。この選択はRiftWiiを閉じるまで使われます。",
+        "Não foi possível gravar sd:/riftwii/codemods.txt: a resposta vale até o RiftWii ser fechado.",
+        "Impossibile scrivere sd:/riftwii/codemods.txt: la risposta vale finché RiftWii non si chiude."),
+    "This answer was not kept: sd:/riftwii/codemods.txt can't take it now.": (
+        "Esta respuesta no se guardó: sd:/riftwii/codemods.txt no puede aceptarla ahora.",
+        "この選択は保存されませんでした。今は sd:/riftwii/codemods.txt に入れられません。",
+        "Esta resposta não foi guardada: sd:/riftwii/codemods.txt não pode aceitá-la agora.",
+        "Questa risposta non è stata salvata: sd:/riftwii/codemods.txt ora non può accettarla."),
+    "Asked at the first Start": (
+        "Se pregunta al primer inicio",
+        "最初の起動でたずねます",
+        "Perguntado no primeiro início",
+        "Chiesto al primo avvio"),
+    "Ask each time": (
+        "Preguntar cada vez",
+        "そのつどたずねる",
+        "Perguntar sempre",
+        "Chiedi ogni volta"),
+    "For {1} on every page and tile it's switched on in. Ask each time brings the question back at Start.": (
+        "Para {1} en cada página y casilla donde esté activado. «Preguntar cada vez» vuelve a mostrar la pregunta al iniciar.",
+        "{1}をオンにしているすべてのページとタイルで使います。「そのつどたずねる」にすると、起動のたびにたずねます。",
+        "Para {1} em todas as páginas e blocos onde estiver ativado. \"Perguntar sempre\" traz a pergunta de volta ao iniciar.",
+        "Per {1} in ogni pagina e riquadro in cui è attivo. «Chiedi ogni volta» fa tornare la domanda all'avvio."),
     "With extras": (
         "Con extras",
         "追加機能あり",
         "Com extras",
         "Con gli extra"),
     "Crash reports, back to RiftWii": (
-        "Informes de fallos, volver a RiftWii",
+        "Informes de fallos, volver",
         "クラッシュ記録、RiftWiiに戻る",
-        "Relatórios de falhas, voltar ao RiftWii",
-        "Rapporti di crash, ritorno a RiftWii"),
+        "Relatórios de falhas, voltar",
+        "Rapporti di crash, ritorno"),
     "Without extras": (
         "Sin extras",
         "追加機能なし",
@@ -2043,13 +2073,13 @@ T = {
     "Wii channels": ("Canales Wii", "Wiiチャンネル", "Canais Wii", "Canali Wii"),
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.": ("Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii, o solo los de un sitio. Con un juego en ambas unidades, basta una copia.", "ホームに表示するゲーム：すべてのドライブとWii本体のもの、または1か所のものだけ。両方のドライブにあるゲームは1つで十分です。", "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, ou só os de um lugar. Com um jogo nas duas unidades, basta uma cópia.", "Quali giochi mostra la Home: quelli di ogni unità e quelli della Wii stessa, o solo quelli di un posto. Con un gioco su entrambe le unità, basta una copia."),
     "This game's data was removed from the Wii, so it can't start.": ("Los datos de este juego se borraron de la Wii, así que no puede iniciarse.", "このゲームのデータはWiiから削除されているため、起動できません。", "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado.", "I dati di questo gioco sono stati cancellati dalla Wii, quindi non può partire."),
-    # What's new in the release after 2610-743
-    "Home: a Layout button and a Show chooser": ("Inicio: botón Diseño y selector Ver", "ホームにレイアウトと表示のボタン", "Início: botão Layout e seletor Ver", "Home: pulsante Disposizione e scelta Mostra"),
-    "WiiWare and VC played straight from WADs": ("WiiWare y VC directamente desde WADs", "WiiウェアとVCをWADから直接プレイ", "WiiWare e VC direto dos WADs", "WiiWare e VC direttamente dai WAD"),
-    "Pictures for emulator games, and a picker": ("Imágenes para juegos emulados, y un selector", "エミュレータのゲームに画像と選択画面", "Imagens para jogos emulados, e um seletor", "Immagini per i giochi emulati, e una scelta"),
-    "Banner music and disc art on game pages": ("Música del banner e imagen del disco", "ゲームページにバナーの音楽とディスクの画像", "Música do banner e imagem do disco", "Musica del banner e immagine del disco"),
-    "Asks first when mod files are missing": ("Pregunta antes si faltan archivos del mod", "MODのファイルが足りないときは確認", "Pergunta antes se faltam arquivos do mod", "Chiede prima se mancano file della mod"),
-    "Clearer messages when something goes wrong": ("Mensajes más claros cuando algo falla", "問題が起きたときのメッセージをわかりやすく", "Mensagens mais claras quando algo dá errado", "Messaggi più chiari quando qualcosa va storto"),
+    # What's new in the release after 2610-781
+    "A cleaner, lighter menu font": ("Una fuente del menú más limpia y ligera", "すっきりした軽いメニューの字体", "Uma fonte do menu mais limpa e leve", "Un carattere del menu più pulito e leggero"),
+    "USB gamepads and Xbox 360 pads in games": ("Mandos USB y de Xbox 360 en los juegos", "USBとXbox 360のコントローラーでゲーム", "Controles USB e de Xbox 360 nos jogos", "Controller USB e Xbox 360 nei giochi"),
+    "Your own covers, and GameTDB's second cover": ("Tus propias carátulas y la segunda de GameTDB", "自分のカバーとGameTDBの2つ目のカバー", "Suas próprias capas e a segunda do GameTDB", "Le tue copertine e la seconda di GameTDB"),
+    "Home's shortcuts on every controller": ("Los atajos del Inicio en todos los mandos", "ホームのショートカットをどのコントローラーでも", "Os atalhos do Início em todos os controles", "Le scorciatoie della Home su ogni controller"),
+    "Fixes for 007 games and Prince of Persia": ("Arreglos para los juegos de 007 y Prince of Persia", "007のゲームとプリンス・オブ・ペルシャを修正", "Correções para os jogos de 007 e Prince of Persia", "Correzioni per i giochi di 007 e Prince of Persia"),
+    "No more freeze with a 4th Wii Remote": ("Ya no se bloquea con un 4.º Mando de Wii", "4本目のWiiリモコンで止まらないように", "Não trava mais com um 4.º Wii Remote", "Niente più blocchi con il 4° Telecomando Wii"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
     "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
@@ -3242,6 +3272,18 @@ KO = {
         "이 코드 모드를 어떻게 시작할까요?",
     "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would.":
         "코드 모드마다 다릅니다. Project+ 같은 대부분의 모드는 RiftWii의 추가 기능과 함께 잘 실행됩니다. 화면이 검은 채로 멈추는 모드는 모드 자체 로더처럼 추가 기능 없이 시작하세요.",
+    "Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it.":
+        "Project+ 같은 대부분의 코드 모드는 RiftWii의 추가 기능과 함께 실행됩니다. 화면이 검은 채로 멈추면 추가 기능 없이 시작하세요. RiftWii가 {1}에 대해 이 선택을 기억합니다. 모드 페이지에서 바꿀 수 있습니다.",
+    "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes.":
+        "sd:/riftwii/codemods.txt에 쓸 수 없습니다. 이 선택은 RiftWii를 닫을 때까지만 유지됩니다.",
+    "This answer was not kept: sd:/riftwii/codemods.txt can't take it now.":
+        "이 선택은 저장되지 않았습니다. 지금은 sd:/riftwii/codemods.txt에 넣을 수 없습니다.",
+    "Asked at the first Start":
+        "처음 시작할 때 묻습니다",
+    "Ask each time":
+        "매번 묻기",
+    "For {1} on every page and tile it's switched on in. Ask each time brings the question back at Start.":
+        "{1}이(가) 켜진 모든 페이지와 타일에 적용됩니다. '매번 묻기'로 하면 시작할 때마다 다시 묻습니다.",
     "With extras":
         "추가 기능 사용",
     "Crash reports, back to RiftWii":
@@ -3915,18 +3957,18 @@ KO = {
         "Wii 채널",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "홈에 표시할 게임: 모든 드라이브와 Wii 본체의 게임, 또는 한 곳의 게임만. 두 드라이브에 같은 게임이 있으면 하나면 충분합니다.",
-    "Home: a Layout button and a Show chooser":
-        "홈에 배치 버튼과 표시 선택",
-    "WiiWare and VC played straight from WADs":
-        "WiiWare와 VC를 WAD에서 바로 플레이",
-    "Pictures for emulator games, and a picker":
-        "에뮬레이터 게임 이미지와 선택 화면",
-    "Banner music and disc art on game pages":
-        "게임 페이지에 배너 음악과 디스크 이미지",
-    "Asks first when mod files are missing":
-        "모드 파일이 없으면 먼저 확인",
-    "Clearer messages when something goes wrong":
-        "문제가 생겼을 때 더 알기 쉬운 메시지",
+    "A cleaner, lighter menu font":
+        "더 깔끔하고 가벼운 메뉴 글꼴",
+    "USB gamepads and Xbox 360 pads in games":
+        "게임에서 USB와 Xbox 360 컨트롤러",
+    "Your own covers, and GameTDB's second cover":
+        "직접 넣은 커버와 GameTDB의 두 번째 커버",
+    "Home's shortcuts on every controller":
+        "모든 컨트롤러에서 홈 바로가기",
+    "Fixes for 007 games and Prince of Persia":
+        "007 게임과 페르시아의 왕자 수정",
+    "No more freeze with a 4th Wii Remote":
+        "4번째 Wii 리모컨에서 더 이상 멈추지 않음",
     "Memory for RiftWii's extras":
         "RiftWii 추가 기능이 쓰는 메모리",
     "about {1} KB":
@@ -5092,10 +5134,22 @@ FR = {
         "Comment démarrer ce mod de code ?",
     "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would.":
         "Chaque mod de code est différent. La plupart, comme Project+, fonctionnent bien avec les extras de RiftWii. Si un mod reste sur un écran noir, démarrez-le sans eux, comme le ferait son propre chargeur.",
+    "Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it.":
+        "La plupart des mods de code, comme Project+, marchent avec les extras de RiftWii. Écran noir ? Démarrez-le sans. RiftWii s'en souviendra pour {1} ; la page Mods le change.",
+    "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes.":
+        "Impossible d'écrire sd:/riftwii/codemods.txt : la réponse vaut jusqu'à la fermeture de RiftWii.",
+    "This answer was not kept: sd:/riftwii/codemods.txt can't take it now.":
+        "Cette réponse n'a pas été gardée : sd:/riftwii/codemods.txt ne peut pas la prendre pour l'instant.",
+    "Asked at the first Start":
+        "Demandé au premier démarrage",
+    "Ask each time":
+        "Demander à chaque fois",
+    "For {1} on every page and tile it's switched on in. Ask each time brings the question back at Start.":
+        "Pour {1} sur chaque page et vignette où il est activé. « Demander à chaque fois » ramène la question au démarrage.",
     "With extras":
         "Avec les extras",
     "Crash reports, back to RiftWii":
-        "Rapports de plantage, retour à RiftWii",
+        "Rapports de plantage, retour",
     "Without extras":
         "Sans extras",
     "As the mod's own loader":
@@ -5765,18 +5819,18 @@ FR = {
         "Chaînes Wii",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "Les jeux qu'affiche l'Accueil : ceux de chaque support et ceux de la Wii elle-même, ou ceux d'un seul endroit. Avec un jeu sur les deux supports, une copie suffit.",
-    "Home: a Layout button and a Show chooser":
-        "Accueil : bouton Disposition et choix Afficher",
-    "WiiWare and VC played straight from WADs":
-        "WiiWare et VC directement depuis les WAD",
-    "Pictures for emulator games, and a picker":
-        "Images pour les jeux émulés, et un choix",
-    "Banner music and disc art on game pages":
-        "Musique de bannière et image du disque",
-    "Asks first when mod files are missing":
-        "Demande d'abord s'il manque des fichiers du mod",
-    "Clearer messages when something goes wrong":
-        "Messages plus clairs quand quelque chose ne va pas",
+    "A cleaner, lighter menu font":
+        "Une police du menu plus nette et plus légère",
+    "USB gamepads and Xbox 360 pads in games":
+        "Manettes USB et Xbox 360 dans les jeux",
+    "Your own covers, and GameTDB's second cover":
+        "Vos propres jaquettes, et la seconde de GameTDB",
+    "Home's shortcuts on every controller":
+        "Les raccourcis de l'Accueil sur toutes les manettes",
+    "Fixes for 007 games and Prince of Persia":
+        "Corrections pour les jeux 007 et Prince of Persia",
+    "No more freeze with a 4th Wii Remote":
+        "Plus de blocage avec une 4e Wiimote",
     "Memory for RiftWii's extras":
         "Mémoire pour les extras de RiftWii",
     "about {1} KB":

@@ -8,6 +8,7 @@
 #include <ogc/cond.h>
 #include <ogc/lwp.h>
 #include <ogc/lwp_watchdog.h>
+#include <ogc/machine/processor.h>
 #include <sys/stat.h>
 #include <zlib.h>
 
@@ -52,6 +53,10 @@ std::string CoverPath(const std::string& id) { return std::string(kCoverDir) + "
 // An empty file: GameTDB had no cover when it was written.
 std::string MissPath(const std::string& id) { return std::string(kCoverDir) + "/" + id + ".none"; }
 std::string SecondSetPath(const std::string& id) { return std::string(kCoverDir) + "/" + id + ".second"; }
+// A mod tile's downloaded cover (or miss) was for this GameTDB entry
+// (#385): a tile keeps its key when renamed, so a cover for the old name's
+// match is told from the new one's.
+std::string ModFromPath(const std::string& key) { return std::string(kCoverDir) + "/" + key + ".mod"; }
 // Beside a downloaded cover of GameTDB's second set: the set the stored
 // cover is of, apart from the set chosen (a download for the chosen set
 // may not have come yet).
@@ -134,6 +139,7 @@ struct Slot {
     bool own = false;      // the player's own PNG (#384), not GameTDB's
     bool secondSet = false; // GameTDB's second set, chosen (#384): its full box is the first's
     unsigned fill = 0;     // CoverFill: g_fills when it was read
+    bool modCover = false; // a mod tile's own cover from GameTDB (#385)
     u64 touched = 0;       // last drawn or read (gettime ticks)
 };
 struct Request {
@@ -182,6 +188,42 @@ struct Lock {
     Lock() { LWP_MutexLock(g_lock); }
     ~Lock() { LWP_MutexUnlock(g_lock); }
 };
+
+// A downloaded cover (CoverPath) read into `pixels`, its header checked.
+bool ReadStoredCover(const std::string& id, u8* pixels) {
+    FILE* f = std::fopen(CoverPath(id).c_str(), "rb");
+    if (!f) return false;
+    std::uint8_t header[kCoverHeaderSize];
+    const bool ok = std::fread(header, 1, sizeof(header), f) == sizeof(header) && cover_header_valid(header) &&
+                    std::fread(pixels, 1, kCoverPixelBytes, f) == kCoverPixelBytes;
+    std::fclose(f);
+    return ok;
+}
+
+// Mod tiles' GameTDB entries (#385), by tile key: set on the GUI thread,
+// read by the download's; under g_lock.
+std::map<std::string, std::string> g_modCoverIds;
+unsigned g_modCoverIdsCleared = 0;  // ForgetAllCovers calls: matched again
+
+std::string ModCoverId(const std::string& tile_key) {
+    if (g_lock == LWP_MUTEX_NULL) return {};
+    Lock lock;
+    const auto it = g_modCoverIds.find(tile_key);
+    return it == g_modCoverIds.end() ? std::string() : it->second;
+}
+
+// Whether what is stored for the mod tile (its cover, or its miss) is for
+// the GameTDB entry it matches now. Never while it matches none.
+bool TileStoredForMatch(const std::string& tile_key) {
+    const std::string id = ModCoverId(tile_key);
+    if (id.empty()) return false;
+    FILE* f = std::fopen(ModFromPath(tile_key).c_str(), "rb");
+    if (!f) return false;
+    char from[16] = {};
+    const std::size_t got = std::fread(from, 1, sizeof(from) - 1, f);
+    std::fclose(f);
+    return std::string(from, got) == id;
+}
 
 Slot* Find(const std::string& game_id) {
     const auto it = g_index.find(game_id);
@@ -277,13 +319,17 @@ void* LoaderMain(void*) {
         const unsigned forgets = g_forgets;
         LWP_MutexUnlock(g_lock);
 
-        bool ok = false;
         const bool banner = emulator_banner_id(id);
         const std::size_t pixel_bytes = banner ? kEmulatorBannerPixelBytes : kCoverPixelBytes;
         const bool emulator = emulator_cover_id(id);
+        const std::string game = emulator || banner ? id : tile_game_id(id);
+        const bool tile = game != id;
         std::vector<std::uint8_t> local;
+        const auto own_png = [&](const std::string& name) {
+            return ReadOwnCover(name, local) && local.size() == kCoverFileSize;
+        };
+        bool ok = false, own = false, mod_cover = false;
         std::vector<std::string> broken;  // own PNGs there but unusable
-        bool own = false;
         if (banner) {
             std::vector<std::uint8_t> picture;
             if (ReadEmulatorBanner(id, picture)) {
@@ -291,40 +337,33 @@ void* LoaderMain(void*) {
                 ok = true;
             }
         } else if (emulator) {
-            if (ReadEmulatorLocalCover(id, local) && local.size() == kCoverFileSize) {
-                std::memcpy(slot->data, local.data() + kCoverHeaderSize, kCoverPixelBytes);
-                ok = true;
-            }
+            ok = ReadEmulatorLocalCover(id, local) && local.size() == kCoverFileSize;
+            if (ok) std::memcpy(slot->data, local.data() + kCoverHeaderSize, kCoverPixelBytes);
         } else {
             // The player's own PNG first, never written over, and offline
-            // too: a mod tile's own, then the game's (#384).
-            const std::string game = tile_game_id(id);
-            own = (game != id && ReadOwnCover(id, local) && local.size() == kCoverFileSize) ||
-                  (ReadOwnCover(game, local) && local.size() == kCoverFileSize);
+            // too (#384); a mod tile's own before the game's, and the mod's
+            // own cover from GameTDB (#385) before the game's too.
+            own = tile && own_png(id);
+            if (!own && tile && TileStoredForMatch(id)) ok = mod_cover = ReadStoredCover(id, slot->data);
+            if (!ok && !own) own = own_png(game);
             if (own) std::memcpy(slot->data, local.data() + kCoverHeaderSize, kCoverPixelBytes);
-            ok = own;
-            if (!ok) {
-                if (game != id && OwnCoverThere(id)) broken.push_back(id);
-                if (OwnCoverThere(game)) broken.push_back(game);
+            ok = ok || own;
+            // Own PNGs there but unusable (each one tried above).
+            if (!own) {
+                if (tile && OwnCoverThere(id)) broken.push_back(id);
+                if (!mod_cover && OwnCoverThere(game)) broken.push_back(game);
             }
         }
         const bool cache_allowed = !emulator || EmulatorDownloadedCoversAllowed();
-        // A mod's tile shows the game's downloaded cover.
-        const std::string stored = emulator ? id : tile_game_id(id);
-        // A second-set cover stored while the first set is chosen isn't
+        // A mod's tile without a cover of its own shows the game's. A
+        // second-set cover stored while the first set is chosen isn't
         // shown: the first set's download replaces it (CoverWanted).
-        const bool wrong_set = !ok && !emulator && !banner && StoredIsSecond(stored) && !CoverSecondSet(stored);
-        FILE* f = banner || ok || !cache_allowed || wrong_set ? nullptr : std::fopen(CoverPath(stored).c_str(), "rb");
-        if (f) {
-            std::uint8_t header[kCoverHeaderSize];
-            ok = std::fread(header, 1, sizeof(header), f) == sizeof(header) && cover_header_valid(header) &&
-                 std::fread(slot->data, 1, kCoverPixelBytes, f) == kCoverPixelBytes;
-            std::fclose(f);
-        }
+        const bool wrong_set = !ok && !emulator && !banner && StoredIsSecond(game) && !CoverSecondSet(game);
+        if (!ok && !banner && cache_allowed && !wrong_set) ok = ReadStoredCover(game, slot->data);
         if (ok) DCFlushRange(slot->data, pixel_bytes);
         // GameTDB's full box art is of the first set only: a second-set
         // cover comes before it, as the player's own does.
-        const bool second_set = ok && !own && !emulator && !banner && StoredIsSecond(stored);
+        const bool second_set = ok && !own && !mod_cover && !emulator && !banner && StoredIsSecond(game);
 
         LWP_MutexLock(g_lock);
         g_reading = false;
@@ -336,6 +375,7 @@ void* LoaderMain(void*) {
             slot->own = own;
             slot->secondSet = second_set;
             slot->fill = ++g_fills;
+            slot->modCover = mod_cover;
             slot->touched = gettime();
             g_texDirty = true;  // GX is the GUI thread's: it invalidates
         } else {
@@ -366,15 +406,25 @@ void Reserve(int covers) {
          static_cast<unsigned>((reinterpret_cast<u32>(SYS_GetArena2Hi()) - reinterpret_cast<u32>(SYS_GetArena2Lo())) >> 10));
 }
 
-// The lock and the loader thread, the first time a cover is asked for,
-// with kPoolMin slots unless CoverReserve gave some. GUI thread.
-bool Started() {
-    if (g_thread != LWP_THREAD_NULL) return true;
+// The lock (and the loader's conditions), once: the GUI thread makes it for
+// the covers, the menu's for the mod tiles' matches (SetModCoverIds), so
+// with interrupts off, as either may come first.
+void MakeLock() {
+    u32 level;
+    _CPU_ISR_Disable(level);
     if (g_lock == LWP_MUTEX_NULL) {
         LWP_MutexInit(&g_lock, false);
         LWP_CondInit(&g_wake);
         LWP_CondInit(&g_idle);
     }
+    _CPU_ISR_Restore(level);
+}
+
+// The lock and the loader thread, the first time a cover is asked for,
+// with kPoolMin slots unless CoverReserve gave some. GUI thread.
+bool Started() {
+    if (g_thread != LWP_THREAD_NULL) return true;
+    MakeLock();
     if (g_slots == 0) Reserve(kPoolMin);
     // Below the GUI thread (70) and the menu's: it reads while they wait.
     if (LWP_CreateThread(&g_thread, LoaderMain, nullptr, g_stack, sizeof(g_stack), 40) < 0) {
@@ -415,13 +465,22 @@ void ForgetCoverMiss(const std::string& game_id) {
 bool CoverWanted(const std::string& game_id) {
     if (emulator_cover_id(game_id) || emulator_banner_id(game_id)) return EmulatorCoverWanted(game_id);
     if (!ValidId(game_id)) return false;
-    // A stored cover (of the set chosen: one of the other, whose download
-    // never came, is downloaded again), or a recent miss: nothing to ask.
-    // Looked at first, as the player's own PNG may take a USB lookup.
+    // A mod's tile: only when GameTDB lists the mod as a game of its own;
+    // a cover or miss stored for another match (the tile renamed) is none.
+    const bool tile = tile_game_id(game_id) != game_id;
+    if (tile && ModCoverId(game_id).empty()) return false;
+    // A game's stored cover (of the set chosen: one of the other, whose
+    // download never came, is downloaded again), or a recent miss: nothing
+    // to ask. Looked at first, as the player's own PNG may take a USB
+    // lookup. A tile's own PNG comes first (a stored cover may be an
+    // earlier match's), so a tile's are looked at after it.
     struct stat st;
-    if (stat(CoverPath(game_id).c_str(), &st) == 0 && StoredIsSecond(game_id) == CoverSecondSet(game_id)) return false;
-    if (stat(MissPath(game_id).c_str(), &st) == 0 && std::time(nullptr) - st.st_mtime < kRetryAfter) return false;
-    // The player's own cover is there: nothing to download.
+    const auto stored_or_missed = [&] {
+        return (stat(CoverPath(game_id).c_str(), &st) == 0 && StoredIsSecond(game_id) == CoverSecondSet(game_id)) ||
+               (stat(MissPath(game_id).c_str(), &st) == 0 && std::time(nullptr) - st.st_mtime < kRetryAfter);
+    };
+    if (!tile && stored_or_missed()) return false;
+    // The player's own cover is there (and reads): nothing to download.
     if (OwnCoverThere(game_id)) {
         const auto known = g_ownReads.find(game_id);
         if (known == g_ownReads.end()) {
@@ -431,6 +490,8 @@ bool CoverWanted(const std::string& game_id) {
         }
         if (g_ownReads[game_id]) return false;
     }
+    if (tile && !TileStoredForMatch(game_id)) return true;
+    if (tile && stored_or_missed()) return false;
     return true;
 }
 
@@ -486,11 +547,17 @@ namespace {
 CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
     if (emulator_cover_id(game_id) || emulator_banner_id(game_id)) return FetchEmulatorCover(game_id, error);
     if (!ValidId(game_id)) return CoverFetch::NotFound;
+    // A mod's tile: the cover of the mod's own GameTDB entry, kept under
+    // the tile's key (sd:/riftwii/covers/RMCE01@retro-rewind.rwc).
+    const bool tile = tile_game_id(game_id) != game_id;
+    const std::string art_of = tile ? ModCoverId(game_id) : game_id;
+    if (art_of.empty()) return CoverFetch::NotFound;
     mkdir("sd:/riftwii", 0777);
     mkdir(kCoverDir, 0777);
-    const bool second = CoverSecondSet(game_id);
-    for (const std::string& art_id : gametdb_art_ids(game_id)) {
-        for (const std::string& region : cover_regions(game_id, MenuLanguage())) {
+    // The second set is the game page's choice, for the game's own cover.
+    const bool second = !tile && CoverSecondSet(game_id);
+    for (const std::string& art_id : gametdb_art_ids(art_of)) {
+        for (const std::string& region : cover_regions(art_of, MenuLanguage())) {
             std::vector<std::uint8_t> png;
             std::string why;
             if (!HttpGet(cover_url(region, art_id, second), png, why, 512u << 10, 8000)) {
@@ -524,7 +591,15 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
             }
             std::remove(MissPath(game_id).c_str());
             if (!second) std::remove(StoredSecondPath(game_id).c_str());
-            logf("Covers: %s (%s, %dx%d)\n", game_id.c_str(), region.c_str(), w, h);
+            // Without its entry's name beside it, the tile's cover would be
+            // wanted again on every pass: no cover, and a failed download.
+            if (tile && !WriteAll(ModFromPath(game_id), std::vector<std::uint8_t>(art_of.begin(), art_of.end()))) {
+                std::remove(CoverPath(game_id).c_str());
+                error = "cannot write " + ModFromPath(game_id) + " (card full?)";
+                return CoverFetch::Failed;
+            }
+            if (tile) logf("Covers: %s, GameTDB's %s (%s, %dx%d)\n", game_id.c_str(), art_id.c_str(), region.c_str(), w, h);
+            else logf("Covers: %s (%s, %dx%d)\n", game_id.c_str(), region.c_str(), w, h);
             return CoverFetch::Stored;
         }
     }
@@ -539,7 +614,24 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
         g_fellBack = true;
         return FetchCoverNow(game_id, error);
     }
-    WriteAll(MissPath(game_id), {});
+    const bool missed = WriteAll(MissPath(game_id), {});
+    if (tile) {
+        // A tile without its miss would still want its cover, and Home asks
+        // again for a tile that still does when a download ends: a failure,
+        // counted as one, not a miss to ask about again at once.
+        if (!missed) {
+            error = "cannot write " + MissPath(game_id) + " (card full?)";
+            return CoverFetch::Failed;
+        }
+        // A cover stored for the tile's earlier match is not this one's.
+        std::remove(CoverPath(game_id).c_str());
+        // The miss is this entry's only with its name beside it.
+        if (!WriteAll(ModFromPath(game_id), std::vector<std::uint8_t>(art_of.begin(), art_of.end()))) {
+            std::remove(MissPath(game_id).c_str());
+            error = "cannot write " + ModFromPath(game_id) + " (card full?)";
+            return CoverFetch::Failed;
+        }
+    }
     logf("Covers: GameTDB has none for %s\n", game_id.c_str());
     return CoverFetch::NotFound;
 }
@@ -616,18 +708,18 @@ bool CoverIsOwn(const std::string& name) {
     return s && s->ready && s->own;
 }
 
-bool CoverBeforeBox(const std::string& name) {
-    if (!ValidId(name) || !Started()) return false;
-    Lock lock;
-    const Slot* s = Find(name);
-    return s && s->ready && (s->own || s->secondSet);
-}
-
 unsigned CoverFill(const std::string& name) {
     if (!ValidId(name) || !Started()) return 0;
     Lock lock;
     const Slot* s = Find(name);
     return s && s->ready ? s->fill : 0;
+}
+
+bool CoverBeforeBox(const std::string& name) {
+    if (!ValidId(name) || !Started()) return false;
+    Lock lock;
+    const Slot* s = Find(name);
+    return s && s->ready && (s->own || s->secondSet || s->modCover);
 }
 
 const u8* EmulatorBannerTexture(const std::string& game_id) {
@@ -656,8 +748,43 @@ void CoverPrefetch(const std::string& game_id, int rank) {
     }
 }
 
+unsigned ModCoverIdsCleared() {
+    if (g_lock == LWP_MUTEX_NULL) return 0;
+    Lock lock;
+    return g_modCoverIdsCleared;
+}
+
+void SetModCoverIds(std::map<std::string, std::string> ids) {
+    // Kept before any cover is asked for too: the Names view asks for none
+    // until a game page opens, and that page shows the mod's cover.
+    MakeLock();
+    Lock lock;
+    if (ids == g_modCoverIds) return;
+    // A tile matched anew, or no longer, may show another cover now: what
+    // is in memory for it (or being read) is read again.
+    std::set<std::string> changed;
+    for (const auto& now : ids) {
+        const auto was = g_modCoverIds.find(now.first);
+        if (was == g_modCoverIds.end() || was->second != now.second) changed.insert(now.first);
+    }
+    for (const auto& was : g_modCoverIds)
+        if (!ids.count(was.first)) changed.insert(was.first);
+    bool forgot = false;
+    for (const std::string& key : changed) {
+        g_absent.erase(key);
+        if (Slot* slot = Find(key)) {
+            SetId(*slot, "");
+            forgot = true;
+        }
+    }
+    if (forgot) ++g_forgets;
+    g_modCoverIds = std::move(ids);
+}
+
 void ForgetCover(const std::string& game_id) {
-    g_ownReads.erase(game_id);
+    // The game's, and its mod tiles' (<ID>@<key>).
+    for (auto it = g_ownReads.begin(); it != g_ownReads.end();)
+        it = it->first == game_id || it->first.rfind(game_id + "@", 0) == 0 ? g_ownReads.erase(it) : std::next(it);
     if (g_lock == LWP_MUTEX_NULL) return;
     Lock lock;
     g_brokenOwnTold.erase(game_id);
@@ -694,6 +821,9 @@ void ForgetAllCovers() {
     g_ownReads.clear();
     if (g_lock == LWP_MUTEX_NULL) return;
     Lock lock;
+    // Another SD card, maybe: its tiles are matched again from its list.
+    g_modCoverIds.clear();
+    ++g_modCoverIdsCleared;
     g_brokenOwnTold.clear();
     g_absent.clear();
     ++g_forgets;
@@ -702,11 +832,7 @@ void ForgetAllCovers() {
 }
 
 void CoverReserve(int covers) {
-    if (g_lock == LWP_MUTEX_NULL) {
-        LWP_MutexInit(&g_lock, false);
-        LWP_CondInit(&g_wake);
-        LWP_CondInit(&g_idle);
-    }
+    MakeLock();
     Reserve(covers);
 }
 

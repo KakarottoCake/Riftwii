@@ -2078,6 +2078,22 @@ void TestPinLaunchCios() {
     EXPECT_TRUE(std::find(args.begin(), args.end(), std::string("cios=251")) + 3 == args.end());  // then gct, reset
     // Once is enough: the request now names it.
     EXPECT_FALSE(pin_launch_cios(args, 251));
+
+    // A Reset of a code build started with RiftWii's extras (#386) says so,
+    // just before reset=, and reads back; the cios goes before both.
+    HeadlessLaunch with = h;
+    with.code_build_extras = true;
+    std::vector<std::string> with_args = headless_launch_arguments(with);
+    EXPECT_EQ(with_args.back(), std::string("reset=1"));
+    EXPECT_EQ(with_args[with_args.size() - 2], std::string("extras=with"));
+    EXPECT_TRUE(pin_launch_cios(with_args, 251));
+    HeadlessLaunch with_back;
+    EXPECT_TRUE(parse_headless_launch(with_args, with_back, error));
+    EXPECT_TRUE(with_back.code_build_extras);
+    EXPECT_EQ(with_back.settings.cios, std::string("251"));
+    EXPECT_TRUE(std::find(with_args.begin(), with_args.end(), std::string("cios=251")) + 4 == with_args.end());
+    // Only "with" is a value for it.
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=SKHJAF", "extras=without"}, with_back, error));
     // "auto" becomes the slot.
     h.settings.cios = "auto";
     args = headless_launch_arguments(h);

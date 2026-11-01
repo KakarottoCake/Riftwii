@@ -288,6 +288,9 @@ std::vector<std::string> RestartArguments(const FrontendState& state, const Laun
     HeadlessLaunch h;
     h.game = state.game_id;
     h.reset = true;
+    // Code builds started with RiftWii's extras (the menu's answer, #386)
+    // come back with them, whatever settings.txt says.
+    h.code_build_extras = !extras.code_builds.empty();
     const ImageGame* image = nullptr;
     if (state.use_usb && state.usb_index < state.usb_catalog.games.size()) {
         h.from = "usb";
@@ -384,11 +387,14 @@ void PrepareLaunchExtras(const FrontendState& state, const HeadlessLaunch* headl
         extras.code_list_end = builds.list_end;
         extras.code_hooktype = builds.hooktype;
         extras.pokes = std::move(builds.pokes);
-        // The menu asks at Start; a launch without the menu (autorun, another
-        // loader) goes by settings.txt "code_build_extras = off".
+        // The menu asks at Start (or remembers the answer), and a start from
+        // it follows that answer, as does its Reset (extras=with); a launch
+        // without the menu (autorun, another loader) goes by settings.txt
+        // "code_build_extras = off".
         const auto setting = Settings().other.find("code_build_extras");
         const bool setting_off = setting != Settings().other.end() && setting->second == "off";
-        extras.code_build_plain = state.code_build_plain || setting_off;
+        const bool reset_with = headless != nullptr && headless->code_build_extras;
+        extras.code_build_plain = state.code_build_asked ? state.code_build_plain : !reset_with && setting_off;
     } else {
         logf("Code builds are off: %s\n", error.c_str());  // the game page checked before Start
     }
