@@ -192,8 +192,11 @@ std::size_t picture_record_thumbnail(std::vector<PictureCandidate>& candidates, 
     candidate.thumbnail_hashed = true;
     for (std::size_t other = 0; other < candidates.size(); ++other) {
         const auto& previous = candidates[other];
-        if (other == index || previous.source != candidate.source || !previous.thumbnail_hashed ||
-            previous.thumbnail_hash != digest) continue;
+        // GameTDB's sets count as one source: a set may hold the same
+        // picture as another (and the mod's entry the game's).
+        const bool same_source = previous.source == candidate.source ||
+                                 (gametdb_source(previous.source) && gametdb_source(candidate.source));
+        if (other == index || !same_source || !previous.thumbnail_hashed || previous.thumbnail_hash != digest) continue;
         const std::size_t duplicate = std::max(index, other);
         candidates.erase(candidates.begin() + duplicate);
         return duplicate;

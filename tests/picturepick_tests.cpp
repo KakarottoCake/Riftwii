@@ -168,6 +168,18 @@ void gametdb_covers() {
     EXPECT(picture_gametdb_url("RSBE01", "US", PictureSource::Title).empty());
     EXPECT(!picture_candidate_valid({"http://art.gametdb.com/wii/cover2/US/RSBE01.png", PictureSource::GameTDBFourth}));
     EXPECT(picture_candidate_valid({"http://art.gametdb.com/wii/coverB2/US/RSBE01.png", PictureSource::GameTDBFourth}));
+    // The same picture in two GameTDB sets is shown once, the earlier kept;
+    // across unrelated sources it stays.
+    std::vector<PictureCandidate> sets;
+    EXPECT(picture_add_gametdb(sets, "RSBE01", "US", PictureSource::GameTDB));
+    EXPECT(picture_add_gametdb(sets, "RSBE01", "US", PictureSource::GameTDBThird));
+    sets.push_back({"https://cdn2.steamgriddb.com/grid/1.png", PictureSource::SteamGrid});
+    Sha256Digest same{};
+    same[0] = 7;
+    EXPECT(picture_record_thumbnail(sets, 0, same) == kPictureCandidatesMax);
+    EXPECT(picture_record_thumbnail(sets, 2, same) == kPictureCandidatesMax);
+    EXPECT(picture_record_thumbnail(sets, 1, same) == 1);
+    EXPECT(sets.size() == 2 && sets[0].source == PictureSource::GameTDB && sets[1].source == PictureSource::SteamGrid);
     // Two IDs' covers, four regions each, in one set: all kept.
     std::vector<PictureCandidate> both;
     for (const char* id : {"RMCP01", "RMCE01"})
