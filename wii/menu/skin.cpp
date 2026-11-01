@@ -25,7 +25,7 @@ Tex tile, tileOver, coverTile, coverTileOver, roundBtn, roundBtnOver, pill, pill
     stepBack, stepBackOver, stepForward, stepForwardOver, switchOn, switchOff,
     panelGame, panelSettings, popup, bar, bannerStripes, arrowLeft, arrowLeftOver, arrowRight, arrowRightOver, iconDrives,
     scrollUp, scrollUpOver, scrollDown, scrollDownOver,
-    iconGear, iconDisc, discCase, iconSearch, iconStar, iconStarOn, hand[4];
+    iconGear, iconDisc, discCase, blankCover, iconSearch, iconStar, iconStarOn, hand[4];
 
 // Textures and the menu font live below the MEM2 arena's low end, taken
 // once and never freed: the menu keeps them until the game replaces all of
@@ -307,7 +307,7 @@ void Init() {
         {"arrow_left", &arrowLeft}, {"arrow_left_over", &arrowLeftOver}, {"arrow_right", &arrowRight},
         {"arrow_right_over", &arrowRightOver}, {"scroll_up", &scrollUp}, {"scroll_up_over", &scrollUpOver},
         {"scroll_down", &scrollDown}, {"scroll_down_over", &scrollDownOver}, {"icon_drives", &iconDrives},
-        {"icon_gear", &iconGear}, {"icon_search", &iconSearch}, {"icon_star", &iconStar}, {"icon_star_on", &iconStarOn}, {"icon_disc", &iconDisc}, {"disc_case", &discCase}, {"pointer1", &hand[0]}, {"pointer2", &hand[1]},
+        {"icon_gear", &iconGear}, {"icon_search", &iconSearch}, {"icon_star", &iconStar}, {"icon_star_on", &iconStarOn}, {"icon_disc", &iconDisc}, {"disc_case", &discCase}, {"blank_cover", &blankCover}, {"pointer1", &hand[0]}, {"pointer2", &hand[1]},
         {"pointer3", &hand[2]}, {"pointer4", &hand[3]}, {"shelf", &shelfPlank},
         {"tile9", &tile9}, {"tile9_over", &tile9Over}, {"tile9_primary", &tile9Primary},
         {"tile9_primary_over", &tile9PrimaryOver}, {"prompt_button", &promptButton}, {"icon_play", &iconPlay},
