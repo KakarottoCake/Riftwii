@@ -840,8 +840,11 @@ msgstr "Portada de GameTDB"
 msgid "Choose cover"
 msgstr "Elegir portada"
 
-msgid "GameTDB's second cover"
-msgstr "Segunda portada de GameTDB"
+msgid "Second cover"
+msgstr "Segunda portada"
+
+msgid "The mod's cover"
+msgstr "La portada del mod"
 
 msgid "Pick any of GameTDB's covers for this game. It is kept as your own cover on the SD card, so it works offline; Back to automatic removes it."
 msgstr "Elige cualquiera de las portadas de GameTDB para este juego. Se guarda como tu propia portada en la tarjeta SD, así que funciona sin conexión; Volver a automático la quita."

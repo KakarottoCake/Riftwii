@@ -50,8 +50,9 @@ const char* source_name(PictureSource source) {
         case PictureSource::Screenshot: return tr("Screenshot");
         case PictureSource::Boxart: return tr("Box art");
         case PictureSource::SteamGrid: return tr("SteamGridDB");
-        case PictureSource::GameTDB: return tr("GameTDB cover");
-        case PictureSource::GameTDBSecond: return tr("GameTDB's second cover");
+        case PictureSource::GameTDB: return tr("Cover");
+        case PictureSource::GameTDBSecond: return tr("Second cover");
+        case PictureSource::GameTDBMod: return tr("The mod's cover");
     }
     return "";
 }

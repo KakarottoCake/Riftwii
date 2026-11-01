@@ -840,8 +840,11 @@ msgstr "GameTDB 표지"
 msgid "Choose cover"
 msgstr "표지 선택"
 
-msgid "GameTDB's second cover"
-msgstr "GameTDB 두 번째 표지"
+msgid "Second cover"
+msgstr "두 번째 표지"
+
+msgid "The mod's cover"
+msgstr "모드의 표지"
 
 msgid "Pick any of GameTDB's covers for this game. It is kept as your own cover on the SD card, so it works offline; Back to automatic removes it."
 msgstr "이 게임의 GameTDB 표지 중 원하는 것을 고르세요. SD 카드에 내 표지로 저장되어 오프라인에서도 쓸 수 있으며, 자동으로 되돌리기를 하면 지워집니다."
