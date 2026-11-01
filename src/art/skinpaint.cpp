@@ -446,6 +446,37 @@ struct Painter {
         return c;
     }
 
+    // A game's cover when there is no art for it: a plain white paper
+    // insert, a grey band sweeping across its top and a strip along its
+    // foot, as a game case's sleeve has; the menu prints the game's name
+    // in the space between (wii/menu/madecover.cpp). Drawn at twice the
+    // stored covers' size, which the menu halves when it copies it out.
+    Canvas BlankCover() const {
+        constexpr int w = 160, h = 224;
+        Canvas c(w, h);
+        c.rounded_gradient(0, 0, w, h, 0, rgba(0xFDFDFE), rgba(0xECEDF0));
+        // The band: thin on the left, sweeping down to its full depth on
+        // the right, where a case's sleeve would carry the console's name.
+        std::vector<float> edge(w);
+        for (int x = 0; x < w; ++x) {
+            const float t = std::clamp((x - 58.0f) / 70.0f, 0.0f, 1.0f);
+            const float ease = t * t * (3 - 2 * t);
+            edge[x] = 13.0f + 21.0f * ease;
+        }
+        std::vector<std::pair<float, float>> band = {{0.0f, 0.0f}, {static_cast<float>(w), 0.0f}};
+        for (int x = w - 1; x >= 0; --x) band.emplace_back(static_cast<float>(x) + 0.5f, edge[x]);
+        c.polygon(band, rgba(0xC4C8CF));
+        c.rect(0, 0, w, 4, rgba(0xD3D6DC));
+        c.curve(edge, 2.0f, rgba(0x9EA3AC));
+        std::vector<float> under(w);
+        for (int x = 0; x < w; ++x) under[x] = edge[x] + 3.0f;
+        c.curve(under, 1.0f, rgba(0xFFFFFF, 200));
+        // The strip along the foot, under a hairline.
+        c.rect(0, 196, w, h - 196, rgba(0xE3E5E9));
+        c.rect(0, 195, w, 1.5f, rgba(0xC9CCD2));
+        return c;
+    }
+
     Canvas Gear() const {
         Canvas c(28, 28);
         for (int i = 0; i < 8; ++i) {
@@ -1179,6 +1210,7 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
         {"icon_sound", [](const Painter& q) { return q.Note(); }},
         {"icon_power", [](const Painter& q) { return q.Power(); }},
         {"disc_case", [](const Painter& q) { return q.DiscCase(); }},
+        {"blank_cover", [](const Painter& q) { return q.BlankCover(); }},
         {"pointer1", [](const Painter& q) { return Painter::Hand(q.pointer[0]); }},
         {"pointer2", [](const Painter& q) { return Painter::Hand(q.pointer[1]); }},
         {"pointer3", [](const Painter& q) { return Painter::Hand(q.pointer[2]); }},

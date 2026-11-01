@@ -64,6 +64,10 @@ struct GridItem {
 // it (else the game's cover); every other tile by its game's ID.
 inline const std::string& CoverName(const GridItem& item) { return item.profile ? item.key : item.id; }
 
+// The tile's made-up cover (madecover.hpp): its name on a blank cover, for
+// a game with no cover, or nullptr until it is made. Not for the disc drive.
+const u8* MadeUpCoverFor(const GridItem& item);
+
 class GuiGameGrid : public GuiElement {
 public:
     static constexpr int kPerPage = 12;
