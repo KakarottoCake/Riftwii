@@ -791,11 +791,15 @@ void GuiGameGrid::DrawCoverTile(int i, bool on, int alpha) {
     // The stored cover and its frame, drawn at CoverScale() about the tile's middle.
     const float kCoverScale = CoverScale();
     const float cx = x + tileW / 2.0f, cy = y + tileH / 2.0f;
-    const skin::Tex& frame = on ? skin::coverTileOver : skin::coverTile;
-    skin::Draw(frame, cx - frame.w / 2.0f, cy - frame.h / 2.0f, alpha, s.scale * kCoverScale);
     // No cover: one made up (the name on a blank cover) once it is made.
     const u8* cover = riftwii::wii::CoverTexture(CoverName(item));
     const u8* madeUp = cover ? nullptr : MadeUpCoverFor(item);
+    // A cover stands on its own, a made-up one too: the card's grey edge
+    // and shadow, the cover's size, ringed it (plain on a white Wii cover's
+    // edge). The card stays for the lit tile's ring and under a tile with
+    // no cover.
+    const skin::Tex& frame = on ? skin::coverTileOver : skin::coverTile;
+    if (on || (!cover && !madeUp)) skin::Draw(frame, cx - frame.w / 2.0f, cy - frame.h / 2.0f, alpha, s.scale * kCoverScale);
     if (madeUp) {
         riftwii::wii::DrawMadeUpCover(madeUp, cx - riftwii::kCoverWidth / 2.0f, cy - riftwii::kCoverHeight / 2.0f, alpha,
                                       s.scale * kCoverScale);

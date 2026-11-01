@@ -296,9 +296,13 @@ void DrawMadeUpBack(const Face& f, float light, u8 a) {
 
 void DrawFace(const Face& f, int alpha);
 
-// A face with a plastic rim (Face::rimLeft...): the plastic over the whole
-// face, a darker line where its bevel meets the paper, then the paper
-// inside. Each corner's fade is carried over to the inner corners.
+// A face with a plastic rim (Face::rimLeft...): the plastic round the
+// paper, a darker line where its bevel meets the paper, then the paper
+// inside. Each corner's fade is carried over to the inner corners. The
+// plastic is only the frame round the paper, never under it: a box
+// drawn faded (the carousel's sides, the shelf's reflection, a box
+// flying to the front) showed a red case's plastic through its
+// see-through cover, a red tint over the whole picture.
 void DrawRimmedFace(const Face& f, int alpha) {
     const float light = Light(f.normal);
     const auto shade = [&](u8 c, float k) { return static_cast<u8>(std::min(255.0f, c * light * k)); };
@@ -309,17 +313,31 @@ void DrawRimmedFace(const Face& f, int alpha) {
         const float bottom = f.fade[3] + (f.fade[2] - f.fade[3]) * u;
         return static_cast<u8>(top + (bottom - top) * v);
     };
+    // The part of the face from u0 to u1 across and v0 to v1 down.
+    const auto part = [&](float u0, float v0, float u1, float v1, GXColor c) {
+        if (u1 <= u0 || v1 <= v0) return;
+        const V3 q[4] = {at(f.c, u0, v0), at(f.c, u1, v0), at(f.c, u1, v1), at(f.c, u0, v1)};
+        const u8 qf[4] = {fadeAt(u0, v0), fadeAt(u1, v0), fadeAt(u1, v1), fadeAt(u0, v1)};
+        Quad(q, c, qf, nullptr, 0, 0, 0, 1, 0, 1, false, false);
+    };
+    // The band between two rectangles, the outer one (ou0..ou1, ov0..ov1)
+    // round the inner: its top and bottom across the whole width, its
+    // sides between them.
+    const auto frame = [&](float ou0, float ov0, float ou1, float ov1, float iu0, float iv0, float iu1, float iv1,
+                           GXColor c) {
+        part(ou0, ov0, ou1, iv0, c);
+        part(ou0, iv1, ou1, ov1, c);
+        part(ou0, iv0, iu0, iv1, c);
+        part(iu1, iv0, ou1, iv1, c);
+    };
     const float l = f.rimLeft, r = 1 - f.rimRight, t = f.rimTop, b = 1 - f.rimBottom;
-    Quad(f.c, GXColor{shade(f.plastic.r, 1), shade(f.plastic.g, 1), shade(f.plastic.b, 1), a}, f.fade, nullptr, 0, 0, 0,
-         1, 0, 1, false, false);
     // The bevel's foot: a hair outside the paper, a shade darker.
     constexpr float kFoot = 0.35f;  // of the rim, on each side that has one
     const float fl = l * (1 - kFoot), fr = 1 - f.rimRight * (1 - kFoot);
     const float ft = t * (1 - kFoot), fb = 1 - f.rimBottom * (1 - kFoot);
-    const V3 foot[4] = {at(f.c, fl, ft), at(f.c, fr, ft), at(f.c, fr, fb), at(f.c, fl, fb)};
-    const u8 footFade[4] = {fadeAt(fl, ft), fadeAt(fr, ft), fadeAt(fr, fb), fadeAt(fl, fb)};
-    Quad(foot, GXColor{shade(f.plastic.r, 0.78f), shade(f.plastic.g, 0.78f), shade(f.plastic.b, 0.78f), a}, footFade,
-         nullptr, 0, 0, 0, 1, 0, 1, false, false);
+    frame(0, 0, 1, 1, fl, ft, fr, fb, GXColor{shade(f.plastic.r, 1), shade(f.plastic.g, 1), shade(f.plastic.b, 1), a});
+    frame(fl, ft, fr, fb, l, t, r, b,
+          GXColor{shade(f.plastic.r, 0.78f), shade(f.plastic.g, 0.78f), shade(f.plastic.b, 0.78f), a});
     Face paper = f;
     paper.rimLeft = paper.rimRight = paper.rimTop = paper.rimBottom = 0;
     const V3 inner[4] = {at(f.c, l, t), at(f.c, r, t), at(f.c, r, b), at(f.c, l, b)};
@@ -474,7 +492,11 @@ void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cove
     faces[4] = face(1, 0, 2, 3);
     faces[3].color = faces[4].color = CasePlastic(id, caseColour);
     faces[4].rounded = true;
+    // The paper (a scan or a cover) through plain white: through the
+    // plastic's off-white, every picture came out a little grey.
+    constexpr GXColor kPaper = {255, 255, 255, 255};
     if (art) {
+        faces[0].color = faces[1].color = faces[2].color = kPaper;
         faces[0].tex = art;
         faces[0].texW = riftwii::kBoxWidth;
         faces[0].texH = riftwii::kBoxHeight;
@@ -492,6 +514,7 @@ void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cove
         faces[2].u0 = kBackU;
         faces[2].u1 = 1;
     } else if (cover) {
+        faces[1].color = kPaper;
         faces[1].tex = cover;
         faces[1].texW = riftwii::kCoverWidth;
         faces[1].texH = riftwii::kCoverHeight;
