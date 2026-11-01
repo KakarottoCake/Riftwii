@@ -2346,11 +2346,11 @@ msgstr "Redefinir"
 msgid "Reset all settings?"
 msgstr "Redefinir todas as configurações?"
 
-msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept."
-msgstr "Todas as configurações voltam a como vêm no RiftWii, e o RiftWii reinicia. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos."
+msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "Todas as configurações voltam a como vêm no RiftWii, e o RiftWii reinicia. As páginas de cada jogo, os favoritos, o histórico de jogo, os mods e o controle dos pais são mantidos."
 
-msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept."
-msgstr "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos."
+msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo, os mods e o controle dos pais são mantidos."
 
 msgid "Settings reset to the defaults"
 msgstr "Configurações redefinidas"
@@ -3053,6 +3053,114 @@ msgstr "Cima/Baixo: gênero   Solte: mostrar"
 
 msgid "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii."
 msgstr "O menu está em inglês: copie apps/riftwii/korean.ttf do zip do RiftWii para o cartão SD e escolha a fonte do RiftWii, ou use a fonte do Wii Menu em um Wii coreano."
+
+msgid "Parental controls"
+msgstr "Controle dos pais"
+
+msgid "A PIN that locks or hides the games rated for players older than an age you pick."
+msgstr "Um PIN que bloqueia ou esconde os jogos classificados para jogadores mais velhos que a idade que você escolher."
+
+msgid "Parental controls PIN"
+msgstr "PIN do controle dos pais"
+
+msgid "Wrong PIN"
+msgstr "PIN incorreto"
+
+msgid "That is not the parental controls PIN."
+msgstr "Esse não é o PIN do controle dos pais."
+
+msgid "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it."
+msgstr "Este jogo não tem uma classificação etária conhecida, e o controle dos pais bloqueia os jogos sem ela. Digite o PIN para jogar."
+
+msgid "This game's age rating could not be read, so parental controls lock it. Type the PIN to play it."
+msgstr "Não foi possível ler a classificação etária deste jogo, então o controle dos pais o bloqueia. Digite o PIN para jogar."
+
+msgid "This game's age rating is above what parental controls allow. Type the PIN to play it."
+msgstr "A classificação etária deste jogo passa do que o controle dos pais permite. Digite o PIN para jogar."
+
+msgid "Type the PIN to change parental controls."
+msgstr "Digite o PIN para mudar o controle dos pais."
+
+msgid "New PIN"
+msgstr "Novo PIN"
+
+msgid "Pick four digits a child won't guess. Only a scrambled form of them is kept on the SD card."
+msgstr "Escolha quatro dígitos que uma criança não adivinhe. Só uma forma embaralhada deles fica no cartão SD."
+
+msgid "Type the new PIN again"
+msgstr "Digite o novo PIN de novo"
+
+msgid "The same four digits, to be sure."
+msgstr "Os mesmos quatro dígitos, para confirmar."
+
+msgid "PIN not changed"
+msgstr "PIN não mudado"
+
+msgid "The two PINs were not the same. Nothing was changed."
+msgstr "Os dois PINs não eram iguais. Nada foi mudado."
+
+msgid "Lock them"
+msgstr "Bloquear"
+
+msgid "Hide them"
+msgstr "Esconder"
+
+msgid "Treat as too old"
+msgstr "Tratar como não permitidos"
+
+msgid "Allow"
+msgstr "Permitir"
+
+msgid "PIN"
+msgstr "PIN"
+
+msgid "Set"
+msgstr "Definir"
+
+msgid "Parental controls are on. Change the four-digit PIN they ask for."
+msgstr "O controle dos pais está ligado. Mude o PIN de quatro dígitos que ele pede."
+
+msgid "Parental controls are off. Set a four-digit PIN to turn them on."
+msgstr "O controle dos pais está desligado. Defina um PIN de quatro dígitos para ligá-lo."
+
+msgid "Games rated too old"
+msgstr "Jogos para mais velhos"
+
+msgid "Lock them: they stay on Home and ask for the PIN to start. Hide them: they are left off Home, and still ask for the PIN if started another way (a disc)."
+msgstr "Bloquear: continuam no início e pedem o PIN para começar. Esconder: ficam fora do início e ainda pedem o PIN se forem iniciados de outro jeito (um disco)."
+
+msgid "Highest age allowed"
+msgstr "Idade máxima permitida"
+
+msgid "Games rated for players older than this need the PIN. The rating is GameTDB's, as the game's About page shows it."
+msgstr "Jogos classificados para jogadores mais velhos que isso precisam do PIN. A classificação é a do GameTDB, como na página Sobre do jogo."
+
+msgid "Games with no rating"
+msgstr "Jogos sem classificação"
+
+msgid "Ratings come from GameTDB's database ({1} in {2} > {3}), read for a game when it starts or its About page opens. Treat as too old locks or hides the others too."
+msgstr "As classificações vêm do banco de dados do GameTDB ({1} em {2} > {3}) e são lidas para um jogo quando ele inicia ou quando sua página Sobre é aberta. Tratar como não permitidos bloqueia ou esconde os outros também."
+
+msgid "Turn off parental controls"
+msgstr "Desligar o controle dos pais"
+
+msgid "Turn off"
+msgstr "Desligar"
+
+msgid "Removes the PIN, and with it every lock. Deleting the parental_pin line in sd:/riftwii/settings.txt does the same."
+msgstr "Remove o PIN e, com ele, todos os bloqueios. Apagar a linha parental_pin em sd:/riftwii/settings.txt faz o mesmo."
+
+msgid "Parental controls are on"
+msgstr "O controle dos pais está ligado"
+
+msgid "Games rated above the age you pick ask for this PIN. To turn the controls off without it, delete the parental_pin line in sd:/riftwii/settings.txt."
+msgstr "Jogos classificados acima da idade que você escolher pedem este PIN. Para desligar o controle sem ele, apague a linha parental_pin em sd:/riftwii/settings.txt."
+
+msgid "Turn off parental controls?"
+msgstr "Desligar o controle dos pais?"
+
+msgid "Every game can be started without the PIN again."
+msgstr "Todos os jogos poderão ser iniciados sem o PIN de novo."
 
 msgid "Channel background"
 msgstr "Fundo dos canais"
