@@ -84,6 +84,9 @@ bool game_runs_no_mem2_code(const std::string& game_id);
 // Games that need nearly all of MEM2, so the few hundred KB an RVZ's reader
 // takes in game can be too much (the menu says so before an RVZ launch).
 bool game_needs_most_of_mem2(const std::string& game_id);
+// Brawl (RSB): its mods' codes are believed to write near the top of MEM2, so a code build keeps 128 KiB free
+// there.
+bool game_codes_use_mem2_top(const std::string& game_id);
 
 // GameCube games (the native loader, gcnative.cpp) whose ARAM addresses
 // must stay as the SDK gives them: raising them to 0x10004000, for the

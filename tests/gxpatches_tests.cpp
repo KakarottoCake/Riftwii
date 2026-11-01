@@ -70,6 +70,11 @@ void test_protected() {
     EXPECT_TRUE(game_needs_most_of_mem2("SMNE01"));
     EXPECT_TRUE(game_needs_most_of_mem2("SMNP01"));
     EXPECT_FALSE(game_needs_most_of_mem2("RMCE01"));
+    EXPECT_TRUE(game_codes_use_mem2_top("RSBE01"));
+    EXPECT_TRUE(game_codes_use_mem2_top("RSBP01"));
+    EXPECT_TRUE(game_codes_use_mem2_top("RSBEPM"));
+    EXPECT_FALSE(game_codes_use_mem2_top("RMCE01"));
+    EXPECT_FALSE(game_codes_use_mem2_top("SMNE01"));
     // Mario Party 4 to 7 and DDR Mario Mix, in every region, keep their
     // ARAM addresses; Super Mario Sunshine and Melee have them raised.
     EXPECT_TRUE(gc_keeps_aram_addresses("GMPE01"));
