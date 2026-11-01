@@ -1002,6 +1002,50 @@ before each launch of one. Use good discs (Verbatim DVD-R), burn slowly
 or the SD card, and a USB DVD drive (below), do not use the Wii's drive
 at all.
 
+### Copying a disc to the USB drive or SD card
+
+**Settings > Drives > Copy a game disc** copies the Wii disc in the drive
+to a `.wbfs` file, so the game then plays from Home without the disc. It
+goes to `wbfs/<name> [<ID>]/<ID>.wbfs` on a FAT32 USB drive or the SD
+card (you pick when both are there). A copy bigger than 4 GB is saved in
+pieces (`.wbfs`, `.wbf1`, ...), as FAT32 needs; keep them together.
+
+When the copy is done it is on Home, unless something there leaves it
+out; the message at the end then says which, and what to change:
+
+- Home's **Show** is on Games with mods (where Home starts), and the game
+  has none: choose **Show > All games**.
+- **Settings > Home > Games from** names another place (the other
+  drive, Wii channels or GameCube): set it to All games.
+- The copy is on the SD card and **Settings > Drives > Games on the SD
+  card** is Don't look: set it to Look for them.
+- Parental controls are set to hide games, and the game's age rating is
+  above the highest age allowed.
+
+When none of these leave it out, a search or a genre you picked on Home
+before is cleared, so the new copy shows.
+
+The copy keeps every partition of the disc: the game, the system update
+and any channel the disc installs, so it works like the disc in every
+loader. Only the parts of the disc that are used are copied, which makes
+most copies much smaller than the disc. A part RiftWii cannot look
+inside (a Korean disc, for one) is copied whole rather than left out.
+
+Reading a whole disc needs a d2x cIOS: the Wii's own IOS reads only the
+start of a disc. When the menu is not already running under d2x,
+RiftWii offers to restart it under one for that session; pick Copy a
+game disc again afterwards. A d2x on base 58 is used first when you have
+one, since the menu can then also write to the USB drive; with other
+bases only the SD card may be offered. A copy takes a few minutes per
+gigabyte and can be stopped at any time; nothing is kept from a stopped
+copy. NTFS drives cannot be written to: with one plugged in, only the
+SD card is offered, and RiftWii says why.
+
+A d2x cIOS that is set as Settings > Menu > Menu IOS is used as it is;
+when that setting names a cIOS that is not d2x, choose IOS 58 or a d2x
+there first. A Menu IOS chosen since RiftWii started takes effect only
+after it starts again. Copying needs a real Wii: Dolphin cannot read a whole disc.
+
 ### USB DVD drives (experimental)
 
 On a Wii whose own drive cannot read burned discs, a USB DVD drive can:

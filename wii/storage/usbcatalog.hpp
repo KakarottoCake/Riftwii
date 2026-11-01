@@ -147,6 +147,9 @@ bool read_usb_range(const std::string& usb_path, std::uint64_t offset, std::uint
 void InitUsbLock();
 // Whether the menu's view of the USB drive is up (no drive is started for it).
 bool usb_volume_ready();
+// Whether libfat has a FAT32 partition of the USB drive mounted as usb:/,
+// the only kind the menu writes to. An NTFS drive is read but not mounted.
+bool usb_fat32_mounted();
 // Which mount of the USB drive this is: another after each unmount.
 std::uint64_t usb_mount_generation();
 // Mounted USB partition roots, with the legacy usb:/ first.
@@ -225,6 +228,13 @@ std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_s
 // The base IOS of the d2x cIOS in `slot` (its information block), 0 when
 // it is not a d2x that could be read, or one older than d2x v11 beta3.
 int d2x_base(int slot);
+
+// What `slot`'s information block says: a d2x RiftWii runs games on (v11 or
+// newer), something else, or nothing, when it could not be read (or there
+// is no cIOS in the slot). d2x_base leaves the unread ones out with the
+// rest; the disc copy tells them apart, and tries an unread one.
+enum class D2xCheck { D2x, NotD2x, Unread };
+D2xCheck slot_d2x_check(int slot);
 
 // Whether the cIOS in `slot` has an information block that was read and
 // shows a cIOS that is not d2x (any d2x version is what the channel

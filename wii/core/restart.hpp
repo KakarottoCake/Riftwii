@@ -22,7 +22,9 @@ namespace riftwii::wii {
 // reads burned discs (wii/launch/menuios.hpp, BurnedDiscSlot).
 // SdRetry: "Try again" on the screen that says no SD card could be read;
 // the fresh IOS of a restart lets go of a card the last run left held.
-enum class RestartKind : unsigned { None = 0, LaunchFailed = 1, Crashed = 2, ChannelDone = 3, BurnedDisc = 4, Theme = 5, MenuFont = 6, UsbCheck = 7, SdRetry = 8 };
+// DiscCopy: the menu runs under a d2x cIOS for the new session, which
+// reads a whole disc for Settings > Copy a game disc (wii/storage/disccopy.hpp).
+enum class RestartKind : unsigned { None = 0, LaunchFailed = 1, Crashed = 2, ChannelDone = 3, BurnedDisc = 4, Theme = 5, MenuFont = 6, UsbCheck = 7, SdRetry = 8, DiscCopy = 9 };
 
 // What the previous run left, read once at startup (and cleared).
 struct RestartNote {

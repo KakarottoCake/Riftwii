@@ -3057,6 +3057,90 @@ msgstr "上下: ジャンル   はなす: 表示"
 msgid "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii."
 msgstr "メニューは英語です。RiftWiiのzipにあるapps/riftwii/korean.ttfをSDカードにコピーしてRiftWiiのフォントを選んでください。または韓国版WiiでWiiメニューのフォントを使ってください。"
 
+msgid "Copy a game disc"
+msgstr "ゲームディスクをコピー"
+
+msgid "Copies the Wii disc in the drive to the wbfs folder of a FAT32 USB drive or the SD card, with every partition of the disc, so the game plays without the disc. Needs a d2x cIOS."
+msgstr "ドライブのWiiディスクを、ディスクのすべてのパーティションごと、FAT32のUSBドライブかSDカードのwbfsフォルダにコピーし、ディスクなしで遊べるようにします。d2x cIOSが必要です。"
+
+msgid "Reading a whole disc needs a d2x cIOS, and this Wii has none. Install d2x (wii.hacks.guide/cios), then try again."
+msgstr "ディスク全体を読むにはd2x cIOSが必要ですが、このWiiにはありません。d2x (wii.hacks.guide/cios) をインストールしてから、もう一度お試しください。"
+
+msgid "The Wii's own IOS reads only the start of a disc. RiftWii restarts under IOS{1} (d2x) for this session; then choose Copy a game disc again."
+msgstr "Wii本体のIOSはディスクの最初しか読めません。RiftWiiはこのセッションの間IOS{1} (d2x) で再起動します。そのあと、もう一度「ゲームディスクをコピー」を選んでください。"
+
+msgid "The menu runs under IOS{1} for this session, to copy a game disc. Settings > Drives > Copy a game disc."
+msgstr "このセッションの間、ゲームディスクをコピーするためにメニューはIOS{1}で動きます。設定 > ドライブ > ゲームディスクをコピー。"
+
+msgid "There is no SD card or FAT32 USB drive to copy the disc to."
+msgstr "ディスクをコピーできるSDカードもFAT32のUSBドライブもありません。"
+
+msgid "The disc can't be copied: {1}"
+msgstr "ディスクをコピーできません: {1}"
+
+msgid "Where should {1} go? It needs {2}."
+msgstr "{1}をどこにコピーしますか？{2}必要です。"
+
+msgid "{1} free"
+msgstr "空き {1}"
+
+msgid "{1} needs {2}, and the {3} has {4} free."
+msgstr "{1}には{2}必要ですが、{3}の空きは{4}です。"
+
+msgid "Copy {1} ({2}) to {3}? Every partition of the disc goes in: the game, the system update and any channel. This takes about {4} minutes."
+msgstr "{1} ({2}) を{3}にコピーしますか？ゲーム、本体更新、チャンネルなど、ディスクのすべてのパーティションを入れます。約{4}分かかります。"
+
+msgid "{1} partition(s) could not be looked into, so they are copied whole."
+msgstr "{1}個のパーティションは中身を読めないため、まるごとコピーします。"
+
+msgid "Copying {1}"
+msgstr "{1}をコピー中"
+
+msgid "From the disc to the {1}"
+msgstr "ディスクから{1}へ"
+
+msgid "Stop copying {1}?"
+msgstr "{1}のコピーを中止しますか？"
+
+msgid "What is copied so far is deleted. It can be copied again later, from the start."
+msgstr "ここまでコピーした分は削除されます。あとで最初からコピーし直せます。"
+
+msgid "{1} is already on the {2}: {3}"
+msgstr "{1}はすでに{2}にあります: {3}"
+
+msgid "{1} could not be copied: {2}. Nothing was kept."
+msgstr "{1}をコピーできませんでした: {2}。何も残していません。"
+
+msgid "{1} is copied to the {2}. It is on Home now, and plays without the disc."
+msgstr "{1}を{2}にコピーしました。ホームに表示され、ディスクなしで遊べます。"
+
+msgid "Copying a disc needs a real Wii: Dolphin can't read a whole disc."
+msgstr "ディスクのコピーには本物のWiiが必要です。Dolphinはディスク全体を読めません。"
+
+msgid "The menu runs under IOS{1}, which is not d2x, so it can't read a whole disc. Choose IOS 58 or a d2x cIOS in Settings > Menu > Menu IOS, start RiftWii again, then choose Copy a game disc."
+msgstr "メニューはd2xではないIOS{1}で動いているため、ディスク全体を読めません。設定 > メニュー > メニューのIOSでIOS 58かd2xのcIOSを選び、RiftWiiを起動し直してから、ゲームディスクをコピーを選んでください。"
+
+msgid "Settings > Menu > Menu IOS is set to IOS{1}, which takes effect the next time RiftWii starts. Start RiftWii again, then choose Copy a game disc."
+msgstr "設定 > メニュー > メニューのIOSはIOS{1}ですが、RiftWiiを次に起動したときから使われます。RiftWiiを起動し直してから、ゲームディスクをコピーを選んでください。"
+
+msgid "The USB drive is not FAT32 (NTFS, for example), and a copy can only go to a FAT32 USB drive or the SD card."
+msgstr "USBドライブがFAT32ではありません(NTFSなど)。コピーできるのはFAT32のUSBドライブかSDカードだけです。"
+
+msgid "The USB drive is not FAT32, so the copy goes to the SD card."
+msgstr "USBドライブがFAT32ではないため、SDカードにコピーします。"
+
+msgid "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Drives > Games on the SD card is set to Look for them."
+msgstr "{1}を{2}にコピーしました。ディスクなしで遊べます。設定 > ドライブ > SDカードのゲームを「探す」にすると、ホームに表示されます。"
+
+msgid "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Home > Games from is set to All games."
+msgstr "{1}を{2}にコピーしました。ディスクなしで遊べます。設定 > ホーム > ゲームの場所を「すべてのゲーム」にすると、ホームに表示されます。"
+
+msgid "{1} is copied to the {2}, and plays without the disc. Parental controls hide it on Home: its age rating is above the highest age allowed."
+msgstr "{1}を{2}にコピーしました。ディスクなしで遊べます。ペアレンタルコントロールにより、ホームには表示されません。対象年れいが、選んだ年れいより上です。"
+
+msgid "{1} is copied to the {2}, and plays without the disc. To see it on Home, choose Show > All games."
+msgstr "{1}を{2}にコピーしました。ディスクなしで遊べます。ホームで見るには、表示 > すべてのゲームを選んでください。"
+
 msgid "Parental controls"
 msgstr "ペアレンタルコントロール"
 
