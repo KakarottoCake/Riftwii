@@ -1431,11 +1431,29 @@ msgstr "Como este mod de códigos deve iniciar?"
 msgid "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would."
 msgstr "Cada mod de códigos é diferente. A maioria, como o Project+, funciona bem com os extras do RiftWii. Se um mod ficar com a tela preta, inicie-o sem eles, como o próprio carregador dele faria."
 
+msgid "Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it."
+msgstr "A maioria dos mods de códigos, como o Project+, usa os extras do RiftWii. Se a tela ficar preta, inicie sem. O RiftWii vai lembrar para {1}; a página Mods muda isso."
+
+msgid "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes."
+msgstr "Não foi possível gravar sd:/riftwii/codemods.txt: a resposta vale até o RiftWii ser fechado."
+
+msgid "This answer was not kept: sd:/riftwii/codemods.txt can't take it now."
+msgstr "Esta resposta não foi guardada: sd:/riftwii/codemods.txt não pode aceitá-la agora."
+
+msgid "Asked at the first Start"
+msgstr "Perguntado no primeiro início"
+
+msgid "Ask each time"
+msgstr "Perguntar sempre"
+
+msgid "For {1} on every page and tile it's switched on in. Ask each time brings the question back at Start."
+msgstr "Para {1} em todas as páginas e blocos onde estiver ativado. \"Perguntar sempre\" traz a pergunta de volta ao iniciar."
+
 msgid "With extras"
 msgstr "Com extras"
 
 msgid "Crash reports, back to RiftWii"
-msgstr "Relatórios de falhas, voltar ao RiftWii"
+msgstr "Relatórios de falhas, voltar"
 
 msgid "Without extras"
 msgstr "Sem extras"
@@ -2382,23 +2400,23 @@ msgstr "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, o
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado."
 
-msgid "Home: a Layout button and a Show chooser"
-msgstr "Início: botão Layout e seletor Ver"
+msgid "A cleaner, lighter menu font"
+msgstr "Uma fonte do menu mais limpa e leve"
 
-msgid "WiiWare and VC played straight from WADs"
-msgstr "WiiWare e VC direto dos WADs"
+msgid "USB gamepads and Xbox 360 pads in games"
+msgstr "Controles USB e de Xbox 360 nos jogos"
 
-msgid "Pictures for emulator games, and a picker"
-msgstr "Imagens para jogos emulados, e um seletor"
+msgid "Your own covers, and GameTDB's second cover"
+msgstr "Suas próprias capas e a segunda do GameTDB"
 
-msgid "Banner music and disc art on game pages"
-msgstr "Música do banner e imagem do disco"
+msgid "Home's shortcuts on every controller"
+msgstr "Os atalhos do Início em todos os controles"
 
-msgid "Asks first when mod files are missing"
-msgstr "Pergunta antes se faltam arquivos do mod"
+msgid "Fixes for 007 games and Prince of Persia"
+msgstr "Correções para os jogos de 007 e Prince of Persia"
 
-msgid "Clearer messages when something goes wrong"
-msgstr "Mensagens mais claras quando algo dá errado"
+msgid "No more freeze with a 4th Wii Remote"
+msgstr "Não trava mais com um 4.º Wii Remote"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Memória para os extras do RiftWii"
