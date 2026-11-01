@@ -2346,11 +2346,11 @@ msgstr "リセット"
 msgid "Reset all settings?"
 msgstr "すべての設定をリセットしますか?"
 
-msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept."
-msgstr "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。"
+msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MOD、ペアレンタルコントロールはそのまま残ります。"
 
-msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept."
-msgstr "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。"
+msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MOD、ペアレンタルコントロールはそのまま残ります。"
 
 msgid "Settings reset to the defaults"
 msgstr "設定を初期状態に戻しました"
@@ -3053,6 +3053,114 @@ msgstr "上下: ジャンル   はなす: 表示"
 
 msgid "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii."
 msgstr "メニューは英語です。RiftWiiのzipにあるapps/riftwii/korean.ttfをSDカードにコピーしてRiftWiiのフォントを選んでください。または韓国版WiiでWiiメニューのフォントを使ってください。"
+
+msgid "Parental controls"
+msgstr "ペアレンタルコントロール"
+
+msgid "A PIN that locks or hides the games rated for players older than an age you pick."
+msgstr "選んだ年れいより上向けのゲームを、PINでロックするか、かくします。"
+
+msgid "Parental controls PIN"
+msgstr "ペアレンタルコントロールのPIN"
+
+msgid "Wrong PIN"
+msgstr "PINがちがいます"
+
+msgid "That is not the parental controls PIN."
+msgstr "ペアレンタルコントロールのPINではありません。"
+
+msgid "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it."
+msgstr "このゲームは対象年れいがわからず、ペアレンタルコントロールはそういうゲームをロックしています。遊ぶにはPINを入力してください。"
+
+msgid "This game's age rating could not be read, so parental controls lock it. Type the PIN to play it."
+msgstr "このゲームの対象年れいを読み込めなかったため、ペアレンタルコントロールがロックしています。遊ぶにはPINを入力してください。"
+
+msgid "This game's age rating is above what parental controls allow. Type the PIN to play it."
+msgstr "このゲームの対象年れいは、ペアレンタルコントロールでみとめられた年れいより上です。遊ぶにはPINを入力してください。"
+
+msgid "Type the PIN to change parental controls."
+msgstr "ペアレンタルコントロールを変更するにはPINを入力してください。"
+
+msgid "New PIN"
+msgstr "新しいPIN"
+
+msgid "Pick four digits a child won't guess. Only a scrambled form of them is kept on the SD card."
+msgstr "こどもに当てられない4けたの数字を選んでください。SDカードには読めない形だけを保存します。"
+
+msgid "Type the new PIN again"
+msgstr "新しいPINをもう一度入力"
+
+msgid "The same four digits, to be sure."
+msgstr "確認のため、同じ4けたを入力してください。"
+
+msgid "PIN not changed"
+msgstr "PINは変更されていません"
+
+msgid "The two PINs were not the same. Nothing was changed."
+msgstr "2つのPINが同じではありませんでした。何も変更していません。"
+
+msgid "Lock them"
+msgstr "ロックする"
+
+msgid "Hide them"
+msgstr "かくす"
+
+msgid "Treat as too old"
+msgstr "対象外として扱う"
+
+msgid "Allow"
+msgstr "そのまま遊べる"
+
+msgid "PIN"
+msgstr "PIN"
+
+msgid "Set"
+msgstr "設定"
+
+msgid "Parental controls are on. Change the four-digit PIN they ask for."
+msgstr "ペアレンタルコントロールはオンです。必要な4けたのPINを変更します。"
+
+msgid "Parental controls are off. Set a four-digit PIN to turn them on."
+msgstr "ペアレンタルコントロールはオフです。4けたのPINを設定するとオンになります。"
+
+msgid "Games rated too old"
+msgstr "対象年れいが上のゲーム"
+
+msgid "Lock them: they stay on Home and ask for the PIN to start. Hide them: they are left off Home, and still ask for the PIN if started another way (a disc)."
+msgstr "ロックする: ホームに表示され、始めるときにPINが必要です。かくす: ホームに表示されず、ほかのやり方 (ディスク) で始めるときもPINが必要です。"
+
+msgid "Highest age allowed"
+msgstr "遊べるいちばん上の年れい"
+
+msgid "Games rated for players older than this need the PIN. The rating is GameTDB's, as the game's About page shows it."
+msgstr "この年れいより上向けのゲームにはPINが必要です。対象年れいはGameTDBのもので、ゲームの情報ページと同じです。"
+
+msgid "Games with no rating"
+msgstr "対象年れいがないゲーム"
+
+msgid "Ratings come from GameTDB's database ({1} in {2} > {3}), read for a game when it starts or its About page opens. Treat as too old locks or hides the others too."
+msgstr "対象年れいはGameTDBのデータベース ({2} > {3}の「{1}」) からわかり、ゲームを始めるときか、そのゲームの「情報」を開いたときに読み込まれます。「対象外として扱う」にすると、それ以外のゲームもロックされるか、かくされます。"
+
+msgid "Turn off parental controls"
+msgstr "ペアレンタルコントロールをオフにする"
+
+msgid "Turn off"
+msgstr "オフにする"
+
+msgid "Removes the PIN, and with it every lock. Deleting the parental_pin line in sd:/riftwii/settings.txt does the same."
+msgstr "PINと、すべてのロックを解除します。sd:/riftwii/settings.txt のparental_pinの行を消しても同じです。"
+
+msgid "Parental controls are on"
+msgstr "ペアレンタルコントロールがオンになりました"
+
+msgid "Games rated above the age you pick ask for this PIN. To turn the controls off without it, delete the parental_pin line in sd:/riftwii/settings.txt."
+msgstr "選んだ年れいより上向けのゲームは、このPINが必要です。PINなしでオフにするには、sd:/riftwii/settings.txt のparental_pinの行を消してください。"
+
+msgid "Turn off parental controls?"
+msgstr "ペアレンタルコントロールをオフにしますか？"
+
+msgid "Every game can be started without the PIN again."
+msgstr "すべてのゲームがPINなしで始められるようになります。"
 
 msgid "Channel background"
 msgstr "チャンネルの背景"

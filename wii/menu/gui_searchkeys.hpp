@@ -23,6 +23,9 @@
 // for capitals and the symbols on the number row and the bottom row's last
 // three keys (riftwii/namekeys.hpp); OK in place of Search.
 //
+// The PIN mode (parental controls) is the hex card with the digits only,
+// shown as stars, and OK only once all four are typed.
+//
 // A USB keyboard types too (usbinput.hpp): its letters, digits and the
 // characters the card has, Enter as Search (OK), Backspace as Del and Esc
 // as Cancel. A name keeps the case typed.
@@ -34,6 +37,9 @@ public:
     GuiSearchKeys(const std::string& start, const std::string& title, const std::string& note, std::size_t maxLength);
     // The name mode.
     GuiSearchKeys(const std::string& start, const std::string& title, std::size_t maxLength);
+    // The PIN mode: four digits, `note` above the card.
+    struct Pin {};
+    GuiSearchKeys(Pin, const std::string& title, const std::string& note);
     ~GuiSearchKeys() override;
     const std::string& Text() const { return text; }
     // A short line at the right of the title (Home's live search: how many
@@ -70,7 +76,9 @@ private:
     int Neighbour(int from, int dRow) const;
     int Y(int row) const;
 
-    enum class Mode { Search, Hex, Name };
+    enum class Mode { Search, Hex, Name, Pin };
+    // What the field shows: the text, or a star a digit in the PIN mode.
+    std::string Shown() const;
     void Build(const std::string& titleText, const std::string& noteText, Mode mode);
     // The name mode: the letter keys show the case the next letter takes,
     // and the symbol keys their symbol while Shift is on.
@@ -83,6 +91,7 @@ private:
     std::size_t maxLength = kMaxLength;
     bool hex = false;
     bool naming = false;  // the name mode
+    bool pin = false;     // the PIN mode
     riftwii::NameShift shift = riftwii::NameShift::Off;  // the name mode: what the next key types
     GuiText* shown;
     GuiText* title;
