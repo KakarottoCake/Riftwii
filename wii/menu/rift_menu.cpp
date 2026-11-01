@@ -5592,6 +5592,12 @@ static bool FindGameCovers(const std::string& modId, const std::string& gameId,
 	std::vector<riftwii::PictureCandidate>& candidates, std::string& error)
 {
 	using riftwii::PictureSource;
+	// Downloads off: nothing is asked for, and the picker offers only Back
+	// to automatic.
+	if (!riftwii::wii::Settings().online) {
+		error = "Downloads are off";
+		return false;
+	}
 	struct Ask {
 		std::string id;
 		PictureSource source;
