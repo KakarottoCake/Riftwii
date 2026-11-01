@@ -23,6 +23,9 @@
 // (x along the shelf, z out of it), how far it is turned and lifted.
 struct ShelfFlight {
     std::string id;
+    // The tile's CoverName: a profile's made-up cover is kept under its
+    // key, not the game's ID. Empty: the ID's.
+    std::string coverName;
     GXColor hue = {0, 0, 0, 255};
     GXColor caseColour = {255, 255, 255, 255};  // GridItem's
     float x = 0, z = 0, turn = 0, lift = 0;
