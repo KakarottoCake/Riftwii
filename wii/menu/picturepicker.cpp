@@ -31,6 +31,10 @@ constexpr int kAutomaticX = 148;
 constexpr int kAutomaticY = 364;
 constexpr int kAutomaticWidth = 344;
 constexpr int kAutomaticHeight = 44;
+// Top of the page number line, and of the status line on an empty page
+// (centred on the search spinner).
+constexpr int kPageTextY = 70;
+constexpr int kStatusEmptyY = 210;
 
 bool pressed(GuiTrigger* trigger, u32 remote, u16 pad, u16 gamepad) {
     return (trigger->wpad && (trigger->wpad->btns_d & remote)) ||
@@ -84,8 +88,8 @@ GuiPicturePicker::GuiPicturePicker(Discover discover, bool wide, PicturePreview 
         page_bytes_ = kPicturePageSize * preview_.pixel_bytes;
         if (can_allocate(page_bytes_)) pixels_ = static_cast<u8*>(memalign(32, page_bytes_));
     }
-    place(page_text_, this, 320, 70);
-    place(status_text_, this, 320, 346);
+    place(page_text_, this, 320, kPageTextY);
+    place(status_text_, this, 320, kStatusEmptyY);
     status_text_.SetWrap(true, 520, 1);
     automatic_text_.SetParent(this);
     automatic_text_.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::MIDDLE);
@@ -307,7 +311,12 @@ void GuiPicturePicker::Draw() {
         GX_InvalidateTexAll();
         texture_dirty_ = false;
     }
-    page_text_.Draw();
+    // Below the pictures there is no room above Back to automatic for the
+    // status line: it sits where the search spinner was on an empty page,
+    // and in place of the page number above a page that has pictures.
+    const bool status_above_pictures = Count() > 0 && status_text_.GetLength() > 0;
+    status_text_.SetPosition(320 - screenwidth / 2, status_above_pictures ? kPageTextY : kStatusEmptyY);
+    if (!status_above_pictures) page_text_.Draw();
     status_text_.Draw();
     for (int slot = 0; slot < Count(); ++slot) {
         const float x = TileX(slot);
@@ -327,7 +336,7 @@ void GuiPicturePicker::Draw() {
         }
         tiles_[slot].caption->Draw();
     }
-    if (!discovered_) spinner(320, 220, frame_);
+    if (!discovered_) spinner(320, kStatusEmptyY + 10, frame_);
     if (job_ == Job::Pick) spinner(540, kAutomaticY + kAutomaticHeight / 2, frame_);
     if (picture_page_count(candidates_.size()) > 1) {
         skin::Draw(skin::arrowLeft, 8, 202);
