@@ -25,6 +25,10 @@ struct PictureCandidate {
 // Four sources get equal room. Six native channel textures cost 132 KiB;
 // keeping original downloads or a neighbouring page would dwarf that budget.
 constexpr std::size_t kPictureCandidatesPerSource = 6;
+// A GameTDB set has one cover per region, for the game and for a mod tile's
+// own entry: up to two IDs of four regions each, so twelve, and the two
+// sets together still fit kPictureCandidatesMax.
+constexpr std::size_t kPictureGameTDBPerSet = 12;
 constexpr std::size_t kPictureCandidatesMax = 24;
 constexpr std::size_t kPicturePageSize = 6;
 
