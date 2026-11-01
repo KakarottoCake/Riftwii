@@ -70,6 +70,7 @@ using namespace riftwii::wii;
 constexpr const char* kCachePath = "sd:/riftwii/gameinfo-EN.txt";
 constexpr const char* kZipPath = "sd:/riftwii/wiitdb-EN.zip";
 constexpr const char* kHomebrewPath = "sd:/riftwii/homebrew-titles.txt";
+constexpr const char* kModTitlesPath = "sd:/riftwii/mod-titles.txt";
 
 void Write(const char* path, const char* data, std::size_t size) {
     std::ofstream file(path, std::ios::binary | std::ios::trunc);
@@ -161,6 +162,9 @@ void TestStoredTruncationPreservesCache() {
     std::vector<riftwii::HomebrewTitle> titles;
     // The empty list loads: read, with no apps, so the match is done.
     CHECK(LoadHomebrewTitles(titles) && titles.empty());
+    // And the mods of the player's games (#385): none here, written all the same.
+    std::vector<riftwii::CustomGame> mods;
+    CHECK(fs::exists(kModTitlesPath) && LoadModTitles(mods) && mods.empty());
     // Kept, it is not read again; a list too big to load is, however new.
     ForgetHomebrewTitlesRead();
     CHECK(!HomebrewTitlesNeedReading());
@@ -185,6 +189,7 @@ void TestStoredTruncationPreservesCache() {
     fs::remove(kZipPath);
     fs::remove(kCachePath);
     fs::remove(kHomebrewPath);
+    fs::remove(kModTitlesPath);
     fs::remove("sd:/riftwii");
     fs::remove("sd:");
 }
@@ -244,6 +249,7 @@ void TestIncompleteXmlPreservesLists(bool zipped) {
     fs::remove(path);
     fs::remove(kCachePath);
     fs::remove(kHomebrewPath);
+    fs::remove(kModTitlesPath);
     fs::remove("sd:/riftwii");
     fs::remove("sd:");
 }
@@ -288,6 +294,7 @@ void TestBackgroundReadFindsCustomGames() {
     fs::remove(kZipPath);
     fs::remove(kCachePath);
     fs::remove(kHomebrewPath);
+    fs::remove(kModTitlesPath);
     fs::remove("sd:/riftwii");
     fs::remove("sd:");
 }
@@ -348,6 +355,7 @@ void TestBackgroundHandoffAndRescan() {
     fs::remove(kZipPath);
     fs::remove(kCachePath);
     fs::remove(kHomebrewPath);
+    fs::remove(kModTitlesPath);
     fs::remove("sd:/riftwii");
     fs::remove("sd:");
 }
@@ -368,6 +376,7 @@ void TestCardReplacementDiscardsGameInfo() {
     fs::remove(kZipPath);
     fs::remove(kCachePath);
     fs::remove(kHomebrewPath);
+    fs::remove(kModTitlesPath);
     ForgetGameInfo();
     CHECK(!GameInfoReadPending());
     CHECK(!TakeGameInfoRead(changed));
@@ -399,6 +408,7 @@ void TestCardReplacementDiscardsGameInfo() {
     fs::remove(kZipPath);
     fs::remove(kCachePath);
     fs::remove(kHomebrewPath);
+    fs::remove(kModTitlesPath);
     fs::remove("sd:/riftwii");
     fs::remove("sd:");
 }

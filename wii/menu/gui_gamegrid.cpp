@@ -183,7 +183,8 @@ struct ZoomArt {
 ZoomArt ZoomArtFor(const std::string& id, const std::string& cover_name, bool back) {
     ZoomArt art;
     if (id.empty()) return art;
-    // The player's own cover (#384) comes before GameTDB's full box.
+    // The player's own cover (#384), or a mod tile's own (#385), comes
+    // before GameTDB's full box of the game.
     const u8* own = riftwii::wii::CoverTexture(cover_name);
     if (own && !riftwii::wii::CoverBeforeBox(cover_name)) own = nullptr;
     if (const u8* box = own ? nullptr : riftwii::wii::BoxTexture(id)) {
@@ -987,7 +988,8 @@ void GuiGameGrid::ReadAllCovers() {
     riftwii::wii::CoverReserve(Count() + 1);  // and the game page's
     std::vector<std::string> ids;
     ids.reserve(Count());
-    for (int k = 0; k < Count(); ++k) ids.push_back((*items)[(page * kPerPage + k) % Count()].id);
+    // By the cover each tile draws (a mod tile's key), as CoverPrefetch.
+    for (int k = 0; k < Count(); ++k) ids.push_back(CoverName((*items)[(page * kPerPage + k) % Count()]));
     riftwii::wii::CoverReadAll(ids);
 }
 
