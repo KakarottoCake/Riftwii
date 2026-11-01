@@ -19,21 +19,20 @@ Rewrite it for every release and delete the line below.
 
 New:
 
-* No more freeze with a 4th Wii Remote
-* USB gamepads work inside games now, and wired Xbox 360 pads work with no config file
-* A cleaner menu font
-* Your own covers (a PNG in sd:/riftwii/covers named after the game ID), and GameTDB's second cover for games that have one
-* Home's shortcuts on every controller
-* Fixes for EA's 007 GameCube games, 007 Quantum of Solace and Prince of Persia: The Forgotten Sands
-* Restart with a USB drive no longer crashes, and homebrew started from RiftWii sees the GameCube adapter again
+* Games without a cover get a made-up one with their name, and a paper spine on the Shelf view
+* Parental controls with a PIN (Settings > Games > Parental controls): lock or hide games above an age rating
+* Copy a game disc to a .wbfs file on USB or SD (Settings > Drives > Copy a game disc, needs a d2x cIOS)
+* Themes can have a moving background (try Vaporwave from Get more themes)
+* Updating the channel needs no Wii Remote anymore
+* Cover fixes, a mod's own cover on its Home tile, and code mods remember how they start
 
 To test, please:
 
-1. Four Wii Remotes in the menu, at start and one at a time
-2. A USB pad or wired Xbox 360 pad in a GameCube game (plug it in before starting)
-3. Your own cover, and the GameTDB cover row on Brawl or Mario Kart Wii
+1. Games without a cover in each Home view, the Shelf view especially
+2. Parental controls: set a PIN, try a locked game, then Hide
+3. Copy a game disc if you have d2x, then play the copy without the disc (not tried on a real Wii yet)
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![What's new](docs/screenshots/2610-whatsnew-781.png)
-![The GameTDB cover row](docs/screenshots/2610-gametdb-cover.png)
+![Made-up covers on the Shelf view](docs/screenshots/2610-made-up-covers.png)
+![Parental controls](docs/screenshots/2610-parental-controls.png)

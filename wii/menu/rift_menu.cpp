@@ -4721,12 +4721,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"A cleaner, lighter menu font",
-	"USB gamepads and Xbox 360 pads in games",
-	"Your own covers, and GameTDB's second cover",
-	"Home's shortcuts on every controller",
-	"Fixes for 007 games and Prince of Persia",
-	"No more freeze with a 4th Wii Remote",
+	"Made-up covers for games without one",
+	"Parental controls, with a PIN",
+	"Copy a game disc to a .wbfs file",
+	"Themes can have a moving background",
+	"Channel updates need no Wii Remote",
+	"A mod's own cover on its Home tile",
 };
 
 static std::string WhatsNewText()
