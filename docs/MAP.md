@@ -161,6 +161,7 @@ The build compiles every folder into one, so no two files share a name.
 | `codemodstart.cpp` | `codemods.txt` read and written for the menu: how each code build starts (with or without RiftWii's extras), asked once and remembered |
 | `screenshot.cpp` | Menu screenshots and importing the games' ones |
 | `covers.cpp` | Cover art: download, cache, textures |
+| `madecover.cpp` | Made-up covers for games without one: the blank cover with the name printed on it |
 | `homescan.cpp` | Home's look for games on a thread of its own: the SD card's games first, then the USB drive's |
 | `guiscript.cpp` | Scripted menu input for tests (`sd:/riftwii/guiscript.txt`) |
 | `drawtrace.cpp` | Where the GUI thread is drawing, for a freeze on a console: the GUI watch and the GX trace (`debug_gx`) |
