@@ -13829,6 +13829,20 @@ static int MenuHome(FrontendState& state)
 					transition::Hold(transition::Kind::SlideBack);
 					mainWindow->Append(&w);
 				}
+				// A first read of the database also saves GameTDB's list of
+				// mods: the tile may match an entry now, as after Mods, and
+				// its own cover is asked for as at page entry.
+				UpdateModCoverIds();
+				const std::string tileCover = PageCoverName(state);
+				hero.SetCoverName(tileCover);
+				banner.SetCoverName(tileCover);
+				if (!coverStart && tileCover != state.game_id && riftwii::wii::Settings().online &&
+				    riftwii::wii::Settings().home_tiles != "names" && !CoverDownloadsOff(state.game_id) &&
+				    !CoverDownloadsOff(tileCover) && !riftwii::wii::NetFailed() && riftwii::wii::CoverWanted(tileCover)) {
+					g_coversChecked.insert(tileCover);
+					coverStartName = tileCover;
+					coverStart = true;
+				}
 				rebuildTiles();
 				shownTile = -1;
 			} else if (tile == GameTile::Cheats && GameRowNotApplied(state.game_id, RowRef::What::Cheats)) {
