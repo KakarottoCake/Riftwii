@@ -126,11 +126,37 @@ void identical_thumbnails() {
     EXPECT(reverse[4].thumbnail_hashed);
     EXPECT(picture_record_thumbnail(reverse, 4, first_hash) == kPictureCandidatesMax);
 }
+
+// The cover picker's GameTDB covers: the first and second sets, by region,
+// and nothing that only looks like one.
+void gametdb_covers() {
+    using namespace riftwii;
+    std::vector<PictureCandidate> list;
+    EXPECT(picture_add_gametdb(list, "RMCE01", "US", false));
+    EXPECT(picture_add_gametdb(list, "RMCE01", "US", true));
+    EXPECT(picture_add_gametdb(list, "DNDA", "EN", false));
+    EXPECT(picture_add_gametdb(list, "RMCE01", "US", false));  // the same URL again: kept once
+    EXPECT(list.size() == 3);
+    EXPECT(list[0].url == "http://art.gametdb.com/wii/cover/US/RMCE01.png");
+    EXPECT(list[0].source == PictureSource::GameTDB);
+    EXPECT(list[1].url == "http://art.gametdb.com/wii/coverB/US/RMCE01.png");
+    EXPECT(list[1].source == PictureSource::GameTDBSecond);
+    EXPECT(!picture_add_gametdb(list, "../x", "US", false));
+    EXPECT(!picture_add_gametdb(list, "RMCE01", "usa", false));
+    EXPECT(!picture_add_gametdb(list, "rmce01", "US", false));
+    EXPECT(list.size() == 3);
+    EXPECT(!picture_candidate_valid({"http://art.gametdb.com/wii/cover/US/../RMCE01.png", PictureSource::GameTDB}));
+    EXPECT(!picture_candidate_valid({"http://art.gametdb.com/wii/coverB/US/RMCE01.png", PictureSource::GameTDB}));
+    EXPECT(!picture_candidate_valid({"http://evil.example/wii/cover/US/RMCE01.png", PictureSource::GameTDB}));
+    EXPECT(!picture_candidate_valid({"http://art.gametdb.com/wii/cover/US/RMCE01.png", PictureSource::Boxart}));
+    EXPECT(picture_libretro_url(PictureSource::GameTDB, "Sega - Dreamcast").empty());
+}
 }  // namespace
 
 int main() {
     candidates();
     paths_and_markers();
     identical_thumbnails();
+    gametdb_covers();
     return failures ? 1 : 0;
 }

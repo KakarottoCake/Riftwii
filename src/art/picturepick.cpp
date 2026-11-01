@@ -5,6 +5,7 @@
 #include <algorithm>
 
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/coverart.hpp"
 #include "riftwii/emulatorart.hpp"
 #include "riftwii/sha256.hpp"
 
@@ -35,6 +36,29 @@ bool decode_component(const std::string& encoded, std::string& decoded) {
     return emulator_art_component(decoded);
 }
 
+bool gametdb_id(const std::string& id) {
+    if (id.size() != 4 && id.size() != 6) return false;
+    return std::all_of(id.begin(), id.end(), [](char c) { return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'); });
+}
+
+bool gametdb_region(const std::string& region) {
+    return region.size() == 2 && std::all_of(region.begin(), region.end(), [](char c) { return c >= 'A' && c <= 'Z'; });
+}
+
+// A GameTDB cover URL taken apart and built again from checked parts, as
+// for libretro's: anything else (another host, folder or file) is refused.
+bool gametdb_url_valid(const PictureCandidate& candidate) {
+    const bool second = candidate.source == PictureSource::GameTDBSecond;
+    const std::string prefix = second ? "http://art.gametdb.com/wii/coverB/" : "http://art.gametdb.com/wii/cover/";
+    if (candidate.url.compare(0, prefix.size(), prefix) != 0) return false;
+    const std::string rest = candidate.url.substr(prefix.size());
+    const auto slash = rest.find('/');
+    if (slash == std::string::npos || rest.size() < slash + 5 || rest.compare(rest.size() - 4, 4, ".png") != 0) return false;
+    const std::string region = rest.substr(0, slash);
+    const std::string id = rest.substr(slash + 1, rest.size() - slash - 5);
+    return gametdb_region(region) && gametdb_id(id) && cover_url(region, id, second) == candidate.url;
+}
+
 std::size_t source_count(const std::vector<PictureCandidate>& candidates, PictureSource source) {
     return static_cast<std::size_t>(std::count_if(candidates.begin(), candidates.end(), [&](const PictureCandidate& item) {
         return item.source == source;
@@ -55,7 +79,9 @@ std::string picture_libretro_url(PictureSource source, const std::string& system
             url.replace(folder, 15, "/Named_Snaps/");
             break;
         case PictureSource::Boxart: break;
-        case PictureSource::SteamGrid: return "";
+        case PictureSource::SteamGrid:
+        case PictureSource::GameTDB:
+        case PictureSource::GameTDBSecond: return "";
         default: return "";
     }
     return url;
@@ -64,6 +90,8 @@ std::string picture_libretro_url(PictureSource source, const std::string& system
 bool picture_candidate_valid(const PictureCandidate& candidate) {
     if (candidate.url.size() > 2048) return false;
     if (candidate.source == PictureSource::SteamGrid) return steamgrid_image_url(candidate.url);
+    if (candidate.source == PictureSource::GameTDB || candidate.source == PictureSource::GameTDBSecond)
+        return gametdb_url_valid(candidate);
     const std::string prefix = "https://thumbnails.libretro.com/";
     if (candidate.url.compare(0, prefix.size(), prefix) != 0) return false;
     const auto folder = candidate.url.find('/', prefix.size());
@@ -126,6 +154,13 @@ bool picture_add_steamgrid(std::vector<PictureCandidate>& candidates, const std:
         if (candidates.size() != before && ++added == kPictureCandidatesPerSource) break;
     }
     return true;
+}
+
+bool picture_add_gametdb(std::vector<PictureCandidate>& candidates, const std::string& game_id,
+                         const std::string& region, bool second) {
+    if (candidates.size() > kPictureCandidatesMax || !gametdb_id(game_id) || !gametdb_region(region)) return false;
+    const PictureSource source = second ? PictureSource::GameTDBSecond : PictureSource::GameTDB;
+    return add_candidate(candidates, {cover_url(region, game_id, second), source});
 }
 
 std::size_t picture_record_thumbnail(std::vector<PictureCandidate>& candidates, std::size_t index,
