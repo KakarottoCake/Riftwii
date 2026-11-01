@@ -14506,12 +14506,26 @@ static bool CopyGameDisc()
 		}
 		return false;
 	}
-	// Home leaves the SD card out when Games on the SD card is Don't look.
-	const bool listed = place.usb || riftwii::wii::Settings().sd_games != "off";
-	ShowPopup(title, listed
-		? tr("{1} is copied to the {2}. It is on Home now, and plays without the disc.", {name, drive})
-		: tr("{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Drives > Games on the SD card is set to Look for them.", {name, drive}),
-		tr("OK"));
+	// Say where to find the copy when Home would not show it. Home leaves
+	// the SD card out when Games on the SD card is Don't look, a drive when
+	// Settings > Home > Games from names another place, and a new copy under
+	// Show's other choices: Games with mods (where Home starts) has it only
+	// if it has mods, and it isn't played or a favourite yet.
+	const std::string& source = riftwii::wii::Settings().home_source;
+	const bool sdLooked = place.usb || riftwii::wii::Settings().sd_games != "off";
+	const bool sourceShows = source == "all" || source == (place.usb ? "usb" : "sd");
+	const bool hasMods = g_packs.has_packs(job.id) || riftwii::wii::IsCustomGame(job.id);
+	const bool filterShows = g_filter == Filter::All || (g_filter == Filter::Mods && hasMods);
+	std::string done;
+	if (!sdLooked)
+		done = tr("{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Drives > Games on the SD card is set to Look for them.", {name, drive});
+	else if (!sourceShows)
+		done = tr("{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Home > Games from is set to All games.", {name, drive});
+	else if (!filterShows)
+		done = tr("{1} is copied to the {2}, and plays without the disc. To see it on Home, choose Show > All games.", {name, drive});
+	else
+		done = tr("{1} is copied to the {2}. It is on Home now, and plays without the disc.", {name, drive});
+	ShowPopup(title, done, tr("OK"));
 	return true;
 }
 

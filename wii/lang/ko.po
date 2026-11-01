@@ -3129,6 +3129,12 @@ msgstr "USB 드라이브가 FAT32가 아니라서 SD 카드에 복사합니다."
 msgid "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Drives > Games on the SD card is set to Look for them."
 msgstr "{1}을(를) {2}에 복사했습니다. 디스크 없이 플레이할 수 있습니다. 설정 > 드라이브 > SD 카드의 게임을 찾기로 설정하면 홈에 표시됩니다."
 
+msgid "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Home > Games from is set to All games."
+msgstr "{1}을(를) {2}에 복사했습니다. 디스크 없이 플레이할 수 있습니다. 설정 > 홈 > 게임 위치를 모든 게임으로 설정하면 홈에 표시됩니다."
+
+msgid "{1} is copied to the {2}, and plays without the disc. To see it on Home, choose Show > All games."
+msgstr "{1}을(를) {2}에 복사했습니다. 디스크 없이 플레이할 수 있습니다. 홈에서 보려면 표시 > 모든 게임을 고르세요."
+
 msgid "Channel background"
 msgstr "채널 배경"
 

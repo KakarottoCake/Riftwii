@@ -6563,6 +6563,16 @@ T.update({
         "{1}を{2}にコピーしました。ディスクなしで遊べます。設定 > ドライブ > SDカードのゲームを「探す」にすると、ホームに表示されます。",
         "{1} foi copiado para {2} e funciona sem o disco. Ele aparece no Início quando Configurações > Unidades > Jogos no cartão SD estiver em Procurar.",
         "{1} è stato copiato su {2} e si gioca senza il disco. Compare nella Home quando Impostazioni > Unità > Giochi sulla scheda SD è su Cercali."),
+    "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Home > Games from is set to All games.": (
+        "{1} se ha copiado en {2} y se juega sin el disco. Aparecerá en Inicio cuando Ajustes > Inicio > Juegos de esté en Todos los juegos.",
+        "{1}を{2}にコピーしました。ディスクなしで遊べます。設定 > ホーム > ゲームの場所を「すべてのゲーム」にすると、ホームに表示されます。",
+        "{1} foi copiado para {2} e funciona sem o disco. Ele aparece no Início quando Configurações > Início > Jogos de estiver em Todos os jogos.",
+        "{1} è stato copiato su {2} e si gioca senza il disco. Compare nella Home quando Impostazioni > Home > Giochi da è su Tutti i giochi."),
+    "{1} is copied to the {2}, and plays without the disc. To see it on Home, choose Show > All games.": (
+        "{1} se ha copiado en {2} y se juega sin el disco. Para verlo en Inicio, elige Ver > Todos los juegos.",
+        "{1}を{2}にコピーしました。ディスクなしで遊べます。ホームで見るには、表示 > すべてのゲームを選んでください。",
+        "{1} foi copiado para {2} e funciona sem o disco. Para vê-lo no Início, escolha Ver > Todos os jogos.",
+        "{1} è stato copiato su {2} e si gioca senza il disco. Per vederlo nella Home, scegli Mostra > Tutti i giochi."),
 })
 MORE["ko"].update({
     "Copy a game disc": "게임 디스크 복사",
@@ -6590,6 +6600,8 @@ MORE["ko"].update({
     "The USB drive is not FAT32 (NTFS, for example), and a copy can only go to a FAT32 USB drive or the SD card.": "USB 드라이브가 FAT32가 아닙니다(NTFS 등). 복사는 FAT32 USB 드라이브나 SD 카드에만 할 수 있습니다.",
     "The USB drive is not FAT32, so the copy goes to the SD card.": "USB 드라이브가 FAT32가 아니라서 SD 카드에 복사합니다.",
     "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Drives > Games on the SD card is set to Look for them.": "{1}을(를) {2}에 복사했습니다. 디스크 없이 플레이할 수 있습니다. 설정 > 드라이브 > SD 카드의 게임을 찾기로 설정하면 홈에 표시됩니다.",
+    "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Home > Games from is set to All games.": "{1}을(를) {2}에 복사했습니다. 디스크 없이 플레이할 수 있습니다. 설정 > 홈 > 게임 위치를 모든 게임으로 설정하면 홈에 표시됩니다.",
+    "{1} is copied to the {2}, and plays without the disc. To see it on Home, choose Show > All games.": "{1}을(를) {2}에 복사했습니다. 디스크 없이 플레이할 수 있습니다. 홈에서 보려면 표시 > 모든 게임을 고르세요.",
 })
 MORE["fr"].update({
     "Copy a game disc": "Copier un disque de jeu",
@@ -6617,6 +6629,8 @@ MORE["fr"].update({
     "The USB drive is not FAT32 (NTFS, for example), and a copy can only go to a FAT32 USB drive or the SD card.": "Le disque USB n'est pas en FAT32 (il est en NTFS, par exemple), et une copie ne peut aller que sur un disque USB FAT32 ou la carte SD.",
     "The USB drive is not FAT32, so the copy goes to the SD card.": "Le disque USB n'est pas en FAT32 : la copie va sur la carte SD.",
     "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Drives > Games on the SD card is set to Look for them.": "{1} est copié sur : {2}, et se joue sans le disque. Il apparaît dans l'Accueil quand Paramètres > Supports > Jeux sur la carte SD est sur Les chercher.",
+    "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Home > Games from is set to All games.": "{1} est copié sur : {2}, et se joue sans le disque. Il apparaît dans l'Accueil quand Paramètres > Accueil > Jeux depuis est sur Tous les jeux.",
+    "{1} is copied to the {2}, and plays without the disc. To see it on Home, choose Show > All games.": "{1} est copié sur : {2}, et se joue sans le disque. Pour le voir dans l'Accueil, choisissez Afficher > Tous les jeux.",
 })
 
 

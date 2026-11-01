@@ -3129,6 +3129,12 @@ msgstr "USBドライブがFAT32ではないため、SDカードにコピーし�
 msgid "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Drives > Games on the SD card is set to Look for them."
 msgstr "{1}を{2}にコピーしました。ディスクなしで遊べます。設定 > ドライブ > SDカードのゲームを「探す」にすると、ホームに表示されます。"
 
+msgid "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Home > Games from is set to All games."
+msgstr "{1}を{2}にコピーしました。ディスクなしで遊べます。設定 > ホーム > ゲームの場所を「すべてのゲーム」にすると、ホームに表示されます。"
+
+msgid "{1} is copied to the {2}, and plays without the disc. To see it on Home, choose Show > All games."
+msgstr "{1}を{2}にコピーしました。ディスクなしで遊べます。ホームで見るには、表示 > すべてのゲームを選んでください。"
+
 msgid "Channel background"
 msgstr "チャンネルの背景"
 

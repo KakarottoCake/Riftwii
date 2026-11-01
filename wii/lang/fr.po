@@ -3129,6 +3129,12 @@ msgstr "Le disque USB n'est pas en FAT32 : la copie va sur la carte SD."
 msgid "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Drives > Games on the SD card is set to Look for them."
 msgstr "{1} est copié sur : {2}, et se joue sans le disque. Il apparaît dans l'Accueil quand Paramètres > Supports > Jeux sur la carte SD est sur Les chercher."
 
+msgid "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Home > Games from is set to All games."
+msgstr "{1} est copié sur : {2}, et se joue sans le disque. Il apparaît dans l'Accueil quand Paramètres > Accueil > Jeux depuis est sur Tous les jeux."
+
+msgid "{1} is copied to the {2}, and plays without the disc. To see it on Home, choose Show > All games."
+msgstr "{1} est copié sur : {2}, et se joue sans le disque. Pour le voir dans l'Accueil, choisissez Afficher > Tous les jeux."
+
 msgid "Channel background"
 msgstr "Fond des chaînes"
 
