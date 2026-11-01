@@ -520,6 +520,10 @@ void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cove
             faces[0].u0 = kPaperSpineU0;
             faces[0].u1 = kPaperSpineU1;
             faces[0].color = {255, 255, 255, 255};
+            // Solid, as paper is: the picture's colours as they are, so the
+            // name's ink (MadeUpSpineInk, judged from those colours) shows
+            // up on it whatever the case's plastic or a theme's alpha.
+            faces[0].opaque = true;
         } else {
             faces[0].color = faces[3].color;
         }
