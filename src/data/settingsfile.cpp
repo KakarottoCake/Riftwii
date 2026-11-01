@@ -180,6 +180,10 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "on" || value == "off") gc_backups = value;
         } else if (key == "nintendont_saves") {
             if (value == "ask" || value == "asked") nintendont_saves = value;
+        } else if (key == "usb_gecko_log") {
+            if (value == "on" || value == "off") usb_gecko_log = value;
+        } else if (key == "wiird_debugger") {
+            if (value == "off" || value == "on" || value == "pause") wiird_debugger = value;
         } else if (key == "parental_pin") {
             // A line that is not a record RiftWii wrote is no PIN, so no
             // controls: the same as deleting it, never a lock nobody can open.
@@ -252,6 +256,8 @@ std::string LoaderSettings::serialize() const {
     s += "sd_games = " + sd_games + "\n";
     s += "gc_backups = " + gc_backups + "\n";
     s += "nintendont_saves = " + nintendont_saves + "\n";
+    s += "usb_gecko_log = " + usb_gecko_log + "\n";
+    s += "wiird_debugger = " + wiird_debugger + "\n";
     if (!parental_pin.empty()) s += "parental_pin = " + parental_pin + "\n";
     s += "parental_mode = " + parental_mode + "\n";
     s += "parental_age = " + std::to_string(parental_age) + "\n";

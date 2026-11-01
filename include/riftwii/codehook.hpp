@@ -68,4 +68,17 @@ constexpr std::uint32_t kDolSwitchStubEnd = 0x80001300;  // the next exception v
 // where they are expected.
 bool relocate_code_list(std::uint8_t* handler, std::size_t size, std::uint32_t address);
 
+// The handler with the WiiRD debugger (vendor-gecko/codehandler.bin for a
+// USB Gecko in slot B, codehandlerslota.bin for slot A), loaded at the
+// same address with the same entry. It is longer, so its code list starts
+// after it; the word at kDebuggerPauseFlag set to 1 holds the game at its
+// first frame until the PC on the USB Gecko lets it go. The addresses are
+// the ones USB Loader GX's and WiiFlow Lite's load_handler write.
+constexpr std::uint32_t kDebuggerCodeListAddress = 0x800028B8;
+constexpr std::uint32_t kDebuggerPauseFlag = 0x80002774;
+// As relocate_code_list, for a debugger handler: it loads the list's
+// address twice, `lis r12` / `ori r12` when the PC sends new codes and
+// `lis r15` / `ori r15` when it runs them. Both or neither are changed.
+bool relocate_debugger_code_list(std::uint8_t* handler, std::size_t size, std::uint32_t address);
+
 }  // namespace riftwii

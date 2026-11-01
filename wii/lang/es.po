@@ -3039,6 +3039,42 @@ msgstr "Primero vuelve a insertar la tarjeta SD."
 msgid "The SD card is back in. Reading it again."
 msgstr "La tarjeta SD está de vuelta. Leyéndola de nuevo."
 
+msgid "USB Gecko log"
+msgstr "Registro por USB Gecko"
+
+msgid "WiiRD debugger"
+msgstr "Depurador WiiRD"
+
+msgid "Pause at start"
+msgstr "Pausa al empezar"
+
+msgid "For developers. RiftWii's log also goes to a USB Gecko in memory card slot B as it is written, for a PC to read."
+msgstr "Para desarrolladores. El registro de RiftWii también va a un USB Gecko en la ranura B de tarjetas de memoria mientras se escribe, para leerlo en un PC."
+
+msgid "For developers. Wii games start with the WiiRD debugger, for a PC on a USB Gecko in slot B or A (WiiRD, Gecko dotNET). Pause at start holds the game at its first frame until the PC lets it go."
+msgstr "Para desarrolladores. Los juegos de Wii empiezan con el depurador WiiRD, para un PC conectado a un USB Gecko en la ranura B o A (WiiRD, Gecko dotNET). Pausa al empezar detiene el juego en su primer fotograma hasta que el PC lo suelte."
+
+msgid "Off from the next start of RiftWii."
+msgstr "Desactivado desde el próximo inicio de RiftWii."
+
+msgid "On, but nothing on the PC reads the USB Gecko in slot B, so the log stopped. Start the reader on the PC, then turn this off and on again."
+msgstr "Activado, pero nada en el PC lee el USB Gecko de la ranura B, así que el registro se ha detenido. Abre el lector en el PC y luego desactiva y activa esto otra vez."
+
+msgid "On. RiftWii's log now also goes to the USB Gecko in slot B."
+msgstr "Activado. El registro de RiftWii ahora también va al USB Gecko de la ranura B."
+
+msgid "On from the next start of RiftWii. No USB Gecko answers in slot B now."
+msgstr "Activado desde el próximo inicio de RiftWii. Ahora ningún USB Gecko responde en la ranura B."
+
+msgid "Games start with the plain code handler."
+msgstr "Los juegos empiezan con el gestor de códigos normal."
+
+msgid "Wii games start with the WiiRD debugger, except ones whose RiftWii hooks need its memory. Connect from the PC once the game is running."
+msgstr "Los juegos de Wii empiezan con el depurador WiiRD, salvo aquellos cuyos ganchos de RiftWii necesitan su memoria. Conéctate desde el PC cuando el juego esté en marcha."
+
+msgid "No USB Gecko answers in slot B or A now. Without one, games start without the debugger."
+msgstr "Ahora ningún USB Gecko responde en la ranura B ni en la A. Sin uno, los juegos empiezan sin el depurador."
+
 msgid "A search looks through every genre. Press 1 to end it first."
 msgstr "Una búsqueda mira en todos los géneros. Pulsa 1 para terminarla primero."
 
