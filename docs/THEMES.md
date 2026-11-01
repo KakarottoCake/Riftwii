@@ -180,6 +180,7 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `icon_picture`, `icon_controllers`, `icon_online`, `icon_home`, `icon_sound`, `icon_power` | 28x28 | Settings' tiles: Picture, Controllers, Online, Home screen, Look and sound, Leave RiftWii |
 | `icon_disc` | 40x40 | Disc icon (name and channel tiles) |
 | `disc_case` | 128x176 | The Disc drive's box: its cover tile, and its front and back on the shelf |
+| `blank_cover` | 160x224 | A game's cover when there is no art for it: the menu prints the game's name and ID in its middle, in dark ink on a light picture and light ink on a dark one. Keep the middle plain; the covers view puts its badges along the bottom 30 pixels |
 | `pointer1` to `pointer4` | 96x96 | Each player's pointer; the fingertip must be at the centre (48, 48) |
 | `shelf` | 256x64 | Home's shelf: rows 0-47 are its top (the far edge first), rows 48-63 its front edge. It repeats along the shelf, so make the left and right edges meet |
 | `background_wide` | 856x480 | `background` for a widescreen menu (optional) |

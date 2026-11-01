@@ -470,6 +470,8 @@ const std::vector<ThemeImage>& theme_images() {
         {"layout_shelf", 28, 28},
         {"layout_channels", 28, 28},
         {"layout_names", 28, 28},
+        // A cover for games without one: the menu prints the name on it.
+        {"blank_cover", 160, 224},
     };
     return images;
 }
