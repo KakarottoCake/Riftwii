@@ -158,6 +158,11 @@ static uint32_t extension_write(struct rtpro_state* st, struct rtpro_link* l, ui
         } else if (a >= 0xA40040u && a < 0xA40050u) {
             l->key[a - 0xA40040u] = data[i];
             l->key_parts = (uint16_t)(l->key_parts | (1u << (a - 0xA40040u)));
+        } else if (a == 0xA400FEu) {
+            /* The Classic Controller's data-format register: what the
+             * game asked the extension for, worth seeing in a report. */
+            st->fe_writes++;
+            st->fe_last = data[i];
         }
     }
     if (address == 0xA40040u && l->cipher == RTPRO_PLAIN && size == 1u && data[0] == 0) {
@@ -329,12 +334,33 @@ uint32_t rtpro_acl_out(struct rtpro_state* st, uint8_t* acl, uint32_t* size) {
     if (!l || p[0] != HID_OUTPUT || n < 3u) return 0;
     id = p[1];
     if (id == OUT_MODE && n >= 4u) {
-        l->mode = p[3];
-        if (l->pro && p[3] != RTPRO_MODE) {
-            p[3] = RTPRO_MODE;
-            st->modes++;
-            what |= RTPRO_CHANGED;
+        const uint32_t asked_mode = p[3];
+        const uint32_t continuous = p[2] & 0x04u;
+        uint32_t rewritten = 0;
+        l->mode = (uint8_t)asked_mode;
+        l->continuous = (uint8_t)continuous;
+        if (l->pro) {
+            /* The translator always asks a Pro for 0x34; this request
+             * fixes any mode the controller was left in. */
+            l->physical_mode = RTPRO_MODE;
+            l->needs_mode = 0;
+            if (asked_mode != RTPRO_MODE) {
+                p[3] = RTPRO_MODE;
+                st->modes++;
+                what |= RTPRO_CHANGED;
+                rewritten = 1;
+            }
+        } else {
+            l->physical_mode = (uint8_t)asked_mode;
         }
+        if (st->mode_requests < RTPRO_MODE_LOG) {
+            struct rtpro_mode_log* e = &st->mode_log[st->mode_requests];
+            e->mode = (uint8_t)asked_mode;
+            e->continuous = (uint8_t)continuous;
+            e->pro = l->pro ? 1u : 0u;
+            e->rewritten = (uint8_t)rewritten;
+        }
+        st->mode_requests++;
         return what;
     }
     if (id == OUT_READ && n >= 8u) {
@@ -366,6 +392,25 @@ uint32_t rtpro_acl_out(struct rtpro_state* st, uint8_t* acl, uint32_t* size) {
         if ((address & 0xFF0000u) == 0xA40000u) return what | extension_write(st, l, address, p + 7, bytes);
     }
     if (!l->pro) return what;
+    /* A link found to be a Pro after the game had already put the
+     * controller into a mode too short to translate: the game's next
+     * report that expects no answer asks for RTPRO_MODE instead, a
+     * rumble or an unchanged-LED report (so no LED change is lost). A
+     * 0x12 whose first byte has bit 1 clear is answered by no 0x22
+     * (wiibrew's "Wiimote" page: 0x22 is sent only when bit 1 of an
+     * output report's first byte is set), so nothing is left waiting. */
+    if (l->needs_mode && (id == OUT_RUMBLE || id == OUT_LEDS) && !(p[2] & OUT_ACK_BIT) &&
+        (id == OUT_RUMBLE || (p[2] & 0xF0u) == l->leds)) {
+        p[1] = OUT_MODE;
+        p[2] = (uint8_t)(l->continuous | (p[2] & OUT_RUMBLE_BIT));
+        p[3] = RTPRO_MODE;
+        set_lengths(acl, 4u);
+        *size = 8u + 4u;
+        l->physical_mode = RTPRO_MODE;
+        l->needs_mode = 0;
+        st->late_modes++;
+        return what | RTPRO_CHANGED;
+    }
     if (id == OUT_LEDS) {
         l->leds = (uint8_t)(p[2] & 0xF0u);
         return what;
@@ -454,6 +499,10 @@ static int answered_read(struct rtpro_link* l, uint32_t addr16, uint32_t len, ui
 }
 
 static int calibration_at(uint32_t address);
+
+/* Where a data report keeps its extension bytes, and how many; 0 when it
+ * has none (defined below). */
+static uint32_t extension_of(uint32_t id, uint32_t* offset);
 
 /* A byte of the Wii Remote's memory as a Pro Controller's stand-in holds
  * it: the accelerometer calibration ours, the rest erased. */
@@ -560,8 +609,18 @@ static uint32_t read_answer(struct rtpro_state* st, struct rtpro_link* l, uint8_
                 }
             }
             if (!l->pro) {
+                uint32_t offset, physical, game;
                 l->pro = RTPRO_BY_ID;
                 st->pros++;
+                st->late_pros++;
+                /* The game may have set a mode before this link was known
+                 * to be a Pro, so the controller is in that mode. If it
+                 * cannot carry all eleven extension bytes, while the
+                 * game's own mode does carry extension bytes, the next
+                 * report that expects no answer asks for RTPRO_MODE. */
+                physical = extension_of(l->physical_mode, &offset);
+                game = extension_of(l->mode, &offset);
+                if (physical < 11u && game != 0u) l->needs_mode = 1;
             }
             st->ids++;
             return RTPRO_CHANGED;
@@ -715,7 +774,10 @@ uint32_t rtpro_acl_in(struct rtpro_state* st, uint8_t* acl, uint32_t size, uint3
         uint32_t i, rebuilt;
         *what |= RTPRO_DATA;
         /* All eleven of the Pro's bytes, or nothing to translate. */
-        if (ext < 11u || offset + 11u > n) return size;
+        if (ext < 11u || offset + 11u > n) {
+            st->short_reports++;
+            return size;
+        }
         for (i = 0; i < 11u; ++i) pro[i] = p[offset + i];
         if (l->cipher == RTPRO_KEYED) {
             /* Whether the Pro encrypts its own bytes too (it was not asked

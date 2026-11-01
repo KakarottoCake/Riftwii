@@ -5,6 +5,10 @@
 
 #include "rtshot.h"
 
+/* The mode log in the file has the translator's own layout. */
+typedef char rtpro_mode_log_matches_rtwlog[(RTPRO_MODE_LOG == RTWLOG_MODE_LOG &&
+                                            sizeof(struct rtpro_mode_log) == sizeof(struct rtwlog_mode)) ? 1 : -1];
+
 void wlog_on_print(struct rt_wlog_context* c, const uint32_t* words);
 void wlog_on_exit(struct rt_wlog_context* c);
 uint32_t wlog_on_ioctlv(struct rt_wlog_context* c, uint32_t* args);
@@ -254,6 +258,18 @@ static void copy_counts(struct rt_wlog_state* st) {
     f->bad_keys = st->pro.bad_keys;
     f->memory_reads = st->pro.memory_reads;
     f->replaced = st->pro.replaced;
+    f->late_modes = st->pro.late_modes;
+    f->short_reports = st->pro.short_reports;
+    f->late_pros = st->pro.late_pros;
+    f->mode_requests = st->pro.mode_requests;
+    f->fe_writes = st->pro.fe_writes;
+    f->fe_last = st->pro.fe_last;
+    for (i = 0; i < RTWLOG_MODE_LOG; ++i) {
+        f->mode_log[i].mode = st->pro.mode_log[i].mode;
+        f->mode_log[i].continuous = st->pro.mode_log[i].continuous;
+        f->mode_log[i].pro = st->pro.mode_log[i].pro;
+        f->mode_log[i].rewritten = st->pro.mode_log[i].rewritten;
+    }
     for (i = 0; i < RTPRO_LINKS; ++i) {
         const struct rtpro_link* l = &st->pro.links[i];
         if (l->used && l->pro && l->encrypted) f->encrypted = 1;

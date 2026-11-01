@@ -70,6 +70,16 @@ struct LogFile {
     // The translator's count number `field` (rtwlog_pro's order).
     void pro(std::size_t field, std::uint32_t v) { put32(bytes, kPro + 4 * field, v); }
 
+    // One kept reporting mode request (after the 24 counts).
+    void mode(std::size_t index, std::uint8_t value, std::uint8_t continuous, std::uint8_t pro_known,
+              std::uint8_t rewritten) {
+        const std::size_t at = kPro + 4 * 24 + 4 * index;
+        bytes[at] = value;
+        bytes[at + 1] = continuous;
+        bytes[at + 2] = pro_known;
+        bytes[at + 3] = rewritten;
+    }
+
     // Traced packet number `packets`.
     void packet(double seconds, std::uint8_t kind, std::uint8_t flags, std::uint16_t handle, std::uint16_t cid,
                 const std::vector<std::uint8_t>& data) {
@@ -270,6 +280,29 @@ int main() {
         put32(log.bytes, 4, 4);
         EXPECT_FALSE(riftwii::describe_wpad_log(log.bytes.data(), log.bytes.size(), text, error));
     }
+    // A Pro Controller recognised late: what the translator did around the
+    // game's reporting mode requests, and the extension's data format.
+    {
+        LogFile log;
+        log.pro(0, 1);   // translating
+        log.pro(1, 1);   // hooked
+        log.pro(18, 1);  // late_modes
+        log.pro(19, 2);  // short_reports
+        log.pro(20, 1);  // late_pros
+        log.pro(21, 2);  // mode_requests
+        log.pro(22, 3);  // fe_writes
+        log.pro(23, 0x05);
+        log.mode(0, 0x37, 0x04, 0, 0);
+        log.mode(1, 0x37, 0x04, 1, 1);
+        std::string text, error;
+        EXPECT_TRUE(riftwii::describe_wpad_log(log.bytes.data(), log.bytes.size(), text, error));
+        EXPECT_TRUE(has(text, "1 link(s) recognised as a Pro Controller only by their extension ID; 1 corrective "
+                              "reporting mode request(s) sent, 2 data report(s) left untranslated"));
+        EXPECT_TRUE(has(text, "the game's first reporting mode request(s): 0x37 continuous, link not known yet, "
+                              "sent as asked 0x37 continuous, link known to be a Pro, changed to 0x34"));
+        EXPECT_TRUE(has(text, "wrote the extension's data format register 0xA400FE 3 time(s), last value 0x05"));
+    }
+
     // Translator off: said so; not hooked: said so.
     {
         LogFile log;
