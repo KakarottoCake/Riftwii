@@ -16497,7 +16497,9 @@ int MainMenu(int menu, FrontendState& state)
 			else if (previousMenu == MENU_HOME && currentMenu == MENU_SOURCE && g_flightOn) {
 				// From the page's cover back onto the shelf, where the game
 				// stands lit; its place stays empty until it lands.
+				const std::string coverName = g_flight.coverName;
 				g_flight = ShelfFocusedPose(g_flight.id, g_flight.hue, g_flight.caseColour);
+				g_flight.coverName = coverName;  // the way back shows what flew out
 				SetShelfFlying(g_flight.id);
 				transition::SetActor(FlightBack, FlightLanded);
 				transition::Begin(transition::Kind::Fade);

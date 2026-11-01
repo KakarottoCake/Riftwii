@@ -1370,10 +1370,14 @@ void DrawShelfFlight(const ShelfFlight& from, float toX, float toY, float toW, f
     const float arc = std::sin(e * static_cast<float>(M_PI)) * 40.0f;
     const Box box = MakeBox(a.x + (b.x - a.x) * e, a.z + (b.z - a.z) * e, a.turn + (b.turn - a.turn) * e,
                             a.lift + (b.lift - a.lift) * e + arc);
-    const u8* art = riftwii::wii::BoxTexture(from.id);
-    const u8* cover = art ? nullptr : riftwii::wii::CoverTexture(from.id);
-    // The made-up cover its tile showed on the shelf, if it has one.
-    if (!art && !cover) cover = riftwii::wii::MadeUpCoverMade(from.coverName.empty() ? from.id : from.coverName);
+    // As the shelf drew it: by the tile's cover name, the player's own cover
+    // (#384) or a mod tile's own (#385) before the game's box, then the
+    // made-up cover its tile showed, if it has one.
+    const std::string& coverName = from.coverName.empty() ? from.id : from.coverName;
+    const u8* front = riftwii::wii::CoverTexture(coverName);
+    const u8* art = front && riftwii::wii::CoverBeforeBox(coverName) ? nullptr : riftwii::wii::BoxTexture(from.id);
+    const u8* cover = art ? nullptr : front;
+    if (!art && !cover) cover = riftwii::wii::MadeUpCoverMade(coverName);
     Face faces[5];
     BoxFaces(from.id, box, art, cover, from.hue, from.caseColour, faces);
     LoadPerspective();
