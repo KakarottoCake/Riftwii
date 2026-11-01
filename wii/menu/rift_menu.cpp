@@ -5614,21 +5614,30 @@ static bool FindGameCovers(const std::string& modId, const std::string& gameId,
 		PictureSource::GameTDBFourth})
 		for (const std::string& id : riftwii::gametdb_art_ids(gameId)) asks.push_back({id, gameId, set});
 	bool answered = false;
+	bool failed = false;
 	for (const Ask& ask : asks) {
 		for (const std::string& region : riftwii::cover_regions(ask.regionsOf, riftwii::wii::MenuLanguage())) {
 			if (riftwii::wii::NetCancelRequested()) return false;
 			const std::string url = riftwii::picture_gametdb_url(ask.id, region, ask.source);
+			if (url.empty()) continue;
 			std::string askError;
-			if (url.empty() || !riftwii::wii::HttpExists(url, askError)) {
+			if (!riftwii::wii::HttpExists(url, askError)) {
 				// "answered 404": GameTDB has no such cover, which is an answer.
-				// Any other status (a 405 or 500) is a failure, as no answer is.
-				if (askError.find(" answered 404") != std::string::npos) answered = true;
-				else if (error.empty()) error = askError;
-				continue;
+				if (askError.find(" answered 404") != std::string::npos) {
+					answered = true;
+					continue;
+				}
+				// Anything else (a timeout, a 500) is no answer, and the rest
+				// would most likely wait as long: stop with what was found, as
+				// the automatic download does.
+				error = askError;
+				failed = true;
+				break;
 			}
 			answered = true;
 			if (!riftwii::picture_add_gametdb(candidates, ask.id, region, ask.source)) return false;
 		}
+		if (failed) break;
 	}
 	logf("Cover picker: GameTDB has %u different cover(s) for %s%s%s.\n", static_cast<unsigned>(candidates.size()),
 		gameId.c_str(), modId.empty() ? "" : " and the mod's entry ", modId.c_str());
