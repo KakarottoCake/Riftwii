@@ -13573,6 +13573,17 @@ static int MenuHome(FrontendState& state)
 	                !g_coversOff && !riftwii::wii::NetFailed() && riftwii::wii::BoxWanted(state.game_id);
 
 	const auto say = [&](const std::string& text) { statusTxt.SetText(text); };
+	// After About or Mods the tile may match another GameTDB entry: its own
+	// cover is asked for as at page entry, when no fetch is waiting.
+	const auto askTileCover = [&](const std::string& tileCover) {
+		if (!coverStart && tileCover != state.game_id && riftwii::wii::Settings().online &&
+		    riftwii::wii::Settings().home_tiles != "names" && !CoverDownloadsOff(state.game_id) &&
+		    !CoverDownloadsOff(tileCover) && !riftwii::wii::NetFailed() && riftwii::wii::CoverWanted(tileCover)) {
+			g_coversChecked.insert(tileCover);
+			coverStartName = tileCover;
+			coverStart = true;
+		}
+	};
 	const auto saveOrSay = [&]() {
 		std::string error;
 		if (SaveChoices(state, error)) return true;
@@ -13836,13 +13847,7 @@ static int MenuHome(FrontendState& state)
 				const std::string tileCover = PageCoverName(state);
 				hero.SetCoverName(tileCover);
 				banner.SetCoverName(tileCover);
-				if (!coverStart && tileCover != state.game_id && riftwii::wii::Settings().online &&
-				    riftwii::wii::Settings().home_tiles != "names" && !CoverDownloadsOff(state.game_id) &&
-				    !CoverDownloadsOff(tileCover) && !riftwii::wii::NetFailed() && riftwii::wii::CoverWanted(tileCover)) {
-					g_coversChecked.insert(tileCover);
-					coverStartName = tileCover;
-					coverStart = true;
-				}
+				askTileCover(tileCover);
 				rebuildTiles();
 				shownTile = -1;
 			} else if (tile == GameTile::Cheats && GameRowNotApplied(state.game_id, RowRef::What::Cheats)) {
@@ -13864,8 +13869,10 @@ static int MenuHome(FrontendState& state)
 					// A renamed tile may match another GameTDB entry (or none):
 					// the cover in memory for the old match goes first.
 					UpdateModCoverIds();
-					hero.SetCoverName(PageCoverName(state));
-					banner.SetCoverName(PageCoverName(state));
+					const std::string tileCover = PageCoverName(state);
+					hero.SetCoverName(tileCover);
+					banner.SetCoverName(tileCover);
+					askTileCover(tileCover);
 				} else if (riftwii::wii::CoverSecondSet(state.game_id) != secondBefore) {
 					// Another GameTDB cover set: the band's art was the old one's.
 					banner.SetCoverName(PageCoverName(state));
