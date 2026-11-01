@@ -433,6 +433,21 @@ void TestHttp() {
     EXPECT_EQ(std::string(r.body.begin(), r.body.end()), "hello");
     EXPECT_EQ(r.headers["content-type"], "text/plain");
 
+    // A HEAD's answer: whole once its headers are in, although its
+    // Content-Length names a body that never comes.
+    const std::string head_answer = "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: 83638\r\n\r\n";
+    HttpReadState head_reading;
+    head_reading.head = true;
+    EXPECT_FALSE(http_response_complete(bytes(head_answer.substr(0, head_answer.size() - 2)), head_reading));
+    EXPECT_TRUE(http_response_complete(bytes(head_answer), head_reading));
+    HttpReadState get_reading;
+    EXPECT_FALSE(http_response_complete(bytes(head_answer), get_reading));
+    HttpResponse head_response;
+    EXPECT_TRUE(parse_http_response(bytes(head_answer), head_response, error, true));
+    EXPECT_EQ(head_response.status, 200);
+    EXPECT_TRUE(head_response.body.empty());
+    EXPECT_FALSE(parse_http_response(bytes(head_answer), head_response, error));  // as a GET's: cut short
+
     const std::string chunked =
         "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nWiki\r\n6\r\npedia \r\nE\r\nin \r\n\r\nchunks.\r\n0\r\n\r\n";
     EXPECT_FALSE(http_response_complete(bytes(chunked.substr(0, 40))));

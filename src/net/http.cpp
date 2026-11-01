@@ -376,6 +376,10 @@ std::string http_get_request(const HttpUrl& url, const std::string& user_agent) 
     return request_head("GET", url, user_agent) + "\r\n";
 }
 
+std::string http_head_request(const HttpUrl& url, const std::string& user_agent) {
+    return request_head("HEAD", url, user_agent) + "\r\n";
+}
+
 std::string http_post_request(const HttpUrl& url, const std::string& content_type, const std::string& body) {
     return request_head("POST", url, "RiftWii") + "Content-Type: " + content_type +
            "\r\nContent-Length: " + std::to_string(body.size()) + "\r\n\r\n" + body;
@@ -394,6 +398,7 @@ bool http_response_complete(const std::vector<std::uint8_t>& raw, HttpReadState&
         HttpResponse r;
         std::string error;
         if (!parse_headers(raw, end, r, error)) return reading.done = true;  // garbage: nothing more will help
+        if (reading.head) return reading.done = true;  // a HEAD's answer has no body
         reading.is_chunked = chunked(r);
         reading.chunk_at = end;
         const auto length = r.headers.find("content-length");
@@ -420,7 +425,7 @@ bool http_response_complete(const std::vector<std::uint8_t>& raw) {
     return http_response_complete(raw, reading);
 }
 
-bool parse_http_response(const std::vector<std::uint8_t>& raw, HttpResponse& out, std::string& error) {
+bool parse_http_response(const std::vector<std::uint8_t>& raw, HttpResponse& out, std::string& error, bool head) {
     out = HttpResponse{};
     const std::size_t end = header_end(raw);
     if (end == std::string::npos) {
@@ -428,6 +433,7 @@ bool parse_http_response(const std::vector<std::uint8_t>& raw, HttpResponse& out
         return false;
     }
     if (!parse_headers(raw, end, out, error)) return false;
+    if (head) return true;
     // The body is at most what is left after the headers: room for that
     // first, so the copy below cannot fail halfway.
     if (!try_reserve(out.body, raw.size() - end)) {

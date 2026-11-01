@@ -77,9 +77,6 @@
 #include "riftwii/emulatorbanner.hpp"
 #include "fullfont.hpp"
 #include "riftwii/coverart.hpp"
-#include "riftwii/emulatorart.hpp"
-#include "riftwii/http.hpp"
-#include "riftwii/sha256.hpp"
 #include "riftwii/gcbackup.hpp"
 #include "riftwii/gcimport.hpp"
 #include "riftwii/gcreal.hpp"
@@ -5587,10 +5584,10 @@ static void PickEmulatorPicture(const riftwii::wii::EmulatorAddon& addon,
 }
 
 // GameTDB's covers in the regions the automatic download tries: a mod
-// tile's own entry first (`modId`, its first set), then the game's, first
-// and second set. Each is fetched once here, so covers GameTDB doesn't have,
-// and the same picture under another region, are left out. Runs on the
-// network thread.
+// tile's own entry first (`modId`, its first set), then the game's four
+// sets. Each is asked for with HEAD, so a cover GameTDB doesn't have never
+// becomes an empty tile; the same picture under two regions is dropped by
+// the picker once both thumbnails are in. Runs on the network thread.
 static bool FindGameCovers(const std::string& modId, const std::string& gameId,
 	std::vector<riftwii::PictureCandidate>& candidates, std::string& error)
 {
@@ -5601,28 +5598,23 @@ static bool FindGameCovers(const std::string& modId, const std::string& gameId,
 	};
 	std::vector<Ask> asks;
 	if (!modId.empty()) asks.push_back({modId, PictureSource::GameTDBMod});
-	asks.push_back({gameId, PictureSource::GameTDB});
-	asks.push_back({gameId, PictureSource::GameTDBSecond});
-	std::vector<riftwii::Sha256Digest> seen;
+	for (const PictureSource set : {PictureSource::GameTDB, PictureSource::GameTDBSecond, PictureSource::GameTDBThird,
+		PictureSource::GameTDBFourth})
+		asks.push_back({gameId, set});
 	bool answered = false;
 	for (const Ask& ask : asks) {
-		const std::string& id = ask.id;
-		const bool second = ask.source == PictureSource::GameTDBSecond;
-		for (const std::string& region : riftwii::cover_regions(id, riftwii::wii::MenuLanguage())) {
+		for (const std::string& region : riftwii::cover_regions(ask.id, riftwii::wii::MenuLanguage())) {
 			if (riftwii::wii::NetCancelRequested()) return false;
-			std::vector<std::uint8_t> png;
-			std::string fetchError;
-			const std::string url = riftwii::cover_url(region, id, second);
-			if (!riftwii::wii::HttpGet(url, png, fetchError, riftwii::kEmulatorCoverMax, 10000, nullptr,
-				riftwii::HttpRedirects::Never)) {
-				if (error.empty()) error = fetchError;
+			const std::string url = riftwii::picture_gametdb_url(ask.id, region, ask.source);
+			std::string askError;
+			if (url.empty() || !riftwii::wii::HttpExists(url, askError)) {
+				// "answered 404": GameTDB has no such cover, which is an answer.
+				if (askError.find(" answered ") != std::string::npos) answered = true;
+				else if (error.empty()) error = askError;
 				continue;
 			}
 			answered = true;
-			const riftwii::Sha256Digest digest = riftwii::sha256(png.data(), png.size());
-			if (std::find(seen.begin(), seen.end(), digest) != seen.end()) continue;
-			seen.push_back(digest);
-			if (!riftwii::picture_add_gametdb(candidates, id, region, ask.source)) return false;
+			if (!riftwii::picture_add_gametdb(candidates, ask.id, region, ask.source)) return false;
 		}
 	}
 	logf("Cover picker: GameTDB has %u different cover(s) for %s%s%s.\n", static_cast<unsigned>(candidates.size()),

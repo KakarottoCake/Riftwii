@@ -11,10 +11,13 @@
 
 namespace riftwii {
 
-// For the cover picker: GameTDB and GameTDBSecond are a Wii or GameCube
-// game's covers from GameTDB's first and second sets; GameTDBMod is the
+// For the cover picker, a Wii or GameCube game's covers from GameTDB's four
+// sets: GameTDB (folder cover/), GameTDBSecond (coverB/, #384's second set),
+// GameTDBThird (cover2/) and GameTDBFourth (coverB2/). GameTDBMod is the
 // cover of a mod tile's own GameTDB entry (#385), from its first set.
-enum class PictureSource { Title, Screenshot, Boxart, SteamGrid, GameTDB, GameTDBSecond, GameTDBMod };
+enum class PictureSource {
+    Title, Screenshot, Boxart, SteamGrid, GameTDB, GameTDBSecond, GameTDBMod, GameTDBThird, GameTDBFourth
+};
 
 struct PictureCandidate {
     std::string url;
@@ -26,10 +29,10 @@ struct PictureCandidate {
 // Four sources get equal room. Six native channel textures cost 132 KiB;
 // keeping original downloads or a neighbouring page would dwarf that budget.
 constexpr std::size_t kPictureCandidatesPerSource = 6;
-// A GameTDB set has one cover per region, for the game and for a mod tile's
-// own entry: up to two IDs of four regions each, so twelve, and the two
-// sets together still fit kPictureCandidatesMax.
-constexpr std::size_t kPictureGameTDBPerSet = 12;
+// A GameTDB set has one cover per region (up to four), the same picture in
+// several regions counted until the picker sees they match.
+// kPictureCandidatesMax bounds all of them together.
+constexpr std::size_t kPictureGameTDBPerSet = 8;
 constexpr std::size_t kPictureCandidatesMax = 24;
 constexpr std::size_t kPicturePageSize = 6;
 
@@ -41,9 +44,10 @@ bool picture_add_libretro(std::vector<PictureCandidate>& candidates, PictureSour
                           const std::vector<std::string>& names);
 bool picture_add_steamgrid(std::vector<PictureCandidate>& candidates, const std::vector<std::string>& urls);
 // GameTDB's cover of `game_id` (a game's six capitals or digits, a homebrew
-// app's four) in `region` (two capitals), as `source` (one of the three
-// GameTDB sources: the second set for GameTDBSecond, else the first). False
-// only for an ID, region or source that can't be one.
+// app's four) in `region` (two capitals), from the set `source` names (one
+// of the GameTDB sources). Empty for an ID, region or source that can't be one.
+std::string picture_gametdb_url(const std::string& game_id, const std::string& region, PictureSource source);
+// That cover as a candidate. False only when picture_gametdb_url is empty.
 bool picture_add_gametdb(std::vector<PictureCandidate>& candidates, const std::string& game_id,
                          const std::string& region, PictureSource source);
 // Remember only hashes between pages. Remove the later matching candidate

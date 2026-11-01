@@ -748,6 +748,8 @@ T = {
         "Segunda capa",
         "Seconda copertina"),
     "The mod's cover": ("La portada del mod", "MODのカバー", "A capa do mod", "La copertina della mod"),
+    "Third cover": ("Tercera portada", "3枚目のカバー", "Terceira capa", "Terza copertina"),
+    "Fourth cover": ("Cuarta portada", "4枚目のカバー", "Quarta capa", "Quarta copertina"),
     "Pick any of GameTDB's covers for this game. It is kept as your own cover on the SD card, so it works offline; Back to automatic removes it.": (
         "Elige cualquiera de las portadas de GameTDB para este juego. Se guarda como tu propia portada en la tarjeta SD, así que funciona sin conexión; Volver a automático la quita.",
         "このゲームのGameTDBのカバーから好きなものを選べます。自分のカバーとしてSDカードに保存されるので、オフラインでも使えます。「自動に戻す」で消えます。",
@@ -2908,6 +2910,10 @@ KO = {
         "두 번째 표지",
     "The mod's cover":
         "모드의 표지",
+    "Third cover":
+        "세 번째 표지",
+    "Fourth cover":
+        "네 번째 표지",
     "Pick any of GameTDB's covers for this game. It is kept as your own cover on the SD card, so it works offline; Back to automatic removes it.":
         "이 게임의 GameTDB 표지 중 원하는 것을 고르세요. SD 카드에 내 표지로 저장되어 오프라인에서도 쓸 수 있으며, 자동으로 되돌리기를 하면 지워집니다.",
     "First":
@@ -4778,6 +4784,10 @@ FR = {
         "Deuxième jaquette",
     "The mod's cover":
         "La jaquette du mod",
+    "Third cover":
+        "Troisième jaquette",
+    "Fourth cover":
+        "Quatrième jaquette",
     "Pick any of GameTDB's covers for this game. It is kept as your own cover on the SD card, so it works offline; Back to automatic removes it.":
         "Choisissez n'importe quelle jaquette GameTDB pour ce jeu. Elle est gardée comme votre jaquette sur la carte SD et marche donc hors ligne ; « Revenir au choix automatique » la retire.",
     "First":
