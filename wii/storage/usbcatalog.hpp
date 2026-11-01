@@ -236,6 +236,11 @@ int d2x_base(int slot);
 enum class D2xCheck { D2x, NotD2x, Unread };
 D2xCheck slot_d2x_check(int slot);
 
+// Whether the cIOS in `slot` has an information block that was read and
+// shows a cIOS that is not d2x (any d2x version is what the channel
+// installer tries). False when it could not be read.
+bool slot_known_not_d2x(int slot);
+
 // Whether games from the SD card or a USB drive may start on `slot`: false,
 // with `why` saying what to install, when its information block shows a
 // cIOS that is not d2x or a d2x older than v11 (riftwii/d2xversion.hpp).

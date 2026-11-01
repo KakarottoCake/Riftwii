@@ -8,11 +8,15 @@
 #include <ogc/machine/processor.h>
 
 #include <algorithm>
+#include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <map>
+#include <string>
 #include <vector>
 
 #include "loadersettings.hpp"
+#include "log.hpp"
 #include "menutheme.hpp"
 #include "riftwii/canvas.hpp"
 #include "riftwii/inputicons.hpp"
@@ -25,7 +29,7 @@ Tex tile, tileOver, coverTile, coverTileOver, roundBtn, roundBtnOver, pill, pill
     stepBack, stepBackOver, stepForward, stepForwardOver, switchOn, switchOff,
     panelGame, panelSettings, popup, bar, bannerStripes, arrowLeft, arrowLeftOver, arrowRight, arrowRightOver, iconDrives,
     scrollUp, scrollUpOver, scrollDown, scrollDownOver,
-    iconGear, iconDisc, discCase, iconSearch, iconStar, iconStarOn, hand[4];
+    iconGear, iconDisc, discCase, blankCover, iconSearch, iconStar, iconStarOn, hand[4];
 
 // Textures and the menu font live below the MEM2 arena's low end, taken
 // once and never freed: the menu keeps them until the game replaces all of
@@ -120,6 +124,98 @@ void ApplyColors(const Theme& t) {
     g_backdrop_stripe = ToGx(c.backdrop_stripe);
     g_stripes = t.stripes;
     g_banner_tint = ToGx(c.banner_tint);
+}
+
+// A theme's looping backdrop ([backdrop] frames/fps): the frames as
+// RGB565 in one MEM2 block, the one to draw picked from the clock.
+// `data` empty when the theme has none or it could not be loaded, and the
+// normal wall pictures show instead.
+struct BackdropLoop {
+    u8* data = nullptr;
+    int w = 0, h = 0;
+    int frames = 0;
+    int fps = 0;
+    u64 started = 0;
+};
+BackdropLoop g_loop;
+
+double Mebibytes(std::size_t bytes) {
+    return static_cast<double>(bytes) / (1024.0 * 1024.0);
+}
+
+// Reads backdrop_00.png .. backdrop_(frames-1).png, all the first one's
+// size, into one RGB565 block (docs/THEMES.md). Anything wrong leaves no
+// loop at all: a half loop looks broken, and the walls are used instead.
+void LoadBackdropLoop() {
+    const Theme& theme = MenuTheme();
+    if (MenuThemeDir().empty() || theme.clock_dials) return;
+    const int frames = theme.loop_frames;
+    if (frames < 2 || frames > 60) return;
+    const int fps = theme.loop_fps > 0 ? theme.loop_fps : 12;
+
+    std::vector<std::uint8_t> rgba;
+    int w = 0, h = 0;
+    std::string why;
+    if (!LoadThemePng("backdrop_00", rgba, w, h, why)) {
+        logf("Theme: the backdrop loop has no readable backdrop_00.png (%s); the normal pictures are used\n",
+             why.c_str());
+        return;
+    }
+    if (w % 4 != 0 || h % 4 != 0 || w < 64 || h < 48 || w > 856 || h > 480) {
+        logf("Theme: backdrop_00.png is %dx%d; a backdrop loop needs multiples of 4 from 64x48 to 856x480; "
+             "the normal pictures are used\n",
+             w, h);
+        return;
+    }
+
+    const std::size_t frame_bytes = static_cast<std::size_t>(w) * static_cast<std::size_t>(h) * 2;
+    const std::size_t total = frame_bytes * static_cast<std::size_t>(frames);
+    constexpr std::size_t kMaxLoopBytes = 4u * 1024u * 1024u;
+    if (total > kMaxLoopBytes) {
+        logf("Theme: %d frames of %dx%d take %.1f MiB, over the 4 MiB a backdrop loop may use; "
+             "the normal pictures are used\n",
+             frames, w, h, Mebibytes(total));
+        return;
+    }
+
+    u8* block = Mem2Alloc(total);
+    if (!block) {
+        logf("Theme: the backdrop loop needs %.1f MiB and MEM2 is full; the normal pictures are used\n",
+             Mebibytes(total));
+        return;
+    }
+    if (!to_gx_rgb565(rgba.data(), w, h, block)) {
+        logf("Theme: the backdrop loop's frames are not a multiple of 4 pixels; the normal pictures are used\n");
+        Mem2Release(block, total);
+        return;
+    }
+    for (int i = 1; i < frames; ++i) {
+        char name[32];
+        std::snprintf(name, sizeof(name), "backdrop_%02d", i);
+        int fw = 0, fh = 0;
+        if (!LoadThemePng(name, rgba, fw, fh, why)) {
+            logf("Theme: the backdrop loop has no readable %s.png (%s); the normal pictures are used\n", name,
+                 why.c_str());
+            Mem2Release(block, total);
+            return;
+        }
+        if (fw != w || fh != h) {
+            logf("Theme: %s.png is %dx%d, not the %dx%d of backdrop_00.png; the normal pictures are used\n", name,
+                 fw, fh, w, h);
+            Mem2Release(block, total);
+            return;
+        }
+        to_gx_rgb565(rgba.data(), w, h, block + frame_bytes * static_cast<std::size_t>(i));
+    }
+    DCFlushRange(block, total);
+    g_loop.data = block;
+    g_loop.w = w;
+    g_loop.h = h;
+    g_loop.frames = frames;
+    g_loop.fps = fps;
+    g_loop.started = gettime();
+    logf("Theme: the backdrop loops %d frames of %dx%d at %d a second (%.1f MiB).\n", frames, w, h, fps,
+         Mebibytes(total));
 }
 
 Tex Upload(const Canvas& c) {
@@ -291,6 +387,7 @@ void Init() {
     if (g_ready) return;
     LoadMenuTheme();
     ApplyColors(MenuTheme());
+    LoadBackdropLoop();
     struct Slot {
         const char* name;
         Tex* tex;
@@ -307,7 +404,7 @@ void Init() {
         {"arrow_left", &arrowLeft}, {"arrow_left_over", &arrowLeftOver}, {"arrow_right", &arrowRight},
         {"arrow_right_over", &arrowRightOver}, {"scroll_up", &scrollUp}, {"scroll_up_over", &scrollUpOver},
         {"scroll_down", &scrollDown}, {"scroll_down_over", &scrollDownOver}, {"icon_drives", &iconDrives},
-        {"icon_gear", &iconGear}, {"icon_search", &iconSearch}, {"icon_star", &iconStar}, {"icon_star_on", &iconStarOn}, {"icon_disc", &iconDisc}, {"disc_case", &discCase}, {"pointer1", &hand[0]}, {"pointer2", &hand[1]},
+        {"icon_gear", &iconGear}, {"icon_search", &iconSearch}, {"icon_star", &iconStar}, {"icon_star_on", &iconStarOn}, {"icon_disc", &iconDisc}, {"disc_case", &discCase}, {"blank_cover", &blankCover}, {"pointer1", &hand[0]}, {"pointer2", &hand[1]},
         {"pointer3", &hand[2]}, {"pointer4", &hand[3]}, {"shelf", &shelfPlank},
         {"tile9", &tile9}, {"tile9_over", &tile9Over}, {"tile9_primary", &tile9Primary},
         {"tile9_primary_over", &tile9PrimaryOver}, {"prompt_button", &promptButton}, {"icon_play", &iconPlay},
@@ -329,7 +426,9 @@ void Init() {
             if (std::strcmp(s.name, im.name) == 0) *s.tex = Pick(im);
         }
     }
-    EnsureBackgrounds();
+    // A looping backdrop takes the place of every wall, so the walls are
+    // not read (they are the menu's biggest pictures).
+    if (!g_loop.data) EnsureBackgrounds();
     {
         Canvas c(0, 0);
         paint_clock_digits(MenuTheme(), c);
@@ -375,6 +474,7 @@ void Init() {
 // has one, else its 640 one; on a 4:3 menu the 640 one. Switching the
 // menu's shape (Settings) reads the other set then.
 void EnsureBackgrounds() {
+    if (g_loop.data) return;  // the loop is drawn on every screen instead
     struct Wall {
         const char* name;
         const char* wide_name;
@@ -625,6 +725,67 @@ int Runs(float pos, int size, int band, float lo, float hi, Run* out, int max) {
     return n;
 }
 
+// Texels [u0, u1) x [v0, v1) of a w x h RGB565 texture drawn at (x, y),
+// dw x dh, smoothed (a small frame scaled up stays soft). Each frame sits
+// at its own address in the loop's block, so GX loads the new one without
+// invalidating its texture cache.
+void DrawRgb565Region(const u8* data, int w, int h, float u0, float v0, float u1, float v1, float x, float y,
+                      float dw, float dh) {
+    GxTraceTexture(data, w, h, GX_TF_RGB565);
+    GXTexObj tex;
+    GX_InitTexObj(&tex, const_cast<u8*>(data), static_cast<u16>(w), static_cast<u16>(h), GX_TF_RGB565, GX_CLAMP,
+                  GX_CLAMP, GX_FALSE);
+    GX_InitTexObjLOD(&tex, GX_LINEAR, GX_LINEAR, 0, 0, 0, GX_FALSE, GX_FALSE, GX_ANISO_1);
+    GX_LoadTexObj(&tex, GX_TEXMAP0);
+    GX_SetTevOp(GX_TEVSTAGE0, GX_MODULATE);
+    GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
+    // libgui's 2D view: the identity moved to z = -50 (video.cpp).
+    Mtx view;
+    guMtxIdentity(view);
+    guMtxTransApply(view, view, 0.0f, 0.0f, -50.0f);
+    GX_LoadPosMtxImm(view, GX_PNMTX0);
+    GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+    GX_Position3f32(x, y, 0);
+    GX_Color4u8(0xFF, 0xFF, 0xFF, 0xFF);
+    GX_TexCoord2f32(u0, v0);
+    GX_Position3f32(x + dw, y, 0);
+    GX_Color4u8(0xFF, 0xFF, 0xFF, 0xFF);
+    GX_TexCoord2f32(u1, v0);
+    GX_Position3f32(x + dw, y + dh, 0);
+    GX_Color4u8(0xFF, 0xFF, 0xFF, 0xFF);
+    GX_TexCoord2f32(u1, v1);
+    GX_Position3f32(x, y + dh, 0);
+    GX_Color4u8(0xFF, 0xFF, 0xFF, 0xFF);
+    GX_TexCoord2f32(u0, v1);
+    GX_End();
+    GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
+    GX_SetVtxDesc(GX_VA_TEX0, GX_NONE);
+}
+
+// Which frame the clock says (not how many were drawn): the same speed at
+// 50 and 60 a second, and after a dropped frame.
+int LoopFrame() {
+    const u64 elapsed = gettime() - g_loop.started;
+    const std::uint64_t steps = static_cast<std::uint64_t>(ticks_to_millisecs(elapsed)) *
+                                static_cast<std::uint64_t>(g_loop.fps) / 1000u;
+    return static_cast<int>(steps % static_cast<std::uint64_t>(g_loop.frames));
+}
+
+// The current frame scaled to cover the visible area, centred, the
+// overflow cropped away by the texture coordinates.
+void DrawBackdropLoop(float vx, float vy, float vw, float vh) {
+    const std::size_t frame_bytes =
+        static_cast<std::size_t>(g_loop.w) * static_cast<std::size_t>(g_loop.h) * 2;
+    const u8* data = g_loop.data + frame_bytes * static_cast<std::size_t>(LoopFrame());
+    const float fw = static_cast<float>(g_loop.w), fh = static_cast<float>(g_loop.h);
+    const float scale = std::max(vw / fw, vh / fh);
+    const float dw = fw * scale, dh = fh * scale;
+    const float ox = vx + (vw - dw) / 2.0f, oy = vy + (vh - dh) / 2.0f;
+    const float u0 = (vx - ox) / dw, u1 = (vx + vw - ox) / dw;
+    const float v0 = (vy - oy) / dh, v1 = (vy + vh - oy) / dh;
+    DrawRgb565Region(data, g_loop.w, g_loop.h, u0, v0, u1, v1, vx, vy, vw, vh);
+}
+
 }  // namespace
 
 void DrawExtended(const Tex& t, float x, float y, float left, float top, float right, float bottom, int bandX,
@@ -661,6 +822,11 @@ void GuiBackdrop::Draw() {
 void GuiBackdrop::DrawBackdrop() {
     f32 vx, vy, vw, vh;
     Menu_VisibleArea(&vx, &vy, &vw, &vh);
+    // A loop replaces every wall picture, on every screen.
+    if (g_loop.data) {
+        DrawBackdropLoop(vx, vy, vw, vh);
+        return;
+    }
     const bool wide = WideMenu();
     const Tex* pick = wide && backgroundWide.data ? &backgroundWide : &background;
     // The shelf view's own wall when the theme has one (Bookshelf: no

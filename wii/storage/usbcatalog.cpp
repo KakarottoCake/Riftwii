@@ -1858,6 +1858,11 @@ D2xCheck slot_d2x_check(int slot) {
     return d2x_allowed(*info) ? D2xCheck::D2x : D2xCheck::NotD2x;
 }
 
+bool slot_known_not_d2x(int slot) {
+    const D2xInfo* info = slot_info(slot);
+    return info != nullptr && !info->d2x;
+}
+
 int d2x_base(int slot) {
     for (const D2xSlot& s : d2x_slots())
         if (s.slot == slot) return s.base;

@@ -1170,6 +1170,9 @@ msgstr "Dolphin comprueba las firmas reales, así que el canal solo se puede ins
 msgid "Installing the channel needs a d2x cIOS in slot 249, 250 or 251"
 msgstr "Para instalar el canal hace falta un cIOS d2x en el slot 249, 250 o 251"
 
+msgid "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the Homebrew Channel or the RiftWii channel (version 9 or newer)"
+msgstr "esta vez RiftWii se inició sin acceso al hardware, que el instalador necesita. Inicia RiftWii desde el Homebrew Channel o el canal de RiftWii (versión 9 o posterior)"
+
 msgid "(Log: sd:/riftwii/session.log)"
 msgstr "(Registro: sd:/riftwii/session.log)"
 
@@ -2346,11 +2349,11 @@ msgstr "Restablecer"
 msgid "Reset all settings?"
 msgstr "¿Restablecer todos los ajustes?"
 
-msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept."
-msgstr "Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods."
+msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego, los mods y el control parental."
 
-msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept."
-msgstr "Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods."
+msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego, los mods y el control parental."
 
 msgid "Settings reset to the defaults"
 msgstr "Ajustes restablecidos"
@@ -3132,8 +3135,119 @@ msgstr "{1} se ha copiado en {2} y se juega sin el disco. Aparecerá en Inicio c
 msgid "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Home > Games from is set to All games."
 msgstr "{1} se ha copiado en {2} y se juega sin el disco. Aparecerá en Inicio cuando Ajustes > Inicio > Juegos de esté en Todos los juegos."
 
+msgid "{1} is copied to the {2}, and plays without the disc. Parental controls hide it on Home: its age rating is above the highest age allowed."
+msgstr "{1} se ha copiado en {2} y se juega sin el disco. El control parental lo oculta en Inicio: su clasificación por edad supera la edad máxima permitida."
+
 msgid "{1} is copied to the {2}, and plays without the disc. To see it on Home, choose Show > All games."
 msgstr "{1} se ha copiado en {2} y se juega sin el disco. Para verlo en Inicio, elige Ver > Todos los juegos."
+
+msgid "Parental controls"
+msgstr "Control parental"
+
+msgid "A PIN that locks or hides the games rated for players older than an age you pick."
+msgstr "Un PIN que bloquea u oculta los juegos clasificados para jugadores mayores que la edad que elijas."
+
+msgid "Parental controls PIN"
+msgstr "PIN del control parental"
+
+msgid "Wrong PIN"
+msgstr "PIN incorrecto"
+
+msgid "That is not the parental controls PIN."
+msgstr "Ese no es el PIN del control parental."
+
+msgid "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it."
+msgstr "Este juego no tiene una clasificación por edad conocida, y el control parental bloquea los juegos sin ella. Escribe el PIN para jugar."
+
+msgid "This game's age rating could not be read, so parental controls lock it. Type the PIN to play it."
+msgstr "No se pudo leer la clasificación por edad de este juego, así que el control parental lo bloquea. Escribe el PIN para jugar."
+
+msgid "This game's age rating is above what parental controls allow. Type the PIN to play it."
+msgstr "La clasificación por edad de este juego supera lo que permite el control parental. Escribe el PIN para jugar."
+
+msgid "Type the PIN to change parental controls."
+msgstr "Escribe el PIN para cambiar el control parental."
+
+msgid "New PIN"
+msgstr "PIN nuevo"
+
+msgid "Pick four digits a child won't guess. Only a scrambled form of them is kept on the SD card."
+msgstr "Elige cuatro cifras que un niño no adivine. En la tarjeta SD solo se guarda una forma cifrada de ellas."
+
+msgid "Type the new PIN again"
+msgstr "Vuelve a escribir el PIN nuevo"
+
+msgid "The same four digits, to be sure."
+msgstr "Las mismas cuatro cifras, para asegurarse."
+
+msgid "PIN not changed"
+msgstr "PIN sin cambiar"
+
+msgid "The two PINs were not the same. Nothing was changed."
+msgstr "Los dos PIN no eran iguales. No se ha cambiado nada."
+
+msgid "Lock them"
+msgstr "Bloquearlos"
+
+msgid "Hide them"
+msgstr "Ocultarlos"
+
+msgid "Treat as too old"
+msgstr "Tratar como no aptos"
+
+msgid "Allow"
+msgstr "Permitir"
+
+msgid "PIN"
+msgstr "PIN"
+
+msgid "Set"
+msgstr "Poner"
+
+msgid "Parental controls are on. Change the four-digit PIN they ask for."
+msgstr "El control parental está activado. Cambia el PIN de cuatro cifras que pide."
+
+msgid "Parental controls are off. Set a four-digit PIN to turn them on."
+msgstr "El control parental está desactivado. Pon un PIN de cuatro cifras para activarlo."
+
+msgid "Games rated too old"
+msgstr "Juegos para mayores"
+
+msgid "Lock them: they stay on Home and ask for the PIN to start. Hide them: they are left off Home, and still ask for the PIN if started another way (a disc)."
+msgstr "Bloquearlos: siguen en el inicio y piden el PIN para empezar. Ocultarlos: no aparecen en el inicio, y aun así piden el PIN si se inician de otra forma (un disco)."
+
+msgid "Highest age allowed"
+msgstr "Edad máxima permitida"
+
+msgid "Games rated for players older than this need the PIN. The rating is GameTDB's, as the game's About page shows it."
+msgstr "Los juegos clasificados para jugadores mayores que esta edad necesitan el PIN. La clasificación es la de GameTDB, la que muestra la página Acerca del juego."
+
+msgid "Games with no rating"
+msgstr "Juegos sin clasificación"
+
+msgid "Ratings come from GameTDB's database ({1} in {2} > {3}), read for a game when it starts or its About page opens. Treat as too old locks or hides the others too."
+msgstr "Las clasificaciones vienen de la base de datos de GameTDB ({1} en {2} > {3}), y se leen para un juego al iniciarlo o al abrir su página Acerca de. Tratar como no aptos bloquea u oculta también los demás."
+
+msgid "Turn off parental controls"
+msgstr "Desactivar el control parental"
+
+msgid "Turn off"
+msgstr "Desactivar"
+
+msgid "Removes the PIN, and with it every lock. Deleting the parental_pin line in sd:/riftwii/settings.txt does the same."
+msgstr "Quita el PIN y, con él, todos los bloqueos. Borrar la línea parental_pin de sd:/riftwii/settings.txt hace lo mismo."
+
+msgid "Parental controls are on"
+msgstr "El control parental está activado"
+
+msgid "Games rated above the age you pick ask for this PIN. To turn the controls off without it, delete the parental_pin line in sd:/riftwii/settings.txt."
+msgstr "Los juegos clasificados por encima de la edad que elijas piden este PIN. Para desactivar el control sin él, borra la línea parental_pin de sd:/riftwii/settings.txt."
+
+msgid "Turn off parental controls?"
+msgstr "¿Desactivar el control parental?"
+
+msgid "Every game can be started without the PIN again."
+msgstr "Todos los juegos se podrán volver a iniciar sin el PIN."
 
 msgid "Channel background"
 msgstr "Fondo de los canales"

@@ -1170,6 +1170,9 @@ msgstr "돌핀은 실제 서명을 확인하므로, 해당 채널은 Wii에서�
 msgid "Installing the channel needs a d2x cIOS in slot 249, 250 or 251"
 msgstr "채널을 설치하려면 슬롯 249, 250 또는 251에 d2x cIOS가 필요함"
 
+msgid "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the Homebrew Channel or the RiftWii channel (version 9 or newer)"
+msgstr "이번 RiftWii는 하드웨어 접근 없이 실행되었으며, 설치 프로그램에는 이것이 필요함. Homebrew Channel이나 RiftWii 채널(버전 9 이상)에서 RiftWii를 실행하세요"
+
 msgid "(Log: sd:/riftwii/session.log)"
 msgstr "(로그: sd:/riftwii/session.log)"
 
@@ -2346,11 +2349,11 @@ msgstr "초기화"
 msgid "Reset all settings?"
 msgstr "모든 설정을 초기화할까요?"
 
-msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept."
-msgstr "모든 설정이 RiftWii의 기본값으로 돌아가고 RiftWii가 다시 시작됩니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다."
+msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "모든 설정이 RiftWii의 기본값으로 돌아가고 RiftWii가 다시 시작됩니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드, 자녀 보호 기능은 그대로 유지됩니다."
 
-msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept."
-msgstr "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다."
+msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드, 자녀 보호 기능은 그대로 유지됩니다."
 
 msgid "Settings reset to the defaults"
 msgstr "설정을 기본값으로 초기화했습니다"
@@ -3132,8 +3135,119 @@ msgstr "{1}을(를) {2}에 복사했습니다. 디스크 없이 플레이할 수
 msgid "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Home > Games from is set to All games."
 msgstr "{1}을(를) {2}에 복사했습니다. 디스크 없이 플레이할 수 있습니다. 설정 > 홈 > 게임 위치를 모든 게임으로 설정하면 홈에 표시됩니다."
 
+msgid "{1} is copied to the {2}, and plays without the disc. Parental controls hide it on Home: its age rating is above the highest age allowed."
+msgstr "{1}을(를) {2}에 복사했습니다. 디스크 없이 플레이할 수 있습니다. 자녀 보호 기능 때문에 홈에 표시되지 않습니다. 연령 등급이 허용된 최대 연령보다 높습니다."
+
 msgid "{1} is copied to the {2}, and plays without the disc. To see it on Home, choose Show > All games."
 msgstr "{1}을(를) {2}에 복사했습니다. 디스크 없이 플레이할 수 있습니다. 홈에서 보려면 표시 > 모든 게임을 고르세요."
+
+msgid "Parental controls"
+msgstr "자녀 보호 기능"
+
+msgid "A PIN that locks or hides the games rated for players older than an age you pick."
+msgstr "고른 나이보다 높은 연령 등급의 게임을 PIN으로 잠그거나 숨깁니다."
+
+msgid "Parental controls PIN"
+msgstr "자녀 보호 기능 PIN"
+
+msgid "Wrong PIN"
+msgstr "PIN이 틀렸습니다"
+
+msgid "That is not the parental controls PIN."
+msgstr "자녀 보호 기능의 PIN이 아닙니다."
+
+msgid "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it."
+msgstr "이 게임은 연령 등급을 알 수 없고, 자녀 보호 기능이 등급 없는 게임을 잠그고 있습니다. 플레이하려면 PIN을 입력하세요."
+
+msgid "This game's age rating could not be read, so parental controls lock it. Type the PIN to play it."
+msgstr "이 게임의 연령 등급을 읽을 수 없어 자녀 보호 기능이 잠갔습니다. 플레이하려면 PIN을 입력하세요."
+
+msgid "This game's age rating is above what parental controls allow. Type the PIN to play it."
+msgstr "이 게임의 연령 등급은 자녀 보호 기능이 허용하는 나이보다 높습니다. 플레이하려면 PIN을 입력하세요."
+
+msgid "Type the PIN to change parental controls."
+msgstr "자녀 보호 기능을 바꾸려면 PIN을 입력하세요."
+
+msgid "New PIN"
+msgstr "새 PIN"
+
+msgid "Pick four digits a child won't guess. Only a scrambled form of them is kept on the SD card."
+msgstr "아이가 맞히지 못할 네 자리 숫자를 고르세요. SD 카드에는 알아볼 수 없게 바꾼 형태만 저장됩니다."
+
+msgid "Type the new PIN again"
+msgstr "새 PIN을 다시 입력"
+
+msgid "The same four digits, to be sure."
+msgstr "확인을 위해 같은 네 자리를 입력하세요."
+
+msgid "PIN not changed"
+msgstr "PIN이 바뀌지 않았습니다"
+
+msgid "The two PINs were not the same. Nothing was changed."
+msgstr "두 PIN이 같지 않았습니다. 아무것도 바뀌지 않았습니다."
+
+msgid "Lock them"
+msgstr "잠그기"
+
+msgid "Hide them"
+msgstr "숨기기"
+
+msgid "Treat as too old"
+msgstr "허용 안 함으로 취급"
+
+msgid "Allow"
+msgstr "허용"
+
+msgid "PIN"
+msgstr "PIN"
+
+msgid "Set"
+msgstr "설정"
+
+msgid "Parental controls are on. Change the four-digit PIN they ask for."
+msgstr "자녀 보호 기능이 켜져 있습니다. 묻는 네 자리 PIN을 바꿉니다."
+
+msgid "Parental controls are off. Set a four-digit PIN to turn them on."
+msgstr "자녀 보호 기능이 꺼져 있습니다. 네 자리 PIN을 설정하면 켜집니다."
+
+msgid "Games rated too old"
+msgstr "연령 등급이 높은 게임"
+
+msgid "Lock them: they stay on Home and ask for the PIN to start. Hide them: they are left off Home, and still ask for the PIN if started another way (a disc)."
+msgstr "잠그기: 홈에 그대로 있고 시작할 때 PIN을 묻습니다. 숨기기: 홈에 나오지 않으며, 다른 방법(디스크)으로 시작해도 PIN을 묻습니다."
+
+msgid "Highest age allowed"
+msgstr "허용할 최고 나이"
+
+msgid "Games rated for players older than this need the PIN. The rating is GameTDB's, as the game's About page shows it."
+msgstr "이 나이보다 높은 연령 등급의 게임은 PIN이 필요합니다. 등급은 게임 정보 페이지에 나오는 GameTDB의 것입니다."
+
+msgid "Games with no rating"
+msgstr "등급이 없는 게임"
+
+msgid "Ratings come from GameTDB's database ({1} in {2} > {3}), read for a game when it starts or its About page opens. Treat as too old locks or hides the others too."
+msgstr "등급은 GameTDB 데이터베이스({2} > {3}의 {1})에서 가져오며, 게임을 시작하거나 정보 페이지를 열 때 읽습니다. 허용 안 함으로 취급하면 나머지 게임도 잠그거나 숨깁니다."
+
+msgid "Turn off parental controls"
+msgstr "자녀 보호 기능 끄기"
+
+msgid "Turn off"
+msgstr "끄기"
+
+msgid "Removes the PIN, and with it every lock. Deleting the parental_pin line in sd:/riftwii/settings.txt does the same."
+msgstr "PIN을 지우고, 그와 함께 모든 잠금을 풉니다. sd:/riftwii/settings.txt의 parental_pin 줄을 지워도 같습니다."
+
+msgid "Parental controls are on"
+msgstr "자녀 보호 기능이 켜졌습니다"
+
+msgid "Games rated above the age you pick ask for this PIN. To turn the controls off without it, delete the parental_pin line in sd:/riftwii/settings.txt."
+msgstr "고른 나이보다 높은 등급의 게임은 이 PIN을 묻습니다. PIN 없이 끄려면 sd:/riftwii/settings.txt의 parental_pin 줄을 지우세요."
+
+msgid "Turn off parental controls?"
+msgstr "자녀 보호 기능을 끌까요?"
+
+msgid "Every game can be started without the PIN again."
+msgstr "모든 게임을 다시 PIN 없이 시작할 수 있습니다."
 
 msgid "Channel background"
 msgstr "채널 배경"

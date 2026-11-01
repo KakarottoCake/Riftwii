@@ -1105,6 +1105,11 @@ T = {
         "チャンネルのインストールには、スロット249、250、251のどれかにd2x cIOSが必要です",
         "Instalar o canal precisa de um cIOS d2x no slot 249, 250 ou 251",
         "Per installare il canale serve un cIOS d2x nello slot 249, 250 o 251"),
+    "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the Homebrew Channel or the RiftWii channel (version 9 or newer)": (
+        "esta vez RiftWii se inició sin acceso al hardware, que el instalador necesita. Inicia RiftWii desde el Homebrew Channel o el canal de RiftWii (versión 9 o posterior)",
+        "今回のRiftWiiはハードウェアアクセスなしで起動されていますが、インストーラーにはそれが必要です。Homebrew ChannelかRiftWiiチャンネル（バージョン9以降）からRiftWiiを起動してください",
+        "desta vez a RiftWii foi iniciada sem acesso ao hardware, que o instalador precisa. Inicie a RiftWii pelo Homebrew Channel ou pelo canal da RiftWii (versão 9 ou mais recente)",
+        "questa volta RiftWii è stato avviato senza accesso all'hardware, che serve all'installatore. Avvia RiftWii dall'Homebrew Channel o dal canale di RiftWii (versione 9 o successiva)"),
     "(Log: sd:/riftwii/session.log)": (
         "(Registro: sd:/riftwii/session.log)", "(ログ: sd:/riftwii/session.log)",
         "(Log: sd:/riftwii/session.log)", "(Log: sd:/riftwii/session.log)"),
@@ -2054,8 +2059,8 @@ T = {
     "Reset all settings": ("Restablecer todos los ajustes", "すべての設定をリセット", "Redefinir todas as configurações", "Ripristina tutte le impostazioni"),
     "Reset": ("Restablecer", "リセット", "Redefinir", "Ripristina"),
     "Reset all settings?": ("¿Restablecer todos los ajustes?", "すべての設定をリセットしますか?", "Redefinir todas as configurações?", "Ripristinare tutte le impostazioni?"),
-    "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii, e o RiftWii reinicia. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine e RiftWii si riavvia. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
-    "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
+    "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history, mods and parental controls are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego, los mods y el control parental.", "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MOD、ペアレンタルコントロールはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii, e o RiftWii reinicia. As páginas de cada jogo, os favoritos, o histórico de jogo, os mods e o controle dos pais são mantidos.", "Tutte le impostazioni tornano come in origine e RiftWii si riavvia. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco, le mod e il controllo genitori restano."),
+    "Every setting back to how RiftWii comes. Games' own pages, favourites, play history, mods and parental controls are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego, los mods y el control parental.", "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MOD、ペアレンタルコントロールはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo, os mods e o controle dos pais são mantidos.", "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco, le mod e il controllo genitori restano."),
     "Settings reset to the defaults": ("Ajustes restablecidos", "設定を初期状態に戻しました", "Configurações redefinidas", "Impostazioni ripristinate"),
     # Wii channels (WiiWare and Virtual Console)
     "Install WAD files": ("Instalar archivos WAD", "WADファイルをインストール", "Instalar arquivos WAD", "Installa file WAD"),
@@ -3100,6 +3105,8 @@ KO = {
         "돌핀은 실제 서명을 확인하므로, 해당 채널은 Wii에서만 설치할 수 있음",
     "Installing the channel needs a d2x cIOS in slot 249, 250 or 251":
         "채널을 설치하려면 슬롯 249, 250 또는 251에 d2x cIOS가 필요함",
+    "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the Homebrew Channel or the RiftWii channel (version 9 or newer)":
+        "이번 RiftWii는 하드웨어 접근 없이 실행되었으며, 설치 프로그램에는 이것이 필요함. Homebrew Channel이나 RiftWii 채널(버전 9 이상)에서 RiftWii를 실행하세요",
     "(Log: sd:/riftwii/session.log)":
         "(로그: sd:/riftwii/session.log)",
     "RiftWii needs an SD card":
@@ -3921,10 +3928,10 @@ KO = {
         "초기화",
     "Reset all settings?":
         "모든 설정을 초기화할까요?",
-    "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.":
-        "모든 설정이 RiftWii의 기본값으로 돌아가고 RiftWii가 다시 시작됩니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다.",
-    "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.":
-        "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다.",
+    "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history, mods and parental controls are kept.":
+        "모든 설정이 RiftWii의 기본값으로 돌아가고 RiftWii가 다시 시작됩니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드, 자녀 보호 기능은 그대로 유지됩니다.",
+    "Every setting back to how RiftWii comes. Games' own pages, favourites, play history, mods and parental controls are kept.":
+        "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드, 자녀 보호 기능은 그대로 유지됩니다.",
     "Settings reset to the defaults":
         "설정을 기본값으로 초기화했습니다",
     "This game's data was removed from the Wii, so it can't start.":
@@ -4962,6 +4969,8 @@ FR = {
         "Dolphin vérifiant les signatures officielles, cette chaîne s'installe uniquement sur une vraie Wii",
     "Installing the channel needs a d2x cIOS in slot 249, 250 or 251":
         "L'installation nécessite un cIOS d2x dans les slots 249, 250 ou 251",
+    "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the Homebrew Channel or the RiftWii channel (version 9 or newer)":
+        "RiftWii a été lancé cette fois sans accès au matériel, dont l'installeur a besoin. Lancez RiftWii depuis le Homebrew Channel ou la chaîne RiftWii (version 9 ou plus récente)",
     "(Log: sd:/riftwii/session.log)":
         "(Journal : sd:/riftwii/session.log)",
     "RiftWii needs an SD card":
@@ -5783,10 +5792,10 @@ FR = {
         "Réinitialiser",
     "Reset all settings?":
         "Réinitialiser tous les paramètres ?",
-    "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.":
-        "Tous les paramètres reviennent à ceux d'origine et RiftWii redémarre. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés.",
-    "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.":
-        "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés.",
+    "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history, mods and parental controls are kept.":
+        "Tous les paramètres reviennent à ceux d'origine et RiftWii redémarre. Les pages des jeux, les favoris, l'historique de jeu, les mods et le contrôle parental sont conservés.",
+    "Every setting back to how RiftWii comes. Games' own pages, favourites, play history, mods and parental controls are kept.":
+        "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, les favoris, l'historique de jeu, les mods et le contrôle parental sont conservés.",
     "Settings reset to the defaults":
         "Paramètres réinitialisés",
     "This game's data was removed from the Wii, so it can't start.":
@@ -6568,6 +6577,11 @@ T.update({
         "{1}を{2}にコピーしました。ディスクなしで遊べます。設定 > ホーム > ゲームの場所を「すべてのゲーム」にすると、ホームに表示されます。",
         "{1} foi copiado para {2} e funciona sem o disco. Ele aparece no Início quando Configurações > Início > Jogos de estiver em Todos os jogos.",
         "{1} è stato copiato su {2} e si gioca senza il disco. Compare nella Home quando Impostazioni > Home > Giochi da è su Tutti i giochi."),
+    "{1} is copied to the {2}, and plays without the disc. Parental controls hide it on Home: its age rating is above the highest age allowed.": (
+        "{1} se ha copiado en {2} y se juega sin el disco. El control parental lo oculta en Inicio: su clasificación por edad supera la edad máxima permitida.",
+        "{1}を{2}にコピーしました。ディスクなしで遊べます。ペアレンタルコントロールにより、ホームには表示されません。対象年れいが、選んだ年れいより上です。",
+        "{1} foi copiado para {2} e funciona sem o disco. O controle dos pais o oculta no Início: a classificação etária dele está acima da idade máxima permitida.",
+        "{1} è stato copiato su {2} e si gioca senza il disco. Il controllo genitori lo nasconde nella Home: la sua classificazione per età supera l'età massima consentita."),
     "{1} is copied to the {2}, and plays without the disc. To see it on Home, choose Show > All games.": (
         "{1} se ha copiado en {2} y se juega sin el disco. Para verlo en Inicio, elige Ver > Todos los juegos.",
         "{1}を{2}にコピーしました。ディスクなしで遊べます。ホームで見るには、表示 > すべてのゲームを選んでください。",
@@ -6601,6 +6615,7 @@ MORE["ko"].update({
     "The USB drive is not FAT32, so the copy goes to the SD card.": "USB 드라이브가 FAT32가 아니라서 SD 카드에 복사합니다.",
     "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Drives > Games on the SD card is set to Look for them.": "{1}을(를) {2}에 복사했습니다. 디스크 없이 플레이할 수 있습니다. 설정 > 드라이브 > SD 카드의 게임을 찾기로 설정하면 홈에 표시됩니다.",
     "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Home > Games from is set to All games.": "{1}을(를) {2}에 복사했습니다. 디스크 없이 플레이할 수 있습니다. 설정 > 홈 > 게임 위치를 모든 게임으로 설정하면 홈에 표시됩니다.",
+    "{1} is copied to the {2}, and plays without the disc. Parental controls hide it on Home: its age rating is above the highest age allowed.": "{1}을(를) {2}에 복사했습니다. 디스크 없이 플레이할 수 있습니다. 자녀 보호 기능 때문에 홈에 표시되지 않습니다. 연령 등급이 허용된 최대 연령보다 높습니다.",
     "{1} is copied to the {2}, and plays without the disc. To see it on Home, choose Show > All games.": "{1}을(를) {2}에 복사했습니다. 디스크 없이 플레이할 수 있습니다. 홈에서 보려면 표시 > 모든 게임을 고르세요.",
 })
 MORE["fr"].update({
@@ -6630,9 +6645,126 @@ MORE["fr"].update({
     "The USB drive is not FAT32, so the copy goes to the SD card.": "Le disque USB n'est pas en FAT32 : la copie va sur la carte SD.",
     "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Drives > Games on the SD card is set to Look for them.": "{1} est copié sur : {2}, et se joue sans le disque. Il apparaît dans l'Accueil quand Paramètres > Supports > Jeux sur la carte SD est sur Les chercher.",
     "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Home > Games from is set to All games.": "{1} est copié sur : {2}, et se joue sans le disque. Il apparaît dans l'Accueil quand Paramètres > Accueil > Jeux depuis est sur Tous les jeux.",
+    "{1} is copied to the {2}, and plays without the disc. Parental controls hide it on Home: its age rating is above the highest age allowed.": "{1} est copié sur : {2}, et se joue sans le disque. Le contrôle parental le masque dans l'Accueil : sa classification par âge dépasse l'âge maximal autorisé.",
     "{1} is copied to the {2}, and plays without the disc. To see it on Home, choose Show > All games.": "{1} est copié sur : {2}, et se joue sans le disque. Pour le voir dans l'Accueil, choisissez Afficher > Tous les jeux.",
 })
 
+
+# Parental controls (riftwii/parental.hpp): the PIN pad, Settings' page and the game page's lock.
+T.update({
+    "Parental controls": ("Control parental", "ペアレンタルコントロール", "Controle dos pais", "Controllo genitori"),
+    "A PIN that locks or hides the games rated for players older than an age you pick.": ("Un PIN que bloquea u oculta los juegos clasificados para jugadores mayores que la edad que elijas.", "選んだ年れいより上向けのゲームを、PINでロックするか、かくします。", "Um PIN que bloqueia ou esconde os jogos classificados para jogadores mais velhos que a idade que você escolher.", "Un PIN che blocca o nasconde i giochi classificati per giocatori più grandi dell'età che scegli."),
+    "Parental controls PIN": ("PIN del control parental", "ペアレンタルコントロールのPIN", "PIN do controle dos pais", "PIN del controllo genitori"),
+    "Wrong PIN": ("PIN incorrecto", "PINがちがいます", "PIN incorreto", "PIN errato"),
+    "That is not the parental controls PIN.": ("Ese no es el PIN del control parental.", "ペアレンタルコントロールのPINではありません。", "Esse não é o PIN do controle dos pais.", "Questo non è il PIN del controllo genitori."),
+    "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it.": ("Este juego no tiene una clasificación por edad conocida, y el control parental bloquea los juegos sin ella. Escribe el PIN para jugar.", "このゲームは対象年れいがわからず、ペアレンタルコントロールはそういうゲームをロックしています。遊ぶにはPINを入力してください。", "Este jogo não tem uma classificação etária conhecida, e o controle dos pais bloqueia os jogos sem ela. Digite o PIN para jogar.", "Questo gioco non ha una classificazione per età nota, e il controllo genitori blocca i giochi senza. Inserisci il PIN per giocare."),
+    "This game's age rating could not be read, so parental controls lock it. Type the PIN to play it.": ("No se pudo leer la clasificación por edad de este juego, así que el control parental lo bloquea. Escribe el PIN para jugar.", "このゲームの対象年れいを読み込めなかったため、ペアレンタルコントロールがロックしています。遊ぶにはPINを入力してください。", "Não foi possível ler a classificação etária deste jogo, então o controle dos pais o bloqueia. Digite o PIN para jogar.", "Non è stato possibile leggere la classificazione per età di questo gioco, quindi il controllo genitori lo blocca. Inserisci il PIN per giocare."),
+    "This game's age rating is above what parental controls allow. Type the PIN to play it.": ("La clasificación por edad de este juego supera lo que permite el control parental. Escribe el PIN para jugar.", "このゲームの対象年れいは、ペアレンタルコントロールでみとめられた年れいより上です。遊ぶにはPINを入力してください。", "A classificação etária deste jogo passa do que o controle dos pais permite. Digite o PIN para jogar.", "La classificazione per età di questo gioco supera quanto permesso dal controllo genitori. Inserisci il PIN per giocare."),
+    "Type the PIN to change parental controls.": ("Escribe el PIN para cambiar el control parental.", "ペアレンタルコントロールを変更するにはPINを入力してください。", "Digite o PIN para mudar o controle dos pais.", "Inserisci il PIN per modificare il controllo genitori."),
+    "New PIN": ("PIN nuevo", "新しいPIN", "Novo PIN", "Nuovo PIN"),
+    "Pick four digits a child won't guess. Only a scrambled form of them is kept on the SD card.": ("Elige cuatro cifras que un niño no adivine. En la tarjeta SD solo se guarda una forma cifrada de ellas.", "こどもに当てられない4けたの数字を選んでください。SDカードには読めない形だけを保存します。", "Escolha quatro dígitos que uma criança não adivinhe. Só uma forma embaralhada deles fica no cartão SD.", "Scegli quattro cifre che un bambino non indovini. Sulla scheda SD ne resta solo una forma cifrata."),
+    "Type the new PIN again": ("Vuelve a escribir el PIN nuevo", "新しいPINをもう一度入力", "Digite o novo PIN de novo", "Inserisci di nuovo il nuovo PIN"),
+    "The same four digits, to be sure.": ("Las mismas cuatro cifras, para asegurarse.", "確認のため、同じ4けたを入力してください。", "Os mesmos quatro dígitos, para confirmar.", "Le stesse quattro cifre, per sicurezza."),
+    "PIN not changed": ("PIN sin cambiar", "PINは変更されていません", "PIN não mudado", "PIN non cambiato"),
+    "The two PINs were not the same. Nothing was changed.": ("Los dos PIN no eran iguales. No se ha cambiado nada.", "2つのPINが同じではありませんでした。何も変更していません。", "Os dois PINs não eram iguais. Nada foi mudado.", "I due PIN non erano uguali. Non è stato cambiato nulla."),
+    "Lock them": ("Bloquearlos", "ロックする", "Bloquear", "Bloccali"),
+    "Hide them": ("Ocultarlos", "かくす", "Esconder", "Nascondili"),
+    "Treat as too old": ("Tratar como no aptos", "対象外として扱う", "Tratar como não permitidos", "Trattali come non adatti"),
+    "Allow": ("Permitir", "そのまま遊べる", "Permitir", "Consenti"),
+    "PIN": ("PIN", "PIN", "PIN", "PIN"),
+    "Set": ("Poner", "設定", "Definir", "Imposta"),
+    "Parental controls are on. Change the four-digit PIN they ask for.": ("El control parental está activado. Cambia el PIN de cuatro cifras que pide.", "ペアレンタルコントロールはオンです。必要な4けたのPINを変更します。", "O controle dos pais está ligado. Mude o PIN de quatro dígitos que ele pede.", "Il controllo genitori è attivo. Cambia il PIN di quattro cifre che richiede."),
+    "Parental controls are off. Set a four-digit PIN to turn them on.": ("El control parental está desactivado. Pon un PIN de cuatro cifras para activarlo.", "ペアレンタルコントロールはオフです。4けたのPINを設定するとオンになります。", "O controle dos pais está desligado. Defina um PIN de quatro dígitos para ligá-lo.", "Il controllo genitori è disattivato. Imposta un PIN di quattro cifre per attivarlo."),
+    "Games rated too old": ("Juegos para mayores", "対象年れいが上のゲーム", "Jogos para mais velhos", "Giochi per età superiori"),
+    "Lock them: they stay on Home and ask for the PIN to start. Hide them: they are left off Home, and still ask for the PIN if started another way (a disc).": ("Bloquearlos: siguen en el inicio y piden el PIN para empezar. Ocultarlos: no aparecen en el inicio, y aun así piden el PIN si se inician de otra forma (un disco).", "ロックする: ホームに表示され、始めるときにPINが必要です。かくす: ホームに表示されず、ほかのやり方 (ディスク) で始めるときもPINが必要です。", "Bloquear: continuam no início e pedem o PIN para começar. Esconder: ficam fora do início e ainda pedem o PIN se forem iniciados de outro jeito (um disco).", "Bloccali: restano nella Home e chiedono il PIN per partire. Nascondili: non compaiono nella Home e chiedono comunque il PIN se avviati in altro modo (un disco)."),
+    "Highest age allowed": ("Edad máxima permitida", "遊べるいちばん上の年れい", "Idade máxima permitida", "Età massima consentita"),
+    "Games rated for players older than this need the PIN. The rating is GameTDB's, as the game's About page shows it.": ("Los juegos clasificados para jugadores mayores que esta edad necesitan el PIN. La clasificación es la de GameTDB, la que muestra la página Acerca del juego.", "この年れいより上向けのゲームにはPINが必要です。対象年れいはGameTDBのもので、ゲームの情報ページと同じです。", "Jogos classificados para jogadores mais velhos que isso precisam do PIN. A classificação é a do GameTDB, como na página Sobre do jogo.", "I giochi classificati per giocatori più grandi di questa età richiedono il PIN. La classificazione è quella di GameTDB, come nella pagina Info del gioco."),
+    "Games with no rating": ("Juegos sin clasificación", "対象年れいがないゲーム", "Jogos sem classificação", "Giochi senza classificazione"),
+    "Ratings come from GameTDB's database ({1} in {2} > {3}), read for a game when it starts or its About page opens. Treat as too old locks or hides the others too.": ("Las clasificaciones vienen de la base de datos de GameTDB ({1} en {2} > {3}), y se leen para un juego al iniciarlo o al abrir su página Acerca de. Tratar como no aptos bloquea u oculta también los demás.", "対象年れいはGameTDBのデータベース ({2} > {3}の「{1}」) からわかり、ゲームを始めるときか、そのゲームの「情報」を開いたときに読み込まれます。「対象外として扱う」にすると、それ以外のゲームもロックされるか、かくされます。", "As classificações vêm do banco de dados do GameTDB ({1} em {2} > {3}) e são lidas para um jogo quando ele inicia ou quando sua página Sobre é aberta. Tratar como não permitidos bloqueia ou esconde os outros também.", "Le classificazioni vengono dal database di GameTDB ({1} in {2} > {3}) e sono lette per un gioco quando si avvia o si apre la sua pagina Info. Trattali come non adatti blocca o nasconde anche gli altri."),
+    "Turn off parental controls": ("Desactivar el control parental", "ペアレンタルコントロールをオフにする", "Desligar o controle dos pais", "Disattiva il controllo genitori"),
+    "Turn off": ("Desactivar", "オフにする", "Desligar", "Disattiva"),
+    "Removes the PIN, and with it every lock. Deleting the parental_pin line in sd:/riftwii/settings.txt does the same.": ("Quita el PIN y, con él, todos los bloqueos. Borrar la línea parental_pin de sd:/riftwii/settings.txt hace lo mismo.", "PINと、すべてのロックを解除します。sd:/riftwii/settings.txt のparental_pinの行を消しても同じです。", "Remove o PIN e, com ele, todos os bloqueios. Apagar a linha parental_pin em sd:/riftwii/settings.txt faz o mesmo.", "Rimuove il PIN e, con esso, ogni blocco. Eliminare la riga parental_pin in sd:/riftwii/settings.txt fa lo stesso."),
+    "Parental controls are on": ("El control parental está activado", "ペアレンタルコントロールがオンになりました", "O controle dos pais está ligado", "Il controllo genitori è attivo"),
+    "Games rated above the age you pick ask for this PIN. To turn the controls off without it, delete the parental_pin line in sd:/riftwii/settings.txt.": ("Los juegos clasificados por encima de la edad que elijas piden este PIN. Para desactivar el control sin él, borra la línea parental_pin de sd:/riftwii/settings.txt.", "選んだ年れいより上向けのゲームは、このPINが必要です。PINなしでオフにするには、sd:/riftwii/settings.txt のparental_pinの行を消してください。", "Jogos classificados acima da idade que você escolher pedem este PIN. Para desligar o controle sem ele, apague a linha parental_pin em sd:/riftwii/settings.txt.", "I giochi classificati sopra l'età che scegli chiedono questo PIN. Per disattivare il controllo senza PIN, elimina la riga parental_pin in sd:/riftwii/settings.txt."),
+    "Turn off parental controls?": ("¿Desactivar el control parental?", "ペアレンタルコントロールをオフにしますか？", "Desligar o controle dos pais?", "Disattivare il controllo genitori?"),
+    "Every game can be started without the PIN again.": ("Todos los juegos se podrán volver a iniciar sin el PIN.", "すべてのゲームがPINなしで始められるようになります。", "Todos os jogos poderão ser iniciados sem o PIN de novo.", "Tutti i giochi potranno di nuovo essere avviati senza PIN."),
+})
+KO.update({
+    "Parental controls": "자녀 보호 기능",
+    "A PIN that locks or hides the games rated for players older than an age you pick.": "고른 나이보다 높은 연령 등급의 게임을 PIN으로 잠그거나 숨깁니다.",
+    "Parental controls PIN": "자녀 보호 기능 PIN",
+    "Wrong PIN": "PIN이 틀렸습니다",
+    "That is not the parental controls PIN.": "자녀 보호 기능의 PIN이 아닙니다.",
+    "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it.": "이 게임은 연령 등급을 알 수 없고, 자녀 보호 기능이 등급 없는 게임을 잠그고 있습니다. 플레이하려면 PIN을 입력하세요.",
+    "This game's age rating could not be read, so parental controls lock it. Type the PIN to play it.": "이 게임의 연령 등급을 읽을 수 없어 자녀 보호 기능이 잠갔습니다. 플레이하려면 PIN을 입력하세요.",
+    "This game's age rating is above what parental controls allow. Type the PIN to play it.": "이 게임의 연령 등급은 자녀 보호 기능이 허용하는 나이보다 높습니다. 플레이하려면 PIN을 입력하세요.",
+    "Type the PIN to change parental controls.": "자녀 보호 기능을 바꾸려면 PIN을 입력하세요.",
+    "New PIN": "새 PIN",
+    "Pick four digits a child won't guess. Only a scrambled form of them is kept on the SD card.": "아이가 맞히지 못할 네 자리 숫자를 고르세요. SD 카드에는 알아볼 수 없게 바꾼 형태만 저장됩니다.",
+    "Type the new PIN again": "새 PIN을 다시 입력",
+    "The same four digits, to be sure.": "확인을 위해 같은 네 자리를 입력하세요.",
+    "PIN not changed": "PIN이 바뀌지 않았습니다",
+    "The two PINs were not the same. Nothing was changed.": "두 PIN이 같지 않았습니다. 아무것도 바뀌지 않았습니다.",
+    "Lock them": "잠그기",
+    "Hide them": "숨기기",
+    "Treat as too old": "허용 안 함으로 취급",
+    "Allow": "허용",
+    "PIN": "PIN",
+    "Set": "설정",
+    "Parental controls are on. Change the four-digit PIN they ask for.": "자녀 보호 기능이 켜져 있습니다. 묻는 네 자리 PIN을 바꿉니다.",
+    "Parental controls are off. Set a four-digit PIN to turn them on.": "자녀 보호 기능이 꺼져 있습니다. 네 자리 PIN을 설정하면 켜집니다.",
+    "Games rated too old": "연령 등급이 높은 게임",
+    "Lock them: they stay on Home and ask for the PIN to start. Hide them: they are left off Home, and still ask for the PIN if started another way (a disc).": "잠그기: 홈에 그대로 있고 시작할 때 PIN을 묻습니다. 숨기기: 홈에 나오지 않으며, 다른 방법(디스크)으로 시작해도 PIN을 묻습니다.",
+    "Highest age allowed": "허용할 최고 나이",
+    "Games rated for players older than this need the PIN. The rating is GameTDB's, as the game's About page shows it.": "이 나이보다 높은 연령 등급의 게임은 PIN이 필요합니다. 등급은 게임 정보 페이지에 나오는 GameTDB의 것입니다.",
+    "Games with no rating": "등급이 없는 게임",
+    "Ratings come from GameTDB's database ({1} in {2} > {3}), read for a game when it starts or its About page opens. Treat as too old locks or hides the others too.": "등급은 GameTDB 데이터베이스({2} > {3}의 {1})에서 가져오며, 게임을 시작하거나 정보 페이지를 열 때 읽습니다. 허용 안 함으로 취급하면 나머지 게임도 잠그거나 숨깁니다.",
+    "Turn off parental controls": "자녀 보호 기능 끄기",
+    "Turn off": "끄기",
+    "Removes the PIN, and with it every lock. Deleting the parental_pin line in sd:/riftwii/settings.txt does the same.": "PIN을 지우고, 그와 함께 모든 잠금을 풉니다. sd:/riftwii/settings.txt의 parental_pin 줄을 지워도 같습니다.",
+    "Parental controls are on": "자녀 보호 기능이 켜졌습니다",
+    "Games rated above the age you pick ask for this PIN. To turn the controls off without it, delete the parental_pin line in sd:/riftwii/settings.txt.": "고른 나이보다 높은 등급의 게임은 이 PIN을 묻습니다. PIN 없이 끄려면 sd:/riftwii/settings.txt의 parental_pin 줄을 지우세요.",
+    "Turn off parental controls?": "자녀 보호 기능을 끌까요?",
+    "Every game can be started without the PIN again.": "모든 게임을 다시 PIN 없이 시작할 수 있습니다.",
+})
+FR.update({
+    "Parental controls": "Contrôle parental",
+    "A PIN that locks or hides the games rated for players older than an age you pick.": "Un code PIN qui verrouille ou masque les jeux classés pour des joueurs plus âgés que l'âge choisi.",
+    "Parental controls PIN": "Code PIN du contrôle parental",
+    "Wrong PIN": "Code PIN incorrect",
+    "That is not the parental controls PIN.": "Ce n'est pas le code PIN du contrôle parental.",
+    "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it.": "Ce jeu n'a pas de classification d'âge connue, et le contrôle parental verrouille les jeux sans classification. Entrez le code PIN pour y jouer.",
+    "This game's age rating could not be read, so parental controls lock it. Type the PIN to play it.": "La classification d'âge de ce jeu n'a pas pu être lue, donc le contrôle parental le verrouille. Entrez le code PIN pour y jouer.",
+    "This game's age rating is above what parental controls allow. Type the PIN to play it.": "La classification d'âge de ce jeu dépasse ce qu'autorise le contrôle parental. Entrez le code PIN pour y jouer.",
+    "Type the PIN to change parental controls.": "Entrez le code PIN pour modifier le contrôle parental.",
+    "New PIN": "Nouveau code PIN",
+    "Pick four digits a child won't guess. Only a scrambled form of them is kept on the SD card.": "Choisissez quatre chiffres qu'un enfant ne devinera pas. Seule une forme brouillée est gardée sur la carte SD.",
+    "Type the new PIN again": "Entrez de nouveau le nouveau code PIN",
+    "The same four digits, to be sure.": "Les quatre mêmes chiffres, pour confirmer.",
+    "PIN not changed": "Code PIN inchangé",
+    "The two PINs were not the same. Nothing was changed.": "Les deux codes PIN n'étaient pas identiques. Rien n'a été modifié.",
+    "Lock them": "Les verrouiller",
+    "Hide them": "Les masquer",
+    "Treat as too old": "Traiter comme trop âgés",
+    "Allow": "Autoriser",
+    "PIN": "Code PIN",
+    "Set": "Définir",
+    "Parental controls are on. Change the four-digit PIN they ask for.": "Le contrôle parental est activé. Changez le code PIN à quatre chiffres qu'il demande.",
+    "Parental controls are off. Set a four-digit PIN to turn them on.": "Le contrôle parental est désactivé. Définissez un code PIN à quatre chiffres pour l'activer.",
+    "Games rated too old": "Jeux pour plus âgés",
+    "Lock them: they stay on Home and ask for the PIN to start. Hide them: they are left off Home, and still ask for the PIN if started another way (a disc).": "Les verrouiller : ils restent sur l'accueil et demandent le code PIN pour démarrer. Les masquer : ils n'apparaissent plus sur l'accueil, et demandent quand même le code PIN s'ils sont lancés autrement (un disque).",
+    "Highest age allowed": "Âge maximum autorisé",
+    "Games rated for players older than this need the PIN. The rating is GameTDB's, as the game's About page shows it.": "Les jeux classés pour des joueurs plus âgés que cela demandent le code PIN. La classification est celle de GameTDB, comme sur la page À propos du jeu.",
+    "Games with no rating": "Jeux sans classification",
+    "Ratings come from GameTDB's database ({1} in {2} > {3}), read for a game when it starts or its About page opens. Treat as too old locks or hides the others too.": "Les classifications viennent de la base de données de GameTDB ({1} dans {2} > {3}), lue pour un jeu quand il démarre ou quand sa page À propos s'ouvre. Traiter comme trop âgés verrouille ou masque aussi les autres.",
+    "Turn off parental controls": "Désactiver le contrôle parental",
+    "Turn off": "Désactiver",
+    "Removes the PIN, and with it every lock. Deleting the parental_pin line in sd:/riftwii/settings.txt does the same.": "Supprime le code PIN, et avec lui tous les verrous. Effacer la ligne parental_pin de sd:/riftwii/settings.txt fait de même.",
+    "Parental controls are on": "Le contrôle parental est activé",
+    "Games rated above the age you pick ask for this PIN. To turn the controls off without it, delete the parental_pin line in sd:/riftwii/settings.txt.": "Les jeux classés au-dessus de l'âge choisi demandent ce code PIN. Pour désactiver le contrôle sans lui, effacez la ligne parental_pin de sd:/riftwii/settings.txt.",
+    "Turn off parental controls?": "Désactiver le contrôle parental ?",
+    "Every game can be started without the PIN again.": "Tous les jeux pourront de nouveau être lancés sans le code PIN.",
+})
 
 def escape(s):
     return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
