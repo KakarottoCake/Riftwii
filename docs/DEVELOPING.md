@@ -353,7 +353,12 @@ emulated one: `SlotB = 7`, read with `tools/dolphin/gecko_log.py`):
   WiiRD or Gecko dotNET on the PC can then pause the game, read and
   write memory, set breakpoints and send codes. `pause` holds the game
   at its first frame until the PC lets it go. With no USB Gecko in
-  either slot the plain handler is used and `boot.log` says so. The
+  either slot the plain handler is used and `boot.log` says so. So it is
+  for a game whose launch puts RiftWii's hooks right after the code
+  handler (code builds, and the games that clear the top of MEM1,
+  `game_clears_mem1_top`): the debugger's longer handler would run over
+  them, so WiiRD and `pause` are off for that game, even with a USB
+  Gecko in a slot (`boot.log`: "WiiRD debugger: off for this game"). The
   handler's breakpoints write branches into the game's exception vectors
   (0x80000300, 0x80000D00, 0x80001300) when the PC asks for one, so an
   exception there goes to the debugger rather than to the game's own
