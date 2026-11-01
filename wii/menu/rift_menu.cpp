@@ -1822,6 +1822,9 @@ private:
 
 // Covers: the games looked at this session; off after a network failure.
 static std::set<std::string> g_coversChecked;
+// Choose cover saved or removed the player's own cover: the game page's band
+// and box show the new one (their pictures are kept until told).
+static bool g_coverPicked = false;
 static bool g_coversOff = false;
 // Emulator sources can fail while GameTDB still answers, and vice versa.
 static bool g_emulatorCoversOff = false;
@@ -5649,6 +5652,7 @@ static bool PickGameCover(FrontendState& state)
 			return FindGameCovers(modId, gameId, candidates, error);
 		}, false, CoverPicturePreview());
 	if (picked != 1) return false;
+	g_coverPicked = true;
 	ForgetCover(state.game_id);
 	g_coversChecked.erase(key);
 	logf("Cover picker: %s now shows %s.\n", key.c_str(),
@@ -8308,7 +8312,10 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 			set.dim = true;
 		}
 		add(set, {RowRef::What::CoverSet});
-		// Any of GameTDB's covers, kept as the player's own (wiiu#6).
+	}
+	if (!state.game_id.empty()) {
+		// Any of GameTDB's covers, kept as the player's own (wiiu#6). Also
+		// with Downloads off, where Back to automatic still removes one.
 		FlowRow pick;
 		pick.kind = FlowRow::Kind::Action;
 		pick.label = tr("Choose cover");
@@ -13976,10 +13983,15 @@ static int MenuHome(FrontendState& state)
 					hero.SetCoverName(tileCover);
 					banner.SetCoverName(tileCover);
 					askTileCover(tileCover);
+				} else if (g_coverPicked) {
+					// Choose cover changed the player's own cover.
+					hero.SetCoverName(PageCoverName(state));
+					banner.SetCoverName(PageCoverName(state));
 				} else if (riftwii::wii::CoverSecondSet(state.game_id) != secondBefore) {
 					// Another GameTDB cover set: the band's art was the old one's.
 					banner.SetCoverName(PageCoverName(state));
 				}
+				g_coverPicked = false;
 				rebuildTiles();
 				shownTile = -1;
 				if (askedCover && !state.game_id.empty()) {
