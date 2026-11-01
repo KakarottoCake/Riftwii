@@ -115,6 +115,7 @@
 #include "riftwii/apply.hpp"
 #include "riftwii/patch.hpp"
 #include "codebuilds.hpp"
+#include "codemodstart.hpp"
 #include "gclaunch.hpp"
 #include "gcplugin.hpp"
 #include "gc_crash.h"
@@ -3463,6 +3464,37 @@ static int ShowPopupSafeFirst(const std::string& title, const std::string& body,
 	return box.Wait();
 }
 
+// The Mods page's name for a code build's remembered start.
+static std::string CodeModStartName(riftwii::CodeModStart start)
+{
+	return start == riftwii::CodeModStart::With ? tr("With extras")
+		: start == riftwii::CodeModStart::Without ? tr("Without extras")
+		: start == riftwii::CodeModStart::AskEachTime ? tr("Ask each time")
+		: tr("Asked at the first Start");
+}
+
+// With extras, Without extras, Ask each time, round in `direction`; a mod
+// not answered yet goes to the first or the last.
+static riftwii::CodeModStart NextCodeModStart(riftwii::CodeModStart start, int direction)
+{
+	static const riftwii::CodeModStart kOrder[] = {riftwii::CodeModStart::With, riftwii::CodeModStart::Without,
+		riftwii::CodeModStart::AskEachTime};
+	int at = -1;
+	for (int i = 0; i < 3; ++i)
+		if (kOrder[i] == start) at = i;
+	if (at < 0) return kOrder[direction < 0 ? 2 : 0];
+	return kOrder[(at + (direction < 0 ? 2 : 1)) % 3];
+}
+
+// The code builds switched on for the next start, by key.
+static std::vector<std::string> CodeModsOn(const FrontendState& state)
+{
+	std::vector<std::string> keys;
+	for (const riftwii::LaunchPackage& p : state.model.packages)
+		if (p.enabled && p.code_build()) keys.push_back(p.file);
+	return keys;
+}
+
 // Keep each selected pack visible, even when another pack has many missing
 // files. The full paths are in the log; the popup shows a few useful ones.
 static const char* MissingModExplanation()
@@ -3585,13 +3617,36 @@ static bool CodeModOn(const FrontendState& state)
 // Start with a code mod on: with RiftWii's extras or without them, as the
 // mod's own loader starts it. Mods differ: Project+ runs with the extras,
 // REX went to a black screen on a tester's Wii U (2610-412) and starts
-// from its own loader there. False: B, back to the game page.
+// from its own loader there. Asked once for each mod and remembered
+// (codemodstart.hpp); its row on the Mods page changes it. False: B, back
+// to the game page.
 static bool PickCodeModStart(FrontendState& state)
 {
 	state.code_build_plain = false;
+	state.code_build_asked = false;
 	if (!CodeModOn(state)) return true;
+	state.code_build_asked = true;
+	const std::vector<std::string> keys = CodeModsOn(state);
+	std::string names;
+	for (const std::string& key : keys) names += (names.empty() ? "" : ", ") + PackName(key);
+	const riftwii::CodeModStart remembered = riftwii::wii::SharedCodeModAnswer(state.game_id, keys);
+	if (remembered == riftwii::CodeModStart::With || remembered == riftwii::CodeModStart::Without) {
+		state.code_build_plain = remembered == riftwii::CodeModStart::Without;
+		logf("Start: %s starts %s RiftWii's extras, as remembered in codemods.txt\n", names.c_str(),
+		     state.code_build_plain ? "without" : "with");
+		return true;
+	}
+	// Named only the mods the answer will be kept for: those without one
+	// yet (one set to Ask each time, or with an answer of its own, keeps it).
+	std::string remembering;
+	for (const std::string& key : keys)
+		if (riftwii::wii::CodeModAnswer(state.game_id, key) == riftwii::CodeModStart::Unset)
+			remembering += (remembering.empty() ? "" : ", ") + PackName(key);
 	PopupBox box(tr("How should this code mod start?"),
-		tr("Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would."),
+		remembering.empty()
+			? tr("Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would.")
+			: tr("Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it.",
+			     {FlatCapped(remembering, 24)}),  // the names cut short, so the three lines keep the rest
 		"", tr("Back"));
 	box.CenterCancel();
 	// The text's three lines at most (from y 158, 22 apart) end at 224,
@@ -3625,7 +3680,20 @@ static bool PickCodeModStart(FrontendState& state)
 	}
 	if (back) return false;
 	state.code_build_plain = picked == 1;
-	logf("Start: the code mod starts %s RiftWii's extras\n", state.code_build_plain ? "without" : "with");
+	logf("Start: %s starts %s RiftWii's extras\n", names.c_str(), state.code_build_plain ? "without" : "with");
+	// Kept for each mod that had no answer; one that had its own, or asks
+	// each time, keeps it.
+	// The game starts either way; the player hears the answer wasn't kept.
+	if (!remembering.empty()) {
+		const riftwii::wii::CodeModAnswerKept kept = riftwii::wii::RememberCodeModAnswer(state.game_id, keys,
+			state.code_build_plain ? riftwii::CodeModStart::Without : riftwii::CodeModStart::With);
+		if (kept != riftwii::wii::CodeModAnswerKept::Saved)
+			ShowPopup(tr("How should this code mod start?"),
+				kept == riftwii::wii::CodeModAnswerKept::UntilClose
+					? tr("Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes.")
+					: tr("This answer was not kept: sd:/riftwii/codemods.txt can't take it now."),
+				tr("OK"));
+	}
 	return true;
 }
 
@@ -6596,6 +6664,7 @@ static int MenuSource(FrontendState& state)
 				const riftwii::SdHotplugEvent sdEvent = g_sdWatch.update(SdWatchInsertedNow());
 				if (sdEvent == riftwii::SdHotplugEvent::Removed && !g_sdGone && !g_sdRemovalPending) {
 					riftwii::wii::NetCancelBackground();
+					riftwii::wii::HoldCodeModAnswers(true);
 					g_sdRemovalPending = true;
 					toast.Show(tr("The SD card was taken out."), true);
 				}
@@ -6651,6 +6720,7 @@ static int MenuSource(FrontendState& state)
 						riftwii::wii::ForgetCardHistoryAndOrder();
 						riftwii::wii::ForgetProfiles();
 						riftwii::wii::ForgetProfilePictures();
+						riftwii::wii::HoldCodeModAnswers(false);
 						riftwii::wii::ForgetAllCovers();
 						ForgetAllIcons();
 						// Classifications and homebrew titles come from this
@@ -7640,7 +7710,7 @@ struct RowRef {
 	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Aspect, Rumble, Speaker,
 		RegionStrings, Language, Cios, NandSource, Server, Favorite, Pack, Option, Note, ResetOptions,
 		AddCodes, ForgetCodes, MakeImage, Cover, Memory, About, GcDiscReads, GcCard, GcProgressive, GcWidescreen,
-		GcSharp, GcWidth, GcSpeed, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile, CoverSet } what = What::Note;
+		GcSharp, GcWidth, GcSpeed, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile, CodeStart, CoverSet } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -10609,6 +10679,17 @@ static void BuildModRows(const FrontendState& state, const std::string& scanStat
 			add(image, {RowRef::What::MakeImage, i});
 		}
 		if (!p.enabled) continue;
+		// How the code build starts, remembered for it on every page and
+		// tile (codemodstart.hpp).
+		if (p.code_build()) {
+			FlowRow start;
+			start.kind = FlowRow::Kind::Option;
+			start.indent = true;
+			start.label = tr("Start");
+			start.value = CodeModStartName(riftwii::wii::CodeModAnswer(state.game_id, p.file));
+			start.on = true;
+			add(start, {RowRef::What::CodeStart, i});
+		}
 		for (std::size_t o = 0; o < p.package.options.size(); ++o) {
 			// An option merged across packs shows once, under the
 			// first enabled pack that has it.
@@ -12517,6 +12598,9 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 			else if (ref.what == RowRef::What::Option) {
 				const riftwii::Option& o = state.model.packages[ref.pkg].package.options[ref.opt];
 				say(o.section.empty() ? PackName(state.model.packages[ref.pkg].file) : o.section);
+			} else if (ref.what == RowRef::What::CodeStart) {
+				say(tr("For {1} on every page and tile it's switched on in. Ask each time brings the question back at Start.",
+				       {PackName(state.model.packages[ref.pkg].file)}));
 			} else if (ref.what == RowRef::What::AddCodes) {
 				say("For mods made of Gecko codes, like Project+ builds: pick the build's code file on the SD card.");
 			} else if (ref.what == RowRef::What::ForgetCodes) {
@@ -12565,6 +12649,21 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 				}
 			} else if (ref.what == RowRef::What::Option) {
 				changed = state.model.cycle(ref.pkg, ref.opt, direction);
+			} else if (ref.what == RowRef::What::CodeStart) {
+				// Not the game's choices: the answer is the mod's own.
+				const std::string& key = state.model.packages[ref.pkg].file;
+				const riftwii::CodeModStart next = NextCodeModStart(riftwii::wii::CodeModAnswer(state.game_id, key), direction);
+				const riftwii::wii::CodeModAnswerKept kept = riftwii::wii::SetCodeModAnswer(state.game_id, key, next);
+				if (kept == riftwii::wii::CodeModAnswerKept::UntilClose)
+					say(tr("Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes."));
+				else if (kept == riftwii::wii::CodeModAnswerKept::NotKept)
+					say(tr("This answer was not kept: sd:/riftwii/codemods.txt can't take it now."));
+				else
+					shownRow = -1;
+				logf("Mods: %s on %s starts: %s\n", key.c_str(), state.game_id.c_str(), CodeModStartName(next).c_str());
+				BuildModRows(state, scanStatus, rows, refs);
+				list.Refresh();
+				list.Select(acted);
 			} else if (ref.what == RowRef::What::SaveTile || ref.what == RowRef::What::RenameTile) {
 				const bool renaming = ref.what == RowRef::What::RenameTile;
 				std::string name = renaming ? state.profile_name : SuggestedTileName(state);
