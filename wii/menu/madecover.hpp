@@ -32,9 +32,14 @@ void DrawMadeUpCover(const u8* cover, float x, float y, int alpha = 255, float s
 // for since the last frame, a few at a time.
 void MakeUpCovers();
 
-// The colour the made-up covers print names in: dark on a light blank
-// cover, light on a dark one. The shelf writes names down the matching
-// spines in it.
-GXColor MadeUpCoverInk();
+// The spine that goes with a made-up cover is this strip of the blank
+// cover's columns (of its 160), stretched down the spine (gui_shelf.cpp).
+constexpr int kMadeUpSpineLeft = 3;
+constexpr int kMadeUpSpineRight = 15;
+
+// The colour to write a name down that spine in: dark on a light strip,
+// light on a dark one, judged from the strip itself (a theme's blank
+// cover can have a dark edge round a light middle).
+GXColor MadeUpSpineInk();
 
 }  // namespace riftwii::wii

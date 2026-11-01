@@ -83,8 +83,8 @@ constexpr float kSpineLabelPart = 0.78f;  // stop above the spine's colour band
 // edge (the painted blank cover's band ends 16 of its 224 pixels down and
 // its foot strip starts at 195, inside the case's rim). The name gets
 // about as much of the spine as on a bare one.
-constexpr float kPaperSpineU0 = 3.0f / 160.0f;
-constexpr float kPaperSpineU1 = 15.0f / 160.0f;
+constexpr float kPaperSpineU0 = riftwii::wii::kMadeUpSpineLeft / 160.0f;
+constexpr float kPaperSpineU1 = riftwii::wii::kMadeUpSpineRight / 160.0f;
 constexpr float kPaperLabelTop = 0.07f;  // the text keeps its own margin under the band
 constexpr float kPaperLabelPart = 0.845f;
 constexpr float kPaperStripeTop = 0.85f;
@@ -1149,13 +1149,13 @@ void GuiGameGrid::DrawShelf(int alpha) {
             fit = {title, Fit(title, layout.room), layout.room, layout.fontSize};
             measure->SetFontSize(spine::kSpineTextSize);
         }
-        // On paper, the made-up cover's ink. On plastic, dark letters on a
-        // light case, light ones on a dark case (black, red: Rec. 601
-        // brightness under half).
+        // On paper, an ink for the strip of the blank cover it shows. On
+        // plastic, dark letters on a light case, light ones on a dark case
+        // (black, red: Rec. 601 brightness under half).
         const GXColor plastic = CasePlastic(item.id, item.caseColour);
         const int brightness = (plastic.r * 299 + plastic.g * 587 + plastic.b * 114) / 1000;
         const GXColor plasticInk = brightness < 128 ? GXColor{240, 240, 236, 255} : GXColor{40, 40, 48, 255};
-        spineText->SetColor(l.paper ? riftwii::wii::MadeUpCoverInk() : plasticInk);
+        spineText->SetColor(l.paper ? riftwii::wii::MadeUpSpineInk() : plasticInk);
         spineText->SetText(fit.text.c_str());
         spineText->SetFontSize(layout.fontSize);
         spineText->SetAlpha(alpha);
