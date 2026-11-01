@@ -1431,6 +1431,24 @@ msgstr "이 코드 모드를 어떻게 시작할까요?"
 msgid "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would."
 msgstr "코드 모드마다 다릅니다. Project+ 같은 대부분의 모드는 RiftWii의 추가 기능과 함께 잘 실행됩니다. 화면이 검은 채로 멈추는 모드는 모드 자체 로더처럼 추가 기능 없이 시작하세요."
 
+msgid "Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it."
+msgstr "Project+ 같은 대부분의 코드 모드는 RiftWii의 추가 기능과 함께 실행됩니다. 화면이 검은 채로 멈추면 추가 기능 없이 시작하세요. RiftWii가 {1}에 대해 이 선택을 기억합니다. 모드 페이지에서 바꿀 수 있습니다."
+
+msgid "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes."
+msgstr "sd:/riftwii/codemods.txt에 쓸 수 없습니다. 이 선택은 RiftWii를 닫을 때까지만 유지됩니다."
+
+msgid "This answer was not kept: sd:/riftwii/codemods.txt can't take it now."
+msgstr "이 선택은 저장되지 않았습니다. 지금은 sd:/riftwii/codemods.txt에 넣을 수 없습니다."
+
+msgid "Asked at the first Start"
+msgstr "처음 시작할 때 묻습니다"
+
+msgid "Ask each time"
+msgstr "매번 묻기"
+
+msgid "For {1} on every page and tile it's switched on in. Ask each time brings the question back at Start."
+msgstr "{1}이(가) 켜진 모든 페이지와 타일에 적용됩니다. '매번 묻기'로 하면 시작할 때마다 다시 묻습니다."
+
 msgid "With extras"
 msgstr "추가 기능 사용"
 
@@ -2328,11 +2346,11 @@ msgstr "초기화"
 msgid "Reset all settings?"
 msgstr "모든 설정을 초기화할까요?"
 
-msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept."
-msgstr "모든 설정이 RiftWii의 기본값으로 돌아가고 RiftWii가 다시 시작됩니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다."
+msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "모든 설정이 RiftWii의 기본값으로 돌아가고 RiftWii가 다시 시작됩니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드, 자녀 보호 기능은 그대로 유지됩니다."
 
-msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept."
-msgstr "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다."
+msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드, 자녀 보호 기능은 그대로 유지됩니다."
 
 msgid "Settings reset to the defaults"
 msgstr "설정을 기본값으로 초기화했습니다"
@@ -2382,23 +2400,23 @@ msgstr "홈에 표시할 게임: 모든 드라이브와 Wii 본체의 게임, �
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "이 게임의 데이터가 Wii에서 삭제되어 시작할 수 없습니다."
 
-msgid "Home: a Layout button and a Show chooser"
-msgstr "홈에 배치 버튼과 표시 선택"
+msgid "A cleaner, lighter menu font"
+msgstr "더 깔끔하고 가벼운 메뉴 글꼴"
 
-msgid "WiiWare and VC played straight from WADs"
-msgstr "WiiWare와 VC를 WAD에서 바로 플레이"
+msgid "USB gamepads and Xbox 360 pads in games"
+msgstr "게임에서 USB와 Xbox 360 컨트롤러"
 
-msgid "Pictures for emulator games, and a picker"
-msgstr "에뮬레이터 게임 이미지와 선택 화면"
+msgid "Your own covers, and GameTDB's second cover"
+msgstr "직접 넣은 커버와 GameTDB의 두 번째 커버"
 
-msgid "Banner music and disc art on game pages"
-msgstr "게임 페이지에 배너 음악과 디스크 이미지"
+msgid "Home's shortcuts on every controller"
+msgstr "모든 컨트롤러에서 홈 바로가기"
 
-msgid "Asks first when mod files are missing"
-msgstr "모드 파일이 없으면 먼저 확인"
+msgid "Fixes for 007 games and Prince of Persia"
+msgstr "007 게임과 페르시아의 왕자 수정"
 
-msgid "Clearer messages when something goes wrong"
-msgstr "문제가 생겼을 때 더 알기 쉬운 메시지"
+msgid "No more freeze with a 4th Wii Remote"
+msgstr "4번째 Wii 리모컨에서 더 이상 멈추지 않음"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWii 추가 기능이 쓰는 메모리"
@@ -3035,6 +3053,114 @@ msgstr "위/아래: 장르   떼기: 보기"
 
 msgid "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii."
 msgstr "메뉴가 영어로 표시됩니다. RiftWii zip의 apps/riftwii/korean.ttf를 SD 카드에 복사하고 RiftWii 메뉴 글꼴을 선택하거나, 한국 Wii에서 Wii 메뉴 글꼴을 사용하세요."
+
+msgid "Parental controls"
+msgstr "자녀 보호 기능"
+
+msgid "A PIN that locks or hides the games rated for players older than an age you pick."
+msgstr "고른 나이보다 높은 연령 등급의 게임을 PIN으로 잠그거나 숨깁니다."
+
+msgid "Parental controls PIN"
+msgstr "자녀 보호 기능 PIN"
+
+msgid "Wrong PIN"
+msgstr "PIN이 틀렸습니다"
+
+msgid "That is not the parental controls PIN."
+msgstr "자녀 보호 기능의 PIN이 아닙니다."
+
+msgid "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it."
+msgstr "이 게임은 연령 등급을 알 수 없고, 자녀 보호 기능이 등급 없는 게임을 잠그고 있습니다. 플레이하려면 PIN을 입력하세요."
+
+msgid "This game's age rating could not be read, so parental controls lock it. Type the PIN to play it."
+msgstr "이 게임의 연령 등급을 읽을 수 없어 자녀 보호 기능이 잠갔습니다. 플레이하려면 PIN을 입력하세요."
+
+msgid "This game's age rating is above what parental controls allow. Type the PIN to play it."
+msgstr "이 게임의 연령 등급은 자녀 보호 기능이 허용하는 나이보다 높습니다. 플레이하려면 PIN을 입력하세요."
+
+msgid "Type the PIN to change parental controls."
+msgstr "자녀 보호 기능을 바꾸려면 PIN을 입력하세요."
+
+msgid "New PIN"
+msgstr "새 PIN"
+
+msgid "Pick four digits a child won't guess. Only a scrambled form of them is kept on the SD card."
+msgstr "아이가 맞히지 못할 네 자리 숫자를 고르세요. SD 카드에는 알아볼 수 없게 바꾼 형태만 저장됩니다."
+
+msgid "Type the new PIN again"
+msgstr "새 PIN을 다시 입력"
+
+msgid "The same four digits, to be sure."
+msgstr "확인을 위해 같은 네 자리를 입력하세요."
+
+msgid "PIN not changed"
+msgstr "PIN이 바뀌지 않았습니다"
+
+msgid "The two PINs were not the same. Nothing was changed."
+msgstr "두 PIN이 같지 않았습니다. 아무것도 바뀌지 않았습니다."
+
+msgid "Lock them"
+msgstr "잠그기"
+
+msgid "Hide them"
+msgstr "숨기기"
+
+msgid "Treat as too old"
+msgstr "허용 안 함으로 취급"
+
+msgid "Allow"
+msgstr "허용"
+
+msgid "PIN"
+msgstr "PIN"
+
+msgid "Set"
+msgstr "설정"
+
+msgid "Parental controls are on. Change the four-digit PIN they ask for."
+msgstr "자녀 보호 기능이 켜져 있습니다. 묻는 네 자리 PIN을 바꿉니다."
+
+msgid "Parental controls are off. Set a four-digit PIN to turn them on."
+msgstr "자녀 보호 기능이 꺼져 있습니다. 네 자리 PIN을 설정하면 켜집니다."
+
+msgid "Games rated too old"
+msgstr "연령 등급이 높은 게임"
+
+msgid "Lock them: they stay on Home and ask for the PIN to start. Hide them: they are left off Home, and still ask for the PIN if started another way (a disc)."
+msgstr "잠그기: 홈에 그대로 있고 시작할 때 PIN을 묻습니다. 숨기기: 홈에 나오지 않으며, 다른 방법(디스크)으로 시작해도 PIN을 묻습니다."
+
+msgid "Highest age allowed"
+msgstr "허용할 최고 나이"
+
+msgid "Games rated for players older than this need the PIN. The rating is GameTDB's, as the game's About page shows it."
+msgstr "이 나이보다 높은 연령 등급의 게임은 PIN이 필요합니다. 등급은 게임 정보 페이지에 나오는 GameTDB의 것입니다."
+
+msgid "Games with no rating"
+msgstr "등급이 없는 게임"
+
+msgid "Ratings come from GameTDB's database ({1} in {2} > {3}), read for a game when it starts or its About page opens. Treat as too old locks or hides the others too."
+msgstr "등급은 GameTDB 데이터베이스({2} > {3}의 {1})에서 가져오며, 게임을 시작하거나 정보 페이지를 열 때 읽습니다. 허용 안 함으로 취급하면 나머지 게임도 잠그거나 숨깁니다."
+
+msgid "Turn off parental controls"
+msgstr "자녀 보호 기능 끄기"
+
+msgid "Turn off"
+msgstr "끄기"
+
+msgid "Removes the PIN, and with it every lock. Deleting the parental_pin line in sd:/riftwii/settings.txt does the same."
+msgstr "PIN을 지우고, 그와 함께 모든 잠금을 풉니다. sd:/riftwii/settings.txt의 parental_pin 줄을 지워도 같습니다."
+
+msgid "Parental controls are on"
+msgstr "자녀 보호 기능이 켜졌습니다"
+
+msgid "Games rated above the age you pick ask for this PIN. To turn the controls off without it, delete the parental_pin line in sd:/riftwii/settings.txt."
+msgstr "고른 나이보다 높은 등급의 게임은 이 PIN을 묻습니다. PIN 없이 끄려면 sd:/riftwii/settings.txt의 parental_pin 줄을 지우세요."
+
+msgid "Turn off parental controls?"
+msgstr "자녀 보호 기능을 끌까요?"
+
+msgid "Every game can be started without the PIN again."
+msgstr "모든 게임을 다시 PIN 없이 시작할 수 있습니다."
 
 msgid "Channel background"
 msgstr "채널 배경"
