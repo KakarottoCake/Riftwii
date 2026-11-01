@@ -22,6 +22,7 @@
 #include "pad_hook.h"
 #include "pentablet.h"
 #include "riftwii/hook.hpp"
+#include "riftwii/mempatch.hpp"
 #include "riftwii/osrestart.hpp"
 #include "riftwii/symsearch.hpp"
 #include "riftwii_pad_bin.h"
@@ -146,9 +147,11 @@ void sync_code(std::uint32_t address, std::uint32_t bytes) {
     ICInvalidateRange(reinterpret_cast<void*>(address), bytes);
 }
 
+// Compare where the patch lands, as patch application does.
 bool overlaps(const MemoryPatch& p, std::uint32_t start, std::uint32_t bytes) {
     if (!p.has_offset || p.value.empty()) return false;
-    return p.offset < static_cast<std::uint64_t>(start) + bytes && p.offset + p.value.size() > start;
+    const auto target = static_cast<std::uint64_t>(memory_patch_target(p));
+    return target < static_cast<std::uint64_t>(start) + bytes && target + p.value.size() > start;
 }
 
 }  // namespace
