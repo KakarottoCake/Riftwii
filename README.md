@@ -143,7 +143,9 @@ contains theirs names them in its file header, and
   debugger's handler choice and pause at start (`load_handler`); channel
   application type and BI2 setup, checked alongside USB Loader GX; RiftWii's
   boot context and SD mount lifetime also follow the behavior documented by
-  USB Loader GX, d2x and Dolphin (source commits in NOTICE.md). Its cover
+  USB Loader GX, d2x and Dolphin (source commits in NOTICE.md). Its disc
+  install is the model for Settings > Copy a game disc (the WBFS file, its
+  folder and its pieces; RiftWii keeps every partition). Its cover
   flow's boxes are the model for the Home shelf's cases: the plastic
   showing round the paper in the case's color, chosen from the player's
   own colors, then GameTDB's, then a series', then black for GameCube
