@@ -1085,6 +1085,7 @@ struct ExtrasContext {
     bool gx_protected = false;
     bool code_build = false;
     bool plain_code_build = false;
+    bool codes_use_mem2_top = false;  // a Brawl code build (game_codes_use_mem2_top)
     bool clears_mem1_top = false;
     bool retail_bca = false;  // the BCA read is to be answered as a retail disc's
 };
@@ -1133,6 +1134,10 @@ struct GameExtras {
     }
 };
 
+// MEM2 a Brawl code build keeps free above the adapter's blob, in case its
+// codes write there (game_codes_use_mem2_top).
+constexpr std::uint32_t kBrawlCodeRoom = 0x20000;
+
 // Before the <memory> patches, on the game as loaded: where each extra's
 // blob goes, and whether it can go in at all. `out.pad` holds what
 // prepare_gc_pads found. Says in boot.log what is off and why.
@@ -1151,9 +1156,14 @@ void plan_game_extras(const DolHeader& dol, const ExtrasContext& ctx, GameExtras
         if (!plan_pad_hook(dol, ctx.arena1_hi, ctx.mem1_floor, ctx.arena2_lo,
                            resident != nullptr ? resident->ioctl_async_original : 0,
                            resident != nullptr ? resident->ioctlv_async_original : 0, patches, out.pad, why,
-                           pad_veneers, resident_stage)) {
+                           pad_veneers, resident_stage, ctx.codes_use_mem2_top ? kBrawlCodeRoom : 0)) {
             logf("GameCube adapter: off: %s\n", why.c_str());
         } else {
+            if (ctx.codes_use_mem2_top) {
+                const std::uint32_t room = out.pad.state_base + out.pad.state_bytes;
+                logf("GameCube adapter: a Brawl code build: 128 KiB kept free above it, 0x%08x-0x%08x\n", room,
+                     room + kBrawlCodeRoom);
+            }
             // Saves on the SD card are written by the runtime's own card
             // driver, which the way back's submit hook doesn't read: it
             // watches the runtime's last save write instead, and whether
@@ -2424,6 +2434,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     extras_context.gx_protected = gx_protected;
     extras_context.code_build = code_build;
     extras_context.plain_code_build = plain_code_build;
+    extras_context.codes_use_mem2_top = code_build && game_codes_use_mem2_top(probe.header.game_id);
     extras_context.clears_mem1_top = clears_mem1_top;
     extras_context.retail_bca = options.retail_bca;
     // An RVZ game whose adapter could not be planned (or later installed)

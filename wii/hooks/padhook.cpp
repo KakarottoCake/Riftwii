@@ -22,6 +22,7 @@
 #include "pad_hook.h"
 #include "pentablet.h"
 #include "riftwii/hook.hpp"
+#include "riftwii/mempatch.hpp"
 #include "riftwii/osrestart.hpp"
 #include "riftwii/symsearch.hpp"
 #include "riftwii_pad_bin.h"
@@ -146,9 +147,11 @@ void sync_code(std::uint32_t address, std::uint32_t bytes) {
     ICInvalidateRange(reinterpret_cast<void*>(address), bytes);
 }
 
+// Compare where the patch lands, as patch application does.
 bool overlaps(const MemoryPatch& p, std::uint32_t start, std::uint32_t bytes) {
     if (!p.has_offset || p.value.empty()) return false;
-    return p.offset < static_cast<std::uint64_t>(start) + bytes && p.offset + p.value.size() > start;
+    const auto target = static_cast<std::uint64_t>(memory_patch_target(p));
+    return target < static_cast<std::uint64_t>(start) + bytes && target + p.value.size() > start;
 }
 
 }  // namespace
@@ -749,7 +752,7 @@ void close_pad_handles(PadHook& out) {
 bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
                    std::uint32_t ioctl_async, std::uint32_t ioctlv_async,
                    const std::vector<MemoryPatch>& patches, PadHook& out, std::string& why,
-                   std::uint32_t mem1_veneer, std::uint32_t stage_base) {
+                   std::uint32_t mem1_veneer, std::uint32_t stage_base, std::uint32_t top_room) {
     const rt_pad_header& h = header();
     const bool demo = out.demo;
     if (out.read == 0) {
@@ -799,11 +802,11 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
                                        : read32(kMem2ArenaEndField);
     if (mem1_veneer != 0) {
         const std::uint32_t bytes = out.code_bytes + out.state_bytes;
-        const std::uint32_t base = (arena2_end - bytes) & ~31u;
+        const std::uint32_t base = (arena2_end - top_room - bytes) & ~31u;
         // Below this loader's own MEM2 the blob would be overwritten before
         // the jump; below the arena's start it would be the game's heap.
         const std::uint32_t loader_top = reinterpret_cast<std::uint32_t>(SYS_GetArena2Hi());
-        const bool fits = arena2_end >= bytes && base >= loader_top && base >= align_up(arena2_lo);
+        const bool fits = arena2_end >= bytes + top_room && base >= loader_top && base >= align_up(arena2_lo);
         if (!fits) {
             char buf[160];
             std::snprintf(buf, sizeof(buf),
