@@ -1332,6 +1332,7 @@ bool GuiGameGrid::ShelfFlightFrom(int index, ShelfFlight& out) const {
     if ((*items)[index].badge == "DISC") return false;
     const BoxPose& p = poses[index];
     out.id = (*items)[index].id;
+    out.coverName = CoverName((*items)[index]);
     out.hue = (*items)[index].hue;
     out.caseColour = (*items)[index].caseColour;
     out.x = p.x;
@@ -1372,7 +1373,7 @@ void DrawShelfFlight(const ShelfFlight& from, float toX, float toY, float toW, f
     const u8* art = riftwii::wii::BoxTexture(from.id);
     const u8* cover = art ? nullptr : riftwii::wii::CoverTexture(from.id);
     // The made-up cover its tile showed on the shelf, if it has one.
-    if (!art && !cover) cover = riftwii::wii::MadeUpCoverMade(from.id);
+    if (!art && !cover) cover = riftwii::wii::MadeUpCoverMade(from.coverName.empty() ? from.id : from.coverName);
     Face faces[5];
     BoxFaces(from.id, box, art, cover, from.hue, from.caseColour, faces);
     LoadPerspective();
