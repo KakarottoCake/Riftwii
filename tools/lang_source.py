@@ -2078,13 +2078,13 @@ T = {
     "Wii channels": ("Canales Wii", "Wiiチャンネル", "Canais Wii", "Canali Wii"),
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.": ("Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii, o solo los de un sitio. Con un juego en ambas unidades, basta una copia.", "ホームに表示するゲーム：すべてのドライブとWii本体のもの、または1か所のものだけ。両方のドライブにあるゲームは1つで十分です。", "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, ou só os de um lugar. Com um jogo nas duas unidades, basta uma cópia.", "Quali giochi mostra la Home: quelli di ogni unità e quelli della Wii stessa, o solo quelli di un posto. Con un gioco su entrambe le unità, basta una copia."),
     "This game's data was removed from the Wii, so it can't start.": ("Los datos de este juego se borraron de la Wii, así que no puede iniciarse.", "このゲームのデータはWiiから削除されているため、起動できません。", "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado.", "I dati di questo gioco sono stati cancellati dalla Wii, quindi non può partire."),
-    # What's new in the release after 2610-781
-    "A cleaner, lighter menu font": ("Una fuente del menú más limpia y ligera", "すっきりした軽いメニューの字体", "Uma fonte do menu mais limpa e leve", "Un carattere del menu più pulito e leggero"),
-    "USB gamepads and Xbox 360 pads in games": ("Mandos USB y de Xbox 360 en los juegos", "USBとXbox 360のコントローラーでゲーム", "Controles USB e de Xbox 360 nos jogos", "Controller USB e Xbox 360 nei giochi"),
-    "Your own covers, and GameTDB's second cover": ("Tus propias carátulas y la segunda de GameTDB", "自分のカバーとGameTDBの2つ目のカバー", "Suas próprias capas e a segunda do GameTDB", "Le tue copertine e la seconda di GameTDB"),
-    "Home's shortcuts on every controller": ("Los atajos del Inicio en todos los mandos", "ホームのショートカットをどのコントローラーでも", "Os atalhos do Início em todos os controles", "Le scorciatoie della Home su ogni controller"),
-    "Fixes for 007 games and Prince of Persia": ("Arreglos para los juegos de 007 y Prince of Persia", "007のゲームとプリンス・オブ・ペルシャを修正", "Correções para os jogos de 007 e Prince of Persia", "Correzioni per i giochi di 007 e Prince of Persia"),
-    "No more freeze with a 4th Wii Remote": ("Ya no se bloquea con un 4.º Mando de Wii", "4本目のWiiリモコンで止まらないように", "Não trava mais com um 4.º Wii Remote", "Niente più blocchi con il 4° Telecomando Wii"),
+    # What's new in the release after 2610-782
+    "Made-up covers for games without one": ("Carátulas de relleno para juegos sin carátula", "カバーのないゲームに仮のカバー", "Capas criadas para jogos sem capa", "Copertine create per i giochi senza"),
+    "Parental controls, with a PIN": ("Control parental con PIN", "PINつきのペアレンタルコントロール", "Controle dos pais com PIN", "Controllo genitori con PIN"),
+    "Copy a game disc to a .wbfs file": ("Copia un disco de juego a un archivo .wbfs", "ゲームディスクを.wbfsファイルにコピー", "Copie um disco de jogo para um arquivo .wbfs", "Copia un disco di gioco in un file .wbfs"),
+    "Themes can have a moving background": ("Los temas pueden tener un fondo animado", "テーマにうごく背景", "Temas podem ter um fundo animado", "I temi possono avere uno sfondo animato"),
+    "Channel updates need no Wii Remote": ("Actualizar el canal sin Mando de Wii", "Wiiリモコンなしでチャンネルを更新", "Atualizar o canal sem Wii Remote", "Aggiornare il canale senza Telecomando Wii"),
+    "A mod's own cover on its Home tile": ("La carátula propia de un mod en su icono de Inicio", "MODのタイルにMOD自身のカバー", "A capa do próprio mod no seu bloco do Início", "La copertina di una mod sul suo riquadro"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
     "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
@@ -3964,18 +3964,18 @@ KO = {
         "Wii 채널",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "홈에 표시할 게임: 모든 드라이브와 Wii 본체의 게임, 또는 한 곳의 게임만. 두 드라이브에 같은 게임이 있으면 하나면 충분합니다.",
-    "A cleaner, lighter menu font":
-        "더 깔끔하고 가벼운 메뉴 글꼴",
-    "USB gamepads and Xbox 360 pads in games":
-        "게임에서 USB와 Xbox 360 컨트롤러",
-    "Your own covers, and GameTDB's second cover":
-        "직접 넣은 커버와 GameTDB의 두 번째 커버",
-    "Home's shortcuts on every controller":
-        "모든 컨트롤러에서 홈 바로가기",
-    "Fixes for 007 games and Prince of Persia":
-        "007 게임과 페르시아의 왕자 수정",
-    "No more freeze with a 4th Wii Remote":
-        "4번째 Wii 리모컨에서 더 이상 멈추지 않음",
+    "Made-up covers for games without one":
+        "커버 없는 게임에 만든 커버",
+    "Parental controls, with a PIN":
+        "PIN으로 자녀 보호 기능",
+    "Copy a game disc to a .wbfs file":
+        "게임 디스크를 .wbfs 파일로 복사",
+    "Themes can have a moving background":
+        "테마에 움직이는 배경",
+    "Channel updates need no Wii Remote":
+        "Wii 리모컨 없이 채널 업데이트",
+    "A mod's own cover on its Home tile":
+        "모드 타일에 모드 전용 커버",
     "Memory for RiftWii's extras":
         "RiftWii 추가 기능이 쓰는 메모리",
     "about {1} KB":
@@ -5828,18 +5828,18 @@ FR = {
         "Chaînes Wii",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "Les jeux qu'affiche l'Accueil : ceux de chaque support et ceux de la Wii elle-même, ou ceux d'un seul endroit. Avec un jeu sur les deux supports, une copie suffit.",
-    "A cleaner, lighter menu font":
-        "Une police du menu plus nette et plus légère",
-    "USB gamepads and Xbox 360 pads in games":
-        "Manettes USB et Xbox 360 dans les jeux",
-    "Your own covers, and GameTDB's second cover":
-        "Vos propres jaquettes, et la seconde de GameTDB",
-    "Home's shortcuts on every controller":
-        "Les raccourcis de l'Accueil sur toutes les manettes",
-    "Fixes for 007 games and Prince of Persia":
-        "Corrections pour les jeux 007 et Prince of Persia",
-    "No more freeze with a 4th Wii Remote":
-        "Plus de blocage avec une 4e Wiimote",
+    "Made-up covers for games without one":
+        "Des jaquettes créées pour les jeux sans",
+    "Parental controls, with a PIN":
+        "Contrôle parental avec code PIN",
+    "Copy a game disc to a .wbfs file":
+        "Copier un disque de jeu en fichier .wbfs",
+    "Themes can have a moving background":
+        "Des thèmes avec un fond animé",
+    "Channel updates need no Wii Remote":
+        "Mettre à jour la chaîne sans Wiimote",
+    "A mod's own cover on its Home tile":
+        "La jaquette d'un mod sur sa vignette",
     "Memory for RiftWii's extras":
         "Mémoire pour les extras de RiftWii",
     "about {1} KB":

@@ -2403,23 +2403,23 @@ msgstr "ホームに表示するゲーム：すべてのドライブとWii本体
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "このゲームのデータはWiiから削除されているため、起動できません。"
 
-msgid "A cleaner, lighter menu font"
-msgstr "すっきりした軽いメニューの字体"
+msgid "Made-up covers for games without one"
+msgstr "カバーのないゲームに仮のカバー"
 
-msgid "USB gamepads and Xbox 360 pads in games"
-msgstr "USBとXbox 360のコントローラーでゲーム"
+msgid "Parental controls, with a PIN"
+msgstr "PINつきのペアレンタルコントロール"
 
-msgid "Your own covers, and GameTDB's second cover"
-msgstr "自分のカバーとGameTDBの2つ目のカバー"
+msgid "Copy a game disc to a .wbfs file"
+msgstr "ゲームディスクを.wbfsファイルにコピー"
 
-msgid "Home's shortcuts on every controller"
-msgstr "ホームのショートカットをどのコントローラーでも"
+msgid "Themes can have a moving background"
+msgstr "テーマにうごく背景"
 
-msgid "Fixes for 007 games and Prince of Persia"
-msgstr "007のゲームとプリンス・オブ・ペルシャを修正"
+msgid "Channel updates need no Wii Remote"
+msgstr "Wiiリモコンなしでチャンネルを更新"
 
-msgid "No more freeze with a 4th Wii Remote"
-msgstr "4本目のWiiリモコンで止まらないように"
+msgid "A mod's own cover on its Home tile"
+msgstr "MODのタイルにMOD自身のカバー"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWiiの追加機能が使うメモリ"

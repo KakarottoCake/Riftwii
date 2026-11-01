@@ -2403,23 +2403,23 @@ msgstr "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, o
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado."
 
-msgid "A cleaner, lighter menu font"
-msgstr "Uma fonte do menu mais limpa e leve"
+msgid "Made-up covers for games without one"
+msgstr "Capas criadas para jogos sem capa"
 
-msgid "USB gamepads and Xbox 360 pads in games"
-msgstr "Controles USB e de Xbox 360 nos jogos"
+msgid "Parental controls, with a PIN"
+msgstr "Controle dos pais com PIN"
 
-msgid "Your own covers, and GameTDB's second cover"
-msgstr "Suas próprias capas e a segunda do GameTDB"
+msgid "Copy a game disc to a .wbfs file"
+msgstr "Copie um disco de jogo para um arquivo .wbfs"
 
-msgid "Home's shortcuts on every controller"
-msgstr "Os atalhos do Início em todos os controles"
+msgid "Themes can have a moving background"
+msgstr "Temas podem ter um fundo animado"
 
-msgid "Fixes for 007 games and Prince of Persia"
-msgstr "Correções para os jogos de 007 e Prince of Persia"
+msgid "Channel updates need no Wii Remote"
+msgstr "Atualizar o canal sem Wii Remote"
 
-msgid "No more freeze with a 4th Wii Remote"
-msgstr "Não trava mais com um 4.º Wii Remote"
+msgid "A mod's own cover on its Home tile"
+msgstr "A capa do próprio mod no seu bloco do Início"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Memória para os extras do RiftWii"
