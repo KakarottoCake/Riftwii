@@ -1015,15 +1015,15 @@ out; the message at the end then says which, and what to change:
 
 - Home's **Show** is on Games with mods (where Home starts), and the game
   has none: choose **Show > All games**.
-- **Settings > Home > Games from** names the other drive: set it to All
-  games.
+- **Settings > Home > Games from** names another place (the other
+  drive, Wii channels or GameCube): set it to All games.
 - The copy is on the SD card and **Settings > Drives > Games on the SD
   card** is Don't look: set it to Look for them.
 - Parental controls are set to hide games, and the game's age rating is
   above the highest age allowed.
 
-A search or a genre you picked on Home before is cleared, so the new
-copy shows.
+When none of these leave it out, a search or a genre you picked on Home
+before is cleared, so the new copy shows.
 
 The copy keeps every partition of the disc: the game, the system update
 and any channel the disc installs, so it works like the disc in every
