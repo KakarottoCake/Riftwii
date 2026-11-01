@@ -371,8 +371,8 @@ int main(int argc, char** argv) {
         note = "Dolphin checks real signatures, so the channel can only be\n  installed on a Wii.";
     } else if (!g_cios && g_slots_unread && g_update) {
         note = "\x1b[33mThe cIOS slots could not be checked from this start. Start\n"
-               "  RiftWii from the Homebrew Channel or the RiftWii channel and\n"
-               "  update again.\x1b[37m";
+               "  RiftWii from the Homebrew Channel or a RiftWii channel version 9\n"
+               "  or newer, then update again.\x1b[37m";
     } else if (!g_cios) {
         note = "\x1b[33mThis needs a d2x cIOS in slot 249, 250 or 251 (the one\n  RiftWii uses).\x1b[37m";
     }
