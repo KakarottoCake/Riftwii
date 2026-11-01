@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-#include <gctypes.h>
+#include <gccore.h>
 
 #include <string>
 
@@ -31,5 +31,10 @@ void DrawMadeUpCover(const u8* cover, float x, float y, int alpha = 255, float s
 // Called once a frame, before the windows draw: makes the covers asked
 // for since the last frame, a few at a time.
 void MakeUpCovers();
+
+// The colour the made-up covers print names in: dark on a light blank
+// cover, light on a dark one. The shelf writes names down the matching
+// spines in it.
+GXColor MadeUpCoverInk();
 
 }  // namespace riftwii::wii

@@ -347,4 +347,9 @@ void DrawMadeUpCover(const u8* cover, float x, float y, int alpha, float scale) 
     GX_SetVtxDesc(GX_VA_TEX0, GX_NONE);
 }
 
+GXColor MadeUpCoverInk() {
+    if (!g_inkChosen) ChooseInk();
+    return g_ink;
+}
+
 }  // namespace riftwii::wii

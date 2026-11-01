@@ -313,6 +313,7 @@ private:
     struct SpineLabel {
         int index;
         float x, y0, y1, width;
+        bool paper;  // a spine to go with a made-up cover, not bare plastic
     };
     // Reused every frame: the boxes in drawing order, the names to write.
     std::vector<int> shelfOrder;
