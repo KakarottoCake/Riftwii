@@ -5609,7 +5609,8 @@ static bool FindGameCovers(const std::string& modId, const std::string& gameId,
 			std::string askError;
 			if (url.empty() || !riftwii::wii::HttpExists(url, askError)) {
 				// "answered 404": GameTDB has no such cover, which is an answer.
-				if (askError.find(" answered ") != std::string::npos) answered = true;
+				// Any other status (a 405 or 500) is a failure, as no answer is.
+				if (askError.find(" answered 404") != std::string::npos) answered = true;
 				else if (error.empty()) error = askError;
 				continue;
 			}

@@ -298,7 +298,7 @@ Your own cover comes
 before GameTDB's, works offline and is never written over. Some games
 have a second cover on GameTDB: switch to it with **GameTDB cover** in
 the game's settings, next to **Cover**. **Choose cover**, below it, shows
-every cover GameTDB has for the game (both sets, each region) and keeps
+every cover GameTDB has for the game (all four of its sets, each region) and keeps
 the one you pick as your own; **Back to automatic** there removes it.
 **Home tiles** in
 Settings switches to 3D covers, the carousel, the shelf, channels or
