@@ -5645,6 +5645,8 @@ static bool PickGameCover(FrontendState& state)
 		}, false, CoverPicturePreview());
 	if (picked != 1) return false;
 	g_coverPicked = true;
+	// The game's cover and its mod tiles' (a tile's key is <ID>@<slug>, which
+	// ForgetCover clears by that prefix), so the tile's too.
 	ForgetCover(state.game_id);
 	g_coversChecked.erase(key);
 	logf("Cover picker: %s now shows %s.\n", key.c_str(),
