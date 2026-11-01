@@ -1536,10 +1536,12 @@ launch:
   title screen, where RiftWii keeps the code for in-game screenshots,
   the GameCube adapter and crash recording. It gets none of them, and
   *Return to RiftWii* goes to the Wii Menu instead. Its ordinary cheats
-  stay off too: RiftWii's hooks then use the memory the cheat list would
-  go in, and the game starts without them (boot.log: "Codes are off"). A
-  code build whose gameconfig.txt moves the list elsewhere can still run
-  codes.
+  stay off too, and so do those of The Complete Saga, Indiana Jones 1
+  and 2, Batman, Ghostbusters: The Video Game and 007 Quantum of Solace,
+  which RiftWii starts the same way: its hooks then use the memory the
+  cheat list would go in, and the game starts without cheats (boot.log:
+  "Codes are off"). A code build whose gameconfig.txt moves the list
+  elsewhere can still run codes.
 - **New Super Mario Bros. Wii** (its disc check), **Resident Evil 4**
   (GameCube controllers), **Excite Truck** and Kirby from the SD card.
 - Every game: the older error #002 check, and the wrong 480p setting some
