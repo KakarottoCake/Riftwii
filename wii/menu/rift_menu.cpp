@@ -5633,12 +5633,8 @@ static bool FindGameCovers(const std::string& modId, const std::string& gameId,
 static bool PickGameCover(FrontendState& state)
 {
 	using namespace riftwii::wii;
-	if (!EmulatorPictureOnline()) {
-		ShowPopup(tr("Cover"),
-			tr("Connect the Wii to the internet, then turn on {1} in {2} > {3}.",
-				{tr("Downloads"), tr("Settings"), tr("Online")}), tr("OK"));
-		return false;
-	}
+	// Opened offline too: GameTDB's covers can't load then, but Back to
+	// automatic still removes a cover picked earlier.
 	// A mod's tile gets a cover of its own; the game's page, the game's.
 	const std::string key = state.profile_key.empty() ? state.game_id : state.profile_key;
 	const std::string path = std::string("sd:/riftwii/covers/") + key + ".png";
