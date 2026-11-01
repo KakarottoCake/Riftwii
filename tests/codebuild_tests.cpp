@@ -1,13 +1,17 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Code builds: gameconfig.txt, the code handler's hooks and relocated code
-// list, joined code lists, and code builds in the launch model.
+// list (the WiiRD debugger handlers' too), joined code lists, and code
+// builds in the launch model. Takes the source tree's root, for the
+// handlers RiftWii ships (vendor-gecko).
 #include "riftwii/cheats.hpp"
 #include "riftwii/codehook.hpp"
 #include "riftwii/gameconfig.hpp"
 #include "riftwii/launch.hpp"
 
+#include <fstream>
 #include <iostream>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -148,6 +152,41 @@ void test_relocate() {
     EXPECT_FALSE(relocate_code_list(handler.data(), 0x100, 0x80570000));
 }
 
+Bytes read_file(const std::string& path) {
+    std::ifstream in(path, std::ios::binary);
+    return Bytes(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+}
+
+// The shipped debugger handlers (slot B and slot A): the entry, list and
+// pause word install_cheats uses are where these bytes have them.
+void test_debugger_handlers(const std::string& root) {
+    for (const char* name : {"codehandler.bin", "codehandlerslota.bin"}) {
+        Bytes handler = read_file(root + "/vendor-gecko/" + name);
+        EXPECT_EQ(handler.size(), 4288u);
+        if (handler.size() != 4288) continue;
+        // The entry's first instruction, stwu r1,-168(r1), as in the plain handler.
+        EXPECT_EQ(get(handler, kCodeHandlerEntry - kCodeHandlerAddress), 0x9421FF58u);
+        // The handler's own pointer to the word it reads its pause state from.
+        EXPECT_EQ(get(handler, 8), kDebuggerPauseFlag);
+        EXPECT_EQ(get(handler, kDebuggerPauseFlag - kCodeHandlerAddress), 0u);
+        // The list starts in the last 8 bytes, its own empty one.
+        EXPECT_EQ(kDebuggerCodeListAddress - kCodeHandlerAddress + 8, handler.size());
+        EXPECT_TRUE(relocate_debugger_code_list(handler.data(), handler.size(), 0x80566528));
+        EXPECT_EQ(get(handler, 0x4DC), 0x3D808056u);  // lis r12
+        EXPECT_EQ(get(handler, 0x4E0), 0x618C6528u);  // ori r12
+        EXPECT_EQ(get(handler, 0x758), 0x3DE08056u);  // lis r15
+        EXPECT_EQ(get(handler, 0x75C), 0x61EF6528u);  // ori r15
+        // Moved already: the second time finds other words and leaves it.
+        const Bytes before = handler;
+        EXPECT_FALSE(relocate_debugger_code_list(handler.data(), handler.size(), 0x80570000));
+        EXPECT_TRUE(handler == before);
+        // The plain handler's place for its list is not the debugger's.
+        EXPECT_FALSE(relocate_code_list(handler.data(), handler.size(), 0x80570000));
+    }
+    Bytes plain = read_file(root + "/vendor-gecko/codehandleronly.bin");
+    EXPECT_FALSE(relocate_debugger_code_list(plain.data(), plain.size(), 0x80570000));
+}
+
 void test_join() {
     const Bytes a = gct({0x04000000, 0x1}), b = gct({0x04000004, 0x2, 0x04000008, 0x3});
     EXPECT_TRUE(valid_gct(a));
@@ -199,11 +238,16 @@ void test_model() {
 
 }  // namespace
 
-int main() {
+int main(int argc, char** argv) {
+    if (argc < 2) {
+        std::cerr << "usage: codebuild_tests <source tree>" << std::endl;
+        return 1;
+    }
     test_gameconfig();
     test_hooks();
     test_dol_jumps();
     test_relocate();
+    test_debugger_handlers(argv[1]);
     test_join();
     test_model();
     if (g_failures == 0) std::cout << "codebuild tests passed" << std::endl;

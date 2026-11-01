@@ -60,6 +60,9 @@
 #include "usbcatalog.hpp"
 #include "wfc.hpp"
 #include "codehandleronly_bin.h"
+#include "codehandler_bin.h"
+#include "codehandlerslota_bin.h"
+#include "gecko.hpp"
 #include "riftwii/cardlog.hpp"
 #include "riftwii/codehook.hpp"
 #include "riftwii/extrasbudget.hpp"
@@ -215,23 +218,78 @@ void install_dol_switch(const std::vector<CodeRange>& text, const std::uint32_t*
     }
 }
 
+// Which Gecko code handler a launch loads (vendor-gecko/README.md).
+struct CodeHandler {
+    const std::uint8_t* bytes;
+    std::uint32_t size;
+    std::uint32_t list;  // where its own code list starts
+    bool debugger;
+    const char* name;
+};
+
+// The plain handler, or with Settings > WiiRD debugger the one with the
+// debugger for the slot a USB Gecko answers in: slot B first, as USB
+// Loader GX prefers it. With none in either slot the plain handler: a
+// debugger handler polls its slot every frame, which a memory card there
+// would not expect. `low_veneers`: this launch's veneers are at
+// kCodeVeneers, inside the debugger handler's longer body (it runs to
+// 0x800028C0), so only the plain one fits.
+CodeHandler choose_code_handler(bool low_veneers) {
+    const CodeHandler plain{codehandleronly_bin, codehandleronly_bin_size, kCodeListAddress, false, "the code handler"};
+    if (!g_extras.wiird_debugger) return plain;
+    static_assert(kCodeHandlerAddress + codehandleronly_bin_size <= kCodeVeneers, "the plain handler must end before the veneers");
+    static_assert(kCodeHandlerAddress + codehandler_bin_size > kCodeVeneers, "the debugger handler runs past them");
+    if (low_veneers) {
+        logf("WiiRD debugger: off for this game: RiftWii's hooks use the memory right after the code handler "
+             "(0x%08x), where the debugger's handler would run on\n", kCodeVeneers);
+        return plain;
+    }
+    if (GeckoInSlot(EXI_CHANNEL_1)) {
+        return CodeHandler{codehandler_bin, codehandler_bin_size, kDebuggerCodeListAddress, true,
+                           "the WiiRD debugger's code handler for slot B"};
+    }
+    if (GeckoInSlot(EXI_CHANNEL_0)) {
+        return CodeHandler{codehandlerslota_bin, codehandlerslota_bin_size, kDebuggerCodeListAddress, true,
+                           "the WiiRD debugger's code handler for slot A"};
+    }
+    logf("WiiRD debugger: no USB Gecko answers in slot B or slot A, so the game starts without the debugger\n");
+    return plain;
+}
+
 // The Gecko code handler and the cheats' GCT (vendor-gecko/), called at
 // the end of the game's video retrace handler. Leaves the game untouched
-// and says why when that cannot be done.
+// and says why when that cannot be done. With the WiiRD debugger and no
+// cheats it is installed with an empty list, for the PC's own codes.
 bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<MemoryPatch>& patches,
                     const std::vector<MemoryRegion>& keep_out, std::string& why,
-                    std::uint32_t default_list_end = kCodeListEnd) {
+                    std::uint32_t default_list_end = kCodeListEnd, bool low_veneers = false) {
     if (!gx_patch_allowed(g_extras.game_id, GamePatchKind::Cheats)) {
         why = "the game checks its own code (MetaFortress)";
         return false;
     }
-    const std::vector<std::uint8_t>& gct = g_extras.cheat_gct;
+    // The header and the end code: a list with no codes.
+    static const std::vector<std::uint8_t> kEmptyGct = {0x00, 0xD0, 0xC0, 0xDE, 0x00, 0xD0, 0xC0, 0xDE,
+                                                        0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    const std::vector<std::uint8_t>& gct = g_extras.cheat_gct.empty() ? kEmptyGct : g_extras.cheat_gct;
     // A code build's gameconfig.txt may move the list out of the handler's
     // own room, to memory the game leaves free.
     const bool moved = g_extras.code_list_start != 0;
-    const std::uint32_t list = moved ? g_extras.code_list_start : kCodeListAddress;
+    // The ordinary list's room runs over kCodeVeneers, and its clearing
+    // memset below would wipe veneers already resident there.
+    if (low_veneers && !moved) {
+        char room[160];
+        std::snprintf(room, sizeof(room),
+                      "RiftWii's hooks use the memory the code list would be written to (0x%08x); a code build's "
+                      "gameconfig.txt can move the list elsewhere",
+                      static_cast<unsigned>(kCodeVeneers));
+        why = room;
+        return false;
+    }
+    const CodeHandler chosen = choose_code_handler(low_veneers);
+    const std::uint32_t list = moved ? g_extras.code_list_start : chosen.list;
     // A low-memory return stub owns the last 32 bytes of the ordinary
-    // list's room. Keep both the list and its clearing memset below it.
+    // list's room (the debugger handler's list ends there too). Keep both
+    // the list and its clearing memset below it.
     const std::uint32_t list_end = moved ? g_extras.code_list_end : default_list_end;
     const auto overlap = [](std::uint32_t a, std::uint32_t a_end, std::uint32_t b, std::uint32_t b_end) {
         return a < b_end && b < a_end;
@@ -285,13 +343,17 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
         return false;
     }
     std::uint8_t* handler = reinterpret_cast<std::uint8_t*>(kCodeHandlerAddress);
-    std::memcpy(handler, codehandleronly_bin, codehandleronly_bin_size);
-    if (moved && !relocate_code_list(handler, codehandleronly_bin_size, list)) {
-        why = "the code handler cannot be pointed at " + std::string(where);
+    std::memcpy(handler, chosen.bytes, chosen.size);
+    const bool pointed = !moved || (chosen.debugger ? relocate_debugger_code_list(handler, chosen.size, list)
+                                                    : relocate_code_list(handler, chosen.size, list));
+    if (!pointed) {
+        why = std::string(chosen.name) + " cannot be pointed at " + where;
         return false;
     }
     std::memcpy(handler, g_extras.game_id.c_str(),
                 std::min<std::size_t>(6, g_extras.game_id.size()));  // where cheat tools look for it
+    // Held at the first frame until the PC on the USB Gecko lets it go.
+    if (chosen.debugger && g_extras.wiird_pause) *reinterpret_cast<volatile std::uint32_t*>(kDebuggerPauseFlag) = 1;
     std::memset(reinterpret_cast<void*>(list), 0, list_end - list);
     std::memcpy(reinterpret_cast<void*>(list), gct.data(), gct.size());
     DCFlushRange(reinterpret_cast<void*>(kCodeHandlerAddress), kCodeListEnd - kCodeHandlerAddress);
@@ -308,10 +370,15 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
     else if (!debug_off("dolswitch")) install_dol_switch(text, code_hook_pattern(audio ? CodeHook::AudioFrame : CodeHook::Retrace));
     else
         logf("Codes: debug_off: no hook on jumps to another executable\n");
-    logf("Codes: %u cheat(s)%s%s, %u bytes at 0x%08x, handler at 0x%08x called from %s 0x%08x\n",
+    logf("Codes: %u cheat(s)%s%s, %u bytes at 0x%08x, %s at 0x%08x called from %s 0x%08x\n",
          static_cast<unsigned>(g_extras.cheat_count), g_extras.code_builds.empty() ? "" : " and ",
          g_extras.code_builds.c_str(), static_cast<unsigned>(gct.size()), static_cast<unsigned>(list),
-         kCodeHandlerAddress, audio ? "AXNextFrame" : "the retrace handler", hook);
+         chosen.name, kCodeHandlerAddress, audio ? "AXNextFrame" : "the retrace handler", hook);
+    if (chosen.debugger) {
+        logf("WiiRD debugger: on, %s\n", g_extras.wiird_pause
+                                             ? "the game waits at its first frame until the PC lets it go"
+                                             : "the game runs until the PC pauses it");
+    }
     // gameconfig.txt's words, last: they may turn off what would undo the
     // codes (a Project+ build stops the game clearing the memory its list is in).
     for (const GamePoke& p : g_extras.pokes) {
@@ -2231,6 +2298,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // E2: the DOL is in place, so the runtime can find and hook the game's
     // IPC entry points before anything runs them.
     ResidentInstall resident;
+    bool resident_low_veneers = false;  // the runtime's veneers at kCodeVeneers
     std::uint32_t hooked_os_restart = 0;  // for the debug_reset switch
     // The runtime's code goes above this loader (which ends at arena 1's
     // top) and the apploader image, both still in use until the game starts.
@@ -2281,6 +2349,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             ro.mem1_veneers = kCodeVeneers;
             ro.mem2_top = true;
         }
+        resident_low_veneers = ro.mem1_veneers == kCodeVeneers;
         if (!install_resident(dol, ro, resident, error)) return false;
         if (!resident.restart_hooked && restart_plan.os_restart != 0) {
             // Past the end of boot.log: only on screen (and the Gecko).
@@ -2656,7 +2725,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // The menu's extras, over the game as loaded and patched.
     apply_video(loaded, card.fd < 0);  // not while the runtime's card handle is open
     bool codes_first = false;  // run the codes once before the game starts
-    if (!g_extras.cheat_gct.empty()) {
+    if (!g_extras.cheat_gct.empty() || g_extras.wiird_debugger) {
         std::string why;
         std::vector<MemoryRegion> keep_out;
         if (options.install_resident) keep_out.push_back(MemoryRegion{resident.code_base, resident.code_bytes});
@@ -2665,7 +2734,10 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             keep_out.push_back(MemoryRegion{vsd.stage_base, vsd.data_bytes});
         }
         extras.add_ranges(keep_out, false);
-        if (!install_cheats(loaded, options.memory_patches, keep_out, why, return_plan.code_list_end))
+        // A code build's list moved: the runtime's, the SD card's and the
+        // crash blob's veneers may be past the handler.
+        const bool low_veneers = resident_low_veneers || g_extras.code_list_start != 0;
+        if (!install_cheats(loaded, options.memory_patches, keep_out, why, return_plan.code_list_end, low_veneers))
             logf("Codes are off: %s\n", why.c_str());
         else codes_first = !g_extras.code_builds.empty();
     }
@@ -3871,13 +3943,14 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     // when the return setting or debug switch leaves that stub unused.
     const ReturnStubPlan return_plan = plan_return_stub(arena1_top, return_to != 0, true);
     const std::string codes_refused = channel_codes_refusal(files.program);
-    if (!g_extras.cheat_gct.empty() && !codes_refused.empty()) {
+    const bool wants_handler = !g_extras.cheat_gct.empty() || g_extras.wiird_debugger;
+    if (wants_handler && !codes_refused.empty()) {
         logf("Codes are off: %s\n", codes_refused.c_str());
-    } else if (!g_extras.cheat_gct.empty()) {
+    } else if (wants_handler) {
         std::string why;
         std::vector<MemoryRegion> keep_out;
         extras.add_ranges(keep_out, false);
-        if (!install_cheats(loaded, {}, keep_out, why, return_plan.code_list_end)) {
+        if (!install_cheats(loaded, {}, keep_out, why, return_plan.code_list_end, g_extras.code_list_start != 0)) {
             logf("Codes are off: %s\n", why.c_str());
         }
     }

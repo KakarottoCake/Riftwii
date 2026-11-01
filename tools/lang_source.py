@@ -6424,6 +6424,89 @@ T['The SD card is back in. Reading it again.'] = ('La tarjeta SD está de vuelta
 KO['The SD card is back in. Reading it again.'] = 'SD 카드가 다시 삽입되었습니다. 다시 읽는 중입니다.'
 FR['The SD card is back in. Reading it again.'] = 'La carte SD est de retour. Nouvelle lecture en cours.'
 
+# For developers with a USB Gecko (Settings > Help: wii/core/gecko.hpp, vendor-gecko).
+T.update({
+    "USB Gecko log": ("Registro por USB Gecko", "USB Geckoへのログ", "Registro no USB Gecko", "Registro su USB Gecko"),
+    "WiiRD debugger": ("Depurador WiiRD", "WiiRDデバッガー", "Depurador WiiRD", "Debugger WiiRD"),
+    "Pause at start": ("Pausa al empezar", "開始時に止める", "Pausar no início", "Pausa all'avvio"),
+    "For developers. RiftWii's log also goes to a USB Gecko in memory card slot B as it is written, for a PC to read.": (
+        "Para desarrolladores. El registro de RiftWii también va a un USB Gecko en la ranura B de tarjetas de memoria mientras se escribe, para leerlo en un PC.",
+        "開発者向けです。RiftWiiのログを、書き込むと同時にメモリーカードスロットBのUSB Geckoにも送り、PCで読めるようにします。",
+        "Para desenvolvedores. O registro do RiftWii também vai para um USB Gecko no slot B de cartões de memória enquanto é escrito, para ler num PC.",
+        "Per sviluppatori. Il registro di RiftWii va anche a un USB Gecko nello slot B delle schede di memoria mentre viene scritto, per leggerlo da un PC."),
+    "For developers. Wii games start with the WiiRD debugger, for a PC on a USB Gecko in slot B or A (WiiRD, Gecko dotNET). Pause at start holds the game at its first frame until the PC lets it go.": (
+        "Para desarrolladores. Los juegos de Wii empiezan con el depurador WiiRD, para un PC conectado a un USB Gecko en la ranura B o A (WiiRD, Gecko dotNET). Pausa al empezar detiene el juego en su primer fotograma hasta que el PC lo suelte.",
+        "開発者向けです。WiiのゲームをWiiRDデバッガー付きで起動し、スロットBかAのUSB GeckoにつないだPC (WiiRD、Gecko dotNET) から使えるようにします。開始時に止めるでは、PCが再開するまでゲームを最初のフレームで止めます。",
+        "Para desenvolvedores. Os jogos de Wii começam com o depurador WiiRD, para um PC ligado a um USB Gecko no slot B ou A (WiiRD, Gecko dotNET). Pausar no início segura o jogo no primeiro quadro até o PC liberar.",
+        "Per sviluppatori. I giochi Wii partono con il debugger WiiRD, per un PC collegato a un USB Gecko nello slot B o A (WiiRD, Gecko dotNET). Pausa all'avvio ferma il gioco al primo fotogramma finché il PC non lo lascia andare."),
+    "Off from the next start of RiftWii.": (
+        "Desactivado desde el próximo inicio de RiftWii.",
+        "次にRiftWiiを起動したときからオフになります。",
+        "Desligado a partir da próxima vez que o RiftWii abrir.",
+        "Disattivato dal prossimo avvio di RiftWii."),
+    "On, but nothing on the PC reads the USB Gecko in slot B, so the log stopped. Start the reader on the PC, then turn this off and on again.": (
+        "Activado, pero nada en el PC lee el USB Gecko de la ranura B, así que el registro se ha detenido. Abre el lector en el PC y luego desactiva y activa esto otra vez.",
+        "オンですが、PCでスロットBのUSB Geckoを読むものがないため、ログは止まりました。PCで読み取りを始めてから、これをオフにして、もう一度オンにしてください。",
+        "Ligado, mas nada no PC lê o USB Gecko do slot B, então o registro parou. Abra o leitor no PC e depois desligue e ligue isto de novo.",
+        "Attivo, ma nulla sul PC legge l'USB Gecko nello slot B, quindi il registro si è fermato. Avvia il lettore sul PC, poi disattiva e riattiva questa opzione."),
+    "On. RiftWii's log now also goes to the USB Gecko in slot B.": (
+        "Activado. El registro de RiftWii ahora también va al USB Gecko de la ranura B.",
+        "オンです。RiftWiiのログはスロットBのUSB Geckoにも送られます。",
+        "Ligado. O registro do RiftWii agora também vai para o USB Gecko no slot B.",
+        "Attivato. Il registro di RiftWii ora va anche all'USB Gecko nello slot B."),
+    "On from the next start of RiftWii. No USB Gecko answers in slot B now.": (
+        "Activado desde el próximo inicio de RiftWii. Ahora ningún USB Gecko responde en la ranura B.",
+        "次にRiftWiiを起動したときからオンになります。今はスロットBのUSB Geckoが応答しません。",
+        "Ligado a partir da próxima vez que o RiftWii abrir. Nenhum USB Gecko responde no slot B agora.",
+        "Attivato dal prossimo avvio di RiftWii. Ora nessun USB Gecko risponde nello slot B."),
+    "Games start with the plain code handler.": (
+        "Los juegos empiezan con el gestor de códigos normal.",
+        "ゲームは通常のコードハンドラーで起動します。",
+        "Os jogos começam com o gerenciador de códigos normal.",
+        "I giochi partono con il gestore dei codici normale."),
+    "Wii games start with the WiiRD debugger, except ones whose RiftWii hooks need its memory. Connect from the PC once the game is running.": (
+        "Los juegos de Wii empiezan con el depurador WiiRD, salvo aquellos cuyos ganchos de RiftWii necesitan su memoria. Conéctate desde el PC cuando el juego esté en marcha.",
+        "WiiのゲームはWiiRDデバッガー付きで起動します。ただし、RiftWiiのフックがそのメモリを使うゲームはデバッガーなしで起動します。ゲームが始まったらPCから接続してください。",
+        "Os jogos de Wii começam com o depurador WiiRD, exceto aqueles cujos ganchos do RiftWii precisam da memória dele. Conecte pelo PC quando o jogo estiver rodando.",
+        "I giochi Wii partono con il debugger WiiRD, tranne quelli i cui agganci di RiftWii usano la sua memoria. Collegati dal PC quando il gioco è avviato."),
+    "No USB Gecko answers in slot B or A now. Without one, games start without the debugger.": (
+        "Ahora ningún USB Gecko responde en la ranura B ni en la A. Sin uno, los juegos empiezan sin el depurador.",
+        "今はスロットBにもAにもUSB Geckoが応答しません。USB Geckoがないと、ゲームはデバッガーなしで起動します。",
+        "Nenhum USB Gecko responde no slot B nem no A agora. Sem um, os jogos começam sem o depurador.",
+        "Ora nessun USB Gecko risponde nello slot B né nello A. Senza, i giochi partono senza debugger."),
+})
+KO.update({
+    "USB Gecko log": "USB Gecko 로그",
+    "WiiRD debugger": "WiiRD 디버거",
+    "Pause at start": "시작할 때 일시 정지",
+    "For developers. RiftWii's log also goes to a USB Gecko in memory card slot B as it is written, for a PC to read.":
+        "개발자용입니다. RiftWii의 로그가 기록되는 즉시 메모리 카드 슬롯 B의 USB Gecko로도 보내져 PC에서 읽을 수 있습니다.",
+    "For developers. Wii games start with the WiiRD debugger, for a PC on a USB Gecko in slot B or A (WiiRD, Gecko dotNET). Pause at start holds the game at its first frame until the PC lets it go.":
+        "개발자용입니다. Wii 게임이 WiiRD 디버거와 함께 시작되어 슬롯 B 또는 A의 USB Gecko에 연결된 PC(WiiRD, Gecko dotNET)에서 사용할 수 있습니다. 시작할 때 일시 정지는 PC가 풀어 줄 때까지 게임을 첫 프레임에서 멈춥니다.",
+    "Off from the next start of RiftWii.": "다음에 RiftWii를 실행할 때부터 꺼집니다.",
+    "On, but nothing on the PC reads the USB Gecko in slot B, so the log stopped. Start the reader on the PC, then turn this off and on again.": "켜져 있지만 PC에서 슬롯 B의 USB Gecko를 읽는 것이 없어 로그가 멈췄습니다. PC에서 읽기를 시작한 뒤 이 설정을 껐다가 다시 켜세요.",
+    "On. RiftWii's log now also goes to the USB Gecko in slot B.": "켜졌습니다. 이제 RiftWii의 로그가 슬롯 B의 USB Gecko로도 보내집니다.",
+    "On from the next start of RiftWii. No USB Gecko answers in slot B now.": "다음에 RiftWii를 실행할 때부터 켜집니다. 지금은 슬롯 B의 USB Gecko가 응답하지 않습니다.",
+    "Games start with the plain code handler.": "게임이 일반 코드 핸들러로 시작됩니다.",
+    "Wii games start with the WiiRD debugger, except ones whose RiftWii hooks need its memory. Connect from the PC once the game is running.": "Wii 게임이 WiiRD 디버거와 함께 시작됩니다. 단, RiftWii의 후크가 그 메모리를 쓰는 게임은 디버거 없이 시작됩니다. 게임이 실행되면 PC에서 연결하세요.",
+    "No USB Gecko answers in slot B or A now. Without one, games start without the debugger.": "지금은 슬롯 B와 A 모두 USB Gecko가 응답하지 않습니다. 없으면 게임이 디버거 없이 시작됩니다.",
+})
+FR.update({
+    "USB Gecko log": "Journal sur USB Gecko",
+    "WiiRD debugger": "Débogueur WiiRD",
+    "Pause at start": "Pause au démarrage",
+    "For developers. RiftWii's log also goes to a USB Gecko in memory card slot B as it is written, for a PC to read.":
+        "Pour les développeurs. Le journal de RiftWii part aussi vers un USB Gecko dans le port B des cartes mémoire au fur et à mesure, pour être lu sur un PC.",
+    "For developers. Wii games start with the WiiRD debugger, for a PC on a USB Gecko in slot B or A (WiiRD, Gecko dotNET). Pause at start holds the game at its first frame until the PC lets it go.":
+        "Pour les développeurs. Les jeux Wii démarrent avec le débogueur WiiRD, pour un PC relié à un USB Gecko dans le port B ou A (WiiRD, Gecko dotNET). Pause au démarrage retient le jeu à sa première image jusqu'à ce que le PC le libère.",
+    "Off from the next start of RiftWii.": "Désactivé au prochain démarrage de RiftWii.",
+    "On, but nothing on the PC reads the USB Gecko in slot B, so the log stopped. Start the reader on the PC, then turn this off and on again.": "Activé, mais rien sur le PC ne lit l'USB Gecko du port B, donc le journal s'est arrêté. Lancez la lecture sur le PC, puis désactivez et réactivez ce réglage.",
+    "On. RiftWii's log now also goes to the USB Gecko in slot B.": "Activé. Le journal de RiftWii part maintenant aussi vers l'USB Gecko du port B.",
+    "On from the next start of RiftWii. No USB Gecko answers in slot B now.": "Activé au prochain démarrage de RiftWii. Aucun USB Gecko ne répond dans le port B pour l'instant.",
+    "Games start with the plain code handler.": "Les jeux démarrent avec le gestionnaire de codes normal.",
+    "Wii games start with the WiiRD debugger, except ones whose RiftWii hooks need its memory. Connect from the PC once the game is running.": "Les jeux Wii démarrent avec le débogueur WiiRD, sauf ceux dont les crochets de RiftWii ont besoin de sa mémoire. Connectez-vous depuis le PC une fois le jeu lancé.",
+    "No USB Gecko answers in slot B or A now. Without one, games start without the debugger.": "Aucun USB Gecko ne répond dans le port B ni dans le port A pour l'instant. Sans lui, les jeux démarrent sans le débogueur.",
+})
 T['A search looks through every genre. Press 1 to end it first.'] = ('Una búsqueda mira en todos los géneros. Pulsa 1 para terminarla primero.', '検索はすべてのジャンルから探します。先に1を押して検索を終えてください。', 'Uma busca procura em todos os gêneros. Aperte 1 para encerrá-la primeiro.', 'Una ricerca guarda in tutti i generi. Premi 1 per terminarla prima.')
 KO['A search looks through every genre. Press 1 to end it first.'] = '검색은 모든 장르에서 찾습니다. 먼저 1을 눌러 검색을 끝내 주세요.'
 FR['A search looks through every genre. Press 1 to end it first.'] = 'Une recherche parcourt tous les genres. Appuyez d’abord sur 1 pour la terminer.'

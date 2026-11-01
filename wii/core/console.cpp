@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "gecko.hpp"
 #include "log.hpp"
 
 namespace riftwii::wii {
@@ -29,7 +30,10 @@ void ConsoleStart(bool video_initialised) {
     VIDEO_Flush();
     VIDEO_WaitVSync();
     if (rmode->viTVMode & VI_NON_INTERLACE) VIDEO_WaitVSync();
-    CON_EnableGecko(1, false);
+    // A USB Gecko in slot B gets the console's text. With the USB Gecko log
+    // on, it keeps its copy of stdout instead (logf sends its own lines).
+    if (GeckoActive()) GeckoRetakeStdout();
+    else CON_EnableGecko(1, false);
     LogEchoToScreen(true);
     std::printf("\x1b[2;0H");
 }
@@ -59,7 +63,10 @@ void ConsoleStartInFrame(void* xfb, int fb_width, int fb_height, int x, int y, i
         }
         std::free(keep);
     }
-    CON_EnableGecko(1, false);
+    // A USB Gecko in slot B gets the console's text. With the USB Gecko log
+    // on, it keeps its copy of stdout instead (logf sends its own lines).
+    if (GeckoActive()) GeckoRetakeStdout();
+    else CON_EnableGecko(1, false);
     LogEchoToScreen(true);
     // Truecolour: the menu's ink on the card's white.
     std::printf("\x1b[38;2;46;46;54m\x1b[48;2;255;255;255m\x1b[2J\x1b[0;0H");
