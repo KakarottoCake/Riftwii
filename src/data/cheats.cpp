@@ -658,8 +658,9 @@ bool gct_runs_before_start(const std::vector<std::uint8_t>& gct, std::uint32_t k
             if (!clear(address, value)) return false;
         } else if (type == 0xC2) {
             // A branch written at the address, `value` lines of
-            // instructions after it.
-            if (value > after) return false;
+            // instructions after it. Never none: the handler writes the
+            // branch back over the last of them, which would be the next code.
+            if (value == 0 || value > after) return false;
             extra = value;
             if (!clear(address, 4)) return false;
         } else if (type == 0xE0 || type == 0xE2) {
