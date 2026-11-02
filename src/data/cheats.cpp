@@ -613,10 +613,18 @@ bool gct_runs_before_start(const std::vector<std::uint8_t>& gct, std::uint32_t k
                            std::uint32_t keep_out_end) {
     if (!valid_gct(gct)) return false;
     const std::size_t end = gct.size() - 8;
-    // Whether `bytes` written at `address` stay clear of the kept-out range
-    // (64-bit, so an address near the top can't wrap round).
+    // Whether `bytes` written at `address` land in MEM1 or MEM2 and stay
+    // clear of the kept-out range (64-bit, so nothing wraps round). An
+    // uncached address (0xC0000000 up, 0xD0000000 up) is the same memory
+    // as the cached one 0x40000000 below it; anything else is no memory,
+    // and a write there would fault before the game starts.
     const auto clear = [&](std::uint64_t address, std::uint64_t bytes) {
-        return address + bytes <= keep_out_start || address >= keep_out_end;
+        if (address >= 0xC0000000u) address -= 0x40000000u;
+        const std::uint64_t last = address + bytes;
+        const bool mem1 = address >= 0x80000000u && last <= 0x81800000u;
+        const bool mem2 = address >= 0x90000000u && last <= 0x94000000u;
+        if (!mem1 && !mem2) return false;
+        return last <= keep_out_start || address >= keep_out_end;
     };
     // The handler's base address, which ba codes add to: 0x80000000 until
     // an E0 or E2 sets another. The handler keeps only its top seven bits
@@ -648,8 +656,6 @@ bool gct_runs_before_start(const std::vector<std::uint8_t>& gct, std::uint32_t k
             if (value > after * 8) return false;
             extra = (static_cast<std::size_t>(value) + 7) / 8;
             if (!clear(address, value)) return false;
-        } else if (type >= 0x20 && type <= 0x2E) {
-            // A condition: reads only.
         } else if (type == 0xC2) {
             // A branch written at the address, `value` lines of
             // instructions after it.

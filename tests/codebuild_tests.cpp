@@ -195,9 +195,10 @@ void test_runs_before_start() {
     const std::uint32_t lo = 0x80A00000, hi = 0x81800000;
     const auto runs = [&](const Bytes& list) { return gct_runs_before_start(list, lo, hi); };
     EXPECT_TRUE(runs(remap));
-    // A condition, a string write and their end.
-    EXPECT_TRUE(runs(gct({0x28345678, 0x00000800, 0x06001000, 0x00000005, 0x11223344, 0x55000000, 0xE2000001,
-                          0x00000000})));
+    // A string write and an E2.
+    EXPECT_TRUE(runs(gct({0x06001000, 0x00000005, 0x11223344, 0x55000000, 0xE2000001, 0x00000000})));
+    // A condition reads memory the game hasn't set up yet.
+    EXPECT_FALSE(runs(gct({0x28345678, 0x00000800, 0x04001000, 0x00000001, 0xE2000001, 0x00000000})));
     EXPECT_TRUE(runs(gct({})));
     // Runs instructions itself.
     EXPECT_FALSE(runs(gct({0xC0000000, 0x00000001, 0x4E800020, 0x00000000})));
@@ -225,9 +226,15 @@ void test_runs_before_start() {
     // and a word write aligned down into the loader.
     EXPECT_FALSE(runs(gct({0xE0000000, 0x81800000, 0x04A00000, 0x00000001})));
     EXPECT_FALSE(runs(gct({0x04A00002, 0x00000001})));
-    // Right up to it, and the 0x01000000 bit's address above MEM1's end.
+    // The loader through its uncached address, and a write to no memory
+    // at all (above MEM1's end, or a base of 0).
+    EXPECT_FALSE(runs(gct({0xE0000000, 0xC0000000, 0x04A00000, 0x00000001})));
+    EXPECT_FALSE(runs(gct({0x05800000, 0x00000001})));
+    EXPECT_FALSE(runs(gct({0xE0000000, 0x01000000, 0x04001000, 0x00000001})));
+    // Right up to the loader, and MEM2, cached and not.
     EXPECT_TRUE(runs(gct({0x049FFFFC, 0x00000001})));
-    EXPECT_TRUE(runs(gct({0x05800000, 0x00000001})));
+    EXPECT_TRUE(runs(gct({0xE0000000, 0x90000000, 0x04001000, 0x00000001})));
+    EXPECT_TRUE(runs(gct({0xE0000000, 0xD0000000, 0x04001000, 0x00000001})));
 }
 
 void test_join() {
