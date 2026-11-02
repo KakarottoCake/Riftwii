@@ -456,6 +456,9 @@ std::uint32_t function_start(const Code& code, std::uint32_t at) {
     return 0;
 }
 
+// lwzux, lbzux, lhzux and lhaux: indexed loads that also write their base.
+bool is_update_load_xo(unsigned xo) { return xo == 55 || xo == 119 || xo == 311 || xo == 375; }
+
 // The general register an instruction certainly writes, or 32: loads,
 // immediate arithmetic, rotates, the logical and arithmetic register forms
 // and mfspr. Stores, compares and the rest count as writing nothing, so a
@@ -493,6 +496,17 @@ unsigned written_register(std::uint32_t w) {
     }
 }
 
+// Whether an instruction writes `reg`: its written_register, all of rD to
+// r31 for lmw, and the base register of a load with update.
+bool writes_register(std::uint32_t w, unsigned reg) {
+    const unsigned op = w >> 26, d = (w >> 21) & 31, ra = (w >> 16) & 31;
+    if (op == 46) return reg >= d && reg < 32;
+    const bool load_with_update = op == 33 || op == 35 || op == 41 || op == 43 ||
+                                  (op == 31 && is_update_load_xo((w >> 1) & 0x3FF));
+    if (load_with_update && ra != 0 && reg == ra) return true;
+    return written_register(w) == reg;
+}
+
 // OSSetAlarm, when `called` is the DVD library's timeout helper in front
 // of it: a short function whose last call gets a fixed handler in r7
 // ("lis rX" then "addi r7,rX,..."), the helper's own; else `called`. A
@@ -525,9 +539,8 @@ std::uint32_t through_timeout_helper(const Code& code, std::uint32_t called) {
         } else {
             // Anything else written to r7 or to the lis register leaves no
             // constant there.
-            const unsigned written = written_register(w);
-            if (written == 7) handler_constant = false;
-            if (written == lis_register) lis_register = 32;
+            if (writes_register(w, 7)) handler_constant = false;
+            if (lis_register != 32 && writes_register(w, lis_register)) lis_register = 32;
         }
     }
     const bool short_function = code.has(a) && code.at(a) == 0x4E800020;
