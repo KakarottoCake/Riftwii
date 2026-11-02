@@ -662,7 +662,8 @@ bool gct_runs_before_start(const std::vector<std::uint8_t>& gct, std::uint32_t k
             // branch back over the last of them, which would be the next code.
             if (value == 0 || value > after) return false;
             extra = value;
-            if (!clear(address, 4)) return false;
+            // Aligned down to a word, as the handler writes the branch.
+            if (!clear(address & ~std::uint64_t(3), 4)) return false;
         } else if (type == 0xE0 || type == 0xE2) {
             // The end of conditions; a nonzero top half sets the base.
             if ((value >> 16) != 0) ba = value & 0xFFFF0000u;
