@@ -837,6 +837,24 @@ msgstr "もう一度ダウンロード"
 msgid "GameTDB cover"
 msgstr "GameTDBのカバー"
 
+msgid "Choose cover"
+msgstr "カバーを選ぶ"
+
+msgid "Second cover"
+msgstr "2枚目のカバー"
+
+msgid "The mod's cover"
+msgstr "MODのカバー"
+
+msgid "Third cover"
+msgstr "3枚目のカバー"
+
+msgid "Fourth cover"
+msgstr "4枚目のカバー"
+
+msgid "Pick any of GameTDB's covers for this game. It is kept as your own cover on the SD card, so it works offline; Back to automatic removes it."
+msgstr "このゲームのGameTDBのカバーから好きなものを選べます。自分のカバーとしてSDカードに保存されるので、オフラインでも使えます。「自動に戻す」で消えます。"
+
 msgid "First"
 msgstr "1つ目"
 

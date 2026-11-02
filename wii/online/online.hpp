@@ -25,6 +25,10 @@ constexpr const char* kCheatDir = "sd:/riftwii/cheats";
 // Bytes received so far (headers included), called as they come in.
 using HttpProgress = std::function<void(std::size_t received)>;
 
+// Whether `url` is there, asked with HEAD: true for a 200, no body read and
+// no redirect followed. `error` says what else came back.
+bool HttpExists(const std::string& url, std::string& error, int timeout_ms = 10000);
+
 // One GET (http:// or https://), following up to three redirects that
 // `redirects` allows (riftwii/http.hpp's HttpRedirects). A redirect it does
 // not allow fails as an answer does ("<host> answered 301 ..."). `body`

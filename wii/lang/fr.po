@@ -837,6 +837,24 @@ msgstr "Re-télécharger"
 msgid "GameTDB cover"
 msgstr "Jaquette GameTDB"
 
+msgid "Choose cover"
+msgstr "Choisir la jaquette"
+
+msgid "Second cover"
+msgstr "Deuxième jaquette"
+
+msgid "The mod's cover"
+msgstr "La jaquette du mod"
+
+msgid "Third cover"
+msgstr "Troisième jaquette"
+
+msgid "Fourth cover"
+msgstr "Quatrième jaquette"
+
+msgid "Pick any of GameTDB's covers for this game. It is kept as your own cover on the SD card, so it works offline; Back to automatic removes it."
+msgstr "Choisissez n'importe quelle jaquette GameTDB pour ce jeu. Elle est gardée comme votre jaquette sur la carte SD et marche donc hors ligne ; « Revenir au choix automatique » la retire."
+
 msgid "First"
 msgstr "Première"
 
