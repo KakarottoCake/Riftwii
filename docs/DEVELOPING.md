@@ -591,6 +591,16 @@ MEM2's free part, where neither program is: it copies the sections, clears
 the BSS, writes the argument line and its `_arg` block, flushes the caches
 and jumps to the app. `session.log` then says `Homebrew app: it loads over
 RiftWii's own memory, so a small copier at 0x9... finishes starting it`.
-An app clear of RiftWii is copied as before. An app is refused only when
-it would leave MEM1's free part (`0x80003F00`–`0x81700000`), land on its
-own file copy, or (over RiftWii) find no room for the routine.
+An app clear of RiftWii is copied as before. Besides a damaged DOL (a
+section past the end of the file) or one whose entry point is outside the
+sections it loads, an app is refused only when it would leave MEM1's free
+part (`0x80003F00`–`0x81700000`), land on its own file copy, or (over
+RiftWii) find no room for the routine. An app that reads an argument line
+(the `_arg` block) is also refused when the line has no place: past MEM1's
+free part, or on RiftWii without the routine's room. It would otherwise
+start without its arguments; `session.log` then says `Homebrew app: its
+argument line has no place in memory`. The routine itself is checked on the
+host: `channel_farcopy_tests` runs its assembled bytes
+(`tests/fixtures/dolfar.bin`) in a small PowerPC interpreter, and the
+channel build in CI fails when that file no longer matches `dolfar.S`
+(`make -f Makefile.channel check-dolfar`; `dolfar-fixture` rewrites it).

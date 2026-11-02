@@ -364,7 +364,7 @@ if(BUILD_TESTING)
         target_compile_options(channel_farcopy_tests PRIVATE -Wall -Wextra -Werror
             -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast)
     endif()
-    add_test(NAME channel_farcopy COMMAND channel_farcopy_tests)
+    add_test(NAME channel_farcopy COMMAND channel_farcopy_tests "${CMAKE_SOURCE_DIR}/tests/fixtures")
     # The boot loader has its own validator; common/dolboot.c is tested above.
     add_executable(channel_loader_entry_tests tests/channel_loader_entry_tests.c)
     if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")

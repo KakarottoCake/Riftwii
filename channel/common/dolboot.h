@@ -33,6 +33,13 @@ void dolboot_run(const u8* dol, const char* argv0) __attribute__((noreturn));
 // clear of this program and is copied by it, as before. For the log.
 u32 dolboot_far_address(const u8* dol, u32 length);
 
+// For a DOL dolboot_valid accepted: whether dolboot_run_line can hand it
+// an argument line of `length` bytes. False only for a DOL that reads
+// one and has no place for it: past MEM1's free part, or on this program
+// without the far copy's room. Such a DOL would start without its
+// arguments, so it is refused instead.
+bool dolboot_line_fits(const u8* dol, u32 length);
+
 void dolboot_run_line(const u8* dol, const char* line, u32 length) __attribute__((noreturn));
 
 // Puts at the system call vector (0x80000C00) the handler the Wii's system

@@ -211,6 +211,27 @@ static u32 far_address(const u8* dol, u32 length) {
 
 u32 dolboot_far_address(const u8* dol, u32 length) { return far_address(dol, length); }
 
+// Whether a DOL that reads an argument block gets its line of `length`
+// bytes: right after what it fills, below MEM1_HI, and on this program
+// (still running while it copies in place) only when the far copy, with
+// its room, writes it. A DOL without the block takes no line. `text0` is
+// its first text section in the file copy at [file_lo, file_hi).
+static bool line_fits(const DolHeader* h, const u8* text0, u32 length, u32 file_lo, u32 file_hi, u32 self_lo,
+                      u32 self_hi, u32 free_lo, u32 free_hi) {
+    if (!takes_args(h, text0)) return true;
+    const u32 line_at = line_address(h, length);
+    if (!line_at) return false;
+    if (!overlaps(line_at, line_at + length, self_lo, self_hi)) return true;
+    return far_block_in(free_lo, free_hi, h, file_lo, file_hi, line_at, length) != 0;
+}
+
+bool dolboot_line_fits(const u8* dol, u32 length) {
+    extern u8 __app_start[], __bss_end[];
+    const DolHeader* h = (const DolHeader*)dol;
+    return line_fits(h, dol + h->offset[0], length, (u32)dol, (u32)dol + file_end(h), (u32)__app_start,
+                     (u32)__bss_end, (u32)SYS_GetArena2Lo(), (u32)SYS_GetArena2Hi());
+}
+
 static void set_argv(const DolHeader* h, const char* text, u32 length) {
     if (!takes_args(h, (const u8*)h->address[0])) return;
     struct __argv* args = (struct __argv*)(h->address[0] + 8);
@@ -273,10 +294,13 @@ void dolboot_run_line(const u8* dol, const char* line, u32 length) {
     }
     const DolHeader h = *(const DolHeader*)dol;
     const u32 far_at = far_address(dol, n);
+    const u32 line_at = takes_args(&h, dol + h.offset[0]) ? line_address(&h, n) : 0;
     extern u8 __app_start[], __bss_end[];
-    if (!far_at && reaches(&h, 0, 0, (u32)__app_start, (u32)__bss_end)) {
-        // dolboot_valid found the far copy room, which a heap grown since
-        // has taken. Never copy over this program: the Wii Menu instead.
+    if (!far_at && reaches(&h, line_at, n, (u32)__app_start, (u32)__bss_end)) {
+        // dolboot_valid (or dolboot_line_fits, for the argument line)
+        // found the far copy room, which a heap grown since has taken.
+        // Never copy over this program, nor start the app without the
+        // line it reads: the Wii Menu instead.
         SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
         for (;;) {
         }

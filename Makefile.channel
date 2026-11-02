@@ -52,7 +52,7 @@ FWLD     := $(MACHDEP) -Wl,-Map,$(OUT)/forwarder.map -Wl,--section-start,.init=0
 FWWIILD  := $(MACHDEP) -Wl,-Map,$(OUT)/forwarder_wii.map $(FWWRAP)
 INSTLD   := $(MACHDEP) -Wl,-Map,$(OUT)/installer.map
 
-.PHONY: all clean bearssl FORCE
+.PHONY: all clean bearssl FORCE check-dolfar dolfar-fixture
 all: $(INSTDOL)
 
 $(OBJDIR):
@@ -94,6 +94,21 @@ $(OBJDIR)/dolboot.o: channel/common/dolboot.c channel/common/dolboot.h | $(OBJDI
 $(OBJDIR)/dolfar.o: channel/common/dolfar.S | $(OBJDIR)
 	@echo $(notdir $<)
 	@$(CC) $(MACHDEP) -x assembler-with-cpp -c $< -o $@
+
+# The far copy's bytes, which channel_farcopy_tests runs on the host from
+# tests/fixtures/dolfar.bin (the host has no PowerPC assembler). CI checks
+# that the file still matches dolfar.S; dolfar-fixture rewrites it.
+$(OUT)/dolfar.bin: $(OBJDIR)/dolfar.o
+	@$(OBJCOPY) -O binary -j .rodata.dolfar $< $@
+
+check-dolfar: $(OUT)/dolfar.bin
+	@cmp -s $< tests/fixtures/dolfar.bin || { \
+		echo "tests/fixtures/dolfar.bin no longer matches channel/common/dolfar.S:" \
+			"run make -f Makefile.channel dolfar-fixture and the host tests"; exit 1; }
+	@echo "tests/fixtures/dolfar.bin matches dolfar.S"
+
+dolfar-fixture: $(OUT)/dolfar.bin
+	@cp $< tests/fixtures/dolfar.bin
 
 $(OBJDIR)/fw_startup.o: channel/forwarder/startup.c | $(OBJDIR)
 	@echo $(notdir $<)

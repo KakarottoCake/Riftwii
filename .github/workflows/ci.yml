@@ -151,6 +151,10 @@ jobs:
             --commit "$(git rev-parse --short=8 HEAD)" build-plugins/plugins/*.rwp
       - name: Build the channel
         run: make -f Makefile.channel -j"$(nproc)"
+      # The host tests run the far copy's routine from a copy of its bytes;
+      # this keeps that copy the same as dolfar.S.
+      - name: The far copy's test bytes match dolfar.S
+        run: make -f Makefile.channel check-dolfar
       # Size report: the DOL and each runtime blob against main, so a
       # memory-layout problem shows in review instead of on a Wii.
       #
