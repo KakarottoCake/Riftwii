@@ -305,6 +305,9 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
                             * hook on, the test of the hook alone (sd:/riftwii/gc/test/nowiden): copied, not widened */
 #define GC_FLAG_PAD_TRACE_PENDING 32768u  /* diagnostic PAD state to write at the next heartbeat, outside PADRead */
 #define GC_FLAG_TRACE_GAMEPLAY 16384u  /* sd:/riftwii/gc/test/trace: repeated SD writes are explicitly requested */
+#define GC_FLAG_OLD_REBOOT 0x10000u  /* the program-switch hook is on __OSReboot(resetCode, forceMenu), an SDK before
+                                      * __OSBootDolSimple: the program is the offset at GC_OS_BOOT_DOL */
+#define GC_OS_BOOT_DOL 0x800030ECu   /* that SDK's OSResetSystem puts OSSetBootDol's offset here (0: none named) */
 
 /* Every flag shares the one word, so each must be its own single bit: the
  * sum equals the OR only when no two overlap, and a flag added on a bit that
@@ -313,11 +316,13 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_FLAGS_ALL_OR (GC_FLAG_PRESS | GC_FLAG_CRASH | GC_FLAG_LEAVE | GC_FLAG_REMOTE_RUMBLE | GC_FLAG_RUMBLE_TEST | \
                          GC_FLAG_FAKE_REMOTE | GC_FLAG_FAKE_PRO | GC_FLAG_CRASH_BLACK | GC_FLAG_STREAM_ONLY | \
                          GC_FLAG_PROGRESSIVE | GC_FLAG_RESET_TEST | GC_FLAG_EXEC_TEST | GC_FLAG_DISC_TEST | \
-                         GC_FLAG_SD_SLOW | GC_FLAG_WIDEN | GC_FLAG_PAD_TRACE_PENDING | GC_FLAG_TRACE_GAMEPLAY)
+                         GC_FLAG_SD_SLOW | GC_FLAG_WIDEN | GC_FLAG_PAD_TRACE_PENDING | GC_FLAG_TRACE_GAMEPLAY | \
+                         GC_FLAG_OLD_REBOOT)
 #define GC_FLAGS_ALL_SUM (GC_FLAG_PRESS + GC_FLAG_CRASH + GC_FLAG_LEAVE + GC_FLAG_REMOTE_RUMBLE + GC_FLAG_RUMBLE_TEST + \
                           GC_FLAG_FAKE_REMOTE + GC_FLAG_FAKE_PRO + GC_FLAG_CRASH_BLACK + GC_FLAG_STREAM_ONLY + \
                           GC_FLAG_PROGRESSIVE + GC_FLAG_RESET_TEST + GC_FLAG_EXEC_TEST + GC_FLAG_DISC_TEST + \
-                          GC_FLAG_SD_SLOW + GC_FLAG_WIDEN + GC_FLAG_PAD_TRACE_PENDING + GC_FLAG_TRACE_GAMEPLAY)
+                          GC_FLAG_SD_SLOW + GC_FLAG_WIDEN + GC_FLAG_PAD_TRACE_PENDING + GC_FLAG_TRACE_GAMEPLAY + \
+                          GC_FLAG_OLD_REBOOT)
 /* The runtime is built as C99 (-Wpedantic rejects _Static_assert), so C uses an
  * array whose size goes negative when the check fails. */
 #ifdef __cplusplus
@@ -343,7 +348,8 @@ GC_FLAG_CHECK(gc_flags_single_bits, GC_FLAG_IS_BIT(GC_FLAG_PRESS) &&
                GC_FLAG_IS_BIT(GC_FLAG_SD_SLOW) &&
                GC_FLAG_IS_BIT(GC_FLAG_WIDEN) &&
                GC_FLAG_IS_BIT(GC_FLAG_PAD_TRACE_PENDING) &&
-               GC_FLAG_IS_BIT(GC_FLAG_TRACE_GAMEPLAY),
+               GC_FLAG_IS_BIT(GC_FLAG_TRACE_GAMEPLAY) &&
+               GC_FLAG_IS_BIT(GC_FLAG_OLD_REBOOT),
                "GC_FLAG_* values must be single bits");
 
 /* A stopped game's crash record remains available to problem reports
@@ -596,6 +602,8 @@ struct gc_rt_context {
     uint32_t pad_raw_errs;      /* original PADRead errors, a byte per port, port 1 first */
     uint32_t pad_filled_errs;   /* errors after adapter and remote filling */
     uint32_t pad_played;        /* the ports a remote or the adapter filled in the last PADRead (gc_ports_played) */
+    uint32_t pad_idle;          /* the ports a probe finds nothing on (gc_ports_idle_update) */
+    uint8_t pad_transfer_reads[4]; /* each port's reads in a row with nothing there */
     uint32_t si_probe;          /* the game's SIProbe, hooked; 0: not found, the game's own answers stand */
     uint32_t si_probes;         /* the game's SIProbe calls */
     uint32_t si_probes_answered; /* those answered as a controller for a remote's or the adapter's port */

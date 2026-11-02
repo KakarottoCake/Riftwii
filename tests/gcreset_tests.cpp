@@ -221,6 +221,54 @@ void test_boot_dol() {
     EXPECT_EQ(riftwii::find_gc_boot_dol(t.ranges(), data_ranges), 0u);
 }
 
+void test_old_reboot() {
+    Text t;
+    // OSResetSystem's restart: the program OSSetBootDol named, to 0x800030EC.
+    t.add(kBlr);
+    t.add(kMflrR0);
+    t.add(0x800D8370);  // lwz r0,-0x7c90(r13)
+    t.add(0x3C608000);  // lis r3,0x8000
+    t.add(0x900330EC);  // stw r0,0x30ec(r3)
+    t.add(kBlr);
+    // __OSReboot, as Everything or Nothing's boot.elf has it.
+    const std::uint32_t reboot = t.here();
+    t.add(kMflrR0);
+    t.add(0x90010004);  // stw r0,4(r1)
+    t.add(0x9421FCD8);  // stwu r1,-0x328(r1)
+    t.add(0x38000000);  // li r0,0
+    t.add(0x3C608180);  // lis r3,0x8180
+    t.add(0x9003FFFC);  // stw r0,-4(r3)
+    t.add(0x38000001);  // li r0,1
+    t.add(0x3C608000);  // lis r3,0x8000
+    t.add(0x980330E2);  // stb r0,0x30e2(r3)
+    t.add(kBlr);
+    // A function that clears the word alone (the arena's top, say).
+    t.add(kMflrR0);
+    t.add(0x3C808180);  // lis r4,0x8180
+    t.add(0x9004FFFC);  // stw r0,-4(r4)
+    t.add(kBlr);
+    EXPECT_EQ(riftwii::find_gc_old_reboot(t.ranges()), reboot);
+
+    // The byte's store with another upper half: not 0x800030E2.
+    Text other = t;
+    other.put(reboot + 7 * 4, 0x3C608001);  // lis r3,0x8001
+    EXPECT_EQ(riftwii::find_gc_old_reboot(other.ranges()), 0u);
+
+    // Nothing stores the program at 0x800030EC: not this SDK's restart.
+    Text unnamed = t;
+    unnamed.put(kBase + 4 * 4, 0x900330F0);  // stw r0,0x30f0(r3)
+    EXPECT_EQ(riftwii::find_gc_old_reboot(unnamed.ranges()), 0u);
+
+    // Two functions that do both: not trusted.
+    t.add(kMflrR0);
+    t.add(0x3CA08180);  // lis r5,0x8180
+    t.add(0x9005FFFC);  // stw r0,-4(r5)
+    t.add(0x3CA08000);  // lis r5,0x8000
+    t.add(0x980530E2);  // stb r0,0x30e2(r5)
+    t.add(kBlr);
+    EXPECT_EQ(riftwii::find_gc_old_reboot(t.ranges()), 0u);
+}
+
 // A switched-to program's arguments in BI2, where __start reads them.
 std::uint32_t be32(const std::vector<std::uint8_t>& b, std::size_t at) {
     return std::uint32_t(b[at]) << 24 | std::uint32_t(b[at + 1]) << 16 | std::uint32_t(b[at + 2]) << 8 | b[at + 3];
@@ -247,6 +295,7 @@ void test_exec_args() {
 int main() {
     test_restart_plan();
     test_boot_dol();
+    test_old_reboot();
     test_exec_args();
     test_inline_hot_reset();
     test_through_hot_reset();

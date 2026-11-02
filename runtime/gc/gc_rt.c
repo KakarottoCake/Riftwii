@@ -2346,14 +2346,27 @@ static uint32_t gc_exec_end_line(uint8_t* buf, uint32_t at) {
 }
 void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args) {
     uint8_t* const buf = (uint8_t*)(uintptr_t)ctx->trace_buf;
-    const char* const* argv = (const char* const*)(uintptr_t)args[6];
+    /* An older SDK's __OSReboot(resetCode, forceMenu) (GC_FLAG_OLD_REBOOT)
+     * takes no arguments for the program: it is the offset OSResetSystem
+     * left at GC_OS_BOOT_DOL. */
+    const int old_reboot = (ctx->flags & GC_FLAG_OLD_REBOOT) != 0;
+    const char* const* argv = old_reboot ? 0 : (const char* const*)(uintptr_t)args[6];
     const uint32_t argc = args[4] == 0 && argv != 0 ? args[5] : 0;
-    uint32_t target = args[0], first = 0, at, i;
+    uint32_t target = old_reboot ? *(volatile const uint32_t*)(uintptr_t)GC_OS_BOOT_DOL : args[0];
+    const uint32_t restart_code = old_reboot ? args[0] : args[1];
+    uint32_t first = 0, at, i;
     uint32_t msr;
     int read;
     /* Even an unredirected SDK boot can discard the old OS and its alarms. */
     if (!gc_io_drain(ctx, 0)) return;  /* leave exec.txt and the quarantined buffers alone */
     if (ctx->exec_sector == 0 || ctx->leave_buf == 0 || ctx->leave_fd == 0xFFFFFFFFu) return;
+    /* A plain restart (no program named) would run the disc's own program
+     * again through the apploader, unpatched: back to RiftWii instead, as
+     * OSResetSystem does for a game without a restart. */
+    if (old_reboot && target == 0) {
+        gc_leave(ctx);
+        return;
+    }
     if (target == 0xFFFFFFFFu) {
         const char* p = argc != 0 ? argv[0] : 0;
         if (p == 0 || *p < '0' || *p > '9') return;  /* not a program RiftWii can name */
@@ -2378,7 +2391,7 @@ void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args) {
     at = gc_exec_bytes(buf, at, 0x67635F72u, 4);  /* "gc_restart=" */
     at = gc_exec_bytes(buf, at, 0x65737461u, 4);
     at = gc_exec_bytes(buf, at, 0x72743D00u, 3);
-    at = gc_exec_end_line(buf, gc_exec_number(buf, at, args[1]));
+    at = gc_exec_end_line(buf, gc_exec_number(buf, at, restart_code));
     for (i = first; i < argc && i - first < GC_EXEC_ARGS; ++i) {
         if (argv[i] == 0) continue;
         at = gc_exec_bytes(buf, at, 0x67635F61u, 4);  /* "gc_arg=" */
@@ -2923,6 +2936,8 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
     native = gc_ports_native_update((const volatile uint32_t*)(uintptr_t)ctx->si_type_cache,
                                     (const uint8_t*)(uintptr_t)status, ctx->pad_enabled_before, previous_native);
     ctx->native_ports = native;
+    if (status != 0)
+        ctx->pad_idle = gc_ports_idle_update((const uint8_t*)(uintptr_t)status, native, ctx->pad_transfer_reads);
     gc_guard(ctx);  /* once a frame: IOS rewrites its counter there all the time */
     gc_stream_fetch(ctx);  /* the music ring's top-up, once a frame */
     /* The adapter's controllers first: they take their ports before the
@@ -2930,7 +2945,7 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
     if (ctx->gcad && status != 0) {
         struct gc_gcad* ad = (struct gc_gcad*)(uintptr_t)ctx->gcad;
         gc_gcad_poll(ctx, ad);
-        gc_gcad_fill(ad, (uint8_t*)(uintptr_t)status, native);
+        gc_gcad_fill(ad, (uint8_t*)(uintptr_t)status, native, ctx->pad_idle);
     }
     if (ctx->bt && status != 0) {
         struct gc_bt* bt = (struct gc_bt*)(uintptr_t)ctx->bt;
@@ -2940,12 +2955,12 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
             /* Keep start-up's frame-counted timeouts unchanged. Once page
              * scan is ready, an idle controller needs no per-frame IPC. */
             if (bt->stage != GC_BT_STAGE_READY || gc_bt_wants_frame_polls(bt)) gc_bt_poll(ctx, bt);
-            gc_bt_fill(bt, (uint8_t*)(uintptr_t)status, native);
+            gc_bt_fill(bt, (uint8_t*)(uintptr_t)status, native, ctx->pad_idle);
         }
     }
     ctx->pad_filled_errs = gc_pad_errors((const uint8_t*)(uintptr_t)status);
     /* Before the test presses below: only a real fill makes a port played. */
-    ctx->pad_played = gc_ports_played(ctx->pad_raw_errs, ctx->pad_filled_errs);
+    ctx->pad_played = gc_ports_played(ctx->pad_raw_errs, ctx->pad_filled_errs, ctx->pad_idle);
     if (ctx->flags & GC_FLAG_TRACE_GAMEPLAY) {
         const int changed = native != previous_native || ctx->pad_raw_errs != previous_errors ||
                             ctx->pad_enabled_before != gc_pad_enabled(ctx) || ctx->pad_played != previous_played;
