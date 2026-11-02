@@ -948,6 +948,28 @@ void SwitchPadStarted() {
     gcad_tick(&bus.hub.adapter, bus.clock + GCAD_RESCAN_MS);
     CHECK(bus.outputs.size() == 5);
     CHECK(gcad_read_ports(&bus.hub.adapter, 0, pads, bus.clock) == 0);
+    // Input again once it is started: while the origin is taken anew the
+    // pad counts as heard from, so the start-up doesn't run once more.
+    bus.Reply(output, 2);
+    for (unsigned i = 0; i < 8; ++i) {
+        const auto report = SwitchReport(0, 0, 0);
+        std::memcpy(driver.in_data, report.data(), report.size());
+        bus.Reply(input, 64);
+    }
+    bus.Reply(output, 2);  // 80 02, unanswered
+    bus.clock += GCAD_CTRL_MS;
+    gcad_tick(&bus.hub.adapter, bus.clock);
+    bus.Reply(output, 2);  // 80 04
+    bus.Reply(output, 12);
+    CHECK(driver.link == GCAD_LINK_POLL && bus.outputs.size() == 8);
+    bus.clock += GCAD_RESCAN_MS;
+    {
+        const auto report = SwitchReport(0, 0, 0);
+        std::memcpy(driver.in_data, report.data(), report.size());
+        bus.Reply(input, 64);  // the first of the three the origin waits for
+    }
+    gcad_tick(&bus.hub.adapter, bus.clock);
+    CHECK(driver.link == GCAD_LINK_POLL && bus.outputs.size() == 8);
 
     // Input already flowing while it waits for an answer: after
     // SWITCH_READS reads of it the next message goes.

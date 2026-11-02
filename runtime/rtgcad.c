@@ -1459,6 +1459,9 @@ static void on_in(gcad* g, int32_t result, int current, uint32_t now) {
             else if (switch_pro(g)) decoded = switch_report(g, bytes, now);
             else decoded = rthid_decode(g->mapping, g->in_data, bytes, &g->hid_pad);
         }
+        /* A Switch Pro report while its origin is still taken: it is
+         * reporting (no start-up again), but stays out of the ports. */
+        if (decoded == 2) g->data_time = now;
         if (decoded == 1) {
             if (ps3(g)) g->hid_pad.wireless = 0;
             if (g->mapping->rumble_type && !g->endpoint_out) g->hid_pad.wireless = 1;
