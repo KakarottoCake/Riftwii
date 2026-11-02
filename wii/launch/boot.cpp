@@ -421,11 +421,12 @@ bool codes_run_first(bool debugger_handler, bool start_file_pending) {
         logf("Codes: the WiiRD debugger's handler starts with the game, not before it\n");
     } else if (start_file_pending) {
         logf("Codes: the cheats start with the game, after its start file is in place\n");
-    } else if (!gct_runs_before_start(g_extras.cheat_gct)) {
+    } else if (!gct_runs_before_start(g_extras.cheat_gct, kLoaderStart, kMem1End)) {
         // Before the game nothing of it is set up: a code that runs
-        // instructions or follows the game's pointers could fault.
-        logf("Codes: the cheats start with the game: one of them runs code, follows the game's pointers or "
-             "searches memory\n");
+        // instructions or follows the game's pointers could fault, and this
+        // loader (its code, data and stack, up to MEM1's end) still runs.
+        logf("Codes: the cheats start with the game: one of them runs code, follows the game's pointers, "
+             "searches memory or writes where RiftWii's loader still runs\n");
     } else {
         first = true;
     }
