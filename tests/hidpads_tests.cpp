@@ -98,8 +98,13 @@ int main(int argc, char** argv) {
         ven_devices[1] = {61, 0x24C6, 0x530A};
         ven_count = 2;
     }
-    const bool plugged = connected || xbox;
-    if (connected) {
+    // A wired Switch Pro Controller needs no file: RiftWii's own support.
+    const bool switch_pro = std::string(argv[1]) == "switchpro";
+    const bool plugged = connected || xbox || switch_pro;
+    if (switch_pro) {
+        listed_devices[0] = {46, 0x057E, 0x2009};
+        listed_count = 1;
+    } else if (connected) {
         listed_devices[0] = {42, 0x1234, 0x5678};
         listed_devices[1] = {43, 0x057E, 0x0337};
         listed_count = 2;
@@ -160,6 +165,11 @@ int main(int argc, char** argv) {
             CHECK(rthid_find(&catalog, 0x12345678) != nullptr);
             CHECK(catalog.known[0].id == 42);
             CHECK(catalog.known[0].vid_pid == 0x12345678);
+        }
+        if (switch_pro) {
+            const rthid_mapping* mapping = rthid_find(&catalog, 0x057E2009);
+            CHECK(mapping == &catalog.maps[0]);
+            CHECK(mapping != nullptr && mapping->report_bytes == 12 && mapping->rumble_bytes == 0);
         }
         CHECK(rthid_find(&catalog, 0x057E0337) == nullptr);
         CHECK(catalog.known_count == listed_count);

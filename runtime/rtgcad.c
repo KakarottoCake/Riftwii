@@ -33,6 +33,11 @@ static int ps3(const gcad* g) {
     return g->mapping && g->mapping->vid == 0x054C && g->mapping->pid == 0x0268;
 }
 
+static int switch_pro(const gcad* g) {
+    return g->mapping && !g->ven && g->mapping->vid == (GCAD_SWITCH_VID_PID >> 16) &&
+           g->mapping->pid == (GCAD_SWITCH_VID_PID & 0xFFFFu);
+}
+
 /* The stick's dead zone and full reach, on the report's top byte: an
  * Xbox 360 stick at rest reads up to about 20 of 128 on worn pads, and a
  * GameCube stick reaches about 104 at its gate. */
@@ -90,25 +95,10 @@ int gcad_xbox_decode(const uint8_t* report, uint32_t bytes, gcad_pad* out) {
     return 1;
 }
 
-/* The built-in mapping: no config file. Only its report length, the
- * interrupt poll and the rumble messages are used; gcad_xbox_decode
+/* The built-in mapping: no config file (rthid_builtin); gcad_xbox_decode
  * reads the report. Rumble: both motors full, or both off. */
 static void xbox_mapping(rthid_mapping* m, uint32_t vid_pid) {
-    uint32_t i;
-    zero(m, sizeof(*m));
-    m->version = RTHID_VERSION;
-    m->bytes = sizeof(*m);
-    m->vid = (uint16_t)(vid_pid >> 16);
-    m->pid = (uint16_t)vid_pid;
-    m->report_bytes = GCAD_XBOX_REPORT_BYTES;
-    m->polltype = 1;
-    m->analog_l = RTHID_ABSENT;
-    m->analog_r = RTHID_ABSENT;
-    for (i = 0; i < RTHID_BUTTONS; ++i) m->buttons[i].offset = RTHID_ABSENT;
-    for (i = 0; i < 4; ++i) {
-        m->axes[i].offset = RTHID_ABSENT;
-        m->axes[i].scale = 1000;
-    }
+    rthid_builtin(m, vid_pid, GCAD_XBOX_REPORT_BYTES);
     m->rumble_type = 1;
     m->rumble_bytes = 8;
     m->rumble_transfer = 8;
@@ -117,6 +107,78 @@ static void xbox_mapping(rthid_mapping* m, uint32_t vid_pid) {
     m->rumble_off[1] = 8;
     m->rumble_on[3] = 0xFF; /* the big motor */
     m->rumble_on[4] = 0xFF; /* the small one */
+}
+
+/* A Switch Pro stick's reach from its middle in its 12-bit units: about
+ * 1,500 each way, the figure Linux's hid-nintendo falls back on when a
+ * pad's own calibration can't be read (RiftWii doesn't read it). Scaled to
+ * a GameCube stick's reach at its gate, as for the Xbox 360 pad. */
+#define SWITCH_STICK_REACH 1500
+
+static int switch_input(const uint8_t* report, uint32_t bytes) {
+    return report && bytes >= GCAD_SWITCH_REPORT_BYTES && (report[0] == 0x30 || report[0] == 0x21);
+}
+
+/* Each stick is two 12-bit values in three bytes: x in the first byte and
+ * the low half of the second, y in the second's high half and the third. */
+static uint32_t switch_x(const uint8_t* stick) {
+    return (uint32_t)stick[0] | ((uint32_t)(stick[1] & 0x0F) << 8);
+}
+
+static uint32_t switch_y(const uint8_t* stick) {
+    return ((uint32_t)stick[1] >> 4) | ((uint32_t)stick[2] << 4);
+}
+
+static int8_t switch_axis(uint32_t raw, uint8_t origin) {
+    /* The origin keeps the top 8 bits; its middle is half a step above. */
+    const int32_t middle = ((int32_t)origin << 4) | 8;
+    int32_t value = ((int32_t)raw - middle) * XBOX_STICK_REACH / SWITCH_STICK_REACH;
+    if (value > 127) value = 127;
+    if (value < -127) value = -127;
+    return (int8_t)value;
+}
+
+int gcad_switch_sticks(const uint8_t* report, uint32_t bytes, uint8_t sticks[4]) {
+    if (!sticks || !switch_input(report, bytes)) return 0;
+    sticks[0] = (uint8_t)(switch_x(report + 6) >> 4);
+    sticks[1] = (uint8_t)(switch_y(report + 6) >> 4);
+    sticks[2] = (uint8_t)(switch_x(report + 9) >> 4);
+    sticks[3] = (uint8_t)(switch_y(report + 9) >> 4);
+    return 1;
+}
+
+/* Buttons at 3 (the right side's), 4 (the middle's) and 5 (the left
+ * side's). A, B, X and Y keep their names; ZL and ZR are the GameCube's
+ * L and R pressed all the way, R is Z and + is Start. L, -, HOME and
+ * Capture are left free. */
+int gcad_switch_decode(const uint8_t* report, uint32_t bytes, const uint8_t origin[4], gcad_pad* out) {
+    uint16_t buttons = 0;
+    uint8_t right, middle, left;
+    if (!out || !origin || !switch_input(report, bytes)) return 0;
+    right = report[3];
+    middle = report[4];
+    left = report[5];
+    if (right & 0x01) buttons |= GCAD_PAD_Y;
+    if (right & 0x02) buttons |= GCAD_PAD_X;
+    if (right & 0x04) buttons |= GCAD_PAD_B;
+    if (right & 0x08) buttons |= GCAD_PAD_A;
+    if (right & 0x40) buttons |= GCAD_PAD_Z;      /* R */
+    if (right & 0x80) buttons |= GCAD_PAD_R;      /* ZR */
+    if (middle & 0x02) buttons |= GCAD_PAD_START; /* + */
+    if (left & 0x01) buttons |= GCAD_PAD_DOWN;
+    if (left & 0x02) buttons |= GCAD_PAD_UP;
+    if (left & 0x04) buttons |= GCAD_PAD_RIGHT;
+    if (left & 0x08) buttons |= GCAD_PAD_LEFT;
+    if (left & 0x80) buttons |= GCAD_PAD_L;       /* ZL */
+    out->buttons = buttons;
+    out->trigger_l = (left & 0x80) ? 255 : 0;
+    out->trigger_r = (right & 0x80) ? 255 : 0;
+    out->stick_x = switch_axis(switch_x(report + 6), origin[0]);
+    out->stick_y = switch_axis(switch_y(report + 6), origin[1]);
+    out->substick_x = switch_axis(switch_x(report + 9), origin[2]);
+    out->substick_y = switch_axis(switch_y(report + 9), origin[3]);
+    out->wireless = 1;  /* no motor: rumble isn't sent to it */
+    return 1;
 }
 
 /* The list a pad link's device came from. */
@@ -336,6 +398,38 @@ static void set_origin(gcad* g, uint32_t port, const uint8_t analog[6], uint32_t
     origin_event(g, port, how, origin);
 }
 
+/* While a port has no origin: takes one from steady readings at rest, or
+ * the middle for the axes still off after GCAD_ORIGIN_WAIT_MS (take_report
+ * says why). `appearing`: the port's first reading since it was empty. */
+static void wait_for_origin(gcad* g, uint32_t port, int appearing, const uint8_t analog[6], uint32_t now) {
+    uint32_t axis;
+    if (appearing) {
+        g->origin_since[port] = now;
+        for (axis = 0; axis < 6; ++axis) g->steady_reads[port][axis] = 0;
+        /* Once per wait, so a log shows what was passed over. */
+        if (!pad_at_rest(analog)) origin_event(g, port, GCAD_ORIGIN_PASSED, analog);
+    }
+    if (count_steady(g, port, analog)) {
+        set_origin(g, port, analog, GCAD_ORIGIN_RESTING);
+    } else if (elapsed(now, g->origin_since[port]) >= ms(g, GCAD_ORIGIN_WAIT_MS)) {
+        set_origin(g, port, analog, GCAD_ORIGIN_MIDDLE);
+    }
+}
+
+/* X+Y+Start `held` for GCAD_RECAL_MS: a new origin, as the GameCube pad
+ * itself does, once per hold. */
+static void hold_to_recalibrate(gcad* g, uint32_t port, int held, const uint8_t analog[6], uint32_t now) {
+    if (!held) {
+        g->recal_active[port] = 0;
+    } else if (!g->recal_active[port]) {
+        g->recal_active[port] = 1;
+        g->recal_since[port] = now;
+    } else if (g->recal_active[port] == 1 && elapsed(now, g->recal_since[port]) >= ms(g, GCAD_RECAL_MS)) {
+        set_origin(g, port, analog, GCAD_ORIGIN_RECAL);
+        g->recal_active[port] = 2;
+    }
+}
+
 /* A discovery record for the configured pads: `answered` 0 when the list
  * was asked for, 1 when it came back. Each kind repeats only with a new
  * result. */
@@ -477,9 +571,140 @@ static void reports_started(gcad* g, uint32_t now) {
     g->data_time = now;
     if (!g->mapping) gcad_env_event(g, GCAD_EV_LINKED, (uint32_t)g->dev_id, 0);
     for (i = 0; i < GCAD_PORTS; ++i) g->rumble_sent[i] = 0xFF;
-    submit_poll(g);
+    /* A Switch Pro start-up read can still be out: its reply is the first poll's. */
+    if (!(g->busy & BIT(GCAD_TAG_IN))) submit_poll(g);
     if (g->busy & BIT(GCAD_TAG_IN)) hid_diagnostic(g, GCAD_HID_POLL, 0, 0);
     if (!(g->busy & BIT(GCAD_TAG_IN))) link_failed(g, now, GCAD_LINK_FAILED);
+}
+
+/* The wired Switch Pro Controller's start-up, one message at a time on
+ * its interrupt OUT endpoint: its status (80 01), the handshake (80 02),
+ * USB only with no time-out (80 04; without it the pad goes back to
+ * Bluetooth), then full input reports (subcommand 03 with 30). The first
+ * two are answered on the IN endpoint (81 01, 81 02), and each answer is
+ * read before the next message goes, as HIDtoVPAD does. The handshake is
+ * answered once per power-on, so a pad already started (by the menu,
+ * before a game) may not answer it: a read that brings something else
+ * counts, and after SWITCH_READS of them, or GCAD_CTRL_MS with none, the
+ * next message goes anyway. If input reports already flow, the last two
+ * messages change nothing. */
+#define SWITCH_STATUS 0u
+#define SWITCH_HANDSHAKE 1u
+#define SWITCH_USB_ONLY 2u
+#define SWITCH_FULL_REPORTS 3u
+#define SWITCH_STEPS 4u
+#define SWITCH_READS 8u
+
+/* The message sent last waits for its answer. */
+static int switch_waits(const gcad* g) {
+    return g->switch_step == SWITCH_STATUS || g->switch_step == SWITCH_HANDSHAKE;
+}
+
+static void switch_send(gcad* g, uint32_t now) {
+    uint32_t bytes = 2;
+    zero(g->out_data, sizeof(g->out_data));
+    g->link_time = now;
+    g->switch_reads = 0;
+    if (g->switch_step == SWITCH_FULL_REPORTS) {
+        /* 01: a subcommand, after a counter and both motors' resting
+         * rumble state (00 01 40 40 each). */
+        g->out_data[0] = 0x01;
+        g->out_data[3] = 0x01;
+        g->out_data[4] = 0x40;
+        g->out_data[5] = 0x40;
+        g->out_data[7] = 0x01;
+        g->out_data[8] = 0x40;
+        g->out_data[9] = 0x40;
+        g->out_data[10] = 0x03;
+        g->out_data[11] = 0x30;
+        bytes = 12;
+    } else if (g->switch_step == SWITCH_STATUS) {
+        g->out_data[0] = 0x80;
+        g->out_data[1] = 0x01;
+    } else if (g->switch_step == SWITCH_HANDSHAKE) {
+        g->out_data[0] = 0x80;
+        g->out_data[1] = 0x02;
+    } else {
+        g->out_data[0] = 0x80;
+        g->out_data[1] = 0x04;
+    }
+    if (!send_out(g, GCAD_STEP_INIT, bytes)) link_failed(g, now, GCAD_LINK_FAILED);
+}
+
+/* The next message, or input once all are sent. */
+static void switch_next(gcad* g, uint32_t now) {
+    ++g->switch_step;
+    if (g->switch_step < SWITCH_STEPS) {
+        switch_send(g, now);
+        return;
+    }
+    hid_diagnostic(g, GCAD_HID_SWITCH, g->switch_answers, 0);
+    reports_started(g, now);
+}
+
+static void switch_start(gcad* g, uint32_t now) {
+    g->link = GCAD_LINK_INIT;
+    g->switch_step = SWITCH_STATUS;
+    g->switch_answers = 0;
+    switch_send(g, now);
+}
+
+/* A start-up message went out. */
+static void switch_sent(gcad* g, uint32_t now) {
+    if (!switch_waits(g)) {
+        switch_next(g, now);
+        return;
+    }
+    g->link_time = now;  /* the answer's time starts now */
+    /* A read still out from an earlier message brings the answer too. */
+    if (!(g->busy & BIT(GCAD_TAG_IN))) submit_poll(g);
+}
+
+/* A read during the start-up. */
+static void switch_read(gcad* g, int32_t result, uint32_t now) {
+    uint8_t expected;
+    if (result < 0) {
+        failed(g, GCAD_STEP_POLL, result);
+        hid_diagnostic(g, GCAD_HID_POLL_ERROR, 0, result);
+        link_failed(g, now, GCAD_LINK_FAILED);
+        return;
+    }
+    /* Moved on after a time-out: the next message is on its way, and
+     * reads again once it is out. */
+    if (!switch_waits(g) || (g->busy & BIT(GCAD_TAG_OUT))) return;
+    gcad_env_invalidate(g, g->in_data, sizeof(g->in_data));
+    expected = g->switch_step == SWITCH_STATUS ? 0x01 : 0x02;
+    if (g->in_data[0] == 0x81 && g->in_data[1] == expected) {
+        g->switch_answers |= (uint8_t)(1u << g->switch_step);
+        switch_next(g, now);
+    } else if (++g->switch_reads >= SWITCH_READS) {
+        switch_next(g, now);
+    } else {
+        submit_poll(g);
+    }
+}
+
+/* A Switch Pro report in play: 1 with the pad in g->hid_pad, 2 while its
+ * sticks' origin is still being taken (the pad stays out of the ports
+ * until then), 0 for a report without input. Its origin is taken as the
+ * adapter's pads' are, on port 0's slots of this link, and X+Y+Start
+ * held takes a new one. */
+static int switch_report(gcad* g, uint32_t bytes, uint32_t now) {
+    uint8_t analog[6];
+    int appearing;
+    uint16_t held;
+    if (!gcad_switch_sticks(g->in_data, bytes, analog)) return 0;
+    analog[4] = 0;  /* no analog triggers: always at rest */
+    analog[5] = 0;
+    /* raw[0][0]: seen since the link last went stale (set_stale clears it). */
+    appearing = g->raw[0][0] == 0;
+    g->raw[0][0] = 1;
+    if (!g->origin_valid[0]) wait_for_origin(g, 0, appearing, analog, now);
+    if (!g->origin_valid[0]) return 2;
+    gcad_switch_decode(g->in_data, bytes, g->origin[0], &g->hid_pad);
+    held = g->hid_pad.buttons & (GCAD_PAD_X | GCAD_PAD_Y | GCAD_PAD_START);
+    hold_to_recalibrate(g, 0, held == (GCAD_PAD_X | GCAD_PAD_Y | GCAD_PAD_START), analog, now);
+    return 1;
 }
 
 /* Build the DS3 output protocol in place: motors off, LED 1 steady.
@@ -533,12 +758,15 @@ static void start_ctrl(gcad* g, uint32_t now) {
     g->link_time = now;
     g->setup_step = GCAD_STEP_CTRL;
     if (g->mapping) {
-        /* Only PS3 needs a feature-report wakeup. Other pads already
-         * speak reports; do not send the adapter's init command to them. */
+        /* Only PS3 needs a feature-report wakeup, and the Switch Pro its
+         * start-up messages. Other pads already speak reports; do not
+         * send the adapter's init command to them. */
         if (ps3(g)) {
             sent = control(g, GCAD_TAG_SETUP, GCAD_STEP_CTRL, g->out_msg,
                            g->out_data, 17, 0xA1, 1, 0x03F2);
             if (!sent) link_failed(g, now, GCAD_LINK_FAILED);
+        } else if (switch_pro(g)) {
+            switch_start(g, now);
         } else {
             reports_started(g, now);
         }
@@ -865,36 +1093,12 @@ static void take_report(gcad* g, uint32_t now) {
          * each within GCAD_ORIGIN_STEADY_STEP of the last; the port
          * stays empty while it waits. A pad held off the middle for
          * GCAD_ORIGIN_WAIT_MS gets the middle for those axes, where its
-         * own origin would make the stick drift once let go. */
-        if (!g->origin_valid[i]) {
-            const int at_rest = pad_at_rest(src + 3);
-            /* The wait starts as the pad appears: every way an origin is
-             * dropped (the port emptied, the link lost) also empties the
-             * port, so the next report shows it appearing again. */
-            if (!was) {
-                g->origin_since[i] = now;
-                for (j = 0; j < 6; ++j) g->steady_reads[i][j] = 0;
-                /* Once per wait, so a log shows what was passed over. */
-                if (!at_rest) origin_event(g, i, GCAD_ORIGIN_PASSED, src + 3);
-            }
-            if (count_steady(g, i, src + 3)) {
-                set_origin(g, i, src + 3, GCAD_ORIGIN_RESTING);
-            } else if (elapsed(now, g->origin_since[i]) >= ms(g, GCAD_ORIGIN_WAIT_MS)) {
-                set_origin(g, i, src + 3, GCAD_ORIGIN_MIDDLE);
-            }
-        }
-        /* X+Y+Start held: a new origin, as the pad itself does. */
-        if ((src[1] & 0x0C) == 0x0C && (src[2] & 0x01)) {
-            if (!g->recal_active[i]) {
-                g->recal_active[i] = 1;
-                g->recal_since[i] = now;
-            } else if (g->recal_active[i] == 1 && elapsed(now, g->recal_since[i]) >= ms(g, GCAD_RECAL_MS)) {
-                set_origin(g, i, src + 3, GCAD_ORIGIN_RECAL);
-                g->recal_active[i] = 2;  /* once per hold */
-            }
-        } else {
-            g->recal_active[i] = 0;
-        }
+         * own origin would make the stick drift once let go. The wait
+         * starts as the pad appears: every way an origin is dropped (the
+         * port emptied, the link lost) also empties the port, so the next
+         * report shows it appearing again. */
+        if (!g->origin_valid[i]) wait_for_origin(g, i, !was, src + 3, now);
+        hold_to_recalibrate(g, i, (src[1] & 0x0C) == 0x0C && (src[2] & 0x01), src + 3, now);
     }
     g->data_time = now;
     g->stale = 0;
@@ -1024,6 +1228,10 @@ void gcad_tick(gcad* g, uint32_t now) {
             link_failed(g, now, GCAD_LINK_FAILED);
         }
         else start_init(g, now);
+    }
+    if (switch_pro(g) && g->link == GCAD_LINK_INIT && switch_waits(g) && !(g->busy & BIT(GCAD_TAG_OUT)) &&
+        elapsed(now, g->link_time) >= ms(g, GCAD_CTRL_MS)) {
+        switch_next(g, now);  /* no answer: a handshake already done, or a look-alike pad */
     }
     if (g->mapping && (g->link == GCAD_LINK_SETUP || g->link == GCAD_LINK_INIT) &&
         elapsed(now, g->link_time) >= ms(g, GCAD_RESCAN_MS)) {
@@ -1189,10 +1397,12 @@ static void on_out(gcad* g, int32_t result, int current, uint32_t now) {
         g->init_result = result;
         if (result < 0) {
             failed(g, GCAD_STEP_INIT, result);
+            if (switch_pro(g)) hid_diagnostic(g, GCAD_HID_OUTPUT, 0, result);
             link_failed(g, now, GCAD_LINK_FAILED);
             return;
         }
-        reports_started(g, now);
+        if (switch_pro(g)) switch_sent(g, now);
+        else reports_started(g, now);
         return;
     }
     if (result < 0) {
@@ -1207,7 +1417,20 @@ static void on_out(gcad* g, int32_t result, int current, uint32_t now) {
     for (i = 0; i < GCAD_PORTS; ++i) g->rumble_sent[i] = g->rumble_flight[i];
 }
 
+/* Whether a configured pad's report is one that should carry input. Some
+ * carry none by design: an Xbox 360 pad's LED and rumble status (types 1,
+ * 3, 8), a Switch Pro's answers to its start-up messages (0x81). */
+static int input_shaped(const gcad* g) {
+    if (g->ven) return g->in_data[0] == 0;
+    if (switch_pro(g)) return g->in_data[0] == 0x30 || g->in_data[0] == 0x21;
+    return 1;
+}
+
 static void on_in(gcad* g, int32_t result, int current, uint32_t now) {
+    if (current && !g->stopping && g->link == GCAD_LINK_INIT && switch_pro(g)) {
+        switch_read(g, result, now);
+        return;
+    }
     if (!current || g->stopping || g->link != GCAD_LINK_POLL) return;
     if (result < 0) {
         /* -7022 when unplugged; the device list follows. */
@@ -1220,16 +1443,15 @@ static void on_in(gcad* g, int32_t result, int current, uint32_t now) {
     if (g->mapping) {
         const uint32_t bytes = result == 0 ? g->input_bytes : (uint32_t)result;
         int decoded = 0;
-        /* An Xbox 360 pad's LED and rumble status reports are short and
-         * carry no input: only its input report (type 0) counts. */
-        if (bytes < g->mapping->report_bytes && (!g->ven || g->in_data[0] == 0)) {
+        if (bytes < g->mapping->report_bytes && input_shaped(g)) {
             hid_diagnostic(g, GCAD_HID_SHORT, g->mapping->report_bytes, (int32_t)bytes);
         }
         if (bytes <= g->input_bytes) {
-            decoded = g->ven ? gcad_xbox_decode(g->in_data, bytes, &g->hid_pad)
-                             : rthid_decode(g->mapping, g->in_data, bytes, &g->hid_pad);
+            if (g->ven) decoded = gcad_xbox_decode(g->in_data, bytes, &g->hid_pad);
+            else if (switch_pro(g)) decoded = switch_report(g, bytes, now);
+            else decoded = rthid_decode(g->mapping, g->in_data, bytes, &g->hid_pad);
         }
-        if (decoded) {
+        if (decoded == 1) {
             if (ps3(g)) g->hid_pad.wireless = 0;
             if (g->mapping->rumble_type && !g->endpoint_out) g->hid_pad.wireless = 1;
             g->data_time = now;
@@ -1237,7 +1459,7 @@ static void on_in(gcad* g, int32_t result, int current, uint32_t now) {
             ++g->reports;
             hid_diagnostic(g, GCAD_HID_INPUT, 0, (int32_t)bytes);
             if (ps3(g) && !g->ps3_led) g->ps3_led = 1;
-        } else if (!g->ven || g->in_data[0] == 0) {
+        } else if (!decoded && input_shaped(g)) {
             ++g->bad_reports;
         }
     } else if (g->in_data[0] == 0x21 && (result == 0 || (uint32_t)result >= GCAD_REPORT_BYTES)) {

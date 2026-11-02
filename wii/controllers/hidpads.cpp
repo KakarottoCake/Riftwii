@@ -40,6 +40,14 @@ bool LoadConfig(std::uint32_t id, rthid_mapping& mapping) {
     char paths[3][96];
     const unsigned vid = id >> 16;
     const unsigned pid = id & 65535u;
+    if (id == GCAD_SWITCH_VID_PID) {
+        // No file can describe it (its start-up messages, its packed
+        // sticks): the driver knows the pad by its IDs (rtgcad.c).
+        gcad_switch_mapping(&mapping);
+        logf("USB controller %04x:%04x: a Switch Pro Controller, read by RiftWii's own support (no file is used "
+             "for it).\n", vid, pid);
+        return true;
+    }
     std::snprintf(paths[0], sizeof(paths[0]), "sd:/riftwii/controllers/%04X_%04X.ini", vid, pid);
     std::snprintf(paths[1], sizeof(paths[1]), "sd:/controllers/%04X_%04X.ini", vid, pid);
     std::snprintf(paths[2], sizeof(paths[2]), "sd:/controller.ini");

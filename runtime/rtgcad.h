@@ -34,6 +34,14 @@
  *  - The Xbox 360 pad's public protocol notes (free60, the class triple
  *    0xFF/0x5D/0x01): the 20-byte report, the LED and rumble output
  *    messages. No driver's code was used.
+ *  - For the wired Switch Pro Controller (057E:2009): dekuNukem's
+ *    Nintendo_Switch_Reverse_Engineering notes (USB-HID-Notes.md: the
+ *    80 01, 80 02 and 80 04 messages and their 81 answers, 80 02 answered
+ *    once per power-on, 01 carrying a subcommand; bluetooth_hid_notes.md:
+ *    the 0x30 report, its button bytes and 12-bit sticks, subcommand 03
+ *    picking it) and HIDtoVPAD's controller_patcher (the same start-up on
+ *    the Wii U, an answer read after each message; its USB button bits).
+ *    No code was taken from either.
  */
 #ifndef RIFTWII_RTGCAD_H
 #define RIFTWII_RTGCAD_H
@@ -146,7 +154,8 @@ extern "C" {
 #define GCAD_HID_RUMBLE 13u
 #define GCAD_HID_INTERFACE 14u /* detail: interface number, result: class */
 #define GCAD_HID_DISCOVERY 15u /* detail: 0 queued, 1 replied; result: IOS result */
-#define GCAD_HID_DIAGS 16u
+#define GCAD_HID_SWITCH 16u /* Switch Pro start-up done; detail: answers seen (1 status, 2 handshake) */
+#define GCAD_HID_DIAGS 17u
 
 #define GCAD_ORIGIN_RESTING 0u /* from a reading of the pad at rest */
 #define GCAD_ORIGIN_MIDDLE 1u  /* nothing steady at rest for GCAD_ORIGIN_WAIT_MS: the axes not settled took the middle */
@@ -187,6 +196,12 @@ typedef struct gcad_descriptor {
 #define GCAD_XBOX_PROTOCOL 0x01u
 #define GCAD_XBOX_REPORT_BYTES 14u /* type, length, buttons, triggers, sticks */
 #define GCAD_VEN_INFO_BYTES 0xC0u
+
+/* The wired Switch Pro Controller: a HID pad, but one that sends nothing
+ * until a start-up exchange no controller.ini can describe, and whose
+ * sticks are packed 12-bit values. Built in, like the Xbox 360 pad. */
+#define GCAD_SWITCH_VID_PID 0x057E2009u
+#define GCAD_SWITCH_REPORT_BYTES 12u /* id, timer, battery, 3 button bytes, 2 sticks of 3 bytes */
 
 /* SDK PAD button bits. */
 #define GCAD_PAD_LEFT 0x0001u
@@ -265,6 +280,9 @@ typedef struct gcad {
     uint8_t adapter_disabled;
     uint8_t ps3_led;
     uint8_t output_step;
+    /* Switch Pro start-up: the message sent last (SWITCH_* in rtgcad.c),
+     * reads since that brought no answer to it, and the answers seen. */
+    uint8_t switch_step, switch_reads, switch_answers;
     uint32_t diagnostic_seen;
     uint32_t diagnostic_detail[GCAD_HID_DIAGS];
     int32_t diagnostic_result[GCAD_HID_DIAGS];
@@ -335,6 +353,19 @@ void gcad_ven_init(gcad* adapter, gcad* ven, rthid_mapping xbox[GCAD_HID_PADS], 
 int gcad_xbox_vendor(uint32_t vid);
 /* An Xbox 360 report as a GameCube pad: 1 when `report` was one. */
 int gcad_xbox_decode(const uint8_t* report, uint32_t bytes, gcad_pad* out);
+/* The built-in mapping the menu puts in the catalog for a wired Switch
+ * Pro Controller. Only its IDs and report length are used: a pad link
+ * with these IDs runs the start-up and reads reports with
+ * gcad_switch_decode. */
+void gcad_switch_mapping(rthid_mapping* m);
+/* A Switch Pro input report's sticks (left x, y, right x, y), each the top
+ * 8 bits of its 12-bit value, up positive: 1 when `report` is an input
+ * report (0x30, or 0x21, a subcommand's answer, which starts the same). */
+int gcad_switch_sticks(const uint8_t* report, uint32_t bytes, uint8_t sticks[4]);
+/* A Switch Pro input report as a GameCube pad, its sticks measured from
+ * `origin` (sticks at rest, as gcad_switch_sticks gives them): 1 when
+ * `report` was one. */
+int gcad_switch_decode(const uint8_t* report, uint32_t bytes, const uint8_t origin[4], gcad_pad* out);
 /* Menu thread only: new configs have been compiled since the last list.
  * Reconsiders that list without issuing another IOS device-change call. */
 void gcad_refresh_hid(gcad* adapter, uint32_t now);

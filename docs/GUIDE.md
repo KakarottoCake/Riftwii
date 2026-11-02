@@ -1435,6 +1435,37 @@ the Wireless Gaming Receiver) and Xbox One or Series controllers are not
 supported. These pads have been tested in Dolphin, but not yet on a real
 Wii.
 
+### Wired Switch Pro Controllers
+
+A Nintendo Switch Pro Controller on a USB cable works with no config file
+while **USB input devices** is on. It sends nothing until it gets a few
+short start-up messages, which RiftWii sends when it is plugged in, and
+RiftWii reads its sticks itself. It plays in the same places as the USB
+gamepads above and shares their four slots and ports.
+
+| Switch Pro | GameCube |
+| --- | --- |
+| A, B, X, Y | A, B, X, Y |
+| R | Z |
+| ZL, ZR | L, R (pressed all the way) |
+| Left stick, right stick | Control stick, C-stick |
+| D-pad, + | D-pad, Start |
+
+L, −, HOME and Capture do nothing yet. The sticks' resting point is taken
+in the first moments after the controller is read, as for controllers in
+the GameCube adapter, so leave the sticks alone while it starts; holding
+X, Y and + for three seconds takes it again. There is no rumble, and the
+player lights are not set. A file for it in the controllers folders is
+not used.
+
+As with the other USB pads, plug the controller in before starting a
+game. The session log names it ("a Switch Pro Controller, read by
+RiftWii's own support"), how its start-up went and its port. The Switch 2
+Pro Controller is not supported: it needs setting up through a second
+USB connection that RiftWii's USB pads can't reach. The wired Switch Pro
+Controller has been checked with RiftWii's own tests only, not yet on a
+real Wii.
+
 ### Wii U GamePad
 
 The GamePad's buttons work in RiftWii's menu only when RiftWii runs as a
