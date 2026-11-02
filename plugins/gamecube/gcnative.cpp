@@ -526,6 +526,12 @@ std::uint32_t through_timeout_helper(const Code& code, std::uint32_t called) {
         const std::uint32_t w = code.at(a);
         if (w == 0x4E800020) break;
         const unsigned op = w >> 26, d = (w >> 21) & 31, ra = (w >> 16) & 31;
+        // Only a helper with one path: a branch (other than its calls and
+        // the blr) could take another call than the last for OSSetAlarm.
+        // Everything or Nothing's helper is straight: two calls and blr.
+        const unsigned xl = (w >> 1) & 0x3FF;
+        const bool branch = op == 16 || (op == 18 && (w & 1) == 0) || (op == 19 && (xl == 16 || xl == 528));
+        if (branch) return called;
         if (const std::uint32_t target = bl_target(a, w)) {
             last_target = target;
             last_gets_constant = handler_constant;
