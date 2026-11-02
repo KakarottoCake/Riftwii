@@ -59,8 +59,8 @@ const char* const kCredits[] = {
     "",
     "wup-028-bslug by Alex Chadwick (MIT): the GameCube controller adapter.",
     "",
-    "Nintendont by FIX94 and contributors: the USB HID driver, controller.ini mappings and the GameCube sound program patches, used "
-    "with its developers' permission.",
+    "Nintendont by FIX94 and contributors: the USB HID driver, controller.ini mappings, the USB controller layouts RiftWii carries "
+    "and the GameCube sound program patches, used with its developers' permission.",
     "",
     "Mario Party 4 community decompilation: GameCube font encoding behavior, read as documentation only.",
     "",
