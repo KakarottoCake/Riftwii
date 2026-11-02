@@ -970,8 +970,8 @@ int gc_bt_home_held(const struct gc_bt* bt) {
     return 0;
 }
 
-void gc_bt_fill(struct gc_bt* bt, uint8_t* status, uint32_t native) {
-    const uint32_t pads = gc_ports_taken(status, native);
+void gc_bt_fill(struct gc_bt* bt, uint8_t* status, uint32_t native, uint32_t idle) {
+    const uint32_t pads = gc_ports_taken(status, native, idle);
     uint32_t remotes = 0, i;
     for (i = 0; i < GC_BT_REMOTES; ++i) {
         struct gc_bt_remote* r = &bt->remotes[i];
@@ -1102,7 +1102,7 @@ void gc_bt_fake(struct gc_bt* bt, uint8_t* status, uint32_t n, int pro, uint32_t
         if (step == 5) report[12] = 0x01;
     }
     bt_on_input(bt, r, report, pro || nunchuk ? 23u : 7u);
-    gc_bt_fill(bt, status, native);
+    gc_bt_fill(bt, status, native, 0);
     bt_update_rumble(bt, 0);
     if (frame == 0) {
         log[0] = 0;

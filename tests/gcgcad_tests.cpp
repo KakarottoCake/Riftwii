@@ -237,7 +237,7 @@ void test_own_ports() {
     gc_gcad ad;
     set_up(ad, 0x5u);  // adapter ports 1 and 3
     Status status;
-    gc_gcad_fill(&ad, status.bytes, 0);
+    gc_gcad_fill(&ad, status.bytes, 0, 0);
     EXPECT_EQ(ad.filled, 0x5u);
     EXPECT_EQ(status.err(0), 0);
     EXPECT_EQ(status.err(2), 0);
@@ -259,7 +259,7 @@ void test_real_pad_keeps_its_port() {
     Status status;
     status.err(0) = 0;
     status.bytes[1] = 0x10;  // the real controller presses Z
-    gc_gcad_fill(&ad, status.bytes, 0);
+    gc_gcad_fill(&ad, status.bytes, 0, 0);
     EXPECT_EQ(ad.port_of[0], 1);
     EXPECT_EQ(ad.filled, 0x2u);
     EXPECT_EQ(status.bytes[1], 0x10);
@@ -277,14 +277,14 @@ void test_disabled_native_pad_keeps_its_port() {
         std::uint8_t original[kStatusBytes];
         std::memcpy(original, status.bytes + port * kStatusBytes, sizeof(original));
         const std::uint32_t native = 1u << port;
-        gc_gcad_fill(&ad, status.bytes, native);
+        gc_gcad_fill(&ad, status.bytes, native, 0);
         EXPECT_EQ(std::memcmp(original, status.bytes + port * kStatusBytes, sizeof(original)), 0);
         EXPECT_EQ(ad.filled, 0xFu & ~native);
         EXPECT_EQ(ad.port_of[port], GC_PORT_NONE);
         // The next fill sees the adapter's three controllers too, leaving
         // no place for a Wii Remote while the native pad resets.
         std::uint8_t remote_ports[GC_PORTS];
-        gc_ports_assign(gc_ports_taken(status.bytes, native), 1u, remote_ports);
+        gc_ports_assign(gc_ports_taken(status.bytes, native, 0), 1u, remote_ports);
         EXPECT_EQ(remote_ports[0], GC_PORT_NONE);
     }
 }
@@ -295,7 +295,7 @@ void test_all_ports_taken() {
     set_up(ad, 0xFu);
     Status status;
     for (int port = 0; port < 4; ++port) status.err(port) = 0;
-    gc_gcad_fill(&ad, status.bytes, 0);
+    gc_gcad_fill(&ad, status.bytes, 0, 0);
     EXPECT_EQ(ad.filled, 0u);
     for (int port = 0; port < 4; ++port) EXPECT_EQ(status.buttons(port), 0);
 }
@@ -307,7 +307,7 @@ void test_stale_reports() {
     set_up(ad, 0x1u);
     ad.g.data_time = g_now - 10000u * kTicksPerMs;
     Status status;
-    gc_gcad_fill(&ad, status.bytes, 0);
+    gc_gcad_fill(&ad, status.bytes, 0, 0);
     EXPECT_EQ(ad.filled, 0u);
     EXPECT_EQ(status.err(0), kNoController);
 }
@@ -318,7 +318,7 @@ void test_not_inited() {
     set_up(ad, 0x1u);
     ad.inited = 0;
     Status status;
-    gc_gcad_fill(&ad, status.bytes, 0);
+    gc_gcad_fill(&ad, status.bytes, 0, 0);
     EXPECT_EQ(status.err(0), kNoController);
 }
 
@@ -329,7 +329,7 @@ void test_motor() {
     set_up(ad, 0x1u);
     Status status;
     status.err(0) = 0;  // a real controller: the adapter's moves to port 2
-    gc_gcad_fill(&ad, status.bytes, 0);
+    gc_gcad_fill(&ad, status.bytes, 0, 0);
     gc_gcad_motor(&ad, 0, 1);  // port 1 is the real controller's
     EXPECT_EQ(ad.g.rumble_want[0], 0);
     gc_gcad_motor(&ad, 1, 1);
@@ -343,7 +343,7 @@ void test_motor() {
     gc_gcad wavebird;
     set_up(wavebird, 0x1u, true);
     Status free_ports;
-    gc_gcad_fill(&wavebird, free_ports.bytes, 0);
+    gc_gcad_fill(&wavebird, free_ports.bytes, 0, 0);
     gc_gcad_motor(&wavebird, 0, 1);
     EXPECT_EQ(wavebird.g.rumble_want[0], 0);
 }
@@ -364,7 +364,7 @@ void test_hid_after_adapter() {
     Status status;
     // An SI-identified native pad reserves port 1 even before PADRead's
     // status becomes ready. Adapter moves to port 2; HID takes port 3.
-    gc_gcad_fill(&ad, status.bytes, 1);
+    gc_gcad_fill(&ad, status.bytes, 1, 0);
     EXPECT_EQ(status.err(0), kNoController);
     EXPECT_EQ(status.buttons(1), GCAD_PAD_A);
     EXPECT_EQ(status.buttons(2), GCAD_PAD_B);
@@ -378,7 +378,7 @@ void test_hid_after_adapter() {
     EXPECT_EQ(hid.rumble_want[0], 0);
     hid.stale = 1;
     Status unplugged;
-    gc_gcad_fill(&ad, unplugged.bytes, 0);
+    gc_gcad_fill(&ad, unplugged.bytes, 0, 0);
     EXPECT_EQ(ad.filled, 1u);
 }
 
@@ -403,7 +403,7 @@ void test_adapter_own_port_before_displaced_and_hid() {
     status.err(0) = 0;
     status.bytes[1] = 0x10;  // native pad presses Z
 
-    gc_gcad_fill(&ad, status.bytes, 1u);
+    gc_gcad_fill(&ad, status.bytes, 1u, 0);
     EXPECT_EQ(ad.filled, 0xEu);
     EXPECT_EQ(status.buttons(0), GCAD_PAD_Z);
     EXPECT_EQ(status.buttons(1), GCAD_PAD_B);
