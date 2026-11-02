@@ -374,6 +374,19 @@ non-NTSC paths and other game regions keep their own behavior.
   one of `PADRead`'s), and a port a remote or the adapter filled in the
   last read (the game's own err -1, err 0 after the fill) answers as a
   controller while nothing of its own answers there (`gc_ports_probe`).
+  Some games never call `PADRead` from their own loop: they hand
+  `PADSetSamplingCallback` a function that does, and the SDK's
+  `SamplingHandler` runs it at the SI's polling interrupt, which comes
+  once the SI has polled a GameCube controller. A Wii with none plugged
+  in never raises it, so 007 NightFire's missions never read a pad: the
+  Wii Remote, the adapter and HOME went dead the moment a mission started
+  (Dolphin raises the interrupt with the ports empty, so it could not show
+  this). The loader finds `SamplingHandler` (a frame holding an OSContext,
+  the callback from small data called through LR or CTR between the
+  context calls, its address taken by `PADSetSamplingCallback`), and the
+  blob's own alarm, once a frame, calls it as the interrupt would after six
+  frames with no `PADRead` from anywhere else, until one comes again
+  (`gc_sample_tick`). It does nothing while the game has no callback.
   Pad trace records (`where=pad_si`, value 12) reuse ten crash-only words
   for the four full SI types, SISR, enabled bits before/after the read,
   original errors, the reserved and played port masks, and the `SIProbe`
@@ -938,7 +951,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/gc/trace.bin`, `trace-crash.bin` | The last GameCube launch's trace (`tools/gc_trace.py`), and the last one with a crash, once offered |
 | `sd:/riftwii/gc/controls_seen.txt` | The controls card was shown |
 | `sd:/riftwii/gc/exec.txt` | A GameCube game's start of another program (OSExec, or a bonus disc's menu starting a game from a TGC image): `--idle--` until then, a headless launch after, read once by RiftWii's next start (see "Switching programs") |
-| `sd:/riftwii/gc/test/press`, `leave`, `crash`, `crashblack`, `streamonly`, `nowiden`, `keeparam`, `fakeremote`, `fakepro`, `rumbletest`, `novihook`, `nomotor`, `handover480p`, `handover480i`, `avekeep`, `reset`, `exec`, `discchange` | Test switches, in a folder of their own: presses on port 1, holding the way back, a crash on purpose (and on a blanked screen), the disc music alone, 16:9's hook without the widening, the ARAM addresses as the SDK gives them, a made-up Wii Remote through the controls map instead of the Bluetooth (its results in the trace's `projection_callers` words, which that run does not need; `fakepro`: a made-up Wii U Pro Controller in its place), the game's own PADControlMotor called for the test remote's port every 120 pad reads, rumble then stop (with `fakeremote`: the trace's `bt_rumble` word counts the calls and the remote's motor switches), VIConfigure left as the game made it (480p only through the game's own mode), PADControlMotor not hooked, an NTSC game handed over with the VI and video encoder already in NTSC 480p even without 480p (a game given 480p is handed over that way anyway), one given 480p handed over in 480i as earlier builds did, the encoder left as the menu set it rather than in the game's region, two Reset presses (at the 1500th and 2200th pad reads; the first through the OS's own restart, reset 0), and a switch to another program (gc_on_boot_dol) at the 1500th pad read in a game without one: to the disc's own program with the argument `rwtest`, through `sd:/riftwii/gc/exec.txt` and the way back, and with a disc 2 beside the game the motor stopped at the 1500th and 2200th pad reads (a disc change and back, `runtime/gc/gc_disc.h`) |
+| `sd:/riftwii/gc/test/press`, `leave`, `crash`, `crashblack`, `streamonly`, `nowiden`, `keeparam`, `fakeremote`, `fakepro`, `rumbletest`, `novihook`, `nomotor`, `nosisample`, `handover480p`, `handover480i`, `avekeep`, `reset`, `exec`, `discchange` | Test switches, in a folder of their own: presses on port 1, holding the way back, a crash on purpose (and on a blanked screen), the disc music alone, 16:9's hook without the widening, the ARAM addresses as the SDK gives them, a made-up Wii Remote through the controls map instead of the Bluetooth (its results in the trace's `projection_callers` words, which that run does not need; `fakepro`: a made-up Wii U Pro Controller in its place), the game's own PADControlMotor called for the test remote's port every 120 pad reads, rumble then stop (with `fakeremote`: the trace's `bt_rumble` word counts the calls and the remote's motor switches), VIConfigure left as the game made it (480p only through the game's own mode), PADControlMotor not hooked, the SI's polling interrupt kept off as on a Wii with no GameCube controller plugged in (so the PAD sampling stand-in, `gc_sample_tick`, runs), an NTSC game handed over with the VI and video encoder already in NTSC 480p even without 480p (a game given 480p is handed over that way anyway), one given 480p handed over in 480i as earlier builds did, the encoder left as the menu set it rather than in the game's region, two Reset presses (at the 1500th and 2200th pad reads; the first through the OS's own restart, reset 0), and a switch to another program (gc_on_boot_dol) at the 1500th pad read in a game without one: to the disc's own program with the argument `rwtest`, through `sd:/riftwii/gc/exec.txt` and the way back, and with a disc 2 beside the game the motor stopped at the 1500th and 2200th pad reads (a disc change and back, `runtime/gc/gc_disc.h`) |
 | `sd:/riftwii/autorun.txt`, `guiscript.txt` | Test scripts (see `DEVELOPING.md`); autorun only works in a test build (`make -f Makefile.wii TEST=1`) |
 
 ## Rules the code keeps

@@ -131,6 +131,16 @@ std::int32_t find_gc_pad_enabled_offset(const std::vector<CodeRange>& text, std:
 // there is no PADRead, no such function or more than one.
 std::uint32_t find_gc_si_probe(const std::vector<CodeRange>& text, std::uint32_t pad_read);
 
+// The SDK's PAD SamplingHandler(interrupt, context), which the SI's polling
+// interrupt calls to run the game's PADSetSamplingCallback callback: a
+// frame big enough for an OSContext, the callback loaded from small data
+// and tested, two calls that each get the frame's context (OSClearContext,
+// OSSetCurrentContext), then the callback, loaded again from the same
+// word, called through LR or CTR. PADSetSamplingCallback takes its address
+// to register it, so the address must be built somewhere in the code. 0
+// when there is no such function or more than one.
+std::uint32_t find_gc_pad_sampling(const std::vector<CodeRange>& text);
+
 // The SDK's __OSUnhandledException(exception, context, dsisr, dar): where
 // every exception the game has no handler of its own for ends up, and
 // the game's own crash screens (installed with OSSetErrorHandler) are

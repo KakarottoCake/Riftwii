@@ -10,9 +10,10 @@
  * struct changes neither this nor the assembly; gc_rt.h checks that the
  * struct still fits. The native-controller state (#191) and the TGC
  * watch (#192), followed by the asynchronous I/O continuation, then the
- * programs a game loads itself (gc_programs.h), and the ports a probe
- * finds nothing on (gc_ports_idle_update). */
-#define GC_RT_CONTEXT_BYTES 0x780
+ * programs a game loads itself (gc_programs.h), the ports a probe
+ * finds nothing on (gc_ports_idle_update), and the PAD sampling
+ * stand-in's alarm (gc_sample_tick). */
+#define GC_RT_CONTEXT_BYTES 0x7E0
 
 /* gc_entry.S's gc_program_saved: a program the game loaded itself keeps
  * its registers there while gc_on_program_start runs (gc_hook_program).

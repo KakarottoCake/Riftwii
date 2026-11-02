@@ -308,6 +308,9 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_FLAG_OLD_REBOOT 0x10000u  /* the program-switch hook is on __OSReboot(resetCode, forceMenu), an SDK before
                                       * __OSBootDolSimple: the program is the offset at GC_OS_BOOT_DOL */
 #define GC_OS_BOOT_DOL 0x800030ECu   /* that SDK's OSResetSystem puts OSSetBootDol's offset here (0: none named) */
+#define GC_FLAG_NO_SI_SAMPLE 0x40000u  /* tests in Dolphin (sd:/riftwii/gc/test/nosisample): the SI's polling
+                                        * interrupt is kept off, as a Wii with no GameCube controller plugged in
+                                        * never raises it, so the PAD sampling stand-in runs (gc_sample_tick) */
 
 /* Every flag shares the one word, so each must be its own single bit: the
  * sum equals the OR only when no two overlap, and a flag added on a bit that
@@ -317,12 +320,12 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
                          GC_FLAG_FAKE_REMOTE | GC_FLAG_FAKE_PRO | GC_FLAG_CRASH_BLACK | GC_FLAG_STREAM_ONLY | \
                          GC_FLAG_PROGRESSIVE | GC_FLAG_RESET_TEST | GC_FLAG_EXEC_TEST | GC_FLAG_DISC_TEST | \
                          GC_FLAG_SD_SLOW | GC_FLAG_WIDEN | GC_FLAG_PAD_TRACE_PENDING | GC_FLAG_TRACE_GAMEPLAY | \
-                         GC_FLAG_OLD_REBOOT)
+                         GC_FLAG_OLD_REBOOT | GC_FLAG_NO_SI_SAMPLE)
 #define GC_FLAGS_ALL_SUM (GC_FLAG_PRESS + GC_FLAG_CRASH + GC_FLAG_LEAVE + GC_FLAG_REMOTE_RUMBLE + GC_FLAG_RUMBLE_TEST + \
                           GC_FLAG_FAKE_REMOTE + GC_FLAG_FAKE_PRO + GC_FLAG_CRASH_BLACK + GC_FLAG_STREAM_ONLY + \
                           GC_FLAG_PROGRESSIVE + GC_FLAG_RESET_TEST + GC_FLAG_EXEC_TEST + GC_FLAG_DISC_TEST + \
                           GC_FLAG_SD_SLOW + GC_FLAG_WIDEN + GC_FLAG_PAD_TRACE_PENDING + GC_FLAG_TRACE_GAMEPLAY + \
-                          GC_FLAG_OLD_REBOOT)
+                          GC_FLAG_OLD_REBOOT + GC_FLAG_NO_SI_SAMPLE)
 /* The runtime is built as C99 (-Wpedantic rejects _Static_assert), so C uses an
  * array whose size goes negative when the check fails. */
 #ifdef __cplusplus
@@ -349,7 +352,8 @@ GC_FLAG_CHECK(gc_flags_single_bits, GC_FLAG_IS_BIT(GC_FLAG_PRESS) &&
                GC_FLAG_IS_BIT(GC_FLAG_WIDEN) &&
                GC_FLAG_IS_BIT(GC_FLAG_PAD_TRACE_PENDING) &&
                GC_FLAG_IS_BIT(GC_FLAG_TRACE_GAMEPLAY) &&
-               GC_FLAG_IS_BIT(GC_FLAG_OLD_REBOOT),
+               GC_FLAG_IS_BIT(GC_FLAG_OLD_REBOOT) &&
+               GC_FLAG_IS_BIT(GC_FLAG_NO_SI_SAMPLE),
                "GC_FLAG_* values must be single bits");
 
 /* A stopped game's crash record remains available to problem reports
@@ -420,6 +424,11 @@ struct gc_restart_region {
 
 /* The OSAlarm the callbacks run from: the SDK's is 0x28 bytes. */
 #define GC_ALARM_BYTES 0x40u
+/* The PAD sampling stand-in (gc_sample_tick): a tick a frame (the time
+ * base's 60.75 MHz / 60), and the ticks in a row without a PADRead before
+ * it starts calling the game's sampling. */
+#define GC_SAMPLE_TICKS 1012500u
+#define GC_SAMPLE_QUIET_TICKS 6u
 #define GC_IPC_TIMEOUT 50000000u  /* polls of the IPC registers before giving up */
 
 /* TGC images a bonus disc's menu can start a game from (gc_on_tgc_read). */
@@ -663,6 +672,17 @@ struct gc_rt_context {
     uint32_t program_starts;
     uint32_t program_current;
     uint32_t program_patches;
+    /* The PAD sampling stand-in (gc_sample_tick): the program's SDK
+     * SamplingHandler(interrupt, context), loader-found (0: none, and the
+     * stand-in stays off), pad_reads at its last tick, its ticks in a row
+     * with no PADRead from elsewhere, the calls it made, and whether its
+     * alarm is in the OS's queue. */
+    uint32_t pad_sampling;
+    uint32_t sample_reads;
+    uint32_t sample_quiet;
+    uint32_t samples_stood_in;
+    uint32_t sample_queued;
+    uint8_t sample_alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
 };
 
 /* It fits the room gc_entry.S keeps (gc_layout.h); the rest stays zero. */

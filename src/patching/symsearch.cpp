@@ -842,6 +842,90 @@ std::uint32_t find_gc_si_probe(const std::vector<CodeRange>& text, std::uint32_t
     return found.size() == 1 ? *found.begin() : 0;
 }
 
+namespace {
+
+constexpr std::uint32_t kOsContextBytes = 0x2C8;  // the SDK's OSContext
+constexpr std::size_t kSamplingWords = 24;        // the callback is called within this many words
+constexpr std::size_t kAddressPairWords = 8;      // from a lis to the addi or ori that completes the address
+
+bool is_lwz_sda(std::uint32_t w) { return (w & 0xFC1F0000u) == 0x800D0000u; }  // lwz rD, d(r13)
+bool is_addi_r3_r1(std::uint32_t w) { return (w & 0xFFFF0000u) == 0x38610000u; }  // addi r3, r1, d
+
+// Whether `target` is built somewhere in the code with lis and then addi
+// (the high half adjusted for the signed low half) or ori, into any
+// register: the address taken, as a function pointer's is.
+bool address_built(const std::vector<CodeRange>& text, std::uint32_t target) {
+    const std::uint32_t low = target & 0xFFFFu;
+    const std::uint32_t high = target >> 16;
+    const std::uint32_t high_adjusted = ((target + 0x8000u) >> 16) & 0xFFFFu;
+    for (const CodeRange& range : text) {
+        const std::size_t words = range.size / 4;
+        for (std::size_t i = 0; i < words; ++i) {
+            const std::uint32_t lis = be32(range.bytes + i * 4);
+            if ((lis & 0xFC1F0000u) != 0x3C000000u) continue;  // lis rX, imm (addis rX, 0, imm)
+            const std::uint32_t reg = (lis >> 21) & 31u;
+            const std::uint32_t imm = lis & 0xFFFFu;
+            for (std::size_t k = i + 1; k < words && k <= i + kAddressPairWords; ++k) {
+                const std::uint32_t w = be32(range.bytes + k * 4);
+                if ((w & 0xFFFFu) != low) continue;
+                const std::uint32_t op = w >> 26;
+                const bool addi = op == 14 && ((w >> 16) & 31u) == reg && imm == high_adjusted;
+                const bool ori = op == 24 && ((w >> 21) & 31u) == reg && imm == high;
+                if (addi || ori) return true;
+            }
+        }
+    }
+    return false;
+}
+
+// Whether the function at `w` (its words from its mflr r0) has
+// SamplingHandler's shape (find_gc_pad_sampling).
+bool sampling_shape(const std::uint32_t* w, std::size_t count) {
+    bool big_frame = false;
+    for (std::size_t i = 1; i < 4 && i < count; ++i) {
+        const bool stwu_r1 = (w[i] & 0xFFFF0000u) == 0x94210000u;
+        const std::int32_t frame = -static_cast<std::int16_t>(w[i] & 0xFFFFu);
+        if (stwu_r1 && frame >= static_cast<std::int32_t>(kOsContextBytes)) big_frame = true;
+    }
+    if (!big_frame) return false;
+    std::size_t test = count;
+    for (std::size_t i = 0; i + 2 < count && test == count; ++i) {
+        const std::uint32_t reg = (w[i] >> 21) & 31u;
+        const bool tested = w[i + 1] == (0x28000000u | (reg << 16));  // cmplwi rD, 0
+        const bool skipped = (w[i + 2] & 0xFFFF0000u) == 0x41820000u;  // beq
+        if (is_lwz_sda(w[i]) && tested && skipped) test = i;
+    }
+    if (test == count) return false;
+    const std::uint32_t callback = w[test] & 0xFFFFu;
+    unsigned context_calls = 0;
+    for (std::size_t i = test + 3; i + 2 < count; ++i) {
+        if (is_addi_r3_r1(w[i]) && is_bl(w[i + 1])) ++context_calls;
+        const bool reload = w[i] == (0x818D0000u | callback);  // lwz r12, d(r13)
+        const bool through_lr = w[i + 1] == 0x7D8803A6u && w[i + 2] == 0x4E800021u;  // mtlr r12; blrl
+        const bool through_ctr = w[i + 1] == 0x7D8903A6u && w[i + 2] == 0x4E800421u;  // mtctr r12; bctrl
+        if (reload && (through_lr || through_ctr)) return context_calls == 2;
+    }
+    return false;
+}
+
+}  // namespace
+
+std::uint32_t find_gc_pad_sampling(const std::vector<CodeRange>& text) {
+    std::set<std::uint32_t> found;
+    for (const CodeRange& range : text) {
+        const std::size_t words = range.size / 4;
+        for (std::size_t i = 0; i + kSamplingWords <= words; ++i) {
+            if (be32(range.bytes + i * 4) != kMflrR0) continue;
+            std::uint32_t w[kSamplingWords];
+            for (std::size_t k = 0; k < kSamplingWords; ++k) w[k] = be32(range.bytes + (i + k) * 4);
+            if (!sampling_shape(w, kSamplingWords)) continue;
+            const std::uint32_t at = range.address + static_cast<std::uint32_t>(i * 4);
+            if (address_built(text, at)) found.insert(at);
+        }
+    }
+    return found.size() == 1 ? *found.begin() : 0;
+}
+
 std::int32_t find_gc_pad_enabled_offset(const std::vector<CodeRange>& text, std::uint32_t pad_read) {
     if (pad_read == 0 || (pad_read & 3u) != 0) return 0;
     std::set<std::int32_t> offsets;
