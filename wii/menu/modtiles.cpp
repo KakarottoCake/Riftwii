@@ -6,6 +6,8 @@
 
 #include <cstdio>
 
+#include "covers.hpp"
+#include "emupicture.hpp"
 #include "gameextras.hpp"
 #include "i18n.hpp"
 #include "loadersettings.hpp"
@@ -138,6 +140,11 @@ bool RemoveProfile(FrontendState& state, std::string& error) {
     // Its picture too, or a new tile of the same name (the same key) would
     // show it; the remove popup says so, as the player put it there.
     std::remove((std::string(kProfilePictureDir) + "/" + key + ".png").c_str());
+    // The cover Choose cover picked for it, for the same reason. One put
+    // there by hand is the player's and stays.
+    const std::string cover = std::string("sd:/riftwii/covers/") + key + ".png";
+    if (OwnPictureState(cover) == OwnPicture::Picker) RemovePickedPicture(cover);
+    ForgetCover(key);
     if (Settings().favorites.erase(key) != 0) SaveSettings();
     ForgetPlays(key);
     ForgetProfilePictures();

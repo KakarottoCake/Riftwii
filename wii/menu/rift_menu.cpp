@@ -14167,8 +14167,18 @@ static int MenuHome(FrontendState& state)
 					askTileCover(tileCover);
 				} else if (g_coverPicked) {
 					// Choose cover changed the player's own cover.
-					hero.SetCoverName(PageCoverName(state));
-					banner.SetCoverName(PageCoverName(state));
+					const std::string pageCover = PageCoverName(state);
+					hero.SetCoverName(pageCover);
+					banner.SetCoverName(pageCover);
+					// Back to automatic, with no automatic cover stored: it is
+					// asked for now, as at page entry, rather than at the next visit.
+					if (!coverStart && riftwii::wii::Settings().online &&
+					    riftwii::wii::Settings().home_tiles != "names" && !CoverDownloadsOff(pageCover) &&
+					    !riftwii::wii::NetFailed() && riftwii::wii::CoverWanted(pageCover)) {
+						g_coversChecked.insert(pageCover);
+						coverStartName = pageCover;
+						coverStart = true;
+					}
 				} else if (riftwii::wii::CoverSecondSet(state.game_id) != secondBefore) {
 					// Another GameTDB cover set: the band's art was the old one's.
 					banner.SetCoverName(PageCoverName(state));
