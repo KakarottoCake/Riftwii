@@ -187,6 +187,60 @@ void test_debugger_handlers(const std::string& root) {
     EXPECT_FALSE(relocate_debugger_code_list(plain.data(), plain.size(), 0x80570000));
 }
 
+void test_runs_before_start() {
+    // A tester's Mario Kart Wii cheats: 04 writes and a C2 insertion.
+    const Bytes remap = gct({0x041C87C0, 0x38000000, 0x041C87CC, 0x38000000, 0xC21C87E4, 0x00000002, 0x7003DD5B,
+                             0x70040020, 0x60000000, 0x00000000, 0x0451E468, 0x38000001});
+    // The loader's range, kept out of the codes' writes.
+    const std::uint32_t lo = 0x80A00000, hi = 0x81800000;
+    const auto runs = [&](const Bytes& list) { return gct_runs_before_start(list, lo, hi); };
+    EXPECT_TRUE(runs(remap));
+    // A string write and an E2.
+    EXPECT_TRUE(runs(gct({0x06001000, 0x00000005, 0x11223344, 0x55000000, 0xE2000001, 0x00000000})));
+    // A condition reads memory the game hasn't set up yet.
+    EXPECT_FALSE(runs(gct({0x28345678, 0x00000800, 0x04001000, 0x00000001, 0xE2000001, 0x00000000})));
+    EXPECT_TRUE(runs(gct({})));
+    // Runs instructions itself.
+    EXPECT_FALSE(runs(gct({0xC0000000, 0x00000001, 0x4E800020, 0x00000000})));
+    // A write through the pointer, and a load of it from the game's memory.
+    EXPECT_FALSE(runs(gct({0x14000010, 0x00000001})));
+    EXPECT_FALSE(runs(gct({0x48000000, 0x80001234})));
+    // A search that keeps what it found, and a serial write.
+    EXPECT_FALSE(runs(gct({0xF6000001, 0x80008180, 0x38000000, 0x00000000})));
+    EXPECT_FALSE(runs(gct({0x08001000, 0x00000001, 0x20010004, 0x00000001})));
+    // A C2 with no instructions (the handler's branch back would land on
+    // the next code).
+    EXPECT_FALSE(runs(gct({0xC21C87E4, 0x00000000, 0x04001000, 0x00000001})));
+    // A C2 whose lines run past the list's end, and no list at all.
+    EXPECT_FALSE(runs(gct({0xC2001000, 0x00000004, 0x60000000, 0x00000000})));
+    EXPECT_FALSE(runs(Bytes{}));
+    // Counts that would wrap round a 32-bit size: refused, not looped on.
+    EXPECT_FALSE(runs(gct({0xC2001000, 0xFFFFFFFF, 0x60000000, 0x00000000})));
+    EXPECT_FALSE(runs(gct({0x06001000, 0xFFFFFFFF, 0x11223344, 0x55667788})));
+    // Writes into the loader: a word at its start, a branch in it, bytes
+    // running into it, and one after E0 set a base (kept to its top seven
+    // bits, so 0x80A00000 is 0x80000000 and its 0x10 is low memory).
+    EXPECT_FALSE(runs(gct({0x04A00000, 0x60000000})));
+    EXPECT_FALSE(runs(gct({0xC3000010, 0x00000001, 0x60000000, 0x00000000})));
+    EXPECT_FALSE(runs(gct({0x009FFFFE, 0x00040011})));
+    EXPECT_FALSE(runs(gct({0xE0000000, 0x80A00000, 0x04A00010, 0x00000001})));
+    EXPECT_TRUE(runs(gct({0xE0000000, 0x80A00000, 0x04000010, 0x00000001})));
+    // A base above the loader that the handler masks back to 0x80000000,
+    // and a word write aligned down into the loader.
+    EXPECT_FALSE(runs(gct({0xE0000000, 0x81800000, 0x04A00000, 0x00000001})));
+    EXPECT_FALSE(runs(gct({0x04A00002, 0x00000001})));
+    EXPECT_FALSE(runs(gct({0xC2A00002, 0x00000001, 0x60000000, 0x00000000})));
+    // The loader through its uncached address, and a write to no memory
+    // at all (above MEM1's end, or a base of 0).
+    EXPECT_FALSE(runs(gct({0xE0000000, 0xC0000000, 0x04A00000, 0x00000001})));
+    EXPECT_FALSE(runs(gct({0x05800000, 0x00000001})));
+    EXPECT_FALSE(runs(gct({0xE0000000, 0x01000000, 0x04001000, 0x00000001})));
+    // Right up to the loader, and MEM2, cached and not.
+    EXPECT_TRUE(runs(gct({0x049FFFFC, 0x00000001})));
+    EXPECT_TRUE(runs(gct({0xE0000000, 0x90000000, 0x04001000, 0x00000001})));
+    EXPECT_TRUE(runs(gct({0xE0000000, 0xD0000000, 0x04001000, 0x00000001})));
+}
+
 void test_join() {
     const Bytes a = gct({0x04000000, 0x1}), b = gct({0x04000004, 0x2, 0x04000008, 0x3});
     EXPECT_TRUE(valid_gct(a));
@@ -249,6 +303,7 @@ int main(int argc, char** argv) {
     test_relocate();
     test_debugger_handlers(argv[1]);
     test_join();
+    test_runs_before_start();
     test_model();
     if (g_failures == 0) std::cout << "codebuild tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
