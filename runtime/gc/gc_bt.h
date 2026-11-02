@@ -42,6 +42,18 @@
 #define GC_BT_KEYS 8u
 #define GC_BT_COMMANDS 6u   /* HCI commands waiting for the controller to take another */
 #define GC_BT_FAKE_STEPS 8u /* the test remote's steps (gc_bt_fake) */
+/* The Bluetooth controller holds only a few packets for the remotes at a
+ * time and says which it has sent on (Number_Of_Completed_Packets). A game
+ * that pulses its motor (on one frame, off the next) would send a rumble
+ * report every frame, more than a controller that holds a few packets can
+ * take (Dolphin's emulated one never fills; suspected, not proven, in a
+ * tester's 007 NightFire, whose remote stops at the first mission). So a rumble
+ * change waits while GC_BT_ACL_WINDOW packets are unconfirmed, and goes at
+ * most every GC_BT_RUMBLE_GAP polls. A controller that never confirms is
+ * believed again after GC_BT_ACL_STALL_POLLS polls at the limit. */
+#define GC_BT_ACL_WINDOW 4u
+#define GC_BT_RUMBLE_GAP 3u
+#define GC_BT_ACL_STALL_POLLS 60u
 #define GC_BT_FAKE_FRAMES 60u  /* PADReads a step */
 
 /* One IOS request with its vectors and small input buffers. */
@@ -81,6 +93,7 @@ struct gc_bt_remote {
     uint8_t chans;
     uint8_t led_port;   /* the port its LED shows */
     uint8_t rumble;     /* the motor as the remote has it: bit 0 of every output report it is sent */
+    uint32_t rumble_poll;  /* bt->polls when its last rumble report went */
     uint8_t spare[2];
     uint32_t ctrl_cid;  /* the remote's end of each channel */
     uint32_t intr_cid;
@@ -139,6 +152,11 @@ struct gc_bt {
     uint8_t rumble_want[4];
     uint32_t motor_calls;     /* PADControlMotor calls seen */
     uint32_t rumble_changes;  /* times a remote's motor was switched on or off */
+    uint32_t rumble_held;     /* polls a rumble change waited (GC_BT_ACL_WINDOW, GC_BT_RUMBLE_GAP) */
+    /* Packets sent to the remotes that the controller has not yet said it
+     * sent on, and the polls that count has sat at GC_BT_ACL_WINDOW. */
+    uint32_t acl_pending;
+    uint32_t acl_stall_polls;
     /* How far the Bluetooth got, for a tester's trace (GC_BT_SEEN_*), and
      * what came back when it did not go further. */
     uint32_t progress;
