@@ -19,21 +19,20 @@ Rewrite it for every release and delete the line below.
 
 New:
 
-* No more freeze with a 4th Wii Remote
-* USB gamepads work inside games now, and wired Xbox 360 pads work with no config file
-* A cleaner menu font
-* Your own covers (a PNG in sd:/riftwii/covers named after the game ID), and GameTDB's second cover for games that have one
-* Home's shortcuts on every controller
-* Fixes for EA's 007 GameCube games, 007 Quantum of Solace and Prince of Persia: The Forgotten Sands
-* Restart with a USB drive no longer crashes, and homebrew started from RiftWii sees the GameCube adapter again
+* 007 Agent Under Fire and Everything or Nothing (GameCube) start now
+* The Wii Remote works in NightFire's missions and Everything or Nothing's menus
+* USB controllers work without a file on the SD card: about 40 pads built in, DualShock 3 and 4, DualSense, Logitech, 8BitDo, Mayflash and more
 
 To test, please:
 
-1. Four Wii Remotes in the menu, at start and one at a time
-2. A USB pad or wired Xbox 360 pad in a GameCube game (plug it in before starting)
-3. Your own cover, and the GameTDB cover row on Brawl or Mario Kart Wii
+1. The three 007 GameCube games with a Wii Remote: start a mission, use the menus and the pause menu
+2. Everything or Nothing should go back to RiftWii for a moment, then start the main game by itself
+3. A USB pad with no file on the SD card, a DualShock 3 or 4 especially: does it work in a GameCube game?
+
+Known: Everything or Nothing's THX and MGM logo movies have the wrong colours.
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![What's new](docs/screenshots/2610-whatsnew-781.png)
-![The GameTDB cover row](docs/screenshots/2610-gametdb-cover.png)
+![007 Agent Under Fire](docs/screenshots/2610-007-agent-under-fire.png)
+![007 Everything or Nothing](docs/screenshots/2610-007-everything-or-nothing.png)
+![007 NightFire](docs/screenshots/2610-007-nightfire.png)

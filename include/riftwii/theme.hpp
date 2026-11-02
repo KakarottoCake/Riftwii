@@ -17,6 +17,8 @@
 //             ThemeColors field below, by its name)
 //   [shape]   corners = 1.0            (0 square .. 2 twice as round)
 //   [backdrop] stripes = yes           (yes/no)
+//              frames = 24             (a looping backdrop: 2 to 60 frames,
+//              fps = 12                1 to 30 a second)
 //   [shape]   shelf_grain = yes        (yes/no)
 //
 // Anything missing keeps the default (RiftWii's own light look). Anything
@@ -77,6 +79,10 @@ struct Theme {
     ThemeColors colors;
     float corners = 1.0f;  // [shape] corners: radii are multiplied by it, 0 to 2
     bool stripes = true;   // [backdrop] stripes
+    // [backdrop] frames/fps: a looping backdrop made of backdrop_NN.png
+    // pictures, 0 frames when the theme has none (docs/THEMES.md).
+    int loop_frames = 0;   // 2 to 60
+    int loop_fps = 12;     // 1 to 30
     // [shape] shelf_grain: wood grain along Home's shelf; without it the
     // shelf is smooth with an accent-coloured line along its front edge.
     bool shelf_grain = false;

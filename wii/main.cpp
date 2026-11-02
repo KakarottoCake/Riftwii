@@ -22,6 +22,7 @@
 #include "movedchannels.hpp"
 #include "nandchannels.hpp"
 #include "wfsdrive.hpp"
+#include "disccopy.hpp"
 #include "menumusic.hpp"
 #include "menusounds.hpp"
 #include "screenshot.hpp"
@@ -41,6 +42,7 @@
 #include <ogc/machine/processor.h>
 
 #include "crash.hpp"
+#include "gecko.hpp"
 #include "gcadapter.hpp"
 #include "usbinput.hpp"
 #include "gcrealcard.hpp"
@@ -370,6 +372,14 @@ void OpenSessionLog(bool sd_mounted) {
     const bool rotated = riftwii::wii::RotateSessionLog();
     riftwii::wii::startup::Mark(riftwii::wii::startup::Step::LogOpen);
     riftwii::wii::LogOpen("sd:/riftwii/session.log", !rotated);
+    // Settings > USB Gecko log: every line from the session's
+    // first (settings.txt is on the card just mounted) goes to the PC too.
+    if (riftwii::wii::Settings().usb_gecko_log == "on") {
+        if (riftwii::wii::GeckoStart())
+            riftwii::wii::logf("USB Gecko log: on, this log also goes to the USB Gecko in slot B\n");
+        else
+            riftwii::wii::logf("USB Gecko log: on in Settings, but no USB Gecko answers in slot B\n");
+    }
     if (!rotated)
         riftwii::wii::logf("The previous session could not be archived; this session is appended to preserve it.\n");
     riftwii::wii::logf("RiftWii %s on %s, IOS%d rev %d\n", RIFTWII_VERSION,
@@ -446,6 +456,11 @@ int main() {
         // A headless start has no log before its first IOS reload, so it
         // asks here; the menu and autorun ask once their logs are open.
         riftwii::wii::mem::DetectDolphin();
+        // Settings > USB Gecko log applies here too; no session log opens
+        // on this path, so it is asked for directly, before the console:
+        // the console then leaves the USB Gecko to the log, instead of
+        // mirroring every line to it a second time.
+        if (sd_mounted && riftwii::wii::Settings().usb_gecko_log == "on") riftwii::wii::GeckoStart();
         riftwii::wii::ConsoleStart(false);
         riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Console);
         riftwii::wii::RunHeadless(args);
@@ -481,8 +496,15 @@ int main() {
     if (restart.kind != riftwii::wii::RestartKind::None) {
         riftwii::wii::logf("Restarted: %s\n", restart.message.c_str());
     }
-    riftwii::wii::StartMenuIos(sd_mounted, restart.kind != riftwii::wii::RestartKind::None,
-                               restart.kind == riftwii::wii::RestartKind::BurnedDisc ? riftwii::wii::BurnedDiscSlot() : 0);
+    int session_slot = 0;
+    const char* session_why = "to read a burned disc";
+    if (restart.kind == riftwii::wii::RestartKind::BurnedDisc) {
+        session_slot = riftwii::wii::BurnedDiscSlot();
+    } else if (restart.kind == riftwii::wii::RestartKind::DiscCopy) {
+        session_slot = riftwii::wii::DiscCopySlot();
+        session_why = "to copy a game disc";
+    }
+    riftwii::wii::StartMenuIos(sd_mounted, restart.kind != riftwii::wii::RestartKind::None, session_slot, session_why);
     // A restart mounts the card before the fresh IOS above, under whatever
     // the last run left (a tester got "RiftWii needs an SD card" right
     // after a game failed to start, with the card in). The fresh IOS has
@@ -789,7 +811,7 @@ int main() {
         // The channel installer app (wii/launch/channel.hpp). Only comes back if
         // it cannot start; a fresh start then says why on Home.
         std::string error;
-        riftwii::wii::StartChannelInstaller(error, state.channel_allow_unmarked);
+        riftwii::wii::StartChannelInstaller(error, state.channel_allow_unmarked, state.channel_update_now);
         riftwii::wii::WarmRestart(riftwii::wii::RestartKind::ChannelDone, error);
         riftwii::wii::logf("Press HOME, Start or RESET to exit.\n");
         riftwii::wii::WaitForExit();

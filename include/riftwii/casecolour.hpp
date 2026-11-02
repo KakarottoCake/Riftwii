@@ -35,13 +35,12 @@ int parse_case_colour_overrides(const std::string& text, CaseColourOverrides& ou
 // Where a game's case colour came from, the first that knows it.
 enum class CaseColourSource {
     Player,   // the player's file
-    GameTdb,  // GameTDB, for this exact game
-    Series,   // a series whose cases all share a colour, in any region
+    GameTdb,  // GameTDB, for this exact game (its whole six-character ID)
     Console,  // the console's own: white for the Wii, black for the GameCube
 };
 
 // The colour of the game's case, as a Wii case on a real shelf: the
-// player's choice, then GameTDB, then the series, then the console's.
+// player's choice, then GameTDB's for that exact ID, then the console's.
 CaseColourSource resolve_case_colour(const std::string& game_id, bool gamecube, const CaseColourOverrides& overrides,
                                      std::uint8_t (&rgb)[3]);
 

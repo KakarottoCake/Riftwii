@@ -208,6 +208,32 @@ bool gc_program_entry_words(std::uint32_t entry, std::uint32_t first, std::uint3
     return true;
 }
 
+namespace {
+
+// Whether `word` gives r0 a new value without reading it: li or lis r0
+// (addi or addis with rA 0), or mfspr into r0 (mflr included).
+bool sets_r0_fresh(std::uint32_t word) {
+    const unsigned op = word >> 26, d = (word >> 21) & 31, ra = (word >> 16) & 31;
+    if (d != 0) return false;
+    if ((op == 14 || op == 15) && ra == 0) return true;
+    return op == 31 && ((word >> 1) & 0x3FF) == 339;
+}
+
+}  // namespace
+
+std::uint32_t gc_program_start(std::uint32_t entry, const std::uint32_t* words, std::size_t count) {
+    std::size_t skipped = 0;
+    while (skipped < kGcProgramStartCalls && skipped + 2 < count) {
+        const std::uint32_t word = words[skipped];
+        // bl: a relative branch (opcode 18) that links and isn't absolute.
+        const bool call = (word >> 26) == 18 && (word & 3) == 1;
+        if (!call) break;
+        ++skipped;
+    }
+    if (skipped != 0 && !sets_r0_fresh(words[skipped])) return entry;
+    return entry + static_cast<std::uint32_t>(4 * skipped);
+}
+
 bool gc_code_branches_to(const std::vector<CodeRange>& text, std::uint32_t target) {
     for (const CodeRange& range : text) {
         for (std::size_t i = 0; i + 4 <= range.size; i += 4) {

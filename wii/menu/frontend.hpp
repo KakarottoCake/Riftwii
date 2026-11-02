@@ -35,6 +35,10 @@ struct PreparedGameChoices {
 struct FrontendState {
     // Accepted for this hand-off only, after saving the installer marker failed.
     bool channel_allow_unmarked = false;
+    // The update prompt's Update now opened the installer: it updates at once,
+    // without a button, and comes back (a controller it can't read, such as a
+    // GameCube controller on an adapter, can't leave the player stuck there).
+    bool channel_update_now = false;
     std::string game_id;
     std::string disc_title;
     std::string disc_status;

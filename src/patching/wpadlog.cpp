@@ -656,7 +656,7 @@ bool describe_wpad_log(const std::uint8_t* bytes, std::size_t size, std::string&
     constexpr std::size_t kPro = kHeader + kEntry * RTWLOG_ENTRIES;
     constexpr std::size_t kBt = kPro + sizeof(rtwlog_pro);
     constexpr std::size_t kBtEntry = 28;
-    static_assert(sizeof(rtwlog_pro) == 4 * 18, "the counts the decoder reads");
+    static_assert(sizeof(rtwlog_pro) == 4 * 27 + 8 * RTWLOG_MODE_LOG, "the counts the decoder reads");
     static_assert(sizeof(rtwlog_bt) == kBtEntry, "the trace entry layout the decoder reads");
     static_assert(offsetof(rtwlog_file, pro) == kPro && offsetof(rtwlog_file, bt) == kBt, "the trace's place");
     const bool traced = size >= kBt + kBtEntry * RTWLOG_BT_ENTRIES;
@@ -695,6 +695,46 @@ bool describe_wpad_log(const std::uint8_t* bytes, std::size_t size, std::string&
                           "%u acknowledgement error(s) cleared, %u reporting mode(s) changed\n",
                           pro_word(2), pro_word(3), pro_word(4), pro_word(5), pro_word(6), pro_word(7));
             text += counts;
+            if (pro_word(18) || pro_word(19) || pro_word(20)) {
+                std::snprintf(counts, sizeof(counts),
+                              "Pro Controller translator: %u link(s) recognised as a Pro Controller only by "
+                              "their extension ID; %u corrective reporting mode request(s) sent, %u data "
+                              "report(s) left untranslated because the controller's mode was too short\n",
+                              pro_word(20), pro_word(18), pro_word(19));
+                text += counts;
+            }
+            if (pro_word(24) || pro_word(25) || pro_word(26)) {
+                std::snprintf(counts, sizeof(counts),
+                              "Pro Controller translator: %u of %u outgoing report(s) on Pro Controller links had a "
+                              "32-byte-aligned buffer; %u corrective reporting mode request(s) were left for a "
+                              "later report, the buffer having no room\n",
+                              pro_word(26), pro_word(25), pro_word(24));
+                text += counts;
+            }
+            if (pro_word(21)) {
+                const std::uint32_t kept = pro_word(21) < RTWLOG_MODE_LOG ? pro_word(21) : RTWLOG_MODE_LOG;
+                const std::uint8_t* modes = pro + 4 * 27;
+                std::string list = "Pro Controller translator: the game's first reporting mode request(s):";
+                for (std::uint32_t m = 0; m < kept; ++m) {
+                    const std::uint8_t* e = modes + 8 * m;
+                    const std::uint16_t handle = static_cast<std::uint16_t>((e[0] << 8) | e[1]);
+                    char part[112];
+                    std::snprintf(part, sizeof(part), " link 0x%04x: 0x%02x%s, %s, %s",
+                                  static_cast<unsigned>(handle), e[2],
+                                  (e[3] & 0x04u) != 0 ? " continuous" : "",
+                                  e[4] != 0 ? "link known to be a Pro" : "link not known yet",
+                                  e[5] != 0 ? "changed to 0x34" : "sent as asked");
+                    list += part;
+                }
+                text += list + "\n";
+            }
+            if (pro_word(22)) {
+                std::snprintf(counts, sizeof(counts),
+                              "Pro Controller translator: the game wrote the extension's data format register "
+                              "0xA400FE %u time(s), last value 0x%02x\n",
+                              pro_word(22), pro_word(23));
+                text += counts;
+            }
             if (pro_word(8)) {
                 std::snprintf(counts, sizeof(counts),
                               "Pro Controller translator: the game turned on encryption; %u key(s) made into tables, "

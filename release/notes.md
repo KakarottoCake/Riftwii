@@ -16,54 +16,30 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** USB gamepads now work inside games, wired Xbox 360 pads need no config, a cleaner menu font, covers you choose, and fixes for the 4-Wii-Remote freeze and several games. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** EA's 007 GameCube games: Agent Under Fire and Everything or Nothing now start, and the Wii Remote works in NightFire's missions and Everything or Nothing. USB controllers such as the DualShock 3 and 4 now work without a file on the SD card. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-![What's new in this version]({{SCREENSHOTS}}2610-whatsnew-781.png)
+![007 Agent Under Fire's main menu]({{SCREENSHOTS}}2610-007-agent-under-fire.png)
 
-![A game's settings: the GameTDB cover row]({{SCREENSHOTS}}2610-gametdb-cover.png)
+![007 Everything or Nothing]({{SCREENSHOTS}}2610-007-everything-or-nothing.png)
+
+![007 NightFire's first mission]({{SCREENSHOTS}}2610-007-nightfire.png)
 
 ## What changed
 
-- **No more freeze with a 4th Wii Remote** (#138). With four Remotes setting up at once on a real console, a slow answer could get asked for twice, and the second answer was written to the wrong place in memory. RiftWii now never asks twice for an answer that is still coming, and drops any answer that doesn't belong to the question being waited on. Checked in Dolphin with 4 Remotes; not tried on a real console yet.
-- **USB gamepads work inside games**, not only in the menu. Starting a game resets the Wii's USB and the pad took a moment to come back; the game's controller code now notices. A PS4 pad takes one slot instead of four, PS3 pads get the extra wake-up some of them need, and every step of a pad's setup shows up in problem reports. Plug the pad in before starting a game.
-- **Wired Xbox 360 controllers** (Microsoft's and third-party ones) work as GameCube controllers with no config file, in the menu and in games, while Settings > Controllers > USB input devices is on. LB or RB is Z, the triggers are L and R, and Guide (or Back + Start) is the way back to RiftWii.
-- **A cleaner menu font**, M PLUS 1 SemiBold: lighter and crisper on a TV. It's a file on the SD card (`apps/riftwii/font.ttf`); the in-app update brings it. If it's missing, RiftWii uses the Wii Menu's font and tells you.
-- **Covers you choose.** Put a PNG named after the game's ID in `riftwii/covers` on the SD card or USB drive (`RMCE01.png`) and RiftWii shows it instead of GameTDB's. Games with a second cover on GameTDB (Brawl, Mario Kart Wii) get a **GameTDB cover** row in their settings: First or Second.
-- **Home's shortcuts on every controller.** Changing the view, a cover up close and a game at random now work on a GameCube controller (Y + Z, Y or Z, hold B), a Classic or Pro Controller (Y + X, Y or X, hold ZL) and the Wii U GamePad (X + Y), not only the Wii Remote.
-- **EA's 007 GameCube games** (NightFire, Agent Under Fire, Everything or Nothing) no longer stop on a black screen: the programs they load from the disc get RiftWii's patches too. NightFire plays in Dolphin; the other two aren't tested.
-- **007 Quantum of Solace** (Wii) no longer stays black: it gets all of the Wii's fast memory, as Resident Evil 4 does.
-- **Prince of Persia: The Forgotten Sands** no longer stays black after the Ubisoft logo: games that check their own code get no RiftWii changes beyond their own fix, and their settings page says which rows don't apply.
-- **Restart and Power off with a USB drive** no longer crash.
-- **Homebrew apps started from RiftWii** see the GameCube adapter, USB pads and a USB keyboard again.
+- **007 Agent Under Fire (GameCube) starts.** The game loads its parts from the disc, and each part begins with two short setup steps that RiftWii used to refuse to patch around. It now takes over just after them.
+- **007 Everything or Nothing (GameCube) starts.** Its start-up program stopped on a black screen. It switches to the main game by restarting the console into it, an older way of doing that which RiftWii now recognises: the game goes back through RiftWii for a moment, which starts it again straight into the main game.
+- **The Wii Remote works where a GameCube game keeps checking an empty controller port.** Some games ask the empty port 1 again and again whether a controller is there, and RiftWii used to leave that port to a GameCube controller that never came, so the Wii Remote did nothing. Everything or Nothing's menus and NightFire's missions take the Wii Remote now. A GameCube controller plugged in later still gets its port back.
+- **USB controllers work out of the box.** RiftWii now carries the layouts from Nintendont's controller collection, about 40 pads: the DualShock 3, both DualShock 4 models, the DualSense and DualSense Edge, Logitech's F310 and RumblePad 2, the Nvidia Shield controller, and several 8BitDo, Mayflash, Hori, Thrustmaster and arcade-stick models. Plug the pad in before starting a game. A layout file of your own on the SD card (`sd:/riftwii/controllers/VID_PID.ini`) still comes first.
 
 ## What to test
 
-1. **Four Wii Remotes** in the menu, connected at start and one at a time: does it stay responsive?
-2. **A USB gamepad or a wired Xbox 360 pad** in a GameCube game (plug it in before starting the game).
-3. **Your own cover**: a PNG in `sd:/riftwii/covers`, and the GameTDB cover row on Brawl or Mario Kart Wii.
-4. **007 Agent Under Fire or Everything or Nothing**, if you have them.
+1. **007 Agent Under Fire, Everything or Nothing and NightFire** with a Wii Remote: start a mission, then try the menus and the pause menu.
+2. **Everything or Nothing's start**: it should go back to RiftWii for a moment and then start the main game by itself.
+3. **A USB controller with no file on the SD card**, a DualShock 3 or 4 especially: does it move and press buttons in a GameCube game?
 
 ## Known issues
 
-- **USB gamepads:** `MultiIn` 2 to 4 and pads that pack their sticks in their own way aren't supported yet; a pad (other than a wired Xbox 360 pad) needs a config.
+- **Everything or Nothing's THX and MGM logo movies** show in the wrong colours (dark red and green instead of gold and silver). The game itself and its other scenes look right.
+- **The DualShock 3 over USB** hasn't been confirmed to work: RiftWii sets it up, but no button presses have been seen from one yet.
+- **USB gamepads:** `MultiIn` 2 to 4 and pads that pack their sticks in their own way aren't supported yet.
 - **The Wii U GamePad** works in the menu only when RiftWii runs as a Wii VC inject, and never in games.
-- **Retro Rewind online from the disc** gave one tester error 50330 on a Wii U. A likely fix is in; a problem report from anyone who still sees it helps.
-- **WADs:** Korean and vWii-only WADs aren't read yet. WADs need an SD card for the emulated NAND.
-- **Emulators and other USB partitions:** some emulators may not understand `usb1:/` or `usb2:/` paths for games on a second partition.
-- **GameCube is a trial:** some games may not start or may stop. Send a problem report from Settings > Help when one doesn't.
-- **The channel installer goes black on some Wii U consoles** (#317). RiftWii offers Not now instead of locking you out, but the cause isn't confirmed: `sd:/riftwii/channel.log` in a problem report helps.
-- **The Wii U Pro Controller's stick can stop, then drift, in the menu** after opening a game's page (#239).
-- **The GameCube memory card in other regions' copies of Resident Evil 2 (PAL, Japan) isn't covered yet.**
-- **Zelda Collector's Edition may show "No Signal"** at 480p on a real Wii (seen once; Dolphin doesn't show it).
-- **Cars 2 is cursed:** it goes black if RiftWii changes anything in it. RiftWii warns before you play it (and Toy Story 3 and Disney Infinity, which share its engine).
-- **Ghostbusters from an RVZ** can still freeze in the hotel: play it from an ISO or WBFS.
-
-## Download
-
-Grab `riftwii-{{TAG}}.zip` below. `riftwii.dol` is the same build as the zip's `boot.dol` (SHA256 {{DOL_SHA256}}, {{DOL_BYTES}} bytes). `riftwii-update.pack` is what the in-app update reads (the plugins, the themes and the channel installer); you don't need to download it.
-
-If something goes wrong, use Settings > Help > Send a problem report and send the link (you don't need to take out your SD card), or open an issue with `sd:/riftwii/session.log`, `sd:/riftwii/boot.log`, your Wii model, your Menu IOS and your cIOS.
-
-## License and source
-
-RiftWii is free software under the GNU General Public License, version 3 or later, with no warranty. Its source is this repository at the tag `{{TAG}}`; the zip carries `LICENSE.txt`, `NOTICE.md` and `SOURCE.txt`. [NOTICE.md](https://github.com/KakarottoCake/Riftwii/blob/main/NOTICE.md) credits every project RiftWii contains or follows, with each piece's origin and license.

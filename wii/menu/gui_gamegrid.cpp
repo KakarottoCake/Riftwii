@@ -12,6 +12,7 @@
 
 #include "boxart.hpp"
 #include "covers.hpp"
+#include "madecover.hpp"
 #include "menutheme.hpp"
 #include "riftwii/coverart.hpp"
 #include "riftwii/emulatorart.hpp"
@@ -25,6 +26,13 @@
 namespace skin = riftwii::wii::skin;
 
 riftwii::PlayerActed GuiGameGrid::acted;
+
+const u8* MadeUpCoverFor(const GridItem& item) {
+    if (item.badge == "DISC") return nullptr;
+    // An emulator game's ID is only its cover key: none printed.
+    const std::string id = riftwii::emulator_cover_id(item.id) ? std::string() : item.id;
+    return riftwii::wii::MadeUpCover(CoverName(item), item.title, id);
+}
 
 namespace {
 
@@ -183,7 +191,8 @@ struct ZoomArt {
 ZoomArt ZoomArtFor(const std::string& id, const std::string& cover_name, bool back) {
     ZoomArt art;
     if (id.empty()) return art;
-    // The player's own cover (#384) comes before GameTDB's full box.
+    // The player's own cover (#384), or a mod tile's own (#385), comes
+    // before GameTDB's full box of the game.
     const u8* own = riftwii::wii::CoverTexture(cover_name);
     if (own && !riftwii::wii::CoverBeforeBox(cover_name)) own = nullptr;
     if (const u8* box = own ? nullptr : riftwii::wii::BoxTexture(id)) {
@@ -782,10 +791,20 @@ void GuiGameGrid::DrawCoverTile(int i, bool on, int alpha) {
     // The stored cover and its frame, drawn at CoverScale() about the tile's middle.
     const float kCoverScale = CoverScale();
     const float cx = x + tileW / 2.0f, cy = y + tileH / 2.0f;
-    const skin::Tex& frame = on ? skin::coverTileOver : skin::coverTile;
-    skin::Draw(frame, cx - frame.w / 2.0f, cy - frame.h / 2.0f, alpha, s.scale * kCoverScale);
+    // No cover: one made up (the name on a blank cover) once it is made.
     const u8* cover = riftwii::wii::CoverTexture(CoverName(item));
-    if (cover) {
+    const u8* madeUp = cover ? nullptr : MadeUpCoverFor(item);
+    // A cover stands on its own, a made-up one too: the card's grey edge
+    // and shadow, the cover's size, ringed it (plain on a white Wii cover's
+    // edge). The card stays for the lit tile's ring and under a tile with
+    // no cover.
+    const skin::Tex& frame = on ? skin::coverTileOver : skin::coverTile;
+    if (on || (!cover && !madeUp)) skin::Draw(frame, cx - frame.w / 2.0f, cy - frame.h / 2.0f, alpha, s.scale * kCoverScale);
+    if (madeUp) {
+        riftwii::wii::DrawMadeUpCover(madeUp, cx - riftwii::kCoverWidth / 2.0f, cy - riftwii::kCoverHeight / 2.0f, alpha,
+                                      s.scale * kCoverScale);
+        cover = madeUp;
+    } else if (cover) {
         skin::DrawRgb5a3(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, cx - riftwii::kCoverWidth / 2.0f,
                          cy - riftwii::kCoverHeight / 2.0f, alpha, s.scale * kCoverScale);
     } else if (item.badge == "DISC" && skin::discCase.data) {
@@ -987,7 +1006,8 @@ void GuiGameGrid::ReadAllCovers() {
     riftwii::wii::CoverReserve(Count() + 1);  // and the game page's
     std::vector<std::string> ids;
     ids.reserve(Count());
-    for (int k = 0; k < Count(); ++k) ids.push_back((*items)[(page * kPerPage + k) % Count()].id);
+    // By the cover each tile draws (a mod tile's key), as CoverPrefetch.
+    for (int k = 0; k < Count(); ++k) ids.push_back(CoverName((*items)[(page * kPerPage + k) % Count()]));
     riftwii::wii::CoverReadAll(ids);
 }
 

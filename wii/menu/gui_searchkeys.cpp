@@ -60,17 +60,25 @@ GuiSearchKeys::GuiSearchKeys(const std::string& start, const std::string& titleT
     Build(titleText, "", Mode::Name);
 }
 
+GuiSearchKeys::GuiSearchKeys(Pin, const std::string& titleText, const std::string& noteText) : maxLength(4) {
+    Build(titleText, noteText, Mode::Pin);
+}
+
+std::string GuiSearchKeys::Shown() const { return pin ? std::string(text.size(), '*') : text; }
+
 void GuiSearchKeys::Build(const std::string& titleText, const std::string& noteText, Mode mode) {
     hex = mode == Mode::Hex;
     naming = mode == Mode::Name;
+    pin = mode == Mode::Pin;
     width = screenwidth;
     height = screenheight;
     selectable = true;
     const int wide = 4 * kKeyPitch - 4, mid = 2 * kKeyPitch - 4;
-    if (hex) {
+    if (hex || pin) {
         // Two rows of digits; the action row two rows down, as the letters'.
+        // A PIN has the first row only.
         const char* const rows[2] = {"0123456789", "ABCDEF"};
-        for (int r = 0; r < 2; ++r) {
+        for (int r = 0; r < (pin ? 1 : 2); ++r) {
             int col = 0;
             for (const char* p = rows[r]; *p; ++p, ++col)
                 keys.push_back({std::string(1, *p), *p, Key::Act::Type, r, kKeyLeft + col * kKeyPitch, kKeyW, nullptr});
@@ -119,7 +127,7 @@ void GuiSearchKeys::Build(const std::string& titleText, const std::string& noteT
     }
     // Search (or OK) when there is text (A straight away), else Q, the
     // first letter (0 in hex).
-    focus = text.empty() ? (hex ? 0 : 10) : static_cast<int>(keys.size()) - 1;
+    focus = text.empty() ? (hex || pin ? 0 : 10) : static_cast<int>(keys.size()) - 1;
     if (!noteText.empty()) {
         note = new GuiText(noteText.c_str(), 16, skin::kInk);
         note->SetParent(this);
@@ -140,7 +148,7 @@ void GuiSearchKeys::Build(const std::string& titleText, const std::string& noteT
     count->SetParent(this);
     count->SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
     count->SetPosition(-(screenwidth - (kKeyLeft + 10 * kKeyPitch - 4)), 118);
-    shown = new GuiText(text.c_str(), 22, skin::kInk);
+    shown = new GuiText(Shown().c_str(), 22, skin::kInk);
     shown->SetParent(this);
     shown->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
     shown->SetPosition(kKeyLeft + 10, 154);
@@ -269,12 +277,13 @@ void GuiSearchKeys::Press(const Key& k) {
         break;
     case Key::Act::Search:
         if (hex && text.empty()) break;  // a value needs a digit
+        if (pin && text.size() != maxLength) break;  // all four digits
         result = 1;
         break;
     }
     if (naming && k.act != Key::Act::Shift) shift = riftwii::name_shift_for_text(text);
     if (naming) ShowCase();
-    shown->SetText(text.c_str());
+    shown->SetText(Shown().c_str());
 }
 
 void GuiSearchKeys::TypeFromKeyboard() {
@@ -418,7 +427,7 @@ void GuiSearchKeys::Draw() {
         // An existing name can contain UTF-8 even though the keys type ASCII.
         while (firstShown < text.size() && (static_cast<unsigned char>(text[firstShown]) & 0xC0) == 0x80)
             ++firstShown;
-        shown->SetText(text.substr(firstShown).c_str());
+        shown->SetText(Shown().substr(firstShown).c_str());
     }
     shown->Draw();
     blink = std::fmod(blink + riftwii::wii::transition::FrameMilliseconds(), 1000.0f);

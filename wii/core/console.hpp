@@ -5,8 +5,9 @@
 namespace riftwii::wii {
 
 // Switches the display to libogc's text console (a fresh framebuffer)
-// and mirrors it to a USB Gecko in slot B when one answers. Safe to call
-// after the libwiigui renderer has been stopped.
+// and mirrors it to a USB Gecko in slot B when one answers (with
+// Settings > USB Gecko log on, the log's own copy of stdout stays).
+// Safe to call after the libwiigui renderer has been stopped.
 void ConsoleStart(bool video_initialised);
 
 // Starts the console in a window of the picture already on screen (the

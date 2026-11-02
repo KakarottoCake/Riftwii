@@ -23,6 +23,9 @@
 // (x along the shelf, z out of it), how far it is turned and lifted.
 struct ShelfFlight {
     std::string id;
+    // The tile's CoverName: a profile's made-up cover is kept under its
+    // key, not the game's ID. Empty: the ID's.
+    std::string coverName;
     GXColor hue = {0, 0, 0, 255};
     GXColor caseColour = {255, 255, 255, 255};  // GridItem's
     float x = 0, z = 0, turn = 0, lift = 0;
@@ -54,7 +57,7 @@ struct GridItem {
     bool profile = false;
     GXColor hue = {90, 90, 100, 255};
     // The colour of the game's case on the shelf, as on a real one: the
-    // player's, GameTDB's, its series' or its console's
+    // player's, GameTDB's for its exact ID or its console's
     // (riftwii/casecolour.hpp's resolve_case_colour).
     GXColor caseColour = {255, 255, 255, 255};
 };
@@ -63,6 +66,10 @@ struct GridItem {
 // its key, so the player's own riftwii/covers/<game ID>@<slug>.png shows on
 // it (else the game's cover); every other tile by its game's ID.
 inline const std::string& CoverName(const GridItem& item) { return item.profile ? item.key : item.id; }
+
+// The tile's made-up cover (madecover.hpp): its name on a blank cover, for
+// a game with no cover, or nullptr until it is made. Not for the disc drive.
+const u8* MadeUpCoverFor(const GridItem& item);
 
 class GuiGameGrid : public GuiElement {
 public:
@@ -306,6 +313,7 @@ private:
     struct SpineLabel {
         int index;
         float x, y0, y1, width;
+        bool paper;  // a spine to go with a made-up cover, not bare plastic
     };
     // Reused every frame: the boxes in drawing order, the names to write.
     std::vector<int> shelfOrder;

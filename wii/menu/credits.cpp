@@ -44,11 +44,13 @@ const char* const kCredits[] = {
     "how to keep saves in d2x's emulated NAND and where that NAND is kept (the Saves choice \"SD, emulated NAND\"), the "
     "channel identity and synthetic ticket layout (dude, Miigotu and Dimok, zlib), the "
     "idea of hooking a game's second "
-    "executable and RiftWii's copy of the Gecko code handler. With thanks to its developers and to those whose "
+    "executable, RiftWii's copies of the Gecko code handler and of its WiiRD debugger builds, and the USB Gecko "
+    "debug output (gprintf, hexdump). With thanks to its developers and to those whose "
     "work it carries: ToadKing (wiilauncher-nossl), Leseratte and the Wiimmfi team, giantpune, Nuke, "
     "crediar (Kirby's MetaFortress patch), dcx2, container12345, blackb0x and WiiPower.",
     "",
-    "Gecko OS by Nuke, brkirch, Link and the Gecko authors: the cheat code handler (GPL-2.0-or-later).",
+    "Gecko OS by Nuke, brkirch, Link and the Gecko authors: the cheat code handler and the WiiRD debugger "
+    "(GPL-2.0-or-later).",
     "",
     "Brainslug by Alex Chadwick and Florian Bach (MIT): the boot sequence.",
     "",
@@ -57,8 +59,8 @@ const char* const kCredits[] = {
     "",
     "wup-028-bslug by Alex Chadwick (MIT): the GameCube controller adapter.",
     "",
-    "Nintendont by FIX94 and contributors: the USB HID driver, controller.ini mappings and the GameCube sound program patches, used "
-    "with its developers' permission.",
+    "Nintendont by FIX94 and contributors: the USB HID driver, controller.ini mappings, the USB controller layouts RiftWii carries "
+    "and the GameCube sound program patches, used with its developers' permission.",
     "",
     "Mario Party 4 community decompilation: GameCube font encoding behavior, read as documentation only.",
     "",
@@ -84,9 +86,13 @@ const char* const kCredits[] = {
     "wfslib and wfs-tools by koolkdev (MIT), and Dolphin's IOS59 WFS devices (GPL-2.0-or-later): the WFS drive "
     "format Dragon Quest X installs to, read as documentation.",
     "",
+    "WiiFlow Lite (github.com/Fledge68/WiiFlow_Lite, GPL-3.0): the USB Gecko output sent with interrupts off, "
+    "and the WiiRD debugger's code handler and its pause at start.",
+    "",
     "WiiFlow Lite and USB Loader GX: channel application type and BI2 setup; USB Loader GX, d2x and Dolphin: "
     "channel boot context and SD mount lifetime, read as documentation (source commits in NOTICE.md). "
-    "WiiFlow Lite's cover flow: the shelf's plastic cases round the paper, and how their colors are chosen.",
+    "WiiFlow Lite's cover flow: the shelf's plastic cases round the paper, and how their colors are chosen. "
+    "WiiFlow Lite's disc install: how Copy a game disc lays out its WBFS file, read as documentation.",
     "",
     "d2x cIOS: the USB and SD game loading interface, and how its FAT module mounts and lets go of the SD card "
     "for its emulated NAND.",

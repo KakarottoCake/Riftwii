@@ -1170,6 +1170,9 @@ msgstr "Dolphinは本物の署名を確認するので、チャンネルはWii�
 msgid "Installing the channel needs a d2x cIOS in slot 249, 250 or 251"
 msgstr "チャンネルのインストールには、スロット249、250、251のどれかにd2x cIOSが必要です"
 
+msgid "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the Homebrew Channel or the RiftWii channel (version 9 or newer)"
+msgstr "今回のRiftWiiはハードウェアアクセスなしで起動されていますが、インストーラーにはそれが必要です。Homebrew ChannelかRiftWiiチャンネル（バージョン9以降）からRiftWiiを起動してください"
+
 msgid "(Log: sd:/riftwii/session.log)"
 msgstr "(ログ: sd:/riftwii/session.log)"
 
@@ -2346,11 +2349,11 @@ msgstr "リセット"
 msgid "Reset all settings?"
 msgstr "すべての設定をリセットしますか?"
 
-msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept."
-msgstr "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。"
+msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MOD、ペアレンタルコントロールはそのまま残ります。"
 
-msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept."
-msgstr "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。"
+msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MOD、ペアレンタルコントロールはそのまま残ります。"
 
 msgid "Settings reset to the defaults"
 msgstr "設定を初期状態に戻しました"
@@ -2400,23 +2403,23 @@ msgstr "ホームに表示するゲーム：すべてのドライブとWii本体
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "このゲームのデータはWiiから削除されているため、起動できません。"
 
-msgid "A cleaner, lighter menu font"
-msgstr "すっきりした軽いメニューの字体"
+msgid "Made-up covers for games without one"
+msgstr "カバーのないゲームに仮のカバー"
 
-msgid "USB gamepads and Xbox 360 pads in games"
-msgstr "USBとXbox 360のコントローラーでゲーム"
+msgid "Parental controls, with a PIN"
+msgstr "PINつきのペアレンタルコントロール"
 
-msgid "Your own covers, and GameTDB's second cover"
-msgstr "自分のカバーとGameTDBの2つ目のカバー"
+msgid "Copy a game disc to a .wbfs file"
+msgstr "ゲームディスクを.wbfsファイルにコピー"
 
-msgid "Home's shortcuts on every controller"
-msgstr "ホームのショートカットをどのコントローラーでも"
+msgid "Themes can have a moving background"
+msgstr "テーマにうごく背景"
 
-msgid "Fixes for 007 games and Prince of Persia"
-msgstr "007のゲームとプリンス・オブ・ペルシャを修正"
+msgid "Channel updates need no Wii Remote"
+msgstr "Wiiリモコンなしでチャンネルを更新"
 
-msgid "No more freeze with a 4th Wii Remote"
-msgstr "4本目のWiiリモコンで止まらないように"
+msgid "A mod's own cover on its Home tile"
+msgstr "MODのタイルにMOD自身のカバー"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWiiの追加機能が使うメモリ"
@@ -3036,6 +3039,42 @@ msgstr "さきにSDカードを入れてください。"
 msgid "The SD card is back in. Reading it again."
 msgstr "SDカードがもどりました。よみなおしています。"
 
+msgid "USB Gecko log"
+msgstr "USB Geckoへのログ"
+
+msgid "WiiRD debugger"
+msgstr "WiiRDデバッガー"
+
+msgid "Pause at start"
+msgstr "開始時に止める"
+
+msgid "For developers. RiftWii's log also goes to a USB Gecko in memory card slot B as it is written, for a PC to read."
+msgstr "開発者向けです。RiftWiiのログを、書き込むと同時にメモリーカードスロットBのUSB Geckoにも送り、PCで読めるようにします。"
+
+msgid "For developers. Wii games start with the WiiRD debugger, for a PC on a USB Gecko in slot B or A (WiiRD, Gecko dotNET). Pause at start holds the game at its first frame until the PC lets it go."
+msgstr "開発者向けです。WiiのゲームをWiiRDデバッガー付きで起動し、スロットBかAのUSB GeckoにつないだPC (WiiRD、Gecko dotNET) から使えるようにします。開始時に止めるでは、PCが再開するまでゲームを最初のフレームで止めます。"
+
+msgid "Off from the next start of RiftWii."
+msgstr "次にRiftWiiを起動したときからオフになります。"
+
+msgid "On, but nothing on the PC reads the USB Gecko in slot B, so the log stopped. Start the reader on the PC, then turn this off and on again."
+msgstr "オンですが、PCでスロットBのUSB Geckoを読むものがないため、ログは止まりました。PCで読み取りを始めてから、これをオフにして、もう一度オンにしてください。"
+
+msgid "On. RiftWii's log now also goes to the USB Gecko in slot B."
+msgstr "オンです。RiftWiiのログはスロットBのUSB Geckoにも送られます。"
+
+msgid "On from the next start of RiftWii. No USB Gecko answers in slot B now."
+msgstr "次にRiftWiiを起動したときからオンになります。今はスロットBのUSB Geckoが応答しません。"
+
+msgid "Games start with the plain code handler."
+msgstr "ゲームは通常のコードハンドラーで起動します。"
+
+msgid "Wii games start with the WiiRD debugger, except ones whose RiftWii hooks need its memory. Connect from the PC once the game is running."
+msgstr "WiiのゲームはWiiRDデバッガー付きで起動します。ただし、RiftWiiのフックがそのメモリを使うゲームはデバッガーなしで起動します。ゲームが始まったらPCから接続してください。"
+
+msgid "No USB Gecko answers in slot B or A now. Without one, games start without the debugger."
+msgstr "今はスロットBにもAにもUSB Geckoが応答しません。USB Geckoがないと、ゲームはデバッガーなしで起動します。"
+
 msgid "A search looks through every genre. Press 1 to end it first."
 msgstr "検索はすべてのジャンルから探します。先に1を押して検索を終えてください。"
 
@@ -3053,6 +3092,198 @@ msgstr "上下: ジャンル   はなす: 表示"
 
 msgid "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii."
 msgstr "メニューは英語です。RiftWiiのzipにあるapps/riftwii/korean.ttfをSDカードにコピーしてRiftWiiのフォントを選んでください。または韓国版WiiでWiiメニューのフォントを使ってください。"
+
+msgid "Copy a game disc"
+msgstr "ゲームディスクをコピー"
+
+msgid "Copies the Wii disc in the drive to the wbfs folder of a FAT32 USB drive or the SD card, with every partition of the disc, so the game plays without the disc. Needs a d2x cIOS."
+msgstr "ドライブのWiiディスクを、ディスクのすべてのパーティションごと、FAT32のUSBドライブかSDカードのwbfsフォルダにコピーし、ディスクなしで遊べるようにします。d2x cIOSが必要です。"
+
+msgid "Reading a whole disc needs a d2x cIOS, and this Wii has none. Install d2x (wii.hacks.guide/cios), then try again."
+msgstr "ディスク全体を読むにはd2x cIOSが必要ですが、このWiiにはありません。d2x (wii.hacks.guide/cios) をインストールしてから、もう一度お試しください。"
+
+msgid "The Wii's own IOS reads only the start of a disc. RiftWii restarts under IOS{1} (d2x) for this session; then choose Copy a game disc again."
+msgstr "Wii本体のIOSはディスクの最初しか読めません。RiftWiiはこのセッションの間IOS{1} (d2x) で再起動します。そのあと、もう一度「ゲームディスクをコピー」を選んでください。"
+
+msgid "The menu runs under IOS{1} for this session, to copy a game disc. Settings > Drives > Copy a game disc."
+msgstr "このセッションの間、ゲームディスクをコピーするためにメニューはIOS{1}で動きます。設定 > ドライブ > ゲームディスクをコピー。"
+
+msgid "There is no SD card or FAT32 USB drive to copy the disc to."
+msgstr "ディスクをコピーできるSDカードもFAT32のUSBドライブもありません。"
+
+msgid "The disc can't be copied: {1}"
+msgstr "ディスクをコピーできません: {1}"
+
+msgid "Where should {1} go? It needs {2}."
+msgstr "{1}をどこにコピーしますか？{2}必要です。"
+
+msgid "{1} free"
+msgstr "空き {1}"
+
+msgid "{1} needs {2}, and the {3} has {4} free."
+msgstr "{1}には{2}必要ですが、{3}の空きは{4}です。"
+
+msgid "Copy {1} ({2}) to {3}? Every partition of the disc goes in: the game, the system update and any channel. This takes about {4} minutes."
+msgstr "{1} ({2}) を{3}にコピーしますか？ゲーム、本体更新、チャンネルなど、ディスクのすべてのパーティションを入れます。約{4}分かかります。"
+
+msgid "{1} partition(s) could not be looked into, so they are copied whole."
+msgstr "{1}個のパーティションは中身を読めないため、まるごとコピーします。"
+
+msgid "Copying {1}"
+msgstr "{1}をコピー中"
+
+msgid "From the disc to the {1}"
+msgstr "ディスクから{1}へ"
+
+msgid "Stop copying {1}?"
+msgstr "{1}のコピーを中止しますか？"
+
+msgid "What is copied so far is deleted. It can be copied again later, from the start."
+msgstr "ここまでコピーした分は削除されます。あとで最初からコピーし直せます。"
+
+msgid "{1} is already on the {2}: {3}"
+msgstr "{1}はすでに{2}にあります: {3}"
+
+msgid "{1} could not be copied: {2}. Nothing was kept."
+msgstr "{1}をコピーできませんでした: {2}。何も残していません。"
+
+msgid "{1} is copied to the {2}. It is on Home now, and plays without the disc."
+msgstr "{1}を{2}にコピーしました。ホームに表示され、ディスクなしで遊べます。"
+
+msgid "Copying a disc needs a real Wii: Dolphin can't read a whole disc."
+msgstr "ディスクのコピーには本物のWiiが必要です。Dolphinはディスク全体を読めません。"
+
+msgid "The menu runs under IOS{1}, which is not d2x, so it can't read a whole disc. Choose IOS 58 or a d2x cIOS in Settings > Menu > Menu IOS, start RiftWii again, then choose Copy a game disc."
+msgstr "メニューはd2xではないIOS{1}で動いているため、ディスク全体を読めません。設定 > メニュー > メニューのIOSでIOS 58かd2xのcIOSを選び、RiftWiiを起動し直してから、ゲームディスクをコピーを選んでください。"
+
+msgid "Settings > Menu > Menu IOS is set to IOS{1}, which takes effect the next time RiftWii starts. Start RiftWii again, then choose Copy a game disc."
+msgstr "設定 > メニュー > メニューのIOSはIOS{1}ですが、RiftWiiを次に起動したときから使われます。RiftWiiを起動し直してから、ゲームディスクをコピーを選んでください。"
+
+msgid "The USB drive is not FAT32 (NTFS, for example), and a copy can only go to a FAT32 USB drive or the SD card."
+msgstr "USBドライブがFAT32ではありません(NTFSなど)。コピーできるのはFAT32のUSBドライブかSDカードだけです。"
+
+msgid "The USB drive is not FAT32, so the copy goes to the SD card."
+msgstr "USBドライブがFAT32ではないため、SDカードにコピーします。"
+
+msgid "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Drives > Games on the SD card is set to Look for them."
+msgstr "{1}を{2}にコピーしました。ディスクなしで遊べます。設定 > ドライブ > SDカードのゲームを「探す」にすると、ホームに表示されます。"
+
+msgid "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Home > Games from is set to All games."
+msgstr "{1}を{2}にコピーしました。ディスクなしで遊べます。設定 > ホーム > ゲームの場所を「すべてのゲーム」にすると、ホームに表示されます。"
+
+msgid "{1} is copied to the {2}, and plays without the disc. Parental controls hide it on Home: its age rating is above the highest age allowed."
+msgstr "{1}を{2}にコピーしました。ディスクなしで遊べます。ペアレンタルコントロールにより、ホームには表示されません。対象年れいが、選んだ年れいより上です。"
+
+msgid "{1} is copied to the {2}, and plays without the disc. To see it on Home, choose Show > All games."
+msgstr "{1}を{2}にコピーしました。ディスクなしで遊べます。ホームで見るには、表示 > すべてのゲームを選んでください。"
+
+msgid "Parental controls"
+msgstr "ペアレンタルコントロール"
+
+msgid "A PIN that locks or hides the games rated for players older than an age you pick."
+msgstr "選んだ年れいより上向けのゲームを、PINでロックするか、かくします。"
+
+msgid "Parental controls PIN"
+msgstr "ペアレンタルコントロールのPIN"
+
+msgid "Wrong PIN"
+msgstr "PINがちがいます"
+
+msgid "That is not the parental controls PIN."
+msgstr "ペアレンタルコントロールのPINではありません。"
+
+msgid "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it."
+msgstr "このゲームは対象年れいがわからず、ペアレンタルコントロールはそういうゲームをロックしています。遊ぶにはPINを入力してください。"
+
+msgid "This game's age rating could not be read, so parental controls lock it. Type the PIN to play it."
+msgstr "このゲームの対象年れいを読み込めなかったため、ペアレンタルコントロールがロックしています。遊ぶにはPINを入力してください。"
+
+msgid "This game's age rating is above what parental controls allow. Type the PIN to play it."
+msgstr "このゲームの対象年れいは、ペアレンタルコントロールでみとめられた年れいより上です。遊ぶにはPINを入力してください。"
+
+msgid "Type the PIN to change parental controls."
+msgstr "ペアレンタルコントロールを変更するにはPINを入力してください。"
+
+msgid "New PIN"
+msgstr "新しいPIN"
+
+msgid "Pick four digits a child won't guess. Only a scrambled form of them is kept on the SD card."
+msgstr "こどもに当てられない4けたの数字を選んでください。SDカードには読めない形だけを保存します。"
+
+msgid "Type the new PIN again"
+msgstr "新しいPINをもう一度入力"
+
+msgid "The same four digits, to be sure."
+msgstr "確認のため、同じ4けたを入力してください。"
+
+msgid "PIN not changed"
+msgstr "PINは変更されていません"
+
+msgid "The two PINs were not the same. Nothing was changed."
+msgstr "2つのPINが同じではありませんでした。何も変更していません。"
+
+msgid "Lock them"
+msgstr "ロックする"
+
+msgid "Hide them"
+msgstr "かくす"
+
+msgid "Treat as too old"
+msgstr "対象外として扱う"
+
+msgid "Allow"
+msgstr "そのまま遊べる"
+
+msgid "PIN"
+msgstr "PIN"
+
+msgid "Set"
+msgstr "設定"
+
+msgid "Parental controls are on. Change the four-digit PIN they ask for."
+msgstr "ペアレンタルコントロールはオンです。必要な4けたのPINを変更します。"
+
+msgid "Parental controls are off. Set a four-digit PIN to turn them on."
+msgstr "ペアレンタルコントロールはオフです。4けたのPINを設定するとオンになります。"
+
+msgid "Games rated too old"
+msgstr "対象年れいが上のゲーム"
+
+msgid "Lock them: they stay on Home and ask for the PIN to start. Hide them: they are left off Home, and still ask for the PIN if started another way (a disc)."
+msgstr "ロックする: ホームに表示され、始めるときにPINが必要です。かくす: ホームに表示されず、ほかのやり方 (ディスク) で始めるときもPINが必要です。"
+
+msgid "Highest age allowed"
+msgstr "遊べるいちばん上の年れい"
+
+msgid "Games rated for players older than this need the PIN. The rating is GameTDB's, as the game's About page shows it."
+msgstr "この年れいより上向けのゲームにはPINが必要です。対象年れいはGameTDBのもので、ゲームの情報ページと同じです。"
+
+msgid "Games with no rating"
+msgstr "対象年れいがないゲーム"
+
+msgid "Ratings come from GameTDB's database ({1} in {2} > {3}), read for a game when it starts or its About page opens. Treat as too old locks or hides the others too."
+msgstr "対象年れいはGameTDBのデータベース ({2} > {3}の「{1}」) からわかり、ゲームを始めるときか、そのゲームの「情報」を開いたときに読み込まれます。「対象外として扱う」にすると、それ以外のゲームもロックされるか、かくされます。"
+
+msgid "Turn off parental controls"
+msgstr "ペアレンタルコントロールをオフにする"
+
+msgid "Turn off"
+msgstr "オフにする"
+
+msgid "Removes the PIN, and with it every lock. Deleting the parental_pin line in sd:/riftwii/settings.txt does the same."
+msgstr "PINと、すべてのロックを解除します。sd:/riftwii/settings.txt のparental_pinの行を消しても同じです。"
+
+msgid "Parental controls are on"
+msgstr "ペアレンタルコントロールがオンになりました"
+
+msgid "Games rated above the age you pick ask for this PIN. To turn the controls off without it, delete the parental_pin line in sd:/riftwii/settings.txt."
+msgstr "選んだ年れいより上向けのゲームは、このPINが必要です。PINなしでオフにするには、sd:/riftwii/settings.txt のparental_pinの行を消してください。"
+
+msgid "Turn off parental controls?"
+msgstr "ペアレンタルコントロールをオフにしますか？"
+
+msgid "Every game can be started without the PIN again."
+msgstr "すべてのゲームがPINなしで始められるようになります。"
 
 msgid "Channel background"
 msgstr "チャンネルの背景"

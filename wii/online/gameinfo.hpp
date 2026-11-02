@@ -42,6 +42,10 @@ bool PeekGameInfo(const std::string& id, GameInfo& out);
 // for every game it lists when the player picks a genre. False when the
 // cache has no details for it.
 bool PeekGameGenres(const std::string& id, std::vector<std::string>& out);
+// Only `id`'s rating system and value, from the cache as PeekGameInfo reads
+// it, without copying the rest of its details. False when the cache has
+// none for it.
+bool PeekGameRating(const std::string& id, std::string& system, std::string& rating);
 
 // Whether GameTDB's database lists the game as custom (GameInfo::custom:
 // <type>CUSTOM</type>), from the cache: false until the database was read
@@ -86,6 +90,15 @@ void ForgetHomebrewTitlesRead();
 // Reads the database for its homebrew apps alone and keeps them;
 // `progress` as FindGameInfo's.
 bool ReadHomebrewTitles(std::string& error, const std::function<bool(double done)>& progress = nullptr);
+
+// GameTDB's mods of the player's games (riftwii/modcover.hpp), kept in
+// sd:/riftwii/mod-titles.txt whenever the database is read, for the mod
+// tiles' own covers (#385). False when there is no such file or it can't
+// be read.
+bool LoadModTitles(std::vector<CustomGame>& out);
+// How many times that file was written this session: the tiles are
+// matched again once it changes.
+unsigned ModTitlesWritten();
 
 // Downloads the database in the menu's language (`received`: bytes so
 // far). The cache is made again from it at the next FindGameInfo.

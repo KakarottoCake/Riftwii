@@ -111,6 +111,20 @@ private:
     std::uint64_t bytes_;
 };
 
+// ByteSource over the whole raw disc, its encrypted partitions included,
+// for copying it to a .wbfs file (riftwii/discdump.hpp). Only a d2x cIOS
+// reads past the system area: the Wii's own IOS refuses, as on a real
+// drive it only serves the system area unencrypted. size() is a
+// dual-layer disc's; a single-layer disc fails reads past its end. A read
+// that fails is tried twice more before it counts, as a scratched disc
+// often reads on a second pass.
+class RawDiscSource final : public ByteSource {
+public:
+    static constexpr std::uint64_t kDiscBytes = 143432ull * 2 * 0x8000;
+    std::uint64_t size() const override { return kDiscBytes; }
+    bool read(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const override;
+};
+
 // ByteSource over the decrypted data of the open partition.
 class PartitionSource final : public ByteSource {
 public:

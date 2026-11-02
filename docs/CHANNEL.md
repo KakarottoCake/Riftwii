@@ -21,7 +21,24 @@ on a package it uses once.
   remembered in `sd:/riftwii/channel_offered.txt`. Settings has
   **RiftWii channel on the Wii Menu**, which opens the installer at any time.
   RiftWii starts it directly (`channel/common/dolboot.c`), and the installer
-  starts RiftWii again when it closes.
+  starts RiftWii again when it closes. From the prompt that asks to update an
+  older channel, **Update now** passes the installer the argument `update`:
+  it updates at once, shows the result for four seconds and starts RiftWii
+  again, with no button to press. The installer reads only the Wii Remote's
+  own buttons and the Wii's own GameCube ports, so a player with a GameCube
+  controller on a Wii U's adapter could press nothing there. If no
+  cIOS slot can be checked, update mode takes the safe answer (no unchecked
+  cIOS), says the slots couldn't be checked and goes back; RiftWii then says the
+  channel is still old. On IOS58 the slots are checked with RiftWii's
+  hardware access, which a RiftWii started by the installer doesn't have
+  (the installer's IOS58 reload takes it away), so from such a start the
+  prompt offers no **Update now** and says to start RiftWii from the
+  Homebrew Channel or the RiftWii channel (version 9 or newer gives it that
+  access). On a cIOS chosen as the menu IOS, d2x leaves IOS58's NAND check
+  out, so the installer reads the slots without it (and when it still
+  can't, it says so as above). **Update
+  now** is also not offered when every slot with a ticket reads as a cIOS
+  that is not d2x, the only kind the installer tries.
 - **From the Homebrew Channel:** it is listed as RiftWii Channel Installer.
 
 The installer adds, updates or removes the channel. It needs a d2x cIOS in slot

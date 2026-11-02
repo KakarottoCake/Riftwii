@@ -416,6 +416,29 @@ bool SystemAreaSource::read(std::uint64_t offset, std::uint8_t* destination, std
     return bounced_read(false, offset, destination, length, error);
 }
 
+bool RawDiscSource::read(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const {
+    if (offset > kDiscBytes || length > kDiscBytes - offset) return false;
+    // The drive DMAs straight into an aligned buffer; anything else goes
+    // through the bounce buffer. Either way a Wii sector at a time, the
+    // size USB loaders read a disc in.
+    const bool direct = aligned32(destination) && (offset & 31) == 0 && (length & 31) == 0;
+    std::string error;
+    while (length > 0) {
+        const std::size_t chunk = std::min<std::size_t>(length, 0x8000);
+        bool ok = false;
+        for (int attempt = 0; attempt < 3 && !ok; ++attempt) {
+            ok = direct ? read_unencrypted(destination, static_cast<std::uint32_t>(chunk),
+                                           static_cast<std::uint32_t>(offset >> 2), error)
+                        : bounced_read(false, offset, destination, chunk, error);
+        }
+        if (!ok) return false;
+        offset += chunk;
+        destination += chunk;
+        length -= chunk;
+    }
+    return true;
+}
+
 bool PartitionSource::read(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const {
     if (offset > bytes_ || length > bytes_ - offset) return false;
     std::string error;

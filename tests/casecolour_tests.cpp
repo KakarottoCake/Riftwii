@@ -83,15 +83,16 @@ int main() {
     EXPECT_TRUE(resolves("RMCE01", false, riftwii::CaseColourSource::Player, 0, 0xff, 0));
     EXPECT_TRUE(resolves("RMCP01", false, riftwii::CaseColourSource::Player, 0, 0, 0xff));
     EXPECT_TRUE(resolves("smne01", false, riftwii::CaseColourSource::Player, 0x11, 0x22, 0x33));
-    // Without the file: GameTDB, then the series, then the console's.
+    // Without the file: GameTDB, by the whole ID, then the console's.
     const riftwii::CaseColourOverrides none;
     std::uint8_t got[3];
     EXPECT_TRUE(riftwii::resolve_case_colour("RZZJEL", false, none, got) == riftwii::CaseColourSource::GameTdb);
     EXPECT_TRUE(got[0] == 0 && got[1] == 0 && got[2] == 0);
     // A New Super Mario Bros. Wii mod with its own maker code GameTDB
-    // doesn't list is still red; a listed one keeps its own colour.
-    EXPECT_TRUE(riftwii::resolve_case_colour("SMNEZZ", false, none, got) == riftwii::CaseColourSource::Series);
-    EXPECT_TRUE(got[0] == 0xff && got[1] == 0 && got[2] == 0);
+    // doesn't list is not the game: a white case, not its red one; a
+    // listed one keeps its own colour.
+    EXPECT_TRUE(riftwii::resolve_case_colour("SMNEZZ", false, none, got) == riftwii::CaseColourSource::Console);
+    EXPECT_TRUE(got[0] == 0xff && got[1] == 0xff && got[2] == 0xff);
     EXPECT_TRUE(riftwii::resolve_case_colour("SMNE40", false, none, got) == riftwii::CaseColourSource::GameTdb);
     EXPECT_TRUE(got[0] == 0 && got[1] == 0x78 && got[2] == 0xff);
     EXPECT_TRUE(riftwii::resolve_case_colour("RMCE01", false, none, got) == riftwii::CaseColourSource::Console);
