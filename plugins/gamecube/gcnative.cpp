@@ -492,19 +492,40 @@ std::uint32_t through_timeout_helper(const Code& code, std::uint32_t called) {
 }
 
 // Whether the function at `function` (`after`, as patched), or one it
-// calls up to `depth` calls deeper, has a word that differs from `before`,
-// the program as the disc has it. A function is read to its first blr; one
-// that runs past 0x1000 bytes, out of the program, or calls deeper than
-// `depth` counts as changed, as nothing proves it is not.
+// calls or jumps to up to `depth` steps deeper, has a word that differs
+// from `before`, the program as the disc has it. A function is read to a
+// blr that no branch inside it jumps past. A jump (b) out of it is
+// followed like a call; anything the scan cannot follow counts as changed,
+// as nothing proves it is not: a function past 0x1000 bytes or out of the
+// program, a step deeper than `depth`, a conditional branch out of the
+// function, an absolute branch, or a branch through CTR.
 bool reaches_patched_code(const Code& before, const Code& after, std::uint32_t function, unsigned depth) {
-    for (std::uint32_t a = function; a - function < 0x1000; a += 4) {
+    constexpr std::uint32_t kReach = 0x1000;
+    std::uint32_t furthest = function;  // the furthest place a branch inside jumps to
+    for (std::uint32_t a = function; a - function < kReach; a += 4) {
         if (!after.has(a)) return true;
         const std::uint32_t w = after.at(a);
         if (w != before.at(a)) return true;
-        if (const std::uint32_t target = bl_target(a, w)) {
-            if (depth == 0 || reaches_patched_code(before, after, target, depth - 1)) return true;
+        const unsigned op = w >> 26;
+        const bool absolute = (w & 2) != 0;
+        if (op == 19 && ((w >> 1) & 0x3FF) == 528) return true;  // bctr, bctrl
+        if (op == 18 || op == 16) {
+            if (absolute) return true;
+            std::int32_t offset = op == 18 ? static_cast<std::int32_t>(w & 0x03FFFFFC) : static_cast<std::int32_t>(w & 0xFFFC);
+            if (op == 18 && (offset & 0x02000000)) offset -= 0x04000000;
+            if (op == 16 && (offset & 0x8000)) offset -= 0x10000;
+            const std::uint32_t target = a + static_cast<std::uint32_t>(offset);
+            const bool links = (w & 1) != 0;
+            const bool inside = target - function < kReach && !links;
+            if (inside) {
+                if (target > furthest) furthest = target;
+            } else if (op == 16) {
+                return true;
+            } else if (depth == 0 || reaches_patched_code(before, after, target, depth - 1)) {
+                return true;
+            }
         }
-        if (w == 0x4E800020) return false;
+        if (w == 0x4E800020 && a >= furthest) return false;
     }
     return true;
 }
