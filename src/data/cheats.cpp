@@ -609,33 +609,58 @@ std::vector<std::uint8_t> join_gct(const std::vector<std::uint8_t>& first, const
     return out;
 }
 
-bool gct_runs_before_start(const std::vector<std::uint8_t>& gct) {
+bool gct_runs_before_start(const std::vector<std::uint8_t>& gct, std::uint32_t keep_out_start,
+                           std::uint32_t keep_out_end) {
     if (!valid_gct(gct)) return false;
     const std::size_t end = gct.size() - 8;
+    // Whether `bytes` written at `address` stay clear of the kept-out range
+    // (64-bit, so an address near the top can't wrap round).
+    const auto clear = [&](std::uint64_t address, std::uint64_t bytes) {
+        return address + bytes <= keep_out_start || address >= keep_out_end;
+    };
+    // The handler's base address, which ba codes add to: 0x80000000 until
+    // an E0 or E2 sets another.
+    std::uint32_t ba = 0x80000000u;
     std::size_t at = 8;
     while (at < end) {
-        // The code type, without the bit that adds 0x01000000 to the
-        // address (04 and 05 are both 32-bit writes).
-        const std::uint32_t type = gct[at] & 0xFEu;
+        const std::uint32_t first = get32(gct, at);
         const std::uint32_t value = get32(gct, at + 4);
-        std::size_t lines = 1;
-        if (type == 0x00 || type == 0x02 || type == 0x04) {
-            lines = 1;
+        // The code type, without the bit that adds 0x01000000 to the
+        // address (04 and 05 are both 32-bit writes), and its address.
+        const std::uint32_t type = gct[at] & 0xFEu;
+        const std::uint64_t address = std::uint64_t(ba) + (first & 0x01FFFFFFu);
+        // The lines after this one, the most a code here can take.
+        const std::size_t after = (end - at) / 8 - 1;
+        std::size_t extra = 0;
+        if (type == 0x00) {
+            // A byte, written (value >> 16) + 1 times.
+            if (!clear(address, (value >> 16) + 1u)) return false;
+        } else if (type == 0x02) {
+            // A halfword, written (value >> 16) + 1 times.
+            if (!clear(address, 2u * ((value >> 16) + 1u))) return false;
+        } else if (type == 0x04) {
+            if (!clear(address, 4)) return false;
         } else if (type == 0x06) {
-            lines = 1 + (static_cast<std::size_t>(value) + 7) / 8;  // the string's bytes, in whole lines
-        } else if (type == 0x08) {
-            lines = 2;  // the serial write's second line
+            // `value` bytes of string in the lines after, compared before
+            // any rounding so a huge count can't wrap round.
+            if (value > after * 8) return false;
+            extra = (static_cast<std::size_t>(value) + 7) / 8;
+            if (!clear(address, value)) return false;
         } else if (type >= 0x20 && type <= 0x2E) {
-            lines = 1;
+            // A condition: reads only.
         } else if (type == 0xC2) {
-            lines = 1 + static_cast<std::size_t>(value);  // the inserted instructions
+            // A branch written at the address, `value` lines of
+            // instructions after it.
+            if (value > after) return false;
+            extra = value;
+            if (!clear(address, 4)) return false;
         } else if (type == 0xE0 || type == 0xE2) {
-            lines = 1;
+            // The end of conditions; a nonzero top half sets the base.
+            if ((value >> 16) != 0) ba = value & 0xFFFF0000u;
         } else {
             return false;
         }
-        if (lines > (end - at) / 8) return false;  // runs past the list's end
-        at += lines * 8;
+        at += (1 + extra) * 8;
     }
     return at == end;
 }

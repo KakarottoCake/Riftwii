@@ -191,21 +191,37 @@ void test_runs_before_start() {
     // A tester's Mario Kart Wii cheats: 04 writes and a C2 insertion.
     const Bytes remap = gct({0x041C87C0, 0x38000000, 0x041C87CC, 0x38000000, 0xC21C87E4, 0x00000002, 0x7003DD5B,
                              0x70040020, 0x60000000, 0x00000000, 0x0451E468, 0x38000001});
-    EXPECT_TRUE(gct_runs_before_start(remap));
+    // The loader's range, kept out of the codes' writes.
+    const std::uint32_t lo = 0x80A00000, hi = 0x81800000;
+    const auto runs = [&](const Bytes& list) { return gct_runs_before_start(list, lo, hi); };
+    EXPECT_TRUE(runs(remap));
     // A condition, a string write and their end.
-    EXPECT_TRUE(gct_runs_before_start(gct({0x28345678, 0x00000800, 0x06001000, 0x00000005, 0x11223344, 0x55000000,
-                                           0xE2000001, 0x00000000})));
-    EXPECT_TRUE(gct_runs_before_start(gct({})));
+    EXPECT_TRUE(runs(gct({0x28345678, 0x00000800, 0x06001000, 0x00000005, 0x11223344, 0x55000000, 0xE2000001,
+                          0x00000000})));
+    EXPECT_TRUE(runs(gct({})));
     // Runs instructions itself.
-    EXPECT_FALSE(gct_runs_before_start(gct({0xC0000000, 0x00000001, 0x4E800020, 0x00000000})));
+    EXPECT_FALSE(runs(gct({0xC0000000, 0x00000001, 0x4E800020, 0x00000000})));
     // A write through the pointer, and a load of it from the game's memory.
-    EXPECT_FALSE(gct_runs_before_start(gct({0x14000010, 0x00000001})));
-    EXPECT_FALSE(gct_runs_before_start(gct({0x48000000, 0x80001234})));
-    // A search that keeps what it found.
-    EXPECT_FALSE(gct_runs_before_start(gct({0xF6000001, 0x80008180, 0x38000000, 0x00000000})));
+    EXPECT_FALSE(runs(gct({0x14000010, 0x00000001})));
+    EXPECT_FALSE(runs(gct({0x48000000, 0x80001234})));
+    // A search that keeps what it found, and a serial write.
+    EXPECT_FALSE(runs(gct({0xF6000001, 0x80008180, 0x38000000, 0x00000000})));
+    EXPECT_FALSE(runs(gct({0x08001000, 0x00000001, 0x20010004, 0x00000001})));
     // A C2 whose lines run past the list's end, and no list at all.
-    EXPECT_FALSE(gct_runs_before_start(gct({0xC2001000, 0x00000004, 0x60000000, 0x00000000})));
-    EXPECT_FALSE(gct_runs_before_start(Bytes{}));
+    EXPECT_FALSE(runs(gct({0xC2001000, 0x00000004, 0x60000000, 0x00000000})));
+    EXPECT_FALSE(runs(Bytes{}));
+    // Counts that would wrap round a 32-bit size: refused, not looped on.
+    EXPECT_FALSE(runs(gct({0xC2001000, 0xFFFFFFFF, 0x60000000, 0x00000000})));
+    EXPECT_FALSE(runs(gct({0x06001000, 0xFFFFFFFF, 0x11223344, 0x55667788})));
+    // Writes into the loader: a word at its start, a branch in it, bytes
+    // running into it, and a write there after E0 moved the base.
+    EXPECT_FALSE(runs(gct({0x04A00000, 0x60000000})));
+    EXPECT_FALSE(runs(gct({0xC3000010, 0x00000001, 0x60000000, 0x00000000})));
+    EXPECT_FALSE(runs(gct({0x009FFFFE, 0x00040011})));
+    EXPECT_FALSE(runs(gct({0xE0000000, 0x80A00000, 0x04000010, 0x00000001})));
+    // Right up to it, and the 0x01000000 bit's address above MEM1's end.
+    EXPECT_TRUE(runs(gct({0x049FFFFC, 0x00000001})));
+    EXPECT_TRUE(runs(gct({0x05800000, 0x00000001})));
 }
 
 void test_join() {
