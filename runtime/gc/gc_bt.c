@@ -38,6 +38,7 @@
 #define GC_EV_RETURN_LINK_KEYS 0x15u
 #define GC_EV_PIN_REQUEST 0x16u
 #define GC_EV_LINK_KEY_REQUEST 0x17u
+#define GC_EV_COMPLETED_PACKETS 0x13u
 
 /* L2CAP signalling. */
 #define GC_L2_SIGNALLING 0x0001u
@@ -208,11 +209,15 @@ static void bt_send_commands(struct gc_bt* bt) {
     }
 }
 
+static struct gc_bt_remote* bt_by_handle(struct gc_bt* bt, uint32_t handle);
+
 /* One L2CAP packet to a remote: the ACL header, the L2CAP header, then
- * `payload`. */
-static void bt_acl(struct gc_bt* bt, uint32_t handle, uint32_t cid, const uint8_t* payload, uint32_t length) {
+ * `payload`. 1 when IOS took it; it then counts as unconfirmed (on the
+ * remote's handle) until the controller says it sent it on. */
+static int bt_acl(struct gc_bt* bt, uint32_t handle, uint32_t cid, const uint8_t* payload, uint32_t length) {
     struct gc_bt_rq* rq = &bt->write;
-    if (length > sizeof(bt->out) - 8 || bt->stage == GC_BT_STAGE_FAILED) return;
+    struct gc_bt_remote* r;
+    if (length > sizeof(bt->out) - 8 || bt->stage == GC_BT_STAGE_FAILED) return 0;
     bt_put16(bt->out, handle | 0x2000u);  /* the first packet of a message */
     bt_put16(bt->out + 2, length + 4);
     bt_put16(bt->out + 4, length);
@@ -221,7 +226,11 @@ static void bt_acl(struct gc_bt* bt, uint32_t handle, uint32_t cid, const uint8_
     gc_flush((uint32_t)(uintptr_t)bt->out, sizeof(bt->out));
     bt_transfer(bt, rq, GC_USB_BLKMSG, GC_BT_EP_ACL_OUT, bt->out, length + 8);
     rq->data = 0;
-    if (bt_send(bt, rq)) bt_wait_write(bt);
+    if (!bt_send(bt, rq) || !bt_wait_write(bt)) return 0;
+    r = bt_by_handle(bt, handle);
+    if (r) r->acl_pending++;
+    bt->acl_pending++;
+    return 1;
 }
 
 static struct gc_bt_remote* bt_by_handle(struct gc_bt* bt, uint32_t handle) {
@@ -284,6 +293,18 @@ static void bt_on_event(struct gc_bt* bt, const uint8_t* e, uint32_t length) {
         if (code == GC_EV_COMMAND_COMPLETE && opcode == bt_step_opcode(bt)) bt_next_step(bt);
         return;
     }
+    if (code == GC_EV_COMPLETED_PACKETS) {
+        /* Each handle's count of packets sent on: that much room again. */
+        for (i = 0; i < p[0] && 3u + 4u * i + 4u <= length; ++i) {
+            struct gc_bt_remote* sent = bt_by_handle(bt, bt_le16(p + 1 + 4 * i) & 0x0FFFu);
+            uint32_t done = bt_le16(p + 1 + 4 * i + 2);
+            if (!sent) continue;
+            if (done > sent->acl_pending) done = sent->acl_pending;
+            sent->acl_pending -= done;
+            bt->acl_pending = done < bt->acl_pending ? bt->acl_pending - done : 0;
+        }
+        return;
+    }
     if (code == GC_EV_RETURN_LINK_KEYS) {
         for (i = 0; i < p[0] && bt->key_count < GC_BT_KEYS; ++i) bt_copy(bt->keys[bt->key_count++], p + 1 + 22 * i, 22);
         if (bt->key_count != 0) bt->progress |= GC_BT_SEEN_KEYS;
@@ -328,6 +349,9 @@ static void bt_on_event(struct gc_bt* bt, const uint8_t* e, uint32_t length) {
         if (p[0] == 0 && r) {
             r->used = 0;
             r->rumble = 0;  /* the link is gone and the motor with it; a remote that returns starts still */
+            /* The controller drops what it held for this link alone. */
+            bt->acl_pending = r->acl_pending < bt->acl_pending ? bt->acl_pending - r->acl_pending : 0;
+            r->acl_pending = 0;
         }
         bt->disconnect_reason = p[3];
         bt->progress |= GC_BT_SEEN_DISCONNECT;
@@ -368,12 +392,12 @@ static void bt_on_event(struct gc_bt* bt, const uint8_t* e, uint32_t length) {
  * the first data byte of every output report is the rumble motor, so each
  * one carries the remote's current state: a LED or report-mode report must
  * not stop a rumble the game has on, nor start one. */
-static void bt_report(struct gc_bt* bt, const struct gc_bt_remote* r, const uint8_t* data, uint32_t length) {
+static int bt_report(struct gc_bt* bt, const struct gc_bt_remote* r, const uint8_t* data, uint32_t length) {
     uint8_t packet[24];
     packet[0] = 0xA2;
     bt_copy(packet + 1, data, length);
     if (length >= 2) packet[2] = (uint8_t)((packet[2] & ~1u) | (r->rumble & 1u));
-    bt_acl(bt, r->handle, r->intr_cid, packet, length + 1);
+    return bt_acl(bt, r->handle, r->intr_cid, packet, length + 1);
 }
 
 /* A write of one byte to the extension's registers (0x04: registers,
@@ -747,9 +771,12 @@ static void bt_update_leds(struct gc_bt* bt) {
 
 /* Each ready remote's motor follows the port it plays on: the report
  * (0x10, whose one byte is the motor bit) goes out only when the state
- * changes. `send` 0: the test remote has no link, only the state and the
- * count change. */
-static void bt_update_rumble(struct gc_bt* bt, int send) {
+ * changes, and not while the controller is full or the last one is too
+ * recent (GC_BT_ACL_WINDOW): the change then waits for a later poll, which
+ * sends whatever the game wants by then. `send` 0: the test remote has no
+ * link, only the state and the count change. `hold` 0: the motors stop now
+ * (the game is leaving, no later poll comes), whatever the limits say. */
+static void bt_update_rumble(struct gc_bt* bt, int send, int hold) {
     uint32_t i;
     for (i = 0; i < GC_BT_REMOTES && bt->stage != GC_BT_STAGE_FAILED; ++i) {
         struct gc_bt_remote* r = &bt->remotes[i];
@@ -757,11 +784,16 @@ static void bt_update_rumble(struct gc_bt* bt, int send) {
         const uint8_t want = (uint8_t)(r->used && r->ready && port < GC_PORTS && bt->rumble_want[port] ? 1 : 0);
         uint8_t report[2];
         if (!r->used || !r->ready || want == r->rumble) continue;
+        if (send && hold && (bt->acl_pending >= GC_BT_ACL_WINDOW || bt->polls - r->rumble_poll < GC_BT_RUMBLE_GAP)) {
+            bt->rumble_held++;
+            continue;
+        }
         r->rumble = want;
         bt->rumble_changes++;
         report[0] = 0x10;
         report[1] = want;
-        if (send) bt_report(bt, r, report, 2);
+        /* The gap counts from a report that went; one IOS refused holds nothing back. */
+        if (send && bt_report(bt, r, report, 2)) r->rumble_poll = bt->polls;
     }
 }
 
@@ -786,11 +818,20 @@ void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
     }
     bt->ctx = (uint32_t)(uintptr_t)ctx;
     bt->polls++;
+    /* A controller that never says it sent packets on (or an event lost)
+     * must not hold rumble back for good. */
+    if (bt->acl_pending < GC_BT_ACL_WINDOW) {
+        bt->acl_stall_polls = 0;
+    } else if (++bt->acl_stall_polls > GC_BT_ACL_STALL_POLLS) {
+        bt->acl_pending = 0;
+        for (i = 0; i < GC_BT_REMOTES; ++i) bt->remotes[i].acl_pending = 0;  /* the total is their sum */
+        bt->acl_stall_polls = 0;
+    }
     if (bt->stage == GC_BT_STAGE_CLOSED) bt_open(bt);
     bt_take_replies(bt);
     if (bt->stage == GC_BT_STAGE_READY) {
         bt_update_leds(bt);
-        bt_update_rumble(bt, 1);
+        bt_update_rumble(bt, 1, 1);
         bt_check_extensions(bt);
     }
     /* A refused send leaves its read IDLE. Retry it once in this pass,
@@ -944,7 +985,7 @@ void gc_bt_stop_rumble(struct gc_rt_context* ctx, struct gc_bt* bt) {
         gc_irq_restore(msr);
         return;
     }
-    bt_update_rumble(bt, 1);
+    bt_update_rumble(bt, 1, 0);
     gc_guard(ctx);
     gc_irq_restore(msr);
 }
@@ -1103,7 +1144,7 @@ void gc_bt_fake(struct gc_bt* bt, uint8_t* status, uint32_t n, int pro, uint32_t
     }
     bt_on_input(bt, r, report, pro || nunchuk ? 23u : 7u);
     gc_bt_fill(bt, status, native, idle);
-    bt_update_rumble(bt, 0);
+    bt_update_rumble(bt, 0, 0);
     if (frame == 0) {
         log[0] = 0;
         log[1] = 0;
