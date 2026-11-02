@@ -187,6 +187,27 @@ void test_debugger_handlers(const std::string& root) {
     EXPECT_FALSE(relocate_debugger_code_list(plain.data(), plain.size(), 0x80570000));
 }
 
+void test_runs_before_start() {
+    // A tester's Mario Kart Wii cheats: 04 writes and a C2 insertion.
+    const Bytes remap = gct({0x041C87C0, 0x38000000, 0x041C87CC, 0x38000000, 0xC21C87E4, 0x00000002, 0x7003DD5B,
+                             0x70040020, 0x60000000, 0x00000000, 0x0451E468, 0x38000001});
+    EXPECT_TRUE(gct_runs_before_start(remap));
+    // A condition, a string write and their end.
+    EXPECT_TRUE(gct_runs_before_start(gct({0x28345678, 0x00000800, 0x06001000, 0x00000005, 0x11223344, 0x55000000,
+                                           0xE2000001, 0x00000000})));
+    EXPECT_TRUE(gct_runs_before_start(gct({})));
+    // Runs instructions itself.
+    EXPECT_FALSE(gct_runs_before_start(gct({0xC0000000, 0x00000001, 0x4E800020, 0x00000000})));
+    // A write through the pointer, and a load of it from the game's memory.
+    EXPECT_FALSE(gct_runs_before_start(gct({0x14000010, 0x00000001})));
+    EXPECT_FALSE(gct_runs_before_start(gct({0x48000000, 0x80001234})));
+    // A search that keeps what it found.
+    EXPECT_FALSE(gct_runs_before_start(gct({0xF6000001, 0x80008180, 0x38000000, 0x00000000})));
+    // A C2 whose lines run past the list's end, and no list at all.
+    EXPECT_FALSE(gct_runs_before_start(gct({0xC2001000, 0x00000004, 0x60000000, 0x00000000})));
+    EXPECT_FALSE(gct_runs_before_start(Bytes{}));
+}
+
 void test_join() {
     const Bytes a = gct({0x04000000, 0x1}), b = gct({0x04000004, 0x2, 0x04000008, 0x3});
     EXPECT_TRUE(valid_gct(a));
@@ -249,6 +270,7 @@ int main(int argc, char** argv) {
     test_relocate();
     test_debugger_handlers(argv[1]);
     test_join();
+    test_runs_before_start();
     test_model();
     if (g_failures == 0) std::cout << "codebuild tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
