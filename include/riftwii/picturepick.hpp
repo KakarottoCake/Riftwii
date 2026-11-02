@@ -44,7 +44,8 @@ bool picture_add_libretro(std::vector<PictureCandidate>& candidates, PictureSour
                           const std::vector<std::string>& names);
 bool picture_add_steamgrid(std::vector<PictureCandidate>& candidates, const std::vector<std::string>& urls);
 // GameTDB's cover of `game_id` (a game's six capitals or digits, a homebrew
-// app's four) in `region` (two capitals), from the set `source` names (one
+// app's four) in `region` (two capitals, or four for GameTDB's Chinese sets,
+// ZHTW and ZHCN), from the set `source` names (one
 // of the GameTDB sources). Empty for an ID, region or source that can't be one.
 std::string picture_gametdb_url(const std::string& game_id, const std::string& region, PictureSource source);
 // That cover as a candidate. False only when picture_gametdb_url is empty.
