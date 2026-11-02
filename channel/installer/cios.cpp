@@ -44,7 +44,12 @@ bool NandReadAccess::Open() {
     const bool opened = read32(word_) == after_;
     // A failed store may be partial: put the original back at once, as
     // RiftWii does. Restore still checks the word holds the original.
-    if (!opened) write32(word_, before_);
+    if (!opened) {
+        write32(word_, before_);
+        // Only the patched halfword is ours, as in Restore(). A failed
+        // rollback stops the search at once; Restore() tries it again.
+        word_restored_ = riftwii::nand_check_half(read32(word_), shift_) == riftwii::nand_check_half(before_, shift_);
+    }
     RestoreProtection();
     Log("IOS%d's NAND permission check %s for the cIOS information.\n", IOS_GetVersion(),
         opened ? "was opened" : "could not be opened");
@@ -129,6 +134,19 @@ riftwii::D2xInfo ReadCios(int slot, NandReadAccess& access, bool& read) {
     if (!info.d2x) Log("IOS%d was skipped because it is not a d2x cIOS.\n", slot);
     else Log("IOS%d holds %s with base %d.\n", slot, riftwii::d2x_name(info).c_str(), info.base);
     return info;
+}
+
+bool SearchCios(const int* slots, unsigned count, riftwii::D2xInfo* infos, bool& any_read) {
+    for (unsigned i = 0; i < count; ++i) infos[i] = {};
+    any_read = false;
+    NandReadAccess access;
+    for (unsigned i = 0; i < count; ++i) {
+        bool read = false;
+        infos[i] = ReadCios(slots[i], access, read);
+        any_read = any_read || read;
+        if (access.Unsafe()) break;
+    }
+    return access.Restore();
 }
 
 }  // namespace installer

@@ -48,8 +48,10 @@ mounted again afterwards, and a successful reload logs the IOS version
 and revision.
 
 Reading cIOS information temporarily opens IOS's NAND permission check.
-Both the original permission-check word and memory protection register
-must be restored and verified. If either restoration fails, the installer
+Only the patched halfword of the permission-check word is restored and
+verified (IOS may change the other halfword, which is kept as it is), and
+the memory protection register must be restored and verified too. If
+either cannot be put back, the cIOS search stops at once and the installer
 stops before any IOS reload, including the return-to-RiftWii reload. It
 shows and logs that it cannot continue safely and must be restarted from
 the Homebrew Channel. Install and Remove are unavailable on this path.

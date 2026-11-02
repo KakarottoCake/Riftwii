@@ -16,6 +16,8 @@ class NandReadAccess {
 public:
     bool Open();
     bool Restore();
+    // True once the NAND check or protection may be left changed.
+    bool Unsafe() const { return !word_restored_ || !protection_restored_; }
     ~NandReadAccess();
 
 private:
@@ -41,5 +43,10 @@ private:
 // Restore's false forbids any IOS reload, even the ticket fallback or the
 // return to RiftWii.
 riftwii::D2xInfo ReadCios(int slot, NandReadAccess& access, bool& read);
+
+// Reads every slot's d2x information through one opening of IOS's NAND
+// check, stopping at once when it may be left changed. False means the
+// check or the protection register was not put back: nothing may reload IOS.
+bool SearchCios(const int* slots, unsigned count, riftwii::D2xInfo* infos, bool& any_read);
 
 }  // namespace installer

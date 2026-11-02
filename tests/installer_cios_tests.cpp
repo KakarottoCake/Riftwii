@@ -235,6 +235,70 @@ int main() {
         }
     }
 
+    // Unsafe() is false while the check is deliberately open, and true as
+    // soon as the check or the protection register may be left changed.
+    reset(memory);
+    {
+        installer::NandReadAccess access;
+        const bool opened = access.Open();
+        const bool unsafe_open = access.Unsafe();
+        if (!opened || unsafe_open || !access.Restore()) {
+            std::cerr << "FAILED: an open check is not unsafe\n" << logs;
+            ++failures;
+        }
+    }
+    reset(memory);
+    fail_open_store = true;
+    fail_word_restore = true;
+    {
+        installer::NandReadAccess access;
+        access.Open();
+        if (!access.Unsafe() || access.Restore()) {
+            std::cerr << "FAILED: a failed rollback makes the access unsafe at once\n" << logs;
+            ++failures;
+        }
+    }
+    reset(memory);
+    std::memset(memory, 0, kMemorySize);
+    fail_protection_restore = 1;
+    {
+        installer::NandReadAccess access;
+        access.Open();
+        if (!access.Unsafe() || access.Restore()) {
+            std::cerr << "FAILED: an unrestored protection register is unsafe at once\n" << logs;
+            ++failures;
+        }
+    }
+
+    // The search: all three slots through one opening, put back once.
+    constexpr int kSlots[] = {249, 250, 251};
+    reset(memory);
+    {
+        riftwii::D2xInfo infos[3];
+        bool any_read = false;
+        if (!installer::SearchCios(kSlots, 3, infos, any_read) || !any_read || !infos[0].d2x || !infos[1].d2x ||
+            !infos[2].d2x || opening_stores != 1 || permission_word != kOriginalWord ||
+            protection != kOriginalProtection) {
+            std::cerr << "FAILED: a normal search reads all three and restores\n" << logs;
+            ++failures;
+        }
+    }
+    // A failed rollback stops the search after slot 249: its one refused open
+    // is the only one (Open() fails, so there is no retry), and 250 and 251
+    // are never read. The caller must then not reload IOS.
+    reset(memory);
+    fail_open_store = true;
+    fail_word_restore = true;
+    {
+        riftwii::D2xInfo infos[3];
+        bool any_read = false;
+        if (installer::SearchCios(kSlots, 3, infos, any_read) || open_calls != 1 || any_read || infos[1].d2x ||
+            infos[2].d2x) {
+            std::cerr << "FAILED: the search stops at a failed rollback\n" << logs;
+            ++failures;
+        }
+    }
+
 #if defined(_WIN32) || defined(__CYGWIN__)
     VirtualFree(memory, 0, MEM_RELEASE);
 #elif defined(__linux__)
