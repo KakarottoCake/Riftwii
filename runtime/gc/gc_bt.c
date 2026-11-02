@@ -824,6 +824,7 @@ void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
         bt->acl_stall_polls = 0;
     } else if (++bt->acl_stall_polls > GC_BT_ACL_STALL_POLLS) {
         bt->acl_pending = 0;
+        for (i = 0; i < GC_BT_REMOTES; ++i) bt->remotes[i].acl_pending = 0;  /* the total is their sum */
         bt->acl_stall_polls = 0;
     }
     if (bt->stage == GC_BT_STAGE_CLOSED) bt_open(bt);
