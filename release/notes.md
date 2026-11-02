@@ -16,35 +16,30 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** Games without a cover get one made up with their name, parental controls with a PIN, copying a game disc to a `.wbfs` file, themes with a moving background, and channel updates that need no Wii Remote. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** EA's 007 GameCube games: Agent Under Fire and Everything or Nothing now start, and the Wii Remote works in NightFire's missions and Everything or Nothing. USB controllers such as the DualShock 3 and 4 now work without a file on the SD card. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-![What's new in this version]({{SCREENSHOTS}}2610-whatsnew-793.png)
+![007 Agent Under Fire's main menu]({{SCREENSHOTS}}2610-007-agent-under-fire.png)
 
-![Home's Shelf view: a made-up cover in front, paper spines with the games' names]({{SCREENSHOTS}}2610-made-up-covers.png)
+![007 Everything or Nothing]({{SCREENSHOTS}}2610-007-everything-or-nothing.png)
 
-![Settings > Games > Parental controls]({{SCREENSHOTS}}2610-parental-controls.png)
+![007 NightFire's first mission]({{SCREENSHOTS}}2610-007-nightfire.png)
 
 ## What changed
 
-- **Games without a cover get a made-up one**: the game's name on a blank Wii-style case, in every Home view, instead of an empty card. On the Shelf view they get a paper spine with the name down it, in the game's colour. A theme can draw its own blank case (`blank_cover.png`).
-- **Parental controls** (Settings > Games > Parental controls). Set a PIN, pick the highest age rating allowed, and choose whether games rated above it are locked (the PIN starts them) or hidden from Home. Games with no known rating can be allowed or treated as too old. Forgot the PIN? Deleting the `parental_pin` line in `sd:/riftwii/settings.txt` turns the controls off.
-- **Copy a game disc** (Settings > Drives > Copy a game disc). The Wii disc in the drive is copied to a `.wbfs` file on a FAT32 USB drive or the SD card, with every partition, so the game then plays from Home without the disc. It needs a d2x cIOS; copies over 4 GB are saved in pieces. When it's done, RiftWii says whether the game is on Home now, or which setting hides it and what to change.
-- **Themes can loop a moving background**: a short animation behind every screen, from `backdrop_00.png` up, with `[backdrop] frames` and `fps` in `theme.ini` (docs/THEMES.md). The new **Vaporwave** theme on the themes site uses it.
-- **Updating the channel needs no Wii Remote.** Update now on the update prompt installs straight away and comes back to RiftWii, so a player with only a GameCube controller (on a Wii U) isn't stuck in the installer.
-- **Covers:** a case's colour now matches the game's full ID, a cover no longer sits on a grey card, and a WiiWare or Virtual Console game whose data was removed shows its cover. A mod's own Home tile gets the mod's own cover from GameTDB.
-- **Code mods remember how they start** (with or without RiftWii's extras), and a **Pro Controller** recognized late works for Mario Kart Wii's Classic Controller cheats without pressing HOME first.
-- **For developers:** Settings > Help > USB Gecko log sends RiftWii's log to a USB Gecko in slot B, and the WiiRD debugger can start games with Gecko OS's debugger handler (docs/DEVELOPING.md).
+- **007 Agent Under Fire (GameCube) starts.** The game loads its parts from the disc, and each part begins with two short setup steps that RiftWii used to refuse to patch around. It now takes over just after them.
+- **007 Everything or Nothing (GameCube) starts.** Its start-up program stopped on a black screen. It switches to the main game by restarting the console into it, an older way of doing that which RiftWii now recognises: the game goes back through RiftWii for a moment, which starts it again straight into the main game.
+- **The Wii Remote works where a GameCube game keeps checking an empty controller port.** Some games ask the empty port 1 again and again whether a controller is there, and RiftWii used to leave that port to a GameCube controller that never came, so the Wii Remote did nothing. Everything or Nothing's menus and NightFire's missions take the Wii Remote now. A GameCube controller plugged in later still gets its port back.
+- **USB controllers work out of the box.** RiftWii now carries the layouts from Nintendont's controller collection, about 40 pads: the DualShock 3, both DualShock 4 models, the DualSense and DualSense Edge, Logitech's F310 and RumblePad 2, the Nvidia Shield controller, and several 8BitDo, Mayflash, Hori, Thrustmaster and arcade-stick models. Plug the pad in before starting a game. A layout file of your own on the SD card (`sd:/riftwii/controllers/VID_PID.ini`) still comes first.
 
 ## What to test
 
-1. **Games without a cover**: how they look in each Home view, the Shelf view especially.
-2. **Parental controls**: set a PIN, then try a locked game and the Hide mode.
-3. **Copy a game disc**, if you have a d2x cIOS: copy one to USB or SD, then play it without the disc.
-4. **Updating the channel** from the update prompt, if your channel is old.
+1. **007 Agent Under Fire, Everything or Nothing and NightFire** with a Wii Remote: start a mission, then try the menus and the pause menu.
+2. **Everything or Nothing's start**: it should go back to RiftWii for a moment and then start the main game by itself.
+3. **A USB controller with no file on the SD card**, a DualShock 3 or 4 especially: does it move and press buttons in a GameCube game?
 
 ## Known issues
 
-- **Copy a game disc** hasn't been tried on a real Wii yet: Dolphin can't read a whole disc.
-- **EA's 007 GameCube games:** NightFire loads, but the Wii Remote stops working when a mission starts; Agent Under Fire and Everything or Nothing still don't load. A problem report from each helps.
-- **USB gamepads:** `MultiIn` 2 to 4 and pads that pack their sticks in their own way aren't supported yet; a pad (other than a wired Xbox 360 pad) needs a config.
+- **Everything or Nothing's THX and MGM logo movies** show in the wrong colours (dark red and green instead of gold and silver). The game itself and its other scenes look right.
+- **The DualShock 3 over USB** hasn't been confirmed to work: RiftWii sets it up, but no button presses have been seen from one yet.
+- **USB gamepads:** `MultiIn` 2 to 4 and pads that pack their sticks in their own way aren't supported yet.
 - **The Wii U GamePad** works in the menu only when RiftWii runs as a Wii VC inject, and never in games.

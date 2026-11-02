@@ -19,20 +19,20 @@ Rewrite it for every release and delete the line below.
 
 New:
 
-* Games without a cover get a made-up one with their name, and a paper spine on the Shelf view
-* Parental controls with a PIN (Settings > Games > Parental controls): lock or hide games above an age rating
-* Copy a game disc to a .wbfs file on USB or SD (Settings > Drives > Copy a game disc, needs a d2x cIOS)
-* Themes can have a moving background (try Vaporwave from Get more themes)
-* Updating the channel needs no Wii Remote anymore
-* Cover fixes, a mod's own cover on its Home tile, and code mods remember how they start
+* 007 Agent Under Fire and Everything or Nothing (GameCube) start now
+* The Wii Remote works in NightFire's missions and Everything or Nothing's menus
+* USB controllers work without a file on the SD card: about 40 pads built in, DualShock 3 and 4, DualSense, Logitech, 8BitDo, Mayflash and more
 
 To test, please:
 
-1. Games without a cover in each Home view, the Shelf view especially
-2. Parental controls: set a PIN, try a locked game, then Hide
-3. Copy a game disc if you have d2x, then play the copy without the disc (not tried on a real Wii yet)
+1. The three 007 GameCube games with a Wii Remote: start a mission, use the menus and the pause menu
+2. Everything or Nothing should go back to RiftWii for a moment, then start the main game by itself
+3. A USB pad with no file on the SD card, a DualShock 3 or 4 especially: does it work in a GameCube game?
+
+Known: Everything or Nothing's THX and MGM logo movies have the wrong colours.
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![Made-up covers on the Shelf view](docs/screenshots/2610-made-up-covers.png)
-![Parental controls](docs/screenshots/2610-parental-controls.png)
+![007 Agent Under Fire](docs/screenshots/2610-007-agent-under-fire.png)
+![007 Everything or Nothing](docs/screenshots/2610-007-everything-or-nothing.png)
+![007 NightFire](docs/screenshots/2610-007-nightfire.png)
