@@ -229,6 +229,7 @@ void test_runs_before_start() {
     // and a word write aligned down into the loader.
     EXPECT_FALSE(runs(gct({0xE0000000, 0x81800000, 0x04A00000, 0x00000001})));
     EXPECT_FALSE(runs(gct({0x04A00002, 0x00000001})));
+    EXPECT_FALSE(runs(gct({0xC2A00002, 0x00000001, 0x60000000, 0x00000000})));
     // The loader through its uncached address, and a write to no memory
     // at all (above MEM1's end, or a base of 0).
     EXPECT_FALSE(runs(gct({0xE0000000, 0xC0000000, 0x04A00000, 0x00000001})));
