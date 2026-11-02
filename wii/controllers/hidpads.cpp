@@ -10,6 +10,7 @@
 #include <ogc/usb.h>
 #include <unistd.h>
 
+#include "riftwii/builtinpads.hpp"
 #include "riftwii/hidconfig.hpp"
 #include "rtgcad.h"
 #include "loadersettings.hpp"
@@ -66,13 +67,32 @@ bool LoadConfig(std::uint32_t id, rthid_mapping& mapping) {
             return false;
         }
         if ((((std::uint32_t)mapping.vid << 16) | mapping.pid) != id) {
-            if (i != 2) logf("USB controller %04x:%04x: %s names a different device.\n", vid, pid, paths[i]);
+            // sd:/controller.ini is one pad's; another pad goes on to
+            // RiftWii's own layouts.
+            if (i == 2) {
+                mapping = rthid_mapping{};
+                continue;
+            }
+            logf("USB controller %04x:%04x: %s names a different device.\n", vid, pid, paths[i]);
             return false;
         }
         logf("USB controller %04x:%04x: using %s.\n", vid, pid, paths[i]);
         return true;
     }
-    return false;
+    // No file of the player's: the layout RiftWii carries for this pad, if
+    // any (Nintendont's collection, riftwii/builtinpads.hpp).
+    const BuiltinPad* builtin = find_builtin_pad(id);
+    if (builtin == nullptr) return false;
+    std::string error;
+    if (!parse_hid_config(builtin->text, mapping, error)) {
+        logf("USB controller %04x:%04x: RiftWii's own layout (%s) cannot be used: %s\n", vid, pid, builtin->file,
+             error.c_str());
+        return false;
+    }
+    logf("USB controller %04x:%04x: using RiftWii's own layout for the %s (put a file in "
+         "sd:/riftwii/controllers/%04X_%04X.ini to change it).\n",
+         vid, pid, builtin->name, vid, pid);
+    return true;
 }
 
 }  // namespace

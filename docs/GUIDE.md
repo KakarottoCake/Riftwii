@@ -1365,17 +1365,24 @@ GameCube controllers. Open **Settings > Controllers > Check USB controllers**
 to see its buttons and sticks. The separate GameCube
 adapter setting still controls the WUP-028 adapter.
 
-Use an existing Nintendont `controller.ini` for your device. RiftWii looks
+Many pads work with nothing on the SD card: RiftWii carries the layouts
+from Nintendont's controller collection (about 40 pads, among them the
+DualShock 3, both DualShock 4 models, the DualSense and DualSense Edge,
+Logitech's F310 and RumblePad 2, the Nvidia Shield controller and several
+8BitDo, Mayflash and arcade sticks). For any other pad, or to change a
+layout, use a Nintendont `controller.ini` for your device. RiftWii looks
 in this order, where `VID_PID` is the pad's four-digit hexadecimal vendor
 and product IDs, for example `1234_5678`:
 
 1. `sd:/riftwii/controllers/VID_PID.ini`
 2. `sd:/controllers/VID_PID.ini`
 3. `sd:/controller.ini`, when its VID and PID match the pad.
+4. RiftWii's own layout for the pad, if it has one.
 
-The session log names the file used, the device, its assigned port and an
-unplug. With no usable file it names the IDs and the path to use; RiftWii
-does not guess a layout. Restart RiftWii after editing a file. A broken
+The session log names the file or built-in layout used, the device, its
+assigned port and an unplug. With no usable layout it names the IDs and the
+path to use; RiftWii does not guess one. Restart RiftWii after editing a
+file. A broken
 file in a higher folder is reported and must be fixed or removed before
 a lower folder is used. Native GameCube pads keep their ports, adapter
 pads fill next, then USB pads, one per empty port.
