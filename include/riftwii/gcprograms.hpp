@@ -83,9 +83,13 @@ bool gc_program_entry_words(std::uint32_t entry, std::uint32_t first, std::uint3
 // so it runs in place before the take-over; replayed from the blob's slot
 // it would branch from the wrong place. EA's 007: Agent Under Fire's
 // programs begin "bl __init_registers; bl __init_hardware", which only set
-// up the registers and the processor, and are taken two words on. `words`
-// are the program's first `count` words from the entry; the place returned
-// leaves at least two of them to take.
+// up the registers and the processor, and are taken two words on. The
+// take-over sets r0 to the program's index, so the place past the calls
+// must be an instruction that sets r0 itself without reading it ("li r0,-1"
+// there; li, lis, mflr or mfspr into r0): a value a call left in r0 for it
+// would be lost. Otherwise the entry. `words` are the program's first
+// `count` words from the entry; the place returned leaves at least two of
+// them to take.
 constexpr std::size_t kGcProgramStartCalls = 4;
 std::uint32_t gc_program_start(std::uint32_t entry, const std::uint32_t* words, std::size_t count);
 

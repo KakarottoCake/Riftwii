@@ -208,6 +208,19 @@ bool gc_program_entry_words(std::uint32_t entry, std::uint32_t first, std::uint3
     return true;
 }
 
+namespace {
+
+// Whether `word` gives r0 a new value without reading it: li or lis r0
+// (addi or addis with rA 0), or mfspr into r0 (mflr included).
+bool sets_r0_fresh(std::uint32_t word) {
+    const unsigned op = word >> 26, d = (word >> 21) & 31, ra = (word >> 16) & 31;
+    if (d != 0) return false;
+    if ((op == 14 || op == 15) && ra == 0) return true;
+    return op == 31 && ((word >> 1) & 0x3FF) == 339;
+}
+
+}  // namespace
+
 std::uint32_t gc_program_start(std::uint32_t entry, const std::uint32_t* words, std::size_t count) {
     std::size_t skipped = 0;
     while (skipped < kGcProgramStartCalls && skipped + 2 < count) {
@@ -217,6 +230,7 @@ std::uint32_t gc_program_start(std::uint32_t entry, const std::uint32_t* words, 
         if (!call) break;
         ++skipped;
     }
+    if (skipped != 0 && !sets_r0_fresh(words[skipped])) return entry;
     return entry + static_cast<std::uint32_t>(4 * skipped);
 }
 

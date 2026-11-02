@@ -239,12 +239,27 @@ void test_program_start() {
     EXPECT_EQ(riftwii::gc_program_start(0x80007100, jump, 3), 0x80007100u);
     const std::uint32_t absolute[] = {0x48000103, 0x60000000, 0x60000000};
     EXPECT_EQ(riftwii::gc_program_start(0x80007100, absolute, 3), 0x80007100u);
-    // At most kGcProgramStartCalls calls, and always two words left to take.
-    const std::uint32_t calls[] = {0x48000101, 0x48000101, 0x48000101, 0x48000101, 0x48000101, 0x60000000,
-                                   0x60000000};
-    EXPECT_EQ(riftwii::gc_program_start(0x80007100, calls, 7), 0x80007110u);
-    const std::uint32_t short_run[] = {0x48000101, 0x48000101, 0x60000000};
+    // Up to kGcProgramStartCalls calls; past more, the place would be a
+    // call, which sets no r0: the entry.
+    const std::uint32_t four[] = {0x48000101, 0x48000101, 0x48000101, 0x48000101, 0x3800FFFF, 0x60000000};
+    EXPECT_EQ(riftwii::gc_program_start(0x80007100, four, 6), 0x80007110u);
+    const std::uint32_t five[] = {0x48000101, 0x48000101, 0x48000101, 0x48000101, 0x48000101, 0x3800FFFF,
+                                  0x60000000};
+    EXPECT_EQ(riftwii::gc_program_start(0x80007100, five, 7), 0x80007100u);
+    // Always two words left to take.
+    const std::uint32_t short_run[] = {0x48000101, 0x7C0802A6, 0x60000000};
     EXPECT_EQ(riftwii::gc_program_start(0x80007100, short_run, 3), 0x80007104u);
+    const std::uint32_t too_short[] = {0x48000101, 0x48000101, 0x3800FFFF};
+    EXPECT_EQ(riftwii::gc_program_start(0x80007100, too_short, 3), 0x80007100u);
+    // A word after the calls that reads r0 (stw r0,8(r1)): a value a call
+    // left there would be lost, so the entry. li r0,1 (addi with rA 0 adds
+    // 0, not r0) is taken; addi r0,r3,1 is not on the list, so the entry.
+    const std::uint32_t reads_r0[] = {0x48000101, 0x90010008, 0x60000000};
+    EXPECT_EQ(riftwii::gc_program_start(0x80007100, reads_r0, 3), 0x80007100u);
+    const std::uint32_t li_r0[] = {0x48000101, 0x38000001, 0x60000000};
+    EXPECT_EQ(riftwii::gc_program_start(0x80007100, li_r0, 3), 0x80007104u);
+    const std::uint32_t from_r3[] = {0x48000101, 0x38030001, 0x60000000};
+    EXPECT_EQ(riftwii::gc_program_start(0x80007100, from_r3, 3), 0x80007100u);
 }
 
 void test_entry_words() {
