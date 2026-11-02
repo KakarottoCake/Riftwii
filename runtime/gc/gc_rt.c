@@ -2936,6 +2936,8 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
     native = gc_ports_native_update((const volatile uint32_t*)(uintptr_t)ctx->si_type_cache,
                                     (const uint8_t*)(uintptr_t)status, ctx->pad_enabled_before, previous_native);
     ctx->native_ports = native;
+    if (status != 0)
+        ctx->pad_idle = gc_ports_idle_update((const uint8_t*)(uintptr_t)status, native, ctx->pad_transfer_reads);
     gc_guard(ctx);  /* once a frame: IOS rewrites its counter there all the time */
     gc_stream_fetch(ctx);  /* the music ring's top-up, once a frame */
     /* The adapter's controllers first: they take their ports before the
@@ -2943,7 +2945,7 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
     if (ctx->gcad && status != 0) {
         struct gc_gcad* ad = (struct gc_gcad*)(uintptr_t)ctx->gcad;
         gc_gcad_poll(ctx, ad);
-        gc_gcad_fill(ad, (uint8_t*)(uintptr_t)status, native);
+        gc_gcad_fill(ad, (uint8_t*)(uintptr_t)status, native, ctx->pad_idle);
     }
     if (ctx->bt && status != 0) {
         struct gc_bt* bt = (struct gc_bt*)(uintptr_t)ctx->bt;
@@ -2953,12 +2955,12 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
             /* Keep start-up's frame-counted timeouts unchanged. Once page
              * scan is ready, an idle controller needs no per-frame IPC. */
             if (bt->stage != GC_BT_STAGE_READY || gc_bt_wants_frame_polls(bt)) gc_bt_poll(ctx, bt);
-            gc_bt_fill(bt, (uint8_t*)(uintptr_t)status, native);
+            gc_bt_fill(bt, (uint8_t*)(uintptr_t)status, native, ctx->pad_idle);
         }
     }
     ctx->pad_filled_errs = gc_pad_errors((const uint8_t*)(uintptr_t)status);
     /* Before the test presses below: only a real fill makes a port played. */
-    ctx->pad_played = gc_ports_played(ctx->pad_raw_errs, ctx->pad_filled_errs);
+    ctx->pad_played = gc_ports_played(ctx->pad_raw_errs, ctx->pad_filled_errs, ctx->pad_idle);
     if (ctx->flags & GC_FLAG_TRACE_GAMEPLAY) {
         const int changed = native != previous_native || ctx->pad_raw_errs != previous_errors ||
                             ctx->pad_enabled_before != gc_pad_enabled(ctx) || ctx->pad_played != previous_played;

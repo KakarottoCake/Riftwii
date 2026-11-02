@@ -217,11 +217,11 @@ void gc_gcad_poll(struct gc_rt_context* ctx, struct gc_gcad* ad) {
 
 /* --- The game's ports ------------------------------------------------- */
 
-void gc_gcad_fill(struct gc_gcad* ad, uint8_t* status, uint32_t native) {
+void gc_gcad_fill(struct gc_gcad* ad, uint8_t* status, uint32_t native, uint32_t idle) {
     const uint32_t now = ad_now();
     gcad_pad pads[GCAD_PORTS];
     uint32_t i, present = 0;
-    const uint32_t taken = gc_ports_taken(status, native);
+    const uint32_t taken = gc_ports_taken(status, native, idle);
     if (!ad->inited) return;
     if (ad->g.peers) {
         present = gcad_read_ports(&ad->g, taken, pads, now);

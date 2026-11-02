@@ -602,6 +602,8 @@ struct gc_rt_context {
     uint32_t pad_raw_errs;      /* original PADRead errors, a byte per port, port 1 first */
     uint32_t pad_filled_errs;   /* errors after adapter and remote filling */
     uint32_t pad_played;        /* the ports a remote or the adapter filled in the last PADRead (gc_ports_played) */
+    uint32_t pad_idle;          /* the ports a probe finds nothing on (gc_ports_idle_update) */
+    uint8_t pad_transfer_reads[4]; /* each port's reads in a row with nothing there */
     uint32_t si_probe;          /* the game's SIProbe, hooked; 0: not found, the game's own answers stand */
     uint32_t si_probes;         /* the game's SIProbe calls */
     uint32_t si_probes_answered; /* those answered as a controller for a remote's or the adapter's port */

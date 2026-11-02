@@ -211,7 +211,7 @@ void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt);
 /* A link being established or used needs frame-paced service. After
  * start-up, idle discovery is serviced by the heartbeat instead of PADRead. */
 int gc_bt_wants_frame_polls(const struct gc_bt* bt);
-void gc_bt_fill(struct gc_bt* bt, uint8_t* status, uint32_t native);
+void gc_bt_fill(struct gc_bt* bt, uint8_t* status, uint32_t native, uint32_t idle);
 /* PADControlMotor(chan, command) from the game: the port's rumble is noted
  * (command 1 rumbles, 0 and 2 stop) and goes to the remote on that port
  * with the next PADRead. `allowed`: Settings' Wii Remote rumble (and the
