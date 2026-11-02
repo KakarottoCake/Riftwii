@@ -12991,11 +12991,15 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 			} else if (ref.what == RowRef::What::RemoveTile) {
 				std::string error;
 				const std::string name = state.profile_name;
+				const std::string key = state.profile_key;
 				if (ShowPopup(tr("Remove this tile?"),
 					    tr("\"{1}\" goes from Home, with its own mods and settings, and its picture in sd:/riftwii/profiles if it has one. The game and its mods stay.", {name}),
 					    tr("Remove"), tr("Cancel")) != 0) {
 					// kept
 				} else if (riftwii::wii::RemoveProfile(state, error)) {
+					// A new tile of the same name (the same key) is checked for
+					// a cover again, as its cover was removed with this one.
+					g_coversChecked.erase(key);
 					// The page is the game's own again: its choices are read back.
 					scanStatus = riftwii::wii::ScanPackages(state);
 					BuildModRows(state, scanStatus, rows, refs);
