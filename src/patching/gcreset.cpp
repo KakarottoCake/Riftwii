@@ -180,6 +180,53 @@ std::uint32_t find_gc_boot_dol(const std::vector<CodeRange>& text, const std::ve
     return keeping == 1 ? found : 0;
 }
 
+namespace {
+
+// Whether the store at `a` (stw for opcode 36, stb for 38) writes to
+// `address`: its base register got the upper half from a `lis` in the
+// eight words before it, and the store's offset is the lower half.
+bool stores_to(const Words& code, std::uint32_t a, unsigned store_opcode, std::uint32_t address) {
+    const std::uint32_t w = code.at(a);
+    if (opcode(w) != store_opcode) return false;
+    const unsigned base = (w >> 16) & 31;
+    const std::uint16_t low = static_cast<std::uint16_t>(address & 0xFFFF);
+    const std::uint16_t high = static_cast<std::uint16_t>((address >> 16) + ((low & 0x8000) ? 1 : 0));
+    if ((w & 0xFFFF) != low) return false;
+    for (std::uint32_t b = a - 4; b + 32 >= a && code.has(b); b -= 4) {
+        const std::uint32_t before = code.at(b);
+        const bool lis = opcode(before) == 15 && ((before >> 16) & 31) == 0;
+        if (lis && ((before >> 21) & 31) == base) return (before & 0xFFFF) == high;
+    }
+    return false;
+}
+
+}  // namespace
+
+std::uint32_t find_gc_old_reboot(const std::vector<CodeRange>& text) {
+    constexpr unsigned kStoreWord = 36;
+    constexpr unsigned kStoreByte = 38;
+    const Words code(text);
+    bool names_program = false;
+    std::set<std::uint32_t> clears_top;
+    std::set<std::uint32_t> marks_reboot;
+    code.each([&](std::uint32_t a, std::uint32_t) {
+        if (stores_to(code, a, kStoreWord, 0x800030EC)) names_program = true;
+        if (stores_to(code, a, kStoreWord, 0x817FFFFC))
+            if (const std::uint32_t f = function_start(code, a)) clears_top.insert(f);
+        if (stores_to(code, a, kStoreByte, 0x800030E2))
+            if (const std::uint32_t f = function_start(code, a)) marks_reboot.insert(f);
+    });
+    if (!names_program) return 0;
+    std::uint32_t found = 0;
+    unsigned both = 0;
+    for (std::uint32_t f : clears_top) {
+        if (marks_reboot.count(f) == 0) continue;
+        found = f;
+        ++both;
+    }
+    return both == 1 ? found : 0;
+}
+
 bool gc_pack_exec_args(std::vector<std::uint8_t>& bi2, const std::vector<std::string>& args) {
     constexpr std::size_t kBi2Bytes = 0x2000;
     constexpr std::size_t kUpperHalf = 0x1000;

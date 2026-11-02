@@ -225,6 +225,43 @@ void test_sort_patches() {
     EXPECT_TRUE(!riftwii::gc_sort_disc_patches(twice, why));
 }
 
+void test_program_start() {
+    // Agent Under Fire's programs: bl __init_registers, bl __init_hardware,
+    // li r0,-1, stwu r1,-8(r1). Taken at the li.
+    const std::uint32_t auf[] = {0x48000115, 0x480001ED, 0x3800FFFF, 0x9421FFF8};
+    EXPECT_EQ(riftwii::gc_program_start(0x80680040, auf, 4), 0x80680048u);
+    // NightFire's starts with lis/ori: taken at the entry.
+    const std::uint32_t nightfire[] = {0x3C208032, 0x60211100, 0x60000000};
+    EXPECT_EQ(riftwii::gc_program_start(0x80007100, nightfire, 3), 0x80007100u);
+    // A plain branch (b) never comes back: not skipped, so the entry stays
+    // and gc_program_entry_words refuses it. Nor an absolute bla.
+    const std::uint32_t jump[] = {0x48000100, 0x60000000, 0x60000000};
+    EXPECT_EQ(riftwii::gc_program_start(0x80007100, jump, 3), 0x80007100u);
+    const std::uint32_t absolute[] = {0x48000103, 0x60000000, 0x60000000};
+    EXPECT_EQ(riftwii::gc_program_start(0x80007100, absolute, 3), 0x80007100u);
+    // Up to kGcProgramStartCalls calls; past more, the place would be a
+    // call, which sets no r0: the entry.
+    const std::uint32_t four[] = {0x48000101, 0x48000101, 0x48000101, 0x48000101, 0x3800FFFF, 0x60000000};
+    EXPECT_EQ(riftwii::gc_program_start(0x80007100, four, 6), 0x80007110u);
+    const std::uint32_t five[] = {0x48000101, 0x48000101, 0x48000101, 0x48000101, 0x48000101, 0x3800FFFF,
+                                  0x60000000};
+    EXPECT_EQ(riftwii::gc_program_start(0x80007100, five, 7), 0x80007100u);
+    // Always two words left to take.
+    const std::uint32_t short_run[] = {0x48000101, 0x7C0802A6, 0x60000000};
+    EXPECT_EQ(riftwii::gc_program_start(0x80007100, short_run, 3), 0x80007104u);
+    const std::uint32_t too_short[] = {0x48000101, 0x48000101, 0x3800FFFF};
+    EXPECT_EQ(riftwii::gc_program_start(0x80007100, too_short, 3), 0x80007100u);
+    // A word after the calls that reads r0 (stw r0,8(r1)): a value a call
+    // left there would be lost, so the entry. li r0,1 (addi with rA 0 adds
+    // 0, not r0) is taken; addi r0,r3,1 is not on the list, so the entry.
+    const std::uint32_t reads_r0[] = {0x48000101, 0x90010008, 0x60000000};
+    EXPECT_EQ(riftwii::gc_program_start(0x80007100, reads_r0, 3), 0x80007100u);
+    const std::uint32_t li_r0[] = {0x48000101, 0x38000001, 0x60000000};
+    EXPECT_EQ(riftwii::gc_program_start(0x80007100, li_r0, 3), 0x80007104u);
+    const std::uint32_t from_r3[] = {0x48000101, 0x38030001, 0x60000000};
+    EXPECT_EQ(riftwii::gc_program_start(0x80007100, from_r3, 3), 0x80007100u);
+}
+
 void test_entry_words() {
     std::uint32_t words[2] = {};
     std::string why;
@@ -369,6 +406,7 @@ int main() {
     test_disc_offset();
     test_changed_words();
     test_sort_patches();
+    test_program_start();
     test_entry_words();
     test_patch_reads();
     test_branches_to();

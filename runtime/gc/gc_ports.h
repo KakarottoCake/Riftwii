@@ -74,30 +74,63 @@ static inline uint32_t gc_ports_native_update(const volatile uint32_t* types, co
     return previous & 0xFu;
 }
 
+/* A port the SDK keeps probing with nothing there. Its PADRead answers
+ * -3 (PAD_ERR_TRANSFER) while a probe of the port is under way, and some
+ * games start one at every read of an empty port: EA's 007 Everything or
+ * Nothing (action.dol) got -3 on port 1 at nearly every read, so the Wii
+ * Remote, which only takes a port the SDK calls empty (-1), never played
+ * and its menus ignored it. A real controller's probe ends within a read
+ * or two and the SDK identifies it (`native`), so a port that has given
+ * -3 or -1 for GC_PORTS_IDLE_READS reads in a row with no controller
+ * identified there is idle: a remote or the adapter may play on it.
+ * `transfer_reads` counts each port's run, kept from read to read.
+ * Returns the idle ports. */
+#define GC_PORTS_IDLE_READS 30u  /* half a second of reads at 60 a second */
+#define GC_PAD_ERR_TRANSFER 0xFDu
+static inline uint32_t gc_ports_idle_update(const uint8_t* status, uint32_t native, uint8_t* transfer_reads) {
+    uint32_t port, idle = 0;
+    for (port = 0; port < GC_PORTS; ++port) {
+        const uint32_t err = status[12 * port + 10];
+        const int nothing_there = (err == 0xFFu || err == GC_PAD_ERR_TRANSFER) && (native & (1u << port)) == 0;
+        if (!nothing_there) {
+            transfer_reads[port] = 0;
+            continue;
+        }
+        if (transfer_reads[port] < GC_PORTS_IDLE_READS) transfer_reads[port]++;
+        if (transfer_reads[port] >= GC_PORTS_IDLE_READS) idle |= 1u << port;
+    }
+    return idle;
+}
+
 /* The ports a Wii Remote or the adapter must leave alone: `native`, plus
  * every port whose err in the game's PADStatus[4] (`status`) is anything
  * but -1, as a controller still starting or a transfer error is a
- * controller there too. */
-static inline uint32_t gc_ports_taken(const uint8_t* status, uint32_t native) {
+ * controller there too; but not a port in `idle` (gc_ports_idle_update)
+ * whose err is -3, a probe that finds nothing. */
+static inline uint32_t gc_ports_taken(const uint8_t* status, uint32_t native, uint32_t idle) {
     uint32_t port;
-    for (port = 0; port < GC_PORTS; ++port)
-        if (status[12 * port + 10] != 0xFFu) native |= 1u << port;
+    for (port = 0; port < GC_PORTS; ++port) {
+        const uint32_t err = status[12 * port + 10];
+        const int idle_probe = err == GC_PAD_ERR_TRANSFER && (idle & (1u << port)) != 0;
+        if (err != 0xFFu && !idle_probe) native |= 1u << port;
+    }
     return native;
 }
 
 /* The ports a Wii Remote or the adapter played on in the last PADRead:
- * the game's own read found no controller there (err -1 in `raw_errs`)
- * and the fill left a controller's err 0 (`filled_errs`). Both are a byte
- * a port, port 1 in the top byte, as gc_rt.c's gc_pad_errors packs them.
- * The test presses (GC_FLAG_PRESS) come after the fill, so they never
- * count here. */
-static inline uint32_t gc_ports_played(uint32_t raw_errs, uint32_t filled_errs) {
+ * the game's own read found no controller there (err -1 in `raw_errs`, or
+ * -3 on a port in `idle`) and the fill left a controller's err 0
+ * (`filled_errs`). Both are a byte a port, port 1 in the top byte, as
+ * gc_rt.c's gc_pad_errors packs them. The test presses (GC_FLAG_PRESS)
+ * come after the fill, so they never count here. */
+static inline uint32_t gc_ports_played(uint32_t raw_errs, uint32_t filled_errs, uint32_t idle) {
     uint32_t port, played = 0;
     for (port = 0; port < GC_PORTS; ++port) {
         const uint32_t shift = 24u - 8u * port;
         const uint32_t raw = (raw_errs >> shift) & 0xFFu;
         const uint32_t filled = (filled_errs >> shift) & 0xFFu;
-        if (raw == 0xFFu && filled == 0u) played |= 1u << port;
+        const int empty = raw == 0xFFu || (raw == GC_PAD_ERR_TRANSFER && (idle & (1u << port)) != 0);
+        if (empty && filled == 0u) played |= 1u << port;
     }
     return played;
 }

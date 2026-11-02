@@ -57,17 +57,17 @@ void test_disabled_native_ports() {
     for (unsigned port = 0; port < GC_PORTS; ++port) status[12 * port + 10] = 0xFF;
     EXPECT_EQ(gc_ports_native(nullptr), 0);
     EXPECT_EQ(gc_ports_native(types), 0);
-    EXPECT_EQ(gc_ports_taken(status, 0), 0);
+    EXPECT_EQ(gc_ports_taken(status, 0, 0), 0);
     for (unsigned native_port = 0; native_port < GC_PORTS; ++native_port) {
         types[native_port] = 0x09000000u;
         const std::uint32_t native = gc_ports_native(types);
         EXPECT_EQ(native, 1u << native_port);
-        const Ports ports = assign(gc_ports_taken(status, native), kAllPorts);
+        const Ports ports = assign(gc_ports_taken(status, native, 0), kAllPorts);
         for (unsigned slot = 0; slot < GC_PORTS; ++slot)
             EXPECT_EQ(ports.of[slot] == native_port, 0);
         EXPECT_EQ(status[12 * native_port + 10], 0xFF);
         types[native_port] = 8;  // a subsequent reset found no controller
-        EXPECT_EQ(assign(gc_ports_taken(status, gc_ports_native(types)), kAllPorts).of[native_port], native_port);
+        EXPECT_EQ(assign(gc_ports_taken(status, gc_ports_native(types), 0), kAllPorts).of[native_port], native_port);
     }
     // Wireless flags do not change the controller class; errors and
     // other SI devices must not reserve otherwise empty ports.
@@ -79,7 +79,7 @@ void test_disabled_native_ports() {
     status[12 + 10] = 0xFE;      // a port still resetting
     status[2 * 12 + 10] = 0xFD;  // a transfer error
     status[3 * 12 + 10] = 0;     // a USB-adapter controller filled first
-    EXPECT_EQ(gc_ports_taken(status, gc_ports_native(types)), kAllPorts);
+    EXPECT_EQ(gc_ports_taken(status, gc_ports_native(types), 0), kAllPorts);
 }
 
 // A real Wii can replace a disabled port's cached type with NOREP. The
@@ -101,7 +101,7 @@ void test_native_lifecycle() {
         types[port] = 8;  // PADSetAnalogMode disabled it; SIGetStatus reported NOREP
         native = gc_ports_native_update(types, status, 0, native);
         EXPECT_EQ(native, bit);
-        EXPECT_EQ(assign(gc_ports_taken(status, native), bit).of[port] == port, 0);
+        EXPECT_EQ(assign(gc_ports_taken(status, native, 0), bit).of[port] == port, 0);
         EXPECT_EQ(status[12 * port + 10], 0xFF);
 
         // BUSY, transfer errors and a wireless receiver waiting for its
@@ -280,15 +280,47 @@ std::uint32_t errs(std::uint8_t p1, std::uint8_t p2, std::uint8_t p3, std::uint8
 // Issue #135's trace (Double Dash on a Wii U): the game's own read found
 // nothing anywhere, the remote's fill gave port 1 err 0.
 void test_played_ports() {
-    EXPECT_EQ(gc_ports_played(errs(0xFF, 0xFF, 0xFF, 0xFF), errs(0x00, 0xFF, 0xFF, 0xFF)), kPort1);
+    EXPECT_EQ(gc_ports_played(errs(0xFF, 0xFF, 0xFF, 0xFF), errs(0x00, 0xFF, 0xFF, 0xFF), 0), kPort1);
     // Nothing filled, or no PADStatus to read (gc_pad_errors' all -1):
     // nothing played.
-    EXPECT_EQ(gc_ports_played(0xFFFFFFFFu, 0xFFFFFFFFu), 0);
+    EXPECT_EQ(gc_ports_played(0xFFFFFFFFu, 0xFFFFFFFFu, 0), 0);
     // A GameCube controller's own err 0 is the game's, not a fill.
-    EXPECT_EQ(gc_ports_played(errs(0x00, 0xFF, 0xFF, 0xFF), errs(0x00, 0x00, 0xFF, 0xFF)), kPort2);
+    EXPECT_EQ(gc_ports_played(errs(0x00, 0xFF, 0xFF, 0xFF), errs(0x00, 0x00, 0xFF, 0xFF), 0), kPort2);
     // A controller still starting (-2) is left alone by the fill; a fill
     // that left anything but err 0 is no controller for the game.
-    EXPECT_EQ(gc_ports_played(errs(0xFE, 0xFF, 0xFF, 0xFF), errs(0xFE, 0xFD, 0xFF, 0x00)), kPort4);
+    EXPECT_EQ(gc_ports_played(errs(0xFE, 0xFF, 0xFF, 0xFF), errs(0xFE, 0xFD, 0xFF, 0x00), 0), kPort4);
+}
+
+// A port the SDK keeps probing with nothing there (Everything or
+// Nothing's port 1 answered -3 at nearly every read): idle after
+// GC_PORTS_IDLE_READS reads, then a remote may play on it.
+void test_idle_probe_ports() {
+    std::uint8_t status[12 * GC_PORTS] = {};
+    std::uint8_t reads[GC_PORTS] = {};
+    for (unsigned port = 0; port < GC_PORTS; ++port) status[12 * port + 10] = 0xFF;
+    status[10] = 0xFD;  // port 1 probing
+    for (unsigned i = 1; i < GC_PORTS_IDLE_READS; ++i) EXPECT_EQ(gc_ports_idle_update(status, 0, reads) & kPort1, 0);
+    // Until then port 1's -3 keeps it taken.
+    EXPECT_EQ(gc_ports_taken(status, 0, 0) & kPort1, kPort1);
+    const std::uint32_t idle = gc_ports_idle_update(status, 0, reads);
+    EXPECT_EQ(idle & kPort1, kPort1);
+    EXPECT_EQ(gc_ports_taken(status, 0, idle), 0);
+    EXPECT_EQ(gc_ports_played(errs(0xFD, 0xFF, 0xFF, 0xFF), errs(0x00, 0xFF, 0xFF, 0xFF), idle), kPort1);
+    // An -1 read in the run goes on counting: still nothing there.
+    status[10] = 0xFF;
+    EXPECT_EQ(gc_ports_idle_update(status, 0, reads) & kPort1, kPort1);
+    // A controller identified there, or one answering (err 0), ends it.
+    status[10] = 0xFD;
+    EXPECT_EQ(gc_ports_idle_update(status, kPort1, reads) & kPort1, 0);
+    EXPECT_EQ(gc_ports_taken(status, kPort1, idle) & kPort1, kPort1);
+    for (unsigned i = 0; i < GC_PORTS_IDLE_READS; ++i) gc_ports_idle_update(status, 0, reads);
+    status[10] = 0x00;
+    EXPECT_EQ(gc_ports_idle_update(status, 0, reads) & kPort1, 0);
+    // A controller still starting (-2) is never idle.
+    status[10] = 0xFE;
+    for (unsigned i = 0; i < 2 * GC_PORTS_IDLE_READS; ++i) EXPECT_EQ(gc_ports_idle_update(status, 0, reads) & kPort1, 0);
+    // Without the idle mark, -3 stays taken and played needs -1.
+    EXPECT_EQ(gc_ports_played(errs(0xFD, 0xFF, 0xFF, 0xFF), errs(0x00, 0xFF, 0xFF, 0xFF), 0), 0);
 }
 
 // SIProbe's answers: SIDecodeType gives 8 (no response), 0x40 (unknown,
@@ -319,6 +351,7 @@ void test_probe_answers() {
 
 int main() {
     test_played_ports();
+    test_idle_probe_ports();
     test_probe_answers();
     test_disabled_native_ports();
     test_native_lifecycle();

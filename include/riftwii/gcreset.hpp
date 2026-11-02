@@ -57,6 +57,18 @@ GcResetFunctions find_gc_reset_functions(const std::vector<CodeRange>& text);
 // nor the function).
 std::uint32_t find_gc_boot_dol(const std::vector<CodeRange>& text, const std::vector<CodeRange>& data);
 
+// The same switch in an SDK from before __OSBootDolSimple (EA's 007
+// Everything or Nothing, whose boot.elf starts action.dol and driving.dol
+// this way): the game names the program with OSSetBootDol(doloffset),
+// OSResetSystem's restart copies that to 0x800030EC and calls
+// __OSReboot(resetCode, forceMenu), which loads the disc's apploader and
+// runs it, and the apploader loads the program at 0x800030EC's offset.
+// __OSReboot is the one function that clears the word at 0x817FFFFC and
+// sets the byte at 0x800030E2 (each a `lis` of the upper half, then a
+// store with the lower one, within 8 words), in a game whose code also
+// stores a word at 0x800030EC. 0 when not exactly one function does.
+std::uint32_t find_gc_old_reboot(const std::vector<CodeRange>& text);
+
 // The program a switch starts gets its arguments where the SDK's start-up
 // code (__start) reads them: in BI2 (0x2000 bytes, its address at
 // 0x800000F4), whose word at 8 is the offset of argc, followed by argc + 1
