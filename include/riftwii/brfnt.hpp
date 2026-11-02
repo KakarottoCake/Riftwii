@@ -1,6 +1,4 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
-// SPDX-FileCopyrightText: 2012 giantpune
-// SPDX-FileCopyrightText: 2012 Dimok
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 

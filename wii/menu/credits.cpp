@@ -34,20 +34,16 @@ const char* const kCredits[] = {
     "every piece with its origin and license, and each file that follows someone's work names them in "
     "its header.",
     "",
-    "USB Loader GX (github.com/wiidev/usbloadergx, GPL-3.0): the online server patches, the Wiimmfi "
-    "patches, the Mario Kart Wii security fix, the return-to-channel patch, the language patch, the video "
-    "mode tables, its fixes for particular games (Kirby's Return to Dream Land, New Super Mario Bros. Wii, "
-    "Prince of Persia, Resident Evil 4, Excite Truck, the error #002 and 480p fixes), its automatic cIOS "
-    "choice, the IOS reload block, the region video fix (WiiPower's VIDTV patch), the region strings fix, the "
-    "aspect ratio, rumble and speaker options, the Wiinnertag file RiftWii's RiiTag support reads, how to find "
-    "the Wii Menu's fonts (its TrueType and bitmap ones) for the Menu font setting, how to use d2x's USB device on either USB port, "
-    "how to keep saves in d2x's emulated NAND and where that NAND is kept (the Saves choice \"SD, emulated NAND\"), the "
-    "channel identity and synthetic ticket layout (dude, Miigotu and Dimok, zlib), the "
-    "idea of hooking a game's second "
-    "executable, RiftWii's copies of the Gecko code handler and of its WiiRD debugger builds, and the USB Gecko "
-    "debug output (gprintf, hexdump). With thanks to its developers and to those whose "
-    "work it carries: ToadKing (wiilauncher-nossl), Leseratte and the Wiimmfi team, giantpune, Nuke, "
-    "crediar (Kirby's MetaFortress patch), dcx2, container12345, blackb0x and WiiPower.",
+    "USB Loader GX (github.com/wiidev/usbloadergx, GPL-3.0): its fixes for particular games (Kirby's Return "
+    "to Dream Land, New Super Mario Bros. Wii, Prince of Persia, Resident Evil 4, Excite Truck, the error #002 "
+    "and 480p fixes), the IOS reload block, the region video fix (WiiPower's VIDTV patch), the region strings "
+    "fix, the aspect ratio, rumble and speaker options, the online server patches, the Mario Kart Wii "
+    "security fix and the Gecko code handler's hook. With thanks to those whose work it carries: ToadKing "
+    "(wiilauncher-nossl), Leseratte and the Wiimmfi team (the Wiimmfi patches), giantpune (the "
+    "return-to-channel patch), Nuke (the language patch), crediar (Kirby's MetaFortress patch), dcx2, "
+    "container12345, blackb0x and WiiPower. Read as a reference for its automatic cIOS choice, d2x's emulated "
+    "NAND and USB device, the Wiinnertag file, the Wii Menu's fonts, the channel ticket layout, the video mode "
+    "tables and hooking a game's second executable.",
     "",
     "Gecko OS by Nuke, brkirch, Link and the Gecko authors: the cheat code handler and the WiiRD debugger "
     "(GPL-2.0-or-later).",
@@ -59,8 +55,9 @@ const char* const kCredits[] = {
     "",
     "wup-028-bslug by Alex Chadwick (MIT): the GameCube controller adapter.",
     "",
-    "Nintendont by FIX94 and contributors: the USB HID driver, controller.ini mappings, the USB controller layouts RiftWii carries "
-    "and the GameCube sound program patches, used with its developers' permission.",
+    "Nintendont by FIX94 and contributors: the USB controller layouts RiftWii carries and the GameCube sound "
+    "program patches, used with its developers' permission. Its USB HID driver and controller.ini format were "
+    "read as a reference.",
     "",
     "Mario Party 4 community decompilation: GameCube font encoding behavior, read as documentation only.",
     "",

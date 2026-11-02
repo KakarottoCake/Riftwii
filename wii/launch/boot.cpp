@@ -1,6 +1,4 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
-// SPDX-FileCopyrightText: 2010 dude (USB Loader GX channel identity design)
-// SPDX-FileCopyrightText: 2011 Miigotu, Dimok (USB Loader GX channel identity design)
 // SPDX-FileCopyrightText: 2014 Alex Chadwick (Brainslug) <https://github.com/Chadderz121/brainslug-wii>
 // SPDX-FileCopyrightText: 2020 Florian Bach (Brainslug)
 // SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>

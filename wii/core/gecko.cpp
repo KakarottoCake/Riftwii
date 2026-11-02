@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
-// SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
 // SPDX-FileCopyrightText: WiiFlow Lite contributors <https://github.com/Fledge68/WiiFlow_Lite>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "gecko.hpp"
@@ -80,10 +79,6 @@ void give_back_stdout() {
     if (devoptab_list[STD_ERR] == &g_gecko_out && g_screen_err) devoptab_list[STD_ERR] = g_screen_err;
 }
 
-char printable(unsigned char c) {
-    return (c < 0x20 || c > 0x7E) ? '.' : static_cast<char>(c);
-}
-
 }  // namespace
 
 bool GeckoInSlot(int slot) {
@@ -129,26 +124,6 @@ void GeckoPrintf(const char* format, ...) {
     const std::size_t wanted = static_cast<std::size_t>(written);
     const std::size_t length = wanted < sizeof(text) ? wanted : sizeof(text) - 1;
     send(text, length);
-}
-
-void GeckoHexDump(const void* data, std::size_t length) {
-    if (!g_active || data == nullptr) return;
-    const unsigned char* bytes = static_cast<const unsigned char*>(data);
-    GeckoPrintf("\n       0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F  0123456789ABCDEF");
-    GeckoPrintf("\n====  ===============================================  ================\n");
-    for (std::size_t row = 0; row < length; row += 16) {
-        // One row a send: 6 + 48 + 1 + 16 + 1 characters.
-        char line[80];
-        int used = std::snprintf(line, sizeof(line), "%04x  ", static_cast<unsigned>(row));
-        for (std::size_t i = 0; i < 16; ++i) {
-            if (row + i < length) used += std::snprintf(line + used, sizeof(line) - used, "%02x ", bytes[row + i]);
-            else used += std::snprintf(line + used, sizeof(line) - used, "   ");
-        }
-        line[used++] = ' ';
-        for (std::size_t i = 0; i < 16; ++i) line[used++] = row + i < length ? printable(bytes[row + i]) : ' ';
-        line[used++] = '\n';
-        send(line, static_cast<std::size_t>(used));
-    }
 }
 
 }  // namespace riftwii::wii

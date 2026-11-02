@@ -1,8 +1,5 @@
 /* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-FileCopyrightText: libogc contributors <https://github.com/devkitPro/libogc> */
-/* SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx> */
-/* SPDX-FileCopyrightText: FIX94 and Nintendont contributors */
-/* SPDX-FileCopyrightText: 2013 crediar (Nintendont) */
 /* SPDX-FileCopyrightText: Dolphin Emulator Project */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /*

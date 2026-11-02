@@ -1,5 +1,4 @@
 /* SPDX-FileCopyrightText: 2026 RiftWii contributors */
-/* SPDX-FileCopyrightText: FIX94 and the Nintendont contributors, used with permission */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Independently written controller.ini report conversion. Nintendont's
  * HID.c and PADReadGC.c document the format and its scale/trigger rules.

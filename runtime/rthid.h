@@ -1,5 +1,4 @@
 /* SPDX-FileCopyrightText: 2026 RiftWii contributors */
-/* SPDX-FileCopyrightText: FIX94 and the Nintendont contributors, used with permission */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #ifndef RIFTWII_RTHID_H
 #define RIFTWII_RTHID_H
