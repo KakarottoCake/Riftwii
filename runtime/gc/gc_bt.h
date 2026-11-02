@@ -94,6 +94,7 @@ struct gc_bt_remote {
     uint8_t led_port;   /* the port its LED shows */
     uint8_t rumble;     /* the motor as the remote has it: bit 0 of every output report it is sent */
     uint32_t rumble_poll;  /* bt->polls when its last rumble report went */
+    uint32_t acl_pending;  /* its share of gc_bt.acl_pending */
     uint8_t spare[2];
     uint32_t ctrl_cid;  /* the remote's end of each channel */
     uint32_t intr_cid;
@@ -154,7 +155,8 @@ struct gc_bt {
     uint32_t rumble_changes;  /* times a remote's motor was switched on or off */
     uint32_t rumble_held;     /* polls a rumble change waited (GC_BT_ACL_WINDOW, GC_BT_RUMBLE_GAP) */
     /* Packets sent to the remotes that the controller has not yet said it
-     * sent on, and the polls that count has sat at GC_BT_ACL_WINDOW. */
+     * sent on (each remote's acl_pending, added up: the controller's buffer
+     * is shared), and the polls that count has sat at GC_BT_ACL_WINDOW. */
     uint32_t acl_pending;
     uint32_t acl_stall_polls;
     /* How far the Bluetooth got, for a tester's trace (GC_BT_SEEN_*), and
