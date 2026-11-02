@@ -1424,7 +1424,11 @@ static void gc_si_polling_off(void) {
 typedef void (*gc_sampling_fn)(uint32_t interrupt, uint32_t context);
 #define GC_OS_INTERRUPT_PI_SI 20u
 
+/* Only through the SDK's alarms, whose handler gets the OSContext the
+ * SamplingHandler needs and which never fail to arm; a libogc game has no
+ * SamplingHandler anyway. */
 static void gc_sample_arm(struct gc_rt_context* ctx) {
+    if (ctx->ogc_create_alarm != 0) return;
     ctx->sample_queued = 1;
     gc_set_alarm(ctx, ctx->sample_alarm, GC_SAMPLE_TICKS);
 }

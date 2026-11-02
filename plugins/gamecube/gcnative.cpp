@@ -3180,6 +3180,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         }
         ctx->si_type_cache = si_types_in_data ? si_types : 0;
         ctx->pad_enabled_offset = find_gc_pad_enabled_offset(code.ranges(), pad_read);
+        // Each program's own, or none: never the value of the program patched before.
+        ctx->pad_sampling = 0;
         std::uint32_t motor = 0;
         if (pad_read != 0) {
             replay_hook(pad_read, h.hook_pad_read, h.replay_pad_read, h.continue_pad_read);
