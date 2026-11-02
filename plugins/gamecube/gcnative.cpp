@@ -3286,9 +3286,11 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             // A switch to another program on the disc (OSExec, or a restart into a
             // named program) goes back through RiftWii, which starts the image
             // again with that program (gc_on_boot_dol): sd:/riftwii/gc/exec.txt,
-            // "--idle--" and the image, is the launch the blob fills in. Only for
-            // an image on the SD card, whose headless launch RiftWii carries out
-            // at its next start, and with a way back to leave by.
+            // "--idle--" and the image, is the launch the blob fills in. For an
+            // image on the SD card or the USB drive, whose headless launch
+            // RiftWii carries out at its next start, and with a way back to
+            // leave by. The file is on the SD card either way: the blob writes
+            // it there as it does a USB game's memory card.
             // A bonus disc's menu (the Zelda Ocarina of Time / Master Quest disc,
             // the Wind Waker demo disc) starts its games another way: each is a
             // whole disc packed in a TGC image, whose program the menu reads with
@@ -3321,12 +3323,13 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                                                  : from_tgc      ? "the game came from a TGC image, whose programs exec.txt "
                                                                    "cannot name"
                                                                  : nullptr;
-                const bool on_sd = image.path.compare(0, 4, "sd:/") == 0;
+                // usb:/ or usb<N>:/ for a partition RiftWii mounted of its own.
+                const bool on_sd_or_usb = image.path.compare(0, 4, "sd:/") == 0 || image.path.compare(0, 3, "usb") == 0;
                 std::string why_not;
                 if (!boot_dol_hookable && !exec_test_on && tgcs.empty())
                     why_not = boot_dol_off != nullptr ? boot_dol_off
                                                       : "the game has no switch to another program (__OSBootDolSimple not found)";
-                else if (!on_sd) why_not = "only for a game on the SD card so far";
+                else if (!on_sd_or_usb) why_not = "only for a game on the SD card or the USB drive";
                 else if (ctx->leave_buf == 0) why_not = "there is no way back to RiftWii";
                 else if (image.path.size() + image.id.size() > 400) why_not = "the image's path is too long for exec.txt";
                 std::uint32_t exec_sector = 0;

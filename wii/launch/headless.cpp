@@ -51,6 +51,23 @@ bool wanted(const HeadlessLaunch& h, const ImageGame& g) {
     return h.game.empty() || g.id.compare(0, h.game.size(), h.game) == 0;
 }
 
+// Waits for the USB drive and mounts it, listing its games in `catalog`.
+// Started straight from another loader, the drive it used may not be
+// listed again yet (a tester's WiiFlow plugin: "checking for a device",
+// then nothing, 5 ms in). A loader that mounted the drive and handed over
+// without letting go of it (libfat's fatInitDefault, then only sd:
+// unmounted) leaves IOS's USB stack showing no drive at all: a fresh IOS
+// lets go of it.
+bool ready_usb_drive(ImageCatalog& catalog, std::string& error) {
+    if (!wait_for_usb_drive(4)) {
+        logf("USB: reloading the IOS, which lets go of a drive the program before left open\n");
+        USB_Deinitialize();
+        StartMenuIos(true, true);
+        wait_for_usb_drive(10);
+    }
+    return scan_usb_games(catalog, error);
+}
+
 // Finds the game on the drive `from` names, else on the USB drive, the SD
 // card and the disc, in that order.
 bool select_game(const HeadlessLaunch& h, FrontendState& state, std::string& error) {
@@ -58,19 +75,7 @@ bool select_game(const HeadlessLaunch& h, FrontendState& state, std::string& err
     std::string usb_error;
     if (h.from.empty() || h.from == "usb") {
         std::string& scan_error = usb_error;
-        // Started straight from another loader, the drive it used may not
-        // be listed again yet (a tester's WiiFlow plugin: "checking for a
-        // device", then nothing, 5 ms in). A loader that mounted the drive
-        // and handed over without letting go of it (libfat's
-        // fatInitDefault, then only sd: unmounted) leaves IOS's USB stack
-        // showing no drive at all: a fresh IOS lets go of it.
-        if (!wait_for_usb_drive(4)) {
-            logf("USB: reloading the IOS, which lets go of a drive the program before left open\n");
-            USB_Deinitialize();
-            StartMenuIos(true, true);
-            wait_for_usb_drive(10);
-        }
-        if (scan_usb_games(state.usb_catalog, scan_error)) {
+        if (ready_usb_drive(state.usb_catalog, scan_error)) {
             for (std::size_t i = 0; i < state.usb_catalog.games.size(); ++i) {
                 if (wanted(h, state.usb_catalog.games[i])) return SelectUsbGame(state, i, error);
             }
@@ -190,9 +195,20 @@ bool read_launch_lines(const std::string& path, std::vector<std::string>& args) 
 bool launch(const std::vector<std::string>& args, std::string& error) {
     HeadlessLaunch h;
     if (!parse_headless_launch(args, h, error)) return false;
-    // A GameCube game on the SD card goes to RiftWii's own loader.
+    // A GameCube game on the SD card goes to RiftWii's own loader. So does
+    // one on the USB drive switching to another program on its disc
+    // (exec.txt, which names the image's usb: path): the drive is mounted
+    // first so the image can be read.
+    const bool gc_switch = h.gc_exec || h.gc_tgc != 0;
+    bool gc_on_usb = false;
+    if (gc_switch && h.from == "usb") {
+        ImageCatalog usb_catalog;
+        std::string usb_error;
+        gc_on_usb = ready_usb_drive(usb_catalog, usb_error);
+        if (!gc_on_usb) logf("GameCube: the USB drive with the game could not be mounted (%s)\n", usb_error.c_str());
+    }
     GcImage gc;
-    if ((h.from.empty() || h.from == "sd") && (!h.game.empty() || !h.path.empty()) &&
+    if ((h.from.empty() || h.from == "sd" || gc_on_usb) && (!h.game.empty() || !h.path.empty()) &&
         FindGcImage(h.game, h.path, gc)) {
         if (h.all_packs || !h.code_builds.empty()) {
             error = "xml=all and code builds are not supported for GameCube games yet";
@@ -223,7 +239,7 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
         return LaunchGcGame(gc, packs, error);
     }
     if (h.gc_exec || h.gc_tgc != 0) {
-        error = "a GameCube program switch for an image that is not a GameCube game on the SD card";
+        error = "a GameCube program switch for an image that is not a GameCube game on the SD card or the USB drive";
         return false;
     }
     FrontendState state;
