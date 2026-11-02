@@ -491,6 +491,24 @@ std::uint32_t through_timeout_helper(const Code& code, std::uint32_t called) {
     return called;
 }
 
+// Whether the function at `function` (`after`, as patched), or one it
+// calls up to `depth` calls deeper, has a word that differs from `before`,
+// the program as the disc has it. A function is read to its first blr; one
+// that runs past 0x1000 bytes, out of the program, or calls deeper than
+// `depth` counts as changed, as nothing proves it is not.
+bool reaches_patched_code(const Code& before, const Code& after, std::uint32_t function, unsigned depth) {
+    for (std::uint32_t a = function; a - function < 0x1000; a += 4) {
+        if (!after.has(a)) return true;
+        const std::uint32_t w = after.at(a);
+        if (w != before.at(a)) return true;
+        if (const std::uint32_t target = bl_target(a, w)) {
+            if (depth == 0 || reaches_patched_code(before, after, target, depth - 1)) return true;
+        }
+        if (w == 0x4E800020) return false;
+    }
+    return true;
+}
+
 // Whether one of the sixteen instructions after `at` is "addi rD,`reg`,`value`"
 // or "ori rA,`reg`,`value`", before anything else loads `reg`. Most SDK
 // builds add right after the lis; Sonic Riders Tournament Edition (GXSRTE)
@@ -3626,6 +3644,22 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             if (patched && start != elf.entry && gc_code_branches_to(program_code.ranges(), start)) {
                 why = "its code branches to the word after its first calls, which becomes the start's jump";
                 patched = false;
+            }
+            // The calls before the place taken run before gc_on_program_start
+            // gives the blob this program's addresses: none of them, nor what
+            // they call, may reach a word RiftWii patched (a hook would run
+            // with the last program's). Agent Under Fire's __init_registers
+            // and __init_hardware only set up the registers and the caches.
+            if (patched && start != elf.entry) {
+                Dol unpatched = original;
+                const Code before(unpatched.text);
+                for (std::uint32_t call = elf.entry; call < start && patched; call += 4) {
+                    const std::uint32_t target = bl_target(call, program_code.at(call));
+                    if (target != 0 && !reaches_patched_code(before, program_code, target, 3)) continue;
+                    why = "a call it makes before its start reaches code RiftWii patched, which would run before the "
+                          "blob knows the program";
+                    patched = false;
+                }
             }
             std::vector<GcDiscPatch> patches;
             if (patched) {
