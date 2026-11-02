@@ -129,4 +129,13 @@ bool valid_gct(const std::vector<std::uint8_t>& gct);
 // may be empty, meaning none).
 std::vector<std::uint8_t> join_gct(const std::vector<std::uint8_t>& first, const std::vector<std::uint8_t>& second);
 
+// Whether every code in `gct` may run once before the game starts, when
+// nothing of the game is set up yet: writes (00, 02, 04, 06, 08) and
+// conditions (20 to 2E) on fixed addresses, inserted instructions (C2) and
+// the ends of conditions (E0, E2). Not a code that runs instructions
+// itself (C0), works through a pointer the game sets up (po codes, the 4x
+// loads), searches memory and keeps what it found (F6), or anything else.
+// False for a list that is not valid.
+bool gct_runs_before_start(const std::vector<std::uint8_t>& gct);
+
 }  // namespace riftwii

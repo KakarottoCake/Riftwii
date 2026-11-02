@@ -609,4 +609,35 @@ std::vector<std::uint8_t> join_gct(const std::vector<std::uint8_t>& first, const
     return out;
 }
 
+bool gct_runs_before_start(const std::vector<std::uint8_t>& gct) {
+    if (!valid_gct(gct)) return false;
+    const std::size_t end = gct.size() - 8;
+    std::size_t at = 8;
+    while (at < end) {
+        // The code type, without the bit that adds 0x01000000 to the
+        // address (04 and 05 are both 32-bit writes).
+        const std::uint32_t type = gct[at] & 0xFEu;
+        const std::uint32_t value = get32(gct, at + 4);
+        std::size_t lines = 1;
+        if (type == 0x00 || type == 0x02 || type == 0x04) {
+            lines = 1;
+        } else if (type == 0x06) {
+            lines = 1 + (static_cast<std::size_t>(value) + 7) / 8;  // the string's bytes, in whole lines
+        } else if (type == 0x08) {
+            lines = 2;  // the serial write's second line
+        } else if (type >= 0x20 && type <= 0x2E) {
+            lines = 1;
+        } else if (type == 0xC2) {
+            lines = 1 + static_cast<std::size_t>(value);  // the inserted instructions
+        } else if (type == 0xE0 || type == 0xE2) {
+            lines = 1;
+        } else {
+            return false;
+        }
+        if (lines > (end - at) / 8) return false;  // runs past the list's end
+        at += lines * 8;
+    }
+    return at == end;
+}
+
 }  // namespace riftwii

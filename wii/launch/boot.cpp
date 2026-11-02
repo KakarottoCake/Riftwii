@@ -64,6 +64,7 @@
 #include "codehandlerslota_bin.h"
 #include "gecko.hpp"
 #include "riftwii/cardlog.hpp"
+#include "riftwii/cheats.hpp"
 #include "riftwii/codehook.hpp"
 #include "riftwii/extrasbudget.hpp"
 #include "riftwii/gamelang.hpp"
@@ -2752,9 +2753,14 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             logf("Codes: the WiiRD debugger's handler starts with the game, not before it\n");
         } else if (!late.empty()) {
             // The start file's parts are written after this, at the last
-            // moment: a code run before them would search (F6) or patch a
-            // game that isn't all there yet, and keep what it found.
+            // moment: a code run before them would patch a game that isn't
+            // all there yet.
             logf("Codes: the cheats start with the game, after its start file is in place\n");
+        } else if (!gct_runs_before_start(g_extras.cheat_gct)) {
+            // Before the game nothing of it is set up: a code that runs
+            // instructions or follows the game's pointers could fault.
+            logf("Codes: the cheats start with the game: one of them runs code, follows the game's pointers or "
+                 "searches memory\n");
         } else {
             codes_first = true;
         }
