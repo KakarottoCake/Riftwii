@@ -609,4 +609,70 @@ std::vector<std::uint8_t> join_gct(const std::vector<std::uint8_t>& first, const
     return out;
 }
 
+bool gct_runs_before_start(const std::vector<std::uint8_t>& gct, std::uint32_t keep_out_start,
+                           std::uint32_t keep_out_end) {
+    if (!valid_gct(gct)) return false;
+    const std::size_t end = gct.size() - 8;
+    // Whether `bytes` written at `address` land in MEM1 or MEM2 and stay
+    // clear of the kept-out range (64-bit, so nothing wraps round). An
+    // uncached address (0xC0000000 up, 0xD0000000 up) is the same memory
+    // as the cached one 0x40000000 below it; anything else is no memory,
+    // and a write there would fault before the game starts.
+    const auto clear = [&](std::uint64_t address, std::uint64_t bytes) {
+        if (address >= 0xC0000000u) address -= 0x40000000u;
+        const std::uint64_t last = address + bytes;
+        const bool mem1 = address >= 0x80000000u && last <= 0x81800000u;
+        const bool mem2 = address >= 0x90000000u && last <= 0x94000000u;
+        if (!mem1 && !mem2) return false;
+        return last <= keep_out_start || address >= keep_out_end;
+    };
+    // The handler's base address, which ba codes add to: 0x80000000 until
+    // an E0 or E2 sets another. The handler keeps only its top seven bits
+    // for a write (codehandleronly.s: rlwinm r12,r6,0,0,6).
+    std::uint32_t ba = 0x80000000u;
+    std::size_t at = 8;
+    while (at < end) {
+        const std::uint32_t first = get32(gct, at);
+        const std::uint32_t value = get32(gct, at + 4);
+        // The code type, without the bit that adds 0x01000000 to the
+        // address (04 and 05 are both 32-bit writes), and its address.
+        const std::uint32_t type = gct[at] & 0xFEu;
+        const std::uint64_t address = std::uint64_t(ba & 0xFE000000u) + (first & 0x01FFFFFFu);
+        // The lines after this one, the most a code here can take.
+        const std::size_t after = (end - at) / 8 - 1;
+        std::size_t extra = 0;
+        if (type == 0x00) {
+            // A byte, written (value >> 16) + 1 times.
+            if (!clear(address, (value >> 16) + 1u)) return false;
+        } else if (type == 0x02) {
+            // A halfword, written (value >> 16) + 1 times.
+            if (!clear(address, 2u * ((value >> 16) + 1u))) return false;
+        } else if (type == 0x04) {
+            // Aligned down to a word, as the handler writes it.
+            if (!clear(address & ~std::uint64_t(3), 4)) return false;
+        } else if (type == 0x06) {
+            // `value` bytes of string in the lines after, compared before
+            // any rounding so a huge count can't wrap round.
+            if (value > after * 8) return false;
+            extra = (static_cast<std::size_t>(value) + 7) / 8;
+            if (!clear(address, value)) return false;
+        } else if (type == 0xC2) {
+            // A branch written at the address, `value` lines of
+            // instructions after it. Never none: the handler writes the
+            // branch back over the last of them, which would be the next code.
+            if (value == 0 || value > after) return false;
+            extra = value;
+            // Aligned down to a word, as the handler writes the branch.
+            if (!clear(address & ~std::uint64_t(3), 4)) return false;
+        } else if (type == 0xE0 || type == 0xE2) {
+            // The end of conditions; a nonzero top half sets the base.
+            if ((value >> 16) != 0) ba = value & 0xFFFF0000u;
+        } else {
+            return false;
+        }
+        at += (1 + extra) * 8;
+    }
+    return at == end;
+}
+
 }  // namespace riftwii
