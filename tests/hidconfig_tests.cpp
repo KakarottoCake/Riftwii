@@ -936,6 +936,18 @@ void SwitchPadStarted() {
     }
     gcad_pad pads[GCAD_PORTS]{};
     CHECK(gcad_read_ports(&bus.hub.adapter, 0, pads, bus.clock) == 1 && pads[0].buttons == GCAD_PAD_X);
+    // Silent for GCAD_RESCAN_MS in play: the start-up runs again, once at
+    // a time, with the read that is still out.
+    bus.clock += GCAD_RESCAN_MS - 1;
+    gcad_tick(&bus.hub.adapter, bus.clock);
+    CHECK(driver.link == GCAD_LINK_POLL && bus.outputs.size() == 4);
+    bus.clock += 1;
+    gcad_tick(&bus.hub.adapter, bus.clock);
+    CHECK(driver.link == GCAD_LINK_INIT && bus.outputs.size() == 5 && bus.outputs[4].payload[1] == 0x01);
+    CHECK(bus.requests[input].pending && bus.requests[output].pending);
+    gcad_tick(&bus.hub.adapter, bus.clock + GCAD_RESCAN_MS);
+    CHECK(bus.outputs.size() == 5);
+    CHECK(gcad_read_ports(&bus.hub.adapter, 0, pads, bus.clock) == 0);
 
     // Input already flowing while it waits for an answer: after
     // SWITCH_READS reads of it the next message goes.

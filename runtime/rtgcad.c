@@ -1242,6 +1242,14 @@ void gcad_tick(gcad* g, uint32_t now) {
         elapsed(now, g->data_time) >= ms(g, GCAD_RESCAN_MS)) {
         hid_diagnostic(g, GCAD_HID_SILENT, (g->reports != 0) | (ps3(g) ? 2u : 0u), g->ctrl_result);
     }
+    /* A Switch Pro in full-report mode reports even untouched, so silence
+     * means its start-up didn't take (it moved on without answers): start
+     * it again, every GCAD_RESCAN_MS while silent. The read still out
+     * stays and serves the new start-up. */
+    if (switch_pro(g) && g->link == GCAD_LINK_POLL && !(g->busy & BIT(GCAD_TAG_OUT)) &&
+        elapsed(now, g->data_time) >= ms(g, GCAD_RESCAN_MS)) {
+        switch_start(g, now);
+    }
     if (!g->stale && elapsed(now, g->data_time) >= ms(g, GCAD_TIMEOUT_MS)) set_stale(g);
 }
 
