@@ -619,7 +619,8 @@ bool gct_runs_before_start(const std::vector<std::uint8_t>& gct, std::uint32_t k
         return address + bytes <= keep_out_start || address >= keep_out_end;
     };
     // The handler's base address, which ba codes add to: 0x80000000 until
-    // an E0 or E2 sets another.
+    // an E0 or E2 sets another. The handler keeps only its top seven bits
+    // for a write (codehandleronly.s: rlwinm r12,r6,0,0,6).
     std::uint32_t ba = 0x80000000u;
     std::size_t at = 8;
     while (at < end) {
@@ -628,7 +629,7 @@ bool gct_runs_before_start(const std::vector<std::uint8_t>& gct, std::uint32_t k
         // The code type, without the bit that adds 0x01000000 to the
         // address (04 and 05 are both 32-bit writes), and its address.
         const std::uint32_t type = gct[at] & 0xFEu;
-        const std::uint64_t address = std::uint64_t(ba) + (first & 0x01FFFFFFu);
+        const std::uint64_t address = std::uint64_t(ba & 0xFE000000u) + (first & 0x01FFFFFFu);
         // The lines after this one, the most a code here can take.
         const std::size_t after = (end - at) / 8 - 1;
         std::size_t extra = 0;
@@ -639,7 +640,8 @@ bool gct_runs_before_start(const std::vector<std::uint8_t>& gct, std::uint32_t k
             // A halfword, written (value >> 16) + 1 times.
             if (!clear(address, 2u * ((value >> 16) + 1u))) return false;
         } else if (type == 0x04) {
-            if (!clear(address, 4)) return false;
+            // Aligned down to a word, as the handler writes it.
+            if (!clear(address & ~std::uint64_t(3), 4)) return false;
         } else if (type == 0x06) {
             // `value` bytes of string in the lines after, compared before
             // any rounding so a huge count can't wrap round.
