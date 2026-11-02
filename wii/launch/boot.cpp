@@ -1991,6 +1991,18 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
              static_cast<unsigned>(kLoaderStart));
     }
     mem::LogUsage("before loading the game");  // the headroom a big pack leaves
+    // The memory sizes the System Menu leaves for the apploader, which
+    // places the FST and bi2 below them. Super Mario Galaxy 2's (2009/12/11)
+    // reads them, and after RiftWii had restarted itself into a cIOS they
+    // were 0: its bi2 load went to 0x7ffd2240, 24 MiB below RAM.
+    const std::uint32_t apploader_mem1_size = load32(0x80000028);
+    const std::uint32_t apploader_simulated_size = load32(0x800000F0);
+    if (apploader_mem1_size != 0x01800000 || apploader_simulated_size != 0x01800000)
+        logf("Memory sizes for the apploader were 0x%08x and 0x%08x; set to 24 MiB as the System Menu leaves "
+             "them\n",
+             apploader_mem1_size, apploader_simulated_size);
+    store32(0x80000028, 0x01800000);  // MEM1 size
+    store32(0x800000F0, 0x01800000);  // simulated memory size
     di::PartitionSource data;
     const std::uint64_t app_bytes = apploader.total_size();
     std::uint8_t* app = reinterpret_cast<std::uint8_t*>(kApploaderLoadAddress);
