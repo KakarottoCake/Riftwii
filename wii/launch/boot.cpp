@@ -406,6 +406,54 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
     return true;
 }
 
+// Whether the codes install_cheats put in run once before the game starts,
+// saying why not in boot.log. A code build's always do. A player's cheats
+// do when the handler is the plain one (the WiiRD debugger's waits for
+// the PC, with pause, and only ever started with the game), no start
+// file's parts are still to be written (`start_file_pending`: a code run
+// before them would patch a game that isn't all there yet), and every
+// code is safe with nothing of the game set up.
+bool codes_run_first(bool debugger_handler, bool start_file_pending) {
+    bool first = false;
+    if (!g_extras.code_builds.empty()) {
+        first = true;
+    } else if (debugger_handler) {
+        logf("Codes: the WiiRD debugger's handler starts with the game, not before it\n");
+    } else if (start_file_pending) {
+        logf("Codes: the cheats start with the game, after its start file is in place\n");
+    } else if (!gct_runs_before_start(g_extras.cheat_gct)) {
+        // Before the game nothing of it is set up: a code that runs
+        // instructions or follows the game's pointers could fault.
+        logf("Codes: the cheats start with the game: one of them runs code, follows the game's pointers or "
+             "searches memory\n");
+    } else {
+        first = true;
+    }
+    if (first) logf("Codes: the handler runs once before the game starts\n");
+    return first;
+}
+
+// Runs the code handler once, just before the jump to the game, and puts
+// what it wrote where the game will fetch it. As Gecko loaders do: a code
+// build's writes to the game's tables (Project+ resizes its heaps) are in
+// place before the game reads them at start. The handler returns to its
+// caller like the hooked function would.
+void run_codes_before_game() {
+    reinterpret_cast<void (*)()>(kCodeHandlerEntry)();
+    // Gecko's handler writes without flushing a cache. A code that
+    // rewrites the game's instructions stayed in the data cache while the
+    // game first ran the old ones from memory, and a function run every
+    // frame then kept them in the instruction cache: Mario Kart Wii's
+    // Classic Controller remaps (they patch __parse_cl_data) took effect
+    // only once opening HOME pushed that function out (issue #216). So
+    // what the codes wrote goes to memory, wherever in MEM1 it is (or in
+    // MEM2, where a game may keep code too), and the game starts with an
+    // empty instruction cache.
+    DCStoreRange(reinterpret_cast<void*>(kMem1Start), kMem1End - kMem1Start);
+    DCStoreRange(reinterpret_cast<void*>(kMem2Start), kMem2End - kMem2Start);
+    ICFlashInvalidate();
+}
+
 // The render mode tables in what the apploader loaded: patched when the
 // menu asks, and whether the game draws borders remembered for the menu
 // (sd:/riftwii/choices/<ID>.video).
@@ -2746,25 +2794,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         if (!install_cheats(loaded, options.memory_patches, keep_out, why, return_plan.code_list_end, low_veneers,
                             &debugger_handler))
             logf("Codes are off: %s\n", why.c_str());
-        else if (!g_extras.code_builds.empty()) {
-            codes_first = true;
-        } else if (debugger_handler) {
-            // It waits for the PC (with pause) and only ever started with the game.
-            logf("Codes: the WiiRD debugger's handler starts with the game, not before it\n");
-        } else if (!late.empty()) {
-            // The start file's parts are written after this, at the last
-            // moment: a code run before them would patch a game that isn't
-            // all there yet.
-            logf("Codes: the cheats start with the game, after its start file is in place\n");
-        } else if (!gct_runs_before_start(g_extras.cheat_gct)) {
-            // Before the game nothing of it is set up: a code that runs
-            // instructions or follows the game's pointers could fault.
-            logf("Codes: the cheats start with the game: one of them runs code, follows the game's pointers or "
-                 "searches memory\n");
-        } else {
-            codes_first = true;
-        }
-        if (codes_first) logf("Codes: the handler runs once before the game starts\n");
+        else
+            codes_first = codes_run_first(debugger_handler, !late.empty());
     }
     if (allow_game_patch(GamePatchKind::Fix480p, "480p fix")) {
         GxReport gx;
@@ -2839,25 +2870,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     }
     place_vsd_hook(vsd);  // to the bottom of the MEM2 arena, as the runtime's data above
     dolboot_system_call_vector();  // what the system software leaves for a game (channel/common/dolboot.h)
-    if (codes_first && !debug_off("prerun")) {
-        // As Gecko loaders do: the handler runs once before the game, so a
-        // code build's writes to the game's tables (Project+ resizes its
-        // heaps) are in place before the game reads them at start. The
-        // handler returns to its caller like the hooked function would.
-        reinterpret_cast<void (*)()>(kCodeHandlerEntry)();
-        // Gecko's handler writes without flushing a cache. A code that
-        // rewrites the game's instructions stayed in the data cache while
-        // the game first ran the old ones from memory, and a function run
-        // every frame then kept them in the instruction cache: Mario Kart
-        // Wii's Classic Controller remaps (they patch __parse_cl_data) took
-        // effect only once opening HOME pushed that function out (issue
-        // #216). So what the codes wrote goes to memory, wherever in MEM1
-        // it is (or in MEM2, where a game may keep code too), and the game
-        // starts with an empty instruction cache.
-        DCStoreRange(reinterpret_cast<void*>(kMem1Start), kMem1End - kMem1Start);
-        DCStoreRange(reinterpret_cast<void*>(kMem2Start), kMem2End - kMem2Start);
-        ICFlashInvalidate();
-    }
+    if (codes_first && !debug_off("prerun")) run_codes_before_game();
     if (!late.empty()) {
         // The start file's parts over this loader: the stub, its table and
         // their bytes go just below the game's arena top (the game's heap,
@@ -3981,14 +3994,19 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     const ReturnStubPlan return_plan = plan_return_stub(arena1_top, return_to != 0, true);
     const std::string codes_refused = channel_codes_refusal(files.program);
     const bool wants_handler = !g_extras.cheat_gct.empty() || g_extras.wiird_debugger;
+    bool codes_first = false;  // run the codes once before the channel starts
     if (wants_handler && !codes_refused.empty()) {
         logf("Codes are off: %s\n", codes_refused.c_str());
     } else if (wants_handler) {
         std::string why;
         std::vector<MemoryRegion> keep_out;
         extras.add_ranges(keep_out, false);
-        if (!install_cheats(loaded, {}, keep_out, why, return_plan.code_list_end, g_extras.code_list_start != 0)) {
+        bool debugger_handler = false;
+        if (!install_cheats(loaded, {}, keep_out, why, return_plan.code_list_end, g_extras.code_list_start != 0,
+                            &debugger_handler)) {
             logf("Codes are off: %s\n", why.c_str());
+        } else {
+            codes_first = codes_run_first(debugger_handler, false);
         }
     }
     install_game_extras(extras);
@@ -4013,6 +4031,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     store32(0x800000F4, bi2_address);
     DCFlushRange(reinterpret_cast<void*>(0x800000E0), 32);
     dolboot_system_call_vector();
+    if (codes_first && !debug_off("prerun")) run_codes_before_game();
     reinterpret_cast<void (*)()>(dol.entry)();
     error = "the game's entry point returned";
     return false;
