@@ -16,30 +16,21 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** EA's 007 GameCube games: Agent Under Fire and Everything or Nothing now start, and the Wii Remote works in NightFire's missions and Everything or Nothing. USB controllers such as the DualShock 3 and 4 now work without a file on the SD card. Every RiftWii offers this update by itself (Settings > Check for a new version).
-
-![007 Agent Under Fire's main menu]({{SCREENSHOTS}}2610-007-agent-under-fire.png)
-
-![007 Everything or Nothing]({{SCREENSHOTS}}2610-007-everything-or-nothing.png)
-
-![007 NightFire's first mission]({{SCREENSHOTS}}2610-007-nightfire.png)
+**RiftWii {{VERSION}}.** A fix for games that wouldn't start after copying a disc. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
 ## What changed
 
-- **007 Agent Under Fire (GameCube) starts.** The game loads its parts from the disc, and each part begins with two short setup steps that RiftWii used to refuse to patch around. It now takes over just after them.
-- **007 Everything or Nothing (GameCube) starts.** Its start-up program stopped on a black screen. It switches to the main game by restarting the console into it, an older way of doing that which RiftWii now recognises: the game goes back through RiftWii for a moment, which starts it again straight into the main game.
-- **The Wii Remote works where a GameCube game keeps checking an empty controller port.** Some games ask the empty port 1 again and again whether a controller is there, and RiftWii used to leave that port to a GameCube controller that never came, so the Wii Remote did nothing. Everything or Nothing's menus and NightFire's missions take the Wii Remote now. A GameCube controller plugged in later still gets its port back.
-- **USB controllers work out of the box.** RiftWii now carries the layouts from Nintendont's controller collection, about 40 pads: the DualShock 3, both DualShock 4 models, the DualSense and DualSense Edge, Logitech's F310 and RumblePad 2, the Nvidia Shield controller, and several 8BitDo, Mayflash, Hori, Thrustmaster and arcade-stick models. Plug the pad in before starting a game. A layout file of your own on the SD card (`sd:/riftwii/controllers/VID_PID.ini`) still comes first.
+- **Games start after Copy a game disc.** To copy a disc, RiftWii restarts itself under a cIOS. After that, some games (Super Mario Galaxy 2 among them) failed to start in the same session with "the apploader asked for a load outside RAM". RiftWii now sets up the memory a game's start-up code reads itself, as the Wii Menu does, so they start.
 
 ## What to test
 
-1. **007 Agent Under Fire, Everything or Nothing and NightFire** with a Wii Remote: start a mission, then try the menus and the pause menu.
-2. **Everything or Nothing's start**: it should go back to RiftWii for a moment and then start the main game by itself.
-3. **A USB controller with no file on the SD card**, a DualShock 3 or 4 especially: does it move and press buttons in a GameCube game?
+1. **Copy a game disc, then start the copy straight away** without restarting RiftWii, Super Mario Galaxy 2 especially.
 
 ## Known issues
 
-- **Everything or Nothing's THX and MGM logo movies** show in the wrong colours (dark red and green instead of gold and silver). The game itself and its other scenes look right.
-- **The DualShock 3 over USB** hasn't been confirmed to work: RiftWii sets it up, but no button presses have been seen from one yet.
+- **007 Everything or Nothing (GameCube)** goes back to RiftWii instead of starting its main game on some consoles. A problem report sent right after it lands back in RiftWii helps.
+- **007 NightFire (GameCube):** on a real Wii the Wii Remote can stop at the first mission, and HOME with − stops working too. A problem report helps (turn the Wii off, start RiftWii again, then send it).
+- **Everything or Nothing's THX and MGM logo movies** show in the wrong colours.
+- **The DualShock 3 over USB** hasn't been confirmed to work yet.
 - **USB gamepads:** `MultiIn` 2 to 4 and pads that pack their sticks in their own way aren't supported yet.
 - **The Wii U GamePad** works in the menu only when RiftWii runs as a Wii VC inject, and never in games.

@@ -17,22 +17,14 @@ Rewrite it for every release and delete the line below.
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-New:
+Fixed:
 
-* 007 Agent Under Fire and Everything or Nothing (GameCube) start now
-* The Wii Remote works in NightFire's missions and Everything or Nothing's menus
-* USB controllers work without a file on the SD card: about 40 pads built in, DualShock 3 and 4, DualSense, Logitech, 8BitDo, Mayflash and more
+* Games start after Copy a game disc: Super Mario Galaxy 2 and others failed with "the apploader asked for a load outside RAM" when started in the same session as a copy
 
 To test, please:
 
-1. The three 007 GameCube games with a Wii Remote: start a mission, use the menus and the pause menu
-2. Everything or Nothing should go back to RiftWii for a moment, then start the main game by itself
-3. A USB pad with no file on the SD card, a DualShock 3 or 4 especially: does it work in a GameCube game?
+1. Copy a game disc, then start the copy straight away without restarting RiftWii
 
-Known: Everything or Nothing's THX and MGM logo movies have the wrong colours.
+Still looking into: 007 Everything or Nothing going back to RiftWii, and NightFire's Wii Remote stopping at the first mission. A problem report from each helps a lot.
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
-
-![007 Agent Under Fire](docs/screenshots/2610-007-agent-under-fire.png)
-![007 Everything or Nothing](docs/screenshots/2610-007-everything-or-nothing.png)
-![007 NightFire](docs/screenshots/2610-007-nightfire.png)
