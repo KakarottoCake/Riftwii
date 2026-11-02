@@ -646,8 +646,11 @@ void find_way_back(const DolHeader& dol, const std::vector<CodeRange>& text, Pad
          out.suspend_thread != 0 ? "at " : "not found, ", out.suspend_thread);
 }
 
-// The HOME Menu's three functions (riftwii/hbmsearch.hpp): the KPAD read,
-// WPADProbe and HBMCalc. Any missing: the combo stays the way back.
+// The HOME Menu's four functions (riftwii/hbmsearch.hpp): the KPAD read,
+// WPADProbe, HBMCalc and HBMGetSelectBtnNum. Any missing: the combo stays
+// the way back. HBMGetSelectBtnNum is what tells the Operations Guide from
+// Close: without it, the stand-in would end when the guide opens and leave
+// it without a controller.
 void find_home_menu(const DolHeader& dol, const std::vector<CodeRange>& text, PadHook& out) {
     std::vector<CodeRange> all;
     for (std::size_t i = 0; i < kDolSections; ++i) {
@@ -657,7 +660,11 @@ void find_home_menu(const DolHeader& dol, const std::vector<CodeRange>& text, Pa
     const KpadRead kpad = find_kpad_read(text);
     const std::uint32_t probe = find_wpad_probe(text);
     const HbmFunctions hbm = find_hbm_functions(text, all, find_small_data_base(all, dol.entry));
-    const char* missing = kpad.address == 0 ? "the KPAD read" : probe == 0 ? "WPADProbe" : hbm.calc == 0 ? "HBMCalc" : nullptr;
+    const char* missing = kpad.address == 0 ? "the KPAD read"
+                          : probe == 0      ? "WPADProbe"
+                          : hbm.calc == 0   ? "HBMCalc"
+                          : hbm.select == 0 ? "HBMGetSelectBtnNum"
+                                            : nullptr;
     if (missing != nullptr) {
         logf("GameCube adapter: no HOME Menu by the controller (the combo is the way back): %s was not found\n", missing);
         return;
@@ -669,9 +676,9 @@ void find_home_menu(const DolHeader& dol, const std::vector<CodeRange>& text, Pa
     out.hbm_calc = hbm.calc;
     out.hbm_select = hbm.select;
     logf("GameCube adapter: the HOME Menu by the controller: the KPAD read at 0x%08x (%u-byte statuses%s), "
-         "WPADProbe at 0x%08x, HBMCalc at 0x%08x, HBMGetSelectBtnNum %s0x%08x\n",
+         "WPADProbe at 0x%08x, HBMCalc at 0x%08x, HBMGetSelectBtnNum at 0x%08x\n",
          kpad.address, kpad.status_bytes, kpad.takes_error ? ", with the error's address" : "", probe, hbm.calc,
-         hbm.select != 0 ? "at " : "not found, ", hbm.select);
+         hbm.select);
 }
 
 }  // namespace
@@ -1094,14 +1101,16 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
     Site& submit_site = sites[2];
     Site& sleep_site = sites[3];
     Site& suspend_site = sites[4];
-    Site* const home_sites[3] = {&sites[5], &sites[6], &sites[7]};
-    Site& select_site = sites[8];  // optional: without it a menu ended on a button counts as closed
+    Site* const home_sites[4] = {&sites[5], &sites[6], &sites[7], &sites[8]};
     const auto is_home_site = [&](const Site& s) {
-        return &s == home_sites[0] || &s == home_sites[1] || &s == home_sites[2];
+        for (const Site* home_site : home_sites)
+            if (&s == home_site) return true;
+        return false;
     };
-    // The HOME Menu needs all three of its hooks: without one, none goes in
-    // and the combo stays the way back.
-    bool home = hook.kpad_read != 0 && hook.wpad_probe != 0 && hook.hbm_calc != 0;
+    // The HOME Menu needs all four of its hooks: without one, none goes in
+    // and the combo stays the way back (find_home_menu says why
+    // HBMGetSelectBtnNum is one of them).
+    bool home = hook.kpad_read != 0 && hook.wpad_probe != 0 && hook.hbm_calc != 0 && hook.hbm_select != 0;
     const auto home_off = [&](const char* name, const std::string& reason) {
         if (!home) return;
         logf("GameCube adapter: no HOME Menu by the controller (the combo is the way back): %s %s\n", name,
@@ -1138,8 +1147,6 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
                 logf("GameCube adapter: PADControlMotor cannot be hooked (%s); no rumble\n", reason.c_str());
             } else if (is_home_site(s)) {
                 home_off(s.name, "cannot be hooked (" + reason + ")");
-            } else if (&s == &select_site) {
-                logf("GameCube adapter: HBMGetSelectBtnNum cannot be hooked (%s)\n", reason.c_str());
             } else if (&s == &suspend_site) {
                 logf("GameCube adapter: OSSuspendThread cannot be hooked (%s); the way back leaves only from sleeps\n",
                      reason.c_str());
@@ -1156,7 +1163,6 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
     }
     if (!home) {
         for (Site* s : home_sites) s->function = 0;
-        select_site.function = 0;
     }
     sync_code(hook.code_base, hook.code_bytes);
     unsigned veneers = 0;

@@ -251,6 +251,10 @@ static void pad_leave_check(struct rt_pad_context* c, const uint8_t* status, uin
     uint32_t resident_last_write;
     const int held = rtleave_held(status);
     if (c->home_on) {
+        /* Saves that end while the HOME Menu is up are noted as they end,
+         * not at its first PADRead after, which would make the way back
+         * wait one more quiet stretch. */
+        if (c->return_to_menu != 0) pad_check_pending(c, t);
         pad_home_check(c, status, t);
         return;
     }

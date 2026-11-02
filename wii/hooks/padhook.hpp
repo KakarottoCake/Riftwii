@@ -108,7 +108,7 @@ struct PadHook {
     bool kpad_takes_error = false;        // its fourth argument is the error's address
     std::uint32_t wpad_probe = 0;         // WPADProbe
     std::uint32_t hbm_calc = 0;           // HBMCalc
-    std::uint32_t hbm_select = 0;         // HBMGetSelectBtnNum, 0: the Operations Guide can't be told from Close
+    std::uint32_t hbm_select = 0;         // HBMGetSelectBtnNum, which tells the Operations Guide from Close (required)
 };
 
 // Opens /dev/usb/hid on RiftWii's own handle and tells v4 from v5.
