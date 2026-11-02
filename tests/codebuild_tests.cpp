@@ -214,11 +214,17 @@ void test_runs_before_start() {
     EXPECT_FALSE(runs(gct({0xC2001000, 0xFFFFFFFF, 0x60000000, 0x00000000})));
     EXPECT_FALSE(runs(gct({0x06001000, 0xFFFFFFFF, 0x11223344, 0x55667788})));
     // Writes into the loader: a word at its start, a branch in it, bytes
-    // running into it, and a write there after E0 moved the base.
+    // running into it, and one after E0 set a base (kept to its top seven
+    // bits, so 0x80A00000 is 0x80000000 and its 0x10 is low memory).
     EXPECT_FALSE(runs(gct({0x04A00000, 0x60000000})));
     EXPECT_FALSE(runs(gct({0xC3000010, 0x00000001, 0x60000000, 0x00000000})));
     EXPECT_FALSE(runs(gct({0x009FFFFE, 0x00040011})));
-    EXPECT_FALSE(runs(gct({0xE0000000, 0x80A00000, 0x04000010, 0x00000001})));
+    EXPECT_FALSE(runs(gct({0xE0000000, 0x80A00000, 0x04A00010, 0x00000001})));
+    EXPECT_TRUE(runs(gct({0xE0000000, 0x80A00000, 0x04000010, 0x00000001})));
+    // A base above the loader that the handler masks back to 0x80000000,
+    // and a word write aligned down into the loader.
+    EXPECT_FALSE(runs(gct({0xE0000000, 0x81800000, 0x04A00000, 0x00000001})));
+    EXPECT_FALSE(runs(gct({0x04A00002, 0x00000001})));
     // Right up to it, and the 0x01000000 bit's address above MEM1's end.
     EXPECT_TRUE(runs(gct({0x049FFFFC, 0x00000001})));
     EXPECT_TRUE(runs(gct({0x05800000, 0x00000001})));

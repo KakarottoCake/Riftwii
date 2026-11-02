@@ -421,6 +421,8 @@ bool codes_run_first(bool debugger_handler, bool start_file_pending) {
         logf("Codes: the WiiRD debugger's handler starts with the game, not before it\n");
     } else if (start_file_pending) {
         logf("Codes: the cheats start with the game, after its start file is in place\n");
+    } else if (g_extras.cheat_gct.empty()) {
+        // No cheats (the WiiRD setting on, no USB Gecko): nothing to run.
     } else if (!gct_runs_before_start(g_extras.cheat_gct, kLoaderStart, kMem1End)) {
         // Before the game nothing of it is set up: a code that runs
         // instructions or follows the game's pointers could fault, and this
