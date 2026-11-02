@@ -3,8 +3,10 @@
 #include "riftwii/hidconfig.hpp"
 #include "rtgcad.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
+#include <initializer_list>
 #include <cstring>
 #include <iostream>
 #include <string>
@@ -726,6 +728,233 @@ void XboxPads() {
     for (const std::int32_t device : carried.devices_asked) CHECK(device != kDrive);
 }
 
+// A wired Switch Pro Controller's input report (0x30): buttons at 3 to 5,
+// then each stick's two 12-bit values packed in three bytes.
+std::array<std::uint8_t, 64> SwitchReport(std::uint8_t right, std::uint8_t middle, std::uint8_t left,
+                                          unsigned lx = 2048, unsigned ly = 2048, unsigned rx = 2048,
+                                          unsigned ry = 2048, std::uint8_t id = 0x30) {
+    std::array<std::uint8_t, 64> report{};
+    const auto pack = [&report](unsigned at, unsigned x, unsigned y) {
+        report[at] = static_cast<std::uint8_t>(x & 0xFF);
+        report[at + 1] = static_cast<std::uint8_t>(((x >> 8) & 0x0F) | ((y & 0x0F) << 4));
+        report[at + 2] = static_cast<std::uint8_t>(y >> 4);
+    };
+    report[0] = id;
+    report[2] = 0x91;  // battery and connection: not read
+    report[3] = right;
+    report[4] = middle;
+    report[5] = left;
+    pack(6, lx, ly);
+    pack(9, rx, ry);
+    return report;
+}
+
+void SwitchReports() {
+    rthid_mapping mapping{};
+    gcad_switch_mapping(&mapping);
+    CHECK(rthid_valid(&mapping));
+    CHECK(mapping.vid == 0x057E && mapping.pid == 0x2009 && mapping.polltype == 1);
+    CHECK(mapping.report_bytes == GCAD_SWITCH_REPORT_BYTES && mapping.rumble_bytes == 0);
+
+    // At rest, near the middle: the top 8 bits of each 12-bit value.
+    auto report = SwitchReport(0, 0, 0, 2048, 2047, 0x7A5, 0x83F);
+    std::uint8_t sticks[4]{};
+    CHECK(gcad_switch_sticks(report.data(), report.size(), sticks));
+    CHECK(sticks[0] == 0x80 && sticks[1] == 0x7F && sticks[2] == 0x7A && sticks[3] == 0x83);
+    gcad_pad pad{};
+    CHECK(gcad_switch_decode(report.data(), report.size(), sticks, &pad));
+    CHECK(pad.buttons == 0 && pad.trigger_l == 0 && pad.trigger_r == 0);
+    CHECK(pad.stick_x == 0 && pad.stick_y == 0 && pad.substick_x == 0 && pad.substick_y == 0);
+    CHECK(pad.wireless == 1);  // no motor: rumble is not sent to it
+
+    // Every button the layout uses: A, B, X, Y; R as Z; ZR and ZL as R and
+    // L all the way down; + as Start; the D-pad.
+    report = SwitchReport(0xFF & ~0x30, 0x02, 0x0F | 0x80);
+    CHECK(gcad_switch_decode(report.data(), report.size(), sticks, &pad));
+    CHECK(pad.buttons == (GCAD_PAD_A | GCAD_PAD_B | GCAD_PAD_X | GCAD_PAD_Y | GCAD_PAD_Z | GCAD_PAD_R |
+                          GCAD_PAD_L | GCAD_PAD_START | GCAD_PAD_UP | GCAD_PAD_DOWN | GCAD_PAD_LEFT |
+                          GCAD_PAD_RIGHT));
+    CHECK(pad.trigger_l == 255 && pad.trigger_r == 255);
+    report = SwitchReport(0x08, 0, 0x02);
+    CHECK(gcad_switch_decode(report.data(), report.size(), sticks, &pad));
+    CHECK(pad.buttons == (GCAD_PAD_A | GCAD_PAD_UP) && pad.trigger_l == 0 && pad.trigger_r == 0);
+    // Left free: L, -, the stick clicks, HOME, Capture (and a Joy-Con's SL and SR).
+    report = SwitchReport(0x30, 0x01 | 0x04 | 0x08 | 0x10 | 0x20, 0x40 | 0x30);
+    CHECK(gcad_switch_decode(report.data(), report.size(), sticks, &pad));
+    CHECK(pad.buttons == 0);
+
+    // Sticks against the origin: about 1,500 of the 12-bit range each way
+    // is a GameCube stick's 104 at its gate; up is positive, as on a
+    // GameCube controller; past that it stops at 127.
+    const std::uint8_t middle[4] = {0x80, 0x80, 0x7A, 0x7A};
+    report = SwitchReport(0, 0, 0, 2056 + 1500, 2056 - 1500, 0x7A8 + 750, 4095);
+    CHECK(gcad_switch_decode(report.data(), report.size(), middle, &pad));
+    CHECK(pad.stick_x == 104 && pad.stick_y == -104);
+    CHECK(pad.substick_x == 52 && pad.substick_y == 127);
+    report = SwitchReport(0, 0, 0, 0, 2056, 0x7A8, 0x7A8);
+    CHECK(gcad_switch_decode(report.data(), report.size(), middle, &pad));
+    CHECK(pad.stick_x == -127 && pad.stick_y == 0 && pad.substick_x == 0 && pad.substick_y == 0);
+
+    // A subcommand's answer (0x21) starts like an input report; an answer
+    // to a start-up message (0x81) and a short report carry no input.
+    report = SwitchReport(0x04, 0, 0, 2048, 2048, 2048, 2048, 0x21);
+    CHECK(gcad_switch_decode(report.data(), report.size(), sticks, &pad) && pad.buttons == GCAD_PAD_B);
+    report = SwitchReport(0x08, 0, 0, 2048, 2048, 2048, 2048, 0x81);
+    CHECK(!gcad_switch_sticks(report.data(), report.size(), sticks));
+    CHECK(!gcad_switch_decode(report.data(), report.size(), middle, &pad));
+    report = SwitchReport(0x08, 0, 0);
+    CHECK(!gcad_switch_decode(report.data(), GCAD_SWITCH_REPORT_BYTES - 1, middle, &pad));
+
+    CHECK(riftwii::describe_hid_diagnostic(GCAD_SWITCH_VID_PID, GCAD_HID_SWITCH | (1u << 8), 0).find(
+              "status answered, handshake not answered") != std::string::npos);
+    CHECK(riftwii::describe_hid_diagnostic(GCAD_SWITCH_VID_PID, GCAD_HID_OUTPUT | (1u << 8), -22).find(
+              "Switch Pro start-up message was not sent") != std::string::npos);
+    CHECK(riftwii::describe_hid_diagnostic(0x054C0268, GCAD_HID_OUTPUT, 0).find("PS3") != std::string::npos);
+}
+
+// The Switch Pro's start-up on a pad link: 80 01 and 80 02, each answer
+// read before the next message, then 80 04 and the subcommand for full
+// reports, then input once the sticks' origin is taken.
+void SwitchPad(unsigned version) {
+    const unsigned input = GCAD_TAGS + GCAD_TAG_IN;
+    const unsigned output = GCAD_TAGS + GCAD_TAG_OUT;
+    Bus bus(version);
+    gcad_switch_mapping(&bus.hub.catalog.maps[0]);
+    bus.hub.adapter.adapter_disabled = 1;
+    bus.List({{11, GCAD_SWITCH_VID_PID}});
+    bus.Settle();
+    auto& driver = bus.hub.pads[0];
+    const auto answer = [&](std::uint8_t command) {
+        std::memset(driver.in_data, 0, sizeof(driver.in_data));
+        driver.in_data[0] = 0x81;
+        driver.in_data[1] = command;
+        bus.Reply(input, 64);
+    };
+    const auto send = [&](const std::array<std::uint8_t, 64>& report) {
+        std::memcpy(driver.in_data, report.data(), report.size());
+        bus.Reply(input, 64);
+    };
+    const auto sent = [&](unsigned index, std::initializer_list<std::uint8_t> bytes) {
+        if (bus.outputs.size() <= index) return false;
+        const auto& out = bus.outputs[index];
+        return out.bytes == bytes.size() && std::equal(bytes.begin(), bytes.end(), out.payload.begin());
+    };
+    // The status message is out and answered by the time it is read.
+    CHECK(driver.link == GCAD_LINK_INIT && driver.endpoint_out == 0x04 && driver.input_bytes == 64);
+    CHECK(bus.outputs.size() == 1 && sent(0, {0x80, 0x01}));
+    CHECK(bus.requests[input].pending && !bus.requests[output].pending);
+    // The pad's own status announcement from being plugged in, then the answer.
+    answer(0x01);
+    CHECK(bus.outputs.size() == 2 && sent(1, {0x80, 0x02}));
+    CHECK(!bus.requests[input].pending && bus.requests[output].pending);
+    bus.Reply(output, 2);
+    CHECK(bus.requests[input].pending);
+    send(SwitchReport(0, 0, 0));  // something else: read again
+    CHECK(bus.requests[input].pending && bus.outputs.size() == 2);
+    answer(0x02);
+    CHECK(bus.outputs.size() == 3 && sent(2, {0x80, 0x04}));
+    bus.Reply(output, 2);
+    // No answer to 80 04: the subcommand for full reports follows at once.
+    CHECK(bus.outputs.size() == 4 &&
+          sent(3, {0x01, 0x00, 0x00, 0x01, 0x40, 0x40, 0x00, 0x01, 0x40, 0x40, 0x03, 0x30}));
+    CHECK(!bus.requests[input].pending);
+    bus.Reply(output, 12);
+    CHECK(driver.link == GCAD_LINK_POLL && bus.requests[input].pending);
+    CHECK(bus.Count(GCAD_HID_SWITCH) == 1 && bus.Count(GCAD_HID_POLL) == 1);
+    for (const auto& diagnostic : bus.diagnostics) {
+        if (diagnostic.step == GCAD_HID_SWITCH) CHECK(diagnostic.detail == 3);
+    }
+
+    // The sticks' origin takes three steady readings at rest; until then
+    // the pad stays out of the ports.
+    gcad_pad pads[GCAD_PORTS]{};
+    send(SwitchReport(0x08, 0, 0, 0x7A0, 0x845));
+    send(SwitchReport(0x08, 0, 0, 0x7A2, 0x846));
+    CHECK(gcad_read_ports(&bus.hub.adapter, 0, pads, bus.clock) == 0);
+    send(SwitchReport(0x08, 0, 0, 0x7A1, 0x845));
+    CHECK(gcad_read_ports(&bus.hub.adapter, 0, pads, bus.clock) == 1);
+    CHECK(pads[0].buttons == GCAD_PAD_A && pads[0].stick_x == 0 && pads[0].stick_y == 0);
+    // The answers and the subcommand's own 0x21 are no bad reports.
+    answer(0x01);
+    CHECK(driver.bad_reports == 0 && bus.Count(GCAD_HID_SHORT) == 0);
+    // Pushed all the way right, from that origin.
+    send(SwitchReport(0x80, 0x02, 0, 0x7A8 + 1500, 0x848));
+    CHECK(gcad_read_ports(&bus.hub.adapter, 0, pads, bus.clock) == 1);
+    CHECK(pads[0].buttons == (GCAD_PAD_R | GCAD_PAD_START) && pads[0].trigger_r == 255);
+    CHECK(pads[0].stick_x == 104 && pads[0].stick_y == 0);
+    // The game's rumble is not sent: the pad has no motor as RiftWii sees it.
+    gcad_rumble(&bus.hub.adapter, 0, 1);
+    send(SwitchReport(0, 0, 0));
+    CHECK(!bus.requests[output].pending && bus.outputs.size() == 4);
+    // Unplugged: the poll fails, and the next list drops it.
+    bus.Reply(input, -7022);
+    CHECK(driver.link == GCAD_LINK_FAILED);
+    bus.List({});
+    CHECK(driver.dev_id == GCAD_NO_DEVICE);
+}
+
+// A pad the menu already started: no answer to the handshake (and here
+// none to the status). Each message waits GCAD_CTRL_MS for its answer,
+// a late answer while the next message is out is let go, and the one read
+// left out becomes the first poll.
+void SwitchPadStarted() {
+    const unsigned input = GCAD_TAGS + GCAD_TAG_IN;
+    const unsigned output = GCAD_TAGS + GCAD_TAG_OUT;
+    Bus bus(5);
+    gcad_switch_mapping(&bus.hub.catalog.maps[0]);
+    bus.List({{11, GCAD_SWITCH_VID_PID}});
+    bus.Settle();
+    auto& driver = bus.hub.pads[0];
+    CHECK(driver.link == GCAD_LINK_INIT && bus.outputs.size() == 1 && bus.requests[input].pending);
+    bus.clock += GCAD_CTRL_MS - 1;
+    gcad_tick(&bus.hub.adapter, bus.clock);
+    CHECK(bus.outputs.size() == 1);
+    bus.clock += 1;
+    gcad_tick(&bus.hub.adapter, bus.clock);
+    CHECK(bus.outputs.size() == 2 && bus.outputs[1].payload[1] == 0x02 && bus.requests[output].pending);
+    // The status answer, late, while 80 02 is out: let go, no read now.
+    std::memset(driver.in_data, 0, sizeof(driver.in_data));
+    driver.in_data[0] = 0x81;
+    driver.in_data[1] = 0x01;
+    bus.Reply(input, 64);
+    CHECK(!bus.requests[input].pending);
+    bus.Reply(output, 2);
+    CHECK(bus.requests[input].pending);
+    bus.clock += GCAD_CTRL_MS;
+    gcad_tick(&bus.hub.adapter, bus.clock);
+    CHECK(bus.outputs.size() == 3 && bus.outputs[2].payload[1] == 0x04);
+    bus.Reply(output, 2);
+    bus.Reply(output, 12);
+    CHECK(driver.link == GCAD_LINK_POLL && bus.requests[input].pending);
+    for (const auto& diagnostic : bus.diagnostics) {
+        if (diagnostic.step == GCAD_HID_SWITCH) CHECK(diagnostic.detail == 0);
+    }
+    for (unsigned i = 0; i < 3; ++i) {
+        const auto report = SwitchReport(0x02, 0, 0);
+        std::memcpy(driver.in_data, report.data(), report.size());
+        bus.Reply(input, 64);
+    }
+    gcad_pad pads[GCAD_PORTS]{};
+    CHECK(gcad_read_ports(&bus.hub.adapter, 0, pads, bus.clock) == 1 && pads[0].buttons == GCAD_PAD_X);
+
+    // Input already flowing while it waits for an answer: after
+    // SWITCH_READS reads of it the next message goes.
+    Bus flowing(4);
+    gcad_switch_mapping(&flowing.hub.catalog.maps[0]);
+    flowing.List({{11, GCAD_SWITCH_VID_PID}});
+    flowing.Settle();
+    auto& streaming = flowing.hub.pads[0];
+    CHECK(streaming.link == GCAD_LINK_INIT && flowing.outputs.size() == 1);
+    for (unsigned i = 0; i < 8; ++i) {
+        CHECK(flowing.requests[input].pending && flowing.outputs.size() == 1);
+        const auto report = SwitchReport(0, 0, 0);
+        std::memcpy(streaming.in_data, report.data(), report.size());
+        flowing.Reply(input, 64);
+    }
+    CHECK(flowing.outputs.size() == 2 && flowing.outputs[1].payload[0] == 0x80 &&
+          flowing.outputs[1].payload[1] == 0x02);
+}
+
 // A failing device list is asked again every GCAD_RESCAN_MS: each kind of
 // discovery record (asked, answered) repeats only with a new result, so a
 // game whose trace writes stall cannot fill its queue with them.
@@ -837,6 +1066,10 @@ int main() {
     RumbleAndControl();
     XboxReports();
     XboxPads();
+    SwitchReports();
+    SwitchPad(4);
+    SwitchPad(5);
+    SwitchPadStarted();
     DiscoveryRepeats();
     if (failures) std::cerr << failures << " failures\n";
     return failures ? 1 : 0;

@@ -244,6 +244,7 @@ std::string describe_hid_diagnostic(std::uint32_t id, std::uint32_t diagnostic, 
                   static_cast<unsigned>(id >> 16), static_cast<unsigned>(id & 65535u));
     char text[256];
     const char* action = nullptr;
+    const bool switch_pro = id == GCAD_SWITCH_VID_PID;
     switch (step) {
         case GCAD_HID_RESUME:
             if (result == -4 && !detail) {
@@ -263,7 +264,11 @@ std::string describe_hid_diagnostic(std::uint32_t id, std::uint32_t diagnostic, 
             std::snprintf(text, sizeof(text), "interface %u is not a controller interface, left alone.", detail);
             break;
         case GCAD_HID_WAKE: action = "PS3 feature-report wake-up"; break;
-        case GCAD_HID_OUTPUT: action = "PS3 initial output report"; break;
+        case GCAD_HID_OUTPUT: action = switch_pro ? "Switch Pro start-up message" : "PS3 initial output report"; break;
+        case GCAD_HID_SWITCH:
+            std::snprintf(text, sizeof(text), "start-up messages sent (status %s, handshake %s); reading input.",
+                          detail & 1u ? "answered" : "not answered", detail & 2u ? "answered" : "not answered");
+            break;
         case GCAD_HID_LED: action = "PS3 LED and motor output report"; break;
         case GCAD_HID_POLL:
             std::snprintf(text, sizeof(text), "first input poll %s (result %d).",
@@ -292,7 +297,8 @@ std::string describe_hid_diagnostic(std::uint32_t id, std::uint32_t diagnostic, 
         case GCAD_HID_TIMEOUT:
             std::snprintf(text, sizeof(text), "setup is waiting for %s (no reply).",
                           detail == GCAD_STEP_RESUME ? "resume" : detail == GCAD_STEP_INFO ? "device info" :
-                          detail == GCAD_STEP_CTRL ? "the PS3 wake-up" : "the PS3 output report");
+                          detail == GCAD_STEP_CTRL ? "the PS3 wake-up" :
+                          switch_pro ? "the Switch Pro start-up" : "the PS3 output report");
             break;
         default:
             std::snprintf(text, sizeof(text), "setup stopped at stage %u (result %d); it will try again.", detail, static_cast<int>(result));

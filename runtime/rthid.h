@@ -83,6 +83,10 @@ struct gcad_pad;
 int rthid_valid(const rthid_mapping* mapping);
 int rthid_catalog_valid(const rthid_catalog* catalog);
 const rthid_mapping* rthid_find(const rthid_catalog* catalog, uint32_t vid_pid);
+/* A built-in pad's mapping, with no config file: only its IDs, its report
+ * length and the interrupt poll are used, and the pad's own decoder in
+ * rtgcad.c reads its reports. Valid for rthid_valid, decoding to nothing. */
+void rthid_builtin(rthid_mapping* m, uint32_t vid_pid, uint16_t report_bytes);
 int rthid_decode(const rthid_mapping* mapping, const uint8_t* report,
                  uint32_t bytes, struct gcad_pad* out);
 #ifdef __cplusplus

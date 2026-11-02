@@ -402,8 +402,16 @@ void Drain() {
                                          : how == GCAD_ORIGIN_MIDDLE ? "centre: middle (held at start)"
                                          : how == GCAD_ORIGIN_RECAL  ? "centre: X+Y+Start"
                                                                      : "centre: at rest";
-                logf("GameCube adapter: port %u %s: stick %u,%u C %u,%u L/R %u,%u\n",
-                     static_cast<unsigned>(e.a & 0xFF) + 1, what, static_cast<unsigned>(sticks >> 24),
+                // A USB pad's (the Switch Pro's) comes from its own link,
+                // port 0 of it; the GameCube port it plays on is logged apart.
+                char who[48];
+                if (e.pad) {
+                    std::snprintf(who, sizeof(who), "USB controller %04x:%04x:", static_cast<unsigned>(e.pad >> 16),
+                                  static_cast<unsigned>(e.pad & 65535u));
+                } else {
+                    std::snprintf(who, sizeof(who), "GameCube adapter: port %u", static_cast<unsigned>(e.a & 0xFF) + 1);
+                }
+                logf("%s %s: stick %u,%u C %u,%u L/R %u,%u\n", who, what, static_cast<unsigned>(sticks >> 24),
                      static_cast<unsigned>((sticks >> 16) & 0xFF), static_cast<unsigned>((sticks >> 8) & 0xFF),
                      static_cast<unsigned>(sticks & 0xFF), static_cast<unsigned>((e.a >> 16) & 0xFF),
                      static_cast<unsigned>(e.a >> 24));

@@ -18,6 +18,32 @@ int gcad_xbox_vendor(uint32_t vid) {
            vid == 0x3767 || vid == 0x044F || vid == 0x046D;
 }
 
+void rthid_builtin(rthid_mapping* m, uint32_t vid_pid, uint16_t report_bytes) {
+    volatile uint8_t* bytes = (volatile uint8_t*)m;  /* volatile: not turned into a memset call */
+    uint32_t i;
+    for (i = 0; i < sizeof(*m); ++i) bytes[i] = 0;
+    m->version = RTHID_VERSION;
+    m->bytes = sizeof(*m);
+    m->vid = (uint16_t)(vid_pid >> 16);
+    m->pid = (uint16_t)vid_pid;
+    m->report_bytes = report_bytes;
+    m->polltype = 1;
+    m->analog_l = RTHID_ABSENT;
+    m->analog_r = RTHID_ABSENT;
+    for (i = 0; i < RTHID_BUTTONS; ++i) m->buttons[i].offset = RTHID_ABSENT;
+    for (i = 0; i < 4; ++i) {
+        m->axes[i].offset = RTHID_ABSENT;
+        m->axes[i].scale = 1000;
+    }
+}
+
+/* Here, not in rtgcad.c, as gcad_xbox_vendor: the menu's controller files
+ * call it without the driver. No rumble: the pad's own rumble messages
+ * are not sent (yet), so games see a controller without a motor. */
+void gcad_switch_mapping(rthid_mapping* m) {
+    rthid_builtin(m, GCAD_SWITCH_VID_PID, GCAD_SWITCH_REPORT_BYTES);
+}
+
 static int valid_offset(uint16_t offset, uint16_t bytes) {
     return offset == RTHID_ABSENT || offset < bytes;
 }
