@@ -43,7 +43,9 @@ def c_string(text):
 
 entries = {}
 for path in sorted(SRC.glob("*.ini")):
-    text = path.read_text(encoding="ascii")
+    # Line ends as LF whatever the checkout made them, so the output is the
+    # same on every machine.
+    text = path.read_text(encoding="ascii").replace("\r\n", "\n")
     vid, pid = value(text, "VID"), value(text, "PID")
     if vid is None or pid is None:
         raise SystemExit(f"{path.name}: no VID or PID")
