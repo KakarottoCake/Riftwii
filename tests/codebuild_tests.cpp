@@ -208,6 +208,9 @@ void test_runs_before_start() {
     // A search that keeps what it found, and a serial write.
     EXPECT_FALSE(runs(gct({0xF6000001, 0x80008180, 0x38000000, 0x00000000})));
     EXPECT_FALSE(runs(gct({0x08001000, 0x00000001, 0x20010004, 0x00000001})));
+    // A C2 with no instructions (the handler's branch back would land on
+    // the next code).
+    EXPECT_FALSE(runs(gct({0xC21C87E4, 0x00000000, 0x04001000, 0x00000001})));
     // A C2 whose lines run past the list's end, and no list at all.
     EXPECT_FALSE(runs(gct({0xC2001000, 0x00000004, 0x60000000, 0x00000000})));
     EXPECT_FALSE(runs(Bytes{}));
