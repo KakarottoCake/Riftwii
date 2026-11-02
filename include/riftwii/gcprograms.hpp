@@ -78,6 +78,17 @@ bool gc_sort_disc_patches(std::vector<GcDiscPatch>& patches, std::string& why);
 bool gc_program_entry_words(std::uint32_t entry, std::uint32_t first, std::uint32_t second, unsigned index,
                             std::uint32_t hook, std::uint32_t out[2], std::string& why);
 
+// Where a program's start is taken: its entry, or past the calls (bl) its
+// first words make, up to kGcProgramStartCalls of them. A call comes back,
+// so it runs in place before the take-over; replayed from the blob's slot
+// it would branch from the wrong place. EA's 007: Agent Under Fire's
+// programs begin "bl __init_registers; bl __init_hardware", which only set
+// up the registers and the processor, and are taken two words on. `words`
+// are the program's first `count` words from the entry; the place returned
+// leaves at least two of them to take.
+constexpr std::size_t kGcProgramStartCalls = 4;
+std::uint32_t gc_program_start(std::uint32_t entry, const std::uint32_t* words, std::size_t count);
+
 // Whether any relative branch in the code (b, bc, with or without link)
 // goes to `target`. A program whose code branches to its entry + 4 is not
 // taken over: that word becomes the jump to the blob, and only a start at

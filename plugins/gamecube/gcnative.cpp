@@ -456,6 +456,41 @@ std::uint32_t function_start(const Code& code, std::uint32_t at) {
     return 0;
 }
 
+// OSSetAlarm, when `called` is the DVD library's timeout helper in front
+// of it: a short function whose last call gets a fixed handler in r7
+// ("lis rX" then "addi r7,rX,..."), the helper's own; else `called`. A
+// build that keeps the helper as a function of its own (EA's 007
+// Everything or Nothing, boot.elf, an SDK build with its asserts on) calls
+// it from Seek in place of OSSetAlarm, and taken for OSSetAlarm it set the
+// helper's alarm with the blob's arguments: the assert on the ticks failed
+// and OSPanic stopped the game before its first picture. OSSetAlarm itself
+// passes its own handler on in a register, never a constant.
+std::uint32_t through_timeout_helper(const Code& code, std::uint32_t called) {
+    std::uint32_t last_target = 0;
+    bool last_gets_constant = false;  // the last call's r7 is a constant
+    bool handler_constant = false;    // r7 is a constant since the last call
+    std::uint32_t lis_register = 32;  // none
+    std::uint32_t a = called;
+    for (; code.has(a) && a - called < 0x80; a += 4) {
+        const std::uint32_t w = code.at(a);
+        if (w == 0x4E800020) break;
+        const unsigned op = w >> 26, d = (w >> 21) & 31, ra = (w >> 16) & 31;
+        if (const std::uint32_t target = bl_target(a, w)) {
+            last_target = target;
+            last_gets_constant = handler_constant;
+            handler_constant = false;
+            lis_register = 32;
+        } else if (op == 15 && ra == 0) {
+            lis_register = d;
+        } else if (op == 14 && d == 7 && ra == lis_register) {
+            handler_constant = true;
+        }
+    }
+    const bool short_function = code.has(a) && code.at(a) == 0x4E800020;
+    if (short_function && last_target != 0 && last_gets_constant) return last_target;
+    return called;
+}
+
 // Whether one of the sixteen instructions after `at` is "addi rD,`reg`,`value`"
 // or "ori rA,`reg`,`value`", before anything else loads `reg`. Most SDK
 // builds add right after the lis; Sonic Riders Tournament Edition (GXSRTE)
@@ -540,9 +575,11 @@ bool find_dvd_low(const Code& code, DvdLow& out, std::string& error) {
             out.read = f;
         }
     }
-    // OSSetAlarm: Seek's last call (its timeout alarm).
+    // OSSetAlarm: Seek's last call (its timeout alarm), or the call its
+    // timeout helper makes.
     for (std::uint32_t a = out.seek; code.has(a) && code.at(a) != 0x4E800020; a += 4)
         if (std::uint32_t t = bl_target(a, code.at(a))) out.set_alarm = t;
+    if (out.set_alarm != 0) out.set_alarm = through_timeout_helper(code, out.set_alarm);
     // DVDLowReset: near the others, toggles the DI reset bit in PI's reset
     // register (0xCC003024) with "ori 1" then "ori 5".
     code.each([&](std::uint32_t a, std::uint32_t w) {
@@ -3163,7 +3200,11 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             {
                 std::vector<CodeRange> data_ranges;
                 for (const Section& s : dol.data) data_ranges.push_back(CodeRange{s.address, s.bytes.data(), s.bytes.size()});
-                const std::uint32_t boot_dol = find_gc_boot_dol(code.ranges(), data_ranges);
+                // Or, in an SDK from before it, __OSReboot (find_gc_old_reboot):
+                // the blob then takes the program from 0x800030EC.
+                std::uint32_t boot_dol = find_gc_boot_dol(code.ranges(), data_ranges);
+                const bool old_reboot = boot_dol == 0 && (boot_dol = find_gc_old_reboot(code.ranges())) != 0;
+                const char* const boot_dol_name = old_reboot ? "__OSReboot" : "__OSBootDolSimple";
                 const unsigned first = boot_dol != 0 ? opcode(code.at(boot_dol)) : 0;
                 const bool boot_dol_branch = boot_dol != 0 && (first == 16 || first == 18);
                 // A game from a TGC image: exec.txt names programs by their offset
@@ -3204,16 +3245,17 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                 if (exec_sector != 0 && boot_dol_hookable) {
                     replay_hook(boot_dol, h.hook_boot_dol, h.replay_boot_dol, h.continue_boot_dol);
                     ctx->exec_sector = exec_sector;
-                    logf("GameCube: a switch to another program (__OSBootDolSimple 0x%08x) goes back through RiftWii, which "
+                    if (old_reboot) ctx->flags |= GC_FLAG_OLD_REBOOT;
+                    logf("GameCube: a switch to another program (%s 0x%08x) goes back through RiftWii, which "
                          "starts the image again with it (sd:/riftwii/gc/exec.txt, sector %u)\n",
-                         boot_dol, exec_sector);
+                         boot_dol_name, boot_dol, exec_sector);
                 } else if (exec_sector != 0 && exec_test_on) {
                     ctx->exec_sector = exec_sector;
                     logf("GameCube: the test of a program switch at the 1500th pad read (sd:/riftwii/gc/exec.txt, sector %u)\n",
                          exec_sector);
                 }
                 if (boot_dol != 0 && !(exec_sector != 0 && boot_dol_hookable)) {
-                    logf("GameCube: a switch to another program (__OSBootDolSimple 0x%08x) runs as made, unpatched: %s\n",
+                    logf("GameCube: a switch to another program (%s 0x%08x) runs as made, unpatched: %s\n", boot_dol_name,
                          boot_dol, boot_dol_off != nullptr ? boot_dol_off : why_not.c_str());
                 }
                 // The TGC images' programs, whose reads the blob watches. A sector
@@ -3554,26 +3596,47 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                 write_resident(resident_base);
                 patched = patch_program(program, program_code, program_low, false, 0, 0, {}, false, why);
             }
-            // Its start, to the blob: the first two words, as patched, run
-            // from the replay slot after gc_on_program_start.
+            // Its start, to the blob: two words, as patched, run from the
+            // replay slot after gc_on_program_start. The entry's, or those
+            // after the calls it begins with (gc_program_start).
+            std::uint32_t start = elf.entry;
+            if (patched) {
+                std::uint32_t first[kGcProgramStartCalls + 2] = {};
+                std::size_t count = 0;
+                while (count < kGcProgramStartCalls + 2 && program_code.has(elf.entry + 4 * count)) {
+                    first[count] = program_code.at(elf.entry + 4 * count);
+                    ++count;
+                }
+                start = gc_program_start(elf.entry, first, count);
+                if (start != elf.entry)
+                    logf("GameCube: the ELF program at disc offset 0x%08x calls %u function(s) first; taken after "
+                         "them, at 0x%08x\n",
+                         file.offset, static_cast<unsigned>((start - elf.entry) / 4), start);
+            }
             std::uint32_t entry_words[2] = {};
             if (patched)
-                patched = gc_program_entry_words(elf.entry, program_code.at(elf.entry), program_code.at(elf.entry + 4),
-                                                 index, blob_addr + h.hook_program, entry_words, why);
-            if (patched && gc_code_branches_to(program_code.ranges(), elf.entry + 4)) {
+                patched = gc_program_entry_words(start, program_code.at(start), program_code.at(start + 4), index,
+                                                 blob_addr + h.hook_program, entry_words, why);
+            if (patched && gc_code_branches_to(program_code.ranges(), start + 4)) {
                 why = "its code branches to its second word, which becomes the jump to the blob";
+                patched = false;
+            }
+            // Past the entry, a branch to the place taken would start the
+            // program a second time.
+            if (patched && start != elf.entry && gc_code_branches_to(program_code.ranges(), start)) {
+                why = "its code branches to the word after its first calls, which becomes the start's jump";
                 patched = false;
             }
             std::vector<GcDiscPatch> patches;
             if (patched) {
-                store32(blob_addr + h.replay_program, program_code.at(elf.entry));
-                store32(blob_addr + h.replay_program + 4, program_code.at(elf.entry + 4));
-                // The way back to the program's third word: lis r12,hi; ori r12,r12,lo.
-                const std::uint32_t third = elf.entry + 8;
+                store32(blob_addr + h.replay_program, program_code.at(start));
+                store32(blob_addr + h.replay_program + 4, program_code.at(start + 4));
+                // The way back to the third word taken: lis r12,hi; ori r12,r12,lo.
+                const std::uint32_t third = start + 8;
                 store32(blob_addr + h.continue_program, 0x3D800000 | (third >> 16));
                 store32(blob_addr + h.continue_program + 4, 0x618C0000 | (third & 0xFFFF));
-                program_code.put(elf.entry, entry_words[0]);
-                program_code.put(elf.entry + 4, entry_words[1]);
+                program_code.put(start, entry_words[0]);
+                program_code.put(start + 4, entry_words[1]);
                 std::vector<std::pair<std::uint32_t, std::uint32_t>> changed;
                 for (std::size_t s = 0; s < program.text.size(); ++s)
                     gc_changed_words(program.text[s].address, original.text[s].bytes, program.text[s].bytes, changed);
@@ -3597,7 +3660,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                 program_patches.insert(program_patches.end(), patches.begin(), patches.end());
                 logf("GameCube: the ELF program at disc offset 0x%08x is program %u: %u word(s) of it patched as "
                      "the game reads it, its start taken at 0x%08x\n",
-                     file.offset, index, static_cast<unsigned>(patches.size()), elf.entry);
+                     file.offset, index, static_cast<unsigned>(patches.size()), start);
             } else {
                 logf("GameCube: the file at disc offset 0x%08x (named .elf) runs as the disc has it, if the game "
                      "loads it: %s\n",

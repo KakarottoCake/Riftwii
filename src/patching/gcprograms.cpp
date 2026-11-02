@@ -208,6 +208,18 @@ bool gc_program_entry_words(std::uint32_t entry, std::uint32_t first, std::uint3
     return true;
 }
 
+std::uint32_t gc_program_start(std::uint32_t entry, const std::uint32_t* words, std::size_t count) {
+    std::size_t skipped = 0;
+    while (skipped < kGcProgramStartCalls && skipped + 2 < count) {
+        const std::uint32_t word = words[skipped];
+        // bl: a relative branch (opcode 18) that links and isn't absolute.
+        const bool call = (word >> 26) == 18 && (word & 3) == 1;
+        if (!call) break;
+        ++skipped;
+    }
+    return entry + static_cast<std::uint32_t>(4 * skipped);
+}
+
 bool gc_code_branches_to(const std::vector<CodeRange>& text, std::uint32_t target) {
     for (const CodeRange& range : text) {
         for (std::size_t i = 0; i + 4 <= range.size; i += 4) {
