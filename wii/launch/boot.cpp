@@ -2739,7 +2739,13 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         const bool low_veneers = resident_low_veneers || g_extras.code_list_start != 0;
         if (!install_cheats(loaded, options.memory_patches, keep_out, why, return_plan.code_list_end, low_veneers))
             logf("Codes are off: %s\n", why.c_str());
-        else codes_first = !g_extras.code_builds.empty();
+        else {
+            // A code build's codes, and a player's cheats unless the WiiRD
+            // debugger's handler runs (it waits for the PC, with pause, and
+            // only ever started with the game).
+            codes_first = !g_extras.code_builds.empty() || !g_extras.wiird_debugger;
+            if (codes_first) logf("Codes: the handler runs once before the game starts\n");
+        }
     }
     if (allow_game_patch(GamePatchKind::Fix480p, "480p fix")) {
         GxReport gx;
@@ -2820,6 +2826,16 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         // heaps) are in place before the game reads them at start. The
         // handler returns to its caller like the hooked function would.
         reinterpret_cast<void (*)()>(kCodeHandlerEntry)();
+        // Gecko's handler writes without flushing a cache. A code that
+        // rewrites the game's instructions stayed in the data cache while
+        // the game first ran the old ones from memory, and a function run
+        // every frame then kept them in the instruction cache: Mario Kart
+        // Wii's Classic Controller remaps (they patch __parse_cl_data) took
+        // effect only once opening HOME pushed that function out (issue
+        // #216). So what the codes wrote goes to memory, wherever in MEM1
+        // it is, and the game starts with an empty instruction cache.
+        DCStoreRange(reinterpret_cast<void*>(kMem1Start), kMem1End - kMem1Start);
+        ICFlashInvalidate();
     }
     if (!late.empty()) {
         // The start file's parts over this loader: the stub, its table and
