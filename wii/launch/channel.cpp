@@ -475,6 +475,12 @@ bool StartHomebrewApp(const std::string& path, const std::string& command_line, 
         }
     }
     plant_return_stub(dol, size);
+    // An app that loads over RiftWii itself (WiiSX, Wii64) is finished by
+    // a small copier in MEM2, as the Homebrew Channel does it.
+    if (const u32 far_at = dolboot_far_address(dol, static_cast<u32>(command_line.size()))) {
+        logf("Homebrew app: it loads over RiftWii's own memory, so a small copier at 0x%08x finishes starting it\n",
+             static_cast<unsigned>(far_at));
+    }
     LogClose();
     fatUnmount("sd:");
     // On the fresh IOS the menu's USB driver is closed for the app, which

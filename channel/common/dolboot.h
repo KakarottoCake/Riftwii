@@ -17,14 +17,21 @@ extern "C" {
 // a read that came up short goes back through `release`.
 u8* dolboot_read(const char* path, u32* size, void* (*alloc)(u32 size), void (*release)(void* data));
 
-// Whether the DOL's sections fit its file and land in MEM1, clear of this
-// program and of the file's own copy.
+// Whether the DOL's sections fit its file and land in MEM1's free part,
+// clear of the file's own copy. A DOL that lands on this program is
+// started through the far copy (dolboot.c), which then needs its room at
+// the top of MEM2's free part.
 bool dolboot_valid(const u8* dol, u32 size);
 
 // Shuts libogc down, copies the program into place and starts it, with
 // `argv0` as its argv[0]. The caller has closed its files first. Does
 // not return.
 void dolboot_run(const u8* dol, const char* argv0) __attribute__((noreturn));
+
+// Where dolboot_run_line will put the far copy for `dol` with an
+// argument line of `length` bytes (in MEM2), or 0 when the DOL lands
+// clear of this program and is copied by it, as before. For the log.
+u32 dolboot_far_address(const u8* dol, u32 length);
 
 void dolboot_run_line(const u8* dol, const char* line, u32 length) __attribute__((noreturn));
 

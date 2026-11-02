@@ -581,3 +581,16 @@ there. When the Wii Menu button is set to the Wii Menu, or the app loads over
 `0x80001800`–`0x80002400`, no stub is put and the exit goes to the Wii Menu.
 The start popup says where (all but an app over the stub, which only
 starting it shows), and `boot.log` says why.
+
+An app may fill MEM1 over RiftWii's own memory (`0x80A00000` up): WiiSX and
+Wii64 reach about `0x80BC0000` with the memory of the console they emulate.
+RiftWii can't copy such an app with its own code, which the copy would
+overwrite while it runs, so, as the Homebrew Channel does, it hands the
+last step to a small routine (`channel/common/dolfar.S`) at the top of
+MEM2's free part, where neither program is: it copies the sections, clears
+the BSS, writes the argument line and its `_arg` block, flushes the caches
+and jumps to the app. `session.log` then says `Homebrew app: it loads over
+RiftWii's own memory, so a small copier at 0x9... finishes starting it`.
+An app clear of RiftWii is copied as before. An app is refused only when
+it would leave MEM1's free part (`0x80003F00`–`0x81700000`), land on its
+own file copy, or (over RiftWii) find no room for the routine.

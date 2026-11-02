@@ -31,6 +31,8 @@ static void* checked_copy(void* dst, const void* src, size_t size) {
 
 u8 __app_start[1];
 u8 __bss_end[1];
+const u8 dolfar_code[1];
+const u8 dolfar_code_end[1];
 
 int main(void) {
 #if defined(__SANITIZE_ADDRESS__) || __has_feature(address_sanitizer)
