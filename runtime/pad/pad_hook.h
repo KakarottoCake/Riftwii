@@ -31,7 +31,7 @@
 #define RT_PAD_MAGIC 0x52575044u          /* "RWPD" */
 #define RT_PAD_VERSION 5u               /* also in pad_entry.S's header */
 #define RT_PAD_CONTEXT_MAGIC 0x52575043u  /* "RWPC" */
-#define RT_PAD_CONTEXT_BYTES 416u  /* also pad_entry.S's fill */
+#define RT_PAD_CONTEXT_BYTES 480u  /* also pad_entry.S's fill */
 
 /* rt_pad_context.leave_asked: the combo asked for the way back; an
  * OSSleepThread has gone into OSReturnToMenu (rtleave_sleep_leaves: the
@@ -116,6 +116,9 @@ struct rt_pad_context {
      * then) and when (low bit set), both 0 while none is open. */
     uint32_t leave_thread;
     uint32_t leave_asked_at;
+    uint32_t diagnostic_print; /* the installed Wii Remote log's print entry */
+    char diagnostic_format[40]; /* loader-filled marker, decoded at next start */
+    int32_t ven_fd;            /* /dev/usb/ven for Xbox 360 pads, opened by the loader; -1: none */
     /* The HOME Menu (#224 part 1); home_on 0: off, the combo is the way
      * back. Loader-filled: the KPAD status's size, whether the read takes
      * the error's address, the game's PADRead (hooked: read again when the

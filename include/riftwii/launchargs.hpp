@@ -62,6 +62,11 @@ struct HeadlessLaunch {
     // channel, and RiftWii starts the game again from it. reset=1 marks it:
     // the game was already playing, so it is not counted as a new play.
     bool reset = false;
+    // extras=with, RiftWii's own too: the code builds start with RiftWii's
+    // extras, as the menu answered (#386), whatever settings.txt's
+    // code_build_extras says. Written in a Reset's request, so the game
+    // comes back as it started.
+    bool code_build_extras = false;
 };
 
 // The longest value, in bytes, any key takes, and the most packs and code

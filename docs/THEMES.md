@@ -27,7 +27,7 @@ installed can be deleted from it: it keeps their names in
 `sd:/riftwii/themes/.browser.txt`, and a theme you copied there yourself is
 left alone (the page asks before it replaces one of the same name).
 
-It needs Settings > Download names and cheats on. The list
+It needs Settings > Online > Downloads on. The list
 (`https://riftwii.github.io/themes/themes.json`) and every file come over
 https from riftwii.github.io only, and are treated as untrusted: the list
 is cut at 256 KB and 500 themes, a download must be exactly the size the
@@ -167,6 +167,12 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `icon_drives` | 28x28 | Drive icon |
 | `icon_gear` | 28x28 | Gear icon |
 | `icon_search` | 28x28 | Magnifier icon on the search button |
+| `layout_covers` | 28x28 | Covers grid on Home's Layout button and picker card |
+| `layout_covers3d` | 28x28 | Tilted covers grid on Home's Layout button and picker card |
+| `layout_carousel` | 28x28 | Boxes on an arc on Home's Layout button and picker card |
+| `layout_shelf` | 28x28 | Book spines on Home's Layout button and picker card |
+| `layout_channels` | 28x28 | Rounded channel frames on Home's Layout button and picker card |
+| `layout_names` | 28x28 | Text lines on Home's Layout button and picker card |
 | `icon_star`, `icon_star_on` | 28x28 | Favourite button on a game's banner: not a favourite, a favourite |
 | `tile9`, `tile9_over`, `tile9_primary`, `tile9_primary_over` | 64x64 | The game page's and Settings' tiles, stretched with 24-pixel corners kept: plain, lit, the main one (Play), the main one lit |
 | `prompt_button` | 24x24 | The round badge under a button's name in the prompts along the bottom of a screen, for a button without a picture of its own (A, B, +, -, 1, 2, HOME, C and Z have Kenney's, drawn in `glyph`) |
@@ -247,6 +253,13 @@ memory only; it is never copied into the theme's folder.
 ## Layout and fonts
 
 Layout (where things are on screen) and fonts are not themeable yet.
+RiftWii's menu uses M PLUS 1 SemiBold (`wii/font/menu.ttf`, shipped as
+`font.ttf` beside `boot.dol` with `OFL.txt`). It is loaded completely into
+MEM2; no font data lives in the DOL. Settings can select the Wii Menu's
+own font from NAND, also used if the card font is missing or damaged.
+Korean keeps its separate `korean.ttf`. M PLUS Rounded 1c Bold
+(`wii/font/rounded.ttf`) stays unchanged for generated logo artwork; the font builder also retains
+205 of its rare characters absent from M PLUS 1 in the single card font.
 
 ## The theme kit
 

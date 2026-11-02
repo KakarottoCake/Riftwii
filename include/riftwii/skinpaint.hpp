@@ -57,6 +57,13 @@ void paint_label9(const Theme& theme, Canvas& out);
 constexpr int kShadowCorner = 24;
 constexpr int kShadowMargin = 16;
 void paint_drop_shadow9(const Theme& theme, Canvas& out);
+// The same shadow for a round shape: kDiscShadowSize square, a circle
+// kDiscShadowDisc across at its centre, fading out over kDiscShadowBlur.
+// Under the disc on a game's page.
+constexpr int kDiscShadowSize = 96;
+constexpr int kDiscShadowBlur = 12;
+constexpr int kDiscShadowDisc = kDiscShadowSize - 2 * kDiscShadowBlur;
+void paint_disc_shadow(const Theme& theme, Canvas& out);
 // A black capsule with a light grey outline, 48 x 48 (40 x 40 inside a 4
 // margin), nine-sliced: the HOME Menu's batteries.
 constexpr int kCapsuleCorner = 24;

@@ -117,6 +117,24 @@ Dolphin after SECS. Dolphin log lands in
 - Game-list "Refreshing..." on boot can stall on slow drives;
   it is the browser, not the emulation.
 
+## Real USB pads
+
+`FELK_USBPT=<vid:pid>` passes a real USB device to the emulated Wii
+(`FELK_NOPAD=1` keeps Dolphin's own GameCube pad out of port 1, so the
+USB pad takes it). Dolphin claims every interface of the device, so
+Windows must give it the whole device, in Zadig (Options: List All
+Devices, Ignore Hubs or Composite Parents unticked):
+
+- A HID pad (DualShock 4): its "(Composite Parent)" entry to WinUSB.
+- A wired Xbox 360 pad: the entry with Windows' `xusb22` driver (not the
+  "Controller (...)" one, which is a HID device the Xbox driver makes)
+  to **libusbK**, then unplug and replug the pad. With WinUSB, or before
+  the replug, Dolphin logs "Failed to claim all interfaces" and every
+  transfer fails with LIBUSB_ERROR_NOT_FOUND.
+
+Windows' own driver comes back from Device Manager: uninstall the
+device with "Delete the driver software" ticked, and replug it.
+
 ## WiiWare and Virtual Console
 
 Felk's Dolphin answers `ES_Identify` with -1017, so a channel RiftWii

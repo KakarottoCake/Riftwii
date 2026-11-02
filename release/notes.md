@@ -16,63 +16,47 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** Your own menu music, a closer look at every cover, shelf boxes that look like real Wii cases, covers for homebrew, WiiWare and Virtual Console games, a USB keyboard and mouse in the menu, and more ways back to RiftWii after a game. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** USB gamepads now work inside games, wired Xbox 360 pads need no config, a cleaner menu font, covers you choose, and fixes for the 4-Wii-Remote freeze and several games. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-![The shelf with Wii cases and full-width spines on a widescreen TV]({{SCREENSHOTS}}2610-shelf-cases.png)
+![What's new in this version]({{SCREENSHOTS}}2610-whatsnew-781.png)
+
+![A game's settings: the GameTDB cover row]({{SCREENSHOTS}}2610-gametdb-cover.png)
 
 ## What changed
 
-### Home
-
-- **Press 1 and 2 together to change the view** (covers, 3D covers, carousel, shelf, channels, names) without opening Settings. Pressed alone, 1 and 2 still do their own jobs.
-- **See a cover up close.** Point at a cover in the Covers view, or a box on the shelf or carousel, and press 1 or 2: it zooms up in the middle of the screen. 1, 2, A or B puts it back. On a game's page, A on the box shows it up close too, and Down turns it over to its back.
-- **The shelf's boxes look like real Wii cases**, with the colored plastic showing round the cover, in the color each game's case really has. You can pick your own colors in `sd:/riftwii/case_colors.txt`.
-- **Spines are no longer squeezed**, and full covers (front, spine and back) are now downloaded for every game, not just the ones near you on the shelf. Small 2D covers stay square where they stand in for a box, and covers fill the box's front right to the corners.
-- **Hold B on the search button for about a second** to start a random game from the ones shown.
-- **Covers for more games:** homebrew apps get their GameTDB covers (found by their name), and WiiWare and Virtual Console games now get their covers, shelf boxes and 3D covers too.
-- **Custom games** that GameTDB lists (Newer Super Mario Bros. Wii, Wiimm's Mario Kart Fun and others) now show under Mods, with their own banners.
-- **A game's age rating** on its About page uses the rating board's own mark (ESRB, PEGI, CERO, GRAC, GSRR).
-- **The Wii Menu font is crisp** on a widescreen TV (Settings > Menu font).
-
-### Menu music and controls
-
-- **Your own menu music:** in Settings > Music file, pick a song (`.ogg` or `.mp3`), an `.m3u` playlist, or a whole folder to play shuffled, from the SD card or the USB drive.
-- **A USB keyboard, a USB mouse, USB pen tablets and the uDraw GameTablet** work in the menu as player 1's controls. The keyboard types into search and tile names, and the mouse points like a Wii Remote. Not yet tested on a real Wii (Dolphin can't plug these in).
-- **Naming a Home tile:** Shift also types symbols, so names like "Project+" or "Kamen Rider: Super Climax Heroes" can be typed.
-
-### Games
-
-- **Quitting a game lands in RiftWii more often.** A GameCube game's held HOME tries the RiftWii channel first. Resident Evil 4, older LEGO games and Ghostbusters keep their way back. N64 Virtual Console games now leave with the GameCube controller's L+R+Z+Start held for 2 seconds, like other games. The setting is now called **Quitting a game** (Settings > Games), so it's easier to find.
-- **WiiWare and Virtual Console:** when the Wii refuses a channel's own ticket, RiftWii tries again with a copy that works on any console, which helps games copied from another Wii.
-- **RVZ and GameCube games are found wherever you put them:** a Wii `.rvz` in `wbfs/`, or a GameCube `.iso`, `.gcm` or `.rvz` loose in `games/` or `wbfs/`, no folder of its own needed.
-- **Dragon Quest X from its USB drive:** with this Wii's WFS key at `sd:/riftwii/wfskey.bin`, RiftWii reads the game's WFS drive and starts Dragon Quest X like the Wii Menu does. Tried in Dolphin, not yet on a real Wii.
-- **HOME Menu:** without Priiloader, its third button is now Restart. On a Wii U it goes back to the Wii U.
-- **The updater** says the real reason when a secure connection is refused, instead of always blaming the Wii's clock.
+- **No more freeze with a 4th Wii Remote** (#138). With four Remotes setting up at once on a real console, a slow answer could get asked for twice, and the second answer was written to the wrong place in memory. RiftWii now never asks twice for an answer that is still coming, and drops any answer that doesn't belong to the question being waited on. Checked in Dolphin with 4 Remotes; not tried on a real console yet.
+- **USB gamepads work inside games**, not only in the menu. Starting a game resets the Wii's USB and the pad took a moment to come back; the game's controller code now notices. A PS4 pad takes one slot instead of four, PS3 pads get the extra wake-up some of them need, and every step of a pad's setup shows up in problem reports. Plug the pad in before starting a game.
+- **Wired Xbox 360 controllers** (Microsoft's and third-party ones) work as GameCube controllers with no config file, in the menu and in games, while Settings > Controllers > USB input devices is on. LB or RB is Z, the triggers are L and R, and Guide (or Back + Start) is the way back to RiftWii.
+- **A cleaner menu font**, M PLUS 1 SemiBold: lighter and crisper on a TV. It's a file on the SD card (`apps/riftwii/font.ttf`); the in-app update brings it. If it's missing, RiftWii uses the Wii Menu's font and tells you.
+- **Covers you choose.** Put a PNG named after the game's ID in `riftwii/covers` on the SD card or USB drive (`RMCE01.png`) and RiftWii shows it instead of GameTDB's. Games with a second cover on GameTDB (Brawl, Mario Kart Wii) get a **GameTDB cover** row in their settings: First or Second.
+- **Home's shortcuts on every controller.** Changing the view, a cover up close and a game at random now work on a GameCube controller (Y + Z, Y or Z, hold B), a Classic or Pro Controller (Y + X, Y or X, hold ZL) and the Wii U GamePad (X + Y), not only the Wii Remote.
+- **EA's 007 GameCube games** (NightFire, Agent Under Fire, Everything or Nothing) no longer stop on a black screen: the programs they load from the disc get RiftWii's patches too. NightFire plays in Dolphin; the other two aren't tested.
+- **007 Quantum of Solace** (Wii) no longer stays black: it gets all of the Wii's fast memory, as Resident Evil 4 does.
+- **Prince of Persia: The Forgotten Sands** no longer stays black after the Ubisoft logo: games that check their own code get no RiftWii changes beyond their own fix, and their settings page says which rows don't apply.
+- **Restart and Power off with a USB drive** no longer crash.
+- **Homebrew apps started from RiftWii** see the GameCube adapter, USB pads and a USB keyboard again.
 
 ## What to test
 
-1. **Press 1 and 2 together on Home** a few times: does it go through the views and remember the last one?
-2. **Press 1 on a cover** in the Covers view and on a shelf box: does it zoom up and go back with B?
-3. **Look at the shelf** with downloads on: do the cases' colors and spines look right? Does anything freeze or restart while the boxes download?
-4. **Pick your own menu music** (Settings > Music file): a song, a playlist and a folder.
-5. **Plug in a USB keyboard or mouse** if you have one: can you search, type a name and point?
-6. **Quit a game** with HOME or L+R+Z+Start, especially a GameCube or N64 Virtual Console game: do you land back in RiftWii?
+1. **Four Wii Remotes** in the menu, connected at start and one at a time: does it stay responsive?
+2. **A USB gamepad or a wired Xbox 360 pad** in a GameCube game (plug it in before starting the game).
+3. **Your own cover**: a PNG in `sd:/riftwii/covers`, and the GameTDB cover row on Brawl or Mario Kart Wii.
+4. **007 Agent Under Fire or Everything or Nothing**, if you have them.
 
 ## Known issues
 
+- **USB gamepads:** `MultiIn` 2 to 4 and pads that pack their sticks in their own way aren't supported yet; a pad (other than a wired Xbox 360 pad) needs a config.
+- **The Wii U GamePad** works in the menu only when RiftWii runs as a Wii VC inject, and never in games.
+- **Retro Rewind online from the disc** gave one tester error 50330 on a Wii U. A likely fix is in; a problem report from anyone who still sees it helps.
+- **WADs:** Korean and vWii-only WADs aren't read yet. WADs need an SD card for the emulated NAND.
+- **Emulators and other USB partitions:** some emulators may not understand `usb1:/` or `usb2:/` paths for games on a second partition.
 - **GameCube is a trial:** some games may not start or may stop. Send a problem report from Settings > Help when one doesn't.
-- **The GameCube memory card in other regions' copies of Resident Evil 2 (PAL, Japan) isn't covered yet.**
 - **The channel installer goes black on some Wii U consoles** (#317). RiftWii offers Not now instead of locking you out, but the cause isn't confirmed: `sd:/riftwii/channel.log` in a problem report helps.
 - **The Wii U Pro Controller's stick can stop, then drift, in the menu** after opening a game's page (#239).
-- **Mario Party 7 on a real Wii** loses its sound at Press START, then stops taking input (#199).
+- **The GameCube memory card in other regions' copies of Resident Evil 2 (PAL, Japan) isn't covered yet.**
 - **Zelda Collector's Edition may show "No Signal"** at 480p on a real Wii (seen once; Dolphin doesn't show it).
-- **Pokémon Channel** stops on The Pokémon Company logo (#194).
 - **Cars 2 is cursed:** it goes black if RiftWii changes anything in it. RiftWii warns before you play it (and Toy Story 3 and Disney Infinity, which share its engine).
 - **Ghostbusters from an RVZ** can still freeze in the hotel: play it from an ISO or WBFS.
-
-Everything new since 2.7.0: [docs/CHANGES_2610.md](https://github.com/KakarottoCake/Riftwii/blob/main/docs/CHANGES_2610.md).
-
-![A cover zoomed up close in the Covers view]({{SCREENSHOTS}}2610-cover-zoom.png)
 
 ## Download
 

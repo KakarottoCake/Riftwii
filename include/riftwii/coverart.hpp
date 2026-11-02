@@ -35,7 +35,8 @@ std::vector<std::string> cover_regions(const std::string& game_id, const std::st
 // like a channel's ("PZLE01" is a disc, not a TurboGrafx-16 game). Any
 // other game: its six-character ID alone.
 std::vector<std::string> gametdb_art_ids(const std::string& game_id);
-std::string cover_url(const std::string& region, const std::string& game_id);
+// `second`: GameTDB's second cover set (coverB), which some games have (#384).
+std::string cover_url(const std::string& region, const std::string& game_id, bool second = false);
 
 // The status a server answered with, read from a failed download's error
 // as wii/online/online.cpp's HttpGet words it ("<host> answered 404", or
@@ -71,8 +72,9 @@ public:
 
     // `log_name` starts its log lines ("Covers"), `picture` names one of
     // them in the summary ("cover").
-    explicit CoverDownloads(std::string log_name = "Covers", std::string picture = "cover")
-        : log_name_(std::move(log_name)), picture_(std::move(picture)) {}
+    explicit CoverDownloads(std::string log_name = "Covers", std::string picture = "cover",
+                            std::string source = "GameTDB")
+        : log_name_(std::move(log_name)), picture_(std::move(picture)), source_(std::move(source)) {}
 
     // Counts one download; true when the downloads should stop now.
     bool count(CoverOutcome outcome);
@@ -82,7 +84,7 @@ public:
     std::string take_summary();
 
     // A fresh start (Settings > Look for games again).
-    void reset() { *this = CoverDownloads(log_name_, picture_); }
+    void reset() { *this = CoverDownloads(log_name_, picture_, source_); }
 
     const std::string& log_name() const { return log_name_; }
 
@@ -93,6 +95,7 @@ public:
 private:
     std::string log_name_;
     std::string picture_;
+    std::string source_;
     unsigned stored_ = 0;
     unsigned not_found_ = 0;
     unsigned no_answer_ = 0;
@@ -143,6 +146,20 @@ std::string cover3d_url(const std::string& region, const std::string& game_id);
 // is unusable.
 std::vector<std::uint8_t> make_cover3d_file(const std::uint8_t* rgba, int w, int h);
 bool cover3d_header_valid(const std::uint8_t* header);
+
+// GameTDB's disc art: a picture of the game's disc, round on a
+// see-through ground (160x160 as GameTDB serves it), shown under the box
+// on a game's page. Kept on the SD card as GameTDB's PNG, at its own size;
+// only the page's copy in memory is a texture.
+std::string disc_art_url(const std::string& region, const std::string& game_id);
+// The largest side a disc picture may have (GameTDB's are 160): a bigger
+// one is not taken.
+constexpr int kDiscArtMaxSide = 512;
+// An RGBA image as GX RGB5A3 in 4x4 tiles at its own size, its
+// see-through parts kept; `tw` x `th` is the texture's size, the image's
+// rounded up to whole tiles (the extra see-through). Empty when the size
+// is unusable.
+std::vector<std::uint8_t> disc_art_texture(const std::uint8_t* rgba, int w, int h, int& tw, int& th);
 
 // Where the spine is across a full cover `w` x `h`: [x0, x1). A Wii case's
 // front and back are 135 mm wide and 190 mm tall, the spine between them

@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include "stash.hpp"
+#include "i18n.hpp"
 #include "zstd.h"
 
 namespace riftwii::wii {
@@ -56,7 +57,7 @@ const char* const kCredits[] = {
     "",
     "wup-028-bslug by Alex Chadwick (MIT): the GameCube controller adapter.",
     "",
-    "Nintendont by FIX94 and contributors: the USB HID driver and the GameCube sound program patches, used "
+    "Nintendont by FIX94 and contributors: the USB HID driver, controller.ini mappings and the GameCube sound program patches, used "
     "with its developers' permission.",
     "",
     "Mario Party 4 community decompilation: GameCube font encoding behavior, read as documentation only.",
@@ -91,11 +92,14 @@ const char* const kCredits[] = {
     "for its emulated NAND.",
     "",
     "devkitPro, libogc and libfat (Michael Wiedenbauer, Dave Murphy, Hector Martin, Sven Peter and "
-    "others): the toolchain and the Wii library, and the physical GameCube card protocol reference.",
+    "others): the toolchain and the Wii library, the physical GameCube card protocol reference, "
+    "and network cleanup before a launch.",
     "",
     "Dolphin, wiibrew and the Riivolution patch format wiki: how the Wii and the patch format behave, "
     "read as documentation. Dolphin also for how the Wii Remote extension's encryption key is used "
     "(the Wii U Pro Controller translator).",
+    "",
+    "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied.",
     "",
     "projectPiki's Pikmin 2 decompilation: GameCube SDK controller lifecycle behaviour, "
     "read as documentation; no code copied.",
@@ -111,7 +115,8 @@ const char* const kCredits[] = {
     "(MIT), FreeType (FreeType License), zlib, Tremor and libogg (BSD-3-Clause), libmad by Underbit "
     "Technologies (GPL-2.0-or-later).",
     "",
-    "Menu font: M PLUS Rounded 1c by the M+ Fonts Project (SIL Open Font License 1.1).",
+    "Menu font: M PLUS 1 SemiBold by the M+ Fonts Project (SIL Open Font License 1.1).",
+    "Logo lettering and rare fallback characters: M PLUS Rounded 1c Bold by the M+ Fonts Project (SIL Open Font License 1.1).",
     "Korean font: Noto Sans KR by Adobe and the Noto authors (SIL Open Font License 1.1), "
     "cut down and rounded for RiftWii; korean.ttf and Korean-OFL.txt beside boot.dol.",
     "Controller and button pictures: Input Prompts by Kenney (kenney.nl, CC0).",
@@ -130,14 +135,17 @@ const char* const kCredits[] = {
     "",
     "Animated GameCube banners: the community's banners, hosted by RiiConnect24 (banner.rc24.xyz).",
     "",
+    "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers.",
+    "",
     "RiftWii contains no Riivolution code and no Nintendo keys or assets.",
     "",
     "THE GNU GENERAL PUBLIC LICENSE, VERSION 3",
     "",
 };
 
-// Word-wrapped to `width`; a word longer than that is cut.
+// Word-wrapped to `width` bytes; long words are cut between UTF-8 characters.
 void Wrap(const std::string& text, std::size_t width, std::vector<std::string>& out) {
+    if (width == 0) width = 1;
     if (text.empty()) {
         out.emplace_back();
         return;
@@ -152,7 +160,15 @@ void Wrap(const std::string& text, std::size_t width, std::vector<std::string>& 
             break;
         }
         std::size_t cut = text.rfind(' ', end);
-        if (cut == std::string::npos || cut <= at) cut = end;
+        if (cut == std::string::npos || cut <= at) {
+            cut = end;
+            while (cut > at && (static_cast<unsigned char>(text[cut]) & 0xc0) == 0x80) --cut;
+            // A character wider than the line still has to make progress.
+            if (cut == at) {
+                cut = end;
+                while (cut < text.size() && (static_cast<unsigned char>(text[cut]) & 0xc0) == 0x80) ++cut;
+            }
+        }
         out.push_back(text.substr(at, cut - at));
         at = cut;
     }
@@ -206,7 +222,7 @@ void AddLicence(std::size_t width, std::vector<std::string>& out) {
 
 std::vector<std::string> CreditsLines(std::size_t width) {
     std::vector<std::string> out;
-    for (const char* paragraph : kCredits) Wrap(paragraph, width, out);
+    for (const char* paragraph : kCredits) Wrap(tr(paragraph), width, out);
     AddLicence(width, out);
     // No run of blank rows.
     std::vector<std::string> lines;

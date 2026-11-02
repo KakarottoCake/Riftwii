@@ -425,7 +425,41 @@ static void test_too_many_files() {
     EXPECT_TRUE(err.find("too many files") != std::string::npos);
 }
 
+static void test_missing_selected_inputs() {
+    const riftwii::Fst fst = Disc();
+    riftwii::FilePatch patch;
+    patch.disc = "/stage/A.ARC";
+    EXPECT_TRUE(riftwii::file_patch_targets_disc(patch, fst));
+    patch.disc = "/OtherRegion/a.arc";
+    EXPECT_FALSE(riftwii::file_patch_targets_disc(patch, fst));
+    patch.create = true;
+    EXPECT_TRUE(riftwii::file_patch_targets_disc(patch, fst));
+    patch.is_filename = true;
+    patch.disc = "missing.arc";
+    EXPECT_FALSE(riftwii::file_patch_targets_disc(patch, fst));
+    patch.disc = "A.ARC";
+    EXPECT_TRUE(riftwii::file_patch_targets_disc(patch, fst));
+    patch.disc = "MAIN.DOL";
+    EXPECT_TRUE(riftwii::file_patch_targets_disc(patch, fst));
+    patch.is_filename = false;
+    patch.disc = "/Stage";
+    EXPECT_FALSE(riftwii::file_patch_targets_disc(patch, fst));
+
+    std::vector<riftwii::MissingModInput> missing;
+    using Kind = riftwii::MissingModInputKind;
+    EXPECT_TRUE(riftwii::record_missing_mod_input(missing, "pack.xml", "/mod/a.arc", Kind::File));
+    EXPECT_TRUE(riftwii::record_missing_mod_input(missing, "pack.xml", "/mod/a.arc", Kind::File));
+    EXPECT_EQ(missing.size(), 1u);
+    EXPECT_TRUE(riftwii::record_missing_mod_input(missing, "pack.xml", "/mod/a.arc", Kind::Memory));
+    EXPECT_TRUE(riftwii::record_missing_mod_input(missing, "other.xml", "/mod/a.arc", Kind::File));
+    EXPECT_EQ(missing.size(), 3u);
+    EXPECT_EQ(missing[0].pack, "pack.xml");
+    EXPECT_EQ(missing[0].external, "/mod/a.arc");
+    EXPECT_TRUE(missing[1].kind == Kind::Memory);
+}
+
 int main() {
+    test_missing_selected_inputs();
     test_rooted();
     test_by_name();
     test_order_and_files();

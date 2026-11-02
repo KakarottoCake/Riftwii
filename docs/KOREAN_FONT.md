@@ -1,13 +1,13 @@
 # Korean menu font
 
-`apps/riftwii/korean.ttf` supplies characters missing from the core and
-full menu fonts. It ships beside `boot.dol`, with `Korean-OFL.txt`, in
+`apps/riftwii/korean.ttf` supplies characters missing from the main
+menu font. It ships beside `boot.dol`, with `Korean-OFL.txt`, in
 both the release zip and update pack. The update writes both fonts and
 the Korean license before replacing the DOL, including in a renamed app
 folder. Nothing from the Korean font is embedded in the DOL.
 
 The source is **Noto Sans KR**, version 2.004-H2, fixed at weight 700.
-Its weight matches the menu's bold text. NanumSquare Round Bold was
+Its bold weight is retained alongside the M PLUS 1 SemiBold menu face. NanumSquare Round Bold was
 checked first: its rounded shapes fit the menu, but its official font
 has no conjoining Hangul Jamo. Noto covers those as well as the common
 syllables. The license is SIL Open Font License 1.1; the modified font
@@ -38,7 +38,7 @@ The script fixes the variable weight, removes hinting, kerning and
 unused layout and vertical tables, moves simple outline points to an
 8-unit grid (1,000 units per em), recomputes bounds without changing
 advances, and removes redundant implied on-curve points. It preserves
-the TrueType format so FreeType can stream individual glyphs.
+the TrueType format used by FreeType.
 
 | Font | Bytes |
 | --- | ---: |
@@ -53,21 +53,19 @@ regenerating from the pinned source and manifest produces the same bytes.
 
 ## Runtime
 
-`wii/menu/fullfont.cpp` uses one stream state per external font, with a
-shared FreeType library and the existing 384 KiB MEM2 pool. The core is
-tried first, then `font.ttf`, then `korean.ttf`. Each external face opens
-on demand; FreeType reads the requested tables and glyphs rather than
-loading the whole file. FreeTypeGX's existing texture cache retains
-drawn glyphs. The Korean language check can query Hangul coverage before
-enabling the translation, without rasterizing a glyph.
+`wii/menu/fullfont.cpp` retains the complete M PLUS 1 menu face in MEM2.
+Korean's separate `korean.ttf` is also read completely into MEM2 on first
+use, with its file immediately closed. Its FreeType face, temporary glyph
+bitmap and glyph textures share the existing 384 KiB MEM2 pool, with heap
+overflow as before. The Korean language check loads this face before
+choosing the translation, without rasterizing a glyph.
 
-The existing close holds close both streams during drive unmounts and
-updates. The menu closes both before a launch; a fresh menu after a
-failed launch opens them lazily again. Missing-file diagnostics are
-logged once per font per session and retried after a remount. With no
-Korean font, the Korean menu still falls back to English, with a note
-and a log line naming the file to copy. Selecting the Wii Menu font
-keeps its existing behavior and coverage check.
+Close holds now prevent new card reads during unmounts and updates;
+already loaded faces remain drawable, including characters not yet cached.
+The main face is read again only at the next menu start. A missing Korean
+font is retried after a remount, and Korean still falls back to English
+with the existing notice. The Wii Menu selection retains its own coverage
+check. The measurements below describe the former streaming implementation.
 
 ## Verification, 25 October 2026
 

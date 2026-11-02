@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "online.hpp"
+#include "riftwii/emulatorart.hpp"
 
 #include <network.h>
 #include <ogc/machine/processor.h>
@@ -208,6 +209,29 @@ bool HttpGet(const std::string& url, std::vector<std::uint8_t>& body, std::strin
     }
     error = "too many redirects for " + http_url_for_messages(url);
     return false;
+}
+
+bool HttpSteamGridGet(const std::string& path, const std::string& key,
+                      std::vector<std::uint8_t>& body, std::string& error) {
+    body.clear();
+    if (!steamgrid_key_valid(key) || path.size() > 1024 || path.rfind("/api/v2/", 0) != 0 ||
+        path.find_first_of("\r\n\0", 0, 3) != std::string::npos) {
+        error = "The SteamGridDB request is invalid.";
+        return false;
+    }
+    if (!NetStart(error)) return false;
+    HttpUrl url;
+    if (!parse_http_url("https://www.steamgriddb.com" + path, url, error)) return false;
+    std::string request = http_get_request(url);
+    request.insert(request.size() - 2, "Authorization: Bearer " + key + "\r\n");
+    HttpResponse response;
+    if (!exchange(url, request, response, error, kSteamGridJsonMax, 10000, nullptr, false)) return false;
+    if (response.status != 200) {
+        error = "SteamGridDB answered " + std::to_string(response.status);
+        return false;
+    }
+    body = std::move(response.body);
+    return true;
 }
 
 namespace {
@@ -675,7 +699,7 @@ void ApplyPack(PackKind& k) {
     mkdir("sd:/riftwii", 0777);
     mkdir(themes ? "sd:/riftwii/themes" : "sd:/apps", 0777);
     unsigned written = 0, same = 0, failed = 0;
-    // The menu may be reading glyphs from font.ttf, which may be rewritten.
+    // Loaded faces stay in MEM2; prevent first-time Korean reads during writes.
     std::optional<fullfont::ClosedHold> font_hold;
     if (!themes) font_hold.emplace("an update rewrites it");
     for (const ThemePackFile& f : pack.files) {
@@ -886,7 +910,7 @@ bool WriteUpdatePlugins(const UpdateNote& note, const std::string& latest, const
     if (!plan_update_writes(apps, latest, PluginTargetDirectory(), dol_path, writes, error)) return false;
     logf("Update: writing the plugins and the menu font of %s to the SD card\n", latest.c_str());
     report(UpdateStep::WritingPlugins, 0, 0);
-    // The menu may be reading glyphs from font.ttf, which is rewritten here.
+    // Loaded faces stay in MEM2; prevent first-time Korean reads during writes.
     const fullfont::ClosedHold font_hold("an update rewrites it");
     const std::uint8_t* const bytes = pack.data() + split;
     unsigned written = 0;

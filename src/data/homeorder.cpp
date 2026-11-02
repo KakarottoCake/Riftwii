@@ -7,6 +7,7 @@
 #include <set>
 
 #include "riftwii/profiles.hpp"
+#include "riftwii/imagevolume.hpp"
 #include "riftwii/textlines.hpp"
 
 namespace riftwii {
@@ -23,10 +24,24 @@ bool plausible_id(const std::string& id) {
 // key, "RMCE01@retro-rewind", riftwii/profiles.hpp), and "/2" to "/9" for
 // a later disc.
 bool plausible_key(const std::string& key) {
+    // Emulator tiles use the full app/game path's SHA-256 rather than a
+    // disc ID, so equal ROM names in different folders stay distinct.
+    if (key.rfind("emu-", 0) == 0) {
+        if (key.size() != 68) return false;
+        for (std::size_t i = 4; i < key.size(); ++i) {
+            const char c = key[i];
+            if ((c < '0' || c > '9') && (c < 'a' || c > 'f')) return false;
+        }
+        return true;
+    }
     std::size_t at = 0;
     if (key.compare(0, 4, "usb:") == 0 || key.compare(0, 4, "wii:") == 0) at = 4;
     else if (key.compare(0, 3, "sd:") == 0) at = 3;
-    else return false;
+    else {
+        const std::size_t colon = key.find(':');
+        if (colon == std::string::npos || !is_usb_path(key.substr(0, colon + 1) + "/")) return false;
+        at = colon + 1;
+    }
     const std::size_t slash = key.find('/', at);
     const std::string tile = key.substr(at, slash == std::string::npos ? std::string::npos : slash - at);
     // The Wii's channels take no packs, so they have no profiles.

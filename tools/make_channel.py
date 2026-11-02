@@ -32,7 +32,10 @@ import zlib
 # 00010001-RFTW, in 4:3 on a vWii; the installer removes that one.)
 TITLE_ID = 0x0001000155465457  # 00010001-UFTW
 OLD_TITLE_ID = 0x0001000152465457  # 00010001-RFTW
-TITLE_VERSION = 14  # wii/launch/channel.hpp kChannelVersion says the same; 5: boot program and forwarder (vWii); 6: UFTW; 7: a Wii and a vWii package; 8: no start-up IOS_Close sweep; 9: hardware access; 10: full width on 16:9; 11: L2 emptied at the start; 12: not on a vWii by the CPU's PVR (still did not start); 13: the vWii loader as in 10, no L2 clear; 14: each start step on screen, a step that hangs ends on an error screen (#236)
+# Matches wii/launch/channel.hpp kChannelVersion. Version 15 keeps the banner
+# and icon's shapes on 16:9 and centres the art above the Menu's buttons; its
+# start animation no longer tears (two framebuffers).
+TITLE_VERSION = 15
 # The TMD's access rights (0x1D8): bit 0 asks ES for hardware access (AHBPROT
 # off), as the Homebrew Channel's own title does. Without it RiftWii started
 # from the channel could not open IOS's NAND permission check (the Wii Menu's
@@ -159,7 +162,7 @@ class Node:
     left, bottom right). Coordinates: the screen's centre is 0,0, y up."""
 
     def __init__(self, name, tex=None, pos=(0, 0), size=(0, 0), colors=None, rot=0.0, scale=(1, 1),
-                 alpha=255, children=()):
+                 alpha=255, children=(), keep_aspect=False):
         self.name, self.tex = name, tex
         self.pos, self.size, self.rot, self.scale, self.alpha = pos, size, rot, scale, alpha
         colors = colors or [(255, 255, 255)] * 4
@@ -169,6 +172,7 @@ class Node:
             colors = [colors[0], colors[0], colors[1], colors[1]]
         self.colors = [c if len(c) == 4 else (*c, 255) for c in colors]
         self.children = list(children)
+        self.keep_aspect = keep_aspect
 
     def walk(self):
         yield self
@@ -185,8 +189,10 @@ def brlyt(root, textures):
     mats, panes = [], []
 
     def body(n):
-        # flags: visible, and children take on this pane's alpha
-        return (struct.pack(">BBBB", 0x03, 4, n.alpha, 0) + name_field(n.name, 16) + bytes(8) +
+        # Retail layouts put bit 2 on a foreground parent: the Menu narrows
+        # its whole subtree by 3/4 on 16:9, cancelling the screen's stretch.
+        flags = 0x03 | (0x04 if n.keep_aspect else 0)
+        return (struct.pack(">BBBB", flags, 4, n.alpha, 0) + name_field(n.name, 16) + bytes(8) +
                 struct.pack(">3f3f2f2f", n.pos[0], n.pos[1], 0, 0, 0, n.rot, n.scale[0], n.scale[1],
                             n.size[0], n.size[1]))
 
@@ -578,6 +584,12 @@ def scene_banner(art):
     kids.append(Node("P_bg", "rw_nebula.tpl", size=(860, 484)))
     kids.append(Node("P_cloudA", "rw_cloud.tpl", (-190, 60), (620, 620), [(*VIOLET, 150)], alpha=150))
     kids.append(Node("P_cloudB", "rw_cloud.tpl", (220, -70), (560, 560), [(*CYAN, 120)], rot=140, alpha=130))
+    # The review screenshot shows rows 10..341 above the Menu's button bar.
+    # Moving the foreground up 36 puts the word/rift near that area's centre
+    # and the tagline above the bar. Keep every animated local value intact.
+    foreground = Node("N_foreground", pos=(0, 36), keep_aspect=True)
+    kids.append(foreground)
+    kids = foreground.children
     rnd = random.Random(7)
     stars = []
     for i in range(18):
@@ -713,6 +725,11 @@ def scene_icon(art):
     split = art["word_split"]
     kids.append(Node("P_bg", "rw_nebula.tpl", size=(176, 104)))
     kids.append(Node("P_cloud", "rw_cloud.tpl", (-30, 16), (150, 150), [(*VIOLET, 150)], alpha=150))
+    # Retail icons keep a logo subtree's shape while the sky fills the tile.
+    # The middle 128x96 is visible; the word/rift's local y=4 becomes y=0.
+    foreground = Node("N_foreground", pos=(0, -4), keep_aspect=True)
+    kids.append(foreground)
+    kids = foreground.children
     kids.append(Node("P_halo", "rw_glow.tpl", (0, 4), (170, 110), [(*DEEP, 255)], alpha=170))
     tilt = Node("N_tilt", pos=(0, 0), scale=(1.0, 0.30), rot=-8)
     tilt.children.append(Node("P_ringA", "rw_ring_a.tpl", size=(150, 150), colors=[(*CYAN, 255)], alpha=230))

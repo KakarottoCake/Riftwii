@@ -158,6 +158,128 @@ void test_leaves_other_code() {
     }
 }
 
+// 007: NightFire's (Nightfire.elf 0x80033d64-0x80033d70, its ARGetSize at
+// 0x8016cf64, read from the game): the top of EA's ARAM allocator.
+void test_finds_ea_top() {
+    Text t;
+    const std::uint32_t getter = t.here();
+    t.add(0x806D9D34);  // lwz r3,-0x62cc(r13)
+    t.add(kBlr);
+    t.add(kNop);
+    const std::uint32_t call = t.here();
+    t.add(bl(t.here(), getter));
+    t.add(0x3803C000);  // addi r0,r3,-0x4000
+    t.add(0x7C030378);  // mr r3,r0
+    t.add(0x900D9590);  // stw r0,-0x6a70(r13)
+    std::vector<std::uint32_t> found = riftwii::find_gc_aram_tops_below_size(t.ranges());
+    EXPECT_EQ(found.size(), 1u);
+    if (found.size() == 1) EXPECT_EQ(found[0], call);
+
+    // The store right after the addi is taken too.
+    t.words[(call + 8 - kBase) / 4] = 0x900D9590;
+    EXPECT_EQ(riftwii::find_gc_aram_tops_below_size(t.ranges()).size(), 1u);
+
+    // Left alone: another register stored, an addition, a step not a
+    // multiple of 32, more than 64 KB below, no store, another getter shape.
+    Text other_store = t;
+    other_store.words[(call + 8 - kBase) / 4] = 0x7C030378;
+    other_store.words[(call + 12 - kBase) / 4] = 0x906D9590;  // stw r3
+    EXPECT_TRUE(riftwii::find_gc_aram_tops_below_size(other_store.ranges()).empty());
+    Text added = t;
+    added.words[(call + 4 - kBase) / 4] = 0x38034000;  // addi r0,r3,0x4000
+    EXPECT_TRUE(riftwii::find_gc_aram_tops_below_size(added.ranges()).empty());
+    Text odd = t;
+    odd.words[(call + 4 - kBase) / 4] = 0x3803FFFC;  // addi r0,r3,-4
+    EXPECT_TRUE(riftwii::find_gc_aram_tops_below_size(odd.ranges()).empty());
+    Text from_r4 = t;
+    from_r4.words[(call + 4 - kBase) / 4] = 0x3804C000;  // addi r0,r4,-0x4000
+    EXPECT_TRUE(riftwii::find_gc_aram_tops_below_size(from_r4.ranges()).empty());
+    Text unstored = t;
+    unstored.words[(call + 8 - kBase) / 4] = kNop;
+    unstored.words[(call + 12 - kBase) / 4] = kNop;
+    EXPECT_TRUE(riftwii::find_gc_aram_tops_below_size(unstored.ranges()).empty());
+    Text not_getter = t;
+    not_getter.words[(getter - kBase) / 4] = lwz_r13(4, -0x62cc);
+    EXPECT_TRUE(riftwii::find_gc_aram_tops_below_size(not_getter.ranges()).empty());
+    // A nop before the store is taken.
+    Text nopped = t;
+    nopped.words[(call + 8 - kBase) / 4] = kNop;
+    EXPECT_EQ(riftwii::find_gc_aram_tops_below_size(nopped.ranges()).size(), 1u);
+    // Left alone: the top overwritten, or a branch, before the store.
+    Text overwritten = t;
+    overwritten.words[(call + 8 - kBase) / 4] = 0x38000000;  // li r0,0
+    EXPECT_TRUE(riftwii::find_gc_aram_tops_below_size(overwritten.ranges()).empty());
+    Text moved_over = t;
+    moved_over.words[(call + 8 - kBase) / 4] = 0x7C601B78;  // mr r0,r3
+    EXPECT_TRUE(riftwii::find_gc_aram_tops_below_size(moved_over.ranges()).empty());
+    Text branched = t;
+    branched.words[(call + 8 - kBase) / 4] = 0x48000008;  // b +8
+    EXPECT_TRUE(riftwii::find_gc_aram_tops_below_size(branched.ranges()).empty());
+}
+
+// 007: NightFire's driving.elf, its sound code at 0x80211320-0x80211334
+// and its ARGetBaseAddress at 0x801b41ac, read from the game.
+void test_finds_end_after_base() {
+    Text t;
+    t.add(kBlr);
+    const std::uint32_t getter = t.here();
+    t.add(0x38604000);  // li r3,0x4000
+    t.add(kBlr);
+    const std::uint32_t call = t.here();
+    t.add(bl(t.here(), getter));
+    t.add(0x38C30100);  // addi r6,r3,0x100
+    const std::uint32_t lis = t.here();
+    t.add(0x3C000080);  // lis r0,0x80
+    t.add(0x39004000);  // li r8,0x4000
+    t.add(0x38E0C000);  // li r7,-0x4000
+    t.add(0x7C060050);  // subf r0,r6,r0
+    std::vector<std::uint32_t> found = riftwii::find_gc_aram_ends_after_base(t.ranges());
+    EXPECT_EQ(found.size(), 1u);
+    if (found.size() == 1) EXPECT_EQ(found[0], lis);
+
+    // Left alone: the end as the subtrahend, an end past 16 MB, no
+    // subtraction, and a call to another function.
+    Text swapped = t;
+    swapped.words[(lis + 12 - kBase) / 4] = 0x7C003050;  // subf r0,r0,r6: r6 - r0
+    EXPECT_TRUE(riftwii::find_gc_aram_ends_after_base(swapped.ranges()).empty());
+    Text far_end = t;
+    far_end.words[(lis - kBase) / 4] = 0x3C000180;  // lis r0,0x180
+    EXPECT_TRUE(riftwii::find_gc_aram_ends_after_base(far_end.ranges()).empty());
+    Text no_subf = t;
+    no_subf.words[(lis + 12 - kBase) / 4] = kNop;
+    EXPECT_TRUE(riftwii::find_gc_aram_ends_after_base(no_subf.ranges()).empty());
+    // The subtrahend not from the base: subf r0,r5,r0 with r5 never set
+    // from r3, or r6 written again after its addi.
+    Text not_base = t;
+    not_base.words[(lis + 12 - kBase) / 4] = 0x7C050050;  // subf r0,r5,r0
+    EXPECT_TRUE(riftwii::find_gc_aram_ends_after_base(not_base.ranges()).empty());
+    Text rewritten = t;
+    rewritten.words[(lis + 4 - kBase) / 4] = 0x38C00010;  // li r6,0x10
+    EXPECT_TRUE(riftwii::find_gc_aram_ends_after_base(rewritten.ranges()).empty());
+    // The end's register written again before the subtraction.
+    Text end_changed = t;
+    end_changed.words[(lis + 8 - kBase) / 4] = 0x38000010;  // li r0,0x10
+    EXPECT_TRUE(riftwii::find_gc_aram_ends_after_base(end_changed.ranges()).empty());
+    // Anything else between (a compare, a branch, a store) ends the search.
+    Text compared = t;
+    compared.words[(lis + 4 - kBase) / 4] = 0x2C030000;  // cmpwi r3,0
+    EXPECT_TRUE(riftwii::find_gc_aram_ends_after_base(compared.ranges()).empty());
+    Text branched = t;
+    branched.words[(lis + 4 - kBase) / 4] = 0x41820008;  // beq +8
+    EXPECT_TRUE(riftwii::find_gc_aram_ends_after_base(branched.ranges()).empty());
+    Text stored = t;
+    stored.words[(lis + 4 - kBase) / 4] = 0x90010008;  // stw r0,8(r1)
+    EXPECT_TRUE(riftwii::find_gc_aram_ends_after_base(stored.ranges()).empty());
+    // The base taken by mr instead: still found.
+    Text moved = t;
+    moved.words[(call + 4 - kBase) / 4] = 0x7C661B78;  // mr r6,r3
+    EXPECT_EQ(riftwii::find_gc_aram_ends_after_base(moved.ranges()).size(), 1u);
+    Text other_getter = t;
+    other_getter.words[(getter - kBase) / 4] = 0x38608000;  // li r3,-0x8000
+    EXPECT_TRUE(riftwii::find_gc_aram_ends_after_base(other_getter.ranges()).empty());
+    (void)call;
+}
+
 void test_raised_end_word() {
     // lis r3,0x1100: addis r3,0,0x1100.
     EXPECT_EQ(riftwii::kGcAramRaisedEndWord, (15u << 26) | (3u << 21) | 0x1100u);
@@ -169,6 +291,8 @@ int main() {
     test_doshin_words();
     test_finds_clamps();
     test_leaves_other_code();
+    test_finds_ea_top();
+    test_finds_end_after_base();
     test_raised_end_word();
     if (g_failures == 0) std::cout << "gcaram tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;

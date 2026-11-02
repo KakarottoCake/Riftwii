@@ -65,7 +65,9 @@ int32_t gcad_env_ioctl(gcad* g, uint32_t tag, uint32_t cmd, void* in, uint32_t i
     struct rt_pad_context* c = (struct rt_pad_context*)g->env_ctx;
     pad_ioctl_fn fn = (pad_ioctl_fn)(uintptr_t)c->ioctl_async;
     if (fn == 0) return -1;
-    return fn(c->fd, cmd, in, in_len, out, out_len, c->complete_entry, tag);
+    /* Each link's own handle: /dev/usb/hid's, or /dev/usb/ven's for an
+     * Xbox 360 pad and its list. */
+    return fn(g->fd, cmd, in, in_len, out, out_len, c->complete_entry, tag);
 }
 
 int32_t gcad_env_ioctlv(gcad* g, uint32_t tag, uint32_t cmd, void* msg, uint32_t msg_len, void* data,
@@ -83,7 +85,7 @@ int32_t gcad_env_ioctlv(gcad* g, uint32_t tag, uint32_t cmd, void* msg, uint32_t
     vec[1] = msg_len;
     vec[2] = (uint32_t)(uintptr_t)data;
     vec[3] = data_len;
-    return fn(c->fd, cmd, data_in ? 2u : 1u, data_in ? 0u : 1u, vec, c->complete_entry, tag);
+    return fn(g->fd, cmd, data_in ? 2u : 1u, data_in ? 0u : 1u, vec, c->complete_entry, tag);
 }
 
 uint32_t gcad_env_address(gcad* g, void* p) {
@@ -110,17 +112,24 @@ void gcad_env_invalidate(gcad* g, void* p, uint32_t len) {
 }
 
 void gcad_env_event(gcad* g, uint32_t code, uint32_t a, int32_t b) {
-    (void)g;
-    (void)code;
-    (void)a;
-    (void)b;
+    struct rt_pad_context* c = (struct rt_pad_context*)g->env_ctx;
+    typedef void (*diagnostic_fn)(const char*, uint32_t, uint32_t, int32_t);
+    const rthid_mapping* mapping = g->mapping;
+    if (code == GCAD_EV_HID_LIST && g->catalog && g->catalog->count) mapping = &g->catalog->maps[0];
+    if ((code == GCAD_EV_HID_DIAG || code == GCAD_EV_HID_LIST) && c->diagnostic_print && mapping) {
+        const uint32_t id = (uint32_t)mapping->vid << 16 | mapping->pid;
+        ((diagnostic_fn)(uintptr_t)c->diagnostic_print)(c->diagnostic_format, id, a, b);
+    }
 }
 
 static gcad* state(struct rt_pad_context* c) {
     gcad* g = (gcad*)(uintptr_t)c->state;
     if (!c->inited) {
-        gcad_init(g, c, c->fd, c->version, c->ticks_per_ms);
-        if (c->known_dev >= 0) gcad_expect(g, c->known_dev);
+        gcad_hub* hub = (gcad_hub*)(void*)g;
+        gcad_hub_init(hub, c, c->fd, c->version, c->ticks_per_ms);
+        if (c->known_dev != GCAD_NO_DEVICE) gcad_expect(g, c->known_dev);
+        if (c->ven_fd >= 0) gcad_ven_init(g, &hub->ven, hub->xbox, c, c->ven_fd, c->ticks_per_ms);
+
         c->inited = 1;
     }
     return g;
@@ -516,7 +525,13 @@ uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) 
     const uint32_t t = now();
     gcad* g = state(c);
     uint32_t i, mask = 0;
+    gcad_pad usb_pads[GCAD_PORTS];
+    uint32_t taken = 0, usb_present;
+    for (i = 0; i < GCAD_PORTS; ++i) {
+        if ((int8_t)status[i * PAD_STATUS_BYTES + 10] == 0) taken |= 1u << i;
+    }
     gcad_tick(g, t);
+    usb_present = gcad_read_ports(g, taken, usb_pads, t);
     for (i = 0; i < GCAD_PORTS; ++i) {
         uint8_t* s = status + i * PAD_STATUS_BYTES;
         gcad_pad pad;
@@ -530,8 +545,9 @@ uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) 
             pad.stick_x = pad.stick_y = pad.substick_x = pad.substick_y = 0;
             pad.trigger_l = pad.trigger_r = 0;
             pad.wireless = 1;
-        } else if (!gcad_port(g, i, &pad, t)) {
-            continue;
+        } else {
+            if (!(usb_present & (1u << i))) continue;
+            pad = usb_pads[i];
         }
         s[0] = (uint8_t)(pad.buttons >> 8);
         s[1] = (uint8_t)pad.buttons;

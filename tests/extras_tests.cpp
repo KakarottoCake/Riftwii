@@ -1308,6 +1308,17 @@ void TestSettingsMusic() {
     EXPECT_TRUE(s.serialize().find("launch_music = off\n") != std::string::npos);
     s.parse("launch_music = loud\n");
     EXPECT_EQ(s.launch_music, "off");
+    // A game page's banner sound and disc art: off until turned on.
+    EXPECT_EQ(s.page_banner_sound, "off");
+    EXPECT_EQ(s.disc_art, "off");
+    s.parse("page_banner_sound = on\ndisc_art = on\n");
+    EXPECT_EQ(s.page_banner_sound, "on");
+    EXPECT_EQ(s.disc_art, "on");
+    EXPECT_TRUE(s.serialize().find("page_banner_sound = on\n") != std::string::npos);
+    EXPECT_TRUE(s.serialize().find("disc_art = on\n") != std::string::npos);
+    s.parse("page_banner_sound = loud\ndisc_art = big\n");
+    EXPECT_EQ(s.page_banner_sound, "on");
+    EXPECT_EQ(s.disc_art, "on");
 }
 
 void TestSettings() {
@@ -1575,6 +1586,8 @@ void TestCoverDownloads() {
 }
 
 void TestCoverArt() {
+    EXPECT_EQ(cover_url("US", "RSBE01"), std::string("http://art.gametdb.com/wii/cover/US/RSBE01.png"));
+    EXPECT_EQ(cover_url("US", "RSBE01", true), std::string("http://art.gametdb.com/wii/coverB/US/RSBE01.png"));
     const std::vector<std::string> us = cover_regions("RMCE01", "en");
     EXPECT_EQ(us.size(), 3u);
     EXPECT_EQ(us[0], "US");
@@ -1732,6 +1745,38 @@ void TestCoverArt() {
         EXPECT_TRUE(make_cover3d_file(narrow.data(), 4, 4).empty());
         std::uint8_t wrong[8] = {'R', 'W', '3', 'D', 0, 176, 0, 200};
         EXPECT_FALSE(cover3d_header_valid(wrong));
+    }
+
+    // Disc art: GameTDB's picture made a texture at its own size, its
+    // see-through corners kept; a size that isn't whole tiles is padded.
+    {
+        EXPECT_EQ(disc_art_url("EN", "RMCP01"), "https://art.gametdb.com/wii/disc/EN/RMCP01.png");
+        std::vector<std::uint8_t> pic(160 * 160 * 4, 0);  // see-through
+        for (int y = 40; y < 120; ++y)
+            for (int x = 40; x < 120; ++x) {
+                std::uint8_t* p = &pic[(static_cast<std::size_t>(y) * 160 + x) * 4];
+                p[2] = 255;  // opaque blue
+                p[3] = 255;
+            }
+        int tw = 0, th = 0;
+        const std::vector<std::uint8_t> tex = disc_art_texture(pic.data(), 160, 160, tw, th);
+        EXPECT_EQ(tw, 160);
+        EXPECT_EQ(th, 160);
+        EXPECT_EQ(tex.size(), static_cast<std::size_t>(160 * 160 * 2));
+        const auto texel = [](const std::vector<std::uint8_t>& t, int width, int x, int y) {
+            const std::size_t at = (static_cast<std::size_t>(y / 4) * (width / 4) + x / 4) * 32 +
+                                   static_cast<std::size_t>((y % 4) * 4 + x % 4) * 2;
+            return (t[at] << 8) | t[at + 1];
+        };
+        EXPECT_EQ(texel(tex, 160, 0, 0) & 0xF000, 0);  // see-through: alpha 0
+        EXPECT_EQ(texel(tex, 160, 80, 80), 0x801F);    // opaque blue
+        std::vector<std::uint8_t> odd(150 * 150 * 4, 255);
+        const std::vector<std::uint8_t> padded = disc_art_texture(odd.data(), 150, 150, tw, th);
+        EXPECT_EQ(tw, 152);
+        EXPECT_EQ(texel(padded, 152, 149, 149), 0xFFFF);
+        EXPECT_EQ(texel(padded, 152, 151, 10) & 0xF000, 0);
+        EXPECT_TRUE(disc_art_texture(odd.data(), 4, 4, tw, th).empty());
+        EXPECT_TRUE(disc_art_texture(odd.data(), 1024, 8, tw, th).empty());
     }
 
     LoaderSettings s;
@@ -1935,6 +1980,10 @@ void TestHeadlessArguments() {
                                       h, error));
     EXPECT_TRUE(parse_headless_launch({"--launch", "game=RMCE01", "gct=sd:/codes/RMCE01.gct", "return_to=0001000147584c44"}, h,
                                       error));
+    EXPECT_TRUE(parse_headless_launch({"--launch", "path=usb2:/wbfs/RMCE01.wbfs", "xml=usb1:/riivolution/a.xml"}, h, error));
+    EXPECT_EQ(h.from, std::string("usb"));
+    EXPECT_EQ(h.path, std::string("usb2:/wbfs/RMCE01.wbfs"));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "path=usb02:/wbfs/RMCE01.wbfs"}, h, error));
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "video_mode=pal70"}, h, error));
     EXPECT_TRUE(error.find("video_mode") != std::string::npos);
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "speed=fast"}, h, error));
@@ -2013,6 +2062,22 @@ void TestPinLaunchCios() {
     EXPECT_TRUE(std::find(args.begin(), args.end(), std::string("cios=251")) + 3 == args.end());  // then gct, reset
     // Once is enough: the request now names it.
     EXPECT_FALSE(pin_launch_cios(args, 251));
+
+    // A Reset of a code build started with RiftWii's extras (#386) says so,
+    // just before reset=, and reads back; the cios goes before both.
+    HeadlessLaunch with = h;
+    with.code_build_extras = true;
+    std::vector<std::string> with_args = headless_launch_arguments(with);
+    EXPECT_EQ(with_args.back(), std::string("reset=1"));
+    EXPECT_EQ(with_args[with_args.size() - 2], std::string("extras=with"));
+    EXPECT_TRUE(pin_launch_cios(with_args, 251));
+    HeadlessLaunch with_back;
+    EXPECT_TRUE(parse_headless_launch(with_args, with_back, error));
+    EXPECT_TRUE(with_back.code_build_extras);
+    EXPECT_EQ(with_back.settings.cios, std::string("251"));
+    EXPECT_TRUE(std::find(with_args.begin(), with_args.end(), std::string("cios=251")) + 4 == with_args.end());
+    // Only "with" is a value for it.
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=SKHJAF", "extras=without"}, with_back, error));
     // "auto" becomes the slot.
     h.settings.cios = "auto";
     args = headless_launch_arguments(h);
@@ -2580,6 +2645,15 @@ void TestHistory() {
     back.parse(h.serialize());
     EXPECT_EQ(back.size(), 3u);
     EXPECT_EQ(back.find("R2SE18")->last, 1790000800);
+    // An emulator game's key is kept; a malformed one is not.
+    const std::string emu = "emu-" + std::string(64, 'a');
+    back.record(emu, 1790003000);
+    back.record("emu-" + std::string(64, 'G'), 1790003000);
+    back.record("emu-abc", 1790003000);
+    PlayHistory again;
+    again.parse(back.serialize());
+    EXPECT_EQ(again.size(), 4u);
+    EXPECT_TRUE(again.find(emu) != nullptr && again.recent(1)[0] == emu);
 }
 
 }  // namespace

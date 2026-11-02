@@ -98,6 +98,10 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "on" || value == "off") menu_music = value;
         } else if (key == "launch_music") {
             if (value == "on" || value == "off") launch_music = value;
+        } else if (key == "page_banner_sound") {
+            if (value == "on" || value == "off") page_banner_sound = value;
+        } else if (key == "disc_art") {
+            if (value == "on" || value == "off") disc_art = value;
         } else if (key == "music_file") {
             if (music_choice_valid(value)) music_file = value;
         } else if (key == "play_history") {
@@ -131,6 +135,10 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "normal" || value == "quiet" || value == "off") menu_sounds = value;
         } else if (key == "online") {
             online = value != "off";
+        } else if (key == "emulator_covers") {
+            if (value == "on" || value == "off") emulator_covers = value == "on";
+        } else if (key == "steamgrid_covers") {
+            if (value == "on" || value == "off") steamgrid_covers = value == "on";
         } else if (key == "favorites") {
             favorites.clear();
             std::size_t at = 0;
@@ -202,6 +210,8 @@ std::string LoaderSettings::serialize() const {
     s += "menu_sounds = " + menu_sounds + "\n";
     s += "menu_music = " + menu_music + "\n";
     s += "launch_music = " + launch_music + "\n";
+    s += "page_banner_sound = " + page_banner_sound + "\n";
+    s += "disc_art = " + disc_art + "\n";
     s += "music_file = " + music_file + "\n";
     s += "play_history = " + play_history + "\n";
     s += "home_source = " + home_source + "\n";
@@ -215,6 +225,8 @@ std::string LoaderSettings::serialize() const {
     s += "return_to = " + return_to + "\n";
     s += "screenshots = " + screenshots + "\n";
     s += std::string("online = ") + (online ? "on" : "off") + "\n";
+    s += std::string("emulator_covers = ") + (emulator_covers ? "on" : "off") + "\n";
+    s += std::string("steamgrid_covers = ") + (steamgrid_covers ? "on" : "off") + "\n";
     if (!riitag_key.empty()) s += "riitag_key = " + riitag_key + "\n";
     if (!riitag_id.empty()) s += "riitag_id = " + riitag_id + "\n";
     s += "gc_rumble = " + gc_rumble + "\n";

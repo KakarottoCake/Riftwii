@@ -1,10 +1,11 @@
 RiftWii {{VERSION}}
 ================
 
-RiftWii loads Riivolution-format mod packs into Wii games played from
-the disc, a USB drive or the SD card, and can keep modded saves on the
-SD card, apart from your Wii saves. It was written from scratch and
-contains no Riivolution code. Thank you for trying it.
+RiftWii is a USB loader and a Riivolution replacement. It starts your
+games from a USB drive, the SD card or the disc, loads Riivolution-format
+mod packs into them, and can keep modded saves on the SD card, apart from
+your Wii saves. It was written from scratch and contains no Riivolution
+code. Thank you for trying it.
 
 START HERE
 ----------

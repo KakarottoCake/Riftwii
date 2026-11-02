@@ -11,6 +11,79 @@ in an emulated NAND on the SD card, or moved to the SD card by the Wii
 Menu, starts from RiftWii, saves, and goes back to RiftWii or the Wii
 Menu.
 
+## WAD folders: drop and play
+
+`sd:/wiiware/` and every mounted USB partition's `wiiware/` folder are
+read on Home's background drive worker, including one level of subfolders.
+WADs appear as channel games and use the existing covers, box art, banner
+and icon paths. The small header, ticket and title metadata are checked
+on each scan; large contents are not read. Banner names and the decrypted
+banner (which contains its icon) are cached under
+`sd:/riftwii/wiiware-cache/`, by source path, metadata/header hash and
+file size, plus modification time on SD. USB's raw file view has no time,
+so a change confined to encrypted content with identical metadata and
+size cannot be detected until that cache/preparation stamp is removed.
+Normal rebuilt WADs change their title metadata's content hashes.
+The scan stops at 1,024 WADs or 8,192 folder entries per drive scan.
+
+A WAD is a delivery archive with encrypted contents, not the NAND files
+ES opens while a game runs. The public [WAD format](https://wiibrew.org/wiki/WAD_files),
+[ticket](https://wiibrew.org/wiki/Ticket) and
+[title metadata](https://wiibrew.org/wiki/Title_metadata) describe those
+sections and their content hashes. Together with the ES-content findings
+below and the existing full NAND emulation path, this is why RiftWii
+unpacks on first play rather than pretending the WAD itself is a NAND.
+No other loader's source was used for this feature.
+
+The key source is checked against the banner's content hash: console OTP
+first, then the read-only [ES_Decrypt call](https://wiibrew.org/wiki//dev/es)
+with [IOSC common-key handle 4](https://wiibrew.org/wiki/IOS/Syscalls), then
+the player's BootMii `sd:/keys.bin`. ES decrypts the ticket's title key;
+RiftWii does not export the common key or import a ticket into real NAND.
+An incorrect nonzero OTP result falls through just like an unavailable
+one. Each attempt and its expanded AES key are cleared after use, and only
+the successful source is logged. Dolphin implements the ES call, but its
+unfinished permission checks do not prove what every real IOS/d2x version
+allows. A Wii without hardware access may still need its own BootMii
+backup if IOS denies the call. See NOTICE.md for the Dolphin reference.
+
+First play verifies and stages every content, then replaces the content
+folder, ticket, title ownership list and shared-content map with rollback
+on a reported error. A new full emulated NAND first gets only its missing
+`SYSCONF`, `setting.txt`, `uid.sys` and `cert.sys` from the player's own Wii.
+These stay on the SD card, never in the repository. Existing system files
+are preserved. Each new title gets an unused owner in `uid.sys`, following
+the public [ownership-list format](https://wiibrew.org/wiki//sys/uid.sys).
+An update keeps the previous content until the replacement is complete;
+it never changes the title's `data` save folder. The source stamp is
+published inside the content folder, in `.riftwii-wad`, with the title.
+A later start skips extraction only when the stamp, installed metadata,
+ticket and every content's expected size agree. An identical manually
+installed title can be reused without acquiring an automatic stamp.
+Auto-prepared copies are listed only by the WAD scan, so removing their
+WAD hides the tile without removing contents or saves. Previously
+installed copies are merged by title ID, and a playable real-NAND copy
+keeps its existing save/launch location.
+
+The destination is the configured SD channel NAND, normally
+`sd:/nands/01`. If another loader's configured destination is unusable
+(for example on USB), WAD discovery uses that SD default. Saves remain at
+`<NAND>/title/00010001/<eight hex digits>/data/`. Deleting the source WAD
+or `sd:/riftwii/wiiware-cache/` does not delete saves. A damaged WAD or
+space/write failure leaves no newly published partial title; details go
+to `session.log`. A power loss during the short publication step can leave
+`.riftwii-old` backups; RiftWii refuses to overwrite those on a retry,
+so they can be checked before recovery. This is not a power-loss-safe
+filesystem transaction. No WAD or console key is shipped or kept in the
+repository. The existing common-key reader does not support Korean-key
+or vWii-key WADs. WADs must be smaller than 2 GiB, metadata sections at
+most 64 KiB, up to 512 contents, and banners at most 4 MiB.
+
+Host tests cover parsing, cache records, source changes, folder depth,
+raw USB partitions, duplicate merging, first/second play, failed updates
+and save retention. Dolphin validation is assigned to the team tester;
+real Wii checks are still needed for d2x SD and USB timing.
+
 ## Open reports
 
 | Report | What happens |

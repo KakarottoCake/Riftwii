@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "riftwii/disc.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/imagevolume.hpp"
 
 namespace riftwii {
@@ -141,6 +142,50 @@ bool find_wbfs_partition(const BlockReader& reader, WbfsPartition& out, std::str
     }
     error = "no WBFS partition found";
     return false;
+}
+
+bool find_wbfs_partitions(const BlockReader& reader, std::vector<WbfsPartition>& out, std::string& error) {
+    out.clear();
+    std::uint8_t block0[512];
+    if (!reader || !reader(0, 1, block0)) {
+        error = "cannot read block 0";
+        return false;
+    }
+    WbfsPartition whole;
+    if (try_partition(reader, 0, 0, whole, error)) {
+        if (!try_push_back(out, std::move(whole))) {
+            error = "there is not enough memory to keep the WBFS partition";
+            return false;
+        }
+        return true;
+    }
+    std::string first_error = error;
+    unsigned number = 0;
+    for (const DrivePartition& partition : drive_partitions(reader, block0)) {
+        ++number;
+        const auto duplicate = std::find_if(out.begin(), out.end(), [&](const WbfsPartition& mounted) {
+            return mounted.lba == partition.lba;
+        });
+        if (duplicate != out.end()) continue;
+        WbfsPartition mounted;
+        std::string why;
+        if (try_partition(reader, partition.lba, partition.blocks, mounted, why)) {
+            mounted.partition = number;
+            if (!try_push_back(out, std::move(mounted))) {
+                out.clear();
+                error = "there is not enough memory to keep the WBFS partitions";
+                return false;
+            }
+        } else if (first_error.empty() && !why.empty()) {
+            first_error = why;
+        }
+    }
+    if (out.empty()) {
+        error = first_error.empty() ? "no WBFS partition found" : first_error;
+        return false;
+    }
+    error.clear();
+    return true;
 }
 
 bool list_wbfs_discs(const BlockReader& reader, const WbfsPartition& partition, std::vector<WbfsDisc>& out,

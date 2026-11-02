@@ -8,7 +8,7 @@
     .section .text.gc_entry, "ax", @progbits
     .globl _gc_blob_start
 _gc_blob_start:
-    .long 0x52574744, 10, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
+    .long 0x52574744, 11, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
     .long gc_hook_read - _gc_blob_start, gc_hook_seek - _gc_blob_start
     .long gc_hook_disk_id - _gc_blob_start, gc_hook_inquiry - _gc_blob_start
     .long gc_hook_cb_r3 - _gc_blob_start, gc_hook_audio_status - _gc_blob_start
@@ -40,6 +40,8 @@ _gc_blob_start:
     .long gc_hook_stop_motor - _gc_blob_start
     .long gc_hook_si_probe - _gc_blob_start, gc_replay_si_probe - _gc_blob_start
     .long gc_continue_si_probe - _gc_blob_start
+    .long gc_hook_program - _gc_blob_start, gc_replay_program - _gc_blob_start
+    .long gc_continue_program - _gc_blob_start, gc_program_saved - _gc_blob_start
 
 /* Calls `fn` with the context in r3 and the game's r3..r6 moved up one
  * register (r4..r7). */
@@ -461,6 +463,82 @@ gc_continue_boot_dol:
     ori 12, 12, 0
     mtctr 12
     bctr
+
+/* A program the game loaded itself starts (gc_programs.h): the read that
+ * brought its first two words made them "li r0,index" and "b" here. Its
+ * registers go to gc_program_saved, not to a stack: nothing says the old
+ * program's stack is still there, and the new one has none yet.
+ * gc_on_program_start(ctx, index) runs on RiftWii's own stack in MEM2 and
+ * sets RiftWii's words to that program's, among them the program's own
+ * two words in gc_replay_program and the way back to its third in
+ * gc_continue_program; those run next, with the registers as they came.
+ * r12 and CTR are lost, as the continue slot's own jump loses them. */
+    .globl gc_hook_program
+gc_hook_program:
+    mflr 12
+    mtctr 12
+    bl 1f
+1:  mflr 12
+    addi 12, 12, gc_program_saved - 1b
+    stw 1, GC_PROGRAM_SAVED_GPR + 0x00(12)
+    stw 2, GC_PROGRAM_SAVED_GPR + 0x04(12)
+    stw 3, GC_PROGRAM_SAVED_GPR + 0x08(12)
+    stw 4, GC_PROGRAM_SAVED_GPR + 0x0C(12)
+    stw 5, GC_PROGRAM_SAVED_GPR + 0x10(12)
+    stw 6, GC_PROGRAM_SAVED_GPR + 0x14(12)
+    stw 7, GC_PROGRAM_SAVED_GPR + 0x18(12)
+    stw 8, GC_PROGRAM_SAVED_GPR + 0x1C(12)
+    stw 9, GC_PROGRAM_SAVED_GPR + 0x20(12)
+    stw 10, GC_PROGRAM_SAVED_GPR + 0x24(12)
+    stw 11, GC_PROGRAM_SAVED_GPR + 0x28(12)
+    stmw 13, GC_PROGRAM_SAVED_GPR + 0x30(12)
+    mfctr 11
+    stw 11, GC_PROGRAM_SAVED_LR(12)
+    mfcr 11
+    stw 11, GC_PROGRAM_SAVED_CR(12)
+    mr 4, 0
+    addi 3, 12, gc_context_data - gc_program_saved
+    lwz 1, GC_PROGRAM_SAVED_STACK(12)
+    bl gc_on_program_start
+    bl 2f
+2:  mflr 12
+    addi 12, 12, gc_program_saved - 2b
+    lwz 11, GC_PROGRAM_SAVED_LR(12)
+    mtlr 11
+    lwz 11, GC_PROGRAM_SAVED_CR(12)
+    mtcr 11
+    lwz 1, GC_PROGRAM_SAVED_GPR + 0x00(12)
+    lwz 2, GC_PROGRAM_SAVED_GPR + 0x04(12)
+    lwz 3, GC_PROGRAM_SAVED_GPR + 0x08(12)
+    lwz 4, GC_PROGRAM_SAVED_GPR + 0x0C(12)
+    lwz 5, GC_PROGRAM_SAVED_GPR + 0x10(12)
+    lwz 6, GC_PROGRAM_SAVED_GPR + 0x14(12)
+    lwz 7, GC_PROGRAM_SAVED_GPR + 0x18(12)
+    lwz 8, GC_PROGRAM_SAVED_GPR + 0x1C(12)
+    lwz 9, GC_PROGRAM_SAVED_GPR + 0x20(12)
+    lwz 10, GC_PROGRAM_SAVED_GPR + 0x24(12)
+    lwz 11, GC_PROGRAM_SAVED_GPR + 0x28(12)
+    lmw 13, GC_PROGRAM_SAVED_GPR + 0x30(12)
+    b gc_replay_program
+
+    .balign 16
+    .globl gc_replay_program
+gc_replay_program:
+    nop
+    nop
+    nop
+    nop
+    .globl gc_continue_program
+gc_continue_program:
+    lis 12, 0
+    ori 12, 12, 0
+    mtctr 12
+    bctr
+
+    .balign 8
+    .globl gc_program_saved
+gc_program_saved:
+    .fill GC_PROGRAM_SAVED_BYTES / 4, 4, 0
 
 /* The SDK's reset routine(code << 3), in place of the write to PI's reset
  * register: gc_on_hot_reset(ctx, code) restarts the game and never

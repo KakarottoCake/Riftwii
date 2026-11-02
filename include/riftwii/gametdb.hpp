@@ -53,6 +53,8 @@ public:
     static constexpr std::size_t kMaxBlock = 64u << 10;  // a <game> block; longer ones are skipped
     WiitdbScanner(std::set<std::string> wanted, std::string lang);
     void feed(const char* data, std::size_t size);
+    // Only a closing </datafile> between game blocks completes the scan.
+    bool complete() const { return complete_; }
     const std::map<std::string, GameInfo>& games() const { return found_; }
     const std::vector<HomebrewTitle>& homebrew() const { return homebrew_; }
     std::size_t blocks() const { return blocks_; }    // <game> blocks seen
@@ -64,6 +66,7 @@ private:
     std::string lang_;
     std::string buffer_;
     bool in_game_ = false;
+    bool complete_ = false;
     std::map<std::string, GameInfo> found_;
     std::vector<HomebrewTitle> homebrew_;
     std::size_t blocks_ = 0;
@@ -81,6 +84,18 @@ bool parse_game_infos(const std::string& text, std::map<std::string, GameInfo>& 
 // Whether the cache was made by a RiftWii that keeps each game's <type>:
 // an older one's says no game is custom, so the database is read again.
 bool game_infos_have_types(const std::string& text);
+
+// Home's genres, stepped through with B and Up or Down: every genre the
+// listed games have (`game_genres`, one list a game), the most common
+// first and A to Z among equals. GameTDB writes them in lower case; the
+// same word in another case is still one genre.
+std::vector<std::string> genre_choices(const std::vector<std::vector<std::string>>& game_genres);
+// Whether a game's genres include `genre`, in any case.
+bool has_genre(const std::vector<std::string>& genres, const std::string& genre);
+// The genre after (`step` 1) or before (-1) `current` in `choices`. Every
+// genre ("") comes between the last and the first; a `current` no longer
+// among them starts again from there.
+std::string step_genre(const std::vector<std::string>& choices, const std::string& current, int step);
 
 // GameTDB's locale code for a menu language ("en", "ja"...).
 std::string gametdb_locale(const std::string& menu_language);

@@ -79,8 +79,8 @@ std::vector<std::string> gametdb_art_ids(const std::string& game_id) {
     return {code, game_id};
 }
 
-std::string cover_url(const std::string& region, const std::string& game_id) {
-    return "http://art.gametdb.com/wii/cover/" + region + "/" + game_id + ".png";
+std::string cover_url(const std::string& region, const std::string& game_id, bool second) {
+    return std::string("http://art.gametdb.com/wii/") + (second ? "coverB/" : "cover/") + region + "/" + game_id + ".png";
 }
 
 int http_answered_status(const std::string& error) {
@@ -132,7 +132,7 @@ bool CoverDownloads::count(CoverOutcome outcome) {
 std::string CoverDownloads::take_summary() {
     if (!counted_since_summary_) return std::string();
     counted_since_summary_ = false;
-    std::string text = log_name_ + ": " + std::to_string(stored_) + " downloaded this session; GameTDB has no " +
+    std::string text = log_name_ + ": " + std::to_string(stored_) + " downloaded this session; " + source_ + " has no " +
                        picture_ + " for " + std::to_string(not_found_) + " game(s) (asked again in a week)";
     if (no_answer_ != 0) {
         text += "; " + std::to_string(no_answer_) +
@@ -392,6 +392,26 @@ std::vector<std::uint8_t> make_cover3d_file(const std::uint8_t* rgba, int w, int
 bool cover3d_header_valid(const std::uint8_t* h) {
     return h && h[0] == 'R' && h[1] == 'W' && h[2] == '3' && h[3] == 'D' && ((h[4] << 8) | h[5]) == kCover3dWidth &&
            ((h[6] << 8) | h[7]) == kCover3dHeight;
+}
+
+std::string disc_art_url(const std::string& region, const std::string& game_id) {
+    // Over https: the picture is stored and shown as GameTDB sent it, so
+    // nobody on the way may swap it (HttpGet keeps redirects on https).
+    return "https://art.gametdb.com/wii/disc/" + region + "/" + game_id + ".png";
+}
+
+std::vector<std::uint8_t> disc_art_texture(const std::uint8_t* rgba, int w, int h, int& tw, int& th) {
+    if (!rgba || w < 8 || h < 8 || w > kDiscArtMaxSide || h > kDiscArtMaxSide) return {};
+    tw = (w + 3) & ~3;
+    th = (h + 3) & ~3;
+    std::vector<std::uint8_t> px(static_cast<std::size_t>(tw) * th * 4, 0);
+    for (int y = 0; y < h; ++y)
+        std::copy(rgba + static_cast<std::ptrdiff_t>(y) * w * 4, rgba + static_cast<std::ptrdiff_t>(y + 1) * w * 4,
+                  px.begin() + static_cast<std::ptrdiff_t>(y) * tw * 4);
+    std::vector<std::uint8_t> file = rgb5a3_file("RWD1", px, tw, th);
+    // The texture alone, without the stored files' header.
+    file.erase(file.begin(), file.begin() + 8);
+    return file;
 }
 
 bool box_header_valid(const std::uint8_t* h) {

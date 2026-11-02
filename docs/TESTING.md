@@ -64,6 +64,10 @@ For things that worked, a short "works" with the game, where it ran from
 - [ ] **About page rating.** A game's About page shows the age rating board's own mark (ESRB, PEGI, CERO, GRAC, GSRR) where there is one, else the rating text.
 - [ ] **Letter jump.** B on Home (L on a GameCube controller) jumps to
   the next letter. Sorting puts "The Legend of Zelda" under L.
+- [ ] **Genres.** Hold B on Home (L on a GameCube controller) and press
+  Down: a list of the games' genres shows, holding Down scrolls it, and
+  letting go of B shows only that genre's games, its name under the
+  clock. Every genre at the top of the list shows them all again.
 - [ ] **Search.** The search button (top right; Z on a GameCube
   controller, ZL on a Classic Controller): Home filters as you type, the
   box above the keyboard names the first matching games, and the count is
@@ -100,6 +104,7 @@ For things that worked, a short "works" with the game, where it ran from
   Home tiles, on the same game, and neither the view list nor Settings
   opens. When let go, 1 alone still changes which games Home shows, and
   2 alone still opens Settings.
+- [ ] **Home on a pad.** With a GameCube controller (a Wii port and the Wii U adapter), a Classic Controller or Wii U Pro Controller, and the Wii U GamePad (only in a Wii VC inject, see GUIDE.md): Y and Z (GameCube), Y and X (Classic, Pro) or X and Y (GamePad) together step to the next view as 1 and 2 do; alone, each still opens the view list or Settings when let go. In the Covers view, pointing at a cover with the stick, Y or Z (GameCube) or Y or X (Classic, Pro) shows it up close. B (GameCube) or ZL (Classic, Pro) held about a second starts a game at random; a short press still opens the search when let go, and B still puts back a game being moved.
 - [ ] **HOME Menu** in RiftWii: Homebrew Channel, Wii Menu, Priiloader (or
   Restart where Priiloader is not installed: the console restarts) and
   Power off.

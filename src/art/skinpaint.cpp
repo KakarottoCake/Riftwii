@@ -509,6 +509,60 @@ struct Painter {
         return c;
     }
 
+    // Small silhouettes stay legible on Home's half-size round button,
+    // and the picker enlarges the same picture for its cards.
+    Canvas Layout(int kind) const {
+        Canvas c(28, 28);
+        if (kind == 0 || kind == 1) {
+            for (int row = 0; row < 2; ++row) {
+                for (int column = 0; column < 3; ++column) {
+                    const float x = 3.0f + column * 8.0f;
+                    const float y = 4.0f + row * 11.0f;
+                    if (kind == 0) {
+                        c.rounded_rect(x, y, 6, 9, 1, glyph);
+                    } else {
+                        c.polygon({{x + 1, y + 1}, {x + 6, y - 1},
+                                   {x + 6, y + 8}, {x + 1, y + 10}}, glyph);
+                    }
+                }
+            }
+        } else if (kind == 2) {
+            // Covers and the curve under them centred down the square, as
+            // the other layouts' pictures are (a button centres the square).
+            for (int column = 0; column < 5; ++column) {
+                const float distance = std::abs(column - 2);
+                const float x = 1.0f + column * 5.5f;
+                const float y = 6.0f + (2 - distance) * 2.0f;
+                c.rounded_border(x, y, 4, 10, 0.8f, 1.3f, glyph);
+            }
+            c.line(3, 19, 8, 21, 1.5f, accent);
+            c.line(8, 21, 14, 22, 1.5f, accent);
+            c.line(14, 22, 20, 21, 1.5f, accent);
+            c.line(20, 21, 25, 19, 1.5f, accent);
+        } else if (kind == 3) {
+            for (int column = 0; column < 5; ++column) {
+                const float x = 3.0f + column * 4.5f;
+                c.rounded_rect(x, 4 + column % 2 * 2, 3, 17 - column % 2 * 2, 0.7f, glyph);
+            }
+            c.line(2, 23, 26, 23, 2, accent);
+        } else if (kind == 4) {
+            for (int row = 0; row < 2; ++row) {
+                for (int column = 0; column < 2; ++column) {
+                    c.rounded_border(2 + column * 13, 4 + row * 11, 11, 9, 2.5f, 2, glyph);
+                }
+            }
+        } else {
+            // A pixel left of the square's middle: the light dots weigh
+            // less than the dark lines, which look centred this way.
+            for (int row = 0; row < 4; ++row) {
+                const float y = 5.0f + row * 6;
+                c.circle(2.5f, y, 1.2f, accent);
+                c.line(7, y, row % 2 == 0 ? 24 : 20, y, 2, glyph);
+            }
+        }
+        return c;
+    }
+
     // The tiles' icons, 28x28 in the glyph colour, as the gear and the
     // star: Play, Mods, Cheats, Saves, About, Help, Picture, Controllers,
     // Online, Home and Look and sound.
@@ -980,6 +1034,15 @@ void paint_drop_shadow9(const Theme& theme, Canvas& out) {
     out.shadow(kShadowMargin, kShadowMargin, 64 - 2 * kShadowMargin, 64 - 2 * kShadowMargin, 6, kShadowMargin, deep);
 }
 
+void paint_disc_shadow(const Theme& theme, Canvas& out) {
+    // As deep as the box's shadow above it, so the two read as one light.
+    Rgba deep = ToRgba(theme.colors.shadow);
+    deep.a = static_cast<std::uint8_t>(std::min(150, std::max(110, deep.a * 3)));
+    out = Canvas(kDiscShadowSize, kDiscShadowSize);
+    const float radius = kDiscShadowDisc / 2.0f;
+    out.shadow(kDiscShadowBlur, kDiscShadowBlur, kDiscShadowDisc, kDiscShadowDisc, radius, kDiscShadowBlur, deep);
+}
+
 void paint_home_danger(const Theme& theme, bool over, Canvas& out) { out = Painter(theme).IosButton(over, true); }
 
 void paint_ios_bar_button(const Theme& theme, bool over, Canvas& out) { out = Painter(theme).IosBarButton(over); }
@@ -1089,6 +1152,12 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
         {"icon_drives", [](const Painter& q) { return q.Drives(); }},
         {"icon_gear", [](const Painter& q) { return q.Gear(); }},
         {"icon_search", [](const Painter& q) { return q.Search(); }},
+        {"layout_covers", [](const Painter& q) { return q.Layout(0); }},
+        {"layout_covers3d", [](const Painter& q) { return q.Layout(1); }},
+        {"layout_carousel", [](const Painter& q) { return q.Layout(2); }},
+        {"layout_shelf", [](const Painter& q) { return q.Layout(3); }},
+        {"layout_channels", [](const Painter& q) { return q.Layout(4); }},
+        {"layout_names", [](const Painter& q) { return q.Layout(5); }},
         {"icon_star", [](const Painter& q) { return q.Star(false); }},
         {"icon_star_on", [](const Painter& q) { return q.Star(true); }},
         {"icon_disc", [](const Painter& q) { return q.Disc(); }},

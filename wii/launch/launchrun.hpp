@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -14,6 +15,8 @@
 // The menu, the headless entry and (in test builds) autorun all use these.
 namespace riftwii::wii {
 
+using MissingModConfirmation = std::function<bool(const std::vector<MissingModInput>&)>;
+
 bool RunBoot(bool allow_ios_fallback, std::string& error, const LaunchSource& source = LaunchSource());
 bool RunDump(const std::vector<std::string>& disc_paths, const std::string& sd_dir, std::string& error);
 bool ProbeInserted(std::string& game_id, std::string& title, std::string& error,
@@ -24,6 +27,6 @@ bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& sou
                     const std::string& save_mode = "nand", const std::string& game_id = "");
 bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error,
                const LaunchSource& source = LaunchSource(), const std::string& save_mode = "nand",
-               const std::string& game_id = "");
+               const std::string& game_id = "", const MissingModConfirmation& confirm_missing = {});
 
 }  // namespace riftwii::wii

@@ -172,6 +172,13 @@ void SetHomebrewToStart(const HomebrewApp& app) { *to_start() = app; }
 const HomebrewApp& HomebrewToStart() { return *to_start(); }
 
 bool StartHomebrew(const HomebrewApp& app, std::string& error) {
+    if (!app.emulator_command_line.empty()) {
+        logf("Emulators: starting %s with game %s.\n", app.emulator_name.c_str(), app.emulator_game.c_str());
+        logf("Emulators: argv[0] = %s\n", app.path.c_str());
+        for (std::size_t i = 0; i < app.arguments.size(); ++i)
+            logf("Emulators: argv[%u] = %s\n", static_cast<unsigned>(i + 1), app.arguments[i].c_str());
+        return StartHomebrewApp(app.path, app.emulator_command_line, error);
+    }
     if (!app.problem.empty()) {
         error = app.problem;
         return false;

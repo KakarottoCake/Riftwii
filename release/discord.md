@@ -19,27 +19,21 @@ Rewrite it for every release and delete the line below.
 
 New:
 
-* Your own menu music: a song, a playlist or a shuffled folder (Settings > Music file)
-* Press 1 and 2 together on Home to change the view
-* Press 1 on a cover or shelf box to see it up close
-* Shelf boxes look like real Wii cases, with full-width spines and full covers for every game
-* Hold B on the search button to start a random game
-* Covers for homebrew, WiiWare and VC games; custom games like Newer show under Mods
-* USB keyboard, mouse, pen tablets and uDraw in the menu
-* Quitting a game lands in RiftWii more often (GameCube, N64 VC, RE4)
-* Dragon Quest X from its USB drive (needs sd:/riftwii/wfskey.bin)
+* No more freeze with a 4th Wii Remote
+* USB gamepads work inside games now, and wired Xbox 360 pads work with no config file
+* A cleaner menu font
+* Your own covers (a PNG in sd:/riftwii/covers named after the game ID), and GameTDB's second cover for games that have one
+* Home's shortcuts on every controller
+* Fixes for EA's 007 GameCube games, 007 Quantum of Solace and Prince of Persia: The Forgotten Sands
+* Restart with a USB drive no longer crashes, and homebrew started from RiftWii sees the GameCube adapter again
 
 To test, please:
 
-1. Press 1 and 2 together on Home a few times: does it go through the views?
-2. Press 1 on a cover and on a shelf box: does it zoom up and go back with B?
-3. Leave the shelf open while the boxes download: anything freeze or restart?
-4. Pick your own music in Settings > Music file
-5. If you have a USB keyboard or mouse, try it in the menu
-6. Quit a GameCube or N64 VC game: do you land back in RiftWii?
+1. Four Wii Remotes in the menu, at start and one at a time
+2. A USB pad or wired Xbox 360 pad in a GameCube game (plug it in before starting)
+3. Your own cover, and the GameTDB cover row on Brawl or Mario Kart Wii
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![The shelf with Wii cases](docs/screenshots/2610-shelf-cases.png)
-![A cover up close](docs/screenshots/2610-cover-zoom.png)
-![What's new](docs/screenshots/2610-whatsnew-music.png)
+![What's new](docs/screenshots/2610-whatsnew-781.png)
+![The GameTDB cover row](docs/screenshots/2610-gametdb-cover.png)

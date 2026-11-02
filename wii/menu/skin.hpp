@@ -48,6 +48,7 @@ const Tex& ControlIcon(const std::string& type);
 // A button's picture ("A", "B", "+", "-", "1", "2", "HOME", "C", "Z") at
 // `size` x `size`, or a Tex without data for a button that has none.
 const Tex& ButtonIcon(const std::string& button, int size);                       // 48x44 a lit channel's name pill (riftwii::paint_label9), nine-sliced                  // 64x64 soft shadow (riftwii::paint_drop_shadow9), nine-sliced
+extern Tex discShadow;                   // 96x96 round soft shadow (riftwii::paint_disc_shadow)
 extern Tex capsule9;                     // 48x48 outlined black capsule, nine-sliced
 // A theme with home_menu = ios6 (HomeIos6): the HOME Menu's red button,
 // its Close and the linen behind it.
@@ -85,6 +86,7 @@ extern Tex bannerStripes;                // 640x192 overlay for the game banner
 extern Tex arrowLeft, arrowLeftOver, arrowRight, arrowRightOver;  // 44 page arrows, drawn at -2,-2
 extern Tex scrollUp, scrollUpOver, scrollDown, scrollDownOver;    // 34 list scroll arrows, drawn at -4,-4
 extern Tex iconDrives, iconGear, iconSearch;  // 28x28
+extern Tex layoutIcons[6];               // 28x28: covers, 3D, carousel, shelf, channels, names
 extern Tex iconStar, iconStarOn;         // 28x28 the banner screen's favourite button: off, on
 extern Tex discCase;                    // 128x176 RGBA8: the disc drive's box (covers, shelf)
 extern Tex iconDisc;                     // 40x40, the Disc drive tile's picture

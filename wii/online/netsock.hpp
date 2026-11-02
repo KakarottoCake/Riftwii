@@ -8,9 +8,8 @@
 
 #include "riftwii/riifs.hpp"
 
-// The Wii's network for RiiFS: IOS sockets through libogc, only while a
-// copy runs (NetStart before, NetStop after; the game starts with the
-// network as the system menu leaves it).
+// The menu's network: IOS sockets through libogc. RiiFS copies finish
+// before the launch; the next program starts with this connection closed.
 namespace riftwii::wii {
 
 // Brings the network up with the console's saved connection. Takes a few
@@ -18,6 +17,9 @@ namespace riftwii::wii {
 // An explicit diagnostic may bypass the automatic-download retry cooldown.
 bool NetStart(std::string& error, bool retry = false);
 void NetStop();
+// After all launch-time network work, while the log and card are open.
+// Cancels cancellable jobs, waits for the rest and closes IOS's sockets.
+void NetStopForLaunch();
 // The last NetStart failed (and the next would wait as long again).
 bool NetFailed();
 

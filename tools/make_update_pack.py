@@ -13,7 +13,7 @@ other:
   meta.xml and music.ogg ("RIFTWII APPS 1"): the channel installer's
   folder, RiftWii's icon, its plugins (riftwii/plugins/, each checked
   against the zip's boot.dol) and its full menu font (riftwii/font.ttf,
-  which the DOL's core font needs for kanji), the files
+  which is read completely into memory at startup), the files
   wii/online/online.cpp (AppsFileAllowed) writes.
 
     python tools/make_update_pack.py riftwii-vYYMM-N.zip out/riftwii-update.pack
@@ -47,7 +47,8 @@ REQUIRED_PLUGINS = ("gamecube",)
 MENU_FONT = "riftwii/font.ttf"
 KOREAN_FONT = "riftwii/korean.ttf"
 KOREAN_LICENSE = "riftwii/Korean-OFL.txt"
-FONT_FILES = (MENU_FONT, KOREAN_FONT, KOREAN_LICENSE)
+MENU_LICENSE = "riftwii/OFL.txt"
+FONT_FILES = (MENU_FONT, MENU_LICENSE, KOREAN_FONT, KOREAN_LICENSE)
 
 
 def fail(message):

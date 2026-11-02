@@ -194,6 +194,37 @@ bool gx_protected_game(const std::string& id) {
            (id_is(id, "SDU") && id.size() >= 6 && id.compare(4, 2, "41") == 0);
 }
 
+bool gx_patch_allowed(const std::string& game_id, GamePatchKind kind) {
+    // Prince of Persia hangs even when only its video tables or language
+    // read change. Its data needs the same protection as its instructions.
+    switch (kind) {
+    case GamePatchKind::PerGameFix:
+    case GamePatchKind::SystemGlobals:
+        return true;
+    case GamePatchKind::VideoModes:
+    case GamePatchKind::Language:
+    case GamePatchKind::RegionVideo:
+    case GamePatchKind::RegionStrings:
+    case GamePatchKind::PictureFilters:
+    case GamePatchKind::Rumble:
+    case GamePatchKind::Speaker:
+    case GamePatchKind::Aspect:
+    case GamePatchKind::Error002:
+    case GamePatchKind::SdCard:
+    case GamePatchKind::Fix480p:
+    case GamePatchKind::Cheats:
+    case GamePatchKind::PackMemory:
+    case GamePatchKind::PackFiles:
+    case GamePatchKind::RuntimeHooks:
+    case GamePatchKind::VirtualSd:
+    case GamePatchKind::Wfc:
+    case GamePatchKind::ReturnTo:
+    case GamePatchKind::Debug:
+        return !gx_protected_game(game_id);
+    }
+    return false;
+}
+
 // Resident Evil 4, and (a guess from a tester's RVZ black screens, 2610-329)
 // the older LEGO games of TT's 2007-2009 engine: The Complete Saga (RLG),
 // Indiana Jones 1 (RLI?64) and 2 (RL4), Batman (RLB?WR). LEGO Harry Potter
@@ -202,11 +233,16 @@ bool gx_protected_game(const std::string& id) {
 // PKE meter's tutorial, from a WBFS and an ISO, and the crash recorder
 // alone below its FST did it: without it (debug_off = fault) a tester's
 // Wii played on (2610-350). Its runtime stays in MEM1 (game_runs_no_mem2_code).
+// A game that needs all of MEM1 gets the same: 007 Quantum of Solace
+// (RJ2?52) stopped at "Out of memory: physicalmemory.cpp, line 1303" with
+// the runtime's 108 KiB off MEM1's top (an RVZ, on a tester's Wii and in
+// Dolphin, 2610-769); with the runtime in MEM2 it plays.
 bool game_clears_mem1_top(const std::string& id) {
     const bool by_publisher = id.size() >= 6;
     return id_is(id, "RB4") || id_is(id, "RLG") || id_is(id, "RL4") || id_is(id, "RGQ") ||
            (by_publisher && id_is(id, "RLI") && id.compare(4, 2, "64") == 0) ||
-           (by_publisher && id_is(id, "RLB") && id.compare(4, 2, "WR") == 0);
+           (by_publisher && id_is(id, "RLB") && id.compare(4, 2, "WR") == 0) ||
+           (by_publisher && id_is(id, "RJ2") && id.compare(4, 2, "52") == 0);
 }
 
 // Ghostbusters' SDK: the runtime's code at the top of MEM2 stopped it at
@@ -316,7 +352,11 @@ unsigned gx_game_patches(const std::string& game_id, const DolHeader& dol, const
         done += kirby(game_id, loaded, report);
         done += re4(game_id, loaded, report);
     }
-    done += anti_002(loaded, report);
+    if (gx_patch_allowed(game_id, GamePatchKind::Error002)) {
+        done += anti_002(loaded, report);
+    } else {
+        report.notes.push_back("Error #002 code fix: not applied: it checks its own code (MetaFortress)");
+    }
     return done;
 }
 

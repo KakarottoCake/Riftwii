@@ -215,6 +215,22 @@ void test_find_files() {
     }
     EXPECT_EQ(riftwii::find_gc_tgc_files(fst, 1).size(), static_cast<std::size_t>(1));
 
+    // Any suffix, in any case: the ELF programs a game loads itself, as
+    // 007: NightFire's disc names them.
+    std::vector<std::uint8_t> programs = make_fst({{"BaseGC_Release.elf", 0x100000, 0x95000},
+                                                   {"driving.elf", 0x200000, 0x2C9C00},
+                                                   {"Nightfire.ELF", 0x500000, 0x211C00},
+                                                   {"elf", 0x800000, 0x10},
+                                                   {"run.bat", 0x900000, 0x10}});
+    found = riftwii::find_gc_fst_files_ending(programs, ".elf", 8);
+    EXPECT_EQ(found.size(), static_cast<std::size_t>(3));
+    if (found.size() == 3) {
+        EXPECT_EQ(found[0].offset, 0x100000u);
+        EXPECT_EQ(found[1].size, 0x2C9C00u);
+        EXPECT_EQ(found[2].offset, 0x500000u);
+    }
+    EXPECT_TRUE(riftwii::find_gc_tgc_files(programs, 8).empty());
+
     // A name past the table, or not ended inside it: passed over.
     std::vector<std::uint8_t> bad_name = make_fst({{"x.tgc", 0x200000, 0x10}});
     put32(bad_name, 12, 0x00FFFFFF);

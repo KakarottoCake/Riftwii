@@ -4,7 +4,7 @@
 """Adds RiftWii's start-up stash to a DOL as one more data section.
 
     python3 tools/dol_stash.py riftwii.dol --version 2610-460 \\
-        --limit 0x81200000 menufont.zst=build_wii/menufont.zst ...
+        --limit 0x81200000 licence.zst=build_wii/licence.zst ...
 
 The stash holds data the menu needs only now and then (its font, its
 translations, the GPL's text). The section is placed right after the

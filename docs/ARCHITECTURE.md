@@ -167,6 +167,36 @@ The decisions are `runtime/rthome.c`, host-tested. The 2006 Virtual
 Console programs (Super Mario World, A Link to the Past, Bomberman '93)
 have neither the banner nor this KPAD layout, and keep the way back.
 
+**Packs that add GameCube controllers** (#352). A game that reads only
+Wii Remotes has no `PADRead`, so the adapter has nothing to hook. A mod
+pack can give it one, and this is the supported way to do it: the pack
+adds a text (code) section to the game's main.dol with its own `PADRead`
+(only text sections are searched), and turns the GameCube controller
+into what the game reads (Super Sentai Battle:
+Ranger Cross's pad pack hooks the game's `KPADReadEx` call and reports a
+Wii Remote with a Nunchuk). RiftWii searches the main.dol that actually
+starts, so the pack's own copy is searched like a game's. For the search
+(`find_pad_symbols`, `src/patching/symsearch.cpp`) to take a function for
+`PADRead`, it must be a framed function (`stwu r1`, then `mflr r0`) with
+at least three of the SDK's "no controller in this port" paths, each
+`stb rE,10(rS); mr r3,rS; li r4,0; li r5,10; bl memset`, all calling the
+same function; the Ranger Cross pack writes one per port, four in all,
+and calls a small memset of its own. RiftWii then hooks it and fills the
+ports it marks missing from the adapter, as for any game. Two things a
+pack does itself: there is no screen-dimming reset next to its
+`PADRead` for RiftWii to call, so the pack clears the game's dimming
+on real input itself (`VIResetRFIdle`); and without a `PADControlMotor`
+there's no rumble. A pack that wants rumble adds its own
+`PADControlMotor` in the same shape as the SDK's, which the search finds
+by reading the rumble-off flag and then building the motor command with
+`oris rA, rB, 0x40` (described in `include/riftwii/symsearch.hpp`). A
+pack done this way also gets the GameCube
+controller's way back (L, R, Z and Start held two seconds), since the
+game's `OSReturnToMenu`, `OSSleepThread` and IPC submit routine are
+found as in any game. `TestPackPadRead` (`tests/gcad_tests.cpp`) keeps a
+routine of this shape found, so a later change to the search fails the
+tests instead of quietly breaking these packs.
+
 **Screenshot hook** (`runtime/shot/`, `runtime/rtshot.c`). With In-game
 screenshots on, a third blob hooks the game's `IOS_IoctlvAsync` and, when
 the game has one, `PADRead`. Each Bluetooth ACL read from the dongle's
@@ -690,6 +720,45 @@ Only for an image on the SD card, with a way back. If IOS refuses to
 leave, exec.txt goes back to `--idle--` and the start runs as the game
 made it.
 
+**Programs the game loads itself.** EA's James Bond games (007:
+NightFire, Agent Under Fire, Everything or Nothing) start a small loader
+as the disc's program. It reads the game itself from an ELF file on the
+disc with its own code and jumps to it; that program later loads a second
+copy of the loader, which loads the driving missions' ELF, and back.
+Each is a whole program with its own SDK, so none of the loader's patches
+would reach them, and the game stopped on a black screen. These switches
+do not go back through RiftWii: the game's own state passes from one
+program to the next in memory. Instead, as Nintendont patches a program
+as the game reads it:
+- the loader finds the disc's `.elf` files (`find_gc_fst_files_ending`,
+  up to eight), reads each one's segments (`src/patching/gcprograms.cpp`,
+  host-tested) and runs the same patches over it as over the disc's own
+  program (`patch_program` in `plugins/gamecube/gcnative.cpp`), from
+  RiftWii's part of MEM1 as it was before any program's patches;
+- what a program's patches change in its code and data becomes a list of
+  words by disc offset (`struct gc_programs` in MEM2, built by the
+  loader). The blob writes them into every read of the disc that brings
+  those bytes, piece by piece (`gc_programs_patch` in
+  `runtime/gc/gc_programs.h`, from `gc_read_step`);
+- a program's first two words become `li r0,index` and a branch to
+  `gc_hook_program`. There `gc_on_program_start` drains the old
+  program's I/O (back to RiftWii when it will not finish, as for Reset),
+  writes the card back, sets RiftWii's words in MEM1 to
+  that program's (the hooks' replay slots, the context's function
+  addresses, the ARAM stubs: whatever any program's patches changed in
+  them, the disc's own included; the context's flags excepted, which every
+  program gets all of, and the memory card, which stays on for every
+  program when any hooks it; the instruction cache is invalidated for
+  each),
+  forgets the old program's drive command, alarms, music and card
+  transfer (`gc_forget_game`, as Reset does) and runs the program's two
+  words from `gc_replay_program`. It runs on a stack of its own in MEM2,
+  the registers kept in `gc_program_saved`.
+
+Reset's restart and the switches through exec.txt stay the disc's own
+program's. Not with packs (they move the disc's files), a game from a TGC
+image, or a second disc (the patches are for disc 1's offsets).
+
 **Memory cards** (`src/fs/gccard.cpp`): one image per game,
 `sd:/riftwii/gc/cards/<ID>.raw`, or a shared `shared.raw` (`shared-jp.raw`
 for Japanese games), formatted the first time. The game page's Saves tile
@@ -735,7 +804,7 @@ ID, including this change, consistently.
 | Top of the game's MEM1 arena | Resident runtime code, then the pad blob, the screenshot blob, the crash blob and the Wii Remote log's blob below it. A WiiWare or Virtual Console game has no FST, so its arena runs to `0x81800000`: the blobs are carved from there, never below the end of the loader's heap or of the game's program (`channel_extras_floor`) |
 | `0x90000000`–`0x90800000` | Left alone by the loader: an IOS reload stages its kernel here |
 | `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/core/restart.hpp`) |
-| `0x90809000`–about `0x908ED000` | The start-up stash's copy: the menu font, translations and GPL, zstd (`wii/core/stash.hpp`, [MEMORY.md](MEMORY.md)); arena 2 starts above it |
+| `0x90809000`–about `0x908ED000` | The start-up stash's copy: translations and GPL, zstd; no font data (`wii/core/stash.hpp`, [MEMORY.md](MEMORY.md)); arena 2 starts above it |
 | From the end of `.bss` (start-up only) | The start-up stash as `boot.dol` loads it, until crt0 has copied it to MEM2; then the MEM1 heap |
 | Bottom of the game's MEM2 arena | Resident runtime data (or the virtual SD card's code and state, about 49 KB plus 12 bytes for each piece of the image on its card), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB), then the Reset's request block (about 1.5 KB) |
 | `0x90000000`–`0x91000000` | A GameCube game's ARAM (in a GameCube game only) |
@@ -763,10 +832,14 @@ between the end of its image and `0x81200000` (about 2.4 MiB at 2.2.3,
 image end `0x80F8C560`, 4.7 MB file of which most is the menu font and
 the packed runtime blobs). That heap holds a big pack's file table while
 it is planned, so it is the thing to watch: `session.log` prints the
-MEM1 figures at start and at each "Heap check". The menu font, the
-translations and the GPL are not part of the image: `boot.dol` carries
-them in a start-up stash above its BSS that crt0 copies to MEM2, so
-their MEM1 becomes heap ([MEMORY.md](MEMORY.md), with a breakdown of
+MEM1 figures at start and at each "Heap check". The translations and
+GPL use a start-up stash above BSS that crt0 copies to MEM2; their MEM1
+becomes heap. No font data is embedded: M PLUS 1 SemiBold is read in full
+from `font.ttf` beside `boot.dol` into MEM2 before the GUI starts. The
+copy stays readable across unmounts and updates, including new glyphs;
+Korean's separate file is retained the same way on first use. A missing
+or damaged card font falls back to the Wii Menu's NAND font, then to
+libogc's readable recovery console if neither face is available ([MEMORY.md](MEMORY.md), with a breakdown of
 what takes MEM1).
 
 A game whose DOL (or bss) reaches `0x80A00000` would overwrite the

@@ -15,6 +15,7 @@
 #include <cstring>
 
 #include "log.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "skin.hpp"
 #include "usbcatalog.hpp"
 
@@ -44,7 +45,7 @@ bool g_not_ready = false;
 std::uint8_t* g_bounce = nullptr;
 std::uint32_t g_args[8] ATTRIBUTE_ALIGN(32);
 ioctlv g_vec[3] ATTRIBUTE_ALIGN(32);
-std::unique_ptr<ImageVolume> g_volume;
+std::vector<MountedImageVolume> g_volumes;
 // The port the drive was last found on, tried first (it outlives Forget:
 // the drive stays where it is plugged in).
 std::uint32_t g_port = 0;
@@ -189,14 +190,13 @@ Started start_drive() {
     s.init = ioctlv_limited(kInit, 0, 0, nullptr, "init");
     g_vec[0].data = &g_args[0];
     g_vec[0].len = 4;
+    // A failed capacity request must not reuse the preceding port's size.
+    g_args[0] = 0;
     DCFlushRange(g_args, sizeof(g_args));
     s.sectors = ioctlv_limited(kGetCapacity, 0, 1, g_vec, "capacity");
     DCInvalidateRange(g_args, sizeof(g_args));
     s.sector_bytes = g_args[0];
-    // The count comes back as the ioctl's result: a drive past 2^31
-    // sectors (1 TiB of 512-byte sectors) reads as negative. IOS's own
-    // errors are small negative numbers.
-    s.counted = s.sectors > 0 || s.sectors < -0x100000;
+    s.counted = d2x_usb_capacity_available(s.sectors, s.sector_bytes);
     // 512 for a hard drive or stick, 2048 for a DVD drive.
     s.size_ok = s.sector_bytes >= kFatSectorBytes && s.sector_bytes <= kBounceBytes &&
                 (s.sector_bytes & (s.sector_bytes - 1)) == 0;
@@ -261,12 +261,15 @@ bool Open(std::string& error) {
              static_cast<unsigned>(port), static_cast<int>(s.init), static_cast<unsigned>(s.sectors),
              static_cast<unsigned>(s.sector_bytes));
         if (s.init < 0 || !s.counted) continue;
-        if (found < 0) {
-            found = static_cast<int>(port);
-            any = s;
+        if (s.sectors == -1) {
+            logf("USB (d2x): the drive has more sectors than d2x can count (over 2 TiB with 512-byte sectors); "
+                 "its size is not checked\n");
         }
         std::uint64_t hash = 0;
-        const bool has_volume = s.ok() && HasVolume(s.sector_bytes, hash);
+        // A DVD drive counts without a readable sector 0, but -1 can also be
+        // an IOS error: that drive must show its sector 0 (hash is 0 when the
+        // read failed).
+        const bool has_volume = s.ok() && HasVolume(s.sector_bytes, hash) && (s.sectors != -1 || hash != 0);
         if (g_stuck) return fail_stuck(error);
         if (has_volume) {
             if (readable < 0) readable = static_cast<int>(port);
@@ -276,6 +279,16 @@ bool Open(std::string& error) {
             }
         } else {
             logf("USB (d2x): port %u: no volume RiftWii reads on that drive\n", static_cast<unsigned>(port));
+            // -1 can also be an IOS error. Never select it through the
+            // fallback for drives that started but have no readable volume.
+            if (s.sectors == -1) {
+                s.counted = false;
+                continue;
+            }
+        }
+        if (found < 0) {
+            found = static_cast<int>(port);
+            any = s;
         }
     }
     if (match && matched < 0 && readable >= 0) {
@@ -313,6 +326,11 @@ bool Open(std::string& error) {
             s = start_drive();
             if (g_stuck) return fail_stuck(error);
             logf("USB (d2x): back to port %d (init %d)\n", chosen, static_cast<int>(s.init));
+            if (s.ok() && s.sectors == -1) {
+                std::uint64_t hash = 0;
+                s.counted = HasVolume(s.sector_bytes, hash) && hash != 0;
+                if (g_stuck) return fail_stuck(error);
+            }
         }
         g_port = static_cast<std::uint32_t>(chosen);
     }
@@ -368,7 +386,7 @@ void Forget() {
     g_fd = -1;
     g_failed = false;
     g_failure.clear();
-    g_volume.reset();
+    g_volumes.clear();
 }
 
 int Fd() { return g_fd; }
@@ -379,6 +397,9 @@ std::uint32_t SectorBytes() { return g_sector_bytes; }
 
 bool Read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
     if (g_fd < 0 || !g_bounce || sector > 0xFFFFFFFFull) return false;
+    // d2x accepts only a 32-bit sector address, even on a larger drive.
+    // Check the whole request before splitting it, so later chunks cannot wrap.
+    if (count > 0x100000000ull - sector) return false;
     while (count > 0) {
         const std::uint32_t n = std::min(count, kBounceBytes / g_sector_bytes);
         g_args[0] = static_cast<std::uint32_t>(sector);
@@ -401,35 +422,63 @@ bool Read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
     return true;
 }
 
-bool Volume(const ImageVolume*& out, std::string& error) {
+bool Volume(const ImageVolume*& out, std::string& error, const std::string& path) {
+    out = nullptr;
     if (!Open(error)) return false;
     if (g_sector_bytes != kFatSectorBytes) {
         error = d2x_sector_size_problem(g_sector_bytes, "packs on it");
         return false;
     }
-    if (!g_volume && !mount_image_volume(&ReadBlocks, g_volume, error, usb_wanted_folders())) {
+    std::uint64_t preferred_lba = 0;
+    const bool keep_preferred = usb_preferred_volume_lba(preferred_lba);
+    if (g_volumes.empty() && !mount_image_volumes(&ReadBlocks, g_volumes, error, usb_wanted_folders(), nullptr,
+                                                 keep_preferred ? &preferred_lba : nullptr)) {
         error = "the USB drive has no FAT32 or NTFS volume: " + error;
-        g_volume.reset();
+        g_volumes.clear();
         return false;
     }
-    out = g_volume.get();
+    out = find_image_volume(g_volumes, path);
+    if (!out) {
+        error = "the USB partition for " + path + " is not mounted";
+        return false;
+    }
     return true;
 }
 
+std::vector<std::string> VolumeRoots(std::string& error) {
+    const ImageVolume* volume = nullptr;
+    if (!Volume(volume, error)) return {};
+    std::vector<std::string> roots;
+    if (!try_reserve(roots, g_volumes.size())) {
+        error = "there is not enough memory to list the USB partitions";
+        return roots;
+    }
+    for (const MountedImageVolume& mounted : g_volumes) {
+        if (mounted.preferred) roots.push_back(usb_volume_prefix(mounted));
+    }
+    for (const MountedImageVolume& mounted : g_volumes) {
+        if (!mounted.preferred) roots.push_back(usb_volume_prefix(mounted));
+    }
+    return roots;
+}
+
 bool ReadText(const std::string& usb_path, std::string& out, std::string& error) {
-    if (usb_path.compare(0, 5, "usb:/") != 0) {
-        error = "'" + usb_path + "' is not a usb:/ path";
+    if (!is_usb_path(usb_path)) {
+        error = "'" + usb_path + "' does not name a USB partition";
         return false;
     }
     const ImageVolume* volume = nullptr;
-    if (!Volume(volume, error)) return false;
+    if (!Volume(volume, error, usb_path)) return false;
     VolumeFile file;
-    if (!volume->lookup(usb_path.substr(4), file, error)) return false;
+    if (!volume->lookup(image_volume_path(usb_path), file, error)) return false;
     if (file.entry.is_directory || file.entry.size > (1u << 20)) {
         error = "'" + usb_path + "' is not an XML file of 1 MiB or less";
         return false;
     }
-    out.assign(file.entry.size, '\0');
+    if (!try_resize(out, static_cast<std::size_t>(file.entry.size))) {
+        error = "there is not enough memory to read " + usb_path;
+        return false;
+    }
     if (!volume->read(file, 0, reinterpret_cast<std::uint8_t*>(&out[0]), out.size())) {
         error = "cannot read '" + usb_path + "' from the USB drive";
         return false;

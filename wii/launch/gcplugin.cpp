@@ -7,6 +7,7 @@
 // card's backup, which the menu's own card tools share. The loader itself
 // is plugins/gamecube/gcnative.cpp.
 #include "gcplugin.hpp"
+#include "hidpads.hpp"
 #include "i18n.hpp"
 #include "gcrealcard.hpp"
 
@@ -29,6 +30,7 @@
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "memlimits.hpp"
+#include "netsock.hpp"
 #include "plugins.hpp"
 #include "riftwii/gcbackup.hpp"
 #include "riftwii/gccard.hpp"
@@ -199,6 +201,7 @@ void SetGcCrashScreen(std::vector<std::uint8_t> screen, bool way_back) {
 }
 
 bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string& error) {
+    NetStopForLaunch();
     // The backup first, as before the loader moved into the plugin: before
     // the game can write to the card.
     std::array<std::uint8_t, 12> physical_id{};
@@ -307,13 +310,21 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
 
     // The GameCube adapter: opened here, on the menu's IOS the game keeps,
     // as a Wii game's launch opens it (gc_gcad.h).
+    rthid_catalog hid_catalog{};
+    HidPadsCopyCatalog(hid_catalog);
+    request.hid_catalog = &hid_catalog;
+    request.hid_catalog_bytes = sizeof(hid_catalog);
     request.adapter_fd = -1;
     request.adapter_dev = -1;
+    request.ven_fd = -1;
     {
-        std::int32_t fd = -1, dev = -1;
+        std::int32_t fd = -1, dev = -1, ven_fd = -1;
         std::uint32_t version = 0;
-        if (TakeGcAdapterForGameCube(image.usb_in_use, fd, version, dev)) {
+        if (TakeGcAdapterForGameCube(image.usb_in_use, fd, version, dev, ven_fd)) {
+            HidPadsCopyCatalog(hid_catalog); // includes the final IOS device list
             request.adapter_fd = fd;
+            request.ven_fd = ven_fd;
+
             request.adapter_version = version;
             request.adapter_dev = dev;
             request.adapter_rumble = extras.gc_rumble_off ? 0 : 1;

@@ -38,6 +38,10 @@ GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& 
 // facts. Reads nothing but the cache file (once a session), never the
 // database.
 bool PeekGameInfo(const std::string& id, GameInfo& out);
+// Only `id`'s genres, from the cache as PeekGameInfo reads it: Home asks
+// for every game it lists when the player picks a genre. False when the
+// cache has no details for it.
+bool PeekGameGenres(const std::string& id, std::vector<std::string>& out);
 
 // Whether GameTDB's database lists the game as custom (GameInfo::custom:
 // <type>CUSTOM</type>), from the cache: false until the database was read

@@ -10,6 +10,7 @@
 #include "riftwii/settingsfile.hpp"
 #include "riftwii/videopatch.hpp"
 #include "riftwii/wfcpatch.hpp"
+#include "riftwii/imagevolume.hpp"
 
 namespace riftwii {
 namespace {
@@ -127,10 +128,11 @@ bool pin_launch_cios(std::vector<std::string>& args, int running_ios) {
         return true;
     }
     // After the settings, where headless_launch_arguments puts them: before
-    // the keys that follow (wfc_domain, gct, return_to, reset).
+    // the keys that follow (wfc_domain, gct, return_to, extras, reset).
     std::size_t at = args.size();
     while (at > 1 && (args[at - 1].compare(0, 11, "wfc_domain=") == 0 || args[at - 1].compare(0, 4, "gct=") == 0 ||
-                      args[at - 1].compare(0, 10, "return_to=") == 0 || args[at - 1].compare(0, 6, "reset=") == 0)) {
+                      args[at - 1].compare(0, 10, "return_to=") == 0 || args[at - 1].compare(0, 7, "extras=") == 0 ||
+                      args[at - 1].compare(0, 6, "reset=") == 0)) {
         --at;
     }
     args.insert(args.begin() + static_cast<std::ptrdiff_t>(at), pinned);
@@ -195,7 +197,7 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
             ok = value == "usb" || value == "sd" || value == "disc";
             out.from = value;
         } else if (key == "path") {
-            const bool usb = value.compare(0, 5, "usb:/") == 0;
+            const bool usb = riftwii::is_usb_path(value);
             ok = usb || value.compare(0, 4, "sd:/") == 0;
             out.path = value;
             if (ok && out.from.empty()) out.from = usb ? "usb" : "sd";
@@ -206,7 +208,7 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
             } else if (value != "none") {
                 // A path, or a file name in a riivolution folder.
                 ok = out.xmls.size() < kMaxLaunchPacks &&
-                     (value.compare(0, 4, "sd:/") == 0 || value.compare(0, 5, "usb:/") == 0 ||
+                     (value.compare(0, 4, "sd:/") == 0 || riftwii::is_usb_path(value) ||
                       (!value.empty() && value.find_first_of(":/\\") == std::string::npos));
                 out.xmls.push_back(value);
             }
@@ -270,6 +272,9 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
         } else if (key == "reset") {
             ok = value == "1";
             out.reset = ok;
+        } else if (key == "extras") {
+            ok = value == "with";
+            out.code_build_extras = ok;
         } else {
             error = "unknown argument '" + key + "'";
             return false;
@@ -329,6 +334,7 @@ std::vector<std::string> headless_launch_arguments(const HeadlessLaunch& h) {
         for (int shift = 60; shift >= 0; shift -= 4) title += kDigits[(h.return_to >> shift) & 15];
         args.push_back("return_to=" + title);
     }
+    if (h.code_build_extras) args.push_back("extras=with");
     if (h.reset) args.push_back("reset=1");
     return args;
 }
@@ -367,10 +373,13 @@ bool friiv_launch_args(const std::uint8_t* data, std::size_t size, std::vector<s
         // kept, not given a second one ("sd:/usb:/...").
         std::string device = (flags & kGameUsb) ? "usb:" : "sd:";
         std::string lower;
-        for (char c : path.substr(0, 4)) lower += static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
-        if (lower.compare(0, 4, "usb:") == 0) {
-            device = "usb:";
-            path.erase(0, 4);
+        const std::size_t colon = path.find(':');
+        for (char c : path.substr(0, colon == std::string::npos ? 0 : colon + 1)) {
+            lower += static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
+        }
+        if (is_usb_path(lower + "/")) {
+            device = usb_path_device(lower + "/");
+            path.erase(0, device.size());
         } else if (lower.compare(0, 3, "sd:") == 0) {
             device = "sd:";
             path.erase(0, 3);

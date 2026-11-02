@@ -136,11 +136,39 @@ static void test_scanner_pieces() {
         WiitdbScanner scanner({"RMCE01"}, "EN");
         for (std::size_t at = 0; at < xml.size(); at += piece)
             scanner.feed(xml.data() + at, std::min(piece, xml.size() - at));
+        EXPECT_TRUE(scanner.complete());
         EXPECT_EQ(scanner.blocks(), 2u);
         EXPECT_EQ(scanner.games().size(), 1u);
         EXPECT_TRUE(scanner.games().count("RMCE01") == 1);
         if (scanner.games().count("RMCE01")) EXPECT_EQ(scanner.games().at("RMCE01").players, 4);
     }
+}
+
+static void test_scanner_completion() {
+    const std::string xml = sample();
+    const std::size_t second_game = xml.find(kKart);
+    const std::size_t closing_tag = xml.find("</datafile>");
+    // EOF between entries, inside an entry, or inside the final tag must
+    // not publish the earlier games as a complete database.
+    for (std::size_t cut : {std::size_t(0), second_game, second_game + 40, closing_tag, xml.size() - 2}) {
+        for (std::size_t piece : {std::size_t(1), std::size_t(7), xml.size()}) {
+            WiitdbScanner scanner({"RSBE01", "RMCE01"}, "EN");
+            for (std::size_t at = 0; at < cut; at += piece) {
+                scanner.feed(xml.data() + at, std::min(piece, cut - at));
+            }
+            EXPECT_FALSE(scanner.complete());
+            if (cut >= second_game) EXPECT_TRUE(scanner.games().count("RSBE01") == 1);
+        }
+    }
+
+    const std::string padded = xml + std::string(100, ' ') + "\r\n\t";
+    WiitdbScanner scanner({"RMCE01"}, "EN");
+    for (char byte : padded) {
+        scanner.feed(&byte, 1);
+    }
+    EXPECT_TRUE(scanner.complete());
+    EXPECT_EQ(scanner.blocks(), 2u);
+    EXPECT_EQ(scanner.games().size(), 1u);
 }
 
 static void test_scanner_oversized() {
@@ -188,6 +216,38 @@ static void test_cache_round_trip() {
     EXPECT_TRUE(parse_game_infos("players=4\n[../x]\nplayers=2\n[RSBE01]\nplayers=abc\nnonsense\n", damaged));
     EXPECT_EQ(damaged.size(), 1u);
     EXPECT_EQ(damaged["RSBE01"].players, 0);
+}
+
+static void test_genres() {
+    // The most common first, A to Z among equals; a case difference is
+    // one genre, kept as first spelled.
+    const std::vector<std::vector<std::string>> games = {
+        {"racing", "kart racing"}, {"platformer", "action"}, {"Racing"}, {"action"}, {}, {"puzzle", "puzzle"},
+    };
+    const std::vector<std::string> choices = genre_choices(games);
+    EXPECT_EQ(choices.size(), 5u);
+    if (choices.size() == 5) {
+        EXPECT_EQ(choices[0], "action");
+        EXPECT_EQ(choices[1], "racing");
+        EXPECT_EQ(choices[2], "kart racing");
+        EXPECT_EQ(choices[3], "platformer");
+        EXPECT_EQ(choices[4], "puzzle");
+    }
+    EXPECT_TRUE(has_genre({"racing", "kart racing"}, "Kart Racing"));
+    EXPECT_FALSE(has_genre({"kart racing"}, "racing"));
+    EXPECT_TRUE(genre_choices({}).empty());
+
+    // Down from every genre goes to the first, Up to the last; past either
+    // end comes every genre again.
+    EXPECT_EQ(step_genre(choices, "", 1), "action");
+    EXPECT_EQ(step_genre(choices, "", -1), "puzzle");
+    EXPECT_EQ(step_genre(choices, "action", 1), "racing");
+    EXPECT_EQ(step_genre(choices, "RACING", -1), "action");
+    EXPECT_EQ(step_genre(choices, "puzzle", 1), "");
+    EXPECT_EQ(step_genre(choices, "action", -1), "");
+    // A genre the games shown no longer have starts from every genre.
+    EXPECT_EQ(step_genre(choices, "fishing", 1), "action");
+    EXPECT_EQ(step_genre({}, "action", 1), "");
 }
 
 static void test_locale() {
@@ -239,9 +299,11 @@ int main() {
     test_custom_type();
     test_bad_blocks();
     test_scanner_pieces();
+    test_scanner_completion();
     test_scanner_oversized();
     test_cache_round_trip();
     test_locale();
+    test_genres();
     if (g_failures) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;

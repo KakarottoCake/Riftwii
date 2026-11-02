@@ -238,6 +238,18 @@ void test_missing_or_ambiguous_functions() {
     ambiguous_get_id.text.call(duplicate, 2, ambiguous_get_id.expected[GC_EXI_IMM]);
     ambiguous_get_id.expect_rejected();
 
+    // Two of EXIAttach's shape (EA's SDK in 007: NightFire): the one the
+    // game calls is taken; with neither called, or both, no choice is safe.
+    Sdk two_attaches(modern_shape());
+    const auto unused_attach = two_attaches.text.add_function(false, kBlocks, {0x60000008, kNop});
+    two_attaches.text.call(unused_attach, 1, two_attaches.probe);
+    two_attaches.expect_rejected();
+    const auto card_code = two_attaches.text.add_function(false, kNoTable, {kNop});
+    two_attaches.text.call(card_code, 0, two_attaches.expected[GC_EXI_ATTACH]);
+    two_attaches.expect_found();
+    two_attaches.text.call(card_code, 1, unused_attach);
+    two_attaches.expect_rejected();
+
     Sdk unrelated_select(with_variant);
     // A state-bit match outside GetID's call graph must not replace a
     // missing selector, even when the other candidate looks plausible.

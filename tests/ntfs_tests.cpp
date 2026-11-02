@@ -727,12 +727,159 @@ void test_partitions() {
         std::unique_ptr<ImageVolume> vol;
         EXPECT_FALSE(riftwii::mount_image_volume(r, vol, error));
         EXPECT_CONTAINS(error, "no FAT32 or NTFS");
+
+        // With no partition table, the multi-volume scan must still say
+        // why mounting block 0 failed, just as the single-volume scan does.
+        std::vector<riftwii::MountedImageVolume> volumes;
+        EXPECT_FALSE(riftwii::mount_image_volumes(r, volumes, error, riftwii::default_wanted_folders()));
+        EXPECT_TRUE(volumes.empty());
+        EXPECT_CONTAINS(error, "block 0: boot sector signature missing");
+    }
+}
+
+void test_all_partitions() {
+    // Both volumes have /games and the same file name. Routing must use
+    // the selected partition, never the first file with a matching name.
+    fatimg::Image fat(512, 1, 64);
+    Bytes root = fatimg::short_entry("GAMES      ", 0x10, 3, 0);
+    const Bytes wbfs = fatimg::short_entry("WBFS       ", 0x10, 5, 0);
+    root.insert(root.end(), wbfs.begin(), wbfs.end());
+    fat.write_dir({2}, root);
+    fat.write_dir({3}, fatimg::short_entry("BIG     ISO", 0x20, 4, 5));
+    fat.write_data({4}, {'h', 'e', 'l', 'l', 'o'});
+    const std::uint64_t ntfs_at = (fat.bytes.size() + 511) / 512 + 64;
+    Volume disk(ntfs_at);
+    std::copy(fat.bytes.begin(), fat.bytes.end(), disk.disk.begin());
+    auto* second = disk.disk.data() + 0x1BE + 16;
+    second[4] = 0x07;
+    put32(second + 8, ntfs_at);
+
+    std::vector<riftwii::MountedImageVolume> volumes;
+    std::vector<std::string> notes;
+    std::string error;
+    EXPECT_TRUE(riftwii::mount_image_volumes(disk.reader(), volumes, error,
+                                            riftwii::default_wanted_folders(), &notes));
+    EXPECT_EQ(volumes.size(), 2u);
+    if (volumes.size() != 2) return;
+    EXPECT_TRUE(error.empty());
+    EXPECT_EQ(riftwii::usb_volume_prefix(volumes[0]), "usb:/");
+    EXPECT_EQ(riftwii::usb_volume_prefix(volumes[1]), "usb2:/");
+    EXPECT_EQ(volumes[0].lba, 64u);
+    EXPECT_EQ(volumes[1].lba, ntfs_at);
+    const ImageVolume* first = riftwii::find_image_volume(volumes, "usb:/games/Big.iso");
+    const ImageVolume* other = riftwii::find_image_volume(volumes, "usb2:/games/Big.iso");
+    EXPECT_TRUE(first == volumes[0].volume.get());
+    EXPECT_TRUE(other == volumes[1].volume.get());
+    VolumeFile file;
+    std::uint8_t bytes[5] = {};
+    EXPECT_TRUE(first->lookup("/games/Big.iso", file, error));
+    EXPECT_TRUE(first->read(file, 0, bytes, sizeof(bytes)));
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(bytes), sizeof(bytes)), "hello");
+    file = {};
+    EXPECT_TRUE(other->lookup("/games/Big.iso", file, error));
+    EXPECT_TRUE(other->read(file, 0, bytes, sizeof(bytes)));
+    EXPECT_TRUE(std::equal(bytes, bytes + sizeof(bytes), disk.big.begin()));
+    EXPECT_TRUE(!file.fragments.empty() && file.fragments[0].sector == ntfs_at + 100u * kSpc);
+    EXPECT_TRUE(notes.size() == 2 && notes[0].find("usb:/") != std::string::npos &&
+                notes[1].find("usb2:/") != std::string::npos);
+    EXPECT_TRUE(riftwii::find_image_volume(volumes, "usb3:/games/Big.iso") == nullptr);
+    EXPECT_TRUE(riftwii::find_image_volume(volumes, "sd:/games/Big.iso") == nullptr);
+
+    // A stronger match on the second partition preserves the old usb:/
+    // choice. The first partition then has its explicit usb1:/ name.
+    // Give FAT32 a different root so NTFS alone matches games.
+    fat.write_dir({2}, fatimg::short_entry("OTHER      ", 0x10, 3, 0));
+    std::copy(fat.bytes.begin() + 512, fat.bytes.end(), disk.disk.begin() + 512);
+    EXPECT_TRUE(riftwii::mount_image_volumes(disk.reader(), volumes, error, {"games"}));
+    EXPECT_EQ(riftwii::usb_volume_prefix(volumes[0]), "usb1:/");
+    EXPECT_EQ(riftwii::usb_volume_prefix(volumes[1]), "usb:/");
+    EXPECT_TRUE(riftwii::find_image_volume(volumes, "usb:/games") == volumes[1].volume.get());
+    EXPECT_TRUE(riftwii::find_image_volume(volumes, "usb1:/other") == volumes[0].volume.get());
+
+    const std::uint64_t keep_first = 64;
+    EXPECT_TRUE(riftwii::mount_image_volumes(disk.reader(), volumes, error, {"games"}, nullptr, &keep_first));
+    EXPECT_EQ(riftwii::usb_volume_prefix(volumes[0]), "usb:/");
+    EXPECT_EQ(riftwii::usb_volume_prefix(volumes[1]), "usb2:/");
+
+    // A damaged partition does not change the table number of later ones.
+    disk.disk[64 * 512 + 510] = 0;
+    EXPECT_FALSE(riftwii::mount_image_volumes(disk.reader(), volumes, error, {"games"}, nullptr, &keep_first));
+    EXPECT_TRUE(volumes.empty());
+    EXPECT_CONTAINS(error, "no longer readable");
+    std::vector<riftwii::ImagePartitionFailure> failures;
+    EXPECT_TRUE(riftwii::mount_image_volumes(disk.reader(), volumes, error, {"games"}, &notes,
+                                            nullptr, &failures));
+    EXPECT_EQ(failures.size(), 1u);
+    if (!failures.empty()) {
+        EXPECT_EQ(failures[0].partition, 1u);
+        EXPECT_EQ(failures[0].lba, 64u);
+        EXPECT_EQ(failures[0].blocks, fat.bytes.size() / 512 - 64);
+        EXPECT_EQ(failures[0].format, "FAT32");
+        EXPECT_TRUE(failures[0].boot_readable);
+        EXPECT_TRUE(!failures[0].reason.empty());
+    }
+    EXPECT_EQ(volumes.size(), 1u);
+    EXPECT_EQ(volumes[0].partition, 2u);
+    EXPECT_EQ(riftwii::usb_volume_prefix(volumes[0]), "usb:/");
+
+    // A failed sector read and an unsupported format are different useful
+    // reasons for the menu, and neither hides the healthy NTFS partition.
+    const auto readable_disk = disk.reader();
+    const riftwii::BlockReader failed_sector = [&](std::uint64_t lba, std::uint32_t count, std::uint8_t* bytes) {
+        if (lba == 64) return false;
+        return readable_disk(lba, count, bytes);
+    };
+    EXPECT_TRUE(riftwii::mount_image_volumes(failed_sector, volumes, error, {"games"}, nullptr,
+                                            nullptr, &failures));
+    EXPECT_EQ(failures.size(), 1u);
+    if (!failures.empty()) {
+        EXPECT_FALSE(failures[0].boot_readable);
+        EXPECT_TRUE(failures[0].format.empty());
+        EXPECT_CONTAINS(failures[0].reason, "cannot read block");
+    }
+    EXPECT_EQ(volumes.size(), 1u);
+    std::memcpy(disk.disk.data() + 64 * 512 + 3, "EXFAT   ", 8);
+    std::memset(disk.disk.data() + 64 * 512 + 82, 0, 5);
+    EXPECT_TRUE(riftwii::mount_image_volumes(disk.reader(), volumes, error, {"games"}, nullptr,
+                                            nullptr, &failures));
+    EXPECT_EQ(failures.size(), 1u);
+    if (!failures.empty()) {
+        EXPECT_EQ(failures[0].format, "exFAT");
+        EXPECT_TRUE(failures[0].boot_readable);
+    }
+    EXPECT_EQ(volumes.size(), 1u);
+    EXPECT_TRUE(riftwii::find_image_volume(volumes, "usb1:/games") == nullptr);
+    EXPECT_TRUE(riftwii::find_image_volume(volumes, "usb2:/games") == volumes[0].volume.get());
+
+    // A single unpartitioned volume keeps exactly the existing root.
+    fatimg::Image single(512, 1, 0);
+    EXPECT_TRUE(riftwii::mount_image_volumes(single.reader(), volumes, error, {"games"}, nullptr,
+                                            nullptr, &failures));
+    EXPECT_TRUE(failures.empty());
+    EXPECT_EQ(volumes.size(), 1u);
+    EXPECT_EQ(riftwii::usb_volume_prefix(volumes[0]), "usb:/");
+    EXPECT_EQ(volumes[0].partition, 0u);
+
+    EXPECT_FALSE(riftwii::mount_image_volumes(single.reader(), volumes, error, {"games"}, nullptr, &keep_first));
+    EXPECT_TRUE(volumes.empty());
+
+    unsigned partition = 99;
+    EXPECT_TRUE(riftwii::usb_path_partition("usb:/", partition));
+    EXPECT_EQ(partition, 0u);
+    EXPECT_TRUE(riftwii::usb_path_partition("usb128:/games/a.iso", partition));
+    EXPECT_EQ(partition, 128u);
+    EXPECT_EQ(riftwii::usb_path_device("usb2:/games/a.iso"), "usb2:");
+    EXPECT_EQ(riftwii::image_volume_path("usb2:/games/a.iso"), "/games/a.iso");
+    for (const std::string invalid : {"usb0:/x", "usb02:/x", "usb129:/x", "usb999999999999:/x",
+                                      "usb2:x", "usb2:"}) {
+        EXPECT_FALSE(riftwii::is_usb_path(invalid));
     }
 }
 
 }  // namespace
 
 int main() {
+    test_all_partitions();
     test_runs();
     test_walk(0);
     test_walk(63);

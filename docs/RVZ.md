@@ -137,7 +137,9 @@ the group's start.
 
 GameCube RVZ, ISO and GCM files in `games/` or `wbfs/`, loose or one
 folder down, are listed on the SD card and USB drive. Custom
-`game_folders` are scanned the same way. The usual
+`game_folders` are scanned the same way, as is any other folder at the
+top of a drive whose first few subfolders hold an image named as
+Nintendont names them (`game1/<game>/game.iso`). The usual
 `sd:/games/<folder>/game.rvz` is listed as a GameCube game, as an ISO is
 (`ScanGcImages`), with its ID, title, cover and the disc's own banner,
 read through `RvzDiscSource` (`OpenGcDisc`). `check_rvz` gives it the same
