@@ -260,9 +260,12 @@ CodeHandler choose_code_handler(bool low_veneers) {
 // the end of the game's video retrace handler. Leaves the game untouched
 // and says why when that cannot be done. With the WiiRD debugger and no
 // cheats it is installed with an empty list, for the PC's own codes.
+// `debugger_handler`, when given, says whether the handler installed is
+// the WiiRD debugger's (with no USB Gecko answering it is the plain one).
 bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<MemoryPatch>& patches,
                     const std::vector<MemoryRegion>& keep_out, std::string& why,
-                    std::uint32_t default_list_end = kCodeListEnd, bool low_veneers = false) {
+                    std::uint32_t default_list_end = kCodeListEnd, bool low_veneers = false,
+                    bool* debugger_handler = nullptr) {
     if (!gx_patch_allowed(g_extras.game_id, GamePatchKind::Cheats)) {
         why = "the game checks its own code (MetaFortress)";
         return false;
@@ -286,6 +289,7 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
         return false;
     }
     const CodeHandler chosen = choose_code_handler(low_veneers);
+    if (debugger_handler) *debugger_handler = chosen.debugger;
     const std::uint32_t list = moved ? g_extras.code_list_start : chosen.list;
     // A low-memory return stub owns the last 32 bytes of the ordinary
     // list's room (the debugger handler's list ends there too). Keep both
@@ -2737,15 +2741,24 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         // A code build's list moved: the runtime's, the SD card's and the
         // crash blob's veneers may be past the handler.
         const bool low_veneers = resident_low_veneers || g_extras.code_list_start != 0;
-        if (!install_cheats(loaded, options.memory_patches, keep_out, why, return_plan.code_list_end, low_veneers))
+        bool debugger_handler = false;
+        if (!install_cheats(loaded, options.memory_patches, keep_out, why, return_plan.code_list_end, low_veneers,
+                            &debugger_handler))
             logf("Codes are off: %s\n", why.c_str());
-        else {
-            // A code build's codes, and a player's cheats unless the WiiRD
-            // debugger's handler runs (it waits for the PC, with pause, and
-            // only ever started with the game).
-            codes_first = !g_extras.code_builds.empty() || !g_extras.wiird_debugger;
-            if (codes_first) logf("Codes: the handler runs once before the game starts\n");
+        else if (!g_extras.code_builds.empty()) {
+            codes_first = true;
+        } else if (debugger_handler) {
+            // It waits for the PC (with pause) and only ever started with the game.
+            logf("Codes: the WiiRD debugger's handler starts with the game, not before it\n");
+        } else if (!late.empty()) {
+            // The start file's parts are written after this, at the last
+            // moment: a code run before them would search (F6) or patch a
+            // game that isn't all there yet, and keep what it found.
+            logf("Codes: the cheats start with the game, after its start file is in place\n");
+        } else {
+            codes_first = true;
         }
+        if (codes_first) logf("Codes: the handler runs once before the game starts\n");
     }
     if (allow_game_patch(GamePatchKind::Fix480p, "480p fix")) {
         GxReport gx;
@@ -2833,8 +2846,10 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         // Wii's Classic Controller remaps (they patch __parse_cl_data) took
         // effect only once opening HOME pushed that function out (issue
         // #216). So what the codes wrote goes to memory, wherever in MEM1
-        // it is, and the game starts with an empty instruction cache.
+        // it is (or in MEM2, where a game may keep code too), and the game
+        // starts with an empty instruction cache.
         DCStoreRange(reinterpret_cast<void*>(kMem1Start), kMem1End - kMem1Start);
+        DCStoreRange(reinterpret_cast<void*>(kMem2Start), kMem2End - kMem2Start);
         ICFlashInvalidate();
     }
     if (!late.empty()) {
