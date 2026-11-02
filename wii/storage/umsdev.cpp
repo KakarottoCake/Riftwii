@@ -1,7 +1,4 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
-// SPDX-FileCopyrightText: 2011 Dimok
-// SPDX-FileCopyrightText: 2011 Rodries
-// SPDX-FileCopyrightText: 2009 Kwiirk
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "umsdev.hpp"
 

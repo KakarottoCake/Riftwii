@@ -90,36 +90,29 @@ contains theirs names them in its file header, and
 (with the commit), and its license.
 
 - **USB Loader GX** (https://github.com/wiidev/usbloadergx, GPL-3.0):
-  the online server patches (`PrivateServerPatcher`, `domainpatcher`),
-  the Wiimmfi patches and Mario Kart Wii security fix, the
-  return-to-channel patch, the language patch, the video mode tables,
   its fixes for particular games (Kirby's Return to Dream Land's
   MetaFortress, New Super Mario Bros. Wii, Prince of Persia, Resident
-  Evil 4, Excite Truck, the error #002 and 480p fixes), its automatic
-  cIOS choice, the region strings fix and the aspect ratio, rumble and
-  speaker options, how it keeps saves in d2x's emulated NAND and where
-  it keeps that NAND (for the Saves choice "SD, emulated NAND"), the Wiinnertag file the RiiTag support reads (Dimok,
-  zlib), how to find the Wii Menu's fonts for Settings > Menu font
-  (Dimok, giantpune, blackb0x) and read its bitmap font (giantpune and
-  Dimok, zlib), how to drive d2x's USB device on
-  either USB port (Dimok, Rodries, Kwiirk, zlib), RiftWii's copies of
-  the Gecko code handler and its WiiRD debugger builds (`load_handler`),
-  and the USB Gecko debug output (`gecko.c`: gprintf, hexdump,
-  USBGeckoOutput); the channel identity and synthetic ticket layout
-  (dude, Miigotu and Dimok, zlib; source commit in NOTICE.md). Thanks to
-  its developers and everyone whose work it carries: ToadKing
-  (wiilauncher-nossl), Leseratte and the Wiimmfi team, giantpune, Nuke
-  and the GeckoOS authors, crediar, dcx2, container12345, blackb0x and
-  WiiPower.
+  Evil 4, Excite Truck, the error #002 and 480p fixes), the region
+  strings fix and the aspect ratio, rumble and speaker options, the
+  online server patches and Mario Kart Wii security fix, and the Gecko
+  code handler's hook (`load_handler`). Thanks to the people whose work
+  it carries: ToadKing (wiilauncher-nossl), Leseratte and the Wiimmfi
+  team (the Wiimmfi patches), giantpune (the return-to-channel patch),
+  Nuke and the GeckoOS authors (the language patch), crediar, dcx2,
+  container12345 and blackb0x (MetaFortress) and WiiPower. Read as a
+  reference for its automatic cIOS choice, d2x's emulated NAND and USB
+  drive, the Wiinnertag file, the Wii Menu's fonts, the channel ticket
+  layout and the video mode tables.
 - **Gecko OS** by Nuke, brkirch, Link and the Gecko authors: the cheat
   code handler and its WiiRD debugger builds (full source in
   [vendor-gecko](vendor-gecko)).
 - **Brainslug** by Alex Chadwick and Florian Bach (MIT): the boot
   sequence. **wup-028-bslug** by Alex Chadwick (MIT): the GameCube
   controller adapter.
-- **Nintendont** by FIX94 and contributors: the USB HID driver, controller.ini mapping format, the USB
-  controller layouts RiftWii carries and the GameCube sound program patches, used with its developers'
-  permission.
+- **Nintendont** by FIX94 and contributors: the USB controller layouts
+  RiftWii carries and the GameCube sound program patches, used with its
+  developers' permission. Its USB HID driver and controller.ini format
+  were read as a reference.
   **WiiDRC** by FIX94: the Wii U GamePad. **libwiiinput** by quatric: the
   USB keyboard, pen tablet and uDraw GameTablet drivers. **dolxz** by FIX94 (MIT): the
   idea of the packed DOL (RiftWii's own stub and format).

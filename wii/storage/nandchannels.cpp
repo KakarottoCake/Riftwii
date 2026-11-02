@@ -1,6 +1,4 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
-// SPDX-FileCopyrightText: 2010 dude (USB Loader GX channel identity design)
-// SPDX-FileCopyrightText: 2011 Miigotu, Dimok (USB Loader GX channel identity design)
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "nandchannels.hpp"
 

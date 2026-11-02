@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: FIX94 and the Nintendont contributors, used with permission <https://github.com/FIX94/Nintendont>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/gcdsp.hpp"
 
