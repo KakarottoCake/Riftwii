@@ -456,6 +456,43 @@ std::uint32_t function_start(const Code& code, std::uint32_t at) {
     return 0;
 }
 
+// The general register an instruction certainly writes, or 32: loads,
+// immediate arithmetic, rotates, the logical and arithmetic register forms
+// and mfspr. Stores, compares and the rest count as writing nothing, so a
+// store of r7 doesn't hide the helper's constant handler.
+unsigned written_register(std::uint32_t w) {
+    const unsigned op = w >> 26, d = (w >> 21) & 31, ra = (w >> 16) & 31;
+    switch (op) {
+    case 7: case 8: case 12: case 13: case 14: case 15:  // mulli subfic addic addic. addi addis
+    case 32: case 33: case 34: case 35:                  // lwz lwzu lbz lbzu
+    case 40: case 41: case 42: case 43: case 46:         // lhz lhzu lha lhau lmw
+        return d;
+    case 20: case 21: case 23:                           // rlwimi rlwinm rlwnm
+    case 24: case 25: case 26: case 27: case 28: case 29:  // ori oris xori xoris andi. andis.
+        return ra;
+    case 31: break;
+    default: return 32;
+    }
+    const unsigned xo = (w >> 1) & 0x3FF;
+    switch (xo) {
+    case 24: case 26: case 28: case 60: case 124: case 284: case 316:  // slw cntlzw and andc nor eqv xor
+    case 412: case 444: case 476: case 536: case 792: case 824:          // orc or nand srw sraw srawi
+    case 922: case 954:                                                  // extsh extsb
+        return ra;
+    case 19: case 23: case 55: case 87: case 119: case 279: case 311:    // mfcr lwzx lwzux lbzx lbzux lhzx lhzux
+    case 339: case 343: case 375:                                        // mfspr lhax lhaux
+        return d;
+    default: break;
+    }
+    switch (xo & 0x1FF) {  // the arithmetic forms, OE aside
+    case 8: case 10: case 11: case 40: case 75: case 104: case 136:      // subfc addc mulhwu subf mulhw neg subfe
+    case 138: case 200: case 202: case 232: case 234: case 235:          // adde subfze addze subfme addme mullw
+    case 266: case 459: case 491:                                        // add divwu divw
+        return d;
+    default: return 32;
+    }
+}
+
 // OSSetAlarm, when `called` is the DVD library's timeout helper in front
 // of it: a short function whose last call gets a fixed handler in r7
 // ("lis rX" then "addi r7,rX,..."), the helper's own; else `called`. A
@@ -482,8 +519,15 @@ std::uint32_t through_timeout_helper(const Code& code, std::uint32_t called) {
             lis_register = 32;
         } else if (op == 15 && ra == 0) {
             lis_register = d;
+            if (d == 7) handler_constant = false;
         } else if (op == 14 && d == 7 && ra == lis_register) {
             handler_constant = true;
+        } else {
+            // Anything else written to r7 or to the lis register leaves no
+            // constant there.
+            const unsigned written = written_register(w);
+            if (written == 7) handler_constant = false;
+            if (written == lis_register) lis_register = 32;
         }
     }
     const bool short_function = code.has(a) && code.at(a) == 0x4E800020;
