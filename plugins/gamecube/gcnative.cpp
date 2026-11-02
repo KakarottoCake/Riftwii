@@ -3654,6 +3654,12 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                          "them, at 0x%08x\n",
                          file.offset, static_cast<unsigned>((start - elf.entry) / 4), start);
             }
+            // The blob comes back to the third word, so it must be the
+            // program's own code too.
+            if (patched && !program_code.has(start + 8)) {
+                why = "its code ends before the word after its start, where the blob would come back";
+                patched = false;
+            }
             std::uint32_t entry_words[2] = {};
             if (patched)
                 patched = gc_program_entry_words(start, program_code.at(start), program_code.at(start + 4), index,
