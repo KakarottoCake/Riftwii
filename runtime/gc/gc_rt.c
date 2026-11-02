@@ -2950,7 +2950,8 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
     if (ctx->bt && status != 0) {
         struct gc_bt* bt = (struct gc_bt*)(uintptr_t)ctx->bt;
         if (ctx->flags & GC_FLAG_FAKE_REMOTE) {
-            gc_bt_fake(bt, (uint8_t*)(uintptr_t)status, n, (ctx->flags & GC_FLAG_FAKE_PRO) != 0, native);
+            gc_bt_fake(bt, (uint8_t*)(uintptr_t)status, n, (ctx->flags & GC_FLAG_FAKE_PRO) != 0, native,
+                       ctx->pad_idle);
         } else {
             /* Keep start-up's frame-counted timeouts unchanged. Once page
              * scan is ready, an idle controller needs no per-frame IPC. */

@@ -3251,7 +3251,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                 // the TGC's, so its own switches run as made (not seen in a game).
                 const bool from_tgc = tgc_offset != 0;
                 const bool boot_dol_hookable = boot_dol != 0 && !boot_dol_branch && !from_tgc;
-                const bool exec_test_on = test_exec && !boot_dol_branch;
+                // The test switch calls the hook with __OSBootDol's arguments,
+                // which the old restart hook (__OSReboot) would not read.
+                const bool exec_test_on = test_exec && !boot_dol_branch && !old_reboot;
                 const char* const boot_dol_off = boot_dol_branch ? "its first word is a branch"
                                                  : from_tgc      ? "the game came from a TGC image, whose programs exec.txt "
                                                                    "cannot name"

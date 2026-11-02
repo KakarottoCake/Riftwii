@@ -230,8 +230,9 @@ int gc_bt_home_held(const struct gc_bt* bt);
  * of GC_BT_FAKE_FRAMES PADReads at a time (gc_bt.c lists them), and what
  * port 1 got in each step goes to fake_log for the trace. `n`: the
  * PADRead's count. `pro` (sd:/riftwii/gc/test/fakepro, GC_FLAG_FAKE_PRO):
- * a Wii U Pro Controller's reports instead, steps of their own. */
-void gc_bt_fake(struct gc_bt* bt, uint8_t* status, uint32_t n, int pro, uint32_t native);
+ * a Wii U Pro Controller's reports instead, steps of their own. `idle`:
+ * as for gc_bt_fill. */
+void gc_bt_fake(struct gc_bt* bt, uint8_t* status, uint32_t n, int pro, uint32_t native, uint32_t idle);
 /* A reply from IOS that came while another request was being waited
  * for: marked done if it is one of these (1), else 0. */
 int gc_bt_on_reply(struct gc_bt* bt, uint32_t reply);

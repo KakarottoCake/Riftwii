@@ -1067,7 +1067,7 @@ static void bt_fake_pro_identify(struct gc_bt* bt, struct gc_bt_remote* r) {
     bt->stage = stage;
 }
 
-void gc_bt_fake(struct gc_bt* bt, uint8_t* status, uint32_t n, int pro, uint32_t native) {
+void gc_bt_fake(struct gc_bt* bt, uint8_t* status, uint32_t n, int pro, uint32_t native, uint32_t idle) {
     struct gc_bt_remote* r = &bt->remotes[0];
     const uint32_t step = (n / GC_BT_FAKE_FRAMES) % GC_BT_FAKE_STEPS;
     const uint32_t frame = n % GC_BT_FAKE_FRAMES;
@@ -1102,7 +1102,7 @@ void gc_bt_fake(struct gc_bt* bt, uint8_t* status, uint32_t n, int pro, uint32_t
         if (step == 5) report[12] = 0x01;
     }
     bt_on_input(bt, r, report, pro || nunchuk ? 23u : 7u);
-    gc_bt_fill(bt, status, native, 0);
+    gc_bt_fill(bt, status, native, idle);
     bt_update_rumble(bt, 0);
     if (frame == 0) {
         log[0] = 0;
