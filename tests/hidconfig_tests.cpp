@@ -1185,6 +1185,10 @@ void SwitchPadStuck(unsigned version) {
           (version == 4 ? GCAD_V4_CANCEL_INTERRUPT : GCAD_V5_CANCEL_ENDPOINT));
     CHECK(version == 4 ? broken.stop_msg[4] == broken.endpoint_out : broken.stop_msg[8] == 2);
     failing.Reply(output, -22);
+    // The cancel is still out: the next start waits for it as well.
+    failing.clock += GCAD_RELINK_MS;
+    gcad_tick(&failing.hub.adapter, failing.clock);
+    CHECK(broken.link == GCAD_LINK_FAILED && failing.requests[stop].pending && failing.outputs.size() == 2);
     failing.Reply(stop);
     failing.clock += GCAD_RELINK_MS;
     failing.Settle();

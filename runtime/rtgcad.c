@@ -871,7 +871,9 @@ static void start_link(gcad* g, uint32_t now) {
         link_failed(g, now, GCAD_LINK_FAILED);
         return;
     }
-    if (g->busy & (BIT(GCAD_TAG_SETUP) | BIT(GCAD_TAG_IN) | BIT(GCAD_TAG_OUT))) {
+    /* A cancel still out (a Switch Pro's stuck start-up) waits too: IOS may
+     * still be cancelling on the endpoint the new link would read. */
+    if (g->busy & (BIT(GCAD_TAG_SETUP) | BIT(GCAD_TAG_IN) | BIT(GCAD_TAG_OUT) | BIT(GCAD_TAG_STOP))) {
         /* The old link's requests are still coming back: later. */
         link_failed(g, now, GCAD_LINK_FAILED);
         return;
@@ -1282,7 +1284,7 @@ void gcad_tick(gcad* g, uint32_t now) {
         submit_change(g, now);
     }
     if (g->dev_id != GCAD_NO_DEVICE && (g->link == GCAD_LINK_FAILED || g->link == GCAD_LINK_BUSY) &&
-        !(g->busy & (BIT(GCAD_TAG_SETUP) | BIT(GCAD_TAG_IN) | BIT(GCAD_TAG_OUT))) &&
+        !(g->busy & (BIT(GCAD_TAG_SETUP) | BIT(GCAD_TAG_IN) | BIT(GCAD_TAG_OUT) | BIT(GCAD_TAG_STOP))) &&
         elapsed(now, g->link_time) >= ms(g, g->link == GCAD_LINK_BUSY ? GCAD_RESCAN_MS : GCAD_RELINK_MS)) {
         start_link(g, now);
     }
