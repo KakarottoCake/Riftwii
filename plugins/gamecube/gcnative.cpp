@@ -3829,6 +3829,16 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                 logf("GameCube: the file at disc offset 0x%08x (named .elf) runs as the disc has it, if the game "
                      "loads it: %s\n",
                      file.offset, why.c_str());
+                // Its first words as the disc has them, so a problem report
+                // shows what a start RiftWii can't take looks like (Harry
+                // Potter and the Goblet of Fire's "starts with a branch").
+                Dol as_on_disc = original;
+                const Code disc_code(as_on_disc.text);
+                if (disc_code.has(elf.entry) && disc_code.has(elf.entry + 12)) {
+                    logf("GameCube: that program's entry 0x%08x begins %08x %08x %08x %08x\n", elf.entry,
+                         disc_code.at(elf.entry), disc_code.at(elf.entry + 4), disc_code.at(elf.entry + 8),
+                         disc_code.at(elf.entry + 12));
+                }
             }
             write_resident(resident_main);
         }
