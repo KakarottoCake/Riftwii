@@ -1140,6 +1140,39 @@ void settle_gc_adapter(int game_ios, int d2x_device, const char* d2x_reads, bool
     }
 }
 
+// BI2's argument list: its offset from BI2 at BI2 + 8 (0: none), then a
+// count and one BI2-relative offset per string. A list longer than this is
+// not one a game made.
+constexpr std::uint32_t kBi2ArgumentsField = 8;
+constexpr std::uint32_t kMaxBi2Arguments = 64;
+
+// Some games' start-up code turns BI2's argument list into argv and then
+// sets the MEM1 arena end (0x34 and 0x3110) to that list, over the end
+// written below the runtime and the other blobs. Just Dance (Ubisoft's
+// LyN engine) keeps it near MEM1's top (0x817ff9a0 in Just Dance 4), so
+// the game's heap took the runtime's code: from an RVZ, or with a pack,
+// it crashed before its first picture (Dolphin, 2610-810). The count and
+// offsets go just below `arena_end` instead (the strings stay in BI2, which
+// no blob covers), so the end the game sets keeps everything above it.
+void move_bi2_arguments_below(std::uint32_t arena_end) {
+    const std::uint32_t bi2 = load32(0x800000F4);
+    if (bi2 < kMem1Start || bi2 >= kMem1End) return;
+    const std::uint32_t offset = load32(bi2 + kBi2ArgumentsField);
+    if (offset == 0) return;
+    const std::uint32_t list = bi2 + offset;
+    if (list < arena_end || list >= kMem1End || (list & 3) != 0) return;
+    const std::uint32_t count = load32(list);
+    if (count == 0 || count > kMaxBi2Arguments) return;
+    const std::uint32_t bytes = 4 + 4 * count;
+    const std::uint32_t moved = (arena_end - bytes) & ~31u;
+    std::memmove(reinterpret_cast<void*>(moved), reinterpret_cast<const void*>(list), bytes);
+    DCFlushRange(reinterpret_cast<void*>(moved), bytes);
+    store32(bi2 + kBi2ArgumentsField, moved - bi2);  // wraps below BI2, as the game adds it back
+    DCFlushRange(reinterpret_cast<void*>(bi2 + kBi2ArgumentsField), 4);
+    logf("BI2: the game's %u start-up argument(s) moved from 0x%08x to 0x%08x, below the MEM1 arena's end "
+         "(the game sets that end to them)\n", count, list, moved);
+}
+
 // Why a game gets none of the blobs below its MEM1 arena's top, or nullptr.
 const char* whole_mem1_reason(bool code_build, bool clears_mem1_top) {
     if (code_build) return "a code build uses all of the game's memory";
@@ -2623,6 +2656,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             store32(0x80003110, mem1_end);
         }
     }
+    move_bi2_arguments_below(load32(0x80003110));
     std::memcpy(reinterpret_cast<void*>(0x80003180), probe.disc_id, 4);
     store32(0x80003184, 0x80000000);            // where the game id lives
     store32(0x80003194, probe.partition.type);
