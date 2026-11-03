@@ -308,6 +308,12 @@ void TestReleaseMonthAndHttpDate() {
     EXPECT_FALSE(http_date_parse("Tue, 3 Nov 2026 08:41:22 GMT", date));
     EXPECT_FALSE(http_date_parse("Tuesday, 03-Nov-26 08:41:22 GMT", date));
     EXPECT_FALSE(http_date_parse("Tue, 03 Nov 2026 24:00:00 GMT", date));
+    EXPECT_FALSE(http_date_parse("Bad, 03 Nov 2026 08:41:22 GMT", date));
+    EXPECT_FALSE(http_date_parse("Wed, 03 Nov 2026 08:41:22 GMT", date));
+    EXPECT_FALSE(http_date_parse("Tue, 31 Nov 2026 08:41:22 GMT", date));
+    EXPECT_FALSE(http_date_parse("Sun, 29 Feb 2026 00:00:00 GMT", date));
+    EXPECT_TRUE(http_date_parse("Tue, 29 Feb 2000 00:00:00 GMT", date));
+    EXPECT_FALSE(http_date_parse("Fri, 29 Feb 2100 00:00:00 GMT", date));
     EXPECT_FALSE(http_date_parse("", date));
 }
 

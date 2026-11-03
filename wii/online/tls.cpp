@@ -65,8 +65,12 @@ int LowWrite(void* ctx, const unsigned char* data, std::size_t length) {
 // after this release came out, it can at most let a certificate count that
 // expired after that, while the chain itself is still checked in full.
 // With no answer, certificates are checked against the release's first
-// day, which fails as before.
+// day: a forged answer could set that date too, so it adds no new risk,
+// and it still passes the certificates current when this release came out.
+// Each host gets kDateSeconds in all, so a slow one can't hold the lock
+// the other downloads wait on.
 constexpr const char* kDateHosts[] = {"example.com", "www.gametdb.com"};
+constexpr unsigned kDateSeconds = 8;
 mutex_t g_clock_lock = LWP_MUTEX_NULL;
 bool g_server_date_asked = false;
 bool g_server_date_known = false;
@@ -86,8 +90,9 @@ bool AskServerDate(const char* host, std::time_t& date, std::string& error) {
     if (!parse_http_url(std::string("http://") + host + "/", url, error)) return false;
     NetServer server;
     if (!ResolveServer(url.host, url.port, server, error)) return false;
+    const u64 give_up = gettime() + secs_to_ticks(kDateSeconds);
     SocketTransport socket;
-    if (!socket.connect(server, 8000, error)) return false;
+    if (!socket.connect(server, kDateSeconds * 1000, error)) return false;
     const std::string request = http_head_request(url);
     if (!socket.send(request.data(), request.size())) {
         error = "the request could not be sent";
@@ -98,6 +103,10 @@ bool AskServerDate(const char* host, std::time_t& date, std::string& error) {
     reading.head = true;
     unsigned char chunk[1024];
     while (!http_response_complete(raw, reading) && raw.size() < 16384) {
+        if (gettime() >= give_up) {
+            error = "it answered too slowly";
+            return false;
+        }
         std::size_t got = 0;
         if (!socket.receive_some(chunk, sizeof(chunk), got) || got == 0) break;
         if (!try_append(raw, chunk, chunk + got)) {
@@ -124,10 +133,13 @@ std::time_t CertificateTime() {
         // Made with interrupts off: two download threads may come here first.
         u32 level;
         _CPU_ISR_Disable(level);
-        if (g_clock_lock == LWP_MUTEX_NULL) LWP_MutexInit(&g_clock_lock, false);
+        if (g_clock_lock == LWP_MUTEX_NULL && LWP_MutexInit(&g_clock_lock, false) != 0)
+            g_clock_lock = LWP_MUTEX_NULL;
         _CPU_ISR_Restore(level);
     }
-    LWP_MutexLock(g_clock_lock);
+    // Without the lock, another download may be asking right now: the
+    // release's first day is the safe answer, with no shared state read.
+    if (g_clock_lock == LWP_MUTEX_NULL || LWP_MutexLock(g_clock_lock) != 0) return released;
     if (!g_server_date_asked) {
         g_server_date_asked = true;
         for (const char* host : kDateHosts) {
@@ -151,7 +163,8 @@ std::time_t CertificateTime() {
             break;
         }
         if (!g_server_date_known)
-            logf("TLS: no server gave the date; secure downloads will fail until the clock is set in Wii Settings\n");
+            logf("TLS: no server gave the date, so certificates are checked against the first day of the month "
+                 "this RiftWii came out; a newer certificate will fail until the clock is set in Wii Settings\n");
     }
     const std::time_t checked = g_server_date_known ? wii_now + g_server_offset : released;
     LWP_MutexUnlock(g_clock_lock);
@@ -242,7 +255,10 @@ bool TlsStream::open(SocketTransport& socket, const std::string& host, std::stri
     // when the clock is before this release (CertificateTime). The failure
     // text still shows the Wii's own clock, the one the player can fix.
     const std::time_t now = std::time(nullptr);
+    const u64 asking_from = gettime();
     const std::time_t checked = CertificateTime();
+    // Asking a server for the date isn't part of the handshake's time.
+    if (s.deadline != 0) s.deadline += gettime() - asking_from;
     br_x509_minimal_set_time(&s.x509, static_cast<std::uint32_t>(checked / 86400 + 719528),
                              static_cast<std::uint32_t>(checked % 86400));
     br_ssl_engine_set_buffer(&s.client.eng, s.buffer, sizeof(s.buffer), 0);

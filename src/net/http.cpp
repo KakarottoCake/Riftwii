@@ -186,6 +186,12 @@ long long days_since_1970(int year, int month, int day) {
     return static_cast<long long>(era) * 146097 + day_of_era - 719468;
 }
 
+int days_in_month(int year, int month) {
+    static const int kDays[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    const bool leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+    return month == 2 && leap ? 29 : kDays[month - 1];
+}
+
 // `count` decimal digits at `at`, or -1.
 int digits_at(const std::string& text, std::size_t at, std::size_t count) {
     if (at + count > text.size()) return -1;
@@ -212,6 +218,7 @@ bool http_date_parse(const std::string& value, std::time_t& out) {
     // "Tue, 03 Nov 2026 08:41:22 GMT": 29 characters, every field in place.
     static const char* const kMonths[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
                                           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+    static const char* const kWeekdays[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
     if (value.size() != 29 || value.compare(3, 2, ", ") != 0 || value[7] != ' ' || value[11] != ' ' ||
         value[16] != ' ' || value[19] != ':' || value[22] != ':' || value.compare(25, 4, " GMT") != 0)
         return false;
@@ -224,10 +231,14 @@ bool http_date_parse(const std::string& value, std::time_t& out) {
     const int hour = digits_at(value, 17, 2);
     const int minute = digits_at(value, 20, 2);
     const int second = digits_at(value, 23, 2);
-    if (month == 0 || day < 1 || day > 31 || year < 1970 || hour < 0 || hour > 23 || minute < 0 || minute > 59 ||
-        second < 0 || second > 60)
+    if (month == 0 || year < 1970 || day < 1 || day > days_in_month(year, month) || hour < 0 || hour > 23 ||
+        minute < 0 || minute > 59 || second < 0 || second > 60)
         return false;
     const long long days = days_since_1970(year, month, day);
+    // 1970-01-01 was a Thursday. A day name that doesn't match the date
+    // means the header isn't what it claims to be.
+    const int weekday = static_cast<int>((days + 4) % 7);
+    if (value.compare(0, 3, kWeekdays[weekday]) != 0) return false;
     out = static_cast<std::time_t>(days * 86400 + hour * 3600 + minute * 60 + second);
     return true;
 }
