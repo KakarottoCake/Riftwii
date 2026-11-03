@@ -62,8 +62,12 @@ public:
             const u16 held = view.present[p] ? view.pads[p].buttons : 0;
             seen = seen || view.present[p];
             idle = idle && held == 0;
+            // A pad first seen with buttons held (plugged in with A down)
+            // counts them only once let go and pressed again.
+            if (view.present[p] && !present_[p]) held_[p] = held;
             down |= held & ~held_[p];
             held_[p] = held;
+            present_[p] = view.present[p];
         }
         if (!armed_ && seen && idle) armed_ = true;
         return armed_ ? down : 0;
@@ -76,6 +80,7 @@ private:
     bool armed_ = false;
     u64 tried_ = 0;
     u16 held_[GCAD_PORTS] = {};
+    bool present_[GCAD_PORTS] = {};
 };
 
 }  // namespace
