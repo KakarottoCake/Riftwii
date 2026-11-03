@@ -1310,9 +1310,10 @@ void gcad_tick(gcad* g, uint32_t now) {
     }
     /* A Switch Pro start-up message still going out GCAD_RESCAN_MS after
      * it was sent (the pad takes nothing, though still listed) is
-     * cancelled; its error fails the link. Then a read still out on the
-     * failed link, which holds back the next start (it waits for every
-     * transfer), is cancelled after GCAD_RELINK_MS. Each is asked again
+     * cancelled; its error fails the link. Then what is still out on the
+     * failed link (a message, then a read), which holds back the next
+     * start (it waits for every transfer), is cancelled after
+     * GCAD_RELINK_MS, a read that failed first included. Each is asked again
      * after the same wait while its transfer stays out: the cancel may be
      * refused or fail, and a message that went out after all leaves
      * nothing behind. One cancel at a time, on the STOP slot. */
@@ -1321,11 +1322,11 @@ void gcad_tick(gcad* g, uint32_t now) {
             elapsed(now, g->link_time) >= ms(g, GCAD_RESCAN_MS)) {
             g->link_time = now;
             cancel_transfer(g, GCAD_TAG_OUT);
-        } else if (g->link == GCAD_LINK_FAILED && g->dev_id != GCAD_NO_DEVICE &&
-                   (g->busy & (BIT(GCAD_TAG_SETUP) | BIT(GCAD_TAG_IN) | BIT(GCAD_TAG_OUT))) == BIT(GCAD_TAG_IN) &&
+        } else if (g->link == GCAD_LINK_FAILED && g->dev_id != GCAD_NO_DEVICE && !(g->busy & BIT(GCAD_TAG_SETUP)) &&
+                   (g->busy & (BIT(GCAD_TAG_IN) | BIT(GCAD_TAG_OUT))) &&
                    elapsed(now, g->link_time) >= ms(g, GCAD_RELINK_MS)) {
             g->link_time = now;
-            cancel_transfer(g, GCAD_TAG_IN);
+            cancel_transfer(g, (g->busy & BIT(GCAD_TAG_OUT)) ? GCAD_TAG_OUT : GCAD_TAG_IN);
         }
     }
     if (g->mapping && g->link == GCAD_LINK_POLL &&
