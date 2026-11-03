@@ -293,10 +293,9 @@ typedef struct gcad {
     uint8_t output_step;
     /* Switch Pro start-up: the message sent last (SWITCH_* in rtgcad.c),
      * input reports read since it went, the answers seen and the messages
-     * sent twice (a bit per step each), the reads logged since it was
-     * plugged in, and what was cancelled after a message stuck going out
-     * (1 the message, 2 the read). */
-    uint8_t switch_step, switch_reads, switch_answers, switch_retried, switch_logs, switch_cancels;
+     * sent twice (a bit per step each), and the reads logged since it was
+     * plugged in. */
+    uint8_t switch_step, switch_reads, switch_answers, switch_retried, switch_logs;
     uint32_t diagnostic_seen;
     uint32_t diagnostic_detail[GCAD_HID_DIAGS];
     int32_t diagnostic_result[GCAD_HID_DIAGS];
