@@ -68,7 +68,8 @@ bool GcAdapterMenuSawNone();
 void GcAdapterMenuEnd();
 // A screen after the menu (a failed launch's, an exit's) that waits for a
 // press: starts the driver for it when the menu's rule lets this IOS
-// reach the adapter, so its ports and mapped USB pads can answer (a Wii U
+// reach the adapter and USB lists one (or a mapped USB pad), looked for
+// once, so its ports and mapped USB pads can answer (a Wii U
 // has no GameCube ports). True when it was started here; the caller
 // stops it (GcAdapterStop) on the way out. Never during a launch: there,
 // /dev/usb/hid can break the disc's reads.

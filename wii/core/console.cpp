@@ -26,21 +26,18 @@ namespace {
 // GameCube ports and no RESET button, so with only an adapter the screen
 // could not be answered. Started for the screen when the menu's rule
 // lets this IOS reach the adapter, stopped on the way out.
-// Its lines go to the session log only, not under the screen's own text.
+// Its lines (the driver's own too, as it finds the adapter and its ports
+// while polled) go to the session log only, not under the screen's own
+// text: the echo stays off while the screen waits, back on the way out.
 class AdapterPads {
 public:
-    explicit AdapterPads(bool wanted) {
-        const bool echo = LogEchoesToScreen();
+    explicit AdapterPads(bool wanted) : echo_(LogEchoesToScreen()) {
         LogEchoToScreen(false);
         started_ = wanted && GcAdapterScreenStart();
-        LogEchoToScreen(echo);
     }
     ~AdapterPads() {
-        if (!started_) return;
-        const bool echo = LogEchoesToScreen();
-        LogEchoToScreen(false);
-        GcAdapterStop();
-        LogEchoToScreen(echo);
+        if (started_) GcAdapterStop();
+        LogEchoToScreen(echo_);
     }
     AdapterPads(const AdapterPads&) = delete;
     AdapterPads& operator=(const AdapterPads&) = delete;
@@ -60,6 +57,7 @@ public:
     }
 
 private:
+    bool echo_;
     bool started_ = false;
     u16 held_[GCAD_PORTS] = {};
 };

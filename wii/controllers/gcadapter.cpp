@@ -692,6 +692,14 @@ bool GcAdapterScreenStart() {
         logf("GameCube adapter: not started for this screen: %s\n", off);
         return false;
     }
+    // As the menu does: only when USB lists it (or a mapped USB pad), so a
+    // console without one leaves /dev/usb/hid alone.
+    std::int32_t dev = -1;
+    std::string devices;
+    if (ogc_adapter(dev, devices) != AdapterSeen::Found) {
+        logf("GameCube adapter: not started for this screen: none plugged in (USB lists %s)\n", devices.c_str());
+        return false;
+    }
     std::string why;
     if (!GcAdapterStart(why)) {
         logf("GameCube adapter: not started for this screen: %s\n", why.c_str());
