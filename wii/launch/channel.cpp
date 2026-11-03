@@ -416,7 +416,12 @@ bool StartHomebrewApp(const std::string& path, const std::string& command_line, 
     }
     u32 size = 0;
     u8* dol = read_homebrew_dol(path, size);
-    if (!dol || !dolboot_valid(dol, size)) {
+    const bool valid = dol && dolboot_valid(dol, size);
+    // An app that reads its arguments (its own path, mostly) and has no
+    // place for them is refused rather than started without them.
+    const bool line_fits = valid && dolboot_line_fits(dol, static_cast<u32>(command_line.size()));
+    if (valid && !line_fits) logf("Homebrew app: its argument line has no place in memory\n");
+    if (!line_fits) {
         error = path + " is missing, damaged or does not fit next to RiftWii";
         logf("Homebrew app: %s\n", error.c_str());
         std::free(dol);
@@ -467,7 +472,13 @@ bool StartHomebrewApp(const std::string& path, const std::string& command_line, 
         std::free(dol);
         dol = drive ? read_homebrew_dol(path, size) : nullptr;
         if (dol) dol = check_homebrew_dol(path, dol, size);
-        if (!dol || !dolboot_valid(dol, size)) {
+        // The copy that starts is checked as the first was: its memory and
+        // MEM2's free part may have moved with the reload.
+        const bool valid_again = dol && dolboot_valid(dol, size);
+        const bool line_fits_again =
+            valid_again && dolboot_line_fits(dol, static_cast<u32>(command_line.size()));
+        if (valid_again && !line_fits_again) logf("Homebrew app: its argument line has no place in memory\n");
+        if (!line_fits_again) {
             error = tr("{1} could not be read again after the IOS restart", {path});
             logf("Homebrew app: %s\n", error.c_str());
             std::free(dol);
@@ -475,6 +486,12 @@ bool StartHomebrewApp(const std::string& path, const std::string& command_line, 
         }
     }
     plant_return_stub(dol, size);
+    // An app that loads over RiftWii itself (WiiSX, Wii64) is finished by
+    // a small copier in MEM2, as the Homebrew Channel does it.
+    if (const u32 far_at = dolboot_far_address(dol, static_cast<u32>(command_line.size()))) {
+        logf("Homebrew app: it loads over RiftWii's own memory, so a small copier at 0x%08x finishes starting it\n",
+             static_cast<unsigned>(far_at));
+    }
     LogClose();
     fatUnmount("sd:");
     // On the fresh IOS the menu's USB driver is closed for the app, which

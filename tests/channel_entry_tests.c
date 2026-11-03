@@ -7,6 +7,8 @@
 
 u8 __app_start[1];
 u8 __bss_end[1];
+const u8 dolfar_code[1];
+const u8 dolfar_code_end[1];
 
 static int failures;
 
