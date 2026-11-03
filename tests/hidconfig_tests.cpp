@@ -1114,6 +1114,7 @@ void SwitchPadStuck(unsigned version) {
     bus.refuse_slot = stop;
     wait(GCAD_RESCAN_MS);
     CHECK(!bus.requests[stop].pending && bus.requests[output].pending);
+    CHECK(bus.Count(GCAD_HID_POLL) == 0);  // not logged as the first poll
     bus.refuse_slot = GCAD_REQUESTS;
     wait(GCAD_RESCAN_MS);
     CHECK(cancelled(true));

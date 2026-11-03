@@ -305,7 +305,10 @@ static int ioctl_(gcad* g, uint32_t tag, uint32_t step, uint32_t cmd, void* in, 
         g->busy &= ~BIT(tag);
         failed(g, step, r);
         gcad_env_event(g, GCAD_EV_SUBMIT_FAIL, tag | (step << 8), r);
-        hid_diagnostic(g, ps3(g) && tag == GCAD_TAG_OUT ? g->output_step : diagnostic_step(step), 1, r);
+        /* A cancel has no start-up step of its own to name (it would read
+         * as the first poll, and keep the real one out of the log). */
+        if (step != GCAD_STEP_CANCEL)
+            hid_diagnostic(g, ps3(g) && tag == GCAD_TAG_OUT ? g->output_step : diagnostic_step(step), 1, r);
         return 0;
     }
     return 1;
@@ -320,7 +323,10 @@ static int ioctlv_(gcad* g, uint32_t tag, uint32_t step, uint32_t cmd, void* msg
         g->busy &= ~BIT(tag);
         failed(g, step, r);
         gcad_env_event(g, GCAD_EV_SUBMIT_FAIL, tag | (step << 8), r);
-        hid_diagnostic(g, ps3(g) && tag == GCAD_TAG_OUT ? g->output_step : diagnostic_step(step), 1, r);
+        /* A cancel has no start-up step of its own to name (it would read
+         * as the first poll, and keep the real one out of the log). */
+        if (step != GCAD_STEP_CANCEL)
+            hid_diagnostic(g, ps3(g) && tag == GCAD_TAG_OUT ? g->output_step : diagnostic_step(step), 1, r);
         return 0;
     }
     return 1;
