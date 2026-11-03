@@ -3585,6 +3585,18 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         // A crash shows itself on the screen and in the trace instead of a
         // blank halt.
         const std::uint32_t unhandled = find_unhandled_exception(code, dol);
+        // A floating-point exception still reaches the game's own function,
+        // which calls the handler the game set (gc_entry.S's gc_hook_fatal),
+        // so its first word must run from the replay slot: not a branch.
+        const unsigned unhandled_first = unhandled != 0 ? opcode(code.at(unhandled)) : 0;
+        if (unhandled != 0 && unhandled_first != 16 && unhandled_first != 18) {
+            store32(blob_addr + h.replay_fatal, code.at(unhandled));
+            store32(blob_addr + h.continue_fatal, 0x3D800000 | ((unhandled + 4) >> 16));
+            store32(blob_addr + h.continue_fatal + 4, 0x618C0000 | ((unhandled + 4) & 0xFFFF));
+        } else if (unhandled != 0) {
+            // No replay: a floating-point exception is shown as a crash.
+            store32(blob_addr + h.replay_fatal, 0x48000000u | ((h.hook_fatal + 20 - h.replay_fatal) & 0x03FFFFFCu));
+        }
         hook(unhandled, h.hook_fatal);
         std::vector<std::uint32_t> moved;
         const bool moved_out = move_out_of_ios(code, moved_addr, moved);

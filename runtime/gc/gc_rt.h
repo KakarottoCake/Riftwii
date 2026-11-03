@@ -26,7 +26,7 @@
 #include "gc_load.h"
 
 #define GC_RT_MAGIC 0x52574744u          /* "RWGD" */
-#define GC_RT_VERSION 11u                /* also in gc_entry.S's header */
+#define GC_RT_VERSION 12u                /* also in gc_entry.S's header */
 #define GC_RT_CONTEXT_MAGIC 0x52574743u  /* "RWGC" */
 
 /* The way back owns its IPC memory even when storage DMA is quarantined. */
@@ -83,7 +83,8 @@ struct gc_rt_header {
     uint32_t replay_ar_dma;
     uint32_t continue_ar_dma;
     uint32_t trace_now;       /* trace(where): a record from the loader, just before the jump */
-    uint32_t hook_fatal;      /* __OSUnhandledException(exception, context, dsisr, dar): shown, never returns */
+    uint32_t hook_fatal;      /* __OSUnhandledException(exception, context, dsisr, dar): shown, never returns,
+                               * but a floating-point exception goes to the game's own (replay_fatal) */
     uint32_t dsi_entry;       /* an exception before the game's OS has its handlers (the loader's vector stubs) */
     uint32_t exi_hooks;       /* GC_EXI_HOOKS entries (gc_card.h) of three words: hook, replay, continue */
     uint32_t hook_vi_configure;     /* VIConfigure(rm): gc_on_vi_configure picks the mode, then the original */
@@ -121,6 +122,8 @@ struct gc_rt_header {
     uint32_t replay_program;
     uint32_t continue_program;
     uint32_t program_saved;         /* GC_PROGRAM_SAVED_BYTES (gc_layout.h); its stack word loader-written */
+    uint32_t replay_fatal;          /* __OSUnhandledException's first word, then the jump to its second */
+    uint32_t continue_fatal;
 };
 
 /* libogc. A game built on libogc (Sonic Riders Tournament Edition, a
