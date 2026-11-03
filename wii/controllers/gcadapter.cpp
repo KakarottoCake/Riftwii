@@ -686,10 +686,10 @@ void GcAdapterMenuEnd() {
     GcAdapterStop();
 }
 
-bool GcAdapterScreenStart() {
+bool GcAdapterScreenStart(bool say_why) {
     if (g_running) return false;
     if (const char* off = MenuOff()) {
-        logf("GameCube adapter: not started for this screen: %s\n", off);
+        if (say_why) logf("GameCube adapter: not started for this screen: %s\n", off);
         return false;
     }
     // As the menu does: only when USB lists it (or a mapped USB pad), so a
@@ -697,7 +697,9 @@ bool GcAdapterScreenStart() {
     std::int32_t dev = -1;
     std::string devices;
     if (ogc_adapter(dev, devices) != AdapterSeen::Found) {
-        logf("GameCube adapter: not started for this screen: none plugged in (USB lists %s)\n", devices.c_str());
+        if (say_why) {
+            logf("GameCube adapter: not started for this screen: none plugged in (USB lists %s)\n", devices.c_str());
+        }
         return false;
     }
     std::string why;

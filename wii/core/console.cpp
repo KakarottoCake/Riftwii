@@ -29,11 +29,15 @@ namespace {
 // Its lines (the driver's own too, as it finds the adapter and its ports
 // while polled) go to the session log only, not under the screen's own
 // text: the echo stays off while the screen waits, back on the way out.
+// One plugged in after the screen came up is looked for every 2 s, as the
+// menu does. A button already held when it is first seen (the A that
+// chose Play, say) counts only once it is let go and pressed again.
 class AdapterPads {
 public:
-    explicit AdapterPads(bool wanted) : echo_(LogEchoesToScreen()) {
+    explicit AdapterPads(bool wanted) : echo_(LogEchoesToScreen()), wanted_(wanted) {
         LogEchoToScreen(false);
         started_ = wanted && GcAdapterScreenStart();
+        tried_ = gettime();
     }
     ~AdapterPads() {
         if (started_) GcAdapterStop();
@@ -44,21 +48,33 @@ public:
 
     // PAD_BUTTON_* newly pressed on any port since the last call.
     u32 Down() {
-        if (!started_) return 0;
+        if (!started_) {
+            if (!wanted_ || ticks_to_millisecs(gettime() - tried_) < 2000) return 0;
+            tried_ = gettime();
+            started_ = GcAdapterScreenStart(false);
+            if (!started_) return 0;
+        }
         GcAdapterView view;
         GcAdapterPoll(view);
         u32 down = 0;
+        bool seen = false, idle = true;
         for (unsigned p = 0; p < GCAD_PORTS; ++p) {
             const u16 held = view.present[p] ? view.pads[p].buttons : 0;
+            seen = seen || view.present[p];
+            idle = idle && held == 0;
             down |= held & ~held_[p];
             held_[p] = held;
         }
-        return down;
+        if (!armed_ && seen && idle) armed_ = true;
+        return armed_ ? down : 0;
     }
 
 private:
     bool echo_;
+    bool wanted_;
     bool started_ = false;
+    bool armed_ = false;
+    u64 tried_ = 0;
     u16 held_[GCAD_PORTS] = {};
 };
 

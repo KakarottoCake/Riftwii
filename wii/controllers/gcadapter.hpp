@@ -72,7 +72,8 @@ void GcAdapterMenuEnd();
 // once, so its ports and mapped USB pads can answer (a Wii U
 // has no GameCube ports). True when it was started here; the caller
 // stops it (GcAdapterStop) on the way out. Never during a launch: there,
-// /dev/usb/hid can break the disc's reads.
-bool GcAdapterScreenStart();
+// /dev/usb/hid can break the disc's reads. `say_why`: log why it was not
+// started (the screen's later tries, every 2 s, say nothing).
+bool GcAdapterScreenStart(bool say_why = true);
 
 }  // namespace riftwii::wii
