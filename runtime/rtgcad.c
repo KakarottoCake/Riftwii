@@ -535,6 +535,21 @@ static void link_failed(gcad* g, uint32_t now, uint32_t link) {
     set_stale(g);
 }
 
+/* Cancels the transfer in flight on the IN or OUT tag's endpoint, on the
+ * STOP slot; that transfer then comes back with an error. */
+static int cancel_transfer(gcad* g, uint32_t tag) {
+    const int out = tag == GCAD_TAG_OUT;
+    zero(g->stop_msg, sizeof(g->stop_msg));
+    gcad_put32(g->stop_msg, (uint32_t)g->dev_id);
+    if (g->version == 4) {
+        g->stop_msg[4] = out ? g->endpoint_out : g->endpoint_in;
+        return ioctl_(g, GCAD_TAG_STOP, GCAD_STEP_CANCEL, GCAD_V4_CANCEL_INTERRUPT, g->stop_msg, 8, 0, 0);
+    }
+    /* hid: 1 for IN, 2 for OUT; ven: the endpoint */
+    g->stop_msg[8] = g->ven ? (out ? g->endpoint_out : g->endpoint_in) : (out ? 2 : 1);
+    return ioctl_(g, GCAD_TAG_STOP, GCAD_STEP_CANCEL, GCAD_V5_CANCEL_ENDPOINT, g->stop_msg, 0x20, 0, 0);
+}
+
 /* Class requests use separate messages on each request slot. This is
  * also Polltype=0's PS3 input path; it never shares the rumble buffer. */
 static int control(gcad* g, uint32_t tag, uint32_t step, uint8_t* msg,
@@ -666,6 +681,7 @@ static void switch_start(gcad* g, uint32_t now) {
     g->switch_step = SWITCH_STATUS;
     g->switch_answers = 0;
     g->switch_retried = 0;
+    g->switch_cancels = 0;
     switch_send(g, now);
 }
 
@@ -693,6 +709,23 @@ static void switch_unanswered(gcad* g, uint32_t now) {
         return;
     }
     switch_next(g, now);
+}
+
+/* A start-up message still going out GCAD_RESCAN_MS after it was sent:
+ * the pad takes nothing, though still listed. The message and the read
+ * still out are cancelled, one at a time on the STOP slot; the message's
+ * error fails the link, which starts over GCAD_RELINK_MS after both are
+ * back, as after any failure. */
+static void switch_cancel_next(gcad* g) {
+    if (g->busy & BIT(GCAD_TAG_STOP)) return;
+    if ((g->busy & BIT(GCAD_TAG_OUT)) && !(g->switch_cancels & 1)) {
+        g->switch_cancels |= 1;
+        if (cancel_transfer(g, GCAD_TAG_OUT)) return;
+    }
+    if ((g->busy & BIT(GCAD_TAG_IN)) && !(g->switch_cancels & 2)) {
+        g->switch_cancels |= 2;
+        cancel_transfer(g, GCAD_TAG_IN);
+    }
 }
 
 /* What a start-up read brought, for the log (GCAD_HID_SWITCH_READ), so a
@@ -1288,6 +1321,10 @@ void gcad_tick(gcad* g, uint32_t now) {
         elapsed(now, g->link_time) >= ms(g, GCAD_SWITCH_ANSWER_MS)) {
         switch_unanswered(g, now);
     }
+    if (switch_pro(g) && g->link == GCAD_LINK_INIT && (g->busy & BIT(GCAD_TAG_OUT)) && !g->switch_cancels &&
+        elapsed(now, g->link_time) >= ms(g, GCAD_RESCAN_MS)) {
+        switch_cancel_next(g);
+    }
     if (g->mapping && (g->link == GCAD_LINK_SETUP || g->link == GCAD_LINK_INIT) &&
         elapsed(now, g->link_time) >= ms(g, GCAD_RESCAN_MS)) {
         hid_diagnostic(g, GCAD_HID_TIMEOUT,
@@ -1571,6 +1608,10 @@ void gcad_on_reply(gcad* g, uint32_t tag_value_, int32_t result, uint32_t now) {
         stop_next(g);
         return;
     }
+    if (tag == GCAD_TAG_STOP) {
+        if (g->switch_cancels) switch_cancel_next(g);
+        return;
+    }
     if (tag == GCAD_TAG_CHANGE) on_change(g, result, now);
     else if (tag == GCAD_TAG_SETUP) on_setup(g, result, current, now);
     else if (tag == GCAD_TAG_OUT) on_out(g, result, current, now);
@@ -1679,18 +1720,12 @@ static void stop_next(gcad* g) {
         }
         if ((g->busy & BIT(GCAD_TAG_IN)) && g->dev_id != GCAD_NO_DEVICE && !(g->stopping & 4)) {
             g->stopping |= 4;
-            zero(g->stop_msg, sizeof(g->stop_msg));
-            gcad_put32(g->stop_msg, (uint32_t)g->dev_id);
-            g->stop_msg[4] = g->endpoint_in;
-            ioctl_(g, GCAD_TAG_STOP, GCAD_STEP_CANCEL, GCAD_V4_CANCEL_INTERRUPT, g->stop_msg, 8, 0, 0);
+            cancel_transfer(g, GCAD_TAG_IN);
             return;
         }
         if ((g->busy & BIT(GCAD_TAG_OUT)) && g->dev_id != GCAD_NO_DEVICE && !(g->stopping & 8)) {
             g->stopping |= 8;
-            zero(g->stop_msg, sizeof(g->stop_msg));
-            gcad_put32(g->stop_msg, (uint32_t)g->dev_id);
-            g->stop_msg[4] = g->endpoint_out;
-            ioctl_(g, GCAD_TAG_STOP, GCAD_STEP_CANCEL, GCAD_V4_CANCEL_INTERRUPT, g->stop_msg, 8, 0, 0);
+            cancel_transfer(g, GCAD_TAG_OUT);
         }
         return;
     }
@@ -1701,18 +1736,12 @@ static void stop_next(gcad* g) {
     }
     if ((g->busy & BIT(GCAD_TAG_IN)) && g->dev_id != GCAD_NO_DEVICE && !(g->stopping & 4)) {
         g->stopping |= 4;
-        zero(g->stop_msg, sizeof(g->stop_msg));
-        gcad_put32(g->stop_msg, (uint32_t)g->dev_id);
-        g->stop_msg[8] = g->ven ? g->endpoint_in : 1;  /* hid: 1 for IN; ven: the endpoint */
-        ioctl_(g, GCAD_TAG_STOP, GCAD_STEP_CANCEL, GCAD_V5_CANCEL_ENDPOINT, g->stop_msg, 0x20, 0, 0);
+        cancel_transfer(g, GCAD_TAG_IN);
         return;
     }
     if ((g->busy & BIT(GCAD_TAG_OUT)) && g->dev_id != GCAD_NO_DEVICE && !(g->stopping & 8)) {
         g->stopping |= 8;
-        zero(g->stop_msg, sizeof(g->stop_msg));
-        gcad_put32(g->stop_msg, (uint32_t)g->dev_id);
-        g->stop_msg[8] = g->ven ? g->endpoint_out : 2;  /* hid: 2 for OUT; ven: the endpoint */
-        ioctl_(g, GCAD_TAG_STOP, GCAD_STEP_CANCEL, GCAD_V5_CANCEL_ENDPOINT, g->stop_msg, 0x20, 0, 0);
+        cancel_transfer(g, GCAD_TAG_OUT);
     }
     /* Nothing to release: without an Attach the device was never taken. */
 }

@@ -989,6 +989,7 @@ void SwitchPadStarted() {
     CHECK(bus.outputs.size() == 8 && bus.outputs[7].payload[0] == 0x01);
     bus.Reply(output, 12);
     CHECK(driver.link == GCAD_LINK_POLL && bus.requests[input].pending);
+    CHECK(bus.Count(GCAD_HID_SWITCH) == 1);
     for (const auto& diagnostic : bus.diagnostics) {
         if (diagnostic.step == GCAD_HID_SWITCH) CHECK(diagnostic.detail == (0x02u | 0x08u) << 4);
     }
@@ -1004,7 +1005,7 @@ void SwitchPadStarted() {
     gcad_tick(&bus.hub.adapter, bus.clock);
     CHECK(driver.link == GCAD_LINK_INIT && bus.outputs.size() == 9 && bus.outputs[8].payload[1] == 0x01);
     CHECK(bus.requests[input].pending && bus.requests[output].pending);
-    gcad_tick(&bus.hub.adapter, bus.clock + GCAD_RESCAN_MS);
+    gcad_tick(&bus.hub.adapter, bus.clock + GCAD_RESCAN_MS - 1);
     CHECK(bus.outputs.size() == 9);
     CHECK(gcad_read_ports(&bus.hub.adapter, 0, pads, bus.clock) == 0);
     // Input again once it is started: SWITCH_READS input reports move each
@@ -1049,6 +1050,7 @@ void SwitchPadStarted() {
     late.Reply(output, 2);
     late.Reply(output, 12);
     CHECK(slow.link == GCAD_LINK_POLL && late.outputs.size() == 7);
+    CHECK(late.Count(GCAD_HID_SWITCH) == 1);
     for (const auto& diagnostic : late.diagnostics) {
         if (diagnostic.step == GCAD_HID_SWITCH) CHECK(diagnostic.detail == (0x0Fu | 0x02u << 4));
     }
@@ -1071,6 +1073,51 @@ void SwitchPadStarted() {
     }
     CHECK(flowing.outputs.size() == 2 && flowing.outputs[1].payload[0] == 0x80 &&
           flowing.outputs[1].payload[1] == 0x02);
+}
+
+// A start-up message that never finishes going out (the pad takes
+// nothing, though still listed): after GCAD_RESCAN_MS it and the read
+// still out are cancelled, one at a time, and the link starts over.
+void SwitchPadStuck(unsigned version) {
+    const unsigned input = GCAD_TAGS + GCAD_TAG_IN;
+    const unsigned output = GCAD_TAGS + GCAD_TAG_OUT;
+    const unsigned stop = GCAD_TAGS + GCAD_TAG_STOP;
+    Bus bus(version);
+    gcad_switch_mapping(&bus.hub.catalog.maps[0]);
+    bus.List({{11, GCAD_SWITCH_VID_PID}});
+    bus.Settle();
+    auto& driver = bus.hub.pads[0];
+    const auto cancelled = [&](bool out) {
+        if (version == 4) {
+            return bus.requests[stop].command == GCAD_V4_CANCEL_INTERRUPT &&
+                   driver.stop_msg[4] == (out ? driver.endpoint_out : driver.endpoint_in);
+        }
+        return bus.requests[stop].command == GCAD_V5_CANCEL_ENDPOINT && driver.stop_msg[8] == (out ? 2 : 1);
+    };
+    // 80 01 unanswered: 80 02 goes, with the read still out.
+    bus.clock += GCAD_SWITCH_ANSWER_MS;
+    gcad_tick(&bus.hub.adapter, bus.clock);
+    CHECK(bus.outputs.size() == 2 && bus.requests[output].pending && bus.requests[input].pending);
+    bus.clock += GCAD_RESCAN_MS - 1;
+    gcad_tick(&bus.hub.adapter, bus.clock);
+    CHECK(!bus.requests[stop].pending);
+    bus.clock += 1;
+    gcad_tick(&bus.hub.adapter, bus.clock);
+    CHECK(bus.requests[stop].pending && cancelled(true));
+    gcad_tick(&bus.hub.adapter, bus.clock + GCAD_RESCAN_MS);  // once
+    bus.Reply(output, -22);
+    CHECK(driver.link == GCAD_LINK_FAILED);
+    bus.Reply(stop);
+    CHECK(bus.requests[stop].pending && cancelled(false));
+    bus.Reply(input, -22);
+    bus.Reply(stop);
+    CHECK(!bus.requests[stop].pending && !bus.requests[input].pending && !bus.requests[output].pending);
+    CHECK(bus.outputs.size() == 2);
+    // GCAD_RELINK_MS later, the start-up from the start.
+    bus.clock += GCAD_RELINK_MS;
+    bus.Settle();
+    CHECK(driver.link == GCAD_LINK_INIT && driver.switch_cancels == 0);
+    CHECK(bus.outputs.size() == 3 && bus.outputs[2].payload[0] == 0x80 && bus.outputs[2].payload[1] == 0x01);
 }
 
 // A failing device list is asked again every GCAD_RESCAN_MS: each kind of
@@ -1188,6 +1235,8 @@ int main() {
     SwitchPad(4);
     SwitchPad(5);
     SwitchPadStarted();
+    SwitchPadStuck(4);
+    SwitchPadStuck(5);
     DiscoveryRepeats();
     if (failures) std::cerr << failures << " failures\n";
     return failures ? 1 : 0;

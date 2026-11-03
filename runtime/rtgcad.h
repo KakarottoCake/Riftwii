@@ -100,7 +100,7 @@ extern "C" {
 #define GCAD_TAG_SETUP 2u    /* v5: Attach, SuspendResume, GetDeviceInfo */
 #define GCAD_TAG_IN 3u       /* the report poll */
 #define GCAD_TAG_OUT 4u      /* init, then rumble */
-#define GCAD_TAG_STOP 5u     /* gcad_stop's cancels */
+#define GCAD_TAG_STOP 5u     /* gcad_stop's cancels, and a Switch Pro's stuck start-up */
 #define GCAD_TAGS 6u
 #define GCAD_HID_PADS 4u
 #define GCAD_VEN_SLOT (GCAD_HID_PADS + 1u) /* the /dev/usb/ven list's requests */
@@ -289,9 +289,10 @@ typedef struct gcad {
     uint8_t output_step;
     /* Switch Pro start-up: the message sent last (SWITCH_* in rtgcad.c),
      * input reports read since it went, the answers seen and the messages
-     * sent twice (a bit per step each), and the reads logged since it was
-     * plugged in. */
-    uint8_t switch_step, switch_reads, switch_answers, switch_retried, switch_logs;
+     * sent twice (a bit per step each), the reads logged since it was
+     * plugged in, and what was cancelled after a message stuck going out
+     * (1 the message, 2 the read). */
+    uint8_t switch_step, switch_reads, switch_answers, switch_retried, switch_logs, switch_cancels;
     uint32_t diagnostic_seen;
     uint32_t diagnostic_detail[GCAD_HID_DIAGS];
     int32_t diagnostic_result[GCAD_HID_DIAGS];
