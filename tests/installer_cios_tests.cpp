@@ -306,7 +306,8 @@ int main() {
     {
         riftwii::D2xInfo infos[3];
         bool any_read = false;
-        if (installer::SearchCios(kSlots, 3, infos, any_read) || !any_read || !infos[2].d2x) {
+        if (installer::SearchCios(kSlots, 3, infos, any_read) || !any_read || !infos[2].d2x ||
+            logs.find("could not be restored after reading the cIOS information") == std::string::npos) {
             std::cerr << "FAILED: a failed final restore after every slot is reported\n" << logs;
             ++failures;
         }
