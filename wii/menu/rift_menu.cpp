@@ -3113,6 +3113,8 @@ static bool PopupJustClosed()
 	return g_popupClosedAt != 0 && diff_msec(g_popupClosedAt, gettime()) < 400;
 }
 
+static void RestartIfOutOfMemory();
+
 // The popup, as the Wii Menu's message box (skin::popup): its title in the
 // darker band across the top, the text below it (centred, as the Wii's,
 // unless it is a list or sits beside something), the buttons above the
@@ -3242,6 +3244,7 @@ public:
 		int choice = -1;
 		while (choice < 0) {
 			usleep(20000);
+			RestartIfOutOfMemory();
 			HaltGui();
 			choice = Poll();
 			if (choice < 0) ResumeGui();
@@ -4525,13 +4528,12 @@ static const char* const kReportWhat =
 	"It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, or dpaste.com when paste.rs can't be reached, where anyone with its link can read it.";
 
 // The menu ran out of memory (wii/core/memlimits.hpp, GuardMenuMemory):
-// RiftWii restarts at the next turn of a screen's loop, once the drive
-// scan has let go of the drives.
+// RiftWii restarts at the next turn of a screen's loop. The drive scan is
+// not waited for: a scan that stopped as it ran out would never end, and
+// the restart's fresh IOS lets go of the drives.
 static void RestartIfOutOfMemory()
 {
 	if (!riftwii::wii::mem::MenuOutOfMemoryRestartDue()) return;
-	// A scan that stopped as it ran out would never end.
-	if (!riftwii::wii::mem::ThreadsStoppedForRestart()) riftwii::wii::WaitDriveScan();
 	riftwii::wii::mem::RestartAfterMenuOutOfMemory();
 }
 
@@ -17016,6 +17018,7 @@ static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
 	while (picked == -2)
 	{
 		usleep(10000);
+		RestartIfOutOfMemory();
 		HaltGui();
 		ClearStaleButtons({&backBtn.button});
 		const int lit = tileGrid.Selected();

@@ -8,6 +8,7 @@
 #include <ogc/cache.h>
 #include <ogc/machine/processor.h>
 #include <ogc/system.h>
+#include <unistd.h>
 
 #include <cstring>
 
@@ -142,11 +143,21 @@ bool WarmRestart(RestartKind kind, const std::string& message, bool unmount) {
     h->magic = kHandoffMagic;
 
     NetCancelBackground();  // a theme download: fetched again after the restart
-    // Not when a thread stopped as the menu ran out of memory: it may be
-    // one of these two, and would never answer.
-    if (!mem::ThreadsStoppedForRestart()) {
+    // After the menu ran out of memory any of its threads may be stuck (one
+    // stopped for this restart, or one waiting on it): the network's job (a
+    // cover being written to the card) is waited for a while only, the
+    // cover loader (it only reads; the card's lock covers a read in
+    // progress) not at all. A Dolphin test hung in one of these waits.
+    if (kind != RestartKind::OutOfMemory) {
         NetWaitForBackground();
         CoverLoaderHold();
+    } else {
+        // Long enough for a cover's write to the card (a fraction of a
+        // second); a download cut short leaves only its .part file. In the
+        // Dolphin test the job was itself stuck, and the wait ran out.
+        constexpr int kJobWaitSteps = 30;  // of 100 ms
+        for (int step = 0; step < kJobWaitSteps && NetBackgroundBusy(); ++step) usleep(100000);
+        if (NetBackgroundBusy()) logf("Restart: the network's job did not end; restarting anyway\n");
     }
     logf("Restarting RiftWii\n");
     LogClose();
