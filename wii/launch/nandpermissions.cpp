@@ -23,18 +23,22 @@ u32 g_recovery_word = 0;
 
 void FlushNote() { DCFlushRange(note(), 32); }
 
-// Only the complete word we wrote may be restored. Comparing six separate
-// byte reads used to reject cleanup without saying which bytes differed;
-// real reports said "IOS reloaded" even when there had been no reload.
-bool Restore() {
-    const u32 word = note()->word;
+// Only the patched halfword is ours, as in the channel installer (#379):
+// IOS may change the other halfword of the same word, which must neither
+// block the close nor be undone. The word is still read and written
+// whole: smaller uncached stores have hung consoles. `found` is what the
+// word held when the close looked, for the log.
+bool Restore(u32& found) {
+    const NandPermissionNote saved = *note();
     const u32 protection = read16(0x0D8B420A);
     write16(0x0D8B420A, 2);
-    const u32 current = read32(word);
-    if (current == note()->after) write32(word, note()->before);
-    const bool restored = read32(word) == note()->before;
+    found = read32(saved.word);
+    u32 closed = 0;
+    const bool ours = nand_check_closed(found, saved.before, saved.shift, closed);
+    if (ours) write32(saved.word, closed);
+    const bool restored = nand_check_half(read32(saved.word), saved.shift) == nand_check_half(saved.before, saved.shift);
     write16(0x0D8B420A, protection);
-    if (restored || current != note()->after) {
+    if (restored || !ours) {
         note()->magic = 0;
         FlushNote();
     }
@@ -56,8 +60,9 @@ void RecoverNandPermissions() {
     } else if (read32(0x0D800064) != 0xFFFFFFFF) {
         g_recovery = "the saved IOS patch could not be checked without hardware access";
     } else {
-        g_recovery = Restore() ? "the NAND permission check left by an interrupted run was closed"
-                               : "the saved NAND permission patch no longer matches, or could not be closed";
+        u32 found = 0;
+        g_recovery = Restore(found) ? "the NAND permission check left by an interrupted run was closed"
+                                    : "the saved NAND permission patch no longer matches, or could not be closed";
     }
 }
 
@@ -75,7 +80,8 @@ bool open_nand_permissions(const char* who) {
     }
     // A failed restore retains the note, and must not be overwritten by a
     // second patch. Retry it while the same IOS is still running.
-    if (nand_permission_note_valid(*note()) && note()->ios == static_cast<u32>(IOS_GetVersion()) && !Restore()) {
+    u32 found = 0;
+    if (nand_permission_note_valid(*note()) && note()->ios == static_cast<u32>(IOS_GetVersion()) && !Restore(found)) {
         logf("%s: the earlier NAND permission patch could not be closed; no new patch was made.\n", who);
         return false;
     }
@@ -110,8 +116,9 @@ bool open_nand_permissions(const char* who) {
     write16(0x0D8B420A, protection);
     if (read_back != after) {
         // A failed own write may be partial; rollback is unconditional here,
-        // while recovery at another start requires an exact word match.
-        if (read32(store.word) == before) {
+        // while recovery at another start requires the patched halfword to
+        // hold the opening. Only that halfword is compared, as in Restore.
+        if (nand_check_half(read32(store.word), store.shift) == nand_check_half(before, store.shift)) {
             note()->magic = 0;
             FlushNote();
         }
@@ -131,15 +138,20 @@ void close_nand_permissions(const char* who) {
         logf("%s: the NAND permission patch's saved state is damaged; IOS was left as it is.\n", who);
         return;
     }
-    const u32 word = note()->word;
-    const u32 expected = note()->after;
-    if (note()->ios != static_cast<u32>(IOS_GetVersion()) || read32(0x0D800064) != 0xFFFFFFFF) {
+    const NandPermissionNote saved = *note();
+    if (saved.ios != static_cast<u32>(IOS_GetVersion()) || read32(0x0D800064) != 0xFFFFFFFF) {
         logf("%s: the NAND permission check cannot be restored under this IOS or without hardware access.\n", who);
         return;
     }
-    const bool restored = Restore();
-    logf("%s: IOS%d's NAND permission check %s (word 0x%08x, expected 0x%08x).\n",
-         who, IOS_GetVersion(), restored ? "closed" : "changed or could not be closed", word, expected);
+    u32 found = 0;
+    if (Restore(found)) {
+        logf("%s: IOS%d's NAND permission check closed (word 0x%08x, expected 0x%08x).\n", who, IOS_GetVersion(),
+             saved.word, saved.after);
+    } else {
+        logf("%s: IOS%d's NAND permission check changed or could not be closed (word 0x%08x read 0x%08x, "
+             "original 0x%08x, opened 0x%08x).\n",
+             who, IOS_GetVersion(), saved.word, found, saved.before, saved.after);
+    }
 }
 
 }  // namespace riftwii::wii

@@ -31,6 +31,12 @@ NandCheckStore nand_check_store(std::uint32_t match_address);
 std::uint32_t nand_check_opened(std::uint32_t word, unsigned shift);
 // The halfword the store puts there, as read back.
 std::uint16_t nand_check_half(std::uint32_t word, unsigned shift);
+// The close: when the patched halfword of `current` (the word as read
+// now) still holds the opening, `out` is `current` with that halfword put
+// back as `before` had it, and the other halfword as IOS has it now: only
+// the patched halfword is ours. False, with nothing to write, when that
+// halfword holds anything else.
+bool nand_check_closed(std::uint32_t current, std::uint32_t before, unsigned shift, std::uint32_t& out);
 
 // Saved before writing IOS, outside the loader's BSS, so a later start
 // can undo its own interrupted write without scanning for patched code.
