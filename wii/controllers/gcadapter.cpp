@@ -686,6 +686,21 @@ void GcAdapterMenuEnd() {
     GcAdapterStop();
 }
 
+bool GcAdapterScreenStart() {
+    if (g_running) return false;
+    if (const char* off = MenuOff()) {
+        logf("GameCube adapter: not started for this screen: %s\n", off);
+        return false;
+    }
+    std::string why;
+    if (!GcAdapterStart(why)) {
+        logf("GameCube adapter: not started for this screen: %s\n", why.c_str());
+        return false;
+    }
+    logf("GameCube adapter: started for this screen (IOS%d)\n", IOS_GetVersion());
+    return true;
+}
+
 }  // namespace riftwii::wii
 
 // The driver's environment in the menu (runtime/rtgcad.h): libogc's

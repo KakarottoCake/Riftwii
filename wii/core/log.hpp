@@ -18,6 +18,7 @@ void logf(const char* format, ...) __attribute__((format(printf, 1, 2)));
 // Whether logf also prints to the text console. ConsoleStart turns it on;
 // it is off during the GUI, where lines go to the SD log only.
 void LogEchoToScreen(bool on);
+bool LogEchoesToScreen();
 // Every line is written to the card as it is logged (about 9 ms each on a
 // Wii's SD card), so a hang leaves the line before it. Lines that only
 // report, with nothing between them that could hang, are held back while a

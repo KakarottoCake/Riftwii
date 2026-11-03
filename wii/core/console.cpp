@@ -14,10 +14,57 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "gcadapter.hpp"
 #include "gecko.hpp"
 #include "log.hpp"
 
 namespace riftwii::wii {
+namespace {
+
+// The GameCube adapter's ports (and mapped USB pads) for a waiting
+// screen, read as the Wii's own GameCube ports are: a Wii U has no
+// GameCube ports and no RESET button, so with only an adapter the screen
+// could not be answered. Started for the screen when the menu's rule
+// lets this IOS reach the adapter, stopped on the way out.
+// Its lines go to the session log only, not under the screen's own text.
+class AdapterPads {
+public:
+    explicit AdapterPads(bool wanted) {
+        const bool echo = LogEchoesToScreen();
+        LogEchoToScreen(false);
+        started_ = wanted && GcAdapterScreenStart();
+        LogEchoToScreen(echo);
+    }
+    ~AdapterPads() {
+        if (!started_) return;
+        const bool echo = LogEchoesToScreen();
+        LogEchoToScreen(false);
+        GcAdapterStop();
+        LogEchoToScreen(echo);
+    }
+    AdapterPads(const AdapterPads&) = delete;
+    AdapterPads& operator=(const AdapterPads&) = delete;
+
+    // PAD_BUTTON_* newly pressed on any port since the last call.
+    u32 Down() {
+        if (!started_) return 0;
+        GcAdapterView view;
+        GcAdapterPoll(view);
+        u32 down = 0;
+        for (unsigned p = 0; p < GCAD_PORTS; ++p) {
+            const u16 held = view.present[p] ? view.pads[p].buttons : 0;
+            down |= held & ~held_[p];
+            held_[p] = held;
+        }
+        return down;
+    }
+
+private:
+    bool started_ = false;
+    u16 held_[GCAD_PORTS] = {};
+};
+
+}  // namespace
 
 void ConsoleStart(bool video_initialised) {
     if (!video_initialised) VIDEO_Init();
@@ -75,12 +122,13 @@ void ConsoleStartInFrame(void* xfb, int fb_width, int fb_height, int x, int y, i
 void WaitForExit() {
     PAD_Init();
     WPAD_Init();
+    AdapterPads adapter(true);
     for (;;) {
         VIDEO_WaitVSync();
         if (SYS_ResetButtonDown()) break;
         PAD_ScanPads();
         WPAD_ScanPads();
-        bool pressed = false;
+        bool pressed = (adapter.Down() & PAD_BUTTON_START) != 0;
         for (int i = 0; i < 4; ++i) {
             if (PAD_ButtonsDown(i) & PAD_BUTTON_START) pressed = true;
             if (WPAD_ButtonsDown(i) & (WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME)) pressed = true;
@@ -90,9 +138,10 @@ void WaitForExit() {
     WPAD_Shutdown();
 }
 
-ExitChoice WaitForChoice(int timeout_seconds) {
+ExitChoice WaitForChoice(int timeout_seconds, bool adapter_wanted) {
     PAD_Init();
     WPAD_Init();
+    AdapterPads adapter(adapter_wanted);
     const u64 start = gettime();
     ExitChoice choice = ExitChoice::Restart;
     for (;;) {
@@ -101,7 +150,8 @@ ExitChoice WaitForChoice(int timeout_seconds) {
         if (timeout_seconds > 0 && ticks_to_secs(gettime() - start) >= static_cast<u64>(timeout_seconds)) break;
         PAD_ScanPads();
         WPAD_ScanPads();
-        bool restart = false, leave = false;
+        const u32 adapter_down = adapter.Down();
+        bool restart = (adapter_down & PAD_BUTTON_A) != 0, leave = (adapter_down & PAD_BUTTON_START) != 0;
         for (int i = 0; i < 4; ++i) {
             const u32 gc = PAD_ButtonsDown(i);
             const u32 wii = WPAD_ButtonsDown(i);

@@ -244,7 +244,7 @@ void* SaveReport(void*) {
                            : "A or RESET: start RiftWii again.\nHOME: leave to the Homebrew Channel.");
     }
     const ExitChoice choice =
-        g_phase == CrashPhase::Early ? ExitChoice::Restart : WaitForChoice(kAutoRestartSeconds);
+        g_phase == CrashPhase::Early ? ExitChoice::Restart : WaitForChoice(kAutoRestartSeconds, false);
     if (!loop && choice == ExitChoice::Restart) WarmRestart(RestartKind::Crashed, summary, false);
     std::exit(0);
 }
