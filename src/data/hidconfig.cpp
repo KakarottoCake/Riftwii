@@ -72,6 +72,16 @@ bool values(std::string_view text, std::uint32_t* output, unsigned minimum, unsi
     return count >= minimum;
 }
 
+// How one Switch Pro start-up message fared, from GCAD_HID_SWITCH's
+// detail: bit `step` of the answers seen, and (from bit 4) of the
+// messages sent twice.
+const char* switch_answer(unsigned detail, unsigned step) {
+    const bool answered = (detail & (1u << step)) != 0;
+    const bool sent_twice = ((detail >> 4) & (1u << step)) != 0;
+    if (answered) return sent_twice ? "answered on the second try" : "answered";
+    return sent_twice ? "not answered after two tries" : "not answered";
+}
+
 }  // namespace
 
 bool parse_hid_config(std::string_view text, rthid_mapping& mapping, std::string& error) {
@@ -266,9 +276,28 @@ std::string describe_hid_diagnostic(std::uint32_t id, std::uint32_t diagnostic, 
         case GCAD_HID_WAKE: action = "PS3 feature-report wake-up"; break;
         case GCAD_HID_OUTPUT: action = switch_pro ? "Switch Pro start-up message" : "PS3 initial output report"; break;
         case GCAD_HID_SWITCH:
-            std::snprintf(text, sizeof(text), "start-up messages sent (status %s, handshake %s); reading input.",
-                          detail & 1u ? "answered" : "not answered", detail & 2u ? "answered" : "not answered");
+            std::snprintf(text, sizeof(text),
+                          "start-up messages sent (status %s, handshake %s, high speed %s, handshake again %s); "
+                          "reading input.",
+                          switch_answer(detail, 0), switch_answer(detail, 1), switch_answer(detail, 2),
+                          switch_answer(detail, 3));
             break;
+        case GCAD_HID_SWITCH_READ: {
+            const unsigned command = detail & 255u;
+            const unsigned length = (detail >> 8) & 255u;
+            const auto first = static_cast<std::uint32_t>(result);
+            char after[40];
+            char size[24];
+            if (command) std::snprintf(after, sizeof(after), "80 %02x", command);
+            else std::snprintf(after, sizeof(after), "the full-report subcommand");
+            if (length) std::snprintf(size, sizeof(size), "%u bytes", length);
+            else std::snprintf(size, sizeof(size), "length not given");
+            std::snprintf(text, sizeof(text), "start-up read after %s: %s, %02x %02x %02x %02x %02x.", after, size,
+                          static_cast<unsigned>(first >> 24), static_cast<unsigned>((first >> 16) & 255u),
+                          static_cast<unsigned>((first >> 8) & 255u), static_cast<unsigned>(first & 255u),
+                          detail >> 16);
+            break;
+        }
         case GCAD_HID_LED: action = "PS3 LED and motor output report"; break;
         case GCAD_HID_POLL:
             std::snprintf(text, sizeof(text), "first input poll %s (result %d).",

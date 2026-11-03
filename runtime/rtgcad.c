@@ -578,26 +578,49 @@ static void reports_started(gcad* g, uint32_t now) {
 }
 
 /* The wired Switch Pro Controller's start-up, one message at a time on
- * its interrupt OUT endpoint: its status (80 01), the handshake (80 02),
- * USB only with no time-out (80 04; without it the pad goes back to
- * Bluetooth), then full input reports (subcommand 03 with 30). The first
- * two are answered on the IN endpoint (81 01, 81 02), and each answer is
- * read before the next message goes, as HIDtoVPAD does. The handshake is
- * answered once per power-on, so a pad already started (by the menu,
- * before a game) may not answer it: a read that brings something else
- * counts, and after SWITCH_READS of them, or GCAD_CTRL_MS with none, the
- * next message goes anyway. If input reports already flow, the last two
- * messages change nothing. */
+ * its interrupt OUT endpoint, in the order Linux's and SDL's drivers
+ * use: its status (80 01), the handshake (80 02), the faster link between
+ * the pad's USB chip and the rest of the pad (80 03), the handshake again
+ * (80 02), USB only with no time-out (80 04; without it the pad goes back
+ * to Bluetooth), then full input reports (subcommand 03 with 30). The
+ * first four are answered on the IN endpoint (81 01, 81 02, 81 03,
+ * 81 02), and each answer is read before the next message goes. On the
+ * console a 100 ms wait saw no answer to the handshake, and Linux waits
+ * about a second, so each answer gets GCAD_SWITCH_ANSWER_MS with reads
+ * going on the whole time, and an unanswered handshake is sent once more.
+ * A pad already started (by the menu, before a game) sends input reports
+ * instead: after SWITCH_READS of them the next message goes. If input
+ * reports already flow, the last messages change nothing. */
 #define SWITCH_STATUS 0u
 #define SWITCH_HANDSHAKE 1u
-#define SWITCH_USB_ONLY 2u
-#define SWITCH_FULL_REPORTS 3u
-#define SWITCH_STEPS 4u
+#define SWITCH_HIGH_SPEED 2u
+#define SWITCH_HANDSHAKE_AGAIN 3u
+#define SWITCH_USB_ONLY 4u
+#define SWITCH_FULL_REPORTS 5u
+#define SWITCH_STEPS 6u
 #define SWITCH_READS 8u
+/* Start-up reads logged per plug-in: the start-up runs again every
+ * GCAD_RESCAN_MS while the pad stays silent, and that must not fill the
+ * menu's log or a game's trace. */
+#define SWITCH_LOGS 16u
+
+/* The 80 xx message a step sends, which its 81 xx answer repeats; 0 for
+ * the full-report subcommand. */
+static uint8_t switch_command(uint32_t step) {
+    if (step == SWITCH_STATUS) return 0x01;
+    if (step == SWITCH_HANDSHAKE || step == SWITCH_HANDSHAKE_AGAIN) return 0x02;
+    if (step == SWITCH_HIGH_SPEED) return 0x03;
+    if (step == SWITCH_USB_ONLY) return 0x04;
+    return 0;
+}
 
 /* The message sent last waits for its answer. */
 static int switch_waits(const gcad* g) {
-    return g->switch_step == SWITCH_STATUS || g->switch_step == SWITCH_HANDSHAKE;
+    return g->switch_step < SWITCH_USB_ONLY;
+}
+
+static int switch_answered(const gcad* g) {
+    return (g->switch_answers & BIT(g->switch_step)) != 0;
 }
 
 static void switch_send(gcad* g, uint32_t now) {
@@ -618,27 +641,23 @@ static void switch_send(gcad* g, uint32_t now) {
         g->out_data[10] = 0x03;
         g->out_data[11] = 0x30;
         bytes = 12;
-    } else if (g->switch_step == SWITCH_STATUS) {
-        g->out_data[0] = 0x80;
-        g->out_data[1] = 0x01;
-    } else if (g->switch_step == SWITCH_HANDSHAKE) {
-        g->out_data[0] = 0x80;
-        g->out_data[1] = 0x02;
     } else {
         g->out_data[0] = 0x80;
-        g->out_data[1] = 0x04;
+        g->out_data[1] = switch_command(g->switch_step);
     }
     if (!send_out(g, GCAD_STEP_INIT, bytes)) link_failed(g, now, GCAD_LINK_FAILED);
 }
 
 /* The next message, or input once all are sent. */
 static void switch_next(gcad* g, uint32_t now) {
+    uint32_t detail;
     ++g->switch_step;
     if (g->switch_step < SWITCH_STEPS) {
         switch_send(g, now);
         return;
     }
-    hid_diagnostic(g, GCAD_HID_SWITCH, g->switch_answers, 0);
+    detail = g->switch_answers | (uint32_t)g->switch_retried << 4;
+    hid_diagnostic(g, GCAD_HID_SWITCH, detail, 0);
     reports_started(g, now);
 }
 
@@ -646,12 +665,15 @@ static void switch_start(gcad* g, uint32_t now) {
     g->link = GCAD_LINK_INIT;
     g->switch_step = SWITCH_STATUS;
     g->switch_answers = 0;
+    g->switch_retried = 0;
     switch_send(g, now);
 }
 
 /* A start-up message went out. */
 static void switch_sent(gcad* g, uint32_t now) {
-    if (!switch_waits(g)) {
+    /* Already answered while the message was still going out: a handshake
+     * sent again (the first try's answer), or a read left out from before. */
+    if (!switch_waits(g) || switch_answered(g)) {
         switch_next(g, now);
         return;
     }
@@ -660,28 +682,60 @@ static void switch_sent(gcad* g, uint32_t now) {
     if (!(g->busy & BIT(GCAD_TAG_IN))) submit_poll(g);
 }
 
+/* GCAD_SWITCH_ANSWER_MS without an answer: a handshake goes once more,
+ * as SDL's driver retries it; anything else moves on (a pad already
+ * started, or a look-alike). */
+static void switch_unanswered(gcad* g, uint32_t now) {
+    const int handshake = g->switch_step == SWITCH_HANDSHAKE || g->switch_step == SWITCH_HANDSHAKE_AGAIN;
+    if (handshake && !(g->switch_retried & BIT(g->switch_step))) {
+        g->switch_retried |= (uint8_t)BIT(g->switch_step);
+        switch_send(g, now);
+        return;
+    }
+    switch_next(g, now);
+}
+
+/* What a start-up read brought, for the log (GCAD_HID_SWITCH_READ), so a
+ * failing console run shows what the pad said. Not hid_diagnostic: that
+ * keeps one record per step, and this is one per read, up to SWITCH_LOGS. */
+static void switch_log_read(gcad* g, int32_t result) {
+    const uint32_t length = result > 255 ? 255u : (uint32_t)result;
+    const uint32_t detail = switch_command(g->switch_step) | length << 8 | (uint32_t)g->in_data[4] << 16;
+    if (g->switch_logs >= SWITCH_LOGS) return;
+    ++g->switch_logs;
+    gcad_env_event(g, GCAD_EV_HID_DIAG, GCAD_HID_SWITCH_READ | detail << 8, (int32_t)gcad_get32(g->in_data));
+}
+
 /* A read during the start-up. */
 static void switch_read(gcad* g, int32_t result, uint32_t now) {
-    uint8_t expected;
+    int answer, input;
     if (result < 0) {
         failed(g, GCAD_STEP_POLL, result);
         hid_diagnostic(g, GCAD_HID_POLL_ERROR, 0, result);
         link_failed(g, now, GCAD_LINK_FAILED);
         return;
     }
-    /* Moved on after a time-out: the next message is on its way, and
-     * reads again once it is out. */
-    if (!switch_waits(g) || (g->busy & BIT(GCAD_TAG_OUT))) return;
     gcad_env_invalidate(g, g->in_data, sizeof(g->in_data));
-    expected = g->switch_step == SWITCH_STATUS ? 0x01 : 0x02;
-    if (g->in_data[0] == 0x81 && g->in_data[1] == expected) {
-        g->switch_answers |= (uint8_t)(1u << g->switch_step);
-        switch_next(g, now);
-    } else if (++g->switch_reads >= SWITCH_READS) {
-        switch_next(g, now);
-    } else {
-        submit_poll(g);
+    switch_log_read(g, result);
+    /* 80 04 or the subcommand is going out: the first poll goes once the
+     * last message is out. */
+    if (!switch_waits(g)) return;
+    answer = g->in_data[0] == 0x81 && g->in_data[1] == switch_command(g->switch_step);
+    input = g->in_data[0] == 0x30 || g->in_data[0] == 0x21;
+    if (answer) {
+        g->switch_answers |= (uint8_t)BIT(g->switch_step);
+        /* Its message still going out: the next follows once it is
+         * (switch_sent). */
+        if (!(g->busy & BIT(GCAD_TAG_OUT))) switch_next(g, now);
+        return;
     }
+    /* Input from a pad already started counts towards moving on; anything
+     * else (a late answer to an earlier message) is read past. */
+    if (input && !(g->busy & BIT(GCAD_TAG_OUT)) && ++g->switch_reads >= SWITCH_READS) {
+        switch_next(g, now);
+        return;
+    }
+    submit_poll(g);
 }
 
 /* A Switch Pro report in play: 1 with the pad in g->hid_pad, 2 while its
@@ -981,6 +1035,7 @@ static void hid_devices(gcad* g, const rthid_device* devices, uint32_t count, ui
         peer->version = g->version;
         peer->mapping = mapping;
         peer->diagnostic_seen = 0;
+        peer->switch_logs = 0;
         peer->reports = 0;
         peer->ctrl_result = 0;
         peer->dev_id = devices[i].id;
@@ -1230,8 +1285,8 @@ void gcad_tick(gcad* g, uint32_t now) {
         else start_init(g, now);
     }
     if (switch_pro(g) && g->link == GCAD_LINK_INIT && switch_waits(g) && !(g->busy & BIT(GCAD_TAG_OUT)) &&
-        elapsed(now, g->link_time) >= ms(g, GCAD_CTRL_MS)) {
-        switch_next(g, now);  /* no answer: a handshake already done, or a look-alike pad */
+        elapsed(now, g->link_time) >= ms(g, GCAD_SWITCH_ANSWER_MS)) {
+        switch_unanswered(g, now);
     }
     if (g->mapping && (g->link == GCAD_LINK_SETUP || g->link == GCAD_LINK_INIT) &&
         elapsed(now, g->link_time) >= ms(g, GCAD_RESCAN_MS)) {

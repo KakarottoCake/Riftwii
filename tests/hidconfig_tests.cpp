@@ -806,15 +806,32 @@ void SwitchReports() {
     CHECK(!gcad_switch_decode(report.data(), GCAD_SWITCH_REPORT_BYTES - 1, middle, &pad));
 
     CHECK(riftwii::describe_hid_diagnostic(GCAD_SWITCH_VID_PID, GCAD_HID_SWITCH | (1u << 8), 0).find(
-              "status answered, handshake not answered") != std::string::npos);
+              "status answered, handshake not answered, high speed not answered, handshake again not answered") !=
+          std::string::npos);
+    // Bits 4 and up: the handshakes sent twice.
+    CHECK(riftwii::describe_hid_diagnostic(GCAD_SWITCH_VID_PID, GCAD_HID_SWITCH | ((0x0Fu | 0x20u) << 8), 0).find(
+              "handshake answered on the second try, high speed answered, handshake again answered)") !=
+          std::string::npos);
+    CHECK(riftwii::describe_hid_diagnostic(GCAD_SWITCH_VID_PID, GCAD_HID_SWITCH | ((0x05u | 0xA0u) << 8), 0).find(
+              "handshake not answered after two tries, high speed answered, handshake again not answered after two "
+              "tries") != std::string::npos);
+    // A start-up read: the message sent last, the read's length, its first five bytes.
+    CHECK(riftwii::describe_hid_diagnostic(GCAD_SWITCH_VID_PID,
+                                           GCAD_HID_SWITCH_READ | ((0x02u | 64u << 8 | 0x5Au << 16) << 8),
+                                           static_cast<std::int32_t>(0x81020003u)) ==
+          "USB controller 057e:2009: start-up read after 80 02: 64 bytes, 81 02 00 03 5a.");
+    CHECK(riftwii::describe_hid_diagnostic(GCAD_SWITCH_VID_PID, GCAD_HID_SWITCH_READ | (0x09u << 24),
+                                           static_cast<std::int32_t>(0x30120000u)) ==
+          "USB controller 057e:2009: start-up read after the full-report subcommand: length not given, "
+          "30 12 00 00 09.");
     CHECK(riftwii::describe_hid_diagnostic(GCAD_SWITCH_VID_PID, GCAD_HID_OUTPUT | (1u << 8), -22).find(
               "Switch Pro start-up message was not sent") != std::string::npos);
     CHECK(riftwii::describe_hid_diagnostic(0x054C0268, GCAD_HID_OUTPUT, 0).find("PS3") != std::string::npos);
 }
 
-// The Switch Pro's start-up on a pad link: 80 01 and 80 02, each answer
-// read before the next message, then 80 04 and the subcommand for full
-// reports, then input once the sticks' origin is taken.
+// The Switch Pro's start-up on a pad link: 80 01, 80 02, 80 03 and 80 02
+// again, each answer read before the next message, then 80 04 and the
+// subcommand for full reports, then input once the sticks' origin is taken.
 void SwitchPad(unsigned version) {
     const unsigned input = GCAD_TAGS + GCAD_TAG_IN;
     const unsigned output = GCAD_TAGS + GCAD_TAG_OUT;
@@ -851,18 +868,40 @@ void SwitchPad(unsigned version) {
     CHECK(bus.requests[input].pending);
     send(SwitchReport(0, 0, 0));  // something else: read again
     CHECK(bus.requests[input].pending && bus.outputs.size() == 2);
+    answer(0x01);  // a late answer to an earlier message: read past
+    CHECK(bus.requests[input].pending && bus.outputs.size() == 2);
+    // The answer may take most of GCAD_SWITCH_ANSWER_MS.
+    bus.clock += GCAD_SWITCH_ANSWER_MS - 1;
+    gcad_tick(&bus.hub.adapter, bus.clock);
+    CHECK(bus.outputs.size() == 2);
     answer(0x02);
-    CHECK(bus.outputs.size() == 3 && sent(2, {0x80, 0x04}));
+    // The faster link inside the pad, then the handshake again.
+    CHECK(bus.outputs.size() == 3 && sent(2, {0x80, 0x03}));
+    bus.Reply(output, 2);
+    answer(0x03);
+    CHECK(bus.outputs.size() == 4 && sent(3, {0x80, 0x02}));
+    bus.Reply(output, 2);
+    answer(0x02);
+    CHECK(bus.outputs.size() == 5 && sent(4, {0x80, 0x04}));
     bus.Reply(output, 2);
     // No answer to 80 04: the subcommand for full reports follows at once.
-    CHECK(bus.outputs.size() == 4 &&
-          sent(3, {0x01, 0x00, 0x00, 0x01, 0x40, 0x40, 0x00, 0x01, 0x40, 0x40, 0x03, 0x30}));
+    CHECK(bus.outputs.size() == 6 &&
+          sent(5, {0x01, 0x00, 0x00, 0x01, 0x40, 0x40, 0x00, 0x01, 0x40, 0x40, 0x03, 0x30}));
     CHECK(!bus.requests[input].pending);
     bus.Reply(output, 12);
     CHECK(driver.link == GCAD_LINK_POLL && bus.requests[input].pending);
     CHECK(bus.Count(GCAD_HID_SWITCH) == 1 && bus.Count(GCAD_HID_POLL) == 1);
     for (const auto& diagnostic : bus.diagnostics) {
-        if (diagnostic.step == GCAD_HID_SWITCH) CHECK(diagnostic.detail == 3);
+        if (diagnostic.step == GCAD_HID_SWITCH) CHECK(diagnostic.detail == 0x0F);
+    }
+    // Every start-up read is logged with the message sent last, its
+    // length and its first five bytes.
+    CHECK(bus.Count(GCAD_HID_SWITCH_READ) == 6);
+    for (const auto& diagnostic : bus.diagnostics) {
+        if (diagnostic.step != GCAD_HID_SWITCH_READ) continue;
+        CHECK(diagnostic.detail == (0x01u | 64u << 8));
+        CHECK(static_cast<std::uint32_t>(diagnostic.result) == 0x81010000u);
+        break;
     }
 
     // The sticks' origin takes three steady readings at rest; until then
@@ -885,7 +924,7 @@ void SwitchPad(unsigned version) {
     // The game's rumble is not sent: the pad has no motor as RiftWii sees it.
     gcad_rumble(&bus.hub.adapter, 0, 1);
     send(SwitchReport(0, 0, 0));
-    CHECK(!bus.requests[output].pending && bus.outputs.size() == 4);
+    CHECK(!bus.requests[output].pending && bus.outputs.size() == 6);
     // Unplugged: the poll fails, and the next list drops it.
     bus.Reply(input, -7022);
     CHECK(driver.link == GCAD_LINK_FAILED);
@@ -893,10 +932,10 @@ void SwitchPad(unsigned version) {
     CHECK(driver.dev_id == GCAD_NO_DEVICE);
 }
 
-// A pad the menu already started: no answer to the handshake (and here
-// none to the status). Each message waits GCAD_CTRL_MS for its answer,
-// a late answer while the next message is out is let go, and the one read
-// left out becomes the first poll.
+// A pad that answers nothing (the menu already started it, or a
+// look-alike): each message waits GCAD_SWITCH_ANSWER_MS for its answer,
+// each handshake is sent once more, a late answer to an earlier message
+// is read past, and the one read left out becomes the first poll.
 void SwitchPadStarted() {
     const unsigned input = GCAD_TAGS + GCAD_TAG_IN;
     const unsigned output = GCAD_TAGS + GCAD_TAG_OUT;
@@ -905,71 +944,116 @@ void SwitchPadStarted() {
     bus.List({{11, GCAD_SWITCH_VID_PID}});
     bus.Settle();
     auto& driver = bus.hub.pads[0];
+    const auto answer = [&](Bus& on, gcad& pad, std::uint8_t command) {
+        std::memset(pad.in_data, 0, sizeof(pad.in_data));
+        pad.in_data[0] = 0x81;
+        pad.in_data[1] = command;
+        on.Reply(input, 64);
+    };
+    const auto stream = [&](unsigned reads) {
+        for (unsigned i = 0; i < reads; ++i) {
+            const auto report = SwitchReport(0, 0, 0);
+            std::memcpy(driver.in_data, report.data(), report.size());
+            bus.Reply(input, 64);
+        }
+    };
+    // A full wait without an answer, then the message that follows it.
+    const auto unanswered = [&](std::uint8_t next) {
+        bus.Reply(output, 2);
+        const auto before = bus.outputs.size();
+        bus.clock += GCAD_SWITCH_ANSWER_MS - 1;
+        gcad_tick(&bus.hub.adapter, bus.clock);
+        CHECK(bus.outputs.size() == before);
+        bus.clock += 1;
+        gcad_tick(&bus.hub.adapter, bus.clock);
+        CHECK(bus.outputs.size() == before + 1 && bus.outputs.back().payload[0] == 0x80 &&
+              bus.outputs.back().payload[1] == next);
+    };
     CHECK(driver.link == GCAD_LINK_INIT && bus.outputs.size() == 1 && bus.requests[input].pending);
-    bus.clock += GCAD_CTRL_MS - 1;
+    // The Bus already let 80 01 out; its wait runs from there.
+    bus.clock += GCAD_SWITCH_ANSWER_MS - 1;
     gcad_tick(&bus.hub.adapter, bus.clock);
     CHECK(bus.outputs.size() == 1);
     bus.clock += 1;
     gcad_tick(&bus.hub.adapter, bus.clock);
     CHECK(bus.outputs.size() == 2 && bus.outputs[1].payload[1] == 0x02 && bus.requests[output].pending);
-    // The status answer, late, while 80 02 is out: let go, no read now.
-    std::memset(driver.in_data, 0, sizeof(driver.in_data));
-    driver.in_data[0] = 0x81;
-    driver.in_data[1] = 0x01;
-    bus.Reply(input, 64);
-    CHECK(!bus.requests[input].pending);
+    // The status answer, late, while 80 02 is out: read past, and read on.
+    answer(bus, driver, 0x01);
+    CHECK(bus.requests[input].pending && bus.outputs.size() == 2);
+    unanswered(0x02);  // the handshake once more
+    unanswered(0x03);
+    unanswered(0x02);  // the handshake again
+    unanswered(0x02);  // and once more
+    unanswered(0x04);
     bus.Reply(output, 2);
-    CHECK(bus.requests[input].pending);
-    bus.clock += GCAD_CTRL_MS;
-    gcad_tick(&bus.hub.adapter, bus.clock);
-    CHECK(bus.outputs.size() == 3 && bus.outputs[2].payload[1] == 0x04);
-    bus.Reply(output, 2);
+    CHECK(bus.outputs.size() == 8 && bus.outputs[7].payload[0] == 0x01);
     bus.Reply(output, 12);
     CHECK(driver.link == GCAD_LINK_POLL && bus.requests[input].pending);
     for (const auto& diagnostic : bus.diagnostics) {
-        if (diagnostic.step == GCAD_HID_SWITCH) CHECK(diagnostic.detail == 0);
+        if (diagnostic.step == GCAD_HID_SWITCH) CHECK(diagnostic.detail == (0x02u | 0x08u) << 4);
     }
-    for (unsigned i = 0; i < 3; ++i) {
-        const auto report = SwitchReport(0x02, 0, 0);
-        std::memcpy(driver.in_data, report.data(), report.size());
-        bus.Reply(input, 64);
-    }
+    stream(3);
     gcad_pad pads[GCAD_PORTS]{};
-    CHECK(gcad_read_ports(&bus.hub.adapter, 0, pads, bus.clock) == 1 && pads[0].buttons == GCAD_PAD_X);
+    CHECK(gcad_read_ports(&bus.hub.adapter, 0, pads, bus.clock) == 1 && pads[0].buttons == 0);
     // Silent for GCAD_RESCAN_MS in play: the start-up runs again, once at
     // a time, with the read that is still out.
     bus.clock += GCAD_RESCAN_MS - 1;
     gcad_tick(&bus.hub.adapter, bus.clock);
-    CHECK(driver.link == GCAD_LINK_POLL && bus.outputs.size() == 4);
+    CHECK(driver.link == GCAD_LINK_POLL && bus.outputs.size() == 8);
     bus.clock += 1;
     gcad_tick(&bus.hub.adapter, bus.clock);
-    CHECK(driver.link == GCAD_LINK_INIT && bus.outputs.size() == 5 && bus.outputs[4].payload[1] == 0x01);
+    CHECK(driver.link == GCAD_LINK_INIT && bus.outputs.size() == 9 && bus.outputs[8].payload[1] == 0x01);
     CHECK(bus.requests[input].pending && bus.requests[output].pending);
     gcad_tick(&bus.hub.adapter, bus.clock + GCAD_RESCAN_MS);
-    CHECK(bus.outputs.size() == 5);
+    CHECK(bus.outputs.size() == 9);
     CHECK(gcad_read_ports(&bus.hub.adapter, 0, pads, bus.clock) == 0);
-    // Input again once it is started: while the origin is taken anew the
-    // pad counts as heard from, so the start-up doesn't run once more.
+    // Input again once it is started: SWITCH_READS input reports move each
+    // answered message on. While the origin is taken anew the pad counts
+    // as heard from, so the start-up doesn't run once more.
     bus.Reply(output, 2);
-    for (unsigned i = 0; i < 8; ++i) {
-        const auto report = SwitchReport(0, 0, 0);
-        std::memcpy(driver.in_data, report.data(), report.size());
-        bus.Reply(input, 64);
+    for (unsigned message = 0; message < 4; ++message) {
+        stream(8);
+        bus.Reply(output, 2);
     }
-    bus.Reply(output, 2);  // 80 02, unanswered
-    bus.clock += GCAD_CTRL_MS;
-    gcad_tick(&bus.hub.adapter, bus.clock);
-    bus.Reply(output, 2);  // 80 04
+    CHECK(bus.outputs.size() == 14 && bus.outputs[12].payload[1] == 0x04);
     bus.Reply(output, 12);
-    CHECK(driver.link == GCAD_LINK_POLL && bus.outputs.size() == 8);
+    CHECK(driver.link == GCAD_LINK_POLL);
     bus.clock += GCAD_RESCAN_MS;
-    {
-        const auto report = SwitchReport(0, 0, 0);
-        std::memcpy(driver.in_data, report.data(), report.size());
-        bus.Reply(input, 64);  // the first of the three the origin waits for
-    }
+    stream(1);  // the first of the three the origin waits for
     gcad_tick(&bus.hub.adapter, bus.clock);
-    CHECK(driver.link == GCAD_LINK_POLL && bus.outputs.size() == 8);
+    CHECK(driver.link == GCAD_LINK_POLL && bus.outputs.size() == 14);
+    // The reads logged stop at 16 per plug-in, however often it runs.
+    CHECK(bus.Count(GCAD_HID_SWITCH_READ) == 16);
+
+    // The handshake's answer to its first try, while the second goes out:
+    // it counts, and the next message follows once the second is out.
+    Bus late(5);
+    gcad_switch_mapping(&late.hub.catalog.maps[0]);
+    late.List({{11, GCAD_SWITCH_VID_PID}});
+    late.Settle();
+    auto& slow = late.hub.pads[0];
+    answer(late, slow, 0x01);
+    late.Reply(output, 2);
+    late.clock += GCAD_SWITCH_ANSWER_MS;
+    gcad_tick(&late.hub.adapter, late.clock);
+    CHECK(late.outputs.size() == 3 && late.outputs[2].payload[1] == 0x02 && late.requests[output].pending);
+    answer(late, slow, 0x02);
+    CHECK(late.outputs.size() == 3 && !late.requests[input].pending);
+    late.Reply(output, 2);
+    CHECK(late.outputs.size() == 4 && late.outputs[3].payload[1] == 0x03 && late.requests[output].pending);
+    late.Reply(output, 2);
+    CHECK(late.requests[input].pending);
+    answer(late, slow, 0x03);
+    late.Reply(output, 2);
+    answer(late, slow, 0x02);
+    late.Reply(output, 2);
+    late.Reply(output, 12);
+    CHECK(slow.link == GCAD_LINK_POLL && late.outputs.size() == 7);
+    for (const auto& diagnostic : late.diagnostics) {
+        if (diagnostic.step == GCAD_HID_SWITCH) CHECK(diagnostic.detail == (0x0Fu | 0x02u << 4));
+    }
+    CHECK(riftwii::describe_hid_diagnostic(GCAD_SWITCH_VID_PID, GCAD_HID_SWITCH | (0x2Fu << 8), 0).find(
+              "handshake answered on the second try") != std::string::npos);
 
     // Input already flowing while it waits for an answer: after
     // SWITCH_READS reads of it the next message goes.
