@@ -70,6 +70,7 @@ extern "C" {
 #define GCAD_ORIGIN_TRIGGER_MAX 80 /* a trigger at rest reads no more than this */
 #define GCAD_ORIGIN_WAIT_MS 500u  /* no reading at rest this long: the axes still off take the middle */
 #define GCAD_CTRL_MS 100u         /* SET_PROTOCOL unanswered this long: init anyway */
+#define GCAD_SWITCH_ANSWER_MS 1000u /* a Switch Pro start-up message's answer is waited for this long */
 #define GCAD_SETTLE_MS 500u       /* v5: a newly listed adapter is set up this long after the change */
 
 /* /dev/usb/hid ioctls. */
@@ -154,8 +155,14 @@ extern "C" {
 #define GCAD_HID_RUMBLE 13u
 #define GCAD_HID_INTERFACE 14u /* detail: interface number, result: class */
 #define GCAD_HID_DISCOVERY 15u /* detail: 0 queued, 1 replied; result: IOS result */
-#define GCAD_HID_SWITCH 16u /* Switch Pro start-up done; detail: answers seen (1 status, 2 handshake) */
-#define GCAD_HID_DIAGS 17u
+/* Switch Pro start-up done; detail: answers seen (1 status, 2 handshake,
+ * 4 high speed, 8 handshake again), and << 4 the handshakes sent twice. */
+#define GCAD_HID_SWITCH 16u
+/* What one Switch Pro start-up read brought; detail: the 80 xx message
+ * sent last (0 for the full-report subcommand), the read's length (255
+ * at most) << 8, its fifth byte << 16; result: its first four bytes. */
+#define GCAD_HID_SWITCH_READ 17u
+#define GCAD_HID_DIAGS 18u
 
 #define GCAD_ORIGIN_RESTING 0u /* from a reading of the pad at rest */
 #define GCAD_ORIGIN_MIDDLE 1u  /* nothing steady at rest for GCAD_ORIGIN_WAIT_MS: the axes not settled took the middle */
@@ -281,8 +288,10 @@ typedef struct gcad {
     uint8_t ps3_led;
     uint8_t output_step;
     /* Switch Pro start-up: the message sent last (SWITCH_* in rtgcad.c),
-     * reads since that brought no answer to it, and the answers seen. */
-    uint8_t switch_step, switch_reads, switch_answers;
+     * input reports read since it went, the answers seen and the messages
+     * sent twice (a bit per step each), and the reads logged since it was
+     * plugged in. */
+    uint8_t switch_step, switch_reads, switch_answers, switch_retried, switch_logs;
     uint32_t diagnostic_seen;
     uint32_t diagnostic_detail[GCAD_HID_DIAGS];
     int32_t diagnostic_result[GCAD_HID_DIAGS];
