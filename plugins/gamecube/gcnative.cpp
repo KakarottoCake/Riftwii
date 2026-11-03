@@ -4005,8 +4005,12 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     for (const Section& s : dol.text) std::memcpy(reinterpret_cast<void*>(s.address), s.bytes.data(), s.bytes.size());
     for (const Section& s : dol.data) std::memcpy(reinterpret_cast<void*>(s.address), s.bytes.data(), s.bytes.size());
     if (dol.bss_size != 0) {
-        // Sections may sit inside the BSS range; zero only around them.
+        // Sections may sit inside the BSS range; zero only around them. Code
+        // too: a patched Super Mario Sunshine (16:9 and 60 fps) adds a text
+        // section there and starts at it (entry 0x803e9700), and zeroed it
+        // stopped on its first word before the game's OS was up.
         std::vector<std::pair<std::uint32_t, std::uint32_t>> used;
+        for (const Section& s : dol.text) used.emplace_back(s.address, s.address + s.bytes.size());
         for (const Section& s : dol.data) used.emplace_back(s.address, s.address + s.bytes.size());
         for (std::uint32_t a = dol.bss; a < dol.bss + dol.bss_size; ++a) {
             bool inside = false;
