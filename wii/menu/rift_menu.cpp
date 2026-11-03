@@ -3698,7 +3698,9 @@ bool ConfirmMissingModInputs(const std::vector<riftwii::MissingModInput>& missin
 			if (input.pack != packs[packIndex]) continue;
 			++count;
 			if (rows.size() >= PopupBox::kBodyLines - 1) continue;
-			const std::string path = MissingModPath(input.external, width);
+			// A whole folder ends in "/", so it reads as a folder.
+			const bool folder = input.kind == riftwii::MissingModInputKind::Folder;
+			const std::string path = MissingModPath(input.external + (folder ? "/" : ""), width);
 			const std::size_t room = PopupBox::kBodyLines - rows.size() - 1;
 			const auto pathRows = ChunksFitting(path, width, 16, std::min<std::size_t>(2, room));
 			rows.insert(rows.end(), pathRows.begin(), pathRows.end());

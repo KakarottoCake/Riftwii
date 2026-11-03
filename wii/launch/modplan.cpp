@@ -514,7 +514,18 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
     // found instead of looking like a wrong-game refusal.
     const std::size_t expand_notes_from = mod.notes.size();
     std::vector<FilePatch> expanded;
-    if (!expand_plan(plan, fst, provider, expanded, mod.notes, error)) return false;
+    std::vector<std::string> missing_folders;
+    if (!expand_plan(plan, fst, provider, expanded, mod.notes, error, &missing_folders)) return false;
+    // A whole folder gone is named in the missing-files question too, not
+    // only the single files: a copy that stopped part way (a tester's
+    // Super Mario Gravity had only its ASM folder) otherwise looked like
+    // two files missing.
+    for (const std::string& folder : missing_folders) {
+        if (!record_missing_mod_input(mod.missing_inputs, xml_sd_path, folder, MissingModInputKind::Folder)) {
+            error = "There is not enough memory to list the mod's missing files.";
+            return false;
+        }
+    }
     files.insert(files.end(), expanded.begin(), expanded.end());
     shifts.insert(shifts.end(), plan.shifts.begin(), plan.shifts.end());
     logf("Mods: %s: %u file patch(es), %u memory patch(es)\n", xml_sd_path.c_str(),
@@ -527,7 +538,7 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
     std::string first_missing;  // the first folder or file the card lacks
     for (std::size_t i = expand_notes_from; i < mod.notes.size() && hinted.size() < 4; ++i) {
         const std::string& note = mod.notes[i];
-        if (note.find("not on the card") == std::string::npos) continue;
+        if (!note_names_missing(note)) continue;
         std::string missing;
         const std::size_t folder = note.find("<folder ");
         const std::size_t quote = note.find("external '");
@@ -566,7 +577,8 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
                     error = "There is not enough memory to list the mod's missing files.";
                     return false;
                 }
-                std::string warning = "memory patch skipped: its file '" + m.valuefile + "' is not on the card";
+                std::string warning =
+                    "memory patch skipped: its file '" + m.valuefile + "' is " + not_on_device(m.valuefile);
                 const std::string hint = nearest_on_card(m.valuefile);
                 if (!hint.empty()) warning += " (" + hint + ")";
                 mod.warnings.push_back(warning);
@@ -781,7 +793,8 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
             std::unique_ptr<ByteSource> external;
             std::string open_error;
             if (provider.open_external(patch.external, external, open_error) == OpenStatus::NotFound) {
-                mod.notes.push_back(patch.disc + ": external '" + patch.external + "' not on the card, skipped");
+                mod.notes.push_back(patch.disc + ": external '" + patch.external + "' " +
+                                    not_on_device(patch.external) + ", skipped");
                 continue;
             }
         }

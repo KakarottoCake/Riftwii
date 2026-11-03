@@ -458,7 +458,43 @@ static void test_missing_selected_inputs() {
     EXPECT_TRUE(missing[1].kind == Kind::Memory);
 }
 
+// A pack's folders that are not there: the note names the device they were
+// looked for on, and the ones this disc would take are listed for the
+// missing-files question; another region's folder is not.
+static void test_missing_folders() {
+    riftwii::Fst fst = Disc();
+    ListingProvider card = Card();
+    riftwii::Plan plan;
+    plan.folders.push_back(Folder("/Stage", "usb:/mod/gone", true, false));     // disc folder exists
+    plan.folders.push_back(Folder("/EuGerman", "usb:/mod/german", true, false)); // not on this disc
+    plan.folders.push_back(Folder("/New", "/mod/created/", true, true));        // creates its folder
+    plan.folders.push_back(Folder("", "/mod/byname", false, false));            // a search: always applies
+    plan.folders.push_back(Folder("/Stage", "/mod/Stage", true, false));        // there
+    std::vector<riftwii::FilePatch> out;
+    std::vector<std::string> notes;
+    std::vector<std::string> missing;
+    std::string err;
+    EXPECT_TRUE(riftwii::expand_plan(plan, fst, card, out, notes, err, &missing));
+    EXPECT_EQ(notes.size(), std::size_t(5));
+    if (notes.size() == 5) {
+        EXPECT_EQ(notes[0], std::string("<folder usb:/mod/gone -> /Stage>: not on the USB drive, skipped"));
+        EXPECT_EQ(notes[2], std::string("<folder /mod/created/ -> /New>: not on the card, skipped"));
+        EXPECT_TRUE(riftwii::note_names_missing(notes[0]));
+        EXPECT_TRUE(riftwii::note_names_missing(notes[2]));
+        EXPECT_FALSE(riftwii::note_names_missing(notes[4]));
+    }
+    EXPECT_EQ(missing.size(), std::size_t(3));
+    if (missing.size() == 3) {
+        EXPECT_EQ(missing[0], std::string("usb:/mod/gone"));
+        EXPECT_EQ(missing[1], std::string("/mod/created"));
+        EXPECT_EQ(missing[2], std::string("/mod/byname"));
+    }
+    EXPECT_EQ(riftwii::not_on_device("usb:/mod/a.arc"), std::string("not on the USB drive"));
+    EXPECT_EQ(riftwii::not_on_device("/mod/a.arc"), std::string("not on the card"));
+}
+
 int main() {
+    test_missing_folders();
     test_missing_selected_inputs();
     test_rooted();
     test_by_name();
