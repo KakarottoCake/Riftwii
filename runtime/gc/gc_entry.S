@@ -8,7 +8,7 @@
     .section .text.gc_entry, "ax", @progbits
     .globl _gc_blob_start
 _gc_blob_start:
-    .long 0x52574744, 11, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
+    .long 0x52574744, 12, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
     .long gc_hook_read - _gc_blob_start, gc_hook_seek - _gc_blob_start
     .long gc_hook_disk_id - _gc_blob_start, gc_hook_inquiry - _gc_blob_start
     .long gc_hook_cb_r3 - _gc_blob_start, gc_hook_audio_status - _gc_blob_start
@@ -42,6 +42,7 @@ _gc_blob_start:
     .long gc_continue_si_probe - _gc_blob_start
     .long gc_hook_program - _gc_blob_start, gc_replay_program - _gc_blob_start
     .long gc_continue_program - _gc_blob_start, gc_program_saved - _gc_blob_start
+    .long gc_replay_fatal - _gc_blob_start, gc_continue_fatal - _gc_blob_start
 
 /* Calls `fn` with the context in r3 and the game's r3..r6 moved up one
  * register (r4..r7). */
@@ -70,12 +71,56 @@ gc_hook_\name:
     GC_HOOK inquiry, gc_on_inquiry
     GC_HOOK audio_status, gc_on_audio_status
     GC_HOOK audio_stream, gc_on_audio_stream
-    GC_HOOK fatal, gc_on_fatal
     GC_HOOK load_queued, gc_on_load_queued
     GC_HOOK load_callbacks_done, gc_on_load_callbacks_done
     /* DVDLowStopMotor(cb): answered as gc_on_done does, and a two-disc
      * game's disc change starts (gc_disc.h). */
     GC_HOOK stop_motor, gc_on_stop_motor
+
+/* __OSUnhandledException(exception, context, dsisr, dar). The SDK's
+ * function first gives an exception to the handler the game set for it
+ * (OSSetErrorHandler) and only halts when there is none. A floating-point
+ * exception (a program exception with SRR1's 0x00100000) is one a game
+ * asks for: Call of Duty: Finest Hour turns divide-by-zero exceptions on
+ * and handles them (Dolphin's DivByZeroExceptions for GCO), so it goes to
+ * the game's own function through the replay slot. Any other is a crash:
+ * gc_on_fatal, with the game's r3..r6 moved up one register. */
+    .globl gc_hook_fatal
+gc_hook_fatal:
+    cmpwi 3, 6
+    bne 1f
+    lwz 12, 0x19C(4)
+    andis. 12, 12, 0x0010
+    bne gc_replay_fatal
+1:  stwu 1, -0x20(1)
+    mflr 0
+    stw 0, 0x24(1)
+    mr 7, 6
+    mr 6, 5
+    mr 5, 4
+    mr 4, 3
+    bl 2f
+2:  mflr 3
+    addi 3, 3, gc_context_data - 2b
+    bl gc_on_fatal
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    blr
+
+    .balign 16
+    .globl gc_replay_fatal
+gc_replay_fatal:
+    nop
+    nop
+    nop
+    nop
+    .globl gc_continue_fatal
+gc_continue_fatal:
+    lis 12, 0
+    ori 12, 12, 0
+    mtctr 12
+    bctr
 
 /* Luigi's Mansion's loading thread: calls of `fn` that also get its
  * request, which the thread keeps in r30 (the loader checked), after the

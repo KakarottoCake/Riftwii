@@ -607,6 +607,25 @@ def test_controller_overlap(layout):
           "send and route replies during storage waits without releasing its buffers")
 
 
+def test_fatal_fp_exception(layout):
+    # A floating-point program exception (SRR1 0x00100000) is one the game
+    # asked for and handles itself (Call of Duty: Finest Hour's divide by
+    # zero): the hook sends it to the game's own __OSUnhandledException
+    # through the replay slot, not to the crash screen. The replay slot's
+    # nops and a continue jump set to RETURN stand in for that function.
+    machine = Machine(layout)
+    replay = machine.functions["gc_replay_fatal"]
+    resume = machine.functions["gc_continue_fatal"]
+    machine.uc.mem_write(replay, struct.pack(">4I", *([0x60000000] * 4)))
+    machine.uc.mem_write(resume, struct.pack(">4I", 0x3D800000 | (RETURN >> 16), 0x618C0000 | (RETURN & 0xFFFF),
+                                             0x7D8903A6, 0x4E800420))
+    context = 0x80030000
+    machine.uc.mem_write(context, bytes(0x200))
+    machine.uc.mem_write(context + 0x19C, struct.pack(">I", 0x0010B932))
+    # gc_on_fatal never returns, so coming back to RETURN is the proof.
+    machine.call("gc_hook_fatal", 6, context, 0, 0)
+
+
 def test_disk_id(layout):
     # A loader-provided header needs no device wait. Keep the old immediate
     # data copy, with only its completion callback deferred to the alarm.
@@ -1531,6 +1550,7 @@ def main():
     test_bt_report_order(layout)
     test_controller_overlap(layout)
     test_disk_id(layout)
+    test_fatal_fp_exception(layout)
     test_cancel_before_start(layout)
     test_stream(layout)
     test_card(layout)
