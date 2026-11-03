@@ -1185,11 +1185,21 @@ void SwitchPadStuck(unsigned version) {
           (version == 4 ? GCAD_V4_CANCEL_INTERRUPT : GCAD_V5_CANCEL_ENDPOINT));
     CHECK(version == 4 ? broken.stop_msg[4] == broken.endpoint_out : broken.stop_msg[8] == 2);
     failing.Reply(output, -22);
-    // The cancel is still out: the next start waits for it as well.
+    // The cancel is still out: the next start waits for it as well, and a
+    // device list that still has the pad (settled too, on v5) leaves it.
     failing.clock += GCAD_RELINK_MS;
     gcad_tick(&failing.hub.adapter, failing.clock);
     CHECK(broken.link == GCAD_LINK_FAILED && failing.requests[stop].pending && failing.outputs.size() == 2);
+    failing.List({{11, GCAD_SWITCH_VID_PID}});
+    failing.clock += GCAD_SETTLE_MS;
+    gcad_tick(&failing.hub.adapter, failing.clock);
+    CHECK(broken.link == GCAD_LINK_FAILED && failing.requests[stop].pending && failing.outputs.size() == 2);
+    auto& change = failing.requests[GCAD_TAG_CHANGE];
+    if (change.pending && change.command == GCAD_V5_ATTACH_FINISH) failing.Reply(GCAD_TAG_CHANGE);
+    // Its answer lets the next start go at once.
     failing.Reply(stop);
+    gcad_tick(&failing.hub.adapter, failing.clock);
+    CHECK(broken.link != GCAD_LINK_FAILED);
     failing.clock += GCAD_RELINK_MS;
     failing.Settle();
     CHECK(broken.link == GCAD_LINK_INIT && failing.outputs.size() == 3 && failing.outputs[2].payload[1] == 0x01);
