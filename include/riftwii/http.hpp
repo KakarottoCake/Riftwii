@@ -98,6 +98,16 @@ bool parse_http_response(const std::vector<std::uint8_t>& raw, HttpResponse& out
 // clock at verification: empty when the certificate was not the problem.
 std::string tls_failure_reason(int bearssl_code, std::time_t wii_now);
 
+// The first day of the month this RiftWii came out in, from `version`
+// (YYMM-N: 2610-810 is October 2026), as Unix time; 0 when the version is
+// not YYMM-N. A Wii clock earlier than this is certainly wrong (wii/online/
+// tls.cpp then asks a server for the date).
+std::time_t release_month_start(const std::string& version);
+
+// An HTTP Date header in the form servers send (RFC 9110's IMF-fixdate,
+// "Tue, 03 Nov 2026 08:41:22 GMT") as Unix time. False for anything else.
+bool http_date_parse(const std::string& value, std::time_t& out);
+
 // "%XX" for everything but unreserved characters, for query values.
 std::string url_encode(const std::string& text);
 // The same appended to `out`, and its length beforehand, so a big text's

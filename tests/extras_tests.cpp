@@ -283,6 +283,34 @@ void TestReleaseMetadataPolicy() {
     EXPECT_EQ(tag, "v1.0");
 }
 
+void TestReleaseMonthAndHttpDate() {
+    // 2026-10-01 00:00 UTC, 2026-11-01, 2028-02-01 and 2028-03-01.
+    EXPECT_EQ(release_month_start("2610-810"), static_cast<std::time_t>(1790812800));
+    EXPECT_EQ(release_month_start("2610"), static_cast<std::time_t>(1790812800));
+    EXPECT_EQ(release_month_start("2611-3"), static_cast<std::time_t>(1793491200));
+    EXPECT_EQ(release_month_start("2802-1"), static_cast<std::time_t>(1832976000));
+    EXPECT_EQ(release_month_start("2803-1"), static_cast<std::time_t>(1835481600));
+    // Not YYMM-N.
+    EXPECT_EQ(release_month_start("test"), static_cast<std::time_t>(0));
+    EXPECT_EQ(release_month_start("2613-1"), static_cast<std::time_t>(0));
+    EXPECT_EQ(release_month_start("26100"), static_cast<std::time_t>(0));
+    EXPECT_EQ(release_month_start("261"), static_cast<std::time_t>(0));
+
+    std::time_t date = 0;
+    EXPECT_TRUE(http_date_parse("Tue, 03 Nov 2026 08:41:22 GMT", date));
+    EXPECT_EQ(date, static_cast<std::time_t>(1793695282));
+    EXPECT_TRUE(http_date_parse("Tue, 29 Feb 2028 00:00:00 GMT", date));
+    EXPECT_EQ(date, static_cast<std::time_t>(1835395200));
+    EXPECT_TRUE(http_date_parse("Thu, 01 Jan 1970 00:00:00 GMT", date));
+    EXPECT_EQ(date, static_cast<std::time_t>(0));
+    EXPECT_FALSE(http_date_parse("Tue, 03 Nov 2026 08:41:22 UTC", date));
+    EXPECT_FALSE(http_date_parse("Tue, 03 Now 2026 08:41:22 GMT", date));
+    EXPECT_FALSE(http_date_parse("Tue, 3 Nov 2026 08:41:22 GMT", date));
+    EXPECT_FALSE(http_date_parse("Tuesday, 03-Nov-26 08:41:22 GMT", date));
+    EXPECT_FALSE(http_date_parse("Tue, 03 Nov 2026 24:00:00 GMT", date));
+    EXPECT_FALSE(http_date_parse("", date));
+}
+
 void TestTlsFailureReason() {
     EXPECT_EQ(tls_failure_reason(31, 0), "");
     EXPECT_EQ(tls_failure_reason(0, 0), "");
@@ -2860,6 +2888,7 @@ int main() {
     TestRestartRequestSectors();
     TestFriivolutionArguments();
     TestHttp();
+    TestReleaseMonthAndHttpDate();
     TestTlsFailureReason();
     TestReleaseAssetObjects();
     TestReleaseMetadataPolicy();
