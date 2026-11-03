@@ -25,6 +25,7 @@ int ios = 58;
 bool hardware = true;
 bool fail_write = false;
 bool fail_restore = false;
+bool damage_other = false;  // the original word goes back with the other halfword damaged
 unsigned writes = 0;
 
 void* map_at(u32 address, std::size_t size) {
@@ -53,7 +54,8 @@ void write16(u32, u16 value) { protection = value; }
 void write32(u32 address, u32 value) {
     if (address != kWord) return;
     ++writes;
-    if (value != kBefore && fail_write) current = 0xDEADBEEF;
+    if (value == kBefore && damage_other) current = 0xDEAD0000u | (kBefore & 0x0000FFFFu);
+    else if (value != kBefore && fail_write) current = 0xDEADBEEF;
     else if (value != kBefore || !fail_restore) current = value;
 }
 namespace riftwii::wii {
@@ -116,6 +118,14 @@ int main() {
     fail_write = true;
     check(!open_nand_permissions("test"));
     check(current == kBefore && saved->magic == 0 && protection == 1);
+    // A failed opening whose rollback leaves the other halfword damaged
+    // (the patched one back): the note stays, as the whole word isn't.
+    damage_other = true;
+    check(!open_nand_permissions("test"));
+    check(current == 0xDEADD001u && nand_permission_note_valid(*saved));
+    damage_other = false;
+    *saved = NandPermissionNote{};
+    current = kBefore;
     fail_write = false;
     check(open_nand_permissions("test"));
     saved->word = 0x80000000;

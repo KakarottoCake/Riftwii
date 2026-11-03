@@ -115,10 +115,11 @@ bool open_nand_permissions(const char* who) {
     if (read_back != after) write32(store.word, before);
     write16(0x0D8B420A, protection);
     if (read_back != after) {
-        // A failed own write may be partial; rollback is unconditional here,
-        // while recovery at another start requires the patched halfword to
-        // hold the opening. Only that halfword is compared, as in Restore.
-        if (nand_check_half(read32(store.word), store.shift) == nand_check_half(before, store.shift)) {
+        // A failed own write may be partial, the other halfword included:
+        // rollback writes the whole original word, and the note goes only
+        // once that whole word is back (unlike Restore, where the other
+        // halfword is IOS's to change while the check is open).
+        if (read32(store.word) == before) {
             note()->magic = 0;
             FlushNote();
         }
