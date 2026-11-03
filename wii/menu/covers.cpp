@@ -848,6 +848,9 @@ void CoverReadAll(const std::vector<std::string>& game_ids) {
 
 void CoverLoaderHold() {
     if (g_lock == LWP_MUTEX_NULL) return;
+    // The loader itself, restarting RiftWii as the menu ran out of memory
+    // (memlimits.cpp, MenuOutOfMemory): it would wait for its own read.
+    if (LWP_GetSelf() == g_thread) return;
     Lock lock;
     g_hold = true;
     while (g_reading) LWP_CondWait(g_idle, g_lock);

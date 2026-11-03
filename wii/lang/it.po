@@ -1335,6 +1335,12 @@ msgstr "L'ultima volta il gioco si è bloccato"
 msgid "The last launch failed"
 msgstr "L'ultimo avvio non è riuscito"
 
+msgid "RiftWii ran out of memory last time"
+msgstr "L'ultima volta RiftWii ha esaurito la memoria"
+
+msgid "RiftWii ran out of memory and restarted."
+msgstr "RiftWii ha esaurito la memoria e si è riavviato."
+
 msgid "Send a report of what happened?"
 msgstr "Inviare una segnalazione di quello che è successo?"
 

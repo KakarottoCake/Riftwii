@@ -1950,28 +1950,52 @@ static void ResetCoverDownloads()
 	g_cover3dRun.reset();
 }
 
+// Home's picture downloads wait until then (gettime ticks; 0: no wait): a
+// server asked to come back later (CoverOutcome::Busy). One wait for them
+// all, as they mostly ask the same server.
+static u64 g_downloadsWaitUntil = 0;
+static bool DownloadsWaiting()
+{
+	return g_downloadsWaitUntil != 0 && gettime() < g_downloadsWaitUntil;
+}
+
 // Counts one picture's download in `run`; true when that kind's downloads
-// stop with it.
+// stop with it. `busy` (when given) is set when the server asked to come
+// back later: the caller asks for that game again, after the wait set here.
 static bool CountPictureFetch(riftwii::CoverDownloads& run, riftwii::wii::CoverFetch got, const std::string& game,
-	const std::string& error)
+	const std::string& error, bool* busy = nullptr)
 {
 	riftwii::CoverOutcome outcome = riftwii::CoverOutcome::Stored;
 	if (got == riftwii::wii::CoverFetch::NotFound) outcome = riftwii::CoverOutcome::NotFound;
 	else if (got == riftwii::wii::CoverFetch::NoAnswer) outcome = riftwii::CoverOutcome::NoAnswer;
 	else if (got == riftwii::wii::CoverFetch::Failed) outcome = riftwii::CoverOutcome::CannotStore;
+	// Only where the caller can ask for the game again: elsewhere a busy
+	// server is one more download that got no answer, as before.
+	if (busy && outcome == riftwii::CoverOutcome::NoAnswer &&
+	    riftwii::cover_answer_means_busy(riftwii::http_answered_status(error)))
+		outcome = riftwii::CoverOutcome::Busy;
+	if (busy) *busy = false;
 	const char* name = run.log_name().c_str();
 	const bool stop = run.count(outcome);
 	if (stop) logf("%s: downloads stopped: %s\n", name, error.c_str());
 	else if (outcome == riftwii::CoverOutcome::NoAnswer)
 		logf("%s: passed over %s for now, as its download got no answer (%s); the others go on\n", name, game.c_str(),
 			error.c_str());
+	else if (outcome == riftwii::CoverOutcome::Busy) {
+		const unsigned wait = run.busy_wait_seconds();
+		logf("%s: the server asked to come back later (%s): %s is asked for again in %u s\n", name, error.c_str(),
+			game.c_str(), wait);
+		g_downloadsWaitUntil = gettime() + secs_to_ticks(wait);
+		*busy = true;
+	}
 	return stop;
 }
-static bool CountCoverFetch(riftwii::wii::CoverFetch got, const std::string& game, const std::string& error)
+static bool CountCoverFetch(riftwii::wii::CoverFetch got, const std::string& game, const std::string& error,
+	bool* busy = nullptr)
 {
-	if (riftwii::emulator_banner_id(game)) return CountPictureFetch(g_emulatorBannerRun, got, game, error);
+	if (riftwii::emulator_banner_id(game)) return CountPictureFetch(g_emulatorBannerRun, got, game, error, busy);
 	const bool emulator = game.rfind("emu-", 0) == 0;
-	return CountPictureFetch(emulator ? g_emulatorCoverRun : g_coverRun, got, game, error);
+	return CountPictureFetch(emulator ? g_emulatorCoverRun : g_coverRun, got, game, error, busy);
 }
 
 // The Channels view: each game's own icon from its banner (wii/menu/banners.cpp),
@@ -4500,7 +4524,19 @@ static bool g_oldCiosReminded = false;  // ShowOldCiosReminder, once a session
 static const char* const kReportWhat =
 	"It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, or dpaste.com when paste.rs can't be reached, where anyone with its link can read it.";
 
-// After a crash or a failed launch, once: send a report?
+// The menu ran out of memory (wii/core/memlimits.hpp, GuardMenuMemory):
+// RiftWii restarts at the next turn of a screen's loop, once the drive
+// scan has let go of the drives.
+static void RestartIfOutOfMemory()
+{
+	if (!riftwii::wii::mem::MenuOutOfMemoryRestartDue()) return;
+	// A scan that stopped as it ran out would never end.
+	if (!riftwii::wii::mem::ThreadsStoppedForRestart()) riftwii::wii::WaitDriveScan();
+	riftwii::wii::mem::RestartAfterMenuOutOfMemory();
+}
+
+// After a crash, a failed launch or the menu running out of memory, once:
+// send a report?
 static void OfferReport()
 {
 	static bool asked = false;
@@ -4510,6 +4546,7 @@ static void OfferReport()
 	if (!riftwii::wii::UnreportedCrash(what)) return;
 	const bool game = what == "game";
 	const bool crash = what == "crash";
+	const bool memory = what == "memory";
 	// An SD or USB game's mods are prepared after the menu closes, where a
 	// long error only flashes past on the launch screen: show it in full
 	// now, before asking about a report.
@@ -4521,10 +4558,11 @@ static void OfferReport()
 		ShowFullPopup(tr("The last launch failed"), reason);
 	}
 	const int choice = ShowPopup(game ? tr("The game crashed last time") : crash ? tr("RiftWii crashed last time")
-			: tr("The last launch failed"),
+			: memory ? tr("RiftWii ran out of memory last time") : tr("The last launch failed"),
 		std::string(tr("Send a report of what happened?")) + " " + tr(kReportWhat), tr("Send"), tr("Not now"));
 	riftwii::wii::NoteCrashAsked();
-	const char* what_happened = game ? "the game crashed" : crash ? "RiftWii crashed" : "the launch failed";
+	const char* what_happened = game ? "the game crashed" : crash ? "RiftWii crashed"
+		: memory ? "RiftWii ran out of memory in the menu" : "the launch failed";
 	logf("Problem report: %s after the last run (%s)\n", choice == 0 ? "sending" : "declined", what_happened);
 	if (choice == 0) SendReport(what_happened);
 }
@@ -5888,6 +5926,49 @@ static bool HomeOwnsControllers()
 	return !grid->Carrying() && !grid->CoverZoomed();
 }
 
+// Which queued cover Home downloads next: the page on screen first (on the
+// shelf, the focused box), then the tiles either side of it, nearest
+// first, then any not listed now (another view's) in the queue's order.
+// A big library's covers so come in where the player looks, not from the
+// top of the list down. queue.size() when every queued one is switched off.
+static std::size_t NearestQueuedCover(const std::vector<std::string>& queue, const std::vector<GridItem>& items,
+	const GuiGameGrid& grid)
+{
+	// Each tile's place, under every name its pictures are asked for by.
+	std::unordered_map<std::string, std::size_t> place;
+	for (std::size_t k = 0; k < items.size(); ++k) {
+		place.emplace(items[k].id, k);
+		place.emplace(CoverName(items[k]), k);
+		if (grid.Channels()) place.emplace(riftwii::emulator_banner_key(items[k].id, skin::WideMenu()), k);
+	}
+	// [shownFrom, shownTo): on screen.
+	std::size_t shownFrom = static_cast<std::size_t>(std::max(0, grid.FocusedIndex()));
+	std::size_t shownTo = shownFrom + 1;
+	if (!grid.Shelf()) {
+		shownFrom = static_cast<std::size_t>(grid.Page()) * GuiGameGrid::kPerPage;
+		shownTo = shownFrom + GuiGameGrid::kPerPage;
+	}
+	constexpr std::size_t kNotListed = static_cast<std::size_t>(-1) - 1;
+	std::size_t best = queue.size();
+	std::size_t bestDistance = static_cast<std::size_t>(-1);
+	for (std::size_t q = 0; q < queue.size(); ++q) {
+		if (CoverDownloadsOff(queue[q])) continue;
+		std::size_t distance = kNotListed;
+		const auto found = place.find(queue[q]);
+		if (found != place.end()) {
+			const std::size_t k = found->second;
+			if (k < shownFrom) distance = shownFrom - k;
+			else if (k >= shownTo) distance = k - shownTo + 1;
+			else distance = 0;
+		}
+		if (distance < bestDistance) {
+			best = q;
+			bestDistance = distance;
+		}
+	}
+	return best;
+}
+
 static int MenuSource(FrontendState& state)
 {
 	int menu = MENU_NONE;
@@ -6560,6 +6641,7 @@ static int MenuSource(FrontendState& state)
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
+		RestartIfOutOfMemory();
 		riftwii::wii::StartDriveScan();
 		PollMenuDiscCover();
 		std::string coverNote;
@@ -6574,12 +6656,15 @@ static int MenuSource(FrontendState& state)
 		std::string arrived, coverError;
 		riftwii::wii::CoverFetch got = riftwii::wii::CoverFetch::NotFound;
 		if (riftwii::wii::TakeCoverFetch(arrived, got, coverError)) {
-			if (CountCoverFetch(got, arrived, coverError)) {
+			bool coverBusy = false;
+			if (CountCoverFetch(got, arrived, coverError, &coverBusy)) {
 				CoverDownloadsOff(arrived) = true;
 				coverQueue.erase(std::remove_if(coverQueue.begin(), coverQueue.end(),
 					[](const std::string& id) { return CoverDownloadsOff(id); }), coverQueue.end());
 				coverNote = tr("Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers.", {FlatCapped(coverError, 60)});
 			}
+			// Asked for again first, once the wait is over.
+			if (coverBusy) coverQueue.insert(coverQueue.begin(), arrived);
 			// A second-set download that failed (the game page left before
 			// it ended): back on the first set, as the game page would.
 			// A second-set cover already in memory goes with it.
@@ -6606,16 +6691,22 @@ static int MenuSource(FrontendState& state)
 		std::string boxArrived, boxError;
 		riftwii::wii::CoverFetch boxGot = riftwii::wii::CoverFetch::NotFound;
 		if (riftwii::wii::TakeBoxFetch(boxArrived, boxGot, boxError)) {
-			if (CountPictureFetch(g_boxRun, boxGot, boxArrived, boxError)) {
+			bool boxBusy = false;
+			if (CountPictureFetch(g_boxRun, boxGot, boxArrived, boxError, &boxBusy)) {
 				g_boxesOff = true;
 				g_boxQueue.clear();
 			}
+			if (boxBusy) g_boxQueue.insert(g_boxQueue.begin(), boxArrived);
 			if (boxGot != riftwii::wii::CoverFetch::Stored) boxArrived.clear();
 		}
 		std::string cover3dArrived, cover3dError;
 		riftwii::wii::CoverFetch cover3dGot = riftwii::wii::CoverFetch::NotFound;
 		if (riftwii::wii::TakeCover3dFetch(cover3dArrived, cover3dGot, cover3dError)) {
-			if (CountPictureFetch(g_cover3dRun, cover3dGot, cover3dArrived, cover3dError)) g_covers3dOff = true;
+			bool cover3dBusy = false;
+			if (CountPictureFetch(g_cover3dRun, cover3dGot, cover3dArrived, cover3dError, &cover3dBusy))
+				g_covers3dOff = true;
+			// Not looked at yet again: picked once it is near the focus.
+			if (cover3dBusy) g_covers3dChecked.erase(cover3dArrived);
 			if (cover3dGot != riftwii::wii::CoverFetch::Stored) cover3dArrived.clear();
 		}
 		// Channels: a GameCube game's animated banner, or a custom Wii game's
@@ -6687,19 +6778,8 @@ static int MenuSource(FrontendState& state)
 		}
 		// Not while the update check (or the scan) has the network.
 		if (!g_sdGone && !g_sdRemovalPending && !g_scanning && !coverQueue.empty() && !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() &&
-		    riftwii::wii::CoverFetchGame().empty()) {
-			std::size_t pick = coverQueue.size();
-			bool onPage = false;
-			const std::size_t first = static_cast<std::size_t>(grid.Page()) * GuiGameGrid::kPerPage;
-			for (std::size_t q = 0; q < coverQueue.size() && !onPage; ++q) {
-				if (CoverDownloadsOff(coverQueue[q])) continue;
-				if (pick == coverQueue.size()) pick = q;
-				for (std::size_t k = first; k < first + GuiGameGrid::kPerPage && k < items.size() && !onPage; ++k) {
-					onPage = items[k].id == coverQueue[q] || CoverName(items[k]) == coverQueue[q] ||
-					         riftwii::emulator_banner_key(items[k].id, skin::WideMenu()) == coverQueue[q];
-					if (onPage) pick = q;
-				}
-			}
+		    riftwii::wii::CoverFetchGame().empty() && !DownloadsWaiting()) {
+			const std::size_t pick = NearestQueuedCover(coverQueue, items, grid);
 			if (pick < coverQueue.size() && !riftwii::wii::CoverWanted(coverQueue[pick])) {
 				coverQueue.erase(coverQueue.begin() + static_cast<std::ptrdiff_t>(pick));
 			} else if (pick < coverQueue.size() && riftwii::wii::StartCoverFetch(coverQueue[pick])) {
@@ -6765,7 +6845,7 @@ static int MenuSource(FrontendState& state)
 		// without one shows its cover meanwhile): the ones near the focus first.
 		if (!g_sdGone && !g_sdRemovalPending && !g_scanning && coverQueue.empty() && grid.Ring() && !g_covers3dOff && !g_coversOff && riftwii::wii::Settings().online &&
 		    !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&
-		    riftwii::wii::Cover3dFetchGame().empty()) {
+		    riftwii::wii::Cover3dFetchGame().empty() && !DownloadsWaiting()) {
 			for (const int i : grid.ShelfWanted()) {
 				const std::string& id = items[static_cast<std::size_t>(i)].id;
 				if (!g_covers3dChecked.insert(id).second || !riftwii::wii::Cover3dWanted(id)) continue;
@@ -6774,12 +6854,16 @@ static int MenuSource(FrontendState& state)
 			}
 		}
 		// The full covers once the covers are in, in every view with
-		// pictures (not Names: a queue kept from another view waits): on the
-		// shelf the boxes near the focus first, elsewhere the page on screen
-		// first, then the rest in Home's order.
+		// pictures (not Names: a queue kept from another view waits), only
+		// near what is on screen: on the shelf the boxes near the focus,
+		// elsewhere the page shown (the zoomed cover's box). The rest come as
+		// the player gets to them. Each is a download of up to a few hundred
+		// KB and a picture unpacked to a few MB: the whole of a 348-game
+		// library's, in the background, kept the network and the heap busy
+		// for the whole session (a tester's menu ran out of memory, 2610-810).
+		bool boxesNearbyWaiting = false;
 		if (!g_sdGone && !g_sdRemovalPending && !g_scanning && coverQueue.empty() && !g_boxQueue.empty() && !g_boxesOff && !g_coversOff && riftwii::wii::Settings().home_tiles != "names" && riftwii::wii::Settings().online &&
-		    !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&
-		    riftwii::wii::BoxFetchGame().empty()) {
+		    !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed()) {
 			std::vector<std::size_t> nearFirst;
 			if (grid.Shelf() && !grid.Ring()) {
 				for (const int i : grid.ShelfWanted()) nearFirst.push_back(static_cast<std::size_t>(i));
@@ -6788,27 +6872,30 @@ static int MenuSource(FrontendState& state)
 				for (std::size_t k = first; k < first + GuiGameGrid::kPerPage && k < items.size(); ++k) nearFirst.push_back(k);
 			}
 			std::size_t pick = 0;
-			bool nearby = false;
-			for (std::size_t k = 0; k < nearFirst.size() && !nearby; ++k) {
+			for (std::size_t k = 0; k < nearFirst.size() && !boxesNearbyWaiting; ++k) {
 				const auto queued = std::find(g_boxQueue.begin(), g_boxQueue.end(), items[nearFirst[k]].id);
 				if (queued == g_boxQueue.end()) continue;
 				pick = static_cast<std::size_t>(queued - g_boxQueue.begin());
-				nearby = true;
+				boxesNearbyWaiting = true;
 			}
-			const std::string id = g_boxQueue[pick];
-			// Asked for again since it was queued (the game's own page fetches
-			// its own). Kept for the next turn when the download can't start
-			// now, as a 2D cover is.
-			if (!riftwii::wii::BoxWanted(id) || riftwii::wii::StartBoxFetch(id))
-				g_boxQueue.erase(g_boxQueue.begin() + static_cast<std::ptrdiff_t>(pick));
+			const bool canStart = riftwii::wii::CoverFetchGame().empty() && riftwii::wii::BoxFetchGame().empty() &&
+				!DownloadsWaiting();
+			if (boxesNearbyWaiting && canStart) {
+				const std::string id = g_boxQueue[pick];
+				// Asked for again since it was queued (the game's own page fetches
+				// its own). Kept for the next turn when the download can't start
+				// now, as a 2D cover is.
+				if (!riftwii::wii::BoxWanted(id) || riftwii::wii::StartBoxFetch(id))
+					g_boxQueue.erase(g_boxQueue.begin() + static_cast<std::ptrdiff_t>(pick));
+			}
 		}
 		// None of either started this turn: what the downloads came to so
 		// far, once for each new batch.
 		if (!riftwii::wii::NetBackgroundBusy() && riftwii::wii::BoxFetchGame().empty() &&
 		    riftwii::wii::Cover3dFetchGame().empty()) {
 			for (riftwii::CoverDownloads* run : {&g_boxRun, &g_cover3dRun}) {
-				// The full covers' queue: once it is through.
-				if (run == &g_boxRun && !g_boxQueue.empty() && !g_boxesOff) continue;
+				// The full covers: once none near the screen waits.
+				if (run == &g_boxRun && boxesNearbyWaiting && !g_boxesOff) continue;
 				const std::string summary = run->take_summary();
 				if (!summary.empty()) logf("%s\n", summary.c_str());
 			}
@@ -13916,6 +14003,7 @@ static int MenuHome(FrontendState& state)
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
+		RestartIfOutOfMemory();
 		PollMenuDiscCover();
 		HaltGui();
 		ClearStaleButtons({&backBtn.button, &startBtn.button});
@@ -15967,6 +16055,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
+		RestartIfOutOfMemory();
 		HaltGui();
 		riftwii::wii::NetworkTest networkTest;
 		if (riftwii::wii::TakeNetworkTest(networkTest)) {
@@ -17148,6 +17237,7 @@ int MainMenu(int menu, FrontendState& state)
 	while(currentMenu != MENU_EXIT && currentMenu != MENU_LAUNCH && currentMenu != MENU_BOOT && currentMenu != MENU_DUMP &&
 		currentMenu != MENU_CHANNEL && currentMenu != MENU_PLAY_CHANNEL && currentMenu != MENU_HOMEBREW)
 	{
+		RestartIfOutOfMemory();
 		logf("Screen: %s\n", ScreenName(currentMenu));
 		skin::SetOnHome(currentMenu == MENU_SOURCE);
 		riftwii::wii::mem::WatchHeap((std::string("on the way to the ") + ScreenName(currentMenu) + " screen").c_str());

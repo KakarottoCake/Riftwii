@@ -88,7 +88,7 @@ extern "C" void __wrap___CheckARGV() {
     // A freshly loaded DOL must use its new loader's arguments, never a
     // handoff left by a different run with the same writable-data size.
     // A warm restart has no fresh stash and owns the bounded inline copy.
-    if (stash::FreshStart() || h->kind == 0 || h->kind > static_cast<u32>(RestartKind::DiscCopy) ||
+    if (stash::FreshStart() || h->kind == 0 || h->kind > static_cast<u32>(RestartKind::OutOfMemory) ||
         h->argv_length > kArgvMax ||
         (h->argv_length != 0 && h->argv[h->argv_length - 1] != '\0')) {
         h->magic = 0;
@@ -142,8 +142,12 @@ bool WarmRestart(RestartKind kind, const std::string& message, bool unmount) {
     h->magic = kHandoffMagic;
 
     NetCancelBackground();  // a theme download: fetched again after the restart
-    NetWaitForBackground();
-    CoverLoaderHold();
+    // Not when a thread stopped as the menu ran out of memory: it may be
+    // one of these two, and would never answer.
+    if (!mem::ThreadsStoppedForRestart()) {
+        NetWaitForBackground();
+        CoverLoaderHold();
+    }
     logf("Restarting RiftWii\n");
     LogClose();
     if (unmount) fatUnmount("sd:");
