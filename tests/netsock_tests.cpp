@@ -159,9 +159,31 @@ void logf(const char* format, ...) {
 }
 }  // namespace riftwii::wii
 
+// A receive waits only as long as set_receive_timeout says (the clock
+// question's short wait, tls.cpp's AskServerDate), not the 10 s default.
+void test_receive_timeout() {
+    reply = Reply::Quiet;
+    riftwii::wii::SocketTransport transport;
+    riftwii::wii::NetServer server;
+    server.ip = 0xC0A80114u;
+    server.port = 80;
+    std::string error;
+    expect(transport.connect(server, 1000, error), "The transport did not connect to the stub socket");
+    transport.set_receive_timeout(500);
+    netsock_test_time = 0;
+    unsigned char data[16];
+    std::size_t got = 0;
+    expect(!transport.receive_some(data, sizeof(data), got), "A receive with nothing to read succeeded");
+    // poll_for looks at the clock before each 100 ms slice, and pauses 1 ms
+    // between them: it ends within a slice and those pauses past the timeout.
+    expect(netsock_test_time >= 500, "A receive gave up before its timeout");
+    expect(netsock_test_time <= 700, "A receive waited past its own timeout");
+}
+
 int main() {
     test_cancelled_retry();
     test_launch_cleanup();
+    test_receive_timeout();
     for (Reply scenario : {Reply::Quiet, Reply::Valid, Reply::InvalidPort, Reply::Short}) {
         reply = scenario;
         netsock_test_time = 0;
