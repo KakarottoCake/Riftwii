@@ -139,7 +139,7 @@ void load_bitmap_font(const WiiMenuContentReader& reader) {
         return;
     }
     if (use_bitmap_app(app, size, path.c_str())) {
-        logf("Menu font: read the Wii Menu's bitmap font through ES\n");
+        logf("Menu font: read the Wii Menu's bitmap font\n");
         save_cache(kCacheBitmap, app, size);
     }
 }
@@ -199,7 +199,7 @@ u8* LoadWiiMenuFont(std::size_t& size, std::string& why) {
         skin::Mem2Release(app, app_size);
         return nullptr;
     }
-    logf("Menu font: read the Wii Menu's TrueType font through ES\n");
+    logf("Menu font: read the Wii Menu's TrueType font\n");
     save_cache(korean_font ? kCacheKorean : kCacheFont, app, app_size);
     return app + at;
 }

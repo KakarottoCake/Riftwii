@@ -30,6 +30,8 @@ int read_calls = 0;
 s32 file_size = 64;
 s32 read_size = 64;
 bool refuse_first_view = false;
+int nand_calls = 0;
+bool nand_works = false;
 
 bool Aligned(const void* pointer) {
     return reinterpret_cast<std::uintptr_t>(pointer) % 32 == 0;
@@ -50,6 +52,8 @@ void Reset(unsigned contents = 2) {
     file_size = 64;
     read_size = 64;
     refuse_first_view = false;
+    nand_calls = 0;
+    nand_works = false;
     tmd_bytes.assign(0x1e4 + contents * 36, 0);
     tmd_bytes[0x18f] = 1;
     tmd_bytes[0x193] = 2;
@@ -134,6 +138,8 @@ void TestReadFailuresAndBounds() {
         EXPECT(!reader.Read(reader.Metadata().contents[1], bytes, sizeof bytes, why));
         EXPECT(why == std::string(call) + " failed (-1026)");
         EXPECT(close_calls == (fail_call == "ES_OpenTitleContent" ? 0 : 1));
+        // Only a refused open tries the NAND; it failed too, so ES's words stay.
+        EXPECT(nand_calls == (fail_call == "ES_OpenTitleContent" ? 1 : 0));
     }
     for (bool short_read : {false, true}) {
         Reset();
@@ -161,7 +167,44 @@ void TestReadFailuresAndBounds() {
     EXPECT(!AllocateMenuContentBuffer(content.size, why));
     EXPECT(!AllocateMenuContentBuffer(0, why));
 }
+// ES refuses every view (a Wii and a vWii started from the RiftWii
+// channel, 2610-810): the NAND's copy is read instead.
+void TestNandWhenEsRefuses() {
+    Reset();
+    WiiMenuContentReader reader("Menu font");
+    std::string why;
+    EXPECT(reader.Open(why));
+    fail_call = "ES_OpenTitleContent";
+    nand_works = true;
+    alignas(32) u8 bytes[64]{};
+    EXPECT(reader.Read(reader.Metadata().contents[1], bytes, sizeof bytes, why));
+    EXPECT(open_calls == 2);  // each ticket view first
+    EXPECT(nand_calls == 1);
+    EXPECT(read_calls == 0);
+    EXPECT(bytes[63] == 0xa5);
+    EXPECT(logs.find("Menu font: read from the NAND, as ES refused it") != std::string::npos);
+
+    Reset();
+    WiiMenuContentReader failing("Wii Menu sounds");
+    EXPECT(failing.Open(why));
+    fail_call = "ES_OpenTitleContent";
+    EXPECT(!failing.Read(failing.Metadata().contents[1], bytes, sizeof bytes, why));
+    EXPECT(why == "ES_OpenTitleContent failed (-1026)");
+    EXPECT(logs.find("Wii Menu sounds: the NAND's copy could not be read either (no NAND here)") != std::string::npos);
+}
 }  // namespace
+
+bool riftwii::wii::ReadMenuContentFromNand(const TmdContent& content, void* buffer, const char*, std::string& why) {
+    ++nand_calls;
+    EXPECT(Aligned(buffer));
+    EXPECT(content.index == 23);
+    if (!nand_works) {
+        why = "no NAND here";
+        return false;
+    }
+    std::memset(buffer, 0xa5, static_cast<std::size_t>(content.size));
+    return true;
+}
 
 s32 ES_GetStoredTMDSize(u64 title, u32* size) {
     EXPECT(title == kSystemMenu);
@@ -226,5 +269,6 @@ int main() {
     TestSharedIndexAndAlignment();
     TestMetadataFailures();
     TestReadFailuresAndBounds();
+    TestNandWhenEsRefuses();
     return failures == 0 ? 0 : 1;
 }
