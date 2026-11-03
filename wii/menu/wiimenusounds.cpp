@@ -106,7 +106,7 @@ bool ReadArchive(std::string& why) {
                 return false;
             }
             g_resident_bytes += (file.bytes.size + 31) & ~std::size_t(31);
-            logf("Wii Menu sounds: read content index %u/%s (%u bytes) through ES into memory only\n",
+            logf("Wii Menu sounds: read content index %u/%s (%u bytes) into memory only\n",
                  static_cast<unsigned>(content.index), file.name.c_str(),
                  static_cast<unsigned>(file.bytes.size));
             return true;

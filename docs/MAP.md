@@ -151,6 +151,7 @@ The build compiles every folder into one, so no two files share a name.
 | `themestore.cpp` | The theme browser's engine (Settings > Theme > Get more themes): the list, the previews, the download and safe install, all in MEM2 on the network's background thread; the page is `MenuThemeBrowser` in `rift_menu.cpp` |
 | `riitagview.cpp` | Settings > Online > My RiiTag: the player's tag picture (`riitag_id`) downloaded on the network's background thread, decoded and shrunk in MEM2; the page is `MenuRiiTag` in `rift_menu.cpp` |
 | `menumusic.cpp` | The background music: the player's own pick (an Ogg or MP3 song, a playlist or a shuffled folder, Settings > Music file), theme/card Ogg or the selected Wii Menu source |
+| `wiimenucontent.cpp`, `wiimenunand.cpp` | The System Menu's contents (font, sounds, music) read through ES, or from their NAND files when ES refuses them |
 | `wiimenusounds.cpp` | Reads the console's System Menu sound archive through IOS, renders bounded effects in MEM2 and streams sequence music; no disk cache |
 | `themesounds.cpp` | Playback-time theme WAV replacements, then the selected Wii Menu sounds |
 | `menusounds.cpp` | RiftWii's own effects, decoded once at startup |

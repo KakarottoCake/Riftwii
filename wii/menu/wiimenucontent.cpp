@@ -89,7 +89,16 @@ bool WiiMenuContentReader::Read(const TmdContent& content, void* buffer, std::si
         if (fd >= 0) break;
         Failed("ES_OpenTitleContent", fd, why);
     }
-    if (fd < 0) return false;
+    if (fd < 0) {
+        // `why` keeps ES's refusal when the NAND fails too.
+        std::string nand_why;
+        if (ReadMenuContentFromNand(content, buffer, log_name_, nand_why)) {
+            logf("%s: read from the NAND, as ES refused it\n", log_name_);
+            return true;
+        }
+        logf("%s: the NAND's copy could not be read either (%s)\n", log_name_, nand_why.c_str());
+        return false;
+    }
     const s32 length = ES_SeekContent(fd, 0, SEEK_END);
     bool ok = false;
     if (length < 0) {

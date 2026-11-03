@@ -14,7 +14,10 @@ using MenuContentBuffer = std::unique_ptr<u8, decltype(&std::free)>;
 MenuContentBuffer AllocateMenuContentBuffer(std::size_t size, std::string& why);
 
 // ES resolves both private and shared contents by their TMD index. No IOS
-// permission patch, title identity change or direct NAND handle is needed.
+// permission patch, title identity change or direct NAND handle is needed,
+// where ES allows it: when it refuses the content (-1026 for every view on
+// a Wii and a vWii started from the RiftWii channel, 2610-810), Read takes
+// the NAND's own copy (ReadMenuContentFromNand).
 class WiiMenuContentReader {
 public:
     explicit WiiMenuContentReader(const char* log_name) : log_name_(log_name) {}
@@ -31,5 +34,12 @@ private:
     alignas(32) tikview views_[16]{};
     u32 view_count_ = 0;
 };
+
+// `content` (content.size bytes into a 32-byte aligned buffer) read from
+// its file on the NAND: a shared one by the name content.map gives its
+// hash, any other from the System Menu's title folder. Opens IOS's NAND
+// permission check when refused, which needs hardware access. `who` starts
+// the log lines (wii/menu/wiimenunand.cpp).
+bool ReadMenuContentFromNand(const TmdContent& content, void* buffer, const char* who, std::string& why);
 
 }  // namespace riftwii::wii
