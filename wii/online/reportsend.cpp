@@ -672,6 +672,10 @@ bool UnreportedCrash(std::string& what) {
         what = "launch";
         return true;
     }
+    if (note.kind == RestartKind::OutOfMemory) {
+        what = "memory";
+        return true;
+    }
     if (stamp.empty() || stamp == asked) return false;
     // The first run with reports: an old crash.txt is not asked about.
     if (!known) {

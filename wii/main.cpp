@@ -667,6 +667,7 @@ int main() {
     riftwii::wii::ScreenshotsStart();
     riftwii::wii::mem::LogUsage("threads started");
     riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Menu);
+    riftwii::wii::mem::GuardMenuMemory(riftwii::wii::tr("RiftWii ran out of memory and restarted."));
     // The plugin test switch (docs/DEVELOPING.md): only with
     // sd:/riftwii/plugin_test.txt on the card; nothing loads at a plain
     // start. Here, with the menu's crash screen ready, so a plugin that
@@ -696,6 +697,8 @@ int main() {
             action == MENU_PLAY_CHANNEL || action == MENU_HOMEBREW)
             RefreshLaunchFrame(state, action);
     }
+    // The menu's background work is over: the launch gets its spare back.
+    riftwii::wii::mem::EndMenuMemoryGuard();
     // Before the adapter stops: what the player had plugged in, for the
     // launch's log.
     const std::string controllers = riftwii::wii::DescribeControllers();

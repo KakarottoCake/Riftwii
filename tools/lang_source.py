@@ -1295,6 +1295,8 @@ T = {
     "RiftWii crashed last time": ("RiftWii se bloqueó la última vez", "前回RiftWiiがクラッシュしました", "O RiftWii travou da última vez", "L'ultima volta RiftWii si è bloccato"),
     "The game crashed last time": ("El juego se bloqueó la última vez", "前回ゲームがクラッシュしました", "O jogo travou da última vez", "L'ultima volta il gioco si è bloccato"),
     "The last launch failed": ("El último inicio falló", "前回の起動に失敗しました", "A última inicialização falhou", "L'ultimo avvio non è riuscito"),
+    "RiftWii ran out of memory last time": ("La última vez RiftWii se quedó sin memoria", "前回RiftWiiのメモリが足りなくなりました", "Da última vez o RiftWii ficou sem memória", "L'ultima volta RiftWii ha esaurito la memoria"),
+    "RiftWii ran out of memory and restarted.": ("RiftWii se quedó sin memoria y se reinició.", "RiftWiiのメモリが足りなくなったため、再起動しました。", "O RiftWii ficou sem memória e reiniciou.", "RiftWii ha esaurito la memoria e si è riavviato."),
     "Send a report of what happened?": (
         "¿Enviar un informe de lo que pasó?",
         "何が起きたかのレポートを送信しますか？",
@@ -3233,6 +3235,10 @@ KO = {
         "지난번에 게임이 튕겼음",
     "The last launch failed":
         "마지막 실행에 실패했음",
+    "RiftWii ran out of memory last time":
+        "지난번에 RiftWii의 메모리가 부족했음",
+    "RiftWii ran out of memory and restarted.":
+        "RiftWii의 메모리가 부족해서 다시 시작했습니다.",
     "Send a report of what happened?":
         "무슨 일이 있었는지에 대한 보고서를 보낼까요?",
     "Send":
@@ -5109,6 +5115,10 @@ FR = {
         "Le jeu a planté la dernière fois",
     "The last launch failed":
         "Le dernier lancement a échoué",
+    "RiftWii ran out of memory last time":
+        "RiftWii a manqué de mémoire la dernière fois",
+    "RiftWii ran out of memory and restarted.":
+        "RiftWii a manqué de mémoire et a redémarré.",
     "Send a report of what happened?":
         "Envoyer un rapport d'incident ?",
     "Send":

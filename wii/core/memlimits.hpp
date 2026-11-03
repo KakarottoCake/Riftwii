@@ -148,6 +148,30 @@ bool GuardLaunchMemory(std::string& error, Run run) {
     return ok;
 }
 
+// The menu's own guard, from the menu's start until it closes. Without it
+// an allocation that fails outside the checked ones (riftwii/checkedalloc.hpp)
+// left RiftWii for the Homebrew Channel with nothing logged and no crash
+// file (a tester's 348 games, 2610-810). The first failure lets go of a
+// spare block, so the request is tried again and the menu goes on, logs
+// it, and has the menu restart RiftWii at its next turn
+// (MenuOutOfMemoryRestartDue). A second one restarts it at once, from
+// whichever of the menu's threads asked; a thread that runs out while that
+// restart runs stops where it is and waits for it.
+// `restart_notice` is what Home shows after the restart, already
+// translated: the handler cannot make a string.
+void GuardMenuMemory(const std::string& restart_notice);
+void EndMenuMemoryGuard();
+// True once the menu has run out: its loops call RestartAfterMenuOutOfMemory.
+bool MenuOutOfMemoryRestartDue();
+// True when a thread stopped for that restart (it ran out with no spare
+// left): the restart then waits for no other thread (the network's job,
+// the cover loader, the drive scan), as the one it waited for might be it.
+bool ThreadsStoppedForRestart();
+// Restarts RiftWii with the notice, or leaves for the Homebrew Channel when
+// it cannot. Right after a restart for the same reason it leaves too,
+// rather than restart for ever.
+[[noreturn]] void RestartAfterMenuOutOfMemory();
+
 // In Dolphin only (a no-op on a Wii): fills MEM2 from where libogc left
 // arena 2's low end up to kMem2Floor with 0xDEADBEEF. Called by
 // reload_ios once the new IOS is launched.

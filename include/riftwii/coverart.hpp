@@ -51,6 +51,11 @@ int http_answered_status(const std::string& error);
 // answer about the cover.
 bool cover_answer_means_missing(int status);
 
+// Whether `status` asks to come back later: 429 (too many requests) or 503
+// (busy). The download waits and is tried again (CoverOutcome::Busy)
+// rather than counted as one that got no answer.
+bool cover_answer_means_busy(int status);
+
 // How one picture's download ended (wii/menu/covers.cpp's FetchCover, and
 // the same for the shelf's boxes and the 3D covers).
 enum class CoverOutcome {
@@ -58,6 +63,7 @@ enum class CoverOutcome {
     NotFound,     // GameTDB has none, in any region tried
     NoAnswer,     // no answer about it: no connection, TLS, a timeout, a server in trouble
     CannotStore,  // downloaded, but the SD card could not take it (full?)
+    Busy,         // the server asked to come back later: tried again after busy_wait_seconds
 };
 
 // The downloads of one kind of GameTDB picture (covers, the shelf's boxes,
@@ -66,9 +72,13 @@ enum class CoverOutcome {
 // the rest go on: some titles have no GameTDB entry, and one slow answer is
 // not a dead network (issue #130). Downloads stop only once
 // kNoAnswerInARow in a row got no answer, or when the card cannot store one.
+// A server that asks to come back later (Busy) is waited for, longer each
+// time, and its game asked for again; the downloads stop once it has asked
+// kBusyInARow times in a row.
 class CoverDownloads {
 public:
     static constexpr unsigned kNoAnswerInARow = 3;
+    static constexpr unsigned kBusyInARow = 6;
 
     // `log_name` starts its log lines ("Covers"), `picture` names one of
     // them in the summary ("cover").
@@ -91,6 +101,12 @@ public:
     unsigned stored() const { return stored_; }
     unsigned not_found() const { return not_found_; }
     unsigned no_answer() const { return no_answer_; }
+    unsigned busy() const { return busy_; }
+
+    // How long to wait after the last Busy before the next download: 5
+    // seconds after the first in a row, twice as long after each one more,
+    // at most a minute. 0 when the last answer was not Busy.
+    unsigned busy_wait_seconds() const;
 
 private:
     std::string log_name_;
@@ -100,6 +116,8 @@ private:
     unsigned not_found_ = 0;
     unsigned no_answer_ = 0;
     unsigned no_answer_in_a_row_ = 0;
+    unsigned busy_ = 0;
+    unsigned busy_in_a_row_ = 0;
     bool counted_since_summary_ = false;
 };
 

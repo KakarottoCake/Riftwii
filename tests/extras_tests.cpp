@@ -1598,6 +1598,41 @@ void TestCoverDownloads() {
     EXPECT_FALSE(boxes.count(CoverOutcome::NotFound));
     EXPECT_EQ(boxes.take_summary(), std::string("Shelf: 0 downloaded this session; GameTDB has no full cover for 1 "
                                                 "game(s) (asked again in a week)."));
+
+    // "Come back later" is waited for, longer each time, and is not "no
+    // answer": it never adds up with those to stop the downloads.
+    EXPECT_TRUE(cover_answer_means_busy(429));
+    EXPECT_TRUE(cover_answer_means_busy(503));
+    EXPECT_FALSE(cover_answer_means_busy(404));
+    EXPECT_FALSE(cover_answer_means_busy(500));
+    EXPECT_FALSE(cover_answer_means_busy(0));
+    CoverDownloads busy;
+    EXPECT_EQ(busy.busy_wait_seconds(), 0u);
+    EXPECT_FALSE(busy.count(CoverOutcome::NoAnswer));
+    EXPECT_FALSE(busy.count(CoverOutcome::NoAnswer));
+    EXPECT_FALSE(busy.count(CoverOutcome::Busy));
+    EXPECT_EQ(busy.busy_wait_seconds(), 5u);
+    EXPECT_FALSE(busy.count(CoverOutcome::NoAnswer));  // the two before it no longer count
+    EXPECT_FALSE(busy.count(CoverOutcome::Busy));
+    EXPECT_EQ(busy.busy_wait_seconds(), 5u);  // a NoAnswer between: the waits start over
+    EXPECT_FALSE(busy.count(CoverOutcome::Busy));
+    EXPECT_EQ(busy.busy_wait_seconds(), 10u);
+    EXPECT_FALSE(busy.count(CoverOutcome::Busy));
+    EXPECT_EQ(busy.busy_wait_seconds(), 20u);
+    EXPECT_FALSE(busy.count(CoverOutcome::Busy));
+    EXPECT_EQ(busy.busy_wait_seconds(), 40u);
+    EXPECT_FALSE(busy.count(CoverOutcome::Busy));
+    EXPECT_EQ(busy.busy_wait_seconds(), 60u);
+    // The sixth in a row stops them.
+    EXPECT_TRUE(busy.count(CoverOutcome::Busy));
+    EXPECT_EQ(busy.busy_wait_seconds(), 60u);
+    busy.reset();
+    EXPECT_FALSE(busy.count(CoverOutcome::Busy));
+    EXPECT_FALSE(busy.count(CoverOutcome::Stored));
+    EXPECT_EQ(busy.busy_wait_seconds(), 0u);
+    EXPECT_EQ(busy.busy(), 1u);
+    EXPECT_EQ(busy.take_summary(), std::string("Covers: 1 downloaded this session; GameTDB has no cover for 0 game(s) "
+                                               "(asked again in a week); GameTDB asked to wait 1 time(s)."));
 }
 
 void TestCoverArt() {

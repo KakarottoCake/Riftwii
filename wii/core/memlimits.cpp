@@ -3,6 +3,7 @@
 #include "memlimits.hpp"
 
 #include <gccore.h>
+#include <ogc/lwp_watchdog.h>
 #include <ogc/machine/processor.h>
 #include <ogc/system.h>
 
@@ -14,6 +15,7 @@
 #include <new>
 #include <string>
 #include <reent.h>
+#include <unistd.h>
 
 #include "ios_reload.hpp"
 #include "log.hpp"
@@ -431,6 +433,112 @@ LaunchMemoryGuard::~LaunchMemoryGuard() {
     std::set_new_handler(g_handler_before_launch);
     std::free(g_launch_spare);
     g_launch_spare = nullptr;
+}
+
+namespace {
+
+// Enough for the request that failed to have a chance on its second try
+// (a cover's or a list's), small enough not to cost the menu much: MEM1's
+// heap has about a megabyte free once the menu runs.
+constexpr std::size_t kMenuSpareBytes = 128 * 1024;
+// A run that runs out this soon after the restart for it would only do it
+// again: it leaves for the Homebrew Channel instead.
+constexpr u64 kMenuOutOfMemoryLoopSeconds = 60;
+void* g_menu_spare = nullptr;
+volatile bool g_menu_out_of_memory = false;
+lwp_t g_menu_thread = LWP_THREAD_NULL;
+u64 g_menu_guard_started = 0;
+std::string g_menu_restart_notice;
+// The restart under way and the thread running it. The handler stays in
+// place until the end: with none, a request that fails in another thread
+// meanwhile throws std::bad_alloc, which ends RiftWii (a Dolphin test,
+// back on the Wii Menu with no line logged).
+volatile bool g_menu_restarting = false;
+volatile lwp_t g_menu_restarter = LWP_THREAD_NULL;
+// Threads that ran out once the spare was gone and wait for the restart.
+volatile unsigned g_threads_stopped = 0;
+
+[[noreturn]] void LeaveAfterMenuOutOfMemory() {
+    logf("RiftWii cannot restart itself from here; leaving to the Homebrew Channel.\n");
+    LogClose();
+    std::exit(0);
+}
+
+// A thread with nothing left to run on: it waits for the restart, which
+// stops it with every other.
+[[noreturn]] void StopForRestart() {
+    u32 level;
+    _CPU_ISR_Disable(level);
+    g_threads_stopped = g_threads_stopped + 1;
+    _CPU_ISR_Restore(level);
+    for (;;) usleep(100000);
+}
+
+// operator new calls this when malloc fails while the menu runs. Nothing
+// here may allocate: the log line is formatted into the log's own buffer.
+void MenuOutOfMemory() {
+    if (g_menu_spare != nullptr) {
+        std::free(g_menu_spare);
+        g_menu_spare = nullptr;
+        g_menu_out_of_memory = true;
+        logf("Memory: the menu ran out (a request the heap could not meet, %u allocation(s) refused for lack of "
+             "room so far); its spare %u KiB was let go so it goes on, and RiftWii restarts at the menu's next turn\n",
+             static_cast<unsigned>(g_refused), static_cast<unsigned>(kMenuSpareBytes / 1024));
+        LogUsage("out of memory");
+        return;  // operator new tries again
+    }
+    if (g_menu_restarting && LWP_GetSelf() == g_menu_restarter) {
+        logf("Memory: the restart itself ran out\n");
+        LeaveAfterMenuOutOfMemory();
+    }
+    // The request was bigger than the spare (a Dolphin test with the heap
+    // kept from growing: the very next one). Restarted from whichever
+    // thread asked, or this one waits for the restart another runs.
+    logf("Memory: the menu ran out again, with no spare left (%s)\n",
+         LWP_GetSelf() == g_menu_thread ? "on the menu's thread" : "on another of its threads");
+    RestartAfterMenuOutOfMemory();
+}
+
+}  // namespace
+
+void GuardMenuMemory(const std::string& restart_notice) {
+    g_menu_restart_notice = restart_notice;
+    g_menu_thread = LWP_GetSelf();
+    g_menu_guard_started = gettime();
+    if (g_menu_spare == nullptr) g_menu_spare = std::malloc(kMenuSpareBytes);
+    std::set_new_handler(MenuOutOfMemory);
+}
+
+void EndMenuMemoryGuard() {
+    // The launch gets the spare back, and its own handler (LaunchMemoryGuard).
+    std::set_new_handler(nullptr);
+    std::free(g_menu_spare);
+    g_menu_spare = nullptr;
+}
+
+bool MenuOutOfMemoryRestartDue() { return g_menu_out_of_memory; }
+
+bool ThreadsStoppedForRestart() { return g_threads_stopped != 0; }
+
+void RestartAfterMenuOutOfMemory() {
+    // One restart: a thread that gets here while another runs it waits.
+    u32 level;
+    _CPU_ISR_Disable(level);
+    const bool first = !g_menu_restarting;
+    if (first) {
+        g_menu_restarting = true;
+        g_menu_restarter = LWP_GetSelf();
+    }
+    _CPU_ISR_Restore(level);
+    if (!first) StopForRestart();
+    const bool again_at_once = CurrentRestartNote().kind == RestartKind::OutOfMemory &&
+                               ticks_to_secs(gettime() - g_menu_guard_started) < kMenuOutOfMemoryLoopSeconds;
+    if (again_at_once) {
+        logf("Memory: the menu ran out again right after restarting for it\n");
+        LeaveAfterMenuOutOfMemory();
+    }
+    if (CanRestart()) WarmRestart(RestartKind::OutOfMemory, g_menu_restart_notice);
+    LeaveAfterMenuOutOfMemory();
 }
 
 }  // namespace riftwii::wii::mem

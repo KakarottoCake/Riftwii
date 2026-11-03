@@ -106,27 +106,48 @@ bool cover_answer_means_missing(int status) {
     return redirect || refused;
 }
 
+bool cover_answer_means_busy(int status) {
+    return status == 429 || status == 503;
+}
+
 bool CoverDownloads::count(CoverOutcome outcome) {
     counted_since_summary_ = true;
     switch (outcome) {
         case CoverOutcome::Stored:
             ++stored_;
             no_answer_in_a_row_ = 0;
+            busy_in_a_row_ = 0;
             return false;
         case CoverOutcome::NotFound:
             // GameTDB answered, so the network is working.
             ++not_found_;
             no_answer_in_a_row_ = 0;
+            busy_in_a_row_ = 0;
             return false;
         case CoverOutcome::NoAnswer:
             ++no_answer_;
             ++no_answer_in_a_row_;
+            busy_in_a_row_ = 0;
             return no_answer_in_a_row_ >= kNoAnswerInARow;
         case CoverOutcome::CannotStore:
             // Every cover after it would fail the same way.
             return true;
+        case CoverOutcome::Busy:
+            // An answer: the network works, the server only wants a pause.
+            ++busy_;
+            ++busy_in_a_row_;
+            no_answer_in_a_row_ = 0;
+            return busy_in_a_row_ >= kBusyInARow;
     }
     return true;
+}
+
+unsigned CoverDownloads::busy_wait_seconds() const {
+    if (busy_in_a_row_ == 0) return 0;
+    constexpr unsigned kFirstWait = 5, kLongestWait = 60;
+    unsigned wait = kFirstWait;
+    for (unsigned i = 1; i < busy_in_a_row_ && wait < kLongestWait; ++i) wait *= 2;
+    return wait < kLongestWait ? wait : kLongestWait;
 }
 
 std::string CoverDownloads::take_summary() {
@@ -138,6 +159,7 @@ std::string CoverDownloads::take_summary() {
         text += "; " + std::to_string(no_answer_) +
                 " got no answer and were passed over (tried again after Look for games again or a restart)";
     }
+    if (busy_ != 0) text += "; " + source_ + " asked to wait " + std::to_string(busy_) + " time(s)";
     return text + ".";
 }
 
