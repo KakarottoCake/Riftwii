@@ -86,8 +86,12 @@ int gc_bt_on_reply(struct gc_bt* bt, uint32_t reply) {
     if (bt_claim(&bt->write, reply)) return 1;
     for (i = 0; i < GC_BT_EVENT_READS; ++i)
         if (bt_claim(&bt->events[i], reply)) return 1;
-    for (i = 0; i < GC_BT_ACL_READS; ++i)
-        if (bt_claim(&bt->acl[i], reply)) return 1;
+    for (i = 0; i < GC_BT_ACL_READS; ++i) {
+        if (bt_claim(&bt->acl[i], reply)) {
+            bt->acl[i].arrival = ++bt->acl_arrivals;
+            return 1;
+        }
+    }
     return 0;
 }
 
@@ -681,6 +685,23 @@ static void bt_on_acl(struct gc_bt* bt, const uint8_t* a, uint32_t length) {
 
 /* --- Driving it ----------------------------------------------------- */
 
+/* The completed ACL read that came back first, GC_BT_ACL_READS when none.
+ * IOS fills the reads in the order they were sent, and each is sent again
+ * as soon as it is handled, so after a few polls the slots' order is not
+ * the order their reports came in: a report read in slot 5 can be older
+ * than one in slot 0. Handled slot by slot, the older one won, and a stick
+ * let go (a remote sends only changes) stayed pushed until it moved again. */
+static uint32_t bt_first_acl(const struct gc_bt* bt) {
+    uint32_t i, first = GC_BT_ACL_READS;
+    for (i = 0; i < GC_BT_ACL_READS; ++i) {
+        const struct gc_bt_rq* rq = &bt->acl[i];
+        if (rq->state != GC_BT_RQ_DONE) continue;
+        /* The difference, not the numbers, so the count may wrap. */
+        if (first == GC_BT_ACL_READS || (int32_t)(rq->arrival - bt->acl[first].arrival) < 0) first = i;
+    }
+    return first;
+}
+
 static void bt_read(struct gc_bt* bt, struct gc_bt_rq* rq, uint32_t ioctl, uint32_t endpoint, uint8_t* buf) {
     bt_transfer(bt, rq, ioctl, endpoint, buf, GC_BT_READ_BYTES);
     rq->data = (uint32_t)(uintptr_t)buf;
@@ -809,7 +830,7 @@ int gc_bt_wants_frame_polls(const struct gc_bt* bt) {
 }
 
 void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
-    uint32_t i, msr;
+    uint32_t i, n, msr, handled;
     if (bt->stage == GC_BT_STAGE_FAILED) return;
     msr = gc_irq_off();
     if (gc_ipc_poll_blocked(ctx)) {
@@ -845,13 +866,24 @@ void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
         }
         bt_read(bt, rq, GC_USB_INTRMSG, GC_BT_EP_EVENTS, bt->event_buf[i]);
     }
+    /* The remotes' reports in the order they came in (bt_first_acl), each
+     * read sent again once handled; then the reads whose send was refused
+     * at an earlier poll are retried, once in this pass as well. A read
+     * sent again can come back while a report's answer is written (bt_on_acl
+     * waits for its write), so a pass takes at most GC_BT_ACL_READS reports,
+     * with interrupts off; the rest keep their order for the next poll. */
+    handled = 0;
+    for (n = 0; n < GC_BT_ACL_READS && bt->stage != GC_BT_STAGE_FAILED && (i = bt_first_acl(bt)) < GC_BT_ACL_READS;
+         ++n) {
+        struct gc_bt_rq* rq = &bt->acl[i];
+        if (rq->result > 0) bt_on_acl(bt, bt->acl_buf[i], (uint32_t)rq->result);
+        else bt->last_error = rq->result;
+        bt_read(bt, rq, GC_USB_BLKMSG, GC_BT_EP_ACL_IN, bt->acl_buf[i]);
+        handled |= 1u << i;
+    }
     for (i = 0; i < GC_BT_ACL_READS && bt->stage != GC_BT_STAGE_FAILED; ++i) {
         struct gc_bt_rq* rq = &bt->acl[i];
-        if (rq->state == GC_BT_RQ_SENT) continue;
-        if (rq->state == GC_BT_RQ_DONE) {
-            if (rq->result > 0) bt_on_acl(bt, bt->acl_buf[i], (uint32_t)rq->result);
-            else bt->last_error = rq->result;
-        }
+        if (rq->state != GC_BT_RQ_IDLE || (handled & (1u << i))) continue;
         bt_read(bt, rq, GC_USB_BLKMSG, GC_BT_EP_ACL_IN, bt->acl_buf[i]);
     }
     if (bt->stage >= GC_BT_STAGE_RESET && bt->stage <= GC_BT_STAGE_SCAN && ++bt->stage_polls == 30) {

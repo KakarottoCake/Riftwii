@@ -54,8 +54,10 @@ EXTRA_FIELDS = {
     "rvz": ("disc_bytes", "chunk_bytes", "group_count", "stored_buffer", "stored_bytes", "dctx_buffer",
             "dctx_bytes", "extent_count", "table_extent_count", "slots", "entry_sector", "table_extents",
             "extents", "header", "groups_loaded"),
-    "bt": ("fd", "stage", "polls", "events", "acl", "event_buf", "event_count"),
+    "bt": ("fd", "stage", "polls", "events", "acl", "event_buf", "event_count", "acl_buf", "remotes",
+           "data_reports"),
     "bt_rq": ("state", "result"),
+    "bt_remote": ("used", "handle", "core"),
     "gcad": ("fd", "version", "known_dev", "ticks_per_ms", "polls", "sends", "replies"),
     "disc_change": ("magic", "discs", "current", "state", "due", "alarm", "cover_ticks", "look_ticks"),
 }
@@ -101,6 +103,7 @@ def context_layout(devkitppc):
         expressions["bt_rq.bytes"] = "sizeof(struct gc_bt_rq)"
         expressions["bt.event_reads"] = "GC_BT_EVENT_READS"
         expressions["bt.acl_reads"] = "GC_BT_ACL_READS"
+        expressions["bt.read_bytes"] = "GC_BT_READ_BYTES"
         entries = ",\n".join(expressions.values())
         source.write_text('#include <stddef.h>\n#include "gc_rt.h"\n'
                           '#include "gc_card.h"\n#include "gc_rvz.h"\n'
@@ -501,6 +504,50 @@ def test_bt_read_retries(layout):
     assert all(machine.get_object(slot, "bt_rq", "state") == 1 for slot in slots)
     print("Wii Remote reads: all idle slots retry once per poll, recover after refusals, "
           "never replay completions or reuse IOS-owned buffers")
+
+
+def test_bt_report_order(layout):
+    """Reports are handled in the order IOS completed their reads, not by slot."""
+    machine = Machine(layout)
+    setup_controllers(machine)
+    function, bt = controller_poll("bt")
+    handle = 0x0010
+    remote = bt + layout["bt.remotes"]
+    machine.put_object(remote, "bt_remote", "used", 1)
+    machine.put_object(remote, "bt_remote", "handle", handle)
+    acl_slots = bt_read_slots(machine, bt)[layout["bt.event_reads"]:]
+    first_slot, last_slot = len(acl_slots) - 1, 0
+
+    def complete(index, buttons):
+        # A first ACL packet on the remote's interrupt channel (our CID 0x41
+        # for remote slot 0): a 0x30 report, buttons only.
+        packet = struct.pack("<HHHH", handle | 0x2000, 8, 4, 0x41) + bytes((0xA1, 0x30, buttons, 0))
+        machine.uc.mem_write(bt + layout["bt.acl_buf"] + index * layout["bt.read_bytes"], packet)
+        slot = acl_slots[index]
+        physical = slot & 0x3FFFFFFF
+        pending = next(request for request in machine.pending if request[0] == physical)
+        machine.pending.remove(pending)
+        machine.uc.mem_write(slot + 4, struct.pack(">I", len(packet)))
+        machine.call("gc_bt_on_reply", bt, physical)
+        assert machine.reg(3) == 1
+
+    # Every read goes to the fake IOS, which holds them. Then the slots have
+    # wrapped, as they do after a few polls: the last slot comes back first
+    # with the older report (D-pad right held), the first slot after it
+    # with the newer one (let go). The newer one must be what stays.
+    for slot in bt_read_slots(machine, bt):
+        machine.put_object(slot, "bt_rq", "state", 0)
+    machine.controller_latency = float("inf")
+    machine.call(function, machine.ctx, bt)
+    complete(first_slot, 0x02)
+    complete(last_slot, 0x00)
+    machine.call(function, machine.ctx, bt)
+    core = bytes(machine.uc.mem_read(remote + layout["bt_remote.core"], 2))
+    assert machine.get_object(bt, "bt", "data_reports") == 2
+    assert core == bytes(2), "an older report replaced a newer one: a button stays held"
+    assert all(machine.get_object(slot, "bt_rq", "state") == 1 for slot in acl_slots)
+    print("Wii Remote reports: handled in the order they came back, so a released button "
+          "or stick is not undone by an older report in a lower slot")
 
 
 def test_controller_overlap(layout):
@@ -1481,6 +1528,7 @@ def main():
     test_replacement(layout)
     test_drive_timing(layout)
     test_bt_read_retries(layout)
+    test_bt_report_order(layout)
     test_controller_overlap(layout)
     test_disk_id(layout)
     test_cancel_before_start(layout)

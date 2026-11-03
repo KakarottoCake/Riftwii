@@ -65,7 +65,8 @@ struct gc_bt_rq {
     int32_t result;
     uint32_t data;      /* the buffer IOS writes into, 0: none */
     uint32_t length;
-    uint32_t pad[4];
+    uint32_t arrival;   /* an ACL read's place in the order IOS completed them (gc_bt.acl_arrivals) */
+    uint32_t pad[3];
 };
 #define GC_BT_RQ_IDLE 0u
 #define GC_BT_RQ_SENT 1u
@@ -170,6 +171,7 @@ struct gc_bt {
     uint8_t last_mode;        /* the last report mode sent */
     uint8_t ext_given_up;     /* extensions whose start never finished: played as a remote alone */
     uint32_t data_reports;    /* data reports (0x30-0x3f) from every remote */
+    uint32_t acl_arrivals;    /* ACL reads completed, numbering each as it comes back */
     /* The raw 12-bit range each Pro Controller stick axis has reported, from
      * every Pro (report order: left X, right X, left Y, right Y), so a
      * tester's trace gives gc_pro.h's GC_PRO_STICK_REACH a measured value.
