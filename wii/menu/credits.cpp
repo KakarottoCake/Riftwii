@@ -111,8 +111,8 @@ const char* const kCredits[] = {
     "a controller port, read as documentation; no code copied.",
     "",
     "dekuNukem's Nintendo Switch reverse engineering notes, HIDtoVPAD by Maschell (its controller_patcher, "
-    "GPL-3.0) and Linux's hid-nintendo: the wired Switch Pro Controller's start-up messages and reports, read as "
-    "documentation; no code copied.",
+    "GPL-3.0), Linux's hid-nintendo and SDL's Switch driver: the wired Switch Pro Controller's start-up messages "
+    "and reports, read as documentation; no code copied.",
     "",
     "libwbfs by Kwiirk and contributors, as in Wiimm's WBFS tools: the layout of a WBFS drive. "
     "Friivolution by december: the launch argument other loaders pass. Both read as documentation, "
