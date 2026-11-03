@@ -17,14 +17,23 @@ Rewrite it for every release and delete the line below.
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-Fixed:
+New and fixed:
 
-* Games start after Copy a game disc: Super Mario Galaxy 2 and others failed with "the apploader asked for a load outside RAM" when started in the same session as a copy
+* Choose cover: pick any of GameTDB's covers for a game (or a mod's tile) in its settings
+* WiiSX and Wii64 start now, from the Homebrew list and the Emulators view
+* 007 NightFire: the Wii Remote and HOME should keep working in missions with no GameCube controller plugged in
+* 007 Everything or Nothing from USB switches to its main game like it does from SD
+* Games start after Copy a game disc (Super Mario Galaxy 2 and others)
+* The channel installer no longer stops with "NAND access was not restored" from the Homebrew Channel
 
 To test, please:
 
-1. Copy a game disc, then start the copy straight away without restarting RiftWii
-
-Still looking into: 007 Everything or Nothing going back to RiftWii, and NightFire's Wii Remote stopping at the first mission. A problem report from each helps a lot.
+1. NightFire with a Wii Remote: play into the first mission. Does the Remote keep working?
+2. Everything or Nothing from a USB drive
+3. Choose cover on a couple of games, then Back to automatic
+4. WiiSX or Wii64, and quitting back to RiftWii
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
+
+![Choose cover](docs/screenshots/2610-choose-cover.png)
+![The Choose cover row](docs/screenshots/2610-choose-cover-row.png)
