@@ -257,7 +257,9 @@ bool expand_folder(const FolderPatch& folder, const Fst& fst, ContentProvider& p
     if (!rooted) return search_by_name(folder, fst, provider, sd_dir, 0, x, error);
     std::string disc_dir = disc;
     const std::uint32_t index = fst.find(disc, true);
-    x.targets_disc = index != Fst::npos || folder.create;
+    // A folder that would only be created has nothing on the disc to
+    // replace, so its absence is optional (file_patch_replaces_disc_file).
+    x.targets_disc = index != Fst::npos;
     if (index != Fst::npos) {
         if (!fst.entries()[index].is_directory) {
             error = "folder target '" + folder.disc + "' is a file on the disc";
@@ -298,14 +300,13 @@ bool note_names_missing(const std::string& note) {
            note.find("not on the USB drive") != std::string::npos;
 }
 
-bool file_patch_targets_disc(const FilePatch& patch, const Fst& fst) {
+bool file_patch_replaces_disc_file(const FilePatch& patch, const Fst& fst) {
     if (patch.is_filename) {
         if (same_folded(patch.disc, "main.dol")) return true;
         return !fst.find_files_named(patch.disc, true).empty();
     }
     const std::uint32_t index = fst.find(patch.disc, true);
-    if (index != Fst::npos) return !fst.entries()[index].is_directory;
-    return patch.create;
+    return index != Fst::npos && !fst.entries()[index].is_directory;
 }
 
 bool record_missing_mod_input(std::vector<MissingModInput>& out, const std::string& pack,
