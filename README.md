@@ -164,9 +164,10 @@ contains theirs names them in its file header, and
   game asks SIProbe before it reads a controller port, read as
   documentation; no code copied.
 - **dekuNukem's Nintendo Switch reverse engineering notes**, **HIDtoVPAD**
-  by Maschell (its controller_patcher, GPL-3.0) and Linux's
-  **hid-nintendo**: the wired Switch Pro Controller's start-up messages
-  and reports, read as documentation; no code copied.
+  by Maschell (its controller_patcher, GPL-3.0), Linux's
+  **hid-nintendo** and **SDL**'s Switch driver: the wired Switch Pro
+  Controller's start-up messages and reports, read as documentation; no
+  code copied.
 - **pugixml** by Arseny Kapoulkine, **Zstandard** by Meta, **BearSSL**
   by Thomas Pornin, **FreeType**, **zlib**, **libogg**, **Tremor**, **libmad**.
 - **libretro-thumbnails** and its contributors (including MobyGames and Fandom)
