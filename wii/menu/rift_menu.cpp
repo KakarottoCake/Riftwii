@@ -1950,6 +1950,9 @@ static void ResetCoverDownloads()
 	g_cover3dRun.reset();
 }
 
+// The menu ran out of memory: restarted at a screen's next turn (below).
+static void RestartIfOutOfMemory();
+
 // Home's picture downloads wait until then (gettime ticks; 0: no wait): a
 // server asked to come back later (CoverOutcome::Busy). One wait for them
 // all, as they mostly ask the same server.
@@ -2358,6 +2361,7 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 	int choice = -1;  // 0 Start, 1 back, 2 the game's page
 	while (choice < 0) {
 		usleep(20000);
+		RestartIfOutOfMemory();
 		if (soundIn >= 0 && soundIn-- == 0) {
 			// No sound of its own: the menu's music comes back.
 			riftwii::wii::BannerSoundStart(pendingSound);
@@ -3113,8 +3117,6 @@ static bool PopupJustClosed()
 	return g_popupClosedAt != 0 && diff_msec(g_popupClosedAt, gettime()) < 400;
 }
 
-static void RestartIfOutOfMemory();
-
 // The popup, as the Wii Menu's message box (skin::popup): its title in the
 // darker band across the top, the text below it (centred, as the Wii's,
 // unless it is a list or sits beside something), the buttons above the
@@ -3406,6 +3408,7 @@ static int PickHomeChoice(const char* name, std::vector<TileSpec>& tiles, int cu
 	int picked = -1;
 	for (;;) {
 		usleep(20000);
+		RestartIfOutOfMemory();
 		HaltGui();
 		const int prompt = prompts.GetClicked();
 		if (back.Clicked() || prompt == backPrompt) break;
@@ -3810,6 +3813,7 @@ static bool PickCodeModStart(FrontendState& state)
 	bool back = false;
 	while (picked < 0 && !back) {
 		usleep(20000);
+		RestartIfOutOfMemory();
 		HaltGui();
 		picked = choices.GetClicked();
 		back = picked < 0 && box.Pressed();  // Back, B or HOME
@@ -4234,6 +4238,7 @@ static int ShowHomeMenu()
 	int choice = -1;
 	while (choice < 0) {
 		usleep(20000);
+		RestartIfOutOfMemory();
 		HaltGui();
 		if (!settled && riftwii::wii::DriveScanDone()) {
 			settled = true;
@@ -5004,6 +5009,7 @@ static int PickInterruptedChannelUpdate(const std::string& body, const std::stri
 	ResumeGui();
 	for (;;) {
 		usleep(20000);
+		RestartIfOutOfMemory();
 		HaltGui();
 		const int picked = choices.GetClicked();
 		// Pointer loss and A can click both the focused tile and a stale
@@ -5453,6 +5459,7 @@ static bool AskSearch(std::string& text,
 	std::string last = text;
 	while (keys.Result() == 0) {
 		usleep(20000);
+		RestartIfOutOfMemory();
 		if (keys.Text() == last) continue;
 		HaltGui();
 		last = keys.Text();
@@ -9175,6 +9182,7 @@ static bool ShowGcControls(bool starting)
 	int choice = -1;
 	while (choice < 0) {
 		usleep(20000);
+		RestartIfOutOfMemory();
 		HaltGui();
 		ClearStaleButtons({&prevBtn.button, &nextBtn.button});
 		if (prevBtn.Clicked() || nextBtn.Clicked()) {
@@ -9495,6 +9503,7 @@ static int ChooseTwo(const std::string& title, const std::string& body, const st
 	bool back = false;
 	while (picked < 0 && !back) {
 		usleep(20000);
+		RestartIfOutOfMemory();
 		HaltGui();
 		picked = choices.GetClicked();
 		back = picked < 0 && box.Pressed();  // Back, B or HOME
@@ -14576,6 +14585,7 @@ static void GcAdapterTestPage()
 	while (!done)
 	{
 		usleep(20000);
+		RestartIfOutOfMemory();
 		HaltGui();
 		ClearStaleButtons({&backBtn.button, &checkBtn.button});
 		if (checkBtn.Clicked()) {
@@ -14662,6 +14672,7 @@ static void CreditsPage()
 	while (!done)
 	{
 		usleep(20000);
+		RestartIfOutOfMemory();
 		HaltGui();
 		ClearStaleButtons({&backBtn.button});
 		list.GetClicked();
