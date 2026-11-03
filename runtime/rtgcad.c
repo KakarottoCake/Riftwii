@@ -681,7 +681,6 @@ static void switch_start(gcad* g, uint32_t now) {
     g->switch_step = SWITCH_STATUS;
     g->switch_answers = 0;
     g->switch_retried = 0;
-    g->switch_cancels = 0;
     switch_send(g, now);
 }
 
@@ -709,23 +708,6 @@ static void switch_unanswered(gcad* g, uint32_t now) {
         return;
     }
     switch_next(g, now);
-}
-
-/* A start-up message still going out GCAD_RESCAN_MS after it was sent:
- * the pad takes nothing, though still listed. The message and the read
- * still out are cancelled, one at a time on the STOP slot; the message's
- * error fails the link, which starts over GCAD_RELINK_MS after both are
- * back, as after any failure. */
-static void switch_cancel_next(gcad* g) {
-    if (g->busy & BIT(GCAD_TAG_STOP)) return;
-    if ((g->busy & BIT(GCAD_TAG_OUT)) && !(g->switch_cancels & 1)) {
-        g->switch_cancels |= 1;
-        if (cancel_transfer(g, GCAD_TAG_OUT)) return;
-    }
-    if ((g->busy & BIT(GCAD_TAG_IN)) && !(g->switch_cancels & 2)) {
-        g->switch_cancels |= 2;
-        cancel_transfer(g, GCAD_TAG_IN);
-    }
 }
 
 /* What a start-up read brought, for the log (GCAD_HID_SWITCH_READ), so a
@@ -1321,14 +1303,30 @@ void gcad_tick(gcad* g, uint32_t now) {
         elapsed(now, g->link_time) >= ms(g, GCAD_SWITCH_ANSWER_MS)) {
         switch_unanswered(g, now);
     }
-    if (switch_pro(g) && g->link == GCAD_LINK_INIT && (g->busy & BIT(GCAD_TAG_OUT)) && !g->switch_cancels &&
-        elapsed(now, g->link_time) >= ms(g, GCAD_RESCAN_MS)) {
-        switch_cancel_next(g);
-    }
     if (g->mapping && (g->link == GCAD_LINK_SETUP || g->link == GCAD_LINK_INIT) &&
         elapsed(now, g->link_time) >= ms(g, GCAD_RESCAN_MS)) {
         hid_diagnostic(g, GCAD_HID_TIMEOUT,
                        g->link == GCAD_LINK_SETUP ? g->setup_step : GCAD_STEP_INIT, -1);
+    }
+    /* A Switch Pro start-up message still going out GCAD_RESCAN_MS after
+     * it was sent (the pad takes nothing, though still listed) is
+     * cancelled; its error fails the link. Then a read still out on the
+     * failed link, which holds back the next start (it waits for every
+     * transfer), is cancelled after GCAD_RELINK_MS. Each is asked again
+     * after the same wait while its transfer stays out: the cancel may be
+     * refused or fail, and a message that went out after all leaves
+     * nothing behind. One cancel at a time, on the STOP slot. */
+    if (switch_pro(g) && !(g->busy & BIT(GCAD_TAG_STOP))) {
+        if (g->link == GCAD_LINK_INIT && (g->busy & BIT(GCAD_TAG_OUT)) &&
+            elapsed(now, g->link_time) >= ms(g, GCAD_RESCAN_MS)) {
+            g->link_time = now;
+            cancel_transfer(g, GCAD_TAG_OUT);
+        } else if (g->link == GCAD_LINK_FAILED && g->dev_id != GCAD_NO_DEVICE &&
+                   (g->busy & (BIT(GCAD_TAG_SETUP) | BIT(GCAD_TAG_IN) | BIT(GCAD_TAG_OUT))) == BIT(GCAD_TAG_IN) &&
+                   elapsed(now, g->link_time) >= ms(g, GCAD_RELINK_MS)) {
+            g->link_time = now;
+            cancel_transfer(g, GCAD_TAG_IN);
+        }
     }
     if (g->mapping && g->link == GCAD_LINK_POLL &&
         elapsed(now, g->data_time) >= ms(g, GCAD_RESCAN_MS)) {
@@ -1606,10 +1604,6 @@ void gcad_on_reply(gcad* g, uint32_t tag_value_, int32_t result, uint32_t now) {
             g->change_step = GCAD_STEP_FINISH;
         }
         stop_next(g);
-        return;
-    }
-    if (tag == GCAD_TAG_STOP) {
-        if (g->switch_cancels) switch_cancel_next(g);
         return;
     }
     if (tag == GCAD_TAG_CHANGE) on_change(g, result, now);

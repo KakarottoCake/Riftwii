@@ -1076,8 +1076,12 @@ void SwitchPadStarted() {
 }
 
 // A start-up message that never finishes going out (the pad takes
-// nothing, though still listed): after GCAD_RESCAN_MS it and the read
-// still out are cancelled, one at a time, and the link starts over.
+// nothing, though still listed): after GCAD_RESCAN_MS it is cancelled,
+// again after each GCAD_RESCAN_MS while it stays out (the cancel refused,
+// or failing); then the read still out on the failed link, after
+// GCAD_RELINK_MS; and the link starts over. A message that goes out after
+// all, cancelled or not, leaves nothing behind: the next one stuck is
+// cancelled too.
 void SwitchPadStuck(unsigned version) {
     const unsigned input = GCAD_TAGS + GCAD_TAG_IN;
     const unsigned output = GCAD_TAGS + GCAD_TAG_OUT;
@@ -1088,36 +1092,76 @@ void SwitchPadStuck(unsigned version) {
     bus.Settle();
     auto& driver = bus.hub.pads[0];
     const auto cancelled = [&](bool out) {
+        if (!bus.requests[stop].pending) return false;
         if (version == 4) {
             return bus.requests[stop].command == GCAD_V4_CANCEL_INTERRUPT &&
                    driver.stop_msg[4] == (out ? driver.endpoint_out : driver.endpoint_in);
         }
         return bus.requests[stop].command == GCAD_V5_CANCEL_ENDPOINT && driver.stop_msg[8] == (out ? 2 : 1);
     };
+    const auto wait = [&](std::uint32_t ms) {
+        bus.clock += ms - 1;
+        gcad_tick(&bus.hub.adapter, bus.clock);
+        CHECK(!bus.requests[stop].pending);
+        bus.clock += 1;
+        gcad_tick(&bus.hub.adapter, bus.clock);
+    };
     // 80 01 unanswered: 80 02 goes, with the read still out.
     bus.clock += GCAD_SWITCH_ANSWER_MS;
     gcad_tick(&bus.hub.adapter, bus.clock);
     CHECK(bus.outputs.size() == 2 && bus.requests[output].pending && bus.requests[input].pending);
-    bus.clock += GCAD_RESCAN_MS - 1;
-    gcad_tick(&bus.hub.adapter, bus.clock);
-    CHECK(!bus.requests[stop].pending);
-    bus.clock += 1;
-    gcad_tick(&bus.hub.adapter, bus.clock);
-    CHECK(bus.requests[stop].pending && cancelled(true));
-    gcad_tick(&bus.hub.adapter, bus.clock + GCAD_RESCAN_MS);  // once
-    bus.Reply(output, -22);
-    CHECK(driver.link == GCAD_LINK_FAILED);
+    // The first cancel refused: asked again GCAD_RESCAN_MS later.
+    bus.refuse_slot = stop;
+    wait(GCAD_RESCAN_MS);
+    CHECK(!bus.requests[stop].pending && bus.requests[output].pending);
+    bus.refuse_slot = GCAD_REQUESTS;
+    wait(GCAD_RESCAN_MS);
+    CHECK(cancelled(true));
+    gcad_tick(&bus.hub.adapter, bus.clock + GCAD_RESCAN_MS);  // one at a time
+    // That cancel fails and the message stays out: asked again.
+    bus.Reply(stop, -4);
+    CHECK(driver.link == GCAD_LINK_INIT && bus.requests[output].pending);
+    wait(GCAD_RESCAN_MS);
+    CHECK(cancelled(true));
     bus.Reply(stop);
-    CHECK(bus.requests[stop].pending && cancelled(false));
+    bus.Reply(output, -22);
+    CHECK(driver.link == GCAD_LINK_FAILED && bus.requests[input].pending);
+    // The read still out holds back the next start: cancelled after
+    // GCAD_RELINK_MS, and the start-up runs from its start.
+    wait(GCAD_RELINK_MS);
+    CHECK(cancelled(false) && driver.link == GCAD_LINK_FAILED);
     bus.Reply(input, -22);
     bus.Reply(stop);
-    CHECK(!bus.requests[stop].pending && !bus.requests[input].pending && !bus.requests[output].pending);
-    CHECK(bus.outputs.size() == 2);
-    // GCAD_RELINK_MS later, the start-up from the start.
+    CHECK(!bus.requests[input].pending && !bus.requests[output].pending && bus.outputs.size() == 2);
     bus.clock += GCAD_RELINK_MS;
     bus.Settle();
-    CHECK(driver.link == GCAD_LINK_INIT && driver.switch_cancels == 0);
-    CHECK(bus.outputs.size() == 3 && bus.outputs[2].payload[0] == 0x80 && bus.outputs[2].payload[1] == 0x01);
+    CHECK(driver.link == GCAD_LINK_INIT && bus.outputs.size() == 3 && bus.outputs[2].payload[1] == 0x01);
+
+    // A cancelled message that went out after all: the start-up goes on,
+    // and the next message stuck is cancelled as well.
+    Bus late(version);
+    gcad_switch_mapping(&late.hub.catalog.maps[0]);
+    late.List({{11, GCAD_SWITCH_VID_PID}});
+    late.Settle();
+    auto& pad = late.hub.pads[0];
+    const auto answer = [&](std::uint8_t command) {
+        std::memset(pad.in_data, 0, sizeof(pad.in_data));
+        pad.in_data[0] = 0x81;
+        pad.in_data[1] = command;
+        late.Reply(input, 64);
+    };
+    answer(0x01);
+    CHECK(late.outputs.size() == 2 && late.requests[output].pending);
+    late.clock += GCAD_RESCAN_MS;
+    gcad_tick(&late.hub.adapter, late.clock);
+    CHECK(late.requests[stop].pending);
+    late.Reply(output, 2);
+    late.Reply(stop);
+    answer(0x02);
+    CHECK(pad.link == GCAD_LINK_INIT && late.outputs.size() == 3 && late.outputs[2].payload[1] == 0x03);
+    late.clock += GCAD_RESCAN_MS;
+    gcad_tick(&late.hub.adapter, late.clock);
+    CHECK(late.requests[stop].pending && late.requests[output].pending);
 }
 
 // A failing device list is asked again every GCAD_RESCAN_MS: each kind of
