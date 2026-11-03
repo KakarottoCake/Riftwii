@@ -299,6 +299,19 @@ int main() {
         }
     }
 
+    // A failed final restore after all three slots also forbids an IOS
+    // reload: SearchCios must report it even though every slot was read.
+    reset(memory);
+    fail_word_restore = true;
+    {
+        riftwii::D2xInfo infos[3];
+        bool any_read = false;
+        if (installer::SearchCios(kSlots, 3, infos, any_read) || !any_read || !infos[2].d2x) {
+            std::cerr << "FAILED: a failed final restore after every slot is reported\n" << logs;
+            ++failures;
+        }
+    }
+
 #if defined(_WIN32) || defined(__CYGWIN__)
     VirtualFree(memory, 0, MEM_RELEASE);
 #elif defined(__linux__)
