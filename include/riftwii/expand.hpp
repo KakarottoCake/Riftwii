@@ -11,7 +11,7 @@
 
 namespace riftwii {
 
-enum class MissingModInputKind { File, Memory };
+enum class MissingModInputKind { File, Memory, Folder };
 
 struct MissingModInput {
     std::string pack;      // XML path, so equally named packs remain distinguishable
@@ -22,6 +22,13 @@ struct MissingModInput {
 // Missing external files only matter when their selected patch has a target
 // on this disc (or creates one). Other-region targets remain ordinary skips.
 bool file_patch_targets_disc(const FilePatch& patch, const Fst& fst);
+// "not on the USB drive" for a path on usb:, "not on the card" for any
+// other (the SD card), for the notes on a pack's missing files and folders.
+std::string not_on_device(const std::string& external);
+// Whether a note says a pack's file or folder was missing (not_on_device's
+// words), so the caller can point at what the card or drive holds instead.
+bool note_names_missing(const std::string& note);
+
 // Keeps one entry per pack/path/kind. Returns false if the list cannot grow.
 bool record_missing_mod_input(std::vector<MissingModInput>& out, const std::string& pack,
                               const std::string& external, MissingModInputKind kind);
@@ -47,9 +54,14 @@ bool record_missing_mod_input(std::vector<MissingModInput>& out, const std::stri
 //     Riivolution does) with a note; any other listing failure is an error.
 // External entries are visited in name order (ASCII case folded) so the
 // result does not depend on the card's directory order. `notes` receives
-// one line per folder saying what it expanded to.
+// one line per folder saying what it expanded to. `missing_folders`, when
+// given, receives each external folder that is not there although this
+// disc would take its files (its disc folder exists, it creates one, or it
+// is a by-name search): a folder for another region's directory is not
+// counted, as file_patch_targets_disc leaves out such files.
 bool expand_plan(const Plan& plan, const Fst& fst, ContentProvider& provider, std::vector<FilePatch>& out,
-                 std::vector<std::string>& notes, std::string& error);
+                 std::vector<std::string>& notes, std::string& error,
+                 std::vector<std::string>* missing_folders = nullptr);
 
 // User-visible diagnosis for a package whose plan produced nothing at all.
 // `folder_notes` are the per-folder summary lines expand_plan appended for

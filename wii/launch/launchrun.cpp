@@ -303,6 +303,11 @@ void LogCompileNotes(const CompiledMod& mod) {
     constexpr std::size_t kMaxNoteLines = 60;
     LogBatch batch;
     for (const MissingModInput& input : mod.missing_inputs) {
+        if (input.kind == MissingModInputKind::Folder) {
+            logf("Mods: %s is missing the folder %s; the files it would bring will be left out.\n",
+                 input.pack.c_str(), input.external.c_str());
+            continue;
+        }
         logf("Mods: %s is missing %s; its %s changes will be left out.\n", input.pack.c_str(),
              input.external.c_str(), input.kind == MissingModInputKind::Memory ? "memory patch" : "file");
     }

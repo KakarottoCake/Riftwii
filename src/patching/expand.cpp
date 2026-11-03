@@ -5,6 +5,7 @@
 #include <algorithm>
 
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/imagevolume.hpp"
 
 namespace riftwii {
 namespace {
@@ -67,7 +68,7 @@ std::string without_trailing_slash(std::string path) {
     return path;
 }
 
-// Ok, NotFound (the folder is not on the card) or IoError, with `error`
+// Ok, NotFound (the folder is not there) or IoError, with `error`
 // naming the folder for the last two.
 OpenStatus list_sorted(ContentProvider& provider, const std::string& sd_dir, std::vector<ExternalEntry>& out,
                        std::string& error) {
@@ -102,7 +103,8 @@ struct Expansion {
     unsigned replaced = 0;
     unsigned created = 0;
     unsigned skipped = 0;
-    bool missing = false;  // the external folder itself is not on the card
+    bool missing = false;      // the external folder itself is not there
+    bool targets_disc = true;  // this disc would take its files (expand_plan's missing_folders)
 };
 
 // The child of directory `kids` (the FST indices) called `name`, matched
@@ -255,6 +257,7 @@ bool expand_folder(const FolderPatch& folder, const Fst& fst, ContentProvider& p
     if (!rooted) return search_by_name(folder, fst, provider, sd_dir, 0, x, error);
     std::string disc_dir = disc;
     const std::uint32_t index = fst.find(disc, true);
+    x.targets_disc = index != Fst::npos || folder.create;
     if (index != Fst::npos) {
         if (!fst.entries()[index].is_directory) {
             error = "folder target '" + folder.disc + "' is a file on the disc";
@@ -286,6 +289,15 @@ std::string describe_empty_plan(const std::string& xml_sd_path, const std::strin
     return error;
 }
 
+std::string not_on_device(const std::string& external) {
+    return is_usb_path(external) ? "not on the USB drive" : "not on the card";
+}
+
+bool note_names_missing(const std::string& note) {
+    return note.find("not on the card") != std::string::npos ||
+           note.find("not on the USB drive") != std::string::npos;
+}
+
 bool file_patch_targets_disc(const FilePatch& patch, const Fst& fst) {
     if (patch.is_filename) {
         if (same_folded(patch.disc, "main.dol")) return true;
@@ -305,7 +317,7 @@ bool record_missing_mod_input(std::vector<MissingModInput>& out, const std::stri
 }
 
 bool expand_plan(const Plan& plan, const Fst& fst, ContentProvider& provider, std::vector<FilePatch>& out,
-                 std::vector<std::string>& notes, std::string& error) {
+                 std::vector<std::string>& notes, std::string& error, std::vector<std::string>* missing_folders) {
     std::vector<FilePatch> files;
     std::vector<std::string> lines;
     std::size_t expanded = 0;
@@ -341,7 +353,12 @@ bool expand_plan(const Plan& plan, const Fst& fst, ContentProvider& provider, st
             files.insert(files.end(), x.files.begin(), x.files.end());
             const std::string head =
                 "<folder " + folder.external + " -> " + (folder.disc.empty() ? "by name" : folder.disc) + ">: ";
-            lines.push_back(x.missing ? head + "not on the card, skipped"
+            if (x.missing && x.targets_disc && missing_folders &&
+                !try_push_back(*missing_folders, without_trailing_slash(folder.external))) {
+                error = "no memory to list the missing folders";
+                return false;
+            }
+            lines.push_back(x.missing ? head + not_on_device(folder.external) + ", skipped"
                                       : head + std::to_string(x.replaced) + " replaced, " +
                                             std::to_string(x.created) + " created, " + std::to_string(x.skipped) +
                                             " skipped");
