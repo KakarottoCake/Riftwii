@@ -475,16 +475,17 @@ volatile lwp_t g_menu_restarter = LWP_THREAD_NULL;
 // operator new calls this when malloc fails while the menu runs. Nothing
 // here may allocate: the log line is formatted into the log's own buffer.
 void MenuOutOfMemory() {
-    // Taken in one step: two threads that run out at once must not both
-    // free it.
+    // Taken in one step, with the restart noted in the same one: two
+    // threads that run out at once must not both free it, and the menu's
+    // close (EndMenuMemoryGuard) must not see the spare gone but no restart.
     u32 level;
     _CPU_ISR_Disable(level);
     void* const spare = g_menu_spare;
     g_menu_spare = nullptr;
+    if (spare != nullptr) g_menu_out_of_memory = true;
     _CPU_ISR_Restore(level);
     if (spare != nullptr) {
         std::free(spare);
-        g_menu_out_of_memory = true;
         logf("Memory: the menu ran out (a request the heap could not meet, %u allocation(s) refused for lack of "
              "room so far); its spare %u KiB was let go so it goes on, and RiftWii restarts at the menu's next turn\n",
              static_cast<unsigned>(g_refused), static_cast<unsigned>(kMenuSpareBytes / 1024));
@@ -514,18 +515,20 @@ void GuardMenuMemory(const std::string& restart_notice) {
 
 void EndMenuMemoryGuard() {
     // A shortage after the menu's last turn (the wait for the network's
-    // job) still restarts: before the handler goes, and once more after,
-    // for one that came in between. After that one fails as it did before
+    // job) still restarts. The handler goes first, so no shortage can come
+    // after the check; the spare and the flag are then read in one step,
+    // the one MenuOutOfMemory takes the spare and sets the flag in. A
+    // request that fails after the handler is gone fails as it did before
     // the menu, and the launch puts its own handler in (LaunchMemoryGuard).
-    if (g_menu_out_of_memory) RestartAfterMenuOutOfMemory();
     std::set_new_handler(nullptr);
-    if (g_menu_out_of_memory) RestartAfterMenuOutOfMemory();
-    // The launch gets the spare back.
     u32 level;
     _CPU_ISR_Disable(level);
     void* const spare = g_menu_spare;
     g_menu_spare = nullptr;
+    const bool ran_out = g_menu_out_of_memory;
     _CPU_ISR_Restore(level);
+    if (ran_out) RestartAfterMenuOutOfMemory();
+    // The launch gets the spare back.
     std::free(spare);
 }
 

@@ -57,6 +57,11 @@ void LogOpen(const char* sd_path, bool append) {
     g_file = std::fopen(sd_path, append ? "a" : "w");
     g_line_start = true;
     g_backlog.clear();
+    // Its whole room now, so a line kept while the card is away never asks
+    // for memory under the log's lock: a thread that ran out there would
+    // stop holding it, and the restart's own log line would wait for ever
+    // (wii/core/memlimits.cpp, MenuOutOfMemory).
+    g_backlog.reserve(kMaxBacklog);
     if (g_file) {
         startup::LogReady();
         LogNandPermissionRecovery();
