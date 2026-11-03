@@ -1162,6 +1162,32 @@ void SwitchPadStuck(unsigned version) {
     late.clock += GCAD_RESCAN_MS;
     gcad_tick(&late.hub.adapter, late.clock);
     CHECK(late.requests[stop].pending && late.requests[output].pending);
+
+    // The read fails while a message is still out: the failed link's
+    // message is cancelled after GCAD_RELINK_MS, and the link starts over.
+    Bus failing(version);
+    gcad_switch_mapping(&failing.hub.catalog.maps[0]);
+    failing.List({{11, GCAD_SWITCH_VID_PID}});
+    failing.Settle();
+    auto& broken = failing.hub.pads[0];
+    failing.clock += GCAD_SWITCH_ANSWER_MS;
+    gcad_tick(&failing.hub.adapter, failing.clock);
+    CHECK(failing.requests[output].pending && failing.requests[input].pending);
+    failing.Reply(input, -22);
+    CHECK(broken.link == GCAD_LINK_FAILED && failing.requests[output].pending);
+    failing.clock += GCAD_RELINK_MS - 1;
+    gcad_tick(&failing.hub.adapter, failing.clock);
+    CHECK(!failing.requests[stop].pending);
+    failing.clock += 1;
+    gcad_tick(&failing.hub.adapter, failing.clock);
+    CHECK(failing.requests[stop].pending && failing.requests[stop].command ==
+          (version == 4 ? GCAD_V4_CANCEL_INTERRUPT : GCAD_V5_CANCEL_ENDPOINT));
+    CHECK(version == 4 ? broken.stop_msg[4] == broken.endpoint_out : broken.stop_msg[8] == 2);
+    failing.Reply(output, -22);
+    failing.Reply(stop);
+    failing.clock += GCAD_RELINK_MS;
+    failing.Settle();
+    CHECK(broken.link == GCAD_LINK_INIT && failing.outputs.size() == 3 && failing.outputs[2].payload[1] == 0x01);
 }
 
 // A failing device list is asked again every GCAD_RESCAN_MS: each kind of
