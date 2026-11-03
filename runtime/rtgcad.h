@@ -39,9 +39,13 @@
  *    80 01, 80 02 and 80 04 messages and their 81 answers, 80 02 answered
  *    once per power-on, 01 carrying a subcommand; bluetooth_hid_notes.md:
  *    the 0x30 report, its button bytes and 12-bit sticks, subcommand 03
- *    picking it) and HIDtoVPAD's controller_patcher (the same start-up on
- *    the Wii U, an answer read after each message; its USB button bits).
- *    No code was taken from either.
+ *    picking it), HIDtoVPAD's controller_patcher (the same start-up on
+ *    the Wii U, an answer read after each message; its USB button bits),
+ *    Linux's hid-nintendo (the stick reach used when a pad's calibration
+ *    can't be read, subcommand 03 after the USB start-up) and SDL's
+ *    Switch driver (the start-up order, 80 04 sent without waiting for an
+ *    answer, a message sent again when unanswered). All read as
+ *    documentation; no code was taken from any of them.
  */
 #ifndef RIFTWII_RTGCAD_H
 #define RIFTWII_RTGCAD_H
