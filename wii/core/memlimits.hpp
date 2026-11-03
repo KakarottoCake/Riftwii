@@ -163,10 +163,6 @@ void GuardMenuMemory(const std::string& restart_notice);
 void EndMenuMemoryGuard();
 // True once the menu has run out: its loops call RestartAfterMenuOutOfMemory.
 bool MenuOutOfMemoryRestartDue();
-// True when a thread stopped for that restart (it ran out with no spare
-// left): the restart then waits for no other thread (the network's job,
-// the cover loader, the drive scan), as the one it waited for might be it.
-bool ThreadsStoppedForRestart();
 // Restarts RiftWii with the notice, or leaves for the Homebrew Channel when
 // it cannot. Right after a restart for the same reason it leaves too,
 // rather than restart for ever.
