@@ -4,12 +4,15 @@
 
 #include <gccore.h>
 #include <ogc/lwp_watchdog.h>
+#include <ogc/machine/processor.h>
 
 #include <cstring>
 #include <ctime>
 
 #include "bearssl.h"
 #include "entropy.hpp"
+#include "log.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/http.hpp"
 
 extern "C" {
@@ -49,6 +52,110 @@ int LowRead(void* ctx, unsigned char* data, std::size_t length) {
 int LowWrite(void* ctx, const unsigned char* data, std::size_t length) {
     auto* s = static_cast<TlsStream::State*>(ctx);
     return s->socket->send(data, length) ? static_cast<int>(length) : -1;
+}
+
+// A Wii clock earlier than this release is certainly wrong: its clock
+// battery went flat (it then says 2000) or it was never set. Certificates
+// last about three months and GitHub's are renewed every few weeks, so no
+// fixed date can stand in for it: the date is asked of a server instead
+// (example.com, which the network test asks too, else GameTDB; github.com
+// sends no date over plain HTTP), once a session, and kept as the
+// difference from the Wii's clock. The answer comes over plain HTTP, so
+// someone on the network could give a wrong one; accepted only when it is
+// after this release came out, it can at most let a certificate count that
+// expired after that, while the chain itself is still checked in full.
+// With no answer, certificates are checked against the release's first
+// day, which fails as before.
+constexpr const char* kDateHosts[] = {"example.com", "www.gametdb.com"};
+mutex_t g_clock_lock = LWP_MUTEX_NULL;
+bool g_server_date_asked = false;
+bool g_server_date_known = false;
+std::time_t g_server_offset = 0;  // the server's date minus the Wii's clock
+
+std::string DateText(std::time_t when) {
+    std::tm parts = {};
+    char text[32];
+    if (::gmtime_r(&when, &parts) == nullptr || std::strftime(text, sizeof(text), "%Y-%m-%d %H:%M", &parts) == 0)
+        return "an unknown date";
+    return text;
+}
+
+// The Date header of a HEAD request to `host` over plain HTTP.
+bool AskServerDate(const char* host, std::time_t& date, std::string& error) {
+    HttpUrl url;
+    if (!parse_http_url(std::string("http://") + host + "/", url, error)) return false;
+    NetServer server;
+    if (!ResolveServer(url.host, url.port, server, error)) return false;
+    SocketTransport socket;
+    if (!socket.connect(server, 8000, error)) return false;
+    const std::string request = http_head_request(url);
+    if (!socket.send(request.data(), request.size())) {
+        error = "the request could not be sent";
+        return false;
+    }
+    std::vector<std::uint8_t> raw;
+    HttpReadState reading;
+    reading.head = true;
+    unsigned char chunk[1024];
+    while (!http_response_complete(raw, reading) && raw.size() < 16384) {
+        std::size_t got = 0;
+        if (!socket.receive_some(chunk, sizeof(chunk), got) || got == 0) break;
+        if (!try_append(raw, chunk, chunk + got)) {
+            error = "no memory for its answer";
+            return false;
+        }
+    }
+    HttpResponse response;
+    if (!parse_http_response(raw, response, error, true)) return false;
+    const auto found = response.headers.find("date");
+    if (found == response.headers.end() || !http_date_parse(found->second, date)) {
+        error = "its answer gave no date";
+        return false;
+    }
+    return true;
+}
+
+// The time certificates are checked against (see kDateHosts above).
+std::time_t CertificateTime() {
+    const std::time_t wii_now = std::time(nullptr);
+    const std::time_t released = release_month_start(RIFTWII_VERSION);
+    if (released == 0 || wii_now >= released) return wii_now;
+    {
+        // Made with interrupts off: two download threads may come here first.
+        u32 level;
+        _CPU_ISR_Disable(level);
+        if (g_clock_lock == LWP_MUTEX_NULL) LWP_MutexInit(&g_clock_lock, false);
+        _CPU_ISR_Restore(level);
+    }
+    LWP_MutexLock(g_clock_lock);
+    if (!g_server_date_asked) {
+        g_server_date_asked = true;
+        for (const char* host : kDateHosts) {
+            std::time_t date = 0;
+            std::string error;
+            if (!AskServerDate(host, date, error)) {
+                logf("TLS: the Wii's clock says %s, before this RiftWii came out, and %s gave no date (%s)\n",
+                     DateText(wii_now).c_str(), host, error.c_str());
+                continue;
+            }
+            if (date < released) {
+                logf("TLS: the Wii's clock says %s and %s says %s, both before this RiftWii came out; "
+                     "that date is not used\n", DateText(wii_now).c_str(), host, DateText(date).c_str());
+                continue;
+            }
+            g_server_offset = date - wii_now;
+            g_server_date_known = true;
+            logf("TLS: the Wii's clock says %s, before this RiftWii came out, so certificates are checked against "
+                 "%s's date, %s (set the clock in Wii Settings to stop this)\n",
+                 DateText(wii_now).c_str(), host, DateText(date).c_str());
+            break;
+        }
+        if (!g_server_date_known)
+            logf("TLS: no server gave the date; secure downloads will fail until the clock is set in Wii Settings\n");
+    }
+    const std::time_t checked = g_server_date_known ? wii_now + g_server_offset : released;
+    LWP_MutexUnlock(g_clock_lock);
+    return checked;
 }
 
 // Seeds BearSSL's generator from the session's pool (entropy.hpp): the
@@ -131,10 +238,13 @@ bool TlsStream::open(SocketTransport& socket, const std::string& host, std::stri
     s.socket = &socket;
     s.deadline = deadline_;
     Configure(s.client, s.x509);
-    // Certificates are checked against the Wii's clock.
+    // Certificates are checked against the Wii's clock, or a server's date
+    // when the clock is before this release (CertificateTime). The failure
+    // text still shows the Wii's own clock, the one the player can fix.
     const std::time_t now = std::time(nullptr);
-    br_x509_minimal_set_time(&s.x509, static_cast<std::uint32_t>(now / 86400 + 719528),
-                             static_cast<std::uint32_t>(now % 86400));
+    const std::time_t checked = CertificateTime();
+    br_x509_minimal_set_time(&s.x509, static_cast<std::uint32_t>(checked / 86400 + 719528),
+                             static_cast<std::uint32_t>(checked % 86400));
     br_ssl_engine_set_buffer(&s.client.eng, s.buffer, sizeof(s.buffer), 0);
     Seed(s.client.eng);
     if (!br_ssl_client_reset(&s.client, host.c_str(), 0)) {

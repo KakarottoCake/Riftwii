@@ -172,6 +172,66 @@ std::string http_url_for_messages(const std::string& url) {
     return cut == std::string::npos ? url : url.substr(0, cut) + "?...";
 }
 
+namespace {
+
+// Days from 1970-01-01 to `day` of `month` of `year`, in the Gregorian
+// calendar (the year counted from March, so leap days come last).
+long long days_since_1970(int year, int month, int day) {
+    const int y = month <= 2 ? year - 1 : year;
+    const int era = y / 400;
+    const int year_of_era = y - era * 400;
+    const int month_from_march = month > 2 ? month - 3 : month + 9;
+    const int day_of_year = (153 * month_from_march + 2) / 5 + day - 1;
+    const int day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    return static_cast<long long>(era) * 146097 + day_of_era - 719468;
+}
+
+// `count` decimal digits at `at`, or -1.
+int digits_at(const std::string& text, std::size_t at, std::size_t count) {
+    if (at + count > text.size()) return -1;
+    int value = 0;
+    for (std::size_t i = at; i < at + count; ++i) {
+        if (text[i] < '0' || text[i] > '9') return -1;
+        value = value * 10 + (text[i] - '0');
+    }
+    return value;
+}
+
+}  // namespace
+
+std::time_t release_month_start(const std::string& version) {
+    if (version.size() > 4 && version[4] != '-') return 0;
+    const int yymm = digits_at(version, 0, 4);
+    if (yymm < 0) return 0;
+    const int month = yymm % 100;
+    if (month < 1 || month > 12) return 0;
+    return static_cast<std::time_t>(days_since_1970(2000 + yymm / 100, month, 1) * 86400);
+}
+
+bool http_date_parse(const std::string& value, std::time_t& out) {
+    // "Tue, 03 Nov 2026 08:41:22 GMT": 29 characters, every field in place.
+    static const char* const kMonths[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                                          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+    if (value.size() != 29 || value.compare(3, 2, ", ") != 0 || value[7] != ' ' || value[11] != ' ' ||
+        value[16] != ' ' || value[19] != ':' || value[22] != ':' || value.compare(25, 4, " GMT") != 0)
+        return false;
+    int month = 0;
+    for (int m = 0; m < 12; ++m) {
+        if (value.compare(8, 3, kMonths[m]) == 0) month = m + 1;
+    }
+    const int day = digits_at(value, 5, 2);
+    const int year = digits_at(value, 12, 4);
+    const int hour = digits_at(value, 17, 2);
+    const int minute = digits_at(value, 20, 2);
+    const int second = digits_at(value, 23, 2);
+    if (month == 0 || day < 1 || day > 31 || year < 1970 || hour < 0 || hour > 23 || minute < 0 || minute > 59 ||
+        second < 0 || second > 60)
+        return false;
+    const long long days = days_since_1970(year, month, day);
+    out = static_cast<std::time_t>(days * 86400 + hour * 3600 + minute * 60 + second);
+    return true;
+}
+
 std::string tls_failure_reason(int bearssl_code, std::time_t wii_now) {
     if (bearssl_code < kX509InvalidValue || bearssl_code > kX509RangeEnd) return "";
     if (bearssl_code == kX509TimeUnknown || bearssl_code == kX509Expired) {
