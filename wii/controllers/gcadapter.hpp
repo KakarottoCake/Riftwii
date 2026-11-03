@@ -73,7 +73,9 @@ void GcAdapterMenuEnd();
 // has no GameCube ports). True when it was started here; the caller
 // stops it (GcAdapterStop) on the way out. Never during a launch: there,
 // /dev/usb/hid can break the disc's reads. `say_why`: log why it was not
-// started (the screen's later tries, every 2 s, say nothing).
+// started (the screen's later tries, every 2 s, say nothing). Once the
+// driver itself would not start (USB listed one), it isn't tried again,
+// as the menu does: that failure is logged once.
 bool GcAdapterScreenStart(bool say_why = true);
 
 }  // namespace riftwii::wii

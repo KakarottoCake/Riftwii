@@ -687,7 +687,8 @@ void GcAdapterMenuEnd() {
 }
 
 bool GcAdapterScreenStart(bool say_why) {
-    if (g_running) return false;
+    static bool failed = false;  // the driver would not start: not tried again
+    if (g_running || failed) return false;
     if (const char* off = MenuOff()) {
         if (say_why) logf("GameCube adapter: not started for this screen: %s\n", off);
         return false;
@@ -704,7 +705,8 @@ bool GcAdapterScreenStart(bool say_why) {
     }
     std::string why;
     if (!GcAdapterStart(why)) {
-        logf("GameCube adapter: not started for this screen: %s\n", why.c_str());
+        failed = true;
+        logf("GameCube adapter: not started for this screen, and not tried again: %s\n", why.c_str());
         return false;
     }
     logf("GameCube adapter: started for this screen (IOS%d)\n", IOS_GetVersion());
