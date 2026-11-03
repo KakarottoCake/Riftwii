@@ -65,6 +65,8 @@ public:
     // Whatever has arrived, up to `max`: `got` is 0 when the server closed.
     // False when nothing came within the timeout or the socket failed.
     bool receive_some(void* data, std::size_t max, std::size_t& got);
+    // The wait of each receive from now on (10 s until set).
+    void set_receive_timeout(int timeout_ms) { timeout_ms_ = timeout_ms; }
 
 private:
     std::int32_t socket_ = -1;

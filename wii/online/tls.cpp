@@ -93,6 +93,14 @@ bool AskServerDate(const char* host, std::time_t& date, std::string& error) {
     const u64 give_up = gettime() + secs_to_ticks(kDateSeconds);
     SocketTransport socket;
     if (!socket.connect(server, kDateSeconds * 1000, error)) return false;
+    // Each wait is cut to what is left of the host's time, so a read that
+    // starts just before it ends cannot run on for the socket's usual 10 s.
+    const auto wait_only_until_give_up = [&]() {
+        const u64 now = gettime();
+        const u64 left_ms = now < give_up ? ticks_to_millisecs(give_up - now) : 0;
+        socket.set_receive_timeout(left_ms > 0 ? static_cast<int>(left_ms) : 1);
+    };
+    wait_only_until_give_up();
     const std::string request = http_head_request(url);
     if (!socket.send(request.data(), request.size())) {
         error = "the request could not be sent";
@@ -108,6 +116,7 @@ bool AskServerDate(const char* host, std::time_t& date, std::string& error) {
             return false;
         }
         std::size_t got = 0;
+        wait_only_until_give_up();
         if (!socket.receive_some(chunk, sizeof(chunk), got) || got == 0) break;
         if (!try_append(raw, chunk, chunk + got)) {
             error = "no memory for its answer";
