@@ -6,7 +6,9 @@
 
 #include <gccore.h>
 #include <cstdarg>
+#include <cstdio>
 #include <cstring>
+#include <string>
 #include <iostream>
 
 #if defined(_WIN32) || defined(__CYGWIN__)
@@ -59,7 +61,15 @@ void write32(u32 address, u32 value) {
     else if (value != kBefore || !fail_restore) current = value;
 }
 namespace riftwii::wii {
-void logf(const char*, ...) {}
+std::string g_last_log;  // the last line logged, to check what recovery says
+void logf(const char* format, ...) {
+    char line[256];
+    va_list args;
+    va_start(args, format);
+    std::vsnprintf(line, sizeof(line), format, args);
+    va_end(args);
+    g_last_log = line;
+}
 }
 
 int main() {
@@ -124,7 +134,12 @@ int main() {
     check(!open_nand_permissions("test"));
     check(current == 0xDEADD001u && nand_permission_note_valid(*saved));
     damage_other = false;
-    *saved = NandPermissionNote{};
+    // The next start's recovery: the patch isn't open, and the word isn't
+    // the original either, so it is not reported as closed.
+    RecoverNandPermissions();
+    LogNandPermissionRecovery();
+    check(saved->magic == 0 && current == 0xDEADD001u);
+    check(riftwii::wii::g_last_log.find("no longer matches") != std::string::npos);
     current = kBefore;
     fail_write = false;
     check(open_nand_permissions("test"));
