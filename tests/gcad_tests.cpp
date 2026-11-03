@@ -1559,6 +1559,77 @@ static void TestGcSiProbeSearch() {
     }
 }
 
+// The SDK's SamplingHandler as a compiler lays it out (self-authored): a
+// frame of `frame` bytes, the callback tested, `context_calls` calls given
+// the frame's context, then the callback through LR or CTR.
+static void sampling_handler(Asm& code, std::uint32_t frame, unsigned context_calls, bool through_ctr) {
+    const std::uint32_t context_fn = code.base + 0x1000;
+    code.op(0x7C0802A6u);                                   // mflr r0
+    code.op(0x90010004u);                                   // stw r0,4(r1)
+    code.op(0x94210000u | ((0x10000u - frame) & 0xFFFFu));  // stwu r1,-frame(r1)
+    code.op(0x93E10000u | (frame - 4));                     // stw r31,frame-4(r1)
+    code.op(0x3BE40000u);                                   // addi r31,r4,0
+    code.op(0x800D9000u);                                   // lwz r0,-0x7000(r13)
+    code.op(0x28000000u);                                   // cmplwi r0,0
+    code.op(0x41820030u);                                   // beq past the call
+    for (unsigned i = 0; i < context_calls; ++i) {
+        code.op(0x38610010u);  // addi r3,r1,16
+        code.bl(context_fn);
+    }
+    code.op(0x818D9000u);                              // lwz r12,-0x7000(r13)
+    code.op(through_ctr ? 0x7D8903A6u : 0x7D8803A6u);  // mtctr r12 / mtlr r12
+    code.op(through_ctr ? 0x4E800421u : 0x4E800021u);  // bctrl / blrl
+    code.op(0x38610010u);                              // addi r3,r1,16
+    code.bl(context_fn);
+    code.op(0x7FE3FB78u);  // mr r3,r31
+    code.bl(context_fn);
+    for (unsigned i = 0; i < 8; ++i) code.op(0x60000000u);  // nop: the epilogue's room
+    code.blr();
+}
+
+// PADSetSamplingCallback's registration: the handler's address into r3.
+static void take_address(Asm& code, std::uint32_t target) {
+    code.op(0x3C600000u | (((target + 0x8000u) >> 16) & 0xFFFFu));  // lis r3,ha
+    code.op(0x38630000u | (target & 0xFFFFu));                      // addi r3,r3,lo
+    code.blr();
+}
+
+static void TestGcPadSamplingSearch() {
+    const auto find = [](const Asm& input) {
+        const auto bytes = input.bytes();
+        return riftwii::find_gc_pad_sampling({{input.base, bytes.data(), bytes.size()}});
+    };
+    // At 0x80008000 the low half reads as negative: lis takes the adjusted high half.
+    for (const bool through_ctr : {false, true}) {
+        Asm code{0x80008000u, {}};
+        const std::uint32_t handler = code.here();
+        sampling_handler(code, 0x2E0, 2, through_ctr);
+        take_address(code, handler);
+        EXPECT_EQ(find(code), handler);
+    }
+    // Its address never taken: nothing registers it, so not SamplingHandler.
+    Asm unregistered{0x80008000u, {}};
+    sampling_handler(unregistered, 0x2E0, 2, false);
+    EXPECT_EQ(find(unregistered), 0u);
+    // A frame too small for an OSContext, or one context call only.
+    Asm small{0x80008000u, {}};
+    sampling_handler(small, 0x100, 2, false);
+    take_address(small, small.base);
+    EXPECT_EQ(find(small), 0u);
+    Asm one_call{0x80008000u, {}};
+    sampling_handler(one_call, 0x2E0, 1, false);
+    take_address(one_call, one_call.base);
+    EXPECT_EQ(find(one_call), 0u);
+    // Two candidates: none is called rather than the wrong one.
+    Asm twice{0x80008000u, {}};
+    sampling_handler(twice, 0x2E0, 2, false);
+    const std::uint32_t second = twice.here();
+    sampling_handler(twice, 0x2E0, 2, true);
+    take_address(twice, twice.base);
+    take_address(twice, second);
+    EXPECT_EQ(find(twice), 0u);
+}
+
 // Self-authored disabled-port block, with a shifted channel mask and
 // register allocation distinct from F-Zero's executable.
 static void pad_enabled_block(Asm& code, std::int16_t offset) {
@@ -1636,6 +1707,7 @@ int main() {
     TestGcPadMotorSearch();
     TestGcSiTypeCacheSearch();
     TestGcSiProbeSearch();
+    TestGcPadSamplingSearch();
     TestGcPadEnabledSearch();
     if (g_failures == 0) std::cout << "gcad tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;

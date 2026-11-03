@@ -2193,6 +2193,11 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // build that showed it added since the one that did not).
     const bool test_no_vi_hook = stat("sd:/riftwii/gc/test/novihook", &st_press) == 0;
     const bool test_no_motor = stat("sd:/riftwii/gc/test/nomotor", &st_press) == 0;
+    // And of the PAD sampling stand-in in Dolphin, which raises the SI's
+    // polling interrupt even with its GameCube ports empty: the blob keeps
+    // that interrupt off, as a Wii with no GameCube controller never raises
+    // it (gc_sample_tick).
+    const bool test_no_si_sample = stat("sd:/riftwii/gc/test/nosisample", &st_press) == 0;
     // And of the Wii's video encoder at the hand-over, for the same colours
     // (red and blue swapped, in 480p only so far): set in NTSC 480p even
     // for a game without 480p, set in NTSC 480i even for one with it (the
@@ -2221,6 +2226,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                          {test_rumble, "rumbletest"},
                          {test_no_vi_hook, "novihook"},
                          {test_no_motor, "nomotor"},
+                         {test_no_si_sample, "nosisample"},
                          {test_handover_480p, "handover480p"},
                          {test_handover_480i, "handover480i"},
                          {test_ave_keep, "avekeep"},
@@ -3174,6 +3180,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         }
         ctx->si_type_cache = si_types_in_data ? si_types : 0;
         ctx->pad_enabled_offset = find_gc_pad_enabled_offset(code.ranges(), pad_read);
+        // Each program's own, or none: never the value of the program patched before.
+        ctx->pad_sampling = 0;
         std::uint32_t motor = 0;
         if (pad_read != 0) {
             replay_hook(pad_read, h.hook_pad_read, h.replay_pad_read, h.continue_pad_read);
@@ -3191,6 +3199,13 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                 replay_hook(si_probe, h.hook_si_probe, h.replay_si_probe, h.continue_si_probe);
                 ctx->si_probe = si_probe;
             }
+            // The SDK's SamplingHandler: a game that reads its controllers
+            // from a sampling callback (007 NightFire's missions) has them
+            // read only at the SI's polling interrupt, which a Wii with no
+            // GameCube controller plugged in never raises; the blob then
+            // calls it once a frame (gc_sample_tick).
+            ctx->pad_sampling = find_gc_pad_sampling(code.ranges());
+            if (test_no_si_sample && ctx->pad_sampling != 0) ctx->flags |= GC_FLAG_NO_SI_SAMPLE;
             // PADControlMotor: a Wii Remote on the port the game rumbles
             // rumbles too, unless Settings' Wii Remote rumble (or this game's
             // own Rumble) is off, as for Wii games. The game's own function
@@ -3614,6 +3629,14 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             else
                 logf("GameCube: SIProbe was not found: a game that asks it which ports have a controller sees none "
                      "for a Wii Remote where the console has no GameCube controller\n");
+            if (ctx->pad_sampling != 0)
+                logf("GameCube: SamplingHandler 0x%08x: if the game reads its controllers from a sampling callback, "
+                     "RiftWii runs it once a frame while no GameCube controller's polls do%s\n",
+                     ctx->pad_sampling,
+                     (ctx->flags & GC_FLAG_NO_SI_SAMPLE) ? " (test: the SI's polling interrupt kept off)" : "");
+            else
+                logf("GameCube: the SDK's SamplingHandler was not found: a game that reads its controllers from a "
+                     "sampling callback gets no Wii Remote input while no GameCube controller is plugged in\n");
         }
         logf("GameCube: PADControlMotor 0x%08x%s\n", motor,
              motor == 0 ? " (not found: a Wii Remote does not rumble)"

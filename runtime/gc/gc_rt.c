@@ -1406,6 +1406,64 @@ static void gc_usb_keep_alive(struct gc_rt_context* ctx) {
     ctx->storage_busy = 0;
 }
 
+/* The SDK's SIEnablePollingInterrupt(FALSE), for GC_FLAG_NO_SI_SAMPLE
+ * alone: the transfer interrupt's flag and the start bit are written as 0,
+ * so the write neither acknowledges the one nor starts a transfer. */
+#define GC_SI_COMCSR 0xCD006434u
+#define GC_SI_COMCSR_TCINT 0x80000000u
+#define GC_SI_COMCSR_RDSTINTMSK 0x08000000u
+#define GC_SI_COMCSR_TSTART 0x00000001u
+static void gc_si_polling_off(void) {
+    const uint32_t csr = gc_read32(GC_SI_COMCSR);
+    if ((csr & GC_SI_COMCSR_RDSTINTMSK) == 0) return;
+    gc_write32(GC_SI_COMCSR, csr & ~(GC_SI_COMCSR_TCINT | GC_SI_COMCSR_RDSTINTMSK | GC_SI_COMCSR_TSTART));
+}
+
+/* The SDK's SamplingHandler(interrupt, context): it runs the game's
+ * sampling callback in an OSContext of its own and puts `context` back. */
+typedef void (*gc_sampling_fn)(uint32_t interrupt, uint32_t context);
+#define GC_OS_INTERRUPT_PI_SI 20u
+
+/* Only through the SDK's alarms, whose handler gets the OSContext the
+ * SamplingHandler needs and which never fail to arm; a libogc game has no
+ * SamplingHandler anyway. */
+static void gc_sample_arm(struct gc_rt_context* ctx) {
+    if (ctx->ogc_create_alarm != 0) return;
+    ctx->sample_queued = 1;
+    gc_set_alarm(ctx, ctx->sample_alarm, GC_SAMPLE_TICKS);
+}
+
+/* The PAD sampling stand-in, once a frame. A game that reads its
+ * controllers from a sampling callback (PADSetSamplingCallback: 007
+ * NightFire's missions) has them read only when the SI's polling interrupt
+ * comes, after the SI has polled a GameCube controller. A Wii with none
+ * plugged in never raises it, so the game never called PADRead: the Wii
+ * Remotes, the adapter and HOME all went dead (Dolphin raises it with the
+ * ports empty). After GC_SAMPLE_QUIET_TICKS ticks with no PADRead, the
+ * SDK's own SamplingHandler is called here as the interrupt would call it
+ * (it does nothing while the game has no callback), until a PADRead comes
+ * from elsewhere again: a GameCube controller's polls, or the game's own
+ * call. The alarm's handler runs in an OSContext of the OS's, as the
+ * interrupt's does. */
+static void gc_sample_tick(struct gc_rt_context* ctx, uint32_t os_context) {
+    ctx->sample_queued = 0;
+    if (ctx->pad_sampling == 0) return;  /* a program without one: the heartbeat starts no more ticks */
+    if (ctx->flags & GC_FLAG_NO_SI_SAMPLE) gc_si_polling_off();
+    if (ctx->pad_reads != ctx->sample_reads) {
+        ctx->sample_quiet = 0;
+    } else if (ctx->sample_quiet < GC_SAMPLE_QUIET_TICKS) {
+        ctx->sample_quiet++;
+    }
+    if (ctx->sample_quiet >= GC_SAMPLE_QUIET_TICKS && os_context != 0) {
+        ((gc_sampling_fn)(uintptr_t)ctx->pad_sampling)(GC_OS_INTERRUPT_PI_SI, os_context);
+        ctx->samples_stood_in++;
+    }
+    /* Taken after the call, so the stand-in's own PADRead does not count
+     * as one from elsewhere. */
+    ctx->sample_reads = ctx->pad_reads;
+    gc_sample_arm(ctx);
+}
+
 void gc_on_alarm(struct gc_rt_context* ctx, uint32_t alarm, uint32_t os_context) {
     const uint32_t cb = ctx->pending_cb;
     if (alarm == (uint32_t)(uintptr_t)ctx->io_alarm) {
@@ -1415,6 +1473,10 @@ void gc_on_alarm(struct gc_rt_context* ctx, uint32_t alarm, uint32_t os_context)
             if (!gc_io_start(ctx, GC_IO_STREAM)) gc_io_arm(ctx);
         } else if (ctx->io_trace_where != 0) gc_io_start(ctx, GC_IO_TRACE);
         else if (ctx->io_maintenance && ctx->read_state == GC_READ_NONE) gc_io_start(ctx, GC_IO_BEAT);
+        return;
+    }
+    if (alarm == (uint32_t)(uintptr_t)ctx->sample_alarm) {
+        gc_sample_tick(ctx, os_context);
         return;
     }
     if (alarm == (uint32_t)(uintptr_t)ctx->beat_alarm) {
@@ -1434,6 +1496,9 @@ void gc_on_alarm(struct gc_rt_context* ctx, uint32_t alarm, uint32_t os_context)
             if (bt->stage == GC_BT_STAGE_READY && !gc_bt_wants_frame_polls(bt)) gc_bt_poll(ctx, bt);
         }
         gc_io_start(ctx, GC_IO_BEAT);
+        /* The sampling stand-in starts from here, the game's OS up and its
+         * alarms working, and again after a program switch or a restart. */
+        if (ctx->pad_sampling != 0 && !ctx->sample_queued) gc_sample_arm(ctx);
         gc_beat_arm(ctx);
         return;
     }
@@ -2569,6 +2634,9 @@ static void gc_forget_game(struct gc_rt_context* ctx, int restart) {
     ctx->io_trace_where = 0;
     gc_zero(ctx->io_alarm, sizeof(ctx->io_alarm));
     ctx->alarm_queued = 0;
+    ctx->sample_queued = 0;
+    ctx->sample_quiet = 0;
+    gc_zero(ctx->sample_alarm, sizeof(ctx->sample_alarm));
     ctx->last_read_end = 0;
     ctx->load_saved_heap = 0;
     ctx->load_next = 0;
