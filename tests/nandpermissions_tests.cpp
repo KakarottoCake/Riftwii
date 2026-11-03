@@ -84,6 +84,13 @@ int main() {
     check(open_nand_permissions("test"));
     close_nand_permissions("test");
     check(current == kBefore && saved->magic == 0);
+    // IOS changed the other halfword while the patch was open: the close
+    // puts back only the patched halfword and keeps IOS's change.
+    check(open_nand_permissions("test"));
+    current = (current & 0x0000FFFFu) | 0x12340000u;
+    close_nand_permissions("test");
+    check(current == 0x1234D001u && saved->magic == 0);
+    current = kBefore;
     // Failed cleanup remains recoverable at the next start.
     check(open_nand_permissions("test"));
     fail_restore = true;
