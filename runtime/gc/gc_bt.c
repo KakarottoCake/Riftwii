@@ -830,7 +830,7 @@ int gc_bt_wants_frame_polls(const struct gc_bt* bt) {
 }
 
 void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
-    uint32_t i, msr, handled;
+    uint32_t i, n, msr, handled;
     if (bt->stage == GC_BT_STAGE_FAILED) return;
     msr = gc_irq_off();
     if (gc_ipc_poll_blocked(ctx)) {
@@ -868,9 +868,13 @@ void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
     }
     /* The remotes' reports in the order they came in (bt_first_acl), each
      * read sent again once handled; then the reads whose send was refused
-     * at an earlier poll are retried, once in this pass as well. */
+     * at an earlier poll are retried, once in this pass as well. A read
+     * sent again can come back while a report's answer is written (bt_on_acl
+     * waits for its write), so a pass takes at most GC_BT_ACL_READS reports,
+     * with interrupts off; the rest keep their order for the next poll. */
     handled = 0;
-    while (bt->stage != GC_BT_STAGE_FAILED && (i = bt_first_acl(bt)) < GC_BT_ACL_READS) {
+    for (n = 0; n < GC_BT_ACL_READS && bt->stage != GC_BT_STAGE_FAILED && (i = bt_first_acl(bt)) < GC_BT_ACL_READS;
+         ++n) {
         struct gc_bt_rq* rq = &bt->acl[i];
         if (rq->result > 0) bt_on_acl(bt, bt->acl_buf[i], (uint32_t)rq->result);
         else bt->last_error = rq->result;
