@@ -429,21 +429,23 @@ static void test_missing_selected_inputs() {
     const riftwii::Fst fst = Disc();
     riftwii::FilePatch patch;
     patch.disc = "/stage/A.ARC";
-    EXPECT_TRUE(riftwii::file_patch_targets_disc(patch, fst));
+    EXPECT_TRUE(riftwii::file_patch_replaces_disc_file(patch, fst));
     patch.disc = "/OtherRegion/a.arc";
-    EXPECT_FALSE(riftwii::file_patch_targets_disc(patch, fst));
-    patch.create = true;
-    EXPECT_TRUE(riftwii::file_patch_targets_disc(patch, fst));
+    EXPECT_FALSE(riftwii::file_patch_replaces_disc_file(patch, fst));
+    patch.create = true;  // would only add a file: optional
+    EXPECT_FALSE(riftwii::file_patch_replaces_disc_file(patch, fst));
+    patch.disc = "/stage/A.ARC";  // creates over a file that is there: replaces it
+    EXPECT_TRUE(riftwii::file_patch_replaces_disc_file(patch, fst));
     patch.is_filename = true;
     patch.disc = "missing.arc";
-    EXPECT_FALSE(riftwii::file_patch_targets_disc(patch, fst));
+    EXPECT_FALSE(riftwii::file_patch_replaces_disc_file(patch, fst));
     patch.disc = "A.ARC";
-    EXPECT_TRUE(riftwii::file_patch_targets_disc(patch, fst));
+    EXPECT_TRUE(riftwii::file_patch_replaces_disc_file(patch, fst));
     patch.disc = "MAIN.DOL";
-    EXPECT_TRUE(riftwii::file_patch_targets_disc(patch, fst));
+    EXPECT_TRUE(riftwii::file_patch_replaces_disc_file(patch, fst));
     patch.is_filename = false;
     patch.disc = "/Stage";
-    EXPECT_FALSE(riftwii::file_patch_targets_disc(patch, fst));
+    EXPECT_FALSE(riftwii::file_patch_replaces_disc_file(patch, fst));
 
     std::vector<riftwii::MissingModInput> missing;
     using Kind = riftwii::MissingModInputKind;
@@ -467,7 +469,7 @@ static void test_missing_folders() {
     riftwii::Plan plan;
     plan.folders.push_back(Folder("/Stage", "usb:/mod/gone", true, false));     // disc folder exists
     plan.folders.push_back(Folder("/EuGerman", "usb:/mod/german", true, false)); // not on this disc
-    plan.folders.push_back(Folder("/New", "/mod/created/", true, true));        // creates its folder
+    plan.folders.push_back(Folder("/New", "/mod/created/", true, true));        // would only create: optional
     plan.folders.push_back(Folder("", "/mod/byname", false, false));            // a search: always applies
     plan.folders.push_back(Folder("/Stage", "/mod/Stage", true, false));        // there
     std::vector<riftwii::FilePatch> out;
@@ -483,11 +485,10 @@ static void test_missing_folders() {
         EXPECT_TRUE(riftwii::note_names_missing(notes[2]));
         EXPECT_FALSE(riftwii::note_names_missing(notes[4]));
     }
-    EXPECT_EQ(missing.size(), std::size_t(3));
-    if (missing.size() == 3) {
+    EXPECT_EQ(missing.size(), std::size_t(2));
+    if (missing.size() == 2) {
         EXPECT_EQ(missing[0], std::string("usb:/mod/gone"));
-        EXPECT_EQ(missing[1], std::string("/mod/created"));
-        EXPECT_EQ(missing[2], std::string("/mod/byname"));
+        EXPECT_EQ(missing[1], std::string("/mod/byname"));
     }
     EXPECT_EQ(riftwii::not_on_device("usb:/mod/a.arc"), std::string("not on the USB drive"));
     EXPECT_EQ(riftwii::not_on_device("/mod/a.arc"), std::string("not on the card"));

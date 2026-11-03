@@ -19,9 +19,12 @@ struct MissingModInput {
     MissingModInputKind kind = MissingModInputKind::File;
 };
 
-// Missing external files only matter when their selected patch has a target
-// on this disc (or creates one). Other-region targets remain ordinary skips.
-bool file_patch_targets_disc(const FilePatch& patch, const Fst& fst);
+// Missing external files only matter when their selected patch replaces a
+// file on this disc. Other-region targets remain ordinary skips, and so does
+// a file the patch would only add (create="true" with nothing on the disc
+// there): Riivolution skips it without a word, and packs list such files for
+// content they don't ship, like Retro Rewind's Korean font.
+bool file_patch_replaces_disc_file(const FilePatch& patch, const Fst& fst);
 // "not on the USB drive" for a path on usb:, "not on the card" for any
 // other (the SD card), for the notes on a pack's missing files and folders.
 std::string not_on_device(const std::string& external);
@@ -56,9 +59,10 @@ bool record_missing_mod_input(std::vector<MissingModInput>& out, const std::stri
 // result does not depend on the card's directory order. `notes` receives
 // one line per folder saying what it expanded to. `missing_folders`, when
 // given, receives each external folder that is not there although this
-// disc would take its files (its disc folder exists, it creates one, or it
-// is a by-name search): a folder for another region's directory is not
-// counted, as file_patch_targets_disc leaves out such files.
+// disc would take its files (its disc folder exists, or it is a by-name
+// search): a folder for another region's directory, or one that would only
+// create a disc folder, is not counted, as file_patch_replaces_disc_file
+// leaves out such files.
 bool expand_plan(const Plan& plan, const Fst& fst, ContentProvider& provider, std::vector<FilePatch>& out,
                  std::vector<std::string>& notes, std::string& error,
                  std::vector<std::string>* missing_folders = nullptr);

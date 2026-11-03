@@ -638,7 +638,7 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
         if (provider.open_external(patch.external, external, open_error) != OpenStatus::NotFound) ++files_present;
         else {
             if (first_missing_file.empty()) first_missing_file = patch.external;
-            if (file_patch_targets_disc(patch, fst) &&
+            if (file_patch_replaces_disc_file(patch, fst) &&
                 !record_missing_mod_input(mod.missing_inputs, xml_sd_path, patch.external,
                                           MissingModInputKind::File)) {
                 error = "There is not enough memory to list the mod's missing files.";
