@@ -280,6 +280,10 @@ void GuiSearchKeys::Press(const Key& k) {
         if (Live(k) && text.size() < maxLength) {
             const char typed = naming ? riftwii::name_key_char(k.ch, shift) : k.ch;
             text += typed;
+            // The fourth digit lights OK (the last key): from the 0 alone at
+            // the bottom, Down would otherwise land on Cancel, the nearest
+            // action, and lose what was typed.
+            if (pin && text.size() == maxLength) focus = static_cast<int>(keys.size()) - 1;
         }
         break;
     case Key::Act::Back:
