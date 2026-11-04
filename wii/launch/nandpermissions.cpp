@@ -29,15 +29,19 @@ void FlushNote() { DCFlushRange(note(), 32); }
 // value, so the register is read back until it does before IOS's code is
 // touched. On a console (3 Nov) the close read the word on the next
 // instruction, got the fill pattern and left IOS58's check open; the
-// opening only worked because its search ran first.
+// opening only worked because its search ran first. If it never does,
+// IOS's code is left alone (protection back as it was) rather than read
+// as the fill pattern, which would look like a closed or missing check.
 constexpr u32 kMemProt = 0x0D8B420A;
 
-u16 UnprotectIosCode() {
-    const u16 was = read16(kMemProt);
+bool UnprotectIosCode(u16& was) {
+    was = read16(kMemProt);
     write16(kMemProt, 2);
-    for (int tries = 0; tries < 1000 && read16(kMemProt) != 2; ++tries) {
+    for (int tries = 0; tries < 1000; ++tries) {
+        if (read16(kMemProt) == 2) return true;
     }
-    return was;
+    write16(kMemProt, was);
+    return false;
 }
 
 // Only the patched halfword is ours, as in the channel installer (#379):
@@ -50,10 +54,13 @@ u16 UnprotectIosCode() {
 // longer holds the opening (IOS reloaded), count as restored only if the
 // whole original word is back: a damaged other halfword is never reported
 // as closed. `found` is what the word held when the close looked, for the
-// log.
+// log. With protection stuck on, nothing is read and the note stays for a
+// later try.
 bool Restore(u32& found) {
     const NandPermissionNote saved = *note();
-    const u16 protection = UnprotectIosCode();
+    u16 protection = 0;
+    found = 0;
+    if (!UnprotectIosCode(protection)) return false;
     found = read32(saved.word);
     u32 closed = 0;
     const bool ours = nand_check_closed(found, saved.before, saved.shift, closed);
@@ -112,7 +119,11 @@ bool open_nand_permissions(const char* who) {
     }
     constexpr u32 kFrom = 0xD3400000, kTo = 0xD4000000;
     logf("%s: checking IOS%d's NAND permission code before opening it.\n", who, IOS_GetVersion());
-    const u16 protection = UnprotectIosCode();
+    u16 protection = 0;
+    if (!UnprotectIosCode(protection)) {
+        logf("%s: IOS%d's memory protection did not turn off; IOS is left as it is.\n", who, IOS_GetVersion());
+        return false;
+    }
     std::size_t at = 0;
     if (!find_nand_check(reinterpret_cast<const u8*>(kFrom), kTo - kFrom, at)) {
         write16(kMemProt, protection);

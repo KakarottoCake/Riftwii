@@ -33,6 +33,7 @@ bool damage_opening = false;  // the opening write lands with the other halfword
 // again, and while protection is on, IOS's code reads as a fill pattern
 // and drops writes.
 bool posted_protection = false;
+bool stuck_protection = false;  // turning protection off never lands
 bool protection_pending = false;
 u16 protection_next = 0;
 unsigned writes = 0;
@@ -67,6 +68,7 @@ u32 read32(u32 address) {
     return protection == 2 ? current : 0x9ABCDEF0u;
 }
 void write16(u32, u16 value) {
+    if (stuck_protection && value == 2) return;
     if (posted_protection) {
         protection_next = value;
         protection_pending = true;
@@ -194,6 +196,22 @@ int main() {
     posted_protection = false;
     read16(0x0D8B420A);  // the last restore of the register lands
     check(protection == 1);
+    // Protection that never turns off: IOS's code is left alone, so an open
+    // patch keeps its note (and blocks a new one) until a later close can
+    // reach it, and an opening is refused without a write.
+    check(open_nand_permissions("test"));
+    stuck_protection = true;
+    close_nand_permissions("test");
+    check(current == 0x428BE001u && nand_permission_note_valid(*saved) && protection == 1);
+    check(!open_nand_permissions("test"));
+    stuck_protection = false;
+    RecoverNandPermissions();
+    check(current == kBefore && saved->magic == 0);
+    stuck_protection = true;
+    const unsigned before_stuck = writes;
+    check(!open_nand_permissions("test"));
+    check(writes == before_stuck && saved->magic == 0 && protection == 1);
+    stuck_protection = false;
     check(open_nand_permissions("test"));
     saved->word = 0x80000000;
     saved->checksum = nand_permission_checksum(*saved);
