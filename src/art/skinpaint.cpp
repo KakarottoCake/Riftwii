@@ -657,6 +657,18 @@ struct Painter {
         paint_input_icon("controller_wii_classic_pro", 28, glyph, c);
         return c;
     }
+    // Kenney's Wii Remote and GameCube controller: Home's Wii games and
+    // GameCube games views.
+    Canvas WiiRemote() const {
+        Canvas c(28, 28);
+        paint_input_icon("wii_controller", 28, glyph, c);
+        return c;
+    }
+    Canvas GameCubePad() const {
+        Canvas c(28, 28);
+        paint_input_icon("gamecube_controller", 28, glyph, c);
+        return c;
+    }
     Canvas Globe() const {
         Canvas c(28, 28);
         c.ring(14, 14, 10.5f, 2.0f, glyph);
@@ -1209,6 +1221,8 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
         {"icon_home", [](const Painter& q) { return q.House(); }},
         {"icon_sound", [](const Painter& q) { return q.Note(); }},
         {"icon_power", [](const Painter& q) { return q.Power(); }},
+        {"icon_wii", [](const Painter& q) { return q.WiiRemote(); }},
+        {"icon_gamecube", [](const Painter& q) { return q.GameCubePad(); }},
         {"disc_case", [](const Painter& q) { return q.DiscCase(); }},
         {"blank_cover", [](const Painter& q) { return q.BlankCover(); }},
         {"pointer1", [](const Painter& q) { return Painter::Hand(q.pointer[0]); }},

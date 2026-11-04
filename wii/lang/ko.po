@@ -3888,6 +3888,21 @@ msgstr "이곳의 게임은 아직 RiftWii에서 플레이하지 않았습니다
 msgid "Mark a game as a favourite on its page."
 msgstr "게임 페이지에서 즐겨찾기로 표시하세요."
 
+msgid "Wii games"
+msgstr "Wii 게임"
+
+msgid "GameCube games"
+msgstr "게임큐브 게임"
+
+msgid "Wii"
+msgstr "Wii"
+
+msgid "No Wii games were found."
+msgstr "Wii 게임을 찾지 못했습니다."
+
+msgid "No GameCube games were found."
+msgstr "게임큐브 게임을 찾지 못했습니다."
+
 msgid "Downloads"
 msgstr "다운로드"
 

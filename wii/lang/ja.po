@@ -3888,6 +3888,21 @@ msgstr "ここのゲームはまだRiftWiiで遊んでいません。"
 msgid "Mark a game as a favourite on its page."
 msgstr "ゲームのページでお気に入りにしてください。"
 
+msgid "Wii games"
+msgstr "Wiiのゲーム"
+
+msgid "GameCube games"
+msgstr "ゲームキューブのゲーム"
+
+msgid "Wii"
+msgstr "Wii"
+
+msgid "No Wii games were found."
+msgstr "Wiiのゲームは見つかりませんでした。"
+
+msgid "No GameCube games were found."
+msgstr "ゲームキューブのゲームは見つかりませんでした。"
+
 msgid "Downloads"
 msgstr "ダウンロード"
 

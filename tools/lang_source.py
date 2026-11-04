@@ -8118,6 +8118,33 @@ FR.update({
     "Mark a game as a favourite on its page.": "Marquez un jeu comme favori sur sa page.",
 })
 
+# Home's Show choices for one console's games.
+T.update({
+    "Wii games": ("Juegos de Wii", "Wiiのゲーム", "Jogos de Wii", "Giochi Wii"),
+    "GameCube games": ("Juegos de GameCube", "ゲームキューブのゲーム", "Jogos de GameCube", "Giochi GameCube"),
+    "Wii": ("Wii", "Wii", "Wii", "Wii"),
+    "No Wii games were found.": (
+        "No se encontraron juegos de Wii.", "Wiiのゲームは見つかりませんでした。",
+        "Nenhum jogo de Wii foi encontrado.", "Nessun gioco Wii trovato."),
+    "No GameCube games were found.": (
+        "No se encontraron juegos de GameCube.", "ゲームキューブのゲームは見つかりませんでした。",
+        "Nenhum jogo de GameCube foi encontrado.", "Nessun gioco GameCube trovato."),
+})
+KO.update({
+    "Wii games": "Wii 게임",
+    "GameCube games": "게임큐브 게임",
+    "Wii": "Wii",
+    "No Wii games were found.": "Wii 게임을 찾지 못했습니다.",
+    "No GameCube games were found.": "게임큐브 게임을 찾지 못했습니다.",
+})
+FR.update({
+    "Wii games": "Jeux Wii",
+    "GameCube games": "Jeux GameCube",
+    "Wii": "Wii",
+    "No Wii games were found.": "Aucun jeu Wii trouvé.",
+    "No GameCube games were found.": "Aucun jeu GameCube trouvé.",
+})
+
 
 # Clearer help, complete menu paths and setting names.
 T.update({

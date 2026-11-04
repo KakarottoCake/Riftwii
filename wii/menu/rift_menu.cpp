@@ -1091,10 +1091,12 @@ static std::string PackSummary(const riftwii::LaunchPackage& p)
 
 // The Home views, stepped with 1; the one last used is remembered in
 // settings.txt ("view").
-enum class Filter { Mods, All, Homebrew, Emulators, Recent, Favorites };
+enum class Filter { Mods, All, Wii, GameCube, Homebrew, Emulators, Recent, Favorites };
 static constexpr Filter kHomeFilters[] = {
-	Filter::Mods, Filter::All, Filter::Homebrew, Filter::Emulators, Filter::Recent, Filter::Favorites
+	Filter::Mods, Filter::All, Filter::Wii, Filter::GameCube, Filter::Homebrew, Filter::Emulators, Filter::Recent,
+	Filter::Favorites
 };
+static constexpr int kHomeFilterCount = sizeof(kHomeFilters) / sizeof(kHomeFilters[0]);
 static Filter g_filter = Filter::Mods;
 static bool g_filterLoaded = false;
 static bool g_scanned = false;   // the drives were read this session
@@ -1109,6 +1111,8 @@ static const char* FilterLabel(Filter f)
 {
 	switch (f) {
 		case Filter::Mods: return "Games with mods";
+		case Filter::Wii: return "Wii games";
+		case Filter::GameCube: return "GameCube games";
 		case Filter::Homebrew: return "Homebrew";
 		case Filter::Emulators: return "Emulators";
 		case Filter::Recent: return "Recently played";
@@ -1122,6 +1126,8 @@ static const char* FilterShortLabel(Filter f)
 {
 	switch (f) {
 		case Filter::Mods: return "Mods";
+		case Filter::Wii: return "Wii";
+		case Filter::GameCube: return "GameCube";
 		case Filter::Homebrew: return "Homebrew";
 		case Filter::Emulators: return "Emulators";
 		case Filter::Recent: return "Recent";
@@ -1133,6 +1139,8 @@ static const char* FilterKey(Filter f)
 {
 	switch (f) {
 		case Filter::Mods: return "mods";
+		case Filter::Wii: return "wii";
+		case Filter::GameCube: return "gamecube";
 		case Filter::Homebrew: return "homebrew";
 		case Filter::Emulators: return "emulators";
 		case Filter::Recent: return "recent";
@@ -1148,6 +1156,8 @@ static void LoadFilter()
 	const auto it = other.find("view");
 	if (it == other.end()) return;
 	if (it->second == "all") g_filter = Filter::All;
+	else if (it->second == "wii") g_filter = Filter::Wii;
+	else if (it->second == "gamecube") g_filter = Filter::GameCube;
 	else if (it->second == "homebrew") g_filter = Filter::Homebrew;
 	else if (it->second == "emulators") g_filter = Filter::Emulators;
 	else if (it->second == "recent") g_filter = Filter::Recent;
@@ -1428,10 +1438,25 @@ static bool HomeRowHasMods(const HomeRow& row)
 	return !row.entry.profile.empty() || g_packs.has_packs(row.id) || riftwii::wii::IsCustomGame(row.id);
 }
 
+// A Wii game on a drive or one installed on the Wii (WiiWare, Virtual
+// Console), or a GameCube game: an emulator's game is neither.
+static bool HomeRowIsGameCube(const HomeRow& row)
+{
+	return row.game && row.game->gamecube;
+}
+static bool HomeRowIsWii(const HomeRow& row)
+{
+	if (row.entry.kind == HomeEntry::Kind::Channel) return true;
+	const bool onDrive = row.entry.kind == HomeEntry::Kind::Usb || row.entry.kind == HomeEntry::Kind::Sd;
+	return onDrive && !HomeRowIsGameCube(row);
+}
+
 static bool HomeRowMatchesFilter(const HomeRow& row, Filter filter)
 {
 	switch (filter) {
 		case Filter::Mods: return HomeRowHasMods(row);
+		case Filter::Wii: return HomeRowIsWii(row);
+		case Filter::GameCube: return HomeRowIsGameCube(row);
 		case Filter::Homebrew: return false;
 		case Filter::Emulators: return row.entry.kind == HomeEntry::Kind::Emulator;
 		case Filter::Recent: return riftwii::wii::History().find(row.key) != nullptr;
@@ -1444,15 +1469,15 @@ static bool HomeRowMatchesFilter(const HomeRow& row, Filter filter)
 // profiles and copies on different drives must not inflate the chooser.
 static std::vector<std::size_t> HomeFilterCounts(const FrontendState& state)
 {
-	std::vector<std::set<std::string>> games(6);
+	std::vector<std::set<std::string>> games(kHomeFilterCount);
 	for (const HomeRow& row : HomeRows(state, false)) {
-		for (int index = 0; index < 6; ++index) {
+		for (int index = 0; index < kHomeFilterCount; ++index) {
 			if (HomeRowMatchesFilter(row, kHomeFilters[index]))
 				games[index].insert(row.id.empty() ? row.key : row.id);
 		}
 	}
 	std::vector<std::size_t> counts;
-	for (int index = 0; index < 6; ++index) {
+	for (int index = 0; index < kHomeFilterCount; ++index) {
 		counts.push_back(kHomeFilters[index] == Filter::Homebrew
 			? riftwii::wii::HomebrewApps().size() : games[index].size());
 	}
@@ -2959,6 +2984,8 @@ static std::string HomeEmptyReason()
 		return tr("Games from: {1}", {HomeSourceName(riftwii::wii::Settings().home_source)});
 	switch (g_filter) {
 		case Filter::Mods: return tr("No games with mods were found.");
+		case Filter::Wii: return tr("No Wii games were found.");
+		case Filter::GameCube: return tr("No GameCube games were found.");
 		case Filter::Homebrew: return tr("No homebrew apps were found in sd:/apps.");
 		case Filter::Emulators: return tr("No emulator games were found.");
 		case Filter::Recent: return tr("No games here have been played from RiftWii yet.");
@@ -3306,6 +3333,9 @@ private:
 
 // GuiTiles owns the familiar pointer and pad focus; these hidden tiles
 // get a compact drawing with a centred picture, name and optional count.
+// Short cards (two rows of them, kChoiceShortCard) put the count in the
+// top right corner, to leave room under the picture for two lines of name.
+static constexpr int kChoiceShortCard = 96;
 class HomeChoiceCards : public GuiElement {
 public:
 	HomeChoiceCards(const std::vector<TileSpec>& tiles, GuiTiles& choices, int current)
@@ -3314,23 +3344,33 @@ public:
 		width = screenwidth;
 		height = screenheight;
 		for (const TileSpec& tile : tiles_) {
+			const bool shortCard = tile.h <= kChoiceShortCard;
 			std::unique_ptr<GuiText> label(new GuiText(tile.label.c_str(), 15, skin::kInk));
 			label->SetParent(this);
 			label->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-			label->SetPosition(tile.x + tile.w / 2 - screenwidth / 2, tile.y + (tile.value.empty() ? 88 : 76));
-			label->SetWrap(true, tile.w - 12, tile.value.empty() ? 2 : 3);
+			// Two lines from y + 42 end by y + 84, inside a short card's 96
+			// (4:3 wraps "Recently played" and most translations).
+			const int labelY = shortCard ? 42 : tile.value.empty() ? 88 : 76;
+			label->SetPosition(tile.x + tile.w / 2 - screenwidth / 2, tile.y + labelY);
+			label->SetWrap(true, tile.w - 12, shortCard || tile.value.empty() ? 2 : 3);
 			labels_.push_back(std::move(label));
 			std::unique_ptr<GuiText> count(new GuiText(tile.value.c_str(), 16, skin::kInkSoft));
 			count->SetParent(this);
 			count->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-			count->SetPosition(tile.x + tile.w / 2 - screenwidth / 2, tile.y + 138);
-			count->SetMaxWidth(tile.w - 12);
+			if (shortCard) {
+				// Centred in the corner's 40px, wide enough for "9999".
+				count->SetPosition(tile.x + tile.w - 26 - screenwidth / 2, tile.y + 8);
+				count->SetMaxWidth(40);
+			} else {
+				count->SetPosition(tile.x + tile.w / 2 - screenwidth / 2, tile.y + 138);
+				count->SetMaxWidth(tile.w - 12);
+			}
 			counts_.push_back(std::move(count));
 		}
 	}
 	void Draw() override
 	{
-		for (int index = 0; index < 6; ++index) {
+		for (int index = 0; index < static_cast<int>(tiles_.size()); ++index) {
 			const TileSpec& tile = tiles_[index];
 			const float lift = choices_.Lift(index);
 			const float grow = 1.0f + 0.035f * lift;
@@ -3343,7 +3383,11 @@ public:
 				skin::DrawNine(over, x - 8, y - 8, w + 16, h + 16, skin::kTileCorner,
 					static_cast<int>(255 * lift));
 			}
-			if (tile.icon) skin::Draw(*tile.icon, tile.x + (tile.w - 28) / 2.0f, tile.y + 30, 255, 1.5f);
+			// A short card's picture is smaller and higher (35px from y + 3)
+			// so that two lines of name end inside it.
+			const bool shortCard = tile.h <= kChoiceShortCard;
+			const float iconY = shortCard ? 6 : 30, iconScale = shortCard ? 1.25f : 1.5f;
+			if (tile.icon) skin::Draw(*tile.icon, tile.x + (tile.w - 28) / 2.0f, tile.y + iconY, 255, iconScale);
 			labels_[index]->Draw();
 			if (!tile.value.empty()) counts_[index]->Draw();
 		}
@@ -3360,23 +3404,32 @@ static int PickHomeChoice(const char* name, std::vector<TileSpec>& tiles, int cu
 {
 	const int extra = PopupExtra();
 	const bool hasCounts = !tiles[0].value.empty();
+	// Up to six cards fit one row; more go in two rows of short cards.
+	const int count = static_cast<int>(tiles.size());
+	const bool twoRows = count > 6;
+	const int columns = twoRows ? (count + 1) / 2 : count;
 	Dim dim;
-	// The row sits between the title band (ending at 146) and the bottom
-	// band (starting at 328), with equal room for its raised shadows.
-	Panel panel(skin::popup, 34, 102, extra, hasCounts ? 260 : 244);
+	// One row sits between the title band (ending at 146) and the bottom
+	// band (starting at 328), with equal room for its raised shadows. Two
+	// rows end at 368, the bottom band at 376 and the panel at 410, above
+	// the prompts (y 418).
+	const int faceHeight = twoRows ? 308 : hasCounts ? 260 : 244;
+	Panel panel(skin::popup, 34, 102, extra, faceHeight);
 	GuiText title(name, 24, skin::kInk);
 	Place(title, 0, PopupBox::kTitleY, true);
 	title.SetMaxWidth(528 + 2 * extra);
-	// Six 84px cards and five 8px gaps occupy 544px, leaving the
-	// shadows and their slight lift inside x 32..608 on a 4:3 TV.
-	const int cardWidth = (544 + 2 * extra - 5 * 8) / 6;
-	const int rowWidth = 6 * cardWidth + 5 * 8;
-	for (int index = 0; index < 6; ++index) {
+	// The cards and their 8px gaps occupy 544px (six 84px cards, or four
+	// of 130), leaving the shadows and their slight lift inside x 32..608
+	// on a 4:3 TV.
+	const int cardWidth = (544 + 2 * extra - (columns - 1) * 8) / columns;
+	const int rowWidth = columns * cardWidth + (columns - 1) * 8;
+	for (int index = 0; index < count; ++index) {
 		TileSpec& tile = tiles[index];
-		tile.x = 320 - rowWidth / 2 + index * (cardWidth + 8);
-		tile.y = 164;
+		const int column = index % columns, row = index / columns;
+		tile.x = 320 - rowWidth / 2 + column * (cardWidth + 8);
+		tile.y = twoRows ? 160 + row * (kChoiceShortCard + 16) : 164;
 		tile.w = cardWidth;
-		tile.h = hasCounts ? 160 : 148;
+		tile.h = twoRows ? kChoiceShortCard : hasCounts ? 160 : 148;
 		tile.hidden = true;
 	}
 	GuiTiles choices;
@@ -3441,13 +3494,13 @@ static int PickHomeLayout()
 static int PickHomeFilter(const FrontendState& state)
 {
 	const auto counts = HomeFilterCounts(state);
-	const skin::Tex* icons[] = {
-		&skin::iconMods, &skin::iconDrives, &skin::iconHome,
+	const skin::Tex* icons[kHomeFilterCount] = {
+		&skin::iconMods, &skin::iconDrives, &skin::iconWii, &skin::iconGameCube, &skin::iconHome,
 		&skin::iconControllers, &skin::iconPlay, &skin::iconStarOn
 	};
-	std::vector<TileSpec> tiles(6);
+	std::vector<TileSpec> tiles(kHomeFilterCount);
 	int current = 0;
-	for (int index = 0; index < 6; ++index) {
+	for (int index = 0; index < kHomeFilterCount; ++index) {
 		tiles[index].label = tr(FilterLabel(kHomeFilters[index]));
 		tiles[index].value = std::to_string(counts[index]);
 		tiles[index].icon = icons[index];
@@ -7673,8 +7726,8 @@ static int MenuSource(FrontendState& state)
 			// Keep the shortcut order fixed, including empty categories.
 			int picked = -1;
 			if (cycle) {
-				for (int index = 0; index < 6; ++index) {
-					if (kHomeFilters[index] == g_filter) picked = (index + 1) % 6;
+				for (int index = 0; index < kHomeFilterCount; ++index) {
+					if (kHomeFilters[index] == g_filter) picked = (index + 1) % kHomeFilterCount;
 				}
 			} else {
 				picked = PickHomeFilter(state);
@@ -14925,14 +14978,15 @@ static bool CopyGameDisc()
 	// controls set to hide leave out a game rated too old. Home leaves
 	// the SD card out when Games on the SD card is Don't look, a drive when
 	// Settings > Home > Games from names another place, and a new copy under
-	// Show's other choices: Games with mods (where Home starts) has it only
-	// if it has mods, and it isn't played or a favourite yet.
+	// Show's other choices: All games and Wii games have it, Games with
+	// mods (where Home starts) only if it has mods, and it isn't played or
+	// a favourite yet.
 	const bool parentalHides = ParentalVerdictFor(job.id, false) == riftwii::ParentalVerdict::Hidden;
 	const std::string& source = riftwii::wii::Settings().home_source;
 	const bool sdLooked = place.usb || riftwii::wii::Settings().sd_games != "off";
 	const bool sourceShows = source == "all" || source == (place.usb ? "usb" : "sd");
 	const bool hasMods = g_packs.has_packs(job.id) || riftwii::wii::IsCustomGame(job.id);
-	const bool filterShows = g_filter == Filter::All || (g_filter == Filter::Mods && hasMods);
+	const bool filterShows = g_filter == Filter::All || g_filter == Filter::Wii || (g_filter == Filter::Mods && hasMods);
 	std::string done;
 	if (parentalHides)
 		done = tr("{1} is copied to the {2}, and plays without the disc. Parental controls hide it on Home: its age rating is above the highest age allowed.", {name, drive});
