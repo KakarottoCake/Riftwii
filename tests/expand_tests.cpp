@@ -513,17 +513,19 @@ static void test_missing_create_folders() {
     plan.folders.push_back(Folder("/Stage", "/mod/stage2", true, true));    // could replace a.arc
     plan.folders.push_back(Folder("/Deep", "/mod/deep", true, true));       // could replace inner/d.bin
     plan.folders.push_back(Folder("/Deep", "/mod/shallow", false, true));   // no file directly inside
+    plan.folders.push_back(Folder("/Stage", "/mod/stage3", false, true));   // a.arc directly inside
     std::vector<riftwii::FilePatch> out;
     std::vector<std::string> notes;
     std::vector<std::string> missing;
     EXPECT_TRUE(riftwii::expand_plan(plan, fst, card, out, notes, err, &missing));
-    EXPECT_EQ(notes.size(), std::size_t(5));
+    EXPECT_EQ(notes.size(), std::size_t(6));
     for (const std::string& n : notes) EXPECT_TRUE(riftwii::note_names_missing(n));
-    EXPECT_EQ(missing.size(), std::size_t(3));
-    if (missing.size() == 3) {
+    EXPECT_EQ(missing.size(), std::size_t(4));
+    if (missing.size() == 4) {
         EXPECT_EQ(missing[0], std::string("/mod/nocreate"));
         EXPECT_EQ(missing[1], std::string("/mod/stage2"));
         EXPECT_EQ(missing[2], std::string("/mod/deep"));
+        EXPECT_EQ(missing[3], std::string("/mod/stage3"));
     }
 }
 
