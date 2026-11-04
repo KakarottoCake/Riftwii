@@ -35,6 +35,7 @@ headers, generated data and assets with the code that uses them.
 | Home's shelf, carousel and 3D covers ring; their boxes and 3D cover pictures | `wii/menu/gui_shelf.cpp`, `wii/menu/boxart.cpp`, `wii/menu/cover3d.cpp`, `src/art/coverart.cpp` |
 | A game page's disc art from GameTDB | `wii/menu/discart.cpp`, `src/art/coverart.cpp` |
 | How screens, pages and popups come and go (fades, zooms, slides) | `wii/menu/transition.cpp`, the camera in `vendor-libgui/source/video.cpp` |
+| What moves while the player waits or points (busy ring, progress bars, the lit edge's slow pulse, a press's dip, page arrows) | `wii/menu/gui_busy.cpp`, `wii/menu/gui_motion.cpp`, `wii/menu/transition.cpp` (`Pulse`, `PressScale`) |
 | A menu that freezes on a console only (the GUI watch, the GX trace, `debug_gx`) | `wii/menu/drawtrace.cpp`, `LogGuiWatch` and `UpdateGUI` in `wii/menu/rift_menu.cpp` |
 | Menu themes (colours, pictures, music) | `src/art/theme.cpp` (theme.ini), `src/art/skinpaint.cpp` (the painted pictures), `wii/menu/menutheme.cpp`, `wii/menu/skin.cpp`, `themes/`, [THEMES.md](THEMES.md) |
 | Downloading themes (Settings > Theme > Get more themes) | `wii/menu/themestore.cpp`, `wii/online/httpmem.cpp`, `src/art/themelist.cpp` (themes.json), `src/fs/zipread.cpp` (the zip), `tests/themebrowse_tests.cpp`, [THEMES.md](THEMES.md) |
@@ -145,6 +146,8 @@ The build compiles every folder into one, so no two files share a name.
 | `gui_flowlist.cpp` | The row lists (a game's Options, Mods, Cheats, Settings' sections) |
 | `gui_tiles.cpp` | The tiles of the game page and the Settings hub: D-pad moves to the nearest, focus ring and lift |
 | `gui_prompts.cpp` | The button prompts along the bottom of a screen (A Select, B Back, + Play) |
+| `gui_busy.cpp` | The busy ring beside a wait (a lit dot chasing round) and the rounded strips of the progress bars |
+| `gui_motion.cpp` | Page arrows that bob gently while there is another page, and grow when pointed at |
 | `gui_gamegrid.cpp` | The Home screen's tile grid and its cover textures |
 | `skin.cpp` | The menu's artwork (painted by `src/art/skinpaint.cpp`) or a theme's pictures, as textures |
 | `menutheme.cpp` | The chosen theme: its theme.ini, pictures and music on the SD card |

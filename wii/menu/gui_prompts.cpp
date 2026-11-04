@@ -4,6 +4,7 @@
 
 #include "drawtrace.hpp"
 #include "skin.hpp"
+#include "transition.hpp"
 #include "wiimenusounds.hpp"
 #include "video.h"
 #include "wiidrc.h"
@@ -21,6 +22,30 @@ constexpr int kTextGap = 8;  // between a badge and its text
 // The same room each side of the badge and word, so they sit in its middle.
 constexpr int kPadLeft = 9, kPadRight = 9, kPadY = 4;
 constexpr int kShadow = 8;  // skin::tile9's margin
+
+// Physical buttons give the same visual response as pointing at a prompt.
+// This observes input only; each screen keeps handling its own action.
+bool PromptPressed(const std::string& name, const GuiTrigger& trigger) {
+    struct Key {
+        const char* name;
+        u32 remote;
+        u16 pad, gamepad;
+    };
+    static const Key keys[] = {
+        {"A", WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A},
+        {"B", WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B},
+        {"+", WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_START, WIIDRC_BUTTON_PLUS},
+        {"-", WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_TRIGGER_L, WIIDRC_BUTTON_MINUS},
+        {"1", WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X},
+        {"2", WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_Z, WIIDRC_BUTTON_Y},
+    };
+    for (const Key& key : keys) {
+        if (name != key.name) continue;
+        return (trigger.wpad && (trigger.wpad->btns_d & key.remote)) ||
+               (trigger.pad.btns_d & key.pad) || (trigger.wiidrcdata.btns_d & key.gamepad);
+    }
+    return false;
+}
 
 }  // namespace
 
@@ -116,6 +141,8 @@ void GuiPrompts::Draw() {
         p.x = right - kPadRight - p.w;
         right = p.x - kPadLeft - kGap;
         const bool lit = i == hover;
+        const float pressScale = riftwii::wii::transition::PressScale(p.pressElapsed);
+        Menu_PushCamera(pressScale, p.x + p.w / 2.0f, kY + kBadge / 2.0f);
         const float bx = static_cast<float>(p.x - kPadLeft), by = static_cast<float>(kY - kPadY);
         const float bw = static_cast<float>(kPadLeft + p.w + kPadRight), bh = static_cast<float>(kBadge + 2 * kPadY);
         skin::DrawNine(lit ? skin::tile9Over : skin::tile9, bx - kShadow, by - kShadow, bw + 2 * kShadow, bh + 2 * kShadow,
@@ -134,12 +161,28 @@ void GuiPrompts::Draw() {
         // middle (measured on a screenshot), with the badge's letter.
         p.text->SetPosition(p.x + kBadge + kTextGap, kY + 1);
         p.text->Draw();
+        Menu_PopCamera();
     }
     UpdateEffects();
 }
 
 void GuiPrompts::Update(GuiTrigger* t) {
-    if (state == STATE::DISABLED || !t || !t->wpad || !t->wpad->ir.valid) return;
+    if (state == STATE::DISABLED || !t) return;
+    const bool pointing = t->wpad && t->wpad->ir.valid;
+    // A button press dips its prompt whether or not the Remote points. While
+    // it points, A clicks whatever is under the pointer, so the A prompt
+    // dips only when the pointer is on it (below).
+    for (Prompt& prompt : prompts) {
+        const bool pointerOwnsA = pointing && prompt.button == "A";
+        if (prompt.shown && !pointerOwnsA && PromptPressed(prompt.button, *t)) prompt.pressElapsed = 0;
+    }
+    if (!pointing) {
+        bool pointerLive = false;
+        for (int channel = 0; channel < 4; ++channel)
+            pointerLive = pointerLive || (userInput[channel].wpad && userInput[channel].wpad->ir.valid);
+        if (!pointerLive) hover = -1;
+        return;
+    }
     const int px = static_cast<int>(t->wpad->ir.x), py = static_cast<int>(t->wpad->ir.y);
     int at = -1;
     for (int i = 0; i < static_cast<int>(prompts.size()); ++i) {
@@ -152,6 +195,7 @@ void GuiPrompts::Update(GuiTrigger* t) {
     hover = at;
     if (at >= 0 && (t->wpad->btns_d & (WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A))) {
         clicked = at;
+        prompts[at].pressElapsed = 0;
         riftwii::wii::PlayMenuSound(prompts[at].button == "B" ? riftwii::wii::MenuSoundEvent::Back
                                                             : riftwii::wii::MenuSoundEvent::Click);
     }

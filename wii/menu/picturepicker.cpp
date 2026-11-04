@@ -16,6 +16,9 @@
 #include "netsock.hpp"
 #include "online.hpp"
 #include "skin.hpp"
+#include "gui_motion.hpp"
+#include "gui_busy.hpp"
+#include "transition.hpp"
 #include "video.h"
 #include "wiidrc.h"
 #include "riftwii/checkedalloc.hpp"
@@ -63,14 +66,6 @@ const char* source_name(PictureSource source) {
     return "";
 }
 
-void spinner(float x, float y, unsigned frame) {
-    for (unsigned dot = 0; dot < 8; ++dot) {
-        const float angle = dot * 3.14159265f / 4;
-        const unsigned age = (dot + 8 - frame / 6 % 8) % 8;
-        Menu_DrawRectangle(x + std::cos(angle) * 11 - 2, y + std::sin(angle) * 11 - 2, 4, 4,
-                           skin::WithAlpha(skin::kAccent, 255 - age * 26), 1);
-    }
-}
 // A cover thumbnail: the stored cover's pixels, fitted inside the tile's
 // box at the cover's own proportions (it is already rounded).
 void draw_cover(const u8* pixels, const RoundClip& clip, int alpha) {
@@ -345,6 +340,7 @@ void GuiPicturePicker::Pump() {
     if (next == Job::None) return;
     if (next == Job::Pick) job_slot_ = pick_slot_;
     job_ = next;
+    busyElapsedMs_ = 0;
     job_page_ = page_;
     done_.store(false, std::memory_order_relaxed);
     active_picker = this;
@@ -362,7 +358,7 @@ std::vector<std::uint8_t> GuiPicturePicker::TakePicture() { return std::move(ans
 
 void GuiPicturePicker::Draw() {
     if (!IsVisible()) return;
-    ++frame_;
+    busyElapsedMs_ += transition::FrameMilliseconds();
     if (texture_dirty_) {
         GX_InvalidateTexAll();
         texture_dirty_ = false;
@@ -388,15 +384,15 @@ void GuiPicturePicker::Draw() {
             skin::DrawNine(focused ? skin::channelFrameOver9 : skin::channelFrame9,
                            x - margin, y - margin, TileWidth() + 2 * margin, 88 + 2 * margin, kChannelFrameCorner);
         } else if (job_ != Job::None && job_page_ == page_ && job_slot_ == slot && !discard_job_) {
-            spinner(x + TileWidth() / 2, y + 44, frame_);
+            DrawBusyRing(x + TileWidth() / 2, y + 44, busyElapsedMs_);
         }
         tiles_[slot].caption->Draw();
     }
-    if (!discovered_) spinner(320, kStatusEmptyY + 10, frame_);
-    if (job_ == Job::Pick) spinner(540, kAutomaticY + kAutomaticHeight / 2, frame_);
+    if (!discovered_) DrawBusyRing(320, kStatusEmptyY + 10, busyElapsedMs_);
+    if (job_ == Job::Pick) DrawBusyRing(540, kAutomaticY + kAutomaticHeight / 2, busyElapsedMs_);
     if (picture_page_count(candidates_.size()) > 1) {
-        skin::Draw(skin::arrowLeft, 8, 202);
-        skin::Draw(skin::arrowRight, 588, 202);
+        DrawInvitingArrow(skin::arrowLeft, skin::arrowLeftOver, 26, 202, -1, 0, arrowHover_ < 0, arrowLift_[0]);
+        DrawInvitingArrow(skin::arrowRight, skin::arrowRightOver, 570, 202, 1, 0, arrowHover_ > 0, arrowLift_[1]);
     }
     // Pill textures include a four-pixel shadow; keep their full height
     // and rounded ends when stretching the middle for translated labels.
@@ -425,15 +421,22 @@ void GuiPicturePicker::Update(GuiTrigger* trigger) {
     const bool accept = pressed(trigger, WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A);
     if (trigger->wpad && trigger->wpad->ir.valid) {
         const int x = trigger->wpad->ir.x, y = trigger->wpad->ir.y;
-        const int slot = TileAt(x, y);
+        // The arrows, and so their hit areas, exist only with another page.
+        const bool arrowsShown = picture_page_count(candidates_.size()) > 1;
+        arrowHover_ = 0;
+        if (arrowsShown && y >= 190 && y < 260 && x >= 20 && x < 78) arrowHover_ = -1;
+        if (arrowsShown && y >= 190 && y < 260 && x >= 562 && x < 620) arrowHover_ = 1;
+        // In 16:9 the outer pictures reach under the arrows. The arrow is
+        // drawn on top, so where they overlap the arrow takes the press.
+        const int slot = arrowHover_ != 0 ? -1 : TileAt(x, y);
         if (slot >= 0) focus_ = slot;
         if (accept) {
             if (slot >= 0) Choose(slot);
-            else if (y >= 190 && y < 260 && x < 52) TurnPage(-1);
-            else if (y >= 190 && y < 260 && x >= 588) TurnPage(1);
+            else if (arrowHover_ != 0) TurnPage(arrowHover_);
         }
         return;
     }
+    arrowHover_ = 0;
     // As in Home, another controller's D-pad does not steal an active pointer.
     for (int channel = 0; channel < 4; ++channel) {
         if (userInput[channel].wpad && userInput[channel].wpad->ir.valid) return;

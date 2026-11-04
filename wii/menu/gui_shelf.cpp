@@ -666,6 +666,33 @@ void DrawSheen(const Face& f, float phase, int alpha) {
     DrawFace(g, alpha);
 }
 
+// A narrow accent rim stays on the case, even when the player turns it
+// round. It follows the existing face geometry, so no new texture is needed.
+void DrawFocusRim(const Face& face, int alpha) {
+    if (!FacesEye(face)) return;
+    const V3 centre = Mix(face.c[0], face.c[2], 0.5f);
+    V3 outer[4], inner[4];
+    for (int corner = 0; corner < 4; ++corner) {
+        outer[corner] = face.c[corner];
+        outer[corner].x += face.normal.x * 0.7f;
+        outer[corner].y += face.normal.y * 0.7f;
+        outer[corner].z += face.normal.z * 0.7f;
+        inner[corner] = Mix(outer[corner], centre, 0.018f);
+    }
+    const int opacity = static_cast<int>(alpha * riftwii::wii::transition::Pulse());
+    for (int edge = 0; edge < 4; ++edge) {
+        const int next = (edge + 1) % 4;
+        Face strip;
+        strip.normal = face.normal;
+        strip.color = skin::kAccent;
+        strip.c[0] = outer[edge];
+        strip.c[1] = outer[next];
+        strip.c[2] = inner[next];
+        strip.c[3] = inner[edge];
+        DrawFace(strip, opacity);
+    }
+}
+
 // The backdrop: a blurred copy of the focused game's cover across the
 // screen, far behind the shelf, the last one fading out as the next one
 // fades in.
@@ -1150,6 +1177,10 @@ void GuiGameGrid::DrawShelf(int alpha) {
             disc.u1 = disc.v1 = 1;
             disc.color = {255, 255, 255, 255};
             DrawFace(disc, alpha);
+        }
+        if (i == focus) {
+            DrawFocusRim(faces[1], alpha);
+            DrawFocusRim(faces[2], alpha);
         }
         if (i == focus && (art || cover || (item.badge == "DISC" && skin::discCase.data))) {
             DrawSheen(faces[1], swing * settle, alpha);

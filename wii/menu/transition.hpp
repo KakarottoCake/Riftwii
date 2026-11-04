@@ -62,6 +62,11 @@ float SlowMotion();
 
 // Shared time for widgets drawn in this GUI frame, capped after a stall.
 float FrameMilliseconds();
+// A shared, slow-motion-aware cycle. Pulse stays between 70% and 100%.
+float Cycle(float periodMs);
+float Pulse();
+// Start with elapsedMs = 0 on input; -1 means settled. Never delays input.
+float PressScale(float& elapsedMs);
 float Follow(float current, float target, float responseMs, float snap = 0.001f);
 float Coast(float& velocity, float responseMs);
 

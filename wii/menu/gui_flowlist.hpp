@@ -102,6 +102,7 @@ private:
     Part grabPart = Part::None;
     bool dragging = false, grabTrack = false;
     int grabArrow = 0, arrowHeld = 0;  // an arrow held: which, and for how many frames
+    float arrowLift[2] = {};
     int hoverArrow = 0;
     int textFirst = -1;
     bool dirty = true;

@@ -138,92 +138,59 @@ void GuiButton::SetTooltip(GuiTooltip* t)
 /**
  * Draw the button on screen
  */
+void GuiButton::SetState(STATE next, int channel)
+{
+	if (next == STATE::CLICKED && state != STATE::CLICKED)
+		pressElapsed = 0;
+	GuiElement::SetState(next, channel);
+}
+
 void GuiButton::Draw()
 {
-	if(!this->IsVisible())
+	if (!this->IsVisible())
 		return;
 
-	// Share the tiles' response time, including on a 50 Hz display.
+	namespace motion = riftwii::wii::transition;
 	const bool lit = state == STATE::SELECTED || state == STATE::HELD;
-	litAmount = riftwii::wii::transition::Follow(litAmount, lit ? 1.0f : 0.0f, 47.0f);
+	litAmount = motion::Follow(litAmount, lit ? 1.0f : 0.0f, 47.0f);
 	if (litAmount < 0.01f) litAmount = 0.0f;
 	if (litAmount > 0.99f) litAmount = 1.0f;
-	if (litAmount > 0.0f && litAmount < 1.0f)
+	const float scale = (1.0f + (pageDirection ? 0.08f : 0.035f) * litAmount) * motion::PressScale(pressElapsed);
+	float offset = 0;
+	if (pageDirection)
 	{
-		// Grown about its middle (image, icon and text together), and the
-		// lit picture over the plain one as it fades in.
-		const f32 k = 1.0f + 0.035f * litAmount;
-		Menu_PushCamera(k, this->GetLeft() + this->GetWidth() / 2.0f, this->GetTop() + this->GetHeight() / 2.0f);
-		if (image)
-			image->Draw();
-		if (imageOver)
-		{
-			const int a = imageOver->GetAlpha();
-			imageOver->SetAlpha((int)(a * litAmount));
-			imageOver->Draw();
-			imageOver->SetAlpha(a);
-		}
-		if (icon)
-			icon->Draw();
-		for (int i = 0; i < 3; ++i)
-		{
-			GuiText* t = lit && labelOver[i] ? labelOver[i] : label[i];
-			if (t)
-				t->Draw();
-		}
-		Menu_PopCamera();
-		this->UpdateEffects();
-		return;
+		const float phase = motion::Cycle(1600.0f);
+		const float triangle = phase < 0.5f ? phase * 2 : (1 - phase) * 2;
+		offset = -pageDirection * (3.0f * motion::Ease(triangle) + 3.0f * litAmount);
 	}
-	if (litAmount >= 1.0f)
-		Menu_PushCamera(1.035f, this->GetLeft() + this->GetWidth() / 2.0f, this->GetTop() + this->GetHeight() / 2.0f);
+	Menu_PushCamera(scale, GetLeft() + GetWidth() / 2.0f, GetTop() + GetHeight() / 2.0f, offset, 0);
 
-	if(state == STATE::SELECTED || state == STATE::HELD)
+	if (image)
+		image->Draw();
+	if (imageOver && litAmount > 0)
 	{
-		if(imageOver)
-			imageOver->Draw();
-		else if(image) // draw image
-			image->Draw();
-
-		if(iconOver)
-			iconOver->Draw();
-		else if(icon) // draw icon
-			icon->Draw();
-
-		// draw text
-		if(labelOver[0])
-			labelOver[0]->Draw();
-		else if(label[0])
-			label[0]->Draw();
-			
-		if(labelOver[1])
-			labelOver[1]->Draw();
-		else if(label[1])
-			label[1]->Draw();
-			
-		if(labelOver[2])
-			labelOver[2]->Draw();
-		else if(label[2])
-			label[2]->Draw();
+		// Fade the overlay through this parent, preserving the image's own
+		// alpha. Saving GetAlpha() and writing it back would compound a
+		// popup's parent fade on every frame.
+		const int savedAlpha = alpha;
+		const int savedDynamicAlpha = alphaDyn;
+		const float glow = litAmount * motion::Pulse();
+		alpha = static_cast<int>(alpha * glow);
+		if (alphaDyn >= 0) alphaDyn = static_cast<int>(alphaDyn * glow);
+		imageOver->Draw();
+		alpha = savedAlpha;
+		alphaDyn = savedDynamicAlpha;
 	}
-	else
+	GuiImage* shownIcon = lit && iconOver ? iconOver : icon;
+	if (shownIcon)
+		shownIcon->Draw();
+	for (int i = 0; i < 3; ++i)
 	{
-		if(image) // draw image
-			image->Draw();
-		if(icon) // draw icon
-			icon->Draw();
-
-		// draw text
-		if(label[0])
-			label[0]->Draw();
-		if(label[1])
-			label[1]->Draw();
-		if(label[2])
-			label[2]->Draw();
+		GuiText* shownLabel = lit && labelOver[i] ? labelOver[i] : label[i];
+		if (shownLabel)
+			shownLabel->Draw();
 	}
-
-	if (litAmount >= 1.0f)
-		Menu_PopCamera();
+	Menu_PopCamera();
 	this->UpdateEffects();
 }
 

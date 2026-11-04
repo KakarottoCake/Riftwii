@@ -9,6 +9,7 @@
 #include "i18n.hpp"
 #include "skin.hpp"
 #include "transition.hpp"
+#include "gui_motion.hpp"
 #include "video.h"
 #include "wiidrc.h"
 
@@ -291,10 +292,10 @@ void GuiFlowList::Draw() {
             const float y = y0 + litPos * rowH - scroll + kCardGap;
             const float left = static_cast<float>(CardLeft((*rows)[litRow]));
             skin::DrawNine(skin::tile9Over, left - kCardShadow, y - kCardShadow, CardRight() - left + 2 * kCardShadow,
-                           rowH - 2 * kCardGap + 2 * kCardShadow, skin::kTileCorner, static_cast<int>(alpha * litFade));
+                           rowH - 2 * kCardGap + 2 * kCardShadow, skin::kTileCorner, static_cast<int>(alpha * litFade * motion::Pulse()));
         }
     } else if (litFade > 0.0f) {
-        skin::Draw(skin::rowFocus, x0, y0 + litPos * rowH - scroll, static_cast<int>(alpha * litFade));
+        skin::Draw(skin::rowFocus, x0, y0 + litPos * rowH - scroll, static_cast<int>(alpha * litFade * motion::Pulse()));
     }
     if (static_cast<int>(switchPos.size()) != Count()) {
         switchPos.assign(Count(), -1.0f);
@@ -442,11 +443,13 @@ void GuiFlowList::Draw() {
         // Each arrow shows while the list can still go its way.
         if (aim > 0) {
             const bool over = hoverArrow < 0 || grabArrow < 0;
-            skin::Draw(over ? skin::scrollUpOver : skin::scrollUp, ArrowX() - 4, ArrowY(-1) - 4, alpha);
+            riftwii::wii::DrawInvitingArrow(skin::scrollUp, skin::scrollUpOver, ArrowX() - 4, ArrowY(-1) - 4,
+                                          0, -1, over, arrowLift[0], alpha);
         }
         if (aim < MaxScroll()) {
             const bool over = hoverArrow > 0 || grabArrow > 0;
-            skin::Draw(over ? skin::scrollDownOver : skin::scrollDown, ArrowX() - 4, ArrowY(1) - 4, alpha);
+            riftwii::wii::DrawInvitingArrow(skin::scrollDown, skin::scrollDownOver, ArrowX() - 4, ArrowY(1) - 4,
+                                          0, 1, over, arrowLift[1], alpha);
         }
     }
     UpdateEffects();
