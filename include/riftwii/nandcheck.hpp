@@ -47,17 +47,18 @@ struct NandPermissionNote {
     std::uint32_t before = 0;
     std::uint32_t after = 0;
     std::uint32_t shift = 0;
+    std::uint32_t opened = 0;  // 1 once the opening write read back whole
     std::uint32_t checksum = 0;
 };
 
 inline std::uint32_t nand_permission_checksum(const NandPermissionNote& note) {
-    return 0x4E414E44 ^ note.ios ^ note.word ^ note.before ^ note.after ^ note.shift;
+    return 0x4E414E44 ^ note.ios ^ note.word ^ note.before ^ note.after ^ note.shift ^ note.opened;
 }
 
 inline bool nand_permission_note_valid(const NandPermissionNote& note) {
     return note.magic == 0x52574E50 && note.ios >= 3 && note.ios <= 255 &&
            note.word >= 0xD3400000 && note.word < 0xD4000000 && (note.word & 3) == 0 &&
-           (note.shift == 0 || note.shift == 16) &&
+           (note.shift == 0 || note.shift == 16) && note.opened <= 1 &&
            nand_check_half(note.before, note.shift) == 0xD001 &&
            note.after == nand_check_opened(note.before, note.shift) &&
            note.checksum == nand_permission_checksum(note);

@@ -28,6 +28,7 @@ bool hardware = true;
 bool fail_write = false;
 bool fail_restore = false;
 bool damage_other = false;  // the original word goes back with the other halfword damaged
+bool damage_opening = false;  // the opening write lands with the other halfword damaged
 unsigned writes = 0;
 
 void* map_at(u32 address, std::size_t size) {
@@ -57,6 +58,7 @@ void write32(u32 address, u32 value) {
     if (address != kWord) return;
     ++writes;
     if (value == kBefore && damage_other) current = 0xDEAD0000u | (kBefore & 0x0000FFFFu);
+    else if (value != kBefore && damage_opening) current = 0xDEAD0000u | (value & 0x0000FFFFu);
     else if (value != kBefore && fail_write) current = 0xDEADBEEF;
     else if (value != kBefore || !fail_restore) current = value;
 }
@@ -142,6 +144,26 @@ int main() {
     check(riftwii::wii::g_last_log.find("no longer matches") != std::string::npos);
     current = kBefore;
     fail_write = false;
+    // A failed opening that left the patched halfword opened and the other
+    // one damaged, with its rollback failing too: the next start puts the
+    // whole original word back, not just the patched halfword, and keeps
+    // the note until that word is back.
+    damage_opening = true;
+    fail_restore = true;
+    check(!open_nand_permissions("test"));
+    check(current == 0xDEADE001u && nand_permission_note_valid(*saved) && saved->opened == 0);
+    damage_opening = false;
+    RecoverNandPermissions();
+    check(current == 0xDEADE001u && nand_permission_note_valid(*saved));
+    fail_restore = false;
+    RecoverNandPermissions();
+    LogNandPermissionRecovery();
+    check(current == kBefore && saved->magic == 0);
+    check(riftwii::wii::g_last_log.find("was closed") != std::string::npos);
+    check(open_nand_permissions("test"));
+    check(saved->opened == 1 && nand_permission_note_valid(*saved));
+    close_nand_permissions("test");
+    check(current == kBefore && saved->magic == 0);
     check(open_nand_permissions("test"));
     saved->word = 0x80000000;
     saved->checksum = nand_permission_checksum(*saved);

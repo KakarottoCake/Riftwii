@@ -26,11 +26,14 @@ void FlushNote() { DCFlushRange(note(), 32); }
 // Only the patched halfword is ours, as in the channel installer (#379):
 // IOS may change the other halfword of the same word, which must neither
 // block the close nor be undone. The word is still read and written
-// whole: smaller uncached stores have hung consoles. When the patched
-// halfword no longer holds the opening (an opening whose rollback failed,
-// or IOS reloaded), it counts as restored only if the whole original word
-// is back: a damaged other halfword is never reported as closed. `found`
-// is what the word held when the close looked, for the log.
+// whole: smaller uncached stores have hung consoles. An opening that never
+// read back whole (failed, or cut off before its check) may have damaged
+// the other halfword itself, so it is undone as the opening's rollback
+// does: the whole original word. That, and a patched halfword that no
+// longer holds the opening (IOS reloaded), count as restored only if the
+// whole original word is back: a damaged other halfword is never reported
+// as closed. `found` is what the word held when the close looked, for the
+// log.
 bool Restore(u32& found) {
     const NandPermissionNote saved = *note();
     const u32 protection = read16(0x0D8B420A);
@@ -38,10 +41,11 @@ bool Restore(u32& found) {
     found = read32(saved.word);
     u32 closed = 0;
     const bool ours = nand_check_closed(found, saved.before, saved.shift, closed);
-    if (ours) write32(saved.word, closed);
+    if (ours) write32(saved.word, saved.opened ? closed : saved.before);
     const u32 now = read32(saved.word);
-    const bool restored = ours ? nand_check_half(now, saved.shift) == nand_check_half(saved.before, saved.shift)
-                               : now == saved.before;
+    const bool restored = ours && saved.opened
+                              ? nand_check_half(now, saved.shift) == nand_check_half(saved.before, saved.shift)
+                              : now == saved.before;
     write16(0x0D8B420A, protection);
     if (restored || !ours) {
         note()->magic = 0;
@@ -132,6 +136,9 @@ bool open_nand_permissions(const char* who) {
              who, IOS_GetVersion(), store.word, read_back);
         return false;
     }
+    note()->opened = 1;
+    note()->checksum = nand_permission_checksum(*note());
+    FlushNote();
     g_open = true;
     logf("%s: IOS%d's NAND permission check opened at 0x%08x.\n", who, IOS_GetVersion(), match);
     return true;
