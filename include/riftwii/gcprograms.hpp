@@ -84,13 +84,19 @@ bool gc_program_entry_words(std::uint32_t entry, std::uint32_t first, std::uint3
 // it would branch from the wrong place. EA's 007: Agent Under Fire's
 // programs begin "bl __init_registers; bl __init_hardware", which only set
 // up the registers and the processor, and are taken two words on. The
-// take-over sets r0 to the program's index, so the place past the calls
-// must be an instruction that sets r0 itself without reading it ("li r0,-1"
-// there; li, lis, mflr or mfspr into r0): a value a call left in r0 for it
-// would be lost. Otherwise the entry. `words` are the program's first
-// `count` words from the entry; the place returned leaves at least two of
-// them to take.
+// take-over sets r0 to the program's index, so from the place past the
+// calls r0 must be set again before anything reads it: a value a call left
+// in r0 for it would be lost. That is an instruction that sets r0 without
+// reading it ("li r0,-1" there; li, lis, mflr or mfspr into r0), right
+// there or after instructions that leave r0 alone (li, lis, ori and oris on
+// other registers) and calls (no function takes an argument in r0). Harry
+// Potter and the Goblet of Fire's begins "bl; lis/ori r1, r2 and r13; three
+// calls; li r0,-1", and is taken one word on. Otherwise the entry. `words`
+// are the program's first `count` words from the entry, up to
+// kGcProgramStartLook of them; the place returned leaves at least two to
+// take, neither of them a call.
 constexpr std::size_t kGcProgramStartCalls = 4;
+constexpr std::size_t kGcProgramStartLook = 16;
 std::uint32_t gc_program_start(std::uint32_t entry, const std::uint32_t* words, std::size_t count);
 
 // Whether any relative branch in the code (b, bc, with or without link)

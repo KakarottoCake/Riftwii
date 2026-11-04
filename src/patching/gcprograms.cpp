@@ -219,6 +219,27 @@ bool sets_r0_fresh(std::uint32_t word) {
     return op == 31 && ((word >> 1) & 0x3FF) == 339;
 }
 
+// Whether r0's value at words[0] is never read: within the words given, r0
+// is set fresh (sets_r0_fresh) before anything that might read it. On the
+// way, li and lis into another register, ori and oris between two others,
+// and from the third word on calls (bl) leave r0 alone; anything else, or
+// running out of words, is not sure, and so false. The first two words are
+// the ones replayed elsewhere, so no call there.
+bool r0_set_before_read(const std::uint32_t* words, std::size_t count) {
+    for (std::size_t i = 0; i < count; ++i) {
+        const std::uint32_t word = words[i];
+        if (sets_r0_fresh(word)) return true;
+        const unsigned op = word >> 26, d = (word >> 21) & 31, a = (word >> 16) & 31;
+        const bool li_or_lis_elsewhere = (op == 14 || op == 15) && d != 0;
+        // ori and oris: rS (bits 21-25) is read, rA (bits 16-20) written.
+        const bool ori_elsewhere = (op == 24 || op == 25) && d != 0 && a != 0;
+        const bool call = op == 18 && (word & 3) == 1;
+        if (li_or_lis_elsewhere || ori_elsewhere || (call && i >= 2)) continue;
+        return false;
+    }
+    return false;
+}
+
 }  // namespace
 
 std::uint32_t gc_program_start(std::uint32_t entry, const std::uint32_t* words, std::size_t count) {
@@ -230,7 +251,7 @@ std::uint32_t gc_program_start(std::uint32_t entry, const std::uint32_t* words, 
         if (!call) break;
         ++skipped;
     }
-    if (skipped != 0 && !sets_r0_fresh(words[skipped])) return entry;
+    if (skipped != 0 && !r0_set_before_read(words + skipped, count - skipped)) return entry;
     return entry + static_cast<std::uint32_t>(4 * skipped);
 }
 
