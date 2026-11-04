@@ -1632,70 +1632,80 @@ static void TestGcPadSamplingSearch() {
     EXPECT_EQ(find(twice), 0u);
 }
 
-// Instruction fingerprints from the locally owned discs. ProStreet is a Wii
-// game, but its SDK still carries PAD's GameCube sampling handler. Its
-// frame-first, cmpwi/bctrl layout is a real variant the old finder missed.
-static void TestGcPadSamplingDiscWords() {
+// The three layouts of the SDK's SamplingHandler that compilers produce
+// (self-authored, with RiftWii's own frame sizes, small-data offsets, call
+// targets and addresses; no game's words): the interrupted context kept in
+// r31 and the callback through LR; kept on the stack; and the frame made
+// before mflr, a signed zero test, the context at 8 and the callback
+// through CTR (the variant found in Need for Speed ProStreet that the old
+// finder missed).
+enum class SamplingLayout { KeptInR31, KeptOnStack, FrameFirst };
+
+static std::vector<std::uint32_t> sampling_layout(std::uint32_t base, SamplingLayout layout) {
+    Asm code{base, {}};
+    const std::uint32_t frame = layout == SamplingLayout::KeptOnStack ? 0x2E8u : 0x2F0u;
+    const std::uint16_t slot = 0x85F0;  // the callback's small-data slot, -0x7A10(r13)
+    const std::uint32_t context = layout == SamplingLayout::FrameFirst ? 8u : 16u;
+    const std::uint32_t clear_context = base + 0x2400;
+    const std::uint32_t set_context = base + 0x2380;
+    const std::uint32_t stwu = 0x94210000u | ((0x10000u - frame) & 0xFFFFu);  // stwu r1,-frame(r1)
+    if (layout == SamplingLayout::FrameFirst) {
+        code.op(stwu);
+        code.op(0x7C0802A6u);                 // mflr r0
+        code.op(0x90010000u | (frame + 4));  // stw r0,frame+4(r1)
+    } else {
+        code.op(0x7C0802A6u);  // mflr r0
+        code.op(0x90010004u);  // stw r0,4(r1)
+        code.op(stwu);
+    }
+    if (layout == SamplingLayout::KeptOnStack) {
+        code.op(0x9081000Cu);  // stw r4,12(r1)
+    } else {
+        code.op(0x93E10000u | (frame - 4));                                        // stw r31,frame-4(r1)
+        code.op(layout == SamplingLayout::FrameFirst ? 0x7C9F2378u : 0x3BE40000u);  // mr r31,r4 / addi r31,r4,0
+    }
+    code.op(0x800D0000u | slot);                                                // lwz r0,slot(r13)
+    code.op(layout == SamplingLayout::FrameFirst ? 0x2C000000u : 0x28000000u);  // cmpwi / cmplwi r0,0
+    code.op(0x41820030u);                                                       // beq past the call
+    code.op(0x38610000u | context);  // addi r3,r1,context
+    code.bl(clear_context);
+    code.op(0x38610000u | context);
+    code.bl(set_context);
+    code.op(0x818D0000u | slot);  // lwz r12,slot(r13)
+    const bool ctr = layout == SamplingLayout::FrameFirst;
+    code.op(ctr ? 0x7D8903A6u : 0x7D8803A6u);  // mtctr r12 / mtlr r12
+    code.op(ctr ? 0x4E800421u : 0x4E800021u);  // bctrl / blrl
+    code.op(0x38610000u | context);
+    code.bl(clear_context);
+    code.op(layout == SamplingLayout::KeptOnStack ? 0x8061000Cu : 0x7FE3FB78u);  // lwz r3,12(r1) / mr r3,r31
+    code.bl(set_context);
+    code.op(0x80010000u | (frame + 4));  // lwz r0,frame+4(r1)
+    if (layout != SamplingLayout::KeptOnStack) code.op(0x83E10000u | (frame - 4));  // lwz r31,frame-4(r1)
+    if (layout == SamplingLayout::FrameFirst) {
+        code.op(0x7C0803A6u);            // mtlr r0
+        code.op(0x38210000u | frame);  // addi r1,r1,frame
+    } else {
+        code.op(0x38210000u | frame);
+        code.op(0x7C0803A6u);
+    }
+    code.blr();
+    // The next function's first words, which the finder must not need.
+    code.op(0x7C0802A6u);
+    code.op(0x90010004u);
+    return code.words;
+}
+
+static void TestGcPadSamplingLayouts() {
     struct Fixture {
         std::uint32_t address;
         std::size_t callback_word;
         std::vector<std::uint32_t> words;
     };
     const Fixture fixtures[] = {
-        // Harry Potter and the Goblet of Fire.
-        {0x8020D6C8u, 5, {
-            0x7C0802A6u, 0x90010004u, 0x9421FD20u, 0x93E102DCu,
-            0x3BE40000u, 0x800D918Cu, 0x28000000u, 0x41820030u,
-            0x38610010u, 0x4BFF2171u, 0x38610010u, 0x4BFF1FA1u,
-            0x818D918Cu, 0x7D8803A6u, 0x4E800021u, 0x38610010u,
-            0x4BFF2155u, 0x7FE3FB78u, 0x4BFF1F85u, 0x800102E4u,
-            0x83E102DCu, 0x382102E0u, 0x7C0803A6u, 0x4E800020u
-        }},
-        // 007 - Nightfire.
-        {0x8055B738u, 5, {
-            0x7C0802A6u, 0x90010004u, 0x9421FD20u, 0x93E102DCu,
-            0x3BE40000u, 0x800D8AE8u, 0x28000000u, 0x41820030u,
-            0x38610010u, 0x4BFF6B4Du, 0x38610010u, 0x4BFF693Du,
-            0x818D8AE8u, 0x7D8803A6u, 0x4E800021u, 0x38610010u,
-            0x4BFF6B31u, 0x7FE3FB78u, 0x4BFF6921u, 0x800102E4u,
-            0x83E102DCu, 0x382102E0u, 0x7C0803A6u, 0x4E800020u
-        }},
-        // 007 - Everything or Nothing.
-        {0x80693D78u, 4, {
-            0x7C0802A6u, 0x90010004u, 0x9421FD28u, 0x9081000Cu,
-            0x800D84A4u, 0x28000000u, 0x41820030u, 0x38610010u,
-            0x4BFF6251u, 0x38610010u, 0x4BFF6081u, 0x818D84A4u,
-            0x7D8803A6u, 0x4E800021u, 0x38610010u, 0x4BFF6235u,
-            0x8061000Cu, 0x4BFF6065u, 0x800102DCu, 0x382102D8u,
-            0x7C0803A6u, 0x4E800020u, 0x7C0802A6u, 0x90010004u
-        }},
-        // 007 - Agent Under Fire (v1.01).
-        {0x80690970u, 5, {
-            0x7C0802A6u, 0x90010004u, 0x9421FD20u, 0x93E102DCu,
-            0x3BE40000u, 0x800D830Cu, 0x28000000u, 0x41820030u,
-            0x38610010u, 0x4BFF4FB9u, 0x38610010u, 0x4BFF4DE9u,
-            0x818D830Cu, 0x7D8803A6u, 0x4E800021u, 0x38610010u,
-            0x4BFF4F9Du, 0x7FE3FB78u, 0x4BFF4DCDu, 0x800102E4u,
-            0x83E102DCu, 0x382102E0u, 0x7C0803A6u, 0x4E800020u
-        }},
-        // 007 - From Russia with Love.
-        {0x8001AE28u, 5, {
-            0x7C0802A6u, 0x90010004u, 0x9421FD20u, 0x93E102DCu,
-            0x3BE40000u, 0x800DB124u, 0x28000000u, 0x41820030u,
-            0x38610010u, 0x4BFEEA4Du, 0x38610010u, 0x4BFEE87Du,
-            0x818DB124u, 0x7D8803A6u, 0x4E800021u, 0x38610010u,
-            0x4BFEEA31u, 0x7FE3FB78u, 0x4BFEE861u, 0x800102E4u,
-            0x83E102DCu, 0x382102E0u, 0x7C0803A6u, 0x4E800020u
-        }},
-        // ProStreet (Wii).
-        {0x80513F80u, 5, {
-            0x9421FD20u, 0x7C0802A6u, 0x900102E4u, 0x93E102DCu,
-            0x7C9F2378u, 0x800DE1D4u, 0x2C000000u, 0x41820030u,
-            0x38610008u, 0x4BFF5C0Du, 0x38610008u, 0x4BFF59DDu,
-            0x818DE1D4u, 0x7D8903A6u, 0x4E800421u, 0x38610008u,
-            0x4BFF5BF1u, 0x7FE3FB78u, 0x4BFF59C1u, 0x800102E4u,
-            0x83E102DCu, 0x7C0803A6u, 0x382102E0u, 0x4E800020u
-        }},
+        {0x80214A40u, 5, sampling_layout(0x80214A40u, SamplingLayout::KeptInR31)},
+        {0x8001C2E0u, 5, sampling_layout(0x8001C2E0u, SamplingLayout::KeptInR31)},
+        {0x80652B10u, 4, sampling_layout(0x80652B10u, SamplingLayout::KeptOnStack)},
+        {0x80498E20u, 5, sampling_layout(0x80498E20u, SamplingLayout::FrameFirst)},
     };
     const auto find = [](const Asm& input) {
         const auto bytes = input.bytes();
@@ -1826,7 +1836,7 @@ int main() {
     TestGcSiTypeCacheSearch();
     TestGcSiProbeSearch();
     TestGcPadSamplingSearch();
-    TestGcPadSamplingDiscWords();
+    TestGcPadSamplingLayouts();
     TestGcPadEnabledSearch();
     if (g_failures == 0) std::cout << "gcad tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
