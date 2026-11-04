@@ -21,7 +21,7 @@ bool g_open = false;
 const char* g_recovery = nullptr;
 u32 g_recovery_word = 0;
 
-void FlushNote() { DCFlushRange(note(), 32); }
+void FlushNote() { DCFlushRange(note(), sizeof(NandPermissionNote)); }
 
 // MEM_PROT keeps IOS's code from the PowerPC: while it is on (bit 0 set,
 // 0x0001 on a vWii), reads there give a fill pattern (0x9abcdef0,
@@ -62,10 +62,12 @@ enum class CloseResult {
 // before its check) may have damaged either halfword itself, so while the
 // patched halfword is the opening's or the original's, it is undone as
 // the opening's rollback does, with the whole original word, and counts
-// only once that word is back. A patched halfword holding anything else
+// only once that word is back. So does a word still exactly as RiftWii's
+// last failed store left it (the note's `left`), whatever that store did
+// to the patched halfword. A patched halfword holding anything else
 // (IOS reloaded) is left alone and the note dropped. A confirmed close
-// that doesn't take (its store damaged the other halfword, or didn't
-// land) leaves a note for exactly the word it meant to write, the other
+// that doesn't take (its store damaged either halfword, or didn't land)
+// leaves a note for exactly the word it meant to write, the other
 // halfword as IOS had it then: that note counts as unconfirmed, so a later
 // close or start puts that whole word back, and neither undoes IOS's own
 // change nor mistakes the damage for one. `found` is what the word held
@@ -83,7 +85,7 @@ CloseResult Restore(u32& found) {
     if (saved.opened) {
         ours = nand_check_closed(found, saved.before, saved.shift, target);
     } else {
-        ours = patched == 0xE001 || patched == nand_check_half(saved.before, saved.shift);
+        ours = patched == 0xE001 || patched == nand_check_half(saved.before, saved.shift) || found == saved.left;
     }
     if (ours) write32(saved.word, target);
     const u32 now = read32(saved.word);
@@ -94,14 +96,16 @@ CloseResult Restore(u32& found) {
     write16(kMemProt, protection);
     if (restored || !ours) {
         note()->magic = 0;
-        FlushNote();
-    } else if (saved.opened) {
-        note()->before = target;
-        note()->after = nand_check_opened(target, saved.shift);
-        note()->opened = 0;
+    } else {
+        if (saved.opened) {
+            note()->before = target;
+            note()->after = nand_check_opened(target, saved.shift);
+            note()->opened = 0;
+        }
+        note()->left = now;
         note()->checksum = nand_permission_checksum(*note());
-        FlushNote();
     }
+    FlushNote();
     return restored ? CloseResult::closed : CloseResult::left;
 }
 
@@ -184,6 +188,7 @@ bool open_nand_permissions(const char* who) {
     saved.before = before;
     saved.after = after;
     saved.shift = store.shift;
+    saved.left = before;
     saved.checksum = nand_permission_checksum(saved);
     *note() = saved;
     FlushNote();
@@ -195,22 +200,26 @@ bool open_nand_permissions(const char* who) {
     // that whole word is back (unlike Restore, where the other halfword is
     // IOS's to change while the check is open). It is read back before
     // protection returns, which would hide it behind the fill pattern.
-    bool rolled_back = false;
+    u32 rolled = read_back;
     if (read_back != after) {
         write32(store.word, before);
-        rolled_back = read32(store.word) == before;
+        rolled = read32(store.word);
     }
     write16(kMemProt, protection);
     if (read_back != after) {
-        if (rolled_back) {
+        if (rolled == before) {
             note()->magic = 0;
-            FlushNote();
+        } else {
+            note()->left = rolled;
+            note()->checksum = nand_permission_checksum(*note());
         }
+        FlushNote();
         logf("%s: IOS%d's NAND permission write at 0x%08x failed (read 0x%08x).\n",
              who, IOS_GetVersion(), store.word, read_back);
         return false;
     }
     note()->opened = 1;
+    note()->left = after;
     note()->checksum = nand_permission_checksum(*note());
     FlushNote();
     g_open = true;

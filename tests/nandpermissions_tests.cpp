@@ -30,6 +30,7 @@ bool fail_restore = false;
 bool damage_other = false;  // the original word goes back with the other halfword damaged
 bool damage_opening = false;  // the opening write lands with the other halfword damaged
 bool damage_any = false;  // every write lands with the other halfword damaged
+bool damage_patched = false;  // every write lands with the patched halfword damaged
 // As on a console: a MEM_PROT write lands only once the register is read
 // again, writing 2 reads back as 0x0000 (off), and while protection is on
 // (bit 0), IOS's code reads as a fill pattern and drops writes.
@@ -81,7 +82,8 @@ void write16(u32, u16 value) {
 void write32(u32 address, u32 value) {
     if (address != kWord || (protection & 1) != 0) return;
     ++writes;
-    if (damage_any) current = 0xDEAD0000u | (value & 0x0000FFFFu);
+    if (damage_patched) current = (value & 0xFFFF0000u) | 0xBEEFu;
+    else if (damage_any) current = 0xDEAD0000u | (value & 0x0000FFFFu);
     else if (value == kBefore && damage_other) current = 0xDEAD0000u | (kBefore & 0x0000FFFFu);
     else if (value != kBefore && damage_opening) current = 0xDEAD0000u | (value & 0x0000FFFFu);
     else if (value != kBefore && fail_write) current = 0xDEADBEEF;
@@ -214,6 +216,37 @@ int main() {
     RecoverNandPermissions();
     check(current == 0x1234D001u && saved->magic == 0);
     current = kBefore;
+    // A close whose store damages the patched halfword itself: the note
+    // stays, remembering the word as that store left it, and the next start
+    // still knows that word as its own and puts the original back.
+    check(open_nand_permissions("test"));
+    damage_patched = true;
+    close_nand_permissions("test");
+    damage_patched = false;
+    check(current == 0x428BBEEFu && nand_permission_note_valid(*saved) && saved->left == 0x428BBEEFu);
+    RecoverNandPermissions();
+    LogNandPermissionRecovery();
+    check(current == kBefore && saved->magic == 0);
+    check(riftwii::wii::g_last_log.find("was closed") != std::string::npos);
+    // The same, but the word changed again before the next start (IOS
+    // reloaded): not RiftWii's any more, so it is left alone.
+    check(open_nand_permissions("test"));
+    damage_patched = true;
+    close_nand_permissions("test");
+    damage_patched = false;
+    current = 0x11223344u;
+    const unsigned before_moved = writes;
+    RecoverNandPermissions();
+    check(writes == before_moved && current == 0x11223344u && saved->magic == 0);
+    current = kBefore;
+    // An opening whose store and rollback both damage the patched halfword:
+    // the next start puts the original back.
+    damage_patched = true;
+    check(!open_nand_permissions("test"));
+    damage_patched = false;
+    check(current == 0x428BBEEFu && nand_permission_note_valid(*saved) && saved->left == 0x428BBEEFu);
+    RecoverNandPermissions();
+    check(current == kBefore && saved->magic == 0);
     // MEM_PROT writes that land late (a console, 3 Nov): the opening and
     // the close wait until protection is off before touching IOS's code.
     posted_protection = true;

@@ -48,11 +48,14 @@ struct NandPermissionNote {
     std::uint32_t after = 0;
     std::uint32_t shift = 0;
     std::uint32_t opened = 0;  // 1 once the opening write read back whole
+    // The word as RiftWii's last store left it, read back: a store that
+    // damaged the patched halfword is still recognized as RiftWii's own.
+    std::uint32_t left = 0;
     std::uint32_t checksum = 0;
 };
 
 inline std::uint32_t nand_permission_checksum(const NandPermissionNote& note) {
-    return 0x4E414E44 ^ note.ios ^ note.word ^ note.before ^ note.after ^ note.shift ^ note.opened;
+    return 0x4E414E44 ^ note.ios ^ note.word ^ note.before ^ note.after ^ note.shift ^ note.opened ^ note.left;
 }
 
 inline bool nand_permission_note_valid(const NandPermissionNote& note) {
