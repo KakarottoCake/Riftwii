@@ -1056,10 +1056,34 @@ void gc_bt_fill(struct gc_bt* bt, uint8_t* status, uint32_t native, uint32_t idl
         if (r->shake_timer == GC_SHAKE_PRESS + GC_SHAKE_REST) bt->shakes++;
     }
     gc_ports_assign(pads, remotes, bt->port_of);
+    /* A port a remote has just taken first reads as a GameCube controller
+     * just plugged in: nothing pressed and "no controller" (err -1) for
+     * GC_BT_ARRIVE_READS reads, while SIProbe already finds a controller
+     * there (gc_rt.c counts the port as played). Some games set a port up
+     * only when they see that, as from a real controller at power-on or
+     * when it is plugged in: Harry Potter and the Goblet of Fire read a
+     * remote's buttons into a controller it never set up, and its menus
+     * took no press. */
+    uint32_t filled = 0;
+    bt->ports_arriving = 0;
     for (i = 0; i < GC_BT_REMOTES; ++i) {
         const uint32_t port = bt->port_of[i];
-        if (port < GC_PORTS) bt_fill_one(&bt->map, &bt->remotes[i], status + 12 * port);
+        uint8_t* pad;
+        if (port >= GC_PORTS) continue;
+        pad = status + 12 * port;
+        filled |= 1u << port;
+        if (!(bt->ports_filled & (1u << port))) bt->port_arriving[port] = (uint8_t)GC_BT_ARRIVE_READS;
+        if (bt->port_arriving[port] != 0) {
+            uint32_t k;
+            --bt->port_arriving[port];
+            for (k = 0; k < 10; ++k) pad[k] = 0;
+            pad[10] = 0xFFu;  /* PAD_ERR_NO_CONTROLLER */
+            bt->ports_arriving |= 1u << port;
+            continue;
+        }
+        bt_fill_one(&bt->map, &bt->remotes[i], pad);
     }
+    bt->ports_filled = filled;
     for (i = 0; i < GC_PORTS; ++i) bt->port_err[i] = status[12 * i + 10];
 }
 

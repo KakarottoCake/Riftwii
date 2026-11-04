@@ -2683,6 +2683,9 @@ static void gc_forget_game(struct gc_rt_context* ctx, int restart) {
     if (ctx->bt) {
         struct gc_bt* bt = (struct gc_bt*)(uintptr_t)ctx->bt;
         for (i = 0; i < sizeof(bt->rumble_want); ++i) bt->rumble_want[i] = 0;
+        /* The new game, or the program a game starts, sets its controllers
+         * up again: each remote's port arrives once more (gc_bt_fill). */
+        bt->ports_filled = 0;
     }
 }
 
@@ -3030,6 +3033,10 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
     ctx->pad_filled_errs = gc_pad_errors((const uint8_t*)(uintptr_t)status);
     /* Before the test presses below: only a real fill makes a port played. */
     ctx->pad_played = gc_ports_played(ctx->pad_raw_errs, ctx->pad_filled_errs, ctx->pad_idle);
+    /* A port a remote is arriving on reads "no controller" for a moment
+     * (gc_bt_fill), but plays all the same: SIProbe finds a controller. */
+    if (ctx->bt && status != 0 && !(ctx->flags & GC_FLAG_FAKE_REMOTE))
+        ctx->pad_played |= ((const struct gc_bt*)(uintptr_t)ctx->bt)->ports_arriving;
     if (ctx->flags & GC_FLAG_TRACE_GAMEPLAY) {
         const int changed = native != previous_native || ctx->pad_raw_errs != previous_errors ||
                             ctx->pad_enabled_before != gc_pad_enabled(ctx) || ctx->pad_played != previous_played;
