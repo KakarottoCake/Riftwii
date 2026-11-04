@@ -99,6 +99,8 @@ extern Tex promptButton;                 // 24x24, a button's badge in the promp
 // 28x28 tile icons.
 extern Tex iconPlay, iconMods, iconCheats, iconSaves, iconInfo, iconHelp, iconPicture, iconControllers,
     iconOnline, iconHome, iconSound, iconPower;
+// 28x28 Home's Show choices: Wii games, GameCube games.
+extern Tex iconWii, iconGameCube;
 extern Tex hand[4];                      // 96x96 pointers, fingertip at the centre
 extern Tex background;                   // 640x480, a theme's (else none: GuiBackdrop paints)
 // 856 across, a theme's for a widescreen menu (else none: the 640 ones are

@@ -3888,6 +3888,21 @@ msgstr "Aún no has jugado a estos juegos desde RiftWii."
 msgid "Mark a game as a favourite on its page."
 msgstr "Marca un juego como favorito en su página."
 
+msgid "Wii games"
+msgstr "Juegos de Wii"
+
+msgid "GameCube games"
+msgstr "Juegos de GameCube"
+
+msgid "Wii"
+msgstr "Wii"
+
+msgid "No Wii games were found."
+msgstr "No se encontraron juegos de Wii."
+
+msgid "No GameCube games were found."
+msgstr "No se encontraron juegos de GameCube."
+
 msgid "Downloads"
 msgstr "Descargas"
 

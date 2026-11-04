@@ -207,6 +207,7 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `prompt_button` | 24x24 | The round badge under a button's name in the prompts along the bottom of a screen, for a button without a picture of its own (A, B, +, -, 1, 2, HOME, C and Z have Kenney's, drawn in `glyph`) |
 | `icon_play`, `icon_mods`, `icon_cheats`, `icon_saves`, `icon_info`, `icon_help` | 28x28 | The game page's tiles: Play, Mods, Cheats, Saves, About; Help in Settings |
 | `icon_picture`, `icon_controllers`, `icon_online`, `icon_home`, `icon_sound`, `icon_power` | 28x28 | Settings' tiles: Picture, Controllers, Online, Home screen, Look and sound, Leave RiftWii |
+| `icon_wii`, `icon_gamecube` | 28x28 | Home's Show choices: Wii games, GameCube games |
 | `icon_disc` | 40x40 | Disc icon (name and channel tiles) |
 | `disc_case` | 128x176 | The Disc drive's box: its cover tile, and its front and back on the shelf |
 | `blank_cover` | 160x224 | A game's cover when there is no art for it: the menu prints the game's name and ID in its middle, in dark ink on a light picture and light ink on a dark one. Keep the middle plain; the covers view puts its badges along the bottom 30 pixels |

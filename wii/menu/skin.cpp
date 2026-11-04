@@ -350,7 +350,7 @@ Tex tileEmpty;
 Tex shelfPlank;
 Tex tile9, tile9Over, tile9Primary, tile9PrimaryOver, promptButton;
 Tex iconPlay, iconMods, iconCheats, iconSaves, iconInfo, iconHelp, iconPicture, iconControllers, iconOnline,
-    iconHome, iconSound, iconPower;
+    iconHome, iconSound, iconPower, iconWii, iconGameCube;
 
 Tex ArtFrame(int w, int h) {
     // Two sizes at most (with and without the popup's hint line), each painted once.
@@ -411,6 +411,7 @@ void Init() {
         {"icon_mods", &iconMods}, {"icon_cheats", &iconCheats}, {"icon_saves", &iconSaves}, {"icon_info", &iconInfo},
         {"icon_help", &iconHelp}, {"icon_picture", &iconPicture}, {"icon_controllers", &iconControllers},
         {"icon_online", &iconOnline}, {"icon_home", &iconHome}, {"icon_sound", &iconSound}, {"icon_power", &iconPower},
+        {"icon_wii", &iconWii}, {"icon_gamecube", &iconGameCube},
         {"background_wide", &backgroundWide}, {"bar_wide", &barWide},
         {"background_shelf", &backgroundShelf}, {"background_shelf_wide", &backgroundShelfWide},
         {"background_plain", &backgroundPlain}, {"background_plain_wide", &backgroundPlainWide},
