@@ -3615,27 +3615,17 @@ static std::string GuessablePinWarning(const std::string& pin)
 	return std::string();
 }
 
-// Whether `id` is `prefix`, any one character, then `suffix` (a disc ID
-// with its region letter left open).
-static bool GameIdMatches(const std::string& id, const char* prefix, const char* suffix)
-{
-	const std::size_t prefixLength = std::strlen(prefix);
-	const std::size_t suffixLength = std::strlen(suffix);
-	if (id.size() != prefixLength + 1 + suffixLength) return false;
-	return id.compare(0, prefixLength, prefix) == 0 && id.compare(prefixLength + 1, suffixLength, suffix) == 0;
-}
-
 // Two of Nintendo's own discs that are not games: the one made to wipe a
-// Wii's system memory (007?01) and the Wii Startup Disc (RAA?01). Starting
+// Wii's system memory (007E01) and the Wii Startup Disc (RAAE01). Starting
 // one asks twice whether the player means it; a No at either question
 // leaves them on the game's page. True when the start goes ahead (any other
 // game goes ahead without a question). Called and returns with the GUI halted.
 static bool ConfirmNotAGameDisc(const std::string& gameId)
 {
 	std::string firstWarning;
-	if (GameIdMatches(gameId, "007", "01"))
+	if (gameId == "007E01")
 		firstWarning = tr("This disc is intended to erase your Wii's system memory. You really shouldn't be opening this unless you know what you're doing.");
-	else if (GameIdMatches(gameId, "RAA", "01"))
+	else if (gameId == "RAAE01")
 		firstWarning = tr("Inserting the Wii Startup Disc doesn't have any effect on your Wii. Your Wii already has started up. You really shouldn't be opening this unless you know what you're doing.");
 	else
 		return true;

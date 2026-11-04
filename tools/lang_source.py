@@ -6901,7 +6901,7 @@ FR.update({
     "Every game can be started without the PIN again.": "Tous les jeux pourront de nouveau être lancés sans le code PIN.",
 })
 
-# Two discs that are not games (007?01, RAA?01) and new PINs a child would guess first.
+# Two discs that are not games (007E01, RAAE01) and new PINs a child would guess first.
 T.update({
     "Are you sure you want to continue?": ("¿Seguro que quieres continuar?", "本当につづけますか？", "Tem certeza de que quer continuar?", "Vuoi davvero continuare?"),
     "This disc is intended to erase your Wii's system memory. You really shouldn't be opening this unless you know what you're doing.": ("Este disco está hecho para borrar la memoria del sistema de tu Wii. De verdad no deberías abrirlo a menos que sepas lo que haces.", "このディスクは、Wiiの本体メモリーを消すためのものです。何をしているかわかっていないなら、本当にひらかないほうがいいです。", "Este disco foi feito para apagar a memória do sistema do seu Wii. Você realmente não deveria abri-lo a menos que saiba o que está fazendo.", "Questo disco serve a cancellare la memoria di sistema della tua Wii. Non dovresti proprio aprirlo, a meno che tu non sappia cosa stai facendo."),
