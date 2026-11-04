@@ -29,6 +29,7 @@ bool fail_write = false;
 bool fail_restore = false;
 bool damage_other = false;  // the original word goes back with the other halfword damaged
 bool damage_opening = false;  // the opening write lands with the other halfword damaged
+bool damage_any = false;  // every write lands with the other halfword damaged
 // As on a console: a MEM_PROT write lands only once the register is read
 // again, writing 2 reads back as 0x0000 (off), and while protection is on
 // (bit 0), IOS's code reads as a fill pattern and drops writes.
@@ -80,7 +81,8 @@ void write16(u32, u16 value) {
 void write32(u32 address, u32 value) {
     if (address != kWord || (protection & 1) != 0) return;
     ++writes;
-    if (value == kBefore && damage_other) current = 0xDEAD0000u | (kBefore & 0x0000FFFFu);
+    if (damage_any) current = 0xDEAD0000u | (value & 0x0000FFFFu);
+    else if (value == kBefore && damage_other) current = 0xDEAD0000u | (kBefore & 0x0000FFFFu);
     else if (value != kBefore && damage_opening) current = 0xDEAD0000u | (value & 0x0000FFFFu);
     else if (value != kBefore && fail_write) current = 0xDEADBEEF;
     else if (value != kBefore || !fail_restore) current = value;
@@ -188,14 +190,29 @@ int main() {
     close_nand_permissions("test");
     check(current == kBefore && saved->magic == 0);
     // A close whose store damages the other halfword isn't reported as
-    // closed, and the note stays.
+    // closed: the note stays, for the word the close meant to write, and
+    // the next start puts that whole word back.
     check(open_nand_permissions("test"));
     damage_other = true;
     close_nand_permissions("test");
     damage_other = false;
     check(current == 0xDEADD001u && nand_permission_note_valid(*saved));
+    check(saved->opened == 0 && saved->before == kBefore);
     check(riftwii::wii::g_last_log.find("could not be closed") != std::string::npos);
-    saved->magic = 0;
+    RecoverNandPermissions();
+    LogNandPermissionRecovery();
+    check(current == kBefore && saved->magic == 0);
+    check(riftwii::wii::g_last_log.find("was closed") != std::string::npos);
+    // The same after IOS changed the other halfword while the check was
+    // open: the repair keeps IOS's change, not the original word.
+    check(open_nand_permissions("test"));
+    current = 0x1234E001u;
+    damage_any = true;
+    close_nand_permissions("test");
+    damage_any = false;
+    check(current == 0xDEADD001u && nand_permission_note_valid(*saved) && saved->before == 0x1234D001u);
+    RecoverNandPermissions();
+    check(current == 0x1234D001u && saved->magic == 0);
     current = kBefore;
     // MEM_PROT writes that land late (a console, 3 Nov): the opening and
     // the close wait until protection is off before touching IOS's code.
@@ -216,9 +233,28 @@ int main() {
     check(current == 0x428BE001u && nand_permission_note_valid(*saved) && protection == 1);
     check(riftwii::wii::g_last_log.find("did not turn off") != std::string::npos);
     check(!open_nand_permissions("test"));
+    // Start-up recovery can't reach it either, and changes nothing.
+    RecoverNandPermissions();
+    LogNandPermissionRecovery();
+    check(current == 0x428BE001u && nand_permission_note_valid(*saved) && protection == 1);
+    check(riftwii::wii::g_last_log.find("did not turn off") != std::string::npos);
     stuck_protection = false;
     RecoverNandPermissions();
     check(current == kBefore && saved->magic == 0);
+    // A note left by a close that couldn't reach IOS, then an IOS reload:
+    // the retry drops the note (the word is the original again), and the
+    // opening goes on instead of being refused.
+    check(open_nand_permissions("test"));
+    stuck_protection = true;
+    close_nand_permissions("test");
+    stuck_protection = false;
+    check(nand_permission_note_valid(*saved));
+    current = 0x5678D001u;  // the reloaded IOS's word: unpatched, not the note's original
+    check(open_nand_permissions("test"));
+    check(current == 0x5678E001u && saved->opened == 1 && saved->before == 0x5678D001u);
+    close_nand_permissions("test");
+    check(current == 0x5678D001u && saved->magic == 0);
+    current = kBefore;
     stuck_protection = true;
     const unsigned before_stuck = writes;
     check(!open_nand_permissions("test"));

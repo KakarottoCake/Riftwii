@@ -63,8 +63,13 @@ enum class CloseResult {
 // patched halfword is the opening's or the original's, it is undone as
 // the opening's rollback does, with the whole original word, and counts
 // only once that word is back. A patched halfword holding anything else
-// (IOS reloaded) is left alone and the note dropped. `found` is what the
-// word held when the close looked, for the log.
+// (IOS reloaded) is left alone and the note dropped. A confirmed close
+// that doesn't take (its store damaged the other halfword, or didn't
+// land) leaves a note for exactly the word it meant to write, the other
+// halfword as IOS had it then: that note counts as unconfirmed, so a later
+// close or start puts that whole word back, and neither undoes IOS's own
+// change nor mistakes the damage for one. `found` is what the word held
+// when the close looked, for the log.
 CloseResult Restore(u32& found) {
     const NandPermissionNote saved = *note();
     u16 protection = 0;
@@ -89,6 +94,12 @@ CloseResult Restore(u32& found) {
     write16(kMemProt, protection);
     if (restored || !ours) {
         note()->magic = 0;
+        FlushNote();
+    } else if (saved.opened) {
+        note()->before = target;
+        note()->after = nand_check_opened(target, saved.shift);
+        note()->opened = 0;
+        note()->checksum = nand_permission_checksum(*note());
         FlushNote();
     }
     return restored ? CloseResult::closed : CloseResult::left;
@@ -137,11 +148,13 @@ bool open_nand_permissions(const char* who) {
         return false;
     }
     // A failed restore retains the note, and must not be overwritten by a
-    // second patch. Retry it while the same IOS is still running.
+    // second patch. Retry it while the same IOS is still running. A retry
+    // that drops the note (the word is no longer the patch's: IOS reloaded)
+    // leaves nothing in the way, so the opening goes on.
     u32 found = 0;
     if (nand_permission_note_valid(*note()) && note()->ios == static_cast<u32>(IOS_GetVersion())) {
         const CloseResult earlier = Restore(found);
-        if (earlier != CloseResult::closed) {
+        if (earlier != CloseResult::closed && nand_permission_note_valid(*note())) {
             logf("%s: the earlier NAND permission patch could not be closed%s; no new patch was made.\n", who,
                  earlier == CloseResult::unreachable ? " (memory protection did not turn off)" : "");
             return false;
@@ -229,8 +242,8 @@ void close_nand_permissions(const char* who) {
              who, IOS_GetVersion(), saved.word, found, saved.before, saved.after);
         break;
     case CloseResult::unreachable:
-        logf("%s: IOS%d's memory protection did not turn off, so its NAND permission check (word 0x%08x) is "
-             "still open; the next opening or start tries the close again.\n",
+        logf("%s: IOS%d's memory protection did not turn off, so its NAND permission check (word 0x%08x) was "
+             "not read or closed; the next opening or start tries the close again.\n",
              who, IOS_GetVersion(), saved.word);
         break;
     }
