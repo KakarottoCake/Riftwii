@@ -39,10 +39,12 @@ void DrawButtonGlint(float x, float y, float w, float h, float radius, int alpha
 
     radius = std::min(h / 2, radius * MenuTheme().corners);
     const float progress = phase / kSweep;
-    const float band = std::min(42.0f, w * 0.18f);
+    const float band = std::min(56.0f, w * 0.2f);
     const float centre = x - band - h * 0.3f + (w + 2 * band + h * 0.6f) * progress;
+    // White over a light button needs a strong light to show at all (at
+    // under 50 it changed the lit Play's brightness by a fifth of a step).
     const int brightness = (skin::kCard.r + skin::kCard.g + skin::kCard.b) / 3;
-    const float strength = (20 + brightness * 24 / 255) * alpha / 255.0f;
+    const float strength = (70 + brightness * 70 / 255) * alpha / 255.0f;
 
     // Each horizontal slice stops inside the rounded edge. No scissor is
     // changed: this also works inside a popup's scaled entrance camera.
