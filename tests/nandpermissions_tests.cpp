@@ -242,7 +242,9 @@ int main() {
     // An opening whose store and rollback both damage the patched halfword:
     // the next start puts the original back.
     damage_patched = true;
+    const unsigned before_failed_open = writes;
     check(!open_nand_permissions("test"));
+    check(writes == before_failed_open + 2);  // the opening store and its rollback
     damage_patched = false;
     check(current == 0x428BBEEFu && nand_permission_note_valid(*saved) && saved->left == 0x428BBEEFu);
     RecoverNandPermissions();
