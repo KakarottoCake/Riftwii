@@ -61,7 +61,8 @@ bool record_missing_mod_input(std::vector<MissingModInput>& out, const std::stri
 // given, receives each external folder that is not there although this
 // disc would take its files (its disc folder exists, or it is a by-name
 // search): a folder for another region's directory, or one that would only
-// create a disc folder, is not counted, as file_patch_replaces_disc_file
+// add files (it creates its disc folder, or creates into one that holds no
+// file it could replace), is not counted, as file_patch_replaces_disc_file
 // leaves out such files.
 bool expand_plan(const Plan& plan, const Fst& fst, ContentProvider& provider, std::vector<FilePatch>& out,
                  std::vector<std::string>& notes, std::string& error,
