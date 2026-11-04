@@ -260,6 +260,21 @@ void test_program_start() {
     EXPECT_EQ(riftwii::gc_program_start(0x80007100, li_r0, 3), 0x80007104u);
     const std::uint32_t from_r3[] = {0x48000101, 0x38030001, 0x60000000};
     EXPECT_EQ(riftwii::gc_program_start(0x80007100, from_r3, 3), 0x80007100u);
+    // Harry Potter and the Goblet of Fire's gof_f_us.elf: bl; lis/ori r1, r2
+    // and r13; three calls; li r0,-1. Nothing reads r0 before the li, so it
+    // is taken one word on, at the lis r1.
+    const std::uint32_t goblet[] = {0x480003D5, 0x3C208061, 0x6021E4C0, 0x3C408062, 0x604228C0, 0x3DA08061,
+                                    0x61AD28C0, 0x480001E9, 0x48000219, 0x48000805, 0x3800FFFF, 0x9421FFF8};
+    EXPECT_EQ(riftwii::gc_program_start(0x800031A0, goblet, 12), 0x800031A4u);
+    // Cut before its li r0,-1, it is not sure: the entry.
+    EXPECT_EQ(riftwii::gc_program_start(0x800031A0, goblet, 10), 0x800031A0u);
+    // An ori from r0 (ori r3,r0,1) reads it: the entry. So does one into r0
+    // read from elsewhere that is not on the list.
+    const std::uint32_t ori_from_r0[] = {0x48000101, 0x3C208061, 0x60030001, 0x3800FFFF};
+    EXPECT_EQ(riftwii::gc_program_start(0x80007100, ori_from_r0, 4), 0x80007100u);
+    // A call in the two words taken would be replayed elsewhere: the entry.
+    const std::uint32_t call_second[] = {0x48000101, 0x3C208061, 0x48000101, 0x3800FFFF};
+    EXPECT_EQ(riftwii::gc_program_start(0x80007100, call_second, 4), 0x80007100u);
 }
 
 void test_entry_words() {

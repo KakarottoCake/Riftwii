@@ -3743,9 +3743,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             // after the calls it begins with (gc_program_start).
             std::uint32_t start = elf.entry;
             if (patched) {
-                std::uint32_t first[kGcProgramStartCalls + 2] = {};
+                std::uint32_t first[kGcProgramStartLook] = {};
                 std::size_t count = 0;
-                while (count < kGcProgramStartCalls + 2 && program_code.has(elf.entry + 4 * count)) {
+                while (count < kGcProgramStartLook && program_code.has(elf.entry + 4 * count)) {
                     first[count] = program_code.at(elf.entry + 4 * count);
                     ++count;
                 }
