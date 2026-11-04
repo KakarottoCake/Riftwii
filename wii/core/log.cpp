@@ -48,6 +48,7 @@ constexpr std::size_t kMaxBacklog = 8 * 1024;
 }
 
 void LogEchoToScreen(bool on) { g_echo = on; }
+bool LogEchoesToScreen() { return g_echo; }
 
 void LogOpen(const char* sd_path, bool append) {
     Locked lock;

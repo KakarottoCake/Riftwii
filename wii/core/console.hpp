@@ -15,13 +15,16 @@ void ConsoleStart(bool video_initialised);
 // `fb_height`; the text goes into x, y, width, height, dark on white.
 void ConsoleStartInFrame(void* xfb, int fb_width, int fb_height, int x, int y, int width, int height);
 
-// Blocks until RESET, or HOME/Start on any pad, then returns.
+// Blocks until RESET, or HOME/Start on any pad, then returns. The
+// GameCube adapter's ports count as pads (GcAdapterScreenStart).
 void WaitForExit();
 
 // After a failed launch or a crash: A (any pad) or RESET means start
 // RiftWii again, HOME (Start on a GameCube pad) means leave it. Gives up
-// after `timeout_seconds` (0: never) with Restart.
+// after `timeout_seconds` (0: never) with Restart. `adapter`: the
+// GameCube adapter's ports count as pads too (not after a crash, which
+// may have left the heap or the driver damaged).
 enum class ExitChoice { Restart, Leave };
-ExitChoice WaitForChoice(int timeout_seconds);
+ExitChoice WaitForChoice(int timeout_seconds, bool adapter = true);
 
 }  // namespace riftwii::wii

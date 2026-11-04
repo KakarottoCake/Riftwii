@@ -591,6 +591,7 @@ void GcAdapterPoll(GcAdapterView& out) {
     for (unsigned p = 0; p < GCAD_PORTS; ++p) out.present[p] = gcad_port(g_state, p, &out.pads[p], now) != 0;
     for (unsigned p = 0; p < GCAD_PORTS; ++p) {
         out.adapter_ports[p] = out.present[p] && g_state->port_source[p] < GCAD_PORTS;
+        out.sources[p] = out.present[p] ? g_state->port_source[p] : 255;
     }
     _CPU_ISR_Restore(level);
     Drain();
@@ -692,6 +693,33 @@ void GcAdapterMenuEnd() {
     if (!g_menu_ended) g_menu_end = gettime();
     g_menu_ended = true;
     GcAdapterStop();
+}
+
+bool GcAdapterScreenStart(bool say_why) {
+    static bool failed = false;  // the driver would not start: not tried again
+    if (g_running || failed) return false;
+    if (const char* off = MenuOff()) {
+        if (say_why) logf("GameCube adapter: not started for this screen: %s\n", off);
+        return false;
+    }
+    // As the menu does: only when USB lists it (or a mapped USB pad), so a
+    // console without one leaves /dev/usb/hid alone.
+    std::int32_t dev = -1;
+    std::string devices;
+    if (ogc_adapter(dev, devices) != AdapterSeen::Found) {
+        if (say_why) {
+            logf("GameCube adapter: not started for this screen: none plugged in (USB lists %s)\n", devices.c_str());
+        }
+        return false;
+    }
+    std::string why;
+    if (!GcAdapterStart(why)) {
+        failed = true;
+        logf("GameCube adapter: not started for this screen, and not tried again: %s\n", why.c_str());
+        return false;
+    }
+    logf("GameCube adapter: started for this screen (IOS%d)\n", IOS_GetVersion());
+    return true;
 }
 
 }  // namespace riftwii::wii

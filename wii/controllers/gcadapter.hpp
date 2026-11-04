@@ -35,6 +35,9 @@ struct GcAdapterView {
     int last_error = 0;
     bool present[GCAD_PORTS] = {};
     bool adapter_ports[GCAD_PORTS] = {};
+    // Which controller each port reads: 0-3 an adapter port, 4-7 a USB
+    // pad, 255 none (the runtime's port_source).
+    std::uint8_t sources[GCAD_PORTS] = {};
     gcad_pad pads[GCAD_PORTS] = {};
 };
 
@@ -66,5 +69,16 @@ void GcAdapterMenuAllowStart();
 bool GcAdapterMenuSawNone();
 // The menu is over (a launch, or leaving): stops it for good.
 void GcAdapterMenuEnd();
+// A screen after the menu (a failed launch's, an exit's) that waits for a
+// press: starts the driver for it when the menu's rule lets this IOS
+// reach the adapter and USB lists one (or a mapped USB pad), looked for
+// once, so its ports and mapped USB pads can answer (a Wii U
+// has no GameCube ports). True when it was started here; the caller
+// stops it (GcAdapterStop) on the way out. Never during a launch: there,
+// /dev/usb/hid can break the disc's reads. `say_why`: log why it was not
+// started (the screen's later tries, every 2 s, say nothing). Once the
+// driver itself would not start (USB listed one), it isn't tried again,
+// as the menu does: that failure is logged once.
+bool GcAdapterScreenStart(bool say_why = true);
 
 }  // namespace riftwii::wii
