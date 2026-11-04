@@ -2427,23 +2427,23 @@ msgstr "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, o
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado."
 
-msgid "Made-up covers for games without one"
-msgstr "Capas criadas para jogos sem capa"
+msgid "Wii games and GameCube games in Show"
+msgstr "Jogos de Wii e de GameCube em Ver"
 
-msgid "Parental controls, with a PIN"
-msgstr "Controle dos pais com PIN"
+msgid "Wired Switch Pro Controller"
+msgstr "Controle Pro do Switch com cabo"
 
-msgid "Copy a game disc to a .wbfs file"
-msgstr "Copie um disco de jogo para um arquivo .wbfs"
+msgid "A restart, not a crash, when out of memory"
+msgstr "Sem memória, reinicia em vez de travar"
 
-msgid "Themes can have a moving background"
-msgstr "Temas podem ter um fundo animado"
+msgid "Covers download near what's on screen"
+msgstr "As capas na tela baixam primeiro"
 
-msgid "Channel updates need no Wii Remote"
-msgstr "Atualizar o canal sem Wii Remote"
+msgid "Goblet of Fire takes the Wii Remote"
+msgstr "O Cálice de Fogo funciona com o Wii Remote"
 
-msgid "A mod's own cover on its Home tile"
-msgstr "A capa do próprio mod no seu bloco do Início"
+msgid "Just Dance from RVZ files again"
+msgstr "Just Dance de arquivos RVZ de novo"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Memória para os extras do RiftWii"
