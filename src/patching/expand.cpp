@@ -249,6 +249,18 @@ bool search_by_name(const FolderPatch& folder, const Fst& fst, ContentProvider& 
     return true;
 }
 
+// Whether disc directory `index` holds a file a folder patch could replace:
+// one directly inside it, or with `recursive` one anywhere below it.
+bool disc_folder_has_files(const Fst& fst, std::uint32_t index, bool recursive) {
+    const std::vector<FstEntry>& entries = fst.entries();
+    const std::uint32_t end = std::min<std::uint32_t>(entries[index].next, entries.size());
+    for (std::uint32_t i = index + 1; i < end; ++i) {
+        if (!entries[i].is_directory) return true;
+        if (!recursive && entries[i].next > i) i = entries[i].next - 1;
+    }
+    return false;
+}
+
 bool expand_folder(const FolderPatch& folder, const Fst& fst, ContentProvider& provider, Expansion& x,
                    std::string& error) {
     const std::string sd_dir = without_trailing_slash(folder.external);
@@ -257,14 +269,18 @@ bool expand_folder(const FolderPatch& folder, const Fst& fst, ContentProvider& p
     if (!rooted) return search_by_name(folder, fst, provider, sd_dir, 0, x, error);
     std::string disc_dir = disc;
     const std::uint32_t index = fst.find(disc, true);
-    // A folder that would only be created has nothing on the disc to
-    // replace, so its absence is optional (file_patch_replaces_disc_file).
+    // A folder that would only add files has nothing on the disc to
+    // replace, so its absence is optional (file_patch_replaces_disc_file):
+    // one that would create its disc folder, and a create="true" one whose
+    // disc folder holds no files it could replace (Retro Rewind's Mission
+    // folder goes to Mario Kart Wii's empty /Race/MissionRun).
     x.targets_disc = index != Fst::npos;
     if (index != Fst::npos) {
         if (!fst.entries()[index].is_directory) {
             error = "folder target '" + folder.disc + "' is a file on the disc";
             return false;
         }
+        if (folder.create && !disc_folder_has_files(fst, index, folder.recursive)) x.targets_disc = false;
         if (!fst.path_of(index, disc_dir)) {
             error = "cannot name '" + folder.disc + "'";
             return false;

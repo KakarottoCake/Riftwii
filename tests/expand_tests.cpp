@@ -494,8 +494,42 @@ static void test_missing_folders() {
     EXPECT_EQ(riftwii::not_on_device("/mod/a.arc"), std::string("not on the card"));
 }
 
+// A create="true" folder whose disc folder holds no file it could replace
+// only adds files, so its absence is optional, like Retro Rewind's Mission
+// folder over Mario Kart Wii's empty /Race/MissionRun. One that could
+// replace a disc file stays in the missing-files question.
+static void test_missing_create_folders() {
+    riftwii::Fst fst = Disc();
+    std::uint32_t idx = 0;
+    std::string err;
+    if (!fst.add_directory(0, "Empty", idx, err)) std::abort();
+    if (!fst.add_directory(0, "Deep", idx, err)) std::abort();
+    if (!fst.add_directory(idx, "inner", idx, err)) std::abort();
+    if (!fst.add_file(idx, "d.bin", 0x7000, 0x40, idx, err)) std::abort();
+    ListingProvider card = Card();
+    riftwii::Plan plan;
+    plan.folders.push_back(Folder("/Empty", "/mod/mission", true, true));   // only adds: optional
+    plan.folders.push_back(Folder("/Empty", "/mod/nocreate", true, false)); // no create: as before
+    plan.folders.push_back(Folder("/Stage", "/mod/stage2", true, true));    // could replace a.arc
+    plan.folders.push_back(Folder("/Deep", "/mod/deep", true, true));       // could replace inner/d.bin
+    plan.folders.push_back(Folder("/Deep", "/mod/shallow", false, true));   // no file directly inside
+    std::vector<riftwii::FilePatch> out;
+    std::vector<std::string> notes;
+    std::vector<std::string> missing;
+    EXPECT_TRUE(riftwii::expand_plan(plan, fst, card, out, notes, err, &missing));
+    EXPECT_EQ(notes.size(), std::size_t(5));
+    for (const std::string& n : notes) EXPECT_TRUE(riftwii::note_names_missing(n));
+    EXPECT_EQ(missing.size(), std::size_t(3));
+    if (missing.size() == 3) {
+        EXPECT_EQ(missing[0], std::string("/mod/nocreate"));
+        EXPECT_EQ(missing[1], std::string("/mod/stage2"));
+        EXPECT_EQ(missing[2], std::string("/mod/deep"));
+    }
+}
+
 int main() {
     test_missing_folders();
+    test_missing_create_folders();
     test_missing_selected_inputs();
     test_rooted();
     test_by_name();
