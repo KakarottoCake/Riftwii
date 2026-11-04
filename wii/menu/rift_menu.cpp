@@ -3348,7 +3348,9 @@ public:
 			std::unique_ptr<GuiText> label(new GuiText(tile.label.c_str(), 15, skin::kInk));
 			label->SetParent(this);
 			label->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-			const int labelY = shortCard ? 56 : tile.value.empty() ? 88 : 76;
+			// Two lines from y + 42 end by y + 84, inside a short card's 96
+			// (4:3 wraps "Recently played" and most translations).
+			const int labelY = shortCard ? 42 : tile.value.empty() ? 88 : 76;
 			label->SetPosition(tile.x + tile.w / 2 - screenwidth / 2, tile.y + labelY);
 			label->SetWrap(true, tile.w - 12, shortCard || tile.value.empty() ? 2 : 3);
 			labels_.push_back(std::move(label));
@@ -3381,8 +3383,11 @@ public:
 				skin::DrawNine(over, x - 8, y - 8, w + 16, h + 16, skin::kTileCorner,
 					static_cast<int>(255 * lift));
 			}
-			const float iconY = tile.h <= kChoiceShortCard ? 10 : 30;
-			if (tile.icon) skin::Draw(*tile.icon, tile.x + (tile.w - 28) / 2.0f, tile.y + iconY, 255, 1.5f);
+			// A short card's picture is smaller and higher (35px from y + 3)
+			// so that two lines of name end inside it.
+			const bool shortCard = tile.h <= kChoiceShortCard;
+			const float iconY = shortCard ? 6 : 30, iconScale = shortCard ? 1.25f : 1.5f;
+			if (tile.icon) skin::Draw(*tile.icon, tile.x + (tile.w - 28) / 2.0f, tile.y + iconY, 255, iconScale);
 			labels_[index]->Draw();
 			if (!tile.value.empty()) counts_[index]->Draw();
 		}
