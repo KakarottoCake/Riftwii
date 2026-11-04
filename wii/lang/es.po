@@ -2442,23 +2442,23 @@ msgstr "Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "Los datos de este juego se borraron de la Wii, así que no puede iniciarse."
 
+msgid "Glossy buttons, like the Wii's own menus"
+msgstr "Botones brillantes, como los menús de Wii"
+
+msgid "Menus that move like the Wii's"
+msgstr "Menús que se mueven como los de Wii"
+
 msgid "Wii games and GameCube games in Show"
 msgstr "Juegos de Wii y de GameCube en Ver"
 
-msgid "Wired Switch Pro Controller"
-msgstr "Mando Pro de Switch con cable"
+msgid "A phone-style keypad for the PIN"
+msgstr "Un teclado de teléfono para el PIN"
 
-msgid "A restart, not a crash, when out of memory"
-msgstr "Sin memoria, se reinicia en vez de fallar"
+msgid "Goblet of Fire no longer runs out of memory"
+msgstr "El Cáliz de Fuego ya no se queda sin memoria"
 
-msgid "Covers download near what's on screen"
-msgstr "Las carátulas en pantalla se bajan primero"
-
-msgid "Goblet of Fire takes the Wii Remote"
-msgstr "El Cáliz de Fuego funciona con el Mando de Wii"
-
-msgid "Just Dance from RVZ files again"
-msgstr "Just Dance desde archivos RVZ otra vez"
+msgid "Need for Speed Carbon takes the Wii Remote"
+msgstr "Need for Speed Carbon funciona con el Mando de Wii"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Memoria para los extras de RiftWii"

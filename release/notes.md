@@ -16,30 +16,38 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** Wired Switch Pro Controllers, the Wii Remote in Harry Potter and the Goblet of Fire, Just Dance from RVZ again, and no more silent drops to the Homebrew Channel when the menu runs out of memory. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** The whole menu now looks and moves like the Wii's own: glossy buttons, a springy hover, page bands and a glint on Play. Also: Goblet of Fire no longer runs out of memory, a Wii Remote fix for Need for Speed Carbon (GameCube), Wii and GameCube views on Home, and a phone-style PIN keypad. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-![RiftWii restarts after running out of memory and asks for a report]({{SCREENSHOTS}}2611-out-of-memory.png)
+![Settings and its glossy cards in six themes]({{SCREENSHOTS}}2611-wii-look-themes.png)
 
 ## What changed
 
-- **Wired Switch Pro Controller.** Plug a Nintendo Switch Pro Controller in with a USB cable and it plays as a GameCube controller, with nothing to put on the SD card: in the menu, in GameCube games and in Wii games that take a GameCube controller. A, B, X and Y are themselves, ZL and ZR are L and R, R is Z and + is Start. Leave the sticks alone for a moment as it starts; holding X, Y and + for three seconds sets their middle again. No rumble or player lights yet, and the Switch 2 Pro Controller isn't covered. Thanks to grantendo, who tried it on a Wii U.
-- **The menu no longer kicks you back to the Homebrew Channel without a word when it runs out of memory.** With a very big library it could, with no crash file and nothing in the log. Now it notes what happened, restarts RiftWii, says so on Home and asks whether to send a report.
-- **Covers download where you're looking.** The page on screen (or the game picked on the shelf) gets its covers first, then the ones around it, instead of the list from the top down. The shelf's boxes download near what's on screen, as you get to them, rather than the whole library in the background. If GameTDB asks RiftWii to slow down, it waits and tries again instead of giving up on covers for the session.
-- **Harry Potter and the Goblet of Fire (GameCube): the Wii Remote works.** RiftWii couldn't patch the program the game loads, and the game never treated the Wii Remote as plugged in. Both are fixed. Checked in Dolphin.
-- **Just Dance from an RVZ** runs again (Just Dance 4 played a song in Dolphin), where it crashed before its first picture.
-- **GameCube mods that add their own code**, such as Super Mario Sunshine's 16:9 and 60 fps patch, start again instead of crashing at once.
-- **Call of Duty: Finest Hour (GameCube)** should no longer stop on RiftWii's crash screen: a floating-point error the game handles itself now goes back to the game. Not tried with the game yet.
-- **The Wii Menu's font, sounds and music** should load again when RiftWii is started from its channel, where 2610-810 fell back to its own font (seen on a vWii). Checked in Dolphin, not on a console yet.
-- **A Wii with a wrong clock** (back to 2000 after a flat clock battery, or never set) should be able to update and download covers again.
-- **Missing mod files:** a whole missing folder is listed as one folder, and files a mod would only add to the game (not replace) are no longer asked about.
+- **The menu in the Wii's own design.** Things you press (Settings' cards, the game page's tiles and Play, list rows, the prompts along the bottom, switches, keyboard keys) are now glossy like the Wii Menu's and the Disc Channel's buttons. Covers, frames and panels stay flat. Every theme gets the look in its own colours, with nothing to change in its folder.
+- **A hover you can feel.** A tile or cover swells a little with a small spring when the pointer or the D-pad reaches it.
+- **Bands on every page.** Settings, its lists and the game page have a title band at the top and a band at the bottom for the prompts, as in the Wii's System Settings.
+- **Play catches the light** every few seconds while it's lit, and so does a message box's lit button.
+- **Message boxes light the safe choice** as they open, so you can see what A will do. On questions that can't be undone (such as resetting all settings), that's Cancel.
+- **The menu moves more like the Wii's:** a turning ring for every wait, smooth progress bars, buttons that dip when pressed, a softly breathing highlight and page arrows that invite you to the next page.
+- **The HOME Menu:** the D-pad from Close goes to the right column, a pointer resting on screen no longer hides the D-pad's highlight, and long labels such as "Homebrew Channel" keep a margin.
+- **Wii games and GameCube games in Show.** Two new views after All games on Home. Button 1 steps through them, and the last one used is remembered.
+- **PIN keypad.** The parental controls PIN is typed on a keypad laid out like a phone's, with bigger keys, and an easy-to-guess PIN gets a word of warning.
+- **Harry Potter and the Goblet of Fire (GameCube) no longer runs out of memory** at start (about 10 MB less needed). Checked in Dolphin with the release build's memory and menu music on.
+- **Need for Speed Carbon (GameCube):** the Wii Remote should keep working past the second "press a button" screen. Not tried with the game yet.
+- **Retro Rewind** no longer asks "Mod files are missing" about its Mission folder.
+- **Wii U adapter:** after a failed launch, a GameCube controller on the adapter can answer RiftWii's waiting screens.
+- **vWii:** the NAND permission check RiftWii opens to find your cIOS closes again afterwards.
+
+![Settings, before and after]({{SCREENSHOTS}}2611-wii-look-settings.gif)
+
+![The game page, before and after]({{SCREENSHOTS}}2611-wii-look-game.gif)
 
 ## What to test
 
-1. **A wired Switch Pro Controller** in the menu and a game or two (Settings > Controllers > Check USB controllers shows it).
-2. **Harry Potter and the Goblet of Fire** with only a Wii Remote: do the menus and the game take its presses?
-3. **Just Dance** from an RVZ, and **Super Mario Sunshine with its 16:9/60 fps mod**.
-4. **A big library:** browse Home and the shelf for a while. If RiftWii ever restarts with "RiftWii ran out of memory", please send the report it offers.
-5. **The Wii Menu font** on Settings > Menu font, started from the RiftWii channel.
+1. **The new look** in your theme: Settings, a game's page, the HOME Menu. Does anything look cut off or out of place on your TV?
+2. **Harry Potter and the Goblet of Fire** (GameCube), with menu music on.
+3. **Need for Speed Carbon** (GameCube) with a Wii Remote, past the second "press a button" screen.
+4. **Show > Wii games / GameCube games** on Home.
+5. **Parental controls:** set and type a PIN on the new keypad.
 
 ## Known issues
 

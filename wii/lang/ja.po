@@ -2442,23 +2442,23 @@ msgstr "ホームに表示するゲーム：すべてのドライブとWii本体
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "このゲームのデータはWiiから削除されているため、起動できません。"
 
+msgid "Glossy buttons, like the Wii's own menus"
+msgstr "Wiiのメニューのようなつやのあるボタン"
+
+msgid "Menus that move like the Wii's"
+msgstr "Wiiのように動くメニュー"
+
 msgid "Wii games and GameCube games in Show"
 msgstr "表示にWiiとゲームキューブのゲーム"
 
-msgid "Wired Switch Pro Controller"
-msgstr "有線のSwitch Proコントローラー"
+msgid "A phone-style keypad for the PIN"
+msgstr "電話のようなキーでPINを入力"
 
-msgid "A restart, not a crash, when out of memory"
-msgstr "メモリ不足でも落ちずに再起動"
+msgid "Goblet of Fire no longer runs out of memory"
+msgstr "炎のゴブレットがメモリ不足で止まらない"
 
-msgid "Covers download near what's on screen"
-msgstr "画面のカバーから先にダウンロード"
-
-msgid "Goblet of Fire takes the Wii Remote"
-msgstr "炎のゴブレットでWiiリモコンが使える"
-
-msgid "Just Dance from RVZ files again"
-msgstr "RVZファイルのJust Danceがまた動く"
+msgid "Need for Speed Carbon takes the Wii Remote"
+msgstr "Need for Speed CarbonでWiiリモコンが使える"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWiiの追加機能が使うメモリ"

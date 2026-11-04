@@ -5052,12 +5052,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
+	"Glossy buttons, like the Wii's own menus",
+	"Menus that move like the Wii's",
 	"Wii games and GameCube games in Show",
-	"Wired Switch Pro Controller",
-	"A restart, not a crash, when out of memory",
-	"Covers download near what's on screen",
-	"Goblet of Fire takes the Wii Remote",
-	"Just Dance from RVZ files again",
+	"A phone-style keypad for the PIN",
+	"Goblet of Fire no longer runs out of memory",
+	"Need for Speed Carbon takes the Wii Remote",
 };
 
 static std::string WhatsNewText()

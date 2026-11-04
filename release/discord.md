@@ -19,23 +19,24 @@ Rewrite it for every release and delete the line below.
 
 New and fixed:
 
-* Wired Switch Pro Controller: plays as a GameCube controller, nothing to put on the SD card
-* The menu no longer drops you to the Homebrew Channel when it runs out of memory: it restarts, says so and offers a report
-* Covers download around what's on screen first, and wait it out when GameTDB is busy
-* Harry Potter and the Goblet of Fire (GameCube): the Wii Remote works
-* Just Dance from an RVZ runs again
-* Super Mario Sunshine's 16:9/60 fps mod starts again
-* Wii Menu font, sounds and music should load again when started from the RiftWii channel (vWii)
-* A Wii with a wrong clock should be able to update and download again
+* The whole menu in the Wii's own style: glossy buttons, a springy hover, page bands, a glint on Play, in every theme
+* Smoother waits and progress bars, buttons that dip when pressed
+* Message boxes light the safe choice
+* Home's Show has Wii games and GameCube games views
+* Phone-style PIN keypad for parental controls
+* Goblet of Fire (GameCube) no longer runs out of memory
+* Need for Speed Carbon (GameCube): the Wii Remote should keep working past the second "press a button" screen
+* Retro Rewind no longer asks about missing Mission files
 
 To test, please:
 
-1. A wired Switch Pro Controller in the menu and a game or two
-2. Goblet of Fire with only a Wii Remote
-3. Just Dance from RVZ, Sunshine with its 16:9/60 fps mod
-4. A big library: if RiftWii ever restarts with "ran out of memory", send the report it offers
+1. The new look in your theme: Settings, a game page, the HOME Menu. Anything cut off on your TV?
+2. Goblet of Fire with menu music on
+3. NFS Carbon with a Wii Remote
+4. Show > Wii games / GameCube games, and the PIN keypad
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![RiftWii ran out of memory: the report prompt](docs/screenshots/2611-out-of-memory.png)
-![Harry Potter and the Goblet of Fire's first menu, answered by a Wii Remote](docs/screenshots/2611-goblet-of-fire.png)
+![Settings, before and after](docs/screenshots/2611-wii-look-settings.gif)
+![The game page, before and after](docs/screenshots/2611-wii-look-game.gif)
+![Settings in six themes](docs/screenshots/2611-wii-look-themes.png)

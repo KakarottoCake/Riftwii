@@ -2123,13 +2123,13 @@ T = {
     "Wii channels": ("Canales Wii", "Wiiチャンネル", "Canais Wii", "Canali Wii"),
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.": ("Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii, o solo los de un sitio. Con un juego en ambas unidades, basta una copia.", "ホームに表示するゲーム：すべてのドライブとWii本体のもの、または1か所のものだけ。両方のドライブにあるゲームは1つで十分です。", "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, ou só os de um lugar. Com um jogo nas duas unidades, basta uma cópia.", "Quali giochi mostra la Home: quelli di ogni unità e quelli della Wii stessa, o solo quelli di un posto. Con un gioco su entrambe le unità, basta una copia."),
     "This game's data was removed from the Wii, so it can't start.": ("Los datos de este juego se borraron de la Wii, así que no puede iniciarse.", "このゲームのデータはWiiから削除されているため、起動できません。", "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado.", "I dati di questo gioco sono stati cancellati dalla Wii, quindi non può partire."),
-    # What's new in the release after 2610-810
+    # What's new in the release after 2611-32
+    "Glossy buttons, like the Wii's own menus": ("Botones brillantes, como los menús de Wii", "Wiiのメニューのようなつやのあるボタン", "Botões brilhantes, como os menus do Wii", "Pulsanti lucidi, come i menu della Wii"),
+    "Menus that move like the Wii's": ("Menús que se mueven como los de Wii", "Wiiのように動くメニュー", "Menus que se movem como os do Wii", "Menu che si muovono come quelli della Wii"),
     "Wii games and GameCube games in Show": ("Juegos de Wii y de GameCube en Ver", "表示にWiiとゲームキューブのゲーム", "Jogos de Wii e de GameCube em Ver", "Giochi Wii e GameCube in Mostra"),
-    "Wired Switch Pro Controller": ("Mando Pro de Switch con cable", "有線のSwitch Proコントローラー", "Controle Pro do Switch com cabo", "Controller Pro di Switch via cavo"),
-    "A restart, not a crash, when out of memory": ("Sin memoria, se reinicia en vez de fallar", "メモリ不足でも落ちずに再起動", "Sem memória, reinicia em vez de travar", "Senza memoria riparte invece di bloccarsi"),
-    "Covers download near what's on screen": ("Las carátulas en pantalla se bajan primero", "画面のカバーから先にダウンロード", "As capas na tela baixam primeiro", "Prima le copertine sullo schermo"),
-    "Goblet of Fire takes the Wii Remote": ("El Cáliz de Fuego funciona con el Mando de Wii", "炎のゴブレットでWiiリモコンが使える", "O Cálice de Fogo funciona com o Wii Remote", "Il Calice di Fuoco va col Telecomando Wii"),
-    "Just Dance from RVZ files again": ("Just Dance desde archivos RVZ otra vez", "RVZファイルのJust Danceがまた動く", "Just Dance de arquivos RVZ de novo", "Just Dance da file RVZ di nuovo"),
+    "A phone-style keypad for the PIN": ("Un teclado de teléfono para el PIN", "電話のようなキーでPINを入力", "Um teclado de telefone para o PIN", "Un tastierino da telefono per il PIN"),
+    "Goblet of Fire no longer runs out of memory": ("El Cáliz de Fuego ya no se queda sin memoria", "炎のゴブレットがメモリ不足で止まらない", "O Cálice de Fogo não fica mais sem memória", "Il Calice di Fuoco non resta più senza memoria"),
+    "Need for Speed Carbon takes the Wii Remote": ("Need for Speed Carbon funciona con el Mando de Wii", "Need for Speed CarbonでWiiリモコンが使える", "Need for Speed Carbon funciona com o Wii Remote", "Need for Speed Carbon va col Telecomando Wii"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
     "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
@@ -4035,18 +4035,18 @@ KO = {
         "Wii 채널",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "홈에 표시할 게임: 모든 드라이브와 Wii 본체의 게임, 또는 한 곳의 게임만. 두 드라이브에 같은 게임이 있으면 하나면 충분합니다.",
+    "Glossy buttons, like the Wii's own menus":
+        "Wii 메뉴처럼 반짝이는 버튼",
+    "Menus that move like the Wii's":
+        "Wii처럼 움직이는 메뉴",
     "Wii games and GameCube games in Show":
         "표시에 Wii 게임과 게임큐브 게임",
-    "Wired Switch Pro Controller":
-        "유선 Switch Pro 컨트롤러",
-    "A restart, not a crash, when out of memory":
-        "메모리가 부족하면 멈추지 않고 다시 시작",
-    "Covers download near what's on screen":
-        "화면에 보이는 커버부터 다운로드",
-    "Goblet of Fire takes the Wii Remote":
-        "불의 잔에서 Wii 리모컨 사용 가능",
-    "Just Dance from RVZ files again":
-        "RVZ 파일의 Just Dance가 다시 실행",
+    "A phone-style keypad for the PIN":
+        "전화기 같은 PIN 키패드",
+    "Goblet of Fire no longer runs out of memory":
+        "불의 잔이 메모리 부족으로 멈추지 않음",
+    "Need for Speed Carbon takes the Wii Remote":
+        "Need for Speed Carbon에서 Wii 리모컨 사용 가능",
     "Memory for RiftWii's extras":
         "RiftWii 추가 기능이 쓰는 메모리",
     "about {1} KB":
@@ -5925,18 +5925,18 @@ FR = {
         "Chaînes Wii",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "Les jeux qu'affiche l'Accueil : ceux de chaque support et ceux de la Wii elle-même, ou ceux d'un seul endroit. Avec un jeu sur les deux supports, une copie suffit.",
+    "Glossy buttons, like the Wii's own menus":
+        "Des boutons brillants, comme les menus Wii",
+    "Menus that move like the Wii's":
+        "Des menus qui bougent comme ceux de la Wii",
     "Wii games and GameCube games in Show":
         "Jeux Wii et GameCube dans Afficher",
-    "Wired Switch Pro Controller":
-        "Manette Pro Switch filaire",
-    "A restart, not a crash, when out of memory":
-        "Sans mémoire, redémarre au lieu de planter",
-    "Covers download near what's on screen":
-        "Les jaquettes à l'écran d'abord",
-    "Goblet of Fire takes the Wii Remote":
-        "La Coupe de feu accepte la Wiimote",
-    "Just Dance from RVZ files again":
-        "Just Dance depuis un RVZ à nouveau",
+    "A phone-style keypad for the PIN":
+        "Un pavé de téléphone pour le code PIN",
+    "Goblet of Fire no longer runs out of memory":
+        "La Coupe de feu ne manque plus de mémoire",
+    "Need for Speed Carbon takes the Wii Remote":
+        "Need for Speed Carbon accepte la Wiimote",
     "Memory for RiftWii's extras":
         "Mémoire pour les extras de RiftWii",
     "about {1} KB":
