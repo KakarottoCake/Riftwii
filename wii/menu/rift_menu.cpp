@@ -1763,16 +1763,37 @@ static void DrawBand(int top)
 // own: the bar's colours from the screen's top down to kTitleBand, the
 // accent's line along its foot, a soft shadow under that.
 static constexpr int kTitleBand = 70;
+static constexpr int kControlsBand = 410;
+static GXColor ScaledColor(GXColor c, float k);
+
+// Behind the prompts and any short status at the foot, with no change to
+// their safe positions. Home keeps its own clock and round-button bar.
+class PageControlsBand : public GuiElement {
+public:
+	void Draw() override {
+		Menu_FillScreen(kControlsBand, 1000, skin::kBar);
+		for (int y = kControlsBand; y < 480; y += 8)
+			Menu_FillScreen(y, 8, ScaledColor(skin::kBar, 1.0f - 0.05f * (y - kControlsBand) / 70.0f));
+		Menu_FillScreen(kControlsBand - 3, 3, skin::WithAlpha(skin::kDivider, 45));
+		Menu_FillScreen(kControlsBand, 2, skin::kAccent);
+		Menu_FillScreen(kControlsBand + 2, 1, skin::WithAlpha(skin::kCard, 180));
+	}
+};
+
 class TitleBand : public GuiElement {
 public:
 	void Draw() override {
+		controls.Draw();
 		Menu_FillScreen(-1000, 1000 + kTitleBand, skin::kBar);
-		for (int y = 3; y < kTitleBand - 4; y += 4) Menu_FillScreen(y, 2, (GXColor){0, 0, 0, 7});
-		Menu_FillScreen(kTitleBand - 5, 2, (GXColor){255, 255, 255, 150});
+		for (int y = 0; y < kTitleBand - 4; y += 6)
+			Menu_FillScreen(y, 6, ScaledColor(skin::kBar, 1.0f - 0.05f * y / kTitleBand));
+		Menu_FillScreen(kTitleBand - 5, 2, skin::WithAlpha(skin::kCard, 180));
 		Menu_FillScreen(kTitleBand - 3, 3, skin::kAccent);
 		Menu_FillScreen(kTitleBand, 2, (GXColor){0, 0, 0, 26});
 		Menu_FillScreen(kTitleBand + 2, 3, (GXColor){0, 0, 0, 12});
 	}
+private:
+	PageControlsBand controls;
 };
 
 class HomeBar : public GuiElement {
@@ -7930,6 +7951,7 @@ public:
 	}
 	void Draw() override {
 		riftwii::wii::DrawTrace trace("the page's band");
+		controls.Draw();
 		UpdateArt();
 		Menu_FillScreen(-1000, 1000 + kHeight, hue);
 		const int plainAlpha = static_cast<int>(255 * (1.0f - artShown));
@@ -7947,9 +7969,9 @@ public:
 		}
 		if (artShown > 0.0f) DrawArt();
 		for (int i = 0; i < 4; ++i) Menu_FillScreen(kHeight - 19 + 4 * i, 4, (GXColor){0, 0, 0, static_cast<u8>(10 + 10 * i)});
-		Menu_FillScreen(kHeight - 3, 3, skin::WithAlpha(skin::kAccent, plainAlpha));
-		// The art's lower edge: a faint light line, as on a glass panel.
-		Menu_FillScreen(kHeight - 1, 1, (GXColor){255, 255, 255, static_cast<u8>(40 * artShown)});
+		// Keep the game's art, with the same themed edge as the controls band.
+		Menu_FillScreen(kHeight - 3, 3, skin::kAccent);
+		Menu_FillScreen(kHeight - 4, 1, skin::WithAlpha(skin::kCard, 180));
 		Menu_FillScreen(kHeight, 2, (GXColor){0, 0, 0, 30});
 		Menu_FillScreen(kHeight + 2, 3, (GXColor){0, 0, 0, 12});
 	}
@@ -8015,6 +8037,7 @@ private:
 		Menu_DrawImgPart(x0, y0, x1 - x0, y1 - y0, static_cast<u16>(t.w), static_cast<u16>(t.h), t.data,
 			(x0 - x) / t.w, (y0 - top) / t.h, (x1 - x) / t.w, (y1 - top) / t.h, alpha);
 	}
+	PageControlsBand controls;
 	GXColor hue;
 	std::string id;
 	bool disc;

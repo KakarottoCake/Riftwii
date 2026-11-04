@@ -146,7 +146,7 @@ shows:
 | `chip_off` | `#F4F4F6` | An option's value box at its default |
 | `chip_off_edge` | `#D0D0D8` | Its outline |
 | `switch_off` | `#D4D4DB` | An On/Off switch when off |
-| `bar` | `#DEDEE4` | Home's bottom bar, the banner screen's and the title bands (a shade under the backdrop) |
+| `bar` | `#DEDEE4` | Home's bottom bar, the banner screen's, and full pages' matching title and prompts bands (a shade under the backdrop). The accent marks each band's inner edge. |
 | `backdrop` | `#ECECEF` | Behind every screen |
 | `backdrop_stripe` | `#E3E3E8` | The backdrop's thin stripes |
 | `banner_stripe` | `#FFFFFF14` | Stripes over a game page's banner while it shows the game's colour (no box art on the card yet) |
