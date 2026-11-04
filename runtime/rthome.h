@@ -1,0 +1,178 @@
+/* SPDX-FileCopyrightText: 2026 RiftWii contributors */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* The HOME Menu from a GameCube controller (#224 part 1): L, R, Z and
+ * Start held, the combo of the way back (rtleave.h), make a Classic
+ * Controller appear on a free Wii Remote channel and press its HOME. The
+ * game opens its own HOME Menu on that press (or, mid-save or loading,
+ * shows its crossed-out HOME icon and doesn't), and while the menu is up
+ * the stand-in carries the pad's stick and buttons, so the menu can be
+ * used to the end: its buttons, Wii Menu, Reset, closing it. Once the menu
+ * has closed the stand-in is gone, so games that read GameCube controllers
+ * themselves (Brawl, Mario Kart Wii) never see an extra player.
+ *
+ * The decisions, kept free of the hardware so the host tests can run them;
+ * the pad blob (runtime/pad) calls them from its PADRead, KPAD read,
+ * WPADProbe and HBMCalc hooks, and writes the Classic Controller status
+ * into the game's KPAD buffer (rthome_classic, rthome_float_bits). */
+#ifndef RIFTWII_RTHOME_H
+#define RIFTWII_RTHOME_H
+
+#include <stdint.h>
+
+/* A Classic Controller's buttons as KPAD reports them (KPADStatus's
+ * extension hold, trig and release words; wiibrew, "Classic Controller"). */
+#define RTHOME_CL_UP 0x0001u
+#define RTHOME_CL_LEFT 0x0002u
+#define RTHOME_CL_ZR 0x0004u
+#define RTHOME_CL_X 0x0008u
+#define RTHOME_CL_A 0x0010u
+#define RTHOME_CL_Y 0x0020u
+#define RTHOME_CL_B 0x0040u
+#define RTHOME_CL_ZL 0x0080u
+#define RTHOME_CL_R 0x0200u
+#define RTHOME_CL_PLUS 0x0400u
+#define RTHOME_CL_HOME 0x0800u
+#define RTHOME_CL_MINUS 0x1000u
+#define RTHOME_CL_L 0x2000u
+#define RTHOME_CL_DOWN 0x4000u
+#define RTHOME_CL_RIGHT 0x8000u
+
+/* And the Wii Remote's own buttons (KPADStatus's hold, trig and release
+ * words; the SDK's WPAD_BUTTON_*), held upright. */
+#define RTHOME_WR_LEFT 0x0001u
+#define RTHOME_WR_RIGHT 0x0002u
+#define RTHOME_WR_DOWN 0x0004u
+#define RTHOME_WR_UP 0x0008u
+#define RTHOME_WR_B 0x0400u
+#define RTHOME_WR_A 0x0800u
+#define RTHOME_WR_HOME 0x8000u
+
+#define RTHOME_CHANNELS 4u
+#define RTHOME_NO_SELECTION 0xFFFFFFFFu
+#define RTHOME_NO_CHANNEL 0xFFFFFFFFu
+
+/* rthome.phase */
+#define RTHOME_IDLE 0u      /* no stand-in; the combo's hold is timed */
+#define RTHOME_PRESSING 1u  /* the stand-in's HOME is held down */
+#define RTHOME_WAITING 2u   /* HOME let go; the game has yet to open its menu */
+#define RTHOME_OPEN 3u      /* the HOME Menu runs (HBMCalc seen lately) */
+#define RTHOME_DONE 4u      /* the stand-in is gone; the combo must be let go before the next */
+/* HBMCalc stopped, the menu ended on a button other than Close: it opened
+ * a screen of its own (a Virtual Console game's Operations Guide, the
+ * game's manual, where HBMCalc doesn't run; Cruis'n USA, 27 Oct). The
+ * stand-in stays until HOME closes it. */
+#define RTHOME_ASIDE 5u
+
+/* All times are the time base's low word. */
+struct rthome {
+    uint32_t hold;      /* ticks the combo is held (loader-filled) */
+    uint32_t press;     /* ticks HOME is held on the stand-in (loader-filled) */
+    uint32_t wait;      /* ticks the menu may take to open after the press, else the game refused (loader-filled) */
+    uint32_t linger;    /* ticks after HBMCalc's last call that the menu counts as closed (loader-filled) */
+    uint32_t phase;     /* RTHOME_* */
+    uint32_t since;     /* when the hold began, or the phase (low bit set), 0: not held */
+    uint32_t menu_seen; /* HBMCalc's last call (low bit set), 0: none since the press */
+    uint32_t probed;    /* channels the game's WPADProbe has asked about, one bit each */
+    uint32_t free;      /* of those, the ones it last found empty */
+    uint32_t channel;   /* the stand-in's, RTHOME_NO_CHANNEL: none */
+    uint32_t port;      /* the GameCube port that held the combo */
+    uint32_t stale;     /* PADStatus buttons held at the press, ignored until let go */
+    uint32_t last;      /* the Classic buttons of the sample before (for trig and release) */
+    uint8_t pad[12];    /* that port's PADStatus as the last PADRead had it */
+    /* The Classic buttons are worked out once per PADRead sample: a game
+     * may read the channel twice a frame (Naruto: Clash of Ninja Revolution
+     * 3), and a second working-out would find nothing newly pressed, so the
+     * HOME Menu, which acts on newly pressed buttons, never saw them. */
+    uint32_t samples;   /* PADRead samples kept since the press */
+    uint32_t worked;    /* the sample the words below are from */
+    uint32_t hold_now, trig_now, release_now;
+    uint32_t aside_home;    /* in RTHOME_ASIDE: when HOME was pressed there (low bit set), 0: not yet */
+    uint32_t selected;      /* HBMGetSelectBtnNum's last answer since the press, RTHOME_NO_SELECTION: none */
+    /* The Wii Remote the Classic Controller hangs from, worked out with the
+     * Classic buttons: some games look only at it. Bomberman Blast opens
+     * its HOME Menu on the Remote's own HOME and hands a Classic Controller
+     * to the menu as a plain Remote, its buttons and pointer (27 Oct). */
+    uint32_t remote_last;   /* its buttons of the sample before */
+    uint32_t remote_hold, remote_trig, remote_release;
+    int32_t pointer[2];     /* where it points, x right and y down, over RTHOME_POINTER_FULL (the screen's edge) */
+    uint32_t refusals;      /* stand-ins in a row the game read but opened no menu for (rthome_keep) */
+};
+
+/* At each PADRead, the four ports' statuses (12 bytes each) as the game
+ * will see them: the combo held `hold` ticks on a port starts the stand-in
+ * on the lowest channel the game found empty, else one it never asked
+ * about (channel 0 when it has asked about none yet); none at all when
+ * every channel has a controller, whose own HOME button works. While the
+ * stand-in is up, that port's status is kept for it. Letting the combo go
+ * after the stand-in is gone arms it again. */
+void rthome_pads(struct rthome* h, const uint8_t* status, uint32_t now);
+
+/* WPADProbe(`channel`) answered `result` (0 a controller, -1 none, -2
+ * busy), not for the stand-in. */
+void rthome_probed(struct rthome* h, uint32_t channel, int32_t result);
+
+/* HBMCalc ran: the HOME Menu is open. */
+void rthome_menu_frame(struct rthome* h, uint32_t now);
+
+/* HBMGetSelectBtnNum answered `button` (not -1): the menu ends on it. */
+void rthome_selected(struct rthome* h, int32_t button);
+
+/* The stand-in's channel at `now`, or RTHOME_NO_CHANNEL. Moves the phases
+ * on with the time: the press ends, a menu that never opened (the game
+ * refused) or has closed ends the stand-in. */
+uint32_t rthome_stand_in(struct rthome* h, uint32_t now);
+
+/* Whether the blob may read the pads itself at a WPADProbe, when the game
+ * has stopped calling PADRead: only while a stand-in is up, or while a
+ * HOME Menu runs (HBMCalc within `window` ticks; a Virtual Console game's
+ * emulator stops while its menu is open, and the combo, let go there,
+ * would never arm again). Not on an ordinary probe, such as a loading
+ * screen's, where the game's own pad reads have simply paused. */
+int rthome_reads_pads(const struct rthome* h, uint32_t now, uint32_t window);
+
+/* Whether the menu counts as open (for the status's data format: 8, with
+ * the pointer, while it is, as KPAD reports it then; 7 otherwise). */
+int rthome_menu_open(const struct rthome* h);
+
+/* The stand-in's Classic Controller at `now`, worked out once per PADRead
+ * sample and the same for every read until the next: HOME alone while pressing;
+ * then the kept port's buttons mapped (A, B, X, Y as themselves, Start as
+ * HOME to close the menu, Z as ZR, L and R as themselves, the D-pad as the
+ * D-pad), with the combo's buttons ignored until each is let go. Its
+ * hold, trig (newly pressed) and release words, and the left stick (the
+ * control stick), the right stick (the C-stick) and the two triggers as
+ * fractions: `axes` gets numerators over `RTHOME_AXIS_FULL`, a dead zone
+ * at rest. */
+#define RTHOME_AXIS_FULL 256
+void rthome_classic(struct rthome* h, uint32_t now, uint32_t* hold, uint32_t* trig, uint32_t* release,
+                    int32_t axes[6]);
+
+/* The Wii Remote side of the same sample, worked out by rthome_classic (so
+ * called after it): HOME alone while pressing; then A, B and the D-pad as
+ * the Remote's own and Start as its HOME, with the same combo buttons
+ * ignored; and the pointer, from the screen's centre at the press, moved
+ * by the control stick (full tilt crosses the screen in about a second)
+ * and kept on the screen. `pointer` gets numerators over
+ * RTHOME_POINTER_FULL, x right and y down, as KPAD reports a Remote's. */
+#define RTHOME_POINTER_FULL 4096
+void rthome_remote(const struct rthome* h, uint32_t* hold, uint32_t* trig, uint32_t* release, int32_t pointer[2]);
+
+/* After a stand-in has ended (RTHOME_DONE), whether the HOME Menu by the
+ * pad stays on in this game; 0: the combo is the way back from then on.
+ * `read_by_game`: the game's KPAD read took the stand-in's status at least
+ * once. A menu that opened keeps it on and starts the count again; a game
+ * that never read the stand-in can't take one (it reads only the channels
+ * it knows); one that read it but opened no menu RTHOME_REFUSALS times in a
+ * row looks for HOME somewhere a stand-in can't reach (Mario Kart Wii: only
+ * its signed-in players' controllers, 27 Oct). Two, not one: Super Smash
+ * Bros. Brawl and Tatsunoko vs. Capcom refuse once during their intros. A
+ * stand-in that never came (every channel has a controller) proves nothing. */
+#define RTHOME_REFUSALS 2u
+int rthome_keep(struct rthome* h, int read_by_game);
+
+/* An IEEE single's bits for `numerator` / RTHOME_AXIS_FULL (from -FULL to
+ * FULL), made with integers only: the blob has no floating-point unit use
+ * and no constant data. */
+uint32_t rthome_float_bits(int32_t numerator);
+
+#endif
