@@ -245,6 +245,15 @@ if(BUILD_TESTING)
         target_compile_options(wiimenucontent_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME wiimenucontent COMMAND wiimenucontent_tests)
+    # The same contents from their NAND files, when ES refuses them.
+    add_executable(wiimenunand_tests tests/wiimenunand_tests.cpp wii/menu/wiimenunand.cpp)
+    target_include_directories(wiimenunand_tests PRIVATE
+        tests/movedchannels_mock tests/wii_mock wii/menu wii/core wii/launch)
+    target_link_libraries(wiimenunand_tests PRIVATE riftwii)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(wiimenunand_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME wiimenunand COMMAND wiimenunand_tests)
     # Return-to is sent before a title runs and kept until IOS reloads.
     add_executable(d2xreturnto_tests tests/d2xreturnto_tests.cpp wii/launch/d2xreturnto.cpp)
     target_include_directories(d2xreturnto_tests PRIVATE tests/wii_mock wii/launch wii/storage wii/core runtime)
