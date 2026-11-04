@@ -47,37 +47,51 @@ bool UnprotectIosCode(u16& was) {
     return false;
 }
 
-// Only the patched halfword is ours, as in the channel installer (#379):
-// IOS may change the other halfword of the same word, which must neither
-// block the close nor be undone. The word is still read and written
-// whole: smaller uncached stores have hung consoles. An opening that never
-// read back whole (failed, or cut off before its check) may have damaged
-// the other halfword itself, so it is undone as the opening's rollback
-// does: the whole original word. That, and a patched halfword that no
-// longer holds the opening (IOS reloaded), count as restored only if the
-// whole original word is back: a damaged other halfword is never reported
-// as closed. `found` is what the word held when the close looked, for the
-// log. With protection stuck on, nothing is read and the note stays for a
-// later try.
-bool Restore(u32& found) {
+enum class CloseResult {
+    closed,       // the check is back as it was
+    left,         // the word isn't ours to close, or the close didn't take
+    unreachable,  // protection didn't turn off: nothing was read, the note stays
+};
+
+// After a confirmed opening, only the patched halfword is ours, as in the
+// channel installer (#379): IOS may change the other halfword of the same
+// word, which must neither block the close nor be undone, and the close
+// counts only if it left that other halfword as it found it. The word is
+// still read and written whole: smaller uncached stores have hung
+// consoles. An opening that never read back whole (failed, or cut off
+// before its check) may have damaged either halfword itself, so while the
+// patched halfword is the opening's or the original's, it is undone as
+// the opening's rollback does, with the whole original word, and counts
+// only once that word is back. A patched halfword holding anything else
+// (IOS reloaded) is left alone and the note dropped. `found` is what the
+// word held when the close looked, for the log.
+CloseResult Restore(u32& found) {
     const NandPermissionNote saved = *note();
     u16 protection = 0;
     found = 0;
-    if (!UnprotectIosCode(protection)) return false;
+    if (!UnprotectIosCode(protection)) return CloseResult::unreachable;
     found = read32(saved.word);
-    u32 closed = 0;
-    const bool ours = nand_check_closed(found, saved.before, saved.shift, closed);
-    if (ours) write32(saved.word, saved.opened ? closed : saved.before);
+    const unsigned other = saved.shift ^ 16;
+    const u16 patched = nand_check_half(found, saved.shift);
+    u32 target = saved.before;
+    bool ours = false;
+    if (saved.opened) {
+        ours = nand_check_closed(found, saved.before, saved.shift, target);
+    } else {
+        ours = patched == 0xE001 || patched == nand_check_half(saved.before, saved.shift);
+    }
+    if (ours) write32(saved.word, target);
     const u32 now = read32(saved.word);
     const bool restored = ours && saved.opened
-                              ? nand_check_half(now, saved.shift) == nand_check_half(saved.before, saved.shift)
+                              ? nand_check_half(now, saved.shift) == nand_check_half(saved.before, saved.shift) &&
+                                    nand_check_half(now, other) == nand_check_half(found, other)
                               : now == saved.before;
     write16(kMemProt, protection);
     if (restored || !ours) {
         note()->magic = 0;
         FlushNote();
     }
-    return restored;
+    return restored ? CloseResult::closed : CloseResult::left;
 }
 
 }  // namespace
@@ -96,8 +110,17 @@ void RecoverNandPermissions() {
         g_recovery = "the saved IOS patch could not be checked without hardware access";
     } else {
         u32 found = 0;
-        g_recovery = Restore(found) ? "the NAND permission check left by an interrupted run was closed"
-                                    : "the saved NAND permission patch no longer matches, or could not be closed";
+        switch (Restore(found)) {
+        case CloseResult::closed:
+            g_recovery = "the NAND permission check left by an interrupted run was closed";
+            break;
+        case CloseResult::left:
+            g_recovery = "the saved NAND permission patch no longer matches, or could not be closed";
+            break;
+        case CloseResult::unreachable:
+            g_recovery = "the saved NAND permission patch could not be checked: memory protection did not turn off";
+            break;
+        }
     }
 }
 
@@ -116,9 +139,13 @@ bool open_nand_permissions(const char* who) {
     // A failed restore retains the note, and must not be overwritten by a
     // second patch. Retry it while the same IOS is still running.
     u32 found = 0;
-    if (nand_permission_note_valid(*note()) && note()->ios == static_cast<u32>(IOS_GetVersion()) && !Restore(found)) {
-        logf("%s: the earlier NAND permission patch could not be closed; no new patch was made.\n", who);
-        return false;
+    if (nand_permission_note_valid(*note()) && note()->ios == static_cast<u32>(IOS_GetVersion())) {
+        const CloseResult earlier = Restore(found);
+        if (earlier != CloseResult::closed) {
+            logf("%s: the earlier NAND permission patch could not be closed%s; no new patch was made.\n", who,
+                 earlier == CloseResult::unreachable ? " (memory protection did not turn off)" : "");
+            return false;
+        }
     }
     constexpr u32 kFrom = 0xD3400000, kTo = 0xD4000000;
     logf("%s: checking IOS%d's NAND permission code before opening it.\n", who, IOS_GetVersion());
@@ -191,13 +218,21 @@ void close_nand_permissions(const char* who) {
         return;
     }
     u32 found = 0;
-    if (Restore(found)) {
+    switch (Restore(found)) {
+    case CloseResult::closed:
         logf("%s: IOS%d's NAND permission check closed (word 0x%08x, expected 0x%08x).\n", who, IOS_GetVersion(),
              saved.word, saved.after);
-    } else {
+        break;
+    case CloseResult::left:
         logf("%s: IOS%d's NAND permission check changed or could not be closed (word 0x%08x read 0x%08x, "
              "original 0x%08x, opened 0x%08x).\n",
              who, IOS_GetVersion(), saved.word, found, saved.before, saved.after);
+        break;
+    case CloseResult::unreachable:
+        logf("%s: IOS%d's memory protection did not turn off, so its NAND permission check (word 0x%08x) is "
+             "still open; the next opening or start tries the close again.\n",
+             who, IOS_GetVersion(), saved.word);
+        break;
     }
 }
 

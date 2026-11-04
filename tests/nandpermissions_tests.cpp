@@ -159,12 +159,12 @@ int main() {
     check(!open_nand_permissions("test"));
     check(current == 0xDEADD001u && nand_permission_note_valid(*saved));
     damage_other = false;
-    // The next start's recovery: the patch isn't open, and the word isn't
-    // the original either, so it is not reported as closed.
+    // The next start's recovery: the opening was never confirmed, so the
+    // damage is taken as its own and the whole original word goes back.
     RecoverNandPermissions();
     LogNandPermissionRecovery();
-    check(saved->magic == 0 && current == 0xDEADD001u);
-    check(riftwii::wii::g_last_log.find("no longer matches") != std::string::npos);
+    check(saved->magic == 0 && current == kBefore);
+    check(riftwii::wii::g_last_log.find("was closed") != std::string::npos);
     current = kBefore;
     fail_write = false;
     // A failed opening that left the patched halfword opened and the other
@@ -187,6 +187,16 @@ int main() {
     check(saved->opened == 1 && nand_permission_note_valid(*saved));
     close_nand_permissions("test");
     check(current == kBefore && saved->magic == 0);
+    // A close whose store damages the other halfword isn't reported as
+    // closed, and the note stays.
+    check(open_nand_permissions("test"));
+    damage_other = true;
+    close_nand_permissions("test");
+    damage_other = false;
+    check(current == 0xDEADD001u && nand_permission_note_valid(*saved));
+    check(riftwii::wii::g_last_log.find("could not be closed") != std::string::npos);
+    saved->magic = 0;
+    current = kBefore;
     // MEM_PROT writes that land late (a console, 3 Nov): the opening and
     // the close wait until protection is off before touching IOS's code.
     posted_protection = true;
@@ -204,6 +214,7 @@ int main() {
     stuck_protection = true;
     close_nand_permissions("test");
     check(current == 0x428BE001u && nand_permission_note_valid(*saved) && protection == 1);
+    check(riftwii::wii::g_last_log.find("did not turn off") != std::string::npos);
     check(!open_nand_permissions("test"));
     stuck_protection = false;
     RecoverNandPermissions();
