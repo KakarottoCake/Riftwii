@@ -70,6 +70,25 @@ int main() {
         std::vector<std::uint8_t> tail(kNandCheck, kNandCheck + 5);
         EXPECT_EQ(patch(tail), -1L);
     }
+    // The close puts back only the patched halfword, at either place in the
+    // word, keeping a change IOS made to the other halfword; a halfword
+    // that no longer holds the opening is left alone.
+    for (unsigned shift : {0u, 16u}) {
+        const std::uint32_t before = shift ? 0xD001428Bu : 0x428BD001u;
+        const std::uint32_t after = nand_check_opened(before, shift);
+        std::uint32_t out = 0;
+        EXPECT_TRUE(nand_check_closed(after, before, shift, out));
+        EXPECT_EQ(out, before);
+        const std::uint32_t other = 0xFFFFu << (16 - shift);
+        const std::uint32_t changed = (after & ~other) | (0x1234u << (16 - shift));
+        EXPECT_TRUE(nand_check_closed(changed, before, shift, out));
+        EXPECT_EQ(nand_check_half(out, shift), 0xD001u);
+        EXPECT_EQ(nand_check_half(out, 16 - shift), 0x1234u);
+        out = 0x5A5A5A5Au;
+        EXPECT_TRUE(!nand_check_closed(before, before, shift, out));
+        EXPECT_TRUE(!nand_check_closed(changed ^ (0x0100u << shift), before, shift, out));
+        EXPECT_EQ(out, 0x5A5A5A5Au);
+    }
     if (g_failures == 0) {
         std::cout << "nandcheck tests passed" << std::endl;
         return 0;

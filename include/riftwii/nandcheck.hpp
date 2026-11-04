@@ -31,6 +31,12 @@ NandCheckStore nand_check_store(std::uint32_t match_address);
 std::uint32_t nand_check_opened(std::uint32_t word, unsigned shift);
 // The halfword the store puts there, as read back.
 std::uint16_t nand_check_half(std::uint32_t word, unsigned shift);
+// The close: when the patched halfword of `current` (the word as read
+// now) still holds the opening, `out` is `current` with that halfword put
+// back as `before` had it, and the other halfword as IOS has it now: only
+// the patched halfword is ours. False, with nothing to write, when that
+// halfword holds anything else.
+bool nand_check_closed(std::uint32_t current, std::uint32_t before, unsigned shift, std::uint32_t& out);
 
 // Saved before writing IOS, outside the loader's BSS, so a later start
 // can undo its own interrupted write without scanning for patched code.
@@ -41,17 +47,21 @@ struct NandPermissionNote {
     std::uint32_t before = 0;
     std::uint32_t after = 0;
     std::uint32_t shift = 0;
+    std::uint32_t opened = 0;  // 1 once the opening write read back whole
+    // The word as RiftWii's last store left it, read back: a store that
+    // damaged the patched halfword is still recognized as RiftWii's own.
+    std::uint32_t left = 0;
     std::uint32_t checksum = 0;
 };
 
 inline std::uint32_t nand_permission_checksum(const NandPermissionNote& note) {
-    return 0x4E414E44 ^ note.ios ^ note.word ^ note.before ^ note.after ^ note.shift;
+    return 0x4E414E44 ^ note.ios ^ note.word ^ note.before ^ note.after ^ note.shift ^ note.opened ^ note.left;
 }
 
 inline bool nand_permission_note_valid(const NandPermissionNote& note) {
     return note.magic == 0x52574E50 && note.ios >= 3 && note.ios <= 255 &&
            note.word >= 0xD3400000 && note.word < 0xD4000000 && (note.word & 3) == 0 &&
-           (note.shift == 0 || note.shift == 16) &&
+           (note.shift == 0 || note.shift == 16) && note.opened <= 1 &&
            nand_check_half(note.before, note.shift) == 0xD001 &&
            note.after == nand_check_opened(note.before, note.shift) &&
            note.checksum == nand_permission_checksum(note);

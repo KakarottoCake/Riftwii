@@ -32,4 +32,11 @@ std::uint16_t nand_check_half(std::uint32_t word, unsigned shift) {
     return static_cast<std::uint16_t>(word >> shift);
 }
 
+bool nand_check_closed(std::uint32_t current, std::uint32_t before, unsigned shift, std::uint32_t& out) {
+    if (nand_check_half(current, shift) != 0xE001) return false;
+    const std::uint32_t mask = 0xFFFFu << shift;
+    out = (current & ~mask) | (before & mask);
+    return true;
+}
+
 }  // namespace riftwii
