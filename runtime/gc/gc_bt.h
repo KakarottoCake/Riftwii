@@ -39,6 +39,9 @@
 #define GC_BT_ACL_READS 6u  /* a remote reports up to about 100 times a second; PADRead comes 60 */
 #define GC_BT_READ_BYTES 256u
 #define GC_BT_REMOTES 4u    /* one per GameCube port */
+/* PADReads a port a remote has just taken reads as a controller plugged in
+ * but not ready (gc_bt.c, gc_bt_fill): a few frames at any game's rate. */
+#define GC_BT_ARRIVE_READS 16u
 #define GC_BT_KEYS 8u
 #define GC_BT_COMMANDS 6u   /* HCI commands waiting for the controller to take another */
 #define GC_BT_FAKE_STEPS 8u /* the test remote's steps (gc_bt_fake) */
@@ -128,6 +131,11 @@ struct gc_bt {
      * slot's port, and each port's err byte as the game got it. */
     uint8_t port_of[GC_BT_REMOTES];
     uint8_t port_err[GC_BT_REMOTES];
+    /* Each port's PADReads left reading as just plugged in, the ports the
+     * last fill filled, and those it gave as just plugged in. */
+    uint8_t port_arriving[GC_BT_REMOTES];
+    uint32_t ports_filled;
+    uint32_t ports_arriving;
     int32_t fd;
     uint32_t stage;         /* GC_BT_STAGE_* */
     uint32_t credits;       /* commands the controller takes now */
