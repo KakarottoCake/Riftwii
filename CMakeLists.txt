@@ -6,8 +6,8 @@ cmake_minimum_required(VERSION 3.20)
 # after it adds the number of commits since that release (2610-123 is 123
 # commits on). Makefile.wii counts them from RIFTWII_BASE_TAG, the release's
 # git tag. A new release: its YYMM here and its tag there (then -0 builds).
-project(Riftwii VERSION 2610 LANGUAGES C CXX)
-set(RIFTWII_BASE_TAG "v2.7.0")
+project(Riftwii VERSION 2611 LANGUAGES C CXX)
+set(RIFTWII_BASE_TAG "v2610-810")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
