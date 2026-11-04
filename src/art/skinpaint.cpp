@@ -57,6 +57,37 @@ struct Painter {
         return Rgba{ch(v.r), ch(v.g), ch(v.b), a < 0 ? v.a : static_cast<std::uint8_t>(a)};
     }
 
+    // Pressables always catch the light, independently of the theme's
+    // optional shine on picture frames. White stays faint on dark bodies.
+    // As the Wii's buttons: the upper half lit nearly white down to a soft
+    // horizon, where the light drops to a fraction at once, so the shine
+    // reads even on a white button (its lower half is a shade darker).
+    void ButtonGloss(Canvas& c, float x, float y, float w, float h, float radius, Rgba fill) const {
+        const int brightness = (fill.r + fill.g + fill.b) / 3;
+        const int top = 50 + brightness * 170 / 255;
+        // The light keeps two pixels inside the button's own outline, row by
+        // row: a shorter rounded box for it has tighter corners than a
+        // pill's round ends and showed past them as a squarish patch.
+        const float left = x + 2, width = w - 4, height = h - 4;
+        const float r = std::min(std::max(0.0f, radius - 2), std::min(width, height) / 2);
+        // Rows from the light's top (two under the button's) to the middle.
+        const int horizon = static_cast<int>(h * 0.5f) - 2;
+        for (int row = 0; row < horizon + 2; ++row) {
+            const float yy = row + 0.5f;  // the row's middle, from the light's top
+            float cut = 0;  // how far the rounded corners take in from each side
+            if (yy < r) cut = r - std::sqrt(std::max(0.0f, r * r - (r - yy) * (r - yy)));
+            int alpha = 0;
+            if (row < horizon) {
+                alpha = top - (top * 9 / 20) * row / std::max(1, horizon - 1);
+            } else {
+                // Under the horizon the light fades out over two pixels: a
+                // soft edge on a TV rather than a cut.
+                alpha = row == horizon ? top / 5 : top / 10;
+            }
+            c.rect(left + cut, y + 2 + row, width - 2 * cut, 1, Rgba{255, 255, 255, static_cast<std::uint8_t>(alpha)});
+        }
+    }
+
     // A button, as the Wii Menu's: the card's colour shaded down, a gloss
     // over its top half, a fine edge with a lit line inside it; lit, the
     // accent's ring and glow. A primary one keeps a thinner ring.
@@ -70,18 +101,19 @@ struct Painter {
         radius = R(radius);
         if (over) c.shadow(x - 1, y - 1, fw + 2, fh + 2, radius + 1, margin - 1.0f, glow, 2.0f);
         c.shadow(x, y + 2, fw, fh, radius, 4, shadow, 3.0f);
-        c.rounded_gradient(x, y, fw, fh, radius, Shade(fill, 1.0f), Shade(fill, 0.89f));
-        // The gloss: light at the top, gone by the middle.
-        c.rounded_gradient(x + 3, y + 2, fw - 6, fh * 0.48f, std::max(0.0f, radius - 3), Rgba{255, 255, 255, 150},
-                           Rgba{255, 255, 255, 10});
+        // A shade under the fill at the top, more at the foot: the gloss
+        // brings the top half back to the fill's own light.
+        c.rounded_gradient(x, y, fw, fh, radius, Shade(fill, 0.94f), Shade(fill, 0.84f));
+        ButtonGloss(c, x, y, fw, fh, radius, fill);
+        const auto innerLight = static_cast<std::uint8_t>(35 + (fill.r + fill.g + fill.b) * 135 / (3 * 255));
+        c.rounded_border(x + 1.5f, y + 1.5f, fw - 3, fh - 3, std::max(0.0f, radius - 1.5f), 1.0f,
+                         Rgba{255, 255, 255, innerLight});
         if (over) {
             c.rounded_border(x, y, fw, fh, radius, 3.0f, accent);
         } else if (primary) {
             c.rounded_border(x, y, fw, fh, radius, 2.5f, accent);
         } else {
             c.rounded_border(x, y, fw, fh, radius, 1.5f, edge_strong);
-            c.rounded_border(x + 1.5f, y + 1.5f, fw - 3, fh - 3, std::max(0.0f, radius - 1.5f), 1.0f,
-                             Rgba{255, 255, 255, 170});
         }
         return c;
     }
@@ -291,11 +323,9 @@ struct Painter {
     }
 
     Canvas Chip(bool on) const {
-        Canvas c(212, 36);
         const Rgba fill = on ? chip_on : chip_off;
-        c.rounded_gradient(2, 3, 208, 30, R(15), Shade(fill, 1.04f), Shade(fill, 0.96f));
-        Shine(c, 2, 3, 208, 30, R(15));
-        c.rounded_border(2, 3, 208, 30, R(15), 2, on ? accent : chip_off_edge);
+        Canvas c = Button(208, 30, 2, 15, on, false, fill);
+        c.rounded_border(2, 2, 208, 30, R(15), 1.5f, on ? accent : chip_off_edge);
         return c;
     }
 
@@ -303,9 +333,22 @@ struct Painter {
         Canvas c(48, 48);
         const float s = left ? -1.0f : 1.0f;
         const float tipX = 24 + 11 * s, backX = 24 - 9 * s;
-        // Filled by lines from the back edge to the tip, then edged.
-        const Rgba fill = over ? Rgba{accent.r, accent.g, accent.b, 150} : Rgba{255, 255, 255, 220};
-        for (float yy = 9.5f; yy <= 38.5f; yy += 1.0f) c.line(backX, yy, tipX, 24, 1.6f, fill);
+        const Rgba fill = over ? Mix(card, accent, 0.20f) : card;
+        c.polygon({{backX, 9}, {tipX, 24}, {backX, 39}}, fill);
+        // Keep the Wii's triangular page control, with the same shaded
+        // body and soft upper gloss as the rounded buttons.
+        const int brightness = (fill.r + fill.g + fill.b) / 3;
+        const float strength = (40 + brightness * 110 / 255) / 255.0f;
+        for (int y = 8; y < 41; ++y) {
+            const float down = std::clamp((y - 9.0f) / 30.0f, 0.0f, 1.0f);
+            const float gloss = strength * std::max(0.0f, 1.0f - down / 0.45f);
+            const Rgba shaded = Mix(Shade(fill, 1.0f - 0.11f * down), rgba(0xFFFFFF), gloss);
+            for (int x = 10; x < 38; ++x) {
+                const Rgba mask = c.at(x, y);
+                if (mask.a == 0) continue;
+                c.put(x, y, Rgba{shaded.r, shaded.g, shaded.b, mask.a});
+            }
+        }
         if (over) {
             c.line(backX, 7, tipX, 24, 7.0f, glow);
             c.line(tipX, 24, backX, 41, 7.0f, glow);
@@ -323,6 +366,8 @@ struct Painter {
         if (over) c.circle(21, 21, 20.5f, glow);
         c.circle(21, 22.5f, 17.5f, shadow);
         c.rounded_gradient(4, 4, 34, 34, 17, Shade(over ? chip_on : card, 1.0f), Shade(over ? chip_on : card, 0.89f));
+        ButtonGloss(c, 4, 4, 34, 34, 17, over ? chip_on : card);
+        c.ring(21, 21, 15, 1, Shade(card, 1.2f));
         c.ring(21, 21, 17, 2, over ? accent : edge_strong);
         const float s = up ? -1.0f : 1.0f;
         c.line(14, 21 - 2.5f * s, 21, 21 + 3.5f * s, 3.2f, over ? accent : glyph);
@@ -332,11 +377,7 @@ struct Painter {
 
     // A list row's arrow button: 34 across, in a 44 canvas.
     Canvas Step(bool back, bool over) const {
-        Canvas c(44, 44);
-        if (over) c.circle(21, 21, 20.5f, glow);
-        c.circle(21, 22.5f, 17.5f, shadow);
-        c.rounded_gradient(4, 4, 34, 34, 17, Shade(over ? chip_on : card, 1.0f), Shade(over ? chip_on : card, 0.89f));
-        c.ring(21, 21, 17, 2, over ? accent : edge_strong);
+        Canvas c = Button(34, 34, 4, 17, over);
         const float s = back ? -1.0f : 1.0f;
         c.line(21 - 2.5f * s, 14, 21 + 3.5f * s, 21, 3.2f, over ? accent : glyph);
         c.line(21 + 3.5f * s, 21, 21 - 2.5f * s, 28, 3.2f, over ? accent : glyph);
@@ -346,10 +387,16 @@ struct Painter {
     // An On/Off switch: 60x30 at (3, 4).
     Canvas Switch(bool on) const {
         Canvas c(68, 40);
-        c.rounded_rect(3, 4, 60, 30, R(15), on ? accent : switch_off);
+        const Rgba fill = on ? accent : switch_off;
+        c.shadow(3, 5, 60, 30, R(15), 3, shadow);
+        c.rounded_gradient(3, 4, 60, 30, R(15), fill, Shade(fill, 0.89f));
+        ButtonGloss(c, 3, 4, 60, 30, R(15), fill);
+        c.rounded_border(3, 4, 60, 30, R(15), 1, on ? accent : edge_strong);
         const float knob = on ? 48.0f : 18.0f;
         c.circle(knob, 20.5f, 12.5f, rgba(0x000000, 40));
-        c.circle(knob, 19, 12, rgba(0xFFFFFF));
+        c.rounded_gradient(knob - 12, 7, 24, 24, 12, Shade(card, 1.08f), Shade(card, 0.89f));
+        ButtonGloss(c, knob - 12, 7, 24, 24, 12, card);
+        c.ring(knob, 19, 11.5f, 1, edge);
         return c;
     }
 
@@ -517,26 +564,20 @@ struct Painter {
     }
 
     // A tile of the game page and Settings, 64x64 to be nine-sliced
-    // (corner 24): the channel frame's card; lit, the accent's ring and
+    // (corner 24): a glossy button; lit, the accent's ring and
     // glow. A primary one (Play) is tinted with the accent and keeps its
     // ring when it is not lit, so the eye finds it first.
     Canvas TileNine(bool over, bool primary) const {
-        if (!primary) return Tile(48, 48, 8, 16, over);
-        Canvas c(64, 64);
-        const float x = 8, y = 8, w = 48, h = 48, radius = R(16);
-        if (over) c.shadow(x - 1, y - 1, w + 2, h + 2, radius + 1, 7.0f, glow, 2.0f);
-        c.shadow(x, y + 2, w, h, radius, 3, shadow, 3.0f);
-        c.rounded_gradient(x, y, w, h, radius, Mix(card, accent, 0.16f), Mix(card, accent, 0.26f));
-        Shine(c, x, y, w, h, radius);
-        c.rounded_border(x, y, w, h, radius, over ? 3.0f : 2.5f, accent);
-        return c;
+        const Rgba fill = primary ? Mix(card, accent, 0.20f) : card;
+        return Button(48, 48, 8, 16, over, primary, fill);
     }
 
     // The round badge a button's name sits on in the prompts along the
     // bottom of a screen (A, B, +, 1, 2), as consoles draw them.
     Canvas PromptButton() const {
         Canvas c(24, 24);
-        c.circle(12, 12, 11.0f, glyph);
+        c.rounded_gradient(1, 1, 22, 22, 11, glyph, Shade(glyph, 0.89f));
+        ButtonGloss(c, 1, 1, 22, 22, 11, glyph);
         return c;
     }
 
@@ -839,10 +880,7 @@ struct Painter {
     }
 
     Canvas RowFocus() const {
-        Canvas c(548, 44);
-        c.rounded_rect(1, 1, 546, 42, R(12), Rgba{accent.r, accent.g, accent.b, 30});
-        c.rounded_border(1, 1, 546, 42, R(12), 1.5f, Rgba{accent.r, accent.g, accent.b, 150});
-        return c;
+        return Button(546, 42, 1, 12, true, false, Mix(card, accent, 0.10f));
     }
 
     // Home's shelf: its top (rows 0-47, the far edge first) and its front

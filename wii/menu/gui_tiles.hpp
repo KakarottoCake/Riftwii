@@ -7,6 +7,7 @@
 
 #include "libwiigui/gui.h"
 #include "skin.hpp"
+#include "gui_motion.hpp"
 
 // Tiles for the game page and Settings: large cards placed anywhere on
 // the screen, each with an icon, a name and its current value, in place of
@@ -43,6 +44,7 @@ public:
         return index >= 0 && index < static_cast<int>(lift.size()) ? lift[index] : 0.0f;
     }
     float PressedScale(int index) const { return index == pressedTile ? pressScale : 1.0f; }
+    float SwellScale(int index) const;
     void Draw() override;
     void Update(GuiTrigger* t) override;
 
@@ -57,6 +59,7 @@ private:
     int pressedTile = -1;
     float pressElapsed = -1.0f, pressScale = 1.0f;
     std::vector<float> lift;  // each tile's lit look, eased 0 to 1
+    std::vector<riftwii::wii::HoverSwell> swell;
     std::vector<GuiText*> label;
     std::vector<GuiText*> value;
     bool dirty = true;

@@ -207,7 +207,7 @@ def rainbow(angle):
 
 def glass(w, h, margin, radius, *, body_tl, body_br, over=False, alpha=0.94, bevel=5.0, glow=GOLD,
           ring=None, ring_width=0.0, lit_width=2.6, rainbow_edge=0.75, sheen=0.13, shadow=0.55, bands=None, canvas=None,
-          reflection=0.07):
+          reflection=0.07, button_gloss=0.0):
     """A bevelled glass shape `w` x `h` at (`margin`, `margin`), in a canvas
     with that margin all round (rounded up to 4 for the Wii's textures, or
     `canvas` (w, h)):
@@ -220,7 +220,10 @@ def glass(w, h, margin, radius, *, body_tl, body_br, over=False, alpha=0.94, bev
     - lit (`over`): the `glow` colour's halo around it and a gold ring
       `lit_width` wide;
     - `ring`: a ring of that colour (`ring_width`) whether lit or not;
-    - `bands`: a function (u, v, y) -> (rgb, k) mixing a band's colour in.
+    - `bands`: a function (u, v, y) -> (rgb, k) mixing a band's colour in;
+    - `button_gloss`: for things that are pressed, the menu's Wii button
+      shine (src/art/skinpaint.cpp's ButtonGloss): the face's upper half lit
+      down to a soft line across the middle, where the light drops away.
     """
     cw = (w + 2 * margin + 3) & ~3 if canvas is None else canvas[0]
     ch = (h + 2 * margin + 3) & ~3 if canvas is None else canvas[1]
@@ -269,6 +272,12 @@ def glass(w, h, margin, radius, *, body_tl, body_br, over=False, alpha=0.94, bev
             if d >= bevel and reflection > 0:
                 face_v = (py - y0 - bevel) / max(1.0, h - 2 * bevel)
                 rgb = mix(rgb, (255, 255, 255), reflection * (1.0 - smooth((face_v - 0.30) / 0.10)))
+            if d >= 1.0 and button_gloss > 0:
+                face_v = (py - y0) / h
+                if face_v < 0.5:
+                    rgb = mix(rgb, (255, 255, 255), button_gloss * (1.0 - 0.45 * face_v / 0.5))
+                elif face_v < 0.54:
+                    rgb = mix(rgb, (255, 255, 255), button_gloss * 0.2 * (1.0 - (face_v - 0.5) / 0.04))
             a = alpha
             # The thin light rim just inside the edge.
             if 0.8 < d < 2.2:
@@ -510,9 +519,13 @@ def main():
 
     panel = dict(body_tl=(58, 40, 136), body_br=(26, 42, 118), alpha=0.95, bevel=4.0, reflection=0.03)
     tile = dict(body_tl=(70, 54, 160), body_br=(30, 40, 116), alpha=0.92, bevel=5.0)
-    primary = dict(tile, body_tl=(96, 62, 178), body_br=(48, 38, 128))
-    silver = dict(body_tl=(112, 108, 150), body_br=(56, 52, 96), alpha=0.97, bevel=4.0, rainbow_edge=0.35)
-    amber = dict(GOLD_GLASS, alpha=1.0, bevel=4.0)
+    # What is pressed gets the menu's Wii button shine; frames that hold a
+    # picture (Home's tiles and cover cards) and panels stay as they were.
+    press = dict(reflection=0.0, button_gloss=0.30)
+    button = dict(tile, **press)
+    primary = dict(button, body_tl=(96, 62, 178), body_br=(48, 38, 128))
+    silver = dict(body_tl=(112, 108, 150), body_br=(56, 52, 96), alpha=0.97, bevel=4.0, rainbow_edge=0.35, **press)
+    amber = dict(GOLD_GLASS, alpha=1.0, bevel=4.0, **press)
     pictures = {
         "background": lambda: background(640),
         "background_wide": lambda: background(856),
@@ -525,8 +538,8 @@ def main():
         # Only a rim of it shows round the cover, so its ring is wide.
         "cover_tile_over": lambda: glass(84, 116, 5, 8, over=True, canvas=(96, 128), lit_width=4.4,
                                          **dict(tile, bevel=6.0, **GOLD_GLASS)),
-        "tile9": lambda: glass(48, 48, 8, 10, **tile),
-        "tile9_over": lambda: glass(48, 48, 8, 10, over=True, **dict(tile, **GOLD_GLASS)),
+        "tile9": lambda: glass(48, 48, 8, 10, **button),
+        "tile9_over": lambda: glass(48, 48, 8, 10, over=True, **dict(button, **GOLD_GLASS)),
         "tile9_primary": lambda: glass(48, 48, 8, 10, ring=GOLD_DEEP, ring_width=1.8, **primary),
         "tile9_primary_over": lambda: glass(48, 48, 8, 10, over=True, **dict(primary, **GOLD_GLASS_PRIMARY)),
         "pill": lambda: glass(244, 52, 4, 26, shadow=0.45, **silver),
@@ -535,13 +548,13 @@ def main():
                                       **dict(primary, alpha=0.97)),
         "pill_primary_over": lambda: glass(244, 52, 4, 26, over=True, shadow=0.45, **amber),
         "home_button": lambda: glass(248, 72, 8, 36, body_tl=(236, 236, 246), body_br=(160, 160, 182),
-                                     alpha=1.0, bevel=5.0, rainbow_edge=0.3, sheen=0.2),
+                                     alpha=1.0, bevel=5.0, rainbow_edge=0.3, sheen=0.2, **press),
         "home_button_over": lambda: glass(248, 72, 8, 36, over=True, body_tl=(255, 226, 112),
                                           body_br=(226, 160, 28), alpha=1.0, bevel=5.0, rainbow_edge=0.0,
-                                          sheen=0.2, glow=(255, 214, 90)),
+                                          sheen=0.2, glow=(255, 214, 90), **press),
         "round_button": lambda: glass(74, 74, 3, 37, canvas=(80, 80), shadow=0.4, ring=(190, 186, 222),
-                                      ring_width=2.2, **tile),
-        "round_button_over": lambda: glass(74, 74, 3, 37, canvas=(80, 80), over=True, shadow=0.4, **tile),
+                                      ring_width=2.2, **button),
+        "round_button_over": lambda: glass(74, 74, 3, 37, canvas=(80, 80), over=True, shadow=0.4, **button),
         "panel_game": lambda: glass(572, 232, 4, 12, **panel),
         "panel_settings": lambda: glass(572, 276, 4, 12, **panel),
         "banner_stripes": banner_stripes,

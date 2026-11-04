@@ -13,8 +13,10 @@
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include "gui.h"
+#include <algorithm>
 #include "video.h"
 #include "transition.hpp"
+#include "gui_motion.hpp"
 /**
  * Constructor for the GuiButton class.
  */
@@ -151,11 +153,12 @@ void GuiButton::Draw()
 		return;
 
 	namespace motion = riftwii::wii::transition;
-	const bool lit = state == STATE::SELECTED || state == STATE::HELD;
-	litAmount = motion::Follow(litAmount, lit ? 1.0f : 0.0f, 47.0f);
-	if (litAmount < 0.01f) litAmount = 0.0f;
-	if (litAmount > 0.99f) litAmount = 1.0f;
-	const float scale = (1.0f + (pageDirection ? 0.08f : 0.035f) * litAmount) * motion::PressScale(pressElapsed);
+	const bool lit = defaultHighlight || state == STATE::SELECTED || state == STATE::HELD;
+	const float hover = swell.Advance(lit);
+	litAmount = std::min(1.0f, hover);
+	const float growth = pageDirection ? 1.0f + 0.08f * hover
+		: riftwii::wii::ButtonSwellScale(GetWidth(), hover);
+	const float scale = growth * motion::PressScale(pressElapsed);
 	float offset = 0;
 	if (pageDirection)
 	{
@@ -181,6 +184,8 @@ void GuiButton::Draw()
 		alpha = savedAlpha;
 		alphaDyn = savedDynamicAlpha;
 	}
+	if (glint && lit)
+		riftwii::wii::DrawButtonGlint(GetLeft() + 4, GetTop() + 4, GetWidth() - 8, GetHeight() - 8, 26, GetAlpha());
 	GuiImage* shownIcon = lit && iconOver ? iconOver : icon;
 	if (shownIcon)
 		shownIcon->Draw();
@@ -222,7 +227,7 @@ void GuiButton::Update(GuiTrigger * t)
 
 	#ifdef HW_RVL
 	// cursor
-	if(t->wpad->ir.valid && t->chan >= 0)
+	if(pointerEnabled && t->wpad->ir.valid && t->chan >= 0)
 	{
 		if(this->IsInside(t->wpad->ir.x, t->wpad->ir.y))
 		{
@@ -292,7 +297,7 @@ void GuiButton::Update(GuiTrigger * t)
 					{
 						if(state == STATE::SELECTED)
 						{
-							if(!t->wpad->ir.valid ||	this->IsInside(t->wpad->ir.x, t->wpad->ir.y))
+							if(!pointerEnabled || !t->wpad->ir.valid || this->IsInside(t->wpad->ir.x, t->wpad->ir.y))
 							{
 								this->SetState(STATE::CLICKED, t->chan);
 

@@ -1,6 +1,8 @@
 #ifndef LIBWIIGUI_BUTTON_H
 #define LIBWIIGUI_BUTTON_H
 
+#include "gui_motion.hpp"
+
 //!Display, manage, and manipulate buttons in the GUI. Buttons can have images, icons, text, and sound set (all of which are optional)
 class GuiButton : public GuiElement {
 public:
@@ -66,6 +68,11 @@ public:
 	void Draw() override;
 	void SetState(STATE s, int c = -1) override;
 	void SetPageDirection(int direction) { pageDirection = direction; }
+	void SetGlint(bool enabled) { glint = enabled; }
+	// A popup's default action stays visible without changing its hotkeys.
+	void SetDefaultHighlight(bool enabled) { defaultHighlight = enabled; }
+	// A parent with pad focus can keep a resting pointer from taking it back.
+	void SetPointerEnabled(bool enabled) { pointerEnabled = enabled; }
 	//!Constantly called to draw the GuiButton's tooltip
 	void DrawTooltip();
 	//!Resets the text for all contained elements
@@ -74,9 +81,13 @@ public:
 	//!\param t Pointer to a GuiTrigger, containing the current input data from PAD/WPAD
 	void Update(GuiTrigger * t);
 protected:
+	bool glint = false;  //!< RiftWii: the lit button of a message box
+	bool defaultHighlight = false;
+	bool pointerEnabled = true;
 	int pageDirection = 0;  //!< RiftWii: an edge arrow, -1 left or +1 right
 	float pressElapsed = -1.0f;  //!< RiftWii: a press continues after ResetState
 	float litAmount = 0.0f;  //!< RiftWii: how lit, eased (Draw)
+	riftwii::wii::HoverSwell swell;
 	GuiImage * image; //!< Button image (default)
 	GuiImage * imageOver; //!< Button image for STATE_SELECTED
 	GuiImage * imageHold; //!< Button image for STATE_HELD

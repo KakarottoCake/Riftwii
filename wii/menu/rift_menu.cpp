@@ -1763,16 +1763,37 @@ static void DrawBand(int top)
 // own: the bar's colours from the screen's top down to kTitleBand, the
 // accent's line along its foot, a soft shadow under that.
 static constexpr int kTitleBand = 70;
+static constexpr int kControlsBand = 410;
+static GXColor ScaledColor(GXColor c, float k);
+
+// Behind the prompts and any short status at the foot, with no change to
+// their safe positions. Home keeps its own clock and round-button bar.
+class PageControlsBand : public GuiElement {
+public:
+	void Draw() override {
+		Menu_FillScreen(kControlsBand, 1000, skin::kBar);
+		for (int y = kControlsBand; y < 480; y += 8)
+			Menu_FillScreen(y, 8, ScaledColor(skin::kBar, 1.0f - 0.05f * (y - kControlsBand) / 70.0f));
+		Menu_FillScreen(kControlsBand - 3, 3, skin::WithAlpha(skin::kDivider, 45));
+		Menu_FillScreen(kControlsBand, 2, skin::kAccent);
+		Menu_FillScreen(kControlsBand + 2, 1, skin::WithAlpha(skin::kCard, 180));
+	}
+};
+
 class TitleBand : public GuiElement {
 public:
 	void Draw() override {
+		controls.Draw();
 		Menu_FillScreen(-1000, 1000 + kTitleBand, skin::kBar);
-		for (int y = 3; y < kTitleBand - 4; y += 4) Menu_FillScreen(y, 2, (GXColor){0, 0, 0, 7});
-		Menu_FillScreen(kTitleBand - 5, 2, (GXColor){255, 255, 255, 150});
+		for (int y = 0; y < kTitleBand - 4; y += 6)
+			Menu_FillScreen(y, 6, ScaledColor(skin::kBar, 1.0f - 0.05f * y / kTitleBand));
+		Menu_FillScreen(kTitleBand - 5, 2, skin::WithAlpha(skin::kCard, 180));
 		Menu_FillScreen(kTitleBand - 3, 3, skin::kAccent);
 		Menu_FillScreen(kTitleBand, 2, (GXColor){0, 0, 0, 26});
 		Menu_FillScreen(kTitleBand + 2, 3, (GXColor){0, 0, 0, 12});
 	}
+private:
+	PageControlsBand controls;
 };
 
 class HomeBar : public GuiElement {
@@ -3054,18 +3075,26 @@ public:
 		for (std::size_t i = 0; i < lines_.size(); ++i) {
 			if (shown_[i].empty()) continue;
 			lines_[i]->SetAlpha(GetAlpha());
-			lines_[i]->SetPosition(x_, y_ + static_cast<int>(i) * LineHeight());
+			lines_[i]->SetPosition(x_, LineTop(static_cast<int>(i)));
 			lines_[i]->Draw();
 		}
 	}
 
 private:
 	int LineHeight() const { return fontSize_ + 6; }  // GuiText's own spacing
+	int LineTop(int index) const {
+		// A note that reaches the controls belongs inside that band, with
+		// a gap above its letters rather than the accent crossing them.
+		const int lastTopAbove = kControlsBand - 4 - fontSize_ - 6;
+		const int linesAbove = y_ > lastTopAbove ? 0 : (lastTopAbove - y_) / LineHeight() + 1;
+		if (index < linesAbove) return y_ + index * LineHeight();
+		return kControlsBand + 4 + (index - linesAbove) * LineHeight();
+	}
 
 	// The width line `index` may use: the whole of it, or what is left of
 	// the leftmost card when its text would reach the cards' top.
 	int WidthOfLine(int index, int pillsLeft) const {
-		const int textBottom = y_ + index * LineHeight() + fontSize_;
+		const int textBottom = LineTop(index) + fontSize_;
 		if (textBottom <= GuiPrompts::CardTop()) return fullWidth_;
 		const int clearOfShadow = 16;
 		return std::max(60, std::min(fullWidth_, pillsLeft - clearOfShadow - x_));
@@ -3221,6 +3250,27 @@ private:
 
 // The popup's title, body and buttons, with the page dimmed behind it.
 // Buttonless work boxes also have an indeterminate bar and a busy ring.
+// The A hotkey's choice stays lit until a pointer selects another button.
+// Destructive questions put their safe choice first and reserve + for the
+// other choice; this drawing hint leaves that protection unchanged.
+class PopupDefaultHighlight : public GuiElement {
+public:
+	PopupDefaultHighlight(GuiButton& first, GuiButton& second, bool hasFirst, bool hasSecond)
+		: first(first), second(second), hasFirst(hasFirst), hasSecond(hasSecond) {}
+	void Draw() override {
+		const auto hovered = [](GuiButton& button) {
+			return button.GetState() == STATE::SELECTED || button.GetState() == STATE::HELD;
+		};
+		const bool pointerChoice = (hasFirst && hovered(first)) || (hasSecond && hovered(second));
+		first.SetDefaultHighlight(hasFirst && !pointerChoice);
+		second.SetDefaultHighlight(!hasFirst && hasSecond && !pointerChoice);
+	}
+private:
+	GuiButton& first;
+	GuiButton& second;
+	bool hasFirst, hasSecond;
+};
+
 class PopupBox {
 public:
 	static constexpr int kTitleY = 110, kBodyY = 158, kButtonY = 304;
@@ -3246,11 +3296,14 @@ public:
 				  : (WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME),
 			safeFirst ? PAD_BUTTON_START : PAD_BUTTON_B,
 			safeFirst ? WIIDRC_BUTTON_PLUS : (WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME)),
+		  defaultHighlight(okBtn.button, cancelBtn.button, !ok.empty(), !cancel.empty()),
 		  busy(cancel.empty() ? 320 : 100, 330, ok.empty() && cancel.empty()),
 		  hasOk(!ok.empty()), hasCancel(!cancel.empty()), chained(PopupJustClosed()),
 		  w(chained ? 1.0f : 0.86f, 0, !chained)
 	{
 		if (safeFirst) okBtn.backAction = false;
+		okBtn.button.SetGlint(true);
+		cancelBtn.button.SetGlint(true);
 		if (riftwii::wii::Settings().wii_menu_sounds)
 			riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Popup);
 		Place(titleTxt, 0, kTitleY, true);
@@ -3267,6 +3320,7 @@ public:
 		waitBar.SetVisible(!hasOk && !hasCancel);
 		w.Append(&waitBar);
 		if (!hasOk && !hasCancel) BodyAtTop(kBodyLines - 1);
+		w.Append(&defaultHighlight);
 		if (hasOk) w.Append(&okBtn.button);
 		if (hasCancel) w.Append(&cancelBtn.button);
 		mainWindow->SetState(STATE::DISABLED);
@@ -3310,7 +3364,6 @@ public:
 		waitBar.SetVisible(active && !customContent);
 	}
 	void SetBody(const std::string& body) { bodyTxt.SetText(body.c_str()); }
-	void HighlightFirst() { okBtn.button.SetImage(&okBtn.imageOver); }
 	// Something more in the box, over its whole width (it must outlive the box).
 	void Append(GuiElement* e)
 	{
@@ -3421,6 +3474,7 @@ private:
 	GuiText bodyTxt;
 	SkinButton okBtn;
 	SkinButton cancelBtn;
+	PopupDefaultHighlight defaultHighlight;
 	riftwii::wii::BusyRing busy;
 	ProgressBar waitBar{56, 280, 528};
 	bool customContent = false;
@@ -3473,7 +3527,7 @@ public:
 			const TileSpec& tile = tiles_[index];
 			Menu_PushCamera(choices_.PressedScale(index), tile.x + tile.w / 2.0f, tile.y + tile.h / 2.0f);
 			const float lift = choices_.Lift(index);
-			const float grow = 1.0f + 0.035f * lift;
+			const float grow = choices_.SwellScale(index);
 			const float w = tile.w * grow, h = tile.h * grow;
 			const float x = tile.x - (w - tile.w) / 2, y = tile.y - (h - tile.h) / 2;
 			const skin::Tex& base = index == current_ ? skin::tile9Primary : skin::tile9;
@@ -3815,7 +3869,6 @@ static void CacheMissingModPopupText(const FrontendState& state)
 static int MissingModQuestion(const std::string& title, const std::string& body, const char* proceed)
 {
 	PopupBox box(title, body, tr("Back"), proceed, true);
-	box.HighlightFirst();  // Back is the visible default as well as the A/B hotkey.
 	return box.Wait();
 }
 
@@ -4268,9 +4321,9 @@ private:
 	GuiText* label[4];
 };
 
-// Without a pointer, the D-pad moves between the HOME Menu's buttons
-// (two columns, Close above them in the top band) and A presses the one
-// lit.
+// The D-pad moves between the HOME Menu's buttons (two columns, Close
+// above them in the top band). A presses the one lit. Pad focus lasts
+// until the pointer moves again.
 class HomeFocus : public GuiElement {
 public:
 	HomeFocus(GuiButton* const (&b)[5]) {
@@ -4278,25 +4331,61 @@ public:
 	}
 	void Draw() override {}
 	void Update(GuiTrigger* t) override {
-		if (!t || AnyPointerLive()) {
-			shown = -1;
-			return;
-		}
+		if (!t) return;
+		const bool pointerMoved = PointerMoved(t);
+		int dx = 0, dy = 0;
+		if (t->Up()) dy = -1;
+		else if (t->Down()) dy = 1;
+		else if (t->Left()) dx = -1;
+		else if (t->Right()) dx = 1;
+		if (!padFocus)
+			for (int i = 0; i < 5; ++i)
+				if (buttons[i]->GetState() == STATE::SELECTED) focus = i;
+		// A resting Remote can still report a pointer while its D-pad is
+		// used. Directions take focus; moving the pointer takes it back.
+		if (dx || dy) padFocus = true;
+		else if (pointerMoved) padFocus = false;
+		else if (!AnyPointerLive()) padFocus = true;
+		for (GuiButton* button : buttons) button->SetPointerEnabled(!padFocus);
+		if (!padFocus) return;
 		int to = focus;
-		if (t->Up()) to = focus == 4 ? 4 : focus >= 2 ? focus - 2 : 4;
-		else if (t->Down()) to = focus == 4 ? 1 : focus < 2 ? focus + 2 : focus;
-		else if (t->Left() && focus < 4) to = focus & ~1;
-		else if (t->Right() && focus < 4) to = focus | 1;
+		if (dy < 0) to = focus == 4 ? 4 : focus >= 2 ? focus - 2 : 4;
+		else if (dy > 0) to = focus == 4 ? 1 : focus < 2 ? focus + 2 : focus;
+		// Close spans both columns: either horizontal direction enters
+		// the matching column instead of leaving the small Close pill lit.
+		else if (dx < 0) to = focus == 4 ? 0 : focus & ~1;
+		else if (dx > 0) to = focus == 4 ? 1 : focus | 1;
 		if (to != focus && soundOver) soundOver->Play();
 		focus = to;
-		if (focus == shown) return;
-		shown = focus;
-		for (int i = 0; i < 5; ++i) buttons[i]->SetState(i == focus ? STATE::SELECTED : STATE::DEFAULT);
+		// Restore pad focus after a pointer leaves, without losing a press
+		// already delivered by another controller in this frame.
+		for (int i = 0; i < 5; ++i)
+			if (buttons[i]->GetState() != STATE::CLICKED)
+				buttons[i]->SetState(i == focus ? STATE::SELECTED : STATE::DEFAULT);
 	}
 private:
+	bool PointerMoved(GuiTrigger* t) {
+		if (t->chan < 0 || t->chan >= 4 || !t->wpad) return false;
+		const int channel = t->chan;
+		if (!t->wpad->ir.valid) {
+			pointerKnown[channel] = false;
+			return false;
+		}
+		const float x = t->wpad->ir.x, y = t->wpad->ir.y;
+		const bool moved = !pointerKnown[channel] || std::fabs(x - pointerX[channel]) > 3 ||
+			std::fabs(y - pointerY[channel]) > 3;
+		if (moved) {
+			pointerX[channel] = x;
+			pointerY[channel] = y;
+			pointerKnown[channel] = true;
+		}
+		return moved;
+	}
 	GuiButton* buttons[5];
 	int focus = 4;  // Close first: a HOME pressed by mistake costs nothing
-	int shown = -1;
+	bool padFocus = true;
+	bool pointerKnown[4] = {};
+	float pointerX[4] = {}, pointerY[4] = {};
 };
 
 // The HOME Menu, like the Wii's own: leave to the Homebrew Channel, the
@@ -4337,7 +4426,13 @@ static int ShowHomeMenu()
 		row2, tr("Power off"), 0, 0, 0);
 	for (SkinButton* b : {&hbcBtn, &menuBtn, &priiBtn, &offBtn}) {
 		b->text.SetColor(ios ? skin::kInk : ScaledColor(skin::kAccent, 0.42f));  // dark on the pale buttons, any theme
-		b->text.SetFontSize(24);
+		// Leave 24 pixels at either end, including in translations.
+		constexpr int room = 248 - 48;
+		for (int size = 24; size >= 18; --size) {
+			b->text.SetFontSize(size);
+			if (b->text.GetTextWidth() <= room) break;
+		}
+		b->text.SetMaxWidth(room);
 	}
 	if (ios) offBtn.text.SetColor(skin::kWhite);
 	// The Wii's: a small pill; iOS 6's: a bar button.
@@ -4361,7 +4456,7 @@ static int ShowHomeMenu()
 	top.Append(&closeBtn.button);
 	bottom.Append(&lowBand);
 	bottom.Append(&batteries);
-	middle.Append(&focus);
+	w.Append(&focus);
 	for (int i = 0; i < 4; ++i) middle.Append(buttons[i]);
 	w.Append(&top);
 	w.Append(&bottom);
@@ -7928,6 +8023,7 @@ public:
 	}
 	void Draw() override {
 		riftwii::wii::DrawTrace trace("the page's band");
+		controls.Draw();
 		UpdateArt();
 		Menu_FillScreen(-1000, 1000 + kHeight, hue);
 		const int plainAlpha = static_cast<int>(255 * (1.0f - artShown));
@@ -7945,9 +8041,9 @@ public:
 		}
 		if (artShown > 0.0f) DrawArt();
 		for (int i = 0; i < 4; ++i) Menu_FillScreen(kHeight - 19 + 4 * i, 4, (GXColor){0, 0, 0, static_cast<u8>(10 + 10 * i)});
-		Menu_FillScreen(kHeight - 3, 3, skin::WithAlpha(skin::kAccent, plainAlpha));
-		// The art's lower edge: a faint light line, as on a glass panel.
-		Menu_FillScreen(kHeight - 1, 1, (GXColor){255, 255, 255, static_cast<u8>(40 * artShown)});
+		// Keep the game's art, with the same themed edge as the controls band.
+		Menu_FillScreen(kHeight - 3, 3, skin::kAccent);
+		Menu_FillScreen(kHeight - 4, 1, skin::WithAlpha(skin::kCard, 180));
 		Menu_FillScreen(kHeight, 2, (GXColor){0, 0, 0, 30});
 		Menu_FillScreen(kHeight + 2, 3, (GXColor){0, 0, 0, 12});
 	}
@@ -8013,6 +8109,7 @@ private:
 		Menu_DrawImgPart(x0, y0, x1 - x0, y1 - y0, static_cast<u16>(t.w), static_cast<u16>(t.h), t.data,
 			(x0 - x) / t.w, (y0 - top) / t.h, (x1 - x) / t.w, (y1 - top) / t.h, alpha);
 	}
+	PageControlsBand controls;
 	GXColor hue;
 	std::string id;
 	bool disc;
@@ -11583,9 +11680,10 @@ public:
 		riftwii::wii::DrawTrace trace("the page's cover");
 		DrawDisc();
 		const float lit = litGrid && litTile >= 0 ? litGrid->Lift(litTile) : 0.0f;
-		const float grow = 1.0f + 0.035f * lit;
+		const float grow = litGrid && litTile >= 0 ? litGrid->SwellScale(litTile) : 1.0f;
 		const float w = kHeroW * grow, h = kHeroH * grow;
-		const float x = kHeroX - (w - kHeroW) / 2, y = kHeroY - (h - kHeroH) / 2;
+		// The cover already sits at the safe left edge: grow inward there.
+		const float x = static_cast<float>(kHeroX), y = kHeroY - (h - kHeroH) / 2;
 		const auto ring = [&](float rx, float ry, float rw, float rh) {
 			if (lit <= 0.0f) return;
 			const GXColor c = skin::WithAlpha(skin::kAccent, static_cast<int>(255 * lit));
