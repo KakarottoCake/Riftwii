@@ -23,22 +23,25 @@ u32 g_recovery_word = 0;
 
 void FlushNote() { DCFlushRange(note(), 32); }
 
-// MEM_PROT keeps IOS's code from the PowerPC: while it is on, reads there
-// give a fill pattern (0x9abcdef0, 0x12345678) and writes are dropped.
-// Turning it off counts only once the memory controller holds the new
-// value, so the register is read back until it does before IOS's code is
-// touched. On a console (3 Nov) the close read the word on the next
-// instruction, got the fill pattern and left IOS58's check open; the
-// opening only worked because its search ran first. If it never does,
-// IOS's code is left alone (protection back as it was) rather than read
-// as the fill pattern, which would look like a closed or missing check.
+// MEM_PROT keeps IOS's code from the PowerPC: while it is on (bit 0 set,
+// 0x0001 on a vWii), reads there give a fill pattern (0x9abcdef0,
+// 0x12345678) and writes are dropped. Writing 2 turns it off, and the
+// register then reads back with bit 0 clear (0x0000). The change counts
+// only once the register reads back that way, so it is read before IOS's
+// code is touched. On a console (3 Nov) the close read the word on the
+// next instruction, got the fill pattern and left IOS58's check open (the
+// opening only worked because its search ran first); with one read of the
+// register in between, IOS's code read right at once. If protection never
+// reads as off, IOS's code is left alone (protection back as it was)
+// rather than read as the fill pattern, which would look like a closed or
+// missing check.
 constexpr u32 kMemProt = 0x0D8B420A;
 
 bool UnprotectIosCode(u16& was) {
     was = read16(kMemProt);
     write16(kMemProt, 2);
     for (int tries = 0; tries < 1000; ++tries) {
-        if (read16(kMemProt) == 2) return true;
+        if ((read16(kMemProt) & 1) == 0) return true;
     }
     write16(kMemProt, was);
     return false;

@@ -30,8 +30,8 @@ bool fail_restore = false;
 bool damage_other = false;  // the original word goes back with the other halfword damaged
 bool damage_opening = false;  // the opening write lands with the other halfword damaged
 // As on a console: a MEM_PROT write lands only once the register is read
-// again, and while protection is on, IOS's code reads as a fill pattern
-// and drops writes.
+// again, writing 2 reads back as 0x0000 (off), and while protection is on
+// (bit 0), IOS's code reads as a fill pattern and drops writes.
 bool posted_protection = false;
 bool stuck_protection = false;  // turning protection off never lands
 bool protection_pending = false;
@@ -65,19 +65,20 @@ u16 read16(u32) {
 u32 read32(u32 address) {
     if (address == 0x0D800064) return hardware ? 0xFFFFFFFF : 0;
     if (address != kWord) return 0;
-    return protection == 2 ? current : 0x9ABCDEF0u;
+    return (protection & 1) == 0 ? current : 0x9ABCDEF0u;
 }
 void write16(u32, u16 value) {
     if (stuck_protection && value == 2) return;
+    const u16 reads_back = value == 2 ? 0 : value;
     if (posted_protection) {
-        protection_next = value;
+        protection_next = reads_back;
         protection_pending = true;
     } else {
-        protection = value;
+        protection = reads_back;
     }
 }
 void write32(u32 address, u32 value) {
-    if (address != kWord || protection != 2) return;
+    if (address != kWord || (protection & 1) != 0) return;
     ++writes;
     if (value == kBefore && damage_other) current = 0xDEAD0000u | (kBefore & 0x0000FFFFu);
     else if (value != kBefore && damage_opening) current = 0xDEAD0000u | (value & 0x0000FFFFu);
