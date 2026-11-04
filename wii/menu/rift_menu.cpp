@@ -3242,6 +3242,27 @@ private:
 
 // The popup's title, body and buttons, with the page dimmed behind it.
 // Buttonless work boxes also have an indeterminate bar and a busy ring.
+// The A hotkey's choice stays lit until a pointer selects another button.
+// Destructive questions put their safe choice first and reserve + for the
+// other choice; this drawing hint leaves that protection unchanged.
+class PopupDefaultHighlight : public GuiElement {
+public:
+	PopupDefaultHighlight(GuiButton& first, GuiButton& second, bool hasFirst, bool hasSecond)
+		: first(first), second(second), hasFirst(hasFirst), hasSecond(hasSecond) {}
+	void Draw() override {
+		const auto hovered = [](GuiButton& button) {
+			return button.GetState() == STATE::SELECTED || button.GetState() == STATE::HELD;
+		};
+		const bool pointerChoice = (hasFirst && hovered(first)) || (hasSecond && hovered(second));
+		first.SetDefaultHighlight(hasFirst && !pointerChoice);
+		second.SetDefaultHighlight(!hasFirst && hasSecond && !pointerChoice);
+	}
+private:
+	GuiButton& first;
+	GuiButton& second;
+	bool hasFirst, hasSecond;
+};
+
 class PopupBox {
 public:
 	static constexpr int kTitleY = 110, kBodyY = 158, kButtonY = 304;
@@ -3267,6 +3288,7 @@ public:
 				  : (WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME),
 			safeFirst ? PAD_BUTTON_START : PAD_BUTTON_B,
 			safeFirst ? WIIDRC_BUTTON_PLUS : (WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME)),
+		  defaultHighlight(okBtn.button, cancelBtn.button, !ok.empty(), !cancel.empty()),
 		  busy(cancel.empty() ? 320 : 100, 330, ok.empty() && cancel.empty()),
 		  hasOk(!ok.empty()), hasCancel(!cancel.empty()), chained(PopupJustClosed()),
 		  w(chained ? 1.0f : 0.86f, 0, !chained)
@@ -3290,6 +3312,7 @@ public:
 		waitBar.SetVisible(!hasOk && !hasCancel);
 		w.Append(&waitBar);
 		if (!hasOk && !hasCancel) BodyAtTop(kBodyLines - 1);
+		w.Append(&defaultHighlight);
 		if (hasOk) w.Append(&okBtn.button);
 		if (hasCancel) w.Append(&cancelBtn.button);
 		mainWindow->SetState(STATE::DISABLED);
@@ -3333,7 +3356,6 @@ public:
 		waitBar.SetVisible(active && !customContent);
 	}
 	void SetBody(const std::string& body) { bodyTxt.SetText(body.c_str()); }
-	void HighlightFirst() { okBtn.button.SetImage(&okBtn.imageOver); }
 	// Something more in the box, over its whole width (it must outlive the box).
 	void Append(GuiElement* e)
 	{
@@ -3444,6 +3466,7 @@ private:
 	GuiText bodyTxt;
 	SkinButton okBtn;
 	SkinButton cancelBtn;
+	PopupDefaultHighlight defaultHighlight;
 	riftwii::wii::BusyRing busy;
 	ProgressBar waitBar{56, 280, 528};
 	bool customContent = false;
@@ -3838,7 +3861,6 @@ static void CacheMissingModPopupText(const FrontendState& state)
 static int MissingModQuestion(const std::string& title, const std::string& body, const char* proceed)
 {
 	PopupBox box(title, body, tr("Back"), proceed, true);
-	box.HighlightFirst();  // Back is the visible default as well as the A/B hotkey.
 	return box.Wait();
 }
 

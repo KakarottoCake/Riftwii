@@ -153,7 +153,7 @@ void GuiButton::Draw()
 		return;
 
 	namespace motion = riftwii::wii::transition;
-	const bool lit = state == STATE::SELECTED || state == STATE::HELD;
+	const bool lit = defaultHighlight || state == STATE::SELECTED || state == STATE::HELD;
 	const float hover = swell.Advance(lit);
 	litAmount = std::min(1.0f, hover);
 	const float growth = pageDirection ? 1.0f + 0.08f * hover

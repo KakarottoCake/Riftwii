@@ -69,6 +69,8 @@ public:
 	void SetState(STATE s, int c = -1) override;
 	void SetPageDirection(int direction) { pageDirection = direction; }
 	void SetGlint(bool enabled) { glint = enabled; }
+	// A popup's default action stays visible without changing its hotkeys.
+	void SetDefaultHighlight(bool enabled) { defaultHighlight = enabled; }
 	//!Constantly called to draw the GuiButton's tooltip
 	void DrawTooltip();
 	//!Resets the text for all contained elements
@@ -78,6 +80,7 @@ public:
 	void Update(GuiTrigger * t);
 protected:
 	bool glint = false;  //!< RiftWii: the lit button of a message box
+	bool defaultHighlight = false;
 	int pageDirection = 0;  //!< RiftWii: an edge arrow, -1 left or +1 right
 	float pressElapsed = -1.0f;  //!< RiftWii: a press continues after ResetState
 	float litAmount = 0.0f;  //!< RiftWii: how lit, eased (Draw)
