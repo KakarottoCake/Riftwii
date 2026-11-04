@@ -172,6 +172,7 @@ void GuiTiles::Draw() {
         dirty = false;
         for (int i = 0; i < Count(); ++i) Layout(i);
     }
+    pressScale = riftwii::wii::transition::PressScale(pressElapsed);
     const int lit = hover >= 0 ? hover : (AnyPointer() ? -1 : focus);
     for (int i = 0; i < Count(); ++i) {
         const TileSpec& s = (*tiles)[i];
@@ -182,15 +183,16 @@ void GuiTiles::Draw() {
         if (s.hidden) continue;
         // Lit, the tile grows a little about its middle and its ring fades in.
         const float grow = 1.0f + kLiftScale * l;
+        Menu_PushCamera(PressedScale(i), s.x + s.w / 2.0f, s.y + s.h / 2.0f);
         const float w = s.w * grow, h = s.h * grow;
         const float x = s.x - (w - s.w) / 2, y = s.y - (h - s.h) / 2;
         const skin::Tex& base = s.primary ? skin::tile9Primary : skin::tile9;
         const skin::Tex& over = s.primary ? skin::tile9PrimaryOver : skin::tile9Over;
         const int tileAlpha = s.dim ? alpha * 3 / 4 : alpha;
-        if (l < 1.0f) skin::DrawNine(base, x - kShadow, y - kShadow, w + 2 * kShadow, h + 2 * kShadow, skin::kTileCorner, tileAlpha);
+        skin::DrawNine(base, x - kShadow, y - kShadow, w + 2 * kShadow, h + 2 * kShadow, skin::kTileCorner, tileAlpha);
         if (l > 0.0f)
             skin::DrawNine(over, x - kShadow, y - kShadow, w + 2 * kShadow, h + 2 * kShadow, skin::kTileCorner,
-                           static_cast<int>(tileAlpha * l));
+                           static_cast<int>(tileAlpha * l * riftwii::wii::transition::Pulse()));
         if (s.icon && s.icon->data) {
             // An icon with no words (the game page's Favourite star beside
             // the disc) sits in the middle of its tile.
@@ -203,6 +205,7 @@ void GuiTiles::Draw() {
         label[i]->SetScroll(i == lit ? SCROLL::HORIZONTAL : SCROLL::NONE);
         label[i]->Draw();
         if (!s.value.empty()) value[i]->Draw();
+        Menu_PopCamera();
     }
     UpdateEffects();
 }
@@ -218,6 +221,8 @@ void GuiTiles::Update(GuiTrigger* t) {
         if (at >= 0) focus = at;
         if (a && at >= 0) {
             clicked = at;
+            pressedTile = at;
+            pressElapsed = 0;
             soundClick->Play();
         }
         return;
@@ -240,6 +245,8 @@ void GuiTiles::Update(GuiTrigger* t) {
     }
     if (a) {
         clicked = focus;
+        pressedTile = focus;
+        pressElapsed = 0;
         soundClick->Play();
     }
 }

@@ -41,6 +41,7 @@ Kind g_holdKind = Kind::Fade;
 Rect g_holdFrom;
 
 float g_frameMs = 0;
+float g_widgetMs = 0;
 u64 g_lastFrame = 0;
 
 float g_slow = 1;  // the GUI script's slow motion, for frame-by-frame shots
@@ -259,6 +260,27 @@ void Keep(int index) {
 
 float FrameMilliseconds() { return g_frameMs; }
 
+float Cycle(float periodMs) {
+    const float turns = g_widgetMs / periodMs;
+    return turns - static_cast<unsigned>(turns);
+}
+
+float Pulse() {
+    const float phase = Cycle(1800.0f);
+    const float triangle = phase < 0.5f ? phase * 2 : (1 - phase) * 2;
+    return 1.0f - 0.3f * Ease(triangle);
+}
+
+float PressScale(float& elapsedMs) {
+    if (elapsedMs < 0) return 1;
+    const float elapsed = elapsedMs;
+    elapsedMs += g_frameMs;
+    if (elapsed < 80.0f) return 0.95f;
+    if (elapsed < 260.0f) return 0.95f + 0.05f * EaseBack((elapsed - 80.0f) / 180.0f);
+    elapsedMs = -1;
+    return 1;
+}
+
 float Follow(float current, float target, float responseMs, float snap) {
     return menumotion::follow(current, target, g_frameMs, responseMs, snap);
 }
@@ -311,6 +333,9 @@ void FrameStart() {
     const float elapsedMs = g_lastFrame ? ticks_to_microsecs(now - g_lastFrame) / 1000.0f : 0.0f;
     g_lastFrame = now;
     g_frameMs = menumotion::frame_ms(elapsedMs, g_slow);
+    g_widgetMs += g_frameMs;
+    // A multiple of both invitation cycles keeps float precision all session.
+    if (g_widgetMs >= 144000.0f) g_widgetMs -= 144000.0f;
     GX_SetScissor(0, 0, static_cast<u32>(g_w), static_cast<u32>(g_h));
     if (g_hold && !g_holding && !g_pending) {
         // The frame last kept stays up.

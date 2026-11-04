@@ -3,6 +3,7 @@
 #include "gui_gamegrid.hpp"
 #include "loadersettings.hpp"
 #include "transition.hpp"
+#include "gui_motion.hpp"
 
 #include <ogc/lwp_watchdog.h>
 
@@ -682,10 +683,15 @@ void GuiGameGrid::DrawNameTile(int index, Slot& s, float x, float y, bool on, in
         const float m = static_cast<float>(riftwii::kChannelFrameMargin);
         const float w = tileW * s.scale, h = tileH * s.scale;
         const float cx = x + tileW / 2.0f, cy = y + tileH / 2.0f;
-        skin::DrawNine(on ? skin::channelCardOver9 : skin::channelCard9, cx - w / 2 - m, cy - h / 2 - m, w + 2 * m,
+        skin::DrawNine(skin::channelCard9, cx - w / 2 - m, cy - h / 2 - m, w + 2 * m,
                        h + 2 * m, riftwii::kChannelFrameCorner, alpha);
+        if (on) skin::DrawNine(skin::channelCardOver9, cx - w / 2 - m, cy - h / 2 - m, w + 2 * m,
+                              h + 2 * m, riftwii::kChannelFrameCorner,
+                              static_cast<int>(alpha * riftwii::wii::transition::Pulse()));
     } else {
-        DrawTilePicture(on ? skin::tileOver : skin::tile, x, y, alpha, s.scale);
+        DrawTilePicture(skin::tile, x, y, alpha, s.scale);
+        if (on) DrawTilePicture(skin::tileOver, x, y,
+                                static_cast<int>(alpha * riftwii::wii::transition::Pulse()), s.scale);
     }
     // The game's colour along the bottom, inset from the round corners.
     const float grow = (s.scale - 1.0f);
@@ -735,11 +741,15 @@ bool GuiGameGrid::DrawChannelTile(int index, float x, float y, float scale, bool
     // edge (the Wii Menu's), its shadow in the frame's margin.
     const float border = 1.0f;
     const float m = static_cast<float>(riftwii::kChannelFrameMargin);
-    const auto frame = [&](const skin::Tex& t) {
+    const auto frame = [&](const skin::Tex& t, bool glow = false) {
         skin::DrawNine(t, cx - tileW / 2 - m, cy - tileH / 2 - m, tileW + 2 * m, tileH + 2 * m,
-                       riftwii::kChannelFrameCorner, alpha);
+                       riftwii::kChannelFrameCorner,
+                       glow ? static_cast<int>(alpha * riftwii::wii::transition::Pulse()) : alpha);
     };
-    const auto rim = [&]() { frame(on ? skin::channelFrameOver9 : skin::channelFrame9); };
+    const auto rim = [&]() {
+        frame(skin::channelFrame9);
+        if (on) frame(skin::channelFrameOver9, true);
+    };
     IconBox box;
     box.clipW = tileW - 2 * border;
     box.clipH = tileH - 2 * border;
@@ -772,7 +782,8 @@ bool GuiGameGrid::DrawChannelTile(int index, float x, float y, float scale, bool
         // The disc drive, as the Wii Menu's Disc Channel: its disc,
         // large in the middle of a plain channel; its name on the
         // label when lit, as the others'.
-        frame(on ? skin::channelCardOver9 : skin::channelCard9);
+        frame(skin::channelCard9);
+        if (on) frame(skin::channelCardOver9, true);
         const float k = std::min(box.clipH * 0.70f, box.clipW * 0.5f) / skin::iconDisc.h;
         skin::Draw(skin::iconDisc, cx - skin::iconDisc.w / 2.0f, cy - skin::iconDisc.h / 2.0f, alpha, k);
         return true;
@@ -798,8 +809,10 @@ void GuiGameGrid::DrawCoverTile(int i, bool on, int alpha) {
     // and shadow, the cover's size, ringed it (plain on a white Wii cover's
     // edge). The card stays for the lit tile's ring and under a tile with
     // no cover.
-    const skin::Tex& frame = on ? skin::coverTileOver : skin::coverTile;
+    const skin::Tex& frame = skin::coverTile;
     if (on || (!cover && !madeUp)) skin::Draw(frame, cx - frame.w / 2.0f, cy - frame.h / 2.0f, alpha, s.scale * kCoverScale);
+    if (on) skin::Draw(skin::coverTileOver, cx - frame.w / 2.0f, cy - frame.h / 2.0f,
+                       static_cast<int>(alpha * riftwii::wii::transition::Pulse()), s.scale * kCoverScale);
     if (madeUp) {
         riftwii::wii::DrawMadeUpCover(madeUp, cx - riftwii::kCoverWidth / 2.0f, cy - riftwii::kCoverHeight / 2.0f, alpha,
                                       s.scale * kCoverScale);
@@ -1178,9 +1191,12 @@ void GuiGameGrid::Draw() {
         caption->Draw();
         PrefetchCovers();
     }
-    if (page > 0) skin::Draw(arrowHover < 0 ? skin::arrowLeftOver : skin::arrowLeft, ArrowX(-1) - 2, ArrowY() - 2, alpha);
+    if (page > 0)
+        riftwii::wii::DrawInvitingArrow(skin::arrowLeft, skin::arrowLeftOver, ArrowX(-1) - 2, ArrowY() - 2,
+                                      -1, 0, arrowHover < 0, arrowLift[0], alpha);
     if (page + 1 < Pages())
-        skin::Draw(arrowHover > 0 ? skin::arrowRightOver : skin::arrowRight, ArrowX(1) - 2, ArrowY() - 2, alpha);
+        riftwii::wii::DrawInvitingArrow(skin::arrowRight, skin::arrowRightOver, ArrowX(1) - 2, ArrowY() - 2,
+                                      1, 0, arrowHover > 0, arrowLift[1], alpha);
     UpdateEffects();
 }
 

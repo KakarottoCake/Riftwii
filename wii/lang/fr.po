@@ -813,8 +813,23 @@ msgstr "Sur une TV 16:9, le menu est ajusté pour conserver le ratio des images.
 msgid "Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows."
 msgstr "Réduit l'affichage pour éviter que les bords ne soient coupés sur l'écran. Réduisez la valeur jusqu'à tout voir."
 
-msgid "Covers: each game's box art from GameTDB (fetched when downloads are on). 3D covers: GameTDB's pictures of the cases, round a ring with no end. Carousel: the boxes fanned out on an arc. Shelf: the boxes on a shelf. Channels: each game's animated icon and banner, as on the Wii Menu. Names: the names only."
-msgstr "Jaquettes : affiche la boîte GameTDB. Jaquettes 3D : images des boîtes GameTDB sur un anneau sans fin. Carrousel : boîtes déployées en éventail sur un arc. Étagère : boîtes alignées sur une étagère. Chaînes : icônes et bannières animées comme sur le menu Wii. Noms : liste textuelle."
+msgid "Covers: each game's box art from GameTDB (fetched when downloads are on)."
+msgstr "Jaquettes : la boîte de chaque jeu, depuis GameTDB quand les téléchargements sont activés."
+
+msgid "3D covers: GameTDB's pictures of the cases, round a ring with no end."
+msgstr "Jaquettes 3D : images des boîtes GameTDB sur un anneau sans fin."
+
+msgid "Carousel: the boxes fanned out on an arc."
+msgstr "Carrousel : boîtes déployées en éventail sur un arc."
+
+msgid "Shelf: the boxes on a shelf."
+msgstr "Étagère : boîtes alignées sur une étagère."
+
+msgid "Channels: each game's animated icon and banner, as on the Wii Menu."
+msgstr "Chaînes : icônes et bannières animées comme sur le menu Wii."
+
+msgid "Names: the names only."
+msgstr "Noms : les noms seuls."
 
 msgid "Custom (no wfc_domain set)"
 msgstr "Personnalisé (wfc_domain non défini)"

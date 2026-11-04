@@ -77,7 +77,9 @@ private:
     int requested_page_ = 0;
     int focus_ = 0;
     int pick_slot_ = -1;
-    unsigned frame_ = 0;
+    float arrowLift_[2] = {};
+    int arrowHover_ = 0;
+    float busyElapsedMs_ = 0;
 
     // These request/result fields belong to the worker until done_ is
     // published. Pump consumes them only after that acquire operation.
