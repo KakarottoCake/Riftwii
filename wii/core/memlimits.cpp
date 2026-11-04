@@ -18,6 +18,7 @@
 #include <unistd.h>
 
 #include "ios_reload.hpp"
+#include "i18n.hpp"
 #include "log.hpp"
 #include "restart.hpp"
 #include "skin.hpp"
@@ -392,8 +393,9 @@ void PoisonReloadArea() {
 }
 
 const char* const kLaunchOutOfMemory =
-    "RiftWii ran out of memory while starting the game (a big pack?); "
-    "turn off menu music or other packs and try again";
+    "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report.";
+
+std::string LaunchOutOfMemoryMessage() { return tr(kLaunchOutOfMemory); }
 
 namespace {
 
@@ -415,8 +417,9 @@ std::new_handler g_handler_before_launch = nullptr;
     std::free(g_launch_spare);
     g_launch_spare = nullptr;
     if (reload_terminal_failure()) halt_after_terminal_reload();
-    logf("FAILED: %s\n", kLaunchOutOfMemory);
-    if (CanRestart()) WarmRestart(RestartKind::LaunchFailed, std::string("The launch failed: ") + kLaunchOutOfMemory);
+    const std::string message = LaunchOutOfMemoryMessage();
+    logf("FAILED: %s\n", message.c_str());
+    if (CanRestart()) WarmRestart(RestartKind::LaunchFailed, std::string("The launch failed: ") + message);
     logf("RiftWii cannot restart itself; leaving to the Homebrew Channel.\n");
     std::exit(0);
 }

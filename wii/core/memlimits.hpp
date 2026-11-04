@@ -107,6 +107,7 @@ bool WatchHeap(const char* when);
 // main.dol and its files). Once, that aborted RiftWii straight back to the
 // Homebrew Channel with nothing said.
 extern const char* const kLaunchOutOfMemory;
+std::string LaunchOutOfMemoryMessage();
 
 // While it lives, a failed allocation ends the launch with
 // kLaunchOutOfMemory instead of throwing std::bad_alloc, which the Wii
@@ -143,7 +144,7 @@ bool GuardLaunchMemory(std::string& error, Run run) {
     const bool ok = run();
     if (!ok && out_of_memory.failed()) {
         LogLaunchOutOfMemory(error);
-        error = kLaunchOutOfMemory;
+        error = LaunchOutOfMemoryMessage();
     }
     return ok;
 }
