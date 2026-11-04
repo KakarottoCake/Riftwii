@@ -71,6 +71,8 @@ public:
 	void SetGlint(bool enabled) { glint = enabled; }
 	// A popup's default action stays visible without changing its hotkeys.
 	void SetDefaultHighlight(bool enabled) { defaultHighlight = enabled; }
+	// A parent with pad focus can keep a resting pointer from taking it back.
+	void SetPointerEnabled(bool enabled) { pointerEnabled = enabled; }
 	//!Constantly called to draw the GuiButton's tooltip
 	void DrawTooltip();
 	//!Resets the text for all contained elements
@@ -81,6 +83,7 @@ public:
 protected:
 	bool glint = false;  //!< RiftWii: the lit button of a message box
 	bool defaultHighlight = false;
+	bool pointerEnabled = true;
 	int pageDirection = 0;  //!< RiftWii: an edge arrow, -1 left or +1 right
 	float pressElapsed = -1.0f;  //!< RiftWii: a press continues after ResetState
 	float litAmount = 0.0f;  //!< RiftWii: how lit, eased (Draw)

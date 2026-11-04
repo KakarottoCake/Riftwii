@@ -309,9 +309,22 @@ struct Painter {
         Canvas c(48, 48);
         const float s = left ? -1.0f : 1.0f;
         const float tipX = 24 + 11 * s, backX = 24 - 9 * s;
-        // Filled by lines from the back edge to the tip, then edged.
-        const Rgba fill = over ? Rgba{accent.r, accent.g, accent.b, 150} : Rgba{255, 255, 255, 220};
-        for (float yy = 9.5f; yy <= 38.5f; yy += 1.0f) c.line(backX, yy, tipX, 24, 1.6f, fill);
+        const Rgba fill = over ? Mix(card, accent, 0.20f) : card;
+        c.polygon({{backX, 9}, {tipX, 24}, {backX, 39}}, fill);
+        // Keep the Wii's triangular page control, with the same shaded
+        // body and soft upper gloss as the rounded buttons.
+        const int brightness = (fill.r + fill.g + fill.b) / 3;
+        const float strength = (40 + brightness * 110 / 255) / 255.0f;
+        for (int y = 8; y < 41; ++y) {
+            const float down = std::clamp((y - 9.0f) / 30.0f, 0.0f, 1.0f);
+            const float gloss = strength * std::max(0.0f, 1.0f - down / 0.45f);
+            const Rgba shaded = Mix(Shade(fill, 1.0f - 0.11f * down), rgba(0xFFFFFF), gloss);
+            for (int x = 10; x < 38; ++x) {
+                const Rgba mask = c.at(x, y);
+                if (mask.a == 0) continue;
+                c.put(x, y, Rgba{shaded.r, shaded.g, shaded.b, mask.a});
+            }
+        }
         if (over) {
             c.line(backX, 7, tipX, 24, 7.0f, glow);
             c.line(tipX, 24, backX, 41, 7.0f, glow);

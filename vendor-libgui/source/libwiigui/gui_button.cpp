@@ -227,7 +227,7 @@ void GuiButton::Update(GuiTrigger * t)
 
 	#ifdef HW_RVL
 	// cursor
-	if(t->wpad->ir.valid && t->chan >= 0)
+	if(pointerEnabled && t->wpad->ir.valid && t->chan >= 0)
 	{
 		if(this->IsInside(t->wpad->ir.x, t->wpad->ir.y))
 		{
@@ -297,7 +297,7 @@ void GuiButton::Update(GuiTrigger * t)
 					{
 						if(state == STATE::SELECTED)
 						{
-							if(!t->wpad->ir.valid ||	this->IsInside(t->wpad->ir.x, t->wpad->ir.y))
+							if(!pointerEnabled || !t->wpad->ir.valid || this->IsInside(t->wpad->ir.x, t->wpad->ir.y))
 							{
 								this->SetState(STATE::CLICKED, t->chan);
 

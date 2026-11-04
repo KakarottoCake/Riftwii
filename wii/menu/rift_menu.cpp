@@ -3075,18 +3075,26 @@ public:
 		for (std::size_t i = 0; i < lines_.size(); ++i) {
 			if (shown_[i].empty()) continue;
 			lines_[i]->SetAlpha(GetAlpha());
-			lines_[i]->SetPosition(x_, y_ + static_cast<int>(i) * LineHeight());
+			lines_[i]->SetPosition(x_, LineTop(static_cast<int>(i)));
 			lines_[i]->Draw();
 		}
 	}
 
 private:
 	int LineHeight() const { return fontSize_ + 6; }  // GuiText's own spacing
+	int LineTop(int index) const {
+		// A note that reaches the controls belongs inside that band, with
+		// a gap above its letters rather than the accent crossing them.
+		const int lastTopAbove = kControlsBand - 4 - fontSize_ - 6;
+		const int linesAbove = y_ > lastTopAbove ? 0 : (lastTopAbove - y_) / LineHeight() + 1;
+		if (index < linesAbove) return y_ + index * LineHeight();
+		return kControlsBand + 4 + (index - linesAbove) * LineHeight();
+	}
 
 	// The width line `index` may use: the whole of it, or what is left of
 	// the leftmost card when its text would reach the cards' top.
 	int WidthOfLine(int index, int pillsLeft) const {
-		const int textBottom = y_ + index * LineHeight() + fontSize_;
+		const int textBottom = LineTop(index) + fontSize_;
 		if (textBottom <= GuiPrompts::CardTop()) return fullWidth_;
 		const int clearOfShadow = 16;
 		return std::max(60, std::min(fullWidth_, pillsLeft - clearOfShadow - x_));
@@ -4313,9 +4321,9 @@ private:
 	GuiText* label[4];
 };
 
-// Without a pointer, the D-pad moves between the HOME Menu's buttons
-// (two columns, Close above them in the top band) and A presses the one
-// lit.
+// The D-pad moves between the HOME Menu's buttons (two columns, Close
+// above them in the top band). A presses the one lit. Pad focus lasts
+// until the pointer moves again.
 class HomeFocus : public GuiElement {
 public:
 	HomeFocus(GuiButton* const (&b)[5]) {
@@ -4323,25 +4331,61 @@ public:
 	}
 	void Draw() override {}
 	void Update(GuiTrigger* t) override {
-		if (!t || AnyPointerLive()) {
-			shown = -1;
-			return;
-		}
+		if (!t) return;
+		const bool pointerMoved = PointerMoved(t);
+		int dx = 0, dy = 0;
+		if (t->Up()) dy = -1;
+		else if (t->Down()) dy = 1;
+		else if (t->Left()) dx = -1;
+		else if (t->Right()) dx = 1;
+		if (!padFocus)
+			for (int i = 0; i < 5; ++i)
+				if (buttons[i]->GetState() == STATE::SELECTED) focus = i;
+		// A resting Remote can still report a pointer while its D-pad is
+		// used. Directions take focus; moving the pointer takes it back.
+		if (dx || dy) padFocus = true;
+		else if (pointerMoved) padFocus = false;
+		else if (!AnyPointerLive()) padFocus = true;
+		for (GuiButton* button : buttons) button->SetPointerEnabled(!padFocus);
+		if (!padFocus) return;
 		int to = focus;
-		if (t->Up()) to = focus == 4 ? 4 : focus >= 2 ? focus - 2 : 4;
-		else if (t->Down()) to = focus == 4 ? 1 : focus < 2 ? focus + 2 : focus;
-		else if (t->Left() && focus < 4) to = focus & ~1;
-		else if (t->Right() && focus < 4) to = focus | 1;
+		if (dy < 0) to = focus == 4 ? 4 : focus >= 2 ? focus - 2 : 4;
+		else if (dy > 0) to = focus == 4 ? 1 : focus < 2 ? focus + 2 : focus;
+		// Close spans both columns: either horizontal direction enters
+		// the matching column instead of leaving the small Close pill lit.
+		else if (dx < 0) to = focus == 4 ? 0 : focus & ~1;
+		else if (dx > 0) to = focus == 4 ? 1 : focus | 1;
 		if (to != focus && soundOver) soundOver->Play();
 		focus = to;
-		if (focus == shown) return;
-		shown = focus;
-		for (int i = 0; i < 5; ++i) buttons[i]->SetState(i == focus ? STATE::SELECTED : STATE::DEFAULT);
+		// Restore pad focus after a pointer leaves, without losing a press
+		// already delivered by another controller in this frame.
+		for (int i = 0; i < 5; ++i)
+			if (buttons[i]->GetState() != STATE::CLICKED)
+				buttons[i]->SetState(i == focus ? STATE::SELECTED : STATE::DEFAULT);
 	}
 private:
+	bool PointerMoved(GuiTrigger* t) {
+		if (t->chan < 0 || t->chan >= 4 || !t->wpad) return false;
+		const int channel = t->chan;
+		if (!t->wpad->ir.valid) {
+			pointerKnown[channel] = false;
+			return false;
+		}
+		const float x = t->wpad->ir.x, y = t->wpad->ir.y;
+		const bool moved = !pointerKnown[channel] || std::fabs(x - pointerX[channel]) > 3 ||
+			std::fabs(y - pointerY[channel]) > 3;
+		if (moved) {
+			pointerX[channel] = x;
+			pointerY[channel] = y;
+			pointerKnown[channel] = true;
+		}
+		return moved;
+	}
 	GuiButton* buttons[5];
 	int focus = 4;  // Close first: a HOME pressed by mistake costs nothing
-	int shown = -1;
+	bool padFocus = true;
+	bool pointerKnown[4] = {};
+	float pointerX[4] = {}, pointerY[4] = {};
 };
 
 // The HOME Menu, like the Wii's own: leave to the Homebrew Channel, the
@@ -4382,7 +4426,13 @@ static int ShowHomeMenu()
 		row2, tr("Power off"), 0, 0, 0);
 	for (SkinButton* b : {&hbcBtn, &menuBtn, &priiBtn, &offBtn}) {
 		b->text.SetColor(ios ? skin::kInk : ScaledColor(skin::kAccent, 0.42f));  // dark on the pale buttons, any theme
-		b->text.SetFontSize(24);
+		// Leave 24 pixels at either end, including in translations.
+		constexpr int room = 248 - 48;
+		for (int size = 24; size >= 18; --size) {
+			b->text.SetFontSize(size);
+			if (b->text.GetTextWidth() <= room) break;
+		}
+		b->text.SetMaxWidth(room);
 	}
 	if (ios) offBtn.text.SetColor(skin::kWhite);
 	// The Wii's: a small pill; iOS 6's: a bar button.
@@ -4406,7 +4456,7 @@ static int ShowHomeMenu()
 	top.Append(&closeBtn.button);
 	bottom.Append(&lowBand);
 	bottom.Append(&batteries);
-	middle.Append(&focus);
+	w.Append(&focus);
 	for (int i = 0; i < 4; ++i) middle.Append(buttons[i]);
 	w.Append(&top);
 	w.Append(&bottom);
