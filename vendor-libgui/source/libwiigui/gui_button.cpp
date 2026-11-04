@@ -15,6 +15,7 @@
 #include "gui.h"
 #include "video.h"
 #include "transition.hpp"
+#include "gui_motion.hpp"
 /**
  * Constructor for the GuiButton class.
  */
@@ -181,6 +182,8 @@ void GuiButton::Draw()
 		alpha = savedAlpha;
 		alphaDyn = savedDynamicAlpha;
 	}
+	if (glint && lit)
+		riftwii::wii::DrawButtonGlint(GetLeft() + 4, GetTop() + 4, GetWidth() - 8, GetHeight() - 8, 26, GetAlpha());
 	GuiImage* shownIcon = lit && iconOver ? iconOver : icon;
 	if (shownIcon)
 		shownIcon->Draw();

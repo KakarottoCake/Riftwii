@@ -3251,6 +3251,8 @@ public:
 		  w(chained ? 1.0f : 0.86f, 0, !chained)
 	{
 		if (safeFirst) okBtn.backAction = false;
+		okBtn.button.SetGlint(true);
+		cancelBtn.button.SetGlint(true);
 		if (riftwii::wii::Settings().wii_menu_sounds)
 			riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Popup);
 		Place(titleTxt, 0, kTitleY, true);

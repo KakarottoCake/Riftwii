@@ -334,8 +334,8 @@ void FrameStart() {
     g_lastFrame = now;
     g_frameMs = menumotion::frame_ms(elapsedMs, g_slow);
     g_widgetMs += g_frameMs;
-    // A multiple of both invitation cycles keeps float precision all session.
-    if (g_widgetMs >= 144000.0f) g_widgetMs -= 144000.0f;
+    // A multiple of the invitation, pulse and glint cycles keeps float precision all session.
+    if (g_widgetMs >= 504000.0f) g_widgetMs -= 504000.0f;
     GX_SetScissor(0, 0, static_cast<u32>(g_w), static_cast<u32>(g_h));
     if (g_hold && !g_holding && !g_pending) {
         // The frame last kept stays up.

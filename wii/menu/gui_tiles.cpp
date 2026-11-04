@@ -8,6 +8,7 @@
 
 #include "drawtrace.hpp"
 #include "i18n.hpp"
+#include "gui_motion.hpp"
 #include "transition.hpp"
 #include "video.h"
 #include "wiidrc.h"
@@ -193,6 +194,8 @@ void GuiTiles::Draw() {
         if (l > 0.0f)
             skin::DrawNine(over, x - kShadow, y - kShadow, w + 2 * kShadow, h + 2 * kShadow, skin::kTileCorner,
                            static_cast<int>(tileAlpha * l * riftwii::wii::transition::Pulse()));
+        if (s.primary && i == lit)
+            riftwii::wii::DrawButtonGlint(x, y, w, h, 16, tileAlpha);
         if (s.icon && s.icon->data) {
             // An icon with no words (the game page's Favourite star beside
             // the disc) sits in the middle of its tile.
