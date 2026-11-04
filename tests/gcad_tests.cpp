@@ -13,6 +13,7 @@
 #include "rtgcad.h"
 #include "riftwii/symsearch.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -1563,7 +1564,8 @@ static void TestGcSiProbeSearch() {
 // frame of `frame` bytes, the callback tested, `context_calls` calls given
 // the frame's context, then the callback through LR or CTR.
 static void sampling_handler(Asm& code, std::uint32_t frame, unsigned context_calls, bool through_ctr) {
-    const std::uint32_t context_fn = code.base + 0x1000;
+    const std::uint32_t clear_context = code.base + 0x1000;
+    const std::uint32_t set_context = code.base + 0x1100;
     code.op(0x7C0802A6u);                                   // mflr r0
     code.op(0x90010004u);                                   // stw r0,4(r1)
     code.op(0x94210000u | ((0x10000u - frame) & 0xFFFFu));  // stwu r1,-frame(r1)
@@ -1574,15 +1576,15 @@ static void sampling_handler(Asm& code, std::uint32_t frame, unsigned context_ca
     code.op(0x41820030u);                                   // beq past the call
     for (unsigned i = 0; i < context_calls; ++i) {
         code.op(0x38610010u);  // addi r3,r1,16
-        code.bl(context_fn);
+        code.bl(i == 0 ? clear_context : set_context);
     }
     code.op(0x818D9000u);                              // lwz r12,-0x7000(r13)
     code.op(through_ctr ? 0x7D8903A6u : 0x7D8803A6u);  // mtctr r12 / mtlr r12
     code.op(through_ctr ? 0x4E800421u : 0x4E800021u);  // bctrl / blrl
     code.op(0x38610010u);                              // addi r3,r1,16
-    code.bl(context_fn);
+    code.bl(clear_context);
     code.op(0x7FE3FB78u);  // mr r3,r31
-    code.bl(context_fn);
+    code.bl(set_context);
     for (unsigned i = 0; i < 8; ++i) code.op(0x60000000u);  // nop: the epilogue's room
     code.blr();
 }
@@ -1628,6 +1630,132 @@ static void TestGcPadSamplingSearch() {
     take_address(twice, twice.base);
     take_address(twice, second);
     EXPECT_EQ(find(twice), 0u);
+}
+
+// The three layouts of the SDK's SamplingHandler that compilers produce
+// (self-authored, with RiftWii's own frame sizes, small-data offsets, call
+// targets and addresses; no game's words): the interrupted context kept in
+// r31 and the callback through LR; kept on the stack; and the frame made
+// before mflr, a signed zero test, the context at 8 and the callback
+// through CTR (the variant found in Need for Speed ProStreet that the old
+// finder missed).
+enum class SamplingLayout { KeptInR31, KeptOnStack, FrameFirst };
+
+static std::vector<std::uint32_t> sampling_layout(std::uint32_t base, SamplingLayout layout) {
+    Asm code{base, {}};
+    const std::uint32_t frame = layout == SamplingLayout::KeptOnStack ? 0x2E8u : 0x2F0u;
+    const std::uint16_t slot = 0x85F0;  // the callback's small-data slot, -0x7A10(r13)
+    const std::uint32_t context = layout == SamplingLayout::FrameFirst ? 8u : 16u;
+    const std::uint32_t clear_context = base + 0x2400;
+    const std::uint32_t set_context = base + 0x2380;
+    const std::uint32_t stwu = 0x94210000u | ((0x10000u - frame) & 0xFFFFu);  // stwu r1,-frame(r1)
+    if (layout == SamplingLayout::FrameFirst) {
+        code.op(stwu);
+        code.op(0x7C0802A6u);                 // mflr r0
+        code.op(0x90010000u | (frame + 4));  // stw r0,frame+4(r1)
+    } else {
+        code.op(0x7C0802A6u);  // mflr r0
+        code.op(0x90010004u);  // stw r0,4(r1)
+        code.op(stwu);
+    }
+    if (layout == SamplingLayout::KeptOnStack) {
+        code.op(0x9081000Cu);  // stw r4,12(r1)
+    } else {
+        code.op(0x93E10000u | (frame - 4));                                        // stw r31,frame-4(r1)
+        code.op(layout == SamplingLayout::FrameFirst ? 0x7C9F2378u : 0x3BE40000u);  // mr r31,r4 / addi r31,r4,0
+    }
+    code.op(0x800D0000u | slot);                                                // lwz r0,slot(r13)
+    code.op(layout == SamplingLayout::FrameFirst ? 0x2C000000u : 0x28000000u);  // cmpwi / cmplwi r0,0
+    code.op(0x41820030u);                                                       // beq past the call
+    code.op(0x38610000u | context);  // addi r3,r1,context
+    code.bl(clear_context);
+    code.op(0x38610000u | context);
+    code.bl(set_context);
+    code.op(0x818D0000u | slot);  // lwz r12,slot(r13)
+    const bool ctr = layout == SamplingLayout::FrameFirst;
+    code.op(ctr ? 0x7D8903A6u : 0x7D8803A6u);  // mtctr r12 / mtlr r12
+    code.op(ctr ? 0x4E800421u : 0x4E800021u);  // bctrl / blrl
+    code.op(0x38610000u | context);
+    code.bl(clear_context);
+    code.op(layout == SamplingLayout::KeptOnStack ? 0x8061000Cu : 0x7FE3FB78u);  // lwz r3,12(r1) / mr r3,r31
+    code.bl(set_context);
+    code.op(0x80010000u | (frame + 4));  // lwz r0,frame+4(r1)
+    if (layout != SamplingLayout::KeptOnStack) code.op(0x83E10000u | (frame - 4));  // lwz r31,frame-4(r1)
+    if (layout == SamplingLayout::FrameFirst) {
+        code.op(0x7C0803A6u);            // mtlr r0
+        code.op(0x38210000u | frame);  // addi r1,r1,frame
+    } else {
+        code.op(0x38210000u | frame);
+        code.op(0x7C0803A6u);
+    }
+    code.blr();
+    // The next function's first words, which the finder must not need.
+    code.op(0x7C0802A6u);
+    code.op(0x90010004u);
+    return code.words;
+}
+
+static void TestGcPadSamplingLayouts() {
+    struct Fixture {
+        std::uint32_t address;
+        std::size_t callback_word;
+        std::vector<std::uint32_t> words;
+    };
+    const Fixture fixtures[] = {
+        {0x80214A40u, 5, sampling_layout(0x80214A40u, SamplingLayout::KeptInR31)},
+        {0x8001C2E0u, 5, sampling_layout(0x8001C2E0u, SamplingLayout::KeptInR31)},
+        {0x80652B10u, 4, sampling_layout(0x80652B10u, SamplingLayout::KeptOnStack)},
+        {0x80498E20u, 5, sampling_layout(0x80498E20u, SamplingLayout::FrameFirst)},
+    };
+    const auto find = [](const Asm& input) {
+        const auto bytes = input.bytes();
+        return riftwii::find_gc_pad_sampling({{input.base, bytes.data(), bytes.size()}});
+    };
+    for (const Fixture& fixture : fixtures) {
+        Asm code{fixture.address, fixture.words};
+        take_address(code, fixture.address);
+        EXPECT_EQ(find(code), fixture.address);
+        Asm unregistered{fixture.address, fixture.words};
+        EXPECT_EQ(find(unregistered), 0u);
+
+        // Registration may be in another section. Do not require bytes
+        // past the handler's return, or borrow them from the next section.
+        Asm function{fixture.address, fixture.words};
+        const auto end = std::find(function.words.begin(), function.words.end(), 0x4E800020u);
+        function.words.erase(end + 1, function.words.end());
+        const auto function_bytes = function.bytes();
+        Asm registration{fixture.address + 0x100, {}};
+        take_address(registration, fixture.address);
+        const auto registration_bytes = registration.bytes();
+        EXPECT_EQ(riftwii::find_gc_pad_sampling({
+                      {function.base, function_bytes.data(), function_bytes.size()},
+                      {registration.base, registration_bytes.data(), registration_bytes.size()}}),
+                  fixture.address);
+
+        const bool frame_first = fixture.words[0] != 0x7C0802A6u;
+        const std::size_t test = fixture.callback_word;
+        // Do not relax the callback slot, its zero test, the context's
+        // location, the indirect call or the repeated clear/set pair.
+        for (const std::size_t index : {test - 1, test + 1, test + 2, test + 5, test + 7,
+                                        test + 8, test + 9, test + 10, test + 11, test + 12, test + 13}) {
+            Asm changed = code;
+            changed.words[index] ^= 4u;
+            EXPECT_EQ(find(changed), 0u);
+        }
+        Asm small = code;
+        small.words[frame_first ? 0 : 2] = 0x9421FF00u;
+        EXPECT_EQ(find(small), 0u);
+        Asm truncated{fixture.address, fixture.words};
+        truncated.words.resize(test + 13);
+        take_address(truncated, fixture.address);
+        EXPECT_EQ(find(truncated), 0u);
+        if (frame_first) {
+            // The mflr one word into the function is not a callable entry.
+            Asm inside{fixture.address, fixture.words};
+            take_address(inside, fixture.address + 4);
+            EXPECT_EQ(find(inside), 0u);
+        }
+    }
 }
 
 // Self-authored disabled-port block, with a shifted channel mask and
@@ -1708,6 +1836,7 @@ int main() {
     TestGcSiTypeCacheSearch();
     TestGcSiProbeSearch();
     TestGcPadSamplingSearch();
+    TestGcPadSamplingLayouts();
     TestGcPadEnabledSearch();
     if (g_failures == 0) std::cout << "gcad tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;

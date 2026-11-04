@@ -355,10 +355,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     std::string message;
     const int32_t result = plugin::Launch(kPluginName, &request, sizeof(request), message);
     if (result == RWP_LAUNCH_NO_MEMORY) {
-        // The launch's out-of-memory message, as when the loader was in
-        // the DOL.
         logf("GameCube: the gamecube plugin ran out of memory: %s\n", reason);
-        error = mem::kLaunchOutOfMemory;
+        error = mem::LaunchOutOfMemoryMessage();
         return false;
     }
     if (result < 0) {

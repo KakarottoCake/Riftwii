@@ -8396,13 +8396,27 @@ FR.update({
     "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start.": "Ce jeu vérifie son propre code. Pour qu'il démarre, les modifications d'image, de langue, de région, de manettes, de jeu en ligne et les codes de triche restent désactivés.",
 })
 
+T.update({
+    "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report.": (
+        "RiftWii se quedó sin memoria al iniciar el juego. Desactiva la música del menú e inténtalo de nuevo, o envía un informe del problema.",
+        "ゲームを起動中にRiftWiiのメモリが足りなくなりました。メニューの音楽をオフにしてやり直すか、問題のレポートを送ってください。",
+        "A memória do RiftWii acabou ao iniciar o jogo. Desative a música do menu e tente de novo, ou envie um relatório do problema.",
+        "RiftWii ha esaurito la memoria avviando il gioco. Disattiva la musica del menu e riprova, oppure invia una segnalazione del problema."),
+})
+KO.update({
+    "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report.": "게임을 시작하는 동안 RiftWii의 메모리가 부족해졌습니다. 메뉴 음악을 끄고 다시 시도하거나 문제 보고서를 보내 주세요.",
+})
+FR.update({
+    "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report.": "RiftWii a manqué de mémoire au démarrage du jeu. Désactivez la musique du menu et réessayez, ou envoyez un rapport de problème.",
+})
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
     sources = ["wii/launch/modplan.cpp", "wii/core/i18n.cpp", "wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/credits.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
-               "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp",
+               "wii/core/plugins.cpp", "wii/core/memlimits.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp",
                "wii/menu/picturepicker.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]

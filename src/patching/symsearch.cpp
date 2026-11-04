@@ -878,32 +878,65 @@ bool address_built(const std::vector<CodeRange>& text, std::uint32_t target) {
     return false;
 }
 
-// Whether the function at `w` (its words from its mflr r0) has
+// Whether the function at `w` (from its frame setup or mflr r0) has
 // SamplingHandler's shape (find_gc_pad_sampling).
-bool sampling_shape(const std::uint32_t* w, std::size_t count) {
-    bool big_frame = false;
-    for (std::size_t i = 1; i < 4 && i < count; ++i) {
+bool sampling_shape(std::uint32_t address, const std::uint32_t* w, std::size_t count) {
+    std::uint32_t frame_bytes = 0;
+    for (std::size_t i = 0; i < 4 && i < count; ++i) {
         const bool stwu_r1 = (w[i] & 0xFFFF0000u) == 0x94210000u;
         const std::int32_t frame = -static_cast<std::int16_t>(w[i] & 0xFFFFu);
-        if (stwu_r1 && frame >= static_cast<std::int32_t>(kOsContextBytes)) big_frame = true;
+        if (stwu_r1 && frame >= static_cast<std::int32_t>(kOsContextBytes)) frame_bytes = frame;
     }
-    if (!big_frame) return false;
-    std::size_t test = count;
-    for (std::size_t i = 0; i + 2 < count && test == count; ++i) {
+    if (frame_bytes == 0) return false;
+    for (std::size_t i = 0; i + 13 < count; ++i) {
+        if (w[i] == 0x4E800020u) return false;  // do not continue into the next function
         const std::uint32_t reg = (w[i] >> 21) & 31u;
-        const bool tested = w[i + 1] == (0x28000000u | (reg << 16));  // cmplwi rD, 0
-        const bool skipped = (w[i + 2] & 0xFFFF0000u) == 0x41820000u;  // beq
-        if (is_lwz_sda(w[i]) && tested && skipped) test = i;
-    }
-    if (test == count) return false;
-    const std::uint32_t callback = w[test] & 0xFFFFu;
-    unsigned context_calls = 0;
-    for (std::size_t i = test + 3; i + 2 < count; ++i) {
-        if (is_addi_r3_r1(w[i]) && is_bl(w[i + 1])) ++context_calls;
-        const bool reload = w[i] == (0x818D0000u | callback);  // lwz r12, d(r13)
-        const bool through_lr = w[i + 1] == 0x7D8803A6u && w[i + 2] == 0x4E800021u;  // mtlr r12; blrl
-        const bool through_ctr = w[i + 1] == 0x7D8903A6u && w[i + 2] == 0x4E800421u;  // mtctr r12; bctrl
-        if (reload && (through_lr || through_ctr)) return context_calls == 2;
+        // Both comparisons test a pointer for zero. The newer compiler
+        // (ProStreet's Wii SDK) uses cmpwi and puts stwu before mflr.
+        const bool tested = w[i + 1] == (0x28000000u | (reg << 16)) ||
+                            w[i + 1] == (0x2C000000u | (reg << 16));
+        if (!is_lwz_sda(w[i]) || !tested || w[i + 2] != 0x41820030u) continue;
+        const std::uint32_t context = w[i + 3];
+        const std::uint32_t context_offset = context & 0xFFFFu;
+        if (!is_addi_r3_r1(context) || context_offset < 8 || context_offset > frame_bytes - kOsContextBytes ||
+            (context_offset & 7u) != 0) continue;
+        if (w[i + 5] != context || w[i + 10] != context) continue;
+        const std::uint32_t callback = w[i] & 0xFFFFu;
+        const bool reload = w[i + 7] == (0x818D0000u | callback);  // lwz r12,d(r13)
+        const bool through_lr = w[i + 8] == 0x7D8803A6u && w[i + 9] == 0x4E800021u;
+        const bool through_ctr = w[i + 8] == 0x7D8903A6u && w[i + 9] == 0x4E800421u;
+        if (!reload || (!through_lr && !through_ctr)) continue;
+        // The same clear/set pair surrounds the callback. Requiring the
+        // restoration as well avoids mistaking another large interrupt
+        // handler for PAD's when accepting more compiler layouts.
+        if (!is_bl(w[i + 4]) || !is_bl(w[i + 6]) || !is_bl(w[i + 11]) || !is_bl(w[i + 13])) continue;
+        const auto call_target = [&](std::size_t index) {
+            return bl_target(address + static_cast<std::uint32_t>(4 * index), w[index]);
+        };
+        const std::uint32_t clear = call_target(i + 4);
+        const std::uint32_t set = call_target(i + 6);
+        if (clear == set || clear != call_target(i + 11) || set != call_target(i + 13)) continue;
+        // Its second argument is the interrupted OSContext. The last set
+        // must get that saved argument back, from a nonvolatile register
+        // or (Everything or Nothing's compiler) a slot below the temporary
+        // context, rather than another arbitrary pointer.
+        const std::uint32_t restore = w[i + 12];
+        for (unsigned saved = 14; saved < 32; ++saved) {
+            const std::uint32_t move_to_r3 = 0x7C030378u | (saved << 21) | (saved << 11);
+            const std::uint32_t add_to_r3 = 0x38600000u | (saved << 16);
+            if (restore != move_to_r3 && restore != add_to_r3) continue;
+            for (std::size_t at = 0; at < i; ++at) {
+                const std::uint32_t move_from_r4 = 0x7C802378u | (saved << 16);
+                const std::uint32_t add_from_r4 = 0x38040000u | (saved << 21);
+                if (w[at] == move_from_r4 || w[at] == add_from_r4) return true;
+            }
+        }
+        if ((restore & 0xFFFF0000u) == 0x80610000u) {  // lwz r3,d(r1)
+            const std::uint32_t saved_offset = restore & 0xFFFFu;
+            if (saved_offset < 8 || saved_offset + 4 > context_offset) continue;
+            for (std::size_t at = 0; at < i; ++at)
+                if (w[at] == (0x90810000u | saved_offset)) return true;  // stw r4,d(r1)
+        }
     }
     return false;
 }
@@ -914,12 +947,19 @@ std::uint32_t find_gc_pad_sampling(const std::vector<CodeRange>& text) {
     std::set<std::uint32_t> found;
     for (const CodeRange& range : text) {
         const std::size_t words = range.size / 4;
-        for (std::size_t i = 0; i + kSamplingWords <= words; ++i) {
-            if (be32(range.bytes + i * 4) != kMflrR0) continue;
+        for (std::size_t i = 0; i + 18 <= words; ++i) {
+            const std::uint32_t first = be32(range.bytes + i * 4);
+            const bool frame_first = (first & 0xFFFF0000u) == 0x94210000u &&
+                                     be32(range.bytes + (i + 1) * 4) == kMflrR0;
+            if (first != kMflrR0 && !frame_first) continue;
+            // A frame-first function must be called before its stwu, not
+            // at the mflr one word into it.
+            if (!frame_first && i != 0 && (be32(range.bytes + (i - 1) * 4) & 0xFFFF0000u) == 0x94210000u) continue;
             std::uint32_t w[kSamplingWords];
-            for (std::size_t k = 0; k < kSamplingWords; ++k) w[k] = be32(range.bytes + (i + k) * 4);
-            if (!sampling_shape(w, kSamplingWords)) continue;
+            const std::size_t count = std::min(kSamplingWords, words - i);
+            for (std::size_t k = 0; k < count; ++k) w[k] = be32(range.bytes + (i + k) * 4);
             const std::uint32_t at = range.address + static_cast<std::uint32_t>(i * 4);
+            if (!sampling_shape(at, w, count)) continue;
             if (address_built(text, at)) found.insert(at);
         }
     }

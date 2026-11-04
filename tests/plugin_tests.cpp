@@ -562,10 +562,11 @@ static void TestTables() {
     EXPECT_TRUE(offsetof(rwp_host, shut_down_for_game) < offsetof(rwp_host, zstd_decompress));
     EXPECT_TRUE(offsetof(rwp_host, zstd_error_name) < offsetof(rwp_host, usb_read));
     EXPECT_EQ(offsetof(rwp_host, usb_read) + sizeof(void*), offsetof(rwp_host, set_sram_flash_id_a));
-    EXPECT_EQ(offsetof(rwp_host, set_sram_flash_id_a) + sizeof(void*), sizeof(rwp_host));
+    EXPECT_EQ(offsetof(rwp_host, set_sram_flash_id_a) + sizeof(void*), offsetof(rwp_host, heap_free_bytes));
+    EXPECT_EQ(offsetof(rwp_host, heap_free_bytes) + sizeof(void*), sizeof(rwp_host));
     // Every entry is one pointer, none skipped: on the Wii (4-byte
-    // pointers) the table is 2 words and 38 functions.
-    EXPECT_EQ(sizeof(rwp_host), 8u + 38u * sizeof(void*));
+    // pointers) the table is 2 words and 39 functions.
+    EXPECT_EQ(sizeof(rwp_host), 8u + 39u * sizeof(void*));
     EXPECT_TRUE(offsetof(rwp_plugin, probe) < offsetof(rwp_plugin, shutdown));
     EXPECT_TRUE(offsetof(rwp_plugin, shutdown) < offsetof(rwp_plugin, launch));
     EXPECT_EQ(offsetof(rwp_plugin, launch) + sizeof(void*), sizeof(rwp_plugin));
@@ -578,6 +579,9 @@ static void TestTables() {
     // A whole table has every function; one cut before the last has not.
     rwp_host host{};
     host.size = sizeof(rwp_host);
+    EXPECT_TRUE(RWP_HOST_HAS(&host, heap_free_bytes));
+    host.size = static_cast<std::uint32_t>(offsetof(rwp_host, heap_free_bytes));
+    EXPECT_FALSE(RWP_HOST_HAS(&host, heap_free_bytes));
     EXPECT_TRUE(RWP_HOST_HAS(&host, set_sram_flash_id_a));
     // Before the SRAM setter: usb_read still has its original offset.
     host.size = static_cast<std::uint32_t>(offsetof(rwp_host, set_sram_flash_id_a));

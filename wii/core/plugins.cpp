@@ -414,6 +414,19 @@ int32_t HostUsbRead(uint64_t sector, uint32_t count, void* out) {
     return ums::Fd() >= 0 && ums::Read(sector, count, static_cast<std::uint8_t*>(out)) ? 1 : 0;
 }
 
+uint32_t HostHeapFreeBytes() {
+    const auto arena_free = [](void* low, void* high) {
+        const auto start = reinterpret_cast<std::uintptr_t>(low);
+        const auto end = reinterpret_cast<std::uintptr_t>(high);
+        return end > start ? end - start : 0;
+    };
+    // Only the free chunks: mallinfo's used count includes the address gap
+    // between MEM1 and MEM2 once the heap has grown into both banks.
+    const struct mallinfo heap = mallinfo();
+    return heap.fordblks + arena_free(SYS_GetArena1Lo(), SYS_GetArena1Hi()) +
+           arena_free(SYS_GetArena2Lo(), SYS_GetArena2Hi());
+}
+
 // Every entry in plugin_api.h's order, which a plugin was built against;
 // tests/plugin_tests.cpp checks that order and that none is skipped.
 const rwp_host kHost = {
@@ -459,10 +472,11 @@ const rwp_host kHost = {
     // After API 2
     HostUsbRead,
     HostSetSramFlashIdA,
+    HostHeapFreeBytes,
 };
 // A missing initializer would leave the last entries NULL without a word:
 // the count is checked against the struct's size.
-static_assert(sizeof(rwp_host) == 8 + 38 * sizeof(void*), "kHost and plugin_api.h's rwp_host disagree");
+static_assert(sizeof(rwp_host) == 8 + 39 * sizeof(void*), "kHost and plugin_api.h's rwp_host disagree");
 
 // ---- Refusals ----
 

@@ -106,6 +106,11 @@ std::uint32_t be32(const std::uint8_t* p) {
 struct Section {
     std::uint32_t address = 0;
     std::vector<std::uint8_t> bytes;
+    std::uint8_t* parked = nullptr;
+    std::size_t parked_size = 0;
+
+    const std::uint8_t* data() const { return parked != nullptr ? parked : bytes.data(); }
+    std::size_t size() const { return parked != nullptr ? parked_size : bytes.size(); }
 };
 
 struct Dol {
@@ -115,6 +120,32 @@ struct Dol {
     std::uint32_t bss_size = 0;
     std::uint32_t entry = 0;
 };
+
+// A GameCube launch does not use the Wii apploader's space between the
+// loader's heap ceiling and the resident runtime. Park the patched main
+// program there while patching its ELFs, so it does not keep another
+// whole program in the heap. Its final destinations stay untouched until
+// IOS shuts down, particularly the IOS globals at 0x80003100.
+bool park_main_program(Dol& dol, std::uint32_t ceiling) {
+    std::size_t bytes = 0;
+    for (const Section& section : dol.text) bytes += section.size();
+    for (const Section& section : dol.data) bytes += section.size();
+    if (ceiling < kLoaderCeiling || bytes > ceiling - kLoaderCeiling) return false;
+
+    auto* next = reinterpret_cast<std::uint8_t*>(kLoaderCeiling);
+    const auto park = [&](Section& section) {
+        section.parked = next;
+        section.parked_size = section.bytes.size();
+        std::memcpy(next, section.bytes.data(), section.bytes.size());
+        next += section.bytes.size();
+        std::vector<std::uint8_t>().swap(section.bytes);
+    };
+    for (Section& section : dol.text) park(section);
+    for (Section& section : dol.data) park(section);
+    logf("GameCube: the main program's %u KiB waits outside the heap while its ELF programs are patched.\n",
+         static_cast<unsigned>(bytes / 1024));
+    return true;
+}
 
 bool read_at(const ByteSource& disc, std::uint64_t offset, void* out, std::size_t length) {
     return disc.read(offset, static_cast<std::uint8_t*>(out), length);
@@ -272,19 +303,19 @@ public:
     template <class F>
     void each(F f) const {
         for (const Section& s : text_)
-            for (std::uint32_t i = 0; i + 4 <= s.bytes.size(); i += 4) f(s.address + i, be32(&s.bytes[i]));
+            for (std::uint32_t i = 0; i + 4 <= s.size(); i += 4) f(s.address + i, be32(s.data() + i));
     }
     // The same code for the host-tested finders (riftwii/gcvideo.hpp).
     std::vector<CodeRange> ranges() const {
         std::vector<CodeRange> out;
-        for (const Section& s : text_) out.push_back(CodeRange{s.address, s.bytes.data(), s.bytes.size()});
+        for (const Section& s : text_) out.push_back(CodeRange{s.address, s.data(), s.size()});
         return out;
     }
 
 private:
     const std::uint8_t* find(std::uint32_t a) const {
         for (const Section& s : text_)
-            if (a >= s.address && a + 4 <= s.address + s.bytes.size()) return &s.bytes[a - s.address];
+            if (a >= s.address && a + 4 <= s.address + s.size()) return s.data() + (a - s.address);
         return nullptr;
     }
     std::vector<Section>& text_;
@@ -3688,17 +3719,29 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                                    : second.on       ? "the game has a second disc"
                                                      : nullptr;
         const std::vector<GcFstFile> elf_files = find_gc_fst_files_ending(fst, ".elf", GC_PROGRAMS_MAX);
+        if (programs_off == nullptr && !elf_files.empty()) park_main_program(dol, arena_hi);
         if (!elf_files.empty() && programs_off != nullptr)
             logf("GameCube: the disc's %u ELF program(s) run as made, unpatched: %s\n",
                  static_cast<unsigned>(elf_files.size()), programs_off);
         for (std::size_t i = 0; programs_off == nullptr && i < elf_files.size(); ++i) {
             const GcFstFile& file = elf_files[i];
+            const auto log_elf_memory = [&](const char* when) {
+                const rwp_host& host = plugin::host();
+                if (RWP_HOST_HAS(&host, heap_free_bytes))
+                    logf("GameCube: the heap has %u KiB free %s the ELF program at disc offset 0x%08x.\n",
+                         host.heap_free_bytes() / 1024, when, file.offset);
+            };
+            log_elf_memory("before reading");
             const unsigned index = static_cast<unsigned>(resident_programs.size());
             GcElfProgram elf;
             Dol program;
             std::string why;
             bool patched = read_elf_program(f, file, arena_hi, elf, program, why);
-            const Dol original = program;
+            log_elf_memory("after reading");
+            // Keep one untouched copy for the changed words and the checks
+            // of calls before the entry hook. Code only borrows its sections;
+            // copying again here used another whole ELF's worth of memory.
+            Dol original = program;
             Code program_code(program.text);
             DvdLow program_low;
             if (patched) patched = find_dvd_low(program_code, program_low, why);
@@ -3781,8 +3824,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             // with the last program's). Agent Under Fire's __init_registers
             // and __init_hardware only set up the registers and the caches.
             if (patched && start != elf.entry) {
-                Dol unpatched = original;
-                const Code before(unpatched.text);
+                log_elf_memory("before checking the first calls of");
+                const Code before(original.text);
                 for (std::uint32_t call = elf.entry; call < start && patched; call += 4) {
                     const std::uint32_t target = bl_target(call, program_code.at(call));
                     if (target != 0 && !reaches_patched_code(before, program_code, target, 3)) continue;
@@ -3832,8 +3875,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                 // Its first words as the disc has them, so a problem report
                 // shows what a start RiftWii can't take looks like (Harry
                 // Potter and the Goblet of Fire's "starts with a branch").
-                Dol as_on_disc = original;
-                const Code disc_code(as_on_disc.text);
+                const Code disc_code(original.text);
                 if (disc_code.has(elf.entry) && disc_code.has(elf.entry + 12)) {
                     logf("GameCube: that program's entry 0x%08x begins %08x %08x %08x %08x\n", elf.entry,
                          disc_code.at(elf.entry), disc_code.at(elf.entry + 4), disc_code.at(elf.entry + 8),
@@ -3841,6 +3883,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                 }
             }
             write_resident(resident_main);
+            log_elf_memory("after patching");
         }
     }
     // Their table in MEM2's stage, after everything else there: the
@@ -4012,16 +4055,16 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
 
     // Low memory as a GameCube's start-up leaves it for the game.
     std::memset(reinterpret_cast<void*>(0x80000000), 0, kGameFloor - 0x80000000);
-    for (const Section& s : dol.text) std::memcpy(reinterpret_cast<void*>(s.address), s.bytes.data(), s.bytes.size());
-    for (const Section& s : dol.data) std::memcpy(reinterpret_cast<void*>(s.address), s.bytes.data(), s.bytes.size());
+    for (const Section& s : dol.text) std::memcpy(reinterpret_cast<void*>(s.address), s.data(), s.size());
+    for (const Section& s : dol.data) std::memcpy(reinterpret_cast<void*>(s.address), s.data(), s.size());
     if (dol.bss_size != 0) {
         // Sections may sit inside the BSS range; zero only around them. Code
         // too: a patched Super Mario Sunshine (16:9 and 60 fps) adds a text
         // section there and starts at it (entry 0x803e9700), and zeroed it
         // stopped on its first word before the game's OS was up.
         std::vector<std::pair<std::uint32_t, std::uint32_t>> used;
-        for (const Section& s : dol.text) used.emplace_back(s.address, s.address + s.bytes.size());
-        for (const Section& s : dol.data) used.emplace_back(s.address, s.address + s.bytes.size());
+        for (const Section& s : dol.text) used.emplace_back(s.address, s.address + s.size());
+        for (const Section& s : dol.data) used.emplace_back(s.address, s.address + s.size());
         for (std::uint32_t a = dol.bss; a < dol.bss + dol.bss_size; ++a) {
             bool inside = false;
             for (auto& u : used)

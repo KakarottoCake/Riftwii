@@ -3998,3 +3998,6 @@ msgstr "Non applicato"
 
 msgid "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start."
 msgstr "Questo gioco controlla il proprio codice. Per avviarlo, le modifiche a immagine, lingua, regione, controller, gioco online e trucchi restano disattivate."
+
+msgid "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report."
+msgstr "RiftWii ha esaurito la memoria avviando il gioco. Disattiva la musica del menu e riprova, oppure invia una segnalazione del problema."

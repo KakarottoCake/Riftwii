@@ -196,6 +196,11 @@ typedef struct rwp_host {
      * caller logs it and carries on; the game may report the card damaged).
      * Call before shut_down_for_game, while libogc's EXI still works. */
     int32_t (*set_sram_flash_id_a)(const uint8_t flash_id[12]);
+
+    /* Added after set_sram_flash_id_a (check RWP_HOST_HAS). Free bytes in
+     * the loader's heap, including the arenas it can still grow into.
+     * This is total space, not the largest single allocation available. */
+    uint32_t (*heap_free_bytes)(void);
 } rwp_host;
 
 /* What a plugin gives RiftWii: a constant table in its image, found by
