@@ -2427,23 +2427,23 @@ msgstr "Les jeux qu'affiche l'Accueil : ceux de chaque support et ceux de la Wii
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "Les données de ce jeu ont été effacées de la Wii, il ne peut donc pas démarrer."
 
-msgid "Made-up covers for games without one"
-msgstr "Des jaquettes créées pour les jeux sans"
+msgid "Wii games and GameCube games in Show"
+msgstr "Jeux Wii et GameCube dans Afficher"
 
-msgid "Parental controls, with a PIN"
-msgstr "Contrôle parental avec code PIN"
+msgid "Wired Switch Pro Controller"
+msgstr "Manette Pro Switch filaire"
 
-msgid "Copy a game disc to a .wbfs file"
-msgstr "Copier un disque de jeu en fichier .wbfs"
+msgid "A restart, not a crash, when out of memory"
+msgstr "Sans mémoire, redémarre au lieu de planter"
 
-msgid "Themes can have a moving background"
-msgstr "Des thèmes avec un fond animé"
+msgid "Covers download near what's on screen"
+msgstr "Les jaquettes à l'écran d'abord"
 
-msgid "Channel updates need no Wii Remote"
-msgstr "Mettre à jour la chaîne sans Wiimote"
+msgid "Goblet of Fire takes the Wii Remote"
+msgstr "La Coupe de feu accepte la Wiimote"
 
-msgid "A mod's own cover on its Home tile"
-msgstr "La jaquette d'un mod sur sa vignette"
+msgid "Just Dance from RVZ files again"
+msgstr "Just Dance depuis un RVZ à nouveau"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Mémoire pour les extras de RiftWii"

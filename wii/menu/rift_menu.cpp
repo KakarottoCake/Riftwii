@@ -4824,12 +4824,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Made-up covers for games without one",
-	"Parental controls, with a PIN",
-	"Copy a game disc to a .wbfs file",
-	"Themes can have a moving background",
-	"Channel updates need no Wii Remote",
-	"A mod's own cover on its Home tile",
+	"Wii games and GameCube games in Show",
+	"Wired Switch Pro Controller",
+	"A restart, not a crash, when out of memory",
+	"Covers download near what's on screen",
+	"Goblet of Fire takes the Wii Remote",
+	"Just Dance from RVZ files again",
 };
 
 static std::string WhatsNewText()

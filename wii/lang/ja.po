@@ -2427,23 +2427,23 @@ msgstr "ホームに表示するゲーム：すべてのドライブとWii本体
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "このゲームのデータはWiiから削除されているため、起動できません。"
 
-msgid "Made-up covers for games without one"
-msgstr "カバーのないゲームに仮のカバー"
+msgid "Wii games and GameCube games in Show"
+msgstr "表示にWiiとゲームキューブのゲーム"
 
-msgid "Parental controls, with a PIN"
-msgstr "PINつきのペアレンタルコントロール"
+msgid "Wired Switch Pro Controller"
+msgstr "有線のSwitch Proコントローラー"
 
-msgid "Copy a game disc to a .wbfs file"
-msgstr "ゲームディスクを.wbfsファイルにコピー"
+msgid "A restart, not a crash, when out of memory"
+msgstr "メモリ不足でも落ちずに再起動"
 
-msgid "Themes can have a moving background"
-msgstr "テーマにうごく背景"
+msgid "Covers download near what's on screen"
+msgstr "画面のカバーから先にダウンロード"
 
-msgid "Channel updates need no Wii Remote"
-msgstr "Wiiリモコンなしでチャンネルを更新"
+msgid "Goblet of Fire takes the Wii Remote"
+msgstr "炎のゴブレットでWiiリモコンが使える"
 
-msgid "A mod's own cover on its Home tile"
-msgstr "MODのタイルにMOD自身のカバー"
+msgid "Just Dance from RVZ files again"
+msgstr "RVZファイルのJust Danceがまた動く"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWiiの追加機能が使うメモリ"

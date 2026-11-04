@@ -2427,23 +2427,23 @@ msgstr "Quali giochi mostra la Home: quelli di ogni unità e quelli della Wii st
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "I dati di questo gioco sono stati cancellati dalla Wii, quindi non può partire."
 
-msgid "Made-up covers for games without one"
-msgstr "Copertine create per i giochi senza"
+msgid "Wii games and GameCube games in Show"
+msgstr "Giochi Wii e GameCube in Mostra"
 
-msgid "Parental controls, with a PIN"
-msgstr "Controllo genitori con PIN"
+msgid "Wired Switch Pro Controller"
+msgstr "Controller Pro di Switch via cavo"
 
-msgid "Copy a game disc to a .wbfs file"
-msgstr "Copia un disco di gioco in un file .wbfs"
+msgid "A restart, not a crash, when out of memory"
+msgstr "Senza memoria riparte invece di bloccarsi"
 
-msgid "Themes can have a moving background"
-msgstr "I temi possono avere uno sfondo animato"
+msgid "Covers download near what's on screen"
+msgstr "Prima le copertine sullo schermo"
 
-msgid "Channel updates need no Wii Remote"
-msgstr "Aggiornare il canale senza Telecomando Wii"
+msgid "Goblet of Fire takes the Wii Remote"
+msgstr "Il Calice di Fuoco va col Telecomando Wii"
 
-msgid "A mod's own cover on its Home tile"
-msgstr "La copertina di una mod sul suo riquadro"
+msgid "Just Dance from RVZ files again"
+msgstr "Just Dance da file RVZ di nuovo"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Memoria per gli extra di RiftWii"
