@@ -506,6 +506,13 @@ static void test_missing_create_folders() {
     if (!fst.add_directory(0, "Deep", idx, err)) std::abort();
     if (!fst.add_directory(idx, "inner", idx, err)) std::abort();
     if (!fst.add_file(idx, "d.bin", 0x7000, 0x40, idx, err)) std::abort();
+    // A subfolder listed before a file directly inside: the scan for a
+    // file to replace goes on past the subfolder.
+    if (!fst.add_directory(0, "Mixed", idx, err)) std::abort();
+    const std::uint32_t mixed = idx;
+    if (!fst.add_directory(mixed, "first", idx, err)) std::abort();
+    if (!fst.add_file(idx, "x.bin", 0x8000, 0x40, idx, err)) std::abort();
+    if (!fst.add_file(mixed, "later.bin", 0x9000, 0x40, idx, err)) std::abort();
     ListingProvider card = Card();
     riftwii::Plan plan;
     plan.folders.push_back(Folder("/Empty", "/mod/mission", true, true));   // only adds: optional
@@ -514,18 +521,20 @@ static void test_missing_create_folders() {
     plan.folders.push_back(Folder("/Deep", "/mod/deep", true, true));       // could replace inner/d.bin
     plan.folders.push_back(Folder("/Deep", "/mod/shallow", false, true));   // no file directly inside
     plan.folders.push_back(Folder("/Stage", "/mod/stage3", false, true));   // a.arc directly inside
+    plan.folders.push_back(Folder("/Mixed", "/mod/mixed", false, true));    // later.bin after first/
     std::vector<riftwii::FilePatch> out;
     std::vector<std::string> notes;
     std::vector<std::string> missing;
     EXPECT_TRUE(riftwii::expand_plan(plan, fst, card, out, notes, err, &missing));
-    EXPECT_EQ(notes.size(), std::size_t(6));
+    EXPECT_EQ(notes.size(), std::size_t(7));
     for (const std::string& n : notes) EXPECT_TRUE(riftwii::note_names_missing(n));
-    EXPECT_EQ(missing.size(), std::size_t(4));
-    if (missing.size() == 4) {
+    EXPECT_EQ(missing.size(), std::size_t(5));
+    if (missing.size() == 5) {
         EXPECT_EQ(missing[0], std::string("/mod/nocreate"));
         EXPECT_EQ(missing[1], std::string("/mod/stage2"));
         EXPECT_EQ(missing[2], std::string("/mod/deep"));
         EXPECT_EQ(missing[3], std::string("/mod/stage3"));
+        EXPECT_EQ(missing[4], std::string("/mod/mixed"));
     }
 }
 
