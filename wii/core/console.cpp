@@ -30,8 +30,10 @@ namespace {
 // while polled) go to the session log only, not under the screen's own
 // text: the echo stays off while the screen waits, back on the way out.
 // One plugged in after the screen came up is looked for every 2 s, as the
-// menu does. A button already held when it is first seen (the A that
-// chose Play, say) counts only once it is let go and pressed again.
+// menu does. Each port counts presses only once it has been seen with
+// nothing held, so a button already held (the A that chose Play, a pad
+// plugged in with A down) counts only once let go and pressed again, and
+// a pad left with a button held doesn't stop the others answering.
 class AdapterPads {
 public:
     explicit AdapterPads(bool wanted) : echo_(LogEchoesToScreen()), wanted_(wanted) {
@@ -57,30 +59,23 @@ public:
         GcAdapterView view;
         GcAdapterPoll(view);
         u32 down = 0;
-        bool seen = false, idle = true;
         for (unsigned p = 0; p < GCAD_PORTS; ++p) {
             const u16 held = view.present[p] ? view.pads[p].buttons : 0;
-            seen = seen || view.present[p];
-            idle = idle && held == 0;
-            // A pad first seen with buttons held (plugged in with A down)
-            // counts them only once let go and pressed again.
-            if (view.present[p] && !present_[p]) held_[p] = held;
-            down |= held & ~held_[p];
+            if (!view.present[p]) armed_[p] = false;
+            else if (held == 0) armed_[p] = true;
+            if (armed_[p]) down |= held & ~held_[p];
             held_[p] = held;
-            present_[p] = view.present[p];
         }
-        if (!armed_ && seen && idle) armed_ = true;
-        return armed_ ? down : 0;
+        return down;
     }
 
 private:
     bool echo_;
     bool wanted_;
     bool started_ = false;
-    bool armed_ = false;
     u64 tried_ = 0;
     u16 held_[GCAD_PORTS] = {};
-    bool present_[GCAD_PORTS] = {};
+    bool armed_[GCAD_PORTS] = {};
 };
 
 }  // namespace
