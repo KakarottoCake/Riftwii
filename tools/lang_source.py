@@ -6901,6 +6901,38 @@ FR.update({
     "Every game can be started without the PIN again.": "Tous les jeux pourront de nouveau être lancés sans le code PIN.",
 })
 
+# Two discs that are not games (007?01, RAA?01) and new PINs a child would guess first.
+T.update({
+    "Are you sure you want to continue?": ("¿Seguro que quieres continuar?", "本当につづけますか？", "Tem certeza de que quer continuar?", "Vuoi davvero continuare?"),
+    "This disc is intended to erase your Wii's system memory. You really shouldn't be opening this unless you know what you're doing.": ("Este disco está hecho para borrar la memoria del sistema de tu Wii. De verdad no deberías abrirlo a menos que sepas lo que haces.", "このディスクは、Wiiの本体メモリーを消すためのものです。何をしているかわかっていないなら、本当にひらかないほうがいいです。", "Este disco foi feito para apagar a memória do sistema do seu Wii. Você realmente não deveria abri-lo a menos que saiba o que está fazendo.", "Questo disco serve a cancellare la memoria di sistema della tua Wii. Non dovresti proprio aprirlo, a meno che tu non sappia cosa stai facendo."),
+    "Inserting the Wii Startup Disc doesn't have any effect on your Wii. Your Wii already has started up. You really shouldn't be opening this unless you know what you're doing.": ("Insertar el disco de inicio de Wii no tiene ningún efecto en tu Wii. Tu Wii ya se ha iniciado. De verdad no deberías abrirlo a menos que sepas lo que haces.", "Wiiスタートアップディスクを入れても、Wiiには何もおきません。Wiiはもうスタートしています。何をしているかわかっていないなら、本当にひらかないほうがいいです。", "Inserir o Disco de Inicialização do Wii não tem efeito nenhum no seu Wii. Seu Wii já foi iniciado. Você realmente não deveria abri-lo a menos que saiba o que está fazendo.", "Inserire il disco di avvio Wii non ha alcun effetto sulla tua Wii. La tua Wii si è già avviata. Non dovresti proprio aprirlo, a meno che tu non sappia cosa stai facendo."),
+    "Well, I warned you.\nI hope you made a NAND backup.": ("Bueno, te lo advertí.\nEspero que hayas hecho una copia de seguridad de la NAND.", "まあ、ちゃんと言いましたからね。\nNANDのバックアップをとってあるといいですね。", "Bem, eu avisei.\nEspero que você tenha feito um backup da NAND.", "Beh, ti avevo avvisato.\nSpero che tu abbia fatto un backup della NAND."),
+    "Not started": ("No se ha iniciado", "スタートしませんでした", "Não iniciado", "Non avviato"),
+    "If you actually considered launching that, you are really bored. Consider using RiftWii to play actual games instead.": ("Si de verdad pensaste en iniciar eso, estás muy aburrido. Mejor usa RiftWii para jugar a juegos de verdad.", "本当にそれをスタートしようと思ったなら、そうとうヒマですね。かわりにRiftWiiで本物のゲームを遊びましょう。", "Se você realmente pensou em iniciar isso, está muito entediado. Que tal usar o RiftWii para jogar jogos de verdade?", "Se hai davvero pensato di avviarlo, ti stai proprio annoiando. Usa piuttosto RiftWii per giocare a dei veri giochi."),
+    "I think your kids are going to guess the passcode correctly. Are you sure you want to use it?": ("Creo que tus hijos van a adivinar este código. ¿Seguro que quieres usarlo?", "このPINは、こどもに当てられてしまうと思います。本当にこのPINにしますか？", "Acho que seus filhos vão adivinhar essa senha. Tem certeza de que quer usá-la?", "Penso che i tuoi figli indovineranno questo codice. Vuoi davvero usarlo?"),
+    "If your kid is a hacker, they're going to guess the passcode correctly. Are you sure you want to use it?": ("Si tu hijo es un hacker, va a adivinar este código. ¿Seguro que quieres usarlo?", "こどもがハッカーなら、このPINは当てられてしまいます。本当にこのPINにしますか？", "Se seu filho for um hacker, ele vai adivinhar essa senha. Tem certeza de que quer usá-la?", "Se tuo figlio è un hacker, indovinerà questo codice. Vuoi davvero usarlo?"),
+})
+KO.update({
+    "Are you sure you want to continue?": "정말 계속할까요?",
+    "This disc is intended to erase your Wii's system memory. You really shouldn't be opening this unless you know what you're doing.": "이 디스크는 Wii의 본체 메모리를 지우기 위한 것입니다. 무엇을 하는지 잘 모른다면 정말 열지 않는 게 좋습니다.",
+    "Inserting the Wii Startup Disc doesn't have any effect on your Wii. Your Wii already has started up. You really shouldn't be opening this unless you know what you're doing.": "Wii 스타트업 디스크를 넣어도 Wii에는 아무 효과가 없습니다. Wii는 이미 시작되었습니다. 무엇을 하는지 잘 모른다면 정말 열지 않는 게 좋습니다.",
+    "Well, I warned you.\nI hope you made a NAND backup.": "분명히 경고했습니다.\nNAND 백업을 해 두었기를 바랍니다.",
+    "Not started": "시작하지 않았습니다",
+    "If you actually considered launching that, you are really bored. Consider using RiftWii to play actual games instead.": "정말 그걸 실행하려고 했다면 엄청 심심하신가 봅니다. 대신 RiftWii로 진짜 게임을 플레이해 보세요.",
+    "I think your kids are going to guess the passcode correctly. Are you sure you want to use it?": "아이들이 이 비밀번호를 맞힐 것 같습니다. 정말 이 비밀번호를 사용할까요?",
+    "If your kid is a hacker, they're going to guess the passcode correctly. Are you sure you want to use it?": "아이가 해커라면 이 비밀번호를 맞힐 겁니다. 정말 이 비밀번호를 사용할까요?",
+})
+FR.update({
+    "Are you sure you want to continue?": "Voulez-vous vraiment continuer ?",
+    "This disc is intended to erase your Wii's system memory. You really shouldn't be opening this unless you know what you're doing.": "Ce disque sert à effacer la mémoire système de votre Wii. Vous ne devriez vraiment pas l'ouvrir, sauf si vous savez ce que vous faites.",
+    "Inserting the Wii Startup Disc doesn't have any effect on your Wii. Your Wii already has started up. You really shouldn't be opening this unless you know what you're doing.": "Insérer le disque de démarrage Wii n'a aucun effet sur votre Wii. Votre Wii a déjà démarré. Vous ne devriez vraiment pas l'ouvrir, sauf si vous savez ce que vous faites.",
+    "Well, I warned you.\nI hope you made a NAND backup.": "Bon, je vous aurai prévenu.\nJ'espère que vous avez fait une sauvegarde de la NAND.",
+    "Not started": "Pas lancé",
+    "If you actually considered launching that, you are really bored. Consider using RiftWii to play actual games instead.": "Si vous avez vraiment pensé à lancer ça, vous vous ennuyez beaucoup. Utilisez plutôt RiftWii pour jouer à de vrais jeux.",
+    "I think your kids are going to guess the passcode correctly. Are you sure you want to use it?": "Je pense que vos enfants vont deviner ce code. Voulez-vous vraiment l'utiliser ?",
+    "If your kid is a hacker, they're going to guess the passcode correctly. Are you sure you want to use it?": "Si votre enfant est un hacker, il va deviner ce code. Voulez-vous vraiment l'utiliser ?",
+})
+
 def escape(s):
     return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 

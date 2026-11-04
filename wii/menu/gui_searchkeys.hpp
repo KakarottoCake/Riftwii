@@ -23,8 +23,9 @@
 // for capitals and the symbols on the number row and the bottom row's last
 // three keys (riftwii/namekeys.hpp); OK in place of Search.
 //
-// The PIN mode (parental controls) is the hex card with the digits only,
-// shown as stars, and OK only once all four are typed.
+// The PIN mode (parental controls) is a keypad laid out as a phone's
+// (1-2-3 on top, 0 alone at the bottom), the digits shown as stars, and OK
+// only once all four are typed.
 //
 // A USB keyboard types too (usbinput.hpp): its letters, digits and the
 // characters the card has, Enter as Search (OK), Backspace as Del and Esc

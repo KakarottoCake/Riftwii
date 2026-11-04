@@ -3309,6 +3309,30 @@ msgstr "Désactiver le contrôle parental ?"
 msgid "Every game can be started without the PIN again."
 msgstr "Tous les jeux pourront de nouveau être lancés sans le code PIN."
 
+msgid "Are you sure you want to continue?"
+msgstr "Voulez-vous vraiment continuer ?"
+
+msgid "This disc is intended to erase your Wii's system memory. You really shouldn't be opening this unless you know what you're doing."
+msgstr "Ce disque sert à effacer la mémoire système de votre Wii. Vous ne devriez vraiment pas l'ouvrir, sauf si vous savez ce que vous faites."
+
+msgid "Inserting the Wii Startup Disc doesn't have any effect on your Wii. Your Wii already has started up. You really shouldn't be opening this unless you know what you're doing."
+msgstr "Insérer le disque de démarrage Wii n'a aucun effet sur votre Wii. Votre Wii a déjà démarré. Vous ne devriez vraiment pas l'ouvrir, sauf si vous savez ce que vous faites."
+
+msgid "Well, I warned you.\nI hope you made a NAND backup."
+msgstr "Bon, je vous aurai prévenu.\nJ'espère que vous avez fait une sauvegarde de la NAND."
+
+msgid "Not started"
+msgstr "Pas lancé"
+
+msgid "If you actually considered launching that, you are really bored. Consider using RiftWii to play actual games instead."
+msgstr "Si vous avez vraiment pensé à lancer ça, vous vous ennuyez beaucoup. Utilisez plutôt RiftWii pour jouer à de vrais jeux."
+
+msgid "I think your kids are going to guess the passcode correctly. Are you sure you want to use it?"
+msgstr "Je pense que vos enfants vont deviner ce code. Voulez-vous vraiment l'utiliser ?"
+
+msgid "If your kid is a hacker, they're going to guess the passcode correctly. Are you sure you want to use it?"
+msgstr "Si votre enfant est un hacker, il va deviner ce code. Voulez-vous vraiment l'utiliser ?"
+
 msgid "Channel background"
 msgstr "Fond des chaînes"
 

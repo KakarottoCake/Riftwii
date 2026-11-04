@@ -3309,6 +3309,30 @@ msgstr "ペアレンタルコントロールをオフにしますか？"
 msgid "Every game can be started without the PIN again."
 msgstr "すべてのゲームがPINなしで始められるようになります。"
 
+msgid "Are you sure you want to continue?"
+msgstr "本当につづけますか？"
+
+msgid "This disc is intended to erase your Wii's system memory. You really shouldn't be opening this unless you know what you're doing."
+msgstr "このディスクは、Wiiの本体メモリーを消すためのものです。何をしているかわかっていないなら、本当にひらかないほうがいいです。"
+
+msgid "Inserting the Wii Startup Disc doesn't have any effect on your Wii. Your Wii already has started up. You really shouldn't be opening this unless you know what you're doing."
+msgstr "Wiiスタートアップディスクを入れても、Wiiには何もおきません。Wiiはもうスタートしています。何をしているかわかっていないなら、本当にひらかないほうがいいです。"
+
+msgid "Well, I warned you.\nI hope you made a NAND backup."
+msgstr "まあ、ちゃんと言いましたからね。\nNANDのバックアップをとってあるといいですね。"
+
+msgid "Not started"
+msgstr "スタートしませんでした"
+
+msgid "If you actually considered launching that, you are really bored. Consider using RiftWii to play actual games instead."
+msgstr "本当にそれをスタートしようと思ったなら、そうとうヒマですね。かわりにRiftWiiで本物のゲームを遊びましょう。"
+
+msgid "I think your kids are going to guess the passcode correctly. Are you sure you want to use it?"
+msgstr "このPINは、こどもに当てられてしまうと思います。本当にこのPINにしますか？"
+
+msgid "If your kid is a hacker, they're going to guess the passcode correctly. Are you sure you want to use it?"
+msgstr "こどもがハッカーなら、このPINは当てられてしまいます。本当にこのPINにしますか？"
+
 msgid "Channel background"
 msgstr "チャンネルの背景"
 
