@@ -16,32 +16,34 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** Pick any of GameTDB's covers for a game, WiiSX and Wii64 start, and a fix for 007 NightFire's Wii Remote. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** Wired Switch Pro Controllers, the Wii Remote in Harry Potter and the Goblet of Fire, Just Dance from RVZ again, and no more silent drops to the Homebrew Channel when the menu runs out of memory. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-![Choose cover: every cover GameTDB has for the game]({{SCREENSHOTS}}2610-choose-cover.png)
+![RiftWii restarts after running out of memory and asks for a report]({{SCREENSHOTS}}2611-out-of-memory.png)
 
 ## What changed
 
-- **Choose cover.** A game's settings have a new **Choose cover** row, below GameTDB cover. It shows every cover GameTDB has for the game (up to four kinds, from every region), and the one you pick is kept on the SD card, so it stays offline too. A mod's tile can get its own cover the same way. **Back to automatic** undoes it.
-- **WiiSX and Wii64 start.** RiftWii used to refuse them with "does not fit next to RiftWii", because they need the memory RiftWii itself sits in. They now start from the Homebrew list and from the Emulators view, and quitting them comes back to RiftWii (checked on a Wii U).
-- **007 NightFire (GameCube): the Wii Remote keeps working in missions.** NightFire's missions only read their controllers when a GameCube controller answers, so with none plugged in the Wii Remote and HOME stopped at the first mission. RiftWii now keeps them reading. Checked in Dolphin only: please try it on a Wii.
-- **007 Everything or Nothing from a USB drive** now switches to its main game the way it already did from the SD card. Not tried on a Wii yet.
-- **Wii Remote rumble in GameCube games** is sent at a pace the Wii's Bluetooth chip can keep up with, so a game that buzzes the motor very fast can't swamp it.
-- **Games start after Copy a game disc.** After copying a disc, some games (Super Mario Galaxy 2 among them) failed to start in the same session with "the apploader asked for a load outside RAM". They start now.
-- **The RiftWii channel installer from the Homebrew Channel** no longer stops with "NAND access was not restored" while it looks for your cIOS (confirmed by a tester on a Wii).
-- **The picture picker's messages** (No pictures found., Could not load pictures.) no longer hide behind the Back to automatic button.
+- **Wired Switch Pro Controller.** Plug a Nintendo Switch Pro Controller in with a USB cable and it plays as a GameCube controller, with nothing to put on the SD card: in the menu, in GameCube games and in Wii games that take a GameCube controller. A, B, X and Y are themselves, ZL and ZR are L and R, R is Z and + is Start. Leave the sticks alone for a moment as it starts; holding X, Y and + for three seconds sets their middle again. No rumble or player lights yet, and the Switch 2 Pro Controller isn't covered. Thanks to grantendo, who tried it on a Wii U.
+- **The menu no longer kicks you back to the Homebrew Channel without a word when it runs out of memory.** With a very big library it could, with no crash file and nothing in the log. Now it notes what happened, restarts RiftWii, says so on Home and asks whether to send a report.
+- **Covers download where you're looking.** The page on screen (or the game picked on the shelf) gets its covers first, then the ones around it, instead of the list from the top down. The shelf's boxes download near what's on screen, as you get to them, rather than the whole library in the background. If GameTDB asks RiftWii to slow down, it waits and tries again instead of giving up on covers for the session.
+- **Harry Potter and the Goblet of Fire (GameCube): the Wii Remote works.** RiftWii couldn't patch the program the game loads, and the game never treated the Wii Remote as plugged in. Both are fixed. Checked in Dolphin.
+- **Just Dance from an RVZ** runs again (Just Dance 4 played a song in Dolphin), where it crashed before its first picture.
+- **GameCube mods that add their own code**, such as Super Mario Sunshine's 16:9 and 60 fps patch, start again instead of crashing at once.
+- **Call of Duty: Finest Hour (GameCube)** should no longer stop on RiftWii's crash screen: a floating-point error the game handles itself now goes back to the game. Not tried with the game yet.
+- **The Wii Menu's font, sounds and music** should load again when RiftWii is started from its channel, where 2610-810 fell back to its own font (seen on a vWii). Checked in Dolphin, not on a console yet.
+- **A Wii with a wrong clock** (back to 2000 after a flat clock battery, or never set) should be able to update and download covers again.
+- **Missing mod files:** a whole missing folder is listed as one folder, and files a mod would only add to the game (not replace) are no longer asked about.
 
 ## What to test
 
-1. **007 NightFire** with a Wii Remote and no GameCube controller: play into the first mission. Do the Remote and HOME keep working?
-2. **007 Everything or Nothing from a USB drive:** it should go back to RiftWii for a moment, then start its main game.
-3. **Choose cover** on a few games and a mod tile, then Back to automatic.
-4. **WiiSX or Wii64** from the Homebrew list, and quitting back to RiftWii.
-5. **Copy a game disc**, then start the copy straight away.
+1. **A wired Switch Pro Controller** in the menu and a game or two (Settings > Controllers > Check USB controllers shows it).
+2. **Harry Potter and the Goblet of Fire** with only a Wii Remote: do the menus and the game take its presses?
+3. **Just Dance** from an RVZ, and **Super Mario Sunshine with its 16:9/60 fps mod**.
+4. **A big library:** browse Home and the shelf for a while. If RiftWii ever restarts with "RiftWii ran out of memory", please send the report it offers.
+5. **The Wii Menu font** on Settings > Menu font, started from the RiftWii channel.
 
 ## Known issues
 
-- **Everything or Nothing's THX and MGM logo movies** show in the wrong colours (dark red and green instead of gold and silver). The game itself and its other scenes look right.
-- **The DualShock 3 over USB** hasn't been confirmed to work: RiftWii sets it up, but no button presses have been seen from one yet.
-- **USB gamepads:** `MultiIn` 2 to 4 and pads that pack their sticks in their own way aren't supported yet.
+- **Everything or Nothing's THX and MGM logo movies** show in the wrong colours.
+- **The DualShock 3 over USB** hasn't been confirmed to work yet.
+- **USB gamepads:** `MultiIn` 2 to 4 and pads that pack their sticks in their own way aren't supported yet (the Switch Pro is built in).
 - **The Wii U GamePad** works in the menu only when RiftWii runs as a Wii VC inject, and never in games.

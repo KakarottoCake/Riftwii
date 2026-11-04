@@ -19,21 +19,23 @@ Rewrite it for every release and delete the line below.
 
 New and fixed:
 
-* Choose cover: pick any of GameTDB's covers for a game (or a mod's tile) in its settings
-* WiiSX and Wii64 start now, from the Homebrew list and the Emulators view
-* 007 NightFire: the Wii Remote and HOME should keep working in missions with no GameCube controller plugged in
-* 007 Everything or Nothing from USB switches to its main game like it does from SD
-* Games start after Copy a game disc (Super Mario Galaxy 2 and others)
-* The channel installer no longer stops with "NAND access was not restored" from the Homebrew Channel
+* Wired Switch Pro Controller: plays as a GameCube controller, nothing to put on the SD card
+* The menu no longer drops you to the Homebrew Channel when it runs out of memory: it restarts, says so and offers a report
+* Covers download around what's on screen first, and wait it out when GameTDB is busy
+* Harry Potter and the Goblet of Fire (GameCube): the Wii Remote works
+* Just Dance from an RVZ runs again
+* Super Mario Sunshine's 16:9/60 fps mod starts again
+* Wii Menu font, sounds and music should load again when started from the RiftWii channel (vWii)
+* A Wii with a wrong clock should be able to update and download again
 
 To test, please:
 
-1. NightFire with a Wii Remote: play into the first mission. Does the Remote keep working?
-2. Everything or Nothing from a USB drive
-3. Choose cover on a couple of games, then Back to automatic
-4. WiiSX or Wii64, and quitting back to RiftWii
+1. A wired Switch Pro Controller in the menu and a game or two
+2. Goblet of Fire with only a Wii Remote
+3. Just Dance from RVZ, Sunshine with its 16:9/60 fps mod
+4. A big library: if RiftWii ever restarts with "ran out of memory", send the report it offers
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![Choose cover](docs/screenshots/2610-choose-cover.png)
-![The Choose cover row](docs/screenshots/2610-choose-cover-row.png)
+![RiftWii ran out of memory: the report prompt](docs/screenshots/2611-out-of-memory.png)
+![Harry Potter and the Goblet of Fire's first menu, answered by a Wii Remote](docs/screenshots/2611-goblet-of-fire.png)
