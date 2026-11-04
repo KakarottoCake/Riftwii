@@ -64,8 +64,11 @@ Controls the painted parts' shape:
   while Home is in the Channels view; `channel_corners` in `settings.txt`):
   `theme` (the default) keeps this value, and `square`, `slight`, `round`
   and `rounder` use `0`, `0.5`, `1` and `2` in every theme.
-- `gloss`: `yes` or `no`. A shine across the top half of buttons, tiles
-  and option boxes. The default is `no`.
+- `gloss`: `yes` or `no`. Optional shine on picture frames and cards that
+  hold artwork. The default is `no`. Pressable controls always have a
+  shaded body, a soft white gloss and a fine inner edge, including tiles,
+  prompts, list cards, option arrows, switches and keyboard keys. The gloss
+  is quieter on dark colours. Picture frames stay flat unless this is `yes`.
 - `bar`: `dip` or `bump`. Home's bottom bar sinks in the middle with the
   clock in the dip and the date under it, as the Wii Menu's (`dip`, the
   default), or rises there with the clock above it (`bump`). A theme's own
@@ -183,7 +186,7 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `pill_primary` / `pill_primary_over` | 252x60 | The main wide button (Start) |
 | `home_button` / `home_button_over` | 264x88 | The HOME Menu's buttons |
 | `chip_off` / `chip_on` | 212x36 | An option's value box, at its default / changed |
-| `row_focus` | 548x44 | The highlighted row in a list |
+| `row_focus` | 548x44 | The glossy highlighted row in a list, with the accent ring |
 | `step_back` / `step_back_over`, `step_forward` / `step_forward_over` | 44x44 | The arrows either side of an option |
 | `switch_on` / `switch_off` | 68x40 | On/Off switches |
 | `panel_game` | 580x240 | The white panel behind a game page's list |
@@ -203,7 +206,7 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `layout_channels` | 28x28 | Rounded channel frames on Home's Layout button and picker card |
 | `layout_names` | 28x28 | Text lines on Home's Layout button and picker card |
 | `icon_star`, `icon_star_on` | 28x28 | Favourite button on a game's banner: not a favourite, a favourite |
-| `tile9`, `tile9_over`, `tile9_primary`, `tile9_primary_over` | 64x64 | The game page's and Settings' tiles, stretched with 24-pixel corners kept: plain, lit, the main one (Play), the main one lit |
+| `tile9`, `tile9_over`, `tile9_primary`, `tile9_primary_over` | 64x64 | Glossy buttons for the game page, Settings, list cards, Show chooser and prompt pills, stretched with 24-pixel corners kept: plain, lit, accent-tinted primary (Play), primary lit. Separate from the flat artwork frames. |
 | `prompt_button` | 24x24 | The round badge under a button's name in the prompts along the bottom of a screen, for a button without a picture of its own (A, B, +, -, 1, 2, HOME, C and Z have Kenney's, drawn in `glyph`) |
 | `icon_play`, `icon_mods`, `icon_cheats`, `icon_saves`, `icon_info`, `icon_help` | 28x28 | The game page's tiles: Play, Mods, Cheats, Saves, About; Help in Settings |
 | `icon_picture`, `icon_controllers`, `icon_online`, `icon_home`, `icon_sound`, `icon_power` | 28x28 | Settings' tiles: Picture, Controllers, Online, Home screen, Look and sound, Leave RiftWii |
