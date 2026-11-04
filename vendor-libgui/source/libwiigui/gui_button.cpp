@@ -13,6 +13,7 @@
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include "gui.h"
+#include <algorithm>
 #include "video.h"
 #include "transition.hpp"
 #include "gui_motion.hpp"
@@ -153,10 +154,11 @@ void GuiButton::Draw()
 
 	namespace motion = riftwii::wii::transition;
 	const bool lit = state == STATE::SELECTED || state == STATE::HELD;
-	litAmount = motion::Follow(litAmount, lit ? 1.0f : 0.0f, 47.0f);
-	if (litAmount < 0.01f) litAmount = 0.0f;
-	if (litAmount > 0.99f) litAmount = 1.0f;
-	const float scale = (1.0f + (pageDirection ? 0.08f : 0.035f) * litAmount) * motion::PressScale(pressElapsed);
+	const float hover = swell.Advance(lit);
+	litAmount = std::min(1.0f, hover);
+	const float growth = pageDirection ? 1.0f + 0.08f * hover
+		: riftwii::wii::ButtonSwellScale(GetWidth(), hover);
+	const float scale = growth * motion::PressScale(pressElapsed);
 	float offset = 0;
 	if (pageDirection)
 	{

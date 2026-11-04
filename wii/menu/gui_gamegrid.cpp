@@ -106,7 +106,7 @@ constexpr float kIconPixelsW = 128.0f, kIconPixelsH = 96.0f;
 constexpr int kChannelPixelsH = 88, kChannelGapPixelsX = 12, kChannelGapY = 10;
 // As the other views' tiles; the search button moves to the bar
 // (rift_menu.cpp), the fourth column reaching the corner it had.
-constexpr int kChannelTop = 30;
+constexpr int kChannelTop = 36;
 // Roomy spacing (grid_spacing = roomy): a tester found the grid cramped
 // beside the Wii Menu, which leaves wider gaps at the sides. The channels
 // are 7/8 the size (112 x 77, the icons scaled with them, so no longer
@@ -301,10 +301,10 @@ float GuiGameGrid::Stretch() const {
 }
 
 const GuiGameGrid::Geometry& GuiGameGrid::Geo() const {
-    // The top row starts 6 below the overscan's edge (y 24): room for the lit ring.
+    // The top row leaves room above it for the grown ring and its shadow.
     // 120 x 84, the Wii Menu's channel shape (about 1.43 to 1 on a 4:3
     // menu); clear of the search button (x 568).
-    static const Geometry names = {kNameCols, 120, 84, 61, 30, 13, 12};  // channels: channelGeo
+    static const Geometry names = {kNameCols, 120, 84, 61, 36, 13, 12};  // channels: channelGeo
     // Roomy: 9/10 the size and 18 apart, about 77 at each side, the rows
     // centred where the normal ones are.
     static const Geometry roomyNames = {kNameCols, 108, 76, 77, 40, 18, 14};
@@ -314,7 +314,7 @@ const GuiGameGrid::Geometry& GuiGameGrid::Geo() const {
         const int w = static_cast<int>(riftwii::kCoverWidth * k + 0.5f);
         const int h = static_cast<int>(riftwii::kCoverHeight * k + 0.5f);
         const int gap = k > 1.0f ? 12 : 8;
-        coverGeo = {kCoverCols, w, h, 320 - (kCoverCols * w + (kCoverCols - 1) * gap) / 2, 30, gap, 10};
+        coverGeo = {kCoverCols, w, h, 320 - (kCoverCols * w + (kCoverCols - 1) * gap) / 2, 38, gap, 10};
         return coverGeo;
     }
     if (channels) {
@@ -1154,8 +1154,9 @@ void GuiGameGrid::Draw() {
     const auto draw_tile_body = [&](int i) {
         Slot& s = slots[i];
         const bool on = i == lit;
-        const float grown = i == carrySlot ? kCarryScale : on ? 1.06f : 1.0f;
-        s.scale = riftwii::wii::transition::Follow(s.scale, grown, 40.0f);
+        const float swell = s.swell.Advance(on);
+        if (i == carrySlot) s.scale = riftwii::wii::transition::Follow(s.scale, kCarryScale, 40.0f);
+        else s.scale = 1.0f + 0.06f * swell;
         if (!on && s.scale < 1.002f) s.scale = 1.0f;  // settled: a channel's icon back on whole pixels
         const int index = ItemAt(i);  // with a game picked up, the tiles shifted round it
         const int a = peek ? PeekAlpha(TileX(i), alpha) : tileAlpha;

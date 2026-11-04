@@ -114,7 +114,8 @@ float g_mirrorY = kMirrorY;
 // and kept ready.
 constexpr int kRingPlaces = 20;
 constexpr int kRingReach = kRingPlaces / 2;
-constexpr float kRingFrontH = 236.0f;
+// Leave room for the hover at its highest point inside the top safe edge.
+constexpr float kRingFrontH = 220.0f;
 constexpr float kRingFloor = 266.0f;
 constexpr float kRingSpacing = 124.0f;
 constexpr float kRingMinRadiusX = 200.0f;
@@ -932,7 +933,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
             want.z = (d == 0 ? kPullZ : 0.0f) + kArcRadius * (std::cos(a) - 1.0f);
             want.turn = static_cast<float>(M_PI) / 2 - kArcTurn * a + (d == 0 ? 0.07f * swing * settle : 0.0f) +
                         (d == 0 && shelfFlip ? static_cast<float>(M_PI) : 0.0f);
-            want.lift = -kArcDrop * (1.0f - std::cos(a)) + (i == shelfHover ? kLift : 0.0f) +
+            want.lift = -kArcDrop * (1.0f - std::cos(a)) +
                         (d == 0 ? 3.0f * (0.5f + 0.5f * std::sin(shelfClock * 0.045f)) * settle : 0.0f);
             if (!p.placed) {
                 p = want;
@@ -949,7 +950,6 @@ void GuiGameGrid::DrawShelf(int alpha) {
             want.x = 320.0f + (d < 0 ? -off : off);
             // Turned past a half (its back was shown): on round, not back.
             want.turn = p.placed && p.turn > static_cast<float>(M_PI) ? kTau : 0.0f;
-            want.lift = i == shelfHover ? kLift : 0.0f;
         }
         if (!p.placed) {
             // Coming into reach: a spine beside its neighbour nearer the
@@ -968,7 +968,11 @@ void GuiGameGrid::DrawShelf(int alpha) {
         p.x = riftwii::wii::transition::Follow(p.x, want.x, kBoxResponseMs);
         p.z = riftwii::wii::transition::Follow(p.z, want.z, kBoxResponseMs);
         p.turn = riftwii::wii::transition::Follow(p.turn, want.turn, kBoxResponseMs);
-        p.lift = riftwii::wii::transition::Follow(p.lift, want.lift, kBoxResponseMs);
+        // Keep the shelf's positioning glide separate from the springy
+        // hover, so following the target does not erase its overshoot.
+        const float previousHover = p.hover.Amount();
+        const float hover = p.hover.Advance(i == shelfHover);
+        p.lift = riftwii::wii::transition::Follow(p.lift - kLift * previousHover, want.lift, kBoxResponseMs) + kLift * hover;
         if (want.turn == kTau && p.turn > kTau - 0.01f) p.turn = 0.0f;
     }
     // Include newly placed boxes too, before drawing them or recording
@@ -1281,6 +1285,7 @@ void GuiGameGrid::DrawShelfCaption(int alpha) {
 void GuiGameGrid::DrawRing(int alpha) {
     const int n = Count();
     if (n <= 0) return;
+    if (static_cast<int>(poses.size()) != n) poses.assign(n, BoxPose{});
     const float elapsedFrames = riftwii::wii::transition::FrameMilliseconds() * (60.0f / 1000.0f);
     shelfClock = std::fmod(shelfClock + elapsedFrames, kSwayCycle);
     if (shelfFlipFor != focus) {
@@ -1361,10 +1366,12 @@ void GuiGameGrid::DrawRing(int alpha) {
         const float others = 0.30f + 0.42f * std::pow(near, 1.6f);
         const float front = std::max(0.0f, 1.0f - std::fabs(p.angle) / step);
         const float scale = others + (1.0f - others) * front;
-        const float h = kRingFrontH * scale;
+        const float hover = poses[p.index].hover.Advance(p.index == shelfHover);
+        const float h = kRingFrontH * scale * (1 + 0.04f * hover);
         const float cx = 320.0f + radiusX * std::sin(p.angle);
         float foot = kRingFloor - kRingRise * (1.0f - near);
-        if (p.index == shelfHover) foot -= 8.0f;
+        // The ring is already tall: four percent leaves the caption clear.
+        foot -= 8.0f * hover;
         if (p.index == focus) foot -= 3.0f * (0.5f + 0.5f * std::sin(shelfClock * 0.045f)) * settle;
         const u8 shade = static_cast<u8>(255 * (0.36f + 0.64f * near));
         const GXColor lit = {shade, shade, shade, static_cast<u8>(alpha)};

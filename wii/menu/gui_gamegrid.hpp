@@ -10,6 +10,7 @@
 #include "riftwii/homeinput.hpp"
 #include "riftwii/settingsfile.hpp"
 #include "skin.hpp"
+#include "gui_motion.hpp"
 
 // The home screen's games: a page of 12 tiles like the Wii Menu's
 // channels, either names (4x3 wide tiles) or box art (6x2 covers, the
@@ -192,6 +193,7 @@ private:
         GuiText* badge;
         GuiText* mods;
         float scale = 1.0f;
+        riftwii::wii::HoverSwell swell;
     };
     struct Geometry {
         int cols, tileW, tileH, left, top, gapX, gapY;
@@ -296,6 +298,7 @@ private:
     struct BoxPose {
         float x = 320.0f, z = 0.0f, turn = 0.0f, lift = 0.0f;
         bool placed = false;
+        riftwii::wii::HoverSwell hover;
     };
     struct SpineRect {
         int index;

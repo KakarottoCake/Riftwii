@@ -6,10 +6,31 @@
 #include <cmath>
 
 #include "menutheme.hpp"
+#include "skin.hpp"
 #include "transition.hpp"
 #include "video.h"
 
 namespace riftwii::wii {
+
+float HoverSwell::Advance(bool selected) {
+    if (selected != selected_) {
+        selected_ = selected;
+        from_ = amount_;
+        elapsed_ = 0;
+    }
+    const float duration = selected_ ? 240.0f : 180.0f;
+    elapsed_ = std::min(duration, elapsed_ + transition::FrameMilliseconds());
+    const float progress = elapsed_ / duration;
+    const float eased = selected_ ? transition::EaseBack(progress) : transition::EaseOut(progress);
+    const float target = selected_ ? 1.0f : 0.0f;
+    amount_ = from_ + (target - from_) * eased;
+    return amount_;
+}
+
+float ButtonSwellScale(float width, float amount) {
+    // At most eight pixels added at either end, even for a full-width Play.
+    return 1 + std::min(0.06f, 16.0f / std::max(1.0f, width)) * amount;
+}
 
 void DrawButtonGlint(float x, float y, float w, float h, float radius, int alpha) {
     const float phase = transition::Cycle(3500.0f);

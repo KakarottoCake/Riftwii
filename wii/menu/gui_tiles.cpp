@@ -18,7 +18,6 @@ namespace skin = riftwii::wii::skin;
 namespace {
 
 constexpr int kShadow = 8;       // the tile textures' margin around the card
-constexpr float kLiftScale = 0.035f;  // how much a lit tile grows
 constexpr int kPad = 12;
 constexpr int kIcon = 28;
 constexpr u32 kWpadA = WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A;
@@ -70,7 +69,10 @@ void GuiTiles::Refresh() {
         v->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
         value.push_back(v);
     }
-    if (static_cast<int>(lift.size()) != Count()) lift.assign(Count(), 0.0f);
+    if (static_cast<int>(lift.size()) != Count()) {
+        lift.assign(Count(), 0.0f);
+        swell.assign(Count(), riftwii::wii::HoverSwell{});
+    }
     if (focus >= Count()) focus = Count() > 0 ? Count() - 1 : 0;
     dirty = true;
 }
@@ -165,6 +167,11 @@ void GuiTiles::Layout(int i) {
     value[i]->SetPosition(textX, labelY + (s.primary ? 28 : 23));
 }
 
+float GuiTiles::SwellScale(int index) const {
+    if (index < 0 || index >= Count()) return 1;
+    return riftwii::wii::ButtonSwellScale((*tiles)[index].w, swell[index].Amount());
+}
+
 void GuiTiles::Draw() {
     if (!IsVisible() || !tiles) return;
     riftwii::wii::DrawTrace trace("the page's tiles");
@@ -178,15 +185,17 @@ void GuiTiles::Draw() {
     for (int i = 0; i < Count(); ++i) {
         const TileSpec& s = (*tiles)[i];
         float& l = lift[i];
-        l = riftwii::wii::transition::Follow(l, i == lit ? 1.0f : 0.0f, 47.0f);
-        if (l < 0.01f) l = 0.0f;
-        if (l > 0.99f) l = 1.0f;
+        l = std::clamp(swell[i].Advance(i == lit), 0.0f, 1.0f);
         if (s.hidden) continue;
         // Lit, the tile grows a little about its middle and its ring fades in.
-        const float grow = 1.0f + kLiftScale * l;
+        const float grow = SwellScale(i);
         Menu_PushCamera(PressedScale(i), s.x + s.w / 2.0f, s.y + s.h / 2.0f);
         const float w = s.w * grow, h = s.h * grow;
-        const float x = s.x - (w - s.w) / 2, y = s.y - (h - s.h) / 2;
+        f32 safeX, safeW;
+        Menu_SafeArea(&safeX, &safeW);
+        // At an outer edge the growth goes inward, including its shadow.
+        const float x = std::clamp(s.x - (w - s.w) / 2, safeX + 32 + kShadow, safeX + safeW - 32 - kShadow - w);
+        const float y = std::clamp(s.y - (h - s.h) / 2, 24.0f + kShadow, 456.0f - kShadow - h);
         const skin::Tex& base = s.primary ? skin::tile9Primary : skin::tile9;
         const skin::Tex& over = s.primary ? skin::tile9PrimaryOver : skin::tile9Over;
         const int tileAlpha = s.dim ? alpha * 3 / 4 : alpha;

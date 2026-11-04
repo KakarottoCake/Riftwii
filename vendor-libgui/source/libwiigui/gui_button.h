@@ -1,6 +1,8 @@
 #ifndef LIBWIIGUI_BUTTON_H
 #define LIBWIIGUI_BUTTON_H
 
+#include "gui_motion.hpp"
+
 //!Display, manage, and manipulate buttons in the GUI. Buttons can have images, icons, text, and sound set (all of which are optional)
 class GuiButton : public GuiElement {
 public:
@@ -79,6 +81,7 @@ protected:
 	int pageDirection = 0;  //!< RiftWii: an edge arrow, -1 left or +1 right
 	float pressElapsed = -1.0f;  //!< RiftWii: a press continues after ResetState
 	float litAmount = 0.0f;  //!< RiftWii: how lit, eased (Draw)
+	riftwii::wii::HoverSwell swell;
 	GuiImage * image; //!< Button image (default)
 	GuiImage * imageOver; //!< Button image for STATE_SELECTED
 	GuiImage * imageHold; //!< Button image for STATE_HELD

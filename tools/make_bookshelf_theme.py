@@ -40,14 +40,14 @@ RNG = np.random.default_rng(1206)
 WALL_STATE = {}
 
 # Home's cover rows (wii/menu/gui_gamegrid.cpp): 80x112 covers, rounded
-# to the nearest pixel after scaling, from y 30 with a 10-pixel gap.
+# to the nearest pixel after scaling, from y 38 with a 10-pixel gap.
 # Widescreen uses 1.2 instead of 0.925, so its shelves stand lower too.
 COVER_ROW_BOTTOMS = {
-    640: (30 + 104, 30 + 104 + 10 + 104),
-    856: (30 + 134, 30 + 134 + 10 + 134),
+    640: (38 + 104, 38 + 104 + 10 + 104),
+    856: (38 + 134, 38 + 134 + 10 + 134),
 }
-# Home's channels: three rows of 88 from y 30, 10 apart (wii/menu/gui_gamegrid.cpp).
-CHANNEL_ROW_BOTTOMS = (30 + 88, 30 + 88 + 10 + 88, 30 + 3 * 88 + 2 * 10)
+# Home's channels: three rows of 88 from y 36, 10 apart (wii/menu/gui_gamegrid.cpp).
+CHANNEL_ROW_BOTTOMS = (36 + 88, 36 + 88 + 10 + 88, 36 + 3 * 88 + 2 * 10)
 # The shelf view's plank (kShelfY in wii/menu/gui_shelf.cpp).
 SHELF_VIEW_BOTTOM = 248
 
@@ -57,6 +57,7 @@ author = RiftWii
 
 [shape]
 corners = 1
+bar = dip
 shelf_grain = yes
 gloss = yes
 # The HOME Menu as iOS 6 drew things (iBooks kept its books on a wooden shelf).

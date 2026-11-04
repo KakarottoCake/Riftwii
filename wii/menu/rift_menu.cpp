@@ -3475,7 +3475,7 @@ public:
 			const TileSpec& tile = tiles_[index];
 			Menu_PushCamera(choices_.PressedScale(index), tile.x + tile.w / 2.0f, tile.y + tile.h / 2.0f);
 			const float lift = choices_.Lift(index);
-			const float grow = 1.0f + 0.035f * lift;
+			const float grow = choices_.SwellScale(index);
 			const float w = tile.w * grow, h = tile.h * grow;
 			const float x = tile.x - (w - tile.w) / 2, y = tile.y - (h - tile.h) / 2;
 			const skin::Tex& base = index == current_ ? skin::tile9Primary : skin::tile9;
@@ -11585,9 +11585,10 @@ public:
 		riftwii::wii::DrawTrace trace("the page's cover");
 		DrawDisc();
 		const float lit = litGrid && litTile >= 0 ? litGrid->Lift(litTile) : 0.0f;
-		const float grow = 1.0f + 0.035f * lit;
+		const float grow = litGrid && litTile >= 0 ? litGrid->SwellScale(litTile) : 1.0f;
 		const float w = kHeroW * grow, h = kHeroH * grow;
-		const float x = kHeroX - (w - kHeroW) / 2, y = kHeroY - (h - kHeroH) / 2;
+		// The cover already sits at the safe left edge: grow inward there.
+		const float x = static_cast<float>(kHeroX), y = kHeroY - (h - kHeroH) / 2;
 		const auto ring = [&](float rx, float ry, float rw, float rh) {
 			if (lit <= 0.0f) return;
 			const GXColor c = skin::WithAlpha(skin::kAccent, static_cast<int>(255 * lit));
