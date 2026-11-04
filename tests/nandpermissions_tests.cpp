@@ -29,6 +29,12 @@ bool fail_write = false;
 bool fail_restore = false;
 bool damage_other = false;  // the original word goes back with the other halfword damaged
 bool damage_opening = false;  // the opening write lands with the other halfword damaged
+// As on a console: a MEM_PROT write lands only once the register is read
+// again, and while protection is on, IOS's code reads as a fill pattern
+// and drops writes.
+bool posted_protection = false;
+bool protection_pending = false;
+u16 protection_next = 0;
 unsigned writes = 0;
 
 void* map_at(u32 address, std::size_t size) {
@@ -48,14 +54,28 @@ void* map_at(u32 address, std::size_t size) {
 }  // namespace
 
 int IOS_GetVersion() { return ios; }
-u16 read16(u32) { return protection; }
+u16 read16(u32) {
+    if (protection_pending) {
+        protection = protection_next;
+        protection_pending = false;
+    }
+    return protection;
+}
 u32 read32(u32 address) {
     if (address == 0x0D800064) return hardware ? 0xFFFFFFFF : 0;
-    return address == kWord ? current : 0;
+    if (address != kWord) return 0;
+    return protection == 2 ? current : 0x9ABCDEF0u;
 }
-void write16(u32, u16 value) { protection = value; }
+void write16(u32, u16 value) {
+    if (posted_protection) {
+        protection_next = value;
+        protection_pending = true;
+    } else {
+        protection = value;
+    }
+}
 void write32(u32 address, u32 value) {
-    if (address != kWord) return;
+    if (address != kWord || protection != 2) return;
     ++writes;
     if (value == kBefore && damage_other) current = 0xDEAD0000u | (kBefore & 0x0000FFFFu);
     else if (value != kBefore && damage_opening) current = 0xDEAD0000u | (value & 0x0000FFFFu);
@@ -164,6 +184,16 @@ int main() {
     check(saved->opened == 1 && nand_permission_note_valid(*saved));
     close_nand_permissions("test");
     check(current == kBefore && saved->magic == 0);
+    // MEM_PROT writes that land late (a console, 3 Nov): the opening and
+    // the close wait until protection is off before touching IOS's code.
+    posted_protection = true;
+    check(open_nand_permissions("test"));
+    check(current == 0x428BE001u);
+    close_nand_permissions("test");
+    check(current == kBefore && saved->magic == 0);
+    posted_protection = false;
+    read16(0x0D8B420A);  // the last restore of the register lands
+    check(protection == 1);
     check(open_nand_permissions("test"));
     saved->word = 0x80000000;
     saved->checksum = nand_permission_checksum(*saved);

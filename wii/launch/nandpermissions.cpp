@@ -23,6 +23,23 @@ u32 g_recovery_word = 0;
 
 void FlushNote() { DCFlushRange(note(), 32); }
 
+// MEM_PROT keeps IOS's code from the PowerPC: while it is on, reads there
+// give a fill pattern (0x9abcdef0, 0x12345678) and writes are dropped.
+// Turning it off counts only once the memory controller holds the new
+// value, so the register is read back until it does before IOS's code is
+// touched. On a console (3 Nov) the close read the word on the next
+// instruction, got the fill pattern and left IOS58's check open; the
+// opening only worked because its search ran first.
+constexpr u32 kMemProt = 0x0D8B420A;
+
+u16 UnprotectIosCode() {
+    const u16 was = read16(kMemProt);
+    write16(kMemProt, 2);
+    for (int tries = 0; tries < 1000 && read16(kMemProt) != 2; ++tries) {
+    }
+    return was;
+}
+
 // Only the patched halfword is ours, as in the channel installer (#379):
 // IOS may change the other halfword of the same word, which must neither
 // block the close nor be undone. The word is still read and written
@@ -36,8 +53,7 @@ void FlushNote() { DCFlushRange(note(), 32); }
 // log.
 bool Restore(u32& found) {
     const NandPermissionNote saved = *note();
-    const u32 protection = read16(0x0D8B420A);
-    write16(0x0D8B420A, 2);
+    const u16 protection = UnprotectIosCode();
     found = read32(saved.word);
     u32 closed = 0;
     const bool ours = nand_check_closed(found, saved.before, saved.shift, closed);
@@ -46,7 +62,7 @@ bool Restore(u32& found) {
     const bool restored = ours && saved.opened
                               ? nand_check_half(now, saved.shift) == nand_check_half(saved.before, saved.shift)
                               : now == saved.before;
-    write16(0x0D8B420A, protection);
+    write16(kMemProt, protection);
     if (restored || !ours) {
         note()->magic = 0;
         FlushNote();
@@ -96,11 +112,10 @@ bool open_nand_permissions(const char* who) {
     }
     constexpr u32 kFrom = 0xD3400000, kTo = 0xD4000000;
     logf("%s: checking IOS%d's NAND permission code before opening it.\n", who, IOS_GetVersion());
-    const u16 protection = read16(0x0D8B420A);
-    write16(0x0D8B420A, 2);
+    const u16 protection = UnprotectIosCode();
     std::size_t at = 0;
     if (!find_nand_check(reinterpret_cast<const u8*>(kFrom), kTo - kFrom, at)) {
-        write16(0x0D8B420A, protection);
+        write16(kMemProt, protection);
         logf("%s: IOS%d's NAND permission check was not found.\n", who, IOS_GetVersion());
         return false;
     }
@@ -121,14 +136,19 @@ bool open_nand_permissions(const char* who) {
     // One aligned 32-bit store: smaller uncached stores have hung consoles.
     write32(store.word, after);
     const u32 read_back = read32(store.word);
-    if (read_back != after) write32(store.word, before);
-    write16(0x0D8B420A, protection);
+    // A failed own write may be partial, the other halfword included:
+    // rollback writes the whole original word, and the note goes only once
+    // that whole word is back (unlike Restore, where the other halfword is
+    // IOS's to change while the check is open). It is read back before
+    // protection returns, which would hide it behind the fill pattern.
+    bool rolled_back = false;
     if (read_back != after) {
-        // A failed own write may be partial, the other halfword included:
-        // rollback writes the whole original word, and the note goes only
-        // once that whole word is back (unlike Restore, where the other
-        // halfword is IOS's to change while the check is open).
-        if (read32(store.word) == before) {
+        write32(store.word, before);
+        rolled_back = read32(store.word) == before;
+    }
+    write16(kMemProt, protection);
+    if (read_back != after) {
+        if (rolled_back) {
             note()->magic = 0;
             FlushNote();
         }
