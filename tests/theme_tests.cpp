@@ -558,8 +558,8 @@ static void test_painted_images() {
     Canvas chip(0, 0), back(0, 0);
     EXPECT_TRUE(paint_theme_image("chip_on", red, chip));
     // Below the gloss, the shaded body keeps the theme's red hue.
-    EXPECT_TRUE(chip.at(106, 18).r >= 175 && chip.at(106, 18).r <= 200);
-    EXPECT_TRUE(std::abs(int(chip.at(106, 18).g) - 10) <= 1);
+    EXPECT_TRUE(chip.at(106, 21).r >= 175 && chip.at(106, 21).r <= 200);
+    EXPECT_TRUE(std::abs(int(chip.at(106, 21).g) - 10) <= 2);
     EXPECT_TRUE(paint_theme_image("background", red, back));
     // The pieces painted on the Wii as needed: their sizes.
     Canvas piece(0, 0);

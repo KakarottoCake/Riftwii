@@ -59,11 +59,33 @@ struct Painter {
 
     // Pressables always catch the light, independently of the theme's
     // optional shine on picture frames. White stays faint on dark bodies.
+    // As the Wii's buttons: the upper half lit nearly white down to a soft
+    // horizon, where the light drops to a fraction at once, so the shine
+    // reads even on a white button (its lower half is a shade darker).
     void ButtonGloss(Canvas& c, float x, float y, float w, float h, float radius, Rgba fill) const {
         const int brightness = (fill.r + fill.g + fill.b) / 3;
-        const auto strength = static_cast<std::uint8_t>(40 + brightness * 110 / 255);
-        c.rounded_gradient(x + 2, y + 2, w - 4, h * 0.45f, std::max(0.0f, radius - 2),
-                           Rgba{255, 255, 255, strength}, Rgba{255, 255, 255, 0});
+        const int top = 50 + brightness * 170 / 255;
+        // The light keeps two pixels inside the button's own outline, row by
+        // row: a shorter rounded box for it has tighter corners than a
+        // pill's round ends and showed past them as a squarish patch.
+        const float left = x + 2, width = w - 4, height = h - 4;
+        const float r = std::min(std::max(0.0f, radius - 2), std::min(width, height) / 2);
+        // Rows from the light's top (two under the button's) to the middle.
+        const int horizon = static_cast<int>(h * 0.5f) - 2;
+        for (int row = 0; row < horizon + 2; ++row) {
+            const float yy = row + 0.5f;  // the row's middle, from the light's top
+            float cut = 0;  // how far the rounded corners take in from each side
+            if (yy < r) cut = r - std::sqrt(std::max(0.0f, r * r - (r - yy) * (r - yy)));
+            int alpha = 0;
+            if (row < horizon) {
+                alpha = top - (top * 9 / 20) * row / std::max(1, horizon - 1);
+            } else {
+                // Under the horizon the light fades out over two pixels: a
+                // soft edge on a TV rather than a cut.
+                alpha = row == horizon ? top / 5 : top / 10;
+            }
+            c.rect(left + cut, y + 2 + row, width - 2 * cut, 1, Rgba{255, 255, 255, static_cast<std::uint8_t>(alpha)});
+        }
     }
 
     // A button, as the Wii Menu's: the card's colour shaded down, a gloss
@@ -79,7 +101,9 @@ struct Painter {
         radius = R(radius);
         if (over) c.shadow(x - 1, y - 1, fw + 2, fh + 2, radius + 1, margin - 1.0f, glow, 2.0f);
         c.shadow(x, y + 2, fw, fh, radius, 4, shadow, 3.0f);
-        c.rounded_gradient(x, y, fw, fh, radius, Shade(fill, 1.0f), Shade(fill, 0.89f));
+        // A shade under the fill at the top, more at the foot: the gloss
+        // brings the top half back to the fill's own light.
+        c.rounded_gradient(x, y, fw, fh, radius, Shade(fill, 0.94f), Shade(fill, 0.84f));
         ButtonGloss(c, x, y, fw, fh, radius, fill);
         const auto innerLight = static_cast<std::uint8_t>(35 + (fill.r + fill.g + fill.b) * 135 / (3 * 255));
         c.rounded_border(x + 1.5f, y + 1.5f, fw - 3, fh - 3, std::max(0.0f, radius - 1.5f), 1.0f,
