@@ -136,7 +136,9 @@ std::uint32_t find_gc_si_probe(const std::vector<CodeRange>& text, std::uint32_t
 // frame big enough for an OSContext, the callback loaded from small data
 // and tested, two calls that each get the frame's context (OSClearContext,
 // OSSetCurrentContext), then the callback, loaded again from the same
-// word, called through LR or CTR. PADSetSamplingCallback takes its address
+// word, called through LR or CTR. The same clear/set pair then restores
+// the interrupted context saved from r4. Accepts frame setup before or
+// after mflr, and signed or unsigned zero comparisons. The SDK takes its address
 // to register it, so the address must be built somewhere in the code. 0
 // when there is no such function or more than one.
 std::uint32_t find_gc_pad_sampling(const std::vector<CodeRange>& text);

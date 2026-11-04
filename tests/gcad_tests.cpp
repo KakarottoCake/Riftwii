@@ -13,6 +13,7 @@
 #include "rtgcad.h"
 #include "riftwii/symsearch.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -1563,7 +1564,8 @@ static void TestGcSiProbeSearch() {
 // frame of `frame` bytes, the callback tested, `context_calls` calls given
 // the frame's context, then the callback through LR or CTR.
 static void sampling_handler(Asm& code, std::uint32_t frame, unsigned context_calls, bool through_ctr) {
-    const std::uint32_t context_fn = code.base + 0x1000;
+    const std::uint32_t clear_context = code.base + 0x1000;
+    const std::uint32_t set_context = code.base + 0x1100;
     code.op(0x7C0802A6u);                                   // mflr r0
     code.op(0x90010004u);                                   // stw r0,4(r1)
     code.op(0x94210000u | ((0x10000u - frame) & 0xFFFFu));  // stwu r1,-frame(r1)
@@ -1574,15 +1576,15 @@ static void sampling_handler(Asm& code, std::uint32_t frame, unsigned context_ca
     code.op(0x41820030u);                                   // beq past the call
     for (unsigned i = 0; i < context_calls; ++i) {
         code.op(0x38610010u);  // addi r3,r1,16
-        code.bl(context_fn);
+        code.bl(i == 0 ? clear_context : set_context);
     }
     code.op(0x818D9000u);                              // lwz r12,-0x7000(r13)
     code.op(through_ctr ? 0x7D8903A6u : 0x7D8803A6u);  // mtctr r12 / mtlr r12
     code.op(through_ctr ? 0x4E800421u : 0x4E800021u);  // bctrl / blrl
     code.op(0x38610010u);                              // addi r3,r1,16
-    code.bl(context_fn);
+    code.bl(clear_context);
     code.op(0x7FE3FB78u);  // mr r3,r31
-    code.bl(context_fn);
+    code.bl(set_context);
     for (unsigned i = 0; i < 8; ++i) code.op(0x60000000u);  // nop: the epilogue's room
     code.blr();
 }
@@ -1628,6 +1630,122 @@ static void TestGcPadSamplingSearch() {
     take_address(twice, twice.base);
     take_address(twice, second);
     EXPECT_EQ(find(twice), 0u);
+}
+
+// Instruction fingerprints from the locally owned discs. ProStreet is a Wii
+// game, but its SDK still carries PAD's GameCube sampling handler. Its
+// frame-first, cmpwi/bctrl layout is a real variant the old finder missed.
+static void TestGcPadSamplingDiscWords() {
+    struct Fixture {
+        std::uint32_t address;
+        std::size_t callback_word;
+        std::vector<std::uint32_t> words;
+    };
+    const Fixture fixtures[] = {
+        // Harry Potter and the Goblet of Fire.
+        {0x8020D6C8u, 5, {
+            0x7C0802A6u, 0x90010004u, 0x9421FD20u, 0x93E102DCu,
+            0x3BE40000u, 0x800D918Cu, 0x28000000u, 0x41820030u,
+            0x38610010u, 0x4BFF2171u, 0x38610010u, 0x4BFF1FA1u,
+            0x818D918Cu, 0x7D8803A6u, 0x4E800021u, 0x38610010u,
+            0x4BFF2155u, 0x7FE3FB78u, 0x4BFF1F85u, 0x800102E4u,
+            0x83E102DCu, 0x382102E0u, 0x7C0803A6u, 0x4E800020u
+        }},
+        // 007 - Nightfire.
+        {0x8055B738u, 5, {
+            0x7C0802A6u, 0x90010004u, 0x9421FD20u, 0x93E102DCu,
+            0x3BE40000u, 0x800D8AE8u, 0x28000000u, 0x41820030u,
+            0x38610010u, 0x4BFF6B4Du, 0x38610010u, 0x4BFF693Du,
+            0x818D8AE8u, 0x7D8803A6u, 0x4E800021u, 0x38610010u,
+            0x4BFF6B31u, 0x7FE3FB78u, 0x4BFF6921u, 0x800102E4u,
+            0x83E102DCu, 0x382102E0u, 0x7C0803A6u, 0x4E800020u
+        }},
+        // 007 - Everything or Nothing.
+        {0x80693D78u, 4, {
+            0x7C0802A6u, 0x90010004u, 0x9421FD28u, 0x9081000Cu,
+            0x800D84A4u, 0x28000000u, 0x41820030u, 0x38610010u,
+            0x4BFF6251u, 0x38610010u, 0x4BFF6081u, 0x818D84A4u,
+            0x7D8803A6u, 0x4E800021u, 0x38610010u, 0x4BFF6235u,
+            0x8061000Cu, 0x4BFF6065u, 0x800102DCu, 0x382102D8u,
+            0x7C0803A6u, 0x4E800020u, 0x7C0802A6u, 0x90010004u
+        }},
+        // 007 - Agent Under Fire (v1.01).
+        {0x80690970u, 5, {
+            0x7C0802A6u, 0x90010004u, 0x9421FD20u, 0x93E102DCu,
+            0x3BE40000u, 0x800D830Cu, 0x28000000u, 0x41820030u,
+            0x38610010u, 0x4BFF4FB9u, 0x38610010u, 0x4BFF4DE9u,
+            0x818D830Cu, 0x7D8803A6u, 0x4E800021u, 0x38610010u,
+            0x4BFF4F9Du, 0x7FE3FB78u, 0x4BFF4DCDu, 0x800102E4u,
+            0x83E102DCu, 0x382102E0u, 0x7C0803A6u, 0x4E800020u
+        }},
+        // 007 - From Russia with Love.
+        {0x8001AE28u, 5, {
+            0x7C0802A6u, 0x90010004u, 0x9421FD20u, 0x93E102DCu,
+            0x3BE40000u, 0x800DB124u, 0x28000000u, 0x41820030u,
+            0x38610010u, 0x4BFEEA4Du, 0x38610010u, 0x4BFEE87Du,
+            0x818DB124u, 0x7D8803A6u, 0x4E800021u, 0x38610010u,
+            0x4BFEEA31u, 0x7FE3FB78u, 0x4BFEE861u, 0x800102E4u,
+            0x83E102DCu, 0x382102E0u, 0x7C0803A6u, 0x4E800020u
+        }},
+        // ProStreet (Wii).
+        {0x80513F80u, 5, {
+            0x9421FD20u, 0x7C0802A6u, 0x900102E4u, 0x93E102DCu,
+            0x7C9F2378u, 0x800DE1D4u, 0x2C000000u, 0x41820030u,
+            0x38610008u, 0x4BFF5C0Du, 0x38610008u, 0x4BFF59DDu,
+            0x818DE1D4u, 0x7D8903A6u, 0x4E800421u, 0x38610008u,
+            0x4BFF5BF1u, 0x7FE3FB78u, 0x4BFF59C1u, 0x800102E4u,
+            0x83E102DCu, 0x7C0803A6u, 0x382102E0u, 0x4E800020u
+        }},
+    };
+    const auto find = [](const Asm& input) {
+        const auto bytes = input.bytes();
+        return riftwii::find_gc_pad_sampling({{input.base, bytes.data(), bytes.size()}});
+    };
+    for (const Fixture& fixture : fixtures) {
+        Asm code{fixture.address, fixture.words};
+        take_address(code, fixture.address);
+        EXPECT_EQ(find(code), fixture.address);
+        Asm unregistered{fixture.address, fixture.words};
+        EXPECT_EQ(find(unregistered), 0u);
+
+        // Registration may be in another section. Do not require bytes
+        // past the handler's return, or borrow them from the next section.
+        Asm function{fixture.address, fixture.words};
+        const auto end = std::find(function.words.begin(), function.words.end(), 0x4E800020u);
+        function.words.erase(end + 1, function.words.end());
+        const auto function_bytes = function.bytes();
+        Asm registration{fixture.address + 0x100, {}};
+        take_address(registration, fixture.address);
+        const auto registration_bytes = registration.bytes();
+        EXPECT_EQ(riftwii::find_gc_pad_sampling({
+                      {function.base, function_bytes.data(), function_bytes.size()},
+                      {registration.base, registration_bytes.data(), registration_bytes.size()}}),
+                  fixture.address);
+
+        const bool frame_first = fixture.words[0] != 0x7C0802A6u;
+        const std::size_t test = fixture.callback_word;
+        // Do not relax the callback slot, its zero test, the context's
+        // location, the indirect call or the repeated clear/set pair.
+        for (const std::size_t index : {test - 1, test + 1, test + 2, test + 5, test + 7,
+                                        test + 8, test + 9, test + 10, test + 11, test + 12, test + 13}) {
+            Asm changed = code;
+            changed.words[index] ^= 4u;
+            EXPECT_EQ(find(changed), 0u);
+        }
+        Asm small = code;
+        small.words[frame_first ? 0 : 2] = 0x9421FF00u;
+        EXPECT_EQ(find(small), 0u);
+        Asm truncated{fixture.address, fixture.words};
+        truncated.words.resize(test + 13);
+        take_address(truncated, fixture.address);
+        EXPECT_EQ(find(truncated), 0u);
+        if (frame_first) {
+            // The mflr one word into the function is not a callable entry.
+            Asm inside{fixture.address, fixture.words};
+            take_address(inside, fixture.address + 4);
+            EXPECT_EQ(find(inside), 0u);
+        }
+    }
 }
 
 // Self-authored disabled-port block, with a shifted channel mask and
@@ -1708,6 +1826,7 @@ int main() {
     TestGcSiTypeCacheSearch();
     TestGcSiProbeSearch();
     TestGcPadSamplingSearch();
+    TestGcPadSamplingDiscWords();
     TestGcPadEnabledSearch();
     if (g_failures == 0) std::cout << "gcad tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
