@@ -23,6 +23,8 @@ constexpr int kPanelX = 34, kPanelY = 102;
 constexpr int kKeyLeft = 60, kKeyPitch = 52, kKeyW = 48, kKeyH = 30;
 constexpr int kFirstRowY = 190, kRowPitch = 35, kActionRowY = 334, kActionH = 34;
 constexpr int kRows = 5;  // four of letters, one of actions
+// The PIN mode's keypad: wider keys and bigger digits than the letters'.
+constexpr int kPinKeyW = 100, kPinPitch = 108, kPinCaptionSize = 22;
 // The box above the card (a cheat value's note, Home's live matches): clear
 // of a TV's overscan at the top, ending above the card (kPanelY 102).
 constexpr int kBoxY = 24, kBoxH = 70;
@@ -74,11 +76,28 @@ void GuiSearchKeys::Build(const std::string& titleText, const std::string& noteT
     height = screenheight;
     selectable = true;
     const int wide = 4 * kKeyPitch - 4, mid = 2 * kKeyPitch - 4;
-    if (hex || pin) {
+    if (pin) {
+        // A phone's (and a cash machine's) keypad, in the middle of the card:
+        // 1 2 3 / 4 5 6 / 7 8 9 / _ 0 _, filling the four rows above the
+        // action row. Del joins the actions, so the blanks beside 0 stay blank.
+        const char* const rows[4] = {"123", "456", "789", " 0 "};
+        const int padLeft = kKeyLeft + (10 * kKeyPitch - 4 - (2 * kPinPitch + kPinKeyW)) / 2;
+        for (int r = 0; r < 4; ++r) {
+            for (int col = 0; col < 3; ++col) {
+                const char digit = rows[r][col];
+                if (digit == ' ') continue;
+                keys.push_back({std::string(1, digit), digit, Key::Act::Type, r, padLeft + col * kPinPitch, kPinKeyW,
+                                nullptr, kPinCaptionSize});
+            }
+        }
+        keys.push_back({tr("Del"), 0, Key::Act::Back, 4, kKeyLeft, mid, nullptr});
+        keys.push_back({tr("Clear"), 0, Key::Act::Clear, 4, kKeyLeft + 2 * kKeyPitch, mid, nullptr});
+        keys.push_back({tr("Cancel"), 0, Key::Act::Cancel, 4, kKeyLeft + 4 * kKeyPitch, mid, nullptr});
+        keys.push_back({tr("OK"), 0, Key::Act::Search, 4, kKeyLeft + 6 * kKeyPitch, wide, nullptr});
+    } else if (hex) {
         // Two rows of digits; the action row two rows down, as the letters'.
-        // A PIN has the first row only.
         const char* const rows[2] = {"0123456789", "ABCDEF"};
-        for (int r = 0; r < (pin ? 1 : 2); ++r) {
+        for (int r = 0; r < 2; ++r) {
             int col = 0;
             for (const char* p = rows[r]; *p; ++p, ++col)
                 keys.push_back({std::string(1, *p), *p, Key::Act::Type, r, kKeyLeft + col * kKeyPitch, kKeyW, nullptr});
@@ -118,7 +137,7 @@ void GuiSearchKeys::Build(const std::string& titleText, const std::string& noteT
         // Translated action names share the same keys as their short
         // English labels. Fit them before centring, as the page tiles do.
         const int textRoom = k.w - 8;
-        for (int size = 18; size >= 12; --size) {
+        for (int size = k.captionSize; size >= 12; --size) {
             k.captionSize = size;
             k.caption->SetFontSize(size);
             if (k.caption->GetTextWidth() <= textRoom) break;
@@ -126,7 +145,7 @@ void GuiSearchKeys::Build(const std::string& titleText, const std::string& noteT
         k.caption->SetMaxWidth(textRoom);
     }
     // Search (or OK) when there is text (A straight away), else Q, the
-    // first letter (0 in hex).
+    // first letter (0 in hex, 1 on the PIN pad).
     focus = text.empty() ? (hex || pin ? 0 : 10) : static_cast<int>(keys.size()) - 1;
     if (!noteText.empty()) {
         note = new GuiText(noteText.c_str(), 16, skin::kInk);
@@ -261,6 +280,10 @@ void GuiSearchKeys::Press(const Key& k) {
         if (Live(k) && text.size() < maxLength) {
             const char typed = naming ? riftwii::name_key_char(k.ch, shift) : k.ch;
             text += typed;
+            // The fourth digit lights OK (the last key): from the 0 alone at
+            // the bottom, Down would otherwise land on Cancel, the nearest
+            // action, and lose what was typed.
+            if (pin && text.size() == maxLength) focus = static_cast<int>(keys.size()) - 1;
         }
         break;
     case Key::Act::Back:

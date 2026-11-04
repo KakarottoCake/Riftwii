@@ -3812,6 +3812,48 @@ static bool AskParentalPin(const std::string& why)
 	return false;
 }
 
+// A new PIN that is among the first a child would try: what to say about
+// it, or "" for any other PIN.
+static std::string GuessablePinWarning(const std::string& pin)
+{
+	if (pin == "0000" || pin == "1234")
+		return tr("I think your kids are going to guess the passcode correctly. Are you sure you want to use it?");
+	if (pin == "1337")
+		return tr("If your kid is a hacker, they're going to guess the passcode correctly. Are you sure you want to use it?");
+	return std::string();
+}
+
+// Two of Nintendo's own discs that are not games: the one made to wipe a
+// Wii's system memory (007E01) and the Wii Startup Disc (RAAE01). Starting
+// one asks twice whether the player means it; a No at either question
+// leaves them on the game's page. True when the start goes ahead (any other
+// game goes ahead without a question). Called and returns with the GUI halted.
+static bool ConfirmNotAGameDisc(const std::string& gameId)
+{
+	std::string firstWarning;
+	if (gameId == "007E01")
+		firstWarning = tr("This disc is intended to erase your Wii's system memory. You really shouldn't be opening this unless you know what you're doing.");
+	else if (gameId == "RAAE01")
+		firstWarning = tr("Inserting the Wii Startup Disc doesn't have any effect on your Wii. Your Wii already has started up. You really shouldn't be opening this unless you know what you're doing.");
+	else
+		return true;
+
+	const std::string question = tr("Are you sure you want to continue?");
+	const std::string secondWarning = tr("Well, I warned you.\nI hope you made a NAND backup.");
+	// ShowPopup: 0 is the first button (Yes, A); B and HOME answer No.
+	const bool yesTwice = ShowPopup(question, firstWarning, tr("Yes"), tr("No")) == 0 &&
+		ShowPopup(question, secondWarning, tr("Yes"), tr("No")) == 0;
+	if (yesTwice) {
+		logf("%s is not a game disc; it is started anyway, after two warnings\n", gameId.c_str());
+		return true;
+	}
+	logf("%s is not a game disc; the player chose not to start it\n", gameId.c_str());
+	ShowPopup(tr("Not started"),
+		tr("If you actually considered launching that, you are really bored. Consider using RiftWii to play actual games instead."),
+		tr("OK"));
+	return false;
+}
+
 // The Mods page's name for a code build's remembered start.
 static std::string CodeModStartName(riftwii::CodeModStart start)
 {
@@ -14572,6 +14614,8 @@ static int MenuHome(FrontendState& state)
 			startHandled = true;
 			if (state.game_id.empty()) {
 				say("No game is selected; go back and pick one.");
+			} else if (!ConfirmNotAGameDisc(state.game_id)) {
+				// stays on the page
 			} else if (!parentalAllows()) {
 				// stays on the page
 			} else if (state.use_channel) {
@@ -15697,9 +15741,16 @@ static void MenuParentalControls()
 	};
 	// A new PIN, typed twice; "" when cancelled or the two differ (said).
 	const auto askNewPin = [&]() -> std::string {
-		const std::string first = TypePin(tr("New PIN"),
-			tr("Pick four digits a child won't guess. Only a scrambled form of them is kept on the SD card."));
-		if (first.empty()) return std::string();
+		std::string first;
+		while (true) {
+			first = TypePin(tr("New PIN"),
+				tr("Pick four digits a child won't guess. Only a scrambled form of them is kept on the SD card."));
+			if (first.empty()) return std::string();
+			const std::string warning = GuessablePinWarning(first);
+			if (warning.empty()) break;
+			// No (or B) is back to the pad, for other digits.
+			if (ShowPopup(tr("New PIN"), warning, tr("Yes"), tr("No")) == 0) break;
+		}
 		const std::string again = TypePin(tr("Type the new PIN again"), tr("The same four digits, to be sure."));
 		if (again.empty()) return std::string();
 		if (again != first) {

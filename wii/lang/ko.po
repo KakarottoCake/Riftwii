@@ -3324,6 +3324,30 @@ msgstr "자녀 보호 기능을 끌까요?"
 msgid "Every game can be started without the PIN again."
 msgstr "모든 게임을 다시 PIN 없이 시작할 수 있습니다."
 
+msgid "Are you sure you want to continue?"
+msgstr "정말 계속할까요?"
+
+msgid "This disc is intended to erase your Wii's system memory. You really shouldn't be opening this unless you know what you're doing."
+msgstr "이 디스크는 Wii의 본체 메모리를 지우기 위한 것입니다. 무엇을 하는지 잘 모른다면 정말 열지 않는 게 좋습니다."
+
+msgid "Inserting the Wii Startup Disc doesn't have any effect on your Wii. Your Wii already has started up. You really shouldn't be opening this unless you know what you're doing."
+msgstr "Wii 스타트업 디스크를 넣어도 Wii에는 아무 효과가 없습니다. Wii는 이미 시작되었습니다. 무엇을 하는지 잘 모른다면 정말 열지 않는 게 좋습니다."
+
+msgid "Well, I warned you.\nI hope you made a NAND backup."
+msgstr "분명히 경고했습니다.\nNAND 백업을 해 두었기를 바랍니다."
+
+msgid "Not started"
+msgstr "시작하지 않았습니다"
+
+msgid "If you actually considered launching that, you are really bored. Consider using RiftWii to play actual games instead."
+msgstr "정말 그걸 실행하려고 했다면 엄청 심심하신가 봅니다. 대신 RiftWii로 진짜 게임을 플레이해 보세요."
+
+msgid "I think your kids are going to guess the passcode correctly. Are you sure you want to use it?"
+msgstr "아이들이 이 비밀번호를 맞힐 것 같습니다. 정말 이 비밀번호를 사용할까요?"
+
+msgid "If your kid is a hacker, they're going to guess the passcode correctly. Are you sure you want to use it?"
+msgstr "아이가 해커라면 이 비밀번호를 맞힐 겁니다. 정말 이 비밀번호를 사용할까요?"
+
 msgid "Channel background"
 msgstr "채널 배경"
 

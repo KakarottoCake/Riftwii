@@ -3324,6 +3324,30 @@ msgstr "Disattivare il controllo genitori?"
 msgid "Every game can be started without the PIN again."
 msgstr "Tutti i giochi potranno di nuovo essere avviati senza PIN."
 
+msgid "Are you sure you want to continue?"
+msgstr "Vuoi davvero continuare?"
+
+msgid "This disc is intended to erase your Wii's system memory. You really shouldn't be opening this unless you know what you're doing."
+msgstr "Questo disco serve a cancellare la memoria di sistema della tua Wii. Non dovresti proprio aprirlo, a meno che tu non sappia cosa stai facendo."
+
+msgid "Inserting the Wii Startup Disc doesn't have any effect on your Wii. Your Wii already has started up. You really shouldn't be opening this unless you know what you're doing."
+msgstr "Inserire il disco di avvio Wii non ha alcun effetto sulla tua Wii. La tua Wii si è già avviata. Non dovresti proprio aprirlo, a meno che tu non sappia cosa stai facendo."
+
+msgid "Well, I warned you.\nI hope you made a NAND backup."
+msgstr "Beh, ti avevo avvisato.\nSpero che tu abbia fatto un backup della NAND."
+
+msgid "Not started"
+msgstr "Non avviato"
+
+msgid "If you actually considered launching that, you are really bored. Consider using RiftWii to play actual games instead."
+msgstr "Se hai davvero pensato di avviarlo, ti stai proprio annoiando. Usa piuttosto RiftWii per giocare a dei veri giochi."
+
+msgid "I think your kids are going to guess the passcode correctly. Are you sure you want to use it?"
+msgstr "Penso che i tuoi figli indovineranno questo codice. Vuoi davvero usarlo?"
+
+msgid "If your kid is a hacker, they're going to guess the passcode correctly. Are you sure you want to use it?"
+msgstr "Se tuo figlio è un hacker, indovinerà questo codice. Vuoi davvero usarlo?"
+
 msgid "Channel background"
 msgstr "Sfondo dei canali"
 
