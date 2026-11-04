@@ -583,6 +583,7 @@ void GcAdapterPoll(GcAdapterView& out) {
     for (unsigned p = 0; p < GCAD_PORTS; ++p) out.present[p] = gcad_port(g_state, p, &out.pads[p], now) != 0;
     for (unsigned p = 0; p < GCAD_PORTS; ++p) {
         out.adapter_ports[p] = out.present[p] && g_state->port_source[p] < GCAD_PORTS;
+        out.sources[p] = out.present[p] ? g_state->port_source[p] : 255;
     }
     _CPU_ISR_Restore(level);
     Drain();

@@ -33,7 +33,9 @@ namespace {
 // menu does. Each port counts presses only once it has been seen with
 // nothing held, so a button already held (the A that chose Play, a pad
 // plugged in with A down) counts only once let go and pressed again, and
-// a pad left with a button held doesn't stop the others answering.
+// a pad left with a button held doesn't stop the others answering. A port
+// that changes controller (a USB pad taking the port an adapter pad left,
+// in one poll) starts over the same way.
 class AdapterPads {
 public:
     explicit AdapterPads(bool wanted) : echo_(LogEchoesToScreen()), wanted_(wanted) {
@@ -61,10 +63,11 @@ public:
         u32 down = 0;
         for (unsigned p = 0; p < GCAD_PORTS; ++p) {
             const u16 held = view.present[p] ? view.pads[p].buttons : 0;
-            if (!view.present[p]) armed_[p] = false;
-            else if (held == 0) armed_[p] = true;
+            if (!view.present[p] || view.sources[p] != source_[p]) armed_[p] = false;
+            if (view.present[p] && held == 0) armed_[p] = true;
             if (armed_[p]) down |= held & ~held_[p];
             held_[p] = held;
+            source_[p] = view.sources[p];
         }
         return down;
     }
@@ -76,6 +79,7 @@ private:
     u64 tried_ = 0;
     u16 held_[GCAD_PORTS] = {};
     bool armed_[GCAD_PORTS] = {};
+    std::uint8_t source_[GCAD_PORTS] = {255, 255, 255, 255};
 };
 
 }  // namespace

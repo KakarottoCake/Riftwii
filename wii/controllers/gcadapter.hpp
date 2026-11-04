@@ -35,6 +35,9 @@ struct GcAdapterView {
     int last_error = 0;
     bool present[GCAD_PORTS] = {};
     bool adapter_ports[GCAD_PORTS] = {};
+    // Which controller each port reads: 0-3 an adapter port, 4-7 a USB
+    // pad, 255 none (the runtime's port_source).
+    std::uint8_t sources[GCAD_PORTS] = {};
     gcad_pad pads[GCAD_PORTS] = {};
 };
 
