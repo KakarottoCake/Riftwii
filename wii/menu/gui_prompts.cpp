@@ -168,9 +168,15 @@ void GuiPrompts::Draw() {
 
 void GuiPrompts::Update(GuiTrigger* t) {
     if (state == STATE::DISABLED || !t) return;
-    if (!t->wpad || !t->wpad->ir.valid) {
-        for (Prompt& prompt : prompts)
-            if (prompt.shown && PromptPressed(prompt.button, *t)) prompt.pressElapsed = 0;
+    const bool pointing = t->wpad && t->wpad->ir.valid;
+    // A button press dips its prompt whether or not the Remote points. While
+    // it points, A clicks whatever is under the pointer, so the A prompt
+    // dips only when the pointer is on it (below).
+    for (Prompt& prompt : prompts) {
+        const bool pointerOwnsA = pointing && prompt.button == "A";
+        if (prompt.shown && !pointerOwnsA && PromptPressed(prompt.button, *t)) prompt.pressElapsed = 0;
+    }
+    if (!pointing) {
         bool pointerLive = false;
         for (int channel = 0; channel < 4; ++channel)
             pointerLive = pointerLive || (userInput[channel].wpad && userInput[channel].wpad->ir.valid);

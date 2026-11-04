@@ -421,10 +421,12 @@ void GuiPicturePicker::Update(GuiTrigger* trigger) {
     const bool accept = pressed(trigger, WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A);
     if (trigger->wpad && trigger->wpad->ir.valid) {
         const int x = trigger->wpad->ir.x, y = trigger->wpad->ir.y;
-        const int slot = TileAt(x, y);
         arrowHover_ = 0;
         if (y >= 190 && y < 260 && x >= 20 && x < 78) arrowHover_ = -1;
         if (y >= 190 && y < 260 && x >= 562 && x < 620) arrowHover_ = 1;
+        // In 16:9 the outer pictures reach under the arrows. The arrow is
+        // drawn on top, so where they overlap the arrow takes the press.
+        const int slot = arrowHover_ != 0 ? -1 : TileAt(x, y);
         if (slot >= 0) focus_ = slot;
         if (accept) {
             if (slot >= 0) Choose(slot);
