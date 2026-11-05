@@ -2919,7 +2919,32 @@ void TestPlayerActed() {
     EXPECT_TRUE(marked.acted());
 }
 
+static void test_last_game_countdown() {
+    using namespace riftwii;
+    LoaderSettings settings;
+    EXPECT_FALSE(settings.start_last_game);
+    settings.parse("start_last_game = on\n");
+    EXPECT_TRUE(settings.start_last_game);
+    settings.parse("start_last_game = invalid\n");
+    EXPECT_TRUE(settings.start_last_game);
+    LoaderSettings restored;
+    restored.parse(settings.serialize());
+    EXPECT_TRUE(restored.start_last_game);
+    restored.parse("start_last_game = off\n");
+    EXPECT_FALSE(restored.start_last_game);
+    LastGameCountdown countdown;
+    EXPECT_EQ(countdown.update(0, false), 5);
+    EXPECT_EQ(countdown.update(999, false), 5);
+    EXPECT_EQ(countdown.update(1000, false), 4);
+    EXPECT_EQ(countdown.update(4999, false), 1);
+    EXPECT_EQ(countdown.update(5000, false), 0);
+    LastGameCountdown cancelled;
+    EXPECT_EQ(cancelled.update(5000, true), -1);
+    EXPECT_EQ(cancelled.update(6000, false), -1);
+}
+
 int main() {
+    test_last_game_countdown();
     TestPlayLogRecord();
     TestReturnPlans();
     TestReturnTo();

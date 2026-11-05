@@ -4025,3 +4025,12 @@ msgstr "Ce jeu vérifie son propre code. Pour qu'il démarre, les modifications 
 
 msgid "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report."
 msgstr "RiftWii a manqué de mémoire au démarrage du jeu. Désactivez la musique du menu et réessayez, ou envoyez un rapport de problème."
+
+msgid "Start the last game right away"
+msgstr "Lancer le dernier jeu tout de suite"
+
+msgid "Starting in {1} seconds. Press any button to cancel."
+msgstr "Démarrage dans {1} secondes. Appuyez sur un bouton pour annuler."
+
+msgid "Starts your last game after a five-second countdown. Any button cancels it. Hold B at start-up to skip it. Never starts the disc drive."
+msgstr "Lance le dernier jeu après cinq secondes. Tout bouton annule. Maintenez B au démarrage pour passer. Ne lance jamais le lecteur de disques."

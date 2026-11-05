@@ -106,6 +106,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (music_choice_valid(value)) music_file = value;
         } else if (key == "play_history") {
             if (value == "on" || value == "off") play_history = value;
+        } else if (key == "start_last_game") {
+            if (value == "on" || value == "off") start_last_game = value == "on";
         } else if (key == "home_start") {
             if (value == "last" || value == "first") home_start = value;
         } else if (key == "home_source") {
@@ -237,6 +239,7 @@ std::string LoaderSettings::serialize() const {
     s += "home_source = " + home_source + "\n";
     s += "home_sort = " + home_sort + "\n";
     s += "home_start = " + home_start + "\n";
+    s += std::string("start_last_game = ") + (start_last_game ? "on" : "off") + "\n";
     s += "home_disc = " + home_disc + "\n";
     s += std::string("nand_non_games = ") + (nand_non_games ? "on" : "off") + "\n";
     s += "theme = " + theme + "\n";

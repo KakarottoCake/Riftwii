@@ -1870,3 +1870,13 @@ you already have in `wiiflow/covers/`. Nothing is changed in WiiFlow's files.
 - [`docs/THEMES.md`](THEMES.md): making themes, color keys, picture
   sizes and music.
 - [`docs/README.md`](README.md): every other document.
+
+### Start your last game
+
+Home already opens on the last game you played, unless **Home starts on**
+is set to **First page**. In **Settings > Home screen**, turn on
+**Start the last game right away** to start it after a five-second
+countdown when RiftWii opens. It is off by default. Press any button to
+cancel, or hold B while RiftWii starts to skip it. If the game is gone,
+Home opens as usual. The disc drive is never started this way. The usual
+parental checks and game warnings still apply.

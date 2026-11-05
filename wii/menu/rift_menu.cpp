@@ -2259,6 +2259,17 @@ enum class ChannelChoice { Back, Start, Page };
 // Set by the banner screen's Start: the game's page presses its own Start
 // as it opens (its checks and warnings, then the launch).
 static bool g_startOnOpen = false;
+static bool g_lastGameStartPending = false;
+
+static bool StartupButtonHeld()
+{
+	for (int channel = 0; channel < 4; ++channel) {
+		const GuiTrigger& input = userInput[channel];
+		if (input.pad.btns_d || input.pad.btns_h || input.wiidrcdata.btns_d || input.wiidrcdata.btns_h ||
+			(input.wpad && (input.wpad->btns_d || input.wpad->btns_h))) return true;
+	}
+	return false;
+}
 // From the banner's Settings press through the first presented game page.
 // Keep one line in problem reports, including waits before MenuHome starts.
 struct GamePageTiming {
@@ -6262,6 +6273,48 @@ static std::size_t NearestQueuedCover(const std::vector<std::string>& queue, con
 	return best;
 }
 
+static bool CountDownLastGame(const std::string& title)
+{
+	riftwii::LastGameCountdown countdown;
+	// The GUI sees every input frame, including a press shorter than this
+	// menu thread's polling interval. Keep it until the countdown reads it.
+	class CancelInput final : public GuiElement {
+	public:
+		void Draw() override {}
+		void Update(GuiTrigger* input) override {
+			if (input && (input->pad.btns_d || input->pad.btns_h ||
+				input->wiidrcdata.btns_d || input->wiidrcdata.btns_h ||
+				(input->wpad && (input->wpad->btns_d || input->wpad->btns_h)))) cancelled = true;
+		}
+		std::atomic<bool> cancelled{false};
+	} cancelInput;
+	const auto body = [](int seconds) {
+		return tr("Starting in {1} seconds. Press any button to cancel.", {std::to_string(seconds)});
+	};
+	PopupBox box(FlatCapped(title, 60), body(5), "", tr("Cancel"));
+	box.Append(&cancelInput);
+	box.CenterCancel();
+	int shown = 5;
+	const u64 started = gettime();
+	for (;;) {
+		ResumeGui();
+		usleep(20000);
+		RestartIfOutOfMemory();
+		HaltGui();
+		const int seconds = countdown.update(static_cast<std::uint32_t>(diff_msec(started, gettime())),
+			StartupButtonHeld() || cancelInput.cancelled || box.Pressed());
+		if (seconds <= 0) {
+			logf(seconds == 0 ? "Home: the last game's countdown finished.\n"
+				: "Home: a button cancelled the last game's countdown.\n");
+			return seconds == 0;
+		}
+		if (seconds != shown) {
+			shown = seconds;
+			box.SetBody(body(seconds));
+		}
+	}
+}
+
 static int MenuSource(FrontendState& state)
 {
 	int menu = MENU_NONE;
@@ -7629,6 +7682,38 @@ static int MenuSource(FrontendState& state)
 		int clicked = randomPick >= 0 ? randomPick : heldClick >= 0 ? heldClick : grid.GetClicked();
 		if (emptyAction == HomeEmptyState::DiscDrive) clicked = 0;
 		bool randomStart = randomPick >= 0;
+		if (g_lastGameStartPending && (StartupButtonHeld() || GuiGameGrid::Acted().acted() || menu != MENU_NONE)) {
+			g_lastGameStartPending = false;
+			logf("Home: start-up input skipped starting the last game.\n");
+		}
+		if (g_lastGameStartPending && !g_scanning && !g_sdGone && menu == MENU_NONE) {
+			g_lastGameStartPending = false;  // once per start, including missing games
+			const std::vector<std::string> recent = riftwii::wii::History().recent(1);
+			std::vector<GridItem> candidates;
+			std::vector<HomeEntry> candidateEntries;
+			// Search's all-game list keeps parental checks, but does not depend
+			// on the saved category, genre or drive filter. No disc tile is added.
+			const Filter previousFilter = g_filter;
+			g_filter = Filter::All;
+			BuildHome(state, candidates, candidateEntries, true);
+			g_filter = previousFilter;
+			for (std::size_t i = 0; !recent.empty() && i < candidates.size(); ++i) {
+				if (candidates[i].key != recent.front() || candidateEntries[i].kind == HomeEntry::Kind::Disc ||
+					candidateEntries[i].kind == HomeEntry::Kind::App) continue;
+				if (CountDownLastGame(candidates[i].title)) {
+					// Reuse the normal start path, including its checks and warnings.
+					g_filter = Filter::All;
+					items = std::move(candidates);
+					entries = std::move(candidateEntries);
+					grid.SetItems(&items);
+					grid.Focus(static_cast<int>(i), false);
+					showView();
+					clicked = static_cast<int>(i);
+					randomStart = true;
+				}
+				break;
+			}
+		}
 		bool reopening = false;
 		if (!g_reopenBanner.empty()) {
 			// Only while Home still shows channels (else it would open the page).
@@ -15880,7 +15965,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kNintendontSaves, kParental, kSdGames, kIos, kNet, kResync, kWads, kDiscCopy,
+	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kNintendontSaves, kParental, kSdGames, kIos, kNet, kResync, kWads, kDiscCopy,
 		kMissingCovers, kRescan, kPartitionFailures, kUpdate, kReport, kTests, kGeckoLog, kWiirdDebugger, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -15981,6 +16066,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		option(tr("Home order"), HomeSortName(settings.home_sort), settings.home_sort != "az", kHomeSort);
 		option(tr("Home starts on"), settings.home_start == "first" ? tr("First page") : tr("Last game"),
 			settings.home_start == "first", kHomeStart);
+		option(tr("Start the last game right away"), settings.start_last_game ? tr("On") : tr("Off"),
+			settings.start_last_game, kStartLastGame, FlowRow::Kind::Toggle);
 		option(tr("Play history"), settings.play_history == "off" ? tr("Off") : tr("On"), settings.play_history != "off",
 			kPlayHistory, FlowRow::Kind::Toggle);
 		option(tr("Disc Channel"), settings.home_disc == "off" ? tr("Off") : tr("On"), settings.home_disc != "off",
@@ -16206,7 +16293,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					return SettingsSection::Games;
 				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest: case kUsbInput:
 					return SettingsSection::Controllers;
-				case kHomeTiles: case kChannelCorners: case kChannelBackground: case kPagePeek: case kGridSpacing: case kHomeSource: case kHomeSort: case kHomeStart:
+				case kHomeTiles: case kChannelCorners: case kChannelBackground: case kPagePeek: case kGridSpacing: case kHomeSource: case kHomeSort: case kHomeStart: case kStartLastGame:
 				case kPlayHistory: case kDiscTile: case kClockFormat:
 				case kNoClock:
 					return SettingsSection::HomeScreen;
@@ -16328,6 +16415,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kGcBackups: return tr("Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page.");
 			case kPlayHistory: return tr("Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown.");
 			case kHomeSource: return HomeSourceNote(settings.home_source);
+			case kStartLastGame: return tr("Starts your last game after a five-second countdown. Any button cancels it. Hold B at start-up to skip it. Never starts the disc drive.");
 			case kHomeStart: return tr("Last game: Home opens on the page of the last game you played as soon as its drive has been read, unless you have already pressed a button or moved the stick. First page: Home opens on page 1.");
 			case kHomeSort: return tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it.");
 			case kLaunchMusic: return tr("Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game.");
@@ -16588,6 +16676,11 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					rebuild();
 					break;
 				}
+				case kStartLastGame:
+					settings.start_last_game = !settings.start_last_game;
+					saveAndNote(tr("Start the last game right away"));
+					rebuild();
+					break;
 				case kHomeStart:
 					settings.home_start = settings.home_start == "first" ? "last" : "first";
 					saveAndNote(tr("Home starts on: {1}", {settings.home_start == "first" ? tr("First page") : tr("Last game")}));
@@ -17569,6 +17662,8 @@ bool ConfirmLaunchMissingModInputs(const FrontendState& state,
 int MainMenu(int menu, FrontendState& state)
 {
 	int currentMenu = menu;
+	g_lastGameStartPending = menu == MENU_SOURCE && riftwii::wii::Settings().start_last_game &&
+		!StartupButtonHeld() && riftwii::wii::CurrentRestartNote().kind == riftwii::wii::RestartKind::None;
 
 	// Pick the native widescreen pictures using the saved display width.
 	riftwii::wii::ApplyMenuDisplay();

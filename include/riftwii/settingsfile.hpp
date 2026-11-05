@@ -52,6 +52,7 @@ struct LoaderSettings {
     std::string play_history = "on";      // on, off: count the games played from RiftWii (history.txt)
     std::string home_source = "all";      // all, sd, usb: which drive's games Home lists; gamecube: the GameCube games only; wii: its WiiWare and Virtual Console games
     std::string home_sort = "az";         // az, recent (last played first), most (most played first), custom (sd:/riftwii/order.txt)
+    bool start_last_game = false;        // optional countdown at start-up
     std::string home_start = "last";      // last (opens on the last game played), first (always on the first page)
     std::string home_disc = "on";         // on, off: the Disc drive's tile on Home (asked on a new card)
     bool nand_non_games = false;
@@ -106,6 +107,21 @@ LoaderSettings settings_after_reset(const LoaderSettings& before);
 
 // The parental controls the settings ask for (inactive without a PIN).
 ParentalRules parental_rules(const LoaderSettings& settings);
+
+// The countdown uses elapsed milliseconds, so slow frames never lengthen it.
+// A button wins even on the last frame, and cancellation stays latched.
+class LastGameCountdown {
+public:
+    int update(std::uint32_t elapsed_ms, bool button_pressed) {
+        cancelled_ = cancelled_ || button_pressed;
+        if (cancelled_) return -1;
+        if (elapsed_ms >= 5000) return 0;
+        return static_cast<int>((5000 - elapsed_ms + 999) / 1000);
+    }
+
+private:
+    bool cancelled_ = false;
+};
 
 // Where Home puts the focus while the drives are still being read at
 // start-up. Home first shows what is there and the SD card's and the USB
