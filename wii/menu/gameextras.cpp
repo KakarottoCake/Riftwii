@@ -44,9 +44,9 @@ bool LoadGameCheats(const std::string& game_id, int revision, bool download, Che
         status = tr("No game is selected.");
         return false;
     }
-    const std::string path = CheatPath(game_id);
+    const std::string path = GameCheatPath(game_id);
     std::string text;
-    bool have = read_text(path, text);
+    bool have = ReadGameCheatText(game_id, text);
     if (!have && download && Settings().online) {
         std::string error;
         if (DownloadCheats(game_id, error)) have = read_text(path, text);

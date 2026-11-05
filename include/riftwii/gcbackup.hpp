@@ -111,4 +111,8 @@ struct GcBackupResult {
 GcBackupResult gc_backup_card(const std::string& card_path, const std::string& folder, const GcBackupStamp& now,
                               const std::string& keep = std::string());
 
+// The same backup policy for a card read through a raw USB volume.
+GcBackupResult gc_backup_image(const std::vector<std::uint8_t>& card, const std::string& folder,
+                               const GcBackupStamp& now);
+
 }  // namespace riftwii

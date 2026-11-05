@@ -17,6 +17,7 @@
 #include "online.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/coverart.hpp"
+#include "riftwii/loaderfiles.hpp"
 #include "riftwii/emulatorart.hpp"
 #include "riftwii/emulatorbanner.hpp"
 #include "riftwii/homebrewmatch.hpp"
@@ -137,7 +138,8 @@ bool ReadPng(const std::string& path, std::vector<std::uint8_t>& png) {
     return ok;
 }
 
-bool MakeCover(const std::vector<std::uint8_t>& png, std::vector<std::uint8_t>& file, bool banner = false, bool wide = false) {
+bool MakeCover(const std::vector<std::uint8_t>& png, std::vector<std::uint8_t>& file, bool banner = false,
+               bool wide = false, bool front_only = false) {
     if (png.empty() || png.size() > kEmulatorCoverMax) return false;
     std::vector<std::uint8_t> rgba;
     int width = 0, height = 0;
@@ -145,6 +147,19 @@ bool MakeCover(const std::vector<std::uint8_t>& png, std::vector<std::uint8_t>& 
     // DecodePngRgba checks IHDR's sides (at most 1024) before allocating
     // pixels or inflating. Every decoder allocation is checked.
     if (!DecodePngRgba(png, rgba, width, height, error)) return false;
+    if (front_only && width > height) {
+        // A full box is back, spine, front. Keep the right-hand front at
+        // the usual Wii cover proportions instead of squeezing the box.
+        const int front_width = height * 5 / 7;
+        std::vector<std::uint8_t> front;
+        if (!try_resize(front, static_cast<std::size_t>(front_width) * height * 4)) return false;
+        for (int y = 0; y < height; ++y) {
+            const auto* row = rgba.data() + (static_cast<std::size_t>(y) * width + width - front_width) * 4;
+            std::copy_n(row, front_width * 4, front.data() + static_cast<std::size_t>(y) * front_width * 4);
+        }
+        rgba.swap(front);
+        width = front_width;
+    }
     file = banner ? make_emulator_banner(rgba.data(), width, height, wide) : make_cover_file(rgba.data(), width, height);
     return file.size() == (banner ? kEmulatorBannerFileSize : kCoverFileSize);
 }
@@ -362,6 +377,23 @@ bool UsbCoversFolderThere() {
 }  // namespace
 
 void ForgetUsbCoversFolder() { g_usbCoversFolder.store(0); }
+
+bool ReadLoaderCover(const std::string& name, std::vector<std::uint8_t>& file) {
+    for (const std::string& relative : loader_cover_paths(name)) {
+        std::vector<std::string> roots{"sd:/"};
+        if (DriveScanDone()) {
+            const auto usb = usb_volume_roots();
+            roots.insert(roots.end(), usb.begin(), usb.end());
+        }
+        for (const std::string& root : roots) {
+            std::vector<std::uint8_t> png;
+            const bool full_box = relative.find("/full/") != std::string::npos ||
+                                  relative.find("/boxcovers/") != std::string::npos;
+            if (ReadPng(root + relative.substr(1), png) && MakeCover(png, file, false, false, full_box)) return true;
+        }
+    }
+    return false;
+}
 
 bool OwnCoverLooksReadable(const std::string& name) {
     if (!emulator_art_component(name + ".png")) return false;

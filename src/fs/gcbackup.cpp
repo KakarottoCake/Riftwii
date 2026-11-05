@@ -309,10 +309,10 @@ bool gc_overwrite_file(const std::string& path, const std::vector<std::uint8_t>&
     return true;
 }
 
-GcBackupResult gc_backup_card(const std::string& card_path, const std::string& folder, const GcBackupStamp& now,
-                              const std::string& keep) {
+static GcBackupResult backup_card(const std::string& card_path, const std::vector<std::uint8_t>* image,
+                                   const std::string& folder, const GcBackupStamp& now, const std::string& keep) {
     GcBackupResult result;
-    const long long length = file_length(card_path);
+    const long long length = image ? static_cast<long long>(image->size()) : file_length(card_path);
     if (length <= 0) {
         // Not made yet, or made empty and never formatted: nothing to keep.
         result.what = GcBackupResult::What::NoCard;
@@ -325,7 +325,23 @@ GcBackupResult gc_backup_card(const std::string& card_path, const std::string& f
     }
     make_folders(folder);
     std::vector<std::string> existing = gc_backup_list(folder);
-    if (!existing.empty() && gc_files_same(card_path, folder + "/" + existing.front())) {
+    bool same = false;
+    if (!existing.empty()) {
+        const std::string previous = folder + "/" + existing.front();
+        if (!image) same = gc_files_same(card_path, previous);
+        else if (file_length(previous) == length) {
+            FILE* file = std::fopen(previous.c_str(), "rb");
+            same = file != nullptr;
+            std::uint8_t buffer[4096];
+            for (std::size_t offset = 0; same && offset < image->size(); offset += sizeof(buffer)) {
+                const std::size_t count = std::min(sizeof(buffer), image->size() - offset);
+                same = std::fread(buffer, 1, count, file) == count &&
+                       std::memcmp(buffer, image->data() + offset, count) == 0;
+            }
+            if (file) std::fclose(file);
+        }
+    }
+    if (same) {
         result.what = GcBackupResult::What::Same;
         result.name = existing.front();
         return result;
@@ -335,7 +351,17 @@ GcBackupResult gc_backup_card(const std::string& card_path, const std::string& f
         result.error = "There are too many backups with the same date and time.";
         return result;
     }
-    if (!gc_copy_file(card_path, folder + "/" + name, result.error)) return result;
+    if (image) {
+        const std::string target = folder + "/" + name;
+        FILE* file = std::fopen(target.c_str(), "wb");
+        bool written = file && std::fwrite(image->data(), 1, image->size(), file) == image->size();
+        if (file) written = std::fclose(file) == 0 && written;
+        if (!written) {
+            std::remove(target.c_str());
+            result.error = "The memory card could not be backed up.";
+            return result;
+        }
+    } else if (!gc_copy_file(card_path, folder + "/" + name, result.error)) return result;
     result.what = GcBackupResult::What::Made;
     result.name = name;
     // The new one is never pruned, even when a Wii's clock was set back and
@@ -348,6 +374,16 @@ GcBackupResult gc_backup_card(const std::string& card_path, const std::string& f
         if (std::remove((folder + "/" + old).c_str()) == 0) result.pruned.push_back(old);
     }
     return result;
+}
+
+GcBackupResult gc_backup_card(const std::string& card_path, const std::string& folder, const GcBackupStamp& now,
+                              const std::string& keep) {
+    return backup_card(card_path, nullptr, folder, now, keep);
+}
+
+GcBackupResult gc_backup_image(const std::vector<std::uint8_t>& card, const std::string& folder,
+                               const GcBackupStamp& now) {
+    return backup_card("", &card, folder, now, "");
 }
 
 }  // namespace riftwii

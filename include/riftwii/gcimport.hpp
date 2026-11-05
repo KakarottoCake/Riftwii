@@ -136,6 +136,11 @@ struct GcNintendontCard {
     std::uint64_t bytes = 0;
 };
 
+// Prefer this game's slot A card, then its region's shared slot A card.
+// Uses the same scan and name rules as the save importer.
+std::string gc_nintendont_card_for_game(const std::vector<GcNintendontCard>& cards, const std::string& game_id);
+std::string gc_dolphin_card_for_game(const GcDolphinFiles& files);
+
 struct GcNintendontFiles {
     std::vector<GcNintendontCard> cards;  // in folder order, each folder's by name
     unsigned wrong_size = 0;              // named like a card, but under 0.5 MB, over 16 MB or not whole blocks: left out

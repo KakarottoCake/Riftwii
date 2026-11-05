@@ -29,6 +29,8 @@
 #include "plugins.hpp"
 #include "tls.hpp"
 #include "textfile.hpp"
+#include "usbcatalog.hpp"
+#include "riftwii/loaderfiles.hpp"
 #include "ghfallback.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/ghcheats.hpp"
@@ -1067,11 +1069,52 @@ bool InstallUpdate(const std::string& latest, std::string& where, std::string& e
 
 std::string CheatPath(const std::string& game_id) { return std::string(kCheatDir) + "/" + game_id + ".txt"; }
 
+std::vector<std::string> GameCheatSources(const std::string& game_id) {
+    std::vector<std::string> sources;
+    struct stat info {};
+    const std::string own = CheatPath(game_id);
+    if (stat(own.c_str(), &info) == 0) sources.push_back(own);
+    std::vector<std::string> roots{"sd:/"};
+    const auto usb = usb_volume_roots();
+    roots.insert(roots.end(), usb.begin(), usb.end());
+    for (const std::string& relative : loader_cheat_paths(game_id)) {
+        for (const std::string& root : roots) {
+            const std::string path = root + relative.substr(1);
+            std::uint64_t bytes = 0;
+            const bool exists = is_usb_path(path)
+                ? read_usb_range(path, 0, nullptr, 0, bytes)
+                : stat(path.c_str(), &info) == 0 && S_ISREG(info.st_mode) &&
+                  (bytes = static_cast<std::uint64_t>(info.st_size)) != 0;
+            if (exists && bytes > 0 && bytes <= (1u << 20)) sources.push_back(path);
+        }
+    }
+    return sources;
+}
+
+std::string GameCheatPath(const std::string& game_id) {
+    const auto sources = GameCheatSources(game_id);
+    const auto wanted = Settings().other.find("cheat_source_" + game_id);
+    if (wanted != Settings().other.end() && std::find(sources.begin(), sources.end(), wanted->second) != sources.end())
+        return wanted->second;
+    return sources.empty() ? CheatPath(game_id) : sources.front();
+}
+
+void SelectGameCheatSource(const std::string& game_id, const std::string& path) {
+    Settings().other["cheat_source_" + game_id] = path;
+    SaveSettings();
+}
+
+bool ReadGameCheatText(const std::string& game_id, std::string& text) {
+    const std::string path = GameCheatPath(game_id);
+    return is_usb_path(path) ? read_usb_text(path, text) : ReadTextFile(path, text, 1u << 20);
+}
+
 std::string CheatSourcePath(const std::string& game_id) { return std::string(kCheatDir) + "/" + game_id + ".source"; }
 
 bool CheatsFromGameHacking(const std::string& game_id) {
     std::string text, zip;
-    return ReadTextFile(CheatSourcePath(game_id), text, 1024) && gamehacking_source_parse(text, zip);
+    return GameCheatPath(game_id) == CheatPath(game_id) &&
+           ReadTextFile(CheatSourcePath(game_id), text, 1024) && gamehacking_source_parse(text, zip);
 }
 
 namespace {
@@ -1079,7 +1122,7 @@ namespace {
 // Capped as downloads are (DownloadCheats takes at most 1 MB).
 std::string read_cheat_file(const std::string& game_id) {
     std::string text;
-    ReadTextFile(CheatPath(game_id), text, 1u << 20);
+    ReadGameCheatText(game_id, text);
     return text;
 }
 
@@ -1099,6 +1142,7 @@ bool FillCheatValues(const std::string& game_id, const std::string& name, const 
     if (!fill_cheat_values(text, name, fields, error, revision)) return false;
     const std::vector<std::uint8_t> bytes(text.begin(), text.end());
     if (!write_file(CheatPath(game_id), bytes, error)) return false;
+    SelectGameCheatSource(game_id, CheatPath(game_id));
     std::string values;
     for (const CheatField& f : fields) values += std::string(values.empty() ? "" : ", ") + f.letter + "=" + f.value;
     logf("Cheats: values for \"%s\" (%s): %s\n", name.c_str(), game_id.c_str(), values.c_str());
@@ -1191,6 +1235,7 @@ bool DownloadCheats(const std::string& game_id, std::string& error, const std::s
         logf("Cheats: %u turned-on cheat(s) of %s kept their own code; the archive has a different one now\n",
              static_cast<unsigned>(held), game_id.c_str());
     if (!write_file(CheatPath(game_id), body, error)) return false;
+    SelectGameCheatSource(game_id, CheatPath(game_id));
     logf("Cheats: %u for %s from %s, %u of the player's own kept\n", static_cast<unsigned>(file.cheats.size()),
          game_id.c_str(),
          found_in == CheatSource::GameHacking ? "GameHacking.org (the RiiConnect24 archive had none or could not be reached)"

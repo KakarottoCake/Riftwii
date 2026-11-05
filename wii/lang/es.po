@@ -4025,3 +4025,27 @@ msgstr "Este juego comprueba su propio código. Para que arranque, no se aplican
 
 msgid "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report."
 msgstr "RiftWii se quedó sin memoria al iniciar el juego. Desactiva la música del menú e inténtalo de nuevo, o envía un informe del problema."
+
+msgid "Nintendont's card"
+msgstr "Tarjeta de Nintendont"
+
+msgid "Dolphin's card"
+msgstr "Tarjeta de Dolphin"
+
+msgid "Saves are written to {1}. A backup is kept before the game starts."
+msgstr "Las partidas se guardan en {1}. Se guarda una copia antes de iniciar el juego."
+
+msgid "The selected memory card is missing. Choose another card on the game's page."
+msgstr "Falta la tarjeta elegida. Elige otra en la página del juego."
+
+msgid "The memory card file could not be read. Nothing was changed."
+msgstr "No se pudo leer la tarjeta. No se cambió nada."
+
+msgid "The memory card could not be backed up. The game was not started."
+msgstr "No se pudo hacer una copia de la tarjeta. El juego no se inició."
+
+msgid "This memory card needs a FAT32 drive so the game can save to it."
+msgstr "Esta tarjeta necesita una unidad FAT32 para guardar las partidas."
+
+msgid "Cheat file"
+msgstr "Archivo de trucos"

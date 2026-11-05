@@ -128,6 +128,7 @@
 #include "vsdmake.hpp"
 #include "homescan.hpp"
 #include "gameextras.hpp"
+#include "externalcard.hpp"
 #include "gameinfo.hpp"
 #include "i18n.hpp"
 #include "loadersettings.hpp"
@@ -8604,7 +8605,7 @@ static std::string CheatsValue(const riftwii::GameSettings& g)
 static std::string CheatFileShown(const std::string& id)
 {
 	// Named as the player sees the card on a PC.
-	return "SD:/riftwii/cheats/" + id + ".txt";
+	return riftwii::wii::GameCheatPath(id);
 }
 
 // The packs made for the game, as the Mods row counts them.
@@ -8869,6 +8870,8 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		card.label = tr("Memory card");
 		if (game.gc_card == "real") card.value = tr("Real card in slot A");
 		else if (game.gc_card == "shared") card.value = tr("Shared");
+		else if (game.gc_card == "nintendont") card.value = tr("Nintendont's card");
+		else if (game.gc_card == "dolphin") card.value = tr("Dolphin's card");
 		else card.value = tr("This game's own");
 		card.on = game.gc_card != "own";
 		card.dim = game.gc_card == "real" && riftwii::wii::is_wii_u();
@@ -9553,7 +9556,17 @@ static bool GcCardShared(const FrontendState& state)
 
 static std::string GcCardPath(const FrontendState& state)
 {
+	const std::string& source = state.model.game.gc_card;
+	if (source == "nintendont" || source == "dolphin")
+		return riftwii::wii::ExternalCardPath(state.game_id, source);
 	return riftwii::gc_card_path(state.game_id, GcCardShared(state));
+}
+
+static std::string GcBackupFolder(const FrontendState& state, bool shared)
+{
+	const std::string folder = riftwii::gc_backup_folder(state.game_id, shared);
+	const std::string& source = state.model.game.gc_card;
+	return source == "nintendont" || source == "dolphin" ? folder + "/external" : folder;
 }
 
 // Whether the card the game will use has no block or no directory slot
@@ -10101,7 +10114,7 @@ static bool MenuGcRestore(FrontendState& state)
 {
 	const bool shared = GcCardShared(state);
 	const std::string cardPath = GcCardPath(state);
-	const std::string folder = riftwii::gc_backup_folder(state.game_id, shared);
+	const std::string folder = GcBackupFolder(state, shared);
 	const std::vector<std::string> names = riftwii::gc_backup_list(folder);
 	// The Saves page offers this only with backups there; none: nothing to show.
 	if (names.empty()) return false;
@@ -10224,7 +10237,7 @@ static bool GcDolphinImport(const FrontendState& state, const std::string& cardP
 	}
 	// The copy is made only now that there is something to add (still before
 	// anything is written), so a second try that finds nothing new makes none.
-	const std::string folder = riftwii::gc_backup_folder(state.game_id, shared);
+	const std::string folder = GcBackupFolder(state, shared);
 	const time_t now = time(nullptr);
 	struct tm local;
 	localtime_r(&now, &local);
@@ -10275,7 +10288,7 @@ static void MenuGcSdCard(FrontendState& state)
 	}
 	std::vector<FlowRow> rows;
 	GcIconTextures icons;
-	const std::string backupFolder = riftwii::gc_backup_folder(state.game_id, shared);
+	const std::string backupFolder = GcBackupFolder(state, shared);
 	bool haveBackups = false;
 	bool dolphinRow = false;
 	const auto rebuild = [&] {
@@ -10515,19 +10528,7 @@ struct NintendontFinds {
 // so the menu's own view of the drive lists it (read only).
 static bool NintendontLister(const std::string& folder, std::vector<riftwii::GcFolderEntry>& out)
 {
-	if (!riftwii::is_usb_path(folder)) return riftwii::gc_posix_lister(folder, out);
-	out.clear();
-	std::vector<riftwii::VolumeEntry> entries;
-	if (!riftwii::wii::list_usb_folder(folder, entries)) return false;
-	for (const riftwii::VolumeEntry& entry : entries) {
-		if (out.size() > riftwii::kGcDolphinMaxEntries) break;
-		riftwii::GcFolderEntry found;
-		found.name = entry.name;
-		found.is_directory = entry.is_directory;
-		found.bytes = entry.size;
-		out.push_back(found);
-	}
-	return true;
+	return riftwii::wii::ListImportCards(folder, out);
 }
 
 static void ScanNintendontCards(NintendontFinds& finds)
@@ -12502,7 +12503,7 @@ static void MenuCheats(FrontendState& state)
 	const std::string fileNote = tr("The cheats are in {1}. Edit it on a computer to add your own.",
 		{CheatFileShown(state.game_id)});
 
-	enum class Act { Use, Download, Cheat, Values, None };
+	enum class Act { Use, Source, Download, Cheat, Values, None };
 	struct Ref {
 		Act act;
 		std::size_t cheat;
@@ -12519,6 +12520,16 @@ static void MenuCheats(FrontendState& state)
 		use.on = game.cheats;
 		rows.push_back(use);
 		refs.push_back({Act::Use, 0});
+		const auto sources = riftwii::wii::GameCheatSources(state.game_id);
+		if (!sources.empty()) {
+			FlowRow source;
+			source.kind = FlowRow::Kind::Action;
+			source.label = tr("Cheat file");
+			source.value = sources.size() > 1 ? tr("Change") : "";
+			source.detail = riftwii::wii::GameCheatPath(state.game_id);
+			rows.push_back(source);
+			refs.push_back({Act::Source, 0});
+		}
 		FlowRow download;
 		download.kind = FlowRow::Kind::Action;
 		download.label = loaded ? tr("Get the latest cheats") : tr("Download cheats");
@@ -12710,6 +12721,8 @@ static void MenuCheats(FrontendState& state)
 				say(tr("Values of {1}: {2}. Press A to change them.", {FlatCapped(file.cheats[ref.cheat].name, 60), values}));
 			} else if (ref.act == Act::Use) {
 				say(tr("Cheats are only applied when this is On."));
+			} else if (ref.act == Act::Source) {
+				say(tr("The cheats are in {1}. Edit it on a computer to add your own.", {riftwii::wii::GameCheatPath(state.game_id)}));
 			} else if (ref.act == Act::Download) {
 				say(riftwii::wii::Settings().online ? tr("Gets the latest cheats from the GeckoCodes archive. Your own cheats and values stay.")
 						      : tr("Downloads are off. Turn on Settings > Online > Downloads first."));
@@ -12726,6 +12739,15 @@ static void MenuCheats(FrontendState& state)
 			if (ref.act == Act::Use) {
 				game.cheats = !game.cheats;
 				changed = true;
+			} else if (ref.act == Act::Source) {
+				const auto sources = riftwii::wii::GameCheatSources(state.game_id);
+				if (sources.size() > 1) {
+					const auto next = StepList(sources, riftwii::wii::GameCheatPath(state.game_id), 1);
+					riftwii::wii::SelectGameCheatSource(state.game_id, next);
+					load(false);
+					showSource();
+					changed = true;
+				}
 			} else if (ref.act == Act::Download) {
 				if (!riftwii::wii::Settings().online) say(tr("Downloads are off. Turn on Settings > Online > Downloads first."));
 				else fetch();
@@ -13481,6 +13503,8 @@ static std::string GcSaveNote(const FrontendState& state)
 {
 	if (state.model.game.gc_card == "real") return tr("This game uses the real card in slot A. Its saves are not on the SD card.");
 	const std::string card = GcCardPath(state);
+	if (state.model.game.gc_card == "nintendont" || state.model.game.gc_card == "dolphin")
+		return tr("Saves are written to {1}. A backup is kept before the game starts.", {card});
 	const std::string where = GcCardShared(state)
 		? tr("Saves go to the shared memory card on the SD card: {1}.", {card})
 		: tr("Saves go to this game's own memory card on the SD card: {1}.", {card});
@@ -13766,7 +13790,8 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			else if (ref.what == RowRef::What::GcDiscReads)
 				say(tr("Fast suits almost every game; a few need the GameCube's own, slower speed (experimental, it can freeze some games)."));
 			else if (ref.what == RowRef::What::GcCard)
-				say(tr("Save to this game's SD card, a shared SD card, or a real card in slot A (original Wii only)."));
+				say(state.model.game.gc_card == "nintendont" || state.model.game.gc_card == "dolphin"
+					? GcSaveNote(state) : tr("Save to this game's SD card, a shared SD card, or a real card in slot A (original Wii only)."));
 			else if (ref.what == RowRef::What::GcProgressive && riftwii::gc_pal_game(state.game_id))
 				say(tr("480p is for US and Japanese games; this European game keeps its own picture."));
 			else if (ref.what == RowRef::What::GcProgressive && state.model.game.gc_progressive == "global" &&
@@ -13850,14 +13875,12 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			else if (ref.what == RowRef::What::GcCard) {
 				// Asked when switching, where it matters: the saves stay behind.
 				if (AskGcCardSwitch()) {
-					// Own and shared are valid on a Wii U; only the step that
-					// would reach "real" is skipped, and only that says why.
-					if (game.gc_card == "own") game.gc_card = "shared";
-					else if (game.gc_card == "shared" && !riftwii::wii::is_wii_u()) game.gc_card = "real";
-					else {
-						if (game.gc_card == "shared") say(tr("Wii U has no GameCube memory card slots."));
-						game.gc_card = "own";
+					std::vector<std::string> sources{"own", "shared"};
+					if (!riftwii::wii::is_wii_u()) sources.push_back("real");
+					for (const char* source : {"nintendont", "dolphin"}) {
+						if (!riftwii::wii::ExternalCardPath(state.game_id, source).empty()) sources.push_back(source);
 					}
+					game.gc_card = StepList(sources, game.gc_card, direction);
 				}
 				else changed = false;
 			}

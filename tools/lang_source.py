@@ -8442,10 +8442,43 @@ FR.update({
     "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report.": "RiftWii a manqué de mémoire au démarrage du jeu. Désactivez la musique du menu et réessayez, ou envoyez un rapport de problème.",
 })
 
+# Other loaders: choosing an existing card explicitly allows in-place saves.
+T.update({
+    "Nintendont's card": ('Tarjeta de Nintendont', 'Nintendontのカード', 'Cartão do Nintendont', 'Scheda di Nintendont'),
+    "Dolphin's card": ('Tarjeta de Dolphin', 'Dolphinのカード', 'Cartão do Dolphin', 'Scheda di Dolphin'),
+    'Saves are written to {1}. A backup is kept before the game starts.': ('Las partidas se guardan en {1}. Se guarda una copia antes de iniciar el juego.', 'セーブ先は{1}です。ゲームを起動する前にバックアップします。', 'Os jogos são salvos em {1}. Uma cópia é guardada antes de iniciar o jogo.', 'I salvataggi vanno in {1}. Una copia viene conservata prima di avviare il gioco.'),
+    "The selected memory card is missing. Choose another card on the game's page.": ('Falta la tarjeta elegida. Elige otra en la página del juego.', '選んだメモリーカードがありません。ゲームのページで別のカードを選んでください。', 'O cartão escolhido não foi encontrado. Escolha outro na página do jogo.', "La scheda scelta non è presente. Scegline un'altra nella pagina del gioco."),
+    'The memory card file could not be read. Nothing was changed.': ('No se pudo leer la tarjeta. No se cambió nada.', 'メモリーカードを読めませんでした。何も変更していません。', 'Não foi possível ler o cartão. Nada foi alterado.', 'Impossibile leggere la scheda. Nessuna modifica eseguita.'),
+    'The memory card could not be backed up. The game was not started.': ('No se pudo hacer una copia de la tarjeta. El juego no se inició.', 'メモリーカードをバックアップできませんでした。ゲームは起動していません。', 'Não foi possível copiar o cartão. O jogo não foi iniciado.', 'Impossibile copiare la scheda. Il gioco non è stato avviato.'),
+    'This memory card needs a FAT32 drive so the game can save to it.': ('Esta tarjeta necesita una unidad FAT32 para guardar las partidas.', 'このメモリーカードでセーブするにはFAT32のドライブが必要です。', 'Este cartão precisa de uma unidade FAT32 para salvar o jogo.', "Questa scheda richiede un'unità FAT32 per salvare il gioco."),
+})
+KO.update({
+    "Nintendont's card": 'Nintendont 카드',
+    "Dolphin's card": 'Dolphin 카드',
+    'Saves are written to {1}. A backup is kept before the game starts.': '{1}에 저장합니다. 게임 시작 전에 백업합니다.',
+    "The selected memory card is missing. Choose another card on the game's page.": '선택한 메모리 카드가 없습니다. 게임 페이지에서 다른 카드를 선택하세요.',
+    'The memory card file could not be read. Nothing was changed.': '메모리 카드 파일을 읽을 수 없습니다. 변경된 내용이 없습니다.',
+    'The memory card could not be backed up. The game was not started.': '메모리 카드를 백업할 수 없습니다. 게임을 시작하지 않았습니다.',
+    'This memory card needs a FAT32 drive so the game can save to it.': '게임을 저장하려면 이 메모리 카드에 FAT32 드라이브가 필요합니다.',
+})
+FR.update({
+    "Nintendont's card": 'Carte de Nintendont',
+    "Dolphin's card": 'Carte de Dolphin',
+    'Saves are written to {1}. A backup is kept before the game starts.': 'Les sauvegardes vont dans {1}. Une copie est gardée avant le démarrage du jeu.',
+    "The selected memory card is missing. Choose another card on the game's page.": 'La carte choisie est absente. Choisissez-en une autre sur la page du jeu.',
+    'The memory card file could not be read. Nothing was changed.': "Impossible de lire la carte. Rien n'a été modifié.",
+    'The memory card could not be backed up. The game was not started.': "Impossible de copier la carte. Le jeu n'a pas démarré.",
+    'This memory card needs a FAT32 drive so the game can save to it.': 'Cette carte nécessite un support FAT32 pour sauvegarder le jeu.',
+})
+
+T.update({"Cheat file": ("Archivo de trucos", "チートファイル", "Arquivo de códigos", "File dei trucchi")})
+KO.update({"Cheat file": "치트 파일"})
+FR.update({"Cheat file": "Fichier de codes"})
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
-    sources = ["wii/launch/modplan.cpp", "wii/core/i18n.cpp", "wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
+    sources = ["wii/launch/modplan.cpp", "wii/launch/gclaunch.cpp", "wii/core/i18n.cpp", "wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/credits.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
                "wii/core/plugins.cpp", "wii/core/memlimits.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp",

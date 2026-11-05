@@ -4025,3 +4025,27 @@ msgstr "このゲームは自身のコードを確認します。起動できる
 
 msgid "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report."
 msgstr "ゲームを起動中にRiftWiiのメモリが足りなくなりました。メニューの音楽をオフにしてやり直すか、問題のレポートを送ってください。"
+
+msgid "Nintendont's card"
+msgstr "Nintendontのカード"
+
+msgid "Dolphin's card"
+msgstr "Dolphinのカード"
+
+msgid "Saves are written to {1}. A backup is kept before the game starts."
+msgstr "セーブ先は{1}です。ゲームを起動する前にバックアップします。"
+
+msgid "The selected memory card is missing. Choose another card on the game's page."
+msgstr "選んだメモリーカードがありません。ゲームのページで別のカードを選んでください。"
+
+msgid "The memory card file could not be read. Nothing was changed."
+msgstr "メモリーカードを読めませんでした。何も変更していません。"
+
+msgid "The memory card could not be backed up. The game was not started."
+msgstr "メモリーカードをバックアップできませんでした。ゲームは起動していません。"
+
+msgid "This memory card needs a FAT32 drive so the game can save to it."
+msgstr "このメモリーカードでセーブするにはFAT32のドライブが必要です。"
+
+msgid "Cheat file"
+msgstr "チートファイル"

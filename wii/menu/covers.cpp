@@ -158,6 +158,7 @@ std::set<std::string> g_absent;          // asked for and not on the card
 // CoverWanted's answer to "does the player's own PNG read?", by game: a
 // decode each, so once until the covers are forgotten. Menu thread only.
 std::map<std::string, bool> g_ownReads;
+std::map<std::string, bool> g_loaderReads;
 // Own PNGs the loader found there but could not use (cut short, say: the
 // menu's check reads only their first bytes), for the menu to take
 // (TakeBrokenOwnCovers) and ask GameTDB after all; each told once until
@@ -360,6 +361,10 @@ void* LoaderMain(void*) {
         // shown: the first set's download replaces it (CoverWanted).
         const bool wrong_set = !ok && !emulator && !banner && StoredIsSecond(game) && !CoverSecondSet(game);
         if (!ok && !banner && cache_allowed && !wrong_set) ok = ReadStoredCover(game, slot->data);
+        if (!ok && !emulator && !banner && ReadLoaderCover(game, local)) {
+            std::memcpy(slot->data, local.data() + kCoverHeaderSize, kCoverPixelBytes);
+            ok = own = true;
+        }
         if (ok) DCFlushRange(slot->data, pixel_bytes);
         // GameTDB's full box art is of the first set only: a second-set
         // cover comes before it, as the player's own does.
@@ -490,6 +495,13 @@ bool CoverWanted(const std::string& game_id) {
         }
         if (g_ownReads[game_id]) return false;
     }
+    // Decode once before suppressing a download: a corrupt PNG is no cover.
+    const auto known = g_loaderReads.find(game_id);
+    if (known == g_loaderReads.end()) {
+        std::vector<std::uint8_t> local;
+        g_loaderReads[game_id] = ReadLoaderCover(game_id, local);
+    }
+    if (g_loaderReads[game_id]) return false;
     if (tile && !TileStoredForMatch(game_id)) return true;
     if (tile && stored_or_missed()) return false;
     return true;
@@ -807,7 +819,8 @@ void ForgetCover(const std::string& game_id) {
 }
 
 void ForgetGameCoversBeforeUsb() {
-    g_ownReads.clear();  // the drive may have the player's PNGs
+    g_ownReads.clear();
+    g_loaderReads.clear();  // the drive may have the player's PNGs
     ForgetUsbCoversFolder();
     if (g_lock == LWP_MUTEX_NULL) return;
     Lock lock;
@@ -821,6 +834,7 @@ void ForgetGameCoversBeforeUsb() {
 
 void ForgetAllCovers() {
     g_ownReads.clear();
+    g_loaderReads.clear();
     if (g_lock == LWP_MUTEX_NULL) return;
     Lock lock;
     // Another SD card, maybe: its tiles are matched again from its list.

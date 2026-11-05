@@ -1512,6 +1512,12 @@ bool list_usb_folder(const std::string& usb_path, std::vector<VolumeEntry>& out,
     return true;
 }
 
+bool usb_file_writable(const std::string& path) {
+    UsbLocked locked;
+    const ImageVolume* volume = find_image_volume(g_usb_volumes, path);
+    return volume && std::strcmp(volume->kind(), "FAT32") == 0;
+}
+
 bool usb_file_lookup(const std::string& usb_path, VolumeFile& out, std::string& error) {
     UsbLocked locked;
     out = VolumeFile{};

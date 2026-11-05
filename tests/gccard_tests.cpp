@@ -7,6 +7,7 @@
 #include "riftwii/gccard.hpp"
 #include "riftwii/gcbackup.hpp"
 #include "riftwii/gcimport.hpp"
+#include "riftwii/loaderfiles.hpp"
 #include "riftwii/sha1.hpp"
 
 #include <algorithm>
@@ -1619,7 +1620,50 @@ static void test_nintendont_saves_and_routing() {
     EXPECT_EQ(filling.added, 1u);
 }
 
+static void test_external_loader_files() {
+    EXPECT_TRUE(loader_cover_paths("../../").empty());
+    EXPECT_TRUE(loader_cover_paths("GMSE01/../").empty());
+    EXPECT_TRUE(loader_cheat_paths("GMSE.1").empty());
+    const auto cheats = loader_cheat_paths("GMSE01");
+    EXPECT_EQ(cheats.size(), 2u);
+    EXPECT_EQ(cheats.back(), std::string("/txtcodes/GMSE01.txt"));
+    const auto covers = loader_cover_paths("GMSE01");
+    EXPECT_TRUE(std::find(covers.begin(), covers.end(), "/config/images/full/GMSE01.png") != covers.end());
+    EXPECT_TRUE(std::find(covers.begin(), covers.end(), "/wiiflow/boxcovers/GMSE01.png") != covers.end());
+    const std::vector<GcNintendontCard> cards = {
+        {"sd:/saves/ninmemj.raw", "ninmemj.raw", 2u << 20},
+        {"sd:/saves/ninmem.raw", "ninmem.raw", 2u << 20},
+        {"usb2:/saves/gmse.raw", "gmse.raw", 2u << 20},
+        {"sd:/saves/GMSE_B.raw", "GMSE_B.raw", 2u << 20}
+    };
+    EXPECT_EQ(gc_nintendont_card_for_game(cards, "GMSE01"), std::string("usb2:/saves/gmse.raw"));
+    EXPECT_EQ(gc_nintendont_card_for_game(cards, "GMSJ01"), std::string("sd:/saves/ninmemj.raw"));
+    EXPECT_EQ(gc_nintendont_card_for_game(cards, "GALP01"), std::string("sd:/saves/ninmem.raw"));
+    EXPECT_TRUE(gc_nintendont_card_for_game(cards, "../bad").empty());
+    GcDolphinFiles dolphin;
+    dolphin.raw = {"GC/MemoryCardB.USA.raw", "GC/MemoryCardA.USA.raw"};
+    EXPECT_EQ(gc_dolphin_card_for_game(dolphin), std::string("GC/MemoryCardA.USA.raw"));
+    dolphin.raw = {"GC/MemoryCardB.USA.raw"};
+    EXPECT_TRUE(gc_dolphin_card_for_game(dolphin).empty());
+}
+
 int main() {
+    test_external_loader_files();
+    {
+        const auto root = std::filesystem::temp_directory_path() / "riftwii_external_backup_test";
+        const Bytes raw = blank_card();
+        GcBackupStamp stamp;
+        stamp.year = 2026;
+        stamp.month = 11;
+        stamp.day = 5;
+        const auto first = gc_backup_image(raw, root.string(), stamp);
+        EXPECT_TRUE(first.what == GcBackupResult::What::Made);
+        const auto again = gc_backup_image(raw, root.string(), stamp);
+        EXPECT_TRUE(again.what == GcBackupResult::What::Same);
+        EXPECT_EQ(again.name, first.name);
+        std::filesystem::remove(root / first.name);
+        std::filesystem::remove(root);
+    }
     test_nintendont_names();
     test_nintendont_scan();
     test_nintendont_saves_and_routing();

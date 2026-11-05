@@ -30,6 +30,15 @@ riftwii::wii::GcImage image_of(const rwp_gc_launch& request) {
     image.real_card = request.real_card != 0;
     std::copy_n(request.real_card_flash_id, image.real_card_flash_id.size(), image.real_card_flash_id.begin());
     image.shared_card = request.shared_card != 0;
+    if (request.external_card != nullptr) {
+        image.external_card = request.external_card;
+        image.external_card_bytes = request.external_card_bytes;
+        image.card_on_usb = request.card_on_usb != 0;
+        for (std::uint32_t i = 0; i < request.card_fragment_count; ++i) {
+            const rwp_fragment& part = request.card_fragments[i];
+            image.card_fragments.push_back({part.sector, part.sector_count});
+        }
+    }
     image.drive_timing = request.drive_timing != 0;
     image.progressive = request.progressive != 0;
     image.widescreen = request.widescreen != 0;
