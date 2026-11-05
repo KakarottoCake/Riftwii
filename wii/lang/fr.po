@@ -4065,6 +4065,69 @@ msgstr "Allez à ce lien pour signaler comment ce jeu fonctionne. Le formulaire 
 msgid "Report"
 msgstr "Signaler"
 
+msgid "Manage game"
+msgstr "Gérer le jeu"
+
+msgid "Hide from Home"
+msgstr "Masquer de l’accueil"
+
+msgid "Unhide from Home"
+msgstr "Afficher dans l’accueil"
+
+msgid "Rename"
+msgstr "Renommer"
+
+msgid "Restore name"
+msgstr "Rétablir le nom"
+
+msgid "Delete this game"
+msgstr "Supprimer ce jeu"
+
+msgid "Delete its saves too"
+msgstr "Supprimer aussi ses sauvegardes"
+
+msgid "Show hidden games"
+msgstr "Afficher les jeux masqués"
+
+msgid "Hidden games stay on the drive. Settings > Home > Show hidden games lets you find and unhide them."
+msgstr "Les jeux masqués restent sur le disque. Paramètres > Accueil > Afficher les jeux masqués permet de les retrouver et de les réafficher."
+
+msgid "Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."
+msgstr "Supprime l’image, les jaquettes et les codes du jeu. Les sauvegardes restent, sauf si vous choisissez aussi de les supprimer."
+
+msgid "Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."
+msgstr "Uniquement les sauvegardes séparées de RiftWii. Les cartes partagées et les sauvegardes des packs et de la Wii restent."
+
+msgid "Its image files, covers and cheats will be deleted. This cannot be undone."
+msgstr "Ses images, jaquettes et codes seront supprimés. Cette action est irréversible."
+
+msgid "The game could not be deleted. See session.log for the reason."
+msgstr "Le jeu n’a pas pu être supprimé. Consultez session.log pour la raison."
+
+msgid "Show games you hid from Home. Open Manage game to unhide one. Parental controls still apply."
+msgstr "Affiche les jeux masqués de l’accueil. Ouvrez Gérer le jeu pour les réafficher. Le contrôle parental reste actif."
+
+msgid "Hide or rename this game, manage its files, or read about it."
+msgstr "Masquez ou renommez ce jeu, gérez ses fichiers ou consultez ses informations."
+
+msgid "Change the name shown for this game. The files on the drive keep their names."
+msgstr "Change le nom affiché pour ce jeu. Les fichiers gardent leurs noms."
+
+msgid "Use the game's original name again."
+msgstr "Rétablit le nom d’origine du jeu."
+
+msgid "Remove this game's image, covers and cheats. USB deletion needs FAT32; NTFS is read-only."
+msgstr "Supprime l’image, les jaquettes et les codes du jeu. La suppression sur USB exige FAT32 ; NTFS est en lecture seule."
+
+msgid "Kept"
+msgstr "Conservées"
+
+msgid "Saves are kept because another copy of this game remains."
+msgstr "Les sauvegardes sont conservées car il reste une autre copie de ce jeu."
+
+msgid "Could not delete {1}. Some files may already be gone. See session.log for details."
+msgstr "Impossible de supprimer {1}. Certains fichiers ont peut-être déjà été supprimés. Consultez session.log."
+
 msgid "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "Utilise la carte du jeu, une carte partagée, celle de Nintendont ou Dolphin, ou une vraie carte dans le port A (Wii uniquement)."
 

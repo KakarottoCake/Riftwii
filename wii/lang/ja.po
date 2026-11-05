@@ -4065,6 +4065,69 @@ msgstr "このリンクから、このゲームの動作状況を報告できま
 msgid "Report"
 msgstr "報告"
 
+msgid "Manage game"
+msgstr "ゲームの管理"
+
+msgid "Hide from Home"
+msgstr "ホームで非表示"
+
+msgid "Unhide from Home"
+msgstr "ホームで表示"
+
+msgid "Rename"
+msgstr "名前の変更"
+
+msgid "Restore name"
+msgstr "元の名前に戻す"
+
+msgid "Delete this game"
+msgstr "このゲームを削除"
+
+msgid "Delete its saves too"
+msgstr "セーブデータも削除"
+
+msgid "Show hidden games"
+msgstr "非表示のゲームを表示"
+
+msgid "Hidden games stay on the drive. Settings > Home > Show hidden games lets you find and unhide them."
+msgstr "非表示のゲームもドライブに残ります。設定 > ホーム > 非表示のゲームを表示で、もう一度表示できます。"
+
+msgid "Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."
+msgstr "ゲームのイメージ、カバー、チートを削除します。セーブデータは、削除を選ばない限り残ります。"
+
+msgid "Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."
+msgstr "RiftWiiの個別セーブのみです。共有カード、パックのセーブ、Wii本体のセーブは残ります。"
+
+msgid "Its image files, covers and cheats will be deleted. This cannot be undone."
+msgstr "イメージファイル、カバー、チートを削除します。元には戻せません。"
+
+msgid "The game could not be deleted. See session.log for the reason."
+msgstr "ゲームを削除できませんでした。理由はsession.logを確認してください。"
+
+msgid "Show games you hid from Home. Open Manage game to unhide one. Parental controls still apply."
+msgstr "ホームで非表示にしたゲームを表示します。ゲームの管理で表示に戻せます。保護者の設定は有効です。"
+
+msgid "Hide or rename this game, manage its files, or read about it."
+msgstr "ゲームを非表示にしたり、名前を変えたり、ファイルの管理や情報の表示ができます。"
+
+msgid "Change the name shown for this game. The files on the drive keep their names."
+msgstr "このゲームの表示名を変更します。ドライブのファイル名は変わりません。"
+
+msgid "Use the game's original name again."
+msgstr "ゲームの元の名前を使います。"
+
+msgid "Remove this game's image, covers and cheats. USB deletion needs FAT32; NTFS is read-only."
+msgstr "ゲームのイメージ、カバー、チートを削除します。USBの削除にはFAT32が必要です。NTFSは読み取り専用です。"
+
+msgid "Kept"
+msgstr "残します"
+
+msgid "Saves are kept because another copy of this game remains."
+msgstr "同じゲームがほかにもあるため、セーブデータは残ります。"
+
+msgid "Could not delete {1}. Some files may already be gone. See session.log for details."
+msgstr "{1}を削除できませんでした。一部のファイルは削除済みの可能性があります。詳しくはsession.logを確認してください。"
+
 msgid "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "ゲーム専用、共通、Nintendont、Dolphinのカード、またはスロットAの実物のカード（Wiiのみ）を使います。"
 

@@ -4065,6 +4065,69 @@ msgstr "이 링크에서 이 게임의 실행 상태를 보고할 수 있습니�
 msgid "Report"
 msgstr "보고"
 
+msgid "Manage game"
+msgstr "게임 관리"
+
+msgid "Hide from Home"
+msgstr "홈에서 숨기기"
+
+msgid "Unhide from Home"
+msgstr "홈에 표시"
+
+msgid "Rename"
+msgstr "이름 바꾸기"
+
+msgid "Restore name"
+msgstr "원래 이름 복원"
+
+msgid "Delete this game"
+msgstr "이 게임 삭제"
+
+msgid "Delete its saves too"
+msgstr "저장 데이터도 삭제"
+
+msgid "Show hidden games"
+msgstr "숨긴 게임 표시"
+
+msgid "Hidden games stay on the drive. Settings > Home > Show hidden games lets you find and unhide them."
+msgstr "숨긴 게임은 드라이브에 남습니다. 설정 > 홈 > 숨긴 게임 표시에서 찾아 다시 표시할 수 있습니다."
+
+msgid "Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."
+msgstr "게임 이미지, 표지와 치트를 삭제합니다. 저장 데이터는 삭제하도록 선택하지 않으면 유지됩니다."
+
+msgid "Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."
+msgstr "RiftWii의 개별 저장 데이터만 삭제합니다. 공유 카드, 팩과 Wii 본체의 저장 데이터는 유지됩니다."
+
+msgid "Its image files, covers and cheats will be deleted. This cannot be undone."
+msgstr "이미지 파일, 표지와 치트가 삭제됩니다. 되돌릴 수 없습니다."
+
+msgid "The game could not be deleted. See session.log for the reason."
+msgstr "게임을 삭제하지 못했습니다. 이유는 session.log를 확인하세요."
+
+msgid "Show games you hid from Home. Open Manage game to unhide one. Parental controls still apply."
+msgstr "홈에서 숨긴 게임을 표시합니다. 게임 관리에서 다시 표시할 수 있습니다. 보호자 설정은 계속 적용됩니다."
+
+msgid "Hide or rename this game, manage its files, or read about it."
+msgstr "게임을 숨기거나 이름을 바꾸고, 파일을 관리하거나 정보를 확인합니다."
+
+msgid "Change the name shown for this game. The files on the drive keep their names."
+msgstr "이 게임의 표시 이름을 바꿉니다. 드라이브의 파일 이름은 유지됩니다."
+
+msgid "Use the game's original name again."
+msgstr "게임의 원래 이름을 다시 사용합니다."
+
+msgid "Remove this game's image, covers and cheats. USB deletion needs FAT32; NTFS is read-only."
+msgstr "게임 이미지, 표지와 치트를 삭제합니다. USB 삭제에는 FAT32가 필요합니다. NTFS는 읽기 전용입니다."
+
+msgid "Kept"
+msgstr "유지됨"
+
+msgid "Saves are kept because another copy of this game remains."
+msgstr "이 게임의 다른 사본이 남아 있어 저장 데이터가 유지됩니다."
+
+msgid "Could not delete {1}. Some files may already be gone. See session.log for details."
+msgstr "{1}을(를) 삭제하지 못했습니다. 일부 파일은 이미 삭제되었을 수 있습니다. 자세한 내용은 session.log를 확인하세요."
+
 msgid "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "게임 전용, 공용, Nintendont, Dolphin 카드 또는 슬롯 A의 실제 카드를 사용합니다(Wii만)."
 
