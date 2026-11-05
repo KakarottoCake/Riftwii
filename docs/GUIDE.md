@@ -1877,6 +1877,10 @@ A GameCube game's **Memory card** setting offers **Nintendont's card**
 when a matching card is present in `/saves` on the SD card or any readable
 USB partition. Its own `<ID4>.raw` comes first; otherwise the shared
 `ninmem.raw` is used (`ninmemj.raw` for Japanese and Korean games).
+Better-Nintendont's cards count too: they are the same kind of file, kept
+in `/apps/gc_devo` as `<ID4>.bin`, or `memcard.bin` (`memcard_j.bin`)
+for the shared one. A game's own card, from either loader, comes before a
+shared one.
 **Dolphin's card** uses the region's slot A raw card in the Dolphin `GC`
 folder copied to `sd:/riftwii/gc/dolphin/`. Dolphin's GCI-folder cards can
 still be brought in with **Bring your Dolphin saves**.

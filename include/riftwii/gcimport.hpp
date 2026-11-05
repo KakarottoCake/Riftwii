@@ -143,6 +143,13 @@ std::string gc_dolphin_card_for_game(const GcDolphinFiles& files);
 // Candidate names in preference order, also used for direct filesystem lookups.
 std::vector<std::string> gc_nintendont_card_names(const std::string& game_id);
 
+// Better-Nintendont (a Nintendont fork) keeps the same raw card images, but
+// in /apps/gc_devo, Devolution's folder, on the device the game runs from:
+// <ID4>.bin for one game, memcard.bin or memcard_j.bin for its "Multi" card.
+// In preference order, empty for an ID that is not four letters or digits.
+constexpr const char* kGcBetterNintendontFolder = "apps/gc_devo";
+std::vector<std::string> gc_better_nintendont_card_names(const std::string& game_id);
+
 struct GcNintendontFiles {
     std::vector<GcNintendontCard> cards;  // in folder order, each folder's by name
     unsigned wrong_size = 0;              // named like a card, but under 0.5 MB, over 16 MB or not whole blocks: left out
