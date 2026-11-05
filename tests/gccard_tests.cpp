@@ -1649,6 +1649,17 @@ static void test_external_loader_files() {
     EXPECT_EQ(gc_dolphin_card_for_game(dolphin), std::string("GC/MemoryCardA-backup.raw"));
     EXPECT_EQ(gc_nintendont_card_names("GMSE01")[0], std::string("gmse.raw"));
     EXPECT_TRUE(gc_nintendont_card_names("../bad").empty());
+    EXPECT_EQ(gc_better_nintendont_card_names("GMSE01")[0], std::string("GMSE.bin"));
+    EXPECT_EQ(gc_better_nintendont_card_names("GMSE01")[1], std::string("memcard.bin"));
+    EXPECT_EQ(gc_better_nintendont_card_names("GMSJ01")[1], std::string("memcard_j.bin"));
+    EXPECT_TRUE(gc_better_nintendont_card_names("../bad").empty());
+    // A game's own card on any root comes before a shared card on the first.
+    const std::vector<std::string> order = gc_nintendont_card_candidates("GMSE01", {"sd:/", "usb:/"});
+    const std::vector<std::string> expected_order{
+        "sd:/saves/gmse.raw", "usb:/saves/gmse.raw", "sd:/apps/gc_devo/GMSE.bin", "usb:/apps/gc_devo/GMSE.bin",
+        "sd:/saves/ninmem.raw", "usb:/saves/ninmem.raw", "sd:/apps/gc_devo/memcard.bin", "usb:/apps/gc_devo/memcard.bin"};
+    EXPECT_TRUE(order == expected_order);
+    EXPECT_TRUE(gc_nintendont_card_candidates("../bad", {"sd:/"}).empty());
     dolphin.raw = {"GC/MemoryCardB.USA.raw"};
     EXPECT_TRUE(gc_dolphin_card_for_game(dolphin).empty());
 }
