@@ -19,6 +19,7 @@
 #include "ios_reload.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
+#include "disclight.hpp"
 #include "netpacks.hpp"
 #include "riftwii/apply.hpp"
 #include "riftwii/checkedalloc.hpp"
@@ -1022,6 +1023,7 @@ GcConsoleSettings GcConsoleNow() {
 }
 
 bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packages, std::string& error) {
+    DiscLightActivity discLight;
     GcImage image = wanted;
     if (!image.patch_source.empty() && !PrepareGcPatch(image, error)) return false;
     // An RVZ is checked again here, as a Wii game's is before its launch:

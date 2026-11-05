@@ -39,6 +39,7 @@
 #include "menuios.hpp"
 #include "menumusic.hpp"
 #include "log.hpp"
+#include "disclight.hpp"
 #include "memlimits.hpp"
 #include "stash.hpp"
 #include "netsock.hpp"
@@ -3344,6 +3345,7 @@ void write_play_log(const DiscProbe& probe, const std::array<std::string, 10>& b
 }
 
 bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) {
+    DiscLightActivity discLight;
     // Use the probed ID even for headless/autorun callers that did not set
     // menu extras. Refuse a partial pack before any of its bytes are loaded.
     g_extras.game_id = probe.header.game_id;
@@ -3629,6 +3631,7 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
 }
 
 bool boot_channel(ChannelBootFiles files, std::string& error) {
+    DiscLightActivity discLight;
     g_extras.game_id = files.game_id;
     NetStopForLaunch();
     const DolHeader& dol = files.program.dol;
@@ -3788,7 +3791,9 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
                 NandCloseAll();
                 std::string system_error;
                 LaunchMusicEnd("the Wii starts the channel from the copied NAND");
+                StopDiscLight();
                 launch_emulated_channel_with_system(files.title_id, system_error);
+                discLight.Restart();  // a returned system launch failed; try the next IOS
                 logf("Wii channels: on IOS%d, %s.\n", IOS_GetVersion(), system_error.c_str());
                 note_attempt("IOS" + std::to_string(IOS_GetVersion()) + ": " + system_error);
                 release_d2x_saves();

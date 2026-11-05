@@ -16,6 +16,7 @@
 #include "ios_reload.hpp"
 #include "launchrun.hpp"
 #include "log.hpp"
+#include "disclight.hpp"
 #include "menuios.hpp"
 #include "otpkey.hpp"
 #include "usbcatalog.hpp"
@@ -200,6 +201,7 @@ std::string DiscCopyPath(const DiscCopyJob& job, const DiscCopyPlace& place) {
 
 bool RunDiscCopy(const DiscCopyJob& job, const DiscCopyPlace& place, const DiscCopyProgress& progress, bool& exists,
                  std::string& error) {
+    DiscLightActivity discLight;
     exists = false;
     const std::string path = DiscCopyPath(job, place);
     const std::string folder = path.substr(0, path.rfind('/'));

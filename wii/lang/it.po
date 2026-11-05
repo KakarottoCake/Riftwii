@@ -4025,3 +4025,9 @@ msgstr "Questo gioco controlla il proprio codice. Per avviarlo, le modifiche a i
 
 msgid "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report."
 msgstr "RiftWii ha esaurito la memoria avviando il gioco. Disattiva la musica del menu e riprova, oppure invia una segnalazione del problema."
+
+msgid "Disc slot light"
+msgstr "Luce del vano disco"
+
+msgid "Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong."
+msgstr "Lampeggia lentamente durante il caricamento di un gioco o la copia di un disco. Si spegne al termine o in caso di errore."

@@ -60,6 +60,7 @@ struct LoaderSettings {
     std::string menu_font = "riftwii";    // riftwii, wii: the Wii Menu's own font, read from the NAND (riftwii/sysfont.hpp)
     std::string return_to = "riftwii";    // riftwii, menu: where a game's "Wii Menu" goes
     std::string screenshots = "off";      // in-game screenshots: on, off (demo: Dolphin tests)
+    bool disc_light = true;              // blink during loading and disc copying
     bool online = true;                   // download game names and cheats when the Wii is online
     bool emulator_covers = true;
     bool steamgrid_covers = false;        // requires the player's own key on the SD card

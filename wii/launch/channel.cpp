@@ -23,6 +23,7 @@
 #include "ios_reload.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
+#include "disclight.hpp"
 #include "menumusic.hpp"
 #include "netsock.hpp"
 #include "restart.hpp"
@@ -409,6 +410,7 @@ u8* check_homebrew_dol(const std::string& path, u8* dol, u32& size) {
 }  // namespace
 
 bool StartHomebrewApp(const std::string& path, const std::string& command_line, std::string& error) {
+    DiscLightActivity discLight;
     if (command_line.empty() || command_line.size() > 1024 || command_line.back() != '\0') {
         error = "The app arguments are empty or exceed the 1024-byte limit.";
         logf("Homebrew app: %s\n", error.c_str());
@@ -499,6 +501,7 @@ bool StartHomebrewApp(const std::string& path, const std::string& command_line, 
     if (fresh_ios) release_usb_driver();
     else fatUnmount("usb:");
     AUDIO_StopDMA();
+    StopDiscLight();
     dolboot_run_line(dol, command_line.data(), static_cast<u32>(command_line.size()));
 }
 

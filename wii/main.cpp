@@ -56,6 +56,7 @@
 #include "entropy.hpp"
 #include "fullfont.hpp"
 #include "log.hpp"
+#include "disclight.hpp"
 #include "memlimits.hpp"
 #include "menuios.hpp"
 #include "usbcatalog.hpp"
@@ -121,6 +122,7 @@ bool StageMovedChannel(u64 title, std::string& error) {
 // The game could not be copied from the SD card: neither RiftWii's loader
 // nor the system can start it, so back to RiftWii, which says why.
 void StagingFailed(const std::string& error) {
+    riftwii::wii::StopDiscLight();
     riftwii::wii::logf("Wii channels: the game could not be copied from the SD card: %s\n", error.c_str());
     if (riftwii::wii::CanRestart())
         riftwii::wii::WarmRestart(riftwii::wii::RestartKind::LaunchFailed,
@@ -138,6 +140,7 @@ void StartWfsTitle(u64 title) {
     const riftwii::wii::WfsInstall install = riftwii::wii::WfsInstallOf(title, detail);
     riftwii::wii::logf("Wii channels: a WFS title (Dragon Quest X): %s\n", detail.c_str());
     if (install == riftwii::wii::WfsInstall::Missing) {
+        riftwii::wii::StopDiscLight();
         if (riftwii::wii::CanRestart())
             riftwii::wii::WarmRestart(riftwii::wii::RestartKind::LaunchFailed,
                                       "Dragon Quest X cannot start: " + detail +
@@ -153,6 +156,7 @@ void StartWfsTitle(u64 title) {
     riftwii::wii::LogClose();
     fatUnmount("sd:");
     fatUnmount("usb:");
+    riftwii::wii::StopDiscLight();
     if (WII_Initialize() >= 0) WII_LaunchTitle(title);
     SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
 }
@@ -164,6 +168,7 @@ void StartWfsTitle(u64 title) {
 // WII_LaunchTitle returns only when it could not, and the Wii Menu is then
 // the way out. A game of an emulated NAND goes back to RiftWii instead.
 void StartChannel(u64 title) {
+    riftwii::wii::DiscLightActivity discLight;
     // This also covers channels handed straight to the system, including
     // WFS titles, which never enter RiftWii's channel loader.
     riftwii::wii::NetStopForLaunch();
@@ -180,6 +185,7 @@ void StartChannel(u64 title) {
         riftwii::wii::LogClose();
         fatUnmount("sd:");
         fatUnmount("usb:");
+        riftwii::wii::StopDiscLight();
         if (WII_Initialize() >= 0) WII_LaunchTitle(title);
         SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
         return;
@@ -198,6 +204,7 @@ void StartChannel(u64 title) {
         if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
     }
     if (!emu_nand.empty()) {
+        riftwii::wii::StopDiscLight();
         // The Wii does not have it: back to RiftWii, which says why.
         riftwii::wii::logf("Wii channels: it did not start from %s: %s\n", emu_nand.c_str(), error.c_str());
         if (riftwii::wii::CanRestart())
@@ -211,6 +218,7 @@ void StartChannel(u64 title) {
     riftwii::wii::LogClose();
     fatUnmount("sd:");
     fatUnmount("usb:");
+    riftwii::wii::StopDiscLight();
     if (WII_Initialize() >= 0) WII_LaunchTitle(title);
     SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
 }

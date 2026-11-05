@@ -731,6 +731,14 @@ the tiles.
   restarts RiftWii. It keeps games' own choices, favorites, play history,
   mods, parental controls and any extra game folders you set.
 
+### Disc slot light
+
+The Wii's blue disc slot light blinks slowly while RiftWii loads or patches a
+game, or copies a disc. It turns off when the work ends, including a cancelled
+copy or a failed launch, and before the game starts. **Settings > Games > Disc
+slot light** turns it off; it is on by default. This uses the Wii's own light,
+so Dolphin does not show it.
+
 ### HOME Menu
 
 HOME on Home (or **Leave RiftWii** in Settings) opens the HOME Menu, as

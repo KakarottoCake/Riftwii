@@ -26,6 +26,7 @@
 #include "gclaunch.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
+#include "disclight.hpp"
 #include "memlimits.hpp"
 #include "menuios.hpp"
 #include "menumusic.hpp"
@@ -265,6 +266,7 @@ static GcImage gc_image_of(const LaunchSource& source) {
 }
 
 bool RunBoot(bool allow_ios_fallback, std::string& error, const LaunchSource& source) {
+    DiscLightActivity discLight;
     if (source.game.gamecube) return LaunchGcGame(gc_image_of(source), {}, error);
     Session s(source, "sd:/riftwii/boot.log");
     if (!s.ensure_probe(error)) return false;
@@ -329,6 +331,7 @@ void LogCompileNotes(const CompiledMod& mod) {
 }
 
 bool CompileSelection(const std::vector<PackageChoices>& packages, CompiledMod& out, std::string& error, const LaunchSource& source) {
+    DiscLightActivity discLight;
     Session s(source, "sd:/riftwii/boot.log");
     s.usb_packs = any_on_usb(packages);
     if (!s.ensure_layout(error)) return false;
@@ -387,6 +390,7 @@ void KeepOwnSaves(const Session& s, bool xml_saves, BootOptions& options) {
 
 bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& source,
                     const std::string& save_mode, const std::string& game_id) {
+    DiscLightActivity discLight;
     Session s(source, "sd:/riftwii/boot.log");
     std::string shared_nand;
     if (!FindSharedSaves(save_mode, game_id, shared_nand, error)) return false;
@@ -427,6 +431,7 @@ bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& sou
 bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, const LaunchSource& source,
                const std::string& save_mode, const std::string& game_id,
                const MissingModConfirmation& confirm_missing) {
+    DiscLightActivity discLight;
     // A GameCube game: RiftWii's own loader, its packs served past the image.
     if (source.game.gamecube) return LaunchGcGame(gc_image_of(source), packages, error);
     {
