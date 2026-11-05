@@ -4025,3 +4025,18 @@ msgstr "Ce jeu vérifie son propre code. Pour qu'il démarre, les modifications 
 
 msgid "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report."
 msgstr "RiftWii a manqué de mémoire au démarrage du jeu. Désactivez la musique du menu et réessayez, ou envoyez un rapport de problème."
+
+msgid "Report how it runs"
+msgstr "Signaler son fonctionnement"
+
+msgid "This game has no ID, so it can't be reported."
+msgstr "Ce jeu n'a pas d'ID, il ne peut donc pas être signalé."
+
+msgid "Scan the code with a phone to report how this game runs. The form opens with the game filled in. Or go to:"
+msgstr "Scannez le code avec un téléphone pour signaler comment ce jeu fonctionne. Le formulaire s'ouvre avec le jeu déjà rempli. Ou allez à :"
+
+msgid "Go to this link to report how this game runs. The form opens with the game filled in:"
+msgstr "Allez à ce lien pour signaler comment ce jeu fonctionne. Le formulaire s'ouvre avec le jeu déjà rempli :"
+
+msgid "Report"
+msgstr "Signaler"

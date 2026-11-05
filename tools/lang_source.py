@@ -8442,6 +8442,58 @@ FR.update({
     "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report.": "RiftWii a manqué de mémoire au démarrage du jeu. Désactivez la musique du menu et réessayez, ou envoyez un rapport de problème.",
 })
 
+T.update({
+    "Report how it runs": (
+        "Informa cómo funciona",
+        "動作状況を報告する",
+        "Informar como funciona",
+        "Segnala come funziona"),
+    "This game has no ID, so it can't be reported.": (
+        "Este juego no tiene ID, así que no se puede informar.",
+        "このゲームにはIDがないため、報告できません。",
+        "Este jogo não tem ID, por isso não pode ser relatado.",
+        "Questo gioco non ha un ID, quindi non può essere segnalato."),
+})
+KO.update({
+    "Report how it runs": "실행 상태를 보고하기",
+    "This game has no ID, so it can't be reported.": "이 게임에는 ID가 없어서 보고할 수 없습니다.",
+})
+FR.update({
+    "Report how it runs": "Signaler son fonctionnement",
+    "This game has no ID, so it can't be reported.": "Ce jeu n'a pas d'ID, il ne peut donc pas être signalé.",
+})
+
+T.update({
+    "Scan the code with a phone to report how this game runs. The form opens with the game filled in. Or go to:": (
+        "Escanea el código con el teléfono para informar cómo funciona este juego. El formulario ya incluye el juego. O ve a:",
+        "スマートフォンでコードを読み取ると、このゲームの動作状況を報告できます。フォームはゲームが入力された状態で開きます。またはこちらへ:",
+        "Escaneie o código com o celular para informar como funciona este jogo. O formulário abre com o jogo já preenchido. Ou acesse:",
+        "Scansiona il codice con il telefono per segnalare come funziona questo gioco. Il modulo si apre con il gioco già inserito. Oppure vai a:"),
+    "Go to this link to report how this game runs. The form opens with the game filled in:": (
+        "Ve a este enlace para informar cómo funciona este juego. El formulario ya incluye el juego:",
+        "このリンクから、このゲームの動作状況を報告できます。フォームはゲームが入力された状態で開きます:",
+        "Acesse este link para informar como funciona este jogo. O formulário abre com o jogo já preenchido:",
+        "Vai a questo link per segnalare come funziona questo gioco. Il modulo si apre con il gioco già inserito:"),
+})
+KO.update({
+    "Scan the code with a phone to report how this game runs. The form opens with the game filled in. Or go to:": "휴대폰으로 코드를 스캔하면 이 게임의 실행 상태를 보고할 수 있습니다. 양식에는 게임이 미리 입력되어 있습니다. 또는 다음 주소로 이동하세요:",
+    "Go to this link to report how this game runs. The form opens with the game filled in:": "이 링크에서 이 게임의 실행 상태를 보고할 수 있습니다. 양식에는 게임이 미리 입력되어 있습니다:",
+})
+FR.update({
+    "Scan the code with a phone to report how this game runs. The form opens with the game filled in. Or go to:": "Scannez le code avec un téléphone pour signaler comment ce jeu fonctionne. Le formulaire s'ouvre avec le jeu déjà rempli. Ou allez à :",
+    "Go to this link to report how this game runs. The form opens with the game filled in:": "Allez à ce lien pour signaler comment ce jeu fonctionne. Le formulaire s'ouvre avec le jeu déjà rempli :",
+})
+
+T.update({
+    "Report": ("Informar", "報告", "Informar", "Segnala"),
+})
+KO.update({
+    "Report": "보고",
+})
+FR.update({
+    "Report": "Signaler",
+})
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
