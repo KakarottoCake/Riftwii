@@ -3632,6 +3632,8 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     g_extras.game_id = files.game_id;
     NetStopForLaunch();
     const DolHeader& dol = files.program.dol;
+    const bool system_fallback = !files.emu_nand.empty() && !running_in_dolphin() && !debug_off("identify");
+    bool loader_compatible = true;
     // Every section goes below this loader, in MEM1: it is copied while
     // RiftWii still runs from 0x80A00000 up, its heap above that. Nothing
     // RiftWii writes after the copy (low memory, the code handler, the way
@@ -3653,13 +3655,18 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
                       static_cast<unsigned>(files.program.index), files.program.format.c_str(),
                       static_cast<unsigned>(s.address), where);
         error = text;
-        return false;
+        if (!system_fallback) return false;
+        logf("Wii channels: RiftWii's loader is skipped because %s; trying the Wii's own launch instead.\n", text);
+        loader_compatible = false;
+        error.clear();
+        break;
     }
     const std::string code = files.game_id.substr(0, 4);
     std::string order;
     for (int ios : files.ios_order) order += (order.empty() ? "IOS" : ", IOS") + std::to_string(ios);
-    logf("Wii channels: %s starts with RiftWii's loader: content %u (%s)%s, entry 0x%08x; it asks for IOS%u and will try this IOS order: %s\n",
-         files.game_id.c_str(), static_cast<unsigned>(files.program.index), files.program.format.c_str(),
+    logf("Wii channels: %s will try %s: content %u (%s)%s, entry 0x%08x; it asks for IOS%u and will try this IOS order: %s\n",
+         files.game_id.c_str(), loader_compatible ? "RiftWii's loader first" : "the Wii's own launch",
+         static_cast<unsigned>(files.program.index), files.program.format.c_str(),
          files.program.past_loader ? " (past its boot loader)" : "", dol.entry,
          static_cast<unsigned>(files.required_ios), order.empty() ? "the running one" : order.c_str());
     if (files.ios_order.empty()) files.ios_order.push_back(IOS_GetVersion());
@@ -3698,8 +3705,10 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     // Try every IOS with extras first. Only after none started it does the
     // Wii's own launch get a fresh d2x mount on each usable IOS. Neither
     // stock IOS nor a view read from the real NAND can serve these titles.
-    const bool system_fallback = !files.emu_nand.empty() && !running_in_dolphin() && !debug_off("identify");
-    for (int pass = 0; pass < (system_fallback ? 2 : 1) && !identified; ++pass) {
+    // The Wii's launch only needs the title ID; its loader is not subject
+    // to the memory limits of a program copied while RiftWii still runs.
+    const int first_pass = loader_compatible ? 0 : 1;
+    for (int pass = first_pass; pass < (system_fallback ? 2 : 1) && !identified; ++pass) {
         const bool system_launch = pass == 1;
         if (system_launch) {
             logf("Wii channels: RiftWii's loader did not start the game on any IOS; trying the Wii's own launch under d2x's NAND emulation, without RiftWii's extras.\n");
@@ -3773,8 +3782,8 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
             // ES runs the game as its own title, as when the system starts it:
             // its saves (/title/.../data) and its files are its own.
             if (system_launch) {
-                // All IOSes have already tried RiftWii's loader. Keep the NAND
-                // mounted through the Wii's launch, and get its ticket view now.
+                // The loader either failed on all IOSes or cannot copy this
+                // program. Keep the NAND mounted and get its ticket view now.
                 // Reloading the title's stock IOS here would lose the copied NAND.
                 NandCloseAll();
                 std::string system_error;

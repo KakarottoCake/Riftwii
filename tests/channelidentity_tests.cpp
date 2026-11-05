@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "di.hpp"
 #include "riftwii/nandchannel.hpp"
 
 namespace {
@@ -37,6 +38,12 @@ s32 view_reply = 0;
 s32 launch_reply = -1029;
 unsigned view_reads = 0;
 unsigned launches = 0;
+tikview latest_view{};
+unsigned reload_blocks = 0;
+unsigned reload_unblocks = 0;
+bool reload_block_reply = true;
+bool reload_block_active = false;
+bool reload_unblock_reply = true;
 
 std::vector<u8> installed_ticket() {
     std::vector<u8> ticket(riftwii::kSignedTicketBytes, 0x5A);
@@ -117,6 +124,7 @@ void test_system_launch() {
     riftwii::wii::launch_emulated_channel_with_system(kTitle, error);
     CHECK(view_reads == 1 && launches == 0);
     CHECK(error.find("-1028") != std::string::npos);
+    CHECK(reload_blocks == 0);
 
     // ES can report any count; the client requests room for just one view.
     // Its exact bytes, from this call rather than a cached real-NAND view,
@@ -128,10 +136,27 @@ void test_system_launch() {
         CHECK(error.find("-1029") != std::string::npos);
     }
     CHECK(view_reads == 4 && launches == 3);
+    CHECK(reload_blocks == launches);
+    CHECK(reload_unblocks == launches);
+    // A refused reload block must not prevent the Wii's launch attempt.
+    reload_block_reply = false;
+    riftwii::wii::launch_emulated_channel_with_system(kTitle, error);
+    CHECK(view_reads == 5 && launches == 4);
+    CHECK(reload_blocks == launches);
+    CHECK(reload_unblocks == 3);
+    CHECK(error.find("-1029") != std::string::npos);
+    reload_block_reply = true;
     // Any return, even zero, means the title did not take over.
     launch_reply = 0;
     riftwii::wii::launch_emulated_channel_with_system(kTitle, error);
     CHECK(error == "the Wii's own launch returned (0)");
+    CHECK(view_reads == 6 && launches == 5);
+    CHECK(reload_blocks == launches);
+    CHECK(reload_unblocks == 4);
+    CHECK(!reload_block_active);
+    reload_unblock_reply = false;
+    riftwii::wii::launch_emulated_channel_with_system(kTitle, error);
+    CHECK(error.find("the IOS reload block could not be cleared") != std::string::npos);
 }
 
 }  // namespace
@@ -167,17 +192,43 @@ s32 ES_GetTicketViews(u64 title, tikview* view, u32 count) {
     CHECK(count == 1);
     CHECK((reinterpret_cast<std::uintptr_t>(view) & 31) == 0);
     ++view_reads;
-    std::memset(view, 0xA5, sizeof(*view));
+    std::memset(view, static_cast<int>(view_reads), sizeof(*view));
+    if (view_reply >= 0) latest_view = *view;
     return view_reply;
 }
 
 s32 ES_LaunchTitle(u64 title, const tikview* view) {
     CHECK(title == kTitle);
     CHECK((reinterpret_cast<std::uintptr_t>(view) & 31) == 0);
-    for (u8 byte : view->bytes) CHECK(byte == 0xA5);
+    CHECK(std::memcmp(view, &latest_view, sizeof(*view)) == 0);
+    // The reload block is requested after this ticket read and before
+    // each launch, including when the block itself was refused.
+    CHECK(reload_blocks == launches + 1);
     ++launches;
     return launch_reply;
 }
+
+namespace riftwii::di {
+bool set_ios_reload_block(bool enabled, std::uint32_t slot, std::string& error) {
+    if (enabled) {
+        CHECK(slot == 249);
+        CHECK(view_reads > 0 && view_reply >= 0);
+        CHECK(reload_blocks == launches);
+        CHECK(!reload_block_active);
+        ++reload_blocks;
+        reload_block_active = reload_block_reply;
+        error = reload_block_reply ? "" : "mock reload block refused";
+        return reload_block_reply;
+    }
+    CHECK(slot == 0);
+    CHECK(reload_block_active);
+    CHECK(reload_blocks == launches);
+    ++reload_unblocks;
+    reload_block_active = !reload_unblock_reply;
+    error = reload_unblock_reply ? "" : "mock reload unblock refused";
+    return reload_unblock_reply;
+}
+}  // namespace riftwii::di
 
 namespace riftwii::wii {
 void logf(const char*, ...) {}

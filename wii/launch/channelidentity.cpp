@@ -6,6 +6,7 @@
 #include <gccore.h>
 #include <ogc/es.h>
 
+#include "di.hpp"
 #include "log.hpp"
 #include "riftwii/nandchannel.hpp"
 
@@ -69,10 +70,28 @@ void launch_emulated_channel_with_system(std::uint64_t title_id, std::string& er
         error = "the copied NAND's first ticket view could not be read (" + std::to_string(result) + ")";
         return;
     }
+    // ES_LaunchTitle may reload the title's stock IOS (IOS9 for N64 VC).
+    // Keep d2x across that reload or the copied NAND and title disappear.
+    std::string reload_error;
+    const int running_ios = IOS_GetVersion();
+    const bool reload_blocked = di::set_ios_reload_block(true, static_cast<std::uint32_t>(running_ios), reload_error);
+    if (reload_blocked) {
+        logf("Wii channels: d2x keeps IOS%d across the Wii's own launch so the copied NAND stays available.\n", running_ios);
+    } else {
+        logf("Wii channels: d2x could not keep IOS%d across the Wii's own launch (%s); trying the launch anyway.\n",
+             running_ios, reload_error.c_str());
+    }
     logf("Wii channels: the ticket view was read with d2x's NAND emulation active; the Wii starts %08x-%08x without RiftWii's extras because RiftWii's loader could not start it.\n",
          static_cast<unsigned>(title_id >> 32), static_cast<unsigned>(title_id));
     result = ES_LaunchTitle(title_id, &view);
     error = "the Wii's own launch returned (" + std::to_string(result) + ")";
+    // A failed launch returns to RiftWii, which must be able to try another
+    // cIOS or restore the menu's IOS without this block redirecting it.
+    if (reload_blocked && !di::set_ios_reload_block(false, 0, reload_error)) {
+        logf("Wii channels: d2x's IOS reload block could not be cleared after the failed launch (%s).\n",
+             reload_error.c_str());
+        error += "; the IOS reload block could not be cleared (" + reload_error + ")";
+    }
 }
 
 }  // namespace riftwii::wii

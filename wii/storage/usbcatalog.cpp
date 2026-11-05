@@ -1980,6 +1980,10 @@ std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_s
     return order;
 }
 
+std::vector<int> channel_cios_order(const ImageGame& game, const std::string& emu_nand) {
+    return riftwii::channel_cios_order(emu_nand, image_cios_order(game, 0), d2x_slots());
+}
+
 bool wait_for_usb_drive(int seconds) {
     USB_Initialize();
     static usb_device_entry devices[8] ATTRIBUTE_ALIGN(32);

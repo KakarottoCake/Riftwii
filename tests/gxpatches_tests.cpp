@@ -402,11 +402,6 @@ void test_pick_cios() {
     why.clear();
     EXPECT_EQ(gx_pick_cios("RMCE01", 36, with38, true, why), 249);  // SD: 56-60 only
     EXPECT_TRUE(why.find("56-60") != std::string::npos);
-    // A channel's copied NAND is read by d2x from SD too (#437). IOS9
-    // must not promote base 38 ahead of the bases that read the card.
-    why.clear();
-    EXPECT_EQ(gx_pick_cios("NACE01", 9, with38, true, why), 249);
-    EXPECT_EQ(gx_pick_cios("NAUE01", 9, with38, true, why), 249);
     why.clear();
     EXPECT_EQ(gx_pick_cios("RMCE01", 36, {{248, 38}}, true, why), 0);
     why.clear();
@@ -414,6 +409,23 @@ void test_pick_cios() {
     EXPECT_EQ(gx_pick_cios("SBVE78", 53, slots, false, why), 251);   // 58
     EXPECT_EQ(gx_pick_cios("RMCE01", 36, {{249, 56}, {250, 56}}, false, why), 249);  // duplicate base
     EXPECT_EQ(gx_pick_cios("RMCE01", 0, slots, false, why), 0);  // nothing asked
+}
+
+void test_channel_cios_order() {
+    // Exercise the path-to-order decision used by read_channel_boot,
+    // starting with IOS9's unconstrained base-38 preference (#437).
+    const std::vector<D2xSlot> slots = {
+        {248, 38}, {249, 56}, {250, 57}, {251, 58}, {252, 59}, {253, 60}
+    };
+    const std::vector<int> order = {248, 251, 249, 250, 253, 252};
+    EXPECT_TRUE((channel_cios_order("sd:/nands/01", order, slots) ==
+                 std::vector<int>{251, 249, 250, 253, 252, 248}));
+    EXPECT_TRUE(channel_cios_order("usb:/nands/01", order, slots) == order);
+    EXPECT_TRUE(channel_cios_order("", order, slots) == order);
+    EXPECT_TRUE(channel_cios_order("sd:/nands/01", {}, slots).empty());
+    // An unknown base stays behind known SD bases without being lost.
+    EXPECT_TRUE((channel_cios_order("sd:/nands/01", {254, 248, 249}, slots) ==
+                 std::vector<int>{249, 254, 248}));
 }
 
 void test_keyboard() {
@@ -521,6 +533,7 @@ int main() {
     test_region_video_fix();
     test_preferences();
     test_pick_cios();
+    test_channel_cios_order();
     test_keyboard();
     test_d2x_fallbacks();
     if (g_failures == 0) {
