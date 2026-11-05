@@ -170,6 +170,19 @@ std::vector<std::string> gc_better_nintendont_card_names(const std::string& game
     return {game_id.substr(0, 4) + ".bin", gc_card_shift_jis(game_id) ? "memcard_j.bin" : "memcard.bin"};
 }
 
+std::vector<std::string> gc_nintendont_card_candidates(const std::string& game_id,
+                                                       const std::vector<std::string>& roots) {
+    const std::vector<std::string> nintendont = gc_nintendont_card_names(game_id);
+    const std::vector<std::string> better = gc_better_nintendont_card_names(game_id);
+    std::vector<std::string> candidates;
+    for (std::size_t rank = 0; rank < nintendont.size() && rank < better.size(); ++rank) {
+        for (const std::string& root : roots) candidates.push_back(root + "saves/" + nintendont[rank]);
+        for (const std::string& root : roots)
+            candidates.push_back(root + kGcBetterNintendontFolder + "/" + better[rank]);
+    }
+    return candidates;
+}
+
 std::string gc_nintendont_card_for_game(const std::vector<GcNintendontCard>& cards, const std::string& game_id) {
     for (const std::string& wanted : gc_nintendont_card_names(game_id)) {
         for (const GcNintendontCard& card : cards) {

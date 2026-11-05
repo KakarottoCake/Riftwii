@@ -29,14 +29,7 @@ std::string ExternalCardPath(const std::string& game_id, const std::string& sour
         // shared one, wherever either is.
         std::vector<std::string> roots{"sd:/"};
         for (const std::string& root : usb_volume_roots()) roots.push_back(root);
-        const std::vector<std::string> nintendont = gc_nintendont_card_names(game_id);
-        const std::vector<std::string> better = gc_better_nintendont_card_names(game_id);
-        std::vector<std::string> candidates;
-        for (std::size_t rank = 0; rank < nintendont.size() && rank < better.size(); ++rank) {
-            for (const std::string& root : roots) candidates.push_back(root + "saves/" + nintendont[rank]);
-            for (const std::string& root : roots)
-                candidates.push_back(root + kGcBetterNintendontFolder + "/" + better[rank]);
-        }
+        const std::vector<std::string> candidates = gc_nintendont_card_candidates(game_id, roots);
         for (const std::string& path : candidates) {
             std::uint64_t bytes = 0;
             struct stat info {};
