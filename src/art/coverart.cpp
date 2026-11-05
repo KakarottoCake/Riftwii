@@ -4,11 +4,54 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/nandchannel.hpp"
 
 namespace riftwii {
 namespace {
+// Area averaging for one strip, shared by the row and tiled outputs.
+class ColumnScale {
+public:
+    ColumnScale(const std::uint8_t* source, int stride, int left, int width, int height, int out_width, int out_height)
+        : source_(source), stride_(stride), left_(left), width_(width), height_(height),
+          fx_(static_cast<double>(width) / out_width), fy_(static_cast<double>(height) / out_height) {}
+
+    void pixel(int x, int y, std::uint8_t* out) const {
+        const double x0 = x * fx_;
+        const double x1 = (x + 1) * fx_;
+        const double y0 = y * fy_;
+        const double y1 = (y + 1) * fy_;
+        double sum[4] = {0, 0, 0, 0};
+        double area = 0;
+        for (int sy = static_cast<int>(y0); sy < height_ && sy < y1; ++sy) {
+            const double wy = std::min<double>(sy + 1, y1) - std::max<double>(sy, y0);
+            for (int sx = static_cast<int>(x0); sx < width_ && sx < x1; ++sx) {
+                const double weight = wy * (std::min<double>(sx + 1, x1) - std::max<double>(sx, x0));
+                if (weight <= 0) continue;
+                const std::uint8_t* sample = source_ + (static_cast<std::size_t>(sy) * stride_ + left_ + sx) * 4;
+                for (int c = 0; c < 4; ++c) {
+                    sum[c] += sample[c] * weight;
+                }
+                area += weight;
+            }
+        }
+        for (int c = 0; c < 4; ++c) {
+            out[c] = area > 0 ? static_cast<std::uint8_t>(sum[c] / area + 0.5) : 0;
+        }
+    }
+
+private:
+    const std::uint8_t* source_;
+    int stride_;
+    int left_;
+    int width_;
+    int height_;
+    double fx_;
+    double fy_;
+};
+
 
 constexpr float kCornerRadius = 8.0f;  // the menu's tile cards round at 14 around a 7 margin
 
@@ -167,26 +210,16 @@ namespace {
 // Columns [left, left + sw) of a picture `stride` pixels wide, scaled to
 // dw x dh: what scale_rgba does, without copying the columns out first.
 std::vector<std::uint8_t> scale_columns(const std::uint8_t* src, int stride, int left, int sw, int sh, int dw, int dh) {
-    std::vector<std::uint8_t> out(static_cast<std::size_t>(dw) * dh * 4, 0);
+    std::vector<std::uint8_t> out;
+    if (dw <= 0 || dh <= 0 || !within_checked_cap(static_cast<std::size_t>(dw), 4) ||
+        !within_checked_cap(static_cast<std::size_t>(dh), static_cast<std::size_t>(dw) * 4)) return out;
+    if (!try_resize(out, static_cast<std::size_t>(dw) * dh * 4)) return out;
     if (!src || sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0) return out;
-    const double fx = static_cast<double>(sw) / dw, fy = static_cast<double>(sh) / dh;
+    const ColumnScale scale(src, stride, left, sw, sh, dw, dh);
     for (int dy = 0; dy < dh; ++dy) {
-        const double y0 = dy * fy, y1 = (dy + 1) * fy;
         for (int dx = 0; dx < dw; ++dx) {
-            const double x0 = dx * fx, x1 = (dx + 1) * fx;
-            double sum[4] = {0, 0, 0, 0}, area = 0;
-            for (int sy = static_cast<int>(y0); sy < sh && sy < y1; ++sy) {
-                const double wy = std::min<double>(sy + 1, y1) - std::max<double>(sy, y0);
-                for (int sx = static_cast<int>(x0); sx < sw && sx < x1; ++sx) {
-                    const double wgt = wy * (std::min<double>(sx + 1, x1) - std::max<double>(sx, x0));
-                    if (wgt <= 0) continue;
-                    const std::uint8_t* p = src + (static_cast<std::size_t>(sy) * stride + left + sx) * 4;
-                    for (int c = 0; c < 4; ++c) sum[c] += p[c] * wgt;
-                    area += wgt;
-                }
-            }
             std::uint8_t* q = &out[(static_cast<std::size_t>(dy) * dw + dx) * 4];
-            for (int c = 0; c < 4; ++c) q[c] = area > 0 ? static_cast<std::uint8_t>(sum[c] / area + 0.5) : 0;
+            scale.pixel(dx, dy, q);
         }
     }
     return out;
@@ -200,6 +233,7 @@ std::vector<std::uint8_t> scale_rgba(const std::uint8_t* src, int sw, int sh, in
 std::vector<std::uint8_t> make_cover_file(const std::uint8_t* rgba, int w, int h) {
     if (!rgba || w < 8 || h < 8 || w > 2048 || h > 2048) return {};
     std::vector<std::uint8_t> px = scale_rgba(rgba, w, h, kCoverWidth, kCoverHeight);
+    if (px.empty()) return {};
     for (int y = 0; y < kCoverHeight; ++y) {
         for (int x = 0; x < kCoverWidth; ++x) {
             std::uint8_t& a = px[(static_cast<std::size_t>(y) * kCoverWidth + x) * 4 + 3];
@@ -208,7 +242,7 @@ std::vector<std::uint8_t> make_cover_file(const std::uint8_t* rgba, int w, int h
     }
     std::vector<std::uint8_t> out = {'R', 'W', 'C', '1', 0, static_cast<std::uint8_t>(kCoverWidth), 0,
                                      static_cast<std::uint8_t>(kCoverHeight)};
-    out.reserve(kCoverFileSize);
+    if (!try_reserve(out, kCoverFileSize)) return {};
     for (int ty = 0; ty < kCoverHeight; ty += 4) {
         for (int tx = 0; tx < kCoverWidth; tx += 4) {
             for (int y = ty; y < ty + 4; ++y) {
@@ -250,7 +284,7 @@ std::vector<std::uint8_t> rgb5a3_file(const char* magic, const std::vector<std::
                                      static_cast<std::uint8_t>(magic[2]), static_cast<std::uint8_t>(magic[3]),
                                      static_cast<std::uint8_t>(w >> 8), static_cast<std::uint8_t>(w),
                                      static_cast<std::uint8_t>(h >> 8), static_cast<std::uint8_t>(h)};
-    out.reserve(8 + static_cast<std::size_t>(w) * h * 2);
+    if (!try_reserve(out, 8 + static_cast<std::size_t>(w) * h * 2)) return {};
     for (int ty = 0; ty < h; ty += 4)
         for (int tx = 0; tx < w; tx += 4)
             for (int y = ty; y < ty + 4; ++y)
@@ -267,25 +301,40 @@ std::vector<std::uint8_t> rgb5a3_file(const char* magic, const std::vector<std::
 std::vector<std::uint8_t> make_box_file(const std::uint8_t* rgba, int w, int h) {
     int x0 = 0, x1 = 0;
     if (!rgba || w > 4096 || h > 4096 || !spine_strip(w, h, x0, x1)) return {};
-    // Each part scaled straight from the scan: the menu has little heap to spare.
-    const std::vector<std::uint8_t> spine = scale_columns(rgba, w, x0, x1 - x0, h, kBoxSpineWidth, kBoxHeight);
-    const std::vector<std::uint8_t> front = scale_columns(rgba, w, x1, w - x1, h, kBoxFrontWidth, kBoxHeight);
-    const std::vector<std::uint8_t> back = scale_columns(rgba, w, 0, x0, h, kBoxBackWidth, kBoxHeight);
-    std::vector<std::uint8_t> px(static_cast<std::size_t>(kBoxWidth) * kBoxHeight * 4);
-    for (int y = 0; y < kBoxHeight; ++y) {
-        std::copy(spine.begin() + static_cast<std::ptrdiff_t>(y) * kBoxSpineWidth * 4,
-                  spine.begin() + static_cast<std::ptrdiff_t>(y + 1) * kBoxSpineWidth * 4,
-                  px.begin() + static_cast<std::ptrdiff_t>(y) * kBoxWidth * 4);
-        std::copy(front.begin() + static_cast<std::ptrdiff_t>(y) * kBoxFrontWidth * 4,
-                  front.begin() + static_cast<std::ptrdiff_t>(y + 1) * kBoxFrontWidth * 4,
-                  px.begin() + (static_cast<std::ptrdiff_t>(y) * kBoxWidth + kBoxSpineWidth) * 4);
-        std::copy(back.begin() + static_cast<std::ptrdiff_t>(y) * kBoxBackWidth * 4,
-                  back.begin() + static_cast<std::ptrdiff_t>(y + 1) * kBoxBackWidth * 4,
-                  px.begin() + (static_cast<std::ptrdiff_t>(y) * kBoxWidth + kBoxSpineWidth + kBoxFrontWidth) * 4);
+    // Write directly into the final tiles. The separate strips and RGBA
+    // assembly used another 374 KiB while the downloaded scan was still
+    // held, and an unchecked allocation here could restart the menu (#479).
+    std::vector<std::uint8_t> out = {'R', 'W', 'B', '2', kBoxWidth >> 8, kBoxWidth & 255,
+                                    kBoxHeight >> 8, kBoxHeight & 255};
+    if (!try_resize(out, kBoxFileSize)) return {};
+    const ColumnScale spine(rgba, w, x0, x1 - x0, h, kBoxSpineWidth, kBoxHeight);
+    const ColumnScale front(rgba, w, x1, w - x1, h, kBoxFrontWidth, kBoxHeight);
+    const ColumnScale back(rgba, w, 0, x0, h, kBoxBackWidth, kBoxHeight);
+    std::size_t at = kBoxHeaderSize;
+    for (int ty = 0; ty < kBoxHeight; ty += 4) {
+        for (int tx = 0; tx < kBoxWidth; tx += 4) {
+            for (int y = ty; y < ty + 4; ++y) {
+                for (int x = tx; x < tx + 4; ++x) {
+                    const ColumnScale* part = &spine;
+                    int column = x;
+                    if (x >= kBoxSpineWidth + kBoxFrontWidth) {
+                        part = &back;
+                        column -= kBoxSpineWidth + kBoxFrontWidth;
+                    } else if (x >= kBoxSpineWidth) {
+                        part = &front;
+                        column -= kBoxSpineWidth;
+                    }
+                    std::uint8_t pixel[4];
+                    part->pixel(column, y, pixel);
+                    pixel[3] = 255;  // a box has no see-through edges
+                    const std::uint16_t texel = rgb5a3(pixel);
+                    out[at++] = static_cast<std::uint8_t>(texel >> 8);
+                    out[at++] = static_cast<std::uint8_t>(texel);
+                }
+            }
+        }
     }
-    // A box is solid: no see-through edges from the scan.
-    for (std::size_t i = 3; i < px.size(); i += 4) px[i] = 255;
-    return rgb5a3_file("RWB2", px, kBoxWidth, kBoxHeight);
+    return out;
 }
 
 namespace {
@@ -307,8 +356,13 @@ void from_rgb5a3(std::uint16_t v, std::uint8_t* p) {
 
 void make_backdrop(const std::uint8_t* tiles, int w, int h, int x0, int x1, std::uint8_t* out, bool rgba8) {
     if (!tiles || !out || w <= 0 || h <= 0 || w % 4 || h % 4 || x0 < 0 || x1 > w || x1 <= x0) return;
+    // The caller may keep drawing this result even when its optional art
+    // cannot be made. Transparent texels leave the plain band visible.
+    std::memset(out, 0, kBackdropBytes);
     const int sw = x1 - x0;
-    std::vector<std::uint8_t> src(static_cast<std::size_t>(sw) * h * 4);
+    std::vector<std::uint8_t> src;
+    if (!within_checked_cap(static_cast<std::size_t>(sw), static_cast<std::size_t>(h) * 4) ||
+        !try_resize(src, static_cast<std::size_t>(sw) * h * 4)) return;
     for (int y = 0; y < h; ++y)
         for (int x = x0; x < x1; ++x) {
             std::uint8_t* p = &src[(static_cast<std::size_t>(y) * sw + (x - x0)) * 4];
@@ -327,8 +381,11 @@ void make_backdrop(const std::uint8_t* tiles, int w, int h, int x0, int x1, std:
             }
         }
     std::vector<std::uint8_t> px = scale_rgba(src.data(), sw, h, kBackdropWidth, kBackdropHeight);
+    if (px.empty()) return;
+    std::vector<std::uint8_t>().swap(src);
     // Twice a 3x3 average, the edges repeated.
-    std::vector<std::uint8_t> tmp(px.size());
+    std::vector<std::uint8_t> tmp;
+    if (!try_resize(tmp, px.size())) return;
     for (int pass = 0; pass < 2; ++pass) {
         for (int y = 0; y < kBackdropHeight; ++y)
             for (int x = 0; x < kBackdropWidth; ++x)
@@ -402,7 +459,9 @@ std::vector<std::uint8_t> make_cover3d_file(const std::uint8_t* rgba, int w, int
     const int dw = std::clamp(static_cast<int>(w * k + 0.5f), 1, kCover3dWidth);
     const int dh = std::clamp(static_cast<int>(h * k + 0.5f), 1, kCover3dHeight);
     const std::vector<std::uint8_t> scaled = scale_rgba(rgba, w, h, dw, dh);
-    std::vector<std::uint8_t> px(static_cast<std::size_t>(kCover3dWidth) * kCover3dHeight * 4, 0);
+    if (scaled.empty()) return {};
+    std::vector<std::uint8_t> px;
+    if (!try_resize(px, static_cast<std::size_t>(kCover3dWidth) * kCover3dHeight * 4)) return {};
     const int left = (kCover3dWidth - dw) / 2, top = kCover3dHeight - dh;
     for (int y = 0; y < dh; ++y)
         std::copy(scaled.begin() + static_cast<std::ptrdiff_t>(y) * dw * 4,
@@ -426,11 +485,13 @@ std::vector<std::uint8_t> disc_art_texture(const std::uint8_t* rgba, int w, int 
     if (!rgba || w < 8 || h < 8 || w > kDiscArtMaxSide || h > kDiscArtMaxSide) return {};
     tw = (w + 3) & ~3;
     th = (h + 3) & ~3;
-    std::vector<std::uint8_t> px(static_cast<std::size_t>(tw) * th * 4, 0);
+    std::vector<std::uint8_t> px;
+    if (!try_resize(px, static_cast<std::size_t>(tw) * th * 4)) return {};
     for (int y = 0; y < h; ++y)
         std::copy(rgba + static_cast<std::ptrdiff_t>(y) * w * 4, rgba + static_cast<std::ptrdiff_t>(y + 1) * w * 4,
                   px.begin() + static_cast<std::ptrdiff_t>(y) * tw * 4);
     std::vector<std::uint8_t> file = rgb5a3_file("RWD1", px, tw, th);
+    if (file.empty()) return {};
     // The texture alone, without the stored files' header.
     file.erase(file.begin(), file.begin() + 8);
     return file;

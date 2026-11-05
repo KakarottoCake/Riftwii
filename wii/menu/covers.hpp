@@ -28,8 +28,9 @@ bool CoverStored(const std::string& game_id);
 enum class CoverFetch { Stored, NotFound, NoAnswer, Failed };
 // Downloads, shrinks and stores the game's cover. NotFound: GameTDB has
 // none (remembered for a week); NoAnswer: no answer about it (no network,
-// TLS, a timeout, GameTDB in trouble; `error`), not remembered; Failed:
-// the card could not be written (`error`). The shelf's boxes and the 3D
+// TLS, a timeout, GameTDB in trouble, no memory to prepare it; `error`),
+// not remembered; Failed: the card could not be written (`error`). The
+// shelf's boxes and the 3D
 // covers (boxart.hpp, cover3d.hpp) answer the same way.
 CoverFetch FetchCover(const std::string& game_id, std::string& error);
 

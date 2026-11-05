@@ -281,8 +281,8 @@ bool LoadBanner(const std::string& game_id, std::vector<std::uint8_t>& out) {
     std::fseek(f, 0, SEEK_SET);
     bool ok = size > 0 && static_cast<std::size_t>(size) <= kMaxBanner;
     if (ok) {
-        out.resize(static_cast<std::size_t>(size));
-        ok = std::fread(out.data(), 1, out.size(), f) == out.size();
+        ok = try_resize(out, static_cast<std::size_t>(size)) &&
+             std::fread(out.data(), 1, out.size(), f) == out.size();
     }
     std::fclose(f);
     return ok;
@@ -295,8 +295,8 @@ bool LoadBannerIcon(const std::string& game_id, std::vector<std::uint8_t>& out) 
     std::fseek(f, 0, SEEK_END);
     const long size = std::ftell(f);
     bool found = false;
-    if (size > 0x700 && static_cast<std::size_t>(size) <= kMaxBanner) {
-        out.assign(static_cast<std::size_t>(size), 0);
+    if (size > 0x700 && static_cast<std::size_t>(size) <= kMaxBanner &&
+        try_assign(out, static_cast<std::size_t>(size), std::uint8_t(0))) {
         const auto read_at = [&](std::size_t off, std::size_t n) {
             return off <= out.size() && n <= out.size() - off && std::fseek(f, static_cast<long>(off), SEEK_SET) == 0 &&
                    std::fread(out.data() + off, 1, n, f) == n;

@@ -94,7 +94,13 @@ void LoadCache(const std::string& lang) {
     if (!Stat(path.c_str(), st) || st.st_size > (4 << 20)) return;
     FILE* f = std::fopen(path.c_str(), "rb");
     if (!f) return;
-    std::string text(static_cast<std::size_t>(st.st_size), '\0');
+    std::string text;
+    if (!try_resize(text, static_cast<std::size_t>(st.st_size))) {
+        std::fclose(f);
+        logf("Game details: no room to read the saved details; they are left on the card.\n");
+        g_cache.loaded = false;  // a later call reads them again
+        return;
+    }
     const std::size_t got = std::fread(&text[0], 1, text.size(), f);
     std::fclose(f);
     text.resize(got);
