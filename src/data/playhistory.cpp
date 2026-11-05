@@ -82,6 +82,18 @@ std::vector<std::string> PlayHistory::recent(std::size_t limit) const {
     return out;
 }
 
+std::string last_game_key(const PlayHistory& history, bool history_enabled, const std::string& last_tile_text) {
+    if (history_enabled) {
+        const std::vector<std::string> recent = history.recent(1);
+        return recent.empty() ? std::string() : recent.front();
+    }
+    LineReader lines(last_tile_text);
+    std::string key;
+    if (!lines.next(key)) return {};
+    if (!key.empty() && key.back() == '\r') key.pop_back();
+    return plausible_id(key) ? key : std::string();
+}
+
 namespace {
 
 void put_be(std::vector<std::uint8_t>& out, std::size_t at, std::uint64_t value, int bytes) {

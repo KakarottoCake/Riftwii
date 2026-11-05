@@ -36,6 +36,11 @@ private:
     std::map<std::string, PlayRecord> games_;
 };
 
+// The automatic start uses the history while it is enabled. With history
+// off, only last_tile.txt's first line is used; missing or invalid text
+// never falls back to an older game recorded before history was disabled.
+std::string last_game_key(const PlayHistory& history, bool history_enabled, const std::string& last_tile_text);
+
 // The Wii Menu's play log, /title/00000001/00000002/data/play_rec.dat
 // (layout as wiibrew documents it): 0x80 bytes, big-endian. A checksum
 // (the sum of the 31 words after it); at 0x04 the game's name in UTF-16

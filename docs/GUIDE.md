@@ -376,6 +376,16 @@ pictures also need **SteamGridDB covers**. **Covers for emulator games**
 only turns the automatic pictures on or off, not the picker. See
 [Emulator Channels pictures](EMULATORS.md#channels-pictures).
 
+### Start your last game
+
+Home already opens on the last game you played, unless **Home starts on**
+is set to **First page**. In **Settings > Home**, turn on
+**Start the last game right away** to start it after a five-second
+countdown when RiftWii opens. It is off by default. Press any button to
+cancel, or hold B while RiftWii starts to skip it. If the game is gone,
+Home opens as usual. The disc drive is never started this way. The usual
+parental checks and game warnings still apply.
+
 ### A game's page
 
 Games you start show on the Wii Message Board with how long you
@@ -506,6 +516,31 @@ In every list, hold A and move the Wii Remote to drag it (a quick flick
 keeps it going); the D-pad works too. A longer list has up and down
 arrows on its right edge: point at one and press A to move a row, or hold
 A to keep going. Each arrow goes away at its end of the list.
+
+### Hide, rename or delete a game
+
+Open a game's **Manage game** page. **Hide from Home** leaves its files
+and saves in place. In **Settings > Home**, turn on **Show hidden games**
+to find it again, then choose **Unhide from Home**. Parental controls
+still hide or lock games according to their own rules.
+
+**Rename** uses the on-screen keyboard and changes the name used for
+Home's search and sorting. **Restore name** returns to the original name.
+These choices are stored in RiftWii's settings; no game file is renamed.
+**About** is also on the management page.
+
+For games stored as image files, **Delete this game** removes the image,
+all its split WBFS parts, and RiftWii's covers and cheat files. A game's
+folder is removed only when it is empty. The confirmation names the game,
+says it cannot be undone, and starts on **Keep it**. The disc drive and
+installed channels and NTFS USB images have no delete action. Patch-only entries and games on
+a WBFS-formatted drive have no image-file delete action either.
+
+**Delete its saves too** starts off. Turning it on also deletes RiftWii's
+separate saves and that game's own GameCube card and backups. Shared cards,
+pack-managed saves, other loaders' saves and the Wii's internal saves are
+kept. Saves are also kept when another copy with the same game ID remains.
+USB deletion needs FAT32; NTFS drives remain read-only.
 
 ### Settings
 

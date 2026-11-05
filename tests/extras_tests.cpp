@@ -2919,7 +2919,54 @@ void TestPlayerActed() {
     EXPECT_TRUE(marked.acted());
 }
 
+static void test_last_game_countdown() {
+    using namespace riftwii;
+    LoaderSettings settings;
+    EXPECT_FALSE(settings.start_last_game);
+    settings.parse("start_last_game = on\n");
+    EXPECT_TRUE(settings.start_last_game);
+    settings.parse("start_last_game = invalid\n");
+    EXPECT_TRUE(settings.start_last_game);
+    LoaderSettings restored;
+    restored.parse(settings.serialize());
+    EXPECT_TRUE(restored.start_last_game);
+    restored.parse("start_last_game = off\n");
+    EXPECT_FALSE(restored.start_last_game);
+    LastGameCountdown countdown;
+    EXPECT_EQ(countdown.update(0, false), 5);
+    EXPECT_EQ(countdown.update(999, false), 5);
+    EXPECT_EQ(countdown.update(1000, false), 4);
+    EXPECT_EQ(countdown.update(4999, false), 1);
+    EXPECT_EQ(countdown.update(5000, false), 0);
+    LastGameCountdown cancelled;
+    EXPECT_EQ(cancelled.update(5000, true), -1);
+    EXPECT_EQ(cancelled.update(6000, false), -1);
+    LastGameCountdown early;
+    EXPECT_EQ(early.update(2000, true), -1);
+    EXPECT_EQ(early.update(5000, false), -1);
+}
+
+static void test_last_game_key() {
+    using namespace riftwii;
+    PlayHistory history;
+    history.record("RMCE01", 100);
+    history.record("SB4E01", 200);
+    EXPECT_EQ(last_game_key(history, true, "RMCE01\n"), "SB4E01");
+    EXPECT_EQ(last_game_key(history, true, ""), "SB4E01");
+    EXPECT_EQ(last_game_key(history, false, "RMCE01\n"), "RMCE01");
+    EXPECT_EQ(last_game_key(history, false, "RMCE01@retro-rewind\r\nSB4E01\n"), "RMCE01@retro-rewind");
+    const std::string emulator = "emu-" + std::string(64, 'a');
+    EXPECT_EQ(last_game_key(history, false, emulator + "\n"), emulator);
+    EXPECT_EQ(last_game_key(history, false, ""), "");
+    EXPECT_EQ(last_game_key(history, false, "../RMCE01\n"), "");
+    EXPECT_EQ(last_game_key(history, false, "\nRMCE01\n"), "");
+    EXPECT_EQ(last_game_key(PlayHistory{}, true, "RMCE01\n"), "");
+    EXPECT_EQ(last_game_key(PlayHistory{}, false, "RMCE01"), "RMCE01");
+}
+
 int main() {
+    test_last_game_key();
+    test_last_game_countdown();
     TestPlayLogRecord();
     TestReturnPlans();
     TestReturnTo();
