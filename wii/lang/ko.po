@@ -4145,3 +4145,9 @@ msgstr "게임 전용, 공용, Nintendont 카드 또는 슬롯 A의 실제 카�
 
 msgid "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "게임 전용, 공용, Dolphin 카드 또는 슬롯 A의 실제 카드를 사용합니다(Wii만)."
+
+msgid "Disc slot light"
+msgstr "디스크 슬롯 표시등"
+
+msgid "Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong."
+msgstr "게임을 불러오거나 디스크를 복사하는 동안 천천히 깜박입니다. 완료되거나 문제가 발생하면 꺼집니다."

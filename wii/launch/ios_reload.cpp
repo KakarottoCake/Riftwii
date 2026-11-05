@@ -25,6 +25,7 @@
 #include "d2xsd.hpp"
 #include "d2xreturnto.hpp"
 #include "di.hpp"
+#include "disclight.hpp"
 #include "gcadapter.hpp"
 #include "memlimits.hpp"
 #include "menumusic.hpp"
@@ -95,6 +96,8 @@ void release_wii_remotes() {
 }
 
 [[noreturn]] void halt_after_terminal_reload() {
+    // Only the PPC alarm and GPIO: this does not need the failed IOS.
+    StopDiscLight();
     // The IOS IPC interrupt is still masked and its handler is gone. Do not
     // return into CRT/libogc cleanup or call any subsystem here.
     for (;;) ++g_terminal_spin;

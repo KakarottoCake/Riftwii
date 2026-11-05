@@ -8719,5 +8719,19 @@ def main():
         raise SystemExit(1)
 
 
+# Disc slot activity light.
+T.update({
+    'Disc slot light': ('Luz de la ranura de discos', 'ディスクスロットの光', 'Luz da entrada de discos', 'Luce del vano disco'),
+    'Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong.': ('Parpadea suavemente al cargar un juego o copiar un disco. Se apaga al terminar o si algo falla.', 'ゲームの読み込み中やディスクのコピー中にゆっくり点滅します。完了時やエラー時には消えます。', 'Pisca suavemente ao carregar um jogo ou copiar um disco. Apaga ao terminar ou se algo der errado.', 'Lampeggia lentamente durante il caricamento di un gioco o la copia di un disco. Si spegne al termine o in caso di errore.'),
+})
+KO.update({
+    'Disc slot light': '디스크 슬롯 표시등',
+    'Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong.': '게임을 불러오거나 디스크를 복사하는 동안 천천히 깜박입니다. 완료되거나 문제가 발생하면 꺼집니다.',
+})
+FR.update({
+    'Disc slot light': 'Lumière du lecteur de disques',
+    'Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong.': 'Clignote doucement pendant le chargement d’un jeu ou la copie d’un disque. S’éteint à la fin ou en cas de problème.',
+})
+
 if __name__ == "__main__":
     main()

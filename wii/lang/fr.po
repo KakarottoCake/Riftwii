@@ -4145,3 +4145,9 @@ msgstr "Utilise la carte du jeu, une carte partagée, celle de Nintendont ou une
 
 msgid "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "Utilise la carte du jeu, une carte partagée, celle de Dolphin ou une vraie carte dans le port A (Wii uniquement)."
+
+msgid "Disc slot light"
+msgstr "Lumière du lecteur de disques"
+
+msgid "Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong."
+msgstr "Clignote doucement pendant le chargement d’un jeu ou la copie d’un disque. S’éteint à la fin ou en cas de problème."

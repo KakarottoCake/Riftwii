@@ -4145,3 +4145,9 @@ msgstr "Usa la scheda del gioco, una condivisa, quella di Nintendont o una reale
 
 msgid "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "Usa la scheda del gioco, una condivisa, quella di Dolphin o una reale nello slot A (solo Wii)."
+
+msgid "Disc slot light"
+msgstr "Luce del vano disco"
+
+msgid "Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong."
+msgstr "Lampeggia lentamente durante il caricamento di un gioco o la copia di un disco. Si spegne al termine o in caso di errore."

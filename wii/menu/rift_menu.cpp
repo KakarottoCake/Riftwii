@@ -16238,7 +16238,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kNintendontSaves, kParental, kSdGames, kIos, kNet, kResync, kWads, kDiscCopy,
+	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kDiscLight, kNintendontSaves, kParental, kSdGames, kIos, kNet, kResync, kWads, kDiscCopy,
 		kMissingCovers, kRescan, kPartitionFailures, kUpdate, kReport, kTests, kGeckoLog, kWiirdDebugger, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -16291,6 +16291,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			FlowRow::Kind::Toggle);
 		option(tr("Back up GameCube saves"), settings.gc_backups == "off" ? tr("Off") : tr("On"), settings.gc_backups != "off",
 			kGcBackups, FlowRow::Kind::Toggle);
+		option(tr("Disc slot light"), settings.disc_light ? tr("On") : tr("Off"), settings.disc_light,
+			kDiscLight, FlowRow::Kind::Toggle);
 		FlowRow nintendontSaves;
 		nintendontSaves.kind = FlowRow::Kind::Action;
 		nintendontSaves.label = tr("Bring your Nintendont saves");
@@ -16563,7 +16565,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			switch (a) {
 				case kWidth: case kDeflicker: case kBorders: case kVideoMode: case kAspect:
 					return SettingsSection::Picture;
-				case kEmulators: case kGameLanguage: case kGameCios: case kNonGames: case kReturnTo: case kShots: case kGcBackups: case kNintendontSaves:
+				case kEmulators: case kGameLanguage: case kGameCios: case kNonGames: case kReturnTo: case kShots: case kGcBackups: case kDiscLight: case kNintendontSaves:
 				case kParental:
 					return SettingsSection::Games;
 				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest: case kUsbInput:
@@ -16687,6 +16689,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kReturnTo: return ReturnToNote();
 			case kShots: return tr("Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it.");
 			case kDiscTile: return DiscTileNote();
+			case kDiscLight: return tr("Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong.");
 			case kGcBackups: return tr("Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page.");
 			case kPlayHistory: return tr("Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown.");
 			case kHomeSource: return HomeSourceNote(settings.home_source);
@@ -17021,6 +17024,11 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						settings.return_to = settings.return_to == "menu" ? "riftwii" : "menu";
 					}
 					saveAndNote(ReturnToNote());
+					rebuild();
+					break;
+				case kDiscLight:
+					settings.disc_light = !settings.disc_light;
+					saveAndNote(tr("Disc slot light"));
 					rebuild();
 					break;
 				case kGcBackups:

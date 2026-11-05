@@ -4145,3 +4145,9 @@ msgstr "ゲーム専用、共通、Nintendontのカード、またはスロッ�
 
 msgid "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "ゲーム専用、共通、Dolphinのカード、またはスロットAの実物のカード（Wiiのみ）を使います。"
+
+msgid "Disc slot light"
+msgstr "ディスクスロットの光"
+
+msgid "Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong."
+msgstr "ゲームの読み込み中やディスクのコピー中にゆっくり点滅します。完了時やエラー時には消えます。"

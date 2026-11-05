@@ -96,6 +96,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "riftwii" || value == "menu") return_to = value;
         } else if (key == "menu_music") {
             if (value == "on" || value == "off") menu_music = value;
+        } else if (key == "disc_light") {
+            if (value == "on" || value == "off") disc_light = value == "on";
         } else if (key == "launch_music") {
             if (value == "on" || value == "off") launch_music = value;
         } else if (key == "page_banner_sound") {
@@ -231,6 +233,7 @@ std::string LoaderSettings::serialize() const {
     s += std::string("wii_menu_music = ") + (wii_menu_music ? "on\n" : "off\n");
     s += "menu_sounds = " + menu_sounds + "\n";
     s += "menu_music = " + menu_music + "\n";
+    s += std::string("disc_light = ") + (disc_light ? "on" : "off") + "\n";
     s += "launch_music = " + launch_music + "\n";
     s += "page_banner_sound = " + page_banner_sound + "\n";
     s += "disc_art = " + disc_art + "\n";
