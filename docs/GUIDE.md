@@ -1880,3 +1880,38 @@ you already have in `wiiflow/covers/`. Nothing is changed in WiiFlow's files.
 - [`docs/THEMES.md`](THEMES.md): making themes, color keys, picture
   sizes and music.
 - [`docs/README.md`](README.md): every other document.
+
+### Use another loader's files
+
+A GameCube game's **Memory card** setting offers **Nintendont's card**
+when a matching card is present in `/saves` on the SD card or any readable
+USB partition. Its own `<ID4>.raw` comes first; otherwise the shared
+`ninmem.raw` is used (`ninmemj.raw` for Japanese and Korean games).
+**Dolphin's card** uses the region's slot A raw card in the Dolphin `GC`
+folder copied to `sd:/riftwii/gc/dolphin/`. Dolphin's GCI-folder cards can
+still be brought in with **Bring your Dolphin saves**.
+
+Choosing either card lets the game write to that existing file in place.
+RiftWii checks the card and keeps a backup under
+`sd:/riftwii/gc/backups/<game>/external` before starting; if it cannot make
+the backup, it does not start the game. USB cards need FAT32. The separate
+**Bring your Nintendont saves** tool still only reads Nintendont's cards.
+Larger cards leave less memory for Reset's restart copy; when it cannot
+fit, Reset returns to RiftWii.
+
+Before downloading a missing cover, RiftWii reads existing PNGs from USB
+Loader GX's `images` or `config/images` folders (including `2D`, `3D`,
+`full` and `disc`) and WiiFlow's `wiiflow/covers` or `wiiflow/boxcovers`,
+on the SD card and readable USB partitions. RiftWii's own covers come
+first. Files in the other loaders' folders are only read.
+
+Cheats also work from `codes/<ID>.txt` and USB Loader GX's
+`txtcodes/<ID>.txt` on either drive. RiftWii's own cheat file comes first.
+Editing a cheat's values or downloading new cheats writes RiftWii's own
+file and leaves the original text file alone. The Cheats page names the
+file being used; choose **Cheat file** to change it when more than one is
+available.
+
+Cheat files keep their own picked cheats when you change the Cheat file row.
+If a picked file is removed, its cheats do not come from a different file.
+Downloads and filled values keep cheats already saved in RiftWii's own file.

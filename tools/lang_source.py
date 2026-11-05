@@ -8442,10 +8442,94 @@ FR.update({
     "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report.": "RiftWii a manqué de mémoire au démarrage du jeu. Désactivez la musique du menu et réessayez, ou envoyez un rapport de problème.",
 })
 
+# Other loaders: choosing an existing card explicitly allows in-place saves.
+T.update({
+    "Nintendont's card": ('Tarjeta de Nintendont', 'Nintendontのカード', 'Cartão do Nintendont', 'Scheda di Nintendont'),
+    "Dolphin's card": ('Tarjeta de Dolphin', 'Dolphinのカード', 'Cartão do Dolphin', 'Scheda di Dolphin'),
+    'Saves are written to {1}. A backup is kept before the game starts.': ('Las partidas se guardan en {1}. Se guarda una copia antes de iniciar el juego.', 'セーブ先は{1}です。ゲームを起動する前にバックアップします。', 'Os jogos são salvos em {1}. Uma cópia é guardada antes de iniciar o jogo.', 'I salvataggi vanno in {1}. Una copia viene conservata prima di avviare il gioco.'),
+    "The selected memory card is missing. Choose another card on the game's page.": ('Falta la tarjeta elegida. Elige otra en la página del juego.', '選んだメモリーカードがありません。ゲームのページで別のカードを選んでください。', 'O cartão escolhido não foi encontrado. Escolha outro na página do jogo.', "La scheda scelta non è presente. Scegline un'altra nella pagina del gioco."),
+    'The memory card file could not be read. Nothing was changed.': ('No se pudo leer la tarjeta. No se cambió nada.', 'メモリーカードを読めませんでした。何も変更していません。', 'Não foi possível ler o cartão. Nada foi alterado.', 'Impossibile leggere la scheda. Nessuna modifica eseguita.'),
+    'The memory card could not be backed up. The game was not started.': ('No se pudo hacer una copia de la tarjeta. El juego no se inició.', 'メモリーカードをバックアップできませんでした。ゲームは起動していません。', 'Não foi possível copiar o cartão. O jogo não foi iniciado.', 'Impossibile copiare la scheda. Il gioco non è stato avviato.'),
+    'This memory card needs a FAT32 drive so the game can save to it.': ('Esta tarjeta necesita una unidad FAT32 para guardar las partidas.', 'このメモリーカードでセーブするにはFAT32のドライブが必要です。', 'Este cartão precisa de uma unidade FAT32 para salvar o jogo.', "Questa scheda richiede un'unità FAT32 per salvare il gioco."),
+})
+KO.update({
+    "Nintendont's card": 'Nintendont 카드',
+    "Dolphin's card": 'Dolphin 카드',
+    'Saves are written to {1}. A backup is kept before the game starts.': '{1}에 저장합니다. 게임 시작 전에 백업합니다.',
+    "The selected memory card is missing. Choose another card on the game's page.": '선택한 메모리 카드가 없습니다. 게임 페이지에서 다른 카드를 선택하세요.',
+    'The memory card file could not be read. Nothing was changed.': '메모리 카드 파일을 읽을 수 없습니다. 변경된 내용이 없습니다.',
+    'The memory card could not be backed up. The game was not started.': '메모리 카드를 백업할 수 없습니다. 게임을 시작하지 않았습니다.',
+    'This memory card needs a FAT32 drive so the game can save to it.': '게임을 저장하려면 이 메모리 카드에 FAT32 드라이브가 필요합니다.',
+})
+FR.update({
+    "Nintendont's card": 'Carte de Nintendont',
+    "Dolphin's card": 'Carte de Dolphin',
+    'Saves are written to {1}. A backup is kept before the game starts.': 'Les sauvegardes vont dans {1}. Une copie est gardée avant le démarrage du jeu.',
+    "The selected memory card is missing. Choose another card on the game's page.": 'La carte choisie est absente. Choisissez-en une autre sur la page du jeu.',
+    'The memory card file could not be read. Nothing was changed.': "Impossible de lire la carte. Rien n'a été modifié.",
+    'The memory card could not be backed up. The game was not started.': "Impossible de copier la carte. Le jeu n'a pas démarré.",
+    'This memory card needs a FAT32 drive so the game can save to it.': 'Cette carte nécessite un support FAT32 pour sauvegarder le jeu.',
+})
+
+T.update({"Cheat file": ("Archivo de trucos", "チートファイル", "Arquivo de códigos", "File dei trucchi")})
+KO.update({"Cheat file": "치트 파일"})
+FR.update({"Cheat file": "Fichier de codes"})
+T.update({
+    "Report how it runs": (
+        "Informa cómo funciona",
+        "動作状況を報告する",
+        "Informar como funciona",
+        "Segnala come funziona"),
+    "This game has no ID, so it can't be reported.": (
+        "Este juego no tiene ID, así que no se puede informar.",
+        "このゲームにはIDがないため、報告できません。",
+        "Este jogo não tem ID, por isso não pode ser relatado.",
+        "Questo gioco non ha un ID, quindi non può essere segnalato."),
+})
+KO.update({
+    "Report how it runs": "실행 상태를 보고하기",
+    "This game has no ID, so it can't be reported.": "이 게임에는 ID가 없어서 보고할 수 없습니다.",
+})
+FR.update({
+    "Report how it runs": "Signaler son fonctionnement",
+    "This game has no ID, so it can't be reported.": "Ce jeu n'a pas d'ID, il ne peut donc pas être signalé.",
+})
+
+T.update({
+    "Scan the code with a phone to report how this game runs. The form opens with the game filled in. Or go to:": (
+        "Escanea el código con el teléfono para informar cómo funciona este juego. El formulario ya incluye el juego. O ve a:",
+        "スマートフォンでコードを読み取ると、このゲームの動作状況を報告できます。フォームはゲームが入力された状態で開きます。またはこちらへ:",
+        "Escaneie o código com o celular para informar como funciona este jogo. O formulário abre com o jogo já preenchido. Ou acesse:",
+        "Scansiona il codice con il telefono per segnalare come funziona questo gioco. Il modulo si apre con il gioco già inserito. Oppure vai a:"),
+    "Go to this link to report how this game runs. The form opens with the game filled in:": (
+        "Ve a este enlace para informar cómo funciona este juego. El formulario ya incluye el juego:",
+        "このリンクから、このゲームの動作状況を報告できます。フォームはゲームが入力された状態で開きます:",
+        "Acesse este link para informar como funciona este jogo. O formulário abre com o jogo já preenchido:",
+        "Vai a questo link per segnalare come funziona questo gioco. Il modulo si apre con il gioco già inserito:"),
+})
+KO.update({
+    "Scan the code with a phone to report how this game runs. The form opens with the game filled in. Or go to:": "휴대폰으로 코드를 스캔하면 이 게임의 실행 상태를 보고할 수 있습니다. 양식에는 게임이 미리 입력되어 있습니다. 또는 다음 주소로 이동하세요:",
+    "Go to this link to report how this game runs. The form opens with the game filled in:": "이 링크에서 이 게임의 실행 상태를 보고할 수 있습니다. 양식에는 게임이 미리 입력되어 있습니다:",
+})
+FR.update({
+    "Scan the code with a phone to report how this game runs. The form opens with the game filled in. Or go to:": "Scannez le code avec un téléphone pour signaler comment ce jeu fonctionne. Le formulaire s'ouvre avec le jeu déjà rempli. Ou allez à :",
+    "Go to this link to report how this game runs. The form opens with the game filled in:": "Allez à ce lien pour signaler comment ce jeu fonctionne. Le formulaire s'ouvre avec le jeu déjà rempli :",
+})
+
+T.update({
+    "Report": ("Informar", "報告", "Informar", "Segnala"),
+})
+KO.update({
+    "Report": "보고",
+})
+FR.update({
+    "Report": "Signaler",
+})
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
-    sources = ["wii/launch/modplan.cpp", "wii/core/i18n.cpp", "wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
+    sources = ["wii/launch/modplan.cpp", "wii/launch/gclaunch.cpp", "wii/core/i18n.cpp", "wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/credits.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
                "wii/core/plugins.cpp", "wii/core/memlimits.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp",
@@ -8492,6 +8576,23 @@ FR.update({
     'Start the last game right away': 'Lancer le dernier jeu tout de suite',
     'Starting in {1} seconds. Press any button to cancel.': 'Démarrage dans {1} secondes. Appuyez sur un bouton pour annuler.',
     'Starts your last game after a five-second countdown. Any button cancels it. Hold B at start-up to skip it. Never starts the disc drive.': 'Lance le dernier jeu après cinq secondes. Tout bouton annule. Maintenez B au démarrage pour passer. Ne lance jamais le lecteur de disques.',
+})
+
+# Memory card choices offered by the other loaders.
+T.update({
+    "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only).": ('Usa la tarjeta del juego, una compartida, la de Nintendont o Dolphin, o una real en la ranura A (solo Wii).', 'ゲーム専用、共通、Nintendont、Dolphinのカード、またはスロットAの実物のカード（Wiiのみ）を使います。', 'Use o cartão do jogo, um compartilhado, o do Nintendont ou Dolphin, ou um real na entrada A (só no Wii).', 'Usa la scheda del gioco, una condivisa, quella di Nintendont o Dolphin, o una reale nello slot A (solo Wii).'),
+    "Use this game's card, a shared card, Nintendont's card, or a real card in slot A (Wii only).": ('Usa la tarjeta del juego, una compartida, la de Nintendont o una real en la ranura A (solo Wii).', 'ゲーム専用、共通、Nintendontのカード、またはスロットAの実物のカード（Wiiのみ）を使います。', 'Use o cartão do jogo, um compartilhado, o do Nintendont ou um real na entrada A (só no Wii).', 'Usa la scheda del gioco, una condivisa, quella di Nintendont o una reale nello slot A (solo Wii).'),
+    "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only).": ('Usa la tarjeta del juego, una compartida, la de Dolphin o una real en la ranura A (solo Wii).', 'ゲーム専用、共通、Dolphinのカード、またはスロットAの実物のカード（Wiiのみ）を使います。', 'Use o cartão do jogo, um compartilhado, o do Dolphin ou um real na entrada A (só no Wii).', 'Usa la scheda del gioco, una condivisa, quella di Dolphin o una reale nello slot A (solo Wii).'),
+})
+KO.update({
+    "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only).": '게임 전용, 공용, Nintendont, Dolphin 카드 또는 슬롯 A의 실제 카드를 사용합니다(Wii만).',
+    "Use this game's card, a shared card, Nintendont's card, or a real card in slot A (Wii only).": '게임 전용, 공용, Nintendont 카드 또는 슬롯 A의 실제 카드를 사용합니다(Wii만).',
+    "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only).": '게임 전용, 공용, Dolphin 카드 또는 슬롯 A의 실제 카드를 사용합니다(Wii만).',
+})
+FR.update({
+    "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only).": 'Utilise la carte du jeu, une carte partagée, celle de Nintendont ou Dolphin, ou une vraie carte dans le port A (Wii uniquement).',
+    "Use this game's card, a shared card, Nintendont's card, or a real card in slot A (Wii only).": 'Utilise la carte du jeu, une carte partagée, celle de Nintendont ou une vraie carte dans le port A (Wii uniquement).',
+    "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only).": 'Utilise la carte du jeu, une carte partagée, celle de Dolphin ou une vraie carte dans le port A (Wii uniquement).',
 })
 
 def main():

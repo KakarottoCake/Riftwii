@@ -4026,6 +4026,45 @@ msgstr "Ce jeu vérifie son propre code. Pour qu'il démarre, les modifications 
 msgid "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report."
 msgstr "RiftWii a manqué de mémoire au démarrage du jeu. Désactivez la musique du menu et réessayez, ou envoyez un rapport de problème."
 
+msgid "Nintendont's card"
+msgstr "Carte de Nintendont"
+
+msgid "Dolphin's card"
+msgstr "Carte de Dolphin"
+
+msgid "Saves are written to {1}. A backup is kept before the game starts."
+msgstr "Les sauvegardes vont dans {1}. Une copie est gardée avant le démarrage du jeu."
+
+msgid "The selected memory card is missing. Choose another card on the game's page."
+msgstr "La carte choisie est absente. Choisissez-en une autre sur la page du jeu."
+
+msgid "The memory card file could not be read. Nothing was changed."
+msgstr "Impossible de lire la carte. Rien n'a été modifié."
+
+msgid "The memory card could not be backed up. The game was not started."
+msgstr "Impossible de copier la carte. Le jeu n'a pas démarré."
+
+msgid "This memory card needs a FAT32 drive so the game can save to it."
+msgstr "Cette carte nécessite un support FAT32 pour sauvegarder le jeu."
+
+msgid "Cheat file"
+msgstr "Fichier de codes"
+
+msgid "Report how it runs"
+msgstr "Signaler son fonctionnement"
+
+msgid "This game has no ID, so it can't be reported."
+msgstr "Ce jeu n'a pas d'ID, il ne peut donc pas être signalé."
+
+msgid "Scan the code with a phone to report how this game runs. The form opens with the game filled in. Or go to:"
+msgstr "Scannez le code avec un téléphone pour signaler comment ce jeu fonctionne. Le formulaire s'ouvre avec le jeu déjà rempli. Ou allez à :"
+
+msgid "Go to this link to report how this game runs. The form opens with the game filled in:"
+msgstr "Allez à ce lien pour signaler comment ce jeu fonctionne. Le formulaire s'ouvre avec le jeu déjà rempli :"
+
+msgid "Report"
+msgstr "Signaler"
+
 msgid "Start the last game right away"
 msgstr "Lancer le dernier jeu tout de suite"
 
@@ -4034,3 +4073,12 @@ msgstr "Démarrage dans {1} secondes. Appuyez sur un bouton pour annuler."
 
 msgid "Starts your last game after a five-second countdown. Any button cancels it. Hold B at start-up to skip it. Never starts the disc drive."
 msgstr "Lance le dernier jeu après cinq secondes. Tout bouton annule. Maintenez B au démarrage pour passer. Ne lance jamais le lecteur de disques."
+
+msgid "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only)."
+msgstr "Utilise la carte du jeu, une carte partagée, celle de Nintendont ou Dolphin, ou une vraie carte dans le port A (Wii uniquement)."
+
+msgid "Use this game's card, a shared card, Nintendont's card, or a real card in slot A (Wii only)."
+msgstr "Utilise la carte du jeu, une carte partagée, celle de Nintendont ou une vraie carte dans le port A (Wii uniquement)."
+
+msgid "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only)."
+msgstr "Utilise la carte du jeu, une carte partagée, celle de Dolphin ou une vraie carte dans le port A (Wii uniquement)."
