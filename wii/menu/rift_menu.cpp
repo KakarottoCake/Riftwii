@@ -96,6 +96,7 @@
 #include "credits.hpp"
 #include "gcadapter.hpp"
 #include "usbinput.hpp"
+#include "startupinput.hpp"
 #include "ratingbadge.hpp"
 #include "skin.hpp"
 #include "ciso_face_png.h"
@@ -180,6 +181,11 @@ namespace skin = riftwii::wii::skin;
 // Synchronous menu work keeps drawing on the GUI thread. A scope marks
 // that wait without inserting a window (which would start a transition).
 static std::atomic<unsigned> g_busyWaits{0};
+// Enabled and read with the GUI parked. The GUI latches every pad frame,
+// even while a transition keeps the windows from receiving their updates.
+static bool g_countdownInputActive = false;
+static bool g_countdownCancelled = false;
+static bool MenuButtonHeld();
 class BusyScope {
 public:
 	BusyScope() { g_busyWaits.fetch_add(1, std::memory_order_relaxed); }
@@ -458,6 +464,7 @@ UpdateGUI(void *arg)
 		{
 			riftwii::wii::GuiPhase("pads and scripts");
 			UpdatePads();
+			if (g_countdownInputActive && MenuButtonHeld()) g_countdownCancelled = true;
 			LogRemotesChanged();
 			if (!launchPopup) riftwii::wii::MenuMusicUpdate();
 			if (g_tendPageSound) riftwii::wii::BannerSoundUpdate();
@@ -2262,7 +2269,7 @@ enum class ChannelChoice { Back, Start, Page };
 static bool g_startOnOpen = false;
 static bool g_lastGameStartPending = false;
 
-static bool StartupButtonHeld()
+static bool MenuButtonHeld()
 {
 	for (int channel = 0; channel < 4; ++channel) {
 		const GuiTrigger& input = userInput[channel];
@@ -6277,23 +6284,12 @@ static std::size_t NearestQueuedCover(const std::vector<std::string>& queue, con
 static bool CountDownLastGame(const std::string& title)
 {
 	riftwii::LastGameCountdown countdown;
-	// The GUI sees every input frame, including a press shorter than this
-	// menu thread's polling interval. Keep it until the countdown reads it.
-	class CancelInput final : public GuiElement {
-	public:
-		void Draw() override {}
-		void Update(GuiTrigger* input) override {
-			if (input && (input->pad.btns_d || input->pad.btns_h ||
-				input->wiidrcdata.btns_d || input->wiidrcdata.btns_h ||
-				(input->wpad && (input->wpad->btns_d || input->wpad->btns_h)))) cancelled = true;
-		}
-		std::atomic<bool> cancelled{false};
-	} cancelInput;
 	const auto body = [](int seconds) {
 		return tr("Starting in {1} seconds. Press any button to cancel.", {std::to_string(seconds)});
 	};
 	PopupBox box(FlatCapped(title, 60), body(5), "", tr("Cancel"));
-	box.Append(&cancelInput);
+	g_countdownCancelled = false;
+	g_countdownInputActive = true;
 	box.CenterCancel();
 	int shown = 5;
 	const u64 started = gettime();
@@ -6303,8 +6299,9 @@ static bool CountDownLastGame(const std::string& title)
 		RestartIfOutOfMemory();
 		HaltGui();
 		const int seconds = countdown.update(static_cast<std::uint32_t>(diff_msec(started, gettime())),
-			StartupButtonHeld() || cancelInput.cancelled || box.Pressed());
+			MenuButtonHeld() || g_countdownCancelled || box.Pressed());
 		if (seconds <= 0) {
+			g_countdownInputActive = false;
 			logf(seconds == 0 ? "Home: the last game's countdown finished.\n"
 				: "Home: a button cancelled the last game's countdown.\n");
 			return seconds == 0;
@@ -7683,13 +7680,13 @@ static int MenuSource(FrontendState& state)
 		int clicked = randomPick >= 0 ? randomPick : heldClick >= 0 ? heldClick : grid.GetClicked();
 		if (emptyAction == HomeEmptyState::DiscDrive) clicked = 0;
 		bool randomStart = randomPick >= 0;
-		if (g_lastGameStartPending && (StartupButtonHeld() || GuiGameGrid::Acted().acted() || menu != MENU_NONE)) {
+		if (g_lastGameStartPending && (MenuButtonHeld() || GuiGameGrid::Acted().acted() || menu != MENU_NONE)) {
 			g_lastGameStartPending = false;
 			logf("Home: start-up input skipped starting the last game.\n");
 		}
 		if (g_lastGameStartPending && !g_scanning && !g_sdGone && menu == MENU_NONE) {
 			g_lastGameStartPending = false;  // once per start, including missing games
-			const std::vector<std::string> recent = riftwii::wii::History().recent(1);
+			const std::string lastGame = riftwii::wii::LastGameKey();
 			std::vector<GridItem> candidates;
 			std::vector<HomeEntry> candidateEntries;
 			// Search's all-game list keeps parental checks, but does not depend
@@ -7698,8 +7695,8 @@ static int MenuSource(FrontendState& state)
 			g_filter = Filter::All;
 			BuildHome(state, candidates, candidateEntries, true);
 			g_filter = previousFilter;
-			for (std::size_t i = 0; !recent.empty() && i < candidates.size(); ++i) {
-				if (candidates[i].key != recent.front() || candidateEntries[i].kind == HomeEntry::Kind::Disc ||
+			for (std::size_t i = 0; !lastGame.empty() && i < candidates.size(); ++i) {
+				if (candidates[i].key != lastGame || candidateEntries[i].kind == HomeEntry::Kind::Disc ||
 					candidateEntries[i].kind == HomeEntry::Kind::App) continue;
 				if (CountDownLastGame(candidates[i].title)) {
 					// Reuse the normal start path, including its checks and warnings.
@@ -7772,7 +7769,10 @@ static int MenuSource(FrontendState& state)
 				if (play) menu = MENU_HOMEBREW;
 				// The page's picker may have forgotten this game's Channels
 				// picture (Back to automatic): queue it again now.
-				else addCovers();
+				else {
+					addCovers();
+					showStatus();
+				}
 				ResumeGui();
 				continue;
 			}
@@ -14964,7 +14964,6 @@ static int MenuHome(FrontendState& state)
 		if (playing) ResumeGui();
 		riftwii::wii::PrepareLaunchExtras(state);
 		riftwii::wii::RecordPlay(riftwii::wii::TileKey(state));
-		riftwii::wii::RememberLaunchedTile(riftwii::wii::TileKey(state));
 		riftwii::wii::TagGame(state.game_id, true);
 		if (playing) HaltGui();
 	}
@@ -17779,8 +17778,10 @@ bool ConfirmLaunchMissingModInputs(const FrontendState& state,
 int MainMenu(int menu, FrontendState& state)
 {
 	int currentMenu = menu;
+	const bool startupCancelled = riftwii::wii::FinishStartupInput();
+	if (startupCancelled) logf("Home: B held during startup skipped starting the last game.\n");
 	g_lastGameStartPending = menu == MENU_SOURCE && riftwii::wii::Settings().start_last_game &&
-		!StartupButtonHeld() && riftwii::wii::CurrentRestartNote().kind == riftwii::wii::RestartKind::None;
+		!startupCancelled && !MenuButtonHeld() && riftwii::wii::CurrentRestartNote().kind == riftwii::wii::RestartKind::None;
 
 	// Pick the native widescreen pictures using the saved display width.
 	riftwii::wii::ApplyMenuDisplay();

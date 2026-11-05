@@ -109,6 +109,8 @@ void WriteHistory() {
 }  // namespace
 
 void RecordPlay(const std::string& game_id) {
+    // Emulator and headless starts need the last tile too, even without counts.
+    RememberLaunchedTile(game_id);
     if (Settings().play_history == "off") return;  // Settings > Play history
     History();
     g_history.record(game_id, static_cast<std::int64_t>(std::time(nullptr)));
@@ -122,6 +124,14 @@ void RememberLaunchedTile(const std::string& key) {
         std::fwrite(line.data(), 1, line.size(), f);
         std::fclose(f);
     }
+}
+
+std::string LastGameKey() {
+    const bool history_enabled = Settings().play_history != "off";
+    std::string last_tile;
+    if (!history_enabled) ReadTextFile(kLastTilePath, last_tile, 128);
+    // Do not load old history when it is disabled.
+    return last_game_key(history_enabled ? History() : g_history, history_enabled, last_tile);
 }
 
 void ForgetPlays(const std::string& game_id) {

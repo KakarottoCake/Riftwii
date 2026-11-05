@@ -45,6 +45,7 @@
 #include "gecko.hpp"
 #include "gcadapter.hpp"
 #include "usbinput.hpp"
+#include "startupinput.hpp"
 #include "gcrealcard.hpp"
 #include "guiscript.hpp"
 #include "i18n.hpp"
@@ -609,6 +610,7 @@ int main() {
     riftwii::wii::UsbInputSetEnabled(riftwii::wii::Settings().usb_input != "off");
     riftwii::wii::logf("Pads: starting libogc's Wii Remote stack (WPAD_Init, then each channel's data format)\n");
     SetupPads();
+    if (riftwii::wii::Settings().start_last_game) riftwii::wii::BeginStartupInput();
     riftwii::wii::logf("Pads: started\n");
     InitAudio();
     riftwii::wii::DecodeMenuSounds();
