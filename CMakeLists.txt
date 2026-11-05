@@ -163,6 +163,20 @@ if(BUILD_TESTING)
     add_test(NAME movedchannels COMMAND movedchannels_tests)
     set_tests_properties(movedchannels PROPERTIES
         WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/movedchannels-test")
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        # Refuse each optional artwork buffer after a download, in turn.
+        # MSYS replaces malloc through its C++ runtime too, which makes
+        # the linker's wrapper recurse rather than simulate a refusal.
+        add_executable(covermemory_tests tests/covermemory_tests.cpp)
+        target_link_libraries(covermemory_tests PRIVATE riftwii)
+        target_link_options(covermemory_tests PRIVATE -Wl,--wrap=malloc)
+        if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            target_compile_options(covermemory_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+        endif()
+        add_test(NAME covermemory COMMAND covermemory_tests)
+        set_tests_properties(covermemory PROPERTIES
+            PASS_REGULAR_EXPRESSION "Art conversion handles every refused buffer")
+    endif()
     # The production GameTDB caller and its disk cache, with no network or UI.
     add_executable(gameinfo_tests tests/gameinfo_tests.cpp wii/online/gameinfo.cpp)
     target_include_directories(gameinfo_tests PRIVATE wii/online wii/core)

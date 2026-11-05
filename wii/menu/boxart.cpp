@@ -96,6 +96,7 @@ CoverFetch FetchBoxNow(const std::string& game_id, std::string& error) {
             std::vector<std::uint8_t>().swap(png);
             const std::vector<std::uint8_t> file = make_box_file(rgba.data(), w, h);
             if (file.empty()) {
+                if (took_out_of_memory()) return CoverFetch::Failed;
                 logf("Shelf: GameTDB's %s full cover of %s (%dx%d) has no spine where a Wii case has it\n", region.c_str(),
                      game_id.c_str(), w, h);
                 continue;
@@ -127,9 +128,10 @@ void RunBackgroundFetch() {
     OutOfMemoryScope out_of_memory;
     g_background.got = FetchBoxNow(g_background.id, g_background.error);
     if (g_background.got != CoverFetch::Stored && out_of_memory.failed()) {
-        g_background.got = CoverFetch::NotFound;
+        g_background.got = CoverFetch::Failed;
         g_background.error = "out of memory";
         logf("Shelf: no room to cut the box of %s\n", g_background.id.c_str());
+        mem::LogUsage("after the full cover ran out of memory");
     }
     mem::WatchHeap(("after the box download of " + g_background.id).c_str());
 }

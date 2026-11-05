@@ -3,6 +3,7 @@
 #include "riftwii/pngdecode.hpp"
 #include "riftwii/checkedalloc.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -294,7 +295,13 @@ bool decode_core(const std::uint8_t* png, std::size_t size, ZlibInflate inflate,
         const std::uint32_t ph = (h.height - passes[p][1] + passes[p][3] - 1) / passes[p][3];
         if (h.width > passes[p][0] && h.height > passes[p][1] && pw && ph) raw_size += ph * (RowBytes(h, pw) + 1);
     }
-    std::uint8_t* raw = ws.take(ws.raw_heap, raw_size);
+    // Ordinary cover PNGs can expand into the same allocation after their
+    // rows are unfiltered. Holding both full rasters at once used up to
+    // another 2720 KiB for a 1024x680 cover, alongside the file and menu (#479).
+    const bool reuse_rows = !ws.block && !h.interlace && h.depth == 8 && (h.type == 2 || h.type == 6);
+    const std::size_t rgba_size = static_cast<std::size_t>(h.width) * h.height * 4;
+    const std::size_t row_room = reuse_rows ? std::max(raw_size, rgba_size) : raw_size;
+    std::uint8_t* raw = ws.take(ws.raw_heap, row_room);
     if (!raw) return Fail(error, "no memory for the PNG");
     if (!inflate(idat, idat_size, raw, raw_size)) return Fail(error, "the PNG's image data is damaged");
     std::vector<std::uint8_t>().swap(ws.idat_heap);
@@ -309,7 +316,39 @@ bool decode_core(const std::uint8_t* png, std::size_t size, ZlibInflate inflate,
             for (int c = 0; c < 3; ++c) palette[i][c] = palette_byte(palette[i][c]);
     }
 
-    rgba = ws.take(*ws.rgba_heap, static_cast<std::size_t>(h.width) * h.height * 4);
+    if (reuse_rows) {
+        const std::size_t row_bytes = RowBytes(h, h.width);
+        if (!Unfilter(raw, h.height, row_bytes, h.channels)) return Fail(error, "the PNG has a bad row filter");
+        const std::size_t pixels = static_cast<std::size_t>(h.width) * h.height;
+        for (std::size_t step = 0; step < pixels; ++step) {
+            // RGB expands from three bytes to four, so work backwards;
+            // RGBA only loses filter bytes, so work forwards. Read all
+            // samples before writing because the two ranges can overlap.
+            const std::size_t index = h.type == 2 ? pixels - 1 - step : step;
+            const std::size_t y = index / h.width;
+            const std::size_t x = index % h.width;
+            const std::uint8_t* sample = raw + y * (row_bytes + 1) + 1 + x * h.channels;
+            const unsigned r = sample[0];
+            const unsigned g = sample[1];
+            const unsigned b = sample[2];
+            const bool transparent = have_key && r == key[0] && g == key[1] && b == key[2];
+            std::uint8_t alpha = transparent ? 0 : 255;
+            if (h.type == 6) alpha = sample[3];
+            std::uint8_t* out = raw + index * 4;
+            out[0] = to_byte(r);
+            out[1] = to_byte(g);
+            out[2] = to_byte(b);
+            out[3] = alpha;
+        }
+        ws.rgba_heap->swap(ws.raw_heap);
+        ws.rgba_heap->resize(rgba_size);  // shrinking needs no allocation
+        rgba = ws.rgba_heap->data();
+        width = h.width;
+        height = h.height;
+        return true;
+    }
+
+    rgba = ws.take(*ws.rgba_heap, rgba_size);
     if (!rgba) return Fail(error, "no memory for the PNG");
     const std::size_t bpp = h.depth < 8 ? 1 : h.channels * h.depth / 8;
     std::size_t offset = 0;

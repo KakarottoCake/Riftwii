@@ -468,7 +468,33 @@ static void test_header_plausible() {
     EXPECT_TRUE(!riftwii::png_header_plausible(bad.data(), bad.size(), 1024));
 }
 
+static void test_reused_rows() {
+    // Compare the overlapping row conversion with the caller-owned
+    // workspace path, which keeps its input and output separate.
+    for (const unsigned type : {2u, 6u}) {
+        for (const unsigned width : {1u, 2u, 7u, 64u}) {
+            const Image image = Pattern(width, 19, type, 8);
+            for (int chunks = 1; chunks <= 3; ++chunks) {
+                const Bytes png = Png(image, false, {{"gAMA", {0, 1, 0x86, 0xA0}},
+                                                   {"tRNS", {0, 0, 0, 0, 0, 0}}}, chunks);
+                Bytes pixels;
+                std::uint32_t w = 0, h = 0, block_w = 0, block_h = 0;
+                std::string error;
+                EXPECT_TRUE(Decode(png, pixels, w, h, error));
+                Bytes block(png.size() + width * 19 * 8 + 256);
+                const std::uint8_t* separate = nullptr;
+                EXPECT_TRUE(riftwii::decode_png_in(png.data(), png.size(), &StoredInflate, 1024,
+                    block.data(), block.size(), separate, block_w, block_h, error));
+                EXPECT_EQ(w, block_w);
+                EXPECT_EQ(h, block_h);
+                EXPECT_TRUE(std::equal(pixels.begin(), pixels.end(), separate));
+            }
+        }
+    }
+}
+
 int main() {
+    test_reused_rows();
     test_header_plausible();
     test_block_decode();
     test_rgb8_filters();

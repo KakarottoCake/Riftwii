@@ -573,7 +573,13 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error);
 // Each download, decode and write checked: a tester's heap broke in a
 // menu session that downloaded 25 covers (wii/core/memlimits.hpp WatchHeap).
 CoverFetch FetchCover(const std::string& game_id, std::string& error) {
-    const CoverFetch got = FetchCoverNow(game_id, error);
+    OutOfMemoryScope out_of_memory;
+    CoverFetch got = FetchCoverNow(game_id, error);
+    if (got != CoverFetch::Stored && out_of_memory.failed()) {
+        got = CoverFetch::Failed;
+        error = "out of memory for the cover";
+        logf("Covers: no room to prepare the cover of %s.\n", game_id.c_str());
+    }
     mem::WatchHeap(("after the cover download of " + game_id).c_str());
     return got;
 }
@@ -605,11 +611,15 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
             std::vector<std::uint8_t> rgba;
             int w = 0, h = 0;
             if (!DecodePng(png, rgba, w, h)) {
+                if (took_out_of_memory()) return CoverFetch::Failed;
                 logf("Covers: GameTDB's %s cover of %s is not a PNG we can read\n", region.c_str(), game_id.c_str());
                 continue;
             }
             const std::vector<std::uint8_t> file = make_cover_file(rgba.data(), w, h);
-            if (file.empty()) continue;
+            if (file.empty()) {
+                if (took_out_of_memory()) return CoverFetch::Failed;
+                continue;
+            }
             // Which set the cover is of, written before the cover: a marker
             // that can't be written leaves the stored cover as it was (a
             // second set's would pass for the first's), and one written for

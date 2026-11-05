@@ -31,6 +31,7 @@ u32 g_mem1_floor = 0;      // the end of the loader's image: arena 1's low end a
 u32 g_mem2_libogc_lo = 0;  // arena 2's low end as libogc left it (the reload area's start)
 u32 g_mem2_top = 0;        // arena 2's high end at start: IOS above
 volatile u32 g_refused = 0;     // heap growth refused for lack of room
+volatile u32 g_largest_refused_growth = 0;  // bytes, not the caller's malloc size
 volatile u32 g_violations = 0;  // heap growth outside the limits, rolled back
 bool g_dolphin = false;
 
@@ -190,8 +191,10 @@ void LogUsage(const char* when) {
         logf("Memory: LIMITS BROKEN: arena 1 ends at 0x%08x, arena 2 starts at 0x%08x\n", mem1_hi, mem2_lo);
     }
     if (g_refused != 0 || g_violations != 0) {
-        logf("Memory: %u allocation(s) refused for lack of room, %u outside the limits\n",
-             static_cast<unsigned>(g_refused), static_cast<unsigned>(g_violations));
+        logf("Memory (%s): %u heap growth request(s) refused for lack of room, %u outside the limits. "
+             "The largest refused heap growth was %u bytes.\n", when,
+             static_cast<unsigned>(g_refused), static_cast<unsigned>(g_violations),
+             static_cast<unsigned>(g_largest_refused_growth));
     }
 }
 
@@ -489,9 +492,10 @@ void MenuOutOfMemory() {
     _CPU_ISR_Restore(level);
     if (spare != nullptr) {
         std::free(spare);
-        logf("Memory: the menu ran out (a request the heap could not meet, %u allocation(s) refused for lack of "
-             "room so far); its spare %u KiB was let go so it goes on, and RiftWii restarts at the menu's next turn\n",
-             static_cast<unsigned>(g_refused), static_cast<unsigned>(kMenuSpareBytes / 1024));
+        logf("Memory: the menu ran out (a request the heap could not meet, %u heap growth request(s) refused for lack of "
+             "room so far). The largest refused heap growth was %u bytes. Its spare %u KiB was let go so it goes on, "
+             "and RiftWii restarts at the menu's next turn.\n", static_cast<unsigned>(g_refused),
+             static_cast<unsigned>(g_largest_refused_growth), static_cast<unsigned>(kMenuSpareBytes / 1024));
         LogUsage("out of memory");
         return;  // operator new tries again
     }
@@ -573,7 +577,11 @@ extern "C" void* __wrap__sbrk_r(struct _reent* r, ptrdiff_t incr) {
     _CPU_ISR_Disable(level);
     void* p = __real__sbrk_r(r, incr);
     if (p == reinterpret_cast<void*>(-1)) {
-        if (incr > 0) g_refused = g_refused + 1;
+        if (incr > 0) {
+            g_refused = g_refused + 1;
+            const u32 growth = static_cast<u32>(incr);
+            if (growth > g_largest_refused_growth) g_largest_refused_growth = growth;
+        }
     } else if (incr > 0) {
         const u32 start = reinterpret_cast<u32>(p);
         const u32 end = start + static_cast<u32>(incr);
@@ -582,6 +590,8 @@ extern "C" void* __wrap__sbrk_r(struct _reent* r, ptrdiff_t incr) {
         if (!in_mem1 && !in_mem2) {
             __real__sbrk_r(r, -incr);
             g_violations = g_violations + 1;
+            const u32 growth = static_cast<u32>(incr);
+            if (growth > g_largest_refused_growth) g_largest_refused_growth = growth;
             p = reinterpret_cast<void*>(-1);
         } else {
             NoteGrowth(start, static_cast<s32>(incr));

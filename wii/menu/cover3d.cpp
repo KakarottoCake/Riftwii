@@ -93,6 +93,7 @@ CoverFetch FetchNow(const std::string& game_id, std::string& error) {
             }
             const std::vector<std::uint8_t> file = make_cover3d_file(rgba.data(), w, h);
             if (file.empty()) {
+                if (took_out_of_memory()) return CoverFetch::Failed;
                 logf("3D covers: GameTDB's %s 3D cover of %s is an unusable %dx%d\n", region.c_str(), game_id.c_str(), w, h);
                 continue;
             }
@@ -121,7 +122,7 @@ void RunBackgroundFetch() {
     OutOfMemoryScope out_of_memory;
     g_background.got = FetchNow(g_background.id, g_background.error);
     if (g_background.got != CoverFetch::Stored && out_of_memory.failed()) {
-        g_background.got = CoverFetch::NotFound;
+        g_background.got = CoverFetch::Failed;
         g_background.error = "out of memory";
         logf("3D covers: no room to read the 3D cover of %s\n", g_background.id.c_str());
     }
