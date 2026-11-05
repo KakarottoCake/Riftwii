@@ -4037,3 +4037,6 @@ msgstr "Scansiona il codice con il telefono per segnalare come funziona questo g
 
 msgid "Go to this link to report how this game runs. The form opens with the game filled in:"
 msgstr "Vai a questo link per segnalare come funziona questo gioco. Il modulo si apre con il gioco già inserito:"
+
+msgid "Report"
+msgstr "Segnala"

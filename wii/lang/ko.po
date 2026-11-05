@@ -4037,3 +4037,6 @@ msgstr "휴대폰으로 코드를 스캔하면 이 게임의 실행 상태를 �
 
 msgid "Go to this link to report how this game runs. The form opens with the game filled in:"
 msgstr "이 링크에서 이 게임의 실행 상태를 보고할 수 있습니다. 양식에는 게임이 미리 입력되어 있습니다:"
+
+msgid "Report"
+msgstr "보고"

@@ -4037,3 +4037,6 @@ msgstr "スマートフォンでコードを読み取ると、このゲームの
 
 msgid "Go to this link to report how this game runs. The form opens with the game filled in:"
 msgstr "このリンクから、このゲームの動作状況を報告できます。フォームはゲームが入力された状態で開きます:"
+
+msgid "Report"
+msgstr "報告"

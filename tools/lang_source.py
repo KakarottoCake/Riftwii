@@ -8484,6 +8484,16 @@ FR.update({
     "Go to this link to report how this game runs. The form opens with the game filled in:": "Allez à ce lien pour signaler comment ce jeu fonctionne. Le formulaire s'ouvre avec le jeu déjà rempli :",
 })
 
+T.update({
+    "Report": ("Informar", "報告", "Informar", "Segnala"),
+})
+KO.update({
+    "Report": "보고",
+})
+FR.update({
+    "Report": "Signaler",
+})
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""

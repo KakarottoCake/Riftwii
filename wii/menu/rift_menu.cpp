@@ -9111,6 +9111,10 @@ static void ShowCompatReport(const FrontendState& state)
 	const std::string base = std::string("https://riftwii.github.io/compatibility/r#") + id + "." + type;
 	std::string link = base + "." + RIFTWII_VERSION;
 	if (link.size() > 78) link = base;
+	// Written out in two lines, split at the #: the whole link is wider than
+	// the room beside the code, and a link isn't wrapped, so its end would
+	// go under the code.
+	const std::size_t hash = link.find('#');
 	riftwii::QrCode code;
 	const bool made = riftwii::make_qr(link, code) && code.size != 0;
 	constexpr int kModule = 4;
@@ -9119,7 +9123,7 @@ static void ShowCompatReport(const FrontendState& state)
 	PopupBox box(tr("Report how it runs"),
 		std::string(made ? tr("Scan the code with a phone to report how this game runs. The form opens with the game filled in. Or go to:")
 				 : tr("Go to this link to report how this game runs. The form opens with the game filled in:")) +
-			"\n\n" + link,
+			"\n" + link.substr(0, hash) + "\n" + link.substr(hash),
 		tr("OK"));
 	if (made) box.Add(&qr, 588 - 16 - side - 56 - 16);
 	box.Wait();
@@ -14166,7 +14170,8 @@ static int MenuHome(FrontendState& state)
 	const int promptBack = prompts.Add("B", tr("Back"));
 	prompts.Add("A", tr("Select"));
 	// 1: the compatibility list's report form, as a code (ShowCompatReport).
-	const int promptReport = prompts.Add("1", tr("Report how it runs"));
+	// One short word: the row has no room to spare beside "Build and play".
+	const int promptReport = prompts.Add("1", tr("Report"));
 	SkinButton reportBtn(skin::pill, skin::pillOver, 4, 0, 0, nullptr,
 		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X);
 	HideButton(reportBtn);
