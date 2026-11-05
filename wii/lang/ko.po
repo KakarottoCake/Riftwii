@@ -4128,6 +4128,15 @@ msgstr "이 게임의 다른 사본이 남아 있어 저장 데이터가 유지�
 msgid "Could not delete {1}. Some files may already be gone. See session.log for details."
 msgstr "{1}을(를) 삭제하지 못했습니다. 일부 파일은 이미 삭제되었을 수 있습니다. 자세한 내용은 session.log를 확인하세요."
 
+msgid "Start the last game right away"
+msgstr "마지막 게임 바로 시작"
+
+msgid "Starting in {1} seconds. Press any button to cancel."
+msgstr "{1}초 후에 시작합니다. 취소하려면 아무 버튼이나 누르세요."
+
+msgid "Starts your last game after a five-second countdown. Any button cancels it. Hold B at start-up to skip it. Never starts the disc drive."
+msgstr "5초 후에 마지막 게임을 시작합니다. 아무 버튼이나 누르면 취소됩니다. 시작할 때 B를 누르고 있으면 건너뜁니다. 디스크 드라이브는 시작하지 않습니다."
+
 msgid "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "게임 전용, 공용, Nintendont, Dolphin 카드 또는 슬롯 A의 실제 카드를 사용합니다(Wii만)."
 

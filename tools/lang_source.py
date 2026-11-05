@@ -8630,6 +8630,23 @@ T['Could not delete {1}. Some files may already be gone. See session.log for det
 MORE["ko"]['Could not delete {1}. Some files may already be gone. See session.log for details.'] = '{1}을(를) 삭제하지 못했습니다. 일부 파일은 이미 삭제되었을 수 있습니다. 자세한 내용은 session.log를 확인하세요.'
 MORE["fr"]['Could not delete {1}. Some files may already be gone. See session.log for details.'] = 'Impossible de supprimer {1}. Certains fichiers ont peut-être déjà été supprimés. Consultez session.log.'
 
+# Optional last-game countdown.
+T.update({
+    'Start the last game right away': ('Iniciar el último juego enseguida', '前回のゲームを自動で起動', 'Iniciar o último jogo de imediato', "Avvia subito l'ultimo gioco"),
+    'Starting in {1} seconds. Press any button to cancel.': ('Se iniciará en {1} segundos. Pulsa cualquier botón para cancelar.', '{1}秒後に起動します。中止するにはボタンを押してください。', 'Iniciando em {1} segundos. Pressione qualquer botão para cancelar.', 'Avvio tra {1} secondi. Premi un pulsante per annullare.'),
+    'Starts your last game after a five-second countdown. Any button cancels it. Hold B at start-up to skip it. Never starts the disc drive.': ('Inicia el último juego tras cinco segundos. Cualquier botón cancela. Mantén B al abrir RiftWii para omitirlo. Nunca inicia el lector de discos.', '5秒後に前回のゲームを起動します。ボタンを押すと中止します。起動時にBを押し続けると自動起動しません。ディスクドライブは起動しません。', 'Inicia o último jogo após cinco segundos. Qualquer botão cancela. Segure B ao abrir o RiftWii para pular. Nunca inicia o leitor de discos.', "Avvia l'ultimo gioco dopo cinque secondi. Qualsiasi pulsante annulla. Tieni premuto B all'avvio per saltarlo. Non avvia mai il lettore dischi."),
+})
+KO.update({
+    'Start the last game right away': '마지막 게임 바로 시작',
+    'Starting in {1} seconds. Press any button to cancel.': '{1}초 후에 시작합니다. 취소하려면 아무 버튼이나 누르세요.',
+    'Starts your last game after a five-second countdown. Any button cancels it. Hold B at start-up to skip it. Never starts the disc drive.': '5초 후에 마지막 게임을 시작합니다. 아무 버튼이나 누르면 취소됩니다. 시작할 때 B를 누르고 있으면 건너뜁니다. 디스크 드라이브는 시작하지 않습니다.',
+})
+FR.update({
+    'Start the last game right away': 'Lancer le dernier jeu tout de suite',
+    'Starting in {1} seconds. Press any button to cancel.': 'Démarrage dans {1} secondes. Appuyez sur un bouton pour annuler.',
+    'Starts your last game after a five-second countdown. Any button cancels it. Hold B at start-up to skip it. Never starts the disc drive.': 'Lance le dernier jeu après cinq secondes. Tout bouton annule. Maintenez B au démarrage pour passer. Ne lance jamais le lecteur de disques.',
+})
+
 # Memory card choices offered by the other loaders.
 T.update({
     "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only).": ('Usa la tarjeta del juego, una compartida, la de Nintendont o Dolphin, o una real en la ranura A (solo Wii).', 'ゲーム専用、共通、Nintendont、Dolphinのカード、またはスロットAの実物のカード（Wiiのみ）を使います。', 'Use o cartão do jogo, um compartilhado, o do Nintendont ou Dolphin, ou um real na entrada A (só no Wii).', 'Usa la scheda del gioco, una condivisa, quella di Nintendont o Dolphin, o una reale nello slot A (solo Wii).'),

@@ -4128,6 +4128,15 @@ msgstr "Les sauvegardes sont conservées car il reste une autre copie de ce jeu.
 msgid "Could not delete {1}. Some files may already be gone. See session.log for details."
 msgstr "Impossible de supprimer {1}. Certains fichiers ont peut-être déjà été supprimés. Consultez session.log."
 
+msgid "Start the last game right away"
+msgstr "Lancer le dernier jeu tout de suite"
+
+msgid "Starting in {1} seconds. Press any button to cancel."
+msgstr "Démarrage dans {1} secondes. Appuyez sur un bouton pour annuler."
+
+msgid "Starts your last game after a five-second countdown. Any button cancels it. Hold B at start-up to skip it. Never starts the disc drive."
+msgstr "Lance le dernier jeu après cinq secondes. Tout bouton annule. Maintenez B au démarrage pour passer. Ne lance jamais le lecteur de disques."
+
 msgid "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "Utilise la carte du jeu, une carte partagée, celle de Nintendont ou Dolphin, ou une vraie carte dans le port A (Wii uniquement)."
 

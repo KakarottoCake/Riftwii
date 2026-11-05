@@ -4128,6 +4128,15 @@ msgstr "Las partidas se conservan porque queda otra copia de este juego."
 msgid "Could not delete {1}. Some files may already be gone. See session.log for details."
 msgstr "No se pudo borrar {1}. Puede que algunos archivos ya se hayan borrado. Consulta session.log."
 
+msgid "Start the last game right away"
+msgstr "Iniciar el último juego enseguida"
+
+msgid "Starting in {1} seconds. Press any button to cancel."
+msgstr "Se iniciará en {1} segundos. Pulsa cualquier botón para cancelar."
+
+msgid "Starts your last game after a five-second countdown. Any button cancels it. Hold B at start-up to skip it. Never starts the disc drive."
+msgstr "Inicia el último juego tras cinco segundos. Cualquier botón cancela. Mantén B al abrir RiftWii para omitirlo. Nunca inicia el lector de discos."
+
 msgid "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "Usa la tarjeta del juego, una compartida, la de Nintendont o Dolphin, o una real en la ranura A (solo Wii)."
 

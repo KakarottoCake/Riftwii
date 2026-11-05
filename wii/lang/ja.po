@@ -4128,6 +4128,15 @@ msgstr "同じゲームがほかにもあるため、セーブデータは残り
 msgid "Could not delete {1}. Some files may already be gone. See session.log for details."
 msgstr "{1}を削除できませんでした。一部のファイルは削除済みの可能性があります。詳しくはsession.logを確認してください。"
 
+msgid "Start the last game right away"
+msgstr "前回のゲームを自動で起動"
+
+msgid "Starting in {1} seconds. Press any button to cancel."
+msgstr "{1}秒後に起動します。中止するにはボタンを押してください。"
+
+msgid "Starts your last game after a five-second countdown. Any button cancels it. Hold B at start-up to skip it. Never starts the disc drive."
+msgstr "5秒後に前回のゲームを起動します。ボタンを押すと中止します。起動時にBを押し続けると自動起動しません。ディスクドライブは起動しません。"
+
 msgid "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "ゲーム専用、共通、Nintendont、Dolphinのカード、またはスロットAの実物のカード（Wiiのみ）を使います。"
 
