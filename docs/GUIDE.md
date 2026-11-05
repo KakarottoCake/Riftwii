@@ -1901,3 +1901,7 @@ Editing a cheat's values or downloading new cheats writes RiftWii's own
 file and leaves the original text file alone. The Cheats page names the
 file being used; choose **Cheat file** to change it when more than one is
 available.
+
+Cheat files keep their own picked cheats when you change the Cheat file row.
+If a picked file is removed, its cheats do not come from a different file.
+Downloads and filled values keep cheats already saved in RiftWii's own file.

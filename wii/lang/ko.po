@@ -4049,3 +4049,12 @@ msgstr "게임을 저장하려면 이 메모리 카드에 FAT32 드라이브가 
 
 msgid "Cheat file"
 msgstr "치트 파일"
+
+msgid "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only)."
+msgstr "게임 전용, 공용, Nintendont, Dolphin 카드 또는 슬롯 A의 실제 카드를 사용합니다(Wii만)."
+
+msgid "Use this game's card, a shared card, Nintendont's card, or a real card in slot A (Wii only)."
+msgstr "게임 전용, 공용, Nintendont 카드 또는 슬롯 A의 실제 카드를 사용합니다(Wii만)."
+
+msgid "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only)."
+msgstr "게임 전용, 공용, Dolphin 카드 또는 슬롯 A의 실제 카드를 사용합니다(Wii만)."

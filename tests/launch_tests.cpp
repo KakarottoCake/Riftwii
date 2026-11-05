@@ -750,7 +750,25 @@ static void test_riivolution_config() {
     if (!merged.options.empty()) EXPECT_EQ(merged.options[0].second, 3u);
 }
 
+static void test_cheat_sources() {
+    riftwii::LaunchModel model;
+    model.game.cheat_source = "sd:/codes/GMSE01.txt";
+    model.game.cheat_names.insert("Same name");
+    model.game.select_cheat_source("usb2:/txtcodes/GMSE01.txt");
+    EXPECT_TRUE(model.game.cheat_names.empty());
+    model.game.cheat_names.insert("USB only");
+    riftwii::LaunchModel restored;
+    restored.restore(model.save());
+    EXPECT_EQ(restored.game.cheat_source, model.game.cheat_source);
+    restored.game.select_cheat_source("sd:/codes/GMSE01.txt");
+    EXPECT_TRUE(restored.game.cheat_names.count("Same name"));
+    EXPECT_FALSE(restored.game.cheat_names.count("USB only"));
+    restored.game.select_cheat_source("usb2:/txtcodes/GMSE01.txt");
+    EXPECT_TRUE(restored.game.cheat_names.count("USB only"));
+}
+
 int main() {
+    test_cheat_sources();
     test_riivolution_config();
     test_model();
     test_simple_package_activation();

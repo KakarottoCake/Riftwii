@@ -1096,12 +1096,20 @@ std::string GameCheatPath(const std::string& game_id) {
     const auto wanted = Settings().other.find("cheat_source_" + game_id);
     if (wanted != Settings().other.end() && std::find(sources.begin(), sources.end(), wanted->second) != sources.end())
         return wanted->second;
+    if (wanted != Settings().other.end()) return wanted->second;
     return sources.empty() ? CheatPath(game_id) : sources.front();
 }
 
-void SelectGameCheatSource(const std::string& game_id, const std::string& path) {
-    Settings().other["cheat_source_" + game_id] = path;
-    SaveSettings();
+bool SelectGameCheatSource(const std::string& game_id, const std::string& path) {
+    const std::string key = "cheat_source_" + game_id;
+    const auto previous = Settings().other.find(key);
+    const bool existed = previous != Settings().other.end();
+    const std::string old = existed ? previous->second : std::string();
+    Settings().other[key] = path;
+    if (SaveSettings()) return true;
+    if (existed) Settings().other[key] = old;
+    else Settings().other.erase(key);
+    return false;
 }
 
 bool ReadGameCheatText(const std::string& game_id, std::string& text) {
@@ -1140,9 +1148,37 @@ bool FillCheatValues(const std::string& game_id, const std::string& name, const 
         return false;
     }
     if (!fill_cheat_values(text, name, fields, error, revision)) return false;
+    if (GameCheatPath(game_id) != CheatPath(game_id)) {
+        std::string own;
+        struct stat info {};
+        if (stat(CheatPath(game_id).c_str(), &info) == 0 && !ReadTextFile(CheatPath(game_id), own, 1u << 20)) {
+            error = "cannot read " + CheatPath(game_id);
+            return false;
+        }
+        CheatFile existing;
+        std::string why;
+        parse_cheat_text(own, existing, why, revision);
+        // Hold every existing code, except the one the player just filled.
+        std::set<std::string> preserve;
+        for (const Cheat& cheat : existing.cheats) {
+            if (cheat.name != name) preserve.insert(cheat.name);
+        }
+        std::size_t kept = 0;
+        bool conflict = false;
+        text = merge_cheat_text(text, own, kept, preserve, nullptr, &conflict);
+        if (conflict) {
+            error = "the cheat names would change; choose the RiftWii file first";
+            return false;
+        }
+    }
+    mkdir("sd:/riftwii", 0777);
+    mkdir(kCheatDir, 0777);
     const std::vector<std::uint8_t> bytes(text.begin(), text.end());
     if (!write_file(CheatPath(game_id), bytes, error)) return false;
-    SelectGameCheatSource(game_id, CheatPath(game_id));
+    if (!SelectGameCheatSource(game_id, CheatPath(game_id))) {
+        error = "cannot save the selected cheat file";
+        return false;
+    }
     std::string values;
     for (const CheatField& f : fields) values += std::string(values.empty() ? "" : ", ") + f.letter + "=" + f.value;
     logf("Cheats: values for \"%s\" (%s): %s\n", name.c_str(), game_id.c_str(), values.c_str());
@@ -1217,6 +1253,26 @@ bool DownloadCheats(const std::string& game_id, std::string& error, const std::s
     // Cheats added by hand and values filled in survive the download (a
     // tester lost theirs to one).
     std::string old = read_cheat_file(game_id);
+    if (GameCheatPath(game_id) != CheatPath(game_id)) {
+        std::string own;
+        struct stat info {};
+        if (stat(CheatPath(game_id).c_str(), &info) == 0 && !ReadTextFile(CheatPath(game_id), own, 1u << 20)) {
+            error = "cannot read " + CheatPath(game_id);
+            return false;
+        }
+        CheatFile own_file;
+        std::string why;
+        parse_cheat_text(own, own_file, why);
+        std::set<std::string> preserve;
+        for (const Cheat& cheat : own_file.cheats) preserve.insert(cheat.name);
+        std::size_t kept_own = 0;
+        bool conflict = false;
+        old = merge_cheat_text(old, own, kept_own, preserve, nullptr, &conflict);
+        if (conflict) {
+            error = "the cheat names would change; choose the RiftWii file first";
+            return false;
+        }
+    }
     std::size_t kept = 0;
     std::size_t held = 0;
     bool kept_old = false;
@@ -1235,7 +1291,10 @@ bool DownloadCheats(const std::string& game_id, std::string& error, const std::s
         logf("Cheats: %u turned-on cheat(s) of %s kept their own code; the archive has a different one now\n",
              static_cast<unsigned>(held), game_id.c_str());
     if (!write_file(CheatPath(game_id), body, error)) return false;
-    SelectGameCheatSource(game_id, CheatPath(game_id));
+    if (!SelectGameCheatSource(game_id, CheatPath(game_id))) {
+        error = "cannot save the selected cheat file";
+        return false;
+    }
     logf("Cheats: %u for %s from %s, %u of the player's own kept\n", static_cast<unsigned>(file.cheats.size()),
          game_id.c_str(),
          found_in == CheatSource::GameHacking ? "GameHacking.org (the RiiConnect24 archive had none or could not be reached)"

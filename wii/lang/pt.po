@@ -4049,3 +4049,12 @@ msgstr "Este cartão precisa de uma unidade FAT32 para salvar o jogo."
 
 msgid "Cheat file"
 msgstr "Arquivo de códigos"
+
+msgid "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only)."
+msgstr "Use o cartão do jogo, um compartilhado, o do Nintendont ou Dolphin, ou um real na entrada A (só no Wii)."
+
+msgid "Use this game's card, a shared card, Nintendont's card, or a real card in slot A (Wii only)."
+msgstr "Use o cartão do jogo, um compartilhado, o do Nintendont ou um real na entrada A (só no Wii)."
+
+msgid "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only)."
+msgstr "Use o cartão do jogo, um compartilhado, o do Dolphin ou um real na entrada A (só no Wii)."

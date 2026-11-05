@@ -82,8 +82,9 @@ struct gc_card {
     uint32_t exi_pending;   /* a program or erase finished: the game's EXI callback */
     uint32_t alarm_set;
     uint8_t alarm[0x40] __attribute__((aligned(32)));
-    /* Bytes not yet in the card file, a bit per 512. */
-    uint8_t dirty[GC_CARD_FILE_SECTORS / 8];
+    /* Bytes not yet in the card file, a bit per 512. The bitmap lives
+     * beside the card image in MEM2, keeping large cards out of MEM1. */
+    uint8_t* dirty;
     uint32_t dirty_count;
     uint32_t activity;      /* bumped on every access */
     uint32_t seen_activity; /* activity at the last heartbeat */

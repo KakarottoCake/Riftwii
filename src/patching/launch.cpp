@@ -427,6 +427,12 @@ std::string LaunchModel::save() const {
     std::string text = "*riftwii*\tsaves\t" + save_mode + "\n";
     // Loader settings only where they differ from the defaults.
     if (game.cheats) text += "*riftwii*\tcheats\ton\n";
+    if (!game.cheat_source.empty()) text += "*riftwii*\tcheat_source\t" + clean(game.cheat_source) + "\n";
+    for (const auto& source : game.cheat_picks) {
+        if (source.first == game.cheat_source) continue;
+        for (const std::string& name : source.second)
+            text += "*riftwii*\tcheat_pick\t" + clean(source.first) + "\t" + clean(name) + "\n";
+    }
     for (const std::string& name : game.cheat_names) text += "*riftwii*\tcheat\t" + clean(name) + "\n";
     if (game.video_width != "global") text += "*riftwii*\tvideo\t" + clean(game.video_width) + "\n";
     if (game.deflicker != "global") text += "*riftwii*\tdeflicker\t" + clean(game.deflicker) + "\n";
@@ -475,6 +481,15 @@ void LaunchModel::forget_game_choices() {
     game = GameSettings{};
 }
 
+void GameSettings::select_cheat_source(const std::string& path) {
+    if (cheat_source == path) return;
+    // Old choices belonged to RiftWii's file; callers migrate its empty key.
+    cheat_picks[cheat_source] = cheat_names;
+    const auto saved = cheat_picks.find(path);
+    cheat_names = saved == cheat_picks.end() ? std::set<std::string>{} : saved->second;
+    cheat_source = path;
+}
+
 void LaunchModel::restore(const std::string& text) {
     // Apply choices before package on/off state.  A legacy enabled simple
     // package may have an explicitly saved empty choice from before the
@@ -501,6 +516,12 @@ void LaunchModel::restore(const std::string& text) {
                 if (value == "nand" || value == "separate" || value == "fresh" || value == "emunand") save_mode = value;
             } else if (key == "cheats") {
                 game.cheats = value == "on";
+            } else if (key == "cheat_source") {
+                game.cheat_source = value;
+            } else if (key == "cheat_pick") {
+                const std::size_t tab = value.find('\t');
+                if (tab != std::string::npos && tab + 1 < value.size())
+                    game.cheat_picks[value.substr(0, tab)].insert(value.substr(tab + 1));
             } else if (key == "cheat") {
                 if (!value.empty()) game.cheat_names.insert(value);
             } else if (key == "video" && !value.empty()) {

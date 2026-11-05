@@ -2171,7 +2171,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                      std::uint32_t* error_code) {
     const std::uint32_t card_bytes = image.external_card == nullptr ? GC_CARD_BYTES
         : image.external_card_bytes;
-    const std::uint32_t card_reserved = std::max<std::uint32_t>(GC_CARD_BYTES, card_bytes);
+    const std::uint32_t dirty_bytes = GC_CARD_FILE_SECTORS / 8;
+    const std::uint32_t dirty_addr = GC_CARD_IMAGE + std::max<std::uint32_t>(GC_CARD_BYTES, card_bytes);
+    const std::uint32_t card_reserved = dirty_addr - GC_CARD_IMAGE + dirty_bytes;
     const std::uint32_t kGcMem2Data = GC_CARD_IMAGE + card_reserved;
     const std::uint32_t kGcRvzCache = kGcMem2Data + kGcMem2DataMax;
     const std::uint32_t kGcRestartWindow = kGcRvzCache + kGcRvzCacheMax;
@@ -3477,8 +3479,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                                 load32(blob_addr + entry + 8));
                 }
                 memcard->image = GC_CARD_IMAGE;
-                memcard->bytes = card_bytes;
-                memcard->on_usb = image.card_on_usb ? 1 : 0;
+            memcard->dirty = reinterpret_cast<std::uint8_t*>(dirty_addr);
+            memcard->bytes = card_bytes;
+            memcard->on_usb = image.card_on_usb ? 1 : 0;
                 memcard->ecb = ecb;
                 memcard->run_count = static_cast<std::uint32_t>(card_runs.size());
                 std::copy(card_runs.begin(), card_runs.end(), memcard->runs);
@@ -3936,8 +3939,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         if (card_hooked) {
             ctx->card = card_addr;
             memcard->image = GC_CARD_IMAGE;
-                memcard->bytes = card_bytes;
-                memcard->on_usb = image.card_on_usb ? 1 : 0;
+            memcard->dirty = reinterpret_cast<std::uint8_t*>(dirty_addr);
+            memcard->bytes = card_bytes;
+            memcard->on_usb = image.card_on_usb ? 1 : 0;
             memcard->run_count = static_cast<std::uint32_t>(card_runs.size());
             std::copy(card_runs.begin(), card_runs.end(), memcard->runs);
             unswitched.push_back(blob_addr + h.context_offset + offsetof(gc_rt_context, card));

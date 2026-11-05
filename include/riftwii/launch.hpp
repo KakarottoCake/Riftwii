@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstddef>
+#include <map>
 #include <set>
 #include <string>
 #include <utility>
@@ -107,6 +108,9 @@ private:
 struct GameSettings {
     bool cheats = false;                // apply the cheats picked below
     std::set<std::string> cheat_names;  // by name, as in the game's cheat file
+    std::string cheat_source;
+    std::map<std::string, std::set<std::string>> cheat_picks;
+    void select_cheat_source(const std::string& path);
     std::string video_width = "global"; // or a riftwii/videopatch.hpp name
     std::string deflicker = "global";
     std::string borders = "global";     // or "keep", "remove", "remove_all"

@@ -4049,3 +4049,12 @@ msgstr "このメモリーカードでセーブするにはFAT32のドライブ�
 
 msgid "Cheat file"
 msgstr "チートファイル"
+
+msgid "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only)."
+msgstr "ゲーム専用、共通、Nintendont、Dolphinのカード、またはスロットAの実物のカード（Wiiのみ）を使います。"
+
+msgid "Use this game's card, a shared card, Nintendont's card, or a real card in slot A (Wii only)."
+msgstr "ゲーム専用、共通、Nintendontのカード、またはスロットAの実物のカード（Wiiのみ）を使います。"
+
+msgid "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only)."
+msgstr "ゲーム専用、共通、Dolphinのカード、またはスロットAの実物のカード（Wiiのみ）を使います。"

@@ -158,7 +158,8 @@ std::set<std::string> g_absent;          // asked for and not on the card
 // CoverWanted's answer to "does the player's own PNG read?", by game: a
 // decode each, so once until the covers are forgotten. Menu thread only.
 std::map<std::string, bool> g_ownReads;
-std::map<std::string, bool> g_loaderReads;
+std::map<std::string, bool> g_loaderReads;  // protected by g_lock
+std::set<std::string> g_loaderChecks;
 // Own PNGs the loader found there but could not use (cut short, say: the
 // menu's check reads only their first bytes), for the menu to take
 // (TakeBrokenOwnCovers) and ask GameTDB after all; each told once until
@@ -308,6 +309,23 @@ bool NextReadAll(std::string& id, Slot*& slot) {
 void* LoaderMain(void*) {
     LWP_MutexLock(g_lock);
     for (;;) {
+        if (!g_hold && !g_loaderChecks.empty()) {
+            const std::string check = *g_loaderChecks.begin();
+            g_loaderChecks.erase(g_loaderChecks.begin());
+            const unsigned forgets = g_forgets;
+            g_reading = true;
+            LWP_MutexUnlock(g_lock);
+            std::vector<std::uint8_t> local;
+            const bool readable = ReadLoaderCover(tile_game_id(check), local);
+            LWP_MutexLock(g_lock);
+            g_reading = false;
+            LWP_CondBroadcast(g_idle);
+            if (forgets == g_forgets) {
+                g_loaderReads[check] = readable;
+                if (!readable) g_brokenOwn.push_back(check);
+            }
+            continue;
+        }
         std::string id;
         Slot* slot = nullptr;
         const bool asked = !g_hold && NextRequest(id) && (slot = Victim(emulator_banner_id(id)));
@@ -495,13 +513,18 @@ bool CoverWanted(const std::string& game_id) {
         }
         if (g_ownReads[game_id]) return false;
     }
-    // Decode once before suppressing a download: a corrupt PNG is no cover.
-    const auto known = g_loaderReads.find(game_id);
-    if (known == g_loaderReads.end()) {
-        std::vector<std::uint8_t> local;
-        g_loaderReads[game_id] = ReadLoaderCover(game_id, local);
+    // A full decode belongs to the loader. Its failure notification makes
+    // the menu ask again, so a corrupt PNG cannot suppress the download.
+    if (Started()) {
+        Lock lock;
+        const auto known = g_loaderReads.find(game_id);
+        if (known == g_loaderReads.end()) {
+            g_loaderChecks.insert(game_id);
+            LWP_CondSignal(g_wake);
+            return false;
+        }
+        if (known->second) return false;
     }
-    if (g_loaderReads[game_id]) return false;
     if (tile && !TileStoredForMatch(game_id)) return true;
     if (tile && stored_or_missed()) return false;
     return true;
@@ -801,6 +824,8 @@ void ForgetCover(const std::string& game_id) {
         it = it->first == game_id || it->first.rfind(game_id + "@", 0) == 0 ? g_ownReads.erase(it) : std::next(it);
     if (g_lock == LWP_MUTEX_NULL) return;
     Lock lock;
+    g_loaderReads.erase(game_id);
+    g_loaderChecks.erase(game_id);
     g_brokenOwnTold.erase(game_id);
     // The game's mod tiles show its cover too, unless they have their own.
     const std::string tiles = game_id + "@";
@@ -820,10 +845,12 @@ void ForgetCover(const std::string& game_id) {
 
 void ForgetGameCoversBeforeUsb() {
     g_ownReads.clear();
-    g_loaderReads.clear();  // the drive may have the player's PNGs
+    // Loader checks are cleared under the lock below.  // the drive may have the player's PNGs
     ForgetUsbCoversFolder();
     if (g_lock == LWP_MUTEX_NULL) return;
     Lock lock;
+    g_loaderReads.clear();
+    g_loaderChecks.clear();
     g_brokenOwnTold.clear();
     for (auto it = g_absent.begin(); it != g_absent.end();)
         it = emulator_cover_id(*it) ? std::next(it) : g_absent.erase(it);
@@ -834,9 +861,11 @@ void ForgetGameCoversBeforeUsb() {
 
 void ForgetAllCovers() {
     g_ownReads.clear();
-    g_loaderReads.clear();
+    // Loader checks are cleared under the lock below.
     if (g_lock == LWP_MUTEX_NULL) return;
     Lock lock;
+    g_loaderReads.clear();
+    g_loaderChecks.clear();
     // Another SD card, maybe: its tiles are matched again from its list.
     g_modCoverIds.clear();
     ++g_modCoverIdsCleared;

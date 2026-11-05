@@ -1643,6 +1643,12 @@ static void test_external_loader_files() {
     GcDolphinFiles dolphin;
     dolphin.raw = {"GC/MemoryCardB.USA.raw", "GC/MemoryCardA.USA.raw"};
     EXPECT_EQ(gc_dolphin_card_for_game(dolphin), std::string("GC/MemoryCardA.USA.raw"));
+    dolphin.raw = {"GC/MemoryCardA-backup.raw", "GC/MemoryCardA.USA.raw"};
+    EXPECT_EQ(gc_dolphin_card_for_game(dolphin), std::string("GC/MemoryCardA.USA.raw"));
+    dolphin.raw = {"GC/MemoryCardA-backup.raw"};
+    EXPECT_EQ(gc_dolphin_card_for_game(dolphin), std::string("GC/MemoryCardA-backup.raw"));
+    EXPECT_EQ(gc_nintendont_card_names("GMSE01")[0], std::string("gmse.raw"));
+    EXPECT_TRUE(gc_nintendont_card_names("../bad").empty());
     dolphin.raw = {"GC/MemoryCardB.USA.raw"};
     EXPECT_TRUE(gc_dolphin_card_for_game(dolphin).empty());
 }
@@ -1651,6 +1657,7 @@ int main() {
     test_external_loader_files();
     {
         const auto root = std::filesystem::temp_directory_path() / "riftwii_external_backup_test";
+        std::filesystem::remove_all(root);
         const Bytes raw = blank_card();
         GcBackupStamp stamp;
         stamp.year = 2026;

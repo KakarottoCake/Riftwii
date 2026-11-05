@@ -135,7 +135,7 @@ std::string CheatPath(const std::string& game_id);
 // The first existing text source: RiftWii's, then codes and txtcodes on
 // SD and every readable USB partition. Imported files stay read only.
 std::vector<std::string> GameCheatSources(const std::string& game_id);
-void SelectGameCheatSource(const std::string& game_id, const std::string& path);
+bool SelectGameCheatSource(const std::string& game_id, const std::string& path);
 std::string GameCheatPath(const std::string& game_id);
 bool ReadGameCheatText(const std::string& game_id, std::string& text);
 // The note beside the cheat file that says its codes came from GameHacking.org

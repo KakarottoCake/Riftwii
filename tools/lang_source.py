@@ -8509,6 +8509,24 @@ def check(repo):
     return not missing
 
 
+
+# Memory card choices offered by the other loaders.
+T.update({
+    "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only).": ('Usa la tarjeta del juego, una compartida, la de Nintendont o Dolphin, o una real en la ranura A (solo Wii).', 'ゲーム専用、共通、Nintendont、Dolphinのカード、またはスロットAの実物のカード（Wiiのみ）を使います。', 'Use o cartão do jogo, um compartilhado, o do Nintendont ou Dolphin, ou um real na entrada A (só no Wii).', 'Usa la scheda del gioco, una condivisa, quella di Nintendont o Dolphin, o una reale nello slot A (solo Wii).'),
+    "Use this game's card, a shared card, Nintendont's card, or a real card in slot A (Wii only).": ('Usa la tarjeta del juego, una compartida, la de Nintendont o una real en la ranura A (solo Wii).', 'ゲーム専用、共通、Nintendontのカード、またはスロットAの実物のカード（Wiiのみ）を使います。', 'Use o cartão do jogo, um compartilhado, o do Nintendont ou um real na entrada A (só no Wii).', 'Usa la scheda del gioco, una condivisa, quella di Nintendont o una reale nello slot A (solo Wii).'),
+    "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only).": ('Usa la tarjeta del juego, una compartida, la de Dolphin o una real en la ranura A (solo Wii).', 'ゲーム専用、共通、Dolphinのカード、またはスロットAの実物のカード（Wiiのみ）を使います。', 'Use o cartão do jogo, um compartilhado, o do Dolphin ou um real na entrada A (só no Wii).', 'Usa la scheda del gioco, una condivisa, quella di Dolphin o una reale nello slot A (solo Wii).'),
+})
+KO.update({
+    "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only).": '게임 전용, 공용, Nintendont, Dolphin 카드 또는 슬롯 A의 실제 카드를 사용합니다(Wii만).',
+    "Use this game's card, a shared card, Nintendont's card, or a real card in slot A (Wii only).": '게임 전용, 공용, Nintendont 카드 또는 슬롯 A의 실제 카드를 사용합니다(Wii만).',
+    "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only).": '게임 전용, 공용, Dolphin 카드 또는 슬롯 A의 실제 카드를 사용합니다(Wii만).',
+})
+FR.update({
+    "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only).": 'Utilise la carte du jeu, une carte partagée, celle de Nintendont ou Dolphin, ou une vraie carte dans le port A (Wii uniquement).',
+    "Use this game's card, a shared card, Nintendont's card, or a real card in slot A (Wii only).": 'Utilise la carte du jeu, une carte partagée, celle de Nintendont ou une vraie carte dans le port A (Wii uniquement).',
+    "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only).": 'Utilise la carte du jeu, une carte partagée, celle de Dolphin ou une vraie carte dans le port A (Wii uniquement).',
+})
+
 def main():
     repo = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
     if not check(repo):

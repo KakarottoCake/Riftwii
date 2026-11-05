@@ -33,15 +33,31 @@ int32_t gc_sd_write(gc_rt_context*, std::uint32_t sector, std::uint32_t, std::ui
     return record_write(sector);
 }
 
-int32_t gc_usb_write(gc_rt_context*, std::uint32_t sector, std::uint32_t, std::uint32_t) {
+static std::uint32_t gc_physical(std::uint32_t address) { return address & 0x3fffffffu; }
+
+static int32_t gc_ioctlv(gc_rt_context* context, std::uint32_t fd, std::uint32_t request,
+                        std::uint32_t inputs, std::uint32_t outputs) {
+    if (fd != context->usb_fd || request != 0x554D5304u || inputs != 3 || outputs != 0 ||
+        context->vec[0] != gc_physical(static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(&context->request[0]))) ||
+        context->vec[2] != gc_physical(static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(&context->request[1]))) ||
+        context->vec[1] != 4 || context->vec[3] != 4 ||
+        context->vec[4] != gc_physical(active_card->image + (context->request[0] - 1000) * 512) ||
+        context->vec[5] != context->request[1] * 512) return -999;
     usb_writes++;
-    return record_write(sector);
+    return record_write(context->request[0]);
 }
+
+#define GC_SECTOR 512u
+#include "../runtime/gc/gc_usb_write.h"
 
 int main() {
     static gc_card card{};
+    static std::uint8_t dirty[GC_CARD_FILE_SECTORS / 8];
+    card.dirty = dirty;
+    static_assert(sizeof(gc_card) < 2048, "The card state must stay small in MEM1.");
     gc_rt_context context{};
     active_card = &card;
+    context.usb_fd = 37;
     for (std::uint32_t bytes = 512u << 10; bytes <= GC_CARD_MAX_BYTES; bytes *= 2) {
         card.bytes = bytes;
         card.image = GC_CARD_IMAGE;
@@ -52,7 +68,7 @@ int main() {
         for (unsigned i = 0; i < 4; ++i) id = (id << 8) | card_give(&card);
         CHECK(id == bytes >> 17);
         CHECK(card_byte(&card, bytes + 5) == reinterpret_cast<std::uint8_t*>(GC_CARD_IMAGE + 5));
-        std::memset(card.dirty, 0, sizeof(card.dirty));
+        std::memset(card.dirty, 0, sizeof(dirty));
         card.dirty_count = 0;
         card_dirty(&card, bytes - 512, 1024);
         CHECK(card.dirty_count == 1);
@@ -78,4 +94,7 @@ int main() {
     }
     CHECK(usb_writes == 18);
     CHECK(sd_writes == 6);
+    write_result = -77;
+    CHECK(gc_usb_write(&context, 1007, 3, card.image + 7 * 512) == -77);
+    CHECK(usb_writes == 19);
 }

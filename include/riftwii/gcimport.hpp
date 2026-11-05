@@ -140,6 +140,8 @@ struct GcNintendontCard {
 // Uses the same scan and name rules as the save importer.
 std::string gc_nintendont_card_for_game(const std::vector<GcNintendontCard>& cards, const std::string& game_id);
 std::string gc_dolphin_card_for_game(const GcDolphinFiles& files);
+// Candidate names in preference order, also used for direct filesystem lookups.
+std::vector<std::string> gc_nintendont_card_names(const std::string& game_id);
 
 struct GcNintendontFiles {
     std::vector<GcNintendontCard> cards;  // in folder order, each folder's by name

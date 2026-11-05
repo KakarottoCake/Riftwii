@@ -382,8 +382,8 @@ GcBackupResult gc_backup_card(const std::string& card_path, const std::string& f
 }
 
 GcBackupResult gc_backup_image(const std::vector<std::uint8_t>& card, const std::string& folder,
-                               const GcBackupStamp& now) {
-    return backup_card("", &card, folder, now, "");
+                               const GcBackupStamp& now, const std::string& keep) {
+    return backup_card("", &card, folder, now, keep);
 }
 
 }  // namespace riftwii
