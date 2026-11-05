@@ -4029,8 +4029,11 @@ msgstr "RiftWii se quedó sin memoria al iniciar el juego. Desactiva la música 
 msgid "Report how it runs"
 msgstr "Informa cómo funciona"
 
-msgid "Scan the code with a phone to tell everyone how this game runs on the compatibility list. The form opens with the game and this RiftWii version filled in. Or go to {1}"
-msgstr "Escanea el código con un teléfono para contar a todos cómo funciona este juego en la lista de compatibilidad. El formulario se abre con el juego y esta versión de RiftWii ya rellenados. O ve a {1}"
-
 msgid "This game has no ID, so it can't be reported."
 msgstr "Este juego no tiene ID, así que no se puede informar."
+
+msgid "Scan the code with a phone to report how this game runs. The form opens with the game filled in. Or go to:"
+msgstr "Escanea el código con el teléfono para informar cómo funciona este juego. El formulario ya incluye el juego. O ve a:"
+
+msgid "Go to this link to report how this game runs. The form opens with the game filled in:"
+msgstr "Ve a este enlace para informar cómo funciona este juego. El formulario ya incluye el juego:"

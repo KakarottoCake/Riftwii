@@ -4029,8 +4029,11 @@ msgstr "게임을 시작하는 동안 RiftWii의 메모리가 부족해졌습니
 msgid "Report how it runs"
 msgstr "실행 상태를 보고하기"
 
-msgid "Scan the code with a phone to tell everyone how this game runs on the compatibility list. The form opens with the game and this RiftWii version filled in. Or go to {1}"
-msgstr "휴대폰으로 코드를 스캔하여 이 게임이 호환성 목록에서 어떻게 실행되는지 모두에게 알려주세요. 양식은 게임과 이 RiftWii 버전이 미리 입력된 채로 열립니다. 또는 {1}로 이동하세요."
-
 msgid "This game has no ID, so it can't be reported."
 msgstr "이 게임에는 ID가 없어서 보고할 수 없습니다."
+
+msgid "Scan the code with a phone to report how this game runs. The form opens with the game filled in. Or go to:"
+msgstr "휴대폰으로 코드를 스캔하면 이 게임의 실행 상태를 보고할 수 있습니다. 양식에는 게임이 미리 입력되어 있습니다. 또는 다음 주소로 이동하세요:"
+
+msgid "Go to this link to report how this game runs. The form opens with the game filled in:"
+msgstr "이 링크에서 이 게임의 실행 상태를 보고할 수 있습니다. 양식에는 게임이 미리 입력되어 있습니다:"

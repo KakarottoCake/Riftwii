@@ -9096,26 +9096,32 @@ static const riftwii::wii::ImageGame* SelectedGcPatch(const FrontendState& state
 // as a code for a phone, with the game's ID, its type and this version
 // filled in. A QR code here holds 78 bytes, so it is a short link the
 // site's page r turns into the form's; the version goes when it is too long.
+// GameCube games come from SD and USB images only (a GameCube disc in the
+// drive gets no page), so SelectedGcGame tells them apart.
 static void ShowCompatReport(const FrontendState& state)
 {
-	if (state.game_id.empty()) {
+	const std::string& id = state.game_id;
+	const bool idOk = (id.size() == 4 || id.size() == 6) &&
+		std::all_of(id.begin(), id.end(), [](char c) { return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'); });
+	if (!idOk) {
 		ShowPopup(tr("Report how it runs"), tr("This game has no ID, so it can't be reported."), tr("OK"));
 		return;
 	}
 	const char* const type = SelectedGcGame(state) ? "g" : state.use_channel ? "c" : "w";
-	const std::string base = std::string("https://riftwii.github.io/compatibility/r#") + state.game_id + "." + type;
+	const std::string base = std::string("https://riftwii.github.io/compatibility/r#") + id + "." + type;
 	std::string link = base + "." + RIFTWII_VERSION;
 	if (link.size() > 78) link = base;
 	riftwii::QrCode code;
-	riftwii::make_qr(link, code);
-	constexpr int kModule = 3;
-	const int side = QrImage::Side(code, kModule);
+	const bool made = riftwii::make_qr(link, code) && code.size != 0;
+	constexpr int kModule = 4;
+	const int side = made ? QrImage::Side(code, kModule) : 0;
 	QrImage qr(code, 588 - 16 - side, 150, kModule);
 	PopupBox box(tr("Report how it runs"),
-		tr("Scan the code with a phone to tell everyone how this game runs on the compatibility list. The form opens with the game and this RiftWii version filled in. Or go to {1}",
-			{link}),
+		std::string(made ? tr("Scan the code with a phone to report how this game runs. The form opens with the game filled in. Or go to:")
+				 : tr("Go to this link to report how this game runs. The form opens with the game filled in:")) +
+			"\n\n" + link,
 		tr("OK"));
-	if (code.size != 0) box.Add(&qr, 588 - 16 - side - 56 - 16);
+	if (made) box.Add(&qr, 588 - 16 - side - 56 - 16);
 	box.Wait();
 }
 
@@ -14160,7 +14166,7 @@ static int MenuHome(FrontendState& state)
 	const int promptBack = prompts.Add("B", tr("Back"));
 	prompts.Add("A", tr("Select"));
 	// 1: the compatibility list's report form, as a code (ShowCompatReport).
-	prompts.Add("1", tr("Report how it runs"));
+	const int promptReport = prompts.Add("1", tr("Report how it runs"));
 	SkinButton reportBtn(skin::pill, skin::pillOver, 4, 0, 0, nullptr,
 		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X);
 	HideButton(reportBtn);
@@ -14638,6 +14644,7 @@ static int MenuHome(FrontendState& state)
 		const int prompt = prompts.GetClicked();
 		if (prompt == promptBack) backBtn.PressSilently();
 		else if (prompt == promptPlay) startBtn.PressSilently();
+		else if (prompt == promptReport) reportBtn.PressSilently();
 
 		if (backBtn.Clicked()) {
 			if (saveOrSay()) menu = MENU_SOURCE;

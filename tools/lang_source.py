@@ -8448,11 +8448,6 @@ T.update({
         "動作状況を報告する",
         "Informar como funciona",
         "Segnala come funziona"),
-    "Scan the code with a phone to tell everyone how this game runs on the compatibility list. The form opens with the game and this RiftWii version filled in. Or go to {1}": (
-        "Escanea el código con un teléfono para contar a todos cómo funciona este juego en la lista de compatibilidad. El formulario se abre con el juego y esta versión de RiftWii ya rellenados. O ve a {1}",
-        "スマートフォンでコードを読み取って、このゲームの動作状況を互換性リストでみんなに教えてください。フォームはゲームとこのRiftWiiのバージョンが入力済みで開きます。または{1}にアクセスしてください。",
-        "Escaneie o código com um telefone para contar a todos como este jogo funciona na lista de compatibilidade. O formulário abre com o jogo e esta versão do RiftWii já preenchidos. Ou acesse {1}",
-        "Inquadra il codice con un telefono per dire a tutti come funziona questo gioco nella lista di compatibilità. Il modulo si apre con il gioco e questa versione di RiftWii già inseriti. Oppure vai a {1}"),
     "This game has no ID, so it can't be reported.": (
         "Este juego no tiene ID, así que no se puede informar.",
         "このゲームにはIDがないため、報告できません。",
@@ -8461,13 +8456,32 @@ T.update({
 })
 KO.update({
     "Report how it runs": "실행 상태를 보고하기",
-    "Scan the code with a phone to tell everyone how this game runs on the compatibility list. The form opens with the game and this RiftWii version filled in. Or go to {1}": "휴대폰으로 코드를 스캔하여 이 게임이 호환성 목록에서 어떻게 실행되는지 모두에게 알려주세요. 양식은 게임과 이 RiftWii 버전이 미리 입력된 채로 열립니다. 또는 {1}로 이동하세요.",
     "This game has no ID, so it can't be reported.": "이 게임에는 ID가 없어서 보고할 수 없습니다.",
 })
 FR.update({
     "Report how it runs": "Signaler son fonctionnement",
-    "Scan the code with a phone to tell everyone how this game runs on the compatibility list. The form opens with the game and this RiftWii version filled in. Or go to {1}": "Scannez le code avec un téléphone pour dire à tout le monde comment ce jeu fonctionne dans la liste de compatibilité. Le formulaire s'ouvre avec le jeu et cette version de RiftWii déjà remplis. Ou allez à {1}",
     "This game has no ID, so it can't be reported.": "Ce jeu n'a pas d'ID, il ne peut donc pas être signalé.",
+})
+
+T.update({
+    "Scan the code with a phone to report how this game runs. The form opens with the game filled in. Or go to:": (
+        "Escanea el código con el teléfono para informar cómo funciona este juego. El formulario ya incluye el juego. O ve a:",
+        "スマートフォンでコードを読み取ると、このゲームの動作状況を報告できます。フォームはゲームが入力された状態で開きます。またはこちらへ:",
+        "Escaneie o código com o celular para informar como funciona este jogo. O formulário abre com o jogo já preenchido. Ou acesse:",
+        "Scansiona il codice con il telefono per segnalare come funziona questo gioco. Il modulo si apre con il gioco già inserito. Oppure vai a:"),
+    "Go to this link to report how this game runs. The form opens with the game filled in:": (
+        "Ve a este enlace para informar cómo funciona este juego. El formulario ya incluye el juego:",
+        "このリンクから、このゲームの動作状況を報告できます。フォームはゲームが入力された状態で開きます:",
+        "Acesse este link para informar como funciona este jogo. O formulário abre com o jogo já preenchido:",
+        "Vai a questo link per segnalare come funziona questo gioco. Il modulo si apre con il gioco già inserito:"),
+})
+KO.update({
+    "Scan the code with a phone to report how this game runs. The form opens with the game filled in. Or go to:": "휴대폰으로 코드를 스캔하면 이 게임의 실행 상태를 보고할 수 있습니다. 양식에는 게임이 미리 입력되어 있습니다. 또는 다음 주소로 이동하세요:",
+    "Go to this link to report how this game runs. The form opens with the game filled in:": "이 링크에서 이 게임의 실행 상태를 보고할 수 있습니다. 양식에는 게임이 미리 입력되어 있습니다:",
+})
+FR.update({
+    "Scan the code with a phone to report how this game runs. The form opens with the game filled in. Or go to:": "Scannez le code avec un téléphone pour signaler comment ce jeu fonctionne. Le formulaire s'ouvre avec le jeu déjà rempli. Ou allez à :",
+    "Go to this link to report how this game runs. The form opens with the game filled in:": "Allez à ce lien pour signaler comment ce jeu fonctionne. Le formulaire s'ouvre avec le jeu déjà rempli :",
 })
 
 def check(repo):
