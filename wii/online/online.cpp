@@ -1096,7 +1096,9 @@ std::string GameCheatPath(const std::string& game_id) {
     const auto wanted = Settings().other.find("cheat_source_" + game_id);
     if (wanted != Settings().other.end() && std::find(sources.begin(), sources.end(), wanted->second) != sources.end())
         return wanted->second;
-    if (wanted != Settings().other.end()) return wanted->second;
+    // A saved source that is gone falls back to one that is there. The
+    // launch still checks the picked cheats' source, so no cheat picked
+    // in the missing file is applied from another one.
     return sources.empty() ? CheatPath(game_id) : sources.front();
 }
 
