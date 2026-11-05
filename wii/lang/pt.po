@@ -4065,6 +4065,69 @@ msgstr "Acesse este link para informar como funciona este jogo. O formulário ab
 msgid "Report"
 msgstr "Informar"
 
+msgid "Manage game"
+msgstr "Gerenciar jogo"
+
+msgid "Hide from Home"
+msgstr "Ocultar do Início"
+
+msgid "Unhide from Home"
+msgstr "Mostrar no Início"
+
+msgid "Rename"
+msgstr "Renomear"
+
+msgid "Restore name"
+msgstr "Restaurar nome"
+
+msgid "Delete this game"
+msgstr "Excluir este jogo"
+
+msgid "Delete its saves too"
+msgstr "Excluir também os dados salvos"
+
+msgid "Show hidden games"
+msgstr "Mostrar jogos ocultos"
+
+msgid "Hidden games stay on the drive. Settings > Home > Show hidden games lets you find and unhide them."
+msgstr "Jogos ocultos ficam na unidade. Configurações > Início > Mostrar jogos ocultos permite encontrá-los e mostrá-los novamente."
+
+msgid "Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."
+msgstr "Remove a imagem, capas e truques do jogo. Os dados salvos ficam, a menos que você escolha excluí-los também."
+
+msgid "Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."
+msgstr "Apenas os dados separados do RiftWii. Cartões compartilhados e dados dos pacotes e do Wii são mantidos."
+
+msgid "Its image files, covers and cheats will be deleted. This cannot be undone."
+msgstr "Suas imagens, capas e truques serão excluídos. Não é possível desfazer."
+
+msgid "The game could not be deleted. See session.log for the reason."
+msgstr "Não foi possível excluir o jogo. Veja o motivo em session.log."
+
+msgid "Show games you hid from Home. Open Manage game to unhide one. Parental controls still apply."
+msgstr "Mostra jogos ocultos do Início. Abra Gerenciar jogo para mostrá-los novamente. O controle dos pais continua ativo."
+
+msgid "Hide or rename this game, manage its files, or read about it."
+msgstr "Oculte ou renomeie o jogo, gerencie seus arquivos ou leia sobre ele."
+
+msgid "Change the name shown for this game. The files on the drive keep their names."
+msgstr "Muda o nome mostrado para este jogo. Os arquivos mantêm seus nomes."
+
+msgid "Use the game's original name again."
+msgstr "Usa o nome original do jogo novamente."
+
+msgid "Remove this game's image, covers and cheats. USB deletion needs FAT32; NTFS is read-only."
+msgstr "Remove a imagem, capas e truques do jogo. A exclusão no USB exige FAT32; NTFS é somente leitura."
+
+msgid "Kept"
+msgstr "Mantidos"
+
+msgid "Saves are kept because another copy of this game remains."
+msgstr "Os dados salvos são mantidos porque outra cópia deste jogo permanece."
+
+msgid "Could not delete {1}. Some files may already be gone. See session.log for details."
+msgstr "Não foi possível excluir {1}. Alguns arquivos podem já ter sido removidos. Veja session.log."
+
 msgid "Start the last game right away"
 msgstr "Iniciar o último jogo de imediato"
 
