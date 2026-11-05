@@ -267,7 +267,36 @@ static void test_refusals() {
     }
 }
 
+static void test_external_card_request() {
+    Fixture fixture;
+    std::string why;
+    std::vector<std::uint8_t> card(512u << 10);
+    rwp_fragment part{100, card.size() / 512};
+    fixture.request.external_card = card.data();
+    fixture.request.external_card_bytes = static_cast<std::uint32_t>(card.size());
+    fixture.request.card_fragments = &part;
+    fixture.request.card_fragment_count = 1;
+    EXPECT_TRUE(fixture.check(why));
+    part.sector_count--;
+    EXPECT_FALSE(fixture.check(why));
+    part.sector_count++;
+    fixture.request.card_on_usb = 1;
+    fixture.request.usb_fd = -1;
+    EXPECT_FALSE(fixture.check(why));
+    fixture.request.usb_fd = 4;
+    EXPECT_TRUE(fixture.check(why));
+    fixture.request.real_card = 1;
+    EXPECT_FALSE(fixture.check(why));
+    fixture.request.real_card = 0;
+    part.sector = 0xFFFFFFFFull;
+    EXPECT_FALSE(fixture.check(why));
+    part.sector = 100;
+    fixture.request.external_card_bytes++;
+    EXPECT_FALSE(fixture.check(why));
+}
+
 int main() {
+    test_external_card_request();
     {
         Fixture mappings;
         std::string error;

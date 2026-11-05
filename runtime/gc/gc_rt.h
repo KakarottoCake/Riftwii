@@ -750,6 +750,7 @@ int32_t gc_ipc_send(uint32_t phys, struct gc_rt_context* ctx);
  * GameCube adapter's requests (gc_gcad.c); anything else (left from the
  * menu) is dropped. */
 void gc_ipc_route(struct gc_rt_context* ctx, uint32_t reply);
+int32_t gc_usb_write(struct gc_rt_context* ctx, uint32_t sector, uint32_t count, uint32_t buf);
 int32_t gc_sd_write(struct gc_rt_context* ctx, uint32_t sector, uint32_t count, uint32_t buf);
 int gc_sd_read(struct gc_rt_context* ctx, uint32_t sector, uint32_t count, uint32_t target);
 uint32_t gc_ipc_take(void);

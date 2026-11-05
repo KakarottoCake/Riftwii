@@ -28,6 +28,7 @@
 #include "gc_video.h"
 #include "gcblobs.h"
 #include "riftwii/codehook.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/fat32.hpp"
 #include "riftwii/gcaram.hpp"
 #include "riftwii/gccard.hpp"
@@ -69,13 +70,11 @@ constexpr std::uint32_t kBi2Bytes = 0x2000;
 // The blob's data buffers in MEM2 (the layout in LaunchGcNative): after
 // the memory card's image, which follows the game's 16 MB of ARAM, and far
 // below IOS (0x933E0000).
-constexpr std::uint32_t kGcMem2Data = GC_CARD_IMAGE + GC_CARD_BYTES;
 constexpr std::uint32_t kGcMem2DataMax = 0x00100000;
 // An RVZ game's group buffers and Zstandard's workspace (gc_rvz.h), right
 // after the data buffers: 2 MB, which holds 512 KiB chunks (two decoded
 // groups, one as stored and the decoder's 48 KB), still far below IOS.
 // Nothing needs to be in them at the jump, so they are not staged.
-constexpr std::uint32_t kGcRvzCache = kGcMem2Data + kGcMem2DataMax;
 constexpr std::uint32_t kGcRvzCacheMax = 0x00200000;
 // The stack gc_on_program_start runs on when a program the game loads
 // itself starts (gc_programs.h), in MEM2's data: it drains the I/O and
@@ -84,8 +83,6 @@ constexpr std::uint32_t kGcProgramStackBytes = 0x2000;
 // The restart's copy of MEM1 as the game starts (Reset, riftwii/gcreset.hpp),
 // after the RVZ's buffers: 24 MB at most, ending at 0x92D00000, still below
 // IOS. Its last 4 KB are the stack the blob puts MEM1 back on.
-constexpr std::uint32_t kGcRestartWindow = kGcRvzCache + kGcRvzCacheMax;
-constexpr std::uint32_t kGcRestartWindowBytes = 0x01800000;
 constexpr std::uint32_t kGcRestartStackBytes = 0x1000;
 // The decoder's workspace: its tables and a 4 KiB literal buffer, as for
 // Wii games (runtime/resident/rt_hook.h's RT_RVZ_DCTX_BYTES).
@@ -2172,6 +2169,15 @@ static void load_gc_controls(const std::string& game_id, gc_map& map) {
 
 bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLaunchExtras& extras, std::string& error,
                      std::uint32_t* error_code) {
+    const std::uint32_t card_bytes = image.external_card == nullptr ? GC_CARD_BYTES
+        : image.external_card_bytes;
+    const std::uint32_t dirty_bytes = GC_CARD_FILE_SECTORS / 8;
+    const std::uint32_t dirty_addr = GC_CARD_IMAGE + std::max<std::uint32_t>(GC_CARD_BYTES, card_bytes);
+    const std::uint32_t card_reserved = dirty_addr - GC_CARD_IMAGE + dirty_bytes;
+    const std::uint32_t kGcMem2Data = GC_CARD_IMAGE + card_reserved;
+    const std::uint32_t kGcRvzCache = kGcMem2Data + kGcMem2DataMax;
+    const std::uint32_t kGcRestartWindow = kGcRvzCache + kGcRvzCacheMax;
+    const std::uint32_t kGcRestartWindowBytes = 0x92D00000 - kGcRestartWindow;
     // The plugin runs to the jump from its arena at the top of MEM2: never
     // inside what the launch writes there (the card's image, the blob's
     // buffers, the RVZ's and the Reset restart's copy of MEM1).
@@ -2657,7 +2663,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // Built here, zeroed, and moved into MEM2 just before the jump with
     // the card's image: the loader's own heap may be where it goes.
     std::vector<std::uint8_t> mem2_stage(mem2_bytes, 0);
-    auto staged = [&mem2_stage](std::uint32_t mem2_address) {
+    auto staged = [&mem2_stage, kGcMem2Data](std::uint32_t mem2_address) {
         return static_cast<void*>(mem2_stage.data() + (mem2_address - kGcMem2Data));
     };
 
@@ -2791,112 +2797,134 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         logf("GameCube: the game saves to the real memory card in slot A (its Memory card option), not to an image "
              "on the SD card; SRAM holds that card's own ID, so a card formatted on another console is accepted\n");
     } else {
-        const std::string path = gc_card_path(image.id, image.shared_card);
-        card_image.assign(GC_CARD_BYTES, 0xFF);
-        bool ready = false;
-        bool exists = false;
-        long size = -1;
-        if (std::FILE* f = std::fopen(path.c_str(), "rb")) {
-            exists = true;
-            std::fseek(f, 0, SEEK_END);
-            size = std::ftell(f);
-            std::fseek(f, 0, SEEK_SET);
-            ready = size == static_cast<long>(GC_CARD_BYTES) &&
-                    std::fread(card_image.data(), 1, card_image.size(), f) == card_image.size();
-            std::fclose(f);
-        }
-        // A card that exists but would not open is not a missing one: the
-        // "wb" below would truncate it. Only a card stat cannot find is new.
-        bool unreadable = false;
-        struct stat card_st;
-        if (!exists && stat(path.c_str(), &card_st) == 0) {
-            unreadable = true;
-            logf("GameCube: %s is there but could not be opened: left as it is, and the game runs without a card\n",
-                 path.c_str());
-        }
-        // A card of another size (a 59-block one from Dolphin or a real
-        // card, say) is never overwritten: its saves stay, and the game runs
-        // without a card. The menu still reads it, to copy its saves out.
-        const bool other_size = exists && size != static_cast<long>(GC_CARD_BYTES) && size != 0;
-        // A failed read is not an empty card: never truncate its existing saves.
-        const bool blank = !other_size && !unreadable && (!exists || size == 0 ||
-                            (ready && std::all_of(card_image.begin(), card_image.begin() + 0x200,
-                                                 [](std::uint8_t b) { return b == 0xFF; })));
-        if (other_size) {
-            logf("GameCube: %s is %ld bytes, not a 251-block card's %u: left as it is, and the game runs without a card\n",
-                 path.c_str(), size, GC_CARD_BYTES);
-            ready = false;
-        }
-        if (blank) {
-            const bool shift_jis = gc_card_shift_jis(image.id);
-            format_card(card_image, shift_jis);
-            logf("GameCube: a newly formatted memory card, %s (%u KB)\n", path.c_str(), GC_CARD_BYTES / 1024);
-            std::FILE* f = std::fopen(path.c_str(), "wb");
-            ready = f && std::fwrite(card_image.data(), 1, card_image.size(), f) == card_image.size();
-            if (f) std::fclose(f);
-            forget_sd_layout();
-        }
-        // The unlocked emulated card makes the SDK check SRAM's flash ID
-        // and its checksum before VerifyID. Store the card's ID there as
-        // a GameCube's mount does, preserving the serial that saves bind
-        // to. This runs before shut_down_for_game and before interrupts
-        // are disabled, so the host can commit over libogc's working EXI; the
-        // game's own SDK later reads that RTC through EXI without libogc.
-        // A later format_card reads the new SRAM ID too, consistently.
-        // A card formatted just above takes this path as well: format_card
-        // copied only SRAM's ID, so if SRAM's checksum is bad the SDK would
-        // still call the new card damaged. The setter then finds the ID
-        // equal and repairs only the checksum.
-        if (ready && !other_size) {
+        if (image.external_card != nullptr) {
+            if (!try_assign_range(card_image, image.external_card, image.external_card + card_bytes)) {
+                error = "There is not enough memory to read the memory card.";
+                if (error_code) *error_code = RWP_GC_ERROR_CARD_MEMORY;
+                return false;
+            }
+            std::uint32_t sector = 0;
+            for (const Fragment& part : image.card_fragments) {
+                card_runs.push_back({sector, static_cast<std::uint32_t>(part.sector),
+                                     static_cast<std::uint32_t>(part.sector_count)});
+                sector += static_cast<std::uint32_t>(part.sector_count);
+            }
             std::array<std::uint8_t, 12> flash_id{};
             const rwp_host& host = plugin::host();
-            if (!gc_card_flash_id(card_image, flash_id)) {
-                logf("GameCube: %s has an invalid header and is left unchanged for the game to report as damaged\n",
+            if (!gc_card_flash_id(card_image, flash_id) || !RWP_HOST_HAS(&host, set_sram_flash_id_a) ||
+                !host.set_sram_flash_id_a || host.set_sram_flash_id_a(flash_id.data()) < 0) {
+                error = "The memory card's ID could not be set. The game was not started.";
+                if (error_code) *error_code = RWP_GC_ERROR_EXTERNAL_CARD;
+                return false;
+            }
+        } else {
+            const std::string path = gc_card_path(image.id, image.shared_card);
+            card_image.assign(GC_CARD_BYTES, 0xFF);
+            bool ready = false;
+            bool exists = false;
+            long size = -1;
+            if (std::FILE* f = std::fopen(path.c_str(), "rb")) {
+                exists = true;
+                std::fseek(f, 0, SEEK_END);
+                size = std::ftell(f);
+                std::fseek(f, 0, SEEK_SET);
+                ready = size == static_cast<long>(GC_CARD_BYTES) &&
+                        std::fread(card_image.data(), 1, card_image.size(), f) == card_image.size();
+                std::fclose(f);
+            }
+            // A card that exists but would not open is not a missing one: the
+            // "wb" below would truncate it. Only a card stat cannot find is new.
+            bool unreadable = false;
+            struct stat card_st;
+            if (!exists && stat(path.c_str(), &card_st) == 0) {
+                unreadable = true;
+                logf("GameCube: %s is there but could not be opened: left as it is, and the game runs without a card\n",
                      path.c_str());
-            } else if (!RWP_HOST_HAS(&host, set_sram_flash_id_a) || !host.set_sram_flash_id_a) {
-                logf("GameCube: this host cannot set SRAM's card ID for %s, so the game may report the unchanged "
-                     "card as damaged\n",
-                     path.c_str());
-            } else {
-                // The host compares both ID and checksum under the SRAM
-                // lock, including a bad checksum with an already equal ID.
-                const int32_t written = host.set_sram_flash_id_a(flash_id.data());
-                // A failed write leaves things as they were before: the
-                // launch goes on, and at worst the game calls the card damaged.
-                if (written < 0) {
-                    logf("GameCube: SRAM's card ID for %s could not be written, so the game may report the "
-                         "unchanged card as damaged\n", path.c_str());
-                } else if (written > 0) {
-                    logf("GameCube: %s needed another card ID or a repaired ID checksum in this Wii's SRAM; "
-                         "SRAM now holds the card's ID as on a GameCube mount so the game can verify it, "
-                         "and the card itself is unchanged\n", path.c_str());
+            }
+            // A card of another size (a 59-block one from Dolphin or a real
+            // card, say) is never overwritten: its saves stay, and the game runs
+            // without a card. The menu still reads it, to copy its saves out.
+            const bool other_size = exists && size != static_cast<long>(GC_CARD_BYTES) && size != 0;
+            // A failed read is not an empty card: never truncate its existing saves.
+            const bool blank = !other_size && !unreadable && (!exists || size == 0 ||
+                                (ready && std::all_of(card_image.begin(), card_image.begin() + 0x200,
+                                                     [](std::uint8_t b) { return b == 0xFF; })));
+            if (other_size) {
+                logf("GameCube: %s is %ld bytes, not a 251-block card's %u: left as it is, and the game runs without a card\n",
+                     path.c_str(), size, GC_CARD_BYTES);
+                ready = false;
+            }
+            if (blank) {
+                const bool shift_jis = gc_card_shift_jis(image.id);
+                format_card(card_image, shift_jis);
+                logf("GameCube: a newly formatted memory card, %s (%u KB)\n", path.c_str(), GC_CARD_BYTES / 1024);
+                std::FILE* f = std::fopen(path.c_str(), "wb");
+                ready = f && std::fwrite(card_image.data(), 1, card_image.size(), f) == card_image.size();
+                if (f) std::fclose(f);
+                forget_sd_layout();
+            }
+            // The unlocked emulated card makes the SDK check SRAM's flash ID
+            // and its checksum before VerifyID. Store the card's ID there as
+            // a GameCube's mount does, preserving the serial that saves bind
+            // to. This runs before shut_down_for_game and before interrupts
+            // are disabled, so the host can commit over libogc's working EXI; the
+            // game's own SDK later reads that RTC through EXI without libogc.
+            // A later format_card reads the new SRAM ID too, consistently.
+            // A card formatted just above takes this path as well: format_card
+            // copied only SRAM's ID, so if SRAM's checksum is bad the SDK would
+            // still call the new card damaged. The setter then finds the ID
+            // equal and repairs only the checksum.
+            if (ready && !other_size) {
+                std::array<std::uint8_t, 12> flash_id{};
+                const rwp_host& host = plugin::host();
+                if (!gc_card_flash_id(card_image, flash_id)) {
+                    logf("GameCube: %s has an invalid header and is left unchanged for the game to report as damaged\n",
+                         path.c_str());
+                } else if (!RWP_HOST_HAS(&host, set_sram_flash_id_a) || !host.set_sram_flash_id_a) {
+                    logf("GameCube: this host cannot set SRAM's card ID for %s, so the game may report the unchanged "
+                         "card as damaged\n",
+                         path.c_str());
+                } else {
+                    // The host compares both ID and checksum under the SRAM
+                    // lock, including a bad checksum with an already equal ID.
+                    const int32_t written = host.set_sram_flash_id_a(flash_id.data());
+                    // A failed write leaves things as they were before: the
+                    // launch goes on, and at worst the game calls the card damaged.
+                    if (written < 0) {
+                        logf("GameCube: SRAM's card ID for %s could not be written, so the game may report the "
+                             "unchanged card as damaged\n", path.c_str());
+                    } else if (written > 0) {
+                        logf("GameCube: %s needed another card ID or a repaired ID checksum in this Wii's SRAM; "
+                             "SRAM now holds the card's ID as on a GameCube mount so the game can verify it, "
+                             "and the card itself is unchanged\n", path.c_str());
+                    }
                 }
             }
-        }
-        Fat32File cf;
-        std::string why;
-        if (ready && resolve_sd_file(path.c_str(), cf, why)) {
-            std::uint32_t at = 0;
-            for (const auto& fr : cf.fragments) {
-                if (at >= GC_CARD_FILE_SECTORS) break;
-                gc_card_run run{};
-                run.card_sector = at;
-                run.sd_sector = static_cast<std::uint32_t>(fr.sector);
-                run.count = static_cast<std::uint32_t>(
-                    std::min<std::uint64_t>(fr.sector_count, GC_CARD_FILE_SECTORS - at));
-                at += run.count;
-                card_runs.push_back(run);
+            Fat32File cf;
+            std::string why;
+            if (ready && resolve_sd_file(path.c_str(), cf, why)) {
+                std::uint32_t at = 0;
+                for (const auto& fr : cf.fragments) {
+                    if (at >= (GC_CARD_BYTES / 512u)) break;
+                    gc_card_run run{};
+                    run.card_sector = at;
+                    run.sd_sector = static_cast<std::uint32_t>(fr.sector);
+                    run.count = static_cast<std::uint32_t>(
+                        std::min<std::uint64_t>(fr.sector_count, (GC_CARD_BYTES / 512u) - at));
+                    at += run.count;
+                    card_runs.push_back(run);
+                }
+                if (at < (GC_CARD_BYTES / 512u) || card_runs.size() > GC_CARD_RUNS) {
+                    why = "the file is in too many pieces or too short";
+                    card_runs.clear();
+                }
             }
-            if (at < GC_CARD_FILE_SECTORS || card_runs.size() > GC_CARD_RUNS) {
-                why = "the file is in too many pieces or too short";
-                card_runs.clear();
+            if (card_runs.empty()) {
+                logf("GameCube: no memory card (%s): %s\n", path.c_str(), why.empty() ? "it could not be made" : why.c_str());
+                card_image.clear();
+            } else {
+                logf("GameCube: memory card %s, %u piece(s)\n", path.c_str(), static_cast<unsigned>(card_runs.size()));
             }
-        }
-        if (card_runs.empty()) {
-            logf("GameCube: no memory card (%s): %s\n", path.c_str(), why.empty() ? "it could not be made" : why.c_str());
-            card_image.clear();
-        } else {
-            logf("GameCube: memory card %s, %u piece(s)\n", path.c_str(), static_cast<unsigned>(card_runs.size()));
         }
     }
 
@@ -3451,6 +3479,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                                 load32(blob_addr + entry + 8));
                 }
                 memcard->image = GC_CARD_IMAGE;
+            memcard->dirty = reinterpret_cast<std::uint8_t*>(dirty_addr);
+            memcard->bytes = card_bytes;
+            memcard->on_usb = image.card_on_usb ? 1 : 0;
                 memcard->ecb = ecb;
                 memcard->run_count = static_cast<std::uint32_t>(card_runs.size());
                 std::copy(card_runs.begin(), card_runs.end(), memcard->runs);
@@ -3908,6 +3939,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         if (card_hooked) {
             ctx->card = card_addr;
             memcard->image = GC_CARD_IMAGE;
+            memcard->dirty = reinterpret_cast<std::uint8_t*>(dirty_addr);
+            memcard->bytes = card_bytes;
+            memcard->on_usb = image.card_on_usb ? 1 : 0;
             memcard->run_count = static_cast<std::uint32_t>(card_runs.size());
             std::copy(card_runs.begin(), card_runs.end(), memcard->runs);
             unswitched.push_back(blob_addr + h.context_offset + offsetof(gc_rt_context, card));
@@ -3993,12 +4027,16 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // the game has a card) and the blob's buffers right after it.
     // A program the game loads itself may hook the card where the disc's
     // own does not (EA's loader has no card functions of its own).
-    const std::uint32_t mem2_card_bytes = card_hooked ? GC_CARD_BYTES : 0;
+    const std::uint32_t mem2_card_bytes = card_hooked ? card_reserved : 0;
     const std::uint32_t mem2_from = kGcMem2Data - mem2_card_bytes;
     std::vector<std::uint8_t> mem2_image;
     if (card_hooked) {
-        card_image.resize(GC_CARD_BYTES + mem2_bytes);
-        std::memcpy(card_image.data() + GC_CARD_BYTES, mem2_stage.data(), mem2_bytes);
+        if (!try_resize(card_image, card_reserved + mem2_bytes)) {
+            error = "There is not enough memory to stage the memory card.";
+                if (error_code) *error_code = RWP_GC_ERROR_CARD_MEMORY;
+            return false;
+        }
+        std::memcpy(card_image.data() + card_reserved, mem2_stage.data(), mem2_bytes);
         mem2_image.swap(card_image);
     } else {
         mem2_image.swap(mem2_stage);

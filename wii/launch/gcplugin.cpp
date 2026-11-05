@@ -224,10 +224,12 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
         // Pass this physical header's ID, preserving its serial/saves.
         logf("GameCube: the game will use the real memory card in slot A because its Memory card option selects it.\n");
     } else {
-        if (!recover_card(image, error)) return false;
-        if (Settings().gc_backups != "off") back_up_card(image);
-        logf("GameCube: the game will use %s because its Memory card option selects an SD image.\n",
-             gc_card_path(image.id, image.shared_card).c_str());
+        if (!image.external_card.empty()) {
+            logf("GameCube: using the backed-up external memory card %s in place.\n", image.external_card_path.c_str());
+        } else if (!recover_card(image, error)) return false;
+        if (image.external_card.empty() && Settings().gc_backups != "off") back_up_card(image);
+        logf("GameCube: the game will save to %s because its Memory card option selects this file.\n",
+             (image.external_card_path.empty() ? gc_card_path(image.id, image.shared_card) : image.external_card_path).c_str());
     }
 
     rwp_gc_launch request{};
@@ -238,6 +240,16 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     request.real_card = image.real_card ? 1 : 0;
     std::copy(physical_id.begin(), physical_id.end(), request.real_card_flash_id);
     request.shared_card = image.shared_card ? 1 : 0;
+    std::vector<rwp_fragment> card_fragments;
+    if (!image.external_card.empty()) {
+        request.external_card = image.external_card.data();
+        request.external_card_bytes = static_cast<std::uint32_t>(image.external_card.size());
+        request.card_on_usb = GcImageOnUsb(image.external_card_path) ? 1 : 0;
+        for (const Fragment& part : image.card_fragments)
+            card_fragments.push_back({part.sector, part.sector_count});
+        request.card_fragments = card_fragments.data();
+        request.card_fragment_count = static_cast<std::uint32_t>(card_fragments.size());
+    }
     request.drive_timing = image.drive_timing ? 1 : 0;
     request.progressive = image.progressive ? 1 : 0;
     request.widescreen = image.widescreen ? 1 : 0;
@@ -365,7 +377,11 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
         error = message;
         return false;
     }
-    if (error_code == RWP_GC_ERROR_REAL_CARD_SRAM) {
+    if (error_code == RWP_GC_ERROR_CARD_MEMORY) {
+        error = mem::LaunchOutOfMemoryMessage();
+    } else if (error_code == RWP_GC_ERROR_EXTERNAL_CARD) {
+        error = tr("The memory card file could not be read. Nothing was changed.");
+    } else if (error_code == RWP_GC_ERROR_REAL_CARD_SRAM) {
         logf("GameCube: the real card could not be prepared because its ID could not be written to SRAM.\n");
         error = tr("The real card could not be prepared. Check the card and try again.");
     } else {

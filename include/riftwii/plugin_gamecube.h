@@ -49,6 +49,11 @@ typedef struct rwp_gc_launch {
     uint32_t is_rvz;       /* the image is an RVZ (by its name, as the list says) */
     uint32_t real_card;    /* slot A passes through to physical hardware */
     uint8_t real_card_flash_id[12]; /* verified physical header, never an SD image */
+    const uint8_t* external_card;
+    uint32_t external_card_bytes;
+    uint32_t card_on_usb;
+    const rwp_fragment* card_fragments;
+    uint32_t card_fragment_count;
     uint32_t shared_card;  /* the shared memory card, not the game's own */
     uint32_t drive_timing; /* reads take a GameCube drive's time */
     uint32_t progressive;  /* 480p */
@@ -149,6 +154,8 @@ typedef struct rwp_gc_launch {
 } rwp_gc_launch;
 
 
+#define RWP_GC_ERROR_EXTERNAL_CARD 2u
+#define RWP_GC_ERROR_CARD_MEMORY 3u
 #define RWP_GC_ERROR_NONE 0u
 #define RWP_GC_ERROR_REAL_CARD_SRAM 1u /* the real card's ID could not be written to SRAM */
 

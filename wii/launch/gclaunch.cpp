@@ -15,6 +15,11 @@
 #include <utility>
 
 #include "gcplugin.hpp"
+#include "externalcard.hpp"
+#include "i18n.hpp"
+#include "riftwii/gcbackup.hpp"
+#include "riftwii/gccard.hpp"
+#include <ctime>
 #include "gcpatch.hpp"
 #include "ios_reload.hpp"
 #include "loadersettings.hpp"
@@ -1053,6 +1058,13 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         image.drive_timing = kGcDriveTimingReady && choices.game.gc_disc_reads != "fast";
         image.shared_card = choices.game.gc_card == "shared";
         image.real_card = choices.game.gc_card == "real";
+        if (choices.game.gc_card == "nintendont" || choices.game.gc_card == "dolphin") {
+            image.external_card_path = ExternalCardPath(image.id, choices.game.gc_card);
+            if (image.external_card_path.empty()) {
+                error = tr("The selected memory card is missing. Choose another card on the game's page.");
+                return false;
+            }
+        }
         const LaunchExtras& extras = CurrentLaunchExtras();
         if (extras.game_id == image.id && extras.gc_card_fallback) {
             image.real_card = false;
@@ -1092,7 +1104,53 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
     if (has_packs && !plan_gc_packs(image, packages, plan, usb_check, error)) return false;
     const bool packs_on_usb = has_packs && gc_plan_uses_usb(plan);
     find_second_disc(image);
-    if ((GcImageOnUsb(image.path) || packs_on_usb) && !ready_usb(image, usb_check, error)) return false;
+    if (!image.external_card_path.empty()) {
+        std::unique_ptr<ByteSource> file;
+        if (!OpenGcDisc(image.external_card_path, file, error)) return false;
+        const std::uint64_t bytes = file->size();
+        GcCardInfo info;
+        if (bytes < (512u << 10) || bytes > (16u << 20) ||
+            !try_resize(image.external_card, static_cast<std::size_t>(bytes)) ||
+            !file->read(0, image.external_card.data(), image.external_card.size()) ||
+            !gc_card_read(image.external_card, info, error) || info.shift_jis != gc_card_shift_jis(image.id)) {
+            error = tr("RiftWii cannot read {1}: it is damaged or is not a GameCube memory card.", {image.external_card_path});
+            return false;
+        }
+        file.reset();
+        std::uint64_t mapped_bytes = 0;
+        const bool card_usb = GcImageOnUsb(image.external_card_path);
+        if (card_usb && !usb_file_writable(image.external_card_path)) {
+            error = tr("This memory card needs a FAT32 drive so the game can save to it.");
+            return false;
+        }
+        const bool mapped = card_usb
+            ? usb_file_pieces(image.external_card_path, mapped_bytes, image.card_fragments, error)
+            : sd_file_pieces(image.external_card_path, mapped_bytes, image.card_fragments, error);
+        if (!mapped || mapped_bytes != bytes || image.card_fragments.empty() || image.card_fragments.size() > 32) {
+            error = tr("The memory card file could not be read. Nothing was changed.");
+            return false;
+        }
+        // A separate backup history for this source; never rename or replace
+        // another loader's card file. A failed backup stops the launch.
+        const std::string folder = gc_backup_folder(image.id, false) + "/external";
+        const time_t now = time(nullptr);
+        struct tm local;
+        localtime_r(&now, &local);
+        const GcBackupResult backup = gc_backup_image(image.external_card, folder, gc_backup_stamp(local));
+        if (backup.what != GcBackupResult::What::Made && backup.what != GcBackupResult::What::Same) {
+            error = tr("The memory card could not be backed up. The game was not started.");
+            return false;
+        }
+        forget_sd_layout();
+        logf("GameCube: external memory card %s backed up in %s before any writes.\n",
+             image.external_card_path.c_str(), folder.c_str());
+        if (card_usb && usb_check.path.empty()) {
+            usb_check.path = image.external_card_path;
+            usb_check.sector = image.card_fragments.front().sector;
+        }
+    }
+    const bool card_on_usb = GcImageOnUsb(image.external_card_path);
+    if ((GcImageOnUsb(image.path) || packs_on_usb || card_on_usb) && !ready_usb(image, usb_check, error)) return false;
     return LaunchGcNative(image, has_packs ? &plan : nullptr, error);
 }
 

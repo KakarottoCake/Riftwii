@@ -158,6 +158,33 @@ GcDolphinFiles gc_dolphin_scan(const std::string& folder, const std::vector<GcDo
     return found;
 }
 
+std::vector<std::string> gc_nintendont_card_names(const std::string& game_id) {
+    if (game_id.size() != 6 || !gc_nintendont_name_ok(game_id.substr(0, 4) + ".raw")) return {};
+    return {lower(game_id.substr(0, 4)) + ".raw", gc_card_shift_jis(game_id) ? "ninmemj.raw" : "ninmem.raw"};
+}
+
+std::string gc_nintendont_card_for_game(const std::vector<GcNintendontCard>& cards, const std::string& game_id) {
+    for (const std::string& wanted : gc_nintendont_card_names(game_id)) {
+        for (const GcNintendontCard& card : cards) {
+            if (lower(card.name) == wanted) return card.path;
+        }
+    }
+    return {};
+}
+
+std::string gc_dolphin_card_for_game(const GcDolphinFiles& files) {
+    std::string fallback;
+    for (const std::string& path : files.raw) {
+        const std::string name = lower(path.substr(path.find_last_of('/') + 1));
+        if (name.compare(0, 11, "memorycarda") != 0) continue;
+        for (const char* tag : {".usa.", ".eur.", ".jap."}) {
+            if (name.find(tag) != std::string::npos) return path;
+        }
+        if (fallback.empty()) fallback = path;
+    }
+    return fallback;
+}
+
 void gc_import_one(std::vector<std::uint8_t>& card, const std::vector<std::uint8_t>& gci, GcImportCount& count) {
     if (count.full) return;
     std::uint32_t blocks = 0;
