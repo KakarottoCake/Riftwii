@@ -1,7 +1,7 @@
 /* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* A memory card in slot A for a GameCube game in Wii mode (gc_card.c),
- * kept in a file on the SD card.
+ * kept in a file on the SD card or a FAT32 USB drive.
  *
  * The game's EXI functions (the bus the card hangs on) are hooked: for
  * channel 0, device 0 the blob answers as a card would, from an image
@@ -43,12 +43,13 @@ enum gc_exi_fn {
 #define GC_CARD_ID 0x00000010u
 #define GC_CARD_BYTES 0x00200000u
 #define GC_CARD_SECTOR 0x2000u
-#define GC_CARD_FILE_SECTORS (GC_CARD_BYTES / 512u)
+#define GC_CARD_MAX_BYTES 0x01000000u
+#define GC_CARD_FILE_SECTORS (GC_CARD_MAX_BYTES / 512u)
 #define GC_CARD_RUNS 32u
 #define GC_CARD_IMAGE 0x91000000u  /* MEM2, cached, after the ARAM (gc_rt.c) */
 
 /* A stretch of the card file: card bytes [card, card + count * 512) are
- * SD sectors [sd, sd + count). */
+ * storage sectors [sd, sd + count). */
 struct gc_card_run {
     uint32_t card_sector;
     uint32_t sd_sector;
@@ -63,7 +64,9 @@ struct gc_card {
      * and ended in a recursion of the game's own exception handler; landing
      * here instead shows the crash screen with the jumper's LR and CTR. */
     uint32_t landing[2];
-    uint32_t image;         /* the card, GC_CARD_BYTES */
+    uint32_t image;         /* the card in MEM2 */
+    uint32_t bytes;         /* a power of two, 0.5 to 16 MB */
+    uint32_t on_usb;        /* its extents refer to USB instead of SD */
     uint32_t ecb;           /* the game's EXI control blocks: channel 0's EXI callback first */
     uint32_t run_count;
     struct gc_card_run runs[GC_CARD_RUNS];
@@ -79,8 +82,9 @@ struct gc_card {
     uint32_t exi_pending;   /* a program or erase finished: the game's EXI callback */
     uint32_t alarm_set;
     uint8_t alarm[0x40] __attribute__((aligned(32)));
-    /* Bytes not yet in the card file, a bit per 512. */
-    uint8_t dirty[GC_CARD_FILE_SECTORS / 8];
+    /* Bytes not yet in the card file, a bit per 512. The bitmap lives
+     * beside the card image in MEM2, keeping large cards out of MEM1. */
+    uint8_t* dirty;
     uint32_t dirty_count;
     uint32_t activity;      /* bumped on every access */
     uint32_t seen_activity; /* activity at the last heartbeat */

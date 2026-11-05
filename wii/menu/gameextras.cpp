@@ -44,12 +44,12 @@ bool LoadGameCheats(const std::string& game_id, int revision, bool download, Che
         status = tr("No game is selected.");
         return false;
     }
-    const std::string path = CheatPath(game_id);
+    const std::string path = GameCheatPath(game_id);
     std::string text;
-    bool have = read_text(path, text);
+    bool have = ReadGameCheatText(game_id, text);
     if (!have && download && Settings().online) {
         std::string error;
-        if (DownloadCheats(game_id, error)) have = read_text(path, text);
+        if (DownloadCheats(game_id, error)) have = ReadGameCheatText(game_id, text);
         else {
             logf("Cheats: not downloaded for %s: %s\n", game_id.c_str(), error.c_str());
             status = tr("No cheats found online for this game.");
@@ -252,6 +252,9 @@ std::vector<std::uint8_t> CheatGct(const FrontendState& state, std::size_t& coun
         if (log) logf("Cheats: none loaded for %s: %s\n", state.game_id.c_str(), status.c_str());
         return {};
     }
+    const std::string source = state.model.game.cheat_source.empty() ? CheatPath(state.game_id)
+                                                                   : state.model.game.cheat_source;
+    if (source != GameCheatPath(state.game_id)) return {};
     std::vector<std::uint8_t> gct = build_gct(file, state.model.game.cheat_names, count);
     if (log)
         logf("Cheats: %u of %u picked for %s\n", static_cast<unsigned>(count),

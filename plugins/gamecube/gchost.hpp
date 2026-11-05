@@ -38,6 +38,11 @@ struct GcImage {
     std::uint64_t usb_bytes = 0;
     bool real_card = false;
     std::array<std::uint8_t, 12> real_card_flash_id{};
+    bool card_on_usb = false;
+    std::string external_card_path;
+    const std::uint8_t* external_card = nullptr;
+    std::uint32_t external_card_bytes = 0;
+    std::vector<Fragment> card_fragments;
     bool shared_card = false;
     bool drive_timing = true;
     bool progressive = false;

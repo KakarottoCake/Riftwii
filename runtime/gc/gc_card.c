@@ -26,7 +26,7 @@ static struct gc_card* card_of(struct gc_rt_context* ctx) { return (struct gc_ca
 static void card_dirty(struct gc_card* card, uint32_t address, uint32_t length) {
     uint32_t s = address / 512u;
     const uint32_t end = (address + length + 511u) / 512u;
-    for (; s < end && s < GC_CARD_FILE_SECTORS; ++s) {
+    for (; s < end && s < card->bytes / 512u; ++s) {
         uint8_t* bit = &card->dirty[s >> 3];
         const uint8_t mask = (uint8_t)(1u << (s & 7u));
         if (*bit & mask) continue;
@@ -48,7 +48,7 @@ static uint32_t card_address(const struct gc_card* card) {
 }
 
 static uint8_t* card_byte(const struct gc_card* card, uint32_t address) {
-    return (uint8_t*)(uintptr_t)(card->image + (address & (GC_CARD_BYTES - 1u)));
+    return (uint8_t*)(uintptr_t)(card->image + (address & (card->bytes - 1u)));
 }
 
 static void card_take(struct gc_card* card, uint32_t value) {
@@ -61,7 +61,7 @@ static void card_take(struct gc_card* card, uint32_t value) {
     if (n >= 5 && card->cmd[0] == GC_CARD_PROGRAM) {
         /* A page wraps within itself. */
         *card_byte(card, card->address) = (uint8_t)value;
-        card_dirty(card, card->address & (GC_CARD_BYTES - 1u), 1);
+        card_dirty(card, card->address & (card->bytes - 1u), 1);
         card->address = (card->address & ~(GC_CARD_PAGE - 1u)) | ((card->address + 1u) & (GC_CARD_PAGE - 1u));
     }
 }
@@ -74,7 +74,7 @@ static uint32_t card_give(struct gc_card* card) {
      * Mansion USA) sends the command on its own, and read 0 as no card. */
     if (card->cmd[0] == GC_CARD_GET_ID && card->count >= 2) {
         const uint32_t i = card->address++;
-        return i < 4 ? (GC_CARD_ID >> (24u - 8u * i)) & 0xFFu : 0;
+        return i < 4 ? ((card->bytes >> 17) >> (24u - 8u * i)) & 0xFFu : 0;
     }
     return 0;
 }
@@ -85,15 +85,15 @@ static void card_finish(struct gc_rt_context* ctx, struct gc_card* card) {
     const uint32_t cmd = card->count ? card->cmd[0] : 0;
     if (cmd == GC_CARD_ERASE_SECTOR && card->count >= 3) {
         const uint32_t at = (((uint32_t)(card->cmd[1] & 0x7Fu) << 17) | ((uint32_t)card->cmd[2] << 9)) &
-                            (GC_CARD_BYTES - 1u) & ~(GC_CARD_SECTOR - 1u);
+                            (card->bytes - 1u) & ~(GC_CARD_SECTOR - 1u);
         uint32_t i;
         for (i = 0; i < GC_CARD_SECTOR; i += 4) *(uint32_t*)(uintptr_t)(card->image + at + i) = 0xFFFFFFFFu;
         card_dirty(card, at, GC_CARD_SECTOR);
         card->erases++;
     } else if (cmd == GC_CARD_ERASE_ALL) {
         uint32_t i;
-        for (i = 0; i < GC_CARD_BYTES; i += 4) *(uint32_t*)(uintptr_t)(card->image + i) = 0xFFFFFFFFu;
-        card_dirty(card, 0, GC_CARD_BYTES);
+        for (i = 0; i < card->bytes; i += 4) *(uint32_t*)(uintptr_t)(card->image + i) = 0xFFFFFFFFu;
+        card_dirty(card, 0, card->bytes);
         card->erases++;
     } else if (cmd == GC_CARD_PROGRAM && card->count > 5) {
         card->programs++;
@@ -183,7 +183,7 @@ uint32_t gc_on_exi(struct gc_rt_context* ctx, uint32_t fn, uint32_t a0, uint32_t
         return 1;
     }
     if (fn == GC_EXI_GET_ID) {
-        *(uint32_t*)(uintptr_t)a2 = GC_CARD_ID;
+        *(uint32_t*)(uintptr_t)a2 = (card->bytes >> 17);
         return 1;
     }
     return 1;  /* probe, probe-ex and attach: a card is there */
@@ -239,7 +239,8 @@ void gc_card_flush(struct gc_rt_context* ctx, struct gc_card* card, int force) {
                     source = ctx->bounce;
                 }
 #endif
-                result = gc_sd_write(ctx, run->sd_sector + i, n, source);
+                result = card->on_usb ? gc_usb_write(ctx, run->sd_sector + i, n, source)
+                                      : gc_sd_write(ctx, run->sd_sector + i, n, source);
                 if (result < 0) {
                     card->flush_error = result;
                     return;  /* kept dirty: the next heartbeat tries again */

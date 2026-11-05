@@ -163,6 +163,11 @@ bool list_usb_folder(const std::string& usb_path, std::vector<VolumeEntry>& out,
 // A file on the USB drive as the menu's view finds it, whole (its entry,
 // its pieces, and the bytes an NTFS drive keeps in its file table for a
 // file of a few hundred bytes).
+bool usb_file_writable(const std::string& path);
+// Overwrite existing FAT32 file sectors only; never changes its size or allocation.
+bool write_usb_file_range(const std::string& path, std::uint64_t offset, const std::uint8_t* data,
+                          std::size_t length);
+
 bool usb_file_lookup(const std::string& usb_path, VolumeFile& out, std::string& error);
 // A file on the USB drive as the menu's view finds it: its size and its
 // pieces in the drive's 512-byte sectors, in the order of its bytes.
