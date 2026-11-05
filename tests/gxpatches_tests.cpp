@@ -402,6 +402,11 @@ void test_pick_cios() {
     why.clear();
     EXPECT_EQ(gx_pick_cios("RMCE01", 36, with38, true, why), 249);  // SD: 56-60 only
     EXPECT_TRUE(why.find("56-60") != std::string::npos);
+    // A channel's copied NAND is read by d2x from SD too (#437). IOS9
+    // must not promote base 38 ahead of the bases that read the card.
+    why.clear();
+    EXPECT_EQ(gx_pick_cios("NACE01", 9, with38, true, why), 249);
+    EXPECT_EQ(gx_pick_cios("NAUE01", 9, with38, true, why), 249);
     why.clear();
     EXPECT_EQ(gx_pick_cios("RMCE01", 36, {{248, 38}}, true, why), 0);
     why.clear();

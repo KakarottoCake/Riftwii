@@ -89,7 +89,8 @@ struct ChannelBootFiles {
     // (ES_Identify) only for the Wii Menu on Nintendo's IOSes, and for
     // anyone on a d2x cIOS, so the d2x slots image games would take come
     // first, then the IOS the title asks for on the real NAND. A copied
-    // NAND needs d2x, so it gets no stock fallback. In Dolphin (no d2x)
+    // NAND needs d2x, so it gets no stock IOS fallback. The system launch
+    // can still be tried with d2x's NAND emulation active. In Dolphin (no d2x)
     // only the requested IOS is used, for either.
     std::vector<int> ios_order;
     ChannelProgram program;

@@ -15,6 +15,8 @@ s32 ES_GetStoredTMDSize(u64, u32*);
 s32 ES_GetStoredTMD(u64, signed_blob*, u32);
 s32 ES_GetNumTicketViews(u64, u32*);
 s32 ES_GetTicketViews(u64, tikview*, u32);
+s32 ES_Identify(const signed_blob*, u32, const signed_blob*, u32, const signed_blob*, u32, u32*);
+s32 ES_LaunchTitle(u64, const tikview*);
 s32 ES_OpenTitleContent(u64, const tikview*, u16);
 s32 ES_SeekContent(s32, s32, s32);
 s32 ES_ReadContent(s32, void*, u32);

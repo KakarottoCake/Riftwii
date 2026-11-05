@@ -145,7 +145,9 @@ contains theirs names them in its file header, and
   own colors, then GameTDB's, then a series', then black for GameCube
   cases and white for Wii ones.
 - **d2x cIOS**: the USB and SD game loading interface, and how its FAT
-  module mounts and lets go of the SD card for its emulated NAND.
+  module mounts and lets go of the SD card for its emulated NAND. USB
+  Loader GX documents the generic channel identity; libogc and d2x document
+  the channel launch and ticket-view interfaces used by the fallback.
 - **devkitPro and libogc** (Michael Wiedenbauer, Dave Murphy, Hector
   Martin, Sven Peter and others): the toolchain and the Wii library;
   libogc also documents the physical GameCube card read protocol, SRAM behavior

@@ -11,6 +11,11 @@ set(RIFTWII_BASE_TAG "v2610-810")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+# MSYS hides usleep in strict C++17 mode unless its default POSIX/BSD
+# interfaces are requested. Wii sources exercised by the host mocks use it.
+if(MSYS)
+    add_compile_definitions(_DEFAULT_SOURCE)
+endif()
 # The CI sanitizer job (-DRIFTWII_SANITIZE=ON): AddressSanitizer and
 # UndefinedBehaviorSanitizer on everything built here, libraries included. An
 # undefined-behavior finding stops the test (no-sanitize-recover), so it fails
@@ -262,6 +267,14 @@ if(BUILD_TESTING)
         target_compile_options(d2xreturnto_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME d2xreturnto COMMAND d2xreturnto_tests)
+    # Channel ticket retries and the copied-NAND system launch, against ES.
+    add_executable(channelidentity_tests tests/channelidentity_tests.cpp wii/launch/channelidentity.cpp)
+    target_include_directories(channelidentity_tests PRIVATE tests/wii_mock wii/launch wii/core)
+    target_link_libraries(channelidentity_tests PRIVATE riftwii)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(channelidentity_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME channelidentity COMMAND channelidentity_tests)
     # The Wii DI client itself, against a mocked IOS (tests/wii_mock).
     add_executable(d2xreload_tests tests/d2xreload_tests.cpp wii/launch/di.cpp)
     target_include_directories(d2xreload_tests PRIVATE tests/wii_mock wii wii/core wii/menu wii/launch wii/hooks wii/controllers wii/storage wii/online)

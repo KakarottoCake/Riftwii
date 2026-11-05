@@ -92,7 +92,8 @@ const char* const kCredits[] = {
     "WiiFlow Lite's disc install: how Copy a game disc lays out its WBFS file, read as documentation.",
     "",
     "d2x cIOS: the USB and SD game loading interface, and how its FAT module mounts and lets go of the SD card "
-    "for its emulated NAND.",
+    "for its emulated NAND. USB Loader GX documents the generic channel identity; libogc and d2x document "
+    "the channel launch and ticket-view interfaces used by the fallback.",
     "",
     "devkitPro, libogc and libfat (Michael Wiedenbauer, Dave Murphy, Hector Martin, Sven Peter and "
     "others): the toolchain and the Wii library, the physical GameCube card protocol reference, "
