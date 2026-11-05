@@ -225,6 +225,10 @@ bool slot_has_ticket(int slot);
 // tester's Retro Rewind on base 38 failed the card's reset at the start).
 std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_sd = false);
 
+// Automatic channel choices, with SD-capable bases first for a copied NAND
+// on SD. The caller adds any explicit player choice before these slots.
+std::vector<int> channel_cios_order(const ImageGame& game, const std::string& emu_nand);
+
 // The base IOS of the d2x cIOS in `slot` (its information block), 0 when
 // it is not a d2x that could be read, or one older than d2x v11 beta3.
 int d2x_base(int slot);

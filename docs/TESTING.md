@@ -291,6 +291,31 @@ and `sd:/riftwii/gc/trace.bin`.
   changes its menus.
 - [ ] **Packs**: Luigi's Mansion with a pack that changes a file.
 
+## 15. WiiWare and Virtual Console channels
+
+- [ ] **Copied NAND (Wii or Wii U)**: start an N64 game from an SD NAND
+  folder, with IOS set to Automatic. Keep the boot log. With bases 38,
+  56, 57 and 58 installed, a base that reads SD should be chosen before
+  base 38, even when the title asks for IOS9 (#437).
+- [ ] **Tickets (Wii or Wii U)**: try a copied-NAND N64 title that used to
+  stop with invalid ticket (-1029). The log should record the installed,
+  synthetic and, if needed, generic ticket answers. If accepted, check
+  that the game starts, saves and loads its save, and its extras work.
+- [ ] **System fallback (Wii or Wii U)**: if all loader identities are
+  refused, the log should say it is trying the Wii's own launch with
+  d2x's NAND emulation active and without RiftWii's extras. Check that
+  the title starts and keeps its save in the copied NAND. Keep the log
+  if the Wii's launch also returns an error.
+- [ ] **Other channels**: check a WiiWare game from the same copied NAND
+  and a channel installed on the Wii itself. Both should still start and
+  keep their saves and extras as before.
+
+Dolphin cannot run d2x: it cannot confirm the copied-NAND cases above.
+An isolated run with the ES_Identify test patch can check that the direct
+real-NAND path still reaches a game's title screen and reads its contents.
+The patch skips ticket checks, so it cannot prove any ticket retry works
+on a console.
+
 ## Known issues
 
 - Some games freeze or go black after HOME > Wii Menu instead of going

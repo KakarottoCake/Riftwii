@@ -762,7 +762,10 @@ crash recorder, the GameCube adapter, the Wii U Pro Controller and the
 Wii Menu button's way back to RiftWii work as they do for discs. This
 needs a d2x cIOS, as SD and USB games do; when it cannot start a game
 from the Wii itself, the Wii starts it as the Wii Menu would, without
-those extras. A game in an emulated NAND keeps its saves in that folder.
+those extras. For a game in an emulated NAND, RiftWii also tries the Wii's
+own launch if no attempt with extras could start it, keeping that NAND
+active for the launch. The log says which way was used and why. A game
+in an emulated NAND keeps its saves in that folder.
 
 To play your own backed-up `.wad` files, put them in **`sd:/wiiware/`**
 or **`usb:/wiiware/`**. RiftWii also reads numbered USB partitions

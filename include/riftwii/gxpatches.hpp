@@ -236,4 +236,10 @@ std::vector<int> append_d2x_fallbacks(const std::vector<int>& preferred, const s
 // The d2x bases USB Loader GX starts SD card games on: 56 to 60.
 bool d2x_base_reads_sd(int base);
 
+// A copied NAND on SD needs the bases that read the card first (#437).
+// Keep each group's existing preference order; other paths keep it all.
+// Apply only to automatic choices, after any explicit player choice.
+std::vector<int> channel_cios_order(const std::string& emu_nand, std::vector<int> order,
+                                  const std::vector<D2xSlot>& slots);
+
 }  // namespace riftwii

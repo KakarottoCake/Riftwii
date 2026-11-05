@@ -641,6 +641,21 @@ std::vector<int> append_d2x_fallbacks(const std::vector<int>& preferred, const s
     return order;
 }
 
+std::vector<int> channel_cios_order(const std::string& emu_nand, std::vector<int> order,
+                                  const std::vector<D2xSlot>& slots) {
+    if (emu_nand.compare(0, 4, "sd:/") != 0) return order;
+
+    // A base-38 FAT mount can fail and keep the card held (#437). Give
+    // every known SD-capable base its chance before the other fallbacks.
+    std::stable_partition(order.begin(), order.end(), [&slots](int ios) {
+        for (const D2xSlot& slot : slots) {
+            if (slot.slot == ios) return d2x_base_reads_sd(slot.base);
+        }
+        return false;
+    });
+    return order;
+}
+
 int gx_pick_cios(const std::string& game_id, int requested, std::vector<D2xSlot> slots, bool sd_card,
                  std::string& why) {
     // Duplicates of a base: the first slot keeps it.

@@ -724,7 +724,11 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
         ImageGame as_image;
         as_image.id = files.game_id;
         as_image.required_ios = files.required_ios;
-        for (int slot : image_cios_order(as_image, 0)) {
+        // Keep image preferences within each group, but let the NAND's
+        // path put SD-capable bases before base 38 (#437). The player's
+        // explicit choice was added above and still keeps its place.
+        const auto order = channel_cios_order(as_image, emu_nand);
+        for (int slot : order) {
             std::string why;
             logf("Wii channels: checking the ticket and version for IOS%d.\n", slot);
             if (slot_has_ticket(slot) && d2x_slot_allowed(slot, why)) add_ios(slot);
