@@ -4050,6 +4050,21 @@ msgstr "게임을 저장하려면 이 메모리 카드에 FAT32 드라이브가 
 msgid "Cheat file"
 msgstr "치트 파일"
 
+msgid "Report how it runs"
+msgstr "실행 상태를 보고하기"
+
+msgid "This game has no ID, so it can't be reported."
+msgstr "이 게임에는 ID가 없어서 보고할 수 없습니다."
+
+msgid "Scan the code with a phone to report how this game runs. The form opens with the game filled in. Or go to:"
+msgstr "휴대폰으로 코드를 스캔하면 이 게임의 실행 상태를 보고할 수 있습니다. 양식에는 게임이 미리 입력되어 있습니다. 또는 다음 주소로 이동하세요:"
+
+msgid "Go to this link to report how this game runs. The form opens with the game filled in:"
+msgstr "이 링크에서 이 게임의 실행 상태를 보고할 수 있습니다. 양식에는 게임이 미리 입력되어 있습니다:"
+
+msgid "Report"
+msgstr "보고"
+
 msgid "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "게임 전용, 공용, Nintendont, Dolphin 카드 또는 슬롯 A의 실제 카드를 사용합니다(Wii만)."
 

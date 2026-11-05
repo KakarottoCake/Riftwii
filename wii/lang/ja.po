@@ -4050,6 +4050,21 @@ msgstr "このメモリーカードでセーブするにはFAT32のドライブ�
 msgid "Cheat file"
 msgstr "チートファイル"
 
+msgid "Report how it runs"
+msgstr "動作状況を報告する"
+
+msgid "This game has no ID, so it can't be reported."
+msgstr "このゲームにはIDがないため、報告できません。"
+
+msgid "Scan the code with a phone to report how this game runs. The form opens with the game filled in. Or go to:"
+msgstr "スマートフォンでコードを読み取ると、このゲームの動作状況を報告できます。フォームはゲームが入力された状態で開きます。またはこちらへ:"
+
+msgid "Go to this link to report how this game runs. The form opens with the game filled in:"
+msgstr "このリンクから、このゲームの動作状況を報告できます。フォームはゲームが入力された状態で開きます:"
+
+msgid "Report"
+msgstr "報告"
+
 msgid "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "ゲーム専用、共通、Nintendont、Dolphinのカード、またはスロットAの実物のカード（Wiiのみ）を使います。"
 

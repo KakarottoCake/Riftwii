@@ -4050,6 +4050,21 @@ msgstr "Este cartão precisa de uma unidade FAT32 para salvar o jogo."
 msgid "Cheat file"
 msgstr "Arquivo de códigos"
 
+msgid "Report how it runs"
+msgstr "Informar como funciona"
+
+msgid "This game has no ID, so it can't be reported."
+msgstr "Este jogo não tem ID, por isso não pode ser relatado."
+
+msgid "Scan the code with a phone to report how this game runs. The form opens with the game filled in. Or go to:"
+msgstr "Escaneie o código com o celular para informar como funciona este jogo. O formulário abre com o jogo já preenchido. Ou acesse:"
+
+msgid "Go to this link to report how this game runs. The form opens with the game filled in:"
+msgstr "Acesse este link para informar como funciona este jogo. O formulário abre com o jogo já preenchido:"
+
+msgid "Report"
+msgstr "Informar"
+
 msgid "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "Use o cartão do jogo, um compartilhado, o do Nintendont ou Dolphin, ou um real na entrada A (só no Wii)."
 

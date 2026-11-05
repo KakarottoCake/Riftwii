@@ -9095,6 +9095,43 @@ static const riftwii::wii::ImageGame* SelectedGcPatch(const FrontendState& state
 	return game && !game->gc_patch_source.empty() ? game : nullptr;
 }
 
+// The compatibility list's report form (riftwii.github.io/compatibility),
+// as a code for a phone, with the game's ID, its type and this version
+// filled in. A QR code here holds 78 bytes, so it is a short link the
+// site's page r turns into the form's; the version goes when it is too long.
+// GameCube games come from SD and USB images only (a GameCube disc in the
+// drive gets no page), so SelectedGcGame tells them apart.
+static void ShowCompatReport(const FrontendState& state)
+{
+	const std::string& id = state.game_id;
+	const bool idOk = (id.size() == 4 || id.size() == 6) &&
+		std::all_of(id.begin(), id.end(), [](char c) { return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'); });
+	if (!idOk) {
+		ShowPopup(tr("Report how it runs"), tr("This game has no ID, so it can't be reported."), tr("OK"));
+		return;
+	}
+	const char* const type = SelectedGcGame(state) ? "g" : state.use_channel ? "c" : "w";
+	const std::string base = std::string("https://riftwii.github.io/compatibility/r#") + id + "." + type;
+	std::string link = base + "." + RIFTWII_VERSION;
+	if (link.size() > 78) link = base;
+	// Written out in two lines, split at the #: the whole link is wider than
+	// the room beside the code, and a link isn't wrapped, so its end would
+	// go under the code.
+	const std::size_t hash = link.find('#');
+	riftwii::QrCode code;
+	const bool made = riftwii::make_qr(link, code) && code.size != 0;
+	constexpr int kModule = 4;
+	const int side = made ? QrImage::Side(code, kModule) : 0;
+	QrImage qr(code, 588 - 16 - side, 150, kModule);
+	PopupBox box(tr("Report how it runs"),
+		std::string(made ? tr("Scan the code with a phone to report how this game runs. The form opens with the game filled in. Or go to:")
+				 : tr("Go to this link to report how this game runs. The form opens with the game filled in:")) +
+			"\n" + link.substr(0, hash) + "\n" + link.substr(hash),
+		tr("OK"));
+	if (made) box.Add(&qr, 588 - 16 - side - 56 - 16);
+	box.Wait();
+}
+
 static std::string ImageGameName(const riftwii::wii::ImageGame& game)
 {
 	if (!game.display.empty()) return game.display;
@@ -14201,6 +14238,12 @@ static int MenuHome(FrontendState& state)
 	const int promptPlay = prompts.Add("+", SelectedGcPatch(state) ? tr("Build and play") : tr("Play"));
 	const int promptBack = prompts.Add("B", tr("Back"));
 	prompts.Add("A", tr("Select"));
+	// 1: the compatibility list's report form, as a code (ShowCompatReport).
+	// One short word: the row has no room to spare beside "Build and play".
+	const int promptReport = prompts.Add("1", tr("Report"));
+	SkinButton reportBtn(skin::pill, skin::pillOver, 4, 0, 0, nullptr,
+		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X);
+	HideButton(reportBtn);
 	// Two lines over the prompts: a cIOS remedy or a compile error must
 	// stay readable in full. The second line is cut short of the prompts.
 	PromptsNote statusTxt(prompts, 40, 392, 568, 2, 15, skin::kInkSoft);
@@ -14224,6 +14267,7 @@ static int MenuHome(FrontendState& state)
 	w.Append(&startBtn.button);
 	w.Append(&prompts);
 	w.Append(&dumpBtn);
+	w.Append(&reportBtn.button);
 	// Start on the banner screen: this page's Start, pressed for the player,
 	// so its checks and warnings still stand (the page stays when one does).
 	bool fromBanner = false;
@@ -14386,7 +14430,7 @@ static int MenuHome(FrontendState& state)
 		RestartIfOutOfMemory();
 		PollMenuDiscCover();
 		HaltGui();
-		ClearStaleButtons({&backBtn.button, &startBtn.button});
+		ClearStaleButtons({&backBtn.button, &startBtn.button, &reportBtn.button});
 		bool startHandled = false;
 
 		// A player's own cover the loader couldn't use: Home looks at the
@@ -14674,6 +14718,7 @@ static int MenuHome(FrontendState& state)
 		const int prompt = prompts.GetClicked();
 		if (prompt == promptBack) backBtn.PressSilently();
 		else if (prompt == promptPlay) startBtn.PressSilently();
+		else if (prompt == promptReport) reportBtn.PressSilently();
 
 		if (backBtn.Clicked()) {
 			if (saveOrSay()) menu = MENU_SOURCE;
@@ -14797,6 +14842,9 @@ static int MenuHome(FrontendState& state)
 					ShowFullPopup(tr("Mods could not be prepared"), error + "\n" + tr("(Log: sd:/riftwii/session.log)"));
 				}
 			}
+		} else if (reportBtn.Clicked()) {
+			reportBtn.button.ResetState();
+			ShowCompatReport(state);
 		} else if (dumpBtn.GetState() == STATE::CLICKED) {
 			menu = MENU_DUMP;
 		}
