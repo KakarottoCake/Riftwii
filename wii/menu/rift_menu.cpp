@@ -145,6 +145,8 @@
 #include "riitagview.hpp"
 #include "channel.hpp"
 #include "riftwii/settingsfile.hpp"
+#include "riftwii/gamepage.hpp"
+#include "gamefiles.hpp"
 #include "riftwii/textlines.hpp"
 #include "netpacks.hpp"
 #include "netsock.hpp"
@@ -1258,7 +1260,8 @@ static int RandomHomeGame(const std::vector<HomeEntry>& entries)
 
 static std::string ChannelName(const riftwii::wii::NandChannel& c)
 {
-	return riftwii::wii::nand_channel_name(c, riftwii::wii::BannerLanguageIndex());
+	return riftwii::game_page_name(riftwii::wii::Settings(), c.game_id,
+		riftwii::wii::nand_channel_name(c, riftwii::wii::BannerLanguageIndex()));
 }
 
 // The banner of a Home entry for the Channels view: an image game's from
@@ -1274,9 +1277,8 @@ static bool StoreEntryBanner(const FrontendState& state, const HomeEntry& e, std
 
 static std::string GameName(const riftwii::wii::ImageGame& g)
 {
-	if (!g.display.empty()) return g.display;
-	if (!g.title.empty()) return g.title;
-	return g.id;
+	const std::string original = !g.display.empty() ? g.display : !g.title.empty() ? g.title : g.id;
+	return riftwii::game_page_name(riftwii::wii::Settings(), g.id, original);
 }
 
 // A game's name in Home's own order (riftwii/homeorder.hpp): where it is
@@ -1360,6 +1362,8 @@ static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered, b
 		if (parentalHide && kind != HomeEntry::Kind::Emulator &&
 			riftwii::parental_verdict(parentalRules, RatedAgeFor(id, kind == HomeEntry::Kind::Channel)) ==
 				riftwii::ParentalVerdict::Hidden) return;
+		if (kind != HomeEntry::Kind::Emulator && riftwii::game_page_hidden(riftwii::wii::Settings(), id) &&
+			!riftwii::game_page_show_hidden(riftwii::wii::Settings())) return;
 		rows.push_back({name, name, {kind, i, "", name}, id, id, game});
 	};
 	// Settings > Games from: everything, or one place's games only (a
@@ -11456,7 +11460,8 @@ static std::string GameOwnTitle(const FrontendState& state)
 		return GameName(state.sd_catalog.games[state.sd_index]);
 	if (state.use_channel && state.channel_index < state.channels.size())
 		return ChannelName(state.channels[state.channel_index]);
-	return riftwii::wii::GameDisplayName(state.game_id, state.disc_title.empty() ? state.game_id : state.disc_title);
+	return riftwii::game_page_name(riftwii::wii::Settings(), state.game_id,
+		riftwii::wii::GameDisplayName(state.game_id, state.disc_title.empty() ? state.game_id : state.disc_title));
 }
 
 // What the pages are headed with: a profile's tile name, else the game's.
@@ -13612,7 +13617,7 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 			changed == 0 ? tr("Default") : tr("{1} changed", {std::to_string(changed)}), &skin::iconGear, changed != 0);
 		add(GameTile::Favorite, kHeroX, 310, kHeroW, 70, tr("Favourite"), favorite ? tr("On") : tr("Off"),
 			favorite ? &skin::iconStarOn : &skin::iconStar, favorite);
-		add(GameTile::About, kRightX, 310, kHalfW, 70, tr("About"), "", &skin::iconInfo, false);
+		add(GameTile::About, kRightX, 310, kHalfW, 70, tr("Manage game"), "", &skin::iconGear, false);
 		addCover();
 		return;
 	}
@@ -13637,7 +13642,7 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 	}
 	add(GameTile::Options, kTilesX, 310, kHalfW, 70, tr("Options"),
 		changed == 0 ? tr("Default") : tr("{1} changed", {std::to_string(changed)}), &skin::iconGear, changed != 0);
-	add(GameTile::About, kRightX, 310, kHalfW, 70, tr("About"), "", &skin::iconInfo, false);
+	add(GameTile::About, kRightX, 310, kHalfW, 70, tr("Manage game"), "", &skin::iconGear, false);
 	addCover();
 }
 
@@ -14017,6 +14022,115 @@ static std::vector<std::uint8_t> PageBannerSound(const FrontendState& state)
 		return {};
 	}
 	return std::move(parts.sound);
+}
+
+
+// True after a hide or deletion: return Home so it can rebuild its rows.
+static bool MenuManageGame(FrontendState& state)
+{
+	using namespace riftwii;
+	auto& settings = riftwii::wii::Settings();
+	const bool listed = state.use_sd || state.use_usb || state.use_channel;
+	const bool image = state.use_sd || state.use_usb;
+	enum Action { About, Hide, Rename, Restore, Delete };
+	std::vector<FlowRow> rows;
+	std::vector<std::string> help;
+	std::vector<Action> actions;
+	const auto build = [&] {
+		rows.clear();
+		help.clear();
+		actions.clear();
+		const auto add = [&](Action action, const std::string& label, const std::string& note) {
+			FlowRow row;
+			row.kind = FlowRow::Kind::Action;
+			row.label = label;
+			rows.push_back(row);
+			help.push_back(note);
+			actions.push_back(action);
+		};
+		add(About, tr("About"), tr("What GameTDB says about the game: when it came out, how many can play, the controllers it takes and its story."));
+		if (listed) add(Hide, game_page_hidden(settings, state.game_id) ? tr("Unhide from Home") : tr("Hide from Home"),
+			tr("Hidden games stay on the drive. Settings > Home > Show hidden games lets you find and unhide them."));
+		add(Rename, tr("Rename"), tr("Change the name on Home. The files on the drive keep their names."));
+		if (settings.other.count("game_name_" + state.game_id))
+			add(Restore, tr("Restore name"), tr("Use the game's original name on Home again."));
+		const auto* selected = state.use_usb && state.usb_index < state.usb_catalog.games.size()
+			? &state.usb_catalog.games[state.usb_index]
+			: state.use_sd && state.sd_index < state.sd_catalog.games.size() ? &state.sd_catalog.games[state.sd_index] : nullptr;
+		if (image && selected && selected->wbfs_slot < 0 && selected->gc_patch_source.empty())
+			add(Delete, tr("Delete this game"), tr("Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."));
+	};
+	build();
+	return EmulatorRowsPage(tr("Manage game"), rows, help, [&](int clicked, int) {
+		const Action action = actions[static_cast<std::size_t>(clicked)];
+		if (action == About) {
+			GameInfo info;
+			if (FetchGameInfo(state, info)) MenuAbout(state, info);
+		} else if (action == Delete) {
+			const auto game = state.use_usb ? state.usb_catalog.games[state.usb_index] : state.sd_catalog.games[state.sd_index];
+			GameDeletion plan;
+			std::string error;
+			if (!riftwii::wii::PlanGameDeletion(game, plan, error)) {
+				logf("Game deletion: %s\n", error.c_str());
+				ShowPopup(tr("Delete this game"), tr("The game could not be deleted. See session.log for the reason."), tr("OK"));
+				return false;
+			}
+			bool saves = false;
+			std::vector<FlowRow> deleteRows(2);
+			deleteRows[0].kind = FlowRow::Kind::Toggle;
+			deleteRows[0].label = tr("Delete its saves too");
+			deleteRows[0].value = tr("Off");
+			deleteRows[1].kind = FlowRow::Kind::Action;
+			deleteRows[1].label = tr("Delete this game");
+			const std::vector<std::string> deleteHelp{
+				tr("Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."),
+				tr("Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too.")};
+			const bool removed = EmulatorRowsPage(tr("Delete this game"), deleteRows, deleteHelp, [&](int row, int) {
+				if (row == 0) {
+					saves = !saves;
+					deleteRows[0].on = saves;
+					deleteRows[0].value = saves ? tr("On") : tr("Off");
+					return false;
+				}
+				if (ShowPopupSafeFirst(tr("Delete {1}?", {GameOwnTitle(state)}),
+					tr("Its image files, covers and cheats will be deleted. This cannot be undone."), tr("Keep it"), tr("Delete")) != 1) return false;
+				ResumeGui();
+				const bool ok = riftwii::wii::DeleteGameFiles(game, plan, saves, error);
+				HaltGui();
+				if (!ok || !error.empty()) {
+					logf("Game deletion: %s\n", error.c_str());
+					ShowPopup(tr("Delete this game"), tr("The game could not be deleted. See session.log for the reason."), tr("OK"));
+				}
+				return ok;
+			});
+			if (removed) {
+				const auto erase = [&](riftwii::wii::ImageCatalog& catalog) {
+					catalog.games.erase(std::remove_if(catalog.games.begin(), catalog.games.end(), [&](const riftwii::wii::ImageGame& candidate) {
+						return std::find(plan.images.begin(), plan.images.end(), candidate.path) != plan.images.end();
+					}), catalog.games.end());
+				};
+				erase(state.sd_catalog);
+				erase(state.usb_catalog);
+				riftwii::wii::ForgetCover(game.id);
+				return true;
+			}
+		} else {
+			const LoaderSettings before = settings;
+			if (action == Hide) game_page_hide(settings, state.game_id, !game_page_hidden(settings, state.game_id));
+			else if (action == Restore) game_page_rename(settings, state.game_id, "");
+			else {
+				std::string name = GameOwnTitle(state);
+				if (!AskTileName(tr("Rename"), name) || name.empty()) return false;
+				game_page_rename(settings, state.game_id, name);
+			}
+			if (!riftwii::wii::SaveSettings()) {
+				settings = before;
+				ShowPopup(tr("Manage game"), tr("Could not save the settings to the SD card."), tr("OK"));
+			} else if (action == Hide) return true;
+		}
+		build();
+		return false;
+	});
 }
 
 static int MenuHome(FrontendState& state)
@@ -14477,7 +14591,7 @@ static int MenuHome(FrontendState& state)
 								  : std::string(tr("This game's own picture, language, online server and the rest. The ones not changed follow Settings.")));
 					break;
 				case GameTile::About:
-					say(tr("What GameTDB says about the game: when it came out, how many can play, the controllers it takes and its story."));
+					say(tr("Hide or rename this game, manage its files, or read about it."));
 					break;
 				case GameTile::Cover:
 					// A made-up cover (no art) has nothing more to show up close.
@@ -14525,16 +14639,19 @@ static int MenuHome(FrontendState& state)
 				if (!riftwii::wii::SaveSettings()) say(tr("Could not save the settings to the SD card."));
 				rebuildTiles();
 			} else if (tile == GameTile::About) {
-				// Asks first when there is no database yet, so the page
-				// slides in only once there is something to show.
-				riftwii::GameInfo info;
-				if (FetchGameInfo(state, info)) {
-					transition::Hold(transition::Kind::SlideForward);
-					mainWindow->Remove(&w);
-					MenuAbout(state, info);
-					transition::Hold(transition::Kind::SlideBack);
-					mainWindow->Append(&w);
+				transition::Hold(transition::Kind::SlideForward);
+				mainWindow->Remove(&w);
+				const bool returnHome = MenuManageGame(state);
+				transition::Hold(transition::Kind::SlideBack);
+				mainWindow->Append(&w);
+				if (returnHome) {
+					menu = MENU_SOURCE;
+					break;
 				}
+				titleTxt.SetText(GameTitle(state).c_str());
+				titleTxt.SetFontSize(19);
+				titleTxt.SetWrap(true, kTilesW, 2);
+				hero.SetMadeUpName(GameTitle(state), state.game_id);
 				// A first read of the database also saves GameTDB's list of
 				// mods: the tile may match an entry now, as after Mods, and
 				// its own cover is asked for as at page entry.
@@ -15880,7 +15997,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kNintendontSaves, kParental, kSdGames, kIos, kNet, kResync, kWads, kDiscCopy,
+	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kNintendontSaves, kParental, kSdGames, kIos, kNet, kResync, kWads, kDiscCopy,
 		kMissingCovers, kRescan, kPartitionFailures, kUpdate, kReport, kTests, kGeckoLog, kWiirdDebugger, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -15978,6 +16095,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				settings.page_peek != "off", kPagePeek, FlowRow::Kind::Toggle);
 		}
 		option(tr("Games from"), HomeSourceName(settings.home_source), settings.home_source != "all", kHomeSource);
+		option(tr("Show hidden games"), riftwii::game_page_show_hidden(settings) ? tr("On") : tr("Off"),
+			riftwii::game_page_show_hidden(settings), kShowHidden, FlowRow::Kind::Toggle);
 		option(tr("Home order"), HomeSortName(settings.home_sort), settings.home_sort != "az", kHomeSort);
 		option(tr("Home starts on"), settings.home_start == "first" ? tr("First page") : tr("Last game"),
 			settings.home_start == "first", kHomeStart);
@@ -16207,7 +16326,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest: case kUsbInput:
 					return SettingsSection::Controllers;
 				case kHomeTiles: case kChannelCorners: case kChannelBackground: case kPagePeek: case kGridSpacing: case kHomeSource: case kHomeSort: case kHomeStart:
-				case kPlayHistory: case kDiscTile: case kClockFormat:
+				case kShowHidden: case kPlayHistory: case kDiscTile: case kClockFormat:
 				case kNoClock:
 					return SettingsSection::HomeScreen;
 				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kThemeBrowse: case kFont: case kSounds: case kWiiSounds: case kWiiMusic: case kMusic: case kMusicFile: case kLaunchMusic:
@@ -16328,6 +16447,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kGcBackups: return tr("Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page.");
 			case kPlayHistory: return tr("Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown.");
 			case kHomeSource: return HomeSourceNote(settings.home_source);
+			case kShowHidden: return tr("Show games you hid from Home. Open Manage game to unhide one. Parental controls still apply.");
 			case kHomeStart: return tr("Last game: Home opens on the page of the last game you played as soon as its drive has been read, unless you have already pressed a button or moved the stick. First page: Home opens on page 1.");
 			case kHomeSort: return tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it.");
 			case kLaunchMusic: return tr("Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game.");
@@ -16588,6 +16708,11 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					rebuild();
 					break;
 				}
+				case kShowHidden:
+					settings.other["show_hidden_games"] = riftwii::game_page_show_hidden(settings) ? "off" : "on";
+					saveAndNote(tr("Show hidden games"));
+					rebuild();
+					break;
 				case kHomeStart:
 					settings.home_start = settings.home_start == "first" ? "last" : "first";
 					saveAndNote(tr("Home starts on: {1}", {settings.home_start == "first" ? tr("First page") : tr("Last game")}));

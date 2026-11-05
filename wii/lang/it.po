@@ -4025,3 +4025,54 @@ msgstr "Questo gioco controlla il proprio codice. Per avviarlo, le modifiche a i
 
 msgid "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report."
 msgstr "RiftWii ha esaurito la memoria avviando il gioco. Disattiva la musica del menu e riprova, oppure invia una segnalazione del problema."
+
+msgid "Manage game"
+msgstr "Gestisci gioco"
+
+msgid "Hide from Home"
+msgstr "Nascondi da Home"
+
+msgid "Unhide from Home"
+msgstr "Mostra in Home"
+
+msgid "Rename"
+msgstr "Rinomina"
+
+msgid "Restore name"
+msgstr "Ripristina nome"
+
+msgid "Delete this game"
+msgstr "Elimina questo gioco"
+
+msgid "Delete its saves too"
+msgstr "Elimina anche i salvataggi"
+
+msgid "Show hidden games"
+msgstr "Mostra giochi nascosti"
+
+msgid "Hidden games stay on the drive. Settings > Home > Show hidden games lets you find and unhide them."
+msgstr "I giochi nascosti restano sul disco. Impostazioni > Home > Mostra giochi nascosti permette di trovarli e mostrarli di nuovo."
+
+msgid "Change the name on Home. The files on the drive keep their names."
+msgstr "Cambia il nome in Home. I file mantengono i loro nomi."
+
+msgid "Use the game's original name on Home again."
+msgstr "Usa di nuovo il nome originale del gioco in Home."
+
+msgid "Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."
+msgstr "Rimuove immagine, copertine e trucchi del gioco. I salvataggi restano, salvo scelta di eliminarli."
+
+msgid "Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."
+msgstr "Solo i salvataggi separati di RiftWii. Le schede condivise e i salvataggi dei pacchetti e della Wii restano."
+
+msgid "Its image files, covers and cheats will be deleted. This cannot be undone."
+msgstr "I suoi file immagine, copertine e trucchi saranno eliminati. Non si può annullare."
+
+msgid "The game could not be deleted. See session.log for the reason."
+msgstr "Impossibile eliminare il gioco. Vedi il motivo in session.log."
+
+msgid "Show games you hid from Home. Open Manage game to unhide one. Parental controls still apply."
+msgstr "Mostra i giochi nascosti da Home. Apri Gestisci gioco per mostrarli di nuovo. Il controllo genitori resta attivo."
+
+msgid "Hide or rename this game, manage its files, or read about it."
+msgstr "Nascondi o rinomina il gioco, gestisci i suoi file o leggi le informazioni."

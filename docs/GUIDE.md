@@ -1870,3 +1870,27 @@ you already have in `wiiflow/covers/`. Nothing is changed in WiiFlow's files.
 - [`docs/THEMES.md`](THEMES.md): making themes, color keys, picture
   sizes and music.
 - [`docs/README.md`](README.md): every other document.
+
+### Hide, rename or delete a game
+
+Open a game's **Manage game** page. **Hide from Home** leaves its files
+and saves in place. In **Settings > Home**, turn on **Show hidden games**
+to find it again, then choose **Unhide from Home**. Parental controls
+still hide or lock games according to their own rules.
+
+**Rename** uses the on-screen keyboard and changes the name used for
+Home's search and sorting. **Restore name** returns to the original name.
+These choices are stored in RiftWii's settings; no game file is renamed.
+**About** is also on the management page.
+
+For games stored as image files, **Delete this game** removes the image,
+all its split WBFS parts, and RiftWii's covers and cheat files. A game's
+folder is removed only when it is empty. The confirmation names the game,
+says it cannot be undone, and starts on **Keep it**. The disc drive and
+installed channels have no delete action. Patch-only entries and games on
+a WBFS-formatted drive have no image-file delete action either.
+
+**Delete its saves too** starts off. Turning it on also deletes RiftWii's
+separate saves and that game's own GameCube card and backups. Shared cards,
+pack-managed saves, other loaders' saves and the Wii's internal saves are
+kept. USB deletion needs FAT32; NTFS drives remain read-only.

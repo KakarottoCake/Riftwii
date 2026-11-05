@@ -408,6 +408,12 @@ LoaderSettings settings_after_reset(const LoaderSettings& before) {
     after.parental_mode = before.parental_mode;
     after.parental_age = before.parental_age;
     after.parental_unrated = before.parental_unrated;
+    // These describe the player's games, like favourites, rather than
+    // the menu's appearance. Resetting settings keeps their names/hides.
+    for (const auto& entry : before.other) {
+        if (entry.first.compare(0, 10, "game_name_") == 0 || entry.first.compare(0, 12, "game_hidden_") == 0)
+            after.other.insert(entry);
+    }
     return after;
 }
 

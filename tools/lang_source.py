@@ -8476,6 +8476,60 @@ def check(repo):
     return not missing
 
 
+# Game management: own display names and visibility, never file renames.
+T['Manage game'] = ('Gestionar juego', 'ゲームの管理', 'Gerenciar jogo', 'Gestisci gioco')
+MORE["ko"]['Manage game'] = '게임 관리'
+MORE["fr"]['Manage game'] = 'Gérer le jeu'
+T['Hide from Home'] = ('Ocultar de Inicio', 'ホームで非表示', 'Ocultar do Início', 'Nascondi da Home')
+MORE["ko"]['Hide from Home'] = '홈에서 숨기기'
+MORE["fr"]['Hide from Home'] = 'Masquer de l’accueil'
+T['Unhide from Home'] = ('Mostrar en Inicio', 'ホームで表示', 'Mostrar no Início', 'Mostra in Home')
+MORE["ko"]['Unhide from Home'] = '홈에 표시'
+MORE["fr"]['Unhide from Home'] = 'Afficher dans l’accueil'
+T['Rename'] = ('Cambiar nombre', '名前の変更', 'Renomear', 'Rinomina')
+MORE["ko"]['Rename'] = '이름 바꾸기'
+MORE["fr"]['Rename'] = 'Renommer'
+T['Restore name'] = ('Restaurar nombre', '元の名前に戻す', 'Restaurar nome', 'Ripristina nome')
+MORE["ko"]['Restore name'] = '원래 이름 복원'
+MORE["fr"]['Restore name'] = 'Rétablir le nom'
+T['Delete this game'] = ('Borrar este juego', 'このゲームを削除', 'Excluir este jogo', 'Elimina questo gioco')
+MORE["ko"]['Delete this game'] = '이 게임 삭제'
+MORE["fr"]['Delete this game'] = 'Supprimer ce jeu'
+T['Delete its saves too'] = ('Borrar también sus partidas', 'セーブデータも削除', 'Excluir também os dados salvos', 'Elimina anche i salvataggi')
+MORE["ko"]['Delete its saves too'] = '저장 데이터도 삭제'
+MORE["fr"]['Delete its saves too'] = 'Supprimer aussi ses sauvegardes'
+T['Show hidden games'] = ('Mostrar juegos ocultos', '非表示のゲームを表示', 'Mostrar jogos ocultos', 'Mostra giochi nascosti')
+MORE["ko"]['Show hidden games'] = '숨긴 게임 표시'
+MORE["fr"]['Show hidden games'] = 'Afficher les jeux masqués'
+T['Hidden games stay on the drive. Settings > Home > Show hidden games lets you find and unhide them.'] = ('Los juegos ocultos siguen en la unidad. Ajustes > Inicio > Mostrar juegos ocultos permite encontrarlos y volver a mostrarlos.', '非表示のゲームもドライブに残ります。設定 > ホーム > 非表示のゲームを表示で、もう一度表示できます。', 'Jogos ocultos ficam na unidade. Configurações > Início > Mostrar jogos ocultos permite encontrá-los e mostrá-los novamente.', 'I giochi nascosti restano sul disco. Impostazioni > Home > Mostra giochi nascosti permette di trovarli e mostrarli di nuovo.')
+MORE["ko"]['Hidden games stay on the drive. Settings > Home > Show hidden games lets you find and unhide them.'] = '숨긴 게임은 드라이브에 남습니다. 설정 > 홈 > 숨긴 게임 표시에서 찾아 다시 표시할 수 있습니다.'
+MORE["fr"]['Hidden games stay on the drive. Settings > Home > Show hidden games lets you find and unhide them.'] = 'Les jeux masqués restent sur le disque. Paramètres > Accueil > Afficher les jeux masqués permet de les retrouver et de les réafficher.'
+T['Change the name on Home. The files on the drive keep their names.'] = ('Cambia el nombre en Inicio. Los archivos conservan sus nombres.', 'ホームの名前を変更します。ドライブのファイル名は変わりません。', 'Muda o nome no Início. Os arquivos mantêm seus nomes.', 'Cambia il nome in Home. I file mantengono i loro nomi.')
+MORE["ko"]['Change the name on Home. The files on the drive keep their names.'] = '홈의 이름을 바꿉니다. 드라이브의 파일 이름은 유지됩니다.'
+MORE["fr"]['Change the name on Home. The files on the drive keep their names.'] = 'Change le nom dans l’accueil. Les fichiers gardent leurs noms.'
+T["Use the game's original name on Home again."] = ('Vuelve a usar el nombre original del juego en Inicio.', 'ホームでゲームの元の名前を使います。', 'Usa o nome original do jogo no Início novamente.', 'Usa di nuovo il nome originale del gioco in Home.')
+MORE["ko"]["Use the game's original name on Home again."] = '홈에서 게임의 원래 이름을 다시 사용합니다.'
+MORE["fr"]["Use the game's original name on Home again."] = 'Rétablit le nom d’origine du jeu dans l’accueil.'
+T["Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."] = ('Borra la imagen, carátulas y trucos del juego. Las partidas se conservan salvo que también elijas borrarlas.', 'ゲームのイメージ、カバー、チートを削除します。セーブデータは、削除を選ばない限り残ります。', 'Remove a imagem, capas e truques do jogo. Os dados salvos ficam, a menos que você escolha excluí-los também.', 'Rimuove immagine, copertine e trucchi del gioco. I salvataggi restano, salvo scelta di eliminarli.')
+MORE["ko"]["Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."] = '게임 이미지, 표지와 치트를 삭제합니다. 저장 데이터는 삭제하도록 선택하지 않으면 유지됩니다.'
+MORE["fr"]["Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."] = 'Supprime l’image, les jaquettes et les codes du jeu. Les sauvegardes restent, sauf si vous choisissez aussi de les supprimer.'
+T["Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."] = ('Solo las partidas separadas de RiftWii. Se conservan las tarjetas compartidas y las partidas de los packs y de la Wii.', 'RiftWiiの個別セーブのみです。共有カード、パックのセーブ、Wii本体のセーブは残ります。', 'Apenas os dados separados do RiftWii. Cartões compartilhados e dados dos pacotes e do Wii são mantidos.', 'Solo i salvataggi separati di RiftWii. Le schede condivise e i salvataggi dei pacchetti e della Wii restano.')
+MORE["ko"]["Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."] = 'RiftWii의 개별 저장 데이터만 삭제합니다. 공유 카드, 팩과 Wii 본체의 저장 데이터는 유지됩니다.'
+MORE["fr"]["Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."] = 'Uniquement les sauvegardes séparées de RiftWii. Les cartes partagées et les sauvegardes des packs et de la Wii restent.'
+T['Its image files, covers and cheats will be deleted. This cannot be undone.'] = ('Se borrarán sus imágenes, carátulas y trucos. No se puede deshacer.', 'イメージファイル、カバー、チートを削除します。元には戻せません。', 'Suas imagens, capas e truques serão excluídos. Não é possível desfazer.', 'I suoi file immagine, copertine e trucchi saranno eliminati. Non si può annullare.')
+MORE["ko"]['Its image files, covers and cheats will be deleted. This cannot be undone.'] = '이미지 파일, 표지와 치트가 삭제됩니다. 되돌릴 수 없습니다.'
+MORE["fr"]['Its image files, covers and cheats will be deleted. This cannot be undone.'] = 'Ses images, jaquettes et codes seront supprimés. Cette action est irréversible.'
+T['The game could not be deleted. See session.log for the reason.'] = ('No se pudo borrar el juego. Consulta el motivo en session.log.', 'ゲームを削除できませんでした。理由はsession.logを確認してください。', 'Não foi possível excluir o jogo. Veja o motivo em session.log.', 'Impossibile eliminare il gioco. Vedi il motivo in session.log.')
+MORE["ko"]['The game could not be deleted. See session.log for the reason.'] = '게임을 삭제하지 못했습니다. 이유는 session.log를 확인하세요.'
+MORE["fr"]['The game could not be deleted. See session.log for the reason.'] = 'Le jeu n’a pas pu être supprimé. Consultez session.log pour la raison.'
+T['Show games you hid from Home. Open Manage game to unhide one. Parental controls still apply.'] = ('Muestra los juegos ocultos de Inicio. Abre Gestionar juego para mostrarlos de nuevo. El control parental sigue activo.', 'ホームで非表示にしたゲームを表示します。ゲームの管理で表示に戻せます。保護者の設定は有効です。', 'Mostra jogos ocultos do Início. Abra Gerenciar jogo para mostrá-los novamente. O controle dos pais continua ativo.', 'Mostra i giochi nascosti da Home. Apri Gestisci gioco per mostrarli di nuovo. Il controllo genitori resta attivo.')
+MORE["ko"]['Show games you hid from Home. Open Manage game to unhide one. Parental controls still apply.'] = '홈에서 숨긴 게임을 표시합니다. 게임 관리에서 다시 표시할 수 있습니다. 보호자 설정은 계속 적용됩니다.'
+MORE["fr"]['Show games you hid from Home. Open Manage game to unhide one. Parental controls still apply.'] = 'Affiche les jeux masqués de l’accueil. Ouvrez Gérer le jeu pour les réafficher. Le contrôle parental reste actif.'
+
+T['Hide or rename this game, manage its files, or read about it.'] = ('Oculta o cambia el nombre del juego, gestiona sus archivos o consulta sus datos.', 'ゲームを非表示にしたり、名前を変えたり、ファイルの管理や情報の表示ができます。', 'Oculte ou renomeie o jogo, gerencie seus arquivos ou leia sobre ele.', 'Nascondi o rinomina il gioco, gestisci i suoi file o leggi le informazioni.')
+MORE["ko"]['Hide or rename this game, manage its files, or read about it.'] = '게임을 숨기거나 이름을 바꾸고, 파일을 관리하거나 정보를 확인합니다.'
+MORE["fr"]['Hide or rename this game, manage its files, or read about it.'] = 'Masquez ou renommez ce jeu, gérez ses fichiers ou consultez ses informations.'
+
 def main():
     repo = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
     if not check(repo):

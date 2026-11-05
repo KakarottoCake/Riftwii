@@ -150,6 +150,10 @@ bool usb_volume_ready();
 // Whether libfat has a FAT32 partition of the USB drive mounted as usb:/,
 // the only kind the menu writes to. An NTFS drive is read but not mounted.
 bool usb_fat32_mounted();
+// Removes checked image paths from their exact FAT32 partition, including
+// numbered partitions. Never falls back to another mounted partition.
+bool delete_usb_image_files(const std::vector<std::string>& paths, const std::string& empty_folder,
+                            std::string& error);
 // Which mount of the USB drive this is: another after each unmount.
 std::uint64_t usb_mount_generation();
 // Mounted USB partition roots, with the legacy usb:/ first.

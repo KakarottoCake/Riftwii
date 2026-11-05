@@ -4025,3 +4025,54 @@ msgstr "このゲームは自身のコードを確認します。起動できる
 
 msgid "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report."
 msgstr "ゲームを起動中にRiftWiiのメモリが足りなくなりました。メニューの音楽をオフにしてやり直すか、問題のレポートを送ってください。"
+
+msgid "Manage game"
+msgstr "ゲームの管理"
+
+msgid "Hide from Home"
+msgstr "ホームで非表示"
+
+msgid "Unhide from Home"
+msgstr "ホームで表示"
+
+msgid "Rename"
+msgstr "名前の変更"
+
+msgid "Restore name"
+msgstr "元の名前に戻す"
+
+msgid "Delete this game"
+msgstr "このゲームを削除"
+
+msgid "Delete its saves too"
+msgstr "セーブデータも削除"
+
+msgid "Show hidden games"
+msgstr "非表示のゲームを表示"
+
+msgid "Hidden games stay on the drive. Settings > Home > Show hidden games lets you find and unhide them."
+msgstr "非表示のゲームもドライブに残ります。設定 > ホーム > 非表示のゲームを表示で、もう一度表示できます。"
+
+msgid "Change the name on Home. The files on the drive keep their names."
+msgstr "ホームの名前を変更します。ドライブのファイル名は変わりません。"
+
+msgid "Use the game's original name on Home again."
+msgstr "ホームでゲームの元の名前を使います。"
+
+msgid "Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."
+msgstr "ゲームのイメージ、カバー、チートを削除します。セーブデータは、削除を選ばない限り残ります。"
+
+msgid "Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."
+msgstr "RiftWiiの個別セーブのみです。共有カード、パックのセーブ、Wii本体のセーブは残ります。"
+
+msgid "Its image files, covers and cheats will be deleted. This cannot be undone."
+msgstr "イメージファイル、カバー、チートを削除します。元には戻せません。"
+
+msgid "The game could not be deleted. See session.log for the reason."
+msgstr "ゲームを削除できませんでした。理由はsession.logを確認してください。"
+
+msgid "Show games you hid from Home. Open Manage game to unhide one. Parental controls still apply."
+msgstr "ホームで非表示にしたゲームを表示します。ゲームの管理で表示に戻せます。保護者の設定は有効です。"
+
+msgid "Hide or rename this game, manage its files, or read about it."
+msgstr "ゲームを非表示にしたり、名前を変えたり、ファイルの管理や情報の表示ができます。"
