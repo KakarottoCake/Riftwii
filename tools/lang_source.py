@@ -8442,6 +8442,34 @@ FR.update({
     "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report.": "RiftWii a manqué de mémoire au démarrage du jeu. Désactivez la musique du menu et réessayez, ou envoyez un rapport de problème.",
 })
 
+T.update({
+    "Report how it runs": (
+        "Informa cómo funciona",
+        "動作状況を報告する",
+        "Informar como funciona",
+        "Segnala come funziona"),
+    "Scan the code with a phone to tell everyone how this game runs on the compatibility list. The form opens with the game and this RiftWii version filled in. Or go to {1}": (
+        "Escanea el código con un teléfono para contar a todos cómo funciona este juego en la lista de compatibilidad. El formulario se abre con el juego y esta versión de RiftWii ya rellenados. O ve a {1}",
+        "スマートフォンでコードを読み取って、このゲームの動作状況を互換性リストでみんなに教えてください。フォームはゲームとこのRiftWiiのバージョンが入力済みで開きます。または{1}にアクセスしてください。",
+        "Escaneie o código com um telefone para contar a todos como este jogo funciona na lista de compatibilidade. O formulário abre com o jogo e esta versão do RiftWii já preenchidos. Ou acesse {1}",
+        "Inquadra il codice con un telefono per dire a tutti come funziona questo gioco nella lista di compatibilità. Il modulo si apre con il gioco e questa versione di RiftWii già inseriti. Oppure vai a {1}"),
+    "This game has no ID, so it can't be reported.": (
+        "Este juego no tiene ID, así que no se puede informar.",
+        "このゲームにはIDがないため、報告できません。",
+        "Este jogo não tem ID, por isso não pode ser relatado.",
+        "Questo gioco non ha un ID, quindi non può essere segnalato."),
+})
+KO.update({
+    "Report how it runs": "실행 상태를 보고하기",
+    "Scan the code with a phone to tell everyone how this game runs on the compatibility list. The form opens with the game and this RiftWii version filled in. Or go to {1}": "휴대폰으로 코드를 스캔하여 이 게임이 호환성 목록에서 어떻게 실행되는지 모두에게 알려주세요. 양식은 게임과 이 RiftWii 버전이 미리 입력된 채로 열립니다. 또는 {1}로 이동하세요.",
+    "This game has no ID, so it can't be reported.": "이 게임에는 ID가 없어서 보고할 수 없습니다.",
+})
+FR.update({
+    "Report how it runs": "Signaler son fonctionnement",
+    "Scan the code with a phone to tell everyone how this game runs on the compatibility list. The form opens with the game and this RiftWii version filled in. Or go to {1}": "Scannez le code avec un téléphone pour dire à tout le monde comment ce jeu fonctionne dans la liste de compatibilité. Le formulaire s'ouvre avec le jeu et cette version de RiftWii déjà remplis. Ou allez à {1}",
+    "This game has no ID, so it can't be reported.": "Ce jeu n'a pas d'ID, il ne peut donc pas être signalé.",
+})
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
