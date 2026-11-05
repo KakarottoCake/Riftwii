@@ -141,6 +141,7 @@ int main() {
     make_backdrop(box.data() + kBoxHeaderSize, kBoxWidth, kBoxHeight, kBoxSpineWidth,
                   kBoxSpineWidth + kBoxFrontWidth, backdrop.data());
     const unsigned backdrop_checks = checks;
+    expect(backdrop_checks != 0, "Backdrop buffers must ask for memory through checkedalloc");
     for (unsigned check = 1; check <= backdrop_checks; ++check) {
         backdrop.fill(0xEE);
         checks = 0;

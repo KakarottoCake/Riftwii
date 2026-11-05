@@ -122,7 +122,8 @@ void RunBackgroundFetch() {
     OutOfMemoryScope out_of_memory;
     g_background.got = FetchNow(g_background.id, g_background.error);
     if (g_background.got != CoverFetch::Stored && out_of_memory.failed()) {
-        g_background.got = CoverFetch::Failed;
+        // NoAnswer, not Failed: a memory shortage must not turn 3D covers off.
+        g_background.got = CoverFetch::NoAnswer;
         g_background.error = "out of memory";
         logf("3D covers: no room to read the 3D cover of %s\n", g_background.id.c_str());
     }

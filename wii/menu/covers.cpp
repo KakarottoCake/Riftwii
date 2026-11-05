@@ -576,7 +576,9 @@ CoverFetch FetchCover(const std::string& game_id, std::string& error) {
     OutOfMemoryScope out_of_memory;
     CoverFetch got = FetchCoverNow(game_id, error);
     if (got != CoverFetch::Stored && out_of_memory.failed()) {
-        got = CoverFetch::Failed;
+        // Not the card's fault: NoAnswer skips this picture without
+        // turning the session's cover downloads off, and it is tried again.
+        got = CoverFetch::NoAnswer;
         error = "out of memory for the cover";
         logf("Covers: no room to prepare the cover of %s.\n", game_id.c_str());
     }

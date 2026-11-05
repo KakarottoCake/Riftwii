@@ -128,7 +128,8 @@ void RunBackgroundFetch() {
     OutOfMemoryScope out_of_memory;
     g_background.got = FetchBoxNow(g_background.id, g_background.error);
     if (g_background.got != CoverFetch::Stored && out_of_memory.failed()) {
-        g_background.got = CoverFetch::Failed;
+        // NoAnswer, not Failed: a memory shortage must not turn the boxes off.
+        g_background.got = CoverFetch::NoAnswer;
         g_background.error = "out of memory";
         logf("Shelf: no room to cut the box of %s\n", g_background.id.c_str());
         mem::LogUsage("after the full cover ran out of memory");
