@@ -86,7 +86,8 @@ bool game_page_show_hidden(const LoaderSettings& settings) {
     return preference(settings, "show_hidden_games") == "on";
 }
 
-bool game_deletion_files(const std::string& primary, const std::vector<std::string>& siblings, GameDeletion& out) {
+bool game_deletion_files(const std::string& primary, bool gamecube, const std::vector<std::string>& siblings,
+                         GameDeletion& out) {
     out = {};
     if (!safe_image_path(primary) || siblings.size() > 4096) return false;
     const std::size_t slash = primary.find_last_of('/');
@@ -112,7 +113,7 @@ bool game_deletion_files(const std::string& primary, const std::vector<std::stri
         }
         // Nintendont's two-disc layout names both images, rather than
         // splitting one image. Only that layout grants this second file.
-        if ((name == "game.iso" || name == "game.gcm" || name == "game.rvz") &&
+        if (gamecube && (name == "game.iso" || name == "game.gcm" || name == "game.rvz") &&
             (candidate == "disc2.iso" || candidate == "disc2.gcm" || candidate == "disc2.rvz")) belongs = true;
         const std::string path = directory + "/" + sibling;
         if (belongs && std::find(out.images.begin(), out.images.end(), path) == out.images.end()) out.images.push_back(path);

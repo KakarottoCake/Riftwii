@@ -4092,12 +4092,6 @@ msgstr "Mostrar jogos ocultos"
 msgid "Hidden games stay on the drive. Settings > Home > Show hidden games lets you find and unhide them."
 msgstr "Jogos ocultos ficam na unidade. Configurações > Início > Mostrar jogos ocultos permite encontrá-los e mostrá-los novamente."
 
-msgid "Change the name on Home. The files on the drive keep their names."
-msgstr "Muda o nome no Início. Os arquivos mantêm seus nomes."
-
-msgid "Use the game's original name on Home again."
-msgstr "Usa o nome original do jogo no Início novamente."
-
 msgid "Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."
 msgstr "Remove a imagem, capas e truques do jogo. Os dados salvos ficam, a menos que você escolha excluí-los também."
 
@@ -4115,6 +4109,24 @@ msgstr "Mostra jogos ocultos do Início. Abra Gerenciar jogo para mostrá-los no
 
 msgid "Hide or rename this game, manage its files, or read about it."
 msgstr "Oculte ou renomeie o jogo, gerencie seus arquivos ou leia sobre ele."
+
+msgid "Change the name shown for this game. The files on the drive keep their names."
+msgstr "Muda o nome mostrado para este jogo. Os arquivos mantêm seus nomes."
+
+msgid "Use the game's original name again."
+msgstr "Usa o nome original do jogo novamente."
+
+msgid "Remove this game's image, covers and cheats. USB deletion needs FAT32; NTFS is read-only."
+msgstr "Remove a imagem, capas e truques do jogo. A exclusão no USB exige FAT32; NTFS é somente leitura."
+
+msgid "Kept"
+msgstr "Mantidos"
+
+msgid "Saves are kept because another copy of this game remains."
+msgstr "Os dados salvos são mantidos porque outra cópia deste jogo permanece."
+
+msgid "Could not delete {1}. Some files may already be gone. See session.log for details."
+msgstr "Não foi possível excluir {1}. Alguns arquivos podem já ter sido removidos. Veja session.log."
 
 msgid "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "Use o cartão do jogo, um compartilhado, o do Nintendont ou Dolphin, ou um real na entrada A (só no Wii)."

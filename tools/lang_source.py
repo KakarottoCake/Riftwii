@@ -8588,12 +8588,6 @@ MORE["fr"]['Show hidden games'] = 'Afficher les jeux masqués'
 T['Hidden games stay on the drive. Settings > Home > Show hidden games lets you find and unhide them.'] = ('Los juegos ocultos siguen en la unidad. Ajustes > Inicio > Mostrar juegos ocultos permite encontrarlos y volver a mostrarlos.', '非表示のゲームもドライブに残ります。設定 > ホーム > 非表示のゲームを表示で、もう一度表示できます。', 'Jogos ocultos ficam na unidade. Configurações > Início > Mostrar jogos ocultos permite encontrá-los e mostrá-los novamente.', 'I giochi nascosti restano sul disco. Impostazioni > Home > Mostra giochi nascosti permette di trovarli e mostrarli di nuovo.')
 MORE["ko"]['Hidden games stay on the drive. Settings > Home > Show hidden games lets you find and unhide them.'] = '숨긴 게임은 드라이브에 남습니다. 설정 > 홈 > 숨긴 게임 표시에서 찾아 다시 표시할 수 있습니다.'
 MORE["fr"]['Hidden games stay on the drive. Settings > Home > Show hidden games lets you find and unhide them.'] = 'Les jeux masqués restent sur le disque. Paramètres > Accueil > Afficher les jeux masqués permet de les retrouver et de les réafficher.'
-T['Change the name on Home. The files on the drive keep their names.'] = ('Cambia el nombre en Inicio. Los archivos conservan sus nombres.', 'ホームの名前を変更します。ドライブのファイル名は変わりません。', 'Muda o nome no Início. Os arquivos mantêm seus nomes.', 'Cambia il nome in Home. I file mantengono i loro nomi.')
-MORE["ko"]['Change the name on Home. The files on the drive keep their names.'] = '홈의 이름을 바꿉니다. 드라이브의 파일 이름은 유지됩니다.'
-MORE["fr"]['Change the name on Home. The files on the drive keep their names.'] = 'Change le nom dans l’accueil. Les fichiers gardent leurs noms.'
-T["Use the game's original name on Home again."] = ('Vuelve a usar el nombre original del juego en Inicio.', 'ホームでゲームの元の名前を使います。', 'Usa o nome original do jogo no Início novamente.', 'Usa di nuovo il nome originale del gioco in Home.')
-MORE["ko"]["Use the game's original name on Home again."] = '홈에서 게임의 원래 이름을 다시 사용합니다.'
-MORE["fr"]["Use the game's original name on Home again."] = 'Rétablit le nom d’origine du jeu dans l’accueil.'
 T["Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."] = ('Borra la imagen, carátulas y trucos del juego. Las partidas se conservan salvo que también elijas borrarlas.', 'ゲームのイメージ、カバー、チートを削除します。セーブデータは、削除を選ばない限り残ります。', 'Remove a imagem, capas e truques do jogo. Os dados salvos ficam, a menos que você escolha excluí-los também.', 'Rimuove immagine, copertine e trucchi del gioco. I salvataggi restano, salvo scelta di eliminarli.')
 MORE["ko"]["Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."] = '게임 이미지, 표지와 치트를 삭제합니다. 저장 데이터는 삭제하도록 선택하지 않으면 유지됩니다.'
 MORE["fr"]["Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."] = 'Supprime l’image, les jaquettes et les codes du jeu. Les sauvegardes restent, sauf si vous choisissez aussi de les supprimer.'
@@ -8614,6 +8608,27 @@ T['Hide or rename this game, manage its files, or read about it.'] = ('Oculta o 
 MORE["ko"]['Hide or rename this game, manage its files, or read about it.'] = '게임을 숨기거나 이름을 바꾸고, 파일을 관리하거나 정보를 확인합니다.'
 MORE["fr"]['Hide or rename this game, manage its files, or read about it.'] = 'Masquez ou renommez ce jeu, gérez ses fichiers ou consultez ses informations.'
 
+
+
+# Game deletion safeguards and name help.
+T['Change the name shown for this game. The files on the drive keep their names.'] = ('Cambia el nombre mostrado para este juego. Los archivos conservan sus nombres.', 'このゲームの表示名を変更します。ドライブのファイル名は変わりません。', 'Muda o nome mostrado para este jogo. Os arquivos mantêm seus nomes.', 'Cambia il nome mostrato per questo gioco. I file mantengono i loro nomi.')
+MORE["ko"]['Change the name shown for this game. The files on the drive keep their names.'] = '이 게임의 표시 이름을 바꿉니다. 드라이브의 파일 이름은 유지됩니다.'
+MORE["fr"]['Change the name shown for this game. The files on the drive keep their names.'] = 'Change le nom affiché pour ce jeu. Les fichiers gardent leurs noms.'
+T["Use the game's original name again."] = ('Vuelve a usar el nombre original del juego.', 'ゲームの元の名前を使います。', 'Usa o nome original do jogo novamente.', 'Usa di nuovo il nome originale del gioco.')
+MORE["ko"]["Use the game's original name again."] = '게임의 원래 이름을 다시 사용합니다.'
+MORE["fr"]["Use the game's original name again."] = 'Rétablit le nom d’origine du jeu.'
+T["Remove this game's image, covers and cheats. USB deletion needs FAT32; NTFS is read-only."] = ('Borra la imagen, carátulas y trucos del juego. Para borrar en USB se necesita FAT32; NTFS es de solo lectura.', 'ゲームのイメージ、カバー、チートを削除します。USBの削除にはFAT32が必要です。NTFSは読み取り専用です。', 'Remove a imagem, capas e truques do jogo. A exclusão no USB exige FAT32; NTFS é somente leitura.', 'Rimuove immagine, copertine e trucchi del gioco. Per eliminare su USB serve FAT32; NTFS è di sola lettura.')
+MORE["ko"]["Remove this game's image, covers and cheats. USB deletion needs FAT32; NTFS is read-only."] = '게임 이미지, 표지와 치트를 삭제합니다. USB 삭제에는 FAT32가 필요합니다. NTFS는 읽기 전용입니다.'
+MORE["fr"]["Remove this game's image, covers and cheats. USB deletion needs FAT32; NTFS is read-only."] = 'Supprime l’image, les jaquettes et les codes du jeu. La suppression sur USB exige FAT32 ; NTFS est en lecture seule.'
+T['Kept'] = ('Se conservan', '残します', 'Mantidos', 'Conservati')
+MORE["ko"]['Kept'] = '유지됨'
+MORE["fr"]['Kept'] = 'Conservées'
+T['Saves are kept because another copy of this game remains.'] = ('Las partidas se conservan porque queda otra copia de este juego.', '同じゲームがほかにもあるため、セーブデータは残ります。', 'Os dados salvos são mantidos porque outra cópia deste jogo permanece.', 'I salvataggi vengono conservati perché resta un’altra copia di questo gioco.')
+MORE["ko"]['Saves are kept because another copy of this game remains.'] = '이 게임의 다른 사본이 남아 있어 저장 데이터가 유지됩니다.'
+MORE["fr"]['Saves are kept because another copy of this game remains.'] = 'Les sauvegardes sont conservées car il reste une autre copie de ce jeu.'
+T['Could not delete {1}. Some files may already be gone. See session.log for details.'] = ('No se pudo borrar {1}. Puede que algunos archivos ya se hayan borrado. Consulta session.log.', '{1}を削除できませんでした。一部のファイルは削除済みの可能性があります。詳しくはsession.logを確認してください。', 'Não foi possível excluir {1}. Alguns arquivos podem já ter sido removidos. Veja session.log.', 'Impossibile eliminare {1}. Alcuni file potrebbero essere già stati rimossi. Vedi session.log.')
+MORE["ko"]['Could not delete {1}. Some files may already be gone. See session.log for details.'] = '{1}을(를) 삭제하지 못했습니다. 일부 파일은 이미 삭제되었을 수 있습니다. 자세한 내용은 session.log를 확인하세요.'
+MORE["fr"]['Could not delete {1}. Some files may already be gone. See session.log for details.'] = 'Impossible de supprimer {1}. Certains fichiers ont peut-être déjà été supprimés. Consultez session.log.'
 
 # Memory card choices offered by the other loaders.
 T.update({

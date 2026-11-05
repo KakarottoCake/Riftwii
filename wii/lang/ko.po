@@ -4092,12 +4092,6 @@ msgstr "숨긴 게임 표시"
 msgid "Hidden games stay on the drive. Settings > Home > Show hidden games lets you find and unhide them."
 msgstr "숨긴 게임은 드라이브에 남습니다. 설정 > 홈 > 숨긴 게임 표시에서 찾아 다시 표시할 수 있습니다."
 
-msgid "Change the name on Home. The files on the drive keep their names."
-msgstr "홈의 이름을 바꿉니다. 드라이브의 파일 이름은 유지됩니다."
-
-msgid "Use the game's original name on Home again."
-msgstr "홈에서 게임의 원래 이름을 다시 사용합니다."
-
 msgid "Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."
 msgstr "게임 이미지, 표지와 치트를 삭제합니다. 저장 데이터는 삭제하도록 선택하지 않으면 유지됩니다."
 
@@ -4115,6 +4109,24 @@ msgstr "홈에서 숨긴 게임을 표시합니다. 게임 관리에서 다시 �
 
 msgid "Hide or rename this game, manage its files, or read about it."
 msgstr "게임을 숨기거나 이름을 바꾸고, 파일을 관리하거나 정보를 확인합니다."
+
+msgid "Change the name shown for this game. The files on the drive keep their names."
+msgstr "이 게임의 표시 이름을 바꿉니다. 드라이브의 파일 이름은 유지됩니다."
+
+msgid "Use the game's original name again."
+msgstr "게임의 원래 이름을 다시 사용합니다."
+
+msgid "Remove this game's image, covers and cheats. USB deletion needs FAT32; NTFS is read-only."
+msgstr "게임 이미지, 표지와 치트를 삭제합니다. USB 삭제에는 FAT32가 필요합니다. NTFS는 읽기 전용입니다."
+
+msgid "Kept"
+msgstr "유지됨"
+
+msgid "Saves are kept because another copy of this game remains."
+msgstr "이 게임의 다른 사본이 남아 있어 저장 데이터가 유지됩니다."
+
+msgid "Could not delete {1}. Some files may already be gone. See session.log for details."
+msgstr "{1}을(를) 삭제하지 못했습니다. 일부 파일은 이미 삭제되었을 수 있습니다. 자세한 내용은 session.log를 확인하세요."
 
 msgid "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "게임 전용, 공용, Nintendont, Dolphin 카드 또는 슬롯 A의 실제 카드를 사용합니다(Wii만)."

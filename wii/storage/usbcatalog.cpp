@@ -1478,7 +1478,7 @@ std::uint64_t usb_mount_generation() {
 bool usb_fat32_mounted() { return g_libfat_mounted; }
 
 bool delete_usb_image_files(const std::vector<std::string>& paths, const std::string& empty_folder,
-                            std::string& error) {
+                            std::string& error, std::vector<std::string>* remaining) {
     UsbLocked locked;
     if (paths.empty()) return false;
     const ImageVolume* volume = find_image_volume(g_usb_volumes, paths.front());
@@ -1495,7 +1495,7 @@ bool delete_usb_image_files(const std::vector<std::string>& paths, const std::st
         if (usb_path_device(path) != device) return false;
     // Flush libfat's old directory cache before a second mount changes it.
     const bool remount_legacy = g_libfat_mounted;
-    if (remount_legacy) fatUnmount("usb");
+    if (remount_legacy) fatUnmount("usb:");
     g_libfat_mounted = false;
     const bool mounted = fatMount("rwdelete", &g_usb_io, static_cast<sec_t>(lba), 8, 64);
     bool ok = mounted;
@@ -1504,12 +1504,12 @@ bool delete_usb_image_files(const std::vector<std::string>& paths, const std::st
             const std::string writable = "rwdelete:" + image_volume_path(path);
             if (std::remove(writable.c_str()) != 0 && errno != ENOENT) {
                 error = "Could not delete " + path;
+                if (remaining) try_push_back(*remaining, path);
                 ok = false;
-                break;
             }
         }
         if (ok && !empty_folder.empty()) rmdir(("rwdelete:" + image_volume_path(empty_folder)).c_str());
-        fatUnmount("rwdelete");
+        fatUnmount("rwdelete:");
     } else error = "The game's FAT32 partition could not be opened for writing.";
     if (remount_legacy) g_libfat_mounted = fatMountSimple("usb", &g_usb_io);
     // The raw readers cache directory sectors too. Replace those views
@@ -1517,18 +1517,25 @@ bool delete_usb_image_files(const std::vector<std::string>& paths, const std::st
     std::vector<MountedImageVolume> refreshed;
     std::string refresh_error;
     const auto* preferred = g_usb_preferred_known ? &g_usb_preferred_lba : nullptr;
-    if (mount_image_volumes(&usb_read, refreshed, refresh_error, usb_wanted_folders(), nullptr, preferred)) {
+    bool refresh_ok = mount_image_volumes(&usb_read, refreshed, refresh_error, usb_wanted_folders(), nullptr, preferred);
+    if (refresh_ok) {
         for (MountedImageVolume& item : refreshed) {
             auto* wrapped = new (std::nothrow) LockedVolume(std::move(item.volume));
             if (!wrapped) {
-                refreshed.clear();
+                refresh_error = "There was not enough memory to refresh the USB drive's file views.";
+                refresh_ok = false;
                 break;
             }
             item.volume.reset(wrapped);
         }
     }
-    g_usb_volumes.swap(refreshed);
-    ++g_usb_mount_generation;
+    if (refresh_ok) {
+        g_usb_volumes.swap(refreshed);
+        ++g_usb_mount_generation;
+    } else {
+        error = "The USB drive's file views could not be refreshed: " + refresh_error;
+        return false;
+    }
     return ok;
 }
 

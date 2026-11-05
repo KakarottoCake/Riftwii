@@ -4092,12 +4092,6 @@ msgstr "Afficher les jeux masqués"
 msgid "Hidden games stay on the drive. Settings > Home > Show hidden games lets you find and unhide them."
 msgstr "Les jeux masqués restent sur le disque. Paramètres > Accueil > Afficher les jeux masqués permet de les retrouver et de les réafficher."
 
-msgid "Change the name on Home. The files on the drive keep their names."
-msgstr "Change le nom dans l’accueil. Les fichiers gardent leurs noms."
-
-msgid "Use the game's original name on Home again."
-msgstr "Rétablit le nom d’origine du jeu dans l’accueil."
-
 msgid "Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."
 msgstr "Supprime l’image, les jaquettes et les codes du jeu. Les sauvegardes restent, sauf si vous choisissez aussi de les supprimer."
 
@@ -4115,6 +4109,24 @@ msgstr "Affiche les jeux masqués de l’accueil. Ouvrez Gérer le jeu pour les 
 
 msgid "Hide or rename this game, manage its files, or read about it."
 msgstr "Masquez ou renommez ce jeu, gérez ses fichiers ou consultez ses informations."
+
+msgid "Change the name shown for this game. The files on the drive keep their names."
+msgstr "Change le nom affiché pour ce jeu. Les fichiers gardent leurs noms."
+
+msgid "Use the game's original name again."
+msgstr "Rétablit le nom d’origine du jeu."
+
+msgid "Remove this game's image, covers and cheats. USB deletion needs FAT32; NTFS is read-only."
+msgstr "Supprime l’image, les jaquettes et les codes du jeu. La suppression sur USB exige FAT32 ; NTFS est en lecture seule."
+
+msgid "Kept"
+msgstr "Conservées"
+
+msgid "Saves are kept because another copy of this game remains."
+msgstr "Les sauvegardes sont conservées car il reste une autre copie de ce jeu."
+
+msgid "Could not delete {1}. Some files may already be gone. See session.log for details."
+msgstr "Impossible de supprimer {1}. Certains fichiers ont peut-être déjà été supprimés. Consultez session.log."
 
 msgid "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "Utilise la carte du jeu, une carte partagée, celle de Nintendont ou Dolphin, ou une vraie carte dans le port A (Wii uniquement)."

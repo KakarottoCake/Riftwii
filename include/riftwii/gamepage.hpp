@@ -20,7 +20,7 @@ struct GameDeletion {
 
 // Entries are leaf names from the selected image's own directory. Invalid
 // names never become paths. An incomplete split image can still be removed.
-bool game_deletion_files(const std::string& primary, const std::vector<std::string>& siblings,
+bool game_deletion_files(const std::string& primary, bool gamecube, const std::vector<std::string>& siblings,
                          GameDeletion& out);
 // Only RiftWii's own per-game files. Shared cards and other loaders stay.
 std::vector<std::string> game_deletion_extras(const std::string& id, bool saves);

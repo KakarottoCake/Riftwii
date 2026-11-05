@@ -8177,6 +8177,11 @@ public:
 		text.SetParent(this);
 		Place(text, x, y);
 	}
+	void MoveTo(int newX, int newY) {
+		x = newX;
+		y = newY;
+		Place(text, x, y);
+	}
 	void Draw() override {
 		riftwii::wii::DrawTrace trace("the page's text");
 		text.SetColor((GXColor){0, 0, 0, 255});
@@ -14157,14 +14162,15 @@ static bool MenuManageGame(FrontendState& state)
 		add(About, tr("About"), tr("What GameTDB says about the game: when it came out, how many can play, the controllers it takes and its story."));
 		if (listed) add(Hide, game_page_hidden(settings, state.game_id) ? tr("Unhide from Home") : tr("Hide from Home"),
 			tr("Hidden games stay on the drive. Settings > Home > Show hidden games lets you find and unhide them."));
-		add(Rename, tr("Rename"), tr("Change the name on Home. The files on the drive keep their names."));
+		add(Rename, tr("Rename"), tr("Change the name shown for this game. The files on the drive keep their names."));
 		if (settings.other.count("game_name_" + state.game_id))
-			add(Restore, tr("Restore name"), tr("Use the game's original name on Home again."));
+			add(Restore, tr("Restore name"), tr("Use the game's original name again."));
 		const auto* selected = state.use_usb && state.usb_index < state.usb_catalog.games.size()
 			? &state.usb_catalog.games[state.usb_index]
 			: state.use_sd && state.sd_index < state.sd_catalog.games.size() ? &state.sd_catalog.games[state.sd_index] : nullptr;
-		if (image && selected && selected->wbfs_slot < 0 && selected->gc_patch_source.empty())
-			add(Delete, tr("Delete this game"), tr("Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."));
+		const bool writable = selected && (!state.use_usb || riftwii::wii::usb_file_writable(selected->path));
+		if (image && selected && writable && selected->wbfs_slot < 0 && selected->gc_patch_source.empty())
+			add(Delete, tr("Delete this game"), tr("Remove this game's image, covers and cheats. USB deletion needs FAT32; NTFS is read-only."));
 	};
 	build();
 	return EmulatorRowsPage(tr("Manage game"), rows, help, [&](int clicked, int) {
@@ -14181,31 +14187,56 @@ static bool MenuManageGame(FrontendState& state)
 				ShowPopup(tr("Delete this game"), tr("The game could not be deleted. See session.log for the reason."), tr("OK"));
 				return false;
 			}
+			// Saves belong to the game ID, so another installed copy still
+			// needs them even when this image is removed.
+			const bool keepSharedSaves = riftwii::wii::HasOtherGameCopy(game, plan, state.sd_catalog) ||
+				riftwii::wii::HasOtherGameCopy(game, plan, state.usb_catalog);
 			bool saves = false;
 			std::vector<FlowRow> deleteRows(2);
-			deleteRows[0].kind = FlowRow::Kind::Toggle;
+			deleteRows[0].kind = keepSharedSaves ? FlowRow::Kind::Action : FlowRow::Kind::Toggle;
 			deleteRows[0].label = tr("Delete its saves too");
-			deleteRows[0].value = tr("Off");
+			deleteRows[0].value = keepSharedSaves ? tr("Kept") : tr("Off");
 			deleteRows[1].kind = FlowRow::Kind::Action;
 			deleteRows[1].label = tr("Delete this game");
 			const std::vector<std::string> deleteHelp{
-				tr("Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."),
+				keepSharedSaves ? tr("Saves are kept because another copy of this game remains.")
+					: tr("Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."),
 				tr("Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too.")};
 			const bool removed = EmulatorRowsPage(tr("Delete this game"), deleteRows, deleteHelp, [&](int row, int) {
 				if (row == 0) {
+					if (keepSharedSaves) {
+						ShowPopup(tr("Delete its saves too"), tr("Saves are kept because another copy of this game remains."), tr("OK"));
+						return false;
+					}
 					saves = !saves;
 					deleteRows[0].on = saves;
 					deleteRows[0].value = saves ? tr("On") : tr("Off");
 					return false;
 				}
+				std::string confirmation = tr("Its image files, covers and cheats will be deleted. This cannot be undone.");
+				if (keepSharedSaves) {
+					confirmation += "\n";
+					confirmation += tr("Saves are kept because another copy of this game remains.");
+				}
 				if (ShowPopupSafeFirst(tr("Delete {1}?", {GameOwnTitle(state)}),
-					tr("Its image files, covers and cheats will be deleted. This cannot be undone."), tr("Keep it"), tr("Delete")) != 1) return false;
-				ResumeGui();
-				const bool ok = riftwii::wii::DeleteGameFiles(game, plan, saves, error);
-				HaltGui();
+					confirmation, tr("Keep it"), tr("Delete")) != 1) return false;
+				bool ok = false;
+				std::vector<std::string> remaining;
+				{
+					// HOME and power must wait until all file writes have finished.
+					const riftwii::wii::CardWriteHold hold;
+					ResumeGui();
+					ok = riftwii::wii::DeleteGameFiles(game, plan, saves, remaining, error);
+					HaltGui();
+				}
 				if (!ok || !error.empty()) {
 					logf("Game deletion: %s\n", error.c_str());
-					ShowPopup(tr("Delete this game"), tr("The game could not be deleted. See session.log for the reason."), tr("OK"));
+					if (remaining.empty()) {
+						ShowPopup(tr("Delete this game"), tr("The game could not be deleted. See session.log for the reason."), tr("OK"));
+					} else {
+						for (const std::string& path : remaining)
+							ShowPopup(tr("Delete this game"), tr("Could not delete {1}. Some files may already be gone. See session.log for details.", {path}), tr("OK"));
+					}
 				}
 				return ok;
 			});
@@ -14308,16 +14339,20 @@ static int MenuHome(FrontendState& state)
 	const std::string title = GameTitle(state);
 	hero.SetMadeUpName(title, riftwii::emulator_cover_id(state.game_id) ? std::string() : state.game_id);
 	GuiText titleTxt(title.c_str(), 28, skin::kWhite);
-	int titleSize = 28;
-	while (titleSize > 22 && titleTxt.GetTextWidth() > kTilesW) titleTxt.SetFontSize(--titleSize);
-	// A name too long for one line: two lines of 19 (to y 88), the facts
-	// a little lower.
-	const bool titleWraps = titleTxt.GetTextWidth() > kTilesW;
-	if (titleWraps) {
-		titleSize = 19;
-		titleTxt.SetFontSize(titleSize);
-		titleTxt.SetWrap(true, kTilesW, 2);
-	}
+	const auto sizeTitle = [&] {
+		titleTxt.SetWrap(false);
+		titleTxt.SetFontSize(28);
+		int titleSize = 28;
+		while (titleSize > 22 && titleTxt.GetTextWidth() > kTilesW) titleTxt.SetFontSize(--titleSize);
+		// A long name gets two smaller lines and moves the facts below it.
+		const bool wraps = titleTxt.GetTextWidth() > kTilesW;
+		if (wraps) {
+			titleTxt.SetFontSize(19);
+			titleTxt.SetWrap(true, kTilesW, 2);
+		}
+		return wraps;
+	};
+	const bool titleWraps = sizeTitle();
 	const int titleY = titleWraps ? 44 : 48, factsY = titleWraps ? 92 : 86;
 	g_gamePageTiming.Step("building the banner text");
 	const std::string facts = GameFacts(state);
@@ -14327,6 +14362,13 @@ static int MenuHome(FrontendState& state)
 	OutlinedText whereOutlined(whereTxt, kTilesX + 1, kWhereY, kWhereInk, 1, 1);
 	OutlinedText titleOutlined(titleTxt, kTilesX, titleY, skin::kWhite, 2, 2);
 	OutlinedText factsOutlined(factsTxt, kTilesX, factsY, kFactsInk, 1, 1);
+
+	const auto refreshTitle = [&] {
+		titleTxt.SetText(GameTitle(state).c_str());
+		const bool wraps = sizeTitle();
+		titleOutlined.MoveTo(kTilesX, wraps ? 44 : 48);
+		factsOutlined.MoveTo(kTilesX, wraps ? 92 : 86);
+	};
 
 	if (riftwii::wii::g_gxWatch) logf("Game page: texts made\n");
 	GuiTiles tileGrid;
@@ -14761,9 +14803,7 @@ static int MenuHome(FrontendState& state)
 					menu = MENU_SOURCE;
 					break;
 				}
-				titleTxt.SetText(GameTitle(state).c_str());
-				titleTxt.SetFontSize(19);
-				titleTxt.SetWrap(true, kTilesW, 2);
+				refreshTitle();
 				hero.SetMadeUpName(GameTitle(state), state.game_id);
 				// A first read of the database also saves GameTDB's list of
 				// mods: the tile may match an entry now, as after Mods, and
@@ -14790,7 +14830,7 @@ static int MenuHome(FrontendState& state)
 				// The Mods page renames a profile's tile, or removes it (the
 				// page is the game's own then).
 				if (tile == GameTile::Mods) {
-					titleTxt.SetText(GameTitle(state).c_str());
+					refreshTitle();
 					hero.SetMadeUpName(GameTitle(state),
 							   riftwii::emulator_cover_id(state.game_id) ? std::string() : state.game_id);
 					// A renamed tile may match another GameTDB entry (or none):

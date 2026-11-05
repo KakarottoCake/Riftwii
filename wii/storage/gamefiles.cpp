@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "gamefiles.hpp"
 
+#include <algorithm>
 #include <cerrno>
 #include <cstdio>
 #include <dirent.h>
@@ -17,32 +18,53 @@ namespace {
 
 // FAT has no links. Refuse unexpectedly deep or huge save trees rather
 // than letting a damaged directory make deletion unbounded.
-bool RemoveOwnPath(const std::string& path, unsigned depth = 0) {
+bool RemoveOwnPath(const std::string& path, std::vector<std::string>& remaining, unsigned depth = 0) {
+    const auto failed = [&] {
+        try_push_back(remaining, path);
+        logf("Could not delete %s. Some of the game's files may already be gone.\n", path.c_str());
+        return false;
+    };
     struct stat status;
-    if (stat(path.c_str(), &status) != 0) return errno == ENOENT;
-    if (!S_ISDIR(status.st_mode)) return std::remove(path.c_str()) == 0;
-    if (depth >= 16) return false;
+    if (stat(path.c_str(), &status) != 0) {
+        if (errno == ENOENT) return true;
+        return failed();
+    }
+    if (!S_ISDIR(status.st_mode)) {
+        if (std::remove(path.c_str()) == 0 || errno == ENOENT) return true;
+        return failed();
+    }
+    if (depth >= 16) return failed();
     DIR* directory = opendir(path.c_str());
-    if (!directory) return false;
+    if (!directory) return failed();
     bool ok = true;
     unsigned count = 0;
     while (dirent* entry = readdir(directory)) {
         const std::string name = entry->d_name;
-        if (name == "." || name == "..") continue;
         if (++count > 4096 || name.find_first_of("/\\:") != std::string::npos || path.size() + name.size() > 1022) {
+            failed();
             ok = false;
             break;
         }
-        if (!RemoveOwnPath(path + "/" + name, depth + 1)) {
+        if (name == "." || name == "..") continue;
+        if (!RemoveOwnPath(path + "/" + name, remaining, depth + 1)) {
             ok = false;
             break;
         }
     }
     closedir(directory);
-    return ok && rmdir(path.c_str()) == 0;
+    if (!ok) return false;
+    if (rmdir(path.c_str()) == 0 || errno == ENOENT) return true;
+    return failed();
 }
 
 }  // namespace
+
+bool HasOtherGameCopy(const ImageGame& game, const GameDeletion& plan, const ImageCatalog& catalog) {
+    return std::any_of(catalog.games.begin(), catalog.games.end(), [&](const ImageGame& candidate) {
+        return candidate.id == game.id &&
+            std::find(plan.images.begin(), plan.images.end(), candidate.path) == plan.images.end();
+    });
+}
 
 bool PlanGameDeletion(const ImageGame& game, GameDeletion& plan, std::string& error) {
     if (game.wbfs_slot >= 0 || !game.gc_patch_source.empty()) {
@@ -63,8 +85,9 @@ bool PlanGameDeletion(const ImageGame& game, GameDeletion& plan, std::string& er
     } else {
         DIR* directory = opendir(game.path.substr(0, slash).c_str());
         if (!directory) return false;
+        unsigned entries_seen = 0;
         while (dirent* entry = readdir(directory)) {
-            if (siblings.size() >= 4096) {
+            if (++entries_seen > 4096) {
                 closedir(directory);
                 return false;
             }
@@ -75,17 +98,21 @@ bool PlanGameDeletion(const ImageGame& game, GameDeletion& plan, std::string& er
         }
         closedir(directory);
     }
-    if (game_deletion_files(game.path, siblings, plan)) return true;
+    if (game_deletion_files(game.path, game.gamecube, siblings, plan)) return true;
     error = "The game's image paths could not be checked.";
     return false;
 }
 
-bool DeleteGameFiles(const ImageGame& game, const GameDeletion& plan, bool saves, std::string& error) {
+bool DeleteGameFiles(const ImageGame& game, const GameDeletion& plan, bool saves,
+                     std::vector<std::string>& remaining, std::string& error) {
+    remaining.clear();
+    error.clear();
     if (is_usb_path(game.path)) {
-        if (!delete_usb_image_files(plan.images, plan.empty_folder, error)) return false;
+        if (!delete_usb_image_files(plan.images, plan.empty_folder, error, &remaining)) return false;
     } else {
         for (const std::string& path : plan.images) {
-            if (std::remove(path.c_str()) != 0) {
+            if (std::remove(path.c_str()) != 0 && errno != ENOENT) {
+                try_push_back(remaining, path);
                 error = "Could not delete " + path;
                 return false;
             }
@@ -94,7 +121,7 @@ bool DeleteGameFiles(const ImageGame& game, const GameDeletion& plan, bool saves
         forget_sd_layout();
     }
     for (const std::string& path : game_deletion_extras(game.id, saves)) {
-        if (!RemoveOwnPath(path)) {
+        if (!RemoveOwnPath(path, remaining)) {
             error = "Could not delete " + path;
         }
     }
@@ -105,10 +132,17 @@ bool DeleteGameFiles(const ImageGame& game, const GameDeletion& plan, bool saves
             std::uint64_t bytes = 0;
             if (read_usb_range(path, 0, nullptr, 0, bytes)) covers.push_back(path);
         }
-        if (!covers.empty()) delete_usb_image_files(covers, "", error);
+        if (!covers.empty()) {
+            std::string usb_error;
+            if (!delete_usb_image_files(covers, "", usb_error, &remaining)) {
+                error = usb_error;
+                logf("Could not finish deleting the game's USB covers and cheats: %s\n", usb_error.c_str());
+            }
+        }
     }
+    if (!remaining.empty() || !error.empty()) return false;
     logf("Deleted the image files for %s. The player chose to %s RiftWii's separate saves.\n", game.id.c_str(), saves ? "delete" : "keep");
-    return true;  // image files are gone; an extras error is still reported
+    return true;
 }
 
 }  // namespace riftwii::wii

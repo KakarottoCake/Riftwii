@@ -4092,12 +4092,6 @@ msgstr "Mostra giochi nascosti"
 msgid "Hidden games stay on the drive. Settings > Home > Show hidden games lets you find and unhide them."
 msgstr "I giochi nascosti restano sul disco. Impostazioni > Home > Mostra giochi nascosti permette di trovarli e mostrarli di nuovo."
 
-msgid "Change the name on Home. The files on the drive keep their names."
-msgstr "Cambia il nome in Home. I file mantengono i loro nomi."
-
-msgid "Use the game's original name on Home again."
-msgstr "Usa di nuovo il nome originale del gioco in Home."
-
 msgid "Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."
 msgstr "Rimuove immagine, copertine e trucchi del gioco. I salvataggi restano, salvo scelta di eliminarli."
 
@@ -4115,6 +4109,24 @@ msgstr "Mostra i giochi nascosti da Home. Apri Gestisci gioco per mostrarli di n
 
 msgid "Hide or rename this game, manage its files, or read about it."
 msgstr "Nascondi o rinomina il gioco, gestisci i suoi file o leggi le informazioni."
+
+msgid "Change the name shown for this game. The files on the drive keep their names."
+msgstr "Cambia il nome mostrato per questo gioco. I file mantengono i loro nomi."
+
+msgid "Use the game's original name again."
+msgstr "Usa di nuovo il nome originale del gioco."
+
+msgid "Remove this game's image, covers and cheats. USB deletion needs FAT32; NTFS is read-only."
+msgstr "Rimuove immagine, copertine e trucchi del gioco. Per eliminare su USB serve FAT32; NTFS è di sola lettura."
+
+msgid "Kept"
+msgstr "Conservati"
+
+msgid "Saves are kept because another copy of this game remains."
+msgstr "I salvataggi vengono conservati perché resta un’altra copia di questo gioco."
+
+msgid "Could not delete {1}. Some files may already be gone. See session.log for details."
+msgstr "Impossibile eliminare {1}. Alcuni file potrebbero essere già stati rimossi. Vedi session.log."
 
 msgid "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "Usa la scheda del gioco, una condivisa, quella di Nintendont o Dolphin, o una reale nello slot A (solo Wii)."
