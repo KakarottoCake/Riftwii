@@ -22,6 +22,9 @@ struct GcImage {
     std::string id;    // ID6 from its header
     std::string patch_source;  // set: `path` is a patch (gcpatch.hpp) to make the game from this original
     bool real_card = false;
+    std::string external_card_path{};
+    std::vector<std::uint8_t> external_card{};
+    std::vector<Fragment> card_fragments{};
     bool shared_card = false;  // the memory card is the shared one, not the game's own (the Memory card option)
     bool drive_timing = true;  // reads take a GameCube drive's time (the game's Loading speed option)
     bool progressive = false;  // 480p (the game's 480p picture option)

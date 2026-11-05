@@ -97,6 +97,31 @@ bool gc_request_check(const rwp_gc_launch* request, std::uint32_t bytes, std::ui
         why = "the launch request has conflicting memory card choices";
         return false;
     }
+    if (request->external_card != nullptr) {
+        const std::uint32_t bytes = request->external_card_bytes;
+        if (request->real_card || bytes < (512u << 10) || bytes > (16u << 20) || (bytes & (bytes - 1u)) != 0 ||
+            request->card_fragment_count == 0 || request->card_fragment_count > 32 || !request->card_fragments ||
+            (request->card_on_usb && request->usb_fd < 0)) {
+            why = "the external memory card request is not whole";
+            return false;
+        }
+        std::uint64_t sectors = 0;
+        for (std::uint32_t i = 0; i < request->card_fragment_count; ++i) {
+            const rwp_fragment& part = request->card_fragments[i];
+            if (part.sector_count == 0 || part.sector > 0xFFFFFFFFull || part.sector_count > 0x100000000ull - part.sector) {
+                why = "the external memory card has an unusable disk extent";
+                return false;
+            }
+            sectors += part.sector_count;
+        }
+        if (sectors != bytes / 512u) {
+            why = "the external memory card extents do not cover its bytes";
+            return false;
+        }
+    } else if (request->external_card_bytes || request->card_fragment_count || request->card_on_usb) {
+        why = "the external memory card request has no card";
+        return false;
+    }
     const bool has_packs = request->pack_fst != nullptr;
     if (has_packs) {
         const bool header_whole = request->pack_header != nullptr && request->pack_header_bytes == kPlanHeaderBytes;

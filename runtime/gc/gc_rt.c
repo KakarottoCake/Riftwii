@@ -322,6 +322,8 @@ int gc_sd_read(struct gc_rt_context* ctx, uint32_t sector, uint32_t count, uint3
  * d2x (wii/storage/umsdev.cpp). */
 #define GC_USB_REQUEST_SECTORS 64u
 
+#include "gc_usb_write.h"
+
 /* `count` sectors of the USB drive from `sector` into `target`, which is
  * in MEM2 (d2x's USB driver writes nowhere else) and 32-byte aligned. */
 int gc_usb_read(struct gc_rt_context* ctx, uint32_t sector, uint32_t count, uint32_t target) {

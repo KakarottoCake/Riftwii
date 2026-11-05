@@ -1568,6 +1568,51 @@ bool list_usb_folder(const std::string& usb_path, std::vector<VolumeEntry>& out,
     return true;
 }
 
+bool write_usb_file_range(const std::string& path, std::uint64_t offset, const std::uint8_t* data,
+                          std::size_t length) {
+    UsbLocked locked;
+    const ImageVolume* volume = find_image_volume(g_usb_volumes, path);
+    if (!volume || std::strcmp(volume->kind(), "FAT32") != 0 || offset % 512 || length % 512) return false;
+    VolumeFile file;
+    std::string error;
+    if (!volume->lookup(image_volume_path(path), file, error) || file.entry.is_directory ||
+        offset > file.entry.size || length > file.entry.size - offset) return false;
+    // Only file data is changed. Allocation tables and directory entries stay
+    // intact, as for the runtime's card writes through these same extents.
+    const DISC_INTERFACE& io = g_picked.open ? kPickedIo : __io_usbstorage;
+    std::uint8_t buffer[8192] ATTRIBUTE_ALIGN(32);
+    std::uint64_t file_offset = 0;
+    for (const Fragment& fragment : file.fragments) {
+        const std::uint64_t fragment_bytes = fragment.sector_count * 512;
+        if (offset >= file_offset + fragment_bytes) {
+            file_offset += fragment_bytes;
+            continue;
+        }
+        std::uint64_t inside = offset - file_offset;
+        while (length && inside < fragment_bytes) {
+            const std::size_t bytes = static_cast<std::size_t>(std::min<std::uint64_t>(
+                std::min<std::size_t>(length, sizeof(buffer)), fragment_bytes - inside));
+            const std::uint64_t sector = fragment.sector + inside / 512;
+            if (sector > 0xffffffffu || bytes / 512 > 0x100000000ull - sector) return false;
+            std::memcpy(buffer, data, bytes);
+            if (!io.writeSectors(static_cast<sec_t>(sector), bytes / 512, buffer)) return false;
+            data += bytes;
+            length -= bytes;
+            offset += bytes;
+            inside += bytes;
+        }
+        file_offset += fragment_bytes;
+        if (!length) return true;
+    }
+    return length == 0;
+}
+
+bool usb_file_writable(const std::string& path) {
+    UsbLocked locked;
+    const ImageVolume* volume = find_image_volume(g_usb_volumes, path);
+    return volume && std::strcmp(volume->kind(), "FAT32") == 0;
+}
+
 bool usb_file_lookup(const std::string& usb_path, VolumeFile& out, std::string& error) {
     UsbLocked locked;
     out = VolumeFile{};

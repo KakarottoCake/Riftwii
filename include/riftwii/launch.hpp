@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstddef>
+#include <map>
 #include <set>
 #include <string>
 #include <utility>
@@ -107,6 +108,9 @@ private:
 struct GameSettings {
     bool cheats = false;                // apply the cheats picked below
     std::set<std::string> cheat_names;  // by name, as in the game's cheat file
+    std::string cheat_source;
+    std::map<std::string, std::set<std::string>> cheat_picks;
+    void select_cheat_source(const std::string& path);
     std::string video_width = "global"; // or a riftwii/videopatch.hpp name
     std::string deflicker = "global";
     std::string borders = "global";     // or "keep", "remove", "remove_all"
@@ -125,7 +129,7 @@ struct GameSettings {
     std::string gc_disc_reads = "fast";
     // A GameCube game's memory card: "own" is the game's own file, "shared"
     // one card for all the games of its encoding (gc_card_path).
-    std::string gc_card = "own";  // own, shared, or real (physical slot A)
+    std::string gc_card = "own";  // own, shared, real (slot A), nintendont, dolphin
     // A GameCube game's picture and language (gcnative.cpp does each).
     // "global", the default, follows Settings and the Wii's own settings
     // as a Wii game's rows do (GcConsoleSettings, resolved below); "game"
