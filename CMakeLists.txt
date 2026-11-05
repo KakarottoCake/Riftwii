@@ -76,6 +76,10 @@ target_link_libraries(rvzstub PRIVATE riftwii)
 # Host tool: the memory-card EXI finder on a GameCube ISO or RVZ (tools/gc_exi_scan.cpp).
 add_executable(gc_exi_scan tools/gc_exi_scan.cpp)
 target_link_libraries(gc_exi_scan PRIVATE riftwii)
+
+# Host tool: the controller finders on a GameCube ISO or RVZ.
+add_executable(gc_pad_scan tools/gc_pad_scan.cpp)
+target_link_libraries(gc_pad_scan PRIVATE riftwii)
 # Host tool: a game's banner and icon, drawn as RiftWii draws them (tools/bannerdump.cpp).
 add_executable(bannerdump tools/bannerdump.cpp)
 target_link_libraries(bannerdump PRIVATE riftwii)
