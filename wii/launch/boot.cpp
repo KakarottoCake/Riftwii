@@ -278,7 +278,18 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
     // are switched off for every launch with codes on a Wii U: cheats and
     // code builds alike. A Wii keeps them (a USB Gecko may be plugged in).
     if (!g_extras.cheat_gct.empty() && (is_wii_u() || mem::TestWiiUCardSlots()) && !debug_off("slotb")) {
-        for (const SlotBCode& code : switch_off_slot_b_codes(g_extras.cheat_gct)) {
+        SlotBScan scan;
+        const std::vector<SlotBCode> switched_off = switch_off_slot_b_codes(g_extras.cheat_gct, &scan);
+        if (!scan.complete) {
+            logf("Codes: the check for memory card slot B codes stopped at line %u (code type %02X, whose size "
+                 "it can't tell); the codes after it were left as they are\n",
+                 static_cast<unsigned>(scan.stopped_line), static_cast<unsigned>(scan.stopped_type));
+            if (scan.slot_b_after_stop) {
+                logf("Codes: one of those codes seems to write to memory card slot B, which a Wii U doesn't "
+                     "have: if the game stays on a black screen, that code is the likely cause\n");
+            }
+        }
+        for (const SlotBCode& code : switched_off) {
             if (code.address != 0) {
                 logf("Codes: a code at 0x%08x writes to memory card slot B, which a Wii U doesn't have (a USB "
                      "Gecko log); it is switched off, or the game would wait for an answer forever (%u lines)\n",

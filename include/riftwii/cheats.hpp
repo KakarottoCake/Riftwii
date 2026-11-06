@@ -161,8 +161,19 @@ struct SlotBCode {
 // the console's clock and is left alone. Each code keeps its length: its
 // first line becomes a goto over its instructions (66200NNN 00000000), so
 // gotos elsewhere in the list still land where they did. The walk stops
-// at a code type it can't size, leaving the rest as it is. Returns the
-// codes switched off; `gct` is unchanged when it is not a valid list.
-std::vector<SlotBCode> switch_off_slot_b_codes(std::vector<std::uint8_t>& gct);
+// at a code type it can't size, leaving the rest as it is; `scan`, when
+// given, says so, and whether anything after that point still reaches
+// slot B (looked through word by word, since it can't be switched off
+// safely). A code counts when its instructions build a slot B address
+// (register values followed in order, base plus offset included), or load
+// the hardware's high half and use a slot B register's low half. Returns
+// the codes switched off; `gct` is unchanged when it is not a valid list.
+struct SlotBScan {
+    bool complete = true;           // every code was looked at
+    std::size_t stopped_line = 0;   // else: the line it stopped at (1 = the first after the header)
+    std::uint32_t stopped_type = 0; // and that line's code type
+    bool slot_b_after_stop = false; // something after it still seems to reach slot B
+};
+std::vector<SlotBCode> switch_off_slot_b_codes(std::vector<std::uint8_t>& gct, SlotBScan* scan = nullptr);
 
 }  // namespace riftwii

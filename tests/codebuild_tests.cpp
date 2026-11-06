@@ -363,6 +363,52 @@ void test_slot_b_codes() {
     list = list_of({data_address}, {6});
     EXPECT_EQ(switch_off_slot_b_codes(list).size(), 1u);
 
+    // Through a base register and an offset: lis r8, 0xCD00; ori r8, r8,
+    // 0x6800 (slot A's channel); stw r12, 0x14(r8) lands on 0xCD006814.
+    const std::uint32_t base_offset[] = {0xC2002000, 0x00000002, 0x3D00CD00, 0x61086800, 0x91880014, 0x00000000};
+    list = list_of({base_offset}, {6});
+    EXPECT_EQ(switch_off_slot_b_codes(list).size(), 1u);
+    // The same with an update form after an addi (stwu r12, 4(r8) from
+    // 0xCD006810), and a load (lwz r0, 0x20(r9) after lis r9, 0xCC00;
+    // addi r9, r9, 0x6800).
+    const std::uint32_t update_form[] = {0xC2002000, 0x00000002, 0x3D00CD00, 0x39086810, 0x95880004, 0x00000000};
+    const std::uint32_t load_offset[] = {0xC2002000, 0x00000002, 0x3D20CC00, 0x39296800, 0x80090020, 0x00000000};
+    for (const std::uint32_t* code : {update_form, load_offset}) {
+        list = list_of({code}, {6});
+        EXPECT_EQ(switch_off_slot_b_codes(list).size(), 1u);
+    }
+
+    // A C0 code (it runs where it is) has no address of its own.
+    std::uint32_t rex_log_c0[sizeof(rex_log) / 4];
+    std::copy(std::begin(rex_log), std::end(rex_log), rex_log_c0);
+    rex_log_c0[0] = 0xC0000000;
+    list = list_of({rex_log_c0}, {log_words});
+    off = switch_off_slot_b_codes(list);
+    EXPECT_EQ(off.size(), 1u);
+    if (off.size() == 1) {
+        EXPECT_EQ(off[0].address, 0u);
+        EXPECT_EQ(off[0].lines, 4u);
+    }
+
+    // A goto reaches 0x7FFF lines at most: a code that long is switched
+    // off, one line longer is left as it is.
+    for (const std::uint32_t lines : {0x7FFFu, 0x8000u}) {
+        std::vector<std::uint32_t> long_code(2 + lines * 2, 0u);
+        long_code[0] = 0xC2002000;
+        long_code[1] = lines;
+        long_code[2] = 0x3D00CD00;  // lis r8, 0xCD00
+        long_code[3] = 0x61086814;  // ori r8, r8, 0x6814
+        list = list_of({long_code.data()}, {long_code.size()});
+        const Bytes before_long = list;
+        const std::size_t expected = lines == 0x7FFFu ? 1u : 0u;
+        EXPECT_EQ(switch_off_slot_b_codes(list).size(), expected);
+        if (lines == 0x7FFFu) {
+            EXPECT_EQ(get(list, 8), 0x66207FFFu);
+        } else {
+            EXPECT_TRUE(list == before_long);
+        }
+    }
+
     // Not slot B: slot A's channel (0x6800, it also serves the clock),
     // channel 2 (0x6828), and 0x6820 with no hardware high half.
     const std::uint32_t slot_a[] = {0xC2002000, 0x00000002, 0x3D00CD00, 0x61086800, 0x91880000, 0x00000000};
@@ -376,12 +422,27 @@ void test_slot_b_codes() {
     }
 
     // A code type it can't size (F6, a search) stops the walk: the log
-    // hook after it is left alone rather than guessed at.
+    // hook after it is left alone rather than guessed at, and the scan
+    // says where it stopped and that something after it reaches slot B.
     const std::uint32_t search[] = {0xF6000001, 0x80008180, 0x11223344, 0x55667788};
     list = list_of({search, rex_log}, {4, log_words});
     Bytes unchanged = list;
-    EXPECT_EQ(switch_off_slot_b_codes(list).size(), 0u);
+    SlotBScan scan;
+    EXPECT_EQ(switch_off_slot_b_codes(list, &scan).size(), 0u);
     EXPECT_TRUE(list == unchanged);
+    EXPECT_FALSE(scan.complete);
+    EXPECT_EQ(scan.stopped_line, 1u);
+    EXPECT_EQ(scan.stopped_type, 0xF6u);
+    EXPECT_TRUE(scan.slot_b_after_stop);
+    // The same stop with nothing about slot B after it.
+    list = list_of({search, rex_flag}, {4, flag_words});
+    EXPECT_EQ(switch_off_slot_b_codes(list, &scan).size(), 0u);
+    EXPECT_FALSE(scan.complete);
+    EXPECT_FALSE(scan.slot_b_after_stop);
+    // A list it walks to the end says so.
+    list = list_of({rex_flag, rex_log}, {flag_words, log_words});
+    EXPECT_EQ(switch_off_slot_b_codes(list, &scan).size(), 1u);
+    EXPECT_TRUE(scan.complete);
 
     // Not a list: untouched.
     Bytes broken = {0x00, 0xD0, 0xC0, 0xDE, 0x00, 0xD0, 0xC0, 0xDE, 0xC2, 0x3F};

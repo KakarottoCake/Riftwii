@@ -686,26 +686,66 @@ bool slot_b_register(std::uint32_t low_half) {
     return low_half >= kSlotBFirstRegister && low_half <= kSlotBLastRegister;
 }
 
-// Whether a code's instructions reach slot B's bus: they load the
-// hardware's high half (lis rX, 0xCC00 or 0xCD00) and use a slot B
-// register's low half (ori, addi, or a load or store's offset), or hold a
-// whole slot B address as data.
+bool slot_b_address(std::uint32_t address) {
+    const std::uint32_t high = address >> 16;
+    return (high == 0xCC00 || high == 0xCD00) && slot_b_register(address & 0xFFFFu);
+}
+
+std::uint32_t sign_extended(std::uint32_t immediate) {
+    return (immediate & 0x8000u) != 0 ? (immediate | 0xFFFF0000u) : immediate;
+}
+
+// Whether a code's instructions reach slot B's bus. Two ways, either is enough:
+//  - the register values the code builds, followed in order: lis/addis,
+//    addi, ori/oris, and a load or store whose base register plus offset
+//    lands on a slot B register (so `lis r8,0xCD00; ori r8,r8,0x6800;
+//    stw r12,0x14(r8)` counts, while slot A's 0x6800 alone doesn't);
+//  - the hardware's high half (lis rX, 0xCC00 or 0xCD00) anywhere in the
+//    code together with a slot B register's low half as an ori, addi or
+//    offset (REX's USBGecko.asm keeps each register in its own register).
+// A whole slot B address held as data counts too. Branches aren't
+// followed: the values are taken in the order the words come.
 bool reaches_slot_b(const std::vector<std::uint8_t>& gct, std::size_t first, std::size_t words) {
     bool hardware_high_half = false;
     bool slot_b_low_half = false;
+    bool known[32] = {};
+    std::uint32_t value[32] = {};
     for (std::size_t i = 0; i < words; ++i) {
         const std::uint32_t word = get32(gct, first + i * 4);
         const std::uint32_t opcode = word >> 26;
-        const std::uint32_t source = (word >> 16) & 31u;
+        const std::uint32_t target = (word >> 21) & 31u;  // rD (or rS for ori, oris and the stores)
+        const std::uint32_t source = (word >> 16) & 31u;  // rA
         const std::uint32_t immediate = word & 0xFFFFu;
-        const std::uint32_t high = word >> 16;
-        if ((high == 0xCC00 || high == 0xCD00) && slot_b_register(immediate)) return true;  // the address as data
-        // lis rX, imm is addis rX, 0, imm.
+        if (slot_b_address(word)) return true;  // the address as data
+        // The heuristic: lis rX, imm is addis rX, 0, imm.
         if (opcode == 15 && source == 0 && (immediate == 0xCC00 || immediate == 0xCD00)) hardware_high_half = true;
         // addi (14), ori (24), and the loads and stores with an offset
         // (32 lwz to 45 sthu).
         const bool takes_low_half = opcode == 14 || opcode == 24 || (opcode >= 32 && opcode <= 45);
         if (takes_low_half && slot_b_register(immediate)) slot_b_low_half = true;
+        // The register values.
+        if (opcode == 14 || opcode == 15) {  // addi, addis (li and lis when rA is 0)
+            const std::uint32_t add = opcode == 15 ? immediate << 16 : sign_extended(immediate);
+            if (source == 0) {
+                known[target] = true;
+                value[target] = add;
+            } else {
+                known[target] = known[source];
+                value[target] = value[source] + add;
+            }
+        } else if (opcode == 24 || opcode == 25) {  // ori, oris: rA = rS | imm
+            const std::uint32_t mask = opcode == 25 ? immediate << 16 : immediate;
+            known[source] = known[target];
+            value[source] = value[target] | mask;
+        } else if (opcode >= 32 && opcode <= 45) {  // lwz to sthu: rA + offset
+            if (source != 0 && known[source]) {
+                const std::uint32_t address = value[source] + sign_extended(immediate);
+                if (slot_b_address(address)) return true;
+                if ((opcode & 1u) != 0) value[source] = address;  // the update forms (lwzu, stwu...)
+            }
+            const bool load = opcode <= 35 || (opcode >= 40 && opcode <= 43);
+            if (load) known[target] = false;
+        }
     }
     return hardware_high_half && slot_b_low_half;
 }
@@ -741,12 +781,23 @@ bool lines_after(std::uint32_t type, std::uint32_t value, std::size_t& extra) {
 
 }  // namespace
 
-std::vector<SlotBCode> switch_off_slot_b_codes(std::vector<std::uint8_t>& gct) {
+std::vector<SlotBCode> switch_off_slot_b_codes(std::vector<std::uint8_t>& gct, SlotBScan* scan) {
     std::vector<SlotBCode> switched_off;
+    if (scan != nullptr) *scan = SlotBScan{};
     if (!valid_gct(gct)) return switched_off;
     const std::size_t end = gct.size() - 8;
     // A goto's line count is a signed 16-bit number.
     constexpr std::uint32_t kGotoMaxLines = 0x7FFF;
+    // Where the walk had to stop: the rest is still looked through, word
+    // by word, for anything that reaches slot B, so a code it couldn't
+    // switch off is at least reported.
+    const auto stopped = [&](std::size_t at, std::uint32_t type) {
+        if (scan == nullptr) return;
+        scan->complete = false;
+        scan->stopped_line = (at - 8) / 8 + 1;
+        scan->stopped_type = type;
+        scan->slot_b_after_stop = reaches_slot_b(gct, at, (end - at) / 4);
+    };
     std::size_t at = 8;
     while (at < end) {
         const std::uint32_t first = get32(gct, at);
@@ -754,9 +805,11 @@ std::vector<SlotBCode> switch_off_slot_b_codes(std::vector<std::uint8_t>& gct) {
         // Without the bit that adds 0x01000000 to the address.
         const std::uint32_t type = gct[at] & 0xFEu;
         std::size_t extra = 0;
-        if (!lines_after(type, value, extra)) break;
         const std::size_t lines_left = (end - at) / 8 - 1;
-        if (extra > lines_left) break;
+        if (!lines_after(type, value, extra) || extra > lines_left) {
+            stopped(at, type);
+            break;
+        }
         const bool runs_instructions = type == 0xC0 || type == 0xC2;
         if (runs_instructions && extra != 0 && extra <= kGotoMaxLines && reaches_slot_b(gct, at + 8, extra * 2)) {
             // 66 2 0 NNNN: goto, always, NNNN lines forward: over the
@@ -768,7 +821,8 @@ std::vector<SlotBCode> switch_off_slot_b_codes(std::vector<std::uint8_t>& gct) {
             gct[at + 3] = static_cast<std::uint8_t>(goto_line);
             for (std::size_t i = 4; i < 8; ++i) gct[at + i] = 0;
             SlotBCode code;
-            code.address = (type == 0xC0 ? 0u : 0x80000000u) | (first & 0x01FFFFFFu);
+            // A C0 code runs where it is, so it has no address of its own.
+            code.address = type == 0xC0 ? 0u : 0x80000000u | (first & 0x01FFFFFFu);
             code.lines = static_cast<std::uint32_t>(extra);
             switched_off.push_back(code);
         }
