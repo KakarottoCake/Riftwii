@@ -278,7 +278,7 @@ static uint32_t next_piece(struct vsd_state* st, uint32_t* device_sector, uint32
     uint32_t limit = t->count - t->done;
     uint32_t sectors;
     t->filling = 0;
-    if (!t->write && rtvsd_ra_on(&st->ra)) {
+    if (!t->write && !t->plain && rtvsd_ra_on(&st->ra)) {
         limit = rtvsd_ra_direct(&st->ra, &st->card, sector, limit);
         if (limit == 0) {
             uint32_t start = 0;
@@ -385,6 +385,14 @@ static int32_t transfer_sync(struct vsd_state* st) {
             if (r >= 0) break;
             ++st->failures;
             st->last_error = (uint32_t)r;
+        }
+        if (r < 0 && t->filling && !t->plain) {
+            /* The window failed every try, maybe on a sector the game
+             * never asked for: the rest of this transfer reads only the
+             * game's own sectors (the taken slot stays empty). */
+            t->filling = 0;
+            t->plain = 1;
+            continue;
         }
         if (r < 0) {
             st->writing = 0;
@@ -550,6 +558,15 @@ void vsd_on_complete(struct vsd_context* ctx, int32_t* result, void* tag, uint32
             ++st->failures;
             st->last_error = (uint32_t)r;
             if (++t->tries < VSD_TRIES && transfer_send(st) >= 0) return;
+            if (t->filling && !t->plain) {
+                /* As in transfer_sync: the window failed every try, so
+                 * the game's own sectors are asked for on their own. */
+                t->filling = 0;
+                t->plain = 1;
+                t->tries = 0;
+                r = transfer_send(st);
+                if (r >= 0) return;
+            }
             transfer_end(st, r, result, callback, user_data);
             return;
         } else if (t->write && needs_settle(st)) {
@@ -638,6 +655,7 @@ static int32_t send_command(struct vsd_state* st, const struct rtvsd_request* re
         if (t->write) ++st->writes;
         else ++st->reads;
         t->filling = 0;
+        t->plain = 0;
         serve_held(st);
         if (t->done >= t->count) {
             /* All of it from the read-ahead buffer: no request on the

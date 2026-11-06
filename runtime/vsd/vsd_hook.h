@@ -147,6 +147,7 @@ struct vsd_transfer {
     uint32_t filling;                /* the piece in flight reads a window into the read-ahead buffer, */
     uint32_t fill_first;             /* from this image sector, */
     uint32_t fill_data;              /* into this slot of it */
+    uint32_t plain;                  /* a window failed every try: the rest reads only what the game asked for */
 };
 
 struct vsd_state {
