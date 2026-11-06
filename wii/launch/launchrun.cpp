@@ -124,6 +124,11 @@ bool Session::ensure_probe(std::string& error) {
         // for an RVZ on the card (RiftWii reads it from the card while
         // the game runs) or a game whose title ID is not known.
         bool d2x_ready = false;
+        // Dolphin's own IOS has no d2x to keep a folder on the USB drive.
+        if (own_saves_on_usb && running_in_dolphin()) {
+            error = "Saves: the emulated NAND on the USB drive needs d2x's NAND emulation, which Dolphin does not have";
+            return false;
+        }
         if (!own_saves_dir.empty() && !running_in_dolphin()) {
             std::string why;
             if (source.game.title_id == 0) why = "the game's title ID is not known";

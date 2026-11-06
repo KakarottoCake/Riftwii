@@ -8793,7 +8793,7 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		saves.dim = true;
 	} else {
 		saves.value = SaveValue(state.model.save_mode);
-		saves.on = riftwii::wii::EffectiveSaveMode(state.model) != "nand";
+		saves.on = riftwii::wii::EffectiveSaveMode(state) != "nand";
 	}
 	add(saves, {RowRef::What::Saves});
 
@@ -13852,7 +13852,7 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 	add(GameTile::Cheats, kTilesX, 228, kHalfW, 70, tr("Cheats"), cheats, &skin::iconCheats,
 		game.cheats && !game.cheat_names.empty());
 	add(GameTile::Saves, kRightX, 228, kHalfW, 70, tr("Saves"), saves, &skin::iconSaves,
-		!gamecube && riftwii::wii::EffectiveSaveMode(state.model) != "nand");
+		!gamecube && riftwii::wii::EffectiveSaveMode(state) != "nand");
 	// A full card is a warning, in the theme's colour for one.
 	tiles.back().warn = cardFull;
 	if (disc) {
@@ -14651,7 +14651,7 @@ static int MenuHome(FrontendState& state)
 		if (bannerHeld) ResumeGui();
 		const riftwii::wii::CiosCheck check = riftwii::wii::image_cios_check(riftwii::wii::SelectedSource(state).game,
 			riftwii::wii::SelectedSource(state).cios_slot,
-			!state.model.selections().empty() || riftwii::wii::EffectiveSaveMode(state.model) != "nand");
+			!state.model.selections().empty() || riftwii::wii::EffectiveSaveMode(state) != "nand");
 		if (bannerHeld) HaltGui();
 		return check;
 	};
@@ -15079,7 +15079,7 @@ static int MenuHome(FrontendState& state)
 				// B: back on the game page
 			} else if (!saveForStart()) {
 				// the status shows why
-			} else if (!riftwii::needs_launch_pipeline(!state.model.selections().empty(), riftwii::wii::EffectiveSaveMode(state.model))) {
+			} else if (!riftwii::needs_launch_pipeline(!state.model.selections().empty(), riftwii::wii::EffectiveSaveMode(state))) {
 				menu = MENU_BOOT;  // no resident work: boot the game as it is
 			} else if (state.use_usb || state.use_sd || (riftwii::wii::MenuCiosSlot() == 0 && PacksOnUsb(state))) {
 				// cIOS reload and F9 happen after the GUI exits; compilation

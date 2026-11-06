@@ -25,6 +25,8 @@
 #include "riftwii/imagevolume.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
+#include "riftwii/sharednand.hpp"
+#include "sharednandfind.hpp"
 #include "menuios.hpp"
 #include "codebuilds.hpp"
 #include "netpacks.hpp"
@@ -259,6 +261,26 @@ bool SelectChannel(FrontendState& state, std::size_t index, std::string& error) 
     state.choices_path = std::string(kChoicesDir) + "/" + channel.game_id + ".txt";
     error.clear();
     return true;
+}
+
+std::string EffectiveSaveMode(const FrontendState& state) {
+    const std::string mode = effective_save_mode(state.model.save_mode, Settings().saves_every_game);
+    if (state.model.save_mode != "global" || mode != "emunand") return mode;
+    const LaunchSource source = SelectedSource(state);
+    if (source.kind != LaunchSource::Kind::Disc) return source.game.gamecube ? "nand" : mode;
+    const std::string& folder = Settings().emunand_folder;
+    if (folder == "usb") return "nand";
+    if (folder == "sd") return mode;
+    // USB Loader GX's folder: its settings read once per game, as the page
+    // shows it (the launch reads them again).
+    static std::string looked_up_for;
+    static bool on_usb = false;
+    if (looked_up_for != state.game_id) {
+        const SharedNandLookup found = look_up_shared_nand(state.game_id);
+        on_usb = found.usable && shared_nand_on_usb(found.folder);
+        looked_up_for = state.game_id;
+    }
+    return on_usb ? "nand" : mode;
 }
 
 LaunchSource SelectedSource(const FrontendState& state) {

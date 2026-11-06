@@ -281,8 +281,8 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
     const LaunchSource source = SelectedSource(state);
     const std::vector<PackageChoices> selections = state.model.selections();
     const bool booted = mem::GuardLaunchMemory(error, [&] {
-        return needs_launch_pipeline(!selections.empty(), EffectiveSaveMode(state.model))
-                   ? RunLaunch(selections, error, source, EffectiveSaveMode(state.model), state.game_id)
+        return needs_launch_pipeline(!selections.empty(), EffectiveSaveMode(state))
+                   ? RunLaunch(selections, error, source, EffectiveSaveMode(state), state.game_id)
                    : RunBoot(true, error, source);
     });
     if (reload_terminal_failure()) halt_after_terminal_reload();

@@ -488,7 +488,7 @@ void RunAutorun() {
                 logf("  out of memory reading the packs' folders\n");
                 ok = false;
                 error = "out of memory reading the packs' folders";
-            } else if (!needs_launch_pipeline(!selections.empty(), EffectiveSaveMode(state.model))) {
+            } else if (!needs_launch_pipeline(!selections.empty(), EffectiveSaveMode(state))) {
                 logf("  nothing enabled and NAND saves selected: booting as is\n");
                 ok = mem::GuardLaunchMemory(error, [&] { return RunBoot(allow_fallback, error, source); });
                 if (reload_terminal_failure()) halt_after_terminal_reload();
@@ -497,7 +497,7 @@ void RunAutorun() {
                 logf(selections.empty() ? "  no packages enabled: applying selected Save Mode\n"
                                         : "launch: handing over to the game\n");
                 ok = mem::GuardLaunchMemory(error, [&] {
-                    return RunLaunch(selections, error, source, EffectiveSaveMode(state.model), state.game_id);
+                    return RunLaunch(selections, error, source, EffectiveSaveMode(state), state.game_id);
                 });
                 if (reload_terminal_failure()) halt_after_terminal_reload();
                 LogOpen(kAutorunLogPath, true);

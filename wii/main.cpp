@@ -774,8 +774,8 @@ int main() {
         };
         const bool booted = !error.empty() ? false : riftwii::wii::mem::GuardLaunchMemory(error, [&] {
             return (source.kind == riftwii::wii::LaunchSource::Kind::Disc && state.has_compiled)
-                       ? riftwii::wii::BootCompiled(std::move(state.compiled), error, source, riftwii::wii::EffectiveSaveMode(state.model), state.game_id)
-                       : riftwii::wii::RunLaunch(state.model.selections(), error, source, riftwii::wii::EffectiveSaveMode(state.model),
+                       ? riftwii::wii::BootCompiled(std::move(state.compiled), error, source, riftwii::wii::EffectiveSaveMode(state), state.game_id)
+                       : riftwii::wii::RunLaunch(state.model.selections(), error, source, riftwii::wii::EffectiveSaveMode(state),
                                                  state.game_id, confirm_missing);
         });
         if (launch_cancelled) {
