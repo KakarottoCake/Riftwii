@@ -378,6 +378,47 @@ void test_slot_b_codes() {
         EXPECT_EQ(switch_off_slot_b_codes(list).size(), 1u);
     }
 
+    // A register copied (mr r8, r9) keeps its value: still slot B. An
+    // indexed store (li r9, 0x14; stwx r12, r8, r9) counts too.
+    const std::uint32_t copied[] = {0xC2002000, 0x00000003, 0x3D20CD00, 0x61296800, 0x7D284B78, 0x91880014,
+                                    0x60000000, 0x00000000};
+    const std::uint32_t indexed[] = {0xC2002000, 0x00000003, 0x3D00CD00, 0x61086800, 0x39200014, 0x7D88492E,
+                                     0x60000000, 0x00000000};
+    for (const std::uint32_t* code : {copied, indexed}) {
+        list = list_of({code}, {8});
+        EXPECT_EQ(switch_off_slot_b_codes(list).size(), 1u);
+    }
+    // A register overwritten from something unknown (mr r8, r3; or
+    // lwz r8, 0(r3)) no longer holds slot A's base: its store is RAM's.
+    const std::uint32_t overwritten[] = {0xC2002000, 0x00000003, 0x3D00CD00, 0x61086800, 0x7C681B78, 0x91880014,
+                                         0x60000000, 0x00000000};
+    const std::uint32_t loaded[] = {0xC2002000, 0x00000003, 0x3D00CD00, 0x61086800, 0x81030000, 0x91880014,
+                                    0x60000000, 0x00000000};
+    for (const std::uint32_t* code : {overwritten, loaded}) {
+        list = list_of({code}, {8});
+        const Bytes same = list;
+        EXPECT_EQ(switch_off_slot_b_codes(list).size(), 0u);
+        EXPECT_TRUE(list == same);
+    }
+
+    // A string code whose byte count would wrap when rounded up (0xFFFFFFFF
+    // on a 32-bit size): too long for the list, so the walk stops there.
+    const std::uint32_t huge_string[] = {0x06001000, 0xFFFFFFFF};
+    list = list_of({huge_string, rex_log}, {2, log_words});
+    const Bytes before_huge = list;
+    SlotBScan huge_scan;
+    EXPECT_EQ(switch_off_slot_b_codes(list, &huge_scan).size(), 0u);
+    EXPECT_TRUE(list == before_huge);
+    EXPECT_FALSE(huge_scan.complete);
+    EXPECT_EQ(huge_scan.stopped_type, 0x06u);
+
+    // Switching a code off keeps the list runnable before the game starts:
+    // the goto is understood there, and the lines it skips don't run.
+    list = list_of({rex_flag, rex_log}, {flag_words, log_words});
+    EXPECT_TRUE(gct_runs_before_start(list, 0x80A00000u, 0x81800000u));
+    EXPECT_EQ(switch_off_slot_b_codes(list).size(), 1u);
+    EXPECT_TRUE(gct_runs_before_start(list, 0x80A00000u, 0x81800000u));
+
     // A C0 code (it runs where it is) has no address of its own.
     std::uint32_t rex_log_c0[sizeof(rex_log) / 4];
     std::copy(std::begin(rex_log), std::end(rex_log), rex_log_c0);

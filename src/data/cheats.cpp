@@ -667,6 +667,12 @@ bool gct_runs_before_start(const std::vector<std::uint8_t>& gct, std::uint32_t k
         } else if (type == 0xE0 || type == 0xE2) {
             // The end of conditions; a nonzero top half sets the base.
             if ((value >> 16) != 0) ba = value & 0xFFFF0000u;
+        } else if ((first & 0xFFFF8000u) == 0x66200000u && value == 0) {
+            // A goto, always, forward over the lines after it: how
+            // switch_off_slot_b_codes switches a code off. Nothing in those
+            // lines runs, so they don't count.
+            extra = first & 0x7FFFu;
+            if (extra == 0 || extra > after) return false;
         } else {
             return false;
         }
@@ -703,8 +709,12 @@ std::uint32_t sign_extended(std::uint32_t immediate) {
 //  - the hardware's high half (lis rX, 0xCC00 or 0xCD00) anywhere in the
 //    code together with a slot B register's low half as an ori, addi or
 //    offset (REX's USBGecko.asm keeps each register in its own register).
-// A whole slot B address held as data counts too. Branches aren't
-// followed: the values are taken in the order the words come.
+// A whole slot B address held as data counts too. What it can't see:
+// branches aren't followed (the values are taken in the order the words
+// come), a value loaded from memory is unknown, and only the integer
+// instructions that build addresses (addi, addis, ori, oris, or/mr) are
+// followed; every other instruction that writes a register makes it
+// unknown. Indexed (rA + rB) and floating-point loads and stores count.
 bool reaches_slot_b(const std::vector<std::uint8_t>& gct, std::size_t first, std::size_t words) {
     bool hardware_high_half = false;
     bool slot_b_low_half = false;
@@ -723,7 +733,9 @@ bool reaches_slot_b(const std::vector<std::uint8_t>& gct, std::size_t first, std
         // (32 lwz to 45 sthu).
         const bool takes_low_half = opcode == 14 || opcode == 24 || (opcode >= 32 && opcode <= 45);
         if (takes_low_half && slot_b_register(immediate)) slot_b_low_half = true;
-        // The register values.
+        // The register values. Anything not modelled below that writes a
+        // general register makes its value unknown, so a stale value can't
+        // turn a store to RAM into a slot B one.
         if (opcode == 14 || opcode == 15) {  // addi, addis (li and lis when rA is 0)
             const std::uint32_t add = opcode == 15 ? immediate << 16 : sign_extended(immediate);
             if (source == 0) {
@@ -737,14 +749,67 @@ bool reaches_slot_b(const std::vector<std::uint8_t>& gct, std::size_t first, std
             const std::uint32_t mask = opcode == 25 ? immediate << 16 : immediate;
             known[source] = known[target];
             value[source] = value[target] | mask;
-        } else if (opcode >= 32 && opcode <= 45) {  // lwz to sthu: rA + offset
+        } else if ((opcode >= 32 && opcode <= 47) || (opcode >= 48 && opcode <= 55)) {
+            // lwz to stmw, and the floating-point loads and stores: rA + offset.
             if (source != 0 && known[source]) {
                 const std::uint32_t address = value[source] + sign_extended(immediate);
                 if (slot_b_address(address)) return true;
-                if ((opcode & 1u) != 0) value[source] = address;  // the update forms (lwzu, stwu...)
+                if ((opcode & 1u) != 0 && opcode != 47) value[source] = address;  // the update forms (lwzu, stwu...)
+            } else if ((opcode & 1u) != 0 && opcode != 47 && source != 0) {
+                known[source] = false;
             }
             const bool load = opcode <= 35 || (opcode >= 40 && opcode <= 43);
             if (load) known[target] = false;
+            if (opcode == 46) {  // lmw: rD to r31
+                for (std::uint32_t r = target; r < 32; ++r) known[r] = false;
+            }
+        } else if (opcode == 31) {
+            // The X-form instructions: rB is the third register.
+            const std::uint32_t operand_b = (word >> 11) & 31u;
+            const std::uint32_t xo = (word >> 1) & 0x3FFu;
+            const std::uint32_t base = source == 0 ? 0u : value[source];
+            const bool base_known = source == 0 || known[source];
+            switch (xo) {
+            case 444:  // or (mr when rS and rB are the same): rA = rS | rB
+                known[source] = known[target] && known[operand_b];
+                value[source] = value[target] | value[operand_b];
+                break;
+            // The indexed loads and stores: rA (or 0) + rB.
+            case 23: case 55: case 87: case 119: case 279: case 311: case 343: case 375: case 534: case 790:  // loads
+            case 151: case 183: case 215: case 247: case 407: case 439: case 662: case 918:                // stores
+            case 535: case 567: case 599: case 631: case 663: case 695: case 727: case 759: case 983: {     // floating point
+                const bool update = xo == 55 || xo == 119 || xo == 311 || xo == 375 || xo == 183 || xo == 247 ||
+                                    xo == 439 || xo == 567 || xo == 631 || xo == 695 || xo == 759;
+                if (base_known && known[operand_b]) {
+                    const std::uint32_t address = base + value[operand_b];
+                    if (slot_b_address(address)) return true;
+                    if (update && source != 0) value[source] = address;
+                } else if (update && source != 0) {
+                    known[source] = false;
+                }
+                const bool integer_load = xo == 23 || xo == 55 || xo == 87 || xo == 119 || xo == 279 || xo == 311 ||
+                                          xo == 343 || xo == 375 || xo == 534 || xo == 790;
+                if (integer_load) known[target] = false;
+                break;
+            }
+            // Writing nothing to a general register: compares, cache
+            // operations, sync, moves to special registers.
+            case 0: case 32: case 54: case 86: case 146: case 144: case 278: case 470: case 467: case 598:
+            case 854: case 982: case 1014:
+                break;
+            // The logical and shift instructions write rA.
+            case 24: case 26: case 28: case 60: case 124: case 284: case 316: case 412: case 476: case 536:
+            case 792: case 824: case 922: case 954:
+                known[source] = false;
+                break;
+            default:  // the rest (arithmetic, mfspr...) write rD
+                known[target] = false;
+                break;
+            }
+        } else if (opcode == 7 || opcode == 8 || opcode == 12 || opcode == 13) {  // mulli, subfic, addic: rD
+            known[target] = false;
+        } else if ((opcode >= 20 && opcode <= 23) || (opcode >= 26 && opcode <= 29)) {  // rotates, xori, andi...: rA
+            known[source] = false;
         }
     }
     return hardware_high_half && slot_b_low_half;
@@ -755,7 +820,9 @@ bool reaches_slot_b(const std::vector<std::uint8_t>& gct, std::size_t first, std
 bool lines_after(std::uint32_t type, std::uint32_t value, std::size_t& extra) {
     extra = 0;
     if (type == 0x06) {
-        extra = (static_cast<std::size_t>(value) + 7) / 8;  // a string of `value` bytes
+        // A string of `value` bytes, rounded up without overflowing a
+        // 32-bit size (a count of 0xFFFFFFFF wrapped to 0 on the Wii).
+        extra = static_cast<std::size_t>(value / 8u + (value % 8u != 0 ? 1u : 0u));
         return true;
     }
     if (type == 0x08) {

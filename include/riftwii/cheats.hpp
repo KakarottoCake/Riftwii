@@ -165,7 +165,7 @@ struct SlotBCode {
 // given, says so, and whether anything after that point still reaches
 // slot B (looked through word by word, since it can't be switched off
 // safely). A code counts when its instructions build a slot B address
-// (register values followed in order, base plus offset included), or load
+// (register values followed in order: base plus offset, indexed, mr), or load
 // the hardware's high half and use a slot B register's low half. Returns
 // the codes switched off; `gct` is unchanged when it is not a valid list.
 struct SlotBScan {
