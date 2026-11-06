@@ -148,6 +148,11 @@ bool needs_launch_pipeline(bool has_selected_packages, const std::string& save_m
     return has_selected_packages || save_mode == "separate" || save_mode == "fresh" || save_mode == "emunand";
 }
 
+std::string effective_save_mode(const std::string& save_mode, const std::string& every_game) {
+    if (save_mode != "global") return save_mode;
+    return every_game == "emunand" ? "emunand" : "nand";
+}
+
 void PackIndex::add(const std::string& xml) {
     Package package;
     std::string error;
@@ -424,7 +429,10 @@ SaveOverride resolve_save_override(const std::string& save_mode, const std::stri
 }
 
 std::string LaunchModel::save() const {
-    std::string text = "*riftwii*\tsaves\t" + save_mode + "\n";
+    // "nand" in a file means "global" (see save_mode), so a picked "On the
+    // Wii" has a name of its own. An older RiftWii reads either as "nand".
+    const std::string saves = save_mode == "nand" ? "wii" : save_mode;
+    std::string text = "*riftwii*\tsaves\t" + saves + "\n";
     // Loader settings only where they differ from the defaults.
     if (game.cheats) text += "*riftwii*\tcheats\ton\n";
     if (!game.cheat_source.empty()) text += "*riftwii*\tcheat_source\t" + clean(game.cheat_source) + "\n";
@@ -477,7 +485,7 @@ std::string LaunchModel::save() const {
 }
 
 void LaunchModel::forget_game_choices() {
-    save_mode = "nand";
+    save_mode = "global";
     game = GameSettings{};
 }
 
@@ -513,7 +521,9 @@ void LaunchModel::restore(const std::string& text) {
             const std::string key = line.substr(t1 + 1, t2 - t1 - 1);
             const std::string value = line.substr(t2 + 1);
             if (key == "saves") {
-                if (value == "nand" || value == "separate" || value == "fresh" || value == "emunand") save_mode = value;
+                if (value == "nand" || value == "global") save_mode = "global";
+                else if (value == "wii") save_mode = "nand";
+                else if (value == "separate" || value == "fresh" || value == "emunand") save_mode = value;
             } else if (key == "cheats") {
                 game.cheats = value == "on";
             } else if (key == "cheat_source") {

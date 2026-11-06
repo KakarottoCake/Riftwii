@@ -17,6 +17,12 @@ bool SaveSettings();
 // old card's choices.
 void ReloadSettings();
 
+// The save mode the game's launch uses: its own page's choice, or for
+// "Default" Settings' choice for every game (#487).
+inline std::string EffectiveSaveMode(const LaunchModel& model) {
+    return effective_save_mode(model.save_mode, Settings().saves_every_game);
+}
+
 // The menu's language: the setting, or with "auto" the Wii's own when
 // RiftWii has it (English otherwise). "en", "es", "ja", "pt" or "it".
 std::string MenuLanguage();

@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -20,8 +21,8 @@ void ClearIosReloadBlock(std::string& error);
 // After a launch that left the SD card to d2x's FAT module (the emulation
 // on, or a module that would not let go) came back failed: the module lets
 // go and libfat and boot.log have the card again (release_d2x_saves), so
-// the failure reaches boot.log and the menu gets its card. Nothing when
-// the card is not held.
+// the failure reaches boot.log and the menu gets its card. The USB drive's
+// emulation (#487) is let go the same way. Nothing when neither is held.
 void TakeCardBackFromD2x();
 
 // A compile's warnings and notes for the log.
@@ -70,6 +71,13 @@ struct Session {
     bool own_saves_clone = false;
     bool own_saves_clone_empty = false;
     bool d2x_saves = false;
+    // The shared emulated NAND kept whole, the Wii's settings and Miis too
+    // (Settings > Games > Emulated NAND keeps, #487): d2x's full mode.
+    bool own_saves_whole = false;
+    // The folder is on the USB drive (#487): only d2x's NAND emulation can
+    // keep it, at this partition of the drive (usb_d2x_nand_partition).
+    bool own_saves_on_usb = false;
+    std::int32_t own_saves_usb_partition = -1;
     // The game reads the SD card as it runs (packs, saves): the cIOS
     // choice keeps to the bases that reach it (image_cios_order).
     bool sd_in_use = false;

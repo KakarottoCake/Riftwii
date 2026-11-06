@@ -171,11 +171,11 @@ msgstr "セーブはSDカードに保存されます(Wiiのセーブから始め
 msgid "Saves go to the SD card, starting fresh."
 msgstr "セーブはSDカードに保存されます(最初から始めます)。"
 
-msgid "Saves go to {1} on the SD card, shared with other loaders."
-msgstr "セーブはSDカードの{1}に保存され、他のローダーと共有されます。"
+msgid "Saves go to {1}, shared with other loaders."
+msgstr "セーブは{1}に保存され、他のローダーと共有されます。"
 
-msgid "{1} can't hold saves: use a short folder on the SD card."
-msgstr "{1}にはセーブできません。SDカードの短いフォルダを使ってください。"
+msgid "{1} can't hold saves: use a short folder on the SD card or the USB drive."
+msgstr "{1}にはセーブできません。SDカードかUSBドライブの短いフォルダを使ってください。"
 
 msgid "Saves stay on the Wii, as usual."
 msgstr "セーブはいつも通りWii本体に保存されます。"
@@ -4064,6 +4064,33 @@ msgstr "このリンクから、このゲームの動作状況を報告できま
 
 msgid "Report"
 msgstr "報告"
+
+msgid "Wii saves"
+msgstr "Wiiのセーブ"
+
+msgid "Emulated NAND folder"
+msgstr "エミュレートNANDのフォルダ"
+
+msgid "Emulated NAND keeps"
+msgstr "エミュレートNANDに保存"
+
+msgid "USB Loader GX's"
+msgstr "USB Loader GXの設定"
+
+msgid "Saves, settings and Miis"
+msgstr "セーブ、設定、Mii"
+
+msgid "Settings > Games > Wii saves decides."
+msgstr "設定 > ゲーム > Wiiのセーブで決まります。"
+
+msgid "Where every game saves unless its own page picks another place. Emulated NAND shares saves with USB Loader GX."
+msgstr "ゲームのページで別の場所を選ばない限り、すべてのゲームのセーブ先です。エミュレートNANDはUSB Loader GXとセーブを共有します。"
+
+msgid "The emulated NAND's folder: the one USB Loader GX's settings name, or nands/01 on the SD card or the USB drive."
+msgstr "エミュレートNANDのフォルダです。USB Loader GXの設定にあるもの、またはSDカードかUSBドライブのnands/01です。"
+
+msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
+msgstr "設定とMiiも選ぶと、ゲームはエミュレートNANDのWii本体設定とMiiも使います。そのためにはフォルダに完全なNANDが必要です。"
 
 msgid "Manage game"
 msgstr "ゲームの管理"

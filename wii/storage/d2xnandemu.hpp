@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -57,8 +58,15 @@ struct D2xNandMountFailures {
 // module could not mount the card (after its retry), so that launch does
 // not reload it again. A remembered failure returns before touching the
 // card; cleanup after a new failure still runs.
+//
+// A folder on the USB drive (#487, riftwii/sharednand.hpp) goes another
+// way: libfat's usb: is unmounted, d2x's FAT module mounts `usb_partition`
+// (usb_d2x_nand_partition, found before the cIOS reload) and serves the
+// NAND from the folder; the SD card and boot.log are not touched, and
+// `card_back` and `mount_failures` are not used.
 bool enable_d2x_saves(const std::string& dir, std::string& error, D2xNandScope scope = D2xNandScope::GamePaths,
-                      bool* card_back = nullptr, D2xNandMountFailures* mount_failures = nullptr);
+                      bool* card_back = nullptr, D2xNandMountFailures* mount_failures = nullptr,
+                      std::int32_t usb_partition = -1);
 
 // When the emulation came on but the launch does not go on with it (ES
 // refused the title on this IOS, the launch failed): d2x's emulation is
@@ -70,7 +78,11 @@ bool enable_d2x_saves(const std::string& dir, std::string& error, D2xNandScope s
 // then stays off the card until an IOS reload (its restart does one).
 // Logs what it did and the hand-off's summary line again, for a failure's
 // boot.log. True and nothing done when the emulation was not on.
+// The USB drive's emulation the same way: off, the module's mount let go,
+// libfat's usb: back.
 bool release_d2x_saves();
+// Whether d2x's NAND emulation has the USB drive (#487).
+bool usb_held_by_d2x_fat();
 
 // Whether a launch needs the SD card in the game, so d2x's NAND emulation
 // must stay off: a pack read from anywhere but the USB drive (the card's

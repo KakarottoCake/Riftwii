@@ -102,6 +102,14 @@ std::string usb_path_device(const std::string& path);  // usb: or usb2:, empty i
 std::string image_volume_path(const std::string& path);  // /games/... without the device
 const ImageVolume* find_image_volume(const std::vector<MountedImageVolume>& volumes, const std::string& path);
 
+// Which partition d2x's FAT module mounts for an emulated NAND on the USB
+// drive (#487), for the volume that starts at block `lba`. Its FatFs
+// reads a FAT volume in block 0 itself (a drive with no table: `index`
+// -1, let it look), else one of the four entries of block 0's MBR table
+// (`index` 0 to 3, the entry whose first block is `lba`). It knows no
+// GPT and no logical partitions: false with the reason for those.
+bool d2x_usb_partition(const std::uint8_t* block0, std::uint64_t lba, std::int32_t& index, std::string& why);
+
 // What a drive's first 512-byte block says about it, before anything is
 // mounted. A Wii U formats its own storage drive with no partition table
 // and encrypts every block with the console's key, so its block 0 reads

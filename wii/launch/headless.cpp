@@ -15,6 +15,7 @@
 #include "gameextras.hpp"
 #include "gclaunch.hpp"
 #include "ios_reload.hpp"
+#include "loadersettings.hpp"
 #include "log.hpp"
 #include "memlimits.hpp"
 #include "menuios.hpp"
@@ -280,8 +281,8 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
     const LaunchSource source = SelectedSource(state);
     const std::vector<PackageChoices> selections = state.model.selections();
     const bool booted = mem::GuardLaunchMemory(error, [&] {
-        return needs_launch_pipeline(!selections.empty(), state.model.save_mode)
-                   ? RunLaunch(selections, error, source, state.model.save_mode, state.game_id)
+        return needs_launch_pipeline(!selections.empty(), EffectiveSaveMode(state.model))
+                   ? RunLaunch(selections, error, source, EffectiveSaveMode(state.model), state.game_id)
                    : RunBoot(true, error, source);
     });
     if (reload_terminal_failure()) halt_after_terminal_reload();
