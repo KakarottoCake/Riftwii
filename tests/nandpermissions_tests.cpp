@@ -5,11 +5,16 @@
 #include "riftwii/nandcheck.hpp"
 
 #include <gccore.h>
+#include <ogc/mutex.h>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <string>
 #include <iostream>
+#include <atomic>
+#include <mutex>
+#include <thread>
+#include <vector>
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 #include <windows.h>
@@ -24,6 +29,7 @@ constexpr u32 kBefore = 0x428BD001;
 u32 current = kBefore;
 u16 protection = 1;
 int ios = 58;
+int revision = 6176;
 bool hardware = true;
 bool fail_write = false;
 bool fail_restore = false;
@@ -39,6 +45,14 @@ bool stuck_protection = false;  // turning protection off never lands
 bool protection_pending = false;
 u16 protection_next = 0;
 unsigned writes = 0;
+unsigned scans = 0;
+unsigned openings = 0;
+unsigned closings = 0;
+std::mutex permission_mutex;
+std::mutex log_mutex;
+thread_local bool permission_locked = false;
+unsigned mutex_initializations = 0;
+std::atomic<unsigned> logs_while_locked{0};
 
 void* map_at(u32 address, std::size_t size) {
 #if defined(_WIN32) || defined(__CYGWIN__)
@@ -56,7 +70,27 @@ void* map_at(u32 address, std::size_t size) {
 }
 }  // namespace
 
+s32 LWP_MutexInit(mutex_t* mutex, bool recursive) {
+    if (recursive) return -1;
+    ++mutex_initializations;
+    *mutex = 1;
+    return 0;
+}
+s32 LWP_MutexLock(mutex_t mutex) {
+    if (mutex != 1) return -1;
+    permission_mutex.lock();
+    permission_locked = true;
+    return 0;
+}
+s32 LWP_MutexUnlock(mutex_t mutex) {
+    if (mutex != 1 || !permission_locked) return -1;
+    permission_locked = false;
+    permission_mutex.unlock();
+    return 0;
+}
+
 int IOS_GetVersion() { return ios; }
+int IOS_GetRevision() { return revision; }
 u16 read16(u32) {
     if (protection_pending) {
         protection = protection_next;
@@ -92,12 +126,17 @@ void write32(u32 address, u32 value) {
 namespace riftwii::wii {
 std::string g_last_log;  // the last line logged, to check what recovery says
 void logf(const char* format, ...) {
-    char line[256];
+    if (permission_locked) ++logs_while_locked;
+    std::lock_guard<std::mutex> lock(log_mutex);
+    char line[1024];
     va_list args;
     va_start(args, format);
     std::vsnprintf(line, sizeof(line), format, args);
     va_end(args);
     g_last_log = line;
+    if (g_last_log.find("checking IOS") != std::string::npos) ++scans;
+    if (g_last_log.find("check opened at") != std::string::npos) ++openings;
+    if (g_last_log.find("check closed (") != std::string::npos) ++closings;
 }
 }
 
@@ -116,6 +155,10 @@ int main() {
     const auto check = [&](bool passed) {
         if (!passed) ++failures;
     };
+    RecoverNandPermissions();
+    InitNandPermissionLock();
+    InitNandPermissionLock();
+    check(mutex_initializations == 1);
     check(open_nand_permissions("test"));
     check(nand_permission_note_valid(*saved));
     check(protection == 1);
@@ -301,6 +344,184 @@ int main() {
     const unsigned before_bad = writes;
     RecoverNandPermissions();
     check(writes == before_bad);
+
+    current = kBefore;
+    *saved = {};
+    RecoverNandPermissions();
+    const unsigned before_nested = writes;
+    const unsigned openings_before_nested = openings;
+    const unsigned closings_before_nested = closings;
+    {
+        NandPermissionSession batch("batch", false);
+        check(writes == before_nested);
+        check(batch.Open());
+        check(batch.Open());  // one acquisition even when asked repeatedly
+        {
+            NandPermissionSession inner("inner");
+            check(inner.IsOpen());
+            check(writes == before_nested + 1);
+        }
+        check(current == 0x428BE001u && nand_permission_note_valid(*saved));
+        check(closings == closings_before_nested);
+    }
+    check(writes == before_nested + 2 && current == kBefore && saved->magic == 0);
+    check(openings == openings_before_nested + 1 && closings == closings_before_nested + 1);
+    check(g_last_log.find("batch:") == 0);
+
+    // The opening label belongs to the session state after the original
+    // caller releases both its acquisition and its temporary string.
+    {
+        std::string label = "temporary opening label";
+        check(open_nand_permissions(label.c_str()));
+        check(open_nand_permissions("longer lived user"));
+        close_nand_permissions(label.c_str());
+        label.assign(label.size(), 'x');
+    }
+    close_nand_permissions("longer lived user");
+    check(g_last_log.find("temporary opening label:") == 0);
+    check(current == kBefore && saved->magic == 0);
+
+    // All readers acquire together and stay alive until every acquisition
+    // finished: no reader may restore the check while the others hold it.
+    const unsigned writes_before_threads = writes;
+    const unsigned openings_before_threads = openings;
+    const unsigned closings_before_threads = closings;
+    std::atomic<unsigned> ready{0};
+    std::atomic<unsigned> acquired{0};
+    std::atomic<unsigned> open_failures{0};
+    std::atomic<bool> start{false};
+    std::atomic<bool> release{false};
+    std::vector<std::thread> readers;
+    constexpr unsigned kReaders = 8;
+    for (unsigned reader = 0; reader < kReaders; ++reader) {
+        readers.emplace_back([&] {
+            ++ready;
+            while (!start.load()) std::this_thread::yield();
+            const bool opened = open_nand_permissions("concurrent reader");
+            if (!opened) ++open_failures;
+            ++acquired;
+            while (!release.load()) std::this_thread::yield();
+            if (opened) close_nand_permissions("concurrent reader");
+        });
+    }
+    while (ready.load() != kReaders) std::this_thread::yield();
+    start = true;
+    while (acquired.load() != kReaders) std::this_thread::yield();
+    check(open_failures == 0);
+    check(writes == writes_before_threads + 1 && current == 0x428BE001u);
+    release = true;
+    for (std::thread& reader : readers) reader.join();
+    check(writes == writes_before_threads + 2 && current == kBefore && saved->magic == 0);
+    check(openings == openings_before_threads + 1 && closings == closings_before_threads + 1);
+    check(logs_while_locked == 0 && mutex_initializations == 1);
+
+    // Handoff retries cleanup even after the final user already left.
+    check(open_nand_permissions("failed final close"));
+    fail_restore = true;
+    close_nand_permissions("failed final close");
+    check(nand_permission_note_valid(*saved));
+    CloseAllNandPermissions("handoff still blocked");
+    check(nand_permission_note_valid(*saved) && current == 0x428BE001u);
+    fail_restore = false;
+    CloseAllNandPermissions("handoff retry");
+    check(current == kBefore && saved->magic == 0);
+    check(g_last_log.find("failed final close:") == 0);
+
+    check(open_nand_permissions("unreachable final close"));
+    stuck_protection = true;
+    close_nand_permissions("unreachable final close");
+    stuck_protection = false;
+    CloseAllNandPermissions("handoff retry");
+    check(current == kBefore && saved->magic == 0 && protection == 1);
+
+    damage_patched = true;
+    check(!open_nand_permissions("failed opening rollback"));
+    damage_patched = false;
+    CloseAllNandPermissions("handoff retry");
+    check(current == kBefore && saved->magic == 0);
+
+    // Retrying cleanup must still respect hardware access and IOS identity.
+    check(open_nand_permissions("pending before reload"));
+    fail_restore = true;
+    close_nand_permissions("pending before reload");
+    fail_restore = false;
+    hardware = false;
+    const unsigned writes_before_handoff = writes;
+    CloseAllNandPermissions("no hardware access");
+    check(writes == writes_before_handoff && nand_permission_note_valid(*saved));
+    hardware = true;
+    ++revision;
+    current = 0x1234E001u;
+    CloseAllNandPermissions("new revision");
+    check(writes == writes_before_handoff && saved->magic == 0 && current == 0x1234E001u);
+    current = kBefore;
+    // Repopulate the cache invalidated at handoff for the cache tests below.
+    check(open_nand_permissions("after handoff"));
+    close_nand_permissions("after handoff");
+
+    // With no signature left to find, a second batch must use the cached
+    // address, but only while the original word and IOS identity match.
+    std::memset(code + 0x100, 0, sizeof(kNandCheck));
+    const unsigned scans_before_cache = scans;
+    {
+        NandPermissionSession cached("cached");
+        check(cached.IsOpen());
+    }
+    check(scans == scans_before_cache && current == kBefore);
+    current = 0x1234D001u;
+    const unsigned writes_before_changed_cache = writes;
+    check(!open_nand_permissions("changed cache"));
+    check(writes == writes_before_changed_cache && scans == scans_before_cache + 1 && protection == 1);
+
+    std::memcpy(code + 0x100, kNandCheck, sizeof(kNandCheck));
+    current = kBefore;
+    check(open_nand_permissions("test"));
+    close_nand_permissions("test");
+    std::memset(code + 0x100, 0, sizeof(kNandCheck));
+    ++revision;
+    check(!open_nand_permissions("new revision"));
+    std::memcpy(code + 0x100, kNandCheck, sizeof(kNandCheck));
+    check(open_nand_permissions("test"));
+    close_nand_permissions("test");
+    std::memset(code + 0x100, 0, sizeof(kNandCheck));
+    ios = 55;
+    check(!open_nand_permissions("new IOS"));
+
+    std::memcpy(code + 0x100, kNandCheck, sizeof(kNandCheck));
+    check(open_nand_permissions("test"));
+    check(open_nand_permissions("nested raw use"));
+    close_nand_permissions("nested raw use");
+    check(current == 0x428BE001u);
+    check(open_nand_permissions("another nested raw use"));
+    CloseAllNandPermissions("IOS reload");
+    check(current == kBefore && saved->magic == 0);
+    std::memset(code + 0x100, 0, sizeof(kNandCheck));
+    check(!open_nand_permissions("same IOS after reload"));
+    const unsigned scans_before_failure = scans;
+    {
+        NandPermissionSession failed("failed batch", false);
+        check(!failed.Open());
+        check(!failed.Open());
+    }
+    check(scans == scans_before_failure + 1 && protection == 1 && saved->magic == 0);
+
+    // A reload to another revision of the same IOS must not restore the
+    // old live note into new code, at either a close or another opening.
+    std::memcpy(code + 0x100, kNandCheck, sizeof(kNandCheck));
+    check(open_nand_permissions("before revision reload"));
+    ++revision;
+    current = kBefore;
+    const unsigned writes_before_revision_close = writes;
+    close_nand_permissions("after revision reload");
+    check(writes == writes_before_revision_close && saved->magic == 0);
+    check(open_nand_permissions("before another reload"));
+    ++revision;
+    // A branch already open in the new IOS belongs to that IOS, not to
+    // the old note. No restore or new patch is authorized by it.
+    current = 0x1234E001u;
+    const unsigned writes_before_revision_open = writes;
+    check(!open_nand_permissions("after another reload"));
+    check(writes == writes_before_revision_open && current == 0x1234E001u && saved->magic == 0);
     std::cout << failures << " NAND permission failures\n";
     return failures == 0 ? 0 : 1;
 }

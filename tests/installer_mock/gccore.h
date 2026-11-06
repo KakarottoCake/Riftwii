@@ -11,6 +11,7 @@ using u64 = std::uint64_t;
 using s32 = std::int32_t;
 
 int IOS_GetVersion();
+int IOS_GetRevision();
 u16 read16(u32 address);
 u32 read32(u32 address);
 void write16(u32 address, u16 value);

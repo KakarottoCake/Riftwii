@@ -5,6 +5,9 @@
 #include <gccore.h>
 #include <ogc/cache.h>
 #include <ogc/machine/processor.h>
+#include <ogc/mutex.h>
+
+#include <cstdio>
 
 #include "log.hpp"
 #include "memlimits.hpp"
@@ -17,7 +20,50 @@ NandPermissionNote* note() {
     return reinterpret_cast<NandPermissionNote*>(mem::kNandPermissionNote);
 }
 
-bool g_open = false;
+mutex_t g_lock = LWP_MUTEX_NULL;
+
+struct Locked {
+    Locked() : acquired(g_lock != LWP_MUTEX_NULL && LWP_MutexLock(g_lock) == 0) {}
+    ~Locked() {
+        if (acquired) LWP_MutexUnlock(g_lock);
+    }
+    Locked(const Locked&) = delete;
+    Locked& operator=(const Locked&) = delete;
+
+    bool acquired;
+};
+
+// Format while state is locked, then write to the SD log after unlocking.
+// An operation produces at most a search line and one result line.
+struct PermissionLog {
+    ~PermissionLog() {
+        for (unsigned line = 0; line < count; ++line) logf("%s", lines[line]);
+    }
+
+    template <typename... Args>
+    void Add(const char* format, Args... args) {
+        if (count == 2) return;
+        std::snprintf(lines[count], sizeof(lines[count]), format, args...);
+        ++count;
+    }
+
+    char lines[2][512]{};
+    unsigned count = 0;
+};
+
+unsigned g_users = 0;
+int g_open_ios = 0;
+int g_open_revision = 0;
+// A nested user may outlive the caller that supplied the opening label.
+char g_open_who[128] = {};
+
+struct CheckAddress {
+    int ios = 0;
+    int revision = 0;
+    u32 match = 0;
+    u32 before = 0;
+};
+CheckAddress g_check;
 const char* g_recovery = nullptr;
 u32 g_recovery_word = 0;
 
@@ -111,8 +157,18 @@ CloseResult Restore(u32& found) {
 
 }  // namespace
 
+void InitNandPermissionLock() {
+    // main calls this after memory setup and before starting any readers.
+    if (g_lock == LWP_MUTEX_NULL) LWP_MutexInit(&g_lock, false);
+}
+
 void RecoverNandPermissions() {
-    g_open = false;
+    // Startup only, before the mutex or any reader threads exist.
+    g_users = 0;
+    g_check = {};
+    g_open_ios = IOS_GetVersion();
+    g_open_revision = IOS_GetRevision();
+    std::snprintf(g_open_who, sizeof(g_open_who), "%s", "Start-up recovery");
     // No IOS requests, allocation or logging before the SD card is mounted.
     // Random game memory must never become a pointer to write through.
     if (!nand_permission_note_valid(*note())) return;
@@ -145,10 +201,28 @@ void LogNandPermissionRecovery() {
     g_recovery = nullptr;
 }
 
-bool open_nand_permissions(const char* who) {
-    if (g_open) return true;
+namespace {
+
+bool OpenPermissions(const char* who, PermissionLog& messages) {
+    const int ios = IOS_GetVersion();
+    const int revision = IOS_GetRevision();
+    if (g_users && g_open_ios == ios && g_open_revision == revision) {
+        ++g_users;
+        return true;
+    }
+    // Reloads through RiftWii clear this explicitly, including same-IOS
+    // reloads. Also discard a cache whose IOS identity changed elsewhere.
+    const bool ios_changed = g_open_ios != ios || g_open_revision != revision;
+    if (g_users || (ios_changed && nand_permission_note_valid(*note()))) {
+        // A known revision change is a reload too. Do not let the old
+        // live note authorize a restore into the new revision's code.
+        note()->magic = 0;
+        FlushNote();
+    }
+    g_users = 0;
+    if (g_check.ios != ios || g_check.revision != revision) g_check = {};
     if (read32(0x0D800064) != 0xFFFFFFFF) {
-        logf("%s: no hardware access; IOS%d is left as it is.\n", who, IOS_GetVersion());
+        messages.Add("%s: no hardware access; IOS%d is left as it is.\n", who, IOS_GetVersion());
         return false;
     }
     // A failed restore retains the note, and must not be overwritten by a
@@ -159,27 +233,50 @@ bool open_nand_permissions(const char* who) {
     if (nand_permission_note_valid(*note()) && note()->ios == static_cast<u32>(IOS_GetVersion())) {
         const CloseResult earlier = Restore(found);
         if (earlier != CloseResult::closed && nand_permission_note_valid(*note())) {
-            logf("%s: the earlier NAND permission patch could not be closed%s; no new patch was made.\n", who,
-                 earlier == CloseResult::unreachable ? " (memory protection did not turn off)" : "");
+            messages.Add("%s: the earlier NAND permission patch could not be closed%s; no new patch was made.\n", who,
+                         earlier == CloseResult::unreachable ? " (memory protection did not turn off)" : "");
             return false;
         }
     }
     constexpr u32 kFrom = 0xD3400000, kTo = 0xD4000000;
-    logf("%s: checking IOS%d's NAND permission code before opening it.\n", who, IOS_GetVersion());
     u16 protection = 0;
     if (!UnprotectIosCode(protection)) {
-        logf("%s: IOS%d's memory protection did not turn off; IOS is left as it is.\n", who, IOS_GetVersion());
+        messages.Add("%s: IOS%d's memory protection did not turn off; IOS is left as it is.\n", who, IOS_GetVersion());
         return false;
     }
-    std::size_t at = 0;
-    if (!find_nand_check(reinterpret_cast<const u8*>(kFrom), kTo - kFrom, at)) {
-        write16(kMemProt, protection);
-        logf("%s: IOS%d's NAND permission check was not found.\n", who, IOS_GetVersion());
-        return false;
+    if (g_check.match) {
+        const NandCheckStore cached = nand_check_store(g_check.match);
+        if (read32(cached.word) != g_check.before) g_check = {};
     }
-    const u32 match = kFrom + static_cast<u32>(at);
+    if (!g_check.match) {
+        messages.Add("%s: checking IOS%d's NAND permission code before opening it.\n", who, ios);
+        std::size_t at = 0;
+        if (!find_nand_check(reinterpret_cast<const u8*>(kFrom), kTo - kFrom, at)) {
+            write16(kMemProt, protection);
+            messages.Add("%s: IOS%d's NAND permission check was not found.\n", who, ios);
+            return false;
+        }
+        const u32 match = kFrom + static_cast<u32>(at);
+        const NandCheckStore store = nand_check_store(match);
+        const u32 before = read32(store.word);
+        // The search and store are separate reads. Never patch a branch
+        // that stopped being the original check in between them.
+        if (nand_check_half(before, store.shift) != 0xD001) {
+            write16(kMemProt, protection);
+            messages.Add("%s: IOS%d's NAND permission code changed before it could be opened.\n", who, ios);
+            return false;
+        }
+        g_check = {ios, revision, match, before};
+    }
+    const u32 match = g_check.match;
     const NandCheckStore store = nand_check_store(match);
     const u32 before = read32(store.word);
+    if (before != g_check.before) {
+        g_check = {};
+        write16(kMemProt, protection);
+        messages.Add("%s: IOS%d's NAND permission code changed before it could be opened.\n", who, ios);
+        return false;
+    }
     const u32 after = nand_check_opened(before, store.shift);
     NandPermissionNote saved;
     saved.magic = 0x52574E50;
@@ -190,6 +287,9 @@ bool open_nand_permissions(const char* who) {
     saved.shift = store.shift;
     saved.left = before;
     saved.checksum = nand_permission_checksum(saved);
+    g_open_ios = ios;
+    g_open_revision = revision;
+    std::snprintf(g_open_who, sizeof(g_open_who), "%s", who);
     *note() = saved;
     FlushNote();
     // One aligned 32-bit store: smaller uncached stores have hung consoles.
@@ -214,48 +314,88 @@ bool open_nand_permissions(const char* who) {
             note()->checksum = nand_permission_checksum(*note());
         }
         FlushNote();
-        logf("%s: IOS%d's NAND permission write at 0x%08x failed (read 0x%08x).\n",
-             who, IOS_GetVersion(), store.word, read_back);
+        messages.Add("%s: IOS%d's NAND permission write at 0x%08x failed (read 0x%08x).\n",
+                     who, IOS_GetVersion(), store.word, read_back);
         return false;
     }
     note()->opened = 1;
     note()->left = after;
     note()->checksum = nand_permission_checksum(*note());
     FlushNote();
-    g_open = true;
-    logf("%s: IOS%d's NAND permission check opened at 0x%08x.\n", who, IOS_GetVersion(), match);
+    g_users = 1;
+    messages.Add("%s: IOS%d's NAND permission check opened at 0x%08x.\n", who, IOS_GetVersion(), match);
     return true;
 }
 
-void close_nand_permissions(const char* who) {
-    if (!g_open) return;
-    g_open = false;
+void ClosePermissions(const char* who, PermissionLog& messages, bool all = false) {
+    if (all) {
+        const bool had_users = g_users != 0;
+        g_users = 0;
+        // A failed close or opening rollback can leave cleanup with no users.
+        if (!had_users && !nand_permission_note_valid(*note())) return;
+    } else {
+        if (g_users == 0) return;
+        if (--g_users != 0) return;
+    }
+    // Attribute the one close to the batch that made the opening, even
+    // if its last nested user is the one to release it.
+    who = g_open_who;
     if (!nand_permission_note_valid(*note())) {
-        logf("%s: the NAND permission patch's saved state is damaged; IOS was left as it is.\n", who);
+        messages.Add("%s: the NAND permission patch's saved state is damaged; IOS was left as it is.\n", who);
         return;
     }
     const NandPermissionNote saved = *note();
-    if (saved.ios != static_cast<u32>(IOS_GetVersion()) || read32(0x0D800064) != 0xFFFFFFFF) {
-        logf("%s: the NAND permission check cannot be restored under this IOS or without hardware access.\n", who);
+    const bool ios_changed = saved.ios != static_cast<u32>(IOS_GetVersion()) || g_open_revision != IOS_GetRevision();
+    if (ios_changed || read32(0x0D800064) != 0xFFFFFFFF) {
+        g_check = {};
+        if (ios_changed) {
+            note()->magic = 0;
+            FlushNote();
+        }
+        messages.Add("%s: the NAND permission check cannot be restored under this IOS or without hardware access.\n", who);
         return;
     }
     u32 found = 0;
     switch (Restore(found)) {
     case CloseResult::closed:
-        logf("%s: IOS%d's NAND permission check closed (word 0x%08x, expected 0x%08x).\n", who, IOS_GetVersion(),
-             saved.word, saved.after);
+        messages.Add("%s: IOS%d's NAND permission check closed (word 0x%08x, expected 0x%08x).\n",
+                     who, IOS_GetVersion(), saved.word, saved.after);
         break;
     case CloseResult::left:
-        logf("%s: IOS%d's NAND permission check changed or could not be closed (word 0x%08x read 0x%08x, "
-             "original 0x%08x, opened 0x%08x).\n",
-             who, IOS_GetVersion(), saved.word, found, saved.before, saved.after);
+        messages.Add("%s: IOS%d's NAND permission check changed or could not be closed (word 0x%08x read 0x%08x, "
+                     "original 0x%08x, opened 0x%08x).\n",
+                     who, IOS_GetVersion(), saved.word, found, saved.before, saved.after);
         break;
     case CloseResult::unreachable:
-        logf("%s: IOS%d's memory protection did not turn off, so its NAND permission check (word 0x%08x) was "
-             "not read or closed; the next opening or start tries the close again.\n",
-             who, IOS_GetVersion(), saved.word);
+        messages.Add("%s: IOS%d's memory protection did not turn off, so its NAND permission check (word 0x%08x) was "
+                     "not read or closed; the next opening or start tries the close again.\n",
+                     who, IOS_GetVersion(), saved.word);
         break;
     }
+}
+
+}  // namespace
+
+bool open_nand_permissions(const char* who) {
+    PermissionLog messages;
+    Locked lock;
+    if (!lock.acquired) return false;
+    return OpenPermissions(who, messages);
+}
+
+void close_nand_permissions(const char* who) {
+    PermissionLog messages;
+    Locked lock;
+    if (!lock.acquired) return;
+    ClosePermissions(who, messages);
+}
+
+void CloseAllNandPermissions(const char* who) {
+    PermissionLog messages;
+    Locked lock;
+    if (!lock.acquired) return;
+    ClosePermissions(who, messages, true);
+    g_check = {};
 }
 
 }  // namespace riftwii::wii

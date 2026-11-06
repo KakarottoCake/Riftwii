@@ -92,7 +92,7 @@ bool WiiMenuContentReader::Read(const TmdContent& content, void* buffer, std::si
     if (fd < 0) {
         // `why` keeps ES's refusal when the NAND fails too.
         std::string nand_why;
-        if (ReadMenuContentFromNand(content, buffer, log_name_, nand_why)) {
+        if (ReadMenuContentFromNand(content, buffer, log_name_, nand_why, &permissions_)) {
             logf("%s: read from the NAND, as ES refused it\n", log_name_);
             return true;
         }

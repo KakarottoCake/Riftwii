@@ -7,6 +7,8 @@
 #include <gccore.h>
 
 #include <cstdlib>
+#include <cstdarg>
+#include <cstdio>
 #include <cstring>
 #include <iostream>
 #include <map>
@@ -15,6 +17,7 @@
 
 #include "nandpermissions.hpp"
 #include "nanduse.hpp"
+#include "log.hpp"
 
 using namespace riftwii;
 using namespace riftwii::wii;
@@ -31,6 +34,10 @@ int permission_opens = 0;
 int permission_closes = 0;
 int nand_users = 0;
 int open_fds = 0;
+int unpatched_opens = 0;
+bool permissions_available = true;
+bool refuse_when_open = false;
+std::string logs;
 s32 short_read_by = 0;
 
 void Reset() {
@@ -39,6 +46,10 @@ void Reset() {
     protected_path.clear();
     permissions_open = false;
     permission_opens = permission_closes = nand_users = open_fds = 0;
+    unpatched_opens = 0;
+    permissions_available = true;
+    refuse_when_open = false;
+    logs.clear();
     short_read_by = 0;
 }
 
@@ -101,6 +112,36 @@ void TestPermissionCheck() {
     EXPECT(permission_opens == 1);
     EXPECT(permission_closes == 1);
     EXPECT(!permissions_open);
+    EXPECT(unpatched_opens == 0);
+
+    // One reader session covers the shared map and contents across many
+    // reads, and a refusal while patched says exactly that in the log.
+    Reset();
+    AddToContentMap("0000000c", 0x99);
+    protected_path = "/shared1/content.map";
+    files["/shared1/0000000c.app"] = Bytes(32, 0x44);
+    {
+        NandPermissionSession batch("Wii Menu sounds", false);
+        EXPECT(ReadMenuContentFromNand(Content(5, 0x8001, 32, 0x99), buffer.data(), "Wii Menu sounds", why, &batch));
+        EXPECT(ReadMenuContentFromNand(Content(5, 0x8001, 32, 0x99), buffer.data(), "Wii Menu sounds", why, &batch));
+        EXPECT(permission_opens == 1 && permission_closes == 0 && unpatched_opens == 0);
+        refuse_when_open = true;
+        EXPECT(!ReadMenuContentFromNand(Content(5, 0x8001, 32, 0x99), buffer.data(), "Wii Menu sounds", why, &batch));
+        EXPECT(logs.find("/shared1/content.map was still refused (-102) with the NAND permission check open") !=
+               std::string::npos);
+    }
+    EXPECT(permission_closes == 1 && !permissions_open && open_fds == 0 && nand_users == 0);
+
+    Reset();
+    permissions_available = false;
+    protected_path = "/shared1/content.map";
+    {
+        NandPermissionSession batch("unavailable", false);
+        EXPECT(!ReadMenuContentFromNand(Content(5, 0x8001, 32, 0x99), buffer.data(), "unavailable", why, &batch));
+        EXPECT(!ReadMenuContentFromNand(Content(5, 0x8001, 32, 0x99), buffer.data(), "unavailable", why, &batch));
+    }
+    EXPECT(permission_opens == 1 && permission_closes == 0 && nand_users == 0 && open_fds == 0);
+    EXPECT(logs.empty());  // never claim the check opened when it did not
 }
 
 void TestFailures() {
@@ -146,8 +187,8 @@ void riftwii::wii::NandClose() { --nand_users; }
 
 bool riftwii::wii::open_nand_permissions(const char*) {
     ++permission_opens;
-    permissions_open = true;
-    return true;
+    permissions_open = permissions_available;
+    return permissions_available;
 }
 void riftwii::wii::close_nand_permissions(const char*) {
     ++permission_closes;
@@ -156,7 +197,8 @@ void riftwii::wii::close_nand_permissions(const char*) {
 
 s32 ISFS_Open(const char* path, u8 mode) {
     EXPECT(mode == ISFS_OPEN_READ);
-    if (path == protected_path && !permissions_open) return -102;
+    if (!permissions_open) ++unpatched_opens;
+    if (path == protected_path && (!permissions_open || refuse_when_open)) return -102;
     if (!files.count(path)) return -106;
     opened_files.push_back(path);
     ++open_fds;
@@ -175,6 +217,15 @@ s32 ISFS_Read(s32 fd, void* data, u32 size) {
     const u32 got = std::min<u32>(size, static_cast<u32>(file.size())) - static_cast<u32>(short_read_by);
     std::memcpy(data, file.data(), got);
     return static_cast<s32>(got);
+}
+
+void riftwii::wii::logf(const char* format, ...) {
+    char line[256];
+    va_list args;
+    va_start(args, format);
+    std::vsnprintf(line, sizeof line, format, args);
+    va_end(args);
+    logs += line;
 }
 
 int main() {

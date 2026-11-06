@@ -18,6 +18,7 @@
 #include "boot.hpp"
 #include "log.hpp"
 #include "nanduse.hpp"
+#include "nandpermissions.hpp"
 #include "otpkey.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/sha1.hpp"
@@ -101,9 +102,16 @@ const char* isfs_path(const std::string& path) {
     return name;
 }
 
+void log_nand_refusal(const std::string& path, s32 result, bool permissions_open) {
+    if (result == -102 && permissions_open) {
+        logf("SD card channels: %s was still refused (-102) with the NAND permission check open.\n", path.c_str());
+    }
+}
+
 // The size of a NAND file, or -1 when it is not there or cannot be read.
-s64 nand_file_size(const std::string& path) {
+s64 nand_file_size(const std::string& path, bool permissions_open) {
     const s32 fd = ISFS_Open(isfs_path(path), ISFS_OPEN_READ);
+    log_nand_refusal(path, fd, permissions_open);
     if (fd < 0) return -1;
     static fstats stats ATTRIBUTE_ALIGN(32);
     const s64 size = ISFS_GetFileStats(fd, &stats) < 0 ? -1 : static_cast<s64>(stats.file_length);
@@ -113,8 +121,9 @@ s64 nand_file_size(const std::string& path) {
 
 // Whether the NAND file's bytes are the content's: its full size and the
 // TMD's hash. False when it cannot be read.
-bool nand_file_matches(const std::string& path, const TmdContent& content) {
+bool nand_file_matches(const std::string& path, const TmdContent& content, bool permissions_open) {
     const s32 fd = ISFS_Open(isfs_path(path), ISFS_OPEN_READ);
+    log_nand_refusal(path, fd, permissions_open);
     if (fd < 0) return false;
     AlignedBuffer buffer = aligned(kChunkBytes);
     Sha1 hash;
@@ -134,11 +143,12 @@ bool nand_file_matches(const std::string& path, const TmdContent& content) {
 
 // Whether the NAND file is a copy staging made (kStagedAttribute). 1 when
 // it is, 0 when it is another's, -106 when it is not there, else an error.
-s32 staged_by_riftwii(const std::string& path) {
+s32 staged_by_riftwii(const std::string& path, bool permissions_open) {
     u32 owner = 0;
     u16 group = 0;
     u8 attribute = 0, owner_perm = 0, group_perm = 0, other_perm = 0;
     const s32 result = ISFS_GetAttr(isfs_path(path), &owner, &group, &attribute, &owner_perm, &group_perm, &other_perm);
+    log_nand_refusal(path, result, permissions_open);
     if (result < 0) return result;
     return attribute == kStagedAttribute ? 1 : 0;
 }
@@ -288,13 +298,13 @@ bool read_stored_tmd(std::uint64_t title_id, TmdContents& out, std::string& erro
 
 // Whether each of the title's own contents is on the Wii at its full
 // size, so it starts without the card's copy.
-bool title_contents_on_wii(std::uint64_t title_id) {
+bool title_contents_on_wii(std::uint64_t title_id, bool permissions_open) {
     TmdContents tmd;
     std::string ignored;
     if (!read_stored_tmd(title_id, tmd, ignored)) return false;
     for (const TmdContent& c : tmd.contents) {
         if ((c.type & 0x8000) != 0) continue;  // shared: in /shared1, never moved
-        if (nand_file_size(nand_content_path(title_id, c.id)) != static_cast<s64>(c.size)) return false;
+        if (nand_file_size(nand_content_path(title_id, c.id), permissions_open) != static_cast<s64>(c.size)) return false;
     }
     return true;
 }
@@ -467,18 +477,13 @@ bool stage_moved_channel(std::uint64_t title_id, const std::function<void(double
     // The title's content folder belongs to ES: the running IOS refuses it
     // to an app, both what is there and writing to it, until the
     // permission check is opened. RiftWii writes there only for this.
-    struct Permissions {
-        bool opened = open_nand_permissions("SD card channels");
-        ~Permissions() {
-            if (opened) close_nand_permissions("SD card channels");
-        }
-    } permissions;
+    NandPermissionSession permissions("SD card channels");
     MovedChannel moved;
     logf("Wii channels: opening %s before staging its contents.\n", path.c_str());
     if (!moved.open(path, title_id, error)) {
         // A content.bin left on the card (damaged, another Wii's, or older
         // than the channel) does not stop a channel the Wii has in full.
-        if (!title_contents_on_wii(title_id)) return false;
+        if (!title_contents_on_wii(title_id, permissions.IsOpen())) return false;
         logf("Wii channels: %s is on the Wii in full; %s is not used (%s)\n", code.c_str(), path.c_str(),
              error.c_str());
         error.clear();
@@ -496,20 +501,20 @@ bool stage_moved_channel(std::uint64_t title_id, const std::function<void(double
         if (!moved.has(c.id)) continue;
         const std::string to = nand_content_path(title_id, c.id);
         logf("Wii channels: checking %s before staging it.\n", to.c_str());
-        const s32 ours = staged_by_riftwii(to);
+        const s32 ours = staged_by_riftwii(to, permissions.IsOpen());
         const bool absent = ours == -106;
         if (ours < 0 && !absent) {
             error = to + " could not be checked on the Wii (" + std::to_string(ours) + ")";
             return false;
         }
         if (ours == 0) {
-            const s64 size = nand_file_size(to);
+            const s64 size = nand_file_size(to, permissions.IsOpen());
             if (size == static_cast<s64>(c.size)) continue;
             error = size < 0 ? to + " is on the Wii but could not be read, and it is not a copy RiftWii made"
                              : to + " is on the Wii already at another size, and it is not a copy RiftWii made";
             return false;
         }
-        if (!absent && nand_file_matches(to, c)) continue;
+        if (!absent && nand_file_matches(to, c, permissions.IsOpen())) continue;
         missing.push_back(c);
         total += c.size;
     }
@@ -542,6 +547,7 @@ bool stage_moved_channel(std::uint64_t title_id, const std::function<void(double
         // Undone from here on, even when it cannot be opened.
         if (result >= 0) written.push_back(to);
         const s32 fd = result < 0 ? result : ISFS_Open(isfs_path(to), ISFS_OPEN_WRITE);
+        log_nand_refusal(to, fd, permissions.IsOpen());
         if (fd < 0) {
             error = to + " could not be created on the Wii (" + std::to_string(fd) + ")";
             ok = false;
@@ -590,8 +596,10 @@ void UnstageMovedChannels() {
     // Tried without the opened check too, as staging is: an IOS that lets
     // RiftWii write the copies (Dolphin's has no check to open) lets it
     // remove them, and one that refuses keeps each path for next time.
-    if (!open_nand_permissions("SD card channels"))
+    NandPermissionSession permissions("SD card channels");
+    if (!permissions.IsOpen()) {
         logf("Wii channels: removing the SD card channels' copies without the NAND permission check opened\n");
+    }
     unsigned removed = 0, kept = 0;
     std::vector<std::string> left;
     // The content.bin of the title the last paths were under, opened once.
@@ -609,7 +617,7 @@ void UnstageMovedChannels() {
         }
         // Only RiftWii's own copies: not a file ES installed, which the list
         // on the card cannot vouch for.
-        const s32 ours = staged_by_riftwii(path);
+        const s32 ours = staged_by_riftwii(path, permissions.IsOpen());
         if (ours == -106) {  // already gone
             ++removed;
             continue;
@@ -650,13 +658,13 @@ void UnstageMovedChannels() {
             continue;
         }
         const s32 result = ISFS_Delete(isfs_path(path));
+        log_nand_refusal(path, result, permissions.IsOpen());
         if (result >= 0 || result == -106) {
             ++removed;
         } else {
             left.push_back(path);
         }
     }
-    close_nand_permissions("SD card channels");
     NandClose();
     if (!write_staged(left)) {
         logf("Wii channels: the SD card channels' cleanup list could not be rewritten; its recovery copies are kept\n");

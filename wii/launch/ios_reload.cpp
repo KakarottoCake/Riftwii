@@ -28,6 +28,7 @@
 #include "disclight.hpp"
 #include "gcadapter.hpp"
 #include "memlimits.hpp"
+#include "nandpermissions.hpp"
 #include "menumusic.hpp"
 #include "netsock.hpp"
 #include "umsdev.hpp"
@@ -147,7 +148,7 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
     // The running IOS's NAND permission check, put back while that IOS is
     // still there to put it back in: open, it would read as open for the
     // next IOS too, which nobody patched.
-    close_nand_permissions("IOS reload");
+    CloseAllNandPermissions("IOS reload");
     NandCloseAll();
     __IOS_ShutdownSubsystems();
     s32 res = __ES_Init();

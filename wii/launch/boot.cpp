@@ -82,6 +82,7 @@
 #include "riftwii/wpadlog.hpp"
 #include "dolboot.h"
 #include "nanduse.hpp"
+#include "nandpermissions.hpp"
 
 namespace riftwii::wii {
 
@@ -2601,7 +2602,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // nothing before it fails, and its "GameCube adapter: off" line says why.
     plan_game_extras(dol, extras_context, extras);
     // Never left open for the game (it may keep this IOS).
-    close_nand_permissions("Launch");
+    CloseAllNandPermissions("Launch");
     logf("Handing over\n");
 
     // Low-memory globals the SDK expects from the System Menu (wiibrew
@@ -3319,8 +3320,7 @@ void write_play_log(const DiscProbe& probe, const std::array<std::string, 10>& b
     alignas(32) static u8 buffer[kPlayLogBytes];
     std::memcpy(buffer, record.data(), sizeof buffer);
     s32 r = NandOpen();
-    if (r >= 0) r = write_play_file(buffer, sizeof buffer);
-    if (r == -102) {
+    if (r >= 0) {
         // As for the Menu font (wii/main.cpp): a marker on the card while
         // IOS is patched, so a console the patch stops is not stopped at
         // every launch. Found at the next launch, the entry is skipped.
@@ -3331,8 +3331,13 @@ void write_play_log(const DiscProbe& probe, const std::array<std::string, 10>& b
             logf("Message Board: stopped RiftWii last time (%s was left); not written this time\n", kTry);
         } else {
             if (FILE* m = std::fopen(kTry, "wb")) std::fclose(m);
-            if (open_nand_permissions("Message Board")) r = write_play_file(buffer, sizeof buffer);
-            close_nand_permissions("Message Board");
+            {
+                NandPermissionSession permissions("Message Board");
+                r = write_play_file(buffer, sizeof buffer);
+                if (r == -102 && permissions.IsOpen()) {
+                    logf("Message Board: play_rec.dat was still refused (-102) with the NAND permission check open.\n");
+                }
+            }
             std::remove(kTry);
         }
     }

@@ -7,6 +7,7 @@
 #include <ogc/es.h>
 
 #include "riftwii/nandchannel.hpp"
+#include "nandpermissions.hpp"
 
 namespace riftwii::wii {
 
@@ -20,7 +21,7 @@ MenuContentBuffer AllocateMenuContentBuffer(std::size_t size, std::string& why);
 // the NAND's own copy (ReadMenuContentFromNand).
 class WiiMenuContentReader {
 public:
-    explicit WiiMenuContentReader(const char* log_name) : log_name_(log_name) {}
+    explicit WiiMenuContentReader(const char* log_name) : log_name_(log_name), permissions_(log_name, false) {}
     bool Open(std::string& why);
     const TmdContents& Metadata() const { return metadata_; }
     const TmdContent* FindHash(const std::uint8_t* hash) const;
@@ -30,6 +31,7 @@ public:
 private:
     bool Failed(const char* call, s32 code, std::string& why) const;
     const char* log_name_;
+    mutable NandPermissionSession permissions_;
     TmdContents metadata_;
     alignas(32) tikview views_[16]{};
     u32 view_count_ = 0;
@@ -38,8 +40,9 @@ private:
 // `content` (content.size bytes into a 32-byte aligned buffer) read from
 // its file on the NAND: a shared one by the name content.map gives its
 // hash, any other from the System Menu's title folder. Opens IOS's NAND
-// permission check when refused, which needs hardware access. `who` starts
-// the log lines (wii/menu/wiimenunand.cpp).
-bool ReadMenuContentFromNand(const TmdContent& content, void* buffer, const char* who, std::string& why);
+// permission check before the first file, which needs hardware access.
+// A reader supplies its session to keep it open across all its contents.
+bool ReadMenuContentFromNand(const TmdContent& content, void* buffer, const char* who, std::string& why,
+                             NandPermissionSession* permissions = nullptr);
 
 }  // namespace riftwii::wii
