@@ -48,6 +48,13 @@ PADOUT  := $(OUT)/pad
 PADBLOB := $(OUT)/riftwii_pad.bin
 PADOBJS := $(PADOUT)/pad_entry.o $(PADOUT)/pad_hook.o $(PADOUT)/rtgcad.o $(PADOUT)/rthid.o $(PADOUT)/rtleave.o
 
+# The same blob for a game where the adapter is the only USB controller
+# that can be used (wiiu#45): built with GCAD_ADAPTER_ONLY, which leaves
+# out the code for other USB pads (HID, Xbox 360, Switch Pro).
+PADAOUT  := $(OUT)/pada
+PADABLOB := $(OUT)/riftwii_pada.bin
+PADAOBJS := $(PADAOUT)/pad_entry.o $(PADAOUT)/pad_hook.o $(PADAOUT)/rtgcad.o $(PADAOUT)/rtleave.o
+
 # The GameCube disc blob (runtime/gc): a GameCube game's DVDLow*
 # functions served from the SD card in Wii mode.
 GCSRC   := runtime/gc
@@ -142,7 +149,7 @@ STUBBLOB := $(OUT)/riftwii_stub.bin
 STUBOBJS := $(STUBOUT)/stub_start.o $(STUBOUT)/stub_main.o
 
 .PHONY: all clean
-all: $(BLOB) $(PADBLOB) $(GCBLOB) $(SHOTBLOB) $(FAULTBLOB) $(WLOGBLOB) $(VSDBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST) \
+all: $(BLOB) $(PADBLOB) $(PADABLOB) $(GCBLOB) $(SHOTBLOB) $(FAULTBLOB) $(WLOGBLOB) $(VSDBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST) \
      $(GCRVZBLOB) $(GCRVZZST) $(DOLPACK) $(STUBBLOB)
 
 $(DPOUT):
@@ -247,6 +254,36 @@ $(PADBLOB): $(PADOUT)/riftwii_pad.elf $(PADOUT)/riftwii_pad_alt.elf
 	$(OBJCOPY) -O binary $(PADOUT)/riftwii_pad_alt.elf $(PADOUT)/riftwii_pad_alt.bin
 	@cmp $@ $(PADOUT)/riftwii_pad_alt.bin || { echo "runtime: pad blob differs between link bases; not position independent"; rm -f $@; exit 1; }
 	@echo "pad blob: $$(stat -c %s $@) bytes"
+
+$(PADAOUT):
+	@mkdir -p $(PADAOUT)
+
+$(PADAOUT)/pad_entry.o: $(PADSRC)/pad_entry.S $(PADSRC)/pad_hook.h runtime/rtleave.h | $(PADAOUT)
+	$(CC) $(CFLAGS) -DGCAD_ADAPTER_ONLY -I$(PADSRC) -c -o $@ $<
+
+$(PADAOUT)/pad_hook.o: $(PADSRC)/pad_hook.c $(PADSRC)/pad_hook.h runtime/rtgcad.h runtime/rthid.h runtime/rtleave.h | $(PADAOUT)
+	$(CC) $(CFLAGS) -DGCAD_ADAPTER_ONLY -I$(PADSRC) -c -o $@ $<
+
+$(PADAOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h runtime/rthid.h | $(PADAOUT)
+	$(CC) $(CFLAGS) -DGCAD_ADAPTER_ONLY -c -o $@ $<
+
+$(PADAOUT)/rtleave.o: runtime/rtleave.c runtime/rtleave.h | $(PADAOUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(PADAOUT)/riftwii_pada.elf: $(PADAOBJS) $(PADSRC)/pad.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(PADSRC)/pad.ld \
+		-Wl,--defsym,RT_BASE=0x00000000 -o $@ $(PADAOBJS) -lgcc
+	@$(SIZE) -A $@ | awk '$$1 ~ /^\.(rodata|data|bss)$$/ && $$2 != 0 { print "runtime: section " $$1 " is not empty (" $$2 " bytes) in the adapter-only pad blob"; bad = 1 } END { exit bad }'
+
+$(PADAOUT)/riftwii_pada_alt.elf: $(PADAOBJS) $(PADSRC)/pad.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(PADSRC)/pad.ld \
+		-Wl,--defsym,RT_BASE=0x12340000 -o $@ $(PADAOBJS) -lgcc
+
+$(PADABLOB): $(PADAOUT)/riftwii_pada.elf $(PADAOUT)/riftwii_pada_alt.elf
+	$(OBJCOPY) -O binary $(PADAOUT)/riftwii_pada.elf $@
+	$(OBJCOPY) -O binary $(PADAOUT)/riftwii_pada_alt.elf $(PADAOUT)/riftwii_pada_alt.bin
+	@cmp $@ $(PADAOUT)/riftwii_pada_alt.bin || { echo "runtime: adapter-only pad blob differs between link bases; not position independent"; rm -f $@; exit 1; }
+	@echo "adapter-only pad blob: $$(stat -c %s $@) bytes"
 
 $(GCOUT):
 	@mkdir -p $(GCOUT)

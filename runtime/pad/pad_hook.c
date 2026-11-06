@@ -119,17 +119,21 @@ void gcad_env_event(gcad* g, uint32_t code, uint32_t a, int32_t b) {
 static gcad* state(struct rt_pad_context* c) {
     gcad* g = (gcad*)(uintptr_t)c->state;
     if (!c->inited) {
-        if (c->flags & RT_PAD_FLAG_ADAPTER_ONLY) {
-            /* No links, catalog or ven list (none could be used): the
-             * driver reads null peers as no other USB pad. */
-            gcad_init(g, c, c->fd, c->version, c->ticks_per_ms);
-            if (c->known_dev != GCAD_NO_DEVICE) gcad_expect(g, c->known_dev);
-        } else {
+#ifndef GCAD_ADAPTER_ONLY
+        if (!(c->flags & RT_PAD_FLAG_ADAPTER_ONLY)) {
             gcad_hub* hub = (gcad_hub*)(void*)g;
             gcad_hub_init(hub, c, c->fd, c->version, c->ticks_per_ms);
             if (c->known_dev != GCAD_NO_DEVICE) gcad_expect(g, c->known_dev);
             if (c->ven_fd >= 0) gcad_ven_init(g, &hub->ven, hub->xbox, c, c->ven_fd, c->ticks_per_ms);
+            c->inited = 1;
+            return g;
         }
+#endif
+        /* No links, catalog or ven list (none could be used): the
+         * driver reads null peers as no other USB pad. The adapter-only
+         * blob (GCAD_ADAPTER_ONLY) has only this. */
+        gcad_init(g, c, c->fd, c->version, c->ticks_per_ms);
+        if (c->known_dev != GCAD_NO_DEVICE) gcad_expect(g, c->known_dev);
 
         c->inited = 1;
     }
