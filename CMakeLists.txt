@@ -292,6 +292,16 @@ if(BUILD_TESTING)
         target_compile_options(memorybudget_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME memorybudget COMMAND memorybudget_tests)
+    # The adapter-only pad blob's driver (runtime/pad, wiiu#45): the
+    # adapter's tests again, against rtgcad.c built without the other USB
+    # pads' code. Its own copy of rtgcad.c takes the library's place.
+    add_executable(gcad_adapteronly_tests tests/gcad_tests.cpp runtime/rtgcad.c)
+    target_compile_definitions(gcad_adapteronly_tests PRIVATE GCAD_ADAPTER_ONLY)
+    target_link_libraries(gcad_adapteronly_tests PRIVATE riftwii)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(gcad_adapteronly_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME gcad_adapteronly COMMAND gcad_adapteronly_tests)
     add_executable(packcatalog_tests tests/packcatalog_tests.cpp wii/menu/packcatalog.cpp)
     target_include_directories(packcatalog_tests PRIVATE wii/menu wii/core wii/launch wii/storage wii/online)
     target_link_libraries(packcatalog_tests PRIVATE riftwii)
