@@ -418,6 +418,14 @@ void test_slot_b_codes() {
     EXPECT_TRUE(gct_runs_before_start(list, 0x80A00000u, 0x81800000u));
     EXPECT_EQ(switch_off_slot_b_codes(list).size(), 1u);
     EXPECT_TRUE(gct_runs_before_start(list, 0x80A00000u, 0x81800000u));
+    // Only that goto counts: none with no lines, one past the end of the
+    // list, or one with anything in its second word.
+    const std::uint32_t goto_none[] = {0x66200000, 0x00000000};
+    const std::uint32_t goto_past[] = {0x66200003, 0x00000000, 0x60000000, 0x60000000};
+    const std::uint32_t goto_value[] = {0x66200001, 0x00000001, 0x60000000, 0x60000000};
+    EXPECT_FALSE(gct_runs_before_start(list_of({goto_none}, {2}), 0x80A00000u, 0x81800000u));
+    EXPECT_FALSE(gct_runs_before_start(list_of({goto_past}, {4}), 0x80A00000u, 0x81800000u));
+    EXPECT_FALSE(gct_runs_before_start(list_of({goto_value}, {4}), 0x80A00000u, 0x81800000u));
 
     // A C0 code (it runs where it is) has no address of its own.
     std::uint32_t rex_log_c0[sizeof(rex_log) / 4];
@@ -488,8 +496,24 @@ void test_slot_b_codes() {
     // Not a list: untouched.
     Bytes broken = {0x00, 0xD0, 0xC0, 0xDE, 0x00, 0xD0, 0xC0, 0xDE, 0xC2, 0x3F};
     unchanged = broken;
-    EXPECT_EQ(switch_off_slot_b_codes(broken).size(), 0u);
+    EXPECT_EQ(switch_off_slot_b_codes(broken, &scan).size(), 0u);
     EXPECT_TRUE(broken == unchanged);
+    EXPECT_FALSE(scan.valid);
+    EXPECT_FALSE(scan.complete);
+    // Headed and in whole lines, but without the end code: not whole
+    // either, so not looked at (and kept out on a Wii U).
+    Bytes no_end;
+    put(no_end, 0x00D0C0DE);
+    put(no_end, 0x00D0C0DE);
+    for (const std::uint32_t w : rex_log) put(no_end, w);
+    unchanged = no_end;
+    EXPECT_EQ(switch_off_slot_b_codes(no_end, &scan).size(), 0u);
+    EXPECT_TRUE(no_end == unchanged);
+    EXPECT_FALSE(scan.valid);
+    // A whole list says so.
+    list = list_of({rex_flag}, {flag_words});
+    switch_off_slot_b_codes(list, &scan);
+    EXPECT_TRUE(scan.valid);
 }
 
 int main(int argc, char** argv) {

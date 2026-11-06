@@ -280,6 +280,13 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
     if (!g_extras.cheat_gct.empty() && (is_wii_u() || mem::TestWiiUCardSlots()) && !debug_off("slotb")) {
         SlotBScan scan;
         const std::vector<SlotBCode> switched_off = switch_off_slot_b_codes(g_extras.cheat_gct, &scan);
+        if (!scan.valid) {
+            // Its slot B codes, if any, couldn't be found: left out
+            // rather than risk a black screen.
+            why = "the code list isn't whole (it has no end line), so it couldn't be checked for codes that write to "
+                  "memory card slot B, which a Wii U doesn't have";
+            return false;
+        }
         if (!scan.complete) {
             logf("Codes: the check for memory card slot B codes stopped at line %u (code type %02X, whose size "
                  "it can't tell); the codes after it were left as they are\n",

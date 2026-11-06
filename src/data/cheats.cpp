@@ -851,7 +851,15 @@ bool lines_after(std::uint32_t type, std::uint32_t value, std::size_t& extra) {
 std::vector<SlotBCode> switch_off_slot_b_codes(std::vector<std::uint8_t>& gct, SlotBScan* scan) {
     std::vector<SlotBCode> switched_off;
     if (scan != nullptr) *scan = SlotBScan{};
-    if (!valid_gct(gct)) return switched_off;
+    if (!valid_gct(gct)) {
+        // Not a whole list (another loader's, without its end code): it
+        // can't be walked, so it isn't checked at all.
+        if (scan != nullptr) {
+            scan->valid = false;
+            scan->complete = false;
+        }
+        return switched_off;
+    }
     const std::size_t end = gct.size() - 8;
     // A goto's line count is a signed 16-bit number.
     constexpr std::uint32_t kGotoMaxLines = 0x7FFF;

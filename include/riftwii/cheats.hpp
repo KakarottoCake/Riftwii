@@ -169,6 +169,7 @@ struct SlotBCode {
 // the hardware's high half and use a slot B register's low half. Returns
 // the codes switched off; `gct` is unchanged when it is not a valid list.
 struct SlotBScan {
+    bool valid = true;              // a whole list (header, whole lines, the end code); if not, nothing was looked at
     bool complete = true;           // every code was looked at
     std::size_t stopped_line = 0;   // else: the line it stopped at (1 = the first after the header)
     std::uint32_t stopped_type = 0; // and that line's code type
