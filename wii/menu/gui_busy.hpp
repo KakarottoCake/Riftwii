@@ -10,13 +10,15 @@ namespace riftwii::wii {
 // halted; time only advances while the ring is actually being drawn.
 class BusyRing : public GuiElement {
 public:
-    BusyRing(int x, int y, bool active = true) : x_(x), y_(y), active_(active) {}
+    // Position is the ring's centre, relative to its parent and alignment.
+    BusyRing(int x, int y, bool active = true) : active_(active) {
+        SetPosition(x, y);
+    }
     void Show(bool active);
     void SetActive(bool active) { Show(active); }
     void Draw() override;
 
 private:
-    int x_, y_;
     bool active_ = true;
     float elapsed_ = 0;
 };

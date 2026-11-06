@@ -389,7 +389,10 @@ void GuiPicturePicker::Draw() {
         tiles_[slot].caption->Draw();
     }
     if (!discovered_) DrawBusyRing(320, kStatusEmptyY + 10, busyElapsedMs_);
-    if (job_ == Job::Pick) DrawBusyRing(540, kAutomaticY + kAutomaticHeight / 2, busyElapsedMs_);
+    if (job_ == Job::Pick) {
+        const float busyX = kAutomaticX + kAutomaticWidth + 48;
+        DrawBusyRing(busyX, kAutomaticY + kAutomaticHeight / 2, busyElapsedMs_);
+    }
     if (picture_page_count(candidates_.size()) > 1) {
         DrawInvitingArrow(skin::arrowLeft, skin::arrowLeftOver, 26, 202, -1, 0, arrowHover_ < 0, arrowLift_[0]);
         DrawInvitingArrow(skin::arrowRight, skin::arrowRightOver, 570, 202, 1, 0, arrowHover_ > 0, arrowLift_[1]);
