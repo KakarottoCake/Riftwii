@@ -2124,12 +2124,6 @@ T = {
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.": ("Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii, o solo los de un sitio. Con un juego en ambas unidades, basta una copia.", "ホームに表示するゲーム：すべてのドライブとWii本体のもの、または1か所のものだけ。両方のドライブにあるゲームは1つで十分です。", "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, ou só os de um lugar. Com um jogo nas duas unidades, basta uma cópia.", "Quali giochi mostra la Home: quelli di ogni unità e quelli della Wii stessa, o solo quelli di un posto. Con un gioco su entrambe le unità, basta una copia."),
     "This game's data was removed from the Wii, so it can't start.": ("Los datos de este juego se borraron de la Wii, así que no puede iniciarse.", "このゲームのデータはWiiから削除されているため、起動できません。", "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado.", "I dati di questo gioco sono stati cancellati dalla Wii, quindi non può partire."),
     # What's new in the release after 2611-32
-    "Glossy buttons, like the Wii's own menus": ("Botones brillantes, como los menús de Wii", "Wiiのメニューのようなつやのあるボタン", "Botões brilhantes, como os menus do Wii", "Pulsanti lucidi, come i menu della Wii"),
-    "Menus that move like the Wii's": ("Menús que se mueven como los de Wii", "Wiiのように動くメニュー", "Menus que se movem como os do Wii", "Menu che si muovono come quelli della Wii"),
-    "Wii games and GameCube games in Show": ("Juegos de Wii y de GameCube en Ver", "表示にWiiとゲームキューブのゲーム", "Jogos de Wii e de GameCube em Ver", "Giochi Wii e GameCube in Mostra"),
-    "A phone-style keypad for the PIN": ("Un teclado de teléfono para el PIN", "電話のようなキーでPINを入力", "Um teclado de telefone para o PIN", "Un tastierino da telefono per il PIN"),
-    "Goblet of Fire no longer runs out of memory": ("El Cáliz de Fuego ya no se queda sin memoria", "炎のゴブレットがメモリ不足で止まらない", "O Cálice de Fogo não fica mais sem memória", "Il Calice di Fuoco non resta più senza memoria"),
-    "Need for Speed Carbon takes the Wii Remote": ("Need for Speed Carbon funciona con el Mando de Wii", "Need for Speed CarbonでWiiリモコンが使える", "Need for Speed Carbon funciona com o Wii Remote", "Need for Speed Carbon va col Telecomando Wii"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
     "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
@@ -4035,18 +4029,6 @@ KO = {
         "Wii 채널",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "홈에 표시할 게임: 모든 드라이브와 Wii 본체의 게임, 또는 한 곳의 게임만. 두 드라이브에 같은 게임이 있으면 하나면 충분합니다.",
-    "Glossy buttons, like the Wii's own menus":
-        "Wii 메뉴처럼 반짝이는 버튼",
-    "Menus that move like the Wii's":
-        "Wii처럼 움직이는 메뉴",
-    "Wii games and GameCube games in Show":
-        "표시에 Wii 게임과 게임큐브 게임",
-    "A phone-style keypad for the PIN":
-        "전화기 같은 PIN 키패드",
-    "Goblet of Fire no longer runs out of memory":
-        "불의 잔이 메모리 부족으로 멈추지 않음",
-    "Need for Speed Carbon takes the Wii Remote":
-        "Need for Speed Carbon에서 Wii 리모컨 사용 가능",
     "Memory for RiftWii's extras":
         "RiftWii 추가 기능이 쓰는 메모리",
     "about {1} KB":
@@ -5925,18 +5907,6 @@ FR = {
         "Chaînes Wii",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "Les jeux qu'affiche l'Accueil : ceux de chaque support et ceux de la Wii elle-même, ou ceux d'un seul endroit. Avec un jeu sur les deux supports, une copie suffit.",
-    "Glossy buttons, like the Wii's own menus":
-        "Des boutons brillants, comme les menus Wii",
-    "Menus that move like the Wii's":
-        "Des menus qui bougent comme ceux de la Wii",
-    "Wii games and GameCube games in Show":
-        "Jeux Wii et GameCube dans Afficher",
-    "A phone-style keypad for the PIN":
-        "Un pavé de téléphone pour le code PIN",
-    "Goblet of Fire no longer runs out of memory":
-        "La Coupe de feu ne manque plus de mémoire",
-    "Need for Speed Carbon takes the Wii Remote":
-        "Need for Speed Carbon accepte la Wiimote",
     "Memory for RiftWii's extras":
         "Mémoire pour les extras de RiftWii",
     "about {1} KB":
@@ -8585,6 +8555,26 @@ MORE["fr"]["The emulated NAND's folder: the one USB Loader GX's settings name, o
 T["With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."] = ('Con ajustes y Miis, los juegos también usan los ajustes de Wii y los Miis de la NAND emulada. Para eso la carpeta necesita una NAND completa.', '設定とMiiも選ぶと、ゲームはエミュレートNANDのWii本体設定とMiiも使います。そのためにはフォルダに完全なNANDが必要です。', 'Com configurações e Miis, os jogos também usam as configurações do Wii e os Miis da NAND emulada. Para isso a pasta precisa de uma NAND completa.', 'Con impostazioni e Mii, i giochi usano anche le impostazioni della Wii e i Mii della NAND emulata. Per questo la cartella deve contenere una NAND completa.')
 MORE["ko"]["With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."] = '설정과 Mii까지 고르면 게임이 에뮬레이트 NAND의 Wii 설정과 Mii도 사용합니다. 이를 위해 폴더에 완전한 NAND가 있어야 합니다.'
 MORE["fr"]["With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."] = 'Avec réglages et Mii, les jeux utilisent aussi les réglages de la Wii et les Mii de la NAND émulée. Le dossier doit alors contenir une NAND complète.'
+
+# What's new in the release after 2611-42.
+T["One emulated NAND for every game's saves"] = ('Partidas de todos los juegos en una NAND emulada', 'すべてのゲームのセーブを1つのエミュレートNANDに', 'Uma NAND emulada para os saves de todos os jogos', 'Salvataggi di tutti i giochi in una NAND emulata')
+MORE["ko"]["One emulated NAND for every game's saves"] = '모든 게임의 세이브를 하나의 에뮬레이트 NAND에'
+MORE["fr"]["One emulated NAND for every game's saves"] = 'Une NAND émulée pour sauver tous les jeux'
+T['The emulated NAND can be on the USB drive'] = ('La NAND emulada puede estar en la unidad USB', 'エミュレートNANDをUSBドライブに置けます', 'A NAND emulada pode ficar na unidade USB', "La NAND emulata può stare sull'unità USB")
+MORE["ko"]['The emulated NAND can be on the USB drive'] = '에뮬레이트 NAND를 USB 드라이브에 둘 수 있습니다'
+MORE["fr"]['The emulated NAND can be on the USB drive'] = 'La NAND émulée peut être sur le disque USB'
+T['Hide, rename or delete a game'] = ('Ocultar, renombrar o borrar un juego', 'ゲームの非表示、名前の変更、削除', 'Ocultar, renomear ou excluir um jogo', 'Nascondi, rinomina o elimina un gioco')
+MORE["ko"]['Hide, rename or delete a game'] = '게임 숨기기, 이름 바꾸기, 삭제'
+MORE["fr"]['Hide, rename or delete a game'] = 'Masquer, renommer ou supprimer un jeu'
+T['Press 1 on a game to report how it runs'] = ('Pulsa 1 en un juego para informar de cómo va', 'ゲームで1を押して動作を報告', 'Aperte 1 num jogo para relatar como ele roda', 'Premi 1 su un gioco per segnalare come va')
+MORE["ko"]['Press 1 on a game to report how it runs'] = '게임에서 1을 눌러 실행 상태 보고'
+MORE["fr"]['Press 1 on a game to report how it runs'] = 'Appuyez sur 1 pour dire comment un jeu tourne'
+T["GameCube games on Nintendont's memory card"] = ('Juegos de GameCube en la tarjeta de Nintendont', 'Nintendontのメモリーカードでゲームキューブのゲーム', 'Jogos de GameCube no cartão do Nintendont', 'Giochi GameCube sulla memory card di Nintendont')
+MORE["ko"]["GameCube games on Nintendont's memory card"] = 'Nintendont 메모리 카드로 게임큐브 게임'
+MORE["fr"]["GameCube games on Nintendont's memory card"] = 'Jeux GameCube sur la carte mémoire de Nintendont'
+T["A fix for Wii Menu sounds that didn't load"] = ('Arreglo de los sonidos del Menú Wii', 'Wiiメニューの音が読み込まれない問題を修正', 'Correção dos sons do Menu Wii que não carregavam', 'Corretti i suoni del Menu Wii che non partivano')
+MORE["ko"]["A fix for Wii Menu sounds that didn't load"] = 'Wii 메뉴 소리가 불러와지지 않던 문제 수정'
+MORE["fr"]["A fix for Wii Menu sounds that didn't load"] = 'Correction des sons du Menu Wii'
 
 # Game management: own display names and visibility, never file renames.
 T['Manage game'] = ('Gestionar juego', 'ゲームの管理', 'Gerenciar jogo', 'Gestisci gioco')

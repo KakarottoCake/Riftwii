@@ -19,24 +19,24 @@ Rewrite it for every release and delete the line below.
 
 New and fixed:
 
-* The whole menu in the Wii's own style: glossy buttons, a springy hover, page bands, a glint on Play, in every theme
-* Smoother waits and progress bars, buttons that dip when pressed
-* Message boxes light the safe choice
-* Home's Show has Wii games and GameCube games views
-* Phone-style PIN keypad for parental controls
-* Goblet of Fire (GameCube) no longer runs out of memory
-* Need for Speed Carbon (GameCube): the Wii Remote should keep working past the second "press a button" screen
-* Retro Rewind no longer asks about missing Mission files
+* One emulated NAND for every game's saves (Settings > Games > Wii saves), and it can be on the USB drive now, so two Wiis sharing a drive see the same saves. Optionally the Wii's settings and Miis too
+* Manage game on a game's page: hide, rename or delete it
+* Press 1 on a game's page for a QR code to report how it runs
+* GameCube games can play from Nintendont's or Dolphin's memory card (Better-Nintendont's too)
+* Optional countdown that starts your last game (Settings > Home)
+* The disc slot light pulses while a game loads
+* Wii Menu sounds should load on Wiis where they didn't, and start-up is faster there
+* Smoother loading dots on 16:9
+* N64 VC games in an emulated NAND start again
 
 To test, please:
 
-1. The new look in your theme: Settings, a game page, the HOME Menu. Anything cut off on your TV?
-2. Goblet of Fire with menu music on
-3. NFS Carbon with a Wii Remote
-4. Show > Wii games / GameCube games, and the PIN keypad
+1. Emulated NAND on USB: Wii saves = Emulated NAND, Emulated NAND = USB drive (or USB Loader GX's usb1:/nands/01/). Play a USB or SD game, save, and check the save in USB Loader GX
+2. Wii Menu sounds if they didn't load for you before
+3. Manage game, and a GameCube game on Nintendont's card
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![Settings, before and after](docs/screenshots/2611-wii-look-settings.gif)
-![The game page, before and after](docs/screenshots/2611-wii-look-game.gif)
-![Settings in six themes](docs/screenshots/2611-wii-look-themes.png)
+![Settings > Games: the new save rows](docs/screenshots/2611-emulated-nand-settings.png)
+![A game's page with Manage game](docs/screenshots/2611-game-page-manage.png)
+![Press 1: report how it runs](docs/screenshots/2611-report-how-it-runs.png)

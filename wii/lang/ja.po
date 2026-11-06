@@ -2442,24 +2442,6 @@ msgstr "ホームに表示するゲーム：すべてのドライブとWii本体
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "このゲームのデータはWiiから削除されているため、起動できません。"
 
-msgid "Glossy buttons, like the Wii's own menus"
-msgstr "Wiiのメニューのようなつやのあるボタン"
-
-msgid "Menus that move like the Wii's"
-msgstr "Wiiのように動くメニュー"
-
-msgid "Wii games and GameCube games in Show"
-msgstr "表示にWiiとゲームキューブのゲーム"
-
-msgid "A phone-style keypad for the PIN"
-msgstr "電話のようなキーでPINを入力"
-
-msgid "Goblet of Fire no longer runs out of memory"
-msgstr "炎のゴブレットがメモリ不足で止まらない"
-
-msgid "Need for Speed Carbon takes the Wii Remote"
-msgstr "Need for Speed CarbonでWiiリモコンが使える"
-
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWiiの追加機能が使うメモリ"
 
@@ -4088,6 +4070,24 @@ msgstr "エミュレートNANDのフォルダです。USB Loader GXの設定に�
 
 msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
 msgstr "設定とMiiも選ぶと、ゲームはエミュレートNANDのWii本体設定とMiiも使います。そのためにはフォルダに完全なNANDが必要です。"
+
+msgid "One emulated NAND for every game's saves"
+msgstr "すべてのゲームのセーブを1つのエミュレートNANDに"
+
+msgid "The emulated NAND can be on the USB drive"
+msgstr "エミュレートNANDをUSBドライブに置けます"
+
+msgid "Hide, rename or delete a game"
+msgstr "ゲームの非表示、名前の変更、削除"
+
+msgid "Press 1 on a game to report how it runs"
+msgstr "ゲームで1を押して動作を報告"
+
+msgid "GameCube games on Nintendont's memory card"
+msgstr "Nintendontのメモリーカードでゲームキューブのゲーム"
+
+msgid "A fix for Wii Menu sounds that didn't load"
+msgstr "Wiiメニューの音が読み込まれない問題を修正"
 
 msgid "Manage game"
 msgstr "ゲームの管理"

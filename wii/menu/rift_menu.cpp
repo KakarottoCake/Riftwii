@@ -5079,12 +5079,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Glossy buttons, like the Wii's own menus",
-	"Menus that move like the Wii's",
-	"Wii games and GameCube games in Show",
-	"A phone-style keypad for the PIN",
-	"Goblet of Fire no longer runs out of memory",
-	"Need for Speed Carbon takes the Wii Remote",
+	"One emulated NAND for every game's saves",
+	"The emulated NAND can be on the USB drive",
+	"Hide, rename or delete a game",
+	"Press 1 on a game to report how it runs",
+	"GameCube games on Nintendont's memory card",
+	"A fix for Wii Menu sounds that didn't load",
 };
 
 static std::string WhatsNewText()

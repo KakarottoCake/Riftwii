@@ -2442,24 +2442,6 @@ msgstr "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, o
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado."
 
-msgid "Glossy buttons, like the Wii's own menus"
-msgstr "Botões brilhantes, como os menus do Wii"
-
-msgid "Menus that move like the Wii's"
-msgstr "Menus que se movem como os do Wii"
-
-msgid "Wii games and GameCube games in Show"
-msgstr "Jogos de Wii e de GameCube em Ver"
-
-msgid "A phone-style keypad for the PIN"
-msgstr "Um teclado de telefone para o PIN"
-
-msgid "Goblet of Fire no longer runs out of memory"
-msgstr "O Cálice de Fogo não fica mais sem memória"
-
-msgid "Need for Speed Carbon takes the Wii Remote"
-msgstr "Need for Speed Carbon funciona com o Wii Remote"
-
 msgid "Memory for RiftWii's extras"
 msgstr "Memória para os extras do RiftWii"
 
@@ -4088,6 +4070,24 @@ msgstr "A pasta da NAND emulada: a que as configurações do USB Loader GX indic
 
 msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
 msgstr "Com configurações e Miis, os jogos também usam as configurações do Wii e os Miis da NAND emulada. Para isso a pasta precisa de uma NAND completa."
+
+msgid "One emulated NAND for every game's saves"
+msgstr "Uma NAND emulada para os saves de todos os jogos"
+
+msgid "The emulated NAND can be on the USB drive"
+msgstr "A NAND emulada pode ficar na unidade USB"
+
+msgid "Hide, rename or delete a game"
+msgstr "Ocultar, renomear ou excluir um jogo"
+
+msgid "Press 1 on a game to report how it runs"
+msgstr "Aperte 1 num jogo para relatar como ele roda"
+
+msgid "GameCube games on Nintendont's memory card"
+msgstr "Jogos de GameCube no cartão do Nintendont"
+
+msgid "A fix for Wii Menu sounds that didn't load"
+msgstr "Correção dos sons do Menu Wii que não carregavam"
 
 msgid "Manage game"
 msgstr "Gerenciar jogo"
