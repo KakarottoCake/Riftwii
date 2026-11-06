@@ -23,6 +23,7 @@
 #include "cios.hpp"
 #include "dolboot.h"
 #include "install.hpp"
+#include "keepaccess.h"
 
 namespace {
 
@@ -112,6 +113,22 @@ void shutdown_pads() {
     g_pads = false;
 }
 
+// Keeps the Homebrew Channel's hardware access over the reload that comes
+// next. Without it the installer's two reloads (into the cIOS, then back
+// into IOS 58) gave RiftWii back with AHBPROT on, and RiftWii could not
+// read the Wii Menu's sounds, the cIOS slots or the channels' names (a
+// tester's Wii, 2611-54).
+void keep_access_for_reload(int next_ios) {
+    const int patched = keepaccess_for_next_ios();
+    if (patched == KEEPACCESS_NO_ACCESS)
+        installer::Log("No hardware access to keep; IOS%d is started without it.\n", next_ios);
+    else if (patched == KEEPACCESS_NOT_FOUND)
+        installer::Log("IOS%d's check for hardware access was not found; IOS%d may start without it.\n",
+                       IOS_GetVersion(), next_ios);
+    else
+        installer::Log("IOS%d keeps hardware access on for IOS%d.\n", IOS_GetVersion(), next_ios);
+}
+
 bool reload_cios(int slot, const riftwii::D2xInfo& info) {
     installer::Log("trying IOS%d\n", slot);
     if (info.d2x) std::printf("  trying IOS%d (%s, base %d)\n", slot, riftwii::d2x_name(info).c_str(), info.base);
@@ -121,6 +138,7 @@ bool reload_cios(int slot, const riftwii::D2xInfo& info) {
     if (g_sd) fatUnmount("sd:");
     __io_wiisd.shutdown();
     g_sd = false;
+    keep_access_for_reload(slot);
     const s32 result = IOS_ReloadIOS(slot);
     // Like leave(): shutting down before the reload lets libfat's next
     // mount start the SD interface under the new IOS.
@@ -307,6 +325,7 @@ void leave() {
         // IOS 58 first, as the Homebrew Channel starts RiftWii, and only
         // then RiftWii read: a reload overwrites the bottom of MEM2, where
         // it is read to (RiftWii came back with its code damaged).
+        keep_access_for_reload(58);
         IOS_ReloadIOS(58);
         if (fatMountSimple("sd", &__io_wiisd)) {
             u32 size = 0;
