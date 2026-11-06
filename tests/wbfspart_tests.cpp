@@ -631,7 +631,36 @@ void test_real_game_image(const std::string& dir) {
 
 }  // namespace
 
+// Which MBR entry d2x's FAT module is told to mount for an emulated NAND
+// on the USB drive (#487): the entry the volume starts at, -1 for a drive
+// with no table, and a reason for what its FatFs cannot reach.
+void test_d2x_usb_partition() {
+    Drive d;
+    mbr_entry(d, 1, 0x0C, 2048, 1000);
+    mbr_entry(d, 3, 0x07, 9000, 1000);
+    mbr_entry(d, 2, 0x0F, 5000, 3000);  // extended: its logicals are not d2x's
+    std::int32_t index = -99;
+    std::string why;
+    EXPECT_TRUE(d2x_usb_partition(d.at(0).data(), 2048, index, why));
+    EXPECT_EQ(index, 1);
+    EXPECT_TRUE(d2x_usb_partition(d.at(0).data(), 9000, index, why));
+    EXPECT_EQ(index, 3);
+    EXPECT_FALSE(d2x_usb_partition(d.at(0).data(), 5000, index, why));
+    EXPECT_FALSE(d2x_usb_partition(d.at(0).data(), 5063, index, why));  // a logical one
+    EXPECT_TRUE(why.find("primary") != std::string::npos);
+    EXPECT_TRUE(d2x_usb_partition(d.at(0).data(), 0, index, why));
+    EXPECT_EQ(index, -1);
+
+    Drive gpt;
+    mbr_entry(gpt, 0, 0xEE, 1, 0xFFFFFFFF);
+    EXPECT_FALSE(d2x_usb_partition(gpt.at(0).data(), 2048, index, why));
+    EXPECT_TRUE(why.find("GPT") != std::string::npos);
+    Drive blank;
+    EXPECT_FALSE(d2x_usb_partition(blank.at(0).data(), 2048, index, why));
+}
+
 int main(int argc, char** argv) {
+    test_d2x_usb_partition();
     test_every_partition();
     test_layout_matches_libwbfs();
     test_mbr_partition_with_fat16_type();

@@ -19,6 +19,7 @@
 #include "nandpermissions.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/nandlist.hpp"
+#include "riftwii/sharednand.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -36,7 +37,10 @@ bool is_dir(const std::string& path) {
 
 // mkdir -p: each level of `path` (sd:/a/b/c).
 bool make_dirs(const std::string& path) {
-    for (std::size_t at = path.find('/', 4); ; at = path.find('/', at + 1)) {
+    // From the first folder after the drive ("sd:/", "rwnand:/").
+    const std::size_t root = path.find(":/");
+    if (root == std::string::npos) return false;
+    for (std::size_t at = path.find('/', root + 2); ; at = path.find('/', at + 1)) {
         const std::string part = at == std::string::npos ? path : path.substr(0, at);
         if (!is_dir(part) && mkdir(part.c_str(), 0777) != 0 && !is_dir(part)) return false;
         if (at == std::string::npos) return true;
@@ -235,11 +239,20 @@ bool save_folder_empty(const std::string& data_dir) {
     return empty;
 }
 
-bool prepare_d2x_saves(const ImageGame& game, const std::string& dir, bool clone, bool clone_into_empty,
-                       std::string& error) {
-    if (game.title_id == 0) {
-        error = "the game's title ID is not known";
-        return false;
+namespace {
+
+bool prepare_folder(const ImageGame& game, const std::string& dir, bool clone, bool clone_into_empty,
+                    bool* whole_nand, std::string& error) {
+    // The whole NAND (the Wii's settings and Miis too) only from a folder
+    // that holds one: without the Wii's settings file a game started on
+    // it may stop at its first screen.
+    if (whole_nand != nullptr && *whole_nand) {
+        struct stat settings = {};
+        if (stat((dir + "/shared2/sys/SYSCONF").c_str(), &settings) != 0) {
+            *whole_nand = false;
+            logf("Saves: the emulated NAND has no shared2/sys/SYSCONF (the Wii's settings), so d2x keeps only the "
+                 "game's save there, not the whole NAND\n");
+        }
     }
     const std::string data = own_save_data_dir(dir, game.title_id);
     const bool had_save = is_dir(data) && !(clone_into_empty && save_folder_empty(data));
@@ -295,6 +308,27 @@ bool prepare_d2x_saves(const ImageGame& game, const std::string& dir, bool clone
         return false;
     }
     return true;
+}
+
+}  // namespace
+
+bool prepare_d2x_saves(const ImageGame& game, const std::string& dir, bool clone, bool clone_into_empty,
+                       std::string& error, bool* whole_nand) {
+    if (game.title_id == 0) {
+        error = "the game's title ID is not known";
+        return false;
+    }
+    if (!shared_nand_on_usb(dir)) return prepare_folder(game, dir, clone, clone_into_empty, whole_nand, error);
+    // On the USB drive (#487): its exact partition, mounted for writing
+    // only while the folder is prepared.
+    std::string writable;
+    if (!mount_usb_nand_folder(dir, writable, error)) return false;
+    const bool ok = prepare_folder(game, writable, clone, clone_into_empty, whole_nand, error);
+    unmount_usb_nand_folder();
+    // Errors name the folder as the player knows it.
+    const std::size_t at = error.find(writable);
+    if (at != std::string::npos) error.replace(at, writable.size(), dir);
+    return ok;
 }
 
 }  // namespace riftwii::wii

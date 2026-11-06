@@ -5,10 +5,10 @@
 #include <cstddef>
 #include <string>
 
-// The Saves choice "SD, emulated NAND" ("emunand"): the game's saves are
-// kept in the emulated NAND folder other loaders already keep on the SD
-// card, so a game started from RiftWii and from that loader finds the same
-// save. The folder is read from that loader's own settings, as it writes
+// The Saves choice "Emulated NAND" ("emunand"): the game's saves are kept
+// in the emulated NAND folder other loaders already keep on the SD card or
+// the USB drive, so a game started from RiftWii and from that loader finds
+// the same save (#487: one drive shared by two Wiis). The folder is read from that loader's own settings, as it writes
 // them: a global "NandEmuPath = <path>" line in GXGlobal.cfg (default
 // sd:/nands/01/) and a game's own "NandEmuPath:<path>;" in its
 // "game:<ID6> = ..." line of GXGameSettings.cfg, which wins. The files
@@ -18,10 +18,15 @@ namespace riftwii {
 // Where the other loader keeps its emulated NAND when nothing says otherwise.
 constexpr const char* kDefaultSharedNand = "sd:/nands/01";
 
-// Longest folder accepted. d2x takes the path after "sd:" in a 32-byte
-// buffer in the other loader (and its own NAND paths are appended to it),
-// so a longer one is not a folder that loader could have used.
-constexpr std::size_t kSharedNandMaxPath = 31 + 3;
+// Longest folder accepted, after its drive's "sd:" or "usb1:". d2x takes
+// that part in a 32-byte buffer in the other loader (and its own NAND
+// paths are appended to it), so a longer one is not a folder that loader
+// could have used.
+constexpr std::size_t kSharedNandMaxPath = 31;
+
+// The emulated NAND folder Settings names on each drive (#487).
+constexpr const char* kSdSharedNand = "sd:/nands/01";
+constexpr const char* kUsbSharedNand = "usb:/nands/01";
 
 // The value of a GXGlobal.cfg line "NandEmuPath = <path>" (spaces and tabs
 // around the name and the value trimmed, and a UTF-8 byte order mark at
@@ -41,10 +46,14 @@ bool shared_nand_channels_line(const std::string& line, std::string& path);
 bool shared_nand_game_line(const std::string& line, const std::string& game_id, std::string& path);
 
 // The configured path as a folder RiftWii can serve saves from: on the SD
-// card, no "." or ".." parts, no backslashes, short enough, trailing
-// slashes removed ("sd:/nands/01/" is "sd:/nands/01"). False with the
-// reason otherwise (a folder on the USB drive among them: RiftWii keeps
-// saves only on the SD card).
+// card ("sd:/"), on the USB drive's partition RiftWii uses ("usb:/") or on
+// a numbered partition ("usb1:/", as the other loader writes it, which
+// RiftWii names the same way), no "." or ".." parts, no backslashes, short
+// enough, trailing slashes removed ("sd:/nands/01/" is "sd:/nands/01").
+// False with the reason otherwise.
 bool shared_nand_folder(const std::string& configured, std::string& folder, std::string& why);
+
+// Whether a folder shared_nand_folder accepted is on the USB drive.
+bool shared_nand_on_usb(const std::string& folder);
 
 }  // namespace riftwii

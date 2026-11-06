@@ -101,6 +101,13 @@ bool SelectSdGame(FrontendState& state, std::size_t index, std::string& error);
 // False with `error` when the channel's game data was removed from the Wii.
 bool SelectChannel(FrontendState& state, std::size_t index, std::string& error);
 LaunchSource SelectedSource(const FrontendState& state);
+// The save mode the picked game's launch uses (#487): its own page's
+// choice, or for "Default" Settings' choice for every game. Default stays
+// on the Wii for a GameCube game (its saves are memory cards) and for a
+// disc when the emulated NAND is on the USB drive (only d2x's NAND
+// emulation keeps that, which a disc launch does not use); a disc's page
+// can still pick it, and then the launch says why it can't.
+std::string EffectiveSaveMode(const FrontendState& state);
 // Explicit rescans read a new catalog; opening a page reuses Home's snapshot.
 // A banner prepares its tile's choices afresh before Settings can be pressed.
 void PrepareGameChoices(FrontendState& state, const std::string& game_id, const std::string& profile_key,

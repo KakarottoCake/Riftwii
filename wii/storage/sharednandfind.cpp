@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "loadersettings.hpp"
 #include "log.hpp"
 #include "riftwii/sharednand.hpp"
 
@@ -45,6 +46,16 @@ bool each_line(const std::string& path, Take take) {
 }  // namespace
 
 SharedNandLookup look_up_shared_nand(const std::string& game_id) {
+    // A folder Settings names wins over the other loader's (#487: one
+    // drive two Wiis share, whatever each loader's settings say).
+    const std::string& chosen = Settings().emunand_folder;
+    if (chosen == "sd" || chosen == "usb") {
+        SharedNandLookup found;
+        found.configured = chosen == "sd" ? kSdSharedNand : kUsbSharedNand;
+        found.from = "Settings > Games > Emulated NAND";
+        found.usable = shared_nand_folder(found.configured, found.folder, found.error);
+        return found;
+    }
     std::string configured = kDefaultSharedNand;
     std::string from = "the default folder";
     for (const char* settings : kSettingsFolders) {

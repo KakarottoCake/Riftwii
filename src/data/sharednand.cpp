@@ -75,24 +75,42 @@ bool shared_nand_game_line(const std::string& raw_line, const std::string& game_
     return false;
 }
 
+bool shared_nand_on_usb(const std::string& folder) {
+    return folder.compare(0, 3, "usb") == 0;
+}
+
+namespace {
+
+// The length of the drive at the path's start ("sd:" or "usb:" or
+// "usb1:" to "usb99:", the most partitions a drive's tables name here),
+// or 0 for none of those.
+std::size_t drive_length(const std::string& path) {
+    if (path.compare(0, 3, "sd:") == 0) return 3;
+    if (path.compare(0, 3, "usb") != 0) return 0;
+    std::size_t at = 3;
+    while (at < path.size() && at < 5 && path[at] >= '0' && path[at] <= '9') ++at;
+    // No leading zero: "usb01:" is no partition's name.
+    if (at > 3 && path[3] == '0') return 0;
+    return at < path.size() && path[at] == ':' ? at + 1 : 0;
+}
+
+}  // namespace
+
 bool shared_nand_folder(const std::string& configured, std::string& folder, std::string& why) {
     std::string path = configured;
-    while (path.size() > 4 && path.back() == '/') path.pop_back();
-    if (path.compare(0, 3, "usb") == 0) {
-        why = "the emulated NAND folder " + configured + " is on the USB drive; RiftWii keeps saves only on the SD card";
+    const std::size_t drive = drive_length(path);
+    while (drive != 0 && path.size() > drive + 1 && path.back() == '/') path.pop_back();
+    if (drive == 0 || path.size() <= drive + 1 || path[drive] != '/') {
+        why = "the emulated NAND folder \"" + configured + "\" is not a folder of the SD card or the USB drive";
         return false;
     }
-    if (path.compare(0, 4, "sd:/") != 0 || path.size() <= 4) {
-        why = "the emulated NAND folder \"" + configured + "\" is not a folder of the SD card";
-        return false;
-    }
-    if (path.size() > kSharedNandMaxPath) {
+    if (path.size() - drive > kSharedNandMaxPath) {
         why = "the emulated NAND folder " + configured + " is too long a path for d2x";
         return false;
     }
     // Each part between slashes: not empty, not "." or "..", and only
     // characters a FAT name holds. The folder must stay where it says.
-    std::size_t part_start = 4;
+    std::size_t part_start = drive + 1;
     while (part_start <= path.size()) {
         std::size_t part_end = path.find('/', part_start);
         if (part_end == std::string::npos) part_end = path.size();

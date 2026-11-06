@@ -244,9 +244,10 @@ The build compiles every folder into one, so no two files share a name.
 | `d2xsd.cpp` | d2x's SD device (`/dev/sdio/sdhc`), when the game itself is on the card |
 | `gcrealcard.cpp`, `gcrealcard.hpp` | Read-only physical GameCube card sessions: early MEM1 DMA reservation, CARD mount, synchronous raw EXI reads, owned EXI cleanup, sticky removal detection and snapshot verification |
 | `sdfile.cpp` | Where a file's bytes lie on the card |
-| `d2xsave.cpp` | Saves of SD and USB games kept by d2x's NAND emulation in a folder of the card |
+| `d2xsave.cpp` | Saves of SD and USB games kept by d2x's NAND emulation in a folder of the card or the USB drive |
 | `d2xnandemu.cpp` | Turning d2x's NAND emulation on: RiftWii lets go of the SD card (libfat, boot.log, libogc's driver) while d2x's FAT module mounts it, stays off it while the emulation is on, and takes it back when the emulation does not come on |
-| `sharednandfind.cpp` | The Saves choice "SD, emulated NAND": the folder read from the other loader's settings files; the folder its channels are in |
+| `sharednandfind.cpp` | The Saves choice "Emulated NAND": the folder Settings names or the other loader's settings files give; the folder its channels are in |
+| `usbnand.hpp` | An emulated NAND on the USB drive (#487): d2x's partition for it, its FAT32 partition mounted to prepare the save, libfat handed to d2x and back (in `usbcatalog.cpp`) |
 | `wadinstall.cpp` | Settings > Install WAD files: `.wad` files from `sd:/wad` into the emulated NAND the channels are listed from |
 | `disccopy.cpp`, `disccopy.hpp` | Settings > Copy a game disc: the Wii disc in the drive to a split `.wbfs` file in `wbfs/` on a FAT32 USB drive or the SD card, every partition kept; restarts the menu under d2x first when needed |
 | `nandchannels.cpp` | WiiWare and Virtual Console games on the Wii and in an emulated NAND on the card: listing them, their banners, the files a start needs |

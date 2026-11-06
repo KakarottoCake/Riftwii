@@ -33,6 +33,8 @@
 #include "modplan.hpp"
 #include "netpacks.hpp"
 #include "sdfile.hpp"
+#include "loadersettings.hpp"
+#include "riftwii/sharednand.hpp"
 #include "sharednandfind.hpp"
 #include "textfile.hpp"
 #include "umsdev.hpp"
@@ -94,6 +96,7 @@ bool any_on_usb(const std::vector<PackageChoices>& packages) {
 }  // namespace
 
 void TakeCardBackFromD2x() {
+    if (usb_held_by_d2x_fat()) release_d2x_saves();
     if (!sd_held_by_d2x_fat()) return;
     if (!release_d2x_saves()) return;
     if (fatMountSimple("sd", sd_interface())) LogReopen();
@@ -121,9 +124,19 @@ bool Session::ensure_probe(std::string& error) {
         // for an RVZ on the card (RiftWii reads it from the card while
         // the game runs) or a game whose title ID is not known.
         bool d2x_ready = false;
+        // Dolphin's own IOS has no d2x to keep a folder on the USB drive.
+        if (own_saves_on_usb && running_in_dolphin()) {
+            error = "Saves: the emulated NAND on the USB drive needs d2x's NAND emulation, which Dolphin does not have";
+            return false;
+        }
         if (!own_saves_dir.empty() && !running_in_dolphin()) {
             std::string why;
             if (source.game.title_id == 0) why = "the game's title ID is not known";
+            // On the USB drive (#487) the SD card stays RiftWii's: packs,
+            // code builds and an RVZ's tables on it are no trouble.
+            else if (own_saves_on_usb && !usb_d2x_nand_partition(own_saves_dir, own_saves_usb_partition, why)) {}
+            else if (own_saves_on_usb) d2x_ready = prepare_d2x_saves(source.game, own_saves_dir, own_saves_clone,
+                                                                     own_saves_clone_empty, why, &own_saves_whole);
             else if (sd_after_probe)
                 why = "RiftWii reads the SD card while the game loads and runs (packs or a code build on it), and "
                       "d2x's FAT module must have the card to itself";
@@ -133,7 +146,14 @@ bool Session::ensure_probe(std::string& error) {
             else if (source.game.format == UsbImageFormat::Rvz)
                 why = "an RVZ game (RiftWii keeps its group table on the SD card and reads the card as it runs)";
             else d2x_ready = prepare_d2x_saves(source.game, own_saves_dir, own_saves_clone,
-                                                    own_saves_clone_empty, why);
+                                                    own_saves_clone_empty, why, &own_saves_whole);
+            // RiftWii's own save code keeps saves on the SD card only: a
+            // USB folder d2x cannot keep stops the launch rather than
+            // saving somewhere the player did not choose.
+            if (!d2x_ready && own_saves_on_usb) {
+                error = "Saves: the emulated NAND on the USB drive can't be used: " + why;
+                return false;
+            }
             if (!d2x_ready) logf("Saves: RiftWii's own save code, not d2x's NAND emulation (%s)\n", why.c_str());
         }
         // When every slot fails, the first one's reason is the one to
@@ -174,10 +194,16 @@ bool Session::ensure_probe(std::string& error) {
         if (d2x_ready) {
             const int base = d2x_base(used_slot);
             std::string why;
-            if (source.game.device == ImageDevice::Sd && base != 56 && base != 57)
+            const D2xNandScope scope = own_saves_whole ? D2xNandScope::WholeNand : D2xNandScope::GamePaths;
+            if (!own_saves_on_usb && source.game.device == ImageDevice::Sd && base != 56 && base != 57)
                 logf("Saves: RiftWii's own save code, not d2x's NAND emulation (a game on the SD card with d2x "
                      "base %d; d2x keeps both on one card on base 56 or 57)\n", base);
-            else if (!(d2x_saves = enable_d2x_saves(own_saves_dir, why))) {
+            else if (!(d2x_saves = enable_d2x_saves(own_saves_dir, why, scope, nullptr, nullptr,
+                                                    own_saves_usb_partition))) {
+                if (own_saves_on_usb) {
+                    error = "Saves: " + why;
+                    return false;
+                }
                 // d2x's FAT module would not let go of the card: RiftWii's
                 // own save code could not reach it, so the launch stops
                 // here (the session gives the card back if it can).
@@ -211,6 +237,13 @@ bool Session::ensure_probe(std::string& error) {
             return false;
         }
     } else {
+        // A disc's saves go through RiftWii's own save code, which keeps
+        // them on the SD card only (#487).
+        if (own_saves_on_usb) {
+            error = "Saves: the emulated NAND on the USB drive is for games started from the SD card or the USB drive; "
+                    "choose another save location on this disc's page";
+            return false;
+        }
         // Cover status cannot identify a swap that happened between menu
         // polls. Keep the launch's full probe independent of the page cache.
         di::disc_cache().begin_launch();
@@ -369,6 +402,10 @@ void SetOwnSaves(Session& s, const std::string& save_mode, const std::string& ga
     s.own_saves_dir = own.dir;
     s.own_saves_clone = own.clone;
     s.own_saves_clone_empty = own.clone_into_empty;
+    s.own_saves_on_usb = shared_nand_on_usb(own.dir);
+    // Only the shared emulated NAND can be a whole one; RiftWii's own save
+    // folders hold one game's save.
+    s.own_saves_whole = !shared_nand.empty() && own.dir == shared_nand && Settings().emunand_keeps == "all";
 }
 
 // d2x keeps the save (the runtime leaves it alone), else the runtime
@@ -395,7 +432,7 @@ bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& sou
     std::string shared_nand;
     if (!FindSharedSaves(save_mode, game_id, shared_nand, error)) return false;
     SetOwnSaves(s, save_mode, game_id, shared_nand);
-    s.sd_in_use = !mod.entries.empty() || !mod.savegame_dir.empty() || !s.own_saves_dir.empty();
+    s.sd_in_use = !mod.entries.empty() || !mod.savegame_dir.empty() || (!s.own_saves_dir.empty() && !s.own_saves_on_usb);
     s.sd_after_probe = packs_need_sd(mod.xml_paths) || entries_need_sd(mod.entries) ||
                        !CurrentLaunchExtras().code_builds.empty();
     if (!s.ensure_probe(error)) return false;
@@ -483,7 +520,7 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
     std::string shared_nand;
     if (!FindSharedSaves(save_mode, game_id, shared_nand, error)) return false;
     SetOwnSaves(s, save_mode, game_id, shared_nand);
-    s.sd_in_use = !packages.empty() || !s.own_saves_dir.empty();
+    s.sd_in_use = !packages.empty() || (!s.own_saves_dir.empty() && !s.own_saves_on_usb);
     s.sd_after_probe = packages_need_sd(packages) || !CurrentLaunchExtras().code_builds.empty();
     if (!s.ensure_layout(error)) return false;
     CompiledMod mod;

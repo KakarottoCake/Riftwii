@@ -17,6 +17,10 @@ static bool adapter_plugged = false;
 
 LoaderSettings& Settings() { return settings; }
 const char* tr(const char* english) { return english; }
+// frontend.cpp's, without the drive lookups this test does not need.
+std::string EffectiveSaveMode(const FrontendState& state) {
+    return effective_save_mode(state.model.save_mode, settings.saves_every_game);
+}
 bool GcAdapterMenuLastView(GcAdapterView& view) {
     view.open = adapter_plugged;
     view.link = adapter_plugged ? GCAD_LINK_POLL : GCAD_LINK_NONE;

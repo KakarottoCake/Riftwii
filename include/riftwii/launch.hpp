@@ -52,16 +52,23 @@ bool same_disc_identity(const DiscIdentity& left, const DiscIdentity& right);
 // the save redirect through the direct boot path.
 bool needs_launch_pipeline(bool has_selected_packages, const std::string& save_mode);
 
+// The save mode a launch uses: a game's own choice, or for "global"
+// (the game follows Settings) Settings' choice for every game, which is
+// "nand" or "emunand" (#487); anything else there is "nand".
+std::string effective_save_mode(const std::string& save_mode, const std::string& every_game);
+
 // The frontend's state: the packages found, which are enabled and what
 // each option is set to. Pure data so the host tests cover it; the Wii
 // side lists the directory, draws and boots.
 // The UI's save handling for one game, persisted with its choices:
+// "global" (Settings' choice for every game, effective_save_mode),
 // "nand" (the Wii saves as usual), "separate" (an SD folder the NAND save
 // is cloned into once), "fresh" (a distinct persistent folder, started empty),
-// "emunand" (the emulated NAND folder other loaders keep on the SD card,
-// riftwii/sharednand.hpp: shared with them, the NAND save cloned in once).
+// "emunand" (the emulated NAND folder other loaders keep on the SD card or
+// the USB drive, riftwii/sharednand.hpp: shared with them, the NAND save
+// cloned in once).
 struct SaveOverride {
-    std::string dir;   // sd:/ folder, empty when nothing is overridden
+    std::string dir;   // sd:/ or usb:/ folder, empty when nothing is overridden
     bool clone = false;
     // The clone also fills a data folder that exists but holds no save:
     // the shared emulated NAND's other loader makes the game's folder at
@@ -213,7 +220,10 @@ int gc_language_number(const GameSettings& game, const GcConsoleSettings& consol
 class LaunchModel {
 public:
     std::vector<LaunchPackage> packages;
-    std::string save_mode = "nand";
+    // "global" until the game's page picks one (see SaveOverride). Files
+    // from before #487 always wrote "nand", picked or not, so that reads
+    // as "global"; a picked "On the Wii" is written as "wii".
+    std::string save_mode = "global";
     GameSettings game;
 
     // Parses `xml` into a package entry. A package whose filter does not

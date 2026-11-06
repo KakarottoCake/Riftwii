@@ -161,16 +161,16 @@ T = {
         "セーブはSDカードに保存されます(最初から始めます)。",
         "Os saves vão para o cartão SD, começando do zero.",
         "I salvataggi vanno sulla scheda SD, partendo da zero."),
-    "Saves go to {1} on the SD card, shared with other loaders.": (
-        "Las partidas se guardan en {1} en la SD, compartidas con otros cargadores.",
-        "セーブはSDカードの{1}に保存され、他のローダーと共有されます。",
-        "Os saves vão para {1} no cartão SD, compartilhados com outros loaders.",
-        "I salvataggi vanno in {1} sulla scheda SD, condivisi con altri loader."),
-    "{1} can't hold saves: use a short folder on the SD card.": (
-        "{1} no puede guardar partidas: usa una carpeta corta de la SD.",
-        "{1}にはセーブできません。SDカードの短いフォルダを使ってください。",
-        "{1} não pode guardar saves: use uma pasta curta do cartão SD.",
-        "{1} non può contenere salvataggi: usa una cartella breve della scheda SD."),
+    "Saves go to {1}, shared with other loaders.": (
+        "Las partidas se guardan en {1}, compartidas con otros cargadores.",
+        "セーブは{1}に保存され、他のローダーと共有されます。",
+        "Os saves vão para {1}, compartilhados com outros loaders.",
+        "I salvataggi vanno in {1}, condivisi con altri loader."),
+    "{1} can't hold saves: use a short folder on the SD card or the USB drive.": (
+        "{1} no puede guardar partidas: usa una carpeta corta de la SD o de la unidad USB.",
+        "{1}にはセーブできません。SDカードかUSBドライブの短いフォルダを使ってください。",
+        "{1} não pode guardar saves: use uma pasta curta do cartão SD ou da unidade USB.",
+        "{1} non può contenere salvataggi: usa una cartella breve della scheda SD o dell'unità USB."),
     "Saves stay on the Wii, as usual.": ("Las partidas se quedan en la Wii, como siempre.",
                                          "セーブはいつも通りWii本体に保存されます。",
                                          "Os saves ficam no Wii, como sempre.",
@@ -2524,10 +2524,10 @@ KO = {
         "세이브 데이터는 Wii의 세이브 데이터를 시작으로 SD 카드로 저장됩니다.",
     "Saves go to the SD card, starting fresh.":
         "저장 데이터는 SD 카드에 저장되며, 처음부터 새로 시작하게 됩니다.",
-    "Saves go to {1} on the SD card, shared with other loaders.":
-        "세이브 데이터는 SD 카드의 {1}에 저장되며, 다른 로더와 공유됩니다.",
-    "{1} can't hold saves: use a short folder on the SD card.":
-        "{1}에는 저장할 수 없습니다. SD 카드의 짧은 폴더를 사용하세요.",
+    "Saves go to {1}, shared with other loaders.":
+        "세이브 데이터는 {1}에 저장되며, 다른 로더와 공유됩니다.",
+    "{1} can't hold saves: use a short folder on the SD card or the USB drive.":
+        "{1}에는 저장할 수 없습니다. SD 카드나 USB 드라이브의 짧은 폴더를 사용하세요.",
     "Saves stay on the Wii, as usual.":
         "세이브는 평소와 마찬가지로 Wii 본체에 저장됩니다.",
     "Broken":
@@ -4414,10 +4414,10 @@ FR = {
         "Les sauvegardes vont sur la carte SD, en partant de la sauvegarde Wii.",
     "Saves go to the SD card, starting fresh.":
         "Les sauvegardes vont sur la carte SD, sauvegarde vierge.",
-    "Saves go to {1} on the SD card, shared with other loaders.":
-        "Les sauvegardes vont dans {1} sur la carte SD, partagées avec d'autres loaders.",
-    "{1} can't hold saves: use a short folder on the SD card.":
-        "{1} ne peut pas recevoir les sauvegardes : utilisez un dossier court de la carte SD.",
+    "Saves go to {1}, shared with other loaders.":
+        "Les sauvegardes vont dans {1}, partagées avec d'autres loaders.",
+    "{1} can't hold saves: use a short folder on the SD card or the USB drive.":
+        "{1} ne peut pas recevoir les sauvegardes : utilisez un dossier court de la carte SD ou du disque USB.",
     "Saves stay on the Wii, as usual.":
         "Les sauvegardes restent sur la Wii, comme d'habitude.",
     "Broken":
@@ -8559,6 +8559,32 @@ def check(repo):
         print("warning: no translation yet:", k)
     return not missing
 
+
+# Wii saves for every game and the emulated NAND on the SD card or USB drive (#487).
+T['Wii saves'] = ('Partidas de Wii', 'Wiiのセーブ', 'Saves do Wii', 'Salvataggi Wii')
+MORE["ko"]['Wii saves'] = 'Wii 세이브'
+MORE["fr"]['Wii saves'] = 'Sauvegardes Wii'
+T['NAND keeps'] = ('La NAND guarda', 'NANDに保存', 'A NAND guarda', 'La NAND tiene')
+MORE["ko"]['NAND keeps'] = 'NAND 저장 내용'
+MORE["fr"]['NAND keeps'] = 'La NAND garde'
+T["USB Loader GX's"] = ('La de USB Loader GX', 'USB Loader GXの設定', 'A do USB Loader GX', 'Quella di USB Loader GX')
+MORE["ko"]["USB Loader GX's"] = 'USB Loader GX 설정'
+MORE["fr"]["USB Loader GX's"] = "Celui d'USB Loader GX"
+T['Saves, settings and Miis'] = ('Partidas, ajustes y Miis', 'セーブ、設定、Mii', 'Saves, configurações e Miis', 'Salvataggi, impostazioni e Mii')
+MORE["ko"]['Saves, settings and Miis'] = '세이브, 설정, Mii'
+MORE["fr"]['Saves, settings and Miis'] = 'Sauvegardes, réglages et Mii'
+T['Settings > Games > Wii saves decides.'] = ('Lo decide Ajustes > Juegos > Partidas de Wii.', '設定 > ゲーム > Wiiのセーブで決まります。', 'Configurações > Jogos > Saves do Wii decide.', 'Lo decide Impostazioni > Giochi > Salvataggi Wii.')
+MORE["ko"]['Settings > Games > Wii saves decides.'] = '설정 > 게임 > Wii 세이브에서 정합니다.'
+MORE["fr"]['Settings > Games > Wii saves decides.'] = 'Paramètres > Jeux > Sauvegardes Wii décide.'
+T['Where every game saves unless its own page picks another place. Emulated NAND shares saves with USB Loader GX.'] = ('Dónde guarda cada juego, salvo que su propia página elija otro sitio. La NAND emulada comparte las partidas con USB Loader GX.', 'ゲームのページで別の場所を選ばない限り、すべてのゲームのセーブ先です。エミュレートNANDはUSB Loader GXとセーブを共有します。', 'Onde cada jogo salva, a menos que a página dele escolha outro lugar. A NAND emulada compartilha os saves com o USB Loader GX.', 'Dove salva ogni gioco, salvo che la sua pagina scelga un altro posto. La NAND emulata condivide i salvataggi con USB Loader GX.')
+MORE["ko"]['Where every game saves unless its own page picks another place. Emulated NAND shares saves with USB Loader GX.'] = '게임 페이지에서 다른 곳을 고르지 않으면 모든 게임이 여기에 저장합니다. 에뮬레이트 NAND는 USB Loader GX와 세이브를 공유합니다.'
+MORE["fr"]['Where every game saves unless its own page picks another place. Emulated NAND shares saves with USB Loader GX.'] = 'Où chaque jeu sauvegarde, sauf si sa propre page choisit un autre endroit. La NAND émulée partage les sauvegardes avec USB Loader GX.'
+T["The emulated NAND's folder: the one USB Loader GX's settings name, or nands/01 on the SD card or the USB drive."] = ('La carpeta de la NAND emulada: la que indican los ajustes de USB Loader GX, o nands/01 en la SD o en la unidad USB.', 'エミュレートNANDのフォルダです。USB Loader GXの設定にあるもの、またはSDカードかUSBドライブのnands/01です。', 'A pasta da NAND emulada: a que as configurações do USB Loader GX indicam, ou nands/01 no cartão SD ou na unidade USB.', "La cartella della NAND emulata: quella indicata dalle impostazioni di USB Loader GX, o nands/01 sulla scheda SD o sull'unità USB.")
+MORE["ko"]["The emulated NAND's folder: the one USB Loader GX's settings name, or nands/01 on the SD card or the USB drive."] = '에뮬레이트 NAND 폴더입니다. USB Loader GX 설정에 적힌 폴더, 또는 SD 카드나 USB 드라이브의 nands/01입니다.'
+MORE["fr"]["The emulated NAND's folder: the one USB Loader GX's settings name, or nands/01 on the SD card or the USB drive."] = "Le dossier de la NAND émulée : celui qu'indiquent les réglages d'USB Loader GX, ou nands/01 sur la carte SD ou le disque USB."
+T["With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."] = ('Con ajustes y Miis, los juegos también usan los ajustes de Wii y los Miis de la NAND emulada. Para eso la carpeta necesita una NAND completa.', '設定とMiiも選ぶと、ゲームはエミュレートNANDのWii本体設定とMiiも使います。そのためにはフォルダに完全なNANDが必要です。', 'Com configurações e Miis, os jogos também usam as configurações do Wii e os Miis da NAND emulada. Para isso a pasta precisa de uma NAND completa.', 'Con impostazioni e Mii, i giochi usano anche le impostazioni della Wii e i Mii della NAND emulata. Per questo la cartella deve contenere una NAND completa.')
+MORE["ko"]["With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."] = '설정과 Mii까지 고르면 게임이 에뮬레이트 NAND의 Wii 설정과 Mii도 사용합니다. 이를 위해 폴더에 완전한 NAND가 있어야 합니다.'
+MORE["fr"]["With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."] = 'Avec réglages et Mii, les jeux utilisent aussi les réglages de la Wii et les Mii de la NAND émulée. Le dossier doit alors contenir une NAND complète.'
 
 # Game management: own display names and visibility, never file renames.
 T['Manage game'] = ('Gestionar juego', 'ゲームの管理', 'Gerenciar jogo', 'Gestisci gioco')

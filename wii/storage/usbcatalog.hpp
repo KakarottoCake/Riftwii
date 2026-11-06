@@ -13,6 +13,7 @@
 #include "riftwii/titles.hpp"
 #include "riftwii/usbgame.hpp"
 #include "resident.hpp"
+#include "usbnand.hpp"
 
 namespace riftwii::wii {
 

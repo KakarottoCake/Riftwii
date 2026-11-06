@@ -39,8 +39,11 @@ bool save_folder_empty(const std::string& data_dir);
 // in and, for `clone` and a save folder that had no save yet, the Wii's
 // own save copied in once. With `clone_into_empty`, a data folder that
 // exists but is empty counts as no save yet (the shared emulated NAND).
-// `game.title_id` must be known.
+// `game.title_id` must be known. A folder on the USB drive (#487) is
+// written through its own partition's mount (mount_usb_nand_folder).
+// `whole_nand`, when given and true, asks whether the folder holds a
+// whole NAND (the Wii's settings file): set false when it does not.
 bool prepare_d2x_saves(const ImageGame& game, const std::string& dir, bool clone, bool clone_into_empty,
-                       std::string& error);
+                       std::string& error, bool* whole_nand = nullptr);
 
 }  // namespace riftwii::wii

@@ -171,11 +171,11 @@ msgstr "I salvataggi vanno sulla scheda SD, partendo da quello della Wii."
 msgid "Saves go to the SD card, starting fresh."
 msgstr "I salvataggi vanno sulla scheda SD, partendo da zero."
 
-msgid "Saves go to {1} on the SD card, shared with other loaders."
-msgstr "I salvataggi vanno in {1} sulla scheda SD, condivisi con altri loader."
+msgid "Saves go to {1}, shared with other loaders."
+msgstr "I salvataggi vanno in {1}, condivisi con altri loader."
 
-msgid "{1} can't hold saves: use a short folder on the SD card."
-msgstr "{1} non può contenere salvataggi: usa una cartella breve della scheda SD."
+msgid "{1} can't hold saves: use a short folder on the SD card or the USB drive."
+msgstr "{1} non può contenere salvataggi: usa una cartella breve della scheda SD o dell'unità USB."
 
 msgid "Saves stay on the Wii, as usual."
 msgstr "I salvataggi restano sulla Wii, come sempre."
@@ -4064,6 +4064,30 @@ msgstr "Vai a questo link per segnalare come funziona questo gioco. Il modulo si
 
 msgid "Report"
 msgstr "Segnala"
+
+msgid "Wii saves"
+msgstr "Salvataggi Wii"
+
+msgid "NAND keeps"
+msgstr "La NAND tiene"
+
+msgid "USB Loader GX's"
+msgstr "Quella di USB Loader GX"
+
+msgid "Saves, settings and Miis"
+msgstr "Salvataggi, impostazioni e Mii"
+
+msgid "Settings > Games > Wii saves decides."
+msgstr "Lo decide Impostazioni > Giochi > Salvataggi Wii."
+
+msgid "Where every game saves unless its own page picks another place. Emulated NAND shares saves with USB Loader GX."
+msgstr "Dove salva ogni gioco, salvo che la sua pagina scelga un altro posto. La NAND emulata condivide i salvataggi con USB Loader GX."
+
+msgid "The emulated NAND's folder: the one USB Loader GX's settings name, or nands/01 on the SD card or the USB drive."
+msgstr "La cartella della NAND emulata: quella indicata dalle impostazioni di USB Loader GX, o nands/01 sulla scheda SD o sull'unità USB."
+
+msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
+msgstr "Con impostazioni e Mii, i giochi usano anche le impostazioni della Wii e i Mii della NAND emulata. Per questo la cartella deve contenere una NAND completa."
 
 msgid "Manage game"
 msgstr "Gestisci gioco"

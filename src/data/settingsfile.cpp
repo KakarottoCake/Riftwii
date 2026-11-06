@@ -180,6 +180,12 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "auto" || value == "off" || value == "on" || value == "demo") gc_adapter = value;
         } else if (key == "sd_games") {
             if (value == "on" || value == "off") sd_games = value;
+        } else if (key == "saves_every_game") {
+            if (value == "nand" || value == "emunand") saves_every_game = value;
+        } else if (key == "emunand_folder") {
+            if (value == "gx" || value == "sd" || value == "usb") emunand_folder = value;
+        } else if (key == "emunand_keeps") {
+            if (value == "saves" || value == "all") emunand_keeps = value;
         } else if (key == "gc_backups") {
             if (value == "on" || value == "off") gc_backups = value;
         } else if (key == "nintendont_saves") {
@@ -260,6 +266,9 @@ std::string LoaderSettings::serialize() const {
     s += "usb_input = " + usb_input + "\n";
     s += "gc_adapter = " + gc_adapter + "\n";
     s += "sd_games = " + sd_games + "\n";
+    s += "saves_every_game = " + saves_every_game + "\n";
+    s += "emunand_folder = " + emunand_folder + "\n";
+    s += "emunand_keeps = " + emunand_keeps + "\n";
     s += "gc_backups = " + gc_backups + "\n";
     s += "nintendont_saves = " + nintendont_saves + "\n";
     s += "usb_gecko_log = " + usb_gecko_log + "\n";

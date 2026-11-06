@@ -175,6 +175,31 @@ std::vector<DrivePartition> drive_partitions(const BlockReader& reader, const st
     return out;
 }
 
+bool d2x_usb_partition(const std::uint8_t* block0, std::uint64_t lba, std::int32_t& index, std::string& why) {
+    if (lba == 0) {
+        index = -1;
+        return true;
+    }
+    if (block0[510] != 0x55 || block0[511] != 0xAA) {
+        why = "the USB drive has no partition table d2x can read";
+        return false;
+    }
+    for (int i = 0; i < 4; ++i) {
+        const std::uint8_t* entry = block0 + 0x1BE + i * 16;
+        if (entry[4] == 0xEE) {
+            why = "the USB drive uses a GPT partition table, and d2x reads only an MBR one";
+            return false;
+        }
+        if (entry[4] != 0 && entry[4] != 0x05 && entry[4] != 0x0F && le32(entry + 8) == lba) {
+            index = i;
+            return true;
+        }
+    }
+    why = "the folder's partition is not one of the USB drive's first four (primary) partitions, the only ones d2x "
+          "mounts";
+    return false;
+}
+
 const std::vector<std::string>& default_wanted_folders() {
     static const std::vector<std::string> names = {"wbfs", "games", "riivolution"};
     return names;

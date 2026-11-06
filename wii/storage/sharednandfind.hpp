@@ -4,12 +4,13 @@
 
 #include <string>
 
-// The Saves choice "SD, emulated NAND": the folder for `game_id`, read
-// from the other loader's settings on the SD card (then the USB drive)
-// with riftwii/sharednand.hpp. Its default folder when there are no
-// settings. False with the reason when the folder cannot be used (on the
-// USB drive, or a path that is not a plain folder of the SD card): the
-// launch stops then, rather than keeping the save somewhere else.
+// The Saves choice "Emulated NAND": the folder for `game_id`. Settings'
+// "Emulated NAND folder" names it (sd:/nands/01 or usb:/nands/01), or
+// leaves it to the other loader's settings on the SD card (then the USB
+// drive), read with riftwii/sharednand.hpp, with its default folder when
+// there are none. False with the reason when the folder cannot be used
+// (not a plain folder of the SD card or the USB drive): the launch stops
+// then, rather than keeping the save somewhere else.
 namespace riftwii::wii {
 
 // What the settings say for one game, checked.

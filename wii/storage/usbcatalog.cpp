@@ -1540,6 +1540,93 @@ bool delete_usb_image_files(const std::vector<std::string>& paths, const std::st
     return ok;
 }
 
+namespace {
+
+// The volume a USB folder is on and where it starts, FAT32 only.
+bool usb_fat32_volume(const std::string& usb_folder, std::uint64_t& lba, std::string& why) {
+    const ImageVolume* volume = find_image_volume(g_usb_volumes, usb_folder);
+    if (!volume) {
+        why = "the USB drive or its partition " + usb_path_device(usb_folder) + " is not mounted";
+        return false;
+    }
+    if (std::strcmp(volume->kind(), "FAT32") != 0) {
+        why = "the emulated NAND's partition is " + std::string(volume->kind()) + ", and d2x keeps one only on FAT32";
+        return false;
+    }
+    for (const MountedImageVolume& mounted : g_usb_volumes)
+        if (mounted.volume.get() == volume) lba = mounted.lba;
+    if (lba > 0xFFFFFFFFull) {
+        why = "the emulated NAND's partition starts past the first 2 TiB of the drive";
+        return false;
+    }
+    return true;
+}
+
+bool g_nand_folder_mounted = false;
+bool g_nand_folder_legacy = false;
+
+}  // namespace
+
+bool usb_d2x_nand_partition(const std::string& usb_folder, std::int32_t& index, std::string& why) {
+    UsbLocked locked;
+    std::uint64_t lba = 0;
+    if (!usb_fat32_volume(usb_folder, lba, why)) return false;
+    // A 4 KiB sector's room: d2x's FatFs reads the drive's own sector size.
+    static std::uint8_t block0[4096] ATTRIBUTE_ALIGN(32);
+    if (!usb_read(0, 1, block0)) {
+        why = "the USB drive's first block could not be read";
+        return false;
+    }
+    return d2x_usb_partition(block0, lba, index, why);
+}
+
+bool mount_usb_nand_folder(const std::string& usb_folder, std::string& writable, std::string& why) {
+    UsbLocked locked;
+    if (g_nand_folder_mounted) {
+        why = "the emulated NAND's partition is already mounted";
+        return false;
+    }
+    std::uint64_t lba = 0;
+    if (!usb_fat32_volume(usb_folder, lba, why)) return false;
+    g_nand_folder_legacy = g_libfat_mounted;
+    if (g_nand_folder_legacy) fatUnmount("usb:");
+    g_libfat_mounted = false;
+    if (!fatMount("rwnand", &g_usb_io, static_cast<sec_t>(lba), 8, 64)) {
+        if (g_nand_folder_legacy) g_libfat_mounted = fatMountSimple("usb", &g_usb_io);
+        why = "the emulated NAND's FAT32 partition could not be opened for writing";
+        return false;
+    }
+    g_nand_folder_mounted = true;
+    writable = "rwnand:" + image_volume_path(usb_folder);
+    return true;
+}
+
+void unmount_usb_nand_folder() {
+    UsbLocked locked;
+    if (!g_nand_folder_mounted) return;
+    fatUnmount("rwnand:");
+    g_nand_folder_mounted = false;
+    if (g_nand_folder_legacy) g_libfat_mounted = fatMountSimple("usb", &g_usb_io);
+}
+
+namespace {
+bool g_libfat_with_d2x = false;
+}  // namespace
+
+bool usb_libfat_hand_to_d2x() {
+    UsbLocked locked;
+    g_libfat_with_d2x = g_libfat_mounted;
+    if (g_libfat_mounted) fatUnmount("usb:");
+    g_libfat_mounted = false;
+    return g_libfat_with_d2x;
+}
+
+void usb_libfat_back_from_d2x() {
+    UsbLocked locked;
+    if (g_libfat_with_d2x && !g_libfat_mounted) g_libfat_mounted = fatMountSimple("usb", &g_usb_io);
+    g_libfat_with_d2x = false;
+}
+
 bool usb_preferred_volume_lba(std::uint64_t& lba) {
     lba = g_usb_preferred_lba;
     return g_usb_preferred_known;

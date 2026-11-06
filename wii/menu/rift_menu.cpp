@@ -8303,8 +8303,16 @@ static std::string SaveLabel(const std::string& mode)
 {
 	if (mode == "separate") return "SD, from Wii save";
 	if (mode == "fresh") return "SD, fresh start";
-	if (mode == "emunand") return "SD, emulated NAND";
+	if (mode == "emunand") return "Emulated NAND";
 	return "On the Wii";
+}
+// A save mode as the game's page shows it, translated: "Default" names
+// Settings' choice for every game (#487).
+static std::string SaveValue(const std::string& mode)
+{
+	if (mode != "global") return tr(SaveLabel(mode).c_str());
+	const std::string every = riftwii::effective_save_mode(mode, riftwii::wii::Settings().saves_every_game);
+	return tr("Default ({1})", {tr(SaveLabel(every).c_str())});
 }
 // The shared emulated NAND's folder for a game, as its settings say. Read
 // again for another game or when asked (the choice was just picked); the
@@ -8332,16 +8340,19 @@ static std::string SaveNote(const riftwii::LaunchModel& model, const std::string
 	const std::string owner = model.pack_save_owner();
 	if (!owner.empty())
 		return tr("This pack keeps its own saves. Turn it off to choose here.");
-	const std::string& mode = mode_shown ? *mode_shown : model.save_mode;
-	if (mode == "separate") return tr("Saves go to the SD card, starting from the Wii's save.");
-	if (mode == "fresh") return tr("Saves go to the SD card, starting fresh.");
+	const std::string& picked = mode_shown ? *mode_shown : model.save_mode;
+	// "Default" says so first, then what Settings' choice does.
+	const std::string mode = riftwii::effective_save_mode(picked, riftwii::wii::Settings().saves_every_game);
+	const std::string lead = picked == "global" ? std::string(tr("Settings > Games > Wii saves decides.")) + " " : "";
+	if (mode == "separate") return lead + tr("Saves go to the SD card, starting from the Wii's save.");
+	if (mode == "fresh") return lead + tr("Saves go to the SD card, starting fresh.");
 	if (mode == "emunand") {
 		const riftwii::wii::SharedNandLookup& shared = SharedNandFor(game_id, read_again);
 		if (shared.usable)
-			return tr("Saves go to {1} on the SD card, shared with other loaders.", {shared.folder});
-		return tr("{1} can't hold saves: use a short folder on the SD card.", {shared.configured});
+			return lead + tr("Saves go to {1}, shared with other loaders.", {shared.folder});
+		return lead + tr("{1} can't hold saves: use a short folder on the SD card or the USB drive.", {shared.configured});
 	}
-	return tr("Saves stay on the Wii, as usual.");
+	return lead + tr("Saves stay on the Wii, as usual.");
 }
 
 struct ChannelCopies {
@@ -8665,6 +8676,25 @@ static std::string CiosName(const std::string& v)
 	if (v == "auto") return tr("Automatic");
 	return "cIOS " + v;
 }
+// Settings > Games' Wii saves for every game and the emulated NAND they
+// may use (#487; riftwii/settingsfile.hpp).
+static const char* const kSavesEveryGameChoices[] = {"nand", "emunand"};
+static const char* const kEmuNandFolderChoices[] = {"gx", "sd", "usb"};
+static const char* const kEmuNandKeepChoices[] = {"saves", "all"};
+static std::string EmuNandFolderName(const std::string& v)
+{
+	if (v == "sd") return tr("SD card");
+	if (v == "usb") return tr("USB drive");
+	return tr("USB Loader GX's");
+}
+static std::string EmuNandKeepsName(const std::string& v)
+{
+	if (v == "all") return tr("Saves, settings and Miis");
+	return tr("Saves");
+}
+static const char* const kWiiSavesNote = "Where every game saves unless its own page picks another place. Emulated NAND shares saves with USB Loader GX.";
+static const char* const kEmuNandFolderNote = "The emulated NAND's folder: the one USB Loader GX's settings name, or nands/01 on the SD card or the USB drive.";
+static const char* const kEmuNandKeepsNote = "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that.";
 static std::string ChannelIosName(const std::string& v)
 {
 	if (v == "auto" || v == "global") return tr("Automatic");
@@ -8766,8 +8796,8 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		saves.value = tr("Kept by the pack");
 		saves.dim = true;
 	} else {
-		saves.value = SaveLabel(state.model.save_mode);
-		saves.on = state.model.save_mode != "nand";
+		saves.value = SaveValue(state.model.save_mode);
+		saves.on = riftwii::wii::EffectiveSaveMode(state) != "nand";
 	}
 	add(saves, {RowRef::What::Saves});
 
@@ -10097,17 +10127,18 @@ static void RunRowPage(const std::string& title, const std::string& subtitle, st
 // Saves already made stay where they are.
 static void MenuWiiSaves(FrontendState& state)
 {
-	static const char* const kModes[] = {"nand", "separate", "fresh", "emunand"};
+	static const char* const kModes[] = {"global", "nand", "separate", "fresh", "emunand"};
+	constexpr int kModeCount = 5;
 	const bool kept = !state.model.pack_save_owner().empty();
-	std::vector<FlowRow> rows(4);
+	std::vector<FlowRow> rows(kModeCount);
 	for (FlowRow& row : rows) row.kind = FlowRow::Kind::Action;
-	for (int i = 0; i < 4; ++i) {
-		rows[static_cast<std::size_t>(i)].label = tr(SaveLabel(kModes[i]).c_str());
+	for (int i = 0; i < kModeCount; ++i) {
+		rows[static_cast<std::size_t>(i)].label = SaveValue(kModes[i]);
 		rows[static_cast<std::size_t>(i)].dim = kept;
 	}
 	int current = 0;
-	while (current < 4 && state.model.save_mode != kModes[current]) ++current;
-	if (current == 4) current = 0;
+	while (current < kModeCount && state.model.save_mode != kModes[current]) ++current;
+	if (current == kModeCount) current = 0;
 	// An Action row lights its chip only when it has a value: the location
 	// in use keeps a marker whichever row has the focus.
 	const auto mark = [&](int inUse) {
@@ -13784,7 +13815,8 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 		: gamecube && state.model.game.gc_card == "real" ? std::string(tr("Real card in slot A"))
 		: gamecube ? std::string(tr("Memory Card")) + " \xC2\xB7 SD"
 		: !state.model.pack_save_owner().empty() ? std::string(tr("Kept by the pack"))
-		: std::string(tr(SaveLabel(state.model.save_mode).c_str()));
+		// The tile names where the saves go; "Default (...)" doesn't fit it.
+		: std::string(tr(SaveLabel(riftwii::wii::EffectiveSaveMode(state)).c_str()));
 	const std::string cheats = GameRowNotApplied(state.game_id, RowRef::What::Cheats)
 		? std::string(tr("Not applied")) : CheatsValue(game);
 	// Until a patch's game is made: what making it takes, where the mods
@@ -13825,7 +13857,7 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 	add(GameTile::Cheats, kTilesX, 228, kHalfW, 70, tr("Cheats"), cheats, &skin::iconCheats,
 		game.cheats && !game.cheat_names.empty());
 	add(GameTile::Saves, kRightX, 228, kHalfW, 70, tr("Saves"), saves, &skin::iconSaves,
-		!gamecube && state.model.save_mode != "nand");
+		!gamecube && riftwii::wii::EffectiveSaveMode(state) != "nand");
 	// A full card is a warning, in the theme's colour for one.
 	tiles.back().warn = cardFull;
 	if (disc) {
@@ -14626,7 +14658,7 @@ static int MenuHome(FrontendState& state)
 		if (bannerHeld) ResumeGui();
 		const riftwii::wii::CiosCheck check = riftwii::wii::image_cios_check(riftwii::wii::SelectedSource(state).game,
 			riftwii::wii::SelectedSource(state).cios_slot,
-			!state.model.selections().empty() || state.model.save_mode != "nand");
+			!state.model.selections().empty() || riftwii::wii::EffectiveSaveMode(state) != "nand");
 		if (bannerHeld) HaltGui();
 		return check;
 	};
@@ -15054,7 +15086,7 @@ static int MenuHome(FrontendState& state)
 				// B: back on the game page
 			} else if (!saveForStart()) {
 				// the status shows why
-			} else if (!riftwii::needs_launch_pipeline(!state.model.selections().empty(), state.model.save_mode)) {
+			} else if (!riftwii::needs_launch_pipeline(!state.model.selections().empty(), riftwii::wii::EffectiveSaveMode(state))) {
 				menu = MENU_BOOT;  // no resident work: boot the game as it is
 			} else if (state.use_usb || state.use_sd || (riftwii::wii::MenuCiosSlot() == 0 && PacksOnUsb(state))) {
 				// cIOS reload and F9 happen after the GUI exits; compilation
@@ -16244,7 +16276,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kDiscLight, kNintendontSaves, kParental, kSdGames, kIos, kNet, kResync, kWads, kDiscCopy,
+	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kDiscLight, kNintendontSaves, kParental, kSdGames, kIos, kNet, kResync, kWads, kDiscCopy,
 		kMissingCovers, kRescan, kPartitionFailures, kUpdate, kReport, kTests, kGeckoLog, kWiirdDebugger, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -16287,6 +16319,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		option(tr("Game language"), GameLanguageName(settings.game_language), settings.game_language != "console",
 			kGameLanguage);
 		option(tr("Game cIOS"), CiosName(settings.game_cios), settings.game_cios != "auto", kGameCios);
+		option(tr("Wii saves"), tr(SaveLabel(settings.saves_every_game).c_str()), settings.saves_every_game != "nand",
+			kWiiSaves);
+		option(tr("Emulated NAND"), EmuNandFolderName(settings.emunand_folder), settings.emunand_folder != "gx",
+			kEmuNandFolder);
+		option(tr("NAND keeps"), EmuNandKeepsName(settings.emunand_keeps), settings.emunand_keeps != "saves",
+			kEmuNandKeeps);
 		option(tr("Show non-game channels"), settings.nand_non_games ? tr("On") : tr("Off"),
 			settings.nand_non_games, kNonGames, FlowRow::Kind::Toggle);
 		option(tr("Online server"), ServerName(settings.wfc_server), settings.wfc_server != "off", kServer);
@@ -16571,7 +16609,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			switch (a) {
 				case kWidth: case kDeflicker: case kBorders: case kVideoMode: case kAspect:
 					return SettingsSection::Picture;
-				case kEmulators: case kGameLanguage: case kGameCios: case kNonGames: case kReturnTo: case kShots: case kGcBackups: case kDiscLight: case kNintendontSaves:
+				case kEmulators: case kGameLanguage: case kGameCios: case kWiiSaves: case kEmuNandFolder: case kEmuNandKeeps: case kNonGames: case kReturnTo: case kShots: case kGcBackups: case kDiscLight: case kNintendontSaves:
 				case kParental:
 					return SettingsSection::Games;
 				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest: case kUsbInput:
@@ -16676,6 +16714,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kAspect: return tr("Makes the game use 4:3 or widescreen 16:9 whatever the Wii's TV setting says. Not every game can be changed.");
 			case kGameLanguage: return tr("The language the game is told the console uses. Pick one the game has: some games stop without it.");
 			case kGameCios: return tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works.");
+			case kWiiSaves: return tr(kWiiSavesNote);
+			case kEmuNandFolder: return tr(kEmuNandFolderNote);
+			case kEmuNandKeeps: return tr(kEmuNandKeepsNote);
 			case kNonGames: return tr("Show all channels even if they aren't detected as a game.");
 			case kHomeTiles: return HomeTilesNote(settings.home_tiles);
 			case kChannelCorners: return tr("How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme.");
@@ -16914,6 +16955,21 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kGameCios:
 					settings.game_cios = StepValue(kCiosChoices, settings.game_cios, direction, false);
 					saveAndNote(tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works."));
+					rebuild();
+					break;
+				case kWiiSaves:
+					settings.saves_every_game = StepValue(kSavesEveryGameChoices, settings.saves_every_game, direction, false);
+					saveAndNote(tr(kWiiSavesNote));
+					rebuild();
+					break;
+				case kEmuNandFolder:
+					settings.emunand_folder = StepValue(kEmuNandFolderChoices, settings.emunand_folder, direction, false);
+					saveAndNote(tr(kEmuNandFolderNote));
+					rebuild();
+					break;
+				case kEmuNandKeeps:
+					settings.emunand_keeps = StepValue(kEmuNandKeepChoices, settings.emunand_keeps, direction, false);
+					saveAndNote(tr(kEmuNandKeepsNote));
 					rebuild();
 					break;
 				case kNonGames: {

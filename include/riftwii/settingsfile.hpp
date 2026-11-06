@@ -72,6 +72,16 @@ struct LoaderSettings {
     std::string usb_input = "on";         // on, off: configured USB pads (menu and games), keyboards, mice, pen tablets and uDraw
     std::string gc_adapter = "auto";      // GameCube controller adapter for Wii U: auto (when plugged in at launch), on, off (demo: Dolphin tests)
     std::string sd_games = "on";          // on, off: look for game images on the SD card (sd:/wbfs, sd:/games); off for setups that keep games only on USB
+    // Wii saves (#487). Where every game whose own page says "Default"
+    // saves: nand (the Wii's own), emunand (the emulated NAND below).
+    std::string saves_every_game = "nand";
+    // The emulated NAND's folder: gx (USB Loader GX's own NandEmuPath,
+    // riftwii/sharednand.hpp), sd (sd:/nands/01), usb (usb:/nands/01).
+    std::string emunand_folder = "gx";
+    // What the emulated NAND keeps: saves (the game's own paths, d2x's
+    // partial mode), all (the whole NAND: the Wii's settings and Miis too,
+    // d2x's full mode, which needs a whole NAND in the folder).
+    std::string emunand_keeps = "saves";
     std::string gc_backups = "on";        // on, off: copy a GameCube game's memory card to sd:/riftwii/gc/backups before it starts
     std::string nintendont_saves = "ask"; // ask, asked: whether Home has asked about bringing Nintendont's saves (any answer, Not now too, makes it "asked")
     // For developers with a USB Gecko (wii/core/gecko.hpp):

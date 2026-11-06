@@ -218,7 +218,7 @@ static void test_persistence() {
     model.cycle(0, 0, +1);  // Beta
     model.cycle(0, 1, +1);  // On
     const std::string saved = model.save();
-    EXPECT_EQ(saved, std::string("*riftwii*\tsaves\tnand\n"
+    EXPECT_EQ(saved, std::string("*riftwii*\tsaves\tglobal\n"
                                  "a.xml\ton\na.xml\tTracks/Pack\tBeta\na.xml\tTracks/Music\tOn\n"));
 
     // A fresh model with the same packages takes the saved state back;
@@ -351,7 +351,7 @@ static void test_saves() {
     EXPECT_TRUE(riftwii::show_package(model.packages[4]));
 
     // Save mode round-trips; garbage never clobbers it.
-    EXPECT_EQ(model.save_mode, std::string("nand"));
+    EXPECT_EQ(model.save_mode, std::string("global"));
     model.save_mode = "separate";
     riftwii::LaunchModel again;
     again.add("a.xml", "sd:/riivolution/a.xml", kModA, &disc);
@@ -361,8 +361,26 @@ static void test_saves() {
     EXPECT_EQ(again.save_mode, std::string("separate"));
     again.restore("*riftwii*\tsaves\tfresh\n");
     EXPECT_EQ(again.save_mode, std::string("fresh"));
+    // Before #487 every file said "nand", picked or not: Settings' choice.
     again.restore("*riftwii*\tsaves\tnand\n");
-    EXPECT_EQ(again.save_mode, std::string("nand"));
+    EXPECT_EQ(again.save_mode, std::string("global"));
+    // "On the Wii" picked on the game's page has its own name.
+    again.save_mode = "nand";
+    EXPECT_TRUE(again.save().find("*riftwii*\tsaves\twii\n") != std::string::npos);
+    riftwii::LaunchModel picked;
+    picked.restore(again.save());
+    EXPECT_EQ(picked.save_mode, std::string("nand"));
+    again.save_mode = "global";
+    picked.restore(again.save());
+    EXPECT_EQ(picked.save_mode, std::string("global"));
+    // What a launch uses.
+    EXPECT_EQ(riftwii::effective_save_mode("global", "nand"), std::string("nand"));
+    EXPECT_EQ(riftwii::effective_save_mode("global", "emunand"), std::string("emunand"));
+    EXPECT_EQ(riftwii::effective_save_mode("global", "bogus"), std::string("nand"));
+    EXPECT_EQ(riftwii::effective_save_mode("nand", "emunand"), std::string("nand"));
+    EXPECT_EQ(riftwii::effective_save_mode("fresh", "emunand"), std::string("fresh"));
+    EXPECT_FALSE(riftwii::needs_launch_pipeline(false, riftwii::effective_save_mode("global", "nand")));
+    EXPECT_TRUE(riftwii::needs_launch_pipeline(false, riftwii::effective_save_mode("global", "emunand")));
     // The game page's GX preferences round-trip; defaults write nothing.
     EXPECT_TRUE(model.save().find("aspect") == std::string::npos);
     model.game.aspect = "16:9";
@@ -550,17 +568,17 @@ static void test_saves() {
                    "*riftwii*\tserver\twiimmfi\n*riftwii*\tcios\t249\n");
     reused.forget_game_choices();
     reused.restore("*riftwii*\tcheat\tB's cheat\n");
-    EXPECT_EQ(reused.save_mode, std::string("nand"));
+    EXPECT_EQ(reused.save_mode, std::string("global"));
     EXPECT_FALSE(reused.game.cheats);
     EXPECT_EQ(reused.game.cheat_names.size(), static_cast<std::size_t>(1));
     EXPECT_EQ(reused.game.cheat_names.count("B's cheat"), static_cast<std::size_t>(1));
     EXPECT_EQ(reused.game.server, std::string("global"));
     EXPECT_EQ(reused.game.cios, std::string("global"));
-    // Old choice files without the settings line restore as nand.
+    // Old choice files without the settings line follow Settings.
     riftwii::LaunchModel legacy;
     legacy.add("a.xml", "sd:/riivolution/a.xml", kModA, &disc);
     legacy.restore("a.xml\ton\n");
-    EXPECT_EQ(legacy.save_mode, std::string("nand"));
+    EXPECT_EQ(legacy.save_mode, std::string("global"));
 
     // Override resolution: XML wins, then mode, then nothing.
     riftwii::SaveOverride o = riftwii::resolve_save_override("separate", "sd:/riftwii/sg", "RMCE01");

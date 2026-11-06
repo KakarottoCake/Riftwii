@@ -73,10 +73,24 @@ void folders() {
     EXPECT_TRUE(shared_nand_folder("sd:/my nand", folder, why));
     EXPECT_EQ(folder, std::string("sd:/my nand"));
 
+    // On the USB drive (#487): RiftWii's own partition, or a numbered one
+    // as the other loader writes it.
+    EXPECT_TRUE(shared_nand_folder("usb1:/nands/01/", folder, why));
+    EXPECT_EQ(folder, std::string("usb1:/nands/01"));
+    EXPECT_TRUE(shared_nand_on_usb(folder));
+    EXPECT_TRUE(shared_nand_folder(kUsbSharedNand, folder, why));
+    EXPECT_EQ(folder, std::string("usb:/nands/01"));
+    EXPECT_TRUE(shared_nand_folder("usb12:/n", folder, why));
+    EXPECT_FALSE(shared_nand_on_usb("sd:/nands/01"));
+    EXPECT_TRUE(shared_nand_folder("usb:/" + std::string(30, 'a'), folder, why));
+    EXPECT_FALSE(shared_nand_folder("usb2:/" + std::string(31, 'a'), folder, why));
     folder = "unchanged";
-    // On the USB drive: RiftWii keeps saves only on the SD card.
-    EXPECT_FALSE(shared_nand_folder("usb1:/nands/01/", folder, why));
-    EXPECT_TRUE(why.find("USB") != std::string::npos);
+    EXPECT_FALSE(shared_nand_folder("usb01:/nands", folder, why));
+    EXPECT_FALSE(shared_nand_folder("usb123:/nands", folder, why));
+    EXPECT_FALSE(shared_nand_folder("usbx:/nands", folder, why));
+    EXPECT_FALSE(shared_nand_folder("usb:/", folder, why));
+    EXPECT_FALSE(shared_nand_folder("usb1:/nands/../x", folder, why));
+    EXPECT_FALSE(shared_nand_folder("usb:nands", folder, why));
     EXPECT_EQ(folder, std::string("unchanged"));
     // Not a plain folder of the card.
     EXPECT_FALSE(shared_nand_folder("", folder, why));

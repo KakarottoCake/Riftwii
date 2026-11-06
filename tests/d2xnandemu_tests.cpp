@@ -24,6 +24,7 @@
 
 #include "d2xsd.hpp"
 #include "log.hpp"
+#include "usbnand.hpp"
 #include "rtable.h"
 
 namespace {
@@ -41,6 +42,8 @@ constexpr s32 kFatFd = 4;
 constexpr s32 kFsFd = 9;
 constexpr s32 kMountSd = 0xF0;
 constexpr s32 kUnmountSd = 0xF1;
+constexpr s32 kMountUsb = 0xF2;
+constexpr s32 kUnmountUsb = 0xF3;
 constexpr s32 kSetMode = 100;
 constexpr s32 kIpcNotFound = -6;
 
@@ -67,6 +70,9 @@ struct Console {
     bool libfat_mounted_at_first_mount = true;
     bool log_open_at_first_mount = true;
     std::string set_path;
+    bool usb_libfat = true;           // libfat's usb: mounted
+    s32 usb_partition = -99;          // what 0xF2 was given
+    s32 usb_mount_answer = 0;
     std::vector<std::string> events;  // every call, in order
     std::vector<std::string> lines;   // every line logged
     std::vector<std::string> card_lines;  // the ones written while boot.log was open
@@ -579,8 +585,8 @@ void test_not_a_folder_of_the_card() {
     start_over();
     std::string error;
     bool card_back = false;  // as the caller had it: left so
-    CHECK(!riftwii::wii::enable_d2x_saves("usb:/nands/01", error, riftwii::wii::D2xNandScope::WholeNand, &card_back));
-    CHECK(error == "RiftWii turns d2x's NAND emulation on only from a folder of the SD card, and usb:/nands/01 is "
+    CHECK(!riftwii::wii::enable_d2x_saves("ftp:/nands/01", error, riftwii::wii::D2xNandScope::WholeNand, &card_back));
+    CHECK(error == "RiftWii turns d2x's NAND emulation on only from a folder of the SD card, and ftp:/nands/01 is "
                    "not one");
     CHECK(!card_back);
     CHECK(console.events.empty());
@@ -601,6 +607,55 @@ void test_path_over_255_is_refused() {
     CHECK(!riftwii::wii::enable_d2x_saves(longest + "b", error, riftwii::wii::D2xNandScope::GamePaths, &card_back));
     CHECK(error == "the folder's path is 256 characters long, and d2x takes at most 255");
     CHECK(!card_back && console.events.empty() && console.libfat_mounted && console.log_open);
+}
+
+// An emulated NAND on the USB drive (#487): libfat lets go of the drive,
+// the module mounts the partition found before the reload, the emulation
+// comes on with the USB bit, and the SD card and boot.log are untouched.
+// Released, the module lets go and libfat has the drive again.
+void test_usb_folder_goes_through_the_usb_mount() {
+    start_over();
+    put_fat32_card();
+    std::string error;
+    CHECK(riftwii::wii::enable_d2x_saves("usb1:/nands/01", error, riftwii::wii::D2xNandScope::WholeNand, nullptr,
+                                         nullptr, 2));
+    CHECK(error.empty());
+    CHECK(console.events.size() >= 3);
+    CHECK(console.events.size() >= 4 && console.events[0] == "fat open" && console.events[1] == "usb libfat off" &&
+          console.events[2] == "fat 0xF2" && console.events[3] == "fs set");
+    CHECK(console.usb_partition == 2);
+    CHECK(console.set_path == "/nands/01");
+    CHECK(console.set_mode == (2u | 0x100u));
+    CHECK(console.libfat_mounted && console.log_open && !console.held);
+    CHECK(count_of("fat 0xF0") == 0 && count_of("log close") == 0);
+    CHECK(riftwii::wii::usb_held_by_d2x_fat());
+    CHECK(!console.usb_libfat);
+
+    console.events.clear();
+    CHECK(riftwii::wii::release_d2x_saves());
+    CHECK(console.set_mode == 0);
+    CHECK(count_of("fat 0xF3") == 1 && count_of("usb libfat back") == 1);
+    CHECK(!riftwii::wii::usb_held_by_d2x_fat());
+    CHECK(console.usb_libfat);
+}
+
+void test_usb_folder_refused_gives_the_drive_back() {
+    start_over();
+    put_fat32_card();
+    console.set_answer = -1;
+    std::string error;
+    CHECK(!riftwii::wii::enable_d2x_saves("usb:/nands/01", error, riftwii::wii::D2xNandScope::GamePaths, nullptr,
+                                          nullptr, -1));
+    CHECK(error.find("refused") != std::string::npos);
+    CHECK(console.usb_partition == -1 && console.set_mode == 2u);
+    CHECK(count_of("fat 0xF3") == 1 && count_of("usb libfat back") == 1);
+    CHECK(console.usb_libfat && !riftwii::wii::usb_held_by_d2x_fat());
+
+    start_over();
+    console.usb_mount_answer = -101;
+    CHECK(!riftwii::wii::enable_d2x_saves("usb:/nands/01", error));
+    CHECK(error.find("could not mount the USB drive") != std::string::npos);
+    CHECK(count_of("fs set") == 0 && count_of("fat 0xF3") == 0 && console.usb_libfat);
 }
 
 }  // namespace
@@ -626,6 +681,16 @@ void hold_sd_for_d2x_fat(bool held) {
     console.held = held;
 }
 bool sd_held_by_d2x_fat() { return console.held; }
+bool usb_libfat_hand_to_d2x() {
+    console.events.push_back("usb libfat off");
+    const bool was = console.usb_libfat;
+    console.usb_libfat = false;
+    return was;
+}
+void usb_libfat_back_from_d2x() {
+    console.events.push_back("usb libfat back");
+    console.usb_libfat = true;
+}
 
 void LogClose() {
     console.events.push_back("log close");
@@ -704,6 +769,16 @@ s32 IOS_Ioctlv(s32 fd, s32 command, u32 in, u32, ioctlv* vectors) {
         console.unmount_answers.pop_front();
         return answer;
     }
+    if (fd == kFatFd && command == kMountUsb) {
+        CHECK(in == 1);
+        console.events.push_back("fat 0xF2");
+        std::memcpy(&console.usb_partition, vectors[0].data, sizeof(console.usb_partition));
+        return console.usb_mount_answer;
+    }
+    if (fd == kFatFd && command == kUnmountUsb) {
+        console.events.push_back("fat 0xF3");
+        return 0;
+    }
     if (fd == kFsFd && command == kSetMode) {
         CHECK(in == 2);
         console.events.push_back("fs set");
@@ -739,6 +814,8 @@ int main() {
     test_failed_final_unmount_holds_the_card();
     test_not_a_folder_of_the_card();
     test_path_over_255_is_refused();
+    test_usb_folder_goes_through_the_usb_mount();
+    test_usb_folder_refused_gives_the_drive_back();
     if (failures == 0) std::cout << "the SD card is released before d2x's FAT module mounts it, and stays d2x's while the emulation is on\n";
     return failures == 0 ? 0 : 1;
 }
