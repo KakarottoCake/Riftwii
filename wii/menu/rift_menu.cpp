@@ -510,6 +510,10 @@ UpdateGUI(void *arg)
 			// A popup owns its own wait indicator and draws over this page.
 			g_waitRing.Show(g_busyWaits.load(std::memory_order_relaxed) != 0 &&
 				mainWindow->GetState() != STATE::DISABLED);
+			// This global ring survives changes to the menu's display width.
+			f32 safeX, safeW;
+			Menu_SafeArea(&safeX, &safeW);
+			g_waitRing.SetPosition(static_cast<int>(safeX + safeW) - 58, 70);
 			g_waitRing.Draw();
 			riftwii::wii::GuiPhase("transition end");
 			// The old screen over the new one while it comes in, and this
@@ -6657,7 +6661,7 @@ static int MenuSource(FrontendState& state)
 	// tile. Other games take those tiles after a refresh (a search, another
 	// view): their banners are looked for again.
 	int bannerPageDone = -1;
-	riftwii::wii::BusyRing homeBusy(548, 70);
+	riftwii::wii::BusyRing homeBusy(548 + wide, 70);
 	w.Append(&homeBusy);
 	// Home's line: while the drives are read, what the scan is reading.
 	std::string shownScanStatus;
@@ -14577,7 +14581,9 @@ static int MenuHome(FrontendState& state)
 	}
 	// A press on the Cover row asks again even after automatic downloads stopped.
 	bool coverAsked = false;
-	riftwii::wii::BusyRing coverBusy(580, 400);
+	f32 safeX, safeW;
+	Menu_SafeArea(&safeX, &safeW);
+	riftwii::wii::BusyRing coverBusy(static_cast<int>(safeX + safeW) - 60, 400);
 	coverBusy.Show(false);
 	HaltGui();
 	w.Append(&coverBusy);
@@ -15755,7 +15761,7 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 	constexpr int kPreviewX = 410, kPreviewY = 92;
 	ThemePreview preview(kPreviewX, kPreviewY, ThemePreview::kWidth, ThemePreview::kHeight);
 	riftwii::wii::BusyRing listBusy(320, 308);
-	riftwii::wii::BusyRing previewBusy(502, 120, false);
+	riftwii::wii::BusyRing previewBusy(kPreviewX + ThemePreview::kWidth / 2, kPreviewY + 28, false);
 	GuiText previewTxt("", 14, skin::kInkDim);
 	Place(previewTxt, kPreviewX + 10, kPreviewY + ThemePreview::kHeight / 2 - 9);
 	GuiText factsTxt("", 14, skin::kInkSoft);
@@ -16002,7 +16008,7 @@ static void MenuRiiTag(const std::string& discordId)
 	TitleBand titleBand;
 	PageIcon pageIcon(&skin::iconOnline);
 	RiiTagPicture picture;
-	riftwii::wii::BusyRing tagBusy(320, 116);
+	riftwii::wii::BusyRing tagBusy(RiiTagPicture::kX + riftwii::kRiiTagShownWidth / 2, RiiTagPicture::kY + 36);
 	GuiText pictureTxt(tr("Downloading your tag..."), 16, skin::kInkDim);
 	pictureTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 	pictureTxt.SetPosition(0, RiiTagPicture::kY + riftwii::kRiiTagShownHeight / 2 - 10);
@@ -16640,7 +16646,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	const int promptChange = prompts.Add("A", tr("Change"));
 
 	HaltGui();
-	riftwii::wii::BusyRing networkBusy(582, 70, false);
+	f32 safeX, safeW;
+	Menu_SafeArea(&safeX, &safeW);
+	riftwii::wii::BusyRing networkBusy(static_cast<int>(safeX + safeW) - 58, 70, false);
 	GuiWindow w(screenwidth, screenheight);
 	w.Append(&titleBand);
 	w.Append(&pageIcon);
