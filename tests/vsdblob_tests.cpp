@@ -934,6 +934,26 @@ void TestReadAheadFailures(bool async) {
     EXPECT_EQ(b.st->ra.clobbered, 1u);
 }
 
+// With the resident runtime writing beside the blob, a window that fails
+// every try falls back to the game's own sectors, and that read waits for
+// the runtime's write again first: async, its earlier wait was the window's.
+void TestReadAheadFallbackWaits() {
+    Blob b = MakeBlob(VSD_BACKEND_SLOT0);
+    EnableReadAhead(b, 64, 21);
+    const std::uint32_t runtime_busy = Alloc(false, 32);
+    *At<std::uint32_t>(runtime_busy) = 1;
+    b.st->peer_busy = runtime_busy;
+    const std::uint32_t buffer = Alloc(false, 4 * 512);
+    g_ios.status_polls = 0;
+    g_ios.busy_left = 1;  // the window's wait: one "programming", then ready
+    g_ios.fail_next = VSD_TRIES;
+    EXPECT_EQ(Read(b, 30, 2, buffer, true), 0);
+    EXPECT_TRUE(CardMatches(b, buffer, 30, 2));
+    EXPECT_EQ(g_ios.status_polls, 3u);  // two before the window, one more before the fallback
+    EXPECT_TRUE(PieceIs(g_ios.pieces.size() - 1, DeviceSector(30), 2, buffer));
+    *At<std::uint32_t>(runtime_busy) = 0;
+}
+
 // Reads going back and forth between a few clusters (Project M EX Remix's
 // folder lists at start-up): with 16-sector windows the bounce buffer
 // holds four, so three clusters read in turn cost one request each.
@@ -1113,6 +1133,7 @@ int main() {
     TestAsyncWriteSettles();
     TestSyncWriteSettles();
     TestRuntimeBeside();
+    TestReadAheadFallbackWaits();
     TestRetries();
     TestBusy();
     TestBounce();

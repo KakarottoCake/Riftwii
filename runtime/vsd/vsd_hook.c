@@ -564,6 +564,7 @@ void vsd_on_complete(struct vsd_context* ctx, int32_t* result, void* tag, uint32
                 t->filling = 0;
                 t->plain = 1;
                 t->tries = 0;
+                t->waited = 0;  /* a write of the runtime's may have started since: wait for it again */
                 r = transfer_send(st);
                 if (r >= 0) return;
             }
