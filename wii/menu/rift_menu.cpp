@@ -13811,7 +13811,8 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 		: gamecube && state.model.game.gc_card == "real" ? std::string(tr("Real card in slot A"))
 		: gamecube ? std::string(tr("Memory Card")) + " \xC2\xB7 SD"
 		: !state.model.pack_save_owner().empty() ? std::string(tr("Kept by the pack"))
-		: SaveValue(state.model.save_mode);
+		// The tile names where the saves go; "Default (...)" doesn't fit it.
+		: std::string(tr(SaveLabel(riftwii::wii::EffectiveSaveMode(state)).c_str()));
 	const std::string cheats = GameRowNotApplied(state.game_id, RowRef::What::Cheats)
 		? std::string(tr("Not applied")) : CheatsValue(game);
 	// Until a patch's game is made: what making it takes, where the mods
@@ -16314,9 +16315,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		option(tr("Game cIOS"), CiosName(settings.game_cios), settings.game_cios != "auto", kGameCios);
 		option(tr("Wii saves"), tr(SaveLabel(settings.saves_every_game).c_str()), settings.saves_every_game != "nand",
 			kWiiSaves);
-		option(tr("Emulated NAND folder"), EmuNandFolderName(settings.emunand_folder), settings.emunand_folder != "gx",
+		option(tr("Emulated NAND"), EmuNandFolderName(settings.emunand_folder), settings.emunand_folder != "gx",
 			kEmuNandFolder);
-		option(tr("Emulated NAND keeps"), EmuNandKeepsName(settings.emunand_keeps), settings.emunand_keeps != "saves",
+		option(tr("NAND keeps"), EmuNandKeepsName(settings.emunand_keeps), settings.emunand_keeps != "saves",
 			kEmuNandKeeps);
 		option(tr("Show non-game channels"), settings.nand_non_games ? tr("On") : tr("Off"),
 			settings.nand_non_games, kNonGames, FlowRow::Kind::Toggle);

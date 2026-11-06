@@ -4068,11 +4068,8 @@ msgstr "Informar"
 msgid "Wii saves"
 msgstr "Saves do Wii"
 
-msgid "Emulated NAND folder"
-msgstr "Pasta da NAND emulada"
-
-msgid "Emulated NAND keeps"
-msgstr "A NAND emulada guarda"
+msgid "NAND keeps"
+msgstr "A NAND guarda"
 
 msgid "USB Loader GX's"
 msgstr "A do USB Loader GX"

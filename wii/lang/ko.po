@@ -4068,11 +4068,8 @@ msgstr "보고"
 msgid "Wii saves"
 msgstr "Wii 세이브"
 
-msgid "Emulated NAND folder"
-msgstr "에뮬레이트 NAND 폴더"
-
-msgid "Emulated NAND keeps"
-msgstr "에뮬레이트 NAND 저장 내용"
+msgid "NAND keeps"
+msgstr "NAND 저장 내용"
 
 msgid "USB Loader GX's"
 msgstr "USB Loader GX 설정"

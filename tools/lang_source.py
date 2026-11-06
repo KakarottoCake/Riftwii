@@ -8564,12 +8564,9 @@ def check(repo):
 T['Wii saves'] = ('Partidas de Wii', 'Wiiのセーブ', 'Saves do Wii', 'Salvataggi Wii')
 MORE["ko"]['Wii saves'] = 'Wii 세이브'
 MORE["fr"]['Wii saves'] = 'Sauvegardes Wii'
-T['Emulated NAND folder'] = ('Carpeta de la NAND emulada', 'エミュレートNANDのフォルダ', 'Pasta da NAND emulada', 'Cartella della NAND emulata')
-MORE["ko"]['Emulated NAND folder'] = '에뮬레이트 NAND 폴더'
-MORE["fr"]['Emulated NAND folder'] = 'Dossier de la NAND émulée'
-T['Emulated NAND keeps'] = ('La NAND emulada guarda', 'エミュレートNANDに保存', 'A NAND emulada guarda', 'La NAND emulata tiene')
-MORE["ko"]['Emulated NAND keeps'] = '에뮬레이트 NAND 저장 내용'
-MORE["fr"]['Emulated NAND keeps'] = 'La NAND émulée garde'
+T['NAND keeps'] = ('La NAND guarda', 'NANDに保存', 'A NAND guarda', 'La NAND tiene')
+MORE["ko"]['NAND keeps'] = 'NAND 저장 내용'
+MORE["fr"]['NAND keeps'] = 'La NAND garde'
 T["USB Loader GX's"] = ('La de USB Loader GX', 'USB Loader GXの設定', 'A do USB Loader GX', 'Quella di USB Loader GX')
 MORE["ko"]["USB Loader GX's"] = 'USB Loader GX 설정'
 MORE["fr"]["USB Loader GX's"] = "Celui d'USB Loader GX"

@@ -52,7 +52,7 @@ SharedNandLookup look_up_shared_nand(const std::string& game_id) {
     if (chosen == "sd" || chosen == "usb") {
         SharedNandLookup found;
         found.configured = chosen == "sd" ? kSdSharedNand : kUsbSharedNand;
-        found.from = "Settings > Games > Emulated NAND folder";
+        found.from = "Settings > Games > Emulated NAND";
         found.usable = shared_nand_folder(found.configured, found.folder, found.error);
         return found;
     }

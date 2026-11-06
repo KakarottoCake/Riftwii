@@ -434,8 +434,8 @@ pressed too.
   card or a USB drive, d2x itself keeps the save on the card (its NAND
   emulation, as in USB Loader GX); a disc game's is kept by RiftWii. The
   save is in the folder's `title/<type>/<ID in hex>/data`.
-  *Emulated NAND* uses the folder **Settings > Games > Emulated NAND
-  folder** names (below). An empty save starts from a copy of the Wii
+  *Emulated NAND* uses the folder **Settings > Games > Emulated NAND**
+  names (below). An empty save starts from a copy of the Wii
   save. The note names the folder before you play. *Default* follows
   Settings for every game.
 
@@ -446,12 +446,12 @@ emulated NAND, for example on a USB drive you share between two Wiis:
 
 - **Wii saves**: *On the Wii* or *Emulated NAND*, for every game whose own
   Saves row says *Default*. A game's page can still pick something else.
-- **Emulated NAND folder**: *USB Loader GX's* (the folder in its settings,
+- **Emulated NAND**: where it is: *USB Loader GX's* (the folder in its settings,
   `NandEmuPath` in `apps/usbloader_gx/GXGlobal.cfg`, or a game's own),
   *SD card* (`sd:/nands/01`) or *USB drive* (`usb:/nands/01`, on the
   partition RiftWii uses). A folder USB Loader GX names on the USB drive
   (`usb1:/nands/01`) works too.
-- **Emulated NAND keeps**: *Saves* (only the game's own save) or *Saves,
+- **NAND keeps**: *Saves* (only the game's own save) or *Saves,
   settings and Miis* (the whole emulated NAND, as USB Loader GX's "Full"
   mode: games also see its Wii settings and Miis). The second needs a
   whole NAND in the folder; without the Wii's settings file
