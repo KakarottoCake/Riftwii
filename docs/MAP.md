@@ -444,7 +444,7 @@ shared C parts (`runtime/*.c`) are also built into the host tests.
 | `fault/`, `rtfault.c` | The crash blob: the crash record to the NAND; also answers the BCA read |
 | `wlog/`, `rtwlog.h` | The Wii Remote log blob: the game's Bluetooth and Wii Remote debug prints and a trace of its Bluetooth traffic, saved to the NAND at HOME > Wii Menu; it runs the Pro Controller translator |
 | `rtpro.c` | The Wii U Pro Controller translator: the Pro presented to the game as a Wii Remote with a Classic Controller (host-tested in `tests/pro_tests.cpp`) |
-| `vsd/`, `rtvsd.c` | The virtual SD card blob and the card it answers as |
+| `vsd/`, `rtvsd.c`, `rtvsdra.c` | The virtual SD card blob, the card it answers as and its read-ahead buffer (host-tested in `tests/vsdra_tests.cpp` and `tests/vsdblob_tests.cpp`) |
 | `stub/` | Not a blob: the return stub for homebrew apps (`include/riftwii/returnstub.h` has the layout), a program of its own at `0x80001800`, where libogc's `exit()` looks; it launches the RiftWii channel, the Homebrew Channel or the Wii Menu through `/dev/es` |
 | `dolpack/` | Not a blob: the packed `boot.dol`'s stub (`dolpack.h` has the format), a program of its own at `0x80900000` that unpacks RiftWii's sections with the vendored Zstandard decoder and starts it (`tools/pack_dol.py` makes the DOL) |
 
