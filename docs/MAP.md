@@ -515,7 +515,7 @@ and the `*_mock/` folders provide synthetic files, discs and hardware calls.
 
 The Wii Menu channel (`docs/CHANNEL.md`): `forwarder/` (the channel that
 starts RiftWii), `loader/` (its boot program), `installer/` (the app
-that installs it), `common/` (starting a DOL), `art/` (its artwork,
+that installs it), `common/` (starting a DOL, keeping hardware access over an IOS reload), `art/` (its artwork,
 drawn by `tools/make_channel_art.py`).
 
 ## `docs/`

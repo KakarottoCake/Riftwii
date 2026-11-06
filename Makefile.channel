@@ -90,6 +90,10 @@ $(OBJDIR)/dolboot.o: channel/common/dolboot.c channel/common/dolboot.h | $(OBJDI
 	@echo $(notdir $<)
 	@$(CC) $(CFLAGS) -c $< -o $@
 
+$(OBJDIR)/keepaccess.o: channel/common/keepaccess.c channel/common/keepaccess.h | $(OBJDIR)
+	@echo $(notdir $<)
+	@$(CC) $(CFLAGS) -c $< -o $@
+
 # dolboot.c's far copy (a DOL landing on the program that starts it).
 $(OBJDIR)/dolfar.o: channel/common/dolfar.S | $(OBJDIR)
 	@echo $(notdir $<)
@@ -173,7 +177,7 @@ $(OBJDIR)/riftwii_channel_%_bin.o $(OBJDIR)/riftwii_channel_%_bin.h: $(OUT)/rift
 bearssl:
 	@$(MAKE) --no-print-directory -f Makefile.bearssl
 
-$(OBJDIR)/inst_main.o: channel/installer/main.cpp channel/installer/install.hpp channel/installer/cios.hpp include/riftwii/d2xversion.hpp | $(OBJDIR)
+$(OBJDIR)/inst_main.o: channel/installer/main.cpp channel/installer/install.hpp channel/common/keepaccess.h channel/installer/cios.hpp include/riftwii/d2xversion.hpp | $(OBJDIR)
 	@echo $(notdir $<)
 	@$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -193,7 +197,7 @@ $(OBJDIR)/install.o: channel/installer/install.cpp channel/installer/install.hpp
 	@echo $(notdir $<)
 	@$(CXX) $(CXXFLAGS) -I$(OUT) -c $< -o $@
 
-$(INSTELF): $(OBJDIR)/inst_main.o $(OBJDIR)/inst_cios.o $(OBJDIR)/inst_d2xversion.o $(OBJDIR)/inst_nandcheck.o $(OBJDIR)/install.o $(OBJDIR)/dolboot.o $(OBJDIR)/dolfar.o $(OBJDIR)/riftwii_channel_vwii_bin.o $(OBJDIR)/riftwii_channel_wii_bin.o bearssl
+$(INSTELF): $(OBJDIR)/inst_main.o $(OBJDIR)/inst_cios.o $(OBJDIR)/inst_d2xversion.o $(OBJDIR)/inst_nandcheck.o $(OBJDIR)/install.o $(OBJDIR)/dolboot.o $(OBJDIR)/keepaccess.o $(OBJDIR)/dolfar.o $(OBJDIR)/riftwii_channel_vwii_bin.o $(OBJDIR)/riftwii_channel_wii_bin.o bearssl
 	@echo linking ... $(notdir $@)
 	@$(CXX) $(INSTLD) $(filter %.o,$^) -L$(LIBOGC_LIB) -Lbuild-bearssl -lbearssl -lwiiuse -lbte -lfat -logc -lm -o $@
 
