@@ -14,7 +14,8 @@
  * their loader-filled replay slots, the IPC completion entry, the C
  * code, then the context. Position independent like the resident (the
  * build links it at two bases and compares). The driver's state (with
- * every buffer IOS touches) is in MEM2, at ctx->state. */
+ * every buffer IOS touches) is in MEM2, at ctx->state: a struct gcad_hub,
+ * or the adapter's struct gcad alone with RT_PAD_FLAG_ADAPTER_ONLY. */
 #ifndef RIFTWII_PAD_HOOK_H
 #define RIFTWII_PAD_HOOK_H
 
@@ -41,6 +42,11 @@
 
 /* rt_pad_context.flags */
 #define RT_PAD_FLAG_DEMO 1u  /* no adapter needed: the first empty port presses A about once a second (Dolphin tests) */
+/* The state is the adapter's alone (struct gcad, not struct gcad_hub):
+ * no other USB pad's mapping was loaded before the launch and no Xbox 360
+ * pad was plugged in, so the four pad links, the catalog and the ven list
+ * could never be used. */
+#define RT_PAD_FLAG_ADAPTER_ONLY 2u
 
 /* Big-endian words at the start of the blob. */
 struct rt_pad_header {
