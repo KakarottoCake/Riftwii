@@ -907,10 +907,19 @@ void TestReadAheadFailures(bool async) {
     EXPECT_TRUE(PieceIs(0, DeviceSector(21), 64, RaBuffer(b)));
     EXPECT_TRUE(PieceIs(1, DeviceSector(21), 64, RaBuffer(b)));
     // Another window fails every try, leaving garbage in the buffer: the
-    // game gets the error, and the first window is read again after.
+    // game's own two sectors are then read on their own, and it gets them.
     g_ios.fail_next = VSD_TRIES;
     g_ios.scribble_on_fail = true;
-    EXPECT_TRUE(Read(b, 200, 2, buffer, async) < 0);
+    std::size_t before_plain = g_ios.pieces.size();
+    EXPECT_EQ(Read(b, 200, 2, buffer, async), 0);
+    EXPECT_TRUE(CardMatches(b, buffer, 200, 2));
+    EXPECT_EQ(g_ios.pieces.size(), before_plain + VSD_TRIES + 1);
+    EXPECT_TRUE(PieceIs(g_ios.pieces.size() - 1, DeviceSector(200), 2, buffer));
+    // When those fail too, the game gets the error.
+    g_ios.fail_next = 2 * VSD_TRIES;
+    EXPECT_TRUE(Read(b, 400, 2, buffer, async) < 0);
+    EXPECT_EQ(b.st->transfer.in_use, 0u);
+    // The first window is read again after (the failed ones left nothing).
     EXPECT_EQ(Read(b, 30, 3, buffer, async), 0);
     EXPECT_TRUE(CardMatches(b, buffer, 30, 3));
     EXPECT_EQ(b.st->transfer.in_use, 0u);

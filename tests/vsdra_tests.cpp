@@ -162,7 +162,8 @@ void TestWindowStopsAtImageEnd() {
     EXPECT_EQ(rtvsd_ra_window(&ra, card.get(), 3000, &start), 0u);
     // A grid window that would wrap past the top of the sector numbers.
     CardPtr big = make_card(0xFFFFFFF0u, {{0, 0, 0xFFFFFFF0u}});
-    EXPECT_EQ(rtvsd_ra_window(&ra, big.get(), 0xFFFFFFE0u, &start) + start, 0xFFFFFFF0u);
+    const std::uint32_t count = rtvsd_ra_window(&ra, big.get(), 0xFFFFFFE0u, &start);
+    EXPECT_EQ(count + start, 0xFFFFFFF0u);
 }
 
 void TestHolds() {
@@ -323,6 +324,25 @@ void TestClobbered(std::uint8_t* memory) {
     EXPECT_EQ(ra.clobbered, 1u);
 }
 
+// A held sector of one repeated word overwritten with another repeated
+// word (zeros, then 0xFF): a rotate-xor check gave both the same value.
+void TestUniformOverwrite(std::uint8_t* memory) {
+    rtvsd_ra ra = make_ra(16, 0);
+    ra.slots = 4;
+    for (std::size_t i = 0; i < 64 * 512; ++i) memory[i] = 0;
+    fill(ra, 0, 16);
+    EXPECT_EQ(holds(ra, 2, 1), 1u);
+    for (std::size_t i = 0; i < 512; ++i) memory[2 * 512 + i] = 0xFF;
+    EXPECT_EQ(holds(ra, 2, 1), 0u);
+    EXPECT_EQ(ra.clobbered, 1u);
+    // And one repeated word for another (0x01010101 for 0x02020202).
+    for (std::size_t i = 0; i < 16 * 512; ++i) memory[i] = 0x01;
+    fill(ra, 0, 16);
+    for (std::size_t i = 0; i < 512; ++i) memory[7 * 512 + i] = 0x02;
+    EXPECT_EQ(holds(ra, 7, 1), 0u);
+    EXPECT_EQ(ra.clobbered, 2u);
+}
+
 }  // namespace
 
 int main() {
@@ -341,6 +361,7 @@ int main() {
     TestDirect();
     TestWrites(memory);
     TestClobbered(memory);
+    TestUniformOverwrite(memory);
     if (g_failures == 0) std::cout << "vsdra tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }

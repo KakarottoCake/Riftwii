@@ -10,12 +10,15 @@ int rtvsd_ra_on(const struct rtvsd_ra* ra) {
            ra->slots != 0 && ra->slots <= RTVSD_RA_MAX_SLOTS && ra->slots * w <= RTVSD_RA_MAX_SECTORS;
 }
 
-/* A sector's check value: its 128 words, each rotated in. Not a guard
- * against a forger, only against bytes that changed. */
+/* A sector's check value: its 128 words folded in one at a time, each
+ * mixed in by a multiply (FNV-1a over words). Not a guard against a
+ * forger, only against bytes that changed. A rotate-xor fold gave every
+ * sector of one repeated word the same value (the 128 rotations cancel in
+ * fours), so a held sector of zeros overwritten with 0xFF went unseen. */
 static uint32_t sector_check(uint32_t address) {
     const uint32_t* w = (const uint32_t*)(uintptr_t)address;
-    uint32_t h = 0x52574348u, i;
-    for (i = 0; i < RTVSD_SECTOR_BYTES / 4u; ++i) h = ((h << 5) | (h >> 27)) ^ w[i];
+    uint32_t h = 0x811C9DC5u, i;
+    for (i = 0; i < RTVSD_SECTOR_BYTES / 4u; ++i) h = (h ^ w[i]) * 0x01000193u;
     return h;
 }
 
