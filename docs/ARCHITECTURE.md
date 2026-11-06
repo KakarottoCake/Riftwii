@@ -224,6 +224,34 @@ copied down at the jump; the game reaches them through veneers at
 leaves free (below the MEM1 arena's top without it). Not with the
 resident runtime yet.
 
+**Read-ahead** (`runtime/rtvsdra.c`, host-tested in `vsdra` and `vsdblob`).
+A request on the console's SD card costs about 2 ms whatever its size, and
+code builds read their images in small pieces (REX: 13,311 reads of about
+1.5 KiB in its first 30 s, 25 s of it waiting on the card). So a read's
+last window, lined up with the image's clusters (`sd_image_data_first`;
+an image on the USB drive lines up with sector 0) and cut at the edge of
+the image file's piece on the device, is read whole into the bounce
+buffer, and the reads that follow inside it are copied from there. The
+bounce buffer's 32 KiB hold one window of 32 KiB, or two of 16, four of 8
+or eight of 4, the one used longest ago making room for the next (Project
+M EX Remix's start-up goes back and forth between a few folders'
+clusters). A piece that needs the bounce buffer for itself forgets them
+all. It takes no MEM2 of its own: Brawl's mods leave the game only a few
+KB to spare, and a separate 32 KiB buffer stopped Brawl making its menu
+heap. The bounce buffer is memory the game doesn't know about, and a mod's
+code can write there (Project M EX Remix's code menu did, in Dolphin, with
+the block placed lower): every held sector keeps a check value, taken when
+it is read in or written, and is handed to the game only while it still
+matches; a window that changed is dropped and read again. The part of a
+read before its last window still goes straight to the game's buffer, so
+a big read stays one big request. A write updates what the buffer holds
+once the device has taken it; a write that failed drops it. The window is
+a build setting (`RIFTWII_VSD_READAHEAD_KB`: 4, the default, then 8, 16,
+32, or 0 for off; 4 KiB windows, eight at once, cost the fewest requests
+in Dolphin for Project M EX Remix, Project+ and REX). The whole SD card
+passed through beside the resident runtime has none, since the runtime
+writes to that card behind the blob.
+
 ## 5. GameCube games
 
 GameCube games run in **Wii mode**, with RiftWii's own code: no

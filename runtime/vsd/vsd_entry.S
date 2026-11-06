@@ -6,7 +6,7 @@
     .section .text.vsd_entry, "ax", @progbits
     .globl _vsd_blob_start
 _vsd_blob_start:
-    .long 0x52575653, 1, _vsd_blob_end - _vsd_blob_start, vsd_context_data - _vsd_blob_start
+    .long 0x52575653, 2, _vsd_blob_end - _vsd_blob_start, vsd_context_data - _vsd_blob_start
     .long vsd_complete - _vsd_blob_start
     .long vsd_hook_0 - _vsd_blob_start, vsd_hook_1 - _vsd_blob_start, vsd_hook_2 - _vsd_blob_start
     .long vsd_hook_3 - _vsd_blob_start, vsd_hook_4 - _vsd_blob_start, vsd_hook_5 - _vsd_blob_start

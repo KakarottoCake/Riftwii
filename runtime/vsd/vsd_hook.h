@@ -29,6 +29,14 @@
  * the device can take it (32-byte aligned; MEM2 for the USB drive),
  * otherwise in the state's bounce buffer and are copied.
  *
+ * Read-ahead (runtime/rtvsdra.h, when the loader turned it on): the
+ * window holding a read's last sector is read whole into the bounce
+ * buffer and copied from there, and later reads inside it never reach
+ * the device, until a piece needs the bounce buffer for itself.
+ * A read answered from the buffer alone takes the transfer like any other
+ * (the game still sends one command at a time) and, async, rides a null
+ * round trip for its callback.
+ *
  * After a write to the SD slot the card goes on programming its flash;
  * the blob asks its status (CMD13) until it is done before the next
  * command, as the resident runtime does (rt_hook.c, rt_sd_settles).
@@ -41,7 +49,7 @@
 #define RIFTWII_VSD_HOOK_H
 
 #define VSD_MAGIC 0x52575653u          /* "RWVS" */
-#define VSD_VERSION 1u                 /* also in vsd_entry.S's header */
+#define VSD_VERSION 2u                 /* also in vsd_entry.S's header; 2: the read-ahead buffer */
 #define VSD_CONTEXT_MAGIC 0x52575658u  /* "RWVX" */
 #define VSD_CONTEXT_BYTES 32u
 #define VSD_STATE_MAGIC 0x52575654u    /* "RWVT" */
@@ -72,6 +80,7 @@
 #include <stdint.h>
 
 #include "rtvsd.h"
+#include "rtvsdra.h"
 
 struct vsd_header {
     uint32_t magic;
@@ -137,6 +146,9 @@ struct vsd_transfer {
     uint32_t reply_out;              /* the game's reply buffer (16 bytes), 0 = none */
     uint32_t reply[4];               /* what goes there */
     uint32_t waited;                 /* the piece in flight has waited out the runtime's write */
+    uint32_t filling;                /* the piece in flight reads a window into the read-ahead buffer, */
+    uint32_t fill_first;             /* from this image sector, */
+    uint32_t fill_data;              /* into this slot of it */
 };
 
 struct vsd_state {
@@ -178,6 +190,12 @@ struct vsd_state {
     struct vsd_ioctlv vec[4] __attribute__((aligned(32)));
     uint32_t words[8] __attribute__((aligned(32)));      /* d2x: the sector and the count */
     uint8_t bounce[VSD_BOUNCE_BYTES] __attribute__((aligned(32)));
+    /* The read-ahead buffer (runtime/rtvsdra.h). Its bytes are the bounce
+     * buffer's (the loader points it there): Brawl's mods leave the game
+     * too little MEM2 for 32 KiB more (Project+ failed to make its menu
+     * heap in Dolphin), and a piece that needs the bounce buffer just
+     * forgets the window first. */
+    struct rtvsd_ra ra __attribute__((aligned(32)));
     /* Last: the card's extent table follows it in memory (rtvsd_extents),
      * so the state is vsd_state_bytes(extent count) long, not sizeof. */
     struct rtvsd_card card __attribute__((aligned(32)));

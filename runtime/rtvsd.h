@@ -187,6 +187,11 @@ void rtvsd_command(struct rtvsd_card* card, const struct rtvsd_request* req, uin
  * the image. */
 uint32_t rtvsd_map(const struct rtvsd_card* card, uint32_t sector, uint32_t count, uint32_t* device_sector);
 
+/* The piece of the image file holding `sector`: its first image sector in
+ * `*first` and its length in sectors (the read-ahead's windows stop at its
+ * edges, runtime/rtvsdra.h). 0 when outside the image. */
+uint32_t rtvsd_piece(const struct rtvsd_card* card, uint32_t sector, uint32_t* first);
+
 /* The card registers, for the tests: CID and CSD as the four words of an
  * R2 response (bit 127 first, the CRC7 and end bit included), the SCR as
  * 8 bytes. */

@@ -249,17 +249,58 @@ static int still_busy(struct vsd_state* st) {
     return state == SD_STATE_RCV || state == SD_STATE_PRG;
 }
 
+/* A read's sectors the read-ahead buffer holds, from where the transfer
+ * has got to: copied into the game's buffer, with no request on the
+ * device, window after window while the next one is held too. */
+static void serve_held(struct vsd_state* st) {
+    struct vsd_transfer* t = &st->transfer;
+    while (!t->write && t->done < t->count) {
+        uint32_t from = 0;
+        const uint32_t held = rtvsd_ra_holds(&st->ra, t->sector + t->done, t->count - t->done, &from);
+        const uint32_t bytes = held * RTVSD_SECTOR_BYTES;
+        const uint32_t buffer = t->buffer + t->done * RTVSD_SECTOR_BYTES;
+        if (held == 0) break;
+        copy((uint8_t*)(uintptr_t)buffer, (const uint8_t*)(uintptr_t)from, bytes);
+        flush_range(buffer, bytes);
+        t->done += held;
+    }
+}
+
 /* The next piece of the transfer: where it goes on the device, and
  * whether it passes through the bounce buffer (a write's bytes are copied
- * into it here). 0 when the image has no such sector (cannot happen with
- * a checked command). */
+ * into it here). A read whose last window has come (rtvsd_ra_direct) reads
+ * that window into the read-ahead buffer instead (`filling`). 0 when the
+ * image has no such sector (cannot happen with a checked command). */
 static uint32_t next_piece(struct vsd_state* st, uint32_t* device_sector, uint32_t* data) {
     struct vsd_transfer* t = &st->transfer;
+    const uint32_t sector = t->sector + t->done;
     const uint32_t buffer = t->buffer + t->done * RTVSD_SECTOR_BYTES;
-    uint32_t sectors = rtvsd_map(&st->card, t->sector + t->done, t->count - t->done, device_sector);
+    uint32_t limit = t->count - t->done;
+    uint32_t sectors;
+    t->filling = 0;
+    if (!t->write && rtvsd_ra_on(&st->ra)) {
+        limit = rtvsd_ra_direct(&st->ra, &st->card, sector, limit);
+        if (limit == 0) {
+            uint32_t start = 0;
+            const uint32_t window = rtvsd_ra_window(&st->ra, &st->card, sector, &start);
+            if (window == 0 || rtvsd_map(&st->card, start, window, device_sector) != window) return 0;
+            /* An empty slot, or the one used longest ago. */
+            t->fill_data = rtvsd_ra_take(&st->ra);
+            t->filling = 1;
+            t->fill_first = start;
+            t->bounced = 0;
+            *data = t->fill_data;
+            return window;
+        }
+    }
+    sectors = rtvsd_map(&st->card, sector, limit, device_sector);
     if (sectors == 0) return 0;
     t->bounced = !direct_ok(st, buffer);
     if (t->bounced) {
+        /* The read-ahead window lives in the bounce buffer (no MEM2 of
+         * its own: Project+ leaves Brawl only a few KB to spare), so
+         * using it for this piece forgets the window. */
+        if (st->ra.buffer == (uint32_t)(uintptr_t)st->bounce) rtvsd_ra_drop(&st->ra);
         if (sectors > VSD_BOUNCE_BYTES / RTVSD_SECTOR_BYTES) sectors = VSD_BOUNCE_BYTES / RTVSD_SECTOR_BYTES;
         if (t->write) copy(st->bounce, (const uint8_t*)(uintptr_t)buffer, sectors * RTVSD_SECTOR_BYTES);
         *data = (uint32_t)(uintptr_t)st->bounce;
@@ -271,11 +312,21 @@ static uint32_t next_piece(struct vsd_state* st, uint32_t* device_sector, uint32
     return sectors;
 }
 
-/* A piece landed: a read's bytes into the game's buffer. */
+/* A piece landed: a read's bytes into the game's buffer (or a window
+ * into the read-ahead buffer, which serve_held copies from next); a
+ * write's into what the read-ahead buffer holds of them. */
 static void piece_done(struct vsd_state* st) {
     struct vsd_transfer* t = &st->transfer;
     const uint32_t bytes = t->chunk * RTVSD_SECTOR_BYTES;
     const uint32_t buffer = t->buffer + t->done * RTVSD_SECTOR_BYTES;
+    if (t->filling) {
+        invalidate_range(t->fill_data, bytes);
+        rtvsd_ra_filled(&st->ra, t->fill_first, t->chunk);
+        st->sectors_read += t->chunk;
+        t->filling = 0;
+        t->waited = 0;
+        return;
+    }
     if (!t->write) {
         if (t->bounced) {
             invalidate_range((uint32_t)(uintptr_t)st->bounce, bytes);
@@ -284,6 +335,7 @@ static void piece_done(struct vsd_state* st) {
         }
         st->sectors_read += t->chunk;
     } else {
+        rtvsd_ra_wrote(&st->ra, t->sector + t->done, t->chunk, (const uint8_t*)(uintptr_t)buffer);
         st->sectors_written += t->chunk;
     }
     t->done += t->chunk;
@@ -318,9 +370,11 @@ static int32_t transfer_sync(struct vsd_state* st) {
     struct vsd_transfer* t = &st->transfer;
     const int settles = st->backend == VSD_BACKEND_SLOT0 && st->rca != 0 && st->original[VSD_IOCTL] != 0;
     if (st->original[VSD_IOCTLV] == 0) return IOS_EINVAL;
-    while (t->done < t->count) {
+    for (;;) {
         uint32_t device_sector = 0, data = 0, in_count, out_count, number;
         int32_t r = -1;
+        serve_held(st);
+        if (t->done >= t->count) break;
         t->chunk = next_piece(st, &device_sector, &data);
         if (t->chunk == 0) return IOS_EINVAL;
         if (settles && peer_busy(st)) settle_sync(st);
@@ -335,6 +389,9 @@ static int32_t transfer_sync(struct vsd_state* st) {
         if (r < 0) {
             st->writing = 0;
             ++st->gave_up;
+            t->filling = 0;
+            /* The card may hold part of a write that failed. */
+            if (t->write) rtvsd_ra_drop(&st->ra);
             return r;
         }
         if (t->write && settles) settle_sync(st);
@@ -439,7 +496,10 @@ static void transfer_end(struct vsd_state* st, int32_t result, int32_t* out_resu
     if (result < 0) {
         ++st->gave_up;
         st->last_error = (uint32_t)result;
+        /* The card may hold part of a write that failed. */
+        if (t->write) rtvsd_ra_drop(&st->ra);
     }
+    t->filling = 0;
     write_reply(t->reply_out, reply);
     st->writing = 0;
     *out_result = result < 0 ? result : RTVSD_OK;
@@ -503,6 +563,7 @@ void vsd_on_complete(struct vsd_context* ctx, int32_t* result, void* tag, uint32
             piece_done(st);
         }
         t->tries = 0;
+        serve_held(st);
         if (t->done < t->count) {
             r = transfer_send(st);
             if (r >= 0) return;
@@ -576,6 +637,15 @@ static int32_t send_command(struct vsd_state* st, const struct rtvsd_request* re
         t->reply[1] = t->reply[2] = t->reply[3] = 0;
         if (t->write) ++st->writes;
         else ++st->reads;
+        t->filling = 0;
+        serve_held(st);
+        if (t->done >= t->count) {
+            /* All of it from the read-ahead buffer: no request on the
+             * device (async, the answer rides a null round trip). */
+            write_reply(reply_out, t->reply);
+            t->in_use = 0;
+            return async ? deliver(st, callback, user_data, RTVSD_OK) : RTVSD_OK;
+        }
         if (!async) {
             int32_t r = transfer_sync(st);
             write_reply(reply_out, t->reply);

@@ -100,7 +100,7 @@ WLOGOBJS := $(WLOGOUT)/wlog_entry.o $(WLOGOUT)/wlog_hook.o $(WLOGOUT)/rtshot.o $
 VSDSRC  := runtime/vsd
 VSDOUT  := $(OUT)/vsd
 VSDBLOB := $(OUT)/riftwii_vsd.bin
-VSDOBJS := $(VSDOUT)/vsd_entry.o $(VSDOUT)/vsd_hook.o $(VSDOUT)/rtvsd.o
+VSDOBJS := $(VSDOUT)/vsd_entry.o $(VSDOUT)/vsd_hook.o $(VSDOUT)/rtvsd.o $(VSDOUT)/rtvsdra.o
 
 # The RVZ blob (docs/RVZ.md): the same runtime built with RT_RVZ, plus
 # RVZ packing and Zstandard. Zstandard's constant tables make it the one
@@ -486,13 +486,16 @@ $(eval $(call WLOG_VARIANT,translate,RT_WLOG_TRANSLATE_ONLY,rtpro,$(WLOGTRANSLAT
 $(VSDOUT):
 	@mkdir -p $(VSDOUT)
 
-$(VSDOUT)/vsd_entry.o: $(VSDSRC)/vsd_entry.S $(VSDSRC)/vsd_hook.h runtime/rtvsd.h | $(VSDOUT)
+$(VSDOUT)/vsd_entry.o: $(VSDSRC)/vsd_entry.S $(VSDSRC)/vsd_hook.h runtime/rtvsd.h runtime/rtvsdra.h | $(VSDOUT)
 	$(CC) $(CFLAGS) -I$(VSDSRC) -c -o $@ $<
 
-$(VSDOUT)/vsd_hook.o: $(VSDSRC)/vsd_hook.c $(VSDSRC)/vsd_hook.h runtime/rtvsd.h | $(VSDOUT)
+$(VSDOUT)/vsd_hook.o: $(VSDSRC)/vsd_hook.c $(VSDSRC)/vsd_hook.h runtime/rtvsd.h runtime/rtvsdra.h | $(VSDOUT)
 	$(CC) $(CFLAGS) -I$(VSDSRC) -c -o $@ $<
 
 $(VSDOUT)/rtvsd.o: runtime/rtvsd.c runtime/rtvsd.h | $(VSDOUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(VSDOUT)/rtvsdra.o: runtime/rtvsdra.c runtime/rtvsdra.h runtime/rtvsd.h | $(VSDOUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(VSDOUT)/riftwii_vsd.elf: $(VSDOBJS) $(VSDSRC)/vsd.ld
