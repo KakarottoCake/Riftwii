@@ -117,7 +117,8 @@ void shutdown_pads() {
 // next. Without it the installer's two reloads (into the cIOS, then back
 // into IOS 58) gave RiftWii back with AHBPROT on, and RiftWii could not
 // read the Wii Menu's sounds, the cIOS slots or the channels' names (a
-// tester's Wii, 2611-54).
+// tester's Wii, 2611-54). Called while the SD card is still mounted, so
+// its line reaches channel.log; the patch stays in place until the reload.
 void keep_access_for_reload(int next_ios) {
     const int patched = keepaccess_for_next_ios();
     if (patched == KEEPACCESS_NO_ACCESS)
@@ -131,6 +132,7 @@ void keep_access_for_reload(int next_ios) {
 
 bool reload_cios(int slot, const riftwii::D2xInfo& info) {
     installer::Log("trying IOS%d\n", slot);
+    keep_access_for_reload(slot);
     if (info.d2x) std::printf("  trying IOS%d (%s, base %d)\n", slot, riftwii::d2x_name(info).c_str(), info.base);
     else std::printf("  trying IOS%d (not identified)\n", slot);
     VIDEO_WaitVSync();
@@ -138,7 +140,6 @@ bool reload_cios(int slot, const riftwii::D2xInfo& info) {
     if (g_sd) fatUnmount("sd:");
     __io_wiisd.shutdown();
     g_sd = false;
-    keep_access_for_reload(slot);
     const s32 result = IOS_ReloadIOS(slot);
     // Like leave(): shutting down before the reload lets libfat's next
     // mount start the SD interface under the new IOS.
@@ -315,6 +316,7 @@ void leave() {
         }
     }
     const bool back = g_ios_state_safe && riftwii_on_card();
+    if (back) keep_access_for_reload(58);
     shutdown_pads();
     if (g_sd) {
         fatUnmount("sd:");
@@ -325,7 +327,6 @@ void leave() {
         // IOS 58 first, as the Homebrew Channel starts RiftWii, and only
         // then RiftWii read: a reload overwrites the bottom of MEM2, where
         // it is read to (RiftWii came back with its code damaged).
-        keep_access_for_reload(58);
         IOS_ReloadIOS(58);
         if (fatMountSimple("sd", &__io_wiisd)) {
             u32 size = 0;
