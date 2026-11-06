@@ -9,6 +9,7 @@
 #include "riftwii/gameconfig.hpp"
 #include "riftwii/launch.hpp"
 
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -292,6 +293,103 @@ void test_model() {
 
 }  // namespace
 
+// Memory card slot B codes on a Wii U (grantendo/wiiu#37): REX's USB
+// Gecko log, in short, with its two neighbours from the same file.
+void test_slot_b_codes() {
+    // REX's log hook on Brawl's __fwrite (USBGecko.asm): the hardware's
+    // high half and slot B's registers, then the instruction it replaced.
+    const std::uint32_t rex_log[] = {
+        0xC23F5590, 0x00000004,
+        0x7D9CE2A6, 0x3D00CD00,  // mfspr r12, 924; lis r8, 0xCD00
+        0x61086814, 0x61296820,  // ori r8, r8, 0x6814; ori r9, r9, 0x6820
+        0x91880000, 0x812900CC,  // stw r12, 0(r8); lwz r9, 0xCC(r9)
+        0x9421FFD0, 0x00000000,  // stwu r1, -0x30(r1); the branch back
+    };
+    // Its other two hooks read a flag in MEM1 and never touch slot B.
+    const std::uint32_t rex_flag[] = {
+        0xC2001CE0, 0x00000002,
+        0x3D808058, 0x618C0FE0,  // lis r12, 0x8058; ori r12, r12, 0x0FE0
+        0x818C0000, 0x00000000,  // lwz r12, 0(r12)
+    };
+    const auto list_of = [](std::initializer_list<const std::uint32_t*> codes,
+                            std::initializer_list<std::size_t> sizes) {
+        Bytes b;
+        put(b, 0x00D0C0DE);
+        put(b, 0x00D0C0DE);
+        auto size = sizes.begin();
+        for (const std::uint32_t* code : codes) {
+            for (std::size_t i = 0; i < *size; ++i) put(b, code[i]);
+            ++size;
+        }
+        put(b, 0xF0000000);
+        put(b, 0x00000000);
+        return b;
+    };
+    const std::size_t log_words = sizeof(rex_log) / 4, flag_words = sizeof(rex_flag) / 4;
+
+    // The log hook becomes a goto over its four lines; the flag hook stays.
+    Bytes list = list_of({rex_flag, rex_log}, {flag_words, log_words});
+    const Bytes before = list;
+    std::vector<SlotBCode> off = switch_off_slot_b_codes(list);
+    EXPECT_EQ(off.size(), 1u);
+    if (off.size() == 1) {
+        EXPECT_EQ(off[0].address, 0x803F5590u);
+        EXPECT_EQ(off[0].lines, 4u);
+    }
+    EXPECT_EQ(list.size(), before.size());
+    EXPECT_TRUE(valid_gct(list));
+    const std::size_t log_at = 8 + flag_words * 4;
+    EXPECT_EQ(get(list, log_at), 0x66200004u);
+    EXPECT_EQ(get(list, log_at + 4), 0u);
+    EXPECT_TRUE(std::equal(list.begin(), list.begin() + log_at, before.begin()));  // the flag hook as it was
+    EXPECT_TRUE(std::equal(list.begin() + log_at + 8, list.end(), before.begin() + log_at + 8));  // its instructions too
+    // A second pass finds nothing more: the goto is not a code that runs instructions.
+    EXPECT_EQ(switch_off_slot_b_codes(list).size(), 0u);
+
+    // Inside a condition, after a string write, and with the address bit
+    // set (C3: 0x01000000 added), it is still found.
+    const std::uint32_t string_write[] = {0x06001000, 0x00000005, 0x11223344, 0x55000000};
+    const std::uint32_t condition[] = {0x20001000, 0x11223344};
+    const std::uint32_t end_if[] = {0xE2000001, 0x00000000};
+    std::uint32_t rex_log_high[sizeof(rex_log) / 4];
+    std::copy(std::begin(rex_log), std::end(rex_log), rex_log_high);
+    rex_log_high[0] = 0xC33F5590;
+    list = list_of({string_write, condition, rex_log_high, end_if}, {4, 2, log_words, 2});
+    EXPECT_EQ(switch_off_slot_b_codes(list).size(), 1u);
+    EXPECT_EQ(get(list, 8 + 6 * 4), 0x66200004u);
+
+    // The whole address as data (0xCC006820) counts too.
+    const std::uint32_t data_address[] = {0xC2002000, 0x00000002, 0x60000000, 0xCC006820, 0x60000000, 0x00000000};
+    list = list_of({data_address}, {6});
+    EXPECT_EQ(switch_off_slot_b_codes(list).size(), 1u);
+
+    // Not slot B: slot A's channel (0x6800, it also serves the clock),
+    // channel 2 (0x6828), and 0x6820 with no hardware high half.
+    const std::uint32_t slot_a[] = {0xC2002000, 0x00000002, 0x3D00CD00, 0x61086800, 0x91880000, 0x00000000};
+    const std::uint32_t channel_2[] = {0xC2002000, 0x00000002, 0x3D00CD00, 0x61086828, 0x91880000, 0x00000000};
+    const std::uint32_t no_high_half[] = {0xC2002000, 0x00000002, 0x3D008058, 0x61086820, 0x91880000, 0x00000000};
+    for (const std::uint32_t* code : {slot_a, channel_2, no_high_half}) {
+        list = list_of({code}, {6});
+        const Bytes same = list;
+        EXPECT_EQ(switch_off_slot_b_codes(list).size(), 0u);
+        EXPECT_TRUE(list == same);
+    }
+
+    // A code type it can't size (F6, a search) stops the walk: the log
+    // hook after it is left alone rather than guessed at.
+    const std::uint32_t search[] = {0xF6000001, 0x80008180, 0x11223344, 0x55667788};
+    list = list_of({search, rex_log}, {4, log_words});
+    Bytes unchanged = list;
+    EXPECT_EQ(switch_off_slot_b_codes(list).size(), 0u);
+    EXPECT_TRUE(list == unchanged);
+
+    // Not a list: untouched.
+    Bytes broken = {0x00, 0xD0, 0xC0, 0xDE, 0x00, 0xD0, 0xC0, 0xDE, 0xC2, 0x3F};
+    unchanged = broken;
+    EXPECT_EQ(switch_off_slot_b_codes(broken).size(), 0u);
+    EXPECT_TRUE(broken == unchanged);
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::cerr << "usage: codebuild_tests <source tree>" << std::endl;
@@ -304,6 +402,7 @@ int main(int argc, char** argv) {
     test_debugger_handlers(argv[1]);
     test_join();
     test_runs_before_start();
+    test_slot_b_codes();
     test_model();
     if (g_failures == 0) std::cout << "codebuild tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;

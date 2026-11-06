@@ -272,6 +272,23 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
         why = "the game checks its own code (MetaFortress)";
         return false;
     }
+    // A Wii U's vWii has no memory card slots: a code that writes to slot
+    // B (a USB Gecko log, as in REX) waits there forever for an answer,
+    // and the game stays on a black screen (grantendo/wiiu#37). Such codes
+    // are switched off for every launch with codes on a Wii U: cheats and
+    // code builds alike. A Wii keeps them (a USB Gecko may be plugged in).
+    if (!g_extras.cheat_gct.empty() && (is_wii_u() || mem::TestWiiUCardSlots()) && !debug_off("slotb")) {
+        for (const SlotBCode& code : switch_off_slot_b_codes(g_extras.cheat_gct)) {
+            if (code.address != 0) {
+                logf("Codes: a code at 0x%08x writes to memory card slot B, which a Wii U doesn't have (a USB "
+                     "Gecko log); it is switched off, or the game would wait for an answer forever (%u lines)\n",
+                     static_cast<unsigned>(code.address), static_cast<unsigned>(code.lines));
+            } else {
+                logf("Codes: a code that writes to memory card slot B, which a Wii U doesn't have, is switched off "
+                     "(%u lines)\n", static_cast<unsigned>(code.lines));
+            }
+        }
+    }
     // The header and the end code: a list with no codes.
     static const std::vector<std::uint8_t> kEmptyGct = {0x00, 0xD0, 0xC0, 0xDE, 0x00, 0xD0, 0xC0, 0xDE,
                                                         0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};

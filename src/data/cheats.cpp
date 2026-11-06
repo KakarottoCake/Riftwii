@@ -675,4 +675,106 @@ bool gct_runs_before_start(const std::vector<std::uint8_t>& gct, std::uint32_t k
     return at == end;
 }
 
+namespace {
+
+// Memory card slot B's bus (EXI channel 1): its five registers, as the
+// low half of an address whose high half is 0xCC00 or 0xCD00.
+constexpr std::uint32_t kSlotBFirstRegister = 0x6814;
+constexpr std::uint32_t kSlotBLastRegister = 0x6827;
+
+bool slot_b_register(std::uint32_t low_half) {
+    return low_half >= kSlotBFirstRegister && low_half <= kSlotBLastRegister;
+}
+
+// Whether a code's instructions reach slot B's bus: they load the
+// hardware's high half (lis rX, 0xCC00 or 0xCD00) and use a slot B
+// register's low half (ori, addi, or a load or store's offset), or hold a
+// whole slot B address as data.
+bool reaches_slot_b(const std::vector<std::uint8_t>& gct, std::size_t first, std::size_t words) {
+    bool hardware_high_half = false;
+    bool slot_b_low_half = false;
+    for (std::size_t i = 0; i < words; ++i) {
+        const std::uint32_t word = get32(gct, first + i * 4);
+        const std::uint32_t opcode = word >> 26;
+        const std::uint32_t source = (word >> 16) & 31u;
+        const std::uint32_t immediate = word & 0xFFFFu;
+        const std::uint32_t high = word >> 16;
+        if ((high == 0xCC00 || high == 0xCD00) && slot_b_register(immediate)) return true;  // the address as data
+        // lis rX, imm is addis rX, 0, imm.
+        if (opcode == 15 && source == 0 && (immediate == 0xCC00 || immediate == 0xCD00)) hardware_high_half = true;
+        // addi (14), ori (24), and the loads and stores with an offset
+        // (32 lwz to 45 sthu).
+        const bool takes_low_half = opcode == 14 || opcode == 24 || (opcode >= 32 && opcode <= 45);
+        if (takes_low_half && slot_b_register(immediate)) slot_b_low_half = true;
+    }
+    return hardware_high_half && slot_b_low_half;
+}
+
+// The lines after a code's first, for the code types whose size is known
+// (Gecko's code type list); false for any other.
+bool lines_after(std::uint32_t type, std::uint32_t value, std::size_t& extra) {
+    extra = 0;
+    if (type == 0x06) {
+        extra = (static_cast<std::size_t>(value) + 7) / 8;  // a string of `value` bytes
+        return true;
+    }
+    if (type == 0x08) {
+        extra = 1;  // a serial write's second line
+        return true;
+    }
+    if (type == 0xC0 || type == 0xC2) {
+        extra = value;  // instructions
+        return true;
+    }
+    // One line each: writes (00 to 04), conditions (20 to 2E), base and
+    // pointer codes (40 to 5E), repeats, gotos and gosubs (60 to 6E),
+    // Gecko registers and memory copies (80 to 8E), register conditions
+    // (A0 to AE), branches and switches (C6, CC, CE) and the ends (E0, E2).
+    if (type <= 0x04) return true;
+    if (type >= 0x20 && type <= 0x2E) return true;
+    if (type >= 0x40 && type <= 0x6E) return true;
+    if (type >= 0x80 && type <= 0x8E) return true;
+    if (type >= 0xA0 && type <= 0xAE) return true;
+    if (type == 0xC6 || type == 0xCC || type == 0xCE || type == 0xE0 || type == 0xE2) return true;
+    return false;
+}
+
+}  // namespace
+
+std::vector<SlotBCode> switch_off_slot_b_codes(std::vector<std::uint8_t>& gct) {
+    std::vector<SlotBCode> switched_off;
+    if (!valid_gct(gct)) return switched_off;
+    const std::size_t end = gct.size() - 8;
+    // A goto's line count is a signed 16-bit number.
+    constexpr std::uint32_t kGotoMaxLines = 0x7FFF;
+    std::size_t at = 8;
+    while (at < end) {
+        const std::uint32_t first = get32(gct, at);
+        const std::uint32_t value = get32(gct, at + 4);
+        // Without the bit that adds 0x01000000 to the address.
+        const std::uint32_t type = gct[at] & 0xFEu;
+        std::size_t extra = 0;
+        if (!lines_after(type, value, extra)) break;
+        const std::size_t lines_left = (end - at) / 8 - 1;
+        if (extra > lines_left) break;
+        const bool runs_instructions = type == 0xC0 || type == 0xC2;
+        if (runs_instructions && extra != 0 && extra <= kGotoMaxLines && reaches_slot_b(gct, at + 8, extra * 2)) {
+            // 66 2 0 NNNN: goto, always, NNNN lines forward: over the
+            // instructions, so a C2's branch is never written either.
+            const std::uint32_t goto_line = 0x66200000u | static_cast<std::uint32_t>(extra);
+            gct[at] = static_cast<std::uint8_t>(goto_line >> 24);
+            gct[at + 1] = static_cast<std::uint8_t>(goto_line >> 16);
+            gct[at + 2] = static_cast<std::uint8_t>(goto_line >> 8);
+            gct[at + 3] = static_cast<std::uint8_t>(goto_line);
+            for (std::size_t i = 4; i < 8; ++i) gct[at + i] = 0;
+            SlotBCode code;
+            code.address = (type == 0xC0 ? 0u : 0x80000000u) | (first & 0x01FFFFFFu);
+            code.lines = static_cast<std::uint32_t>(extra);
+            switched_off.push_back(code);
+        }
+        at += (1 + extra) * 8;
+    }
+    return switched_off;
+}
+
 }  // namespace riftwii

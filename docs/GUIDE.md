@@ -1258,6 +1258,10 @@ A few things to know:
 - If Play says the codes don't fit, `gameconfig.txt` (or `gc.txt`) is
   missing or is not the build's own. Copy the one that came with the
   build.
+- On a Wii U, a code that writes to memory card slot B is switched off:
+  a Wii U has no memory card slots, and such a code (a log for a USB
+  Gecko, as REX has) would wait for an answer forever, leaving the game on
+  a black screen. On a Wii it stays on.
 - Code builds are **experimental**. Tested in Dolphin with Project+ 3.2,
   REX and PMEX Remix, and on a Wii with PMEX Remix from a USB drive (it
   reached a match). Older builds that go in `sd:/codes` with
