@@ -287,9 +287,9 @@ void riftwii::wii::logf(const char* format, ...) {
 
 int main() {
     TestSharedIndexAndAlignment();
+    EXPECT(permission_opens == 0);  // ES success never opens the check
     TestMetadataFailures();
     TestReadFailuresAndBounds();
-    EXPECT(permission_opens == 0);  // ES success never opens the check
     TestNandWhenEsRefuses();
     return failures == 0 ? 0 : 1;
 }

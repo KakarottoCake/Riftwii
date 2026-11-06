@@ -4,12 +4,16 @@
 
 namespace riftwii::wii {
 
+// Call once on the main thread after memory setup, before any readers.
+void InitNandPermissionLock();
+
 bool open_nand_permissions(const char* who);
 void close_nand_permissions(const char* who);
 // Before an IOS reload or game handoff: close every outstanding use and
 // forget the address even if the next IOS has the same version/revision.
 // Permission sessions must end before either boundary.
 void CloseAllNandPermissions(const char* who);
+// Startup only, before memory setup and reader threads.
 void RecoverNandPermissions();
 void LogNandPermissionRecovery();
 

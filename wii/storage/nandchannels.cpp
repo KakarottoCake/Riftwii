@@ -942,6 +942,15 @@ PriiloaderFound PriiloaderInstalled() {
         logf("Priiloader: not known, the Wii Menu's TMD names no program\n");
         return found;
     }
+    // The cIOS scan may have released the last filesystem user already.
+    // This lookup owns an acquisition even if the channel scan failed.
+    if (NandOpen() < 0) {
+        logf("Priiloader: not known, the Wii's filesystem could not be opened.\n");
+        return found;
+    }
+    struct NandUser {
+        ~NandUser() { NandClose(); }
+    } nand_user;
     NandAccess access;
     const s32 fd = access.open(copy);
     if (fd >= 0) {
