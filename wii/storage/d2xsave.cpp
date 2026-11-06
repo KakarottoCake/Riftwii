@@ -16,6 +16,7 @@
 #include "boot.hpp"
 #include "log.hpp"
 #include "nanduse.hpp"
+#include "nandpermissions.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/nandlist.hpp"
 
@@ -51,14 +52,13 @@ bool write_file(const std::string& path, const std::uint8_t* data, std::size_t s
 
 // A NAND file into `out`, under the menu's IOS (its permission check
 // opened for a game's save, as for the menu font, and closed once the save
-// is copied; `refused` stops asking again after it could not be opened).
-bool read_nand_file(const std::string& path, std::vector<std::uint8_t>& out, bool& refused, std::string& why) {
+// is copied, with the check opened before the first request).
+bool read_nand_file(const std::string& path, std::vector<std::uint8_t>& out, bool permissions_open, std::string& why) {
     static char name[ISFS_MAXPATH] ATTRIBUTE_ALIGN(32) = {};
     std::snprintf(name, sizeof(name), "%s", path.c_str());
     s32 fd = ISFS_Open(name, ISFS_OPEN_READ);
-    if (fd == -102 && !refused) {
-        if (open_nand_permissions("Save copy")) fd = ISFS_Open(name, ISFS_OPEN_READ);
-        else refused = true;
+    if (fd == -102 && permissions_open) {
+        logf("Save copy: %s was still refused (-102) with the NAND permission check open.\n", name);
     }
     if (fd < 0) {
         why = path + " could not be opened (" + std::to_string(fd) + ")";
@@ -119,7 +119,8 @@ NandList list_nand(const std::string& path, std::vector<std::string>& names, std
 }
 
 // The Wii's save folder into the card's, its subfolders too.
-bool copy_nand_tree(const std::string& nand, const std::string& sd, unsigned& files, bool& refused, std::string& why) {
+bool copy_nand_tree(const std::string& nand, const std::string& sd, unsigned& files, bool permissions_open,
+                    std::string& why) {
     std::vector<std::string> names;
     std::uint32_t count = 0;
     const NandList listed = list_nand(nand, names, count);
@@ -143,7 +144,7 @@ bool copy_nand_tree(const std::string& nand, const std::string& sd, unsigned& fi
         std::uint32_t inner_count = 0;
         const NandList inner_listed = list_nand(from, inner, inner_count);
         if (inner_listed == NandList::Ok) {
-            if (!copy_nand_tree(from, to, files, refused, why)) return false;
+            if (!copy_nand_tree(from, to, files, permissions_open, why)) return false;
             continue;
         }
         if (inner_listed == NandList::NoRoom) {
@@ -156,7 +157,7 @@ bool copy_nand_tree(const std::string& nand, const std::string& sd, unsigned& fi
             return false;
         }
         std::vector<std::uint8_t> bytes;
-        if (!read_nand_file(from, bytes, refused, why)) return false;
+        if (!read_nand_file(from, bytes, permissions_open, why)) return false;
         if (!write_file(to, bytes.data(), bytes.size())) {
             why = "cannot write " + to;
             return false;
@@ -276,9 +277,8 @@ bool prepare_d2x_saves(const ImageGame& game, const std::string& dir, bool clone
                                      hex8(static_cast<std::uint32_t>(game.title_id)) + "/data";
             unsigned files = 0;
             std::string why;
-            bool refused = false;
-            const bool copied = copy_nand_tree(nand, data, files, refused, why);
-            close_nand_permissions("Save copy");
+            NandPermissionSession permissions("Save copy");
+            const bool copied = copy_nand_tree(nand, data, files, permissions.IsOpen(), why);
             if (!copied) {
                 remove_tree(data);
                 make_dirs(data);

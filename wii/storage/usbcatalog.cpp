@@ -54,6 +54,7 @@
 #include "netsock.hpp"
 #include "skin.hpp"
 #include "nanduse.hpp"
+#include "nandpermissions.hpp"
 #include "textfile.hpp"
 
 namespace riftwii::wii {
@@ -1829,7 +1830,7 @@ struct SlotInfo {
 // said "d2x in no slot that could be read", d2x v11 too. The Homebrew
 // Channel's IOS refuses the file (-102) until its permission check is
 // opened, as for the menu font (fixed in 3.3.3: the hang of 2.7.0 RC5).
-bool read_slot_info(int slot, SlotInfo& out) {
+bool read_slot_info(int slot, SlotInfo& out, bool permissions_open) {
     const u64 title = 0x100000000ull | static_cast<u64>(slot);
     u32 tmd_size = 0;
     if (ES_GetStoredTMDSize(title, &tmd_size) < 0 || tmd_size < 0x1E4 + 36 || tmd_size > 0x10000) return false;
@@ -1844,14 +1845,9 @@ bool read_slot_info(int slot, SlotInfo& out) {
     static char path[64] ATTRIBUTE_ALIGN(32);
     std::snprintf(path, sizeof(path), "/title/00000001/%08x/content/%08x.app", static_cast<unsigned>(slot),
                   static_cast<unsigned>(content));
-    // The permission check, opened for the first slot IOS refuses, is
-    // closed again once every slot is read (slot_infos).
-    static bool isfs = false, refused = false;
-    if (!isfs) isfs = NandOpen() >= 0;
     s32 fd = ISFS_Open(path, ISFS_OPEN_READ);
-    if (fd == -102 && !refused) {
-        if (open_nand_permissions("cIOS check")) fd = ISFS_Open(path, ISFS_OPEN_READ);
-        else refused = true;
+    if (fd == -102 && permissions_open) {
+        logf("cIOS check: %s was still refused (-102) with the NAND permission check open.\n", path);
     }
     if (fd < 0) {
         out.why = std::string(path) + " could not be opened (" + std::to_string(fd) + ")";
@@ -1875,9 +1871,17 @@ const std::vector<SlotInfo>& slot_infos() {
     if (done) return infos;
     done = true;
     logf("cIOS: reading the cIOS slots 200-255\n");
+    if (NandOpen() < 0) {
+        logf("cIOS check: the Wii's filesystem could not be opened.\n");
+        return infos;
+    }
+    struct NandUser {
+        ~NandUser() { NandClose(); }
+    } nand_user;
+    NandPermissionSession permissions("cIOS check");
     for (int ios = 200; ios <= 255; ++ios) {
         SlotInfo info;
-        if (!read_slot_info(ios, info)) continue;
+        if (!read_slot_info(ios, info, permissions.IsOpen())) continue;
         if (!info.read) logf("cIOS: IOS%d: %s\n", ios, info.why.c_str());
         else if (!info.info.d2x) logf("cIOS: IOS%d: not d2x\n", ios);
         else
@@ -1887,7 +1891,6 @@ const std::vector<SlotInfo>& slot_infos() {
                                           : " (too old: RiftWii needs d2x v11 beta3)");
         infos.push_back(info);
     }
-    close_nand_permissions("cIOS check");
     return infos;
 }
 

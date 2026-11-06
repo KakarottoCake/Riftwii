@@ -32,6 +32,8 @@ s32 read_size = 64;
 bool refuse_first_view = false;
 int nand_calls = 0;
 bool nand_works = false;
+int permission_opens = 0;
+int permission_closes = 0;
 
 bool Aligned(const void* pointer) {
     return reinterpret_cast<std::uintptr_t>(pointer) % 32 == 0;
@@ -54,6 +56,8 @@ void Reset(unsigned contents = 2) {
     refuse_first_view = false;
     nand_calls = 0;
     nand_works = false;
+    permission_opens = 0;
+    permission_closes = 0;
     tmd_bytes.assign(0x1e4 + contents * 36, 0);
     tmd_bytes[0x18f] = 1;
     tmd_bytes[0x193] = 2;
@@ -171,21 +175,28 @@ void TestReadFailuresAndBounds() {
 // channel, 2610-810): the NAND's copy is read instead.
 void TestNandWhenEsRefuses() {
     Reset();
-    WiiMenuContentReader reader("Menu font");
-    std::string why;
-    EXPECT(reader.Open(why));
-    fail_call = "ES_OpenTitleContent";
-    nand_works = true;
-    alignas(32) u8 bytes[64]{};
-    EXPECT(reader.Read(reader.Metadata().contents[1], bytes, sizeof bytes, why));
-    EXPECT(open_calls == 2);  // each ticket view first
-    EXPECT(nand_calls == 1);
-    EXPECT(read_calls == 0);
-    EXPECT(bytes[63] == 0xa5);
-    EXPECT(logs.find("Menu font: read from the NAND, as ES refused it") != std::string::npos);
+    {
+        WiiMenuContentReader reader("Menu font");
+        std::string why;
+        EXPECT(reader.Open(why));
+        fail_call = "ES_OpenTitleContent";
+        nand_works = true;
+        alignas(32) u8 bytes[64]{};
+        EXPECT(reader.Read(reader.Metadata().contents[1], bytes, sizeof bytes, why));
+        EXPECT(open_calls == 2);  // each ticket view first
+        EXPECT(nand_calls == 1);
+        EXPECT(read_calls == 0);
+        EXPECT(bytes[63] == 0xa5);
+        EXPECT(logs.find("Menu font: read from the NAND, as ES refused it") != std::string::npos);
+        EXPECT(reader.Read(reader.Metadata().contents[1], bytes, sizeof bytes, why));
+        EXPECT(permission_opens == 1 && permission_closes == 0);
+    }
+    EXPECT(permission_closes == 1);
 
     Reset();
     WiiMenuContentReader failing("Wii Menu sounds");
+    std::string why;
+    alignas(32) u8 bytes[64]{};
     EXPECT(failing.Open(why));
     fail_call = "ES_OpenTitleContent";
     EXPECT(!failing.Read(failing.Metadata().contents[1], bytes, sizeof bytes, why));
@@ -194,7 +205,10 @@ void TestNandWhenEsRefuses() {
 }
 }  // namespace
 
-bool riftwii::wii::ReadMenuContentFromNand(const TmdContent& content, void* buffer, const char*, std::string& why) {
+bool riftwii::wii::ReadMenuContentFromNand(const TmdContent& content, void* buffer, const char*, std::string& why,
+                                         NandPermissionSession* permissions) {
+    EXPECT(permissions != nullptr);
+    permissions->Open();
     ++nand_calls;
     EXPECT(Aligned(buffer));
     EXPECT(content.index == 23);
@@ -205,6 +219,12 @@ bool riftwii::wii::ReadMenuContentFromNand(const TmdContent& content, void* buff
     std::memset(buffer, 0xa5, static_cast<std::size_t>(content.size));
     return true;
 }
+
+bool riftwii::wii::open_nand_permissions(const char*) {
+    ++permission_opens;
+    return true;
+}
+void riftwii::wii::close_nand_permissions(const char*) { ++permission_closes; }
 
 s32 ES_GetStoredTMDSize(u64 title, u32* size) {
     EXPECT(title == kSystemMenu);
@@ -269,6 +289,7 @@ int main() {
     TestSharedIndexAndAlignment();
     TestMetadataFailures();
     TestReadFailuresAndBounds();
+    EXPECT(permission_opens == 0);  // ES success never opens the check
     TestNandWhenEsRefuses();
     return failures == 0 ? 0 : 1;
 }

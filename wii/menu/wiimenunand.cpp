@@ -8,6 +8,7 @@
 
 #include "nandpermissions.hpp"
 #include "nanduse.hpp"
+#include "log.hpp"
 #include "riftwii/sysfont.hpp"
 
 namespace riftwii::wii {
@@ -17,20 +18,19 @@ constexpr std::size_t kMaxContentMap = 64 * 1024;  // 28 bytes a shared content
 
 // The System Menu's contents are IOS's own files: an app is refused them
 // (-102) until IOS's NAND permission check is opened (nandpermissions.hpp),
-// which needs hardware access. Opened only when refused, and closed again
-// once the file is read, whichever way this returns.
+// which needs hardware access. The reader opens it before any protected
+// request and keeps it open for the entire content search: retrying after
+// a refusal may leave the Starlet executing its cached, unpatched code.
 class NandFile {
 public:
-    NandFile(const char* path, const char* who) : who_(who) {
+    NandFile(const char* path, const char* who, bool permissions_open) {
         fd_ = ISFS_Open(path, ISFS_OPEN_READ);
-        if (fd_ == -102 && open_nand_permissions(who)) {
-            opened_permissions_ = true;
-            fd_ = ISFS_Open(path, ISFS_OPEN_READ);
+        if (fd_ == -102 && permissions_open) {
+            logf("%s: %s was still refused (-102) with the NAND permission check open.\n", who, path);
         }
     }
     ~NandFile() {
         if (fd_ >= 0) ISFS_Close(fd_);
-        if (opened_permissions_) close_nand_permissions(who_);
     }
     NandFile(const NandFile&) = delete;
     NandFile& operator=(const NandFile&) = delete;
@@ -44,20 +44,19 @@ public:
     }
 
 private:
-    const char* who_;
     s32 fd_ = -1;
-    bool opened_permissions_ = false;
 };
 
 // Where the NAND keeps `content`: a shared one under the name content.map
 // gives its hash, any other under the System Menu's own title.
-bool ContentPath(const TmdContent& content, char* path, std::size_t room, const char* who, std::string& why) {
+bool ContentPath(const TmdContent& content, char* path, std::size_t room, const char* who,
+                 bool permissions_open, std::string& why) {
     constexpr std::uint16_t kShared = 0x8000;
     if ((content.type & kShared) == 0) {
         std::snprintf(path, room, "/title/00000001/00000002/content/%08x.app", static_cast<unsigned>(content.id));
         return true;
     }
-    NandFile map("/shared1/content.map", who);
+    NandFile map("/shared1/content.map", who, permissions_open);
     if (map.fd() < 0) {
         why = "/shared1/content.map could not be opened (" + std::to_string(map.fd()) + ")";
         return false;
@@ -85,7 +84,8 @@ bool ContentPath(const TmdContent& content, char* path, std::size_t room, const 
 
 }  // namespace
 
-bool ReadMenuContentFromNand(const TmdContent& content, void* buffer, const char* who, std::string& why) {
+bool ReadMenuContentFromNand(const TmdContent& content, void* buffer, const char* who, std::string& why,
+                             NandPermissionSession* permissions) {
     if (NandOpen() < 0) {
         why = "the NAND could not be opened";
         return false;
@@ -93,9 +93,12 @@ bool ReadMenuContentFromNand(const TmdContent& content, void* buffer, const char
     struct NandUse {
         ~NandUse() { NandClose(); }
     } nand_use;
+    NandPermissionSession local_permissions(who, false);
+    if (!permissions) permissions = &local_permissions;
+    const bool permissions_open = permissions->Open();
     char path[64];
-    if (!ContentPath(content, path, sizeof path, who, why)) return false;
-    NandFile file(path, who);
+    if (!ContentPath(content, path, sizeof path, who, permissions_open, why)) return false;
+    NandFile file(path, who, permissions_open);
     if (file.fd() < 0) {
         why = std::string(path) + " could not be opened (" + std::to_string(file.fd()) + ")";
         return false;

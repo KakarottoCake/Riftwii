@@ -24,6 +24,7 @@ constexpr u32 kBefore = 0x428BD001;
 u32 current = kBefore;
 u16 protection = 1;
 int ios = 58;
+int revision = 6176;
 bool hardware = true;
 bool fail_write = false;
 bool fail_restore = false;
@@ -39,6 +40,9 @@ bool stuck_protection = false;  // turning protection off never lands
 bool protection_pending = false;
 u16 protection_next = 0;
 unsigned writes = 0;
+unsigned scans = 0;
+unsigned openings = 0;
+unsigned closings = 0;
 
 void* map_at(u32 address, std::size_t size) {
 #if defined(_WIN32) || defined(__CYGWIN__)
@@ -57,6 +61,7 @@ void* map_at(u32 address, std::size_t size) {
 }  // namespace
 
 int IOS_GetVersion() { return ios; }
+int IOS_GetRevision() { return revision; }
 u16 read16(u32) {
     if (protection_pending) {
         protection = protection_next;
@@ -98,6 +103,9 @@ void logf(const char* format, ...) {
     std::vsnprintf(line, sizeof(line), format, args);
     va_end(args);
     g_last_log = line;
+    if (g_last_log.find("checking IOS") != std::string::npos) ++scans;
+    if (g_last_log.find("check opened at") != std::string::npos) ++openings;
+    if (g_last_log.find("check closed (") != std::string::npos) ++closings;
 }
 }
 
@@ -301,6 +309,93 @@ int main() {
     const unsigned before_bad = writes;
     RecoverNandPermissions();
     check(writes == before_bad);
+
+    current = kBefore;
+    *saved = {};
+    RecoverNandPermissions();
+    const unsigned before_nested = writes;
+    const unsigned openings_before_nested = openings;
+    const unsigned closings_before_nested = closings;
+    {
+        NandPermissionSession batch("batch", false);
+        check(writes == before_nested);
+        check(batch.Open());
+        check(batch.Open());  // one acquisition even when asked repeatedly
+        {
+            NandPermissionSession inner("inner");
+            check(inner.IsOpen());
+            check(writes == before_nested + 1);
+        }
+        check(current == 0x428BE001u && nand_permission_note_valid(*saved));
+        check(closings == closings_before_nested);
+    }
+    check(writes == before_nested + 2 && current == kBefore && saved->magic == 0);
+    check(openings == openings_before_nested + 1 && closings == closings_before_nested + 1);
+    check(g_last_log.find("batch:") == 0);
+
+    // With no signature left to find, a second batch must use the cached
+    // address, but only while the original word and IOS identity match.
+    std::memset(code + 0x100, 0, sizeof(kNandCheck));
+    const unsigned scans_before_cache = scans;
+    {
+        NandPermissionSession cached("cached");
+        check(cached.IsOpen());
+    }
+    check(scans == scans_before_cache && current == kBefore);
+    current = 0x1234D001u;
+    const unsigned writes_before_changed_cache = writes;
+    check(!open_nand_permissions("changed cache"));
+    check(writes == writes_before_changed_cache && scans == scans_before_cache + 1 && protection == 1);
+
+    std::memcpy(code + 0x100, kNandCheck, sizeof(kNandCheck));
+    current = kBefore;
+    check(open_nand_permissions("test"));
+    close_nand_permissions("test");
+    std::memset(code + 0x100, 0, sizeof(kNandCheck));
+    ++revision;
+    check(!open_nand_permissions("new revision"));
+    std::memcpy(code + 0x100, kNandCheck, sizeof(kNandCheck));
+    check(open_nand_permissions("test"));
+    close_nand_permissions("test");
+    std::memset(code + 0x100, 0, sizeof(kNandCheck));
+    ios = 55;
+    check(!open_nand_permissions("new IOS"));
+
+    std::memcpy(code + 0x100, kNandCheck, sizeof(kNandCheck));
+    check(open_nand_permissions("test"));
+    check(open_nand_permissions("nested raw use"));
+    close_nand_permissions("nested raw use");
+    check(current == 0x428BE001u);
+    check(open_nand_permissions("another nested raw use"));
+    CloseAllNandPermissions("IOS reload");
+    check(current == kBefore && saved->magic == 0);
+    std::memset(code + 0x100, 0, sizeof(kNandCheck));
+    check(!open_nand_permissions("same IOS after reload"));
+    const unsigned scans_before_failure = scans;
+    {
+        NandPermissionSession failed("failed batch", false);
+        check(!failed.Open());
+        check(!failed.Open());
+    }
+    check(scans == scans_before_failure + 1 && protection == 1 && saved->magic == 0);
+
+    // A reload to another revision of the same IOS must not restore the
+    // old live note into new code, at either a close or another opening.
+    std::memcpy(code + 0x100, kNandCheck, sizeof(kNandCheck));
+    check(open_nand_permissions("before revision reload"));
+    ++revision;
+    current = kBefore;
+    const unsigned writes_before_revision_close = writes;
+    close_nand_permissions("after revision reload");
+    check(writes == writes_before_revision_close && saved->magic == 0);
+    check(open_nand_permissions("before another reload"));
+    ++revision;
+    // A branch already open in the new IOS belongs to that IOS, not to
+    // the old note. No restore or new patch is authorized by it.
+    current = 0x1234E001u;
+    const unsigned writes_before_revision_open = writes;
+    check(!open_nand_permissions("after another reload"));
+    check(writes == writes_before_revision_open && current == 0x1234E001u && saved->magic == 0);
     std::cout << failures << " NAND permission failures\n";
     return failures == 0 ? 0 : 1;
 }

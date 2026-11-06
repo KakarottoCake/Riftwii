@@ -274,7 +274,7 @@ if(BUILD_TESTING)
     set_tests_properties(installer_cios PROPERTIES SKIP_RETURN_CODE 77)
     # System Menu resources through ES, with a small mock of its read calls.
     add_executable(wiimenucontent_tests tests/wiimenucontent_tests.cpp wii/menu/wiimenucontent.cpp)
-    target_include_directories(wiimenucontent_tests PRIVATE tests/wii_mock wii/menu wii/core)
+    target_include_directories(wiimenucontent_tests PRIVATE tests/wii_mock wii/menu wii/core wii/launch)
     target_link_libraries(wiimenucontent_tests PRIVATE riftwii)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         target_compile_options(wiimenucontent_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)

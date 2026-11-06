@@ -21,6 +21,7 @@
 #include "movedchannels.hpp"
 #include "usbcatalog.hpp"
 #include "nanduse.hpp"
+#include "nandpermissions.hpp"
 #include "wadfolder.hpp"
 #include "wadinstall.hpp"
 #include "riftwii/wadfile.hpp"
@@ -43,13 +44,12 @@ AlignedBuffer aligned(std::size_t bytes) {
     return AlignedBuffer(static_cast<u8*>(memalign(32, (bytes + 31) & ~std::size_t(31))), &std::free);
 }
 
-// The NAND permission check, opened once for the first file the running
-// IOS refuses (-102: the Homebrew Channel's IOS refuses other titles'
-// contents to an app), and closed by the listing's end.
+// Open once before the listing's first protected file, so a refused open
+// cannot warm the Starlet's cache with the unpatched permission check.
 struct NandAccess {
     bool trace = false;
-    bool opened = false;
     bool refused = false;
+    NandPermissionSession permissions{"Wii channels"};
     s32 open(const std::string& path) {
         static char name[64] ATTRIBUTE_ALIGN(32);
         std::snprintf(name, sizeof name, "%s", path.c_str());
@@ -58,19 +58,11 @@ struct NandAccess {
             LogSync();
         }
         s32 fd = ISFS_Open(name, ISFS_OPEN_READ);
-        if (fd == -102 && !opened && !refused) {
-            if (open_nand_permissions("Wii channels")) {
-                opened = true;
-                if (trace) logf("Wii channels: trying %s again with the permission check open.\n", name);
-                fd = ISFS_Open(name, ISFS_OPEN_READ);
-            } else {
-                refused = true;
-            }
+        if (fd == -102) refused = true;
+        if (fd == -102 && permissions.IsOpen()) {
+            logf("Wii channels: %s was still refused (-102) with the NAND permission check open.\n", name);
         }
         return fd;
-    }
-    ~NandAccess() {
-        if (opened) close_nand_permissions("Wii channels");
     }
 };
 
