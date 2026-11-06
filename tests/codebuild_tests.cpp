@@ -358,6 +358,17 @@ void test_slot_b_codes() {
     EXPECT_EQ(switch_off_slot_b_codes(list).size(), 1u);
     EXPECT_EQ(get(list, 8 + 6 * 4), 0x66200004u);
 
+    // Pointer codes (bit 0x10: a 14 word write, a 16 string write, a 30
+    // condition and its end) before the hook are sized like their base
+    // types, so the walk reaches the hook.
+    const std::uint32_t po_codes[] = {0x48000000, 0x80570000, 0x14000010, 0x00000000, 0x16000020, 0x00000005,
+                                      0x11223344, 0x55000000, 0x30000040, 0x00000001, 0xE2000001, 0x00000000};
+    list = list_of({po_codes, rex_log}, {12, log_words});
+    SlotBScan po_scan;
+    EXPECT_EQ(switch_off_slot_b_codes(list, &po_scan).size(), 1u);
+    EXPECT_TRUE(po_scan.complete);
+    EXPECT_EQ(get(list, 8 + 12 * 4), 0x66200004u);
+
     // The whole address as data (0xCC006820) counts too.
     const std::uint32_t data_address[] = {0xC2002000, 0x00000002, 0x60000000, 0xCC006820, 0x60000000, 0x00000000};
     list = list_of({data_address}, {6});

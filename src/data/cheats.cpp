@@ -819,6 +819,11 @@ bool reaches_slot_b(const std::vector<std::uint8_t>& gct, std::size_t first, std
 // (Gecko's code type list); false for any other.
 bool lines_after(std::uint32_t type, std::uint32_t value, std::size_t& extra) {
     extra = 0;
+    // Below 0x40, bit 0x10 makes a code work through the pointer instead
+    // of the base address (Gecko's po codes: 14 a word write, 16 a string,
+    // 30 to 3E conditions): the same size as the code without it. Brawl
+    // builds have many, often before the USBGecko.asm hook.
+    if (type < 0x40) type &= ~0x10u;
     if (type == 0x06) {
         // A string of `value` bytes, rounded up without overflowing a
         // 32-bit size (a count of 0xFFFFFFFF wrapped to 0 on the Wii).
