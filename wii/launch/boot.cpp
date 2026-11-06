@@ -1752,6 +1752,11 @@ public:
              static_cast<unsigned>(kRoomStart), static_cast<unsigned>(kRoomEnd));
     }
 
+    // The launch is past its point of no return (libogc shut down, the
+    // game's last pieces about to go over this loader's memory, the copy
+    // included): nothing is put back from here on.
+    void game_takes_over() { saved_ = false; }
+
     StarterLeftovers(const StarterLeftovers&) = delete;
     StarterLeftovers& operator=(const StarterLeftovers&) = delete;
 
@@ -2096,7 +2101,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
              static_cast<unsigned>(kLoaderStart));
     }
     // Put back if the launch fails: the Homebrew Channel's way back.
-    const StarterLeftovers starter_leftovers;
+    StarterLeftovers starter_leftovers;
     mem::LogUsage("before loading the game");  // the headroom a big pack leaves
     // The memory sizes the System Menu leaves for the apploader, which
     // places the FST and bi2 below them. Super Mario Galaxy 2's (2009/12/11)
@@ -2981,6 +2986,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // The last moment for the menu's music: libogc shuts down next, and
     // the game then takes the DSP and the audio interrupt.
     LaunchMusicEnd("the game starts next");
+    starter_leftovers.game_takes_over();
     SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
     store32(0x800000F4, bi2);
     if (options.install_resident && resident.data_bytes != 0 && resident.data_base != resident.stage_base) {
@@ -3975,7 +3981,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
 
     // Before the program, which may start at 0x80003400; put back if the
     // launch fails.
-    const StarterLeftovers starter_leftovers;
+    StarterLeftovers starter_leftovers;
     // The program, section by section. Its BSS is cleared by the game's
     // own start-up code, as on a disc.
     ProgressStage("Loading the game", 70);
@@ -4147,6 +4153,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     // The last moment for the menu's music, as for a disc game: libogc
     // shuts down next, and the game then takes the DSP.
     LaunchMusicEnd("the game starts next");
+    starter_leftovers.game_takes_over();
     SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
     // libogc clears this field during shutdown, as in the disc path.
     store32(0x800000F4, bi2_address);
