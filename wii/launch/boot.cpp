@@ -1714,29 +1714,65 @@ static_assert(kRestartTriggerStub + kRestartTriggerBytes <= kDolSwitchStubEnd, "
 // Cleared as a start from the RiftWii channel or the System Menu leaves it,
 // after saying what was there. Homebrew launches keep it: their way back to
 // the Homebrew Channel is that stub.
-void clear_starter_leftovers() {
-    constexpr std::uint32_t kRoomStart = 0x80001800;
-    constexpr std::uint32_t kRoomEnd = 0x80003000;
-    const volatile u32* low = reinterpret_cast<const volatile u32*>(kRoomStart);
-    constexpr std::uint32_t kWords = (kRoomEnd - kRoomStart) / 4;
-    std::uint32_t nonzero = 0;
-    for (std::uint32_t i = 0; i < kWords; ++i) nonzero += low[i] != 0 ? 1 : 0;
-    if (nonzero == 0) {
-        logf("Low memory 0x%08x-0x%08x before the game: empty\n", static_cast<unsigned>(kRoomStart),
-             static_cast<unsigned>(kRoomEnd));
-        return;
+//
+// Cleared while one of these lives, and put back as it was when it goes: a
+// launch that fails before the game starts returns to the failure screen,
+// whose HOME then still goes back to the Homebrew Channel. A launch that
+// works never returns (the game's entry point takes over), so nothing is put
+// back over the game.
+class StarterLeftovers {
+public:
+    StarterLeftovers() {
+        const volatile u32* low = reinterpret_cast<const volatile u32*>(kRoomStart);
+        std::uint32_t nonzero = 0;
+        for (std::uint32_t i = 0; i < kWords; ++i) nonzero += low[i] != 0 ? 1 : 0;
+        if (nonzero == 0) {
+            logf("Low memory 0x%08x-0x%08x before the game: empty\n", static_cast<unsigned>(kRoomStart),
+                 static_cast<unsigned>(kRoomEnd));
+            return;
+        }
+        const bool stubhaxx = low[1] == 0x53545542 && low[2] == 0x48415858;  // "STUBHAXX"
+        logf("Low memory 0x%08x-0x%08x before the game: %u of %u words not zero (%s); first words %08x %08x %08x "
+             "%08x; 0x80002800 = %08x; cleared\n",
+             static_cast<unsigned>(kRoomStart), static_cast<unsigned>(kRoomEnd), static_cast<unsigned>(nonzero),
+             static_cast<unsigned>(kWords), stubhaxx ? "a loader's return stub, STUBHAXX" : "no STUBHAXX",
+             static_cast<unsigned>(low[0]), static_cast<unsigned>(low[1]), static_cast<unsigned>(low[2]),
+             static_cast<unsigned>(low[3]), static_cast<unsigned>(low[(0x80002800 - kRoomStart) / 4]));
+        std::memcpy(g_saved, reinterpret_cast<const void*>(kRoomStart), kBytes);
+        saved_ = true;
+        std::memset(reinterpret_cast<void*>(kRoomStart), 0, kBytes);
+        settle();
     }
-    const bool stubhaxx = low[1] == 0x53545542 && low[2] == 0x48415858;  // "STUBHAXX"
-    logf("Low memory 0x%08x-0x%08x before the game: %u of %u words not zero (%s); first words %08x %08x %08x "
-         "%08x; 0x80002800 = %08x; cleared\n",
-         static_cast<unsigned>(kRoomStart), static_cast<unsigned>(kRoomEnd), static_cast<unsigned>(nonzero),
-         static_cast<unsigned>(kWords), stubhaxx ? "a loader's return stub, STUBHAXX" : "no STUBHAXX",
-         static_cast<unsigned>(low[0]), static_cast<unsigned>(low[1]), static_cast<unsigned>(low[2]),
-         static_cast<unsigned>(low[3]), static_cast<unsigned>(low[(0x80002800 - kRoomStart) / 4]));
-    std::memset(reinterpret_cast<void*>(kRoomStart), 0, kRoomEnd - kRoomStart);
-    DCFlushRange(reinterpret_cast<void*>(kRoomStart), kRoomEnd - kRoomStart);
-    ICInvalidateRange(reinterpret_cast<void*>(kRoomStart), kRoomEnd - kRoomStart);
-}
+
+    ~StarterLeftovers() {
+        if (!saved_) return;
+        std::memcpy(reinterpret_cast<void*>(kRoomStart), g_saved, kBytes);
+        settle();
+        logf("Low memory 0x%08x-0x%08x: put back as it was, the launch having failed\n",
+             static_cast<unsigned>(kRoomStart), static_cast<unsigned>(kRoomEnd));
+    }
+
+    StarterLeftovers(const StarterLeftovers&) = delete;
+    StarterLeftovers& operator=(const StarterLeftovers&) = delete;
+
+private:
+    static constexpr std::uint32_t kRoomStart = 0x80001800;
+    static constexpr std::uint32_t kRoomEnd = 0x80003000;
+    static constexpr std::uint32_t kBytes = kRoomEnd - kRoomStart;
+    static constexpr std::uint32_t kWords = kBytes / 4;
+
+    // The stub is code: the instruction cache must not keep the old copy.
+    static void settle() {
+        DCFlushRange(reinterpret_cast<void*>(kRoomStart), kBytes);
+        ICInvalidateRange(reinterpret_cast<void*>(kRoomStart), kBytes);
+    }
+
+    // One launch at a time, so one copy (6 KB, in the loader's own memory).
+    static std::uint8_t g_saved[kBytes];
+    bool saved_ = false;
+};
+
+std::uint8_t StarterLeftovers::g_saved[StarterLeftovers::kBytes];
 
 // `known_os_restart`: OSRestart as found before the runtime hooked it (0:
 // not hooked), the address the switch calls then.
@@ -2059,7 +2095,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         logf("Code builds: game memory 0x%08x-0x%08x cleared\n", static_cast<unsigned>(kGameStart),
              static_cast<unsigned>(kLoaderStart));
     }
-    clear_starter_leftovers();
+    // Put back if the launch fails: the Homebrew Channel's way back.
+    const StarterLeftovers starter_leftovers;
     mem::LogUsage("before loading the game");  // the headroom a big pack leaves
     // The memory sizes the System Menu leaves for the apploader, which
     // places the FST and bi2 below them. Super Mario Galaxy 2's (2009/12/11)
@@ -3936,7 +3973,9 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     const int nand_device = !emulated ? 0 : files.emu_nand.compare(0, 4, "usb:") == 0 ? 1 : 2;
     settle_gc_adapter(IOS_GetVersion(), nand_device, "the emulated NAND", true);
 
-    clear_starter_leftovers();  // before the program, which may start at 0x80003400
+    // Before the program, which may start at 0x80003400; put back if the
+    // launch fails.
+    const StarterLeftovers starter_leftovers;
     // The program, section by section. Its BSS is cleared by the game's
     // own start-up code, as on a disc.
     ProgressStage("Loading the game", 70);
