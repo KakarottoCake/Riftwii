@@ -790,7 +790,23 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     //    the MEM2 arena instead, the arena's start (and the build's fixed
     //    addresses) left alone. A pack's patch there turns it off.
     out.code_bytes = align_up(h.size);
-    out.state_bytes = align_up(sizeof(gcad_hub));
+    // Only the adapter's own state when no other USB pad could be used in
+    // the game: a pad's mapping is loaded in the menu when it is plugged
+    // in there, and an Xbox 360 pad needs /dev/usb/ven opened before the
+    // launch (open_usb_ven_for_game). Without either, the four pad links,
+    // the catalog and the ven list are about 26 KB the game never uses
+    // (Project+ with the adapter had 512 bytes to spare).
+    static rthid_catalog catalog;
+    HidPadsCopyCatalog(catalog);
+    out.adapter_only = catalog.count == 0 && out.ven_fd < 0 && catalog.adapter_disabled == 0;
+    if (out.adapter_only && out.known_dev < 0) {
+        // The hub would find the adapter in the menu's device list
+        // (gcad_links_init); alone, the driver is told it directly.
+        for (unsigned i = 0; i < catalog.known_count && i < RTHID_DEVICE_MAX; ++i) {
+            if (catalog.known[i].vid_pid == GCAD_VID_PID) out.known_dev = catalog.known[i].id;
+        }
+    }
+    out.state_bytes = align_up(out.adapter_only ? sizeof(gcad) : sizeof(gcad_hub));
     // A code build puts this blob at MEM2's top. The resident runtime's
     // staged data is still there until the jump, so keep below it too.
     const std::uint32_t arena2_end = stage_base != 0 && mem1_veneer != 0
@@ -853,15 +869,17 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         close_pad_handles(out);
         return false;
     }
-    auto* hub = reinterpret_cast<gcad_hub*>(out.state_base);
-    HidPadsCopyCatalog(hub->catalog);
-    for (unsigned i = 0; i < hub->catalog.count; ++i) {
-        const auto& mapping = hub->catalog.maps[i];
-        logf("USB controller %04x:%04x: mapping sent to the Wii game's pad hook (%u report bytes).\n",
-             static_cast<unsigned>(mapping.vid), static_cast<unsigned>(mapping.pid),
-             static_cast<unsigned>(mapping.report_bytes));
+    if (!out.adapter_only) {
+        auto* hub = reinterpret_cast<gcad_hub*>(out.state_base);
+        hub->catalog = catalog;
+        for (unsigned i = 0; i < hub->catalog.count; ++i) {
+            const auto& mapping = hub->catalog.maps[i];
+            logf("USB controller %04x:%04x: mapping sent to the Wii game's pad hook (%u report bytes).\n",
+                 static_cast<unsigned>(mapping.vid), static_cast<unsigned>(mapping.pid),
+                 static_cast<unsigned>(mapping.report_bytes));
+        }
     }
-    DCFlushRange(hub, out.state_bytes);
+    DCFlushRange(reinterpret_cast<void*>(out.state_base), out.state_bytes);
     ctx->state = out.state_base;
     ctx->ioctl_async = ioctl_async;
     ctx->ioctlv_async = ioctlv_async;
@@ -870,14 +888,15 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     ctx->version = out.version;
     ctx->ticks_per_ms = kBusClock / 4000u;
     ctx->inited = 0;
-    ctx->flags = demo ? RT_PAD_FLAG_DEMO : 0u;
+    ctx->flags = (demo ? RT_PAD_FLAG_DEMO : 0u) | (out.adapter_only ? RT_PAD_FLAG_ADAPTER_ONLY : 0u);
     ctx->known_dev = out.version == 5 ? out.known_dev : -1;
     ctx->ven_fd = out.ven_fd;
 
     ctx->idle_reset = out.idle_reset;
     out.active = true;
-    logf("GameCube adapter: blob %u bytes at 0x%08x, state %u bytes at 0x%08x%s%s\n", h.size, out.code_base,
-         out.state_bytes, out.state_base, demo ? " (demo)" : "",
+    logf("GameCube adapter: blob %u bytes at 0x%08x, state %u bytes at 0x%08x%s%s%s\n", h.size, out.code_base,
+         out.state_bytes, out.state_base, out.adapter_only ? " (the adapter alone: no other USB pad)" : "",
+         demo ? " (demo)" : "",
          mem1_veneer != 0 ? "; in MEM2, through veneers (a code build)" : "");
     return true;
 }
