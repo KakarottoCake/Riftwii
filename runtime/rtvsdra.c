@@ -11,14 +11,19 @@ int rtvsd_ra_on(const struct rtvsd_ra* ra) {
 }
 
 /* A sector's check value: its 128 words folded in one at a time, each
- * mixed in by a multiply (FNV-1a over words). Not a guard against a
- * forger, only against bytes that changed. A rotate-xor fold gave every
- * sector of one repeated word the same value (the 128 rotations cancel in
- * fours), so a held sector of zeros overwritten with 0xFF went unseen. */
+ * mixed in by a multiply (FNV-1a over words) and the high half shifted
+ * back down. Not a guard against a forger, only against bytes that
+ * changed. A rotate-xor fold gave every sector of one repeated word the
+ * same value (the 128 rotations cancel in fours); plain FNV-1a still did
+ * for words differing only in their top bit (0x00000000 and 0x80000000),
+ * since a multiply by an odd number never moves that bit down. */
 static uint32_t sector_check(uint32_t address) {
     const uint32_t* w = (const uint32_t*)(uintptr_t)address;
     uint32_t h = 0x811C9DC5u, i;
-    for (i = 0; i < RTVSD_SECTOR_BYTES / 4u; ++i) h = (h ^ w[i]) * 0x01000193u;
+    for (i = 0; i < RTVSD_SECTOR_BYTES / 4u; ++i) {
+        h = (h ^ w[i]) * 0x01000193u;
+        h ^= h >> 16;
+    }
     return h;
 }
 

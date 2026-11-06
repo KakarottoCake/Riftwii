@@ -341,6 +341,14 @@ void TestUniformOverwrite(std::uint8_t* memory) {
     for (std::size_t i = 0; i < 512; ++i) memory[7 * 512 + i] = 0x02;
     EXPECT_EQ(holds(ra, 7, 1), 0u);
     EXPECT_EQ(ra.clobbered, 2u);
+    // Words differing only in their top bit (0x00000000 for 0x80000000):
+    // plain FNV-1a gave both sectors the same value.
+    for (std::size_t i = 0; i < 16 * 512; ++i) memory[i] = 0;
+    fill(ra, 0, 16);
+    const std::uint32_t top_bit = 0x80000000u;  // as a whole word, in the host's own byte order
+    for (std::size_t i = 0; i < 512; i += 4) std::memcpy(memory + 9 * 512 + i, &top_bit, 4);
+    EXPECT_EQ(holds(ra, 9, 1), 0u);
+    EXPECT_EQ(ra.clobbered, 3u);
 }
 
 }  // namespace
