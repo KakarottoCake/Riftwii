@@ -311,7 +311,7 @@ def main():
         RNG.bit_generator.state = WALL_STATE[w]
         Image.fromarray(background(w, shelves=CHANNEL_ROW_BOTTOMS)).save(OUT / name, optimize=True)
     # Smaller files, the same picture on a TV (tools/shrink_theme_pictures.py).
-    subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name("shrink_theme_pictures.py")), str(OUT)],
+    subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name("shrink_theme_pictures.py")), "--", str(OUT)],
                    check=True)
     print("wrote", OUT)
 

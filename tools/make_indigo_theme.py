@@ -562,15 +562,19 @@ def main():
         "popup": lambda: glass(572, 276, 4, 12, bands=popup_bands(44, 18, 276), **dict(panel, reflection=0.0)),
     }
     only = set(sys.argv[2:])
+    written = []
     for name, paint in pictures.items():
         if only and name not in only:
             continue
         path = out / (name + ".png")
         paint().save(path, optimize=True)
         print(path)
-    # Smaller files, the same picture on a TV (tools/shrink_theme_pictures.py).
-    subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name("shrink_theme_pictures.py")), str(out)],
-                   check=True)
+        written.append(str(path))
+    # Smaller files, the same picture on a TV (tools/shrink_theme_pictures.py),
+    # for the pictures written now only.
+    if written:
+        shrinker = str(pathlib.Path(__file__).with_name("shrink_theme_pictures.py"))
+        subprocess.run([sys.executable, shrinker, "--"] + written, check=True)
 
 
 if __name__ == "__main__":

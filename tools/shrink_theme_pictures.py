@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Makes a theme's PNG pictures smaller without a visible change.
 
-    python tools/shrink_theme_pictures.py themes/Bookshelf [more folders]
+    python tools/shrink_theme_pictures.py themes/Bookshelf [more folders or PNGs]
     python tools/shrink_theme_pictures.py --check themes/Bookshelf
 
 Lossless recompression gains almost nothing on these pictures, so each is
@@ -19,13 +19,15 @@ made simpler to compress in a way nobody can see on a TV:
   2 of 255 at most, below what a TV shows; the Bookshelf walls come out
   about half the size.
 
-A file is rewritten only when it gets smaller, and a picture already
+A file is rewritten only when it gets smaller (through a temporary file,
+so an interrupted run never leaves half a picture), and a picture already
 shrunk stays the same, so running it again changes nothing. --check
 reports the pictures that would still change and exits with 1 for them.
 Needs Pillow.
 """
 import argparse
 import io
+import os
 import pathlib
 import re
 import sys
@@ -49,7 +51,9 @@ RGB565 = (truncate_to(0xF8), truncate_to(0xFC), truncate_to(0xF8))
 
 def reduced(picture, is_backdrop_frame):
     """The picture with fewer colour bits, in the same mode it came in."""
-    has_alpha = picture.mode in ("RGBA", "LA", "PA") or (picture.mode == "P" and "transparency" in picture.info)
+    # A tRNS colour (RGB, grey or palette) is transparency too: it is kept
+    # as an alpha channel.
+    has_alpha = picture.mode in ("RGBA", "LA", "PA") or "transparency" in picture.info
     rgba = picture.convert("RGBA")
     red, green, blue, alpha = rgba.split()
     tables = RGB565 if is_backdrop_frame else (SIX_BITS, SIX_BITS, SIX_BITS)
@@ -72,33 +76,44 @@ def shrink(path, check_only):
         picture.load()
         is_backdrop_frame = BACKDROP_FRAME.match(path.name) is not None
         smaller = reduced(picture, is_backdrop_frame)
-        unchanged_pixels = smaller.tobytes() == picture.convert(smaller.mode).tobytes()
-    if unchanged_pixels:
-        return len(original), len(original)
+    # Pixels that were already reduced are still recompressed: the old file
+    # may have come from an encoder that packs worse.
     data = png_bytes(smaller)
     if len(data) >= len(original):
         return len(original), len(original)
     if not check_only:
-        path.write_bytes(data)
+        temporary = path.with_name(path.name + ".shrinking")
+        temporary.write_bytes(data)
+        os.replace(temporary, path)
     return len(original), len(data)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("folders", nargs="+", type=pathlib.Path)
+    parser.add_argument("paths", nargs="+", type=pathlib.Path, help="theme folders or single PNGs")
     parser.add_argument("--check", action="store_true", help="change nothing; exit 1 if a picture would shrink")
     args = parser.parse_args()
 
+    pictures = []
+    for given in args.paths:
+        if given.is_dir():
+            pictures.extend(sorted(given.glob("*.png")))
+        elif given.is_file() and given.suffix.lower() == ".png":
+            pictures.append(given)
+        else:
+            # A mistyped folder must not pass --check by having nothing in it.
+            print("%s is neither a folder nor a PNG" % given, file=sys.stderr)
+            return 2
+
     before = after = 0
     changed = []
-    for folder in args.folders:
-        for path in sorted(folder.glob("*.png")):
-            old, new = shrink(path, args.check)
-            before += old
-            after += new
-            if new != old:
-                changed.append(path)
-                print("%-48s %8d -> %8d bytes" % (path.as_posix(), old, new))
+    for path in pictures:
+        old, new = shrink(path, args.check)
+        before += old
+        after += new
+        if new != old:
+            changed.append(path)
+            print("%-48s %8d -> %8d bytes" % (path.as_posix(), old, new))
     if args.check:
         if changed:
             print("%d picture(s) can still be shrunk: run tools/shrink_theme_pictures.py on them" % len(changed))
