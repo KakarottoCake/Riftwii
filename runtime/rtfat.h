@@ -128,7 +128,7 @@ struct rtfat_dirent {
                              * `found`, the cursor moved past it; ENOENT at the end */
 
 /*
- * One operation. The two sector buffers are the engine's working memory
+ * One operation. The caller supplies two independent sector buffers
  * (a FAT sector and a directory or data sector); `bounce` is a caller-
  * provided buffer of `bounce_bytes` (a multiple of 512, at least 512) for
  * data transfers. All three are 32-byte aligned when the caller's device
@@ -169,6 +169,11 @@ struct rtfat_op {
     uint32_t cursor_cluster;
     uint32_t cursor_sector;
     uint32_t cursor_index;
+    /* Classification only examines parameters, so its operation needs no
+     * sector storage. A running operation owns both buffers until DONE;
+     * neither a probe nor another arrival may borrow them during DMA. */
+    uint8_t* fat_sector;
+    uint8_t* sector;
     /* Results beyond `result`. */
     struct rtfat_dirent found;   /* LOOKUP, CREATE, RENAME (the new entry): the entry */
     struct rtfat_dirent source;  /* RENAME, DELETE: the entry removed */
@@ -234,8 +239,6 @@ struct rtfat_op {
     uint32_t end_index;          /* SCAN_CREATE: slot of the end-of-directory entry in scan_lba's sector */
     uint32_t entry_cluster;      /* cluster holding free_lba, when the new entries are past the end */
     uint32_t entry_term;         /* the new entries filled their sector past the end: the next one needs an end */
-    uint8_t fat_sector[RTFAT_SECTOR_BYTES] __attribute__((aligned(32)));
-    uint8_t sector[RTFAT_SECTOR_BYTES] __attribute__((aligned(32)));
 };
 
 /* Starts an operation: the caller has set the parameters (name/name2

@@ -482,6 +482,25 @@ if(BUILD_TESTING)
         # exits 77: shown as skipped, not passed.
         set_tests_properties(${suite} PROPERTIES SKIP_RETURN_CODE 77)
     endforeach()
+    # Keep the pre-rewrite engine as a host-only differential oracle. Both
+    # executables use the same scenarios and emit address-free I/O transcripts.
+    add_library(fs_reference STATIC tests/reference/rtfat.c tests/reference/rtfs.c)
+    target_include_directories(fs_reference PUBLIC tests/reference)
+    set_target_properties(fs_reference PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON C_EXTENSIONS OFF)
+    foreach(suite rtfat rtfs)
+        add_executable(${suite}_reference_tests tests/${suite}_tests.cpp)
+        target_compile_definitions(${suite}_reference_tests PRIVATE RTFAT_REFERENCE)
+        target_include_directories(${suite}_reference_tests BEFORE PRIVATE tests/reference)
+        target_link_libraries(${suite}_reference_tests PRIVATE fs_reference riftwii)
+        if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            target_compile_options(${suite}_reference_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+        endif()
+        add_test(NAME ${suite}_differential COMMAND "${CMAKE_COMMAND}"
+            "-Dreference=$<TARGET_FILE:${suite}_reference_tests>"
+            "-Dcurrent=$<TARGET_FILE:${suite}_tests>"
+            "-Dtrace=${CMAKE_CURRENT_BINARY_DIR}/${suite}-trace"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/fs_differential.cmake")
+    endforeach()
     add_executable(channel_entry_tests tests/channel_entry_tests.c)
     target_include_directories(channel_entry_tests PRIVATE tests/channel_mock)
     if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")

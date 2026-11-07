@@ -323,10 +323,9 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
             return false;
         }
     }
-    // The state's savegame-only tail (rt_hook.h) is left out for the file
-    // device alone.
-    const std::uint32_t fs_state_bytes = static_cast<std::uint32_t>(
-        options.savegame.enabled ? sizeof(rt_fs_state) : offsetof(rt_fs_state, names));
+    // Imports remain available throughout the game. Only a launch with a
+    // pending clone needs to retain room for its NAND directory listing.
+    const std::uint32_t fs_state_bytes = rt_fs_state_bytes(options.savegame.enabled, options.savegame.clone);
     const std::uint32_t fs_bytes = has_fs ? fs_state_bytes + 32 : 0;
     const std::uint32_t sdio_fd = options.sdio_fd < 0 ? 0xFFFFFFFFu : static_cast<std::uint32_t>(options.sdio_fd);
     // The game's own Reset: what the runtime needs to take it, all or none.

@@ -1388,6 +1388,8 @@ static int rt_fs_admit(struct rt_fs_state* st, uint32_t entry_index, const struc
         st->req.fat.bounce = (uint32_t)(uintptr_t)st->bounce;
         st->req.fat.bounce_bytes = RT_FS_BOUNCE_BYTES;
         rtfs_begin(&st->fs, &st->req, ipc);
+        st->req.fat.fat_sector = st->fat_sector;
+        st->req.fat.sector = st->sector;
         r = RT_FS_ADMIT_BEGUN;
     } else if (may_queue && st->queue_count < RT_FS_QUEUE) {
         struct rt_fs_queued* q = &st->queue[(st->queue_head + st->queue_count) % RT_FS_QUEUE];
@@ -1434,6 +1436,8 @@ static void rt_fs_start_queued(struct rt_context* ctx, struct rt_fs_state* st) {
             st->req.fat.bounce = (uint32_t)(uintptr_t)st->bounce;
             st->req.fat.bounce_bytes = RT_FS_BOUNCE_BYTES;
             rtfs_begin(&st->fs, &st->req, &q.ipc);
+            st->req.fat.fat_sector = st->fat_sector;
+            st->req.fat.sector = st->sector;
         }
         rt_interrupts_restore(msr);
         if (st->dead) {

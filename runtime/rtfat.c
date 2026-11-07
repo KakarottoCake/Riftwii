@@ -109,6 +109,18 @@ enum {
     S_DONE
 };
 
+/* The shared transfer helpers advance these paired states arithmetically. */
+typedef char rtfat_transfer_state_order[
+    (S_SCAN_PROCESS == S_SCAN_READ + 1 && S_ENTRY_FILL == S_ENTRY_READ + 1 &&
+     S_MARK_FILL1 == S_MARK_READ1 + 1 && S_MARK_FILL2 == S_MARK_READ2 + 1 &&
+     S_WRITE_ENTRY_UPDATE == S_WRITE_ENTRY_READ + 1 &&
+     S_ALLOC_MARK_WRITTEN == S_ALLOC_MARK_WRITE + 1 &&
+     S_ALLOC_LINK_WRITTEN == S_ALLOC_LINK_WRITE + 1 && S_FREE_WRITTEN == S_FREE_WRITE + 1 &&
+     S_DIR_RECOVER_PARENT_READ_DONE == S_DIR_RECOVER_PARENT_READ + 1 &&
+     S_DIR_RECOVER_PARENT_WRITE_DONE == S_DIR_RECOVER_PARENT_READ_DONE + 1 &&
+     S_DIR_RECOVER_CANDIDATE_READ_DONE == S_DIR_RECOVER_CANDIDATE_READ + 1 &&
+     S_DIR_RECOVER_CANDIDATE_WRITE_DONE == S_DIR_RECOVER_CANDIDATE_READ_DONE + 1) ? 1 : -1];
+
 /* scan_mode */
 #define SCAN_FIND 1   /* op->new_name -> op->found; end -> ENOENT */
 #define SCAN_CREATE 2 /* collisions with op->new_name / short11, first free run; end -> continue */
@@ -304,7 +316,9 @@ int rtfat_fits_short(const char* name, uint8_t* out11, uint8_t* nt_flags) {
 
 /* --- transfers --------------------------------------------------------------- */
 
-static int issue(struct rtfat_op* op, uint32_t lba, uint32_t count, uint32_t write, const void* buffer) {
+/* LTO otherwise repeats the request stores in every state. Keep these
+ * small shared leaves as calls: measured with both resident flavors. */
+static __attribute__((noinline)) int issue(struct rtfat_op* op, uint32_t lba, uint32_t count, uint32_t write, const void* buffer) {
     op->io_lba = lba;
     op->io_count = count;
     op->io_write = write;
@@ -338,7 +352,7 @@ static uint32_t fat_offset_of(uint32_t cluster) {
  * cached, 0 after issuing its read (the caller returns RT_IO and re-enters
  * the same state). The cache is marked valid at issue time: a failed
  * transfer ends the operation, and a new operation starts with no cache. */
-static int fat_get(const struct rtfat_volume* vol, struct rtfat_op* op, uint32_t cluster, uint32_t* value) {
+static __attribute__((noinline)) int fat_get(const struct rtfat_volume* vol, struct rtfat_op* op, uint32_t cluster, uint32_t* value) {
     const uint32_t lba = fat_sector_of(vol, cluster);
     if (op->fat_cached_lba == lba) {
         *value = rd32(op->fat_sector + fat_offset_of(cluster)) & FAT_MASK;
@@ -349,7 +363,7 @@ static int fat_get(const struct rtfat_volume* vol, struct rtfat_op* op, uint32_t
     return 0;
 }
 
-static void fat_set_cached(struct rtfat_op* op, uint32_t cluster, uint32_t value) {
+static __attribute__((noinline)) void fat_set_cached(struct rtfat_op* op, uint32_t cluster, uint32_t value) {
     uint8_t* p = op->fat_sector + fat_offset_of(cluster);
     wr32(p, (rd32(p) & 0xF0000000u) | (value & FAT_MASK));
 }
@@ -654,7 +668,7 @@ static uint32_t dir_max_clusters(const struct rtfat_volume* vol) {
 }
 
 /* A scan of the directory starting at cluster `dir`. */
-static void scan_begin_in(const struct rtfat_volume* vol, struct rtfat_op* op, uint32_t dir, uint32_t mode,
+static __attribute__((noinline)) void scan_begin_in(const struct rtfat_volume* vol, struct rtfat_op* op, uint32_t dir, uint32_t mode,
                           uint32_t next_state) {
     op->scan_mode = mode;
     op->next_state = next_state;
@@ -828,7 +842,7 @@ static void fill_entries(struct rtfat_op* op) {
 
 /* --- the chain walk --------------------------------------------------------- */
 
-static void walk_begin(struct rtfat_op* op, uint32_t target, uint32_t next_state) {
+static __attribute__((noinline)) void walk_begin(struct rtfat_op* op, uint32_t target, uint32_t next_state) {
     const struct rtfat_file* f = op->file;
     op->walk_target = target;
     op->walk_prev = 0;
@@ -860,13 +874,91 @@ static void data_chunk(const struct rtfat_volume* vol, struct rtfat_op* op, uint
     op->chunk_bytes = max;
 }
 
+/* Restore the parent in every FAT before freeing the candidate in every
+ * FAT. A failed recovery transfer never stops the remaining copies. */
+static __attribute__((noinline)) int step_recover(struct rtfat_volume* vol, struct rtfat_op* op) {
+    const uint32_t state = op->state;
+    const int candidate = state >= S_DIR_RECOVER_CANDIDATE_READ;
+    const uint32_t cluster = candidate ? op->alloc_cluster : op->alloc_link;
+    switch (state) {
+        case S_DIR_RECOVER_PARENT_READ:
+        case S_DIR_RECOVER_CANDIDATE_READ:
+            op->state = state + 1;
+            return fat_issue_copy_read(vol, op, op->recovery_copy, cluster);
+        case S_DIR_RECOVER_PARENT_READ_DONE:
+        case S_DIR_RECOVER_CANDIDATE_READ_DONE:
+            if (op->io_status == 0) {
+                fat_set_cached(op, cluster, candidate ? 0u : FAT_EOC);
+                op->state = state + 1;
+                return fat_issue_copy_write(vol, op, op->recovery_copy, cluster);
+            }
+            break;
+        case S_DIR_RECOVER_PARENT_WRITE_DONE:
+        case S_DIR_RECOVER_CANDIDATE_WRITE_DONE:
+            break;
+        case S_DIR_RECOVER_DONE:
+            op->dir_txn = 0;
+            if (op->recovery_failed) vol->mutation_uncertain = 1;
+            return finish(op, RTFAT_EIO);
+        default:
+            return finish(op, RTFAT_EINVAL);
+    }
+    if (op->io_status != 0) op->recovery_failed = 1;
+    if (++op->recovery_copy < vol->fat_count) {
+        op->state = candidate ? S_DIR_RECOVER_CANDIDATE_READ : S_DIR_RECOVER_PARENT_READ;
+    } else {
+        if (!candidate) op->recovery_copy = 0;
+        op->state = candidate ? S_DIR_RECOVER_DONE : S_DIR_RECOVER_CANDIDATE_READ;
+    }
+    return RT_CONT;
+}
+
+/* These transfer states always resume at the immediately following state.
+ * Keep the shared request setup in one place instead of repeating it in
+ * each sub-machine. No function-address table is needed in the blob. */
+static __attribute__((noinline)) int step_transfer(struct rtfat_volume* vol, struct rtfat_op* op) {
+    uint32_t lba;
+    switch (op->state) {
+        case S_SCAN_READ:
+            lba = op->scan_lba;
+            break;
+        case S_ENTRY_READ:
+            lba = op->free_lba;
+            break;
+        case S_MARK_READ1:
+            lba = op->source.lfn_lba;
+            break;
+        case S_MARK_READ2:
+            lba = op->source.entry_lba;
+            break;
+        case S_WRITE_ENTRY_READ:
+            lba = op->file->entry_lba;
+            break;
+        case S_ALLOC_MARK_WRITE:
+        case S_ALLOC_LINK_WRITE:
+        case S_FREE_WRITE:
+            op->state++;
+            return fat_issue_write(vol, op, op->alloc_copy);
+        default:
+            return finish(op, RTFAT_EINVAL);
+    }
+    op->state++;
+    return issue(op, lba, 1, 0, op->sector);
+}
+
 static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
     uint32_t v;
     switch (op->state) {
-        /* ---- directory scan ---- */
         case S_SCAN_READ:
-            op->state = S_SCAN_PROCESS;
-            return issue(op, op->scan_lba, 1, 0, op->sector);
+        case S_ENTRY_READ:
+        case S_MARK_READ1:
+        case S_MARK_READ2:
+        case S_WRITE_ENTRY_READ:
+        case S_ALLOC_MARK_WRITE:
+        case S_ALLOC_LINK_WRITE:
+        case S_FREE_WRITE:
+            return step_transfer(vol, op);
+        /* ---- directory scan ---- */
         case S_SCAN_PROCESS:
             if (scan_process(op)) return RT_CONT;
             if (op->scan_end) return scan_ended(vol, op);
@@ -931,9 +1023,6 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
             op->alloc_scan++;
             op->alloc_tried++;
             return RT_CONT;
-        case S_ALLOC_MARK_WRITE:
-            op->state = S_ALLOC_MARK_WRITTEN;
-            return fat_issue_write(vol, op, op->alloc_copy);
         case S_ALLOC_MARK_WRITTEN:
             if (++op->alloc_copy < vol->fat_count) {
                 op->state = S_ALLOC_MARK_WRITE;
@@ -972,9 +1061,6 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
             op->alloc_copy = 0;
             op->state = S_ALLOC_LINK_WRITE;
             return RT_CONT;
-        case S_ALLOC_LINK_WRITE:
-            op->state = S_ALLOC_LINK_WRITTEN;
-            return fat_issue_write(vol, op, op->alloc_copy);
         case S_ALLOC_LINK_WRITTEN:
             if (++op->alloc_copy < vol->fat_count) {
                 op->state = S_ALLOC_LINK_WRITE;
@@ -987,65 +1073,7 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
             op->state = op->next_state;
             return RT_CONT;
 
-        /* ---- the directory's next sector or cluster, for entries that found no room ---- */
-        case S_DIR_GAP_WRITTEN:
-            if (op->scan_sector + 1 < vol->sectors_per_cluster) {
-                op->free_lba = op->scan_lba + 1;
-                op->free_index = 0;
-                op->entry_zero = 1;
-                op->state = op->grow_next;
-                return RT_CONT;
-            }
-            op->state = S_DIR_NEXT;
-            return RT_CONT;
-        case S_DIR_NEXT:
-            if (!fat_get(vol, op, op->scan_cluster, &v)) return RT_IO;
-            if (v < 0x0FFFFFF8u) {
-                /* Chained after the end-of-directory entry: unused. */
-                if (!cluster_valid(vol, v)) return finish(op, RTFAT_ECORRUPT);
-                op->free_lba = rtfat_cluster_lba(vol, v);
-                op->free_index = 0;
-                op->entry_zero = 1;
-                op->entry_cluster = v;
-                op->state = op->grow_next;
-                return RT_CONT;
-            }
-            /* A full folder stays as it is: grown past FAT's limit, every
-             * later scan of it would refuse it as damaged (BUG-09). The
-             * creation scan started at the folder's first cluster, so
-             * scan_clusters is the folder's length. */
-            if (op->scan_clusters >= dir_max_clusters(vol)) return finish(op, RTFAT_ENOSPC);
-            /* A new cluster: marked in the FAT, zeroed (S_DIR_ZERO),
-             * then linked after the last one. */
-            op->alloc_link = op->scan_cluster;
-            op->alloc_scan = vol->alloc_hint;
-            op->alloc_tried = 0;
-            op->dir_grow = 1;
-            op->next_state = S_DIR_GROWN;
-            op->state = S_ALLOC_SCAN;
-            return RT_CONT;
-        case S_DIR_ZERO:
-            /* Every sector of the new cluster zeroed, one at a time (the
-             * scratch sector is the only buffer every operation has). */
-            if (op->scan_sector < vol->sectors_per_cluster) {
-                const uint32_t lba = rtfat_cluster_lba(vol, op->alloc_cluster) + op->scan_sector;
-                op->scan_sector++;
-                return issue(op, lba, 1, 1, op->sector);
-            }
-            op->state = S_ALLOC_LINK;
-            return RT_CONT;
-        case S_DIR_GROWN:
-            op->dir_grow = 0;
-            op->free_lba = rtfat_cluster_lba(vol, op->alloc_cluster);
-            op->free_index = 0;
-            op->entry_zero = 0; /* zeroed on the card before it was linked */
-            op->state = op->grow_next;
-            return RT_CONT;
-
         /* ---- writing new entries at (free_lba, free_index) ---- */
-        case S_ENTRY_READ:
-            op->state = S_ENTRY_FILL;
-            return issue(op, op->free_lba, 1, 0, op->sector);
         case S_ENTRY_FILL: {
             /* Entries written over the end-of-directory entry, or after it,
              * must leave an end behind them: the slots past them hold
@@ -1094,66 +1122,7 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
             return issue(op, lba, 1, 1, op->sector);
         }
 
-        /* ---- failed directory extension recovery ---- */
-        case S_DIR_RECOVER_PARENT_READ:
-            op->state = S_DIR_RECOVER_PARENT_READ_DONE;
-            return fat_issue_copy_read(vol, op, op->recovery_copy, op->alloc_link);
-        case S_DIR_RECOVER_PARENT_READ_DONE:
-            if (op->io_status != 0) {
-                op->recovery_failed = 1;
-                if (++op->recovery_copy < vol->fat_count) {
-                    op->state = S_DIR_RECOVER_PARENT_READ;
-                    return RT_CONT;
-                }
-                op->recovery_copy = 0;
-                op->state = S_DIR_RECOVER_CANDIDATE_READ;
-                return RT_CONT;
-            }
-            fat_set_cached(op, op->alloc_link, FAT_EOC);
-            op->state = S_DIR_RECOVER_PARENT_WRITE_DONE;
-            return fat_issue_copy_write(vol, op, op->recovery_copy, op->alloc_link);
-        case S_DIR_RECOVER_PARENT_WRITE_DONE:
-            if (op->io_status != 0) op->recovery_failed = 1;
-            if (++op->recovery_copy < vol->fat_count) {
-                op->state = S_DIR_RECOVER_PARENT_READ;
-                return RT_CONT;
-            }
-            op->recovery_copy = 0;
-            op->state = S_DIR_RECOVER_CANDIDATE_READ;
-            return RT_CONT;
-        case S_DIR_RECOVER_CANDIDATE_READ:
-            op->state = S_DIR_RECOVER_CANDIDATE_READ_DONE;
-            return fat_issue_copy_read(vol, op, op->recovery_copy, op->alloc_cluster);
-        case S_DIR_RECOVER_CANDIDATE_READ_DONE:
-            if (op->io_status != 0) {
-                op->recovery_failed = 1;
-                if (++op->recovery_copy < vol->fat_count) {
-                    op->state = S_DIR_RECOVER_CANDIDATE_READ;
-                    return RT_CONT;
-                }
-                op->state = S_DIR_RECOVER_DONE;
-                return RT_CONT;
-            }
-            fat_set_cached(op, op->alloc_cluster, 0);
-            op->state = S_DIR_RECOVER_CANDIDATE_WRITE_DONE;
-            return fat_issue_copy_write(vol, op, op->recovery_copy, op->alloc_cluster);
-        case S_DIR_RECOVER_CANDIDATE_WRITE_DONE:
-            if (op->io_status != 0) op->recovery_failed = 1;
-            if (++op->recovery_copy < vol->fat_count) {
-                op->state = S_DIR_RECOVER_CANDIDATE_READ;
-                return RT_CONT;
-            }
-            op->state = S_DIR_RECOVER_DONE;
-            return RT_CONT;
-        case S_DIR_RECOVER_DONE:
-            op->dir_txn = 0;
-            if (op->recovery_failed) vol->mutation_uncertain = 1;
-            return finish(op, RTFAT_EIO);
-
         /* ---- marking op->source's entries deleted ---- */
-        case S_MARK_READ1:
-            op->state = S_MARK_FILL1;
-            return issue(op, op->source.lfn_lba, 1, 0, op->sector);
         case S_MARK_FILL1: {
             uint32_t i = op->source.lfn_index;
             uint32_t last = op->source.lfn_lba == op->source.entry_lba ? op->source.entry_index
@@ -1162,9 +1131,6 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
             op->state = op->source.lfn_lba == op->source.entry_lba ? S_MARK_DONE : S_MARK_READ2;
             return issue(op, op->source.lfn_lba, 1, 1, op->sector);
         }
-        case S_MARK_READ2:
-            op->state = S_MARK_FILL2;
-            return issue(op, op->source.entry_lba, 1, 0, op->sector);
         case S_MARK_FILL2: {
             uint32_t i;
             for (i = 0; i <= op->source.entry_index; ++i) op->sector[i * ENTRY_BYTES] = 0xE5;
@@ -1189,9 +1155,6 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
             op->alloc_copy = 0;
             op->state = S_FREE_WRITE;
             return RT_CONT;
-        case S_FREE_WRITE:
-            op->state = S_FREE_WRITTEN;
-            return fat_issue_write(vol, op, op->alloc_copy);
         case S_FREE_WRITTEN:
             if (++op->alloc_copy < vol->fat_count) {
                 op->state = S_FREE_WRITE;
@@ -1252,10 +1215,8 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
                 return issue(op, op->chunk_lba, op->chunk_count, 0, (void*)(uintptr_t)op->bounce);
             }
             zero_bytes((uint8_t*)(uintptr_t)op->bounce, op->chunk_count * RTFAT_SECTOR_BYTES);
-            copy_bytes((uint8_t*)(uintptr_t)op->bounce + op->chunk_skip,
-                       (const uint8_t*)(uintptr_t)op->buffer + op->data_done, op->chunk_bytes);
-            op->state = S_WRITE_WRITTEN;
-            return issue(op, op->chunk_lba, op->chunk_count, 1, (void*)(uintptr_t)op->bounce);
+            op->state = S_WRITE_OVERLAY;
+            return RT_CONT;
         }
         case S_WRITE_OVERLAY:
             copy_bytes((uint8_t*)(uintptr_t)op->bounce + op->chunk_skip,
@@ -1275,9 +1236,6 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
             if (!op->file->entry_dirty) return finish(op, (int32_t)op->length);
             op->state = S_WRITE_ENTRY_READ;
             return RT_CONT;
-        case S_WRITE_ENTRY_READ:
-            op->state = S_WRITE_ENTRY_UPDATE;
-            return issue(op, op->file->entry_lba, 1, 0, op->sector);
         case S_WRITE_ENTRY_UPDATE: {
             uint8_t* e = op->sector + op->file->entry_index * ENTRY_BYTES;
             if (e[0] == 0x00 || e[0] == 0xE5 || (e[11] & 0x3Fu) == ATTR_LFN) return finish(op, RTFAT_ECORRUPT);
@@ -1388,7 +1346,69 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
         case S_LIST_DONE:
             if (op->kind == RTFAT_OP_LIST && op->count > op->length) op->count = op->length;
             return finish(op, (int32_t)op->count);
+        /* ---- the directory's next sector or cluster, for entries that found no room ---- */
+        case S_DIR_GAP_WRITTEN:
+            if (op->scan_sector + 1 < vol->sectors_per_cluster) {
+                op->free_lba = op->scan_lba + 1;
+                op->free_index = 0;
+                op->entry_zero = 1;
+                op->state = op->grow_next;
+                return RT_CONT;
+            }
+            op->state = S_DIR_NEXT;
+            return RT_CONT;
+        case S_DIR_NEXT:
+            if (!fat_get(vol, op, op->scan_cluster, &v)) return RT_IO;
+            if (v < 0x0FFFFFF8u) {
+                /* Chained after the end-of-directory entry: unused. */
+                if (!cluster_valid(vol, v)) return finish(op, RTFAT_ECORRUPT);
+                op->free_lba = rtfat_cluster_lba(vol, v);
+                op->free_index = 0;
+                op->entry_zero = 1;
+                op->entry_cluster = v;
+                op->state = op->grow_next;
+                return RT_CONT;
+            }
+            /* A full folder stays as it is: grown past FAT's limit, every
+             * later scan of it would refuse it as damaged (BUG-09). The
+             * creation scan started at the folder's first cluster, so
+             * scan_clusters is the folder's length. */
+            if (op->scan_clusters >= dir_max_clusters(vol)) return finish(op, RTFAT_ENOSPC);
+            /* A new cluster: marked in the FAT, zeroed (S_DIR_ZERO),
+             * then linked after the last one. */
+            op->alloc_link = op->scan_cluster;
+            op->alloc_scan = vol->alloc_hint;
+            op->alloc_tried = 0;
+            op->dir_grow = 1;
+            op->next_state = S_DIR_GROWN;
+            op->state = S_ALLOC_SCAN;
+            return RT_CONT;
+        case S_DIR_ZERO:
+            /* Every sector of the new cluster zeroed, one at a time (the
+             * scratch sector is the only buffer every operation has). */
+            if (op->scan_sector < vol->sectors_per_cluster) {
+                const uint32_t lba = rtfat_cluster_lba(vol, op->alloc_cluster) + op->scan_sector;
+                op->scan_sector++;
+                return issue(op, lba, 1, 1, op->sector);
+            }
+            op->state = S_ALLOC_LINK;
+            return RT_CONT;
+        case S_DIR_GROWN:
+            op->dir_grow = 0;
+            op->free_lba = rtfat_cluster_lba(vol, op->alloc_cluster);
+            op->free_index = 0;
+            op->entry_zero = 0; /* zeroed on the card before it was linked */
+            op->state = op->grow_next;
+            return RT_CONT;
 
+        case S_DIR_RECOVER_PARENT_READ:
+        case S_DIR_RECOVER_CANDIDATE_READ:
+        case S_DIR_RECOVER_PARENT_READ_DONE:
+        case S_DIR_RECOVER_CANDIDATE_READ_DONE:
+        case S_DIR_RECOVER_PARENT_WRITE_DONE:
+        case S_DIR_RECOVER_CANDIDATE_WRITE_DONE:
+        case S_DIR_RECOVER_DONE:
+            return step_recover(vol, op);
         default:
             return finish(op, RTFAT_EINVAL);
     }
@@ -1398,7 +1418,7 @@ void rtfat_begin(struct rtfat_op* op, uint32_t kind) {
     /* Everything after the parameters is scratch; clear it field by field
      * (no memset here: the runtime links against nothing). */
     uint8_t* p = (uint8_t*)&op->found;
-    const uint32_t n = (uint32_t)((uint8_t*)op->fat_sector - p);
+    const uint32_t n = (uint32_t)((uint8_t*)(op + 1) - p);
     zero_bytes(p, n);
     op->kind = kind;
     op->state = S_IDLE;
@@ -1443,10 +1463,19 @@ int rtfat_step(struct rtfat_volume* vol, struct rtfat_op* op) {
         /* First step: validate the parameters and enter the operation. */
         switch (op->kind) {
             case RTFAT_OP_LOOKUP:
+            case RTFAT_OP_DELETE:
+            case RTFAT_OP_RENAME: {
+                uint32_t next_state = S_LOOKUP_DONE;
                 if (!rtfat_valid_name(op->name)) return done_now(op, RTFAT_EINVAL);
+                if (op->kind == RTFAT_OP_DELETE) next_state = S_DELETE_FOUND;
+                if (op->kind == RTFAT_OP_RENAME) {
+                    if (!rtfat_valid_name(op->name2)) return done_now(op, RTFAT_EINVAL);
+                    next_state = S_RENAME_FOUND;
+                }
                 op->new_name = op->name;
-                scan_begin(vol, op, SCAN_FIND, S_LOOKUP_DONE);
+                scan_begin(vol, op, SCAN_FIND, next_state);
                 break;
+            }
             case RTFAT_OP_READ:
                 if (op->file == 0 || op->bounce == 0 || op->bounce_bytes < RTFAT_SECTOR_BYTES) {
                     return done_now(op, RTFAT_EINVAL);
@@ -1481,18 +1510,6 @@ int rtfat_step(struct rtfat_volume* vol, struct rtfat_op* op) {
                 break;
             case RTFAT_OP_NEXT:
                 scan_begin(vol, op, SCAN_NEXT, S_LOOKUP_DONE);
-                break;
-            case RTFAT_OP_DELETE:
-                if (!rtfat_valid_name(op->name)) return done_now(op, RTFAT_EINVAL);
-                op->new_name = op->name;
-                scan_begin(vol, op, SCAN_FIND, S_DELETE_FOUND);
-                break;
-            case RTFAT_OP_RENAME:
-                if (!rtfat_valid_name(op->name) || !rtfat_valid_name(op->name2)) {
-                    return done_now(op, RTFAT_EINVAL);
-                }
-                op->new_name = op->name;
-                scan_begin(vol, op, SCAN_FIND, S_RENAME_FOUND);
                 break;
             case RTFAT_OP_LIST:
                 if (op->buffer == 0 && op->length != 0) return done_now(op, RTFAT_EINVAL);

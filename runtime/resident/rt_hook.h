@@ -457,6 +457,10 @@ struct rt_fs_state {
     struct rtfs_context fs;
     struct rtfs_request req;       /* the one request in flight */
     struct rtfs_request probe;     /* classification scratch (rtfs_probe) */
+    /* Only req drives FAT I/O. The probe has its own parsing scratch but
+     * never reads or writes these buffers, including while IOS owns one. */
+    uint8_t fat_sector[RTFAT_SECTOR_BYTES] __attribute__((aligned(32)));
+    uint8_t sector[RTFAT_SECTOR_BYTES] __attribute__((aligned(32)));
     /* Loader-filled: the game's synchronous functions (their replay
      * slots when hooked), 0 = unknown. */
     uint32_t complete_fs;          /* rt_complete_fs entry address */
@@ -531,11 +535,10 @@ struct rt_fs_state {
     struct rt_ioctlv dvec[4] __attribute__((aligned(32)));      /* the clone's ReadDir vectors */
     uint8_t bounce[RT_FS_BOUNCE_BYTES] __attribute__((aligned(32)));
     struct rt_cardlog cardlog __attribute__((aligned(32)));  /* one sector, DMAed to the card */
-    /* Savegame redirection only, from here to the end: the clone's listing
-     * and the imports' buffers. With no save directory served (the file
+    /* Savegame redirection only, from here to the end: the imports'
+     * buffers. With no save directory served (the file
      * device alone) nothing classifies as inside it, so no import or clone
-     * runs, and the loader leaves this tail out (RT_FS_SAVEGAME_TAIL). */
-    uint8_t names[RT_FS_CLONE_MAX * RTFAT_SLOT_BYTES] __attribute__((aligned(32)));  /* the clone's listing */
+     * runs, and the loader leaves this tail out. */
     uint8_t import[RT_FS_IMPORT_BYTES] __attribute__((aligned(32)));
     /* The synchronous import's stage/backup/rename paths. They cannot live
      * on the stack like the job's can in its record: the engine only ever
@@ -545,7 +548,17 @@ struct rt_fs_state {
     char copy_stage[RTFS_PATH_BYTES] __attribute__((aligned(32)));
     char copy_backup[RTFS_PATH_BYTES] __attribute__((aligned(32)));
     char copy_paths[2u * RTFS_PATH_BYTES] __attribute__((aligned(32)));
+    /* A clone can still be pending after launch. Keep its listing separate
+     * from the import buffer used to copy each file, and omit it only when
+     * this launch cannot request a clone. */
+    uint8_t names[RT_FS_CLONE_MAX * RTFAT_SLOT_BYTES] __attribute__((aligned(32)));
 };
+
+static inline uint32_t rt_fs_state_bytes(uint32_t savegame, uint32_t clone) {
+    if (!savegame) return (uint32_t)offsetof(struct rt_fs_state, import);
+    if (!clone) return (uint32_t)offsetof(struct rt_fs_state, names);
+    return (uint32_t)sizeof(struct rt_fs_state);
+}
 
 /* RVZ games. Group table entries (8 bytes, big endian, the loader's
  * copy of the RVZ's own table for the game partition's groups in data
