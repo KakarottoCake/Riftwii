@@ -13,6 +13,7 @@ extern "C" {
 
 // What keepaccess_for_next_ios did.
 enum {
+    KEEPACCESS_PROTECTION_ON = -2,  // MEM2 protection did not turn off: IOS was left alone
     KEEPACCESS_NO_ACCESS = -1,  // AHBPROT is on: the running IOS can't be patched
     KEEPACCESS_NOT_FOUND = 0,   // ES's check was not found in the running IOS
     // > 0: the number of places patched

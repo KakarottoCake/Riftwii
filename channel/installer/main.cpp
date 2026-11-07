@@ -123,6 +123,10 @@ void keep_access_for_reload(int next_ios) {
     const int patched = keepaccess_for_next_ios();
     if (patched == KEEPACCESS_NO_ACCESS)
         installer::Log("No hardware access to keep; IOS%d is started without it.\n", next_ios);
+    else if (patched == KEEPACCESS_PROTECTION_ON)
+        installer::Log("IOS%d's memory protection did not turn off, so its check for hardware access was left "
+                       "alone; IOS%d may start without it.\n",
+                       IOS_GetVersion(), next_ios);
     else if (patched == KEEPACCESS_NOT_FOUND)
         installer::Log("IOS%d's check for hardware access was not found; IOS%d may start without it.\n",
                        IOS_GetVersion(), next_ios);

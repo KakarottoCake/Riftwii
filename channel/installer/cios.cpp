@@ -89,7 +89,8 @@ bool NandReadAccess::Restore() {
     if (word_ != 0) {
         // A store that still didn't land is tried again, a few times.
         u32 now = 0;
-        for (int attempt = 0; attempt < 3 && !WordRestored(now); ++attempt) {
+        bool read = false;
+        for (int attempt = 0; attempt < 3 && !WordRestored(now, read); ++attempt) {
             if (!ProtectionOff()) continue;
             const u32 current = read32(word_);
             // Only the patched halfword is ours; IOS may have changed the
@@ -100,10 +101,14 @@ bool NandReadAccess::Restore() {
                 write32(word_, (current & ~mask) | (before_ & mask));
             }
         }
-        word_restored_ = WordRestored(now);
+        word_restored_ = WordRestored(now, read);
         if (word_restored_) {
             Log("IOS%d's NAND permission check was restored after reading the cIOS information.\n",
                 IOS_GetVersion());
+        } else if (!read) {
+            Log("IOS%d's NAND permission check could not be checked after reading the cIOS information: memory "
+                "protection did not turn off (word 0x%08x, original 0x%08x, opened 0x%08x).\n",
+                IOS_GetVersion(), word_, before_, after_);
         } else {
             Log("IOS%d's NAND permission check could not be restored after reading the cIOS information "
                 "(word 0x%08x read 0x%08x, original 0x%08x, opened 0x%08x).\n",
@@ -118,12 +123,11 @@ NandReadAccess::~NandReadAccess() { Restore(); }
 
 // Whether the patched halfword holds the original again, read with
 // protection off (a protected read gives the fill pattern); `now` is the
-// word as read, for the log.
-bool NandReadAccess::WordRestored(u32& now) const {
-    if (!ProtectionOff()) {
-        now = 0;
-        return false;
-    }
+// word as read, for the log; `read` is false when protection didn't turn
+// off and nothing was read.
+bool NandReadAccess::WordRestored(u32& now, bool& read) const {
+    read = ProtectionOff();
+    if (!read) return false;
     now = read32(word_);
     return riftwii::nand_check_half(now, shift_) == riftwii::nand_check_half(before_, shift_);
 }

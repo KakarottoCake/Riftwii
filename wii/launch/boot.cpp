@@ -3246,6 +3246,10 @@ bool keep_hardware_access(const char* who) {
         logf("%s: no AHBPROT access, IOS%d's ES left as it is\n", who, IOS_GetVersion());
         return false;
     }
+    if (patched == KEEPACCESS_PROTECTION_ON) {
+        logf("%s: IOS%d's memory protection did not turn off, its ES left as it is\n", who, IOS_GetVersion());
+        return false;
+    }
     logf("%s: IOS%d's ES %s\n", who, IOS_GetVersion(),
          patched > 0 ? "keeps hardware access on for the next IOS" : "check for hardware access not found");
     return patched > 0;
