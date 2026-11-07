@@ -31,13 +31,19 @@ constexpr u32 kMemory = 0xD3400000;
 constexpr std::size_t kMemorySize = 0xC00000;
 constexpr u32 kPermissionWord = kMemory + 0x100;
 constexpr u32 kOriginalWord = 0x428BD001;
+constexpr u32 kOpenedWord = 0x428BE001;
 constexpr u16 kOriginalProtection = 1;
 
 bool hardware_access;
 bool fail_open_store;
 bool fail_word_restore;
+bool fail_first_word_restore;
+bool protection_never_clears;
+unsigned protection_delay_reads;
+unsigned protection_reads_remaining;
 unsigned fail_protection_restore;
 unsigned protection_restores;
+unsigned word_restore_stores;
 unsigned open_calls;
 unsigned opening_stores;
 s32 read_result;
@@ -51,8 +57,13 @@ void reset(void* memory) {
     hardware_access = true;
     fail_open_store = false;
     fail_word_restore = false;
+    fail_first_word_restore = false;
+    protection_never_clears = false;
+    protection_delay_reads = 0;
+    protection_reads_remaining = 0;
     fail_protection_restore = 0;
     protection_restores = 0;
+    word_restore_stores = 0;
     open_calls = 0;
     opening_stores = 0;
     read_result = 0x40;
@@ -65,7 +76,16 @@ void reset(void* memory) {
 
 int IOS_GetVersion() { return 58; }
 
-u16 read16(u32) { return protection; }
+u16 read16(u32) {
+    if (protection == 2) {
+        if (protection_never_clears) return protection | 1;
+        if (protection_reads_remaining != 0) {
+            --protection_reads_remaining;
+            return protection | 1;
+        }
+    }
+    return protection;
+}
 
 u32 read32(u32 address) {
     if (address == 0x0D800064) return hardware_access ? 0xFFFFFFFF : 0;
@@ -78,11 +98,16 @@ void write16(u32, u16 value) {
         if (protection_restores == fail_protection_restore) return;
     }
     protection = value;
+    // Each request to turn protection off starts a fresh hardware delay.
+    protection_reads_remaining = value == 2 ? protection_delay_reads : 0;
 }
 
 void write32(u32 address, u32 value) {
     if (address != kPermissionWord) return;
-    if (value == kOriginalWord && fail_word_restore) return;
+    if (value == kOriginalWord) {
+        ++word_restore_stores;
+        if (fail_word_restore || (fail_first_word_restore && word_restore_stores == 1)) return;
+    }
     if (value != kOriginalWord) ++opening_stores;
     if (value != kOriginalWord && fail_open_store) {
         permission_word = 0xDEADBEEF;  // even a partial failed store needs cleanup
@@ -190,6 +215,71 @@ int main() {
     reset(memory);
     hardware_access = false;
     check("no hardware access leaves state alone", false, true);
+
+    // Both opening and restoring must wait for delayed protection changes.
+    reset(memory);
+    protection_delay_reads = 5;
+    {
+        installer::NandReadAccess access;
+        const bool opened = access.Open();
+        const bool opened_word = permission_word == kOpenedWord;
+        const bool opening_protection_restored = protection_restores == 1 && protection == kOriginalProtection;
+        const bool restored = access.Restore();
+        if (!opened || !opened_word || !opening_protection_restored || !restored ||
+            permission_word != kOriginalWord || protection_restores != 2 || protection != kOriginalProtection ||
+            logs.find("NAND permission check was opened") == std::string::npos ||
+            logs.find("NAND permission check was restored") == std::string::npos) {
+            std::cerr << "FAILED: delayed protection changes allow opening and restoring\n" << logs;
+            ++failures;
+        }
+    }
+
+    reset(memory);
+    protection_never_clears = true;
+    {
+        installer::NandReadAccess access;
+        const bool opened = access.Open();
+        if (opened || permission_word != kOriginalWord || opening_stores != 0 || word_restore_stores != 0 ||
+            protection_restores != 1 || protection != kOriginalProtection ||
+            logs.find("memory protection did not turn off") == std::string::npos) {
+            std::cerr << "FAILED: stuck protection leaves the permission word untouched when opening\n" << logs;
+            ++failures;
+        }
+    }
+
+    // A protected word cannot be read safely, so the failure must not invent a read value.
+    reset(memory);
+    {
+        installer::NandReadAccess access;
+        const bool opened = access.Open();
+        const bool opened_word = permission_word == kOpenedWord;
+        protection_never_clears = true;
+        logs.clear();
+        const bool restored = access.Restore();
+        if (!opened || !opened_word || restored || permission_word != kOpenedWord || word_restore_stores != 0 ||
+            protection_restores != 2 || protection != kOriginalProtection ||
+            logs.find("NAND permission check could not be checked") == std::string::npos ||
+            logs.find("memory protection did not turn off") == std::string::npos ||
+            logs.find("read 0x") != std::string::npos) {
+            std::cerr << "FAILED: stuck protection reports an unchecked permission word when restoring\n" << logs;
+            ++failures;
+        }
+    }
+
+    reset(memory);
+    fail_first_word_restore = true;
+    {
+        installer::NandReadAccess access;
+        const bool opened = access.Open();
+        const bool opened_word = permission_word == kOpenedWord;
+        const bool restored = access.Restore();
+        if (!opened || !opened_word || !restored || word_restore_stores != 2 || permission_word != kOriginalWord ||
+            protection_restores != 2 || protection != kOriginalProtection ||
+            logs.find("NAND permission check was restored") == std::string::npos) {
+            std::cerr << "FAILED: a failed first permission restore store succeeds on retry\n" << logs;
+            ++failures;
+        }
+    }
 
     // The whole search shares one opening, closed once after every slot.
     reset(memory);
