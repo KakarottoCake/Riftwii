@@ -29,6 +29,7 @@ int close_calls = 0;
 int read_calls = 0;
 s32 file_size = 64;
 s32 read_size = 64;
+s32 content_position = 0;
 bool refuse_first_view = false;
 int nand_calls = 0;
 bool nand_works = false;
@@ -53,6 +54,7 @@ void Reset(unsigned contents = 2) {
     read_calls = 0;
     file_size = 64;
     read_size = 64;
+    content_position = 0;
     refuse_first_view = false;
     nand_calls = 0;
     nand_works = false;
@@ -229,6 +231,26 @@ void TestRealContentSize() {
     }
 }
 
+void TestEsReadRequiresRewind() {
+    Reset();
+    alignas(32) tikview view{};
+    const s32 fd = ES_OpenTitleContent(kSystemMenu, &view, 23);
+    EXPECT(fd == 42);
+    EXPECT(ES_SeekContent(fd, 0, SEEK_END) == file_size);
+
+    // Measuring the content leaves it at the end; reading needs a rewind.
+    alignas(32) u8 bytes[64]{};
+    EXPECT(ES_ReadContent(fd, bytes, sizeof bytes) == -1026);
+    EXPECT(read_calls == 1);
+    EXPECT(bytes[63] == 0);
+    EXPECT(ES_SeekContent(fd, 0, SEEK_SET) == 0);
+    EXPECT(ES_ReadContent(fd, bytes, sizeof bytes) == file_size);
+    EXPECT(read_calls == 2);
+    EXPECT(bytes[63] == 0x5a);
+    EXPECT(ES_CloseContent(fd) == 0);
+    EXPECT(close_calls == 1);
+}
+
 // ES refuses every view (a Wii and a vWii started from the RiftWii
 // channel, 2610-810): the NAND's copy is read instead.
 void TestNandWhenEsRefuses() {
@@ -324,21 +346,26 @@ s32 ES_OpenTitleContent(u64 title, const tikview* view, u16 index) {
     EXPECT(index == 23);
     ++open_calls;
     if (fail_call == "ES_OpenTitleContent" || (refuse_first_view && open_calls == 1)) return -1026;
+    content_position = 0;
     return 42;
 }
 s32 ES_SeekContent(s32 fd, s32 offset, s32 whence) {
     EXPECT(fd == 42);
     EXPECT(offset == 0);
     if (fail_call == "ES_SeekContent") return -1026;
-    return whence == SEEK_END ? file_size : 0;
+    EXPECT(whence == SEEK_END || whence == SEEK_SET);
+    content_position = whence == SEEK_END ? file_size + offset : offset;
+    return content_position;
 }
 s32 ES_ReadContent(s32 fd, void* bytes, u32 size) {
     EXPECT(fd == 42);
     EXPECT(Aligned(bytes));
     EXPECT(size == static_cast<u32>(file_size));
     ++read_calls;
+    if (content_position != 0 || fail_call == "ES_ReadContent") return -1026;
     std::memset(bytes, 0x5a, size);
-    return fail_call == "ES_ReadContent" ? -1026 : read_size;
+    content_position += read_size;
+    return read_size;
 }
 s32 ES_CloseContent(s32 fd) {
     EXPECT(fd == 42);
@@ -360,6 +387,7 @@ int main() {
     TestMetadataFailures();
     TestReadFailuresAndBounds();
     TestRealContentSize();
+    TestEsReadRequiresRewind();
     TestNandWhenEsRefuses();
     return failures == 0 ? 0 : 1;
 }
