@@ -1244,6 +1244,9 @@ struct ExtrasContext {
     bool code_build = false;
     bool plain_code_build = false;
     bool code_build_crash_logs = false;  // its Mods page's switch (#496)
+    // Code mods switched on, small ones in the code handler's own space
+    // included: their crash logs switch holds for them too.
+    bool code_mods_on = false;
     bool clears_mem1_top = false;
     bool retail_bca = false;  // the BCA read is to be answered as a retail disc's
 };
@@ -1363,7 +1366,7 @@ void plan_game_extras(const DolHeader& dol, const ExtrasContext& ctx, GameExtras
         logf("Game crashes: not recorded: the game checks its own code (MetaFortress); RiftWii's hooks stay out\n");
     } else if (debug_off("fault")) {
         logf("Game crashes: not recorded: debug_off (and the BCA read not answered)\n");
-    } else if (ctx.code_build && !ctx.code_build_crash_logs) {
+    } else if (ctx.code_mods_on && !ctx.code_build_crash_logs) {
         logf("Game crashes: not recorded: crash logs are off for this code build (its Mods page switches them on)\n");
     } else if (whole_mem1 && ctx.code_build && resident != nullptr) {
         // The game-time runtime (a pack's files, saves or an RVZ) takes the
@@ -2599,7 +2602,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     extras_context.gx_protected = gx_protected;
     extras_context.code_build = code_build;
     extras_context.plain_code_build = plain_code_build;
-    extras_context.code_build_crash_logs = code_build && g_extras.code_build_crash_logs;
+    extras_context.code_mods_on = !g_extras.code_builds.empty();
+    extras_context.code_build_crash_logs = extras_context.code_mods_on && g_extras.code_build_crash_logs;
     extras_context.clears_mem1_top = clears_mem1_top;
     extras_context.retail_bca = options.retail_bca;
     // An RVZ game whose adapter could not be planned (or later installed)

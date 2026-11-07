@@ -2174,6 +2174,7 @@ void TestPinLaunchCios() {
     HeadlessLaunch with_back;
     EXPECT_TRUE(parse_headless_launch(with_args, with_back, error));
     EXPECT_TRUE(with_back.code_build_extras);
+    EXPECT_FALSE(with_back.code_build_crash_logs);  // off unless switched on (#496)
     EXPECT_EQ(with_back.settings.cios, std::string("251"));
     EXPECT_TRUE(std::find(with_args.begin(), with_args.end(), std::string("cios=251")) + 4 == with_args.end());
     // Only "with" is a value for it.
@@ -2188,7 +2189,6 @@ void TestPinLaunchCios() {
     HeadlessLaunch logs_back;
     EXPECT_TRUE(parse_headless_launch(logs_args, logs_back, error));
     EXPECT_TRUE(logs_back.code_build_crash_logs && logs_back.code_build_extras);
-    EXPECT_FALSE(with_back.code_build_crash_logs);
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=SKHJAF", "crashlogs=off"}, logs_back, error));
     // "auto" becomes the slot.
     h.settings.cios = "auto";
