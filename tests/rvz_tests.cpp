@@ -700,7 +700,8 @@ std::int32_t RuntimeRead(rt_context& ctx, std::uint64_t offset, std::uint32_t le
 
 // `mod`: a mod's table on top of the RVZ (memory, a file on the card, a
 // file on the USB drive, a relocated disc range), as modplan builds one.
-void CheckRuntime(const char* name, bool d2x, std::uint32_t piece, bool usb = false, bool mod = false) {
+void CheckRuntime(const char* name, bool d2x, std::uint32_t piece, bool usb = false, bool mod = false,
+                  bool full_table = false) {
     std::unique_ptr<RvzImage> image;
     std::string error;
     const std::vector<std::uint8_t> file = load(name);
@@ -719,8 +720,16 @@ void CheckRuntime(const char* name, bool d2x, std::uint32_t piece, bool usb = fa
     // The file in pieces: groups straddle them, and a request never
     // crosses one (nor passes 64 sectors).
     const std::vector<rt_rvz_extent> extents = Place(usb ? g_usb : g_card, file, usb ? 4096 : 64, piece, 5);
+    // Put a small real table in the last of 32 separate sectors to make
+    // the reader walk every allowed extent, including the final slot.
+    std::vector<std::uint8_t> table_file;
+    const std::uint32_t table_sector = full_table ? RT_RVZ_TABLE_EXTENTS - 1 : 0;
+    if (full_table) EXPECT_TRUE(table.entries.size() <= 512);
+    table_file.resize(table_sector * 512);
+    table_file.insert(table_file.end(), table.entries.begin(), table.entries.end());
     const std::vector<rt_rvz_extent> table_extents =
-        Place(g_card, table.entries, static_cast<std::uint32_t>(g_card.size() / 512) + 3, 1, 2);
+        Place(g_card, table_file, static_cast<std::uint32_t>(g_card.size() / 512) + 3, 1, 2);
+    if (full_table) EXPECT_EQ(table_extents.size(), RT_RVZ_TABLE_EXTENTS);
     EXPECT_TRUE(extents.size() <= RT_RVZ_MAX_EXTENTS);
     EXPECT_TRUE(table_extents.size() <= RT_RVZ_TABLE_EXTENTS);
 
@@ -732,7 +741,9 @@ void CheckRuntime(const char* name, bool d2x, std::uint32_t piece, bool usb = fa
     EXPECT_TRUE(buffers.group >= table.max_raw && buffers.stored >= table.max_compressed);
     EXPECT_EQ(table.max_stored, std::max(table.max_raw, table.max_compressed));
     const std::uint32_t dctx_bytes = buffers.decoder ? 0x40000 : 0;
-    const std::size_t low_bytes = 0x10000 + sizeof(rt_rvz_state) + std::size_t(buffers.stored) + buffers.group +
+    const std::uint32_t state_bytes = rt_rvz_state_bytes(extents.size(), table_extents.size());
+    const std::uint32_t aligned_state_bytes = (state_bytes + 31) & ~31u;
+    const std::size_t low_bytes = 0x10000 + aligned_state_bytes + 32 + std::size_t(buffers.stored) + buffers.group +
                                   dctx_bytes + 0x70000;
     std::uint8_t* low = LowBuffer(low_bytes);
     EXPECT_TRUE(low != nullptr);
@@ -746,7 +757,9 @@ void CheckRuntime(const char* name, bool d2x, std::uint32_t piece, bool usb = fa
     ctx.ioctlv_async = 0x8019445C;
     ctx.di_read_entry = 0x80194000;
     rt_rvz_state& st = *reinterpret_cast<rt_rvz_state*>(low + 0x10000);
-    std::uint8_t* stored = low + 0x10000 + ((sizeof(rt_rvz_state) + 31) & ~std::size_t(31));
+    std::uint8_t* guard = low + 0x10000 + state_bytes;
+    std::memset(guard, 0xA5, 32);
+    std::uint8_t* stored = low + 0x10000 + aligned_state_bytes + 32;
     std::uint8_t* group = stored + buffers.stored;
     std::uint8_t* dctx = group + buffers.group;
     std::uint8_t* out = dctx + dctx_bytes;
@@ -763,6 +776,7 @@ void CheckRuntime(const char* name, bool d2x, std::uint32_t piece, bool usb = fa
     st.group_buffer = Low(group);
     st.dctx_buffer = Low(dctx);
     st.dctx_bytes = dctx_bytes;
+    st.table_sector = table_sector;
     st.extent_count = static_cast<std::uint32_t>(extents.size());
     st.table_extent_count = static_cast<std::uint32_t>(table_extents.size());
     st.on_usb = usb ? 1 : 0;
@@ -770,7 +784,7 @@ void CheckRuntime(const char* name, bool d2x, std::uint32_t piece, bool usb = fa
     st.cached_group = RT_RVZ_NO_GROUP;
     st.entry_sector = RT_RVZ_NO_GROUP;
     std::copy(extents.begin(), extents.end(), st.extents);
-    std::copy(table_extents.begin(), table_extents.end(), st.table_extents);
+    std::copy(table_extents.begin(), table_extents.end(), rt_rvz_table_extents(&st));
     ctx.rvz_state = Low(&st);
     rt_host_ioctlv_async = &RvzIoctlv;
     rt_host_ioctl_async = &RvzIoctl;
@@ -975,6 +989,15 @@ void CheckRuntime(const char* name, bool d2x, std::uint32_t piece, bool usb = fa
         }
     }
 
+    if (full_table) {
+        // Removing the final piece must refuse its sector without
+        // reaching outside the compact state allocation.
+        st.table_extent_count--;
+        st.cached_group = RT_RVZ_NO_GROUP;
+        st.entry_sector = RT_RVZ_NO_GROUP;
+        EXPECT_EQ(RuntimeRead(ctx, 0, 0x20, out), RT_DI_ERROR);
+    }
+    EXPECT_TRUE(std::all_of(guard, guard + 32, [](std::uint8_t byte) { return byte == 0xA5; }));
     rt_host_ioctlv_async = nullptr;
     rt_host_ioctl_async = nullptr;
 #if defined(_WIN32) || defined(__CYGWIN__)
@@ -995,6 +1018,8 @@ void TestRuntime() {
     CheckRuntime("zstd-128k-l5.rvz", false, 1000, false, true);
     CheckRuntime("zstd-32k-l19.rvz", true, 53, true, true);
     CheckRuntime("none-128k.rvz", false, 37, false, true);
+    CheckRuntime("zstd-2m-l3.rvz", true, 37, false, false, true);
+    CheckRuntime("zstd-2m-l3.rvz", false, 37, true, false, true);
     // The KiB geometry of a dual-layer game's partition passes 4 GiB of
     // data, which the table and the runtime's arithmetic must carry.
     EXPECT_EQ(0x1D0000000ull / 1024 / (0x7C00 / 1024), 0x1D0000000ull / 0x7C00);

@@ -42,7 +42,7 @@ struct ResidentBlob {
     std::uint32_t continue_ioctl_async_offset = 0;
 };
 static_assert(4 * (4 + 3 * kResidentIpcEntries + 4 + 2) == 208, "resident blob ABI v6 header size");
-constexpr std::size_t kResidentContextBytes = 2048;  // the slot for struct rt_context (it may be smaller)
+constexpr std::size_t kResidentContextBytes = 1280;  // the slot for struct rt_context (it may be smaller)
 bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, ResidentBlob& out, std::string& error);
 // The RVZ blob's absolute references (tools/rtreloc.py: 12-byte big-endian
 // records {blob offset, type, target offset}), fixed for the blob copied

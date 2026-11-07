@@ -1963,8 +1963,8 @@ void fill_gc_rvz_reader(gc_rvz* reader, const GcRvzSetup& setup, const GcRvzBuff
     std::memcpy(reader->header, setup.header, sizeof(reader->header));
     reader->entry_sector = GC_RVZ_NO_GROUP;
     reader->table_extent_count = static_cast<std::uint32_t>(setup.table_extents.size());
-    std::copy(setup.table_extents.begin(), setup.table_extents.end(), reader->table_extents);
     reader->extent_count = static_cast<std::uint32_t>(setup.extents.size());
+    std::copy(setup.table_extents.begin(), setup.table_extents.end(), gc_rvz_table_extents(reader));
     reader->extents_on_usb = on_usb ? 1 : 0;  // the group table stays on the card
     std::copy(setup.extents.begin(), setup.extents.end(), reader->extents);
 }
@@ -2514,7 +2514,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const std::uint32_t runs_addr = mem2_take(runs_bytes);
     // An RVZ's reader: its state and the pieces of the RVZ on the card.
     const std::uint32_t rvz_state_bytes =
-        rvz ? gc_rvz_state_bytes(static_cast<std::uint32_t>(rvz_setup.extents.size())) : 0;
+        rvz ? gc_rvz_state_bytes(rvz_setup.extents.size(), rvz_setup.table_extents.size()) : 0;
     const std::uint32_t rvz_addr = rvz ? mem2_take(rvz_state_bytes) : 0;
     // A two-disc game (gc_disc.h): the disc change's state, disc 2's runs
     // and RVZ reader, and, when disc 1's runs serve the packs' FST from
@@ -2527,8 +2527,11 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                                              [](const GcRun& r) { return r.kind == GcRun::Kind::Fst; });
         disc_change_addr = mem2_take(sizeof(gc_disc_change));
         runs2_addr = mem2_take(static_cast<std::uint32_t>(second.placed.size() * sizeof(gc_rt_run)));
-        if (second.rvz)
-            rvz2_addr = mem2_take(gc_rvz_state_bytes(static_cast<std::uint32_t>(second.rvz_setup.extents.size())));
+        if (second.rvz) {
+            const std::uint32_t second_state_bytes =
+                gc_rvz_state_bytes(second.rvz_setup.extents.size(), second.rvz_setup.table_extents.size());
+            rvz2_addr = mem2_take(second_state_bytes);
+        }
         if (fst_in_runs) fst_copy_addr = mem2_take(static_cast<std::uint32_t>(fst.size()));
         if (mem2_next - kGcMem2Data > kGcMem2DataMax) {
             logf("GameCube: %s is not used as disc 2: its %u run(s) do not fit in the %u KB of MEM2 set aside; the "

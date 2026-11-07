@@ -18,6 +18,7 @@ $(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>dev
 endif
 
 PREFIX  := $(DEVKITPPC)/bin/powerpc-eabi-
+.DEFAULT_GOAL := all
 CC      := $(PREFIX)gcc
 OBJCOPY := $(PREFIX)objcopy
 SIZE    := $(PREFIX)size
@@ -140,6 +141,25 @@ STUBSRC  := runtime/stub
 STUBOUT  := $(OUT)/stub
 STUBBLOB := $(OUT)/riftwii_stub.bin
 STUBOBJS := $(STUBOUT)/stub_start.o $(STUBOUT)/stub_main.o
+
+# Optimize only the images that shrink. Keep pad's flags independent of
+# this work, and leave VSD alone because LTO makes it larger. The GameCube
+# decoder stays a separate compilation: its fixed r31 carries the worker
+# through decoder checkpoints and must not leak into other C functions.
+LTO_OBJS := $(filter-out %_entry.o $(GCRVZOUT)/rt_zstd.o,\
+            $(OBJS) $(RVZOBJS) $(SHOTOBJS) $(FAULTOBJS) $(WLOGOBJS) $(GCOBJS) $(GCRVZOBJS))
+LTO_ELFS := $(OUT)/riftwii_rt.elf $(OUT)/riftwii_rt_alt.elf \
+            $(RVZOUT)/riftwii_rt_rvz.elf $(RVZOUT)/riftwii_rt_rvz_alt.elf \
+            $(SHOTOUT)/riftwii_shot.elf $(SHOTOUT)/riftwii_shot_alt.elf \
+            $(FAULTOUT)/riftwii_fault.elf $(FAULTOUT)/riftwii_fault_alt.elf \
+            $(WLOGOUT)/riftwii_wlog.elf $(WLOGOUT)/riftwii_wlog_alt.elf \
+            $(GCOUT)/riftwii_gc.elf $(GCOUT)/riftwii_gc_alt.elf \
+            $(GCRVZOUT)/riftwii_gc_rvz.elf $(GCRVZOUT)/riftwii_gc_rvz_alt.elf
+
+# Do not inherit link flags into assembly or the non-LTO GC decoder.
+$(LTO_OBJS) $(LTO_ELFS): private CFLAGS += -flto=auto
+$(RVZOUT)/rt_zstd.o: private ZSTDFLAGS += -flto=auto
+$(LTO_OBJS) $(LTO_ELFS): Makefile.runtime
 
 .PHONY: all clean
 all: $(BLOB) $(PADBLOB) $(GCBLOB) $(SHOTBLOB) $(FAULTBLOB) $(WLOGBLOB) $(VSDBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST) \

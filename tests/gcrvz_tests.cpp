@@ -399,8 +399,8 @@ void CheckBlobReader(const Disc& d, const char* name, bool on_usb) {
     rvz->entry_sector = GC_RVZ_NO_GROUP;
     std::memcpy(rvz->header, disc->image().head().disc_header.data(), GC_RVZ_HEADER_BYTES);
     rvz->table_extent_count = static_cast<std::uint32_t>(table_pieces.size());
-    std::copy(table_pieces.begin(), table_pieces.end(), rvz->table_extents);
     rvz->extent_count = static_cast<std::uint32_t>(file_pieces.size());
+    std::copy(table_pieces.begin(), table_pieces.end(), gc_rvz_table_extents(rvz.get()));
     rvz->extents_on_usb = on_usb ? 1 : 0;
     std::copy(file_pieces.begin(), file_pieces.end(), rvz->extents);
 
@@ -482,6 +482,48 @@ void CheckBlobReader(const Disc& d, const char* name, bool on_usb) {
     EXPECT_FALSE(gc_rvz_read(rvz.get(), &card, GC_RVZ_SLOT_GAME, small.data(), 0x40, 0x9000));
 }
 
+void TestVariableExtentStorage() {
+    for (std::uint32_t image_count : {1u, GC_RVZ_MAX_EXTENTS}) {
+        for (std::uint32_t table_count : {1u, 2u, GC_RVZ_TABLE_EXTENTS}) {
+            Card card;
+            const Bytes table(table_count * 512, 0);  // every group contains zeros
+            const auto table_pieces = place(card.sectors, table, 1);
+            const std::uint32_t state_bytes = gc_rvz_state_bytes(image_count, table_count);
+            Aligned state(state_bytes + 32);
+            auto* rvz = reinterpret_cast<gc_rvz*>(state.address());
+            std::memset(rvz, 0, state_bytes);
+            auto* guard = reinterpret_cast<std::uint8_t*>(rvz) + state_bytes;
+            std::memset(guard, 0xA5, 32);
+
+            rvz->chunk_bytes = 0x8000;
+            rvz->group_count = table_count * GC_RVZ_ENTRIES_PER_SECTOR;
+            rvz->disc_bytes = rvz->group_count * rvz->chunk_bytes;
+            rvz->extent_count = image_count;
+            rvz->table_extent_count = table_count;
+            rvz->entry_sector = GC_RVZ_NO_GROUP;
+            rvz->slots[0].group = GC_RVZ_NO_GROUP;
+            // Fill the last image record as well: neither count may
+            // overlap the table or run beyond the actual allocation.
+            rvz->extents[image_count - 1] = {0, 10, 1};
+            std::copy(table_pieces.begin(), table_pieces.end(), gc_rvz_table_extents(rvz));
+
+            Bytes out(64, 0xEE);
+            const std::uint32_t offset = rvz->disc_bytes - static_cast<std::uint32_t>(out.size());
+            EXPECT_TRUE(gc_rvz_read(rvz, &card, GC_RVZ_SLOT_GAME, out.data(), 64, offset));
+            EXPECT_TRUE(std::all_of(out.begin(), out.end(), [](std::uint8_t byte) { return byte == 0; }));
+
+            // A truncated table must refuse the last sector and leave
+            // the state boundary intact, including with all 32 slots.
+            rvz->table_extent_count--;
+            rvz->entry_sector = GC_RVZ_NO_GROUP;
+            rvz->slots[0].group = GC_RVZ_NO_GROUP;
+            EXPECT_FALSE(gc_rvz_read(rvz, &card, GC_RVZ_SLOT_GAME, out.data(), 64, offset));
+            EXPECT_EQ(rvz->last_error, GC_RVZ_ERR_EXTENT);
+            EXPECT_TRUE(std::all_of(guard, guard + 32, [](std::uint8_t byte) { return byte == 0xA5; }));
+        }
+    }
+}
+
 void TestDiscs() {
     struct Case {
         const char* name;
@@ -544,6 +586,7 @@ void TestIncompleteRawGroups() {
 
 int main() {
     TestVerdicts();
+    TestVariableExtentStorage();
     TestDiscs();
     TestRefusals();
     TestIncompleteRawGroups();

@@ -83,7 +83,7 @@ ExtrasBudget EstimateExtras(const FrontendState& state) {
         std::uint32_t data = 0;
         if (packs) data += kTypicalTable + RT_MAX_PENDING * RT_BOUNCE_BYTES;
         if (saves) data += align(sizeof(rt_fs_state)) + 32;
-        if (rvz) data += align(rt_rvz_state_bytes(kTypicalRvzExtents)) + kTypicalRvzBuffers;
+        if (rvz) data += align(rt_rvz_state_bytes(kTypicalRvzExtents, 1)) + kTypicalRvzBuffers;
         b.add(rvz ? tr("RVZ and mods") : packs ? tr("mods") : tr("saves on the card"), whole_mem1 ? 0 : code,
               data + (whole_mem1 ? code : 0));
     }

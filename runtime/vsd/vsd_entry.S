@@ -132,4 +132,4 @@ vsd_continue_\n:
     .globl vsd_context_data
 vsd_context_data:
     .long 0x52575658
-    .fill 15, 4, 0
+    .fill 7, 4, 0

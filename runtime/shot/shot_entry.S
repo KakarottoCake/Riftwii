@@ -132,4 +132,4 @@ shot_continue_\name:
     .globl shot_context_data
 shot_context_data:
     .long 0x52575358
-    .fill 31, 4, 0
+    .fill 23, 4, 0

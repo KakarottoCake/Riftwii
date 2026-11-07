@@ -43,7 +43,7 @@
 #define VSD_MAGIC 0x52575653u          /* "RWVS" */
 #define VSD_VERSION 1u                 /* also in vsd_entry.S's header */
 #define VSD_CONTEXT_MAGIC 0x52575658u  /* "RWVX" */
-#define VSD_CONTEXT_BYTES 64u
+#define VSD_CONTEXT_BYTES 32u
 #define VSD_STATE_MAGIC 0x52575654u    /* "RWVT" */
 
 /* The hooked functions, in the header's and the state's order. */
@@ -88,8 +88,10 @@ struct vsd_header {
 struct vsd_context {
     uint32_t magic;
     uint32_t state;  /* struct vsd_state, loader-filled */
-    uint32_t spare[14];
+    uint32_t spare[6];
 };
+
+typedef char vsd_context_layout[(sizeof(struct vsd_context) <= VSD_CONTEXT_BYTES) ? 1 : -1];
 
 struct vsd_ioctlv {
     uint32_t data;

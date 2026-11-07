@@ -451,8 +451,8 @@ struct rt_fs_job {
 
 /* Savegame FS interception state. Lives in a loader-owned block (MEM2
  * data area on the console, 32-byte aligned) so struct rt_context stays
- * 2048 bytes; the context holds only a pointer. The IPC blocks and the
- * bounce buffer sit in their own cache lines (IOS DMA). */
+ * within its embedded slot; the context holds only a pointer. The IPC
+ * blocks and bounce buffer sit in their own cache lines (IOS DMA). */
 struct rt_fs_state {
     struct rtfs_context fs;
     struct rtfs_request req;       /* the one request in flight */
@@ -630,16 +630,20 @@ struct rt_rvz_state {
     uint32_t entries[RT_RVZ_ENTRIES_PER_SECTOR * 2] __attribute__((aligned(32)));  /* one table sector */
     uint32_t status[8] __attribute__((aligned(32)));  /* the null round trip's out word */
     rtrvz_junk junk;
-    struct rt_rvz_extent table_extents[RT_RVZ_TABLE_EXTENTS];
-    /* Last: the loader makes room for `extent_count` of them only
-     * (rt_rvz_state_bytes), not all RT_RVZ_MAX_EXTENTS (12 KiB). It is the
-     * game's MEM2, and Newer Super Mario Bros. Wii has little to spare. */
-    struct rt_rvz_extent extents[RT_RVZ_MAX_EXTENTS];
+    /* Last: actual image extents, then actual group-table extents. The
+     * loader allocates only those counts (rt_rvz_state_bytes), while the
+     * declaration still allows the most fragmented image and table. */
+    struct rt_rvz_extent extents[RT_RVZ_MAX_EXTENTS + RT_RVZ_TABLE_EXTENTS];
 };
 
-/* The state's size with room for `extent_count` pieces of the RVZ. */
-#define rt_rvz_state_bytes(extent_count) \
-    ((uint32_t)__builtin_offsetof(struct rt_rvz_state, extents) + (uint32_t)(extent_count) * (uint32_t)sizeof(struct rt_rvz_extent))
+static inline struct rt_rvz_extent* rt_rvz_table_extents(struct rt_rvz_state* state) {
+    return state->extents + state->extent_count;
+}
+
+/* Counts are bounded by RT_RVZ_MAX_EXTENTS and RT_RVZ_TABLE_EXTENTS at launch. */
+#define rt_rvz_state_bytes(extent_count, table_extent_count) \
+    ((uint32_t)__builtin_offsetof(struct rt_rvz_state, extents) + \
+     ((uint32_t)(extent_count) + (uint32_t)(table_extent_count)) * (uint32_t)sizeof(struct rt_rvz_extent))
 
 /* The decoder's workspace: its tables and a 4 KiB literal buffer
  * (rt_zstd.c); rt_zstd_init fails when it is too small. */
@@ -651,7 +655,6 @@ struct rt_rvz_state {
 uint32_t rt_zstd_init(uint32_t workspace, uint32_t bytes);
 int32_t rt_zstd_decode(uint32_t dctx, uint8_t* dst, uint32_t capacity, const uint8_t* src, uint32_t length);
 
-/* At most 2048 bytes, the slot rt_entry.S reserves. */
 /* The game's own Reset (the HOME Menu's, the console button's): instead of
  * letting the SDK reload the game, which would drop every change RiftWii
  * made, the runtime writes a launch request to a sector of the card and
@@ -747,7 +750,9 @@ struct rt_context {
     struct rt_restart restart;
 };
 
-typedef char rt_context_layout[(sizeof(struct rt_context) <= 2048u) ? 1 : -1];
+/* The 32-byte-aligned slot reserved by rt_entry.S and the loader. */
+#define RT_CONTEXT_BYTES 1280u
+typedef char rt_context_layout[(sizeof(struct rt_context) <= RT_CONTEXT_BYTES) ? 1 : -1];
 /* IOS flushes and invalidates the records' blocks by 32-byte line: each
  * record starts on a line of its own (the context does, see rt_entry.S). */
 typedef char rt_pending_layout[(offsetof(struct rt_context, pending) % 32u == 0 && sizeof(struct rt_pending) % 32u == 0) ? 1 : -1];

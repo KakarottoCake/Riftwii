@@ -28,7 +28,9 @@ static void gc_zstd_checkpoint(void) {
 #include "zstddeclib.c"
 
 /* zstddeclib.c lowers some copies to calls. The Wii blob's memcpy is in
- * rt_hook.c; the GameCube one below also returns from long copies. */
+ * rt_hook.c; the GameCube one below also returns from long copies. Keep
+ * these helpers through LTO so later compiler lowering can call them. */
+__attribute__((used, externally_visible))
 void* memset(void* dst, int value, __SIZE_TYPE__ n) {
     unsigned char* d = (unsigned char*)dst;
 #ifdef RT_GC_IO
@@ -49,6 +51,7 @@ void* memset(void* dst, int value, __SIZE_TYPE__ n) {
 #ifdef RT_GC_IO
 /* Only the GameCube decoder calls this. Its r31 worker stays installed
  * through all libc substitutes, including initialization's clears. */
+__attribute__((used, externally_visible))
 void* memcpy(void* dst, const void* src, __SIZE_TYPE__ n) {
     unsigned char* d = (unsigned char*)dst;
     const unsigned char* s = (const unsigned char*)src;
@@ -65,6 +68,7 @@ void* memcpy(void* dst, const void* src, __SIZE_TYPE__ n) {
 }
 #endif
 
+__attribute__((used, externally_visible))
 void* memmove(void* dst, const void* src, __SIZE_TYPE__ n) {
     unsigned char* d = (unsigned char*)dst;
     const unsigned char* s = (const unsigned char*)src;

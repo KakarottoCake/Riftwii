@@ -103,7 +103,7 @@ static int gc_rvz_entry(struct gc_rvz* rvz, void* io, uint32_t group, uint32_t o
     if (rvz->entry_sector != sector) {
         int missing;
         rvz->entry_sector = GC_RVZ_NO_GROUP;  /* the buffer is about to change */
-        if (!gc_rvz_file_read(rvz, io, 0, rvz->table_extents, rvz->table_extent_count, sector, 1,
+        if (!gc_rvz_file_read(rvz, io, 0, gc_rvz_table_extents(rvz), rvz->table_extent_count, sector, 1,
                               (uintptr_t)rvz->entries, &missing)) {
             return gc_rvz_fail(rvz, missing ? GC_RVZ_ERR_EXTENT : GC_RVZ_ERR_TABLE, offset);
         }

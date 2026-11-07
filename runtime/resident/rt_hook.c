@@ -498,7 +498,9 @@ static void rt_gecko_hex(struct rt_context* ctx, uint32_t value) {
 #ifdef RT_TARGET_PPC
 /* The compiler lowers some struct copies in the FAT engine to memcpy even
  * with -fno-builtin, so the blob provides it. PPC-only: host builds use
- * libc, where a second definition would collide at the link. */
+ * libc, where a second definition would collide at the link. Keep the
+ * definition through LTO: copy lowering can introduce calls afterwards. */
+__attribute__((used, externally_visible))
 void* memcpy(void* dst, const void* src, __SIZE_TYPE__ n) {
     uint8_t* d = (uint8_t*)dst;
     const uint8_t* s = (const uint8_t*)src;
@@ -3309,7 +3311,7 @@ static int rt_rvz_serve_run(struct rt_context* ctx, struct rt_rvz_state* st, str
             if (st->entry_sector != sector) {
                 uint32_t device = 0;
                 uint32_t contiguous = 0;
-                if (!rt_rvz_locate(st->table_extents, st->table_extent_count, st->table_sector + sector, &device,
+                if (!rt_rvz_locate(rt_rvz_table_extents(st), st->table_extent_count, st->table_sector + sector, &device,
                                    &contiguous)) {
                     return rt_rvz_fail(st, RT_RVZ_ERR_EXTENT);
                 }

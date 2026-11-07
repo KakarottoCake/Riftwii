@@ -37,7 +37,7 @@
 #define RT_SHOT_MAGIC 0x52575353u          /* "RWSS" */
 #define RT_SHOT_VERSION 1u                 /* also in shot_entry.S's header */
 #define RT_SHOT_CONTEXT_MAGIC 0x52575358u  /* "RWSX" */
-#define RT_SHOT_CONTEXT_BYTES 128u
+#define RT_SHOT_CONTEXT_BYTES 96u
 
 /* rt_shot_context.flags */
 #define RT_SHOT_FLAG_DEMO 1u    /* also 20 and 40 seconds after the first Wii Remote report (Dolphin tests) */

@@ -24,6 +24,8 @@
 namespace riftwii::wii {
 namespace {
 
+static_assert(kResidentContextBytes == RT_CONTEXT_BYTES, "The loader and runtime context slots must match.");
+
 // The MEM1 arena end the SDK's OSInit takes, in this order of preference
 // (Kirby's Epic Yarn's OSInit, section 23): 0x80003110 when it is set,
 // else 0x80000034, else the FST address. The apploader has just set the
@@ -243,6 +245,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     const RvzRuntimeTable& rvz_table = options.rvz.table;
     RvzBufferSizes rvz_buffers;
     std::uint32_t rvz_dctx_bytes = 0;
+    std::uint32_t rvz_state_bytes = 0;
     std::uint32_t rvz_bytes = 0;
     if (rvz) {
         if (symbols.ioctlv_async == 0 || options.sdio_fd < 0) {
@@ -264,8 +267,8 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         // one that compresses nothing.
         rvz_buffers = rvz_buffer_sizes(rvz_table);
         rvz_dctx_bytes = rvz_buffers.decoder ? RT_RVZ_DCTX_BYTES : 0;
-        rvz_bytes = ((rt_rvz_state_bytes(options.rvz.extents.size()) + 31) & ~31u) + rvz_buffers.stored +
-                    rvz_buffers.group + rvz_dctx_bytes + 32;
+        rvz_state_bytes = rt_rvz_state_bytes(options.rvz.extents.size(), options.rvz.table_extents.size());
+        rvz_bytes = ((rvz_state_bytes + 31) & ~31u) + rvz_buffers.stored + rvz_buffers.group + rvz_dctx_bytes + 32;
     }
     bool has_fs = options.savegame.enabled;
     bool file_device = options.savegame.file_device;
@@ -388,8 +391,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     const std::uint32_t bounce_address = payload_address + static_cast<std::uint32_t>(payload.size());
     const std::uint32_t fs_state_address = (bounce_address + bounce_bytes + 31) & ~31u;
     const std::uint32_t rvz_state_address = (fs_state_address + fs_bytes + 31) & ~31u;
-    const std::uint32_t rvz_stored_address =
-        rvz_state_address + ((rt_rvz_state_bytes(options.rvz.extents.size()) + 31) & ~31u);
+    const std::uint32_t rvz_stored_address = rvz_state_address + ((rvz_state_bytes + 31) & ~31u);
     const std::uint32_t rvz_group_address = rvz_stored_address + rvz_buffers.stored;
     const std::uint32_t rvz_dctx_address = rvz_group_address + rvz_buffers.group;
     const std::uint32_t restart_address = (rvz_state_address + rvz_bytes + 31) & ~31u;
@@ -500,9 +502,8 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     }
     if (rvz) {
         rt_rvz_state* st = reinterpret_cast<rt_rvz_state*>(staged(rvz_state_address));
-        // Only as far as its pieces of the RVZ: the rest of the struct was
-        // never given room (rt_rvz_state_bytes).
-        std::memset(st, 0, rt_rvz_state_bytes(options.rvz.extents.size()));
+        // Only the actual image and table extents have room in this block.
+        std::memset(st, 0, rvz_state_bytes);
         st->magic = RT_RVZ_MAGIC;
         st->data_kib = rvz_table.data_kib;
         st->group_kib = rvz_table.group_kib;
@@ -523,7 +524,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         st->cached_group = RT_RVZ_NO_GROUP;
         st->entry_sector = RT_RVZ_NO_GROUP;
         std::copy(options.rvz.extents.begin(), options.rvz.extents.end(), st->extents);
-        std::copy(options.rvz.table_extents.begin(), options.rvz.table_extents.end(), st->table_extents);
+        std::copy(options.rvz.table_extents.begin(), options.rvz.table_extents.end(), rt_rvz_table_extents(st));
         ctx->rvz_state = rvz_state_address;
     }
     if (!code_in_mem2) sync_code(place.code_base, blob.size);  // else synced after the copy at the jump
