@@ -25,19 +25,14 @@ namespace {
 // Font archives stay in MEM2 while FreeTypeGX refers to their bytes.
 u8* read_content(const WiiMenuContentReader& reader, const TmdContent& content,
                  std::size_t& size, std::string& why) {
-    constexpr std::size_t kMaxContent = 16u * 1024 * 1024;
-    if (content.size == 0 || content.size > kMaxContent) {
-        why = "the System Menu font content has no size we can read";
-        return nullptr;
-    }
-    size = static_cast<std::size_t>(content.size);
-    u8* buffer = can_allocate(size) ? skin::Mem2Alloc(size) : nullptr;
-    if (buffer == nullptr) {
-        why = "no room for " + std::to_string(size) + " bytes";
-        return nullptr;
-    }
-    if (!reader.Read(content, buffer, kMaxContent, why)) {
-        skin::Mem2Release(buffer, size);
+    u8* buffer = nullptr;
+    const auto allocate = [&buffer](std::size_t length, std::string& error) {
+        buffer = can_allocate(length) ? skin::Mem2Alloc(length) : nullptr;
+        if (!buffer) error = "no room for " + std::to_string(length) + " bytes";
+        return buffer;
+    };
+    if (!reader.Read(content, allocate, size, why)) {
+        if (buffer) skin::Mem2Release(buffer, size);
         return nullptr;
     }
     return buffer;

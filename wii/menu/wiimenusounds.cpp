@@ -75,15 +75,23 @@ bool ReadArchive(std::string& why) {
     const TmdContents& tmd = reader.Metadata();
     std::size_t examined = 0;
     for (const TmdContent& content : tmd.contents) {
+        // Keep the metadata filter to avoid opening unrelated contents. A
+        // theme's resource replacement is measured and capped by Read itself.
         if (content.index == tmd.boot_index || content.size < 32 || content.size > kMaxContent) continue;
         if (++examined > 16) {
             why = "the System Menu has too many resource contents";
             return false;
         }
-        const std::size_t size = static_cast<std::size_t>(content.size);
-        MenuContentBuffer bytes = AllocateMenuContentBuffer(size, why);
-        if (!bytes || !reader.Read(content, bytes.get(), kMaxContent, why)) continue;
+        std::size_t size = 0;
+        MenuContentBuffer bytes(nullptr, &std::free);
+        const auto allocate = [&bytes](std::size_t length, std::string& error) {
+            bytes = AllocateMenuContentBuffer(length, error);
+            return bytes.get();
+        };
+        if (!reader.Read(content, allocate, size, why)) continue;
         std::vector<SoundResource> files;
+        // list_sound_u8 bounds the header, nodes, names and file ranges
+        // against this real size, even when a theme replaced the archive.
         if (!list_sound_u8({bytes.get(), size}, files, why)) continue;
         for (const SoundResource& file : files) {
             const std::size_t slash = file.name.find_last_of('/');
