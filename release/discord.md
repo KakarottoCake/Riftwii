@@ -17,14 +17,15 @@ Rewrite it for every release and delete the line below.
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-Two fixes:
+Fixes:
 
-* RiftWii no longer restarts over and over after an update on Wiis with lots of games and covers (the background download ran out of memory)
-* Hardware access stays on when the channel installer goes back to RiftWii
+* The channel installer installs again (2611-59 could stop with "NAND access was not restored")
+* Wii Menu sounds and music work with a Wii Menu theme installed
+* Themes download at about half the size, no visible change
 
 To test, please:
 
-1. If RiftWii kept restarting for you, check it starts normally now
-2. Run RiftWii Channel Installer, let it go back to RiftWii, then send a problem report (its log should say Hardware access: yes)
+1. Run RiftWii Channel Installer and install or update the channel. Does it finish and go back to RiftWii?
+2. If you have a Wii Menu theme: turn on Wii Menu sounds and Wii Menu music in Settings. Do you hear them?
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.

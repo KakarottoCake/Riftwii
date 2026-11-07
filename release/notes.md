@@ -16,17 +16,19 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** A fix for RiftWii restarting on every start after an update, and for losing hardware access after the channel installer. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** The channel installer installs again, Wii Menu sounds and music work with a Wii Menu theme installed, and the themes download at half the size. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
 ## What changed
 
-- **No more restart loop after an update.** After updating, RiftWii downloads its new themes and app files in the background. On a Wii with lots of games, covers and banners, that download could run out of memory, which restarted RiftWii, which started the download again, over and over. RiftWii now sets the memory for it aside right at start-up and downloads straight into it. If the memory isn't there, it skips the download for that start instead of restarting.
-- **Hardware access stays on after the channel installer.** Coming back to RiftWii from "RiftWii Channel Installer" showed *Hardware access: no*, so RiftWii couldn't read the Wii Menu's sounds, the cIOS slots or the channels' names. The installer now keeps the Homebrew Channel's access through its IOS reloads. Not tried on a real Wii yet.
+- **The channel installer works again.** In 2611-59 it could stop right after reading the cIOS slots with "NAND access was not restored" and install nothing. It now waits until the Wii is ready before putting things back, and tries again if the first try doesn't take. Not tried on a real Wii yet.
+- **Wii Menu sounds and music with a Wii Menu theme.** A Wii Menu theme replaces one of the Wii Menu's files with a bigger one, and RiftWii refused it because it wasn't the size the Wii has on record. RiftWii now reads it at its real size. Not tried on a real Wii yet.
+- **Themes download at half the size.** Bookshelf went from 2.3 MB to 1.1 MB and Indigo from 0.3 MB to 0.2 MB, with no change you can see on a TV. The update download after a new version gets smaller too, and so does the memory RiftWii sets aside for it. The themes on the themes site got the same treatment.
 
 ## What to test
 
-1. **If RiftWii kept restarting for you after the last update**, does it start normally now and stay up?
-2. **Run RiftWii Channel Installer** from the Homebrew Channel and let it go back to RiftWii. Then send a problem report (Settings > Help): its log should say *Hardware access: yes*.
+1. **The channel installer:** start "RiftWii Channel Installer" from the Homebrew Channel and install or update the channel. Does it finish and go back to RiftWii?
+2. **If you have a Wii Menu theme installed:** turn on Wii Menu sounds and Wii Menu music in Settings. Do you hear the Wii Menu's sounds and music?
+3. **Themes:** does Bookshelf or Indigo look any different to you?
 
 ## Known issues
 
