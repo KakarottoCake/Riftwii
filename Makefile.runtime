@@ -345,8 +345,11 @@ $(GCRVZOUT)/gc_rvz.o: $(GCSRC)/gc_rvz.c $(GCSRC)/gc_rvz.h runtime/rtrvz.h | $(GC
 $(GCRVZOUT)/rtrvz.o: runtime/rtrvz.c runtime/rtrvz.h | $(GCRVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -c -o $@ $<
 
-$(GCRVZOUT)/rt_zstd.o: $(SRC)/rt_zstd.c $(SRC)/rt_hook.h vendor-zstd/zstddeclib.c | $(GCRVZOUT)
-	$(CC) $(ZSTDFLAGS) -DRT_GC_IO -ffixed-r31 -c -o $@ $<
+# The RVZ decoder alone is built at -O2: it runs while the game loads, and
+# -O2 makes it about 44% faster for 5 KB more than -Os (still about 35 KB
+# under the vendored decoder it replaces).
+$(GCRVZOUT)/rt_zstd.o: $(SRC)/rt_zstd.c $(SRC)/rt_hook.h runtime/rtzstd.c runtime/rtzstd.h | $(GCRVZOUT)
+	$(CC) $(subst -Os,-O2,$(CFLAGS)) -DRT_RVZ -DRT_GC_IO -ffixed-r31 -c -o $@ $<
 
 $(GCRVZOUT)/riftwii_gc_rvz.elf: $(GCRVZOBJS) $(GCSRC)/gc_rvz.ld
 	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -Wl,--emit-relocs \
@@ -530,8 +533,8 @@ $(RVZOUT)/rtfs.o: runtime/rtfs.c runtime/rtfs.h runtime/rtfat.h | $(RVZOUT)
 $(RVZOUT)/rtrvz.o: runtime/rtrvz.c runtime/rtrvz.h | $(RVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -c -o $@ $<
 
-$(RVZOUT)/rt_zstd.o: $(SRC)/rt_zstd.c $(SRC)/rt_hook.h vendor-zstd/zstddeclib.c | $(RVZOUT)
-	$(CC) $(ZSTDFLAGS) -c -o $@ $<
+$(RVZOUT)/rt_zstd.o: $(SRC)/rt_zstd.c $(SRC)/rt_hook.h runtime/rtzstd.c runtime/rtzstd.h | $(RVZOUT)
+	$(CC) $(subst -Os,-O2,$(CFLAGS)) -DRT_RVZ -c -o $@ $<
 
 $(RVZOUT)/riftwii_rt_rvz.elf: $(RVZOBJS) $(SRC)/rt_rvz.ld
 	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -Wl,--emit-relocs \
