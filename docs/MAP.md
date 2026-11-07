@@ -475,7 +475,8 @@ controller port allocation and control mappings. Their implementations
 live in `runtime/gc/`, `src/disc/gcdiscs.cpp` and `src/data/gccontrols.cpp`.
 Most other suites follow the same `<area>_tests.cpp` naming. Channel
 entry/loader tests also use `.c`, and `channel_package_tests.py` checks the
-packaged installer. `vcdiff_data.inc` is patch-test data. Test-only headers
+packaged installer; `shrink_theme_pictures_tests.py` checks the theme
+picture shrinker (Pillow). `vcdiff_data.inc` is patch-test data. Test-only headers
 and the `*_mock/` folders provide synthetic files, discs and hardware calls.
 
 ## `tools/`
