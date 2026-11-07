@@ -69,6 +69,9 @@ bool ReadHeaders(const std::uint8_t* buffer, std::size_t used, Headers& h, std::
             }
             h.status = h.status * 10 + space[i] - '0';
         }
+        // "HTTP/1.1 2000" is not a 200: the digits end the status.
+        const char after = text + end - space > 4 ? space[4] : '\r';
+        if (after != ' ' && after != '\r') h.status = 0;
     }
     std::size_t at = 0;
     while (at < end) {

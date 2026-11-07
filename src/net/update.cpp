@@ -16,9 +16,13 @@ namespace riftwii {
 
 bool update_pack_memory_size(unsigned long long pack_bytes, std::size_t tls_bytes, UpdatePackMemory& out) {
     out = UpdatePackMemory{};
+    // Headers, plus a chunked answer's framing: about 8 bytes a chunk, so
+    // a 32nd of the body covers chunks down to 256 bytes (GitHub's release
+    // files come with a Content-Length and need none of it).
     constexpr std::size_t kHttpSpareBytes = 64u << 10;
     if (pack_bytes == 0 || pack_bytes > kMaxUpdatePackBytes) return false;
-    const std::size_t response_bytes = static_cast<std::size_t>(pack_bytes) + kHttpSpareBytes;
+    const std::size_t body_bytes = static_cast<std::size_t>(pack_bytes);
+    const std::size_t response_bytes = body_bytes + kHttpSpareBytes + body_bytes / 32;
     const std::size_t tls_offset = (response_bytes + 31) & ~std::size_t(31);
     if (tls_bytes > kMaxCheckedBytes - tls_offset) return false;
     out.response_bytes = response_bytes;

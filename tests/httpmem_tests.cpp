@@ -132,6 +132,8 @@ void test_response_storage() {
     refused("HTTP/1.1 200 OK\r\nContent-Length: 18446744073709551616\r\n\r\npack", 256, "Content-Length");
     refused("HTTP/1.1 200 OK\r\nX-Large: " + std::string(65536, 'x') + "\r\n\r\npack", 73728, "headers longer");
     refused("HTTP/1.1 302 Found\r\nLocation: /" + std::string(4096, 'x') + "\r\n\r\n", 8192, "redirect longer");
+    // A status of four digits is not the 200 it starts with.
+    refused("HTTP/1.1 2000 OK\r\nContent-Length: 4\r\n\r\npack", 256, "answered 0");
 }
 
 }  // namespace
