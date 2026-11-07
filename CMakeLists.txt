@@ -129,6 +129,17 @@ if(BUILD_TESTING)
     endif()
     add_test(NAME wlogblob COMMAND wlogblob_tests)
     set_tests_properties(wlogblob PROPERTIES SKIP_RETURN_CODE 77)
+    add_executable(smallblob_tests tests/smallblob_tests.cpp tests/shotjob_model.c
+        tests/stub_model.c tests/legacy_stub_model.c tests/fault_model.c tests/legacy_fault_model.c
+        tests/legacy_shotjob_model.c tests/fixtures/small-blobs/legacy_rtshot.c
+        tests/fixtures/small-blobs/legacy_rtfault.c)
+    target_include_directories(smallblob_tests PRIVATE include runtime tests)
+    target_link_libraries(smallblob_tests PRIVATE riftwii_runtime)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(smallblob_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME smallblob COMMAND smallblob_tests)
+    set_tests_properties(smallblob PROPERTIES SKIP_RETURN_CODE 77)
     add_executable(gccardruntime_tests tests/gccardruntime_tests.cpp)
     target_include_directories(gccardruntime_tests PRIVATE runtime runtime/gc)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

@@ -17,6 +17,9 @@
 namespace riftwii::wii {
 namespace {
 
+static_assert(offsetof(rt_fault_state, io) % 32 == 0 && offsetof(rt_fault_state, stack) % 32 == 0,
+              "Crash DMA buffers and the private stack must stay aligned");
+
 constexpr std::uint32_t kMem2ArenaEndField = 0x80003128;
 // The Wii's bus clock; the time base runs at a quarter of it. A constant, as
 // in wpadhook.cpp: boot.cpp writes it to 0x800000F8 only at the handover,

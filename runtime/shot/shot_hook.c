@@ -7,7 +7,7 @@ uint32_t shot_on_ioctlv(struct rt_shot_context* c, uint32_t* args);
 int32_t shot_after_ioctlv(struct rt_shot_context* c, uint32_t slot, int32_t result);
 void shot_on_pad(struct rt_shot_context* c, uint8_t* status);
 int32_t shot_on_bt(struct rt_shot_context* c, int32_t result, uint32_t tag);
-void shot_on_nand(struct rt_shot_context* c, int32_t result);
+int32_t shot_on_nand(struct rt_shot_context* c, int32_t result);
 
 /* /dev/fs (wiibrew). */
 #define FS_CREATE_DIR 3u
@@ -26,6 +26,10 @@ typedef int32_t (*shot_ioctl_fn)(int32_t fd, uint32_t ioctl, void* in, uint32_t 
                                  uint32_t callback, uint32_t user);
 typedef int32_t (*shot_callback_fn)(int32_t result, uint32_t user);
 
+#ifdef RTSHOT_HOST_TEST
+#include "shot_host.h"
+#else
+#define SHOT_API(type, address) ((type)(uintptr_t)(address))
 static uint32_t interrupts_off(void) {
     uint32_t msr;
     __asm__ volatile("mfmsr %0" : "=r"(msr));
@@ -47,6 +51,8 @@ static void flush(const void* p, uint32_t len) {
     for (; line < end; line += 32u) __asm__ volatile("dcbf 0, %0" : : "r"(line) : "memory");
     __asm__ volatile("sync" : : : "memory");
 }
+
+#endif
 
 /* Cached RAM the game may pass: MEM1 and MEM2. */
 static int in_ram(uint32_t address, uint32_t length) {
@@ -74,215 +80,170 @@ static struct rt_shot_state* state_of(struct rt_shot_context* c) {
     return st;
 }
 
-static void copy(void* to, const void* from, uint32_t n) {
-    uint8_t* d = (uint8_t*)to;
-    const uint8_t* s = (const uint8_t*)from;
-    while (n--) *d++ = *s++;
-}
-
 /* The NAND job ------------------------------------------------------- */
 
-static int32_t send_close(struct rt_shot_context* c, int32_t fd) {
-    return ((shot_close_fn)(uintptr_t)c->close_async)(fd, c->complete_nand, 0);
-}
-
-static int32_t send_create(struct rt_shot_context* c, struct rt_shot_state* st, uint32_t ioctl) {
-    rtshot_fs_attr(st->attr, st->path);
-    flush(st->attr, sizeof(st->attr));
-    flush(st->path, sizeof(st->path));
-    return ((shot_ioctl_fn)(uintptr_t)c->ioctl_async)(st->fs_fd, ioctl, st->attr, RTSHOT_FS_ATTR_BYTES, 0, 0,
-                                                      c->complete_nand, 0);
-}
-
-#define NOTHING_OPEN 0x7FFFFFFF
-
-/* Whether the final name is taken (a shot the menu has not imported). */
-static int32_t send_probe(struct rt_shot_context* c, struct rt_shot_state* st) {
-    rtshot_path(st->names + 64, c->number);
-    flush(st->names, sizeof(st->names));
-    st->phase = RT_SHOT_PROBE;
-    return ((shot_ioctl_fn)(uintptr_t)c->ioctl_async)(st->fs_fd, FS_GET_ATTR, st->names + 64, 64u, st->attr,
-                                                      RTSHOT_FS_ATTR_BYTES, c->complete_nand, 0);
-}
-
-static int32_t send_rename(struct rt_shot_context* c, struct rt_shot_state* st) {
-    copy(st->names, st->path, 64u);
-    rtshot_path(st->names + 64, c->number);
-    flush(st->names, sizeof(st->names));
-    st->phase = RT_SHOT_RENAME;
-    return ((shot_ioctl_fn)(uintptr_t)c->ioctl_async)(st->fs_fd, FS_RENAME, st->names, sizeof(st->names), 0, 0,
-                                                      c->complete_nand, 0);
-}
-
-static int32_t send_delete(struct rt_shot_context* c, struct rt_shot_state* st) {
-    st->deleted = 1;
-    flush(st->path, sizeof(st->path));
-    st->phase = RT_SHOT_DELETE;
-    return ((shot_ioctl_fn)(uintptr_t)c->ioctl_async)(st->fs_fd, FS_DELETE, st->path, sizeof(st->path), 0, 0,
-                                                      c->complete_nand, 0);
-}
-
-/* Ends the job, one request at a time: the file closed, then renamed
- * (or, after a failure, deleted), then /dev/fs closed; NOTHING_OPEN when
- * nothing was left. */
-static int32_t send_next_close(struct rt_shot_context* c, struct rt_shot_state* st) {
-    int32_t fd;
-    if (st->file_fd >= 0) {
-        fd = st->file_fd;
-        st->file_fd = -1;
-        st->phase = RT_SHOT_CLOSE_FILE;
-        return send_close(c, fd);
-    }
+/* Closing is a forward-only tail: file, publish/delete, filesystem.
+ * Mark handles consumed before sending, including an immediate refusal. */
+static uint32_t shot_cleanup_phase(const struct rt_shot_state* st) {
+    if (st->file_fd >= 0) return RT_SHOT_CLOSE_FILE;
     if (st->created && st->fs_fd >= 0) {
-        if (st->error == 0 && !st->renamed) return send_rename(c, st);
-        if (st->error != 0 && !st->deleted) return send_delete(c, st);
+        if (st->error == 0 && !st->renamed) return RT_SHOT_RENAME;
+        if (st->error != 0 && !st->deleted) return RT_SHOT_DELETE;
     }
-    if (st->fs_fd >= 0) {
-        fd = st->fs_fd;
-        st->fs_fd = -1;
-        st->phase = RT_SHOT_CLOSE_FS;
-        return send_close(c, fd);
-    }
-    return NOTHING_OPEN;
+    return st->fs_fd >= 0 ? RT_SHOT_CLOSE_FS : RT_SHOT_IDLE;
 }
 
-static void finish(struct rt_shot_context* c, struct rt_shot_state* st) {
-    if (st->error == 0 && st->renamed) {
-        ++c->shots;
-    } else {
-        ++c->failures;
-        c->last_error = st->error ? st->error : -1;
+/* One dispatcher owns all IOS submissions. The completion code only
+ * chooses the next phase, so synchronous refusals follow the same path. */
+static int32_t shot_submit(struct rt_shot_context* c, struct rt_shot_state* st) {
+    void* data = st->io.create.path;
+    void* output = 0;
+    uint32_t length = 64u;
+    uint32_t output_length = 0;
+    uint32_t command;
+    int32_t fd;
+    switch (st->phase) {
+    case RT_SHOT_CLOSE_FILE:
+    case RT_SHOT_CLOSE_FS:
+        if (st->phase == RT_SHOT_CLOSE_FILE) {
+            fd = st->file_fd;
+            st->file_fd = -1;
+        } else {
+            fd = st->fs_fd;
+            st->fs_fd = -1;
+        }
+        return SHOT_API(shot_close_fn, c->close_async)(fd, c->complete_nand, 0);
+    case RT_SHOT_OPEN_FILE:
+        flush(data, length);
+        return SHOT_API(shot_open_fn, c->open_async)(data, FS_OPEN_WRITE, c->complete_nand, 0);
+    case RT_SHOT_WRITE:
+    case RT_SHOT_WRITE_PIXELS:
+        data = (void*)(uintptr_t)st->pixels;
+        length = st->pixel_bytes;
+        if (st->phase == RT_SHOT_WRITE) {
+            data = (c->flags & RT_SHOT_FLAG_DIRECT) ? (void*)st->header : (void*)(uintptr_t)c->frame;
+            length = st->bytes;
+        }
+        return SHOT_API(shot_write_fn, c->write_async)(st->file_fd, data, length, c->complete_nand, 0);
+    case RT_SHOT_PROBE:
+        rtshot_path(data, c->number);
+        command = FS_GET_ATTR;
+        output = st->io.create.attr;
+        output_length = RTSHOT_FS_ATTR_BYTES;
+        break;
+    case RT_SHOT_RENAME:
+        rtshot_temp_path(st->io.names, c->number);
+        rtshot_path(st->io.names + 64, c->number);
+        command = FS_RENAME;
+        length = sizeof(st->io.names);
+        break;
+    case RT_SHOT_DELETE:
+        rtshot_temp_path(data, c->number);
+        st->deleted = 1;
+        command = FS_DELETE;
+        break;
+    default:
+        if (st->phase == RT_SHOT_MKDIR) rtshot_dir(data);
+        else if (st->phase == RT_SHOT_MKDIR_PART) rtshot_part_dir(data);
+        else rtshot_temp_path(data, c->number);
+        rtshot_fs_attr(st->io.create.attr, data);
+        data = st->io.create.attr;
+        length = RTSHOT_FS_ATTR_BYTES;
+        command = st->phase == RT_SHOT_CREATE ? FS_CREATE_FILE : FS_CREATE_DIR;
+        break;
     }
-    ++c->number;
-    st->phase = RT_SHOT_IDLE;
+    flush(data, length);
+    return SHOT_API(shot_ioctl_fn, c->ioctl_async)(st->fs_fd, command, data, length, output, output_length,
+                                                      c->complete_nand, 0);
 }
 
-/* `result` answers the request `st->phase` names; sends the next. A
- * request IOS refuses at once counts as answered with its error (a
- * refused close as closed). After a failure what is open is closed and
- * the job ends. */
 static void job_step(struct rt_shot_context* c, struct rt_shot_state* st, int32_t result) {
     for (;;) {
-        int32_t sent;
+        uint32_t next = RT_SHOT_IDLE;
         switch (st->phase) {
         case RT_SHOT_OPEN_FS:
-            if (result < 0) {
-                st->error = result;
-                sent = NOTHING_OPEN;
-                break;
+            if (result >= 0) {
+                st->fs_fd = result;
+                next = RT_SHOT_MKDIR;
             }
-            st->fs_fd = result;
-            rtshot_dir(st->path);
-            st->phase = RT_SHOT_MKDIR;
-            sent = send_create(c, st, FS_CREATE_DIR);
             break;
         case RT_SHOT_MKDIR:
-            if (result < 0 && result != FS_EXISTS) {
-                st->error = result;
-                sent = send_next_close(c, st);
-                break;
-            }
-            rtshot_part_dir(st->path);
-            st->phase = RT_SHOT_MKDIR_PART;
-            sent = send_create(c, st, FS_CREATE_DIR);
-            break;
         case RT_SHOT_MKDIR_PART:
-            if (result < 0 && result != FS_EXISTS) {
-                st->error = result;
-                sent = send_next_close(c, st);
-                break;
+            if (result == FS_EXISTS) result = 0;
+            if (result >= 0) {
+                st->tries = 0;
+                next = st->phase == RT_SHOT_MKDIR ? RT_SHOT_MKDIR_PART : RT_SHOT_PROBE;
             }
-            st->tries = 0;
-            sent = send_probe(c, st);
             break;
         case RT_SHOT_PROBE:
-            if (result != FS_NOT_FOUND) {
-                /* Taken (or not known to be free): the next number. */
-                if (++st->tries >= 100u) {
-                    st->error = result < 0 ? result : FS_EXISTS;
-                    sent = send_next_close(c, st);
-                    break;
-                }
+            if (result == FS_NOT_FOUND) {
+                result = 0;
+                next = RT_SHOT_CREATE;
+            } else if (++st->tries < 100u) {
                 ++c->number;
-                sent = send_probe(c, st);
-                break;
+                result = 0;
+                next = RT_SHOT_PROBE;
+            } else if (result >= 0) {
+                result = FS_EXISTS;
             }
-            rtshot_temp_path(st->path, c->number);
-            st->phase = RT_SHOT_CREATE;
-            sent = send_create(c, st, FS_CREATE_FILE);
             break;
         case RT_SHOT_CREATE:
             if (result == FS_EXISTS && ++st->tries < 100u) {
-                /* A part file left by a game that ended mid-write: the next free number. */
                 ++c->number;
-                sent = send_probe(c, st);
-                break;
+                result = 0;
+                next = RT_SHOT_PROBE;
+            } else if (result >= 0) {
+                st->created = 1;
+                next = RT_SHOT_OPEN_FILE;
             }
-            if (result < 0) {
-                st->error = result;
-                sent = send_next_close(c, st);
-                break;
-            }
-            st->created = 1;
-            st->phase = RT_SHOT_OPEN_FILE;
-            sent = ((shot_open_fn)(uintptr_t)c->open_async)(st->path, FS_OPEN_WRITE, c->complete_nand, 0);
             break;
         case RT_SHOT_OPEN_FILE:
-            if (result < 0) {
-                st->error = result;
-                sent = send_next_close(c, st);
-                break;
-            }
-            st->file_fd = result;
-            st->phase = RT_SHOT_WRITE;
-            {
-                const uint32_t from = (c->flags & RT_SHOT_FLAG_DIRECT) ? (uint32_t)(uintptr_t)st->header : c->frame;
-                sent = ((shot_write_fn)(uintptr_t)c->write_async)(st->file_fd, (const void*)(uintptr_t)from,
-                                                                  st->bytes, c->complete_nand, 0);
+            if (result >= 0) {
+                st->file_fd = result;
+                next = RT_SHOT_WRITE;
             }
             break;
         case RT_SHOT_WRITE:
-            if (result != (int32_t)st->bytes) st->error = result < 0 ? result : -1;
-            if (st->error == 0 && (c->flags & RT_SHOT_FLAG_DIRECT)) {
-                st->phase = RT_SHOT_WRITE_PIXELS;
-                sent = ((shot_write_fn)(uintptr_t)c->write_async)(st->file_fd, (const void*)(uintptr_t)st->pixels,
-                                                                  st->pixel_bytes, c->complete_nand, 0);
-                break;
-            }
-            sent = send_next_close(c, st);
-            break;
         case RT_SHOT_WRITE_PIXELS:
-            if (result != (int32_t)st->pixel_bytes) st->error = result < 0 ? result : -1;
-            sent = send_next_close(c, st);
+            {
+                const uint32_t expected = st->phase == RT_SHOT_WRITE ? st->bytes : st->pixel_bytes;
+                if (result >= 0 && result != (int32_t)expected) result = -1;
+                if (result >= 0 && st->phase == RT_SHOT_WRITE && (c->flags & RT_SHOT_FLAG_DIRECT))
+                    next = RT_SHOT_WRITE_PIXELS;
+            }
             break;
         case RT_SHOT_RENAME:
-            if (result < 0) st->error = result;
-            else st->renamed = 1;
-            sent = send_next_close(c, st);
+            if (result >= 0) st->renamed = 1;
             break;
         case RT_SHOT_CLOSE_FILE:
-            /* Written but not closed whole: no rename. */
-            if (result < 0 && st->error == 0) st->error = result;
-            sent = send_next_close(c, st);
             break;
         case RT_SHOT_DELETE:
         case RT_SHOT_CLOSE_FS:
-            sent = send_next_close(c, st);
+            result = 0;  /* Cleanup failures do not replace the write's result. */
             break;
         default:
             return;
         }
-        if (sent == NOTHING_OPEN) {
-            finish(c, st);
+        if (result < 0 && st->error == 0) st->error = result;
+        if (next == RT_SHOT_IDLE) next = shot_cleanup_phase(st);
+        st->phase = next;
+        if (next == RT_SHOT_IDLE) {
+            if (st->error == 0 && st->renamed) ++c->shots;
+            else {
+                ++c->failures;
+                c->last_error = st->error ? st->error : -1;
+            }
+            ++c->number;
             return;
         }
-        if (sent >= 0) return;  /* in flight: its answer comes back here */
-        result = sent;
+        result = shot_submit(c, st);
+        if (result >= 0) return;
     }
 }
 
 /* The picture on screen into the frame buffer, then the job starts.
  * Interrupts are off. */
+#ifndef RTSHOT_HOST_TEST
 static int capture(struct rt_shot_context* c, struct rt_shot_state* st) {
     struct rtshot_frame f;
     const uint16_t vtr = *(volatile uint16_t*)0xCC002000u;
@@ -341,18 +302,34 @@ start_job:
     st->error = 0;
     st->fs_fd = -1;
     st->file_fd = -1;
-    st->created = st->renamed = st->deleted = 0;
+    st->created = 0;
+    st->renamed = 0;
+    st->deleted = 0;
     /* "/dev/fs", one character at a time (no constant data). */
-    st->device[0] = '/'; st->device[1] = 'd'; st->device[2] = 'e'; st->device[3] = 'v';
-    st->device[4] = '/'; st->device[5] = 'f'; st->device[6] = 's'; st->device[7] = 0;
-    flush(st->device, sizeof(st->device));
+    st->io.create.path[0] = '/';
+    st->io.create.path[1] = 'd';
+    st->io.create.path[2] = 'e';
+    st->io.create.path[3] = 'v';
+    st->io.create.path[4] = '/';
+    st->io.create.path[5] = 'f';
+    st->io.create.path[6] = 's';
+    st->io.create.path[7] = 0;
+    flush(st->io.create.path, sizeof(st->io.create.path));
     st->phase = RT_SHOT_OPEN_FS;
     {
-        const int32_t sent = ((shot_open_fn)(uintptr_t)c->open_async)(st->device, 0, c->complete_nand, 0);
+        const int32_t sent = SHOT_API(shot_open_fn, c->open_async)(st->io.create.path, 0, c->complete_nand, 0);
         if (sent < 0) job_step(c, st, sent);
     }
     return 1;
 }
+
+#else
+static int capture(struct rt_shot_context* c, struct rt_shot_state* st) {
+    (void)c;
+    (void)st;
+    return 0;
+}
+#endif
 
 /* The hooks ---------------------------------------------------------- */
 
@@ -368,8 +345,7 @@ uint32_t shot_on_ioctlv(struct rt_shot_context* c, uint32_t* a) {
     msr = interrupts_off();
     for (i = 0; i < RT_SHOT_WATCHES; ++i) {
         struct rt_shot_watch* w = &st->watch[i];
-        if (w->in_use) continue;
-        w->in_use = 1;
+        if (w->length) continue;
         w->callback = a[5];
         w->user = a[6];
         w->data = vec[4];
@@ -386,7 +362,7 @@ uint32_t shot_on_ioctlv(struct rt_shot_context* c, uint32_t* a) {
 int32_t shot_after_ioctlv(struct rt_shot_context* c, uint32_t slot, int32_t result) {
     if (slot != 0 && result < 0) {
         /* IOS refused it: no callback will come. */
-        state_of(c)->watch[slot - 1u].in_use = 0;
+        state_of(c)->watch[slot - 1u].length = 0;
     }
     return result;
 }
@@ -420,9 +396,12 @@ int32_t shot_on_bt(struct rt_shot_context* c, int32_t result, uint32_t tag) {
                 capture(c, st);
         }
     }
-    w->in_use = 0;
+    w->length = 0;
     if (callback == 0) return 0;
-    return ((shot_callback_fn)(uintptr_t)callback)(result, user);
+    return SHOT_API(shot_callback_fn, callback)(result, user);
 }
 
-void shot_on_nand(struct rt_shot_context* c, int32_t result) { job_step(c, state_of(c), result); }
+int32_t shot_on_nand(struct rt_shot_context* c, int32_t result) {
+    job_step(c, state_of(c), result);
+    return 0;
+}

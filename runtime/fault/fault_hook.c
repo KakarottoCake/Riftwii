@@ -40,6 +40,9 @@ void fault_on_ioctl(struct rt_fault_context* c, uint32_t* args);
 
 #define TIMED_OUT (-0x7FFF)
 
+#ifdef RTFAULT_HOST_TEST
+#include "fault_host.h"
+#else
 static uint32_t now(void) {
     uint32_t tb;
     __asm__ volatile("mftb %0" : "=r"(tb) : : "memory");
@@ -106,8 +109,18 @@ static int32_t call(struct rt_fault_context* c, uint32_t* request) {
     }
 }
 
+static void fault_time_base(uint32_t* hi, uint32_t* lo) {
+    uint32_t again;
+    do {
+        __asm__ volatile("mftbu %0" : "=r"(*hi));
+        __asm__ volatile("mftb %0" : "=r"(*lo));
+        __asm__ volatile("mftbu %0" : "=r"(again));
+    } while (*hi != again);
+}
+#endif
+
 static int32_t request(struct rt_fault_context* c, struct rt_fault_state* st, uint32_t command, int32_t fd,
-                       uint32_t a0, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4) {
+                       uint32_t a0, uint32_t a1, uint32_t a2) {
     uint32_t i;
     for (i = 0; i < 16u; ++i) st->request[i] = 0;
     st->request[0] = command;
@@ -115,65 +128,74 @@ static int32_t request(struct rt_fault_context* c, struct rt_fault_state* st, ui
     st->request[3] = a0;
     st->request[4] = a1;
     st->request[5] = a2;
-    st->request[6] = a3;
-    st->request[7] = a4;
     return call(c, st->request);
 }
 
-static int32_t create(struct rt_fault_context* c, struct rt_fault_state* st, int32_t fs, uint32_t ioctl,
-                      const char* path) {
-    rtshot_fs_attr(st->attr, path);
-    flush(st->attr, sizeof(st->attr));
-    return request(c, st, IOS_IOCTL, fs, ioctl, physical(st->attr), RTSHOT_FS_ATTR_BYTES, 0, 0);
+/* Construct each request in its DMA buffer, then wait before reusing
+ * it. The attribute's path is unaligned by design; IOS reads the whole
+ * aligned block. Once both creates finish, the same bytes hold an aligned
+ * path for Open, so no second path allocation is needed. */
+static int32_t create(struct rt_fault_context* c, struct rt_fault_state* st, int32_t fs, uint32_t operation) {
+    uint32_t i;
+    char* path = (char*)st->io.attr + 6;
+    for (i = 0; i < sizeof(st->io.attr); ++i) st->io.attr[i] = 0;
+    if (operation == FS_CREATE_DIR) rtshot_dir(path);
+    else rtfault_path(path);
+    st->io.attr[70] = 3;
+    st->io.attr[71] = 3;
+    st->io.attr[72] = 3;
+    flush(st->io.attr, sizeof(st->io.attr));
+    return request(c, st, IOS_IOCTL, fs, operation, physical(st->io.attr), RTSHOT_FS_ATTR_BYTES);
 }
 
-/* The record to /shared2/riftwii/crash.bin: the folder and the file made
- * as the game (any of them may already be there), then written. */
 static void save(struct rt_fault_context* c, struct rt_fault_state* st) {
-    int32_t fs, fd, r;
-    st->fs[0] = '/'; st->fs[1] = 'd'; st->fs[2] = 'e'; st->fs[3] = 'v';
-    st->fs[4] = '/'; st->fs[5] = 'f'; st->fs[6] = 's'; st->fs[7] = 0;
-    flush(st->fs, sizeof(st->fs));
+    int32_t fs, fd, result;
+    uint32_t operation;
+    st->io.path[0] = '/';
+    st->io.path[1] = 'd';
+    st->io.path[2] = 'e';
+    st->io.path[3] = 'v';
+    st->io.path[4] = '/';
+    st->io.path[5] = 'f';
+    st->io.path[6] = 's';
+    st->io.path[7] = 0;
+    flush(st->io.path, sizeof(st->io.path));
     c->step = FAULT_STEP_FS;
-    fs = request(c, st, IOS_OPEN, 0, physical(st->fs), 0, 0, 0, 0);
+    fs = request(c, st, IOS_OPEN, 0, physical(st->io.path), 0, 0);
     c->result = fs;
     if (fs < 0) return;
-    c->step = FAULT_STEP_DIR;
-    rtshot_dir(st->path);
-    r = create(c, st, fs, FS_CREATE_DIR, st->path);
-    c->result = r;
-    if (r >= 0 || r == FS_EXISTS) {
-        c->step = FAULT_STEP_FILE;
-        rtfault_path(st->path);
-        r = create(c, st, fs, FS_CREATE_FILE, st->path);
-        c->result = r;
+
+    /* The folder and file use the same request shape and error rule. */
+    for (operation = FS_CREATE_DIR; ; operation = FS_CREATE_FILE) {
+        c->step = operation == FS_CREATE_DIR ? FAULT_STEP_DIR : FAULT_STEP_FILE;
+        result = create(c, st, fs, operation);
+        c->result = result;
+        if ((result < 0 && result != FS_EXISTS) || operation == FS_CREATE_FILE) break;
     }
-    request(c, st, IOS_CLOSE, fs, 0, 0, 0, 0, 0);
-    if (r < 0 && r != FS_EXISTS) return;
+    request(c, st, IOS_CLOSE, fs, 0, 0, 0);
+    if (result < 0 && result != FS_EXISTS) return;
+
     c->step = FAULT_STEP_OPEN;
-    flush(st->path, sizeof(st->path));
-    fd = request(c, st, IOS_OPEN, 0, physical(st->path), FS_OPEN_WRITE, 0, 0, 0);
+    rtfault_path(st->io.path);
+    flush(st->io.path, sizeof(st->io.path));
+    fd = request(c, st, IOS_OPEN, 0, physical(st->io.path), FS_OPEN_WRITE, 0);
     c->result = fd;
     if (fd < 0) return;
     c->step = FAULT_STEP_WRITE;
     flush(&st->record, sizeof(st->record));
-    r = request(c, st, IOS_WRITE, fd, physical(&st->record), sizeof(st->record), 0, 0, 0);
-    c->result = r;
-    request(c, st, IOS_CLOSE, fd, 0, 0, 0, 0, 0);
-    if (r == (int32_t)sizeof(st->record)) c->step = FAULT_STEP_DONE;
+    result = request(c, st, IOS_WRITE, fd, physical(&st->record), sizeof(st->record), 0);
+    c->result = result;
+    request(c, st, IOS_CLOSE, fd, 0, 0, 0);
+    if (result == (int32_t)sizeof(st->record)) c->step = FAULT_STEP_DONE;
 }
 
 void fault_on_exception(struct rt_fault_context* c, uint32_t exception, uint32_t* context, uint32_t dsisr,
                         uint32_t dar) {
     struct rt_fault_state* st = (struct rt_fault_state*)(uintptr_t)c->state;
-    uint32_t hi, lo, again, i;
+    uint32_t hi, lo, i;
     if (c->done || !rtfault_is_crash(exception, context[RTFAULT_CTX_SRR1])) return;
     c->done = 1;
-    do {
-        __asm__ volatile("mftbu %0" : "=r"(hi));
-        __asm__ volatile("mftb %0" : "=r"(lo));
-        __asm__ volatile("mftbu %0" : "=r"(again));
-    } while (hi != again);
+    fault_time_base(&hi, &lo);
     rtfault_fill(&st->record, exception, context, dsisr, dar, (const char*)(uintptr_t)0x80000000u, hi, lo,
                  c->ticks_per_second, 1);
     for (i = 0; i < RTFAULT_VERSION_BYTES; ++i) st->record.riftwii[i] = c->version[i];
@@ -192,7 +214,8 @@ void fault_on_ioctl(struct rt_fault_context* c, uint32_t* args) {
         (in[0] >> 24) != RT_FAULT_DI_READ_BCA || out == 0 || out_len <= RT_FAULT_BCA_MARK) {
         return;
     }
-    for (i = 0; i < out_len && i < RT_FAULT_BCA_BYTES; ++i) out[i] = i == RT_FAULT_BCA_MARK ? 1u : 0u;
+    for (i = 0; i < out_len && i < RT_FAULT_BCA_BYTES; ++i) out[i] = 0;
+    out[RT_FAULT_BCA_MARK] = 1;
     flush(out, i);
     args[4] = c->bca_sink;
     args[5] = RT_FAULT_BCA_BYTES;
