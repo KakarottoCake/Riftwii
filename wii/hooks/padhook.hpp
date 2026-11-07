@@ -63,6 +63,7 @@ struct PadHook {
     std::uint32_t code_bytes = 0;
     std::uint32_t state_base = 0;    // the driver state (MEM2)
     std::uint32_t state_bytes = 0;
+    bool adapter_only = false;       // the state is the adapter's alone (no other USB pad could be used)
     std::uint32_t new_arena1_hi = 0; // == code_base (unchanged with a veneer)
     std::uint32_t new_arena2_lo = 0; // the end of the state (unchanged with a veneer)
     std::uint32_t veneer = 0;        // in MEM2: the two veneers' address in low MEM1, else 0
