@@ -668,7 +668,7 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
          out.read, out.read_sites, out.motor, out.idle_reset);
     find_way_back(dol, text, out);
 
-    if (!take_adapter_handle(out.fd, out.version, out.known_dev, why)) {
+    if (!take_adapter_handle(out.fd, out.version, out.known_dev, why, &out.devices_unknown)) {
         if (!demo) return false;
         logf("GameCube adapter: %s; demo mode goes on without it\n", why.c_str());
         out.fd = -1;
@@ -678,7 +678,8 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
     return true;
 }
 
-bool take_adapter_handle(std::int32_t& fd, std::uint32_t& version, std::int32_t& known_dev, std::string& why) {
+bool take_adapter_handle(std::int32_t& fd, std::uint32_t& version, std::int32_t& known_dev, std::string& why,
+                         bool* list_unknown) {
     HidPadsPreload();
     // The adapter's device, with the IOS the game will run. The menu's
     // USB storage left libogc's device-change requests pending: v5 takes
@@ -688,6 +689,7 @@ bool take_adapter_handle(std::int32_t& fd, std::uint32_t& version, std::int32_t&
     fd = -1;
     version = 0;
     known_dev = -1;
+    if (list_unknown != nullptr) *list_unknown = false;
     if (g_own.fd >= 0 && g_own.version == 5) {
         // The launch's own handle (look_for_gc_adapter), never shut down.
         fd = g_own.fd;
@@ -699,7 +701,8 @@ bool take_adapter_handle(std::int32_t& fd, std::uint32_t& version, std::int32_t&
         return true;
     }
     std::string devices;
-    ogc_adapter(known_dev, devices);  // v5's list goes with libogc's USB
+    const AdapterSeen seen = ogc_adapter(known_dev, devices);  // v5's list goes with libogc's USB
+    if (list_unknown != nullptr) *list_unknown = seen == AdapterSeen::Unknown;
     logf("GameCube adapter: libogc lists %s (adapter device %d)\n", devices.c_str(), static_cast<int>(known_dev));
     USB_Deinitialize();
     usleep(50000);
@@ -826,7 +829,9 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     // (#496). Code builds use all of the game's memory; other games keep
     // room for any pad the menu has seen, which can be plugged in mid-game.
     const bool code_build = mem1_veneer != 0;
-    bool adapter_in = catalog.adapter_disabled == 0 && out.known_dev >= 0;
+    // A device list that could not be read at the launch is no sign the
+    // adapter is out: planned for then, as it may be plugged in.
+    bool adapter_in = catalog.adapter_disabled == 0 && (out.known_dev >= 0 || out.devices_unknown);
     for (unsigned i = 0; i < catalog.known_count && i < RTHID_DEVICE_MAX; ++i) {
         if (catalog.adapter_disabled == 0 && catalog.known[i].vid_pid == GCAD_VID_PID) adapter_in = true;
     }

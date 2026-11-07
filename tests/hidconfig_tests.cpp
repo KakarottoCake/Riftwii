@@ -1382,6 +1382,26 @@ void GameLayout(unsigned version) {
     CHECK(bus.GuardIntact());
 }
 
+// Two configured pads plugged in at a code build's start (#496): two
+// packed links, each set up and read on its own (a link spaced as a whole
+// gcad would land the second on the first's bytes or past the state).
+void GameLayoutTwo(unsigned version) {
+    Bus bus(version, 2, -1, false);
+    CHECK(bus.owner->peer_count == 2 && bus.owner->peer_stride == GCAD_LINK_BYTES);
+    bus.List({{11, 0x12345678}, {12, 0x12345678}, {13, 0x99990001}});
+    bus.Settle();
+    CHECK(bus.Pad(0).link == GCAD_LINK_POLL && bus.Pad(0).dev_id == 11);
+    CHECK(bus.Pad(1).link == GCAD_LINK_POLL && bus.Pad(1).dev_id == 12);
+    CHECK(bus.found == 2 && bus.missing == 1);
+    bus.Report(0, 1);
+    bus.Report(1, 2);
+    gcad_pad pads[GCAD_PORTS]{};
+    CHECK(gcad_read_ports(bus.owner, 0, pads, bus.clock) == 0x3u);
+    CHECK(pads[0].buttons == GCAD_PAD_A && pads[1].buttons == GCAD_PAD_B);
+    gcad_stop(bus.owner, bus.clock);
+    CHECK(bus.GuardIntact());
+}
+
 // Only Xbox 360 pads at a code build's start (#496): the /dev/usb/hid
 // owner lies dormant (no list asked for, a pad link's size) and the ven
 // list's pad takes the one link.
@@ -1429,6 +1449,8 @@ int main() {
     DiscoveryRepeats();
     GameLayout(4);
     GameLayout(5);
+    GameLayoutTwo(4);
+    GameLayoutTwo(5);
     GameLayoutXboxOnly();
     if (failures) std::cerr << failures << " failures\n";
     return failures ? 1 : 0;
