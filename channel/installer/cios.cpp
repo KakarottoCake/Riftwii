@@ -13,6 +13,26 @@
 #include "riftwii/nandcheck.hpp"
 
 namespace installer {
+namespace {
+
+constexpr u32 kMemProt = 0x0D8B420A;
+
+// Turning MEM2 protection off takes effect a moment after the register is
+// written. RiftWii's own close (wii/launch/nandpermissions.cpp, 3 Nov) read
+// IOS's code on the next instruction and got the fill pattern; the
+// installer's restore wrote the word on the next instruction and the store
+// never landed (a vWii, 2611-59: "read 0x428be001, original 0x428bd001"),
+// so the installer stopped. IOS's code is touched only once the register
+// reads back as off.
+bool ProtectionOff() {
+    write16(kMemProt, 2);
+    for (int tries = 0; tries < 1000; ++tries) {
+        if ((read16(kMemProt) & 1) == 0) return true;
+    }
+    return false;
+}
+
+}  // namespace
 
 bool NandReadAccess::Open() {
     if (attempted_) return opened_;
@@ -23,9 +43,15 @@ bool NandReadAccess::Open() {
         return false;
     }
     constexpr u32 kFrom = 0xD3400000, kTo = 0xD4000000;
-    protection_ = read16(0x0D8B420A);
+    protection_ = read16(kMemProt);
     protection_saved_ = true;
-    write16(0x0D8B420A, 2);
+    if (!ProtectionOff()) {
+        RestoreProtection();
+        Log("IOS%d's memory protection did not turn off; its NAND permission check is left alone.\n",
+            IOS_GetVersion());
+        opened_ = false;
+        return false;
+    }
     std::size_t offset = 0;
     if (!riftwii::find_nand_check(reinterpret_cast<const u8*>(kFrom), kTo - kFrom, offset)) {
         RestoreProtection();
@@ -61,16 +87,20 @@ bool NandReadAccess::Restore() {
     if (finished_) return word_restored_ && protection_restored_;
     finished_ = true;
     if (word_ != 0) {
-        write16(0x0D8B420A, 2);
-        const u32 current = read32(word_);
-        // Only the patched halfword is ours; IOS may have changed the other
-        // halfword of the same word, which must neither block nor be undone.
-        if (riftwii::nand_check_half(current, shift_) == riftwii::nand_check_half(after_, shift_)) {
-            const u32 mask = static_cast<u32>(0xFFFF) << shift_;
-            write32(word_, (current & ~mask) | (before_ & mask));
+        // A store that still didn't land is tried again, a few times.
+        u32 now = 0;
+        for (int attempt = 0; attempt < 3 && !WordRestored(now); ++attempt) {
+            if (!ProtectionOff()) continue;
+            const u32 current = read32(word_);
+            // Only the patched halfword is ours; IOS may have changed the
+            // other halfword of the same word, which must neither block nor
+            // be undone.
+            if (riftwii::nand_check_half(current, shift_) == riftwii::nand_check_half(after_, shift_)) {
+                const u32 mask = static_cast<u32>(0xFFFF) << shift_;
+                write32(word_, (current & ~mask) | (before_ & mask));
+            }
         }
-        const u32 now = read32(word_);
-        word_restored_ = riftwii::nand_check_half(now, shift_) == riftwii::nand_check_half(before_, shift_);
+        word_restored_ = WordRestored(now);
         if (word_restored_) {
             Log("IOS%d's NAND permission check was restored after reading the cIOS information.\n",
                 IOS_GetVersion());
@@ -86,10 +116,22 @@ bool NandReadAccess::Restore() {
 
 NandReadAccess::~NandReadAccess() { Restore(); }
 
+// Whether the patched halfword holds the original again, read with
+// protection off (a protected read gives the fill pattern); `now` is the
+// word as read, for the log.
+bool NandReadAccess::WordRestored(u32& now) const {
+    if (!ProtectionOff()) {
+        now = 0;
+        return false;
+    }
+    now = read32(word_);
+    return riftwii::nand_check_half(now, shift_) == riftwii::nand_check_half(before_, shift_);
+}
+
 void NandReadAccess::RestoreProtection() {
     if (!protection_saved_) return;
-    write16(0x0D8B420A, protection_);
-    const bool restored = read16(0x0D8B420A) == protection_;
+    write16(kMemProt, protection_);
+    const bool restored = read16(kMemProt) == protection_;
     // Latch a failure even if a later cleanup attempt succeeds.
     protection_restored_ = protection_restored_ && restored;
     if (!restored) Log("The NAND memory protection register could not be restored.\n");
