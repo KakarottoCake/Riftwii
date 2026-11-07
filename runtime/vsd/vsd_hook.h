@@ -207,19 +207,19 @@ struct vsd_state {
     struct vsd_deliver deliver[VSD_DELIVERS] __attribute__((aligned(32)));
     /* The blob's own IPC blocks, each on its own lines. */
     struct rtvsd_request request __attribute__((aligned(32)));
-    /* Counters again, in the rest of the request's line (the CPU writes
-     * them; IOS only reads that line, so sharing it is safe): requests on
-     * the device for the image's data (each try counts), and the pieces
-     * that went through the bounce buffer, their sectors, how many of them
-     * for a buffer not 32-byte aligned (the rest: a MEM1 buffer on USB),
-     * and the most sectors one of them wanted before the buffer's size cut
-     * it. They tell how big the bounce buffer needs to be. */
-    uint32_t requests;
+    uint32_t pad1[7];
+    /* More counters, on a line of their own (not the request's, which IOS
+     * reads): requests on the device for the image's data (each try
+     * counts), and the pieces that went through the bounce buffer, their
+     * sectors, how many of them for a buffer not 32-byte aligned (the
+     * rest: a MEM1 buffer on USB), and the most sectors one of them wanted
+     * before the buffer's size cut it. They tell how big the bounce buffer
+     * needs to be. */
+    uint32_t requests __attribute__((aligned(32)));
     uint32_t bounced;
     uint32_t bounced_sectors;
     uint32_t bounced_unaligned;
     uint32_t bounced_most;
-    uint32_t pad1[2];
     uint32_t response[8] __attribute__((aligned(32)));
     struct vsd_ioctlv vec[4] __attribute__((aligned(32)));
     uint32_t words[8] __attribute__((aligned(32)));      /* d2x: the sector and the count */

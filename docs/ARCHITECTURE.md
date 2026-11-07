@@ -237,11 +237,11 @@ pieces cost 36 bytes and an image scattered by a well-used card up to 192
 KB, found by a binary search; then the bounce buffer, sized by the loader
 for the device: 32 KB on USB, where every read into MEM1 needs it, and
 `VSD_BOUNCE_BYTES_SD`, 32 KB for now, on the SD card, where only an
-unaligned buffer does; counters in the state say how often) go to the bottom of the MEM2 arena, staged at its top and
-copied down at the jump; the game reaches them through veneers at
-`0x80002300`, the code handler's list room a code build
-leaves free (below the MEM1 arena's top without it). Not with the
-resident runtime yet.
+unaligned buffer does; counters in the state say how often) go to the
+bottom of the MEM2 arena, staged at its top and copied down at the jump;
+the game reaches them through veneers at `0x80002300`, the code handler's
+list room a code build leaves free (below the MEM1 arena's top without
+it). Not with the resident runtime yet.
 
 **Read-ahead** (`runtime/rtvsdra.c`, host-tested in `vsdra` and `vsdblob`).
 A request on the console's SD card costs about 2 ms whatever its size, and

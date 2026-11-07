@@ -32,6 +32,11 @@ vsd_hook_\n:
     b vsd_hook_common
     .endm
 
+/* Reach: `bne vsd_replay_n` (14-bit displacement, +-32 KiB) and
+ * vsd_hook_common's 16-bit `addi` offsets (+-32 KiB) are resolved here, by
+ * the assembler, which stops the build with "operand out of range" if the
+ * entries and the replay slots ever end up farther apart. They are a few
+ * hundred bytes apart, all before the C code. */
     .macro VSD_HOOK_FD n
     .globl vsd_hook_\n
 vsd_hook_\n:

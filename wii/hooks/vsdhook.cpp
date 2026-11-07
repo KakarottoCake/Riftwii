@@ -288,6 +288,13 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
     static_assert(VSD_BOUNCE_BYTES_USB % RTVSD_SECTOR_BYTES == 0 && VSD_BOUNCE_BYTES_SD % RTVSD_SECTOR_BYTES == 0 &&
                       VSD_BOUNCE_BYTES_USB >= RTVSD_SECTOR_BYTES && VSD_BOUNCE_BYTES_SD >= RTVSD_SECTOR_BYTES,
                   "the bounce buffer holds whole sectors, 32-aligned");
+    // The read-ahead's windows live in the bounce buffer. A buffer smaller
+    // than the largest window turns the read-ahead off for that window size
+    // (below, with a boot.log line): shrinking VSD_BOUNCE_BYTES_SD that far
+    // has to be a choice, so this stops the build until it is made here.
+    static_assert(RTVSD_RA_MAX_SECTORS * RTVSD_SECTOR_BYTES <= VSD_BOUNCE_BYTES_SD &&
+                      RTVSD_RA_MAX_SECTORS * RTVSD_SECTOR_BYTES <= VSD_BOUNCE_BYTES_USB,
+                  "the largest read-ahead window must fit the bounce buffer (else read-ahead turns off)");
     out.state_bytes = align_up(vsd_state_bytes(image.extents.size(), bounce_bytes));
     out.code_in_mem2 = mem1_veneers != 0;
     out.veneers = mem1_veneers;

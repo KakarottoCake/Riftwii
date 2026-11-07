@@ -150,7 +150,13 @@ void check_blob_entries(const char* path) {
     while ((got = std::fread(chunk, 1, sizeof(chunk), f)) > 0) blob.insert(blob.end(), chunk, chunk + got);
     std::fclose(f);
     EXPECT_EQ(be32(blob, 0), VSD_MAGIC);
-    EXPECT_EQ(be32(blob, 4), VSD_VERSION);
+    if (be32(blob, 4) != VSD_VERSION) {
+        std::cerr << "FAILED: " << path << " is blob version " << be32(blob, 4) << ", the sources are version "
+                  << VSD_VERSION << ": it may be from an old build (make -f Makefile.wii, or Makefile.runtime)"
+                  << std::endl;
+        g_failures++;
+        return;
+    }
     const std::uint32_t context = be32(blob, offsetof(vsd_header, context_offset));
     std::uint32_t hook[VSD_ENTRIES], replay[VSD_ENTRIES];
     for (std::uint32_t e = 0; e < VSD_ENTRIES; ++e) {
