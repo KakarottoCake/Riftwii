@@ -97,4 +97,19 @@ struct StoredArt {
 // an entry, and then also when what is stored is another entry's.
 bool art_wanted(const std::string& name, const std::string& tile_match, const StoredArt& stored);
 
+// Which picture a Home tile shows where a 3D cover or a full box can stand
+// (the 3D covers ring, the shelf, the close-up, the game page), in order:
+// the player's own PNG for a mod tile, the mod's own 3D cover or box, the
+// tile's flat cover when it comes first (the player's own PNG for the game,
+// a chosen second set, the mod's own flat cover), then the game's 3D cover
+// or box.
+struct TileArtOrder {
+    bool tile_art_first = false;        // try the mod tile's own 3D cover or box
+    bool flat_before_game_art = false;  // without it: the flat cover, not the game's
+};
+// `is_tile`: a mod tile's key; `own_png_for_tile`: the flat cover in memory
+// is the player's own PNG for that tile; `flat_first`: the flat cover in
+// memory comes before the game's 3D cover or box (CoverBeforeBox).
+TileArtOrder tile_art_order(bool is_tile, bool own_png_for_tile, bool flat_first);
+
 }  // namespace riftwii

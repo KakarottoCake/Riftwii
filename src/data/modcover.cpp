@@ -189,6 +189,14 @@ bool tile_art_current(const std::string& stored_from, const std::string& tile_ma
     return !tile_match.empty() && stored_from == tile_match;
 }
 
+TileArtOrder tile_art_order(bool is_tile, bool own_png_for_tile, bool flat_first) {
+    TileArtOrder order;
+    order.tile_art_first = is_tile && !own_png_for_tile;
+    // The player's own PNG for the tile is a flat cover that comes first.
+    order.flat_before_game_art = flat_first || (is_tile && own_png_for_tile);
+    return order;
+}
+
 bool art_wanted(const std::string& name, const std::string& tile_match, const StoredArt& stored) {
     if (art_download_id(name, tile_match).empty()) return false;
     // A tile renamed, or GameTDB's list changed: what is stored (a picture

@@ -7467,6 +7467,9 @@ static int MenuSource(FrontendState& state)
 						riftwii::wii::ForgetProfilePictures();
 						riftwii::wii::HoldCodeModAnswers(false);
 						riftwii::wii::ForgetAllCovers();
+						// The shelf's boxes and the 3D covers too, mod tiles' among them.
+						riftwii::wii::ForgetAllBoxes();
+						riftwii::wii::ForgetAllCovers3d();
 						ForgetAllIcons();
 						// Classifications and homebrew titles come from this
 						// card's database, even with the same menu language.
@@ -14877,12 +14880,16 @@ static int MenuHome(FrontendState& state)
 			if (riftwii::wii::TakeBoxFetch(id, got, error)) {
 				if (got == riftwii::wii::CoverFetch::Stored) riftwii::wii::ForgetBox(id);
 				if (CountPictureFetch(g_boxRun, got, id, error)) g_boxesOff = true;
-				// GameTDB has no box for the mod tile: the game's, which the
-				// page shows then, is asked for next. Only another name than
-				// the one answered, so nothing is asked for twice.
-				if (!boxStart && got == riftwii::wii::CoverFetch::NotFound) {
+				// What the page wants next: after GameTDB had no box for the mod
+				// tile, the game's, which the page shows then; and the tile's
+				// own again if it was renamed to another match while that
+				// download ran (a tile's answer always leaves its .mod note,
+				// so the same key still wanted means a new match, not a loop).
+				if (!boxStart && (got == riftwii::wii::CoverFetch::Stored || got == riftwii::wii::CoverFetch::NotFound)) {
 					const std::string next = pageBoxWanted();
-					if (!next.empty() && next != id) {
+					const bool tileAgain = next == id && riftwii::is_tile_art_name(id);
+					const bool gameAfterMiss = next != id && got == riftwii::wii::CoverFetch::NotFound;
+					if (!next.empty() && (tileAgain || gameAfterMiss)) {
 						boxStartName = next;
 						boxStart = true;
 					}

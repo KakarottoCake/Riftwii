@@ -33,6 +33,9 @@ bool TakeBoxFetch(std::string& game_id, CoverFetch& got, std::string& error);
 const u8* BoxTexture(const std::string& game_id);
 // Drops what the pool remembers about the game (after a new download).
 void ForgetBox(const std::string& game_id);
+// Drops everything the pool remembers, pictures and "not on the card"
+// alike: the SD card was put back and may be another one. GUI halted.
+void ForgetAllBoxes();
 // The full box a Home tile shows, or nullptr when its flat cover `front`
 // (CoverTexture(cover_name)) is shown instead or no box is in memory yet.
 // `cover_name` is the tile's (CoverName: a mod tile's key), `game_id` its

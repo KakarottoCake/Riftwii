@@ -214,6 +214,26 @@ static void TestTileArt() {
     // Super Smash REX has a 3D cover but no full box: its miss holds a week.
     missed.from = "RSBERX";
     EXPECT_TRUE(!riftwii::art_wanted("RSBE01@super-smash-rex", "RSBERX", missed));
+
+    // The order a tile's pictures come in, where a 3D cover or box can stand.
+    using riftwii::tile_art_order;
+    // The player's own PNG for the tile: never the mod's art, the PNG instead of the game's.
+    EXPECT_TRUE(!tile_art_order(true, true, true).tile_art_first);
+    EXPECT_TRUE(tile_art_order(true, true, true).flat_before_game_art);
+    EXPECT_TRUE(tile_art_order(true, true, false).flat_before_game_art);
+    // The mod's own flat cover in memory: the mod's 3D cover or box first,
+    // then that flat cover, never the stock game's.
+    EXPECT_TRUE(tile_art_order(true, false, true).tile_art_first);
+    EXPECT_TRUE(tile_art_order(true, false, true).flat_before_game_art);
+    // No flat cover yet (or only the game's downloaded one): the mod's art,
+    // then the game's.
+    EXPECT_TRUE(tile_art_order(true, false, false).tile_art_first);
+    EXPECT_TRUE(!tile_art_order(true, false, false).flat_before_game_art);
+    // A game: no tile art; its own PNG or second set first, else its 3D cover or box.
+    EXPECT_TRUE(!tile_art_order(false, false, true).tile_art_first);
+    EXPECT_TRUE(tile_art_order(false, false, true).flat_before_game_art);
+    EXPECT_TRUE(!tile_art_order(false, false, false).tile_art_first);
+    EXPECT_TRUE(!tile_art_order(false, false, false).flat_before_game_art);
 }
 
 int main() {

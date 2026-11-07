@@ -80,7 +80,14 @@ CoverFetch NoteTileMiss(const std::string& key, const std::string& art_of, bool 
         error = "cannot write " + MissPath(key) + " (card full?)";
         return CoverFetch::Failed;
     }
-    std::remove(BoxPath(key).c_str());
+    // The earlier match's picture must be gone first: left there, the note
+    // below would make it look like the new entry's.
+    struct stat st;
+    if (std::remove(BoxPath(key).c_str()) != 0 && stat(BoxPath(key).c_str(), &st) == 0) {
+        std::remove(MissPath(key).c_str());
+        error = "cannot remove " + BoxPath(key) + " (card write-protected?)";
+        return CoverFetch::Failed;
+    }
     if (!WriteTileArtFrom(FromPath(key), art_of)) {
         std::remove(MissPath(key).c_str());
         error = "cannot write " + FromPath(key) + " (card full?)";
@@ -292,16 +299,16 @@ const u8* BoxTexture(const std::string& game_id) {
 
 const u8* TileBoxTexture(const std::string& cover_name, const std::string& game_id, const u8* front, bool* tile_box) {
     if (tile_box) *tile_box = false;
-    // A mod tile's own box (#385) comes after only the player's own PNG for
-    // that tile: before the mod's flat cover, and before the game's PNG, as
-    // the mod's flat cover is.
-    if (is_tile_art_name(cover_name) && !(front && CoverIsTileOwn(cover_name))) {
+    // The order is riftwii::tile_art_order's: a mod tile's own box (#385)
+    // after only the player's own PNG for that tile.
+    const bool tile = is_tile_art_name(cover_name);
+    if (tile_art_order(tile, front && tile && CoverIsTileOwn(cover_name), false).tile_art_first) {
         if (const u8* own_box = BoxTexture(cover_name)) {
             if (tile_box) *tile_box = true;
             return own_box;
         }
     }
-    if (front && CoverBeforeBox(cover_name)) return nullptr;
+    if (tile_art_order(tile, false, front && CoverBeforeBox(cover_name)).flat_before_game_art) return nullptr;
     return game_id.empty() ? nullptr : BoxTexture(game_id);
 }
 
@@ -313,6 +320,16 @@ void ForgetBox(const std::string& game_id) {
     found->second->id.clear();
     found->second->used = 0;
     g_index.erase(found);
+}
+
+void ForgetAllBoxes() {
+    g_absent.clear();
+    g_tileReadFor.clear();
+    g_index.clear();
+    for (Slot& s : g_slots) {
+        s.id.clear();
+        s.used = 0;
+    }
 }
 
 }  // namespace riftwii::wii
