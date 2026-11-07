@@ -44,6 +44,7 @@ void gcad_switch_mapping(rthid_mapping* m) {
     rthid_builtin(m, GCAD_SWITCH_VID_PID, GCAD_SWITCH_REPORT_BYTES);
 }
 
+#ifndef RT_TARGET_PPC
 static int valid_offset(uint16_t offset, uint16_t bytes) {
     return offset == RTHID_ABSENT || offset < bytes;
 }
@@ -74,12 +75,24 @@ int rthid_valid(const rthid_mapping* m) {
     return 1;
 }
 
+#endif
+
+/* In a game (RT_TARGET_PPC) every layout was checked in the menu before
+ * the loader copied it in (HidPadsCopyCatalog keeps only those that pass
+ * rthid_valid), so only the counts that bound the arrays are checked
+ * here: rthid_valid is not in the game blobs (#506). */
+#ifdef RT_TARGET_PPC
+#define RTHID_LAYOUT_OK(m) ((m) != 0)
+#else
+#define RTHID_LAYOUT_OK(m) rthid_valid(m)
+#endif
+
 int rthid_catalog_valid(const rthid_catalog* catalog) {
     uint32_t i;
     if (!catalog || catalog->adapter_disabled > 1 || catalog->count > RTHID_CONFIG_MAX ||
         catalog->known_count > RTHID_DEVICE_MAX || catalog->ven_known_count > RTHID_DEVICE_MAX) return 0;
     for (i = 0; i < catalog->count; ++i) {
-        if (!rthid_valid(&catalog->maps[i])) return 0;
+        if (!RTHID_LAYOUT_OK(&catalog->maps[i])) return 0;
     }
     return 1;
 }
@@ -89,7 +102,7 @@ const rthid_mapping* rthid_find(const rthid_catalog* catalog, uint32_t vid_pid) 
     if (!catalog || catalog->count > RTHID_CONFIG_MAX) return 0;
     for (i = 0; i < catalog->count; ++i) {
         const rthid_mapping* m = &catalog->maps[i];
-        if ((((uint32_t)m->vid << 16) | m->pid) == vid_pid && rthid_valid(m)) return m;
+        if ((((uint32_t)m->vid << 16) | m->pid) == vid_pid && RTHID_LAYOUT_OK(m)) return m;
     }
     return 0;
 }
@@ -131,7 +144,7 @@ static uint8_t trigger_value(uint16_t offset, const uint8_t* report) {
 int rthid_decode(const rthid_mapping* m, const uint8_t* report, uint32_t bytes, struct gcad_pad* out) {
     uint16_t buttons = 0;
     int left, right;
-    if (!report || !out || !rthid_valid(m) || bytes < m->report_bytes || bytes > RTHID_REPORT_MAX) return 0;
+    if (!report || !out || !RTHID_LAYOUT_OK(m) || bytes < m->report_bytes || bytes > RTHID_REPORT_MAX) return 0;
     if (m->multi_in && report[0] != m->multi_value) return 0;
     if (pressed(m, RTHID_A, report)) buttons |= GCAD_PAD_A;
     if (pressed(m, RTHID_B, report)) buttons |= GCAD_PAD_B;
