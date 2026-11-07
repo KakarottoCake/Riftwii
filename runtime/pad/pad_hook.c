@@ -121,10 +121,18 @@ static gcad* state(struct rt_pad_context* c) {
     if (!c->inited) {
 #ifndef GCAD_ADAPTER_ONLY
         if (!(c->flags & RT_PAD_FLAG_ADAPTER_ONLY)) {
-            gcad_hub* hub = (gcad_hub*)(void*)g;
-            gcad_hub_init(hub, c, c->fd, c->version, c->ticks_per_ms);
+            gcad_layout l;
+            uint8_t* base = (uint8_t*)(void*)g;
+            const int dormant = (c->flags & RT_PAD_FLAG_HID_DORMANT) != 0;
+            gcad_layout_for(&l, dormant ? GCAD_LINK_BYTES : GCAD_OWNER_BYTES(c->version), c->link_count,
+                            c->ven_fd >= 0, c->map_count);
+            gcad_links_init_ex(g, dormant ? GCAD_LINK_BYTES : GCAD_OWNER_BYTES(c->version), dormant,
+                               (gcad*)(void*)(base + l.links), c->link_count, GCAD_LINK_BYTES,
+                               (rthid_catalog*)(void*)(base + l.catalog), c, c->fd, c->version, c->ticks_per_ms);
             if (c->known_dev != GCAD_NO_DEVICE) gcad_expect(g, c->known_dev);
-            if (c->ven_fd >= 0) gcad_ven_init(g, &hub->ven, hub->xbox, c, c->ven_fd, c->ticks_per_ms);
+            if (c->ven_fd >= 0)
+                gcad_ven_init_ex(g, (gcad*)(void*)(base + l.ven), GCAD_OWNER_BYTES(5),
+                                 (rthid_mapping*)(void*)(base + l.xbox), c, c->ven_fd, c->ticks_per_ms);
             c->inited = 1;
             return g;
         }
@@ -132,7 +140,7 @@ static gcad* state(struct rt_pad_context* c) {
         /* No links, catalog or ven list (none could be used): the
          * driver reads null peers as no other USB pad. The adapter-only
          * blob (GCAD_ADAPTER_ONLY) has only this. */
-        gcad_init(g, c, c->fd, c->version, c->ticks_per_ms);
+        gcad_init_bytes(g, GCAD_OWNER_BYTES(c->version), c, c->fd, c->version, c->ticks_per_ms);
         if (c->known_dev != GCAD_NO_DEVICE) gcad_expect(g, c->known_dev);
 
         c->inited = 1;

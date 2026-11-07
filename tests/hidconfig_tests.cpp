@@ -191,6 +191,14 @@ struct Bus {
     unsigned refuse_slot = GCAD_REQUESTS;
     std::uint32_t clock = 100;
     std::vector<std::int32_t> devices_asked;  // every device a pad link sent a request to
+    // The driver's state: the hub, or a game's packed layout (Game()) in
+    // `game`, with guard bytes after it that must stay untouched.
+    gcad* owner = &hub.adapter;
+    gcad* ven_owner = &hub.ven;
+    std::vector<std::uint8_t> game;
+    std::uint32_t game_bytes = 0;
+    static constexpr std::uint8_t kGuard = 0xA5;
+    static constexpr unsigned kGuardBytes = 4096;
 
     explicit Bus(unsigned version = 5, const std::string& config = Config()) {
         hub.catalog.maps[0] = Parse(config);
@@ -199,11 +207,53 @@ struct Bus {
         gcad_tick(&hub.adapter, clock);
     }
 
+    // A code build's state as RiftWii lays it out (#496): `links` pad links
+    // GCAD_LINK_BYTES apart, the catalog with one mapping, the ven list when
+    // `ven_fd` >= 0, and a dormant /dev/usb/hid owner when `dormant`.
+    Bus(unsigned version, unsigned links, std::int32_t ven_fd, bool dormant) {
+        gcad_layout l{};
+        const std::uint32_t owner_bytes = dormant ? GCAD_LINK_BYTES : GCAD_OWNER_BYTES(version);
+        gcad_layout_for(&l, owner_bytes, links, ven_fd >= 0, 1);
+        game_bytes = l.bytes;
+        game.assign(l.bytes + kGuardBytes + 64, kGuard);
+        std::uint8_t* base = Base();
+        std::memset(base, 0, l.bytes);
+        auto* catalog = reinterpret_cast<rthid_catalog*>(base + l.catalog);
+        catalog->maps[0] = Parse(Config());
+        catalog->count = 1;
+        owner = reinterpret_cast<gcad*>(base);
+        gcad_links_init_ex(owner, owner_bytes, dormant ? 1 : 0, reinterpret_cast<gcad*>(base + l.links), links,
+                           GCAD_LINK_BYTES, catalog, this, 42, version, 1);
+        ven_owner = nullptr;
+        if (ven_fd >= 0) {
+            ven_owner = reinterpret_cast<gcad*>(base + l.ven);
+            gcad_ven_init_ex(owner, ven_owner, GCAD_OWNER_BYTES(5), reinterpret_cast<rthid_mapping*>(base + l.xbox),
+                             this, ven_fd, 1);
+        }
+        gcad_tick(owner, clock);
+    }
+
+    std::uint8_t* Base() {
+        auto at = reinterpret_cast<std::uintptr_t>(game.data());
+        return reinterpret_cast<std::uint8_t*>((at + 31u) & ~static_cast<std::uintptr_t>(31u));
+    }
+    // The guard bytes after a packed layout: true while nothing wrote past it.
+    bool GuardIntact() {
+        const std::uint8_t* end = Base() + game_bytes;
+        for (unsigned i = 0; i < kGuardBytes; ++i)
+            if (end[i] != kGuard) return false;
+        return true;
+    }
+    gcad& Pad(unsigned i) {
+        return *reinterpret_cast<gcad*>(reinterpret_cast<std::uint8_t*>(owner->peers) + i * owner->peer_stride);
+    }
+    unsigned ListBytes(const gcad& list) const { return list.version == 4 ? 0x600u : 0x180u; }
+
     void Reply(unsigned slot, int result = 0) {
         const auto request = requests[slot];
         CHECK(request.pending);
         requests[slot].pending = false;
-        gcad_on_reply(&hub.adapter, request.tag, result, clock);
+        gcad_on_reply(owner, request.tag, result, clock);
     }
 
     static void Descriptors(std::uint8_t* data, unsigned start) {
@@ -264,8 +314,8 @@ struct Bus {
     }
 
     void VenList(const std::vector<rthid_device>& devices) {
-        auto* list = hub.ven.change;
-        std::memset(list, 0, sizeof(hub.ven.change));
+        auto* list = ven_owner->change;
+        std::memset(list, 0, ListBytes(*ven_owner));
         for (unsigned i = 0; i < devices.size(); ++i) {
             gcad_put32(list + i * 12, devices[i].id);
             gcad_put32(list + i * 12 + 4, devices[i].vid_pid);
@@ -274,9 +324,9 @@ struct Bus {
     }
 
     void List(const std::vector<rthid_device>& devices, unsigned packet_bytes = 64) {
-        auto* list = hub.adapter.change;
-        std::memset(list, 0, sizeof(hub.adapter.change));
-        if (hub.adapter.version == 5) {
+        auto* list = owner->change;
+        std::memset(list, 0, ListBytes(*owner));
+        if (owner->version == 5) {
             for (unsigned i = 0; i < devices.size(); ++i) {
                 gcad_put32(list + i * 12, devices[i].id);
                 gcad_put32(list + i * 12 + 4, devices[i].vid_pid);
@@ -300,16 +350,17 @@ struct Bus {
     void Settle() {
         clock += 600;
         for (unsigned step = 0; step < 20; ++step) {
-            gcad_tick(&hub.adapter, clock);
+            gcad_tick(owner, clock);
             for (unsigned slot = 0; slot < requests.size(); ++slot) {
                 auto& request = requests[slot];
                 if (!request.pending || (slot % GCAD_TAGS) == GCAD_TAG_IN) continue;
                 if ((slot % GCAD_TAGS) == GCAD_TAG_CHANGE) {
                     if (request.command != GCAD_V5_ATTACH_FINISH) continue;
-                    for (const auto& pad : hub.pads) CHECK(pad.link != GCAD_LINK_SETUP && pad.link != GCAD_LINK_SETTLE);
+                    for (unsigned i = 0; i < owner->peer_count; ++i)
+                        CHECK(Pad(i).link != GCAD_LINK_SETUP && Pad(i).link != GCAD_LINK_SETTLE);
                     ++finishes;
                 }
-                if (hub.adapter.version == 5 && request.command == GCAD_V5_GET_DEVICE_INFO) {
+                if (owner->version == 5 && request.command == GCAD_V5_GET_DEVICE_INFO) {
                     if (request.driver->ven) {
                         VenInfo(static_cast<std::uint8_t*>(request.output),
                                 VenInterface(request.driver->dev_id));
@@ -321,10 +372,10 @@ struct Bus {
                                   request.driver->setup_step == GCAD_STEP_CTRL;
                 if (wake) {
                     const auto* message = request.driver->out_msg;
-                    const unsigned offset = hub.adapter.version == 5 ? 8 : 20;
+                    const unsigned offset = owner->version == 5 ? 8 : 20;
                     CHECK(message[offset] == 0xA1 && message[offset + 1] == 1);
                     CHECK(message[offset + 2] == 3 && message[offset + 3] == 0xF2);
-                    CHECK(hub.adapter.version == 4 ? message[27] == 17 : request.bytes == 17);
+                    CHECK(owner->version == 4 ? message[27] == 17 : request.bytes == 17);
                     CHECK(!requests[(slot / GCAD_TAGS) * GCAD_TAGS + GCAD_TAG_IN].pending);
                 }
                 Reply(slot, wake ? 17 : 0);
@@ -333,7 +384,7 @@ struct Bus {
     }
 
     void Report(unsigned pad, std::uint8_t button) {
-        auto& driver = hub.pads[pad];
+        auto& driver = Pad(pad);
         std::memset(driver.in_data, 128, sizeof(driver.in_data));
         driver.in_data[0] = button;
         driver.in_data[1] = 0;
@@ -1304,6 +1355,59 @@ void gcad_env_event(gcad* driver, uint32_t code, uint32_t a, int32_t b) {
 }
 }
 
+// A code build's packed layout (#496): one pad link for one configured pad
+// plugged in, the list owner only as long as its version's list. The pad
+// works as in the hub; a second configured pad finds no link and waits;
+// nothing is written past the state.
+void GameLayout(unsigned version) {
+    Bus bus(version, 1, -1, false);
+    CHECK(bus.owner->peer_count == 1 && bus.owner->peer_stride == GCAD_LINK_BYTES);
+    CHECK(GCAD_LINK_BYTES < GCAD_OWNER_BYTES(version) && GCAD_OWNER_BYTES(version) <= sizeof(gcad));
+    CHECK(bus.game_bytes < sizeof(gcad_hub));
+    bus.List({{11, 0x12345678}, {12, 0x12345678}, {13, 0x99990001}});
+    bus.Settle();
+    CHECK(bus.Pad(0).link == GCAD_LINK_POLL && bus.Pad(0).dev_id == 11);
+    CHECK(bus.found == 1 && bus.missing == 1);
+    bus.Report(0, 1);
+    gcad_pad pads[GCAD_PORTS]{};
+    CHECK(gcad_read_ports(bus.owner, 0, pads, bus.clock) == 0x1u);
+    CHECK(pads[0].buttons == GCAD_PAD_A);
+    // Unplugged: IOS hands back the old pad's read, then the new list; the
+    // waiting pad takes the link.
+    if (bus.requests[GCAD_TAGS + GCAD_TAG_IN].pending) bus.Reply(GCAD_TAGS + GCAD_TAG_IN, -1);
+    bus.List({{12, 0x12345678}});
+    bus.Settle();
+    CHECK(bus.Pad(0).link == GCAD_LINK_POLL && bus.Pad(0).dev_id == 12);
+    gcad_stop(bus.owner, bus.clock);
+    CHECK(bus.GuardIntact());
+}
+
+// Only Xbox 360 pads at a code build's start (#496): the /dev/usb/hid
+// owner lies dormant (no list asked for, a pad link's size) and the ven
+// list's pad takes the one link.
+void GameLayoutXboxOnly() {
+    constexpr std::int32_t kVenFd = 77;
+    Bus bus(5, 1, kVenFd, true);
+    CHECK(!bus.requests[GCAD_TAG_CHANGE].pending);
+    const unsigned ven_change = GCAD_VEN_SLOT * GCAD_TAGS + GCAD_TAG_CHANGE;
+    CHECK(bus.requests[ven_change].pending && bus.requests[ven_change].fd == kVenFd);
+    bus.VenList({{Bus::VenId(0), 0x045E028E}, {Bus::VenId(1), 0x045E028E}});
+    bus.Settle();
+    CHECK(!bus.requests[GCAD_TAG_CHANGE].pending);
+    gcad& pad = bus.Pad(0);
+    CHECK(pad.ven && pad.fd == kVenFd && pad.link == GCAD_LINK_POLL && pad.dev_id == Bus::VenId(0));
+    CHECK(pad.mapping != nullptr && pad.mapping->vid == 0x045E && pad.mapping->pid == 0x028E);
+    std::memset(pad.in_data, 0, sizeof(pad.in_data));
+    pad.in_data[1] = 0x14;
+    pad.in_data[3] = 0x10;  // A
+    bus.Reply(GCAD_TAGS + GCAD_TAG_IN, 20);
+    gcad_pad pads[GCAD_PORTS]{};
+    CHECK(gcad_read_ports(bus.owner, 0, pads, bus.clock) == 0x1u);
+    CHECK(pads[0].buttons == GCAD_PAD_A);
+    gcad_stop(bus.owner, bus.clock);
+    CHECK(bus.GuardIntact());
+}
+
 int main() {
     ParserAndReports();
     LegacyConfigs();
@@ -1323,6 +1427,9 @@ int main() {
     SwitchPadStuck(4);
     SwitchPadStuck(5);
     DiscoveryRepeats();
+    GameLayout(4);
+    GameLayout(5);
+    GameLayoutXboxOnly();
     if (failures) std::cerr << failures << " failures\n";
     return failures ? 1 : 0;
 }
