@@ -645,9 +645,9 @@ static inline struct rt_rvz_extent* rt_rvz_table_extents(struct rt_rvz_state* st
     ((uint32_t)__builtin_offsetof(struct rt_rvz_state, extents) + \
      ((uint32_t)(extent_count) + (uint32_t)(table_extent_count)) * (uint32_t)sizeof(struct rt_rvz_extent))
 
-/* The decoder's workspace: its tables and a 4 KiB literal buffer
- * (rt_zstd.c); rt_zstd_init fails when it is too small. */
-#define RT_RVZ_DCTX_BYTES 0xC000u
+/* Shared with the GameCube reader and checked against the decoder struct. */
+#include "rtzstd.h"
+#define RT_RVZ_DCTX_BYTES RTZSTD_WORKSPACE_BYTES
 
 /* Zstandard for the runtime (rt_zstd.c). The workspace must be 8-byte
  * aligned; the decoder set up in it is returned, or 0 when it does not

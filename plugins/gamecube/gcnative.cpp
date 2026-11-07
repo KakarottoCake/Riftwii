@@ -27,6 +27,7 @@
 #include "gc_rvz.h"
 #include "gc_video.h"
 #include "gcblobs.h"
+#include "rtzstd.h"
 #include "riftwii/codehook.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/fat32.hpp"
@@ -84,9 +85,8 @@ constexpr std::uint32_t kGcProgramStackBytes = 0x2000;
 // after the RVZ's buffers: 24 MB at most, ending at 0x92D00000, still below
 // IOS. Its last 4 KB are the stack the blob puts MEM1 back on.
 constexpr std::uint32_t kGcRestartStackBytes = 0x1000;
-// The decoder's workspace: its tables and a 4 KiB literal buffer, as for
-// Wii games (runtime/resident/rt_hook.h's RT_RVZ_DCTX_BYTES).
-constexpr std::uint32_t kGcRvzDecoderBytes = 0xC000;
+// Both RVZ readers use the same caller-owned decoder workspace.
+constexpr std::uint32_t kGcRvzDecoderBytes = RTZSTD_WORKSPACE_BYTES;
 // Disc audio read ahead (the ring of runtime/gc's gc_rt_stream): about 0.6 s,
 // four top-ups of GC_STREAM_CHUNK, so several frames without one (the card
 // busy with the game's own reads) do not run it dry.

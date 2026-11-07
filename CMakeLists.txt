@@ -70,6 +70,11 @@ endif()
 # Host tool: the IPC search on a dumped main.dol (tools/ipcscan.cpp).
 add_executable(ipcscan tools/ipcscan.cpp)
 target_link_libraries(ipcscan PRIVATE riftwii)
+# Host timing of the in-game RVZ decoder against the vendored one (both -Os).
+add_executable(rtzstd_bench tools/rtzstd_bench.cpp runtime/rtzstd.c)
+target_include_directories(rtzstd_bench PRIVATE runtime vendor-zstd)
+target_link_libraries(rtzstd_bench PRIVATE zstddec)
+
 # Host tool: an RVZ's verdict and the stub d2x would boot (tools/rvzstub.cpp).
 add_executable(rvzstub tools/rvzstub.cpp)
 target_link_libraries(rvzstub PRIVATE riftwii)
@@ -382,7 +387,7 @@ if(BUILD_TESTING)
         add_test(NAME hidpads_${mode} COMMAND hidpads_tests ${mode}
             "${CMAKE_CURRENT_BINARY_DIR}/hidpads-test-${mode}")
     endforeach()
-    foreach(suite disccache patch overlay apply expand mempatch launch compat fst disc redirect fat32 ntfs titles canvas usbgame wbfspart wfs wfstitle rtfat rtfs dol hook riifs extras gcad hidconfig builtinpads png shot rvz codebuild qrcode report gamefault rtfaultstack vsd vsdblob gxpatches ctgpconfig theme riitag sysfont brfnt vsdparts vsdbuild modart bnr bnrsound themepack d2xversion nandcheck offlinegames casecolour extrasbudget wpadlog gametdb pro vcdiff gcoverlay gccard gccrash gclayout gcload gcclock gcbanner gcrvz gcports gccontrols sharednand nandchannel wadfile contentbin homeorder homeinput profiles namekeys gcvideo gcfont gcreset gcprograms gctgc gcexi gcaram stash plugin gcrequest gcgcad gcdsp gcreal osrestart textlines appmeta homebrewmatch themebrowse gcdisc ghcheats menufont zipstream cardvolume returnstub padleave channelupdate sdhotplug wiisound nandlist ratingmark parental musiclist menumotion streamformat emulatorfile emulatorart emulatorbanner picturepick wiiflowplugin codemods modcover homechord discdump gamepage)
+    foreach(suite disccache patch overlay apply expand mempatch launch compat fst disc redirect fat32 ntfs titles canvas usbgame wbfspart wfs wfstitle rtfat rtfs dol hook riifs extras gcad hidconfig builtinpads png shot rvz codebuild qrcode report gamefault rtfaultstack vsd vsdblob gxpatches ctgpconfig theme riitag sysfont brfnt vsdparts vsdbuild modart bnr bnrsound themepack d2xversion nandcheck offlinegames casecolour extrasbudget wpadlog gametdb pro vcdiff gcoverlay gccard gccrash gclayout gcload gcclock gcbanner gcrvz gcports gccontrols sharednand nandchannel wadfile contentbin homeorder homeinput profiles namekeys gcvideo gcfont gcreset gcprograms gctgc gcexi gcaram stash plugin gcrequest gcgcad gcdsp gcreal osrestart textlines appmeta homebrewmatch themebrowse gcdisc ghcheats menufont zipstream cardvolume returnstub padleave channelupdate sdhotplug wiisound nandlist ratingmark parental musiclist menumotion streamformat emulatorfile emulatorart emulatorbanner picturepick wiiflowplugin codemods modcover homechord discdump gamepage rtzstd)
         add_executable(${suite}_tests tests/${suite}_tests.cpp)
         target_link_libraries(${suite}_tests PRIVATE riftwii)
         if(suite STREQUAL "zipstream")
@@ -399,7 +404,13 @@ if(BUILD_TESTING)
         if(suite STREQUAL "gcgcad")
             target_sources(${suite}_tests PRIVATE runtime/gc/gc_gcad.c)
         endif()
-        if(suite STREQUAL "compat" OR suite STREQUAL "rvz" OR suite STREQUAL "vcdiff" OR suite STREQUAL "stash" OR suite STREQUAL "plugin")
+        if(suite STREQUAL "rtzstd")
+            # RiftWii's in-game decoder against the vendored reference one.
+            target_sources(${suite}_tests PRIVATE tests/rtzstd_probe.c)
+            target_include_directories(${suite}_tests PRIVATE runtime vendor-zstd)
+            target_link_libraries(${suite}_tests PRIVATE zstddec)
+            add_test(NAME ${suite} COMMAND ${suite}_tests "${CMAKE_SOURCE_DIR}/tests/fixtures")
+        elseif(suite STREQUAL "compat" OR suite STREQUAL "rvz" OR suite STREQUAL "vcdiff" OR suite STREQUAL "stash" OR suite STREQUAL "plugin")
             add_test(NAME ${suite} COMMAND ${suite}_tests "${CMAKE_SOURCE_DIR}/tests/fixtures")
         elseif(suite STREQUAL "menufont" OR suite STREQUAL "gccrash" OR suite STREQUAL "ratingmark" OR suite STREQUAL "codebuild")
             # The committed fonts/translations, the GameCube flag definitions,
