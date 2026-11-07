@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/fst.hpp"
 #include "rt_hook.h"
 #include "rtable.h"
@@ -357,9 +358,18 @@ bool build_payload(const PayloadPieces& pieces_in, std::uint32_t payload_address
             p.entry.source = r.in_place;  // the game's own copy; nothing to lay out
         } else {
             p.bytes = &r.bytes;
-            data_bytes += align32(r.bytes.size());
+            const std::size_t aligned_bytes = align32(r.bytes.size());
+            if (aligned_bytes < r.bytes.size() || aligned_bytes > kMaxCheckedBytes ||
+                data_bytes > kMaxCheckedBytes - aligned_bytes) {
+                error = "replacement payload is too large";
+                return false;
+            }
+            data_bytes += aligned_bytes;
         }
-        pieces.push_back(p);
+        if (!try_push_back(pieces, p)) {
+            error = "no memory for the replacement entries";
+            return false;
+        }
     }
     for (const SdReplacement& r : sd) {
         std::uint64_t at = r.virtual_offset;
@@ -380,7 +390,14 @@ bool build_payload(const PayloadPieces& pieces_in, std::uint32_t payload_address
             p.entry.skip = static_cast<std::uint16_t>(run.skip);
             p.entry.kind = run.kind;
             p.entry.reserved = 0;
-            pieces.push_back(p);
+            if (!try_push_back(pieces, p)) {
+                error = "no memory for the replacement entries";
+                return false;
+            }
+            if (at > UINT64_MAX - run.length) {
+                error = "an SD replacement wraps the virtual partition";
+                return false;
+            }
             at += run.length;
         }
     }
@@ -400,7 +417,10 @@ bool build_payload(const PayloadPieces& pieces_in, std::uint32_t payload_address
         p.entry.skip = 0;
         p.entry.kind = RT_KIND_DISC;
         p.entry.reserved = 0;
-        pieces.push_back(p);
+        if (!try_push_back(pieces, p)) {
+            error = "no memory for the replacement entries";
+            return false;
+        }
     }
     for (const rt_entry& e : pieces_in.entries) {
         if (e.kind != RT_KIND_SD && e.kind != RT_KIND_USB && e.kind != RT_KIND_DISC && e.kind != RT_KIND_ZERO) {
@@ -414,23 +434,46 @@ bool build_payload(const PayloadPieces& pieces_in, std::uint32_t payload_address
         Piece p;
         p.entry = e;
         p.entry.reserved = 0;
-        pieces.push_back(p);
+        if (!try_push_back(pieces, p)) {
+            error = "no memory for the replacement entries";
+            return false;
+        }
     }
     std::sort(pieces.begin(), pieces.end(),
               [](const Piece& a, const Piece& b) { return a.entry.vstart < b.entry.vstart; });
-    const std::size_t table_bytes = align32(rt_table_bytes(static_cast<std::uint32_t>(pieces.size())));
-    if (table_bytes + data_bytes > 0x40000000u) {
-        error = "replacement payload is too large";
+    if (pieces.size() > UINT32_MAX) {
+        error = "too many replacement entries";
         return false;
     }
-    payload.assign(table_bytes + data_bytes, 0);
+    std::vector<rt_entry> entries;
+    if (!try_resize(entries, pieces.size())) {
+        error = "no memory for the replacement entries";
+        return false;
+    }
+    for (std::size_t k = 0; k < pieces.size(); ++k) entries[k] = pieces[k].entry;
     rt_header header{};
     header.magic = RT_MAGIC;
     header.version = RT_VERSION;
-    header.entry_count = static_cast<std::uint32_t>(pieces.size());
+    header.entry_count = static_cast<std::uint32_t>(entries.size());
     header.sdio_fd = sdio_fd;
     header.tag = tag;
-    std::vector<rt_entry> entries(pieces.size());
+    header.entry_bytes = rt_entry_format(entries.data(), header.entry_count);
+    const std::size_t wide_bytes = rt_table_bytes(header.entry_count, RT_ENTRY_WIDE);
+    if (wide_bytes == 0 || wide_bytes > 0x40000000u || data_bytes > 0x40000000u - wide_bytes) {
+        error = "replacement payload is too large";
+        return false;
+    }
+    // Owned memory sources are assigned after the table. Use the wide size
+    // as a safe upper bound before deciding the stride, so rebasing cannot
+    // silently truncate a source or move the payload's data over its table.
+    if (data_bytes != 0 && std::uint64_t(payload_address) + wide_bytes + data_bytes > UINT32_MAX) {
+        header.entry_bytes = RT_ENTRY_WIDE;
+    }
+    const std::size_t table_bytes = align32(rt_table_bytes(header.entry_count, header.entry_bytes));
+    if (!try_assign(payload, table_bytes + data_bytes, std::uint8_t(0))) {
+        error = "no memory for the replacement payload";
+        return false;
+    }
     std::uint64_t previous_end = 0;
     std::size_t data_offset = table_bytes;
     for (std::size_t k = 0; k < pieces.size(); ++k) {
@@ -439,18 +482,21 @@ bool build_payload(const PayloadPieces& pieces_in, std::uint32_t payload_address
             error = "replacements overlap in the virtual partition";
             return false;
         }
+        if (p.entry.vstart > UINT64_MAX - p.entry.length) {
+            error = "a replacement wraps the virtual partition";
+            return false;
+        }
         previous_end = p.entry.vstart + p.entry.length;
-        entries[k] = p.entry;
         if (p.bytes) {
             entries[k].source = static_cast<std::uint64_t>(payload_address) + data_offset;
             std::memcpy(payload.data() + data_offset, p.bytes->data(), p.bytes->size());
             data_offset += align32(p.bytes->size());
         }
     }
-    header.entries_crc = rt_crc32(entries.data(), entries.size() * sizeof(rt_entry));
     std::memcpy(payload.data(), &header, sizeof(header));
-    std::memcpy(payload.data() + sizeof(header), entries.data(), entries.size() * sizeof(rt_entry));
-    const int status = rt_validate(reinterpret_cast<const rt_header*>(payload.data()), table_bytes);
+    auto* table = reinterpret_cast<rt_header*>(payload.data());
+    const int encoded = rt_encode_entries(table, entries.data());
+    const int status = encoded == RT_OK ? rt_validate(table, table_bytes) : encoded;
     if (status != RT_OK) {
         error = "built table failed validation: " + std::to_string(status);
         return false;

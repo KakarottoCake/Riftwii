@@ -24,6 +24,9 @@
 namespace riftwii::wii {
 namespace {
 
+static_assert(sizeof(rt_compact_entry) == RT_ENTRY_COMPACT, "Compact redirect entries must be 16 bytes.");
+static_assert(sizeof(rt_entry) == RT_ENTRY_WIDE, "Wide redirect entries must be 24 bytes.");
+static_assert(sizeof(rt_header) == 32, "The redirect table header must be 32 bytes.");
 static_assert(kResidentContextBytes == RT_CONTEXT_BYTES, "The loader and runtime context slots must match.");
 
 // The MEM1 arena end the SDK's OSInit takes, in this order of preference
@@ -385,7 +388,12 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         return false;
     }
     const std::uint32_t payload_address = place.data_base + (code_in_mem2 ? blob.size : 0);
+    const std::size_t planned_payload_bytes = payload.size();
     if (has_table && !build_payload(pieces, payload_address, options.table_tag, sdio_fd, payload, error)) {
+        return false;
+    }
+    if (payload.size() != planned_payload_bytes) {
+        error = "the redirect payload changed size after its memory was reserved";
         return false;
     }
     const std::uint32_t bounce_address = payload_address + static_cast<std::uint32_t>(payload.size());

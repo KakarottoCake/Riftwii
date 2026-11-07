@@ -2648,7 +2648,8 @@ static void TestResidentHandler() {
     EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
     EXPECT_EQ(ctx.gecko_failures, 0u);
     EXPECT_TRUE(sizeof(rt_context) <= riftwii::kResidentContextBytes);  // the slot rt_entry.S reserves
-    EXPECT_EQ(sizeof(rt_entry), 24u);  // the table format (RT_VERSION 2) on every target
+    EXPECT_EQ(sizeof(rt_entry), 24u);
+    EXPECT_EQ(sizeof(rt_compact_entry), 16u);  // RT_VERSION 3 on every target
     EXPECT_EQ(rt_checksum(reinterpret_cast<const std::uint8_t*>("ab"), 2), 97u * 31u + 98u);
 }
 
@@ -2816,10 +2817,10 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     const auto* header = reinterpret_cast<const rt_header*>(payload.data());
     EXPECT_EQ(header->entry_count, 3u);
     EXPECT_EQ(header->sdio_fd, 9u);
-    EXPECT_EQ(rt_entries(header)[0].kind, static_cast<std::uint32_t>(RT_KIND_SD));
-    EXPECT_EQ(rt_entries(header)[0].skip, 100ull);
-    EXPECT_EQ(rt_entries(header)[1].vstart, 0x20000ull + 924);
-    EXPECT_EQ(rt_entries(header)[2].kind, static_cast<std::uint32_t>(RT_KIND_MEM));
+    EXPECT_EQ(rt_read_entry(header, 0).kind, static_cast<std::uint32_t>(RT_KIND_SD));
+    EXPECT_EQ(rt_read_entry(header, 0).skip, 100ull);
+    EXPECT_EQ(rt_read_entry(header, 1).vstart, 0x20000ull + 924);
+    EXPECT_EQ(rt_read_entry(header, 2).kind, static_cast<std::uint32_t>(RT_KIND_MEM));
     std::memcpy(low_table, payload.data(), payload.size());
 
     // The records hand IOS 32-bit addresses of their own request, vector
@@ -3158,9 +3159,9 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     riftwii::PayloadPieces usb_pieces = Pieces({m}, {usbr}, {});
     EXPECT_TRUE(usb_pieces.needs_usb());
     EXPECT_TRUE(riftwii::build_payload(usb_pieces, table_address, 0, 9, usb_payload, error));
-    EXPECT_EQ(rt_entries(reinterpret_cast<const rt_header*>(usb_payload.data()))[0].kind,
+    EXPECT_EQ(rt_read_entry(reinterpret_cast<const rt_header*>(usb_payload.data()), 0).kind,
               static_cast<std::uint32_t>(RT_KIND_USB));
-    EXPECT_EQ(rt_entries(reinterpret_cast<const rt_header*>(usb_payload.data()))[0].skip, 100ull);
+    EXPECT_EQ(rt_read_entry(reinterpret_cast<const rt_header*>(usb_payload.data()), 0).skip, 100ull);
     std::memcpy(low_table, usb_payload.data(), usb_payload.size());
     ctx.usb_fd = 11;
     const std::uint32_t requests_before = ctx.sd_requests;
@@ -3338,6 +3339,76 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     rt_host_ioctl_async = nullptr;
 }
 
+static void TestPayloadTableFormats() {
+    riftwii::PayloadPieces pieces;
+    riftwii::MemReplacement memory;
+    memory.virtual_offset = 1;
+    memory.bytes = {1, 2, 3, 4};
+    pieces.mem.push_back(memory);
+    rt_entry ready{};
+    ready.vstart = 0x100000001ull;
+    ready.source = UINT32_MAX;
+    ready.kind = RT_KIND_USB;
+    ready.length = 10;
+    ready.skip = 511;
+    pieces.entries.push_back(ready);
+    std::vector<std::uint8_t> payload;
+    std::string error;
+    EXPECT_TRUE(riftwii::build_payload(pieces, 0x90000000, 42, 9, payload, error));
+    const auto* table = reinterpret_cast<const rt_header*>(payload.data());
+    EXPECT_EQ(table->entry_bytes, RT_ENTRY_COMPACT);
+    EXPECT_EQ(rt_validate(table, payload.size()), RT_OK);
+    const std::size_t compact_bytes = rt_table_bytes(2, RT_ENTRY_COMPACT);
+    EXPECT_EQ(payload.size(), compact_bytes + 32);
+    EXPECT_EQ(rt_read_entry(table, 0).source, 0x90000000ull + compact_bytes);
+    EXPECT_EQ(rt_read_entry(table, 1).vstart, ready.vstart);
+    EXPECT_EQ(rt_read_entry(table, 1).source, ready.source);
+
+    // A single wide source switches the table's stride before owned bytes
+    // are assigned addresses. Rebase the same payload as the installer does.
+    pieces.entries[0].source = 0x100000000ull;
+    pieces.entries[0].kind = RT_KIND_DISC;
+    pieces.entries[0].skip = 0;
+    std::size_t planned_bytes = 0;
+    for (std::uint32_t address : {0u, 0x90000000u}) {
+        EXPECT_TRUE(riftwii::build_payload(pieces, address, 42, 9, payload, error));
+        table = reinterpret_cast<const rt_header*>(payload.data());
+        EXPECT_EQ(table->entry_bytes, RT_ENTRY_WIDE);
+        EXPECT_EQ(rt_validate(table, payload.size()), RT_OK);
+        const std::size_t wide_bytes = (rt_table_bytes(2, RT_ENTRY_WIDE) + 31) & ~std::size_t(31);
+        EXPECT_EQ(rt_read_entry(table, 0).source, std::uint64_t(address) + wide_bytes);
+        EXPECT_EQ(rt_read_entry(table, 1).source, 0x100000000ull);
+        EXPECT_EQ(payload[wide_bytes], 1u);
+        if (address == 0) planned_bytes = payload.size();
+        EXPECT_EQ(payload.size(), planned_bytes);
+    }
+    pieces.entries[0].source = 100;
+    pieces.entries[0].vstart = 0x400000000ull;
+    EXPECT_TRUE(riftwii::build_payload(pieces, 0x90000000, 0, 0, payload, error));
+    table = reinterpret_cast<const rt_header*>(payload.data());
+    EXPECT_EQ(table->entry_bytes, RT_ENTRY_WIDE);
+    EXPECT_EQ(rt_read_entry(table, 1).vstart, 0x400000000ull);
+    EXPECT_EQ(rt_validate(table, payload.size()), RT_OK);
+
+    // Byte-length additions must fail before wrapping a virtual address.
+    pieces.entries[0].vstart = UINT64_MAX - 4;
+    EXPECT_FALSE(riftwii::build_payload(pieces, 0, 0, 0, payload, error));
+    riftwii::SdReplacement sectors;
+    sectors.virtual_offset = UINT64_MAX - 4;
+    sectors.runs = {{RT_KIND_SD, 10, 20, 0}};
+    pieces = {};
+    pieces.sd.push_back(sectors);
+    EXPECT_FALSE(riftwii::build_payload(pieces, 0, 0, 0, payload, error));
+
+    // Even an artificial payload above the Wii address window preserves
+    // the full source instead of truncating its high word.
+    EXPECT_TRUE(riftwii::build_mem_payload({memory}, UINT32_MAX - 15, 0, payload, error));
+    table = reinterpret_cast<const rt_header*>(payload.data());
+    EXPECT_EQ(table->entry_bytes, RT_ENTRY_WIDE);
+    EXPECT_EQ(rt_read_entry(table, 0).source, std::uint64_t(UINT32_MAX - 15) + 64);
+    EXPECT_EQ(rt_validate(table, payload.size()), RT_OK);
+}
+
 static void TestPayloadAndRedirect() {
     // Two replacements, given out of order; the table must come out sorted.
     riftwii::MemReplacement a, b;
@@ -3352,14 +3423,14 @@ static void TestPayloadAndRedirect() {
     EXPECT_EQ(header->entry_count, 2u);
     EXPECT_EQ(header->tag, 7ull);
     EXPECT_EQ(rt_validate(header, payload.size()), RT_OK);
-    const rt_entry* entries = rt_entries(header);
+    const rt_entry entries[] = {rt_read_entry(header, 0), rt_read_entry(header, 1)};
     EXPECT_EQ(entries[0].vstart, 0x1000ull);
     EXPECT_EQ(entries[0].length, 5ull);
     EXPECT_EQ(entries[0].kind, static_cast<std::uint32_t>(RT_KIND_MEM));
     EXPECT_EQ(entries[1].vstart, 0x5F0FDBF0ull);
     EXPECT_EQ(entries[1].length, 3610ull);
     // Sources point into the payload at 32-byte aligned data.
-    const std::size_t table_bytes = (rt_table_bytes(2) + 31) & ~std::size_t(31);
+    const std::size_t table_bytes = (rt_table_bytes(2, RT_ENTRY_COMPACT) + 31) & ~std::size_t(31);
     EXPECT_EQ(entries[0].source, 0x935D2000ull + table_bytes);
     EXPECT_EQ(entries[1].source, 0x935D2000ull + table_bytes + 32);
     EXPECT_EQ(payload[table_bytes], 1);
@@ -3373,9 +3444,9 @@ static void TestPayloadAndRedirect() {
     EXPECT_TRUE(riftwii::build_mem_payload({fst, b}, 0x935D2000, 7, payload, error));
     header = reinterpret_cast<const rt_header*>(payload.data());
     EXPECT_EQ(rt_validate(header, payload.size()), RT_OK);
-    EXPECT_EQ(rt_entries(header)[0].source, 0x935D2000ull + table_bytes);
-    EXPECT_EQ(rt_entries(header)[1].source, 0x817CC740ull);
-    EXPECT_EQ(rt_entries(header)[1].length, 3610ull);
+    EXPECT_EQ(rt_read_entry(header, 0).source, 0x935D2000ull + table_bytes);
+    EXPECT_EQ(rt_read_entry(header, 1).source, 0x817CC740ull);
+    EXPECT_EQ(rt_read_entry(header, 1).length, 3610ull);
     EXPECT_EQ(payload.size(), table_bytes + 32);
 
     // Ready-made entries (the XML compiler's output) merge with the rest;
@@ -3399,10 +3470,10 @@ static void TestPayloadAndRedirect() {
     header = reinterpret_cast<const rt_header*>(payload.data());
     EXPECT_EQ(header->entry_count, 3u);
     EXPECT_EQ(header->sdio_fd, 4u);
-    EXPECT_EQ(rt_entries(header)[0].kind, static_cast<std::uint32_t>(RT_KIND_MEM));
-    EXPECT_EQ(rt_entries(header)[1].kind, static_cast<std::uint32_t>(RT_KIND_SD));
-    EXPECT_EQ(rt_entries(header)[1].skip, 5ull);
-    EXPECT_EQ(rt_entries(header)[2].kind, static_cast<std::uint32_t>(RT_KIND_DISC));
+    EXPECT_EQ(rt_read_entry(header, 0).kind, static_cast<std::uint32_t>(RT_KIND_MEM));
+    EXPECT_EQ(rt_read_entry(header, 1).kind, static_cast<std::uint32_t>(RT_KIND_SD));
+    EXPECT_EQ(rt_read_entry(header, 1).skip, 5ull);
+    EXPECT_EQ(rt_read_entry(header, 2).kind, static_cast<std::uint32_t>(RT_KIND_DISC));
     ready.kind = RT_KIND_MEM;
     mixed.entries.push_back(ready);
     EXPECT_FALSE(riftwii::build_payload(mixed, 0x935D2000, 1, 4, payload, error));
@@ -4233,6 +4304,7 @@ int main() {
     TestFsClone();
     TestResidentHandler();
     TestRetailBca();
+    TestPayloadTableFormats();
     TestPayloadAndRedirect();
     TestVirtualWindow();
     TestWindowedRead();

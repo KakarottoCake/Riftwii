@@ -23,7 +23,7 @@ extern "C" {
 #endif
 
 #define RT_MAGIC 0x52575254u /* 'RWRT' */
-#define RT_VERSION 2u
+#define RT_VERSION 3u
 #define RT_SECTOR_BYTES 512u
 
 enum rt_kind {
@@ -35,9 +35,9 @@ enum rt_kind {
     RT_KIND_USB = 5          /* bytes live on the USB drive (d2x's /dev/usb2): sector `source`, byte `skip` */
 };
 
-/* 24 bytes: the table lives in the game's MEM2 arena, one entry per
- * replaced or created file piece, so every byte here is taken from the
- * game's heaps thousands of times over. A disc file is under 4 GiB (the
+/* Wide entry and loader-side working representation, 24 bytes. The table
+ * lives in the game's MEM2 arena, one entry per replaced or created file
+ * piece, so every byte here is taken from the game's heaps thousands of times. A disc file is under 4 GiB (the
  * FST's sizes are 32-bit), so one entry's length fits 32 bits. */
 typedef struct rt_entry {
     uint64_t vstart;   /* first virtual byte covered */
@@ -48,15 +48,38 @@ typedef struct rt_entry {
     uint8_t reserved;  /* zero */
 } rt_entry;
 
+/* The common layout is 16 bytes. Word addressing covers exclusive virtual
+ * ends below 16 GiB; the remaining two end bits preserve byte patches.
+ * SD/USB sources are sectors, so 32 source bits cover up to 2 TiB. Any
+ * source or virtual end outside this layout selects wide entries for the
+ * whole table. A single stride keeps binary search and sequential reads simple. */
+typedef struct rt_compact_entry {
+    uint32_t vend_words;
+    uint32_t source;
+    uint32_t length;
+    uint16_t skip;
+    uint8_t kind;
+    uint8_t vend_low;   /* 0..3; exclusive virtual end */
+} rt_compact_entry;
+
+#define RT_ENTRY_COMPACT 16u
+#define RT_ENTRY_WIDE 24u
+#define RT_INDEX_BUCKETS 64u
+#define RT_INDEX_MIN_ENTRIES 64u
+
 typedef struct rt_header {
     uint32_t magic;       /* RT_MAGIC */
     uint32_t version;     /* RT_VERSION */
     uint32_t entry_count;
     uint32_t sdio_fd;     /* IOS fd of /dev/sdio/slot0 the loader opened, or 0xFFFFFFFF */
     uint64_t tag;         /* loader-chosen identity (disc id / partition) */
-    uint32_t entries_crc; /* rt_crc32 over entry_count * sizeof(rt_entry) bytes */
-    uint32_t reserved;    /* zero */
-    /* rt_entry entries[entry_count] follow immediately. */
+    uint32_t entries_crc; /* rt_crc32 over encoded entries and search index */
+    uint32_t entry_bytes; /* RT_ENTRY_COMPACT or RT_ENTRY_WIDE */
+    /* entry_count encoded entries follow immediately. Tables with at least
+     * RT_INDEX_MIN_ENTRIES then carry RT_INDEX_BUCKETS + 1 indices. These
+     * are lower bounds in equal-width buckets of exclusive ends (words for
+     * compact, bytes for wide). The first end is the base, and the bucket
+     * width is derived from the end span. The CRC includes the index. */
 } rt_header;
 
 /* One piece of a request after splitting against the table. */
@@ -83,11 +106,20 @@ enum rt_status {
 /* Reflected CRC-32 (IEEE 802.3), computed bitwise so no table is needed. */
 uint32_t rt_crc32(const void* data, size_t length);
 
-/* Bytes occupied by a header plus `entry_count` entries. */
-size_t rt_table_bytes(uint32_t entry_count);
+/* Bytes occupied by a header, entries and any search index. Returns zero
+ * when the format is invalid or the byte count overflows. */
+size_t rt_table_bytes(uint32_t entry_count, uint32_t entry_bytes);
 
-/* Pointer to the first entry (immediately after the header). */
-const rt_entry* rt_entries(const rt_header* table);
+/* Choose a single lossless layout for these loader-side entries. */
+uint32_t rt_entry_format(const rt_entry* entries, uint32_t entry_count);
+
+/* Encode entries using the initialized header's layout and update its CRC.
+ * The caller has reserved rt_table_bytes() bytes. Source and destination
+ * must not overlap. Structural validation is a separate final step. */
+int rt_encode_entries(rt_header* table, const rt_entry* entries);
+
+/* Decode one entry of a validated table; index must be below entry_count. */
+rt_entry rt_read_entry(const rt_header* table, uint32_t index);
 
 /* Full structural check; call once before trusting a table. */
 int rt_validate(const rt_header* table, size_t available_bytes);
