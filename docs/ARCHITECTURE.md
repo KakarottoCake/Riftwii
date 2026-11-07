@@ -112,6 +112,20 @@ burn-in reduction leaves the screen lit; for the adapter's pads the
 blob calls the same reset (found by the call near PADRead) on each
 button or stick change.
 
+The blob comes in three builds of the same driver: the full one;
+`GCAD_ADAPTER_ONLY`, without the other USB pads' code, when the adapter
+is the only USB controller the game can use; and `GCAD_PADS_ONLY`,
+without the adapter's code and the Switch Pro Controller's and
+DualShock 3's start-ups, for a code build started with USB pads but none
+of those three. Its state is laid out by `gcad_layout_for`: the adapter
+(the device list's owner, only as long as its USB version's list), the
+Xbox 360 list when an Xbox 360 pad is in play, the pad links packed
+without the list's bookkeeping, and the mappings. A code build gets a
+link and a mapping for each USB pad plugged in when it starts, and no
+others (#496: these builds use all of the game's memory); other games
+keep four links and every mapping the menu loaded, so a pad can be
+plugged in mid-game.
+
 The same blob gives Wii games the GameCube games' way back: L, R, Z and
 Start held two seconds on a GameCube controller (the adapter's or the
 console's own ports) leave through the game's own `OSReturnToMenu`, the

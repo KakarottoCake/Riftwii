@@ -165,7 +165,7 @@ The build compiles every folder into one, so no two files share a name.
 | `packcatalog.cpp` | The pack text and code mod list shared by Home's scan and each game's page |
 | `modtiles.cpp` | A game's extra Home tiles with mods of their own (profiles): their list and choices on the card |
 | `gameextras.cpp` | The game page's extras: cheats, video, language, online server, code builds, what a launch carries |
-| `codemodstart.cpp` | `codemods.txt` read and written for the menu: how each code build starts (with or without RiftWii's extras), asked once and remembered |
+| `codemodstart.cpp` | `codemods.txt` read and written for the menu: each code build's Extras (with, without, or ask every launch) and Crash logs |
 | `screenshot.cpp` | Menu screenshots and importing the games' ones |
 | `covers.cpp` | Cover art: download, cache, textures |
 | `madecover.cpp` | Made-up covers for games without one: the blank cover with the name printed on it |
@@ -395,7 +395,7 @@ reader helpers stay beside their source.
 | `profiles` | `profiles.txt`: a game's extra Home tiles with their own mods; their names, keys and limits |
 | `namekeys` | The Shift of the keyboard a tile's name is typed on: what each key types with Shift off, on by itself (capitals) or pressed (capitals and symbols), and how Shift follows the name |
 | `homeorder` | `order.txt`: Home's own order (Settings > Home order: Your order) |
-| `codemods` | `codemods.txt`: how each code build starts, per game and mod, and the rule for several code builds on together |
+| `codemods` | `codemods.txt`: each code build's Extras and Crash logs, per game and mod, the rule for several code builds on together, and older builds reading the crash logs' lines |
 | `gametdb` | GameTDB's `wiitdb.xml` read a game at a time, the game details cache, wrapping their text |
 | `cardlog` | The runtime's SD card log, as text |
 | `shotfile` | Screenshot file headers and conversion |

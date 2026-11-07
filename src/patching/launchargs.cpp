@@ -275,6 +275,9 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
         } else if (key == "extras") {
             ok = value == "with";
             out.code_build_extras = ok;
+        } else if (key == "crashlogs") {
+            ok = value == "on";
+            out.code_build_crash_logs = ok;
         } else {
             error = "unknown argument '" + key + "'";
             return false;
@@ -335,6 +338,7 @@ std::vector<std::string> headless_launch_arguments(const HeadlessLaunch& h) {
         args.push_back("return_to=" + title);
     }
     if (h.code_build_extras) args.push_back("extras=with");
+    if (h.code_build_crash_logs) args.push_back("crashlogs=on");
     if (h.reset) args.push_back("reset=1");
     return args;
 }

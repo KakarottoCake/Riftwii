@@ -1467,14 +1467,26 @@ msgstr "RiftWii no juega archivos CISO. Conviértelo a ISO o RVZ con Dolphin (cl
 msgid "This code mod can't start"
 msgstr "Este mod de códigos no puede iniciarse"
 
-msgid "How should this code mod start?"
-msgstr "¿Cómo debe iniciarse este mod de códigos?"
+msgid "Start with RiftWii's extras?"
+msgstr "¿Iniciar con los extras de RiftWii?"
 
-msgid "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would."
-msgstr "Cada mod de códigos es distinto. La mayoría, como Project+, funcionan bien con los extras de RiftWii. Si un mod se queda con la pantalla en negro, inícialo sin ellos, como lo haría su propio cargador."
+msgid "Most code mods run with RiftWii's extras. If one stays on a black screen, start it without. Set Extras on the Mods page to stop this question."
+msgstr "La mayoría de los mods de códigos funcionan con los extras de RiftWii. Si uno se queda en negro, inícialo sin ellos. Elige Extras en la página Mods para no ver esta pregunta."
 
-msgid "Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it."
-msgstr "La mayoría de los mods de códigos, como Project+, usan los extras de RiftWii. Si queda en negro, inícialo sin ellos. RiftWii lo recordará para {1}; cámbialo en Mods."
+msgid "Back to RiftWii, game settings"
+msgstr "Volver, ajustes del juego"
+
+msgid "Extras"
+msgstr "Extras"
+
+msgid "Crash logs"
+msgstr "Registro de fallos"
+
+msgid "On: the way back to RiftWii, Reset, this page's game settings, the 480p fix and online play. Off: as the mod's own loader. Ask every launch: this question at every launch."
+msgstr "Sí: volver a RiftWii, Reset, los ajustes del juego de esta página, el arreglo de 480p y el juego en línea. No: como su propio cargador. Preguntar siempre: esta pregunta en cada inicio."
+
+msgid "Off: no crash report. On: saves a crash report to the SD card if {1} crashes, using about 8 KB of the game's memory (some mods freeze with it on)."
+msgstr "No: sin informe de fallos. Sí: guarda un informe en la tarjeta SD si {1} falla, con unos 8 KB de la memoria del juego (algunos mods se congelan con él)."
 
 msgid "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes."
 msgstr "No se pudo escribir sd:/riftwii/codemods.txt: la respuesta durará hasta que cierres RiftWii."
@@ -1482,20 +1494,11 @@ msgstr "No se pudo escribir sd:/riftwii/codemods.txt: la respuesta durará hasta
 msgid "This answer was not kept: sd:/riftwii/codemods.txt can't take it now."
 msgstr "Esta respuesta no se guardó: sd:/riftwii/codemods.txt no puede aceptarla ahora."
 
-msgid "Asked at the first Start"
-msgstr "Se pregunta al primer inicio"
-
-msgid "Ask each time"
-msgstr "Preguntar cada vez"
-
-msgid "For {1} on every page and tile it's switched on in. Ask each time brings the question back at Start."
-msgstr "Para {1} en cada página y casilla donde esté activado. «Preguntar cada vez» vuelve a mostrar la pregunta al iniciar."
+msgid "Ask every launch"
+msgstr "Preguntar siempre"
 
 msgid "With extras"
 msgstr "Con extras"
-
-msgid "Crash reports, back to RiftWii"
-msgstr "Informes de fallos, volver"
 
 msgid "Without extras"
 msgstr "Sin extras"

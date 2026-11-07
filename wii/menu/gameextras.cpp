@@ -304,6 +304,7 @@ std::vector<std::string> RestartArguments(const FrontendState& state, const Laun
     // Code builds started with RiftWii's extras (the menu's answer, #386)
     // come back with them, whatever settings.txt says.
     h.code_build_extras = !extras.code_builds.empty();
+    h.code_build_crash_logs = !extras.code_builds.empty() && extras.code_build_crash_logs;
     const ImageGame* image = nullptr;
     if (state.use_usb && state.usb_index < state.usb_catalog.games.size()) {
         h.from = "usb";
@@ -408,6 +409,12 @@ void PrepareLaunchExtras(const FrontendState& state, const HeadlessLaunch* headl
         const bool setting_off = setting != Settings().other.end() && setting->second == "off";
         const bool reset_with = headless != nullptr && headless->code_build_extras;
         extras.code_build_plain = state.code_build_asked ? state.code_build_plain : !reset_with && setting_off;
+        // Crash logs (#496): the Mods page's switch, a Reset's crashlogs=on,
+        // or settings.txt "code_build_crash_logs = on"; off otherwise.
+        const auto logs_setting = Settings().other.find("code_build_crash_logs");
+        const bool logs_on = logs_setting != Settings().other.end() && logs_setting->second == "on";
+        const bool reset_logs = headless != nullptr && headless->code_build_crash_logs;
+        extras.code_build_crash_logs = state.code_build_asked ? state.code_build_crash_logs : reset_logs || logs_on;
     } else {
         logf("Code builds are off: %s\n", error.c_str());  // the game page checked before Start
     }
