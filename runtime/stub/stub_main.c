@@ -31,7 +31,9 @@
 
 /* Several seconds of polling: IOS answers an open or a refusal in far
  * less. A launch IOS takes has no reply to wait for. */
+#ifndef RTSTUB_IPC_POLLS
 #define RTSTUB_IPC_POLLS 0x04000000u
+#endif
 #define RTSTUB_NO_REPLY (-1000)
 
 struct rtstub_request {
@@ -43,8 +45,9 @@ struct rtstub_request {
 
 /* What IOS reads by DMA: 32-byte aligned, and flushed before each send. */
 static struct rtstub_request rtstub_request_buf __attribute__((aligned(32)));
-static uint32_t rtstub_vectors[4] __attribute__((aligned(32)));
-static uint32_t rtstub_stm_buffers[16] __attribute__((aligned(32)));
+/* Launch vectors and reset buffers have disjoint lifetimes. IOS has
+ * answered every launch refusal before the reset reuses these lines. */
+static uint32_t rtstub_payload[16] __attribute__((aligned(32)));
 static const char rtstub_es_path[] __attribute__((aligned(32))) = "/dev/es";
 static const char rtstub_stm_path[] __attribute__((aligned(32))) = "/dev/stm/immediate";
 
@@ -52,6 +55,9 @@ extern uint32_t rtstub_count;
 extern int32_t rtstub_result;
 extern uint8_t rtstub_titles[];
 
+#ifdef RTSTUB_HOST_TEST
+#include "stub_host.h"
+#else
 static uint32_t rtstub_read32(uint32_t address) { return *(volatile uint32_t*)(uintptr_t)address; }
 static void rtstub_write32(uint32_t address, uint32_t value) { *(volatile uint32_t*)(uintptr_t)address = value; }
 
@@ -70,6 +76,8 @@ static void rtstub_invalidate(const volatile void* p, uint32_t length) {
     for (; a < end; a += 32) __asm__ volatile("dcbi 0,%0" : : "r"(a) : "memory");
     __asm__ volatile("sync" : : : "memory");
 }
+
+#endif
 
 /* A reply IOS has waiting (the address of the request it answers), or 0.
  * Taking it lets IOS send the next. */
@@ -108,56 +116,40 @@ static int32_t rtstub_call(int wait_forever) {
     return rq->result;
 }
 
-static void rtstub_clear_request(uint32_t command, uint32_t fd) {
-    struct rtstub_request* rq = &rtstub_request_buf;
+/* Build the three request shapes here. Keeping the zeroing and IOS
+ * call together avoids a separate copy of them in every caller. */
+static int32_t rtstub_request(uint32_t command, uint32_t fd, const void* data) {
+    struct rtstub_request* request = &rtstub_request_buf;
     uint32_t i;
-    rq->command = command;
-    rq->result = 0;
-    rq->fd = fd;
-    for (i = 0; i < 5; ++i) rq->args[i] = 0;
-}
-
-static int32_t rtstub_open(const char* path) {
-    rtstub_clear_request(RTSTUB_IOS_OPEN, 0);
-    rtstub_request_buf.args[0] = rtstub_physical(path);
-    rtstub_request_buf.args[1] = 0;  /* no access mode: as libogc opens both devices */
-    rtstub_flush(path, 32);
-    return rtstub_call(0);
-}
-
-/* ES_LaunchTitle: the title ID and its ticket view, as the loader left
- * them in the title's slot. Returns only when IOS refused. */
-static int32_t rtstub_launch(uint32_t es, const uint8_t* slot) {
-    const uint8_t* title = slot;
-    const uint8_t* view = slot + RTSTUB_TITLE_VIEW;
-    rtstub_vectors[0] = rtstub_physical(title);
-    rtstub_vectors[1] = 8;
-    rtstub_vectors[2] = rtstub_physical(view);
-    rtstub_vectors[3] = RTSTUB_VIEW_BYTES;
-    rtstub_flush(slot, RTSTUB_TITLE_BYTES);
-    rtstub_flush(rtstub_vectors, sizeof(rtstub_vectors));
-    rtstub_clear_request(RTSTUB_IOS_IOCTLV, es);
-    rtstub_request_buf.args[0] = RTSTUB_ES_LAUNCHTITLE;
-    rtstub_request_buf.args[1] = 2;  /* in: the title ID and the view */
-    rtstub_request_buf.args[2] = 0;
-    rtstub_request_buf.args[3] = rtstub_physical(rtstub_vectors);
+    uint32_t* words = (uint32_t*)(void*)request;
+    for (i = 0; i < sizeof(*request) / 4u; ++i) words[i] = 0;
+    request->command = command;
+    request->fd = fd;
+    if (command == RTSTUB_IOS_OPEN) {
+        request->args[0] = rtstub_physical(data);
+        rtstub_flush(data, 32u);
+        return rtstub_call(0);
+    } else if (command == RTSTUB_IOS_IOCTLV) {
+        const uint8_t* slot = data;
+        rtstub_payload[0] = rtstub_physical(slot);
+        rtstub_payload[1] = 8u;
+        rtstub_payload[2] = rtstub_physical(slot + RTSTUB_TITLE_VIEW);
+        rtstub_payload[3] = RTSTUB_VIEW_BYTES;
+        rtstub_flush(slot, RTSTUB_TITLE_BYTES);
+        request->args[0] = RTSTUB_ES_LAUNCHTITLE;
+        request->args[1] = 2u;
+        request->args[3] = rtstub_physical(rtstub_payload);
+    } else {
+        for (i = 0; i < 16u; ++i) rtstub_payload[i] = 0;
+        request->args[0] = RTSTUB_STM_HOTRESET;
+        request->args[1] = rtstub_physical(rtstub_payload);
+        request->args[2] = 32u;
+        request->args[3] = rtstub_physical(rtstub_payload + 8);
+        request->args[4] = 32u;
+    }
+    const uint32_t payload_bytes = command == RTSTUB_IOS_IOCTLV ? 16u : sizeof(rtstub_payload);
+    rtstub_flush(rtstub_payload, payload_bytes);
     return rtstub_call(1);
-}
-
-/* The Wii Menu by a restart, as libogc's exit does without a stub. */
-static void rtstub_restart_to_menu(void) {
-    const int32_t stm = rtstub_open(rtstub_stm_path);
-    uint32_t i;
-    if (stm < 0) return;
-    for (i = 0; i < 16; ++i) rtstub_stm_buffers[i] = 0;
-    rtstub_flush(rtstub_stm_buffers, sizeof(rtstub_stm_buffers));
-    rtstub_clear_request(RTSTUB_IOS_IOCTL, (uint32_t)stm);
-    rtstub_request_buf.args[0] = RTSTUB_STM_HOTRESET;
-    rtstub_request_buf.args[1] = rtstub_physical(&rtstub_stm_buffers[0]);
-    rtstub_request_buf.args[2] = 0x20;
-    rtstub_request_buf.args[3] = rtstub_physical(&rtstub_stm_buffers[8]);
-    rtstub_request_buf.args[4] = 0x20;
-    rtstub_call(1);
 }
 
 void rtstub_main(void) {
@@ -166,14 +158,17 @@ void rtstub_main(void) {
     /* Replies the app left unread would hold up every request: take them. */
     for (i = 0; i < 64 && rtstub_take_reply() != 0; ++i) {
     }
-    es = rtstub_open(rtstub_es_path);
+    es = rtstub_request(RTSTUB_IOS_OPEN, 0, rtstub_es_path);
     rtstub_result = es;
     if (es >= 0) {
         const uint32_t count = rtstub_count < RTSTUB_MAX_TITLES ? rtstub_count : RTSTUB_MAX_TITLES;
         for (i = 0; i < count; ++i) {
-            rtstub_result = rtstub_launch((uint32_t)es, rtstub_titles + i * RTSTUB_TITLE_BYTES);
+            rtstub_result = rtstub_request(RTSTUB_IOS_IOCTLV, (uint32_t)es, rtstub_titles + i * RTSTUB_TITLE_BYTES);
         }
     }
     rtstub_flush(&rtstub_result, sizeof(rtstub_result));
-    rtstub_restart_to_menu();
+    {
+        const int32_t stm = rtstub_request(RTSTUB_IOS_OPEN, 0, rtstub_stm_path);
+        if (stm >= 0) rtstub_request(RTSTUB_IOS_IOCTL, (uint32_t)stm, 0);
+    }
 }

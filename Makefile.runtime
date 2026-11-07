@@ -159,6 +159,9 @@ LTO_ELFS := $(OUT)/riftwii_rt.elf $(OUT)/riftwii_rt_alt.elf \
 # Do not inherit link flags into assembly or the non-LTO GC decoder.
 $(LTO_OBJS) $(LTO_ELFS): private CFLAGS += -flto=auto
 $(RVZOUT)/rt_zstd.o: private ZSTDFLAGS += -flto=auto
+# Measure the linked crash recorder, including LTO's final frames. The
+# stack audit uses these .su files rather than host pointer sizes.
+$(FAULTOBJS) $(FAULTOUT)/riftwii_fault.elf $(FAULTOUT)/riftwii_fault_alt.elf: private CFLAGS += -fstack-usage
 $(LTO_OBJS) $(LTO_ELFS): Makefile.runtime
 
 .PHONY: all clean
@@ -405,10 +408,11 @@ $(FAULTOUT)/riftwii_fault_alt.elf: $(FAULTOBJS) $(FAULTSRC)/fault.ld
 	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(FAULTSRC)/fault.ld \
 		-Wl,--defsym,RT_BASE=0x12340000 -o $@ $(FAULTOBJS) -lgcc
 
-$(FAULTBLOB): $(FAULTOUT)/riftwii_fault.elf $(FAULTOUT)/riftwii_fault_alt.elf
+$(FAULTBLOB): $(FAULTOUT)/riftwii_fault.elf $(FAULTOUT)/riftwii_fault_alt.elf tools/check_fault_stack.py
 	$(OBJCOPY) -O binary $(FAULTOUT)/riftwii_fault.elf $@
 	$(OBJCOPY) -O binary $(FAULTOUT)/riftwii_fault_alt.elf $(FAULTOUT)/riftwii_fault_alt.bin
 	@cmp $@ $(FAULTOUT)/riftwii_fault_alt.bin || { echo "runtime: fault blob differs between link bases; not position independent"; rm -f $@; exit 1; }
+	@$(PYTHON) tools/check_fault_stack.py $(FAULTOUT)/riftwii_fault.elf $(PREFIX)objdump $(FAULTSRC)/fault_hook.h
 	@echo "fault blob: $$(stat -c %s $@) bytes"
 
 $(WLOGOUT):

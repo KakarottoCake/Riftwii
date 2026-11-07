@@ -98,11 +98,10 @@ struct rt_shot_context {
 };
 
 struct rt_shot_watch {
-    uint32_t in_use;
     uint32_t callback;         /* the game's */
     uint32_t user;
     uint32_t data;             /* the transfer's buffer */
-    uint32_t length;
+    uint32_t length;           /* zero when the watch is free */
 };
 
 /* In MEM2. The buffers IOS reads each start a 32-byte line. */
@@ -120,10 +119,16 @@ struct rt_shot_state {
     uint32_t created;          /* the part file exists */
     uint32_t renamed;          /* it became the .raw */
     uint32_t deleted;          /* it was removed after a failure */
-    char path[64] __attribute__((aligned(32)));
-    char names[128] __attribute__((aligned(32)));  /* Rename: the part file, then the final name */
-    char device[32] __attribute__((aligned(32)));
-    uint8_t attr[96] __attribute__((aligned(32)));
+    /* Only one NAND request is live. Creation and probing need a path
+     * and attributes; rename needs two paths. Neither overlaps the header
+     * that must survive until the first write. */
+    union {
+        struct {
+            char path[64];
+            uint8_t attr[96];
+        } create;
+        char names[128];
+    } io __attribute__((aligned(32)));
     uint8_t header[RTSHOT_HEADER_BYTES] __attribute__((aligned(32)));  /* direct mode */
 };
 
