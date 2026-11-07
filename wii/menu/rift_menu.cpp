@@ -2834,6 +2834,13 @@ public:
 		Menu_DrawImgPart(left + end, top, w - 2 * end, h, tw, th, tex.data, u, 0, 1 - u, 1, 255);
 		Menu_DrawImgPart(left + w - end, top, end, h, tw, th, tex.data, 1 - u, 0, 1, 1, 255);
 	}
+	// A box of its own size: its face from `top`, `faceHeight` high (the
+	// corners, title band and bottom band drawn as they are).
+	void SetFace(int top, int faceHeight)
+	{
+		y = top;
+		this->faceHeight = faceHeight;
+	}
 private:
 	const skin::Tex& tex;
 	int x, y, extra, faceHeight;
@@ -3300,7 +3307,7 @@ private:
 
 class PopupBox {
 public:
-	static constexpr int kTitleY = 110, kBodyY = 158, kButtonY = 304;
+	static constexpr int kTop = 102, kTitleY = 110, kBodyY = 158, kButtonY = 304;
 	// The body ends a little above the buttons: at 16 points a line is 22.
 	static constexpr int kBodyLines = (kButtonY - 10 - kBodyY) / 22;
 	// `safeFirst`: for a question whose second button does something that
@@ -3408,6 +3415,29 @@ public:
 	}
 	// The second button alone, in the middle (as the first is when alone).
 	void CenterCancel() { cancelBtn.button.SetPosition(198 - 4, kButtonY - 4); }
+	// A box sized to what it holds (the code mod's choices): its face from
+	// `top`, `faceHeight` high, the title moved with it. The same on 4:3
+	// and 16:9 (a widescreen menu widens the box, never heightens it).
+	void Resize(int top, int faceHeight)
+	{
+		panel.SetFace(top, faceHeight);
+		Place(titleTxt, 0, kTitleY - kTop + top, true);
+	}
+	// The text wrapped across the box in at most `lines` lines: how many it
+	// takes (a box spaces its parts for them).
+	int WrapBody(int lines)
+	{
+		bodyTxt.SetWrap(true, 528 + 2 * extra, lines);
+		return bodyTxt.GetLineCount();
+	}
+	// The text centred on line `centreY` (after WrapBody).
+	void BodyCentredOn(int centreY)
+	{
+		bodyTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::MIDDLE);
+		bodyTxt.SetPosition(0, centreY - w.GetHeight() / 2);
+	}
+	// The lone (second) button, centred, its top on line `y`.
+	void CancelAt(int y) { cancelBtn.button.SetPosition(198 - 4, y - 4); }
 	// How much wider than 4:3 the box is on each side (PopupExtra).
 	int Extra() const { return extra; }
 	// After another box was opened over this one and closed: the page
@@ -4063,17 +4093,35 @@ static bool PickCodeModStart(FrontendState& state)
 	PopupBox box(tr("Start with RiftWii's extras?"),
 		tr("Most code mods run with RiftWii's extras. If one stays on a black screen, start it without. Set Extras on the Mods page to stop this question."),
 		"", tr("Back"));
-	box.CenterCancel();
-	// The text's three lines at most (from y 158, 22 apart) end at 224,
-	// above the choices; the choices end above Back's pill (y 300).
-	box.BodyAtTop(3);
+	// Sized to what it holds and centred on the screen: the title band, then
+	// the text, the two choices and Back with the same room between each
+	// and above the bottom band (Grant, #496). Lines of the 480-line screen,
+	// each part's height as drawn (measured in Dolphin); a widescreen menu
+	// only widens the box.
+	// The text takes two lines on 16:9 in English, three on 4:3 or in a
+	// longer language; the box grows with it so the room stays the same.
+	constexpr int kTitleBand = 45, kBottomBand = 18;  // the popup picture's own bands
+	constexpr int kGap = 26;
+	constexpr int kLetters = 16, kLineStep = 22;      // 16-point text: its letters, and line to line
+	constexpr int kTileHeight = 62, kTileDrawn = 63;  // a tile's outline reaches a line further
+	constexpr int kBackDrawn = 57, kBackAbove = 2;    // Back with its ring, which starts 2 above the pill
+	const int textLines = std::max(1, box.WrapBody(3));
+	const int textHeight = kLetters + (textLines - 1) * kLineStep;  // top of the letters to the bottom
+	const int face = kTitleBand + kGap + textHeight + kGap + kTileDrawn + kGap + kBackDrawn + kGap + kBottomBand;
+	const int faceTop = 240 - face / 2;  // drawn 4 beyond its face at both ends: centred
+	const int textTop = faceTop + kTitleBand + kGap;
+	const int tilesTop = textTop + textHeight + kGap;
+	const int backTop = tilesTop + kTileDrawn + kGap;
+	box.Resize(faceTop, face);
+	box.BodyCentredOn(textTop + textHeight / 2 - 1);  // the letters sit a line below the middle
+	box.CancelAt(backTop + kBackAbove);
 	std::vector<TileSpec> tiles(2);
 	tiles[0].x = 56;
 	tiles[1].x = 332;
 	for (TileSpec& t : tiles) {
-		t.y = 230;
+		t.y = tilesTop;
 		t.w = 252;
-		t.h = 62;
+		t.h = kTileHeight;
 	}
 	tiles[0].label = tr("With extras");
 	tiles[0].value = tr("Back to RiftWii, game settings");

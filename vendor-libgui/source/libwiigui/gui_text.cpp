@@ -325,6 +325,119 @@ void GuiText::ResetText()
 /**
  * Draw the text on screen
  */
+// RiftWii: the wrapping, from Draw, so GetLineCount can wrap before the
+// first draw (a popup spaces its parts for the lines its text takes).
+void GuiText::WrapLines(u32 textlen)
+{
+	int n = 0;
+	u32 ch = 0;
+	int linenum = 0;
+	int lastSpace = -1;
+	int lastSpaceIndex = -1;
+
+	while(ch < textlen && linenum < 20)
+	{
+		if(n == 0)
+		{
+			textDyn[linenum] = new wchar_t[textlen + 1];
+			textDyn[linenum][0] = 0;
+		}
+
+		// RiftWii: a newline ends the line (after the usual break
+		// at the last space when the line is too long already).
+		if(text[ch] == '\n')
+		{
+			if(lastSpace >= 0 && fontSystem[currentSize]->getWidth(textDyn[linenum]) > maxWidth)
+			{
+				textDyn[linenum][lastSpaceIndex] = 0;
+				ch = lastSpace;
+			}
+			++linenum;
+			n = 0;
+			lastSpace = -1;
+			lastSpaceIndex = -1;
+			++ch;
+			continue;
+		}
+
+		textDyn[linenum][n] = text[ch];
+		textDyn[linenum][n+1] = 0;
+
+		// RiftWii: a line may also break after a CJK character
+		// (Japanese has no spaces); that character is kept.
+		const bool cjk = text[ch] >= 0x2E80;
+		if(text[ch] == ' ' || cjk || ch == textlen-1)
+		{
+			if(fontSystem[currentSize]->getWidth(textDyn[linenum]) > maxWidth)
+			{
+				if(lastSpace >= 0)
+				{
+					textDyn[linenum][lastSpaceIndex] = 0; // discard space (or keep the CJK character), and everything after
+					ch = lastSpace; // go backwards to the last break
+					lastSpace = -1; // we have used this space
+					lastSpaceIndex = -1;
+				}
+				++linenum;
+				n = -1;
+			}
+			else if(ch == textlen-1)
+			{
+				++linenum;
+			}
+		}
+		if(text[ch] == ' ' && n >= 0)
+		{
+			lastSpace = ch;
+			lastSpaceIndex = n;
+		}
+		else if(cjk && n >= 0)
+		{
+			lastSpace = ch;
+			lastSpaceIndex = n + 1;
+		}
+		++ch;
+		++n;
+	}
+	textDynNum = linenum;
+	// RiftWii: past maxLines the last line shown ends in "...".
+	// Every line stays allocated (and is freed) as before.
+	if(maxLines > 0 && textDynNum > maxLines)
+	{
+		wchar_t *last = textDyn[maxLines-1];
+		size_t len = wcslen(last);
+		wchar_t *cut = new wchar_t[len + 4];
+		wcscpy(cut, last);
+		wcscat(cut, L"...");
+		while(len > 0 && fontSystem[currentSize]->getWidth(cut) > maxWidth)
+		{
+			cut[--len] = 0;
+			wcscat(cut, L"...");
+		}
+		delete[] last;
+		textDyn[maxLines-1] = cut;
+	}
+}
+
+// RiftWii: the lines the text takes at its own size, wrapped and capped at
+// maxLines as Draw shows it; 1 for text that doesn't wrap, 0 for none.
+int GuiText::GetLineCount()
+{
+	if(!text)
+		return 0;
+	if(!wrap || maxWidth == 0)
+		return 1;
+	if(currentSize != size)
+	{
+		ChangeFontSize(size);
+		if(!fontSystem[size])
+			fontSystem[size] = new FreeTypeGX(size);
+		currentSize = size;
+	}
+	if(textDynNum == 0)
+		WrapLines(wcslen(text));
+	return (maxLines > 0 && textDynNum > maxLines) ? maxLines : textDynNum;
+}
+
 void GuiText::Draw()
 {
 	if(!text)
@@ -362,93 +475,7 @@ void GuiText::Draw()
 	{
 		if(textDynNum == 0)
 		{
-			int n = 0;
-			u32 ch = 0;
-			int linenum = 0;
-			int lastSpace = -1;
-			int lastSpaceIndex = -1;
-
-			while(ch < textlen && linenum < 20)
-			{
-				if(n == 0)
-				{
-					textDyn[linenum] = new wchar_t[textlen + 1];
-					textDyn[linenum][0] = 0;
-				}
-
-				// RiftWii: a newline ends the line (after the usual break
-				// at the last space when the line is too long already).
-				if(text[ch] == '\n')
-				{
-					if(lastSpace >= 0 && fontSystem[currentSize]->getWidth(textDyn[linenum]) > maxWidth)
-					{
-						textDyn[linenum][lastSpaceIndex] = 0;
-						ch = lastSpace;
-					}
-					++linenum;
-					n = 0;
-					lastSpace = -1;
-					lastSpaceIndex = -1;
-					++ch;
-					continue;
-				}
-
-				textDyn[linenum][n] = text[ch];
-				textDyn[linenum][n+1] = 0;
-
-				// RiftWii: a line may also break after a CJK character
-				// (Japanese has no spaces); that character is kept.
-				const bool cjk = text[ch] >= 0x2E80;
-				if(text[ch] == ' ' || cjk || ch == textlen-1)
-				{
-					if(fontSystem[currentSize]->getWidth(textDyn[linenum]) > maxWidth)
-					{
-						if(lastSpace >= 0)
-						{
-							textDyn[linenum][lastSpaceIndex] = 0; // discard space (or keep the CJK character), and everything after
-							ch = lastSpace; // go backwards to the last break
-							lastSpace = -1; // we have used this space
-							lastSpaceIndex = -1;
-						}
-						++linenum;
-						n = -1;
-					}
-					else if(ch == textlen-1)
-					{
-						++linenum;
-					}
-				}
-				if(text[ch] == ' ' && n >= 0)
-				{
-					lastSpace = ch;
-					lastSpaceIndex = n;
-				}
-				else if(cjk && n >= 0)
-				{
-					lastSpace = ch;
-					lastSpaceIndex = n + 1;
-				}
-				++ch;
-				++n;
-			}
-			textDynNum = linenum;
-			// RiftWii: past maxLines the last line shown ends in "...".
-			// Every line stays allocated (and is freed) as before.
-			if(maxLines > 0 && textDynNum > maxLines)
-			{
-				wchar_t *last = textDyn[maxLines-1];
-				size_t len = wcslen(last);
-				wchar_t *cut = new wchar_t[len + 4];
-				wcscpy(cut, last);
-				wcscat(cut, L"...");
-				while(len > 0 && fontSystem[currentSize]->getWidth(cut) > maxWidth)
-				{
-					cut[--len] = 0;
-					wcscat(cut, L"...");
-				}
-				delete[] last;
-				textDyn[maxLines-1] = cut;
-			}
+			WrapLines(textlen);
 		}
 
 		const int shown = (maxLines > 0 && textDynNum > maxLines) ? maxLines : textDynNum;
