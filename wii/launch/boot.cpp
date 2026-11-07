@@ -1362,13 +1362,14 @@ void plan_game_extras(const DolHeader& dol, const ExtrasContext& ctx, GameExtras
     }
     // A crash in the game is saved for the next start: below all of the
     // above, always.
-    // The same hook answers an image's BCA read when nothing else does (a
+    // The same blob answers an image's BCA read when nothing else does (a
     // game that checks it stops without): a small code mod, in the code
-    // handler's own space, keeps it then even with its crash logs off.
+    // handler's own space, with its crash logs off keeps it for that read
+    // alone, the crash handler left unhooked.
     const bool bca_needs_fault_hook = !whole_mem1 && ctx.retail_bca && resident == nullptr && !debug_off("bca");
     const bool crash_logs_off = ctx.code_mods_on && !ctx.code_build_crash_logs;
     if (crash_logs_off && bca_needs_fault_hook && !ctx.gx_protected && !debug_off("fault")) {
-        logf("Game crashes: recorded although the code mod's crash logs are off: the same hook answers the image's BCA read\n");
+        logf("Game crashes: not recorded: crash logs are off for this code mod (the hook answers the image's BCA read only)\n");
     }
     if (ctx.gx_protected) {
         logf("Game crashes: not recorded: the game checks its own code (MetaFortress); RiftWii's hooks stay out\n");
@@ -1400,7 +1401,7 @@ void plan_game_extras(const DolHeader& dol, const ExtrasContext& ctx, GameExtras
         const bool answer_bca = ctx.retail_bca && resident == nullptr && !debug_off("bca");
         if (ctx.retail_bca && debug_off("bca")) logf("BCA: debug_off: not answered\n");
         if (!plan_fault_hook(dol, out.arena1_hi(ctx.arena1_hi), ctx.mem1_floor, out.arena2_lo(ctx.arena2_lo),
-                             answer_bca, patches, out.fault, why)) {
+                             answer_bca, patches, out.fault, why, 0, !crash_logs_off)) {
             logf("Game crashes: not recorded%s: %s\n", answer_bca ? " and the BCA read not answered" : "",
                  why.c_str());
         }

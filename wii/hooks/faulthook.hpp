@@ -19,6 +19,8 @@
 // With `answer_bca` it also answers the game's BCA read as a retail disc
 // does (runtime/fault/fault_hook.h), for images that have none, when the
 // resident runtime (which can do the same) is not installed anyway.
+// Without `record_crashes` it hooks only that read: a code mod's crash
+// logs switched off, on an image that needs the answer (#496).
 //
 // The blob goes below the MEM1 arena's top, under the other blobs; its
 // state (the record, an IPC request and its own 4 KB stack) at the bottom
@@ -48,7 +50,7 @@ struct FaultHook {
 // (the MEM2 arena's end as the other blobs left it, at 0x80003128).
 bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
                      bool answer_bca, const std::vector<MemoryPatch>& patches, FaultHook& out, std::string& why,
-                     std::uint32_t mem1_veneer = 0);
+                     std::uint32_t mem1_veneer = 0, bool record_crashes = true);
 
 // After the patches, the cheats and the other blobs' hooks.
 bool install_fault_hook(FaultHook& hook, std::string& why);
