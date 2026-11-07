@@ -64,7 +64,6 @@ typedef struct rthid_device {
 typedef struct rthid_catalog {
     uint32_t adapter_disabled; /* preserve the separate adapter setting */
     uint32_t count;
-    rthid_mapping maps[RTHID_CONFIG_MAX];
     /* A v5 list already consumed by the menu may never be sent again
      * until hotplug. Keep that snapshot alongside the mappings. */
     uint32_t known_count;
@@ -74,6 +73,8 @@ typedef struct rthid_catalog {
      * next plug or unplug. */
     uint32_t ven_known_count;
     rthid_device ven_known[RTHID_DEVICE_MAX];
+    /* Last: a game's copy holds only `count` of them (gcad_layout). */
+    rthid_mapping maps[RTHID_CONFIG_MAX];
 } rthid_catalog;
 
 #ifdef __cplusplus

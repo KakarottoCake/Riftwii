@@ -12,9 +12,13 @@
  * through these fields. The adapter-only pad blob (GCAD_ADAPTER_ONLY,
  * runtime/pad, used when no other USB pad can be used in the game) reads
  * them as empty, so the compiler leaves all of that code out: the same
- * struct layout, about half the code (wiiu#45). Writes use the fields. */
+ * struct layout, about half the code (wiiu#45). Writes use the fields.
+ * Pad links are reached through GCAD_PEER: a game's own layout packs them
+ * GCAD_LINK_BYTES apart, a gcad_hub sizeof(gcad) apart (peer_stride). */
 #ifdef GCAD_ADAPTER_ONLY
 #define GCAD_PEERS(g) ((void)(g), (gcad*)0)
+#define GCAD_NPEERS(g) ((void)(g), 0u)
+#define GCAD_PEER(g, i) ((void)(g), (void)(i), (gcad*)0)
 #define GCAD_MAPPING(g) ((void)(g), (const rthid_mapping*)0)
 #define GCAD_VEN(g) ((void)(g), 0)
 #define GCAD_VEN_LIST(g) ((void)(g), (gcad*)0)
@@ -22,11 +26,26 @@
 #define GCAD_XBOX(g) ((void)(g), (rthid_mapping*)0)
 #else
 #define GCAD_PEERS(g) ((g)->peers)
+#define GCAD_NPEERS(g) ((uint32_t)(g)->peer_count)
+#define GCAD_PEER(g, i) ((gcad*)(void*)((uint8_t*)(g)->peers + (uint32_t)(i) * (g)->peer_stride))
 #define GCAD_MAPPING(g) ((g)->mapping)
 #define GCAD_VEN(g) ((g)->ven)
 #define GCAD_VEN_LIST(g) ((g)->ven_list)
 #define GCAD_CATALOG(g) ((g)->catalog)
 #define GCAD_XBOX(g) ((g)->xbox)
+#endif
+/* The USB pads blob (GCAD_PADS_ONLY, runtime/pad): for a code build
+ * started with USB pads plugged in but no adapter, Switch Pro Controller
+ * or DualShock 3, the only ones it can then serve (#496). Without the
+ * adapter's own code (its reports, start command, rumble and the hunt
+ * for it in the device list) and the two pads' start-ups, about 6 KB less
+ * of the game's memory than the full blob. */
+#ifdef GCAD_PADS_ONLY
+#define ADAPTER_CODE 0
+#define SPECIAL_PADS 0
+#else
+#define ADAPTER_CODE 1
+#define SPECIAL_PADS 1
 #endif
 
 uint32_t gcad_get32(const uint8_t* p) {
@@ -51,10 +70,13 @@ static uint32_t elapsed(uint32_t now, uint32_t then) { return now - then; }
 static uint32_t ms(const gcad* g, uint32_t n) { return n * g->ticks_per_ms; }
 
 static int ps3(const gcad* g) {
-    return GCAD_MAPPING(g) && GCAD_MAPPING(g)->vid == 0x054C && GCAD_MAPPING(g)->pid == 0x0268;
+    if (!SPECIAL_PADS) return 0;
+    return GCAD_MAPPING(g) && GCAD_MAPPING(g)->vid == (GCAD_PS3_VID_PID >> 16) &&
+           GCAD_MAPPING(g)->pid == (GCAD_PS3_VID_PID & 0xFFFFu);
 }
 
 static int switch_pro(const gcad* g) {
+    if (!SPECIAL_PADS) return 0;
     return GCAD_MAPPING(g) && !GCAD_VEN(g) && GCAD_MAPPING(g)->vid == (GCAD_SWITCH_VID_PID >> 16) &&
            GCAD_MAPPING(g)->pid == (GCAD_SWITCH_VID_PID & 0xFFFFu);
 }
@@ -486,8 +508,8 @@ static int setup_waiting(const gcad* g) {
     uint32_t i;
     if (g->link == GCAD_LINK_SETTLE || g->link == GCAD_LINK_SETUP) return 1;
     if (GCAD_PEERS(g)) {
-        for (i = 0; i < GCAD_HID_PADS; ++i) {
-            const gcad* peer = &GCAD_PEERS(g)[i];
+        for (i = 0; i < GCAD_NPEERS(g); ++i) {
+            const gcad* peer = GCAD_PEER(g, i);
             if (peer->link == GCAD_LINK_SETTLE || peer->link == GCAD_LINK_SETUP) return 1;
         }
     }
@@ -834,7 +856,7 @@ static void start_init(gcad* g, uint32_t now) {
         if (!ps3_output(g, GCAD_HID_OUTPUT)) link_failed(g, now, GCAD_LINK_FAILED);
         return;
     }
-    if (GCAD_MAPPING(g)) {
+    if (GCAD_MAPPING(g) || !ADAPTER_CODE) {
         reports_started(g, now);
         return;
     }
@@ -868,6 +890,7 @@ static void start_ctrl(gcad* g, uint32_t now) {
         }
         return;
     }
+    if (!ADAPTER_CODE) return;
     if (g->version == 4) {
         zero(g->setup_in, sizeof(g->setup_in));
         gcad_put32(g->setup_in + 16, (uint32_t)g->dev_id);
@@ -1038,8 +1061,8 @@ static void hid_devices(gcad* g, const rthid_device* devices, uint32_t count, ui
     previous_count = g->ignored_count;
     for (i = 0; i < previous_count; ++i) previous[i] = g->ignored[i];
     g->ignored_count = 0;
-    for (i = 0; i < GCAD_HID_PADS; ++i) {
-        gcad* peer = &GCAD_PEERS(g)[i];
+    for (i = 0; i < GCAD_NPEERS(g); ++i) {
+        gcad* peer = GCAD_PEER(g, i);
         /* The other list's pads are that list's to drop. */
         if (peer->dev_id == GCAD_NO_DEVICE || GCAD_VEN(peer) != GCAD_VEN(g)) continue;
         for (j = 0; j < count; ++j) {
@@ -1063,14 +1086,14 @@ static void hid_devices(gcad* g, const rthid_device* devices, uint32_t count, ui
             g->ignored[g->ignored_count++] = devices[i].id;
             continue;
         }
-        for (j = 0; j < GCAD_HID_PADS; ++j) {
-            if (GCAD_PEERS(g)[j].dev_id == devices[i].id && GCAD_PEERS(g)[j].ven == GCAD_VEN(g)) break;
-            if (!peer && GCAD_PEERS(g)[j].dev_id == GCAD_NO_DEVICE && !GCAD_PEERS(g)[j].busy) peer = &GCAD_PEERS(g)[j];
+        for (j = 0; j < GCAD_NPEERS(g); ++j) {
+            if (GCAD_PEER(g, j)->dev_id == devices[i].id && GCAD_PEER(g, j)->ven == GCAD_VEN(g)) break;
+            if (!peer && GCAD_PEER(g, j)->dev_id == GCAD_NO_DEVICE && !GCAD_PEER(g, j)->busy) peer = GCAD_PEER(g, j);
         }
-        if (j < GCAD_HID_PADS || !peer) continue;
+        if (j < GCAD_NPEERS(g) || !peer) continue;
         if (GCAD_VEN(g)) {
             /* Its own copy, for its VID and PID in the logs. */
-            rthid_mapping* own = &GCAD_XBOX(g)[peer - GCAD_PEERS(g)];
+            rthid_mapping* own = &GCAD_XBOX(g)[peer->slot - 1u];
             xbox_mapping(own, devices[i].vid_pid);
             mapping = own;
         }
@@ -1152,6 +1175,7 @@ static void pump_rumble(gcad* g) {
         hid_rumble_transfer(g);
         return;
     }
+    if (!ADAPTER_CODE) return;
     for (i = 0; i < GCAD_PORTS; ++i) differ |= (uint32_t)(g->rumble_want[i] != g->rumble_sent[i]);
     if (!differ) return;
     zero(g->out_data, sizeof(g->out_data));
@@ -1204,9 +1228,11 @@ static void take_report(gcad* g, uint32_t now) {
     ++g->reports;
 }
 
-void gcad_init(gcad* g, void* env_ctx, int32_t fd, uint32_t version, uint32_t ticks_per_ms) {
+/* `bytes`: sizeof(gcad), or GCAD_LINK_BYTES for a pad link that stops
+ * short of the list owner's fields. */
+static void init_bytes(gcad* g, uint32_t bytes, void* env_ctx, int32_t fd, uint32_t version, uint32_t ticks_per_ms) {
     uint32_t i;
-    zero(g, sizeof(*g));
+    zero(g, bytes);
     g->env_ctx = env_ctx;
     g->fd = fd;
     g->version = version;
@@ -1222,14 +1248,29 @@ void gcad_init(gcad* g, void* env_ctx, int32_t fd, uint32_t version, uint32_t ti
     for (i = 0; i < GCAD_PORTS; ++i) g->rumble_sent[i] = 0xFF;  /* unknown: the first poll turns rumble off */
 }
 
-void gcad_hub_init(gcad_hub* hub, void* env_ctx, int32_t fd, uint32_t version, uint32_t ticks_per_ms) {
-    gcad_links_init(&hub->adapter, hub->pads, &hub->catalog, env_ctx, fd, version, ticks_per_ms);
+void gcad_init(gcad* g, void* env_ctx, int32_t fd, uint32_t version, uint32_t ticks_per_ms) {
+    init_bytes(g, (uint32_t)sizeof(*g), env_ctx, fd, version, ticks_per_ms);
 }
 
-void gcad_links_init(gcad* g, gcad pads[GCAD_HID_PADS], rthid_catalog* catalog,
+void gcad_init_bytes(gcad* g, uint32_t bytes, void* env_ctx, int32_t fd, uint32_t version, uint32_t ticks_per_ms) {
+    init_bytes(g, bytes, env_ctx, fd, version, ticks_per_ms);
+}
+
+void gcad_hub_init(gcad_hub* hub, void* env_ctx, int32_t fd, uint32_t version, uint32_t ticks_per_ms) {
+    gcad_links_init(&hub->adapter, hub->pads, GCAD_HID_PADS, (uint32_t)sizeof(gcad), &hub->catalog, env_ctx, fd,
+                    version, ticks_per_ms);
+}
+
+void gcad_links_init(gcad* g, gcad* pads, uint32_t count, uint32_t stride, rthid_catalog* catalog,
                      void* env_ctx, int32_t fd, uint32_t version, uint32_t ticks_per_ms) {
+    gcad_links_init_ex(g, (uint32_t)sizeof(gcad), 0, pads, count, stride, catalog, env_ctx, fd, version, ticks_per_ms);
+}
+
+void gcad_links_init_ex(gcad* g, uint32_t owner_bytes, int dormant, gcad* pads, uint32_t count, uint32_t stride,
+                        rthid_catalog* catalog, void* env_ctx, int32_t fd, uint32_t version, uint32_t ticks_per_ms) {
     uint32_t i;
-    gcad_init(g, env_ctx, fd, version, ticks_per_ms);
+    init_bytes(g, owner_bytes, env_ctx, fd, version, ticks_per_ms);
+    if (count > GCAD_HID_PADS) count = GCAD_HID_PADS;
     if (!rthid_catalog_valid(catalog)) {
         catalog->count = 0;
         catalog->known_count = 0;
@@ -1238,13 +1279,21 @@ void gcad_links_init(gcad* g, gcad pads[GCAD_HID_PADS], rthid_catalog* catalog,
     }
     g->catalog = catalog;
     g->adapter_disabled = (uint8_t)catalog->adapter_disabled;
-    g->peers = pads;
-    for (i = 0; i < GCAD_HID_PADS; ++i) {
-        gcad* peer = &pads[i];
-        gcad_init(peer, env_ctx, fd, version, ticks_per_ms);
+    g->peers = count ? pads : 0;
+    g->peer_count = (uint8_t)count;
+    g->peer_stride = (uint16_t)stride;
+    for (i = 0; i < GCAD_NPEERS(g); ++i) {
+        gcad* peer = GCAD_PEER(g, i);
+        init_bytes(peer, stride, env_ctx, fd, version, ticks_per_ms);
         peer->owner = g;
         peer->slot = i + 1;
         peer->started = 1; /* only the owner requests a device list */
+    }
+    if (dormant) {
+        /* Nothing of its own to look for: no list requests, no adapter. */
+        g->started = 1;
+        g->adapter_disabled = 1;
+        return;
     }
     if (version == 5) {
         hid_devices(g, catalog->known, catalog->known_count, 0);
@@ -1254,15 +1303,22 @@ void gcad_links_init(gcad* g, gcad pads[GCAD_HID_PADS], rthid_catalog* catalog,
     }
 }
 
-void gcad_ven_init(gcad* g, gcad* ven, rthid_mapping xbox[GCAD_HID_PADS], void* env_ctx, int32_t fd,
+void gcad_ven_init(gcad* g, gcad* ven, rthid_mapping* xbox, void* env_ctx, int32_t fd,
                    uint32_t ticks_per_ms) {
+    gcad_ven_init_ex(g, ven, (uint32_t)sizeof(gcad), xbox, env_ctx, fd, ticks_per_ms);
+}
+
+void gcad_ven_init_ex(gcad* g, gcad* ven, uint32_t ven_bytes, rthid_mapping* xbox, void* env_ctx, int32_t fd,
+                      uint32_t ticks_per_ms) {
     /* fd may be -1 where the environment serves the list itself (the
      * menu, through libogc's handles). */
-    gcad_init(ven, env_ctx, fd, 5, ticks_per_ms);
+    init_bytes(ven, ven_bytes, env_ctx, fd, 5, ticks_per_ms);
     if (!GCAD_PEERS(g)) return;
     ven->ven = 1;
     ven->slot = GCAD_VEN_SLOT;
     ven->peers = GCAD_PEERS(g);
+    ven->peer_count = g->peer_count;
+    ven->peer_stride = g->peer_stride;
     ven->xbox = xbox;
     /* An adapter on this list too (Dolphin lists every device on ven)
      * is the /dev/usb/hid list's. */
@@ -1271,7 +1327,7 @@ void gcad_ven_init(gcad* g, gcad* ven, rthid_mapping xbox[GCAD_HID_PADS], void* 
     /* The list read before the launch, as for the HID pads: a pad left
      * plugged in is no new device change, so the game's list request
      * would not hear of it. */
-    if (GCAD_CATALOG(g)) hid_devices(ven, GCAD_CATALOG(g)->ven_known, GCAD_CATALOG(g)->ven_known_count, 0);
+    if (g->catalog) hid_devices(ven, g->catalog->ven_known, g->catalog->ven_known_count, 0);
 }
 
 void gcad_expect(gcad* g, int32_t dev_id) {
@@ -1284,7 +1340,7 @@ void gcad_tick(gcad* g, uint32_t now) {
     if (GCAD_PEERS(g)) {
         /* The /dev/usb/hid list owner drives the pad links and the ven list. */
         if (!GCAD_VEN(g)) {
-            for (i = 0; i < GCAD_HID_PADS; ++i) gcad_tick(&GCAD_PEERS(g)[i], now);
+            for (i = 0; i < GCAD_NPEERS(g); ++i) gcad_tick(GCAD_PEER(g, i), now);
             if (GCAD_VEN_LIST(g)) gcad_tick(GCAD_VEN_LIST(g), now);
         }
         if (g->finish_pending && !(g->busy & BIT(GCAD_TAG_SETUP)) && !setup_waiting(g)) submit_finish(g, now);
@@ -1314,8 +1370,8 @@ void gcad_tick(gcad* g, uint32_t now) {
         /* v5 descriptor setup is serial across the shared list. */
         if (g->owner) {
             if (g->owner->link == GCAD_LINK_SETUP || (g->owner->busy & BIT(GCAD_TAG_SETUP))) return;
-            for (i = 0; i < GCAD_HID_PADS; ++i) {
-                if (GCAD_PEERS(g->owner)[i].link == GCAD_LINK_SETUP) return;
+            for (i = 0; i < GCAD_NPEERS(g->owner); ++i) {
+                if (GCAD_PEER(g->owner, i)->link == GCAD_LINK_SETUP) return;
             }
         }
         start_link(g, now);
@@ -1390,7 +1446,7 @@ static void on_change(gcad* g, int32_t result, uint32_t now) {
         return;
     }
     ++g->changes;
-    gcad_env_invalidate(g, g->change, sizeof(g->change));
+    gcad_env_invalidate(g, g->change, g->version == 4 ? 0x600u : 0x180u);
     if (g->version == 4) {
         uint32_t at = 0;
         g->listed = 0;
@@ -1418,7 +1474,7 @@ static void on_change(gcad* g, int32_t result, uint32_t now) {
         }
         found = gcad_find_v5(g->change, g->listed);
     }
-    if (g->adapter_disabled) found = -1;
+    if (g->adapter_disabled || !ADAPTER_CODE) found = -1;
     g->device_count = count;
     for (i = 0; i < count; ++i) g->devices[i] = devices[i];
     gcad_refresh_hid(g, now);
@@ -1451,8 +1507,8 @@ void gcad_refresh_hid(gcad* g, uint32_t now) {
     if (!GCAD_PEERS(g) || !g->changes || g->stopping) return;
     hid_devices(g, g->devices, g->device_count, now);
     if (g->version == 4) {
-        for (i = 0; i < GCAD_HID_PADS; ++i) {
-            gcad* peer = &GCAD_PEERS(g)[i];
+        for (i = 0; i < GCAD_NPEERS(g); ++i) {
+            gcad* peer = GCAD_PEER(g, i);
             if (peer->link != GCAD_LINK_SETTLE || GCAD_VEN(peer)) continue;
             for (j = 0; j < g->device_count; ++j) {
                 const gcad_descriptor* info = &g->descriptors[j];
@@ -1593,7 +1649,7 @@ static void on_in(gcad* g, int32_t result, int current, uint32_t now) {
         } else if (!decoded && input_shaped(g)) {
             ++g->bad_reports;
         }
-    } else if (g->in_data[0] == 0x21 && (result == 0 || (uint32_t)result >= GCAD_REPORT_BYTES)) {
+    } else if (ADAPTER_CODE && g->in_data[0] == 0x21 && (result == 0 || (uint32_t)result >= GCAD_REPORT_BYTES)) {
         take_report(g, now);
     } else {
         ++g->bad_reports;
@@ -1612,7 +1668,7 @@ void gcad_on_reply(gcad* g, uint32_t tag_value_, int32_t result, uint32_t now) {
     uint32_t step = 0;
     if (!g->owner && !GCAD_VEN(g) && GCAD_SLOT(tag_value_)) {
         const uint32_t slot = GCAD_SLOT(tag_value_);
-        if (GCAD_PEERS(g) && slot <= GCAD_HID_PADS) gcad_on_reply(&GCAD_PEERS(g)[slot - 1], tag_value_, result, now);
+        if (GCAD_PEERS(g) && slot <= GCAD_NPEERS(g)) gcad_on_reply(GCAD_PEER(g, slot - 1), tag_value_, result, now);
         else if (slot == GCAD_VEN_SLOT && GCAD_VEN_LIST(g)) gcad_on_reply(GCAD_VEN_LIST(g), tag_value_, result, now);
         if (!g->stopping) gcad_refresh_hid(g, now);
         return;
@@ -1643,6 +1699,7 @@ void gcad_on_reply(gcad* g, uint32_t tag_value_, int32_t result, uint32_t now) {
 }
 
 static int adapter_port(gcad* g, uint32_t port, gcad_pad* out, uint32_t now) {
+    if (!ADAPTER_CODE) return 0;
     if (port >= GCAD_PORTS || g->link != GCAD_LINK_POLL || g->stale || g->stopping) return 0;
     if (elapsed(now, g->data_time) >= ms(g, GCAD_TIMEOUT_MS)) {
         set_stale(g);
@@ -1657,7 +1714,7 @@ static uint32_t assign_port(gcad* g, gcad_pad out[GCAD_PORTS], uint32_t port,
     out[port] = *pad;
     g->port_source[port] = (uint8_t)source;
     if (source >= GCAD_PORTS) {
-        gcad* peer = &GCAD_PEERS(g)[source - GCAD_PORTS];
+        gcad* peer = GCAD_PEER(g, source - GCAD_PORTS);
         if (peer->announced_port != port) {
             peer->announced_port = (uint8_t)port;
             gcad_env_event(peer, GCAD_EV_HID_PORT, mapping_id(peer), (int32_t)port);
@@ -1695,8 +1752,8 @@ uint32_t gcad_read_ports(gcad* g, uint32_t taken, gcad_pad out[GCAD_PORTS], uint
         filled |= assign_port(g, out, port, &adapter_pads[i], i);
     }
     if (!GCAD_PEERS(g)) return filled;
-    for (i = 0; i < GCAD_HID_PADS; ++i) {
-        gcad* peer = &GCAD_PEERS(g)[i];
+    for (i = 0; i < GCAD_NPEERS(g); ++i) {
+        gcad* peer = GCAD_PEER(g, i);
         if (!GCAD_MAPPING(peer) || peer->link != GCAD_LINK_POLL || peer->stale || peer->stopping ||
             elapsed(now, peer->data_time) >= ms(peer, GCAD_TIMEOUT_MS)) continue;
         port = free_port(taken | filled);
@@ -1721,8 +1778,8 @@ void gcad_rumble(gcad* g, uint32_t port, uint32_t command) {
     if (port >= GCAD_PORTS) return;
     if (GCAD_PEERS(g)) {
         const uint32_t source = g->port_source[port];
-        if (source >= GCAD_PORTS && source < GCAD_PORTS + GCAD_HID_PADS) {
-            gcad* peer = &GCAD_PEERS(g)[source - GCAD_PORTS];
+        if (source >= GCAD_PORTS && source < GCAD_PORTS + GCAD_NPEERS(g)) {
+            gcad* peer = GCAD_PEER(g, source - GCAD_PORTS);
             peer->rumble_want[0] = (uint8_t)(command == 1 && GCAD_MAPPING(peer) && (GCAD_MAPPING(peer)->rumble_bytes || ps3(peer)));
             return;
         }
@@ -1776,7 +1833,7 @@ void gcad_stop(gcad* g, uint32_t now) {
     g->stopping = 1;
     set_stale(g);
     if (GCAD_PEERS(g)) {
-        for (i = 0; i < GCAD_HID_PADS; ++i) gcad_stop(&GCAD_PEERS(g)[i], now);
+        for (i = 0; i < GCAD_NPEERS(g); ++i) gcad_stop(GCAD_PEER(g, i), now);
     }
     if (GCAD_VEN_LIST(g)) gcad_stop(GCAD_VEN_LIST(g), now);
     stop_next(g);
@@ -1786,7 +1843,7 @@ int gcad_idle(const gcad* g) {
     uint32_t i;
     if (g->busy) return 0;
     if (GCAD_PEERS(g)) {
-        for (i = 0; i < GCAD_HID_PADS; ++i) if (GCAD_PEERS(g)[i].busy) return 0;
+        for (i = 0; i < GCAD_NPEERS(g); ++i) if (GCAD_PEER(g, i)->busy) return 0;
     }
     if (GCAD_VEN_LIST(g) && GCAD_VEN_LIST(g)->busy) return 0;
     return 1;

@@ -352,6 +352,8 @@ void test_hid_after_adapter() {
     gc_gcad ad;
     set_up(ad, 0x1u);
     ad.g.peers = ad.pads;
+    ad.g.peer_count = GCAD_HID_PADS;
+    ad.g.peer_stride = sizeof(gcad);
     ad.catalog.maps[0].vid = 0x1234;
     ad.catalog.maps[0].pid = 0x5678;
     ad.catalog.maps[0].rumble_bytes = 2;
@@ -389,6 +391,8 @@ void test_adapter_own_port_before_displaced_and_hid() {
     set_up(ad, 0x3u);
     ad.g.raw[1][1] = 0x02;  // adapter pad 1 presses B
     ad.g.peers = ad.pads;
+    ad.g.peer_count = GCAD_HID_PADS;
+    ad.g.peer_stride = sizeof(gcad);
     ad.catalog.maps[0].vid = 0x1234;
     ad.catalog.maps[0].pid = 0x5678;
     ad.catalog.maps[0].rumble_bytes = 2;
