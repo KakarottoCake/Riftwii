@@ -1243,6 +1243,10 @@ struct ExtrasContext {
     bool gx_protected = false;
     bool code_build = false;
     bool plain_code_build = false;
+    bool code_build_crash_logs = false;  // its Mods page's switch (#496)
+    // Code mods switched on, small ones in the code handler's own space
+    // included: their crash logs switch holds for them too.
+    bool code_mods_on = false;
     bool clears_mem1_top = false;
     bool retail_bca = false;  // the BCA read is to be answered as a retail disc's
 };
@@ -1358,12 +1362,21 @@ void plan_game_extras(const DolHeader& dol, const ExtrasContext& ctx, GameExtras
     }
     // A crash in the game is saved for the next start: below all of the
     // above, always.
+    // The same blob answers an image's BCA read when nothing else does (a
+    // game that checks it stops without): a small code mod, in the code
+    // handler's own space, with its crash logs off keeps it for that read
+    // alone, the crash handler left unhooked.
+    const bool bca_needs_fault_hook = !whole_mem1 && ctx.retail_bca && resident == nullptr && !debug_off("bca");
+    const bool crash_logs_off = ctx.code_mods_on && !ctx.code_build_crash_logs;
+    if (crash_logs_off && bca_needs_fault_hook && !ctx.gx_protected && !debug_off("fault")) {
+        logf("Game crashes: not recorded: crash logs are off for this code mod (the hook answers the image's BCA read only)\n");
+    }
     if (ctx.gx_protected) {
         logf("Game crashes: not recorded: the game checks its own code (MetaFortress); RiftWii's hooks stay out\n");
     } else if (debug_off("fault")) {
         logf("Game crashes: not recorded: debug_off (and the BCA read not answered)\n");
-    } else if (ctx.plain_code_build) {
-        logf("Game crashes: not recorded: a code build starts without RiftWii's extras\n");
+    } else if (crash_logs_off && !bca_needs_fault_hook) {
+        logf("Game crashes: not recorded: crash logs are off for this code build (its Mods page switches them on)\n");
     } else if (whole_mem1 && ctx.code_build && resident != nullptr) {
         // The game-time runtime (a pack's files, saves or an RVZ) takes the
         // same two places: its veneers run from kCodeVeneers past
@@ -1388,7 +1401,7 @@ void plan_game_extras(const DolHeader& dol, const ExtrasContext& ctx, GameExtras
         const bool answer_bca = ctx.retail_bca && resident == nullptr && !debug_off("bca");
         if (ctx.retail_bca && debug_off("bca")) logf("BCA: debug_off: not answered\n");
         if (!plan_fault_hook(dol, out.arena1_hi(ctx.arena1_hi), ctx.mem1_floor, out.arena2_lo(ctx.arena2_lo),
-                             answer_bca, patches, out.fault, why)) {
+                             answer_bca, patches, out.fault, why, 0, !crash_logs_off)) {
             logf("Game crashes: not recorded%s: %s\n", answer_bca ? " and the BCA read not answered" : "",
                  why.c_str());
         }
@@ -2277,9 +2290,10 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // Picked at Start: a code build started as its own SD loader would
     // start it, with its codes, gameconfig.txt's words and the GameCube
     // adapter when one is plugged in, and none of RiftWii's other extras
-    // (crash recorder, Return to RiftWii, video and game-page preferences,
-    // game fixes, WFC). Mods differ: Project+ runs with them, REX went to a
-    // black screen on a tester's Wii U (2610-412).
+    // (Return to RiftWii, video and game-page preferences, game fixes, WFC).
+    // Mods differ: Project+ runs with them, REX went to a black screen on a
+    // tester's Wii U (2610-412). The crash recorder goes by the build's own
+    // crash logs switch instead, with extras or without (#496).
     const bool plain_code_build = code_build && g_extras.code_build_plain;
     if (mem::TestWiiMem2Top()) {
         // Test builds: MEM2's top as a Wii's IOS leaves it (the MEM2 end,
@@ -2295,7 +2309,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         logf("Memory: TEST BUILD: MEM2's top as on a Wii (arena end 0x%08x)\n", load32(0x80003128));
     }
     if (code_build)
-        logf("Code build: started %s RiftWii's extras (picked at Start)\n", plain_code_build ? "without" : "with");
+        logf("Code build: started %s RiftWii's extras, crash logs %s\n", plain_code_build ? "without" : "with",
+             g_extras.code_build_crash_logs ? "on" : "off");
     // Resident Evil 4 clears MEM1 up to its FST at its title screen: the
     // blobs there were wiped and the screenshot hook then wrote through a
     // null state (the crash at Start Game on a console; in Dolphin too).
@@ -2596,6 +2611,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     extras_context.gx_protected = gx_protected;
     extras_context.code_build = code_build;
     extras_context.plain_code_build = plain_code_build;
+    extras_context.code_mods_on = !g_extras.code_builds.empty();
+    extras_context.code_build_crash_logs = extras_context.code_mods_on && g_extras.code_build_crash_logs;
     extras_context.clears_mem1_top = clears_mem1_top;
     extras_context.retail_bca = options.retail_bca;
     // An RVZ game whose adapter could not be planned (or later installed)

@@ -65,7 +65,10 @@ public:
 	void ResetText();
 	//!Constantly called to draw the text
 	void Draw() override;
+	//!RiftWii: the lines the text takes when drawn (wrapped, at most SetWrap's lines)
+	int GetLineCount();
 protected:
+	void WrapLines(u32 textlen); //!< RiftWii: Draw's wrapping, for GetLineCount too
 	GXColor color; //!< Font color
 	wchar_t* text; //!< Translated Unicode text value
 	wchar_t *textDyn[20]; //!< Text value, if max width, scrolling, or wrapping enabled

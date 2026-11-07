@@ -193,6 +193,17 @@ bool HidPadsConnected() {
 
 void HidPadsCopyCatalog(rthid_catalog& out) {
     out = g_catalog;
+    // The games take these as they are (the blobs carry no rthid_valid,
+    // #506): only layouts that pass the check leave the menu. No log here:
+    // the adapter page calls this with interrupts off, and a layout that
+    // fails was already logged when its file was read.
+    unsigned kept = 0;
+    for (unsigned i = 0; i < out.count && i < RTHID_CONFIG_MAX; ++i) {
+        if (!rthid_valid(&out.maps[i])) continue;
+        if (kept != i) out.maps[kept] = out.maps[i];
+        ++kept;
+    }
+    out.count = kept;
     out.adapter_disabled = Settings().gc_adapter == "off" ? 1 : 0;
     if (Settings().usb_input != "on") {
         out.count = 0;

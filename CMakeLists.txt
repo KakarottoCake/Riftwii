@@ -52,7 +52,7 @@ endif()
 # The resident runtime is built with its RVZ code (RT_RVZ): the tests cover
 # both blobs' logic, and without an RVZ state the RVZ code stays out of the
 # way. Its Zstandard is the host library here.
-add_library(riftwii_runtime STATIC runtime/rtable.c runtime/rtfat.c runtime/rtfs.c runtime/rtgcad.c runtime/rthid.c runtime/rtrvz.c runtime/rtshot.c runtime/rtfault.c runtime/rtvsd.c runtime/rtpro.c runtime/rtleave.c
+add_library(riftwii_runtime STATIC runtime/rtable.c runtime/rtfat.c runtime/rtfs.c runtime/rtgcad.c runtime/rthid.c runtime/rtrvz.c runtime/rtshot.c runtime/rtfault.c runtime/rtvsd.c runtime/rtvsdra.c runtime/rtpro.c runtime/rtleave.c
     runtime/resident/rt_hook.c runtime/resident/rt_zstd.c runtime/vsd/vsd_hook.c runtime/gc/gc_rvz.c)
 target_include_directories(riftwii_runtime PUBLIC runtime runtime/resident runtime/vsd PRIVATE vendor-zstd runtime/gc)
 target_compile_definitions(riftwii_runtime PRIVATE RT_RVZ)
@@ -308,6 +308,16 @@ if(BUILD_TESTING)
         target_compile_options(memorybudget_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME memorybudget COMMAND memorybudget_tests)
+    # The adapter-only pad blob's driver (runtime/pad, wiiu#45): the
+    # adapter's tests again, against rtgcad.c built without the other USB
+    # pads' code. Its own copy of rtgcad.c takes the library's place.
+    add_executable(gcad_adapteronly_tests tests/gcad_tests.cpp runtime/rtgcad.c)
+    target_compile_definitions(gcad_adapteronly_tests PRIVATE GCAD_ADAPTER_ONLY)
+    target_link_libraries(gcad_adapteronly_tests PRIVATE riftwii)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(gcad_adapteronly_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME gcad_adapteronly COMMAND gcad_adapteronly_tests)
     add_executable(packcatalog_tests tests/packcatalog_tests.cpp wii/menu/packcatalog.cpp)
     target_include_directories(packcatalog_tests PRIVATE wii/menu wii/core wii/launch wii/storage wii/online)
     target_link_libraries(packcatalog_tests PRIVATE riftwii)
@@ -433,7 +443,7 @@ if(BUILD_TESTING)
         add_test(NAME hidpads_${mode} COMMAND hidpads_tests ${mode}
             "${CMAKE_CURRENT_BINARY_DIR}/hidpads-test-${mode}")
     endforeach()
-    foreach(suite disccache patch overlay apply expand mempatch launch compat fst disc redirect fat32 ntfs titles canvas usbgame wbfspart wfs wfstitle rtfat rtfs dol hook riifs extras gcad hidconfig builtinpads png shot rvz codebuild qrcode report gamefault rtfaultstack vsd vsdblob gxpatches ctgpconfig theme riitag sysfont brfnt vsdparts vsdbuild modart bnr bnrsound themepack d2xversion nandcheck offlinegames casecolour extrasbudget wpadlog gametdb pro vcdiff gcoverlay gccard gccrash gclayout gcload gcclock gcbanner gcrvz gcports gccontrols sharednand nandchannel wadfile contentbin homeorder homeinput profiles namekeys gcvideo gcfont gcreset gcprograms gctgc gcexi gcaram stash plugin gcrequest gcgcad gcdsp gcreal osrestart textlines appmeta homebrewmatch themebrowse gcdisc ghcheats menufont zipstream cardvolume returnstub padleave channelupdate sdhotplug wiisound nandlist ratingmark parental musiclist menumotion streamformat emulatorfile emulatorart emulatorbanner picturepick wiiflowplugin codemods modcover homechord discdump gamepage rtzstd)
+    foreach(suite disccache patch overlay apply expand mempatch launch compat fst disc redirect fat32 ntfs titles canvas usbgame wbfspart wfs wfstitle rtfat rtfs dol hook riifs extras gcad hidconfig builtinpads png shot rvz codebuild qrcode report gamefault rtfaultstack vsd vsdblob gxpatches ctgpconfig theme riitag sysfont brfnt vsdparts vsdbuild modart bnr bnrsound themepack d2xversion nandcheck offlinegames casecolour extrasbudget wpadlog gametdb pro vcdiff gcoverlay gccard gccrash gclayout gcload gcclock gcbanner gcrvz gcports gccontrols sharednand nandchannel wadfile contentbin homeorder homeinput profiles namekeys gcvideo gcfont gcreset gcprograms gctgc gcexi gcaram stash plugin gcrequest gcgcad gcdsp gcreal osrestart textlines appmeta homebrewmatch themebrowse gcdisc ghcheats menufont zipstream cardvolume returnstub padleave channelupdate sdhotplug wiisound nandlist ratingmark parental musiclist menumotion streamformat emulatorfile emulatorart emulatorbanner picturepick wiiflowplugin codemods modcover homechord discdump gamepage rtzstd vsdra)
         add_executable(${suite}_tests tests/${suite}_tests.cpp)
         target_link_libraries(${suite}_tests PRIVATE riftwii)
         if(suite STREQUAL "redirect")

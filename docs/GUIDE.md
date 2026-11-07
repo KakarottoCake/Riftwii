@@ -1263,27 +1263,35 @@ A few things to know:
   reached a match). Older builds that go in `sd:/codes` with
   `gameconfig.txt` at the top of the card (Project M, Brawl Minus,
   Legacy XP's setup for USB loaders) use the same files.
-- Choose Play with a code mod on and RiftWii asks how to start it, the
-  first time for each mod:
-  - **With RiftWii's extras**: the crash recorder, Return to RiftWii
-    from the HOME Menu, the game page's video and other settings, and
-    the GameCube controller adapter for Wii U (in the console's second
-    memory, as these builds use all of the game's main memory).
-    Project+ runs this way.
-  - **Without extras**: as the mod's own loader starts it: its codes,
-    `gameconfig.txt` and the GameCube controller adapter when one is
-    plugged in, nothing else (HOME > Wii Menu goes to the Wii Menu).
-    Try this when a mod stays on a black screen.
-  RiftWii remembers the answer for that mod (in `sd:/riftwii/codemods.txt`),
-  on the game's page and on every Home tile the mod is on, and starts it
-  that way from then on. To change it, use the mod's **Start** row on the
-  Mods page: **With extras**, **Without extras**, or **Ask each time**, which asks at every Start and remembers nothing.
-  With two code mods on that were answered differently, or one not yet
-  answered, RiftWii asks again.
-  A launch without the menu (autorun, another loader) starts with the
+- Each code mod has two rows under it on the Mods page, kept for that
+  mod (in `sd:/riftwii/codemods.txt`) on the game's page and on every
+  Home tile it is on:
+  - **Extras**: **On** starts it with RiftWii's extras: Return to
+    RiftWii from the HOME Menu, Reset, the game page's video and other
+    settings, the 480p fix and online play. Project+ runs this way.
+    **Off** starts it as the mod's own loader would: its codes,
+    `gameconfig.txt` and the USB controllers, nothing else (HOME > Wii
+    Menu goes to the Wii Menu). Try Off when a mod stays on a black
+    screen. **Ask every launch** (where a new mod starts) asks at every
+    Play, With extras or Without extras, and remembers nothing.
+    With two code mods on that are set differently, RiftWii asks too.
+  - **Crash logs**: **On** saves a crash report to the SD card when the
+    game crashes, with extras or without. It takes about 8 KB of the
+    game's memory, which some mods don't have, so it is **Off** until
+    you switch it on.
+- A code mod takes only the USB controllers plugged in when it starts:
+  plug the GameCube adapter and any other controllers in before Play. A
+  controller plugged in later works from the next start. This keeps the
+  most memory for the mod (Project M with a DualSense or an Xbox 360
+  controller fits only this way); other games keep room for one plugged
+  in mid-game. With nothing plugged in, no USB controller code goes into
+  the game at all.
+- If a mod freezes or stays black: switch its crash logs off, then try
+  with fewer USB controllers plugged in, then set Extras to Off.
+- A launch without the menu (autorun, another loader) starts with the
   extras, or without them with `code_build_extras = off` in
-  `sd:/riftwii/settings.txt`. A start from the menu always goes by the
-  menu's answer.
+  `sd:/riftwii/settings.txt`; `code_build_crash_logs = on` switches its
+  crash logs on. A start from the menu always goes by the Mods page.
 - Either way, a code build runs under IOS58 (the Homebrew Channel's) or
   the cIOS RiftWii's menu runs on, and the game is told it has its own
   IOS, as the launcher Project+ and its mods ship with (MinimaLauncher)

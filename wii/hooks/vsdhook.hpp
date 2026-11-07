@@ -39,6 +39,13 @@ struct VsdImage {
     bool on_usb = false;                   // extents are the USB drive's sectors
     std::uint32_t sectors = 0;             // the image's size
     std::vector<rtvsd_extent> extents;     // its pieces on the card
+    // The read-ahead buffer (runtime/rtvsdra.h): its window in sectors, 0
+    // for none. Only an image file has one: the whole SD card passed
+    // through beside the resident runtime does not, since the runtime
+    // writes to that card behind the blob's back. `readahead_anchor` is
+    // the image sector the windows line up with (its first cluster's).
+    std::uint32_t readahead_sectors = 0;
+    std::uint32_t readahead_anchor = 0;
 };
 
 // Where the image `name` ("pm.raw") is, before the card is unmounted:

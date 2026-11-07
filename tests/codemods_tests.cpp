@@ -73,7 +73,7 @@ static void TestBounds() {
                                               CodeModStart::Without));
     EXPECT_TRUE(riftwii::serialize_code_mods(longest).size() <= riftwii::kCodeModsMaxBytes);
     // A full file takes no new mod's answer, and says so.
-    EXPECT_TRUE(!riftwii::remember_code_mod_answer(longest, "RSBE01", Keys{"one more"}, CodeModStart::With));
+    EXPECT_TRUE(!riftwii::set_code_mod_answer(longest, "RSBE01", "one more", CodeModStart::With));
     EXPECT_TRUE(riftwii::code_mod_answer(longest, "RSBE01", "one more") == CodeModStart::Unset);
     // A file read up to the limit is cut back to its last whole line.
     EXPECT_EQ(riftwii::code_mods_whole_lines("RSBE01\tA\twith\nRSBE01\tB\twi", true), std::string("RSBE01\tA\twith\n"));
@@ -90,31 +90,72 @@ static void TestSeveral() {
     EXPECT_TRUE(riftwii::shared_code_mod_answer(answers, "RSBE01", Keys{"A", "C"}) == CodeModStart::Unset);
     EXPECT_TRUE(riftwii::shared_code_mod_answer(answers, "RSBE01", Keys{"A", "D"}) == CodeModStart::Unset);
     EXPECT_TRUE(riftwii::shared_code_mod_answer(answers, "RSBE01", Keys{}) == CodeModStart::Unset);
-    // The answer then goes to the ones that had none; C keeps its own.
-    riftwii::remember_code_mod_answer(answers, "RSBE01", Keys{"A", "C", "D"}, CodeModStart::With);
-    EXPECT_TRUE(riftwii::code_mod_answer(answers, "RSBE01", "D") == CodeModStart::With);
-    EXPECT_TRUE(riftwii::code_mod_answer(answers, "RSBE01", "C") == CodeModStart::Without);
-    EXPECT_TRUE(riftwii::code_mod_answer(answers, "RSBE01", "A") == CodeModStart::With);
 }
 
-// "Ask each time" is kept as an answer of its own: asking again never
-// replaces it, and the file says "ask".
+// "Ask every launch" is kept as a setting of its own (the file says "ask"),
+// and asks just as a mod set to nothing does (#496: no answer is remembered).
 static void TestAskEachTime() {
     CodeModAnswers answers;
     EXPECT_TRUE(riftwii::set_code_mod_answer(answers, "RSBE01", "rex_", CodeModStart::AskEachTime));
     EXPECT_TRUE(riftwii::code_mod_answer(answers, "RSBE01", "rex_") == CodeModStart::AskEachTime);
-    riftwii::remember_code_mod_answer(answers, "RSBE01", Keys{"rex_"}, CodeModStart::With);
-    EXPECT_TRUE(riftwii::code_mod_answer(answers, "RSBE01", "rex_") == CodeModStart::AskEachTime);
     EXPECT_TRUE(riftwii::shared_code_mod_answer(answers, "RSBE01", Keys{"rex_"}) == CodeModStart::AskEachTime);
     EXPECT_TRUE(riftwii::serialize_code_mods(answers).find("RSBE01\trex_\task\n") != std::string::npos);
     EXPECT_TRUE(riftwii::parse_code_mods(riftwii::serialize_code_mods(answers)) == answers);
-    // Beside a mod that has no answer yet: asked, and only that one remembers.
-    riftwii::remember_code_mod_answer(answers, "RSBE01", Keys{"rex_", "Project+"}, CodeModStart::Without);
-    EXPECT_TRUE(riftwii::code_mod_answer(answers, "RSBE01", "Project+") == CodeModStart::Without);
-    EXPECT_TRUE(riftwii::code_mod_answer(answers, "RSBE01", "rex_") == CodeModStart::AskEachTime);
-    // Asking is no answer to remember.
-    riftwii::remember_code_mod_answer(answers, "RSBE01", Keys{"other"}, CodeModStart::AskEachTime);
-    EXPECT_TRUE(riftwii::code_mod_answer(answers, "RSBE01", "other") == CodeModStart::Unset);
+    // Beside a mod that is set to nothing: they differ, so asked.
+    EXPECT_TRUE(riftwii::shared_code_mod_answer(answers, "RSBE01", Keys{"rex_", "Project+"}) == CodeModStart::Unset);
+}
+
+// Crash logs (#496): their own lines, which a build from before skips
+// without losing the answers, off unless switched on, and on for several
+// mods together only when each has them on.
+void CrashLogs() {
+    const std::string text =
+        "# a comment\nRSBE01\tProject+\twith\nRSBE01\tProject+\tlogs\nRSBE01\trex_\tlogs\n"
+        "RSBE01\tbad\tlogs\textra\nRSB\tshort\tlogs\n";
+    const riftwii::CodeModCrashLogs logs = riftwii::parse_code_mod_crash_logs(text);
+    EXPECT_EQ(logs.size(), 2u);
+    EXPECT_TRUE(riftwii::code_mod_crash_logs(logs, "RSBE01", "Project+"));
+    EXPECT_TRUE(riftwii::code_mod_crash_logs(logs, "RSBE01", "rex_"));
+    EXPECT_TRUE(!riftwii::code_mod_crash_logs(logs, "RSBE01", "Other"));
+    // The answers' reader skips the logs lines, as a build from before #496 does.
+    const CodeModAnswers answers = riftwii::parse_code_mods(text);
+    EXPECT_EQ(answers.size(), 1u);
+    EXPECT_TRUE(riftwii::code_mod_answer(answers, "RSBE01", "Project+") == CodeModStart::With);
+    EXPECT_TRUE(riftwii::code_mod_answer(answers, "RSBE01", "rex_") == CodeModStart::Unset);
+    // Written and read back.
+    const std::string written = riftwii::serialize_code_mods(answers, logs);
+    EXPECT_TRUE(riftwii::parse_code_mods(written) == answers);
+    EXPECT_TRUE(riftwii::parse_code_mod_crash_logs(written) == logs);
+    EXPECT_TRUE(riftwii::parse_code_mod_crash_logs(riftwii::serialize_code_mods(answers)).empty());
+    // Switching on and off.
+    riftwii::CodeModCrashLogs set;
+    EXPECT_TRUE(riftwii::set_code_mod_crash_logs(set, "RSBE01", "A", true));
+    EXPECT_TRUE(riftwii::code_mod_crash_logs(set, "RSBE01", "A"));
+    EXPECT_TRUE(riftwii::set_code_mod_crash_logs(set, "RSBE01", "A", false));
+    EXPECT_TRUE(!riftwii::code_mod_crash_logs(set, "RSBE01", "A"));
+    EXPECT_TRUE(!riftwii::set_code_mod_crash_logs(set, "RSBE01", "a\tb", true));
+    // Several mods on together.
+    riftwii::set_code_mod_crash_logs(set, "RSBE01", "A", true);
+    riftwii::set_code_mod_crash_logs(set, "RSBE01", "B", true);
+    EXPECT_TRUE(riftwii::shared_code_mod_crash_logs(set, "RSBE01", Keys{"A", "B"}));
+    EXPECT_TRUE(!riftwii::shared_code_mod_crash_logs(set, "RSBE01", Keys{"A", "C"}));
+    EXPECT_TRUE(!riftwii::shared_code_mod_crash_logs(set, "RSBE01", Keys{}));
+    // A full set takes no new mod, but switching one off always works.
+    riftwii::CodeModCrashLogs full;
+    for (std::size_t i = 0; i < riftwii::kCodeModsMaxCrashLogs; ++i)
+        EXPECT_TRUE(riftwii::set_code_mod_crash_logs(full, "RSBE01", "mod" + std::to_string(i), true));
+    EXPECT_TRUE(!riftwii::set_code_mod_crash_logs(full, "RSBE01", "one more", true));
+    EXPECT_TRUE(riftwii::set_code_mod_crash_logs(full, "RSBE01", "mod0", false));
+    // The longest file: every answer and every crash log at the longest key fits the cap.
+    CodeModAnswers longest;
+    riftwii::CodeModCrashLogs longest_logs;
+    for (std::size_t i = 0; i < riftwii::kCodeModsMaxAnswers; ++i) {
+        std::string key = std::to_string(i);
+        key.resize(riftwii::kCodeModsMaxKey, 'k');
+        riftwii::set_code_mod_answer(longest, "RSBE01", key, CodeModStart::Without);
+        if (i < riftwii::kCodeModsMaxCrashLogs) riftwii::set_code_mod_crash_logs(longest_logs, "RSBE01", key, true);
+    }
+    EXPECT_TRUE(riftwii::serialize_code_mods(longest, longest_logs).size() <= riftwii::kCodeModsMaxBytes);
 }
 
 int main() {
@@ -123,6 +164,7 @@ int main() {
     TestSet();
     TestBounds();
     TestSeveral();
+    CrashLogs();
     if (g_failures) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;

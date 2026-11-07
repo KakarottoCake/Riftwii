@@ -165,7 +165,7 @@ The build compiles every folder into one, so no two files share a name.
 | `packcatalog.cpp` | The pack text and code mod list shared by Home's scan and each game's page |
 | `modtiles.cpp` | A game's extra Home tiles with mods of their own (profiles): their list and choices on the card |
 | `gameextras.cpp` | The game page's extras: cheats, video, language, online server, code builds, what a launch carries |
-| `codemodstart.cpp` | `codemods.txt` read and written for the menu: how each code build starts (with or without RiftWii's extras), asked once and remembered |
+| `codemodstart.cpp` | `codemods.txt` read and written for the menu: each code build's Extras (with, without, or ask every launch) and Crash logs |
 | `screenshot.cpp` | Menu screenshots and importing the games' ones |
 | `covers.cpp` | Cover art: download, cache, textures |
 | `madecover.cpp` | Made-up covers for games without one: the blank cover with the name printed on it |
@@ -395,7 +395,7 @@ reader helpers stay beside their source.
 | `profiles` | `profiles.txt`: a game's extra Home tiles with their own mods; their names, keys and limits |
 | `namekeys` | The Shift of the keyboard a tile's name is typed on: what each key types with Shift off, on by itself (capitals) or pressed (capitals and symbols), and how Shift follows the name |
 | `homeorder` | `order.txt`: Home's own order (Settings > Home order: Your order) |
-| `codemods` | `codemods.txt`: how each code build starts, per game and mod, and the rule for several code builds on together |
+| `codemods` | `codemods.txt`: each code build's Extras and Crash logs, per game and mod, the rule for several code builds on together, and older builds reading the crash logs' lines |
 | `gametdb` | GameTDB's `wiitdb.xml` read a game at a time, the game details cache, wrapping their text |
 | `cardlog` | The runtime's SD card log, as text |
 | `shotfile` | Screenshot file headers and conversion |
@@ -444,7 +444,7 @@ shared C parts (`runtime/*.c`) are also built into the host tests.
 | `fault/`, `rtfault.c` | The crash blob: the crash record to the NAND; also answers the BCA read |
 | `wlog/`, `rtwlog.h` | The Wii Remote log blob: the game's Bluetooth and Wii Remote debug prints and a trace of its Bluetooth traffic, saved to the NAND at HOME > Wii Menu; it runs the Pro Controller translator |
 | `rtpro.c` | The Wii U Pro Controller translator: the Pro presented to the game as a Wii Remote with a Classic Controller (host-tested in `tests/pro_tests.cpp`) |
-| `vsd/`, `rtvsd.c` | The virtual SD card blob and the card it answers as |
+| `vsd/`, `rtvsd.c`, `rtvsdra.c` | The virtual SD card blob, the card it answers as and its read-ahead buffer (host-tested in `tests/vsdra_tests.cpp` and `tests/vsdblob_tests.cpp`) |
 | `stub/` | Not a blob: the return stub for homebrew apps (`include/riftwii/returnstub.h` has the layout), a program of its own at `0x80001800`, where libogc's `exit()` looks; it launches the RiftWii channel, the Homebrew Channel or the Wii Menu through `/dev/es` |
 | `dolpack/` | Not a blob: the packed `boot.dol`'s stub (`dolpack.h` has the format), a program of its own at `0x80900000` that unpacks RiftWii's sections with the vendored Zstandard decoder and starts it (`tools/pack_dol.py` makes the DOL) |
 

@@ -50,6 +50,7 @@
 #ifndef RIFTWII_RTGCAD_H
 #define RIFTWII_RTGCAD_H
 
+#include <stddef.h>
 #include <stdint.h>
 #include "rthid.h"
 
@@ -212,6 +213,7 @@ typedef struct gcad_descriptor {
  * until a start-up exchange no controller.ini can describe, and whose
  * sticks are packed 12-bit values. Built in, like the Xbox 360 pad. */
 #define GCAD_SWITCH_VID_PID 0x057E2009u
+#define GCAD_PS3_VID_PID 0x054C0268u /* a DualShock 3: its feature-report wake-up */
 #define GCAD_SWITCH_REPORT_BYTES 12u /* id, timer, battery, 3 button bytes, 2 sticks of 3 bytes */
 
 /* SDK PAD button bits. */
@@ -233,7 +235,6 @@ typedef struct gcad_descriptor {
  * buffer is in MEM2 and aligned). Each buffer is a whole number of cache
  * lines so flushing one never touches another. */
 typedef struct gcad {
-    uint8_t change[0x600];     /* device list: v4 fills 0x600, v5 0x180 */
     uint8_t setup_in[0x20];
     uint8_t setup_out[GCAD_VEN_INFO_BYTES]; /* device info: hid's is 0x60 bytes, ven's 0xC0 */
     uint8_t in_msg[0x40];      /* v4 request (32 bytes) or v5 message (64) */
@@ -279,7 +280,9 @@ typedef struct gcad {
     /* The adapter owns the one device list and AttachFinish sequence.
      * Pad links reuse its fd and state machine, with distinct IPC tags. */
     struct gcad* owner;        /* null for the adapter/list owner */
-    struct gcad* peers;        /* four pad links, null without HID support */
+    struct gcad* peers;        /* the pad links, null without HID support */
+    uint16_t peer_stride;      /* bytes from one pad link to the next */
+    uint8_t peer_count;        /* up to GCAD_HID_PADS */
     const rthid_catalog* catalog;
     const rthid_mapping* mapping; /* non-null only for a configured pad */
     uint32_t slot;             /* callback routing: 0 adapter, 1..4 pads */
@@ -305,13 +308,6 @@ typedef struct gcad {
      * game's trace queue while its writes stall. */
     uint8_t discovery_seen;
     int32_t discovery_result[2];
-    uint32_t ignored_count;
-    int32_t ignored[RTHID_DEVICE_MAX]; /* log an unconfigured device once per plug */
-    uint32_t excluded_count;
-    int32_t excluded[RTHID_DEVICE_MAX]; /* non-HID interfaces, until unplugged */
-    uint32_t device_count;
-    rthid_device devices[RTHID_DEVICE_MAX];
-    gcad_descriptor descriptors[RTHID_DEVICE_MAX]; /* v4 list snapshot */
     /* /dev/usb/ven, for Xbox 360 pads. On the /dev/usb/hid list owner,
      * ven_list is the second list owner (null without one). On that one,
      * `ven` is set and `xbox` holds a built-in mapping per pad link. On a
@@ -321,6 +317,17 @@ typedef struct gcad {
     rthid_mapping* xbox;
     uint8_t ven;
     uint8_t led_port;          /* Xbox 360: the port its ring shows, 255: none yet */
+    /* Only a list owner's (the adapter's, the ven list's) from here on:
+     * a pad link is GCAD_LINK_BYTES long and never reaches them; an
+     * owner stops after its version's list (GCAD_OWNER_BYTES). */
+    uint32_t ignored_count;
+    int32_t ignored[RTHID_DEVICE_MAX]; /* log an unconfigured device once per plug */
+    uint32_t excluded_count;
+    int32_t excluded[RTHID_DEVICE_MAX]; /* non-HID interfaces, until unplugged */
+    uint32_t device_count;
+    rthid_device devices[RTHID_DEVICE_MAX];
+    gcad_descriptor descriptors[RTHID_DEVICE_MAX]; /* v4 list snapshot */
+    uint8_t change[0x600] __attribute__((aligned(32))); /* device list: v4 fills 0x600, v5 0x180; last */
 } __attribute__((aligned(32))) gcad;
 
 /* Loader-filled catalog survives initialization; everything else is
@@ -332,6 +339,37 @@ typedef struct gcad_hub {
     gcad ven;                  /* /dev/usb/ven's list (gcad_ven_init) */
     rthid_mapping xbox[GCAD_HID_PADS];
 } gcad_hub;
+
+/* A pad link's bytes: the part before the list owner's fields. */
+#define GCAD_LINK_BYTES ((uint32_t)((offsetof(gcad, ignored_count) + 31u) & ~31u))
+/* A list owner's bytes: up to the end of its version's device list. */
+#define GCAD_OWNER_BYTES(version) \
+    ((uint32_t)((offsetof(gcad, change) + ((version) == 4 ? 0x600u : 0x180u) + 31u) & ~31u))
+
+/* A Wii game's state, sized to what was plugged in at the launch: the
+ * adapter (the /dev/usb/hid list owner), the ven list and an Xbox 360
+ * mapping per link when Xbox 360 pads are in play, `links` pad links,
+ * and the catalog with `maps` mappings. Offsets from the state's start. */
+typedef struct gcad_layout {
+    uint32_t ven, xbox, links, catalog, bytes;
+} gcad_layout;
+
+static inline uint32_t gcad_align32(uint32_t n) { return (n + 31u) & ~31u; }
+
+/* `owner`: the /dev/usb/hid owner's bytes (GCAD_OWNER_BYTES, or
+ * GCAD_LINK_BYTES when it lies dormant: no adapter or HID pad plugged in). */
+static inline void gcad_layout_for(gcad_layout* l, uint32_t owner, uint32_t links, int ven, uint32_t maps) {
+    uint32_t at = gcad_align32(owner);
+    l->ven = ven ? at : 0;
+    if (ven) at += GCAD_OWNER_BYTES(5);
+    l->xbox = ven ? at : 0;
+    if (ven) at += gcad_align32(links * (uint32_t)sizeof(rthid_mapping));
+    l->links = at;
+    at += links * GCAD_LINK_BYTES;
+    l->catalog = at;
+    at += gcad_align32((uint32_t)offsetof(rthid_catalog, maps) + maps * (uint32_t)sizeof(rthid_mapping));
+    l->bytes = at;
+}
 
 /* The environment. Each returns what IOS_IoctlAsync / IOS_IoctlvAsync
  * returned (0 when queued); the reply must reach gcad_on_reply with the
@@ -352,14 +390,28 @@ void gcad_env_event(gcad* g, uint32_t code, uint32_t a, int32_t b);
 
 /* Zeroes the state. `version` is what GetVersion answered (4 or 5). */
 void gcad_init(gcad* g, void* env_ctx, int32_t fd, uint32_t version, uint32_t ticks_per_ms);
+/* The same for a state `bytes` long (GCAD_OWNER_BYTES or GCAD_LINK_BYTES). */
+void gcad_init_bytes(gcad* g, uint32_t bytes, void* env_ctx, int32_t fd, uint32_t version, uint32_t ticks_per_ms);
 void gcad_hub_init(gcad_hub* hub, void* env_ctx, int32_t fd, uint32_t version, uint32_t ticks_per_ms);
-void gcad_links_init(gcad* adapter, gcad pads[GCAD_HID_PADS], rthid_catalog* catalog,
+/* `count` pad links, `stride` bytes apart: sizeof(gcad) in a gcad_hub,
+ * GCAD_LINK_BYTES in a game's own layout (gcad_layout). */
+void gcad_links_init(gcad* adapter, gcad* pads, uint32_t count, uint32_t stride, rthid_catalog* catalog,
                      void* env_ctx, int32_t fd, uint32_t version, uint32_t ticks_per_ms);
+/* gcad_links_init for an owner `owner_bytes` long (GCAD_OWNER_BYTES, or
+ * GCAD_LINK_BYTES when `dormant`: it asks for no list of its own, as a
+ * code build started with no adapter and no HID pad, #496). */
+void gcad_links_init_ex(gcad* adapter, uint32_t owner_bytes, int dormant, gcad* pads, uint32_t count,
+                        uint32_t stride, rthid_catalog* catalog, void* env_ctx, int32_t fd, uint32_t version,
+                        uint32_t ticks_per_ms);
 /* Adds /dev/usb/ven's device list, for wired Xbox 360 pads, on its own
  * handle `fd` (v5 only), after gcad_links_init on the same adapter. Its
- * pads take the same four links as the configured HID pads. */
-void gcad_ven_init(gcad* adapter, gcad* ven, rthid_mapping xbox[GCAD_HID_PADS], void* env_ctx, int32_t fd,
+ * pads take the same links as the configured HID pads; `xbox` holds one
+ * built-in mapping per link. */
+void gcad_ven_init(gcad* adapter, gcad* ven, rthid_mapping* xbox, void* env_ctx, int32_t fd,
                    uint32_t ticks_per_ms);
+/* The same with the ven list's state `ven_bytes` long (GCAD_OWNER_BYTES(5)). */
+void gcad_ven_init_ex(gcad* adapter, gcad* ven, uint32_t ven_bytes, rthid_mapping* xbox, void* env_ctx,
+                      int32_t fd, uint32_t ticks_per_ms);
 /* 1 for a vendor whose wired pads speak the Xbox 360 protocol: only
  * their devices on the ven list are asked for their interface, so a USB
  * drive or another vendor's device on that list is never touched. */

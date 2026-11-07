@@ -132,24 +132,40 @@ int rtvsd_reset(struct rtvsd_card* card) {
     return next >= card->sectors ? 0 : -1;
 }
 
-uint32_t rtvsd_map(const struct rtvsd_card* card, uint32_t sector, uint32_t count, uint32_t* device_sector) {
+/* The extent holding `sector` (inside the image), by binary search. */
+static const struct rtvsd_extent* extent_of(const struct rtvsd_card* card, uint32_t sector) {
     uint32_t lo = 0, hi = card->extent_count;
-    if (count == 0 || sector >= card->sectors) return 0;
-    if (count > card->sectors - sector) count = card->sectors - sector;
+    const struct rtvsd_extent* e;
     while (hi - lo > 1u) {
         const uint32_t mid = lo + ((hi - lo) >> 1);
         if (rtvsd_extents(card)[mid].file_sector <= sector) lo = mid;
         else hi = mid;
     }
-    {
-        const struct rtvsd_extent* e = &rtvsd_extents(card)[lo];
-        const uint32_t into = sector - e->file_sector;
-        uint32_t run;
-        if (sector < e->file_sector || into >= e->count) return 0;
-        run = e->count - into;
-        *device_sector = e->device_sector + into;
-        return run < count ? run : count;
-    }
+    e = &rtvsd_extents(card)[lo];
+    if (sector < e->file_sector || sector - e->file_sector >= e->count) return 0;
+    return e;
+}
+
+uint32_t rtvsd_map(const struct rtvsd_card* card, uint32_t sector, uint32_t count, uint32_t* device_sector) {
+    const struct rtvsd_extent* e;
+    uint32_t into, run;
+    if (count == 0 || sector >= card->sectors) return 0;
+    if (count > card->sectors - sector) count = card->sectors - sector;
+    e = extent_of(card, sector);
+    if (e == 0) return 0;
+    into = sector - e->file_sector;
+    run = e->count - into;
+    *device_sector = e->device_sector + into;
+    return run < count ? run : count;
+}
+
+uint32_t rtvsd_piece(const struct rtvsd_card* card, uint32_t sector, uint32_t* first) {
+    const struct rtvsd_extent* e;
+    if (sector >= card->sectors) return 0;
+    e = extent_of(card, sector);
+    if (e == 0) return 0;
+    *first = e->file_sector;
+    return e->count;
 }
 
 /* Host controller registers: bytes, little-endian within a register as

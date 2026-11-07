@@ -24,6 +24,8 @@
 #include "riftwii/osrestart.hpp"
 #include "riftwii/symsearch.hpp"
 #include "riftwii_pad_bin.h"
+#include "riftwii_pada_bin.h"
+#include "riftwii_padp_bin.h"
 #include "rtgcad.h"
 #include "skin.hpp"
 
@@ -133,7 +135,30 @@ bool own_list(std::int32_t fd, s32& count) {
     return count >= 0;
 }
 
-const rt_pad_header& header() { return *reinterpret_cast<const rt_pad_header*>(riftwii_pad_bin); }
+// Three builds of the same blob: the full one; one without the code for
+// other USB pads (HID, Xbox 360, Switch Pro), used when the adapter is the
+// only USB controller the game can use (PadHook::adapter_only); and, for a
+// code build started with USB pads but no adapter, Switch Pro Controller
+// or DualShock 3, one without those three's code (PadHook::pads_only, #496).
+enum BlobKind { kBlobFull = 0, kBlobAdapter = 1, kBlobPads = 2 };
+int kind_of(bool adapter_only, bool pads_only) {
+    return adapter_only ? kBlobAdapter : pads_only ? kBlobPads : kBlobFull;
+}
+const std::uint8_t* blob(int kind) {
+    return kind == kBlobAdapter ? riftwii_pada_bin : kind == kBlobPads ? riftwii_padp_bin : riftwii_pad_bin;
+}
+std::uint32_t blob_size(int kind) {
+    return kind == kBlobAdapter ? riftwii_pada_bin_size : kind == kBlobPads ? riftwii_padp_bin_size
+                                                                            : riftwii_pad_bin_size;
+}
+const rt_pad_header& header(int kind) { return *reinterpret_cast<const rt_pad_header*>(blob(kind)); }
+
+bool blob_whole(int kind) {
+    const rt_pad_header& h = header(kind);
+    const std::uint32_t size = blob_size(kind);
+    return size >= sizeof(rt_pad_header) && h.magic == RT_PAD_MAGIC && h.version == RT_PAD_VERSION &&
+           h.size <= size && h.context_offset + RT_PAD_CONTEXT_BYTES <= h.size;
+}
 
 void store_words(std::uint32_t address, const std::uint32_t* words, std::size_t count) {
     volatile std::uint32_t* p = reinterpret_cast<volatile std::uint32_t*>(address);
@@ -614,9 +639,7 @@ void find_way_back(const DolHeader& dol, const std::vector<CodeRange>& text, Pad
 bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::string& why) {
     out = PadHook{};
     out.demo = demo;
-    const rt_pad_header& h = header();
-    if (riftwii_pad_bin_size < sizeof(rt_pad_header) || h.magic != RT_PAD_MAGIC || h.version != RT_PAD_VERSION ||
-        h.size > riftwii_pad_bin_size || h.context_offset + RT_PAD_CONTEXT_BYTES > h.size) {
+    if (!blob_whole(kBlobFull) || !blob_whole(kBlobAdapter) || !blob_whole(kBlobPads)) {
         why = "the embedded pad blob is damaged";
         return false;
     }
@@ -645,7 +668,7 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
          out.read, out.read_sites, out.motor, out.idle_reset);
     find_way_back(dol, text, out);
 
-    if (!take_adapter_handle(out.fd, out.version, out.known_dev, why)) {
+    if (!take_adapter_handle(out.fd, out.version, out.known_dev, why, &out.devices_unknown)) {
         if (!demo) return false;
         logf("GameCube adapter: %s; demo mode goes on without it\n", why.c_str());
         out.fd = -1;
@@ -655,7 +678,8 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
     return true;
 }
 
-bool take_adapter_handle(std::int32_t& fd, std::uint32_t& version, std::int32_t& known_dev, std::string& why) {
+bool take_adapter_handle(std::int32_t& fd, std::uint32_t& version, std::int32_t& known_dev, std::string& why,
+                         bool* list_unknown) {
     HidPadsPreload();
     // The adapter's device, with the IOS the game will run. The menu's
     // USB storage left libogc's device-change requests pending: v5 takes
@@ -665,6 +689,7 @@ bool take_adapter_handle(std::int32_t& fd, std::uint32_t& version, std::int32_t&
     fd = -1;
     version = 0;
     known_dev = -1;
+    if (list_unknown != nullptr) *list_unknown = false;
     if (g_own.fd >= 0 && g_own.version == 5) {
         // The launch's own handle (look_for_gc_adapter), never shut down.
         fd = g_own.fd;
@@ -676,7 +701,8 @@ bool take_adapter_handle(std::int32_t& fd, std::uint32_t& version, std::int32_t&
         return true;
     }
     std::string devices;
-    ogc_adapter(known_dev, devices);  // v5's list goes with libogc's USB
+    const AdapterSeen seen = ogc_adapter(known_dev, devices);  // v5's list goes with libogc's USB
+    if (list_unknown != nullptr) *list_unknown = seen == AdapterSeen::Unknown;
     logf("GameCube adapter: libogc lists %s (adapter device %d)\n", devices.c_str(), static_cast<int>(known_dev));
     USB_Deinitialize();
     usleep(50000);
@@ -749,7 +775,6 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
                    std::uint32_t ioctl_async, std::uint32_t ioctlv_async,
                    const std::vector<MemoryPatch>& patches, PadHook& out, std::string& why,
                    std::uint32_t mem1_veneer, std::uint32_t stage_base) {
-    const rt_pad_header& h = header();
     const bool demo = out.demo;
     if (out.read == 0) {
         why = "PADRead was not found";
@@ -789,8 +814,89 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     //    bottom of the MEM2 arena. For a code build both at the top of
     //    the MEM2 arena instead, the arena's start (and the build's fixed
     //    addresses) left alone. A pack's patch there turns it off.
+    // Only the adapter's own state when no other USB pad could be used in
+    // the game: a pad's mapping is loaded in the menu when it is plugged
+    // in there, and an Xbox 360 pad needs /dev/usb/ven opened before the
+    // launch (open_usb_ven_for_game). Without either, the four pad links,
+    // the catalog and the ven list are about 26 KB the game never uses
+    // (Project+ with the adapter had 512 bytes to spare).
+    static rthid_catalog catalog;
+    HidPadsCopyCatalog(catalog);
+    const std::uint32_t version = out.version == 4 ? 4u : 5u;
+    // A code build (its blob goes to MEM2's top, through veneers) takes the
+    // USB controllers plugged in when it starts and no others: room for
+    // those, their mappings, and the blob without what none of them needs
+    // (#496). Code builds use all of the game's memory; other games keep
+    // room for any pad the menu has seen, which can be plugged in mid-game.
+    const bool code_build = mem1_veneer != 0;
+    // A device list that could not be read at the launch is no sign the
+    // adapter is out: planned for then, as it may be plugged in.
+    bool adapter_in = catalog.adapter_disabled == 0 && (out.known_dev >= 0 || out.devices_unknown);
+    for (unsigned i = 0; i < catalog.known_count && i < RTHID_DEVICE_MAX; ++i) {
+        if (catalog.adapter_disabled == 0 && catalog.known[i].vid_pid == GCAD_VID_PID) adapter_in = true;
+    }
+    static rthid_catalog kept;
+    std::memcpy(&kept, &catalog, offsetof(rthid_catalog, maps));
+    kept.count = 0;
+    unsigned hid_pads = 0, xbox_pads = 0;
+    bool special_pad = false;  // a Switch Pro Controller or DualShock 3: their start-ups are in the full blob
+    for (unsigned i = 0; i < catalog.known_count && i < RTHID_DEVICE_MAX; ++i) {
+        const std::uint32_t id = catalog.known[i].vid_pid;
+        const rthid_mapping* m = id == GCAD_VID_PID ? nullptr : rthid_find(&catalog, id);
+        if (m == nullptr) continue;
+        ++hid_pads;
+        if (id == GCAD_SWITCH_VID_PID || id == GCAD_PS3_VID_PID) special_pad = true;
+        bool have = false;
+        for (unsigned j = 0; j < kept.count && !have; ++j) have = kept.maps[j].vid == m->vid && kept.maps[j].pid == m->pid;
+        if (!have && kept.count < RTHID_CONFIG_MAX) kept.maps[kept.count++] = *m;
+    }
+    if (out.ven_fd >= 0) {
+        for (unsigned i = 0; i < catalog.ven_known_count && i < RTHID_DEVICE_MAX; ++i) {
+            if (gcad_xbox_vendor(catalog.ven_known[i].vid_pid >> 16)) ++xbox_pads;
+        }
+    }
+    if (code_build) {
+        // Only what is plugged in now; an adapter plugged in later is not looked for.
+        out.adapter_only = adapter_in && hid_pads == 0 && out.ven_fd < 0;
+        out.pads_only = !adapter_in && !special_pad;
+        out.hid_dormant = !adapter_in && hid_pads == 0 && out.ven_fd >= 0;
+        const unsigned links = hid_pads + xbox_pads;
+        out.link_count = links == 0 ? 1u : links < GCAD_HID_PADS ? links : GCAD_HID_PADS;
+        out.map_count = kept.count;
+        if (!adapter_in) kept.adapter_disabled = 1;
+    } else {
+        // As before (#494): the adapter alone when no other USB pad could be
+        // used; otherwise room for four and every mapping the menu loaded.
+        out.adapter_only = catalog.count == 0 && out.ven_fd < 0 && catalog.adapter_disabled == 0;
+        out.link_count = GCAD_HID_PADS;
+        out.map_count = catalog.count;
+        std::memcpy(&kept, &catalog, sizeof(kept));
+    }
+    if (out.adapter_only) {
+        out.link_count = 0;
+        out.map_count = 0;
+        out.pads_only = false;
+        out.hid_dormant = false;
+    }
+    if (out.adapter_only && out.known_dev < 0) {
+        // The hub would find the adapter in the menu's device list
+        // (gcad_links_init); alone, the driver is told it directly.
+        for (unsigned i = 0; i < catalog.known_count && i < RTHID_DEVICE_MAX; ++i) {
+            if (catalog.known[i].vid_pid == GCAD_VID_PID) out.known_dev = catalog.known[i].id;
+        }
+    }
+    gcad_layout layout{};
+    gcad_layout_for(&layout, out.hid_dormant ? GCAD_LINK_BYTES : GCAD_OWNER_BYTES(version), out.link_count,
+                    out.ven_fd >= 0, out.map_count);
+    const int kind = kind_of(out.adapter_only, out.pads_only);
+    const rt_pad_header& h = header(kind);
     out.code_bytes = align_up(h.size);
-    out.state_bytes = align_up(sizeof(gcad_hub));
+    out.state_bytes = align_up(out.adapter_only ? GCAD_OWNER_BYTES(version) : layout.bytes);
+    logf("USB controllers: %s driver (%u bytes), room for %u other USB pad(s) and %u mapping(s)%s, state %u bytes%s\n",
+         kind == kBlobAdapter ? "the adapter's" : kind == kBlobPads ? "the USB pads'" : "the full",
+         static_cast<unsigned>(h.size), static_cast<unsigned>(out.link_count), static_cast<unsigned>(out.map_count),
+         out.ven_fd >= 0 ? " and the Xbox 360 list" : "", static_cast<unsigned>(out.state_bytes),
+         code_build ? " (a code build: what was plugged in at the start)" : "");
     // A code build puts this blob at MEM2's top. The resident runtime's
     // staged data is still there until the jump, so keep below it too.
     const std::uint32_t arena2_end = stage_base != 0 && mem1_veneer != 0
@@ -846,22 +952,24 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
 
     // 4. The blob and its context; the hooks come after the patches.
     std::memset(reinterpret_cast<void*>(out.code_base), 0, out.code_bytes);
-    std::memcpy(reinterpret_cast<void*>(out.code_base), riftwii_pad_bin, h.size);
+    std::memcpy(reinterpret_cast<void*>(out.code_base), blob(kind), h.size);
     rt_pad_context* ctx = reinterpret_cast<rt_pad_context*>(out.code_base + h.context_offset);
     if (ctx->magic != RT_PAD_CONTEXT_MAGIC) {
         why = "the pad blob's context is not where its header says";
         close_pad_handles(out);
         return false;
     }
-    auto* hub = reinterpret_cast<gcad_hub*>(out.state_base);
-    HidPadsCopyCatalog(hub->catalog);
-    for (unsigned i = 0; i < hub->catalog.count; ++i) {
-        const auto& mapping = hub->catalog.maps[i];
-        logf("USB controller %04x:%04x: mapping sent to the Wii game's pad hook (%u report bytes).\n",
-             static_cast<unsigned>(mapping.vid), static_cast<unsigned>(mapping.pid),
-             static_cast<unsigned>(mapping.report_bytes));
+    if (!out.adapter_only) {
+        auto* game_catalog = reinterpret_cast<rthid_catalog*>(out.state_base + layout.catalog);
+        std::memcpy(game_catalog, &kept, offsetof(rthid_catalog, maps) + kept.count * sizeof(rthid_mapping));
+        for (unsigned i = 0; i < kept.count; ++i) {
+            const auto& mapping = kept.maps[i];
+            logf("USB controller %04x:%04x: mapping sent to the Wii game's pad hook (%u report bytes).\n",
+                 static_cast<unsigned>(mapping.vid), static_cast<unsigned>(mapping.pid),
+                 static_cast<unsigned>(mapping.report_bytes));
+        }
     }
-    DCFlushRange(hub, out.state_bytes);
+    DCFlushRange(reinterpret_cast<void*>(out.state_base), out.state_bytes);
     ctx->state = out.state_base;
     ctx->ioctl_async = ioctl_async;
     ctx->ioctlv_async = ioctlv_async;
@@ -870,20 +978,26 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     ctx->version = out.version;
     ctx->ticks_per_ms = kBusClock / 4000u;
     ctx->inited = 0;
-    ctx->flags = demo ? RT_PAD_FLAG_DEMO : 0u;
+    ctx->flags = (demo ? RT_PAD_FLAG_DEMO : 0u) | (out.adapter_only ? RT_PAD_FLAG_ADAPTER_ONLY : 0u) |
+                 (out.hid_dormant ? RT_PAD_FLAG_HID_DORMANT : 0u);
     ctx->known_dev = out.version == 5 ? out.known_dev : -1;
     ctx->ven_fd = out.ven_fd;
+    ctx->link_count = out.link_count;
+    ctx->map_count = out.map_count;
 
     ctx->idle_reset = out.idle_reset;
     out.active = true;
-    logf("GameCube adapter: blob %u bytes at 0x%08x, state %u bytes at 0x%08x%s%s\n", h.size, out.code_base,
-         out.state_bytes, out.state_base, demo ? " (demo)" : "",
+    logf("GameCube adapter: blob %u bytes at 0x%08x, state %u bytes at 0x%08x%s%s%s\n", h.size, out.code_base,
+         out.state_bytes, out.state_base, out.adapter_only ? " (the adapter alone: no other USB pad)" : "",
+         demo ? " (demo)" : "",
          mem1_veneer != 0 ? "; in MEM2, through veneers (a code build)" : "");
     return true;
 }
 
 void log_pad_diagnostics(std::uint32_t code_base, std::uint32_t print_entry) {
-    auto* ctx = reinterpret_cast<rt_pad_context*>(code_base + header().context_offset);
+    // The header of the blob as installed (either build).
+    const auto* installed = reinterpret_cast<const rt_pad_header*>(code_base);
+    auto* ctx = reinterpret_cast<rt_pad_context*>(code_base + installed->context_offset);
     std::strcpy(ctx->diagnostic_format, "RiftWii USB controller diagnostic");
     ctx->diagnostic_print = print_entry;
     DCFlushRange(ctx, sizeof(*ctx));
@@ -891,7 +1005,7 @@ void log_pad_diagnostics(std::uint32_t code_base, std::uint32_t print_entry) {
 
 bool install_pad_hook(PadHook& hook, std::string& why) {
     if (!hook.active) return false;
-    const rt_pad_header& h = header();
+    const rt_pad_header& h = header(kind_of(hook.adapter_only, hook.pads_only));
     struct Site {
         std::uint32_t function, hook, replay, resume;
         const char* name;

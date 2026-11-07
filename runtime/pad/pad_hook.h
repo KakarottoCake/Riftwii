@@ -14,7 +14,8 @@
  * their loader-filled replay slots, the IPC completion entry, the C
  * code, then the context. Position independent like the resident (the
  * build links it at two bases and compares). The driver's state (with
- * every buffer IOS touches) is in MEM2, at ctx->state. */
+ * every buffer IOS touches) is in MEM2, at ctx->state: a struct gcad_hub,
+ * or the adapter's struct gcad alone with RT_PAD_FLAG_ADAPTER_ONLY. */
 #ifndef RIFTWII_PAD_HOOK_H
 #define RIFTWII_PAD_HOOK_H
 
@@ -41,6 +42,15 @@
 
 /* rt_pad_context.flags */
 #define RT_PAD_FLAG_DEMO 1u  /* no adapter needed: the first empty port presses A about once a second (Dolphin tests) */
+/* The state is the adapter's alone (struct gcad, not struct gcad_hub):
+ * no other USB pad's mapping was loaded before the launch and no Xbox 360
+ * pad was plugged in, so the four pad links, the catalog and the ven list
+ * could never be used. */
+#define RT_PAD_FLAG_ADAPTER_ONLY 2u
+/* A code build started with Xbox 360 pads only (no adapter, no other USB
+ * pad): the /dev/usb/hid list owner lies dormant, a pad link's size,
+ * asking for no list (#496). */
+#define RT_PAD_FLAG_HID_DORMANT 4u
 
 /* Big-endian words at the start of the blob. */
 struct rt_pad_header {
@@ -102,6 +112,11 @@ struct rt_pad_context {
     uint32_t diagnostic_print; /* the installed Wii Remote log's print entry */
     char diagnostic_format[40]; /* loader-filled marker, decoded at next start */
     int32_t ven_fd;            /* /dev/usb/ven for Xbox 360 pads, opened by the loader; -1: none */
+    /* The state's layout (gcad_layout_for), without RT_PAD_FLAG_ADAPTER_ONLY:
+     * its pad links (four, or a code build's pads plugged in at the launch)
+     * and the catalog's mappings. Loader-filled. */
+    uint32_t link_count;
+    uint32_t map_count;
 };
 
 #ifdef RT_TARGET_PPC
