@@ -245,6 +245,9 @@ void* SaveReport(void*) {
     }
     const ExitChoice choice =
         g_phase == CrashPhase::Early ? ExitChoice::Restart : WaitForChoice(kAutoRestartSeconds, false);
+    // A crash during a launch: put back what the launch changed first, as
+    // neither way out returns to it.
+    RunLaunchUndo();
     if (!loop && choice == ExitChoice::Restart) WarmRestart(RestartKind::Crashed, summary, false);
     std::exit(0);
 }

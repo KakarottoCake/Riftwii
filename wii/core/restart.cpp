@@ -124,6 +124,18 @@ RestartNote TakeRestartNote() {
 
 const RestartNote& CurrentRestartNote() { return g_note; }
 
+namespace {
+void (*g_launch_undo)() = nullptr;
+}  // namespace
+
+void SetLaunchUndo(void (*undo)()) { g_launch_undo = undo; }
+
+void RunLaunchUndo() {
+    void (*undo)() = g_launch_undo;
+    g_launch_undo = nullptr;
+    if (undo != nullptr) undo();
+}
+
 bool CanRestart() { return snapshot()->magic == kSnapshotMagic && snapshot()->size == data_size(); }
 
 bool WarmRestart(RestartKind kind, const std::string& message, bool unmount) {
