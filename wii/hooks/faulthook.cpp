@@ -57,7 +57,7 @@ bool overlaps(const MemoryPatch& p, std::uint32_t start, std::uint32_t bytes) {
 
 bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
                      bool answer_bca, const std::vector<MemoryPatch>& patches, FaultHook& out, std::string& why,
-                     std::uint32_t mem1_veneer) {
+                     std::uint32_t mem1_veneer, bool record_crashes) {
     out = FaultHook{};
     const rt_fault_header& h = header();
     if (riftwii_fault_bin_size < sizeof(rt_fault_header) || h.magic != RT_FAULT_MAGIC ||
@@ -77,7 +77,9 @@ bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_
         if (i < kDolTextSections) text.push_back(r);
     }
     std::string crash_why, bca_why;
-    if (!find_unhandled_exception(text, all, out.function, crash_why)) {
+    if (!record_crashes) {
+        out.function = 0;  // the BCA read only
+    } else if (!find_unhandled_exception(text, all, out.function, crash_why)) {
         out.function = 0;
         logf("Game crashes: not recorded: %s\n", crash_why.c_str());
     }
@@ -156,6 +158,13 @@ bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_
     ctx->bca_sink = (out.code_base + h.sink + 31u) & ~31u;
     ctx->flags = out.ioctl != 0 ? RT_FAULT_FLAG_BCA : 0u;
     out.active = true;
+    if (out.function == 0) {
+        logf("BCA: answered by the crash recorder's blob, %u bytes at 0x%08x, state %u bytes at 0x%08x "
+             "(crashes not recorded)%s\n",
+             h.size, out.code_base, out.state_bytes, out.state_base,
+             mem1_veneer != 0 ? "; in MEM2, through a veneer" : "");
+        return true;
+    }
     logf("Game crashes: blob %u bytes at 0x%08x, state %u bytes at 0x%08x; __OSUnhandledException 0x%08x%s%s\n",
          h.size, out.code_base, out.state_bytes, out.state_base, out.function,
          out.ioctl != 0 ? "; it also answers the BCA read" : "",
