@@ -2765,12 +2765,12 @@ std::int32_t FakeIoctlvAsync(std::uint32_t fd, std::uint32_t ioctl, std::uint32_
         EXPECT_EQ(vec[1].len, 4u);
         const std::uint32_t sector = *reinterpret_cast<const std::uint32_t*>(static_cast<std::uintptr_t>(vec[0].data));
         const std::uint32_t count = *reinterpret_cast<const std::uint32_t*>(static_cast<std::uintptr_t>(vec[1].data));
-        EXPECT_EQ(vec[2].data, record->bounce);
+        EXPECT_TRUE(vec[2].data == record->bounce || (record->direct && vec[2].data % 32u == 0));
         EXPECT_EQ(vec[2].len, count * 512u);
         g_sd_sectors_requested.push_back(sector);
         g_sd_sectors_requested.push_back(count);
         if (sector + count > 128) return -4;
-        std::memcpy(reinterpret_cast<void*>(static_cast<std::uintptr_t>(record->bounce)), g_card + sector * 512,
+        std::memcpy(reinterpret_cast<void*>(static_cast<std::uintptr_t>(vec[2].data)), g_card + sector * 512,
                     count * 512);
         return 0;
     }
@@ -2782,15 +2782,15 @@ std::int32_t FakeIoctlvAsync(std::uint32_t fd, std::uint32_t ioctl, std::uint32_
     EXPECT_EQ(rq->rsp_type, 1u);
     EXPECT_EQ(rq->blk_size, 512u);
     EXPECT_EQ(rq->isdma, 1u);
-    EXPECT_EQ(rq->dma_addr, record->bounce);
-    EXPECT_EQ(vec[1].data, record->bounce);
+    EXPECT_TRUE(rq->dma_addr == record->bounce || (record->direct && rq->dma_addr % 32u == 0));
+    EXPECT_EQ(vec[1].data, rq->dma_addr);
     EXPECT_EQ(vec[1].len, rq->blk_cnt * 512u);
     EXPECT_EQ(vec[2].len, 16u);
     const std::uint32_t sector = rq->arg;  // sdhc: sector number
     g_sd_sectors_requested.push_back(sector);
     g_sd_sectors_requested.push_back(rq->blk_cnt);
     if (sector + rq->blk_cnt > 128) return -4;  // past the card: refused
-    std::memcpy(reinterpret_cast<void*>(static_cast<std::uintptr_t>(record->bounce)), g_card + sector * 512,
+    std::memcpy(reinterpret_cast<void*>(static_cast<std::uintptr_t>(rq->dma_addr)), g_card + sector * 512,
                 rq->blk_cnt * 512);
     return 0;  // the reply is delivered by the test, like the IPC dispatcher would
 }
@@ -3025,40 +3025,52 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
         args[5] = 0x800;
     }
 
-    // A run longer than the bounce buffer is fetched in RT_BOUNCE_BYTES chunks.
+    // A long run whose sectors land 32-byte aligned in the game's buffer
+    // is read straight there in one request; only the last partial sector
+    // goes through the bounce buffer. Misaligned by 16 bytes, the same run
+    // is fetched in RT_BOUNCE_BYTES chunks and copied, as before.
     std::vector<riftwii::Fragment> big = {{0, 100}};  // 51200 bytes
     riftwii::SdReplacement sdb;
     sdb.virtual_offset = 0x40000;
     EXPECT_TRUE(riftwii::place_on_fragments(big, 0, 40000, sdb.runs, error));
     EXPECT_TRUE(riftwii::build_payload(Pieces({}, {sdb}, {}), table_address, 0, 9, payload, error));
     std::memcpy(low_table, payload.data(), payload.size());
-    std::uint8_t* big_out = low_out + 0x1000 + RT_BOUNCE_BYTES + 0x100;  // 40000 bytes
-    di_cmd[1] = 40000;
-    di_cmd[2] = 0x40000 >> 2;
-    args[4] = reinterpret_cast<std::uintptr_t>(big_out);
-    args[5] = 40000;
-    args[6] = 0x80005000;
-    args[7] = 0x80006000;
-    g_sd_sectors_requested.clear();
-    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
-    rec = reinterpret_cast<rt_pending*>(args[7]);
-    di_result = 1;
-    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
-    int replies = 0;
-    while (cb == 0 && replies < 10) {
-        sd_result = 0;
-        rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
-        ++replies;
+    struct LongRead {
+        std::uint32_t misalign;
+        int replies;
+        std::vector<std::uint32_t> requests;  // (first sector, count) pairs
+    };
+    const LongRead long_reads[] = {
+        {0, 2, {0, 78, 78, 1}},                    // 39936 bytes direct + 64 bytes bounced
+        {16, 3, {0, 32, 32, 32, 64, 15}},          // 16384 + 16384 + 7232 bytes
+    };
+    for (const LongRead& lr : long_reads) {
+        std::uint8_t* big_out = low_out + 0x1000 + RT_BOUNCE_BYTES + 0x100 + lr.misalign;  // 40000 bytes
+        EXPECT_EQ(reinterpret_cast<std::uintptr_t>(low_out) % 32u, 0u);
+        std::memset(big_out, 0xEE, 40000 + 32);
+        di_cmd[1] = 40000;
+        di_cmd[2] = 0x40000 >> 2;
+        args[4] = reinterpret_cast<std::uintptr_t>(big_out);
+        args[5] = 40000;
+        args[6] = 0x80005000;
+        args[7] = 0x80006000;
+        g_sd_sectors_requested.clear();
+        EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+        rec = reinterpret_cast<rt_pending*>(args[7]);
+        di_result = 1;
+        rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+        int replies = 0;
+        while (cb == 0 && replies < 10) {
+            sd_result = 0;
+            rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
+            ++replies;
+        }
+        EXPECT_EQ(replies, lr.replies);
+        EXPECT_TRUE(g_sd_sectors_requested == lr.requests);
+        EXPECT_EQ(std::memcmp(big_out, g_card, 40000), 0);
+        for (int k = 0; k < 32; ++k) EXPECT_EQ(big_out[40000 + k], 0xEE);  // nothing written past the read
+        EXPECT_EQ(cb, 0x80005000u);
     }
-    EXPECT_EQ(replies, 3);  // 16384 + 16384 + 7232 bytes
-    EXPECT_EQ(g_sd_sectors_requested.size(), 6u);  // (first sector, count) pairs
-    EXPECT_EQ(g_sd_sectors_requested[1], 32u);
-    EXPECT_EQ(g_sd_sectors_requested[2], 32u);
-    EXPECT_EQ(g_sd_sectors_requested[3], 32u);
-    EXPECT_EQ(g_sd_sectors_requested[4], 64u);
-    EXPECT_EQ(g_sd_sectors_requested[5], 15u);  // 7232 bytes = 14.125 sectors
-    EXPECT_EQ(std::memcmp(big_out, g_card, 40000), 0);
-    EXPECT_EQ(cb, 0x80005000u);
 
     // A refused request ends the read with a DI error for the game.
     ctx.ioctlv_async = 0;  // "unknown": every request is refused
@@ -3120,7 +3132,7 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     sd_result = -5;
     rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
     EXPECT_EQ(cb, 0u);
-    replies = 0;
+    int replies = 0;
     while (cb == 0 && replies < 10) {
         sd_result = 0;
         rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);

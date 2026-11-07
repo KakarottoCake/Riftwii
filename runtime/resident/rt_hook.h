@@ -103,6 +103,10 @@ extern "C" {
 #define RT_MAX_RUNS 8u    /* pieces of a read held at a time; longer reads are served in windows */
 #define RT_GECKO_MAX_FAILURES 32u /* refused bytes after which Gecko reporting turns itself off */
 #define RT_BOUNCE_BYTES 0x4000u   /* bytes one SD request fetches (32 sectors), per pending record */
+/* Whole sectors of a run that land 32-byte aligned in the game's buffer
+ * are read straight there, up to this many per request (64 KiB): no copy
+ * out of the bounce buffer, and a quarter of the requests. */
+#define RT_DIRECT_SECTORS 128u
 #define RT_READ_RETRIES 3u        /* a failed SD or disc request is issued again this often */
 
 /* rt_pending.phase */
@@ -198,7 +202,8 @@ struct rt_pending {
     uint32_t response[4];            /* offset 0x80 */
     uint32_t pad_response[4];
     struct rt_ioctlv vec[3];         /* offset 0xA0 */
-    uint32_t pad_vec[2];
+    uint32_t direct;       /* the in-flight SD chunk is read straight into the game's buffer */
+    uint32_t pad_vec;
     uint32_t di_command[8];          /* offset 0xC0: DVDLowRead block for DISC runs */
     rt_run runs[RT_MAX_RUNS];        /* offset 0xE0 */
 };
