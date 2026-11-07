@@ -27,7 +27,7 @@ int keepaccess_for_next_ios(void) {
     for (int tries = 0; tries < 1000 && !off; ++tries) off = (read16(0x0D8B420A) & 1) == 0;
     if (!off) {
         write16(0x0D8B420A, protection);
-        return KEEPACCESS_NOT_FOUND;
+        return KEEPACCESS_PROTECTION_ON;
     }
     int patched = 0;
     for (u32 at = 0xD3400000; at + 26 <= 0xD4000000; at += 2) {

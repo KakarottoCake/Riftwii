@@ -22,7 +22,7 @@ public:
 
 private:
     void RestoreProtection();
-    bool WordRestored(u32& now) const;
+    bool WordRestored(u32& now, bool& read) const;
 
     u32 word_ = 0;
     u32 before_ = 0;
