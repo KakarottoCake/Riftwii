@@ -25,6 +25,18 @@ SIZE    := $(PREFIX)size
 
 SRC     := runtime/resident
 OUT     := build-runtime
+
+# Test builds (make -f Makefile.wii TEST=1, which passes TEST on): the
+# GameCube blob keeps its test remote (gc_bt_fake, the Dolphin runs'
+# sd:/riftwii/gc/test/fakeremote and fakepro); release builds leave it
+# out, as the DOL leaves out autorun (#506). The blobs are shared by both
+# builds, so a change of TEST rebuilds the GameCube blob's objects.
+TEST    ?= 0
+ifeq ($(TEST),1)
+override RT_DEFINES += -DRT_TEST_BUILD
+endif
+RT_TEST_STAMP := $(OUT)/test-build.stamp
+$(shell mkdir -p $(OUT) && [ "$$(cat $(RT_TEST_STAMP) 2>/dev/null)" = "TEST=$(TEST)" ] || echo "TEST=$(TEST)" > $(RT_TEST_STAMP))
 BLOB    := $(OUT)/riftwii_rt.bin
 
 # -Os: the runtime lives in the game's own memory, and some mods leave it
@@ -383,6 +395,8 @@ $(GCOUT)/rthid.o: runtime/rthid.c runtime/rthid.h runtime/rtgcad.h runtime/rthid
 
 $(GCOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h runtime/rthid.h | $(GCOUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(GCOBJS) $(GCRVZOBJS): $(RT_TEST_STAMP)
 
 $(GCOUT)/riftwii_gc.elf: $(GCOBJS) $(GCSRC)/gc.ld
 	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(GCSRC)/gc.ld \

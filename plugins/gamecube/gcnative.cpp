@@ -3253,8 +3253,15 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         if (pad_read != 0) {
             replay_hook(pad_read, h.hook_pad_read, h.replay_pad_read, h.continue_pad_read);
             if (test_presses) ctx->flags |= GC_FLAG_PRESS;
+#ifdef RT_TEST_BUILD
             if (test_fake_remote || test_fake_pro) ctx->flags |= GC_FLAG_FAKE_REMOTE;
             if (test_fake_pro) ctx->flags |= GC_FLAG_FAKE_PRO;
+#else
+            // The test remote is in test builds only (#506), as autorun is.
+            if (test_fake_remote || test_fake_pro)
+                logf("GameCube: %s is on the SD card, but the test remote is only in test builds (make TEST=1); ignored.\n",
+                     test_fake_pro ? "riftwii/gc/test/fakepro" : "riftwii/gc/test/fakeremote");
+#endif
             if (test_leave) ctx->flags |= GC_FLAG_LEAVE;
             if (test_crash || test_crash_black) ctx->flags |= GC_FLAG_CRASH;
             if (test_crash_black) ctx->flags |= GC_FLAG_CRASH_BLACK;
