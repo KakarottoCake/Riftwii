@@ -1343,6 +1343,7 @@ void gcad_expect(gcad* g, int32_t dev_id) {
 
 void gcad_tick(gcad* g, uint32_t now) {
     uint32_t i;
+    const uint32_t rescan = ms(g, GCAD_RESCAN_MS);
     if (g->stopping || (g->version != 4 && g->version != 5)) return;
     if (GCAD_PEERS(g)) {
         /* The /dev/usb/hid list owner drives the pad links and the ven list. */
@@ -1363,7 +1364,7 @@ void gcad_tick(gcad* g, uint32_t now) {
         return;
     }
     if (g->change_failed && !(g->busy & BIT(GCAD_TAG_CHANGE)) &&
-        elapsed(now, g->change_time) >= ms(g, GCAD_RESCAN_MS)) {
+        elapsed(now, g->change_time) >= rescan) {
         g->change_failed = 0;
         submit_change(g, now);
     }
@@ -1396,7 +1397,7 @@ void gcad_tick(gcad* g, uint32_t now) {
         switch_unanswered(g, now);
     }
     if (GCAD_MAPPING(g) && (g->link == GCAD_LINK_SETUP || g->link == GCAD_LINK_INIT) &&
-        elapsed(now, g->link_time) >= ms(g, GCAD_RESCAN_MS)) {
+        elapsed(now, g->link_time) >= rescan) {
         hid_diagnostic(g, GCAD_HID_TIMEOUT,
                        g->link == GCAD_LINK_SETUP ? g->setup_step : GCAD_STEP_INIT, -1);
     }
@@ -1411,7 +1412,7 @@ void gcad_tick(gcad* g, uint32_t now) {
      * nothing behind. One cancel at a time, on the STOP slot. */
     if (switch_pro(g) && !(g->busy & BIT(GCAD_TAG_STOP))) {
         if (g->link == GCAD_LINK_INIT && (g->busy & BIT(GCAD_TAG_OUT)) &&
-            elapsed(now, g->link_time) >= ms(g, GCAD_RESCAN_MS)) {
+            elapsed(now, g->link_time) >= rescan) {
             g->link_time = now;
             cancel_transfer(g, GCAD_TAG_OUT);
         } else if (g->link == GCAD_LINK_FAILED && g->dev_id != GCAD_NO_DEVICE && !(g->busy & BIT(GCAD_TAG_SETUP)) &&
@@ -1422,7 +1423,7 @@ void gcad_tick(gcad* g, uint32_t now) {
         }
     }
     if (GCAD_MAPPING(g) && g->link == GCAD_LINK_POLL &&
-        elapsed(now, g->data_time) >= ms(g, GCAD_RESCAN_MS)) {
+        elapsed(now, g->data_time) >= rescan) {
         hid_diagnostic(g, GCAD_HID_SILENT, (g->reports != 0) | (ps3(g) ? 2u : 0u), g->ctrl_result);
     }
     /* A Switch Pro in full-report mode reports even untouched, so silence
@@ -1430,7 +1431,7 @@ void gcad_tick(gcad* g, uint32_t now) {
      * it again, every GCAD_RESCAN_MS while silent. The read still out
      * stays and serves the new start-up. */
     if (switch_pro(g) && g->link == GCAD_LINK_POLL && !(g->busy & BIT(GCAD_TAG_OUT)) &&
-        elapsed(now, g->data_time) >= ms(g, GCAD_RESCAN_MS)) {
+        elapsed(now, g->data_time) >= rescan) {
         switch_start(g, now);
     }
     if (!g->stale && elapsed(now, g->data_time) >= ms(g, GCAD_TIMEOUT_MS)) set_stale(g);
@@ -1440,7 +1441,8 @@ static void on_change(gcad* g, int32_t result, uint32_t now) {
     int32_t found;
     int start = 0;
     uint32_t i, count = 0;
-    rthid_device devices[RTHID_DEVICE_MAX];
+    /* Read straight into the list kept for gcad_refresh_hid (#506). */
+    rthid_device* devices = g->devices;
     if (g->change_step == GCAD_STEP_FINISH) {
         submit_change(g, now);
         return;
@@ -1492,7 +1494,6 @@ static void on_change(gcad* g, int32_t result, uint32_t now) {
     }
     if (g->adapter_disabled || !ADAPTER_CODE) found = -1;
     g->device_count = count;
-    for (i = 0; i < count; ++i) g->devices[i] = devices[i];
     gcad_refresh_hid(g, now);
     if (g->dev_id != GCAD_NO_DEVICE && found != g->dev_id) drop_link(g);
     if (found != GCAD_NO_DEVICE && g->dev_id == GCAD_NO_DEVICE) {
