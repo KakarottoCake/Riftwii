@@ -19,11 +19,11 @@
 #define GCAD_PEERS(g) ((void)(g), (gcad*)0)
 #define GCAD_NPEERS(g) ((void)(g), 0u)
 #define GCAD_PEER(g, i) ((void)(g), (void)(i), (gcad*)0)
-#define GCAD_MAPPING(g) ((void)(g), (const rthid_mapping*)0)
+#define GCAD_MAPPING(g) ((void)(g), (const rthid_layout*)0)
 #define GCAD_VEN(g) ((void)(g), 0)
 #define GCAD_VEN_LIST(g) ((void)(g), (gcad*)0)
 #define GCAD_CATALOG(g) ((void)(g), (const rthid_catalog*)0)
-#define GCAD_XBOX(g) ((void)(g), (rthid_mapping*)0)
+#define GCAD_XBOX(g) ((void)(g), (gcad_xbox_layout*)0)
 #else
 #define GCAD_PEERS(g) ((g)->peers)
 #define GCAD_NPEERS(g) ((uint32_t)(g)->peer_count)
@@ -138,18 +138,23 @@ int gcad_xbox_decode(const uint8_t* report, uint32_t bytes, gcad_pad* out) {
     return 1;
 }
 
-/* The built-in mapping: no config file (rthid_builtin); gcad_xbox_decode
- * reads the report. Rumble: both motors full, or both off. */
-static void xbox_mapping(rthid_mapping* m, uint32_t vid_pid) {
-    rthid_builtin(m, vid_pid, GCAD_XBOX_REPORT_BYTES);
+/* The built-in layout: no config file (rthid_layout_builtin);
+ * gcad_xbox_decode reads the report. Rumble: both motors full, or both
+ * off, one 8-byte message each (on, then off, after the layout). */
+static void xbox_mapping(gcad_xbox_layout* x, uint32_t vid_pid) {
+    rthid_layout* m = &x->layout;
+    uint32_t i;
+    rthid_layout_builtin(m, vid_pid, GCAD_XBOX_REPORT_BYTES);
+    for (i = 0; i < sizeof(x->rumble); ++i) x->rumble[i] = 0;
+    m->size = (uint16_t)RTHID_LAYOUT_BYTES(GCAD_XBOX_RUMBLE_BYTES);
     m->rumble_type = 1;
-    m->rumble_bytes = 8;
-    m->rumble_transfer = 8;
+    m->rumble_bytes = GCAD_XBOX_RUMBLE_BYTES;
+    m->rumble_transfer = GCAD_XBOX_RUMBLE_BYTES;
     m->rumble_count = 1;
-    m->rumble_on[1] = 8;   /* message 0, 8 bytes long */
-    m->rumble_off[1] = 8;
-    m->rumble_on[3] = 0xFF; /* the big motor */
-    m->rumble_on[4] = 0xFF; /* the small one */
+    x->rumble[1] = 8;                          /* on: message 0, 8 bytes long */
+    x->rumble[GCAD_XBOX_RUMBLE_BYTES + 1] = 8; /* off: the same */
+    x->rumble[3] = 0xFF;                       /* the big motor */
+    x->rumble[4] = 0xFF;                       /* the small one */
 }
 
 /* A Switch Pro stick's reach from its middle in its 12-bit units: about
@@ -1071,7 +1076,7 @@ static void hid_devices(gcad* g, const rthid_device* devices, uint32_t count, ui
         if (j == count) drop_link(peer);
     }
     for (i = 0; i < count; ++i) {
-        const rthid_mapping* mapping;
+        const rthid_layout* mapping;
         gcad* peer = 0;
         if (devices[i].vid_pid == GCAD_VID_PID || devices[i].id == GCAD_NO_DEVICE) continue;
         for (j = 0; j < g->excluded_count; ++j) if (g->excluded[j] == devices[i].id) break;
@@ -1079,7 +1084,7 @@ static void hid_devices(gcad* g, const rthid_device* devices, uint32_t count, ui
         /* ven lists every device that is not HID, USB drives too: only an
          * Xbox 360 maker's are asked for their interface. */
         if (GCAD_VEN(g) && !gcad_xbox_vendor(devices[i].vid_pid >> 16)) continue;
-        mapping = GCAD_VEN(g) ? GCAD_XBOX(g) : rthid_find(GCAD_CATALOG(g), devices[i].vid_pid);
+        mapping = GCAD_VEN(g) ? &GCAD_XBOX(g)->layout : rthid_find(GCAD_CATALOG(g), devices[i].vid_pid);
         if (!mapping) {
             for (j = 0; j < previous_count; ++j) if (previous[j] == devices[i].id) break;
             if (j == previous_count) gcad_env_event(g, GCAD_EV_HID_MISSING, devices[i].vid_pid, 0);
@@ -1093,9 +1098,9 @@ static void hid_devices(gcad* g, const rthid_device* devices, uint32_t count, ui
         if (j < GCAD_NPEERS(g) || !peer) continue;
         if (GCAD_VEN(g)) {
             /* Its own copy, for its VID and PID in the logs. */
-            rthid_mapping* own = &GCAD_XBOX(g)[peer->slot - 1u];
+            gcad_xbox_layout* own = &GCAD_XBOX(g)[peer->slot - 1u];
             xbox_mapping(own, devices[i].vid_pid);
-            mapping = own;
+            mapping = &own->layout;
         }
         peer->ven = GCAD_VEN(g);
         peer->fd = g->fd;
@@ -1132,8 +1137,8 @@ static void submit_poll(gcad* g) {
 }
 
 static void hid_rumble_transfer(gcad* g) {
-    const rthid_mapping* m = GCAD_MAPPING(g);
-    const uint8_t* data = g->rumble_flight[0] ? m->rumble_on : m->rumble_off;
+    const rthid_layout* m = GCAD_MAPPING(g);
+    const uint8_t* data = g->rumble_flight[0] ? RTHID_RUMBLE_ON(m) : RTHID_RUMBLE_OFF(m);
     uint32_t i;
     /* Interrupt rumble advances through the payload; control rumble
      * repeats its first transfer, matching Nintendont's file semantics. */
@@ -1303,12 +1308,12 @@ void gcad_links_init_ex(gcad* g, uint32_t owner_bytes, int dormant, gcad* pads, 
     }
 }
 
-void gcad_ven_init(gcad* g, gcad* ven, rthid_mapping* xbox, void* env_ctx, int32_t fd,
+void gcad_ven_init(gcad* g, gcad* ven, gcad_xbox_layout* xbox, void* env_ctx, int32_t fd,
                    uint32_t ticks_per_ms) {
     gcad_ven_init_ex(g, ven, (uint32_t)sizeof(gcad), xbox, env_ctx, fd, ticks_per_ms);
 }
 
-void gcad_ven_init_ex(gcad* g, gcad* ven, uint32_t ven_bytes, rthid_mapping* xbox, void* env_ctx, int32_t fd,
+void gcad_ven_init_ex(gcad* g, gcad* ven, uint32_t ven_bytes, gcad_xbox_layout* xbox, void* env_ctx, int32_t fd,
                       uint32_t ticks_per_ms) {
     /* fd may be -1 where the environment serves the list itself (the
      * menu, through libogc's handles). */

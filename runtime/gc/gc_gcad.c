@@ -138,8 +138,8 @@ int gc_gcad_on_reply(struct gc_gcad* ad, uint32_t reply) {
 
 void gc_gcad_event(struct gc_gcad* ad, gcad* g, uint32_t code, uint32_t a, int32_t b) {
     struct gc_gcad_diagnostic* record;
-    const rthid_mapping* mapping = g->mapping;
-    if (code == GCAD_EV_HID_LIST && g->catalog && g->catalog->count) mapping = &g->catalog->maps[0];
+    const rthid_layout* mapping = g->mapping;
+    if (code == GCAD_EV_HID_LIST && g->catalog && g->catalog->count) mapping = rthid_layout_at(g->catalog, 0);
     if ((code != GCAD_EV_HID_DIAG && code != GCAD_EV_HID_LIST) || !mapping ||
         ad->diagnostic_head - ad->diagnostic_tail >= GC_GCAD_DIAGNOSTICS) return;
     record = &ad->diagnostics[ad->diagnostic_head % GC_GCAD_DIAGNOSTICS];

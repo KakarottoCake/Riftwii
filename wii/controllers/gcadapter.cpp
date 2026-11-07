@@ -842,8 +842,8 @@ void gcad_env_event(gcad* g, uint32_t code, uint32_t a, int32_t b) {
         g_events_lost = g_events_lost + 1;
         return;
     }
-    const rthid_mapping* mapping = g->mapping;
-    if (code == GCAD_EV_HID_LIST && g->catalog && g->catalog->count) mapping = &g->catalog->maps[0];
+    const rthid_layout* mapping = g->mapping;
+    if (code == GCAD_EV_HID_LIST && g->catalog && g->catalog->count) mapping = rthid_layout_at(g->catalog, 0);
     const std::uint32_t pad = mapping ? (static_cast<std::uint32_t>(mapping->vid) << 16) | mapping->pid : 0;
     g_events[g_event_head % kEvents] = Event{code, a, b, pad};
     g_event_head = g_event_head + 1;

@@ -114,9 +114,9 @@ struct rt_pad_context {
     int32_t ven_fd;            /* /dev/usb/ven for Xbox 360 pads, opened by the loader; -1: none */
     /* The state's layout (gcad_layout_for), without RT_PAD_FLAG_ADAPTER_ONLY:
      * its pad links (four, or a code build's pads plugged in at the launch)
-     * and the catalog's mappings. Loader-filled. */
+     * and the bytes of the catalog's layouts. Loader-filled. */
     uint32_t link_count;
-    uint32_t map_count;
+    uint32_t map_bytes;
 };
 
 #ifdef RT_TARGET_PPC

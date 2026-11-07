@@ -3045,11 +3045,16 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             logf("GameCube: Xbox 360 pads through /dev/usb/ven fd %d; their setup results go in the SD trace.\n",
                  static_cast<int>(extras.ven_fd));
         }
+        // The layouts back to back, each `size` long (the plugin has no rthid.c).
+        std::uint32_t at = 0;
         for (unsigned i = 0; i < ad->catalog.count && i < RTHID_CONFIG_MAX; ++i) {
-            const auto& mapping = ad->catalog.maps[i];
-            logf("USB controller %04x:%04x: mapping sent to the game (%u report bytes); setup results go in the SD trace.\n",
-                 static_cast<unsigned>(mapping.vid), static_cast<unsigned>(mapping.pid),
-                 static_cast<unsigned>(mapping.report_bytes));
+            const auto* mapping = reinterpret_cast<const rthid_layout*>(
+                reinterpret_cast<const std::uint8_t*>(ad->catalog.layouts) + at);
+            if (at + sizeof(rthid_layout) > ad->catalog.layout_bytes || mapping->size < sizeof(rthid_layout)) break;
+            at += mapping->size;
+            logf("USB controller %04x:%04x: layout sent to the game (%u report bytes); setup results go in the SD trace.\n",
+                 static_cast<unsigned>(mapping->vid), static_cast<unsigned>(mapping->pid),
+                 static_cast<unsigned>(mapping->report_bytes));
         }
     }
     auto* memcard = reinterpret_cast<gc_card*>(card_addr);
