@@ -15,6 +15,8 @@
 #include "riftwii/symsearch.hpp"
 #include "riftwii/wpadlog.hpp"
 #include "riftwii_wlog_bin.h"
+#include "riftwii_wlog_trace_bin.h"
+#include "riftwii_wlog_translate_bin.h"
 #include "wlog/wlog_hook.h"
 
 namespace riftwii::wii {
@@ -31,7 +33,16 @@ constexpr std::uint32_t kNop = 0x60000000;
 
 std::uint32_t align_up(std::uint32_t v) { return (v + 31) & ~31u; }
 
-const rt_wlog_header& header() { return *reinterpret_cast<const rt_wlog_header*>(riftwii_wlog_bin); }
+struct WlogImage {
+    const unsigned char* data;
+    std::uint32_t bytes;
+};
+
+WlogImage image_for(bool record, bool translate) {
+    if (!record) return {riftwii_wlog_translate_bin, riftwii_wlog_translate_bin_size};
+    if (!translate) return {riftwii_wlog_trace_bin, riftwii_wlog_trace_bin_size};
+    return {riftwii_wlog_bin, riftwii_wlog_bin_size};
+}
 
 std::uint32_t load_word(std::uint32_t address) { return *reinterpret_cast<const volatile std::uint32_t*>(address); }
 
@@ -91,16 +102,14 @@ bool prepare_ioctlv(const WpadLogHook& hook, const rt_wlog_header& h) {
 
 bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
                    const std::uint32_t known_ios[4], std::uint32_t known_ioctlv,
-                   const std::vector<std::array<std::uint8_t, 6>>& pros, bool translate,
+                   const std::vector<std::array<std::uint8_t, 6>>& pros, bool translate, bool record,
                    const std::vector<MemoryPatch>& patches, WpadLogHook& out, std::string& why) {
     out = WpadLogHook{};
-    const rt_wlog_header& h = header();
-    if (riftwii_wlog_bin_size < sizeof(rt_wlog_header) || h.magic != RT_WLOG_MAGIC ||
-        h.version != RT_WLOG_VERSION || h.size > riftwii_wlog_bin_size ||
-        h.context_offset + RT_WLOG_CONTEXT_BYTES > h.size) {
-        why = "the embedded Wii Remote log blob is damaged";
+    if (!record && !translate) {
+        why = "neither logging nor Pro Controller translation was requested";
         return false;
     }
+    out.record = record;
 
     // 1. Where to hook: the print functions and the HOME Menu's exit.
     std::vector<CodeSpan> spans;
@@ -112,7 +121,7 @@ bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         spans.push_back(CodeSpan{const_cast<std::uint8_t*>(bytes), s.size, s.address});
         text.push_back(CodeRange{s.address, bytes, s.size});
     }
-    out.stubs = find_print_stubs(spans);
+    if (record) out.stubs = find_print_stubs(spans);
     // The extension encryption's lookup tables are in the game's data.
     {
         std::vector<CodeSpan> all = spans;
@@ -123,13 +132,13 @@ bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         }
         out.tables = find_extension_tables(all);
     }
-    out.usb_diagnostics = HidPadsConnected();
-    if (out.stubs.empty() && !out.usb_diagnostics) {
+    out.usb_diagnostics = record && HidPadsConnected();
+    if (record && out.stubs.empty() && !out.usb_diagnostics) {
         why = "the game has no empty print functions";
         return false;
     }
-    out.exit_site = find_launch_menu_exit(spans);
-    if (out.exit_site == 0) {
+    if (record) out.exit_site = find_launch_menu_exit(spans);
+    if (record && out.exit_site == 0) {
         why = "__OSLaunchMenu was not found (the log could never be saved)";
         return false;
     }
@@ -138,7 +147,7 @@ bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     //    IOS_IoctlvAsync, for the Bluetooth side.
     std::uint32_t ios[4] = {known_ios[0], known_ios[1], known_ios[2], known_ios[3]};
     out.ioctlv = known_ioctlv;
-    if (ios[0] == 0 || ios[1] == 0 || ios[2] == 0 || ios[3] == 0 || out.ioctlv == 0) {
+    if ((record && (ios[0] == 0 || ios[1] == 0 || ios[2] == 0 || ios[3] == 0)) || out.ioctlv == 0) {
         std::string error;
         IpcSymbols symbols;
         IpcApi api;
@@ -154,7 +163,7 @@ bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         }
         if (out.ioctlv == 0) out.ioctlv = api.async[kIpcIoctlvCmd] ? api.async[kIpcIoctlvCmd] : symbols.ioctlv_async;
     }
-    if (ios[0] == 0 || ios[1] == 0 || ios[2] == 0 || ios[3] == 0) {
+    if (record && (ios[0] == 0 || ios[1] == 0 || ios[2] == 0 || ios[3] == 0)) {
         char buf[128];
         std::snprintf(buf, sizeof(buf), "the game lacks a synchronous IOS function (open 0x%08x, close 0x%08x, "
                       "write 0x%08x, ioctl 0x%08x)", ios[0], ios[1], ios[2], ios[3]);
@@ -162,10 +171,24 @@ bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         return false;
     }
 
+    out.translate = translate && out.ioctlv != 0;
+    if (!record && !out.translate) {
+        why = "the game lacks IOS_IoctlvAsync for Pro Controller translation";
+        return false;
+    }
+    const WlogImage image = image_for(record, out.translate);
+    const rt_wlog_header& h = *reinterpret_cast<const rt_wlog_header*>(image.data);
+    if (image.bytes < sizeof(rt_wlog_header) || h.magic != RT_WLOG_MAGIC ||
+        h.version != RT_WLOG_VERSION || h.size > image.bytes || h.size < RT_WLOG_CONTEXT_BYTES ||
+        h.context_offset > h.size - RT_WLOG_CONTEXT_BYTES) {
+        why = "the embedded Wii Remote log blob is damaged";
+        return false;
+    }
+
     // 3. Memory: the blob below the MEM1 arena's top, the log at the
     //    bottom of the MEM2 arena.
     out.code_bytes = align_up(h.size);
-    out.state_bytes = align_up(sizeof(rt_wlog_state));
+    out.state_bytes = rt_wlog_state_bytes(record, out.translate);
     out.code_base = (arena1_hi - out.code_bytes) & ~31u;
     out.state_base = align_up(arena2_lo);
     const std::uint32_t arena2_end = load_word(kMem2ArenaEndField);
@@ -192,7 +215,7 @@ bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     //    nothing now (MEM2's bottom is still this loader's until the
     //    jump): the blob writes its header at its first use.
     std::memset(reinterpret_cast<void*>(out.code_base), 0, out.code_bytes);
-    std::memcpy(reinterpret_cast<void*>(out.code_base), riftwii_wlog_bin, h.size);
+    std::memcpy(reinterpret_cast<void*>(out.code_base), image.data, h.size);
     rt_wlog_context* ctx = reinterpret_cast<rt_wlog_context*>(out.code_base + h.context_offset);
     if (ctx->magic != RT_WLOG_CONTEXT_MAGIC) {
         why = "the Wii Remote log blob's context is not where its header says";
@@ -209,7 +232,6 @@ bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     ctx->stubs = static_cast<std::uint32_t>(out.stubs.size());
     ctx->complete_bt = out.code_base + h.complete_bt;
     ctx->tables = out.tables;
-    out.translate = translate && out.ioctlv != 0;
     ctx->flags = out.translate ? RT_WLOG_FLAG_TRANSLATE : 0u;
     ctx->hooked = 0;
     ctx->inited = 0;
@@ -220,9 +242,14 @@ bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         ctx->pro_count = RTPRO_EVERY_LINK;
         logf("Wii Remote log: pro_controller = every: every link is taken as a Wii U Pro Controller (a test)\n");
     }
-    out.print_entry = out.code_base + h.hook_print;
+    out.print_entry = record ? out.code_base + h.hook_print : 0;
     out.active = true;
-    logf("Wii Remote log: blob %u bytes at 0x%08x, log %u bytes at 0x%08x; %u print function(s), "
+    if (!record) {
+        logf("Pro Controller translation: blob %u bytes at 0x%08x, state %u bytes at 0x%08x; "
+             "no report buffer is reserved.\n", h.size, out.code_base, out.state_bytes, out.state_base);
+        return true;
+    }
+    logf("Wii Remote log: blob %u bytes at 0x%08x, state %u bytes at 0x%08x; %u print function(s), "
          "HOME Menu exit at 0x%08x\n",
          h.size, out.code_base, out.state_bytes, out.state_base, static_cast<unsigned>(out.stubs.size()),
          out.exit_site);
@@ -240,25 +267,28 @@ bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
 
 bool install_wpad_log(WpadLogHook& hook, std::string& why) {
     if (!hook.active) return false;
-    const rt_wlog_header& h = header();
+    const rt_wlog_header& h = *reinterpret_cast<const rt_wlog_header*>(hook.code_base);
     rt_wlog_context* ctx = reinterpret_cast<rt_wlog_context*>(hook.code_base + h.context_offset);
 
     // The exit site, checked after the patches: something else may have
     // taken it. The replay is the instruction itself and a branch back.
-    const std::uint32_t exit_word = load_word(hook.exit_site);
-    std::uint32_t back = 0, to_exit = 0;
-    if (!is_li_zero(exit_word) ||
-        !encode_branch(hook.code_base + h.replay_exit + 4, hook.exit_site + 4, back) ||
-        !encode_branch(hook.exit_site, hook.code_base + h.hook_exit, to_exit)) {
-        char buf[96];
-        std::snprintf(buf, sizeof(buf), "the HOME Menu exit at 0x%08x (0x%08x) cannot be hooked", hook.exit_site,
-                      exit_word);
-        why = buf;
-        hook.active = false;
-        return false;
+    std::uint32_t to_exit = 0;
+    if (hook.record) {
+        const std::uint32_t exit_word = load_word(hook.exit_site);
+        std::uint32_t back = 0;
+        if (!is_li_zero(exit_word) ||
+            !encode_branch(hook.code_base + h.replay_exit + 4, hook.exit_site + 4, back) ||
+            !encode_branch(hook.exit_site, hook.code_base + h.hook_exit, to_exit)) {
+            char buf[96];
+            std::snprintf(buf, sizeof(buf), "the HOME Menu exit at 0x%08x (0x%08x) cannot be hooked", hook.exit_site,
+                          exit_word);
+            why = buf;
+            hook.active = false;
+            return false;
+        }
+        store_word(hook.code_base + h.replay_exit, exit_word);
+        store_word(hook.code_base + h.replay_exit + 4, back);
     }
-    store_word(hook.code_base + h.replay_exit, exit_word);
-    store_word(hook.code_base + h.replay_exit + 4, back);
 
     // The print functions: each one's first word becomes a branch to the
     // blob, which returns to the caller itself (the stub does nothing else).
@@ -273,7 +303,7 @@ bool install_wpad_log(WpadLogHook& hook, std::string& why) {
         branches.push_back(branch);
         ++hooked;
     }
-    if (hooked == 0 && !hook.usb_diagnostics) {
+    if (hook.record && hooked == 0 && !hook.usb_diagnostics) {
         why = "no print function could be hooked";
         hook.active = false;
         return false;
@@ -287,6 +317,11 @@ bool install_wpad_log(WpadLogHook& hook, std::string& why) {
     if (bluetooth && !encode_branch(hook.ioctlv, hook.code_base + h.hook_ioctlv, to_ioctlv)) {
         logf("Wii Remote log: IOS_IoctlvAsync is out of a branch's reach; no Bluetooth trace\n");
     }
+    if (!hook.record && to_ioctlv == 0) {
+        why = "IOS_IoctlvAsync could not be hooked for Pro Controller translation";
+        hook.active = false;
+        return false;
+    }
     ctx->hooked = to_ioctlv != 0 ? 1u : 0u;
     if (to_ioctlv == 0) ctx->flags = 0;
     sync_code(hook.code_base, hook.code_bytes);
@@ -295,11 +330,17 @@ bool install_wpad_log(WpadLogHook& hook, std::string& why) {
         store_word(hook.stubs[i], branches[i]);
         sync_code(hook.stubs[i] & ~31u, 32);
     }
-    store_word(hook.exit_site, to_exit);
-    sync_code(hook.exit_site & ~31u, 32);
+    if (hook.record) {
+        store_word(hook.exit_site, to_exit);
+        sync_code(hook.exit_site & ~31u, 32);
+    }
     if (to_ioctlv != 0) {
         store_word(hook.ioctlv, to_ioctlv);
         sync_code(hook.ioctlv & ~31u, 32);
+    }
+    if (!hook.record) {
+        logf("Pro Controller translation: hooked IOS_IoctlvAsync without a report buffer or file save.\n");
+        return true;
     }
     logf("Wii Remote log: hooked %u print function(s), the HOME Menu exit%s; saved when the player picks "
          "Wii Menu\n", hooked, to_ioctlv == 0 ? "" : ctx->flags ? " and IOS_IoctlvAsync (trace, translator)"

@@ -6,12 +6,17 @@
     .section .text.wlog_entry, "ax", @progbits
     .globl _wlog_blob_start
 _wlog_blob_start:
-    .long 0x52575757, 2, _wlog_blob_end - _wlog_blob_start, wlog_context_data - _wlog_blob_start
+    .long 0x52575757, 3, _wlog_blob_end - _wlog_blob_start, wlog_context_data - _wlog_blob_start
+#ifdef RT_WLOG_TRANSLATE_ONLY
+    .long 0, 0, 0
+#else
     .long wlog_hook_print - _wlog_blob_start, wlog_hook_exit - _wlog_blob_start
     .long wlog_replay_exit - _wlog_blob_start
+#endif
     .long wlog_hook_ioctlv - _wlog_blob_start, wlog_replay_ioctlv - _wlog_blob_start
     .long wlog_continue_ioctlv - _wlog_blob_start, wlog_complete_bt - _wlog_blob_start
 
+#ifndef RT_WLOG_TRANSLATE_ONLY
 /* A debug print, (format, arguments...): it takes the empty function's
  * place, so the caller comes here and goes straight back.
  * wlog_on_print(ctx, words) with words = the format, then r4-r10.
@@ -96,6 +101,8 @@ wlog_hook_exit:
 wlog_replay_exit:
     nop
     nop
+
+#endif
 
 /* s32 IOS_IoctlvAsync(fd, ioctl, in count, io count, vectors, callback,
  * user data): wlog_on_ioctlv(ctx, args) looks at a Bluetooth transfer

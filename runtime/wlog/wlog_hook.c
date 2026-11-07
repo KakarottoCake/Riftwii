@@ -9,12 +9,6 @@
 typedef char rtpro_mode_log_matches_rtwlog[(RTPRO_MODE_LOG == RTWLOG_MODE_LOG &&
                                             sizeof(struct rtpro_mode_log) == sizeof(struct rtwlog_mode)) ? 1 : -1];
 
-void wlog_on_print(struct rt_wlog_context* c, const uint32_t* words);
-void wlog_on_exit(struct rt_wlog_context* c);
-uint32_t wlog_on_ioctlv(struct rt_wlog_context* c, uint32_t* args);
-int32_t wlog_after_ioctlv(struct rt_wlog_context* c, uint32_t slot, int32_t result);
-int32_t wlog_on_bt(struct rt_wlog_context* c, int32_t result, uint32_t tag);
-
 /* /dev/fs's requests (as in runtime/fault) and an open file's mode. */
 #define FS_CREATE_DIR 3u
 #define FS_CREATE_FILE 9u
@@ -27,6 +21,17 @@ typedef int32_t (*ios_write_fn)(int32_t fd, const void* buffer, uint32_t length)
 typedef int32_t (*ios_ioctl_fn)(int32_t fd, uint32_t ioctl, void* in, uint32_t in_length, void* out,
                                 uint32_t out_length);
 typedef int32_t (*ipc_callback_fn)(int32_t result, uint32_t user);
+
+#ifndef RT_TARGET_PPC
+/* Host callbacks need full-width function pointers; request addresses keep
+ * their real Wii widths so the tests exercise the same packet validation. */
+int32_t wlog_test_callback(uint32_t callback, int32_t result, uint32_t user);
+int32_t wlog_test_open(const char* path, uint32_t mode);
+int32_t wlog_test_close(int32_t fd);
+int32_t wlog_test_write(int32_t fd, const void* buffer, uint32_t length);
+int32_t wlog_test_ioctl(int32_t fd, uint32_t ioctl, void* in, uint32_t in_length, void* out,
+                        uint32_t out_length);
+#endif
 
 /* The Bluetooth dongle, /dev/usb/oh1/57e/305 (wiibrew): USBV0 control,
  * bulk and interrupt messages; HCI commands go to the control endpoint as
@@ -41,6 +46,7 @@ typedef int32_t (*ipc_callback_fn)(int32_t result, uint32_t user);
 #define HCI_COMMAND_REQUEST 0x20u
 #define EVENT_COMPLETED_PACKETS 0x13u
 
+#ifdef RT_TARGET_PPC
 /* The prints come from game threads and from the Bluetooth stack's
  * callbacks alike: external interrupts are off while one is kept. */
 static uint32_t interrupts_off(void) {
@@ -52,6 +58,7 @@ static uint32_t interrupts_off(void) {
 
 static void interrupts_restore(uint32_t msr) { __asm__ volatile("mtmsr %0" : : "r"(msr) : "memory"); }
 
+#ifndef RT_WLOG_TRANSLATE_ONLY
 /* The time base in units of 256 ticks: about 4 us, five hours before it
  * wraps (the low word alone wraps every 70 s). */
 static uint32_t now(void) {
@@ -64,11 +71,23 @@ static uint32_t now(void) {
     return (hi << 24) | (lo >> 8);
 }
 
+#endif
+#else
+/* Host tests supply a deterministic clock and Wii-addressed memory. */
+uint32_t wlog_test_now(void);
+static uint32_t interrupts_off(void) { return 0; }
+static void interrupts_restore(uint32_t msr) { (void)msr; }
+#ifndef RT_WLOG_TRANSLATE_ONLY
+static uint32_t now(void) { return wlog_test_now(); }
+#endif
+#endif
+
 /* Whether a pointer argument can be read: MEM1 or MEM2, cached. */
 static int readable(uint32_t address) {
     return (address >= 0x80000000u && address < 0x81800000u) || (address >= 0x90000000u && address < 0x94000000u);
 }
 
+#ifndef RT_WLOG_TRANSLATE_ONLY
 /* The caller checked the first byte; a missing terminator must not
  * let a format or %s argument run past the end of its RAM region. */
 static void copy_text(char* out, const char* in, uint32_t limit) {
@@ -171,29 +190,42 @@ void wlog_on_print(struct rt_wlog_context* c, const uint32_t* words) {
     interrupts_restore(msr);
 }
 
+#endif /* !RT_WLOG_TRANSLATE_ONLY */
+
 /* The Bluetooth side ------------------------------------------------- */
 
 /* The log started and the translator's state set up, at the first use:
  * until the jump this MEM2 was the loader's. Interrupts are off. */
 static struct rt_wlog_state* bt_state(struct rt_wlog_context* c) {
     struct rt_wlog_state* st = (struct rt_wlog_state*)(uintptr_t)c->state;
+#ifndef RT_WLOG_TRANSLATE_ONLY
     start_log(c, &st->file);
+#endif
     if (!c->inited) {
         uint32_t i;
+#ifndef RT_WLOG_TRACE_ONLY
         rtpro_init(&st->pro);
         if (c->tables) rtpro_set_tables(&st->pro, (const uint8_t*)(uintptr_t)c->tables);
+#else
+        for (i = 0; i < RTPRO_LINKS; ++i) st->links[i].used = 0;
+#endif
         for (i = 0; i < RT_WLOG_WATCHES; ++i) st->watch[i].in_use = 0;
         st->bt_fd = -1;
+#ifndef RT_WLOG_TRANSLATE_ONLY
         st->data_in = 0;
         st->data_out = 0;
+#endif
         c->inited = 1;
     }
+#ifndef RT_WLOG_TRANSLATE_ONLY
     st->file.pro.on = (c->flags & RT_WLOG_FLAG_TRANSLATE) ? 1u : 0u;
     st->file.pro.hooked = c->hooked;
     st->file.pro.tables = c->tables;
+#endif
     return st;
 }
 
+#ifndef RT_WLOG_TRANSLATE_ONLY
 static uint32_t le16(const uint8_t* p) { return (uint32_t)p[0] | ((uint32_t)p[1] << 8); }
 
 static void trace(struct rt_wlog_state* st, uint32_t kind, uint32_t flags, uint32_t handle, uint32_t cid,
@@ -245,6 +277,7 @@ static int trace_acl(struct rt_wlog_state* st, uint32_t kind, uint32_t flags, co
     return 1;
 }
 
+#ifndef RT_WLOG_TRACE_ONLY
 static void copy_counts(struct rt_wlog_state* st) {
     struct rtwlog_pro* f = &st->file.pro;
     uint32_t i;
@@ -281,8 +314,55 @@ static void copy_counts(struct rt_wlog_state* st) {
     }
 }
 
+#else
+/* With translation off, rtpro_event only tracks handles and counts Pro
+ * connections. No reads, keys, modes or controller reports can change.
+ * Keep that observable count without reserving the translator's state. */
+static void trace_event(struct rt_wlog_state* st, const uint8_t* addresses, uint32_t count,
+                        const uint8_t* event, uint32_t size) {
+    uint32_t i, slot = RTPRO_LINKS;
+    uint32_t handle;
+    if (size < 2u || size < 2u + (uint32_t)event[1]) return;
+    if (!((event[0] == 3u && event[1] >= 11u) || (event[0] == 5u && event[1] >= 4u))) return;
+    if (event[2] != 0) return;
+    handle = le16(event + 3) & 0x0FFFu;
+    for (i = 0; i < RTPRO_LINKS; ++i) {
+        if (st->links[i].used && st->links[i].handle == handle) st->links[i].used = 0;
+    }
+    if (event[0] == 5u) return;
+    for (i = 0; i < RTPRO_LINKS; ++i) {
+        if (!st->links[i].used) {
+            slot = i;
+            break;
+        }
+    }
+    if (slot == RTPRO_LINKS) return;
+    st->links[slot].used = 1;
+    st->links[slot].handle = (uint16_t)handle;
+    if (count == RTPRO_EVERY_LINK) {
+        st->file.pro.pros++;
+        return;
+    }
+    if (count > RTPRO_ADDRESSES) count = RTPRO_ADDRESSES;
+    for (i = 0; i < count; ++i) {
+        uint32_t j;
+        int forward = 1, reverse = 1;
+        for (j = 0; j < 6u; ++j) {
+            if (addresses[6u * i + j] != event[5u + j]) forward = 0;
+            if (addresses[6u * i + j] != event[10u - j]) reverse = 0;
+        }
+        if (forward || reverse) {
+            st->file.pro.pros++;
+            return;
+        }
+    }
+}
+#endif /* RT_WLOG_TRACE_ONLY */
+#endif /* !RT_WLOG_TRANSLATE_ONLY */
+
 /* A bulk-out transfer made shorter: its length, given twice (the
  * endpoint's 16-bit length in, and the data vector's size). */
+#ifndef RT_WLOG_TRACE_ONLY
 static void set_out_size(uint32_t* vec, uint32_t size) {
     if (vec[3] == 2u && readable(vec[2])) *(uint16_t*)(uintptr_t)vec[2] = (uint16_t)size;
     vec[5] = size;
@@ -299,6 +379,8 @@ static uint32_t out_room(uint32_t address, uint32_t size) {
     return size < 32u ? 32u : size;
 }
 
+#endif
+
 uint32_t wlog_on_ioctlv(struct rt_wlog_context* c, uint32_t* a) {
     struct rt_wlog_state* st;
     const uint32_t* vec;
@@ -313,7 +395,9 @@ uint32_t wlog_on_ioctlv(struct rt_wlog_context* c, uint32_t* a) {
         if (a[2] == 6u && a[3] == 1u && readable(vec[0]) && readable(vec[12]) && vec[13] >= 3u &&
             *(const uint8_t*)(uintptr_t)vec[0] == HCI_COMMAND_REQUEST) {
             st->bt_fd = (int32_t)a[0];
+#ifndef RT_WLOG_TRANSLATE_ONLY
             trace(st, RTWLOG_BT_COMMAND, 0, 0, 0, (const uint8_t*)(uintptr_t)vec[12], vec[13]);
+#endif
         }
         interrupts_restore(msr);
         return 0;
@@ -327,25 +411,31 @@ uint32_t wlog_on_ioctlv(struct rt_wlog_context* c, uint32_t* a) {
     endpoint = *(const uint8_t*)(uintptr_t)vec[0];
     if (endpoint == EP_ACL_OUT && a[1] == USBV0_BLKMSG) {
         uint8_t* acl = (uint8_t*)(uintptr_t)vec[4];
+#ifndef RT_WLOG_TRACE_ONLY
         uint32_t what = 0, size = vec[5];
         const uint32_t address = (uint32_t)(uintptr_t)acl;
         const uint32_t aligned = (address & 31u) == 0u;
         const uint32_t room = out_room(address, size);
-        /* The game's packet as it was, for the trace if the translator
-         * changes it. */
-        uint8_t asked[8u + 32u];  /* a whole report: 23 bytes at most */
+#ifndef RT_WLOG_TRANSLATE_ONLY
+        /* Keep the original only when a report will be saved. */
+        uint8_t asked[8u + 32u];
         const uint32_t asked_size = size < sizeof(asked) ? size : sizeof(asked);
         for (i = 0; i < asked_size; ++i) asked[i] = acl[i];
-        /* Changed before IOS_IoctlvAsync flushes the buffers for IOS. */
+#endif
         if (c->flags & RT_WLOG_FLAG_TRANSLATE) what = rtpro_acl_out(&st->pro, acl, &size, room);
         if ((what & RTPRO_PRO) && aligned) st->pro.out_aligned++;
         if (size != vec[5]) set_out_size((uint32_t*)(uintptr_t)a[4], size);
+#ifndef RT_WLOG_TRANSLATE_ONLY
         if (what & RTPRO_CHANGED) {
             if (trace_acl(st, RTWLOG_BT_OUT, what, asked, asked_size)) trace_acl(st, RTWLOG_BT_SENT, 0, acl, size);
         } else {
             trace_acl(st, RTWLOG_BT_OUT, what, acl, size);
         }
         copy_counts(st);
+#endif
+#else
+        trace_acl(st, RTWLOG_BT_OUT, 0, acl, vec[5]);
+#endif
         interrupts_restore(msr);
         return 0;
     }
@@ -395,38 +485,64 @@ int32_t wlog_on_bt(struct rt_wlog_context* c, int32_t result, uint32_t tag) {
         const uint32_t size = (uint32_t)result < w->length ? (uint32_t)result : w->length;
         bt_state(c);
         if (w->endpoint == EP_EVENTS) {
+#ifndef RT_WLOG_TRANSLATE_ONLY
             if (size >= 2u && data[0] == EVENT_COMPLETED_PACKETS) st->file.pro.events_skipped++;
             else trace(st, RTWLOG_BT_EVENT, 0, 0, 0, data, size);
+#endif
+#ifdef RT_WLOG_TRACE_ONLY
+            trace_event(st, c->pro_addresses, c->pro_count, data, size);
+#else
             rtpro_event(&st->pro, c->pro_addresses, c->pro_count, data, size);
+#endif
         } else {
+#ifndef RT_WLOG_TRANSLATE_ONLY
             trace_acl(st, RTWLOG_BT_IN, 0, data, size);
+#endif
+#ifndef RT_WLOG_TRACE_ONLY
             if (c->flags & RT_WLOG_FLAG_TRANSLATE) {
                 uint32_t what = 0;
                 const uint32_t rebuilt = rtpro_acl_in(&st->pro, data, size, w->length, &what);
                 if (what & RTPRO_CHANGED) {
+#ifndef RT_WLOG_TRANSLATE_ONLY
                     trace_acl(st, RTWLOG_BT_GAME, what, data, rebuilt);
+#endif
                     result = (int32_t)rebuilt;
                 }
             }
+#endif
         }
+#if !defined(RT_WLOG_TRANSLATE_ONLY) && !defined(RT_WLOG_TRACE_ONLY)
         copy_counts(st);
+#endif
         interrupts_restore(msr);
     }
     w->in_use = 0;
     if (callback == 0) return 0;
+#ifdef RT_TARGET_PPC
     return ((ipc_callback_fn)(uintptr_t)callback)(result, user);
+#else
+    return wlog_test_callback(callback, result, user);
+#endif
 }
 
+#ifndef RT_WLOG_TRANSLATE_ONLY
 /* /shared2/riftwii/wpadlog.bin, written as the game: the folder and the
  * file made (either may be there already), then the whole log. Through
  * the game's own synchronous IOS functions: __OSLaunchMenu makes its
  * own ES calls the same way right after this. */
 void wlog_on_exit(struct rt_wlog_context* c) {
     struct rt_wlog_state* st = (struct rt_wlog_state*)(uintptr_t)c->state;
+#ifdef RT_TARGET_PPC
     const ios_open_fn ios_open = (ios_open_fn)(uintptr_t)c->ios_open;
     const ios_close_fn ios_close = (ios_close_fn)(uintptr_t)c->ios_close;
     const ios_write_fn ios_write = (ios_write_fn)(uintptr_t)c->ios_write;
     const ios_ioctl_fn ios_ioctl = (ios_ioctl_fn)(uintptr_t)c->ios_ioctl;
+#else
+    const ios_open_fn ios_open = wlog_test_open;
+    const ios_close_fn ios_close = wlog_test_close;
+    const ios_write_fn ios_write = wlog_test_write;
+    const ios_ioctl_fn ios_ioctl = wlog_test_ioctl;
+#endif
     int32_t fs, fd, r;
     char* p;
     c->saved = 1;
@@ -458,3 +574,5 @@ void wlog_on_exit(struct rt_wlog_context* c) {
     c->result = ios_write(fd, &st->file, sizeof(st->file));
     ios_close(fd);
 }
+
+#endif /* !RT_WLOG_TRANSLATE_ONLY */
