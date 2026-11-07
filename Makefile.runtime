@@ -87,6 +87,12 @@ FAULTOBJS := $(FAULTOUT)/fault_entry.o $(FAULTOUT)/fault_hook.o $(FAULTOUT)/rtfa
 WLOGSRC  := runtime/wlog
 WLOGOUT  := $(OUT)/wlog
 WLOGBLOB := $(OUT)/riftwii_wlog.bin
+WLOGTRACEOUT := $(OUT)/wlog-trace
+WLOGTRANSLATEOUT := $(OUT)/wlog-translate
+WLOGTRACEBLOB := $(OUT)/riftwii_wlog_trace.bin
+WLOGTRANSLATEBLOB := $(OUT)/riftwii_wlog_translate.bin
+WLOGTRACEOBJS := $(WLOGTRACEOUT)/wlog_entry.o $(WLOGTRACEOUT)/wlog_hook.o $(WLOGTRACEOUT)/rtshot.o
+WLOGTRANSLATEOBJS := $(WLOGTRANSLATEOUT)/wlog_entry.o $(WLOGTRANSLATEOUT)/wlog_hook.o $(WLOGTRANSLATEOUT)/rtpro.o
 WLOGOBJS := $(WLOGOUT)/wlog_entry.o $(WLOGOUT)/wlog_hook.o $(WLOGOUT)/rtshot.o $(WLOGOUT)/rtpro.o
 
 # The virtual SD card blob (runtime/vsd): the game's SD slot answered from
@@ -147,12 +153,14 @@ STUBOBJS := $(STUBOUT)/stub_start.o $(STUBOUT)/stub_main.o
 # decoder stays a separate compilation: its fixed r31 carries the worker
 # through decoder checkpoints and must not leak into other C functions.
 LTO_OBJS := $(filter-out %_entry.o $(GCRVZOUT)/rt_zstd.o,\
-            $(OBJS) $(RVZOBJS) $(SHOTOBJS) $(FAULTOBJS) $(WLOGOBJS) $(GCOBJS) $(GCRVZOBJS))
+            $(OBJS) $(RVZOBJS) $(SHOTOBJS) $(FAULTOBJS) $(WLOGOBJS) $(WLOGTRACEOBJS) $(WLOGTRANSLATEOBJS) $(GCOBJS) $(GCRVZOBJS))
 LTO_ELFS := $(OUT)/riftwii_rt.elf $(OUT)/riftwii_rt_alt.elf \
             $(RVZOUT)/riftwii_rt_rvz.elf $(RVZOUT)/riftwii_rt_rvz_alt.elf \
             $(SHOTOUT)/riftwii_shot.elf $(SHOTOUT)/riftwii_shot_alt.elf \
             $(FAULTOUT)/riftwii_fault.elf $(FAULTOUT)/riftwii_fault_alt.elf \
             $(WLOGOUT)/riftwii_wlog.elf $(WLOGOUT)/riftwii_wlog_alt.elf \
+            $(WLOGTRACEOUT)/riftwii_wlog_trace.elf $(WLOGTRACEOUT)/riftwii_wlog_trace_alt.elf \
+            $(WLOGTRANSLATEOUT)/riftwii_wlog_translate.elf $(WLOGTRANSLATEOUT)/riftwii_wlog_translate_alt.elf \
             $(GCOUT)/riftwii_gc.elf $(GCOUT)/riftwii_gc_alt.elf \
             $(GCRVZOUT)/riftwii_gc_rvz.elf $(GCRVZOUT)/riftwii_gc_rvz_alt.elf
 
@@ -162,7 +170,7 @@ $(RVZOUT)/rt_zstd.o: private ZSTDFLAGS += -flto=auto
 $(LTO_OBJS) $(LTO_ELFS): Makefile.runtime
 
 .PHONY: all clean
-all: $(BLOB) $(PADBLOB) $(GCBLOB) $(SHOTBLOB) $(FAULTBLOB) $(WLOGBLOB) $(VSDBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST) \
+all: $(BLOB) $(PADBLOB) $(GCBLOB) $(SHOTBLOB) $(FAULTBLOB) $(WLOGBLOB) $(WLOGTRACEBLOB) $(WLOGTRANSLATEBLOB) $(VSDBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST) \
      $(GCRVZBLOB) $(GCRVZZST) $(DOLPACK) $(STUBBLOB)
 
 $(DPOUT):
@@ -440,6 +448,40 @@ $(WLOGBLOB): $(WLOGOUT)/riftwii_wlog.elf $(WLOGOUT)/riftwii_wlog_alt.elf
 	$(OBJCOPY) -O binary $(WLOGOUT)/riftwii_wlog_alt.elf $(WLOGOUT)/riftwii_wlog_alt.bin
 	@cmp $@ $(WLOGOUT)/riftwii_wlog_alt.bin || { echo "runtime: wlog blob differs between link bases; not position independent"; rm -f $@; exit 1; }
 	@echo "wlog blob: $$(stat -c %s $@) bytes"
+
+# Both smaller images use the same source, layout selector and link checks.
+# Separate object folders keep feature flags from leaking between images.
+define WLOG_VARIANT
+$(OUT)/wlog-$(1):
+	@mkdir -p $$@
+
+$(OUT)/wlog-$(1)/wlog_entry.o: $(WLOGSRC)/wlog_entry.S $(WLOGSRC)/wlog_hook.h runtime/rtwlog.h runtime/rtpro.h | $(OUT)/wlog-$(1)
+	$(CC) $(CFLAGS) -D$(2) -c -o $$@ $$<
+
+$(OUT)/wlog-$(1)/wlog_hook.o: $(WLOGSRC)/wlog_hook.c $(WLOGSRC)/wlog_hook.h runtime/rtwlog.h runtime/rtshot.h runtime/rtpro.h | $(OUT)/wlog-$(1)
+	$(CC) $(CFLAGS) -flto=auto -D$(2) -c -o $$@ $$<
+
+$(OUT)/wlog-$(1)/$(3).o: runtime/$(3).c runtime/$(3).h | $(OUT)/wlog-$(1)
+	$(CC) $(CFLAGS) -flto=auto -c -o $$@ $$<
+
+$(OUT)/wlog-$(1)/riftwii_wlog_$(1).elf: $(4) $(WLOGSRC)/wlog.ld
+	$(CC) $(CFLAGS) -flto=auto -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(WLOGSRC)/wlog.ld \
+		-Wl,--defsym,RT_BASE=0x00000000 -o $$@ $(4) -lgcc
+	@$(SIZE) -A $$@ | awk '$$$$1 ~ /^\.(rodata|data|bss)$$$$/ && $$$$2 != 0 { print "runtime: nonempty section in wlog $(1)"; bad = 1 } END { exit bad }'
+
+$(OUT)/wlog-$(1)/riftwii_wlog_$(1)_alt.elf: $(4) $(WLOGSRC)/wlog.ld
+	$(CC) $(CFLAGS) -flto=auto -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(WLOGSRC)/wlog.ld \
+		-Wl,--defsym,RT_BASE=0x12340000 -o $$@ $(4) -lgcc
+
+$(OUT)/riftwii_wlog_$(1).bin: $(OUT)/wlog-$(1)/riftwii_wlog_$(1).elf $(OUT)/wlog-$(1)/riftwii_wlog_$(1)_alt.elf
+	$(OBJCOPY) -O binary $$< $$@
+	$(OBJCOPY) -O binary $(OUT)/wlog-$(1)/riftwii_wlog_$(1)_alt.elf $(OUT)/wlog-$(1)/riftwii_wlog_$(1)_alt.bin
+	@cmp $$@ $(OUT)/wlog-$(1)/riftwii_wlog_$(1)_alt.bin || { echo "runtime: wlog $(1) differs between link bases"; rm -f $$@; exit 1; }
+	@echo "wlog $(1) blob: $$$$(stat -c %s $$@) bytes"
+endef
+
+$(eval $(call WLOG_VARIANT,trace,RT_WLOG_TRACE_ONLY,rtshot,$(WLOGTRACEOBJS)))
+$(eval $(call WLOG_VARIANT,translate,RT_WLOG_TRANSLATE_ONLY,rtpro,$(WLOGTRANSLATEOBJS)))
 
 $(VSDOUT):
 	@mkdir -p $(VSDOUT)

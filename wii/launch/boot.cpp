@@ -1422,7 +1422,7 @@ void plan_game_extras(const DolHeader& dol, const ExtrasContext& ctx, GameExtras
         // The function to hook: the resident's hook of it, chained.
         const std::uint32_t known_ioctlv = resident != nullptr ? resident->ioctlv_async : 0;
         if (!plan_wpad_log(dol, out.arena1_hi(ctx.arena1_hi), ctx.mem1_floor, out.arena2_lo(ctx.arena2_lo), known_ios,
-                           known_ioctlv, pairings.pro, pro_translator_wanted(), patches, out.wlog, why)) {
+                           known_ioctlv, pairings.pro, pro_translator_wanted(), true, patches, out.wlog, why)) {
             logf("Wii Remote log: off: %s\n", why.c_str());
         }
     }
@@ -1483,7 +1483,7 @@ void install_wpad_log_last(GameExtras& extras) {
     if (!extras.wlog.active) return;
     std::string why;
     if (!install_wpad_log(extras.wlog, why)) logf("Wii Remote log: off: %s\n", why.c_str());
-    else if (extras.pad.active) log_pad_diagnostics(extras.pad.code_base, extras.wlog.print_entry);
+    else if (extras.pad.active && extras.wlog.record) log_pad_diagnostics(extras.pad.code_base, extras.wlog.print_entry);
 }
 
 // Test switch: settings.txt "debug_crash = <hex address>", or "pad" for

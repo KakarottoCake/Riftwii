@@ -36,6 +36,7 @@ namespace riftwii::wii {
 
 struct WpadLogHook {
     bool active = false;
+    bool record = true;               // report buffer, print hooks and NAND save
     std::vector<std::uint32_t> stubs;  // the print functions hooked
     std::uint32_t exit_site = 0;       // __OSLaunchMenu's "li rZ,0"
     std::uint32_t ioctlv = 0;          // IOS_IoctlvAsync (0: no Bluetooth trace or translator)
@@ -71,6 +72,9 @@ bool pro_translator_wanted();
 // Controller Pro made of its extension's bytes).
 bool pro_translator_every_link();
 
+// `record = false` installs only translation, without print/exit hooks or
+// synchronous IOS requirements. Current launch policy requests a report whenever
+// it enables this hook, so boot.cpp passes true; settings gates stay unchanged.
 // Before the <memory> patches, on the game as loaded. `known_ios` are the
 // resident's unhooked synchronous IOS_Open, IOS_Close, IOS_Write and
 // IOS_Ioctl when it is installed (the resident's own would send the
@@ -79,7 +83,7 @@ bool pro_translator_every_link();
 // Pro Controller pairings' addresses, as SYSCONF keeps them.
 bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
                    const std::uint32_t known_ios[4], std::uint32_t known_ioctlv,
-                   const std::vector<std::array<std::uint8_t, 6>>& pros, bool translate,
+                   const std::vector<std::array<std::uint8_t, 6>>& pros, bool translate, bool record,
                    const std::vector<MemoryPatch>& patches, WpadLogHook& out, std::string& why);
 
 // After the patches, the cheats, the other blobs' hooks and Return to
