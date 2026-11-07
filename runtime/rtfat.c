@@ -874,6 +874,28 @@ static void data_chunk(const struct rtfat_volume* vol, struct rtfat_op* op, uint
     op->chunk_bytes = max;
 }
 
+/* With fast_io: the next chunk as the whole sectors from `abs` to the
+ * end of the cluster (or of the request), straight between the device and
+ * the caller's buffer, when they start on a sector and land 32-byte
+ * aligned there. 1 when the chunk was set up that way, 0 when it goes
+ * through the bounce (data_chunk). */
+static int direct_chunk(const struct rtfat_volume* vol, struct rtfat_op* op, uint32_t abs, uint32_t remaining) {
+    const uint32_t cb = rtfat_cluster_bytes(vol);
+    const uint32_t off = abs % cb;
+    const uint32_t memory = op->buffer + op->data_done;
+    uint32_t bytes = remaining < cb - off ? remaining : cb - off;
+    op->chunk_direct = 0;
+    if (!op->fast_io || off % RTFAT_SECTOR_BYTES != 0 || memory % 32u != 0) return 0;
+    bytes -= bytes % RTFAT_SECTOR_BYTES;
+    if (bytes == 0) return 0;
+    op->chunk_lba = rtfat_cluster_lba(vol, op->walk_cluster) + off / RTFAT_SECTOR_BYTES;
+    op->chunk_count = bytes / RTFAT_SECTOR_BYTES;
+    op->chunk_skip = 0;
+    op->chunk_bytes = bytes;
+    op->chunk_direct = 1;
+    return 1;
+}
+
 /* Restore the parent in every FAT before freeing the candidate in every
  * FAT. A failed recovery transfer never stops the remaining copies. */
 static __attribute__((noinline)) int step_recover(struct rtfat_volume* vol, struct rtfat_op* op) {
@@ -1017,6 +1039,17 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
                 if (op->dir_grow) op->dir_txn = 1;
                 fat_set_cached(op, op->alloc_cluster, FAT_EOC);
                 op->alloc_copy = 0;
+                if (op->fast_io && op->alloc_link != 0 && !op->dir_grow &&
+                    fat_sector_of(vol, op->alloc_link) == op->fat_cached_lba) {
+                    /* The link to the new cluster sits in the same FAT
+                     * sector: one write per copy both takes the cluster
+                     * and links it. A folder's cluster is excluded: it is
+                     * zeroed between the two. */
+                    fat_set_cached(op, op->alloc_link, op->alloc_cluster);
+                    vol->alloc_hint = op->alloc_cluster + 1;
+                    op->state = S_ALLOC_LINK_WRITE;
+                    return RT_CONT;
+                }
                 op->state = S_ALLOC_MARK_WRITE;
                 return RT_CONT;
             }
@@ -1178,12 +1211,17 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
             return RT_CONT;
         case S_READ_CHUNK:
             if (op->walk_cluster == 0) return finish(op, RTFAT_ECORRUPT); /* size promises more than the chain has */
-            data_chunk(vol, op, op->file->position + op->data_done, op->want - op->data_done);
             op->state = S_READ_COPY;
+            if (direct_chunk(vol, op, op->file->position + op->data_done, op->want - op->data_done)) {
+                return issue(op, op->chunk_lba, op->chunk_count, 0, (void*)(uintptr_t)(op->buffer + op->data_done));
+            }
+            data_chunk(vol, op, op->file->position + op->data_done, op->want - op->data_done);
             return issue(op, op->chunk_lba, op->chunk_count, 0, (void*)(uintptr_t)op->bounce);
         case S_READ_COPY:
-            copy_bytes((uint8_t*)(uintptr_t)op->buffer + op->data_done,
-                       (const uint8_t*)(uintptr_t)op->bounce + op->chunk_skip, op->chunk_bytes);
+            if (!op->chunk_direct) {
+                copy_bytes((uint8_t*)(uintptr_t)op->buffer + op->data_done,
+                           (const uint8_t*)(uintptr_t)op->bounce + op->chunk_skip, op->chunk_bytes);
+            }
             op->data_done += op->chunk_bytes;
             op->state = S_READ_NEXT;
             return RT_CONT;
@@ -1206,6 +1244,11 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
                 op->next_state = S_WRITE_NEXT;
                 op->state = S_ALLOC_SCAN;
                 return RT_CONT;
+            }
+            if (direct_chunk(vol, op, abs, op->length - op->data_done)) {
+                /* Whole sectors replace what they cover: nothing to read first. */
+                op->state = S_WRITE_WRITTEN;
+                return issue(op, op->chunk_lba, op->chunk_count, 1, (const void*)(uintptr_t)(op->buffer + op->data_done));
             }
             data_chunk(vol, op, abs, op->length - op->data_done);
             if ((op->chunk_skip != 0 || (op->chunk_skip + op->chunk_bytes) % RTFAT_SECTOR_BYTES != 0) &&
