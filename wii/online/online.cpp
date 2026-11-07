@@ -665,7 +665,9 @@ void FetchPacks() {
     ThemePack first;
     std::size_t split = 0;
     if (!parse_theme_pack(g_update.data(), g_update.size(), first, error, kThemePackHeader, &split)) {
-        GiveUpPacks((std::string(kUpdatePackAsset) + ": " + error).c_str());
+        // Its SHA-256 matched, so the bytes are the release's: a failure here
+        // is most likely memory for the file list. Tried at a later start.
+        logf("Packs: %s: %s; it is tried at a later start.\n", kUpdatePackAsset, error.c_str());
         return;
     }
     if (themes) {
@@ -769,8 +771,7 @@ void ApplyPack(PackKind& k) {
     ThemePack pack;
     std::string error;
     if (!parse_theme_pack(bytes, size, pack, error, k.header)) {
-        logf("%s: %s: %s\n", k.label, kUpdatePackAsset, error.c_str());
-        MarkDone(k.done);
+        logf("%s: %s: %s; tried again at a later start\n", k.label, kUpdatePackAsset, error.c_str());
         return;
     }
     const std::string root = themes ? "sd:/riftwii/themes/" : "sd:/apps/";
@@ -800,11 +801,8 @@ void ApplyPack(PackKind& k) {
     }
     if (themes) {
         for (const RetiredTheme& r : pack.retired) {
-            const std::string dir = root + r.name;
-            unsigned removed = 0;
-            for (const std::string& name : r.files) removed += std::remove((dir + "/" + name).c_str()) == 0;
-            rmdir(dir.c_str());  // only when nothing of the player's is left in it
-            if (removed) logf("Themes: %s retired (%u file(s) removed)\n", r.name.c_str(), removed);
+            // What replaces it is remembered first: once its files are gone,
+            // a player's setting naming it must still be moved off it.
             struct stat st;
             const bool there = !r.replacement.empty() && stat((root + r.replacement).c_str(), &st) == 0;
             if (!try_push_back(g_retired_themes, std::make_pair(r.name, there ? r.replacement : std::string("default")))) {
@@ -812,6 +810,11 @@ void ApplyPack(PackKind& k) {
                 logf("Themes: not enough memory to remember a retired theme; it is tried at a later start.\n");
                 break;
             }
+            const std::string dir = root + r.name;
+            unsigned removed = 0;
+            for (const std::string& name : r.files) removed += std::remove((dir + "/" + name).c_str()) == 0;
+            rmdir(dir.c_str());  // only when nothing of the player's is left in it
+            if (removed) logf("Themes: %s retired (%u file(s) removed)\n", r.name.c_str(), removed);
         }
     }
     logf("%s: %u file(s) brought up to %s's, %u already were%s\n", k.label, written, RIFTWII_VERSION, same,
@@ -825,7 +828,6 @@ void ApplyPack(PackKind& k) {
 void RunStartCheck() {
     StartCheck& c = g_start_check;
     c.ok = CheckLatestRelease(false, c.latest, c.newer, c.error);
-    if (c.ok && c.newer) ReleaseUpdatePacks();
 }
 
 void RunUpdatePacks() {

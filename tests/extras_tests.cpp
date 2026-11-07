@@ -2968,7 +2968,8 @@ static void TestUpdatePackMemory() {
     riftwii::UpdatePackMemory memory;
     constexpr std::size_t kTlsBytes = 33001;
     EXPECT_TRUE(riftwii::update_pack_memory_size(7520256, kTlsBytes, memory));
-    EXPECT_EQ(memory.response_bytes, 7520256u + (64u << 10));
+    // Headers, and a 32nd of the body for a chunked answer's framing.
+    EXPECT_EQ(memory.response_bytes, 7520256u + (64u << 10) + 7520256u / 32);
     EXPECT_EQ(memory.tls_offset % 32, 0u);
     EXPECT_TRUE(memory.tls_offset >= memory.response_bytes);
     EXPECT_EQ(memory.total_bytes, memory.tls_offset + kTlsBytes);
