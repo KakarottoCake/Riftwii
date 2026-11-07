@@ -618,6 +618,9 @@ msgstr "실험적 기능입니다. 어댑터는 그대로 유지됩니다."
 msgid "Adapter: working"
 msgstr "어답터：작업중"
 
+msgid "Adapter: working. For rumble, plug in its gray USB plug too."
+msgstr "어답터：작업중. 진동을 쓰려면 회색 USB 플러그도 꽂으세요."
+
 msgid "Adapter: starting..."
 msgstr "어답터：시작중..."
 

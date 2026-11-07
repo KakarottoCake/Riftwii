@@ -542,6 +542,11 @@ T = {
     "Experimental. The adapter is left alone.": ("Experimental. El adaptador no se usa.", "試験的な機能です。接続タップは使いません。", "Experimental. O adaptador não é usado.",
                                    "Sperimentale. L'adattatore non viene usato."),
     "Adapter: working": ("Adaptador: funcionando", "接続タップ：動作中", "Adaptador: funcionando", "Adattatore: funziona"),
+    "Adapter: working. For rumble, plug in its gray USB plug too.": (
+        "Adaptador: funcionando. Para la vibración, conecta también su enchufe USB gris.",
+        "接続タップ：動作中。振動には灰色のUSBプラグもつないでください。",
+        "Adaptador: funcionando. Para a vibração, conecte também o plugue USB cinza.",
+        "Adattatore: funziona. Per la vibrazione, collega anche la sua spina USB grigia."),
     "Adapter: starting...": ("Adaptador: iniciando...", "接続タップ：準備中...", "Adaptador: iniciando...",
                              "Adattatore: avvio..."),
     "Adapter: another program is using it, waiting": (
@@ -2789,6 +2794,8 @@ KO = {
         "실험적 기능입니다. 어댑터는 그대로 유지됩니다.",
     "Adapter: working":
         "어답터：작업중",
+    "Adapter: working. For rumble, plug in its gray USB plug too.":
+        "어답터：작업중. 진동을 쓰려면 회색 USB 플러그도 꽂으세요.",
     "Adapter: starting...":
         "어답터：시작중...",
     "Adapter: another program is using it, waiting":
@@ -4669,6 +4676,8 @@ FR = {
         "Expérimental. L'adaptateur n'est pas utilisé.",
     "Adapter: working":
         "Adaptateur : fonctionnel",
+    "Adapter: working. For rumble, plug in its gray USB plug too.":
+        "Adaptateur : fonctionnel. Pour les vibrations, branchez aussi sa prise USB grise.",
     "Adapter: starting...":
         "Adaptateur : démarrage...",
     "Adapter: another program is using it, waiting":

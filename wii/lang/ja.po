@@ -618,6 +618,9 @@ msgstr "試験的な機能です。接続タップは使いません。"
 msgid "Adapter: working"
 msgstr "接続タップ：動作中"
 
+msgid "Adapter: working. For rumble, plug in its gray USB plug too."
+msgstr "接続タップ：動作中。振動には灰色のUSBプラグもつないでください。"
+
 msgid "Adapter: starting..."
 msgstr "接続タップ：準備中..."
 

@@ -618,6 +618,9 @@ msgstr "Experimental. O adaptador não é usado."
 msgid "Adapter: working"
 msgstr "Adaptador: funcionando"
 
+msgid "Adapter: working. For rumble, plug in its gray USB plug too."
+msgstr "Adaptador: funcionando. Para a vibração, conecte também o plugue USB cinza."
+
 msgid "Adapter: starting..."
 msgstr "Adaptador: iniciando..."
 

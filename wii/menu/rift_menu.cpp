@@ -15277,7 +15277,11 @@ static std::string AdapterStatus(const riftwii::wii::GcAdapterView& v)
 {
 	if (v.hid_pads != 0) return tr("USB controllers: working");
 	switch (v.link) {
-		case GCAD_LINK_POLL: return tr("Adapter: working");
+		case GCAD_LINK_POLL:
+			// Controllers work without the gray plug, but never rumble.
+			if (v.adapter_reporting && !v.rumble_power)
+				return tr("Adapter: working. For rumble, plug in its gray USB plug too.");
+			return tr("Adapter: working");
 		case GCAD_LINK_SETUP:
 		case GCAD_LINK_SETTLE:
 		case GCAD_LINK_CTRL:

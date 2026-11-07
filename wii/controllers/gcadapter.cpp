@@ -578,6 +578,12 @@ void GcAdapterPoll(GcAdapterView& out) {
     out.listed = g_state->listed;
     out.last_error = g_state->last_error;
     out.adapter_present = g_state->dev_id != GCAD_NO_DEVICE;
+    if (out.adapter_present && g_state->reports != 0) {
+        out.adapter_reporting = true;
+        for (unsigned p = 0; p < GCAD_PORTS; ++p) {
+            if (g_state->raw[p][0] & 0x04) out.rumble_power = true;
+        }
+    }
     for (unsigned i = 0; i < GCAD_HID_PADS; ++i) {
         const gcad& pad = g_state->peers[i];
         if (pad.mapping && pad.dev_id != GCAD_NO_DEVICE) {
