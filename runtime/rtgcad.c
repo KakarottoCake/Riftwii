@@ -1211,6 +1211,8 @@ static void take_report(gcad* g, uint32_t now) {
             g->rumble_want[i] = 0;
             continue;
         }
+        /* The gray plug pulled while a motor runs: told to stop (#506). */
+        if (!(src[0] & GCAD_STATUS_RUMBLE_POWER)) g->rumble_want[i] = 0;
         /* The origin comes only from the pad at rest, and steady: a
          * reading far off taken as the origin pinned the stick to a
          * corner until the adapter was replugged (seen at RiftWii's
@@ -1800,8 +1802,12 @@ void gcad_rumble(gcad* g, uint32_t port, uint32_t command) {
         if (source >= GCAD_PORTS) return;
         port = source;
     }
-    /* A WaveBird has no motor (Dolphin skips it too). */
-    g->rumble_want[port] = (uint8_t)(command == 1 && (g->raw[port][0] & 0x10) ? 1 : 0);
+    /* A WaveBird has no motor (Dolphin skips it too). Nor rumble without
+     * the adapter's gray plug, which powers the motors: four running from
+     * one USB port's power could make the adapter drop off USB (#506,
+     * KakarottoCake's OK; libwup028 does the same). */
+    g->rumble_want[port] = (uint8_t)(command == 1 && (g->raw[port][0] & 0x10) &&
+                                     (g->raw[port][0] & GCAD_STATUS_RUMBLE_POWER) ? 1 : 0);
 }
 
 /* gcad_stop's cancels, one at a time on the STOP slot. */

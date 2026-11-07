@@ -649,6 +649,37 @@ static void TestV5() {
     EXPECT_FALSE(gcad_port(g, 0, &unused, d.now));
 }
 
+// The gray plug (#506): no rumble while the adapter says it is out (port
+// status 0x10 without 0x04); rumble once it is in; pulled while a motor
+// runs, the adapter is told to stop.
+static void TestRumbleNeedsGrayPlug() {
+    FakeHid hid;
+    Driver d;
+    Start(hid, d, 5);
+    gcad* g = d.g;
+    EXPECT_TRUE(DeliverSettled(Report(0x10, 0, 0, 131, 125)));  // wired, gray plug out
+    const std::size_t before = hid.sent_out.size();
+    gcad_rumble(g, 0, 1);
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x10, 0, 0, 131, 125)));
+    EXPECT_EQ(hid.sent_out.size(), before);  // nothing asked of the motors
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 131, 125)));  // the gray plug in
+    gcad_rumble(g, 0, 1);
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 131, 125)));
+    EXPECT_EQ(hid.sent_out.size(), before + 1);
+    if (hid.sent_out.size() == before + 1) EXPECT_EQ(static_cast<int>(hid.sent_out[before][1]), 1);
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x10, 0, 0, 131, 125)));  // pulled while it runs
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x10, 0, 0, 131, 125)));
+    EXPECT_EQ(hid.sent_out.size(), before + 2);
+    if (hid.sent_out.size() == before + 2) EXPECT_EQ(static_cast<int>(hid.sent_out[before + 1][1]), 0);
+    gcad_stop(g, d.now);
+    Pump();
+}
+
 static void TestV5OwnedElsewhere() {
     // Another handle (fakemote while it looks for a driver) has it: the
     // info read is refused, AttachFinish still goes out, and the next
@@ -1876,6 +1907,7 @@ int main() {
     TestHelpers();
     TestPadMoved();
     TestV5();
+    TestRumbleNeedsGrayPlug();
     TestV5OwnedElsewhere();
     TestV5AlreadyResumed();
     TestV5SetProtocolRefused();

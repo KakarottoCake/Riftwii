@@ -591,7 +591,7 @@ void SharedDriver(unsigned version) {
     adapter.link = GCAD_LINK_POLL;
     adapter.stale = 0;
     adapter.data_time = bus.clock;
-    adapter.raw[1][0] = 0x10;
+    adapter.raw[1][0] = 0x14;  // wired, the gray plug in
     adapter.raw[1][1] = 4;
     adapter.origin_valid[1] = 1;
     CHECK(gcad_read_ports(&adapter, 2, pads, bus.clock) == 13);

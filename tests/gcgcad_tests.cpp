@@ -223,7 +223,7 @@ void set_up(gc_gcad& ad, std::uint32_t ports, bool wireless = false) {
         ad.port_of[i] = GC_PORT_NONE;
         if (!(ports & (1u << i))) continue;
         std::uint8_t* raw = ad.g.raw[i];
-        raw[0] = wireless ? 0x20 : 0x10;  // wired, or a WaveBird receiver
+        raw[0] = wireless ? 0x24 : 0x14;  // wired, or a WaveBird receiver; the gray plug in
         raw[1] = 0x01;                    // A
         raw[3] = 128 + 20;                // stick x
         raw[4] = 128;

@@ -208,6 +208,8 @@ typedef struct gcad_descriptor {
 #define GCAD_XBOX_PROTOCOL 0x01u
 #define GCAD_XBOX_REPORT_BYTES 14u /* type, length, buttons, triggers, sticks */
 #define GCAD_XBOX_RUMBLE_BYTES 8u  /* one 8-byte motor message */
+/* An adapter port's status byte: the gray plug is in (rumble power). */
+#define GCAD_STATUS_RUMBLE_POWER 0x04u
 /* The driver's own layout for a wired Xbox 360 pad (no config file),
  * with room for its rumble messages: 96 bytes, 396 before #506. */
 typedef struct gcad_xbox_layout {
