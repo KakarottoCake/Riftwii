@@ -1361,11 +1361,19 @@ void plan_game_extras(const DolHeader& dol, const ExtrasContext& ctx, GameExtras
     }
     // A crash in the game is saved for the next start: below all of the
     // above, always.
+    // The same hook answers an image's BCA read when nothing else does (a
+    // game that checks it stops without): a small code mod, in the code
+    // handler's own space, keeps it then even with its crash logs off.
+    const bool bca_needs_fault_hook = !whole_mem1 && ctx.retail_bca && resident == nullptr && !debug_off("bca");
+    const bool crash_logs_off = ctx.code_mods_on && !ctx.code_build_crash_logs;
+    if (crash_logs_off && bca_needs_fault_hook && !ctx.gx_protected && !debug_off("fault")) {
+        logf("Game crashes: recorded although the code mod's crash logs are off: the same hook answers the image's BCA read\n");
+    }
     if (ctx.gx_protected) {
         logf("Game crashes: not recorded: the game checks its own code (MetaFortress); RiftWii's hooks stay out\n");
     } else if (debug_off("fault")) {
         logf("Game crashes: not recorded: debug_off (and the BCA read not answered)\n");
-    } else if (ctx.code_mods_on && !ctx.code_build_crash_logs) {
+    } else if (crash_logs_off && !bca_needs_fault_hook) {
         logf("Game crashes: not recorded: crash logs are off for this code build (its Mods page switches them on)\n");
     } else if (whole_mem1 && ctx.code_build && resident != nullptr) {
         // The game-time runtime (a pack's files, saves or an RVZ) takes the
