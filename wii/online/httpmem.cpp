@@ -8,15 +8,19 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <string_view>
 
 #include "netsock.hpp"
 #include "tls.hpp"
 #include "riftwii/http.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 namespace riftwii::wii {
 namespace {
 
 constexpr int kRedirectHops = 3;
+constexpr std::size_t kMaxHeaderBytes = 64u << 10;
+constexpr std::size_t kMaxLocationBytes = 4096;
 
 // What the headers said, found in place in the buffer.
 struct Headers {
@@ -40,7 +44,7 @@ bool NameIs(const char* line, std::size_t line_size, const char* name) {
 }
 
 // Reads the status line and the headers of the answer in buffer[0, used).
-void ReadHeaders(const std::uint8_t* buffer, std::size_t used, Headers& h) {
+bool ReadHeaders(const std::uint8_t* buffer, std::size_t used, Headers& h, std::string& error) {
     const char* text = reinterpret_cast<const char*>(buffer);
     std::size_t end = 0;
     for (; end + 4 <= used; ++end) {
@@ -49,11 +53,23 @@ void ReadHeaders(const std::uint8_t* buffer, std::size_t used, Headers& h) {
             break;
         }
     }
-    if (!h.whole) return;
+    if ((!h.whole && used > kMaxHeaderBytes) || (h.whole && end + 4 > kMaxHeaderBytes)) {
+        error = "the server sent HTTP headers longer than 64 KiB";
+        return false;
+    }
+    if (!h.whole) return true;
     h.body_at = end + 4;
     // "HTTP/1.1 200 OK"
     const char* space = static_cast<const char*>(std::memchr(text, ' ', end));
-    h.status = space ? std::atoi(space + 1) : 0;
+    if (space != nullptr && text + end - space >= 4) {
+        for (int i = 1; i <= 3; ++i) {
+            if (space[i] < '0' || space[i] > '9') {
+                h.status = 0;
+                break;
+            }
+            h.status = h.status * 10 + space[i] - '0';
+        }
+    }
     std::size_t at = 0;
     while (at < end) {
         const char* line = text + at;
@@ -63,15 +79,38 @@ void ReadHeaders(const std::uint8_t* buffer, std::size_t used, Headers& h) {
         if (size > 0 && line[size - 1] == '\r') --size;
         if (NameIs(line, size, "content-length")) {
             h.has_length = true;
-            h.length = std::strtoull(std::string(line + 15, size - 15).c_str(), nullptr, 10);
+            h.length = 0;
+            std::string_view value(line + 15, size - 15);
+            while (!value.empty() && (value.front() == ' ' || value.front() == '\t')) value.remove_prefix(1);
+            while (!value.empty() && (value.back() == ' ' || value.back() == '\t')) value.remove_suffix(1);
+            if (value.empty()) {
+                error = "the server sent an empty HTTP Content-Length";
+                return false;
+            }
+            for (char c : value) {
+                if (c < '0' || c > '9' || h.length > (std::numeric_limits<std::uint64_t>::max() - (c - '0')) / 10) {
+                    error = "the server sent an invalid HTTP Content-Length";
+                    return false;
+                }
+                h.length = h.length * 10 + c - '0';
+            }
         } else if (NameIs(line, size, "transfer-encoding")) {
-            h.chunked = std::string(line + 18, size - 18).find("chunked") != std::string::npos;
+            h.chunked = std::string_view(line + 18, size - 18).find("chunked") != std::string_view::npos;
         } else if (NameIs(line, size, "location")) {
             std::size_t from = 9;
             while (from < size && line[from] == ' ') ++from;
+            if (size - from > kMaxLocationBytes) {
+                error = "the server sent an HTTP redirect longer than 4096 bytes";
+                return false;
+            }
+            if (!try_reserve(h.location, size - from)) {
+                error = "not enough memory for the HTTP redirect";
+                return false;
+            }
             h.location.assign(line + from, size - from);
         }
     }
+    return true;
 }
 
 // A whole size line, including any extension. Both the receive-time limit
@@ -197,7 +236,7 @@ bool Exchange(const HttpUrl& url, MemoryGet& get, Headers& headers, std::string&
         if (got == 0) break;  // the server closed: the answer is whole
         used += got;
         if (progress) progress(used);
-        if (!headers.whole) ReadHeaders(get.buffer, used, headers);
+        if (!headers.whole && !ReadHeaders(get.buffer, used, headers, error)) return false;
         if (headers.whole) {
             if (get.max_body) {
                 if (headers.chunked) {
@@ -216,7 +255,7 @@ bool Exchange(const HttpUrl& url, MemoryGet& get, Headers& headers, std::string&
                 break;
         }
     }
-    if (!headers.whole) ReadHeaders(get.buffer, used, headers);
+    if (!headers.whole && !ReadHeaders(get.buffer, used, headers, error)) return false;
     if (!headers.whole) {
         error = url.host + " sent an answer that is not HTTP";
         return false;
@@ -243,7 +282,9 @@ bool Exchange(const HttpUrl& url, MemoryGet& get, Headers& headers, std::string&
 }  // namespace
 
 bool HttpGetInMemory(const std::string& url, MemoryGet& get, std::string& error, int timeout_ms,
-                     const HttpProgress& progress) {
+                     const HttpProgress& progress, HttpRedirects redirects) {
+    get.body_offset = 0;
+    get.body_length = 0;
     if (!NetStart(error)) return false;
     HttpUrl parsed;
     if (!parse_http_url(url, parsed, error)) return false;
@@ -251,15 +292,16 @@ bool HttpGetInMemory(const std::string& url, MemoryGet& get, std::string& error,
         Headers headers;
         if (!Exchange(parsed, get, headers, error, timeout_ms, progress)) return false;
         if (headers.status >= 300 && headers.status < 400 && !headers.location.empty()) {
-            // Only to another path on the same server, never to another one.
+            // The theme browser stays on its server; release assets may
+            // follow only the HTTPS GitHub download hosts.
             HttpUrl next;
             if (!http_redirect(parsed, headers.location, next, error)) {
                 // By host: the refused address can hold a player's ID too.
                 error = parsed.host + " answered " + std::to_string(headers.status) + " (a redirect that cannot be followed)";
                 return false;
             }
-            if (!http_redirect_allowed(HttpRedirects::SameHost, parsed, next)) {
-                error = parsed.host + " answered " + std::to_string(headers.status) + " (a redirect to another server, not followed)";
+            if (!http_redirect_allowed(redirects, parsed, next)) {
+                error = parsed.host + " answered " + std::to_string(headers.status) + " (a redirect not allowed for this download)";
                 return false;
             }
             parsed = next;

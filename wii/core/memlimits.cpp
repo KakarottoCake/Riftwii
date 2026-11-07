@@ -7,6 +7,7 @@
 #include <ogc/machine/processor.h>
 #include <ogc/system.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
@@ -59,6 +60,26 @@ void Init() {
     if (Address(SYS_GetArena2Lo()) < mem2_lo) SYS_SetArena2Lo(reinterpret_cast<void*>(mem2_lo));
     // Do not probe IOS before the log can open. A stuck IPC request here
     // used to leave neither a screen nor a line naming the call.
+}
+
+void* TryMem2Alloc(std::size_t& bytes) {
+    if (g_mem1_floor == 0 || bytes == 0 || bytes > kMaxCheckedBytes) return nullptr;
+    // The early update pack must be freeable after the menu has taken art.
+    // An arena allocation would be trapped below that art. A heap block
+    // larger than all of MEM1's heap can only be handed out in MEM2; its
+    // free list remains usable after later arena allocations split the heap.
+    const std::size_t mem1_bytes = kMem1Ceiling > g_mem1_floor ? kMem1Ceiling - g_mem1_floor : 0;
+    bytes = std::max(bytes, mem1_bytes + 32);
+    // malloc/memalign return null when _sbrk_r refuses growth. Only
+    // operator new calls the menu's restart handler, so no trial/new pair.
+    void* block = memalign(32, bytes);
+    // Also refuse any unexpected MEM1 free chunk left by work done before
+    // Init recorded the heap's floor.
+    if (block != nullptr && Address(block) < kMem2Floor) {
+        std::free(block);
+        return nullptr;
+    }
+    return block;
 }
 
 namespace {

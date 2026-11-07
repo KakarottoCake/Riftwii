@@ -53,6 +53,12 @@ std::vector<std::pair<u32, u32>> HeapPieces();
 // First thing in main: applies the limits above to libogc's arenas.
 void Init();
 
+// A quiet, freeable heap allocation in MEM2. `bytes` is raised past the
+// entire MEM1 heap's size if necessary, so malloc cannot put it there.
+// Unlike skin::Mem2Alloc, std::free returns this block even after art or
+// another thread has taken more of the arena. nullptr leaves the menu up.
+void* TryMem2Alloc(std::size_t& bytes);
+
 // Test builds only (make WII_DEFINES=-DRIFTWII_TEST_LIMITS): once the SD
 // card is up, sd:/riftwii/test_limits.txt's "ballast_kib = N" holds N KiB
 // of the heap back for the whole run, in "chunk_kib = M" pieces (default
