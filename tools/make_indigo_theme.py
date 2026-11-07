@@ -39,6 +39,7 @@ repaints only those.
 import colorsys
 import math
 import pathlib
+import subprocess
 import sys
 
 from PIL import Image
@@ -567,6 +568,9 @@ def main():
         path = out / (name + ".png")
         paint().save(path, optimize=True)
         print(path)
+    # Smaller files, the same picture on a TV (tools/shrink_theme_pictures.py).
+    subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name("shrink_theme_pictures.py")), str(out)],
+                   check=True)
 
 
 if __name__ == "__main__":

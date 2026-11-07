@@ -324,3 +324,10 @@ To make your own theme:
 Picture sizes are exact. If you draw your own PNG pictures, an image
 editor's "canvas size" is the tool for adding margin around your artwork so
 it matches the required dimensions.
+
+To make your pictures download faster, run
+`python tools/shrink_theme_pictures.py <your theme folder>` (needs
+Pillow). It rounds each colour to 6 bits and keeps transparency as it
+is, which no TV shows but which halves most pictures. A backdrop loop's
+frames keep exactly the bits the menu uses for them, so they look the
+same as before.
