@@ -333,7 +333,9 @@ game is, its region, how often you've played it and whether it has mods.
 Each box's spine and front come from GameTDB's full
 cover scan, fetched after the covers while Home is open and kept in
 `sd:/riftwii/boxes`. A game GameTDB has no scan for gets a white spine
-with its name and its cover on the front.
+with its name and its cover on the front. A mod's tile that gets its own
+cover from GameTDB (above) gets that mod's box too, when GameTDB has one,
+kept under the tile key; your own cover for the tile still comes first.
 
 The **carousel** uses the same boxes, fanned out on an arc with every
 front showing: the one you're on stands forward in the middle, and the
@@ -347,6 +349,8 @@ ring's far side shows small behind it. Left and Right turn the ring (hold
 one to speed up), and the pointer picks and drags as on the shelf. The
 pictures come from GameTDB while Home is open and are kept in
 `sd:/riftwii/covers3d`; a game without one shows its cover meanwhile.
+A mod's tile with its own cover from GameTDB gets the mod's own case
+here too, when GameTDB has one; your own cover for the tile comes first.
 
 With **Channels**, each tile plays the game's own animated icon, the one
 the Wii Menu shows for a disc channel, and the tile you're on shows the

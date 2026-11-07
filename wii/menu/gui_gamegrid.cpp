@@ -192,11 +192,10 @@ struct ZoomArt {
 ZoomArt ZoomArtFor(const std::string& id, const std::string& cover_name, bool back) {
     ZoomArt art;
     if (id.empty()) return art;
-    // The player's own cover (#384), or a mod tile's own (#385), comes
-    // before GameTDB's full box of the game.
-    const u8* own = riftwii::wii::CoverTexture(cover_name);
-    if (own && !riftwii::wii::CoverBeforeBox(cover_name)) own = nullptr;
-    if (const u8* box = own ? nullptr : riftwii::wii::BoxTexture(id)) {
+    // The player's own cover (#384) comes before GameTDB's full box; a mod
+    // tile's own box, then its own cover (#385), before the game's box.
+    const u8* front = riftwii::wii::CoverTexture(cover_name);
+    if (const u8* box = riftwii::wii::TileBoxTexture(cover_name, id, front)) {
         const int from = riftwii::kBoxSpineWidth + (back ? riftwii::kBoxFrontWidth : 0);
         const int width = back ? riftwii::kBoxBackWidth : riftwii::kBoxFrontWidth;
         art.data = box;

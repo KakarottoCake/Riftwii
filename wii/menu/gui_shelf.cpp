@@ -710,14 +710,17 @@ constexpr const char* kDiscBackdrop = "*disc";
 void UpdateBackdrop(const std::string& id, const std::string& cover_name, bool still) {
     const bool disc = id == kDiscBackdrop;
     const u8* front = disc || id.empty() ? nullptr : riftwii::wii::CoverTexture(cover_name);
-    const bool own = front && riftwii::wii::CoverBeforeBox(cover_name);
     // Made again once the player's own cover is in memory, when the cover
     // is read again (another GameTDB set, for a game without a box), and
-    // when the box comes after the cover stood in for it.
+    // when the box comes after the cover stood in for it. A mod tile's own
+    // box is another box than its game's.
     const unsigned fill = front ? riftwii::wii::CoverFill(cover_name) : 0;
-    const u8* art = disc || own || id.empty() ? nullptr : riftwii::wii::BoxTexture(id);
+    bool tile_box = false;
+    const u8* art = disc || id.empty() ? nullptr : riftwii::wii::TileBoxTexture(cover_name, id, front, &tile_box);
+    const bool own = !art && front && riftwii::wii::CoverBeforeBox(cover_name);
     const u8* cover = art || disc ? nullptr : front;
-    const std::string key = art ? id + "#box" : (own ? cover_name + "#own" : id) + "#" + std::to_string(fill);
+    const std::string key =
+        art ? (tile_box ? cover_name : id) + "#box" : (own ? cover_name + "#own" : id) + "#" + std::to_string(fill);
     if (g_backId[g_backCur] != key && still && !id.empty()) {
         if (art || cover || (disc && skin::discCase.data)) {
             const int next = 1 - g_backCur;
@@ -1014,9 +1017,10 @@ void GuiGameGrid::DrawShelf(int alpha) {
         const GridItem& item = (*items)[i];
         if (!g_flying.empty() && item.id == g_flying) continue;
         const BoxPose& p = poses[i];
-        // The player's own cover (#384), or a mod tile's own (#385), comes before the game's full box.
+        // The player's own cover (#384) comes before GameTDB's full box; a
+        // mod tile's own box, then its own cover (#385), before the game's.
         const u8* front = riftwii::wii::CoverTexture(CoverName(item));
-        const u8* art = front && riftwii::wii::CoverBeforeBox(CoverName(item)) ? nullptr : riftwii::wii::BoxTexture(item.id);
+        const u8* art = riftwii::wii::TileBoxTexture(CoverName(item), item.id, front);
         if (!art && !front) front = MadeUpCoverFor(item);
         Face faces[5];
         BoxFaces(item.id, MakeBox(p.x, p.z, p.turn, p.lift), art, art ? nullptr : front,
@@ -1065,10 +1069,12 @@ void GuiGameGrid::DrawShelf(int alpha) {
 
     // The card gives one box a frame: the ones nearest the focus first
     // (drawn back to front, the farthest would have it), the rest of this
-    // frame's boxes then come from the slots.
+    // frame's boxes then come from the slots. A mod tile's own box first,
+    // then its game's; no cover is asked for here.
+    const auto read_box = [&](const GridItem& item) { riftwii::wii::TileBoxTexture(CoverName(item), item.id, nullptr); };
     for (int d = 0; d <= reach; ++d) {
-        if (focus + d <= last) riftwii::wii::BoxTexture((*items)[focus + d].id);
-        if (d > 0 && focus - d >= first) riftwii::wii::BoxTexture((*items)[focus - d].id);
+        if (focus + d <= last) read_box((*items)[focus + d]);
+        if (d > 0 && focus - d >= first) read_box((*items)[focus - d]);
     }
 
     spineRects.clear();
@@ -1078,9 +1084,10 @@ void GuiGameGrid::DrawShelf(int alpha) {
         const GridItem& item = (*items)[i];
         const BoxPose& p = poses[i];
         const Box b = MakeBox(p.x, p.z, p.turn, p.lift);
-        // The player's own cover (#384), or a mod tile's own (#385), comes before the game's full box.
+        // The player's own cover (#384) comes before GameTDB's full box; a
+        // mod tile's own box, then its own cover (#385), before the game's.
         const u8* front = riftwii::wii::CoverTexture(CoverName(item));
-        const u8* art = front && riftwii::wii::CoverBeforeBox(CoverName(item)) ? nullptr : riftwii::wii::BoxTexture(item.id);
+        const u8* art = riftwii::wii::TileBoxTexture(CoverName(item), item.id, front);
         if (!art && !front) front = MadeUpCoverFor(item);
         const u8* cover = art ? nullptr : front;
         // In flight to or from a game's page: drawn by DrawShelfFlight.
@@ -1354,8 +1361,10 @@ void GuiGameGrid::DrawRing(int alpha) {
     std::sort(placed.begin(), placed.end(), [](const Placed& x, const Placed& y) { return std::cos(x.angle) < std::cos(y.angle); });
 
     const float settle = std::clamp((shelfStill - 40) / 60.0f, 0.0f, 1.0f);
-    // The card gives one picture a frame: the ones nearest the focus first.
-    for (const int i : ShelfWanted()) riftwii::wii::Cover3dTexture((*items)[i].id);
+    // The card gives one picture a frame: the ones nearest the focus first
+    // (a mod tile's own, then its game's; no cover is asked for here).
+    for (const int i : ShelfWanted())
+        riftwii::wii::TileCover3dTexture(CoverName((*items)[i]), (*items)[i].id, nullptr);
     spineRects.clear();
     for (const Placed& p : placed) {
         const GridItem& item = (*items)[p.index];
@@ -1377,11 +1386,11 @@ void GuiGameGrid::DrawRing(int alpha) {
         const GXColor lit = {shade, shade, shade, static_cast<u8>(alpha)};
         const u8 glint = static_cast<u8>(70 * near * alpha / 255);
         const GXColor mirrorTop = {shade, shade, shade, glint}, mirrorEnd = {shade, shade, shade, 0};
-        // The player's own cover (#384), or a mod tile's own (#385), comes
-        // before GameTDB's 3D one of the game.
+        // The player's own cover (#384) comes before GameTDB's 3D one; a
+        // mod tile's own 3D cover, then its own flat one (#385), before the
+        // game's 3D cover.
         const u8* flat = riftwii::wii::CoverTexture(CoverName(item));
-        const bool own = flat && riftwii::wii::CoverBeforeBox(CoverName(item));
-        const u8* tex = own ? nullptr : riftwii::wii::Cover3dTexture(item.id);
+        const u8* tex = riftwii::wii::TileCover3dTexture(CoverName(item), item.id, flat);
         if (!tex && !flat) flat = MadeUpCoverFor(item);
         const u8* cover = tex ? nullptr : flat;
         const float ph = tex ? h : h * 0.92f;
@@ -1478,7 +1487,7 @@ void DrawShelfFlight(const ShelfFlight& from, float toX, float toY, float toW, f
     // made-up cover its tile showed, if it has one.
     const std::string& coverName = from.coverName.empty() ? from.id : from.coverName;
     const u8* front = riftwii::wii::CoverTexture(coverName);
-    const u8* art = front && riftwii::wii::CoverBeforeBox(coverName) ? nullptr : riftwii::wii::BoxTexture(from.id);
+    const u8* art = riftwii::wii::TileBoxTexture(coverName, from.id, front);
     const u8* cover = art ? nullptr : front;
     if (!art && !cover) cover = riftwii::wii::MadeUpCoverMade(coverName);
     Face faces[5];

@@ -6739,9 +6739,13 @@ static int MenuSource(FrontendState& state)
 		if (g_boxesOff || g_coversOff) return;
 		for (const GridItem& item : items) {
 			if (item.id.empty()) continue;
-			if (g_boxesChecked.insert(item.id).second && item.id != riftwii::wii::BoxFetchGame() &&
-			    riftwii::wii::BoxWanted(item.id))
-				g_boxQueue.push_back(item.id);
+			// A mod tile's own box (#385), when GameTDB lists the mod, and
+			// the game's, which it shows without one.
+			for (const std::string& box : {CoverName(item), item.id}) {
+				if (g_boxesChecked.insert(box).second && box != riftwii::wii::BoxFetchGame() &&
+				    riftwii::wii::BoxWanted(box))
+					g_boxQueue.push_back(box);
+			}
 		}
 	};
 	// The tiles shown now that were not looked at yet join the queue (a
@@ -6951,6 +6955,10 @@ static int MenuSource(FrontendState& state)
 			if (CoverName(item) != item.id) riftwii::wii::ForgetCoverMiss(CoverName(item));
 			riftwii::wii::ForgetBoxMiss(item.id);
 			riftwii::wii::ForgetCover3dMiss(item.id);
+			if (CoverName(item) != item.id) {
+				riftwii::wii::ForgetBoxMiss(CoverName(item));
+				riftwii::wii::ForgetCover3dMiss(CoverName(item));
+			}
 		}
 		ResetCoverDownloads();
 		coverQueue.clear();  // queued by the first refresh, before the misses were forgotten
@@ -7052,6 +7060,13 @@ static int MenuSource(FrontendState& state)
 				g_boxQueue.clear();
 			}
 			if (boxBusy) g_boxQueue.insert(g_boxQueue.begin(), boxArrived);
+			// A mod tile matched again while its box downloaded: what came
+			// is the old match's, so the new one's is queued (as its cover is).
+			if (!boxBusy && (boxGot == riftwii::wii::CoverFetch::Stored || boxGot == riftwii::wii::CoverFetch::NotFound) &&
+			    riftwii::tile_game_id(boxArrived) != boxArrived && riftwii::wii::BoxWanted(boxArrived)) {
+				g_boxesChecked.erase(boxArrived);
+				queueCovers();
+			}
 			if (boxGot != riftwii::wii::CoverFetch::Stored) boxArrived.clear();
 		}
 		std::string cover3dArrived, cover3dError;
@@ -7062,6 +7077,11 @@ static int MenuSource(FrontendState& state)
 				g_covers3dOff = true;
 			// Not looked at yet again: picked once it is near the focus.
 			if (cover3dBusy) g_covers3dChecked.erase(cover3dArrived);
+			// A mod tile matched again while its 3D cover downloaded: looked
+			// at again, so the new match's is asked for.
+			if ((cover3dGot == riftwii::wii::CoverFetch::Stored || cover3dGot == riftwii::wii::CoverFetch::NotFound) &&
+			    riftwii::tile_game_id(cover3dArrived) != cover3dArrived && riftwii::wii::Cover3dWanted(cover3dArrived))
+				g_covers3dChecked.erase(cover3dArrived);
 			if (cover3dGot != riftwii::wii::CoverFetch::Stored) cover3dArrived.clear();
 		}
 		// Channels: a GameCube game's animated banner, or a custom Wii game's
@@ -7203,11 +7223,18 @@ static int MenuSource(FrontendState& state)
 		if (!g_sdGone && !g_sdRemovalPending && !g_scanning && coverQueue.empty() && grid.Ring() && !g_covers3dOff && !g_coversOff && riftwii::wii::Settings().online &&
 		    !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&
 		    riftwii::wii::Cover3dFetchGame().empty() && !DownloadsWaiting()) {
+			bool started = false;
 			for (const int i : grid.ShelfWanted()) {
-				const std::string& id = items[static_cast<std::size_t>(i)].id;
-				if (!g_covers3dChecked.insert(id).second || !riftwii::wii::Cover3dWanted(id)) continue;
-				riftwii::wii::StartCover3dFetch(id);
-				break;
+				const GridItem& item = items[static_cast<std::size_t>(i)];
+				// A mod tile's own (#385), when GameTDB lists the mod, then
+				// the game's, which it shows without one.
+				for (const std::string& id : {CoverName(item), item.id}) {
+					if (id.empty() || !g_covers3dChecked.insert(id).second || !riftwii::wii::Cover3dWanted(id)) continue;
+					riftwii::wii::StartCover3dFetch(id);
+					started = true;
+					break;
+				}
+				if (started) break;
 			}
 		}
 		// The full covers once the covers are in, in every view with
@@ -7230,10 +7257,14 @@ static int MenuSource(FrontendState& state)
 			}
 			std::size_t pick = 0;
 			for (std::size_t k = 0; k < nearFirst.size() && !boxesNearbyWaiting; ++k) {
-				const auto queued = std::find(g_boxQueue.begin(), g_boxQueue.end(), items[nearFirst[k]].id);
-				if (queued == g_boxQueue.end()) continue;
-				pick = static_cast<std::size_t>(queued - g_boxQueue.begin());
-				boxesNearbyWaiting = true;
+				const GridItem& item = items[nearFirst[k]];
+				for (const std::string& box : {CoverName(item), item.id}) {
+					const auto queued = std::find(g_boxQueue.begin(), g_boxQueue.end(), box);
+					if (queued == g_boxQueue.end()) continue;
+					pick = static_cast<std::size_t>(queued - g_boxQueue.begin());
+					boxesNearbyWaiting = true;
+					break;
+				}
 			}
 			const bool canStart = riftwii::wii::CoverFetchGame().empty() && riftwii::wii::BoxFetchGame().empty() &&
 				!DownloadsWaiting();
@@ -8189,18 +8220,22 @@ private:
 	// again when better art arrives; faded in over a third of a second.
 	void UpdateArt() {
 		// The player's own cover, or a chosen second set, before GameTDB's
-		// full box (#384), as on the shelf; made again when the cover is
-		// read again (another set) at the same rank.
+		// full box (#384), as on the shelf; a mod tile's own box before its
+		// own cover (#385); made again when the cover is read again (another
+		// set) at the same rank. The player's cover for the tile itself
+		// ranks above the tile's box: it may be read after the box.
 		const u8* front = id.empty() ? nullptr : riftwii::wii::CoverTexture(coverName);
-		const bool frontFirst = front && riftwii::wii::CoverBeforeBox(coverName);
-		const u8* box = id.empty() || frontFirst ? nullptr : riftwii::wii::BoxTexture(id);
+		bool tileBox = false;
+		const u8* box = id.empty() ? nullptr : riftwii::wii::TileBoxTexture(coverName, id, front, &tileBox);
+		const bool frontFirst = !box && front && riftwii::wii::CoverBeforeBox(coverName);
+		const bool tileOwnFirst = frontFirst && riftwii::wii::CoverIsTileOwn(coverName);
 		const u8* cover = box ? nullptr : front;
-		const int rank = frontFirst ? 4 : box ? 3 : cover ? 2 : disc && skin::discCase.data ? 1 : 0;
+		const int rank = tileOwnFirst ? 6 : tileBox ? 5 : frontFirst ? 4 : box ? 3 : cover ? 2 : disc && skin::discCase.data ? 1 : 0;
 		const unsigned fill = cover ? riftwii::wii::CoverFill(coverName) : 0;
 		// Made from the player's own cover (or a second set) that no longer
 		// comes first (back on the first set): made again, lower. Not while
 		// that cover is only being read again (none in memory for a moment).
-		const bool frontDropped = artRank == 4 && front && !frontFirst;
+		const bool frontDropped = (artRank == 4 || artRank == 6) && front && !frontFirst;
 		if (rank > artRank || frontDropped || (cover && rank == artRank && fill != artFill)) {
 			if (box)
 				riftwii::make_backdrop(box, riftwii::kBoxWidth, riftwii::kBoxHeight, riftwii::kBoxSpineWidth,
@@ -11879,12 +11914,13 @@ static std::string PageCoverName(const FrontendState& state) {
 	return state.profile_key.empty() ? state.game_id : state.profile_key;
 }
 
-// The player's own cover for the page's tile (#384), once in memory: it
-// comes before GameTDB's full box on the game page and up close, as on
-// the shelf.
-static const u8* OwnCover(const std::string& id) {
-	const u8* cover = riftwii::wii::CoverTexture(id);
-	return cover && riftwii::wii::CoverBeforeBox(id) ? cover : nullptr;
+// The page's box, as the shelf's (riftwii::wii::TileBoxTexture): the
+// player's own cover for the page's tile (#384) comes before GameTDB's
+// full box on the game page and up close; a mod tile's own box before its
+// own cover (#385). `game` the page's game, `name` its tile's cover name.
+static const u8* PageBox(const std::string& game, const std::string& name) {
+	if (game.empty()) return nullptr;
+	return riftwii::wii::TileBoxTexture(name, game, riftwii::wii::CoverTexture(name));
 }
 
 class HeroCover : public GuiElement {
@@ -11937,8 +11973,7 @@ public:
 			for (int i = 3; i <= 5; ++i) Menu_DrawRectangle(rx - i, ry - i, rw + 2 * i, rh + 2 * i, c, 0);
 		};
 		const u8* art = RoundedArt();
-		hasArt = art != nullptr || (!id.empty() && riftwii::wii::BoxTexture(id)) ||
-			 (!id.empty() && riftwii::wii::CoverTexture(coverName));
+		hasArt = art != nullptr || PageBox(id, coverName) || (!id.empty() && riftwii::wii::CoverTexture(coverName));
 		if (art) {
 			// A drop shadow, as if the box stood a little off the page, lit
 			// from above.
@@ -11950,8 +11985,7 @@ public:
 			return;
 		}
 		// The player's own cover first: no box over it.
-		const u8* own = id.empty() ? nullptr : OwnCover(coverName);
-		const u8* box = id.empty() || own ? nullptr : riftwii::wii::BoxTexture(id);
+		const u8* box = PageBox(id, coverName);
 		const u8* cover = box || id.empty() ? nullptr : riftwii::wii::CoverTexture(coverName);
 		riftwii::wii::BannerPlayer* icon = !box && !cover && channel ? IconFor(id) : nullptr;
 		// A channel's icon gets a card of its own shape (4:3, as the
@@ -12011,9 +12045,8 @@ private:
 	// (riftwii::round_corners), made again whenever the art changes.
 	const u8* RoundedArt() {
 		if (id.empty()) return nullptr;
-		const u8* own = OwnCover(coverName);
-		const u8* box = own ? nullptr : riftwii::wii::BoxTexture(id);
-		const u8* cover = box ? nullptr : own ? own : riftwii::wii::CoverTexture(coverName);
+		const u8* box = PageBox(id, coverName);
+		const u8* cover = box ? nullptr : riftwii::wii::CoverTexture(coverName);
 		const u8* from = box ? box : cover;
 		if (!from) return nullptr;
 		// The same slot read again (another set) is another cover.
@@ -12101,9 +12134,8 @@ public:
 		Menu_VisibleArea(&vx, &vy, &vw, &vh);
 		Menu_DrawRectangle(vx, vy, vw, vh, (GXColor){0, 0, 0, static_cast<u8>(200 * open)}, 1);
 
-		const u8* own = id.empty() ? nullptr : OwnCover(coverName);
-		const u8* box = id.empty() || own ? nullptr : riftwii::wii::BoxTexture(id);
-		const u8* cover = box || id.empty() ? nullptr : own ? own : riftwii::wii::CoverTexture(coverName);
+		const u8* box = PageBox(id, coverName);
+		const u8* cover = box || id.empty() ? nullptr : riftwii::wii::CoverTexture(coverName);
 		hasBack = box != nullptr;
 		if (!box && !cover) return;
 		// Large: as tall as fits between the band's top and the prompts,
@@ -14620,8 +14652,18 @@ static int MenuHome(FrontendState& state)
 	HaltGui();
 	w.Append(&coverBusy);
 	ResumeGui();
-	bool boxStart = riftwii::wii::Settings().online && riftwii::wii::Settings().home_tiles != "names" &&
-	                !g_coversOff && !riftwii::wii::NetFailed() && riftwii::wii::BoxWanted(state.game_id);
+	// The page's box to download: a mod tile's own (#385) when GameTDB
+	// lists the mod, else the game's; "" for none.
+	const auto pageBoxWanted = [&]() -> std::string {
+		if (!riftwii::wii::Settings().online || riftwii::wii::Settings().home_tiles == "names" || g_coversOff ||
+		    riftwii::wii::NetFailed())
+			return std::string();
+		const std::string tileBox = PageCoverName(state);
+		if (tileBox != state.game_id && riftwii::wii::BoxWanted(tileBox)) return tileBox;
+		return riftwii::wii::BoxWanted(state.game_id) ? state.game_id : std::string();
+	};
+	std::string boxStartName = pageBoxWanted();
+	bool boxStart = !boxStartName.empty();
 
 	const auto say = [&](const std::string& text) { statusTxt.SetText(text); };
 	// After About or Mods the tile may match another GameTDB entry: its own
@@ -14633,6 +14675,11 @@ static int MenuHome(FrontendState& state)
 			g_coversChecked.insert(tileCover);
 			coverStartName = tileCover;
 			coverStart = true;
+		}
+		// Its own box too, after the cover.
+		if (!boxStart) {
+			boxStartName = pageBoxWanted();
+			boxStart = !boxStartName.empty();
 		}
 	};
 	const auto saveOrSay = [&]() {
@@ -14817,7 +14864,7 @@ static int MenuHome(FrontendState& state)
 		}
 		// The full box, once the cover's download is done.
 		if (boxStart && !coverStart &&
-		    (riftwii::wii::BoxFetchGame() == state.game_id || riftwii::wii::StartBoxFetch(state.game_id)))
+		    (riftwii::wii::BoxFetchGame() == boxStartName || riftwii::wii::StartBoxFetch(boxStartName)))
 			boxStart = false;
 		{
 			std::string id, error;

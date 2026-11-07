@@ -33,5 +33,14 @@ bool TakeBoxFetch(std::string& game_id, CoverFetch& got, std::string& error);
 const u8* BoxTexture(const std::string& game_id);
 // Drops what the pool remembers about the game (after a new download).
 void ForgetBox(const std::string& game_id);
+// The full box a Home tile shows, or nullptr when its flat cover `front`
+// (CoverTexture(cover_name)) is shown instead or no box is in memory yet.
+// `cover_name` is the tile's (CoverName: a mod tile's key), `game_id` its
+// game's. For a mod tile, in order: the player's own PNG for the tile, the
+// mod's own box from GameTDB, the mod's own flat cover, then the game's
+// box; for a game, its own PNG or chosen second set, then its box.
+// `tile_box`, when given: set when the box is the mod tile's own.
+const u8* TileBoxTexture(const std::string& cover_name, const std::string& game_id, const u8* front,
+                         bool* tile_box = nullptr);
 
 }  // namespace riftwii::wii

@@ -66,4 +66,35 @@ bool title_has_mod_name(const std::string& title, const std::string& name);
 std::string mod_cover_id(const std::vector<CustomGame>& customs, const std::string& stock_id,
                          const std::string& name);
 
+// A mod tile's own 3D cover and full box (the 3D covers view, the shelf),
+// kept as its flat cover is: downloaded from the mod's GameTDB entry and
+// stored under the tile's key, "<game ID>@<slug>", beside a ".mod" file
+// that names the entry they came from (a tile keeps its key when renamed).
+
+// A name the 3D cover and box stores take: a game's six characters, a
+// homebrew app's four (GameTDB has pictures for some), or a mod tile's key.
+bool valid_art_name(const std::string& name);
+// Whether `name` is a mod tile's key rather than a game's ID.
+bool is_tile_art_name(const std::string& name);
+// The GameTDB entry whose picture a download for `name` asks for: a
+// game's own ID, or for a mod tile the entry it matches now
+// (`tile_match`, from mod_cover_id). Empty: nothing to ask for (a tile
+// GameTDB doesn't list, or a name the stores don't take).
+std::string art_download_id(const std::string& name, const std::string& tile_match);
+// Whether a mod tile's stored picture, or its "GameTDB has none" note,
+// is for the entry it matches now: `stored_from` is what its .mod file
+// says. A tile that matches nothing any more has nothing current.
+bool tile_art_current(const std::string& stored_from, const std::string& tile_match);
+
+// What a picture store has for a name, for whether to download it.
+struct StoredArt {
+    bool picture = false;      // the picture is on the card
+    bool recent_miss = false;  // GameTDB had none, less than a week ago
+    std::string from;          // a tile's: the entry they came from ("" if none)
+};
+// Whether `name`'s picture is to be downloaded: a game's when it has
+// neither a picture nor a recent miss; a mod tile's only when it matches
+// an entry, and then also when what is stored is another entry's.
+bool art_wanted(const std::string& name, const std::string& tile_match, const StoredArt& stored);
+
 }  // namespace riftwii

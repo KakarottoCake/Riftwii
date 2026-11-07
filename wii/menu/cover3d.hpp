@@ -32,5 +32,9 @@ bool TakeCover3dFetch(std::string& game_id, CoverFetch& got, std::string& error)
 const u8* Cover3dTexture(const std::string& game_id);
 // Drops what the pool remembers about the game (after a new download).
 void ForgetCover3d(const std::string& game_id);
+// The 3D cover a Home tile shows in the 3D covers view, in the order
+// TileBoxTexture (boxart.hpp) keeps: nullptr when its flat cover `front`
+// is shown instead or none is in memory yet.
+const u8* TileCover3dTexture(const std::string& cover_name, const std::string& game_id, const u8* front);
 
 }  // namespace riftwii::wii

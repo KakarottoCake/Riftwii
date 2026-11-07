@@ -5,6 +5,7 @@
 #include <cctype>
 
 #include "pugixml.hpp"
+#include "riftwii/profiles.hpp"
 
 namespace riftwii {
 
@@ -163,6 +164,37 @@ std::string mod_cover_id(const std::vector<CustomGame>& customs, const std::stri
         found = g.id;
     }
     return stock_matches ? std::string() : found;
+}
+
+bool is_tile_art_name(const std::string& name) {
+    return name.find('@') != std::string::npos && valid_tile_key(name);
+}
+
+bool valid_art_name(const std::string& name) {
+    if (name.find('@') != std::string::npos) return is_tile_art_name(name);
+    if (name.size() != 6 && name.size() != 4) return false;
+    for (const char c : name)
+        if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) return false;
+    return true;
+}
+
+std::string art_download_id(const std::string& name, const std::string& tile_match) {
+    if (!valid_art_name(name)) return {};
+    if (!is_tile_art_name(name)) return name;
+    // Only an entry mod_cover_id could have given: a game's six characters.
+    return is_custom_id(tile_match) ? tile_match : std::string();
+}
+
+bool tile_art_current(const std::string& stored_from, const std::string& tile_match) {
+    return !tile_match.empty() && stored_from == tile_match;
+}
+
+bool art_wanted(const std::string& name, const std::string& tile_match, const StoredArt& stored) {
+    if (art_download_id(name, tile_match).empty()) return false;
+    // A tile renamed, or GameTDB's list changed: what is stored (a picture
+    // or a miss) is another entry's, so the new one's is asked for.
+    if (is_tile_art_name(name) && !tile_art_current(stored.from, tile_match)) return true;
+    return !stored.picture && !stored.recent_miss;
 }
 
 }  // namespace riftwii

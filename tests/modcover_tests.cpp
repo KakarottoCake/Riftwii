@@ -160,8 +160,65 @@ static void TestScanner() {
     EXPECT_EQ(riftwii::mod_cover_id(newer, "SMNE02", "Holiday Special"), std::string("SMNE03"));
 }
 
+// A mod tile's own 3D cover and full box: which names the stores take,
+// which GameTDB entry a download asks for, and when one is wanted.
+static void TestTileArt() {
+    // The stores take games, homebrew apps and mod tiles, nothing else.
+    EXPECT_TRUE(riftwii::valid_art_name("RSBE01"));
+    EXPECT_TRUE(riftwii::valid_art_name("9XGX"));
+    EXPECT_TRUE(riftwii::valid_art_name("RSBE01@project-v3-2-1"));
+    EXPECT_TRUE(!riftwii::valid_art_name("RSBE01@"));
+    EXPECT_TRUE(!riftwii::valid_art_name("RSBE01@Project"));       // a slug is lowercase
+    EXPECT_TRUE(!riftwii::valid_art_name("RSBE01@../../boot"));    // never out of its folder
+    EXPECT_TRUE(!riftwii::valid_art_name("rsbe01"));
+    EXPECT_TRUE(!riftwii::valid_art_name("RSBE0"));
+    EXPECT_TRUE(!riftwii::valid_art_name(""));
+    EXPECT_TRUE(riftwii::is_tile_art_name("RMCE01@retro-rewind-v6-13-1"));
+    EXPECT_TRUE(!riftwii::is_tile_art_name("RMCE01"));
+
+    // A game asks for its own; a tile for its mod's entry, or for nothing.
+    EXPECT_EQ(riftwii::art_download_id("RSBE01", ""), std::string("RSBE01"));
+    EXPECT_EQ(riftwii::art_download_id("RSBE01", "RSBEPL"), std::string("RSBE01"));
+    EXPECT_EQ(riftwii::art_download_id("RSBE01@project-v3-2-1", "RSBEPL"), std::string("RSBEPL"));
+    EXPECT_EQ(riftwii::art_download_id("RMCE01@retro-rewind-v6-13-1", "RMCETO"), std::string("RMCETO"));
+    EXPECT_EQ(riftwii::art_download_id("RSBE01@my-own-build", ""), std::string());  // not listed: never the game's
+    EXPECT_EQ(riftwii::art_download_id("RSBE01@x", "../a"), std::string());        // only a game's six characters
+    EXPECT_EQ(riftwii::art_download_id("RSBE01@Bad", "RSBEPL"), std::string());
+
+    // What is stored is the tile's only while it matches the same entry.
+    EXPECT_TRUE(riftwii::tile_art_current("RSBEPL", "RSBEPL"));
+    EXPECT_TRUE(!riftwii::tile_art_current("RSBEPM", "RSBEPL"));  // renamed from Project M
+    EXPECT_TRUE(!riftwii::tile_art_current("RSBEPL", ""));        // matches nothing now
+    EXPECT_TRUE(!riftwii::tile_art_current("", "RSBEPL"));        // stored before the .mod note
+
+    riftwii::StoredArt none;
+    riftwii::StoredArt picture;
+    picture.picture = true;
+    riftwii::StoredArt missed;
+    missed.recent_miss = true;
+    // A game: wanted until it has a picture or GameTDB recently had none.
+    EXPECT_TRUE(riftwii::art_wanted("RSBE01", "", none));
+    EXPECT_TRUE(!riftwii::art_wanted("RSBE01", "", picture));
+    EXPECT_TRUE(!riftwii::art_wanted("RSBE01", "", missed));
+    EXPECT_TRUE(!riftwii::art_wanted("bad", "", none));
+    // A tile GameTDB doesn't list wants nothing (it shows the game's).
+    EXPECT_TRUE(!riftwii::art_wanted("RSBE01@my-own-build", "", none));
+    // A listed tile: wanted, and again when what is stored is another entry's.
+    EXPECT_TRUE(riftwii::art_wanted("RSBE01@project-v3-2-1", "RSBEPL", none));
+    picture.from = "RSBEPL";
+    missed.from = "RSBEPL";
+    EXPECT_TRUE(!riftwii::art_wanted("RSBE01@project-v3-2-1", "RSBEPL", picture));
+    EXPECT_TRUE(!riftwii::art_wanted("RSBE01@project-v3-2-1", "RSBEPL", missed));
+    EXPECT_TRUE(riftwii::art_wanted("RSBE01@project-v3-2-1", "RSBEPM", picture));
+    EXPECT_TRUE(riftwii::art_wanted("RSBE01@project-v3-2-1", "RSBEPM", missed));
+    // Super Smash REX has a 3D cover but no full box: its miss holds a week.
+    missed.from = "RSBERX";
+    EXPECT_TRUE(!riftwii::art_wanted("RSBE01@super-smash-rex", "RSBERX", missed));
+}
+
 int main() {
     TestWords();
+    TestTileArt();
     TestMatch();
     TestBlocks();
     TestFile();
