@@ -47,19 +47,42 @@ CodeModAnswers parse_code_mods(const std::string& text) {
     return answers;
 }
 
+CodeModCrashLogs parse_code_mod_crash_logs(const std::string& text) {
+    CodeModCrashLogs crash_logs;
+    LineReader in(text);
+    std::string line;
+    while (crash_logs.size() < kCodeModsMaxCrashLogs && in.next(line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.empty() || line[0] == '#') continue;
+        const std::size_t first = line.find('\t');
+        const std::size_t second = first == std::string::npos ? first : line.find('\t', first + 1);
+        if (second == std::string::npos || line.find('\t', second + 1) != std::string::npos) continue;
+        const std::string game = line.substr(0, first);
+        const std::string key = line.substr(first + 1, second - first - 1);
+        if (line.substr(second + 1) != "logs" || !plausible_id(game) || !plausible_key(key)) continue;
+        crash_logs.emplace(game, key);
+    }
+    return crash_logs;
+}
+
 std::string code_mods_whole_lines(const std::string& head, bool cut) {
     if (!cut) return head;
     const std::size_t lastNewline = head.rfind('\n');
     return lastNewline == std::string::npos ? std::string() : head.substr(0, lastNewline + 1);
 }
 
-std::string serialize_code_mods(const CodeModAnswers& answers) {
-    std::string out = "# RiftWii code mods: game ID, code build, with/without RiftWii's extras, or ask\n";
+std::string serialize_code_mods(const CodeModAnswers& answers, const CodeModCrashLogs& crash_logs) {
+    std::string out = "# RiftWii code mods: game ID, code build, with/without RiftWii's extras, or ask; logs: crash logs on\n";
     std::size_t count = 0;
     for (const auto& [mod, start] : answers) {
         if (count++ == kCodeModsMaxAnswers) break;
         const char* word = start == CodeModStart::With ? "with" : start == CodeModStart::Without ? "without" : "ask";
         out += mod.first + "\t" + mod.second + "\t" + word + "\n";
+    }
+    count = 0;
+    for (const auto& mod : crash_logs) {
+        if (count++ == kCodeModsMaxCrashLogs) break;
+        out += mod.first + "\t" + mod.second + "\tlogs\n";
     }
     return out;
 }
@@ -91,14 +114,28 @@ CodeModStart shared_code_mod_answer(const CodeModAnswers& answers, const std::st
     return first;
 }
 
-bool remember_code_mod_answer(CodeModAnswers& answers, const std::string& game_id,
-                              const std::vector<std::string>& keys, CodeModStart picked) {
-    if (picked != CodeModStart::With && picked != CodeModStart::Without) return true;
-    bool kept = true;
+bool code_mod_crash_logs(const CodeModCrashLogs& crash_logs, const std::string& game_id, const std::string& key) {
+    return crash_logs.count({game_id, key}) != 0;
+}
+
+bool set_code_mod_crash_logs(CodeModCrashLogs& crash_logs, const std::string& game_id, const std::string& key,
+                             bool on) {
+    if (!plausible_id(game_id) || !plausible_key(key)) return false;
+    if (!on) {
+        crash_logs.erase({game_id, key});
+        return true;
+    }
+    if (crash_logs.size() >= kCodeModsMaxCrashLogs && crash_logs.count({game_id, key}) == 0) return false;
+    crash_logs.emplace(game_id, key);
+    return true;
+}
+
+bool shared_code_mod_crash_logs(const CodeModCrashLogs& crash_logs, const std::string& game_id,
+                                const std::vector<std::string>& keys) {
+    if (keys.empty()) return false;
     for (const std::string& key : keys)
-        if (code_mod_answer(answers, game_id, key) == CodeModStart::Unset)
-            kept = set_code_mod_answer(answers, game_id, key, picked) && kept;
-    return kept;
+        if (!code_mod_crash_logs(crash_logs, game_id, key)) return false;
+    return true;
 }
 
 }  // namespace riftwii

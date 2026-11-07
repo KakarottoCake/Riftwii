@@ -77,8 +77,10 @@ struct FrontendState {
     // Picked at Start for a code mod: without RiftWii's extras (as the
     // mod's own loader would start it).
     bool code_build_plain = false;
-    // The menu settled code_build_plain (asked, or a remembered answer):
-    // settings.txt's code_build_extras is then not used.
+    // The code mod's crash logs, from its Mods page (#496): off unless on.
+    bool code_build_crash_logs = false;
+    // The menu settled code_build_plain and code_build_crash_logs (asked,
+    // or the Mods page's settings): settings.txt is then not used.
     bool code_build_asked = false;
     // The player accepted an SD fallback for this launch; the saved card choice stays intact.
     bool gc_card_fallback = false;

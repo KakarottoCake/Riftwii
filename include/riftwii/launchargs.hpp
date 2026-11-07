@@ -67,6 +67,10 @@ struct HeadlessLaunch {
     // code_build_extras says. Written in a Reset's request, so the game
     // comes back as it started.
     bool code_build_extras = false;
+    // crashlogs=on, RiftWii's own too: the code builds' crash logs were on
+    // (their Mods page, #496). Written in a Reset's request with
+    // extras=with, so the game comes back with the crash recorder it had.
+    bool code_build_crash_logs = false;
 };
 
 // The longest value, in bytes, any key takes, and the most packs and code
