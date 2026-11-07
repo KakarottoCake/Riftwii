@@ -11593,7 +11593,7 @@ static void BuildModRows(const FrontendState& state, const std::string& scanStat
 			start.value = CodeModStartName(riftwii::wii::CodeModAnswer(state.game_id, p.file));
 			start.on = true;
 			add(start, {RowRef::What::CodeStart, i});
-			// Crash logs (#496): the crash recorder, about 8 KB of the
+			// Crash logs (#496): the crash recorder, about 4 KB of the
 			// game's memory, off unless switched on.
 			FlowRow crash;
 			crash.kind = FlowRow::Kind::Toggle;
@@ -13571,7 +13571,7 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 			} else if (ref.what == RowRef::What::CodeStart) {
 				say(tr("On: the way back to RiftWii, Reset, this page's game settings, the 480p fix and online play. Off: as the mod's own loader. Ask every launch: this question at every launch."));
 			} else if (ref.what == RowRef::What::CrashLogs) {
-				say(tr("Off: no crash report. On: saves a crash report to the SD card if {1} crashes, using about 8 KB of the game's memory (some mods freeze with it on).",
+				say(tr("Off: no crash report. On: saves a crash report to the SD card if {1} crashes, using about 4 KB of the game's memory (some mods freeze with it on).",
 				       {PackName(state.model.packages[ref.pkg].file)}));
 			} else if (ref.what == RowRef::What::AddCodes) {
 				say("For mods made of Gecko codes, like Project+ builds: pick the build's code file on the SD card.");

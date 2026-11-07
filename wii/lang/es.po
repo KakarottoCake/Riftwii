@@ -1488,8 +1488,8 @@ msgstr "Registro de fallos"
 msgid "On: the way back to RiftWii, Reset, this page's game settings, the 480p fix and online play. Off: as the mod's own loader. Ask every launch: this question at every launch."
 msgstr "Sí: volver a RiftWii, Reset, los ajustes del juego de esta página, el arreglo de 480p y el juego en línea. No: como su propio cargador. Preguntar siempre: esta pregunta en cada inicio."
 
-msgid "Off: no crash report. On: saves a crash report to the SD card if {1} crashes, using about 8 KB of the game's memory (some mods freeze with it on)."
-msgstr "No: sin informe de fallos. Sí: guarda un informe en la tarjeta SD si {1} falla, con unos 8 KB de la memoria del juego (algunos mods se congelan con él)."
+msgid "Off: no crash report. On: saves a crash report to the SD card if {1} crashes, using about 4 KB of the game's memory (some mods freeze with it on)."
+msgstr "No: sin informe de fallos. Sí: guarda un informe en la tarjeta SD si {1} falla, con unos 4 KB de la memoria del juego (algunos mods se congelan con él)."
 
 msgid "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes."
 msgstr "No se pudo escribir sd:/riftwii/codemods.txt: la respuesta durará hasta que cierres RiftWii."

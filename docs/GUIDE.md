@@ -1276,7 +1276,7 @@ A few things to know:
     Play, With extras or Without extras, and remembers nothing.
     With two code mods on that are set differently, RiftWii asks too.
   - **Crash logs**: **On** saves a crash report to the SD card when the
-    game crashes, with extras or without. It takes about 8 KB of the
+    game crashes, with extras or without. It takes about 4 KB of the
     game's memory, which some mods don't have, so it is **Off** until
     you switch it on.
 - A code mod takes only the USB controllers plugged in when it starts:

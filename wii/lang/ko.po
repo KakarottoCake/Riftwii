@@ -1488,8 +1488,8 @@ msgstr "충돌 기록"
 msgid "On: the way back to RiftWii, Reset, this page's game settings, the 480p fix and online play. Off: as the mod's own loader. Ask every launch: this question at every launch."
 msgstr "켬: RiftWii로 돌아가기, 리셋, 이 페이지의 게임 설정, 480p 수정, 온라인 플레이. 끔: 모드 자체 로더처럼. 시작할 때마다 묻기: 시작할 때마다 이 질문을 합니다."
 
-msgid "Off: no crash report. On: saves a crash report to the SD card if {1} crashes, using about 8 KB of the game's memory (some mods freeze with it on)."
-msgstr "끔: 충돌 기록 없음. 켬: {1}이(가) 충돌하면 SD 카드에 기록을 저장하며, 게임 메모리를 약 8 KB 사용합니다(켜면 멈추는 모드도 있습니다)."
+msgid "Off: no crash report. On: saves a crash report to the SD card if {1} crashes, using about 4 KB of the game's memory (some mods freeze with it on)."
+msgstr "끔: 충돌 기록 없음. 켬: {1}이(가) 충돌하면 SD 카드에 기록을 저장하며, 게임 메모리를 약 4 KB 사용합니다(켜면 멈추는 모드도 있습니다)."
 
 msgid "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes."
 msgstr "sd:/riftwii/codemods.txt에 쓸 수 없습니다. 이 선택은 RiftWii를 닫을 때까지만 유지됩니다."
