@@ -112,11 +112,12 @@ struct rt_pad_context {
     uint32_t diagnostic_print; /* the installed Wii Remote log's print entry */
     char diagnostic_format[40]; /* loader-filled marker, decoded at next start */
     int32_t ven_fd;            /* /dev/usb/ven for Xbox 360 pads, opened by the loader; -1: none */
-    /* The state's layout (gcad_layout_for), without RT_PAD_FLAG_ADAPTER_ONLY:
-     * its pad links (four, or a code build's pads plugged in at the launch)
-     * and the bytes of the catalog's layouts. Loader-filled. */
+    /* The state's layout, without RT_PAD_FLAG_ADAPTER_ONLY: its pad links
+     * (four, or a code build's pads plugged in at the launch), and where
+     * each part starts from the state's start, as the loader worked them
+     * out (gcad_layout_for) so the game doesn't again (#506). Loader-filled. */
     uint32_t link_count;
-    uint32_t map_bytes;
+    uint32_t ven_at, xbox_at, links_at, catalog_at;
 };
 
 #ifdef RT_TARGET_PPC

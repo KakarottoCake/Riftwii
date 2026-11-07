@@ -123,18 +123,15 @@ static gcad* state(struct rt_pad_context* c) {
     if (!c->inited) {
 #ifndef GCAD_ADAPTER_ONLY
         if (!(c->flags & RT_PAD_FLAG_ADAPTER_ONLY)) {
-            gcad_layout l;
             uint8_t* base = (uint8_t*)(void*)g;
             const int dormant = (c->flags & RT_PAD_FLAG_HID_DORMANT) != 0;
-            gcad_layout_for(&l, dormant ? GCAD_LINK_BYTES : GCAD_OWNER_BYTES(c->version), c->link_count,
-                            c->ven_fd >= 0, c->map_bytes);
             gcad_links_init_ex(g, dormant ? GCAD_LINK_BYTES : GCAD_OWNER_BYTES(c->version), dormant,
-                               (gcad*)(void*)(base + l.links), c->link_count, GCAD_LINK_BYTES,
-                               (rthid_catalog*)(void*)(base + l.catalog), c, c->fd, c->version, c->ticks_per_ms);
+                               (gcad*)(void*)(base + c->links_at), c->link_count, GCAD_LINK_BYTES,
+                               (rthid_catalog*)(void*)(base + c->catalog_at), c, c->fd, c->version, c->ticks_per_ms);
             if (c->known_dev != GCAD_NO_DEVICE) gcad_expect(g, c->known_dev);
             if (c->ven_fd >= 0)
-                gcad_ven_init_ex(g, (gcad*)(void*)(base + l.ven), GCAD_OWNER_BYTES(5),
-                                 (gcad_xbox_layout*)(void*)(base + l.xbox), c, c->ven_fd, c->ticks_per_ms);
+                gcad_ven_init_ex(g, (gcad*)(void*)(base + c->ven_at), GCAD_OWNER_BYTES(5),
+                                 (gcad_xbox_layout*)(void*)(base + c->xbox_at), c, c->ven_fd, c->ticks_per_ms);
             c->inited = 1;
             return g;
         }

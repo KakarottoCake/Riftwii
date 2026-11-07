@@ -989,7 +989,10 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     ctx->known_dev = out.version == 5 ? out.known_dev : -1;
     ctx->ven_fd = out.ven_fd;
     ctx->link_count = out.link_count;
-    ctx->map_bytes = out.map_bytes;
+    ctx->ven_at = layout.ven;
+    ctx->xbox_at = layout.xbox;
+    ctx->links_at = layout.links;
+    ctx->catalog_at = layout.catalog;
 
     ctx->idle_reset = out.idle_reset;
     out.active = true;
