@@ -301,12 +301,16 @@ static uint32_t next_piece(struct vsd_state* st, uint32_t* device_sector, uint32
         /* The read-ahead window lives in the bounce buffer (no MEM2 of
          * its own: Project+ leaves Brawl only a few KB to spare), so
          * using it for this piece forgets the window. */
-        if (st->ra.buffer == (uint32_t)(uintptr_t)st->bounce) rtvsd_ra_drop(&st->ra);
-        if (sectors > VSD_BOUNCE_BYTES / RTVSD_SECTOR_BYTES) sectors = VSD_BOUNCE_BYTES / RTVSD_SECTOR_BYTES;
-        if (t->write) copy(st->bounce, (const uint8_t*)(uintptr_t)buffer, sectors * RTVSD_SECTOR_BYTES);
-        *data = (uint32_t)(uintptr_t)st->bounce;
+        if (st->ra.buffer == st->bounce) rtvsd_ra_drop(&st->ra);
+        ++st->bounced;
+        if (buffer & 31u) ++st->bounced_unaligned;
+        if (sectors > st->bounced_most) st->bounced_most = sectors;
+        if (sectors > st->bounce_sectors) sectors = st->bounce_sectors;
+        st->bounced_sectors += sectors;
+        if (t->write) copy((uint8_t*)(uintptr_t)st->bounce, (const uint8_t*)(uintptr_t)buffer, sectors * RTVSD_SECTOR_BYTES);
+        *data = st->bounce;
     } else {
-        const uint32_t most = st->backend == VSD_BACKEND_SLOT0 ? PIECE_SECTORS_SD : VSD_BOUNCE_BYTES / RTVSD_SECTOR_BYTES;
+        const uint32_t most = st->backend == VSD_BACKEND_SLOT0 ? PIECE_SECTORS_SD : VSD_PIECE_SECTORS_D2X;
         if (sectors > most) sectors = most;
         *data = buffer;
     }
@@ -330,8 +334,8 @@ static void piece_done(struct vsd_state* st) {
     }
     if (!t->write) {
         if (t->bounced) {
-            invalidate_range((uint32_t)(uintptr_t)st->bounce, bytes);
-            copy((uint8_t*)(uintptr_t)buffer, st->bounce, bytes);
+            invalidate_range(st->bounce, bytes);
+            copy((uint8_t*)(uintptr_t)buffer, (const uint8_t*)(uintptr_t)st->bounce, bytes);
             flush_range(buffer, bytes);
         }
         st->sectors_read += t->chunk;
@@ -455,6 +459,7 @@ static int32_t transfer_send(struct vsd_state* st, int async) {
         }
         number = build_piece(st, device_sector, t->chunk, data, &in_count, &out_count);
         if (t->write && needs_settle(st, async)) st->writing = 1;
+        ++st->requests;
         return issue(st, async, 1, number, in_count, out_count, (uint32_t)(uintptr_t)st->vec, 0);
     }
 }

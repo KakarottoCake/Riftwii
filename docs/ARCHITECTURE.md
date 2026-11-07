@@ -228,11 +228,16 @@ on the device holding the image, through the game's own IPC functions:
 the SD slot the loader selected (with CMD13 polls after writes), d2x's
 `/dev/sdio/sdhc` for a game on the card, or d2x's `/dev/usb2` for an
 image on the USB drive (opened before the game partition, so for a game
-on the USB drive only). The code and its state (a 32 KB bounce buffer for
-USB, then the image's extent table, 12 bytes a piece of the image file on
-its device, up to 16384 pieces: sized to the image, so three pieces cost 36
-bytes and an image scattered by a well-used card up to 192 KB, found by a
-binary search) go to the bottom of the MEM2 arena, staged at its top and
+on the USB drive only). The eight hooked functions share one trampoline,
+and a call on any other handle goes straight back to the game's function;
+the card's CID and CSD are built by the loader (`vsd_card_registers`). The
+code and its state (the image's extent table, 12 bytes a piece of the
+image file on its device, up to 16384 pieces: sized to the image, so three
+pieces cost 36 bytes and an image scattered by a well-used card up to 192
+KB, found by a binary search; then the bounce buffer, sized by the loader
+for the device: 32 KB on USB, where every read into MEM1 needs it, and
+`VSD_BOUNCE_BYTES_SD`, 32 KB for now, on the SD card, where only an
+unaligned buffer does; counters in the state say how often) go to the bottom of the MEM2 arena, staged at its top and
 copied down at the jump; the game reaches them through veneers at
 `0x80002300`, the code handler's list room a code build
 leaves free (below the MEM1 arena's top without it). Not with the

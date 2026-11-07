@@ -592,7 +592,8 @@ $(VSDBLOB): $(VSDOUT)/riftwii_vsd.elf $(VSDOUT)/riftwii_vsd_alt.elf
 	$(OBJCOPY) -O binary $(VSDOUT)/riftwii_vsd.elf $@
 	$(OBJCOPY) -O binary $(VSDOUT)/riftwii_vsd_alt.elf $(VSDOUT)/riftwii_vsd_alt.bin
 	@cmp $@ $(VSDOUT)/riftwii_vsd_alt.bin || { echo "runtime: vsd blob differs between link bases; not position independent"; rm -f $@; exit 1; }
-	@echo "vsd blob: $$(stat -c %s $@) bytes"
+	@# wc, not GNU stat's -c (macOS's stat has none, and printed nothing).
+	@echo "vsd blob: $$(wc -c < $@ | tr -d ' ') bytes"
 $(RVZOUT):
 	@mkdir -p $(RVZOUT)
 

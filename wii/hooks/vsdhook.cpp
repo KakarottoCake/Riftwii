@@ -30,7 +30,8 @@ constexpr std::uint32_t kMinSectors = 0x4000;  // 8 MiB: anything smaller is not
 
 // The read-ahead buffer's window (runtime/rtvsdra.h), a build setting:
 // make -f Makefile.wii WII_DEFINES=-DRIFTWII_VSD_READAHEAD_KB=16. The
-// bounce buffer holds 32 KiB / window of them. 4 KiB (eight at once) cost
+// bounce buffer (32 KiB on both devices for now, vsd_hook.h) holds
+// bounce / window of them, at most RTVSD_RA_MAX_SLOTS. 4 KiB (eight at once) cost
 // the fewest requests and bytes in Dolphin for Project M EX Remix,
 // Project+ and REX: in their first 30 s, Project M EX Remix's 38,800 reads
 // took 1,084 requests (11,970 with four 8 KiB windows, 11,249 with one of
@@ -282,7 +283,12 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
     //    as Project M 3.6's codes read fixed addresses in Brawl's MEM2
     //    heaps (0x90e60f10, its sound loader) and crashed when they moved.
     out.code_bytes = align_up(h.size);
-    out.state_bytes = align_up(vsd_state_bytes(image.extents.size()));
+    // The bounce buffer after the extent table, sized for the device.
+    const std::uint32_t bounce_bytes = vsd_bounce_bytes_for(device.backend);
+    static_assert(VSD_BOUNCE_BYTES_USB % RTVSD_SECTOR_BYTES == 0 && VSD_BOUNCE_BYTES_SD % RTVSD_SECTOR_BYTES == 0 &&
+                      VSD_BOUNCE_BYTES_USB >= RTVSD_SECTOR_BYTES && VSD_BOUNCE_BYTES_SD >= RTVSD_SECTOR_BYTES,
+                  "the bounce buffer holds whole sectors, 32-aligned");
+    out.state_bytes = align_up(vsd_state_bytes(image.extents.size(), bounce_bytes));
     out.code_in_mem2 = mem1_veneers != 0;
     out.veneers = mem1_veneers;
     out.data_bytes = out.state_bytes + (out.code_in_mem2 ? out.code_bytes : 0);
@@ -365,6 +371,8 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
     st->fd = device.fd;
     st->sdhc = device.sdhc ? 1 : 0;
     st->rca = device.rca;
+    st->bounce = out.state_base + vsd_bounce_offset(image.extents.size());
+    st->bounce_sectors = bounce_bytes / RTVSD_SECTOR_BYTES;
     st->card.sectors = image.sectors;
     st->card.extent_count = static_cast<std::uint32_t>(image.extents.size());
     for (std::size_t i = 0; i < image.extents.size(); ++i) rtvsd_extents(&st->card)[i] = image.extents[i];
@@ -373,17 +381,20 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
         return false;
     }
     vsd_card_registers(st->card.sectors, st->card.sdhc != 0, st->card.cid, st->card.csd);
-    if (image.readahead_sectors != 0) {
+    const std::uint32_t window_bytes = image.readahead_sectors * RTVSD_SECTOR_BYTES;
+    if (image.readahead_sectors != 0 && window_bytes > bounce_bytes) {
+        logf("Virtual SD card: read-ahead off; its %u KiB window does not fit the %u KiB bounce buffer\n",
+             window_bytes / 1024, bounce_bytes / 1024);
+    } else if (image.readahead_sectors != 0) {
         // In the bounce buffer: no MEM2 of its own. Project+ leaves Brawl
         // only a few KB to spare (a separate 32 KiB buffer stopped it
         // making its menu heap in Dolphin, a black screen).
-        static_assert(RTVSD_RA_MAX_SECTORS * RTVSD_SECTOR_BYTES <= VSD_BOUNCE_BYTES, "a window fits the bounce buffer");
-        st->ra.buffer = out.state_base + static_cast<std::uint32_t>(offsetof(vsd_state, bounce));
+        st->ra.buffer = st->bounce;
         // As many windows as fit: 32 KiB holds one cluster, or several
         // smaller windows when the game goes back and forth between
         // clusters (Project M EX Remix's start-up).
         st->ra.window = image.readahead_sectors;
-        st->ra.slots = VSD_BOUNCE_BYTES / (image.readahead_sectors * RTVSD_SECTOR_BYTES);
+        st->ra.slots = bounce_bytes / window_bytes;
         if (st->ra.slots > RTVSD_RA_MAX_SLOTS) st->ra.slots = RTVSD_RA_MAX_SLOTS;
         st->ra.anchor = image.readahead_anchor;
         logf("Virtual SD card: read-ahead on: %u window(s) of %u KiB lined up with image sector %u, cut at the "
@@ -395,9 +406,9 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
     DCFlushRange(reinterpret_cast<void*>(out.stage_base), out.data_bytes);
     out.active = true;
     logf("Virtual SD card: %s, %u MiB as an %s card in %u piece(s); blob %u bytes at 0x%08x, state %u bytes at "
-         "0x%08x%s\n",
+         "0x%08x (%u KiB of it the bounce buffer)%s\n",
          image.path.c_str(), image.sectors / 2048, st->card.sdhc ? "SDHC" : "SD", st->card.extent_count, h.size,
-         out.code_base, out.state_bytes, out.state_base,
+         out.code_base, out.state_bytes, out.state_base, bounce_bytes / 1024,
          after_runtime      ? " (above the runtime's MEM2 data)"
          : out.code_in_mem2 ? " (both in MEM2, built at the arena's top)"
                             : "");
