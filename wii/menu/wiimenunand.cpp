@@ -84,8 +84,14 @@ bool ContentPath(const TmdContent& content, char* path, std::size_t room, const 
 
 }  // namespace
 
-bool ReadMenuContentFromNand(const TmdContent& content, void* buffer, const char* who, std::string& why,
+bool ReadMenuContentFromNand(const TmdContent& content, const MenuContentAllocator& allocate,
+                             std::size_t& size, const char* who, std::string& why,
                              NandPermissionSession* permissions) {
+    size = 0;
+    if (!allocate) {
+        why = "the System Menu content allocator is unavailable";
+        return false;
+    }
     if (NandOpen() < 0) {
         why = "the NAND could not be opened";
         return false;
@@ -103,13 +109,17 @@ bool ReadMenuContentFromNand(const TmdContent& content, void* buffer, const char
         why = std::string(path) + " could not be opened (" + std::to_string(file.fd()) + ")";
         return false;
     }
-    if (file.Length() != content.size) {
-        why = std::string(path) + " is not the size its title metadata gives";
+    const std::size_t length = file.Length();
+    if (length == 0 || length > kMaxMenuContentSize) {
+        why = std::string(path) + " is empty or exceeds the memory budget";
         return false;
     }
-    const s32 got = ISFS_Read(file.fd(), buffer, static_cast<u32>(content.size));
-    if (got != static_cast<s32>(content.size)) {
-        why = std::string(path) + " read " + std::to_string(got) + " of " + std::to_string(content.size) + " bytes";
+    size = length;
+    u8* buffer = allocate(size, why);
+    if (!buffer) return false;
+    const s32 got = ISFS_Read(file.fd(), buffer, static_cast<u32>(size));
+    if (got != static_cast<s32>(size)) {
+        why = std::string(path) + " read " + std::to_string(got) + " of " + std::to_string(size) + " bytes";
         return false;
     }
     return true;

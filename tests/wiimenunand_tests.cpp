@@ -5,6 +5,7 @@
 #include "wiimenucontent.hpp"
 
 #include <gccore.h>
+#include <malloc.h>
 
 #include <cstdlib>
 #include <cstdarg>
@@ -39,6 +40,8 @@ bool permissions_available = true;
 bool refuse_when_open = false;
 std::string logs;
 s32 short_read_by = 0;
+std::vector<std::size_t> allocated_sizes;
+bool allocation_fails = false;
 
 void Reset() {
     files.clear();
@@ -51,6 +54,8 @@ void Reset() {
     refuse_when_open = false;
     logs.clear();
     short_read_by = 0;
+    allocated_sizes.clear();
+    allocation_fails = false;
 }
 
 std::vector<u8> Bytes(std::size_t size, u8 value) { return std::vector<u8>(size, value); }
@@ -71,13 +76,30 @@ void AddToContentMap(const char* name, u8 hash_byte) {
     map.insert(map.end(), 20, hash_byte);
 }
 
+bool ReadContentFromNand(const TmdContent& content, MenuContentBuffer& buffer, const char* who,
+                         std::string& why, NandPermissionSession* permissions = nullptr) {
+    std::size_t size = 0;
+    const auto allocate = [&buffer](std::size_t length, std::string& error) -> u8* {
+        allocated_sizes.push_back(length);
+        if (allocation_fails) {
+            error = "no memory for the test content";
+            return nullptr;
+        }
+        buffer = AllocateMenuContentBuffer(length, error);
+        return buffer.get();
+    };
+    const bool ok = ReadMenuContentFromNand(content, allocate, size, who, why, permissions);
+    if (ok) EXPECT(size == allocated_sizes.back());
+    return ok;
+}
+
 void TestPrivateContent() {
     Reset();
     files["/title/00000001/00000002/content/0000002a.app"] = Bytes(64, 0x11);
-    std::vector<u8> buffer(64);
+    MenuContentBuffer buffer(nullptr, &std::free);
     std::string why;
-    EXPECT(ReadMenuContentFromNand(Content(0x2a, 1, 64, 0), buffer.data(), "Menu font", why));
-    EXPECT(buffer[63] == 0x11);
+    EXPECT(ReadContentFromNand(Content(0x2a, 1, 64, 0), buffer, "Menu font", why));
+    EXPECT(buffer.get()[63] == 0x11);
     EXPECT(nand_users == 0);
     EXPECT(open_fds == 0);
 }
@@ -87,16 +109,53 @@ void TestSharedContent() {
     AddToContentMap("0000000b", 0x77);
     AddToContentMap("0000000c", 0x99);
     files["/shared1/0000000c.app"] = Bytes(48, 0x22);
-    std::vector<u8> buffer(48);
+    MenuContentBuffer buffer(nullptr, &std::free);
     std::string why;
-    EXPECT(ReadMenuContentFromNand(Content(5, 0x8001, 48, 0x99), buffer.data(), "Menu font", why));
-    EXPECT(buffer[0] == 0x22);
+    EXPECT(ReadContentFromNand(Content(5, 0x8001, 48, 0x99), buffer, "Menu font", why));
+    EXPECT(buffer.get()[0] == 0x22);
 
     // A shared content content.map does not list is not read.
-    EXPECT(!ReadMenuContentFromNand(Content(5, 0x8001, 48, 0x55), buffer.data(), "Menu font", why));
+    EXPECT(!ReadContentFromNand(Content(5, 0x8001, 48, 0x55), buffer, "Menu font", why));
     EXPECT(why == "content.map does not list the content");
     EXPECT(nand_users == 0);
     EXPECT(open_fds == 0);
+}
+
+void TestRealContentSize() {
+    for (std::size_t length : {std::size_t(32), std::size_t(96), kMaxMenuContentSize}) {
+        Reset();
+        files["/title/00000001/00000002/content/00000022.app"] = Bytes(length, 0x66);
+        MenuContentBuffer buffer(nullptr, &std::free);
+        std::string why;
+        EXPECT(ReadContentFromNand(Content(0x22, 1, 64, 0), buffer, "Wii Menu sounds", why));
+        EXPECT(allocated_sizes == std::vector<std::size_t>{length});
+        EXPECT(buffer.get()[length - 1] == 0x66);
+        EXPECT(open_fds == 0 && nand_users == 0);
+    }
+}
+
+void TestSizeAndAllocationFailures() {
+    for (std::size_t length : {std::size_t(0), kMaxMenuContentSize + 1}) {
+        Reset();
+        files["/title/00000001/00000002/content/00000022.app"] = Bytes(length, 0x66);
+        MenuContentBuffer buffer(nullptr, &std::free);
+        std::string why;
+        EXPECT(!ReadContentFromNand(Content(0x22, 1, 64, 0), buffer, "Wii Menu sounds", why));
+        EXPECT(why == "/title/00000001/00000002/content/00000022.app is empty or exceeds the memory budget");
+        EXPECT(allocated_sizes.empty());
+        EXPECT(buffer == nullptr);
+        EXPECT(open_fds == 0 && nand_users == 0);
+    }
+
+    Reset();
+    files["/title/00000001/00000002/content/00000022.app"] = Bytes(96, 0x66);
+    allocation_fails = true;
+    MenuContentBuffer buffer(nullptr, &std::free);
+    std::string why;
+    EXPECT(!ReadContentFromNand(Content(0x22, 1, 64, 0), buffer, "Wii Menu sounds", why));
+    EXPECT(why == "no memory for the test content");
+    EXPECT(allocated_sizes == std::vector<std::size_t>{96});
+    EXPECT(open_fds == 0 && nand_users == 0);
 }
 
 void TestPermissionCheck() {
@@ -105,10 +164,10 @@ void TestPermissionCheck() {
     Reset();
     files["/title/00000001/00000002/content/00000001.app"] = Bytes(32, 0x33);
     protected_path = "/title/00000001/00000002/content/00000001.app";
-    std::vector<u8> buffer(32);
+    MenuContentBuffer buffer(nullptr, &std::free);
     std::string why;
-    EXPECT(ReadMenuContentFromNand(Content(1, 1, 32, 0), buffer.data(), "Wii Menu sounds", why));
-    EXPECT(buffer[31] == 0x33);
+    EXPECT(ReadContentFromNand(Content(1, 1, 32, 0), buffer, "Wii Menu sounds", why));
+    EXPECT(buffer.get()[31] == 0x33);
     EXPECT(permission_opens == 1);
     EXPECT(permission_closes == 1);
     EXPECT(!permissions_open);
@@ -122,11 +181,11 @@ void TestPermissionCheck() {
     files["/shared1/0000000c.app"] = Bytes(32, 0x44);
     {
         NandPermissionSession batch("Wii Menu sounds", false);
-        EXPECT(ReadMenuContentFromNand(Content(5, 0x8001, 32, 0x99), buffer.data(), "Wii Menu sounds", why, &batch));
-        EXPECT(ReadMenuContentFromNand(Content(5, 0x8001, 32, 0x99), buffer.data(), "Wii Menu sounds", why, &batch));
+        EXPECT(ReadContentFromNand(Content(5, 0x8001, 32, 0x99), buffer, "Wii Menu sounds", why, &batch));
+        EXPECT(ReadContentFromNand(Content(5, 0x8001, 32, 0x99), buffer, "Wii Menu sounds", why, &batch));
         EXPECT(permission_opens == 1 && permission_closes == 0 && unpatched_opens == 0);
         refuse_when_open = true;
-        EXPECT(!ReadMenuContentFromNand(Content(5, 0x8001, 32, 0x99), buffer.data(), "Wii Menu sounds", why, &batch));
+        EXPECT(!ReadContentFromNand(Content(5, 0x8001, 32, 0x99), buffer, "Wii Menu sounds", why, &batch));
         EXPECT(logs.find("/shared1/content.map was still refused (-102) with the NAND permission check open") !=
                std::string::npos);
     }
@@ -137,8 +196,8 @@ void TestPermissionCheck() {
     protected_path = "/shared1/content.map";
     {
         NandPermissionSession batch("unavailable", false);
-        EXPECT(!ReadMenuContentFromNand(Content(5, 0x8001, 32, 0x99), buffer.data(), "unavailable", why, &batch));
-        EXPECT(!ReadMenuContentFromNand(Content(5, 0x8001, 32, 0x99), buffer.data(), "unavailable", why, &batch));
+        EXPECT(!ReadContentFromNand(Content(5, 0x8001, 32, 0x99), buffer, "unavailable", why, &batch));
+        EXPECT(!ReadContentFromNand(Content(5, 0x8001, 32, 0x99), buffer, "unavailable", why, &batch));
     }
     EXPECT(permission_opens == 1 && permission_closes == 0 && nand_users == 0 && open_fds == 0);
     EXPECT(logs.empty());  // never claim the check opened when it did not
@@ -146,28 +205,22 @@ void TestPermissionCheck() {
 
 void TestFailures() {
     std::string why;
-    std::vector<u8> buffer(64);
+    MenuContentBuffer buffer(nullptr, &std::free);
 
     Reset();
-    EXPECT(!ReadMenuContentFromNand(Content(3, 1, 64, 0), buffer.data(), "Menu font", why));
+    EXPECT(!ReadContentFromNand(Content(3, 1, 64, 0), buffer, "Menu font", why));
     EXPECT(why == "/title/00000001/00000002/content/00000003.app could not be opened (-106)");
-
-    // Not the size the title metadata gives.
-    Reset();
-    files["/title/00000001/00000002/content/00000003.app"] = Bytes(60, 0x44);
-    EXPECT(!ReadMenuContentFromNand(Content(3, 1, 64, 0), buffer.data(), "Menu font", why));
-    EXPECT(why == "/title/00000001/00000002/content/00000003.app is not the size its title metadata gives");
 
     // A read that comes back short.
     Reset();
     files["/title/00000001/00000002/content/00000003.app"] = Bytes(64, 0x44);
     short_read_by = 4;
-    EXPECT(!ReadMenuContentFromNand(Content(3, 1, 64, 0), buffer.data(), "Menu font", why));
+    EXPECT(!ReadContentFromNand(Content(3, 1, 64, 0), buffer, "Menu font", why));
     EXPECT(why == "/title/00000001/00000002/content/00000003.app read 60 of 64 bytes");
 
     // No content.map at all.
     Reset();
-    EXPECT(!ReadMenuContentFromNand(Content(5, 0x8001, 48, 0x99), buffer.data(), "Menu font", why));
+    EXPECT(!ReadContentFromNand(Content(5, 0x8001, 48, 0x99), buffer, "Menu font", why));
     EXPECT(why == "/shared1/content.map could not be opened (-106)");
     EXPECT(nand_users == 0);
     EXPECT(open_fds == 0);
@@ -176,7 +229,7 @@ void TestFailures() {
 
 // What wiimenucontent.cpp gives the rest of the menu.
 MenuContentBuffer riftwii::wii::AllocateMenuContentBuffer(std::size_t size, std::string&) {
-    return MenuContentBuffer(static_cast<u8*>(std::malloc(size)), &std::free);
+    return MenuContentBuffer(static_cast<u8*>(memalign(32, size)), &std::free);
 }
 
 s32 riftwii::wii::NandOpen() {
@@ -231,6 +284,8 @@ void riftwii::wii::logf(const char* format, ...) {
 int main() {
     TestPrivateContent();
     TestSharedContent();
+    TestRealContentSize();
+    TestSizeAndAllocationFailures();
     TestPermissionCheck();
     TestFailures();
     return failures == 0 ? 0 : 1;

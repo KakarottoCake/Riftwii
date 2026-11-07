@@ -13,13 +13,12 @@ namespace riftwii::wii {
 namespace {
 
 constexpr u64 kSystemMenu = 0x0000000100000002ull;
-constexpr std::size_t kMaxContent = 16 * 1024 * 1024;
 
 }  // namespace
 
 MenuContentBuffer AllocateMenuContentBuffer(std::size_t size, std::string& why) {
     MenuContentBuffer buffer(nullptr, &std::free);
-    if (size == 0 || size > kMaxContent) {
+    if (size == 0 || size > kMaxMenuContentSize) {
         why = "the System Menu content is empty or exceeds the memory budget";
         return buffer;
     }
@@ -37,6 +36,7 @@ bool WiiMenuContentReader::Failed(const char* call, s32 code, std::string& why) 
 
 bool WiiMenuContentReader::Open(std::string& why) {
     view_count_ = 0;
+    size_logged_.fill(false);
     metadata_ = {};
     u32 size = 0;
     s32 result = ES_GetStoredTMDSize(kSystemMenu, &size);
@@ -74,10 +74,44 @@ const TmdContent* WiiMenuContentReader::FindHash(const std::uint8_t* hash) const
     return nullptr;
 }
 
-bool WiiMenuContentReader::Read(const TmdContent& content, void* buffer, std::size_t limit,
-                                std::string& why) const {
-    if (view_count_ == 0 || !buffer || content.size == 0 || content.size > limit || content.size > kMaxContent) {
-        why = "the System Menu content is empty, unavailable or exceeds the memory budget";
+void WiiMenuContentReader::LogContentSize(const TmdContent& content, std::size_t size) const {
+    if (size == content.size) return;
+    for (std::size_t i = 0; i < metadata_.contents.size(); ++i) {
+        if (metadata_.contents[i].index != content.index) continue;
+        if (size_logged_[i]) return;
+        size_logged_[i] = true;
+        break;
+    }
+    logf("%s: content %08x is %u bytes, not the %llu its title metadata gives "
+         "(a Wii Menu theme?); it is read at its own size\n", log_name_,
+         static_cast<unsigned>(content.id), static_cast<unsigned>(size),
+         static_cast<unsigned long long>(content.size));
+}
+
+bool WiiMenuContentReader::ReadEsContent(s32 fd, const MenuContentAllocator& allocate,
+                                         std::size_t& size, std::string& why) const {
+    const s32 length = ES_SeekContent(fd, 0, SEEK_END);
+    if (length < 0) return Failed("ES_SeekContent", length, why);
+    if (length == 0 || static_cast<std::size_t>(length) > kMaxMenuContentSize) {
+        why = "the System Menu content is empty or exceeds the memory budget";
+        return false;
+    }
+    const s32 position = ES_SeekContent(fd, 0, SEEK_SET);
+    if (position != 0) return Failed("ES_SeekContent", position, why);
+
+    size = static_cast<std::size_t>(length);
+    u8* buffer = allocate(size, why);
+    if (!buffer) return false;
+    const s32 got = ES_ReadContent(fd, buffer, static_cast<u32>(size));
+    if (got != length) return Failed("ES_ReadContent", got, why);
+    return true;
+}
+
+bool WiiMenuContentReader::Read(const TmdContent& content, const MenuContentAllocator& allocate,
+                                std::size_t& size, std::string& why) const {
+    size = 0;
+    if (view_count_ == 0 || !allocate) {
+        why = "the System Menu content reader or its allocator is unavailable";
         return false;
     }
     s32 fd = -1;
@@ -92,34 +126,18 @@ bool WiiMenuContentReader::Read(const TmdContent& content, void* buffer, std::si
     if (fd < 0) {
         // `why` keeps ES's refusal when the NAND fails too.
         std::string nand_why;
-        if (ReadMenuContentFromNand(content, buffer, log_name_, nand_why, &permissions_)) {
+        if (ReadMenuContentFromNand(content, allocate, size, log_name_, nand_why, &permissions_)) {
+            LogContentSize(content, size);
             logf("%s: read from the NAND, as ES refused it\n", log_name_);
             return true;
         }
         logf("%s: the NAND's copy could not be read either (%s)\n", log_name_, nand_why.c_str());
         return false;
     }
-    const s32 length = ES_SeekContent(fd, 0, SEEK_END);
-    bool ok = false;
-    if (length < 0) {
-        Failed("ES_SeekContent", length, why);
-    } else if (static_cast<std::uint64_t>(length) != content.size) {
-        why = "the System Menu content size differs from its title metadata";
-    } else {
-        const s32 position = ES_SeekContent(fd, 0, SEEK_SET);
-        if (position != 0) {
-            Failed("ES_SeekContent", position, why);
-        } else {
-            const s32 got = ES_ReadContent(fd, buffer, static_cast<u32>(content.size));
-            if (got != length) {
-                Failed("ES_ReadContent", got, why);
-            } else {
-                ok = true;
-            }
-        }
-    }
+    const bool ok = ReadEsContent(fd, allocate, size, why);
     const s32 closed = ES_CloseContent(fd);
     if (closed < 0) return Failed("ES_CloseContent", closed, why);
+    if (ok) LogContentSize(content, size);
     return ok;
 }
 
