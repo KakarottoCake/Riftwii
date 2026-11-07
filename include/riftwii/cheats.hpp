@@ -143,4 +143,38 @@ std::vector<std::uint8_t> join_gct(const std::vector<std::uint8_t>& first, const
 bool gct_runs_before_start(const std::vector<std::uint8_t>& gct, std::uint32_t keep_out_start,
                            std::uint32_t keep_out_end);
 
+// A code that was switched off by switch_off_slot_b_codes: where its
+// instructions went and how many lines they took.
+struct SlotBCode {
+    std::uint32_t address = 0;
+    std::uint32_t lines = 0;
+};
+
+// Switches off every code in `gct` whose own instructions (C0 and C2
+// codes) reach memory card slot B's bus (EXI channel 1, registers
+// 0xCC006814-0xCC006827 and their 0xCD00xxxx mirror), for a Wii U's vWii,
+// which has no memory card slots. A USB Gecko log there (REX's
+// USBGecko.asm) waits for every byte to be acknowledged with no timeout,
+// and on a vWii nothing ever acknowledges, so the game hangs on a black
+// screen (grantendo/wiiu#37). Slot B's channel carries nothing else, so
+// nothing a vWii has can need such a code; slot A's channel also serves
+// the console's clock and is left alone. Each code keeps its length: its
+// first line becomes a goto over its instructions (66200NNN 00000000), so
+// gotos elsewhere in the list still land where they did. The walk stops
+// at a code type it can't size, leaving the rest as it is; `scan`, when
+// given, says so, and whether anything after that point still reaches
+// slot B (looked through word by word, since it can't be switched off
+// safely). A code counts when its instructions build a slot B address
+// (register values followed in order: base plus offset, indexed, mr), or load
+// the hardware's high half and use a slot B register's low half. Returns
+// the codes switched off; `gct` is unchanged when it is not a valid list.
+struct SlotBScan {
+    bool valid = true;              // a whole list (header, whole lines, the end code); if not, nothing was looked at
+    bool complete = true;           // every code was looked at
+    std::size_t stopped_line = 0;   // else: the line it stopped at (1 = the first after the header)
+    std::uint32_t stopped_type = 0; // and that line's code type
+    bool slot_b_after_stop = false; // something after it still seems to reach slot B
+};
+std::vector<SlotBCode> switch_off_slot_b_codes(std::vector<std::uint8_t>& gct, SlotBScan* scan = nullptr);
+
 }  // namespace riftwii
