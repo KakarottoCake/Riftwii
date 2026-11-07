@@ -71,6 +71,7 @@ struct FakeHid {
     std::uint32_t version = 5;
     bool adapter = true;
     std::uint32_t dev_id = 0x00010042;  // v5: interface byte 0, index 1, number 0x42
+    std::uint32_t other_adapter = 0;    // a second adapter's id, listed before the first (0: none)
     bool first_list_done = false;
     bool list_changed = false;          // a change happened while nobody listened
     bool locked = false;                // v5: locked to our handle until AttachFinish
@@ -105,6 +106,13 @@ void FillList(Request& r) {
         gcad_put32(r.out + at + 8, 0x12010110);
         gcad_put32(r.out + at + 16, 0x046D0001);
         at += 0x44;
+        if (h.other_adapter != 0) {
+            gcad_put32(r.out + at, 0x44);
+            gcad_put32(r.out + at + 4, h.other_adapter);
+            gcad_put32(r.out + at + 8, 0x12010200);
+            gcad_put32(r.out + at + 16, GCAD_VID_PID);
+            at += 0x44;
+        }
         if (h.adapter) {
             gcad_put32(r.out + at, 0x44);
             gcad_put32(r.out + at + 4, h.dev_id);
@@ -119,9 +127,14 @@ void FillList(Request& r) {
         gcad_put32(r.out, 0x00000105);
         gcad_put32(r.out + 4, 0x046D0001);
         ++n;
+        if (h.other_adapter != 0) {
+            gcad_put32(r.out + n * 12, h.other_adapter);
+            gcad_put32(r.out + n * 12 + 4, GCAD_VID_PID);
+            ++n;
+        }
         if (h.adapter) {
-            gcad_put32(r.out + 12, h.dev_id);
-            gcad_put32(r.out + 16, GCAD_VID_PID);
+            gcad_put32(r.out + n * 12, h.dev_id);
+            gcad_put32(r.out + n * 12 + 4, GCAD_VID_PID);
             ++n;
         }
         h.locked = true;
@@ -344,6 +357,24 @@ void Unplug() {
         h.list_changed = true;
     }
     Pump();
+}
+
+// The device list changes without the adapter in use going anywhere.
+void Relist() {
+    FakeHid& h = *g_hid;
+    if (!h.waiting_list.empty()) {
+        Request w = h.waiting_list.front();
+        h.waiting_list.clear();
+        FillList(w);
+    } else {
+        h.list_changed = true;
+    }
+    Pump();
+    if (h.version == 5 && g_driver != nullptr) {
+        g_driver->now += GCAD_SETTLE_MS;
+        gcad_tick(g_driver->g, g_driver->now);
+        Pump();
+    }
 }
 
 void Plug(std::uint32_t new_id) {
@@ -711,6 +742,32 @@ static void TestV5KnownDevice() {
     EXPECT_TRUE(DeliverSettled(Report(0x14, 0, 0, 128, 128)));
     gcad_pad pad{};
     EXPECT_TRUE(gcad_port(d.g, 0, &pad, d.now));
+}
+
+// Two adapters (grantendo/wiiu#5): a second one plugged in, listed first,
+// doesn't take over; it takes over when the first is unplugged, and
+// keeps the controllers when the first is plugged back in.
+static void TestTwoAdapters(std::uint32_t version) {
+    FakeHid hid;
+    Driver d;
+    Start(hid, d, version);
+    gcad* g = d.g;
+    const std::int32_t first = static_cast<std::int32_t>(hid.dev_id);
+    const std::uint32_t second = version == 4 ? 7u : 0x00020044u;
+    EXPECT_EQ(g->dev_id, first);
+    EXPECT_EQ(g->link, GCAD_LINK_POLL);
+    const std::uint32_t links = g->links;
+    hid.other_adapter = second;
+    Relist();
+    EXPECT_EQ(g->dev_id, first);
+    EXPECT_EQ(g->links, links);  // the link in use was never dropped
+    Unplug();
+    EXPECT_EQ(g->dev_id, static_cast<std::int32_t>(second));
+    hid.adapter = true;  // the first one back, listed after the second
+    Relist();
+    EXPECT_EQ(g->dev_id, static_cast<std::int32_t>(second));
+    gcad_stop(g, d.now);
+    Pump();
 }
 
 static void TestV4() {
@@ -1823,6 +1880,8 @@ int main() {
     TestV5AlreadyResumed();
     TestV5SetProtocolRefused();
     TestV5KnownDevice();
+    TestTwoAdapters(5);
+    TestTwoAdapters(4);
     TestV4();
     TestOriginAtRest();
     TestNoAdapter();

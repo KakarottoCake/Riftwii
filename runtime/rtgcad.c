@@ -1474,6 +1474,15 @@ static void on_change(gcad* g, int32_t result, uint32_t now) {
         }
         found = gcad_find_v5(g->change, g->listed);
     }
+    /* Two adapters: the one in use stays while it is still listed, and
+     * another is taken only once it's gone. Taking the first listed one
+     * dropped the second adapter, controllers and all, when the first
+     * was plugged back in (grantendo/wiiu#5; libwup028 fixed the same). */
+    if (found != GCAD_NO_DEVICE && g->dev_id != GCAD_NO_DEVICE) {
+        for (i = 0; i < count; ++i) {
+            if (devices[i].id == g->dev_id && devices[i].vid_pid == GCAD_VID_PID) found = g->dev_id;
+        }
+    }
     if (g->adapter_disabled || !ADAPTER_CODE) found = -1;
     g->device_count = count;
     for (i = 0; i < count; ++i) g->devices[i] = devices[i];
