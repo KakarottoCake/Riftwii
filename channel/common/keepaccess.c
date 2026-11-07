@@ -20,6 +20,15 @@ int keepaccess_for_next_ios(void) {
     // MEM2's protection off while IOS's code is written, then back.
     const u16 protection = read16(0x0D8B420A);
     write16(0x0D8B420A, 2);
+    // Protection turns off a moment after the write: IOS's code is read
+    // only once the register says so (read earlier, it is the fill
+    // pattern; the installer's NAND restore failed that way, 2611-59).
+    int off = 0;
+    for (int tries = 0; tries < 1000 && !off; ++tries) off = (read16(0x0D8B420A) & 1) == 0;
+    if (!off) {
+        write16(0x0D8B420A, protection);
+        return KEEPACCESS_NOT_FOUND;
+    }
     int patched = 0;
     for (u32 at = 0xD3400000; at + 26 <= 0xD4000000; at += 2) {
         volatile const u8* p = (volatile const u8*)at;
