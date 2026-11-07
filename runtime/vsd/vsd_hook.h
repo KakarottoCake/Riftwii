@@ -13,7 +13,8 @@
  * other handle run the original function untouched.
  *
  * Synchronous calls are served on the caller's thread with the
- * synchronous originals. An asynchronous call returns 0 at once and its
+ * synchronous originals, through the same state machine as the
+ * asynchronous ones (transfer_step). An asynchronous call returns 0 at once and its
  * callback runs from the IPC interrupt when the answer is ready, as with
  * IOS: a transfer chains its requests with the blob's completion entry
  * (vsd_complete) as their callback and hands the game's callback to the
@@ -41,15 +42,18 @@
  * the blob asks its status (CMD13) until it is done before the next
  * command, as the resident runtime does (rt_hook.c, rt_sd_settles).
  *
- * Layout (vsd_entry.S): the header below, the eight trampolines, the
- * completion entry, the replay slots, the C code, then the context. The
+ * Layout (vsd_entry.S): the header below, the eight entries and the
+ * trampoline they share, the completion entry, the replay slots, the C
+ * code, then the context. A call on any handle but the card's leaves its
+ * entry for the replay slot at once, without the C code. The
  * state (struct vsd_state) is in MEM2; the loader builds it. Position
  * independent: linked at two bases and compared. */
 #ifndef RIFTWII_VSD_HOOK_H
 #define RIFTWII_VSD_HOOK_H
 
 #define VSD_MAGIC 0x52575653u          /* "RWVS" */
-#define VSD_VERSION 2u                 /* also in vsd_entry.S's header; 2: the read-ahead buffer */
+#define VSD_VERSION 3u                 /* also in vsd_entry.S's header; 2: the read-ahead buffer;
+                                        * 3: one shared trampoline, the CID and CSD from the loader */
 #define VSD_CONTEXT_MAGIC 0x52575658u  /* "RWVX" */
 #define VSD_CONTEXT_BYTES 32u
 #define VSD_STATE_MAGIC 0x52575654u    /* "RWVT" */
@@ -150,6 +154,7 @@ struct vsd_transfer {
     uint32_t fill_first;             /* from this image sector, */
     uint32_t fill_data;              /* into this slot of it */
     uint32_t plain;                  /* a window failed every try: the rest reads only what the game asked for */
+    int32_t answer;                  /* sync: the answer of the request just made */
 };
 
 struct vsd_state {

@@ -113,4 +113,13 @@ private:
 // included).
 constexpr std::uint64_t kVsdMaxFolderEntries = 65536;
 
+// The virtual SD card's CID and CSD for an image of `sectors` (`sdhc`: as
+// rtvsd_reset decides it, over 2 GiB), as the four words of an R2 response
+// (bit 127 first, the CRC7 and end bit included). The loader puts them in
+// the card's state (runtime/rtvsd.h, rtvsd_card.cid and .csd), which the
+// in-game blob answers CMD2, CMD9 and CMD10 from.
+void vsd_card_registers(std::uint32_t sectors, bool sdhc, std::uint32_t cid[4], std::uint32_t csd[4]);
+// The capacity a CSD states, in sectors (the inverse, for the tests).
+std::uint32_t vsd_csd_sectors(const std::uint32_t csd[4]);
+
 }  // namespace riftwii

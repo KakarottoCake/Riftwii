@@ -14,6 +14,7 @@
 #include "riftwii/fat32.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/symsearch.hpp"
+#include "riftwii/vsdbuild.hpp"
 #include "riftwii/vsdparts.hpp"
 #include "riftwii_vsd_bin.h"
 #include "umsdev.hpp"
@@ -371,6 +372,7 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
         why = "the image's pieces do not cover it";
         return false;
     }
+    vsd_card_registers(st->card.sectors, st->card.sdhc != 0, st->card.cid, st->card.csd);
     if (image.readahead_sectors != 0) {
         // In the bounce buffer: no MEM2 of its own. Project+ leaves Brawl
         // only a few KB to spare (a separate 32 KiB buffer stopped it

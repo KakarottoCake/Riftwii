@@ -576,4 +576,132 @@ bool write_vsd_image(const VsdPlan& plan, VsdSink& sink, const VsdRead& read, co
     return true;
 }
 
+// ---- The card's registers ------------------------------------------------
+//
+// The virtual SD card answers CMD2 and CMD10 with its CID and CMD9 with its
+// CSD (runtime/rtvsd.c). Both depend only on the image's size, so they are
+// built here once and handed to the in-game blob in its state: the blob
+// carries their 32 bytes instead of the code that builds them. The layouts
+// follow the SD Physical Layer Simplified Specification 2.00 (the CID, the
+// CSD versions 1.0 and 2.0, CRC7).
+namespace {
+
+// A 128-bit register as the four words of an R2 response: word 0 holds
+// bits 127..96, so bit `n` is in word 3 - n / 32.
+struct R2Register {
+    std::uint32_t words[4] = {0, 0, 0, 0};
+
+    // The field whose top bit is `msb`, `width` bits wide.
+    void set(unsigned msb, unsigned width, std::uint32_t value) {
+        for (unsigned i = 0; i < width; ++i) {
+            const unsigned bit = msb - i;
+            const bool one = ((value >> (width - 1u - i)) & 1u) != 0;
+            const std::uint32_t mask = 1u << (bit % 32u);
+            std::uint32_t& word = words[3u - bit / 32u];
+            word = one ? (word | mask) : (word & ~mask);
+        }
+    }
+
+    std::uint32_t get(unsigned msb, unsigned width) const {
+        std::uint32_t value = 0;
+        for (unsigned i = 0; i < width; ++i) {
+            const unsigned bit = msb - i;
+            value = (value << 1) | ((words[3u - bit / 32u] >> (bit % 32u)) & 1u);
+        }
+        return value;
+    }
+
+    // The CRC7 (x^7 + x^3 + 1) of bits 127..8 into bits 7..1, then the end
+    // bit (bit 0), as the card sends them.
+    void seal() {
+        std::uint32_t crc = 0;
+        for (unsigned bit = 127; bit >= 8; --bit) {
+            const std::uint32_t in = get(bit, 1);
+            const std::uint32_t top = (crc >> 6) & 1u;
+            crc = (crc << 1) & 0x7Fu;
+            if ((in ^ top) != 0) crc ^= 0x09u;
+        }
+        set(7, 7, crc);
+        set(0, 1, 1);
+    }
+};
+
+R2Register card_cid() {
+    R2Register cid;
+    cid.set(127, 8, 0x52u);     // MID
+    cid.set(119, 16, 0x5257u);  // OID "RW"
+    const char product[] = "RIFTW";  // PNM
+    for (unsigned i = 0; i < 5; ++i) cid.set(103 - 8 * i, 8, static_cast<std::uint8_t>(product[i]));
+    cid.set(63, 8, 0x10u);             // PRV 1.0
+    cid.set(55, 32, 0x52575644u);      // PSN
+    cid.set(19, 12, (26u << 4) | 9u);  // MDT: 2026-09
+    cid.seal();
+    return cid;
+}
+
+// The fields both CSD versions share.
+void csd_shared_fields(R2Register& csd, std::uint32_t block_len_log2) {
+    csd.set(119, 8, 0x0Eu);   // TAAC: 1 ms
+    csd.set(111, 8, 0);       // NSAC
+    csd.set(103, 8, 0x32u);   // TRAN_SPEED: 25 MHz
+    csd.set(95, 12, 0x5B5u);  // CCC: classes 0, 2, 4, 5, 7, 8, 10
+    csd.set(83, 4, block_len_log2);
+    csd.set(46, 1, 1);        // ERASE_BLK_EN
+    csd.set(45, 7, 0x7Fu);    // SECTOR_SIZE
+    csd.set(28, 3, 2);        // R2W_FACTOR
+    csd.set(25, 4, block_len_log2);
+}
+
+R2Register card_csd(std::uint32_t sectors, bool sdhc) {
+    R2Register csd;
+    if (sdhc) {
+        // Version 2.0: C_SIZE counts 512 KiB units.
+        const std::uint32_t units = sectors >> 10;
+        csd.set(127, 2, 1);
+        csd_shared_fields(csd, 9);
+        csd.set(69, 22, units != 0 ? units - 1u : 0u);
+    } else {
+        // Version 1.0: (C_SIZE + 1) << (C_SIZE_MULT + 2) blocks of
+        // 2^READ_BL_LEN bytes, with the smallest multiplier that fits C_SIZE's
+        // 12 bits. Up to 1 GiB the blocks are 512 bytes, above that 2048, as
+        // Dolphin's card states them: Brawl's driver reads nothing past
+        // 1 GiB of a card with 1024-byte blocks.
+        std::uint32_t unit_log2 = 2;  // sectors per C_SIZE unit: C_SIZE_MULT + 2 + READ_BL_LEN - 9
+        while (unit_log2 < 11u && (sectors >> unit_log2) > 4096u) ++unit_log2;
+        const std::uint32_t units = sectors >> unit_log2;
+        const std::uint32_t block_len_log2 = unit_log2 > 9u ? 11u : 9u;  // C_SIZE_MULT tops out at 7
+        const std::uint32_t mult = unit_log2 - 2u - (block_len_log2 - 9u);
+        csd_shared_fields(csd, block_len_log2);
+        csd.set(79, 1, 1);  // READ_BL_PARTIAL
+        csd.set(73, 12, units != 0 ? units - 1u : 0u);
+        csd.set(61, 3, 7);  // VDD_R_CURR_MIN, _MAX, VDD_W_CURR_MIN, _MAX
+        csd.set(58, 3, 7);
+        csd.set(55, 3, 6);
+        csd.set(52, 3, 6);
+        csd.set(49, 3, mult);
+    }
+    csd.seal();
+    return csd;
+}
+
+}  // namespace
+
+void vsd_card_registers(std::uint32_t sectors, bool sdhc, std::uint32_t cid[4], std::uint32_t csd[4]) {
+    const R2Register id = card_cid();
+    const R2Register specific = card_csd(sectors, sdhc);
+    for (unsigned i = 0; i < 4; ++i) {
+        cid[i] = id.words[i];
+        csd[i] = specific.words[i];
+    }
+}
+
+std::uint32_t vsd_csd_sectors(const std::uint32_t csd[4]) {
+    R2Register r;
+    for (unsigned i = 0; i < 4; ++i) r.words[i] = csd[i];
+    if (r.get(127, 2) == 1u) return (r.get(69, 22) + 1u) << 10;
+    const std::uint32_t units = r.get(73, 12) + 1u;
+    const std::uint32_t unit_log2 = r.get(49, 3) + 2u + r.get(83, 4);
+    return unit_log2 >= 9u ? units << (unit_log2 - 9u) : units >> (9u - unit_log2);
+}
+
 }  // namespace riftwii
