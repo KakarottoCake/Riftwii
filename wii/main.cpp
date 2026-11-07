@@ -533,6 +533,7 @@ int main() {
     // Games copied to the Wii from the SD card for the last session go
     // again, so they take no room on the Wii past the game they were for.
     if (sd_mounted) riftwii::wii::UnstageMovedChannels();
+    if (sd_mounted) riftwii::wii::ReserveUpdatePacks();
     const bool selected_wii_font = riftwii::wii::Settings().menu_font == "wii";
     const bool own_font_tried = !selected_wii_font;
     bool font_ready = own_font_tried && riftwii::wii::fullfont::Load();
@@ -708,6 +709,7 @@ int main() {
             action == MENU_PLAY_CHANNEL || action == MENU_HOMEBREW)
             RefreshLaunchFrame(state, action);
     }
+    riftwii::wii::ReleaseUpdatePacks();
     // The menu's background work is over: the launch gets its spare back.
     riftwii::wii::mem::EndMenuMemoryGuard();
     // Before the adapter stops: what the player had plugged in, for the

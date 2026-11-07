@@ -4,13 +4,29 @@
 
 #include <algorithm>
 #include <cctype>
+#include <iterator>
 #include <limits>
 #include <string_view>
 #include <vector>
 
 #include "riftwii/pluginfile.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 namespace riftwii {
+
+bool update_pack_memory_size(unsigned long long pack_bytes, std::size_t tls_bytes, UpdatePackMemory& out) {
+    out = UpdatePackMemory{};
+    constexpr std::size_t kHttpSpareBytes = 64u << 10;
+    if (pack_bytes == 0 || pack_bytes > kMaxUpdatePackBytes) return false;
+    const std::size_t response_bytes = static_cast<std::size_t>(pack_bytes) + kHttpSpareBytes;
+    const std::size_t tls_offset = (response_bytes + 31) & ~std::size_t(31);
+    if (tls_bytes > kMaxCheckedBytes - tls_offset) return false;
+    out.response_bytes = response_bytes;
+    out.tls_offset = tls_offset;
+    out.total_bytes = tls_offset + tls_bytes;
+    return true;
+}
+
 namespace {
 
 struct Version {
@@ -468,7 +484,10 @@ bool plan_update_writes(const ThemePack& apps, const std::string& release, const
             font.path = dol_path.substr(0, dol_path.rfind('/') + 1) + filename;
             font.offset = file.offset;
             font.size = file.size;
-            fonts.push_back(font);
+            if (!try_push_back(fonts, std::move(font))) {
+                error = "not enough memory for the update's font list";
+                return false;
+            }
             continue;
         }
         if (file.path.compare(0, kPluginsFolder.size(), kPluginsFolder) != 0) continue;  // the next start's
@@ -487,10 +506,17 @@ bool plan_update_writes(const ThemePack& apps, const std::string& release, const
         write.path = plugin_dir + name;
         write.offset = file.offset;
         write.size = file.size;
-        plugins.push_back(write);
+        if (!try_push_back(plugins, std::move(write))) {
+            error = "not enough memory for the update's plugin list";
+            return false;
+        }
     }
-    out = plugins;
-    out.insert(out.end(), fonts.begin(), fonts.end());
+    if (!try_reserve(out, plugins.size() + fonts.size() + 1)) {
+        error = "not enough memory for the update's file list";
+        return false;
+    }
+    out.insert(out.end(), std::make_move_iterator(plugins.begin()), std::make_move_iterator(plugins.end()));
+    out.insert(out.end(), std::make_move_iterator(fonts.begin()), std::make_move_iterator(fonts.end()));
     UpdateWrite dol;
     dol.path = dol_path;
     dol.dol = true;

@@ -34,12 +34,12 @@ struct MemoryGet {
     std::size_t body_length = 0;
 };
 
-// GETs `url`, following up to three redirects on the same server, and
+// GETs `url`, following up to three redirects allowed by `redirects`, and
 // reads the answer into `get`. A 200 answer whose body fits the buffer
 // is a success; anything else fails with a plain-sentence `error`. Meant for
 // the network's background thread (netsock.hpp): it ends within a tenth of a
 // second of NetCancelBackground when the job is cancellable.
 bool HttpGetInMemory(const std::string& url, MemoryGet& get, std::string& error, int timeout_ms = 15000,
-                     const HttpProgress& progress = nullptr);
+                     const HttpProgress& progress = nullptr, HttpRedirects redirects = HttpRedirects::SameHost);
 
 }  // namespace riftwii::wii

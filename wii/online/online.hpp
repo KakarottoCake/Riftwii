@@ -58,6 +58,13 @@ bool UpdateTitles(const std::string& lang, bool force, std::string& error);
 // stands in when GitHub cannot be reached (not with `force`). `newer`
 // says whether it is newer than this build.
 bool CheckForUpdate(bool force, std::string& latest, bool& newer, std::string& error);
+// Called once after the SD card/settings are ready, before fonts and art.
+// Holds the installed release's pending pack in freeable MEM2. A failed
+// reservation skips the background pack for this start.
+void ReserveUpdatePacks();
+// After the network job has ended, when leaving the menu or skipping packs.
+// A running pack job owns the block until it ends and is left alone here.
+void ReleaseUpdatePacks();
 // The check at start, on a thread of its own (NetRunInBackground) so the
 // menu answers while the network comes up. TakeUpdateCheck is true once,
 // when it has finished, with what CheckForUpdate said.

@@ -32,6 +32,8 @@
 #include "usbcatalog.hpp"
 #include "riftwii/loaderfiles.hpp"
 #include "ghfallback.hpp"
+#include "httpmem.hpp"
+#include "memlimits.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/ghcheats.hpp"
 #include "riftwii/nandchannel.hpp"
@@ -53,7 +55,6 @@ constexpr const char* kCheatsUrl = "https://codes.rc24.xyz/txt.php?txt=";
 constexpr std::time_t kWeek = 7 * 24 * 60 * 60;
 constexpr const char* kLatestApi = "https://api.github.com/repos/KakarottoCake/Riftwii/releases/latest";
 constexpr const char* kUpdateNote = "sd:/riftwii/update.txt";
-constexpr const char* kReleaseByTagApi = "https://api.github.com/repos/KakarottoCake/Riftwii/releases/tags/";
 // The release's themes and channel installer, for the in-app update.
 constexpr const char* kUpdatePackAsset = "riftwii-update.pack";
 // The version whose themes are on the card (ApplyThemePack).
@@ -140,14 +141,14 @@ bool exchange(const HttpUrl& url, const std::string& request, HttpResponse& resp
     return parse_http_response(raw, response, error, head);
 }
 
-bool write_file(const std::string& path, const std::vector<std::uint8_t>& bytes, std::string& error) {
+bool write_file(const std::string& path, const std::uint8_t* bytes, std::size_t size, std::string& error) {
     const std::string temp = path + ".part";
     FILE* f = std::fopen(temp.c_str(), "wb");
     if (!f) {
         error = "cannot write " + temp;
         return false;
     }
-    const bool ok = std::fwrite(bytes.data(), 1, bytes.size(), f) == bytes.size();
+    const bool ok = std::fwrite(bytes, 1, size, f) == size;
     std::fclose(f);
     if (!ok) {
         std::remove(temp.c_str());
@@ -160,6 +161,10 @@ bool write_file(const std::string& path, const std::vector<std::uint8_t>& bytes,
         return false;
     }
     return true;
+}
+
+bool write_file(const std::string& path, const std::vector<std::uint8_t>& bytes, std::string& error) {
+    return write_file(path, bytes.data(), bytes.size(), error);
 }
 
 }  // namespace
@@ -415,19 +420,18 @@ std::string RunningDolPath() {
     return "";
 }
 
-std::string Sha256Hex(const std::vector<std::uint8_t>& bytes) {
+bool Sha256Matches(const std::uint8_t* bytes, std::size_t size, const std::string& expected) {
+    if (expected.size() != 64) return false;
     br_sha256_context ctx;
     br_sha256_init(&ctx);
-    br_sha256_update(&ctx, bytes.data(), bytes.size());
+    br_sha256_update(&ctx, bytes, size);
     unsigned char digest[32];
     br_sha256_out(&ctx, digest);
     static const char hex[] = "0123456789abcdef";
-    std::string out;
-    for (unsigned char b : digest) {
-        out += hex[b >> 4];
-        out += hex[b & 15];
+    for (std::size_t i = 0; i < sizeof(digest); ++i) {
+        if (expected[2 * i] != hex[digest[i] >> 4] || expected[2 * i + 1] != hex[digest[i] & 15]) return false;
     }
-    return out;
+    return true;
 }
 
 // <ahb_access/> before </app> when meta.xml lacks it: the Homebrew
@@ -522,7 +526,86 @@ StartCheck g_start_check;
 // brings its own): riftwii-update.pack, fetched and written by a job of
 // its own once Home has taken the start's check (RunUpdatePacks), once per
 // version, with the screen drawing on. A game launch stops the download.
-std::vector<std::uint8_t> g_update;  // the whole pack, until both parts are written
+// Owns the response and TLS state together. Unlike a raw arena reservation,
+// this returns memory to the heap even after banners and art have loaded.
+class PackDownload {
+public:
+    ~PackDownload() { Release(); }
+    PackDownload() = default;
+    PackDownload(const PackDownload&) = delete;
+    PackDownload& operator=(const PackDownload&) = delete;
+
+    bool Reserve(const ReleaseAsset& asset, std::string& error) {
+        if (block_ != nullptr) {
+            error = "the update pack already has reserved memory";
+            return false;
+        }
+        if (!riftwii_release_asset_url(asset.url) || asset.sha256.empty()) {
+            error = "the update pack has no release URL or SHA-256 to check";
+            return false;
+        }
+        UpdatePackMemory layout;
+        const std::size_t tls_bytes = TlsStream::memory_needed();
+        if (!update_pack_memory_size(asset.size, tls_bytes, layout)) {
+            error = "the update pack has no known size within the 16 MiB limit";
+            return false;
+        }
+        bytes_ = layout.total_bytes;
+        block_ = static_cast<std::uint8_t*>(mem::TryMem2Alloc(bytes_));
+        if (block_ == nullptr) {
+            error = "not enough memory for riftwii-update.pack (" + std::to_string(asset.size) + " bytes)";
+            return false;
+        }
+        get_.buffer = block_;
+        get_.capacity = layout.response_bytes;
+        get_.max_body = static_cast<std::size_t>(asset.size);
+        get_.tls_block = block_ + layout.tls_offset;
+        get_.tls_bytes = tls_bytes;
+        logf("Packs: reserved %u bytes in MEM2 for %s (%llu body bytes), its HTTP headers and TLS state.\n",
+             static_cast<unsigned>(bytes_), kUpdatePackAsset, asset.size);
+        return true;
+    }
+
+    bool Fetch(const ReleaseAsset& asset, std::string& error, const HttpProgress& progress = nullptr) {
+        if (block_ == nullptr) return false;
+        if (!HttpGetInMemory(asset.url, get_, error, 30000, progress, HttpRedirects::GitHubRelease)) return false;
+        if (get_.body_length != asset.size) {
+            error = "riftwii-update.pack did not arrive whole";
+            return false;
+        }
+        return true;
+    }
+
+    bool Check(const ReleaseAsset& asset, std::string& error) const {
+        if (!Sha256Matches(data(), size(), asset.sha256)) {
+            error = "riftwii-update.pack does not match GitHub's SHA-256";
+            return false;
+        }
+        return true;
+    }
+
+    void Release() {
+        if (block_ == nullptr) return;
+        std::free(block_);
+        block_ = nullptr;
+        get_ = MemoryGet{};
+        logf("Packs: released %u bytes from %s to the menu's heap.\n",
+             static_cast<unsigned>(bytes_), kUpdatePackAsset);
+        bytes_ = 0;
+    }
+
+    bool ready() const { return block_ != nullptr; }
+    const std::uint8_t* data() const { return get_.buffer + get_.body_offset; }
+    std::size_t size() const { return get_.body_length; }
+
+private:
+    std::uint8_t* block_ = nullptr;
+    std::size_t bytes_ = 0;
+    MemoryGet get_;
+};
+
+PackDownload g_update;  // the whole pack, until both parts are written
+ReleaseAsset g_update_asset;  // saved before the start-up check can replace update.txt
 volatile bool g_packs_job = false;   // RunUpdatePacks is running
 // Themes the pack retired, with what replaces each: the player's choice is
 // moved off them on Home's thread (TakeUpdatePacks), which owns the
@@ -534,10 +617,9 @@ struct PackKind {
     const char* done;  // holds the version the card has
     const char* label;  // for the log
     std::size_t from = 0, to = 0;  // its part of g_update (empty: nothing to write)
-    bool none = false;  // the release has no pack: nothing to wait for
 };
-PackKind g_themes{kThemePackHeader, kThemesDone, "Themes", 0, 0, false};
-PackKind g_apps{kAppsPackHeader, kAppsDone, "Apps", 0, 0, false};
+PackKind g_themes{kThemePackHeader, kThemesDone, "Themes"};
+PackKind g_apps{kAppsPackHeader, kAppsDone, "Apps"};
 
 std::string FirstLine(const char* path) {
     std::string text;
@@ -550,58 +632,42 @@ std::string FirstLine(const char* path) {
     return text;
 }
 
+void MarkDone(const char* path);
+
+// Nothing will ever come for this version's packs (no pack in the release,
+// none that can be checked, or one that doesn't read): marked done, so
+// nothing waits for them (AppsPackPending holds the channel's update back).
+void GiveUpPacks(const char* why) {
+    logf("Packs: %s; this version's themes and apps are not waited for.\n", why);
+    MarkDone(kThemesDone);
+    MarkDone(kAppsDone);
+}
+
 void FetchPacks() {
-    std::vector<std::uint8_t>().swap(g_update);
     for (PackKind* k : {&g_themes, &g_apps}) {
         k->from = k->to = 0;
-        k->none = false;
     }
     const UpdateNote note = ReadUpdateNote();
-    if (note.installed.empty() || compare_versions(note.installed, RIFTWII_VERSION) != 0) return;
+    if (!Settings().online || !g_update.ready() || note.installed.empty() ||
+        compare_versions(note.installed, RIFTWII_VERSION) != 0) return;
     const bool themes = FirstLine(kThemesDone) != RIFTWII_VERSION;
     const bool apps = FirstLine(kAppsDone) != RIFTWII_VERSION;
     if (!themes && !apps) return;
-    std::string json;
-    {
-        std::vector<std::uint8_t> body;
-        std::string error;
-        if (!HttpGet(kReleaseByTagApi + note.installed, body, error, 512u << 10)) {
-            logf("Packs: cannot ask GitHub about %s: %s\n", note.installed.c_str(), error.c_str());
-            return;
-        }
-        json.assign(body.begin(), body.end());
-    }
-    ReleaseAsset pack;
-    if (!release_asset_from_json(json, kUpdatePackAsset, pack) || pack.url.empty()) {
-        logf("Packs: %s has no %s\n", note.installed.c_str(), kUpdatePackAsset);
-        g_themes.none = g_apps.none = true;
-        return;
-    }
-    if (pack.sha256.empty()) {
-        // As for the DOL: a download that cannot be checked is not used.
-        logf("Packs: GitHub gives no SHA-256 for %s; not used\n", kUpdatePackAsset);
-        g_themes.none = g_apps.none = true;
-        return;
-    }
-    std::vector<std::uint8_t> body;
     std::string error;
-    if (!HttpGet(pack.url, body, error, 16u << 20, 30000, nullptr, HttpRedirects::GitHubRelease)) {
+    // update.txt already names the installed release's asset, size and
+    // digest. Use that snapshot instead of downloading another API answer
+    // and growing two more buffers while the menu is using its memory.
+    if (!g_update.Fetch(g_update_asset, error) || !g_update.Check(g_update_asset, error)) {
         logf("Packs: %s: %s\n", kUpdatePackAsset, error.c_str());
-        return;
-    }
-    if ((pack.size != 0 && body.size() != pack.size) || Sha256Hex(body) != pack.sha256) {
-        logf("Packs: %s did not arrive whole (%u bytes)\n", kUpdatePackAsset, static_cast<unsigned>(body.size()));
         return;
     }
     // The themes part ends where the apps part starts.
     ThemePack first;
     std::size_t split = 0;
-    if (!parse_theme_pack(body.data(), body.size(), first, error, kThemePackHeader, &split)) {
-        logf("Packs: %s: %s\n", kUpdatePackAsset, error.c_str());
-        g_themes.none = g_apps.none = true;
+    if (!parse_theme_pack(g_update.data(), g_update.size(), first, error, kThemePackHeader, &split)) {
+        GiveUpPacks((std::string(kUpdatePackAsset) + ": " + error).c_str());
         return;
     }
-    g_update.swap(body);
     if (themes) {
         g_themes.from = 0;
         g_themes.to = split;
@@ -696,10 +762,6 @@ void MakeFoldersFor(const std::string& path) {
 // retired themes' files removed) or sd:/apps. On the packs job's thread.
 void ApplyPack(PackKind& k) {
     const bool themes = &k == &g_themes;
-    if (k.none) {
-        k.none = false;
-        MarkDone(k.done);
-    }
     if (k.to <= k.from || k.to > g_update.size()) return;
     const std::uint8_t* const bytes = g_update.data() + k.from;
     const std::size_t size = k.to - k.from;
@@ -729,23 +791,28 @@ void ApplyPack(PackKind& k) {
             ++same;
             continue;
         }
-        const std::vector<std::uint8_t> data(bytes + f.offset, bytes + f.offset + f.size);
-        if (write_file(path, data, error)) {
+        if (write_file(path, bytes + f.offset, f.size, error)) {
             ++written;
         } else {
             ++failed;
             logf("%s: %s\n", k.label, error.c_str());
         }
     }
-    for (const RetiredTheme& r : themes ? pack.retired : std::vector<RetiredTheme>()) {
-        const std::string dir = root + r.name;
-        unsigned removed = 0;
-        for (const std::string& name : r.files) removed += std::remove((dir + "/" + name).c_str()) == 0;
-        rmdir(dir.c_str());  // only when nothing of the player's is left in it
-        if (removed) logf("Themes: %s retired (%u file(s) removed)\n", r.name.c_str(), removed);
-        struct stat st;
-        const bool there = !r.replacement.empty() && stat((root + r.replacement).c_str(), &st) == 0;
-        g_retired_themes.emplace_back(r.name, there ? r.replacement : "default");
+    if (themes) {
+        for (const RetiredTheme& r : pack.retired) {
+            const std::string dir = root + r.name;
+            unsigned removed = 0;
+            for (const std::string& name : r.files) removed += std::remove((dir + "/" + name).c_str()) == 0;
+            rmdir(dir.c_str());  // only when nothing of the player's is left in it
+            if (removed) logf("Themes: %s retired (%u file(s) removed)\n", r.name.c_str(), removed);
+            struct stat st;
+            const bool there = !r.replacement.empty() && stat((root + r.replacement).c_str(), &st) == 0;
+            if (!try_push_back(g_retired_themes, std::make_pair(r.name, there ? r.replacement : std::string("default")))) {
+                ++failed;
+                logf("Themes: not enough memory to remember a retired theme; it is tried at a later start.\n");
+                break;
+            }
+        }
     }
     logf("%s: %u file(s) brought up to %s's, %u already were%s\n", k.label, written, RIFTWII_VERSION, same,
          failed ? " (some could not be written; tried again next start)" : "");
@@ -758,6 +825,7 @@ void ApplyPack(PackKind& k) {
 void RunStartCheck() {
     StartCheck& c = g_start_check;
     c.ok = CheckLatestRelease(false, c.latest, c.newer, c.error);
+    if (c.ok && c.newer) ReleaseUpdatePacks();
 }
 
 void RunUpdatePacks() {
@@ -765,25 +833,71 @@ void RunUpdatePacks() {
     FetchPacks();
     ApplyPack(g_themes);
     ApplyPack(g_apps);
-    std::vector<std::uint8_t>().swap(g_update);
+    g_update.Release();
     g_retired_ready = true;
     g_packs_job = false;
 }
 
 }  // namespace
 
+void ReserveUpdatePacks() {
+    if (!Settings().online) return;
+    const UpdateNote note = ReadUpdateNote();
+    if (note.installed.empty() || compare_versions(note.installed, RIFTWII_VERSION) != 0 ||
+        (FirstLine(kThemesDone) == RIFTWII_VERSION && FirstLine(kAppsDone) == RIFTWII_VERSION)) return;
+    // The start-up check will overwrite the latest release's asset. Save
+    // only metadata that still belongs to the version installed here.
+    if (compare_versions(note.latest, note.installed) != 0) {
+        logf("Packs: the saved download describes another release; %s is tried at a later start.\n", kUpdatePackAsset);
+        return;
+    }
+    if (note.pack.url.empty()) {
+        GiveUpPacks((note.installed + " has no " + kUpdatePackAsset).c_str());
+        return;
+    }
+    if (note.pack.size == 0) {
+        // Noted by a RiftWii older than 2026-10-18: the block can't be sized.
+        GiveUpPacks((std::string("update.txt gives no size for ") + kUpdatePackAsset).c_str());
+        return;
+    }
+    if (note.pack.sha256.empty()) {
+        // As for the DOL: a download that cannot be checked is not used.
+        GiveUpPacks((std::string("GitHub gives no SHA-256 for ") + kUpdatePackAsset).c_str());
+        return;
+    }
+    std::string error;
+    if (!g_update.Reserve(note.pack, error)) {
+        logf("Packs: %s on this start; it is tried at a later start.\n", error.c_str());
+        return;
+    }
+    g_update_asset = note.pack;
+}
+
+void ReleaseUpdatePacks() {
+    if (g_packs_job) return;
+    g_update.Release();
+    g_update_asset = ReleaseAsset{};
+}
+
 bool CheckForUpdate(bool force, std::string& latest, bool& newer, std::string& error) {
     // This answer replaces the start's, which is not asked about again.
     NetWaitForBackground();
     g_start_check.taken = true;
+    ReleaseUpdatePacks();
     return CheckLatestRelease(force, latest, newer, error);
 }
 
 void StartUpdateCheck() {
-    if (NetBackgroundBusy()) return;
+    if (NetBackgroundBusy()) {
+        ReleaseUpdatePacks();
+        return;
+    }
     g_start_check = StartCheck{};
     g_start_check.taken = false;
-    NetRunInBackground(RunStartCheck);
+    if (!NetRunInBackground(RunStartCheck)) {
+        g_start_check.taken = true;
+        ReleaseUpdatePacks();
+    }
 }
 
 bool TakeUpdateCheck(bool& ok, std::string& latest, bool& newer, std::string& error) {
@@ -797,10 +911,16 @@ bool TakeUpdateCheck(bool& ok, std::string& latest, bool& newer, std::string& er
     // The themes and apps of the version just installed, unless a newer one
     // is offered now (its own update brings them).
     const UpdateNote note = ReadUpdateNote();
-    if (!(ok && newer) && !note.installed.empty() && compare_versions(note.installed, RIFTWII_VERSION) == 0 &&
+    if (Settings().online && g_update.ready() && !(ok && newer) && !note.installed.empty() &&
+        compare_versions(note.installed, RIFTWII_VERSION) == 0 &&
         (FirstLine(kThemesDone) != RIFTWII_VERSION || FirstLine(kAppsDone) != RIFTWII_VERSION)) {
         g_packs_job = true;
-        if (!NetRunInBackground(RunUpdatePacks, true)) g_packs_job = false;
+        if (!NetRunInBackground(RunUpdatePacks, true)) {
+            g_packs_job = false;
+            ReleaseUpdatePacks();
+        }
+    } else {
+        ReleaseUpdatePacks();
     }
     return true;
 }
@@ -808,6 +928,7 @@ bool TakeUpdateCheck(bool& ok, std::string& latest, bool& newer, std::string& er
 bool UpdatePacksBusy() { return g_packs_job; }
 
 void TakeUpdatePacks() {
+    if (!Settings().online && !g_packs_job) ReleaseUpdatePacks();
     if (!g_retired_ready || g_packs_job) return;
     g_retired_ready = false;
     for (const auto& r : g_retired_themes) {
@@ -891,28 +1012,24 @@ bool WriteUpdatePlugins(const UpdateNote& note, const std::string& latest, const
                 ", so its plugins cannot be checked. Download it from " + kReleasesPage + " instead";
         return false;
     }
-    std::vector<std::uint8_t> pack;
+    PackDownload pack;
+    if (!pack.Reserve(note.pack, error)) return false;
     // The pack is several MB, as long a download as the DOL: a tester's
     // Wii spent about six minutes here with the bar standing still.
     logf("Update: downloading %s (%u bytes) for the plugins\n", kUpdatePackAsset,
          static_cast<unsigned>(note.pack.size));
     report(UpdateStep::DownloadingPlugins, 0, note.pack.size);
-    // Set even when the release gives no size (total 0), so the text and
-    // the screen's activity still follow the bytes.
     const std::uint64_t total = note.pack.size;
     const HttpProgress got = [&report, total](std::size_t received) {
-        report(UpdateStep::DownloadingPlugins, total != 0 ? std::min<std::uint64_t>(received, total) : received, total);
+        report(UpdateStep::DownloadingPlugins, std::min<std::uint64_t>(received, total), total);
     };
-    if (!HttpGet(note.pack.url, pack, error, 16u << 20, 30000, got, HttpRedirects::GitHubRelease)) {
+    if (!pack.Fetch(note.pack, error, got)) {
         error = std::string("the update's ") + kUpdatePackAsset + ": " + error;
         return false;
     }
     logf("Update: %s downloaded (%u bytes); checking it\n", kUpdatePackAsset, static_cast<unsigned>(pack.size()));
     report(UpdateStep::CheckingPlugins, pack.size(), pack.size());
-    if ((note.pack.size != 0 && pack.size() != note.pack.size) || Sha256Hex(pack) != note.pack.sha256) {
-        error = std::string("the update's ") + kUpdatePackAsset + " does not match GitHub's SHA-256";
-        return false;
-    }
+    if (!pack.Check(note.pack, error)) return false;
     // The themes part ends where the apps part, with the plugins, starts.
     ThemePack themes;
     std::size_t split = 0;
@@ -940,8 +1057,7 @@ bool WriteUpdatePlugins(const UpdateNote& note, const std::string& latest, const
             ++same;
             continue;
         }
-        const std::vector<std::uint8_t> data(bytes + w.offset, bytes + w.offset + w.size);
-        if (!write_file(w.path, data, error)) {
+        if (!write_file(w.path, bytes + w.offset, w.size, error)) {
             error = "the update's file " + w.path + " could not be written (" + error + "); RiftWii was not changed";
             return false;
         }
@@ -956,6 +1072,8 @@ bool WriteUpdatePlugins(const UpdateNote& note, const std::string& latest, const
 
 bool InstallUpdate(const std::string& latest, std::string& where, std::string& error,
                    const std::function<void(const UpdateProgress&)>& progress) {
+    NetWaitForBackground();
+    ReleaseUpdatePacks();
     UpdateNote note = ReadUpdateNote();
     if (note.latest != latest || note.dol.url.empty()) {
         error = "release " + latest + " has no riftwii.dol attached";
@@ -994,7 +1112,7 @@ bool InstallUpdate(const std::string& latest, std::string& where, std::string& e
     std::vector<std::uint8_t> body;
     // GitHub's redirect answers are small; the DOL is the bulk (headers
     // make the count a hair early, so it is capped at the size).
-    // Set even when the release gives no size (total 0), as for the pack.
+    // Keep reporting bytes even when GitHub gave no DOL size (total 0).
     const HttpProgress got = [&report, dol_total](std::size_t received) {
         report(UpdateStep::DownloadingDol, dol_total != 0 ? std::min<std::uint64_t>(received, dol_total) : received,
                dol_total);
@@ -1018,7 +1136,7 @@ bool InstallUpdate(const std::string& latest, std::string& where, std::string& e
                 std::string(kReleasesPage) + " instead";
         return false;
     }
-    if (Sha256Hex(body) != note.dol.sha256) {
+    if (!Sha256Matches(body.data(), body.size(), note.dol.sha256)) {
         error = "the download does not match GitHub's SHA-256";
         return false;
     }

@@ -26,6 +26,18 @@ struct ReleaseAsset {
     std::string sha256;
     unsigned long long size = 0;
 };
+
+constexpr std::size_t kMaxUpdatePackBytes = 16u << 20;
+
+// One download buffer: the known body, room for HTTP headers/chunk framing,
+// then aligned caller-owned TLS state. Unknown or excessive sizes are refused
+// before asking the allocator; no body-sized copy is needed afterwards.
+struct UpdatePackMemory {
+    std::size_t response_bytes = 0;
+    std::size_t tls_offset = 0;
+    std::size_t total_bytes = 0;
+};
+bool update_pack_memory_size(unsigned long long pack_bytes, std::size_t tls_bytes, UpdatePackMemory& out);
 // Whether `url` is a file of one of RiftWii's own releases:
 // https://github.com/<owner>/Riftwii/releases/download/..., the owner
 // KakarottoCake or the RiftWii organization (where the repository may move;

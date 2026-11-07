@@ -2964,7 +2964,29 @@ static void test_last_game_key() {
     EXPECT_EQ(last_game_key(PlayHistory{}, false, "RMCE01"), "RMCE01");
 }
 
+static void TestUpdatePackMemory() {
+    riftwii::UpdatePackMemory memory;
+    constexpr std::size_t kTlsBytes = 33001;
+    EXPECT_TRUE(riftwii::update_pack_memory_size(7520256, kTlsBytes, memory));
+    EXPECT_EQ(memory.response_bytes, 7520256u + (64u << 10));
+    EXPECT_EQ(memory.tls_offset % 32, 0u);
+    EXPECT_TRUE(memory.tls_offset >= memory.response_bytes);
+    EXPECT_EQ(memory.total_bytes, memory.tls_offset + kTlsBytes);
+
+    // The TLS region stays aligned even for a body with an odd size.
+    EXPECT_TRUE(riftwii::update_pack_memory_size(1, kTlsBytes, memory));
+    EXPECT_EQ(memory.tls_offset - memory.response_bytes, 31u);
+    EXPECT_TRUE(riftwii::update_pack_memory_size(riftwii::kMaxUpdatePackBytes, 0, memory));
+    EXPECT_TRUE(!riftwii::update_pack_memory_size(0, kTlsBytes, memory));
+    EXPECT_EQ(memory.total_bytes, 0u);
+    EXPECT_TRUE(!riftwii::update_pack_memory_size(riftwii::kMaxUpdatePackBytes + 1, kTlsBytes, memory));
+    EXPECT_TRUE(!riftwii::update_pack_memory_size(~0ull, kTlsBytes, memory));
+    EXPECT_TRUE(!riftwii::update_pack_memory_size(1, ~std::size_t(0), memory));
+    EXPECT_EQ(memory.total_bytes, 0u);
+}
+
 int main() {
+    TestUpdatePackMemory();
     test_last_game_key();
     test_last_game_countdown();
     TestPlayLogRecord();

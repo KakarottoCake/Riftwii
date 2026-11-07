@@ -3,6 +3,7 @@
 #include "riftwii/themepack.hpp"
 
 #include "riftwii/textlines.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 namespace riftwii {
 
@@ -75,9 +76,15 @@ bool parse_theme_pack(const std::uint8_t* data, std::size_t size, ThemePack& out
                     error = "a retired theme's file with a bad name: " + f;
                     return false;
                 }
-                r.files.push_back(f);
+                if (!try_push_back(r.files, std::move(f))) {
+                    error = "not enough memory for a retired theme's file list";
+                    return false;
+                }
             }
-            out.retired.push_back(r);
+            if (!try_push_back(out.retired, std::move(r))) {
+                error = "not enough memory for the pack's retired themes";
+                return false;
+            }
             continue;
         }
         if (text.compare(0, 5, "file ") == 0) {
@@ -102,7 +109,10 @@ bool parse_theme_pack(const std::uint8_t* data, std::size_t size, ThemePack& out
                 return false;
             }
             at += f.size + 1;
-            out.files.push_back(f);
+            if (!try_push_back(out.files, std::move(f))) {
+                error = "not enough memory for the pack's file list";
+                return false;
+            }
             continue;
         }
         error = "a line the pack should not have: " + text.substr(0, 60);
