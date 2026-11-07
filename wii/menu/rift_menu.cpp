@@ -2012,8 +2012,13 @@ static void UpdateModCoverIds()
 	seenTiles = tiles;
 	logf("Mod covers: %u of %u mod tile(s) are listed on GameTDB as games of their own\n", matched,
 	     static_cast<unsigned>(riftwii::wii::Profiles().all().size()));
-	// The tiles checked before, without a match then, are checked again.
-	for (const riftwii::Profile& p : riftwii::wii::Profiles().all()) g_coversChecked.erase(p.key());
+	// The tiles checked before, without a match then, are checked again:
+	// their own cover, box and 3D cover.
+	for (const riftwii::Profile& p : riftwii::wii::Profiles().all()) {
+		g_coversChecked.erase(p.key());
+		g_boxesChecked.erase(p.key());
+		g_covers3dChecked.erase(p.key());
+	}
 }
 
 static bool& CoverDownloadsOff(const std::string& game)
@@ -14872,6 +14877,16 @@ static int MenuHome(FrontendState& state)
 			if (riftwii::wii::TakeBoxFetch(id, got, error)) {
 				if (got == riftwii::wii::CoverFetch::Stored) riftwii::wii::ForgetBox(id);
 				if (CountPictureFetch(g_boxRun, got, id, error)) g_boxesOff = true;
+				// GameTDB has no box for the mod tile: the game's, which the
+				// page shows then, is asked for next. Only another name than
+				// the one answered, so nothing is asked for twice.
+				if (!boxStart && got == riftwii::wii::CoverFetch::NotFound) {
+					const std::string next = pageBoxWanted();
+					if (!next.empty() && next != id) {
+						boxStartName = next;
+						boxStart = true;
+					}
+				}
 			}
 		}
 		// The disc's picture, once the cover's and the box's are done: one
