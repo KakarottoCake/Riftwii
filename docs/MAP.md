@@ -503,6 +503,7 @@ and the `*_mock/` folders provide synthetic files, discs and hardware calls.
 | `bannerdump.cpp` | Inspecting banner layouts, animation and textures |
 | `menusound_render.cpp` | Rendering a named Wii sound/sequence for inspection |
 | `make_bookshelf_theme.py`, `make_indigo_theme.py` | Generating the built-in themes' artwork |
+| `shrink_theme_pictures.py` | Makes a theme's PNGs smaller with no visible change (6-bit colour; backdrop frames as the menu's RGB565) |
 | `make_case_colours.py`, `make_offline_games.py` | GameTDB-derived case-color and offline-game tables |
 | `make_input_icons.py`, `make_korean_font.py`, `korean_title_chars.txt` | Generated button artwork, the Korean font subset and its title characters |
 | `gx_kirby_table.py` | Generating the Kirby game-fix table |
