@@ -44,4 +44,13 @@ bool CanRestart();
 // is false after a crash, when the card's lock may be held.
 bool WarmRestart(RestartKind kind, const std::string& message, bool unmount = true);
 
+// A launch that changes memory it must put back if it fails names how
+// (wii/launch/boot.cpp, StarterLeftovers: the Homebrew Channel's return
+// stub). The ways out that never go back to the launch, the out-of-memory
+// handler (memlimits.cpp) and the crash handler (crash.cpp), run it before
+// they restart RiftWii or leave. Runs it at most once; nothing set, nothing
+// done. The undo must not log or touch the card (a crash may hold its lock).
+void SetLaunchUndo(void (*undo)());
+void RunLaunchUndo();
+
 }  // namespace riftwii::wii

@@ -77,6 +77,7 @@
 #include "d2xsave.hpp"
 #include "channel.hpp"
 #include "loadersettings.hpp"
+#include "restart.hpp"
 #include "riftwii/symsearch.hpp"
 #include "riftwii/vsdparts.hpp"
 #include "riftwii/wpadlog.hpp"
@@ -1739,15 +1740,18 @@ public:
              static_cast<unsigned>(low[0]), static_cast<unsigned>(low[1]), static_cast<unsigned>(low[2]),
              static_cast<unsigned>(low[3]), static_cast<unsigned>(low[(0x80002800 - kRoomStart) / 4]));
         std::memcpy(g_saved, reinterpret_cast<const void*>(kRoomStart), kBytes);
-        saved_ = true;
+        g_pending = true;
         std::memset(reinterpret_cast<void*>(kRoomStart), 0, kBytes);
         settle();
+        // The out-of-memory and crash handlers leave without coming back
+        // here, so they put the copy back through this (restart.hpp).
+        SetLaunchUndo(put_back);
     }
 
     ~StarterLeftovers() {
-        if (!saved_) return;
-        std::memcpy(reinterpret_cast<void*>(kRoomStart), g_saved, kBytes);
-        settle();
+        SetLaunchUndo(nullptr);
+        if (!g_pending) return;
+        put_back();
         logf("Low memory 0x%08x-0x%08x: put back as it was, the launch having failed\n",
              static_cast<unsigned>(kRoomStart), static_cast<unsigned>(kRoomEnd));
     }
@@ -1755,7 +1759,10 @@ public:
     // The launch is past its point of no return (libogc shut down, the
     // game's last pieces about to go over this loader's memory, the copy
     // included): nothing is put back from here on.
-    void game_takes_over() { saved_ = false; }
+    void game_takes_over() {
+        SetLaunchUndo(nullptr);
+        g_pending = false;
+    }
 
     StarterLeftovers(const StarterLeftovers&) = delete;
     StarterLeftovers& operator=(const StarterLeftovers&) = delete;
@@ -1772,12 +1779,22 @@ private:
         ICInvalidateRange(reinterpret_cast<void*>(kRoomStart), kBytes);
     }
 
+    // Writes no log: the crash handler runs it too, and a crash may hold
+    // the card.
+    static void put_back() {
+        if (!g_pending) return;
+        g_pending = false;
+        std::memcpy(reinterpret_cast<void*>(kRoomStart), g_saved, kBytes);
+        settle();
+    }
+
     // One launch at a time, so one copy (6 KB, in the loader's own memory).
     static std::uint8_t g_saved[kBytes];
-    bool saved_ = false;
+    static bool g_pending;
 };
 
 std::uint8_t StarterLeftovers::g_saved[StarterLeftovers::kBytes];
+bool StarterLeftovers::g_pending = false;
 
 // `known_os_restart`: OSRestart as found before the runtime hooked it (0:
 // not hooked), the address the switch calls then.
