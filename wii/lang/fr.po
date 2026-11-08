@@ -618,6 +618,9 @@ msgstr "Expérimental. L'adaptateur n'est pas utilisé."
 msgid "Adapter: working"
 msgstr "Adaptateur : fonctionnel"
 
+msgid "Adapter: working. For rumble, plug in its gray USB plug too."
+msgstr "Adaptateur : fonctionnel. Pour les vibrations, branchez aussi sa prise USB grise."
+
 msgid "Adapter: starting..."
 msgstr "Adaptateur : démarrage..."
 
@@ -1485,8 +1488,8 @@ msgstr "Journaux de plantage"
 msgid "On: the way back to RiftWii, Reset, this page's game settings, the 480p fix and online play. Off: as the mod's own loader. Ask every launch: this question at every launch."
 msgstr "Activé : retour à RiftWii, Reset, les réglages du jeu de cette page, le correctif 480p et le jeu en ligne. Désactivé : comme son propre chargeur. Demander à chaque fois : cette question à chaque lancement."
 
-msgid "Off: no crash report. On: saves a crash report to the SD card if {1} crashes, using about 8 KB of the game's memory (some mods freeze with it on)."
-msgstr "Désactivé : pas de rapport. Activé : enregistre un rapport sur la carte SD si {1} plante, avec environ 8 Ko de la mémoire du jeu (certains mods se figent avec)."
+msgid "Off: no crash report. On: saves a crash report to the SD card if {1} crashes, using about 4 KB of the game's memory (some mods freeze with it on)."
+msgstr "Désactivé : pas de rapport. Activé : enregistre un rapport sur la carte SD si {1} plante, avec environ 4 Ko de la mémoire du jeu (certains mods se figent avec)."
 
 msgid "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes."
 msgstr "Impossible d'écrire sd:/riftwii/codemods.txt : la réponse vaut jusqu'à la fermeture de RiftWii."

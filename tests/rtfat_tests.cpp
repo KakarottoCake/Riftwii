@@ -15,6 +15,8 @@
 #include <vector>
 
 #include "fat32_image.hpp"
+#include "rtfat_test_buffers.hpp"
+#include "fs_trace.hpp"
 #include "riftwii/fat32.hpp"
 
 static int g_failures = 0;
@@ -72,12 +74,12 @@ struct Low {
     static constexpr std::size_t kBounce = 2048;
     static constexpr std::size_t kData = 1 << 20;
     Low() {
-        base = LowBuffer(sizeof(rtfat_op) + 64 + kBounce + kData);
+        base = LowBuffer(sizeof(rtfat_op) + 1024 + 64 + kBounce + kData);
         if (!base) return;
         std::uintptr_t p = (reinterpret_cast<std::uintptr_t>(base) + 31) & ~std::uintptr_t(31);
         op = reinterpret_cast<rtfat_op*>(p);
         p = (p + sizeof(rtfat_op) + 31) & ~std::uintptr_t(31);
-        bounce = reinterpret_cast<std::uint8_t*>(p);
+        bounce = reinterpret_cast<std::uint8_t*>(p + 1024);
         data = bounce + kBounce;
     }
 };
@@ -94,6 +96,19 @@ struct Device {
     explicit Device(Image& i) : img(i) {}
     void reset() { reads = writes = attempts = 0; fail_at = fail_at2 = 0; history.clear(); }
     int transfer(const rtfat_op& op) {
+        ++fs_trace::transfers;
+        fs_trace::Value(op.io_lba);
+        fs_trace::Value(op.io_count);
+        fs_trace::Value(op.io_write);
+        const int status = perform_transfer(op);
+        fs_trace::Value(status);
+        if (status == 0) {
+            const auto* data = reinterpret_cast<const std::uint8_t*>(static_cast<std::uintptr_t>(op.io_buffer));
+            fs_trace::Bytes(data, std::size_t(op.io_count) * 512);
+        }
+        return status;
+    }
+    int perform_transfer(const rtfat_op& op) {
         const std::uint64_t start = std::uint64_t(op.io_lba) * 512;
         const std::uint64_t bytes = std::uint64_t(op.io_count) * 512;
         ++attempts;
@@ -114,10 +129,37 @@ struct Device {
 
 // Runs an operation to completion the synchronous way: step, transfer, step...
 std::int32_t Run(rtfat_volume& vol, rtfat_op& op, Device& dev, std::uint32_t kind) {
+    BindFatTestBuffers(op);
     rtfat_begin(&op, kind);
     for (int guard = 0; guard < 100000; ++guard) {
         const int r = rtfat_step(&vol, &op);
-        if (r == RTFAT_DONE) return op.result;
+        if (r == RTFAT_DONE) {
+            fs_trace::Value(kind);
+            fs_trace::Value(op.result);
+            fs_trace::Value(vol);
+            const auto trace_entry = [](const rtfat_dirent& entry) {
+                // A scan fills names through their NUL, not their unused
+                // tail or structure padding, which can contain stack bytes.
+                fs_trace::Bytes(&entry, offsetof(rtfat_dirent, name));
+                fs_trace::Bytes(entry.name, std::strlen(entry.name) + 1);
+                fs_trace::Bytes(entry.alias, std::strlen(entry.alias) + 1);
+            };
+            trace_entry(op.found);
+            trace_entry(op.source);
+            fs_trace::Value(op.usage_blocks);
+            fs_trace::Value(op.cursor_cluster);
+            fs_trace::Value(op.cursor_sector);
+            fs_trace::Value(op.cursor_index);
+            if (kind == RTFAT_OP_READ && op.buffer != 0) {
+                fs_trace::Bytes(reinterpret_cast<const void*>(static_cast<std::uintptr_t>(op.buffer)), op.data_done);
+            }
+            if (kind == RTFAT_OP_LIST && op.buffer != 0) {
+                fs_trace::Bytes(reinterpret_cast<const void*>(static_cast<std::uintptr_t>(op.buffer)), op.list_bytes);
+            }
+            if (op.file) fs_trace::Value(*op.file);
+            fs_trace::Image(dev.img.bytes.data(), dev.img.bytes.size());
+            return op.result;
+        }
         op.io_status = dev.transfer(op);
     }
     std::cerr << "FAILED: operation did not finish" << std::endl;
@@ -1575,7 +1617,211 @@ static void TestCommitOverExisting(Low& low) {
     EXPECT_EQ(Run(vol, op, dev, RTFAT_OP_LOOKUP), RTFAT_OK);
 }
 
-int main() {
+static void TestRecoveryFailures(Low& low) {
+    Fixture prepared;
+    FillDirectoryForGrowth(prepared, *low.op);
+    const Bytes full_directory = prepared.img.bytes;
+    const rtfat_volume volume = prepared.vol;
+    auto grow = [&](Fixture& fixture, std::uint32_t first_failure, std::uint32_t second_failure) {
+        fixture.img.bytes = full_directory;
+        fixture.vol = volume;
+        fixture.dev.reset();
+        fixture.dev.fail_at = first_failure;
+        fixture.dev.fail_at2 = second_failure;
+        std::memset(low.op, 0, sizeof(*low.op));
+        SetName(low.op->name, "GROWN.SAV");
+        return Run(fixture.vol, *low.op, fixture.dev, RTFAT_OP_CREATE);
+    };
+    Fixture success;
+    EXPECT_EQ(grow(success, 0, 0), RTFAT_OK);
+    const auto ordinary_transfers = success.dev.attempts;
+    std::uint32_t recovery_failures = 0;
+    for (std::uint32_t first = 1; first <= ordinary_transfers; ++first) {
+        Fixture recovered;
+        EXPECT_EQ(grow(recovered, first, 0), RTFAT_EIO);
+        EXPECT_EQ(recovered.vol.mutation_uncertain, 0u);
+        const auto recovery_end = recovered.dev.attempts;
+        // Inject an additional failure at every read and write in every
+        // recovery sweep, including both FAT copies and both clusters.
+        for (std::uint32_t second = first + 1; second <= recovery_end; ++second) {
+            Fixture failed;
+            EXPECT_EQ(grow(failed, first, second), RTFAT_EIO);
+            EXPECT_TRUE(failed.dev.attempts >= second);
+            EXPECT_EQ(failed.vol.mutation_uncertain, 1u);
+            ++recovery_failures;
+        }
+    }
+    EXPECT_TRUE(recovery_failures >= 32u);
+}
+
+static void TestTransferBufferCalls(Low& low) {
+    Fixture fx(64);
+    auto* bounce = LowBuffer(16384);
+    if (!bounce) {
+        ++g_failures;
+        return;
+    }
+    rtfat_op& op = *low.op;
+    std::memset(&op, 0, sizeof(op));
+    SetName(op.name, "banner.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_OK);
+    const rtfat_dirent entry = op.found;
+    auto read_with_buffer = [&](std::uint32_t bounce_bytes) {
+        rtfat_file file{};
+        file.first_cluster = entry.first_cluster;
+        file.size = entry.size;
+        file.entry_lba = entry.entry_lba;
+        file.entry_index = entry.entry_index;
+        op.file = &file;
+        op.buffer = Addr(low.data);
+        op.length = entry.size;
+        op.bounce = Addr(bounce);
+        op.bounce_bytes = bounce_bytes;
+        fx.dev.reset();
+        EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_READ), static_cast<std::int32_t>(entry.size));
+        EXPECT_TRUE(std::memcmp(low.data, fx.banner.data(), fx.banner.size()) == 0);
+        return fx.dev.attempts;
+    };
+    // Two fragmented clusters: the unchanged 16 KiB buffer takes three
+    // data reads and one FAT read. Halving it adds two IOS requests.
+    EXPECT_EQ(read_with_buffer(16384), 4u);
+    EXPECT_EQ(read_with_buffer(8192), 6u);
+}
+
+#ifndef RTFAT_REFERENCE
+// ---- direct transfers ----------------------------------------------------------
+
+// With fast_io, whole sectors that sit 32-byte aligned in the caller's
+// buffer move straight between it and the card, a cluster per transfer;
+// partial sectors and misaligned buffers go through the bounce as before.
+// The reference engine has no fast_io, so this runs with the transcript
+// paused: the differential test compares the scenarios both engines share.
+static void TestDirect(Low& low) {
+    std::FILE* const transcript = fs_trace::output;
+    const std::uint64_t transfers = fs_trace::transfers;
+    fs_trace::output = nullptr;
+    Fixture fx(16);  // 8 KiB clusters, four times the 2 KiB bounce
+    rtfat_op& op = *low.op;
+    std::memset(&op, 0, sizeof(op));
+    const std::uint32_t cb = fx.img.cluster_bytes();
+    EXPECT_EQ(cb, 8192u);
+    SetName(op.name, "rksys.dat");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_OK);
+    rtfat_file file{};
+    file.first_cluster = op.found.first_cluster;
+    file.size = op.found.size;
+    file.entry_lba = op.found.entry_lba;
+    file.entry_index = op.found.entry_index;
+    op.file = &file;
+    op.bounce = Addr(low.bounce);
+    op.bounce_bytes = Low::kBounce;
+
+    struct ReadCase {
+        std::uint32_t fast_io, misalign, reads;
+    };
+    const ReadCase reads[] = {
+        {0, 0, 1 + 3 * 4},  // the FAT sector, then each cluster in four bounce loads
+        {1, 0, 1 + 3},      // each cluster in one transfer, into the buffer itself
+        {1, 4, 1 + 3 * 4},  // misaligned: through the bounce
+    };
+    for (const ReadCase& rc : reads) {
+        std::uint8_t* const buffer = low.data + rc.misalign;
+        std::memset(low.data, 0xAA, 3 * cb + 64);
+        file.position = 0;
+        file.cache_cluster = 0;
+        op.fast_io = rc.fast_io;
+        op.buffer = Addr(buffer);
+        op.length = 3 * cb;
+        fx.dev.reset();
+        EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_READ), std::int32_t(3 * cb));
+        EXPECT_EQ(std::memcmp(buffer, fx.rksys.data(), 3 * cb), 0);
+        EXPECT_EQ(buffer[3 * cb], 0xAA);  // nothing past the request
+        EXPECT_EQ(fx.dev.reads, rc.reads);
+    }
+
+    // A read that starts and ends inside sectors: the partial sectors at
+    // both ends through the bounce, the whole ones between straight in.
+    file.position = 100;
+    file.cache_cluster = 0;
+    op.fast_io = 1;
+    op.buffer = Addr(low.data);
+    op.length = 2 * cb;
+    std::memset(low.data, 0xAA, 2 * cb + 64);
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_READ), std::int32_t(2 * cb));
+    EXPECT_EQ(std::memcmp(low.data, fx.rksys.data() + 100, 2 * cb), 0);
+    EXPECT_EQ(low.data[2 * cb], 0xAA);
+
+    // Overwriting the whole file: one write per cluster, no reads of the
+    // old content and no entry write (the size is unchanged).
+    Bytes model = pattern(3 * cb, 0x5A);
+    std::memcpy(low.data, model.data(), model.size());
+    file.position = 0;
+    file.cache_cluster = 0;
+    op.length = 3 * cb;
+    fx.dev.reset();
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_WRITE), std::int32_t(3 * cb));
+    EXPECT_EQ(fx.dev.writes, 3u);
+    EXPECT_EQ(fx.dev.reads, 1u);  // the FAT sector for the chain
+    EXPECT_TRUE(fx.host_read("rksys.dat") == model);
+
+    // Ending inside a sector over existing content: the whole sectors
+    // straight out, the last partial one read, merged and written.
+    Bytes part = pattern(cb + 700, 0x6B);
+    std::memcpy(low.data, part.data(), part.size());
+    file.position = 0;
+    file.cache_cluster = 0;
+    op.length = std::uint32_t(part.size());
+    fx.dev.reset();
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_WRITE), std::int32_t(part.size()));
+    std::memcpy(model.data(), part.data(), part.size());
+    EXPECT_TRUE(fx.host_read("rksys.dat") == model);
+    EXPECT_EQ(fx.dev.writes, 3u);  // the first cluster, its next sector, the partial one
+    EXPECT_EQ(fx.dev.reads, 2u);   // the FAT sector and the partial sector's old bytes
+
+    // Growing the file straight from the buffer: new clusters, both FATs,
+    // the entry, and the data where it belongs.
+    Bytes grow = pattern(2 * cb, 0x7C);
+    std::memcpy(low.data, grow.data(), grow.size());
+    file.position = file.size;
+    op.length = std::uint32_t(grow.size());
+    fx.dev.reset();
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_WRITE), std::int32_t(grow.size()));
+    cat(model, grow);
+    EXPECT_EQ(file.size, std::uint32_t(model.size()));
+    EXPECT_TRUE(fx.host_read("rksys.dat") == model);
+    // Two new clusters, each taken and linked in one write per FAT copy
+    // (the fixture keeps two): 2 x 2 FAT writes, the two clusters' data,
+    // the entry.
+    EXPECT_EQ(fx.dev.writes, 2u * 2u + 2u + 1u);
+    {
+        const std::uint32_t last = file.first_cluster;
+        std::uint32_t c = last;
+        std::uint32_t chain = 1;
+        while (fx.fat(c) < 0x0FFFFFF8u && chain < 10) {
+            EXPECT_EQ(fx.fat(c), fx.fat(c, 1));  // both copies agree
+            c = fx.fat(c);
+            ++chain;
+        }
+        EXPECT_EQ(chain, 5u);  // three clusters before, two new
+        EXPECT_EQ(fx.fat(c, 1), 0x0FFFFFFFu);
+    }
+
+    // A failed direct write ends the operation with EIO, as a bounced one does.
+    file.position = 0;
+    file.cache_cluster = 0;
+    op.length = cb;
+    fx.dev.reset();
+    fx.dev.fail_at = 1;  // the first cluster needs no FAT read: the data write itself
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_WRITE), RTFAT_EIO);
+    fx.dev.reset();
+    op.fast_io = 0;
+    fs_trace::transfers = transfers;
+    fs_trace::output = transcript;
+}
+#endif
+
+int main(int argc, char** argv) {
+    fs_trace::Open(argc, argv);
     Low low;
     if (!low.op) {
         std::cerr << "no memory below 4 GiB on this host; skipping the engine tests" << std::endl;
@@ -1601,6 +1847,12 @@ int main() {
     TestList(low);
     TestUsageSizeLimits(low);
     TestGeometry(low);
+    TestTransferBufferCalls(low);
+    TestRecoveryFailures(low);
+#ifndef RTFAT_REFERENCE
+    TestDirect(low);
+#endif
     if (g_failures == 0) std::cout << "rtfat tests passed" << std::endl;
+    fs_trace::Close();
     return g_failures == 0 ? 0 : 1;
 }

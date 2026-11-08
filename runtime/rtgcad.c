@@ -19,11 +19,11 @@
 #define GCAD_PEERS(g) ((void)(g), (gcad*)0)
 #define GCAD_NPEERS(g) ((void)(g), 0u)
 #define GCAD_PEER(g, i) ((void)(g), (void)(i), (gcad*)0)
-#define GCAD_MAPPING(g) ((void)(g), (const rthid_mapping*)0)
+#define GCAD_MAPPING(g) ((void)(g), (const rthid_layout*)0)
 #define GCAD_VEN(g) ((void)(g), 0)
 #define GCAD_VEN_LIST(g) ((void)(g), (gcad*)0)
 #define GCAD_CATALOG(g) ((void)(g), (const rthid_catalog*)0)
-#define GCAD_XBOX(g) ((void)(g), (rthid_mapping*)0)
+#define GCAD_XBOX(g) ((void)(g), (gcad_xbox_layout*)0)
 #else
 #define GCAD_PEERS(g) ((g)->peers)
 #define GCAD_NPEERS(g) ((uint32_t)(g)->peer_count)
@@ -138,18 +138,23 @@ int gcad_xbox_decode(const uint8_t* report, uint32_t bytes, gcad_pad* out) {
     return 1;
 }
 
-/* The built-in mapping: no config file (rthid_builtin); gcad_xbox_decode
- * reads the report. Rumble: both motors full, or both off. */
-static void xbox_mapping(rthid_mapping* m, uint32_t vid_pid) {
-    rthid_builtin(m, vid_pid, GCAD_XBOX_REPORT_BYTES);
+/* The built-in layout: no config file (rthid_layout_builtin);
+ * gcad_xbox_decode reads the report. Rumble: both motors full, or both
+ * off, one 8-byte message each (on, then off, after the layout). */
+static void xbox_mapping(gcad_xbox_layout* x, uint32_t vid_pid) {
+    rthid_layout* m = &x->layout;
+    uint32_t i;
+    rthid_layout_builtin(m, vid_pid, GCAD_XBOX_REPORT_BYTES);
+    for (i = 0; i < sizeof(x->rumble); ++i) x->rumble[i] = 0;
+    m->size = (uint16_t)RTHID_LAYOUT_BYTES(GCAD_XBOX_RUMBLE_BYTES);
     m->rumble_type = 1;
-    m->rumble_bytes = 8;
-    m->rumble_transfer = 8;
+    m->rumble_bytes = GCAD_XBOX_RUMBLE_BYTES;
+    m->rumble_transfer = GCAD_XBOX_RUMBLE_BYTES;
     m->rumble_count = 1;
-    m->rumble_on[1] = 8;   /* message 0, 8 bytes long */
-    m->rumble_off[1] = 8;
-    m->rumble_on[3] = 0xFF; /* the big motor */
-    m->rumble_on[4] = 0xFF; /* the small one */
+    x->rumble[1] = 8;                          /* on: message 0, 8 bytes long */
+    x->rumble[GCAD_XBOX_RUMBLE_BYTES + 1] = 8; /* off: the same */
+    x->rumble[3] = 0xFF;                       /* the big motor */
+    x->rumble[4] = 0xFF;                       /* the small one */
 }
 
 /* A Switch Pro stick's reach from its middle in its 12-bit units: about
@@ -1071,7 +1076,7 @@ static void hid_devices(gcad* g, const rthid_device* devices, uint32_t count, ui
         if (j == count) drop_link(peer);
     }
     for (i = 0; i < count; ++i) {
-        const rthid_mapping* mapping;
+        const rthid_layout* mapping;
         gcad* peer = 0;
         if (devices[i].vid_pid == GCAD_VID_PID || devices[i].id == GCAD_NO_DEVICE) continue;
         for (j = 0; j < g->excluded_count; ++j) if (g->excluded[j] == devices[i].id) break;
@@ -1079,7 +1084,7 @@ static void hid_devices(gcad* g, const rthid_device* devices, uint32_t count, ui
         /* ven lists every device that is not HID, USB drives too: only an
          * Xbox 360 maker's are asked for their interface. */
         if (GCAD_VEN(g) && !gcad_xbox_vendor(devices[i].vid_pid >> 16)) continue;
-        mapping = GCAD_VEN(g) ? GCAD_XBOX(g) : rthid_find(GCAD_CATALOG(g), devices[i].vid_pid);
+        mapping = GCAD_VEN(g) ? &GCAD_XBOX(g)->layout : rthid_find(GCAD_CATALOG(g), devices[i].vid_pid);
         if (!mapping) {
             for (j = 0; j < previous_count; ++j) if (previous[j] == devices[i].id) break;
             if (j == previous_count) gcad_env_event(g, GCAD_EV_HID_MISSING, devices[i].vid_pid, 0);
@@ -1093,9 +1098,9 @@ static void hid_devices(gcad* g, const rthid_device* devices, uint32_t count, ui
         if (j < GCAD_NPEERS(g) || !peer) continue;
         if (GCAD_VEN(g)) {
             /* Its own copy, for its VID and PID in the logs. */
-            rthid_mapping* own = &GCAD_XBOX(g)[peer->slot - 1u];
+            gcad_xbox_layout* own = &GCAD_XBOX(g)[peer->slot - 1u];
             xbox_mapping(own, devices[i].vid_pid);
-            mapping = own;
+            mapping = &own->layout;
         }
         peer->ven = GCAD_VEN(g);
         peer->fd = g->fd;
@@ -1132,8 +1137,8 @@ static void submit_poll(gcad* g) {
 }
 
 static void hid_rumble_transfer(gcad* g) {
-    const rthid_mapping* m = GCAD_MAPPING(g);
-    const uint8_t* data = g->rumble_flight[0] ? m->rumble_on : m->rumble_off;
+    const rthid_layout* m = GCAD_MAPPING(g);
+    const uint8_t* data = g->rumble_flight[0] ? RTHID_RUMBLE_ON(m) : RTHID_RUMBLE_OFF(m);
     uint32_t i;
     /* Interrupt rumble advances through the payload; control rumble
      * repeats its first transfer, matching Nintendont's file semantics. */
@@ -1206,6 +1211,8 @@ static void take_report(gcad* g, uint32_t now) {
             g->rumble_want[i] = 0;
             continue;
         }
+        /* The gray plug pulled while a motor runs: told to stop (#506). */
+        if (!(src[0] & GCAD_STATUS_RUMBLE_POWER)) g->rumble_want[i] = 0;
         /* The origin comes only from the pad at rest, and steady: a
          * reading far off taken as the origin pinned the stick to a
          * corner until the adapter was replugged (seen at RiftWii's
@@ -1303,12 +1310,12 @@ void gcad_links_init_ex(gcad* g, uint32_t owner_bytes, int dormant, gcad* pads, 
     }
 }
 
-void gcad_ven_init(gcad* g, gcad* ven, rthid_mapping* xbox, void* env_ctx, int32_t fd,
+void gcad_ven_init(gcad* g, gcad* ven, gcad_xbox_layout* xbox, void* env_ctx, int32_t fd,
                    uint32_t ticks_per_ms) {
     gcad_ven_init_ex(g, ven, (uint32_t)sizeof(gcad), xbox, env_ctx, fd, ticks_per_ms);
 }
 
-void gcad_ven_init_ex(gcad* g, gcad* ven, uint32_t ven_bytes, rthid_mapping* xbox, void* env_ctx, int32_t fd,
+void gcad_ven_init_ex(gcad* g, gcad* ven, uint32_t ven_bytes, gcad_xbox_layout* xbox, void* env_ctx, int32_t fd,
                       uint32_t ticks_per_ms) {
     /* fd may be -1 where the environment serves the list itself (the
      * menu, through libogc's handles). */
@@ -1336,6 +1343,7 @@ void gcad_expect(gcad* g, int32_t dev_id) {
 
 void gcad_tick(gcad* g, uint32_t now) {
     uint32_t i;
+    const uint32_t rescan = ms(g, GCAD_RESCAN_MS);
     if (g->stopping || (g->version != 4 && g->version != 5)) return;
     if (GCAD_PEERS(g)) {
         /* The /dev/usb/hid list owner drives the pad links and the ven list. */
@@ -1356,7 +1364,7 @@ void gcad_tick(gcad* g, uint32_t now) {
         return;
     }
     if (g->change_failed && !(g->busy & BIT(GCAD_TAG_CHANGE)) &&
-        elapsed(now, g->change_time) >= ms(g, GCAD_RESCAN_MS)) {
+        elapsed(now, g->change_time) >= rescan) {
         g->change_failed = 0;
         submit_change(g, now);
     }
@@ -1389,7 +1397,7 @@ void gcad_tick(gcad* g, uint32_t now) {
         switch_unanswered(g, now);
     }
     if (GCAD_MAPPING(g) && (g->link == GCAD_LINK_SETUP || g->link == GCAD_LINK_INIT) &&
-        elapsed(now, g->link_time) >= ms(g, GCAD_RESCAN_MS)) {
+        elapsed(now, g->link_time) >= rescan) {
         hid_diagnostic(g, GCAD_HID_TIMEOUT,
                        g->link == GCAD_LINK_SETUP ? g->setup_step : GCAD_STEP_INIT, -1);
     }
@@ -1404,7 +1412,7 @@ void gcad_tick(gcad* g, uint32_t now) {
      * nothing behind. One cancel at a time, on the STOP slot. */
     if (switch_pro(g) && !(g->busy & BIT(GCAD_TAG_STOP))) {
         if (g->link == GCAD_LINK_INIT && (g->busy & BIT(GCAD_TAG_OUT)) &&
-            elapsed(now, g->link_time) >= ms(g, GCAD_RESCAN_MS)) {
+            elapsed(now, g->link_time) >= rescan) {
             g->link_time = now;
             cancel_transfer(g, GCAD_TAG_OUT);
         } else if (g->link == GCAD_LINK_FAILED && g->dev_id != GCAD_NO_DEVICE && !(g->busy & BIT(GCAD_TAG_SETUP)) &&
@@ -1415,7 +1423,7 @@ void gcad_tick(gcad* g, uint32_t now) {
         }
     }
     if (GCAD_MAPPING(g) && g->link == GCAD_LINK_POLL &&
-        elapsed(now, g->data_time) >= ms(g, GCAD_RESCAN_MS)) {
+        elapsed(now, g->data_time) >= rescan) {
         hid_diagnostic(g, GCAD_HID_SILENT, (g->reports != 0) | (ps3(g) ? 2u : 0u), g->ctrl_result);
     }
     /* A Switch Pro in full-report mode reports even untouched, so silence
@@ -1423,7 +1431,7 @@ void gcad_tick(gcad* g, uint32_t now) {
      * it again, every GCAD_RESCAN_MS while silent. The read still out
      * stays and serves the new start-up. */
     if (switch_pro(g) && g->link == GCAD_LINK_POLL && !(g->busy & BIT(GCAD_TAG_OUT)) &&
-        elapsed(now, g->data_time) >= ms(g, GCAD_RESCAN_MS)) {
+        elapsed(now, g->data_time) >= rescan) {
         switch_start(g, now);
     }
     if (!g->stale && elapsed(now, g->data_time) >= ms(g, GCAD_TIMEOUT_MS)) set_stale(g);
@@ -1433,7 +1441,8 @@ static void on_change(gcad* g, int32_t result, uint32_t now) {
     int32_t found;
     int start = 0;
     uint32_t i, count = 0;
-    rthid_device devices[RTHID_DEVICE_MAX];
+    /* Read straight into the list kept for gcad_refresh_hid (#506). */
+    rthid_device* devices = g->devices;
     if (g->change_step == GCAD_STEP_FINISH) {
         submit_change(g, now);
         return;
@@ -1474,9 +1483,17 @@ static void on_change(gcad* g, int32_t result, uint32_t now) {
         }
         found = gcad_find_v5(g->change, g->listed);
     }
+    /* Two adapters: the one in use stays while it is still listed, and
+     * another is taken only once it's gone. Taking the first listed one
+     * dropped the second adapter, controllers and all, when the first
+     * was plugged back in (grantendo/wiiu#5; libwup028 fixed the same). */
+    if (found != GCAD_NO_DEVICE && g->dev_id != GCAD_NO_DEVICE) {
+        for (i = 0; i < count; ++i) {
+            if (devices[i].id == g->dev_id && devices[i].vid_pid == GCAD_VID_PID) found = g->dev_id;
+        }
+    }
     if (g->adapter_disabled || !ADAPTER_CODE) found = -1;
     g->device_count = count;
-    for (i = 0; i < count; ++i) g->devices[i] = devices[i];
     gcad_refresh_hid(g, now);
     if (g->dev_id != GCAD_NO_DEVICE && found != g->dev_id) drop_link(g);
     if (found != GCAD_NO_DEVICE && g->dev_id == GCAD_NO_DEVICE) {
@@ -1786,8 +1803,12 @@ void gcad_rumble(gcad* g, uint32_t port, uint32_t command) {
         if (source >= GCAD_PORTS) return;
         port = source;
     }
-    /* A WaveBird has no motor (Dolphin skips it too). */
-    g->rumble_want[port] = (uint8_t)(command == 1 && (g->raw[port][0] & 0x10) ? 1 : 0);
+    /* A WaveBird has no motor (Dolphin skips it too). Nor rumble without
+     * the adapter's gray plug, which powers the motors: four running from
+     * one USB port's power could make the adapter drop off USB (#506,
+     * KakarottoCake's OK; libwup028 does the same). */
+    g->rumble_want[port] = (uint8_t)(command == 1 && (g->raw[port][0] & 0x10) &&
+                                     (g->raw[port][0] & GCAD_STATUS_RUMBLE_POWER) ? 1 : 0);
 }
 
 /* gcad_stop's cancels, one at a time on the STOP slot. */

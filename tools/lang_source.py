@@ -542,6 +542,11 @@ T = {
     "Experimental. The adapter is left alone.": ("Experimental. El adaptador no se usa.", "試験的な機能です。接続タップは使いません。", "Experimental. O adaptador não é usado.",
                                    "Sperimentale. L'adattatore non viene usato."),
     "Adapter: working": ("Adaptador: funcionando", "接続タップ：動作中", "Adaptador: funcionando", "Adattatore: funziona"),
+    "Adapter: working. For rumble, plug in its gray USB plug too.": (
+        "Adaptador: funcionando. Para la vibración, conecta también su enchufe USB gris.",
+        "接続タップ：動作中。振動には灰色のUSBプラグもつないでください。",
+        "Adaptador: funcionando. Para a vibração, conecte também o plugue USB cinza.",
+        "Adattatore: funziona. Per la vibrazione, collega anche la sua spina USB grigia."),
     "Adapter: starting...": ("Adaptador: iniciando...", "接続タップ：準備中...", "Adaptador: iniciando...",
                              "Adattatore: avvio..."),
     "Adapter: another program is using it, waiting": (
@@ -1478,11 +1483,11 @@ T = {
         "オン: RiftWiiに戻る、リセット、このページのゲーム設定、480pの修正、オンライン。オフ: Mod自身のローダーと同じ。起動のたびにたずねる: 起動ごとにこの質問をします。",
         "Sim: voltar ao RiftWii, Reset, as opções do jogo desta página, a correção de 480p e o jogo online. Não: como o próprio carregador. Perguntar sempre: esta pergunta a cada início.",
         "Sì: ritorno a RiftWii, Reset, le opzioni del gioco di questa pagina, la correzione 480p e il gioco online. No: come il suo loader. Chiedi ogni volta: questa domanda a ogni avvio."),
-    "Off: no crash report. On: saves a crash report to the SD card if {1} crashes, using about 8 KB of the game's memory (some mods freeze with it on).": (
-        "No: sin informe de fallos. Sí: guarda un informe en la tarjeta SD si {1} falla, con unos 8 KB de la memoria del juego (algunos mods se congelan con él).",
-        "オフ: クラッシュ記録なし。オン: {1}がクラッシュしたらSDカードに記録を保存します。ゲームのメモリーを約8KB使います（オンだと止まるModもあります）。",
-        "Não: sem relatório de falhas. Sim: salva um relatório no cartão SD se {1} travar, usando cerca de 8 KB da memória do jogo (alguns mods travam com ele ligado).",
-        "No: nessun rapporto di crash. Sì: salva un rapporto sulla scheda SD se {1} va in crash, usando circa 8 KB della memoria del gioco (alcuni mod si bloccano con esso attivo)."),
+    "Off: no crash report. On: saves a crash report to the SD card if {1} crashes, using about 4 KB of the game's memory (some mods freeze with it on).": (
+        "No: sin informe de fallos. Sí: guarda un informe en la tarjeta SD si {1} falla, con unos 4 KB de la memoria del juego (algunos mods se congelan con él).",
+        "オフ: クラッシュ記録なし。オン: {1}がクラッシュしたらSDカードに記録を保存します。ゲームのメモリーを約4KB使います（オンだと止まるModもあります）。",
+        "Não: sem relatório de falhas. Sim: salva um relatório no cartão SD se {1} travar, usando cerca de 4 KB da memória do jogo (alguns mods travam com ele ligado).",
+        "No: nessun rapporto di crash. Sì: salva un rapporto sulla scheda SD se {1} va in crash, usando circa 4 KB della memoria del gioco (alcuni mod si bloccano con esso attivo)."),
     "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes.": (
         "No se pudo escribir sd:/riftwii/codemods.txt: la respuesta durará hasta que cierres RiftWii.",
         "sd:/riftwii/codemods.txt に書き込めませんでした。この選択はRiftWiiを閉じるまで使われます。",
@@ -2789,6 +2794,8 @@ KO = {
         "실험적 기능입니다. 어댑터는 그대로 유지됩니다.",
     "Adapter: working":
         "어답터：작업중",
+    "Adapter: working. For rumble, plug in its gray USB plug too.":
+        "어답터：작업중. 진동을 쓰려면 회색 USB 플러그도 꽂으세요.",
     "Adapter: starting...":
         "어답터：시작중...",
     "Adapter: another program is using it, waiting":
@@ -3357,8 +3364,8 @@ KO = {
         "충돌 기록",
     "On: the way back to RiftWii, Reset, this page's game settings, the 480p fix and online play. Off: as the mod's own loader. Ask every launch: this question at every launch.":
         "켬: RiftWii로 돌아가기, 리셋, 이 페이지의 게임 설정, 480p 수정, 온라인 플레이. 끔: 모드 자체 로더처럼. 시작할 때마다 묻기: 시작할 때마다 이 질문을 합니다.",
-    "Off: no crash report. On: saves a crash report to the SD card if {1} crashes, using about 8 KB of the game's memory (some mods freeze with it on).":
-        "끔: 충돌 기록 없음. 켬: {1}이(가) 충돌하면 SD 카드에 기록을 저장하며, 게임 메모리를 약 8 KB 사용합니다(켜면 멈추는 모드도 있습니다).",
+    "Off: no crash report. On: saves a crash report to the SD card if {1} crashes, using about 4 KB of the game's memory (some mods freeze with it on).":
+        "끔: 충돌 기록 없음. 켬: {1}이(가) 충돌하면 SD 카드에 기록을 저장하며, 게임 메모리를 약 4 KB 사용합니다(켜면 멈추는 모드도 있습니다).",
     "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes.":
         "sd:/riftwii/codemods.txt에 쓸 수 없습니다. 이 선택은 RiftWii를 닫을 때까지만 유지됩니다.",
     "This answer was not kept: sd:/riftwii/codemods.txt can't take it now.":
@@ -4669,6 +4676,8 @@ FR = {
         "Expérimental. L'adaptateur n'est pas utilisé.",
     "Adapter: working":
         "Adaptateur : fonctionnel",
+    "Adapter: working. For rumble, plug in its gray USB plug too.":
+        "Adaptateur : fonctionnel. Pour les vibrations, branchez aussi sa prise USB grise.",
     "Adapter: starting...":
         "Adaptateur : démarrage...",
     "Adapter: another program is using it, waiting":
@@ -5237,8 +5246,8 @@ FR = {
         "Journaux de plantage",
     "On: the way back to RiftWii, Reset, this page's game settings, the 480p fix and online play. Off: as the mod's own loader. Ask every launch: this question at every launch.":
         "Activé : retour à RiftWii, Reset, les réglages du jeu de cette page, le correctif 480p et le jeu en ligne. Désactivé : comme son propre chargeur. Demander à chaque fois : cette question à chaque lancement.",
-    "Off: no crash report. On: saves a crash report to the SD card if {1} crashes, using about 8 KB of the game's memory (some mods freeze with it on).":
-        "Désactivé : pas de rapport. Activé : enregistre un rapport sur la carte SD si {1} plante, avec environ 8 Ko de la mémoire du jeu (certains mods se figent avec).",
+    "Off: no crash report. On: saves a crash report to the SD card if {1} crashes, using about 4 KB of the game's memory (some mods freeze with it on).":
+        "Désactivé : pas de rapport. Activé : enregistre un rapport sur la carte SD si {1} plante, avec environ 4 Ko de la mémoire du jeu (certains mods se figent avec).",
     "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes.":
         "Impossible d'écrire sd:/riftwii/codemods.txt : la réponse vaut jusqu'à la fermeture de RiftWii.",
     "This answer was not kept: sd:/riftwii/codemods.txt can't take it now.":

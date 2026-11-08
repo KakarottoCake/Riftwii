@@ -207,6 +207,15 @@ typedef struct gcad_descriptor {
 #define GCAD_XBOX_SUBCLASS 0x5Du
 #define GCAD_XBOX_PROTOCOL 0x01u
 #define GCAD_XBOX_REPORT_BYTES 14u /* type, length, buttons, triggers, sticks */
+#define GCAD_XBOX_RUMBLE_BYTES 8u  /* one 8-byte motor message */
+/* An adapter port's status byte: the gray plug is in (rumble power). */
+#define GCAD_STATUS_RUMBLE_POWER 0x04u
+/* The driver's own layout for a wired Xbox 360 pad (no config file),
+ * with room for its rumble messages: 96 bytes, 396 before #506. */
+typedef struct gcad_xbox_layout {
+    rthid_layout layout;
+    uint8_t rumble[2 * GCAD_XBOX_RUMBLE_BYTES];
+} gcad_xbox_layout;
 #define GCAD_VEN_INFO_BYTES 0xC0u
 
 /* The wired Switch Pro Controller: a HID pad, but one that sends nothing
@@ -284,7 +293,7 @@ typedef struct gcad {
     uint16_t peer_stride;      /* bytes from one pad link to the next */
     uint8_t peer_count;        /* up to GCAD_HID_PADS */
     const rthid_catalog* catalog;
-    const rthid_mapping* mapping; /* non-null only for a configured pad */
+    const rthid_layout* mapping; /* non-null only for a configured pad */
     uint32_t slot;             /* callback routing: 0 adapter, 1..4 pads */
     uint16_t input_bytes;
     uint8_t endpoint_in, endpoint_out, interface_number;
@@ -314,7 +323,7 @@ typedef struct gcad {
      * pad link, `ven` says its device came from the ven list, whose fd it
      * then uses; `owner` stays the /dev/usb/hid list owner either way. */
     struct gcad* ven_list;
-    rthid_mapping* xbox;
+    gcad_xbox_layout* xbox;
     uint8_t ven;
     uint8_t led_port;          /* Xbox 360: the port its ring shows, 255: none yet */
     /* Only a list owner's (the adapter's, the ven list's) from here on:
@@ -337,7 +346,7 @@ typedef struct gcad_hub {
     gcad pads[GCAD_HID_PADS];
     rthid_catalog catalog;
     gcad ven;                  /* /dev/usb/ven's list (gcad_ven_init) */
-    rthid_mapping xbox[GCAD_HID_PADS];
+    gcad_xbox_layout xbox[GCAD_HID_PADS];
 } gcad_hub;
 
 /* A pad link's bytes: the part before the list owner's fields. */
@@ -358,16 +367,16 @@ static inline uint32_t gcad_align32(uint32_t n) { return (n + 31u) & ~31u; }
 
 /* `owner`: the /dev/usb/hid owner's bytes (GCAD_OWNER_BYTES, or
  * GCAD_LINK_BYTES when it lies dormant: no adapter or HID pad plugged in). */
-static inline void gcad_layout_for(gcad_layout* l, uint32_t owner, uint32_t links, int ven, uint32_t maps) {
+static inline void gcad_layout_for(gcad_layout* l, uint32_t owner, uint32_t links, int ven, uint32_t layout_bytes) {
     uint32_t at = gcad_align32(owner);
     l->ven = ven ? at : 0;
     if (ven) at += GCAD_OWNER_BYTES(5);
     l->xbox = ven ? at : 0;
-    if (ven) at += gcad_align32(links * (uint32_t)sizeof(rthid_mapping));
+    if (ven) at += gcad_align32(links * (uint32_t)sizeof(gcad_xbox_layout));
     l->links = at;
     at += links * GCAD_LINK_BYTES;
     l->catalog = at;
-    at += gcad_align32((uint32_t)offsetof(rthid_catalog, maps) + maps * (uint32_t)sizeof(rthid_mapping));
+    at += gcad_align32((uint32_t)offsetof(rthid_catalog, layouts) + layout_bytes);
     l->bytes = at;
 }
 
@@ -407,10 +416,10 @@ void gcad_links_init_ex(gcad* adapter, uint32_t owner_bytes, int dormant, gcad* 
  * handle `fd` (v5 only), after gcad_links_init on the same adapter. Its
  * pads take the same links as the configured HID pads; `xbox` holds one
  * built-in mapping per link. */
-void gcad_ven_init(gcad* adapter, gcad* ven, rthid_mapping* xbox, void* env_ctx, int32_t fd,
+void gcad_ven_init(gcad* adapter, gcad* ven, gcad_xbox_layout* xbox, void* env_ctx, int32_t fd,
                    uint32_t ticks_per_ms);
 /* The same with the ven list's state `ven_bytes` long (GCAD_OWNER_BYTES(5)). */
-void gcad_ven_init_ex(gcad* adapter, gcad* ven, uint32_t ven_bytes, rthid_mapping* xbox, void* env_ctx,
+void gcad_ven_init_ex(gcad* adapter, gcad* ven, uint32_t ven_bytes, gcad_xbox_layout* xbox, void* env_ctx,
                       int32_t fd, uint32_t ticks_per_ms);
 /* 1 for a vendor whose wired pads speak the Xbox 360 protocol: only
  * their devices on the ven list are asked for their interface, so a USB

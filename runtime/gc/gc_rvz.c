@@ -22,21 +22,18 @@ static int32_t gc_rvz_zstd_decode(uintptr_t dctx, uint8_t* dst, uint32_t capacit
 }
 
 #else
-/* The host tests: the host's Zstandard, with full-width pointers. */
-#define ZSTD_STATIC_LINKING_ONLY
-#include "zstd.h"
+/* Exercise the same decoder on the host, with full-width pointers. */
+#include "rtzstd.h"
 
 static uintptr_t gc_rvz_zstd_init(uintptr_t workspace, uint32_t bytes, void* io) {
     (void)io;
-    return (uintptr_t)ZSTD_initStaticDCtx((void*)workspace, bytes);
+    return (uintptr_t)rtzstd_init((void*)workspace, bytes);
 }
 
 static int32_t gc_rvz_zstd_decode(uintptr_t dctx, uint8_t* dst, uint32_t capacity, const uint8_t* src,
                                   uint32_t length, void* io) {
     (void)io;
-    const size_t got = ZSTD_decompressDCtx((ZSTD_DCtx*)dctx, dst, capacity, src, length);
-    if (ZSTD_isError(got) || got > 0x7FFFFFFFu) return -1;
-    return (int32_t)got;
+    return rtzstd_decode((void*)dctx, dst, capacity, src, length);
 }
 #endif
 

@@ -10,6 +10,8 @@
 #include <string>
 
 #include "fat32_image.hpp"
+#include "rtfat_test_buffers.hpp"
+#include "fs_trace.hpp"
 
 static int g_failures = 0;
 #define EXPECT_TRUE(c) do { if (!(c)) { std::cerr << "FAILED: " #c " at " << __LINE__ << std::endl; ++g_failures; } } while (0)
@@ -56,11 +58,12 @@ struct Low {
     static constexpr std::size_t kBounce = 2048;
     static constexpr std::size_t kData = 8192;
     Low() {
-        base = LowBuffer(sizeof(rtfs_request) + sizeof(rtfs_iovec) * 4 + sizeof(rtfs_attr_block) + kBounce + kData + 128);
+        base = LowBuffer(sizeof(rtfs_request) + 1024 + sizeof(rtfs_iovec) * 4 + sizeof(rtfs_attr_block) + kBounce + kData + 128);
         if (!base) return;
         std::uintptr_t p = (reinterpret_cast<std::uintptr_t>(base) + 31) & ~std::uintptr_t(31);
         request = reinterpret_cast<rtfs_request*>(p);
         p = (p + sizeof(rtfs_request) + 31) & ~std::uintptr_t(31);
+        p += 1024;
         vec = reinterpret_cast<rtfs_iovec*>(p);
         p += sizeof(rtfs_iovec) * 4;
         attr = reinterpret_cast<rtfs_attr_block*>(p);
@@ -71,6 +74,21 @@ struct Low {
     }
 };
 
+void Begin(rtfs_context* context, rtfs_request* request, const rtfs_ipc* ipc) {
+    // Every real arrival is also classified independently, even when the
+    // engine is busy. The probe must leave both context and request alone.
+    const rtfs_context before_context = *context;
+    const rtfs_request before_request = *request;
+    rtfs_request probe{};
+    rtfs_probe(context, &probe, ipc);
+    EXPECT_TRUE(std::memcmp(context, &before_context, sizeof(*context)) == 0);
+    EXPECT_TRUE(std::memcmp(request, &before_request, sizeof(*request)) == 0);
+    fs_trace::Value(probe.classification);
+    fs_trace::Value(probe.result);
+    rtfs_begin(context, request, ipc);
+    BindFatTestBuffers(request->fat);
+}
+
 struct Device {
     fatimg::Image& image;
     std::uint32_t transfers = 0;
@@ -78,6 +96,19 @@ struct Device {
     std::uint32_t fail_write_lba = 0;
     explicit Device(fatimg::Image& i) : image(i) {}
     int transfer(const rtfat_op& op) {
+        ++fs_trace::transfers;
+        fs_trace::Value(op.io_lba);
+        fs_trace::Value(op.io_count);
+        fs_trace::Value(op.io_write);
+        const int status = perform_transfer(op);
+        fs_trace::Value(status);
+        if (status == 0) {
+            const auto* data = reinterpret_cast<const std::uint8_t*>(static_cast<std::uintptr_t>(op.io_buffer));
+            fs_trace::Bytes(data, std::size_t(op.io_count) * 512);
+        }
+        return status;
+    }
+    int perform_transfer(const rtfat_op& op) {
         ++transfers;
         if (fail_at == transfers) return -1;
         if (op.io_write && op.io_lba == fail_write_lba) {
@@ -134,11 +165,16 @@ int Run(Fixture& fx, Low& low, const rtfs_ipc& ipc) {
     std::memset(low.request, 0, sizeof(*low.request));
     low.request->fat.bounce = Addr(low.bounce);
     low.request->fat.bounce_bytes = Low::kBounce;
-    rtfs_begin(&fx.fs, low.request, &ipc);
+    Begin(&fx.fs, low.request, &ipc);
     for (int guard = 0; guard < 10000 && low.request->classification == RTFS_NEEDS_IO; ++guard) {
         const int r = rtfs_step(&fx.fs, low.request);
         if (r == RTFAT_IO) low.request->fat.io_status = fx.dev.transfer(low.request->fat);
     }
+    fs_trace::Value(ipc.command);
+    fs_trace::Value(low.request->classification);
+    fs_trace::Value(low.request->result);
+    fs_trace::Value(fx.fs);
+    fs_trace::Image(fx.dev.image.bytes.data(), fx.dev.image.bytes.size());
     return low.request->result;
 }
 
@@ -179,7 +215,7 @@ void TestOpenReadSeekAndPass(Low& low) {
     EXPECT_EQ(Run(fx, low, seek), RTFAT_EINVAL); EXPECT_EQ(fx.fs.files[slot].fat.position, 0x7fffffffu);
     CopyPath(low.data, "/title/00010000/524d4345/other/banner.bin");
     rtfs_ipc pass = Open(Addr(low.data), 1);
-    rtfs_begin(&fx.fs, low.request, &pass);
+    Begin(&fx.fs, low.request, &pass);
     EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
     CopyPath(low.data, fx.prefix + "/a/b");
     EXPECT_EQ(Run(fx, low, Open(Addr(low.data), 1)), RTFAT_EINVAL);
@@ -195,7 +231,7 @@ void TestModesStaleAndBusy(Low& low) {
     EXPECT_EQ(Run(fx, low, fake_ioctlv), RTFAT_EINVAL);
     rtfs_ipc close{}; close.command = RTFS_CMD_CLOSE; close.fd = read_fd;
     EXPECT_EQ(Run(fx, low, close), RTFAT_OK);
-    rtfs_begin(&fx.fs, low.request, &close);
+    Begin(&fx.fs, low.request, &close);
     EXPECT_EQ(low.request->result, RTFAT_EINVAL);
     fake_ioctlv.fd = read_fd;
     EXPECT_EQ(Run(fx, low, fake_ioctlv), RTFAT_EINVAL);
@@ -207,11 +243,11 @@ void TestModesStaleAndBusy(Low& low) {
     for (std::uint32_t i = 0; i < RTFS_MAX_FDS; ++i) { close.fd = fds[i]; EXPECT_EQ(Run(fx, low, close), RTFAT_OK); }
     std::memset(low.request, 0, sizeof(*low.request)); low.request->fat.bounce = Addr(low.bounce); low.request->fat.bounce_bytes = Low::kBounce;
     rtfs_ipc first = Open(Addr(low.data), 1);
-    rtfs_begin(&fx.fs, low.request, &first);
+    Begin(&fx.fs, low.request, &first);
     EXPECT_EQ(low.request->classification, RTFS_NEEDS_IO);
     rtfs_request second{}; second.fat.bounce = Addr(low.bounce); second.fat.bounce_bytes = Low::kBounce;
     rtfs_ipc next = Open(Addr(low.data), 1);
-    rtfs_begin(&fx.fs, &second, &next);
+    Begin(&fx.fs, &second, &next);
     EXPECT_EQ(second.classification, RTFS_COMPLETE);
     EXPECT_EQ(second.result, RTFAT_EACCESS);
     while (rtfs_step(&fx.fs, low.request) == RTFAT_IO) low.request->fat.io_status = fx.dev.transfer(low.request->fat);
@@ -603,11 +639,11 @@ void TestProbeAndFsFd(Low& low) {
     // The fs fd: a request on another real fd passes while it is known...
     CopyPath(low.data, fx.prefix);
     attr.fd = 22;
-    rtfs_begin(&fx.fs, low.request, &attr);
+    Begin(&fx.fs, low.request, &attr);
     EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
     // ...its close forgets it (and passes through)...
     rtfs_ipc close_fs{}; close_fs.command = RTFS_CMD_CLOSE; close_fs.fd = 21;
-    rtfs_begin(&fx.fs, low.request, &close_fs);
+    Begin(&fx.fs, low.request, &close_fs);
     EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
     EXPECT_EQ(fx.fs.fs_fd, -1);
     // ...after which any real fd carries ISFS requests, but never a fake one.
@@ -620,7 +656,7 @@ void TestProbeAndFsFd(Low& low) {
     EXPECT_EQ(fx.fs.fs_fd, -1);
     rtfs_learn_fs_fd(&fx.fs, 9);
     EXPECT_EQ(fx.fs.fs_fd, 9);
-    rtfs_begin(&fx.fs, low.request, &attr);  // fd 22 again: not the fs device now
+    Begin(&fx.fs, low.request, &attr);  // fd 22 again: not the fs device now
     EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
     EXPECT_EQ(rtfs_init(&fx.fs, &fx.volume, fx.prefix.c_str(), -1), RTFAT_OK);
     EXPECT_EQ(fx.fs.fs_fd, -1);
@@ -636,10 +672,10 @@ void TestProbeAndFsFd(Low& low) {
     for (std::uint32_t code = 3; code <= 9; ++code) {
         rtfs_ipc sock{}; sock.command = RTFS_CMD_IOCTL; sock.fd = 4; sock.args.ioctl.request = code;
         sock.args.ioctl.in = Addr(word); sock.args.ioctl.in_len = 4; sock.args.ioctl.out = Addr(word + 1); sock.args.ioctl.out_len = 12;
-        rtfs_begin(&fx.fs, low.request, &sock);
+        Begin(&fx.fs, low.request, &sock);
         EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
         sock.args.ioctl.in = 0; sock.args.ioctl.in_len = 0;
-        rtfs_begin(&fx.fs, low.request, &sock);
+        Begin(&fx.fs, low.request, &sock);
         EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
     }
     // A 64-byte buffer that is not a path under the prefix: not ours either,
@@ -647,22 +683,22 @@ void TestProbeAndFsFd(Low& low) {
     std::memset(low.data, 'x', 64);
     rtfs_ipc del{}; del.command = RTFS_CMD_IOCTL; del.fd = 4; del.args.ioctl.request = RTFS_IOCTL_DELETE;
     del.args.ioctl.in = Addr(low.data); del.args.ioctl.in_len = RTFS_PATH_BYTES;
-    rtfs_begin(&fx.fs, low.request, &del);
+    Begin(&fx.fs, low.request, &del);
     EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
     std::memcpy(low.data, fx.prefix.c_str(), fx.prefix.size());  // the prefix, then 'x' to the end: unterminated
-    rtfs_begin(&fx.fs, low.request, &del);
+    Begin(&fx.fs, low.request, &del);
     EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
     // Vector-form: too few vectors, a null vector table, a wrong count shape.
     low.vec[0] = {Addr(word), 4}; low.vec[1] = {Addr(word + 1), 4};
     rtfs_ipc recv{}; recv.command = RTFS_CMD_IOCTLV; recv.fd = 4; recv.args.ioctlv.request = RTFS_IOCTL_READDIR;
     recv.args.ioctlv.in_count = 1; recv.args.ioctlv.out_count = 1; recv.args.ioctlv.vectors = Addr(low.vec);
-    rtfs_begin(&fx.fs, low.request, &recv);
+    Begin(&fx.fs, low.request, &recv);
     EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
     recv.args.ioctlv.vectors = 0;
-    rtfs_begin(&fx.fs, low.request, &recv);
+    Begin(&fx.fs, low.request, &recv);
     EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
     recv.args.ioctlv.request = RTFS_IOCTL_GETUSAGE; recv.args.ioctlv.in_count = 3; recv.args.ioctlv.vectors = Addr(low.vec);
-    rtfs_begin(&fx.fs, low.request, &recv);
+    Begin(&fx.fs, low.request, &recv);
     EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
     // ReadDir and GetUsage on a file name (the SDK's existence probe): -101
     // for a file that exists, -106 for none, from a lookup.
@@ -760,11 +796,16 @@ int RunR(RiivoFixture& fx, Low& low, const rtfs_ipc& ipc) {
     std::memset(low.request, 0, sizeof(*low.request));
     low.request->fat.bounce = Addr(low.bounce);
     low.request->fat.bounce_bytes = Low::kBounce;
-    rtfs_begin(&fx.fs, low.request, &ipc);
+    Begin(&fx.fs, low.request, &ipc);
     for (int guard = 0; guard < 100000 && low.request->classification == RTFS_NEEDS_IO; ++guard) {
         const int r = rtfs_step(&fx.fs, low.request);
         if (r == RTFAT_IO) low.request->fat.io_status = fx.dev.transfer(low.request->fat);
     }
+    fs_trace::Value(ipc.command);
+    fs_trace::Value(low.request->classification);
+    fs_trace::Value(low.request->result);
+    fs_trace::Value(fx.fs);
+    fs_trace::Image(fx.dev.image.bytes.data(), fx.dev.image.bytes.size());
     return low.request->result;
 }
 
@@ -1029,16 +1070,16 @@ void TestFileDeviceOff(Low& low) {
     RiivoBufs b(low);
     std::memcpy(b.path, "file", 5);
     rtfs_ipc open = Open(Addr(b.path), 0);
-    rtfs_begin(&fx.fs, low.request, &open);
+    Begin(&fx.fs, low.request, &open);
     EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
     rtfs_ipc ioctl = DeviceIoctl(b, RTFS_RIIVO_OPENDIR, "/pulsar");
-    rtfs_begin(&fx.fs, low.request, &ioctl);
+    Begin(&fx.fs, low.request, &ioctl);
     EXPECT_EQ(low.request->classification, RTFS_COMPLETE);  // a fake-range fd that is no file
     EXPECT_EQ(low.request->result, RTFAT_EINVAL);
     // And with no save directory, ISFS paths are never ours.
     std::memcpy(b.path, "/title/00010000/524d4345/data/x", 32);
     rtfs_ipc isfs = Open(Addr(b.path), 1);
-    rtfs_begin(&fx.fs, low.request, &isfs);
+    Begin(&fx.fs, low.request, &isfs);
     EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
     rtfat_volume bad = fx.volume;
     bad.root_cluster = 0;
@@ -1047,7 +1088,91 @@ void TestFileDeviceOff(Low& low) {
     EXPECT_EQ(rtfs_enable_file_device(&other), RTFAT_EINVAL);
 }
 
-int main() {
+// Classify all IPC families with malformed lengths, stale handles, both
+// device modes and a busy engine. No probe has any sector storage.
+static void TestProbeMatrix(Low& low) {
+    Fixture fx;
+    fx.fs.volume.root_cluster = 2;
+    const std::string paths[] = {
+        "", "/dev/fs", "file", "file/", "file/../escape", "file/./folder//name",
+        "/mnt/sd", "/outside/file", fx.prefix, fx.prefix + "/banner.bin",
+        fx.prefix + "/bad/name", fx.prefix + "/..", fx.prefix + "/bad name",
+        std::string(63, 'x'), std::string(64, 'x'), std::string(256, 'x')
+    };
+    const std::uint32_t lengths[] = {0, 4, 63, 64, 76, 128, 256};
+    const std::int32_t descriptors[] = {-1, 4, 22, RTFS_RIIVO_FD,
+        static_cast<std::int32_t>(RTFS_FD_BASE + RTFS_MAX_FDS),
+        static_cast<std::int32_t>(RTFS_FD_BASE + 2 * RTFS_MAX_FDS)};
+    auto probe = [&](const rtfs_ipc& ipc) {
+        const rtfs_context before = fx.fs;
+        std::uint8_t data_before[Low::kData];
+        std::memcpy(data_before, low.data, sizeof(data_before));
+        const rtfs_attr_block attr_before = *low.attr;
+        rtfs_request request{};
+        rtfs_probe(&fx.fs, &request, &ipc);
+        EXPECT_TRUE(std::memcmp(&before, &fx.fs, sizeof(before)) == 0);
+        EXPECT_TRUE(std::memcmp(data_before, low.data, sizeof(data_before)) == 0);
+        EXPECT_TRUE(std::memcmp(&attr_before, low.attr, sizeof(attr_before)) == 0);
+        fs_trace::Value(request.classification);
+        fs_trace::Value(request.result);
+        fs_trace::Value(request.callback);
+        fs_trace::Value(request.user_data);
+    };
+    for (std::uint32_t mode = 0; mode < 4; ++mode) {
+        fx.fs.file_device = mode & 1;
+        fx.fs.busy = mode >> 1;
+        fx.fs.fs_fd = (mode & 1) ? 22 : -1;
+        fx.fs.files[0].in_use = 1;
+        fx.fs.files[0].mode = 3;
+        fx.fs.files[0].fat.size = 512;
+        fx.fs.files[0].fat.position = 20;
+        fx.fs.dirs[0].in_use = 1;
+        for (const auto& path : paths) {
+            std::memset(low.data, 0, Low::kData);
+            std::memcpy(low.data, path.data(), path.size());
+            std::memset(low.attr, 0, sizeof(*low.attr));
+            std::memcpy(low.attr->filepath, path.data(), std::min<std::size_t>(path.size(), RTFS_PATH_BYTES));
+            for (std::uint32_t i = 0; i < 4; ++i) {
+                low.vec[i].data = Addr(low.data + i * 1024);
+                low.vec[i].len = i == 0 ? RTFS_PATH_BYTES : 256;
+            }
+            *reinterpret_cast<std::uint32_t*>(low.data + 1024) = RTFS_DIR_BASE + RTFS_MAX_DIRS;
+            for (auto fd : descriptors) {
+                for (auto length : lengths) {
+                    rtfs_ipc ipc{};
+                    ipc.fd = fd;
+                    ipc.callback = 123;
+                    ipc.user_data = 456;
+                    for (std::uint32_t command = RTFS_CMD_OPEN; command <= RTFS_CMD_SEEK; ++command) {
+                        ipc.command = command;
+                        ipc.args.open.path = Addr(low.data);
+                        ipc.args.open.mode = length;
+                        probe(ipc);
+                    }
+                    for (std::uint32_t code = 0; code <= RTFS_RIIVO_CLOSEDIR + 1; ++code) {
+                        ipc.command = RTFS_CMD_IOCTL;
+                        ipc.args.ioctl.request = code;
+                        ipc.args.ioctl.in = (code == RTFS_IOCTL_CREATEDIR || code == RTFS_IOCTL_CREATEFILE ||
+                            code == RTFS_IOCTL_SETATTR) ? Addr(low.attr) : Addr(low.data);
+                        ipc.args.ioctl.in_len = length;
+                        ipc.args.ioctl.out = Addr(low.data + 2048);
+                        ipc.args.ioctl.out_len = length;
+                        probe(ipc);
+                        ipc.command = RTFS_CMD_IOCTLV;
+                        ipc.args.ioctlv.request = code;
+                        ipc.args.ioctlv.vectors = Addr(low.vec);
+                        ipc.args.ioctlv.in_count = length == 4 ? 2 : 1;
+                        ipc.args.ioctlv.out_count = length == 4 ? 2 : length == 0 ? 0 : 1;
+                        probe(ipc);
+                    }
+                }
+            }
+        }
+    }
+}
+
+int main(int argc, char** argv) {
+    fs_trace::Open(argc, argv);
     Low low;
     if (!low.base) { std::cerr << "no memory below 4 GiB; skipping rtfs tests" << std::endl; return 77; }
     TestOpenReadSeekAndPass(low);
@@ -1058,11 +1183,13 @@ int main() {
     TestStatsRenameDeleteAndFailure(low);
     TestOpenFiles(low);
     TestProbeAndFsFd(low);
+    TestProbeMatrix(low);
     TestHiddenMarker(low);
     TestFileDeviceRead(low);
     TestFileDeviceWrite(low);
     TestFileDeviceLongListing(low);
     TestFileDeviceOff(low);
     if (g_failures == 0) std::cout << "rtfs tests passed" << std::endl;
+    fs_trace::Close();
     return g_failures == 0 ? 0 : 1;
 }

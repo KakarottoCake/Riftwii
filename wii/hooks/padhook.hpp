@@ -66,7 +66,8 @@ struct PadHook {
     bool adapter_only = false;       // the state is the adapter's alone (no other USB pad could be used)
     bool pads_only = false;          // the USB pads blob: no adapter, Switch Pro or DualShock 3 code (a code build)
     std::uint32_t link_count = 0;    // pad links in the state (4, or a code build's pads plugged in at the launch)
-    std::uint32_t map_count = 0;     // the catalog's mappings the game keeps
+    std::uint32_t map_count = 0;     // the catalog's layouts the game keeps
+    std::uint32_t map_bytes = 0;     // and their bytes (packed, #506)
     bool hid_dormant = false;        // a code build with only Xbox 360 pads: the /dev/usb/hid list owner lies dormant
     std::uint32_t new_arena1_hi = 0; // == code_base (unchanged with a veneer)
     std::uint32_t new_arena2_lo = 0; // the end of the state (unchanged with a veneer)

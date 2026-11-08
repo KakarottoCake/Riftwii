@@ -640,10 +640,11 @@ static void begin_ioctlv(struct rtfs_context* ctx, struct rtfs_request* r, const
 }
 
 static void begin(struct rtfs_context* ctx, struct rtfs_request* r, const struct rtfs_ipc* ipc, uint32_t probe) {
-    const uint32_t bounce = r->fat.bounce, bounce_bytes = r->fat.bounce_bytes;
+    const uint32_t bounce = r->fat.bounce, bounce_bytes = r->fat.bounce_bytes, fast_io = r->fat.fast_io;
     zero_bytes((uint8_t*)r, (uint32_t)sizeof(*r));
     r->fat.bounce = bounce;
     r->fat.bounce_bytes = bounce_bytes;
+    r->fat.fast_io = fast_io;
     r->fat.want_hidden = ipc != 0 ? ipc->hidden : 0;
     r->probe = probe;
     r->classification = RTFS_PASS_THROUGH;

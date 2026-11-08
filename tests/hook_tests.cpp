@@ -907,19 +907,27 @@ struct FsMemory {
     std::uint8_t* data = nullptr;
     std::uint32_t* out = nullptr;
     rtfs_attr_block* attr = nullptr;
+    std::uint8_t* guard = nullptr;
     bool ok = false;
-    FsMemory() {
-        std::uint8_t* low = LowBuffer(sizeof(rt_fs_state) + 0x8000);
+    explicit FsMemory(bool savegame = true, bool clone = false) {
+        const std::size_t state_bytes = rt_fs_state_bytes(savegame, clone);
+        std::uint8_t* low = LowBuffer(state_bytes + 32 + 0x8000);
         if (!low) return;
-        std::uint8_t* p = low + ((sizeof(rt_fs_state) + 31) & ~std::size_t(31));
+        guard = low + state_bytes;
+        std::memset(guard, 0xA5, 32);
+        std::uint8_t* p = guard + 32;
         st = reinterpret_cast<rt_fs_state*>(low);
-        std::memset(st, 0, sizeof(*st));
+        std::memset(st, 0, state_bytes);
         path = p;
         data = p + 0x1000;
         out = reinterpret_cast<std::uint32_t*>(p + 0x2000);
         attr = reinterpret_cast<rtfs_attr_block*>(p + 0x3000);
         std::memset(p, 0, 0x4000);
         ok = true;
+    }
+    ~FsMemory() {
+        if (!ok) return;
+        for (std::size_t i = 0; i < 32; ++i) EXPECT_EQ(guard[i], std::uint8_t(0xA5));
     }
 };
 
@@ -1175,6 +1183,47 @@ static void TestFsSyncIntercept() {
 
 // ---- asynchronous savegame interception (slice 4B3) ------------------------
 
+static void TestFsFileOnlyAllocation() {
+    EXPECT_EQ(rt_fs_state_bytes(0, 0), rt_fs_state_bytes(0, 1));
+    EXPECT_EQ(rt_fs_state_bytes(1, 1) - rt_fs_state_bytes(1, 0), RT_FS_CLONE_MAX * RTFAT_SLOT_BYTES);
+    EXPECT_EQ(rt_fs_state_bytes(1, 0) - rt_fs_state_bytes(0, 0), RT_FS_IMPORT_BYTES + 4u * RTFS_PATH_BYTES);
+    FsMemory mem(false, false);
+    if (!mem.ok) {
+        g_skipped = true;
+        return;
+    }
+    FsCard card;
+    fatimg::Bytes content;
+    rtfat_volume volume;
+    FsFillCard(card, content, volume, 7);
+    volume.root_cluster = 2;
+    EXPECT_EQ(rtfs_init(&mem.st->fs, &volume, "", -1), RTFAT_OK);
+    EXPECT_EQ(rtfs_enable_file_device(&mem.st->fs), RTFAT_OK);
+    rt_context ctx{};
+    ctx.magic = RT_CONTEXT_MAGIC;
+    ctx.flags = RT_FLAG_FS;
+    ctx.fs_state = FsAddr(mem.st);
+    g_fs_card = &card;
+    rt_host_fs_transfer = FsTransfer;
+    FsCopyPath(mem.path, "file/save/save.bin");
+    std::uintptr_t args[8] = {FsAddr(mem.path), 0};
+    std::uint32_t result = 0;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 1);
+    const std::uint32_t fd = result;
+    EXPECT_TRUE(fd >= RTFS_FD_BASE);
+    args[0] = fd;
+    args[1] = FsAddr(mem.data);
+    args[2] = 64;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(3), args, &result), 1);
+    EXPECT_EQ(result, 64u);
+    EXPECT_TRUE(std::memcmp(mem.data, content.data(), 64) == 0);
+    args[0] = fd;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(2), args, &result), 1);
+    EXPECT_EQ(result, 0u);
+    rt_host_fs_transfer = nullptr;
+    g_fs_card = nullptr;
+}
+
 static void TestFsAsyncIntercept() {
     FsMemory mem;
     if (!mem.ok) {
@@ -1232,6 +1281,23 @@ static void TestFsAsyncIntercept() {
     EXPECT_EQ(st->pend.in_use, 1u);
     EXPECT_TRUE(ios.delivered.empty());
     EXPECT_EQ(log.calls, 0u);
+    // Classification overlaps an outstanding sector read. It has no
+    // sector storage of its own and must not disturb the request or DMA.
+    const rtfs_request request_before = st->req;
+    std::uint8_t sectors_before[2 * RTFAT_SECTOR_BYTES];
+    std::memcpy(sectors_before, st->fat_sector, RTFAT_SECTOR_BYTES);
+    std::memcpy(sectors_before + RTFAT_SECTOR_BYTES, st->sector, RTFAT_SECTOR_BYTES);
+    rtfs_ipc probe_open{};
+    probe_open.command = RTFS_CMD_OPEN;
+    probe_open.args.open.path = FsAddr(path);
+    probe_open.args.open.mode = 1;
+    rtfs_probe(&st->fs, &st->probe, &probe_open);
+    EXPECT_EQ(st->probe.classification, RTFS_NEEDS_IO);
+    EXPECT_TRUE(st->probe.fat.fat_sector == nullptr);
+    EXPECT_TRUE(st->probe.fat.sector == nullptr);
+    EXPECT_TRUE(std::memcmp(&request_before, &st->req, sizeof(st->req)) == 0);
+    EXPECT_TRUE(std::memcmp(sectors_before, st->fat_sector, RTFAT_SECTOR_BYTES) == 0);
+    EXPECT_TRUE(std::memcmp(sectors_before + RTFAT_SECTOR_BYTES, st->sector, RTFAT_SECTOR_BYTES) == 0);
     ios.drain();
     EXPECT_EQ(ios.delivered.size(), std::size_t(1));
     EXPECT_EQ(ios.delivered[0].cb, 0x80001000u);
@@ -2450,7 +2516,7 @@ static void TestFsJobKirby() {
 }
 
 static void TestFsClone() {
-    FsMemory mem;
+    FsMemory mem(true, true);
     if (!mem.ok) {
         std::cerr << "note: no 32-bit addressable buffer on this host, skipping the FS clone drive" << std::endl;
         g_skipped = true;
@@ -2572,20 +2638,36 @@ static void TestFsClone() {
     EXPECT_EQ(st->clone_files, 2u);
     EXPECT_EQ(st->clone_marker, 1u);
 
-    // More names than the listing holds (RT_FS_CLONE_MAX): the first
-    // RT_FS_CLONE_MAX are attempted (two files copied, the subdirectories
-    // fail), every name past the cap is a failure too.
+    // An existing but empty directory also completes, without issuing a
+    // names transfer or disturbing the live import buffer.
     st->clone_pending = 1;
     nand.dir_prefix = prefix;
     nand.dir.clear();
-    nand.dir.push_back({"A.bin", {1, 2, 3}});
-    nand.dir.push_back({"B.bin", {4, 5, 6, 7}});
-    for (std::uint32_t i = 0; i < RT_FS_CLONE_MAX; ++i) nand.dir.push_back({"sub", {}});
+    const auto empty_reads = nand.readdirs;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 0);
     EXPECT_EQ(st->clones, 3u);
+    EXPECT_EQ(st->clone_failures, 1u);
+    EXPECT_EQ(nand.readdirs, empty_reads + 1);
+
+    // Exercise the complete 512-name allocation and then an overflowing
+    // listing. The first 512 names run in both cases; extras count as failures.
+    nand.dir.push_back({"A.bin", {1, 2, 3}});
+    nand.dir.push_back({"B.bin", {4, 5, 6, 7}});
+    for (std::uint32_t i = 2; i < RT_FS_CLONE_MAX; ++i) nand.dir.push_back({"sub", {}});
+    st->clone_pending = 1;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 0);
+    EXPECT_EQ(st->clones, 4u);
     EXPECT_EQ(st->clone_files, 4u);
-    EXPECT_EQ(st->clone_failures, 1u + RT_FS_CLONE_MAX);
+    EXPECT_EQ(st->clone_failures, RT_FS_CLONE_MAX - 1u);
     check_card_file("B.bin", {4, 5, 6, 7}, 0);
+
+    nand.dir.push_back({"sub", {}});
+    nand.dir.push_back({"sub", {}});
+    st->clone_pending = 1;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 0);
+    EXPECT_EQ(st->clones, 5u);
+    EXPECT_EQ(st->clone_files, 6u);
+    EXPECT_EQ(st->clone_failures, 2u * RT_FS_CLONE_MAX - 1u);
 
     // Without the game's synchronous ioctlv the listing is impossible:
     // the clone is given up, counted, and never retried.
@@ -2593,8 +2675,8 @@ static void TestFsClone() {
     st->ioctlv_sync = 0;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 0);
     EXPECT_EQ(st->clone_pending, 0u);
-    EXPECT_EQ(st->clones, 3u);
-    EXPECT_EQ(st->clone_failures, 2u + RT_FS_CLONE_MAX);
+    EXPECT_EQ(st->clones, 5u);
+    EXPECT_EQ(st->clone_failures, 2u * RT_FS_CLONE_MAX);
 
     rt_host_fs_open_sync = nullptr;
     rt_host_fs_close_sync = nullptr;
@@ -2683,12 +2765,12 @@ std::int32_t FakeIoctlvAsync(std::uint32_t fd, std::uint32_t ioctl, std::uint32_
         EXPECT_EQ(vec[1].len, 4u);
         const std::uint32_t sector = *reinterpret_cast<const std::uint32_t*>(static_cast<std::uintptr_t>(vec[0].data));
         const std::uint32_t count = *reinterpret_cast<const std::uint32_t*>(static_cast<std::uintptr_t>(vec[1].data));
-        EXPECT_EQ(vec[2].data, record->bounce);
+        EXPECT_TRUE(vec[2].data == record->bounce || (record->direct && vec[2].data % 32u == 0));
         EXPECT_EQ(vec[2].len, count * 512u);
         g_sd_sectors_requested.push_back(sector);
         g_sd_sectors_requested.push_back(count);
         if (sector + count > 128) return -4;
-        std::memcpy(reinterpret_cast<void*>(static_cast<std::uintptr_t>(record->bounce)), g_card + sector * 512,
+        std::memcpy(reinterpret_cast<void*>(static_cast<std::uintptr_t>(vec[2].data)), g_card + sector * 512,
                     count * 512);
         return 0;
     }
@@ -2700,15 +2782,15 @@ std::int32_t FakeIoctlvAsync(std::uint32_t fd, std::uint32_t ioctl, std::uint32_
     EXPECT_EQ(rq->rsp_type, 1u);
     EXPECT_EQ(rq->blk_size, 512u);
     EXPECT_EQ(rq->isdma, 1u);
-    EXPECT_EQ(rq->dma_addr, record->bounce);
-    EXPECT_EQ(vec[1].data, record->bounce);
+    EXPECT_TRUE(rq->dma_addr == record->bounce || (record->direct && rq->dma_addr % 32u == 0));
+    EXPECT_EQ(vec[1].data, rq->dma_addr);
     EXPECT_EQ(vec[1].len, rq->blk_cnt * 512u);
     EXPECT_EQ(vec[2].len, 16u);
     const std::uint32_t sector = rq->arg;  // sdhc: sector number
     g_sd_sectors_requested.push_back(sector);
     g_sd_sectors_requested.push_back(rq->blk_cnt);
     if (sector + rq->blk_cnt > 128) return -4;  // past the card: refused
-    std::memcpy(reinterpret_cast<void*>(static_cast<std::uintptr_t>(record->bounce)), g_card + sector * 512,
+    std::memcpy(reinterpret_cast<void*>(static_cast<std::uintptr_t>(rq->dma_addr)), g_card + sector * 512,
                 rq->blk_cnt * 512);
     return 0;  // the reply is delivered by the test, like the IPC dispatcher would
 }
@@ -2943,40 +3025,52 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
         args[5] = 0x800;
     }
 
-    // A run longer than the bounce buffer is fetched in RT_BOUNCE_BYTES chunks.
+    // A long run whose sectors land 32-byte aligned in the game's buffer
+    // is read straight there in one request; only the last partial sector
+    // goes through the bounce buffer. Misaligned by 16 bytes, the same run
+    // is fetched in RT_BOUNCE_BYTES chunks and copied, as before.
     std::vector<riftwii::Fragment> big = {{0, 100}};  // 51200 bytes
     riftwii::SdReplacement sdb;
     sdb.virtual_offset = 0x40000;
     EXPECT_TRUE(riftwii::place_on_fragments(big, 0, 40000, sdb.runs, error));
     EXPECT_TRUE(riftwii::build_payload(Pieces({}, {sdb}, {}), table_address, 0, 9, payload, error));
     std::memcpy(low_table, payload.data(), payload.size());
-    std::uint8_t* big_out = low_out + 0x1000 + RT_BOUNCE_BYTES + 0x100;  // 40000 bytes
-    di_cmd[1] = 40000;
-    di_cmd[2] = 0x40000 >> 2;
-    args[4] = reinterpret_cast<std::uintptr_t>(big_out);
-    args[5] = 40000;
-    args[6] = 0x80005000;
-    args[7] = 0x80006000;
-    g_sd_sectors_requested.clear();
-    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
-    rec = reinterpret_cast<rt_pending*>(args[7]);
-    di_result = 1;
-    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
-    int replies = 0;
-    while (cb == 0 && replies < 10) {
-        sd_result = 0;
-        rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
-        ++replies;
+    struct LongRead {
+        std::uint32_t misalign;
+        int replies;
+        std::vector<std::uint32_t> requests;  // (first sector, count) pairs
+    };
+    const LongRead long_reads[] = {
+        {0, 2, {0, 78, 78, 1}},                    // 39936 bytes direct + 64 bytes bounced
+        {16, 3, {0, 32, 32, 32, 64, 15}},          // 16384 + 16384 + 7232 bytes
+    };
+    for (const LongRead& lr : long_reads) {
+        std::uint8_t* big_out = low_out + 0x1000 + RT_BOUNCE_BYTES + 0x100 + lr.misalign;  // 40000 bytes
+        EXPECT_EQ(reinterpret_cast<std::uintptr_t>(low_out) % 32u, 0u);
+        std::memset(big_out, 0xEE, 40000 + 32);
+        di_cmd[1] = 40000;
+        di_cmd[2] = 0x40000 >> 2;
+        args[4] = reinterpret_cast<std::uintptr_t>(big_out);
+        args[5] = 40000;
+        args[6] = 0x80005000;
+        args[7] = 0x80006000;
+        g_sd_sectors_requested.clear();
+        EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+        rec = reinterpret_cast<rt_pending*>(args[7]);
+        di_result = 1;
+        rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+        int replies = 0;
+        while (cb == 0 && replies < 10) {
+            sd_result = 0;
+            rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
+            ++replies;
+        }
+        EXPECT_EQ(replies, lr.replies);
+        EXPECT_TRUE(g_sd_sectors_requested == lr.requests);
+        EXPECT_EQ(std::memcmp(big_out, g_card, 40000), 0);
+        for (int k = 0; k < 32; ++k) EXPECT_EQ(big_out[40000 + k], 0xEE);  // nothing written past the read
+        EXPECT_EQ(cb, 0x80005000u);
     }
-    EXPECT_EQ(replies, 3);  // 16384 + 16384 + 7232 bytes
-    EXPECT_EQ(g_sd_sectors_requested.size(), 6u);  // (first sector, count) pairs
-    EXPECT_EQ(g_sd_sectors_requested[1], 32u);
-    EXPECT_EQ(g_sd_sectors_requested[2], 32u);
-    EXPECT_EQ(g_sd_sectors_requested[3], 32u);
-    EXPECT_EQ(g_sd_sectors_requested[4], 64u);
-    EXPECT_EQ(g_sd_sectors_requested[5], 15u);  // 7232 bytes = 14.125 sectors
-    EXPECT_EQ(std::memcmp(big_out, g_card, 40000), 0);
-    EXPECT_EQ(cb, 0x80005000u);
 
     // A refused request ends the read with a DI error for the game.
     ctx.ioctlv_async = 0;  // "unknown": every request is refused
@@ -3038,7 +3132,7 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     sd_result = -5;
     rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
     EXPECT_EQ(cb, 0u);
-    replies = 0;
+    int replies = 0;
     while (cb == 0 && replies < 10) {
         sd_result = 0;
         rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
@@ -4298,6 +4392,7 @@ int main() {
     TestReturnToMenuSearch();
     TestFsIpcTranslation();
     TestFsSyncIntercept();
+    TestFsFileOnlyAllocation();
     TestFsAsyncIntercept();
     TestFsRenameImport();
     TestFsJobKirby();

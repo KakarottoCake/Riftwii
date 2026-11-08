@@ -128,7 +128,7 @@ struct rtfat_dirent {
                              * `found`, the cursor moved past it; ENOENT at the end */
 
 /*
- * One operation. The two sector buffers are the engine's working memory
+ * One operation. The caller supplies two independent sector buffers
  * (a FAT sector and a directory or data sector); `bounce` is a caller-
  * provided buffer of `bounce_bytes` (a multiple of 512, at least 512) for
  * data transfers. All three are 32-byte aligned when the caller's device
@@ -157,6 +157,16 @@ struct rtfat_op {
     char name2[RTFAT_NAME_MAX + 1];
     uint32_t bounce;
     uint32_t bounce_bytes;
+    /* 1 for fewer, larger transfers; 0 keeps the engine's original
+     * transfer pattern (the differential tests compare it):
+     * - READ/WRITE: when the caller's device can transfer straight into and
+     *   out of `buffer`, whole sectors that sit 32-byte aligned there move
+     *   without the bounce, up to a cluster per transfer; a partial sector
+     *   at either end still goes through it.
+     * - A file's new cluster and the link to it, when they share a FAT
+     *   sector, are written together: one write per FAT copy instead of
+     *   two, and no moment where the cluster is taken but unlinked. */
+    uint32_t fast_io;
     uint32_t want_hidden;    /* 0: normal scan / preserve rename attributes; 1: include hidden
                               * scans and force the new entry hidden; 2: include hidden scans and
                               * force a renamed entry visible.  A creation always sees hidden
@@ -169,6 +179,11 @@ struct rtfat_op {
     uint32_t cursor_cluster;
     uint32_t cursor_sector;
     uint32_t cursor_index;
+    /* Classification only examines parameters, so its operation needs no
+     * sector storage. A running operation owns both buffers until DONE;
+     * neither a probe nor another arrival may borrow them during DMA. */
+    uint8_t* fat_sector;
+    uint8_t* sector;
     /* Results beyond `result`. */
     struct rtfat_dirent found;   /* LOOKUP, CREATE, RENAME (the new entry): the entry */
     struct rtfat_dirent source;  /* RENAME, DELETE: the entry removed */
@@ -224,6 +239,7 @@ struct rtfat_op {
     uint32_t chunk_skip;         /* bytes to skip at the start of the bounce */
     uint32_t chunk_lba;
     uint32_t chunk_count;
+    uint32_t chunk_direct;       /* the transfer in flight uses `buffer` itself, not the bounce */
     uint32_t grow_from;          /* WRITE: size before the operation */
     uint32_t grow_next;          /* CREATE/RENAME: state after the directory gained room */
     uint32_t dir_grow;           /* the allocation in progress is a directory cluster: zeroed before linked */
@@ -234,8 +250,6 @@ struct rtfat_op {
     uint32_t end_index;          /* SCAN_CREATE: slot of the end-of-directory entry in scan_lba's sector */
     uint32_t entry_cluster;      /* cluster holding free_lba, when the new entries are past the end */
     uint32_t entry_term;         /* the new entries filled their sector past the end: the next one needs an end */
-    uint8_t fat_sector[RTFAT_SECTOR_BYTES] __attribute__((aligned(32)));
-    uint8_t sector[RTFAT_SECTOR_BYTES] __attribute__((aligned(32)));
 };
 
 /* Starts an operation: the caller has set the parameters (name/name2

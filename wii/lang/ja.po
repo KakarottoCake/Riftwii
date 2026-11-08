@@ -618,6 +618,9 @@ msgstr "試験的な機能です。接続タップは使いません。"
 msgid "Adapter: working"
 msgstr "接続タップ：動作中"
 
+msgid "Adapter: working. For rumble, plug in its gray USB plug too."
+msgstr "接続タップ：動作中。振動には灰色のUSBプラグもつないでください。"
+
 msgid "Adapter: starting..."
 msgstr "接続タップ：準備中..."
 
@@ -1485,8 +1488,8 @@ msgstr "クラッシュ記録"
 msgid "On: the way back to RiftWii, Reset, this page's game settings, the 480p fix and online play. Off: as the mod's own loader. Ask every launch: this question at every launch."
 msgstr "オン: RiftWiiに戻る、リセット、このページのゲーム設定、480pの修正、オンライン。オフ: Mod自身のローダーと同じ。起動のたびにたずねる: 起動ごとにこの質問をします。"
 
-msgid "Off: no crash report. On: saves a crash report to the SD card if {1} crashes, using about 8 KB of the game's memory (some mods freeze with it on)."
-msgstr "オフ: クラッシュ記録なし。オン: {1}がクラッシュしたらSDカードに記録を保存します。ゲームのメモリーを約8KB使います（オンだと止まるModもあります）。"
+msgid "Off: no crash report. On: saves a crash report to the SD card if {1} crashes, using about 4 KB of the game's memory (some mods freeze with it on)."
+msgstr "オフ: クラッシュ記録なし。オン: {1}がクラッシュしたらSDカードに記録を保存します。ゲームのメモリーを約4KB使います（オンだと止まるModもあります）。"
 
 msgid "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes."
 msgstr "sd:/riftwii/codemods.txt に書き込めませんでした。この選択はRiftWiiを閉じるまで使われます。"

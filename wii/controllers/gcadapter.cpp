@@ -578,6 +578,12 @@ void GcAdapterPoll(GcAdapterView& out) {
     out.listed = g_state->listed;
     out.last_error = g_state->last_error;
     out.adapter_present = g_state->dev_id != GCAD_NO_DEVICE;
+    if (out.adapter_present && g_state->reports != 0) {
+        out.adapter_reporting = true;
+        for (unsigned p = 0; p < GCAD_PORTS; ++p) {
+            if (g_state->raw[p][0] & GCAD_STATUS_RUMBLE_POWER) out.rumble_power = true;
+        }
+    }
     for (unsigned i = 0; i < GCAD_HID_PADS; ++i) {
         const gcad& pad = g_state->peers[i];
         if (pad.mapping && pad.dev_id != GCAD_NO_DEVICE) {
@@ -836,8 +842,8 @@ void gcad_env_event(gcad* g, uint32_t code, uint32_t a, int32_t b) {
         g_events_lost = g_events_lost + 1;
         return;
     }
-    const rthid_mapping* mapping = g->mapping;
-    if (code == GCAD_EV_HID_LIST && g->catalog && g->catalog->count) mapping = &g->catalog->maps[0];
+    const rthid_layout* mapping = g->mapping;
+    if (code == GCAD_EV_HID_LIST && g->catalog && g->catalog->count) mapping = rthid_layout_at(g->catalog, 0);
     const std::uint32_t pad = mapping ? (static_cast<std::uint32_t>(mapping->vid) << 16) | mapping->pid : 0;
     g_events[g_event_head % kEvents] = Event{code, a, b, pad};
     g_event_head = g_event_head + 1;

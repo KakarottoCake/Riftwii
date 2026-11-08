@@ -83,6 +83,17 @@ CXXFLAGS := -Os -mcpu=750 -meabi -mhard-float -msdata=none -DGEKKO -DHW_RVL \
             -Wall -Wextra -Werror -Iinclude -Iplugins/common -Iruntime -Iruntime/resident -Iruntime/gc \
             -Ivendor-zstd -I$(LIBOGC_INC)
 ASFLAGS := -mcpu=750 -meabi -mregnames -Wa,-I$(RUNTIME_OUT)
+# Test builds (TEST=1 from Makefile.wii): the GameCube plugin may switch on
+# its blob's test remote, and its struct gc_bt has the test remote's
+# results, as the blob's has (Makefile.runtime). A change of TEST
+# rebuilds it.
+TEST    ?= 0
+ifeq ($(TEST),1)
+CFLAGS   += -DRT_TEST_BUILD
+CXXFLAGS += -DRT_TEST_BUILD
+endif
+PLUGIN_TEST_STAMP := $(OUT)/test-build.stamp
+$(shell mkdir -p $(OUT) && [ "$$(cat $(PLUGIN_TEST_STAMP) 2>/dev/null)" = "TEST=$(TEST)" ] || echo "TEST=$(TEST)" > $(PLUGIN_TEST_STAMP))
 LDFLAGS := -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections \
            -Wl,--undefined=rwp_init -Wl,--undefined=rwp_exports -T plugins/plugin.ld
 
@@ -128,6 +139,7 @@ $(1)_OBJS := $$(patsubst plugins/$(1)/%.c,$(OUT)/$(1)/%.o,$$(wildcard plugins/$(
              $$(patsubst %.c,$(OUT)/$(1)/ext/%.o,$$(filter %.c,$$($(1)_SRC))) \
              $$(if $$($(1)_CXX),$(TREE_OBJ))
 -include $$($(1)_OBJS:.o=.d)
+$$($(1)_OBJS): $(PLUGIN_TEST_STAMP)
 
 $(OUT)/$(1)/$(1).elf: $$($(1)_OBJS) plugins/plugin.ld
 	$$(CC) $$(CFLAGS) $$(LDFLAGS) -Wl,--emit-relocs -Wl,-Map,$(OUT)/$(1)/$(1).map -Wl,--defsym,RWP_BASE=0 \

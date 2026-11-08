@@ -187,8 +187,11 @@ struct gc_bt {
     uint16_t pro_min[4];
     uint16_t pro_max[4];
     uint8_t pro_axes_seen;
-    /* The test remote's results (gc_bt_fake): two words a step. */
+#ifdef RT_TEST_BUILD
+    /* The test remote's results (gc_bt_fake): two words a step. Test
+     * builds only (Makefile.runtime), as the test remote is (#506). */
     uint32_t fake_log[GC_BT_FAKE_STEPS * 2];
+#endif
     /* What each button presses (gc_controls.h), filled by the loader. */
     struct gc_map map;
 };
@@ -261,8 +264,11 @@ int gc_bt_home_held(const struct gc_bt* bt);
  * port 1 got in each step goes to fake_log for the trace. `n`: the
  * PADRead's count. `pro` (sd:/riftwii/gc/test/fakepro, GC_FLAG_FAKE_PRO):
  * a Wii U Pro Controller's reports instead, steps of their own. `idle`:
- * as for gc_bt_fill. */
+ * as for gc_bt_fill. Test builds only (RT_TEST_BUILD, Makefile.runtime):
+ * release builds leave it out, and the loader then never sets the flag. */
+#ifdef RT_TEST_BUILD
 void gc_bt_fake(struct gc_bt* bt, uint8_t* status, uint32_t n, int pro, uint32_t native, uint32_t idle);
+#endif
 /* A reply from IOS that came while another request was being waited
  * for: marked done if it is one of these (1), else 0. */
 int gc_bt_on_reply(struct gc_bt* bt, uint32_t reply);

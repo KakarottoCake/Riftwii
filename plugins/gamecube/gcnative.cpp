@@ -27,6 +27,7 @@
 #include "gc_rvz.h"
 #include "gc_video.h"
 #include "gcblobs.h"
+#include "rtzstd.h"
 #include "riftwii/codehook.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/fat32.hpp"
@@ -84,9 +85,8 @@ constexpr std::uint32_t kGcProgramStackBytes = 0x2000;
 // after the RVZ's buffers: 24 MB at most, ending at 0x92D00000, still below
 // IOS. Its last 4 KB are the stack the blob puts MEM1 back on.
 constexpr std::uint32_t kGcRestartStackBytes = 0x1000;
-// The decoder's workspace: its tables and a 4 KiB literal buffer, as for
-// Wii games (runtime/resident/rt_hook.h's RT_RVZ_DCTX_BYTES).
-constexpr std::uint32_t kGcRvzDecoderBytes = 0xC000;
+// Both RVZ readers use the same caller-owned decoder workspace.
+constexpr std::uint32_t kGcRvzDecoderBytes = RTZSTD_WORKSPACE_BYTES;
 // Disc audio read ahead (the ring of runtime/gc's gc_rt_stream): about 0.6 s,
 // four top-ups of GC_STREAM_CHUNK, so several frames without one (the card
 // busy with the game's own reads) do not run it dry.
@@ -3045,11 +3045,16 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             logf("GameCube: Xbox 360 pads through /dev/usb/ven fd %d; their setup results go in the SD trace.\n",
                  static_cast<int>(extras.ven_fd));
         }
+        // The layouts back to back, each `size` long (the plugin has no rthid.c).
+        std::uint32_t at = 0;
         for (unsigned i = 0; i < ad->catalog.count && i < RTHID_CONFIG_MAX; ++i) {
-            const auto& mapping = ad->catalog.maps[i];
-            logf("USB controller %04x:%04x: mapping sent to the game (%u report bytes); setup results go in the SD trace.\n",
-                 static_cast<unsigned>(mapping.vid), static_cast<unsigned>(mapping.pid),
-                 static_cast<unsigned>(mapping.report_bytes));
+            const auto* mapping = reinterpret_cast<const rthid_layout*>(
+                reinterpret_cast<const std::uint8_t*>(ad->catalog.layouts) + at);
+            if (at + sizeof(rthid_layout) > ad->catalog.layout_bytes || mapping->size < sizeof(rthid_layout)) break;
+            at += mapping->size;
+            logf("USB controller %04x:%04x: layout sent to the game (%u report bytes); setup results go in the SD trace.\n",
+                 static_cast<unsigned>(mapping->vid), static_cast<unsigned>(mapping->pid),
+                 static_cast<unsigned>(mapping->report_bytes));
         }
     }
     auto* memcard = reinterpret_cast<gc_card*>(card_addr);
@@ -3248,8 +3253,15 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         if (pad_read != 0) {
             replay_hook(pad_read, h.hook_pad_read, h.replay_pad_read, h.continue_pad_read);
             if (test_presses) ctx->flags |= GC_FLAG_PRESS;
+#ifdef RT_TEST_BUILD
             if (test_fake_remote || test_fake_pro) ctx->flags |= GC_FLAG_FAKE_REMOTE;
             if (test_fake_pro) ctx->flags |= GC_FLAG_FAKE_PRO;
+#else
+            // The test remote is in test builds only (#506), as autorun is.
+            if (test_fake_remote || test_fake_pro)
+                logf("GameCube: %s is on the SD card, but the test remote is only in test builds (make TEST=1); ignored.\n",
+                     test_fake_pro ? "riftwii/gc/test/fakepro" : "riftwii/gc/test/fakeremote");
+#endif
             if (test_leave) ctx->flags |= GC_FLAG_LEAVE;
             if (test_crash || test_crash_black) ctx->flags |= GC_FLAG_CRASH;
             if (test_crash_black) ctx->flags |= GC_FLAG_CRASH_BLACK;

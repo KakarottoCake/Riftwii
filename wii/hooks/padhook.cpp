@@ -836,19 +836,20 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         if (catalog.adapter_disabled == 0 && catalog.known[i].vid_pid == GCAD_VID_PID) adapter_in = true;
     }
     static rthid_catalog kept;
-    std::memcpy(&kept, &catalog, offsetof(rthid_catalog, maps));
+    std::memcpy(&kept, &catalog, offsetof(rthid_catalog, layouts));
     kept.count = 0;
+    kept.layout_bytes = 0;
     unsigned hid_pads = 0, xbox_pads = 0;
     bool special_pad = false;  // a Switch Pro Controller or DualShock 3: their start-ups are in the full blob
     for (unsigned i = 0; i < catalog.known_count && i < RTHID_DEVICE_MAX; ++i) {
         const std::uint32_t id = catalog.known[i].vid_pid;
-        const rthid_mapping* m = id == GCAD_VID_PID ? nullptr : rthid_find(&catalog, id);
+        const rthid_layout* m = id == GCAD_VID_PID ? nullptr : rthid_find(&catalog, id);
         if (m == nullptr) continue;
         ++hid_pads;
         if (id == GCAD_SWITCH_VID_PID || id == GCAD_PS3_VID_PID) special_pad = true;
         bool have = false;
-        for (unsigned j = 0; j < kept.count && !have; ++j) have = kept.maps[j].vid == m->vid && kept.maps[j].pid == m->pid;
-        if (!have && kept.count < RTHID_CONFIG_MAX) kept.maps[kept.count++] = *m;
+        have = rthid_find(&kept, id) != nullptr;
+        if (!have) rthid_catalog_add(&kept, m);
     }
     if (out.ven_fd >= 0) {
         for (unsigned i = 0; i < catalog.ven_known_count && i < RTHID_DEVICE_MAX; ++i) {
@@ -863,6 +864,7 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         const unsigned links = hid_pads + xbox_pads;
         out.link_count = links == 0 ? 1u : links < GCAD_HID_PADS ? links : GCAD_HID_PADS;
         out.map_count = kept.count;
+        out.map_bytes = kept.layout_bytes;
         if (!adapter_in) kept.adapter_disabled = 1;
     } else {
         // As before (#494): the adapter alone when no other USB pad could be
@@ -870,11 +872,13 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         out.adapter_only = catalog.count == 0 && out.ven_fd < 0 && catalog.adapter_disabled == 0;
         out.link_count = GCAD_HID_PADS;
         out.map_count = catalog.count;
+        out.map_bytes = catalog.layout_bytes;
         std::memcpy(&kept, &catalog, sizeof(kept));
     }
     if (out.adapter_only) {
         out.link_count = 0;
         out.map_count = 0;
+        out.map_bytes = 0;
         out.pads_only = false;
         out.hid_dormant = false;
     }
@@ -887,14 +891,15 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     }
     gcad_layout layout{};
     gcad_layout_for(&layout, out.hid_dormant ? GCAD_LINK_BYTES : GCAD_OWNER_BYTES(version), out.link_count,
-                    out.ven_fd >= 0, out.map_count);
+                    out.ven_fd >= 0, out.map_bytes);
     const int kind = kind_of(out.adapter_only, out.pads_only);
     const rt_pad_header& h = header(kind);
     out.code_bytes = align_up(h.size);
     out.state_bytes = align_up(out.adapter_only ? GCAD_OWNER_BYTES(version) : layout.bytes);
-    logf("USB controllers: %s driver (%u bytes), room for %u other USB pad(s) and %u mapping(s)%s, state %u bytes%s\n",
+    logf("USB controllers: %s driver (%u bytes), room for %u other USB pad(s) and %u layout(s) (%u bytes)%s, state %u bytes%s\n",
          kind == kBlobAdapter ? "the adapter's" : kind == kBlobPads ? "the USB pads'" : "the full",
          static_cast<unsigned>(h.size), static_cast<unsigned>(out.link_count), static_cast<unsigned>(out.map_count),
+         static_cast<unsigned>(out.map_bytes),
          out.ven_fd >= 0 ? " and the Xbox 360 list" : "", static_cast<unsigned>(out.state_bytes),
          code_build ? " (a code build: what was plugged in at the start)" : "");
     // A code build puts this blob at MEM2's top. The resident runtime's
@@ -961,12 +966,13 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     }
     if (!out.adapter_only) {
         auto* game_catalog = reinterpret_cast<rthid_catalog*>(out.state_base + layout.catalog);
-        std::memcpy(game_catalog, &kept, offsetof(rthid_catalog, maps) + kept.count * sizeof(rthid_mapping));
+        std::memcpy(game_catalog, &kept, offsetof(rthid_catalog, layouts) + kept.layout_bytes);
         for (unsigned i = 0; i < kept.count; ++i) {
-            const auto& mapping = kept.maps[i];
-            logf("USB controller %04x:%04x: mapping sent to the Wii game's pad hook (%u report bytes).\n",
-                 static_cast<unsigned>(mapping.vid), static_cast<unsigned>(mapping.pid),
-                 static_cast<unsigned>(mapping.report_bytes));
+            const rthid_layout* mapping = rthid_layout_at(&kept, i);
+            if (mapping == nullptr) break;
+            logf("USB controller %04x:%04x: layout sent to the Wii game's pad hook (%u report bytes, %u bytes).\n",
+                 static_cast<unsigned>(mapping->vid), static_cast<unsigned>(mapping->pid),
+                 static_cast<unsigned>(mapping->report_bytes), static_cast<unsigned>(mapping->size));
         }
     }
     DCFlushRange(reinterpret_cast<void*>(out.state_base), out.state_bytes);
@@ -983,7 +989,10 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     ctx->known_dev = out.version == 5 ? out.known_dev : -1;
     ctx->ven_fd = out.ven_fd;
     ctx->link_count = out.link_count;
-    ctx->map_count = out.map_count;
+    ctx->ven_at = layout.ven;
+    ctx->xbox_at = layout.xbox;
+    ctx->links_at = layout.links;
+    ctx->catalog_at = layout.catalog;
 
     ctx->idle_reset = out.idle_reset;
     out.active = true;

@@ -60,11 +60,9 @@ extern "C" {
 #define RTSHOT_PAD_TRIGGER 0x80u   /* an analog trigger this far down counts as held */
 
 struct rtshot_remote {
-    uint16_t handle;   /* the ACL connection */
-    uint8_t used;
+    uint16_t connection;  /* ACL handle + 1; zero means unused */
     uint8_t buttons;   /* the second button byte of its last report, as sent */
     uint8_t masking;   /* HOME is hidden until it is let go */
-    uint8_t pad[3];
 };
 
 struct rtshot_input {
