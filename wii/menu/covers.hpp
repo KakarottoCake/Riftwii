@@ -62,6 +62,10 @@ std::vector<std::string> TakeBrokenOwnCovers();
 // then it is shown instead of GameTDB's full box art too (the shelf, the
 // close-up). Never reads the card; false while it isn't in memory.
 bool CoverIsOwn(const std::string& name);
+// Whether the cover in memory for a mod tile's key is the player's own PNG
+// for that tile (not its game's): it comes before the mod's own 3D cover
+// and full box from GameTDB too (boxart.hpp, cover3d.hpp).
+bool CoverIsTileOwn(const std::string& name);
 // Which reading of `name`'s slot the cover in memory is: another once it
 // is read again (another set, a USB drive's), at the same address. 0
 // while it isn't in memory.
@@ -102,6 +106,11 @@ void SetModCoverIds(std::map<std::string, std::string> ids);
 unsigned ModCoverIdsCleared();
 // The GameTDB entry a mod tile matches (#385), "" when none.
 std::string ModTileCoverId(const std::string& tile_key);
+// A mod tile's ".mod" file beside its downloaded picture (or its "GameTDB
+// has none" note) in a picture folder: the GameTDB entry they came from,
+// "" when there is none. Kept so a renamed tile's old picture isn't used.
+std::string ReadTileArtFrom(const std::string& path);
+bool WriteTileArtFrom(const std::string& path, const std::string& entry);
 
 // Drops what the pool remembers about the game (after a new download).
 void ForgetCover(const std::string& game_id);

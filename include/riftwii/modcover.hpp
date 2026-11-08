@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstddef>
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -65,5 +66,90 @@ bool title_has_mod_name(const std::string& title, const std::string& name);
 // none matches or several do.
 std::string mod_cover_id(const std::vector<CustomGame>& customs, const std::string& stock_id,
                          const std::string& name);
+
+// A mod tile's own 3D cover and full box (the 3D covers view, the shelf),
+// kept as its flat cover is: downloaded from the mod's GameTDB entry and
+// stored under the tile's key, "<game ID>@<slug>", beside a ".mod" file
+// that names the entry they came from (a tile keeps its key when renamed).
+
+// A name the 3D cover and box stores take: a game's six characters, a
+// homebrew app's four (GameTDB has pictures for some), or a mod tile's key.
+bool valid_art_name(const std::string& name);
+// Whether `name` is a mod tile's key rather than a game's ID.
+bool is_tile_art_name(const std::string& name);
+// The GameTDB entry whose picture a download for `name` asks for: a
+// game's own ID, or for a mod tile the entry it matches now
+// (`tile_match`, from mod_cover_id). Empty: nothing to ask for (a tile
+// GameTDB doesn't list, or a name the stores don't take).
+std::string art_download_id(const std::string& name, const std::string& tile_match);
+// Whether a mod tile's stored picture, or its "GameTDB has none" note,
+// is for the entry it matches now: `stored_from` is what its .mod file
+// says. A tile that matches nothing any more has nothing current.
+bool tile_art_current(const std::string& stored_from, const std::string& tile_match);
+
+// What a picture store has for a name, for whether to download it.
+struct StoredArt {
+    bool picture = false;      // the picture is on the card
+    bool recent_miss = false;  // GameTDB had none, less than a week ago
+    std::string from;          // a tile's: the entry they came from ("" if none)
+};
+// Whether `name`'s picture is to be downloaded: a game's when it has
+// neither a picture nor a recent miss; a mod tile's only when it matches
+// an entry, and then also when what is stored is another entry's.
+bool art_wanted(const std::string& name, const std::string& tile_match, const StoredArt& stored);
+
+// Which picture a Home tile shows where a 3D cover or a full box can stand
+// (the 3D covers ring, the shelf, the close-up, the game page), in order:
+// the player's own PNG for a mod tile, the mod's own 3D cover or box, the
+// tile's flat cover when it comes first (the player's own PNG for the game,
+// a chosen second set, the mod's own flat cover), then the game's 3D cover
+// or box.
+struct TileArtOrder {
+    bool tile_art_first = false;        // try the mod tile's own 3D cover or box
+    bool flat_before_game_art = false;  // without it: the flat cover, not the game's
+};
+// `is_tile`: a mod tile's key; `own_png_for_tile`: the flat cover in memory
+// is the player's own PNG for that tile; `flat_first`: the flat cover in
+// memory comes before the game's 3D cover or box (CoverBeforeBox).
+TileArtOrder tile_art_order(bool is_tile, bool own_png_for_tile, bool flat_first);
+
+// The boxes a game page downloads for its tile, each once a visit: by name
+// and, for a mod tile, the GameTDB entry it matches, so a box still wanted
+// after its answer (no answer, a renamed tile's old entry's) is never asked
+// for again, and a tile renamed to another entry gets that entry's box.
+class PageBoxAsks {
+public:
+    // A box's key: the game's ID for the game's box, else the mod tile's
+    // key with the entry ("RSBE01@project-plus|RSBEPL").
+    static std::string key(const std::string& name, const std::string& game_id, const std::string& entry);
+    bool asked(const std::string& key) const { return asked_.count(key) != 0; }
+    // Whether the box `key`, wanted now, counts as started (then asked):
+    // with a download of its name already running (`running_key`, its key
+    // when it started; "" when none runs), only when that one is for the
+    // same entry, so a renamed tile's new box waits for the old one's to end;
+    // with none running, when `started_new` (a download was just started).
+    // After the tile's match changed (tile_matched), a download of its box
+    // that was already running never counts: it is waited out first.
+    bool start(const std::string& key, const std::string& running_key, bool started_new);
+    // The mod tile `name` matches the entry in `key` now (after a rename):
+    // when that is another entry than last time, what was asked for the
+    // tile is forgotten, so going back to an earlier entry tries its box
+    // again; an unchanged match keeps its one try.
+    void tile_matched(const std::string& name, const std::string& key);
+    // A fresh look at the mod tile `name` (its match changed on its Mods
+    // page, maybe back to the one it had): what was asked for it is
+    // forgotten, and a download already running for it is waited out.
+    void retry_tile(const std::string& name);
+    // Back from the Mods page of the mod tile `name`: a fresh look at its
+    // box (retry_tile) only when a rename there changed its GameTDB match
+    // (`match_changed`, even back to the one it had), so unanswered tries
+    // can't pile up and stop the box downloads. True when it retries.
+    bool back_from_mods(const std::string& name, bool match_changed);
+
+private:
+    std::set<std::string> asked_;
+    std::map<std::string, std::string> tile_keys_;  // each tile's key when last told
+    std::set<std::string> stale_;  // tiles whose running download predates their match
+};
 
 }  // namespace riftwii

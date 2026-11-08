@@ -3,8 +3,10 @@
 #include "riftwii/modcover.hpp"
 
 #include <cctype>
+#include <iterator>
 
 #include "pugixml.hpp"
+#include "riftwii/profiles.hpp"
 
 namespace riftwii {
 
@@ -163,6 +165,84 @@ std::string mod_cover_id(const std::vector<CustomGame>& customs, const std::stri
         found = g.id;
     }
     return stock_matches ? std::string() : found;
+}
+
+bool is_tile_art_name(const std::string& name) {
+    return name.find('@') != std::string::npos && valid_tile_key(name);
+}
+
+bool valid_art_name(const std::string& name) {
+    if (name.find('@') != std::string::npos) return is_tile_art_name(name);
+    if (name.size() != 6 && name.size() != 4) return false;
+    for (const char c : name)
+        if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) return false;
+    return true;
+}
+
+std::string art_download_id(const std::string& name, const std::string& tile_match) {
+    if (!valid_art_name(name)) return {};
+    if (!is_tile_art_name(name)) return name;
+    // Only an entry mod_cover_id could have given: a game's six characters.
+    return is_custom_id(tile_match) ? tile_match : std::string();
+}
+
+bool tile_art_current(const std::string& stored_from, const std::string& tile_match) {
+    return !tile_match.empty() && stored_from == tile_match;
+}
+
+TileArtOrder tile_art_order(bool is_tile, bool own_png_for_tile, bool flat_first) {
+    TileArtOrder order;
+    order.tile_art_first = is_tile && !own_png_for_tile;
+    // The player's own PNG for the tile is a flat cover that comes first.
+    order.flat_before_game_art = flat_first || (is_tile && own_png_for_tile);
+    return order;
+}
+
+std::string PageBoxAsks::key(const std::string& name, const std::string& game_id, const std::string& entry) {
+    return name == game_id ? name : name + "|" + entry;
+}
+
+bool PageBoxAsks::start(const std::string& key, const std::string& running_key, bool started_new) {
+    const std::string name = key.substr(0, key.find('|'));
+    bool started = false;
+    if (running_key.empty()) {
+        // None running: whatever ran before the tile's match changed is over.
+        stale_.erase(name);
+        started = started_new;
+    } else {
+        // A download that started before the tile's match last changed is
+        // never the new try, even for the same entry (renamed away and back):
+        // it is waited out, then the box is tried afresh.
+        started = !stale_.count(name) && running_key == key;
+    }
+    if (started) asked_.insert(key);
+    return started;
+}
+
+void PageBoxAsks::tile_matched(const std::string& name, const std::string& key) {
+    std::string& last = tile_keys_[name];
+    if (!last.empty() && last != key) retry_tile(name);
+    last = key;
+}
+
+bool PageBoxAsks::back_from_mods(const std::string& name, bool match_changed) {
+    if (match_changed) retry_tile(name);
+    return match_changed;
+}
+
+void PageBoxAsks::retry_tile(const std::string& name) {
+    const std::string prefix = name + "|";
+    for (auto it = asked_.begin(); it != asked_.end();)
+        it = it->compare(0, prefix.size(), prefix) == 0 ? asked_.erase(it) : std::next(it);
+    stale_.insert(name);
+}
+
+bool art_wanted(const std::string& name, const std::string& tile_match, const StoredArt& stored) {
+    if (art_download_id(name, tile_match).empty()) return false;
+    // A tile renamed, or GameTDB's list changed: what is stored (a picture
+    // or a miss) is another entry's, so the new one's is asked for.
+    if (is_tile_art_name(name) && !tile_art_current(stored.from, tile_match)) return true;
+    return !stored.picture && !stored.recent_miss;
 }
 
 }  // namespace riftwii

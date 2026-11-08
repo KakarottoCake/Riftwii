@@ -160,8 +160,173 @@ static void TestScanner() {
     EXPECT_EQ(riftwii::mod_cover_id(newer, "SMNE02", "Holiday Special"), std::string("SMNE03"));
 }
 
+// A mod tile's own 3D cover and full box: which names the stores take,
+// which GameTDB entry a download asks for, and when one is wanted.
+static void TestTileArt() {
+    // The stores take games, homebrew apps and mod tiles, nothing else.
+    EXPECT_TRUE(riftwii::valid_art_name("RSBE01"));
+    EXPECT_TRUE(riftwii::valid_art_name("9XGX"));
+    EXPECT_TRUE(riftwii::valid_art_name("RSBE01@project-v3-2-1"));
+    EXPECT_TRUE(!riftwii::valid_art_name("RSBE01@"));
+    EXPECT_TRUE(!riftwii::valid_art_name("RSBE01@Project"));       // a slug is lowercase
+    EXPECT_TRUE(!riftwii::valid_art_name("RSBE01@../../boot"));    // never out of its folder
+    EXPECT_TRUE(!riftwii::valid_art_name("rsbe01"));
+    EXPECT_TRUE(!riftwii::valid_art_name("RSBE0"));
+    EXPECT_TRUE(!riftwii::valid_art_name(""));
+    EXPECT_TRUE(riftwii::is_tile_art_name("RMCE01@retro-rewind-v6-13-1"));
+    EXPECT_TRUE(!riftwii::is_tile_art_name("RMCE01"));
+
+    // A game asks for its own; a tile for its mod's entry, or for nothing.
+    EXPECT_EQ(riftwii::art_download_id("RSBE01", ""), std::string("RSBE01"));
+    EXPECT_EQ(riftwii::art_download_id("RSBE01", "RSBEPL"), std::string("RSBE01"));
+    EXPECT_EQ(riftwii::art_download_id("RSBE01@project-v3-2-1", "RSBEPL"), std::string("RSBEPL"));
+    EXPECT_EQ(riftwii::art_download_id("RMCE01@retro-rewind-v6-13-1", "RMCETO"), std::string("RMCETO"));
+    EXPECT_EQ(riftwii::art_download_id("RSBE01@my-own-build", ""), std::string());  // not listed: never the game's
+    EXPECT_EQ(riftwii::art_download_id("RSBE01@x", "../a"), std::string());        // only a game's six characters
+    EXPECT_EQ(riftwii::art_download_id("RSBE01@Bad", "RSBEPL"), std::string());
+
+    // What is stored is the tile's only while it matches the same entry.
+    EXPECT_TRUE(riftwii::tile_art_current("RSBEPL", "RSBEPL"));
+    EXPECT_TRUE(!riftwii::tile_art_current("RSBEPM", "RSBEPL"));  // renamed from Project M
+    EXPECT_TRUE(!riftwii::tile_art_current("RSBEPL", ""));        // matches nothing now
+    EXPECT_TRUE(!riftwii::tile_art_current("", "RSBEPL"));        // stored before the .mod note
+
+    riftwii::StoredArt none;
+    riftwii::StoredArt picture;
+    picture.picture = true;
+    riftwii::StoredArt missed;
+    missed.recent_miss = true;
+    // A game: wanted until it has a picture or GameTDB recently had none.
+    EXPECT_TRUE(riftwii::art_wanted("RSBE01", "", none));
+    EXPECT_TRUE(!riftwii::art_wanted("RSBE01", "", picture));
+    EXPECT_TRUE(!riftwii::art_wanted("RSBE01", "", missed));
+    EXPECT_TRUE(!riftwii::art_wanted("bad", "", none));
+    // A tile GameTDB doesn't list wants nothing (it shows the game's).
+    EXPECT_TRUE(!riftwii::art_wanted("RSBE01@my-own-build", "", none));
+    // A listed tile: wanted, and again when what is stored is another entry's.
+    EXPECT_TRUE(riftwii::art_wanted("RSBE01@project-v3-2-1", "RSBEPL", none));
+    picture.from = "RSBEPL";
+    missed.from = "RSBEPL";
+    EXPECT_TRUE(!riftwii::art_wanted("RSBE01@project-v3-2-1", "RSBEPL", picture));
+    EXPECT_TRUE(!riftwii::art_wanted("RSBE01@project-v3-2-1", "RSBEPL", missed));
+    EXPECT_TRUE(riftwii::art_wanted("RSBE01@project-v3-2-1", "RSBEPM", picture));
+    EXPECT_TRUE(riftwii::art_wanted("RSBE01@project-v3-2-1", "RSBEPM", missed));
+    // Super Smash REX has a 3D cover but no full box: its miss holds a week.
+    missed.from = "RSBERX";
+    EXPECT_TRUE(!riftwii::art_wanted("RSBE01@super-smash-rex", "RSBERX", missed));
+
+    // The order a tile's pictures come in, where a 3D cover or box can stand.
+    using riftwii::tile_art_order;
+    // The player's own PNG for the tile: never the mod's art, the PNG instead of the game's.
+    EXPECT_TRUE(!tile_art_order(true, true, true).tile_art_first);
+    EXPECT_TRUE(tile_art_order(true, true, true).flat_before_game_art);
+    EXPECT_TRUE(tile_art_order(true, true, false).flat_before_game_art);
+    // The mod's own flat cover in memory: the mod's 3D cover or box first,
+    // then that flat cover, never the stock game's.
+    EXPECT_TRUE(tile_art_order(true, false, true).tile_art_first);
+    EXPECT_TRUE(tile_art_order(true, false, true).flat_before_game_art);
+    // No flat cover yet (or only the game's downloaded one): the mod's art,
+    // then the game's.
+    EXPECT_TRUE(tile_art_order(true, false, false).tile_art_first);
+    EXPECT_TRUE(!tile_art_order(true, false, false).flat_before_game_art);
+    // A game: no tile art; its own PNG or second set first, else its 3D cover or box.
+    EXPECT_TRUE(!tile_art_order(false, false, true).tile_art_first);
+    EXPECT_TRUE(tile_art_order(false, false, true).flat_before_game_art);
+    EXPECT_TRUE(!tile_art_order(false, false, false).tile_art_first);
+    EXPECT_TRUE(!tile_art_order(false, false, false).flat_before_game_art);
+}
+
+// A game page's box downloads: each once a visit, and a tile renamed while
+// Home's download of its old entry's box runs still gets the new entry's.
+static void TestPageBoxAsks() {
+    using riftwii::PageBoxAsks;
+    const std::string tile = "RSBE01@project-plus";
+    EXPECT_EQ(PageBoxAsks::key("RSBE01", "RSBE01", ""), std::string("RSBE01"));
+    EXPECT_EQ(PageBoxAsks::key(tile, "RSBE01", "RSBEPL"), std::string("RSBE01@project-plus|RSBEPL"));
+    const std::string old_key = PageBoxAsks::key(tile, "RSBE01", "RSBEPM");
+    const std::string new_key = PageBoxAsks::key(tile, "RSBE01", "RSBEPL");
+
+    // Home started the tile's box for Project M; the tile is renamed to Project+.
+    PageBoxAsks page;
+    EXPECT_TRUE(!page.start(new_key, old_key, false));  // the old one's download isn't the new box's
+    EXPECT_TRUE(!page.asked(new_key));
+    EXPECT_TRUE(!page.asked(old_key));
+    // Once it ends, the new entry's box starts and counts as asked.
+    EXPECT_TRUE(!page.start(new_key, "", false));  // could not start yet: still not asked
+    EXPECT_TRUE(!page.asked(new_key));
+    EXPECT_TRUE(page.start(new_key, "", true));
+    EXPECT_TRUE(page.asked(new_key));
+
+    // A download Home started for the same entry is this one.
+    PageBoxAsks same;
+    EXPECT_TRUE(same.start(new_key, new_key, false));
+    EXPECT_TRUE(same.asked(new_key));
+    // The page's own download, seen running on later passes, too.
+    PageBoxAsks own;
+    EXPECT_TRUE(own.start("RSBE01", "", true));
+    EXPECT_TRUE(own.start("RSBE01", "RSBE01", false));
+    EXPECT_TRUE(own.asked("RSBE01") && !own.asked(new_key));
+
+    // Project M's box got no answer (asked, still wanted); renamed to
+    // Project+ and back: Project M's box may be tried again. An unchanged
+    // match keeps its one try.
+    PageBoxAsks back;
+    back.tile_matched(tile, old_key);
+    EXPECT_TRUE(back.start(old_key, "", true));
+    back.tile_matched(tile, old_key);
+    EXPECT_TRUE(back.asked(old_key));
+    back.tile_matched(tile, new_key);
+    back.tile_matched(tile, old_key);
+    EXPECT_TRUE(!back.asked(old_key));
+    // Renamed away and back while Project M's first download still runs:
+    // that download isn't the new try; once it ends, a fresh one is.
+    PageBoxAsks pending;
+    pending.tile_matched(tile, old_key);
+    EXPECT_TRUE(pending.start(old_key, "", true));
+    pending.tile_matched(tile, new_key);
+    pending.tile_matched(tile, old_key);
+    EXPECT_TRUE(!pending.start(old_key, old_key, false));
+    EXPECT_TRUE(!pending.asked(old_key));
+    EXPECT_TRUE(!pending.start(old_key, "", false));  // ended, but none could start yet
+    EXPECT_TRUE(pending.start(old_key, "", true));
+    EXPECT_TRUE(pending.asked(old_key));
+    EXPECT_TRUE(pending.start(old_key, old_key, false));  // the fresh one, seen running later
+    // Right after a match change, with nothing running, a fresh start counts at once.
+    PageBoxAsks fresh;
+    fresh.tile_matched(tile, old_key);
+    fresh.tile_matched(tile, new_key);
+    EXPECT_TRUE(fresh.start(new_key, "", true));
+    EXPECT_TRUE(fresh.asked(new_key));
+    // Back from the Mods page, renamed away and back there (the page sees
+    // the same entry): the tile's box gets a fresh try all the same.
+    PageBoxAsks mods;
+    mods.tile_matched(tile, old_key);
+    EXPECT_TRUE(mods.start(old_key, "", true));
+    mods.retry_tile(tile);
+    mods.tile_matched(tile, old_key);
+    EXPECT_TRUE(!mods.asked(old_key));
+    EXPECT_TRUE(!mods.start(old_key, old_key, false));  // the old download still running
+    EXPECT_TRUE(mods.start(old_key, "", true));
+    // Back from the Mods page: without a match change (no rename, or one
+    // that kept the GameTDB entry) the earlier try stands, so unanswered
+    // tries don't pile up; matched away and back, a fresh try.
+    PageBoxAsks visit;
+    visit.tile_matched(tile, old_key);
+    EXPECT_TRUE(visit.start(old_key, "", true));
+    EXPECT_TRUE(!visit.back_from_mods(tile, false));
+    EXPECT_TRUE(visit.asked(old_key));
+    EXPECT_TRUE(visit.back_from_mods(tile, true));
+    EXPECT_TRUE(!visit.asked(old_key));
+    // The game's own box is not the tile's: kept across the tile's renames.
+    EXPECT_TRUE(back.start("RSBE01", "", true));
+    back.tile_matched(tile, new_key);
+    EXPECT_TRUE(back.asked("RSBE01"));
+}
+
 int main() {
     TestWords();
+    TestTileArt();
+    TestPageBoxAsks();
     TestMatch();
     TestBlocks();
     TestFile();

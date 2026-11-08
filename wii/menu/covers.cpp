@@ -31,6 +31,7 @@
 #include "riftwii/coverart.hpp"
 #include "riftwii/emulatorart.hpp"
 #include "riftwii/emulatorbanner.hpp"
+#include "riftwii/modcover.hpp"
 #include "riftwii/pngdecode.hpp"
 #include "riftwii/profiles.hpp"
 #include "skin.hpp"
@@ -140,6 +141,7 @@ struct Slot {
     bool secondSet = false; // GameTDB's second set, chosen (#384): its full box is the first's
     unsigned fill = 0;     // CoverFill: g_fills when it was read
     bool modCover = false; // a mod tile's own cover from GameTDB (#385)
+    bool tileOwn = false;  // the player's own PNG for the mod tile itself, not its game's
     u64 touched = 0;       // last drawn or read (gettime ticks)
 };
 struct Request {
@@ -217,14 +219,7 @@ std::string ModCoverId(const std::string& tile_key) {
 // Whether what is stored for the mod tile (its cover, or its miss) is for
 // the GameTDB entry it matches now. Never while it matches none.
 bool TileStoredForMatch(const std::string& tile_key) {
-    const std::string id = ModCoverId(tile_key);
-    if (id.empty()) return false;
-    FILE* f = std::fopen(ModFromPath(tile_key).c_str(), "rb");
-    if (!f) return false;
-    char from[16] = {};
-    const std::size_t got = std::fread(from, 1, sizeof(from) - 1, f);
-    std::fclose(f);
-    return std::string(from, got) == id;
+    return tile_art_current(ReadTileArtFrom(ModFromPath(tile_key)), ModCoverId(tile_key));
 }
 
 Slot* Find(const std::string& game_id) {
@@ -347,7 +342,7 @@ void* LoaderMain(void*) {
         const auto own_png = [&](const std::string& name) {
             return ReadOwnCover(name, local) && local.size() == kCoverFileSize;
         };
-        bool ok = false, own = false, mod_cover = false;
+        bool ok = false, own = false, mod_cover = false, tile_own = false;
         std::vector<std::string> broken;  // own PNGs there but unusable
         if (banner) {
             std::vector<std::uint8_t> picture;
@@ -362,7 +357,7 @@ void* LoaderMain(void*) {
             // The player's own PNG first, never written over, and offline
             // too (#384); a mod tile's own before the game's, and the mod's
             // own cover from GameTDB (#385) before the game's too.
-            own = tile && own_png(id);
+            own = tile_own = tile && own_png(id);
             if (!own && tile && TileStoredForMatch(id)) ok = mod_cover = ReadStoredCover(id, slot->data);
             if (!ok && !own) own = own_png(game);
             if (own) std::memcpy(slot->data, local.data() + kCoverHeaderSize, kCoverPixelBytes);
@@ -399,6 +394,7 @@ void* LoaderMain(void*) {
             slot->secondSet = second_set;
             slot->fill = ++g_fills;
             slot->modCover = mod_cover;
+            slot->tileOwn = tile_own;
             slot->touched = gettime();
             g_texDirty = true;  // GX is the GUI thread's: it invalidates
         } else {
@@ -755,6 +751,13 @@ bool CoverIsOwn(const std::string& name) {
     return s && s->ready && s->own;
 }
 
+bool CoverIsTileOwn(const std::string& name) {
+    if (!ValidId(name) || !Started()) return false;
+    Lock lock;
+    const Slot* s = Find(name);
+    return s && s->ready && s->tileOwn;
+}
+
 unsigned CoverFill(const std::string& name) {
     if (!ValidId(name) || !Started()) return 0;
     Lock lock;
@@ -796,6 +799,20 @@ void CoverPrefetch(const std::string& game_id, int rank) {
 }
 
 std::string ModTileCoverId(const std::string& tile_key) { return ModCoverId(tile_key); }
+
+std::string ReadTileArtFrom(const std::string& path) {
+    FILE* f = std::fopen(path.c_str(), "rb");
+    if (!f) return {};
+    // A GameTDB ID is six characters: anything longer is no entry's.
+    char from[16] = {};
+    const std::size_t got = std::fread(from, 1, sizeof(from) - 1, f);
+    std::fclose(f);
+    return std::string(from, got);
+}
+
+bool WriteTileArtFrom(const std::string& path, const std::string& entry) {
+    return WriteAll(path, std::vector<std::uint8_t>(entry.begin(), entry.end()));
+}
 
 unsigned ModCoverIdsCleared() {
     if (g_lock == LWP_MUTEX_NULL) return 0;
