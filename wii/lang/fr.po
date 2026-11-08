@@ -1056,11 +1056,8 @@ msgstr "OK"
 msgid "RiftWii updated"
 msgstr "RiftWii mis à jour"
 
-msgid "RiftWii {1} is installed ({2}). It runs the next time RiftWii starts. Leave to the Homebrew Channel now and start it again?"
-msgstr "RiftWii {1} est installé ({2}). Il sera actif au prochain démarrage. Revenir à la Chaîne Homebrew dès maintenant ?"
-
-msgid "Leave"
-msgstr "Quitter"
+msgid "RiftWii {1} is installed ({2}). Restart RiftWii now to use it?"
+msgstr "RiftWii {1} est installé ({2}). Redémarrer RiftWii maintenant pour l'utiliser ?"
 
 msgid "Later"
 msgstr "Plus tard"
@@ -3311,6 +3308,42 @@ msgstr "Désactiver le contrôle parental ?"
 
 msgid "Every game can be started without the PIN again."
 msgstr "Tous les jeux pourront de nouveau être lancés sans le code PIN."
+
+msgid "Ask for the PIN"
+msgstr "Demander le code PIN"
+
+msgid "No PIN"
+msgstr "Sans code PIN"
+
+msgid "Shown"
+msgstr "Affichés"
+
+msgid "Hidden"
+msgstr "Masqués"
+
+msgid "HOME Menu buttons"
+msgstr "Boutons du menu HOME"
+
+msgid "The HOME Menu's Homebrew Channel and Priiloader (or Restart) buttons, where a press can delete apps or change the Wii. Ask for the PIN, or hide them and keep only Wii Menu and Power off."
+msgstr "Les boutons Chaîne Homebrew et Priiloader (ou Redémarrer) du menu HOME, où une pression peut effacer des applications ou modifier la Wii. Demandez le code PIN, ou masquez-les pour ne garder que Menu Wii et Éteindre."
+
+msgid "Ask for the PIN before Settings opens from Home. This page always asks."
+msgstr "Demande le code PIN avant d'ouvrir les Paramètres depuis l'accueil. Cette page le demande toujours."
+
+msgid "Pick where to go: the Wii Menu, or power off."
+msgstr "Choisissez où aller : Menu Wii ou extinction."
+
+msgid "Type the PIN to leave for the Homebrew Channel."
+msgstr "Saisissez le code PIN pour aller à la Chaîne Homebrew."
+
+msgid "Type the PIN to leave for Priiloader."
+msgstr "Saisissez le code PIN pour aller à Priiloader."
+
+msgid "Type the PIN to restart the Wii."
+msgstr "Saisissez le code PIN pour redémarrer la Wii."
+
+msgid "Type the PIN to open Settings."
+msgstr "Saisissez le code PIN pour ouvrir les Paramètres."
 
 msgid "Are you sure you want to continue?"
 msgstr "Voulez-vous vraiment continuer ?"

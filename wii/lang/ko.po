@@ -1056,11 +1056,8 @@ msgstr "확인"
 msgid "RiftWii updated"
 msgstr "RiftWii 업데이트됨"
 
-msgid "RiftWii {1} is installed ({2}). It runs the next time RiftWii starts. Leave to the Homebrew Channel now and start it again?"
-msgstr "RiftWii {1}이(가) ({2})에 설치되었습니다. RiftWii는 다음에 실행될 때 작동합니다. 지금 홈브류 채널로 나가서 다시 실행할까요?"
-
-msgid "Leave"
-msgstr "종료"
+msgid "RiftWii {1} is installed ({2}). Restart RiftWii now to use it?"
+msgstr "RiftWii {1}이(가) ({2})에 설치되었습니다. 지금 RiftWii를 재시작해서 사용할까요?"
 
 msgid "Later"
 msgstr "나중에"
@@ -3311,6 +3308,42 @@ msgstr "자녀 보호 기능을 끌까요?"
 
 msgid "Every game can be started without the PIN again."
 msgstr "모든 게임을 다시 PIN 없이 시작할 수 있습니다."
+
+msgid "Ask for the PIN"
+msgstr "PIN 묻기"
+
+msgid "No PIN"
+msgstr "PIN 없음"
+
+msgid "Shown"
+msgstr "표시"
+
+msgid "Hidden"
+msgstr "숨김"
+
+msgid "HOME Menu buttons"
+msgstr "HOME 메뉴 버튼"
+
+msgid "The HOME Menu's Homebrew Channel and Priiloader (or Restart) buttons, where a press can delete apps or change the Wii. Ask for the PIN, or hide them and keep only Wii Menu and Power off."
+msgstr "HOME 메뉴의 홈브류 채널과 Priiloader(또는 재시작) 버튼입니다. 거기서는 버튼 하나로 앱을 지우거나 Wii를 바꿀 수 있습니다. PIN을 묻거나, 숨겨서 Wii 메뉴와 전원 종료만 남깁니다."
+
+msgid "Ask for the PIN before Settings opens from Home. This page always asks."
+msgstr "홈에서 설정을 열기 전에 PIN을 묻습니다. 이 페이지는 항상 묻습니다."
+
+msgid "Pick where to go: the Wii Menu, or power off."
+msgstr "갈 곳을 고릅니다: Wii 메뉴 또는 전원 끄기."
+
+msgid "Type the PIN to leave for the Homebrew Channel."
+msgstr "홈브류 채널로 가려면 PIN을 입력하세요."
+
+msgid "Type the PIN to leave for Priiloader."
+msgstr "Priiloader로 가려면 PIN을 입력하세요."
+
+msgid "Type the PIN to restart the Wii."
+msgstr "Wii를 재시작하려면 PIN을 입력하세요."
+
+msgid "Type the PIN to open Settings."
+msgstr "설정을 열려면 PIN을 입력하세요."
 
 msgid "Are you sure you want to continue?"
 msgstr "정말 계속할까요?"

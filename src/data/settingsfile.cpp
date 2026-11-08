@@ -210,6 +210,10 @@ void LoaderSettings::parse(const std::string& text) {
             if (digits && parental_age_valid(age)) parental_age = age;
         } else if (key == "parental_unrated") {
             if (value == "allow" || value == "restrict") parental_unrated = value;
+        } else if (key == "parental_exits") {
+            if (value == "show" || value == "pin" || value == "hide") parental_exits = value;
+        } else if (key == "parental_settings") {
+            if (value == "open" || value == "pin") parental_settings = value;
         } else {
             other[key] = value;
         }
@@ -277,6 +281,8 @@ std::string LoaderSettings::serialize() const {
     s += "parental_mode = " + parental_mode + "\n";
     s += "parental_age = " + std::to_string(parental_age) + "\n";
     s += "parental_unrated = " + parental_unrated + "\n";
+    s += "parental_exits = " + parental_exits + "\n";
+    s += "parental_settings = " + parental_settings + "\n";
     if (!favorites.empty()) {
         std::string list;
         for (const std::string& id : favorites) list += (list.empty() ? "" : ",") + id;
@@ -423,6 +429,8 @@ LoaderSettings settings_after_reset(const LoaderSettings& before) {
     after.parental_mode = before.parental_mode;
     after.parental_age = before.parental_age;
     after.parental_unrated = before.parental_unrated;
+    after.parental_exits = before.parental_exits;
+    after.parental_settings = before.parental_settings;
     // These describe the player's games, like favourites, rather than
     // the menu's appearance. Resetting settings keeps their names/hides.
     for (const auto& entry : before.other) {
@@ -438,6 +446,13 @@ ParentalRules parental_rules(const LoaderSettings& settings) {
     rules.hide = settings.parental_mode == "hide";
     rules.highest_age = settings.parental_age;
     rules.restrict_unrated = settings.parental_unrated == "restrict";
+    // The ways out and Settings follow the PIN like the games do: without
+    // one, nothing is locked whatever these lines say.
+    if (rules.active) {
+        if (settings.parental_exits == "pin") rules.exits = ParentalExits::Pin;
+        else if (settings.parental_exits == "hide") rules.exits = ParentalExits::Hidden;
+        rules.lock_settings = settings.parental_settings == "pin";
+    }
     return rules;
 }
 
