@@ -404,6 +404,21 @@ uint32_t rtpro_acl_out(struct rtpro_state* st, uint8_t* acl, uint32_t* size, uin
         if (bytes > n - 7u) bytes = n - 7u;
         if ((address & 0xFF0000u) == 0xA40000u) return what | extension_write(st, l, address, p + 7, bytes);
     }
+    /* The Pro has no IR camera or speaker, so its status reports always say
+     * both are off. A Wii Remote's say what the game last switched on, and
+     * the game's own controller code trusts that: Mario Kart Wii's WPAD
+     * takes the camera's state from each status report, and KPAD asks for
+     * the camera again until the report agrees, so the game never got to
+     * switch the pointer off for a Classic Controller and stayed in the
+     * pointer's data format until the HOME Menu reset it (issue #216).
+     * Kept here, and put into each status report (rtpro_acl_in). Kept on
+     * every link, as one may turn out to be a Pro only when its extension
+     * ID is read, after the game switched them. */
+    if (id == OUT_CAMERA || id == OUT_SPEAKER) {
+        const uint8_t flag = id == OUT_CAMERA ? STATUS_CAMERA : STATUS_SPEAKER;
+        if (p[2] & OUT_ENABLE_BIT) l->remote_flags = (uint8_t)(l->remote_flags | flag);
+        else l->remote_flags = (uint8_t)(l->remote_flags & ~flag);
+    }
     if (!l->pro) return what;
     /* A link found to be a Pro after the game had already put the
      * controller into a mode too short to translate: the game's next
@@ -439,19 +454,6 @@ uint32_t rtpro_acl_out(struct rtpro_state* st, uint8_t* acl, uint32_t* size, uin
         return what;
     }
     if (id == OUT_RUMBLE || id == OUT_MODE) return what;
-    /* The Pro has no IR camera or speaker, so its status reports always say
-     * both are off. A Wii Remote's say what the game last switched on, and
-     * the game's own controller code trusts that: Mario Kart Wii's WPAD
-     * takes the camera's state from each status report, and KPAD asks for
-     * the camera again until the report agrees, so the game never got to
-     * switch the pointer off for a Classic Controller and stayed in the
-     * pointer's data format until the HOME Menu reset it (issue #216).
-     * Kept here, and put into each status report (rtpro_acl_in). */
-    if (id == OUT_CAMERA || id == OUT_SPEAKER) {
-        const uint8_t flag = id == OUT_CAMERA ? STATUS_CAMERA : STATUS_SPEAKER;
-        if (p[2] & OUT_ENABLE_BIT) l->remote_flags = (uint8_t)(l->remote_flags | flag);
-        else l->remote_flags = (uint8_t)(l->remote_flags & ~flag);
-    }
     /* Anything else (the IR camera, the speaker, a write outside the
      * extension's registers): a Wii Remote's, which a Pro Controller has
      * no use for. A write is always acknowledged; the rest when asked. */
