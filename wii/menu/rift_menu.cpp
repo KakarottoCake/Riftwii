@@ -14660,24 +14660,27 @@ static int MenuHome(FrontendState& state)
 	HaltGui();
 	w.Append(&coverBusy);
 	ResumeGui();
-	// The boxes this page asked for, each by its name and, for a mod tile,
+	// The boxes this page started, each by its name and, for a mod tile,
 	// the GameTDB entry it matched then: one try each a visit, so an answer
 	// that leaves a box still wanted (no answer, a stale match's) never asks
 	// for the same one again, and a tile renamed to another entry can.
 	std::set<std::string> boxesAsked;
+	// The box download running, by the same key ("" for none): a renamed
+	// tile's new box waits for its old one's to end rather than counting as
+	// started with it.
+	std::string boxRunningKey;
 	const auto boxAskKey = [&](const std::string& name) {
 		return name == state.game_id ? name : name + "|" + riftwii::wii::ModTileCoverId(name);
 	};
-	// The page's box to download next, and marks it asked: a mod tile's own
-	// (#385) when GameTDB lists the mod, else (or after it) the game's,
-	// which the page shows without one; "" for none.
+	// The page's box to download next: a mod tile's own (#385) when GameTDB
+	// lists the mod, else (or after it) the game's, which the page shows
+	// without one; "" for none. Marked asked once its download starts.
 	const auto pageBoxWanted = [&]() -> std::string {
 		if (!riftwii::wii::Settings().online || riftwii::wii::Settings().home_tiles == "names" || g_coversOff ||
 		    riftwii::wii::NetFailed())
 			return std::string();
 		for (const std::string& name : {PageCoverName(state), state.game_id}) {
 			if (boxesAsked.count(boxAskKey(name)) || !riftwii::wii::BoxWanted(name)) continue;
-			boxesAsked.insert(boxAskKey(name));
 			return name;
 		}
 		return std::string();
@@ -14701,7 +14704,6 @@ static int MenuHome(FrontendState& state)
 		// downloads stopped (no answer again and again, a full card): only
 		// the page's first look gives a box one more try, as it always has.
 		if (g_boxesOff) return;
-		if (boxStart) boxesAsked.erase(boxAskKey(boxStartName));
 		const std::string next = pageBoxWanted();
 		if (!next.empty() || boxStart) {
 			boxStartName = next;
@@ -14889,13 +14891,23 @@ static int MenuHome(FrontendState& state)
 			}
 		}
 		// The full box, once the cover's download is done.
-		if (boxStart && !coverStart &&
-		    (riftwii::wii::BoxFetchGame() == boxStartName || riftwii::wii::StartBoxFetch(boxStartName)))
-			boxStart = false;
+		if (boxStart && !coverStart) {
+			const std::string key = boxAskKey(boxStartName);
+			const bool running = riftwii::wii::BoxFetchGame() == boxStartName;
+			// One Home started for the same box counts as this one.
+			if (running && boxRunningKey.empty()) boxRunningKey = key;
+			const bool started = running ? boxRunningKey == key : riftwii::wii::StartBoxFetch(boxStartName);
+			if (started) {
+				boxRunningKey = key;
+				boxesAsked.insert(key);
+				boxStart = false;
+			}
+		}
 		{
 			std::string id, error;
 			riftwii::wii::CoverFetch got = riftwii::wii::CoverFetch::NotFound;
 			if (riftwii::wii::TakeBoxFetch(id, got, error)) {
+				boxRunningKey.clear();
 				if (got == riftwii::wii::CoverFetch::Stored) riftwii::wii::ForgetBox(id);
 				if (CountPictureFetch(g_boxRun, got, id, error)) g_boxesOff = true;
 				// What the page still wants, each box once a visit: after the
