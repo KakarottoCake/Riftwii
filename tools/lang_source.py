@@ -1009,12 +1009,11 @@ T = {
     "OK": ("Aceptar", "OK", "OK", "OK"),
     "RiftWii updated": ("RiftWii actualizada", "RiftWiiを更新しました", "RiftWii atualizada", "RiftWii aggiornata"),
     # {1} the new version, {2} where it was written.
-    "RiftWii {1} is installed ({2}). It runs the next time RiftWii starts. Leave to the Homebrew Channel now and start it again?": (
-        "RiftWii {1} está instalada ({2}). Se usará la próxima vez que se inicie RiftWii. ¿Volver ahora al Homebrew Channel para iniciarla otra vez?",
-        "RiftWii {1}をインストールしました ({2})。次にRiftWiiを起動したときに使われます。今Homebrew Channelに戻って、もう一度起動しますか?",
-        "A RiftWii {1} está instalada ({2}). Ela será usada na próxima vez que a RiftWii iniciar. Voltar agora ao Homebrew Channel e iniciá-la de novo?",
-        "RiftWii {1} è installata ({2}). Verrà usata al prossimo avvio di RiftWii. Tornare ora all'Homebrew Channel e riavviarla?"),
-    "Leave": ("Salir", "終了", "Sair", "Esci"),
+    "RiftWii {1} is installed ({2}). Restart RiftWii now to use it?": (
+        "RiftWii {1} está instalada ({2}). ¿Reiniciar RiftWii ahora para usarla?",
+        "RiftWii {1}をインストールしました ({2})。今RiftWiiを再起動して使いますか?",
+        "A RiftWii {1} está instalada ({2}). Reiniciar a RiftWii agora para usá-la?",
+        "RiftWii {1} è installata ({2}). Riavviare RiftWii ora per usarla?"),
     "Later": ("Más tarde", "あとで", "Depois", "Più tardi"),
     "RiftWii {1} is installed. Start RiftWii again to use it.": (
         "RiftWii {1} está instalada. Inicia RiftWii de nuevo para usarla.",
@@ -3078,10 +3077,8 @@ KO = {
         "확인",
     "RiftWii updated":
         "RiftWii 업데이트됨",
-    "RiftWii {1} is installed ({2}). It runs the next time RiftWii starts. Leave to the Homebrew Channel now and start it again?":
-        "RiftWii {1}이(가) ({2})에 설치되었습니다. RiftWii는 다음에 실행될 때 작동합니다. 지금 홈브류 채널로 나가서 다시 실행할까요?",
-    "Leave":
-        "종료",
+    "RiftWii {1} is installed ({2}). Restart RiftWii now to use it?":
+        "RiftWii {1}이(가) ({2})에 설치되었습니다. 지금 RiftWii를 재시작해서 사용할까요?",
     "Later":
         "나중에",
     "RiftWii {1} is installed. Start RiftWii again to use it.":
@@ -4960,10 +4957,8 @@ FR = {
         "OK",
     "RiftWii updated":
         "RiftWii mis à jour",
-    "RiftWii {1} is installed ({2}). It runs the next time RiftWii starts. Leave to the Homebrew Channel now and start it again?":
-        "RiftWii {1} est installé ({2}). Il sera actif au prochain démarrage. Revenir à la Chaîne Homebrew dès maintenant ?",
-    "Leave":
-        "Quitter",
+    "RiftWii {1} is installed ({2}). Restart RiftWii now to use it?":
+        "RiftWii {1} est installé ({2}). Redémarrer RiftWii maintenant pour l'utiliser ?",
     "Later":
         "Plus tard",
     "RiftWii {1} is installed. Start RiftWii again to use it.":
@@ -6856,6 +6851,18 @@ T.update({
     "Games rated above the age you pick ask for this PIN. To turn the controls off without it, delete the parental_pin line in sd:/riftwii/settings.txt.": ("Los juegos clasificados por encima de la edad que elijas piden este PIN. Para desactivar el control sin él, borra la línea parental_pin de sd:/riftwii/settings.txt.", "選んだ年れいより上向けのゲームは、このPINが必要です。PINなしでオフにするには、sd:/riftwii/settings.txt のparental_pinの行を消してください。", "Jogos classificados acima da idade que você escolher pedem este PIN. Para desligar o controle sem ele, apague a linha parental_pin em sd:/riftwii/settings.txt.", "I giochi classificati sopra l'età che scegli chiedono questo PIN. Per disattivare il controllo senza PIN, elimina la riga parental_pin in sd:/riftwii/settings.txt."),
     "Turn off parental controls?": ("¿Desactivar el control parental?", "ペアレンタルコントロールをオフにしますか？", "Desligar o controle dos pais?", "Disattivare il controllo genitori?"),
     "Every game can be started without the PIN again.": ("Todos los juegos se podrán volver a iniciar sin el PIN.", "すべてのゲームがPINなしで始められるようになります。", "Todos os jogos poderão ser iniciados sem o PIN de novo.", "Tutti i giochi potranno di nuovo essere avviati senza PIN."),
+    "Ask for the PIN": ("Pedir el PIN", "PINをきく", "Pedir o PIN", "Chiedi il PIN"),
+    "No PIN": ("Sin PIN", "PINなし", "Sem PIN", "Senza PIN"),
+    "Shown": ("Visibles", "表示する", "Visíveis", "Visibili"),
+    "Hidden": ("Ocultos", "かくす", "Escondidos", "Nascosti"),
+    "HOME Menu buttons": ("Botones del menú HOME", "HOMEメニューのボタン", "Botões do menu HOME", "Pulsanti del menu HOME"),
+    "The HOME Menu's Homebrew Channel and Priiloader (or Restart) buttons, where a press can delete apps or change the Wii. Ask for the PIN, or hide them and keep only Wii Menu and Power off.": ("Los botones Homebrew Channel y Priiloader (o Reiniciar) del menú HOME, donde una pulsación puede borrar apps o cambiar la Wii. Pide el PIN, u ocúltalos y deja solo Menú de Wii y Apagar.", "HOMEメニューのHomebrew ChannelとPriiloader (または再起動) のボタンです。そこではボタンひとつでアプリを消したり、Wiiの設定を変えたりできます。PINをきくか、かくしてWiiメニューと電源オフだけにします。", "Os botões Homebrew Channel e Priiloader (ou Reiniciar) do menu HOME, onde um toque pode apagar apps ou mudar o Wii. Peça o PIN, ou esconda-os e deixe só Menu do Wii e Desligar.", "I pulsanti Homebrew Channel e Priiloader (o Riavvia) del menu HOME, dove una pressione può cancellare app o cambiare la Wii. Chiedi il PIN, o nascondili e lascia solo Menu Wii e Spegni."),
+    "Ask for the PIN before Settings opens from Home. This page always asks.": ("Pide el PIN antes de abrir los Ajustes desde el inicio. Esta página siempre lo pide.", "ホームから設定を開く前にPINをききます。このページはいつもききます。", "Pede o PIN antes de abrir as Configurações a partir do início. Esta página sempre pede.", "Chiede il PIN prima di aprire le Impostazioni dalla Home. Questa pagina lo chiede sempre."),
+    "Pick where to go: the Wii Menu, or power off.": ("Elige adónde ir: menú de Wii o apagar.", "行き先を選びます：Wiiメニュー、または電源オフ。", "Escolha para onde ir: Menu do Wii ou desligar.", "Scegli dove andare: Menu Wii o spegnimento."),
+    "Type the PIN to leave for the Homebrew Channel.": ("Escribe el PIN para ir al Homebrew Channel.", "Homebrew Channelに行くにはPINを入力してください。", "Digite o PIN para ir ao Homebrew Channel.", "Inserisci il PIN per andare all'Homebrew Channel."),
+    "Type the PIN to leave for Priiloader.": ("Escribe el PIN para ir a Priiloader.", "Priiloaderに行くにはPINを入力してください。", "Digite o PIN para ir ao Priiloader.", "Inserisci il PIN per andare a Priiloader."),
+    "Type the PIN to restart the Wii.": ("Escribe el PIN para reiniciar la Wii.", "Wiiを再起動するにはPINを入力してください。", "Digite o PIN para reiniciar o Wii.", "Inserisci il PIN per riavviare la Wii."),
+    "Type the PIN to open Settings.": ("Escribe el PIN para abrir los Ajustes.", "設定を開くにはPINを入力してください。", "Digite o PIN para abrir as Configurações.", "Inserisci il PIN per aprire le Impostazioni."),
 })
 KO.update({
     "Parental controls": "자녀 보호 기능",
@@ -6893,6 +6900,18 @@ KO.update({
     "Parental controls are on": "자녀 보호 기능이 켜졌습니다",
     "Games rated above the age you pick ask for this PIN. To turn the controls off without it, delete the parental_pin line in sd:/riftwii/settings.txt.": "고른 나이보다 높은 등급의 게임은 이 PIN을 묻습니다. PIN 없이 끄려면 sd:/riftwii/settings.txt의 parental_pin 줄을 지우세요.",
     "Turn off parental controls?": "자녀 보호 기능을 끌까요?",
+    "Ask for the PIN": "PIN 묻기",
+    "No PIN": "PIN 없음",
+    "Shown": "표시",
+    "Hidden": "숨김",
+    "HOME Menu buttons": "HOME 메뉴 버튼",
+    "The HOME Menu's Homebrew Channel and Priiloader (or Restart) buttons, where a press can delete apps or change the Wii. Ask for the PIN, or hide them and keep only Wii Menu and Power off.": "HOME 메뉴의 홈브류 채널과 Priiloader(또는 재시작) 버튼입니다. 거기서는 버튼 하나로 앱을 지우거나 Wii를 바꿀 수 있습니다. PIN을 묻거나, 숨겨서 Wii 메뉴와 전원 종료만 남깁니다.",
+    "Ask for the PIN before Settings opens from Home. This page always asks.": "홈에서 설정을 열기 전에 PIN을 묻습니다. 이 페이지는 항상 묻습니다.",
+    "Pick where to go: the Wii Menu, or power off.": "갈 곳을 고릅니다: Wii 메뉴 또는 전원 끄기.",
+    "Type the PIN to leave for the Homebrew Channel.": "홈브류 채널로 가려면 PIN을 입력하세요.",
+    "Type the PIN to leave for Priiloader.": "Priiloader로 가려면 PIN을 입력하세요.",
+    "Type the PIN to restart the Wii.": "Wii를 재시작하려면 PIN을 입력하세요.",
+    "Type the PIN to open Settings.": "설정을 열려면 PIN을 입력하세요.",
     "Every game can be started without the PIN again.": "모든 게임을 다시 PIN 없이 시작할 수 있습니다.",
 })
 FR.update({
@@ -6932,6 +6951,18 @@ FR.update({
     "Games rated above the age you pick ask for this PIN. To turn the controls off without it, delete the parental_pin line in sd:/riftwii/settings.txt.": "Les jeux classés au-dessus de l'âge choisi demandent ce code PIN. Pour désactiver le contrôle sans lui, effacez la ligne parental_pin de sd:/riftwii/settings.txt.",
     "Turn off parental controls?": "Désactiver le contrôle parental ?",
     "Every game can be started without the PIN again.": "Tous les jeux pourront de nouveau être lancés sans le code PIN.",
+    "Ask for the PIN": "Demander le code PIN",
+    "No PIN": "Sans code PIN",
+    "Shown": "Affichés",
+    "Hidden": "Masqués",
+    "HOME Menu buttons": "Boutons du menu HOME",
+    "The HOME Menu's Homebrew Channel and Priiloader (or Restart) buttons, where a press can delete apps or change the Wii. Ask for the PIN, or hide them and keep only Wii Menu and Power off.": "Les boutons Chaîne Homebrew et Priiloader (ou Redémarrer) du menu HOME, où une pression peut effacer des applications ou modifier la Wii. Demandez le code PIN, ou masquez-les pour ne garder que Menu Wii et Éteindre.",
+    "Ask for the PIN before Settings opens from Home. This page always asks.": "Demande le code PIN avant d'ouvrir les Paramètres depuis l'accueil. Cette page le demande toujours.",
+    "Pick where to go: the Wii Menu, or power off.": "Choisissez où aller : Menu Wii ou extinction.",
+    "Type the PIN to leave for the Homebrew Channel.": "Saisissez le code PIN pour aller à la Chaîne Homebrew.",
+    "Type the PIN to leave for Priiloader.": "Saisissez le code PIN pour aller à Priiloader.",
+    "Type the PIN to restart the Wii.": "Saisissez le code PIN pour redémarrer la Wii.",
+    "Type the PIN to open Settings.": "Saisissez le code PIN pour ouvrir les Paramètres.",
 })
 
 # Two discs that are not games (007E01, RAAE01) and new PINs a child would guess first.

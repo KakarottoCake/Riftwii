@@ -1056,11 +1056,8 @@ msgstr "OK"
 msgid "RiftWii updated"
 msgstr "RiftWii atualizada"
 
-msgid "RiftWii {1} is installed ({2}). It runs the next time RiftWii starts. Leave to the Homebrew Channel now and start it again?"
-msgstr "A RiftWii {1} está instalada ({2}). Ela será usada na próxima vez que a RiftWii iniciar. Voltar agora ao Homebrew Channel e iniciá-la de novo?"
-
-msgid "Leave"
-msgstr "Sair"
+msgid "RiftWii {1} is installed ({2}). Restart RiftWii now to use it?"
+msgstr "A RiftWii {1} está instalada ({2}). Reiniciar a RiftWii agora para usá-la?"
 
 msgid "Later"
 msgstr "Depois"
@@ -3311,6 +3308,42 @@ msgstr "Desligar o controle dos pais?"
 
 msgid "Every game can be started without the PIN again."
 msgstr "Todos os jogos poderão ser iniciados sem o PIN de novo."
+
+msgid "Ask for the PIN"
+msgstr "Pedir o PIN"
+
+msgid "No PIN"
+msgstr "Sem PIN"
+
+msgid "Shown"
+msgstr "Visíveis"
+
+msgid "Hidden"
+msgstr "Escondidos"
+
+msgid "HOME Menu buttons"
+msgstr "Botões do menu HOME"
+
+msgid "The HOME Menu's Homebrew Channel and Priiloader (or Restart) buttons, where a press can delete apps or change the Wii. Ask for the PIN, or hide them and keep only Wii Menu and Power off."
+msgstr "Os botões Homebrew Channel e Priiloader (ou Reiniciar) do menu HOME, onde um toque pode apagar apps ou mudar o Wii. Peça o PIN, ou esconda-os e deixe só Menu do Wii e Desligar."
+
+msgid "Ask for the PIN before Settings opens from Home. This page always asks."
+msgstr "Pede o PIN antes de abrir as Configurações a partir do início. Esta página sempre pede."
+
+msgid "Pick where to go: the Wii Menu, or power off."
+msgstr "Escolha para onde ir: Menu do Wii ou desligar."
+
+msgid "Type the PIN to leave for the Homebrew Channel."
+msgstr "Digite o PIN para ir ao Homebrew Channel."
+
+msgid "Type the PIN to leave for Priiloader."
+msgstr "Digite o PIN para ir ao Priiloader."
+
+msgid "Type the PIN to restart the Wii."
+msgstr "Digite o PIN para reiniciar o Wii."
+
+msgid "Type the PIN to open Settings."
+msgstr "Digite o PIN para abrir as Configurações."
 
 msgid "Are you sure you want to continue?"
 msgstr "Tem certeza de que quer continuar?"

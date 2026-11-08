@@ -110,6 +110,18 @@ static void test_settings_lines() {
     EXPECT_EQ(settings.parental_unrated, "restrict");
     ParentalRules rules = parental_rules(settings);
     EXPECT_TRUE(rules.active && rules.hide && rules.restrict_unrated && rules.highest_age == 7);
+    // The ways out and Settings are open until the parent says otherwise.
+    EXPECT_TRUE(rules.exits == ParentalExits::Shown && !rules.lock_settings);
+    settings.parse("parental_exits = hide\nparental_settings = pin\n");
+    rules = parental_rules(settings);
+    EXPECT_TRUE(rules.exits == ParentalExits::Hidden && rules.lock_settings);
+    settings.parse("parental_exits = pin\n");
+    EXPECT_TRUE(parental_rules(settings).exits == ParentalExits::Pin);
+    // A value RiftWii doesn't know leaves the last one.
+    settings.parse("parental_exits = maybe\nparental_settings = yes\n");
+    EXPECT_EQ(settings.parental_exits, "pin");
+    EXPECT_EQ(settings.parental_settings, "pin");
+    settings.parse("parental_exits = hide\n");
 
     // Written and read back the same.
     LoaderSettings again;
@@ -117,16 +129,23 @@ static void test_settings_lines() {
     EXPECT_EQ(again.parental_pin, record);
     EXPECT_EQ(again.parental_mode, "hide");
     EXPECT_EQ(again.parental_age, 7);
+    EXPECT_EQ(again.parental_exits, "hide");
+    EXPECT_EQ(again.parental_settings, "pin");
 
     // A reset from the menu keeps the controls.
     const LoaderSettings reset = settings_after_reset(settings);
     EXPECT_EQ(reset.parental_pin, record);
     EXPECT_EQ(reset.parental_mode, "hide");
+    EXPECT_EQ(reset.parental_exits, "hide");
+    EXPECT_EQ(reset.parental_settings, "pin");
 
     // The PIN's line deleted: no controls, whatever the others say.
     LoaderSettings deleted;
-    deleted.parse("parental_mode = hide\nparental_age = 7\nparental_unrated = restrict\n");
+    deleted.parse("parental_mode = hide\nparental_age = 7\nparental_unrated = restrict\n"
+                  "parental_exits = hide\nparental_settings = pin\n");
     EXPECT_TRUE(!parental_rules(deleted).active);
+    EXPECT_TRUE(parental_rules(deleted).exits == ParentalExits::Shown);
+    EXPECT_TRUE(!parental_rules(deleted).lock_settings);
     EXPECT_TRUE(deleted.serialize().find("parental_pin") == std::string::npos);
 
     // A line that is not a record (a PIN typed in by hand) is no PIN either.

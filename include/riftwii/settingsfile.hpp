@@ -88,12 +88,14 @@ struct LoaderSettings {
     std::string usb_gecko_log = "off";    // on, off: RiftWii's log also goes to a USB Gecko in slot B, with what libraries print
     std::string wiird_debugger = "off";   // off, on, pause: games start with the WiiRD debugger's code handler (pause: held at the first frame for the PC)
     // Parental controls (riftwii/parental.hpp). The PIN's salted hash, ""
-    // for none: without it the other three do nothing, so deleting the
+    // for none: without it the others do nothing, so deleting the
     // parental_pin line takes every lock away.
     std::string parental_pin;
     std::string parental_mode = "lock";   // lock (shown; the PIN starts them), hide (left off Home)
     int parental_age = 12;                // the highest age rating allowed without the PIN
     std::string parental_unrated = "allow";  // allow, restrict: a game whose rating RiftWii does not know
+    std::string parental_exits = "show";  // show, pin, hide: the HOME Menu's Homebrew Channel and Priiloader (or Restart) buttons
+    std::string parental_settings = "open";  // open, pin: whether Settings asks for the PIN
     std::set<std::string> favorites;      // game IDs and profiles' tile keys, written "favorites = ID,ID@slug"
     // More folders to look for games in, besides wbfs and games:
     // "game_folders = /Wii Games; usb:/iso". A plain "/path" is looked

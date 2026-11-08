@@ -1056,11 +1056,8 @@ msgstr "Aceptar"
 msgid "RiftWii updated"
 msgstr "RiftWii actualizada"
 
-msgid "RiftWii {1} is installed ({2}). It runs the next time RiftWii starts. Leave to the Homebrew Channel now and start it again?"
-msgstr "RiftWii {1} está instalada ({2}). Se usará la próxima vez que se inicie RiftWii. ¿Volver ahora al Homebrew Channel para iniciarla otra vez?"
-
-msgid "Leave"
-msgstr "Salir"
+msgid "RiftWii {1} is installed ({2}). Restart RiftWii now to use it?"
+msgstr "RiftWii {1} está instalada ({2}). ¿Reiniciar RiftWii ahora para usarla?"
 
 msgid "Later"
 msgstr "Más tarde"
@@ -3311,6 +3308,42 @@ msgstr "¿Desactivar el control parental?"
 
 msgid "Every game can be started without the PIN again."
 msgstr "Todos los juegos se podrán volver a iniciar sin el PIN."
+
+msgid "Ask for the PIN"
+msgstr "Pedir el PIN"
+
+msgid "No PIN"
+msgstr "Sin PIN"
+
+msgid "Shown"
+msgstr "Visibles"
+
+msgid "Hidden"
+msgstr "Ocultos"
+
+msgid "HOME Menu buttons"
+msgstr "Botones del menú HOME"
+
+msgid "The HOME Menu's Homebrew Channel and Priiloader (or Restart) buttons, where a press can delete apps or change the Wii. Ask for the PIN, or hide them and keep only Wii Menu and Power off."
+msgstr "Los botones Homebrew Channel y Priiloader (o Reiniciar) del menú HOME, donde una pulsación puede borrar apps o cambiar la Wii. Pide el PIN, u ocúltalos y deja solo Menú de Wii y Apagar."
+
+msgid "Ask for the PIN before Settings opens from Home. This page always asks."
+msgstr "Pide el PIN antes de abrir los Ajustes desde el inicio. Esta página siempre lo pide."
+
+msgid "Pick where to go: the Wii Menu, or power off."
+msgstr "Elige adónde ir: menú de Wii o apagar."
+
+msgid "Type the PIN to leave for the Homebrew Channel."
+msgstr "Escribe el PIN para ir al Homebrew Channel."
+
+msgid "Type the PIN to leave for Priiloader."
+msgstr "Escribe el PIN para ir a Priiloader."
+
+msgid "Type the PIN to restart the Wii."
+msgstr "Escribe el PIN para reiniciar la Wii."
+
+msgid "Type the PIN to open Settings."
+msgstr "Escribe el PIN para abrir los Ajustes."
 
 msgid "Are you sure you want to continue?"
 msgstr "¿Seguro que quieres continuar?"

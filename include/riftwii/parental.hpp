@@ -51,11 +51,18 @@ bool parental_pin_matches(const std::string& record, const std::string& pin);
 
 // What parental controls do with one game.
 enum class ParentalVerdict { Allowed, Locked, Hidden };
+// The HOME Menu's ways out of RiftWii that lead past the games, to the
+// Homebrew Channel and Priiloader (where apps and system settings can be
+// deleted or changed by a press): shown, behind the PIN, or left off so
+// the menu has only the Wii Menu and Power off.
+enum class ParentalExits { Shown, Pin, Hidden };
 struct ParentalRules {
     bool active = false;          // a PIN is set
     bool hide = false;            // hide the games, else lock them (shown, the PIN asked to start one)
     int highest_age = 12;         // games for older players are restricted
     bool restrict_unrated = false;  // a game with no known rating counts as restricted
+    ParentalExits exits = ParentalExits::Shown;  // Shown without a PIN
+    bool lock_settings = false;   // Settings asks for the PIN (never without one)
 };
 // `minimum_age` is rating_minimum_age's (-1: not known).
 ParentalVerdict parental_verdict(const ParentalRules& rules, int minimum_age);
