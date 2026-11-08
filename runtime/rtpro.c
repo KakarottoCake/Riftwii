@@ -13,6 +13,8 @@
 #define OUT_RUMBLE 0x10u
 #define OUT_LEDS 0x11u
 #define OUT_MODE 0x12u
+#define OUT_CAMERA 0x13u
+#define OUT_SPEAKER 0x14u
 #define OUT_STATUS 0x15u
 #define OUT_WRITE 0x16u
 #define OUT_READ 0x17u
@@ -22,10 +24,16 @@
 #define OUT_RUMBLE_BIT 0x01u
 #define OUT_ACK_BIT 0x02u
 #define OUT_REGISTERS_BIT 0x04u
+/* ... and bit 2 of a camera (0x13) or speaker (0x14) report's switches it on. */
+#define OUT_ENABLE_BIT 0x04u
 /* Input reports. */
 #define IN_STATUS 0x20u
 #define IN_READ 0x21u
 #define IN_ACK 0x22u
+/* A status report's flags byte: bit 2 the speaker on, bit 3 the IR camera
+ * on (wiibrew, "Wiimote": Status Reporting). */
+#define STATUS_SPEAKER 0x04u
+#define STATUS_CAMERA 0x08u
 
 /* A read the Pro Controller cannot take goes out as a read of the
  * extension's registers from its calibration (0xA40020) to their end:
@@ -431,6 +439,19 @@ uint32_t rtpro_acl_out(struct rtpro_state* st, uint8_t* acl, uint32_t* size, uin
         return what;
     }
     if (id == OUT_RUMBLE || id == OUT_MODE) return what;
+    /* The Pro has no IR camera or speaker, so its status reports always say
+     * both are off. A Wii Remote's say what the game last switched on, and
+     * the game's own controller code trusts that: Mario Kart Wii's WPAD
+     * takes the camera's state from each status report, and KPAD asks for
+     * the camera again until the report agrees, so the game never got to
+     * switch the pointer off for a Classic Controller and stayed in the
+     * pointer's data format until the HOME Menu reset it (issue #216).
+     * Kept here, and put into each status report (rtpro_acl_in). */
+    if (id == OUT_CAMERA || id == OUT_SPEAKER) {
+        const uint8_t flag = id == OUT_CAMERA ? STATUS_CAMERA : STATUS_SPEAKER;
+        if (p[2] & OUT_ENABLE_BIT) l->remote_flags = (uint8_t)(l->remote_flags | flag);
+        else l->remote_flags = (uint8_t)(l->remote_flags & ~flag);
+    }
     /* Anything else (the IR camera, the speaker, a write outside the
      * extension's registers): a Wii Remote's, which a Pro Controller has
      * no use for. A write is always acknowledged; the rest when asked. */
@@ -762,6 +783,15 @@ uint32_t rtpro_acl_in(struct rtpro_state* st, uint8_t* acl, uint32_t size, uint3
             *what |= RTPRO_CHANGED;
         }
         return size;
+    }
+    if (p[1] == IN_STATUS && n >= 5u) {
+        /* The camera and speaker as the game switched them, not as the Pro
+         * (which has neither) reports them. */
+        const uint8_t flags = (uint8_t)((p[4] & ~(STATUS_SPEAKER | STATUS_CAMERA)) | l->remote_flags);
+        if (flags != p[4]) {
+            p[4] = flags;
+            *what |= RTPRO_CHANGED;
+        }
     }
     if (p[1] == IN_STATUS && n >= 6u && l->status_count > 0) {
         /* The answer to the oldest status request: the game's own as it

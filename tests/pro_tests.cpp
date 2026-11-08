@@ -479,9 +479,24 @@ void test_stand_ins() {
     Bytes second = Acl(kPro, status_answer);
     EXPECT_EQ(In(st, second), 16u);
     EXPECT_EQ(second[9], 0x20);
+    // Issue #216: the game switched the camera on, so its status says so,
+    // as a Wii Remote's would (the Pro's own flags say only "extension").
+    EXPECT_EQ(second[12], 0x0A);
     Bytes third = Acl(kPro, status_answer);
     In(st, third);
     EXPECT_EQ(third[12], 0x16);
+    // The camera off again and the speaker on (no acknowledgements asked):
+    // the next status says exactly that.
+    Bytes camera_off = Acl(kPro, {0xA2, 0x13, 0x00});
+    Out(st, camera_off);
+    Bytes speaker_on = Acl(kPro, {0xA2, 0x14, 0x04});
+    Out(st, speaker_on);
+    Bytes status_again = Acl(kPro, {0xA2, 0x15, 0x00});
+    Out(st, status_again);
+    Bytes fourth = Acl(kPro, {0xA1, 0x20, 0x00, 0x00, 0x0A, 0x00, 0x00, 0xC0});
+    In(st, fourth);
+    EXPECT_EQ(fourth[9], 0x20);
+    EXPECT_EQ(fourth[12], 0x06);
     // Reads and writes of the extension's registers go to the Pro as they are.
     Bytes id = Acl(kPro, {0xA2, 0x17, 0x04, 0xA4, 0x00, 0xFA, 0x00, 0x06});
     EXPECT_EQ(Out(st, id) & RTPRO_CHANGED, 0u);
@@ -495,6 +510,10 @@ void test_stand_ins() {
     Bytes remote_ir = Acl(kRemote, {0xA2, 0x13, 0x06});
     EXPECT_EQ(Out(st, remote_ir) & RTPRO_CHANGED, 0u);
     EXPECT_EQ(remote_ir[9], 0x13);
+    // and its status reports are its own.
+    Bytes remote_status = Acl(kRemote, {0xA1, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0xC0});
+    In(st, remote_status);
+    EXPECT_EQ(remote_status[12], 0x00);
 }
 
 void test_classic_bytes() {
