@@ -83,7 +83,7 @@ ExtrasBudget EstimateExtras(const FrontendState& state) {
         std::uint32_t data = 0;
         if (packs) data += kTypicalTable + RT_MAX_PENDING * RT_BOUNCE_BYTES;
         if (saves) data += align(sizeof(rt_fs_state)) + 32;
-        if (rvz) data += align(rt_rvz_state_bytes(kTypicalRvzExtents)) + kTypicalRvzBuffers;
+        if (rvz) data += align(rt_rvz_state_bytes(kTypicalRvzExtents, 1)) + kTypicalRvzBuffers;
         b.add(rvz ? tr("RVZ and mods") : packs ? tr("mods") : tr("saves on the card"), whole_mem1 ? 0 : code,
               data + (whole_mem1 ? code : 0));
     }
@@ -92,9 +92,11 @@ ExtrasBudget EstimateExtras(const FrontendState& state) {
     // count is only known at the launch (vsdhook.cpp walks the card's cluster
     // chain then). The menu has no cached count, and a scan here would read
     // the card on the menu thread, so this counts one piece: a scattered image
-    // (up to 192 KB of table) loses more than shown.
+    // (up to 192 KB of table) loses more than shown. The card passed through
+    // is always the SD slot's (VSD_BACKEND_SLOT0), so its bounce buffer is the
+    // SD card's size; a code build's image (SD or USB) is not counted here.
     if (runtime && !protected_game && !whole_mem1)
-        b.add(tr("SD card for the game"), blob_bytes<vsd_header>(riftwii_vsd_bin), align(vsd_state_bytes(1)));
+        b.add(tr("SD card for the game"), blob_bytes<vsd_header>(riftwii_vsd_bin), align(vsd_state_bytes(1, vsd_bounce_bytes_for(VSD_BACKEND_SLOT0))));
     GcAdapterView view;
     const bool plugged = GcAdapterMenuLastView(view) && view.open && view.link != GCAD_LINK_NONE;
     const bool adapter = settings.gc_adapter == "on" || (settings.gc_adapter == "auto" && plugged) ||

@@ -1010,14 +1010,18 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
         return false;
     }
     mod.entries.clear();
-    for (const rt_entry* e = rt_entries(header); e != rt_entries(header) + header->entry_count; ++e) {
-        if (e->kind != RT_KIND_MEM) {
-            mod.entries.push_back(*e);
+    for (std::uint32_t i = 0; i < header->entry_count; ++i) {
+        const rt_entry entry = rt_read_entry(header, i);
+        if (entry.kind != RT_KIND_MEM) {
+            if (!try_push_back(mod.entries, entry)) {
+                error = "no memory for the compiled redirect entries";
+                return false;
+            }
             continue;
         }
         MemReplacement m;
-        m.virtual_offset = e->vstart;
-        if (!try_assign_range(m.bytes, in_memory.begin() + e->source, in_memory.begin() + e->source + e->length)) {
+        m.virtual_offset = entry.vstart;
+        if (!try_assign_range(m.bytes, in_memory.begin() + entry.source, in_memory.begin() + entry.source + entry.length)) {
             error = "no memory for the small NTFS files that go into memory";
             return false;
         }

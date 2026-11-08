@@ -14,6 +14,7 @@ namespace {
 constexpr const char* kCodeModsPath = "sd:/riftwii/codemods.txt";
 
 CodeModAnswers g_answers;
+riftwii::CodeModCrashLogs g_crash_logs;
 bool g_loaded = false;
 // There but unreadable: never written over, so its answers aren't lost.
 bool g_unreadable = false;
@@ -22,7 +23,7 @@ bool g_unreadable = false;
 bool g_held = false;
 
 // At most kCodeModsMaxBytes, cut back to its last whole line.
-bool ReadCodeModsFile(CodeModAnswers& answers) {
+bool ReadCodeModsFile(CodeModAnswers& answers, riftwii::CodeModCrashLogs& crash_logs) {
     struct stat st;
     // Only the old copy: a save stopped between moving it aside and putting
     // the new one in.
@@ -42,7 +43,9 @@ bool ReadCodeModsFile(CodeModAnswers& answers) {
     if (cut)
         logf("Code mods: %s is larger than %u bytes, so only its first %u are read\n", kCodeModsPath,
              static_cast<unsigned>(kCodeModsMaxBytes), static_cast<unsigned>(kCodeModsMaxBytes));
-    answers = parse_code_mods(code_mods_whole_lines(head, cut));
+    const std::string whole = code_mods_whole_lines(head, cut);
+    answers = parse_code_mods(whole);
+    crash_logs = parse_code_mod_crash_logs(whole);
     return true;
 }
 
@@ -51,11 +54,12 @@ const CodeModAnswers& Answers() {
     if (g_held) return none;
     if (!g_loaded) {
         g_loaded = true;
-        g_unreadable = !ReadCodeModsFile(g_answers);
+        g_unreadable = !ReadCodeModsFile(g_answers, g_crash_logs);
         if (g_unreadable)
             logf("Code mods: %s is there but could not be read, so answers are not saved over it\n", kCodeModsPath);
         else
-            logf("Code mods: %u answer(s) in %s\n", static_cast<unsigned>(g_answers.size()), kCodeModsPath);
+            logf("Code mods: %u answer(s) and %u with crash logs on in %s\n", static_cast<unsigned>(g_answers.size()),
+                 static_cast<unsigned>(g_crash_logs.size()), kCodeModsPath);
     }
     return g_answers;
 }
@@ -70,7 +74,7 @@ bool Save() {
     mkdir("sd:/riftwii", 0777);
     const std::string temp = std::string(kCodeModsPath) + ".part";
     const std::string old = std::string(kCodeModsPath) + ".old";
-    const std::string text = serialize_code_mods(g_answers);
+    const std::string text = serialize_code_mods(g_answers, g_crash_logs);
     FILE* f = std::fopen(temp.c_str(), "wb");
     bool ok = f != nullptr;
     if (f) {
@@ -113,8 +117,26 @@ CodeModAnswerKept SetCodeModAnswer(const std::string& game_id, const std::string
     return Save() ? CodeModAnswerKept::Saved : CodeModAnswerKept::UntilClose;
 }
 
+bool CodeModCrashLogs(const std::string& game_id, const std::string& key) {
+    Answers();
+    return !g_held && code_mod_crash_logs(g_crash_logs, game_id, key);
+}
+
+bool SharedCodeModCrashLogs(const std::string& game_id, const std::vector<std::string>& keys) {
+    Answers();
+    return !g_held && shared_code_mod_crash_logs(g_crash_logs, game_id, keys);
+}
+
+CodeModAnswerKept SetCodeModCrashLogs(const std::string& game_id, const std::string& key, bool on) {
+    if (g_held) return CodeModAnswerKept::NotKept;
+    Answers();
+    if (!set_code_mod_crash_logs(g_crash_logs, game_id, key, on)) return CodeModAnswerKept::NotKept;
+    return Save() ? CodeModAnswerKept::Saved : CodeModAnswerKept::UntilClose;
+}
+
 void ForgetCodeModAnswers() {
     g_answers.clear();
+    g_crash_logs.clear();
     g_loaded = false;
     g_unreadable = false;
 }
@@ -122,19 +144,6 @@ void ForgetCodeModAnswers() {
 void HoldCodeModAnswers(bool held) {
     if (held) ForgetCodeModAnswers();
     g_held = held;
-}
-
-CodeModAnswerKept RememberCodeModAnswer(const std::string& game_id, const std::vector<std::string>& keys,
-                                        CodeModStart picked) {
-    if (g_held) return CodeModAnswerKept::NotKept;
-    Answers();
-    // One the file couldn't take (it is full) isn't kept either. Nothing new
-    // (each mod already had its answer, or asks each time) writes nothing, so
-    // a locked card isn't a failed save the player didn't ask for.
-    const CodeModAnswers before = g_answers;
-    const bool taken = remember_code_mod_answer(g_answers, game_id, keys, picked);
-    if (g_answers != before && !Save()) return CodeModAnswerKept::UntilClose;
-    return taken ? CodeModAnswerKept::Saved : CodeModAnswerKept::NotKept;
 }
 
 }  // namespace riftwii::wii

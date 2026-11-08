@@ -498,7 +498,9 @@ static void rt_gecko_hex(struct rt_context* ctx, uint32_t value) {
 #ifdef RT_TARGET_PPC
 /* The compiler lowers some struct copies in the FAT engine to memcpy even
  * with -fno-builtin, so the blob provides it. PPC-only: host builds use
- * libc, where a second definition would collide at the link. */
+ * libc, where a second definition would collide at the link. Keep the
+ * definition through LTO: copy lowering can introduce calls afterwards. */
+__attribute__((used, externally_visible))
 void* memcpy(void* dst, const void* src, __SIZE_TYPE__ n) {
     uint8_t* d = (uint8_t*)dst;
     const uint8_t* s = (const uint8_t*)src;
@@ -1385,7 +1387,10 @@ static int rt_fs_admit(struct rt_fs_state* st, uint32_t entry_index, const struc
     if (!st->fs.busy && st->queue_count == 0) {
         st->req.fat.bounce = (uint32_t)(uintptr_t)st->bounce;
         st->req.fat.bounce_bytes = RT_FS_BOUNCE_BYTES;
+        st->req.fat.fast_io = 1; /* IOS DMAs into and out of the game's buffers, as it does for NAND */
         rtfs_begin(&st->fs, &st->req, ipc);
+        st->req.fat.fat_sector = st->fat_sector;
+        st->req.fat.sector = st->sector;
         r = RT_FS_ADMIT_BEGUN;
     } else if (may_queue && st->queue_count < RT_FS_QUEUE) {
         struct rt_fs_queued* q = &st->queue[(st->queue_head + st->queue_count) % RT_FS_QUEUE];
@@ -1431,7 +1436,10 @@ static void rt_fs_start_queued(struct rt_context* ctx, struct rt_fs_state* st) {
         if (!st->dead) {
             st->req.fat.bounce = (uint32_t)(uintptr_t)st->bounce;
             st->req.fat.bounce_bytes = RT_FS_BOUNCE_BYTES;
+            st->req.fat.fast_io = 1; /* IOS DMAs into and out of the game's buffers, as it does for NAND */
             rtfs_begin(&st->fs, &st->req, &q.ipc);
+            st->req.fat.fat_sector = st->fat_sector;
+            st->req.fat.sector = st->sector;
         }
         rt_interrupts_restore(msr);
         if (st->dead) {
@@ -2867,6 +2875,18 @@ static int rt_issue_sd_read(struct rt_context* ctx, struct rt_pending* record, i
     return 1;
 }
 
+/* A chunk of the current run has landed: moved from the bounce buffer
+ * into the game's, unless it was read straight there. */
+static void rt_take_chunk(struct rt_pending* record) {
+    const rt_run* run = &record->runs[record->run_index];
+    uint8_t* dst = rt_run_destination(record, run) + record->run_done;
+    if (!record->direct) {
+        rt_copy(dst, (const uint8_t*)(uintptr_t)record->bounce + record->chunk_skip, record->chunk_bytes);
+        rt_flush_range((uintptr_t)dst, record->chunk_bytes);
+    }
+    record->run_done += record->chunk_bytes;
+}
+
 /* Issues the next SD chunk of the current run. Returns 1 when a request
  * is in flight, 0 when the run is complete or not an SD run, -1 on an IPC
  * refusal. */
@@ -2876,15 +2896,30 @@ static int rt_issue_sd_chunk(struct rt_context* ctx, struct rt_pending* record) 
     const uint32_t byte_in_sectors = run->skip + record->run_done; /* from the start of sector `source` */
     const uint32_t sector = (uint32_t)run->source + byte_in_sectors / RT_SECTOR_BYTES;
     const uint32_t skip = byte_in_sectors % RT_SECTOR_BYTES;
+    const uint32_t destination = (uint32_t)(uintptr_t)(rt_run_destination(record, run) + record->run_done);
     uint32_t want = skip + remaining;
     uint32_t sectors;
+    uint32_t target = record->bounce;
+    record->direct = 0;
     if (run->kind == RT_KIND_DISC) return rt_issue_disc_chunk(ctx, record);
     if ((run->kind != RT_KIND_SD && run->kind != RT_KIND_USB) || remaining == 0) return 0;
-    if (want > RT_BOUNCE_BYTES) want = RT_BOUNCE_BYTES;
-    sectors = (want + RT_SECTOR_BYTES - 1) / RT_SECTOR_BYTES;
-    record->chunk_skip = skip;
-    record->chunk_bytes = sectors * RT_SECTOR_BYTES - skip;
-    if (record->chunk_bytes > remaining) record->chunk_bytes = remaining;
+    if (skip == 0 && remaining >= RT_SECTOR_BYTES && destination % 32u == 0) {
+        /* Whole sectors, aligned for IOS's DMA: straight into the game's
+         * buffer, as the drive itself would deliver them. A partial sector
+         * at either end still goes through the bounce buffer. */
+        sectors = remaining / RT_SECTOR_BYTES;
+        if (sectors > RT_DIRECT_SECTORS) sectors = RT_DIRECT_SECTORS;
+        record->direct = 1;
+        record->chunk_skip = 0;
+        record->chunk_bytes = sectors * RT_SECTOR_BYTES;
+        target = destination;
+    } else {
+        if (want > RT_BOUNCE_BYTES) want = RT_BOUNCE_BYTES;
+        sectors = (want + RT_SECTOR_BYTES - 1) / RT_SECTOR_BYTES;
+        record->chunk_skip = skip;
+        record->chunk_bytes = sectors * RT_SECTOR_BYTES - skip;
+        if (record->chunk_bytes > remaining) record->chunk_bytes = remaining;
+    }
     if (run->kind == RT_KIND_SD) {
         /* Not while a savegame write is still being programmed (rt_sd_settles):
          * checked and issued with interrupts off, so a write cannot slip in
@@ -2900,13 +2935,13 @@ static int rt_issue_sd_chunk(struct rt_context* ctx, struct rt_pending* record) 
                 r = rt_sd_wait_trip(ctx, record) < 0 ? -1 : 1;
             } else {
                 record->pad_request[0] = 0;
-                r = rt_issue_sd_read(ctx, record, 0, sector, sectors, record->bounce, RT_PHASE_SD);
+                r = rt_issue_sd_read(ctx, record, 0, sector, sectors, target, RT_PHASE_SD);
             }
             rt_interrupts_restore(msr);
             return r;
         }
     }
-    return rt_issue_sd_read(ctx, record, run->kind == RT_KIND_USB, sector, sectors, record->bounce, RT_PHASE_SD);
+    return rt_issue_sd_read(ctx, record, run->kind == RT_KIND_USB, sector, sectors, target, RT_PHASE_SD);
 }
 
 /* The runtime's bytes of a completed read, in buffer order, for the
@@ -3309,7 +3344,7 @@ static int rt_rvz_serve_run(struct rt_context* ctx, struct rt_rvz_state* st, str
             if (st->entry_sector != sector) {
                 uint32_t device = 0;
                 uint32_t contiguous = 0;
-                if (!rt_rvz_locate(st->table_extents, st->table_extent_count, st->table_sector + sector, &device,
+                if (!rt_rvz_locate(rt_rvz_table_extents(st), st->table_extent_count, st->table_sector + sector, &device,
                                    &contiguous)) {
                     return rt_rvz_fail(st, RT_RVZ_ERR_EXTENT);
                 }
@@ -3371,11 +3406,7 @@ static void rt_rvz_complete(struct rt_context* ctx, struct rt_rvz_state* st, int
         }
     } else if (record->phase == RT_PHASE_SD) {
         /* A chunk of one of the table's SD or USB runs (a mod's file). */
-        const rt_run* run = &record->runs[record->run_index];
-        uint8_t* dst = rt_run_destination(record, run) + record->run_done;
-        rt_copy(dst, (const uint8_t*)(uintptr_t)record->bounce + record->chunk_skip, record->chunk_bytes);
-        rt_flush_range((uintptr_t)dst, record->chunk_bytes);
-        record->run_done += record->chunk_bytes;
+        rt_take_chunk(record);
     }
 
     while (record->di_result == RT_DI_SUCCESS) {
@@ -3521,10 +3552,7 @@ void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pendin
             record->run_index = record->run_count;
         } else {
             ctx->retry[slot] = 0;
-            uint8_t* dst = rt_run_destination(record, run) + record->run_done;
-            rt_copy(dst, (const uint8_t*)(uintptr_t)record->bounce + record->chunk_skip, record->chunk_bytes);
-            rt_flush_range((uintptr_t)dst, record->chunk_bytes);
-            record->run_done += record->chunk_bytes;
+            rt_take_chunk(record);
         }
     }
 

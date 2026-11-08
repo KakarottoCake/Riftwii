@@ -138,8 +138,8 @@ int gc_gcad_on_reply(struct gc_gcad* ad, uint32_t reply) {
 
 void gc_gcad_event(struct gc_gcad* ad, gcad* g, uint32_t code, uint32_t a, int32_t b) {
     struct gc_gcad_diagnostic* record;
-    const rthid_mapping* mapping = g->mapping;
-    if (code == GCAD_EV_HID_LIST && g->catalog && g->catalog->count) mapping = &g->catalog->maps[0];
+    const rthid_layout* mapping = g->mapping;
+    if (code == GCAD_EV_HID_LIST && g->catalog && g->catalog->count) mapping = rthid_layout_at(g->catalog, 0);
     if ((code != GCAD_EV_HID_DIAG && code != GCAD_EV_HID_LIST) || !mapping ||
         ad->diagnostic_head - ad->diagnostic_tail >= GC_GCAD_DIAGNOSTICS) return;
     record = &ad->diagnostics[ad->diagnostic_head % GC_GCAD_DIAGNOSTICS];
@@ -172,7 +172,7 @@ void gc_gcad_diagnostic_written(struct gc_gcad* ad) {
 void gc_gcad_service(struct gc_gcad* ad, uint32_t now) {
     uint32_t i, handed;
     if (!ad->inited) {
-        gcad_links_init(&ad->g, ad->pads, &ad->catalog, ad, ad->fd, ad->version, ad->ticks_per_ms);
+        gcad_links_init(&ad->g, ad->pads, GCAD_HID_PADS, (uint32_t)sizeof(gcad), &ad->catalog, ad, ad->fd, ad->version, ad->ticks_per_ms);
         if (ad->known_dev != GCAD_NO_DEVICE) gcad_expect(&ad->g, ad->known_dev);
         if (ad->ven_fd >= 0) gcad_ven_init(&ad->g, &ad->ven, ad->xbox, ad, ad->ven_fd, ad->ticks_per_ms);
         ad->inited = 1;

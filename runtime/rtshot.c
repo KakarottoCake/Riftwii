@@ -3,16 +3,17 @@
 /* In-game screenshots: combo, picture and file (rtshot.h). */
 #include "rtshot.h"
 
-static struct rtshot_remote* remote_for(struct rtshot_input* in, uint16_t handle) {
+static struct rtshot_remote* rtshot_remote_for(struct rtshot_input* in, uint16_t handle) {
+    const uint16_t connection = handle + 1u;
     uint32_t i;
     struct rtshot_remote* r;
-    for (i = 0; i < RTSHOT_REMOTES; ++i)
-        if (in->remotes[i].used && in->remotes[i].handle == handle) return &in->remotes[i];
+    for (i = 0; i < RTSHOT_REMOTES; ++i) {
+        if (in->remotes[i].connection == connection) return &in->remotes[i];
+    }
     /* A new connection (or one that came back with another handle). */
     r = &in->remotes[in->next_remote % RTSHOT_REMOTES];
     in->next_remote = (in->next_remote + 1u) % RTSHOT_REMOTES;
-    r->handle = handle;
-    r->used = 1;
+    r->connection = connection;
     r->buttons = 0;
     r->masking = 0;
     return r;
@@ -37,7 +38,7 @@ int rtshot_acl(struct rtshot_input* in, uint8_t* acl, uint32_t size) {
     id = hid[1];
     if (!((id >= 0x20u && id <= 0x22u) || (id >= 0x30u && id <= 0x37u) || id == 0x3Eu || id == 0x3Fu)) return 0;
     ++in->reports;
-    r = remote_for(in, (uint16_t)(((uint32_t)acl[0] | ((uint32_t)acl[1] << 8)) & 0x0FFFu));
+    r = rtshot_remote_for(in, (uint16_t)(((uint32_t)acl[0] | ((uint32_t)acl[1] << 8)) & 0x0FFFu));
     buttons = hid[3];
     previous = r->buttons;
     r->buttons = buttons;

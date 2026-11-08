@@ -74,38 +74,29 @@ shot_hook_pad:
     addi 1, 1, 0x20
     blr
 
-/* The SDK's IPC callbacks: r3 result, r4 user data. */
+/* The SDK's IPC callbacks: r3 result, r4 user data. Tail calls keep
+ * the SDK's return address and let C supply the callback result, without
+ * a second frame on the game's IPC callback stack. */
     .globl shot_complete_bt
 shot_complete_bt:
-    stwu 1, -0x20(1)
-    mflr 0
-    stw 0, 0x24(1)
     mr 5, 4
     mr 4, 3
+    mflr 0
     bl 4f
 4:  mflr 3
     addi 3, 3, shot_context_data - 4b
-    bl shot_on_bt
-    lwz 0, 0x24(1)
     mtlr 0
-    addi 1, 1, 0x20
-    blr
+    b shot_on_bt
 
     .globl shot_complete_nand
 shot_complete_nand:
-    stwu 1, -0x20(1)
-    mflr 0
-    stw 0, 0x24(1)
     mr 4, 3
+    mflr 0
     bl 5f
 5:  mflr 3
     addi 3, 3, shot_context_data - 5b
-    bl shot_on_nand
-    li 3, 0
-    lwz 0, 0x24(1)
     mtlr 0
-    addi 1, 1, 0x20
-    blr
+    b shot_on_nand
 
 /* Loader-filled: the hooked function's first word (or another blob's
  * branch, retargeted) and nops, then the jump to its second word through
@@ -132,4 +123,4 @@ shot_continue_\name:
     .globl shot_context_data
 shot_context_data:
     .long 0x52575358
-    .fill 31, 4, 0
+    .fill 23, 4, 0

@@ -44,7 +44,10 @@
 #define RT_FAULT_VERSION 2u                 /* also in fault_entry.S's header */
 #define RT_FAULT_CONTEXT_MAGIC 0x52574658u  /* "RWFX" */
 #define RT_FAULT_CONTEXT_BYTES 128u
-#define RT_FAULT_STACK_BYTES 4096u
+/* Linked -fstack-usage audit: 112 bytes of C frames + 16 bytes of
+ * trampoline linkage, with a further 128-byte margin. Makefile.runtime
+ * checks every reachable path again whenever the blob is rebuilt. */
+#define RT_FAULT_STACK_BYTES 256u
 #define RT_FAULT_FLAG_BCA 1u                /* answer DVDLowReadDiskBca as a retail disc */
 #define RT_FAULT_DI_READ_BCA 0xDAu
 #define RT_FAULT_BCA_BYTES 0x40u
@@ -97,9 +100,11 @@ struct rt_fault_context {
 struct rt_fault_state {
     uint32_t request[16];       /* one IPC request, 32-aligned */
     struct rtfault_record record;
-    char fs[32];                /* "/dev/fs" */
-    char path[64];
-    uint8_t attr[96];           /* RTSHOT_FS_ATTR_BYTES, rounded up */
+    /* Synchronous requests never need a path and attributes together. */
+    union {
+        char path[96];
+        uint8_t attr[96];
+    } io;
     uint8_t stack[RT_FAULT_STACK_BYTES];
 };
 

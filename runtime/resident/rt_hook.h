@@ -103,6 +103,10 @@ extern "C" {
 #define RT_MAX_RUNS 8u    /* pieces of a read held at a time; longer reads are served in windows */
 #define RT_GECKO_MAX_FAILURES 32u /* refused bytes after which Gecko reporting turns itself off */
 #define RT_BOUNCE_BYTES 0x4000u   /* bytes one SD request fetches (32 sectors), per pending record */
+/* Whole sectors of a run that land 32-byte aligned in the game's buffer
+ * are read straight there, up to this many per request (64 KiB): no copy
+ * out of the bounce buffer, and a quarter of the requests. */
+#define RT_DIRECT_SECTORS 128u
 #define RT_READ_RETRIES 3u        /* a failed SD or disc request is issued again this often */
 
 /* rt_pending.phase */
@@ -198,7 +202,8 @@ struct rt_pending {
     uint32_t response[4];            /* offset 0x80 */
     uint32_t pad_response[4];
     struct rt_ioctlv vec[3];         /* offset 0xA0 */
-    uint32_t pad_vec[2];
+    uint32_t direct;       /* the in-flight SD chunk is read straight into the game's buffer */
+    uint32_t pad_vec;
     uint32_t di_command[8];          /* offset 0xC0: DVDLowRead block for DISC runs */
     rt_run runs[RT_MAX_RUNS];        /* offset 0xE0 */
 };
@@ -451,12 +456,16 @@ struct rt_fs_job {
 
 /* Savegame FS interception state. Lives in a loader-owned block (MEM2
  * data area on the console, 32-byte aligned) so struct rt_context stays
- * 2048 bytes; the context holds only a pointer. The IPC blocks and the
- * bounce buffer sit in their own cache lines (IOS DMA). */
+ * within its embedded slot; the context holds only a pointer. The IPC
+ * blocks and bounce buffer sit in their own cache lines (IOS DMA). */
 struct rt_fs_state {
     struct rtfs_context fs;
     struct rtfs_request req;       /* the one request in flight */
     struct rtfs_request probe;     /* classification scratch (rtfs_probe) */
+    /* Only req drives FAT I/O. The probe has its own parsing scratch but
+     * never reads or writes these buffers, including while IOS owns one. */
+    uint8_t fat_sector[RTFAT_SECTOR_BYTES] __attribute__((aligned(32)));
+    uint8_t sector[RTFAT_SECTOR_BYTES] __attribute__((aligned(32)));
     /* Loader-filled: the game's synchronous functions (their replay
      * slots when hooked), 0 = unknown. */
     uint32_t complete_fs;          /* rt_complete_fs entry address */
@@ -531,11 +540,10 @@ struct rt_fs_state {
     struct rt_ioctlv dvec[4] __attribute__((aligned(32)));      /* the clone's ReadDir vectors */
     uint8_t bounce[RT_FS_BOUNCE_BYTES] __attribute__((aligned(32)));
     struct rt_cardlog cardlog __attribute__((aligned(32)));  /* one sector, DMAed to the card */
-    /* Savegame redirection only, from here to the end: the clone's listing
-     * and the imports' buffers. With no save directory served (the file
+    /* Savegame redirection only, from here to the end: the imports'
+     * buffers. With no save directory served (the file
      * device alone) nothing classifies as inside it, so no import or clone
-     * runs, and the loader leaves this tail out (RT_FS_SAVEGAME_TAIL). */
-    uint8_t names[RT_FS_CLONE_MAX * RTFAT_SLOT_BYTES] __attribute__((aligned(32)));  /* the clone's listing */
+     * runs, and the loader leaves this tail out. */
     uint8_t import[RT_FS_IMPORT_BYTES] __attribute__((aligned(32)));
     /* The synchronous import's stage/backup/rename paths. They cannot live
      * on the stack like the job's can in its record: the engine only ever
@@ -545,7 +553,17 @@ struct rt_fs_state {
     char copy_stage[RTFS_PATH_BYTES] __attribute__((aligned(32)));
     char copy_backup[RTFS_PATH_BYTES] __attribute__((aligned(32)));
     char copy_paths[2u * RTFS_PATH_BYTES] __attribute__((aligned(32)));
+    /* A clone can still be pending after launch. Keep its listing separate
+     * from the import buffer used to copy each file, and omit it only when
+     * this launch cannot request a clone. */
+    uint8_t names[RT_FS_CLONE_MAX * RTFAT_SLOT_BYTES] __attribute__((aligned(32)));
 };
+
+static inline uint32_t rt_fs_state_bytes(uint32_t savegame, uint32_t clone) {
+    if (!savegame) return (uint32_t)offsetof(struct rt_fs_state, import);
+    if (!clone) return (uint32_t)offsetof(struct rt_fs_state, names);
+    return (uint32_t)sizeof(struct rt_fs_state);
+}
 
 /* RVZ games. Group table entries (8 bytes, big endian, the loader's
  * copy of the RVZ's own table for the game partition's groups in data
@@ -630,20 +648,24 @@ struct rt_rvz_state {
     uint32_t entries[RT_RVZ_ENTRIES_PER_SECTOR * 2] __attribute__((aligned(32)));  /* one table sector */
     uint32_t status[8] __attribute__((aligned(32)));  /* the null round trip's out word */
     rtrvz_junk junk;
-    struct rt_rvz_extent table_extents[RT_RVZ_TABLE_EXTENTS];
-    /* Last: the loader makes room for `extent_count` of them only
-     * (rt_rvz_state_bytes), not all RT_RVZ_MAX_EXTENTS (12 KiB). It is the
-     * game's MEM2, and Newer Super Mario Bros. Wii has little to spare. */
-    struct rt_rvz_extent extents[RT_RVZ_MAX_EXTENTS];
+    /* Last: actual image extents, then actual group-table extents. The
+     * loader allocates only those counts (rt_rvz_state_bytes), while the
+     * declaration still allows the most fragmented image and table. */
+    struct rt_rvz_extent extents[RT_RVZ_MAX_EXTENTS + RT_RVZ_TABLE_EXTENTS];
 };
 
-/* The state's size with room for `extent_count` pieces of the RVZ. */
-#define rt_rvz_state_bytes(extent_count) \
-    ((uint32_t)__builtin_offsetof(struct rt_rvz_state, extents) + (uint32_t)(extent_count) * (uint32_t)sizeof(struct rt_rvz_extent))
+static inline struct rt_rvz_extent* rt_rvz_table_extents(struct rt_rvz_state* state) {
+    return state->extents + state->extent_count;
+}
 
-/* The decoder's workspace: its tables and a 4 KiB literal buffer
- * (rt_zstd.c); rt_zstd_init fails when it is too small. */
-#define RT_RVZ_DCTX_BYTES 0xC000u
+/* Counts are bounded by RT_RVZ_MAX_EXTENTS and RT_RVZ_TABLE_EXTENTS at launch. */
+#define rt_rvz_state_bytes(extent_count, table_extent_count) \
+    ((uint32_t)__builtin_offsetof(struct rt_rvz_state, extents) + \
+     ((uint32_t)(extent_count) + (uint32_t)(table_extent_count)) * (uint32_t)sizeof(struct rt_rvz_extent))
+
+/* Shared with the GameCube reader and checked against the decoder struct. */
+#include "rtzstd.h"
+#define RT_RVZ_DCTX_BYTES RTZSTD_WORKSPACE_BYTES
 
 /* Zstandard for the runtime (rt_zstd.c). The workspace must be 8-byte
  * aligned; the decoder set up in it is returned, or 0 when it does not
@@ -651,7 +673,6 @@ struct rt_rvz_state {
 uint32_t rt_zstd_init(uint32_t workspace, uint32_t bytes);
 int32_t rt_zstd_decode(uint32_t dctx, uint8_t* dst, uint32_t capacity, const uint8_t* src, uint32_t length);
 
-/* At most 2048 bytes, the slot rt_entry.S reserves. */
 /* The game's own Reset (the HOME Menu's, the console button's): instead of
  * letting the SDK reload the game, which would drop every change RiftWii
  * made, the runtime writes a launch request to a sector of the card and
@@ -747,7 +768,9 @@ struct rt_context {
     struct rt_restart restart;
 };
 
-typedef char rt_context_layout[(sizeof(struct rt_context) <= 2048u) ? 1 : -1];
+/* The 32-byte-aligned slot reserved by rt_entry.S and the loader. */
+#define RT_CONTEXT_BYTES 1280u
+typedef char rt_context_layout[(sizeof(struct rt_context) <= RT_CONTEXT_BYTES) ? 1 : -1];
 /* IOS flushes and invalidates the records' blocks by 32-byte line: each
  * record starts on a line of its own (the context does, see rt_entry.S). */
 typedef char rt_pending_layout[(offsetof(struct rt_context, pending) % 32u == 0 && sizeof(struct rt_pending) % 32u == 0) ? 1 : -1];

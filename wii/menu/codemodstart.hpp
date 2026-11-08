@@ -20,8 +20,11 @@ CodeModStart SharedCodeModAnswer(const std::string& game_id, const std::vector<s
 enum class CodeModAnswerKept { Saved, UntilClose, NotKept };
 // Each changes the answers and saves them.
 CodeModAnswerKept SetCodeModAnswer(const std::string& game_id, const std::string& key, CodeModStart start);
-CodeModAnswerKept RememberCodeModAnswer(const std::string& game_id, const std::vector<std::string>& keys,
-                                        CodeModStart picked);
+// Crash logs for the mod (#496): off unless its Mods page switches them on.
+bool CodeModCrashLogs(const std::string& game_id, const std::string& key);
+// Several code mods on together: on only when each has them on.
+bool SharedCodeModCrashLogs(const std::string& game_id, const std::vector<std::string>& keys);
+CodeModAnswerKept SetCodeModCrashLogs(const std::string& game_id, const std::string& key, bool on);
 // The SD card was taken out and put back (perhaps another one): its file
 // is read again before the next answer, never the old card's written onto it.
 void ForgetCodeModAnswers();

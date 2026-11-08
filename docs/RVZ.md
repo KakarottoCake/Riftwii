@@ -66,7 +66,11 @@ sized from the RVZ's own table (`rvz_buffer_sizes`): the first holds its
 largest compressed group, the second its largest group decoded or
 stored as it is. An RVZ that compresses nothing needs neither the first
 buffer nor the decoder. Kirby's Epic Yarn (128 KiB chunks): 126 KB and
-136 KB, and 48 KB for the decoder.
+136 KB, and 10.5 KB for the decoder. The decoder is RiftWii's own
+(`runtime/rtzstd.c`, written from RFC 8878), shared by the Wii and the
+GameCube readers; it keeps the literals in the unused end of the output
+buffer, so it needs no buffer of its own. The menu and the loader use the
+vendored reference decoder.
 
 The hook answers every DVDLowRead itself; the drive never sees a
 partition read, since the disc d2x presents holds only the stub. It

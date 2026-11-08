@@ -52,7 +52,7 @@ struct gc_gcad {
     gcad pads[GCAD_HID_PADS];
     rthid_catalog catalog; /* same prefix as gcad_hub */
     gcad ven;              /* /dev/usb/ven's list, for Xbox 360 pads */
-    rthid_mapping xbox[GCAD_HID_PADS];
+    gcad_xbox_layout xbox[GCAD_HID_PADS];
     struct gc_gcad_rq rq[GCAD_REQUESTS] __attribute__((aligned(32)));
     int32_t fd;
     int32_t ven_fd;         /* /dev/usb/ven, -1: none */

@@ -77,8 +77,11 @@ void test_late_composite_pad() {
     ad.known_dev = -1;
     ad.ticks_per_ms = 1;
     std::string error;
-    EXPECT_EQ(riftwii::parse_hid_config("VID=054C\nPID=09CC\nPolltype=1\nA=0,1\n", ad.catalog.maps[0], error), true);
-    ad.catalog.count = 1;
+    rthid_mapping parsed{};
+    EXPECT_EQ(riftwii::parse_hid_config("VID=054C\nPID=09CC\nPolltype=1\nA=0,1\n", parsed, error), true);
+    alignas(4) std::uint8_t packed[RTHID_LAYOUT_MAX] = {};
+    EXPECT_EQ(rthid_pack(&parsed, reinterpret_cast<rthid_layout*>(packed), sizeof(packed)) != 0, true);
+    EXPECT_EQ(rthid_catalog_add(&ad.catalog, reinterpret_cast<const rthid_layout*>(packed)), 1);
     g_mock_ios = true;
     gc_gcad_service(&ad, g_now);
     answer(ad, GCAD_TAG_CHANGE, 0); // reload's first list is empty
@@ -177,7 +180,8 @@ void test_late_composite_pad() {
     carried.version = 5;
     carried.known_dev = -1;
     carried.ticks_per_ms = 1;
-    carried.catalog.maps[0] = ad.catalog.maps[0];
+    std::memcpy(carried.catalog.layouts, ad.catalog.layouts, ad.catalog.layout_bytes);
+    carried.catalog.layout_bytes = ad.catalog.layout_bytes;
     carried.catalog.count = 1;
     carried.catalog.known_count = 1;
     carried.catalog.known[0] = {static_cast<std::int32_t>(ids[3]), 0x054C09CC};
@@ -219,7 +223,7 @@ void set_up(gc_gcad& ad, std::uint32_t ports, bool wireless = false) {
         ad.port_of[i] = GC_PORT_NONE;
         if (!(ports & (1u << i))) continue;
         std::uint8_t* raw = ad.g.raw[i];
-        raw[0] = wireless ? 0x20 : 0x10;  // wired, or a WaveBird receiver
+        raw[0] = wireless ? 0x24 : 0x14;  // wired, or a WaveBird receiver; the gray plug in
         raw[1] = 0x01;                    // A
         raw[3] = 128 + 20;                // stick x
         raw[4] = 128;
@@ -352,11 +356,14 @@ void test_hid_after_adapter() {
     gc_gcad ad;
     set_up(ad, 0x1u);
     ad.g.peers = ad.pads;
-    ad.catalog.maps[0].vid = 0x1234;
-    ad.catalog.maps[0].pid = 0x5678;
-    ad.catalog.maps[0].rumble_bytes = 2;
+    ad.g.peer_count = GCAD_HID_PADS;
+    ad.g.peer_stride = sizeof(gcad);
+    auto* layout = reinterpret_cast<rthid_layout*>(ad.catalog.layouts);
+    layout->vid = 0x1234;
+    layout->pid = 0x5678;
+    layout->rumble_bytes = 2;
     gcad& hid = ad.pads[0];
-    hid.mapping = &ad.catalog.maps[0];
+    hid.mapping = layout;
     hid.link = GCAD_LINK_POLL;
     hid.data_time = g_now;
     hid.ticks_per_ms = kTicksPerMs;
@@ -389,11 +396,14 @@ void test_adapter_own_port_before_displaced_and_hid() {
     set_up(ad, 0x3u);
     ad.g.raw[1][1] = 0x02;  // adapter pad 1 presses B
     ad.g.peers = ad.pads;
-    ad.catalog.maps[0].vid = 0x1234;
-    ad.catalog.maps[0].pid = 0x5678;
-    ad.catalog.maps[0].rumble_bytes = 2;
+    ad.g.peer_count = GCAD_HID_PADS;
+    ad.g.peer_stride = sizeof(gcad);
+    auto* layout = reinterpret_cast<rthid_layout*>(ad.catalog.layouts);
+    layout->vid = 0x1234;
+    layout->pid = 0x5678;
+    layout->rumble_bytes = 2;
     gcad& hid = ad.pads[0];
-    hid.mapping = &ad.catalog.maps[0];
+    hid.mapping = layout;
     hid.link = GCAD_LINK_POLL;
     hid.data_time = g_now;
     hid.ticks_per_ms = kTicksPerMs;

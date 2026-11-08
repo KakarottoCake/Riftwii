@@ -149,17 +149,16 @@ bool build_redirect_table(const std::vector<VirtualFileLayout>& files, const Ext
     header.entry_count = static_cast<std::uint32_t>(merged.size());
     header.sdio_fd = sdio_fd;
     header.tag = tag;
-    header.entries_crc = rt_crc32(merged.data(), merged.size() * sizeof(rt_entry));
+    header.entry_bytes = rt_entry_format(merged.data(), header.entry_count);
     std::vector<std::uint8_t> bytes;
-    if (!try_resize(bytes, rt_table_bytes(header.entry_count))) {
+    if (!try_resize(bytes, rt_table_bytes(header.entry_count, header.entry_bytes))) {
         error = "allocation failure";
         return false;
     }
     std::memcpy(bytes.data(), &header, sizeof(header));
-    if (!merged.empty()) {
-        std::memcpy(bytes.data() + sizeof(header), merged.data(), merged.size() * sizeof(rt_entry));
-    }
-    const int rc = rt_validate(reinterpret_cast<const rt_header*>(bytes.data()), bytes.size());
+    auto* table = reinterpret_cast<rt_header*>(bytes.data());
+    const int encoded = rt_encode_entries(table, merged.data());
+    const int rc = encoded == RT_OK ? rt_validate(table, bytes.size()) : encoded;
     if (rc != RT_OK) {
         error = "built redirect table failed validation (" + std::to_string(rc) + ")";
         return false;

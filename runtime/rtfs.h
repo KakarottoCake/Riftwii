@@ -242,9 +242,11 @@ int rtfs_path_type(const struct rtfs_context* ctx, const char* path, char* name)
 int rtfs_is_fs_device(const char* path);
 void rtfs_learn_fs_fd(struct rtfs_context* ctx, int32_t fd);
 
-/* Starts one IOS request.  The caller sets request.fat.bounce and
- * request.fat.bounce_bytes before this call for Read/Write.  A complete
- * request's result is ready immediately.  For RTFS_NEEDS_IO call rtfs_step
+/* Starts one IOS request. The caller sets request.fat.bounce and
+ * request.fat.bounce_bytes before this call for Read/Write, and supplies
+ * fat.fat_sector and fat.sector after it, before the first rtfs_step.
+ * rtfs_begin clears those pointers; classification needs no sectors.
+ * A complete request's result is ready immediately. For RTFS_NEEDS_IO call rtfs_step
  * until it returns RTFAT_DONE, performing each requested transfer and
  * putting its status in request.fat.io_status before resuming. */
 void rtfs_begin(struct rtfs_context* ctx, struct rtfs_request* request, const struct rtfs_ipc* ipc);

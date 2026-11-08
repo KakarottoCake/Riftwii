@@ -52,7 +52,7 @@ endif()
 # The resident runtime is built with its RVZ code (RT_RVZ): the tests cover
 # both blobs' logic, and without an RVZ state the RVZ code stays out of the
 # way. Its Zstandard is the host library here.
-add_library(riftwii_runtime STATIC runtime/rtable.c runtime/rtfat.c runtime/rtfs.c runtime/rtgcad.c runtime/rthid.c runtime/rtrvz.c runtime/rtshot.c runtime/rtfault.c runtime/rtvsd.c runtime/rtpro.c runtime/rtleave.c
+add_library(riftwii_runtime STATIC runtime/rtable.c runtime/rtfat.c runtime/rtfs.c runtime/rtgcad.c runtime/rthid.c runtime/rtrvz.c runtime/rtshot.c runtime/rtfault.c runtime/rtvsd.c runtime/rtvsdra.c runtime/rtpro.c runtime/rtleave.c
     runtime/resident/rt_hook.c runtime/resident/rt_zstd.c runtime/vsd/vsd_hook.c runtime/gc/gc_rvz.c)
 target_include_directories(riftwii_runtime PUBLIC runtime runtime/resident runtime/vsd PRIVATE vendor-zstd runtime/gc)
 target_compile_definitions(riftwii_runtime PRIVATE RT_RVZ)
@@ -70,6 +70,11 @@ endif()
 # Host tool: the IPC search on a dumped main.dol (tools/ipcscan.cpp).
 add_executable(ipcscan tools/ipcscan.cpp)
 target_link_libraries(ipcscan PRIVATE riftwii)
+# Host timing of the in-game RVZ decoder against the vendored one (both -Os).
+add_executable(rtzstd_bench tools/rtzstd_bench.cpp runtime/rtzstd.c)
+target_include_directories(rtzstd_bench PRIVATE runtime vendor-zstd)
+target_link_libraries(rtzstd_bench PRIVATE zstddec)
+
 # Host tool: an RVZ's verdict and the stub d2x would boot (tools/rvzstub.cpp).
 add_executable(rvzstub tools/rvzstub.cpp)
 target_link_libraries(rvzstub PRIVATE riftwii)
@@ -87,8 +92,54 @@ add_executable(menusound_list tools/menusound_list.cpp)
 target_link_libraries(menusound_list PRIVATE riftwii)
 add_executable(menusound_render tools/menusound_render.cpp)
 target_link_libraries(menusound_render PRIVATE riftwii)
+# Keep the timing baseline separate from the production library: both walkers
+# use the runtime's size optimization even in a default host configuration.
+add_executable(redirect_bench tools/redirect_bench.cpp tests/redirect_legacy.c runtime/rtable.c)
+target_include_directories(redirect_bench PRIVATE runtime)
+set_target_properties(redirect_bench PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON)
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(redirect_bench PRIVATE -Os -Wall -Wextra -Wpedantic -Werror)
+endif()
 include(CTest)
 if(BUILD_TESTING)
+    # Build the actual wlog C path three ways, as Makefile.runtime does.
+    # Renamed entries let one test compare the same traffic and saved bytes.
+    foreach(mode full trace translate)
+        add_library(wlog_${mode}_host OBJECT runtime/wlog/wlog_hook.c)
+        target_include_directories(wlog_${mode}_host PRIVATE runtime)
+        set_target_properties(wlog_${mode}_host PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON C_EXTENSIONS OFF)
+        foreach(entry on_print on_exit on_ioctlv after_ioctlv on_bt)
+            target_compile_definitions(wlog_${mode}_host PRIVATE wlog_${entry}=wlog_${mode}_${entry})
+        endforeach()
+        if(mode STREQUAL "trace")
+            target_compile_definitions(wlog_${mode}_host PRIVATE RT_WLOG_TRACE_ONLY)
+        elseif(mode STREQUAL "translate")
+            target_compile_definitions(wlog_${mode}_host PRIVATE RT_WLOG_TRANSLATE_ONLY)
+        endif()
+        if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+            target_compile_options(wlog_${mode}_host PRIVATE -Wall -Wextra -Wpedantic -Werror)
+        endif()
+    endforeach()
+    add_executable(wlogblob_tests tests/wlogblob_tests.cpp wii/hooks/wpadhook.cpp
+        $<TARGET_OBJECTS:wlog_full_host> $<TARGET_OBJECTS:wlog_trace_host> $<TARGET_OBJECTS:wlog_translate_host>)
+    target_include_directories(wlogblob_tests PRIVATE tests/wlog_mock tests/wii_mock wii/hooks wii/core wii/controllers)
+    target_link_libraries(wlogblob_tests PRIVATE riftwii)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(wlogblob_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME wlogblob COMMAND wlogblob_tests)
+    set_tests_properties(wlogblob PROPERTIES SKIP_RETURN_CODE 77)
+    add_executable(smallblob_tests tests/smallblob_tests.cpp tests/shotjob_model.c
+        tests/stub_model.c tests/legacy_stub_model.c tests/fault_model.c tests/legacy_fault_model.c
+        tests/legacy_shotjob_model.c tests/fixtures/small-blobs/legacy_rtshot.c
+        tests/fixtures/small-blobs/legacy_rtfault.c)
+    target_include_directories(smallblob_tests PRIVATE include runtime tests)
+    target_link_libraries(smallblob_tests PRIVATE riftwii_runtime)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(smallblob_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME smallblob COMMAND smallblob_tests)
+    set_tests_properties(smallblob PROPERTIES SKIP_RETURN_CODE 77)
     add_executable(gccardruntime_tests tests/gccardruntime_tests.cpp)
     target_include_directories(gccardruntime_tests PRIVATE runtime runtime/gc)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -257,6 +308,16 @@ if(BUILD_TESTING)
         target_compile_options(memorybudget_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME memorybudget COMMAND memorybudget_tests)
+    # The adapter-only pad blob's driver (runtime/pad, wiiu#45): the
+    # adapter's tests again, against rtgcad.c built without the other USB
+    # pads' code. Its own copy of rtgcad.c takes the library's place.
+    add_executable(gcad_adapteronly_tests tests/gcad_tests.cpp runtime/rtgcad.c)
+    target_compile_definitions(gcad_adapteronly_tests PRIVATE GCAD_ADAPTER_ONLY)
+    target_link_libraries(gcad_adapteronly_tests PRIVATE riftwii)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(gcad_adapteronly_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME gcad_adapteronly COMMAND gcad_adapteronly_tests)
     add_executable(packcatalog_tests tests/packcatalog_tests.cpp wii/menu/packcatalog.cpp)
     target_include_directories(packcatalog_tests PRIVATE wii/menu wii/core wii/launch wii/storage wii/online)
     target_link_libraries(packcatalog_tests PRIVATE riftwii)
@@ -382,9 +443,15 @@ if(BUILD_TESTING)
         add_test(NAME hidpads_${mode} COMMAND hidpads_tests ${mode}
             "${CMAKE_CURRENT_BINARY_DIR}/hidpads-test-${mode}")
     endforeach()
-    foreach(suite disccache patch overlay apply expand mempatch launch compat fst disc redirect fat32 ntfs titles canvas usbgame wbfspart wfs wfstitle rtfat rtfs dol hook riifs extras gcad hidconfig builtinpads png shot rvz codebuild qrcode report gamefault rtfaultstack vsd vsdblob gxpatches ctgpconfig theme riitag sysfont brfnt vsdparts vsdbuild modart bnr bnrsound themepack d2xversion nandcheck offlinegames casecolour extrasbudget wpadlog gametdb pro vcdiff gcoverlay gccard gccrash gclayout gcload gcclock gcbanner gcrvz gcports gccontrols sharednand nandchannel wadfile contentbin homeorder homeinput profiles namekeys gcvideo gcfont gcreset gcprograms gctgc gcexi gcaram stash plugin gcrequest gcgcad gcdsp gcreal osrestart textlines appmeta homebrewmatch themebrowse gcdisc ghcheats menufont zipstream cardvolume returnstub padleave channelupdate sdhotplug wiisound nandlist ratingmark parental musiclist menumotion streamformat emulatorfile emulatorart emulatorbanner picturepick wiiflowplugin codemods modcover homechord discdump gamepage)
+    foreach(suite disccache patch overlay apply expand mempatch launch compat fst disc redirect fat32 ntfs titles canvas usbgame wbfspart wfs wfstitle rtfat rtfs dol hook riifs extras gcad hidconfig builtinpads png shot rvz codebuild qrcode report gamefault rtfaultstack vsd vsdblob gxpatches ctgpconfig theme riitag sysfont brfnt vsdparts vsdbuild modart bnr bnrsound themepack d2xversion nandcheck offlinegames casecolour extrasbudget wpadlog gametdb pro vcdiff gcoverlay gccard gccrash gclayout gcload gcclock gcbanner gcrvz gcports gccontrols sharednand nandchannel wadfile contentbin homeorder homeinput profiles namekeys gcvideo gcfont gcreset gcprograms gctgc gcexi gcaram stash plugin gcrequest gcgcad gcdsp gcreal osrestart textlines appmeta homebrewmatch themebrowse gcdisc ghcheats menufont zipstream cardvolume returnstub padleave channelupdate sdhotplug wiisound nandlist ratingmark parental musiclist menumotion streamformat emulatorfile emulatorart emulatorbanner picturepick wiiflowplugin codemods modcover homechord discdump gamepage rtzstd vsdra)
         add_executable(${suite}_tests tests/${suite}_tests.cpp)
         target_link_libraries(${suite}_tests PRIVATE riftwii)
+        if(suite STREQUAL "redirect")
+            target_sources(${suite}_tests PRIVATE tests/redirect_legacy.c)
+        endif()
+        if(suite STREQUAL "vsd")
+            target_sources(${suite}_tests PRIVATE tests/vsd_legacy.c)
+        endif()
         if(suite STREQUAL "zipstream")
             target_link_libraries(${suite}_tests PRIVATE ZLIB::ZLIB)
         endif()
@@ -399,8 +466,17 @@ if(BUILD_TESTING)
         if(suite STREQUAL "gcgcad")
             target_sources(${suite}_tests PRIVATE runtime/gc/gc_gcad.c)
         endif()
-        if(suite STREQUAL "compat" OR suite STREQUAL "rvz" OR suite STREQUAL "vcdiff" OR suite STREQUAL "stash" OR suite STREQUAL "plugin")
+        if(suite STREQUAL "rtzstd")
+            # RiftWii's in-game decoder against the vendored reference one.
+            target_sources(${suite}_tests PRIVATE tests/rtzstd_probe.c)
+            target_include_directories(${suite}_tests PRIVATE runtime vendor-zstd)
+            target_link_libraries(${suite}_tests PRIVATE zstddec)
             add_test(NAME ${suite} COMMAND ${suite}_tests "${CMAKE_SOURCE_DIR}/tests/fixtures")
+        elseif(suite STREQUAL "compat" OR suite STREQUAL "rvz" OR suite STREQUAL "vcdiff" OR suite STREQUAL "stash" OR suite STREQUAL "plugin")
+            add_test(NAME ${suite} COMMAND ${suite}_tests "${CMAKE_SOURCE_DIR}/tests/fixtures")
+        elseif(suite STREQUAL "vsd")
+            # The blob's entries are checked too when the Wii build has made it.
+            add_test(NAME ${suite} COMMAND ${suite}_tests "${CMAKE_SOURCE_DIR}/build-runtime/riftwii_vsd.bin")
         elseif(suite STREQUAL "menufont" OR suite STREQUAL "gccrash" OR suite STREQUAL "ratingmark" OR suite STREQUAL "codebuild")
             # The committed fonts/translations, the GameCube flag definitions,
             # the rating marks and the Gecko code handlers (vendor-gecko).
@@ -411,6 +487,25 @@ if(BUILD_TESTING)
         # A suite that cannot run here (no memory at the Wii's addresses)
         # exits 77: shown as skipped, not passed.
         set_tests_properties(${suite} PROPERTIES SKIP_RETURN_CODE 77)
+    endforeach()
+    # Keep the pre-rewrite engine as a host-only differential oracle. Both
+    # executables use the same scenarios and emit address-free I/O transcripts.
+    add_library(fs_reference STATIC tests/reference/rtfat.c tests/reference/rtfs.c)
+    target_include_directories(fs_reference PUBLIC tests/reference)
+    set_target_properties(fs_reference PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON C_EXTENSIONS OFF)
+    foreach(suite rtfat rtfs)
+        add_executable(${suite}_reference_tests tests/${suite}_tests.cpp)
+        target_compile_definitions(${suite}_reference_tests PRIVATE RTFAT_REFERENCE)
+        target_include_directories(${suite}_reference_tests BEFORE PRIVATE tests/reference)
+        target_link_libraries(${suite}_reference_tests PRIVATE fs_reference riftwii)
+        if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            target_compile_options(${suite}_reference_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+        endif()
+        add_test(NAME ${suite}_differential COMMAND "${CMAKE_COMMAND}"
+            "-Dreference=$<TARGET_FILE:${suite}_reference_tests>"
+            "-Dcurrent=$<TARGET_FILE:${suite}_tests>"
+            "-Dtrace=${CMAKE_CURRENT_BINARY_DIR}/${suite}-trace"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/fs_differential.cmake")
     endforeach()
     add_executable(channel_entry_tests tests/channel_entry_tests.c)
     target_include_directories(channel_entry_tests PRIVATE tests/channel_mock)

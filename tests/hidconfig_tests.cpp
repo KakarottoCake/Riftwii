@@ -26,6 +26,37 @@ std::string Config(const std::string& extra = {}) {
            "StickX=3,08,100\nStickY=4,08,100\nCStickX=5\nCStickY=6\n" + extra;
 }
 
+// The packed layouts the driver uses (#506), made from the tests' mappings.
+struct Packed {
+    alignas(4) std::uint8_t bytes[RTHID_LAYOUT_MAX] = {};
+    const rthid_layout* get() const { return reinterpret_cast<const rthid_layout*>(bytes); }
+};
+
+bool Pack(const rthid_mapping& mapping, Packed& out) {
+    return rthid_pack(&mapping, reinterpret_cast<rthid_layout*>(out.bytes), sizeof(out.bytes)) != 0;
+}
+
+// As rthid_decode did on a mapping: a mapping that doesn't pass decodes to nothing.
+int Decode(const rthid_mapping& mapping, const std::uint8_t* report, std::uint32_t bytes, gcad_pad* out) {
+    Packed packed;
+    return Pack(mapping, packed) ? rthid_decode(packed.get(), report, bytes, out) : 0;
+}
+
+// The catalog holding `mapping` alone.
+void SetOnly(rthid_catalog& catalog, const rthid_mapping& mapping) {
+    Packed packed;
+    catalog.count = 0;
+    catalog.layout_bytes = 0;
+    CHECK(Pack(mapping, packed) && rthid_catalog_add(&catalog, packed.get()));
+}
+
+// The catalog holding the built-in Switch Pro Controller layout alone.
+void SwitchOnly(rthid_catalog& catalog) {
+    rthid_mapping mapping{};
+    gcad_switch_mapping(&mapping);
+    SetOnly(catalog, mapping);
+}
+
 rthid_mapping Parse(const std::string& text) {
     rthid_mapping mapping{};
     std::string error;
@@ -59,7 +90,7 @@ void ParserAndReports() {
     report[5] = 128;
     report[6] = 127;
     gcad_pad pad{};
-    CHECK(rthid_decode(&mapping, report.data(), 7, &pad));
+    CHECK(Decode(mapping, report.data(), 7, &pad));
     CHECK(pad.buttons == (GCAD_PAD_A | GCAD_PAD_B | GCAD_PAD_X | GCAD_PAD_Y | GCAD_PAD_Z |
                           GCAD_PAD_START | GCAD_PAD_L | GCAD_PAD_R | GCAD_PAD_LEFT | GCAD_PAD_UP));
     CHECK(pad.trigger_l == 255 && pad.trigger_r == 255);
@@ -69,16 +100,16 @@ void ParserAndReports() {
     report[1] = 7;
     report[3] = 255;
     report[4] = 0;
-    CHECK(rthid_decode(&mapping, report.data(), 7, &pad));
+    CHECK(Decode(mapping, report.data(), 7, &pad));
     CHECK(!(pad.buttons & (GCAD_PAD_L | GCAD_PAD_R)));
     CHECK(pad.trigger_l == 127 && pad.trigger_r == 127);
     CHECK(pad.stick_x == 126 && pad.stick_y == 126);
     report[3] = 136;
     report[4] = 119;
-    CHECK(rthid_decode(&mapping, report.data(), 7, &pad));
+    CHECK(Decode(mapping, report.data(), 7, &pad));
     CHECK(pad.stick_x == 0 && pad.stick_y == 0);
-    CHECK(!rthid_decode(&mapping, report.data(), 6, &pad));
-    CHECK(!rthid_decode(&mapping, report.data(), RTHID_REPORT_MAX + 1, &pad));
+    CHECK(!Decode(mapping, report.data(), 6, &pad));
+    CHECK(!Decode(mapping, report.data(), RTHID_REPORT_MAX + 1, &pad));
 
     auto analog_text = Config("LAnalog=7\nRAnalog=8\n");
     analog_text.replace(analog_text.find("DigitalLR=1"), 11, "DigitalLR=2");
@@ -87,12 +118,12 @@ void ParserAndReports() {
     const auto analog = Parse(analog_text);
     report[7] = 239;
     report[8] = 240;
-    CHECK(rthid_decode(&analog, report.data(), 9, &pad));
+    CHECK(Decode(analog, report.data(), 9, &pad));
     CHECK(!(pad.buttons & GCAD_PAD_L) && (pad.buttons & GCAD_PAD_R));
     CHECK(pad.trigger_l == 236 && pad.trigger_r == 237);
     report[7] = 26;
     report[8] = 255;
-    CHECK(rthid_decode(&analog, report.data(), 9, &pad));
+    CHECK(Decode(analog, report.data(), 9, &pad));
     CHECK(pad.trigger_l == 0 && pad.trigger_r == 254);
 
     const auto hat = Parse("VID=1234\nPID=5678\nPolltype=1\nDPAD=1\n"
@@ -105,14 +136,14 @@ void ParserAndReports() {
     };
     for (unsigned i = 0; i < directions.size(); ++i) {
         report[0] = static_cast<std::uint8_t>(i | 0xA0);
-        CHECK(rthid_decode(&hat, report.data(), 1, &pad));
+        CHECK(Decode(hat, report.data(), 1, &pad));
         CHECK(pad.buttons == directions[i]);
     }
     const auto filtered = Parse(Config("MultiIn=1\nMultiInValue=AA\n"));
     report[0] = 0xAB;
-    CHECK(!rthid_decode(&filtered, report.data(), 7, &pad));
+    CHECK(!Decode(filtered, report.data(), 7, &pad));
     report[0] = 0xAA;
-    CHECK(rthid_decode(&filtered, report.data(), 7, &pad));
+    CHECK(Decode(filtered, report.data(), 7, &pad));
     const auto rumble = Parse(Config("Rumble=1\nRumbleType=1\nRumbleDataLen=4\n"
                                      "RumbleDataOn=1,2,3,4\nRumbleDataOff=0,0,0,0\n"
                                      "RumbleTransferLen=2\nRumbleTransfers=2\n"));
@@ -155,10 +186,9 @@ void ParserAndReports() {
     bad.rumble_count = 65535;
     CHECK(!rthid_valid(&bad));
     rthid_catalog catalog{};
-    catalog.maps[0] = mapping;
-    catalog.count = 1;
+    SetOnly(catalog, mapping);
     CHECK(rthid_catalog_valid(&catalog));
-    CHECK(rthid_find(&catalog, 0x12345678) == &catalog.maps[0]);
+    CHECK(rthid_find(&catalog, 0x12345678) == rthid_layout_at(&catalog, 0));
     catalog.known_count = 33;
     CHECK(!rthid_catalog_valid(&catalog));
     catalog.known_count = 0;
@@ -191,19 +221,67 @@ struct Bus {
     unsigned refuse_slot = GCAD_REQUESTS;
     std::uint32_t clock = 100;
     std::vector<std::int32_t> devices_asked;  // every device a pad link sent a request to
+    // The driver's state: the hub, or a game's packed layout (Game()) in
+    // `game`, with guard bytes after it that must stay untouched.
+    gcad* owner = &hub.adapter;
+    gcad* ven_owner = &hub.ven;
+    std::vector<std::uint8_t> game;
+    std::uint32_t game_bytes = 0;
+    static constexpr std::uint8_t kGuard = 0xA5;
+    static constexpr unsigned kGuardBytes = 4096;
 
     explicit Bus(unsigned version = 5, const std::string& config = Config()) {
-        hub.catalog.maps[0] = Parse(config);
-        hub.catalog.count = 1;
+        SetOnly(hub.catalog, Parse(config));
         gcad_hub_init(&hub, this, 42, version, 1);
         gcad_tick(&hub.adapter, clock);
     }
+
+    // A code build's state as RiftWii lays it out (#496): `links` pad links
+    // GCAD_LINK_BYTES apart, the catalog with one mapping, the ven list when
+    // `ven_fd` >= 0, and a dormant /dev/usb/hid owner when `dormant`.
+    Bus(unsigned version, unsigned links, std::int32_t ven_fd, bool dormant) {
+        gcad_layout l{};
+        const std::uint32_t owner_bytes = dormant ? GCAD_LINK_BYTES : GCAD_OWNER_BYTES(version);
+        gcad_layout_for(&l, owner_bytes, links, ven_fd >= 0, RTHID_LAYOUT_BYTES(Parse(Config()).rumble_bytes));
+        game_bytes = l.bytes;
+        game.assign(l.bytes + kGuardBytes + 64, kGuard);
+        std::uint8_t* base = Base();
+        std::memset(base, 0, l.bytes);
+        auto* catalog = reinterpret_cast<rthid_catalog*>(base + l.catalog);
+        SetOnly(*catalog, Parse(Config()));
+        owner = reinterpret_cast<gcad*>(base);
+        gcad_links_init_ex(owner, owner_bytes, dormant ? 1 : 0, reinterpret_cast<gcad*>(base + l.links), links,
+                           GCAD_LINK_BYTES, catalog, this, 42, version, 1);
+        ven_owner = nullptr;
+        if (ven_fd >= 0) {
+            ven_owner = reinterpret_cast<gcad*>(base + l.ven);
+            gcad_ven_init_ex(owner, ven_owner, GCAD_OWNER_BYTES(5), reinterpret_cast<gcad_xbox_layout*>(base + l.xbox),
+                             this, ven_fd, 1);
+        }
+        gcad_tick(owner, clock);
+    }
+
+    std::uint8_t* Base() {
+        auto at = reinterpret_cast<std::uintptr_t>(game.data());
+        return reinterpret_cast<std::uint8_t*>((at + 31u) & ~static_cast<std::uintptr_t>(31u));
+    }
+    // The guard bytes after a packed layout: true while nothing wrote past it.
+    bool GuardIntact() {
+        const std::uint8_t* end = Base() + game_bytes;
+        for (unsigned i = 0; i < kGuardBytes; ++i)
+            if (end[i] != kGuard) return false;
+        return true;
+    }
+    gcad& Pad(unsigned i) {
+        return *reinterpret_cast<gcad*>(reinterpret_cast<std::uint8_t*>(owner->peers) + i * owner->peer_stride);
+    }
+    unsigned ListBytes(const gcad& list) const { return list.version == 4 ? 0x600u : 0x180u; }
 
     void Reply(unsigned slot, int result = 0) {
         const auto request = requests[slot];
         CHECK(request.pending);
         requests[slot].pending = false;
-        gcad_on_reply(&hub.adapter, request.tag, result, clock);
+        gcad_on_reply(owner, request.tag, result, clock);
     }
 
     static void Descriptors(std::uint8_t* data, unsigned start) {
@@ -264,8 +342,8 @@ struct Bus {
     }
 
     void VenList(const std::vector<rthid_device>& devices) {
-        auto* list = hub.ven.change;
-        std::memset(list, 0, sizeof(hub.ven.change));
+        auto* list = ven_owner->change;
+        std::memset(list, 0, ListBytes(*ven_owner));
         for (unsigned i = 0; i < devices.size(); ++i) {
             gcad_put32(list + i * 12, devices[i].id);
             gcad_put32(list + i * 12 + 4, devices[i].vid_pid);
@@ -274,9 +352,9 @@ struct Bus {
     }
 
     void List(const std::vector<rthid_device>& devices, unsigned packet_bytes = 64) {
-        auto* list = hub.adapter.change;
-        std::memset(list, 0, sizeof(hub.adapter.change));
-        if (hub.adapter.version == 5) {
+        auto* list = owner->change;
+        std::memset(list, 0, ListBytes(*owner));
+        if (owner->version == 5) {
             for (unsigned i = 0; i < devices.size(); ++i) {
                 gcad_put32(list + i * 12, devices[i].id);
                 gcad_put32(list + i * 12 + 4, devices[i].vid_pid);
@@ -300,16 +378,17 @@ struct Bus {
     void Settle() {
         clock += 600;
         for (unsigned step = 0; step < 20; ++step) {
-            gcad_tick(&hub.adapter, clock);
+            gcad_tick(owner, clock);
             for (unsigned slot = 0; slot < requests.size(); ++slot) {
                 auto& request = requests[slot];
                 if (!request.pending || (slot % GCAD_TAGS) == GCAD_TAG_IN) continue;
                 if ((slot % GCAD_TAGS) == GCAD_TAG_CHANGE) {
                     if (request.command != GCAD_V5_ATTACH_FINISH) continue;
-                    for (const auto& pad : hub.pads) CHECK(pad.link != GCAD_LINK_SETUP && pad.link != GCAD_LINK_SETTLE);
+                    for (unsigned i = 0; i < owner->peer_count; ++i)
+                        CHECK(Pad(i).link != GCAD_LINK_SETUP && Pad(i).link != GCAD_LINK_SETTLE);
                     ++finishes;
                 }
-                if (hub.adapter.version == 5 && request.command == GCAD_V5_GET_DEVICE_INFO) {
+                if (owner->version == 5 && request.command == GCAD_V5_GET_DEVICE_INFO) {
                     if (request.driver->ven) {
                         VenInfo(static_cast<std::uint8_t*>(request.output),
                                 VenInterface(request.driver->dev_id));
@@ -321,10 +400,10 @@ struct Bus {
                                   request.driver->setup_step == GCAD_STEP_CTRL;
                 if (wake) {
                     const auto* message = request.driver->out_msg;
-                    const unsigned offset = hub.adapter.version == 5 ? 8 : 20;
+                    const unsigned offset = owner->version == 5 ? 8 : 20;
                     CHECK(message[offset] == 0xA1 && message[offset + 1] == 1);
                     CHECK(message[offset + 2] == 3 && message[offset + 3] == 0xF2);
-                    CHECK(hub.adapter.version == 4 ? message[27] == 17 : request.bytes == 17);
+                    CHECK(owner->version == 4 ? message[27] == 17 : request.bytes == 17);
                     CHECK(!requests[(slot / GCAD_TAGS) * GCAD_TAGS + GCAD_TAG_IN].pending);
                 }
                 Reply(slot, wake ? 17 : 0);
@@ -333,7 +412,7 @@ struct Bus {
     }
 
     void Report(unsigned pad, std::uint8_t button) {
-        auto& driver = hub.pads[pad];
+        auto& driver = Pad(pad);
         std::memset(driver.in_data, 128, sizeof(driver.in_data));
         driver.in_data[0] = button;
         driver.in_data[1] = 0;
@@ -369,7 +448,7 @@ void LegacyConfigs() {
     CHECK(gravis.dpad_mask == 255 && gravis.rumble_bytes == 5);
     std::uint8_t report[8] = {128, 127, 128, 127, 0, 255, 4, 0};
     gcad_pad pad{};
-    CHECK(rthid_decode(&gravis, report, sizeof(report), &pad));
+    CHECK(Decode(gravis, report, sizeof(report), &pad));
     CHECK(pad.buttons == (GCAD_PAD_A | GCAD_PAD_LEFT | GCAD_PAD_DOWN));
     Reject("VID=1\nPID=1\nPolltype=1\nLAnalog=80,4\n");
     Reject("VID=1\nPID=1\nPolltype=1\nLAnalog=7,100\n");
@@ -512,7 +591,7 @@ void SharedDriver(unsigned version) {
     adapter.link = GCAD_LINK_POLL;
     adapter.stale = 0;
     adapter.data_time = bus.clock;
-    adapter.raw[1][0] = 0x10;
+    adapter.raw[1][0] = 0x14;  // wired, the gray plug in
     adapter.raw[1][1] = 4;
     adapter.origin_valid[1] = 1;
     CHECK(gcad_read_ports(&adapter, 2, pads, bus.clock) == 13);
@@ -634,7 +713,7 @@ void XboxPads() {
     if (xbox == nullptr) return;
     CHECK(xbox->ven && xbox->fd == kVenFd && xbox->link == GCAD_LINK_POLL);
     CHECK(xbox->endpoint_in == 0x81 && xbox->endpoint_out == 0x01 && xbox->input_bytes == 32);
-    CHECK(xbox->mapping == &bus.hub.xbox[xbox_index]);
+    CHECK(xbox->mapping == &bus.hub.xbox[xbox_index].layout);
     CHECK(xbox->mapping->vid == 0x24C6 && xbox->mapping->pid == 0x530A);
     CHECK(bus.Count(GCAD_HID_INTERFACE) == 3);  // the headset's two and the security interface
     const unsigned input = (xbox_index + 1) * GCAD_TAGS + GCAD_TAG_IN;
@@ -836,7 +915,7 @@ void SwitchPad(unsigned version) {
     const unsigned input = GCAD_TAGS + GCAD_TAG_IN;
     const unsigned output = GCAD_TAGS + GCAD_TAG_OUT;
     Bus bus(version);
-    gcad_switch_mapping(&bus.hub.catalog.maps[0]);
+    SwitchOnly(bus.hub.catalog);
     bus.hub.adapter.adapter_disabled = 1;
     bus.List({{11, GCAD_SWITCH_VID_PID}});
     bus.Settle();
@@ -940,7 +1019,7 @@ void SwitchPadStarted() {
     const unsigned input = GCAD_TAGS + GCAD_TAG_IN;
     const unsigned output = GCAD_TAGS + GCAD_TAG_OUT;
     Bus bus(5);
-    gcad_switch_mapping(&bus.hub.catalog.maps[0]);
+    SwitchOnly(bus.hub.catalog);
     bus.List({{11, GCAD_SWITCH_VID_PID}});
     bus.Settle();
     auto& driver = bus.hub.pads[0];
@@ -1029,7 +1108,7 @@ void SwitchPadStarted() {
     // The handshake's answer to its first try, while the second goes out:
     // it counts, and the next message follows once the second is out.
     Bus late(5);
-    gcad_switch_mapping(&late.hub.catalog.maps[0]);
+    SwitchOnly(late.hub.catalog);
     late.List({{11, GCAD_SWITCH_VID_PID}});
     late.Settle();
     auto& slow = late.hub.pads[0];
@@ -1060,7 +1139,7 @@ void SwitchPadStarted() {
     // Input already flowing while it waits for an answer: after
     // SWITCH_READS reads of it the next message goes.
     Bus flowing(4);
-    gcad_switch_mapping(&flowing.hub.catalog.maps[0]);
+    SwitchOnly(flowing.hub.catalog);
     flowing.List({{11, GCAD_SWITCH_VID_PID}});
     flowing.Settle();
     auto& streaming = flowing.hub.pads[0];
@@ -1087,7 +1166,7 @@ void SwitchPadStuck(unsigned version) {
     const unsigned output = GCAD_TAGS + GCAD_TAG_OUT;
     const unsigned stop = GCAD_TAGS + GCAD_TAG_STOP;
     Bus bus(version);
-    gcad_switch_mapping(&bus.hub.catalog.maps[0]);
+    SwitchOnly(bus.hub.catalog);
     bus.List({{11, GCAD_SWITCH_VID_PID}});
     bus.Settle();
     auto& driver = bus.hub.pads[0];
@@ -1141,7 +1220,7 @@ void SwitchPadStuck(unsigned version) {
     // A cancelled message that went out after all: the start-up goes on,
     // and the next message stuck is cancelled as well.
     Bus late(version);
-    gcad_switch_mapping(&late.hub.catalog.maps[0]);
+    SwitchOnly(late.hub.catalog);
     late.List({{11, GCAD_SWITCH_VID_PID}});
     late.Settle();
     auto& pad = late.hub.pads[0];
@@ -1167,7 +1246,7 @@ void SwitchPadStuck(unsigned version) {
     // The read fails while a message is still out: the failed link's
     // message is cancelled after GCAD_RELINK_MS, and the link starts over.
     Bus failing(version);
-    gcad_switch_mapping(&failing.hub.catalog.maps[0]);
+    SwitchOnly(failing.hub.catalog);
     failing.List({{11, GCAD_SWITCH_VID_PID}});
     failing.Settle();
     auto& broken = failing.hub.pads[0];
@@ -1304,6 +1383,79 @@ void gcad_env_event(gcad* driver, uint32_t code, uint32_t a, int32_t b) {
 }
 }
 
+// A code build's packed layout (#496): one pad link for one configured pad
+// plugged in, the list owner only as long as its version's list. The pad
+// works as in the hub; a second configured pad finds no link and waits;
+// nothing is written past the state.
+void GameLayout(unsigned version) {
+    Bus bus(version, 1, -1, false);
+    CHECK(bus.owner->peer_count == 1 && bus.owner->peer_stride == GCAD_LINK_BYTES);
+    CHECK(GCAD_LINK_BYTES < GCAD_OWNER_BYTES(version) && GCAD_OWNER_BYTES(version) <= sizeof(gcad));
+    CHECK(bus.game_bytes < sizeof(gcad_hub));
+    bus.List({{11, 0x12345678}, {12, 0x12345678}, {13, 0x99990001}});
+    bus.Settle();
+    CHECK(bus.Pad(0).link == GCAD_LINK_POLL && bus.Pad(0).dev_id == 11);
+    CHECK(bus.found == 1 && bus.missing == 1);
+    bus.Report(0, 1);
+    gcad_pad pads[GCAD_PORTS]{};
+    CHECK(gcad_read_ports(bus.owner, 0, pads, bus.clock) == 0x1u);
+    CHECK(pads[0].buttons == GCAD_PAD_A);
+    // Unplugged: IOS hands back the old pad's read, then the new list; the
+    // waiting pad takes the link.
+    if (bus.requests[GCAD_TAGS + GCAD_TAG_IN].pending) bus.Reply(GCAD_TAGS + GCAD_TAG_IN, -1);
+    bus.List({{12, 0x12345678}});
+    bus.Settle();
+    CHECK(bus.Pad(0).link == GCAD_LINK_POLL && bus.Pad(0).dev_id == 12);
+    gcad_stop(bus.owner, bus.clock);
+    CHECK(bus.GuardIntact());
+}
+
+// Two configured pads plugged in at a code build's start (#496): two
+// packed links, each set up and read on its own (a link spaced as a whole
+// gcad would land the second on the first's bytes or past the state).
+void GameLayoutTwo(unsigned version) {
+    Bus bus(version, 2, -1, false);
+    CHECK(bus.owner->peer_count == 2 && bus.owner->peer_stride == GCAD_LINK_BYTES);
+    bus.List({{11, 0x12345678}, {12, 0x12345678}, {13, 0x99990001}});
+    bus.Settle();
+    CHECK(bus.Pad(0).link == GCAD_LINK_POLL && bus.Pad(0).dev_id == 11);
+    CHECK(bus.Pad(1).link == GCAD_LINK_POLL && bus.Pad(1).dev_id == 12);
+    CHECK(bus.found == 2 && bus.missing == 1);
+    bus.Report(0, 1);
+    bus.Report(1, 2);
+    gcad_pad pads[GCAD_PORTS]{};
+    CHECK(gcad_read_ports(bus.owner, 0, pads, bus.clock) == 0x3u);
+    CHECK(pads[0].buttons == GCAD_PAD_A && pads[1].buttons == GCAD_PAD_B);
+    gcad_stop(bus.owner, bus.clock);
+    CHECK(bus.GuardIntact());
+}
+
+// Only Xbox 360 pads at a code build's start (#496): the /dev/usb/hid
+// owner lies dormant (no list asked for, a pad link's size) and the ven
+// list's pad takes the one link.
+void GameLayoutXboxOnly() {
+    constexpr std::int32_t kVenFd = 77;
+    Bus bus(5, 1, kVenFd, true);
+    CHECK(!bus.requests[GCAD_TAG_CHANGE].pending);
+    const unsigned ven_change = GCAD_VEN_SLOT * GCAD_TAGS + GCAD_TAG_CHANGE;
+    CHECK(bus.requests[ven_change].pending && bus.requests[ven_change].fd == kVenFd);
+    bus.VenList({{Bus::VenId(0), 0x045E028E}, {Bus::VenId(1), 0x045E028E}});
+    bus.Settle();
+    CHECK(!bus.requests[GCAD_TAG_CHANGE].pending);
+    gcad& pad = bus.Pad(0);
+    CHECK(pad.ven && pad.fd == kVenFd && pad.link == GCAD_LINK_POLL && pad.dev_id == Bus::VenId(0));
+    CHECK(pad.mapping != nullptr && pad.mapping->vid == 0x045E && pad.mapping->pid == 0x028E);
+    std::memset(pad.in_data, 0, sizeof(pad.in_data));
+    pad.in_data[1] = 0x14;
+    pad.in_data[3] = 0x10;  // A
+    bus.Reply(GCAD_TAGS + GCAD_TAG_IN, 20);
+    gcad_pad pads[GCAD_PORTS]{};
+    CHECK(gcad_read_ports(bus.owner, 0, pads, bus.clock) == 0x1u);
+    CHECK(pads[0].buttons == GCAD_PAD_A);
+    gcad_stop(bus.owner, bus.clock);
+    CHECK(bus.GuardIntact());
+}
+
 int main() {
     ParserAndReports();
     LegacyConfigs();
@@ -1323,6 +1475,11 @@ int main() {
     SwitchPadStuck(4);
     SwitchPadStuck(5);
     DiscoveryRepeats();
+    GameLayout(4);
+    GameLayout(5);
+    GameLayoutTwo(4);
+    GameLayoutTwo(5);
+    GameLayoutXboxOnly();
     if (failures) std::cerr << failures << " failures\n";
     return failures ? 1 : 0;
 }

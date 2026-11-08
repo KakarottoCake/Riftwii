@@ -8,111 +8,6 @@
 #define STATE_READY 1u
 #define STATE_IDENT 2u
 
-/* ---- Registers ---------------------------------------------------------- */
-
-/* Bit `bit` (0 = the last bit of the 128) of an R2 register. */
-static void put_bits(uint32_t w[4], uint32_t msb, uint32_t width, uint32_t value) {
-    uint32_t i;
-    for (i = 0; i < width; ++i) {
-        const uint32_t bit = msb - i;
-        const uint32_t word = 3u - (bit >> 5);
-        const uint32_t mask = 1u << (bit & 31u);
-        if ((value >> (width - 1u - i)) & 1u) w[word] |= mask;
-        else w[word] &= ~mask;
-    }
-}
-
-static uint32_t get_bits(const uint32_t w[4], uint32_t msb, uint32_t width) {
-    uint32_t i, v = 0;
-    for (i = 0; i < width; ++i) {
-        const uint32_t bit = msb - i;
-        v = (v << 1) | ((w[3u - (bit >> 5)] >> (bit & 31u)) & 1u);
-    }
-    return v;
-}
-
-/* CRC7 (x^7 + x^3 + 1) of bits 127..8, into bits 7..1 with the end bit. */
-static void seal(uint32_t w[4]) {
-    uint32_t crc = 0, bit;
-    for (bit = 127; bit >= 8; --bit) {
-        const uint32_t in = (w[3u - (bit >> 5)] >> (bit & 31u)) & 1u;
-        const uint32_t top = (crc >> 6) & 1u;
-        crc = (crc << 1) & 0x7Fu;
-        if (in ^ top) crc ^= 0x09u;
-    }
-    put_bits(w, 7, 7, crc);
-    put_bits(w, 0, 1, 1);
-}
-
-void rtvsd_cid(uint32_t out[4]) {
-    out[0] = out[1] = out[2] = out[3] = 0;
-    put_bits(out, 127, 8, 0x52u);                 /* MID */
-    put_bits(out, 119, 16, 0x5257u);              /* OID "RW" */
-    put_bits(out, 103, 8, 'R');                   /* PNM "RIFTW" */
-    put_bits(out, 95, 8, 'I');
-    put_bits(out, 87, 8, 'F');
-    put_bits(out, 79, 8, 'T');
-    put_bits(out, 71, 8, 'W');
-    put_bits(out, 63, 8, 0x10u);                  /* PRV 1.0 */
-    put_bits(out, 55, 32, 0x52575644u);           /* PSN */
-    put_bits(out, 19, 12, (26u << 4) | 9u);       /* MDT: 2026-09 */
-    seal(out);
-}
-
-/* The common fields of both CSD versions. */
-static void csd_common(uint32_t out[4], uint32_t block_len_log2) {
-    put_bits(out, 119, 8, 0x0Eu);    /* TAAC: 1 ms */
-    put_bits(out, 111, 8, 0);        /* NSAC */
-    put_bits(out, 103, 8, 0x32u);    /* TRAN_SPEED: 25 MHz */
-    put_bits(out, 95, 12, 0x5B5u);   /* CCC: classes 0, 2, 4, 5, 7, 8, 10 */
-    put_bits(out, 83, 4, block_len_log2);
-    put_bits(out, 46, 1, 1);         /* ERASE_BLK_EN */
-    put_bits(out, 45, 7, 0x7Fu);     /* SECTOR_SIZE */
-    put_bits(out, 28, 3, 2);         /* R2W_FACTOR */
-    put_bits(out, 25, 4, block_len_log2);
-}
-
-void rtvsd_csd(const struct rtvsd_card* card, uint32_t out[4]) {
-    out[0] = out[1] = out[2] = out[3] = 0;
-    if (card->sdhc) {
-        /* Version 2.0: C_SIZE counts 512 KiB units. */
-        const uint32_t units = card->sectors >> 10;
-        put_bits(out, 127, 2, 1);
-        csd_common(out, 9);
-        put_bits(out, 69, 22, units != 0 ? units - 1u : 0u);
-    } else {
-        /* Version 1.0: (C_SIZE + 1) << (C_SIZE_MULT + 2) blocks of
-         * 2^READ_BL_LEN bytes, the smallest multiplier that fits C_SIZE's
-         * 12 bits. Up to 1 GiB the blocks are 512 bytes; above, 2048
-         * bytes, as Dolphin's card states them: Brawl's driver reads
-         * nothing past 1 GiB of a card with 1024-byte blocks. */
-        uint32_t shift = 2; /* sectors per C_SIZE unit, log2: C_SIZE_MULT + 2 + READ_BL_LEN - 9 */
-        uint32_t block_len_log2, mult, units;
-        while (shift < 11u && (card->sectors >> shift) > 4096u) ++shift;
-        units = card->sectors >> shift;
-        block_len_log2 = shift > 9u ? 11u : 9u;  /* C_SIZE_MULT tops out at 7 */
-        mult = shift - 2u - (block_len_log2 - 9u);
-        csd_common(out, block_len_log2);
-        put_bits(out, 79, 1, 1);     /* READ_BL_PARTIAL */
-        put_bits(out, 73, 12, units != 0 ? units - 1u : 0u);
-        put_bits(out, 61, 3, 7);     /* VDD_R_CURR_MIN, _MAX, VDD_W_CURR_MIN, _MAX */
-        put_bits(out, 58, 3, 7);
-        put_bits(out, 55, 3, 6);
-        put_bits(out, 52, 3, 6);
-        put_bits(out, 49, 3, mult);
-    }
-    seal(out);
-}
-
-uint32_t rtvsd_csd_sectors(const uint32_t csd[4]) {
-    if (get_bits(csd, 127, 2) == 1u) return (get_bits(csd, 69, 22) + 1u) << 10;
-    {
-        const uint32_t units = get_bits(csd, 73, 12) + 1u;
-        const uint32_t shift = get_bits(csd, 49, 3) + 2u + get_bits(csd, 83, 4);
-        return shift >= 9u ? units << (shift - 9u) : units >> (9u - shift);
-    }
-}
-
 /* ---- The card ----------------------------------------------------------- */
 
 int rtvsd_reset(struct rtvsd_card* card) {
@@ -132,24 +27,40 @@ int rtvsd_reset(struct rtvsd_card* card) {
     return next >= card->sectors ? 0 : -1;
 }
 
-uint32_t rtvsd_map(const struct rtvsd_card* card, uint32_t sector, uint32_t count, uint32_t* device_sector) {
+/* The extent holding `sector` (inside the image), by binary search. */
+static const struct rtvsd_extent* extent_of(const struct rtvsd_card* card, uint32_t sector) {
     uint32_t lo = 0, hi = card->extent_count;
-    if (count == 0 || sector >= card->sectors) return 0;
-    if (count > card->sectors - sector) count = card->sectors - sector;
+    const struct rtvsd_extent* e;
     while (hi - lo > 1u) {
         const uint32_t mid = lo + ((hi - lo) >> 1);
         if (rtvsd_extents(card)[mid].file_sector <= sector) lo = mid;
         else hi = mid;
     }
-    {
-        const struct rtvsd_extent* e = &rtvsd_extents(card)[lo];
-        const uint32_t into = sector - e->file_sector;
-        uint32_t run;
-        if (sector < e->file_sector || into >= e->count) return 0;
-        run = e->count - into;
-        *device_sector = e->device_sector + into;
-        return run < count ? run : count;
-    }
+    e = &rtvsd_extents(card)[lo];
+    if (sector < e->file_sector || sector - e->file_sector >= e->count) return 0;
+    return e;
+}
+
+uint32_t rtvsd_map(const struct rtvsd_card* card, uint32_t sector, uint32_t count, uint32_t* device_sector) {
+    const struct rtvsd_extent* e;
+    uint32_t into, run;
+    if (count == 0 || sector >= card->sectors) return 0;
+    if (count > card->sectors - sector) count = card->sectors - sector;
+    e = extent_of(card, sector);
+    if (e == 0) return 0;
+    into = sector - e->file_sector;
+    run = e->count - into;
+    *device_sector = e->device_sector + into;
+    return run < count ? run : count;
+}
+
+uint32_t rtvsd_piece(const struct rtvsd_card* card, uint32_t sector, uint32_t* first) {
+    const struct rtvsd_extent* e;
+    if (sector >= card->sectors) return 0;
+    e = extent_of(card, sector);
+    if (e == 0) return 0;
+    *first = e->file_sector;
+    return e->count;
 }
 
 /* Host controller registers: bytes, little-endian within a register as
@@ -328,13 +239,11 @@ void rtvsd_command(struct rtvsd_card* card, const struct rtvsd_request* req, uin
         answer_done(a, req->arg & 0xFFFu);  /* the voltage accepted, the pattern echoed */
         return;
     }
-    if (cmd == RTVSD_CMD_ALL_SEND_CID || cmd == RTVSD_CMD_SEND_CID) {
+    if (cmd == RTVSD_CMD_ALL_SEND_CID || cmd == RTVSD_CMD_SEND_CID || cmd == RTVSD_CMD_SEND_CSD) {
+        /* The registers the loader built (rtvsd_card.cid, .csd). */
+        const uint32_t* reg = cmd == RTVSD_CMD_SEND_CSD ? card->csd : card->cid;
         if (cmd == RTVSD_CMD_ALL_SEND_CID) card->state = STATE_IDENT;
-        rtvsd_cid(a->reply);
-        return;
-    }
-    if (cmd == RTVSD_CMD_SEND_CSD) {
-        rtvsd_csd(card, a->reply);
+        for (i = 0; i < 4u; ++i) a->reply[i] = reg[i];
         return;
     }
     if (cmd == RTVSD_CMD_SEND_RCA) {

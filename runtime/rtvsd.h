@@ -28,7 +28,8 @@
  *    taken back (0x41), which answers it with 0x0C210000.
  *  - The SD Physical Layer Simplified Specification 2.00: the CID, CSD
  *    (versions 1.0 and 2.0) and SCR layouts, CRC7, R1 status bits and
- *    card states, the OCR bits. */
+ *    card states, the OCR bits. The CID and CSD are built by the loader
+ *    (src/patching/vsdbuild.cpp). */
 #ifndef RIFTWII_RTVSD_H
 #define RIFTWII_RTVSD_H
 
@@ -146,7 +147,11 @@ struct rtvsd_answer {
 
 /* The card. The loader fills `sectors` and the extents (sorted by
  * file_sector, without gaps from 0) and calls rtvsd_reset; the rest is the
- * card's own. All uint32 so the layout is the same on the host. */
+ * card's own, but for `cid` and `csd`: the loader fills them too, after
+ * rtvsd_reset (vsd_card_registers, include/riftwii/vsdbuild.hpp). They
+ * depend only on the image's size, so the blob carries their 32 bytes
+ * instead of the code that builds them. All uint32 so the layout is the
+ * same on the host. */
 struct rtvsd_card {
     uint32_t sectors;       /* the image's size in sectors */
     uint32_t sdhc;          /* presented as SDHC (block addresses) */
@@ -156,6 +161,8 @@ struct rtvsd_card {
     uint32_t read_only;     /* writes fail (the image could not be written) */
     uint32_t extent_count;
     uint32_t hcr[64];       /* host controller registers 0x00-0xFF, one byte each, packed 4 to a word */
+    uint32_t cid[4];        /* loader-filled: the CID and the CSD as the four words of an R2 response */
+    uint32_t csd[4];        /* (bit 127 first, the CRC7 and end bit included) */
     /* Then, directly after this struct, `extent_count` struct rtvsd_extent:
      * see rtvsd_extents. */
 };
@@ -166,7 +173,7 @@ struct rtvsd_card {
 #define rtvsd_extent_bytes(count) ((uint32_t)(count) * (uint32_t)sizeof(struct rtvsd_extent))
 
 /* After the loader filled `sectors` and the extents: the card as IOS
- * leaves it at power-up. Returns 0 when the extents cover the image from
+ * leaves it at power-up (`cid` and `csd` are left as they are). Returns 0 when the extents cover the image from
  * sector 0 without gaps and within 32 bits, -1 otherwise. */
 int rtvsd_reset(struct rtvsd_card* card);
 
@@ -187,13 +194,10 @@ void rtvsd_command(struct rtvsd_card* card, const struct rtvsd_request* req, uin
  * the image. */
 uint32_t rtvsd_map(const struct rtvsd_card* card, uint32_t sector, uint32_t count, uint32_t* device_sector);
 
-/* The card registers, for the tests: CID and CSD as the four words of an
- * R2 response (bit 127 first, the CRC7 and end bit included), the SCR as
- * 8 bytes. */
-void rtvsd_cid(uint32_t out[4]);
-void rtvsd_csd(const struct rtvsd_card* card, uint32_t out[4]);
-/* The capacity a CSD states, in sectors (the inverse, for the tests). */
-uint32_t rtvsd_csd_sectors(const uint32_t csd[4]);
+/* The piece of the image file holding `sector`: its first image sector in
+ * `*first` and its length in sectors (the read-ahead's windows stop at its
+ * edges, runtime/rtvsdra.h). 0 when outside the image. */
+uint32_t rtvsd_piece(const struct rtvsd_card* card, uint32_t sector, uint32_t* first);
 
 #ifdef __cplusplus
 }

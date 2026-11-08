@@ -18,12 +18,25 @@ $(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>dev
 endif
 
 PREFIX  := $(DEVKITPPC)/bin/powerpc-eabi-
+.DEFAULT_GOAL := all
 CC      := $(PREFIX)gcc
 OBJCOPY := $(PREFIX)objcopy
 SIZE    := $(PREFIX)size
 
 SRC     := runtime/resident
 OUT     := build-runtime
+
+# Test builds (make -f Makefile.wii TEST=1, which passes TEST on): the
+# GameCube blob keeps its test remote (gc_bt_fake, the Dolphin runs'
+# sd:/riftwii/gc/test/fakeremote and fakepro); release builds leave it
+# out, as the DOL leaves out autorun (#506). The blobs are shared by both
+# builds, so a change of TEST rebuilds the GameCube blob's objects.
+TEST    ?= 0
+ifeq ($(TEST),1)
+override RT_DEFINES += -DRT_TEST_BUILD
+endif
+RT_TEST_STAMP := $(OUT)/test-build.stamp
+$(shell mkdir -p $(OUT) && [ "$$(cat $(RT_TEST_STAMP) 2>/dev/null)" = "TEST=$(TEST)" ] || echo "TEST=$(TEST)" > $(RT_TEST_STAMP))
 BLOB    := $(OUT)/riftwii_rt.bin
 
 # -Os: the runtime lives in the game's own memory, and some mods leave it
@@ -47,6 +60,21 @@ PADSRC  := runtime/pad
 PADOUT  := $(OUT)/pad
 PADBLOB := $(OUT)/riftwii_pad.bin
 PADOBJS := $(PADOUT)/pad_entry.o $(PADOUT)/pad_hook.o $(PADOUT)/rtgcad.o $(PADOUT)/rthid.o $(PADOUT)/rtleave.o
+
+# The same blob for a game where the adapter is the only USB controller
+# that can be used (wiiu#45): built with GCAD_ADAPTER_ONLY, which leaves
+# out the code for other USB pads (HID, Xbox 360, Switch Pro).
+PADAOUT  := $(OUT)/pada
+PADABLOB := $(OUT)/riftwii_pada.bin
+PADAOBJS := $(PADAOUT)/pad_entry.o $(PADAOUT)/pad_hook.o $(PADAOUT)/rtgcad.o $(PADAOUT)/rtleave.o
+
+# And for a code build started with USB pads but no adapter, Switch Pro
+# Controller or DualShock 3 (#496): built with GCAD_PADS_ONLY, which leaves
+# out the adapter's own code and those two pads' start-ups.
+PADPOUT  := $(OUT)/padp
+PADPBLOB := $(OUT)/riftwii_padp.bin
+PADPOBJS := $(PADPOUT)/pad_entry.o $(PADPOUT)/pad_hook.o $(PADPOUT)/rtgcad.o $(PADPOUT)/rthid.o $(PADPOUT)/rtleave.o
+
 
 # The GameCube disc blob (runtime/gc): a GameCube game's DVDLow*
 # functions served from the SD card in Wii mode.
@@ -86,6 +114,12 @@ FAULTOBJS := $(FAULTOUT)/fault_entry.o $(FAULTOUT)/fault_hook.o $(FAULTOUT)/rtfa
 WLOGSRC  := runtime/wlog
 WLOGOUT  := $(OUT)/wlog
 WLOGBLOB := $(OUT)/riftwii_wlog.bin
+WLOGTRACEOUT := $(OUT)/wlog-trace
+WLOGTRANSLATEOUT := $(OUT)/wlog-translate
+WLOGTRACEBLOB := $(OUT)/riftwii_wlog_trace.bin
+WLOGTRANSLATEBLOB := $(OUT)/riftwii_wlog_translate.bin
+WLOGTRACEOBJS := $(WLOGTRACEOUT)/wlog_entry.o $(WLOGTRACEOUT)/wlog_hook.o $(WLOGTRACEOUT)/rtshot.o
+WLOGTRANSLATEOBJS := $(WLOGTRANSLATEOUT)/wlog_entry.o $(WLOGTRANSLATEOUT)/wlog_hook.o $(WLOGTRANSLATEOUT)/rtpro.o
 WLOGOBJS := $(WLOGOUT)/wlog_entry.o $(WLOGOUT)/wlog_hook.o $(WLOGOUT)/rtshot.o $(WLOGOUT)/rtpro.o
 
 # The virtual SD card blob (runtime/vsd): the game's SD slot answered from
@@ -93,7 +127,7 @@ WLOGOBJS := $(WLOGOUT)/wlog_entry.o $(WLOGOUT)/wlog_hook.o $(WLOGOUT)/rtshot.o $
 VSDSRC  := runtime/vsd
 VSDOUT  := $(OUT)/vsd
 VSDBLOB := $(OUT)/riftwii_vsd.bin
-VSDOBJS := $(VSDOUT)/vsd_entry.o $(VSDOUT)/vsd_hook.o $(VSDOUT)/rtvsd.o
+VSDOBJS := $(VSDOUT)/vsd_entry.o $(VSDOUT)/vsd_hook.o $(VSDOUT)/rtvsd.o $(VSDOUT)/rtvsdra.o
 
 # The RVZ blob (docs/RVZ.md): the same runtime built with RT_RVZ, plus
 # RVZ packing and Zstandard. Zstandard's constant tables make it the one
@@ -141,8 +175,32 @@ STUBOUT  := $(OUT)/stub
 STUBBLOB := $(OUT)/riftwii_stub.bin
 STUBOBJS := $(STUBOUT)/stub_start.o $(STUBOUT)/stub_main.o
 
+# Optimize only the images that shrink. Keep pad's flags independent of
+# this work, and leave VSD alone because LTO makes it larger. The GameCube
+# decoder stays a separate compilation: its fixed r31 carries the worker
+# through decoder checkpoints and must not leak into other C functions.
+LTO_OBJS := $(filter-out %_entry.o $(GCRVZOUT)/rt_zstd.o,\
+            $(OBJS) $(RVZOBJS) $(SHOTOBJS) $(FAULTOBJS) $(WLOGOBJS) $(WLOGTRACEOBJS) $(WLOGTRANSLATEOBJS) $(GCOBJS) $(GCRVZOBJS))
+LTO_ELFS := $(OUT)/riftwii_rt.elf $(OUT)/riftwii_rt_alt.elf \
+            $(RVZOUT)/riftwii_rt_rvz.elf $(RVZOUT)/riftwii_rt_rvz_alt.elf \
+            $(SHOTOUT)/riftwii_shot.elf $(SHOTOUT)/riftwii_shot_alt.elf \
+            $(FAULTOUT)/riftwii_fault.elf $(FAULTOUT)/riftwii_fault_alt.elf \
+            $(WLOGOUT)/riftwii_wlog.elf $(WLOGOUT)/riftwii_wlog_alt.elf \
+            $(WLOGTRACEOUT)/riftwii_wlog_trace.elf $(WLOGTRACEOUT)/riftwii_wlog_trace_alt.elf \
+            $(WLOGTRANSLATEOUT)/riftwii_wlog_translate.elf $(WLOGTRANSLATEOUT)/riftwii_wlog_translate_alt.elf \
+            $(GCOUT)/riftwii_gc.elf $(GCOUT)/riftwii_gc_alt.elf \
+            $(GCRVZOUT)/riftwii_gc_rvz.elf $(GCRVZOUT)/riftwii_gc_rvz_alt.elf
+
+# Do not inherit link flags into assembly or the non-LTO GC decoder.
+$(LTO_OBJS) $(LTO_ELFS): private CFLAGS += -flto=auto
+$(RVZOUT)/rt_zstd.o: private ZSTDFLAGS += -flto=auto
+# Measure the linked crash recorder, including LTO's final frames. The
+# stack audit uses these .su files rather than host pointer sizes.
+$(FAULTOBJS) $(FAULTOUT)/riftwii_fault.elf $(FAULTOUT)/riftwii_fault_alt.elf: private CFLAGS += -fstack-usage
+$(LTO_OBJS) $(LTO_ELFS): Makefile.runtime
+
 .PHONY: all clean
-all: $(BLOB) $(PADBLOB) $(GCBLOB) $(SHOTBLOB) $(FAULTBLOB) $(WLOGBLOB) $(VSDBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST) \
+all: $(BLOB) $(PADBLOB) $(PADABLOB) $(PADPBLOB) $(GCBLOB) $(SHOTBLOB) $(FAULTBLOB) $(WLOGBLOB) $(WLOGTRACEBLOB) $(WLOGTRANSLATEBLOB) $(VSDBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST) \
      $(GCRVZBLOB) $(GCRVZZST) $(DOLPACK) $(STUBBLOB)
 
 $(DPOUT):
@@ -248,6 +306,72 @@ $(PADBLOB): $(PADOUT)/riftwii_pad.elf $(PADOUT)/riftwii_pad_alt.elf
 	@cmp $@ $(PADOUT)/riftwii_pad_alt.bin || { echo "runtime: pad blob differs between link bases; not position independent"; rm -f $@; exit 1; }
 	@echo "pad blob: $$(stat -c %s $@) bytes"
 
+$(PADAOUT):
+	@mkdir -p $(PADAOUT)
+
+$(PADAOUT)/pad_entry.o: $(PADSRC)/pad_entry.S $(PADSRC)/pad_hook.h runtime/rtleave.h | $(PADAOUT)
+	$(CC) $(CFLAGS) -DGCAD_ADAPTER_ONLY -I$(PADSRC) -c -o $@ $<
+
+$(PADAOUT)/pad_hook.o: $(PADSRC)/pad_hook.c $(PADSRC)/pad_hook.h runtime/rtgcad.h runtime/rthid.h runtime/rtleave.h | $(PADAOUT)
+	$(CC) $(CFLAGS) -DGCAD_ADAPTER_ONLY -I$(PADSRC) -c -o $@ $<
+
+$(PADAOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h runtime/rthid.h | $(PADAOUT)
+	$(CC) $(CFLAGS) -DGCAD_ADAPTER_ONLY -c -o $@ $<
+
+$(PADAOUT)/rtleave.o: runtime/rtleave.c runtime/rtleave.h | $(PADAOUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(PADAOUT)/riftwii_pada.elf: $(PADAOBJS) $(PADSRC)/pad.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(PADSRC)/pad.ld \
+		-Wl,--defsym,RT_BASE=0x00000000 -o $@ $(PADAOBJS) -lgcc
+	@$(SIZE) -A $@ | awk '$$1 ~ /^\.(rodata|data|bss)$$/ && $$2 != 0 { print "runtime: section " $$1 " is not empty (" $$2 " bytes) in the adapter-only pad blob"; bad = 1 } END { exit bad }'
+
+$(PADAOUT)/riftwii_pada_alt.elf: $(PADAOBJS) $(PADSRC)/pad.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(PADSRC)/pad.ld \
+		-Wl,--defsym,RT_BASE=0x12340000 -o $@ $(PADAOBJS) -lgcc
+
+$(PADABLOB): $(PADAOUT)/riftwii_pada.elf $(PADAOUT)/riftwii_pada_alt.elf
+	$(OBJCOPY) -O binary $(PADAOUT)/riftwii_pada.elf $@
+	$(OBJCOPY) -O binary $(PADAOUT)/riftwii_pada_alt.elf $(PADAOUT)/riftwii_pada_alt.bin
+	@cmp $@ $(PADAOUT)/riftwii_pada_alt.bin || { echo "runtime: adapter-only pad blob differs between link bases; not position independent"; rm -f $@; exit 1; }
+	@echo "adapter-only pad blob: $$(stat -c %s $@) bytes"
+
+$(PADPOUT):
+	@mkdir -p $(PADPOUT)
+
+$(PADPOUT)/pad_entry.o: $(PADSRC)/pad_entry.S $(PADSRC)/pad_hook.h runtime/rtleave.h | $(PADPOUT)
+	$(CC) $(CFLAGS) -DGCAD_PADS_ONLY -I$(PADSRC) -c -o $@ $<
+
+$(PADPOUT)/pad_hook.o: $(PADSRC)/pad_hook.c $(PADSRC)/pad_hook.h runtime/rtgcad.h runtime/rthid.h runtime/rtleave.h | $(PADPOUT)
+	$(CC) $(CFLAGS) -DGCAD_PADS_ONLY -I$(PADSRC) -c -o $@ $<
+
+$(PADPOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h runtime/rthid.h | $(PADPOUT)
+	$(CC) $(CFLAGS) -DGCAD_PADS_ONLY -c -o $@ $<
+
+$(PADPOUT)/rtleave.o: runtime/rtleave.c runtime/rtleave.h | $(PADPOUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(PADPOUT)/riftwii_padp.elf: $(PADPOBJS) $(PADSRC)/pad.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(PADSRC)/pad.ld \
+		-Wl,--defsym,RT_BASE=0x00000000 -o $@ $(PADPOBJS) -lgcc
+	@$(SIZE) -A $@ | awk '$$1 ~ /^\.(rodata|data|bss)$$/ && $$2 != 0 { print "runtime: section " $$1 " is not empty (" $$2 " bytes) in the USB pads pad blob"; bad = 1 } END { exit bad }'
+
+$(PADPOUT)/riftwii_padp_alt.elf: $(PADPOBJS) $(PADSRC)/pad.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(PADSRC)/pad.ld \
+		-Wl,--defsym,RT_BASE=0x12340000 -o $@ $(PADPOBJS) -lgcc
+
+$(PADPBLOB): $(PADPOUT)/riftwii_padp.elf $(PADPOUT)/riftwii_padp_alt.elf
+	$(OBJCOPY) -O binary $(PADPOUT)/riftwii_padp.elf $@
+	$(OBJCOPY) -O binary $(PADPOUT)/riftwii_padp_alt.elf $(PADPOUT)/riftwii_padp_alt.bin
+	@cmp $@ $(PADPOUT)/riftwii_padp_alt.bin || { echo "runtime: USB pads pad blob differs between link bases; not position independent"; rm -f $@; exit 1; }
+	@echo "USB pads pad blob: $$(stat -c %s $@) bytes"
+
+$(PADPOUT)/rthid.o: runtime/rthid.c runtime/rthid.h | $(PADPOUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+
+
+
 $(GCOUT):
 	@mkdir -p $(GCOUT)
 
@@ -271,6 +395,8 @@ $(GCOUT)/rthid.o: runtime/rthid.c runtime/rthid.h runtime/rtgcad.h runtime/rthid
 
 $(GCOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h runtime/rthid.h | $(GCOUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(GCOBJS) $(GCRVZOBJS): $(RT_TEST_STAMP)
 
 $(GCOUT)/riftwii_gc.elf: $(GCOBJS) $(GCSRC)/gc.ld
 	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(GCSRC)/gc.ld \
@@ -317,8 +443,11 @@ $(GCRVZOUT)/gc_rvz.o: $(GCSRC)/gc_rvz.c $(GCSRC)/gc_rvz.h runtime/rtrvz.h | $(GC
 $(GCRVZOUT)/rtrvz.o: runtime/rtrvz.c runtime/rtrvz.h | $(GCRVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -c -o $@ $<
 
-$(GCRVZOUT)/rt_zstd.o: $(SRC)/rt_zstd.c $(SRC)/rt_hook.h vendor-zstd/zstddeclib.c | $(GCRVZOUT)
-	$(CC) $(ZSTDFLAGS) -DRT_GC_IO -ffixed-r31 -c -o $@ $<
+# The RVZ decoder alone is built at -O2: it runs while the game loads, and
+# -O2 makes it about 44% faster for 5 KB more than -Os (still about 35 KB
+# under the vendored decoder it replaces).
+$(GCRVZOUT)/rt_zstd.o: $(SRC)/rt_zstd.c $(SRC)/rt_hook.h runtime/rtzstd.c runtime/rtzstd.h | $(GCRVZOUT)
+	$(CC) $(subst -Os,-O2,$(CFLAGS)) -DRT_RVZ -DRT_GC_IO -ffixed-r31 -c -o $@ $<
 
 $(GCRVZOUT)/riftwii_gc_rvz.elf: $(GCRVZOBJS) $(GCSRC)/gc_rvz.ld
 	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -Wl,--emit-relocs \
@@ -385,10 +514,11 @@ $(FAULTOUT)/riftwii_fault_alt.elf: $(FAULTOBJS) $(FAULTSRC)/fault.ld
 	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(FAULTSRC)/fault.ld \
 		-Wl,--defsym,RT_BASE=0x12340000 -o $@ $(FAULTOBJS) -lgcc
 
-$(FAULTBLOB): $(FAULTOUT)/riftwii_fault.elf $(FAULTOUT)/riftwii_fault_alt.elf
+$(FAULTBLOB): $(FAULTOUT)/riftwii_fault.elf $(FAULTOUT)/riftwii_fault_alt.elf tools/check_fault_stack.py
 	$(OBJCOPY) -O binary $(FAULTOUT)/riftwii_fault.elf $@
 	$(OBJCOPY) -O binary $(FAULTOUT)/riftwii_fault_alt.elf $(FAULTOUT)/riftwii_fault_alt.bin
 	@cmp $@ $(FAULTOUT)/riftwii_fault_alt.bin || { echo "runtime: fault blob differs between link bases; not position independent"; rm -f $@; exit 1; }
+	@$(PYTHON) tools/check_fault_stack.py $(FAULTOUT)/riftwii_fault.elf $(PREFIX)objdump $(FAULTSRC)/fault_hook.h
 	@echo "fault blob: $$(stat -c %s $@) bytes"
 
 $(WLOGOUT):
@@ -421,16 +551,53 @@ $(WLOGBLOB): $(WLOGOUT)/riftwii_wlog.elf $(WLOGOUT)/riftwii_wlog_alt.elf
 	@cmp $@ $(WLOGOUT)/riftwii_wlog_alt.bin || { echo "runtime: wlog blob differs between link bases; not position independent"; rm -f $@; exit 1; }
 	@echo "wlog blob: $$(stat -c %s $@) bytes"
 
+# Both smaller images use the same source, layout selector and link checks.
+# Separate object folders keep feature flags from leaking between images.
+define WLOG_VARIANT
+$(OUT)/wlog-$(1):
+	@mkdir -p $$@
+
+$(OUT)/wlog-$(1)/wlog_entry.o: $(WLOGSRC)/wlog_entry.S $(WLOGSRC)/wlog_hook.h runtime/rtwlog.h runtime/rtpro.h | $(OUT)/wlog-$(1)
+	$(CC) $(CFLAGS) -D$(2) -c -o $$@ $$<
+
+$(OUT)/wlog-$(1)/wlog_hook.o: $(WLOGSRC)/wlog_hook.c $(WLOGSRC)/wlog_hook.h runtime/rtwlog.h runtime/rtshot.h runtime/rtpro.h | $(OUT)/wlog-$(1)
+	$(CC) $(CFLAGS) -flto=auto -D$(2) -c -o $$@ $$<
+
+$(OUT)/wlog-$(1)/$(3).o: runtime/$(3).c runtime/$(3).h | $(OUT)/wlog-$(1)
+	$(CC) $(CFLAGS) -flto=auto -c -o $$@ $$<
+
+$(OUT)/wlog-$(1)/riftwii_wlog_$(1).elf: $(4) $(WLOGSRC)/wlog.ld
+	$(CC) $(CFLAGS) -flto=auto -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(WLOGSRC)/wlog.ld \
+		-Wl,--defsym,RT_BASE=0x00000000 -o $$@ $(4) -lgcc
+	@$(SIZE) -A $$@ | awk '$$$$1 ~ /^\.(rodata|data|bss)$$$$/ && $$$$2 != 0 { print "runtime: nonempty section in wlog $(1)"; bad = 1 } END { exit bad }'
+
+$(OUT)/wlog-$(1)/riftwii_wlog_$(1)_alt.elf: $(4) $(WLOGSRC)/wlog.ld
+	$(CC) $(CFLAGS) -flto=auto -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(WLOGSRC)/wlog.ld \
+		-Wl,--defsym,RT_BASE=0x12340000 -o $$@ $(4) -lgcc
+
+$(OUT)/riftwii_wlog_$(1).bin: $(OUT)/wlog-$(1)/riftwii_wlog_$(1).elf $(OUT)/wlog-$(1)/riftwii_wlog_$(1)_alt.elf
+	$(OBJCOPY) -O binary $$< $$@
+	$(OBJCOPY) -O binary $(OUT)/wlog-$(1)/riftwii_wlog_$(1)_alt.elf $(OUT)/wlog-$(1)/riftwii_wlog_$(1)_alt.bin
+	@cmp $$@ $(OUT)/wlog-$(1)/riftwii_wlog_$(1)_alt.bin || { echo "runtime: wlog $(1) differs between link bases"; rm -f $$@; exit 1; }
+	@echo "wlog $(1) blob: $$$$(stat -c %s $$@) bytes"
+endef
+
+$(eval $(call WLOG_VARIANT,trace,RT_WLOG_TRACE_ONLY,rtshot,$(WLOGTRACEOBJS)))
+$(eval $(call WLOG_VARIANT,translate,RT_WLOG_TRANSLATE_ONLY,rtpro,$(WLOGTRANSLATEOBJS)))
+
 $(VSDOUT):
 	@mkdir -p $(VSDOUT)
 
-$(VSDOUT)/vsd_entry.o: $(VSDSRC)/vsd_entry.S $(VSDSRC)/vsd_hook.h runtime/rtvsd.h | $(VSDOUT)
+$(VSDOUT)/vsd_entry.o: $(VSDSRC)/vsd_entry.S $(VSDSRC)/vsd_hook.h runtime/rtvsd.h runtime/rtvsdra.h | $(VSDOUT)
 	$(CC) $(CFLAGS) -I$(VSDSRC) -c -o $@ $<
 
-$(VSDOUT)/vsd_hook.o: $(VSDSRC)/vsd_hook.c $(VSDSRC)/vsd_hook.h runtime/rtvsd.h | $(VSDOUT)
+$(VSDOUT)/vsd_hook.o: $(VSDSRC)/vsd_hook.c $(VSDSRC)/vsd_hook.h runtime/rtvsd.h runtime/rtvsdra.h | $(VSDOUT)
 	$(CC) $(CFLAGS) -I$(VSDSRC) -c -o $@ $<
 
 $(VSDOUT)/rtvsd.o: runtime/rtvsd.c runtime/rtvsd.h | $(VSDOUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(VSDOUT)/rtvsdra.o: runtime/rtvsdra.c runtime/rtvsdra.h runtime/rtvsd.h | $(VSDOUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(VSDOUT)/riftwii_vsd.elf: $(VSDOBJS) $(VSDSRC)/vsd.ld
@@ -446,7 +613,8 @@ $(VSDBLOB): $(VSDOUT)/riftwii_vsd.elf $(VSDOUT)/riftwii_vsd_alt.elf
 	$(OBJCOPY) -O binary $(VSDOUT)/riftwii_vsd.elf $@
 	$(OBJCOPY) -O binary $(VSDOUT)/riftwii_vsd_alt.elf $(VSDOUT)/riftwii_vsd_alt.bin
 	@cmp $@ $(VSDOUT)/riftwii_vsd_alt.bin || { echo "runtime: vsd blob differs between link bases; not position independent"; rm -f $@; exit 1; }
-	@echo "vsd blob: $$(stat -c %s $@) bytes"
+	@# wc, not GNU stat's -c (macOS's stat has none, and printed nothing).
+	@echo "vsd blob: $$(wc -c < $@ | tr -d ' ') bytes"
 $(RVZOUT):
 	@mkdir -p $(RVZOUT)
 
@@ -468,8 +636,8 @@ $(RVZOUT)/rtfs.o: runtime/rtfs.c runtime/rtfs.h runtime/rtfat.h | $(RVZOUT)
 $(RVZOUT)/rtrvz.o: runtime/rtrvz.c runtime/rtrvz.h | $(RVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -c -o $@ $<
 
-$(RVZOUT)/rt_zstd.o: $(SRC)/rt_zstd.c $(SRC)/rt_hook.h vendor-zstd/zstddeclib.c | $(RVZOUT)
-	$(CC) $(ZSTDFLAGS) -c -o $@ $<
+$(RVZOUT)/rt_zstd.o: $(SRC)/rt_zstd.c $(SRC)/rt_hook.h runtime/rtzstd.c runtime/rtzstd.h | $(RVZOUT)
+	$(CC) $(subst -Os,-O2,$(CFLAGS)) -DRT_RVZ -c -o $@ $<
 
 $(RVZOUT)/riftwii_rt_rvz.elf: $(RVZOBJS) $(SRC)/rt_rvz.ld
 	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -Wl,--emit-relocs \

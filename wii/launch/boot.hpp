@@ -211,6 +211,9 @@ struct LaunchExtras {
     // Picked at Start: the code build starts with its codes, gameconfig.txt
     // and a plugged-in GameCube adapter only, none of RiftWii's other extras.
     bool code_build_plain = false;
+    // The code build's crash logs (its Mods page, #496): the crash recorder
+    // goes in only with them on, with extras or without.
+    bool code_build_crash_logs = false;
     // What a game's Wii Menu button starts, for a headless launch
     // (wii/launch/headless.hpp): a title, or the Wii Menu itself; neither
     // leaves it to the Wii Menu button setting.

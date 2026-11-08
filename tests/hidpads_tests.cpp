@@ -160,15 +160,16 @@ int main(int argc, char** argv) {
         CHECK(initialize_calls == (needs_initialize ? 1u : 0u));
         CHECK(catalog.count == RTHID_CONFIG_MAX);
         if (connected) {
-            CHECK(catalog.maps[0].vid == 0x1234);
-            CHECK(catalog.maps[0].pid == 0x5678);
+            const rthid_layout* first = rthid_layout_at(&catalog, 0);
+            CHECK(first != nullptr && first->vid == 0x1234);
+            CHECK(first != nullptr && first->pid == 0x5678);
             CHECK(rthid_find(&catalog, 0x12345678) != nullptr);
             CHECK(catalog.known[0].id == 42);
             CHECK(catalog.known[0].vid_pid == 0x12345678);
         }
         if (switch_pro) {
-            const rthid_mapping* mapping = rthid_find(&catalog, 0x057E2009);
-            CHECK(mapping == &catalog.maps[0]);
+            const rthid_layout* mapping = rthid_find(&catalog, 0x057E2009);
+            CHECK(mapping == rthid_layout_at(&catalog, 0));
             CHECK(mapping != nullptr && mapping->report_bytes == 12 && mapping->rumble_bytes == 0);
         }
         CHECK(rthid_find(&catalog, 0x057E0337) == nullptr);
@@ -187,7 +188,7 @@ int main(int argc, char** argv) {
         riftwii::wii::HidPadsPreload(true);
         CHECK(riftwii::wii::HidPadsXboxPlugged() == 0);
         // Refresh at launch even if the menu loaded the folder earlier.
-        listed_devices[0] = {45, catalog.maps[0].vid, catalog.maps[0].pid};
+        listed_devices[0] = {45, rthid_layout_at(&catalog, 0)->vid, rthid_layout_at(&catalog, 0)->pid};
         listed_count = 1;
         riftwii::wii::HidPadsPreload(true);
         CHECK(riftwii::wii::HidPadsConnected());
@@ -209,8 +210,8 @@ int main(int argc, char** argv) {
         CHECK(!riftwii::wii::wpad_log_wanted(0, true, why));
 
         // Turning USB input off also overrides a previously remembered pad.
-        const rthid_device device = {45, (static_cast<std::uint32_t>(catalog.maps[0].vid) << 16) |
-                                             catalog.maps[0].pid};
+        const rthid_layout* first = rthid_layout_at(&catalog, 0);
+        const rthid_device device = {45, (static_cast<std::uint32_t>(first->vid) << 16) | first->pid};
         riftwii::wii::HidPadsRemember(&device, 1);
         settings.usb_input = "off";
         CHECK(!riftwii::wii::HidPadsConnected());

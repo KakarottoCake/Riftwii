@@ -1,0 +1,265 @@
+/* SPDX-FileCopyrightText: 2026 RiftWii contributors */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/*
+ * ISFS request adapter over rtfat.  The hook layer gives this module an
+ * IOS request block before it submits it; rtfs either leaves that request
+ * alone, completes it locally, or drives its embedded rtfat operation.
+ * It contains no IOS, SD, callback, allocation, or libc dependency.
+ */
+#ifndef RIFTWII_RTFS_H
+#define RIFTWII_RTFS_H
+
+#include <stdint.h>
+
+#include "rtfat.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define RTFS_PATH_BYTES 64u       /* IPC_MAXPATH_LEN / ISFS_MAXPATH */
+#define RTFS_MAX_FDS 8u
+#define RTFS_FD_BASE 0x40000000u  /* fake descriptors occupy this high range */
+
+/* Synthetic metadata for every redirected file and the redirected directory.
+ * ISFS permission bits are read (1) and write (2), hence 3 means read/write. */
+#define RTFS_META_OWNER_ID 0u
+#define RTFS_META_GROUP_ID 0u
+#define RTFS_META_ATTRIBUTES 0u
+#define RTFS_META_OWNER_PERM 3u
+#define RTFS_META_GROUP_PERM 3u
+#define RTFS_META_OTHER_PERM 3u
+
+/* IOS request commands.  rtfs_ipc is the 0x28-byte active portion of the
+ * 0x40-byte IOS IPC message; callback/user_data follow the five arg words. */
+#define RTFS_CMD_OPEN 1u
+#define RTFS_CMD_CLOSE 2u
+#define RTFS_CMD_READ 3u
+#define RTFS_CMD_WRITE 4u
+#define RTFS_CMD_SEEK 5u
+#define RTFS_CMD_IOCTL 6u
+#define RTFS_CMD_IOCTLV 7u
+
+#define RTFS_SEEK_SET 0u
+#define RTFS_SEEK_CUR 1u
+#define RTFS_SEEK_END 2u
+
+#define RTFS_IOCTL_CREATEDIR 0x03u
+#define RTFS_IOCTL_READDIR 0x04u
+#define RTFS_IOCTL_SETATTR 0x05u
+#define RTFS_IOCTL_GETATTR 0x06u
+#define RTFS_IOCTL_DELETE 0x07u
+#define RTFS_IOCTL_RENAME 0x08u
+#define RTFS_IOCTL_CREATEFILE 0x09u
+#define RTFS_IOCTL_GETFILESTATS 0x0Bu
+#define RTFS_IOCTL_GETUSAGE 0x0Cu
+
+/*
+ * Riivolution's "file" device (behaviour as Pulsar's MIT IO/RiivoIO.hpp
+ * documents and uses it): IOS_Open("file") is the device, whose ioctls
+ * take paths on the SD card (from its root); IOS_Open("file/<path>",
+ * POSIX flags) opens a file for read, write and seek. Served when the
+ * loader turns it on (rtfs_enable_file_device), from the card's root
+ * cluster, nested folders included.
+ */
+#define RTFS_RIIVO_FD ((int32_t)RTFS_FD_BASE)  /* the device itself: generation 0 names no file */
+#define RTFS_RIIVO_PATH_BYTES 256u
+#define RTFS_MAX_DIRS 4u
+#define RTFS_DIR_BASE 0x30000000u             /* folder handles OPENDIR gives out */
+#define RTFS_RIIVO_STAT 0x40u
+#define RTFS_RIIVO_CREATEFILE 0x41u
+#define RTFS_RIIVO_DELETE 0x42u
+#define RTFS_RIIVO_TELL 0x44u                  /* seek origins beyond SEEK_END */
+#define RTFS_RIIVO_SYNC 0x45u
+#define RTFS_RIIVO_CREATEDIR 0x50u
+#define RTFS_RIIVO_OPENDIR 0x51u
+#define RTFS_RIIVO_NEXTDIR 0x52u
+#define RTFS_RIIVO_CLOSEDIR 0x53u
+#define RTFS_RIIVO_ERROR (-1)                  /* what a failed call answers */
+#define RTFS_RIIVO_NOT_OPENED (-64)            /* a failed open or opendir */
+/* Open flags (newlib's, as the device was built with). */
+#define RTFS_RIIVO_ACCMODE 0x3u
+#define RTFS_RIIVO_APPEND 0x8u
+#define RTFS_RIIVO_CREAT 0x200u
+#define RTFS_RIIVO_TRUNC 0x400u
+#define RTFS_RIIVO_EXCL 0x800u
+/* NEXTDIR/STAT answer: big-endian u64 identifier (first cluster), u64
+ * size, s32 device, s32 mode. */
+#define RTFS_RIIVO_STATS_BYTES 24u
+#define RTFS_RIIVO_MODE_DIR 0x4000u
+#define RTFS_RIIVO_MODE_FILE 0x8000u
+
+struct rtfs_dir {
+    uint32_t in_use;
+    uint32_t generation;
+    uint32_t cluster;
+    uint32_t cursor_cluster;
+    uint32_t cursor_sector;
+    uint32_t cursor_index;
+};
+
+/* Request classifications. */
+#define RTFS_PASS_THROUGH 0u
+#define RTFS_COMPLETE 1u
+#define RTFS_NEEDS_IO 2u
+
+/* These match libogc's isfs_cb payloads. */
+struct rtfs_attr_block {
+    uint32_t owner_id;
+    uint16_t group_id;
+    char filepath[RTFS_PATH_BYTES];
+    uint8_t ownerperm;
+    uint8_t groupperm;
+    uint8_t otherperm;
+    uint8_t attributes;
+    uint8_t pad[2];
+};
+
+struct rtfs_iovec {
+    uint32_t data;
+    uint32_t len;
+};
+
+struct rtfs_ipc {
+    uint32_t command;
+    int32_t result;
+    int32_t fd;
+    union {
+        struct { uint32_t path; uint32_t mode; } open;
+        struct { uint32_t data; uint32_t length; } readwrite;
+        struct { int32_t where; uint32_t whence; } seek;
+        struct { uint32_t request; uint32_t in; uint32_t in_len; uint32_t out; uint32_t out_len; } ioctl;
+        struct { uint32_t request; uint32_t in_count; uint32_t out_count; uint32_t vectors; } ioctlv;
+    } args;
+    uint32_t callback;
+    uint32_t user_data;
+    uint32_t hidden;        /* internal requests only: the operation sees hidden card entries */
+};
+
+struct rtfs_file {
+    uint32_t in_use;
+    uint32_t generation;
+    uint32_t mode;
+    uint32_t append;            /* file device: every write goes to the end */
+    char name[RTFAT_NAME_MAX + 1];
+    struct rtfat_file fat;
+};
+
+struct rtfs_context {
+    struct rtfat_volume volume;
+    int32_t fs_fd;              /* the game's /dev/fs fd; negative = not known yet, and any
+                                 * real fd may then carry an ISFS request (the path in its
+                                 * buffers is what identifies it) */
+    uint32_t prefix_len;
+    uint32_t busy;
+    char data_prefix[RTFS_PATH_BYTES];  /* empty: no save directory is served */
+    uint32_t file_device;               /* the "file" device is served (volume.root_cluster) */
+    struct rtfs_file files[RTFS_MAX_FDS];
+    struct rtfs_dir dirs[RTFS_MAX_DIRS];
+};
+
+/* Internal request actions are intentionally visible for host diagnostics;
+ * callers only need classification, result, callback, user_data, and fat. */
+#define RTFS_ACTION_NONE 0u
+#define RTFS_ACTION_OPEN 1u
+#define RTFS_ACTION_READ 2u
+#define RTFS_ACTION_WRITE 3u
+#define RTFS_ACTION_CREATE 4u
+#define RTFS_ACTION_DELETE 5u
+#define RTFS_ACTION_RENAME 6u
+#define RTFS_ACTION_ATTR 7u
+#define RTFS_ACTION_SETATTR 8u
+#define RTFS_ACTION_LIST 9u
+#define RTFS_ACTION_USAGE 10u
+#define RTFS_ACTION_ISDIR 11u  /* ReadDir/GetUsage on a file name: -101 when it exists, -106 when not */
+#define RTFS_ACTION_RENAME_REPLACE 12u  /* the rename's destination existed: deleting it, then renaming */
+/* The file device: WALK looks up one folder of the path, then the final
+ * action runs in the folder reached. */
+#define RTFS_ACTION_WALK 13u
+#define RTFS_ACTION_R_OPEN 14u
+#define RTFS_ACTION_R_OPEN_CREATE 15u   /* the open's file was missing and O_CREAT asked for it */
+#define RTFS_ACTION_R_CREATEFILE 16u
+#define RTFS_ACTION_R_CREATEDIR 17u
+#define RTFS_ACTION_R_OPENDIR 18u
+#define RTFS_ACTION_R_NEXTDIR 19u
+#define RTFS_ACTION_R_STAT 20u
+#define RTFS_ACTION_R_DELETE 21u
+#define RTFS_ACTION_R_DELETE_CHECK 22u  /* the name looked up first: an open file is not deleted */
+/* An open file is neither deleted nor replaced by a rename: the name is
+ * looked up first. (A renamed open file's descriptors follow its entry.) */
+#define RTFS_ACTION_DELETE_CHECK 23u
+#define RTFS_ACTION_RENAME_CHECK 24u    /* the destination */
+/* O_TRUNC on a file with data: the entry is deleted, then created again
+ * empty (R_OPEN_CREATE). Not while the file is open. */
+#define RTFS_ACTION_R_OPEN_TRUNC 25u
+
+/* What a path is to the redirected directory (rtfs_path_type). */
+#define RTFS_PATH_OUTSIDE 0
+#define RTFS_PATH_DIR 1      /* the directory itself */
+#define RTFS_PATH_FILE 2     /* one valid name inside it (copied to `name`) */
+#define RTFS_PATH_BAD 3      /* inside, but not a valid name (a subdirectory, too long, bad characters) */
+
+struct rtfs_request {
+    uint32_t classification;
+    int32_t result;
+    uint32_t callback;
+    uint32_t user_data;
+    uint32_t active;
+    uint32_t probe;             /* rtfs_probe: classify only, touch nothing */
+    uint32_t action;
+    uint32_t slot;
+    uint32_t out0;
+    uint32_t out1;
+    char saved_name[RTFAT_NAME_MAX + 1];  /* RENAME_REPLACE: the source name while the destination is deleted */
+    /* The file device: the path (copied at the start), how far the walk
+     * got, the folder it is in, and the action at its end. */
+    char path[RTFS_RIIVO_PATH_BYTES];
+    uint32_t path_at;
+    uint32_t walk_dir;
+    uint32_t final_action;
+    uint32_t flags;              /* the open's flags */
+    struct rtfat_op fat;
+};
+
+/* Copies the loader supplied directory prefix and volume.  Returns zero on
+ * success, RTFAT_EINVAL for an unterminated/invalid prefix.  An empty
+ * prefix serves no save directory (the file device alone).  `fs_fd` is
+ * the game's /dev/fs fd when known, else negative (rtfs_learn_fs_fd). */
+int rtfs_init(struct rtfs_context* ctx, const struct rtfat_volume* volume, const char* data_prefix, int32_t fs_fd);
+
+/* Serves the "file" device from the volume's root_cluster. RTFAT_EINVAL
+ * when the root is not a valid cluster. */
+int rtfs_enable_file_device(struct rtfs_context* ctx);
+
+/* Classifies a game path (NUL-terminated within RTFS_PATH_BYTES) against
+ * the redirected directory: RTFS_PATH_*; `name` (RTFAT_NAME_MAX + 1 bytes)
+ * receives the file name for RTFS_PATH_FILE. */
+int rtfs_path_type(const struct rtfs_context* ctx, const char* path, char* name);
+
+/* Tells whether `path` (NUL-terminated within RTFS_PATH_BYTES) is the
+ * /dev/fs device, and records the fd its open returned; a close of that
+ * fd forgets it again (rtfs_begin does that itself, passing it through). */
+int rtfs_is_fs_device(const char* path);
+void rtfs_learn_fs_fd(struct rtfs_context* ctx, int32_t fd);
+
+/* Starts one IOS request.  The caller sets request.fat.bounce and
+ * request.fat.bounce_bytes before this call for Read/Write.  A complete
+ * request's result is ready immediately.  For RTFS_NEEDS_IO call rtfs_step
+ * until it returns RTFAT_DONE, performing each requested transfer and
+ * putting its status in request.fat.io_status before resuming. */
+void rtfs_begin(struct rtfs_context* ctx, struct rtfs_request* request, const struct rtfs_ipc* ipc);
+int rtfs_step(struct rtfs_context* ctx, struct rtfs_request* request);
+
+/* rtfs_begin's classification alone: the same PASS_THROUGH / COMPLETE /
+ * NEEDS_IO answer and, for COMPLETE, the same result, but nothing in the
+ * context, the file table or the game's buffers changes and the engine's
+ * busy rule is not applied (a would-be busy refusal classifies as the
+ * request would without it).  For deciding at hook time whether a
+ * request is ours before it can run. */
+void rtfs_probe(struct rtfs_context* ctx, struct rtfs_request* request, const struct rtfs_ipc* ipc);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

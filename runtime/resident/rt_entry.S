@@ -258,4 +258,4 @@ rt_reset_os_restart_replay:
     .globl rt_context_data
 rt_context_data:
     .long 0x52574358, 0, 1, 0
-    .fill 508, 4, 0
+    .fill 316, 4, 0

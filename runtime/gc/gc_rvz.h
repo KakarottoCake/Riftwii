@@ -102,16 +102,20 @@ struct gc_rvz {
     uint32_t last_failed_offset;
     uint32_t entries[GC_RVZ_ENTRIES_PER_SECTOR * 2] __attribute__((aligned(32)));  /* one table sector */
     rtrvz_junk junk;
-    struct gc_rvz_extent table_extents[GC_RVZ_TABLE_EXTENTS];
-    /* Last: the loader makes room for `extent_count` of them only
-     * (gc_rvz_state_bytes). */
-    struct gc_rvz_extent extents[GC_RVZ_MAX_EXTENTS];
+    /* Last: actual image extents, then actual group-table extents. The
+     * loader allocates only those counts (gc_rvz_state_bytes), while the
+     * declaration still allows the most fragmented image and table. */
+    struct gc_rvz_extent extents[GC_RVZ_MAX_EXTENTS + GC_RVZ_TABLE_EXTENTS];
 };
 
-/* The state's size with room for `extent_count` pieces of the RVZ. */
-#define gc_rvz_state_bytes(extent_count)                                    \
-    ((uint32_t)__builtin_offsetof(struct gc_rvz, extents) +                 \
-     (uint32_t)(extent_count) * (uint32_t)sizeof(struct gc_rvz_extent))
+static inline struct gc_rvz_extent* gc_rvz_table_extents(struct gc_rvz* state) {
+    return state->extents + state->extent_count;
+}
+
+/* Counts are bounded by GC_RVZ_MAX_EXTENTS and GC_RVZ_TABLE_EXTENTS at launch. */
+#define gc_rvz_state_bytes(extent_count, table_extent_count) \
+    ((uint32_t)__builtin_offsetof(struct gc_rvz, extents) + \
+     ((uint32_t)(extent_count) + (uint32_t)(table_extent_count)) * (uint32_t)sizeof(struct gc_rvz_extent))
 
 /* `length` bytes of the disc from `offset` into `dst`, through cache
  * slot `slot`. 1: done; 0: failed (last_error says why). Decodes at most

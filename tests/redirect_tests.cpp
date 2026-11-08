@@ -9,7 +9,9 @@
 #include "riftwii/source.hpp"
 #include "rtable.h"
 
+#include <algorithm>
 #include <cstring>
+#include <limits>
 #include <iostream>
 #include <map>
 #include <string>
@@ -39,10 +41,11 @@ static Bytes MakeTable(const std::vector<rt_entry>& entries, bool fix_crc = true
     h.magic = RT_MAGIC;
     h.version = RT_VERSION;
     h.entry_count = static_cast<std::uint32_t>(entries.size());
+    h.entry_bytes = RT_ENTRY_WIDE;
     h.sdio_fd = 7;
     h.tag = 0x1234;
     h.entries_crc = fix_crc ? rt_crc32(entries.data(), entries.size() * sizeof(rt_entry)) : 0;
-    Bytes b(rt_table_bytes(h.entry_count));
+    Bytes b(rt_table_bytes(h.entry_count, h.entry_bytes));
     std::memcpy(b.data(), &h, sizeof(h));
     if (!entries.empty()) std::memcpy(b.data() + sizeof(h), entries.data(), entries.size() * sizeof(rt_entry));
     return b;
@@ -193,6 +196,247 @@ static void test_validate_rejects() {
         e.reserved = 1;
         Bytes b = MakeTable({e});
         EXPECT_EQ(rt_validate(T(b), b.size()), int(RT_ERR_ENTRY));
+    }
+}
+
+extern "C" int legacy_lookup(const rt_header*, std::uint64_t, std::uint64_t,
+                             rt_run*, std::uint32_t, std::uint32_t*);
+
+static Bytes PackTable(const std::vector<rt_entry>& entries, std::uint32_t format = 0) {
+    rt_header header{};
+    header.magic = RT_MAGIC;
+    header.version = RT_VERSION;
+    header.entry_count = static_cast<std::uint32_t>(entries.size());
+    header.entry_bytes = format != 0 ? format : rt_entry_format(entries.data(), header.entry_count);
+    Bytes bytes(rt_table_bytes(header.entry_count, header.entry_bytes));
+    std::memcpy(bytes.data(), &header, sizeof(header));
+    EXPECT_EQ(rt_encode_entries(reinterpret_cast<rt_header*>(bytes.data()), entries.data()), RT_OK);
+    return bytes;
+}
+
+static void CompareWalkers(const Bytes& old_table, const Bytes& new_table, std::uint64_t offset,
+                           std::uint64_t length, std::uint32_t capacity) {
+    rt_run old_runs[16]{};
+    rt_run new_runs[16]{};
+    std::uint32_t old_count = 99;
+    std::uint32_t new_count = 99;
+    const int old_status = legacy_lookup(T(old_table), offset, length, old_runs, capacity, &old_count);
+    const int new_status = rt_lookup(T(new_table), offset, length, new_runs, capacity, &new_count);
+    EXPECT_EQ(new_status, old_status);
+    EXPECT_EQ(new_count, old_count);
+    for (std::uint32_t i = 0; i < std::min(old_count, new_count); ++i) {
+        EXPECT_EQ(new_runs[i].vstart, old_runs[i].vstart);
+        EXPECT_EQ(new_runs[i].length, old_runs[i].length);
+        EXPECT_EQ(new_runs[i].source, old_runs[i].source);
+        EXPECT_EQ(new_runs[i].skip, old_runs[i].skip);
+        EXPECT_EQ(new_runs[i].kind, old_runs[i].kind);
+    }
+}
+
+static void test_compact_boundaries() {
+    static_assert(sizeof(rt_header) == 32, "table header layout");
+    static_assert(sizeof(rt_compact_entry) == RT_ENTRY_COMPACT, "compact entry layout");
+    static_assert(sizeof(rt_entry) == RT_ENTRY_WIDE, "wide entry layout");
+    EXPECT_EQ(rt_table_bytes(1000, RT_ENTRY_COMPACT), 16292u);
+    EXPECT_EQ(rt_table_bytes(10000, RT_ENTRY_COMPACT), 160292u);
+    EXPECT_EQ(rt_table_bytes(1000, RT_ENTRY_WIDE), 24292u);
+    EXPECT_EQ(rt_table_bytes(10000, RT_ENTRY_WIDE), 240292u);
+    EXPECT_EQ(rt_table_bytes(1, 20), 0u);
+    const std::uint64_t compact_limit = std::uint64_t(UINT32_MAX) * 4 + 3;
+    const std::vector<rt_entry> entries = {
+        E(0, 1, RT_KIND_ZERO, 0, 0),
+        E(1, 1, RT_KIND_MEM, UINT32_MAX, 0),
+        E(2, 1, RT_KIND_SD, UINT32_MAX, 511),
+        E(3, 1, RT_KIND_USB, UINT32_MAX, 511),
+        E(4, 1, RT_KIND_DISC, UINT32_MAX, 0),
+        E(0xFFFFFFFFull, 9, RT_KIND_MEM, UINT32_MAX, 0),
+        E(compact_limit - UINT32_MAX, UINT32_MAX, RT_KIND_SD, UINT32_MAX, 511),
+    };
+    const Bytes compact = PackTable(entries);
+    const Bytes wide = MakeTable(entries);
+    EXPECT_EQ(T(compact)->entry_bytes, RT_ENTRY_COMPACT);
+    EXPECT_EQ(rt_validate(T(compact), compact.size()), RT_OK);
+    for (std::size_t i = 0; i < entries.size(); ++i) {
+        const rt_entry decoded = rt_read_entry(T(compact), static_cast<std::uint32_t>(i));
+        EXPECT_EQ(decoded.vstart, entries[i].vstart);
+        EXPECT_EQ(decoded.source, entries[i].source);
+        EXPECT_EQ(decoded.length, entries[i].length);
+        EXPECT_EQ(decoded.skip, entries[i].skip);
+        EXPECT_EQ(decoded.kind, entries[i].kind);
+        for (std::uint32_t capacity : {0u, 1u, 2u, 16u}) {
+            const std::uint64_t start = entries[i].vstart;
+            CompareWalkers(wide, compact, start, 4, capacity);
+            if (start != 0) CompareWalkers(wide, compact, start - 1, 4, capacity);
+            CompareWalkers(wide, compact, start + entries[i].length - 1, 4, capacity);
+        }
+    }
+    // Width is checked in the source's native units: sectors for SD/USB,
+    // bytes for MEM/DISC. Dual-layer disc sources therefore use wide entries.
+    for (std::uint32_t kind : {RT_KIND_MEM, RT_KIND_SD, RT_KIND_USB, RT_KIND_DISC}) {
+        const Bytes fallback = PackTable({E(1, 10, kind, 0x100000000ull, 0)});
+        EXPECT_EQ(T(fallback)->entry_bytes, RT_ENTRY_WIDE);
+        EXPECT_EQ(rt_validate(T(fallback), fallback.size()), RT_OK);
+        CompareWalkers(fallback, fallback, 0, 20, 16);
+    }
+    for (std::uint64_t start : {compact_limit + 1, UINT64_MAX - 20}) {
+        const Bytes fallback = PackTable({E(start, 10, RT_KIND_ZERO, 0, 0)});
+        EXPECT_EQ(T(fallback)->entry_bytes, RT_ENTRY_WIDE);
+        EXPECT_EQ(rt_validate(T(fallback), fallback.size()), RT_OK);
+        CompareWalkers(fallback, fallback, start - 1, 12, 16);
+        CompareWalkers(fallback, fallback, UINT64_MAX - 1, 3, 16);
+    }
+    const Bytes empty = PackTable({});
+    EXPECT_EQ(rt_validate(T(empty), empty.size()), RT_OK);
+    CompareWalkers(MakeTable({}), empty, UINT64_MAX - 10, 10, 1);
+    CompareWalkers(wide, compact, UINT64_MAX, 0, 0);
+}
+
+static void test_compact_validation() {
+    const Bytes valid = PackTable({E(1, 9, RT_KIND_USB, 20, 511)});
+    EXPECT_EQ(rt_validate(T(valid), valid.size() - 1), RT_ERR_SIZE);
+    for (std::uint32_t format : {0u, 15u, 20u, 25u, UINT32_MAX}) {
+        Bytes broken = valid;
+        reinterpret_cast<rt_header*>(broken.data())->entry_bytes = format;
+        EXPECT_EQ(rt_validate(T(broken), broken.size()), RT_ERR_SIZE);
+    }
+    {
+        Bytes broken = valid;
+        reinterpret_cast<rt_header*>(broken.data())->entry_count = UINT32_MAX;
+        EXPECT_EQ(rt_validate(T(broken), broken.size()), RT_ERR_SIZE);
+    }
+    for (int fault = 0; fault < 5; ++fault) {
+        Bytes broken = valid;
+        auto* entry = reinterpret_cast<rt_compact_entry*>(broken.data() + sizeof(rt_header));
+        switch (fault) {
+        case 0:
+            entry->vend_low = 4;
+            break;
+        case 1:
+            entry->skip = 512;
+            break;
+        case 2:
+            entry->kind = 0;
+            break;
+        case 3:
+            entry->length = 0;
+            break;
+        case 4:
+            entry->kind = RT_KIND_ZERO;
+            break;
+        }
+        EXPECT_EQ(rt_validate(T(broken), broken.size()), RT_ERR_ENTRY);
+    }
+    {
+        Bytes broken = valid;
+        broken[sizeof(rt_header)] ^= 0x10;
+        EXPECT_EQ(rt_validate(T(broken), broken.size()), RT_ERR_CRC);
+    }
+    const Bytes overlap = PackTable({E(1, 3, RT_KIND_ZERO, 0, 0), E(3, 1, RT_KIND_ZERO, 0, 0)});
+    EXPECT_EQ(rt_validate(T(overlap), overlap.size()), RT_ERR_ORDER);
+    const Bytes reversed = PackTable({E(2, 1, RT_KIND_ZERO, 0, 0), E(1, 1, RT_KIND_ZERO, 0, 0)});
+    EXPECT_EQ(rt_validate(T(reversed), reversed.size()), RT_ERR_ORDER);
+    {
+        Bytes destination = valid;
+        const rt_entry too_wide = E(0, 1, RT_KIND_MEM, 0x100000000ull, 0);
+        EXPECT_EQ(rt_encode_entries(reinterpret_cast<rt_header*>(destination.data()), &too_wide), RT_ERR_ENTRY);
+    }
+}
+
+static void test_differential_walkers() {
+    std::uint64_t seed = 0x2179ABCD;
+    auto next = [&seed]() {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        return seed;
+    };
+    for (int trial = 0; trial < 120; ++trial) {
+        std::vector<rt_entry> entries;
+        std::uint64_t cursor = trial % 2 == 0 ? 0 : 0xFFFFF000ull;
+        if (trial % 3 == 0) cursor += 0x400000000ull;
+        const std::uint32_t count = static_cast<std::uint32_t>(next() % 200);
+        for (std::uint32_t i = 0; i < count; ++i) {
+            cursor += next() % 20;
+            const std::uint32_t kind = 1 + next() % 5;
+            const std::uint32_t length = 1 + next() % 2048;
+            std::uint64_t source = kind == RT_KIND_ZERO ? 0 : next() & UINT32_MAX;
+            if (trial % 7 == 0 && kind != RT_KIND_ZERO) source |= 0x100000000ull;
+            const std::uint32_t skip = kind == RT_KIND_SD || kind == RT_KIND_USB ? next() % 512 : 0;
+            entries.push_back(E(cursor, length, kind, source, skip));
+            cursor += length;
+        }
+        const Bytes old_table = MakeTable(entries);
+        const Bytes new_table = PackTable(entries);
+        EXPECT_EQ(rt_validate(T(new_table), new_table.size()), RT_OK);
+        for (int request = 0; request < 600; ++request) {
+            std::uint64_t offset = next() % (cursor + 2048);
+            if (!entries.empty() && request % 2 == 0) {
+                const rt_entry& entry = entries[next() % entries.size()];
+                offset = entry.vstart + next() % (entry.length + 1);
+            }
+            CompareWalkers(old_table, new_table, offset, next() % 8192, next() % 17);
+        }
+    }
+}
+
+static void test_indexed_tables() {
+    const std::uint64_t compact_limit = std::uint64_t(UINT32_MAX) * 4 + 3;
+    for (const std::uint32_t count : {63u, 64u, 65u, 1000u, 10000u}) {
+        for (int shape = 0; shape < 5; ++shape) {
+            std::vector<rt_entry> entries;
+            for (std::uint32_t i = 0; i < count; ++i) {
+                std::uint64_t start = i;
+                switch (shape) {
+                case 1:
+                    start = compact_limit - count + i - 1;
+                    break;
+                case 2:
+                    start = UINT64_MAX - count + i - 1;
+                    break;
+                case 3:
+                    start = std::uint64_t(i) * 0x100000000ull;
+                    break;
+                // A distant last entry leaves most requests in one bucket.
+                case 4:
+                    start = i + (i + 1 == count ? 0x300000000ull : 0);
+                    break;
+                }
+                entries.push_back(E(start, 1, RT_KIND_ZERO, 0, 0));
+            }
+            const Bytes old_table = MakeTable(entries);
+            const Bytes compact_or_wide = PackTable(entries);
+            const Bytes wide = PackTable(entries, RT_ENTRY_WIDE);
+            EXPECT_EQ(rt_validate(T(compact_or_wide), compact_or_wide.size()), RT_OK);
+            EXPECT_EQ(rt_validate(T(wide), wide.size()), RT_OK);
+            for (std::size_t i = 0; i < entries.size(); ++i) {
+                const std::uint64_t start = entries[i].vstart;
+                CompareWalkers(old_table, compact_or_wide, start, 1, 1);
+                CompareWalkers(old_table, wide, start, 1, 1);
+                if (i % 31 == 0 && start > 0) {
+                    CompareWalkers(old_table, compact_or_wide, start - 1, 2, 2);
+                    CompareWalkers(old_table, wide, start - 1, 2, 2);
+                }
+            }
+            if (count < RT_INDEX_MIN_ENTRIES) continue;
+            // A forged index is refused even when its CRC has been repaired.
+            // Guards and truncation checks cover the index's actual byte span.
+            for (const Bytes* source : {&compact_or_wide, &wide}) {
+                for (std::uint32_t slot : {0u, 1u, 32u, 64u}) {
+                    Bytes broken = *source;
+                    auto* header = reinterpret_cast<rt_header*>(broken.data());
+                    const std::size_t index_offset = sizeof(rt_header) + std::size_t(count) * header->entry_bytes;
+                    auto* index = reinterpret_cast<std::uint32_t*>(broken.data() + index_offset);
+                    index[slot] = UINT32_MAX;
+                    header->entries_crc = rt_crc32(broken.data() + sizeof(rt_header), broken.size() - sizeof(rt_header));
+                    EXPECT_EQ(rt_validate(T(broken), broken.size()), RT_ERR_ENTRY);
+                }
+                EXPECT_EQ(rt_validate(T(*source), source->size() - 1), RT_ERR_SIZE);
+                Bytes guarded(source->size() + 32, 0xA5);
+                std::memcpy(guarded.data(), source->data(), source->size());
+                EXPECT_EQ(rt_validate(T(guarded), source->size()), RT_OK);
+                for (std::size_t i = source->size(); i < guarded.size(); ++i) EXPECT_EQ(guarded[i], 0xA5);
+            }
+        }
     }
 }
 
@@ -496,6 +740,31 @@ static void test_oracle() {
     }
 }
 
+static void test_builder_table_formats() {
+    RecordingProvider provider;
+    provider.disc["/D"] = Bytes(20, 1);
+    provider.ext["/E"] = Bytes(20, 2);
+    std::unique_ptr<riftwii::AppliedFile> file;
+    std::string error;
+    EXPECT_TRUE(riftwii::build_replacement(P("/D", "/E", 0, 20, 0, false, false), provider, file, error));
+    for (std::uint32_t kind : {RT_KIND_MEM, RT_KIND_SD, RT_KIND_USB}) {
+        for (std::uint64_t source : {0xFFFFFFFFull, 0x100000000ull}) {
+            const riftwii::ExternalPlacer place = [kind, source](const riftwii::ByteSource*, std::uint64_t,
+                                                               std::uint64_t length,
+                                                               std::vector<riftwii::PlacedRun>& runs, std::string&) {
+                runs = {{kind, length, source, kind == RT_KIND_MEM ? 0u : 511u}};
+                return true;
+            };
+            Bytes table;
+            EXPECT_TRUE(riftwii::build_redirect_table({{file.get(), 3, 0}}, place, 9, 42, table, error));
+            EXPECT_EQ(T(table)->entry_bytes, source <= UINT32_MAX ? RT_ENTRY_COMPACT : RT_ENTRY_WIDE);
+            EXPECT_EQ(rt_read_entry(T(table), 0).vstart, 3u);
+            EXPECT_EQ(rt_read_entry(T(table), 0).source, source);
+            EXPECT_EQ(rt_validate(T(table), table.size()), RT_OK);
+        }
+    }
+}
+
 static void test_builder_rejects_overlap() {
     Scenario s;
     std::string err;
@@ -541,9 +810,14 @@ int main() {
     test_crc();
     test_walker();
     test_validate_rejects();
+    test_compact_boundaries();
+    test_compact_validation();
+    test_differential_walkers();
+    test_indexed_tables();
     test_place_on_fragments();
     test_flatten_shape();
     test_oracle();
+    test_builder_table_formats();
     test_builder_rejects_overlap();
     if (g_failures == 0) {
         std::cout << "ALL REDIRECT TESTS PASSED" << std::endl;

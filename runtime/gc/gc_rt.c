@@ -602,8 +602,10 @@ static uint32_t gc_trace_slot(const struct gc_rt_context* ctx, uint32_t seq) {
     return ctx->trace_sector + kept + (seq - kept - 1) % ring;
 }
 
+#ifdef RT_TEST_BUILD
 /* The test remote's results take the projection callers' 16 words. */
 typedef char gc_fake_log_fits[(GC_TR_RVZ_GROUPS - GC_TR_PROJECTION_CALLERS == GC_BT_FAKE_STEPS * 2) ? 1 : -1];
+#endif
 
 /* The audio hardware. The audio interface sits where a Wii in Wii mode
  * has it (0xCC006C00 on a GameCube; the loader moves the game's own
@@ -763,10 +765,13 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
     w[GC_TR_PROJECTIONS] = ctx->projections;
     w[GC_TR_ORTHOGRAPHICS] = ctx->orthographics;
     for (i = 0; i < GC_PROJECTION_CALLERS * 4; ++i) w[GC_TR_PROJECTION_CALLERS + i] = ctx->projection_callers[i];
+#ifdef RT_TEST_BUILD
     if ((ctx->flags & GC_FLAG_FAKE_REMOTE) && ctx->bt) {
         const struct gc_bt* bt = (const struct gc_bt*)(uintptr_t)ctx->bt;
         gc_copy((uint8_t*)&w[GC_TR_PROJECTION_CALLERS], (const uint8_t*)bt->fake_log, sizeof(bt->fake_log));
-    } else if (ctx->projections == 0) {
+    } else
+#endif
+    if (ctx->projections == 0) {
         /* No projection seen (16:9 off): the words would stay zero, so
          * they carry the VI's registers 0x00-0x3F instead, the timing
          * the TV locks onto. A TV that lost the signal on a Wii (the
@@ -3022,10 +3027,13 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
     }
     if (ctx->bt && status != 0) {
         struct gc_bt* bt = (struct gc_bt*)(uintptr_t)ctx->bt;
+#ifdef RT_TEST_BUILD
         if (ctx->flags & GC_FLAG_FAKE_REMOTE) {
             gc_bt_fake(bt, (uint8_t*)(uintptr_t)status, n, (ctx->flags & GC_FLAG_FAKE_PRO) != 0, native,
                        ctx->pad_idle);
-        } else {
+        } else
+#endif
+        {
             /* Keep start-up's frame-counted timeouts unchanged. Once page
              * scan is ready, an idle controller needs no per-frame IPC. */
             if (bt->stage != GC_BT_STAGE_READY || gc_bt_wants_frame_polls(bt)) gc_bt_poll(ctx, bt);

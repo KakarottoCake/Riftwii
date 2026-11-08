@@ -31,8 +31,16 @@ bool g_preloaded = false;
 
 void StoreMapping(const rthid_mapping& mapping) {
     if (g_catalog.count >= RTHID_CONFIG_MAX) return;
-    g_catalog.maps[g_catalog.count] = mapping;
-    ++g_catalog.count;
+    // Packed as the driver and the games use it (#506); only a mapping that
+    // passes rthid_valid packs, so every layout in the catalog is checked.
+    alignas(4) static std::uint8_t packed[RTHID_LAYOUT_MAX];
+    auto* layout = reinterpret_cast<rthid_layout*>(packed);
+    if (rthid_pack(&mapping, layout, sizeof(packed)) == 0) {
+        logf("USB controller %04x:%04x: its layout failed the check; not used\n", static_cast<unsigned>(mapping.vid),
+             static_cast<unsigned>(mapping.pid));
+        return;
+    }
+    if (!rthid_catalog_add(&g_catalog, layout)) return;
     g_published_count.store(g_catalog.count, std::memory_order_release);
 }
 
@@ -193,9 +201,12 @@ bool HidPadsConnected() {
 
 void HidPadsCopyCatalog(rthid_catalog& out) {
     out = g_catalog;
+    // Every layout was checked as it was packed (StoreMapping), so the games
+    // take them as they are (the blobs carry no rthid_valid, #506).
     out.adapter_disabled = Settings().gc_adapter == "off" ? 1 : 0;
     if (Settings().usb_input != "on") {
         out.count = 0;
+        out.layout_bytes = 0;
         out.ven_known_count = 0;
     }
 }
@@ -302,8 +313,8 @@ bool HidPadsReserved(std::uint32_t id) {
     // never change; acquiring the count makes their earlier writes visible.
     const unsigned count = g_published_count.load(std::memory_order_acquire);
     for (unsigned i = 0; i < count; ++i) {
-        const auto& mapping = g_catalog.maps[i];
-        if (((static_cast<std::uint32_t>(mapping.vid) << 16) | mapping.pid) == id) return true;
+        const rthid_layout* layout = rthid_layout_at(&g_catalog, i);
+        if (layout && ((static_cast<std::uint32_t>(layout->vid) << 16) | layout->pid) == id) return true;
     }
     return false;
 }

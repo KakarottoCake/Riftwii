@@ -11,8 +11,10 @@
 #include <sys/stat.h>
 
 #include "log.hpp"
+#include "riftwii/fat32.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/symsearch.hpp"
+#include "riftwii/vsdbuild.hpp"
 #include "riftwii/vsdparts.hpp"
 #include "riftwii_vsd_bin.h"
 #include "umsdev.hpp"
@@ -25,6 +27,25 @@ constexpr std::uint32_t kMem2ArenaEndField = 0x80003128;
 constexpr unsigned kScratchRegister = 12;  // vsd_entry.S's jump back and the veneers
 constexpr std::uint32_t kNop = 0x60000000;
 constexpr std::uint32_t kMinSectors = 0x4000;  // 8 MiB: anything smaller is not a card image
+
+// The read-ahead buffer's window (runtime/rtvsdra.h), a build setting:
+// make -f Makefile.wii WII_DEFINES=-DRIFTWII_VSD_READAHEAD_KB=16. The
+// bounce buffer (32 KiB on both devices for now, vsd_hook.h) holds
+// bounce / window of them, at most RTVSD_RA_MAX_SLOTS. 4 KiB (eight at once) cost
+// the fewest requests and bytes in Dolphin for Project M EX Remix,
+// Project+ and REX: in their first 30 s, Project M EX Remix's 38,800 reads
+// took 1,084 requests (11,970 with four 8 KiB windows, 11,249 with one of
+// 32 KiB), Project+'s 7,245 took 1,054 (1,407 with 32 KiB), REX's 7,589
+// took 1,135 (884 with 32 KiB, but twice the data). 8, 16 and 32 also
+// work; 0 turns it off.
+#ifndef RIFTWII_VSD_READAHEAD_KB
+#define RIFTWII_VSD_READAHEAD_KB 4
+#endif
+constexpr std::uint32_t kReadAheadSectors = RIFTWII_VSD_READAHEAD_KB * 2u;
+static_assert(kReadAheadSectors == 0 ||
+                  (kReadAheadSectors >= RTVSD_RA_MIN_SECTORS && kReadAheadSectors <= RTVSD_RA_MAX_SECTORS &&
+                   (kReadAheadSectors & (kReadAheadSectors - 1u)) == 0),
+              "RIFTWII_VSD_READAHEAD_KB must be 0, 4, 8, 16 or 32");
 
 std::uint32_t align_up(std::uint32_t v) { return (v + 31) & ~31u; }
 
@@ -64,6 +85,30 @@ const char* entry_name(unsigned e) {
 std::uint32_t now(const VsdHook& h, std::uint32_t address) {
     if (address >= h.data_base && address < h.data_base + h.data_bytes) return address - h.data_base + h.stage_base;
     return address;
+}
+
+// The image's first data sector (cluster 2's), from its boot sector, for
+// an image on the SD card: the read-ahead's windows line up with the
+// image's clusters. 0 when it can't be read (they line up with sector 0).
+std::uint32_t sd_image_data_first(const std::string& first_part) {
+    FILE* f = std::fopen(first_part.c_str(), "rb");
+    if (f == nullptr) return 0;
+    const BlockReader reader = [f](std::uint64_t lba, std::uint32_t count, std::uint8_t* bytes) {
+        return lba < 0x400000u && std::fseek(f, static_cast<long>(lba * RTVSD_SECTOR_BYTES), SEEK_SET) == 0 &&
+               std::fread(bytes, RTVSD_SECTOR_BYTES, count, f) == count;
+    };
+    Fat32Volume volume;
+    std::string why;
+    std::uint64_t first = 0;
+    if (Fat32Volume::mount(reader, volume, why)) {
+        const Fat32Geometry& g = volume.geometry();
+        first = g.volume_lba + std::uint64_t(g.data_start_sector) * g.blocks_per_sector();
+    } else {
+        logf("Virtual SD card: the image's layout is unknown (%s); read-ahead windows line up with sector 0\n",
+             why.c_str());
+    }
+    std::fclose(f);
+    return first <= 0xFFFFFFFFull ? static_cast<std::uint32_t>(first) : 0u;
 }
 
 }  // namespace
@@ -168,6 +213,12 @@ bool find_vsd_image(const std::string& name, VsdImage& out, std::string& why) {
         why = "its pieces on the drive are shorter than the file";
         return false;
     }
+    out.readahead_sectors = kReadAheadSectors;
+    out.readahead_anchor = 0;
+    if (kReadAheadSectors != 0 && !out.on_usb) {
+        out.readahead_anchor =
+            sd_image_data_first(stat(out.path.c_str(), &st) == 0 ? out.path : vsd_part_name(out.path, 1));
+    }
     out.enabled = true;
     return true;
 }
@@ -232,7 +283,19 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
     //    as Project M 3.6's codes read fixed addresses in Brawl's MEM2
     //    heaps (0x90e60f10, its sound loader) and crashed when they moved.
     out.code_bytes = align_up(h.size);
-    out.state_bytes = align_up(vsd_state_bytes(image.extents.size()));
+    // The bounce buffer after the extent table, sized for the device.
+    const std::uint32_t bounce_bytes = vsd_bounce_bytes_for(device.backend);
+    static_assert(VSD_BOUNCE_BYTES_USB % RTVSD_SECTOR_BYTES == 0 && VSD_BOUNCE_BYTES_SD % RTVSD_SECTOR_BYTES == 0 &&
+                      VSD_BOUNCE_BYTES_USB >= RTVSD_SECTOR_BYTES && VSD_BOUNCE_BYTES_SD >= RTVSD_SECTOR_BYTES,
+                  "the bounce buffer holds whole sectors, 32-aligned");
+    // The read-ahead's windows live in the bounce buffer. A buffer smaller
+    // than the largest window turns the read-ahead off for that window size
+    // (below, with a boot.log line): shrinking VSD_BOUNCE_BYTES_SD that far
+    // has to be a choice, so this stops the build until it is made here.
+    static_assert(RTVSD_RA_MAX_SECTORS * RTVSD_SECTOR_BYTES <= VSD_BOUNCE_BYTES_SD &&
+                      RTVSD_RA_MAX_SECTORS * RTVSD_SECTOR_BYTES <= VSD_BOUNCE_BYTES_USB,
+                  "the largest read-ahead window must fit the bounce buffer (else read-ahead turns off)");
+    out.state_bytes = align_up(vsd_state_bytes(image.extents.size(), bounce_bytes));
     out.code_in_mem2 = mem1_veneers != 0;
     out.veneers = mem1_veneers;
     out.data_bytes = out.state_bytes + (out.code_in_mem2 ? out.code_bytes : 0);
@@ -315,6 +378,8 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
     st->fd = device.fd;
     st->sdhc = device.sdhc ? 1 : 0;
     st->rca = device.rca;
+    st->bounce = out.state_base + vsd_bounce_offset(image.extents.size());
+    st->bounce_sectors = bounce_bytes / RTVSD_SECTOR_BYTES;
     st->card.sectors = image.sectors;
     st->card.extent_count = static_cast<std::uint32_t>(image.extents.size());
     for (std::size_t i = 0; i < image.extents.size(); ++i) rtvsd_extents(&st->card)[i] = image.extents[i];
@@ -322,12 +387,35 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
         why = "the image's pieces do not cover it";
         return false;
     }
+    vsd_card_registers(st->card.sectors, st->card.sdhc != 0, st->card.cid, st->card.csd);
+    const std::uint32_t window_bytes = image.readahead_sectors * RTVSD_SECTOR_BYTES;
+    if (image.readahead_sectors != 0 && window_bytes > bounce_bytes) {
+        logf("Virtual SD card: read-ahead off; its %u KiB window does not fit the %u KiB bounce buffer\n",
+             window_bytes / 1024, bounce_bytes / 1024);
+    } else if (image.readahead_sectors != 0) {
+        // In the bounce buffer: no MEM2 of its own. Project+ leaves Brawl
+        // only a few KB to spare (a separate 32 KiB buffer stopped it
+        // making its menu heap in Dolphin, a black screen).
+        st->ra.buffer = st->bounce;
+        // As many windows as fit: 32 KiB holds one cluster, or several
+        // smaller windows when the game goes back and forth between
+        // clusters (Project M EX Remix's start-up).
+        st->ra.window = image.readahead_sectors;
+        st->ra.slots = bounce_bytes / window_bytes;
+        if (st->ra.slots > RTVSD_RA_MAX_SLOTS) st->ra.slots = RTVSD_RA_MAX_SLOTS;
+        st->ra.anchor = image.readahead_anchor;
+        logf("Virtual SD card: read-ahead on: %u window(s) of %u KiB lined up with image sector %u, cut at the "
+             "edges of the image's %u piece(s), in the bounce buffer (0x%08x)\n",
+             st->ra.slots, image.readahead_sectors / 2, st->ra.anchor, st->card.extent_count, st->ra.buffer);
+    } else {
+        logf("Virtual SD card: read-ahead off; the game's reads go straight to the card\n");
+    }
     DCFlushRange(reinterpret_cast<void*>(out.stage_base), out.data_bytes);
     out.active = true;
     logf("Virtual SD card: %s, %u MiB as an %s card in %u piece(s); blob %u bytes at 0x%08x, state %u bytes at "
-         "0x%08x%s\n",
+         "0x%08x (%u KiB of it the bounce buffer)%s\n",
          image.path.c_str(), image.sectors / 2048, st->card.sdhc ? "SDHC" : "SD", st->card.extent_count, h.size,
-         out.code_base, out.state_bytes, out.state_base,
+         out.code_base, out.state_bytes, out.state_base, bounce_bytes / 1024,
          after_runtime      ? " (above the runtime's MEM2 data)"
          : out.code_in_mem2 ? " (both in MEM2, built at the arena's top)"
                             : "");

@@ -2834,6 +2834,13 @@ public:
 		Menu_DrawImgPart(left + end, top, w - 2 * end, h, tw, th, tex.data, u, 0, 1 - u, 1, 255);
 		Menu_DrawImgPart(left + w - end, top, end, h, tw, th, tex.data, 1 - u, 0, 1, 1, 255);
 	}
+	// A box of its own size: its face from `top`, `faceHeight` high (the
+	// corners, title band and bottom band drawn as they are).
+	void SetFace(int top, int faceHeight)
+	{
+		y = top;
+		this->faceHeight = faceHeight;
+	}
 private:
 	const skin::Tex& tex;
 	int x, y, extra, faceHeight;
@@ -3300,7 +3307,7 @@ private:
 
 class PopupBox {
 public:
-	static constexpr int kTitleY = 110, kBodyY = 158, kButtonY = 304;
+	static constexpr int kTop = 102, kTitleY = 110, kBodyY = 158, kButtonY = 304;
 	// The body ends a little above the buttons: at 16 points a line is 22.
 	static constexpr int kBodyLines = (kButtonY - 10 - kBodyY) / 22;
 	// `safeFirst`: for a question whose second button does something that
@@ -3408,6 +3415,29 @@ public:
 	}
 	// The second button alone, in the middle (as the first is when alone).
 	void CenterCancel() { cancelBtn.button.SetPosition(198 - 4, kButtonY - 4); }
+	// A box sized to what it holds (the code mod's choices): its face from
+	// `top`, `faceHeight` high, the title moved with it. The same on 4:3
+	// and 16:9 (a widescreen menu widens the box, never heightens it).
+	void Resize(int top, int faceHeight)
+	{
+		panel.SetFace(top, faceHeight);
+		Place(titleTxt, 0, kTitleY - kTop + top, true);
+	}
+	// The text wrapped across the box in at most `lines` lines: how many it
+	// takes (a box spaces its parts for them).
+	int WrapBody(int lines)
+	{
+		bodyTxt.SetWrap(true, 528 + 2 * extra, lines);
+		return bodyTxt.GetLineCount();
+	}
+	// The text centred on line `centreY` (after WrapBody).
+	void BodyCentredOn(int centreY)
+	{
+		bodyTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::MIDDLE);
+		bodyTxt.SetPosition(0, centreY - w.GetHeight() / 2);
+	}
+	// The lone (second) button, centred, its top on line `y`.
+	void CancelAt(int y) { cancelBtn.button.SetPosition(198 - 4, y - 4); }
 	// How much wider than 4:3 the box is on each side (PopupExtra).
 	int Extra() const { return extra; }
 	// After another box was opened over this one and closed: the page
@@ -3881,17 +3911,17 @@ static bool ConfirmNotAGameDisc(const std::string& gameId)
 	return false;
 }
 
-// The Mods page's name for a code build's remembered start.
+// The Mods page's name for a code build's Extras (#496): one not set yet
+// asks at every launch too.
 static std::string CodeModStartName(riftwii::CodeModStart start)
 {
-	return start == riftwii::CodeModStart::With ? tr("With extras")
-		: start == riftwii::CodeModStart::Without ? tr("Without extras")
-		: start == riftwii::CodeModStart::AskEachTime ? tr("Ask each time")
-		: tr("Asked at the first Start");
+	return start == riftwii::CodeModStart::With ? tr("On")
+		: start == riftwii::CodeModStart::Without ? tr("Off")
+		: tr("Ask every launch");
 }
 
-// With extras, Without extras, Ask each time, round in `direction`; a mod
-// not answered yet goes to the first or the last.
+// On, Off, Ask every launch, round in `direction`; a mod not set yet is
+// at Ask every launch.
 static riftwii::CodeModStart NextCodeModStart(riftwii::CodeModStart start, int direction)
 {
 	static const riftwii::CodeModStart kOrder[] = {riftwii::CodeModStart::With, riftwii::CodeModStart::Without,
@@ -3899,7 +3929,7 @@ static riftwii::CodeModStart NextCodeModStart(riftwii::CodeModStart start, int d
 	int at = -1;
 	for (int i = 0; i < 3; ++i)
 		if (kOrder[i] == start) at = i;
-	if (at < 0) return kOrder[direction < 0 ? 2 : 0];
+	if (at < 0) at = 2;
 	return kOrder[(at + (direction < 0 ? 2 : 1)) % 3];
 }
 
@@ -4041,45 +4071,60 @@ static bool CodeModOn(const FrontendState& state)
 static bool PickCodeModStart(FrontendState& state)
 {
 	state.code_build_plain = false;
+	state.code_build_crash_logs = false;
 	state.code_build_asked = false;
 	if (!CodeModOn(state)) return true;
 	state.code_build_asked = true;
 	const std::vector<std::string> keys = CodeModsOn(state);
 	std::string names;
 	for (const std::string& key : keys) names += (names.empty() ? "" : ", ") + PackName(key);
-	const riftwii::CodeModStart remembered = riftwii::wii::SharedCodeModAnswer(state.game_id, keys);
-	if (remembered == riftwii::CodeModStart::With || remembered == riftwii::CodeModStart::Without) {
-		state.code_build_plain = remembered == riftwii::CodeModStart::Without;
-		logf("Start: %s starts %s RiftWii's extras, as remembered in codemods.txt\n", names.c_str(),
+	// Crash logs: the Mods page's switch, off unless switched on (#496).
+	state.code_build_crash_logs = riftwii::wii::SharedCodeModCrashLogs(state.game_id, keys);
+	logf("Start: crash logs %s for %s\n", state.code_build_crash_logs ? "on" : "off", names.c_str());
+	const riftwii::CodeModStart set = riftwii::wii::SharedCodeModAnswer(state.game_id, keys);
+	if (set == riftwii::CodeModStart::With || set == riftwii::CodeModStart::Without) {
+		state.code_build_plain = set == riftwii::CodeModStart::Without;
+		logf("Start: %s starts %s RiftWii's extras, as set on the Mods page\n", names.c_str(),
 		     state.code_build_plain ? "without" : "with");
 		return true;
 	}
-	// Named only the mods the answer will be kept for: those without one
-	// yet (one set to Ask each time, or with an answer of its own, keeps it).
-	std::string remembering;
-	for (const std::string& key : keys)
-		if (riftwii::wii::CodeModAnswer(state.game_id, key) == riftwii::CodeModStart::Unset)
-			remembering += (remembering.empty() ? "" : ", ") + PackName(key);
-	PopupBox box(tr("How should this code mod start?"),
-		remembering.empty()
-			? tr("Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would.")
-			: tr("Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it.",
-			     {FlatCapped(remembering, 24)}),  // the names cut short, so the three lines keep the rest
+	// Not set, or set to ask: asked at every launch, and the answer is not
+	// kept (the Mods page's Extras row keeps one).
+	PopupBox box(tr("Start with RiftWii's extras?"),
+		tr("Most code mods run with RiftWii's extras. If one stays on a black screen, start it without. Set Extras on the Mods page to stop this question."),
 		"", tr("Back"));
-	box.CenterCancel();
-	// The text's three lines at most (from y 158, 22 apart) end at 224,
-	// above the choices; the choices end above Back's pill (y 300).
-	box.BodyAtTop(3);
+	// Sized to what it holds and centred on the screen: the title band, then
+	// the text, the two choices and Back with the same room between each
+	// and above the bottom band (Grant, #496). Lines of the 480-line screen,
+	// each part's height as drawn (measured in Dolphin); a widescreen menu
+	// only widens the box.
+	// The text takes two lines on 16:9 in English, three on 4:3 or in a
+	// longer language; the box grows with it so the room stays the same.
+	constexpr int kTitleBand = 45, kBottomBand = 18;  // the popup picture's own bands
+	constexpr int kGap = 26;
+	constexpr int kLetters = 16, kLineStep = 22;      // 16-point text: its letters, and line to line
+	constexpr int kTileHeight = 62, kTileDrawn = 63;  // a tile's outline reaches a line further
+	constexpr int kBackDrawn = 57, kBackAbove = 2;    // Back with its ring, which starts 2 above the pill
+	const int textLines = std::max(1, box.WrapBody(3));
+	const int textHeight = kLetters + (textLines - 1) * kLineStep;  // top of the letters to the bottom
+	const int face = kTitleBand + kGap + textHeight + kGap + kTileDrawn + kGap + kBackDrawn + kGap + kBottomBand;
+	const int faceTop = 240 - face / 2;  // drawn 4 beyond its face at both ends: centred
+	const int textTop = faceTop + kTitleBand + kGap;
+	const int tilesTop = textTop + textHeight + kGap;
+	const int backTop = tilesTop + kTileDrawn + kGap;
+	box.Resize(faceTop, face);
+	box.BodyCentredOn(textTop + textHeight / 2 - 1);  // the letters sit a line below the middle
+	box.CancelAt(backTop + kBackAbove);
 	std::vector<TileSpec> tiles(2);
 	tiles[0].x = 56;
 	tiles[1].x = 332;
 	for (TileSpec& t : tiles) {
-		t.y = 230;
+		t.y = tilesTop;
 		t.w = 252;
-		t.h = 62;
+		t.h = kTileHeight;
 	}
 	tiles[0].label = tr("With extras");
-	tiles[0].value = tr("Crash reports, back to RiftWii");
+	tiles[0].value = tr("Back to RiftWii, game settings");
 	tiles[1].label = tr("Without extras");
 	tiles[1].value = tr("As the mod's own loader");
 	GuiTiles choices;
@@ -4100,19 +4145,6 @@ static bool PickCodeModStart(FrontendState& state)
 	if (back) return false;
 	state.code_build_plain = picked == 1;
 	logf("Start: %s starts %s RiftWii's extras\n", names.c_str(), state.code_build_plain ? "without" : "with");
-	// Kept for each mod that had no answer; one that had its own, or asks
-	// each time, keeps it.
-	// The game starts either way; the player hears the answer wasn't kept.
-	if (!remembering.empty()) {
-		const riftwii::wii::CodeModAnswerKept kept = riftwii::wii::RememberCodeModAnswer(state.game_id, keys,
-			state.code_build_plain ? riftwii::CodeModStart::Without : riftwii::CodeModStart::With);
-		if (kept != riftwii::wii::CodeModAnswerKept::Saved)
-			ShowPopup(tr("How should this code mod start?"),
-				kept == riftwii::wii::CodeModAnswerKept::UntilClose
-					? tr("Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes.")
-					: tr("This answer was not kept: sd:/riftwii/codemods.txt can't take it now."),
-				tr("OK"));
-	}
 	return true;
 }
 
@@ -8474,7 +8506,7 @@ struct RowRef {
 	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Aspect, Rumble, Speaker,
 		RegionStrings, Language, Cios, NandSource, Server, Favorite, Pack, Option, Note, ResetOptions,
 		AddCodes, ForgetCodes, MakeImage, Cover, Memory, About, GcDiscReads, GcCard, GcProgressive, GcWidescreen,
-		GcSharp, GcWidth, GcSpeed, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile, CodeStart, CoverSet, CoverPick } what = What::Note;
+		GcSharp, GcWidth, GcSpeed, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile, CodeStart, CrashLogs, CoverSet, CoverPick } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -11557,10 +11589,19 @@ static void BuildModRows(const FrontendState& state, const std::string& scanStat
 			FlowRow start;
 			start.kind = FlowRow::Kind::Option;
 			start.indent = true;
-			start.label = tr("Start");
+			start.label = tr("Extras");
 			start.value = CodeModStartName(riftwii::wii::CodeModAnswer(state.game_id, p.file));
 			start.on = true;
 			add(start, {RowRef::What::CodeStart, i});
+			// Crash logs (#496): the crash recorder, about 4 KB of the
+			// game's memory, off unless switched on.
+			FlowRow crash;
+			crash.kind = FlowRow::Kind::Toggle;
+			crash.indent = true;
+			crash.label = tr("Crash logs");
+			crash.on = riftwii::wii::CodeModCrashLogs(state.game_id, p.file);
+			crash.value = crash.on ? tr("On") : tr("Off");
+			add(crash, {RowRef::What::CrashLogs, i});
 		}
 		for (std::size_t o = 0; o < p.package.options.size(); ++o) {
 			// An option merged across packs shows once, under the
@@ -13528,7 +13569,9 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 				const riftwii::Option& o = state.model.packages[ref.pkg].package.options[ref.opt];
 				say(o.section.empty() ? PackName(state.model.packages[ref.pkg].file) : o.section);
 			} else if (ref.what == RowRef::What::CodeStart) {
-				say(tr("For {1} on every page and tile it's switched on in. Ask each time brings the question back at Start.",
+				say(tr("On: the way back to RiftWii, Reset, this page's game settings, the 480p fix and online play. Off: as the mod's own loader. Ask every launch: this question at every launch."));
+			} else if (ref.what == RowRef::What::CrashLogs) {
+				say(tr("Off: no crash report. On: saves a crash report to the SD card if {1} crashes, using about 4 KB of the game's memory (some mods freeze with it on).",
 				       {PackName(state.model.packages[ref.pkg].file)}));
 			} else if (ref.what == RowRef::What::AddCodes) {
 				say("For mods made of Gecko codes, like Project+ builds: pick the build's code file on the SD card.");
@@ -13589,7 +13632,22 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 					say(tr("This answer was not kept: sd:/riftwii/codemods.txt can't take it now."));
 				else
 					shownRow = -1;
-				logf("Mods: %s on %s starts: %s\n", key.c_str(), state.game_id.c_str(), CodeModStartName(next).c_str());
+				logf("Mods: %s on %s, extras: %s\n", key.c_str(), state.game_id.c_str(), CodeModStartName(next).c_str());
+				BuildModRows(state, scanStatus, rows, refs);
+				list.Refresh();
+				list.Select(acted);
+			} else if (ref.what == RowRef::What::CrashLogs) {
+				// The mod's own too, like its Extras (#496).
+				const std::string& key = state.model.packages[ref.pkg].file;
+				const bool on = !riftwii::wii::CodeModCrashLogs(state.game_id, key);
+				const riftwii::wii::CodeModAnswerKept kept = riftwii::wii::SetCodeModCrashLogs(state.game_id, key, on);
+				if (kept == riftwii::wii::CodeModAnswerKept::UntilClose)
+					say(tr("Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes."));
+				else if (kept == riftwii::wii::CodeModAnswerKept::NotKept)
+					say(tr("This answer was not kept: sd:/riftwii/codemods.txt can't take it now."));
+				else
+					shownRow = -1;
+				logf("Mods: %s on %s, crash logs: %s\n", key.c_str(), state.game_id.c_str(), on ? "on" : "off");
 				BuildModRows(state, scanStatus, rows, refs);
 				list.Refresh();
 				list.Select(acted);
@@ -15219,7 +15277,11 @@ static std::string AdapterStatus(const riftwii::wii::GcAdapterView& v)
 {
 	if (v.hid_pads != 0) return tr("USB controllers: working");
 	switch (v.link) {
-		case GCAD_LINK_POLL: return tr("Adapter: working");
+		case GCAD_LINK_POLL:
+			// Controllers work without the gray plug, but never rumble.
+			if (v.adapter_reporting && !v.rumble_power)
+				return tr("Adapter: working. For rumble, plug in its gray USB plug too.");
+			return tr("Adapter: working");
 		case GCAD_LINK_SETUP:
 		case GCAD_LINK_SETTLE:
 		case GCAD_LINK_CTRL:

@@ -112,6 +112,20 @@ burn-in reduction leaves the screen lit; for the adapter's pads the
 blob calls the same reset (found by the call near PADRead) on each
 button or stick change.
 
+The blob comes in three builds of the same driver: the full one;
+`GCAD_ADAPTER_ONLY`, without the other USB pads' code, when the adapter
+is the only USB controller the game can use; and `GCAD_PADS_ONLY`,
+without the adapter's code and the Switch Pro Controller's and
+DualShock 3's start-ups, for a code build started with USB pads but none
+of those three. Its state is laid out by `gcad_layout_for`: the adapter
+(the device list's owner, only as long as its USB version's list), the
+Xbox 360 list when an Xbox 360 pad is in play, the pad links packed
+without the list's bookkeeping, and the mappings. A code build gets a
+link and a mapping for each USB pad plugged in when it starts, and no
+others (#496: these builds use all of the game's memory); other games
+keep four links and every mapping the menu loaded, so a pad can be
+plugged in mid-game.
+
 The same blob gives Wii games the GameCube games' way back: L, R, Z and
 Start held two seconds on a GameCube controller (the adapter's or the
 console's own ports) leave through the game's own `OSReturnToMenu`, the
@@ -214,15 +228,48 @@ on the device holding the image, through the game's own IPC functions:
 the SD slot the loader selected (with CMD13 polls after writes), d2x's
 `/dev/sdio/sdhc` for a game on the card, or d2x's `/dev/usb2` for an
 image on the USB drive (opened before the game partition, so for a game
-on the USB drive only). The code and its state (a 32 KB bounce buffer for
-USB, then the image's extent table, 12 bytes a piece of the image file on
-its device, up to 16384 pieces: sized to the image, so three pieces cost 36
-bytes and an image scattered by a well-used card up to 192 KB, found by a
-binary search) go to the bottom of the MEM2 arena, staged at its top and
-copied down at the jump; the game reaches them through veneers at
-`0x80002300`, the code handler's list room a code build
-leaves free (below the MEM1 arena's top without it). Not with the
-resident runtime yet.
+on the USB drive only). The eight hooked functions share one trampoline,
+and a call on any other handle goes straight back to the game's function;
+the card's CID and CSD are built by the loader (`vsd_card_registers`). The
+code and its state (the image's extent table, 12 bytes a piece of the
+image file on its device, up to 16384 pieces: sized to the image, so three
+pieces cost 36 bytes and an image scattered by a well-used card up to 192
+KB, found by a binary search; then the bounce buffer, sized by the loader
+for the device: 32 KB on USB, where every read into MEM1 needs it, and
+`VSD_BOUNCE_BYTES_SD`, 32 KB for now, on the SD card, where only an
+unaligned buffer does; counters in the state say how often) go to the
+bottom of the MEM2 arena, staged at its top and copied down at the jump;
+the game reaches them through veneers at `0x80002300`, the code handler's
+list room a code build leaves free (below the MEM1 arena's top without
+it). Not with the resident runtime yet.
+
+**Read-ahead** (`runtime/rtvsdra.c`, host-tested in `vsdra` and `vsdblob`).
+A request on the console's SD card costs about 2 ms whatever its size, and
+code builds read their images in small pieces (REX: 13,311 reads of about
+1.5 KiB in its first 30 s, 25 s of it waiting on the card). So a read's
+last window, lined up with the image's clusters (`sd_image_data_first`;
+an image on the USB drive lines up with sector 0) and cut at the edge of
+the image file's piece on the device, is read whole into the bounce
+buffer, and the reads that follow inside it are copied from there. The
+bounce buffer's 32 KiB hold one window of 32 KiB, or two of 16, four of 8
+or eight of 4, the one used longest ago making room for the next (Project
+M EX Remix's start-up goes back and forth between a few folders'
+clusters). A piece that needs the bounce buffer for itself forgets them
+all. It takes no MEM2 of its own: Brawl's mods leave the game only a few
+KB to spare, and a separate 32 KiB buffer stopped Brawl making its menu
+heap. The bounce buffer is memory the game doesn't know about, and a mod's
+code can write there (Project M EX Remix's code menu did, in Dolphin, with
+the block placed lower): every held sector keeps a check value, taken when
+it is read in or written, and is handed to the game only while it still
+matches; a window that changed is dropped and read again. The part of a
+read before its last window still goes straight to the game's buffer, so
+a big read stays one big request. A write updates what the buffer holds
+once the device has taken it; a write that failed drops it. The window is
+a build setting (`RIFTWII_VSD_READAHEAD_KB`: 4, the default, then 8, 16,
+32, or 0 for off; 4 KiB windows, eight at once, cost the fewest requests
+in Dolphin for Project M EX Remix, Project+ and REX). The whole SD card
+passed through beside the resident runtime has none, since the runtime
+writes to that card behind the blob.
 
 ## 5. GameCube games
 

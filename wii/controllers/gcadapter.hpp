@@ -30,6 +30,10 @@ struct GcAdapterView {
     unsigned listed = 0;        // devices in the last list
     unsigned hid_pads = 0;      // configurable pads currently reporting
     bool adapter_present = false;
+    // The adapter has reported, and whether its gray plug is in: that plug
+    // powers the rumble motors (each port's status bit 0x04, grantendo/wiiu#5).
+    bool adapter_reporting = false;
+    bool rumble_power = false;
     std::uint32_t hid_ids[GCAD_HID_PADS] = {};
     bool hid_input[GCAD_HID_PADS] = {};
     int last_error = 0;

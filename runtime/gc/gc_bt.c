@@ -1087,6 +1087,7 @@ void gc_bt_fill(struct gc_bt* bt, uint8_t* status, uint32_t native, uint32_t idl
     for (i = 0; i < GC_PORTS; ++i) bt->port_err[i] = status[12 * i + 10];
 }
 
+#ifdef RT_TEST_BUILD
 /* The test remote's steps (gc_bt.h), a Wii Remote alone for the first
  * four, with a Nunchuk for the rest:
  *   0  nothing held, the remote still
@@ -1215,3 +1216,4 @@ void gc_bt_fake(struct gc_bt* bt, uint8_t* status, uint32_t n, int pro, uint32_t
             log[1] = (uint32_t)pad[2] << 24 | (uint32_t)pad[3] << 16 | (uint32_t)pad[4] << 8 | port;
     }
 }
+#endif /* RT_TEST_BUILD */
