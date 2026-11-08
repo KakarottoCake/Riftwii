@@ -135,7 +135,9 @@ struct rtpro_link {
     uint8_t physical_mode;    /* the reporting mode actually sent to the controller, 0 before */
     uint8_t continuous;       /* the game's last 0x12 first byte, its continuous bit (0x04) only */
     uint8_t needs_mode;       /* a corrective 0x12 is owed on this link */
-    uint8_t pad3[3];
+    uint8_t remote_flags;     /* the status flags a Wii Remote would report: its IR camera
+                               * and speaker as the game last switched them (issue #216) */
+    uint8_t pad3[2];
 };
 
 /* One reporting mode the game asked for, for a problem report: the first

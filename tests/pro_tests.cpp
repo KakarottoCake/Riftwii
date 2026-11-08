@@ -165,6 +165,26 @@ void test_late_pro() {
 // a rumble report, or an LED report whose LEDs are already what the game
 // last set, and only when no acknowledgement is asked (wiibrew: a 0x22
 // answers a report whose first byte has bit 1 set).
+// Issue #216 (CodeRabbit on #508): the camera switched on while the link
+// was not yet known to be a Pro is still in its status once it is.
+void test_late_pro_camera() {
+    rtpro_state st;
+    rtpro_init(&st);
+    Connect(st, kRemote, kOtherAddress);
+    Bytes camera = Acl(kRemote, {0xA2, 0x13, 0x04});
+    EXPECT_EQ(Out(st, camera) & RTPRO_CHANGED, 0u);  // a Wii Remote's, as it is
+    Bytes speaker = Acl(kRemote, {0xA2, 0x14, 0x04});
+    EXPECT_EQ(Out(st, speaker) & RTPRO_CHANGED, 0u);
+    Bytes read = Acl(kRemote, {0xA2, 0x17, 0x04, 0xA4, 0x00, 0xFA, 0x00, 0x06});
+    Out(st, read);
+    Bytes reply = Acl(kRemote, ReadReply(0x00FA, 6, 0, {0x00, 0x00, 0xA4, 0x20, 0x01, 0x20}));
+    In(st, reply);
+    EXPECT_EQ(st.links[0].pro, RTPRO_BY_ID);
+    Bytes status = Acl(kRemote, {0xA1, 0x20, 0x00, 0x00, 0x02, 0x00, 0x00, 0xC0});
+    In(st, status);
+    EXPECT_EQ(status[12], 0x0E);  // the camera and the speaker
+}
+
 void test_late_pro_choices() {
     rtpro_state st;
     rtpro_init(&st);
@@ -479,9 +499,24 @@ void test_stand_ins() {
     Bytes second = Acl(kPro, status_answer);
     EXPECT_EQ(In(st, second), 16u);
     EXPECT_EQ(second[9], 0x20);
+    // Issue #216: the game switched the camera on, so its status says so,
+    // as a Wii Remote's would (the Pro's own flags say only "extension").
+    EXPECT_EQ(second[12], 0x0A);
     Bytes third = Acl(kPro, status_answer);
     In(st, third);
     EXPECT_EQ(third[12], 0x16);
+    // The camera off again and the speaker on (no acknowledgements asked):
+    // the next status says exactly that.
+    Bytes camera_off = Acl(kPro, {0xA2, 0x13, 0x00});
+    Out(st, camera_off);
+    Bytes speaker_on = Acl(kPro, {0xA2, 0x14, 0x04});
+    Out(st, speaker_on);
+    Bytes status_again = Acl(kPro, {0xA2, 0x15, 0x00});
+    Out(st, status_again);
+    Bytes fourth = Acl(kPro, {0xA1, 0x20, 0x00, 0x00, 0x0A, 0x00, 0x00, 0xC0});
+    In(st, fourth);
+    EXPECT_EQ(fourth[9], 0x20);
+    EXPECT_EQ(fourth[12], 0x06);
     // Reads and writes of the extension's registers go to the Pro as they are.
     Bytes id = Acl(kPro, {0xA2, 0x17, 0x04, 0xA4, 0x00, 0xFA, 0x00, 0x06});
     EXPECT_EQ(Out(st, id) & RTPRO_CHANGED, 0u);
@@ -495,6 +530,14 @@ void test_stand_ins() {
     Bytes remote_ir = Acl(kRemote, {0xA2, 0x13, 0x06});
     EXPECT_EQ(Out(st, remote_ir) & RTPRO_CHANGED, 0u);
     EXPECT_EQ(remote_ir[9], 0x13);
+    // and its status reports are its own.
+    Bytes remote_status = Acl(kRemote, {0xA1, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0xC0});
+    In(st, remote_status);
+    EXPECT_EQ(remote_status[12], 0x00);
+    Bytes remote_status_on = Acl(kRemote, {0xA1, 0x20, 0x00, 0x00, 0x0C, 0x00, 0x00, 0xC0});
+    const Bytes remote_status_before = remote_status_on;
+    In(st, remote_status_on);
+    EXPECT_TRUE(remote_status_on == remote_status_before);
 }
 
 void test_classic_bytes() {
@@ -814,6 +857,7 @@ void test_bad_packets() {
 int main() {
     test_links();
     test_late_pro();
+    test_late_pro_camera();
     test_late_pro_choices();
     test_known_pro_needs_no_fix();
     test_mode_log();
