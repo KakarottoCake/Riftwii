@@ -5172,12 +5172,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"One emulated NAND for every game's saves",
-	"The emulated NAND can be on the USB drive",
-	"Hide, rename or delete a game",
-	"Press 1 on a game to report how it runs",
-	"GameCube games on Nintendont's memory card",
-	"A fix for Wii Menu sounds that didn't load",
+	"More memory for games, faster mod loading",
+	"Parental controls can lock the HOME Menu",
+	"Updates restart into the new version",
+	"Mod tiles get their own 3D covers and boxes",
+	"Code mods: Extras and Crash logs rows",
+	"Wii U Pro Controller cheats without HOME",
 };
 
 static std::string WhatsNewText()

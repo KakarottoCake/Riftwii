@@ -4110,23 +4110,23 @@ msgstr "A pasta da NAND emulada: a que as configurações do USB Loader GX indic
 msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
 msgstr "Com configurações e Miis, os jogos também usam as configurações do Wii e os Miis da NAND emulada. Para isso a pasta precisa de uma NAND completa."
 
-msgid "One emulated NAND for every game's saves"
-msgstr "Uma NAND emulada para os saves de todos os jogos"
+msgid "More memory for games, faster mod loading"
+msgstr "Mais memória para os jogos e mods mais rápidos"
 
-msgid "The emulated NAND can be on the USB drive"
-msgstr "A NAND emulada pode ficar na unidade USB"
+msgid "Parental controls can lock the HOME Menu"
+msgstr "O controle dos pais pode bloquear o menu HOME"
 
-msgid "Hide, rename or delete a game"
-msgstr "Ocultar, renomear ou excluir um jogo"
+msgid "Updates restart into the new version"
+msgstr "As atualizações reiniciam na nova versão"
 
-msgid "Press 1 on a game to report how it runs"
-msgstr "Aperte 1 num jogo para relatar como ele roda"
+msgid "Mod tiles get their own 3D covers and boxes"
+msgstr "Capas 3D e caixas próprias para os mods"
 
-msgid "GameCube games on Nintendont's memory card"
-msgstr "Jogos de GameCube no cartão do Nintendont"
+msgid "Code mods: Extras and Crash logs rows"
+msgstr "Mods de código: Extras e Registro de falhas"
 
-msgid "A fix for Wii Menu sounds that didn't load"
-msgstr "Correção dos sons do Menu Wii que não carregavam"
+msgid "Wii U Pro Controller cheats without HOME"
+msgstr "Trapaças com o Controle Pro do Wii U sem HOME"
 
 msgid "Manage game"
 msgstr "Gerenciar jogo"

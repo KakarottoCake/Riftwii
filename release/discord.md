@@ -17,15 +17,25 @@ Rewrite it for every release and delete the line below.
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-Fixes:
+What's new:
 
-* The channel installer installs again (2611-59 could stop with "NAND access was not restored")
-* Wii Menu sounds and music work with a Wii Menu theme installed
-* Themes download at about half the size, no visible change
+* Games get back a lot of the memory RiftWii used inside them (thanks grantendo and JackW), and mods load faster
+* Parental controls can lock or hide the Homebrew Channel and Priiloader buttons, and lock Settings
+* After the next update, RiftWii restarts straight into the new version
+* Mod tiles get their own 3D covers and boxes
+* Code mods: Extras and Crash logs rows on the Mods page
+* Wii U Pro Controller: Mario Kart Wii CC cheats work without opening HOME first
 
 To test, please:
 
-1. Run RiftWii Channel Installer and install or update the channel. Does it finish and go back to RiftWii?
-2. If you have a Wii Menu theme: turn on Wii Menu sounds and Wii Menu music in Settings. Do you hear them?
+1. Big mods from SD and USB: faster? Any freezes or missing files?
+2. Saves in a mod with its own save folder, after a restart
+3. Code builds (Project+, REX, PM), especially from sd.raw
+4. Parental controls: set a PIN, try each HOME Menu buttons choice and the Settings lock
+5. MKWii with a Pro Controller and CC cheats
+6. GameCube adapter: pull the gray plug mid-game, rumble should stop and controllers keep working
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
+
+![What's new](docs/screenshots/2611-128-whats-new.png)
+![HOME Menu with parental controls](docs/screenshots/2611-128-home-menu-parental.png)

@@ -8605,25 +8605,25 @@ T["With settings and Miis, games also use the emulated NAND's Wii settings and M
 MORE["ko"]["With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."] = '설정과 Mii까지 고르면 게임이 에뮬레이트 NAND의 Wii 설정과 Mii도 사용합니다. 이를 위해 폴더에 완전한 NAND가 있어야 합니다.'
 MORE["fr"]["With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."] = 'Avec réglages et Mii, les jeux utilisent aussi les réglages de la Wii et les Mii de la NAND émulée. Le dossier doit alors contenir une NAND complète.'
 
-# What's new in the release after 2611-42.
-T["One emulated NAND for every game's saves"] = ('Partidas de todos los juegos en una NAND emulada', 'すべてのゲームのセーブを1つのエミュレートNANDに', 'Uma NAND emulada para os saves de todos os jogos', 'Salvataggi di tutti i giochi in una NAND emulata')
-MORE["ko"]["One emulated NAND for every game's saves"] = '모든 게임의 세이브를 하나의 에뮬레이트 NAND에'
-MORE["fr"]["One emulated NAND for every game's saves"] = 'Une NAND émulée pour sauver tous les jeux'
-T['The emulated NAND can be on the USB drive'] = ('La NAND emulada puede estar en la unidad USB', 'エミュレートNANDをUSBドライブに置けます', 'A NAND emulada pode ficar na unidade USB', "La NAND emulata può stare sull'unità USB")
-MORE["ko"]['The emulated NAND can be on the USB drive'] = '에뮬레이트 NAND를 USB 드라이브에 둘 수 있습니다'
-MORE["fr"]['The emulated NAND can be on the USB drive'] = 'La NAND émulée peut être sur le disque USB'
-T['Hide, rename or delete a game'] = ('Ocultar, renombrar o borrar un juego', 'ゲームの非表示、名前の変更、削除', 'Ocultar, renomear ou excluir um jogo', 'Nascondi, rinomina o elimina un gioco')
-MORE["ko"]['Hide, rename or delete a game'] = '게임 숨기기, 이름 바꾸기, 삭제'
-MORE["fr"]['Hide, rename or delete a game'] = 'Masquer, renommer ou supprimer un jeu'
-T['Press 1 on a game to report how it runs'] = ('Pulsa 1 en un juego para informar de cómo va', 'ゲームで1を押して動作を報告', 'Aperte 1 num jogo para relatar como ele roda', 'Premi 1 su un gioco per segnalare come va')
-MORE["ko"]['Press 1 on a game to report how it runs'] = '게임에서 1을 눌러 실행 상태 보고'
-MORE["fr"]['Press 1 on a game to report how it runs'] = 'Appuyez sur 1 pour dire comment un jeu tourne'
-T["GameCube games on Nintendont's memory card"] = ('Juegos de GameCube en la tarjeta de Nintendont', 'Nintendontのメモリーカードでゲームキューブのゲーム', 'Jogos de GameCube no cartão do Nintendont', 'Giochi GameCube sulla memory card di Nintendont')
-MORE["ko"]["GameCube games on Nintendont's memory card"] = 'Nintendont 메모리 카드로 게임큐브 게임'
-MORE["fr"]["GameCube games on Nintendont's memory card"] = 'Jeux GameCube sur la carte mémoire de Nintendont'
-T["A fix for Wii Menu sounds that didn't load"] = ('Arreglo de los sonidos del Menú Wii', 'Wiiメニューの音が読み込まれない問題を修正', 'Correção dos sons do Menu Wii que não carregavam', 'Corretti i suoni del Menu Wii che non partivano')
-MORE["ko"]["A fix for Wii Menu sounds that didn't load"] = 'Wii 메뉴 소리가 불러와지지 않던 문제 수정'
-MORE["fr"]["A fix for Wii Menu sounds that didn't load"] = 'Correction des sons du Menu Wii'
+# What's new in the release after 2611-67.
+T["More memory for games, faster mod loading"] = ("Más memoria para los juegos y mods más rápidos", "ゲームのメモリーが増え、MODの読み込みが速く", "Mais memória para os jogos e mods mais rápidos", "Più memoria ai giochi, mod più veloci")
+MORE["ko"]["More memory for games, faster mod loading"] = "게임 메모리 증가, MOD 로딩이 더 빠르게"
+MORE["fr"]["More memory for games, faster mod loading"] = "Plus de mémoire pour les jeux, mods plus rapides"
+T["Parental controls can lock the HOME Menu"] = ("El control parental puede bloquear el menú HOME", "ペアレンタルコントロールでHOMEメニューをロック", "O controle dos pais pode bloquear o menu HOME", "Il controllo genitori può bloccare il menu HOME")
+MORE["ko"]["Parental controls can lock the HOME Menu"] = "자녀 보호 기능으로 HOME 메뉴 잠금"
+MORE["fr"]["Parental controls can lock the HOME Menu"] = "Le contrôle parental peut verrouiller le menu HOME"
+T["Updates restart into the new version"] = ("Las actualizaciones reinician en la nueva versión", "更新のあと、新しいバージョンで再起動", "As atualizações reiniciam na nova versão", "Gli aggiornamenti riavviano nella nuova versione")
+MORE["ko"]["Updates restart into the new version"] = "업데이트 후 새 버전으로 재시작"
+MORE["fr"]["Updates restart into the new version"] = "Les mises à jour redémarrent sur la nouvelle version"
+T["Mod tiles get their own 3D covers and boxes"] = ("Portadas 3D y cajas propias para los mods", "MODのタイルに専用の3Dパッケージと箱", "Capas 3D e caixas próprias para os mods", "Copertine 3D e scatole proprie per le mod")
+MORE["ko"]["Mod tiles get their own 3D covers and boxes"] = "MOD 타일에 전용 3D 커버와 상자"
+MORE["fr"]["Mod tiles get their own 3D covers and boxes"] = "Jaquettes 3D et boîtes propres aux mods"
+T["Code mods: Extras and Crash logs rows"] = ("Mods de código: Extras y Registro de fallos", "コードMOD：追加機能とクラッシュ記録", "Mods de código: Extras e Registro de falhas", "Mod di codice: Extra e Log dei crash")
+MORE["ko"]["Code mods: Extras and Crash logs rows"] = "코드 MOD: 추가 기능과 충돌 기록"
+MORE["fr"]["Code mods: Extras and Crash logs rows"] = "Mods de code : Extras et journaux de plantage"
+T["Wii U Pro Controller cheats without HOME"] = ("Trucos con el Mando Pro de Wii U sin HOME", "Wii U PROコントローラのチートがHOMEなしで", "Trapaças com o Controle Pro do Wii U sem HOME", "Trucchi col Wii U Pro Controller senza HOME")
+MORE["ko"]["Wii U Pro Controller cheats without HOME"] = "Wii U PRO 컨트롤러 치트를 HOME 없이"
+MORE["fr"]["Wii U Pro Controller cheats without HOME"] = "Codes de la manette Pro Wii U sans HOME"
 
 # Game management: own display names and visibility, never file renames.
 T['Manage game'] = ('Gestionar juego', 'ゲームの管理', 'Gerenciar jogo', 'Gestisci gioco')
