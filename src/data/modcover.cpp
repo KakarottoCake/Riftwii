@@ -221,13 +221,15 @@ bool PageBoxAsks::start(const std::string& key, const std::string& running_key, 
 
 void PageBoxAsks::tile_matched(const std::string& name, const std::string& key) {
     std::string& last = tile_keys_[name];
-    if (!last.empty() && last != key) {
-        const std::string prefix = name + "|";
-        for (auto it = asked_.begin(); it != asked_.end();)
-            it = it->compare(0, prefix.size(), prefix) == 0 ? asked_.erase(it) : std::next(it);
-        stale_.insert(name);
-    }
+    if (!last.empty() && last != key) retry_tile(name);
     last = key;
+}
+
+void PageBoxAsks::retry_tile(const std::string& name) {
+    const std::string prefix = name + "|";
+    for (auto it = asked_.begin(); it != asked_.end();)
+        it = it->compare(0, prefix.size(), prefix) == 0 ? asked_.erase(it) : std::next(it);
+    stale_.insert(name);
 }
 
 bool art_wanted(const std::string& name, const std::string& tile_match, const StoredArt& stored) {

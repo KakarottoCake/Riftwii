@@ -291,6 +291,22 @@ static void TestPageBoxAsks() {
     EXPECT_TRUE(pending.start(old_key, "", true));
     EXPECT_TRUE(pending.asked(old_key));
     EXPECT_TRUE(pending.start(old_key, old_key, false));  // the fresh one, seen running later
+    // Right after a match change, with nothing running, a fresh start counts at once.
+    PageBoxAsks fresh;
+    fresh.tile_matched(tile, old_key);
+    fresh.tile_matched(tile, new_key);
+    EXPECT_TRUE(fresh.start(new_key, "", true));
+    EXPECT_TRUE(fresh.asked(new_key));
+    // Back from the Mods page, renamed away and back there (the page sees
+    // the same entry): the tile's box gets a fresh try all the same.
+    PageBoxAsks mods;
+    mods.tile_matched(tile, old_key);
+    EXPECT_TRUE(mods.start(old_key, "", true));
+    mods.retry_tile(tile);
+    mods.tile_matched(tile, old_key);
+    EXPECT_TRUE(!mods.asked(old_key));
+    EXPECT_TRUE(!mods.start(old_key, old_key, false));  // the old download still running
+    EXPECT_TRUE(mods.start(old_key, "", true));
     // The game's own box is not the tile's: kept across the tile's renames.
     EXPECT_TRUE(back.start("RSBE01", "", true));
     back.tile_matched(tile, new_key);

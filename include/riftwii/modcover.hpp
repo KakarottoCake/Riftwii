@@ -136,6 +136,10 @@ public:
     // tile is forgotten, so going back to an earlier entry tries its box
     // again; an unchanged match keeps its one try.
     void tile_matched(const std::string& name, const std::string& key);
+    // A fresh look at the mod tile `name` (back from its Mods page, where it
+    // may have been renamed and renamed back): what was asked for it is
+    // forgotten, and a download already running for it is waited out.
+    void retry_tile(const std::string& name);
 
 private:
     std::set<std::string> asked_;

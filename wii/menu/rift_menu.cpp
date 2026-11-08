@@ -15053,6 +15053,9 @@ static int MenuHome(FrontendState& state)
 					const std::string tileCover = PageCoverName(state);
 					hero.SetCoverName(tileCover);
 					banner.SetCoverName(tileCover);
+					// It may have been renamed and renamed back there: a fresh
+					// look at its box, as at page entry.
+					if (tileCover != state.game_id) boxesAsked.retry_tile(tileCover);
 					askTileCover(tileCover);
 				} else if (g_coverPicked) {
 					// Choose cover changed the player's own cover.
