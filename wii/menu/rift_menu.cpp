@@ -3534,9 +3534,21 @@ public:
 			label->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 			// Two lines from y + 42 end by y + 84, inside a short card's 96
 			// (4:3 wraps "Recently played" and most translations).
-			const int labelY = shortCard ? 42 : tile.value.empty() ? 88 : 76;
-			label->SetPosition(tile.x + tile.w / 2 - screenwidth / 2, tile.y + labelY);
 			label->SetWrap(true, tile.w - 12, shortCard || tile.value.empty() ? 2 : 3);
+			// The picture and the name are centred in the card as one block (a
+			// card with a count keeps its old places: the count sits below them).
+			int labelY = shortCard ? 42 : tile.value.empty() ? 88 : 76;
+			int iconTop = shortCard ? 6 : 30;
+			if (shortCard || tile.value.empty()) {
+				const int lines = label->GetTextWidth() > tile.w - 12 ? 2 : 1;
+				const int picture = shortCard ? 35 : 42;  // the 28px picture, scaled
+				const int block = picture + 4 + 18 * lines;
+				const int top = (tile.h - block) / 2;
+				iconTop = top + (picture - 28) / 2;
+				labelY = top + picture + 4;
+			}
+			iconTops_.push_back(iconTop);
+			label->SetPosition(tile.x + tile.w / 2 - screenwidth / 2, tile.y + labelY);
 			labels_.push_back(std::move(label));
 			std::unique_ptr<GuiText> count(new GuiText(tile.value.c_str(), 16, skin::kInkSoft));
 			count->SetParent(this);
@@ -3571,7 +3583,7 @@ public:
 			// A short card's picture is smaller and higher (35px from y + 3)
 			// so that two lines of name end inside it.
 			const bool shortCard = tile.h <= kChoiceShortCard;
-			const float iconY = shortCard ? 6 : 30, iconScale = shortCard ? 1.25f : 1.5f;
+			const float iconY = static_cast<float>(iconTops_[index]), iconScale = shortCard ? 1.25f : 1.5f;
 			if (tile.icon) skin::Draw(*tile.icon, tile.x + (tile.w - 28) / 2.0f, tile.y + iconY, 255, iconScale);
 			labels_[index]->Draw();
 			if (!tile.value.empty()) counts_[index]->Draw();
@@ -3584,6 +3596,7 @@ private:
 	int current_;
 	std::vector<std::unique_ptr<GuiText>> labels_;
 	std::vector<std::unique_ptr<GuiText>> counts_;
+	std::vector<int> iconTops_;  // each card's picture, from the card's top
 };
 
 static int PickHomeChoice(const char* name, std::vector<TileSpec>& tiles, int current)
