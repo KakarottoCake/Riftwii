@@ -128,6 +128,8 @@ public:
     // when it started; "" when none runs), only when that one is for the
     // same entry, so a renamed tile's new box waits for the old one's to end;
     // with none running, when `started_new` (a download was just started).
+    // After the tile's match changed (tile_matched), a download of its box
+    // that was already running never counts: it is waited out first.
     bool start(const std::string& key, const std::string& running_key, bool started_new);
     // The mod tile `name` matches the entry in `key` now (after a rename):
     // when that is another entry than last time, what was asked for the
@@ -138,6 +140,7 @@ public:
 private:
     std::set<std::string> asked_;
     std::map<std::string, std::string> tile_keys_;  // each tile's key when last told
+    std::set<std::string> stale_;  // tiles whose running download predates their match
 };
 
 }  // namespace riftwii

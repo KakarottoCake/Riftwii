@@ -203,7 +203,18 @@ std::string PageBoxAsks::key(const std::string& name, const std::string& game_id
 }
 
 bool PageBoxAsks::start(const std::string& key, const std::string& running_key, bool started_new) {
-    const bool started = running_key.empty() ? started_new : running_key == key;
+    const std::string name = key.substr(0, key.find('|'));
+    bool started = false;
+    if (running_key.empty()) {
+        // None running: whatever ran before the tile's match changed is over.
+        stale_.erase(name);
+        started = started_new;
+    } else {
+        // A download that started before the tile's match last changed is
+        // never the new try, even for the same entry (renamed away and back):
+        // it is waited out, then the box is tried afresh.
+        started = !stale_.count(name) && running_key == key;
+    }
     if (started) asked_.insert(key);
     return started;
 }
@@ -214,6 +225,7 @@ void PageBoxAsks::tile_matched(const std::string& name, const std::string& key) 
         const std::string prefix = name + "|";
         for (auto it = asked_.begin(); it != asked_.end();)
             it = it->compare(0, prefix.size(), prefix) == 0 ? asked_.erase(it) : std::next(it);
+        stale_.insert(name);
     }
     last = key;
 }

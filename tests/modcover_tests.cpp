@@ -278,6 +278,19 @@ static void TestPageBoxAsks() {
     back.tile_matched(tile, new_key);
     back.tile_matched(tile, old_key);
     EXPECT_TRUE(!back.asked(old_key));
+    // Renamed away and back while Project M's first download still runs:
+    // that download isn't the new try; once it ends, a fresh one is.
+    PageBoxAsks pending;
+    pending.tile_matched(tile, old_key);
+    EXPECT_TRUE(pending.start(old_key, "", true));
+    pending.tile_matched(tile, new_key);
+    pending.tile_matched(tile, old_key);
+    EXPECT_TRUE(!pending.start(old_key, old_key, false));
+    EXPECT_TRUE(!pending.asked(old_key));
+    EXPECT_TRUE(!pending.start(old_key, "", false));  // ended, but none could start yet
+    EXPECT_TRUE(pending.start(old_key, "", true));
+    EXPECT_TRUE(pending.asked(old_key));
+    EXPECT_TRUE(pending.start(old_key, old_key, false));  // the fresh one, seen running later
     // The game's own box is not the tile's: kept across the tile's renames.
     EXPECT_TRUE(back.start("RSBE01", "", true));
     back.tile_matched(tile, new_key);
