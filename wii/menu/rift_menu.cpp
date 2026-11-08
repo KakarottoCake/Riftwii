@@ -14660,15 +14660,27 @@ static int MenuHome(FrontendState& state)
 	HaltGui();
 	w.Append(&coverBusy);
 	ResumeGui();
-	// The page's box to download: a mod tile's own (#385) when GameTDB
-	// lists the mod, else the game's; "" for none.
+	// The boxes this page asked for, each by its name and, for a mod tile,
+	// the GameTDB entry it matched then: one try each a visit, so an answer
+	// that leaves a box still wanted (no answer, a stale match's) never asks
+	// for the same one again, and a tile renamed to another entry can.
+	std::set<std::string> boxesAsked;
+	const auto boxAskKey = [&](const std::string& name) {
+		return name == state.game_id ? name : name + "|" + riftwii::wii::ModTileCoverId(name);
+	};
+	// The page's box to download next, and marks it asked: a mod tile's own
+	// (#385) when GameTDB lists the mod, else (or after it) the game's,
+	// which the page shows without one; "" for none.
 	const auto pageBoxWanted = [&]() -> std::string {
 		if (!riftwii::wii::Settings().online || riftwii::wii::Settings().home_tiles == "names" || g_coversOff ||
 		    riftwii::wii::NetFailed())
 			return std::string();
-		const std::string tileBox = PageCoverName(state);
-		if (tileBox != state.game_id && riftwii::wii::BoxWanted(tileBox)) return tileBox;
-		return riftwii::wii::BoxWanted(state.game_id) ? state.game_id : std::string();
+		for (const std::string& name : {PageCoverName(state), state.game_id}) {
+			if (boxesAsked.count(boxAskKey(name)) || !riftwii::wii::BoxWanted(name)) continue;
+			boxesAsked.insert(boxAskKey(name));
+			return name;
+		}
+		return std::string();
 	};
 	std::string boxStartName = pageBoxWanted();
 	bool boxStart = !boxStartName.empty();
@@ -14684,10 +14696,13 @@ static int MenuHome(FrontendState& state)
 			coverStartName = tileCover;
 			coverStart = true;
 		}
-		// Its own box too, after the cover.
-		if (!boxStart) {
-			boxStartName = pageBoxWanted();
-			boxStart = !boxStartName.empty();
+		// Its own box too, after the cover: a box not started yet may be
+		// the old match's, so the choice is made again.
+		if (boxStart) boxesAsked.erase(boxAskKey(boxStartName));
+		const std::string next = pageBoxWanted();
+		if (!next.empty() || boxStart) {
+			boxStartName = next;
+			boxStart = !next.empty();
 		}
 	};
 	const auto saveOrSay = [&]() {
@@ -14880,19 +14895,12 @@ static int MenuHome(FrontendState& state)
 			if (riftwii::wii::TakeBoxFetch(id, got, error)) {
 				if (got == riftwii::wii::CoverFetch::Stored) riftwii::wii::ForgetBox(id);
 				if (CountPictureFetch(g_boxRun, got, id, error)) g_boxesOff = true;
-				// What the page wants next: after GameTDB had no box for the mod
-				// tile, the game's, which the page shows then; and the tile's
-				// own again if it was renamed to another match while that
-				// download ran (a tile's answer always leaves its .mod note,
-				// so the same key still wanted means a new match, not a loop).
-				if (!boxStart && (got == riftwii::wii::CoverFetch::Stored || got == riftwii::wii::CoverFetch::NotFound)) {
-					const std::string next = pageBoxWanted();
-					const bool tileAgain = next == id && riftwii::is_tile_art_name(id);
-					const bool gameAfterMiss = next != id && got == riftwii::wii::CoverFetch::NotFound;
-					if (!next.empty() && (tileAgain || gameAfterMiss)) {
-						boxStartName = next;
-						boxStart = true;
-					}
+				// What the page still wants, each box once a visit: after the
+				// mod tile's box (none on GameTDB, no answer, or a renamed
+				// tile's old match), the new match's or the game's.
+				if (!boxStart && !g_boxesOff) {
+					boxStartName = pageBoxWanted();
+					boxStart = !boxStartName.empty();
 				}
 			}
 		}
