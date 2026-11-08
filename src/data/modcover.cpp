@@ -197,6 +197,16 @@ TileArtOrder tile_art_order(bool is_tile, bool own_png_for_tile, bool flat_first
     return order;
 }
 
+std::string PageBoxAsks::key(const std::string& name, const std::string& game_id, const std::string& entry) {
+    return name == game_id ? name : name + "|" + entry;
+}
+
+bool PageBoxAsks::start(const std::string& key, const std::string& running_key, bool started_new) {
+    const bool started = running_key.empty() ? started_new : running_key == key;
+    if (started) asked_.insert(key);
+    return started;
+}
+
 bool art_wanted(const std::string& name, const std::string& tile_match, const StoredArt& stored) {
     if (art_download_id(name, tile_match).empty()) return false;
     // A tile renamed, or GameTDB's list changed: what is stored (a picture

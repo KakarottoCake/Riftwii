@@ -112,4 +112,25 @@ struct TileArtOrder {
 // memory comes before the game's 3D cover or box (CoverBeforeBox).
 TileArtOrder tile_art_order(bool is_tile, bool own_png_for_tile, bool flat_first);
 
+// The boxes a game page downloads for its tile, each once a visit: by name
+// and, for a mod tile, the GameTDB entry it matches, so a box still wanted
+// after its answer (no answer, a renamed tile's old entry's) is never asked
+// for again, and a tile renamed to another entry gets that entry's box.
+class PageBoxAsks {
+public:
+    // A box's key: the game's ID for the game's box, else the mod tile's
+    // key with the entry ("RSBE01@project-plus|RSBEPL").
+    static std::string key(const std::string& name, const std::string& game_id, const std::string& entry);
+    bool asked(const std::string& key) const { return asked_.count(key) != 0; }
+    // Whether the box `key`, wanted now, counts as started (then asked):
+    // with a download of its name already running (`running_key`, its key
+    // when it started; "" when none runs), only when that one is for the
+    // same entry, so a renamed tile's new box waits for the old one's to end;
+    // with none running, when `started_new` (a download was just started).
+    bool start(const std::string& key, const std::string& running_key, bool started_new);
+
+private:
+    std::set<std::string> asked_;
+};
+
 }  // namespace riftwii

@@ -236,9 +236,42 @@ static void TestTileArt() {
     EXPECT_TRUE(!tile_art_order(false, false, false).flat_before_game_art);
 }
 
+// A game page's box downloads: each once a visit, and a tile renamed while
+// Home's download of its old entry's box runs still gets the new entry's.
+static void TestPageBoxAsks() {
+    using riftwii::PageBoxAsks;
+    const std::string tile = "RSBE01@project-plus";
+    EXPECT_EQ(PageBoxAsks::key("RSBE01", "RSBE01", ""), std::string("RSBE01"));
+    EXPECT_EQ(PageBoxAsks::key(tile, "RSBE01", "RSBEPL"), std::string("RSBE01@project-plus|RSBEPL"));
+    const std::string old_key = PageBoxAsks::key(tile, "RSBE01", "RSBEPM");
+    const std::string new_key = PageBoxAsks::key(tile, "RSBE01", "RSBEPL");
+
+    // Home started the tile's box for Project M; the tile is renamed to Project+.
+    PageBoxAsks page;
+    EXPECT_TRUE(!page.start(new_key, old_key, false));  // the old one's download isn't the new box's
+    EXPECT_TRUE(!page.asked(new_key));
+    EXPECT_TRUE(!page.asked(old_key));
+    // Once it ends, the new entry's box starts and counts as asked.
+    EXPECT_TRUE(!page.start(new_key, "", false));  // could not start yet: still not asked
+    EXPECT_TRUE(!page.asked(new_key));
+    EXPECT_TRUE(page.start(new_key, "", true));
+    EXPECT_TRUE(page.asked(new_key));
+
+    // A download Home started for the same entry is this one.
+    PageBoxAsks same;
+    EXPECT_TRUE(same.start(new_key, new_key, false));
+    EXPECT_TRUE(same.asked(new_key));
+    // The page's own download, seen running on later passes, too.
+    PageBoxAsks own;
+    EXPECT_TRUE(own.start("RSBE01", "", true));
+    EXPECT_TRUE(own.start("RSBE01", "RSBE01", false));
+    EXPECT_TRUE(own.asked("RSBE01") && !own.asked(new_key));
+}
+
 int main() {
     TestWords();
     TestTileArt();
+    TestPageBoxAsks();
     TestMatch();
     TestBlocks();
     TestFile();

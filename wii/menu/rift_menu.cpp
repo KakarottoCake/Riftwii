@@ -14664,13 +14664,9 @@ static int MenuHome(FrontendState& state)
 	// the GameTDB entry it matched then: one try each a visit, so an answer
 	// that leaves a box still wanted (no answer, a stale match's) never asks
 	// for the same one again, and a tile renamed to another entry can.
-	std::set<std::string> boxesAsked;
-	// The box download running, by the same key ("" for none): a renamed
-	// tile's new box waits for its old one's to end rather than counting as
-	// started with it.
-	std::string boxRunningKey;
+	riftwii::PageBoxAsks boxesAsked;
 	const auto boxAskKey = [&](const std::string& name) {
-		return name == state.game_id ? name : name + "|" + riftwii::wii::ModTileCoverId(name);
+		return riftwii::PageBoxAsks::key(name, state.game_id, riftwii::wii::ModTileCoverId(name));
 	};
 	// The page's box to download next: a mod tile's own (#385) when GameTDB
 	// lists the mod, else (or after it) the game's, which the page shows
@@ -14680,7 +14676,7 @@ static int MenuHome(FrontendState& state)
 		    riftwii::wii::NetFailed())
 			return std::string();
 		for (const std::string& name : {PageCoverName(state), state.game_id}) {
-			if (boxesAsked.count(boxAskKey(name)) || !riftwii::wii::BoxWanted(name)) continue;
+			if (boxesAsked.asked(boxAskKey(name)) || !riftwii::wii::BoxWanted(name)) continue;
 			return name;
 		}
 		return std::string();
@@ -14892,25 +14888,20 @@ static int MenuHome(FrontendState& state)
 		}
 		// The full box, once the cover's download is done.
 		if (boxStart && !coverStart) {
-			const std::string key = boxAskKey(boxStartName);
+			// A download of this box already running (Home's, or this page's
+			// own) counts only when it is for the entry the tile matches now
+			// (the tile may have been renamed since it started).
 			const bool running = riftwii::wii::BoxFetchGame() == boxStartName;
-			// One Home started for the same box counts as this one when it is
-			// for the same GameTDB entry (the tile may have been renamed since).
-			if (running && boxRunningKey.empty())
-				boxRunningKey = boxStartName == state.game_id ? boxStartName
-				                                               : boxStartName + "|" + riftwii::wii::BoxFetchEntry();
-			const bool started = running ? boxRunningKey == key : riftwii::wii::StartBoxFetch(boxStartName);
-			if (started) {
-				boxRunningKey = key;
-				boxesAsked.insert(key);
-				boxStart = false;
-			}
+			const std::string runningKey =
+				running ? riftwii::PageBoxAsks::key(boxStartName, state.game_id, riftwii::wii::BoxFetchEntry())
+				        : std::string();
+			const bool startedNew = !running && riftwii::wii::StartBoxFetch(boxStartName);
+			if (boxesAsked.start(boxAskKey(boxStartName), runningKey, startedNew)) boxStart = false;
 		}
 		{
 			std::string id, error;
 			riftwii::wii::CoverFetch got = riftwii::wii::CoverFetch::NotFound;
 			if (riftwii::wii::TakeBoxFetch(id, got, error)) {
-				boxRunningKey.clear();
 				if (got == riftwii::wii::CoverFetch::Stored) riftwii::wii::ForgetBox(id);
 				if (CountPictureFetch(g_boxRun, got, id, error)) g_boxesOff = true;
 				// What the page still wants, each box once a visit: after the
