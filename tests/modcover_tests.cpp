@@ -307,6 +307,15 @@ static void TestPageBoxAsks() {
     EXPECT_TRUE(!mods.asked(old_key));
     EXPECT_TRUE(!mods.start(old_key, old_key, false));  // the old download still running
     EXPECT_TRUE(mods.start(old_key, "", true));
+    // Back from the Mods page: without a rename the earlier try stands (no
+    // pile of unanswered tries); renamed away and back, a fresh try.
+    PageBoxAsks visit;
+    visit.tile_matched(tile, old_key);
+    EXPECT_TRUE(visit.start(old_key, "", true));
+    EXPECT_TRUE(!visit.back_from_mods(tile, false));
+    EXPECT_TRUE(visit.asked(old_key));
+    EXPECT_TRUE(visit.back_from_mods(tile, true));
+    EXPECT_TRUE(!visit.asked(old_key));
     // The game's own box is not the tile's: kept across the tile's renames.
     EXPECT_TRUE(back.start("RSBE01", "", true));
     back.tile_matched(tile, new_key);

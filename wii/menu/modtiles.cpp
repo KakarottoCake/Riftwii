@@ -119,6 +119,8 @@ unsigned g_renames = 0;  // tiles renamed this session (ProfileRenames)
 unsigned ProfileRenames() { return g_renames; }
 
 bool RenameProfile(FrontendState& state, const std::string& name, std::string& error) {
+    const Profile* before = Profiles().find(state.profile_key);
+    const std::string old_name = before ? before->name : std::string();
     if (!Profiles().rename(state.profile_key, name)) {
         error = tr("The tile needs a name.");
         return false;
@@ -128,7 +130,8 @@ bool RenameProfile(FrontendState& state, const std::string& name, std::string& e
         return false;
     }
     state.profile_name = Profiles().find(state.profile_key)->name;
-    ++g_renames;
+    // Only a real change of name counts (the same name confirmed does not).
+    if (state.profile_name != old_name) ++g_renames;
     logf("Home tiles: %s renamed \"%s\"\n", state.profile_key.c_str(), state.profile_name.c_str());
     return true;
 }

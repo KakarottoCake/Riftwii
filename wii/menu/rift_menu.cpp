@@ -15055,10 +15055,9 @@ static int MenuHome(FrontendState& state)
 					hero.SetCoverName(tileCover);
 					banner.SetCoverName(tileCover);
 					// Renamed there (even back to the name it had): a fresh look
-					// at its box, as at page entry. Not without a rename, so
-					// unanswered tries don't pile up and stop the box downloads.
-					if (tileCover != state.game_id && riftwii::wii::ProfileRenames() != renamesBefore)
-						boxesAsked.retry_tile(tileCover);
+					// at its box, as at page entry (PageBoxAsks::back_from_mods).
+					if (tileCover != state.game_id)
+						boxesAsked.back_from_mods(tileCover, riftwii::wii::ProfileRenames() != renamesBefore);
 					askTileCover(tileCover);
 				} else if (g_coverPicked) {
 					// Choose cover changed the player's own cover.

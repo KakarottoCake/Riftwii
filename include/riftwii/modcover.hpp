@@ -140,6 +140,11 @@ public:
     // back to the name it had): what was asked for it is forgotten, and a
     // download already running for it is waited out.
     void retry_tile(const std::string& name);
+    // Back from the Mods page of the mod tile `name`: a fresh look at its
+    // box (retry_tile) only when it was renamed there (`renamed`, even
+    // back to its old name), so unanswered tries can't pile up and stop
+    // the box downloads. True when it retries.
+    bool back_from_mods(const std::string& name, bool renamed);
 
 private:
     std::set<std::string> asked_;
