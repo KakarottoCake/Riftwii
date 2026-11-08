@@ -105,6 +105,7 @@ struct FakeIos {
     std::uint32_t bad_callbacks = 0;
     std::uint32_t bad_buffers = 0;  // USB data outside MEM2
     std::uint32_t sync_calls = 0;
+    std::uint32_t reject_async = 0; // async submissions IOS refuses outright (nothing queued, no callback)
 } g_ios;
 
 std::int32_t RunData(std::uint32_t ioctl, bool write, std::uint32_t device_sector, std::uint32_t count,
@@ -198,12 +199,20 @@ std::int32_t HostIoctlv(std::int32_t fd, std::uint32_t ioctl, std::uint32_t in_c
 }
 std::int32_t HostIoctlAsync(std::int32_t fd, std::uint32_t ioctl, std::uint32_t in, std::uint32_t in_len,
                             std::uint32_t out, std::uint32_t out_len, std::uint32_t callback, std::uint32_t user_data) {
+    if (g_ios.reject_async) {
+        --g_ios.reject_async;
+        return -4;
+    }
     if (callback != kComplete) ++g_ios.bad_callbacks;
     g_ios.pending.push_back({false, fd, ioctl, in, in_len, out, out_len, 0, 0, 0, callback, user_data});
     return 0;
 }
 std::int32_t HostIoctlvAsync(std::int32_t fd, std::uint32_t ioctl, std::uint32_t in_count, std::uint32_t out_count,
                              std::uint32_t vec, std::uint32_t callback, std::uint32_t user_data) {
+    if (g_ios.reject_async) {
+        --g_ios.reject_async;
+        return -4;
+    }
     if (callback != kComplete) ++g_ios.bad_callbacks;
     g_ios.pending.push_back({true, fd, ioctl, 0, 0, 0, 0, in_count, out_count, vec, callback, user_data});
     return 0;
@@ -567,6 +576,33 @@ void TestRetries() {
     g_ios.fail_next = 1;
     EXPECT_EQ(SendSync(b, MakeCommand(18, 20 * 512, 2, buffer)), 0);
     EXPECT_TRUE(ImageMatches(buffer, 20, 2));
+}
+
+void TestAsyncRejected() {
+    // IOS refuses the first request of an async write outright: the game
+    // gets the error at once, no callback, nothing left marked.
+    Blob b = MakeBlob(VSD_BACKEND_SLOT0);
+    const std::uint32_t buffer = Alloc(false, 4 * 512);
+    g_ios.reject_async = 1;
+    const std::int32_t r = SendAsync(b, MakeCommand(25, 40 * 512, 4, buffer), 0xE1, 0xF1);
+    EXPECT_TRUE(r < 0);
+    PumpAll(b);
+    EXPECT_TRUE(g_ios.pending.empty());
+    EXPECT_TRUE(g_ios.answers.empty());
+    EXPECT_EQ(g_ios.reject_async, 0u);
+    EXPECT_EQ(b.st->writing, 0u);
+    EXPECT_EQ(b.st->transfer.in_use, 0u);
+    EXPECT_EQ(b.st->gave_up, 1u);
+    EXPECT_EQ(b.st->last_error, static_cast<std::uint32_t>(r));
+    // The next transfer goes through.
+    EXPECT_EQ(SendAsync(b, MakeCommand(25, 40 * 512, 4, buffer), 0xE2, 0xF2), 0);
+    PumpAll(b);
+    EXPECT_EQ(g_ios.answers.size(), 1u);
+    if (!g_ios.answers.empty()) {
+        EXPECT_EQ(g_ios.answers[0].callback, 0xE2u);
+        EXPECT_EQ(g_ios.answers[0].result, 0);
+    }
+    EXPECT_TRUE(ImageMatches(buffer, 40, 4));
 }
 
 void TestBusy() {
@@ -1201,6 +1237,7 @@ int main() {
     TestRuntimeBeside();
     TestReadAheadFallbackWaits();
     TestRetries();
+    TestAsyncRejected();
     TestBusy();
     TestBounce();
     TestSmallBounce(false);

@@ -117,7 +117,7 @@ std::uint32_t hcr(rtvsd_card* card, std::uint32_t ioctl, std::uint32_t reg, std:
 // this checks the instructions themselves.
 
 std::uint32_t be32(const std::vector<std::uint8_t>& b, std::uint32_t at) {
-    if (at + 4 > b.size()) return 0;
+    if (b.size() < 4 || at > b.size() - 4) return 0;
     return (std::uint32_t(b[at]) << 24) | (std::uint32_t(b[at + 1]) << 16) | (std::uint32_t(b[at + 2]) << 8) | b[at + 3];
 }
 
@@ -134,6 +134,11 @@ std::uint32_t branch_target(std::uint32_t word, std::uint32_t at) {
         return at + static_cast<std::uint32_t>(delta);
     }
     return ~0u;
+}
+
+// True when `n` bytes at `at` lie inside the blob (no wrap-around).
+bool in_blob(const std::vector<std::uint8_t>& b, std::uint32_t at, std::uint32_t n) {
+    return b.size() >= n && at <= b.size() - n;
 }
 
 std::int32_t simm(std::uint32_t word) { return static_cast<std::int16_t>(word & 0xFFFFu); }
@@ -164,6 +169,17 @@ void check_blob_entries(const char* path) {
         replay[e] = be32(blob, offsetof(vsd_header, replay) + 4 * e);
         EXPECT_EQ(replay[e], replay[0] + 32 * e);
     }
+    // Every offset the header gives must lie inside the blob before it is
+    // used for arithmetic: a bad blob is reported, not read past.
+    bool valid = in_blob(blob, context, 4);
+    for (std::uint32_t e = 0; e < VSD_ENTRIES; ++e)
+        valid = valid && in_blob(blob, hook[e], 12) && in_blob(blob, replay[e], 4);
+    if (!valid) {
+        std::cerr << "FAILED: " << path << " has a hook, replay or context offset outside the blob (" << blob.size()
+                  << " bytes)" << std::endl;
+        g_failures++;
+        return;
+    }
     const std::uint32_t kLiR11 = 0x39600000u;   // li r11, n
     const std::uint32_t kCmpwiR3 = 0x2C030000u; // cmpwi r3, n
     std::uint32_t common = ~0u;
@@ -179,6 +195,11 @@ void check_blob_entries(const char* path) {
         }
         EXPECT_EQ(be32(blob, at), kLiR11 | e);
         const std::uint32_t target = branch_target(be32(blob, at + 4), at + 4);
+        if (!in_blob(blob, target, 4)) {
+            std::cerr << "FAILED: " << path << " entry " << e << " branches outside the blob" << std::endl;
+            g_failures++;
+            return;
+        }
         if (common == ~0u) common = target;
         EXPECT_EQ(target, common);
     }
@@ -186,7 +207,7 @@ void check_blob_entries(const char* path) {
     // addi r3, r3, K`, then slot 0 from `addi r12, r12, M` on it.
     std::uint32_t context_seen = ~0u, slot0_seen = ~0u;
     bool times_32 = false;
-    for (std::uint32_t at = common; at + 8 <= blob.size() && at < common + 0x100; at += 4) {
+    for (std::uint32_t at = common; in_blob(blob, at, 12) && at < common + 0x100; at += 4) {
         const std::uint32_t w = be32(blob, at);
         if (w == 0x48000005u && be32(blob, at + 4) == 0x7C6802A6u && (be32(blob, at + 8) & 0xFFFF0000u) == 0x38630000u)
             context_seen = at + 4 + static_cast<std::uint32_t>(simm(be32(blob, at + 8)));
@@ -412,6 +433,8 @@ int main(int argc, char** argv) {
             auto other = make_card(0x800000, {{0, 0, 0x800000}});
             EXPECT_EQ(reset_as_loader(other.get()), 0);
             const rtvsd_answer all = send(other.get(), RTVSD_CMD_ALL_SEND_CID, 0);
+            const std::uint32_t kStateIdent = 2;  // SD card state "ident" (private to rtvsd.c)
+            EXPECT_EQ(other->state, kStateIdent);
             for (int i = 0; i < 4; ++i) EXPECT_EQ(all.reply[i], card->cid[i]);
         }
         a = send(card.get(), RTVSD_CMD_SEND_CSD, RTVSD_RCA << 16);
