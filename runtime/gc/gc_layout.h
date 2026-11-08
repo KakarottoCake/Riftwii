@@ -31,7 +31,13 @@
 
 /* A game whose disc code is libogc's (gc_rt.h, "libogc"): each store that
  * starts a DI command jumps to a slot of GC_DI_SLOT_WORDS words, which
- * makes the store, calls gc_di_common and jumps back. GC_DI_SITES slots. */
+ * makes the store, calls gc_di_common and jumps back: the game's store,
+ * then stwu r1,-16(r1); stw r0,8(r1); mflr r0; stw r0,12(r1);
+ * bl gc_di_common; lwz r0,12(r1); mtlr r0; lwz r0,8(r1); addi r1,r1,16;
+ * b back. At most GC_DI_SITES of them. The loader writes them into a MEM1
+ * piece of its own, sized to the sites the game has, and only for a
+ * libogc game: they used to be 2,112 bytes of every blob, unused by every
+ * other game. */
 #define GC_DI_SITES 48
 #define GC_DI_SLOT_WORDS 11
 

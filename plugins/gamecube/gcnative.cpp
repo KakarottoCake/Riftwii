@@ -2610,13 +2610,17 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const GcStackTop stack = find_gc_stack_top(read_code, dol.entry);
     const std::uint32_t arena_lo = find_gc_arena_lo(read_code, text_ranges);
     const std::uint32_t game_floor = std::max(stack.address, arena_lo);
-    enum Mem1Piece { kPieceBlob, kPieceCard, kPieceMoved, kPieceLeave, kPieceStubs, kMem1Pieces };
+    enum Mem1Piece { kPieceBlob, kPieceCard, kPieceMoved, kPieceLeave, kPieceStubs, kPieceDiSlots, kMem1Pieces };
     std::vector<GcMem1Piece> mem1_pieces(kMem1Pieces);
     mem1_pieces[kPieceBlob].bytes = h.size;  // the biggest first: it packs best
     mem1_pieces[kPieceCard].bytes = sizeof(gc_card);
     mem1_pieces[kPieceMoved].bytes = kMovedBytes;
     mem1_pieces[kPieceLeave].bytes = kLeaveBytes;
     mem1_pieces[kPieceStubs].bytes = kStubBytes;
+    // A libogc game's DI start slots (gc_layout.h), one per site; none for
+    // any other game. Last: a piece of 0 bytes takes no room.
+    const std::uint32_t di_slots_bytes = static_cast<std::uint32_t>(di_starts.size()) * GC_DI_SLOT_WORDS * 4;
+    mem1_pieces[kPieceDiSlots].bytes = di_slots_bytes;
     std::uint32_t fst_addr = 0;
     std::uint32_t arena_hi = 0;
     GcMem1Plan mem1;
@@ -2657,6 +2661,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const std::uint32_t moved_addr = mem1_pieces[kPieceMoved].address;
     const std::uint32_t leave_addr = mem1_pieces[kPieceLeave].address;
     const std::uint32_t stubs_addr = mem1_pieces[kPieceStubs].address;
+    const std::uint32_t di_slots_addr = di_slots_bytes != 0 ? mem1_pieces[kPieceDiSlots].address : 0;
     const std::uint32_t di_regs = mem1.di_regs;
     const std::uint32_t bi2_addr = mem1.bi2;
     if (arena_hi < kLoaderCeiling) {
@@ -2685,6 +2690,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
              "0x%08x, FST 0x%08x (%u bytes)\n",
              arena_hi, bi2_addr, di_regs, blob_addr, static_cast<unsigned>(h.size), blob_addr + h.context_offset,
              card_addr, leave_addr, moved_addr, stubs_addr, fst_addr, static_cast<unsigned>(fst_max));
+        if (di_slots_bytes != 0)
+            logf("GameCube: the libogc DI start slots at 0x%08x (%u bytes, %u site(s))\n", di_slots_addr,
+                 static_cast<unsigned>(di_slots_bytes), static_cast<unsigned>(di_starts.size()));
         logf("GameCube: MEM2 0x%08x (%u bytes): bounce 0x%08x, stream 0x%08x (ring 0x%08x), trace 0x%08x, Wii "
              "Remotes 0x%08x, crash screen 0x%08x (strip 0x%08x), %u run(s) 0x%08x\n",
              kGcMem2Data, static_cast<unsigned>(mem2_bytes), bounce_addr, stream_addr, adp_addr, trace_addr, bt_addr,
@@ -3180,7 +3188,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             ctx->di_handler = ogc_di_handler;
             for (std::size_t i = 0; i < di_starts.size(); ++i) {
                 const std::uint32_t site = di_starts[i];
-                const std::uint32_t slot = blob_addr + h.di_slots + static_cast<std::uint32_t>(i) * GC_DI_SLOT_WORDS * 4;
+                const std::uint32_t slot = di_slots_addr + static_cast<std::uint32_t>(i) * GC_DI_SLOT_WORDS * 4;
                 const std::uint32_t words[GC_DI_SLOT_WORDS] = {
                     code.at(site),
                     0x9421FFF0,  // stwu r1,-16(r1)
@@ -3738,10 +3746,12 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         return true;
     };
     // RiftWii's part of MEM1 as it is before any program's patches.
-    const std::vector<GcResidentPiece> resident_pieces = {{blob_addr, h.size},
-                                                          {card_addr, static_cast<std::uint32_t>(sizeof(gc_card))},
-                                                          {moved_addr, kMovedBytes},
-                                                          {stubs_addr, kStubBytes}};
+    std::vector<GcResidentPiece> resident_pieces = {{blob_addr, h.size},
+                                                    {card_addr, static_cast<std::uint32_t>(sizeof(gc_card))},
+                                                    {moved_addr, kMovedBytes},
+                                                    {stubs_addr, kStubBytes}};
+    // The DI start slots, as when they were part of the blob.
+    if (di_slots_bytes != 0) resident_pieces.push_back({di_slots_addr, di_slots_bytes});
     const std::vector<GcResidentRegion> resident_base = read_resident(resident_pieces);
     if (!patch_program(dol, code, low, ogc, ogc_di_handler, ogc_create_alarm, di_starts, true, error)) return false;
 
@@ -4088,6 +4098,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
          arena_hi, card.fd, card.sdhc ? "SDHC" : "SDSC");
     DCFlushRange(reinterpret_cast<void*>(bi2_addr), kMem1Top - bi2_addr);
     ICInvalidateRange(reinterpret_cast<void*>(blob_addr), h.size);
+    if (di_slots_bytes != 0) ICInvalidateRange(reinterpret_cast<void*>(di_slots_addr), di_slots_bytes);
     ICInvalidateRange(memcard->landing, sizeof(memcard->landing));
 
     LogClose();

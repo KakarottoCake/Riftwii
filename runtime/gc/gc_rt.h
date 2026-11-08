@@ -26,7 +26,7 @@
 #include "gc_load.h"
 
 #define GC_RT_MAGIC 0x52574744u          /* "RWGD" */
-#define GC_RT_VERSION 12u                /* also in gc_entry.S's header */
+#define GC_RT_VERSION 13u                /* also in gc_entry.S's header */
 #define GC_RT_CONTEXT_MAGIC 0x52574743u  /* "RWGC" */
 
 /* The way back owns its IPC memory even when storage DMA is quarantined. */
@@ -107,7 +107,7 @@ struct gc_rt_header {
     uint32_t hook_hot_reset;        /* the SDK's reset routine (PI's reset register): gc_on_hot_reset, never returns */
     uint32_t alarm_entry_ogc;       /* libogc's alarm callback (handle, arg): gc_on_alarm with arg as the alarm */
     uint32_t di_common;             /* what a DI start slot calls: gc_on_di_start */
-    uint32_t di_slots;              /* GC_DI_SITES slots of GC_DI_SLOT_WORDS words (gc_layout.h), loader-written */
+    uint32_t di_slots_unused;       /* 0: the DI start slots are a MEM1 piece of the loader's (gc_layout.h) */
     uint32_t hook_boot_dol;         /* __OSBootDolSimple(...): gc_on_boot_dol, then the original */
     uint32_t replay_boot_dol;
     uint32_t continue_boot_dol;

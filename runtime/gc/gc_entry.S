@@ -8,7 +8,7 @@
     .section .text.gc_entry, "ax", @progbits
     .globl _gc_blob_start
 _gc_blob_start:
-    .long 0x52574744, 12, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
+    .long 0x52574744, 13, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
     .long gc_hook_read - _gc_blob_start, gc_hook_seek - _gc_blob_start
     .long gc_hook_disk_id - _gc_blob_start, gc_hook_inquiry - _gc_blob_start
     .long gc_hook_cb_r3 - _gc_blob_start, gc_hook_audio_status - _gc_blob_start
@@ -34,7 +34,8 @@ _gc_blob_start:
     .long gc_hook_reset_system - _gc_blob_start, gc_replay_reset_system - _gc_blob_start
     .long gc_continue_reset_system - _gc_blob_start
     .long gc_hook_hot_reset - _gc_blob_start
-    .long gc_alarm_ogc - _gc_blob_start, gc_di_common - _gc_blob_start, gc_di_slots - _gc_blob_start
+    /* The word after gc_di_common is 0: the DI start slots are the loader's own MEM1 piece (gc_layout.h). */
+    .long gc_alarm_ogc - _gc_blob_start, gc_di_common - _gc_blob_start, 0
     .long gc_hook_boot_dol - _gc_blob_start, gc_replay_boot_dol - _gc_blob_start
     .long gc_continue_boot_dol - _gc_blob_start
     .long gc_hook_stop_motor - _gc_blob_start
@@ -724,14 +725,6 @@ gc_di_common:
     mtlr 0
     addi 1, 1, 0x60
     blr
-
-/* The DI start slots, written by the loader: the game's store, then
- * stwu r1,-16(r1); stw r0,8(r1); mflr r0; stw r0,12(r1); bl gc_di_common;
- * lwz r0,12(r1); mtlr r0; lwz r0,8(r1); addi r1,r1,16; b back. */
-    .balign 32
-    .globl gc_di_slots
-gc_di_slots:
-    .fill GC_DI_SITES * GC_DI_SLOT_WORDS, 4, 0
 
 /* An exception before the game's OS has its handlers. The loader's stub
  * at the vector has put r3, SRR0, SRR1 and the vector number in SPRG0-3
