@@ -105,6 +105,7 @@ struct FakeIos {
     std::uint32_t bad_callbacks = 0;
     std::uint32_t bad_buffers = 0;  // USB data outside MEM2
     std::uint32_t sync_calls = 0;
+    std::uint32_t reject_async = 0; // async submissions IOS refuses outright (nothing queued, no callback)
 } g_ios;
 
 std::int32_t RunData(std::uint32_t ioctl, bool write, std::uint32_t device_sector, std::uint32_t count,
@@ -198,12 +199,20 @@ std::int32_t HostIoctlv(std::int32_t fd, std::uint32_t ioctl, std::uint32_t in_c
 }
 std::int32_t HostIoctlAsync(std::int32_t fd, std::uint32_t ioctl, std::uint32_t in, std::uint32_t in_len,
                             std::uint32_t out, std::uint32_t out_len, std::uint32_t callback, std::uint32_t user_data) {
+    if (g_ios.reject_async) {
+        --g_ios.reject_async;
+        return -4;
+    }
     if (callback != kComplete) ++g_ios.bad_callbacks;
     g_ios.pending.push_back({false, fd, ioctl, in, in_len, out, out_len, 0, 0, 0, callback, user_data});
     return 0;
 }
 std::int32_t HostIoctlvAsync(std::int32_t fd, std::uint32_t ioctl, std::uint32_t in_count, std::uint32_t out_count,
                              std::uint32_t vec, std::uint32_t callback, std::uint32_t user_data) {
+    if (g_ios.reject_async) {
+        --g_ios.reject_async;
+        return -4;
+    }
     if (callback != kComplete) ++g_ios.bad_callbacks;
     g_ios.pending.push_back({true, fd, ioctl, 0, 0, 0, 0, in_count, out_count, vec, callback, user_data});
     return 0;
@@ -216,8 +225,9 @@ struct Blob {
     vsd_state* st;
 };
 
+// `bounce_bytes` 0: the size the loader gives the device (vsd_bounce_bytes_for).
 Blob MakeBlobWith(std::uint32_t backend, const std::vector<rtvsd_extent>& extents, std::uint32_t image_sectors,
-                  bool read_only = false);
+                  bool read_only = false, std::uint32_t bounce_bytes = 0);
 
 // Image sectors 0-999 at device sector 100, 1000-2999 at 3000: a read
 // across 1000 takes two extents.
@@ -226,7 +236,8 @@ Blob MakeBlob(std::uint32_t backend, bool read_only = false) {
 }
 
 Blob MakeBlobWith(std::uint32_t backend, const std::vector<rtvsd_extent>& extents, std::uint32_t image_sectors,
-                  bool read_only) {
+                  bool read_only, std::uint32_t bounce_bytes) {
+    if (bounce_bytes == 0) bounce_bytes = vsd_bounce_bytes_for(backend);
     g_mem1_used = g_mem2_used = 0;
     g_ios.pending.clear();
     g_ios.pieces.clear();
@@ -240,7 +251,7 @@ Blob MakeBlobWith(std::uint32_t backend, const std::vector<rtvsd_extent>& extent
         g_ios.device[i] = static_cast<std::uint8_t>((i * 7) ^ (i >> 9));
     Blob b;
     b.ctx = At<vsd_context>(Alloc(true, sizeof(vsd_context)));
-    b.st = At<vsd_state>(Alloc(true, vsd_state_bytes(extents.size())));
+    b.st = At<vsd_state>(Alloc(true, vsd_state_bytes(extents.size(), bounce_bytes)));
     b.ctx->magic = VSD_CONTEXT_MAGIC;
     b.ctx->state = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(b.st));
     vsd_state* st = b.st;
@@ -251,6 +262,9 @@ Blob MakeBlobWith(std::uint32_t backend, const std::vector<rtvsd_extent>& extent
     st->fd = kDeviceFd;
     st->sdhc = g_ios.sdhc;
     st->rca = backend == VSD_BACKEND_SLOT0 ? 0x1234 : 0;
+    // The bounce buffer after the extent table, as the loader places it.
+    st->bounce = b.ctx->state + vsd_bounce_offset(extents.size());
+    st->bounce_sectors = bounce_bytes / 512;
     st->card.sectors = image_sectors;
     for (std::size_t i = 0; i < extents.size(); ++i) rtvsd_extents(&st->card)[i] = extents[i];
     st->card.extent_count = static_cast<std::uint32_t>(extents.size());
@@ -564,6 +578,33 @@ void TestRetries() {
     EXPECT_TRUE(ImageMatches(buffer, 20, 2));
 }
 
+void TestAsyncRejected() {
+    // IOS refuses the first request of an async write outright: the game
+    // gets the error at once, no callback, nothing left marked.
+    Blob b = MakeBlob(VSD_BACKEND_SLOT0);
+    const std::uint32_t buffer = Alloc(false, 4 * 512);
+    g_ios.reject_async = 1;
+    const std::int32_t r = SendAsync(b, MakeCommand(25, 40 * 512, 4, buffer), 0xE1, 0xF1);
+    EXPECT_TRUE(r < 0);
+    PumpAll(b);
+    EXPECT_TRUE(g_ios.pending.empty());
+    EXPECT_TRUE(g_ios.answers.empty());
+    EXPECT_EQ(g_ios.reject_async, 0u);
+    EXPECT_EQ(b.st->writing, 0u);
+    EXPECT_EQ(b.st->transfer.in_use, 0u);
+    EXPECT_EQ(b.st->gave_up, 1u);
+    EXPECT_EQ(b.st->last_error, static_cast<std::uint32_t>(r));
+    // The next transfer goes through.
+    EXPECT_EQ(SendAsync(b, MakeCommand(25, 40 * 512, 4, buffer), 0xE2, 0xF2), 0);
+    PumpAll(b);
+    EXPECT_EQ(g_ios.answers.size(), 1u);
+    if (!g_ios.answers.empty()) {
+        EXPECT_EQ(g_ios.answers[0].callback, 0xE2u);
+        EXPECT_EQ(g_ios.answers[0].result, 0);
+    }
+    EXPECT_TRUE(ImageMatches(buffer, 40, 4));
+}
+
 void TestBusy() {
     Blob b = MakeBlob(VSD_BACKEND_SLOT0);
     const std::uint32_t one = Alloc(false, 4 * 512), two = Alloc(false, 4 * 512);
@@ -588,12 +629,27 @@ void TestBounce() {
     EXPECT_EQ(SendAsync(b, MakeCommand(18, 950 * 512, 100, buffer), 0xC9, 0xD9), 0);
     PumpAll(b);
     EXPECT_TRUE(ImageMatches(buffer, 950, 100));
-    for (const Piece& p : g_ios.pieces)
-        EXPECT_EQ(p.data, static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(b.st->bounce)));
+    for (const Piece& p : g_ios.pieces) EXPECT_EQ(p.data, b.st->bounce);
+    // Counted: two pieces (the read crosses an extent at 1000), both for
+    // an unaligned buffer, 50 sectors the most one wanted.
+    EXPECT_EQ(b.st->bounced, 2u);
+    EXPECT_EQ(b.st->bounced_unaligned, 2u);
+    EXPECT_EQ(b.st->bounced_sectors, 100u);
+    EXPECT_EQ(b.st->bounced_most, 50u);
+    EXPECT_EQ(b.st->requests, 2u);
     Fill(buffer, 100 * 512, 0x77);
     EXPECT_EQ(SendAsync(b, MakeCommand(25, 1200 * 512, 100, buffer), 0xCA, 0xDA), 0);
     PumpAll(b);
     EXPECT_TRUE(ImageMatches(buffer, 1200, 100));
+    EXPECT_EQ(b.st->bounced, 4u);  // 64 + 36: the bounce buffer's 64 sectors cut the first
+    EXPECT_EQ(b.st->bounced_most, 100u);
+    EXPECT_EQ(b.st->bounced_sectors, 200u);
+    // An aligned buffer: straight in, not counted.
+    const std::uint32_t aligned = Alloc(false, 100 * 512);
+    EXPECT_EQ(SendSync(b, MakeCommand(18, 950 * 512, 100, aligned)), 0);
+    EXPECT_TRUE(ImageMatches(aligned, 950, 100));
+    EXPECT_EQ(b.st->bounced, 4u);
+    EXPECT_EQ(b.st->requests, 6u);
 }
 
 void TestEvent() {
@@ -636,6 +692,10 @@ void TestUsb() {
     EXPECT_TRUE(ImageMatches(mem1, 900, 200));
     for (const Piece& p : g_ios.pieces) EXPECT_TRUE(p.count <= 64u);
     EXPECT_EQ(g_ios.bad_buffers, 0u);
+    // Counted as bounced, but not for alignment: the buffer is in MEM1.
+    EXPECT_TRUE(b.st->bounced >= 4u);
+    EXPECT_EQ(b.st->bounced_unaligned, 0u);
+    EXPECT_EQ(b.st->bounced_sectors, 200u);
     // MEM2 buffer: straight in.
     g_ios.pieces.clear();
     const std::uint32_t mem2 = Alloc(true, 100 * 512);
@@ -718,9 +778,9 @@ void TestErrors() {
 
 // In the bounce buffer, as many windows as fit, as the loader places it.
 void EnableReadAhead(const Blob& b, std::uint32_t window, std::uint32_t anchor) {
-    b.st->ra.buffer = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(b.st->bounce));
+    b.st->ra.buffer = b.st->bounce;
     b.st->ra.window = window;
-    b.st->ra.slots = std::min<std::uint32_t>(VSD_BOUNCE_BYTES / (window * 512), RTVSD_RA_MAX_SLOTS);
+    b.st->ra.slots = std::min<std::uint32_t>(b.st->bounce_sectors / window, RTVSD_RA_MAX_SLOTS);
     b.st->ra.anchor = anchor;
     rtvsd_ra_drop(&b.st->ra);
 }
@@ -780,6 +840,48 @@ bool PieceIs(std::size_t i, std::uint32_t device_sector, std::uint32_t count, st
     if (i >= g_ios.pieces.size()) return false;
     const Piece& p = g_ios.pieces[i];
     return !p.write && p.device_sector == device_sector && p.count == count && p.data == data;
+}
+
+// A smaller bounce buffer (the SD card's size is one constant, and may come
+// down once Dolphin's counts say so): unaligned pieces are cut to it,
+// aligned ones still go straight in at full size, and the read-ahead holds
+// as many windows as fit.
+void TestSmallBounce(bool async) {
+    Blob b = MakeBlobWith(VSD_BACKEND_SLOT0, {{0, 100, 1000}, {1000, 3000, 2000}}, kImageSectors, false, 4096);
+    EXPECT_EQ(b.st->bounce_sectors, 8u);
+    const std::uint32_t buffer = Alloc(false, 100 * 512 + 64) + 4;
+    std::memset(At<std::uint8_t>(buffer), 0xA5, 100 * 512);
+    EXPECT_EQ(Read(b, 950, 100, buffer, async), 0);
+    EXPECT_TRUE(ImageMatches(buffer, 950, 100));
+    for (const Piece& p : g_ios.pieces) {
+        EXPECT_TRUE(p.count <= 8u);
+        EXPECT_EQ(p.data, b.st->bounce);
+    }
+    EXPECT_EQ(g_ios.pieces.size(), 14u);  // 50 sectors on each side of 1000, 8 at a time
+    EXPECT_EQ(b.st->bounced, 14u);
+    EXPECT_EQ(b.st->bounced_sectors, 100u);
+    EXPECT_EQ(b.st->bounced_most, 50u);
+    // The state ends where the buffer does: nothing past it is written.
+    const std::uint32_t end = b.st->bounce + 4096;
+    std::memset(At<std::uint8_t>(end), 0x5A, 64);
+    Fill(buffer, 100 * 512, 0x66);
+    EXPECT_EQ(Write(b, 1200, 100, buffer, async), 0);
+    EXPECT_TRUE(ImageMatches(buffer, 1200, 100));
+    for (std::uint32_t i = 0; i < 64; ++i) EXPECT_EQ(At<std::uint8_t>(end)[i], 0x5Au);
+    // Aligned: one request a side of 1000, at full size.
+    g_ios.pieces.clear();
+    const std::uint32_t aligned = Alloc(false, 100 * 512);
+    EXPECT_EQ(Read(b, 950, 100, aligned, async), 0);
+    EXPECT_TRUE(ImageMatches(aligned, 950, 100));
+    EXPECT_EQ(g_ios.pieces.size(), 2u);
+    // Read-ahead with 8-sector windows: one fits.
+    EnableReadAhead(b, 8, 0);
+    EXPECT_EQ(b.st->ra.slots, 1u);
+    g_ios.pieces.clear();
+    EXPECT_EQ(Read(b, 16, 1, aligned, async), 0);
+    EXPECT_EQ(Read(b, 17, 1, aligned, async), 0);
+    EXPECT_TRUE(CardMatches(b, aligned, 17, 1));
+    EXPECT_EQ(g_ios.pieces.size(), 1u);  // the window 16-23, read once
 }
 
 // Windows of 64 sectors lined up with sector 21 (a data area's start):
@@ -927,7 +1029,7 @@ void TestReadAheadFailures(bool async) {
     // Something else writing over the window in memory (Project M EX
     // Remix's code menu did, in Dolphin): not served, read again, counted.
     const std::size_t before = g_ios.pieces.size();
-    std::memcpy(b.st->bounce + 12 * 512, "JUMP\0\0\0\0SHIELD\0\0GRAB", 20);
+    std::memcpy(At<std::uint8_t>(b.st->bounce) + 12 * 512, "JUMP\0\0\0\0SHIELD\0\0GRAB", 20);
     EXPECT_EQ(Read(b, 33, 1, buffer, async), 0);  // sector 33 is the window's 12th (from 21)
     EXPECT_TRUE(CardMatches(b, buffer, 33, 1));
     EXPECT_EQ(g_ios.pieces.size(), before + 1);
@@ -1135,8 +1237,11 @@ int main() {
     TestRuntimeBeside();
     TestReadAheadFallbackWaits();
     TestRetries();
+    TestAsyncRejected();
     TestBusy();
     TestBounce();
+    TestSmallBounce(false);
+    TestSmallBounce(true);
     TestEvent();
     TestUsb();
     TestD2xSd();

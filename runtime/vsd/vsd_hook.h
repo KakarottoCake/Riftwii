@@ -13,7 +13,8 @@
  * other handle run the original function untouched.
  *
  * Synchronous calls are served on the caller's thread with the
- * synchronous originals. An asynchronous call returns 0 at once and its
+ * synchronous originals, through the same state machine as the
+ * asynchronous ones (transfer_step). An asynchronous call returns 0 at once and its
  * callback runs from the IPC interrupt when the answer is ready, as with
  * IOS: a transfer chains its requests with the blob's completion entry
  * (vsd_complete) as their callback and hands the game's callback to the
@@ -27,7 +28,9 @@
  * through the cache, then flushed, since its driver may invalidate them
  * for the DMA it expects). Reads land straight in the game's buffer when
  * the device can take it (32-byte aligned; MEM2 for the USB drive),
- * otherwise in the state's bounce buffer and are copied.
+ * otherwise in the bounce buffer and are copied. The loader sizes the
+ * bounce buffer for the device (VSD_BOUNCE_BYTES_USB, _SD) and puts it
+ * after the state's extent table.
  *
  * Read-ahead (runtime/rtvsdra.h, when the loader turned it on): the
  * window holding a read's last sector is read whole into the bounce
@@ -41,15 +44,18 @@
  * the blob asks its status (CMD13) until it is done before the next
  * command, as the resident runtime does (rt_hook.c, rt_sd_settles).
  *
- * Layout (vsd_entry.S): the header below, the eight trampolines, the
- * completion entry, the replay slots, the C code, then the context. The
+ * Layout (vsd_entry.S): the header below, the eight entries and the
+ * trampoline they share, the completion entry, the replay slots, the C
+ * code, then the context. A call on any handle but the card's leaves its
+ * entry for the replay slot at once, without the C code. The
  * state (struct vsd_state) is in MEM2; the loader builds it. Position
  * independent: linked at two bases and compared. */
 #ifndef RIFTWII_VSD_HOOK_H
 #define RIFTWII_VSD_HOOK_H
 
 #define VSD_MAGIC 0x52575653u          /* "RWVS" */
-#define VSD_VERSION 2u                 /* also in vsd_entry.S's header; 2: the read-ahead buffer */
+#define VSD_VERSION 3u                 /* also in vsd_entry.S's header; 2: the read-ahead buffer;
+                                        * 3: one shared trampoline, the CID and CSD from the loader */
 #define VSD_CONTEXT_MAGIC 0x52575658u  /* "RWVX" */
 #define VSD_CONTEXT_BYTES 32u
 #define VSD_STATE_MAGIC 0x52575654u    /* "RWVT" */
@@ -71,7 +77,18 @@
 #define VSD_BACKEND_USB 2u     /* d2x's /dev/usb2 */
 
 #define VSD_FAKE_FD 63           /* the handle the game gets: above any IOS gives out */
-#define VSD_BOUNCE_BYTES 0x8000u /* 64 sectors */
+/* The bounce buffer, sized by the loader for the device holding the
+ * image. On the USB drive every piece for a MEM1 buffer passes through it
+ * (d2x's USB driver reaches MEM2 only), and a smaller one would mean more
+ * requests: 32 KiB, 64 sectors a request. On the SD card only a buffer
+ * that is not 32-byte aligned needs it, so it may be smaller; it stays 32
+ * KiB until Dolphin's counts of bounced pieces (vsd_state.bounced...) say
+ * how small costs no speed. The read-ahead's windows live in it too
+ * (rtvsd_ra.buffer), as many as fit, so a smaller one holds fewer. */
+#define VSD_BOUNCE_BYTES_USB 0x8000u
+#define VSD_BOUNCE_BYTES_SD 0x8000u
+#define VSD_PIECE_SECTORS_D2X 64u       /* one request on d2x's devices, straight into the game's buffer */
+#define vsd_bounce_bytes_for(backend) ((backend) == VSD_BACKEND_USB ? VSD_BOUNCE_BYTES_USB : VSD_BOUNCE_BYTES_SD)
 #define VSD_DELIVERS 8u          /* answers riding a null round trip at once */
 #define VSD_TRIES 3u             /* a failed request is sent this often */
 #define VSD_SETTLE_POLLS 8192u   /* CMD13s after a write, about half a second */
@@ -150,6 +167,7 @@ struct vsd_transfer {
     uint32_t fill_first;             /* from this image sector, */
     uint32_t fill_data;              /* into this slot of it */
     uint32_t plain;                  /* a window failed every try: the rest reads only what the game asked for */
+    int32_t answer;                  /* sync: the answer of the request just made */
 };
 
 struct vsd_state {
@@ -181,16 +199,30 @@ struct vsd_state {
     uint32_t event_held;
     uint32_t event_callback;
     uint32_t event_user_data;
-    uint32_t pad0[2];
+    /* Loader-filled: the bounce buffer, after the extent table, 32-aligned
+     * in MEM2, and its size in sectors. */
+    uint32_t bounce;
+    uint32_t bounce_sectors;
     struct vsd_transfer transfer __attribute__((aligned(32)));
     struct vsd_deliver deliver[VSD_DELIVERS] __attribute__((aligned(32)));
     /* The blob's own IPC blocks, each on its own lines. */
     struct rtvsd_request request __attribute__((aligned(32)));
     uint32_t pad1[7];
+    /* More counters, on a line of their own (not the request's, which IOS
+     * reads): requests on the device for the image's data (each try
+     * counts), and the pieces that went through the bounce buffer, their
+     * sectors, how many of them for a buffer not 32-byte aligned (the
+     * rest: a MEM1 buffer on USB), and the most sectors one of them wanted
+     * before the buffer's size cut it. They tell how big the bounce buffer
+     * needs to be. */
+    uint32_t requests __attribute__((aligned(32)));
+    uint32_t bounced;
+    uint32_t bounced_sectors;
+    uint32_t bounced_unaligned;
+    uint32_t bounced_most;
     uint32_t response[8] __attribute__((aligned(32)));
     struct vsd_ioctlv vec[4] __attribute__((aligned(32)));
     uint32_t words[8] __attribute__((aligned(32)));      /* d2x: the sector and the count */
-    uint8_t bounce[VSD_BOUNCE_BYTES] __attribute__((aligned(32)));
     /* The read-ahead buffer (runtime/rtvsdra.h). Its bytes are the bounce
      * buffer's (the loader points it there): Brawl's mods leave the game
      * too little MEM2 for 32 KiB more (Project+ failed to make its menu
@@ -198,14 +230,18 @@ struct vsd_state {
      * forgets the window first. */
     struct rtvsd_ra ra __attribute__((aligned(32)));
     /* Last: the card's extent table follows it in memory (rtvsd_extents),
-     * so the state is vsd_state_bytes(extent count) long, not sizeof. */
+     * then the bounce buffer, so the state is vsd_state_bytes(extent
+     * count, bounce bytes) long, not sizeof. */
     struct rtvsd_card card __attribute__((aligned(32)));
 };
 
-/* The bytes of a state holding `extents` pieces of the image. Counts the
- * struct whole (with its tail padding) plus the table, which starts inside
- * that padding: a few bytes more than needed, never fewer. */
-#define vsd_state_bytes(extents) ((uint32_t)sizeof(struct vsd_state) + rtvsd_extent_bytes(extents))
+/* Where the bounce buffer starts in a state holding `extents` pieces of
+ * the image, 32-aligned: the struct whole (with its tail padding) plus the
+ * table, which starts inside that padding, a few bytes more than needed,
+ * never fewer. The state's bytes with a bounce buffer of `bounce_bytes`. */
+#define vsd_bounce_offset(extents) \
+    (((uint32_t)sizeof(struct vsd_state) + rtvsd_extent_bytes(extents) + 31u) & ~31u)
+#define vsd_state_bytes(extents, bounce_bytes) (vsd_bounce_offset(extents) + (uint32_t)(bounce_bytes))
 
 /* The blob's C entry points (vsd_entry.S calls them). */
 int vsd_on_ipc(struct vsd_context* ctx, uint32_t entry, uint32_t* args, int32_t* result);

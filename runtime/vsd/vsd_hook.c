@@ -230,9 +230,10 @@ static void build_status(struct vsd_state* st) {
     flush_range((uint32_t)(uintptr_t)st->response, sizeof(st->response));
 }
 
-/* After a write to the SD slot: whether the card still programs. */
-static int needs_settle(const struct vsd_state* st) {
-    return st->backend == VSD_BACKEND_SLOT0 && st->rca != 0 && st->original[VSD_IOCTL_ASYNC] != 0;
+/* After a write to the SD slot: whether the card's status can be asked
+ * (CMD13) on this path, to wait while it programs. */
+static int needs_settle(const struct vsd_state* st, int async) {
+    return st->backend == VSD_BACKEND_SLOT0 && st->rca != 0 && st->original[async ? VSD_IOCTL_ASYNC : VSD_IOCTL] != 0;
 }
 
 /* The runtime beside the blob, on the same card, has a write that the card
@@ -300,12 +301,16 @@ static uint32_t next_piece(struct vsd_state* st, uint32_t* device_sector, uint32
         /* The read-ahead window lives in the bounce buffer (no MEM2 of
          * its own: Project+ leaves Brawl only a few KB to spare), so
          * using it for this piece forgets the window. */
-        if (st->ra.buffer == (uint32_t)(uintptr_t)st->bounce) rtvsd_ra_drop(&st->ra);
-        if (sectors > VSD_BOUNCE_BYTES / RTVSD_SECTOR_BYTES) sectors = VSD_BOUNCE_BYTES / RTVSD_SECTOR_BYTES;
-        if (t->write) copy(st->bounce, (const uint8_t*)(uintptr_t)buffer, sectors * RTVSD_SECTOR_BYTES);
-        *data = (uint32_t)(uintptr_t)st->bounce;
+        if (st->ra.buffer == st->bounce) rtvsd_ra_drop(&st->ra);
+        ++st->bounced;
+        if (buffer & 31u) ++st->bounced_unaligned;
+        if (sectors > st->bounced_most) st->bounced_most = sectors;
+        if (sectors > st->bounce_sectors) sectors = st->bounce_sectors;
+        st->bounced_sectors += sectors;
+        if (t->write) copy((uint8_t*)(uintptr_t)st->bounce, (const uint8_t*)(uintptr_t)buffer, sectors * RTVSD_SECTOR_BYTES);
+        *data = st->bounce;
     } else {
-        const uint32_t most = st->backend == VSD_BACKEND_SLOT0 ? PIECE_SECTORS_SD : VSD_BOUNCE_BYTES / RTVSD_SECTOR_BYTES;
+        const uint32_t most = st->backend == VSD_BACKEND_SLOT0 ? PIECE_SECTORS_SD : VSD_PIECE_SECTORS_D2X;
         if (sectors > most) sectors = most;
         *data = buffer;
     }
@@ -329,8 +334,8 @@ static void piece_done(struct vsd_state* st) {
     }
     if (!t->write) {
         if (t->bounced) {
-            invalidate_range((uint32_t)(uintptr_t)st->bounce, bytes);
-            copy((uint8_t*)(uintptr_t)buffer, st->bounce, bytes);
+            invalidate_range(st->bounce, bytes);
+            copy((uint8_t*)(uintptr_t)buffer, (const uint8_t*)(uintptr_t)st->bounce, bytes);
             flush_range(buffer, bytes);
         }
         st->sectors_read += t->chunk;
@@ -351,65 +356,7 @@ static void write_reply(uint32_t out, const uint32_t reply[4]) {
     flush_range(out, 16);
 }
 
-/* ---- The synchronous path --------------------------------------------- */
-
-/* CMD13s on a thread until the card has left the receive and programming
- * states (or VSD_SETTLE_POLLS of them). */
-static void settle_sync(struct vsd_state* st) {
-    struct vsd_transfer* t = &st->transfer;
-    for (t->polls = 0; t->polls < VSD_SETTLE_POLLS; ++t->polls) {
-        build_status(st);
-        if (os_ioctl(st, st->fd, RTVSD_IOCTL_SENDCMD, (uint32_t)(uintptr_t)&st->request, sizeof(st->request),
-                     (uint32_t)(uintptr_t)st->response, 16) < 0 ||
-            !still_busy(st))
-            break;
-    }
-}
-
-static int32_t transfer_sync(struct vsd_state* st) {
-    struct vsd_transfer* t = &st->transfer;
-    const int settles = st->backend == VSD_BACKEND_SLOT0 && st->rca != 0 && st->original[VSD_IOCTL] != 0;
-    if (st->original[VSD_IOCTLV] == 0) return IOS_EINVAL;
-    for (;;) {
-        uint32_t device_sector = 0, data = 0, in_count, out_count, number;
-        int32_t r = -1;
-        serve_held(st);
-        if (t->done >= t->count) break;
-        t->chunk = next_piece(st, &device_sector, &data);
-        if (t->chunk == 0) return IOS_EINVAL;
-        if (settles && peer_busy(st)) settle_sync(st);
-        if (t->write && settles) st->writing = 1;
-        for (t->tries = 0; t->tries < VSD_TRIES; ++t->tries) {
-            number = build_piece(st, device_sector, t->chunk, data, &in_count, &out_count);
-            r = os_ioctlv(st, st->fd, number, in_count, out_count, (uint32_t)(uintptr_t)st->vec);
-            if (r >= 0) break;
-            ++st->failures;
-            st->last_error = (uint32_t)r;
-        }
-        if (r < 0 && t->filling && !t->plain) {
-            /* The window failed every try, maybe on a sector the game
-             * never asked for: the rest of this transfer reads only the
-             * game's own sectors (the taken slot stays empty). */
-            t->filling = 0;
-            t->plain = 1;
-            continue;
-        }
-        if (r < 0) {
-            st->writing = 0;
-            ++st->gave_up;
-            t->filling = 0;
-            /* The card may hold part of a write that failed. */
-            if (t->write) rtvsd_ra_drop(&st->ra);
-            return r;
-        }
-        if (t->write && settles) settle_sync(st);
-        st->writing = 0;
-        piece_done(st);
-    }
-    return RTVSD_OK;
-}
-
-/* ---- The asynchronous path -------------------------------------------- */
+/* ---- Answers that need no transfer ---------------------------------------- */
 
 /* The null round trip that carries an answer: a status request on the
  * device, its answer in the slot's own line. */
@@ -459,24 +406,48 @@ static int32_t deliver(struct vsd_state* st, uint32_t callback, uint32_t user_da
     return RTVSD_OK;
 }
 
-/* Sends the transfer's next request (a piece, or a CMD13 while the card
- * settles). Returns what IOS said to the send. */
-static int32_t transfer_send(struct vsd_state* st) {
+/* ---- The transfer --------------------------------------------------------
+ *
+ * One state machine for both paths. Async, each request's answer comes to
+ * vsd_on_complete through the IPC interrupt; sync, the same request runs
+ * on the caller's thread with the synchronous original and transfer_step
+ * takes its answer at once. Either way the device sees the same requests
+ * in the same order: the pieces, their retries, the CMD13s before a piece
+ * while the runtime's write programs and after a write of the blob's. */
+
+/* One request of the transfer's: an ioctl (in, in_len, out, out_len) or
+ * an ioctlv (in_count, out_count, vec). Async: returns what IOS said to
+ * the send. Sync: the request runs now, its answer goes in t->answer, and
+ * 0 is returned. */
+static int32_t issue(struct vsd_state* st, int async, int vector, uint32_t ioctl, uint32_t a, uint32_t b, uint32_t c,
+                     uint32_t d) {
     struct vsd_transfer* t = &st->transfer;
     const uint32_t tag = (uint32_t)(uintptr_t)t;
-    if (t->phase == VSD_PHASE_DATA && t->tries == 0 && !t->waited && needs_settle(st) && peer_busy(st)) {
+    if (async) {
+        if (vector) return os_ioctlv_async(st, st->fd, ioctl, a, b, c, st->complete, tag);
+        return os_ioctl_async(st, st->fd, ioctl, a, b, c, d, st->complete, tag);
+    }
+    t->answer = vector ? os_ioctlv(st, st->fd, ioctl, a, b, c) : os_ioctl(st, st->fd, ioctl, a, b, c, d);
+    return 0;
+}
+
+/* Sends the transfer's next request (a piece, or a CMD13 while the card
+ * settles). Returns what issue says; negative when nothing went out. */
+static int32_t transfer_send(struct vsd_state* st, int async) {
+    struct vsd_transfer* t = &st->transfer;
+    if (t->phase == VSD_PHASE_DATA && t->tries == 0 && !t->waited && needs_settle(st, async) && peer_busy(st)) {
         t->phase = VSD_PHASE_WAIT;
         t->polls = 0;
         t->waited = 1;
     }
     if (t->phase == VSD_PHASE_SETTLE || t->phase == VSD_PHASE_WAIT) {
         build_status(st);
-        return os_ioctl_async(st, st->fd, RTVSD_IOCTL_SENDCMD, (uint32_t)(uintptr_t)&st->request,
-                              sizeof(st->request), (uint32_t)(uintptr_t)st->response, 16, st->complete, tag);
+        return issue(st, async, 0, RTVSD_IOCTL_SENDCMD, (uint32_t)(uintptr_t)&st->request, sizeof(st->request),
+                     (uint32_t)(uintptr_t)st->response, 16);
     }
     {
         uint32_t device_sector = 0, data = 0, in_count, out_count, number;
-        if (st->original[VSD_IOCTLV_ASYNC] == 0) return IOS_EINVAL;
+        if (st->original[async ? VSD_IOCTLV_ASYNC : VSD_IOCTLV] == 0) return IOS_EINVAL;
         if (t->tries == 0) {
             t->chunk = next_piece(st, &device_sector, &data);
             if (t->chunk == 0) return IOS_EINVAL;
@@ -487,16 +458,16 @@ static int32_t transfer_send(struct vsd_state* st) {
             data = t->piece_data;
         }
         number = build_piece(st, device_sector, t->chunk, data, &in_count, &out_count);
-        if (t->write && needs_settle(st)) st->writing = 1;
-        return os_ioctlv_async(st, st->fd, number, in_count, out_count, (uint32_t)(uintptr_t)st->vec, st->complete,
-                               tag);
+        if (t->write && needs_settle(st, async)) st->writing = 1;
+        ++st->requests;
+        return issue(st, async, 1, number, in_count, out_count, (uint32_t)(uintptr_t)st->vec, 0);
     }
 }
 
 /* Ends the transfer: the reply into the game's buffer, the transfer
  * record free, the game's callback and result for the tail call. */
-static void transfer_end(struct vsd_state* st, int32_t result, int32_t* out_result, uint32_t* callback,
-                         uint32_t* user_data) {
+static int transfer_end(struct vsd_state* st, int32_t result, int32_t* out_result, uint32_t* callback,
+                        uint32_t* user_data) {
     struct vsd_transfer* t = &st->transfer;
     uint32_t reply[4];
     reply[0] = t->reply[0];
@@ -514,6 +485,73 @@ static void transfer_end(struct vsd_state* st, int32_t result, int32_t* out_resu
     *callback = t->callback;
     *user_data = t->user_data;
     t->in_use = 0;
+    return 0;
+}
+
+/* The transfer's request in flight answered `r`: the next one goes out,
+ * or the transfer ends. Returns 1 while a request is in flight (async:
+ * its answer comes to vsd_on_complete), 0 when the transfer has ended,
+ * with the game's result, callback and user data in the out parameters.
+ * Sync, it goes on with each answer itself until the end. */
+static int transfer_step(struct vsd_state* st, int async, int32_t r, int32_t* out_result, uint32_t* callback,
+                         uint32_t* user_data) {
+    struct vsd_transfer* t = &st->transfer;
+    int32_t sent;
+    for (;;) {
+        if (t->phase == VSD_PHASE_WAIT) {
+            /* The runtime's write: the card seen idle (or long enough
+             * waited), the piece itself goes. */
+            if (r >= 0 && still_busy(st) && ++t->polls < VSD_SETTLE_POLLS) {
+                if (transfer_send(st, async) >= 0) goto in_flight;
+            }
+            t->phase = VSD_PHASE_DATA;
+            sent = transfer_send(st, async);
+            if (sent >= 0) goto in_flight;
+            return transfer_end(st, sent, out_result, callback, user_data);
+        }
+        if (t->phase == VSD_PHASE_SETTLE) {
+            if (r >= 0 && still_busy(st) && ++t->polls < VSD_SETTLE_POLLS) {
+                if (transfer_send(st, async) >= 0) goto in_flight;
+            }
+            st->writing = 0;
+            t->phase = VSD_PHASE_DATA;
+            piece_done(st);
+        } else if (r < 0) {
+            ++st->failures;
+            st->last_error = (uint32_t)r;
+            if (++t->tries < VSD_TRIES && transfer_send(st, async) >= 0) goto in_flight;
+            if (t->filling && !t->plain) {
+                /* The window failed every try, maybe on a sector the
+                 * game never asked for: the rest of this transfer reads
+                 * only the game's own sectors (the taken slot stays
+                 * empty). */
+                t->filling = 0;
+                t->plain = 1;
+                t->tries = 0;
+                t->waited = 0;  /* a write of the runtime's may have started since: wait for it again */
+                r = transfer_send(st, async);
+                if (r >= 0) goto in_flight;
+            }
+            return transfer_end(st, r, out_result, callback, user_data);
+        } else if (t->write && needs_settle(st, async)) {
+            t->phase = VSD_PHASE_SETTLE;
+            t->polls = 0;
+            if (transfer_send(st, async) >= 0) goto in_flight;
+            st->writing = 0;
+            t->phase = VSD_PHASE_DATA;
+            piece_done(st);
+        } else {
+            piece_done(st);
+        }
+        t->tries = 0;
+        serve_held(st);
+        if (t->done >= t->count) return transfer_end(st, RTVSD_OK, out_result, callback, user_data);
+        sent = transfer_send(st, async);
+        if (sent < 0) return transfer_end(st, sent, out_result, callback, user_data);
+    in_flight:
+        if (async) return 1;
+        r = t->answer;
+    }
 }
 
 void vsd_on_complete(struct vsd_context* ctx, int32_t* result, void* tag, uint32_t* callback, uint32_t* user_data);
@@ -532,64 +570,7 @@ void vsd_on_complete(struct vsd_context* ctx, int32_t* result, void* tag, uint32
         return;
     }
     if (kind != VSD_TAG_TRANSFER) return;
-    {
-        struct vsd_transfer* t = (struct vsd_transfer*)tag;
-        int32_t r = *result;
-        if (t->phase == VSD_PHASE_WAIT) {
-            /* The runtime's write: the card seen idle (or long enough
-             * waited), the piece itself goes. */
-            if (r >= 0 && still_busy(st) && ++t->polls < VSD_SETTLE_POLLS) {
-                if (transfer_send(st) >= 0) return;
-            }
-            t->phase = VSD_PHASE_DATA;
-            r = transfer_send(st);
-            if (r >= 0) return;
-            transfer_end(st, r, result, callback, user_data);
-            return;
-        }
-        if (t->phase == VSD_PHASE_SETTLE) {
-            if (r >= 0 && still_busy(st) && ++t->polls < VSD_SETTLE_POLLS) {
-                if (transfer_send(st) >= 0) return;
-            }
-            st->writing = 0;
-            t->phase = VSD_PHASE_DATA;
-            piece_done(st);
-        } else if (r < 0) {
-            ++st->failures;
-            st->last_error = (uint32_t)r;
-            if (++t->tries < VSD_TRIES && transfer_send(st) >= 0) return;
-            if (t->filling && !t->plain) {
-                /* As in transfer_sync: the window failed every try, so
-                 * the game's own sectors are asked for on their own. */
-                t->filling = 0;
-                t->plain = 1;
-                t->tries = 0;
-                t->waited = 0;  /* a write of the runtime's may have started since: wait for it again */
-                r = transfer_send(st);
-                if (r >= 0) return;
-            }
-            transfer_end(st, r, result, callback, user_data);
-            return;
-        } else if (t->write && needs_settle(st)) {
-            t->phase = VSD_PHASE_SETTLE;
-            t->polls = 0;
-            if (transfer_send(st) >= 0) return;
-            st->writing = 0;
-            t->phase = VSD_PHASE_DATA;
-            piece_done(st);
-        } else {
-            piece_done(st);
-        }
-        t->tries = 0;
-        serve_held(st);
-        if (t->done < t->count) {
-            r = transfer_send(st);
-            if (r >= 0) return;
-            transfer_end(st, r, result, callback, user_data);
-            return;
-        }
-        transfer_end(st, RTVSD_OK, result, callback, user_data);
-    }
+    transfer_step(st, 1, *result, result, callback, user_data);
 }
 
 /* ---- The game's calls on the card ---------------------------------------- */
@@ -665,29 +646,27 @@ static int32_t send_command(struct vsd_state* st, const struct rtvsd_request* re
             t->in_use = 0;
             return async ? deliver(st, callback, user_data, RTVSD_OK) : RTVSD_OK;
         }
-        if (!async) {
-            int32_t r = transfer_sync(st);
-            write_reply(reply_out, t->reply);
-            if (r < 0) {
-                ++st->gave_up;
-                st->last_error = (uint32_t)r;
-            }
-            t->in_use = 0;
-            return r < 0 ? r : RTVSD_OK;
-        }
         {
-            const int32_t r = transfer_send(st);
+            /* Sync, a game without the synchronous IOS_Ioctlv gets its
+             * error before any request, even the wait for the runtime's
+             * write. */
+            const int32_t r = !async && st->original[VSD_IOCTLV] == 0 ? IOS_EINVAL : transfer_send(st, async);
+            int32_t result = RTVSD_OK;
+            uint32_t ignored_callback, ignored_user_data;
             if (r < 0) {
                 /* Not even the first request went out: an error now, no
                  * callback, and no write left marked for the runtime. */
+                if (!async) write_reply(reply_out, t->reply);
                 st->writing = 0;
                 t->in_use = 0;
                 ++st->gave_up;
                 st->last_error = (uint32_t)r;
                 return r;
             }
+            if (async) return RTVSD_OK;
+            transfer_step(st, 0, t->answer, &result, &ignored_callback, &ignored_user_data);
+            return result;
         }
-        return RTVSD_OK;
     }
 }
 
