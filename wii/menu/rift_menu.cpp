@@ -14697,7 +14697,10 @@ static int MenuHome(FrontendState& state)
 			coverStart = true;
 		}
 		// Its own box too, after the cover: a box not started yet may be
-		// the old match's, so the choice is made again.
+		// the old match's, so the choice is made again. Not once box
+		// downloads stopped (no answer again and again, a full card): only
+		// the page's first look gives a box one more try, as it always has.
+		if (g_boxesOff) return;
 		if (boxStart) boxesAsked.erase(boxAskKey(boxStartName));
 		const std::string next = pageBoxWanted();
 		if (!next.empty() || boxStart) {
