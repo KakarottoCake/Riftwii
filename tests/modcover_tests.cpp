@@ -307,8 +307,9 @@ static void TestPageBoxAsks() {
     EXPECT_TRUE(!mods.asked(old_key));
     EXPECT_TRUE(!mods.start(old_key, old_key, false));  // the old download still running
     EXPECT_TRUE(mods.start(old_key, "", true));
-    // Back from the Mods page: without a rename the earlier try stands (no
-    // pile of unanswered tries); renamed away and back, a fresh try.
+    // Back from the Mods page: without a match change (no rename, or one
+    // that kept the GameTDB entry) the earlier try stands, so unanswered
+    // tries don't pile up; matched away and back, a fresh try.
     PageBoxAsks visit;
     visit.tile_matched(tile, old_key);
     EXPECT_TRUE(visit.start(old_key, "", true));

@@ -28,9 +28,6 @@ void ForgetProfiles();
 bool CreateProfile(const FrontendState& state, const std::string& name, std::string& key, std::string& error);
 // The open profile's tile renamed (its files keep their names).
 bool RenameProfile(FrontendState& state, const std::string& name, std::string& error);
-// How many renames RenameProfile has made this session: a page that sees
-// it change knows a tile was renamed, even back to the name it had.
-unsigned ProfileRenames();
 // The open profile's tile removed with its choices file, its picture in
 // sd:/riftwii/profiles, its favourite and its plays; the page goes back to being the game's own (its choices are
 // read again by the caller, ScanPackages).

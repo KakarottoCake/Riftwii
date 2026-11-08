@@ -225,9 +225,9 @@ void PageBoxAsks::tile_matched(const std::string& name, const std::string& key) 
     last = key;
 }
 
-bool PageBoxAsks::back_from_mods(const std::string& name, bool renamed) {
-    if (renamed) retry_tile(name);
-    return renamed;
+bool PageBoxAsks::back_from_mods(const std::string& name, bool match_changed) {
+    if (match_changed) retry_tile(name);
+    return match_changed;
 }
 
 void PageBoxAsks::retry_tile(const std::string& name) {

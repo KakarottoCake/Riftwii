@@ -136,15 +136,15 @@ public:
     // tile is forgotten, so going back to an earlier entry tries its box
     // again; an unchanged match keeps its one try.
     void tile_matched(const std::string& name, const std::string& key);
-    // A fresh look at the mod tile `name` (renamed on its Mods page, maybe
-    // back to the name it had): what was asked for it is forgotten, and a
-    // download already running for it is waited out.
+    // A fresh look at the mod tile `name` (its match changed on its Mods
+    // page, maybe back to the one it had): what was asked for it is
+    // forgotten, and a download already running for it is waited out.
     void retry_tile(const std::string& name);
     // Back from the Mods page of the mod tile `name`: a fresh look at its
-    // box (retry_tile) only when it was renamed there (`renamed`, even
-    // back to its old name), so unanswered tries can't pile up and stop
-    // the box downloads. True when it retries.
-    bool back_from_mods(const std::string& name, bool renamed);
+    // box (retry_tile) only when a rename there changed its GameTDB match
+    // (`match_changed`, even back to the one it had), so unanswered tries
+    // can't pile up and stop the box downloads. True when it retries.
+    bool back_from_mods(const std::string& name, bool match_changed);
 
 private:
     std::set<std::string> asked_;

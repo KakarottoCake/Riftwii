@@ -1988,6 +1988,12 @@ static bool g_retryMissingCovers = false;
 
 // The mod tiles GameTDB lists as games of their own (#385), matched again
 // when the tiles or GameTDB's list of mods change: their own covers.
+// How many times a mod tile's GameTDB match changed through a rename on
+// its Mods page this session (back to an earlier match too): the game page
+// gives the tile's box a fresh try only after one, not after a rename that
+// keeps the match.
+static unsigned g_tileMatchChanges = 0;
+
 static void UpdateModCoverIds()
 {
 	static unsigned seenWritten = ~0u, seenCleared = ~0u;
@@ -13641,6 +13647,13 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 					// cancelled
 				} else if (renaming ? riftwii::wii::RenameProfile(state, name, error)
 						    : riftwii::wii::CreateProfile(state, name, key, error)) {
+					if (renaming) {
+						// Matched again at once, so a rename that changes the
+						// GameTDB entry is counted, even one changed back later.
+						const std::string matchBefore = riftwii::wii::ModTileCoverId(state.profile_key);
+						UpdateModCoverIds();
+						if (riftwii::wii::ModTileCoverId(state.profile_key) != matchBefore) ++g_tileMatchChanges;
+					}
 					const std::string named = renaming ? state.profile_name : riftwii::wii::Profiles().find(key)->name;
 					say(renaming ? tr("Renamed \"{1}\".", {named})
 						     : tr("\"{1}\" is on Home now: its tile starts the game with these mods. Its own picture can go in sd:/riftwii/profiles/{2}.png.", {named, key}));
@@ -15036,7 +15049,7 @@ static int MenuHome(FrontendState& state)
 				mainWindow->Remove(&w);
 				bool askedCover = false;
 				const bool secondBefore = riftwii::wii::CoverSecondSet(state.game_id);
-				const unsigned renamesBefore = riftwii::wii::ProfileRenames();
+				const unsigned matchChangesBefore = g_tileMatchChanges;
 				if (tile == GameTile::Mods) MenuMods(state, scanStatus);
 				else if (tile == GameTile::Cheats) MenuCheats(state);
 				else MenuGameSettings(state, askedCover);
@@ -15054,10 +15067,12 @@ static int MenuHome(FrontendState& state)
 					const std::string tileCover = PageCoverName(state);
 					hero.SetCoverName(tileCover);
 					banner.SetCoverName(tileCover);
-					// Renamed there (even back to the name it had): a fresh look
-					// at its box, as at page entry (PageBoxAsks::back_from_mods).
+					// Its GameTDB match changed there (even back to the one it
+					// had): a fresh look at its box, as at page entry
+					// (PageBoxAsks::back_from_mods). A rename that kept the match
+					// keeps the earlier try.
 					if (tileCover != state.game_id)
-						boxesAsked.back_from_mods(tileCover, riftwii::wii::ProfileRenames() != renamesBefore);
+						boxesAsked.back_from_mods(tileCover, g_tileMatchChanges != matchChangesBefore);
 					askTileCover(tileCover);
 				} else if (g_coverPicked) {
 					// Choose cover changed the player's own cover.
