@@ -15036,6 +15036,7 @@ static int MenuHome(FrontendState& state)
 				mainWindow->Remove(&w);
 				bool askedCover = false;
 				const bool secondBefore = riftwii::wii::CoverSecondSet(state.game_id);
+				const unsigned renamesBefore = riftwii::wii::ProfileRenames();
 				if (tile == GameTile::Mods) MenuMods(state, scanStatus);
 				else if (tile == GameTile::Cheats) MenuCheats(state);
 				else MenuGameSettings(state, askedCover);
@@ -15053,9 +15054,11 @@ static int MenuHome(FrontendState& state)
 					const std::string tileCover = PageCoverName(state);
 					hero.SetCoverName(tileCover);
 					banner.SetCoverName(tileCover);
-					// It may have been renamed and renamed back there: a fresh
-					// look at its box, as at page entry.
-					if (tileCover != state.game_id) boxesAsked.retry_tile(tileCover);
+					// Renamed there (even back to the name it had): a fresh look
+					// at its box, as at page entry. Not without a rename, so
+					// unanswered tries don't pile up and stop the box downloads.
+					if (tileCover != state.game_id && riftwii::wii::ProfileRenames() != renamesBefore)
+						boxesAsked.retry_tile(tileCover);
 					askTileCover(tileCover);
 				} else if (g_coverPicked) {
 					// Choose cover changed the player's own cover.
