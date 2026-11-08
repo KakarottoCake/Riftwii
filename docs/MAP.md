@@ -511,6 +511,7 @@ and the `*_mock/` folders provide synthetic files, discs and hardware calls.
 | `gc_exi_scan.cpp`, `gc_trace.py` | Inspecting GameCube EXI routines and decoding a game's trace records |
 | `gc_card_load_test.py`, `gc_dol_load_test.py`, `gc_fst_read_test.py` | Isolated checks of the actual GameCube loader's card, executable and file-table reads |
 | `gc_io_emutest.py`, `wlog_boundary_emutest.py` | Executing built PowerPC code against simulated I/O and memory boundaries |
+| `gc_hooks_emutest.py` | The GameCube blob's hook trampolines run against their old version (`tests/fixtures/gc-legacy/`) in Unicorn: same calls, same registers |
 | `timesong/` | Artwork cutout and original audio generation scripts |
 
 ## `channel/`

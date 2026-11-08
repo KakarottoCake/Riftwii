@@ -179,6 +179,12 @@ Two scripts on the card drive a run without hands on a controller:
   asynchronous worker; remove the file to disable it. Boot logs name it
   once when enabled. Leave `trace` off when comparing audio.
 
+  `py -3.13 tools/gc_hooks_emutest.py --devkitppc C:/devkitPro/devkitPPC`
+  runs every hook trampoline of `runtime/gc/gc_entry.S` and of its old
+  copy in `tests/fixtures/gc-legacy/` with the same game registers
+  (Unicorn): both must make the same calls and leave the same registers
+  and stack.
+
   `py -3.13 tools/gc_io_emutest.py --devkitppc C:/devkitPro/devkitPPC`
   checks the built PowerPC worker with Unicorn (`pip install unicorn`)
   and devkitPro's zstd executable. It exercises slow IOS completions,
