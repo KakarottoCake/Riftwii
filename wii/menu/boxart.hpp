@@ -24,6 +24,9 @@ void ForgetBoxMiss(const std::string& game_id);
 // thread, as StartCoverFetch does; one at a time.
 bool StartBoxFetch(const std::string& game_id);
 const std::string& BoxFetchGame();
+// For a mod tile's box being downloaded: the GameTDB entry it is the
+// picture of, as matched when the download started ("" for a game's).
+const std::string& BoxFetchEntry();
 bool TakeBoxFetch(std::string& game_id, CoverFetch& got, std::string& error);
 
 // The game's box as an RGB5A3 texture of kBoxWidth x kBoxHeight (the

@@ -14894,8 +14894,11 @@ static int MenuHome(FrontendState& state)
 		if (boxStart && !coverStart) {
 			const std::string key = boxAskKey(boxStartName);
 			const bool running = riftwii::wii::BoxFetchGame() == boxStartName;
-			// One Home started for the same box counts as this one.
-			if (running && boxRunningKey.empty()) boxRunningKey = key;
+			// One Home started for the same box counts as this one when it is
+			// for the same GameTDB entry (the tile may have been renamed since).
+			if (running && boxRunningKey.empty())
+				boxRunningKey = boxStartName == state.game_id ? boxStartName
+				                                               : boxStartName + "|" + riftwii::wii::BoxFetchEntry();
 			const bool started = running ? boxRunningKey == key : riftwii::wii::StartBoxFetch(boxStartName);
 			if (started) {
 				boxRunningKey = key;

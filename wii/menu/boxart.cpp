@@ -96,11 +96,13 @@ CoverFetch NoteTileMiss(const std::string& key, const std::string& art_of, bool 
     return CoverFetch::NotFound;
 }
 
-CoverFetch FetchBoxNow(const std::string& game_id, std::string& error) {
+// `tile_match`: for a mod tile, the GameTDB entry it matched when the
+// download started (StartBoxFetch), so what is fetched is what was recorded.
+CoverFetch FetchBoxNow(const std::string& game_id, const std::string& tile_match, std::string& error) {
     // A mod tile: the picture of the mod's own GameTDB entry, kept under
     // the tile's key; none when GameTDB doesn't list the mod.
     const bool tile = is_tile_art_name(game_id);
-    const std::string art_of = art_download_id(game_id, TileMatch(game_id));
+    const std::string art_of = art_download_id(game_id, tile_match);
     if (art_of.empty()) return CoverFetch::NotFound;
     mkdir("sd:/riftwii", 0777);
     mkdir(kBoxDir, 0777);
@@ -164,6 +166,7 @@ CoverFetch FetchBoxNow(const std::string& game_id, std::string& error) {
 
 struct Background {
     std::string id;
+    std::string entry;  // a mod tile's GameTDB entry, read when it started
     CoverFetch got = CoverFetch::Failed;
     std::string error;
 };
@@ -173,7 +176,7 @@ void RunBackgroundFetch() {
     // A full scan unpacks to a few MB: without the room, give up on this box
     // rather than end the thread.
     OutOfMemoryScope out_of_memory;
-    g_background.got = FetchBoxNow(g_background.id, g_background.error);
+    g_background.got = FetchBoxNow(g_background.id, g_background.entry, g_background.error);
     if (g_background.got != CoverFetch::Stored && out_of_memory.failed()) {
         // NoAnswer, not Failed: a memory shortage must not turn the boxes off.
         g_background.got = CoverFetch::NoAnswer;
@@ -222,12 +225,15 @@ bool StartBoxFetch(const std::string& game_id) {
     if (!g_background.id.empty() || NetBackgroundBusy()) return false;
     g_background = Background{};
     g_background.id = game_id;
+    g_background.entry = TileMatch(game_id);
     if (NetRunInBackground(RunBackgroundFetch)) return true;
     g_background.id.clear();
     return false;
 }
 
 const std::string& BoxFetchGame() { return g_background.id; }
+
+const std::string& BoxFetchEntry() { return g_background.entry; }
 
 bool TakeBoxFetch(std::string& game_id, CoverFetch& got, std::string& error) {
     if (g_background.id.empty() || NetBackgroundBusy()) return false;
