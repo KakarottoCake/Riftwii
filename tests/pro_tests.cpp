@@ -173,6 +173,8 @@ void test_late_pro_camera() {
     Connect(st, kRemote, kOtherAddress);
     Bytes camera = Acl(kRemote, {0xA2, 0x13, 0x04});
     EXPECT_EQ(Out(st, camera) & RTPRO_CHANGED, 0u);  // a Wii Remote's, as it is
+    Bytes speaker = Acl(kRemote, {0xA2, 0x14, 0x04});
+    EXPECT_EQ(Out(st, speaker) & RTPRO_CHANGED, 0u);
     Bytes read = Acl(kRemote, {0xA2, 0x17, 0x04, 0xA4, 0x00, 0xFA, 0x00, 0x06});
     Out(st, read);
     Bytes reply = Acl(kRemote, ReadReply(0x00FA, 6, 0, {0x00, 0x00, 0xA4, 0x20, 0x01, 0x20}));
@@ -180,7 +182,7 @@ void test_late_pro_camera() {
     EXPECT_EQ(st.links[0].pro, RTPRO_BY_ID);
     Bytes status = Acl(kRemote, {0xA1, 0x20, 0x00, 0x00, 0x02, 0x00, 0x00, 0xC0});
     In(st, status);
-    EXPECT_EQ(status[12], 0x0A);
+    EXPECT_EQ(status[12], 0x0E);  // the camera and the speaker
 }
 
 void test_late_pro_choices() {
