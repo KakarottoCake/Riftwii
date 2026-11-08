@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstddef>
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -128,9 +129,15 @@ public:
     // same entry, so a renamed tile's new box waits for the old one's to end;
     // with none running, when `started_new` (a download was just started).
     bool start(const std::string& key, const std::string& running_key, bool started_new);
+    // The mod tile `name` matches the entry in `key` now (after a rename):
+    // when that is another entry than last time, what was asked for the
+    // tile is forgotten, so going back to an earlier entry tries its box
+    // again; an unchanged match keeps its one try.
+    void tile_matched(const std::string& name, const std::string& key);
 
 private:
     std::set<std::string> asked_;
+    std::map<std::string, std::string> tile_keys_;  // each tile's key when last told
 };
 
 }  // namespace riftwii

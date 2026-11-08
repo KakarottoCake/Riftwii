@@ -14681,6 +14681,10 @@ static int MenuHome(FrontendState& state)
 		}
 		return std::string();
 	};
+	// The tile's entry when the page opened: a later rename to another
+	// entry, and back, may try a box again (PageBoxAsks::tile_matched).
+	if (PageCoverName(state) != state.game_id)
+		boxesAsked.tile_matched(PageCoverName(state), boxAskKey(PageCoverName(state)));
 	std::string boxStartName = pageBoxWanted();
 	bool boxStart = !boxStartName.empty();
 
@@ -14700,6 +14704,7 @@ static int MenuHome(FrontendState& state)
 		// downloads stopped (no answer again and again, a full card): only
 		// the page's first look gives a box one more try, as it always has.
 		if (g_boxesOff) return;
+		if (tileCover != state.game_id) boxesAsked.tile_matched(tileCover, boxAskKey(tileCover));
 		const std::string next = pageBoxWanted();
 		if (!next.empty() || boxStart) {
 			boxStartName = next;

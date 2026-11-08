@@ -266,6 +266,22 @@ static void TestPageBoxAsks() {
     EXPECT_TRUE(own.start("RSBE01", "", true));
     EXPECT_TRUE(own.start("RSBE01", "RSBE01", false));
     EXPECT_TRUE(own.asked("RSBE01") && !own.asked(new_key));
+
+    // Project M's box got no answer (asked, still wanted); renamed to
+    // Project+ and back: Project M's box may be tried again. An unchanged
+    // match keeps its one try.
+    PageBoxAsks back;
+    back.tile_matched(tile, old_key);
+    EXPECT_TRUE(back.start(old_key, "", true));
+    back.tile_matched(tile, old_key);
+    EXPECT_TRUE(back.asked(old_key));
+    back.tile_matched(tile, new_key);
+    back.tile_matched(tile, old_key);
+    EXPECT_TRUE(!back.asked(old_key));
+    // The game's own box is not the tile's: kept across the tile's renames.
+    EXPECT_TRUE(back.start("RSBE01", "", true));
+    back.tile_matched(tile, new_key);
+    EXPECT_TRUE(back.asked("RSBE01"));
 }
 
 int main() {

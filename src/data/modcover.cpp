@@ -3,6 +3,7 @@
 #include "riftwii/modcover.hpp"
 
 #include <cctype>
+#include <iterator>
 
 #include "pugixml.hpp"
 #include "riftwii/profiles.hpp"
@@ -205,6 +206,16 @@ bool PageBoxAsks::start(const std::string& key, const std::string& running_key, 
     const bool started = running_key.empty() ? started_new : running_key == key;
     if (started) asked_.insert(key);
     return started;
+}
+
+void PageBoxAsks::tile_matched(const std::string& name, const std::string& key) {
+    std::string& last = tile_keys_[name];
+    if (!last.empty() && last != key) {
+        const std::string prefix = name + "|";
+        for (auto it = asked_.begin(); it != asked_.end();)
+            it = it->compare(0, prefix.size(), prefix) == 0 ? asked_.erase(it) : std::next(it);
+    }
+    last = key;
 }
 
 bool art_wanted(const std::string& name, const std::string& tile_match, const StoredArt& stored) {
