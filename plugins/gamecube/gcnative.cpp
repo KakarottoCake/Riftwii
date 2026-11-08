@@ -2507,6 +2507,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const std::uint32_t adp_addr = mem2_take(kStreamBytes);
     const std::uint32_t stream_addr = mem2_take(sizeof(gc_rt_stream));
     const std::uint32_t trace_addr = mem2_take(512);
+    // The blob's state that MEM1 does not need (gc_rt.h's gc_rt_cold).
+    const std::uint32_t cold_addr = mem2_take(sizeof(gc_rt_cold));
     const std::uint32_t bt_addr = mem2_take(sizeof(gc_bt));
     // The GameCube adapter's state (gc_gcad.h), when the menu opened it.
     const std::uint32_t gcad_addr = extras.adapter_fd >= 0 ? mem2_take(sizeof(gc_gcad)) : 0;
@@ -2693,9 +2695,10 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         if (di_slots_bytes != 0)
             logf("GameCube: the libogc DI start slots at 0x%08x (%u bytes, %u site(s))\n", di_slots_addr,
                  static_cast<unsigned>(di_slots_bytes), static_cast<unsigned>(di_starts.size()));
-        logf("GameCube: MEM2 0x%08x (%u bytes): bounce 0x%08x, stream 0x%08x (ring 0x%08x), trace 0x%08x, Wii "
-             "Remotes 0x%08x, crash screen 0x%08x (strip 0x%08x), %u run(s) 0x%08x\n",
-             kGcMem2Data, static_cast<unsigned>(mem2_bytes), bounce_addr, stream_addr, adp_addr, trace_addr, bt_addr,
+        logf("GameCube: MEM2 0x%08x (%u bytes): bounce 0x%08x, stream 0x%08x (ring 0x%08x), trace 0x%08x, blob "
+             "state 0x%08x (%u bytes), Wii Remotes 0x%08x, crash screen 0x%08x (strip 0x%08x), %u run(s) 0x%08x\n",
+             kGcMem2Data, static_cast<unsigned>(mem2_bytes), bounce_addr, stream_addr, adp_addr, trace_addr,
+             cold_addr, static_cast<unsigned>(sizeof(gc_rt_cold)), bt_addr,
              crash_addr, crash_addr + GC_CRASH_CARD_BYTES, static_cast<unsigned>(placed.size()), runs_addr);
         if (rvz)
             logf("GameCube: RVZ reader 0x%08x (%u bytes); buffers 0x%08x (%u bytes): decoder 0x%08x, stored group "
@@ -2726,6 +2729,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     }
     auto* ctx = reinterpret_cast<gc_rt_context*>(blob_addr + h.context_offset);
     ctx->io_stack = io_stack_addr;
+    ctx->cold = cold_addr;
     ctx->io_buffer = io_buffer_addr;
     fill_gc_runs(static_cast<gc_rt_run*>(staged(runs_addr)), placed, fst_copy_addr != 0 ? fst_copy_addr : fst_addr);
     if (fst_copy_addr != 0) std::memcpy(staged(fst_copy_addr), fst.data(), fst.size());
