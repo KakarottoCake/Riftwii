@@ -188,6 +188,42 @@ void the_stand_in_ends_in_6000() {
 
 }  // namespace
 
+// The libogc DI start slots are the last piece: empty for any other game,
+// where the layout must be exactly the one without them, and for a libogc
+// game as many 44-byte slots as it has sites, clear of everything else.
+void places_the_di_slots_last() {
+    const std::uint32_t fst = 0x817fcee0;
+    std::vector<GcMem1Piece> without = {{0xf800, 0}, {0x260, 0}, {0x100, 0}, {0x160, 0}, {0x40, 0}};
+    std::vector<GcMem1Piece> empty = without;
+    empty.push_back({0, 0});
+    const GcMem1Plan plain = plan_gc_mem1(fst, without, 0x2000);
+    const GcMem1Plan with_empty = plan_gc_mem1(fst, empty, 0x2000);
+    EXPECT_EQ(with_empty.arena_hi, plain.arena_hi);
+    EXPECT_EQ(with_empty.di_regs, plain.di_regs);
+    for (std::size_t i = 0; i < without.size(); ++i) EXPECT_EQ(empty[i].address, without[i].address);
+    for (const std::uint32_t sites : {1u, 7u, 48u}) {
+        std::vector<GcMem1Piece> pieces = without;
+        pieces.push_back({sites * 44u, 0});
+        const GcMem1Plan plan = plan_gc_mem1(fst, pieces, 0x2000);
+        EXPECT_TRUE(plan.arena_hi != 0);
+        EXPECT_EQ(pieces.back().address & 31u, 0u);
+        for (std::size_t i = 0; i < pieces.size(); ++i) {
+            const GcMem1Piece& p = pieces[i];
+            EXPECT_TRUE(p.address + p.bytes <= fst);
+            EXPECT_TRUE(p.address >= plan.bi2 + 0x2000);
+            const bool clear_of_di = p.address + p.bytes <= plan.di_regs || p.address >= plan.di_regs + kGcDiRegsBytes;
+            EXPECT_TRUE(clear_of_di);
+            for (std::size_t j = i + 1; j < pieces.size(); ++j) {
+                const bool apart = p.address + p.bytes <= pieces[j].address ||
+                                   pieces[j].address + pieces[j].bytes <= p.address;
+                EXPECT_TRUE(apart);
+            }
+        }
+        // The slots cost the game at most their own bytes plus alignment.
+        EXPECT_TRUE(plain.arena_hi - plan.arena_hi <= ((sites * 44u + 31u) & ~31u) + 32u);
+    }
+}
+
 int main() {
     finds_a_stack_at_the_top_of_mem1();
     finds_a_stack_after_the_sections();
@@ -199,6 +235,7 @@ int main() {
     leaves_mario_golf_its_arena();
     refuses_an_fst_address_outside_mem1();
     the_stand_in_ends_in_6000();
+    places_the_di_slots_last();
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;

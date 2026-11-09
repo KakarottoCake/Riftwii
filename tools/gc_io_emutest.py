@@ -33,26 +33,31 @@ CALLBACK = 0x80011000
 RETURN = 0x80012000
 IPC = 0xCD000000
 IO_TIMEOUT_TICKS = 303750000
+# struct gc_rt_cold (gc_rt.h): the blob's MEM2 state, placed by the loader.
+COLD = 0x903F0000
 FIELDS = (
     "sdio_fd", "sdhc", "runs", "run_count", "set_alarm", "alarm_entry",
     "bounce", "bounce_bytes", "delay_ticks", "usb_fd", "flags", "io_stack",
     "io_buffer", "io_job", "storage_busy", "alarm", "io_alarm", "read_state",
-    "read_length", "read_generation", "io_pending", "io_reply", "sd_requests",
+    "read_length", "read_generation", "io_pending", "io_reply", "sd_requests", "cold",
     "stream", "stream_generation", "card", "beat_alarm", "drive_timing", "rvz",
     "card_rca", "ipc_sending", "bt", "gcad", "disc_id_offset", "read_drive_ticks",
-    "last_read_end", "reads", "read_tgc_watch", "ipc", "tgc_count", "tgc_offset", "tgc_dol_start",
-    "tgc_dol_end", "disc_change", "di_regs", "vec", "request", "response", "leave_buf", "leave_fd",
+    "last_read_end", "reads", "read_tgc_watch", "tgc_count", "tgc_offset", "tgc_dol_start",
+    "tgc_dol_end", "disc_change", "di_regs", "leave_buf", "leave_fd",
     "trace_buf", "xfb", "xfb_bytes", "crash_card", "restart_count", "exec_sector", "tgc_sector",
     "leave_since", "leave_hold", "leave_card_quiet", "leave_card_activity", "last_error",
     "io_buffers_idle", "io_stream_restart", "io_sp", "read_started", "read_addr", "read_offset",
-    "pending_cb", "pending_type", "crash_chain", "reset_request_at",
+    "pending_cb", "pending_type", "reset_request_at",
 )
 EXTRA_FIELDS = {
+    # ipc, vec and request are 64, 32 and 64 bytes, one after another: the
+    # 160 bytes the tests compare start at cold.ipc.
+    "cold": ("ipc", "vec", "request", "response", "crash_chain"),
     "stream": ("buf", "buf_bytes", "playing", "start", "length", "pos", "fetched", "consumed", "refills"),
     "card": ("image", "run_count", "runs", "dirty", "dirty_count", "activity", "seen_activity", "flushes",
              "flush_error"),
     "rvz": ("disc_bytes", "chunk_bytes", "group_count", "stored_buffer", "stored_bytes", "dctx_buffer",
-            "dctx_bytes", "extent_count", "table_extent_count", "slots", "entry_sector", "table_extents",
+            "dctx_bytes", "extent_count", "table_extent_count", "slots", "entry_sector",
             "extents", "header", "groups_loaded"),
     "bt": ("fd", "stage", "polls", "events", "acl", "event_buf", "event_count", "acl_buf", "remotes",
            "data_reports"),
@@ -95,7 +100,7 @@ def context_layout(devkitppc):
         source = temporary / "layout.c"
         expressions = {name: f"offsetof(struct gc_rt_context, {name})" for name in FIELDS}
         for area, fields in EXTRA_FIELDS.items():
-            type_name = "gc_rt_stream" if area == "stream" else f"gc_{area}"
+            type_name = {"stream": "gc_rt_stream", "cold": "gc_rt_cold"}.get(area, f"gc_{area}")
             for name in fields:
                 expressions[f"{area}.{name}"] = f"offsetof(struct {type_name}, {name})"
         expressions["crash.card_bytes"] = "GC_CRASH_CARD_BYTES"
@@ -139,6 +144,7 @@ class Machine:
                     struct.pack_into(">H", binary, offset, half & 0xFFFF)
         self.uc.mem_write(BASE, bytes(binary))
         self.ctx = BASE + words(binary[:16])[3]
+        self.cold = COLD
         self.layout = layout
         directory = "gcrvz" if rvz else "gc"
         self.functions = symbols(ROOT / f"build-runtime/{directory}/{variant}.elf")
@@ -175,7 +181,7 @@ class Machine:
             "set_alarm": SET_ALARM, "alarm_entry": self.functions["gc_alarm"],
             "bounce": 0x90010000, "bounce_bytes": 0x8000, "delay_ticks": 2000,
             "usb_fd": 2 if usb else 0xFFFFFFFF, "flags": 0x20000 if slow else 0,
-            "io_stack": 0x90100000, "io_buffer": 0x90200000,
+            "io_stack": 0x90100000, "io_buffer": 0x90200000, "cold": COLD,
         }.items():
             self.put(name, value)
         # A deliberately unaligned run exercises sector skips and bounce copies.
@@ -569,12 +575,12 @@ def test_controller_overlap(layout):
 
         pending = machine.get("io_pending")
         job = machine.get("io_job")
-        shared = bytes(machine.uc.mem_read(machine.ctx + layout["ipc"], 160))
+        shared = bytes(machine.uc.mem_read(machine.cold + layout["cold.ipc"], 160))
         machine.call(function, machine.ctx, address)
         assert len(machine.sends) > 1, "a controller lost its poll while storage waited for a reply"
         assert machine.get("storage_busy") == 1 and machine.get("io_job") == job
         assert machine.get("io_pending") == pending
-        assert bytes(machine.uc.mem_read(machine.ctx + layout["ipc"], 160)) == shared
+        assert bytes(machine.uc.mem_read(machine.cold + layout["cold.ipc"], 160)) == shared
         machine.call("gc_sd_write", machine.ctx, 300, 1, 0x90070000)
         assert machine.reg(3) == (-3000 & 0xFFFFFFFF), "a card write stole the read's buffers"
         assert machine.get("storage_busy") == 1 and machine.get("io_pending") == pending
@@ -939,15 +945,15 @@ def test_leave_timeout(layout):
             # Inject the state a timed-out trace leaves behind, including
             # a late acknowledgment. The real exit must drain its DMA
             # before overwriting this request and its vectors for ES.
-            request = machine.ctx + layout["ipc"]
-            vectors = machine.ctx + layout["vec"]
-            command = machine.ctx + layout["request"]
+            request = machine.cold + layout["cold.ipc"]
+            vectors = machine.cold + layout["cold.vec"]
+            command = machine.cold + layout["cold.request"]
             fields = [0] * 16
             fields[0], fields[2], fields[3], fields[6] = 7, 1, 7, vectors & 0x3FFFFFFF
             uc.mem_write(request, struct.pack(">16I", *fields))
             uc.mem_write(command, struct.pack(">9I", 0x19, 3, 1, 300, 1, 512, 0x90070000, 1, 0))
             uc.mem_write(vectors, struct.pack(">6I", command & 0x3FFFFFFF, 36, 0x10070000,
-                                             512, (machine.ctx + layout["response"]) & 0x3FFFFFFF, 16))
+                                             512, (machine.cold + layout["cold.response"]) & 0x3FFFFFFF, 16))
             physical = request & 0x3FFFFFFF
             machine.put("io_pending", physical)
             machine.put("ipc_sending", 1)
@@ -1004,7 +1010,7 @@ def prepare_stalled_leave(machine):
 
 def protect_storage(machine):
     """Reject PPC writes to every shared DMA buffer during failed teardown."""
-    regions = [(machine.ctx + machine.layout[name], length)
+    regions = [(machine.cold + machine.layout[f"cold.{name}"], length)
                for name, length in (("ipc", 64), ("vec", 32), ("request", 64), ("response", 32))]
     regions.extend(((machine.get("bounce"), machine.get("bounce_bytes")),
                     (machine.get("trace_buf"), 512), (machine.get("io_buffer"), 0x10000)))
@@ -1424,7 +1430,7 @@ def test_worker_stack(layout):
 
     machine.uc.hook_add(UC_HOOK_CODE, stop_after_chain)
     machine.call("gc_on_fatal", machine.ctx, 2, registers, 0, 0, terminal=True)
-    chain = machine.ctx + layout["crash_chain"]
+    chain = machine.cold + layout["cold.crash_chain"]
     assert words(machine.uc.mem_read(chain, 16)) == (0x81700100, 0x81700200, 0, 0)
     for frame in (stack - 4, stack + 0x10000 - 4, stack + 0x10000, stack + 1, 0x81800000 - 4):
         machine.uc.mem_write(registers + 4, struct.pack(">I", frame))
@@ -1437,7 +1443,7 @@ def test_worker_stack(layout):
 def poll_idle_storage(machine):
     assert machine.get("storage_busy") == 1 and machine.get("io_pending") == 0
     assert machine.get("io_buffers_idle") == 1
-    shared = bytes(machine.uc.mem_read(machine.ctx + machine.layout["ipc"], 160))
+    shared = bytes(machine.uc.mem_read(machine.cold + machine.layout["cold.ipc"], 160))
     for kind in ("bt", "gcad"):
         address = machine.get(kind)
         function = "gc_bt_poll" if kind == "bt" else "gc_gcad_poll"
@@ -1445,7 +1451,7 @@ def poll_idle_storage(machine):
         machine.call(function, machine.ctx, address)
         assert machine.get_object(address, kind, "polls") == before + 1
     assert machine.get("storage_busy") == 1
-    assert bytes(machine.uc.mem_read(machine.ctx + machine.layout["ipc"], 160)) == shared
+    assert bytes(machine.uc.mem_read(machine.cold + machine.layout["cold.ipc"], 160)) == shared
     machine.call("gc_sd_write", machine.ctx, 300, 1, 0x90070000)
     assert machine.reg(3) == (-3000 & 0xFFFFFFFF)
 
@@ -1495,7 +1501,8 @@ def read_rvz_fixture(layout, stored, flags, payload, label):
                         "extent_count": 1, "table_extent_count": 1, "entry_sector": 0xFFFFFFFF}.items():
         machine.put_object(rvz, "rvz", name, value)
     machine.uc.mem_write(rvz + layout["rvz.extents"], struct.pack(">3I", 0, 0, len(disk) // 512))
-    machine.uc.mem_write(rvz + layout["rvz.table_extents"], struct.pack(">3I", 0, 1, 1))
+    # The table's extents follow the image's (gc_rvz_table_extents): one here.
+    machine.uc.mem_write(rvz + layout["rvz.extents"] + 12, struct.pack(">3I", 0, 1, 1))
     for slot, buffer in enumerate((0x900A0000, 0x900D0000)):
         machine.uc.mem_write(rvz + layout["rvz.slots"] + slot * 24,
                              struct.pack(">6I", buffer, 0x21000, 0xFFFFFFFF, 0, 0, 0))
@@ -1541,37 +1548,27 @@ def read_rvz_fixture(layout, stored, flags, payload, label):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--devkitppc", type=Path, required=True)
+    parser.add_argument("--keep-going", action="store_true",
+                        help="run every test even after one fails, then list the failures")
     args = parser.parse_args()
     layout = context_layout(args.devkitppc)
-    test_reads(layout)
-    test_replacement(layout)
-    test_drive_timing(layout)
-    test_bt_read_retries(layout)
-    test_bt_report_order(layout)
-    test_controller_overlap(layout)
-    test_disk_id(layout)
-    test_fatal_fp_exception(layout)
-    test_cancel_before_start(layout)
-    test_stream(layout)
-    test_card(layout)
-    test_card_status_error(layout)
-    test_controller_timeout(layout)
-    test_timeout(layout)
-    test_reply_before_ack_timeout(layout)
-    test_reset_drain(layout)
-    test_leave_timeout(layout)
-    test_stalled_teardown(layout)
-    test_drain_deadline(layout)
-    test_home_during_stalled_storage(layout)
-    test_late_dma_during_leave(layout)
-    test_forced_save_timeout(layout)
-    test_returning_leave(layout)
-    test_returning_stream(layout)
-    test_leave_audio(layout)
-    test_quarantine_error(layout)
-    test_worker_stack(layout)
-    test_sd_wait_controllers(layout)
-    test_rvz(layout, args.devkitppc)
+    tests = [test_reads, test_replacement, test_drive_timing, test_bt_read_retries, test_bt_report_order, test_controller_overlap, test_disk_id, test_fatal_fp_exception, test_cancel_before_start, test_stream, test_card, test_card_status_error, test_controller_timeout, test_timeout, test_reply_before_ack_timeout, test_reset_drain, test_leave_timeout, test_stalled_teardown, test_drain_deadline, test_home_during_stalled_storage, test_late_dma_during_leave, test_forced_save_timeout, test_returning_leave, test_returning_stream, test_leave_audio, test_quarantine_error, test_worker_stack, test_sd_wait_controllers, test_rvz]
+    failed = []
+    for test in tests:
+        try:
+            if test is test_rvz:
+                test(layout, args.devkitppc)
+            else:
+                test(layout)
+        except Exception as error:  # noqa: BLE001 - reported, then the run fails
+            if not args.keep_going:
+                raise
+            failed.append(test.__name__)
+            print(f"FAILED {test.__name__}: {type(error).__name__}: {error}")
+    if failed:
+        print(f"gc io emutest: {len(tests) - len(failed)} of {len(tests)} tests passed; failed: {', '.join(failed)}")
+        raise SystemExit(1)
+    print(f"gc io emutest: all {len(tests)} tests passed")
 
 
 if __name__ == "__main__":

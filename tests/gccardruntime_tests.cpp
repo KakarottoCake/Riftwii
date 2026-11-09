@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #define RT_TARGET_PPC
+#define GC_HOST_COLD
 #include "../runtime/gc/gc_card.c"
 
 #include <cstdio>
@@ -35,16 +36,21 @@ int32_t gc_sd_write(gc_rt_context*, std::uint32_t sector, std::uint32_t, std::ui
 
 static std::uint32_t gc_physical(std::uint32_t address) { return address & 0x3fffffffu; }
 
+// The blob's MEM2 state (gc_rt.h's gc_rt_cold), here a static of the test's.
+static gc_rt_cold cold_state;
+gc_rt_cold* gc_cold(const gc_rt_context*) { return &cold_state; }
+
 static int32_t gc_ioctlv(gc_rt_context* context, std::uint32_t fd, std::uint32_t request,
                         std::uint32_t inputs, std::uint32_t outputs) {
+    const gc_rt_cold* cold = gc_cold(context);
     if (fd != context->usb_fd || request != 0x554D5304u || inputs != 3 || outputs != 0 ||
-        context->vec[0] != gc_physical(static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(&context->request[0]))) ||
-        context->vec[2] != gc_physical(static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(&context->request[1]))) ||
-        context->vec[1] != 4 || context->vec[3] != 4 ||
-        context->vec[4] != gc_physical(active_card->image + (context->request[0] - 1000) * 512) ||
-        context->vec[5] != context->request[1] * 512) return -999;
+        cold->vec[0] != gc_physical(static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(&cold->request[0]))) ||
+        cold->vec[2] != gc_physical(static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(&cold->request[1]))) ||
+        cold->vec[1] != 4 || cold->vec[3] != 4 ||
+        cold->vec[4] != gc_physical(active_card->image + (cold->request[0] - 1000) * 512) ||
+        cold->vec[5] != cold->request[1] * 512) return -999;
     usb_writes++;
-    return record_write(context->request[0]);
+    return record_write(cold->request[0]);
 }
 
 #define GC_SECTOR 512u

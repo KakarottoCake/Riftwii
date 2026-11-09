@@ -179,6 +179,18 @@ Two scripts on the card drive a run without hands on a controller:
   asynchronous worker; remove the file to disable it. Boot logs name it
   once when enabled. Leave `trace` off when comparing audio.
 
+  `py -3.13 tools/gc_hooks_emutest.py --devkitppc C:/devkitPro/devkitPPC`
+  runs the EXI hook trampolines and the DVDLow and load hook trampolines
+  of `runtime/gc/gc_entry.S` and of its old copy in
+  `tests/fixtures/gc-legacy/` with the same game registers (Unicorn); the
+  reset and exception (fatal) hooks are not covered. Both copies must
+  make the same calls with the same arguments and
+  leave the same stack and the same registers, except the scratch
+  registers the new trampolines use: r12 for the EXI hooks, r11, r12 and
+  CTR for the DVDLow and load hooks (all volatile in the PowerPC EABI, so
+  no caller relies on them). It is a manual check: it needs devkitPPC and
+  `pip install unicorn`, and neither ctest nor CI runs it.
+
   `py -3.13 tools/gc_io_emutest.py --devkitppc C:/devkitPro/devkitPPC`
   checks the built PowerPC worker with Unicorn (`pip install unicorn`)
   and devkitPro's zstd executable. It exercises slow IOS completions,
@@ -186,6 +198,11 @@ Two scripts on the card drive a run without hands on a controller:
   cancellation, save changes during writes, and a compressed RVZ group.
   Its simulated instruction clock is a deadline test, not a hardware
   performance measurement, and it does not replace game tests in Dolphin.
+  `--keep-going` runs every test after a failure and lists the failures.
+  Some tests are out of date with the blob (they call `gc_bt_poll` and
+  `gc_card_flush`, which LTO now splits, treat the card's dirty map as
+  inline bytes, and look for zstd under msys2), so those fail until they
+  are brought up to date.
 
 Dolphin cannot run a d2x cIOS, so SD and USB image boot can only be
 checked on a Wii (`docs/USB_HARDWARE_TEST.md`). What Dolphin does check

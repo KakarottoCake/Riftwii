@@ -14,7 +14,7 @@
  * Layout (gc_entry.S): the header below, the trampolines, the C code,
  * then the context. Position independent (linked at two bases and
  * compared); it sits in MEM1 just below the FST, under the game's arena.
- * Storage IPC buffers are in the context, 32-byte aligned; controller
+ * Storage IPC buffers are in struct gc_rt_cold (MEM2), 32-byte aligned; controller
  * requests and the way back have their own loader-placed memory. */
 #ifndef RIFTWII_GC_RT_H
 #define RIFTWII_GC_RT_H
@@ -26,7 +26,7 @@
 #include "gc_load.h"
 
 #define GC_RT_MAGIC 0x52574744u          /* "RWGD" */
-#define GC_RT_VERSION 12u                /* also in gc_entry.S's header */
+#define GC_RT_VERSION 13u                /* also in gc_entry.S's header */
 #define GC_RT_CONTEXT_MAGIC 0x52574743u  /* "RWGC" */
 
 /* The way back owns its IPC memory even when storage DMA is quarantined. */
@@ -107,7 +107,7 @@ struct gc_rt_header {
     uint32_t hook_hot_reset;        /* the SDK's reset routine (PI's reset register): gc_on_hot_reset, never returns */
     uint32_t alarm_entry_ogc;       /* libogc's alarm callback (handle, arg): gc_on_alarm with arg as the alarm */
     uint32_t di_common;             /* what a DI start slot calls: gc_on_di_start */
-    uint32_t di_slots;              /* GC_DI_SITES slots of GC_DI_SLOT_WORDS words (gc_layout.h), loader-written */
+    uint32_t di_slots_unused;       /* 0: the DI start slots are a MEM1 piece of the loader's (gc_layout.h) */
     uint32_t hook_boot_dol;         /* __OSBootDolSimple(...): gc_on_boot_dol, then the original */
     uint32_t replay_boot_dol;
     uint32_t continue_boot_dol;
@@ -510,12 +510,6 @@ struct gc_rt_context {
     uint32_t beat_pc;
     uint32_t beat_lr;
     uint32_t beat_msr;
-    uint32_t exception;       /* set by gc_on_fatal */
-    uint32_t dsisr;
-    uint32_t dar;
-    uint32_t crash_gpr[5];    /* r1, r3, r4, r5, r31 */
-    uint32_t crash_chain[4];  /* the saved LRs up the stack: who called whom */
-    uint32_t crash_word;
     /* The guard: IOS keeps live globals at 0x80003100-0x800031ff on a Wii
      * and writes them while it works (a counter at 0x800031a0 at least),
      * but a GameCube game has code there. The loader's copy of the game's
@@ -543,6 +537,7 @@ struct gc_rt_context {
     /* An RVZ game (the blob's RVZ build): the disc's GC_RUN_RVZ runs are
      * read from it. */
     uint32_t rvz;             /* struct gc_rvz (loader-placed), 0: an ISO */
+    uint32_t cold;            /* struct gc_rt_cold (loader-placed in MEM2), never 0 */
     uint32_t rvz_ticks;       /* timebase ticks spent in its reads (card and decoding), wraps */
     uint32_t test_motor;      /* GC_FLAG_RUMBLE_TEST: the game's PADControlMotor (hooked), 0: not found */
     /* The way back to RiftWii: holding HOME (or L, R, Z and Start) for
@@ -556,12 +551,6 @@ struct gc_rt_context {
     uint32_t leave_card_quiet;    /* since when the card has had no access (timebase) */
     uint32_t ipc_no_timeout;      /* 1: the request being sent waits for its reply however long (the launch) */
     uint32_t crash_a_was_down;    /* the crash screen: A was down at the last look */
-    /* The VI's registers the last time they showed a picture (gc_vi_note):
-     * RiftWii's own frame at the jump, then the game's at each heartbeat.
-     * A crash puts them back when the screen it finds is blanked, as the
-     * SDK keeps it from VIInit until the game's first frame and while it
-     * is black (VISetBlack), so the crash screen is seen. */
-    uint32_t vi_shown[GC_VI_SAVED_WORDS];
     /* The picture options (the game's Options: 480p, 16:9). */
     uint32_t vi_configures;
     uint32_t vi_mode;         /* GC_TR_VI_MODE */
@@ -575,7 +564,6 @@ struct gc_rt_context {
     uint32_t vi_width;        /* Picture width (gc_video.h's vi_width): 0 the game's own */
     uint32_t vi_copy[16];     /* the copy of the game's GXRenderModeObj VIConfigure gets (0x3C bytes, gc_video.h) */
     uint32_t projection[16];  /* the widened copy of the game's projection matrix */
-    uint32_t projection_callers[GC_PROJECTION_CALLERS * 4];
     /* The restart (Reset, gc_on_hot_reset), loader-filled: the game's
      * entry, the regions to put back (struct gc_restart_region in MEM2,
      * 0: no restart) and the game's OSResetSystem. */
@@ -592,11 +580,6 @@ struct gc_rt_context {
     uint32_t reset_down_since;    /* when it went down (low bit set), 0: up */
     uint32_t reset_request_at;    /* when a press ended (low bit set), 0: none waiting */
     uint32_t reset_asked_before;  /* resets_asked then: the game's own call answers the press */
-    /* The hand-over to the next title (gc_leave): the VI's registers as
-     * RiftWii left them at the jump, the game's TV format interlaced as
-     * libogc set it up, noted by gc_on_trace_now and put back blanked
-     * (gc_vi_hand_over). Two 16-bit registers a word, from 0x00. */
-    uint32_t vi_at_jump[GC_VI_HANDOVER_WORDS];
     /* The restart's audio reset (gc_audio_reset): the ARAM interface's
      * size (0x5012) << 16 | refresh (0x501A) and the audio interface's
      * control as they were at the jump, which the first start had. */
@@ -634,10 +617,6 @@ struct gc_rt_context {
     uint8_t aram_scratch[32] __attribute__((aligned(32)));  /* the hardware's own ARAM DMA goes here */
     uint8_t alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
     uint8_t beat_alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
-    uint32_t ipc[16] __attribute__((aligned(32)));      /* the IPC request */
-    uint32_t vec[8] __attribute__((aligned(32)));       /* three vectors */
-    uint32_t request[16] __attribute__((aligned(32)));  /* the SENDCMD block (36 bytes) */
-    uint32_t response[8] __attribute__((aligned(32)));
     /* The callback heap policy's four r13 displacements, loader-found:
      * the game's two main heaps, then JKRHeap's system and root heaps.
      * Kept at the end so existing trace/context offsets stay unchanged. */
@@ -690,6 +669,61 @@ struct gc_rt_context {
 
 /* It fits the room gc_entry.S keeps (gc_layout.h); the rest stays zero. */
 typedef char gc_rt_context_size[(sizeof(struct gc_rt_context) <= GC_RT_CONTEXT_BYTES) ? 1 : -1];
+
+/* The part of the blob's state that neither the game nor its hot paths
+ * touch, kept in MEM2 (loader-placed, zeroed) so MEM1 keeps only what has
+ * to be there: the storage IPC buffers (IOS reads and writes MEM2 as well
+ * as MEM1), the VI's registers noted for the crash screen and the
+ * hand-over, the projection callers the trace reports, and a crash's
+ * registers. None of it is set by the loader or differs between the
+ * programs a game loads (gc_programs.h), so it needs no part in their
+ * switch. */
+struct gc_rt_cold {
+    uint32_t ipc[16] __attribute__((aligned(32)));      /* the IPC request */
+    uint32_t vec[8] __attribute__((aligned(32)));       /* three vectors */
+    uint32_t request[16] __attribute__((aligned(32)));  /* the SENDCMD block (36 bytes) */
+    uint32_t response[8] __attribute__((aligned(32)));
+    /* The VI's registers the last time they showed a picture (gc_vi_note):
+     * RiftWii's own frame at the jump, then the game's at each heartbeat.
+     * A crash puts them back when the screen it finds is blanked, as the
+     * SDK keeps it from VIInit until the game's first frame and while it
+     * is black (VISetBlack), so the crash screen is seen. */
+    uint32_t vi_shown[GC_VI_SAVED_WORDS];
+    /* The hand-over to the next title (gc_leave): the VI's registers as
+     * RiftWii left them at the jump, the game's TV format interlaced as
+     * libogc set it up, noted by gc_on_trace_now and put back blanked
+     * (gc_vi_hand_over). Two 16-bit registers a word, from 0x00. */
+    uint32_t vi_at_jump[GC_VI_HANDOVER_WORDS];
+    uint32_t projection_callers[GC_PROJECTION_CALLERS * 4];
+    uint32_t exception;       /* set by gc_on_fatal */
+    uint32_t dsisr;
+    uint32_t dar;
+    uint32_t crash_gpr[5];    /* r1, r3, r4, r5, r31 */
+    uint32_t crash_chain[4];  /* the saved LRs up the stack: who called whom */
+    uint32_t crash_word;
+};
+/* IOS reads and writes the four request buffers by DMA, whole 32-byte cache
+ * lines each: every one starts on a line, and the struct is whole lines, so
+ * nothing after it shares the last one (the loader places it 32-aligned). */
+#define GC_COLD_LINE(member) (__builtin_offsetof(struct gc_rt_cold, member) % 32u == 0)
+GC_FLAG_CHECK(gc_cold_ipc_line, GC_COLD_LINE(ipc), "gc_rt_cold.ipc must start a cache line");
+GC_FLAG_CHECK(gc_cold_vec_line, GC_COLD_LINE(vec), "gc_rt_cold.vec must start a cache line");
+GC_FLAG_CHECK(gc_cold_request_line, GC_COLD_LINE(request), "gc_rt_cold.request must start a cache line");
+GC_FLAG_CHECK(gc_cold_response_line, GC_COLD_LINE(response), "gc_rt_cold.response must start a cache line");
+GC_FLAG_CHECK(gc_cold_whole_lines, sizeof(struct gc_rt_cold) % 32u == 0, "gc_rt_cold must be whole cache lines");
+
+/* `cold` is a 32-bit address, as on the Wii; a host test, whose own
+ * struct sits above 4 GB, defines GC_HOST_COLD and gives its own.
+ * It is never 0 inside the game: the loader always places the block and
+ * refuses to start the game unless it is set and 32-byte aligned
+ * (gcnative.cpp), so the blob reads through it with no check. */
+#ifndef GC_HOST_COLD
+static inline struct gc_rt_cold* gc_cold(const struct gc_rt_context* ctx) {
+    return (struct gc_rt_cold*)(uintptr_t)ctx->cold;
+}
+#else
+struct gc_rt_cold* gc_cold(const struct gc_rt_context* ctx);
+#endif
 
 #ifdef RT_TARGET_PPC
 uint32_t gc_on_read(struct gc_rt_context* ctx, uint32_t addr, uint32_t length, uint32_t offset, uint32_t cb);
