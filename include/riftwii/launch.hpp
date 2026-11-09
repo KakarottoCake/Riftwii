@@ -146,6 +146,7 @@ struct GameSettings {
     // as a Wii game's rows do (GcConsoleSettings, resolved below); "game"
     // is the game's own whatever those say.
     // "480p": progressive scan, for a US or Japanese game on a component cable;
+    // "240p": every other line of the game's 480-line picture, progressive, for a CRT;
     std::string gc_progressive = "global";
     // "16:9": the game's 3D drawn for a widescreen TV;
     std::string gc_widescreen = "global";
@@ -197,6 +198,7 @@ struct GcConsoleSettings {
     bool component_cable = false;           // the video hardware says a component cable is plugged in
     int wii_language = -1;                  // the Wii's language, as libogc's CONF_LANG_* number
     std::string video_width = "game";       // LoaderSettings::video_width (riftwii/videopatch.hpp names)
+    std::string video_mode = "game";        // LoaderSettings::video_mode: "240p" there makes Default 240p
 };
 
 // Whether the game's 3D is drawn for 16:9: only "16:9", picked for the
@@ -216,6 +218,12 @@ constexpr bool kGcWidescreenReady = false;
 // Wii's own 480p setting is on and a component cable is plugged in. Never
 // for a PAL game (gc_pal_game).
 bool gc_progressive_on(const GameSettings& game, const std::string& id, const GcConsoleSettings& console);
+
+// Whether the game gets 240p: "240p" yes, "480p" and "game" no,
+// "global" when Settings > Picture > Video mode is 240p (a CRT player's
+// choice for every game). It wins over Default's 480p. Never for a PAL
+// game, as 480p: its picture is 576 lines.
+bool gc_line240_on(const GameSettings& game, const std::string& id, const GcConsoleSettings& console);
 
 // Whether a European game (gc_pal_game) is told the TV takes 60 Hz.
 bool gc_sixty_hz_on(const GameSettings& game, const std::string& id);

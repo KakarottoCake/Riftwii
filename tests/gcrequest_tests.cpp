@@ -427,6 +427,18 @@ static void test_volume_boost_request() {
     }
 }
 
+// 480p and 240p are one choice: both at once is refused.
+static void test_picture_lines_request() {
+    Fixture fixture;
+    std::string why;
+    fixture.request.line240 = 1;
+    EXPECT_TRUE(fixture.check(why));
+    fixture.request.progressive = 1;
+    EXPECT_FALSE(fixture.check(why));
+    fixture.request.line240 = 0;
+    EXPECT_TRUE(fixture.check(why));
+}
+
 // The controllers' calibration crosses the plugin line whole, or not at all.
 static void test_pad_calibration_request() {
     Fixture fixture;
@@ -448,6 +460,7 @@ static void test_pad_calibration_request() {
 
 int main() {
     test_external_card_request();
+    test_picture_lines_request();
     test_screen_offset_request();
     test_volume_boost_request();
     test_slot_b_as_a_request();

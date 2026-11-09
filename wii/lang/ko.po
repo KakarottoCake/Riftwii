@@ -2010,9 +2010,6 @@ msgstr "켬 (480p)"
 msgid "Widescreen"
 msgstr "와이드 화면"
 
-msgid "480p is for US and Japanese games; this European game keeps its own picture."
-msgstr "480p는 미국과 일본 게임용이며, 이 유럽 게임은 원래 화면을 그대로 씁니다."
-
 msgid "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."
 msgstr "컴포넌트 케이블에서 더 선명하고 안정적인 화면을 보여 주며, 480p가 없는 게임도 해당됩니다. 일부 게임은 먼저 물어봅니다."
 
@@ -4235,6 +4232,18 @@ msgstr "슬롯 A만 찾는 게임용: 슬롯 B의 실제 카드가 슬롯 A가 �
 
 msgid "Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A."
 msgstr "슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B의 카드를 쓰려면 \"슬롯 B의 실제 카드를 슬롯 A로\"를 고르세요."
+
+msgid "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture."
+msgstr "240p는 CRT TV와 도트 그래픽용입니다. 게임의 480라인 화면을 한 줄씩 건너뛰어 깜박임 없는 프로그레시브로 내보냅니다. 라인이 더 적은 게임은 원래 화면을 유지합니다."
+
+msgid "GameCube games left on Default get it too."
+msgstr "기본값인 게임큐브 게임에도 적용됩니다."
+
+msgid "Picture lines"
+msgstr "화면 라인 수"
+
+msgid "480p and 240p are for US and Japanese games; this European game keeps its own picture."
+msgstr "480p와 240p는 미국과 일본 게임용이며, 이 유럽 게임은 원래 화면을 그대로 씁니다."
 
 msgid "Leaving a game"
 msgstr "게임 나가기"

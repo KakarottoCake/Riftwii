@@ -2010,9 +2010,6 @@ msgstr "オン (480p)"
 msgid "Widescreen"
 msgstr "ワイド画面"
 
-msgid "480p is for US and Japanese games; this European game keeps its own picture."
-msgstr "480pはアメリカと日本のゲーム用で、このヨーロッパのゲームはゲームのままの映像になります。"
-
 msgid "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."
 msgstr "コンポーネントケーブルで、くっきり安定した映像にします。480pのないゲームも対象で、先に確認を求めるゲームもあります。"
 
@@ -4235,6 +4232,18 @@ msgstr "スロットAしか見ないゲーム用です。スロットBの実物�
 
 msgid "Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A."
 msgstr "スロットAに読めるメモリーカードがありません。スロットBのカードを使うには「スロットBの実物カードをスロットAとして」を選んでください。"
+
+msgid "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture."
+msgstr "240pはブラウン管テレビとドット絵向けです。ゲームの480ラインの画面を1ラインおきに、ちらつきのないプログレッシブで出力します。ラインの少ないゲームは元の画面のままです。"
+
+msgid "GameCube games left on Default get it too."
+msgstr "「標準」のゲームキューブのゲームにも使われます。"
+
+msgid "Picture lines"
+msgstr "映像のライン数"
+
+msgid "480p and 240p are for US and Japanese games; this European game keeps its own picture."
+msgstr "480pと240pはアメリカと日本のゲーム用で、このヨーロッパのゲームはゲームのままの映像になります。"
 
 msgid "Leaving a game"
 msgstr "ゲームをやめるとき"
