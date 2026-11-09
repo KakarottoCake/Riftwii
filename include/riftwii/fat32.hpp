@@ -51,6 +51,9 @@ struct Fat32Entry {
     bool is_directory = false;
     std::uint32_t size = 0;           // zero for directories
     std::uint32_t first_cluster = 0;  // zero for empty files
+    // The directory entry's FAT times and dates (CTGP-R's jelly.bin key is
+    // made from them, riftwii/ctgpefa.hpp).
+    std::uint16_t create_time = 0, create_date = 0, write_time = 0, write_date = 0;
 };
 
 struct Fat32File {
