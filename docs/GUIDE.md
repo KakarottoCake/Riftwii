@@ -145,7 +145,8 @@ Now RiftWii has its own channel on the Wii Menu. It also lets games go
   - **HOME** on a Wii Remote with a Nunchuk, a Classic Controller, or a
     Wii U Pro Controller;
   - **HOME and −** together on a Wii Remote alone;
-  - **L, R, Z and Start** together on a GameCube controller.
+  - **L, R, Z and Start** together on a GameCube controller (unless
+    Settings > Games > Leaving a game is *HOME only*).
 
 ### Step 9: If something goes wrong
 
@@ -502,8 +503,14 @@ USB drive: choose another Saves option on its page.
     *Remove* for those. After a game has run once, the page tells you
     which borders it left.
 - **Video mode** makes the game use another TV signal: *NTSC (480i)*,
-  *PAL 60 Hz*, *PAL 50 Hz*, *480p* (needs a component cable) or *The
-  console's* setting. *Game's own* leaves it to the game.
+  *PAL 60 Hz*, *PAL 50 Hz*, *480p* (needs a component cable), *240p* or
+  *The console's* setting. *Game's own* leaves it to the game.
+  *240p* is for CRT TVs and pixel art: a game that draws a whole
+  480-line picture sends every other line of it, progressive at 60 Hz,
+  with no interlace flicker and the flicker filter off (European Wii games switch to 60 Hz for it). Games that draw fewer lines keep their own
+  picture. In Settings it also applies to GameCube games whose Picture
+  lines are on *Default*. Some TVs and capture devices don't take
+  240p.
 - **Region video fix** (off unless you turn it on) is for a US or
   Japanese game that shows no picture on a console from another region:
   the game is told the video hardware matches its region.
@@ -661,6 +668,10 @@ the tiles.
 - **Quitting a game**: *Back to RiftWii* makes the Wii Menu button of a
   game's HOME Menu start RiftWii again (it needs the RiftWii channel);
   *Wii Menu* leaves it as it was.
+- **Leaving a game**: *HOME or buttons* (at first) lets L, R, Z and Start
+  held on a GameCube controller go back to RiftWii, as holding HOME does;
+  *HOME only* turns those buttons off (see [Leaving a
+  game](#gamecube-games)). Saved as `leave_buttons = on` or `off`.
 - **Menu sounds** (Normal, Quiet, Off) and **Menu music**: the music is
   `music.ogg` (Ogg Vorbis, up to 6 MB) from `sd:/riftwii/`, or else the one
   the release puts in `sd:/apps/riftwii/`, looped while the menu is open.
@@ -922,12 +933,20 @@ played, Favourites), can hide them as they hide any game.
 A GameCube game's page has its own options in place of a Wii game's
 picture and online settings: **Memory card** (*Default*, which follows **Settings > Games > GameCube
 memory card**, *This game's own*, *Shared* or, on an original Wii, *Real
-card in slot A* or *Real card in slot B*), **480p picture** (not for European games), **Sharper
-picture**, **Picture width**, **Game language** and, for European
+card in slot A*, *Real card in slot B* or *Real card in slot B, as slot A*), **Picture lines** (*On (480p)*, *240p* for a CRT TV, as
+Settings > Picture > Video mode describes, or *Off*; European GameCube games never get 480p or
+240p), **Sharper
+picture**, **Picture width**, **Volume boost** (all of a quiet game's sound
++3 or +6 dB louder), **Game language** and, for European
 games, **Game speed** (60 Hz instead of 50). GameCube games also follow
 the Wii's own **Screen Position** (Wii Settings > Screen), as Wii games
 do, when RiftWii finds where the game reads its position (the log says
 so); otherwise the game keeps its own.
+
+With **Picture lines** on *On (480p)*, games start in 480p without asking "Turn on
+progressive scan?". Games from 2001 such as Luigi's Mansion would ask
+every time, so RiftWii tells them the console's 480p setting is off and
+switches their picture to 480p itself.
 
 **Memory cards** are files on the SD card, in `sd:/riftwii/gc/cards/`:
 one for each game (`GMSE01.raw`), or with **Memory card** set to
@@ -945,8 +964,13 @@ on the SD card and RiftWii does not automatically back them up. If slot A
 has no readable card, the card is damaged, or its Japanese/Western text
 encoding differs from the game, RiftWii offers **Use this game's SD card**
 or **Cancel**. Accepting uses *This game's own* for this launch; the saved
-real-card choice stays. A card in slot B alone
-cannot serve as the game's slot A.
+real-card choice stays.
+
+**Real card in slot B, as slot A** is for a game that only looks in slot A:
+the physical card in slot B becomes the game's slot A (its saves go to that
+card, not the SD card), and slot B looks empty to the game. RiftWii passes
+the game's card commands to slot B as they are; check it with a card whose
+saves you have copied first.
 
 **Real card in slot B** keeps the game's own card from the SD card in slot
 A and lets the game use the physical card in slot B as well, as a
@@ -963,8 +987,8 @@ A game's own choice wins. Wii U has no memory card slots; the real
 choice is unavailable there.
 
 The GameCube **Saves** page offers the SD **Memory Card** tools and
-**Copy from a memory card in the Wii**. Choose **Slot A** or **Slot B**,
-then **This game's saves** (the game's own SD image, even when it currently
+**Copy from a memory card in the Wii**. Choose **Slot A** or **Slot B** (with
+a card in only one slot it is used without asking), then **This game's saves** (the game's own SD image, even when it currently
 uses a shared/real card) or **Every save** (the shared SD image for the
 physical card's encoding). RiftWii shows the matching count, how many will
 fit, duplicates left alone and unusable saves, plus the destination, before
@@ -1036,6 +1060,14 @@ Nintendont's memory cards, for all games at once:
 - L, R, Z and Start together on a GameCube controller.
 
 RiftWii waits for a save in progress before it goes back to the menu.
+If a game's own button combos (or a pad held in a bag) keep leaving it
+by accident, set **Settings > Games > Leaving a game** to *HOME only*:
+L, R, Z and Start then leave nothing, in GameCube games and in Wii
+games played with the adapter, and HOME (HOME and − on a Wii Remote
+alone, HOME on a Classic Controller or a Wii U Pro Controller) still
+leaves. A USB pad's Guide button presses L, R, Z and Start, so it
+leaves nothing either. Without a Wii Remote or a Wii U Pro Controller,
+only the console's **Reset** button then gets back.
 The console's **Reset** button restarts the game, as on a GameCube, in
 the games where that is known to work (Super Mario Sunshine, USA, and
 Super Mario Eclipse); in the others it goes back to RiftWii, as holding

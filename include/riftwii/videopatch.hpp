@@ -27,20 +27,31 @@
 //     480p). Each table the SDK defines is converted to the same kind of
 //     table in the other format, as that patcher does; a table with
 //     unusual heights keeps its own format (it still works, unforced).
+//   - 240p, for CRT TVs and pixel art: a table that draws a whole
+//     480-line picture (interlaced or 480p) becomes a double-strike one
+//     whose frame buffer holds the whole picture as two interleaved
+//     fields. The game draws and copies its 480 lines as before (many
+//     games size their viewport themselves), and the VI shows one field
+//     each retrace: every other line, 240 lines progressive at 60 Hz,
+//     as old consoles did. The copy can't halve the picture instead: its
+//     y scale only enlarges. The flicker filter is off: there is no
+//     interlace flicker to hide. Field-rendered, double-strike and
+//     unusual tables stay as made.
 namespace riftwii {
 
 enum class VideoWidth { Game, Framebuffer, W704, W720 };
 enum class Deflicker { Game, Off, Low, Medium, High };
 // As chosen: "system" is the console's own setting, resolved on the Wii
 // into a VideoTarget.
-enum class VideoMode { Game, System, Ntsc, Pal60, Pal50, Progressive };
+enum class VideoMode { Game, System, Ntsc, Pal60, Pal50, Progressive, Line240 };
 
 // The VI's TV formats (libogc's VI_NTSC ...).
 constexpr int kViNtsc = 0, kViPal = 1, kViMpal = 2, kViEurgb60 = 5;
 
 struct VideoTarget {
-    int format = -1;           // -1: the game's own tables are kept
+    int format = -1;           // -1: the game's own tables are kept (with line240: their own formats)
     bool progressive = false;  // interlaced tables become 480p ones
+    bool line240 = false;      // whole 480-line frames become 240p (double-strike) ones
 };
 
 struct VideoSettings {
@@ -51,7 +62,8 @@ struct VideoSettings {
     VideoMode mode = VideoMode::Game;
     VideoTarget target;           // what `mode` means on this console
     bool any() const {
-        return width != VideoWidth::Game || deflicker != Deflicker::Game || remove_borders || target.format >= 0;
+        return width != VideoWidth::Game || deflicker != Deflicker::Game || remove_borders || target.format >= 0 ||
+               target.line240;
     }
 };
 
@@ -59,7 +71,7 @@ struct VideoSettings {
 // "game", "off", "low", "medium", "high".
 const char* to_string(VideoWidth w);
 const char* to_string(Deflicker d);
-// "game", "system", "ntsc", "pal60", "pal50", "480p".
+// "game", "system", "ntsc", "pal60", "pal50", "480p", "240p".
 const char* to_string(VideoMode m);
 bool parse_video_width(const std::string& s, VideoWidth& out);
 bool parse_deflicker(const std::string& s, Deflicker& out);
@@ -68,7 +80,7 @@ bool parse_video_mode(const std::string& s, VideoMode& out);
 struct VideoPatchReport {
     unsigned modes = 0;         // render mode tables found
     unsigned patched = 0;       // of those, changed
-    unsigned converted = 0;     // of those, moved to the target format
+    unsigned converted = 0;     // of those, moved to the target format or made 240p
     bool side_borders = false;  // a mode draws narrower than the TV line
     bool top_borders = false;   // a mode leaves lines of the TV picture unused
     std::string describe() const;

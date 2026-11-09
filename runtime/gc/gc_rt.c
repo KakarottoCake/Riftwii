@@ -10,9 +10,11 @@
 #include "gc_ports.h"
 #include "gc_tgc.h"
 #include "gc_video.h"
+#include "gc_volume.h"
 #include "gc_load.h"
 #include "gc_disc.h"
 #include "gc_programs.h"
+#include "gc_tri.h"
 #ifdef RT_RVZ
 #include "gc_rvz.h"
 #endif
@@ -822,6 +824,10 @@ static uint32_t gc_read_begin(struct gc_rt_context* ctx, uint32_t addr, uint32_t
 }
 
 uint32_t gc_on_read(struct gc_rt_context* ctx, uint32_t addr, uint32_t length, uint32_t offset, uint32_t cb) {
+    /* A Triforce game reads its media board's status and mailboxes
+     * through the same command as its data (gc_tri.h). */
+    if (ctx->tri != 0 && gc_tri_is_board(offset))
+        return gc_tri_on_read(ctx, (struct gc_tri*)(uintptr_t)ctx->tri, addr, length, offset, cb);
     return gc_read_begin(ctx, addr, length, offset, cb, 0);
 }
 
@@ -1017,6 +1023,12 @@ uint32_t gc_on_done(struct gc_rt_context* ctx, uint32_t cb) {
     gc_set_imm(ctx, 0);  /* RequestError: no error */
     gc_complete(ctx, cb, GC_DI_TC);
     return 1;
+}
+
+void gc_di_finish(struct gc_rt_context* ctx, uint32_t cb, int with_imm, uint32_t imm) {
+    gc_command_seen(ctx, 1);
+    if (with_imm) gc_set_imm(ctx, imm);
+    gc_complete(ctx, cb, GC_DI_TC);
 }
 
 /* A frame buffer register's address: bits 0-23, shifted by 5 when bit 28
@@ -1836,22 +1848,14 @@ static int gc_stream_next(struct gc_rt_stream* st, int32_t* l, int32_t* r) {
     return 1;
 }
 
-/* AIInitDMA: the buffer the AI plays next is the game's finished mix;
- * the stream goes into it at the AI's stream volume. */
-void gc_on_ai_dma(struct gc_rt_context* ctx, uint32_t start, uint32_t length) {
-    struct gc_rt_stream* st = (struct gc_rt_stream*)(uintptr_t)ctx->stream;
-    const uint32_t cr = gc_read32(GC_AI_CR);
+/* The disc stream into `frames` stereo frames of the game's mix, at the
+ * AI's stream volume. */
+static void gc_stream_mix(struct gc_rt_context* ctx, struct gc_rt_stream* st, int16_t* out, uint32_t frames,
+                          uint32_t cr) {
     const uint32_t vr = gc_read32(GC_AI_VR);
-    gc_guard(ctx);
     const int32_t vol_l = (int32_t)(vr & 0xFFu);
     const int32_t vol_r = (int32_t)((vr >> 8) & 0xFFu);
-    const uint32_t addr = 0x80000000u | (start & 0x01FFFFE0u);
-    int16_t* out = (int16_t*)(uintptr_t)addr;
-    uint32_t frames = length / 4;
     uint32_t i;
-    if ((++ctx->ai_dmas & 1023) == 0) gc_trace(ctx, GC_TRACE_AI);
-    if (st == 0 || !st->playing || (cr & GC_AI_PSTAT) == 0 || length == 0) return;
-    gc_invalidate(addr, length);
     for (i = 0; i < frames; ++i) {
         int32_t l;
         int32_t r;
@@ -1880,8 +1884,35 @@ void gc_on_ai_dma(struct gc_rt_context* ctx, uint32_t start, uint32_t length) {
         out[2 * i] = (int16_t)gc_clamp16(out[2 * i] + ((l * vol_l) >> 8));
         out[2 * i + 1] = (int16_t)gc_clamp16(out[2 * i + 1] + ((r * vol_r) >> 8));
     }
-    gc_flush(addr, length);
     st->mixes++;
+}
+
+/* AIInitDMA: the buffer the AI plays next is the game's finished mix; the
+ * disc stream goes into it, then the Volume boost scales it all
+ * (gc_volume.h). Both before the original programs the AI with it. */
+void gc_on_ai_dma(struct gc_rt_context* ctx, uint32_t start, uint32_t length) {
+    struct gc_rt_stream* st = (struct gc_rt_stream*)(uintptr_t)ctx->stream;
+    const uint32_t cr = gc_read32(GC_AI_CR);
+    gc_guard(ctx);
+    const uint32_t addr = 0x80000000u | (start & 0x01FFFFE0u);
+    int16_t* out = (int16_t*)(uintptr_t)addr;
+    const int mix_stream = st != 0 && st->playing && (cr & GC_AI_PSTAT) != 0 && length != 0;
+    const int boost_on = ctx->volume_gain > GC_VOLUME_UNITY && length != 0;
+    int boost = 0;
+    if ((++ctx->ai_dmas & 1023) == 0) gc_trace(ctx, GC_TRACE_AI);
+    if (!mix_stream && !boost_on) return;
+    /* The DSP wrote the buffer behind the cache: read what it wrote. */
+    gc_invalidate(addr, length);
+    /* A buffer handed over again unchanged was scaled already
+     * (gc_volume_print): its fingerprint is the one kept after the last. */
+    if (boost_on) boost = gc_volume_print(out, length / 2) != ctx->volume_last;
+    if (mix_stream) gc_stream_mix(ctx, st, out, length / 4, cr);
+    if (boost) {
+        gc_volume_scale(out, length / 2, ctx->volume_gain);
+        ctx->volume_buffers++;
+    }
+    if (boost_on) ctx->volume_last = gc_volume_print(out, length / 2);
+    gc_flush(addr, length);
 }
 
 /* Back to RiftWii: the title the loader picked (the Homebrew Channel, the
@@ -1999,12 +2030,12 @@ static void gc_leave(struct gc_rt_context* ctx) {
 /* HOME on a Wii Remote with an extension or on a Classic Controller (HOME
  * and - on a Wii Remote alone, whose HOME is the game's Y), or L, R, Z and
  * Start together on a GameCube controller (the pads as the game reads
- * them), held for leave_hold ticks; checked at every pad read. Not while
- * storage is preparing buffers, nor within half a second of the game's last
- * memory card access (a save may be under way): the next read tries
- * again. */
+ * them; not with GC_FLAG_HOME_ONLY), held for leave_hold ticks; checked
+ * at every pad read. Not while storage is preparing buffers, nor within
+ * half a second of the game's last memory card access (a save may be
+ * under way): the next read tries again. */
 #define GC_CARD_QUIET_TICKS 30375000u  /* half a second of the timebase */
-#define GC_LEAVE_PAD 0x1070u  /* Start, L, R, Z */
+#define GC_LEAVE_PAD GC_PORTS_LEAVE_BUTTONS  /* Start, L, R, Z */
 /* Since when the memory card has had no access (leave_card_quiet), noted
  * while something waits for it to be quiet. */
 static void gc_card_note(struct gc_rt_context* ctx, uint32_t now) {
@@ -2019,15 +2050,11 @@ static int gc_card_quiet(const struct gc_rt_context* ctx, uint32_t now) {
     return ctx->card == 0 || now - ctx->leave_card_quiet >= GC_CARD_QUIET_TICKS;
 }
 static void gc_leave_check(struct gc_rt_context* ctx, const uint8_t* status) {
-    uint32_t port, now;
+    uint32_t now;
     int held = 0;
     if (ctx->leave_buf == 0 || ctx->leave_fd == 0xFFFFFFFFu) return;
     if (ctx->bt && gc_bt_home_held((const struct gc_bt*)(uintptr_t)ctx->bt)) held = 1;
-    for (port = 0; port < 4 && !held; ++port) {
-        const uint8_t* pad = status + 12 * port;
-        const uint32_t buttons = ((uint32_t)pad[0] << 8) | pad[1];
-        if (pad[10] == 0 && (buttons & GC_LEAVE_PAD) == GC_LEAVE_PAD) held = 1;
-    }
+    if (!held && gc_ports_leave_held(status, (ctx->flags & GC_FLAG_HOME_ONLY) != 0)) held = 1;
     if (!held) {
         ctx->leave_since = 0;
         return;

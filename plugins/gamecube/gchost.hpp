@@ -39,6 +39,7 @@ struct GcImage {
     std::uint64_t usb_bytes = 0;
     bool real_card = false;
     bool real_card_b = false;  // slot B's physical card beside the emulated one in slot A
+    bool real_card_b_as_a = false;  // slot B's physical card as the game's slot A (gc_card.h's real_slot_b)
     std::array<std::uint8_t, 12> real_card_flash_id{};
     bool card_on_usb = false;
     std::string external_card_path;
@@ -48,6 +49,7 @@ struct GcImage {
     bool shared_card = false;
     bool drive_timing = true;
     bool progressive = false;
+    bool line240 = false;  // 240p (rwp_gc_launch's line240)
     bool widescreen = false;
     int language = -1;
     bool sharp = false;
@@ -55,6 +57,7 @@ struct GcImage {
     std::uint32_t vi_width = 0;
     bool screen_offset_set = false;  // the game is told screen_offset as the console's screen position
     int screen_offset = 0;
+    std::uint32_t volume_boost_db = 0;  // Volume boost: 0, 3 or 6 dB (runtime/gc/gc_volume.h)
     // A switch to another program on the disc (rwp_gc_launch's exec).
     bool exec = false;
     std::uint32_t exec_dol = 0;
@@ -73,6 +76,7 @@ struct GcImage {
 // screen and the way back in the DOL (riftwii/plugin_gamecube.h).
 struct GcLaunchExtras {
     bool rumble_off = false;
+    bool leave_home_only = false;  // Settings > Leaving a game: HOME only, the button combo leaves nothing
     bool in_dolphin = false;
     std::vector<std::uint8_t> cheat_gct;
     std::size_t cheat_count = 0;

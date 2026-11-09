@@ -57,6 +57,15 @@ struct GcSramReads {
     std::vector<std::uint32_t> language;     // lbz rX,0x12(copy)
     std::vector<std::uint32_t> progressive;  // lbz rX,0x13(copy), then its bit 7 taken (>> 7 & 1)
     std::vector<std::uint32_t> sixty_hz;     // lbz rX,0x11(copy), then its bit 6 taken (>> 6 & 1)
+    // The 2001 SDK's OSGetProgressiveMode (Luigi's Mansion, GLME01): `lbz
+    // rX,0x13(copy)`, then `rlwinm. rX,rX,0,24,24` tests bit 7 in place
+    // and a branch returns 1 or 0. Games of that SDK ask "Turn on
+    // progressive scan?" when a component cable is in and either B is
+    // held or this says yes (Luigi's Mansion's start-up code), where later
+    // games take a yes as the answer and go to 480p without asking. So
+    // for 480p these reads answer no: the question is skipped, and
+    // VIConfigure's hook makes the game's interlaced picture 480p.
+    std::vector<std::uint32_t> progressive_asks;
     // The screen position (the signed byte at 0x10), which VIInit reads
     // once and adds to the picture's left edge: `bl __OSLockSram`, then
     // `lbz rX,0x10(r3)`, `li r3,0` (the unlock's argument) and `extsb` of

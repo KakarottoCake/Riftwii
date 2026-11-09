@@ -753,6 +753,12 @@ VideoTarget resolve_video_target(VideoMode mode, char region, bool progressive_o
         t.format = region_video_standard(region) == VI_PAL ? kViEurgb60 : kViNtsc;
         t.progressive = component;
         break;
+    case VideoMode::Line240:
+        // 240p: at 60 Hz, EuRGB60 for PAL games, NTSC otherwise. Any
+        // cable carries it (a CRT on the AV cable is the reason for it).
+        t.format = region_video_standard(region) == VI_PAL ? kViEurgb60 : kViNtsc;
+        t.line240 = true;
+        break;
     default: break;
     }
     return t;
@@ -774,11 +780,13 @@ void configure_video_for_game(char region) {
         logf("Video: 480p needs a component cable and none is in; 480i instead\n");
     if (target.format >= 0) {
         GXRModeObj* forced = &TVNtsc480IntDf;
-        if (target.progressive) forced = target.format == kViEurgb60 ? &TVEurgb60Hz480Prog : &TVNtsc480Prog;
+        if (target.line240) forced = target.format == kViEurgb60 ? &TVEurgb60Hz240Ds : &TVNtsc240Ds;
+        else if (target.progressive) forced = target.format == kViEurgb60 ? &TVEurgb60Hz480Prog : &TVNtsc480Prog;
         else if (target.format == kViEurgb60) forced = &TVEurgb60Hz480IntDf;
         else if (target.format == kViPal) forced = &TVPal528IntDf;
         else if (target.format == kViMpal) forced = &TVMpal480IntDf;
-        logf("Video: forced to TV format %d%s\n", target.format, target.progressive ? ", 480p" : "");
+        logf("Video: forced to TV format %d%s\n", target.format,
+             target.line240 ? ", 240p (every other line of whole 480-line pictures)" : target.progressive ? ", 480p" : "");
         store32(0x800000CC, static_cast<std::uint32_t>(target.format));
         DCFlushRange(reinterpret_cast<void*>(0x800000CC), 4);
         VIDEO_Configure(forced);

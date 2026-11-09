@@ -370,6 +370,9 @@ static void test_external_card_request() {
     // Slot B's real card goes beside the external card in slot A.
     fixture.request.real_card = RWP_GC_REAL_CARD_B;
     EXPECT_TRUE(fixture.check(why));
+    // But not in its place: slot A is then the real card.
+    fixture.request.real_card = RWP_GC_REAL_CARD_B_AS_A;
+    EXPECT_FALSE(fixture.check(why));
     fixture.request.real_card = RWP_GC_REAL_CARD_NONE;
     part.sector = 0xFFFFFFFFull;
     EXPECT_FALSE(fixture.check(why));
@@ -396,6 +399,46 @@ static void test_screen_offset_request() {
     EXPECT_TRUE(fixture.check(why));
 }
 
+static void test_slot_b_as_a_request() {
+    Fixture fixture;
+    std::string why;
+    fixture.request.real_card = RWP_GC_REAL_CARD_B_AS_A;
+    EXPECT_TRUE(fixture.check(why));
+    // Slot A is the real card: no shared SD card there too.
+    fixture.request.shared_card = 1;
+    EXPECT_FALSE(fixture.check(why));
+    fixture.request.shared_card = 0;
+    fixture.request.real_card = RWP_GC_REAL_CARD_B_AS_A + 1;
+    EXPECT_FALSE(fixture.check(why));
+}
+
+static void test_volume_boost_request() {
+    Fixture fixture;
+    std::string why;
+    for (std::uint32_t boost : {0u, 3u, 6u}) {
+        fixture.request.volume_boost_db = boost;
+        EXPECT_TRUE(fixture.check(why));
+    }
+    // Only the option's own values: a damaged request is refused rather
+    // than played louder than any choice the menu offers.
+    for (std::uint32_t boost : {1u, 9u, 0xFFFFFFFFu}) {
+        fixture.request.volume_boost_db = boost;
+        EXPECT_FALSE(fixture.check(why));
+    }
+}
+
+// 480p and 240p are one choice: both at once is refused.
+static void test_picture_lines_request() {
+    Fixture fixture;
+    std::string why;
+    fixture.request.line240 = 1;
+    EXPECT_TRUE(fixture.check(why));
+    fixture.request.progressive = 1;
+    EXPECT_FALSE(fixture.check(why));
+    fixture.request.line240 = 0;
+    EXPECT_TRUE(fixture.check(why));
+}
+
 // The controllers' calibration crosses the plugin line whole, or not at all.
 static void test_pad_calibration_request() {
     Fixture fixture;
@@ -417,7 +460,10 @@ static void test_pad_calibration_request() {
 
 int main() {
     test_external_card_request();
+    test_picture_lines_request();
     test_screen_offset_request();
+    test_volume_boost_request();
+    test_slot_b_as_a_request();
     test_pad_calibration_request();
     {
         Fixture mappings;
@@ -445,7 +491,7 @@ int main() {
     card_choice.request.shared_card = 1;
     EXPECT_TRUE(card_choice.check(why));
     card_choice.request.shared_card = 0;
-    card_choice.request.real_card = 3;
+    card_choice.request.real_card = RWP_GC_REAL_CARD_B_AS_A + 1;
     EXPECT_FALSE(card_choice.check(why));
     test_layout();
     test_plan_round_trip();

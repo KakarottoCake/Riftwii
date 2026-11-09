@@ -347,9 +347,44 @@ void test_probe_answers() {
     EXPECT_EQ(gc_ports_probe(0xFFFFFFFFu, no_response, kAllPorts), no_response);
 }
 
+// The way back's combo (gc_ports_leave_held): all four of Start, L, R
+// and Z on a port read without an error, on any port; never with HOME
+// only (Settings > Leaving a game).
+void set_buttons(std::uint8_t* status, unsigned port, std::uint32_t buttons, std::uint8_t err) {
+    std::uint8_t* pad = status + GC_PORTS_STATUS_BYTES * port;
+    pad[0] = static_cast<std::uint8_t>(buttons >> 8);
+    pad[1] = static_cast<std::uint8_t>(buttons);
+    pad[10] = err;
+}
+
+void test_leave_combo() {
+    std::uint8_t status[GC_PORTS * GC_PORTS_STATUS_BYTES];
+    std::memset(status, 0, sizeof(status));
+    EXPECT_EQ(gc_ports_leave_held(status, 0), 0);
+    // Three of the four (L, R and Start, as a game's own reset combo has
+    // them) are not the combo; Z added makes it.
+    set_buttons(status, 2, 0x1060u, 0);
+    EXPECT_EQ(gc_ports_leave_held(status, 0), 0);
+    set_buttons(status, 2, 0x1070u, 0);
+    EXPECT_EQ(gc_ports_leave_held(status, 0), 1);
+    // Other buttons held as well still count.
+    set_buttons(status, 2, 0x1070u | 0x0100u, 0);
+    EXPECT_EQ(gc_ports_leave_held(status, 0), 1);
+    // HOME only: the combo leaves nothing.
+    EXPECT_EQ(gc_ports_leave_held(status, 1), 0);
+    // A port with an error (no controller) is not read.
+    set_buttons(status, 2, 0x1070u, 0xFFu);
+    EXPECT_EQ(gc_ports_leave_held(status, 0), 0);
+    // The last port counts too.
+    set_buttons(status, 3, 0x1070u, 0);
+    EXPECT_EQ(gc_ports_leave_held(status, 0), 1);
+    EXPECT_EQ(gc_ports_leave_held(status, 1), 0);
+}
+
 }  // namespace
 
 int main() {
+    test_leave_combo();
     test_played_ports();
     test_idle_probe_ports();
     test_probe_answers();

@@ -987,12 +987,6 @@ msgstr "Gioca a tuo rischio:"
 msgid "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead."
 msgstr "CTGP Revolution (un pacchetto che avvia un'app dell'Homebrew Channel) non funziona ancora da RiftWii: si ferma su una schermata nera o verde. Avvia CTGP dall'Homebrew Channel."
 
-msgid "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded."
-msgstr "CTGP Revolution si avvia solo offline da RiftWii: il gioco online e in LAN è disattivato, e i fantasmi che salvi non si possono caricare."
-
-msgid "CTGP Revolution: offline only (see Start)."
-msgstr "CTGP Revolution: solo offline (vedi Gioca)."
-
 msgid "CTGP Revolution does not work from RiftWii yet (see Start)."
 msgstr "CTGP Revolution non funziona ancora da RiftWii (vedi Gioca)."
 
@@ -2016,9 +2010,6 @@ msgstr "Sì (480p)"
 msgid "Widescreen"
 msgstr "Panoramico"
 
-msgid "480p is for US and Japanese games; this European game keeps its own picture."
-msgstr "Il 480p è per i giochi americani e giapponesi; questo gioco europeo mantiene la sua immagine."
-
 msgid "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."
 msgstr "Dà un'immagine più nitida e stabile con un cavo component, anche nei giochi senza modo 480p; alcuni chiedono prima."
 
@@ -2897,9 +2888,6 @@ msgstr "Lettura della scheda di memoria"
 
 msgid "Keep the card in its slot. Nothing is written to it."
 msgstr "Lascia la scheda nello slot. Non viene scritto nulla."
-
-msgid "Slot A has no readable memory card. A card in slot B cannot be used as slot A."
-msgstr "Lo slot A non contiene una scheda leggibile. Una scheda nello slot B non può essere usata come slot A."
 
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "Impossibile preparare la scheda reale. Controlla la scheda e riprova."
@@ -4038,18 +4026,6 @@ msgstr "Non applicato"
 msgid "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start."
 msgstr "Questo gioco controlla il proprio codice. Per avviarlo, le modifiche a immagine, lingua, regione, controller, gioco online e trucchi restano disattivate."
 
-msgid "Off (CTGP-R)"
-msgstr "No (CTGP-R)"
-
-msgid "Cheats can't be turned on while CTGP-R is enabled. Turn CTGP-R off in Mods to use cheats."
-msgstr "I trucchi non possono essere attivati mentre CTGP-R è attivo. Disattiva CTGP-R in Mod per usarli."
-
-msgid "Other mods can't be enabled while CTGP-R is on. Turn CTGP-R off to use them."
-msgstr "Gli altri mod non possono essere attivati mentre CTGP-R è attivo. Disattiva CTGP-R per usarli."
-
-msgid "CTGP-R is on, so cheats and other mods were turned off. They can't be enabled while it is on."
-msgstr "CTGP-R è attivo, quindi trucchi e altri mod sono stati disattivati. Non possono essere attivati mentre CTGP-R è attivo."
-
 msgid "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report."
 msgstr "RiftWii ha esaurito la memoria avviando il gioco. Disattiva la musica del menu e riprova, oppure invia una segnalazione del problema."
 
@@ -4232,6 +4208,57 @@ msgstr "La scheda di memoria di ogni gioco GameCube la cui opzione Scheda di mem
 
 msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
 msgstr "Impossibile leggere la scheda di memoria nello slot B. Reinseriscila o scegli un'altra scheda nella pagina del gioco."
+
+msgid "Volume boost"
+msgstr "Aumento del volume"
+
+msgid "Louder (+3 dB)"
+msgstr "Più forte (+3 dB)"
+
+msgid "Loudest (+6 dB)"
+msgstr "Ancora più forte (+6 dB)"
+
+msgid "Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten."
+msgstr "Alza tutto il suono di un gioco silenzioso. A +6 dB i suoni più forti possono appiattirsi."
+
+msgid "Real card in slot B, as slot A"
+msgstr "Scheda reale dello slot B, come slot A"
+
+msgid "This game uses the real card in slot B as its slot A. Its saves are not on the SD card."
+msgstr "Questo gioco usa la scheda reale dello slot B come suo slot A. I salvataggi non sono sulla scheda SD."
+
+msgid "For a game that only looks in slot A: the real card in slot B is its slot A, and slot B looks empty to it (original Wii only)."
+msgstr "Per un gioco che guarda solo nello slot A: la scheda reale dello slot B diventa il suo slot A, e lo slot B sembra vuoto (solo Wii originale)."
+
+msgid "Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A."
+msgstr "Lo slot A non ha una scheda di memoria leggibile. Per una scheda nello slot B, scegli Scheda reale dello slot B, come slot A."
+
+msgid "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture."
+msgstr "240p è per i televisori CRT e la pixel art: l'immagine a 480 righe del gioco esce una riga sì e una no, progressiva e senza sfarfallio. I giochi che disegnano meno righe mantengono la propria immagine."
+
+msgid "GameCube games left on Default get it too."
+msgstr "Anche i giochi GameCube su Predefinito lo usano."
+
+msgid "Picture lines"
+msgstr "Righe dell'immagine"
+
+msgid "480p and 240p are for US and Japanese games; this European game keeps its own picture."
+msgstr "Il 480p e il 240p sono per i giochi americani e giapponesi; questo gioco europeo mantiene la sua immagine."
+
+msgid "Leaving a game"
+msgstr "Uscire da un gioco"
+
+msgid "HOME or buttons"
+msgstr "HOME o pulsanti"
+
+msgid "HOME only"
+msgstr "Solo HOME"
+
+msgid "In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game's own button combos can't leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console's Reset button then gets back."
+msgstr "Nei giochi GameCube, tieni premuto HOME per due secondi per tornare a RiftWii (HOME e - su un Wii Remote da solo). HOME o pulsanti: anche tenere premuti L, R, Z e Start su un controller GameCube fa uscire, e nei giochi Wii con l'adattatore. Solo HOME disattiva i pulsanti, così le combinazioni di un gioco non lo chiudono per errore. Senza un Wii Remote né un Wii U Pro Controller, solo il pulsante Reset della console fa tornare."
+
+msgid "L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote or a Wii U Pro Controller for two seconds to leave the game."
+msgstr "L, R, Z e Start sono disattivati (Impostazioni > Giochi > Uscire da un gioco): tieni premuto HOME su un Wii Remote o un Wii U Pro Controller per due secondi per uscire dal gioco."
 
 msgid "CTGP-R only starts with the Mario Kart Wii game."
 msgstr "CTGP-R si avvia solo con il gioco Mario Kart Wii."

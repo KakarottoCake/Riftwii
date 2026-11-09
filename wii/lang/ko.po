@@ -987,12 +987,6 @@ msgstr "사용 시 발생하는 문제는 사용자의 책임입니다:"
 msgid "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead."
 msgstr "CTGP Revolution(홈브류 채널 앱을 통해 실행하는 팩)은 아직 RiftWii에서 정상적으로 작동하지 않으며, 검은색 또는 녹색 화면에서 멈춥니다. 대신 홈브류 채널에서 CTGP를 실행하세요."
 
-msgid "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded."
-msgstr "RiftWii에서 CTGP Revolution은 오프라인 전용으로 실행됩니다. 온라인 및 LAN 플레이는 꺼지며, 저장한 고스트는 업로드할 수 없습니다."
-
-msgid "CTGP Revolution: offline only (see Start)."
-msgstr "CTGP Revolution: 오프라인 전용 (시작 항목 참조)"
-
 msgid "CTGP Revolution does not work from RiftWii yet (see Start)."
 msgstr "CTGP Revolution은 아직 RiftWii에서 작동하지 않습니다. (시작 항목 참조)"
 
@@ -2016,9 +2010,6 @@ msgstr "켬 (480p)"
 msgid "Widescreen"
 msgstr "와이드 화면"
 
-msgid "480p is for US and Japanese games; this European game keeps its own picture."
-msgstr "480p는 미국과 일본 게임용이며, 이 유럽 게임은 원래 화면을 그대로 씁니다."
-
 msgid "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."
 msgstr "컴포넌트 케이블에서 더 선명하고 안정적인 화면을 보여 주며, 480p가 없는 게임도 해당됩니다. 일부 게임은 먼저 물어봅니다."
 
@@ -2897,9 +2888,6 @@ msgstr "메모리 카드 읽는 중"
 
 msgid "Keep the card in its slot. Nothing is written to it."
 msgstr "카드를 슬롯에 그대로 두세요. 아무것도 쓰지 않습니다."
-
-msgid "Slot A has no readable memory card. A card in slot B cannot be used as slot A."
-msgstr "슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B의 카드는 슬롯 A로 사용할 수 없습니다."
 
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "실제 카드를 준비하지 못했습니다. 카드를 확인하고 다시 시도하세요."
@@ -4038,18 +4026,6 @@ msgstr "적용 안 함"
 msgid "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start."
 msgstr "이 게임은 자체 코드를 확인합니다. 시작할 수 있도록 화면, 언어, 지역, 컨트롤러, 온라인 및 치트 변경은 적용하지 않습니다."
 
-msgid "Off (CTGP-R)"
-msgstr "끔 (CTGP-R)"
-
-msgid "Cheats can't be turned on while CTGP-R is enabled. Turn CTGP-R off in Mods to use cheats."
-msgstr "CTGP-R이 켜져 있는 동안에는 치트를 켤 수 없습니다. 치트를 쓰려면 Mods에서 CTGP-R을 끄세요."
-
-msgid "Other mods can't be enabled while CTGP-R is on. Turn CTGP-R off to use them."
-msgstr "CTGP-R이 켜져 있는 동안에는 다른 모드를 켤 수 없습니다. 쓰려면 CTGP-R을 끄세요."
-
-msgid "CTGP-R is on, so cheats and other mods were turned off. They can't be enabled while it is on."
-msgstr "CTGP-R이 켜져 있어 치트와 다른 모드를 껐습니다. CTGP-R이 켜져 있는 동안에는 켤 수 없습니다."
-
 msgid "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report."
 msgstr "게임을 시작하는 동안 RiftWii의 메모리가 부족해졌습니다. 메뉴 음악을 끄고 다시 시도하거나 문제 보고서를 보내 주세요."
 
@@ -4232,6 +4208,57 @@ msgstr "메모리 카드 옵션이 기본값인 모든 게임큐브 게임의 �
 
 msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
 msgstr "슬롯 B의 메모리 카드를 읽을 수 없습니다. 다시 꽂거나 게임 페이지에서 다른 카드를 고르세요."
+
+msgid "Volume boost"
+msgstr "볼륨 키우기"
+
+msgid "Louder (+3 dB)"
+msgstr "크게 (+3 dB)"
+
+msgid "Loudest (+6 dB)"
+msgstr "더 크게 (+6 dB)"
+
+msgid "Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten."
+msgstr "소리가 작은 게임의 모든 소리를 키웁니다. +6 dB에서는 가장 큰 소리가 뭉개질 수 있습니다."
+
+msgid "Real card in slot B, as slot A"
+msgstr "슬롯 B의 실제 카드를 슬롯 A로"
+
+msgid "This game uses the real card in slot B as its slot A. Its saves are not on the SD card."
+msgstr "이 게임은 슬롯 B의 실제 카드를 슬롯 A로 사용합니다. 세이브는 SD 카드에 없습니다."
+
+msgid "For a game that only looks in slot A: the real card in slot B is its slot A, and slot B looks empty to it (original Wii only)."
+msgstr "슬롯 A만 찾는 게임용: 슬롯 B의 실제 카드가 슬롯 A가 되고, 슬롯 B는 비어 보입니다 (초기형 Wii만)."
+
+msgid "Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A."
+msgstr "슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B의 카드를 쓰려면 \"슬롯 B의 실제 카드를 슬롯 A로\"를 고르세요."
+
+msgid "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture."
+msgstr "240p는 CRT TV와 도트 그래픽용입니다. 게임의 480라인 화면을 한 줄씩 건너뛰어 깜박임 없는 프로그레시브로 내보냅니다. 라인이 더 적은 게임은 원래 화면을 유지합니다."
+
+msgid "GameCube games left on Default get it too."
+msgstr "기본값인 게임큐브 게임에도 적용됩니다."
+
+msgid "Picture lines"
+msgstr "화면 라인 수"
+
+msgid "480p and 240p are for US and Japanese games; this European game keeps its own picture."
+msgstr "480p와 240p는 미국과 일본 게임용이며, 이 유럽 게임은 원래 화면을 그대로 씁니다."
+
+msgid "Leaving a game"
+msgstr "게임 나가기"
+
+msgid "HOME or buttons"
+msgstr "HOME 또는 버튼"
+
+msgid "HOME only"
+msgstr "HOME만"
+
+msgid "In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game's own button combos can't leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console's Reset button then gets back."
+msgstr "게임큐브 게임에서 HOME을 2초 동안 누르고 있으면 RiftWii로 돌아갑니다 (Wii 리모컨만 쓸 때는 HOME과 -). HOME 또는 버튼: 게임큐브 컨트롤러의 L, R, Z, Start를 누르고 있어도 나가며, 어댑터를 쓰는 Wii 게임에서도 마찬가지입니다. HOME만은 버튼을 꺼서 게임의 버튼 조합으로 실수로 나가지 않게 합니다. Wii 리모컨도 Wii U Pro 컨트롤러도 없으면 본체의 리셋 버튼으로만 돌아갈 수 있습니다."
+
+msgid "L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote or a Wii U Pro Controller for two seconds to leave the game."
+msgstr "L, R, Z, Start는 꺼져 있습니다 (설정 > 게임 > 게임 나가기). Wii 리모컨이나 Wii U Pro 컨트롤러의 HOME을 2초 동안 누르고 있으면 게임을 나갑니다."
 
 msgid "CTGP-R only starts with the Mario Kart Wii game."
 msgstr "CTGP-R은 Mario Kart Wii에서만 시작할 수 있습니다."

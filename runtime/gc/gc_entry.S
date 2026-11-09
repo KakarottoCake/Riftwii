@@ -8,7 +8,7 @@
     .section .text.gc_entry, "ax", @progbits
     .globl _gc_blob_start
 _gc_blob_start:
-    .long 0x52574744, 13, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
+    .long 0x52574744, 14, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
     .long gc_hook_read - _gc_blob_start, gc_hook_seek - _gc_blob_start
     .long gc_hook_disk_id - _gc_blob_start, gc_hook_inquiry - _gc_blob_start
     .long gc_hook_cb_r3 - _gc_blob_start, gc_hook_audio_status - _gc_blob_start
@@ -44,6 +44,7 @@ _gc_blob_start:
     .long gc_hook_program - _gc_blob_start, gc_replay_program - _gc_blob_start
     .long gc_continue_program - _gc_blob_start, gc_program_saved - _gc_blob_start
     .long gc_replay_fatal - _gc_blob_start, gc_continue_fatal - _gc_blob_start
+    .long gc_tri_table - _gc_blob_start
 
 /* Calls `fn` with the context in r3 and the game's r3..r6 moved up one
  * register (r4..r7). Each hook is three words: the game's LR into r0, a
@@ -162,8 +163,8 @@ gc_hook_\name:
     GC_LOAD_HOOK load_callbacks, gc_on_load_callbacks
 
 /* AIInitDMA(start, length): gc_on_ai_dma(ctx, start, length) mixes the
- * disc stream into the buffer, then the original runs from the replay
- * slot with the game's arguments. Frame: 8 start, 12 length. */
+ * disc stream into the buffer and applies the Volume boost, then the
+ * original runs from the replay slot with the game's arguments. Frame: 8 start, 12 length. */
     .globl gc_hook_ai_dma
 gc_hook_ai_dma:
     stwu 1, -0x20(1)
@@ -909,6 +910,112 @@ gc_exi_table:
     GC_EXI_ENTRY 8
     GC_EXI_ENTRY 9
     GC_EXI_ENTRY 10
+
+/* A Triforce arcade game's replaced SDK functions (gc_tri.h): the same
+ * four-word hook as the EXI ones, but gc_tri_common hands gc_on_tri(ctx,
+ * fn, args) the game's r3..r10 in args[0..7] (SITransfer has seven
+ * arguments, its delay a 64-bit one in r9 and r10) and args[8] for the
+ * pass flag. gc_on_tri's result is the game's r3; with the flag set, the
+ * registers go back and the original runs from the replay slot.
+ * Frame: 8..0x24 r3..r10, 0x28 pass, 0x2C the hook's return, the game's
+ * LR at 0x44. */
+    .macro GC_TRI_HOOK idx
+    .balign 16
+gc_tri_hook_\idx:
+    mflr 0
+    li 12, \idx
+    bl gc_tri_common
+    mtlr 0
+gc_tri_replay_\idx:
+    nop
+    nop
+    nop
+    nop
+gc_tri_continue_\idx:
+    lis 12, 0
+    ori 12, 12, 0
+    mtctr 12
+    bctr
+    .endm
+
+gc_tri_common:
+    stwu 1, -0x40(1)
+    stw 0, 0x44(1)
+    mflr 0
+    stw 0, 0x2C(1)
+    stw 3, 0x08(1)
+    stw 4, 0x0C(1)
+    stw 5, 0x10(1)
+    stw 6, 0x14(1)
+    stw 7, 0x18(1)
+    stw 8, 0x1C(1)
+    stw 9, 0x20(1)
+    stw 10, 0x24(1)
+    li 0, 0
+    stw 0, 0x28(1)
+    addi 5, 1, 0x08
+    mr 4, 12
+    bl 1f
+1:  mflr 3
+    addi 3, 3, gc_context_data - 1b
+    bl gc_on_tri
+    lwz 0, 0x28(1)
+    cmpwi 0, 0
+    bne 2f
+    lwz 0, 0x44(1)
+    mtlr 0
+    addi 1, 1, 0x40
+    blr
+2:  lwz 3, 0x08(1)
+    lwz 4, 0x0C(1)
+    lwz 5, 0x10(1)
+    lwz 6, 0x14(1)
+    lwz 7, 0x18(1)
+    lwz 8, 0x1C(1)
+    lwz 9, 0x20(1)
+    lwz 10, 0x24(1)
+    lwz 12, 0x2C(1)
+    mtlr 12
+    lwz 0, 0x44(1)
+    addi 1, 1, 0x40
+    blr
+
+    GC_TRI_HOOK 0
+    GC_TRI_HOOK 1
+    GC_TRI_HOOK 2
+    GC_TRI_HOOK 3
+    GC_TRI_HOOK 4
+    GC_TRI_HOOK 5
+    GC_TRI_HOOK 6
+    GC_TRI_HOOK 7
+    GC_TRI_HOOK 8
+    GC_TRI_HOOK 9
+    GC_TRI_HOOK 10
+    GC_TRI_HOOK 11
+    GC_TRI_HOOK 12
+    GC_TRI_HOOK 13
+    GC_TRI_HOOK 14
+
+    .macro GC_TRI_ENTRY idx
+    .long gc_tri_hook_\idx - _gc_blob_start, gc_tri_replay_\idx - _gc_blob_start, gc_tri_continue_\idx - _gc_blob_start
+    .endm
+    .balign 4
+gc_tri_table:
+    GC_TRI_ENTRY 0
+    GC_TRI_ENTRY 1
+    GC_TRI_ENTRY 2
+    GC_TRI_ENTRY 3
+    GC_TRI_ENTRY 4
+    GC_TRI_ENTRY 5
+    GC_TRI_ENTRY 6
+    GC_TRI_ENTRY 7
+    GC_TRI_ENTRY 8
+    GC_TRI_ENTRY 9
+    GC_TRI_ENTRY 10
+    GC_TRI_ENTRY 11
+    GC_TRI_ENTRY 12
+    GC_TRI_ENTRY 13
+    GC_TRI_ENTRY 14
 
 /* Cooperative I/O continuation. The switch is an ordinary ABI call:
  * volatile registers belong to its caller; r14-r31, CR and LR survive.

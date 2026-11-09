@@ -167,6 +167,10 @@ GcSramReads find_gc_sram_reads(const std::vector<CodeRange>& text) {
         }
     const std::uint32_t take_bit7 = rlwinm_low(25, 31, 31);  // rlwinm rC,rX,25,31,31
     const std::uint32_t take_bit6 = rlwinm_low(26, 31, 31);  // rlwinm rC,rX,26,31,31
+    // The 2001 SDK's getter tests bit 7 in place instead: `rlwinm.
+    // rC,rX,0,24,24` (the record form, low bit set) and a branch on it.
+    // The setter reads the byte with the plain form to compare it.
+    const std::uint32_t test_bit7 = rlwinm_low(0, 24, 24) | 1u;
     for (const Site& site : sites) {
         if (site.copy != out.copy) continue;
         for (std::uint32_t a = site.at + 4; code.has(a) && a < site.at + 0x100; a += 4) {
@@ -176,6 +180,7 @@ GcSramReads find_gc_sram_reads(const std::vector<CodeRange>& text) {
             const std::uint16_t offset = immediate(w);
             if (offset == kSramLanguage) out.language.push_back(a);
             if (offset == kSramFlags && takes_bit(code, a, take_bit7)) out.progressive.push_back(a);
+            if (offset == kSramFlags && takes_bit(code, a, test_bit7)) out.progressive_asks.push_back(a);
             if (offset == kSramSixtyHz && takes_bit(code, a, take_bit6)) out.sixty_hz.push_back(a);
         }
     }

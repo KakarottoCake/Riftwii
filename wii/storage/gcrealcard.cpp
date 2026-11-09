@@ -118,6 +118,11 @@ void InitGcRealCards() {
     card_workarea = workarea;
 }
 
+bool GcRealSlotHasCard(int slot) {
+    if (is_wii_u() || slot < 0 || slot > 1 || session_slot >= 0) return false;
+    return EXI_Probe(slot) != 0;
+}
+
 GcRealCard::~GcRealCard() { Close(); }
 
 void GcRealCard::Close() {

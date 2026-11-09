@@ -928,17 +928,6 @@ T = {
         "CTGP Revolution（Homebrew Channelのアプリを起動するパック）はまだRiftWiiから動きません。黒または緑の画面で止まります。CTGPはHomebrew Channelから起動してください。",
         "O CTGP Revolution (um pack que inicia um app do Homebrew Channel) ainda não funciona pelo RiftWii: ele para numa tela preta ou verde. Inicie o CTGP pelo Homebrew Channel.",
         "CTGP Revolution (un pacchetto che avvia un'app dell'Homebrew Channel) non funziona ancora da RiftWii: si ferma su una schermata nera o verde. Avvia CTGP dall'Homebrew Channel."),
-    # CTGP Revolution started natively (its files set up on the card): offline only.
-    "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.": (
-        "CTGP Revolution se inicia sin conexión desde RiftWii: el juego en línea y en LAN están desactivados, y los fantasmas que guardes no se pueden subir.",
-        "RiftWiiからのCTGP Revolutionはオフライン専用です。オンラインとLANのプレイはオフで、保存したゴーストはアップロードできません。",
-        "O CTGP Revolution inicia só offline pelo RiftWii: o jogo online e em LAN ficam desligados, e os fantasmas que você salvar não podem ser enviados.",
-        "CTGP Revolution si avvia solo offline da RiftWii: il gioco online e in LAN è disattivato, e i fantasmi che salvi non si possono caricare."),
-    "CTGP Revolution: offline only (see Start).": (
-        "CTGP Revolution: solo sin conexión (mira Jugar).",
-        "CTGP Revolution：オフライン専用（「はじめる」を参照）。",
-        "CTGP Revolution: só offline (veja Jogar).",
-        "CTGP Revolution: solo offline (vedi Gioca)."),
     "CTGP Revolution does not work from RiftWii yet (see Start).": (
         "CTGP Revolution todavía no funciona desde RiftWii (mira Jugar).",
         "CTGP RevolutionはまだRiftWiiから動きません（「はじめる」を参照）。",
@@ -1730,7 +1719,6 @@ T = {
     "480p picture": ("Imagen en 480p", "480pの映像", "Imagem em 480p", "Immagine in 480p"),
     "On (480p)": ("Sí (480p)", "オン (480p)", "Sim (480p)", "Sì (480p)"),
     "Widescreen": ("Panorámico", "ワイド画面", "Widescreen", "Panoramico"),
-    "480p is for US and Japanese games; this European game keeps its own picture.": ("480p es para juegos de EE. UU. y Japón; este juego europeo mantiene su propia imagen.", "480pはアメリカと日本のゲーム用で、このヨーロッパのゲームはゲームのままの映像になります。", "480p é para jogos dos EUA e do Japão; este jogo europeu mantém a sua própria imagem.", "Il 480p è per i giochi americani e giapponesi; questo gioco europeo mantiene la sua immagine."),
     "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first.": ("Da una imagen más nítida y estable con un cable por componentes, incluso en juegos sin modo 480p; algunos preguntan antes.", "コンポーネントケーブルで、くっきり安定した映像にします。480pのないゲームも対象で、先に確認を求めるゲームもあります。", "Dá uma imagem mais nítida e estável com cabo componente, mesmo em jogos sem modo 480p; alguns jogos perguntam antes.", "Dà un'immagine più nitida e stabile con un cavo component, anche nei giochi senza modo 480p; alcuni chiedono prima."),
     "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental).": ("Llena una TV panorámica con el mundo del juego; los menús siguen estirados y algunos juegos muestran colores erróneos (experimental).", "ゲームの世界をワイドテレビいっぱいに広げます。メニューは横に伸びたままで、色がおかしくなるゲームもあります (試験的)。", "Preenche uma TV widescreen com o mundo do jogo; os menus continuam esticados e alguns jogos mostram cores erradas (experimental).", "Riempie una TV panoramica con il mondo di gioco; i menu restano allungati e alcuni giochi mostrano colori sbagliati (sperimentale)."),
     "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one).": ("El idioma en que se juega este juego, sin cambiar el ajuste de la Wii (la mayoría de los juegos de EE. UU. y Japón tienen solo uno).", "このゲームを遊ぶ言語で、Wii本体の設定は変わりません (アメリカと日本のゲームの多くは1言語だけです)。", "O idioma em que este jogo é jogado, sem mudar a configuração do Wii (a maioria dos jogos dos EUA e do Japão tem só um).", "La lingua in cui si gioca questo gioco, senza cambiare l'impostazione della Wii (la maggior parte dei giochi americani e giapponesi ne ha una sola)."),
@@ -3045,10 +3033,6 @@ KO = {
         "사용 시 발생하는 문제는 사용자의 책임입니다:",
     "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.":
         "CTGP Revolution(홈브류 채널 앱을 통해 실행하는 팩)은 아직 RiftWii에서 정상적으로 작동하지 않으며, 검은색 또는 녹색 화면에서 멈춥니다. 대신 홈브류 채널에서 CTGP를 실행하세요.",
-    "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.":
-        "RiftWii에서 CTGP Revolution은 오프라인 전용으로 실행됩니다. 온라인 및 LAN 플레이는 꺼지며, 저장한 고스트는 업로드할 수 없습니다.",
-    "CTGP Revolution: offline only (see Start).":
-        "CTGP Revolution: 오프라인 전용 (시작 항목 참조)",
     "CTGP Revolution does not work from RiftWii yet (see Start).":
         "CTGP Revolution은 아직 RiftWii에서 작동하지 않습니다. (시작 항목 참조)",
     " (and {1} more)":
@@ -3754,8 +3738,6 @@ KO = {
         "켬 (480p)",
     "Widescreen":
         "와이드 화면",
-    "480p is for US and Japanese games; this European game keeps its own picture.":
-        "480p는 미국과 일본 게임용이며, 이 유럽 게임은 원래 화면을 그대로 씁니다.",
     "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first.":
         "컴포넌트 케이블에서 더 선명하고 안정적인 화면을 보여 주며, 480p가 없는 게임도 해당됩니다. 일부 게임은 먼저 물어봅니다.",
     "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental).":
@@ -4921,10 +4903,6 @@ FR = {
         "À utiliser à vos risques :",
     "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.":
         "CTGP Revolution ne fonctionne pas encore depuis RiftWii (blocage sur écran noir ou vert). Lancez-le directement depuis la Chaîne Homebrew.",
-    "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.":
-        "CTGP Revolution démarre hors ligne uniquement depuis RiftWii : le jeu en ligne et en LAN est désactivé, et les fantômes que vous enregistrez ne peuvent pas être envoyés.",
-    "CTGP Revolution: offline only (see Start).":
-        "CTGP Revolution : hors ligne uniquement (voir Démarrer).",
     "CTGP Revolution does not work from RiftWii yet (see Start).":
         "CTGP Revolution ne fonctionne pas encore depuis RiftWii (voir Démarrer).",
     " (and {1} more)":
@@ -5810,8 +5788,6 @@ FR = {
         "Activé (480p)",
     "Widescreen":
         "Écran large",
-    "480p is for US and Japanese games; this European game keeps its own picture.":
-        "Le 480p est pour les jeux américains et japonais ; ce jeu européen garde sa propre image.",
     "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first.":
         "Donne une image plus nette et plus stable avec un câble composante, même dans les jeux sans mode 480p ; certains posent d'abord la question.",
     "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental).":
@@ -6282,9 +6258,6 @@ FR.update({
     "Reading the memory card": "Lecture de la carte mémoire",
     "Keep the card in its slot. Nothing is written to it.": "Laissez la carte dans son port. Rien n'y est écrit.",
 })
-T['Slot A has no readable memory card. A card in slot B cannot be used as slot A.'] = ('La ranura A no tiene una tarjeta legible. Una tarjeta en la ranura B no puede usarse como A.', 'スロットAに読み込めるメモリーカードがありません。スロットBのカードはAとして使えません。', 'O slot A não tem cartão legível. Um cartão no slot B não pode ser usado como slot A.', 'Lo slot A non contiene una scheda leggibile. Una scheda nello slot B non può essere usata come slot A.')
-KO['Slot A has no readable memory card. A card in slot B cannot be used as slot A.'] = '슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B의 카드는 슬롯 A로 사용할 수 없습니다.'
-FR['Slot A has no readable memory card. A card in slot B cannot be used as slot A.'] = 'Le port A ne contient aucune carte lisible. Une carte du port B ne peut pas servir de port A.'
 
 T['The real card could not be prepared. Check the card and try again.'] = ('No se pudo preparar la tarjeta real. Comprueba la tarjeta e inténtalo de nuevo.', '実物のカードを準備できませんでした。カードを確認してもう一度お試しください。', 'Não foi possível preparar o cartão real. Verifique o cartão e tente novamente.', 'Impossibile preparare la scheda reale. Controlla la scheda e riprova.')
 KO['The real card could not be prepared. Check the card and try again.'] = '실제 카드를 준비하지 못했습니다. 카드를 확인하고 다시 시도하세요.'
@@ -8445,38 +8418,6 @@ FR.update({
     "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start.": "Ce jeu vérifie son propre code. Pour qu'il démarre, les modifications d'image, de langue, de région, de manettes, de jeu en ligne et les codes de triche restent désactivés.",
 })
 
-# CTGP-R takes precedence: cheats and other mods are locked off while it is on.
-T.update({
-    "Off (CTGP-R)": ("No (CTGP-R)", "オフ (CTGP-R)", "Desativado (CTGP-R)", "No (CTGP-R)"),
-    "Cheats can't be turned on while CTGP-R is enabled. Turn CTGP-R off in Mods to use cheats.": (
-        "Los trucos no se pueden activar mientras CTGP-R está activado. Desactiva CTGP-R en Mods para usar trucos.",
-        "CTGP-Rが有効の間はチートをオンにできません。チートを使うには、ModでCTGP-Rをオフにしてください。",
-        "As trapaças não podem ser ativadas enquanto o CTGP-R estiver ativado. Desative o CTGP-R em Mods para usá-las.",
-        "I trucchi non possono essere attivati mentre CTGP-R è attivo. Disattiva CTGP-R in Mod per usarli."),
-    "Other mods can't be enabled while CTGP-R is on. Turn CTGP-R off to use them.": (
-        "Los demás mods no se pueden activar mientras CTGP-R está activado. Desactiva CTGP-R para usarlos.",
-        "CTGP-Rが有効の間は、ほかのModを有効にできません。使うには、CTGP-Rをオフにしてください。",
-        "Os outros mods não podem ser ativados enquanto o CTGP-R estiver ativado. Desative o CTGP-R para usá-los.",
-        "Gli altri mod non possono essere attivati mentre CTGP-R è attivo. Disattiva CTGP-R per usarli."),
-    "CTGP-R is on, so cheats and other mods were turned off. They can't be enabled while it is on.": (
-        "CTGP-R está activado, así que los trucos y los demás mods se desactivaron. No se pueden activar mientras CTGP-R esté activado.",
-        "CTGP-Rが有効なので、チートとほかのModをオフにしました。CTGP-Rが有効の間はオンにできません。",
-        "O CTGP-R está ativado, então as trapaças e os outros mods foram desativados. Eles não podem ser ativados enquanto o CTGP-R estiver ativado.",
-        "CTGP-R è attivo, quindi trucchi e altri mod sono stati disattivati. Non possono essere attivati mentre CTGP-R è attivo."),
-})
-KO.update({
-    "Off (CTGP-R)": "끔 (CTGP-R)",
-    "Cheats can't be turned on while CTGP-R is enabled. Turn CTGP-R off in Mods to use cheats.": "CTGP-R이 켜져 있는 동안에는 치트를 켤 수 없습니다. 치트를 쓰려면 Mods에서 CTGP-R을 끄세요.",
-    "Other mods can't be enabled while CTGP-R is on. Turn CTGP-R off to use them.": "CTGP-R이 켜져 있는 동안에는 다른 모드를 켤 수 없습니다. 쓰려면 CTGP-R을 끄세요.",
-    "CTGP-R is on, so cheats and other mods were turned off. They can't be enabled while it is on.": "CTGP-R이 켜져 있어 치트와 다른 모드를 껐습니다. CTGP-R이 켜져 있는 동안에는 켤 수 없습니다.",
-})
-FR.update({
-    "Off (CTGP-R)": "Désactivé (CTGP-R)",
-    "Cheats can't be turned on while CTGP-R is enabled. Turn CTGP-R off in Mods to use cheats.": "Les codes de triche ne peuvent pas être activés tant que CTGP-R est activé. Désactivez CTGP-R dans Mods pour les utiliser.",
-    "Other mods can't be enabled while CTGP-R is on. Turn CTGP-R off to use them.": "Les autres mods ne peuvent pas être activés tant que CTGP-R est activé. Désactivez CTGP-R pour les utiliser.",
-    "CTGP-R is on, so cheats and other mods were turned off. They can't be enabled while it is on.": "CTGP-R est activé : les codes de triche et les autres mods ont été désactivés. Ils ne peuvent pas être activés tant que CTGP-R est activé.",
-})
-
 T.update({
     "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report.": (
         "RiftWii se quedó sin memoria al iniciar el juego. Desactiva la música del menú e inténtalo de nuevo, o envía un informe del problema.",
@@ -8858,6 +8799,163 @@ FR.update({
         "La carte mémoire de chaque jeu GameCube dont l'option Carte mémoire est sur Par défaut. Le choix propre d'un jeu l'emporte.",
     "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page.":
         "La carte mémoire du port B n'a pas pu être lue. Remettez-la, ou choisissez une autre carte sur la page du jeu.",
+})
+
+# GameCube games' Volume boost (runtime/gc/gc_volume.h).
+T.update({
+    'Volume boost': ('Aumento de volumen', '音量アップ', 'Aumento de volume', 'Aumento del volume'),
+    'Louder (+3 dB)': ('Más alto (+3 dB)', '大きく (+3 dB)', 'Mais alto (+3 dB)', 'Più forte (+3 dB)'),
+    'Loudest (+6 dB)': ('Aún más alto (+6 dB)', 'もっと大きく (+6 dB)', 'Ainda mais alto (+6 dB)', 'Ancora più forte (+6 dB)'),
+    "Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten.": (
+        'Sube todo el sonido de un juego silencioso. A +6 dB los sonidos más fuertes pueden aplanarse.',
+        '音が小さいゲームの音をすべて大きくします。+6 dBでは、いちばん大きな音がつぶれることがあります。',
+        'Aumenta todo o som de um jogo baixo. Em +6 dB os sons mais altos podem ficar achatados.',
+        'Alza tutto il suono di un gioco silenzioso. A +6 dB i suoni più forti possono appiattirsi.'),
+})
+KO.update({
+    'Volume boost': '볼륨 키우기',
+    'Louder (+3 dB)': '크게 (+3 dB)',
+    'Loudest (+6 dB)': '더 크게 (+6 dB)',
+    "Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten.":
+        '소리가 작은 게임의 모든 소리를 키웁니다. +6 dB에서는 가장 큰 소리가 뭉개질 수 있습니다.',
+})
+FR.update({
+    'Volume boost': 'Volume renforcé',
+    'Louder (+3 dB)': 'Plus fort (+3 dB)',
+    'Loudest (+6 dB)': 'Encore plus fort (+6 dB)',
+    "Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten.":
+        "Rend plus fort tout le son d'un jeu trop discret. À +6 dB, les sons les plus forts peuvent être écrêtés.",
+})
+
+# GameCube memory card: the real card in slot B as the game's slot A.
+T.update({
+    'Real card in slot B, as slot A': ('Tarjeta real de la ranura B, como ranura A', 'スロットBの実物カードをスロットAとして', 'Cartão real do slot B, como slot A', 'Scheda reale dello slot B, come slot A'),
+    'This game uses the real card in slot B as its slot A. Its saves are not on the SD card.': (
+        'Este juego usa la tarjeta real de la ranura B como su ranura A. Sus partidas no están en la tarjeta SD.',
+        'このゲームはスロットBの実物カードをスロットAとして使います。セーブはSDカードにはありません。',
+        'Este jogo usa o cartão real do slot B como seu slot A. Os saves dele não ficam no cartão SD.',
+        'Questo gioco usa la scheda reale dello slot B come suo slot A. I salvataggi non sono sulla scheda SD.'),
+    'For a game that only looks in slot A: the real card in slot B is its slot A, and slot B looks empty to it (original Wii only).': (
+        'Para un juego que solo busca en la ranura A: la tarjeta real de la ranura B es su ranura A, y la ranura B le parece vacía (solo Wii original).',
+        'スロットAしか見ないゲーム用です。スロットBの実物カードがスロットAになり、スロットBは空に見えます (初代Wiiのみ)。',
+        'Para um jogo que só procura no slot A: o cartão real do slot B é o slot A dele, e o slot B parece vazio (só Wii original).',
+        'Per un gioco che guarda solo nello slot A: la scheda reale dello slot B diventa il suo slot A, e lo slot B sembra vuoto (solo Wii originale).'),
+    'Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A.': (
+        'La ranura A no tiene una tarjeta de memoria legible. Para una tarjeta en la ranura B, elige Tarjeta real de la ranura B, como ranura A.',
+        'スロットAに読めるメモリーカードがありません。スロットBのカードを使うには「スロットBの実物カードをスロットAとして」を選んでください。',
+        'O slot A não tem um cartão de memória legível. Para um cartão no slot B, escolha Cartão real do slot B, como slot A.',
+        'Lo slot A non ha una scheda di memoria leggibile. Per una scheda nello slot B, scegli Scheda reale dello slot B, come slot A.'),
+})
+KO.update({
+    'Real card in slot B, as slot A': '슬롯 B의 실제 카드를 슬롯 A로',
+    'This game uses the real card in slot B as its slot A. Its saves are not on the SD card.':
+        '이 게임은 슬롯 B의 실제 카드를 슬롯 A로 사용합니다. 세이브는 SD 카드에 없습니다.',
+    'For a game that only looks in slot A: the real card in slot B is its slot A, and slot B looks empty to it (original Wii only).':
+        '슬롯 A만 찾는 게임용: 슬롯 B의 실제 카드가 슬롯 A가 되고, 슬롯 B는 비어 보입니다 (초기형 Wii만).',
+    'Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A.':
+        '슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B의 카드를 쓰려면 "슬롯 B의 실제 카드를 슬롯 A로"를 고르세요.',
+})
+FR.update({
+    'Real card in slot B, as slot A': 'Carte réelle du port B, comme port A',
+    'This game uses the real card in slot B as its slot A. Its saves are not on the SD card.':
+        "Ce jeu utilise la carte réelle du port B comme son port A. Ses sauvegardes ne sont pas sur la carte SD.",
+    'For a game that only looks in slot A: the real card in slot B is its slot A, and slot B looks empty to it (original Wii only).':
+        "Pour un jeu qui ne regarde que le port A : la carte réelle du port B devient son port A, et le port B lui paraît vide (Wii d'origine seulement).",
+    'Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A.':
+        "Le port A n'a pas de carte mémoire lisible. Pour une carte dans le port B, choisissez Carte réelle du port B, comme port A.",
+})
+
+# 240p output (#511): Video mode's 240p and the GameCube game page's Picture lines.
+T.update({
+    "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture.": (
+        "240p es para televisores CRT y pixel art: la imagen de 480 líneas del juego sale una línea sí y otra no, "
+        "progresiva y sin parpadeo. Los juegos que dibujan menos líneas conservan su propia imagen.",
+        "240pはブラウン管テレビとドット絵向けです。ゲームの480ラインの画面を1ラインおきに、ちらつきのないプログレッシブで"
+        "出力します。ラインの少ないゲームは元の画面のままです。",
+        "240p é para TVs de tubo (CRT) e pixel art: a imagem de 480 linhas do jogo sai uma linha sim, outra não, "
+        "progressiva e sem cintilação. Jogos que desenham menos linhas mantêm a própria imagem.",
+        "240p è per i televisori CRT e la pixel art: l'immagine a 480 righe del gioco esce una riga sì e una no, "
+        "progressiva e senza sfarfallio. I giochi che disegnano meno righe mantengono la propria immagine."),
+    "GameCube games left on Default get it too.": (
+        "Los juegos de GameCube en Predeterminado también lo usan.",
+        "「標準」のゲームキューブのゲームにも使われます。",
+        "Os jogos de GameCube em Padrão também o usam.",
+        "Anche i giochi GameCube su Predefinito lo usano."),
+    "Picture lines": ("Líneas de imagen", "映像のライン数", "Linhas da imagem", "Righe dell'immagine"),
+    "480p and 240p are for US and Japanese games; this European game keeps its own picture.": (
+        "480p y 240p son para juegos de EE. UU. y Japón; este juego europeo mantiene su propia imagen.",
+        "480pと240pはアメリカと日本のゲーム用で、このヨーロッパのゲームはゲームのままの映像になります。",
+        "480p e 240p são para jogos dos EUA e do Japão; este jogo europeu mantém a sua própria imagem.",
+        "Il 480p e il 240p sono per i giochi americani e giapponesi; questo gioco europeo mantiene la sua immagine."),
+})
+KO.update({
+    "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture.":
+        "240p는 CRT TV와 도트 그래픽용입니다. 게임의 480라인 화면을 한 줄씩 건너뛰어 깜박임 없는 프로그레시브로 "
+        "내보냅니다. 라인이 더 적은 게임은 원래 화면을 유지합니다.",
+    "GameCube games left on Default get it too.": "기본값인 게임큐브 게임에도 적용됩니다.",
+    "Picture lines": "화면 라인 수",
+    "480p and 240p are for US and Japanese games; this European game keeps its own picture.": "480p와 240p는 미국과 일본 게임용이며, 이 유럽 게임은 원래 화면을 그대로 씁니다.",
+})
+FR.update({
+    "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture.":
+        "Le 240p est pour les téléviseurs cathodiques et le pixel art : l'image de 480 lignes du jeu sort une ligne "
+        "sur deux, en progressif et sans scintillement. Les jeux qui dessinent moins de lignes gardent leur image.",
+    "GameCube games left on Default get it too.": "Les jeux GameCube sur Par défaut l'utilisent aussi.",
+    "Picture lines": "Lignes de l'image",
+    "480p and 240p are for US and Japanese games; this European game keeps its own picture.": "Le 480p et le 240p sont pour les jeux américains et japonais ; ce jeu européen garde sa propre image.",
+})
+
+# Leaving a game (#511): HOME only turns the controllers' button combo off.
+T.update({
+    'Leaving a game': ('Salir de un juego', 'ゲームをやめるとき', 'Sair de um jogo', 'Uscire da un gioco'),
+    'HOME or buttons': ('HOME o botones', 'HOMEかボタン', 'HOME ou botões', 'HOME o pulsanti'),
+    'HOME only': ('Solo HOME', 'HOMEのみ', 'Só HOME', 'Solo HOME'),
+    'In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game\'s own button combos can\'t leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console\'s Reset button then gets back.': (
+        'En los juegos de GameCube, mantén HOME dos segundos para volver a RiftWii (HOME y - con un mando de Wii solo). '
+        'HOME o botones: mantener L, R, Z y Start en un mando de GameCube también sale, y en los juegos de Wii con el '
+        'adaptador. Solo HOME desactiva los botones, para que las combinaciones de un juego no lo cierren por accidente. Sin un mando de Wii ni un Wii U Pro Controller, solo el botón Reset de la consola vuelve.',
+        'ゲームキューブのゲームでは、HOMEを2秒押し続けるとRiftWiiに戻ります (Wiiリモコンだけのときは HOMEと-)。'
+        '「HOMEかボタン」では、ゲームキューブコントローラーのL、R、Z、Startを押し続けても戻ります (アダプターを使う'
+        'Wiiのゲームでも)。「HOMEのみ」ではボタンで戻らないので、ゲームのボタン操作でまちがって終わりません。WiiリモコンもWii U Proコントローラーもないときは、本体のリセットボタンだけで戻れます。',
+        'Nos jogos de GameCube, segure HOME por dois segundos para voltar ao RiftWii (HOME e - num Wii Remote sozinho). '
+        'HOME ou botões: segurar L, R, Z e Start num controle de GameCube também sai, e nos jogos de Wii com o '
+        'adaptador. Só HOME desativa os botões, para que as combinações de um jogo não o fechem por acidente. Sem um Wii Remote nem um Wii U Pro Controller, só o botão Reset do console volta.',
+        "Nei giochi GameCube, tieni premuto HOME per due secondi per tornare a RiftWii (HOME e - su un Wii Remote da "
+        "solo). HOME o pulsanti: anche tenere premuti L, R, Z e Start su un controller GameCube fa uscire, e nei giochi "
+        "Wii con l'adattatore. Solo HOME disattiva i pulsanti, così le combinazioni di un gioco non lo chiudono per errore. Senza un Wii Remote né un Wii U Pro Controller, solo il pulsante Reset della console fa tornare."),
+})
+KO.update({
+    'Leaving a game': '게임 나가기',
+    'HOME or buttons': 'HOME 또는 버튼',
+    'HOME only': 'HOME만',
+    'In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game\'s own button combos can\'t leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console\'s Reset button then gets back.':
+        '게임큐브 게임에서 HOME을 2초 동안 누르고 있으면 RiftWii로 돌아갑니다 (Wii 리모컨만 쓸 때는 HOME과 -). '
+        'HOME 또는 버튼: 게임큐브 컨트롤러의 L, R, Z, Start를 누르고 있어도 나가며, 어댑터를 쓰는 Wii 게임에서도 '
+        '마찬가지입니다. HOME만은 버튼을 꺼서 게임의 버튼 조합으로 실수로 나가지 않게 합니다. Wii 리모컨도 Wii U Pro 컨트롤러도 없으면 본체의 리셋 버튼으로만 돌아갈 수 있습니다.',
+})
+FR.update({
+    'Leaving a game': 'Quitter un jeu',
+    'HOME or buttons': 'HOME ou boutons',
+    'HOME only': 'HOME seulement',
+    'In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game\'s own button combos can\'t leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console\'s Reset button then gets back.':
+        "Dans les jeux GameCube, maintenez HOME deux secondes pour revenir à RiftWii (HOME et - sur une Wiimote seule). "
+        "HOME ou boutons : maintenir L, R, Z et Start sur une manette GameCube quitte aussi, et dans les jeux Wii avec "
+        "l'adaptateur. HOME seulement désactive les boutons, pour que les combinaisons d'un jeu ne le quittent pas par accident. Sans Wiimote ni Wii U Pro Controller, seul le bouton Reset de la console permet de revenir.",
+})
+
+# Leaving a game, HOME only: the GameCube controller card says the buttons are off.
+T.update({
+    'L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote or a Wii U Pro Controller for two seconds to leave the game.': (
+        'L, R, Z y Start están desactivados (Ajustes > Juegos > Salir de un juego): mantén HOME en un mando de Wii o un Wii U Pro Controller dos segundos para salir del juego.',
+        'L、R、Z、Startはオフです (設定 > ゲーム > ゲームをやめるとき)。WiiリモコンかWii U ProコントローラーのHOMEを2秒押し続けるとゲームをやめます。',
+        'L, R, Z e Start estão desativados (Configurações > Jogos > Sair de um jogo): segure HOME num Wii Remote ou num Wii U Pro Controller por dois segundos para sair do jogo.',
+        "L, R, Z e Start sono disattivati (Impostazioni > Giochi > Uscire da un gioco): tieni premuto HOME su un Wii Remote o un Wii U Pro Controller per due secondi per uscire dal gioco."),
+})
+KO.update({
+    'L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote or a Wii U Pro Controller for two seconds to leave the game.': 'L, R, Z, Start는 꺼져 있습니다 (설정 > 게임 > 게임 나가기). Wii 리모컨이나 Wii U Pro 컨트롤러의 HOME을 2초 동안 누르고 있으면 게임을 나갑니다.',
+})
+FR.update({
+    'L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote or a Wii U Pro Controller for two seconds to leave the game.': "L, R, Z et Start sont désactivés (Paramètres > Jeux > Quitter un jeu) : maintenez HOME sur une Wiimote ou une manette Wii U Pro deux secondes pour quitter le jeu.",
 })
 
 # CTGP-R's native launch: the failed-launch texts and the Start notes for a version it refuses.
