@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "riftwii/ctgpapply.hpp"
-#include "riftwii/ctgptables.hpp"
 
 static int g_failures = 0;
 #define EXPECT_TRUE(cond) do { if (!(cond)) { std::cerr << "FAILED: " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
@@ -27,33 +26,26 @@ static bool has_row(const std::vector<CtgpOp>& ops, std::uint32_t row, std::uint
     return false;
 }
 
-// Made-up tables (CTGP's own come from tables.bin at run time): course
-// words 100.., layout 0 with 54 groups of tracks 1.., layout 1 with 3
-// groups of tracks 200...
-static CtgpTables made_tables() {
-    CtgpTables t;
-    for (std::size_t i = 0; i < t.course.size(); ++i) t.course[i] = 100 + static_cast<std::uint32_t>(i);
-    t.layouts[0].groups = 54;
-    for (std::size_t i = 0; i < kCtgpLayoutBytes; ++i) t.layouts[0].tracks[i] = static_cast<std::uint8_t>(1 + i);
-    t.layouts[1].groups = 3;
-    for (std::size_t i = 0; i < 12; ++i) t.layouts[1].tracks[i] = static_cast<std::uint8_t>(200 + i);
-    return t;
-}
-static const CtgpTables kTables = made_tables();
+// The course table and the cup layouts are now baked into the build
+// (ctgpapply.cpp): the course table is {8, 1, 2, 4} then the fixed tail, and
+// the two layouts each have 54 groups.
 
 static void test_defaults_offline() {
     CtgpSettings s;
     s.cup_course_layout_using = 0;
-    const auto ops = ctgp_apply_settings(s, kTables);
+    const auto ops = ctgp_apply_settings(s);
     const auto m = stores(ops);
     EXPECT_EQ(m.at(0x816ff518), 1u);
-    EXPECT_EQ(m.at(kCtgpCourseTable), 100u);
-    EXPECT_EQ(m.at(kCtgpCourseTable + 4), 101u);
-    EXPECT_EQ(m.at(0x816ffb74), 131u);            // the 32nd course word
+    EXPECT_EQ(m.at(kCtgpCourseTable), 8u);        // the fixed {8, 1, 2, 4} head
+    EXPECT_EQ(m.at(kCtgpCourseTable + 4), 1u);
+    EXPECT_EQ(m.at(kCtgpCourseTable + 8), 2u);
+    EXPECT_EQ(m.at(kCtgpCourseTable + 12), 4u);
+    EXPECT_EQ(m.at(kCtgpCourseTable + 16), 0u);   // the tail starts at 0
+    EXPECT_EQ(m.at(0x816ffb74), 0x1cu);           // the 32nd course word (tail's last)
     EXPECT_EQ(kCtgpCourseTable + 4 * 32, kCtgpLayoutWords);
     EXPECT_EQ(m.at(kCtgpLayoutCount), 62u);       // 54 groups + 8
-    EXPECT_EQ(m.at(kCtgpLayoutWords), 1u);        // first track of the first layout
-    EXPECT_EQ(m.count(kCtgpLayoutWords + 4 * 215), (std::size_t)1);
+    EXPECT_EQ(m.at(kCtgpLayoutWords), 111u);      // first track of layout 0
+    EXPECT_EQ(m.at(kCtgpLayoutWords + 4 * 215), 137u);   // its last track
     EXPECT_EQ(kCtgpLayoutWords + 4 * 216, kCtgpLayoutCount);   // the words end where the count starts
     // offline: the network is stubbed out
     EXPECT_EQ(m.at(0x816b5328), 0u);
@@ -71,7 +63,7 @@ static void test_defaults_offline() {
 static void test_online_always_off() {
     const CtgpSettings s = ctgp_settings_from_ini("[ctgpr]\nlanmode = yes\nuse_upnp = yes\nroom_encryption = yes\n", {},
                                                   CtgpRegion::P);
-    const auto ops = ctgp_apply_settings(s, kTables);
+    const auto ops = ctgp_apply_settings(s);
     const auto m = stores(ops);
     EXPECT_EQ(m.at(0x816b5328), 0u);
     EXPECT_EQ(m.at(0x816b532c), 0u);
@@ -97,7 +89,7 @@ static void test_options() {
     s.core_package_version = 0x01000004 + 0x00040000;
     s.opt_8b1 = true;
     s.my_stuff = 1;
-    const auto m = stores(ctgp_apply_settings(s, kTables));
+    const auto m = stores(ctgp_apply_settings(s));
     EXPECT_EQ(m.at(0x80000a46), 7u);
     EXPECT_EQ(m.at(0x80000a44), 2u);
     EXPECT_EQ(m.at(0x80000a49), 1u);
@@ -119,7 +111,7 @@ static void test_disabled() {
     CtgpSettings s;
     s.ctgpr_enabled = false;
     s.opt_754 = 4;
-    const auto ops = ctgp_apply_settings(s, kTables);
+    const auto ops = ctgp_apply_settings(s);
     const auto m = stores(ops);
     EXPECT_EQ(m.at(0x816ff518), 0u);
     EXPECT_EQ(m.at(0x80000a46), 3u);
@@ -132,13 +124,13 @@ static void test_disabled() {
 static void test_layouts() {
     CtgpSettings s;
     s.cup_course_layout_using = 1;
-    auto m = stores(ctgp_apply_settings(s, kTables));
-    EXPECT_EQ(m.at(kCtgpLayoutWords), 200u);
-    EXPECT_EQ(m.at(kCtgpLayoutWords + 4 * 11), 211u);
-    EXPECT_EQ(m.count(kCtgpLayoutWords + 4 * 12), (std::size_t)0);
-    EXPECT_EQ(m.at(kCtgpLayoutCount), 11u);       // 3 groups + 8
-    s.cup_course_layout_using = 2;
-    m = stores(ctgp_apply_settings(s, kTables));
+    auto m = stores(ctgp_apply_settings(s));
+    EXPECT_EQ(m.at(kCtgpLayoutWords), 195u);              // first track of layout 1
+    EXPECT_EQ(m.at(kCtgpLayoutWords + 4 * 11), 141u);
+    EXPECT_EQ(m.at(kCtgpLayoutWords + 4 * 215), 247u);    // its last track
+    EXPECT_EQ(m.at(kCtgpLayoutCount), 62u);       // 54 groups + 8
+    s.cup_course_layout_using = 2;                // layout 2 is empty
+    m = stores(ctgp_apply_settings(s));
     EXPECT_EQ(m.at(kCtgpLayoutCount), 8u);
     EXPECT_EQ(m.count(kCtgpLayoutWords), (std::size_t)0);
 }

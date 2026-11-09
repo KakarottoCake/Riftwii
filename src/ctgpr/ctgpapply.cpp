@@ -7,10 +7,63 @@
 #include <cstdlib>
 
 #include "riftwii/ctgpfields.hpp"
-#include "riftwii/ctgptables.hpp"
 
 namespace riftwii {
 namespace {
+
+// CTGP-R's course table and cup layouts, baked into the build the same way the
+// row table is (ctgprowdata.cpp). They are plain CTGP-R data the developers
+// agreed RiftWii may carry, not secrets. We bake them rather than derive them
+// from the package disk's CTGP.CRS and .cup files: the real course table is an
+// install-independent permutation of the 32 base slots (not the custom
+// track-ID bytes in CTGP.CRS), and the channel reorders a .cup's body before
+// the game sees it, so copying either file verbatim gives the game the wrong
+// tables. Because the cup layouts are specific to one CTGP-R version, the
+// launch pins kCtgpTestedCtgprVersion (ctgplaunch.hpp); a later step that
+// derives the cups correctly will relax that pin.
+
+// The course table at 0x816ffaf8: {8, 1, 2, 4} then the fixed 28-word tail, the
+// internal course IDs of Mario Kart Wii's 32 base tracks in the channel's grid
+// order (chan_internal writes it at 0x816ffaf8..0x816ffb74).
+const std::uint32_t kCourseHead[4] = {8, 1, 2, 4};
+const std::uint32_t kCourseTail[28] = {0,    5,    6,    7,    9,    0xf,  0xb,  3,    0xe,  0xa,
+                                       0xc,  0xd,  0x10, 0x14, 0x19, 0x1a, 0x1b, 0x1f, 0x17,
+                                       0x12, 0x15, 0x1e, 0x1d, 0x11, 0x18, 0x16, 0x13, 0x1c};
+
+// The two cup layouts (cup_course_layout_using 0 and 1; layout 2 is empty): a
+// group count of fours, then 216 course-ID bytes each, as the channel's
+// settings table at chan_internal 0x80bfe01c holds them.
+const std::uint8_t kLayouts[2][216] = {
+    {
+        111, 112, 77, 75, 82, 95, 86, 84, 105, 113, 79, 114, 115, 90, 102, 116, 101, 108,
+        117, 83, 71, 76, 118, 119, 106, 120, 89, 121, 91, 98, 103, 107, 70, 68, 100, 81,
+        122, 123, 124, 125, 126, 96, 104, 87, 127, 128, 110, 92, 129, 130, 65, 97, 69, 78,
+        72, 85, 131, 99, 132, 64, 80, 73, 146, 139, 94, 135, 109, 136, 144, 140, 138, 141,
+        152, 147, 142, 155, 150, 153, 151, 133, 149, 143, 134, 156, 148, 154, 145, 157, 158, 159,
+        160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 187, 171, 178, 183, 188, 170, 181, 189,
+        185, 179, 182, 186, 172, 173, 180, 210, 174, 175, 190, 192, 184, 176, 191, 177, 229, 193,
+        202, 247, 221, 231, 213, 241, 211, 240, 248, 203, 53, 197, 234, 244, 230, 42, 59, 44,
+        236, 222, 223, 218, 235, 220, 219, 51, 198, 196, 194, 212, 214, 216, 238, 246, 50, 47,
+        195, 237, 232, 239, 45, 243, 204, 205, 207, 206, 200, 201, 217, 227, 46, 199, 226, 225,
+        32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 43, 48, 49, 52, 60, 61, 62, 63,
+        208, 209, 215, 224, 228, 233, 242, 245, 249, 250, 251, 252, 253, 254, 74, 93, 88, 137,
+    },
+    {
+        195, 201, 196, 197, 200, 77, 125, 114, 202, 243, 98, 141, 33, 160, 121, 130, 189, 204,
+        135, 180, 35, 206, 97, 248, 110, 140, 228, 144, 44, 36, 142, 199, 37, 38, 85, 39,
+        148, 45, 91, 40, 119, 194, 115, 147, 153, 150, 41, 239, 102, 117, 174, 175, 151, 78,
+        87, 240, 42, 211, 166, 233, 101, 105, 112, 184, 187, 43, 93, 48, 152, 149, 212, 111,
+        164, 100, 116, 32, 129, 213, 173, 88, 139, 132, 106, 224, 76, 193, 214, 49, 84, 250,
+        253, 181, 80, 198, 146, 133, 81, 216, 86, 163, 217, 168, 52, 218, 122, 219, 167, 221,
+        96, 46, 169, 157, 108, 205, 75, 64, 186, 156, 104, 103, 192, 161, 179, 47, 183, 177,
+        89, 226, 254, 225, 90, 99, 227, 191, 124, 51, 60, 128, 172, 165, 249, 229, 50, 171,
+        234, 53, 65, 155, 176, 59, 79, 241, 72, 230, 182, 61, 231, 232, 92, 220, 143, 210,
+        62, 127, 236, 68, 222, 154, 223, 237, 113, 63, 94, 242, 251, 235, 245, 71, 120, 69,
+        74, 162, 137, 73, 158, 170, 190, 188, 238, 138, 208, 107, 207, 118, 95, 82, 134, 178,
+        203, 126, 70, 185, 145, 123, 34, 109, 136, 215, 244, 252, 83, 159, 131, 209, 246, 247,
+    },
+};
+const std::uint32_t kLayoutGroups[3] = {54, 54, 0};
 
 class Ops {
 public:
@@ -105,7 +158,7 @@ CtgpSettings ctgp_settings_from_ini(const std::string& config_ini, const std::ve
     return s;
 }
 
-std::vector<CtgpOp> ctgp_apply_settings(const CtgpSettings& s, const CtgpTables& tables) {
+std::vector<CtgpOp> ctgp_apply_settings(const CtgpSettings& s) {
     Ops o;
     o.w32(0x816ff518, s.ctgpr_enabled ? 1 : 0);
     o.w32(kCtgpLayoutCount, 0);
@@ -116,14 +169,14 @@ std::vector<CtgpOp> ctgp_apply_settings(const CtgpSettings& s, const CtgpTables&
         o.w32(0x816ffa18, fa18);
         o.w32(0x816ffa14, fa14);
     } else {
-        for (std::size_t i = 0; i < kCtgpCourseWords; ++i)
-            o.w32(kCtgpCourseTable + 4 * static_cast<std::uint32_t>(i), tables.course[i]);
-        // Layout 2 has no groups.
-        const int layout = s.cup_course_layout_using == 0 || s.cup_course_layout_using == 1 ? s.cup_course_layout_using
-                                                                                            : -1;
-        const std::uint32_t groups = layout >= 0 ? tables.layouts[layout].groups : 0;
+        for (int i = 0; i < 4; ++i) o.w32(kCtgpCourseTable + 4 * i, kCourseHead[i]);
+        for (int i = 0; i < 28; ++i) o.w32(kCtgpCourseTable + 16 + 4 * i, kCourseTail[i]);
+        // 0, 1 or 2 (out of range falls back to 0); layout 2 has no groups.
+        const int layout = s.cup_course_layout_using >= 0 && s.cup_course_layout_using <= 2 ? s.cup_course_layout_using
+                                                                                            : 0;
+        const std::uint32_t groups = kLayoutGroups[layout];
         for (std::uint32_t i = 0; i < groups * 4; ++i)
-            o.w32(kCtgpLayoutWords + 4 * i, tables.layouts[layout].tracks[i]);
+            o.w32(kCtgpLayoutWords + 4 * i, kLayouts[layout][i]);
         o.w32(kCtgpLayoutCount, groups + 8);
 
         // Online play is off for every launch from RiftWii (the CTGP-R

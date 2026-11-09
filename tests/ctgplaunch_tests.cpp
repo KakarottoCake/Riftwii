@@ -66,15 +66,14 @@ static CtgpInputs inputs() {
         in.packages_bin.insert(in.packages_bin.end(), rec.begin(), rec.end());
     };
     add("CORE", 0x01030412);
-    add("CTGPR", 0x01031192);
+    add("CTGPR", 0x01031196);
     add("CHAN", 0x00020001);
     in.efa_boot_sector = fat_sector(8, 8, 1, 4096, 0x400000, "CTGP-EFA000");
     in.sda_boot_sector = fat_sector(64, 32, 2, 8192, 8388608, "SDCARD     ");
     in.sda_volume_lba = 2048;
     in.config_ini = "[ctgpr]\nctgpr = yes\nlanmode = yes\nroom_race_count = 3\ncup_course_layout_using = 1\n";
-    // made-up tables (CTGP's own are tables.bin, read at run time)
-    in.tables.layouts[1].groups = 54;
-    for (std::size_t i = 0; i < kCtgpLayoutBytes; ++i) in.tables.layouts[1].tracks[i] = static_cast<std::uint8_t>(i);
+    // The course table and cup layouts are baked into the build (ctgpapply.cpp),
+    // so nothing is set on in.tables here beyond the package-disk keys.
     in.region = CtgpRegion::P;
     return in;
 }
@@ -95,7 +94,7 @@ static void test_assemble() {
     EXPECT_EQ(plan.boot[sda + ctgp_part::read_only], 0);
     // loader words
     EXPECT_EQ(get(plan.boot, 0x816ffa2c - kCtgpBootBase), 12u);      // player_count_offline default
-    EXPECT_EQ(get(plan.boot, 0x816ff9dc - kCtgpBootBase), 0x01031192u);   // CTGPR id
+    EXPECT_EQ(get(plan.boot, 0x816ff9dc - kCtgpBootBase), 0x01031196u);   // CTGPR id
     EXPECT_EQ(get(plan.boot, 0x816ff518 - kCtgpBootBase), 1u);       // ctgpr = yes
     EXPECT_EQ(get(plan.boot, 0x816ffed8 - kCtgpBootBase), 62u);      // layout 1: 54 groups + 8
     EXPECT_EQ(get(plan.boot, 0x816ff9f4 - kCtgpBootBase), 0u);       // lanmode = yes in config.ini, still off
@@ -122,7 +121,8 @@ static void test_assemble() {
     EXPECT_TRUE(!ctgp_assemble(bad, plan, error));
 }
 
-// Only the tested CTGP-R core is required; any track-package version runs.
+// Both the tested core and the tested CTGPR track package are required: the cup
+// layouts are baked for one CTGPR version, so another track pack is refused too.
 static void test_version_guard() {
     CtgpLaunchPlan plan;
     std::string error;
@@ -132,17 +132,23 @@ static void test_version_guard() {
     CtgpInputs other = in;
     set(other.packages_bin, 16 + 8, 0x01030413);
     EXPECT_TRUE(!ctgp_assemble(other, plan, error));
-    EXPECT_TRUE(error.find("different core") != std::string::npos);
+    EXPECT_TRUE(error.find("different version") != std::string::npos);
     EXPECT_TRUE(error.find("0x01030413") != std::string::npos);
+    // a different CTGPR track package is refused now that the cups are baked
+    other = in;
+    set(other.packages_bin, 16 + 16 + 8, 0x01031197);   // CTGPR is the second record
+    EXPECT_TRUE(!ctgp_assemble(other, plan, error));
+    EXPECT_TRUE(error.find("0x01031197") != std::string::npos);
     // no CORE at all is refused
     other = in;
     std::memcpy(&other.packages_bin[16], "XORE", 4);
     EXPECT_TRUE(!ctgp_assemble(other, plan, error));
-    // the tested core with any track-package (CTGPR) version is accepted
+    // the tested core and the tested CTGPR together are accepted
     std::vector<CtgpPackage> packages = {{"CORE", kCtgpTestedCoreVersion, 0}, {"CTGPR", kCtgpTestedCtgprVersion, 0}};
     EXPECT_TRUE(ctgp_check_versions(packages, error));
-    packages[1].version = 0x09999999;  // a newer/different track pack: still fine
-    EXPECT_TRUE(ctgp_check_versions(packages, error));
+    packages[1].version = 0x09999999;  // a different track pack: refused
+    EXPECT_TRUE(!ctgp_check_versions(packages, error));
+    packages[1].version = kCtgpTestedCtgprVersion;
     packages[0].version = 0;  // a different core: refused
     EXPECT_TRUE(!ctgp_check_versions(packages, error));
 }

@@ -84,18 +84,17 @@ constexpr std::uint32_t kCtgpRowStub1 = 28, kCtgpRowStub2 = 29, kCtgpRowPatchA =
 CtgpSettings ctgp_settings_from_ini(const std::string& config_ini, const std::vector<CtgpPackage>& packages,
                                     CtgpRegion region);
 
-struct CtgpTables;
-
-// The operations, in order. The course table and layouts come from
-// tables.bin (`tables`). Already-zero memory the channel copies in at the
-// end (its three runtime tables for 0x816ff9f8, 0x816ff260 and 0x816fe0e0)
-// stays zero: the launcher's image starts zeroed.
+// The operations, in order. The course table and the cup layouts are baked
+// into the build (ctgpapply.cpp), the same way the row table is. Already-zero
+// memory the channel copies in at the end (its three runtime tables for
+// 0x816ff9f8, 0x816ff260 and 0x816fe0e0) stays zero: the launcher's image
+// starts zeroed.
 //
 // Online play is always off: the network calls are stubbed as the channel
 // stubs them without network settings, and neither LAN mode nor UPnP is
 // ever set, whatever config.ini says (the CTGP-R developers' condition for
 // this launch).
-std::vector<CtgpOp> ctgp_apply_settings(const CtgpSettings& settings, const CtgpTables& tables);
+std::vector<CtgpOp> ctgp_apply_settings(const CtgpSettings& settings);
 
 // The words the settings leave at fixed values (for the tests).
 constexpr std::uint32_t kCtgpCourseTable = 0x816ffaf8;   // 32 words

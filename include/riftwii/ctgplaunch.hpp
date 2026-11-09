@@ -49,7 +49,7 @@ struct CtgpInputs {
     std::string config_ini;                                  // sd:/ctgpr/config.ini, may be empty
     std::vector<std::uint8_t> track_hashes;                  // efa:/packages/ctgpr/deyazhashes.hsh, may be empty
     bool my_stuff_common = false;  // sd:/ctgpr/My Stuff holds a Common*.szs (kCtgpMyStuffCommons)
-    CtgpTables tables;                       // sd:/riftwii/ctgpr/tables.bin (ctgptables.hpp)
+    CtgpTables tables;                       // the package-disk keys and IV (ctgptables.hpp)
     // What CTGP starts when it leaves for the channel (kCtgpChannelStub), in
     // CTGP's device names ("sda:/apps/riftwii/boot.dol"); empty keeps the
     // channel's stub. At most kCtgpChannelStubLength - 1 characters.
@@ -87,11 +87,14 @@ struct CtgpLaunchPlan {
 };
 
 // The one CTGP-R version this launch was made and tested for (PACKAGES.BIN
-// on the package disk): core 1.03.1042 and CTGPR 1.03.1162 in the
-// channel's numbering. The launch writes into CTGP's code and data at fixed
-// places, so any other version is refused rather than started.
+// on the package disk). The launch writes into CTGP's code and data at fixed
+// places, and the cup layouts are baked for this exact CTGPR version
+// (ctgpapply.cpp), so both the core and the CTGPR versions are pinned: any
+// other version is refused rather than started (ctgp_check_versions). A later
+// step that derives the cups from the player's own package disk will let the
+// CTGPR version vary again.
 constexpr std::uint32_t kCtgpTestedCoreVersion = 0x01030412;
-constexpr std::uint32_t kCtgpTestedCtgprVersion = 0x01031192;
+constexpr std::uint32_t kCtgpTestedCtgprVersion = 0x01031196;
 
 // True when PACKAGES.BIN names the tested versions; otherwise `error` says
 // which version was found.

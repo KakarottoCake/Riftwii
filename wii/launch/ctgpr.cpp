@@ -125,20 +125,10 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
         return true;
     };
 
-    // The course and cup tables the settings step copies into the game: CTGP's
-    // own plain files on the package disk, so RiftWii carries none of them. The
-    // 32 base-track course IDs come from CTGP.CRS; the two cup layouts the
-    // "cup/course layout" setting picks come from the alphabetic .cup files.
-    std::vector<std::uint8_t> crs, cup_en, cup_jp;
-    if (!fetch("/PACKAGES/CTGPR/CTGP.CRS", crs) ||
-        !ctgp_course_from_crs(crs.data(), crs.size(), in.tables.course, error))
-        return false;
-    if (!fetch("/PACKAGES/CTGPR/alphabeticEN.cup", cup_en) ||
-        !ctgp_layout_from_cup(cup_en.data(), cup_en.size(), in.tables.layouts[0], error))
-        return false;
-    if (!fetch("/PACKAGES/CTGPR/alphabeticJP.cup", cup_jp) ||
-        !ctgp_layout_from_cup(cup_jp.data(), cup_jp.size(), in.tables.layouts[1], error))
-        return false;
+    // The course table and the cup layouts the settings step copies into the
+    // game are baked into the build (ctgpapply.cpp), the same way the row table
+    // is, so the launch reads neither CTGP.CRS nor the .cup files from the
+    // package disk any more.
 
     // The version first: only the tested one is started.
     if (!fetch("/PACKAGES.BIN", in.packages_bin)) return false;

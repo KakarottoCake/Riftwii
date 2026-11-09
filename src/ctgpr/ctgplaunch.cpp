@@ -130,16 +130,18 @@ std::string version_text(std::uint32_t v) {
 }  // namespace
 
 bool ctgp_check_versions(const std::vector<CtgpPackage>& packages, std::string& error) {
-    // Only the CORE package (CTGP-R's game-side code) governs the addresses the
+    // The CORE package (CTGP-R's game-side code) governs the addresses the
     // native launch relies on -- the hook row table and the memory map. The
-    // CTGPR track package can be any version: its courses and cups are read
-    // from the player's own package disk at launch, not from anything RiftWii
-    // carries, so a newer track pack on the tested core is fine.
+    // CTGPR track package governs the cup layouts, which are baked into this
+    // build for one CTGP-R version (ctgpapply.cpp), so both must match the
+    // tested versions. (A later step that derives the cups from the player's
+    // own package disk will let the CTGPR version vary again.)
     const std::uint32_t core = ctgp_package_version(packages, "CORE");
-    if (core == kCtgpTestedCoreVersion) return true;
     const std::uint32_t ctgpr = ctgp_package_version(packages, "CTGPR");
-    error = "this CTGP-R has a different core (core " + version_text(core) + ", CTGPR " + version_text(ctgpr) +
-            ") from the one RiftWii was tested with (core " + version_text(kCtgpTestedCoreVersion) +
+    if (core == kCtgpTestedCoreVersion && ctgpr == kCtgpTestedCtgprVersion) return true;
+    error = "this CTGP-R is a different version (core " + version_text(core) + ", CTGPR " + version_text(ctgpr) +
+            ") from the one RiftWii was tested with (core " + version_text(kCtgpTestedCoreVersion) + ", CTGPR " +
+            version_text(kCtgpTestedCtgprVersion) +
             "), so RiftWii does not start it. Start CTGP-R from the Homebrew Channel instead";
     return false;
 }
@@ -229,7 +231,7 @@ bool ctgp_assemble(const CtgpInputs& in, CtgpLaunchPlan& plan, std::string& erro
     store(0x816FFAD4, 4, 0x80001FFF);  // IBAT0U: 0x80000000, 256 MB, Vs Vp
     store(0x816FFAD8, 4, 0x00000002);  // IBAT0L: physical 0, cached, read/write
     const CtgpSettings settings = ctgp_settings_from_ini(in.config_ini, packages, in.region);
-    for (const CtgpOp& op : ctgp_apply_settings(settings, in.tables)) {
+    for (const CtgpOp& op : ctgp_apply_settings(settings)) {
         switch (op.kind) {
         case CtgpOpKind::Store:
             store(op.address, op.size, op.value);
