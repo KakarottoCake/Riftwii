@@ -21,6 +21,7 @@
 #include "vsdimage.hpp"
 #include "i18n.hpp"
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/ctgplaunch.hpp"
 #include "riftwii/riiconfig.hpp"
 #include "riftwii/imagevolume.hpp"
 #include "loadersettings.hpp"
@@ -377,6 +378,10 @@ std::size_t CtgprPackOn(const FrontendState& state) {
     for (const PackageChoices& choice : state.model.selections()) {
         std::string app, dropped;
         if (!homebrew_app_stand_in({choice}, state.game_id, app, dropped)) continue;
+        // Only CTGP-R's own channel swap on Mario Kart Wii locks the other
+        // packs and the cheats off; any other homebrew-app stand-in is an
+        // ordinary pack and leaves them alone.
+        if (!ctgp_is_native_stand_in(state.game_id, app)) continue;
         for (std::size_t i = 0; i < state.model.packages.size(); ++i)
             if (state.model.packages[i].path == choice.xml_sd_path) return i;
     }

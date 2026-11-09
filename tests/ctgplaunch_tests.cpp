@@ -173,6 +173,15 @@ static void test_channel_stub() {
     // too long for the 28 bytes
     in.channel_stub = "sda:/apps/riftwii-long-name/boot.dol";
     EXPECT_TRUE(!ctgp_assemble(in, plan, error));
+    // A BOOT.BIN too short to hold the stub's fixed-offset path is refused
+    // before anything reads or writes past its end (#3). The partition
+    // objects need the image out to 0xc5c00; this is longer than that but a
+    // few bytes shorter than the stub's span, so the guard is what stops it.
+    CtgpInputs short_boot = inputs();
+    short_boot.channel_stub = "sda:/apps/riftwii/boot.dol";
+    short_boot.boot_bin.resize((kCtgpChannelStub - kCtgpBootBase) + kCtgpChannelStubLength - 4, 0);
+    EXPECT_TRUE(!ctgp_assemble(short_boot, plan, error));
+    EXPECT_TRUE(error.find("too small to hold the channel stub") != std::string::npos);
 }
 
 static CtgpMemoryState good_state() {
@@ -201,6 +210,26 @@ static void test_layout() {
     EXPECT_TRUE(!ctgp_check_layout(plan, s, error));
     s = good_state(); s.loaded.push_back({0x81650000, 0x1000});
     EXPECT_TRUE(!ctgp_check_layout(plan, s, error));
+}
+
+// The placed image must fit MEM1: BOOT below BOAT, BOAT below MEM1's top (#4).
+static void test_size_caps() {
+    CtgpLaunchPlan plan;
+    std::string error;
+    EXPECT_TRUE(ctgp_assemble(inputs(), plan, error));
+    CtgpMemoryState s = good_state();
+    EXPECT_TRUE(ctgp_check_layout(plan, s, error));
+    // BOAT ending past the top of MEM1 is refused.
+    CtgpLaunchPlan over = plan;
+    over.image_end = kCtgpMem1End + 4;
+    EXPECT_TRUE(!ctgp_check_layout(over, s, error));
+    EXPECT_TRUE(error.find("past the end of MEM1") != std::string::npos);
+    // BOOT running into BOAT is refused.
+    CtgpLaunchPlan over_boot = plan;
+    over_boot.boot.resize((kCtgpBoatBase - kCtgpBootBase) + 4, 0);
+    EXPECT_TRUE(!ctgp_check_layout(over_boot, s, error));
+    // The caps sit above the real file sizes, so a real image still fits.
+    EXPECT_TRUE(0x121c34u < kCtgpBootMax && 0x5a418u < kCtgpBoatMax);
 }
 
 namespace {
@@ -412,7 +441,29 @@ static void test_common_flag() {
     EXPECT_EQ(word(plan, 0x816FF508), 1u);
 }
 
+// The native-launch trigger is narrow: Mario Kart Wii, and exactly CTGP-R's
+// own channel app, and nothing else (#2).
+static void test_native_stand_in() {
+    EXPECT_TRUE(ctgp_is_native_stand_in("RMCE01", "sd:/apps/ctgpr/boot.dol"));
+    EXPECT_TRUE(ctgp_is_native_stand_in("RMCP01", "sd:/apps/ctgpr/boot.dol"));
+    EXPECT_TRUE(ctgp_is_native_stand_in("RMCJ01", "sd:/apps/ctgpr/boot.dol"));
+    EXPECT_TRUE(ctgp_is_native_stand_in("RMCK01", "sd:/apps/ctgpr/boot.dol"));
+    // case does not matter in the path (the card is case-insensitive)
+    EXPECT_TRUE(ctgp_is_native_stand_in("RMCE01", "sd:/apps/CTGPR/Boot.dol"));
+    // another game, even with the same region letter, is not CTGP-R
+    EXPECT_TRUE(!ctgp_is_native_stand_in("SMNE01", "sd:/apps/ctgpr/boot.dol"));
+    EXPECT_TRUE(!ctgp_is_native_stand_in("RMGE01", "sd:/apps/ctgpr/boot.dol"));
+    // another homebrew app on Mario Kart Wii is an ordinary pack
+    EXPECT_TRUE(!ctgp_is_native_stand_in("RMCE01", "sd:/apps/other/boot.dol"));
+    EXPECT_TRUE(!ctgp_is_native_stand_in("RMCE01", "sd:/apps/ctgpr/main.dol"));
+    EXPECT_TRUE(!ctgp_is_native_stand_in("RMCE01", "sd:/apps/ctgpr/boot.dol.bak"));
+    EXPECT_TRUE(!ctgp_is_native_stand_in("RMCE01", ""));
+    // a bare prefix with no region letter is not a disc ID
+    EXPECT_TRUE(!ctgp_is_native_stand_in("RMC", "sd:/apps/ctgpr/boot.dol"));
+}
+
 int main() {
+    test_native_stand_in();
     test_common_flag();
     test_track_hashes();
     test_startup();
@@ -422,6 +473,7 @@ int main() {
     test_assemble();
     test_channel_stub();
     test_layout();
+    test_size_caps();
     test_place();
     if (g_failures == 0) std::cout << "ctgplaunch tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;

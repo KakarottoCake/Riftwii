@@ -100,6 +100,17 @@ constexpr std::uint32_t kCtgpTestedCtgprVersion = 0x01031196;
 // which version was found.
 bool ctgp_check_versions(const std::vector<CtgpPackage>& packages, std::string& error);
 
+// True when a homebrew-app stand-in launch is CTGP-R's own channel swap, and
+// only then: the game is Mario Kart Wii (its ID starts "RMC") and the pack's
+// only change is to start CTGP-R's channel app at exactly
+// "sd:/apps/ctgpr/boot.dol" (the path homebrew_app_stand_in returns; matched
+// without regard to letter case, as the card's file system is). This narrows
+// the native CTGP-R launch, and the cheat/other-pack lockout that goes with it,
+// to that one case: a pack that swaps main.dol for some other /apps/*/*.dol,
+// even on an RMC-id disc, is an ordinary pack and must not get CTGP-R's Mario
+// Kart Wii hooks written into it.
+bool ctgp_is_native_stand_in(const std::string& game_id, const std::string& app);
+
 // Builds the plan. Refuses an untested CTGP-R version (ctgp_check_versions).
 // Online play stays off whatever config.ini says: the network calls are
 // stubbed, LAN mode and UPnP are off (ctgpapply.hpp).

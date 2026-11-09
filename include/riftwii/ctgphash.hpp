@@ -9,17 +9,19 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/ctgpdsa.hpp"
 #include "riftwii/fst.hpp"
 
 // CTGP-R's signed lists of file digests ("efb:/packages/HASH/<PACKAGE>.HSH").
-// The channel checks a list before it trusts it, and then writes each signed
-// file's expected SHA-1 into that file's open-file record, where the game's
-// code compares it with what it reads. This does the channel's structural
-// checks (the magic, the size, the package name, the version and the body's
-// SHA-1), which is what keeps a list honest here: the game's own open-file
-// comparison still enforces every digest. The list's DSA signature is not
-// re-checked, because the CTGP-R channel verifies every signed list itself
-// before the game uses it, so a second check in RiftWii would be redundant.
+// Each file's expected SHA-1 is written into that file's open-file record,
+// where the game's own code compares it with what it reads. Loading a list
+// here does the checks the channel does before it trusts a list: it verifies
+// the list's DSA signature against CTGP-R's public list-signing key
+// (riftwii/ctgpdsa.hpp), then the structural fields (the magic, the size, the
+// package name, the version and the body's SHA-1). The signature check matters
+// because in the native launch the CTGP-R channel never runs, so nothing else
+// would catch a hand-edited list; with a verified list, the game's own
+// open-file comparison then enforces every recorded digest.
 //
 // Layout: "Hah0", the file's size, 0, the SHA-1 of the body (20 bytes),
 // the package name (8 bytes), the package's version, the signature's length
@@ -47,7 +49,7 @@ public:
 
 private:
     friend bool ctgp_load_hash_list(const std::vector<std::uint8_t>&, const std::string&, std::uint32_t,
-                                    CtgpHashList&, std::string&);
+                                    CtgpHashList&, std::string&, const CtgpDsaKey*);
     std::vector<std::uint8_t> body_;
     Fst tree_;
     std::size_t files_ = 0;
@@ -55,10 +57,11 @@ private:
 };
 
 // Checks `file` as the list of package `package` (at most 8 characters) in the
-// version `version` (from PACKAGES.BIN): the magic, the size, the name, the
-// version and the body's SHA-1. On any failure `error` says which and `out` is
-// untouched.
+// version `version` (from PACKAGES.BIN): the DSA signature against CTGP-R's
+// public key, then the magic, the size, the name, the version and the body's
+// SHA-1. On any failure `error` says which and `out` is untouched. `key` is
+// only for tests; the default is CTGP-R's own public list-signing key.
 bool ctgp_load_hash_list(const std::vector<std::uint8_t>& file, const std::string& package, std::uint32_t version,
-                         CtgpHashList& out, std::string& error);
+                         CtgpHashList& out, std::string& error, const CtgpDsaKey* key = nullptr);
 
 }  // namespace riftwii

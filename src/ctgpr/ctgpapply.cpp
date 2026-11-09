@@ -179,25 +179,6 @@ std::vector<CtgpOp> ctgp_apply_settings(const CtgpSettings& s) {
             o.w32(kCtgpLayoutWords + 4 * i, kLayouts[layout][i]);
         o.w32(kCtgpLayoutCount, groups + 8);
 
-        // Online play is off for every launch from RiftWii (the CTGP-R
-        // developers' condition): the game's network calls are stubbed to
-        // return -76, as the channel does when it has no network settings,
-        // and the LAN path (0xFE in the two words) is never taken, whatever
-        // config.ini says. Nothing in RiftWii's settings turns this on.
-        o.w8(0x80003183, 0);
-        o.w32(0x816b5328, 0);
-        o.w32(0x816b532c, 0);
-        o.row_store(kCtgpRowStub1, 0x00, kLiR3Minus76);
-        o.row_store(kCtgpRowStub1, 0x04, kBlr);
-        o.row_store(kCtgpRowStub2, 0x00, kLiR3Minus76);
-        o.row_store(kCtgpRowStub2, 0x04, kBlr);
-        o.row_store(kCtgpRowStub2, 0x22c, kLiR3Minus76);
-        o.row_store(kCtgpRowStub2, 0x230, kBlr);
-        o.row_store(kCtgpRowStub2, 0x2a4, kLiR3Zero);
-        o.row_store(kCtgpRowStub2, 0x2a8, kBlr);
-        o.row_store(kCtgpRowStub2, 0x3e4, kLiR3Minus76);
-        o.row_store(kCtgpRowStub2, 0x3e8, kBlr);
-
         if (s.core_package_version > 0x1030041)
             o.w8(0x816ffab4, (s.opt_8b1 && s.my_stuff != 0) ? 1 : 0);
         o.w32(0x80000a40, s.ctgpr_package_version);
@@ -226,6 +207,29 @@ std::vector<CtgpOp> ctgp_apply_settings(const CtgpSettings& s) {
         else if (s.show_race_rules == 1) { o.w8(0x80000a86, 1); }
         o.w32(0x816ffa18, fa18);
     }
+
+    // Online play is off for every launch from RiftWii (the CTGP-R
+    // developers' condition), whether or not CTGP-R's custom tracks are
+    // enabled: CTGP's code still runs when ctgpr is off (it just loads
+    // no_ct_24p instead of the track package), so the network calls are
+    // stubbed to return -76 unconditionally -- as the channel does when it
+    // has no network settings -- and the LAN path (0xFE in the two words) is
+    // never taken, whatever config.ini says. Nothing in RiftWii's settings
+    // turns this on, so these run outside the if/else above.
+    o.w8(0x80003183, 0);
+    o.w32(0x816b5328, 0);
+    o.w32(0x816b532c, 0);
+    o.row_store(kCtgpRowStub1, 0x00, kLiR3Minus76);
+    o.row_store(kCtgpRowStub1, 0x04, kBlr);
+    o.row_store(kCtgpRowStub2, 0x00, kLiR3Minus76);
+    o.row_store(kCtgpRowStub2, 0x04, kBlr);
+    o.row_store(kCtgpRowStub2, 0x22c, kLiR3Minus76);
+    o.row_store(kCtgpRowStub2, 0x230, kBlr);
+    o.row_store(kCtgpRowStub2, 0x2a4, kLiR3Zero);
+    o.row_store(kCtgpRowStub2, 0x2a8, kBlr);
+    o.row_store(kCtgpRowStub2, 0x3e4, kLiR3Minus76);
+    o.row_store(kCtgpRowStub2, 0x3e8, kBlr);
+
     // common tail
     if (fa18 != 0) o.w32(0x816ffa18, static_cast<std::uint32_t>(s.opt_494));
     o.w32(0x816ffaac, static_cast<std::uint32_t>(s.opt_760));

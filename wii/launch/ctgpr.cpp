@@ -25,6 +25,12 @@ namespace {
 // The largest file read whole here (BOOT.BIN is about 1.2 MB).
 constexpr long kMaxWholeFile = 16 << 20;
 
+// A generous ceiling for package-disk files whose only hard limit is that they
+// must fit in memory (PACKAGES.BIN, BEAT.BIN, the hash file, the package file
+// lists). BOOT.BIN and BOAT.BIN instead get their own placement caps, which
+// are far smaller (ctgpimage.hpp).
+constexpr std::uint64_t kCtgpFetchCeiling = 16ull << 20;
+
 bool exists(const char* path) {
     struct stat st;
     return stat(path, &st) == 0 && S_ISREG(st.st_mode);
@@ -63,6 +69,13 @@ bool ctgpr_native_wanted() {
 bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const CtgpLaunchPlan>& out,
                           std::string& error) {
     CtgpInputs in;
+    // Mario Kart Wii only: the native launch writes CTGP-R's Mario Kart Wii
+    // hooks at fixed game addresses, so it must never run on another game, even
+    // one whose disc ID happens to share the region letter.
+    if (game_id.compare(0, 3, "RMC") != 0) {
+        error = "CTGP-R only starts the Mario Kart Wii disc (its game ID starts \"RMC\")";
+        return false;
+    }
     switch (game_id.size() > 3 ? game_id[3] : '?') {
     case 'E': in.region = CtgpRegion::E; break;
     case 'J': in.region = CtgpRegion::J; break;
@@ -108,10 +121,19 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
         error = "CTGP-R's package disk (blob.bin) does not open: " + error;
         return false;
     }
-    auto fetch = [&](const char* path, std::vector<std::uint8_t>& bytes) {
+    // `max` caps the file at what the launch can use, checked before the
+    // resize so a FAT entry claiming a huge size cannot make RiftWii try to
+    // allocate it and eat the heap. BOOT.BIN and BOAT.BIN get their real
+    // placement limits (ctgpimage.hpp); the rest get a generous general
+    // ceiling (kCtgpFetchCeiling).
+    auto fetch = [&](const char* path, std::vector<std::uint8_t>& bytes, std::uint64_t max) {
         Fat32File f;
         if (!efa.lookup(path, f, error)) {
             error = std::string(path) + " on CTGP-R's package disk: " + error;
+            return false;
+        }
+        if (f.entry.size > max) {
+            error = std::string(path) + " on CTGP-R's package disk is larger than it can be";
             return false;
         }
         if (!try_resize(bytes, f.entry.size)) {
@@ -131,7 +153,7 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
     // package disk any more.
 
     // The version first: only the tested one is started.
-    if (!fetch("/PACKAGES.BIN", in.packages_bin)) return false;
+    if (!fetch("/PACKAGES.BIN", in.packages_bin, kCtgpFetchCeiling)) return false;
     std::vector<CtgpPackage> versions;
     if (!ctgp_parse_packages(in.packages_bin.data(), in.packages_bin.size(), versions, error)) return false;
     if (!ctgp_check_versions(versions, error)) return false;
@@ -139,8 +161,9 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
          static_cast<unsigned>(ctgp_package_version(versions, "CORE")),
          static_cast<unsigned>(ctgp_package_version(versions, "CTGPR")));
 
-    if (!fetch("/PACKAGES/CORE/BOOT.BIN", in.boot_bin) || !fetch("/PACKAGES/CORE/BOAT.BIN", in.boat_bin) ||
-        !fetch("/PACKAGES/CORE/BEAT.BIN", in.beat_bin))
+    if (!fetch("/PACKAGES/CORE/BOOT.BIN", in.boot_bin, kCtgpBootMax) ||
+        !fetch("/PACKAGES/CORE/BOAT.BIN", in.boat_bin, kCtgpBoatMax) ||
+        !fetch("/PACKAGES/CORE/BEAT.BIN", in.beat_bin, kCtgpFetchCeiling))
         return false;
     in.efa_boot_sector.resize(512);
     if (!reader(0, 1, in.efa_boot_sector.data())) {
@@ -162,7 +185,7 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
         }
     }
     // The CTGPR tracks' digests, which the channel always loads.
-    if (!fetch("/PACKAGES/CTGPR/deyazhashes.hsh", in.track_hashes)) return false;
+    if (!fetch("/PACKAGES/CTGPR/deyazhashes.hsh", in.track_hashes, kCtgpFetchCeiling)) return false;
 
     // Leaving for the channel (its menu buttons, a crash) restarts RiftWii.
     {
@@ -204,7 +227,7 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
     const auto package_lists = ctgp_package_lists(ctgp_settings_from_ini(in.config_ini, versions, in.region));
     std::vector<std::vector<std::uint8_t>> lists(package_lists.size());
     for (std::size_t i = 0; i < package_lists.size(); ++i) {
-        if (!fetch(package_lists[i].path.c_str(), lists[i])) return false;
+        if (!fetch(package_lists[i].path.c_str(), lists[i], kCtgpFetchCeiling)) return false;
         logf("CTGP-R: package list %s\n", package_lists[i].path.c_str());
     }
     CtgpSourceResolver resolver = [&efa](const std::string& device, const std::string& path, CtgpSourceFile& found) {
@@ -242,7 +265,11 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
         return true;
     };
     if (!load_hashes("CTGPR", ctgpr_hashes) || !load_hashes("CORE", core_hashes)) return false;
-    logf("CTGP-R: hash lists verified (CTGPR %u files, CORE %u files)\n",
+    // The DSA signature of each list is checked against CTGP-R's own key as it
+    // loads (ctgp_load_hash_list); the per-file digests those lists carry are
+    // written into the game's open-file records, where CTGP's code compares
+    // each served file as it reads it.
+    logf("CTGP-R: hash lists' signatures checked against CTGP-R's key (CTGPR %u files, CORE %u files)\n",
          static_cast<unsigned>(ctgpr_hashes.file_count()), static_cast<unsigned>(core_hashes.file_count()));
     std::vector<const CtgpHashList*> hash_lists;
     for (const CtgpPackageList& l : package_lists)

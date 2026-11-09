@@ -468,7 +468,8 @@ bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& sou
 
 bool CtgprNativeLaunch(const std::vector<PackageChoices>& packages, const std::string& game_id) {
     std::string app, dropped;
-    return homebrew_app_stand_in(packages, game_id, app, dropped) && ctgpr_native_wanted();
+    return homebrew_app_stand_in(packages, game_id, app, dropped) &&
+           ctgp_is_native_stand_in(game_id, app) && ctgpr_native_wanted();
 }
 
 bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, const LaunchSource& source,
@@ -491,10 +492,13 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
             logf("Mods: the packs only replace the game's executable with %s, a Homebrew Channel app: started as "
                  "the Homebrew Channel starts it, not loaded as the game%s\n",
                  app.c_str(), dropped.empty() ? "" : ("; " + dropped + " does not apply to it").c_str());
-            if (ctgpr_native_wanted()) {
+            if (ctgpr_native_wanted() && ctgp_is_native_stand_in(game_id, app)) {
                 // The native launch: RiftWii loads the game itself and places
                 // CTGP-R's code in it (docs/CTGPR.md), in place of the
-                // channel. Offline only.
+                // channel. Offline only. Narrowed to CTGP-R's own channel swap
+                // on Mario Kart Wii: another pack that swaps main.dol for some
+                // other homebrew app is started below as an ordinary app, with
+                // none of CTGP-R's Mario Kart Wii hooks.
                 logf("CTGP-R: native launch (the CTGP-R Channel app is not started)\n");
                 Session s(source, "sd:/riftwii/boot.log");
                 // CTGP's files are read from the card after the probe, and

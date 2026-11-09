@@ -18,10 +18,19 @@ The CTGP-R developers allow it on these conditions, which the code keeps:
   are never set whatever `sd:/ctgpr/config.ini` says, and Settings >
   Online's server swap is skipped. Nothing in RiftWii turns online on
   (`src/ctgpr/ctgpapply.cpp`, `ctgpfields.cpp`, `wii/launch/boot.cpp`).
-* **Anti-cheat intact.** No tamper branch is changed, the signed digest
-  lists are checked as the channel checks them, and CTGP's scanner thread
-  runs. The only change to CTGP's own data is the path its channel button
-  starts, which points at RiftWii's `boot.dol`.
+* **Anti-cheat intact.** No tamper branch is changed, and CTGP's scanner
+  thread runs. Each signed digest list (`CTGPR.HSH`, `CORE.HSH`) has its DSA
+  signature checked against CTGP-R's own public list-signing key before it is
+  trusted (`src/ctgpr/ctgpdsa.cpp`, `ctgphash.cpp`); this matters here because
+  the channel, which would otherwise verify the lists, never runs. Each list's
+  per-file SHA-1 is then written into the game's open-file records, where
+  CTGP's own code compares every served file as it reads it. The only change to
+  CTGP's own data is the path its channel button starts, which points at
+  RiftWii's `boot.dol`.
+  *Not yet checked by RiftWii:* the core code RiftWii places directly
+  (`BOOT.BIN`, `BOAT.BIN`, `BEAT.BIN`) is not itself re-hashed before it is
+  placed — the names those files carry inside `CORE.HSH` are only on the
+  player's own encrypted package disk, so re-hashing them is a follow-up.
 * **No ghost signing.** The card's signing key (on `jelly.bin`) and the
   console's MAC are not read. CTGP gets a key RiftWii made that can never
   give a valid signature (`include/riftwii/ctgpsign.hpp`); ghosts save
@@ -73,10 +82,14 @@ game half set up.
 ### Checks
 
 Host tests cover each step with made-up data (`tests/ctgp*_tests.cpp`):
-the ghost-signing key is laid out as the channel's but is deliberately
-unusable, the baked course table and cup layouts are checked against their
-known-good values, online and LAN stay off whatever config.ini says, and
-untested versions (core or CTGPR) are refused. The earlier
+the DSA signature check accepts a correctly signed list and rejects a tampered
+one (`ctgpdsa_tests`, `ctgphash_tests`, with a throwaway test key, since
+CTGP-R's key is not ours to sign with), the ghost-signing key is laid out as
+the channel's but is deliberately unusable, the baked course table and cup
+layouts are checked against their known-good values, online and LAN stay off
+whatever config.ini says (enabled or not), the native launch is refused for a
+disc that is not Mario Kart Wii, a BOOT/BOAT image that would not fit MEM1 is
+refused, and untested versions (core or CTGPR) are refused. The earlier
 build of this launch (on 3.1.0) was tested on a PAL Wii from disc and
 USB (menus, custom tracks, VS, a full Grand Prix, Time Trial ghost save
 and replay, the channel and Rankings buttons back to RiftWii) with the

@@ -14,6 +14,14 @@ namespace riftwii {
 
 constexpr std::uint32_t kCtgpBootBase = 0x81620000;  // core/BOOT.BIN (data)
 constexpr std::uint32_t kCtgpBoatBase = 0x81760000;  // core/BOAT.BIN (code)
+constexpr std::uint32_t kCtgpMem1End = 0x81800000;   // the top of MEM1 (24 MB)
+// The real placement constraint: BOOT.BIN is placed at kCtgpBootBase and must
+// end before BOAT.BIN's base, and BOAT.BIN is placed at kCtgpBoatBase and must
+// end before MEM1's top. A file larger than its window cannot be placed, so it
+// is refused before it is read (real sizes are BOOT ~0x121c34, BOAT ~0x5a418;
+// these caps sit generously above those but safely below the overflow).
+constexpr std::uint32_t kCtgpBootMax = kCtgpBoatBase - kCtgpBootBase;  // 0x140000
+constexpr std::uint32_t kCtgpBoatMax = kCtgpMem1End - kCtgpBoatBase;   // 0xa0000
 constexpr std::size_t kCtgpRowCount = 2570;
 
 // 0 NTSC-U, 1 NTSC-J, 2 PAL (the column of the row table).

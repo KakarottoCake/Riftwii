@@ -119,6 +119,16 @@ static void test_disabled() {
     EXPECT_EQ(m.count(kCtgpCourseTable), (std::size_t)0);
     EXPECT_EQ(m.at(kCtgpLayoutCount), 0u);
     EXPECT_TRUE(has_row(ops, kCtgpRowPatchB, 0xe4, 0x60000000));  // the tail still runs
+    // Online stays off even with CTGP-R's custom tracks disabled: the network
+    // calls and LAN words are stubbed just the same (they moved out of the
+    // ctgpr-enabled branch so no config can bring online back).
+    EXPECT_EQ(m.at(0x80003183), 0u);
+    EXPECT_EQ(m.at(0x816b5328), 0u);
+    EXPECT_EQ(m.at(0x816b532c), 0u);
+    EXPECT_TRUE(has_row(ops, kCtgpRowStub1, 0x00, 0x3860FFB4));   // li r3,-76
+    EXPECT_TRUE(has_row(ops, kCtgpRowStub1, 0x04, 0x4E800020));   // blr
+    EXPECT_TRUE(has_row(ops, kCtgpRowStub2, 0x3e4, 0x3860FFB4));
+    EXPECT_TRUE(has_row(ops, kCtgpRowStub2, 0x2a4, 0x38600000));  // li r3,0
 }
 
 static void test_layouts() {

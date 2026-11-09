@@ -146,6 +146,24 @@ bool ctgp_check_versions(const std::vector<CtgpPackage>& packages, std::string& 
     return false;
 }
 
+bool ctgp_is_native_stand_in(const std::string& game_id, const std::string& app) {
+    // Mario Kart Wii only: every region's disc ID starts "RMC" (RMCE, RMCP,
+    // RMCJ, RMCK...). The region letter is the fourth character, so a full ID
+    // is needed, not the bare prefix.
+    if (game_id.size() < 4 || game_id.compare(0, 3, "RMC") != 0) return false;
+    // Exactly CTGP-R's channel app, compared without regard to letter case,
+    // since the card's FAT file system is case-insensitive and the pack's XML
+    // may spell the path either way.
+    static const char kCtgprApp[] = "sd:/apps/ctgpr/boot.dol";
+    if (app.size() != sizeof kCtgprApp - 1) return false;
+    for (std::size_t i = 0; i < app.size(); ++i) {
+        char a = app[i];
+        if (a >= 'A' && a <= 'Z') a = static_cast<char>(a - 'A' + 'a');
+        if (a != kCtgprApp[i]) return false;
+    }
+    return true;
+}
+
 bool ctgp_assemble(const CtgpInputs& in, CtgpLaunchPlan& plan, std::string& error) {
     std::vector<CtgpPackage> packages;
     if (!ctgp_parse_packages(in.packages_bin.data(), in.packages_bin.size(), packages, error)) return false;
@@ -280,11 +298,20 @@ bool ctgp_assemble(const CtgpInputs& in, CtgpLaunchPlan& plan, std::string& erro
     // the channel's own stub hangs). CTGP leaves its reason at 0x93000000.
     if (!in.channel_stub.empty()) {
         static const char kStub[] = "efa:/packages/CHAN/stub.dol";
-        std::uint8_t* at = &p.boot[kCtgpChannelStub - kBootBase];
+        // The stub's path sits at a fixed offset well inside a real BOOT.BIN,
+        // but a short or malformed CORE/BOOT.BIN could be smaller than that:
+        // check the span is present before touching it, so the fixed-offset
+        // read and write below can never run off the end of the image.
+        const std::uint32_t stub_offset = kCtgpChannelStub - kBootBase;
+        if (p.boot.size() < static_cast<std::size_t>(stub_offset) + kCtgpChannelStubLength) {
+            error = "BOOT.BIN is too small to hold the channel stub's path";
+            return false;
+        }
         if (in.channel_stub.size() >= kCtgpChannelStubLength) {
             error = "the path for leaving to the channel is too long: " + in.channel_stub;
             return false;
         }
+        std::uint8_t* at = &p.boot[stub_offset];
         if (std::memcmp(at, kStub, sizeof kStub) != 0) {
             error = "BOOT.BIN does not hold the channel stub's path where expected";
             return false;
@@ -430,6 +457,10 @@ bool ctgp_check_layout(const CtgpLaunchPlan& plan, const CtgpMemoryState& state,
     }
     if (kCtgpBootBase + plan.boot.size() > kCtgpBoatBase) {
         error = "BOOT.BIN runs into BOAT.BIN";
+        return false;
+    }
+    if (end > kCtgpMem1End) {
+        error = "the CTGP-R image runs past the end of MEM1";
         return false;
     }
     if (state.loader_end > start) {
