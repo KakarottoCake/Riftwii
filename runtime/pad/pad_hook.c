@@ -452,6 +452,12 @@ static void pad_home_check(struct rt_pad_context* c, const uint8_t* status, uint
         c->home_judged = 1;
         if (!rthome_keep(&c->home, c->home_writes != 0) && c->return_to_menu != 0) {
             c->home_on = 0;
+            /* The combo still held now (the stand-in's press and the game's
+             * time to open its menu over, nothing opened): this same hold
+             * is the way back, through rtleave_due's save rules as usual.
+             * Let go, it is not; a refusal the game gives only now and then
+             * (an intro, a save) never leaves on its own. */
+            if (rtleave_held(status)) rtleave_held_through(&c->leave, t);
             return;
         }
     }
