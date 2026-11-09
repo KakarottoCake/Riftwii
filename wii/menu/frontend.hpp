@@ -120,6 +120,15 @@ std::string ScanPackages(FrontendState& state, bool reuse_catalog = false,
 // build on the USB drive, or one turned on with the game on the SD card. `brief` is
 // the short form for the game page.
 std::string ModPlaceProblem(const FrontendState& state, bool brief = false);
+
+// CTGP-R takes precedence over everything else (its anti-cheat must stay
+// whole): while its pack is switched on for the game, cheats and every other
+// pack are locked off. CtgprPackOn returns the index of that pack in
+// state.model.packages, or SIZE_MAX when it is not on. ApplyCtgprPrecedence
+// switches the others and the cheats off and says whether it changed
+// anything (ScanPackages does it for choices saved before the rule).
+std::size_t CtgprPackOn(const FrontendState& state);
+bool ApplyCtgprPrecedence(FrontendState& state);
 bool SaveChoices(const FrontendState& state, std::string& error);
 // `model`'s choices written to `path` (a profile's new file), safely as SaveChoices.
 bool SaveChoicesTo(const riftwii::LaunchModel& model, const std::string& path, std::string& error);

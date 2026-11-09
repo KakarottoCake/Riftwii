@@ -8445,6 +8445,38 @@ FR.update({
     "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start.": "Ce jeu vérifie son propre code. Pour qu'il démarre, les modifications d'image, de langue, de région, de manettes, de jeu en ligne et les codes de triche restent désactivés.",
 })
 
+# CTGP-R takes precedence: cheats and other mods are locked off while it is on.
+T.update({
+    "Off (CTGP-R)": ("No (CTGP-R)", "オフ (CTGP-R)", "Desativado (CTGP-R)", "No (CTGP-R)"),
+    "Cheats can't be turned on while CTGP-R is enabled. Turn CTGP-R off in Mods to use cheats.": (
+        "Los trucos no se pueden activar mientras CTGP-R está activado. Desactiva CTGP-R en Mods para usar trucos.",
+        "CTGP-Rが有効の間はチートをオンにできません。チートを使うには、ModでCTGP-Rをオフにしてください。",
+        "As trapaças não podem ser ativadas enquanto o CTGP-R estiver ativado. Desative o CTGP-R em Mods para usá-las.",
+        "I trucchi non possono essere attivati mentre CTGP-R è attivo. Disattiva CTGP-R in Mod per usarli."),
+    "Other mods can't be enabled while CTGP-R is on. Turn CTGP-R off to use them.": (
+        "Los demás mods no se pueden activar mientras CTGP-R está activado. Desactiva CTGP-R para usarlos.",
+        "CTGP-Rが有効の間は、ほかのModを有効にできません。使うには、CTGP-Rをオフにしてください。",
+        "Os outros mods não podem ser ativados enquanto o CTGP-R estiver ativado. Desative o CTGP-R para usá-los.",
+        "Gli altri mod non possono essere attivati mentre CTGP-R è attivo. Disattiva CTGP-R per usarli."),
+    "CTGP-R is on, so cheats and other mods were turned off. They can't be enabled while it is on.": (
+        "CTGP-R está activado, así que los trucos y los demás mods se desactivaron. No se pueden activar mientras CTGP-R esté activado.",
+        "CTGP-Rが有効なので、チートとほかのModをオフにしました。CTGP-Rが有効の間はオンにできません。",
+        "O CTGP-R está ativado, então as trapaças e os outros mods foram desativados. Eles não podem ser ativados enquanto o CTGP-R estiver ativado.",
+        "CTGP-R è attivo, quindi trucchi e altri mod sono stati disattivati. Non possono essere attivati mentre CTGP-R è attivo."),
+})
+KO.update({
+    "Off (CTGP-R)": "끔 (CTGP-R)",
+    "Cheats can't be turned on while CTGP-R is enabled. Turn CTGP-R off in Mods to use cheats.": "CTGP-R이 켜져 있는 동안에는 치트를 켤 수 없습니다. 치트를 쓰려면 Mods에서 CTGP-R을 끄세요.",
+    "Other mods can't be enabled while CTGP-R is on. Turn CTGP-R off to use them.": "CTGP-R이 켜져 있는 동안에는 다른 모드를 켤 수 없습니다. 쓰려면 CTGP-R을 끄세요.",
+    "CTGP-R is on, so cheats and other mods were turned off. They can't be enabled while it is on.": "CTGP-R이 켜져 있어 치트와 다른 모드를 껐습니다. CTGP-R이 켜져 있는 동안에는 켤 수 없습니다.",
+})
+FR.update({
+    "Off (CTGP-R)": "Désactivé (CTGP-R)",
+    "Cheats can't be turned on while CTGP-R is enabled. Turn CTGP-R off in Mods to use cheats.": "Les codes de triche ne peuvent pas être activés tant que CTGP-R est activé. Désactivez CTGP-R dans Mods pour les utiliser.",
+    "Other mods can't be enabled while CTGP-R is on. Turn CTGP-R off to use them.": "Les autres mods ne peuvent pas être activés tant que CTGP-R est activé. Désactivez CTGP-R pour les utiliser.",
+    "CTGP-R is on, so cheats and other mods were turned off. They can't be enabled while it is on.": "CTGP-R est activé : les codes de triche et les autres mods ont été désactivés. Ils ne peuvent pas être activés tant que CTGP-R est activé.",
+})
+
 T.update({
     "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report.": (
         "RiftWii se quedó sin memoria al iniciar el juego. Desactiva la música del menú e inténtalo de nuevo, o envía un informe del problema.",

@@ -364,9 +364,37 @@ std::string ScanPackages(FrontendState& state, bool reuse_catalog, void (*step)(
     }
     logf("Packages: %u XML file(s), %u shown for %s\n", static_cast<unsigned>(state.model.packages.size()),
          static_cast<unsigned>(shown), state.game_id.empty() ? "no game" : state.game_id.c_str());
+    ApplyCtgprPrecedence(state);
     if (limited) return "First 150 packages shown; directory limit reached";
     if (state.model.packages.empty()) return "No XML packages in sd:/riivolution";
     return kScanReady;
+}
+
+std::size_t CtgprPackOn(const FrontendState& state) {
+    if (state.game_id.empty()) return SIZE_MAX;
+    // Each switched-on pack is asked alone: with other packs in the list the
+    // whole-list test (the launch's) says no, as they patch other files.
+    for (const PackageChoices& choice : state.model.selections()) {
+        std::string app, dropped;
+        if (!homebrew_app_stand_in({choice}, state.game_id, app, dropped)) continue;
+        for (std::size_t i = 0; i < state.model.packages.size(); ++i)
+            if (state.model.packages[i].path == choice.xml_sd_path) return i;
+    }
+    return SIZE_MAX;
+}
+
+bool ApplyCtgprPrecedence(FrontendState& state) {
+    const std::size_t ctgp = CtgprPackOn(state);
+    if (ctgp == SIZE_MAX) return false;
+    bool changed = false;
+    for (std::size_t i = 0; i < state.model.packages.size(); ++i)
+        if (i != ctgp && state.model.packages[i].enabled && state.model.set_enabled(i, false)) changed = true;
+    if (state.model.game.cheats) {
+        state.model.game.cheats = false;
+        changed = true;
+    }
+    if (changed) logf("CTGP-R is on for %s: other mods and cheats switched off\n", state.game_id.c_str());
+    return changed;
 }
 
 std::string ModPlaceProblem(const FrontendState& state, bool brief) {

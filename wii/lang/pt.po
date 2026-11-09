@@ -4038,6 +4038,18 @@ msgstr "Não aplicado"
 msgid "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start."
 msgstr "Este jogo verifica o próprio código. Para que ele inicie, mudanças de imagem, idioma, região, controles, jogo online e trapaças ficam desativadas."
 
+msgid "Off (CTGP-R)"
+msgstr "Desativado (CTGP-R)"
+
+msgid "Cheats can't be turned on while CTGP-R is enabled. Turn CTGP-R off in Mods to use cheats."
+msgstr "As trapaças não podem ser ativadas enquanto o CTGP-R estiver ativado. Desative o CTGP-R em Mods para usá-las."
+
+msgid "Other mods can't be enabled while CTGP-R is on. Turn CTGP-R off to use them."
+msgstr "Os outros mods não podem ser ativados enquanto o CTGP-R estiver ativado. Desative o CTGP-R para usá-los."
+
+msgid "CTGP-R is on, so cheats and other mods were turned off. They can't be enabled while it is on."
+msgstr "O CTGP-R está ativado, então as trapaças e os outros mods foram desativados. Eles não podem ser ativados enquanto o CTGP-R estiver ativado."
+
 msgid "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report."
 msgstr "A memória do RiftWii acabou ao iniciar o jogo. Desative a música do menu e tente de novo, ou envie um relatório do problema."
 
