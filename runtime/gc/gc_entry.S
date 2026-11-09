@@ -402,12 +402,13 @@ gc_continue_vi_configure:
  * caller) returns the matrix to draw from (a widened copy of a
  * perspective one, or the game's own), and the original runs on it from
  * its replay slot with the game's type and comes back here (a leaf, it
- * returns through LR) before the hook returns to the game. Branching
- * into the original instead, so that it returned to the game itself,
- * gave Super Mario Eclipse's 3D wrong colours on a Wii (16 Oct 2026),
- * which this call and return did not; Dolphin drew both right. No
- * floating point here or in the C: the game's FPU registers stay as the
- * game left them. Frame: 12 type. */
+ * returns through LR) before the hook returns to the game. Inverted
+ * colours were seen only in Super Mario Eclipse on a real Wii, never in
+ * Dolphin, and their cause is not known; in the 16 Oct 2026 tests the
+ * one build with this call and return (2610-495) had the colours right,
+ * the builds that branched into the original had them wrong. Not yet
+ * confirmed on a Wii with this code. No floating point here or in the C:
+ * the game's FPU registers stay as the game left them. Frame: 12 type. */
     .globl gc_hook_projection
 gc_hook_projection:
     stwu 1, -0x20(1)

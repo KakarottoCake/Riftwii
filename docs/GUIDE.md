@@ -923,8 +923,13 @@ A GameCube game's page has its own options in place of a Wii game's
 picture and online settings: **Memory card** (*Default*, which follows **Settings > Games > GameCube
 memory card**, *This game's own*, *Shared* or, on an original Wii, *Real
 card in slot A* or *Real card in slot B*), **480p picture** (not for European games), **Sharper
-picture**, **Picture width**, **Game language** and, for European
-games, **Game speed** (60 Hz instead of 50). GameCube games also follow
+picture**, **Widescreen**, **Picture width**, **Game language** and, for European
+games, **Game speed** (60 Hz instead of 50). **Widescreen** *16:9* draws
+the game's 3D world wider for a widescreen TV; its menus and text stay
+4:3 and are stretched. Pick it only with the TV set to fill a 16:9
+screen: a TV set to 4:3, zoom or pillarbox shows the picture squashed.
+*Default* keeps the game's own picture unless **Settings > Picture > Aspect ratio**
+is *16:9*. Super Mario Sunshine and its mods don't offer it yet. GameCube games also follow
 the Wii's own **Screen Position** (Wii Settings > Screen), as Wii games
 do, when RiftWii finds where the game reads its position (the log says
 so); otherwise the game keeps its own.

@@ -667,7 +667,8 @@ struct gc_rt_context {
 };
 
 /* It fits the room gc_entry.S keeps (gc_layout.h); the rest stays zero. */
-typedef char gc_rt_context_size[(sizeof(struct gc_rt_context) <= GC_RT_CONTEXT_BYTES) ? 1 : -1];
+GC_FLAG_CHECK(gc_rt_context_fits, sizeof(struct gc_rt_context) <= GC_RT_CONTEXT_BYTES,
+              "struct gc_rt_context outgrew GC_RT_CONTEXT_BYTES (gc_layout.h): grow it");
 
 /* The part of the blob's state that neither the game nor its hot paths
  * touch, kept in MEM2 (loader-placed, zeroed) so MEM1 keeps only what has

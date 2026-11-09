@@ -491,7 +491,35 @@ void test_tlut() {
 
 }  // namespace
 
+// 16:9's widening of a perspective projection (gc_projection_widen): the x
+// row, [0][0] and the frustum's offset [0][2], times 3/4, sign kept (a
+// mirrored camera); every other word as it was.
+static void test_projection_widen() {
+    // 1.0 to 0.75; a negative offset, -0.5 to -0.375; a zero offset stays 0.
+    std::uint32_t m[16];
+    for (std::uint32_t i = 0; i < 16; ++i) m[i] = 0x11110000u + i;
+    m[0] = 0x3F800000u;
+    m[2] = 0xBF000000u;
+    gc_projection_widen(m);
+    EXPECT_EQ(m[0], 0x3F400000u);
+    EXPECT_EQ(m[2], 0xBEC00000u);
+    for (std::uint32_t i = 0; i < 16; ++i)
+        if (i != 0 && i != 2) EXPECT_EQ(m[i], 0x11110000u + i);
+    m[0] = 0xBFDDB3D7u;  // -1.7320508 (a mirrored 60-degree camera)
+    m[2] = 0u;
+    gc_projection_widen(m);
+    EXPECT_EQ(m[0], 0xBFA646E1u);  // -1.2990381, as the FPU rounds it
+    EXPECT_EQ(m[2], 0u);
+    // A result that is a power of two: 1.3333334 times 3/4 rounds to 1.0.
+    EXPECT_EQ(gc_float_three_quarters(0x3FAAAAABu), 0x3F800000u);
+    // Zero, negative zero, infinity and NaN come back as they are.
+    EXPECT_EQ(gc_float_three_quarters(0x80000000u), 0x80000000u);
+    EXPECT_EQ(gc_float_three_quarters(0x7F800000u), 0x7F800000u);
+    EXPECT_EQ(gc_float_three_quarters(0x7FC00000u), 0x7FC00000u);
+}
+
 int main() {
+    test_projection_widen();
     test_copy_filter();
     test_video_pick();
     test_sram_reads();

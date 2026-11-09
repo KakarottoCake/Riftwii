@@ -2019,8 +2019,8 @@ msgstr "Da una imagen más nítida y estable con un cable por componentes, inclu
 msgid "Fills a widescreen TV with the game world; menus and text stay stretched."
 msgstr "Llena una TV panorámica con el mundo del juego; los menús y el texto siguen estirados."
 
-msgid "This game lays copies of its picture over the scene (heat haze, water), which come out doubled in 16:9, so it keeps its own picture."
-msgstr "Este juego pone copias de su imagen sobre la escena (calima, agua), que en 16:9 salen dobles, así que mantiene su propia imagen."
+msgid "16:9 isn't available for this game yet."
+msgstr "El 16:9 aún no está disponible para este juego."
 
 msgid "Not for this game"
 msgstr "No para este juego"

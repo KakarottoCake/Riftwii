@@ -100,7 +100,7 @@ bool gc_widescreen_on(const GameSettings& game, const std::string& id, const GcC
     if (game.gc_widescreen == "game") return false;
     if (console.aspect == "16:9") return true;
     if (console.aspect == "4:3") return false;
-    return console.wii_widescreen;
+    return kGcWidescreenFollowsWiiTv && console.wii_widescreen;
 }
 
 bool gc_progressive_on(const GameSettings& game, const std::string& id, const GcConsoleSettings& console) {

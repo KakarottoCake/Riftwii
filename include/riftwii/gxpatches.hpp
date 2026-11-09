@@ -114,12 +114,12 @@ bool gc_keeps_aram_addresses(const std::string& game_id);
 bool gc_loads_use_queued_heap(const std::string& game_id);
 
 // Why a GameCube game's 16:9 stays off whatever is picked
-// (gc_widescreen_on): it draws something that widening its 3D camera
-// (GXSetProjection's perspective projections, gcnative.cpp) breaks rather
-// than stretches. The game page dims the row and says why.
+// (gc_widescreen_on): widening its 3D camera (GXSetProjection's
+// perspective projections, gcnative.cpp) was seen to go wrong in it, or
+// in a game made from it. The game page dims the row and says so.
 enum class GcWidescreenOff {
     no,             // 16:9 as picked
-    screen_copies,  // effects lay a copy of the picture back over the scene through matrices of their own
+    screen_copies,  // seen wrong on a Wii (a doubled picture, smears): Sunshine and its mods
 };
 GcWidescreenOff gc_widescreen_off(const std::string& game_id);
 

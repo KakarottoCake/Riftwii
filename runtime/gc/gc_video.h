@@ -93,4 +93,40 @@ static inline uint32_t gc_video_width_kept(const uint8_t* mode, uint32_t vi_widt
     return vi_width > GC_VI_WIDTH_FRAMEBUFFER && vi_width < buffer_width;
 }
 
+/* 16:9 (gc_on_projection): a float's bits times 3/4, in integers. The
+ * blob does no floating point (it runs on the game's FPU state, which it
+ * must leave as it found it), so the widening is done on the bits. Zero,
+ * denormals, infinities and NaNs come back as they are; a projection has
+ * none of them where it is widened. */
+static inline uint32_t gc_float_three_quarters(uint32_t bits) {
+    const uint32_t sign = bits & 0x80000000u;
+    uint32_t exponent = (bits >> 23) & 0xFFu;
+    uint32_t mantissa;
+    if (exponent <= 1u || exponent == 0xFFu) return bits;
+    /* The 24-bit mantissa with its hidden 1, times 3: 25 or 26 bits. The
+     * value is that times 2^(exponent - 152); back to 24 bits, rounded. */
+    mantissa = ((bits & 0x7FFFFFu) | 0x800000u) * 3u;
+    if (mantissa >= 0x2000000u) {
+        mantissa = (mantissa + 2u) >> 2;
+    } else {
+        mantissa = (mantissa + 1u) >> 1;
+        exponent -= 1u;
+    }
+    if (mantissa == 0x1000000u) {  /* rounded up to the next power of two */
+        mantissa >>= 1;
+        exponent += 1u;
+    }
+    return sign | exponent << 23 | (mantissa & 0x7FFFFFu);
+}
+
+/* A perspective projection (GX's 4x4, row major, float bits) widened for
+ * 16:9: its x row, [0][0] and [0][2], times 3/4, the same view drawn into
+ * a picture a widescreen TV stretches by 4/3, about the same centre
+ * ([0][2] is the frustum's x offset, 0 when it is centred; [0][1] and
+ * [0][3] are 0 in a perspective projection). */
+static inline void gc_projection_widen(uint32_t* matrix) {
+    matrix[0] = gc_float_three_quarters(matrix[0]);
+    matrix[2] = gc_float_three_quarters(matrix[2]);
+}
+
 #endif

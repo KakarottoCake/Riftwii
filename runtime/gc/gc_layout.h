@@ -14,6 +14,8 @@
  * finds nothing on (gc_ports_idle_update), and the PAD sampling
  * stand-in's alarm (gc_sample_tick). What neither the game nor the hot
  * paths touch is in struct gc_rt_cold, in MEM2 (gc_rt.h). */
+/* sizeof(struct gc_rt_context) is 0x5C0 (9 Nov 2026, after 16:9's matrix
+ * copy moved to gc_rt_cold): no slack, so a new field grows this too. */
 #define GC_RT_CONTEXT_BYTES 0x5C0
 
 /* gc_entry.S's gc_program_saved: a program the game loaded itself keeps

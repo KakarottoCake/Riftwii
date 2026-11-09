@@ -285,11 +285,13 @@ and `sd:/riftwii/gc/trace.bin`.
   next start offers the report. In Dolphin, `sd:/riftwii/gc/test/leave` as well
   takes A as pressed after twenty seconds.
 - [ ] **Options**: Disc reads Fast loads sooner; 480p on a component
-  cable (the game asks first); 16:9 (Default follows Settings' aspect and
-  the Wii's TV) widens the 3D with the colours right and the 2D stretched,
-  and Super Mario Sunshine's row is dimmed, Not for this game (its screen
-  effects came out doubled on a Wii); a PAL game's language changes its
-  menus.
+  cable (the game asks first); 16:9, picked for the game or as Settings'
+  aspect (Default does not follow the Wii's TV for GameCube games yet),
+  widens the 3D with the 2D stretched: check the colours match 16:9 off
+  (inverted colours were seen once, in Super Mario Eclipse on a Wii), and
+  that a TV set to 4:3, zoom or pillarbox shows the picture squashed, as
+  expected; Super Mario Sunshine's row is dimmed, Not for this game; a PAL
+  game's language changes its menus.
 - [ ] **Packs**: Luigi's Mansion with a pack that changes a file.
 
 ## 15. WiiWare and Virtual Console channels

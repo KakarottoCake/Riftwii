@@ -295,15 +295,15 @@ bool gc_restart_known_to_work(const std::string& id) {
     return id == "GMSE01" || id == "GMSE04" || id == "GKDP01";
 }
 
-// Super Mario Sunshine (GMS), every region, and the mods made from it
-// (Super Mario Eclipse is GMSE04): its heat haze, water, Boos and other
-// screen effects copy the picture to a texture and lay it back over the
-// scene through perspective matrices the game makes itself
-// (C_MTXPerspective) and never hands to GXSetProjection. With the scene
-// widened and those copies not, a real Wii showed Eclipse's airstrip with
-// a second Peach toward the middle and smears at the edges, and its 3D in
-// wrong colours (16 Oct 2026). Widening the copies as well means hooking
-// how the game makes its matrices, which is this one game's business.
+// Super Mario Sunshine (GMS) and the mods made from it. What was seen: on
+// a real Wii (16 Oct 2026), Super Mario Eclipse (GMSE04, a Sunshine mod)
+// with 16:9 showed its airstrip with a second Peach toward the middle and
+// smears at the edges, and its 3D in inverted colours; Dolphin drew it
+// right. A likely reason for the doubling: its screen effects (heat haze,
+// water) lay a copy of the picture over the scene through perspective
+// matrices the game makes itself and never hands to GXSetProjection, so
+// they stay 4:3. Sunshine itself and its other regions were not tried and
+// are left off as a precaution until they are.
 GcWidescreenOff gc_widescreen_off(const std::string& id) {
     if (id_is(id, "GMS")) return GcWidescreenOff::screen_copies;
     return GcWidescreenOff::no;

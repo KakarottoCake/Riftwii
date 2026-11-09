@@ -508,7 +508,8 @@ static void test_saves() {
             EXPECT_EQ(riftwii::gc_picture_width(w, settings), std::string("game"));
         }
 
-        // Global resolved: Settings' aspect, its "game" the Wii's TV,
+        // Global resolved: Settings' aspect; its "game" the Wii's TV only
+        // with kGcWidescreenFollowsWiiTv (off: the game's own picture);
         // never for a game on the gc_widescreen_off list (Sunshine); the
         // Wii's 480p setting, never for a PAL game; Settings' language,
         // its "console" the Wii's (CONF_LANG_GERMAN is 2).
@@ -516,7 +517,9 @@ static void test_saves() {
         riftwii::GcConsoleSettings console;
         EXPECT_FALSE(riftwii::gc_widescreen_on(g, "GLMP01", console));
         console.wii_widescreen = true;
-        EXPECT_TRUE(riftwii::gc_widescreen_on(g, "GLMP01", console));
+        EXPECT_EQ(riftwii::gc_widescreen_on(g, "GLMP01", console), riftwii::kGcWidescreenFollowsWiiTv);
+        EXPECT_FALSE(riftwii::gc_widescreen_on(g, "GMSE01", console));
+        console.aspect = "16:9";
         EXPECT_FALSE(riftwii::gc_widescreen_on(g, "GMSE01", console));
         console.aspect = "4:3";
         EXPECT_FALSE(riftwii::gc_widescreen_on(g, "GLMP01", console));
