@@ -361,6 +361,13 @@ bool MountStartupSd() {
 
 // The Homebrew Channel passes the DOL's path, "usb:/apps/..." when it
 // started RiftWii from a USB drive.
+// Started with a path (argv[0]): the Homebrew Channel and the RiftWii
+// channel pass the DOL's path; CTGP-R's way back to its channel does not.
+bool StartedWithPath() {
+    return __system_argv != nullptr && __system_argv->argvMagic == ARGV_MAGIC && __system_argv->argc > 0 &&
+           __system_argv->argv != nullptr && __system_argv->argv[0] != nullptr;
+}
+
 bool StartedFromUsb() {
     return __system_argv != nullptr && __system_argv->argvMagic == ARGV_MAGIC && __system_argv->argc > 0 &&
            __system_argv->argv != nullptr && __system_argv->argv[0] != nullptr &&
@@ -514,7 +521,17 @@ int main() {
         session_slot = riftwii::wii::DiscCopySlot();
         session_why = "to copy a game disc";
     }
-    riftwii::wii::StartMenuIos(sd_mounted, restart.kind != riftwii::wii::RestartKind::None, session_slot, session_why);
+    // Started with no path under an IOS other than the menu's: CTGP-R leaving
+    // for its channel (its Mario Kart Channel and Rankings buttons, or its
+    // crash handler) loads sd:/apps/riftwii/boot.dol itself and jumps to it,
+    // under the game's IOS (a cIOS for a USB game). The menu would stay there
+    // and see no USB drive, so it reloads its IOS as after its own restarts.
+    const bool started_under_game_ios = !StartedWithPath() && IOS_GetVersion() != 58;
+    if (started_under_game_ios)
+        riftwii::wii::logf("Started under IOS%d with no path (CTGP-R's channel button?): reloading the menu's IOS\n",
+                           IOS_GetVersion());
+    riftwii::wii::StartMenuIos(sd_mounted, restart.kind != riftwii::wii::RestartKind::None || started_under_game_ios,
+                               session_slot, session_why);
     // A restart mounts the card before the fresh IOS above, under whatever
     // the last run left (a tester got "RiftWii needs an SD card" right
     // after a game failed to start, with the card in). The fresh IOS has
@@ -775,7 +792,10 @@ int main() {
             return play;
         };
         const bool booted = !error.empty() ? false : riftwii::wii::mem::GuardLaunchMemory(error, [&] {
-            return (source.kind == riftwii::wii::LaunchSource::Kind::Disc && state.has_compiled)
+            // The CTGP-R pack with the native launch set up goes through
+            // RunLaunch, not the packs compiled in the menu.
+            return (source.kind == riftwii::wii::LaunchSource::Kind::Disc && state.has_compiled &&
+                    !riftwii::wii::CtgprNativeLaunch(state.model.selections(), state.game_id))
                        ? riftwii::wii::BootCompiled(std::move(state.compiled), error, source, riftwii::wii::EffectiveSaveMode(state), state.game_id)
                        : riftwii::wii::RunLaunch(state.model.selections(), error, source, riftwii::wii::EffectiveSaveMode(state),
                                                  state.game_id, confirm_missing);

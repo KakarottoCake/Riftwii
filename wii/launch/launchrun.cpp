@@ -20,6 +20,7 @@
 
 #include "boot.hpp"
 #include "channel.hpp"
+#include "ctgpr.hpp"
 #include "di.hpp"
 #include "frontend.hpp"
 #include "gameextras.hpp"
@@ -465,6 +466,11 @@ bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& sou
     return boot_game(s.probe, std::move(options), error);
 }
 
+bool CtgprNativeLaunch(const std::vector<PackageChoices>& packages, const std::string& game_id) {
+    std::string app, dropped;
+    return homebrew_app_stand_in(packages, game_id, app, dropped) && ctgpr_native_wanted();
+}
+
 bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, const LaunchSource& source,
                const std::string& save_mode, const std::string& game_id,
                const MissingModConfirmation& confirm_missing) {
@@ -485,6 +491,27 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
             logf("Mods: the packs only replace the game's executable with %s, a Homebrew Channel app: started as "
                  "the Homebrew Channel starts it, not loaded as the game%s\n",
                  app.c_str(), dropped.empty() ? "" : ("; " + dropped + " does not apply to it").c_str());
+            if (ctgpr_native_wanted()) {
+                // The native launch: RiftWii loads the game itself and places
+                // CTGP-R's code in it (docs/CTGPR.md), in place of the
+                // channel. Offline only.
+                logf("CTGP-R: native launch (the CTGP-R Channel app is not started)\n");
+                Session s(source, "sd:/riftwii/boot.log");
+                // CTGP's files are read from the card after the probe, and
+                // CTGP's own code reads the card in the game.
+                s.sd_in_use = true;
+                s.sd_after_probe = true;
+                if (!s.ensure_layout(error)) return false;
+                BootOptions options;
+                options.allow_ios_fallback = true;
+                options.preserve_current_ios =
+                    source.kind != LaunchSource::Kind::Disc || MenuCiosSlot() != 0 || s.on_cios;
+                if (!prepare_ctgpr_launch(s.probe.header.game_id, options.ctgpr, error)) {
+                    error = "CTGP-R: " + error;
+                    return false;
+                }
+                return boot_game(s.probe, std::move(options), error);
+            }
             SetCtgpDefaults(app);
             if (source.kind != LaunchSource::Kind::Disc) {
                 // The app reloads IOS itself (CTGP asks for IOS37), which

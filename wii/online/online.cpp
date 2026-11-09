@@ -1480,6 +1480,8 @@ BannerDownload DownloadGameCubeBanner(const std::string& game_id, bool regional_
     return BannerDownload::None;
 }
 
+std::string SelfDolPath() { return RunningDolPath(); }
+
 void EnsureMetaAhbAccess() {
     const std::string dol = RunningDolPath();
     if (dol.empty()) return;
