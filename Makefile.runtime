@@ -82,7 +82,7 @@ GCSRC   := runtime/gc
 GCOUT   := $(OUT)/gc
 GCBLOB  := $(OUT)/riftwii_gc.bin
 GCOBJS  := $(GCOUT)/gc_entry.o $(GCOUT)/gc_rt.o $(GCOUT)/gc_bt.o $(GCOUT)/gc_card.o $(GCOUT)/gc_gcad.o \
-           $(GCOUT)/rtgcad.o $(GCOUT)/rthid.o
+           $(GCOUT)/gc_tri.o $(GCOUT)/rtgcad.o $(GCOUT)/rthid.o
 
 # The GameCube blob's RVZ build (docs/RVZ.md, "GameCube games"): the same
 # blob built with RT_RVZ, plus RVZ packing and Zstandard, for GameCube
@@ -92,7 +92,7 @@ GCRVZOUT  := $(OUT)/gcrvz
 GCRVZBLOB := $(OUT)/riftwii_gc_rvz.bin
 GCRVZREL  := $(OUT)/riftwii_gc_rvz.rel
 GCRVZOBJS := $(GCRVZOUT)/gc_entry.o $(GCRVZOUT)/gc_rt.o $(GCRVZOUT)/gc_bt.o $(GCRVZOUT)/gc_card.o \
-             $(GCRVZOUT)/gc_gcad.o $(GCRVZOUT)/rtgcad.o $(GCRVZOUT)/rthid.o \
+             $(GCRVZOUT)/gc_gcad.o $(GCRVZOUT)/gc_tri.o $(GCRVZOUT)/rtgcad.o $(GCRVZOUT)/rthid.o \
              $(GCRVZOUT)/gc_rvz.o $(GCRVZOUT)/rtrvz.o $(GCRVZOUT)/rt_zstd.o
 
 # The in-game screenshot blob (runtime/shot): IOS_IoctlvAsync and PADRead
@@ -378,7 +378,7 @@ $(GCOUT):
 $(GCOUT)/gc_entry.o: $(GCSRC)/gc_entry.S $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h $(GCSRC)/gc_layout.h | $(GCOUT)
 	$(CC) $(CFLAGS) -I$(GCSRC) -c -o $@ $<
 
-$(GCOUT)/gc_rt.o: $(GCSRC)/gc_rt.c $(GCSRC)/gc_rt.h $(GCSRC)/gc_layout.h $(GCSRC)/gc_video.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_load.h $(GCSRC)/gc_crash.h $(GCSRC)/gc_bt.h $(GCSRC)/gc_card.h $(GCSRC)/gc_gcad.h $(GCSRC)/gc_disc.h $(GCSRC)/gc_storage.h $(GCSRC)/gc_usb_write.h runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h | $(GCOUT)
+$(GCOUT)/gc_rt.o: $(GCSRC)/gc_rt.c $(GCSRC)/gc_rt.h $(GCSRC)/gc_layout.h $(GCSRC)/gc_video.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_load.h $(GCSRC)/gc_crash.h $(GCSRC)/gc_bt.h $(GCSRC)/gc_card.h $(GCSRC)/gc_gcad.h $(GCSRC)/gc_disc.h $(GCSRC)/gc_storage.h $(GCSRC)/gc_usb_write.h $(GCSRC)/gc_tri.h runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h | $(GCOUT)
 	$(CC) $(CFLAGS) -I$(GCSRC) -c -o $@ $<
 
 $(GCOUT)/gc_bt.o: $(GCSRC)/gc_bt.c $(GCSRC)/gc_bt.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h | $(GCOUT)
@@ -388,6 +388,9 @@ $(GCOUT)/gc_card.o: $(GCSRC)/gc_card.c $(GCSRC)/gc_card.h $(GCSRC)/gc_rt.h $(GCS
 	$(CC) $(CFLAGS) -I$(GCSRC) -c -o $@ $<
 
 $(GCOUT)/gc_gcad.o: $(GCSRC)/gc_gcad.c $(GCSRC)/gc_gcad.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_rt.h runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h | $(GCOUT)
+	$(CC) $(CFLAGS) -I$(GCSRC) -c -o $@ $<
+
+$(GCOUT)/gc_tri.o: $(GCSRC)/gc_tri.c $(GCSRC)/gc_tri.h $(GCSRC)/gc_rt.h | $(GCOUT)
 	$(CC) $(CFLAGS) -I$(GCSRC) -c -o $@ $<
 
 $(GCOUT)/rthid.o: runtime/rthid.c runtime/rthid.h runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h | $(GCOUT)
@@ -419,7 +422,7 @@ $(GCRVZOUT):
 $(GCRVZOUT)/gc_entry.o: $(GCSRC)/gc_entry.S $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h $(GCSRC)/gc_layout.h | $(GCRVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -I$(GCSRC) -c -o $@ $<
 
-$(GCRVZOUT)/gc_rt.o: $(GCSRC)/gc_rt.c $(GCSRC)/gc_rt.h $(GCSRC)/gc_layout.h $(GCSRC)/gc_video.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_load.h $(GCSRC)/gc_crash.h $(GCSRC)/gc_bt.h $(GCSRC)/gc_card.h $(GCSRC)/gc_gcad.h $(GCSRC)/gc_rvz.h $(GCSRC)/gc_disc.h $(GCSRC)/gc_storage.h $(GCSRC)/gc_usb_write.h runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h | $(GCRVZOUT)
+$(GCRVZOUT)/gc_rt.o: $(GCSRC)/gc_rt.c $(GCSRC)/gc_rt.h $(GCSRC)/gc_layout.h $(GCSRC)/gc_video.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_load.h $(GCSRC)/gc_crash.h $(GCSRC)/gc_bt.h $(GCSRC)/gc_card.h $(GCSRC)/gc_gcad.h $(GCSRC)/gc_rvz.h $(GCSRC)/gc_disc.h $(GCSRC)/gc_storage.h $(GCSRC)/gc_usb_write.h $(GCSRC)/gc_tri.h runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h | $(GCRVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -I$(GCSRC) -c -o $@ $<
 
 $(GCRVZOUT)/gc_bt.o: $(GCSRC)/gc_bt.c $(GCSRC)/gc_bt.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h | $(GCRVZOUT)
@@ -429,6 +432,9 @@ $(GCRVZOUT)/gc_card.o: $(GCSRC)/gc_card.c $(GCSRC)/gc_card.h $(GCSRC)/gc_rt.h $(
 	$(CC) $(CFLAGS) -DRT_RVZ -I$(GCSRC) -c -o $@ $<
 
 $(GCRVZOUT)/gc_gcad.o: $(GCSRC)/gc_gcad.c $(GCSRC)/gc_gcad.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_rt.h runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h | $(GCRVZOUT)
+	$(CC) $(CFLAGS) -DRT_RVZ -I$(GCSRC) -c -o $@ $<
+
+$(GCRVZOUT)/gc_tri.o: $(GCSRC)/gc_tri.c $(GCSRC)/gc_tri.h $(GCSRC)/gc_rt.h | $(GCRVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -I$(GCSRC) -c -o $@ $<
 
 $(GCRVZOUT)/rthid.o: runtime/rthid.c runtime/rthid.h runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h | $(GCRVZOUT)

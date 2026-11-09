@@ -26,7 +26,7 @@
 #include "gc_load.h"
 
 #define GC_RT_MAGIC 0x52574744u          /* "RWGD" */
-#define GC_RT_VERSION 13u                /* also in gc_entry.S's header */
+#define GC_RT_VERSION 14u                /* also in gc_entry.S's header */
 #define GC_RT_CONTEXT_MAGIC 0x52574743u  /* "RWGC" */
 
 /* The way back owns its IPC memory even when storage DMA is quarantined. */
@@ -124,6 +124,10 @@ struct gc_rt_header {
     uint32_t program_saved;         /* GC_PROGRAM_SAVED_BYTES (gc_layout.h); its stack word loader-written */
     uint32_t replay_fatal;          /* __OSUnhandledException's first word, then the jump to its second */
     uint32_t continue_fatal;
+    /* A Triforce arcade game (gc_tri.h): GC_TRI_HOOKS entries of three
+     * words, hook, replay and continue, for the arcade SDK functions the
+     * loader replaces. */
+    uint32_t tri_hooks;
 };
 
 /* libogc. A game built on libogc (Sonic Riders Tournament Edition, a
@@ -667,6 +671,10 @@ struct gc_rt_context {
     uint32_t sample_quiet;
     uint32_t samples_stood_in;
     uint32_t sample_queued;
+    /* A Triforce arcade game: its boards' struct gc_tri (gc_tri.h,
+     * loader-placed in MEM2); 0: a GameCube game. In the bytes the alarm's
+     * 32-byte alignment pads to anyway, so the context's size stays. */
+    uint32_t tri;
     /* The GameCube controllers' calibrations (rtpadcal.h's table,
      * loader-placed in MEM2), 0: none stored. The Wii's own ports take
      * theirs in gc_on_pad_read, the adapter's and the USB pads' in the
@@ -743,6 +751,10 @@ uint32_t gc_on_load_callbacks_done(struct gc_rt_context* ctx, uint32_t group);
 uint32_t gc_on_disk_id(struct gc_rt_context* ctx, uint32_t id, uint32_t cb);
 uint32_t gc_on_inquiry(struct gc_rt_context* ctx, uint32_t info, uint32_t cb);
 uint32_t gc_on_done(struct gc_rt_context* ctx, uint32_t cb);
+/* A disc command answered without the disc (a Triforce media board's):
+ * counted, the DI's immediate register set to `imm` when `with_imm`, and
+ * the callback queued with "transfer complete", as gc_on_done does. */
+void gc_di_finish(struct gc_rt_context* ctx, uint32_t cb, int with_imm, uint32_t imm);
 uint32_t gc_on_stop_motor(struct gc_rt_context* ctx, uint32_t cb);
 uint32_t gc_on_audio_status(struct gc_rt_context* ctx, uint32_t sub, uint32_t cb);
 uint32_t gc_on_audio_stream(struct gc_rt_context* ctx, uint32_t sub, uint32_t length, uint32_t offset, uint32_t cb);
