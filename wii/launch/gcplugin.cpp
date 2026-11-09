@@ -275,6 +275,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     request.sixty_hz = image.sixty_hz ? 1 : 0;
     request.language = image.language;
     request.vi_width = image.vi_width;
+    request.screen_offset_set = image.screen_offset_set ? 1 : 0;
+    request.screen_offset = image.screen_offset;
     // A game packed in a TGC image, started from the disc's menu last time.
     request.tgc_offset = image.tgc_offset;
 

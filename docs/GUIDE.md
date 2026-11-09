@@ -924,7 +924,9 @@ picture and online settings: **Memory card** (*Default*, which follows **Setting
 memory card**, *This game's own*, *Shared* or, on an original Wii, *Real
 card in slot A* or *Real card in slot B*), **480p picture** (not for European games), **Sharper
 picture**, **Picture width**, **Game language** and, for European
-games, **Game speed** (60 Hz instead of 50).
+games, **Game speed** (60 Hz instead of 50). GameCube games also follow
+the Wii's own **Screen Position** (Wii Settings > Screen), as Wii games
+do.
 
 **Memory cards** are files on the SD card, in `sd:/riftwii/gc/cards/`:
 one for each game (`GMSE01.raw`), or with **Memory card** set to

@@ -35,6 +35,8 @@ struct GcImage {
     bool sharp = false;        // every line copied without the game's blur (its Sharper picture option)
     bool sixty_hz = false;     // a European game told the TV takes 60 Hz (its Game speed option)
     std::uint32_t vi_width = 0;  // its Picture width, as the blob takes it (riftwii/gcvideo.hpp); 0: the game's own
+    bool screen_offset_set = false;  // the game is told the Wii's screen position
+    int screen_offset = 0;           // that position, -32 to 32 (the Wii's IPL.DH)
     // On the USB drive: the d2x slot picked for the game (0: RiftWii's
     // choice), and, once the launch has found them, the file's pieces in
     // the drive's sectors with its size (the request's usb_fragments).

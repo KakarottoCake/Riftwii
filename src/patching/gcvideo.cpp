@@ -72,7 +72,21 @@ bool takes_bit(const Words& code, std::uint32_t a, std::uint32_t take) {
     return false;
 }
 
+// `bl` (opcode 18, link set, not absolute) and where it goes; 0 for any
+// other word.
+std::uint32_t bl_target(std::uint32_t at, std::uint32_t w) {
+    if (opcode(w) != 18 || (w & 3) != 1) return 0;
+    std::int32_t offset = static_cast<std::int32_t>(w & 0x03FFFFFC);
+    if (offset & 0x02000000) offset -= 0x04000000;
+    return at + static_cast<std::uint32_t>(offset);
+}
+
+bool is_extsb_of(std::uint32_t w, unsigned source) {
+    return opcode(w) == 31 && ((w >> 1) & 0x3FF) == 954 && reg_d(w) == source;  // extsb rA,rS: rS in rD's field
+}
+
 constexpr std::uint16_t kSramLockOffset = 0x48;
+constexpr std::uint16_t kSramDisplayOffset = 0x10;
 constexpr std::uint16_t kSramSixtyHz = 0x11;
 constexpr std::uint16_t kSramLanguage = 0x12;
 constexpr std::uint16_t kSramFlags = 0x13;
@@ -164,6 +178,26 @@ GcSramReads find_gc_sram_reads(const std::vector<CodeRange>& text) {
             if (offset == kSramFlags && takes_bit(code, a, take_bit7)) out.progressive.push_back(a);
             if (offset == kSramSixtyHz && takes_bit(code, a, take_bit6)) out.sixty_hz.push_back(a);
         }
+    }
+    // VIInit's read of the screen position. The lock it calls holds the
+    // copy's address a few words in (after its prologue and
+    // OSDisableInterrupts), where one of the sites above is.
+    constexpr std::uint32_t kLockReach = 0x60;
+    constexpr std::uint32_t kLiR3Zero = 0x38600000;
+    if (out.copy != 0) {
+        code.each([&](std::uint32_t a, std::uint32_t w) {
+            const std::uint32_t lock = bl_target(a, w);
+            if (lock == 0) return;
+            const std::uint32_t load = code.at(a + 4);
+            if (opcode(load) != 34 || reg_a(load) != 3 || immediate(load) != kSramDisplayOffset) return;
+            if (code.at(a + 8) != kLiR3Zero) return;
+            const unsigned loaded = reg_d(load);
+            if (!is_extsb_of(code.at(a + 12), loaded) && !is_extsb_of(code.at(a + 16), loaded)) return;
+            const bool locks_copy = std::any_of(sites.begin(), sites.end(), [&](const Site& site) {
+                return site.copy == out.copy && site.at >= lock && site.at < lock + kLockReach;
+            });
+            if (locks_copy) out.display_offset.push_back(a + 4);
+        });
     }
     return out;
 }

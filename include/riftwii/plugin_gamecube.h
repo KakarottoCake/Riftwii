@@ -69,6 +69,8 @@ typedef struct rwp_gc_launch {
     uint32_t sixty_hz;     /* a European game told the TV takes 60 Hz */
     int32_t language;      /* the SRAM language the game is told; -1 the console's */
     uint32_t vi_width;     /* the picture width (riftwii/gcvideo.hpp); 0 the game's own */
+    uint32_t screen_offset_set; /* the game is told screen_offset as the console's screen position */
+    int32_t screen_offset;      /* the Wii's screen position (-32 to 32), as the SRAM's byte 0x10 */
     /* An image on the USB drive (path "usb:/..."): d2x's /dev/usb2, open
      * under the d2x cIOS the launch reloaded into (-1: the image is on
      * the SD card), and the image file's pieces in the drive's 512-byte

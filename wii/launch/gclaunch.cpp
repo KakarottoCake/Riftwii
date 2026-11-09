@@ -1157,6 +1157,18 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         image.sharp = game.gc_sharp == "on";
         image.sixty_hz = gc_sixty_hz_on(game, image.id);
         image.vi_width = gc_vi_width(gc_picture_width(game, console));
+        // The Wii's screen position (Wii Settings > Screen > Screen
+        // Position), as a Wii game gets it. A GameCube game reads its own
+        // from the SRAM, which nothing on a Wii sets.
+        s8 screen_offset = 0;
+        if (CONF_GetDisplayOffsetH(&screen_offset) >= 0) {
+            image.screen_offset_set = true;
+            image.screen_offset = std::clamp(static_cast<int>(screen_offset), -32, 32);
+            logf("GameCube: the Wii's screen position is %d, which the game is told as its own\n",
+                 static_cast<int>(screen_offset));
+        } else {
+            logf("GameCube: the Wii's screen position could not be read, so the game keeps the SRAM's\n");
+        }
         logf("GameCube: Picture width %s (Settings' %s): %s\n", game.gc_width.c_str(), console.video_width.c_str(),
              gc_picture_width(game, console).c_str());
         logf("GameCube: Progressive scan %s (the Wii's 480p setting %s, a component cable %s%s), Widescreen %s (Settings' aspect %s, "
