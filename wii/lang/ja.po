@@ -1056,11 +1056,8 @@ msgstr "OK"
 msgid "RiftWii updated"
 msgstr "RiftWiiを更新しました"
 
-msgid "RiftWii {1} is installed ({2}). It runs the next time RiftWii starts. Leave to the Homebrew Channel now and start it again?"
-msgstr "RiftWii {1}をインストールしました ({2})。次にRiftWiiを起動したときに使われます。今Homebrew Channelに戻って、もう一度起動しますか?"
-
-msgid "Leave"
-msgstr "終了"
+msgid "RiftWii {1} is installed ({2}). Restart RiftWii now to use it?"
+msgstr "RiftWii {1}をインストールしました ({2})。今RiftWiiを再起動して使いますか?"
 
 msgid "Later"
 msgstr "あとで"
@@ -3312,6 +3309,42 @@ msgstr "ペアレンタルコントロールをオフにしますか？"
 msgid "Every game can be started without the PIN again."
 msgstr "すべてのゲームがPINなしで始められるようになります。"
 
+msgid "Ask for the PIN"
+msgstr "PINをきく"
+
+msgid "No PIN"
+msgstr "PINなし"
+
+msgid "Shown"
+msgstr "表示する"
+
+msgid "Hidden"
+msgstr "かくす"
+
+msgid "HOME Menu buttons"
+msgstr "HOMEメニューのボタン"
+
+msgid "The HOME Menu's Homebrew Channel and Priiloader (or Restart) buttons, where a press can delete apps or change the Wii. Ask for the PIN, or hide them and keep only Wii Menu and Power off."
+msgstr "HOMEメニューのHomebrew ChannelとPriiloader (または再起動) のボタンです。そこではボタンひとつでアプリを消したり、Wiiの設定を変えたりできます。PINをきくか、かくしてWiiメニューと電源オフだけにします。"
+
+msgid "Ask for the PIN before Settings opens from Home. This page always asks."
+msgstr "ホームから設定を開く前にPINをききます。このページはいつもききます。"
+
+msgid "Pick where to go: the Wii Menu, or power off."
+msgstr "行き先を選びます：Wiiメニュー、または電源オフ。"
+
+msgid "Type the PIN to leave for the Homebrew Channel."
+msgstr "Homebrew Channelに行くにはPINを入力してください。"
+
+msgid "Type the PIN to leave for Priiloader."
+msgstr "Priiloaderに行くにはPINを入力してください。"
+
+msgid "Type the PIN to restart the Wii."
+msgstr "Wiiを再起動するにはPINを入力してください。"
+
+msgid "Type the PIN to open Settings."
+msgstr "設定を開くにはPINを入力してください。"
+
 msgid "Are you sure you want to continue?"
 msgstr "本当につづけますか？"
 
@@ -4077,23 +4110,23 @@ msgstr "エミュレートNANDのフォルダです。USB Loader GXの設定に�
 msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
 msgstr "設定とMiiも選ぶと、ゲームはエミュレートNANDのWii本体設定とMiiも使います。そのためにはフォルダに完全なNANDが必要です。"
 
-msgid "One emulated NAND for every game's saves"
-msgstr "すべてのゲームのセーブを1つのエミュレートNANDに"
+msgid "More memory for games, faster mod loading"
+msgstr "ゲームのメモリーが増え、MODの読み込みが速く"
 
-msgid "The emulated NAND can be on the USB drive"
-msgstr "エミュレートNANDをUSBドライブに置けます"
+msgid "Parental controls can lock the HOME Menu"
+msgstr "ペアレンタルコントロールでHOMEメニューをロック"
 
-msgid "Hide, rename or delete a game"
-msgstr "ゲームの非表示、名前の変更、削除"
+msgid "Updates restart into the new version"
+msgstr "更新のあと、新しいバージョンで再起動"
 
-msgid "Press 1 on a game to report how it runs"
-msgstr "ゲームで1を押して動作を報告"
+msgid "Mod tiles get their own 3D covers and boxes"
+msgstr "MODのタイルに専用の3Dパッケージと箱"
 
-msgid "GameCube games on Nintendont's memory card"
-msgstr "Nintendontのメモリーカードでゲームキューブのゲーム"
+msgid "Code mods: Extras and Crash logs rows"
+msgstr "コードMOD：追加機能とクラッシュ記録"
 
-msgid "A fix for Wii Menu sounds that didn't load"
-msgstr "Wiiメニューの音が読み込まれない問題を修正"
+msgid "Wii U Pro Controller cheats without HOME"
+msgstr "Wii U PROコントローラのチートがHOMEなしで"
 
 msgid "Manage game"
 msgstr "ゲームの管理"

@@ -783,7 +783,12 @@ the tiles.
   13, 15, 16, 17 or 18), whether games rated too old are locked (they
   stay on Home and ask for the PIN at Start) or hidden (left off Home; a
   game started another way, like a disc, still asks), and whether games
-  with no rating are allowed or treated as too old. Opening the page and
+  with no rating are allowed or treated as too old. **HOME Menu
+  buttons** chooses what the HOME Menu does with its ways out of
+  RiftWii past the games (to the Homebrew Channel and Priiloader, or
+  Restart on a Wii without Priiloader): shown, behind the PIN, or hidden,
+  so the HOME Menu has only Wii Menu and Power off. **Settings** can ask
+  for the PIN before Settings opens from Home. Opening the page and
   turning parental controls off both ask for the PIN. Ratings come from
   GameTDB (ESRB, PEGI, CERO, USK and the Korean and Taiwanese boards), so
   turn on **Downloads** in Settings, or open a game's About page, to fetch
@@ -1793,6 +1798,11 @@ An update from inside RiftWii also brings the themes that come with it
 online. Themes you made or downloaded and your `music.ogg` are left alone;
 changes you made to Bookshelf, Indigo or Midnight themselves are replaced,
 so copy such a theme to a folder of its own name first.
+
+When the update is in place, **Restart** starts the new RiftWii at once
+(**Later** keeps this one until RiftWii next starts); RiftWii goes back
+where it would have gone before, the Homebrew Channel or the RiftWii
+channel, only when you leave it.
 
 An update is installed only when its download matches the SHA-256
 GitHub gives for it. While the new RiftWii is being put in place, the

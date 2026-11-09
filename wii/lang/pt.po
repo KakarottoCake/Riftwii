@@ -1056,11 +1056,8 @@ msgstr "OK"
 msgid "RiftWii updated"
 msgstr "RiftWii atualizada"
 
-msgid "RiftWii {1} is installed ({2}). It runs the next time RiftWii starts. Leave to the Homebrew Channel now and start it again?"
-msgstr "A RiftWii {1} está instalada ({2}). Ela será usada na próxima vez que a RiftWii iniciar. Voltar agora ao Homebrew Channel e iniciá-la de novo?"
-
-msgid "Leave"
-msgstr "Sair"
+msgid "RiftWii {1} is installed ({2}). Restart RiftWii now to use it?"
+msgstr "A RiftWii {1} está instalada ({2}). Reiniciar a RiftWii agora para usá-la?"
 
 msgid "Later"
 msgstr "Depois"
@@ -3312,6 +3309,42 @@ msgstr "Desligar o controle dos pais?"
 msgid "Every game can be started without the PIN again."
 msgstr "Todos os jogos poderão ser iniciados sem o PIN de novo."
 
+msgid "Ask for the PIN"
+msgstr "Pedir o PIN"
+
+msgid "No PIN"
+msgstr "Sem PIN"
+
+msgid "Shown"
+msgstr "Visíveis"
+
+msgid "Hidden"
+msgstr "Escondidos"
+
+msgid "HOME Menu buttons"
+msgstr "Botões do menu HOME"
+
+msgid "The HOME Menu's Homebrew Channel and Priiloader (or Restart) buttons, where a press can delete apps or change the Wii. Ask for the PIN, or hide them and keep only Wii Menu and Power off."
+msgstr "Os botões Homebrew Channel e Priiloader (ou Reiniciar) do menu HOME, onde um toque pode apagar apps ou mudar o Wii. Peça o PIN, ou esconda-os e deixe só Menu do Wii e Desligar."
+
+msgid "Ask for the PIN before Settings opens from Home. This page always asks."
+msgstr "Pede o PIN antes de abrir as Configurações a partir do início. Esta página sempre pede."
+
+msgid "Pick where to go: the Wii Menu, or power off."
+msgstr "Escolha para onde ir: Menu do Wii ou desligar."
+
+msgid "Type the PIN to leave for the Homebrew Channel."
+msgstr "Digite o PIN para ir ao Homebrew Channel."
+
+msgid "Type the PIN to leave for Priiloader."
+msgstr "Digite o PIN para ir ao Priiloader."
+
+msgid "Type the PIN to restart the Wii."
+msgstr "Digite o PIN para reiniciar o Wii."
+
+msgid "Type the PIN to open Settings."
+msgstr "Digite o PIN para abrir as Configurações."
+
 msgid "Are you sure you want to continue?"
 msgstr "Tem certeza de que quer continuar?"
 
@@ -4077,23 +4110,23 @@ msgstr "A pasta da NAND emulada: a que as configurações do USB Loader GX indic
 msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
 msgstr "Com configurações e Miis, os jogos também usam as configurações do Wii e os Miis da NAND emulada. Para isso a pasta precisa de uma NAND completa."
 
-msgid "One emulated NAND for every game's saves"
-msgstr "Uma NAND emulada para os saves de todos os jogos"
+msgid "More memory for games, faster mod loading"
+msgstr "Mais memória para os jogos e mods mais rápidos"
 
-msgid "The emulated NAND can be on the USB drive"
-msgstr "A NAND emulada pode ficar na unidade USB"
+msgid "Parental controls can lock the HOME Menu"
+msgstr "O controle dos pais pode bloquear o menu HOME"
 
-msgid "Hide, rename or delete a game"
-msgstr "Ocultar, renomear ou excluir um jogo"
+msgid "Updates restart into the new version"
+msgstr "As atualizações reiniciam na nova versão"
 
-msgid "Press 1 on a game to report how it runs"
-msgstr "Aperte 1 num jogo para relatar como ele roda"
+msgid "Mod tiles get their own 3D covers and boxes"
+msgstr "Capas 3D e caixas próprias para os mods"
 
-msgid "GameCube games on Nintendont's memory card"
-msgstr "Jogos de GameCube no cartão do Nintendont"
+msgid "Code mods: Extras and Crash logs rows"
+msgstr "Mods de código: Extras e Registro de falhas"
 
-msgid "A fix for Wii Menu sounds that didn't load"
-msgstr "Correção dos sons do Menu Wii que não carregavam"
+msgid "Wii U Pro Controller cheats without HOME"
+msgstr "Trapaças com o Controle Pro do Wii U sem HOME"
 
 msgid "Manage game"
 msgstr "Gerenciar jogo"

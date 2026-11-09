@@ -1056,11 +1056,8 @@ msgstr "확인"
 msgid "RiftWii updated"
 msgstr "RiftWii 업데이트됨"
 
-msgid "RiftWii {1} is installed ({2}). It runs the next time RiftWii starts. Leave to the Homebrew Channel now and start it again?"
-msgstr "RiftWii {1}이(가) ({2})에 설치되었습니다. RiftWii는 다음에 실행될 때 작동합니다. 지금 홈브류 채널로 나가서 다시 실행할까요?"
-
-msgid "Leave"
-msgstr "종료"
+msgid "RiftWii {1} is installed ({2}). Restart RiftWii now to use it?"
+msgstr "RiftWii {1}이(가) ({2})에 설치되었습니다. 지금 RiftWii를 재시작해서 사용할까요?"
 
 msgid "Later"
 msgstr "나중에"
@@ -3312,6 +3309,42 @@ msgstr "자녀 보호 기능을 끌까요?"
 msgid "Every game can be started without the PIN again."
 msgstr "모든 게임을 다시 PIN 없이 시작할 수 있습니다."
 
+msgid "Ask for the PIN"
+msgstr "PIN 묻기"
+
+msgid "No PIN"
+msgstr "PIN 없음"
+
+msgid "Shown"
+msgstr "표시"
+
+msgid "Hidden"
+msgstr "숨김"
+
+msgid "HOME Menu buttons"
+msgstr "HOME 메뉴 버튼"
+
+msgid "The HOME Menu's Homebrew Channel and Priiloader (or Restart) buttons, where a press can delete apps or change the Wii. Ask for the PIN, or hide them and keep only Wii Menu and Power off."
+msgstr "HOME 메뉴의 홈브류 채널과 Priiloader(또는 재시작) 버튼입니다. 거기서는 버튼 하나로 앱을 지우거나 Wii를 바꿀 수 있습니다. PIN을 묻거나, 숨겨서 Wii 메뉴와 전원 종료만 남깁니다."
+
+msgid "Ask for the PIN before Settings opens from Home. This page always asks."
+msgstr "홈에서 설정을 열기 전에 PIN을 묻습니다. 이 페이지는 항상 묻습니다."
+
+msgid "Pick where to go: the Wii Menu, or power off."
+msgstr "갈 곳을 고릅니다: Wii 메뉴 또는 전원 끄기."
+
+msgid "Type the PIN to leave for the Homebrew Channel."
+msgstr "홈브류 채널로 가려면 PIN을 입력하세요."
+
+msgid "Type the PIN to leave for Priiloader."
+msgstr "Priiloader로 가려면 PIN을 입력하세요."
+
+msgid "Type the PIN to restart the Wii."
+msgstr "Wii를 재시작하려면 PIN을 입력하세요."
+
+msgid "Type the PIN to open Settings."
+msgstr "설정을 열려면 PIN을 입력하세요."
+
 msgid "Are you sure you want to continue?"
 msgstr "정말 계속할까요?"
 
@@ -4077,23 +4110,23 @@ msgstr "에뮬레이트 NAND 폴더입니다. USB Loader GX 설정에 적힌 폴
 msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
 msgstr "설정과 Mii까지 고르면 게임이 에뮬레이트 NAND의 Wii 설정과 Mii도 사용합니다. 이를 위해 폴더에 완전한 NAND가 있어야 합니다."
 
-msgid "One emulated NAND for every game's saves"
-msgstr "모든 게임의 세이브를 하나의 에뮬레이트 NAND에"
+msgid "More memory for games, faster mod loading"
+msgstr "게임 메모리 증가, MOD 로딩이 더 빠르게"
 
-msgid "The emulated NAND can be on the USB drive"
-msgstr "에뮬레이트 NAND를 USB 드라이브에 둘 수 있습니다"
+msgid "Parental controls can lock the HOME Menu"
+msgstr "자녀 보호 기능으로 HOME 메뉴 잠금"
 
-msgid "Hide, rename or delete a game"
-msgstr "게임 숨기기, 이름 바꾸기, 삭제"
+msgid "Updates restart into the new version"
+msgstr "업데이트 후 새 버전으로 재시작"
 
-msgid "Press 1 on a game to report how it runs"
-msgstr "게임에서 1을 눌러 실행 상태 보고"
+msgid "Mod tiles get their own 3D covers and boxes"
+msgstr "MOD 타일에 전용 3D 커버와 상자"
 
-msgid "GameCube games on Nintendont's memory card"
-msgstr "Nintendont 메모리 카드로 게임큐브 게임"
+msgid "Code mods: Extras and Crash logs rows"
+msgstr "코드 MOD: 추가 기능과 충돌 기록"
 
-msgid "A fix for Wii Menu sounds that didn't load"
-msgstr "Wii 메뉴 소리가 불러와지지 않던 문제 수정"
+msgid "Wii U Pro Controller cheats without HOME"
+msgstr "Wii U PRO 컨트롤러 치트를 HOME 없이"
 
 msgid "Manage game"
 msgstr "게임 관리"

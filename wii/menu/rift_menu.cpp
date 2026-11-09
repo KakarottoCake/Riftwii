@@ -4438,7 +4438,9 @@ private:
 // until the pointer moves again.
 class HomeFocus : public GuiElement {
 public:
-	HomeFocus(GuiButton* const (&b)[5]) {
+	// `twoOnly`: buttons 0 and 1 are not on the screen (parental controls
+	// left the Homebrew Channel and Priiloader out); 2 and 3 are the one row.
+	HomeFocus(GuiButton* const (&b)[5], bool twoOnly = false) : twoOnly(twoOnly) {
 		for (int i = 0; i < 5; ++i) buttons[i] = b[i];
 	}
 	void Draw() override {}
@@ -4467,6 +4469,8 @@ public:
 		// the matching column instead of leaving the small Close pill lit.
 		else if (dx < 0) to = focus == 4 ? 0 : focus & ~1;
 		else if (dx > 0) to = focus == 4 ? 1 : focus | 1;
+		// With one row, up from it is Close and anything else lands on it.
+		if (twoOnly && to < 2) to = dy < 0 ? 4 : to + 2;
 		if (to != focus && soundOver) soundOver->Play();
 		focus = to;
 		// Restore pad focus after a pointer leaves, without losing a press
@@ -4494,19 +4498,36 @@ private:
 		return moved;
 	}
 	GuiButton* buttons[5];
+	bool twoOnly = false;
 	int focus = 4;  // Close first: a HOME pressed by mistake costs nothing
 	bool padFocus = true;
 	bool pointerKnown[4] = {};
 	float pointerX[4] = {}, pointerY[4] = {};
 };
 
+// The parental controls' PIN asked over the HOME Menu (`window`), which is
+// put back in front afterwards: the pad and its popups enable the whole
+// menu again when they close. GUI halted.
+static bool AskPinOverHomeMenu(GuiWindow& window, const std::string& why)
+{
+	const bool right = AskParentalPin(why);
+	mainWindow->SetState(STATE::DISABLED);
+	window.SetState(STATE::DEFAULT);
+	return right;
+}
+
 // The HOME Menu, like the Wii's own: leave to the Homebrew Channel, the
 // Wii Menu or Priiloader (or restart, HomeRestartsConsole), or turn the
-// Wii off. Close, B or HOME goes
+// Wii off. Parental controls can ask for the PIN before the Homebrew
+// Channel and Priiloader, or leave those two out: the menu is then one
+// row, Wii Menu and Power off (issue #491: a press there can delete apps or
+// change the system). Close, B or HOME goes
 // back. 0 when closed, else where to go (g_leave). Built and closed with
 // the GUI halted.
 static int ShowHomeMenu()
 {
+	const riftwii::ParentalExits exits = riftwii::parental_rules(riftwii::wii::Settings()).exits;
+	const bool twoOnly = exits == riftwii::ParentalExits::Hidden;
 	HomeDim dim;
 	HomeBand band(false), lowBand(true);
 	// The name and Close at the band's ends, out to the TV's sides on a widescreen menu.
@@ -4526,8 +4547,11 @@ static int ShowHomeMenu()
 	HomeBatteries batteries;
 	// The four in the middle, between the bands.
 	const int row1 = (kHomeBandTop + kHomeBandBottom) / 2 - 85, row2 = row1 + 98;
+	// The one row, halfway between the two.
+	const int rowMiddle = row1 + 49;
 	SkinButton hbcBtn(skin::homeBtn, skin::homeBtnOver, 8, 60, row1, tr("Homebrew Channel"), 0, 0, 0);
-	SkinButton menuBtn(skin::homeBtn, skin::homeBtnOver, 8, 332, row1, tr("Wii Menu"), 0, 0, 0);
+	SkinButton menuBtn(skin::homeBtn, skin::homeBtnOver, 8, twoOnly ? 60 : 332, twoOnly ? rowMiddle : row1,
+		tr("Wii Menu"), 0, 0, 0);
 	bool restart = HomeRestartsConsole();
 	// Opened during the drive scan, the button starts as Priiloader
 	// (HomeRestartsConsole); it is looked at again once the scan is done.
@@ -4535,7 +4559,7 @@ static int ShowHomeMenu()
 	SkinButton priiBtn(skin::homeBtn, skin::homeBtnOver, 8, 60, row2, restart ? tr("Restart") : "Priiloader", 0, 0, 0);
 	// iOS 6: Power off is the red one, as an action sheet's destructive button.
 	SkinButton offBtn(ios ? skin::homeBtnDanger : skin::homeBtn, ios ? skin::homeBtnDangerOver : skin::homeBtnOver, 8, 332,
-		row2, tr("Power off"), 0, 0, 0);
+		twoOnly ? rowMiddle : row2, tr("Power off"), 0, 0, 0);
 	for (SkinButton* b : {&hbcBtn, &menuBtn, &priiBtn, &offBtn}) {
 		b->text.SetColor(ios ? skin::kInk : ScaledColor(skin::kAccent, 0.42f));  // dark on the pale buttons, any theme
 		// Leave 24 pixels at either end, including in translations.
@@ -4556,8 +4580,12 @@ static int ShowHomeMenu()
 		WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME, nullptr, closeScale);
 	closeBtn.text.SetFontSize(20);
 	closeBtn.text.SetColor(ios ? skin::kWhite : skin::kInkSoft);
-	GuiButton* const buttons[5] = {&hbcBtn.button, &menuBtn.button, &priiBtn.button, &offBtn.button, &closeBtn.button};
-	HomeFocus focus(buttons);
+	// HomeFocus's order: the top row, the bottom row, Close. With one row,
+	// Wii Menu and Power off are the bottom row and the top one isn't shown.
+	GuiButton* const allFour[5] = {&hbcBtn.button, &menuBtn.button, &priiBtn.button, &offBtn.button, &closeBtn.button};
+	GuiButton* const oneRow[5] = {&hbcBtn.button, &priiBtn.button, &menuBtn.button, &offBtn.button, &closeBtn.button};
+	GuiButton* const (&buttons)[5] = twoOnly ? oneRow : allFour;
+	HomeFocus focus(buttons, twoOnly);
 
 	GuiWindow w(screenwidth, screenheight);
 	ShiftWindow top(1.0f, -90, false, 300), bottom(1.0f, 130, false, 300), middle(0.9f, 0, true, 300);
@@ -4569,7 +4597,7 @@ static int ShowHomeMenu()
 	bottom.Append(&lowBand);
 	bottom.Append(&batteries);
 	w.Append(&focus);
-	for (int i = 0; i < 4; ++i) middle.Append(buttons[i]);
+	for (int i = twoOnly ? 2 : 0; i < 4; ++i) middle.Append(buttons[i]);
 	w.Append(&top);
 	w.Append(&bottom);
 	w.Append(&middle);
@@ -4577,7 +4605,8 @@ static int ShowHomeMenu()
 	transition::Begin(transition::Kind::PopOpen);
 	mainWindow->Append(&w);
 	w.SetState(STATE::DEFAULT);
-	logf("HOME Menu: open\n");
+	logf("HOME Menu: open%s\n", twoOnly ? " (parental controls: Wii Menu and Power off only)"
+		: exits == riftwii::ParentalExits::Pin ? " (parental controls: the PIN for the Homebrew Channel and Priiloader)" : "");
 	// A sound as it opens and closes, as the Wii's own (NGT's suggestion):
 	// RiftWii's own, made by tools/make_sounds.py; Menu sounds sets its level.
 	static GuiSound openSound(home_open_pcm, home_open_pcm_size, SOUND::PCM);
@@ -4594,11 +4623,21 @@ static int ShowHomeMenu()
 			restart = HomeRestartsConsole();
 			if (restart) priiBtn.text.SetText(tr("Restart"));
 		}
-		if (hbcBtn.Clicked()) choice = 1;
+		if (hbcBtn.Clicked() && !twoOnly) choice = 1;
 		else if (menuBtn.Clicked()) choice = 2;
-		else if (priiBtn.Clicked()) choice = restart ? 6 : 3;
+		else if (priiBtn.Clicked() && !twoOnly) choice = restart ? 6 : 3;
 		else if (offBtn.Clicked()) choice = 4;
 		else if (closeBtn.Clicked(false)) choice = 0;  // closeSound owns this cue
+		if ((choice == 1 || choice == 3 || choice == 6) && exits == riftwii::ParentalExits::Pin) {
+			hbcBtn.button.ResetState();
+			priiBtn.button.ResetState();
+			const std::string why = choice == 1 ? tr("Type the PIN to leave for the Homebrew Channel.")
+				: choice == 3 ? tr("Type the PIN to leave for Priiloader.") : tr("Type the PIN to restart the Wii.");
+			if (!AskPinOverHomeMenu(w, why)) {
+				logf("HOME Menu: the PIN was not given, so RiftWii stays open\n");
+				choice = -1;
+			}
+		}
 		if (choice < 0) ResumeGui();
 	}
 	static const char* const kWhere[] = {"closed", "Homebrew Channel", "Wii Menu", "Priiloader", "power off", "", "restart"};
@@ -4714,8 +4753,15 @@ static std::string UpdateStepBody(const std::string& latest, const riftwii::wii:
 	return tr("RiftWii {1} is out. Installing it now; this takes a few minutes.", {latest}) + "\n" + line;
 }
 
+// Set by RunUpdate when the player chose to restart into the new version:
+// Home or Settings then leaves for it as for a homebrew app
+// (MENU_HOMEBREW, the app being RiftWii's own new boot.dol).
+static bool g_startUpdate = false;
+
 // Downloads and installs a newer release (riftwii::wii::InstallUpdate),
-// then offers to leave so the Homebrew Channel starts it.
+// then offers to start it at once. The new version starts straight from
+// RiftWii, as an app would, so nobody is dropped in the Homebrew Channel
+// on the way (issue #491); its own way out stays the one RiftWii had.
 static void RunUpdate(const std::string& latest)
 {
 	std::string where, error;
@@ -4768,12 +4814,16 @@ static void RunUpdate(const std::string& latest)
 		return;
 	}
 	if (ShowPopup(tr("RiftWii updated"),
-		    tr("RiftWii {1} is installed ({2}). It runs the next time RiftWii starts. Leave to the Homebrew Channel now and start it again?",
-			    {latest, where}),
-		    tr("Leave"), tr("Later")) == 0) {
-		ExitRequested = 1;
-		ResumeGui();
-		while (1) usleep(THREAD_SLEEP);
+		    tr("RiftWii {1} is installed ({2}). Restart RiftWii now to use it?", {latest, where}),
+		    tr("Restart"), tr("Later")) == 0) {
+		riftwii::wii::HomebrewApp app;
+		app.name = "RiftWii " + latest;
+		app.path = where;
+		app.program = "boot.dol";
+		riftwii::wii::SetHomebrewToStart(app);
+		g_startUpdate = true;
+		logf("Update: restarting into %s\n", latest.c_str());
+		return;
 	}
 	SetHomeNotice(tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest}));
 }
@@ -5122,12 +5172,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"One emulated NAND for every game's saves",
-	"The emulated NAND can be on the USB drive",
-	"Hide, rename or delete a game",
-	"Press 1 on a game to report how it runs",
-	"GameCube games on Nintendont's memory card",
-	"A fix for Wii Menu sounds that didn't load",
+	"More memory for games, faster mod loading",
+	"Parental controls can lock the HOME Menu",
+	"Updates restart into the new version",
+	"Mod tiles get their own 3D covers and boxes",
+	"Code mods: Extras and Crash logs rows",
+	"Wii U Pro Controller cheats without HOME",
 };
 
 static std::string WhatsNewText()
@@ -7639,6 +7689,10 @@ static int MenuSource(FrontendState& state)
 		// writes to the card and downloads.
 		if (!g_scanning) {
 			if (TakeUpdateCheck() && !coverNoteShown) showStatus();
+		if (g_startUpdate) {
+			g_startUpdate = false;
+			menu = MENU_HOMEBREW;
+		}
 			riftwii::wii::TakeUpdatePacks();
 		}
 		if (grid.Page() != shownPage || grid.Pages() != shownPages) {
@@ -8057,10 +8111,18 @@ static int MenuSource(FrontendState& state)
 			settingsBtn.button.ResetState();
 			toast.Show(tr("Put the SD card back in first."), true);
 		} else if (settingsBtn.Clicked()) {
-			g_focusRestored = true;  // the player acted: the start-up focus is theirs now
-			g_homeFocus = grid.FocusedIndex();
-			LearnHomeHints();
-			menu = MENU_OPTIONS;
+			// Parental controls can keep Settings closed: the PIN is asked
+			// each time from Home. (The pad's closing puts the button back
+			// to rest, so the answer is kept here rather than asked of it.)
+			const bool locked = riftwii::parental_rules(riftwii::wii::Settings()).lock_settings;
+			if (locked && !AskParentalPin(tr("Type the PIN to open Settings."))) {
+				settingsBtn.button.ResetState();
+			} else {
+				g_focusRestored = true;  // the player acted: the start-up focus is theirs now
+				g_homeFocus = grid.FocusedIndex();
+				LearnHomeHints();
+				menu = MENU_OPTIONS;
+			}
 		} else if (searchBtn.Clicked()) {
 			searchBtn.button.ResetState();
 			const std::string before = g_search;
@@ -16330,8 +16392,13 @@ static void MenuParentalControls()
 	};
 	const auto modeName = [&]() { return settings.parental_mode == "hide" ? tr("Hide them") : tr("Lock them"); };
 	const auto unratedName = [&]() { return settings.parental_unrated == "restrict" ? tr("Treat as too old") : tr("Allow"); };
+	const auto exitsName = [&]() {
+		if (settings.parental_exits == "hide") return tr("Hidden");
+		if (settings.parental_exits == "pin") return tr("Ask for the PIN");
+		return tr("Shown");
+	};
 
-	enum Row { kPin, kMode, kAge, kUnrated, kTurnOff };
+	enum Row { kPin, kMode, kAge, kUnrated, kExits, kSettingsLock, kTurnOff };
 	std::vector<FlowRow> rows;
 	std::vector<std::string> help;
 	const auto build = [&]() {
@@ -16358,6 +16425,11 @@ static void MenuParentalControls()
 		add(FlowRow::Kind::Option, tr("Games with no rating"), unratedName(), settings.parental_unrated == "restrict",
 			tr("Ratings come from GameTDB's database ({1} in {2} > {3}), read for a game when it starts or its About page opens. Treat as too old locks or hides the others too.",
 				{tr("Downloads"), tr("Settings"), tr("Online")}));
+		add(FlowRow::Kind::Option, tr("HOME Menu buttons"), exitsName(), settings.parental_exits != "show",
+			tr("The HOME Menu's Homebrew Channel and Priiloader (or Restart) buttons, where a press can delete apps or change the Wii. Ask for the PIN, or hide them and keep only Wii Menu and Power off."));
+		add(FlowRow::Kind::Option, tr("Settings"), settings.parental_settings == "pin" ? tr("Ask for the PIN") : tr("No PIN"),
+			settings.parental_settings == "pin",
+			tr("Ask for the PIN before Settings opens from Home. This page always asks."));
 		add(FlowRow::Kind::Action, tr("Turn off parental controls"), tr("Turn off"), false,
 			tr("Removes the PIN, and with it every lock. Deleting the parental_pin line in sd:/riftwii/settings.txt does the same."));
 		rows.back().dim = !active;
@@ -16402,6 +16474,25 @@ static void MenuParentalControls()
 				const std::string before = settings.parental_unrated;
 				settings.parental_unrated = before == "restrict" ? "allow" : "restrict";
 				save([&]() { settings.parental_unrated = before; });
+				break;
+			}
+			case kExits: {
+				static const char* const kExitChoices[] = {"show", "pin", "hide"};
+				const std::string before = settings.parental_exits;
+				std::size_t at = 0;
+				while (at < 3 && before != kExitChoices[at]) ++at;
+				at = direction < 0 ? (at + 2) % 3 : (at + 1) % 3;
+				settings.parental_exits = kExitChoices[at];
+				if (save([&]() { settings.parental_exits = before; }))
+					logf("Parental controls: the Homebrew Channel and Priiloader buttons are %s\n",
+						settings.parental_exits == "hide" ? "hidden" : settings.parental_exits == "pin" ? "behind the PIN" : "shown");
+				break;
+			}
+			case kSettingsLock: {
+				const std::string before = settings.parental_settings;
+				settings.parental_settings = before == "pin" ? "open" : "pin";
+				if (save([&]() { settings.parental_settings = before; }))
+					logf("Parental controls: Settings %s\n", settings.parental_settings == "pin" ? "ask for the PIN" : "open freely");
 				break;
 			}
 			case kTurnOff: {
@@ -16970,6 +17061,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				if (!channelCan) return std::string(tr(channelWhy.c_str())) + ".";
 				return tr("A Wii Menu channel that starts RiftWii from the SD card. It holds no copy of RiftWii, so updates keep working. Opens the channel installer, to add, update or remove it.");
 			case kExit:
+				if (riftwii::parental_rules(riftwii::wii::Settings()).exits == riftwii::ParentalExits::Hidden)
+					return tr("Pick where to go: the Wii Menu, or power off.");
 				if (HomeRestartsConsole())
 					return tr("Pick where to go: the Homebrew Channel, the Wii Menu, a restart of the console, or power off.");
 				return tr("Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off.");
@@ -17770,6 +17863,11 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						note(tr("Could not check: {1}", {FlatCapped(error, 220)}));
 					} else if (newer) {
 						RunUpdate(latest);
+						if (g_startUpdate) {
+							g_startUpdate = false;
+							menu = MENU_HOMEBREW;
+							break;
+						}
 						note(riftwii::wii::UpdateInstalled(latest)
 							? tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest})
 							: tr("RiftWii {1} is out: {2}", {latest, riftwii::wii::kReleasesPage}));
@@ -17926,7 +18024,8 @@ static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
 			"Problem reports, what's new, the tutorial, the RiftWii channel, resetting the settings and the credits."},
 		// Not a section: the HOME Menu's ways out, as a tile of its own.
 		{SettingsSection::Count, &skin::iconPower, "",
-			HomeRestartsConsole() ? "Pick where to go: the Homebrew Channel, the Wii Menu, a restart of the console, or power off."
+			riftwii::parental_rules(settings).exits == riftwii::ParentalExits::Hidden ? "Pick where to go: the Wii Menu, or power off."
+			: HomeRestartsConsole() ? "Pick where to go: the Homebrew Channel, the Wii Menu, a restart of the console, or power off."
 				: "Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off."},
 	};
 	// Three across, three down, inside a TV's overscan.
