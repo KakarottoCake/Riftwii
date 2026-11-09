@@ -22,7 +22,8 @@ const CtgpRecordPool kCtgpRecordPools[kCtgpPoolCount] = {
 
 namespace {
 
-void put32(std::vector<std::uint8_t>& v, std::size_t at, std::uint32_t x) {
+template <typename Bytes>
+void put32(Bytes& v, std::size_t at, std::uint32_t x) {
     v[at] = static_cast<std::uint8_t>(x >> 24);
     v[at + 1] = static_cast<std::uint8_t>(x >> 16);
     v[at + 2] = static_cast<std::uint8_t>(x >> 8);

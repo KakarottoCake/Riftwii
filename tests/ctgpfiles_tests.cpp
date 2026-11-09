@@ -16,7 +16,8 @@ static int g_failures = 0;
 
 using namespace riftwii;
 
-static std::uint32_t get32(const std::vector<std::uint8_t>& v, std::size_t at) {
+template <typename Bytes>
+static std::uint32_t get32(const Bytes& v, std::size_t at) {
     return (std::uint32_t(v[at]) << 24) | (std::uint32_t(v[at + 1]) << 16) | (std::uint32_t(v[at + 2]) << 8) | v[at + 3];
 }
 

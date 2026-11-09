@@ -7,11 +7,11 @@ namespace {
 
 constexpr std::uint32_t kPtegMask = 0x7FF;  // 128 KB table: 2048 groups of 8 entries
 
-std::uint32_t load(const std::vector<std::uint8_t>& b, std::size_t at) {
+std::uint32_t load(const CtgpBytes& b, std::size_t at) {
     return (std::uint32_t(b[at]) << 24) | (std::uint32_t(b[at + 1]) << 16) | (std::uint32_t(b[at + 2]) << 8) | b[at + 3];
 }
 
-void put(std::vector<std::uint8_t>& b, std::size_t at, std::uint32_t v) {
+void put(CtgpBytes& b, std::size_t at, std::uint32_t v) {
     b[at] = static_cast<std::uint8_t>(v >> 24);
     b[at + 1] = static_cast<std::uint8_t>(v >> 16);
     b[at + 2] = static_cast<std::uint8_t>(v >> 8);
@@ -21,7 +21,7 @@ void put(std::vector<std::uint8_t>& b, std::size_t at, std::uint32_t v) {
 // The channel's PTE insert (0x809557a4): the first free slot of the primary
 // group, else of the secondary (H set). Referenced always; changed and
 // read/write unless `read_only` (PP 3); uncached = I and G.
-bool insert(std::vector<std::uint8_t>& htab, std::uint32_t ea, std::uint32_t pa, std::uint32_t vsid, bool read_only,
+bool insert(CtgpBytes& htab, std::uint32_t ea, std::uint32_t pa, std::uint32_t vsid, bool read_only,
             bool uncached) {
     const std::uint32_t page = (ea >> 12) & 0xFFFF;
     const std::uint32_t hash = (page ^ vsid) & kPtegMask;

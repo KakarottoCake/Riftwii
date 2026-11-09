@@ -14,23 +14,23 @@ static int g_failures = 0;
 
 using namespace riftwii;
 
-static void rec(std::vector<std::uint8_t>& v, unsigned skip, unsigned type, unsigned section, std::uint32_t addend) {
+static void rec(CtgpBytes& v, unsigned skip, unsigned type, unsigned section, std::uint32_t addend) {
     v.push_back(skip >> 8); v.push_back(skip & 0xFF); v.push_back(type); v.push_back(section);
     v.push_back(addend >> 24); v.push_back(addend >> 16); v.push_back(addend >> 8); v.push_back(addend);
 }
-static std::uint32_t get(const std::vector<std::uint8_t>& b, std::size_t at) {
+static std::uint32_t get(const CtgpBytes& b, std::size_t at) {
     return (std::uint32_t(b[at]) << 24) | (std::uint32_t(b[at + 1]) << 16) | (std::uint32_t(b[at + 2]) << 8) | b[at + 3];
 }
-static void set(std::vector<std::uint8_t>& b, std::size_t at, std::uint32_t v) {
+static void set(CtgpBytes& b, std::size_t at, std::uint32_t v) {
     b[at] = v >> 24; b[at + 1] = v >> 16; b[at + 2] = v >> 8; b[at + 3] = v;
 }
 
 static void test_link() {
-    std::vector<std::uint8_t> boot(0x40, 0), boat(0x40, 0);
+    CtgpBytes boot(0x40, 0), boat(0x40, 0);
     set(boat, 0x10, 0x48000001);   // bl
     set(boat, 0x14, 0x40820000);   // bne
     set(boot, 0x20, 0);
-    std::vector<std::uint8_t> beat;
+    CtgpBytes beat;
     rec(beat, 0, 0xCA, 1, 0);       // patch BOAT
     rec(beat, 0x10, 10, 1, 0x100);  // bl to BOAT+0x100 from BOAT+0x10: +0xF0
     rec(beat, 4, 11, 1, 0x80);      // bc to BOAT+0x80 from BOAT+0x14: +0x6C
@@ -48,13 +48,13 @@ static void test_link() {
     EXPECT_EQ((boat[0x1C] << 8) | boat[0x1D], 0x8163);
     EXPECT_EQ((boat[0x20] << 8) | boat[0x21], 0x8000);
     // a branch relocation on something that is not a branch
-    std::vector<std::uint8_t> b2(0x40, 0), c2(0x40, 0);
-    std::vector<std::uint8_t> r2;
+    CtgpBytes b2(0x40, 0), c2(0x40, 0);
+    CtgpBytes r2;
     rec(r2, 0, 0xCA, 1, 0);
     rec(r2, 0, 10, 1, 0x100);
     EXPECT_TRUE(!ctgp_link(b2, c2, r2.data(), r2.size(), 0, error));
     // outside the section
-    std::vector<std::uint8_t> r3;
+    CtgpBytes r3;
     rec(r3, 0, 0xCA, 1, 0);
     rec(r3, 0x100, 1, 0, 0);
     EXPECT_TRUE(!ctgp_link(b2, c2, r3.data(), r3.size(), 0, error));
@@ -69,7 +69,7 @@ static CtgpRowTable table() {
 }
 
 static void test_image() {
-    std::vector<std::uint8_t> boot(0x3000, 0), boat(0x1000, 0), beat;
+    CtgpBytes boot(0x3000, 0), boat(0x1000, 0), beat;
     // hook destinations: BOOT+0x2814+4k hold addresses inside BOAT
     for (std::uint32_t k = 0; k < 0x30; ++k) set(boot, 0x2814 + 4 * k, kCtgpBoatBase + 0x100 + 4 * k);
     rec(beat, 0, 0xCB, 0, 0);
@@ -106,13 +106,13 @@ static void test_image() {
     // a hook that cannot reach BOAT
     CtgpRowTable far = rows;
     far.words[0 * 3 + 2] = 0x80000100;
-    std::vector<std::uint8_t> boot2 = boot;
+    CtgpBytes boot2 = boot;
     set(boot2, 0x2814, 0xC0000000);
     EXPECT_TRUE(!ctgp_build_image(boot2, boat, beat, far, CtgpRegion::P, j, error));
 }
 
 static void test_row_table() {
-    std::vector<std::uint8_t> f = {'C', 'R', 'T', '0', 0, 0, 0x0A, 0x0A};  // 2570 rows
+    CtgpBytes f = {'C', 'R', 'T', '0', 0, 0, 0x0A, 0x0A};  // 2570 rows
     f.resize(8 + 2570 * 12, 0);
     set(f, 8, 0x80001234);
     CtgpRowTable t;
@@ -122,7 +122,7 @@ static void test_row_table() {
     EXPECT_EQ(t.row(0, CtgpRegion::E), 0x80001234u);
     EXPECT_TRUE(t.low.empty());
     // with the 54 extra words
-    std::vector<std::uint8_t> g = f;
+    CtgpBytes g = f;
     g.resize(g.size() + 54 * 4, 0);
     set(g, g.size() - 4, 0x80004444);
     EXPECT_TRUE(ctgp_parse_row_table(g.data(), g.size(), t, error));

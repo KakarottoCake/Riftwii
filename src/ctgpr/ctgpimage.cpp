@@ -5,16 +5,16 @@
 namespace riftwii {
 namespace {
 
-std::uint32_t get32(const std::vector<std::uint8_t>& b, std::size_t at) {
+std::uint32_t get32(const CtgpBytes& b, std::size_t at) {
     return (std::uint32_t(b[at]) << 24) | (std::uint32_t(b[at + 1]) << 16) | (std::uint32_t(b[at + 2]) << 8) | b[at + 3];
 }
-void put32(std::vector<std::uint8_t>& b, std::size_t at, std::uint32_t v) {
+void put32(CtgpBytes& b, std::size_t at, std::uint32_t v) {
     b[at] = static_cast<std::uint8_t>(v >> 24);
     b[at + 1] = static_cast<std::uint8_t>(v >> 16);
     b[at + 2] = static_cast<std::uint8_t>(v >> 8);
     b[at + 3] = static_cast<std::uint8_t>(v);
 }
-void put16(std::vector<std::uint8_t>& b, std::size_t at, std::uint32_t v) {
+void put16(CtgpBytes& b, std::size_t at, std::uint32_t v) {
     b[at] = static_cast<std::uint8_t>(v >> 8);
     b[at + 1] = static_cast<std::uint8_t>(v);
 }
@@ -50,9 +50,9 @@ bool ctgp_parse_row_table(const std::uint8_t* data, std::size_t size, CtgpRowTab
     return true;
 }
 
-bool ctgp_link(std::vector<std::uint8_t>& boot, std::vector<std::uint8_t>& boat, const std::uint8_t* beat,
+bool ctgp_link(CtgpBytes& boot, CtgpBytes& boat, const std::uint8_t* beat,
                std::size_t beat_size, std::uint32_t bias, std::string& error) {
-    std::vector<std::uint8_t>* bufs[2] = {&boot, &boat};
+    CtgpBytes* bufs[2] = {&boot, &boat};
     const std::uint32_t base[2] = {kCtgpBootBase, kCtgpBoatBase + bias};
     int cur = -1;
     std::uint32_t off = 0;
@@ -73,7 +73,7 @@ bool ctgp_link(std::vector<std::uint8_t>& boot, std::vector<std::uint8_t>& boat,
         off += skip;
         if (type == 0xC9) continue;
         if (section > 1) { error = "relocation names a section that does not exist"; return false; }
-        std::vector<std::uint8_t>& buf = *bufs[cur];
+        CtgpBytes& buf = *bufs[cur];
         if (std::size_t(off) + 4 > buf.size()) { error = "relocation outside its section"; return false; }
         std::uint32_t val = base[section] + addend;
         if (type > 9) val -= base[cur] + off;
@@ -104,8 +104,8 @@ bool ctgp_link(std::vector<std::uint8_t>& boot, std::vector<std::uint8_t>& boat,
     return true;
 }
 
-bool ctgp_build_image(const std::vector<std::uint8_t>& boot_bin, const std::vector<std::uint8_t>& boat_bin,
-                      const std::vector<std::uint8_t>& beat_bin, const CtgpRowTable& rows, CtgpRegion region,
+bool ctgp_build_image(const CtgpBytes& boot_bin, const CtgpBytes& boat_bin, const CtgpBytes& beat_bin,
+                      const CtgpRowTable& rows, CtgpRegion region,
                       CtgpImage& out, std::string& error) {
     if (rows.rows() < kCtgpRowCount) {
         error = "row table is too short";

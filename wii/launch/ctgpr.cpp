@@ -7,12 +7,15 @@
 #include <algorithm>
 #include <array>
 #include <cstdio>
+#include <cstdlib>
 #include <vector>
 
 #include "i18n.hpp"
 #include "log.hpp"
+#include "memlimits.hpp"
 #include "online.hpp"
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/ctgparena.hpp"
 #include "riftwii/ctgpapply.hpp"
 #include "riftwii/ctgpefa.hpp"
 #include "riftwii/ctgphash.hpp"
@@ -58,6 +61,42 @@ bool read_whole(const char* path, const char* what, std::vector<std::uint8_t>& o
     return ok;
 }
 
+// The launch's big buffers (BOOT.BIN and BOAT.BIN as read and as linked, the
+// page table, the package and hash lists) live in one MEM2 block, so they do
+// not fill the MEM1 heap (CtgpBytes draws from it, riftwii/ctgparena.hpp).
+// Peak use is about 3.5 MB (both copies of BOOT.BIN and BOAT.BIN, 1.6 MB each,
+// before the as-read copies are freed); the block is 6 MB, and a buffer that
+// finds no room falls back to the heap. It is released when the plan is
+// destroyed, or at once when the launch fails.
+constexpr std::size_t kLaunchArenaBytes = 6u << 20;
+
+CtgpArena g_launch_arena;
+void* g_launch_arena_block = nullptr;
+
+void reserve_launch_arena() {
+    if (g_launch_arena_block != nullptr) return;
+    std::size_t bytes = kLaunchArenaBytes;
+    void* block = mem::TryMem2Alloc(bytes);
+    if (block == nullptr) {
+        logf("CTGP-R: no MEM2 block for the launch's buffers; they use the heap\n");
+        return;
+    }
+    g_launch_arena.attach(block, bytes);
+    g_launch_arena_block = block;
+    g_ctgp_arena = &g_launch_arena;
+    logf("CTGP-R: launch buffers in MEM2: %u KiB block at %p\n", static_cast<unsigned>(bytes / 1024), block);
+}
+
+// Gives the block back once nothing is left in it.
+void release_launch_arena() {
+    if (g_launch_arena_block == nullptr || g_launch_arena.live_blocks() != 0) return;
+    logf("CTGP-R: launch buffers: most in use at once %u KiB of MEM2\n",
+         static_cast<unsigned>(g_launch_arena.peak() / 1024));
+    g_ctgp_arena = nullptr;
+    std::free(g_launch_arena.detach());
+    g_launch_arena_block = nullptr;
+}
+
 // CTGP-R's package disk (blob.bin), opened for reading: the card file's
 // sectors, decrypted a chunk at a time. `reader` stays valid for as long as
 // `efa` is used.
@@ -82,7 +121,7 @@ bool open_package_disk(const CtgpTables& tables, BlockReader& reader, Fat32Volum
 // A file of the package disk, read whole. `max` caps its size before the
 // resize, so a FAT entry claiming a huge size cannot make RiftWii try to
 // allocate it and eat the heap.
-bool fetch_from_package_disk(Fat32Volume& efa, const char* path, std::vector<std::uint8_t>& bytes,
+bool fetch_from_package_disk(Fat32Volume& efa, const char* path, CtgpBytes& bytes,
                              std::uint64_t max, std::string& error) {
     Fat32File f;
     if (!efa.lookup(path, f, error)) {
@@ -134,7 +173,7 @@ CtgprNativeStatus work_out_status() {
     BlockReader reader;
     Fat32Volume efa;
     std::string error;
-    std::vector<std::uint8_t> packages_bin;
+    CtgpBytes packages_bin;
     std::vector<CtgpPackage> versions;
     if (!open_package_disk(tables, reader, efa, error) ||
         !fetch_from_package_disk(efa, "/PACKAGES.BIN", packages_bin, kCtgpFetchCeiling, error) ||
@@ -217,7 +256,7 @@ bool prepare_impl(const std::string& game_id, std::shared_ptr<const CtgpLaunchPl
     if (!open_package_disk(in.tables, reader, efa, error)) return false;
     // BOOT.BIN and BOAT.BIN get their real placement limits (ctgpimage.hpp);
     // the rest get a generous general ceiling (kCtgpFetchCeiling).
-    auto fetch = [&](const char* path, std::vector<std::uint8_t>& bytes, std::uint64_t max) {
+    auto fetch = [&](const char* path, CtgpBytes& bytes, std::uint64_t max) {
         return fetch_from_package_disk(efa, path, bytes, max, error);
     };
 
@@ -238,6 +277,8 @@ bool prepare_impl(const std::string& game_id, std::shared_ptr<const CtgpLaunchPl
          static_cast<unsigned>(ctgp_package_version(versions, "CORE")),
          static_cast<unsigned>(ctgp_package_version(versions, "CTGPR")));
 
+    // The code files and everything built from them go to MEM2 (CtgpBytes).
+    reserve_launch_arena();
     if (!fetch("/PACKAGES/CORE/BOOT.BIN", in.boot_bin, kCtgpBootMax) ||
         !fetch("/PACKAGES/CORE/BOAT.BIN", in.boat_bin, kCtgpBoatMax) ||
         !fetch("/PACKAGES/CORE/BEAT.BIN", in.beat_bin, kCtgpFetchCeiling))
@@ -277,8 +318,18 @@ bool prepare_impl(const std::string& game_id, std::shared_ptr<const CtgpLaunchPl
                  self.c_str());
     }
 
-    auto plan = std::make_shared<CtgpLaunchPlan>();
+    std::shared_ptr<CtgpLaunchPlan> plan(new CtgpLaunchPlan, [](CtgpLaunchPlan* done) {
+        delete done;
+        release_launch_arena();
+    });
     if (!ctgp_assemble(in, *plan, error)) return false;
+    // The code files as read are in the plan now (linked); the rest of the
+    // launch needs none of them, so their room goes to the package lists.
+    CtgpBytes().swap(in.boot_bin);
+    CtgpBytes().swap(in.boat_bin);
+    CtgpBytes().swap(in.beat_bin);
+    CtgpBytes().swap(in.packages_bin);
+    CtgpBytes().swap(in.track_hashes);
     logf("CTGP-R: offline only: online and LAN play off, ghosts saved unsigned\n");
 
     // The signed lists of file digests that vouch for CTGPR's and CORE's
@@ -305,7 +356,7 @@ bool prepare_impl(const std::string& game_id, std::shared_ptr<const CtgpLaunchPl
     // The packages' files: the lists config.ini's options pick, in the
     // channel's order (ctgp_package_lists).
     const auto package_lists = ctgp_package_lists(ctgp_settings_from_ini(in.config_ini, versions, in.region));
-    std::vector<std::vector<std::uint8_t>> lists(package_lists.size());
+    std::vector<CtgpBytes> lists(package_lists.size());
     for (std::size_t i = 0; i < package_lists.size(); ++i) {
         if (!fetch(package_lists[i].path.c_str(), lists[i], kCtgpFetchCeiling)) return false;
         logf("CTGP-R: package list %s\n", package_lists[i].path.c_str());
@@ -333,7 +384,7 @@ bool prepare_impl(const std::string& game_id, std::shared_ptr<const CtgpLaunchPl
             error = std::string("the hash list for ") + name + ": " + error;
             return false;
         }
-        std::vector<std::uint8_t> bytes;
+        CtgpBytes bytes;
         if (!try_resize(bytes, f.entry.size) || !efb.read(f, 0, bytes.data(), bytes.size())) {
             error = std::string("cannot read the hash list for ") + name;
             return false;
@@ -374,6 +425,9 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
     Failure why = Failure::Other;
     std::string technical;
     if (prepare_impl(game_id, out, technical, why)) return true;
+    // Everything the failed launch held is freed by now (its plan's own
+    // release ran while the inputs were still alive).
+    release_launch_arena();
     logf("CTGP-R: the native launch stops: %s\n", technical.c_str());
     error = failure_text(why);
     return false;

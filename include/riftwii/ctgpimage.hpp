@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/ctgparena.hpp"
+
 // The image CTGP-R's launch step builds in memory (docs/CTGPR.md): the
 // package code files linked at their load addresses and the branches that
 // hook the game. Pure functions.
@@ -49,7 +51,7 @@ bool ctgp_parse_row_table(const std::uint8_t* data, std::size_t size, CtgpRowTab
 // anti-cheat layer; the offline launch uses 0). Fails, with the images
 // unspecified, on a record outside its section or on a branch/branch-
 // conditional relocation whose target instruction is not a branch.
-bool ctgp_link(std::vector<std::uint8_t>& boot, std::vector<std::uint8_t>& boat, const std::uint8_t* beat,
+bool ctgp_link(CtgpBytes& boot, CtgpBytes& boat, const std::uint8_t* beat,
                std::size_t beat_size, std::uint32_t bias, std::string& error);
 
 // One branch written over a game function.
@@ -62,8 +64,8 @@ struct CtgpHook {
 };
 
 struct CtgpImage {
-    std::vector<std::uint8_t> boot;  // linked, slot tables filled in
-    std::vector<std::uint8_t> boat;  // linked
+    CtgpBytes boot;  // linked, slot tables filled in
+    CtgpBytes boat;  // linked
     std::vector<CtgpHook> hooks;     // 37 of them, in the channel's order
     // Only installed when the HID flag (0x816ff9e8) is set; never offline.
     std::vector<CtgpHook> optional_hooks;
@@ -71,8 +73,7 @@ struct CtgpImage {
 
 // Links, fills BOOT's slot tables (slot k = hook site k + 4, then the 2534
 // game addresses from row 31) and works out the hooks for `region`.
-bool ctgp_build_image(const std::vector<std::uint8_t>& boot_bin, const std::vector<std::uint8_t>& boat_bin,
-                      const std::vector<std::uint8_t>& beat_bin, const CtgpRowTable& rows, CtgpRegion region,
+bool ctgp_build_image(const CtgpBytes& boot_bin, const CtgpBytes& boat_bin, const CtgpBytes& beat_bin, const CtgpRowTable& rows, CtgpRegion region,
                       CtgpImage& out, std::string& error);
 
 }  // namespace riftwii

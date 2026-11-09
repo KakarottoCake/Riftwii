@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/ctgparena.hpp"
 #include "riftwii/ctgpfiles.hpp"
 #include "riftwii/ctgpimage.hpp"
 #include "riftwii/ctgpmmu.hpp"
@@ -40,14 +41,14 @@ constexpr const char* kCtgpMyStuffCommons[] = {"Common.szs",   "Common_E.szs", "
 
 // Everything read from the card and the package disk.
 struct CtgpInputs {
-    std::vector<std::uint8_t> boot_bin, boat_bin, beat_bin;  // /PACKAGES/CORE/ on efa:
-    std::vector<std::uint8_t> packages_bin;                  // /PACKAGES.BIN
+    CtgpBytes boot_bin, boat_bin, beat_bin;  // /PACKAGES/CORE/ on efa:
+    CtgpBytes packages_bin;                  // /PACKAGES.BIN
     std::vector<std::uint8_t> rows_bin;                      // the row table file
     std::vector<std::uint8_t> efa_boot_sector;               // block 0 of efa:
     std::vector<std::uint8_t> sda_boot_sector;               // the SD volume's boot sector
     std::uint32_t sda_volume_lba = 0;                        // where that sector is on the card
     std::string config_ini;                                  // sd:/ctgpr/config.ini, may be empty
-    std::vector<std::uint8_t> track_hashes;                  // efa:/packages/ctgpr/deyazhashes.hsh, may be empty
+    CtgpBytes track_hashes;                                                   // efa:/packages/ctgpr/deyazhashes.hsh, may be empty
     bool my_stuff_common = false;  // sd:/ctgpr/My Stuff holds a Common*.szs (kCtgpMyStuffCommons)
     CtgpTables tables;                       // the package-disk keys and IV (ctgptables.hpp)
     // What CTGP starts when it leaves for the channel (kCtgpChannelStub), in
@@ -61,7 +62,7 @@ struct CtgpInputs {
 struct CtgpGameOp {
     enum Kind { Write, Move } kind = Write;
     std::uint32_t address = 0;        // Write: where; Move: destination
-    std::vector<std::uint8_t> bytes;  // Write
+    CtgpBytes bytes;                  // Write
     std::uint32_t from = 0;           // Move: source (overlap allowed)
     std::uint32_t length = 0;         // Move
     // What the operation is (the start-up stub finds the first hook by it).
@@ -71,8 +72,8 @@ struct CtgpGameOp {
 };
 
 struct CtgpLaunchPlan {
-    std::vector<std::uint8_t> boot;   // goes to kCtgpBootBase: BOOT.BIN linked, partitions and fields in
-    std::vector<std::uint8_t> boat;   // goes to kCtgpBoatBase
+    CtgpBytes boot;                   // goes to kCtgpBootBase: BOOT.BIN linked, partitions and fields in
+    CtgpBytes boat;                   // goes to kCtgpBoatBase
     std::vector<CtgpGameOp> game_ops; // low memory, settings patches, then the hooks
     std::uint32_t arena1_hi = kCtgpImageStart;  // for 0x80000034 and 0x80003110
     std::uint32_t image_end = 0;      // end of BOAT
@@ -123,7 +124,7 @@ bool ctgp_assemble(const CtgpInputs& inputs, CtgpLaunchPlan& plan, std::string& 
 // BOOT image, and keeps the files for the game's file system table in plan.files
 // (ctgp_merge_files puts them there at launch). A file the resolver does not
 // find is left out unless its list says it is needed.
-bool ctgp_attach_files(CtgpLaunchPlan& plan, const std::vector<std::vector<std::uint8_t>>& package_fsts,
+bool ctgp_attach_files(CtgpLaunchPlan& plan, const std::vector<CtgpBytes>& package_fsts,
                        const std::vector<const CtgpHashList*>& hash_lists, const CtgpSourceResolver& resolver,
                        std::string& error);
 

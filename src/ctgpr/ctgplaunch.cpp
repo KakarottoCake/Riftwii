@@ -19,8 +19,8 @@
 namespace riftwii {
 namespace {
 
-std::vector<std::uint8_t> word_bytes(std::uint32_t value, std::uint32_t size) {
-    std::vector<std::uint8_t> out(size);
+CtgpBytes word_bytes(std::uint32_t value, std::uint32_t size) {
+    CtgpBytes out(size);
     for (std::uint32_t i = 0; i < size; ++i) out[i] = static_cast<std::uint8_t>(value >> (8 * (size - 1 - i)));
     return out;
 }
@@ -355,7 +355,7 @@ bool ctgp_assemble(const CtgpInputs& in, CtgpLaunchPlan& plan, std::string& erro
     if (rows.low.size() == 54) {
         const unsigned r = static_cast<unsigned>(in.region);
         int env_number = 0;
-        auto env_write = [&](std::uint32_t address, std::vector<std::uint8_t> bytes) {
+        auto env_write = [&](std::uint32_t address, CtgpBytes bytes) {
             CtgpGameOp g;
             g.address = address;
             g.bytes = std::move(bytes);
@@ -364,8 +364,8 @@ bool ctgp_assemble(const CtgpInputs& in, CtgpLaunchPlan& plan, std::string& erro
             p.game_ops.push_back(std::move(g));
         };
         env_write(rows.low[r], word_bytes(0x4E800020, 4));
-        env_write(rows.low[6 + r], std::vector<std::uint8_t>(808, 0));
-        env_write(rows.low[9 + r], std::vector<std::uint8_t>(1376, 0));
+        env_write(rows.low[6 + r], CtgpBytes(808, 0));
+        env_write(rows.low[9 + r], CtgpBytes(1376, 0));
         env_write(rows.low[12 + r] + 0x6C, word_bytes(0x60000000, 4));
         env_write(rows.low[12 + r] + 0x74, word_bytes(0x60000000, 4));
     }
@@ -391,7 +391,7 @@ bool ctgp_assemble(const CtgpInputs& in, CtgpLaunchPlan& plan, std::string& erro
     return true;
 }
 
-bool ctgp_attach_files(CtgpLaunchPlan& plan, const std::vector<std::vector<std::uint8_t>>& package_fsts,
+bool ctgp_attach_files(CtgpLaunchPlan& plan, const std::vector<CtgpBytes>& package_fsts,
                        const std::vector<const CtgpHashList*>& hash_lists, const CtgpSourceResolver& resolver,
                        std::string& error) {
     if (hash_lists.size() != package_fsts.size()) {

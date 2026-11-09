@@ -133,7 +133,7 @@ static CtgpDsaKey test_key() {
 }
 
 template <std::size_t N>
-static std::vector<std::uint8_t> vec(const std::uint8_t (&a)[N]) { return std::vector<std::uint8_t>(a, a + N); }
+static CtgpBytes vec(const std::uint8_t (&a)[N]) { return CtgpBytes(a, a + N); }
 
 int main() {
     const CtgpDsaKey key = test_key();
@@ -175,8 +175,8 @@ int main() {
         EXPECT_TRUE(!ctgp_load_hash_list(bad, "TEST", 0x01020304, other, error, &key));
     }
     // truncated, empty, an oversize signature length
-    EXPECT_TRUE(!ctgp_load_hash_list(std::vector<std::uint8_t>(good.begin(), good.begin() + 0x50), "TEST", 0x01020304, other, error, &key));
-    EXPECT_TRUE(!ctgp_load_hash_list(std::vector<std::uint8_t>(), "TEST", 0x01020304, other, error, &key));
+    EXPECT_TRUE(!ctgp_load_hash_list(CtgpBytes(good.begin(), good.begin() + 0x50), "TEST", 0x01020304, other, error, &key));
+    EXPECT_TRUE(!ctgp_load_hash_list(CtgpBytes(), "TEST", 0x01020304, other, error, &key));
     auto longsig = good;
     longsig[0x2F] = 0x31;
     EXPECT_TRUE(!ctgp_load_hash_list(longsig, "TEST", 0x01020304, other, error, &key));

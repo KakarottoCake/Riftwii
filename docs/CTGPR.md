@@ -83,6 +83,17 @@ version). The error is on the failed-launch screen and in `boot.log`; nothing
 is placed in memory before every check has passed, so RiftWii never starts the
 game half set up.
 
+### Memory
+
+The launch's big buffers (BOOT.BIN and BOAT.BIN as read and as linked, the
+record table, the page table, the package and hash lists) are `CtgpBytes`, which
+draw from one 6 MB MEM2 block (`include/riftwii/ctgparena.hpp`, reserved in
+`wii/launch/ctgpr.cpp` with `mem::TryMem2Alloc`) instead of the MEM1-first
+default heap. The as-read copies are freed once the plan holds the linked ones.
+The block is released when the plan is destroyed or the launch fails; a buffer
+that finds no room in it uses the heap. `boot.log` says how much of the block
+was used at the most.
+
 ### Checks
 
 Host tests cover each step with made-up data (`tests/ctgp*_tests.cpp`):

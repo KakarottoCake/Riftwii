@@ -36,7 +36,7 @@ constexpr std::uint32_t kCtgpLowCopy = 0x01700000;   // where the core keeps low
 constexpr std::uint32_t kCtgpPageCopy = 0x01702000;  // the core's copy of one game page (physical)
 
 struct CtgpMmu {
-    std::vector<std::uint8_t> htab;   // kCtgpHtabSize bytes for kCtgpHtabBase
+    CtgpBytes htab;                     // kCtgpHtabSize bytes for kCtgpHtabBase
     std::uint32_t sdr1 = 0;
     std::array<std::uint32_t, 16> sr{};
     // DBAT0 and DBAT7 at the jump (DBAT7 is the start-up mapping the core swaps out).

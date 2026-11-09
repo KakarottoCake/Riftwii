@@ -18,10 +18,12 @@ static int g_failures = 0;
 
 using namespace riftwii;
 
-static void set(std::vector<std::uint8_t>& b, std::size_t at, std::uint32_t v) {
+template <typename Bytes>
+static void set(Bytes& b, std::size_t at, std::uint32_t v) {
     b[at] = v >> 24; b[at + 1] = v >> 16; b[at + 2] = v >> 8; b[at + 3] = v;
 }
-static std::uint32_t get(const std::vector<std::uint8_t>& b, std::size_t at) {
+template <typename Bytes>
+static std::uint32_t get(const Bytes& b, std::size_t at) {
     return (std::uint32_t(b[at]) << 24) | (std::uint32_t(b[at + 1]) << 16) | (std::uint32_t(b[at + 2]) << 8) | b[at + 3];
 }
 
@@ -306,7 +308,7 @@ static void test_attach_files() {
     EXPECT_TRUE(ctgp_assemble(in, plan, error));
     // one package: /Scene/a.szs -> efa:/p/a (signed), /b.bin -> sda:/b
     const std::string tail = std::string("efa:/p/a") + '\0' + "sda:/b" + '\0';
-    std::vector<std::uint8_t> fst;
+    CtgpBytes fst;
     auto w32 = [&](std::uint32_t x) { for (int s = 24; s >= 0; s -= 8) fst.push_back(std::uint8_t(x >> s)); };
     // root, Scene, a.szs, b.bin; names "", "Scene", "a.szs", "b.bin"
     const std::string names = std::string("\0Scene\0a.szs\0b.bin\0", 20);

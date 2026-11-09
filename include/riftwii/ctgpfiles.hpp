@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "riftwii/ctgparena.hpp"
 #include "riftwii/ctgphash.hpp"
 #include "riftwii/fst.hpp"
 
@@ -78,7 +79,7 @@ public:
     bool has(const std::string& key) const;
 
     // The whole table (kCtgpRecordCount * 200 bytes), unused records zero.
-    const std::vector<std::uint8_t>& image() const { return image_; }
+    const CtgpBytes& image() const { return image_; }
     std::uint32_t used() const { return used_; }
     // The partition's open-file list: how many and the newest one's address
     // (partition + 0x48 and + 0x4C).
@@ -86,7 +87,7 @@ public:
     std::uint32_t first_open(int device) const;
 
 private:
-    std::vector<std::uint8_t> image_;
+    CtgpBytes image_;
     std::vector<std::uint32_t> next_free_;  // per pool
     // Keyed by the package's own spelling; a package lists up to ~2,900 files,
     // so a linear search per add made each package quadratic.

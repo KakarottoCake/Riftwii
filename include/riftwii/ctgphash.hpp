@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/ctgparena.hpp"
 #include "riftwii/ctgpdsa.hpp"
 #include "riftwii/fst.hpp"
 
@@ -48,9 +49,9 @@ public:
     }
 
 private:
-    friend bool ctgp_load_hash_list(const std::vector<std::uint8_t>&, const std::string&, std::uint32_t,
+    friend bool ctgp_load_hash_list(const CtgpBytes&, const std::string&, std::uint32_t,
                                     CtgpHashList&, std::string&, const CtgpDsaKey*);
-    std::vector<std::uint8_t> body_;
+    CtgpBytes body_;
     Fst tree_;
     std::size_t files_ = 0;
     std::map<std::string, std::array<std::uint8_t, 20>> direct_;
@@ -61,7 +62,7 @@ private:
 // public key, then the magic, the size, the name, the version and the body's
 // SHA-1. On any failure `error` says which and `out` is untouched. `key` is
 // only for tests; the default is CTGP-R's own public list-signing key.
-bool ctgp_load_hash_list(const std::vector<std::uint8_t>& file, const std::string& package, std::uint32_t version,
+bool ctgp_load_hash_list(const CtgpBytes& file, const std::string& package, std::uint32_t version,
                          CtgpHashList& out, std::string& error, const CtgpDsaKey* key = nullptr);
 
 }  // namespace riftwii

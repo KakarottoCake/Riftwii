@@ -19,7 +19,7 @@ constexpr std::size_t kBody = 0x60;
 
 }  // namespace
 
-bool ctgp_load_hash_list(const std::vector<std::uint8_t>& file, const std::string& package, std::uint32_t version,
+bool ctgp_load_hash_list(const CtgpBytes& file, const std::string& package, std::uint32_t version,
                          CtgpHashList& out, std::string& error, const CtgpDsaKey* key) {
     if (file.size() < kBody + 12 || package.empty() || package.size() > 8) {
         error = "the hash list is too short";
