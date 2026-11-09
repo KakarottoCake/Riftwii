@@ -928,6 +928,17 @@ T = {
         "CTGP Revolution（Homebrew Channelのアプリを起動するパック）はまだRiftWiiから動きません。黒または緑の画面で止まります。CTGPはHomebrew Channelから起動してください。",
         "O CTGP Revolution (um pack que inicia um app do Homebrew Channel) ainda não funciona pelo RiftWii: ele para numa tela preta ou verde. Inicie o CTGP pelo Homebrew Channel.",
         "CTGP Revolution (un pacchetto che avvia un'app dell'Homebrew Channel) non funziona ancora da RiftWii: si ferma su una schermata nera o verde. Avvia CTGP dall'Homebrew Channel."),
+    # CTGP Revolution started natively (its files set up on the card): offline only.
+    "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.": (
+        "CTGP Revolution se inicia sin conexión desde RiftWii: el juego en línea y en LAN están desactivados, y los fantasmas que guardes no se pueden subir.",
+        "RiftWiiからのCTGP Revolutionはオフライン専用です。オンラインとLANのプレイはオフで、保存したゴーストはアップロードできません。",
+        "O CTGP Revolution inicia só offline pelo RiftWii: o jogo online e em LAN ficam desligados, e os fantasmas que você salvar não podem ser enviados.",
+        "CTGP Revolution si avvia solo offline da RiftWii: il gioco online e in LAN è disattivato, e i fantasmi che salvi non si possono caricare."),
+    "CTGP Revolution: offline only (see Start).": (
+        "CTGP Revolution: solo sin conexión (mira Jugar).",
+        "CTGP Revolution：オフライン専用（「はじめる」を参照）。",
+        "CTGP Revolution: só offline (veja Jogar).",
+        "CTGP Revolution: solo offline (vedi Gioca)."),
     "CTGP Revolution does not work from RiftWii yet (see Start).": (
         "CTGP Revolution todavía no funciona desde RiftWii (mira Jugar).",
         "CTGP RevolutionはまだRiftWiiから動きません（「はじめる」を参照）。",
@@ -3033,6 +3044,10 @@ KO = {
         "사용 시 발생하는 문제는 사용자의 책임입니다:",
     "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.":
         "CTGP Revolution(홈브류 채널 앱을 통해 실행하는 팩)은 아직 RiftWii에서 정상적으로 작동하지 않으며, 검은색 또는 녹색 화면에서 멈춥니다. 대신 홈브류 채널에서 CTGP를 실행하세요.",
+    "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.":
+        "RiftWii에서 CTGP Revolution은 오프라인 전용으로 실행됩니다. 온라인 및 LAN 플레이는 꺼지며, 저장한 고스트는 업로드할 수 없습니다.",
+    "CTGP Revolution: offline only (see Start).":
+        "CTGP Revolution: 오프라인 전용 (시작 항목 참조)",
     "CTGP Revolution does not work from RiftWii yet (see Start).":
         "CTGP Revolution은 아직 RiftWii에서 작동하지 않습니다. (시작 항목 참조)",
     " (and {1} more)":
@@ -4903,6 +4918,10 @@ FR = {
         "À utiliser à vos risques :",
     "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.":
         "CTGP Revolution ne fonctionne pas encore depuis RiftWii (blocage sur écran noir ou vert). Lancez-le directement depuis la Chaîne Homebrew.",
+    "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.":
+        "CTGP Revolution démarre hors ligne uniquement depuis RiftWii : le jeu en ligne et en LAN est désactivé, et les fantômes que vous enregistrez ne peuvent pas être envoyés.",
+    "CTGP Revolution: offline only (see Start).":
+        "CTGP Revolution : hors ligne uniquement (voir Démarrer).",
     "CTGP Revolution does not work from RiftWii yet (see Start).":
         "CTGP Revolution ne fonctionne pas encore depuis RiftWii (voir Démarrer).",
     " (and {1} more)":
@@ -8416,6 +8435,38 @@ KO.update({
 FR.update({
     "Not applied": "Non appliqué",
     "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start.": "Ce jeu vérifie son propre code. Pour qu'il démarre, les modifications d'image, de langue, de région, de manettes, de jeu en ligne et les codes de triche restent désactivés.",
+})
+
+# CTGP-R takes precedence: cheats and other mods are locked off while it is on.
+T.update({
+    "Off (CTGP-R)": ("No (CTGP-R)", "オフ (CTGP-R)", "Desativado (CTGP-R)", "No (CTGP-R)"),
+    "Cheats can't be turned on while CTGP-R is enabled. Turn CTGP-R off in Mods to use cheats.": (
+        "Los trucos no se pueden activar mientras CTGP-R está activado. Desactiva CTGP-R en Mods para usar trucos.",
+        "CTGP-Rが有効の間はチートをオンにできません。チートを使うには、ModでCTGP-Rをオフにしてください。",
+        "As trapaças não podem ser ativadas enquanto o CTGP-R estiver ativado. Desative o CTGP-R em Mods para usá-las.",
+        "I trucchi non possono essere attivati mentre CTGP-R è attivo. Disattiva CTGP-R in Mod per usarli."),
+    "Other mods can't be enabled while CTGP-R is on. Turn CTGP-R off to use them.": (
+        "Los demás mods no se pueden activar mientras CTGP-R está activado. Desactiva CTGP-R para usarlos.",
+        "CTGP-Rが有効の間は、ほかのModを有効にできません。使うには、CTGP-Rをオフにしてください。",
+        "Os outros mods não podem ser ativados enquanto o CTGP-R estiver ativado. Desative o CTGP-R para usá-los.",
+        "Gli altri mod non possono essere attivati mentre CTGP-R è attivo. Disattiva CTGP-R per usarli."),
+    "CTGP-R is on, so cheats and other mods were turned off. They can't be enabled while it is on.": (
+        "CTGP-R está activado, así que los trucos y los demás mods se desactivaron. No se pueden activar mientras CTGP-R esté activado.",
+        "CTGP-Rが有効なので、チートとほかのModをオフにしました。CTGP-Rが有効の間はオンにできません。",
+        "O CTGP-R está ativado, então as trapaças e os outros mods foram desativados. Eles não podem ser ativados enquanto o CTGP-R estiver ativado.",
+        "CTGP-R è attivo, quindi trucchi e altri mod sono stati disattivati. Non possono essere attivati mentre CTGP-R è attivo."),
+})
+KO.update({
+    "Off (CTGP-R)": "끔 (CTGP-R)",
+    "Cheats can't be turned on while CTGP-R is enabled. Turn CTGP-R off in Mods to use cheats.": "CTGP-R이 켜져 있는 동안에는 치트를 켤 수 없습니다. 치트를 쓰려면 Mods에서 CTGP-R을 끄세요.",
+    "Other mods can't be enabled while CTGP-R is on. Turn CTGP-R off to use them.": "CTGP-R이 켜져 있는 동안에는 다른 모드를 켤 수 없습니다. 쓰려면 CTGP-R을 끄세요.",
+    "CTGP-R is on, so cheats and other mods were turned off. They can't be enabled while it is on.": "CTGP-R이 켜져 있어 치트와 다른 모드를 껐습니다. CTGP-R이 켜져 있는 동안에는 켤 수 없습니다.",
+})
+FR.update({
+    "Off (CTGP-R)": "Désactivé (CTGP-R)",
+    "Cheats can't be turned on while CTGP-R is enabled. Turn CTGP-R off in Mods to use cheats.": "Les codes de triche ne peuvent pas être activés tant que CTGP-R est activé. Désactivez CTGP-R dans Mods pour les utiliser.",
+    "Other mods can't be enabled while CTGP-R is on. Turn CTGP-R off to use them.": "Les autres mods ne peuvent pas être activés tant que CTGP-R est activé. Désactivez CTGP-R pour les utiliser.",
+    "CTGP-R is on, so cheats and other mods were turned off. They can't be enabled while it is on.": "CTGP-R est activé : les codes de triche et les autres mods ont été désactivés. Ils ne peuvent pas être activés tant que CTGP-R est activé.",
 })
 
 T.update({

@@ -987,6 +987,12 @@ msgstr "Juega bajo tu propia responsabilidad:"
 msgid "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead."
 msgstr "CTGP Revolution (un pack que inicia una app del Homebrew Channel) todavía no funciona desde RiftWii: se queda en una pantalla negra o verde. Inicia CTGP desde el Homebrew Channel."
 
+msgid "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded."
+msgstr "CTGP Revolution se inicia sin conexión desde RiftWii: el juego en línea y en LAN están desactivados, y los fantasmas que guardes no se pueden subir."
+
+msgid "CTGP Revolution: offline only (see Start)."
+msgstr "CTGP Revolution: solo sin conexión (mira Jugar)."
+
 msgid "CTGP Revolution does not work from RiftWii yet (see Start)."
 msgstr "CTGP Revolution todavía no funciona desde RiftWii (mira Jugar)."
 
@@ -4025,6 +4031,18 @@ msgstr "No se aplica"
 
 msgid "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start."
 msgstr "Este juego comprueba su propio código. Para que arranque, no se aplican cambios de imagen, idioma, región, mandos, juego en línea ni trucos."
+
+msgid "Off (CTGP-R)"
+msgstr "No (CTGP-R)"
+
+msgid "Cheats can't be turned on while CTGP-R is enabled. Turn CTGP-R off in Mods to use cheats."
+msgstr "Los trucos no se pueden activar mientras CTGP-R está activado. Desactiva CTGP-R en Mods para usar trucos."
+
+msgid "Other mods can't be enabled while CTGP-R is on. Turn CTGP-R off to use them."
+msgstr "Los demás mods no se pueden activar mientras CTGP-R está activado. Desactiva CTGP-R para usarlos."
+
+msgid "CTGP-R is on, so cheats and other mods were turned off. They can't be enabled while it is on."
+msgstr "CTGP-R está activado, así que los trucos y los demás mods se desactivaron. No se pueden activar mientras CTGP-R esté activado."
 
 msgid "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report."
 msgstr "RiftWii se quedó sin memoria al iniciar el juego. Desactiva la música del menú e inténtalo de nuevo, o envía un informe del problema."
