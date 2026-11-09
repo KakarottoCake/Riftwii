@@ -3200,7 +3200,9 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     }
     install_game_extras(extras);
     apply_debug_crash(dol);
-    apply_debug_reset(dol, resident.restart_hooked ? hooked_os_restart : 0);
+    // OSRestart as the runtime or, with none, the adapter's hook took it: its first word is a branch now, which
+    // the search for it would no longer match.
+    apply_debug_reset(dol, resident.restart_hooked ? hooked_os_restart : extras.pad.restart_hooked ? extras.pad.restart_os : 0);
     // Last, in gamepatches.c's order: Wiimmfi's Mario Kart Wii patch goes
     // below everything else in the MEM1 arena. Packs bring their own online
     // setup (and may have replaced the code these patches expect).
