@@ -4220,3 +4220,108 @@ msgstr "La carte mémoire de chaque jeu GameCube dont l'option Carte mémoire es
 
 msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
 msgstr "La carte mémoire du port B n'a pas pu être lue. Remettez-la, ou choisissez une autre carte sur la page du jeu."
+
+msgid "Calibrate a GameCube controller"
+msgstr "Calibrer une manette GameCube"
+
+msgid "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use."
+msgstr "Teste une manette GameCube et corrige une manette usée : sticks qui n'atteignent pas le bord, sticks qui dérivent, gâchettes qui ne descendent pas jusqu'au bout. Les jeux GameCube en profitent, et les jeux Wii tant qu'un adaptateur GameCube ou une manette USB est utilisé."
+
+msgid "Wii's GameCube port {1}"
+msgstr "Port GameCube {1} de la Wii"
+
+msgid "Adapter port {1}"
+msgstr "Port {1} de l'adaptateur"
+
+msgid "USB controller {1}"
+msgstr "Manette USB {1}"
+
+msgid "C stick"
+msgstr "Stick C"
+
+msgid "Up"
+msgstr "Haut"
+
+msgid "Down"
+msgstr "Bas"
+
+msgid "Left"
+msgstr "Gauche"
+
+msgid "Right"
+msgstr "Droite"
+
+msgid "Calibrate"
+msgstr "Calibrer"
+
+msgid "Reset to default"
+msgstr "Réinitialiser"
+
+msgid "Dead zone -"
+msgstr "Zone morte -"
+
+msgid "Dead zone +"
+msgstr "Zone morte +"
+
+msgid "Dead zone: {1}"
+msgstr "Zone morte : {1}"
+
+msgid "RiftWii keeps the calibrations of four USB controllers at most. Reset one to make room."
+msgstr "RiftWii garde la calibration de quatre manettes USB au plus. Réinitialisez-en une pour faire de la place."
+
+msgid "The SD card could not take the calibration. Is it locked or full?"
+msgstr "La calibration n'a pas pu être enregistrée sur la carte SD. Est-elle verrouillée ou pleine ?"
+
+msgid "Turn the control stick slowly around its edge two or three times, pushing it into every corner. Then press A."
+msgstr "Faites tourner lentement le stick le long du bord deux ou trois fois, en le poussant dans chaque coin. Puis appuyez sur A."
+
+msgid "Now turn the C stick around its edge the same way. Then press A."
+msgstr "Faites maintenant tourner le stick C de la même façon. Puis appuyez sur A."
+
+msgid "Press L all the way down and let go, then R. Then press A."
+msgstr "Enfoncez L jusqu'au bout et relâchez, puis R. Ensuite appuyez sur A."
+
+msgid "Plug a GameCube controller into the Wii or the adapter, or plug in a USB controller."
+msgstr "Branchez une manette GameCube sur la Wii ou l'adaptateur, ou branchez une manette USB."
+
+msgid "Press a button on another controller to show it. On the controller, hold Start to calibrate it or B to go back."
+msgstr "Appuyez sur un bouton d'une autre manette pour l'afficher. Sur la manette, maintenez Start pour la calibrer ou B pour revenir."
+
+msgid "The controller was unplugged. Nothing was changed."
+msgstr "La manette a été débranchée. Rien n'a été changé."
+
+msgid "Reset this controller?"
+msgstr "Réinitialiser cette manette ?"
+
+msgid "{1} goes back to how it is without a calibration: no stretch and no dead zone."
+msgstr "{1} revient à son état sans calibration : ni étirement ni zone morte."
+
+msgid "Back to default."
+msgstr "Réinitialisée."
+
+msgid "Calibration canceled. Nothing was changed."
+msgstr "Calibration annulée. Rien n'a été changé."
+
+msgid "The stick did not reach every side yet. Keep turning it around its edge."
+msgstr "Le stick n'a pas encore atteint tous les côtés. Continuez à le faire tourner le long du bord."
+
+msgid "The C stick did not reach every side yet. Keep turning it around its edge."
+msgstr "Le stick C n'a pas encore atteint tous les côtés. Continuez à le faire tourner le long du bord."
+
+msgid "Calibrated. GameCube games now get this controller's full range, and Wii games do while a GameCube adapter or USB controller is in use."
+msgstr "Calibrée. Les jeux GameCube reçoivent maintenant toute la course de cette manette, et les jeux Wii tant qu'un adaptateur GameCube ou une manette USB est utilisé."
+
+msgid "Stick {1}, {2}   C stick {3}, {4}   L {5}   R {6}"
+msgstr "Stick {1}, {2}   Stick C {3}, {4}   L {5}   R {6}"
+
+msgid "not calibrated"
+msgstr "non calibrée"
+
+msgid "calibrated"
+msgstr "calibrée"
+
+msgid "calibrating"
+msgstr "calibration en cours"
+
+msgid "No GameCube controller found"
+msgstr "Aucune manette GameCube trouvée"

@@ -61,6 +61,10 @@ struct gc_gcad {
     int32_t known_dev;      /* -1: none */
     uint32_t ticks_per_ms;
     uint32_t rumble;        /* 1: the game's rumble reaches the adapter's controllers */
+    /* The controllers' calibrations (rtpadcal.h), the same table as the
+     * context's pad_cal; null: none stored. Handed to the driver once it
+     * is initialized. */
+    const rtpadcal_table* cal;
     uint32_t inited;
     uint32_t ctx;           /* struct gc_rt_context, for sending (set at each poll) */
     /* The ports as gc_gcad_fill last left them: each adapter port's game

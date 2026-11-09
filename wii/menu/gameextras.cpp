@@ -13,6 +13,7 @@
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "online.hpp"
+#include "padcalstore.hpp"
 #include "textfile.hpp"
 #include "riftwii/homeorder.hpp"
 #include "riftwii/settingsfile.hpp"
@@ -387,6 +388,7 @@ void PrepareLaunchExtras(const FrontendState& state, const HeadlessLaunch* headl
                         : adapter == "off"  ? GcAdapterMode::Off
                                             : GcAdapterMode::Auto;
     extras.gc_rumble_off = Settings().gc_rumble == "off";
+    extras.pad_calibrated = LoadPadCalibrationTable(extras.pad_calibration);
     extras.screenshots = Settings().screenshots == "on" || Settings().screenshots == "demo";
     extras.screenshots_demo = Settings().screenshots == "demo";
     extras.cheat_gct = CheatGct(state, extras.cheat_count, true);

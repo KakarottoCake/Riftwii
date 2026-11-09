@@ -61,6 +61,7 @@ headers, generated data and assets with the code that uses them.
 | Plugins (optional code loaded from the card into MEM2 on first use) | `docs/PLUGINS.md`, `include/riftwii/plugin_api.h` (the tables), `wii/core/plugins.cpp` (the loader), `src/data/pluginfile.cpp` (the file's checks), `plugins/`, `Makefile.plugin`, `tools/make_plugin.py`; the in-app update writes them before the DOL (`plan_update_writes` in `src/net/update.cpp`, `wii/online/online.cpp`) |
 | What takes MEM1, and the start-up stash (translations and GPL copied to MEM2 at start) | `docs/MEMORY.md`, `tools/dol_stash.py`, `wii/core/stash.cpp`, `src/data/stashimage.cpp` |
 | The GameCube controller adapter | `runtime/rtgcad.c` (the driver), `wii/controllers/gcadapter.cpp` (menu), `runtime/pad/` and `wii/hooks/padhook.cpp` (games) |
+| Calibrating a GameCube controller | `GcCalibratePage` in `wii/menu/rift_menu.cpp` (Settings > Controllers), `src/data/padcal.cpp` (the file and the stretch, `tests/padcal_tests.cpp`), `wii/controllers/padcalstore.cpp`, `runtime/rtpadcal.h` (applied in games by `runtime/pad/pad_hook.c`, `runtime/rtgcad.c` and `runtime/gc/gc_rt.c`) |
 | USB keyboards, USB mice, pen tablets and the uDraw GameTablet in the menu | `wii/controllers/usbinput.cpp` (into player 1's controls, called from `UpdatePads` in `vendor-libgui/source/input.cpp`), `wii/controllers/usbkeyboard.cpp`, `wii/controllers/pentablet.c` and `tablethid.c` (USB tablets), `wii/controllers/udraw.c`; typing in `wii/menu/gui_searchkeys.cpp` |
 | The way back from a Wii game by a GameCube controller (L, R, Z and Start held) | `runtime/rtleave.c` (when it goes: the hold, the save guard; `tests/padleave_tests.cpp`), `runtime/pad/` (the submit, OSSleepThread and OSSuspendThread hooks), `find_way_back` and `install_pad_hook` in `wii/hooks/padhook.cpp`, `find_os_return_to_menu` in `src/patching/symsearch.cpp` |
 | Screenshots | `wii/menu/screenshot.cpp`, `runtime/shot/`, `wii/hooks/shothook.cpp`, `src/data/shotfile.cpp`, `src/art/pngencode.cpp` |
@@ -227,6 +228,7 @@ The build compiles every folder into one, so no two files share a name.
 | File | What |
 | --- | --- |
 | `gcadapter.cpp` | The GameCube adapter in the menu and on its test page |
+| `padcalstore.cpp` | The GameCube controllers' calibrations on the SD card, read by the calibration page and each launch |
 | `usbinput.cpp` | A USB keyboard, mouse or pen tablet and the uDraw as player 1's controls in the menu; started after the first drive scan, stopped before an IOS reload and at the menu's end |
 | `usbkeyboard.cpp` | The USB keyboard (libwiikeyboard on a thread of its own): keys held and pressed, characters typed |
 | `pentablet.c`, `tablethid.c` | USB pen tablets (Wacom, Huion, XP-Pen and others) from their HID report descriptors; the link wrap that hides tablets and the GameCube adapter from libogc's own HID scans |
@@ -399,6 +401,7 @@ reader helpers stay beside their source.
 | `profiles` | `profiles.txt`: a game's extra Home tiles with their own mods; their names, keys and limits |
 | `namekeys` | The Shift of the keyboard a tile's name is typed on: what each key types with Shift off, on by itself (capitals) or pressed (capitals and symbols), and how Shift follows the name |
 | `homeorder` | `order.txt`: Home's own order (Settings > Home order: Your order) |
+| `padcal` | `gccalibration.txt`: each GameCube controller's calibration (Settings > Controllers), and the stretch a game applies, worked out ahead (`runtime/rtpadcal.h`) |
 | `codemods` | `codemods.txt`: each code build's Extras and Crash logs, per game and mod, the rule for several code builds on together, and older builds reading the crash logs' lines |
 | `gametdb` | GameTDB's `wiitdb.xml` read a game at a time, the game details cache, wrapping their text |
 | `cardlog` | The runtime's SD card log, as text |

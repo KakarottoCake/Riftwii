@@ -1386,6 +1386,7 @@ void plan_game_extras(const DolHeader& dol, const ExtrasContext& ctx, GameExtras
         const std::uint32_t pad_veneers = ctx.code_build ? kPadVeneers : 0;
         const std::uint32_t resident_stage = resident != nullptr && resident->data_base != resident->stage_base
                                                  ? resident->stage_base : 0;
+        out.pad.calibration = g_extras.pad_calibrated ? &g_extras.pad_calibration : nullptr;
         if (!plan_pad_hook(dol, ctx.arena1_hi, ctx.mem1_floor, ctx.arena2_lo,
                            resident != nullptr ? resident->ioctl_async_original : 0,
                            resident != nullptr ? resident->ioctlv_async_original : 0, patches, out.pad, why,

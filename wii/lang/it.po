@@ -1930,7 +1930,7 @@ msgid "It is gone from the memory card for good. Copy it to the SD card first to
 msgstr "Sparisce dalla Memory Card per sempre. Copialo prima sulla scheda SD per tenerlo."
 
 msgid "Keep it"
-msgstr "Tienilo"
+msgstr "Mantieni"
 
 msgid "Memory card damaged"
 msgstr "Memory Card danneggiata"
@@ -4220,3 +4220,108 @@ msgstr "La scheda di memoria di ogni gioco GameCube la cui opzione Scheda di mem
 
 msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
 msgstr "Impossibile leggere la scheda di memoria nello slot B. Reinseriscila o scegli un'altra scheda nella pagina del gioco."
+
+msgid "Calibrate a GameCube controller"
+msgstr "Calibra un controller GameCube"
+
+msgid "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use."
+msgstr "Prova un controller GameCube e corregge uno consumato: levette che non arrivano al bordo, levette che si muovono da sole, grilletti che non scendono del tutto. I giochi GameCube ricevono la correzione, e i giochi Wii mentre è in uso un adattatore GameCube o un controller USB."
+
+msgid "Wii's GameCube port {1}"
+msgstr "Porta GameCube {1} della Wii"
+
+msgid "Adapter port {1}"
+msgstr "Porta {1} dell'adattatore"
+
+msgid "USB controller {1}"
+msgstr "Controller USB {1}"
+
+msgid "C stick"
+msgstr "Levetta C"
+
+msgid "Up"
+msgstr "Su"
+
+msgid "Down"
+msgstr "Giù"
+
+msgid "Left"
+msgstr "Sinistra"
+
+msgid "Right"
+msgstr "Destra"
+
+msgid "Calibrate"
+msgstr "Calibra"
+
+msgid "Reset to default"
+msgstr "Ripristina"
+
+msgid "Dead zone -"
+msgstr "Zona morta -"
+
+msgid "Dead zone +"
+msgstr "Zona morta +"
+
+msgid "Dead zone: {1}"
+msgstr "Zona morta: {1}"
+
+msgid "RiftWii keeps the calibrations of four USB controllers at most. Reset one to make room."
+msgstr "RiftWii conserva la calibrazione di quattro controller USB al massimo. Ripristinane uno per fare spazio."
+
+msgid "The SD card could not take the calibration. Is it locked or full?"
+msgstr "Impossibile salvare la calibrazione sulla scheda SD. È bloccata o piena?"
+
+msgid "Turn the control stick slowly around its edge two or three times, pushing it into every corner. Then press A."
+msgstr "Ruota lentamente la levetta di controllo lungo il bordo due o tre volte, spingendola in ogni angolo. Poi premi A."
+
+msgid "Now turn the C stick around its edge the same way. Then press A."
+msgstr "Ora ruota allo stesso modo la levetta C lungo il bordo. Poi premi A."
+
+msgid "Press L all the way down and let go, then R. Then press A."
+msgstr "Premi L fino in fondo e rilascialo, poi R. Quindi premi A."
+
+msgid "Plug a GameCube controller into the Wii or the adapter, or plug in a USB controller."
+msgstr "Collega un controller GameCube alla Wii o all'adattatore, oppure collega un controller USB."
+
+msgid "Press a button on another controller to show it. On the controller, hold Start to calibrate it or B to go back."
+msgstr "Premi un pulsante di un altro controller per vederlo. Sul controller, tieni premuto Start per calibrarlo o B per tornare indietro."
+
+msgid "The controller was unplugged. Nothing was changed."
+msgstr "Il controller è stato scollegato. Non è stato cambiato nulla."
+
+msgid "Reset this controller?"
+msgstr "Ripristinare questo controller?"
+
+msgid "{1} goes back to how it is without a calibration: no stretch and no dead zone."
+msgstr "{1} torna a funzionare senza calibrazione: nessuna estensione e nessuna zona morta."
+
+msgid "Back to default."
+msgstr "Ripristinato."
+
+msgid "Calibration canceled. Nothing was changed."
+msgstr "Calibrazione annullata. Non è stato cambiato nulla."
+
+msgid "The stick did not reach every side yet. Keep turning it around its edge."
+msgstr "La levetta non ha ancora raggiunto tutti i lati. Continua a ruotarla lungo il bordo."
+
+msgid "The C stick did not reach every side yet. Keep turning it around its edge."
+msgstr "La levetta C non ha ancora raggiunto tutti i lati. Continua a ruotarla lungo il bordo."
+
+msgid "Calibrated. GameCube games now get this controller's full range, and Wii games do while a GameCube adapter or USB controller is in use."
+msgstr "Calibrato. Ora i giochi GameCube ricevono tutta l'escursione di questo controller, e i giochi Wii mentre è in uso un adattatore GameCube o un controller USB."
+
+msgid "Stick {1}, {2}   C stick {3}, {4}   L {5}   R {6}"
+msgstr "Levetta {1}, {2}   Levetta C {3}, {4}   L {5}   R {6}"
+
+msgid "not calibrated"
+msgstr "non calibrato"
+
+msgid "calibrated"
+msgstr "calibrato"
+
+msgid "calibrating"
+msgstr "calibrazione in corso"
+
+msgid "No GameCube controller found"
+msgstr "Nessun controller GameCube trovato"

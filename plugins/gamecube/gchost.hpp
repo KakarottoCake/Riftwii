@@ -91,6 +91,9 @@ struct GcLaunchExtras {
     std::int32_t ven_fd = -1;  // /dev/usb/ven for Xbox 360 pads, -1: none
     bool adapter_rumble = false;
     const void* hid_catalog = nullptr;
+    // The controllers' calibrations (runtime/rtpadcal.h's rtpadcal_table),
+    // nullptr: none stored.
+    const void* pad_calibration = nullptr;
     u64 way_back_title = 0;  // 0: none
     const void* way_back_view = nullptr;
     std::size_t way_back_view_bytes = 0;
