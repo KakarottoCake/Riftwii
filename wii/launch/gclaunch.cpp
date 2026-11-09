@@ -1164,8 +1164,8 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         if (CONF_GetDisplayOffsetH(&screen_offset) >= 0) {
             image.screen_offset_set = true;
             image.screen_offset = std::clamp(static_cast<int>(screen_offset), -32, 32);
-            logf("GameCube: the Wii's screen position is %d, which the game is told as its own\n",
-                 static_cast<int>(screen_offset));
+            logf("GameCube: the Wii's screen position is %d; the game is told %d as its own\n",
+                 static_cast<int>(screen_offset), image.screen_offset);
         } else {
             logf("GameCube: the Wii's screen position could not be read, so the game keeps the SRAM's\n");
         }

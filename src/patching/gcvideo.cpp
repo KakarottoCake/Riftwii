@@ -179,11 +179,17 @@ GcSramReads find_gc_sram_reads(const std::vector<CodeRange>& text) {
             if (offset == kSramSixtyHz && takes_bit(code, a, take_bit6)) out.sixty_hz.push_back(a);
         }
     }
-    // VIInit's read of the screen position. The lock it calls holds the
-    // copy's address a few words in (after its prologue and
-    // OSDisableInterrupts), where one of the sites above is.
-    constexpr std::uint32_t kLockReach = 0x60;
+    // VIInit's read of the screen position. The function it calls must be
+    // the lock itself: one of the sites above (the copy's address, then
+    // the lock word) lies in that function's body, before its first blr.
+    // A function that ends before the site is another one, however close.
+    constexpr std::uint32_t kLockBodyLimit = 0x400;
     constexpr std::uint32_t kLiR3Zero = 0x38600000;
+    auto body_end = [&](std::uint32_t start) {
+        for (std::uint32_t a = start; code.has(a) && a < start + kLockBodyLimit; a += 4)
+            if (code.at(a) == kBlr) return a;
+        return start;  // no blr: nothing lies in it
+    };
     if (out.copy != 0) {
         code.each([&](std::uint32_t a, std::uint32_t w) {
             const std::uint32_t lock = bl_target(a, w);
@@ -193,8 +199,9 @@ GcSramReads find_gc_sram_reads(const std::vector<CodeRange>& text) {
             if (code.at(a + 8) != kLiR3Zero) return;
             const unsigned loaded = reg_d(load);
             if (!is_extsb_of(code.at(a + 12), loaded) && !is_extsb_of(code.at(a + 16), loaded)) return;
+            const std::uint32_t end = body_end(lock);
             const bool locks_copy = std::any_of(sites.begin(), sites.end(), [&](const Site& site) {
-                return site.copy == out.copy && site.at >= lock && site.at < lock + kLockReach;
+                return site.copy == out.copy && site.at >= lock && site.at < end;
             });
             if (locks_copy) out.display_offset.push_back(a + 4);
         });

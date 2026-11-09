@@ -186,7 +186,12 @@ void test_sram_reads() {
     // VIInit's read of the screen position, through __OSLockSram: found
     // when the bl reaches the copy's lock, not when it goes elsewhere.
     Text vi;
-    const std::uint32_t lock = vi.here() + 4;  // add_sram_getter starts with a blr
+    // A small function right before the lock, ending in the blr that
+    // add_sram_getter starts with: a call to it is not a call to the lock.
+    const std::uint32_t before = vi.here();
+    vi.add(kNop);
+    vi.add(kNop);
+    const std::uint32_t lock = vi.here() + 4;
     add_sram_getter(vi, kCopy, 0x12, 0);
     const std::uint32_t other = vi.here();
     vi.add(kBlr);
@@ -201,6 +206,7 @@ void test_sram_reads() {
     };
     const std::uint32_t display = add_vi_init(lock);
     add_vi_init(other);
+    add_vi_init(before);
     const riftwii::GcSramReads vi_reads = riftwii::find_gc_sram_reads(vi.ranges());
     EXPECT_EQ(vi_reads.display_offset.size(), 1u);
     if (vi_reads.display_offset.size() == 1) EXPECT_EQ(vi_reads.display_offset[0], display);

@@ -926,7 +926,8 @@ card in slot A* or *Real card in slot B*), **480p picture** (not for European ga
 picture**, **Picture width**, **Game language** and, for European
 games, **Game speed** (60 Hz instead of 50). GameCube games also follow
 the Wii's own **Screen Position** (Wii Settings > Screen), as Wii games
-do.
+do, when RiftWii finds where the game reads its position (the log says
+so); otherwise the game keeps its own.
 
 **Memory cards** are files on the SD card, in `sd:/riftwii/gc/cards/`:
 one for each game (`GMSE01.raw`), or with **Memory card** set to
