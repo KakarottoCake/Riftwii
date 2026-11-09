@@ -1924,7 +1924,7 @@ msgid "It is gone from the memory card for good. Copy it to the SD card first to
 msgstr "メモリーカードから完全に消えます。残すには先にSDカードにコピーしてください。"
 
 msgid "Keep it"
-msgstr "残す"
+msgstr "そのままにする"
 
 msgid "Memory card damaged"
 msgstr "メモリーカードが壊れています"
@@ -4223,3 +4223,108 @@ msgstr "映像のライン数"
 
 msgid "480p and 240p are for US and Japanese games; this European game keeps its own picture."
 msgstr "480pと240pはアメリカと日本のゲーム用で、このヨーロッパのゲームはゲームのままの映像になります。"
+
+msgid "Calibrate a GameCube controller"
+msgstr "ゲームキューブコントローラーの調整"
+
+msgid "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use."
+msgstr "ゲームキューブコントローラーをテストし、古くなったものを直します。端まで届かないスティック、勝手に動くスティック、最後まで押せないトリガー。ゲームキューブのゲームに反映され、Wiiのゲームにはゲームキューブアダプターか USBコントローラーを使っている間だけ反映されます。"
+
+msgid "Wii's GameCube port {1}"
+msgstr "Wiiのゲームキューブ端子{1}"
+
+msgid "Adapter port {1}"
+msgstr "アダプターの端子{1}"
+
+msgid "USB controller {1}"
+msgstr "USBコントローラー {1}"
+
+msgid "C stick"
+msgstr "Cスティック"
+
+msgid "Up"
+msgstr "上"
+
+msgid "Down"
+msgstr "下"
+
+msgid "Left"
+msgstr "左"
+
+msgid "Right"
+msgstr "右"
+
+msgid "Calibrate"
+msgstr "調整"
+
+msgid "Reset to default"
+msgstr "初期設定に戻す"
+
+msgid "Dead zone -"
+msgstr "遊び -"
+
+msgid "Dead zone +"
+msgstr "遊び +"
+
+msgid "Dead zone: {1}"
+msgstr "遊び: {1}"
+
+msgid "RiftWii keeps the calibrations of four USB controllers at most. Reset one to make room."
+msgstr "RiftWiiが保存できるUSBコントローラーの調整は4台までです。1台を初期設定に戻してください。"
+
+msgid "The SD card could not take the calibration. Is it locked or full?"
+msgstr "SDカードに調整を保存できませんでした。ロックされているか、いっぱいではありませんか？"
+
+msgid "Turn the control stick slowly around its edge two or three times, pushing it into every corner. Then press A."
+msgstr "コントロールスティックを端に沿ってゆっくり2、3回まわし、すべての角まで倒してください。それからAを押してください。"
+
+msgid "Now turn the C stick around its edge the same way. Then press A."
+msgstr "次にCスティックも同じように端に沿ってまわしてください。それからAを押してください。"
+
+msgid "Press L all the way down and let go, then R. Then press A."
+msgstr "Lを最後まで押してはなし、次にRも同じようにしてください。それからAを押してください。"
+
+msgid "Plug a GameCube controller into the Wii or the adapter, or plug in a USB controller."
+msgstr "ゲームキューブコントローラーをWiiかアダプターに、またはUSBコントローラーをつないでください。"
+
+msgid "Press a button on another controller to show it. On the controller, hold Start to calibrate it or B to go back."
+msgstr "ほかのコントローラーのボタンを押すと表示が切り替わります。コントローラーのStartを長押しで調整、Bを長押しで戻ります。"
+
+msgid "The controller was unplugged. Nothing was changed."
+msgstr "コントローラーが抜かれました。何も変更していません。"
+
+msgid "Reset this controller?"
+msgstr "このコントローラーを初期設定に戻しますか？"
+
+msgid "{1} goes back to how it is without a calibration: no stretch and no dead zone."
+msgstr "{1}を調整なしの状態に戻します。範囲の補正も遊びもなくなります。"
+
+msgid "Back to default."
+msgstr "初期設定に戻しました。"
+
+msgid "Calibration canceled. Nothing was changed."
+msgstr "調整を中止しました。何も変更していません。"
+
+msgid "The stick did not reach every side yet. Keep turning it around its edge."
+msgstr "スティックがまだすべての方向に届いていません。端に沿ってまわし続けてください。"
+
+msgid "The C stick did not reach every side yet. Keep turning it around its edge."
+msgstr "Cスティックがまだすべての方向に届いていません。端に沿ってまわし続けてください。"
+
+msgid "Calibrated. GameCube games now get this controller's full range, and Wii games do while a GameCube adapter or USB controller is in use."
+msgstr "調整しました。ゲームキューブのゲームでこのコントローラーの全範囲が使えます。Wiiのゲームではゲームキューブアダプターか USBコントローラーを使っている間だけ使えます。"
+
+msgid "Stick {1}, {2}   C stick {3}, {4}   L {5}   R {6}"
+msgstr "スティック {1}, {2}   Cスティック {3}, {4}   L {5}   R {6}"
+
+msgid "not calibrated"
+msgstr "未調整"
+
+msgid "calibrated"
+msgstr "調整済み"
+
+msgid "calibrating"
+msgstr "調整中"
+
+msgid "No GameCube controller found"
+msgstr "ゲームキューブコントローラーが見つかりません"
