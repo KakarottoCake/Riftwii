@@ -443,6 +443,8 @@ std::new_handler g_handler_before_launch = nullptr;
     if (reload_terminal_failure()) halt_after_terminal_reload();
     const std::string message = LaunchOutOfMemoryMessage();
     logf("FAILED: %s\n", message.c_str());
+    // Neither way out goes back to the launch, whose own clean-up then never runs.
+    RunLaunchUndo();
     if (CanRestart()) WarmRestart(RestartKind::LaunchFailed, std::string("The launch failed: ") + message);
     logf("RiftWii cannot restart itself; leaving to the Homebrew Channel.\n");
     std::exit(0);

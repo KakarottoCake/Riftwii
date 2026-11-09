@@ -77,6 +77,7 @@
 #include "d2xsave.hpp"
 #include "channel.hpp"
 #include "loadersettings.hpp"
+#include "restart.hpp"
 #include "riftwii/symsearch.hpp"
 #include "riftwii/vsdparts.hpp"
 #include "riftwii/wpadlog.hpp"
@@ -1717,6 +1718,98 @@ void plan_restart(const DolHeader& dol, bool game_checks_its_code, bool runtime_
 constexpr std::uint32_t kRestartTriggerStub = 0x80001200;
 static_assert(kRestartTriggerStub + kRestartTriggerBytes <= kDolSwitchStubEnd, "the restart trigger must end before 0x80001300");
 
+// What started RiftWii leaves in 0x80001800-0x80003000, the room between
+// the last exception vector (0x80001700) and the OS globals (0x80003000 on,
+// which the apploader, the channel boot below and RiftWii set): the Homebrew
+// Channel's stub ("STUBHAXX" at 0x80001804) and its data, about 5 KB. The
+// code handler, the veneers and the return stub, written there later, cover
+// only part of it. Legacy TE's custom-controls code (REX, Project+) keeps a
+// flag at 0x80002800: the stub's leftover there (0x39000000) sent Brawl to
+// its controls screen at boot, where REX ran out of memory (grantendo/wiiu#37).
+// Cleared as a start from the RiftWii channel or the System Menu leaves it,
+// after saying what was there. Homebrew launches keep it: their way back to
+// the Homebrew Channel is that stub.
+//
+// Cleared while one of these lives, and put back as it was when it goes: a
+// launch that fails before the game starts returns to the failure screen,
+// whose HOME then still goes back to the Homebrew Channel. A launch that
+// works never returns (the game's entry point takes over), so nothing is put
+// back over the game.
+class StarterLeftovers {
+public:
+    StarterLeftovers() {
+        const volatile u32* low = reinterpret_cast<const volatile u32*>(kRoomStart);
+        std::uint32_t nonzero = 0;
+        for (std::uint32_t i = 0; i < kWords; ++i) nonzero += low[i] != 0 ? 1 : 0;
+        if (nonzero == 0) {
+            logf("Low memory 0x%08x-0x%08x before the game: empty\n", static_cast<unsigned>(kRoomStart),
+                 static_cast<unsigned>(kRoomEnd));
+            return;
+        }
+        const bool stubhaxx = low[1] == 0x53545542 && low[2] == 0x48415858;  // "STUBHAXX"
+        logf("Low memory 0x%08x-0x%08x before the game: %u of %u words not zero (%s); first words %08x %08x %08x "
+             "%08x; 0x80002800 = %08x; cleared\n",
+             static_cast<unsigned>(kRoomStart), static_cast<unsigned>(kRoomEnd), static_cast<unsigned>(nonzero),
+             static_cast<unsigned>(kWords), stubhaxx ? "a loader's return stub, STUBHAXX" : "no STUBHAXX",
+             static_cast<unsigned>(low[0]), static_cast<unsigned>(low[1]), static_cast<unsigned>(low[2]),
+             static_cast<unsigned>(low[3]), static_cast<unsigned>(low[(0x80002800 - kRoomStart) / 4]));
+        std::memcpy(g_saved, reinterpret_cast<const void*>(kRoomStart), kBytes);
+        g_pending = true;
+        std::memset(reinterpret_cast<void*>(kRoomStart), 0, kBytes);
+        settle();
+        // The out-of-memory and crash handlers leave without coming back
+        // here, so they put the copy back through this (restart.hpp).
+        SetLaunchUndo(put_back);
+    }
+
+    ~StarterLeftovers() {
+        SetLaunchUndo(nullptr);
+        if (!g_pending) return;
+        put_back();
+        logf("Low memory 0x%08x-0x%08x: put back as it was, the launch having failed\n",
+             static_cast<unsigned>(kRoomStart), static_cast<unsigned>(kRoomEnd));
+    }
+
+    // The launch is past its point of no return (libogc shut down, the
+    // game's last pieces about to go over this loader's memory, the copy
+    // included): nothing is put back from here on.
+    void game_takes_over() {
+        SetLaunchUndo(nullptr);
+        g_pending = false;
+    }
+
+    StarterLeftovers(const StarterLeftovers&) = delete;
+    StarterLeftovers& operator=(const StarterLeftovers&) = delete;
+
+private:
+    static constexpr std::uint32_t kRoomStart = 0x80001800;
+    static constexpr std::uint32_t kRoomEnd = 0x80003000;
+    static constexpr std::uint32_t kBytes = kRoomEnd - kRoomStart;
+    static constexpr std::uint32_t kWords = kBytes / 4;
+
+    // The stub is code: the instruction cache must not keep the old copy.
+    static void settle() {
+        DCFlushRange(reinterpret_cast<void*>(kRoomStart), kBytes);
+        ICInvalidateRange(reinterpret_cast<void*>(kRoomStart), kBytes);
+    }
+
+    // Writes no log: the crash handler runs it too, and a crash may hold
+    // the card.
+    static void put_back() {
+        if (!g_pending) return;
+        g_pending = false;
+        std::memcpy(reinterpret_cast<void*>(kRoomStart), g_saved, kBytes);
+        settle();
+    }
+
+    // One launch at a time, so one copy (6 KB, in the loader's own memory).
+    static std::uint8_t g_saved[kBytes];
+    static bool g_pending;
+};
+
+std::uint8_t StarterLeftovers::g_saved[StarterLeftovers::kBytes];
+bool StarterLeftovers::g_pending = false;
+
 // `known_os_restart`: OSRestart as found before the runtime hooked it (0:
 // not hooked), the address the switch calls then.
 void apply_debug_reset(const DolHeader& dol, std::uint32_t known_os_restart) {
@@ -2038,6 +2131,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         logf("Code builds: game memory 0x%08x-0x%08x cleared\n", static_cast<unsigned>(kGameStart),
              static_cast<unsigned>(kLoaderStart));
     }
+    // Put back if the launch fails: the Homebrew Channel's way back.
+    StarterLeftovers starter_leftovers;
     mem::LogUsage("before loading the game");  // the headroom a big pack leaves
     // The memory sizes the System Menu leaves for the apploader, which
     // places the FST and bi2 below them. Super Mario Galaxy 2's (2009/12/11)
@@ -2926,6 +3021,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // The last moment for the menu's music: libogc shuts down next, and
     // the game then takes the DSP and the audio interrupt.
     LaunchMusicEnd("the game starts next");
+    starter_leftovers.game_takes_over();
     SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
     store32(0x800000F4, bi2);
     if (options.install_resident && resident.data_bytes != 0 && resident.data_base != resident.stage_base) {
@@ -3897,6 +3993,9 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     const int nand_device = !emulated ? 0 : files.emu_nand.compare(0, 4, "usb:") == 0 ? 1 : 2;
     settle_gc_adapter(IOS_GetVersion(), nand_device, "the emulated NAND", true);
 
+    // Before the program, which may start at 0x80003400; put back if the
+    // launch fails.
+    StarterLeftovers starter_leftovers;
     // The program, section by section. Its BSS is cleared by the game's
     // own start-up code, as on a disc.
     ProgressStage("Loading the game", 70);
@@ -4068,6 +4167,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     // The last moment for the menu's music, as for a disc game: libogc
     // shuts down next, and the game then takes the DSP.
     LaunchMusicEnd("the game starts next");
+    starter_leftovers.game_takes_over();
     SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
     // libogc clears this field during shutdown, as in the disc path.
     store32(0x800000F4, bi2_address);
