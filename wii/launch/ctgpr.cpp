@@ -326,6 +326,16 @@ bool prepare_impl(const std::string& game_id, std::shared_ptr<const CtgpLaunchPl
     if (!ctgp_assemble(in, *plan, error)) return false;
     // The code files as read are in the plan now (linked); the rest of the
     // launch needs none of them, so their room goes to the package lists.
+    // The core code's digests, for the CORE.HSH check below, before the copies go.
+    struct CoreCodeDigest {
+        const char* what;
+        Sha1Digest digest;
+    };
+    const CoreCodeDigest core_code[] = {
+        {"BOOT.BIN", sha1(in.boot_bin.data(), in.boot_bin.size())},
+        {"BOAT.BIN", sha1(in.boat_bin.data(), in.boat_bin.size())},
+        {"BEAT.BIN", sha1(in.beat_bin.data(), in.beat_bin.size())},
+    };
     CtgpBytes().swap(in.boot_bin);
     CtgpBytes().swap(in.boat_bin);
     CtgpBytes().swap(in.beat_bin);
@@ -410,18 +420,9 @@ bool prepare_impl(const std::string& game_id, std::shared_ptr<const CtgpLaunchPl
     // digests CORE.HSH vouches for (its signature was checked as it loaded).
     // The match is by digest, not by the names CORE.HSH gives these files: the
     // native launch does not know them, and it does not need to.
-    struct CoreCodeFile {
-        const char* what;
-        const std::vector<std::uint8_t>& bytes;
-    };
-    const CoreCodeFile core_code[] = {
-        {"BOOT.BIN", in.boot_bin},
-        {"BOAT.BIN", in.boat_bin},
-        {"BEAT.BIN", in.beat_bin},
-    };
-    for (const CoreCodeFile& c : core_code) {
-        const Sha1Digest digest = sha1(c.bytes.data(), c.bytes.size());
-        if (!core_hashes.contains_digest(digest)) {
+    // The digests were taken before the as-read copies were freed (above).
+    for (const CoreCodeDigest& c : core_code) {
+        if (!core_hashes.contains_digest(c.digest)) {
             error = std::string("CTGP-R's core code does not match its signed hash list: ") + c.what +
                     " is not among CORE.HSH's digests";
             return false;
