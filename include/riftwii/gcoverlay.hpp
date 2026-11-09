@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/patch.hpp"
 #include "riftwii/redirect.hpp"
 
 namespace riftwii {
@@ -49,6 +50,18 @@ struct GcOverlayPlan {
     };
     std::vector<Entry> entries;          // file content in the window, sorted
 };
+
+class Fst;
+
+// A pack's <shift> patches over the packs' files (`files`, laid out by
+// every pack first), as for a Wii game: the destination, a disc file,
+// reads the source's data as the packs left it (its file in `files`, else
+// its place in the image). The destination's own file in `files`, if any,
+// is replaced. A source or destination that is not a disc file is skipped
+// with a note in `notes`, as Riivolution skips it; so is a source the
+// packs created, whose data has no place on the disc yet.
+void apply_gc_shifts(const std::vector<ShiftPatch>& shifts, const Fst& fst, std::vector<GcFile>& files,
+                     std::vector<std::string>& notes);
 
 // A GameCube game's disc offsets are 32-bit.
 constexpr std::uint64_t kGcDiscLimit = 0x100000000ull;

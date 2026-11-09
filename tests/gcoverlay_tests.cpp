@@ -360,8 +360,52 @@ static void test_usb_image() {
     EXPECT_TRUE(found);
 }
 
+// <shift>: a.bin reads keep.bin as the disc has it, keep.bin reads b.bin
+// as a pack changed it, and paths that are no disc file are skipped.
+static void test_shifts() {
+    Disc d = make_disc();
+    Bytes card;
+    const std::vector<Fragment> image = put_image(card, d.image);
+    Fst original;
+    std::string error;
+    EXPECT_TRUE(Fst::parse(d.fst.data(), d.fst.size(), false, original, error));
+    const Bytes new_b = pattern(0x90, 7);
+    std::vector<GcFile> files(1);
+    files[0].disc_path = "/dir/b.bin";
+    files[0].pieces.push_back(on_card(card, 60, 0, new_b));
+    const std::vector<ShiftPatch> shifts{{"/keep.bin", "/A.BIN"},
+                                         {"/dir/b.bin", "/keep.bin"},
+                                         {"/nope.bin", "/a.bin"},
+                                         {"/a.bin", "/dir"}};
+    std::vector<std::string> notes;
+    apply_gc_shifts(shifts, original, files, notes);
+    EXPECT_EQ(notes.size(), 4u);
+    if (notes.size() == 4) {
+        EXPECT_TRUE(notes[2].find("the source is not a disc file") != std::string::npos);
+        EXPECT_TRUE(notes[3].find("the destination is not a disc file") != std::string::npos);
+    }
+    EXPECT_EQ(files.size(), 3u);
+
+    GcOverlayPlan plan;
+    Bytes boot(d.image.begin(), d.image.begin() + 0x440);
+    EXPECT_TRUE(plan_gc_overlay(boot, d.fst, d.image.size(), files, plan, error));
+    Reader r;
+    r.card = &card;
+    r.fst = &plan.fst;
+    EXPECT_TRUE(gc_disc_runs(image, d.image.size(), &plan, r.runs, error));
+    Fst fst;
+    EXPECT_TRUE(Fst::parse(plan.fst.data(), plan.fst.size(), false, fst, error));
+    bool found = false;
+    // keep.bin's original bytes (shifted before keep.bin itself changed).
+    EXPECT_TRUE(file_through(r, fst, "/a.bin", found) == pattern(0x40, 3));
+    EXPECT_TRUE(found);
+    EXPECT_TRUE(file_through(r, fst, "/keep.bin", found) == new_b);
+    EXPECT_TRUE(file_through(r, fst, "/dir/b.bin", found) == new_b);
+}
+
 int main() {
     test_full_mod();
+    test_shifts();
     test_usb_image();
     test_rvz();
     test_refusals();
