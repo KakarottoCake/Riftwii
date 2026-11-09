@@ -319,6 +319,29 @@ static void TestPlacement() {
     EXPECT_EQ(p.new_arena1_hi, 0x817E9E60u);
     EXPECT_FALSE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x935E0000, 7840, 32, p, error,
                                                   false, true));  // the code would stay in MEM1
+    // The code in MEM2, its veneers at the MEM1 arena's top (Brawl): only
+    // their room comes off MEM1, on a 32-byte line.
+    EXPECT_TRUE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x935E0000, 7840, 32, p, error, true,
+                                                 false, 240));
+    EXPECT_EQ(p.code_base, 0x90000800u);
+    EXPECT_EQ(p.veneer_base, 0x817E9E60u - 256u);
+    EXPECT_EQ(p.new_arena1_hi, p.veneer_base);
+    EXPECT_TRUE(p.data_bytes >= 7840u + 32u);
+    EXPECT_EQ(p.new_arena2_hi, 0u);
+    // Without veneers there: none.
+    EXPECT_TRUE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x935E0000, 7840, 32, p, error, true));
+    EXPECT_EQ(p.veneer_base, 0u);
+    // Not for code staying in MEM1, nor at the top of MEM2.
+    EXPECT_FALSE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x935E0000, 7840, 32, p, error,
+                                                  false, false, 240));
+    EXPECT_FALSE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x935E0000, 7840, 32, p, error,
+                                                  true, true, 240));
+    // The veneers must clear the floor too.
+    EXPECT_TRUE(riftwii::plan_resident_placement(0x81240100, 0x81240000, 0x90000800, 0x935E0000, 7840, 32, p, error, true,
+                                                 false, 256));
+    EXPECT_EQ(p.veneer_base, 0x81240000u);
+    EXPECT_FALSE(riftwii::plan_resident_placement(0x812400E0, 0x81240000, 0x90000800, 0x935E0000, 7840, 32, p, error,
+                                                  true, false, 256));
     EXPECT_TRUE(riftwii::plan_resident_placement(0x81241EA0, 0x81240000, 0x90000800, 0x935E0000, 7840, 0, p, error));
     EXPECT_EQ(p.code_base, 0x81240000u);
     EXPECT_FALSE(riftwii::plan_resident_placement(0x81241E80, 0x81240000, 0x90000800, 0x935E0000, 7840, 0, p, error));

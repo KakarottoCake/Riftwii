@@ -231,10 +231,15 @@ bool displaceable(std::uint32_t instruction, unsigned scratch_reg, std::string& 
 
 bool plan_resident_placement(std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
                              std::uint32_t arena2_end, std::uint32_t blob_size, std::uint32_t extra_bytes,
-                             ResidentPlacement& out, std::string& error, bool code_in_mem2, bool mem2_top) {
+                             ResidentPlacement& out, std::string& error, bool code_in_mem2, bool mem2_top,
+                             std::uint32_t mem1_veneer_bytes) {
     ResidentPlacement p;
     if (mem2_top && !code_in_mem2) {
         error = "the top of MEM2 takes the code too";
+        return false;
+    }
+    if (mem1_veneer_bytes != 0 && (!code_in_mem2 || mem2_top)) {
+        error = "veneers at the MEM1 arena's top are only for code at the bottom of MEM2";
         return false;
     }
     // Code: right below the MEM1 arena top, on a 32-byte line (the blob's
@@ -256,6 +261,16 @@ bool plan_resident_placement(std::uint32_t arena1_hi, std::uint32_t mem1_floor, 
     }
     p.code_bytes = blob_size;
     p.new_arena1_hi = code_in_mem2 ? arena1_hi : p.code_base;
+    if (mem1_veneer_bytes != 0) {
+        const std::uint32_t room = (mem1_veneer_bytes + 31) & ~31u;
+        if (room > arena1_hi - kMem1Low || arena1_hi - room < mem1_floor) {
+            error = "no room for the veneers between " + hex32(mem1_floor) + " and the MEM1 arena top " +
+                    hex32(arena1_hi);
+            return false;
+        }
+        p.veneer_base = arena1_hi - room;
+        p.new_arena1_hi = p.veneer_base;
+    }
 
     // Data: the bottom of the MEM2 arena up to a 32-byte line, only when
     // needed; staged at the top of the arena, the same size.

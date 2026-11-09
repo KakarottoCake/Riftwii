@@ -380,12 +380,16 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     const std::uint32_t arena2_lo = read32(kMem2ArenaLoField);
     const std::uint32_t arena2_end = read32(kMem2ArenaEndField);
     ResidentPlacement place;
-    const bool code_in_mem2 = options.mem1_veneers != 0;
+    const bool code_in_mem2 = options.mem1_veneers != 0 || options.veneers_at_arena_top;
     if (!plan_resident_placement(arena1_hi, options.mem1_floor, arena2_lo, arena2_end, blob.size,
                                  static_cast<std::uint32_t>(payload.size()) + bounce_bytes + fs_bytes + rvz_bytes + restart_bytes,
-                                 place, error, code_in_mem2, options.mem2_top)) {
+                                 place, error, code_in_mem2, options.mem2_top,
+                                 options.veneers_at_arena_top ? kResidentArenaTopVeneerBytes : 0)) {
         return false;
     }
+    // Where the veneers into code in MEM2 are written from: the code
+    // handler's list room, or the MEM1 arena's top.
+    const std::uint32_t veneer_room = options.veneers_at_arena_top ? place.veneer_base : options.mem1_veneers;
     const std::uint32_t payload_address = place.data_base + (code_in_mem2 ? blob.size : 0);
     const std::size_t planned_payload_bytes = payload.size();
     if (has_table && !build_payload(pieces, payload_address, options.table_tag, sdio_fd, payload, error)) {
@@ -546,7 +550,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     for (std::uint32_t e = 0, v = 0; e < RT_IPC_ENTRIES; ++e) {
         if (!hooked[e]) continue;
         const std::uint32_t target =
-            code_in_mem2 ? options.mem1_veneers + v++ * 16 : place.code_base + blob.hook_offsets[e];
+            code_in_mem2 ? veneer_room + v++ * 16 : place.code_base + blob.hook_offsets[e];
         std::uint32_t branch = 0;
         if (encode_branch(hook_site[e], target, branch)) continue;
         char buf[128];
@@ -565,7 +569,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         if (!hooked[e]) continue;
         std::uint32_t target = place.code_base + blob.hook_offsets[e];
         if (code_in_mem2) {
-            const std::uint32_t veneer = options.mem1_veneers + veneers++ * 16;
+            const std::uint32_t veneer = veneer_room + veneers++ * 16;
             const auto jump = encode_absolute_jump(kContinueScratchRegister, target);
             store_words(veneer, jump.data(), 4);
             sync_code(veneer, 16);
@@ -585,25 +589,37 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     // The game's own Reset: OSRestart goes to the runtime first, which
     // starts the game again through RiftWii; when it cannot, the function
     // runs from the replay slot (its first word, then the jump back to its
-    // second).
+    // second). With the code in MEM2 (veneers at the arena's top: only
+    // then is restart_on with code there) it goes through the last veneer.
     if (restart_on) {
         const std::uint32_t site = restart.os_restart;
         const std::uint32_t first = *reinterpret_cast<const volatile std::uint32_t*>(site);
+        const std::uint32_t entry = place.code_base + blob.os_restart_offset;
+        const std::uint32_t restart_veneer = code_in_mem2 ? veneer_room + RT_IPC_ENTRIES * 16 : 0;
         std::string why;
         std::uint32_t branch = 0;
         if (!displaceable(first, kContinueScratchRegister, why)) {
             logf("Reset: OSRestart at 0x%08x not hooked, the game's own Reset restarts it without its packs: its first "
                  "word %s\n", site, why.c_str());
-        } else if (!encode_branch(site, place.code_base + blob.os_restart_offset, branch)) {
+        } else if (!encode_branch(site, code_in_mem2 ? restart_veneer : entry, branch)) {
             logf("Reset: OSRestart at 0x%08x is out of a branch's reach; not hooked, the game's own Reset restarts "
                  "it without its packs\n", site);
         } else {
             const std::uint32_t replay = place.code_base + blob.os_restart_replay_offset;
             const std::uint32_t replay_words[4] = {first, kNop, kNop, kNop};
-            store_words(replay, replay_words, 4);
+            store_words(code_now(replay), replay_words, 4);
             const auto resume = encode_absolute_jump(kContinueScratchRegister, site + 4);
-            store_words(replay + 16, resume.data(), 4);
-            sync_code(replay, 32);
+            store_words(code_now(replay + 16), resume.data(), 4);
+            if (code_in_mem2) {
+                // OSRestart's first word is displaced, so r12 is free there,
+                // as at the IPC functions' veneers. The replay slot is synced
+                // with the rest of the code after the copy at the jump.
+                const auto jump = encode_absolute_jump(kContinueScratchRegister, entry);
+                store_words(restart_veneer, jump.data(), 4);
+                sync_code(restart_veneer, 16);
+            } else {
+                sync_code(replay, 32);
+            }
             store_words(site, &branch, 1);
             sync_code(site, 4);
             out.restart_hooked = true;
@@ -612,6 +628,8 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
 
     out.code_base = place.code_base;
     out.code_bytes = place.code_bytes;
+    out.veneer_base = place.veneer_base;
+    out.veneer_bytes = place.veneer_base != 0 ? arena1_hi - place.veneer_base : 0;
     out.old_arena1_hi = arena1_hi;
     out.new_arena1_hi = place.new_arena1_hi;
     out.data_base = place.data_base;
@@ -640,7 +658,11 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     out.rvz_state = rvz ? rvz_state_address : 0;
     logf("Resident: %u bytes at 0x%08x, MEM1 arena top 0x%08x -> 0x%08x, gecko %s, %u IPC function(s) hooked\n",
          blob.size, place.code_base, arena1_hi, place.new_arena1_hi, options.gecko ? "on" : "off", hooked_count);
-    if (code_in_mem2) {
+    if (options.veneers_at_arena_top) {
+        logf("Resident: code in MEM2 with the data; %u veneer(s)%s at the MEM1 arena's top, 0x%08x (%u bytes of MEM1 "
+             "instead of the code's %u)\n", veneers, out.restart_hooked ? " and OSRestart's" : "", veneer_room,
+             out.veneer_bytes, blob.size);
+    } else if (code_in_mem2) {
         logf("Resident: code in MEM2 with the data, the MEM1 arena kept whole; %u veneer(s) at 0x%08x\n", veneers,
              options.mem1_veneers);
     }

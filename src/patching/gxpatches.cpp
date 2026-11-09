@@ -249,6 +249,15 @@ bool game_clears_mem1_top(const std::string& id) {
 // its first disc read (Dolphin: an instruction fetch from 0x93572248).
 bool game_runs_no_mem2_code(const std::string& id) { return id_is(id, "RGQ"); }
 
+// Super Smash Bros. Brawl (RSB): its match heap ("MenuInstance", 629,504
+// bytes of MEM1, from its heap table) did not fit with a pack: in Dolphin,
+// 2611-132, every match and the title screen's demo stopped at "Can't Alloc
+// Heap(MenuInstance)" with 611,072 bytes left (598,592 with the GameCube
+// adapter in), the runtime's code taking 46,816 and the SD card's
+// pass-through 9,280. With the code in MEM2 the match loads. Project+, a
+// code build of Brawl, has always run the runtime from there.
+bool game_needs_runtime_code_in_mem2(const std::string& id) { return id_is(id, "RSB"); }
+
 // New Super Mario Bros. Wii (SMN), the game Newer and the other big NSMBW
 // mods run on: Newer v1.30 crashed from a 128 KiB-block RVZ on a tester's
 // Wii U (2610-408), and in Dolphin it dies at its start with 352 KiB less

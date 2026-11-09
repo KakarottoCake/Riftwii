@@ -836,12 +836,12 @@ ID, including this change, consistently.
 | Top of arena 2, below its high end (a homebrew app's start only) | When the app lands on RiftWii's own memory (WiiSX, Wii64): the routine that finishes copying it, its plan and a small stack, about 2 KB (`channel/common/dolfar.S`, the far copy in `dolboot.c`) |
 | `0x80002300`–`0x80003000` | With a code build whose code list is elsewhere: veneers into code in MEM2 (the resident runtime's or the virtual SD card's) |
 | `0x80002FE0`–`0x80003000` | Return to RiftWii's stub for code builds and games that clear MEM1's top (RE4, older LEGO games, Ghostbusters). Below the OS globals and past every veneer; an ordinary cheat list ends before it. Other games keep the stub above their MEM1 arena, away from mod loaders' low-memory code |
-| Top of the game's MEM1 arena | Resident runtime code, then the pad blob, the screenshot blob, the crash blob and the Wii Remote log's blob below it. A WiiWare or Virtual Console game has no FST, so its arena runs to `0x81800000`: the blobs are carved from there, never below the end of the loader's heap or of the game's program (`channel_extras_floor`) |
+| Top of the game's MEM1 arena | Resident runtime code (for Super Smash Bros. Brawl only its jumps into the code, 256 bytes: the code is in MEM2, `game_needs_runtime_code_in_mem2`), then the pad blob, the screenshot blob, the crash blob and the Wii Remote log's blob below it. A WiiWare or Virtual Console game has no FST, so its arena runs to `0x81800000`: the blobs are carved from there, never below the end of the loader's heap or of the game's program (`channel_extras_floor`) |
 | `0x90000000`–`0x90800000` | Left alone by the loader: an IOS reload stages its kernel here |
 | `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/core/restart.hpp`) |
 | `0x90809000`–about `0x908ED000` | The start-up stash's copy: translations and GPL, zstd; no font data (`wii/core/stash.hpp`, [MEMORY.md](MEMORY.md)); arena 2 starts above it |
 | From the end of `.bss` (start-up only) | The start-up stash as `boot.dol` loads it, until crt0 has copied it to MEM2; then the MEM1 heap |
-| Bottom of the game's MEM2 arena | Resident runtime data (or the virtual SD card's code and state, about 49 KB plus 12 bytes for each piece of the image on its card), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB), then the Reset's request block (about 1.5 KB) |
+| Bottom of the game's MEM2 arena | Resident runtime data, its code first for code builds and Brawl (or the virtual SD card's code and state, about 49 KB plus 12 bytes for each piece of the image on its card), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB), then the Reset's request block (about 1.5 KB) |
 | `0x90000000`–`0x91000000` | A GameCube game's ARAM (in a GameCube game only) |
 | `0x91000000`–`0x91200000` | A GameCube game's memory card image |
 | `0x91200000`–`0x91300000` | A GameCube game's data buffers: the SD bounce buffer, the I/O worker's stack and staging buffer, the disc audio ring, the trace record, the Wii Remotes' state, the crash screen (its card and the strip of glyphs the register dump is made from) and the disc runs (and an RVZ's reader) |
@@ -883,9 +883,10 @@ apploader load against its own range and stops with "overlaps the
 loader" instead of crashing; no game seen so far comes close (Brawl,
 among the largest, ends at `0x805A5154`).
 
-The in-game part (the resident runtime) is separate and small: 43 KB of
+The in-game part (the resident runtime) is separate and small: 46 KB of
 code at the top of the game's MEM1 arena (or in MEM2 for code builds
-such as Project+), plus its data in MEM2. It is built with `-Os` for that
+such as Project+, and for Super Smash Bros. Brawl, whose match heap needs
+that MEM1), plus its data in MEM2. It is built with `-Os` for that
 reason (`Makefile.runtime`).
 
 ## Restarts and crashes
@@ -948,7 +949,9 @@ once (`HeadlessArguments`, `wii/launch/headless.cpp`) and starts the game
 again. When the write or the launch is refused the sector goes back to
 `--idle--` and the function runs from the replay slot, the game's own
 restart. Not hooked, with the reason in `boot.log`: no channel installed,
-a game that checks its own code, a runtime placed in MEM2, no card handle,
+a game that checks its own code, a runtime placed in MEM2 with its jumps in
+the code handler's room (code builds, games that clear MEM1's top; Brawl's
+jumps are at the MEM1 arena's top, OSRestart's among them), no card handle,
 a launch that does not fit a sector. `debug_off = reset` turns it off.
 
 Two things restart:

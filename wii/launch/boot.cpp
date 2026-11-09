@@ -2511,6 +2511,18 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // and a game that clears MEM1's top (Resident Evil 4) would wipe it.
     const bool runtime_code_in_mem2 =
         code_build || (clears_mem1_top && !game_runs_no_mem2_code(probe.header.game_id));
+    // Brawl's match heap needs the MEM1 the runtime's code would take: the
+    // code goes to MEM2 too, and only the small jumps into it (OSRestart's
+    // among them, so the Reset still goes through the runtime) stay at the
+    // MEM1 arena's top, where a pack's loader leaves them alone as it left
+    // the code. Said now, while boot.log is open.
+    const bool runtime_jumps_at_arena_top = options.install_resident && !runtime_code_in_mem2 &&
+                                            game_needs_runtime_code_in_mem2(probe.header.game_id) &&
+                                            !game_runs_no_mem2_code(probe.header.game_id);
+    if (runtime_jumps_at_arena_top) {
+        logf("Runtime: its code in MEM2 with its data, only its jumps into it at the MEM1 arena's top: the game's "
+             "own heaps need that MEM1 (Brawl's match)\n");
+    }
     // The game's own Reset, decided now: boot.log ends when the card goes
     // to the runtime, just below. ES is opened only when Reset is called:
     // holding an extra handle during play can exhaust the game's ES contexts.
@@ -2596,6 +2608,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         } else if (clears_mem1_top) {
             ro.mem1_veneers = kCodeVeneers;
             ro.mem2_top = true;
+        } else if (runtime_jumps_at_arena_top) {
+            ro.veneers_at_arena_top = true;
         }
         resident_low_veneers = ro.mem1_veneers == kCodeVeneers;
         if (!install_resident(dol, ro, resident, error)) return false;
@@ -2899,6 +2913,10 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             writable.push_back(MemoryRegion{loader_end, kMem1End - loader_end});
         }
         std::vector<MemoryRegion> exclusions;
+        // The jumps into a runtime whose code is in MEM2 (Brawl's).
+        if (options.install_resident && resident.veneer_bytes != 0) {
+            exclusions.push_back(MemoryRegion{resident.veneer_base, resident.veneer_bytes});
+        }
         if (options.install_resident && resident.data_bytes != 0) {
             writable.push_back(MemoryRegion{kMem2Start, kMem2End - kMem2Start});
             exclusions.push_back(MemoryRegion{resident.data_base, resident.data_bytes});
