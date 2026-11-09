@@ -3534,11 +3534,34 @@ public:
 			std::unique_ptr<GuiText> label(new GuiText(tile.label.c_str(), 15, skin::kInk));
 			label->SetParent(this);
 			label->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-			// Two lines from y + 42 end by y + 84, inside a short card's 96
-			// (4:3 wraps "Recently played" and most translations).
-			const int labelY = shortCard ? 42 : tile.value.empty() ? 88 : 76;
-			label->SetPosition(tile.x + tile.w / 2 - screenwidth / 2, tile.y + labelY);
+			// A short card and a card with no count wrap the name at two lines
+			// (4:3 wraps "Recently played" and most translations); a tall card
+			// with a count wraps at three.
 			label->SetWrap(true, tile.w - 12, shortCard || tile.value.empty() ? 2 : 3);
+			// A short card and a card with no count have the picture and the
+			// name centred in the card as one block, worked out below (a short
+			// card's count sits in its top-right corner, clear of both). A tall
+			// card with a count keeps the fixed places: the name sits below
+			// the picture, then the count below the name.
+			int labelY = tile.value.empty() ? 88 : 76;
+			int iconTop = 30;
+			if (shortCard || tile.value.empty()) {
+				// One line, or two when the name is wider than the card or has
+				// a newline of its own in a translation.
+				int lines = label->GetTextWidth() > tile.w - 12 ? 2 : 1;
+				if (tile.label.find('\n') != std::string::npos) lines = 2;
+				const int picture = shortCard ? 35 : 42;  // the 28px picture, scaled
+				// A broken translation file can give an empty name, and then
+				// only the picture is left to centre. A short card's count is
+				// placed separately, in its corner.
+				const bool pictureOnly = tile.label.empty();
+				const int block = pictureOnly ? picture : picture + 4 + 18 * lines;
+				const int top = (tile.h - block) / 2;
+				iconTop = top + (picture - 28) / 2;
+				labelY = top + picture + 4;
+			}
+			iconTops_.push_back(iconTop);
+			label->SetPosition(tile.x + tile.w / 2 - screenwidth / 2, tile.y + labelY);
 			labels_.push_back(std::move(label));
 			std::unique_ptr<GuiText> count(new GuiText(tile.value.c_str(), 16, skin::kInkSoft));
 			count->SetParent(this);
@@ -3570,10 +3593,10 @@ public:
 				skin::DrawNine(over, x - 8, y - 8, w + 16, h + 16, skin::kTileCorner,
 					static_cast<int>(255 * lift * transition::Pulse()));
 			}
-			// A short card's picture is smaller and higher (35px from y + 3)
-			// so that two lines of name end inside it.
+			// A short card's picture is smaller (35px) so that two lines of
+			// name fit below it; its place comes from the constructor.
 			const bool shortCard = tile.h <= kChoiceShortCard;
-			const float iconY = shortCard ? 6 : 30, iconScale = shortCard ? 1.25f : 1.5f;
+			const float iconY = static_cast<float>(iconTops_[index]), iconScale = shortCard ? 1.25f : 1.5f;
 			if (tile.icon) skin::Draw(*tile.icon, tile.x + (tile.w - 28) / 2.0f, tile.y + iconY, 255, iconScale);
 			labels_[index]->Draw();
 			if (!tile.value.empty()) counts_[index]->Draw();
@@ -3586,6 +3609,7 @@ private:
 	int current_;
 	std::vector<std::unique_ptr<GuiText>> labels_;
 	std::vector<std::unique_ptr<GuiText>> counts_;
+	std::vector<int> iconTops_;  // each card's picture, from the card's top
 };
 
 static int PickHomeChoice(const char* name, std::vector<TileSpec>& tiles, int current)
