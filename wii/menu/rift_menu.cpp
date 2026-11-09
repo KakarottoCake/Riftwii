@@ -3549,9 +3549,10 @@ public:
 				int lines = label->GetTextWidth() > tile.w - 12 ? 2 : 1;
 				if (tile.label.find('\n') != std::string::npos) lines = 2;
 				const int picture = shortCard ? 35 : 42;  // the 28px picture, scaled
-				// A card with no name and no count (a broken translation file
-				// can give an empty name) has only the picture to centre.
-				const bool pictureOnly = tile.label.empty() && tile.value.empty();
+				// A broken translation file can give an empty name, and then
+				// only the picture is left to centre. A short card's count is
+				// placed separately, in its corner.
+				const bool pictureOnly = tile.label.empty();
 				const int block = pictureOnly ? picture : picture + 4 + 18 * lines;
 				const int top = (tile.h - block) / 2;
 				iconTop = top + (picture - 28) / 2;
