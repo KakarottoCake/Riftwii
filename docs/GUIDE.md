@@ -1245,12 +1245,26 @@ leaderboards to the SD card, as they do under Riivolution. CT-CODE
 packs that replace the game's `main.dol` (CTGP Revolution 1.02) work
 too.
 
-CTGP Revolution 1.03 does not work from RiftWii until further notice.
-Its pack replaces `main.dol` with the CTGP-R Channel
-(`/apps/ctgpr/boot.dol`), which RiftWii starts the way the Homebrew
-Channel does, but it stops on a black screen from a disc and a green
-one from USB. Start CTGP from the Homebrew Channel instead; the game
-page says so while its pack is on.
+CTGP Revolution 1.03 can start from RiftWii **offline only**: online
+play, LAN play and ghost uploads are off, and nothing in RiftWii turns
+them on. Ghosts you save stay on your SD card and replay there, but
+CTGP's server won't take them. This is what the CTGP Revolution
+developers allow for a launch they don't support. Start CTGP from the
+Homebrew Channel when you want to play online.
+
+RiftWii loads Mario Kart Wii itself and puts CTGP's code into it (it
+doesn't start the CTGP-R Channel). For that it needs three files made
+from your own copy of CTGP Revolution, in `sd:/riftwii/ctgpr/`:
+`efa.key`, `rows.bin` and `tables.bin`. They are not part of RiftWii.
+CTGP Revolution itself must be installed on the card as usual
+(`sd:/ctgpr/`). The game page says "offline only" while CTGP's pack is
+on. RiftWii only starts the CTGP Revolution version it was tested with;
+after a CTGP update it says so and doesn't start it. The Mario Kart
+Channel and Rankings buttons in CTGP's menu bring you back to RiftWii.
+
+Without those three files, RiftWii starts the CTGP-R Channel the way the
+Homebrew Channel does, which stops on a black screen from a disc and a
+green one from USB; the game page says so.
 
 ### Code builds (Project+, REX and other Gecko code mods)
 

@@ -52,6 +52,7 @@
 #include "gui_tiles.hpp"
 #include "gui_busy.hpp"
 #include "memlimits.hpp"
+#include "ctgpr.hpp"
 #include "d2xsd.hpp"
 #include "modpicture.hpp"
 #include "modtiles.hpp"
@@ -2601,9 +2602,11 @@ static bool PacksOnUsb(const FrontendState& state)
 // RVZ game (the catalog's note), packs on the USB drive. What cannot work
 // at all is refused instead (ModPlaceProblem).
 // A pack that swaps the game's executable for a Homebrew Channel app
-// (CTGP Revolution 1.03's CTGP-R Channel): started as the Homebrew Channel
-// starts it (wii/launch/modplan.hpp), but it does not work from RiftWii yet (a
-// black screen from a disc, a green one from USB, on testers' consoles).
+// (CTGP Revolution 1.03's CTGP-R Channel). With the native launch's files on
+// the card (wii/launch/ctgpr.hpp), RiftWii starts CTGP-R itself, offline
+// only. Without them the app is started as the Homebrew Channel starts it
+// (wii/launch/modplan.hpp), which does not work from RiftWii yet (a black
+// screen from a disc, a green one from USB, on testers' consoles).
 static bool HomebrewAppPackOn(const FrontendState& state)
 {
 	if (state.game_id.empty()) return false;
@@ -2613,6 +2616,13 @@ static bool HomebrewAppPackOn(const FrontendState& state)
 
 static const char* const kHomebrewAppWarning =
 	"CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.";
+static const char* const kCtgpNativeNote =
+	"CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.";
+
+static const char* HomebrewAppNote()
+{
+	return riftwii::wii::ctgpr_native_wanted() ? kCtgpNativeNote : kHomebrewAppWarning;
+}
 
 static bool FrontPortsReached(const FrontendState& state)
 {
@@ -2625,7 +2635,7 @@ static std::string LaunchNote(const FrontendState& state)
 	std::string note = state.launch_warning;
 	if (HomebrewAppPackOn(state)) {
 		if (!note.empty()) note += " ";
-		note += tr(kHomebrewAppWarning);
+		note += tr(HomebrewAppNote());
 	}
 	// An RVZ's reader keeps a block as stored and as decoded, and the
 	// decoder's 48 KB, in the game's MEM2: about 300 KB with Dolphin's
@@ -13141,7 +13151,9 @@ static std::string ModsNote(const FrontendState& state, const std::string& scanS
 {
 	if (const std::string problem = riftwii::wii::ModPlaceProblem(state, true); !problem.empty())
 		return FlatCapped(problem, 90);
-	if (HomebrewAppPackOn(state)) return tr("CTGP Revolution does not work from RiftWii yet (see Start).");
+	if (HomebrewAppPackOn(state))
+		return riftwii::wii::ctgpr_native_wanted() ? tr("CTGP Revolution: offline only (see Start).")
+							   : tr("CTGP Revolution does not work from RiftWii yet (see Start).");
 	std::size_t enabled = 0;
 	const std::size_t shown = ShownPacks(state, &enabled);
 	if (shown == 0) {

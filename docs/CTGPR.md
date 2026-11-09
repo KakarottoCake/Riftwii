@@ -1,10 +1,79 @@
 # CTGP-R 1.03 from RiftWii
 
-Status for 2.7.0 RC2: **experimental, untested on a Wii.** The Guide keeps
-telling players to start CTGP from the Homebrew Channel until a console run
-reaches an offline race.
+RiftWii has two ways to start CTGP-R 1.03's pack:
 
-## How RiftWii starts it
+* **The native launch, offline only** (below, "The native launch"):
+  RiftWii loads Mario Kart Wii and places CTGP-R's code in it itself,
+  with no channel app. Used when its files are set up on the card.
+* **The CTGP-R Channel as a Homebrew Channel app** (the rest of this
+  page): experimental, and it stops before CTGP's menus on testers'
+  consoles. Used when the native launch's files are not on the card.
+
+## The native launch (offline only)
+
+The CTGP-R developers allow it on these conditions, which the code keeps:
+
+* **No multiplayer.** The game's network calls are stubbed (they return
+  -76, as under the channel without network settings), LAN mode and UPnP
+  are never set whatever `sd:/ctgpr/config.ini` says, and Settings >
+  Online's server swap is skipped. Nothing in RiftWii turns online on
+  (`src/ctgpr/ctgpapply.cpp`, `ctgpfields.cpp`, `wii/launch/boot.cpp`).
+* **Anti-cheat intact.** No tamper branch is changed, the signed digest
+  lists are checked as the channel checks them, and CTGP's scanner thread
+  runs. The only change to CTGP's own data is the path its channel button
+  starts, which points at RiftWii's `boot.dol`.
+* **No ghost signing.** The card's signing key (on `jelly.bin`) and the
+  console's MAC are not read. CTGP gets a key RiftWii made that can never
+  give a valid signature (`include/riftwii/ctgpsign.hpp`); ghosts save
+  and replay on the console, and CTGP's server rejects them.
+
+It starts only the CTGP-R version it was tested with (PACKAGES.BIN:
+core `0x01030412`, CTGPR `0x01031192`). Any other version stops the
+launch with that on screen and in `boot.log`, before anything is placed.
+RiftWii's own extras stay out of the game: no runtime, codes, video or
+game preferences, game fixes, GameCube adapter, screenshots, crash
+recorder or Return to RiftWii (CTGP's channel button comes back to
+RiftWii instead, and CTGP has its own crash handler).
+
+### Files the native launch needs
+
+Made from the player's own copy of CTGP-R, never part of RiftWii's source
+or release:
+
+| File | What it is |
+| --- | --- |
+| `sd:/riftwii/ctgpr/efa.key` | The AES key of CTGP's package disk (`blob.bin`): 16 bytes, or 32 hex digits |
+| `sd:/riftwii/ctgpr/rows.bin` | The table of game addresses CTGP-R hooks: `CRT0`, the row count, three words a row (NTSC-U, NTSC-J, PAL), then 54 region words |
+| `sd:/riftwii/ctgpr/tables.bin` | The channel's constants: the package disks' fixed IV and key words, the list-signing public key, the course table and two course layouts (`include/riftwii/ctgptables.hpp` has the layout) |
+
+and CTGP-R as its installer leaves it: `sd:/ctgpr/blob.bin`,
+`sd:/ctgpr/jelly.bin` and `sd:/ctgpr/config.ini` (optional).
+
+When they are missing or wrong: with none of the three RiftWii files on
+the card the pack goes the channel-app way, as before. With any of them
+there, the launch is native, and it stops with a sentence that names
+the problem (a file missing, `CTGP-R is not installed on the SD card`,
+a key that does not open `blob.bin`, a tables file of the wrong size, a
+hash list that does not verify, an untested version). The error is on
+the failed-launch screen and in `boot.log`; nothing is placed in memory
+before every check has passed, so RiftWii never starts the game half set
+up.
+
+How players get these three files is an open question for the
+maintainers.
+
+### Checks
+
+Host tests cover each step with made-up data (`tests/ctgp*_tests.cpp`):
+the ghost key's signatures fail DSA verification, online and LAN stay off
+whatever config.ini says, and untested versions are refused. The earlier
+build of this launch (on 3.1.0) was tested on a PAL Wii from disc and
+USB (menus, custom tracks, VS, a full Grand Prix, Time Trial ghost save
+and replay, the channel and Rankings buttons back to RiftWii) with the
+card's own signing key; this one replaces that key and needs a Dolphin
+and a Wii run.
+
+## How RiftWii starts the CTGP-R Channel app
 
 CTGP-R 1.03's Riivolution XML replaces `main.dol` with the CTGP-R Channel
 (`/apps/ctgpr/boot.dol`). `homebrew_app_stand_in` (`wii/launch/modplan.cpp`)

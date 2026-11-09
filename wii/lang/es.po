@@ -987,6 +987,12 @@ msgstr "Juega bajo tu propia responsabilidad:"
 msgid "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead."
 msgstr "CTGP Revolution (un pack que inicia una app del Homebrew Channel) todavía no funciona desde RiftWii: se queda en una pantalla negra o verde. Inicia CTGP desde el Homebrew Channel."
 
+msgid "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded."
+msgstr "CTGP Revolution se inicia sin conexión desde RiftWii: el juego en línea y en LAN están desactivados, y los fantasmas que guardes no se pueden subir."
+
+msgid "CTGP Revolution: offline only (see Start)."
+msgstr "CTGP Revolution: solo sin conexión (mira Jugar)."
+
 msgid "CTGP Revolution does not work from RiftWii yet (see Start)."
 msgstr "CTGP Revolution todavía no funciona desde RiftWii (mira Jugar)."
 

@@ -50,6 +50,7 @@ headers, generated data and assets with the code that uses them.
 | Starting a game (IOS, disc, apploader, patches) | `wii/launch/boot.cpp` |
 | What runs inside a game and serves the packs | `runtime/resident/rt_hook.c`, `runtime/rtable.c`, `wii/launch/resident.cpp` |
 | Saves on the SD card instead of the NAND | `runtime/rtfs.c`, `runtime/rtfat.c`, `prepare_savegame` in `wii/launch/boot.cpp`, `wii/storage/d2xsave.cpp` and `wii/storage/d2xnandemu.cpp` (d2x's NAND emulation); the shared emulated NAND: `src/data/sharednand.cpp`, `wii/storage/sharednandfind.cpp` |
+| CTGP-R 1.03's native launch, offline only (`docs/CTGPR.md`) | `src/ctgpr/` (the plan: package disk, files, settings, hooks, memory map, the unsigned ghost key, the version check), `wii/launch/ctgpr.cpp` (reads the card), `boot_game` and `start_ctgp_memory_map` in `wii/launch/boot.cpp` |
 | Code builds (Project+, REX) and their `gameconfig.txt` | `wii/launch/codebuilds.cpp`, `src/patching/gameconfig.cpp`, `src/patching/codehook.cpp`, `vendor-gecko/`; cheats in a second executable: `wii/launch/dolswitch_stub.S` |
 | The virtual SD card (`sd.raw`) | `runtime/rtvsd.c` (the card), `runtime/vsd/` (the in-game blob), `wii/hooks/vsdhook.cpp` (install), `wii/hooks/vsdimage.cpp` (the menu's view) |
 | Cheats | `src/data/cheats.cpp`, `wii/menu/gameextras.cpp`; GameHacking.org as the fallback when rc24 has none: `src/data/ghcheats.cpp`, `wii/online/ghfallback.cpp`, `wii/online/zipinflate.cpp`, `tests/ghcheats_tests.cpp` |

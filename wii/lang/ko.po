@@ -987,6 +987,12 @@ msgstr "사용 시 발생하는 문제는 사용자의 책임입니다:"
 msgid "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead."
 msgstr "CTGP Revolution(홈브류 채널 앱을 통해 실행하는 팩)은 아직 RiftWii에서 정상적으로 작동하지 않으며, 검은색 또는 녹색 화면에서 멈춥니다. 대신 홈브류 채널에서 CTGP를 실행하세요."
 
+msgid "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded."
+msgstr "RiftWii에서 CTGP Revolution은 오프라인 전용으로 실행됩니다. 온라인 및 LAN 플레이는 꺼지며, 저장한 고스트는 업로드할 수 없습니다."
+
+msgid "CTGP Revolution: offline only (see Start)."
+msgstr "CTGP Revolution: 오프라인 전용 (시작 항목 참조)"
+
 msgid "CTGP Revolution does not work from RiftWii yet (see Start)."
 msgstr "CTGP Revolution은 아직 RiftWii에서 작동하지 않습니다. (시작 항목 참조)"
 
