@@ -2816,6 +2816,19 @@ static uint32_t gc_pad_errors(const uint8_t* status) {
     return errors;
 }
 
+/* The controllers the game's own PADRead found in the Wii's GameCube
+ * ports (no error), each with its calibration, before the adapter and the
+ * Wii Remotes fill the other ports, which the calibration never touches
+ * (the adapter's are calibrated in its driver). */
+static void gc_calibrate_own_ports(const struct gc_rt_context* ctx, uint8_t* status) {
+    const rtpadcal_table* cal = (const rtpadcal_table*)(uintptr_t)ctx->pad_cal;
+    uint32_t port;
+    for (port = 0; port < GC_PORTS; ++port) {
+        uint8_t* own = status + 12u * port;  /* PADStatus is 12 bytes, the error at 10 */
+        if (own[10] == 0) rtpadcal_apply(&cal->console[port], own + 2);
+    }
+}
+
 uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t result) {
     const uint32_t n = ctx->pad_reads++;
     const uint32_t previous_native = ctx->native_ports;
@@ -2827,6 +2840,7 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
      * other arguments) is left alone rather than followed. */
     if (status < 0x80000000u || status > 0x81800000u - 4u * 12u || (status & 1u) != 0) status = 0;
     ctx->pad_raw_errs = gc_pad_errors((const uint8_t*)(uintptr_t)status);
+    if (ctx->pad_cal != 0 && status != 0) gc_calibrate_own_ports(ctx, (uint8_t*)(uintptr_t)status);
     native = gc_ports_native_update((const volatile uint32_t*)(uintptr_t)ctx->si_type_cache,
                                     (const uint8_t*)(uintptr_t)status, ctx->pad_enabled_before, previous_native);
     ctx->native_ports = native;

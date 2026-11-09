@@ -162,6 +162,13 @@ typedef struct rwp_gc_launch {
     uint32_t disc2_usb_fragment_count;
     uint64_t disc2_usb_file_bytes;
 
+    /* The GameCube controllers' calibrations (Settings > Controllers >
+     * Calibrate a GameCube controller): runtime/rtpadcal.h's
+     * rtpadcal_table, which the loader puts in MEM2 for the game's pad
+     * hooks. NULL and 0: none stored, and the game changes nothing. */
+    const void* pad_calibration;
+    uint32_t pad_calibration_bytes;
+
     /* Out: the reason when launch returns RWP_LAUNCH_FAILED. */
     char* error;
     uint32_t error_bytes;

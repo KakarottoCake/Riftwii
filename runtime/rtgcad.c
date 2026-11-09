@@ -1728,15 +1728,21 @@ static int adapter_port(gcad* g, uint32_t port, gcad_pad* out, uint32_t now) {
 
 static uint32_t assign_port(gcad* g, gcad_pad out[GCAD_PORTS], uint32_t port,
                            const gcad_pad* pad, uint32_t source) {
+    const rtpadcal_pad* calibration = 0;
     out[port] = *pad;
     g->port_source[port] = (uint8_t)source;
+    if (source < GCAD_PORTS && g->cal) calibration = &g->cal->adapter[source];
     if (source >= GCAD_PORTS) {
         gcad* peer = GCAD_PEER(g, source - GCAD_PORTS);
+        if (g->cal) calibration = rtpadcal_usb(g->cal, mapping_id(peer));
         if (peer->announced_port != port) {
             peer->announced_port = (uint8_t)port;
             gcad_env_event(peer, GCAD_EV_HID_PORT, mapping_id(peer), (int32_t)port);
         }
     }
+    /* The game's copy only: the driver keeps what the controller sent. The
+     * six analog bytes from stick_x are laid out as a PADStatus's. */
+    rtpadcal_apply(calibration, (uint8_t*)&out[port].stick_x);
     return BIT(port);
 }
 

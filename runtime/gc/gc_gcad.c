@@ -175,6 +175,7 @@ void gc_gcad_service(struct gc_gcad* ad, uint32_t now) {
         gcad_links_init(&ad->g, ad->pads, GCAD_HID_PADS, (uint32_t)sizeof(gcad), &ad->catalog, ad, ad->fd, ad->version, ad->ticks_per_ms);
         if (ad->known_dev != GCAD_NO_DEVICE) gcad_expect(&ad->g, ad->known_dev);
         if (ad->ven_fd >= 0) gcad_ven_init(&ad->g, &ad->ven, ad->xbox, ad, ad->ven_fd, ad->ticks_per_ms);
+        ad->g.cal = ad->cal;
         ad->inited = 1;
 
     }

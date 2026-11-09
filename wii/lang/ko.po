@@ -1924,7 +1924,7 @@ msgid "It is gone from the memory card for good. Copy it to the SD card first to
 msgstr "메모리 카드에서 완전히 사라집니다. 남기려면 먼저 SD 카드에 복사하세요."
 
 msgid "Keep it"
-msgstr "남기기"
+msgstr "그대로 두기"
 
 msgid "Memory card damaged"
 msgstr "메모리 카드 손상"
@@ -4238,3 +4238,108 @@ msgstr "슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B
 
 msgid "Empty"
 msgstr "비어 있음"
+
+msgid "Calibrate a GameCube controller"
+msgstr "게임큐브 컨트롤러 보정"
+
+msgid "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use."
+msgstr "게임큐브 컨트롤러를 테스트하고 낡은 컨트롤러를 바로잡습니다. 끝까지 닿지 않는 스틱, 저절로 움직이는 스틱, 끝까지 눌리지 않는 트리거. 게임큐브 게임에 적용되고, Wii 게임에는 게임큐브 어댑터나 USB 컨트롤러를 쓰는 동안 적용됩니다."
+
+msgid "Wii's GameCube port {1}"
+msgstr "Wii 게임큐브 포트 {1}"
+
+msgid "Adapter port {1}"
+msgstr "어댑터 포트 {1}"
+
+msgid "USB controller {1}"
+msgstr "USB 컨트롤러 {1}"
+
+msgid "C stick"
+msgstr "C 스틱"
+
+msgid "Up"
+msgstr "위"
+
+msgid "Down"
+msgstr "아래"
+
+msgid "Left"
+msgstr "왼쪽"
+
+msgid "Right"
+msgstr "오른쪽"
+
+msgid "Calibrate"
+msgstr "보정"
+
+msgid "Reset to default"
+msgstr "기본값으로"
+
+msgid "Dead zone -"
+msgstr "데드존 -"
+
+msgid "Dead zone +"
+msgstr "데드존 +"
+
+msgid "Dead zone: {1}"
+msgstr "데드존: {1}"
+
+msgid "RiftWii keeps the calibrations of four USB controllers at most. Reset one to make room."
+msgstr "RiftWii는 USB 컨트롤러 보정을 최대 4개까지 저장합니다. 하나를 기본값으로 되돌리세요."
+
+msgid "The SD card could not take the calibration. Is it locked or full?"
+msgstr "SD 카드에 보정을 저장하지 못했습니다. 잠겨 있거나 가득 찼나요?"
+
+msgid "Turn the control stick slowly around its edge two or three times, pushing it into every corner. Then press A."
+msgstr "컨트롤 스틱을 가장자리를 따라 천천히 두세 번 돌리고 모든 모서리까지 밀어 주세요. 그런 다음 A를 누르세요."
+
+msgid "Now turn the C stick around its edge the same way. Then press A."
+msgstr "이제 C 스틱도 같은 방법으로 돌리세요. 그런 다음 A를 누르세요."
+
+msgid "Press L all the way down and let go, then R. Then press A."
+msgstr "L을 끝까지 눌렀다 놓고, R도 똑같이 하세요. 그런 다음 A를 누르세요."
+
+msgid "Plug a GameCube controller into the Wii or the adapter, or plug in a USB controller."
+msgstr "게임큐브 컨트롤러를 Wii나 어댑터에 꽂거나 USB 컨트롤러를 연결하세요."
+
+msgid "Press a button on another controller to show it. On the controller, hold Start to calibrate it or B to go back."
+msgstr "다른 컨트롤러의 버튼을 누르면 그 컨트롤러가 표시됩니다. 컨트롤러에서 Start를 길게 누르면 보정, B를 길게 누르면 돌아갑니다."
+
+msgid "The controller was unplugged. Nothing was changed."
+msgstr "컨트롤러가 분리되었습니다. 아무것도 바뀌지 않았습니다."
+
+msgid "Reset this controller?"
+msgstr "이 컨트롤러를 기본값으로 되돌릴까요?"
+
+msgid "{1} goes back to how it is without a calibration: no stretch and no dead zone."
+msgstr "{1}을(를) 보정 없는 상태로 되돌립니다. 범위 보정과 데드존이 없어집니다."
+
+msgid "Back to default."
+msgstr "기본값으로 되돌렸습니다."
+
+msgid "Calibration canceled. Nothing was changed."
+msgstr "보정을 취소했습니다. 아무것도 바뀌지 않았습니다."
+
+msgid "The stick did not reach every side yet. Keep turning it around its edge."
+msgstr "스틱이 아직 모든 방향에 닿지 않았습니다. 가장자리를 따라 계속 돌리세요."
+
+msgid "The C stick did not reach every side yet. Keep turning it around its edge."
+msgstr "C 스틱이 아직 모든 방향에 닿지 않았습니다. 가장자리를 따라 계속 돌리세요."
+
+msgid "Calibrated. GameCube games now get this controller's full range, and Wii games do while a GameCube adapter or USB controller is in use."
+msgstr "보정했습니다. 이제 게임큐브 게임에서 이 컨트롤러의 전체 범위를 쓰고, Wii 게임에서는 게임큐브 어댑터나 USB 컨트롤러를 쓰는 동안 씁니다."
+
+msgid "Stick {1}, {2}   C stick {3}, {4}   L {5}   R {6}"
+msgstr "스틱 {1}, {2}   C 스틱 {3}, {4}   L {5}   R {6}"
+
+msgid "not calibrated"
+msgstr "보정 안 됨"
+
+msgid "calibrated"
+msgstr "보정됨"
+
+msgid "calibrating"
+msgstr "보정 중"
+
+msgid "No GameCube controller found"
+msgstr "게임큐브 컨트롤러가 없습니다"
