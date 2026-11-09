@@ -36,6 +36,14 @@ public:
     // list names it, "/Scene/UI/HS/HealthSafety.szs"). False when the list
     // does not name it.
     bool find(const std::string& path, std::array<std::uint8_t, 20>& digest) const;
+
+    // True when `digest` is the expected digest of some file the list names,
+    // whichever one. The native launch places CTGP-R's loader code (BOOT.BIN,
+    // BOAT.BIN, BEAT.BIN) directly, so it cannot look these up by the names
+    // CORE.HSH gives them (it does not know them); it confirms instead that
+    // each placed file's SHA-1 appears among the signed list's digests.
+    bool contains_digest(const std::array<std::uint8_t, 20>& digest) const;
+
     std::size_t file_count() const { return files_ + direct_.size(); }
 
     // A list made of the given digests, with no signature behind it: for tests

@@ -17,6 +17,7 @@
 #include "riftwii/ctgphash.hpp"
 #include "riftwii/ctgppackages.hpp"
 #include "riftwii/ctgptables.hpp"
+#include "riftwii/sha1.hpp"
 #include "sdfile.hpp"
 
 namespace riftwii::wii {
@@ -271,6 +272,32 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
     // each served file as it reads it.
     logf("CTGP-R: hash lists' signatures checked against CTGP-R's key (CTGPR %u files, CORE %u files)\n",
          static_cast<unsigned>(ctgpr_hashes.file_count()), static_cast<unsigned>(core_hashes.file_count()));
+
+    // CTGP-R's loader code (BOOT.BIN, BOAT.BIN, BEAT.BIN) is placed straight
+    // into the game, not served through the open-file digest check, so nothing
+    // above would notice a tampered copy. Confirm each one's SHA-1 is among the
+    // digests CORE.HSH vouches for (its signature was checked as it loaded).
+    // The match is by digest, not by the names CORE.HSH gives these files: the
+    // native launch does not know them, and it does not need to.
+    struct CoreCodeFile {
+        const char* what;
+        const std::vector<std::uint8_t>& bytes;
+    };
+    const CoreCodeFile core_code[] = {
+        {"BOOT.BIN", in.boot_bin},
+        {"BOAT.BIN", in.boat_bin},
+        {"BEAT.BIN", in.beat_bin},
+    };
+    for (const CoreCodeFile& c : core_code) {
+        const Sha1Digest digest = sha1(c.bytes.data(), c.bytes.size());
+        if (!core_hashes.contains_digest(digest)) {
+            error = std::string("CTGP-R's core code does not match its signed hash list: ") + c.what +
+                    " is not among CORE.HSH's digests";
+            return false;
+        }
+    }
+    logf("CTGP-R: core code matches CORE.HSH digests\n");
+
     std::vector<const CtgpHashList*> hash_lists;
     for (const CtgpPackageList& l : package_lists)
         hash_lists.push_back(l.hash_list == "CTGPR" ? &ctgpr_hashes : l.hash_list == "CORE" ? &core_hashes : nullptr);
