@@ -3084,7 +3084,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         // condition): no server swap, whatever Settings > Online says; the
         // plan stubs the game's network calls. CTGP-R's code goes in last of
         // all, over everything else that went into the game.
-        if (g_extras.server != WfcServer::Off) logf("WFC: not patched: CTGP-R starts offline only\n");
+        logf("WFC: not patched: CTGP-R starts offline only\n");
         const CtgpMemoryState state = [&] {
             CtgpMemoryState st;
             st.loader_end = reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi());
