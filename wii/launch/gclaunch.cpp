@@ -30,6 +30,7 @@
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/expand.hpp"
 #include "riftwii/fst.hpp"
+#include "riftwii/gcexecpacks.hpp"
 #include "riftwii/gcoverlay.hpp"
 #include "riftwii/gcvideo.hpp"
 #include "riftwii/mempatch.hpp"
@@ -907,6 +908,25 @@ void ScanUsbGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
 
 namespace {
 
+// The packs a switch to another program on the disc keeps
+// (riftwii/gcexecpacks.hpp): written for a launch with packs, removed for
+// one without, so a restart never picks up an earlier launch's packs.
+void remember_exec_packs(const GcImage& image, const std::vector<PackageChoices>& packages) {
+    std::remove(kGcExecPacksFile);
+    if (packages.empty()) return;
+    std::string text;
+    if (!gc_exec_packs_text(image.id, image.path, packages, text)) {
+        logf("GameCube: a pack's name can't be kept for a switch to another program; that program starts without "
+             "the packs\n");
+        return;
+    }
+    if (!WriteWholeFile(kGcExecPacksFile, text.data(), text.size())) {
+        std::remove(kGcExecPacksFile);
+        logf("GameCube: %s could not be written; a switch to another program starts it without the packs\n",
+             kGcExecPacksFile);
+    }
+}
+
 // The packs as a plan over the image (riftwii/gcoverlay.hpp): their files
 // read from the image and the card, laid out past the image's end.
 bool plan_gc_packs(GcImage& image, const std::vector<PackageChoices>& packages, GcOverlayPlan& plan,
@@ -1198,6 +1218,7 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
     }
     const bool card_on_usb = GcImageOnUsb(image.external_card_path);
     if ((GcImageOnUsb(image.path) || packs_on_usb || card_on_usb) && !ready_usb(image, usb_check, error)) return false;
+    remember_exec_packs(image, packages);
     return LaunchGcNative(image, has_packs ? &plan : nullptr, error);
 }
 
