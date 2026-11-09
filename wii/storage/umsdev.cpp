@@ -314,6 +314,21 @@ bool Open(std::string& error) {
         g_not_ready = true;
         return false;
     }
+    if (match && matched < 0 && found >= 0) {
+        // d2x started a drive that holds no volume RiftWii reads, and not
+        // the menu's. A card reader or an enclosure with several drives
+        // inside does this: d2x takes the first slot that answers (a blank
+        // card), the menu the one with the games. Reading it would give
+        // the game another drive's sectors.
+        error = "d2x reads a different drive than the one the games were listed from (a card reader or an "
+                "enclosure with several drives: d2x takes the first slot that answers); put the games' card "
+                "in the first slot, or take the other cards out";
+        IOS_Close(g_fd);
+        g_fd = -1;
+        g_failed = true;
+        g_failure = error;
+        return false;
+    }
     const int chosen = matched >= 0 ? matched : readable >= 0 ? readable : found;
     if (chosen >= 0) {
         if (chosen != matched && chosen != readable) s = any;
