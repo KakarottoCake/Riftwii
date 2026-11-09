@@ -57,13 +57,6 @@ const std::vector<CtgpField> kFields = {
 #undef B
 #undef I
 
-bool parse_bool(const std::string& v, std::int32_t& out) {
-    const std::string t = lower(v);
-    if (t == "yes" || t == "true" || t == "1") { out = 1; return true; }
-    if (t == "no" || t == "false" || t == "0") { out = 0; return true; }
-    return false;
-}
-
 bool parse_int(const std::string& v, std::int32_t& out) {
     if (v.empty()) return false;
     char* end = nullptr;
@@ -76,6 +69,13 @@ bool parse_int(const std::string& v, std::int32_t& out) {
 }  // namespace
 
 const std::vector<CtgpField>& ctgp_fields() { return kFields; }
+
+bool ctgp_parse_ini_bool(const std::string& value, bool& out) {
+    const std::string t = lower(value);
+    if (t == "yes" || t == "true" || t == "1") { out = true; return true; }
+    if (t == "no" || t == "false" || t == "0") { out = false; return true; }
+    return false;
+}
 
 std::map<std::string, std::string> ctgp_parse_ini(const std::string& text) {
     std::map<std::string, std::string> out;
@@ -114,7 +114,8 @@ std::vector<CtgpWordWrite> ctgp_field_writes(const std::string& config_ini) {
             if (key != kFields[i].key) continue;
             std::int32_t n = 0;
             if (kFields[i].is_bool) {
-                if (parse_bool(val, n)) value[i] = n;
+                bool flag = false;
+                if (ctgp_parse_ini_bool(val, flag)) value[i] = flag ? 1 : 0;
             } else if (parse_int(val, n) && n >= kFields[i].min && n <= kFields[i].max) {
                 value[i] = n;
             }

@@ -29,6 +29,11 @@ const std::vector<CtgpField>& ctgp_fields();
 // the last of a repeated key wins).
 std::map<std::string, std::string> ctgp_parse_ini(const std::string& text);
 
+// An ini yes/no value, in any letter case ("Yes", "no", "TRUE"; also 1 and 0).
+// False, with `out` untouched, for anything else. The channel's table and the
+// launch's own settings read booleans through this one rule.
+bool ctgp_parse_ini_bool(const std::string& value, bool& out);
+
 struct CtgpWordWrite {
     std::uint32_t address;
     std::uint32_t value;

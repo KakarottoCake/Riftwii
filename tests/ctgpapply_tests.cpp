@@ -173,7 +173,21 @@ static void test_package_lists() {
     EXPECT_EQ(ini.my_stuff, 3);
 }
 
+// The ini's yes/no is read in any letter case, as the field table reads it:
+// "No" must turn CTGPR off and "Yes" must turn an option on.
+static void test_boolean_case() {
+    const CtgpSettings off = ctgp_settings_from_ini("[ctgpr]\nctgpr = No\nno_music = Yes\nanti-cheat = TRUE\n", {},
+                                                    CtgpRegion::P);
+    EXPECT_TRUE(!off.ctgpr_enabled);
+    EXPECT_TRUE(off.no_music);
+    EXPECT_EQ(off.anti_cheat, 1);
+    const CtgpSettings junk = ctgp_settings_from_ini("[ctgpr]\nctgpr = maybe\nno_music = 2\n", {}, CtgpRegion::P);
+    EXPECT_TRUE(junk.ctgpr_enabled);  // not a yes/no: the default stays
+    EXPECT_TRUE(!junk.no_music);
+}
+
 int main() {
+    test_boolean_case();
     test_package_lists();
     test_defaults_offline();
     test_online_always_off();

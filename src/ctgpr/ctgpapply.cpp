@@ -111,10 +111,9 @@ CtgpSettings ctgp_settings_from_ini(const std::string& config_ini, const std::ve
         return it == ini.end() ? std::string() : it->second;
     };
     auto yes = [&](const char* key, bool def) {
-        const std::string v = text(key);
-        if (v == "yes" || v == "true" || v == "1") return true;
-        if (v == "no" || v == "false" || v == "0") return false;
-        return def;
+        bool value = def;
+        ctgp_parse_ini_bool(text(key), value);
+        return value;
     };
     auto num = [&](const char* key, std::int32_t def) {
         const std::string v = text(key);
