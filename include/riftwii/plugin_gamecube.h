@@ -100,6 +100,7 @@ typedef struct rwp_gc_launch {
     /* What the launch reads from the settings and the launch's extras
      * (wii/launch/boot.hpp's LaunchExtras), as they are now. */
     uint32_t rumble_off;       /* Wii Remote rumble off */
+    uint32_t leave_home_only;  /* only HOME leaves the game: L, R, Z and Start held do not */
     uint32_t in_dolphin;       /* running in Dolphin, not on a Wii */
     const uint8_t* cheat_gct;  /* the code list; NULL: no cheats */
     uint32_t cheat_gct_bytes;

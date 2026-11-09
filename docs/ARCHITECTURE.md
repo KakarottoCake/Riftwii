@@ -175,7 +175,8 @@ there's no rumble. A pack that wants rumble adds its own
 by reading the rumble-off flag and then building the motor command with
 `oris rA, rB, 0x40` (described in `include/riftwii/symsearch.hpp`). A
 pack done this way also gets the GameCube
-controller's way back (L, R, Z and Start held two seconds), since the
+controller's way back (L, R, Z and Start held two seconds, unless Settings >
+Games > Leaving a game is HOME only), since the
 game's `OSReturnToMenu`, `OSSleepThread` and IPC submit routine are
 found as in any game. `TestPackPadRead` (`tests/gcad_tests.cpp`) keeps a
 routine of this shape found, so a later change to the search fails the
@@ -583,7 +584,8 @@ For speedruns that count lag, this is the remaining difference, and only
 the clock switch above would remove it.
 
 **Leaving and crashing.** Holding HOME (HOME and - on a Wii Remote
-alone; L, R, Z and Start on a GameCube controller) for two seconds goes
+alone; L, R, Z and Start on a GameCube controller, unless Settings > Games >
+Leaving a game is HOME only) for two seconds goes
 where Settings > Return to says, as a Wii game's HOME Menu does: the
 RiftWii channel first, then the Homebrew Channel if it started RiftWii and
 the channel cannot be used, then the Wii Menu, through

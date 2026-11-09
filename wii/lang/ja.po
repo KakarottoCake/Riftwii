@@ -4224,6 +4224,21 @@ msgstr "映像のライン数"
 msgid "480p and 240p are for US and Japanese games; this European game keeps its own picture."
 msgstr "480pと240pはアメリカと日本のゲーム用で、このヨーロッパのゲームはゲームのままの映像になります。"
 
+msgid "Leaving a game"
+msgstr "ゲームをやめるとき"
+
+msgid "HOME or buttons"
+msgstr "HOMEかボタン"
+
+msgid "HOME only"
+msgstr "HOMEのみ"
+
+msgid "In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game's own button combos can't leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console's Reset button then gets back."
+msgstr "ゲームキューブのゲームでは、HOMEを2秒押し続けるとRiftWiiに戻ります (Wiiリモコンだけのときは HOMEと-)。「HOMEかボタン」では、ゲームキューブコントローラーのL、R、Z、Startを押し続けても戻ります (アダプターを使うWiiのゲームでも)。「HOMEのみ」ではボタンで戻らないので、ゲームのボタン操作でまちがって終わりません。WiiリモコンもWii U Proコントローラーもないときは、本体のリセットボタンだけで戻れます。"
+
+msgid "L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote or a Wii U Pro Controller for two seconds to leave the game."
+msgstr "L、R、Z、Startはオフです (設定 > ゲーム > ゲームをやめるとき)。WiiリモコンかWii U ProコントローラーのHOMEを2秒押し続けるとゲームをやめます。"
+
 msgid "Calibrate a GameCube controller"
 msgstr "ゲームキューブコントローラーの調整"
 

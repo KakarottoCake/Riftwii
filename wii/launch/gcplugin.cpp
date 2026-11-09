@@ -334,6 +334,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     // The settings and the launch's extras, as they are now.
     const LaunchExtras& extras = CurrentLaunchExtras();
     request.rumble_off = extras.rumble_off ? 1 : 0;
+    request.leave_home_only = Settings().leave_buttons == "off" ? 1 : 0;
     request.in_dolphin = running_in_dolphin() ? 1 : 0;
     if (!extras.cheat_gct.empty()) {
         request.cheat_gct = extras.cheat_gct.data();

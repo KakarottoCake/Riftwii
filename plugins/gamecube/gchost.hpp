@@ -74,6 +74,7 @@ struct GcImage {
 // screen and the way back in the DOL (riftwii/plugin_gamecube.h).
 struct GcLaunchExtras {
     bool rumble_off = false;
+    bool leave_home_only = false;  // Settings > Leaving a game: HOME only, the button combo leaves nothing
     bool in_dolphin = false;
     std::vector<std::uint8_t> cheat_gct;
     std::size_t cheat_count = 0;
