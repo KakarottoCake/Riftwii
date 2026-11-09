@@ -1050,7 +1050,10 @@ starting one of its games) keeps its packs and their choices: that
 program gets the same files and memory patches. `<shift>` patches
 work as for Wii games. Packs with savegame patches don't start, and
 say so: a GameCube game saves to its memory card, not to the Wii's
-save folders. A mod shipped as a patch (`.xdelta` or `.vcdiff`) goes in
+save folders. A modded image bigger than a real disc (1.36 GB) plays
+too, as an ISO or an RVZ, up to 4 GB, the most a GameCube game can
+address; packs on such an image need room for their files after it,
+within those 4 GB. A mod shipped as a patch (`.xdelta` or `.vcdiff`) goes in
 `sd:/riftwii/patches/`: it is listed as the game it makes when its
 original is in `sd:/games` or `usb:/games`, and the first start makes that game as
 `sd:/games/<its ID>/game.iso` (the card needs room for it), an ordinary

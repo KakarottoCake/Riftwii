@@ -403,9 +403,42 @@ static void test_shifts() {
     EXPECT_TRUE(file_through(r, fst, "/dir/b.bin", found) == new_b);
 }
 
+// A mod bigger than a GameCube disc (1.36 GB): an image of 1.5 GB is
+// served whole, and a pack's window goes after it, still inside the
+// 32-bit offsets the game reads with. Only the image's size matters here,
+// so its bytes are not made.
+static void test_bigger_than_a_disc() {
+    Disc d = make_disc();
+    constexpr std::uint64_t kBig = 0x60000000ull;  // 1.5 GiB
+    const std::vector<Fragment> image{Fragment{kImageSector, kBig / 512}};
+    std::vector<GcRun> runs;
+    std::string error;
+    EXPECT_TRUE(gc_disc_runs(image, kBig, nullptr, runs, error));
+    expect_contiguous(runs);
+    std::uint64_t served = 0;
+    for (const GcRun& r : runs) served += r.length;
+    EXPECT_EQ(served, kBig);
+
+    Bytes card;
+    std::vector<GcFile> files(1);
+    files[0].disc_path = "/a.bin";
+    files[0].pieces.push_back(on_card(card, 10, 0, pattern(0x200, 6)));
+    GcOverlayPlan plan;
+    Bytes boot(d.image.begin(), d.image.begin() + 0x440);
+    EXPECT_TRUE(plan_gc_overlay(boot, d.fst, kBig, files, plan, error));
+    EXPECT_TRUE(plan.fst_offset >= kBig);
+    EXPECT_TRUE(plan.fst_offset + plan.fst.size() <= kGcDiscLimit);
+    runs.clear();
+    EXPECT_TRUE(gc_disc_runs(image, kBig, &plan, runs, error));
+    expect_contiguous(runs);
+    // A 4 GiB image leaves no room for a pack's window: refused.
+    EXPECT_FALSE(plan_gc_overlay(boot, d.fst, kGcDiscLimit, files, plan, error));
+}
+
 int main() {
     test_full_mod();
     test_shifts();
+    test_bigger_than_a_disc();
     test_usb_image();
     test_rvz();
     test_refusals();
