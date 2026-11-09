@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "riftwii/ctgphash.hpp"
@@ -85,10 +86,11 @@ public:
     std::uint32_t first_open(int device) const;
 
 private:
-    struct Entry { std::string key; Slot slot; };
     std::vector<std::uint8_t> image_;
     std::vector<std::uint32_t> next_free_;  // per pool
-    std::vector<Entry> entries_;
+    // Keyed by the package's own spelling; a package lists up to ~2,900 files,
+    // so a linear search per add made each package quadratic.
+    std::unordered_map<std::string, Slot> entries_;
     std::uint32_t head_[3] = {0, 0, 0};
     std::uint32_t count_[3] = {0, 0, 0};
     std::uint32_t used_ = 0;

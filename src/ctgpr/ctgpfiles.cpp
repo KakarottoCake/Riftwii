@@ -75,17 +75,14 @@ std::uint32_t CtgpRecordTable::first_open(int device) const {
 }
 
 bool CtgpRecordTable::has(const std::string& key) const {
-    for (const Entry& e : entries_)
-        if (e.key == key) return true;
-    return false;
+    return entries_.find(key) != entries_.end();
 }
 
 bool CtgpRecordTable::add(const std::string& key, int device, const CtgpOpenFile& file, Slot& slot) {
-    for (const Entry& e : entries_) {
-        if (e.key == key) {
-            slot = e.slot;
-            return true;
-        }
+    const auto known = entries_.find(key);
+    if (known != entries_.end()) {
+        slot = known->second;
+        return true;
     }
     if (device < 0 || device > 2) return false;
     std::size_t pool = 0;
@@ -109,7 +106,7 @@ bool CtgpRecordTable::add(const std::string& key, int device, const CtgpOpenFile
     head_[device] = slot.address;
     ++count_[device];
     ++used_;
-    entries_.push_back({key, slot});
+    entries_.emplace(key, slot);
     return true;
 }
 
