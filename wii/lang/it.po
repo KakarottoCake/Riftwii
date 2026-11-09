@@ -4236,9 +4236,6 @@ msgstr "Per un gioco che guarda solo nello slot A: la scheda reale dello slot B 
 msgid "Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A."
 msgstr "Lo slot A non ha una scheda di memoria leggibile. Per una scheda nello slot B, scegli Scheda reale dello slot B, come slot A."
 
-msgid "Empty"
-msgstr "Vuoto"
-
 msgid "Calibrate a GameCube controller"
 msgstr "Calibra un controller GameCube"
 

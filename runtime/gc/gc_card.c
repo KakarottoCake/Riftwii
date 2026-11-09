@@ -392,8 +392,13 @@ void gc_card_on_alarm(struct gc_rt_context* ctx, struct gc_card* card, uint32_t 
             card->real_wait = 0;
             card->exi_pending = 1;
         } else if (--card->real_wait != 0) {
-            card->alarm_set = 1;
-            gc_set_alarm(ctx, card->alarm, GC_CARD_REAL_POLL_TICKS);
+            /* The transfer callback above may have queued the alarm already
+             * (its EXIDeselect does): queuing it twice would break the
+             * game's alarm queue. One in flight polls as well. */
+            if (!card->alarm_set) {
+                card->alarm_set = 1;
+                gc_set_alarm(ctx, card->alarm, GC_CARD_REAL_POLL_TICKS);
+            }
         } else {
             card->real_timeouts++;  /* the game's own timeout reports it */
         }

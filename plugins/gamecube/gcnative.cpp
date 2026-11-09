@@ -1747,9 +1747,13 @@ static void apply_picture_and_language(const GcImage& image, Code& code, ReplayH
     if (image.sixty_hz) {
         for (std::uint32_t a : sram.sixty_hz) code.put(a, li(reg_d(code.at(a)), 0x40));     // bit 6 at 0x11
         for (std::uint32_t a : sram.progressive) code.put(a, li(reg_d(code.at(a)), 0x80));  // bit 7 at 0x13
+        // The 2001 SDK's getter tests the same bit in place (rlwinm.): a
+        // European game of that age reads its 60 Hz choice there.
+        for (std::uint32_t a : sram.progressive_asks) code.put(a, li(reg_d(code.at(a)), 0x80));
         logf("GameCube: 60 Hz: %u read(s) of the console's 60 Hz setting and %u of the older SDK's flag answer yes; "
              "the game switches only if it has a 60 Hz mode of its own (VIConfigure %s)\n",
-             static_cast<unsigned>(sram.sixty_hz.size()), static_cast<unsigned>(sram.progressive.size()),
+             static_cast<unsigned>(sram.sixty_hz.size()),
+             static_cast<unsigned>(sram.progressive.size() + sram.progressive_asks.size()),
              vi_hooked ? "hooked, its mode in the trace" : "not hooked");
     }
     // The screen position: VIInit's read of the SRAM's byte becomes the

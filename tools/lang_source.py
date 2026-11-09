@@ -8850,7 +8850,6 @@ T.update({
         'スロットAに読めるメモリーカードがありません。スロットBのカードを使うには「スロットBの実物カードをスロットAとして」を選んでください。',
         'O slot A não tem um cartão de memória legível. Para um cartão no slot B, escolha Cartão real do slot B, como slot A.',
         'Lo slot A non ha una scheda di memoria leggibile. Per una scheda nello slot B, scegli Scheda reale dello slot B, come slot A.'),
-    'Empty': ('Vacía', '空き', 'Vazio', 'Vuoto'),
 })
 KO.update({
     'Real card in slot B, as slot A': '슬롯 B의 실제 카드를 슬롯 A로',
@@ -8859,8 +8858,7 @@ KO.update({
     'For a game that only looks in slot A: the real card in slot B is its slot A, and slot B looks empty to it (original Wii only).':
         '슬롯 A만 찾는 게임용: 슬롯 B의 실제 카드가 슬롯 A가 되고, 슬롯 B는 비어 보입니다 (초기형 Wii만).',
     'Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A.':
-        '슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B의 카드는 슬롯 B의 실제 카드를 슬롯 A로를 고르세요.',
-    'Empty': '비어 있음',
+        '슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B의 카드를 쓰려면 "슬롯 B의 실제 카드를 슬롯 A로"를 고르세요.',
 })
 FR.update({
     'Real card in slot B, as slot A': 'Carte réelle du port B, comme port A',
@@ -8870,7 +8868,6 @@ FR.update({
         "Pour un jeu qui ne regarde que le port A : la carte réelle du port B devient son port A, et le port B lui paraît vide (Wii d'origine seulement).",
     'Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A.':
         "Le port A n'a pas de carte mémoire lisible. Pour une carte dans le port B, choisissez Carte réelle du port B, comme port A.",
-    'Empty': 'Vide',
 })
 
 # Settings > Controllers > Calibrate a GameCube controller (#511).

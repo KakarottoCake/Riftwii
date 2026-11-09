@@ -4236,9 +4236,6 @@ msgstr "Pour un jeu qui ne regarde que le port A : la carte réelle du port B de
 msgid "Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A."
 msgstr "Le port A n'a pas de carte mémoire lisible. Pour une carte dans le port B, choisissez Carte réelle du port B, comme port A."
 
-msgid "Empty"
-msgstr "Vide"
-
 msgid "Calibrate a GameCube controller"
 msgstr "Calibrer une manette GameCube"
 

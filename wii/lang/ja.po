@@ -4236,9 +4236,6 @@ msgstr "スロットAしか見ないゲーム用です。スロットBの実物�
 msgid "Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A."
 msgstr "スロットAに読めるメモリーカードがありません。スロットBのカードを使うには「スロットBの実物カードをスロットAとして」を選んでください。"
 
-msgid "Empty"
-msgstr "空き"
-
 msgid "Calibrate a GameCube controller"
 msgstr "ゲームキューブコントローラーの調整"
 

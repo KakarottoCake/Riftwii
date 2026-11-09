@@ -4236,9 +4236,6 @@ msgstr "Para un juego que solo busca en la ranura A: la tarjeta real de la ranur
 msgid "Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A."
 msgstr "La ranura A no tiene una tarjeta de memoria legible. Para una tarjeta en la ranura B, elige Tarjeta real de la ranura B, como ranura A."
 
-msgid "Empty"
-msgstr "Vacía"
-
 msgid "Calibrate a GameCube controller"
 msgstr "Calibrar un mando de GameCube"
 

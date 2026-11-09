@@ -4234,10 +4234,7 @@ msgid "For a game that only looks in slot A: the real card in slot B is its slot
 msgstr "슬롯 A만 찾는 게임용: 슬롯 B의 실제 카드가 슬롯 A가 되고, 슬롯 B는 비어 보입니다 (초기형 Wii만)."
 
 msgid "Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A."
-msgstr "슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B의 카드는 슬롯 B의 실제 카드를 슬롯 A로를 고르세요."
-
-msgid "Empty"
-msgstr "비어 있음"
+msgstr "슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B의 카드를 쓰려면 \"슬롯 B의 실제 카드를 슬롯 A로\"를 고르세요."
 
 msgid "Calibrate a GameCube controller"
 msgstr "게임큐브 컨트롤러 보정"

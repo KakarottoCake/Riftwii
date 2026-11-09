@@ -11310,8 +11310,10 @@ static int ReadRealCardWithBar(riftwii::wii::GcRealCard& physical, std::vector<s
 }
 
 // The slot to copy from: the one holding a card when only one does,
-// otherwise the player's choice, each slot marked empty where nothing
-// answers in it. -1: Back.
+// otherwise the player's choice, with neither marked: both hold a card,
+// or neither answered, which may only mean the check wasn't possible (a
+// Wii U, a card already open), so opening the chosen slot says what is
+// wrong. -1: Back.
 static int PickRealGcCardSlot()
 {
 	const bool inA = riftwii::wii::GcRealSlotHasCard(0);
@@ -11321,7 +11323,7 @@ static int PickRealGcCardSlot()
 		return inA ? 0 : 1;
 	}
 	return ChooseTwo(tr("Memory card"), tr("Choose the slot holding the memory card."),
-		tr("Slot A"), inA ? "" : tr("Empty"), tr("Slot B"), inB ? "" : tr("Empty"));
+		tr("Slot A"), "", tr("Slot B"), "");
 }
 
 static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
