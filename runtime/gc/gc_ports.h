@@ -38,10 +38,6 @@
 /* One remote slot per port: a slot's own port is its number. */
 typedef char gc_ports_one_slot_each[(GC_BT_REMOTES == GC_PORTS) ? 1 : -1];
 
-/* Controllers currently identified by the SDK's four SI type words.
- * Wireless flags do not change the controller class; errors and BUSY do.
- * SIGetStatus can replace even a disabled port's type with NOREP, so this
- * classification alone does not preserve ownership across PADSetAnalogMode. */
 /* Whether a port the game reads without an error holds the way back's
  * combo, in the four PADStatus records as PADRead filled them (the
  * adapter's and the remotes' ports included). With `home_only`
@@ -59,6 +55,10 @@ static inline int gc_ports_leave_held(const uint8_t* status, int home_only) {
     return 0;
 }
 
+/* Controllers currently identified by the SDK's four SI type words.
+ * Wireless flags do not change the controller class; errors and BUSY do.
+ * SIGetStatus can replace even a disabled port's type with NOREP, so this
+ * classification alone does not preserve ownership across PADSetAnalogMode. */
 static inline uint32_t gc_ports_native(const volatile uint32_t* types) {
     uint32_t pads = 0, port;
     if (types == 0) return 0;

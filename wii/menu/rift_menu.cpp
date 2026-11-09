@@ -9679,8 +9679,12 @@ static std::vector<GcControlsCard> GcControlsCards()
 		cards.push_back({tr("Wii Remote, held sideways"),
 			{{"2", "A"}, {"1", "B"}, {"A", "X"}, {"HOME", "Y"}, {"B", "R"}, {"-", "Z"}, {"+", "Start"},
 				{"D-pad", tr("Stick")}}, tr("Hold HOME and - for two seconds to leave the game.")});
+	// Settings > Games > Leaving a game, HOME only: the buttons leave nothing.
+	const bool buttonsLeave = riftwii::wii::Settings().leave_buttons != "off";
 	if (pads.gamecube)
-		cards.push_back({tr("GameCube controller"), {}, tr("Hold L, R, Z and Start for two seconds to leave the game.")});
+		cards.push_back({tr("GameCube controller"), {}, buttonsLeave
+			? std::string(tr("Hold L, R, Z and Start for two seconds to leave the game."))
+			: std::string(tr("L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote for two seconds to leave the game."))});
 	return cards;
 }
 
@@ -16989,7 +16993,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kWiiMusic: return tr("Read this Wii's own menu music into memory. A theme's music takes priority. Menu music sets whether it plays.");
 			case kSounds: return tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.");
 			case kReturnTo: return ReturnToNote();
-			case kLeaveButtons: return tr("In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game's own button combos can't leave by accident.");
+			case kLeaveButtons: return tr("In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game's own button combos can't leave by accident. Without a Wii Remote, only the console's Reset button then gets back.");
 			case kShots: return tr("Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it.");
 			case kDiscTile: return DiscTileNote();
 			case kDiscLight: return tr("Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong.");
@@ -17366,7 +17370,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				}
 				case kLeaveButtons:
 					settings.leave_buttons = settings.leave_buttons == "off" ? "on" : "off";
-					saveAndNote(tr("In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game's own button combos can't leave by accident."));
+					saveAndNote(tr("In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game's own button combos can't leave by accident. Without a Wii Remote, only the console's Reset button then gets back."));
 					rebuild();
 					break;
 				case kGcBackups:
