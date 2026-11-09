@@ -642,6 +642,73 @@ bool adds_to_register(const Code& code, std::uint32_t at, unsigned reg, std::uin
     return false;
 }
 
+// The arcade (Triforce) SDK's disc layer, as Mario Kart Arcade GP 2 has
+// it: every command goes through one helper that scrambles the three
+// command words before it writes them to the DI (each XORed with a key
+// that changes at every call; the media board unscrambles them), called
+// as helper(command, offset / 4, length) with the command a small number
+// in r3: 0xA8 a read, 0xAA a write to the board's memory. DVDLowRead is a
+// small wrapper round the function that sends the 0xA8, and DVDLowSeek,
+// DVDLowReadDiskID, DVDLowInquiry, DVDLowStopMotor, DVDLowRequestError and
+// the audio commands are stubs that return FALSE (the board answers for
+// the drive), so only the read, OSSetAlarm (the read's timeout) and
+// DVDLowReset are found. The helper is the function both a "li r3,0xA8"
+// and a "li r3,0xAA" are passed to (within 8 instructions of the call).
+// Behaviour read from naari3's Mario Kart Arcade GP2 decompilation (CC0),
+// src/triforce/dvdlow.c.
+bool find_triforce_dvd_low(const Code& code, const std::map<std::uint32_t, std::vector<std::uint32_t>>& calls,
+                           DvdLow& out) {
+    const auto command_before = [&](std::uint32_t site, std::uint32_t command) {
+        const std::uint32_t li_r3 = 0x38600000 | command;
+        for (std::uint32_t a = site - 4; a + 32 >= site && code.has(a); a -= 4)
+            if (code.at(a) == li_r3) return true;
+        return false;
+    };
+    std::uint32_t read_low = 0;
+    for (const auto& callee : calls) {
+        std::uint32_t read_site = 0;
+        bool writes = false;
+        for (std::uint32_t site : callee.second) {
+            if (read_site == 0 && command_before(site, 0xA8)) read_site = site;
+            if (command_before(site, 0xAA)) writes = true;
+        }
+        if (read_site != 0 && writes) {
+            read_low = function_start(code, read_site);
+            break;
+        }
+    }
+    if (read_low == 0) return false;
+    // DVDLowRead: the wrapper the rest of the game calls, else the function itself.
+    out.read = read_low;
+    const auto found = calls.find(read_low);
+    if (found != calls.end()) {
+        for (std::uint32_t site : found->second) {
+            const std::uint32_t f = function_start(code, site);
+            if (f != 0 && f > read_low && f - read_low < 0x200 && calls.count(f)) {
+                out.read = f;
+                break;
+            }
+        }
+    }
+    // OSSetAlarm: the read's last call sets its timeout alarm.
+    for (std::uint32_t a = read_low; code.has(a) && code.at(a) != 0x4E800020; a += 4)
+        if (std::uint32_t t = bl_target(a, code.at(a))) out.set_alarm = t;
+    if (out.set_alarm != 0) out.set_alarm = through_timeout_helper(code, out.set_alarm);
+    // DVDLowReset, near the read: the DI reset bit toggled with "ori 1" then "ori 5".
+    const std::uint32_t lo = read_low - 0x1000, hi = read_low + 0x1000;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if (a < lo || a > hi || out.reset != 0) return;
+        if ((w >> 26) == 24 && (w & 0xFFFF) == 5 && (code.at(a + 4) & 0xFC00FFFF) == 0x90000000) {
+            for (std::uint32_t b = a; b > a - 0x80; b -= 4)
+                if ((code.at(b) >> 26) == 24 && (code.at(b) & 0xFFFF) == 1) {
+                    out.reset = function_start(code, b);
+                    break;
+                }
+        }
+    });
+    return out.set_alarm != 0;
+}
+
 bool find_dvd_low(const Code& code, DvdLow& out, std::string& error) {
     std::uint32_t just_read = 0;
     std::map<std::uint32_t, std::vector<std::uint32_t>> calls;  // target -> call sites
@@ -679,6 +746,8 @@ bool find_dvd_low(const Code& code, DvdLow& out, std::string& error) {
                     out.disk_id = d;
                 }
     if (just_read == 0) {
+        out = DvdLow{};
+        if (find_triforce_dvd_low(code, calls, out)) return true;
         error = "the game's disc functions were not found";
         return false;
     }
