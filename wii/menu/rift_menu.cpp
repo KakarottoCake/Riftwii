@@ -2609,13 +2609,6 @@ static bool PacksOnUsb(const FrontendState& state)
 // only. Without them the app is started as the Homebrew Channel starts it
 // (wii/launch/modplan.hpp), which does not work from RiftWii yet (a black
 // screen from a disc, a green one from USB, on testers' consoles).
-static bool HomebrewAppPackOn(const FrontendState& state)
-{
-	if (state.game_id.empty()) return false;
-	std::string app, dropped;
-	return riftwii::wii::homebrew_app_stand_in(state.model.selections(), state.game_id, app, dropped);
-}
-
 static const char* const kHomebrewAppWarning =
 	"CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.";
 static const char* const kCtgpNativeNote =
@@ -2645,7 +2638,7 @@ static bool FrontPortsReached(const FrontendState& state)
 static std::string LaunchNote(const FrontendState& state)
 {
 	std::string note = state.launch_warning;
-	if (HomebrewAppPackOn(state)) {
+	if (riftwii::wii::HomebrewAppPackOn(state)) {
 		if (!note.empty()) note += " ";
 		note += tr(HomebrewAppNote());
 	}
@@ -13188,7 +13181,7 @@ static std::string ModsNote(const FrontendState& state, const std::string& scanS
 {
 	if (const std::string problem = riftwii::wii::ModPlaceProblem(state, true); !problem.empty())
 		return FlatCapped(problem, 90);
-	if (HomebrewAppPackOn(state))
+	if (riftwii::wii::HomebrewAppPackOn(state))
 	{
 		switch (riftwii::wii::ctgpr_native_status()) {
 		case riftwii::wii::CtgprNativeStatus::Supported: return tr("CTGP Revolution: offline only (see Start).");

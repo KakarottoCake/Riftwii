@@ -320,6 +320,7 @@ std::string ScanPackages(FrontendState& state, bool reuse_catalog, void (*step)(
     // The card may have changed since the last scan (CTGP-R installed or
     // updated): the menu's notes ask the card again, once.
     ctgpr_native_status_forget();
+    state.ctgpr_cache.valid = false;
     state.model.packages.clear();
     state.model.forget_game_choices();
     if (!reuse_catalog || !state.package_catalog.ready) state.package_catalog = ReadPackageCatalog();
@@ -375,11 +376,32 @@ std::string ScanPackages(FrontendState& state, bool reuse_catalog, void (*step)(
     return kScanReady;
 }
 
-std::size_t CtgprPackOn(const FrontendState& state) {
-    if (state.game_id.empty()) return SIZE_MAX;
+namespace {
+
+// A text that changes whenever the answers could: the game, how many packs
+// the scan found, and every switched-on pack with its choices. Cheap to build
+// (no card access), unlike the answers themselves.
+std::string CtgprCacheKey(const FrontendState& state, const std::vector<PackageChoices>& selections) {
+    std::string key = state.game_id;
+    key += '\n';
+    key += std::to_string(state.model.packages.size());
+    for (const PackageChoices& choice : selections) {
+        key += '\n';
+        key += choice.xml_sd_path;
+        for (const auto& pick : choice.choices) {
+            key += '\t';
+            key += pick.first;
+            key += '=';
+            key += pick.second;
+        }
+    }
+    return key;
+}
+
+std::size_t FindCtgprPackOn(const FrontendState& state, const std::vector<PackageChoices>& selections) {
     // Each switched-on pack is asked alone: with other packs in the list the
     // whole-list test (the launch's) says no, as they patch other files.
-    for (const PackageChoices& choice : state.model.selections()) {
+    for (const PackageChoices& choice : selections) {
         std::string app, dropped;
         if (!homebrew_app_stand_in({choice}, state.game_id, app, dropped)) continue;
         // Only CTGP-R's own channel swap on Mario Kart Wii locks the other
@@ -391,6 +413,32 @@ std::size_t CtgprPackOn(const FrontendState& state) {
     }
     return SIZE_MAX;
 }
+
+// Both answers, worked out once for the state they depend on. ScanPackages
+// forgets them (the XML on the card may have changed); a change of choices
+// changes the key.
+const CtgprPackCache& CtgprPackAnswers(const FrontendState& state) {
+    CtgprPackCache& cache = state.ctgpr_cache;
+    const std::vector<PackageChoices> selections = state.model.selections();
+    const std::string key = CtgprCacheKey(state, selections);
+    if (cache.valid && cache.key == key) return cache;
+    cache.key = key;
+    cache.pack_on = SIZE_MAX;
+    cache.app_stand_in = false;
+    if (!state.game_id.empty()) {
+        cache.pack_on = FindCtgprPackOn(state, selections);
+        std::string app, dropped;
+        cache.app_stand_in = homebrew_app_stand_in(selections, state.game_id, app, dropped);
+    }
+    cache.valid = true;
+    return cache;
+}
+
+}  // namespace
+
+std::size_t CtgprPackOn(const FrontendState& state) { return CtgprPackAnswers(state).pack_on; }
+
+bool HomebrewAppPackOn(const FrontendState& state) { return CtgprPackAnswers(state).app_stand_in; }
 
 bool ApplyCtgprPrecedence(FrontendState& state) {
     const std::size_t ctgp = CtgprPackOn(state);
