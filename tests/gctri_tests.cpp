@@ -253,6 +253,41 @@ void test_jvs_errors() {
     EXPECT_EQ(answer(r, 0x42).size(), 0);
 }
 
+// The output and odd commands take their request layouts whole: one frame
+// of each answers OK (with data where they have some), and a request cut
+// short ends the frame with report 2 (parameter size).
+void test_jvs_outputs() {
+    gc_tri t = fresh();
+    t.jvs_address = 1;
+    t.wheel_state = 2;
+    auto r = exchange(t, packet({jvs_command(1, {0x25, 1, 0x2E, 1, 0x32, 1, 0x80, 0x34, 2, 'A', 'B', 0x33, 1, 0, 0,
+                                                0x37, 1, 0x10, 0x38, 1, 1, 0x70, 0x18, 1, 2, 3, 4})}));
+    auto f = unescape(answer(r, 0x41));
+    EXPECT_EQ(jvs_sum_ok(f), 1);
+    EXPECT_EQ(f[2], 1);  // status OK
+    const std::vector<std::uint8_t> reports{1, 0, 0, 0, 0,  // screen position: zeros
+                                            1, 0, 0, 0, 0,  // remaining payout: zeros
+                                            1, 1, 1, 1, 1,  // lamps, display, analog out, byte, bit
+                                            1, 0xFF};        // Namco's 0x70
+    EXPECT_EQ(f.size(), 3u + reports.size() + 1u);
+    for (std::size_t i = 0; i < reports.size() && 3u + i < f.size(); ++i) EXPECT_EQ(f[3 + i], reports[i]);
+    EXPECT_EQ(t.wheel_state, 0);  // lamp bit 0x80: the wheel's reset
+    // Cut short: lamps that say three bytes but carry one.
+    r = exchange(t, packet({jvs_command(1, {0x32, 3, 0x01})}));
+    f = unescape(answer(r, 0x41));
+    EXPECT_EQ(f[2], 1);
+    EXPECT_EQ(f[3], 2);
+    // Namco's 0x70 without its 0x18.
+    r = exchange(t, packet({jvs_command(1, {0x70, 0x17, 1, 2, 3, 4})}));
+    f = unescape(answer(r, 0x41));
+    EXPECT_EQ(f[3], 2);
+    // A coin counter going up stops at 0x3FFF.
+    t.coins[0] = 0x3FF0;
+    r = exchange(t, packet({jvs_command(1, {0x35, 1, 0x01, 0x00})}));
+    EXPECT_EQ(unescape(answer(r, 0x41))[3], 1);
+    EXPECT_EQ(t.coins[0], 0x3FFF);
+}
+
 void test_wheel() {
     gc_tri t = fresh();
     const std::vector<std::uint8_t> request{0x31, 10, 0xFF, 0xFF, 0xFF, 0x01, 0, 0, 0, 0, 0, 0};
@@ -436,6 +471,7 @@ int main() {
     test_jvs_reset_and_address();
     test_jvs_inputs();
     test_jvs_errors();
+    test_jvs_outputs();
     test_wheel();
     test_board_and_backup();
     test_finder();

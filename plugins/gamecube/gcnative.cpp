@@ -3443,12 +3443,14 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             hook(low.audio_stream, h.hook_audio_stream);
         }
         // A Triforce game: its arcade SDK's board functions to the blob
-        // (gc_tri.h). SITransfer runs the original for ports 2-4.
-        if (low.triforce && !triforce_on) {
+        // (gc_tri.h). SITransfer runs the original for ports 2-4. The
+        // addresses were found in the disc's own program, so a program the
+        // game loads itself never gets them.
+        if (main_program && low.triforce && !triforce_on) {
             logf("GameCube: Triforce game, but these arcade functions were not found, so its boards are not "
                  "answered and it stops at its start: %s\n",
                  triforce.missing.c_str());
-        } else if (triforce_on) {
+        } else if (main_program && triforce_on) {
             const std::uint32_t table = blob_addr + h.tri_hooks;
             for (unsigned i = 0; i < GC_TRI_HOOKS; ++i) {
                 const std::uint32_t fn = triforce.hooks[i];

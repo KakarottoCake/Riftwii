@@ -598,6 +598,10 @@ static void tri_poll_pad(struct gc_tri* t) {
         sr = tri_read32(TRI_SI_SR);
         ok = !(csr & TRI_SI_TSTART) && !(sr & TRI_SI_CHAN0_ERRORS);
         tri_write32(TRI_SI_SR, TRI_SI_CHAN0_ERRORS);
+        /* TCINT (bit 31) is a status bit a 1 clears: this acknowledges our
+         * own finished transfer, so the game never sees it. The enable
+         * (TCINTMSK, bit 30) is never set, and the game's read-status mask
+         * is kept as it was. */
         tri_write32(TRI_SI_COMCSR, TRI_SI_TCINT | (csr & TRI_SI_RDSTINTMSK));
         if (ok) {
             w0 = tri_read32(TRI_SI_BUFFER);

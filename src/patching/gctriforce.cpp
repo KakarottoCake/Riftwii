@@ -204,6 +204,18 @@ GcTriforceFunctions find_gc_triforce_functions(const std::vector<CodeRange>& ran
             if (word_before(text, site, 0xFFFFFFFFu, 0x38600012u, 8)) h[GC_TRI_DI_INQUIRY] = f;
             if (word_before(text, site, 0xFC1FFFFFu, 0x600300ABu, 8)) h[GC_TRI_DI_EXECUTE] = f;
         }
+        // Each command needs a function of its own: one function holding
+        // two of them would be hooked twice, and only the last hook would
+        // answer it. Such a game is left unhooked (named as missing).
+        const unsigned di_hooks[3] = {GC_TRI_DI_WRITE, GC_TRI_DI_INQUIRY, GC_TRI_DI_EXECUTE};
+        for (unsigned i = 0; i < 3; ++i) {
+            for (unsigned j = i + 1; j < 3; ++j) {
+                if (h[di_hooks[i]] != 0 && h[di_hooks[i]] == h[di_hooks[j]]) {
+                    h[di_hooks[i]] = 0;
+                    h[di_hooks[j]] = 0;
+                }
+            }
+        }
         break;
     }
 
@@ -217,7 +229,8 @@ GcTriforceFunctions find_gc_triforce_functions(const std::vector<CodeRange>& ran
 
 void gc_tri_identity(gc_tri& t, char region) {
     t.magic = GC_TRI_MAGIC;
-    // The SI type: the AM baseboard (0x10110800), its switches 0x100.
+    // The SI type: the AM baseboard's 0x10110800 with 0x100 set (its
+    // switches), 0x10110900: the three bytes 10 11 09.
     t.status_id[0] = 0x10;
     t.status_id[1] = 0x11;
     t.status_id[2] = 0x09;

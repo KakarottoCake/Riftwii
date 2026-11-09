@@ -13,7 +13,9 @@
  *    those packets. A one-byte 0x00 asks for the device's type.
  *  - The baseboard's EXI side (channel 0, device 2): its backup memory
  *    (the test menu's settings, the coin counters) and its interrupt
- *    registers. The arcade SDK's own EXI functions are replaced.
+ *    registers. The arcade SDK's own EXI functions are replaced. Its
+ *    interrupt reaches the game as channel 2's EXI interrupt, so the
+ *    handler kept and called is the one the game sets for channel 2.
  *  - The media board, through the disc interface: its type (0x12), its
  *    status words (reads at 0x80000000 and up), its command mailbox
  *    (writes, 0xAB). The network board under it is answered as idle, so
