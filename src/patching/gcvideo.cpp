@@ -185,10 +185,12 @@ GcSramReads find_gc_sram_reads(const std::vector<CodeRange>& text) {
     // A function that ends before the site is another one, however close.
     constexpr std::uint32_t kLockBodyLimit = 0x400;
     constexpr std::uint32_t kLiR3Zero = 0x38600000;
+    // The first blr, or where the scan stopped (the code's end, or the
+    // limit): a site before that has no return between it and the start.
     auto body_end = [&](std::uint32_t start) {
-        for (std::uint32_t a = start; code.has(a) && a < start + kLockBodyLimit; a += 4)
-            if (code.at(a) == kBlr) return a;
-        return start;  // no blr: nothing lies in it
+        std::uint32_t a = start;
+        while (code.has(a) && a < start + kLockBodyLimit && code.at(a) != kBlr) a += 4;
+        return a;
     };
     if (out.copy != 0) {
         code.each([&](std::uint32_t a, std::uint32_t w) {
