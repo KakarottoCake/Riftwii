@@ -83,6 +83,8 @@ void TestD2x() {
     EXPECT_EQ(blk.request.cmd_type, 1u);  // one of them
     EXPECT_EQ(blk.vec[0].len, 4u);
     EXPECT_EQ(blk.vec[1].len, 4u);
+    EXPECT_EQ(blk.vec[0].data, static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(&blk.request.cmd)));
+    EXPECT_EQ(blk.vec[1].data, static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(&blk.request.cmd_type)));
     EXPECT_EQ(blk.vec[2].len, 512u);
     EXPECT_EQ(blk.vec[2].data, static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(blk.armed)));
 }

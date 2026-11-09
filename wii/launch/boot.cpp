@@ -3102,8 +3102,9 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     }
     if (pad_reset) {
         // Past the end of boot.log: on screen only.
-        if (returns_to_channel && return_to == ChannelTitle() &&
-            enable_pad_reset(extras.pad, pad_restart.return_to_menu)) {
+        const bool reset_enabled = returns_to_channel && return_to == ChannelTitle() &&
+                                   enable_pad_reset(extras.pad, pad_restart.return_to_menu);
+        if (reset_enabled) {
             logf("Reset: on: the game's own Reset leaves through OSReturnToMenu (0x%08x), which now starts the "
                  "RiftWii channel\n", pad_restart.return_to_menu);
         } else if (!extras.pad.restart_hooked) {
@@ -3112,6 +3113,12 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         } else {
             logf("Reset: not on: the game's own Reset restarts it without the GameCube adapter or USB controllers: "
                  "Return to RiftWii is not patched in for the channel\n");
+        }
+        // A Reset that stays off has no use for the card held for its request; a game with a pass-through
+        // keeps it, as the pass-through drives this handle.
+        if (!reset_enabled && !vsd.active) {
+            sdio::close_card(card);
+            card = sdio::Card{};
         }
     }
     install_wpad_log_last(extras);
