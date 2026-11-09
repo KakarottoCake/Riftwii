@@ -58,6 +58,12 @@ const std::uint32_t* code_hook_pattern(CodeHook hook);
 // next executable is hooked too (USB Loader GX's multidol hook does the
 // same).
 std::vector<std::uint32_t> find_dol_jumps(const std::vector<CodeRange>& text);
+
+// A game that already branches (b or bl) to kCodeHandlerEntry: an image
+// patched to run a code handler that Dolphin or another loader puts
+// there (Phantasy Star Online with Sylverant's patches). The first such
+// branch's address, or 0 when the game has none.
+std::uint32_t find_builtin_handler_branch(const std::vector<CodeRange>& text);
 constexpr std::uint32_t kDolSwitchStub = 0x80001000;
 constexpr std::uint32_t kDolSwitchStubEnd = 0x80001300;  // the next exception vector the OS uses
 

@@ -88,6 +88,23 @@ std::vector<std::uint32_t> find_dol_jumps(const std::vector<CodeRange>& text) {
     return found;
 }
 
+std::uint32_t find_builtin_handler_branch(const std::vector<CodeRange>& text) {
+    constexpr std::uint32_t kBranchOpcode = 0x48000000;  // b / bl: opcode 18
+    constexpr std::uint32_t kOpcodeAndAbsolute = 0xFC000002;
+    for (const CodeRange& r : text) {
+        if (r.bytes == nullptr) continue;
+        for (std::size_t at = 0; at + 4 <= r.size; at += 4) {
+            const std::uint32_t instruction = word(r.bytes + at);
+            // A relative branch, with or without the link bit.
+            if ((instruction & kOpcodeAndAbsolute) != kBranchOpcode) continue;
+            const std::uint32_t from = r.address + static_cast<std::uint32_t>(at);
+            const std::uint32_t without_link = instruction & ~1u;
+            if (without_link == encode_b(from, kCodeHandlerEntry)) return from;
+        }
+    }
+    return 0;
+}
+
 std::uint32_t encode_b(std::uint32_t from, std::uint32_t to) {
     const std::int64_t delta = std::int64_t(to) - std::int64_t(from);
     if (delta < -0x2000000 || delta >= 0x2000000 || (delta & 3) != 0) return 0;

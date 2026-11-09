@@ -1993,10 +1993,20 @@ bool unpack_gc_rvz_blob(std::vector<std::uint8_t>& out, std::string& error) {
 // below 0x80000E00), no game section loads under kGameFloor, and the
 // game's OS leaves the area alone. The handler runs at the end of the
 // game's __VIRetraceHandler, once per frame, as in a Wii game.
+//
+// Some images come patched to run a code handler that Dolphin or another
+// loader puts there: they branch to its entry themselves (a tester's
+// Phantasy Star Online with Sylverant's patches, every frame from its
+// first). With no cheats picked that entry would be empty memory, and the
+// game crashed on its first frame (a program exception at 0x800018A8), so
+// it gets a lone `blr` there; with cheats, the game's own branch is their
+// hook.
 struct GcCheats {
     std::vector<std::uint8_t> gct;      // empty: no cheats
-    std::uint32_t hook = 0;             // the retrace handler's blr
+    std::uint32_t hook = 0;             // the retrace handler's blr, or the game's own branch
     std::vector<std::uint8_t> handler;  // the code handler as placed (gc_handler_without_fpu)
+    std::uint32_t builtin = 0;          // the game's own branch to the handler's entry (0: none)
+    std::uint32_t builtin_word = 0;     // that branch, to check no patch of ours took it
 };
 
 // The code handler for a GameCube game: the Gecko handler with its FPU use
@@ -2073,6 +2083,20 @@ constexpr std::uint32_t kIosAreaEnd = kIosCounter + kMovedBytes;
 // code before any patch of ours. False, with `why`, when they stay off.
 static bool plan_gc_cheats(const Dol& dol, const GcLaunchExtras& extras, GcCheats& out, std::string& why) {
     out = GcCheats{};
+    std::vector<CodeRange> text;
+    for (const Section& s : dol.text) text.push_back(CodeRange{s.address, s.bytes.data(), s.bytes.size()});
+    out.builtin = find_builtin_handler_branch(text);
+    if (out.builtin != 0) {
+        for (const CodeRange& r : text) {
+            if (out.builtin < r.address || out.builtin - r.address + 4 > r.size) continue;
+            const std::uint8_t* at = r.bytes + (out.builtin - r.address);
+            out.builtin_word = std::uint32_t(at[0]) << 24 | std::uint32_t(at[1]) << 16 |
+                               std::uint32_t(at[2]) << 8 | at[3];
+        }
+        logf("Codes: the game branches to a code handler's entry (0x%08x) itself, at 0x%08x (an image patched "
+             "to run one): the picked cheats' handler goes there, or a return when no cheats run\n",
+             kCodeHandlerEntry, out.builtin);
+    }
     if (extras.cheat_gct.empty()) return true;
     // A code build's gameconfig.txt (Project+) is for Wii games: its list
     // place and hook type mean nothing here.
@@ -2092,15 +2116,15 @@ static bool plan_gc_cheats(const Dol& dol, const GcLaunchExtras& extras, GcCheat
               std::to_string(room) + " (up to 0x80003000, where IOS's globals start); pick fewer cheats";
         return false;
     }
-    std::vector<CodeRange> text;
-    for (const Section& s : dol.text) text.push_back(CodeRange{s.address, s.bytes.data(), s.bytes.size()});
-    const std::uint32_t hook = find_gc_cheat_hook(text);
+    // The game's own branch runs the handler already: a second hook at the
+    // retrace handler's end would run the codes twice a frame.
+    const std::uint32_t hook = out.builtin != 0 ? out.builtin : find_gc_cheat_hook(text);
     if (hook == 0) {
         why = "the game's video retrace handler was not found, so there is nowhere to run them from";
         return false;
     }
     if (hook >= kIosAreaStart && hook < kIosAreaEnd) {
-        why = "the end of the game's video retrace handler is in IOS's globals area, where RiftWii moves code";
+        why = "the cheats' hook is in IOS's globals area, where RiftWii moves code";
         return false;
     }
     std::vector<std::uint8_t> handler(extras.code_handler, extras.code_handler + extras.code_handler_bytes);
@@ -2114,6 +2138,13 @@ static bool plan_gc_cheats(const Dol& dol, const GcLaunchExtras& extras, GcCheat
 // The branch to the handler, into the staged code, once every other patch
 // is in: false, with `why`, when one of them took the hook's word.
 static bool hook_gc_cheats(Code& code, const GcCheats& cheats, std::string& why) {
+    if (cheats.builtin != 0) {
+        if (code.at(cheats.builtin) != cheats.builtin_word) {
+            why = "another of RiftWii's patches changed the game's own branch to the code handler";
+            return false;
+        }
+        return true;
+    }
     constexpr std::uint32_t kBlr = 0x4E800020;
     if (code.at(cheats.hook) != kBlr) {
         why = "another of RiftWii's patches changed the end of the game's video retrace handler";
@@ -2140,6 +2171,16 @@ static void place_gc_cheats(const GcCheats& cheats, const std::string& game_id) 
     std::memcpy(list, cheats.gct.data(), cheats.gct.size());
     DCFlushRange(handler, kCodeListEnd - kCodeHandlerAddress);
     ICInvalidateRange(handler, kCodeListEnd - kCodeHandlerAddress);
+}
+
+// No cheats, but the game branches to the handler's entry itself: a
+// return there, so its branch does nothing (a `b` from a function's end
+// returns to that function's caller, a `bl` to the instruction after it).
+static void place_gc_handler_return() {
+    constexpr std::uint32_t kBlr = 0x4E800020;
+    store32(kCodeHandlerEntry, kBlr);
+    DCFlushRange(reinterpret_cast<void*>(kCodeHandlerEntry), 4);
+    ICInvalidateRange(reinterpret_cast<void*>(kCodeHandlerEntry), 4);
 }
 
 // The Wii Remotes' map for this game (riftwii/gccontrols.hpp): the
@@ -4046,13 +4087,17 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // taken its word unnoticed.
     if (!cheats.gct.empty()) {
         if (hook_gc_cheats(code, cheats, cheats_off)) {
-            logf("Codes: %u cheat(s), %u bytes at 0x%08x, handler at 0x%08x called from the retrace handler 0x%08x "
+            logf("Codes: %u cheat(s), %u bytes at 0x%08x, handler at 0x%08x called from %s 0x%08x "
                  "(the handler leaves the FPU alone: float operation codes do nothing)\n",
                  static_cast<unsigned>(extras.cheat_count), static_cast<unsigned>(cheats.gct.size()),
-                 kCodeListAddress, kCodeHandlerAddress, cheats.hook);
+                 kCodeListAddress, kCodeHandlerAddress,
+                 cheats.builtin != 0 ? "the game's own branch" : "the retrace handler", cheats.hook);
         } else {
             logf("Codes are off: %s\n", cheats_off.c_str());
+            // The game's own branch still needs somewhere to land.
+            const std::uint32_t builtin = cheats.builtin;
             cheats = GcCheats{};
+            cheats.builtin = builtin;
         }
     }
 
@@ -4178,6 +4223,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     store32(0x800000FC, clocks.cpu);
     // After the clear above, which would have taken them.
     if (!cheats.gct.empty()) place_gc_cheats(cheats, image.id);
+    else if (cheats.builtin != 0) place_gc_handler_return();
     // IOS's replies stay polled: no IPC interrupt reaches the game.
     store32(0xCD000004, 0);
     // Nor any other of Hollywood's interrupts: the game's OS knows none of
