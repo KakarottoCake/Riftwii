@@ -3532,15 +3532,22 @@ public:
 			std::unique_ptr<GuiText> label(new GuiText(tile.label.c_str(), 15, skin::kInk));
 			label->SetParent(this);
 			label->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-			// Two lines from y + 42 end by y + 84, inside a short card's 96
-			// (4:3 wraps "Recently played" and most translations).
+			// A short card and a card with no count wrap the name at two lines
+			// (4:3 wraps "Recently played" and most translations); a tall card
+			// with a count wraps at three.
 			label->SetWrap(true, tile.w - 12, shortCard || tile.value.empty() ? 2 : 3);
-			// The picture and the name are centred in the card as one block (a
-			// card with a count keeps its old places: the count sits below them).
-			int labelY = shortCard ? 42 : tile.value.empty() ? 88 : 76;
-			int iconTop = shortCard ? 6 : 30;
+			// A short card and a card with no count have the picture and the
+			// name centred in the card as one block, worked out below (a short
+			// card's count sits in its top-right corner, clear of both). A tall
+			// card with a count keeps the fixed places: the count sits below
+			// the picture, then the name below the count.
+			int labelY = tile.value.empty() ? 88 : 76;
+			int iconTop = 30;
 			if (shortCard || tile.value.empty()) {
-				const int lines = label->GetTextWidth() > tile.w - 12 ? 2 : 1;
+				// One line, or two when the name is wider than the card or has
+				// a newline of its own in a translation.
+				int lines = label->GetTextWidth() > tile.w - 12 ? 2 : 1;
+				if (tile.label.find('\n') != std::string::npos) lines = 2;
 				const int picture = shortCard ? 35 : 42;  // the 28px picture, scaled
 				const int block = picture + 4 + 18 * lines;
 				const int top = (tile.h - block) / 2;
@@ -3580,8 +3587,8 @@ public:
 				skin::DrawNine(over, x - 8, y - 8, w + 16, h + 16, skin::kTileCorner,
 					static_cast<int>(255 * lift * transition::Pulse()));
 			}
-			// A short card's picture is smaller and higher (35px from y + 3)
-			// so that two lines of name end inside it.
+			// A short card's picture is smaller (35px) so that two lines of
+			// name fit below it; its place comes from the constructor.
 			const bool shortCard = tile.h <= kChoiceShortCard;
 			const float iconY = static_cast<float>(iconTops_[index]), iconScale = shortCard ? 1.25f : 1.5f;
 			if (tile.icon) skin::Draw(*tile.icon, tile.x + (tile.w - 28) / 2.0f, tile.y + iconY, 255, iconScale);
