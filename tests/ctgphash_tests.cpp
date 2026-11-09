@@ -10,6 +10,9 @@
 #include <vector>
 
 #include "riftwii/ctgphash.hpp"
+#include "riftwii/sha1.hpp"
+#include <array>
+#include <map>
 
 static int g_failures = 0;
 #define EXPECT_TRUE(cond) do { if (!(cond)) { std::cerr << "FAILED: " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
@@ -182,6 +185,36 @@ int main() {
     EXPECT_TRUE(!ctgp_load_hash_list(longsig, "TEST", 0x01020304, other, error, &key));
     // a name longer than eight characters cannot be a package
     EXPECT_TRUE(!ctgp_load_hash_list(good, "TOOLONGNAME", 0x01020304, other, error, &key));
+
+    // Membership by digest (not by name): the native launch confirms directly
+    // placed loader code this way, since it does not know the names CORE.HSH
+    // gives those files. The digests of the verified list's two files are found;
+    // a digest with one byte flipped is not.
+    std::array<std::uint8_t, 20> probe{};
+    std::memcpy(probe.data(), kDigestOne, 20);
+    EXPECT_TRUE(list.contains_digest(probe));
+    std::memcpy(probe.data(), kDigestTwo, 20);
+    EXPECT_TRUE(list.contains_digest(probe));
+    probe[0] ^= 0x01;
+    EXPECT_TRUE(!list.contains_digest(probe));
+
+    // Three blobs whose SHA-1s are in a (synthetic) list pass; flipping one byte
+    // of one blob makes its digest absent, so that one fails.
+    const std::vector<std::uint8_t> blob_a = {'c', 't', 'g', 'p', 'B', 'O', 'O', 'T'};
+    const std::vector<std::uint8_t> blob_b = {'c', 't', 'g', 'p', 'B', 'O', 'A', 'T'};
+    const std::vector<std::uint8_t> blob_c = {'c', 't', 'g', 'p', 'B', 'E', 'A', 'T'};
+    std::map<std::string, std::array<std::uint8_t, 20>> code_digests;
+    code_digests["/PACKAGES/CORE/BOOT.BIN"] = sha1(blob_a.data(), blob_a.size());
+    code_digests["/PACKAGES/CORE/BOAT.BIN"] = sha1(blob_b.data(), blob_b.size());
+    code_digests["/PACKAGES/CORE/BEAT.BIN"] = sha1(blob_c.data(), blob_c.size());
+    const CtgpHashList core = CtgpHashList::unverified_for_tests(code_digests);
+    EXPECT_TRUE(core.contains_digest(sha1(blob_a.data(), blob_a.size())));
+    EXPECT_TRUE(core.contains_digest(sha1(blob_b.data(), blob_b.size())));
+    EXPECT_TRUE(core.contains_digest(sha1(blob_c.data(), blob_c.size())));
+    std::vector<std::uint8_t> tampered = blob_b;
+    tampered[0] ^= 0x01;
+    EXPECT_TRUE(!core.contains_digest(sha1(tampered.data(), tampered.size())));
+
     if (g_failures) {
         std::cerr << g_failures << " failures" << std::endl;
         return 1;

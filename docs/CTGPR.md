@@ -24,13 +24,15 @@ The CTGP-R developers allow it on these conditions, which the code keeps:
   trusted (`src/ctgpr/ctgpdsa.cpp`, `ctgphash.cpp`); this matters here because
   the channel, which would otherwise verify the lists, never runs. Each list's
   per-file SHA-1 is then written into the game's open-file records, where
-  CTGP's own code compares every served file as it reads it. The only change to
-  CTGP's own data is the path its channel button starts, which points at
+  CTGP's own code compares every served file as it reads it. The core loader
+  code RiftWii places directly (`BOOT.BIN`, `BOAT.BIN`, `BEAT.BIN`), which is
+  not served through those open-file records, is checked too: the SHA-1 of each
+  one must appear among the digests in the signature-checked `CORE.HSH`, or the
+  launch stops before anything is placed (`wii/launch/ctgpr.cpp`,
+  `ctgphash.cpp`). The match is by digest, not by the names `CORE.HSH` gives
+  those files, so the launch needs no knowledge of their names. The only change
+  to CTGP's own data is the path its channel button starts, which points at
   RiftWii's `boot.dol`.
-  *Not yet checked by RiftWii:* the core code RiftWii places directly
-  (`BOOT.BIN`, `BOAT.BIN`, `BEAT.BIN`) is not itself re-hashed before it is
-  placed — the names those files carry inside `CORE.HSH` are only on the
-  player's own encrypted package disk, so re-hashing them is a follow-up.
 * **No ghost signing.** The card's signing key (on `jelly.bin`) and the
   console's MAC are not read. CTGP gets a key RiftWii made that can never
   give a valid signature (`include/riftwii/ctgpsign.hpp`). CTGP's server

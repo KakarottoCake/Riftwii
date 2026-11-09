@@ -89,4 +89,17 @@ bool CtgpHashList::find(const std::string& path, std::array<std::uint8_t, 20>& d
     return true;
 }
 
+bool CtgpHashList::contains_digest(const std::array<std::uint8_t, 20>& digest) const {
+    // The test-only direct lists hold their digests by value.
+    for (const auto& named : direct_) {
+        if (named.second == digest) return true;
+    }
+    // A real list points each file entry at a 20-byte digest inside the body.
+    for (const FstEntry& e : tree_.entries()) {
+        if (e.is_directory || e.size != 20 || e.offset > body_.size() || body_.size() - e.offset < 20) continue;
+        if (std::memcmp(body_.data() + e.offset, digest.data(), 20) == 0) return true;
+    }
+    return false;
+}
+
 }  // namespace riftwii
