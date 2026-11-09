@@ -47,6 +47,8 @@ riftwii::wii::GcImage image_of(const rwp_gc_launch& request) {
     image.sharp = request.sharp != 0;
     image.sixty_hz = request.sixty_hz != 0;
     image.vi_width = request.vi_width;
+    image.screen_offset_set = request.screen_offset_set != 0;
+    image.screen_offset = request.screen_offset;
     image.exec = request.exec != 0;
     image.exec_dol = request.exec_dol;
     image.exec_restart = request.exec_restart;

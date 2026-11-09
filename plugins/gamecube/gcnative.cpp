@@ -1704,6 +1704,18 @@ static void apply_picture_and_language(const GcImage& image, Code& code, ReplayH
              static_cast<unsigned>(sram.sixty_hz.size()), static_cast<unsigned>(sram.progressive.size()),
              vi_hooked ? "hooked, its mode in the trace" : "not hooked");
     }
+    // The screen position: VIInit's read of the SRAM's byte becomes the
+    // Wii's. The console's SRAM is left as it is.
+    if (image.screen_offset_set) {
+        const std::uint16_t offset = static_cast<std::uint16_t>(static_cast<std::int16_t>(image.screen_offset));
+        for (std::uint32_t a : sram.display_offset) code.put(a, li(reg_d(code.at(a)), offset));
+        if (sram.display_offset.empty()) {
+            logf("GameCube: screen position %d not applied: VIInit's read of it was not found\n", image.screen_offset);
+        } else {
+            logf("GameCube: screen position %d (%u read(s) in VIInit)\n", image.screen_offset,
+                 static_cast<unsigned>(sram.display_offset.size()));
+        }
+    }
     // Picture width: VIConfigure draws the picture that wide, centred.
     if (image.vi_width != 0) {
         if (vi_hooked) ctx->vi_width = image.vi_width;

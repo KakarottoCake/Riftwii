@@ -376,8 +376,27 @@ static void test_external_card_request() {
     EXPECT_FALSE(fixture.check(why));
 }
 
+static void test_screen_offset_request() {
+    Fixture fixture;
+    std::string why;
+    fixture.request.screen_offset_set = 1;
+    for (int offset : {-32, 0, 32}) {
+        fixture.request.screen_offset = offset;
+        EXPECT_TRUE(fixture.check(why));
+    }
+    for (int offset : {-33, 33}) {
+        fixture.request.screen_offset = offset;
+        EXPECT_FALSE(fixture.check(why));
+    }
+    // Not set: the value is not used, so it is not checked.
+    fixture.request.screen_offset_set = 0;
+    fixture.request.screen_offset = 100;
+    EXPECT_TRUE(fixture.check(why));
+}
+
 int main() {
     test_external_card_request();
+    test_screen_offset_request();
     {
         Fixture mappings;
         std::string error;

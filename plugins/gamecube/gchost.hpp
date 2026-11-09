@@ -53,6 +53,8 @@ struct GcImage {
     bool sharp = false;
     bool sixty_hz = false;
     std::uint32_t vi_width = 0;
+    bool screen_offset_set = false;  // the game is told screen_offset as the console's screen position
+    int screen_offset = 0;
     // A switch to another program on the disc (rwp_gc_launch's exec).
     bool exec = false;
     std::uint32_t exec_dol = 0;
