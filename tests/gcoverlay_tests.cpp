@@ -431,6 +431,33 @@ static void test_bigger_than_a_disc() {
     runs.clear();
     EXPECT_TRUE(gc_disc_runs(image, kBig, &plan, runs, error));
     expect_contiguous(runs);
+    // The image's runs are its own sectors in order, the window's after it:
+    // the pack's file from the card, the FST from memory.
+    bool card_run = false, fst_run = false;
+    for (const GcRun& r : runs) {
+        if (r.disc < kBig) {
+            EXPECT_TRUE(r.kind == GcRun::Kind::Sd);
+            EXPECT_EQ(r.sector * 512 + r.skip, kImageSector * 512 + r.disc);
+        } else if (r.kind == GcRun::Kind::Sd) {
+            card_run = r.sector == 10 && r.length == 0x200;
+        } else if (r.kind == GcRun::Kind::Fst) {
+            fst_run = r.disc == plan.fst_offset && r.length == plan.fst.size();
+        }
+    }
+    EXPECT_TRUE(card_run);
+    EXPECT_TRUE(fst_run);
+
+    // The same as an RVZ: the image's bytes are one Image run of 1.5 GB,
+    // the window after it.
+    runs.clear();
+    EXPECT_TRUE(gc_disc_runs_rvz(kBig, &plan, runs, error));
+    expect_contiguous(runs);
+    EXPECT_TRUE(!runs.empty() && runs[0].kind == GcRun::Kind::Image && runs[0].disc == 0 &&
+                runs[0].length == kBig && runs[0].image_offset == 0);
+    runs.clear();
+    EXPECT_TRUE(gc_disc_runs_rvz(kBig, nullptr, runs, error));
+    EXPECT_EQ(runs.size(), std::size_t(1));
+
     // A 4 GiB image leaves no room for a pack's window: refused.
     EXPECT_FALSE(plan_gc_overlay(boot, d.fst, kGcDiscLimit, files, plan, error));
 }
