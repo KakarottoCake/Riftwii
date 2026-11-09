@@ -160,6 +160,9 @@ contains theirs names them in its file header, and
   encryption key is used (the Pro Controller translator). **libwbfs** by Kwiirk and contributors: the
   WBFS drive layout. **Friivolution** by december: the launch argument
   other loaders pass (both read as documentation, nothing copied).
+- **naari3's Mario Kart Arcade GP2 decompilation** and **Dolphin**'s
+  Triforce boards: how the arcade boards answer the game, read as
+  documentation; no code copied.
 - **projectPiki's Pikmin 2 decompilation**: GameCube SDK controller
   lifecycle behaviour, read as documentation; no code copied.
 - **The Mario Kart: Double Dash!! decompilation** (doldecomp): how the
