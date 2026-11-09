@@ -4214,3 +4214,15 @@ msgstr "La tarjeta de memoria de cada juego de GameCube cuya opción Tarjeta de 
 
 msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
 msgstr "No se pudo leer la tarjeta de memoria de la ranura B. Vuelve a insertarla o elige otra tarjeta en la página del juego."
+
+msgid "Volume boost"
+msgstr "Aumento de volumen"
+
+msgid "Louder (+3 dB)"
+msgstr "Más alto (+3 dB)"
+
+msgid "Loudest (+6 dB)"
+msgstr "Aún más alto (+6 dB)"
+
+msgid "Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten."
+msgstr "Sube todo el sonido de un juego silencioso. A +6 dB los sonidos más fuertes pueden aplanarse."

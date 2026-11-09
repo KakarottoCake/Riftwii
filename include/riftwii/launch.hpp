@@ -162,6 +162,10 @@ struct GameSettings {
     // takes 60 Hz, so a game with a 60 Hz mode of its own plays in it;
     // "50" is the game as made.
     std::string gc_speed = "50";
+    // Volume boost, for a quiet game: "3" or "6" makes all its sound
+    // that many decibels louder (runtime/gc/gc_volume.h); "off" is the
+    // game as made.
+    std::string gc_volume = "off";
 };
 
 // The GameCube's languages in the order of their number in its settings
@@ -214,6 +218,9 @@ bool gc_progressive_on(const GameSettings& game, const std::string& id, const Gc
 
 // Whether a European game (gc_pal_game) is told the TV takes 60 Hz.
 bool gc_sixty_hz_on(const GameSettings& game, const std::string& id);
+
+// The game's Volume boost in decibels: 0 (off), 3 or 6.
+unsigned gc_volume_boost_db(const GameSettings& game);
 
 // The picture width the game gets, as a riftwii/videopatch.hpp name:
 // the game's pick, or Settings' for "global" ("game" for anything else).

@@ -8809,5 +8809,31 @@ FR.update({
         "La carte mémoire du port B n'a pas pu être lue. Remettez-la, ou choisissez une autre carte sur la page du jeu.",
 })
 
+# GameCube games' Volume boost (runtime/gc/gc_volume.h).
+T.update({
+    'Volume boost': ('Aumento de volumen', '音量アップ', 'Aumento de volume', 'Aumento del volume'),
+    'Louder (+3 dB)': ('Más alto (+3 dB)', '大きく (+3 dB)', 'Mais alto (+3 dB)', 'Più forte (+3 dB)'),
+    'Loudest (+6 dB)': ('Aún más alto (+6 dB)', 'もっと大きく (+6 dB)', 'Ainda mais alto (+6 dB)', 'Ancora più forte (+6 dB)'),
+    "Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten.": (
+        'Sube todo el sonido de un juego silencioso. A +6 dB los sonidos más fuertes pueden aplanarse.',
+        '音が小さいゲームの音をすべて大きくします。+6 dBでは、いちばん大きな音がつぶれることがあります。',
+        'Aumenta todo o som de um jogo baixo. Em +6 dB os sons mais altos podem ficar achatados.',
+        'Alza tutto il suono di un gioco silenzioso. A +6 dB i suoni più forti possono appiattirsi.'),
+})
+KO.update({
+    'Volume boost': '볼륨 키우기',
+    'Louder (+3 dB)': '크게 (+3 dB)',
+    'Loudest (+6 dB)': '더 크게 (+6 dB)',
+    "Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten.":
+        '소리가 작은 게임의 모든 소리를 키웁니다. +6 dB에서는 가장 큰 소리가 뭉개질 수 있습니다.',
+})
+FR.update({
+    'Volume boost': 'Volume renforcé',
+    'Louder (+3 dB)': 'Plus fort (+3 dB)',
+    'Loudest (+6 dB)': 'Encore plus fort (+6 dB)',
+    "Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten.":
+        "Rend plus fort tout le son d'un jeu trop discret. À +6 dB, les sons les plus forts peuvent être écrêtés.",
+})
+
 if __name__ == "__main__":
     main()

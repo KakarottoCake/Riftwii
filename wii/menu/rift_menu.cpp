@@ -8580,7 +8580,7 @@ struct RowRef {
 	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Aspect, Rumble, Speaker,
 		RegionStrings, Language, Cios, NandSource, Server, Favorite, Pack, Option, Note, ResetOptions,
 		AddCodes, ForgetCodes, MakeImage, Cover, Memory, About, GcDiscReads, GcCard, GcProgressive, GcWidescreen,
-		GcSharp, GcWidth, GcSpeed, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile, CodeStart, CrashLogs, CoverSet, CoverPick } what = What::Note;
+		GcSharp, GcWidth, GcSpeed, GcVolume, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile, CodeStart, CrashLogs, CoverSet, CoverPick } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -8649,6 +8649,15 @@ static const char* const kGameLanguages[] = {"global", "console", "ja", "en", "d
 // languages are the console's GameCube setting, then riftwii::kGcLanguages
 // in the SRAM's order.
 static const char* const kGcProgressiveChoices[] = {"global", "480p", "game"};
+// Volume boost: off, then +3 and +6 dB (GameSettings::gc_volume).
+static const char* const kGcVolumeChoices[] = {"off", "3", "6"};
+
+static std::string GcVolumeName(const std::string& volume)
+{
+	if (volume == "3") return tr("Louder (+3 dB)");
+	if (volume == "6") return tr("Loudest (+6 dB)");
+	return tr("Off (as made)");
+}
 static const char* const kGcWidescreenChoices[] = {"global", "16:9", "game"};
 static const char* const kGcLanguageChoices[] = {"global", "game", "english", "german", "french", "spanish", "italian",
 	"dutch"};
@@ -9163,6 +9172,13 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 			rows.push_back(speed);
 			refs.push_back({W::GcSpeed});
 		}
+		FlowRow volume;
+		volume.kind = FlowRow::Kind::Option;
+		volume.label = tr("Volume boost");
+		volume.on = riftwii::gc_volume_boost_db(game) != 0;
+		volume.value = GcVolumeName(game.gc_volume);
+		rows.push_back(volume);
+		refs.push_back({W::GcVolume});
 		FlowRow language;
 		language.kind = FlowRow::Kind::Option;
 		language.label = tr("Game language");
@@ -13918,6 +13934,7 @@ static int ChangedGameSettings(const riftwii::GameSettings& g)
 	if (g.gc_sharp == "on") ++changed;
 	if (g.gc_width != "global") ++changed;
 	if (g.gc_speed == "60") ++changed;
+	if (riftwii::gc_volume_boost_db(g) != 0) ++changed;
 	if (g.rumble == "off") ++changed;
 	if (g.speaker == "off") ++changed;
 	return changed;
@@ -14177,6 +14194,8 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				say(WidthNote(gameSettings.gc_width == "global" ? riftwii::wii::Settings().video_width : gameSettings.gc_width));
 			else if (ref.what == RowRef::What::GcSpeed)
 				say(tr("Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz."));
+			else if (ref.what == RowRef::What::GcVolume)
+				say(tr("Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten."));
 			else if (ref.what == RowRef::What::GcLanguage)
 				say(tr("The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one)."));
 			else if (ref.what == RowRef::What::GcControls)
@@ -14279,6 +14298,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			else if (ref.what == RowRef::What::GcSharp) game.gc_sharp = game.gc_sharp == "on" ? "off" : "on";
 			else if (ref.what == RowRef::What::GcWidth) game.gc_width = StepValue(kWidths, game.gc_width, direction);
 			else if (ref.what == RowRef::What::GcSpeed) game.gc_speed = game.gc_speed == "60" ? "50" : "60";
+			else if (ref.what == RowRef::What::GcVolume) game.gc_volume = StepValue(kGcVolumeChoices, game.gc_volume, direction);
 			else if (ref.what == RowRef::What::GcLanguage) game.gc_language = StepValue(kGcLanguageChoices, game.gc_language, direction);
 			else if (ref.what == RowRef::What::GcControls) {
 				ShowGcControls(false);
@@ -14322,6 +14342,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 					game.gc_sharp = fresh.gc_sharp;
 					game.gc_width = fresh.gc_width;
 					game.gc_speed = fresh.gc_speed;
+					game.gc_volume = fresh.gc_volume;
 					// Kept: cheats, save mode, packs, favourite.
 					logf("Game settings: %s options reset to the defaults (saves, cheats, mods kept)\n", state.game_id.c_str());
 				}

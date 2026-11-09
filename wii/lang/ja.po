@@ -4214,3 +4214,15 @@ msgstr "メモリーカードの設定が「標準」のゲームキューブの
 
 msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
 msgstr "スロットBのメモリーカードを読めませんでした。差し直すか、ゲームのページで別のカードを選んでください。"
+
+msgid "Volume boost"
+msgstr "音量アップ"
+
+msgid "Louder (+3 dB)"
+msgstr "大きく (+3 dB)"
+
+msgid "Loudest (+6 dB)"
+msgstr "もっと大きく (+6 dB)"
+
+msgid "Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten."
+msgstr "音が小さいゲームの音をすべて大きくします。+6 dBでは、いちばん大きな音がつぶれることがあります。"

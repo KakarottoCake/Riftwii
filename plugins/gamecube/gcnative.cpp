@@ -26,6 +26,7 @@
 #include "gc_rt.h"
 #include "gc_rvz.h"
 #include "gc_video.h"
+#include "gc_volume.h"
 #include "gcblobs.h"
 #include "rtzstd.h"
 #include "riftwii/codehook.hpp"
@@ -3378,6 +3379,17 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             store32(back, 0x3D800000 | ((ai_dma + 4) >> 16));        // lis r12, hi
             store32(back + 4, 0x618C0000 | ((ai_dma + 4) & 0xFFFF));  // ori r12, r12, lo
             hook(ai_dma, h.hook_ai_dma);
+        }
+        // Volume boost: every buffer AIInitDMA hands the AI is scaled in
+        // its hook (gc_volume.h). The AI's own volume register would
+        // change only the disc's streamed music.
+        if (image.volume_boost_db != 0 && ai_dma != 0) {
+            ctx->volume_gain = gc_volume_gain(image.volume_boost_db);
+            logf("GameCube: Volume boost +%u dB: each sound buffer AIInitDMA 0x%08x plays is scaled by %u/256, "
+                 "clamped\n",
+                 image.volume_boost_db, ai_dma, ctx->volume_gain);
+        } else if (image.volume_boost_db != 0) {
+            logf("GameCube: Volume boost +%u dB not applied: AIInitDMA was not found\n", image.volume_boost_db);
         }
         // PADRead: the Wii Remotes are polled from it, and the test presses
         // go in there.

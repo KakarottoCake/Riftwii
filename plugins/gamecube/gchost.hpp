@@ -55,6 +55,7 @@ struct GcImage {
     std::uint32_t vi_width = 0;
     bool screen_offset_set = false;  // the game is told screen_offset as the console's screen position
     int screen_offset = 0;
+    std::uint32_t volume_boost_db = 0;  // Volume boost: 0, 3 or 6 dB (runtime/gc/gc_volume.h)
     // A switch to another program on the disc (rwp_gc_launch's exec).
     bool exec = false;
     std::uint32_t exec_dol = 0;

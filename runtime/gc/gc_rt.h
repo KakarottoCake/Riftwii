@@ -664,6 +664,13 @@ struct gc_rt_context {
     uint32_t sample_quiet;
     uint32_t samples_stood_in;
     uint32_t sample_queued;
+    /* Volume boost (gc_volume.h): the gain in 1/256ths each AI buffer is
+     * scaled by in gc_on_ai_dma (loader-filled; 0 or GC_VOLUME_UNITY: off),
+     * and the last buffer scaled, so one handed over twice in a row (a
+     * mixer that fell behind replays its last) is not made louder again. */
+    uint32_t volume_gain;
+    uint32_t volume_last;
+    uint32_t volume_buffers;  /* buffers scaled, for a memory dump */
     uint8_t sample_alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
 };
 

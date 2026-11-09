@@ -10,6 +10,7 @@
 #include "gc_ports.h"
 #include "gc_tgc.h"
 #include "gc_video.h"
+#include "gc_volume.h"
 #include "gc_load.h"
 #include "gc_disc.h"
 #include "gc_programs.h"
@@ -1836,22 +1837,14 @@ static int gc_stream_next(struct gc_rt_stream* st, int32_t* l, int32_t* r) {
     return 1;
 }
 
-/* AIInitDMA: the buffer the AI plays next is the game's finished mix;
- * the stream goes into it at the AI's stream volume. */
-void gc_on_ai_dma(struct gc_rt_context* ctx, uint32_t start, uint32_t length) {
-    struct gc_rt_stream* st = (struct gc_rt_stream*)(uintptr_t)ctx->stream;
-    const uint32_t cr = gc_read32(GC_AI_CR);
+/* The disc stream into `frames` stereo frames of the game's mix, at the
+ * AI's stream volume. */
+static void gc_stream_mix(struct gc_rt_context* ctx, struct gc_rt_stream* st, int16_t* out, uint32_t frames,
+                          uint32_t cr) {
     const uint32_t vr = gc_read32(GC_AI_VR);
-    gc_guard(ctx);
     const int32_t vol_l = (int32_t)(vr & 0xFFu);
     const int32_t vol_r = (int32_t)((vr >> 8) & 0xFFu);
-    const uint32_t addr = 0x80000000u | (start & 0x01FFFFE0u);
-    int16_t* out = (int16_t*)(uintptr_t)addr;
-    uint32_t frames = length / 4;
     uint32_t i;
-    if ((++ctx->ai_dmas & 1023) == 0) gc_trace(ctx, GC_TRACE_AI);
-    if (st == 0 || !st->playing || (cr & GC_AI_PSTAT) == 0 || length == 0) return;
-    gc_invalidate(addr, length);
     for (i = 0; i < frames; ++i) {
         int32_t l;
         int32_t r;
@@ -1880,8 +1873,32 @@ void gc_on_ai_dma(struct gc_rt_context* ctx, uint32_t start, uint32_t length) {
         out[2 * i] = (int16_t)gc_clamp16(out[2 * i] + ((l * vol_l) >> 8));
         out[2 * i + 1] = (int16_t)gc_clamp16(out[2 * i + 1] + ((r * vol_r) >> 8));
     }
-    gc_flush(addr, length);
     st->mixes++;
+}
+
+/* AIInitDMA: the buffer the AI plays next is the game's finished mix; the
+ * disc stream goes into it, then the Volume boost scales it all
+ * (gc_volume.h). Both before the original programs the AI with it. */
+void gc_on_ai_dma(struct gc_rt_context* ctx, uint32_t start, uint32_t length) {
+    struct gc_rt_stream* st = (struct gc_rt_stream*)(uintptr_t)ctx->stream;
+    const uint32_t cr = gc_read32(GC_AI_CR);
+    gc_guard(ctx);
+    const uint32_t addr = 0x80000000u | (start & 0x01FFFFE0u);
+    int16_t* out = (int16_t*)(uintptr_t)addr;
+    const int mix_stream = st != 0 && st->playing && (cr & GC_AI_PSTAT) != 0 && length != 0;
+    /* A buffer handed over again right after itself was scaled already. */
+    const int boost = ctx->volume_gain > GC_VOLUME_UNITY && length != 0 && start != ctx->volume_last;
+    if ((++ctx->ai_dmas & 1023) == 0) gc_trace(ctx, GC_TRACE_AI);
+    if (!mix_stream && !boost) return;
+    /* The DSP wrote the buffer behind the cache: read what it wrote. */
+    gc_invalidate(addr, length);
+    if (mix_stream) gc_stream_mix(ctx, st, out, length / 4, cr);
+    if (boost) {
+        gc_volume_scale(out, length / 2, ctx->volume_gain);
+        ctx->volume_last = start;
+        ctx->volume_buffers++;
+    }
+    gc_flush(addr, length);
 }
 
 /* Back to RiftWii: the title the loader picked (the Homebrew Channel, the

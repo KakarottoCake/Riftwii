@@ -1157,6 +1157,7 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         image.sharp = game.gc_sharp == "on";
         image.sixty_hz = gc_sixty_hz_on(game, image.id);
         image.vi_width = gc_vi_width(gc_picture_width(game, console));
+        image.volume_boost_db = gc_volume_boost_db(game);
         // The Wii's screen position (Wii Settings > Screen > Screen
         // Position), as a Wii game gets it. A GameCube game reads its own
         // from the SRAM, which nothing on a Wii sets.

@@ -192,6 +192,11 @@ bool gc_request_check(const rwp_gc_launch* request, std::uint32_t bytes, std::ui
         why = "the launch request has conflicting memory card choices";
         return false;
     }
+    if (request->volume_boost_db != 0 && request->volume_boost_db != 3 && request->volume_boost_db != 6) {
+        why = "the launch request's volume boost of " + std::to_string(request->volume_boost_db) +
+              " dB is not 0, 3 or 6";
+        return false;
+    }
     if (request->screen_offset_set && (request->screen_offset < -32 || request->screen_offset > 32)) {
         why = "the launch request's screen position " + std::to_string(request->screen_offset) +
               " is outside -32 to 32";

@@ -4214,3 +4214,15 @@ msgstr "메모리 카드 옵션이 기본값인 모든 게임큐브 게임의 �
 
 msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
 msgstr "슬롯 B의 메모리 카드를 읽을 수 없습니다. 다시 꽂거나 게임 페이지에서 다른 카드를 고르세요."
+
+msgid "Volume boost"
+msgstr "볼륨 키우기"
+
+msgid "Louder (+3 dB)"
+msgstr "크게 (+3 dB)"
+
+msgid "Loudest (+6 dB)"
+msgstr "더 크게 (+6 dB)"
+
+msgid "Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten."
+msgstr "소리가 작은 게임의 모든 소리를 키웁니다. +6 dB에서는 가장 큰 소리가 뭉개질 수 있습니다."

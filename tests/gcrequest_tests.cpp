@@ -394,9 +394,25 @@ static void test_screen_offset_request() {
     EXPECT_TRUE(fixture.check(why));
 }
 
+static void test_volume_boost_request() {
+    Fixture fixture;
+    std::string why;
+    for (std::uint32_t boost : {0u, 3u, 6u}) {
+        fixture.request.volume_boost_db = boost;
+        EXPECT_TRUE(fixture.check(why));
+    }
+    // Only the option's own values: a damaged request is refused rather
+    // than played louder than any choice the menu offers.
+    for (std::uint32_t boost : {1u, 9u, 0xFFFFFFFFu}) {
+        fixture.request.volume_boost_db = boost;
+        EXPECT_FALSE(fixture.check(why));
+    }
+}
+
 int main() {
     test_external_card_request();
     test_screen_offset_request();
+    test_volume_boost_request();
     {
         Fixture mappings;
         std::string error;
