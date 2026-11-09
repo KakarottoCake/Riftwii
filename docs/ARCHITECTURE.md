@@ -301,7 +301,11 @@ too (`ready_usb`, checked against the pack's first file). The memory
 cards, the RVZ's group table and the trace stay on the SD card.
 The heartbeat reads the image's first sector when the drive has been
 quiet for 30 s (`gc_usb_keep_alive`), so a hard drive does not spin down
-under a game that has loaded what it needs. A patch-only
+under a game that has loaded what it needs. Wii games and mod packs on a
+USB drive need nothing of RiftWii's own for this: they run under d2x,
+whose USB driver reads a sector by itself whenever the drive it mounted
+(through `/dev/usb2`, as RiftWii mounts it) has been quiet for 10 s
+(d2x's EHCI module, `__EHCI_Watchdog`, read for behaviour). A patch-only
 mod, `sd:/riftwii/patches/*.xdelta`, is listed as the game it makes when
 one of those images is its original (`wii/launch/gcpatch.cpp`, the VCDIFF
 reader `src/patching/vcdiff.cpp`). Starting it builds
