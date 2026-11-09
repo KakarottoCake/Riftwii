@@ -465,6 +465,23 @@ int compare_versions(const std::string& a, const std::string& b) {
     return compare_suffixes(x.suffix, y.suffix);
 }
 
+std::string running_dol_path(const char* launch_path, const std::function<bool(const std::string&)>& is_file) {
+    constexpr const char* kDefaultDol = "sd:/apps/riftwii/boot.dol";
+    std::string path = launch_path != nullptr ? launch_path : "";
+    if (!path.empty()) {
+        if (path.rfind("/apps/", 0) == 0) path = "sd:" + path;
+        // A device other than the card ("usb:/apps/riftwii/boot.dol"): the
+        // SD copy, if there is one, is not what is running.
+        const std::size_t colon = path.find(':');
+        const bool on_sd = path.rfind("sd:/", 0) == 0;
+        if (colon != std::string::npos && !on_sd) return "";
+        std::string tail = path.size() >= 4 ? path.substr(path.size() - 4) : std::string();
+        for (char& c : tail) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        if (on_sd && tail == ".dol" && is_file(path)) return path;
+    }
+    return is_file(kDefaultDol) ? kDefaultDol : "";
+}
+
 bool plan_update_writes(const ThemePack& apps, const std::string& release, const std::string& plugin_dir,
                         const std::string& dol_path, std::vector<UpdateWrite>& out, std::string& error) {
     out.clear();

@@ -192,6 +192,9 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
         const std::string self = SelfDolPath();
         if (self.rfind("sd:/", 0) == 0 && self.size() + 1 < kCtgpChannelStubLength)
             in.channel_stub = "sda:/" + self.substr(4);
+        else if (self.empty())
+            logf("CTGP-R: leaving for the CTGP-R Channel will not come back to RiftWii (it was not started from the "
+                 "SD card, so there is no path on the card to return to)\n");
         else
             logf("CTGP-R: leaving for the CTGP-R Channel will not come back to RiftWii (its path '%s' does not fit)\n",
                  self.c_str());
