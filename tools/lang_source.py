@@ -8806,18 +8806,15 @@ FR.update({
 
 # 240p output (#511): Video mode's 240p and the GameCube game page's Picture lines.
 T.update({
-    "240p is for CRT TVs and pixel art: a game that draws a whole 480-line picture draws it in 240 lines instead, which the TV shows progressive, with no flicker. Games that draw fewer lines keep their own picture.": (
-        "240p es para televisores CRT y pixel art: un juego que dibuja una imagen completa de 480 líneas la dibuja en "
-        "240 líneas, que el televisor muestra en progresivo y sin parpadeo. Los juegos que dibujan menos líneas "
-        "conservan su propia imagen.",
-        "240pはブラウン管テレビとドット絵向けです。480ラインの画面を描くゲームが240ラインで描き、テレビはそれを"
-        "ちらつきのないプログレッシブで映します。ラインの少ないゲームは元の画面のままです。",
-        "240p é para TVs de tubo (CRT) e pixel art: um jogo que desenha uma imagem inteira de 480 linhas passa a "
-        "desenhá-la em 240 linhas, que a TV mostra em progressivo e sem cintilação. Jogos que desenham menos linhas "
-        "mantêm a própria imagem.",
-        "240p è per i televisori CRT e la pixel art: un gioco che disegna un'immagine intera a 480 righe la disegna "
-        "invece in 240 righe, che il televisore mostra in progressivo e senza sfarfallio. I giochi che disegnano "
-        "meno righe mantengono la propria immagine."),
+    "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture.": (
+        "240p es para televisores CRT y pixel art: la imagen de 480 líneas del juego sale una línea sí y otra no, "
+        "progresiva y sin parpadeo. Los juegos que dibujan menos líneas conservan su propia imagen.",
+        "240pはブラウン管テレビとドット絵向けです。ゲームの480ラインの画面を1ラインおきに、ちらつきのないプログレッシブで"
+        "出力します。ラインの少ないゲームは元の画面のままです。",
+        "240p é para TVs de tubo (CRT) e pixel art: a imagem de 480 linhas do jogo sai uma linha sim, outra não, "
+        "progressiva e sem cintilação. Jogos que desenham menos linhas mantêm a própria imagem.",
+        "240p è per i televisori CRT e la pixel art: l'immagine a 480 righe del gioco esce una riga sì e una no, "
+        "progressiva e senza sfarfallio. I giochi che disegnano meno righe mantengono la propria immagine."),
     "GameCube games left on Default get it too.": (
         "Los juegos de GameCube en Predeterminado también lo usan.",
         "「標準」のゲームキューブのゲームにも使われます。",
@@ -8831,18 +8828,17 @@ T.update({
         "Il 480p e il 240p sono per i giochi americani e giapponesi; questo gioco europeo mantiene la sua immagine."),
 })
 KO.update({
-    "240p is for CRT TVs and pixel art: a game that draws a whole 480-line picture draws it in 240 lines instead, which the TV shows progressive, with no flicker. Games that draw fewer lines keep their own picture.":
-        "240p는 CRT TV와 도트 그래픽용입니다. 480라인 화면을 그리는 게임이 240라인으로 그리고, TV는 이를 깜박임 없는 "
-        "프로그레시브로 보여 줍니다. 라인이 더 적은 게임은 원래 화면을 유지합니다.",
+    "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture.":
+        "240p는 CRT TV와 도트 그래픽용입니다. 게임의 480라인 화면을 한 줄씩 건너뛰어 깜박임 없는 프로그레시브로 "
+        "내보냅니다. 라인이 더 적은 게임은 원래 화면을 유지합니다.",
     "GameCube games left on Default get it too.": "기본값인 게임큐브 게임에도 적용됩니다.",
     "Picture lines": "화면 라인 수",
     "480p and 240p are for US and Japanese games; this European game keeps its own picture.": "480p와 240p는 미국과 일본 게임용이며, 이 유럽 게임은 원래 화면을 그대로 씁니다.",
 })
 FR.update({
-    "240p is for CRT TVs and pixel art: a game that draws a whole 480-line picture draws it in 240 lines instead, which the TV shows progressive, with no flicker. Games that draw fewer lines keep their own picture.":
-        "Le 240p est pour les téléviseurs cathodiques et le pixel art : un jeu qui dessine une image entière de "
-        "480 lignes la dessine en 240 lignes, que le téléviseur affiche en progressif et sans scintillement. Les jeux "
-        "qui dessinent moins de lignes gardent leur image.",
+    "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture.":
+        "Le 240p est pour les téléviseurs cathodiques et le pixel art : l'image de 480 lignes du jeu sort une ligne "
+        "sur deux, en progressif et sans scintillement. Les jeux qui dessinent moins de lignes gardent leur image.",
     "GameCube games left on Default get it too.": "Les jeux GameCube sur Par défaut l'utilisent aussi.",
     "Picture lines": "Lignes de l'image",
     "480p and 240p are for US and Japanese games; this European game keeps its own picture.": "Le 480p et le 240p sont pour les jeux américains et japonais ; ce jeu européen garde sa propre image.",

@@ -8770,7 +8770,7 @@ static std::string VideoModeName(const std::string& v)
 static std::string VideoModeNote(const std::string& v, bool settings)
 {
 	if (v != "240p") return tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable.");
-	const std::string note = tr("240p is for CRT TVs and pixel art: a game that draws a whole 480-line picture draws it in 240 lines instead, which the TV shows progressive, with no flicker. Games that draw fewer lines keep their own picture.");
+	const std::string note = tr("240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture.");
 	return settings ? note + " " + tr("GameCube games left on Default get it too.") : note;
 }
 static std::string GameLanguageName(const std::string& v)
@@ -14178,7 +14178,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				say(tr("480p and 240p are for US and Japanese games; this European game keeps its own picture."));
 			else if (ref.what == RowRef::What::GcProgressive &&
 				 riftwii::gc_line240_on(state.model.game, state.game_id, riftwii::wii::GcConsoleNow()))
-				say(tr("240p is for CRT TVs and pixel art: a game that draws a whole 480-line picture draws it in 240 lines instead, which the TV shows progressive, with no flicker. Games that draw fewer lines keep their own picture."));
+				say(tr("240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture."));
 			else if (ref.what == RowRef::What::GcProgressive && state.model.game.gc_progressive == "global" &&
 				 !riftwii::gc_progressive_on(state.model.game, state.game_id, riftwii::wii::GcConsoleNow()))
 				say(tr("Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."));

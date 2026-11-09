@@ -505,9 +505,8 @@ USB drive: choose another Saves option on its page.
   *PAL 60 Hz*, *PAL 50 Hz*, *480p* (needs a component cable), *240p* or
   *The console's* setting. *Game's own* leaves it to the game.
   *240p* is for CRT TVs and pixel art: a game that draws a whole
-  480-line picture draws a 240-line one instead, which the Wii sends
-  progressive at 60 Hz, with no interlace flicker and the flicker filter
-  off (European Wii games switch to 60 Hz for it). Games that draw fewer lines keep their own
+  480-line picture sends every other line of it, progressive at 60 Hz,
+  with no interlace flicker and the flicker filter off (European Wii games switch to 60 Hz for it). Games that draw fewer lines keep their own
   picture. In Settings it also applies to GameCube games whose Picture
   lines are on *Default*. Some TVs and capture devices don't take
   240p.

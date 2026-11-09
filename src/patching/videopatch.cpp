@@ -112,19 +112,15 @@ bool convert(std::uint8_t* p, const VideoTarget& target) {
         put16(p + kViHeight, h.h);
     }
     if (to_240p) {
-        // The SDK's own double-strike heights (TVNtsc240Ds, and its
-        // anti-aliased twin): the game draws a 240-line picture and
-        // copies it 1:1 into a 240-line frame buffer, which the VI shows
-        // whole each retrace. A half-height copy instead (480 lines into
-        // 240) needs a y scale of 0.5, which the copy's 9-bit scale
-        // register cannot hold.
-        const Heights& ds = kLines480[kDoubleStrike];
+        // The game keeps drawing and copying its whole 480-line picture
+        // (many games size their viewport themselves, so a 240-line
+        // drawing area would cut off the bottom half), into a 480-line
+        // frame buffer kept as two interleaved fields. The VI, in double
+        // strike, shows one field each retrace: every other line of the
+        // picture, 240 lines, progressive. The copy cannot halve the
+        // picture itself: its y scale only enlarges.
         mode = 1;
-        put16(p + kEfbHeight, ds.efb);
-        put16(p + kXfbHeight, ds.xfb);
-        put16(p + kViY, ds.y);
-        put16(p + kViHeight, ds.h);
-        put32(p + kXfbMode, 0);  // single field
+        put32(p + kXfbMode, 1);  // double field: the VI reads every other line
         set_filter(p, Deflicker::Off);
     } else if (to_progressive) {
         mode = 2;

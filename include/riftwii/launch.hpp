@@ -145,7 +145,7 @@ struct GameSettings {
     // as a Wii game's rows do (GcConsoleSettings, resolved below); "game"
     // is the game's own whatever those say.
     // "480p": progressive scan, for a US or Japanese game on a component cable;
-    // "240p": the game's 480-line picture drawn in 240 lines, sent progressive, for a CRT;
+    // "240p": every other line of the game's 480-line picture, progressive, for a CRT;
     std::string gc_progressive = "global";
     // "16:9": the game's 3D drawn for a widescreen TV;
     std::string gc_widescreen = "global";
