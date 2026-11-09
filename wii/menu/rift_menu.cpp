@@ -3539,8 +3539,8 @@ public:
 			// A short card and a card with no count have the picture and the
 			// name centred in the card as one block, worked out below (a short
 			// card's count sits in its top-right corner, clear of both). A tall
-			// card with a count keeps the fixed places: the count sits below
-			// the picture, then the name below the count.
+			// card with a count keeps the fixed places: the name sits below
+			// the picture, then the count below the name.
 			int labelY = tile.value.empty() ? 88 : 76;
 			int iconTop = 30;
 			if (shortCard || tile.value.empty()) {
@@ -3549,7 +3549,10 @@ public:
 				int lines = label->GetTextWidth() > tile.w - 12 ? 2 : 1;
 				if (tile.label.find('\n') != std::string::npos) lines = 2;
 				const int picture = shortCard ? 35 : 42;  // the 28px picture, scaled
-				const int block = picture + 4 + 18 * lines;
+				// A card with no name and no count (a broken translation file
+				// can give an empty name) has only the picture to centre.
+				const bool pictureOnly = tile.label.empty() && tile.value.empty();
+				const int block = pictureOnly ? picture : picture + 4 + 18 * lines;
 				const int top = (tile.h - block) / 2;
 				iconTop = top + (picture - 28) / 2;
 				labelY = top + picture + 4;
