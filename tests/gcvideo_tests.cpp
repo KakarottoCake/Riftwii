@@ -182,6 +182,34 @@ void test_sram_reads() {
     add_sram_getter(old, kCopy, 0x13, 25);
     EXPECT_EQ(riftwii::find_gc_sram_reads(old.ranges()).sixty_hz.size(), 0u);
     EXPECT_EQ(riftwii::find_gc_sram_reads(old.ranges()).progressive.size(), 1u);
+
+    // VIInit's read of the screen position, through __OSLockSram: found
+    // when the bl reaches the copy's lock, not when it goes elsewhere.
+    Text vi;
+    // A small function right before the lock, ending in the blr that
+    // add_sram_getter starts with: a call to it is not a call to the lock.
+    const std::uint32_t before = vi.here();
+    vi.add(kNop);
+    vi.add(kNop);
+    const std::uint32_t lock = vi.here() + 4;
+    add_sram_getter(vi, kCopy, 0x12, 0);
+    const std::uint32_t other = vi.here();
+    vi.add(kBlr);
+    auto add_vi_init = [&](std::uint32_t target) {
+        const std::uint32_t call = vi.here();
+        vi.add(0x48000001u | ((target - call) & 0x03FFFFFCu));  // bl target
+        const std::uint32_t load = vi.here();
+        vi.add(lbz(0, 3, 0x10));
+        vi.add(0x38600000u);  // li r3,0
+        vi.add(0x7C000774u);  // extsb r0,r0
+        return load;
+    };
+    const std::uint32_t display = add_vi_init(lock);
+    add_vi_init(other);
+    add_vi_init(before);
+    const riftwii::GcSramReads vi_reads = riftwii::find_gc_sram_reads(vi.ranges());
+    EXPECT_EQ(vi_reads.display_offset.size(), 1u);
+    if (vi_reads.display_offset.size() == 1) EXPECT_EQ(vi_reads.display_offset[0], display);
 }
 
 // A render mode as the SDK's tables hold one: TV mode, fbWidth, then the

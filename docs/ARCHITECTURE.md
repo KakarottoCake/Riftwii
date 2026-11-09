@@ -175,7 +175,8 @@ there's no rumble. A pack that wants rumble adds its own
 by reading the rumble-off flag and then building the motor command with
 `oris rA, rB, 0x40` (described in `include/riftwii/symsearch.hpp`). A
 pack done this way also gets the GameCube
-controller's way back (L, R, Z and Start held two seconds), since the
+controller's way back (L, R, Z and Start held two seconds, unless Settings >
+Games > Leaving a game is HOME only), since the
 game's `OSReturnToMenu`, `OSSleepThread` and IPC submit routine are
 found as in any game. `TestPackPadRead` (`tests/gcad_tests.cpp`) keeps a
 routine of this shape found, so a later change to the search fails the
@@ -301,7 +302,11 @@ too (`ready_usb`, checked against the pack's first file). The memory
 cards, the RVZ's group table and the trace stay on the SD card.
 The heartbeat reads the image's first sector when the drive has been
 quiet for 30 s (`gc_usb_keep_alive`), so a hard drive does not spin down
-under a game that has loaded what it needs. A patch-only
+under a game that has loaded what it needs. Wii games and mod packs on a
+USB drive need nothing of RiftWii's own for this: they run under d2x,
+whose USB driver reads a sector by itself whenever the drive it mounted
+(through `/dev/usb2`, as RiftWii mounts it) has been quiet for 10 s
+(d2x's EHCI module, `__EHCI_Watchdog`, read for behaviour). A patch-only
 mod, `sd:/riftwii/patches/*.xdelta`, is listed as the game it makes when
 one of those images is its original (`wii/launch/gcpatch.cpp`, the VCDIFF
 reader `src/patching/vcdiff.cpp`). Starting it builds
@@ -577,7 +582,8 @@ For speedruns that count lag, this is the remaining difference, and only
 the clock switch above would remove it.
 
 **Leaving and crashing.** Holding HOME (HOME and - on a Wii Remote
-alone; L, R, Z and Start on a GameCube controller) for two seconds goes
+alone; L, R, Z and Start on a GameCube controller, unless Settings > Games >
+Leaving a game is HOME only) for two seconds goes
 where Settings > Return to says, as a Wii game's HOME Menu does: the
 RiftWii channel first, then the Homebrew Channel if it started RiftWii and
 the channel cannot be used, then the Wii Menu, through

@@ -28,7 +28,7 @@
 #define RT_PAD_MAGIC 0x52575044u          /* "RWPD" */
 #define RT_PAD_VERSION 6u               /* also in pad_entry.S's header */
 #define RT_PAD_CONTEXT_MAGIC 0x52575043u  /* "RWPC" */
-#define RT_PAD_CONTEXT_BYTES 256u
+#define RT_PAD_CONTEXT_BYTES 288u
 
 /* rt_pad_context.leave_asked: the combo asked for the way back; an
  * OSSleepThread has gone into OSReturnToMenu (rtleave_sleep_leaves: the
@@ -126,6 +126,10 @@ struct rt_pad_context {
      * take it: a struct rtrestart_block in MEM2 (its state says whether
      * it is on), 0: the game's Reset is left alone. */
     uint32_t restart;
+    /* The GameCube controllers' calibrations (rtpadcal.h's table, in MEM2
+     * after the driver's state), 0: none stored. The Wii's own ports take
+     * theirs here, the adapter's and the USB pads' in the driver. */
+    uint32_t cal;
 };
 
 #ifdef RT_TARGET_PPC

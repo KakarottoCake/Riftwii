@@ -29,6 +29,13 @@ typedef struct rwp_gc_pack_entry {
     uint32_t skip;   /* device: bytes into sector `source` */
 } rwp_gc_pack_entry;
 
+/* rwp_gc_launch's real_card. A: slot A is the physical card, with no
+ * emulated card. B: the emulated card in slot A, and slot B's physical
+ * card, which the loader never takes over, with its ID in SRAM. */
+#define RWP_GC_REAL_CARD_NONE 0u
+#define RWP_GC_REAL_CARD_A 1u
+#define RWP_GC_REAL_CARD_B 2u
+
 #define RWP_GC_PIECE_IMAGE 0u
 #define RWP_GC_PIECE_DEVICE 1u
 #define RWP_GC_PIECE_ZERO 2u
@@ -47,8 +54,8 @@ typedef struct rwp_gc_launch {
     const char* path;      /* sd:/games/.../game.iso, or .rvz */
     const char* id;        /* its ID6 */
     uint32_t is_rvz;       /* the image is an RVZ (by its name, as the list says) */
-    uint32_t real_card;    /* slot A passes through to physical hardware */
-    uint8_t real_card_flash_id[12]; /* verified physical header, never an SD image */
+    uint32_t real_card;    /* RWP_GC_REAL_CARD_*: which slot's physical card the game uses */
+    uint8_t real_card_flash_id[12]; /* that card's verified header ID, never an SD image's */
     const uint8_t* external_card;
     uint32_t external_card_bytes;
     uint32_t card_on_usb;
@@ -62,6 +69,8 @@ typedef struct rwp_gc_launch {
     uint32_t sixty_hz;     /* a European game told the TV takes 60 Hz */
     int32_t language;      /* the SRAM language the game is told; -1 the console's */
     uint32_t vi_width;     /* the picture width (riftwii/gcvideo.hpp); 0 the game's own */
+    uint32_t screen_offset_set; /* the game is told screen_offset as the console's screen position */
+    int32_t screen_offset;      /* the Wii's screen position (-32 to 32), as the SRAM's byte 0x10 */
     /* An image on the USB drive (path "usb:/..."): d2x's /dev/usb2, open
      * under the d2x cIOS the launch reloaded into (-1: the image is on
      * the SD card), and the image file's pieces in the drive's 512-byte
@@ -90,6 +99,7 @@ typedef struct rwp_gc_launch {
     /* What the launch reads from the settings and the launch's extras
      * (wii/launch/boot.hpp's LaunchExtras), as they are now. */
     uint32_t rumble_off;       /* Wii Remote rumble off */
+    uint32_t leave_home_only;  /* only HOME leaves the game: L, R, Z and Start held do not */
     uint32_t in_dolphin;       /* running in Dolphin, not on a Wii */
     const uint8_t* cheat_gct;  /* the code list; NULL: no cheats */
     uint32_t cheat_gct_bytes;
@@ -148,6 +158,13 @@ typedef struct rwp_gc_launch {
     const rwp_fragment* disc2_usb_fragments;
     uint32_t disc2_usb_fragment_count;
     uint64_t disc2_usb_file_bytes;
+
+    /* The GameCube controllers' calibrations (Settings > Controllers >
+     * Calibrate a GameCube controller): runtime/rtpadcal.h's
+     * rtpadcal_table, which the loader puts in MEM2 for the game's pad
+     * hooks. NULL and 0: none stored, and the game changes nothing. */
+    const void* pad_calibration;
+    uint32_t pad_calibration_bytes;
 
     /* Out: the reason when launch returns RWP_LAUNCH_FAILED. */
     char* error;

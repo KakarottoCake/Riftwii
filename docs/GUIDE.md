@@ -145,7 +145,8 @@ Now RiftWii has its own channel on the Wii Menu. It also lets games go
   - **HOME** on a Wii Remote with a Nunchuk, a Classic Controller, or a
     Wii U Pro Controller;
   - **HOME and −** together on a Wii Remote alone;
-  - **L, R, Z and Start** together on a GameCube controller.
+  - **L, R, Z and Start** together on a GameCube controller (unless
+    Settings > Games > Leaving a game is *HOME only*).
 
 ### Step 9: If something goes wrong
 
@@ -661,6 +662,10 @@ the tiles.
 - **Quitting a game**: *Back to RiftWii* makes the Wii Menu button of a
   game's HOME Menu start RiftWii again (it needs the RiftWii channel);
   *Wii Menu* leaves it as it was.
+- **Leaving a game**: *HOME or buttons* (at first) lets L, R, Z and Start
+  held on a GameCube controller go back to RiftWii, as holding HOME does;
+  *HOME only* turns those buttons off (see [Leaving a
+  game](#gamecube-games)). Saved as `leave_buttons = on` or `off`.
 - **Menu sounds** (Normal, Quiet, Off) and **Menu music**: the music is
   `music.ogg` (Ogg Vorbis, up to 6 MB) from `sd:/riftwii/`, or else the one
   the release puts in `sd:/apps/riftwii/`, looped while the menu is open.
@@ -920,10 +925,14 @@ choices, and Home's Show button (all games, games with mods, Recently
 played, Favourites), can hide them as they hide any game.
 
 A GameCube game's page has its own options in place of a Wii game's
-picture and online settings: **Memory card** (*This game's own*,
-*Shared* or, on an original Wii, *Real card in slot A*), **480p picture** (not for European games), **Sharper
+picture and online settings: **Memory card** (*Default*, which follows **Settings > Games > GameCube
+memory card**, *This game's own*, *Shared* or, on an original Wii, *Real
+card in slot A* or *Real card in slot B*), **480p picture** (not for European games), **Sharper
 picture**, **Picture width**, **Game language** and, for European
-games, **Game speed** (60 Hz instead of 50).
+games, **Game speed** (60 Hz instead of 50). GameCube games also follow
+the Wii's own **Screen Position** (Wii Settings > Screen), as Wii games
+do, when RiftWii finds where the game reads its position (the log says
+so); otherwise the game keeps its own.
 
 **Memory cards** are files on the SD card, in `sd:/riftwii/gc/cards/`:
 one for each game (`GMSE01.raw`), or with **Memory card** set to
@@ -942,7 +951,20 @@ has no readable card, the card is damaged, or its Japanese/Western text
 encoding differs from the game, RiftWii offers **Use this game's SD card**
 or **Cancel**. Accepting uses *This game's own* for this launch; the saved
 real-card choice stays. A card in slot B alone
-cannot serve as the game's slot A. Wii U has no memory card slots; the real
+cannot serve as the game's slot A.
+
+**Real card in slot B** keeps the game's own card from the SD card in slot
+A and lets the game use the physical card in slot B as well, as a
+GameCube with two cards would (Animal Crossing's saves on the SD card's
+card, a real card in slot B to trade items or keep other saves). RiftWii
+only ever takes over slot A, so slot B is the real hardware; before the
+game starts RiftWii reads that card's ID into the console's settings, as
+it does for slot A, so a card formatted on another console is accepted.
+
+**Settings > Games > GameCube memory card** sets the card for every
+GameCube game whose own **Memory card** is *Default*: *This game's own*
+(at first), *Shared*, or on an original Wii *Real card in slot A* or *B*.
+A game's own choice wins. Wii U has no memory card slots; the real
 choice is unavailable there.
 
 The GameCube **Saves** page offers the SD **Memory Card** tools and
@@ -1019,6 +1041,14 @@ Nintendont's memory cards, for all games at once:
 - L, R, Z and Start together on a GameCube controller.
 
 RiftWii waits for a save in progress before it goes back to the menu.
+If a game's own button combos (or a pad held in a bag) keep leaving it
+by accident, set **Settings > Games > Leaving a game** to *HOME only*:
+L, R, Z and Start then leave nothing, in GameCube games and in Wii
+games played with the adapter, and HOME (HOME and − on a Wii Remote
+alone, HOME on a Classic Controller or a Wii U Pro Controller) still
+leaves. A USB pad's Guide button presses L, R, Z and Start, so it
+leaves nothing either. Without a Wii Remote or a Wii U Pro Controller,
+only the console's **Reset** button then gets back.
 The console's **Reset** button restarts the game, as on a GameCube, in
 the games where that is known to work (Super Mario Sunshine, USA, and
 Super Mario Eclipse); in the others it goes back to RiftWii, as holding

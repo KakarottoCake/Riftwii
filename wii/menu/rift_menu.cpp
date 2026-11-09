@@ -29,6 +29,7 @@
 #include <string.h>
 #include <strings.h>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -95,6 +96,7 @@
 #include "guiscript.hpp"
 #include "credits.hpp"
 #include "gcadapter.hpp"
+#include "padcalstore.hpp"
 #include "usbinput.hpp"
 #include "startupinput.hpp"
 #include "ratingbadge.hpp"
@@ -8824,6 +8826,8 @@ static std::string ServerName(const std::string& v)
 	}
 	return tr("Off");
 }
+static std::string GcCardName(const std::string& card);
+
 // A game's value, or "Default (...)" naming what the global setting is.
 static std::string GameValue(const std::string& v, const std::string& global, std::string (*name)(const std::string&))
 {
@@ -9102,13 +9106,12 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		FlowRow card;
 		card.kind = FlowRow::Kind::Option;
 		card.label = tr("Memory card");
-		if (game.gc_card == "real") card.value = tr("Real card in slot A");
-		else if (game.gc_card == "shared") card.value = tr("Shared");
-		else if (game.gc_card == "nintendont") card.value = tr("Nintendont's card");
-		else if (game.gc_card == "dolphin") card.value = tr("Dolphin's card");
-		else card.value = tr("This game's own");
-		card.on = game.gc_card != "own";
-		card.dim = game.gc_card == "real" && riftwii::wii::is_wii_u();
+		card.value = game.gc_card == "global"
+			? tr("Default ({1})", {GcCardName(riftwii::gc_card_effective(game, riftwii::wii::Settings().gc_card))})
+			: GcCardName(game.gc_card);
+		card.on = game.gc_card != "global";
+		const std::string used = riftwii::gc_card_effective(game, riftwii::wii::Settings().gc_card);
+		card.dim = (used == "real" || used == "real_b") && riftwii::wii::is_wii_u();
 		rows.push_back(card);
 		refs.push_back({W::GcCard});
 		FlowRow progressive;
@@ -9678,8 +9681,12 @@ static std::vector<GcControlsCard> GcControlsCards()
 		cards.push_back({tr("Wii Remote, held sideways"),
 			{{"2", "A"}, {"1", "B"}, {"A", "X"}, {"HOME", "Y"}, {"B", "R"}, {"-", "Z"}, {"+", "Start"},
 				{"D-pad", tr("Stick")}}, tr("Hold HOME and - for two seconds to leave the game.")});
+	// Settings > Games > Leaving a game, HOME only: the buttons leave nothing.
+	const bool buttonsLeave = riftwii::wii::Settings().leave_buttons != "off";
 	if (pads.gamecube)
-		cards.push_back({tr("GameCube controller"), {}, tr("Hold L, R, Z and Start for two seconds to leave the game.")});
+		cards.push_back({tr("GameCube controller"), {}, buttonsLeave
+			? std::string(tr("Hold L, R, Z and Start for two seconds to leave the game."))
+			: std::string(tr("L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote or a Wii U Pro Controller for two seconds to leave the game."))});
 	return cards;
 }
 
@@ -9818,16 +9825,34 @@ static const char* const kGcDolphinDir = "sd:/riftwii/gc/dolphin";
 
 static std::string GameTitle(const FrontendState& state);
 
+// What a Memory card value is called on screen.
+static std::string GcCardName(const std::string& card)
+{
+	if (card == "real") return tr("Real card in slot A");
+	if (card == "real_b") return tr("Real card in slot B");
+	if (card == "shared") return tr("Shared");
+	if (card == "nintendont") return tr("Nintendont's card");
+	if (card == "dolphin") return tr("Dolphin's card");
+	return tr("This game's own");
+}
+
+// The memory card the game uses: its own Memory card option, or for
+// "global" Settings' (riftwii::gc_card_effective).
+static std::string EffectiveGcCard(const FrontendState& state)
+{
+	return riftwii::gc_card_effective(state.model.game, riftwii::wii::Settings().gc_card);
+}
+
 // The game's card, named as the loader names it (gcnative.cpp): its own
 // file, or the shared one when the game's Memory card option says so.
 static bool GcCardShared(const FrontendState& state)
 {
-	return state.model.game.gc_card == "shared";
+	return EffectiveGcCard(state) == "shared";
 }
 
 static std::string GcCardPath(const FrontendState& state)
 {
-	const std::string& source = state.model.game.gc_card;
+	const std::string source = EffectiveGcCard(state);
 	if (source == "nintendont" || source == "dolphin")
 		return riftwii::wii::ExternalCardPath(state.game_id, source);
 	return riftwii::gc_card_path(state.game_id, GcCardShared(state));
@@ -9836,7 +9861,7 @@ static std::string GcCardPath(const FrontendState& state)
 static std::string GcBackupFolder(const FrontendState& state, bool shared)
 {
 	const std::string folder = riftwii::gc_backup_folder(state.game_id, shared);
-	const std::string& source = state.model.game.gc_card;
+	const std::string source = EffectiveGcCard(state);
 	return source == "nintendont" || source == "dolphin" ? folder + "/external" : folder;
 }
 
@@ -9867,7 +9892,7 @@ static bool ReadGcCardSpace(const std::string& path, riftwii::GcCardSpace& space
 
 static bool GcCardFull(const FrontendState& state)
 {
-	if (state.model.game.gc_card == "real") return false;
+	if (EffectiveGcCard(state) == "real") return false;
 	riftwii::GcCardSpace space;
 	return ReadGcCardSpace(GcCardPath(state), space) && space.full();
 }
@@ -10916,7 +10941,7 @@ static bool GcGameUsesSharedCard(const std::string& id)
 	if (!ReadSmallFile(std::string(riftwii::wii::kChoicesDir) + "/" + id + ".txt", 1u << 20, bytes)) return false;
 	riftwii::LaunchModel choices;
 	choices.restore(std::string(bytes.begin(), bytes.end()));
-	return choices.game.gc_card == "shared";
+	return riftwii::gc_card_effective(choices.game, riftwii::wii::Settings().gc_card) == "shared";
 }
 
 // Name the USB partition so equal card names can be told apart.
@@ -11423,7 +11448,7 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 
 static void MenuGcCard(FrontendState& state)
 {
-	const bool real = state.model.game.gc_card == "real";
+	const bool real = EffectiveGcCard(state) == "real";
 	const bool noSlots = riftwii::wii::is_wii_u();
 	std::vector<FlowRow> rows(3);
 	for (FlowRow& row : rows) row.kind = FlowRow::Kind::Action;
@@ -11577,7 +11602,7 @@ static bool ReadyGcStart(FrontendState& state)
 	state.gc_card_fallback = false;
 	const riftwii::wii::ImageGame* game = SelectedGcGame(state);
 	if (!game) return true;
-	if (state.model.game.gc_card == "real") {
+	if (EffectiveGcCard(state) == "real") {
 		riftwii::wii::GcRealCard physical;
 		int result = physical.Open(0);
 		std::vector<std::uint8_t> system;
@@ -13844,9 +13869,10 @@ static std::string PlayTileNote(const FrontendState& state)
 // The Saves tile's note for a GameCube game.
 static std::string GcSaveNote(const FrontendState& state)
 {
-	if (state.model.game.gc_card == "real") return tr("This game uses the real card in slot A. Its saves are not on the SD card.");
+	const std::string used = EffectiveGcCard(state);
+	if (used == "real") return tr("This game uses the real card in slot A. Its saves are not on the SD card.");
 	const std::string card = GcCardPath(state);
-	if (state.model.game.gc_card == "nintendont" || state.model.game.gc_card == "dolphin")
+	if (used == "nintendont" || used == "dolphin")
 		return tr("Saves are written to {1}. A backup is kept before the game starts.", {card});
 	const std::string where = GcCardShared(state)
 		? tr("Saves go to the shared memory card on the SD card: {1}.", {card})
@@ -13891,7 +13917,7 @@ static int ChangedGameSettings(const riftwii::GameSettings& g)
 	if (g.region_video == "on") ++changed;
 	if (g.region_strings == "on") ++changed;
 	if (riftwii::kGcDriveTimingReady && g.gc_disc_reads == "drive") ++changed;
-	if (g.gc_card != "own") ++changed;
+	if (g.gc_card != "global") ++changed;
 	if (g.gc_progressive != "global") ++changed;
 	if (riftwii::kGcWidescreenReady && g.gc_widescreen != "global") ++changed;
 	if (g.gc_language != "global") ++changed;
@@ -13948,7 +13974,7 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 	// save mode. Its cheats are picked as a Wii game's are.
 	const bool cardFull = gamecube && GcCardFull(state);
 	const std::string saves = cardFull ? std::string(tr("Memory card full"))
-		: gamecube && state.model.game.gc_card == "real" ? std::string(tr("Real card in slot A"))
+		: gamecube && EffectiveGcCard(state) == "real" ? std::string(tr("Real card in slot A"))
 		: gamecube ? std::string(tr("Memory Card")) + " \xC2\xB7 SD"
 		: !state.model.pack_save_owner().empty() ? std::string(tr("Kept by the pack"))
 		// The tile names where the saves go; "Default (...)" doesn't fit it.
@@ -14225,8 +14251,11 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			else if (ref.what == RowRef::What::GcCard) {
 				// Asked when switching, where it matters: the saves stay behind.
 				if (AskGcCardSwitch()) {
-					std::vector<std::string> sources{"own", "shared"};
-					if (!riftwii::wii::is_wii_u()) sources.push_back("real");
+					std::vector<std::string> sources{"global", "own", "shared"};
+					if (!riftwii::wii::is_wii_u()) {
+						sources.push_back("real");
+						sources.push_back("real_b");
+					}
 					for (const char* source : {"nintendont", "dolphin"}) {
 						if (!riftwii::wii::ExternalCardPath(state.game_id, source).empty()) sources.push_back(source);
 					}
@@ -15525,6 +15554,489 @@ static void GcAdapterTestPage()
 	ResumeGui();
 }
 
+// ---------------------------------------------------------------------------
+// Calibrate a GameCube controller (Settings > Controllers)
+
+// One GameCube controller the menu can see this frame: in the Wii's own
+// ports, in the adapter, or a USB pad the adapter's driver reads as one,
+// with what it sends (riftwii/padcal.hpp's slots tell them apart).
+struct LivePad {
+	riftwii::PadSlot slot;
+	std::uint16_t buttons = 0;
+	std::int8_t sticks[4] = {0, 0, 0, 0};  // stick x, y, C stick x, y, from the centre
+	std::uint8_t triggerL = 0, triggerR = 0;
+};
+
+static std::vector<LivePad> LivePads()
+{
+	std::vector<LivePad> pads;
+	// SI_Probe answers from what the ports last said; the values are what
+	// the GUI thread's PAD_ScanPads read, from each controller's origin as
+	// a game's PADRead gives them.
+	for (int i = 0; i < 4; ++i) {
+		const u32 port = SI_Probe(i);
+		if ((port & SI_ERROR_NO_RESPONSE) || (port & SI_TYPE_MASK) != SI_TYPE_GC) continue;
+		LivePad pad;
+		pad.slot = riftwii::PadSlot{riftwii::PadSlot::Kind::Wii, static_cast<std::uint32_t>(i)};
+		pad.buttons = PAD_ButtonsHeld(i);
+		pad.sticks[0] = PAD_StickX(i);
+		pad.sticks[1] = PAD_StickY(i);
+		pad.sticks[2] = PAD_SubStickX(i);
+		pad.sticks[3] = PAD_SubStickY(i);
+		pad.triggerL = PAD_TriggerL(i);
+		pad.triggerR = PAD_TriggerR(i);
+		pads.push_back(pad);
+	}
+	riftwii::wii::GcAdapterView adapter;
+	if (!riftwii::wii::GcAdapterMenuLastView(adapter) || !adapter.open) return pads;
+	for (unsigned p = 0; p < GCAD_PORTS; ++p) {
+		if (!adapter.present[p]) continue;
+		const unsigned source = adapter.sources[p];
+		LivePad pad;
+		if (source < GCAD_PORTS) {
+			pad.slot = riftwii::PadSlot{riftwii::PadSlot::Kind::Adapter, source};
+		} else if (source < GCAD_PORTS + GCAD_HID_PADS && adapter.hid_ids[source - GCAD_PORTS] != 0) {
+			pad.slot = riftwii::PadSlot{riftwii::PadSlot::Kind::Usb, adapter.hid_ids[source - GCAD_PORTS]};
+		} else {
+			continue;
+		}
+		const gcad_pad& a = adapter.pads[p];
+		pad.buttons = a.buttons;
+		pad.sticks[0] = a.stick_x;
+		pad.sticks[1] = a.stick_y;
+		pad.sticks[2] = a.substick_x;
+		pad.sticks[3] = a.substick_y;
+		pad.triggerL = a.trigger_l;
+		pad.triggerR = a.trigger_r;
+		pads.push_back(pad);
+	}
+	return pads;
+}
+
+static std::string PadSlotName(const riftwii::PadSlot& slot)
+{
+	const std::string number = std::to_string(slot.id + 1);
+	switch (slot.kind) {
+		case riftwii::PadSlot::Kind::Wii: return tr("Wii's GameCube port {1}", {number});
+		case riftwii::PadSlot::Kind::Adapter: return tr("Adapter port {1}", {number});
+		case riftwii::PadSlot::Kind::Usb: break;
+	}
+	char id[16];
+	std::snprintf(id, sizeof(id), "%04x:%04x", static_cast<unsigned>(slot.id >> 16), static_cast<unsigned>(slot.id & 0xFFFFu));
+	return tr("USB controller {1}", {id});
+}
+
+// The live view: each stick as a dot in its gate (where the controller is,
+// and where a game will see it after the calibration), the triggers as
+// bars, and the reach measured so far as marks on the gate.
+class GcPadView : public GuiElement {
+public:
+	static constexpr int kTop = 118, kHeight = 104;
+	static constexpr int kMainX = 112, kCX = 256, kCentreY = kTop + kHeight / 2;
+	static constexpr float kPixelsPerStep = 48.0f / 128.0f;  // a stick's full byte is 48 px
+	static constexpr int kTriggerLX = 336, kTriggerRX = 372, kTriggerW = 18;
+
+	std::int8_t raw[4] = {0, 0, 0, 0};    // what the controller sends
+	std::int8_t game[4] = {0, 0, 0, 0};   // what a game gets
+	std::uint8_t rawL = 0, rawR = 0, gameL = 0, gameR = 0;
+	std::array<std::uint8_t, 4> mainReach{}, cReach{};  // marks; 0: none
+	std::uint8_t deadZone = 0;
+	bool shown = false;
+
+	void Draw() override
+	{
+		if (!shown) return;
+		const int alpha = GetAlpha();
+		DrawStick(kMainX, raw[0], raw[1], game[0], game[1], riftwii::kPadMainStickReach, mainReach, alpha);
+		DrawStick(kCX, raw[2], raw[3], game[2], game[3], riftwii::kPadCStickReach, cReach, alpha);
+		DrawTrigger(kTriggerLX, rawL, gameL, alpha);
+		DrawTrigger(kTriggerRX, rawR, gameR, alpha);
+	}
+
+private:
+	// A regular octagon, a corner pointing right (a GameCube gate's notches).
+	static void Octagon(float cx, float cy, float radius, GXColor colour)
+	{
+		static const float kCos[8] = {1.0f, 0.7071f, 0.0f, -0.7071f, -1.0f, -0.7071f, 0.0f, 0.7071f};
+		GX_Begin(GX_TRIANGLEFAN, GX_VTXFMT0, 10);
+		GX_Position3f32(cx, cy, 0.0f);
+		GX_Color4u8(colour.r, colour.g, colour.b, colour.a);
+		for (int corner = 0; corner <= 8; ++corner) {
+			const int k = corner % 8;
+			GX_Position3f32(cx + radius * kCos[k], cy - radius * kCos[(k + 6) % 8], 0.0f);
+			GX_Color4u8(colour.r, colour.g, colour.b, colour.a);
+		}
+		GX_End();
+	}
+
+	void DrawStick(int cx, int rawX, int rawY, int gameX, int gameY, int healthy, const std::array<std::uint8_t, 4>& reach,
+		int alpha) const
+	{
+		const float y = kCentreY;
+		// The gate a healthy stick reaches, the dead zone, the middle.
+		Octagon(cx, y, healthy * kPixelsPerStep + 6, skin::WithAlpha(skin::kScrollTrack, alpha));
+		if (deadZone > 0) Octagon(cx, y, deadZone * kPixelsPerStep, skin::WithAlpha(skin::kDivider, alpha));
+		Menu_DrawRectangle(cx - 1, y - 1, 3, 3, skin::WithAlpha(skin::kInkDim, alpha), 1);
+		// The reach measured so far: right, left, up, down.
+		const GXColor mark = skin::WithAlpha(skin::kWarn, alpha);
+		if (reach[0]) Menu_DrawRectangle(cx + reach[0] * kPixelsPerStep - 1, y - 6, 3, 13, mark, 1);
+		if (reach[1]) Menu_DrawRectangle(cx - reach[1] * kPixelsPerStep - 1, y - 6, 3, 13, mark, 1);
+		if (reach[2]) Menu_DrawRectangle(cx - 6, y - reach[2] * kPixelsPerStep - 1, 13, 3, mark, 1);
+		if (reach[3]) Menu_DrawRectangle(cx - 6, y + reach[3] * kPixelsPerStep - 1, 13, 3, mark, 1);
+		// The controller's own position, then where a game sees it on top.
+		Octagon(cx + rawX * kPixelsPerStep, y - rawY * kPixelsPerStep, 6, skin::WithAlpha(skin::kInkDim, alpha));
+		Octagon(cx + gameX * kPixelsPerStep, y - gameY * kPixelsPerStep, 5, skin::WithAlpha(skin::kAccent, alpha));
+	}
+
+	static void DrawTrigger(int x, int rawValue, int gameValue, int alpha)
+	{
+		const float bottom = kTop + kHeight;
+		const float perStep = kHeight / 255.0f;
+		Menu_DrawRectangle(x, kTop, kTriggerW, kHeight, skin::WithAlpha(skin::kScrollTrack, alpha), 1);
+		Menu_DrawRectangle(x, bottom - gameValue * perStep, kTriggerW, gameValue * perStep,
+			skin::WithAlpha(skin::kAccent, alpha), 1);
+		// The controller's own value, as a line across the bar.
+		Menu_DrawRectangle(x - 3, bottom - rawValue * perStep - 1, kTriggerW + 6, 3, skin::WithAlpha(skin::kInkDim, alpha), 1);
+	}
+};
+
+// The dead zone's slider: a track, the part taken, a knob.
+class DeadZoneSlider : public GuiElement {
+public:
+	static constexpr int kX = 300, kY = 268, kW = 240;
+	std::uint8_t value = 0;
+	bool shown = false;
+	void Draw() override
+	{
+		if (!shown) return;
+		const int alpha = GetAlpha();
+		const float filled = kW * static_cast<float>(value) / riftwii::kPadDeadZoneMax;
+		Menu_DrawRectangle(kX, kY + 6, kW, 6, skin::WithAlpha(skin::kScrollTrack, alpha), 1);
+		Menu_DrawRectangle(kX, kY + 6, filled, 6, skin::WithAlpha(skin::kAccent, alpha), 1);
+		Menu_DrawRectangle(kX + filled - 4, kY, 9, 18, skin::WithAlpha(skin::kInk, alpha), 1);
+	}
+};
+
+static void GcCalibratePage()
+{
+	using riftwii::PadCalibration;
+	using riftwii::PadSlot;
+	GuiText titleTxt(tr("Calibrate a GameCube controller"), 30, skin::kInk);
+	Place(titleTxt, 40, 28);
+	TitleBand titleBand;
+	Panel panel(skin::panelSettings, 34, 76);
+	GuiText padTxt("", 18, skin::kInk);
+	Place(padTxt, 56, 90);
+	GcPadView view;
+	GuiText stickLbl(tr("Stick"), 14, skin::kInkDim);
+	Place(stickLbl, GcPadView::kMainX - 20, GcPadView::kTop + GcPadView::kHeight + 4);
+	GuiText cLbl(tr("C stick"), 14, skin::kInkDim);
+	Place(cLbl, GcPadView::kCX - 24, GcPadView::kTop + GcPadView::kHeight + 4);
+	GuiText lLbl("L", 14, skin::kInkDim);
+	Place(lLbl, GcPadView::kTriggerLX + 5, GcPadView::kTop + GcPadView::kHeight + 4);
+	GuiText rLbl("R", 14, skin::kInkDim);
+	Place(rLbl, GcPadView::kTriggerRX + 5, GcPadView::kTop + GcPadView::kHeight + 4);
+	// The buttons, lit while held.
+	// The buttons, lit while held. The letters and Start as the controller
+	// prints them; the D-pad's directions in words.
+	struct ButtonLabel {
+		std::uint16_t bit;
+		std::string name;
+		int x, y;
+	};
+	const ButtonLabel buttonLabels[] = {
+		{GCAD_PAD_A, "A", 420, 120}, {GCAD_PAD_B, "B", 456, 120}, {GCAD_PAD_X, "X", 492, 120},
+		{GCAD_PAD_Y, "Y", 528, 120}, {GCAD_PAD_Z, "Z", 420, 146}, {GCAD_PAD_L, "L", 456, 146},
+		{GCAD_PAD_R, "R", 492, 146}, {GCAD_PAD_START, "Start", 528, 146}, {GCAD_PAD_UP, tr("Up"), 420, 172},
+		{GCAD_PAD_DOWN, tr("Down"), 492, 172}, {GCAD_PAD_LEFT, tr("Left"), 420, 198},
+		{GCAD_PAD_RIGHT, tr("Right"), 492, 198}};
+	std::vector<std::unique_ptr<GuiText>> buttonTxt;
+	for (const ButtonLabel& b : buttonLabels) {
+		buttonTxt.push_back(std::make_unique<GuiText>(b.name.c_str(), 17, skin::kInkDim));
+		Place(*buttonTxt.back(), b.x, b.y);
+	}
+	GuiText rawTxt("", 15, skin::kInkSoft);
+	Place(rawTxt, 56, 244);
+	GuiText deadTxt("", 16, skin::kInk);
+	Place(deadTxt, 56, 268);
+	DeadZoneSlider slider;
+	GuiText stepTxt("", 15, skin::kInkSoft);
+	Place(stepTxt, 56, 294);
+	stepTxt.SetWrap(true, 528, 3);
+
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, 0, WIIDRC_BUTTON_B);
+	HideButton(backBtn);
+	SkinButton calibrateBtn(skin::pill, skin::pillOver, 4, 198, 406, "Calibrate",
+		WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, 0, WIIDRC_BUTTON_PLUS);
+	HideButton(calibrateBtn);
+	SkinButton nextBtn(skin::pill, skin::pillOver, 4, 198, 406, "Next",
+		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, 0, WIIDRC_BUTTON_A);
+	HideButton(nextBtn);
+	SkinButton resetBtn(skin::pill, skin::pillOver, 4, 198, 406, "Reset",
+		WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, 0, WIIDRC_BUTTON_MINUS);
+	HideButton(resetBtn);
+	SkinButton lessBtn(skin::pill, skin::pillOver, 4, 198, 406, "Less",
+		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, 0, WIIDRC_BUTTON_X);
+	HideButton(lessBtn);
+	SkinButton moreBtn(skin::pill, skin::pillOver, 4, 198, 406, "More",
+		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, 0, WIIDRC_BUTTON_Y);
+	HideButton(moreBtn);
+	// The GameCube controllers' own A presses nothing on this page: they
+	// are what is being tested (their A ends a calibration step, below).
+	for (SkinButton* b : {&backBtn, &calibrateBtn, &nextBtn, &resetBtn, &lessBtn, &moreBtn})
+		b->trigA.SetSimpleTrigger(-1, WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, 0, WIIDRC_BUTTON_A);
+	GuiPrompts prompts;
+	const int promptBack = prompts.Add("B", tr("Back"));
+	const int promptNext = prompts.Add("A", tr("Next"));
+	const int promptCalibrate = prompts.Add("+", tr("Calibrate"));
+	const int promptReset = prompts.Add("-", tr("Reset to default"));
+	const int promptLess = prompts.Add("1", tr("Dead zone -"));
+	const int promptMore = prompts.Add("2", tr("Dead zone +"));
+
+	HaltGui();
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleBand);
+	w.Append(&titleTxt);
+	w.Append(&panel);
+	w.Append(&padTxt);
+	w.Append(&view);
+	w.Append(&stickLbl);
+	w.Append(&cLbl);
+	w.Append(&lLbl);
+	w.Append(&rLbl);
+	for (auto& t : buttonTxt) w.Append(t.get());
+	w.Append(&rawTxt);
+	w.Append(&deadTxt);
+	w.Append(&slider);
+	w.Append(&stepTxt);
+	for (SkinButton* b : {&backBtn, &calibrateBtn, &nextBtn, &resetBtn, &lessBtn, &moreBtn}) w.Append(&b->button);
+	w.Append(&prompts);
+	mainWindow->Append(&w);
+	ResumeGui();
+
+	riftwii::PadCalibrations stored = riftwii::wii::LoadPadCalibrations();
+	enum class Step { Live, MainStick, CStick, Triggers };
+	Step step = Step::Live;
+	PadSlot selected;
+	bool haveSelected = false;
+	PadCalibration measuring;
+	std::string message;            // what the last action did, shown under the steps
+	std::uint16_t lastButtons = 0;  // the selected controller's buttons a frame ago
+	int holdB = 0, holdStart = 0;   // frames a GameCube controller's B or Start has been held
+	constexpr int kHoldFrames = 50; // a second at the loop's 20 ms
+	const auto current = [&]() {
+		const PadCalibration* found = haveSelected ? stored.find(selected) : nullptr;
+		return found ? *found : PadCalibration{};
+	};
+	const auto save = [&](const PadCalibration& c) {
+		if (!stored.set(selected, c)) {
+			message = tr("RiftWii keeps the calibrations of four USB controllers at most. Reset one to make room.");
+			return;
+		}
+		message = riftwii::wii::SavePadCalibrations(stored) ? std::string()
+			: tr("The SD card could not take the calibration. Is it locked or full?");
+	};
+	const auto stepText = [&]() -> std::string {
+		switch (step) {
+			case Step::MainStick:
+				return tr("Turn the control stick slowly around its edge two or three times, pushing it into every corner. Then press A.");
+			case Step::CStick:
+				return tr("Now turn the C stick around its edge the same way. Then press A.");
+			case Step::Triggers:
+				return tr("Press L all the way down and let go, then R. Then press A.");
+			case Step::Live: break;
+		}
+		if (!haveSelected)
+			return tr("Plug a GameCube controller into the Wii or the adapter, or plug in a USB controller.");
+		return tr("Press a button on another controller to show it. On the controller, hold Start to calibrate it or B to go back.");
+	};
+
+	bool done = false;
+	while (!done)
+	{
+		usleep(20000);
+		RestartIfOutOfMemory();
+		HaltGui();
+		ClearStaleButtons({&backBtn.button, &calibrateBtn.button, &nextBtn.button, &resetBtn.button, &lessBtn.button,
+			&moreBtn.button});
+		// What was pressed this frame: a prompt the pointer pressed counts
+		// as its button.
+		const int clickedPrompt = prompts.GetClicked();
+		if (clickedPrompt == promptBack) backBtn.PressSilently();
+		if (clickedPrompt == promptNext) nextBtn.PressSilently();
+		if (clickedPrompt == promptCalibrate) calibrateBtn.PressSilently();
+		if (clickedPrompt == promptReset) resetBtn.PressSilently();
+		if (clickedPrompt == promptLess) lessBtn.PressSilently();
+		if (clickedPrompt == promptMore) moreBtn.PressSilently();
+		const bool backAsked = backBtn.Clicked();
+		const bool nextAsked = nextBtn.Clicked();
+		const bool calibrateAsked = calibrateBtn.Clicked();
+		const bool resetAsked = resetBtn.Clicked();
+		const bool lessAsked = lessBtn.Clicked();
+		const bool moreAsked = moreBtn.Clicked();
+		for (SkinButton* b : {&backBtn, &calibrateBtn, &nextBtn, &resetBtn, &lessBtn, &moreBtn}) b->button.ResetState();
+
+		// The controller shown: the one being calibrated, else the one a
+		// button was pressed on last, else the first one there.
+		const std::vector<LivePad> pads = LivePads();
+		const LivePad* pad = nullptr;
+		for (const LivePad& p : pads)
+			if (haveSelected && p.slot == selected) pad = &p;
+		if (step == Step::Live) {
+			const bool shownIdle = pad == nullptr || pad->buttons == 0;
+			for (const LivePad& p : pads) {
+				if (shownIdle && p.buttons != 0 && (pad == nullptr || !(p.slot == pad->slot))) {
+					pad = &p;
+					break;
+				}
+			}
+			if (pad == nullptr && !pads.empty()) pad = &pads.front();
+			if (pad != nullptr && !(haveSelected && pad->slot == selected)) {
+				selected = pad->slot;
+				haveSelected = true;
+				lastButtons = pad->buttons;
+				holdB = 0;
+				holdStart = 0;
+				message.clear();
+			}
+		} else if (pad == nullptr) {
+			step = Step::Live;
+			message = tr("The controller was unplugged. Nothing was changed.");
+		}
+		const std::uint16_t buttons = pad != nullptr ? pad->buttons : 0;
+		const std::uint16_t pressed = buttons & ~lastButtons;
+		lastButtons = buttons;
+		holdB = (buttons & GCAD_PAD_B) ? holdB + 1 : 0;
+		holdStart = (buttons & GCAD_PAD_START) ? holdStart + 1 : 0;
+		const PadCalibration saved = current();
+
+		if (step == Step::Live) {
+			if (backAsked || holdB == kHoldFrames) done = true;
+			if (pad != nullptr && (calibrateAsked || holdStart == kHoldFrames)) {
+				measuring = PadCalibration{};
+				step = Step::MainStick;
+				message.clear();
+				riftwii::wii::logf("GameCube controller calibration: started on %s\n",
+					riftwii::pad_slot_key(selected).c_str());
+			} else if (haveSelected && (lessAsked || moreAsked)) {
+				PadCalibration c = saved;
+				if (moreAsked && c.dead_zone < riftwii::kPadDeadZoneMax) c.dead_zone += riftwii::kPadDeadZoneStep;
+				if (lessAsked && c.dead_zone >= riftwii::kPadDeadZoneStep) c.dead_zone -= riftwii::kPadDeadZoneStep;
+				if (c.dead_zone > riftwii::kPadDeadZoneMax) c.dead_zone = riftwii::kPadDeadZoneMax;
+				if (c.dead_zone != saved.dead_zone) save(c);
+			} else if (haveSelected && resetAsked && !saved.is_default()) {
+				if (ShowPopupSafeFirst(tr("Reset this controller?"),
+					    tr("{1} goes back to how it is without a calibration: no stretch and no dead zone.",
+						    {PadSlotName(selected)}),
+					    tr("Keep it"), tr("Reset")) == 1) {
+					save(PadCalibration{});
+					if (message.empty()) message = tr("Back to default.");
+					riftwii::wii::logf("GameCube controller calibration: %s reset to default\n",
+						riftwii::pad_slot_key(selected).c_str());
+				}
+			}
+		} else if (backAsked || (pressed & GCAD_PAD_B)) {
+			// A calibration step: the controller's own B (or the Remote's) cancels.
+			step = Step::Live;
+			message = tr("Calibration canceled. Nothing was changed.");
+		}
+
+		if (step != Step::Live && pad != nullptr) {
+			// Only the part being measured takes this frame's values.
+			PadCalibration frame;
+			riftwii::pad_calibration_note(frame, pad->sticks, pad->triggerL, pad->triggerR);
+			for (std::size_t d = 0; d < 4; ++d) {
+				if (step == Step::MainStick) measuring.main[d] = std::max(measuring.main[d], frame.main[d]);
+				if (step == Step::CStick) measuring.c_stick[d] = std::max(measuring.c_stick[d], frame.c_stick[d]);
+			}
+			if (step == Step::Triggers) {
+				measuring.trigger_l = std::max(measuring.trigger_l, frame.trigger_l);
+				measuring.trigger_r = std::max(measuring.trigger_r, frame.trigger_r);
+			}
+		}
+		// A step ends with A: the Remote's, or the controller's own.
+		const bool next = nextAsked || (pressed & GCAD_PAD_A);
+		if (next && step == Step::MainStick) {
+			if (riftwii::pad_stick_measured(measuring.main)) {
+				step = Step::CStick;
+				message.clear();
+			} else {
+				message = tr("The stick did not reach every side yet. Keep turning it around its edge.");
+			}
+		} else if (next && step == Step::CStick) {
+			if (riftwii::pad_stick_measured(measuring.c_stick)) {
+				step = Step::Triggers;
+				message.clear();
+			} else {
+				message = tr("The C stick did not reach every side yet. Keep turning it around its edge.");
+			}
+		} else if (next && step == Step::Triggers) {
+			// A trigger hardly pressed was not pressed: it stays as it is.
+			if (measuring.trigger_l < riftwii::kPadMinTrigger) measuring.trigger_l = 0;
+			if (measuring.trigger_r < riftwii::kPadMinTrigger) measuring.trigger_r = 0;
+			measuring.dead_zone = saved.dead_zone;
+			step = Step::Live;
+			message.clear();
+			save(measuring);
+			if (message.empty()) message = tr("Calibrated. GameCube games now get this controller's full range, and Wii games do while a GameCube adapter or USB controller is in use.");
+			riftwii::wii::logf("GameCube controller calibration: %s measured stick %u %u %u %u, C stick %u %u %u %u, "
+				"L %u, R %u\n", riftwii::pad_slot_key(selected).c_str(), measuring.main[0], measuring.main[1],
+				measuring.main[2], measuring.main[3], measuring.c_stick[0], measuring.c_stick[1],
+				measuring.c_stick[2], measuring.c_stick[3], measuring.trigger_l, measuring.trigger_r);
+		}
+
+		// What the page shows for the controller, with the calibration as
+		// a game will apply it (in progress: the one being measured).
+		const PadCalibration shownCal = step == Step::Live ? current() : measuring;
+		const rtpadcal_pad stretch = riftwii::pad_calibration_stretch(step == Step::Live ? shownCal : PadCalibration{});
+		view.shown = pad != nullptr;
+		slider.shown = haveSelected && step == Step::Live;
+		if (pad != nullptr) {
+			std::uint8_t axes[6] = {static_cast<std::uint8_t>(pad->sticks[0]), static_cast<std::uint8_t>(pad->sticks[1]),
+				static_cast<std::uint8_t>(pad->sticks[2]), static_cast<std::uint8_t>(pad->sticks[3]), pad->triggerL, pad->triggerR};
+			rtpadcal_apply(&stretch, axes);
+			for (int i = 0; i < 4; ++i) {
+				view.raw[i] = pad->sticks[i];
+				view.game[i] = static_cast<std::int8_t>(axes[i]);
+			}
+			view.rawL = pad->triggerL;
+			view.rawR = pad->triggerR;
+			view.gameL = axes[4];
+			view.gameR = axes[5];
+			view.mainReach = shownCal.main;
+			view.cReach = shownCal.c_stick;
+			view.deadZone = step == Step::Live ? shownCal.dead_zone : 0;
+			rawTxt.SetText(tr("Stick {1}, {2}   C stick {3}, {4}   L {5}   R {6}", {std::to_string(pad->sticks[0]),
+				std::to_string(pad->sticks[1]), std::to_string(pad->sticks[2]), std::to_string(pad->sticks[3]),
+				std::to_string(pad->triggerL), std::to_string(pad->triggerR)}).c_str());
+		} else {
+			rawTxt.SetText("");
+		}
+		for (std::size_t i = 0; i < buttonTxt.size(); ++i)
+			buttonTxt[i]->SetColor((buttons & buttonLabels[i].bit) ? skin::kAccent : skin::kInkDim);
+		if (haveSelected) {
+			const std::string state = shownCal.is_default() ? tr("not calibrated") : tr("calibrated");
+			padTxt.SetText((PadSlotName(selected) + " - " + (step == Step::Live ? state : tr("calibrating"))).c_str());
+		} else {
+			padTxt.SetText(tr("No GameCube controller found"));
+		}
+		slider.value = shownCal.dead_zone;
+		deadTxt.SetText(slider.shown ? tr("Dead zone: {1}", {std::to_string(shownCal.dead_zone)}).c_str() : "");
+		stepTxt.SetText((message.empty() ? stepText() : message + " " + stepText()).c_str());
+		prompts.SetShown(promptNext, step != Step::Live);
+		prompts.SetAction(promptBack, step == Step::Live ? tr("Back") : tr("Cancel"));
+		prompts.SetShown(promptCalibrate, step == Step::Live && haveSelected);
+		prompts.SetShown(promptReset, step == Step::Live && haveSelected && !saved.is_default());
+		prompts.SetShown(promptLess, step == Step::Live && haveSelected);
+		prompts.SetShown(promptMore, step == Step::Live && haveSelected);
+		ResumeGui();
+	}
+	HaltGui();
+	mainWindow->Remove(&w);
+	ResumeGui();
+}
+
 // Settings > Credits and license: RiftWii's license notice, who its
 // parts come from and the GNU GPL in full (wii/menu/credits.hpp).
 static void CreditsPage()
@@ -16503,7 +17015,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kDiscLight, kNintendontSaves, kParental, kSdGames, kIos, kNet, kResync, kWads, kDiscCopy,
+	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kUsbInput, kGcCard, kGcBackups, kLeaveButtons, kDiscLight, kNintendontSaves, kParental, kSdGames, kIos, kNet, kResync, kWads, kDiscCopy,
 		kMissingCovers, kRescan, kPartitionFailures, kUpdate, kReport, kTests, kGeckoLog, kWiirdDebugger, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -16557,9 +17069,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		option(tr("Online server"), ServerName(settings.wfc_server), settings.wfc_server != "off", kServer);
 		option(tr("Quitting a game"), settings.return_to == "menu" ? tr("Wii Menu") : tr("Back to RiftWii"),
 			settings.return_to != "menu", kReturnTo);
+		option(tr("Leaving a game"), settings.leave_buttons == "off" ? tr("HOME only") : tr("HOME or buttons"),
+			settings.leave_buttons == "off", kLeaveButtons);
 		option(tr("In-game screenshots"), settings.screenshots == "demo" ? std::string("Demo")
 			: settings.screenshots == "on" ? tr("On") : tr("Off"), settings.screenshots != "off", kShots,
 			FlowRow::Kind::Toggle);
+		option(tr("GameCube memory card"), GcCardName(settings.gc_card), settings.gc_card != "own", kGcCard);
 		option(tr("Back up GameCube saves"), settings.gc_backups == "off" ? tr("Off") : tr("On"), settings.gc_backups != "off",
 			kGcBackups, FlowRow::Kind::Toggle);
 		option(tr("Disc slot light"), settings.disc_light ? tr("On") : tr("Off"), settings.disc_light,
@@ -16590,6 +17105,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		gcTest.value = tr("Test");
 		rows.push_back(gcTest);
 		actions.push_back(kGcTest);
+		FlowRow gcCalibrate;
+		gcCalibrate.kind = FlowRow::Kind::Action;
+		gcCalibrate.label = tr("Calibrate a GameCube controller");
+		gcCalibrate.value = tr("Open");
+		rows.push_back(gcCalibrate);
+		actions.push_back(kGcCalibrate);
 		option(tr("USB input devices"), settings.usb_input == "off" ? tr("Off") : tr("On"),
 			settings.usb_input != "off", kUsbInput, FlowRow::Kind::Toggle);
 		heading(tr("Menu"));
@@ -16836,10 +17357,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			switch (a) {
 				case kWidth: case kDeflicker: case kBorders: case kVideoMode: case kAspect:
 					return SettingsSection::Picture;
-				case kEmulators: case kGameLanguage: case kGameCios: case kWiiSaves: case kEmuNandFolder: case kEmuNandKeeps: case kNonGames: case kReturnTo: case kShots: case kGcBackups: case kDiscLight: case kNintendontSaves:
+				case kEmulators: case kGameLanguage: case kGameCios: case kWiiSaves: case kEmuNandFolder: case kEmuNandKeeps: case kNonGames: case kReturnTo: case kLeaveButtons: case kShots: case kGcCard: case kGcBackups: case kDiscLight: case kNintendontSaves:
 				case kParental:
 					return SettingsSection::Games;
-				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest: case kUsbInput:
+				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest: case kGcCalibrate: case kUsbInput:
 					return SettingsSection::Controllers;
 				case kHomeTiles: case kChannelCorners: case kChannelBackground: case kPagePeek: case kGridSpacing: case kHomeSource: case kHomeSort: case kHomeStart: case kStartLastGame:
 				case kShowHidden: case kPlayHistory: case kDiscTile: case kClockFormat:
@@ -16963,9 +17484,11 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kWiiMusic: return tr("Read this Wii's own menu music into memory. A theme's music takes priority. Menu music sets whether it plays.");
 			case kSounds: return tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.");
 			case kReturnTo: return ReturnToNote();
+			case kLeaveButtons: return tr("In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game's own button combos can't leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console's Reset button then gets back.");
 			case kShots: return tr("Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it.");
 			case kDiscTile: return DiscTileNote();
 			case kDiscLight: return tr("Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong.");
+			case kGcCard: return tr("The memory card of every GameCube game whose own Memory card option is Default. A game's own choice wins.");
 			case kGcBackups: return tr("Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page.");
 			case kPlayHistory: return tr("Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown.");
 			case kHomeSource: return HomeSourceNote(settings.home_source);
@@ -16991,6 +17514,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kGcRumble: return tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports.");
 			case kWiiRumble: return tr("Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only.");
 			case kGcTest: return tr("Shows live what the controllers in the adapter are pressing.");
+			case kGcCalibrate: return tr("Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use.");
 			case kUsbInput: return tr("USB pads use controller.ini mappings in the menu and games; wired Xbox 360 pads need none. Off also leaves keyboards, mice, tablets and the uDraw alone.");
 			case kParental: return tr("A PIN that locks or hides the games rated for players older than an age you pick.");
 			case kNintendontSaves: return tr("Copy saves from Nintendont's memory cards (in sd:/saves or usb:/saves) to RiftWii's. Nintendont's files are not changed.");
@@ -17322,6 +17846,23 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kDiscLight:
 					settings.disc_light = !settings.disc_light;
 					saveAndNote(tr("Disc slot light"));
+					rebuild();
+					break;
+				case kGcCard: {
+					// The real cards only where the Wii has GameCube slots.
+					std::vector<std::string> cards{"own", "shared"};
+					if (!riftwii::wii::is_wii_u()) {
+						cards.push_back("real");
+						cards.push_back("real_b");
+					}
+					settings.gc_card = StepList(cards, settings.gc_card, 1);
+					saveAndNote(tr("The memory card of every GameCube game whose own Memory card option is Default. A game's own choice wins."));
+					rebuild();
+					break;
+				}
+				case kLeaveButtons:
+					settings.leave_buttons = settings.leave_buttons == "off" ? "on" : "off";
+					saveAndNote(tr("In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game's own button combos can't leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console's Reset button then gets back."));
 					rebuild();
 					break;
 				case kGcBackups:
@@ -17664,6 +18205,18 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					mainWindow->Remove(&w);
 					ResumeGui();
 					NintendontSavesPage();
+					HaltGui();
+					transition::Hold(transition::Kind::SlideBack);
+					mainWindow->Append(&w);
+					break;
+				case kGcCalibrate:
+					// The adapter's controllers show once the scan's reads are over.
+					WaitForDriveScan(noteTxt);
+					riftwii::wii::GcAdapterMenuAllowStart();
+					transition::Hold(transition::Kind::SlideForward);
+					mainWindow->Remove(&w);
+					ResumeGui();
+					GcCalibratePage();
 					HaltGui();
 					transition::Hold(transition::Kind::SlideBack);
 					mainWindow->Append(&w);

@@ -4202,3 +4202,135 @@ msgstr "Luz da entrada de discos"
 
 msgid "Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong."
 msgstr "Pisca suavemente ao carregar um jogo ou copiar um disco. Apaga ao terminar ou se algo der errado."
+
+msgid "Real card in slot B"
+msgstr "Cartão real no slot B"
+
+msgid "GameCube memory card"
+msgstr "Cartão de memória do GameCube"
+
+msgid "The memory card of every GameCube game whose own Memory card option is Default. A game's own choice wins."
+msgstr "O cartão de memória de cada jogo de GameCube cuja opção Cartão de memória está em Padrão. A escolha do próprio jogo tem prioridade."
+
+msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
+msgstr "Não foi possível ler o cartão de memória no slot B. Coloque-o de volta ou escolha outro cartão na página do jogo."
+
+msgid "Leaving a game"
+msgstr "Sair de um jogo"
+
+msgid "HOME or buttons"
+msgstr "HOME ou botões"
+
+msgid "HOME only"
+msgstr "Só HOME"
+
+msgid "In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game's own button combos can't leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console's Reset button then gets back."
+msgstr "Nos jogos de GameCube, segure HOME por dois segundos para voltar ao RiftWii (HOME e - num Wii Remote sozinho). HOME ou botões: segurar L, R, Z e Start num controle de GameCube também sai, e nos jogos de Wii com o adaptador. Só HOME desativa os botões, para que as combinações de um jogo não o fechem por acidente. Sem um Wii Remote nem um Wii U Pro Controller, só o botão Reset do console volta."
+
+msgid "L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote or a Wii U Pro Controller for two seconds to leave the game."
+msgstr "L, R, Z e Start estão desativados (Configurações > Jogos > Sair de um jogo): segure HOME num Wii Remote ou num Wii U Pro Controller por dois segundos para sair do jogo."
+
+msgid "Calibrate a GameCube controller"
+msgstr "Calibrar um controle de GameCube"
+
+msgid "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use."
+msgstr "Testa um controle de GameCube e corrige um gasto: alavancas que não chegam à borda, alavancas que se movem sozinhas, gatilhos que não vão até o fim. Os jogos de GameCube recebem a correção, e os de Wii enquanto um adaptador de GameCube ou um controle USB estiver em uso."
+
+msgid "Wii's GameCube port {1}"
+msgstr "Entrada de GameCube {1} do Wii"
+
+msgid "Adapter port {1}"
+msgstr "Entrada {1} do adaptador"
+
+msgid "USB controller {1}"
+msgstr "Controle USB {1}"
+
+msgid "C stick"
+msgstr "Alavanca C"
+
+msgid "Up"
+msgstr "Cima"
+
+msgid "Down"
+msgstr "Baixo"
+
+msgid "Left"
+msgstr "Esquerda"
+
+msgid "Right"
+msgstr "Direita"
+
+msgid "Calibrate"
+msgstr "Calibrar"
+
+msgid "Reset to default"
+msgstr "Restaurar padrão"
+
+msgid "Dead zone -"
+msgstr "Zona morta -"
+
+msgid "Dead zone +"
+msgstr "Zona morta +"
+
+msgid "Dead zone: {1}"
+msgstr "Zona morta: {1}"
+
+msgid "RiftWii keeps the calibrations of four USB controllers at most. Reset one to make room."
+msgstr "O RiftWii guarda a calibração de no máximo quatro controles USB. Restaure um para liberar espaço."
+
+msgid "The SD card could not take the calibration. Is it locked or full?"
+msgstr "Não foi possível salvar a calibração no cartão SD. Ele está travado ou cheio?"
+
+msgid "Turn the control stick slowly around its edge two or three times, pushing it into every corner. Then press A."
+msgstr "Gire a alavanca de controle devagar pela borda duas ou três vezes, levando-a a cada canto. Depois aperte A."
+
+msgid "Now turn the C stick around its edge the same way. Then press A."
+msgstr "Agora gire a alavanca C pela borda do mesmo jeito. Depois aperte A."
+
+msgid "Press L all the way down and let go, then R. Then press A."
+msgstr "Aperte L até o fim e solte, depois R. Em seguida aperte A."
+
+msgid "Plug a GameCube controller into the Wii or the adapter, or plug in a USB controller."
+msgstr "Conecte um controle de GameCube ao Wii ou ao adaptador, ou conecte um controle USB."
+
+msgid "Press a button on another controller to show it. On the controller, hold Start to calibrate it or B to go back."
+msgstr "Aperte um botão de outro controle para vê-lo. No controle, segure Start para calibrá-lo ou B para voltar."
+
+msgid "The controller was unplugged. Nothing was changed."
+msgstr "O controle foi desconectado. Nada foi alterado."
+
+msgid "Reset this controller?"
+msgstr "Restaurar este controle?"
+
+msgid "{1} goes back to how it is without a calibration: no stretch and no dead zone."
+msgstr "{1} volta a funcionar sem calibração: sem ajuste de alcance e sem zona morta."
+
+msgid "Back to default."
+msgstr "Padrão restaurado."
+
+msgid "Calibration canceled. Nothing was changed."
+msgstr "Calibração cancelada. Nada foi alterado."
+
+msgid "The stick did not reach every side yet. Keep turning it around its edge."
+msgstr "A alavanca ainda não chegou a todos os lados. Continue girando pela borda."
+
+msgid "The C stick did not reach every side yet. Keep turning it around its edge."
+msgstr "A alavanca C ainda não chegou a todos os lados. Continue girando pela borda."
+
+msgid "Calibrated. GameCube games now get this controller's full range, and Wii games do while a GameCube adapter or USB controller is in use."
+msgstr "Calibrado. Os jogos de GameCube agora recebem todo o alcance deste controle, e os de Wii enquanto um adaptador de GameCube ou um controle USB estiver em uso."
+
+msgid "Stick {1}, {2}   C stick {3}, {4}   L {5}   R {6}"
+msgstr "Alavanca {1}, {2}   Alavanca C {3}, {4}   L {5}   R {6}"
+
+msgid "not calibrated"
+msgstr "não calibrado"
+
+msgid "calibrated"
+msgstr "calibrado"
+
+msgid "calibrating"
+msgstr "calibrando"
+
+msgid "No GameCube controller found"
+msgstr "Nenhum controle de GameCube encontrado"

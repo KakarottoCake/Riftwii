@@ -57,6 +57,13 @@ struct GcSramReads {
     std::vector<std::uint32_t> language;     // lbz rX,0x12(copy)
     std::vector<std::uint32_t> progressive;  // lbz rX,0x13(copy), then its bit 7 taken (>> 7 & 1)
     std::vector<std::uint32_t> sixty_hz;     // lbz rX,0x11(copy), then its bit 6 taken (>> 6 & 1)
+    // The screen position (the signed byte at 0x10), which VIInit reads
+    // once and adds to the picture's left edge: `bl __OSLockSram`, then
+    // `lbz rX,0x10(r3)`, `li r3,0` (the unlock's argument) and `extsb` of
+    // rX. The same four words in Luigi's Mansion (2001), Super Mario
+    // Sunshine, Mario Party 7 and Twilight Princess. The bl must reach the
+    // lock of `copy`.
+    std::vector<std::uint32_t> display_offset;
 };
 
 // The copy most getters lock, and the reads of it; copy 0 when none.

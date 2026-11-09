@@ -273,7 +273,8 @@ and `sd:/riftwii/gc/trace.bin`.
   Saves tile lists it with its icon; copy it out as `.gci`, delete it,
   add it back; Options > Memory card > Shared uses `shared.raw`.
 - [ ] **Leaving**: hold HOME for two seconds (HOME and - on a Wii Remote
-  alone; L, R, Z and Start on a GameCube controller), just after saving:
+  alone; L, R, Z and Start on a GameCube controller, which leave nothing
+  with Settings > Games > Leaving a game on HOME only), just after saving:
   Settings > Return to: RiftWii goes back to the RiftWii channel (the Wii
   Menu without it), Wii Menu to the Wii Menu; the save is there next time.
 - [ ] **A crash** (`sd:/riftwii/gc/test/crash` makes one 600 pad reads in;

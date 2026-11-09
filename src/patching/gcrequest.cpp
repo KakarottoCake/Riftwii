@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/gcrequest.hpp"
 #include "rthid.h"
+#include "rtpadcal.h"
 
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/mempatch.hpp"
@@ -187,13 +188,19 @@ bool gc_request_check(const rwp_gc_launch* request, std::uint32_t bytes, std::ui
         why = "the launch request has no room for a reason";
         return false;
     }
-    if (request->real_card > 1 || (request->real_card && request->shared_card)) {
+    if (request->real_card > RWP_GC_REAL_CARD_B ||
+        (request->real_card == RWP_GC_REAL_CARD_A && request->shared_card)) {
         why = "the launch request has conflicting memory card choices";
+        return false;
+    }
+    if (request->screen_offset_set && (request->screen_offset < -32 || request->screen_offset > 32)) {
+        why = "the launch request's screen position " + std::to_string(request->screen_offset) +
+              " is outside -32 to 32";
         return false;
     }
     if (request->external_card != nullptr) {
         const std::uint32_t bytes = request->external_card_bytes;
-        if (request->real_card || bytes < (512u << 10) || bytes > (16u << 20) || (bytes & (bytes - 1u)) != 0 ||
+        if (request->real_card == RWP_GC_REAL_CARD_A || bytes < (512u << 10) || bytes > (16u << 20) || (bytes & (bytes - 1u)) != 0 ||
             request->card_fragment_count == 0 || request->card_fragment_count > 32 || !request->card_fragments ||
             (request->card_on_usb && request->usb_fd < 0)) {
             why = "the external memory card request is not whole";
@@ -255,6 +262,11 @@ bool gc_request_check(const rwp_gc_launch* request, std::uint32_t bytes, std::ui
     if (!sized(request->hid_catalog, request->hid_catalog_bytes) ||
         (request->hid_catalog != nullptr && request->hid_catalog_bytes != sizeof(rthid_catalog))) {
         why = "the USB controller mappings have the wrong size";
+        return false;
+    }
+    if (!sized(request->pad_calibration, request->pad_calibration_bytes) ||
+        (request->pad_calibration != nullptr && request->pad_calibration_bytes != sizeof(rtpadcal_table))) {
+        why = "the controllers' calibration has the wrong size";
         return false;
     }
     if (!sized(request->cheat_gct, request->cheat_gct_bytes) ||

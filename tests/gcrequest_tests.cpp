@@ -7,6 +7,7 @@
 #include "riftwii/gcrequest.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "rthid.h"
+#include "rtpadcal.h"
 
 #include <cstddef>
 #include <cstring>
@@ -74,6 +75,7 @@ static void test_layout() {
     EXPECT_TRUE(offsetof(rwp_gc_launch, pack_entry_count) < offsetof(rwp_gc_launch, rumble_off));
     EXPECT_TRUE(offsetof(rwp_gc_launch, code_handler_bytes) < offsetof(rwp_gc_launch, crash_screen));
     EXPECT_TRUE(offsetof(rwp_gc_launch, way_back_view_bytes) < offsetof(rwp_gc_launch, error));
+    EXPECT_TRUE(offsetof(rwp_gc_launch, pad_calibration_bytes) < offsetof(rwp_gc_launch, error));
     // The out code is last, and a request is checked against the whole struct, so a DOL
     // and a plugin of different builds still refuse each other.
     EXPECT_EQ(offsetof(rwp_gc_launch, error_code) + sizeof(void*), sizeof(rwp_gc_launch));
@@ -363,9 +365,12 @@ static void test_external_card_request() {
     EXPECT_FALSE(fixture.check(why));
     fixture.request.usb_fd = 4;
     EXPECT_TRUE(fixture.check(why));
-    fixture.request.real_card = 1;
+    fixture.request.real_card = RWP_GC_REAL_CARD_A;
     EXPECT_FALSE(fixture.check(why));
-    fixture.request.real_card = 0;
+    // Slot B's real card goes beside the external card in slot A.
+    fixture.request.real_card = RWP_GC_REAL_CARD_B;
+    EXPECT_TRUE(fixture.check(why));
+    fixture.request.real_card = RWP_GC_REAL_CARD_NONE;
     part.sector = 0xFFFFFFFFull;
     EXPECT_FALSE(fixture.check(why));
     part.sector = 100;
@@ -373,8 +378,47 @@ static void test_external_card_request() {
     EXPECT_FALSE(fixture.check(why));
 }
 
+static void test_screen_offset_request() {
+    Fixture fixture;
+    std::string why;
+    fixture.request.screen_offset_set = 1;
+    for (int offset : {-32, 0, 32}) {
+        fixture.request.screen_offset = offset;
+        EXPECT_TRUE(fixture.check(why));
+    }
+    for (int offset : {-33, 33}) {
+        fixture.request.screen_offset = offset;
+        EXPECT_FALSE(fixture.check(why));
+    }
+    // Not set: the value is not used, so it is not checked.
+    fixture.request.screen_offset_set = 0;
+    fixture.request.screen_offset = 100;
+    EXPECT_TRUE(fixture.check(why));
+}
+
+// The controllers' calibration crosses the plugin line whole, or not at all.
+static void test_pad_calibration_request() {
+    Fixture fixture;
+    std::string why;
+    rtpadcal_table table{};
+    fixture.request.pad_calibration = &table;
+    EXPECT_FALSE(fixture.check(why));  // a table with no size
+    fixture.request.pad_calibration_bytes = sizeof(table) - 4;
+    EXPECT_FALSE(fixture.check(why));
+    fixture.request.pad_calibration_bytes = sizeof(table) + 4;
+    EXPECT_FALSE(fixture.check(why));
+    fixture.request.pad_calibration_bytes = sizeof(table);
+    EXPECT_TRUE(fixture.check(why));
+    fixture.request.pad_calibration = nullptr;
+    EXPECT_FALSE(fixture.check(why));  // a size with no table
+    fixture.request.pad_calibration_bytes = 0;
+    EXPECT_TRUE(fixture.check(why));   // none stored
+}
+
 int main() {
     test_external_card_request();
+    test_screen_offset_request();
+    test_pad_calibration_request();
     {
         Fixture mappings;
         std::string error;
@@ -395,7 +439,13 @@ int main() {
     card_choice.request.shared_card = 1;
     EXPECT_FALSE(card_choice.check(why));
     card_choice.request.shared_card = 0;
-    card_choice.request.real_card = 2;
+    // Slot B's real card goes with the emulated card in slot A, shared or not.
+    card_choice.request.real_card = RWP_GC_REAL_CARD_B;
+    EXPECT_TRUE(card_choice.check(why));
+    card_choice.request.shared_card = 1;
+    EXPECT_TRUE(card_choice.check(why));
+    card_choice.request.shared_card = 0;
+    card_choice.request.real_card = 3;
     EXPECT_FALSE(card_choice.check(why));
     test_layout();
     test_plan_round_trip();

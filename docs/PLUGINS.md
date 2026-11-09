@@ -145,6 +145,7 @@ what the loader needs:
 | System | `ios_open`, `read_sram` (`rwp_sram`: the clock bias, the language, slot A's flash ID), `video_framebuffer`, `shut_down_for_game` (the TV mode as a number, `RWP_TV_NTSC` or `RWP_TV_PAL`, and for test switches `RWP_TV_NTSC_480P` or `RWP_TV_KEEP`; configures the video encoder, two retraces, `SYS_ResetSystem(SYS_SHUTDOWN)`) | `IOS_Open`, `__SYS_LockSram*`, `VIDEO_*` with `TVNtsc480IntDf`/`TVPal528IntDf` (`TVNtsc480Prog` for the test), `SYS_ResetSystem` |
 | Zstandard | `zstd_decompress`, `zstd_frame_size`, `zstd_is_error` | the three `ZSTD_*` the RVZ reader and the RVZ blob need |
 | The USB drive, after API 2 | `usb_read` (512-byte sectors through d2x's `/dev/usb2`, once a GameCube game's launch has opened it; checked with `RWP_HOST_HAS`) | `ums::Read` |
+| Slot B's card ID, after `heap_free_bytes` | `set_sram_flash_id_b` (as `set_sram_flash_id_a`, for slot B: the real card in slot B a GameCube game uses beside its emulated slot A) |
 | Slot A's card ID, after `usb_read` | `set_sram_flash_id_a` (12 ID bytes; compares ID and complemented byte-sum checksum, changes only those 13 bytes in SRAM-ex; 1 committed to RTC SRAM, 0 already matched, -1 unable to commit; checked with `RWP_HOST_HAS`) | `__SYS_LockSramEx`, `__SYS_UnlockSramEx(1)`, `__SYS_SyncSram` |
 
 Appending the SRAM setter preserves API 2 and all existing offsets; the

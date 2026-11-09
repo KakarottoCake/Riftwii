@@ -25,6 +25,7 @@
 #include "gc_programs.h"
 #include "gc_rt.h"
 #include "gc_rvz.h"
+#include "gc_tri.h"
 #include "gc_video.h"
 #include "gcblobs.h"
 #include "rtzstd.h"
@@ -44,6 +45,7 @@
 #include "riftwii/gcprograms.hpp"
 #include "riftwii/gcreset.hpp"
 #include "riftwii/gctgc.hpp"
+#include "riftwii/gctriforce.hpp"
 #include "riftwii/gcvideo.hpp"
 #include "riftwii/gcoverlay.hpp"
 #include "riftwii/gcmempatch.hpp"
@@ -474,6 +476,7 @@ struct DvdLow {
     std::uint32_t read = 0, seek = 0, disk_id = 0, inquiry = 0, stop_motor = 0, request_error = 0;
     std::uint32_t audio_stream = 0, audio_status = 0, audio_config = 0, reset = 0;
     std::uint32_t set_alarm = 0;
+    bool triforce = false;  // the arcade SDK's disc layer (find_triforce_dvd_low)
 };
 
 // The start of the function holding `at`: the word after the previous blr.
@@ -642,6 +645,73 @@ bool adds_to_register(const Code& code, std::uint32_t at, unsigned reg, std::uin
     return false;
 }
 
+// The arcade (Triforce) SDK's disc layer, as Mario Kart Arcade GP 2 has
+// it: every command goes through one helper that scrambles the three
+// command words before it writes them to the DI (each XORed with a key
+// that changes at every call; the media board unscrambles them), called
+// as helper(command, offset / 4, length) with the command a small number
+// in r3: 0xA8 a read, 0xAA a write to the board's memory. DVDLowRead is a
+// small wrapper round the function that sends the 0xA8, and DVDLowSeek,
+// DVDLowReadDiskID, DVDLowInquiry, DVDLowStopMotor, DVDLowRequestError and
+// the audio commands are stubs that return FALSE (the board answers for
+// the drive), so only the read, OSSetAlarm (the read's timeout) and
+// DVDLowReset are found. The helper is the function both a "li r3,0xA8"
+// and a "li r3,0xAA" are passed to (within 8 instructions of the call).
+// Behaviour read from naari3's Mario Kart Arcade GP2 decompilation (CC0),
+// src/triforce/dvdlow.c.
+bool find_triforce_dvd_low(const Code& code, const std::map<std::uint32_t, std::vector<std::uint32_t>>& calls,
+                           DvdLow& out) {
+    const auto command_before = [&](std::uint32_t site, std::uint32_t command) {
+        const std::uint32_t li_r3 = 0x38600000 | command;
+        for (std::uint32_t a = site - 4; a + 32 >= site && code.has(a); a -= 4)
+            if (code.at(a) == li_r3) return true;
+        return false;
+    };
+    std::uint32_t read_low = 0;
+    for (const auto& callee : calls) {
+        std::uint32_t read_site = 0;
+        bool writes = false;
+        for (std::uint32_t site : callee.second) {
+            if (read_site == 0 && command_before(site, 0xA8)) read_site = site;
+            if (command_before(site, 0xAA)) writes = true;
+        }
+        if (read_site != 0 && writes) {
+            read_low = function_start(code, read_site);
+            break;
+        }
+    }
+    if (read_low == 0) return false;
+    // DVDLowRead: the wrapper the rest of the game calls, else the function itself.
+    out.read = read_low;
+    const auto found = calls.find(read_low);
+    if (found != calls.end()) {
+        for (std::uint32_t site : found->second) {
+            const std::uint32_t f = function_start(code, site);
+            if (f != 0 && f > read_low && f - read_low < 0x200 && calls.count(f)) {
+                out.read = f;
+                break;
+            }
+        }
+    }
+    // OSSetAlarm: the read's last call sets its timeout alarm.
+    for (std::uint32_t a = read_low; code.has(a) && code.at(a) != 0x4E800020; a += 4)
+        if (std::uint32_t t = bl_target(a, code.at(a))) out.set_alarm = t;
+    if (out.set_alarm != 0) out.set_alarm = through_timeout_helper(code, out.set_alarm);
+    // DVDLowReset, near the read: the DI reset bit toggled with "ori 1" then "ori 5".
+    const std::uint32_t lo = read_low - 0x1000, hi = read_low + 0x1000;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if (a < lo || a > hi || out.reset != 0) return;
+        if ((w >> 26) == 24 && (w & 0xFFFF) == 5 && (code.at(a + 4) & 0xFC00FFFF) == 0x90000000) {
+            for (std::uint32_t b = a; b > a - 0x80; b -= 4)
+                if ((code.at(b) >> 26) == 24 && (code.at(b) & 0xFFFF) == 1) {
+                    out.reset = function_start(code, b);
+                    break;
+                }
+        }
+    });
+    return out.set_alarm != 0;
+}
+
 bool find_dvd_low(const Code& code, DvdLow& out, std::string& error) {
     std::uint32_t just_read = 0;
     std::map<std::uint32_t, std::vector<std::uint32_t>> calls;  // target -> call sites
@@ -679,6 +749,11 @@ bool find_dvd_low(const Code& code, DvdLow& out, std::string& error) {
                     out.disk_id = d;
                 }
     if (just_read == 0) {
+        out = DvdLow{};
+        if (find_triforce_dvd_low(code, calls, out)) {
+            out.triforce = true;
+            return true;
+        }
         error = "the game's disc functions were not found";
         return false;
     }
@@ -1527,6 +1602,10 @@ static void prepare_leave(gc_rt_context* ctx, std::uint32_t buf, bool test, cons
     ctx->leave_buf = 0;
     ctx->leave_hold = 2 * 60750000u;  // two seconds of the timebase (the bus clock / 4)
     ctx->leave_since = 0;
+    // Settings > Leaving a game, HOME only: L, R, Z and Start held leave
+    // nothing, so a game's own combos near it can't end the game by
+    // accident (players asked after losing progress, #511).
+    if (extras.leave_home_only) ctx->flags |= GC_FLAG_HOME_ONLY;
     auto* bytes = reinterpret_cast<std::uint8_t*>(buf);
     std::memset(bytes, 0, kLeaveBytes);
     const bool view_fits = extras.way_back_view_bytes <= GC_LEAVE_REQUEST_OFFSET - kLeaveViewOffset;
@@ -1541,8 +1620,9 @@ static void prepare_leave(gc_rt_context* ctx, std::uint32_t buf, bool test, cons
         DCFlushRange(bytes, kLeaveBytes);
         ctx->leave_fd = static_cast<std::uint32_t>(fd);
         ctx->leave_buf = buf;
-        logf("GameCube: holding HOME for two seconds goes to %08x-%08x\n", static_cast<u32>(title >> 32),
-             static_cast<u32>(title));
+        logf("GameCube: holding HOME%s for two seconds goes to %08x-%08x\n",
+             extras.leave_home_only ? " (only HOME: Settings turned L, R, Z and Start off)" : " or L, R, Z and Start",
+             static_cast<u32>(title >> 32), static_cast<u32>(title));
         return;
     }
     logf("GameCube: no way back to RiftWii: none of the titles to go back to is installed\n");
@@ -1703,6 +1783,18 @@ static void apply_picture_and_language(const GcImage& image, Code& code, ReplayH
              "the game switches only if it has a 60 Hz mode of its own (VIConfigure %s)\n",
              static_cast<unsigned>(sram.sixty_hz.size()), static_cast<unsigned>(sram.progressive.size()),
              vi_hooked ? "hooked, its mode in the trace" : "not hooked");
+    }
+    // The screen position: VIInit's read of the SRAM's byte becomes the
+    // Wii's. The console's SRAM is left as it is.
+    if (image.screen_offset_set) {
+        const std::uint16_t offset = static_cast<std::uint16_t>(static_cast<std::int16_t>(image.screen_offset));
+        for (std::uint32_t a : sram.display_offset) code.put(a, li(reg_d(code.at(a)), offset));
+        if (sram.display_offset.empty()) {
+            logf("GameCube: screen position %d not applied: VIInit's read of it was not found\n", image.screen_offset);
+        } else {
+            logf("GameCube: screen position %d (%u read(s) in VIInit)\n", image.screen_offset,
+                 static_cast<unsigned>(sram.display_offset.size()));
+        }
     }
     // Picture width: VIConfigure draws the picture that wide, centred.
     if (image.vi_width != 0) {
@@ -2495,6 +2587,11 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     Code code(dol.text);
     DvdLow low;
     if (!find_dvd_low(code, low, error)) return false;
+    // A Triforce arcade game: the arcade SDK's functions that talk to its
+    // boards (riftwii/gctriforce.hpp), found while the code is the game's own.
+    GcTriforceFunctions triforce;
+    if (low.triforce) triforce = find_gc_triforce_functions(code.ranges());
+    const bool triforce_on = low.triforce && triforce.complete();
     // The cheats' hook, found while the code is still the game's own.
     GcCheats cheats;
     std::string cheats_off;
@@ -2595,8 +2692,12 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // The blob's state that MEM1 does not need (gc_rt.h's gc_rt_cold).
     const std::uint32_t cold_addr = mem2_take(sizeof(gc_rt_cold));
     const std::uint32_t bt_addr = mem2_take(sizeof(gc_bt));
+    // A Triforce game's boards (gc_tri.h).
+    const std::uint32_t tri_addr = triforce_on ? mem2_take(sizeof(gc_tri)) : 0;
     // The GameCube adapter's state (gc_gcad.h), when the menu opened it.
     const std::uint32_t gcad_addr = extras.adapter_fd >= 0 ? mem2_take(sizeof(gc_gcad)) : 0;
+    // The controllers' calibrations, when any is stored (rtpadcal.h).
+    const std::uint32_t pad_cal_addr = extras.pad_calibration != nullptr ? mem2_take(sizeof(rtpadcal_table)) : 0;
     const std::uint32_t crash_addr = mem2_take(GC_CRASH_SCREEN_BYTES);  // the card, then the strip
     const std::uint32_t runs_addr = mem2_take(runs_bytes);
     // An RVZ's reader: its state and the pieces of the RVZ on the card.
@@ -2892,6 +2993,20 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     std::vector<gc_card_run> card_runs;
     // (The memory card's backup, sd:/riftwii/gc/backups/, is made by the
     // DOL before the plugin starts: wii/launch/gcplugin.cpp.)
+    // Slot B's real card: SRAM gets its ID, so a card formatted on another
+    // console is accepted, as for slot A. The loader never takes over slot
+    // B, so the card itself reaches the game as it is.
+    if (image.real_card_b) {
+        const rwp_host& host = plugin::host();
+        if (!RWP_HOST_HAS(&host, set_sram_flash_id_b) || !host.set_sram_flash_id_b ||
+            host.set_sram_flash_id_b(image.real_card_flash_id.data()) < 0) {
+            error = RWP_GC_REAL_CARD_SRAM_ERROR;
+            if (error_code != nullptr) *error_code = RWP_GC_ERROR_REAL_CARD_SRAM;
+            return false;
+        }
+        logf("GameCube: the real memory card in slot B is the game's too, beside its own card in slot A; SRAM holds "
+             "that card's ID\n");
+    }
     if (image.real_card) {
         const rwp_host& host = plugin::host();
         if (!RWP_HOST_HAS(&host, set_sram_flash_id_a) || !host.set_sram_flash_id_a ||
@@ -3127,6 +3242,11 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // start-up, idle discovery is serviced by the heartbeat.
     ctx->bt = bt_addr;
     static_cast<gc_bt*>(staged(bt_addr))->map = controls;
+    // A Triforce game's boards: what they answer with, then the hooks below.
+    if (tri_addr != 0) {
+        gc_tri_identity(*static_cast<gc_tri*>(staged(tri_addr)), image.id.size() > 3 ? image.id[3] : 'E');
+        ctx->tri = tri_addr;
+    }
     // The GameCube adapter for Wii U: its driver runs from the game's
     // PADRead on the handle the menu opened (gc_gcad.h); its controllers
     // take their ports before the Wii Remotes.
@@ -3141,6 +3261,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         ad->known_dev = extras.adapter_dev;
         ad->ticks_per_ms = 60750;  // the timebase, the bus clock / 4 in Wii mode
         ad->rumble = extras.adapter_rumble ? 1 : 0;
+        ad->cal = reinterpret_cast<const rtpadcal_table*>(pad_cal_addr);
         for (std::uint8_t& port : ad->port_of) port = GC_PORT_NONE;
         ctx->gcad = gcad_addr;
         logf("GameCube: USB controller driver on (/dev/usb/hid v%u fd %d, adapter device %d, rumble %s), state 0x%08x\n",
@@ -3161,6 +3282,15 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                  static_cast<unsigned>(mapping->vid), static_cast<unsigned>(mapping->pid),
                  static_cast<unsigned>(mapping->report_bytes));
         }
+    }
+    // GameCube controllers calibrated in Settings > Controllers: the Wii's
+    // own ports take theirs at each PADRead (gc_on_pad_read), the adapter's
+    // and the USB pads' in its driver (above).
+    if (pad_cal_addr != 0) {
+        std::memcpy(staged(pad_cal_addr), extras.pad_calibration, sizeof(rtpadcal_table));
+        ctx->pad_cal = pad_cal_addr;
+        logf("GameCube: controller calibrations at 0x%08x (%u bytes)\n", pad_cal_addr,
+             static_cast<unsigned>(sizeof(rtpadcal_table)));
     }
     auto* memcard = reinterpret_cast<gc_card*>(card_addr);
     std::memset(memcard, 0, sizeof(*memcard));
@@ -3316,6 +3446,31 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             hook(low.audio_status, h.hook_audio_status);
             hook(low.audio_config, h.hook_cb_r5);
             hook(low.audio_stream, h.hook_audio_stream);
+        }
+        // A Triforce game: its arcade SDK's board functions to the blob
+        // (gc_tri.h). SITransfer runs the original for ports 2-4. The
+        // addresses were found in the disc's own program, so a program the
+        // game loads itself never gets them.
+        if (main_program && low.triforce && !triforce_on) {
+            logf("GameCube: Triforce game, but these arcade functions were not found, so its boards are not "
+                 "answered and it stops at its start: %s\n",
+                 triforce.missing.c_str());
+        } else if (main_program && triforce_on) {
+            const std::uint32_t table = blob_addr + h.tri_hooks;
+            for (unsigned i = 0; i < GC_TRI_HOOKS; ++i) {
+                const std::uint32_t fn = triforce.hooks[i];
+                const std::uint32_t entry = load32(table + 12 * i);
+                if (i == GC_TRI_SI_TRANSFER)
+                    replay_hook(fn, entry, load32(table + 12 * i + 4), load32(table + 12 * i + 8));
+                else
+                    hook(fn, entry);
+            }
+            logf("GameCube: Triforce boards answered by RiftWii (state 0x%08x): SITransfer 0x%08x, baseboard EXI "
+                 "0x%08x-0x%08x, media board write 0x%08x, inquiry 0x%08x, command 0x%08x; the controller in port 1 "
+                 "is the cabinet (Start, A coin, B item, X cancel, stick wheel, R accelerator, L brake)\n",
+                 tri_addr, triforce.hooks[GC_TRI_SI_TRANSFER], triforce.hooks[GC_TRI_EXI_CONNECT],
+                 triforce.hooks[GC_TRI_EXI_WRITE_LANCNT], triforce.hooks[GC_TRI_DI_WRITE],
+                 triforce.hooks[GC_TRI_DI_INQUIRY], triforce.hooks[GC_TRI_DI_EXECUTE]);
         }
         const unsigned di_patches = redirect_di_registers(code, di_regs);
         unsigned wii_mixed = 0;

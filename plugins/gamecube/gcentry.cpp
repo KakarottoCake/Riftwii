@@ -27,7 +27,8 @@ riftwii::wii::GcImage image_of(const rwp_gc_launch& request) {
     image.path = request.path;
     image.id = request.id;
     image.rvz = request.is_rvz != 0;
-    image.real_card = request.real_card != 0;
+    image.real_card = request.real_card == RWP_GC_REAL_CARD_A;
+    image.real_card_b = request.real_card == RWP_GC_REAL_CARD_B;
     std::copy_n(request.real_card_flash_id, image.real_card_flash_id.size(), image.real_card_flash_id.begin());
     image.shared_card = request.shared_card != 0;
     if (request.external_card != nullptr) {
@@ -46,6 +47,8 @@ riftwii::wii::GcImage image_of(const rwp_gc_launch& request) {
     image.sharp = request.sharp != 0;
     image.sixty_hz = request.sixty_hz != 0;
     image.vi_width = request.vi_width;
+    image.screen_offset_set = request.screen_offset_set != 0;
+    image.screen_offset = request.screen_offset;
     image.exec = request.exec != 0;
     image.exec_dol = request.exec_dol;
     image.exec_restart = request.exec_restart;
@@ -77,6 +80,7 @@ riftwii::wii::GcImage image_of(const rwp_gc_launch& request) {
 riftwii::wii::GcLaunchExtras extras_of(const rwp_gc_launch& request) {
     riftwii::wii::GcLaunchExtras extras;
     extras.rumble_off = request.rumble_off != 0;
+    extras.leave_home_only = request.leave_home_only != 0;
     extras.in_dolphin = request.in_dolphin != 0;
     if (request.cheat_gct != nullptr)
         extras.cheat_gct.assign(request.cheat_gct, request.cheat_gct + request.cheat_gct_bytes);
@@ -93,6 +97,7 @@ riftwii::wii::GcLaunchExtras extras_of(const rwp_gc_launch& request) {
     extras.adapter_dev = request.adapter_dev;
     extras.ven_fd = request.ven_fd;
     extras.adapter_rumble = request.adapter_rumble != 0;
+    extras.pad_calibration = request.pad_calibration;
     if (request.way_back_kind != RWP_GC_WAY_BACK_NONE) {
         extras.way_back_title = request.way_back_title;
         extras.way_back_view = request.way_back_view;

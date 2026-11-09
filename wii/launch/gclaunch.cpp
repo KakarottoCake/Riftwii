@@ -1129,10 +1129,13 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         LaunchModel choices;
         choices.restore(text);
         image.drive_timing = kGcDriveTimingReady && choices.game.gc_disc_reads != "fast";
-        image.shared_card = choices.game.gc_card == "shared";
-        image.real_card = choices.game.gc_card == "real";
-        if (choices.game.gc_card == "nintendont" || choices.game.gc_card == "dolphin") {
-            image.external_card_path = ExternalCardPath(image.id, choices.game.gc_card);
+        // "global" follows Settings' GameCube memory card.
+        const std::string card = gc_card_effective(choices.game, Settings().gc_card);
+        image.shared_card = card == "shared";
+        image.real_card = card == "real";
+        image.real_card_b = card == "real_b";
+        if (card == "nintendont" || card == "dolphin") {
+            image.external_card_path = ExternalCardPath(image.id, card);
             if (image.external_card_path.empty()) {
                 error = tr("The selected memory card is missing. Choose another card on the game's page.");
                 return false;
@@ -1141,6 +1144,7 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         const LaunchExtras& extras = CurrentLaunchExtras();
         if (extras.game_id == image.id && extras.gc_card_fallback) {
             image.real_card = false;
+            image.real_card_b = false;
             image.shared_card = false;
         }
         // "global" follows Settings and the Wii's own settings, as a Wii
@@ -1153,6 +1157,18 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         image.sharp = game.gc_sharp == "on";
         image.sixty_hz = gc_sixty_hz_on(game, image.id);
         image.vi_width = gc_vi_width(gc_picture_width(game, console));
+        // The Wii's screen position (Wii Settings > Screen > Screen
+        // Position), as a Wii game gets it. A GameCube game reads its own
+        // from the SRAM, which nothing on a Wii sets.
+        s8 screen_offset = 0;
+        if (CONF_GetDisplayOffsetH(&screen_offset) >= 0) {
+            image.screen_offset_set = true;
+            image.screen_offset = std::clamp(static_cast<int>(screen_offset), -32, 32);
+            logf("GameCube: the Wii's screen position is %d; the game is told %d as its own\n",
+                 static_cast<int>(screen_offset), image.screen_offset);
+        } else {
+            logf("GameCube: the Wii's screen position could not be read, so the game keeps the SRAM's\n");
+        }
         logf("GameCube: Picture width %s (Settings' %s): %s\n", game.gc_width.c_str(), console.video_width.c_str(),
              gc_picture_width(game, console).c_str());
         logf("GameCube: Progressive scan %s (the Wii's 480p setting %s, a component cable %s%s), Widescreen %s (Settings' aspect %s, "

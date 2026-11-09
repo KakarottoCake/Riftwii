@@ -13,6 +13,7 @@
 #include "gc_load.h"
 #include "gc_disc.h"
 #include "gc_programs.h"
+#include "gc_tri.h"
 #ifdef RT_RVZ
 #include "gc_rvz.h"
 #endif
@@ -822,6 +823,10 @@ static uint32_t gc_read_begin(struct gc_rt_context* ctx, uint32_t addr, uint32_t
 }
 
 uint32_t gc_on_read(struct gc_rt_context* ctx, uint32_t addr, uint32_t length, uint32_t offset, uint32_t cb) {
+    /* A Triforce game reads its media board's status and mailboxes
+     * through the same command as its data (gc_tri.h). */
+    if (ctx->tri != 0 && gc_tri_is_board(offset))
+        return gc_tri_on_read(ctx, (struct gc_tri*)(uintptr_t)ctx->tri, addr, length, offset, cb);
     return gc_read_begin(ctx, addr, length, offset, cb, 0);
 }
 
@@ -1017,6 +1022,12 @@ uint32_t gc_on_done(struct gc_rt_context* ctx, uint32_t cb) {
     gc_set_imm(ctx, 0);  /* RequestError: no error */
     gc_complete(ctx, cb, GC_DI_TC);
     return 1;
+}
+
+void gc_di_finish(struct gc_rt_context* ctx, uint32_t cb, int with_imm, uint32_t imm) {
+    gc_command_seen(ctx, 1);
+    if (with_imm) gc_set_imm(ctx, imm);
+    gc_complete(ctx, cb, GC_DI_TC);
 }
 
 /* A frame buffer register's address: bits 0-23, shifted by 5 when bit 28
@@ -1999,12 +2010,12 @@ static void gc_leave(struct gc_rt_context* ctx) {
 /* HOME on a Wii Remote with an extension or on a Classic Controller (HOME
  * and - on a Wii Remote alone, whose HOME is the game's Y), or L, R, Z and
  * Start together on a GameCube controller (the pads as the game reads
- * them), held for leave_hold ticks; checked at every pad read. Not while
- * storage is preparing buffers, nor within half a second of the game's last
- * memory card access (a save may be under way): the next read tries
- * again. */
+ * them; not with GC_FLAG_HOME_ONLY), held for leave_hold ticks; checked
+ * at every pad read. Not while storage is preparing buffers, nor within
+ * half a second of the game's last memory card access (a save may be
+ * under way): the next read tries again. */
 #define GC_CARD_QUIET_TICKS 30375000u  /* half a second of the timebase */
-#define GC_LEAVE_PAD 0x1070u  /* Start, L, R, Z */
+#define GC_LEAVE_PAD GC_PORTS_LEAVE_BUTTONS  /* Start, L, R, Z */
 /* Since when the memory card has had no access (leave_card_quiet), noted
  * while something waits for it to be quiet. */
 static void gc_card_note(struct gc_rt_context* ctx, uint32_t now) {
@@ -2019,15 +2030,11 @@ static int gc_card_quiet(const struct gc_rt_context* ctx, uint32_t now) {
     return ctx->card == 0 || now - ctx->leave_card_quiet >= GC_CARD_QUIET_TICKS;
 }
 static void gc_leave_check(struct gc_rt_context* ctx, const uint8_t* status) {
-    uint32_t port, now;
+    uint32_t now;
     int held = 0;
     if (ctx->leave_buf == 0 || ctx->leave_fd == 0xFFFFFFFFu) return;
     if (ctx->bt && gc_bt_home_held((const struct gc_bt*)(uintptr_t)ctx->bt)) held = 1;
-    for (port = 0; port < 4 && !held; ++port) {
-        const uint8_t* pad = status + 12 * port;
-        const uint32_t buttons = ((uint32_t)pad[0] << 8) | pad[1];
-        if (pad[10] == 0 && (buttons & GC_LEAVE_PAD) == GC_LEAVE_PAD) held = 1;
-    }
+    if (!held && gc_ports_leave_held(status, (ctx->flags & GC_FLAG_HOME_ONLY) != 0)) held = 1;
     if (!held) {
         ctx->leave_since = 0;
         return;
@@ -2799,6 +2806,19 @@ static uint32_t gc_pad_errors(const uint8_t* status) {
     return errors;
 }
 
+/* The controllers the game's own PADRead found in the Wii's GameCube
+ * ports (no error), each with its calibration, before the adapter and the
+ * Wii Remotes fill the other ports, which the calibration never touches
+ * (the adapter's are calibrated in its driver). */
+static void gc_calibrate_own_ports(const struct gc_rt_context* ctx, uint8_t* status) {
+    const rtpadcal_table* cal = (const rtpadcal_table*)(uintptr_t)ctx->pad_cal;
+    uint32_t port;
+    for (port = 0; port < GC_PORTS; ++port) {
+        uint8_t* own = status + 12u * port;  /* PADStatus is 12 bytes, the error at 10 */
+        if (own[10] == 0) rtpadcal_apply(&cal->console[port], own + 2);
+    }
+}
+
 uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t result) {
     const uint32_t n = ctx->pad_reads++;
     const uint32_t previous_native = ctx->native_ports;
@@ -2810,6 +2830,7 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
      * other arguments) is left alone rather than followed. */
     if (status < 0x80000000u || status > 0x81800000u - 4u * 12u || (status & 1u) != 0) status = 0;
     ctx->pad_raw_errs = gc_pad_errors((const uint8_t*)(uintptr_t)status);
+    if (ctx->pad_cal != 0 && status != 0) gc_calibrate_own_ports(ctx, (uint8_t*)(uintptr_t)status);
     native = gc_ports_native_update((const volatile uint32_t*)(uintptr_t)ctx->si_type_cache,
                                     (const uint8_t*)(uintptr_t)status, ctx->pad_enabled_before, previous_native);
     ctx->native_ports = native;

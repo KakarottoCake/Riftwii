@@ -1924,7 +1924,7 @@ msgid "It is gone from the memory card for good. Copy it to the SD card first to
 msgstr "Desaparece de la tarjeta de memoria para siempre. Cópiala antes a la tarjeta SD para conservarla."
 
 msgid "Keep it"
-msgstr "Conservarla"
+msgstr "Mantener"
 
 msgid "Memory card damaged"
 msgstr "Tarjeta de memoria dañada"
@@ -4202,3 +4202,135 @@ msgstr "Luz de la ranura de discos"
 
 msgid "Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong."
 msgstr "Parpadea suavemente al cargar un juego o copiar un disco. Se apaga al terminar o si algo falla."
+
+msgid "Real card in slot B"
+msgstr "Tarjeta real en la ranura B"
+
+msgid "GameCube memory card"
+msgstr "Tarjeta de memoria de GameCube"
+
+msgid "The memory card of every GameCube game whose own Memory card option is Default. A game's own choice wins."
+msgstr "La tarjeta de memoria de cada juego de GameCube cuya opción Tarjeta de memoria está en Predeterminado. La elección propia de un juego tiene prioridad."
+
+msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
+msgstr "No se pudo leer la tarjeta de memoria de la ranura B. Vuelve a insertarla o elige otra tarjeta en la página del juego."
+
+msgid "Leaving a game"
+msgstr "Salir de un juego"
+
+msgid "HOME or buttons"
+msgstr "HOME o botones"
+
+msgid "HOME only"
+msgstr "Solo HOME"
+
+msgid "In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game's own button combos can't leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console's Reset button then gets back."
+msgstr "En los juegos de GameCube, mantén HOME dos segundos para volver a RiftWii (HOME y - con un mando de Wii solo). HOME o botones: mantener L, R, Z y Start en un mando de GameCube también sale, y en los juegos de Wii con el adaptador. Solo HOME desactiva los botones, para que las combinaciones de un juego no lo cierren por accidente. Sin un mando de Wii ni un Wii U Pro Controller, solo el botón Reset de la consola vuelve."
+
+msgid "L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote or a Wii U Pro Controller for two seconds to leave the game."
+msgstr "L, R, Z y Start están desactivados (Ajustes > Juegos > Salir de un juego): mantén HOME en un mando de Wii o un Wii U Pro Controller dos segundos para salir del juego."
+
+msgid "Calibrate a GameCube controller"
+msgstr "Calibrar un mando de GameCube"
+
+msgid "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use."
+msgstr "Prueba un mando de GameCube y corrige uno gastado: palancas que no llegan al borde, palancas que se mueven solas, gatillos que no bajan del todo. Los juegos de GameCube reciben la corrección, y los de Wii mientras se usa un adaptador de GameCube o un mando USB."
+
+msgid "Wii's GameCube port {1}"
+msgstr "Puerto de GameCube {1} de la Wii"
+
+msgid "Adapter port {1}"
+msgstr "Puerto {1} del adaptador"
+
+msgid "USB controller {1}"
+msgstr "Mando USB {1}"
+
+msgid "C stick"
+msgstr "Palanca C"
+
+msgid "Up"
+msgstr "Arriba"
+
+msgid "Down"
+msgstr "Abajo"
+
+msgid "Left"
+msgstr "Izquierda"
+
+msgid "Right"
+msgstr "Derecha"
+
+msgid "Calibrate"
+msgstr "Calibrar"
+
+msgid "Reset to default"
+msgstr "Restablecer"
+
+msgid "Dead zone -"
+msgstr "Zona muerta -"
+
+msgid "Dead zone +"
+msgstr "Zona muerta +"
+
+msgid "Dead zone: {1}"
+msgstr "Zona muerta: {1}"
+
+msgid "RiftWii keeps the calibrations of four USB controllers at most. Reset one to make room."
+msgstr "RiftWii guarda la calibración de cuatro mandos USB como máximo. Restablece uno para hacer sitio."
+
+msgid "The SD card could not take the calibration. Is it locked or full?"
+msgstr "No se pudo guardar la calibración en la tarjeta SD. ¿Está bloqueada o llena?"
+
+msgid "Turn the control stick slowly around its edge two or three times, pushing it into every corner. Then press A."
+msgstr "Gira la palanca de control despacio por el borde dos o tres veces, llevándola a cada esquina. Luego pulsa A."
+
+msgid "Now turn the C stick around its edge the same way. Then press A."
+msgstr "Ahora gira la palanca C por el borde de la misma forma. Luego pulsa A."
+
+msgid "Press L all the way down and let go, then R. Then press A."
+msgstr "Pulsa L hasta el fondo y suéltalo, luego R. Después pulsa A."
+
+msgid "Plug a GameCube controller into the Wii or the adapter, or plug in a USB controller."
+msgstr "Conecta un mando de GameCube a la Wii o al adaptador, o conecta un mando USB."
+
+msgid "Press a button on another controller to show it. On the controller, hold Start to calibrate it or B to go back."
+msgstr "Pulsa un botón de otro mando para verlo. En el mando, mantén Start para calibrarlo o B para volver."
+
+msgid "The controller was unplugged. Nothing was changed."
+msgstr "Se desconectó el mando. No se cambió nada."
+
+msgid "Reset this controller?"
+msgstr "¿Restablecer este mando?"
+
+msgid "{1} goes back to how it is without a calibration: no stretch and no dead zone."
+msgstr "{1} vuelve a funcionar sin calibración: sin ajuste de alcance y sin zona muerta."
+
+msgid "Back to default."
+msgstr "Restablecido."
+
+msgid "Calibration canceled. Nothing was changed."
+msgstr "Calibración cancelada. No se cambió nada."
+
+msgid "The stick did not reach every side yet. Keep turning it around its edge."
+msgstr "La palanca aún no llegó a todos los lados. Sigue girándola por el borde."
+
+msgid "The C stick did not reach every side yet. Keep turning it around its edge."
+msgstr "La palanca C aún no llegó a todos los lados. Sigue girándola por el borde."
+
+msgid "Calibrated. GameCube games now get this controller's full range, and Wii games do while a GameCube adapter or USB controller is in use."
+msgstr "Calibrado. Los juegos de GameCube ya reciben todo el recorrido de este mando, y los de Wii mientras se usa un adaptador de GameCube o un mando USB."
+
+msgid "Stick {1}, {2}   C stick {3}, {4}   L {5}   R {6}"
+msgstr "Palanca {1}, {2}   Palanca C {3}, {4}   L {5}   R {6}"
+
+msgid "not calibrated"
+msgstr "sin calibrar"
+
+msgid "calibrated"
+msgstr "calibrado"
+
+msgid "calibrating"
+msgstr "calibrando"
+
+msgid "No GameCube controller found"
+msgstr "No se encontró ningún mando de GameCube"

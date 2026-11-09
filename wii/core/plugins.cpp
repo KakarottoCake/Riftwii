@@ -343,8 +343,9 @@ void HostReadSram(rwp_sram* out) {
     __SYS_UnlockSramEx(0);
 }
 
-int32_t HostSetSramFlashIdA(const uint8_t flash_id[12]) {
-    if (flash_id == nullptr) return -1;
+// A slot's 12-byte flash ID and its checksum in SRAM-ex (slot 0 is A).
+int32_t set_sram_flash_id(unsigned slot, const uint8_t flash_id[12]) {
+    if (flash_id == nullptr || slot > 1) return -1;
     uint32_t sum = 0;
     for (unsigned i = 0; i < 12; ++i) {
         sum += flash_id[i];
@@ -352,12 +353,12 @@ int32_t HostSetSramFlashIdA(const uint8_t flash_id[12]) {
     const uint8_t checksum = static_cast<uint8_t>(~sum);
     syssramex* sramex = __SYS_LockSramEx();
     if (sramex == nullptr) return -1;
-    const bool changed = std::memcmp(sramex->flash_id[0], flash_id, 12) != 0 ||
-                         sramex->flashID_chksum[0] != checksum;
+    const bool changed = std::memcmp(sramex->flash_id[slot], flash_id, 12) != 0 ||
+                         sramex->flashID_chksum[slot] != checksum;
     if (changed) {
-        // Leave slot B, controller IDs and every other SRAM setting intact.
-        std::memcpy(sramex->flash_id[0], flash_id, 12);
-        sramex->flashID_chksum[0] = checksum;
+        // Leave the other slot, controller IDs and every other SRAM setting intact.
+        std::memcpy(sramex->flash_id[slot], flash_id, 12);
+        sramex->flashID_chksum[slot] = checksum;
     }
     const int32_t result = changed ? 1 : 0;
     if (__SYS_UnlockSramEx(changed ? 1 : 0)) return result;
@@ -373,6 +374,10 @@ int32_t HostSetSramFlashIdA(const uint8_t flash_id[12]) {
     }
     return result;
 }
+
+int32_t HostSetSramFlashIdA(const uint8_t flash_id[12]) { return set_sram_flash_id(0, flash_id); }
+
+int32_t HostSetSramFlashIdB(const uint8_t flash_id[12]) { return set_sram_flash_id(1, flash_id); }
 
 uint32_t HostVideoFramebuffer() { return reinterpret_cast<uint32_t>(VIDEO_GetCurrentFramebuffer()); }
 
@@ -473,10 +478,11 @@ const rwp_host kHost = {
     HostUsbRead,
     HostSetSramFlashIdA,
     HostHeapFreeBytes,
+    HostSetSramFlashIdB,
 };
 // A missing initializer would leave the last entries NULL without a word:
 // the count is checked against the struct's size.
-static_assert(sizeof(rwp_host) == 8 + 39 * sizeof(void*), "kHost and plugin_api.h's rwp_host disagree");
+static_assert(sizeof(rwp_host) == 8 + 40 * sizeof(void*), "kHost and plugin_api.h's rwp_host disagree");
 
 // ---- Refusals ----
 

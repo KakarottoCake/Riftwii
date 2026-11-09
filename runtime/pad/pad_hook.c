@@ -6,6 +6,7 @@
 #include "pad_hook.h"
 
 #include "rtgcad.h"
+#include "rtpadcal.h"
 
 #define PAD_STATUS_BYTES 12u  /* PADStatus: button, stick x/y, substick x/y, L, R, analog A/B, err, pad */
 
@@ -124,6 +125,8 @@ void gcad_env_event(gcad* g, uint32_t code, uint32_t a, int32_t b) {
 static gcad* state(struct rt_pad_context* c) {
     gcad* g = (gcad*)(uintptr_t)c->state;
     if (!c->inited) {
+        /* Set below once the driver is initialized, which zeroes it. */
+        const rtpadcal_table* cal = (const rtpadcal_table*)(uintptr_t)c->cal;
 #ifndef GCAD_ADAPTER_ONLY
         if (!(c->flags & RT_PAD_FLAG_ADAPTER_ONLY)) {
             uint8_t* base = (uint8_t*)(void*)g;
@@ -135,6 +138,7 @@ static gcad* state(struct rt_pad_context* c) {
             if (c->ven_fd >= 0)
                 gcad_ven_init_ex(g, (gcad*)(void*)(base + c->ven_at), GCAD_OWNER_BYTES(5),
                                  (gcad_xbox_layout*)(void*)(base + c->xbox_at), c, c->ven_fd, c->ticks_per_ms);
+            g->cal = cal;
             c->inited = 1;
             return g;
         }
@@ -144,7 +148,7 @@ static gcad* state(struct rt_pad_context* c) {
          * blob (GCAD_ADAPTER_ONLY) has only this. */
         gcad_init_bytes(g, GCAD_OWNER_BYTES(c->version), c, c->fd, c->version, c->ticks_per_ms);
         if (c->known_dev != GCAD_NO_DEVICE) gcad_expect(g, c->known_dev);
-
+        g->cal = cal;
         c->inited = 1;
     }
     return g;
@@ -401,8 +405,14 @@ uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) 
     uint32_t i, mask = 0;
     gcad_pad usb_pads[GCAD_PORTS];
     uint32_t taken = 0, usb_present;
+    const rtpadcal_table* cal = (const rtpadcal_table*)(uintptr_t)c->cal;
     for (i = 0; i < GCAD_PORTS; ++i) {
-        if ((int8_t)status[i * PAD_STATUS_BYTES + 10] == 0) taken |= 1u << i;
+        uint8_t* own = status + i * PAD_STATUS_BYTES;
+        if ((int8_t)own[10] != 0) continue;
+        taken |= 1u << i;
+        /* A controller in the Wii's own port: its calibration, if any, on
+         * its analog bytes (from 2: stick x, y, C x, y, L, R). */
+        if (cal) rtpadcal_apply(&cal->console[i], own + 2);
     }
     gcad_tick(g, t);
     usb_present = gcad_read_ports(g, taken, usb_pads, t);

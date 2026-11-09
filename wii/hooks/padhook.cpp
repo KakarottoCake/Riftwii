@@ -17,6 +17,7 @@
 
 #include "hidsession.hpp"
 #include "ios_reload.hpp"
+#include "loadersettings.hpp"
 #include "log.hpp"
 #include "pad_hook.h"
 #include "pentablet.h"
@@ -667,7 +668,13 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
     // burn-in reduction on, adapter-only play may then dim the screen.
     logf("GameCube adapter: PADRead at 0x%08x (%u error stores), PADControlMotor at 0x%08x, screen-dimming reset at 0x%08x\n",
          out.read, out.read_sites, out.motor, out.idle_reset);
-    find_way_back(dol, text, out);
+    // Settings > Leaving a game, HOME only: the combo leaves nothing, so
+    // its hooks are not put in at all (HOME opens the game's HOME Menu).
+    if (Settings().leave_buttons == "off") {
+        logf("GameCube adapter: no way back to RiftWii by the controller: Settings > Leaving a game is HOME only\n");
+    } else {
+        find_way_back(dol, text, out);
+    }
 
     if (!take_adapter_handle(out.fd, out.version, out.known_dev, why, &out.devices_unknown)) {
         if (!demo) return false;
@@ -909,6 +916,11 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     } else {
         out.restart_os = 0;
     }
+    // The controllers' calibrations after the driver's state, which the
+    // driver never zeroes past its own end; only when one is stored, as a
+    // code build may have no room to spare.
+    const std::uint32_t calibration_at = out.calibration != nullptr ? out.state_bytes : 0;
+    if (out.calibration != nullptr) out.state_bytes += align_up(sizeof(rtpadcal_table));
     logf("USB controllers: %s driver (%u bytes), room for %u other USB pad(s) and %u layout(s) (%u bytes)%s, state %u bytes%s\n",
          kind == kBlobAdapter ? "the adapter's" : kind == kBlobPads ? "the USB pads'" : "the full",
          static_cast<unsigned>(h.size), static_cast<unsigned>(out.link_count), static_cast<unsigned>(out.map_count),
@@ -989,8 +1001,16 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
                  static_cast<unsigned>(mapping->report_bytes), static_cast<unsigned>(mapping->size));
         }
     }
+    out.calibration_base = 0;
+    if (out.calibration != nullptr) {
+        out.calibration_base = out.state_base + calibration_at;
+        std::memcpy(reinterpret_cast<void*>(out.calibration_base), out.calibration, sizeof(rtpadcal_table));
+        logf("GameCube controllers: calibrations at 0x%08x (%u bytes)\n", out.calibration_base,
+             static_cast<unsigned>(sizeof(rtpadcal_table)));
+    }
     DCFlushRange(reinterpret_cast<void*>(out.state_base), out.state_bytes);
     ctx->state = out.state_base;
+    ctx->cal = out.calibration_base;
     ctx->ioctl_async = ioctl_async;
     ctx->ioctlv_async = ioctlv_async;
     ctx->complete_entry = out.code_base + h.complete;

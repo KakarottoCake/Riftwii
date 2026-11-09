@@ -38,6 +38,7 @@ struct GcImage {
     std::vector<Fragment> usb_fragments;
     std::uint64_t usb_bytes = 0;
     bool real_card = false;
+    bool real_card_b = false;  // slot B's physical card beside the emulated one in slot A
     std::array<std::uint8_t, 12> real_card_flash_id{};
     bool card_on_usb = false;
     std::string external_card_path;
@@ -52,6 +53,8 @@ struct GcImage {
     bool sharp = false;
     bool sixty_hz = false;
     std::uint32_t vi_width = 0;
+    bool screen_offset_set = false;  // the game is told screen_offset as the console's screen position
+    int screen_offset = 0;
     // A switch to another program on the disc (rwp_gc_launch's exec).
     bool exec = false;
     std::uint32_t exec_dol = 0;
@@ -70,6 +73,7 @@ struct GcImage {
 // screen and the way back in the DOL (riftwii/plugin_gamecube.h).
 struct GcLaunchExtras {
     bool rumble_off = false;
+    bool leave_home_only = false;  // Settings > Leaving a game: HOME only, the button combo leaves nothing
     bool in_dolphin = false;
     std::vector<std::uint8_t> cheat_gct;
     std::size_t cheat_count = 0;
@@ -88,6 +92,9 @@ struct GcLaunchExtras {
     std::int32_t ven_fd = -1;  // /dev/usb/ven for Xbox 360 pads, -1: none
     bool adapter_rumble = false;
     const void* hid_catalog = nullptr;
+    // The controllers' calibrations (runtime/rtpadcal.h's rtpadcal_table),
+    // nullptr: none stored.
+    const void* pad_calibration = nullptr;
     u64 way_back_title = 0;  // 0: none
     const void* way_back_view = nullptr;
     std::size_t way_back_view_bytes = 0;
