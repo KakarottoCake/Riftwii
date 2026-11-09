@@ -1574,7 +1574,9 @@ void prepare_restart_request(const BootOptions& options) {
         launch.reset_wanted = true;
         launch.pads_on = g_extras.gc_adapter != GcAdapterMode::Off;
         launch.runtime_in = false;
-        launch.code_build = !g_extras.code_builds.empty() || g_extras.code_build_in_image;
+        // The test that puts the pad blob in MEM2 (boot_after_unmount): a small code mod in the code
+        // handler's own space leaves it in MEM1, where OSRestart can reach it.
+        launch.code_build = g_extras.code_list_start != 0 && !g_extras.cheat_gct.empty();
         launch.hooks_allowed = gx_patch_allowed(g_extras.game_id, GamePatchKind::RuntimeHooks);
         launch.sd_card_free = !sd_held_by_d2x_fat();
         const char* blocked = nullptr;
@@ -2785,6 +2787,12 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         logf("Reset: the game's own Reset restarts it without the GameCube adapter or USB controllers: the adapter's "
              "hook could not take it\n");
         pad_reset = false;
+        // A game with no SD driver has no use for the card held for the request. One with a pass-through keeps
+        // it: the pass-through is installed below and drives this handle.
+        if (!vsd.active) {
+            sdio::close_card(card);
+            card = sdio::Card{};
+        }
     }
     // Never left open for the game (it may keep this IOS).
     CloseAllNandPermissions("Launch");
@@ -3051,6 +3059,10 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             logf("Reset: the game's own Reset restarts it without the GameCube adapter or USB controllers: the SD "
                  "card could not be shared with the game (%s)\n", why.c_str());
             pad_reset = false;
+            // The pass-through is not in, so the game opens its own card again: this handle must not be
+            // holding it.
+            sdio::close_card(card);
+            card = sdio::Card{};
         }
     }
     install_game_extras(extras);
