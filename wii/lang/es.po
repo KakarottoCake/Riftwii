@@ -4218,8 +4218,8 @@ msgstr "No se pudo leer la tarjeta de memoria de la ranura B. Vuelve a insertarl
 msgid "Calibrate a GameCube controller"
 msgstr "Calibrar un mando de GameCube"
 
-msgid "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. Games get the fix."
-msgstr "Prueba un mando de GameCube y corrige uno gastado: palancas que no llegan al borde, palancas que se mueven solas, gatillos que no bajan del todo. Los juegos reciben la corrección."
+msgid "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use."
+msgstr "Prueba un mando de GameCube y corrige uno gastado: palancas que no llegan al borde, palancas que se mueven solas, gatillos que no bajan del todo. Los juegos de GameCube reciben la corrección, y los de Wii mientras se usa un adaptador de GameCube o un mando USB."
 
 msgid "Wii's GameCube port {1}"
 msgstr "Puerto de GameCube {1} de la Wii"
@@ -4302,8 +4302,8 @@ msgstr "La palanca aún no llegó a todos los lados. Sigue girándola por el bor
 msgid "The C stick did not reach every side yet. Keep turning it around its edge."
 msgstr "La palanca C aún no llegó a todos los lados. Sigue girándola por el borde."
 
-msgid "Calibrated. Games now get this controller's full range."
-msgstr "Calibrado. Los juegos ya reciben todo el recorrido de este mando."
+msgid "Calibrated. GameCube games now get this controller's full range, and Wii games do while a GameCube adapter or USB controller is in use."
+msgstr "Calibrado. Los juegos de GameCube ya reciben todo el recorrido de este mando, y los de Wii mientras se usa un adaptador de GameCube o un mando USB."
 
 msgid "Stick {1}, {2}   C stick {3}, {4}   L {5}   R {6}"
 msgstr "Palanca {1}, {2}   Palanca C {3}, {4}   L {5}   R {6}"

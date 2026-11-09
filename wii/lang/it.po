@@ -4218,8 +4218,8 @@ msgstr "Impossibile leggere la scheda di memoria nello slot B. Reinseriscila o s
 msgid "Calibrate a GameCube controller"
 msgstr "Calibra un controller GameCube"
 
-msgid "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. Games get the fix."
-msgstr "Prova un controller GameCube e corregge uno consumato: levette che non arrivano al bordo, levette che si muovono da sole, grilletti che non scendono del tutto. I giochi ricevono la correzione."
+msgid "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use."
+msgstr "Prova un controller GameCube e corregge uno consumato: levette che non arrivano al bordo, levette che si muovono da sole, grilletti che non scendono del tutto. I giochi GameCube ricevono la correzione, e i giochi Wii mentre è in uso un adattatore GameCube o un controller USB."
 
 msgid "Wii's GameCube port {1}"
 msgstr "Porta GameCube {1} della Wii"
@@ -4302,8 +4302,8 @@ msgstr "La levetta non ha ancora raggiunto tutti i lati. Continua a ruotarla lun
 msgid "The C stick did not reach every side yet. Keep turning it around its edge."
 msgstr "La levetta C non ha ancora raggiunto tutti i lati. Continua a ruotarla lungo il bordo."
 
-msgid "Calibrated. Games now get this controller's full range."
-msgstr "Calibrato. Ora i giochi ricevono tutta l'escursione di questo controller."
+msgid "Calibrated. GameCube games now get this controller's full range, and Wii games do while a GameCube adapter or USB controller is in use."
+msgstr "Calibrato. Ora i giochi GameCube ricevono tutta l'escursione di questo controller, e i giochi Wii mentre è in uso un adattatore GameCube o un controller USB."
 
 msgid "Stick {1}, {2}   C stick {3}, {4}   L {5}   R {6}"
 msgstr "Levetta {1}, {2}   Levetta C {3}, {4}   L {5}   R {6}"

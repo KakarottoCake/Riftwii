@@ -15975,7 +15975,7 @@ static void GcCalibratePage()
 			step = Step::Live;
 			message.clear();
 			save(measuring);
-			if (message.empty()) message = tr("Calibrated. Games now get this controller's full range.");
+			if (message.empty()) message = tr("Calibrated. GameCube games now get this controller's full range, and Wii games do while a GameCube adapter or USB controller is in use.");
 			riftwii::wii::logf("GameCube controller calibration: %s measured stick %u %u %u %u, C stick %u %u %u %u, "
 				"L %u, R %u\n", riftwii::pad_slot_key(selected).c_str(), measuring.main[0], measuring.main[1],
 				measuring.main[2], measuring.main[3], measuring.c_stick[0], measuring.c_stick[1],
@@ -17507,7 +17507,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kGcRumble: return tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports.");
 			case kWiiRumble: return tr("Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only.");
 			case kGcTest: return tr("Shows live what the controllers in the adapter are pressing.");
-			case kGcCalibrate: return tr("Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. Games get the fix.");
+			case kGcCalibrate: return tr("Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use.");
 			case kUsbInput: return tr("USB pads use controller.ini mappings in the menu and games; wired Xbox 360 pads need none. Off also leaves keyboards, mice, tablets and the uDraw alone.");
 			case kParental: return tr("A PIN that locks or hides the games rated for players older than an age you pick.");
 			case kNintendontSaves: return tr("Copy saves from Nintendont's memory cards (in sd:/saves or usb:/saves) to RiftWii's. Nintendont's files are not changed.");

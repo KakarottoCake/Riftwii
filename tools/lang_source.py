@@ -8812,11 +8812,11 @@ FR.update({
 # Settings > Controllers > Calibrate a GameCube controller (#511).
 T.update({
     'Calibrate a GameCube controller': ('Calibrar un mando de GameCube', 'ゲームキューブコントローラーの調整', 'Calibrar um controle de GameCube', 'Calibra un controller GameCube'),
-    "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. Games get the fix.": (
-        'Prueba un mando de GameCube y corrige uno gastado: palancas que no llegan al borde, palancas que se mueven solas, gatillos que no bajan del todo. Los juegos reciben la corrección.',
-        'ゲームキューブコントローラーをテストし、古くなったものを直します。端まで届かないスティック、勝手に動くスティック、最後まで押せないトリガー。ゲームにも反映されます。',
-        'Testa um controle de GameCube e corrige um gasto: alavancas que não chegam à borda, alavancas que se movem sozinhas, gatilhos que não vão até o fim. Os jogos recebem a correção.',
-        'Prova un controller GameCube e corregge uno consumato: levette che non arrivano al bordo, levette che si muovono da sole, grilletti che non scendono del tutto. I giochi ricevono la correzione.'),
+    "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use.": (
+        'Prueba un mando de GameCube y corrige uno gastado: palancas que no llegan al borde, palancas que se mueven solas, gatillos que no bajan del todo. Los juegos de GameCube reciben la corrección, y los de Wii mientras se usa un adaptador de GameCube o un mando USB.',
+        'ゲームキューブコントローラーをテストし、古くなったものを直します。端まで届かないスティック、勝手に動くスティック、最後まで押せないトリガー。ゲームキューブのゲームに反映され、Wiiのゲームにはゲームキューブアダプターか USBコントローラーを使っている間だけ反映されます。',
+        'Testa um controle de GameCube e corrige um gasto: alavancas que não chegam à borda, alavancas que se movem sozinhas, gatilhos que não vão até o fim. Os jogos de GameCube recebem a correção, e os de Wii enquanto um adaptador de GameCube ou um controle USB estiver em uso.',
+        'Prova un controller GameCube e corregge uno consumato: levette che non arrivano al bordo, levette che si muovono da sole, grilletti che non scendono del tutto. I giochi GameCube ricevono la correzione, e i giochi Wii mentre è in uso un adattatore GameCube o un controller USB.'),
     "Wii's GameCube port {1}": ('Puerto de GameCube {1} de la Wii', 'Wiiのゲームキューブ端子{1}', 'Entrada de GameCube {1} do Wii', 'Porta GameCube {1} della Wii'),
     'Adapter port {1}': ('Puerto {1} del adaptador', 'アダプターの端子{1}', 'Entrada {1} do adaptador', "Porta {1} dell'adattatore"),
     'USB controller {1}': ('Mando USB {1}', 'USBコントローラー {1}', 'Controle USB {1}', 'Controller USB {1}'),
@@ -8893,11 +8893,11 @@ T.update({
         'Cスティックがまだすべての方向に届いていません。端に沿ってまわし続けてください。',
         'A alavanca C ainda não chegou a todos os lados. Continue girando pela borda.',
         'La levetta C non ha ancora raggiunto tutti i lati. Continua a ruotarla lungo il bordo.'),
-    "Calibrated. Games now get this controller's full range.": (
-        'Calibrado. Los juegos ya reciben todo el recorrido de este mando.',
-        '調整しました。ゲームでこのコントローラーの全範囲が使えます。',
-        'Calibrado. Os jogos agora recebem todo o alcance deste controle.',
-        "Calibrato. Ora i giochi ricevono tutta l'escursione di questo controller."),
+    "Calibrated. GameCube games now get this controller's full range, and Wii games do while a GameCube adapter or USB controller is in use.": (
+        'Calibrado. Los juegos de GameCube ya reciben todo el recorrido de este mando, y los de Wii mientras se usa un adaptador de GameCube o un mando USB.',
+        '調整しました。ゲームキューブのゲームでこのコントローラーの全範囲が使えます。Wiiのゲームではゲームキューブアダプターか USBコントローラーを使っている間だけ使えます。',
+        'Calibrado. Os jogos de GameCube agora recebem todo o alcance deste controle, e os de Wii enquanto um adaptador de GameCube ou um controle USB estiver em uso.',
+        "Calibrato. Ora i giochi GameCube ricevono tutta l'escursione di questo controller, e i giochi Wii mentre è in uso un adattatore GameCube o un controller USB."),
     'Stick {1}, {2}   C stick {3}, {4}   L {5}   R {6}': (
         'Palanca {1}, {2}   Palanca C {3}, {4}   L {5}   R {6}',
         'スティック {1}, {2}   Cスティック {3}, {4}   L {5}   R {6}',
@@ -8910,7 +8910,7 @@ T.update({
 })
 KO.update({
     'Calibrate a GameCube controller': '게임큐브 컨트롤러 보정',
-    "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. Games get the fix.": '게임큐브 컨트롤러를 테스트하고 낡은 컨트롤러를 바로잡습니다. 끝까지 닿지 않는 스틱, 저절로 움직이는 스틱, 끝까지 눌리지 않는 트리거. 게임에도 적용됩니다.',
+    "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use.": '게임큐브 컨트롤러를 테스트하고 낡은 컨트롤러를 바로잡습니다. 끝까지 닿지 않는 스틱, 저절로 움직이는 스틱, 끝까지 눌리지 않는 트리거. 게임큐브 게임에 적용되고, Wii 게임에는 게임큐브 어댑터나 USB 컨트롤러를 쓰는 동안 적용됩니다.',
     "Wii's GameCube port {1}": 'Wii 게임큐브 포트 {1}',
     'Adapter port {1}': '어댑터 포트 {1}',
     'USB controller {1}': 'USB 컨트롤러 {1}',
@@ -8939,7 +8939,7 @@ KO.update({
     'Calibration canceled. Nothing was changed.': '보정을 취소했습니다. 아무것도 바뀌지 않았습니다.',
     'The stick did not reach every side yet. Keep turning it around its edge.': '스틱이 아직 모든 방향에 닿지 않았습니다. 가장자리를 따라 계속 돌리세요.',
     'The C stick did not reach every side yet. Keep turning it around its edge.': 'C 스틱이 아직 모든 방향에 닿지 않았습니다. 가장자리를 따라 계속 돌리세요.',
-    "Calibrated. Games now get this controller's full range.": '보정했습니다. 이제 게임에서 이 컨트롤러의 전체 범위를 씁니다.',
+    "Calibrated. GameCube games now get this controller's full range, and Wii games do while a GameCube adapter or USB controller is in use.": '보정했습니다. 이제 게임큐브 게임에서 이 컨트롤러의 전체 범위를 쓰고, Wii 게임에서는 게임큐브 어댑터나 USB 컨트롤러를 쓰는 동안 씁니다.',
     'Stick {1}, {2}   C stick {3}, {4}   L {5}   R {6}': '스틱 {1}, {2}   C 스틱 {3}, {4}   L {5}   R {6}',
     'not calibrated': '보정 안 됨',
     'calibrated': '보정됨',
@@ -8948,7 +8948,7 @@ KO.update({
 })
 FR.update({
     'Calibrate a GameCube controller': 'Calibrer une manette GameCube',
-    "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. Games get the fix.": "Teste une manette GameCube et corrige une manette usée : sticks qui n'atteignent pas le bord, sticks qui dérivent, gâchettes qui ne descendent pas jusqu'au bout. Les jeux en profitent.",
+    "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use.": "Teste une manette GameCube et corrige une manette usée : sticks qui n'atteignent pas le bord, sticks qui dérivent, gâchettes qui ne descendent pas jusqu'au bout. Les jeux GameCube en profitent, et les jeux Wii tant qu'un adaptateur GameCube ou une manette USB est utilisé.",
     "Wii's GameCube port {1}": 'Port GameCube {1} de la Wii',
     'Adapter port {1}': "Port {1} de l'adaptateur",
     'USB controller {1}': 'Manette USB {1}',
@@ -8977,7 +8977,7 @@ FR.update({
     'Calibration canceled. Nothing was changed.': "Calibration annulée. Rien n'a été changé.",
     'The stick did not reach every side yet. Keep turning it around its edge.': "Le stick n'a pas encore atteint tous les côtés. Continuez à le faire tourner le long du bord.",
     'The C stick did not reach every side yet. Keep turning it around its edge.': "Le stick C n'a pas encore atteint tous les côtés. Continuez à le faire tourner le long du bord.",
-    "Calibrated. Games now get this controller's full range.": 'Calibrée. Les jeux reçoivent maintenant toute la course de cette manette.',
+    "Calibrated. GameCube games now get this controller's full range, and Wii games do while a GameCube adapter or USB controller is in use.": "Calibrée. Les jeux GameCube reçoivent maintenant toute la course de cette manette, et les jeux Wii tant qu'un adaptateur GameCube ou une manette USB est utilisé.",
     'Stick {1}, {2}   C stick {3}, {4}   L {5}   R {6}': 'Stick {1}, {2}   Stick C {3}, {4}   L {5}   R {6}',
     'not calibrated': 'non calibrée',
     'calibrated': 'calibrée',
