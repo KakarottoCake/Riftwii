@@ -585,8 +585,21 @@ void pad_on_unified(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
     interrupts_restore(msr);
 }
 
+/* The game's connect callback for channel `chan`, told `reason` (0:
+ * connected, -1: no controller, as WPAD reports them). Interrupts as the
+ * game's PADRead had them: the game's code runs here. */
+static void pad_tell_connect(const struct rt_pad_context* c, uint32_t chan, int32_t reason) {
+    const uint32_t stride = c->kpad_connect_info & 0xFFFFu;
+    uint32_t callback;
+    if (chan >= RTHOME_CHANNELS || c->kpad_connect == 0) return;
+    callback = *(const volatile uint32_t*)(uintptr_t)(c->kpad_connect + chan * stride);
+    if (callback == 0 || !pad_in_ram((const void*)(uintptr_t)callback)) return;
+    ((void (*)(int32_t, int32_t))(uintptr_t)callback)((int32_t)chan, reason);
+}
+
 uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) {
     const uint32_t msr = interrupts_off();
+    uint32_t leave = RTHOME_NO_CHANNEL, join = RTHOME_NO_CHANNEL;
     const uint32_t t = now();
     gcad* g = state(c);
     uint32_t i, mask = 0;
@@ -646,7 +659,19 @@ uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) 
     ++c->reads;
     c->last_pad_read = t | 1u;
     pad_leave_check(c, status, t);
+    if (c->kpad_connect != 0) {
+        /* The stand-in comes and goes as a Wii Remote would, for a game
+         * that reads only the channels its connect callback heard of. */
+        const uint32_t now_channel = c->home_on ? rthome_stand_in(&c->home, t) : RTHOME_NO_CHANNEL;
+        const uint32_t told_byte = (c->kpad_connect_info >> 16) & 0xFFu;
+        const uint32_t told = told_byte == 0 ? RTHOME_NO_CHANNEL : told_byte - 1u;
+        const uint32_t next = rthome_connect_change(told, now_channel, &leave, &join);
+        c->kpad_connect_info = (c->kpad_connect_info & 0xFFFFu) |
+                               ((next == RTHOME_NO_CHANNEL ? 0u : next + 1u) << 16);
+    }
     interrupts_restore(msr);
+    if (leave != RTHOME_NO_CHANNEL) pad_tell_connect(c, leave, -1);
+    if (join != RTHOME_NO_CHANNEL) pad_tell_connect(c, join, 0);
     return motor;
 }
 

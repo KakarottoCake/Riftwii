@@ -185,6 +185,16 @@ int rthome_keep(struct rthome* h, int read_by_game);
 #define RTHOME_WPAD_STATUS_BYTES 56u
 void rthome_wpad_status(uint8_t* entry, uint32_t remote_hold, uint32_t classic_hold);
 
+/* The game's own connect callback (KPADSetConnectCallback): which channel
+ * it should hear about now. `told` is the channel it was last told is
+ * connected (RTHOME_NO_CHANNEL: none), `now` the stand-in's
+ * (rthome_stand_in). Sets *leave to the channel to report gone and
+ * *join to the one to report connected, RTHOME_NO_CHANNEL for neither;
+ * returns the new `told`. The stand-in comes and goes as a Wii Remote
+ * would, so a game that reads only the channels it was told about
+ * (GoldenEye 007, 9 Nov) reads it, and forgets it after. */
+uint32_t rthome_connect_change(uint32_t told, uint32_t now, uint32_t* leave, uint32_t* join);
+
 /* An IEEE single's bits for `numerator` / RTHOME_AXIS_FULL (from -FULL to
  * FULL), made with integers only: the blob has no floating-point unit use
  * and no constant data. */

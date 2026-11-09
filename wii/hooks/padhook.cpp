@@ -693,6 +693,16 @@ void find_home_menu(const DolHeader& dol, const std::vector<CodeRange>& text, Pa
         logf("GameCube adapter: KPADGetUnifiedWpadStatus at 0x%08x (%u-byte statuses): the stand-in's raw status "
              "goes there too\n",
              unified.address, unified.status_bytes);
+    // Optional too: the game's own connect callbacks, told as the stand-in
+    // comes and goes (GoldenEye 007 reads only the channels they heard of).
+    const KpadConnect connect = find_kpad_connect(text, kpad.address);
+    if (connect.address != 0 && connect.stride <= 0xFFFFu) {
+        out.kpad_connect = connect.block + connect.offset;
+        out.kpad_connect_stride = connect.stride;
+        logf("GameCube adapter: KPADSetConnectCallback at 0x%08x (callbacks at 0x%08x, every %u bytes): the stand-in "
+             "is reported connected to the game's callback\n",
+             connect.address, out.kpad_connect, connect.stride);
+    }
 }
 
 }  // namespace
@@ -1240,6 +1250,8 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
     ctx->kpad_takes_error = hook.kpad_takes_error ? 1u : 0u;
     ctx->pad_read = hook.read;
     ctx->kpad_unified_bytes = unified ? hook.kpad_unified_bytes : 0u;
+    ctx->kpad_connect = home ? hook.kpad_connect : 0u;
+    ctx->kpad_connect_info = hook.kpad_connect_stride & 0xFFFFu;
     ctx->home.hold = kLeaveHoldMs * ctx->ticks_per_ms;
     ctx->home.press = kHomePressMs * ctx->ticks_per_ms;
     ctx->home.announce = kHomeAnnounceMs * ctx->ticks_per_ms;

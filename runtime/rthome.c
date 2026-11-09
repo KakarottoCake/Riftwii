@@ -296,6 +296,15 @@ void rthome_wpad_status(uint8_t* entry, uint32_t remote_hold, uint32_t classic_h
     entry[RTHOME_WPAD_FORMAT] = RTHOME_WPAD_FORMAT_CLASSIC;
 }
 
+uint32_t rthome_connect_change(uint32_t told, uint32_t now, uint32_t* leave, uint32_t* join) {
+    *leave = RTHOME_NO_CHANNEL;
+    *join = RTHOME_NO_CHANNEL;
+    if (now == told) return told;
+    if (told != RTHOME_NO_CHANNEL) *leave = told;
+    if (now != RTHOME_NO_CHANNEL) *join = now;
+    return now;
+}
+
 uint32_t rthome_float_bits(int32_t numerator) {
     uint32_t sign = 0, magnitude, top = 0;
     if (numerator == 0) return 0;

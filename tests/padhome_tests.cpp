@@ -501,6 +501,27 @@ static void TestAnnounce() {
     EXPECT_EQ(h.phase, RTHOME_WAITING);
 }
 
+// The game's connect callback hears of the stand-in as it comes and goes,
+// once each way, and of nothing else.
+static void TestConnectChange() {
+    std::uint32_t leave = 0, join = 0;
+    EXPECT_EQ(rthome_connect_change(RTHOME_NO_CHANNEL, RTHOME_NO_CHANNEL, &leave, &join), RTHOME_NO_CHANNEL);
+    EXPECT_EQ(leave, RTHOME_NO_CHANNEL);
+    EXPECT_EQ(join, RTHOME_NO_CHANNEL);
+    EXPECT_EQ(rthome_connect_change(RTHOME_NO_CHANNEL, 1, &leave, &join), 1u);  // it appears on channel 1
+    EXPECT_EQ(leave, RTHOME_NO_CHANNEL);
+    EXPECT_EQ(join, 1u);
+    EXPECT_EQ(rthome_connect_change(1, 1, &leave, &join), 1u);  // still there: nothing to say
+    EXPECT_EQ(leave, RTHOME_NO_CHANNEL);
+    EXPECT_EQ(join, RTHOME_NO_CHANNEL);
+    EXPECT_EQ(rthome_connect_change(1, RTHOME_NO_CHANNEL, &leave, &join), RTHOME_NO_CHANNEL);  // gone
+    EXPECT_EQ(leave, 1u);
+    EXPECT_EQ(join, RTHOME_NO_CHANNEL);
+    EXPECT_EQ(rthome_connect_change(0, 2, &leave, &join), 2u);  // moved: the old one leaves first
+    EXPECT_EQ(leave, 0u);
+    EXPECT_EQ(join, 2u);
+}
+
 static void TestWpadStatus() {
     std::uint8_t entry[RTHOME_WPAD_STATUS_BYTES + 4];
     for (std::uint8_t& b : entry) b = 0xAA;
@@ -537,6 +558,7 @@ int main() {
     TestReadsPads();
     TestFloatBits();
     TestWpadStatus();
+    TestConnectChange();
     TestAnnounce();
     if (g_failures == 0) std::cout << "padhome: all passed" << std::endl;
     return g_failures == 0 ? 0 : 1;

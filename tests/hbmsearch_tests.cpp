@@ -321,6 +321,60 @@ void TestKpadUnified() {
     }
 }
 
+// KPADSetConnectCallback as GoldenEye 007 (SJBE52) has it at 0x80508480,
+// word for word: KPAD's block at 0x806b2928, 1,672 bytes a channel, the
+// callback at +1596.
+const std::uint32_t kGoldenEyeConnect[] = {
+    0x9421FFF0u, 0x7C0802A6u, 0x90010014u, 0x93E1000Cu, 0x7C7F1B78u, 0x93C10008u,
+    0x7C9E2378u, 0x4BFAF895u, 0x1C1F0688u, 0x3C80806Bu, 0x38842928u, 0x7C840214u,
+    0x83E4063Cu, 0x93C4063Cu, 0x4BFAF8B9u, 0x7FE3FB78u, 0x83E1000Cu, 0x83C10008u,
+    0x80010014u, 0x7C0803A6u, 0x38210010u, 0x4E800020u,
+};
+
+// A KPAD read's start that indexes its block by `stride` (`mulli r9,r3,K`).
+std::uint32_t put_kpad_read_start(Section& t, std::int32_t stride) {
+    const std::uint32_t at = t.here();
+    t.put(stwu_r1(0x40));
+    t.put(kMflrR0);
+    t.put(mulli(9, 3, stride));
+    t.put(kBlr);
+    return at;
+}
+
+void TestKpadConnect() {
+    {
+        Section t{0x80507000, {}};
+        const std::uint32_t read = put_kpad_read_start(t, 1672);
+        while (t.here() < 0x80508480) t.put(0);
+        for (std::uint32_t w : kGoldenEyeConnect) t.put(w);
+        const riftwii::KpadConnect c = riftwii::find_kpad_connect({t.range()}, read);
+        EXPECT_EQ(c.address, 0x80508480u);
+        EXPECT_EQ(c.block, 0x806B2928u);
+        EXPECT_EQ(c.stride, 1672u);
+        EXPECT_EQ(c.offset, 1596u);
+    }
+    {
+        // Another block size (an older KPAD, or another library's setter):
+        // not taken.
+        Section t{0x80507000, {}};
+        const std::uint32_t read = put_kpad_read_start(t, 1336);
+        for (std::uint32_t w : kGoldenEyeConnect) t.put(w);
+        EXPECT_EQ(riftwii::find_kpad_connect({t.range()}, read).address, 0u);
+    }
+    {
+        // Two that fit: neither is taken.
+        Section t{0x80507000, {}};
+        const std::uint32_t read = put_kpad_read_start(t, 1672);
+        for (std::uint32_t w : kGoldenEyeConnect) t.put(w);
+        for (std::uint32_t w : kGoldenEyeConnect) t.put(w);
+        EXPECT_EQ(riftwii::find_kpad_connect({t.range()}, read).address, 0u);
+    }
+    // No KPAD read: nothing.
+    Section t{0x80507000, {}};
+    for (std::uint32_t w : kGoldenEyeConnect) t.put(w);
+    EXPECT_EQ(riftwii::find_kpad_connect({t.range()}, 0).address, 0u);
+}
+
 }  // namespace
 
 int main() {
@@ -334,6 +388,7 @@ int main() {
     TestCalcAnswers(false);
     TestNoBanner();
     TestKpadUnified();
+    TestKpadConnect();
     if (g_failures == 0) std::cout << "hbmsearch: all passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }

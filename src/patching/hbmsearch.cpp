@@ -291,6 +291,43 @@ KpadUnified find_kpad_unified(const std::vector<CodeRange>& text) {
     return matches == 1 ? found : KpadUnified{};
 }
 
+KpadConnect find_kpad_connect(const std::vector<CodeRange>& text, std::uint32_t kpad_read) {
+    // The KPAD read's channel stride: its first `mulli rD,r3,K` with K at
+    // least 256 (the per-channel block, not a status).
+    std::uint32_t stride = 0;
+    for (unsigned i = 0; i < 40 && stride == 0 && kpad_read != 0; ++i) {
+        std::uint32_t w = 0;
+        if (!word_at(text, kpad_read + 4 * i, w)) break;
+        if (opcode(w) == 7 && reg_a(w) == 3 && simm(w) >= 256) stride = static_cast<std::uint32_t>(simm(w));
+    }
+    if (stride == 0) return {};
+    KpadConnect found;
+    unsigned matches = 0;
+    for (const CodeRange& r : text) {
+        if (r.bytes == nullptr) continue;
+        for (std::size_t k = 0; k * 4 + 24 <= r.size; ++k) {
+            const auto at = [&](std::size_t n) { return be32(r.bytes + 4 * (k + n)); };
+            const std::uint32_t m = at(0), hi = at(1), lo = at(2), add = at(3), load = at(4), store = at(5);
+            if (opcode(m) != 7 || reg_d(m) != 0 || simm(m) != static_cast<std::int32_t>(stride)) continue;
+            const std::uint32_t base = reg_d(hi);
+            const bool lis = opcode(hi) == 15 && reg_a(hi) == 0;
+            const bool addi = opcode(lo) == 14 && reg_d(lo) == base && reg_a(lo) == base;
+            // add rB,rB,r0
+            const bool sum = opcode(add) == 31 && ((add >> 1) & 0x1FFu) == 266 && reg_d(add) == base &&
+                             reg_a(add) == base && ((add >> 11) & 31u) == 0;
+            const bool swap = opcode(load) == 32 && opcode(store) == 36 && reg_a(load) == base &&
+                              reg_a(store) == base && (load & 0xFFFFu) == (store & 0xFFFFu) && simm(load) > 0;
+            if (!lis || !addi || !sum || !swap) continue;
+            found.address = function_start(text, r.address + static_cast<std::uint32_t>(4 * k), 24);
+            found.block = (static_cast<std::uint32_t>(hi & 0xFFFFu) << 16) + static_cast<std::uint32_t>(simm(lo));
+            found.stride = stride;
+            found.offset = static_cast<std::uint32_t>(simm(load));
+            ++matches;
+        }
+    }
+    return matches == 1 && found.address != 0 ? found : KpadConnect{};
+}
+
 std::uint32_t find_small_data_base(const std::vector<CodeRange>& sections, std::uint32_t entry) {
     std::uint32_t high = 0;
     bool have_high = false;

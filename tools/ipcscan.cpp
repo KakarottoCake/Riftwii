@@ -111,6 +111,10 @@ int main(int argc, char** argv) {
                     kpad.address, kpad.status_bytes, kpad.takes_error ? ", takes the error's address" : "", probe,
                     small_data, hbm.init, hbm.calc, hbm.select,
                     kpad.address && probe && hbm.calc && hbm.select ? "" : "  (HOME Menu by a GameCube controller: off)");
+        const riftwii::KpadConnect connect = riftwii::find_kpad_connect(text, kpad.address);
+        if (connect.address != 0)
+            std::printf("  KPADSetConnectCallback 0x%08x (callbacks at 0x%08x + %u per channel)\n", connect.address,
+                        connect.block + connect.offset, connect.stride);
         const riftwii::KpadUnified unified = riftwii::find_kpad_unified(text);
         if (unified.address != 0)
             std::printf("  KPADGetUnifiedWpadStatus 0x%08x (status %u bytes)\n", unified.address, unified.status_bytes);

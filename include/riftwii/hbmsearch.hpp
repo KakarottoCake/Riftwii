@@ -60,6 +60,23 @@ struct KpadUnified {
 };
 KpadUnified find_kpad_unified(const std::vector<CodeRange>& text);
 
+// KPADSetConnectCallback(chan, callback): the newer KPAD's (2008 on)
+// setter for the game's own "a controller connected or left" callback,
+// kept in KPAD's per-channel block. GoldenEye 007 reads only the Wii Remote
+// channels that callback told it are connected (9 Nov), so the stand-in
+// calls it too where the game set one. Found as the one function that
+// indexes the block by the KPAD read's channel stride (`mulli r0,rX,K`,
+// then `lis`/`addi` the block, `add`) and swaps one word in it (`lwz
+// rA,O(rB)` then `stw rC,O(rB)`, the old callback returned). The game's
+// callback for channel c is then the word at block + c*K + O.
+struct KpadConnect {
+    std::uint32_t address = 0;  // the setter, 0: not exactly one (an older KPAD has none)
+    std::uint32_t block = 0;    // KPAD's per-channel block
+    std::uint32_t stride = 0;   // K, the block's size per channel
+    std::uint32_t offset = 0;   // O, the callback's place in it
+};
+KpadConnect find_kpad_connect(const std::vector<CodeRange>& text, std::uint32_t kpad_read);
+
 // The small-data base the game's start-up code loads into r13 (`lis
 // r13,hi` then `ori` or `addi r13,r13,lo`), within its first 256 words
 // from `entry`; 0 when not found.

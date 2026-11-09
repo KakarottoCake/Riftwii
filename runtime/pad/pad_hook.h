@@ -161,6 +161,12 @@ struct rt_pad_context {
      * hooked. Mario Kart Wii takes a Classic Controller's buttons from
      * there, not from the KPAD read (9 Nov). */
     uint32_t kpad_unified_bytes;
+    /* The game's own connect callbacks (KPADSetConnectCallback), channel
+     * c's at kpad_connect + c * (kpad_connect_info & 0xFFFF), 0: none
+     * found (loader-filled). The info word's bits 16-23 hold the channel
+     * the game was last told is connected, plus one (0: none). */
+    uint32_t kpad_connect;
+    uint32_t kpad_connect_info;
 };
 
 #ifdef RT_TARGET_PPC
