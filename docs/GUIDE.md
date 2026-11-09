@@ -1047,8 +1047,10 @@ whose `original` differs is skipped and logged; one that would write
 over RiftWii's own part of memory stops the start, with the reason.
 A game that switches to another program on its disc (a compilation
 starting one of its games) keeps its packs and their choices: that
-program gets the same files and memory patches. Packs with
-savegame or shift patches don't start yet, and say so. A mod shipped as a patch (`.xdelta` or `.vcdiff`) goes in
+program gets the same files and memory patches. `<shift>` patches
+work as for Wii games. Packs with savegame patches don't start, and
+say so: a GameCube game saves to its memory card, not to the Wii's
+save folders. A mod shipped as a patch (`.xdelta` or `.vcdiff`) goes in
 `sd:/riftwii/patches/`: it is listed as the game it makes when its
 original is in `sd:/games` or `usb:/games`, and the first start makes that game as
 `sd:/games/<its ID>/game.iso` (the card needs room for it), an ordinary

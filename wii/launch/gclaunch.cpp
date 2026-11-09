@@ -462,6 +462,8 @@ bool read_gc_memory_patches(const std::string& xml, const std::vector<MemoryPatc
 bool plan_packs(const std::vector<PackageChoices>& packages, const std::uint8_t* boot, const Fst& fst,
                 GcProvider& provider, std::vector<GcFile>& out, std::vector<MemoryPatch>& memory, std::string& error) {
     std::size_t memory_bytes = 0;
+    // <shift> patches, applied after every pack's files are laid out.
+    std::vector<ShiftPatch> shifts;
     DiscIdentity disc;
     disc.id.assign(reinterpret_cast<const char*>(boot), 6);
     disc.number = boot[6];
@@ -506,10 +508,11 @@ bool plan_packs(const std::vector<PackageChoices>& packages, const std::uint8_t*
         }
         // Never a partly applied mod: what GameCube games cannot take yet
         // stops the launch.
-        if (!plan.savegames.empty() || !plan.shifts.empty()) {
-            error = xml + ": savegame and shift patches are not supported for GameCube games yet";
+        if (!plan.savegames.empty()) {
+            error = xml + ": savegame patches are not supported for GameCube games yet";
             return false;
         }
+        shifts.insert(shifts.end(), plan.shifts.begin(), plan.shifts.end());
         if (!read_gc_memory_patches(xml, plan.memory, provider, memory, memory_bytes, error)) return false;
         if (!plan.memory.empty())
             logf("GameCube: %s: %u memory patch(es)\n", xml.c_str(), static_cast<unsigned>(plan.memory.size()));
@@ -561,6 +564,9 @@ bool plan_packs(const std::vector<PackageChoices>& packages, const std::uint8_t*
              static_cast<unsigned long long>(applied->size()), static_cast<unsigned>(f.pieces.size()));
         out.push_back(std::move(f));
     }
+    std::vector<std::string> shift_notes;
+    apply_gc_shifts(shifts, fst, out, shift_notes);
+    for (const std::string& note : shift_notes) logf("GameCube: %s\n", note.c_str());
     return true;
 }
 
