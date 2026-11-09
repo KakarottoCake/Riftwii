@@ -80,6 +80,12 @@ typedef struct rwp_gc_launch {
     uint64_t pack_fst_offset;
     const rwp_gc_pack_entry* pack_entries;
     uint32_t pack_entry_count;
+    /* The packs' <memory> patches, valuefiles already read, as
+     * riftwii/gcrequest.hpp's gc_memory_to_bytes lays them out: written
+     * into the game just before it starts. NULL: none. */
+    const uint8_t* pack_memory;
+    uint32_t pack_memory_bytes;
+    uint32_t pack_memory_count;
 
     /* What the launch reads from the settings and the launch's extras
      * (wii/launch/boot.hpp's LaunchExtras), as they are now. */

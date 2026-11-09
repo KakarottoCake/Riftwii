@@ -13,6 +13,7 @@
 
 #include "riftwii/fat32.hpp"
 #include "riftwii/gcoverlay.hpp"
+#include "riftwii/patch.hpp"
 #include "riftwii/plugin_api.h"
 #include "riftwii/rvz.hpp"
 #include "rwpruntime.hpp"
@@ -72,6 +73,8 @@ struct GcLaunchExtras {
     bool in_dolphin = false;
     std::vector<std::uint8_t> cheat_gct;
     std::size_t cheat_count = 0;
+    // The packs' <memory> patches (rwp_gc_launch's pack_memory).
+    std::vector<MemoryPatch> pack_memory;
     bool code_build_codes = false;
     const std::uint8_t* code_handler = nullptr;
     std::size_t code_handler_bytes = 0;

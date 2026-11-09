@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "riftwii/launch.hpp"
+#include "riftwii/patch.hpp"
 #include "usbcatalog.hpp"
 
 // GameCube games on the SD card or a USB drive, started in Wii mode by
@@ -58,6 +59,9 @@ struct GcImage {
     // disc, and on the USB drive its pieces and size (found with the
     // image's own before the reload into d2x).
     std::string disc2_path{};
+    // The packs' <memory> patches, their valuefiles read (plan_gc_packs):
+    // the plugin writes them into the game just before it starts.
+    std::vector<MemoryPatch> pack_memory{};
     std::vector<Fragment> disc2_usb_fragments{};
     std::uint64_t disc2_usb_bytes = 0;
 };
