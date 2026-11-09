@@ -335,6 +335,7 @@ reader helpers stay beside their source.
 | `discdump` | Copying a disc to a `.wbfs` file: which sectors every partition uses, and the trimmed WBFS layout the copy is written in |
 | `gcdiscs` | Validating a two-disc GameCube game's partner image and the file-table room both need |
 | `gctgc` | TGC images inside GameCube bonus discs: bounded headers, executable sections and file tables |
+| `gcstorage` | The GameCube blob's SD and USB requests through the shared `gc_ios_call` (`runtime/gc/gc_storage.h`) against the separate per-call paths it replaced (`tests/gc_storage_legacy.h`, already reading the IPC buffers through `gc_cold`): the same flushes, IPC blocks, vectors and replies, including waits that time out, end by `io_reply` or wait on under `ipc_no_timeout` |
 | `gcprograms` | Programs a GameCube game loads itself (`src/patching/gcprograms.cpp`, `runtime/gc/gc_programs.h`): ELF programs on the disc, where their words come from on the disc, the patches the blob puts into reads, a program's start taken by the blob, and RiftWii's words a program switch sets |
 
 ### `src/fs/`: file systems and game images: FAT32, NTFS, WBFS, RVZ
@@ -438,7 +439,7 @@ shared C parts (`runtime/*.c`) are also built into the host tests.
 | `rtable.c` | The redirect table the resident walks |
 | `rtfat.c`, `rtfs.c` | A resumable FAT32 engine, and the NAND (ISFS) requests on top of it, for saves on the card |
 | `rtrvz.c` | Unpacking RVZ groups |
-| `gc/` | The GameCube blob: `gc_rt.c` (disc reads, sound, the way back, the crash screen), `gc_bt.c` (Wii Remotes) with `gc_ports.h` (their ports), `gc_gcad.c` (the GameCube controller adapter for Wii U, driving `runtime/rtgcad.c`; its port filling and rumble are host-tested in `tests/gcgcad_tests.cpp`) and `gc_controls.h` (what their buttons and a shake press) and `gc_pro.h` (a Wii U Pro Controller's reports), all three also built into the host tests, `gc_video.h` (the mode VIConfigure gets, also built into the host tests), `gc_disc.h` (a two-disc game's disc change, also built into the host tests), `gc_card.c` (memory card), `gc_entry.S`, `gc.ld`; its RVZ build adds `gc_rvz.c` (the disc from an RVZ, also built into the host tests) and links with `gc_rvz.ld` |
+| `gc/` | The GameCube blob: `gc_rt.c` (disc reads, sound, the way back, the crash screen), `gc_bt.c` (Wii Remotes) with `gc_ports.h` (their ports), `gc_gcad.c` (the GameCube controller adapter for Wii U, driving `runtime/rtgcad.c`; its port filling and rumble are host-tested in `tests/gcgcad_tests.cpp`) and `gc_controls.h` (what their buttons and a shake press) and `gc_pro.h` (a Wii U Pro Controller's reports), all three also built into the host tests, `gc_video.h` (the mode VIConfigure gets, also built into the host tests), `gc_disc.h` (a two-disc game's disc change, also built into the host tests), `gc_card.c` (memory card), `gc_storage.h` with `gc_usb_write.h` (its SD and USB requests to IOS, compared with the old code in `tests/gcstorage_tests.cpp`), `gc_entry.S`, `gc.ld`; its RVZ build adds `gc_rvz.c` (the disc from an RVZ, also built into the host tests) and links with `gc_rvz.ld` |
 | `pad/`, `rtgcad.c`, `rtleave.c` | The GameCube adapter blob and its WUP-028 driver (also used by the menu); with the way back, its hooks on the SDK's IPC submit routine and OSSleepThread, and `rtleave.c`'s decisions (host-tested in `tests/padleave_tests.cpp`) |
 | `rtrestart.c` | The Reset's request as the pad blob writes it (one sector of the card, a CMD25 or d2x's write), host-tested in `tests/rtrestart_tests.cpp` |
 | `shot/`, `rtshot.c` | The in-game screenshot blob |
@@ -512,6 +513,7 @@ and the `*_mock/` folders provide synthetic files, discs and hardware calls.
 | `gc_exi_scan.cpp`, `gc_trace.py` | Inspecting GameCube EXI routines and decoding a game's trace records |
 | `gc_card_load_test.py`, `gc_dol_load_test.py`, `gc_fst_read_test.py` | Isolated checks of the actual GameCube loader's card, executable and file-table reads |
 | `gc_io_emutest.py`, `wlog_boundary_emutest.py` | Executing built PowerPC code against simulated I/O and memory boundaries |
+| `gc_hooks_emutest.py` | The GameCube blob's hook trampolines run against their old version (`tests/fixtures/gc-legacy/`) in Unicorn: same calls, same registers |
 | `timesong/` | Artwork cutout and original audio generation scripts |
 
 ## `channel/`

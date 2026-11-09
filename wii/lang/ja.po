@@ -2370,18 +2370,6 @@ msgstr "RiftWiiを終了"
 msgid "The RiftWii channel needs updating. Its new installer is still downloading; RiftWii asks you to install it at the next start."
 msgstr "RiftWiiチャンネルの更新が必要です。新しいインストーラーはまだダウンロード中です。次に起動したときにインストールを求めます。"
 
-msgid "This game is cursed"
-msgstr "このゲームは呪われている"
-
-msgid "Cars 2 is cursed: it goes to a black screen if RiftWii changes anything in it. Turn off the GameCube adapter (Settings), screenshots, cheats and mods for it. If it still won't boot, send a problem report."
-msgstr "カーズ2は呪われています。RiftWiiが何かを変えると黒い画面になります。このゲームではGameCubeアダプター（設定）、スクリーンショット、チート、MODをオフにしてください。それでも起動しないときは問題レポートを送ってください。"
-
-msgid "This game may be cursed"
-msgstr "このゲームは呪われているかもしれない"
-
-msgid "This game may be cursed: it runs on Cars 2's engine, which goes to a black screen if RiftWii changes anything in it. If it won't boot, turn off the GameCube adapter (Settings), screenshots, cheats and mods for it, and send a problem report."
-msgstr "このゲームは呪われているかもしれません。カーズ2と同じエンジンで動いていて、RiftWiiが何かを変えると黒い画面になります。起動しないときは、このゲームではGameCubeアダプター（設定）、スクリーンショット、チート、MODをオフにして、問題レポートを送ってください。"
-
 msgid "Reset all settings"
 msgstr "すべての設定をリセット"
 

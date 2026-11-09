@@ -27,9 +27,12 @@
 #define GC_IPC_Y1 0x04u  /* IOS replied (write 1 to clear) */
 #define GC_IPC_X2 0x08u  /* the reply is read: IOS may send the next */
 
+#define GC_IOS_IOCTL 6u
 #define GC_IOS_IOCTLV 7u
 #define GC_SDIO_SENDCMD 7u
 #define GC_SD_READMULTIBLOCK 0x12u
+#define GC_SD_WRITEMULTIBLOCK 0x19u
+#define GC_SD_SEND_STATUS 0x0Du
 #define GC_SD_CMDTYPE_AC 3u
 #define GC_SD_RESPONSE_R1 1u
 #define GC_SECTOR 512u
@@ -102,6 +105,12 @@ static uint32_t gc_read32(uint32_t address) { return *(volatile uint32_t*)(uintp
 static void gc_write32(uint32_t address, uint32_t value) { *(volatile uint32_t*)(uintptr_t)address = value; }
 
 static uint32_t gc_physical(uint32_t address) { return address & 0x3FFFFFFFu; }
+
+static uint32_t gc_timebase(void) {
+    uint32_t now;
+    __asm__ volatile("mftb %0" : "=r"(now));
+    return now;
+}
 
 /* Match a real card's wait even when Dolphin finishes IOS requests at
  * once. The deadline starts before sending, not after IOS replies. */
@@ -236,128 +245,7 @@ void gc_ipc_route(struct gc_rt_context* ctx, uint32_t reply) {
 /* A reply that is not the one being waited for. */
 static void gc_ipc_other(struct gc_rt_context* ctx, uint32_t reply) { gc_ipc_route(ctx, reply); }
 
-/* One ioctlv to IOS and its reply, by polling (the Wii Remotes' reads may
- * be in flight meanwhile; their replies go to gc_bt.c). Returns IOS's
- * result, or -1000 when IOS does not answer. */
-static int32_t gc_ioctlv(struct gc_rt_context* ctx, uint32_t fd, uint32_t ioctl, uint32_t in_count,
-                         uint32_t out_count) {
-    uint32_t* rq = ctx->ipc;
-    const uint32_t phys = gc_physical((uint32_t)(uintptr_t)rq);
-    uint32_t i;
-    uint32_t polls;
-    const uint32_t test_started = gc_sd_test_start(ctx);
-    uint32_t started;
-    for (i = 0; i < 16; ++i) rq[i] = 0;
-    rq[0] = GC_IOS_IOCTLV;
-    rq[2] = fd;
-    rq[3] = ioctl;
-    rq[4] = in_count;
-    rq[5] = out_count;
-    rq[6] = gc_physical((uint32_t)(uintptr_t)ctx->vec);
-    gc_flush((uint32_t)(uintptr_t)rq, sizeof(ctx->ipc));
-    ctx->io_reply = 0;
-    ctx->io_pending = phys;
-    __asm__ volatile("mftb %0" : "=r"(started));
-    if (gc_ipc_send(phys, ctx) != 0) return -1000;
-    for (;;) {
-        /* The launch's reply never comes when IOS takes it (it reloads and
-         * the PPC is reset): with ipc_no_timeout the wait has no end, as a
-         * timeout would give the game back to a dead IOS; a refusal does
-         * come back as a reply. */
-        for (polls = 0; !ctx->io_reply && (gc_read32(GC_IPC_PPCCTRL) & GC_IPC_Y1) == 0; ++polls)
-            if (!gc_ipc_wait(ctx, started, polls)) return -1000;
-        if (ctx->io_reply) break;
-        {
-            const uint32_t reply = gc_read32(GC_IPC_ARMMSG);
-            gc_write32(GC_IPC_PPCCTRL, GC_IPC_Y1);
-            gc_write32(GC_IPC_PPCCTRL, GC_IPC_X2);
-            if (reply == phys) break;
-            gc_ipc_other(ctx, reply);
-        }
-    }
-    ctx->io_pending = 0;
-    gc_invalidate((uint32_t)(uintptr_t)rq, sizeof(ctx->ipc));
-    gc_guard(ctx);
-    if (fd == ctx->sdio_fd) gc_sd_test_wait(ctx, test_started, ctx->request[4] * GC_SECTOR);
-    return (int32_t)rq[1];
-}
-
-/* CMD18: `count` sectors from `sector` into `target` (32-byte aligned). */
-int gc_sd_read(struct gc_rt_context* ctx, uint32_t sector, uint32_t count, uint32_t target) {
-    uint32_t* q = ctx->request;
-    int32_t result;
-    q[0] = GC_SD_READMULTIBLOCK;
-    q[1] = GC_SD_CMDTYPE_AC;
-    q[2] = GC_SD_RESPONSE_R1;
-    q[3] = ctx->sdhc ? sector : sector * GC_SECTOR;
-    q[4] = count;
-    q[5] = GC_SECTOR;
-    q[6] = target;
-    q[7] = 1;  /* DMA */
-    q[8] = 0;
-    ctx->vec[0] = gc_physical((uint32_t)(uintptr_t)q);
-    ctx->vec[1] = 36;
-    ctx->vec[2] = gc_physical(target);
-    ctx->vec[3] = count * GC_SECTOR;
-    ctx->vec[4] = gc_physical((uint32_t)(uintptr_t)ctx->response);
-    ctx->vec[5] = GC_SD_RESPONSE_BYTES;
-    gc_flush((uint32_t)(uintptr_t)q, 36);
-    gc_flush((uint32_t)(uintptr_t)ctx->vec, sizeof(ctx->vec));
-    gc_flush(target, count * GC_SECTOR);  /* no dirty lines left to land on the DMA's bytes */
-    ctx->sd_requests++;
-    result = gc_ioctlv(ctx, ctx->sdio_fd, GC_SDIO_SENDCMD, 2, 1);
-    gc_invalidate(target, count * GC_SECTOR);
-    if (result < 0) {
-        ctx->failures++;
-        ctx->last_error = result;
-        return 0;
-    }
-    return 1;
-}
-
-/* d2x's USB mass-storage read ('U' 'M' 'S' 3): the sector and the count
- * in, the data out. */
-#define GC_UMS_READ_SECTORS 0x554D5303u
-/* Sectors a request asks for: 32 KB, as the menu reads the drive through
- * d2x (wii/storage/umsdev.cpp). */
-#define GC_USB_REQUEST_SECTORS 64u
-
-#include "gc_usb_write.h"
-
-/* `count` sectors of the USB drive from `sector` into `target`, which is
- * in MEM2 (d2x's USB driver writes nowhere else) and 32-byte aligned. */
-int gc_usb_read(struct gc_rt_context* ctx, uint32_t sector, uint32_t count, uint32_t target) {
-    uint32_t* q = ctx->request;
-    while (count != 0) {
-        const uint32_t n = count < GC_USB_REQUEST_SECTORS ? count : GC_USB_REQUEST_SECTORS;
-        int32_t result;
-        q[0] = sector;
-        q[1] = n;
-        ctx->vec[0] = gc_physical((uint32_t)(uintptr_t)&q[0]);
-        ctx->vec[1] = 4;
-        ctx->vec[2] = gc_physical((uint32_t)(uintptr_t)&q[1]);
-        ctx->vec[3] = 4;
-        ctx->vec[4] = gc_physical(target);
-        ctx->vec[5] = n * GC_SECTOR;
-        gc_flush((uint32_t)(uintptr_t)q, 32);
-        gc_flush((uint32_t)(uintptr_t)ctx->vec, sizeof(ctx->vec));
-        gc_flush(target, n * GC_SECTOR);  /* no dirty lines left to land on the DMA's bytes */
-        ctx->usb_requests++;
-        result = gc_ioctlv(ctx, ctx->usb_fd, GC_UMS_READ_SECTORS, 2, 1);
-        gc_invalidate(target, n * GC_SECTOR);
-        __asm__ volatile("mftb %0" : "=r"(ctx->usb_last_read));
-        if (result < 0) {
-            ctx->usb_failures++;
-            ctx->failures++;
-            ctx->last_error = result;
-            return 0;
-        }
-        sector += n;
-        count -= n;
-        target += n * GC_SECTOR;
-    }
-    return 1;
-}
+#include "gc_storage.h"
 
 /* `length` bytes of a card or USB run from byte `at` of it into `dst`.
  * From the card, whole sectors go straight into the game's buffer when it
@@ -485,100 +373,6 @@ uint32_t gc_irq_off(void) {
 }
 void gc_irq_restore(uint32_t msr) { __asm__ volatile("mtmsr %0" : : "r"(msr) : "memory"); }
 
-/* One ioctl (no vectors), polled like gc_ioctlv: CMD13 takes this form. */
-static int32_t gc_ioctl(struct gc_rt_context* ctx, uint32_t fd, uint32_t ioctl, uint32_t in, uint32_t in_len,
-                        uint32_t out, uint32_t out_len) {
-    uint32_t* rq = ctx->ipc;
-    const uint32_t phys = gc_physical((uint32_t)(uintptr_t)rq);
-    uint32_t i;
-    uint32_t polls;
-    const uint32_t test_started = gc_sd_test_start(ctx);
-    uint32_t started;
-    for (i = 0; i < 16; ++i) rq[i] = 0;
-    rq[0] = 6;  /* IOS_IOCTL */
-    rq[2] = fd;
-    rq[3] = ioctl;
-    rq[4] = gc_physical(in);
-    rq[5] = in_len;
-    rq[6] = gc_physical(out);
-    rq[7] = out_len;
-    gc_flush(in, in_len);
-    gc_flush(out, out_len);
-    gc_flush((uint32_t)(uintptr_t)rq, sizeof(ctx->ipc));
-    ctx->io_reply = 0;
-    ctx->io_pending = phys;
-    __asm__ volatile("mftb %0" : "=r"(started));
-    if (gc_ipc_send(phys, ctx) != 0) return -1000;
-    for (;;) {
-        /* The launch's reply never comes when IOS takes it (it reloads and
-         * the PPC is reset): with ipc_no_timeout the wait has no end, as a
-         * timeout would give the game back to a dead IOS; a refusal does
-         * come back as a reply. */
-        for (polls = 0; !ctx->io_reply && (gc_read32(GC_IPC_PPCCTRL) & GC_IPC_Y1) == 0; ++polls)
-            if (!gc_ipc_wait(ctx, started, polls)) return -1000;
-        if (ctx->io_reply) break;
-        {
-            const uint32_t reply = gc_read32(GC_IPC_ARMMSG);
-            gc_write32(GC_IPC_PPCCTRL, GC_IPC_Y1);
-            gc_write32(GC_IPC_PPCCTRL, GC_IPC_X2);
-            if (reply == phys) break;
-            gc_ipc_other(ctx, reply);
-        }
-    }
-    ctx->io_pending = 0;
-    gc_invalidate((uint32_t)(uintptr_t)rq, sizeof(ctx->ipc));
-    gc_invalidate(out, out_len);
-    gc_guard(ctx);
-    if (fd == ctx->sdio_fd) gc_sd_test_wait(ctx, test_started, 0);
-    return (int32_t)rq[1];
-}
-
-/* `count` sectors (at most 16) from `buf` (32-byte aligned) to the card
- * at `sector`: CMD25, then CMD13 until the card has written them. The
- * caller holds ctx->storage_busy. */
-static int32_t gc_sd_write_locked(struct gc_rt_context* ctx, uint32_t sector, uint32_t count, uint32_t buf) {
-    uint32_t* q = ctx->request;
-    int32_t result;
-    uint32_t i;
-    q[0] = 0x19u;
-    q[1] = GC_SD_CMDTYPE_AC;
-    q[2] = GC_SD_RESPONSE_R1;
-    q[3] = ctx->sdhc ? sector : sector * GC_SECTOR;
-    q[4] = count;
-    q[5] = GC_SECTOR;
-    q[6] = buf;
-    q[7] = 1;
-    q[8] = 0;
-    ctx->vec[0] = gc_physical((uint32_t)(uintptr_t)q);
-    ctx->vec[1] = 36;
-    ctx->vec[2] = gc_physical(buf);
-    ctx->vec[3] = count * GC_SECTOR;
-    ctx->vec[4] = gc_physical((uint32_t)(uintptr_t)ctx->response);
-    ctx->vec[5] = GC_SD_RESPONSE_BYTES;
-    gc_flush((uint32_t)(uintptr_t)q, 36);
-    gc_flush((uint32_t)(uintptr_t)ctx->vec, sizeof(ctx->vec));
-    gc_flush(buf, count * GC_SECTOR);
-    ctx->sd_requests++;
-    result = gc_ioctlv(ctx, ctx->sdio_fd, GC_SDIO_SENDCMD, 2, 1);
-    if (result >= 0 && ctx->card_rca != 0) {
-        for (i = 0; i < 8192; ++i) {
-            uint32_t state;
-            q[0] = 0x0Du;
-            q[1] = GC_SD_CMDTYPE_AC;
-            q[2] = GC_SD_RESPONSE_R1;
-            q[3] = ctx->card_rca << 16;
-            q[4] = q[5] = q[6] = q[7] = q[8] = 0;
-            ctx->response[0] = 0;
-            result = gc_ioctl(ctx, ctx->sdio_fd, GC_SDIO_SENDCMD, (uint32_t)(uintptr_t)q, 36,
-                              (uint32_t)(uintptr_t)ctx->response, 16);
-            if (result < 0) return result;  /* leave the save dirty until status can be checked */
-            state = (ctx->response[0] >> 9) & 0xFu;
-            if (state != 6 && state != 7) break;  /* left receive-data and programming */
-        }
-    }
-    return result;
-}
-
 int32_t gc_sd_write(struct gc_rt_context* ctx, uint32_t sector, uint32_t count, uint32_t buf) {
     int32_t result;
     const uint32_t msr = gc_irq_off();
@@ -668,6 +462,7 @@ static uint32_t gc_pad_enabled(const struct gc_rt_context* ctx) {
 /* One record of the trace (gc_rt.h), with interrupts held off so it
  * cannot meet a read on the card; skipped while a read is going on. */
 static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
+    struct gc_rt_cold* const cold = gc_cold(ctx);
     int32_t result;
     uint32_t* w = (uint32_t*)(uintptr_t)ctx->trace_buf;
     const struct gc_rt_stream* st = (const struct gc_rt_stream*)(uintptr_t)ctx->stream;
@@ -764,7 +559,7 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
     w[GC_TR_VI_MODE] = ctx->vi_mode;
     w[GC_TR_PROJECTIONS] = ctx->projections;
     w[GC_TR_ORTHOGRAPHICS] = ctx->orthographics;
-    for (i = 0; i < GC_PROJECTION_CALLERS * 4; ++i) w[GC_TR_PROJECTION_CALLERS + i] = ctx->projection_callers[i];
+    for (i = 0; i < GC_PROJECTION_CALLERS * 4; ++i) w[GC_TR_PROJECTION_CALLERS + i] = cold->projection_callers[i];
 #ifdef RT_TEST_BUILD
     if ((ctx->flags & GC_FLAG_FAKE_REMOTE) && ctx->bt) {
         const struct gc_bt* bt = (const struct gc_bt*)(uintptr_t)ctx->bt;
@@ -816,12 +611,12 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
     w[GC_TR_BEAT_PC] = ctx->beat_pc;
     w[GC_TR_BEAT_LR] = ctx->beat_lr;
     w[GC_TR_BEAT_MSR] = ctx->beat_msr;
-    w[GC_TR_EXCEPTION] = ctx->exception;
-    w[GC_TR_DSISR] = ctx->dsisr;
-    w[GC_TR_DAR] = ctx->dar;
-    for (i = 0; i < 5; ++i) w[GC_TR_CRASH_R1 + i] = ctx->crash_gpr[i];
-    for (i = 0; i < 4; ++i) w[GC_TR_CRASH_CHAIN + i] = ctx->crash_chain[i];
-    w[GC_TR_CRASH_WORD] = ctx->crash_word;
+    w[GC_TR_EXCEPTION] = cold->exception;
+    w[GC_TR_DSISR] = cold->dsisr;
+    w[GC_TR_DAR] = cold->dar;
+    for (i = 0; i < 5; ++i) w[GC_TR_CRASH_R1 + i] = cold->crash_gpr[i];
+    for (i = 0; i < 4; ++i) w[GC_TR_CRASH_CHAIN + i] = cold->crash_chain[i];
+    w[GC_TR_CRASH_WORD] = cold->crash_word;
     w[GC_TR_GUARD_HITS] = ctx->guard_hits;
     w[GC_TR_GUARD_FIRST_REQUEST] = ctx->guard_first_request;
     w[GC_TR_GUARD_FIRST_OFFSET] = ctx->guard_first_offset;
@@ -1253,18 +1048,19 @@ static void gc_vi_note(struct gc_rt_context* ctx) {
         const uint32_t at = GC_VI_BASE + gc_vi_saved_offset(i);
         const uint32_t high = *(volatile uint16_t*)(uintptr_t)at;
         const uint32_t low = *(volatile uint16_t*)(uintptr_t)(at + 2u);
-        ctx->vi_shown[i] = high << 16 | low;
+        gc_cold(ctx)->vi_shown[i] = high << 16 | low;
     }
 }
 /* vi_shown back into the VI, the timing last, when it holds a picture.
  * The VI takes it at its next field. */
 static void gc_vi_put_back(const struct gc_rt_context* ctx) {
+    struct gc_rt_cold* const cold = gc_cold(ctx);
     uint32_t i;
-    if (GC_VI_ACTIVE_LINES(ctx->vi_shown[0] >> 16) == 0) return;  /* nothing noted */
+    if (GC_VI_ACTIVE_LINES(cold->vi_shown[0] >> 16) == 0) return;  /* nothing noted */
     for (i = GC_VI_SAVED_WORDS; i-- > 0;) {
         const uint32_t at = GC_VI_BASE + gc_vi_saved_offset(i);
-        *(volatile uint16_t*)(uintptr_t)(at + 2u) = (uint16_t)ctx->vi_shown[i];
-        *(volatile uint16_t*)(uintptr_t)at = (uint16_t)(ctx->vi_shown[i] >> 16);
+        *(volatile uint16_t*)(uintptr_t)(at + 2u) = (uint16_t)cold->vi_shown[i];
+        *(volatile uint16_t*)(uintptr_t)at = (uint16_t)(cold->vi_shown[i] >> 16);
     }
 }
 
@@ -1345,10 +1141,11 @@ static void gc_vi_blank(uint32_t* words) {
  * YUYV. In 480i the TV's re-sync to the game's mode hid it. A Wii game's
  * launch blanks the screen the same way (VIDEO_SetBlack). */
 static void gc_vi_blank_now(const struct gc_rt_context* ctx) {
+    struct gc_rt_cold* const cold = gc_cold(ctx);
     uint32_t mode[GC_VI_HANDOVER_WORDS];
     uint32_t r;
-    if (gc_vi_register(ctx->vi_at_jump, 1u) == 0) return;  /* nothing noted at the jump */
-    for (r = 0; r < GC_VI_HANDOVER_WORDS; ++r) mode[r] = ctx->vi_at_jump[r];
+    if (gc_vi_register(cold->vi_at_jump, 1u) == 0) return;  /* nothing noted at the jump */
+    for (r = 0; r < GC_VI_HANDOVER_WORDS; ++r) mode[r] = cold->vi_at_jump[r];
     gc_vi_blank(mode);
     for (r = 0x12u / 2u; r >= 0x0Cu / 2u; --r)
         *(volatile uint16_t*)(uintptr_t)(GC_VI_BASE + 2u * r) = (uint16_t)gc_vi_register(mode, r);
@@ -1357,16 +1154,17 @@ static void gc_vi_blank_now(const struct gc_rt_context* ctx) {
 /* Before ES_LaunchTitle: RiftWii's own mode back, blank. `saved` gets the
  * game's registers, for gc_vi_take_back when IOS says no. */
 static void gc_vi_hand_over(const struct gc_rt_context* ctx, uint32_t* saved) {
+    struct gc_rt_cold* const cold = gc_cold(ctx);
     uint32_t mode[GC_VI_HANDOVER_WORDS];
     uint32_t i;
     gc_vi_read_all(saved);
-    if (gc_vi_register(ctx->vi_at_jump, 1u) == 0) return;  /* nothing noted at the jump */
-    for (i = 0; i < GC_VI_HANDOVER_WORDS; ++i) mode[i] = ctx->vi_at_jump[i];
+    if (gc_vi_register(cold->vi_at_jump, 1u) == 0) return;  /* nothing noted at the jump */
+    for (i = 0; i < GC_VI_HANDOVER_WORDS; ++i) mode[i] = cold->vi_at_jump[i];
     gc_vi_blank(mode);
     gc_vi_write_all(mode);
 }
 static void gc_vi_take_back(const struct gc_rt_context* ctx, const uint32_t* saved) {
-    if (gc_vi_register(ctx->vi_at_jump, 1u) == 0) return;
+    if (gc_vi_register(gc_cold(ctx)->vi_at_jump, 1u) == 0) return;
     gc_vi_write_all(saved);
 }
 /* The restart (gc_on_hot_reset): the VI as the first start found it, on,
@@ -1379,10 +1177,11 @@ static void gc_vi_take_back(const struct gc_rt_context* ctx, const uint32_t* sav
  * VIWaitForRetrace for good, the screen black (Dolphin). With the VI on,
  * VIInit keeps it as at the first start. */
 static void gc_vi_restart(const struct gc_rt_context* ctx) {
+    struct gc_rt_cold* const cold = gc_cold(ctx);
     uint32_t mode[GC_VI_HANDOVER_WORDS];
     uint32_t i;
-    if (gc_vi_register(ctx->vi_at_jump, 1u) == 0) return;  /* nothing noted at the jump */
-    for (i = 0; i < GC_VI_HANDOVER_WORDS; ++i) mode[i] = ctx->vi_at_jump[i];
+    if (gc_vi_register(cold->vi_at_jump, 1u) == 0) return;  /* nothing noted at the jump */
+    for (i = 0; i < GC_VI_HANDOVER_WORDS; ++i) mode[i] = cold->vi_at_jump[i];
     gc_vi_blank(mode);
     gc_vi_write_all(mode);
 }
@@ -2927,7 +2726,7 @@ static uint32_t gc_float_three_quarters(uint32_t bits) {
 static void gc_note_projection_caller(struct gc_rt_context* ctx, uint32_t caller, const uint32_t* matrix) {
     uint32_t i;
     for (i = 0; i < GC_PROJECTION_CALLERS; ++i) {
-        uint32_t* slot = &ctx->projection_callers[i * 4];
+        uint32_t* slot = &gc_cold(ctx)->projection_callers[i * 4];
         if (slot[0] == caller) {
             ++slot[1];
             return;
@@ -3231,7 +3030,7 @@ void gc_on_trace_now(struct gc_rt_context* ctx, uint32_t where) {
      * blank until the game's own picture. */
     if (where == GC_TRACE_JUMP) {
         gc_vi_note(ctx);
-        gc_vi_read_all(ctx->vi_at_jump);  /* for the hand-over (gc_vi_hand_over) */
+        gc_vi_read_all(gc_cold(ctx)->vi_at_jump);  /* for the hand-over (gc_vi_hand_over) */
         /* and the audio hardware as the first start has it (gc_audio_reset) */
         ctx->ar_config_at_jump = gc_read16(GC_AR_SIZE) << 16 | gc_read16(GC_AR_REFRESH);
         ctx->ai_cr_at_jump = gc_read32(GC_AI_CR);
@@ -3251,21 +3050,22 @@ static int gc_stack_frame(const struct gc_rt_context* ctx, uint32_t frame) {
            frame - ctx->io_stack <= GC_IO_STACK_BYTES - 8u;
 }
 static void gc_crash_stack(struct gc_rt_context* ctx, const uint32_t* gpr) {
+    struct gc_rt_cold* const cold = gc_cold(ctx);
     uint32_t frame = gpr[1];
     uint32_t i;
-    ctx->crash_gpr[0] = gpr[1];
-    ctx->crash_gpr[1] = gpr[3];
-    ctx->crash_gpr[2] = gpr[4];
-    ctx->crash_gpr[3] = gpr[5];
-    ctx->crash_gpr[4] = gpr[31];
+    cold->crash_gpr[0] = gpr[1];
+    cold->crash_gpr[1] = gpr[3];
+    cold->crash_gpr[2] = gpr[4];
+    cold->crash_gpr[3] = gpr[5];
+    cold->crash_gpr[4] = gpr[31];
     for (i = 0; i < 4; ++i) {
-        ctx->crash_chain[i] = 0;
+        cold->crash_chain[i] = 0;
     }
     for (i = 0; i < 4; ++i) {
         if (!gc_stack_frame(ctx, frame)) break;
         frame = *(const uint32_t*)(uintptr_t)frame;  /* the caller's frame */
         if (!gc_stack_frame(ctx, frame)) break;
-        ctx->crash_chain[i] = *(const uint32_t*)(uintptr_t)(frame + 4);
+        cold->crash_chain[i] = *(const uint32_t*)(uintptr_t)(frame + 4);
     }
 }
 
@@ -3342,6 +3142,7 @@ static void gc_crash_draw(const struct gc_rt_context* ctx) {
 #define GC_OSCONTEXT_CTR 0x88u
 #define GC_OSCONTEXT_XER 0x8Cu
 static void gc_crash_screen(const struct gc_rt_context* ctx, uint32_t os_context) {
+    struct gc_rt_cold* const cold = gc_cold(ctx);
     /* The dump, which only now knows the registers, from the strip the
      * menu drew after the card. */
     if (ctx->crash_card != 0) {
@@ -3358,10 +3159,10 @@ static void gc_crash_screen(const struct gc_rt_context* ctx, uint32_t os_context
         regs.xer = saved ? saved[GC_OSCONTEXT_XER / 4u] : 0u;
         regs.srr0 = ctx->beat_pc;
         regs.srr1 = ctx->beat_msr;
-        regs.dsisr = ctx->dsisr;
-        regs.dar = ctx->dar;
-        regs.exception = ctx->exception;
-        for (i = 0; i < 4u; ++i) regs.chain[i] = ctx->crash_chain[i];
+        regs.dsisr = cold->dsisr;
+        regs.dar = cold->dar;
+        regs.exception = cold->exception;
+        for (i = 0; i < 4u; ++i) regs.chain[i] = cold->crash_chain[i];
         gc_crash_dump(strip, card, &regs);
     }
     gc_crash_draw(ctx);
@@ -3443,16 +3244,17 @@ static void gc_crash_wait(struct gc_rt_context* ctx) {
  * crash goes to the trace (the exception, SRR0/LR/SRR1, DSISR, DAR, some
  * registers and the callers up the stack), then the screen turns blue. */
 void gc_on_fatal(struct gc_rt_context* ctx, uint32_t exception, uint32_t os_context, uint32_t dsisr, uint32_t dar) {
-    ctx->exception = exception;
-    ctx->dsisr = dsisr;
-    ctx->dar = dar;
+    struct gc_rt_cold* const cold = gc_cold(ctx);
+    cold->exception = exception;
+    cold->dsisr = dsisr;
+    cold->dar = dar;
     if (os_context != 0) {
         ctx->beat_pc = *(const uint32_t*)(uintptr_t)(os_context + GC_OSCONTEXT_SRR0);
         ctx->beat_lr = *(const uint32_t*)(uintptr_t)(os_context + GC_OSCONTEXT_LR);
         ctx->beat_msr = *(const uint32_t*)(uintptr_t)(os_context + GC_OSCONTEXT_SRR1);
         gc_crash_stack(ctx, (const uint32_t*)(uintptr_t)os_context);
         if (gc_in_mem1(ctx->beat_pc))
-            ctx->crash_word = gc_read32(gc_physical(ctx->beat_pc) | 0xC0000000u);
+            cold->crash_word = gc_read32(gc_physical(ctx->beat_pc) | 0xC0000000u);
     }
     /* The crashed continuation will never resume, but IOS can still DMA
      * into its buffers. Drain it before the fatal trace reuses them. */

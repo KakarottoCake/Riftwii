@@ -9,6 +9,7 @@
 #include "riftwii/gameconfig.hpp"
 #include "riftwii/launch.hpp"
 
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -292,6 +293,240 @@ void test_model() {
 
 }  // namespace
 
+// Memory card slot B codes on a Wii U (grantendo/wiiu#37): REX's USB
+// Gecko log, in short, with its two neighbours from the same file.
+void test_slot_b_codes() {
+    // REX's log hook on Brawl's __fwrite (USBGecko.asm): the hardware's
+    // high half and slot B's registers, then the instruction it replaced.
+    const std::uint32_t rex_log[] = {
+        0xC23F5590, 0x00000004,
+        0x7D9CE2A6, 0x3D00CD00,  // mfspr r12, 924; lis r8, 0xCD00
+        0x61086814, 0x61296820,  // ori r8, r8, 0x6814; ori r9, r9, 0x6820
+        0x91880000, 0x812900CC,  // stw r12, 0(r8); lwz r9, 0xCC(r9)
+        0x9421FFD0, 0x00000000,  // stwu r1, -0x30(r1); the branch back
+    };
+    // Its other two hooks read a flag in MEM1 and never touch slot B.
+    const std::uint32_t rex_flag[] = {
+        0xC2001CE0, 0x00000002,
+        0x3D808058, 0x618C0FE0,  // lis r12, 0x8058; ori r12, r12, 0x0FE0
+        0x818C0000, 0x00000000,  // lwz r12, 0(r12)
+    };
+    const auto list_of = [](std::initializer_list<const std::uint32_t*> codes,
+                            std::initializer_list<std::size_t> sizes) {
+        Bytes b;
+        put(b, 0x00D0C0DE);
+        put(b, 0x00D0C0DE);
+        auto size = sizes.begin();
+        for (const std::uint32_t* code : codes) {
+            for (std::size_t i = 0; i < *size; ++i) put(b, code[i]);
+            ++size;
+        }
+        put(b, 0xF0000000);
+        put(b, 0x00000000);
+        return b;
+    };
+    const std::size_t log_words = sizeof(rex_log) / 4, flag_words = sizeof(rex_flag) / 4;
+
+    // The log hook becomes a goto over its four lines; the flag hook stays.
+    Bytes list = list_of({rex_flag, rex_log}, {flag_words, log_words});
+    const Bytes before = list;
+    std::vector<SlotBCode> off = switch_off_slot_b_codes(list);
+    EXPECT_EQ(off.size(), 1u);
+    if (off.size() == 1) {
+        EXPECT_EQ(off[0].address, 0x803F5590u);
+        EXPECT_EQ(off[0].lines, 4u);
+    }
+    EXPECT_EQ(list.size(), before.size());
+    EXPECT_TRUE(valid_gct(list));
+    const std::size_t log_at = 8 + flag_words * 4;
+    EXPECT_EQ(get(list, log_at), 0x66200004u);
+    EXPECT_EQ(get(list, log_at + 4), 0u);
+    EXPECT_TRUE(std::equal(list.begin(), list.begin() + log_at, before.begin()));  // the flag hook as it was
+    EXPECT_TRUE(std::equal(list.begin() + log_at + 8, list.end(), before.begin() + log_at + 8));  // its instructions too
+    // A second pass finds nothing more: the goto is not a code that runs instructions.
+    EXPECT_EQ(switch_off_slot_b_codes(list).size(), 0u);
+
+    // Inside a condition, after a string write, and with the address bit
+    // set (C3: 0x01000000 added), it is still found.
+    const std::uint32_t string_write[] = {0x06001000, 0x00000005, 0x11223344, 0x55000000};
+    const std::uint32_t condition[] = {0x20001000, 0x11223344};
+    const std::uint32_t end_if[] = {0xE2000001, 0x00000000};
+    std::uint32_t rex_log_high[sizeof(rex_log) / 4];
+    std::copy(std::begin(rex_log), std::end(rex_log), rex_log_high);
+    rex_log_high[0] = 0xC33F5590;
+    list = list_of({string_write, condition, rex_log_high, end_if}, {4, 2, log_words, 2});
+    EXPECT_EQ(switch_off_slot_b_codes(list).size(), 1u);
+    EXPECT_EQ(get(list, 8 + 6 * 4), 0x66200004u);
+
+    // Pointer codes (bit 0x10: a 14 word write, a 16 string write, a 30
+    // condition and its end) before the hook are sized like their base
+    // types, so the walk reaches the hook.
+    const std::uint32_t po_codes[] = {0x48000000, 0x80570000, 0x14000010, 0x00000000, 0x16000020, 0x00000005,
+                                      0x11223344, 0x55000000, 0x30000040, 0x00000001, 0xE2000001, 0x00000000};
+    list = list_of({po_codes, rex_log}, {12, log_words});
+    SlotBScan po_scan;
+    EXPECT_EQ(switch_off_slot_b_codes(list, &po_scan).size(), 1u);
+    EXPECT_TRUE(po_scan.complete);
+    EXPECT_EQ(get(list, 8 + 12 * 4), 0x66200004u);
+
+    // The whole address as data (0xCC006820) counts too.
+    const std::uint32_t data_address[] = {0xC2002000, 0x00000002, 0x60000000, 0xCC006820, 0x60000000, 0x00000000};
+    list = list_of({data_address}, {6});
+    EXPECT_EQ(switch_off_slot_b_codes(list).size(), 1u);
+
+    // Through a base register and an offset: lis r8, 0xCD00; ori r8, r8,
+    // 0x6800 (slot A's channel); stw r12, 0x14(r8) lands on 0xCD006814.
+    const std::uint32_t base_offset[] = {0xC2002000, 0x00000002, 0x3D00CD00, 0x61086800, 0x91880014, 0x00000000};
+    list = list_of({base_offset}, {6});
+    EXPECT_EQ(switch_off_slot_b_codes(list).size(), 1u);
+    // The same with an update form after an addi (stwu r12, 4(r8) from
+    // 0xCD006810), and a load (lwz r0, 0x20(r9) after lis r9, 0xCC00;
+    // addi r9, r9, 0x6800).
+    const std::uint32_t update_form[] = {0xC2002000, 0x00000002, 0x3D00CD00, 0x39086810, 0x95880004, 0x00000000};
+    const std::uint32_t load_offset[] = {0xC2002000, 0x00000002, 0x3D20CC00, 0x39296800, 0x80090020, 0x00000000};
+    for (const std::uint32_t* code : {update_form, load_offset}) {
+        list = list_of({code}, {6});
+        EXPECT_EQ(switch_off_slot_b_codes(list).size(), 1u);
+    }
+
+    // A register copied (mr r8, r9) keeps its value: still slot B. An
+    // indexed store (li r9, 0x14; stwx r12, r8, r9) counts too.
+    const std::uint32_t copied[] = {0xC2002000, 0x00000003, 0x3D20CD00, 0x61296800, 0x7D284B78, 0x91880014,
+                                    0x60000000, 0x00000000};
+    const std::uint32_t indexed[] = {0xC2002000, 0x00000003, 0x3D00CD00, 0x61086800, 0x39200014, 0x7D88492E,
+                                     0x60000000, 0x00000000};
+    for (const std::uint32_t* code : {copied, indexed}) {
+        list = list_of({code}, {8});
+        EXPECT_EQ(switch_off_slot_b_codes(list).size(), 1u);
+    }
+    // A register overwritten from something unknown (mr r8, r3; or
+    // lwz r8, 0(r3)) no longer holds slot A's base: its store is RAM's.
+    const std::uint32_t overwritten[] = {0xC2002000, 0x00000003, 0x3D00CD00, 0x61086800, 0x7C681B78, 0x91880014,
+                                         0x60000000, 0x00000000};
+    const std::uint32_t loaded[] = {0xC2002000, 0x00000003, 0x3D00CD00, 0x61086800, 0x81030000, 0x91880014,
+                                    0x60000000, 0x00000000};
+    for (const std::uint32_t* code : {overwritten, loaded}) {
+        list = list_of({code}, {8});
+        const Bytes same = list;
+        EXPECT_EQ(switch_off_slot_b_codes(list).size(), 0u);
+        EXPECT_TRUE(list == same);
+    }
+
+    // A string code whose byte count would wrap when rounded up (0xFFFFFFFF
+    // on a 32-bit size): too long for the list, so the walk stops there.
+    const std::uint32_t huge_string[] = {0x06001000, 0xFFFFFFFF};
+    list = list_of({huge_string, rex_log}, {2, log_words});
+    const Bytes before_huge = list;
+    SlotBScan huge_scan;
+    EXPECT_EQ(switch_off_slot_b_codes(list, &huge_scan).size(), 0u);
+    EXPECT_TRUE(list == before_huge);
+    EXPECT_FALSE(huge_scan.complete);
+    EXPECT_EQ(huge_scan.stopped_type, 0x06u);
+
+    // Switching a code off keeps the list runnable before the game starts:
+    // the goto is understood there, and the lines it skips don't run.
+    list = list_of({rex_flag, rex_log}, {flag_words, log_words});
+    EXPECT_TRUE(gct_runs_before_start(list, 0x80A00000u, 0x81800000u));
+    EXPECT_EQ(switch_off_slot_b_codes(list).size(), 1u);
+    EXPECT_TRUE(gct_runs_before_start(list, 0x80A00000u, 0x81800000u));
+    // Only that goto counts: none with no lines, one past the end of the
+    // list, or one with anything in its second word.
+    const std::uint32_t goto_none[] = {0x66200000, 0x00000000};
+    const std::uint32_t goto_past[] = {0x66200003, 0x00000000, 0x60000000, 0x60000000};
+    const std::uint32_t goto_value[] = {0x66200001, 0x00000001, 0x60000000, 0x60000000};
+    EXPECT_FALSE(gct_runs_before_start(list_of({goto_none}, {2}), 0x80A00000u, 0x81800000u));
+    EXPECT_FALSE(gct_runs_before_start(list_of({goto_past}, {4}), 0x80A00000u, 0x81800000u));
+    EXPECT_FALSE(gct_runs_before_start(list_of({goto_value}, {4}), 0x80A00000u, 0x81800000u));
+
+    // A C0 code (it runs where it is) has no address of its own.
+    std::uint32_t rex_log_c0[sizeof(rex_log) / 4];
+    std::copy(std::begin(rex_log), std::end(rex_log), rex_log_c0);
+    rex_log_c0[0] = 0xC0000000;
+    list = list_of({rex_log_c0}, {log_words});
+    off = switch_off_slot_b_codes(list);
+    EXPECT_EQ(off.size(), 1u);
+    if (off.size() == 1) {
+        EXPECT_EQ(off[0].address, 0u);
+        EXPECT_EQ(off[0].lines, 4u);
+    }
+
+    // A goto reaches 0x7FFF lines at most: a code that long is switched
+    // off, one line longer is left as it is.
+    for (const std::uint32_t lines : {0x7FFFu, 0x8000u}) {
+        std::vector<std::uint32_t> long_code(2 + lines * 2, 0u);
+        long_code[0] = 0xC2002000;
+        long_code[1] = lines;
+        long_code[2] = 0x3D00CD00;  // lis r8, 0xCD00
+        long_code[3] = 0x61086814;  // ori r8, r8, 0x6814
+        list = list_of({long_code.data()}, {long_code.size()});
+        const Bytes before_long = list;
+        const std::size_t expected = lines == 0x7FFFu ? 1u : 0u;
+        EXPECT_EQ(switch_off_slot_b_codes(list).size(), expected);
+        if (lines == 0x7FFFu) {
+            EXPECT_EQ(get(list, 8), 0x66207FFFu);
+        } else {
+            EXPECT_TRUE(list == before_long);
+        }
+    }
+
+    // Not slot B: slot A's channel (0x6800, it also serves the clock),
+    // channel 2 (0x6828), and 0x6820 with no hardware high half.
+    const std::uint32_t slot_a[] = {0xC2002000, 0x00000002, 0x3D00CD00, 0x61086800, 0x91880000, 0x00000000};
+    const std::uint32_t channel_2[] = {0xC2002000, 0x00000002, 0x3D00CD00, 0x61086828, 0x91880000, 0x00000000};
+    const std::uint32_t no_high_half[] = {0xC2002000, 0x00000002, 0x3D008058, 0x61086820, 0x91880000, 0x00000000};
+    for (const std::uint32_t* code : {slot_a, channel_2, no_high_half}) {
+        list = list_of({code}, {6});
+        const Bytes same = list;
+        EXPECT_EQ(switch_off_slot_b_codes(list).size(), 0u);
+        EXPECT_TRUE(list == same);
+    }
+
+    // A code type it can't size (F6, a search) stops the walk: the log
+    // hook after it is left alone rather than guessed at, and the scan
+    // says where it stopped and that something after it reaches slot B.
+    const std::uint32_t search[] = {0xF6000001, 0x80008180, 0x11223344, 0x55667788};
+    list = list_of({search, rex_log}, {4, log_words});
+    Bytes unchanged = list;
+    SlotBScan scan;
+    EXPECT_EQ(switch_off_slot_b_codes(list, &scan).size(), 0u);
+    EXPECT_TRUE(list == unchanged);
+    EXPECT_FALSE(scan.complete);
+    EXPECT_EQ(scan.stopped_line, 1u);
+    EXPECT_EQ(scan.stopped_type, 0xF6u);
+    EXPECT_TRUE(scan.slot_b_after_stop);
+    // The same stop with nothing about slot B after it.
+    list = list_of({search, rex_flag}, {4, flag_words});
+    EXPECT_EQ(switch_off_slot_b_codes(list, &scan).size(), 0u);
+    EXPECT_FALSE(scan.complete);
+    EXPECT_FALSE(scan.slot_b_after_stop);
+    // A list it walks to the end says so.
+    list = list_of({rex_flag, rex_log}, {flag_words, log_words});
+    EXPECT_EQ(switch_off_slot_b_codes(list, &scan).size(), 1u);
+    EXPECT_TRUE(scan.complete);
+
+    // Not a list: untouched.
+    Bytes broken = {0x00, 0xD0, 0xC0, 0xDE, 0x00, 0xD0, 0xC0, 0xDE, 0xC2, 0x3F};
+    unchanged = broken;
+    EXPECT_EQ(switch_off_slot_b_codes(broken, &scan).size(), 0u);
+    EXPECT_TRUE(broken == unchanged);
+    EXPECT_FALSE(scan.valid);
+    EXPECT_FALSE(scan.complete);
+    // Headed and in whole lines, but without the end code: not whole
+    // either, so not looked at (and kept out on a Wii U).
+    Bytes no_end;
+    put(no_end, 0x00D0C0DE);
+    put(no_end, 0x00D0C0DE);
+    for (const std::uint32_t w : rex_log) put(no_end, w);
+    unchanged = no_end;
+    EXPECT_EQ(switch_off_slot_b_codes(no_end, &scan).size(), 0u);
+    EXPECT_TRUE(no_end == unchanged);
+    EXPECT_FALSE(scan.valid);
+    // A whole list says so.
+    list = list_of({rex_flag}, {flag_words});
+    switch_off_slot_b_codes(list, &scan);
+    EXPECT_TRUE(scan.valid);
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::cerr << "usage: codebuild_tests <source tree>" << std::endl;
@@ -304,6 +539,7 @@ int main(int argc, char** argv) {
     test_debugger_handlers(argv[1]);
     test_join();
     test_runs_before_start();
+    test_slot_b_codes();
     test_model();
     if (g_failures == 0) std::cout << "codebuild tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;

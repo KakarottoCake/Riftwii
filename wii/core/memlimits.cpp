@@ -87,6 +87,7 @@ unsigned g_ballast_kib = 0;
 unsigned g_game_mem1_kib = 0, g_game_mem2_kib = 0, g_game_mem2_top_kib = 0;
 bool g_wii_mem2_top = false;
 bool g_console_type_as_wii = false;
+bool g_wii_u_card_slots = false;
 #ifdef RIFTWII_TEST_LIMITS
 void* g_pieces[64];
 
@@ -128,6 +129,7 @@ void TestBallast() {
         else if (ReadSetting(line, "game_mem2_top_kib", v)) g_game_mem2_top_kib = v;
         else if (ReadSetting(line, "wii_mem2_top", v)) g_wii_mem2_top = v != 0;
         else if (ReadSetting(line, "console_type_as_wii", v)) g_console_type_as_wii = v != 0;
+        else if (ReadSetting(line, "wii_u_card_slots", v)) g_wii_u_card_slots = v != 0;
     }
     std::fclose(f);
     // Never freed: the run (menu and launch) has that much less.
@@ -160,6 +162,7 @@ void TestGameSqueeze(u32& mem1_kib, u32& mem2_kib, u32& mem2_top_kib) {
 
 bool TestWiiMem2Top() { return g_wii_mem2_top; }
 bool TestConsoleTypeAsWii() { return g_console_type_as_wii; }
+bool TestWiiUCardSlots() { return g_wii_u_card_slots; }
 
 void DetectDolphin() {
     // Asked while IOS is up: PoisonReloadArea runs mid-reload. Once is
@@ -443,6 +446,8 @@ std::new_handler g_handler_before_launch = nullptr;
     if (reload_terminal_failure()) halt_after_terminal_reload();
     const std::string message = LaunchOutOfMemoryMessage();
     logf("FAILED: %s\n", message.c_str());
+    // Neither way out goes back to the launch, whose own clean-up then never runs.
+    RunLaunchUndo();
     if (CanRestart()) WarmRestart(RestartKind::LaunchFailed, std::string("The launch failed: ") + message);
     logf("RiftWii cannot restart itself; leaving to the Homebrew Channel.\n");
     std::exit(0);

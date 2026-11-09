@@ -667,12 +667,248 @@ bool gct_runs_before_start(const std::vector<std::uint8_t>& gct, std::uint32_t k
         } else if (type == 0xE0 || type == 0xE2) {
             // The end of conditions; a nonzero top half sets the base.
             if ((value >> 16) != 0) ba = value & 0xFFFF0000u;
+        } else if ((first & 0xFFFF8000u) == 0x66200000u && value == 0) {
+            // A goto, always, forward over the lines after it: how
+            // switch_off_slot_b_codes switches a code off. Nothing in those
+            // lines runs, so they don't count.
+            extra = first & 0x7FFFu;
+            if (extra == 0 || extra > after) return false;
         } else {
             return false;
         }
         at += (1 + extra) * 8;
     }
     return at == end;
+}
+
+namespace {
+
+// Memory card slot B's bus (EXI channel 1): its five registers, as the
+// low half of an address whose high half is 0xCC00 or 0xCD00.
+constexpr std::uint32_t kSlotBFirstRegister = 0x6814;
+constexpr std::uint32_t kSlotBLastRegister = 0x6827;
+
+bool slot_b_register(std::uint32_t low_half) {
+    return low_half >= kSlotBFirstRegister && low_half <= kSlotBLastRegister;
+}
+
+bool slot_b_address(std::uint32_t address) {
+    const std::uint32_t high = address >> 16;
+    return (high == 0xCC00 || high == 0xCD00) && slot_b_register(address & 0xFFFFu);
+}
+
+std::uint32_t sign_extended(std::uint32_t immediate) {
+    return (immediate & 0x8000u) != 0 ? (immediate | 0xFFFF0000u) : immediate;
+}
+
+// Whether a code's instructions reach slot B's bus. Two ways, either is enough:
+//  - the register values the code builds, followed in order: lis/addis,
+//    addi, ori/oris, and a load or store whose base register plus offset
+//    lands on a slot B register (so `lis r8,0xCD00; ori r8,r8,0x6800;
+//    stw r12,0x14(r8)` counts, while slot A's 0x6800 alone doesn't);
+//  - the hardware's high half (lis rX, 0xCC00 or 0xCD00) anywhere in the
+//    code together with a slot B register's low half as an ori, addi or
+//    offset (REX's USBGecko.asm keeps each register in its own register).
+// A whole slot B address held as data counts too. What it can't see:
+// branches aren't followed (the values are taken in the order the words
+// come), a value loaded from memory is unknown, and only the integer
+// instructions that build addresses (addi, addis, ori, oris, or/mr) are
+// followed; every other instruction that writes a register makes it
+// unknown. Indexed (rA + rB) and floating-point loads and stores count.
+bool reaches_slot_b(const std::vector<std::uint8_t>& gct, std::size_t first, std::size_t words) {
+    bool hardware_high_half = false;
+    bool slot_b_low_half = false;
+    bool known[32] = {};
+    std::uint32_t value[32] = {};
+    for (std::size_t i = 0; i < words; ++i) {
+        const std::uint32_t word = get32(gct, first + i * 4);
+        const std::uint32_t opcode = word >> 26;
+        const std::uint32_t target = (word >> 21) & 31u;  // rD (or rS for ori, oris and the stores)
+        const std::uint32_t source = (word >> 16) & 31u;  // rA
+        const std::uint32_t immediate = word & 0xFFFFu;
+        if (slot_b_address(word)) return true;  // the address as data
+        // The heuristic: lis rX, imm is addis rX, 0, imm.
+        if (opcode == 15 && source == 0 && (immediate == 0xCC00 || immediate == 0xCD00)) hardware_high_half = true;
+        // addi (14), ori (24), and the loads and stores with an offset
+        // (32 lwz to 45 sthu).
+        const bool takes_low_half = opcode == 14 || opcode == 24 || (opcode >= 32 && opcode <= 45);
+        if (takes_low_half && slot_b_register(immediate)) slot_b_low_half = true;
+        // The register values. Anything not modelled below that writes a
+        // general register makes its value unknown, so a stale value can't
+        // turn a store to RAM into a slot B one.
+        if (opcode == 14 || opcode == 15) {  // addi, addis (li and lis when rA is 0)
+            const std::uint32_t add = opcode == 15 ? immediate << 16 : sign_extended(immediate);
+            if (source == 0) {
+                known[target] = true;
+                value[target] = add;
+            } else {
+                known[target] = known[source];
+                value[target] = value[source] + add;
+            }
+        } else if (opcode == 24 || opcode == 25) {  // ori, oris: rA = rS | imm
+            const std::uint32_t mask = opcode == 25 ? immediate << 16 : immediate;
+            known[source] = known[target];
+            value[source] = value[target] | mask;
+        } else if ((opcode >= 32 && opcode <= 47) || (opcode >= 48 && opcode <= 55)) {
+            // lwz to stmw, and the floating-point loads and stores: rA + offset.
+            if (source != 0 && known[source]) {
+                const std::uint32_t address = value[source] + sign_extended(immediate);
+                if (slot_b_address(address)) return true;
+                if ((opcode & 1u) != 0 && opcode != 47) value[source] = address;  // the update forms (lwzu, stwu...)
+            } else if ((opcode & 1u) != 0 && opcode != 47 && source != 0) {
+                known[source] = false;
+            }
+            const bool load = opcode <= 35 || (opcode >= 40 && opcode <= 43);
+            if (load) known[target] = false;
+            if (opcode == 46) {  // lmw: rD to r31
+                for (std::uint32_t r = target; r < 32; ++r) known[r] = false;
+            }
+        } else if (opcode == 31) {
+            // The X-form instructions: rB is the third register.
+            const std::uint32_t operand_b = (word >> 11) & 31u;
+            const std::uint32_t xo = (word >> 1) & 0x3FFu;
+            const std::uint32_t base = source == 0 ? 0u : value[source];
+            const bool base_known = source == 0 || known[source];
+            switch (xo) {
+            case 444:  // or (mr when rS and rB are the same): rA = rS | rB
+                known[source] = known[target] && known[operand_b];
+                value[source] = value[target] | value[operand_b];
+                break;
+            // The indexed loads and stores: rA (or 0) + rB.
+            case 23: case 55: case 87: case 119: case 279: case 311: case 343: case 375: case 534: case 790:  // loads
+            case 151: case 183: case 215: case 247: case 407: case 439: case 662: case 918:                // stores
+            case 535: case 567: case 599: case 631: case 663: case 695: case 727: case 759: case 983: {     // floating point
+                const bool update = xo == 55 || xo == 119 || xo == 311 || xo == 375 || xo == 183 || xo == 247 ||
+                                    xo == 439 || xo == 567 || xo == 631 || xo == 695 || xo == 759;
+                if (base_known && known[operand_b]) {
+                    const std::uint32_t address = base + value[operand_b];
+                    if (slot_b_address(address)) return true;
+                    if (update && source != 0) value[source] = address;
+                } else if (update && source != 0) {
+                    known[source] = false;
+                }
+                const bool integer_load = xo == 23 || xo == 55 || xo == 87 || xo == 119 || xo == 279 || xo == 311 ||
+                                          xo == 343 || xo == 375 || xo == 534 || xo == 790;
+                if (integer_load) known[target] = false;
+                break;
+            }
+            // Writing nothing to a general register: compares, cache
+            // operations, sync, moves to special registers.
+            case 0: case 32: case 54: case 86: case 146: case 144: case 278: case 470: case 467: case 598:
+            case 854: case 982: case 1014:
+                break;
+            // The logical and shift instructions write rA.
+            case 24: case 26: case 28: case 60: case 124: case 284: case 316: case 412: case 476: case 536:
+            case 792: case 824: case 922: case 954:
+                known[source] = false;
+                break;
+            default:  // the rest (arithmetic, mfspr...) write rD
+                known[target] = false;
+                break;
+            }
+        } else if (opcode == 7 || opcode == 8 || opcode == 12 || opcode == 13) {  // mulli, subfic, addic: rD
+            known[target] = false;
+        } else if ((opcode >= 20 && opcode <= 23) || (opcode >= 26 && opcode <= 29)) {  // rotates, xori, andi...: rA
+            known[source] = false;
+        }
+    }
+    return hardware_high_half && slot_b_low_half;
+}
+
+// The lines after a code's first, for the code types whose size is known
+// (Gecko's code type list); false for any other.
+bool lines_after(std::uint32_t type, std::uint32_t value, std::size_t& extra) {
+    extra = 0;
+    // Below 0x40, bit 0x10 makes a code work through the pointer instead
+    // of the base address (Gecko's po codes: 14 a word write, 16 a string,
+    // 30 to 3E conditions): the same size as the code without it. Brawl
+    // builds have many, often before the USBGecko.asm hook.
+    if (type < 0x40) type &= ~0x10u;
+    if (type == 0x06) {
+        // A string of `value` bytes, rounded up without overflowing a
+        // 32-bit size (a count of 0xFFFFFFFF wrapped to 0 on the Wii).
+        extra = static_cast<std::size_t>(value / 8u + (value % 8u != 0 ? 1u : 0u));
+        return true;
+    }
+    if (type == 0x08) {
+        extra = 1;  // a serial write's second line
+        return true;
+    }
+    if (type == 0xC0 || type == 0xC2) {
+        extra = value;  // instructions
+        return true;
+    }
+    // One line each: writes (00 to 04), conditions (20 to 2E), base and
+    // pointer codes (40 to 5E), repeats, gotos and gosubs (60 to 6E),
+    // Gecko registers and memory copies (80 to 8E), register conditions
+    // (A0 to AE), branches and switches (C6, CC, CE) and the ends (E0, E2).
+    if (type <= 0x04) return true;
+    if (type >= 0x20 && type <= 0x2E) return true;
+    if (type >= 0x40 && type <= 0x6E) return true;
+    if (type >= 0x80 && type <= 0x8E) return true;
+    if (type >= 0xA0 && type <= 0xAE) return true;
+    if (type == 0xC6 || type == 0xCC || type == 0xCE || type == 0xE0 || type == 0xE2) return true;
+    return false;
+}
+
+}  // namespace
+
+std::vector<SlotBCode> switch_off_slot_b_codes(std::vector<std::uint8_t>& gct, SlotBScan* scan) {
+    std::vector<SlotBCode> switched_off;
+    if (scan != nullptr) *scan = SlotBScan{};
+    if (!valid_gct(gct)) {
+        // Not a whole list (another loader's, without its end code): it
+        // can't be walked, so it isn't checked at all.
+        if (scan != nullptr) {
+            scan->valid = false;
+            scan->complete = false;
+        }
+        return switched_off;
+    }
+    const std::size_t end = gct.size() - 8;
+    // A goto's line count is a signed 16-bit number.
+    constexpr std::uint32_t kGotoMaxLines = 0x7FFF;
+    // Where the walk had to stop: the rest is still looked through, word
+    // by word, for anything that reaches slot B, so a code it couldn't
+    // switch off is at least reported.
+    const auto stopped = [&](std::size_t at, std::uint32_t type) {
+        if (scan == nullptr) return;
+        scan->complete = false;
+        scan->stopped_line = (at - 8) / 8 + 1;
+        scan->stopped_type = type;
+        scan->slot_b_after_stop = reaches_slot_b(gct, at, (end - at) / 4);
+    };
+    std::size_t at = 8;
+    while (at < end) {
+        const std::uint32_t first = get32(gct, at);
+        const std::uint32_t value = get32(gct, at + 4);
+        // Without the bit that adds 0x01000000 to the address.
+        const std::uint32_t type = gct[at] & 0xFEu;
+        std::size_t extra = 0;
+        const std::size_t lines_left = (end - at) / 8 - 1;
+        if (!lines_after(type, value, extra) || extra > lines_left) {
+            stopped(at, type);
+            break;
+        }
+        const bool runs_instructions = type == 0xC0 || type == 0xC2;
+        if (runs_instructions && extra != 0 && extra <= kGotoMaxLines && reaches_slot_b(gct, at + 8, extra * 2)) {
+            // 66 2 0 NNNN: goto, always, NNNN lines forward: over the
+            // instructions, so a C2's branch is never written either.
+            const std::uint32_t goto_line = 0x66200000u | static_cast<std::uint32_t>(extra);
+            gct[at] = static_cast<std::uint8_t>(goto_line >> 24);
+            gct[at + 1] = static_cast<std::uint8_t>(goto_line >> 16);
+            gct[at + 2] = static_cast<std::uint8_t>(goto_line >> 8);
+            gct[at + 3] = static_cast<std::uint8_t>(goto_line);
+            for (std::size_t i = 4; i < 8; ++i) gct[at + i] = 0;
+            SlotBCode code;
+            // A C0 code runs where it is, so it has no address of its own.
+            code.address = type == 0xC0 ? 0u : 0x80000000u | (first & 0x01FFFFFFu);
+            code.lines = static_cast<std::uint32_t>(extra);
+            switched_off.push_back(code);
+        }
+        at += (1 + extra) * 8;
+    }
+    return switched_off;
 }
 
 }  // namespace riftwii

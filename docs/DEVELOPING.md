@@ -179,6 +179,18 @@ Two scripts on the card drive a run without hands on a controller:
   asynchronous worker; remove the file to disable it. Boot logs name it
   once when enabled. Leave `trace` off when comparing audio.
 
+  `py -3.13 tools/gc_hooks_emutest.py --devkitppc C:/devkitPro/devkitPPC`
+  runs the EXI hook trampolines and the DVDLow and load hook trampolines
+  of `runtime/gc/gc_entry.S` and of its old copy in
+  `tests/fixtures/gc-legacy/` with the same game registers (Unicorn); the
+  reset and exception (fatal) hooks are not covered. Both copies must
+  make the same calls with the same arguments and
+  leave the same stack and the same registers, except the scratch
+  registers the new trampolines use: r12 for the EXI hooks, r11, r12 and
+  CTR for the DVDLow and load hooks (all volatile in the PowerPC EABI, so
+  no caller relies on them). It is a manual check: it needs devkitPPC and
+  `pip install unicorn`, and neither ctest nor CI runs it.
+
   `py -3.13 tools/gc_io_emutest.py --devkitppc C:/devkitPro/devkitPPC`
   checks the built PowerPC worker with Unicorn (`pip install unicorn`)
   and devkitPro's zstd executable. It exercises slow IOS completions,
@@ -186,6 +198,11 @@ Two scripts on the card drive a run without hands on a controller:
   cancellation, save changes during writes, and a compressed RVZ group.
   Its simulated instruction clock is a deadline test, not a hardware
   performance measurement, and it does not replace game tests in Dolphin.
+  `--keep-going` runs every test after a failure and lists the failures.
+  Some tests are out of date with the blob (they call `gc_bt_poll` and
+  `gc_card_flush`, which LTO now splits, treat the card's dirty map as
+  inline bytes, and look for zstd under msys2), so those fail until they
+  are brought up to date.
 
 Dolphin cannot run a d2x cIOS, so SD and USB image boot can only be
 checked on a Wii (`docs/USB_HARDWARE_TEST.md`). What Dolphin does check
@@ -291,7 +308,9 @@ won't run it as its own title (only for testing in Dolphin, whose ES
 refuses that to anything but the Wii Menu; the game's saves may not open).
 `reset` the hook that has a Wii game's own Reset (HOME Menu > Reset)
 start the game again through the RiftWii channel
-([HEADLESS.md](HEADLESS.md)). `boot.log` names each one left out. Start with all of them,
+([HEADLESS.md](HEADLESS.md)). `slotb` keeps the codes that write to memory
+card slot B on a Wii U (a USB Gecko log; RiftWii switches them off there,
+`switch_off_slot_b_codes` in `src/data/cheats.cpp`). `boot.log` names each one left out. Start with all of them,
 then halve the list. The PMEX Remix crash on a Wii (2.7.0 RC9.2) was found
 this way: it was the crash recorder.
 
@@ -307,7 +326,9 @@ extras or without (#496).
 `build-dolphin/sim.sh` runs one code-build launch on a card image
 without folder sync and scores it (PASS or BLACK); `sim_matrix.sh` runs
 every code-build card with the extras on and off. Test builds' keys in
-`test_limits.txt`: `console_type_as_wii = 1` writes the console type in
+`test_limits.txt`: `wii_u_card_slots = 1` treats the console as a Wii U
+with no memory card slots, so the slot B codes are switched off in Dolphin
+too; `console_type_as_wii = 1` writes the console type in
 Dolphin as on a console. Dolphin's IOS leaves MEM2's top where the same
 IOS does on a Wii (0x935e0000 under Brawl's IOS36, 0x933e0000 under
 IOS58), so a game needs no squeeze to have a Wii's memory;

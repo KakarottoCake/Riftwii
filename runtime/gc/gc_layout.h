@@ -12,8 +12,9 @@
  * watch (#192), followed by the asynchronous I/O continuation, then the
  * programs a game loads itself (gc_programs.h), the ports a probe
  * finds nothing on (gc_ports_idle_update), and the PAD sampling
- * stand-in's alarm (gc_sample_tick). */
-#define GC_RT_CONTEXT_BYTES 0x7E0
+ * stand-in's alarm (gc_sample_tick). What neither the game nor the hot
+ * paths touch is in struct gc_rt_cold, in MEM2 (gc_rt.h). */
+#define GC_RT_CONTEXT_BYTES 0x600
 
 /* gc_entry.S's gc_program_saved: a program the game loaded itself keeps
  * its registers there while gc_on_program_start runs (gc_hook_program).
@@ -31,7 +32,13 @@
 
 /* A game whose disc code is libogc's (gc_rt.h, "libogc"): each store that
  * starts a DI command jumps to a slot of GC_DI_SLOT_WORDS words, which
- * makes the store, calls gc_di_common and jumps back. GC_DI_SITES slots. */
+ * makes the store, calls gc_di_common and jumps back: the game's store,
+ * then stwu r1,-16(r1); stw r0,8(r1); mflr r0; stw r0,12(r1);
+ * bl gc_di_common; lwz r0,12(r1); mtlr r0; lwz r0,8(r1); addi r1,r1,16;
+ * b back. At most GC_DI_SITES of them. The loader writes them into a MEM1
+ * piece of its own, sized to the sites the game has, and only for a
+ * libogc game: they used to be 2,112 bytes of every blob, unused by every
+ * other game. */
 #define GC_DI_SITES 48
 #define GC_DI_SLOT_WORDS 11
 

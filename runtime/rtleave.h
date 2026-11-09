@@ -57,7 +57,9 @@ void rtleave_note_save(struct rtleave* l, uint32_t now);
 /* The save request whose block (its first word, the command) is at
  * `block` went to IOS at `now` with `command` there. IOS's reply replaces
  * that word in memory (with 8, the original command moving into the fd's
- * place); the pad hook reads it back uncached. A block not
+ * place); the pad hook reads it back from memory, its cache line flushed
+ * first and then read through the game's own address (Cars 2's engine
+ * has no uncached view of memory). A block not
  * 32-byte aligned, a command above 7 or no free slot: counted as
  * `overflow` instead, so it still keeps the way back waiting. */
 void rtleave_note_pending(struct rtleave* l, uint32_t now, uint32_t block, uint32_t command);

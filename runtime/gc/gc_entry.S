@@ -8,7 +8,7 @@
     .section .text.gc_entry, "ax", @progbits
     .globl _gc_blob_start
 _gc_blob_start:
-    .long 0x52574744, 12, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
+    .long 0x52574744, 13, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
     .long gc_hook_read - _gc_blob_start, gc_hook_seek - _gc_blob_start
     .long gc_hook_disk_id - _gc_blob_start, gc_hook_inquiry - _gc_blob_start
     .long gc_hook_cb_r3 - _gc_blob_start, gc_hook_audio_status - _gc_blob_start
@@ -34,7 +34,8 @@ _gc_blob_start:
     .long gc_hook_reset_system - _gc_blob_start, gc_replay_reset_system - _gc_blob_start
     .long gc_continue_reset_system - _gc_blob_start
     .long gc_hook_hot_reset - _gc_blob_start
-    .long gc_alarm_ogc - _gc_blob_start, gc_di_common - _gc_blob_start, gc_di_slots - _gc_blob_start
+    /* The word after gc_di_common is 0: the DI start slots are the loader's own MEM1 piece (gc_layout.h). */
+    .long gc_alarm_ogc - _gc_blob_start, gc_di_common - _gc_blob_start, 0
     .long gc_hook_boot_dol - _gc_blob_start, gc_replay_boot_dol - _gc_blob_start
     .long gc_continue_boot_dol - _gc_blob_start
     .long gc_hook_stop_motor - _gc_blob_start
@@ -45,13 +46,27 @@ _gc_blob_start:
     .long gc_replay_fatal - _gc_blob_start, gc_continue_fatal - _gc_blob_start
 
 /* Calls `fn` with the context in r3 and the game's r3..r6 moved up one
- * register (r4..r7). */
+ * register (r4..r7). Each hook is three words: the game's LR into r0, a
+ * call of gc_hook_common, and fn's offset from that word, which
+ * gc_hook_common reads through its LR. It builds the frame the hook used
+ * to build itself (the game's LR at 0x24), calls fn through CTR and
+ * returns to the game: only volatile registers (r11, r12, CTR) differ
+ * from a hook of its own, and a DVDLow call clobbers them anyway. */
     .macro GC_HOOK name, fn
     .globl gc_hook_\name
 gc_hook_\name:
-    stwu 1, -0x20(1)
     mflr 0
+    bl gc_hook_common
+    .long \fn - .
+    .endm
+
+gc_hook_common:
+    stwu 1, -0x20(1)
     stw 0, 0x24(1)
+    mflr 12
+    lwz 11, 0(12)
+    add 12, 12, 11
+    mtctr 12
     mr 7, 6
     mr 6, 5
     mr 5, 4
@@ -59,12 +74,11 @@ gc_hook_\name:
     bl 1f
 1:  mflr 3
     addi 3, 3, gc_context_data - 1b
-    bl \fn
+    bctrl
     lwz 0, 0x24(1)
     mtlr 0
     addi 1, 1, 0x20
     blr
-    .endm
 
     GC_HOOK read, gc_on_read
     GC_HOOK disk_id, gc_on_disk_id
@@ -725,14 +739,6 @@ gc_di_common:
     addi 1, 1, 0x60
     blr
 
-/* The DI start slots, written by the loader: the game's store, then
- * stwu r1,-16(r1); stw r0,8(r1); mflr r0; stw r0,12(r1); bl gc_di_common;
- * lwz r0,12(r1); mtlr r0; lwz r0,8(r1); addi r1,r1,16; b back. */
-    .balign 32
-    .globl gc_di_slots
-gc_di_slots:
-    .fill GC_DI_SITES * GC_DI_SLOT_WORDS, 4, 0
-
 /* An exception before the game's OS has its handlers. The loader's stub
  * at the vector has put r3, SRR0, SRR1 and the vector number in SPRG0-3
  * and come here with translation back on. The registers go into an OSContext-shaped block on the stack
@@ -807,12 +813,38 @@ gc_stray_entry:
 /* The EXI functions (gc_card.h): gc_on_exi(ctx, which, the game's r3..r7,
  * &pass) answers for the emulated card; when it sets pass, the original
  * runs from its replay slot with the game's arguments.
- * Frame: 8..0x18 r3..r7, 0x1C pass. */
+ * Each hook is four words, then its replay and continue slots: the game's
+ * LR into r0, its number into r12, a call of gc_exi_common, and, where
+ * gc_exi_common returns when pass is set (r0 the game's LR again), the LR
+ * put back before the replay slot that follows. r12 is the continue
+ * slot's own scratch register (the displaced word never touches it), so
+ * the original sees the registers a hook of its own gave it.
+ * gc_exi_common's frame: 8..0x18 r3..r7, 0x1C pass, 0x20 the hook's
+ * return, and the game's LR at 0x34 as before. */
     .macro GC_EXI_HOOK idx
+    .balign 16
 gc_exi_hook_\idx:
-    stwu 1, -0x30(1)
     mflr 0
+    li 12, \idx
+    bl gc_exi_common
+    mtlr 0
+gc_exi_replay_\idx:
+    nop
+    nop
+    nop
+    nop
+gc_exi_continue_\idx:
+    lis 12, 0
+    ori 12, 12, 0
+    mtctr 12
+    bctr
+    .endm
+
+gc_exi_common:
+    stwu 1, -0x30(1)
     stw 0, 0x34(1)
+    mflr 0
+    stw 0, 0x20(1)
     stw 3, 0x08(1)
     stw 4, 0x0C(1)
     stw 5, 0x10(1)
@@ -826,7 +858,7 @@ gc_exi_hook_\idx:
     mr 7, 5
     mr 6, 4
     mr 5, 3
-    li 4, \idx
+    mr 4, 12
     bl 1f
 1:  mflr 3
     addi 3, 3, gc_context_data - 1b
@@ -843,22 +875,11 @@ gc_exi_hook_\idx:
     lwz 5, 0x10(1)
     lwz 6, 0x14(1)
     lwz 7, 0x18(1)
+    lwz 12, 0x20(1)
+    mtlr 12
     lwz 0, 0x34(1)
-    mtlr 0
     addi 1, 1, 0x30
-    b gc_exi_replay_\idx
-    .balign 16
-gc_exi_replay_\idx:
-    nop
-    nop
-    nop
-    nop
-gc_exi_continue_\idx:
-    lis 12, 0
-    ori 12, 12, 0
-    mtctr 12
-    bctr
-    .endm
+    blr
 
     GC_EXI_HOOK 0
     GC_EXI_HOOK 1

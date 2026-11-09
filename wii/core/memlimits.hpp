@@ -79,6 +79,9 @@ bool TestWiiMem2Top();
 // Test builds: "console_type_as_wii = 1" writes the console type at the
 // launch in Dolphin too, as on a Wii.
 bool TestConsoleTypeAsWii();
+// Test builds: "wii_u_card_slots = 1" treats the console as a Wii U's vWii,
+// with no memory card slots, for the codes reaching slot B (Dolphin).
+bool TestWiiUCardSlots();
 
 // session.log lines: the limits and the physical sizes (Dolphin's memory
 // size override shows here), then, with LogUsage, what is used and free.
