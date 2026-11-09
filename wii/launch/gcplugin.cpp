@@ -222,13 +222,31 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
         // emulated-card launch may have left an SD ID there. libogc's mount
         // only checks the cached ID's byte sum, not the header identity.
         // Pass this physical header's ID, preserving its serial/saves.
-        logf("GameCube: the game will use the real memory card in slot A because its Memory card option selects it.\n");
+        logf("GameCube: the game will use the real memory card in slot A because the Memory card option (the game's, or Settings' when it is Default) selects it.\n");
     } else {
+        // Slot B's real card: the loader only takes over slot A, so the
+        // card reaches the game as it is; SRAM gets its ID, as for slot A.
+        if (image.real_card_b) {
+            GcRealCard physical;
+            std::vector<std::uint8_t> system;
+            GcCardSpace space;
+            if (physical.Open(1) < 0 || physical.ReadSystem(system) < 0 ||
+                !gc_card_space(system, physical.Bytes(), space, error) || !gc_card_flash_id(system, physical_id)) {
+                error = tr("The memory card in slot B could not be read. Put it back in, or choose another card on the game's page.");
+                return false;
+            }
+            if ((system[0x25] != 0) != gc_card_shift_jis(image.id)) {
+                error = tr("This card uses the other text encoding. Japanese and Western cards cannot be mixed.");
+                return false;
+            }
+            logf("GameCube: the real memory card in slot B is passed through to the game, beside its own card in "
+                 "slot A, because the Memory card option (the game's, or Settings' when it is Default) selects it.\n");
+        }
         if (!image.external_card.empty()) {
             logf("GameCube: using the backed-up external memory card %s in place.\n", image.external_card_path.c_str());
         } else if (!recover_card(image, error)) return false;
         if (image.external_card.empty() && Settings().gc_backups != "off") back_up_card(image);
-        logf("GameCube: the game will save to %s because its Memory card option selects this file.\n",
+        logf("GameCube: the game will save to %s because the Memory card option (the game's, or Settings' when it is Default) selects this file.\n",
              (image.external_card_path.empty() ? gc_card_path(image.id, image.shared_card) : image.external_card_path).c_str());
     }
 
@@ -237,7 +255,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     request.path = image.path.c_str();
     request.id = image.id.c_str();
     request.is_rvz = GcImageIsRvz(image.path) ? 1 : 0;
-    request.real_card = image.real_card ? 1 : 0;
+    request.real_card = image.real_card ? RWP_GC_REAL_CARD_A : image.real_card_b ? RWP_GC_REAL_CARD_B : RWP_GC_REAL_CARD_NONE;
     std::copy(physical_id.begin(), physical_id.end(), request.real_card_flash_id);
     request.shared_card = image.shared_card ? 1 : 0;
     std::vector<rwp_fragment> card_fragments;

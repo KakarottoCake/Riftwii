@@ -401,7 +401,25 @@ static void test_saves() {
     EXPECT_EQ(prefs.game.gc_disc_reads, std::string("drive"));
     EXPECT_EQ(prefs.game.gc_card, std::string("shared"));
     prefs.restore("*riftwii*\tgccard\tbogus\n");
-    EXPECT_EQ(prefs.game.gc_card, std::string("own"));
+    EXPECT_EQ(prefs.game.gc_card, std::string("global"));
+    // The real card in slot B, and an explicit "own", survive a save;
+    // "global" (the default) is written as nothing.
+    for (const char* card : {"real_b", "own", "real", "nintendont"}) {
+        model.game.gc_card = card;
+        prefs.restore(model.save());
+        EXPECT_EQ(prefs.game.gc_card, std::string(card));
+    }
+    model.game.gc_card = "global";
+    EXPECT_TRUE(model.save().find("gccard") == std::string::npos);
+    // "global" follows Settings' card; a game's own choice wins; Settings
+    // can't name another loader's card.
+    riftwii::GameSettings card_game;
+    EXPECT_EQ(riftwii::gc_card_effective(card_game, "own"), std::string("own"));
+    EXPECT_EQ(riftwii::gc_card_effective(card_game, "real_b"), std::string("real_b"));
+    EXPECT_EQ(riftwii::gc_card_effective(card_game, "shared"), std::string("shared"));
+    EXPECT_EQ(riftwii::gc_card_effective(card_game, "dolphin"), std::string("own"));
+    card_game.gc_card = "own";
+    EXPECT_EQ(riftwii::gc_card_effective(card_game, "real"), std::string("own"));
     // Fast is the default; one saved as fast before stays fast.
     {
         riftwii::LaunchModel fresh;

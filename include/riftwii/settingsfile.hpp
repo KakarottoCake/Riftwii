@@ -82,6 +82,9 @@ struct LoaderSettings {
     // partial mode), all (the whole NAND: the Wii's settings and Miis too,
     // d2x's full mode, which needs a whole NAND in the folder).
     std::string emunand_keeps = "saves";
+    // own, shared, real (slot A), real_b (own card in A, real card in B):
+    // the memory card of a GameCube game whose own choice is "global".
+    std::string gc_card = "own";
     std::string gc_backups = "on";        // on, off: copy a GameCube game's memory card to sd:/riftwii/gc/backups before it starts
     std::string nintendont_saves = "ask"; // ask, asked: whether Home has asked about bringing Nintendont's saves (any answer, Not now too, makes it "asked")
     // For developers with a USB Gecko (wii/core/gecko.hpp):

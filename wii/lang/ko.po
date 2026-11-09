@@ -4202,3 +4202,15 @@ msgstr "디스크 슬롯 표시등"
 
 msgid "Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong."
 msgstr "게임을 불러오거나 디스크를 복사하는 동안 천천히 깜박입니다. 완료되거나 문제가 발생하면 꺼집니다."
+
+msgid "Real card in slot B"
+msgstr "슬롯 B의 실제 카드"
+
+msgid "GameCube memory card"
+msgstr "게임큐브 메모리 카드"
+
+msgid "The memory card of every GameCube game whose own Memory card option is Default. A game's own choice wins."
+msgstr "메모리 카드 옵션이 기본값인 모든 게임큐브 게임의 메모리 카드입니다. 게임별 선택이 우선합니다."
+
+msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
+msgstr "슬롯 B의 메모리 카드를 읽을 수 없습니다. 다시 꽂거나 게임 페이지에서 다른 카드를 고르세요."

@@ -4202,3 +4202,15 @@ msgstr "Lumière du lecteur de disques"
 
 msgid "Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong."
 msgstr "Clignote doucement pendant le chargement d’un jeu ou la copie d’un disque. S’éteint à la fin ou en cas de problème."
+
+msgid "Real card in slot B"
+msgstr "Carte réelle dans le port B"
+
+msgid "GameCube memory card"
+msgstr "Carte mémoire GameCube"
+
+msgid "The memory card of every GameCube game whose own Memory card option is Default. A game's own choice wins."
+msgstr "La carte mémoire de chaque jeu GameCube dont l'option Carte mémoire est sur Par défaut. Le choix propre d'un jeu l'emporte."
+
+msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
+msgstr "La carte mémoire du port B n'a pas pu être lue. Remettez-la, ou choisissez une autre carte sur la page du jeu."

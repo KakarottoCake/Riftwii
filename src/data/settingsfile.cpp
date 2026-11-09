@@ -186,6 +186,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "gx" || value == "sd" || value == "usb") emunand_folder = value;
         } else if (key == "emunand_keeps") {
             if (value == "saves" || value == "all") emunand_keeps = value;
+        } else if (key == "gc_card") {
+            if (value == "own" || value == "shared" || value == "real" || value == "real_b") gc_card = value;
         } else if (key == "gc_backups") {
             if (value == "on" || value == "off") gc_backups = value;
         } else if (key == "nintendont_saves") {
@@ -273,6 +275,7 @@ std::string LoaderSettings::serialize() const {
     s += "saves_every_game = " + saves_every_game + "\n";
     s += "emunand_folder = " + emunand_folder + "\n";
     s += "emunand_keeps = " + emunand_keeps + "\n";
+    s += "gc_card = " + gc_card + "\n";
     s += "gc_backups = " + gc_backups + "\n";
     s += "nintendont_saves = " + nintendont_saves + "\n";
     s += "usb_gecko_log = " + usb_gecko_log + "\n";

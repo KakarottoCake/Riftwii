@@ -8824,6 +8824,8 @@ static std::string ServerName(const std::string& v)
 	}
 	return tr("Off");
 }
+static std::string GcCardName(const std::string& card);
+
 // A game's value, or "Default (...)" naming what the global setting is.
 static std::string GameValue(const std::string& v, const std::string& global, std::string (*name)(const std::string&))
 {
@@ -9102,13 +9104,12 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		FlowRow card;
 		card.kind = FlowRow::Kind::Option;
 		card.label = tr("Memory card");
-		if (game.gc_card == "real") card.value = tr("Real card in slot A");
-		else if (game.gc_card == "shared") card.value = tr("Shared");
-		else if (game.gc_card == "nintendont") card.value = tr("Nintendont's card");
-		else if (game.gc_card == "dolphin") card.value = tr("Dolphin's card");
-		else card.value = tr("This game's own");
-		card.on = game.gc_card != "own";
-		card.dim = game.gc_card == "real" && riftwii::wii::is_wii_u();
+		card.value = game.gc_card == "global"
+			? tr("Default ({1})", {GcCardName(riftwii::gc_card_effective(game, riftwii::wii::Settings().gc_card))})
+			: GcCardName(game.gc_card);
+		card.on = game.gc_card != "global";
+		const std::string used = riftwii::gc_card_effective(game, riftwii::wii::Settings().gc_card);
+		card.dim = (used == "real" || used == "real_b") && riftwii::wii::is_wii_u();
 		rows.push_back(card);
 		refs.push_back({W::GcCard});
 		FlowRow progressive;
@@ -9818,16 +9819,34 @@ static const char* const kGcDolphinDir = "sd:/riftwii/gc/dolphin";
 
 static std::string GameTitle(const FrontendState& state);
 
+// What a Memory card value is called on screen.
+static std::string GcCardName(const std::string& card)
+{
+	if (card == "real") return tr("Real card in slot A");
+	if (card == "real_b") return tr("Real card in slot B");
+	if (card == "shared") return tr("Shared");
+	if (card == "nintendont") return tr("Nintendont's card");
+	if (card == "dolphin") return tr("Dolphin's card");
+	return tr("This game's own");
+}
+
+// The memory card the game uses: its own Memory card option, or for
+// "global" Settings' (riftwii::gc_card_effective).
+static std::string EffectiveGcCard(const FrontendState& state)
+{
+	return riftwii::gc_card_effective(state.model.game, riftwii::wii::Settings().gc_card);
+}
+
 // The game's card, named as the loader names it (gcnative.cpp): its own
 // file, or the shared one when the game's Memory card option says so.
 static bool GcCardShared(const FrontendState& state)
 {
-	return state.model.game.gc_card == "shared";
+	return EffectiveGcCard(state) == "shared";
 }
 
 static std::string GcCardPath(const FrontendState& state)
 {
-	const std::string& source = state.model.game.gc_card;
+	const std::string source = EffectiveGcCard(state);
 	if (source == "nintendont" || source == "dolphin")
 		return riftwii::wii::ExternalCardPath(state.game_id, source);
 	return riftwii::gc_card_path(state.game_id, GcCardShared(state));
@@ -9836,7 +9855,7 @@ static std::string GcCardPath(const FrontendState& state)
 static std::string GcBackupFolder(const FrontendState& state, bool shared)
 {
 	const std::string folder = riftwii::gc_backup_folder(state.game_id, shared);
-	const std::string& source = state.model.game.gc_card;
+	const std::string source = EffectiveGcCard(state);
 	return source == "nintendont" || source == "dolphin" ? folder + "/external" : folder;
 }
 
@@ -9867,7 +9886,7 @@ static bool ReadGcCardSpace(const std::string& path, riftwii::GcCardSpace& space
 
 static bool GcCardFull(const FrontendState& state)
 {
-	if (state.model.game.gc_card == "real") return false;
+	if (EffectiveGcCard(state) == "real") return false;
 	riftwii::GcCardSpace space;
 	return ReadGcCardSpace(GcCardPath(state), space) && space.full();
 }
@@ -10916,7 +10935,7 @@ static bool GcGameUsesSharedCard(const std::string& id)
 	if (!ReadSmallFile(std::string(riftwii::wii::kChoicesDir) + "/" + id + ".txt", 1u << 20, bytes)) return false;
 	riftwii::LaunchModel choices;
 	choices.restore(std::string(bytes.begin(), bytes.end()));
-	return choices.game.gc_card == "shared";
+	return riftwii::gc_card_effective(choices.game, riftwii::wii::Settings().gc_card) == "shared";
 }
 
 // Name the USB partition so equal card names can be told apart.
@@ -11423,7 +11442,7 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 
 static void MenuGcCard(FrontendState& state)
 {
-	const bool real = state.model.game.gc_card == "real";
+	const bool real = EffectiveGcCard(state) == "real";
 	const bool noSlots = riftwii::wii::is_wii_u();
 	std::vector<FlowRow> rows(3);
 	for (FlowRow& row : rows) row.kind = FlowRow::Kind::Action;
@@ -11577,7 +11596,7 @@ static bool ReadyGcStart(FrontendState& state)
 	state.gc_card_fallback = false;
 	const riftwii::wii::ImageGame* game = SelectedGcGame(state);
 	if (!game) return true;
-	if (state.model.game.gc_card == "real") {
+	if (EffectiveGcCard(state) == "real") {
 		riftwii::wii::GcRealCard physical;
 		int result = physical.Open(0);
 		std::vector<std::uint8_t> system;
@@ -13844,9 +13863,10 @@ static std::string PlayTileNote(const FrontendState& state)
 // The Saves tile's note for a GameCube game.
 static std::string GcSaveNote(const FrontendState& state)
 {
-	if (state.model.game.gc_card == "real") return tr("This game uses the real card in slot A. Its saves are not on the SD card.");
+	const std::string used = EffectiveGcCard(state);
+	if (used == "real") return tr("This game uses the real card in slot A. Its saves are not on the SD card.");
 	const std::string card = GcCardPath(state);
-	if (state.model.game.gc_card == "nintendont" || state.model.game.gc_card == "dolphin")
+	if (used == "nintendont" || used == "dolphin")
 		return tr("Saves are written to {1}. A backup is kept before the game starts.", {card});
 	const std::string where = GcCardShared(state)
 		? tr("Saves go to the shared memory card on the SD card: {1}.", {card})
@@ -13891,7 +13911,7 @@ static int ChangedGameSettings(const riftwii::GameSettings& g)
 	if (g.region_video == "on") ++changed;
 	if (g.region_strings == "on") ++changed;
 	if (riftwii::kGcDriveTimingReady && g.gc_disc_reads == "drive") ++changed;
-	if (g.gc_card != "own") ++changed;
+	if (g.gc_card != "global") ++changed;
 	if (g.gc_progressive != "global") ++changed;
 	if (riftwii::kGcWidescreenReady && g.gc_widescreen != "global") ++changed;
 	if (g.gc_language != "global") ++changed;
@@ -13948,7 +13968,7 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 	// save mode. Its cheats are picked as a Wii game's are.
 	const bool cardFull = gamecube && GcCardFull(state);
 	const std::string saves = cardFull ? std::string(tr("Memory card full"))
-		: gamecube && state.model.game.gc_card == "real" ? std::string(tr("Real card in slot A"))
+		: gamecube && EffectiveGcCard(state) == "real" ? std::string(tr("Real card in slot A"))
 		: gamecube ? std::string(tr("Memory Card")) + " \xC2\xB7 SD"
 		: !state.model.pack_save_owner().empty() ? std::string(tr("Kept by the pack"))
 		// The tile names where the saves go; "Default (...)" doesn't fit it.
@@ -14225,8 +14245,11 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			else if (ref.what == RowRef::What::GcCard) {
 				// Asked when switching, where it matters: the saves stay behind.
 				if (AskGcCardSwitch()) {
-					std::vector<std::string> sources{"own", "shared"};
-					if (!riftwii::wii::is_wii_u()) sources.push_back("real");
+					std::vector<std::string> sources{"global", "own", "shared"};
+					if (!riftwii::wii::is_wii_u()) {
+						sources.push_back("real");
+						sources.push_back("real_b");
+					}
 					for (const char* source : {"nintendont", "dolphin"}) {
 						if (!riftwii::wii::ExternalCardPath(state.game_id, source).empty()) sources.push_back(source);
 					}
@@ -16503,7 +16526,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kDiscLight, kNintendontSaves, kParental, kSdGames, kIos, kNet, kResync, kWads, kDiscCopy,
+	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcCard, kGcBackups, kDiscLight, kNintendontSaves, kParental, kSdGames, kIos, kNet, kResync, kWads, kDiscCopy,
 		kMissingCovers, kRescan, kPartitionFailures, kUpdate, kReport, kTests, kGeckoLog, kWiirdDebugger, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -16560,6 +16583,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		option(tr("In-game screenshots"), settings.screenshots == "demo" ? std::string("Demo")
 			: settings.screenshots == "on" ? tr("On") : tr("Off"), settings.screenshots != "off", kShots,
 			FlowRow::Kind::Toggle);
+		option(tr("GameCube memory card"), GcCardName(settings.gc_card), settings.gc_card != "own", kGcCard);
 		option(tr("Back up GameCube saves"), settings.gc_backups == "off" ? tr("Off") : tr("On"), settings.gc_backups != "off",
 			kGcBackups, FlowRow::Kind::Toggle);
 		option(tr("Disc slot light"), settings.disc_light ? tr("On") : tr("Off"), settings.disc_light,
@@ -16836,7 +16860,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			switch (a) {
 				case kWidth: case kDeflicker: case kBorders: case kVideoMode: case kAspect:
 					return SettingsSection::Picture;
-				case kEmulators: case kGameLanguage: case kGameCios: case kWiiSaves: case kEmuNandFolder: case kEmuNandKeeps: case kNonGames: case kReturnTo: case kShots: case kGcBackups: case kDiscLight: case kNintendontSaves:
+				case kEmulators: case kGameLanguage: case kGameCios: case kWiiSaves: case kEmuNandFolder: case kEmuNandKeeps: case kNonGames: case kReturnTo: case kShots: case kGcCard: case kGcBackups: case kDiscLight: case kNintendontSaves:
 				case kParental:
 					return SettingsSection::Games;
 				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest: case kUsbInput:
@@ -16966,6 +16990,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kShots: return tr("Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it.");
 			case kDiscTile: return DiscTileNote();
 			case kDiscLight: return tr("Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong.");
+			case kGcCard: return tr("The memory card of every GameCube game whose own Memory card option is Default. A game's own choice wins.");
 			case kGcBackups: return tr("Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page.");
 			case kPlayHistory: return tr("Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown.");
 			case kHomeSource: return HomeSourceNote(settings.home_source);
@@ -17324,6 +17349,18 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					saveAndNote(tr("Disc slot light"));
 					rebuild();
 					break;
+				case kGcCard: {
+					// The real cards only where the Wii has GameCube slots.
+					std::vector<std::string> cards{"own", "shared"};
+					if (!riftwii::wii::is_wii_u()) {
+						cards.push_back("real");
+						cards.push_back("real_b");
+					}
+					settings.gc_card = StepList(cards, settings.gc_card, 1);
+					saveAndNote(tr("The memory card of every GameCube game whose own Memory card option is Default. A game's own choice wins."));
+					rebuild();
+					break;
+				}
 				case kGcBackups:
 					settings.gc_backups = settings.gc_backups == "off" ? "on" : "off";
 					saveAndNote(tr("Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page."));

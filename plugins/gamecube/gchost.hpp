@@ -38,6 +38,7 @@ struct GcImage {
     std::vector<Fragment> usb_fragments;
     std::uint64_t usb_bytes = 0;
     bool real_card = false;
+    bool real_card_b = false;  // slot B's physical card beside the emulated one in slot A
     std::array<std::uint8_t, 12> real_card_flash_id{};
     bool card_on_usb = false;
     std::string external_card_path;

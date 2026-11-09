@@ -29,6 +29,13 @@ typedef struct rwp_gc_pack_entry {
     uint32_t skip;   /* device: bytes into sector `source` */
 } rwp_gc_pack_entry;
 
+/* rwp_gc_launch's real_card. A: slot A is the physical card, with no
+ * emulated card. B: the emulated card in slot A, and slot B's physical
+ * card, which the loader never takes over, with its ID in SRAM. */
+#define RWP_GC_REAL_CARD_NONE 0u
+#define RWP_GC_REAL_CARD_A 1u
+#define RWP_GC_REAL_CARD_B 2u
+
 #define RWP_GC_PIECE_IMAGE 0u
 #define RWP_GC_PIECE_DEVICE 1u
 #define RWP_GC_PIECE_ZERO 2u
@@ -47,8 +54,8 @@ typedef struct rwp_gc_launch {
     const char* path;      /* sd:/games/.../game.iso, or .rvz */
     const char* id;        /* its ID6 */
     uint32_t is_rvz;       /* the image is an RVZ (by its name, as the list says) */
-    uint32_t real_card;    /* slot A passes through to physical hardware */
-    uint8_t real_card_flash_id[12]; /* verified physical header, never an SD image */
+    uint32_t real_card;    /* RWP_GC_REAL_CARD_*: which slot's physical card the game uses */
+    uint8_t real_card_flash_id[12]; /* that card's verified header ID, never an SD image's */
     const uint8_t* external_card;
     uint32_t external_card_bytes;
     uint32_t card_on_usb;

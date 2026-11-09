@@ -1129,10 +1129,13 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         LaunchModel choices;
         choices.restore(text);
         image.drive_timing = kGcDriveTimingReady && choices.game.gc_disc_reads != "fast";
-        image.shared_card = choices.game.gc_card == "shared";
-        image.real_card = choices.game.gc_card == "real";
-        if (choices.game.gc_card == "nintendont" || choices.game.gc_card == "dolphin") {
-            image.external_card_path = ExternalCardPath(image.id, choices.game.gc_card);
+        // "global" follows Settings' GameCube memory card.
+        const std::string card = gc_card_effective(choices.game, Settings().gc_card);
+        image.shared_card = card == "shared";
+        image.real_card = card == "real";
+        image.real_card_b = card == "real_b";
+        if (card == "nintendont" || card == "dolphin") {
+            image.external_card_path = ExternalCardPath(image.id, card);
             if (image.external_card_path.empty()) {
                 error = tr("The selected memory card is missing. Choose another card on the game's page.");
                 return false;
@@ -1141,6 +1144,7 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         const LaunchExtras& extras = CurrentLaunchExtras();
         if (extras.game_id == image.id && extras.gc_card_fallback) {
             image.real_card = false;
+            image.real_card_b = false;
             image.shared_card = false;
         }
         // "global" follows Settings and the Wii's own settings, as a Wii

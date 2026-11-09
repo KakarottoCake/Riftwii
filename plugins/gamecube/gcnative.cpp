@@ -2892,6 +2892,20 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     std::vector<gc_card_run> card_runs;
     // (The memory card's backup, sd:/riftwii/gc/backups/, is made by the
     // DOL before the plugin starts: wii/launch/gcplugin.cpp.)
+    // Slot B's real card: SRAM gets its ID, so a card formatted on another
+    // console is accepted, as for slot A. The loader never takes over slot
+    // B, so the card itself reaches the game as it is.
+    if (image.real_card_b) {
+        const rwp_host& host = plugin::host();
+        if (!RWP_HOST_HAS(&host, set_sram_flash_id_b) || !host.set_sram_flash_id_b ||
+            host.set_sram_flash_id_b(image.real_card_flash_id.data()) < 0) {
+            error = RWP_GC_REAL_CARD_SRAM_ERROR;
+            if (error_code != nullptr) *error_code = RWP_GC_ERROR_REAL_CARD_SRAM;
+            return false;
+        }
+        logf("GameCube: the real memory card in slot B is the game's too, beside its own card in slot A; SRAM holds "
+             "that card's ID\n");
+    }
     if (image.real_card) {
         const rwp_host& host = plugin::host();
         if (!RWP_HOST_HAS(&host, set_sram_flash_id_a) || !host.set_sram_flash_id_a ||
