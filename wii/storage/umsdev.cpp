@@ -236,6 +236,14 @@ bool Open(std::string& error) {
     // starts but holds nothing RiftWii reads (a Wii U's own drive, beside
     // the games' in the other port) gives way to one that does.
     if (!g_bounce) g_bounce = skin::Mem2Alloc(kBounceBytes);
+    if (!g_bounce) {
+        // Without it no drive's sector 0 can be read, and every drive
+        // would look empty.
+        error = "no MEM2 left for the USB buffer";
+        IOS_Close(g_fd);
+        g_fd = -1;
+        return false;
+    }
     // With several drives plugged in, the menu chose the one with the
     // games (usbcatalog.cpp): d2x must read that one, not merely the first
     // it can read, or the game's sectors come from the other drive.
@@ -244,6 +252,7 @@ bool Open(std::string& error) {
     const bool match = usb_picked_drive(menu_bytes, menu_hash);
     Started s, any;
     int found = -1, readable = -1, matched = -1;
+    bool found_unread = false;  // the first drive's sector 0 could not be read
     std::uint32_t last = 0;
     for (int attempt = 0; attempt < 2 && (match ? matched < 0 : readable < 0); ++attempt) {
         const std::uint32_t port = attempt == 0 ? g_port : 1u - g_port;
@@ -286,6 +295,7 @@ bool Open(std::string& error) {
         if (found < 0) {
             found = static_cast<int>(port);
             any = s;
+            found_unread = !has_volume && hash == 0;
         }
     }
     if (match && matched < 0 && readable >= 0) {
@@ -314,10 +324,21 @@ bool Open(std::string& error) {
         g_not_ready = true;
         return false;
     }
+    if (match && matched < 0 && found >= 0 && found_unread) {
+        // Its sector 0 could not be read: it may still be starting. Asked
+        // again, as for a drive that has not started yet.
+        error = "d2x started the USB drive but could not read its first sector yet";
+        IOS_Close(g_fd);
+        g_fd = -1;
+        g_failed = true;
+        g_failure = error;
+        g_not_ready = true;
+        return false;
+    }
     if (match && matched < 0 && found >= 0) {
-        // d2x started a drive that holds no volume RiftWii reads, and not
-        // the menu's. A card reader or an enclosure with several drives
-        // inside does this: d2x takes the first slot that answers (a blank
+        // d2x started a drive whose sector 0 it read, holding no volume
+        // RiftWii reads: not the menu's. A card reader or an enclosure
+        // with several drives inside does this: d2x takes the first slot that answers (a blank
         // card), the menu the one with the games. Reading it would give
         // the game another drive's sectors.
         error = "d2x reads a different drive than the one the games were listed from (a card reader or an "
