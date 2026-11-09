@@ -13,7 +13,11 @@
 // CMD13 status loop), USB reads split into 32 KB requests and USB writes,
 // with failures thrown in, and with a reply that never comes (the wait times
 // out, or with ipc_no_timeout goes on until it does come) or that another
-// IPC user collects (io_reply).
+// IPC user collects (io_reply), and with sends that fail: the doorbell busy
+// (another sender holds ipc_sending), IOS never acknowledging (ipc_sending
+// kept, the request quarantined in io_pending), or the reply arriving while
+// the send still waits for its acknowledgment (io_reply set before the
+// response is read).
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -45,9 +49,11 @@
 
 namespace {
 
-enum Event : std::uint32_t { kFlush = 1, kInvalidate, kSend, kOther, kGuard, kSlowWait, kWrite32, kWaitEnd };
+enum Event : std::uint32_t { kFlush = 1, kInvalidate, kSend, kOther, kGuard, kSlowWait, kWrite32, kWaitEnd, kSendEnd };
 // How a wait for a reply ended (kWaitEnd's word), counted at the end.
 enum WaitEnd : std::uint32_t { kTimedOut, kTakenElsewhere, kLateReply };
+// How gc_ipc_send's stand-in treats one chosen request (kSendEnd's word).
+enum SendFault : std::uint32_t { kSendBusy, kSendNoAck, kSendReplyFirst, kSendFaults };
 // gc_ipc_wait's poll limit here (the blob's is GC_IPC_TIMEOUT), and when a
 // reply that is late under ipc_no_timeout comes after all.
 constexpr std::uint32_t kPollLimit = 40, kLatePolls = 60, kElsewherePolls = 3;
@@ -69,6 +75,9 @@ int g_lost = -1, g_elsewhere = -1;
 int g_sent;
 std::uint32_t g_late_phys;  // the lost request's reply, for ipc_no_timeout
 bool g_lost_now, g_elsewhere_now;
+// The request whose send fails (-1: none), and how (SendFault).
+int g_fault_at = -1;
+std::uint32_t g_fault;
 
 void note(std::initializer_list<std::uint32_t> words) { g_log.insert(g_log.end(), words); }
 
@@ -83,7 +92,23 @@ void gc_flush(std::uint32_t address, std::uint32_t length) { note({kFlush, addre
 void gc_invalidate(std::uint32_t address, std::uint32_t length) { note({kInvalidate, address, length}); }
 void gc_guard(gc_rt_context*) { note({kGuard}); }
 
-int32_t gc_ipc_send(std::uint32_t phys, gc_rt_context*) {
+// As the blob's gc_ipc_send: -1000 with nothing sent while another sender
+// holds ipc_sending; -1000 with ipc_sending kept when IOS never acknowledges
+// the storage request (its buffers stay quarantined in io_pending); and a
+// reply routed to io_reply (gc_ipc_route) while the send still polls.
+int32_t gc_ipc_send(std::uint32_t phys, gc_rt_context* ctx) {
+    const int index = g_sent;
+    if (index == g_fault_at && g_fault == kSendBusy) {
+        g_fault_at = -1;
+        ++g_sent;
+        ctx->ipc_sending = 1;  // the other sender's
+        note({kSendEnd, kSendBusy, phys});
+        return -1000;
+    }
+    if (ctx->ipc_sending) {
+        note({kSendEnd, kSendBusy, phys});
+        return -1000;
+    }
     note({kSend, phys});
     for (std::uint32_t w : g_cold.ipc) note({w});
     for (std::uint32_t w : g_cold.vec) note({w});
@@ -98,7 +123,20 @@ int32_t gc_ipc_send(std::uint32_t phys, gc_rt_context*) {
         g_cold.response[0] = state << 9;
     }
     if (g_rng() % 4 == 0) g_mailbox.push_back(0x00ABC000u | (g_rng() & 0xFFFu));
-    const int index = g_sent++;
+    ++g_sent;
+    if (index == g_fault_at && g_fault == kSendNoAck) {
+        g_fault_at = -1;
+        ctx->ipc_sending = 1;
+        note({kSendEnd, kSendNoAck, phys});
+        return -1000;
+    }
+    if (index == g_fault_at && g_fault == kSendReplyFirst) {
+        g_fault_at = -1;
+        if (phys == ctx->io_pending) ctx->io_reply = 1;
+        note({kSendEnd, kSendReplyFirst, phys});
+        g_reply_waiting = true;
+        return 0;
+    }
     g_lost_now = index == g_lost;
     g_elsewhere_now = index == g_elsewhere;
     if (g_lost_now) {
@@ -173,7 +211,8 @@ struct Scenario {
     std::vector<std::int32_t> results;
     std::vector<std::uint32_t> states;
     std::uint32_t seed = 0;
-    int lost = -1, elsewhere = -1;
+    int lost = -1, elsewhere = -1, fault_at = -1;
+    std::uint32_t fault = 0;
     std::uint32_t no_timeout = 0;
 };
 
@@ -193,6 +232,8 @@ Outcome run(const Scenario& s) {
     g_sent = 0;
     g_late_phys = 0;
     g_lost_now = g_elsewhere_now = false;
+    g_fault_at = s.fault_at;
+    g_fault = s.fault;
     gc_rt_context ctx{};
     ctx.ipc_no_timeout = s.no_timeout;
     ctx.sdio_fd = 3;
@@ -238,7 +279,8 @@ bool same(const Outcome& a, const Outcome& b) {
 
 int main() {
     std::mt19937 rng(504);
-    unsigned checked = 0, requests = 0, ends[3] = {0, 0, 0};
+    unsigned checked = 0, requests = 0, ends[3] = {0, 0, 0}, faults[kSendFaults] = {0, 0, 0};
+    unsigned quarantined = 0;
     for (unsigned i = 0; i < 20000; ++i) {
         Scenario s;
         s.op = i % 4;
@@ -256,6 +298,11 @@ int main() {
         if (rng() % 4 == 0) s.lost = static_cast<int>(rng() % 4);
         if (rng() % 8 == 0) s.elsewhere = static_cast<int>(rng() % 4);
         if (rng() % 3 == 0) s.no_timeout = 1;
+        // One in six has a send that fails or gets its reply first.
+        if (rng() % 6 == 0) {
+            s.fault_at = static_cast<int>(rng() % 4);
+            s.fault = rng() % kSendFaults;
+        }
         const Outcome before = run<LegacyOps>(s);
         const Outcome after = run<CurrentOps>(s);
         if (!same(before, after)) {
@@ -270,6 +317,9 @@ int main() {
                 k += 2 + 16 + 8 + 16 + 1;
             } else if (tag == kGuard) {
                 k += 1;
+            } else if (tag == kSendEnd) {
+                ++faults[before.log[k + 1]];
+                k += 3;
             } else if (tag == kWaitEnd) {
                 ++ends[before.log[k + 1]];
                 k += 2;
@@ -279,7 +329,19 @@ int main() {
                 k += 3;
             }
         }
+        // Both sides compared whole above; this names the two words the
+        // send faults are about, so a difference in them is reported as such.
+        if (before.ctx.io_pending != after.ctx.io_pending || before.ctx.ipc_sending != after.ctx.ipc_sending) {
+            std::fprintf(stderr, "FAILED: scenario %u: io_pending/ipc_sending differ\n", i);
+            return 1;
+        }
+        if (before.ctx.ipc_sending && before.ctx.io_pending) ++quarantined;
         ++checked;
+    }
+    if (faults[kSendBusy] == 0 || faults[kSendNoAck] == 0 || faults[kSendReplyFirst] == 0 || quarantined == 0) {
+        std::fprintf(stderr, "FAILED: a send fault was never reached (busy %u, no ack %u, reply first %u, "
+                     "quarantined %u)\n", faults[kSendBusy], faults[kSendNoAck], faults[kSendReplyFirst], quarantined);
+        return 1;
     }
     if (ends[kTimedOut] == 0 || ends[kTakenElsewhere] == 0 || ends[kLateReply] == 0) {
         std::fprintf(stderr, "FAILED: a wait's end was never reached (timed out %u, io_reply %u, late %u)\n",
@@ -287,7 +349,9 @@ int main() {
         return 1;
     }
     std::printf("gcstorage tests passed: %u scenarios, %u requests the same as before; waits that timed out %u, "
-                "ended by io_reply %u, waited out under ipc_no_timeout %u\n",
-                checked, requests, ends[kTimedOut], ends[kTakenElsewhere], ends[kLateReply]);
+                "ended by io_reply %u, waited out under ipc_no_timeout %u; sends refused as busy %u, never acknowledged %u "
+                "(%u ended with ipc_sending and io_pending both set), replied before the acknowledgment %u\n",
+                checked, requests, ends[kTimedOut], ends[kTakenElsewhere], ends[kLateReply], faults[kSendBusy],
+                faults[kSendNoAck], quarantined, faults[kSendReplyFirst]);
     return 0;
 }

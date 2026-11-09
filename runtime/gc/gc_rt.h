@@ -14,7 +14,7 @@
  * Layout (gc_entry.S): the header below, the trampolines, the C code,
  * then the context. Position independent (linked at two bases and
  * compared); it sits in MEM1 just below the FST, under the game's arena.
- * Storage IPC buffers are in the context, 32-byte aligned; controller
+ * Storage IPC buffers are in struct gc_rt_cold (MEM2), 32-byte aligned; controller
  * requests and the way back have their own loader-placed memory. */
 #ifndef RIFTWII_GC_RT_H
 #define RIFTWII_GC_RT_H
