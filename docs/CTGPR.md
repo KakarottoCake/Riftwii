@@ -33,10 +33,11 @@ The CTGP-R developers allow it on these conditions, which the code keeps:
   player's own encrypted package disk, so re-hashing them is a follow-up.
 * **No ghost signing.** The card's signing key (on `jelly.bin`) and the
   console's MAC are not read. CTGP gets a key RiftWii made that can never
-  give a valid signature (`include/riftwii/ctgpsign.hpp`); ghosts save
-  and replay on the console, and CTGP's server rejects them.
+  give a valid signature (`include/riftwii/ctgpsign.hpp`). CTGP's server
+  will reject the ghosts. *Not confirmed:* that ghosts save and replay on a
+  console with this key (the earlier build did, with the card's own key).
 
-It starts CTGP-R only on the versions it was tested with (PACKAGES.BIN
+It starts CTGP-R only on the versions this launch is made for (PACKAGES.BIN
 core `0x01030412`, CTGPR `0x01031196`). The core governs the game addresses
 the launch uses, and the CTGPR track package governs the cup layouts, which
 are baked into this build for that one CTGPR version; a different core or a
@@ -45,8 +46,11 @@ before anything is placed. (A later step that works the cup layouts out from
 the player's own package disk will let the track-package version vary again.)
 RiftWii's own extras stay out of the game: no runtime, codes, video or
 game preferences, game fixes, GameCube adapter, screenshots, crash
-recorder or Return to RiftWii (CTGP's channel button comes back to
-RiftWii instead, and CTGP has its own crash handler).
+recorder or Return to RiftWii (CTGP's channel button is pointed back at
+RiftWii instead, and CTGP has its own crash handler). *Not confirmed:* that the
+channel and Rankings buttons return to RiftWii; on a real Wii the channel
+button is a known black-screen bug, so leave CTGP with the power button or
+Reset.
 
 ### Files the native launch needs
 
@@ -92,9 +96,9 @@ disc that is not Mario Kart Wii, a BOOT/BOAT image that would not fit MEM1 is
 refused, and untested versions (core or CTGPR) are refused. The earlier
 build of this launch (on 3.1.0) was tested on a PAL Wii from disc and
 USB (menus, custom tracks, VS, a full Grand Prix, Time Trial ghost save
-and replay, the channel and Rankings buttons back to RiftWii) with the
-card's own signing key; this one replaces that key and needs a Dolphin
-and a Wii run.
+and replay) with the card's own signing key; this one replaces that key and
+needs a Dolphin and a Wii run, and the channel button's return to RiftWii
+(a black screen on a real Wii) is a known open bug.
 
 ## How RiftWii starts the CTGP-R Channel app
 

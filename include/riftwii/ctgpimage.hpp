@@ -27,9 +27,10 @@ constexpr std::size_t kCtgpRowCount = 2570;
 // 0 NTSC-U, 1 NTSC-J, 2 PAL (the column of the row table).
 enum class CtgpRegion : unsigned { E = 0, J = 1, P = 2 };
 
-// The channel's table of game addresses: rows of three words (E, J, P). Read
-// from sd:/riftwii/ctgpr/rows.bin, made from the player's own copy (docs/CTGPR.md):
-// "CRT0", the row count, the rows and optionally 54 more words, all big endian.
+// The channel's table of game addresses: rows of three words (E, J, P). Built
+// into RiftWii (src/ctgpr/ctgprowdata.cpp, made by tools/ctgpr/gen_rowdata.py)
+// and parsed from that data in this layout: "CRT0", the row count, the rows and
+// optionally 54 more words, all big endian.
 struct CtgpRowTable {
     std::vector<std::uint32_t> words;  // 3 per row
     // 54 words that precede the rows in the channel (0x809e36c4..): game

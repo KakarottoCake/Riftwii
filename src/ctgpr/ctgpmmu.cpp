@@ -97,7 +97,7 @@ bool fill(const std::vector<std::uint32_t>& low, unsigned r, const std::array<st
 
 bool ctgp_build_mmu(const std::vector<std::uint32_t>& low, CtgpRegion region, CtgpMmu& out, std::string& error) {
     if (low.size() != 54) {
-        error = "the row table has no region words (an old rows.bin)";
+        error = "the row table has no region words (the built-in row table is out of date)";
         return false;
     }
     const unsigned r = static_cast<unsigned>(region);

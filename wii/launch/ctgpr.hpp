@@ -13,9 +13,9 @@
 namespace riftwii::wii {
 
 // The launch needs only CTGP-R's own files, as its installer puts them on the
-// card (docs/CTGPR.md). RiftWii carries CTGP-R's non-secret constants and row
-// table in its own build, and reads the course and cup tables from blob.bin at
-// run time, so the player needs no RiftWii files for it.
+// card (docs/CTGPR.md). RiftWii carries CTGP-R's non-secret constants, row
+// table, course table and cup layouts in its own build, so the player needs
+// no RiftWii files for it.
 inline constexpr const char* kCtgprBlobPath = "sd:/ctgpr/blob.bin";
 inline constexpr const char* kCtgprJellyPath = "sd:/ctgpr/jelly.bin";
 inline constexpr const char* kCtgprConfigPath = "sd:/ctgpr/config.ini";

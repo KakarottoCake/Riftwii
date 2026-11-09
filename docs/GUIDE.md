@@ -1247,8 +1247,9 @@ too.
 
 CTGP Revolution 1.03 can start from RiftWii **offline only**: online
 play, LAN play and ghost uploads are off, and nothing in RiftWii turns
-them on. Ghosts you save stay on your SD card and replay there, but
-CTGP's server won't take them. This is what the CTGP Revolution
+them on. Ghosts are saved with a key RiftWii made that can't sign
+them, so CTGP's server will not take them. Whether ghosts save and
+replay on the console with that key has not been checked yet. This is what the CTGP Revolution
 developers allow for a launch they don't support. Start CTGP from the
 Homebrew Channel when you want to play online.
 
@@ -1259,7 +1260,9 @@ reads everything it needs from your own copy at launch. The game page
 says "offline only" while CTGP's pack is on. RiftWii only starts the CTGP
 Revolution version it was tested with; after a CTGP update it says so and
 doesn't start it. The Mario Kart Channel and Rankings buttons in CTGP's
-menu bring you back to RiftWii.
+menu are meant to bring you back to RiftWii, but that is not confirmed:
+on a real Wii the channel button is known to end on a black screen. Leave
+CTGP with the Wii's power button or Reset.
 
 Without CTGP Revolution installed, RiftWii starts the CTGP-R Channel the
 way the Homebrew Channel does, which stops on a black screen from a disc

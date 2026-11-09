@@ -16,8 +16,8 @@
 // with AES-128-CBC in independent 32 KiB chunks (docs/CTGPR.md). This
 // reads it without decrypting it to disk: a BlockReader that decrypts the
 // chunk holding the requested sector, which the existing Fat32Volume can
-// mount. The key is a runtime input (a file on the card), not part of the
-// source.
+// mount. The key and IV are CTGP-R's own constants, built into RiftWii
+// (riftwii/ctgptables.hpp); nothing but blob.bin is read from the card.
 namespace riftwii {
 
 // AES-128, decryption only.
@@ -39,8 +39,8 @@ constexpr std::uint32_t kCtgpEfaChunkBytes = 64 * 512;
 using ByteReader = std::function<bool(std::uint64_t offset, std::uint32_t length, std::uint8_t* out)>;
 
 // The fixed words of a chunk's IV (big endian words 0, 1 and 3; word 2 is
-// the chunk's first sector). Their values are CTGP-R's, read at run time
-// from tables.bin (riftwii/ctgptables.hpp).
+// the chunk's first sector). Their values are CTGP-R's, built into RiftWii
+// (riftwii/ctgptables.hpp).
 struct CtgpChunkIv {
     std::uint32_t w0 = 0, w1 = 0, w3 = 0;
 };
@@ -53,7 +53,7 @@ std::uint32_t ctgp_fat_seconds(std::uint16_t time, std::uint16_t date);
 // The fixed words of the second package disk's key (jelly.bin, "efb:"):
 // words 1 and 3. Word 0 is the file's last-write time and word 2 its
 // creation time, as the in-game startup builds them from the file's stat.
-// The values are CTGP-R's, read from tables.bin.
+// The values are CTGP-R's, built into RiftWii (riftwii/ctgptables.hpp).
 struct CtgpEfbKeyWords {
     std::uint32_t w1 = 0, w3 = 0;
 };
