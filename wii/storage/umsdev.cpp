@@ -252,7 +252,7 @@ bool Open(std::string& error) {
     const bool match = usb_picked_drive(menu_bytes, menu_hash);
     Started s, any;
     int found = -1, readable = -1, matched = -1;
-    bool found_unread = false;  // the first drive's sector 0 could not be read
+    bool some_unread = false;  // a drive that started but whose sector 0 could not be read
     std::uint32_t last = 0;
     for (int attempt = 0; attempt < 2 && (match ? matched < 0 : readable < 0); ++attempt) {
         const std::uint32_t port = attempt == 0 ? g_port : 1u - g_port;
@@ -277,6 +277,7 @@ bool Open(std::string& error) {
         // read failed).
         const bool has_volume = s.ok() && HasVolume(s.sector_bytes, hash) && (s.sectors != -1 || hash != 0);
         if (g_stuck) return fail_stuck(error);
+        if (s.ok() && hash == 0) some_unread = true;
         if (has_volume) {
             if (readable < 0) readable = static_cast<int>(port);
             if (match && s.sector_bytes == menu_bytes && hash == menu_hash) {
@@ -295,8 +296,19 @@ bool Open(std::string& error) {
         if (found < 0) {
             found = static_cast<int>(port);
             any = s;
-            found_unread = !has_volume && hash == 0;
         }
+    }
+    if (match && matched < 0 && some_unread) {
+        // A drive's sector 0 could not be read (on either port): it may be
+        // the menu's, still starting. Asked again, as for a drive that has
+        // not started yet, before any other drive is called the wrong one.
+        error = "d2x started the USB drive but could not read its first sector yet";
+        IOS_Close(g_fd);
+        g_fd = -1;
+        g_failed = true;
+        g_failure = error;
+        g_not_ready = true;
+        return false;
     }
     if (match && matched < 0 && readable >= 0) {
         // Another drive than the menu's: reading it would give the game
@@ -317,17 +329,6 @@ bool Open(std::string& error) {
         error = any.sector_bytes == 0 ? d2x_sector_size_problem(0, nullptr)
                                       : "d2x sees only a USB drive other than the games' (" +
                                             std::to_string(any.sector_bytes) + "-byte sectors)";
-        IOS_Close(g_fd);
-        g_fd = -1;
-        g_failed = true;
-        g_failure = error;
-        g_not_ready = true;
-        return false;
-    }
-    if (match && matched < 0 && found >= 0 && found_unread) {
-        // Its sector 0 could not be read: it may still be starting. Asked
-        // again, as for a drive that has not started yet.
-        error = "d2x started the USB drive but could not read its first sector yet";
         IOS_Close(g_fd);
         g_fd = -1;
         g_failed = true;
