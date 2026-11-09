@@ -1654,9 +1654,9 @@ LmLoader find_lm_loader(const std::string& id, const Code& code) {
 
 // 240p: the game's own render mode tables, in its data, become
 // double-strike ones before it starts, as a Wii game's do
-// (riftwii/videopatch.hpp). The game then copies each whole 480-line
-// picture into a 240-line frame buffer, every other line with no
-// blending, and the VI sends it progressive. Nothing runs in the game
+// (riftwii/videopatch.hpp), with the SDK's own double-strike heights:
+// the game then draws a 240-line picture in place of its 480-line one,
+// and the VI sends it progressive. Nothing runs in the game
 // for it. Tables with other heights stay as made, and a game that
 // builds its mode in code keeps its own picture (the log says so).
 static void apply_240p(Dol& dol) {

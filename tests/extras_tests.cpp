@@ -1332,8 +1332,9 @@ void TestVideoModes() {
     EXPECT_EQ(copy[403], 2);
 
     // 240p (NTSC): whole 480-line frames, interlaced or 480p, become
-    // double-strike tables with a 240-line frame buffer (the game's copy
-    // takes every other line), a single field and the filter off.
+    // double-strike tables with the SDK's own heights (TVNtsc240Ds:
+    // 240 lines drawn and copied 1:1, the VI's full height), a single
+    // field and the filter off.
     s = VideoSettings{};
     s.target.format = kViNtsc;
     s.target.line240 = true;
@@ -1344,27 +1345,31 @@ void TestVideoModes() {
     patch_video_modes(copy.data(), copy.size(), s, report);
     EXPECT_EQ(report.modes, 7u);
     EXPECT_EQ(copy[3], 1);                // TVNtsc480IntDf: double strike
-    EXPECT_EQ(get16(copy, 6), 480u);      // the game still draws 480 lines
-    EXPECT_EQ(get16(copy, 8), 240u);      // and copies every other one
+    EXPECT_EQ(get16(copy, 6), 240u);      // the game draws 240 lines
+    EXPECT_EQ(get16(copy, 8), 240u);      // into a 240-line frame buffer: a 1:1 copy
     EXPECT_EQ(get16(copy, 12), 0u);
     EXPECT_EQ(get16(copy, 16), 480u);
     EXPECT_EQ(copy[23], 0);               // single field
     for (std::size_t i = 0; i < 7; ++i) EXPECT_EQ(copy[50 + i], sharp[i]);
-    EXPECT_EQ(copy[103], 1);              // the anti-aliased one too
-    EXPECT_EQ(get16(copy, 106), 242u);
+    EXPECT_EQ(copy[103], 1);              // the anti-aliased one too, as TVNtsc240DsAa
+    EXPECT_EQ(get16(copy, 106), 240u);
     EXPECT_EQ(get16(copy, 108), 240u);
+    EXPECT_EQ(get16(copy, 116), 480u);
     EXPECT_EQ(copy[403], 1);              // TVNtsc480Prog
+    EXPECT_EQ(get16(copy, 406), 240u);
     EXPECT_EQ(get16(copy, 408), 240u);
     EXPECT_EQ(copy[203], 1);              // already double strike: as made but its filter
     EXPECT_EQ(get16(copy, 208), 240u);
     EXPECT_EQ(copy[250], deflicker[0]);   // not given Deflicker's High either
     EXPECT_EQ(copy[303], 0);              // unusual heights: the format only, interlaced
     EXPECT_EQ(get16(copy, 308), 456u);
-    EXPECT_EQ(copy[503], 1);              // PAL 528: to 480 lines, then 240p
-    EXPECT_EQ(get16(copy, 506), 480u);
+    EXPECT_EQ(copy[503], 1);              // PAL 528: 240p's NTSC heights
+    EXPECT_EQ(get16(copy, 506), 240u);
     EXPECT_EQ(get16(copy, 508), 240u);
     EXPECT_EQ(get16(copy, 512), 0u);
+    EXPECT_EQ(get16(copy, 516), 480u);
     EXPECT_EQ(copy[603], 1);              // the scaled PAL table too
+    EXPECT_EQ(get16(copy, 606), 240u);
     EXPECT_EQ(get16(copy, 608), 240u);
 
     // 240p with no format (a GameCube game): each table keeps its own
@@ -1375,6 +1380,7 @@ void TestVideoModes() {
     report = VideoPatchReport{};
     patch_video_modes(copy.data(), copy.size(), s, report);
     EXPECT_EQ(copy[3], 1);
+    EXPECT_EQ(get16(copy, 6), 240u);
     EXPECT_EQ(get16(copy, 8), 240u);
     EXPECT_EQ(copy[403], 1);
     EXPECT_EQ(copy[503], 4);              // PAL: as made

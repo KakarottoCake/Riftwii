@@ -10,7 +10,6 @@ constexpr std::size_t kModeBytes = 60;
 constexpr std::size_t kTvMode = 0, kFbWidth = 4, kEfbHeight = 6, kXfbHeight = 8, kViX = 10, kViY = 12, kViWidth = 14,
                       kViHeight = 16, kXfbMode = 20, kField = 24, kAa = 25, kPattern = 26, kFilter = 50;
 constexpr unsigned kLine = 720;  // the TV line the VI can fill
-constexpr unsigned kLines240 = 240;  // a 240p frame buffer: every other line of a 480-line picture
 
 std::uint32_t be32(const std::uint8_t* p) {
     return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
@@ -113,11 +112,18 @@ bool convert(std::uint8_t* p, const VideoTarget& target) {
         put16(p + kViHeight, h.h);
     }
     if (to_240p) {
-        // The game's copy to the frame buffer scales its picture to
-        // these 240 lines (the SDK's y scale is xfbHeight / efbHeight),
-        // and the VI shows the buffer whole each retrace.
+        // The SDK's own double-strike heights (TVNtsc240Ds, and its
+        // anti-aliased twin): the game draws a 240-line picture and
+        // copies it 1:1 into a 240-line frame buffer, which the VI shows
+        // whole each retrace. A half-height copy instead (480 lines into
+        // 240) needs a y scale of 0.5, which the copy's 9-bit scale
+        // register cannot hold.
+        const Heights& ds = kLines480[kDoubleStrike];
         mode = 1;
-        put16(p + kXfbHeight, kLines240);
+        put16(p + kEfbHeight, ds.efb);
+        put16(p + kXfbHeight, ds.xfb);
+        put16(p + kViY, ds.y);
+        put16(p + kViHeight, ds.h);
         put32(p + kXfbMode, 0);  // single field
         set_filter(p, Deflicker::Off);
     } else if (to_progressive) {

@@ -64,7 +64,7 @@ typedef struct rwp_gc_launch {
     uint32_t shared_card;  /* the shared memory card, not the game's own */
     uint32_t drive_timing; /* reads take a GameCube drive's time */
     uint32_t progressive;  /* 480p */
-    uint32_t line240;      /* 240p: the game's whole 480-line pictures sent every other line (never with 480p) */
+    uint32_t line240;      /* 240p: whole 480-line pictures drawn in 240 lines, progressive (never with 480p) */
     uint32_t widescreen;   /* 3D drawn for 16:9 */
     uint32_t sharp;        /* the sharper picture */
     uint32_t sixty_hz;     /* a European game told the TV takes 60 Hz */

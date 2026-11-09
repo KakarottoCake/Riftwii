@@ -2010,9 +2010,6 @@ msgstr "Activé (480p)"
 msgid "Widescreen"
 msgstr "Écran large"
 
-msgid "480p is for US and Japanese games; this European game keeps its own picture."
-msgstr "Le 480p est pour les jeux américains et japonais ; ce jeu européen garde sa propre image."
-
 msgid "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."
 msgstr "Donne une image plus nette et plus stable avec un câble composante, même dans les jeux sans mode 480p ; certains posent d'abord la question."
 
@@ -4215,8 +4212,14 @@ msgstr "La carte mémoire de chaque jeu GameCube dont l'option Carte mémoire es
 msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
 msgstr "La carte mémoire du port B n'a pas pu être lue. Remettez-la, ou choisissez une autre carte sur la page du jeu."
 
-msgid "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture."
-msgstr "Le 240p est pour les téléviseurs cathodiques et le pixel art : l'image de 480 lignes du jeu sort une ligne sur deux, en progressif et sans scintillement. Les jeux qui dessinent moins de lignes gardent leur image."
+msgid "240p is for CRT TVs and pixel art: a game that draws a whole 480-line picture draws it in 240 lines instead, which the TV shows progressive, with no flicker. Games that draw fewer lines keep their own picture."
+msgstr "Le 240p est pour les téléviseurs cathodiques et le pixel art : un jeu qui dessine une image entière de 480 lignes la dessine en 240 lignes, que le téléviseur affiche en progressif et sans scintillement. Les jeux qui dessinent moins de lignes gardent leur image."
 
 msgid "GameCube games left on Default get it too."
 msgstr "Les jeux GameCube sur Par défaut l'utilisent aussi."
+
+msgid "Picture lines"
+msgstr "Lignes de l'image"
+
+msgid "480p and 240p are for US and Japanese games; this European game keeps its own picture."
+msgstr "Le 480p et le 240p sont pour les jeux américains et japonais ; ce jeu européen garde sa propre image."

@@ -29,12 +29,11 @@
 //     unusual heights keeps its own format (it still works, unforced).
 //   - 240p, for CRT TVs and pixel art: a table that draws a whole
 //     480-line picture (interlaced or 480p) becomes a double-strike one
-//     whose frame buffer is 240 lines. The SDK sets the game's copy to
-//     the frame buffer from the table's heights, so the game itself
-//     copies every other line of its picture, and the VI sends those
-//     240 lines progressive at 60 Hz, as old consoles did. No line is
-//     blended with its neighbours (the flicker filter is off: there is
-//     no interlace flicker to hide). Field-rendered, double-strike and
+//     with the SDK's own heights (TVNtsc240Ds: 240 lines drawn, a
+//     240-line frame buffer, the VI's full height). The game then draws
+//     a 240-line picture, which the VI shows progressive at 60 Hz, as
+//     old consoles did. The flicker filter is off: there is no
+//     interlace flicker to hide. Field-rendered, double-strike and
 //     unusual tables stay as made.
 namespace riftwii {
 
@@ -50,7 +49,7 @@ constexpr int kViNtsc = 0, kViPal = 1, kViMpal = 2, kViEurgb60 = 5;
 struct VideoTarget {
     int format = -1;           // -1: the game's own tables are kept (with line240: their own formats)
     bool progressive = false;  // interlaced tables become 480p ones
-    bool line240 = false;      // whole 480-line frames become 240p (double-strike) ones
+    bool line240 = false;      // whole 480-line frames become 240-line double-strike ones
 };
 
 struct VideoSettings {

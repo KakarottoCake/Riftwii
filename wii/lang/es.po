@@ -2010,9 +2010,6 @@ msgstr "Sí (480p)"
 msgid "Widescreen"
 msgstr "Panorámico"
 
-msgid "480p is for US and Japanese games; this European game keeps its own picture."
-msgstr "480p es para juegos de EE. UU. y Japón; este juego europeo mantiene su propia imagen."
-
 msgid "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."
 msgstr "Da una imagen más nítida y estable con un cable por componentes, incluso en juegos sin modo 480p; algunos preguntan antes."
 
@@ -4215,8 +4212,14 @@ msgstr "La tarjeta de memoria de cada juego de GameCube cuya opción Tarjeta de 
 msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
 msgstr "No se pudo leer la tarjeta de memoria de la ranura B. Vuelve a insertarla o elige otra tarjeta en la página del juego."
 
-msgid "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture."
-msgstr "240p es para televisores CRT y pixel art: la imagen de 480 líneas del juego sale una línea sí y otra no, progresiva y sin parpadeo. Los juegos que dibujan menos líneas conservan su propia imagen."
+msgid "240p is for CRT TVs and pixel art: a game that draws a whole 480-line picture draws it in 240 lines instead, which the TV shows progressive, with no flicker. Games that draw fewer lines keep their own picture."
+msgstr "240p es para televisores CRT y pixel art: un juego que dibuja una imagen completa de 480 líneas la dibuja en 240 líneas, que el televisor muestra en progresivo y sin parpadeo. Los juegos que dibujan menos líneas conservan su propia imagen."
 
 msgid "GameCube games left on Default get it too."
 msgstr "Los juegos de GameCube en Predeterminado también lo usan."
+
+msgid "Picture lines"
+msgstr "Líneas de imagen"
+
+msgid "480p and 240p are for US and Japanese games; this European game keeps its own picture."
+msgstr "480p y 240p son para juegos de EE. UU. y Japón; este juego europeo mantiene su propia imagen."

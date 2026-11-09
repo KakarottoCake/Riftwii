@@ -785,7 +785,7 @@ void configure_video_for_game(char region) {
         else if (target.format == kViPal) forced = &TVPal528IntDf;
         else if (target.format == kViMpal) forced = &TVMpal480IntDf;
         logf("Video: forced to TV format %d%s\n", target.format,
-             target.line240 ? ", 240p (every other line of whole 480-line pictures)" : target.progressive ? ", 480p" : "");
+             target.line240 ? ", 240p (whole 480-line pictures drawn in 240 lines)" : target.progressive ? ", 480p" : "");
         store32(0x800000CC, static_cast<std::uint32_t>(target.format));
         DCFlushRange(reinterpret_cast<void*>(0x800000CC), 4);
         VIDEO_Configure(forced);

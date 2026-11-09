@@ -505,11 +505,11 @@ USB drive: choose another Saves option on its page.
   *PAL 60 Hz*, *PAL 50 Hz*, *480p* (needs a component cable), *240p* or
   *The console's* setting. *Game's own* leaves it to the game.
   *240p* is for CRT TVs and pixel art: a game that draws a whole
-  480-line picture sends every other line of it, progressive at 60 Hz,
-  with no interlace flicker and the flicker filter off (European games
-  switch to 60 Hz for it). Games that draw fewer lines keep their own
-  picture. In Settings it also applies to GameCube games whose 480p
-  picture is on *Default*. Some TVs and capture devices don't take
+  480-line picture draws a 240-line one instead, which the Wii sends
+  progressive at 60 Hz, with no interlace flicker and the flicker filter
+  off (European Wii games switch to 60 Hz for it). Games that draw fewer lines keep their own
+  picture. In Settings it also applies to GameCube games whose Picture
+  lines are on *Default*. Some TVs and capture devices don't take
   240p.
 - **Region video fix** (off unless you turn it on) is for a US or
   Japanese game that shows no picture on a console from another region:
@@ -929,8 +929,9 @@ played, Favourites), can hide them as they hide any game.
 A GameCube game's page has its own options in place of a Wii game's
 picture and online settings: **Memory card** (*Default*, which follows **Settings > Games > GameCube
 memory card**, *This game's own*, *Shared* or, on an original Wii, *Real
-card in slot A* or *Real card in slot B*), **480p picture** (*On (480p)*, *240p* for a CRT TV, as
-Settings > Picture > Video mode describes, or *Off*; not for European games), **Sharper
+card in slot A* or *Real card in slot B*), **Picture lines** (*On (480p)*, *240p* for a CRT TV, as
+Settings > Picture > Video mode describes, or *Off*; European GameCube games never get 480p or
+240p), **Sharper
 picture**, **Picture width**, **Game language** and, for European
 games, **Game speed** (60 Hz instead of 50). GameCube games also follow
 the Wii's own **Screen Position** (Wii Settings > Screen), as Wii games
