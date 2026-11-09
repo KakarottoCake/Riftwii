@@ -163,10 +163,10 @@ static const uint8_t* pad_cached(uint32_t physical) {
 void pad_on_submit(struct rt_pad_context* c, const uint32_t* block) {
     const uint32_t address = (uint32_t)(uintptr_t)block;
     /* The game's own memory (MEM1 or MEM2, cached): the block's command
-     * word is read back uncached (pad_check_pending), where IOS writes its
-     * reply. The SDK may never drop its cached copy of the block, so a
-     * cached read could show the command long after the reply (in Dolphin,
-     * Brawl's saves stayed pending until the cap). */
+     * word is read back from memory (pad_read_memory_word), where IOS writes
+     * its reply. The SDK may never drop its cached copy of the block, so a
+     * plain cached read could show the command long after the reply (in
+     * Dolphin, Brawl's saves stayed pending until the cap). */
     const int in_game_memory = (address >= 0x80000000u && address < 0x81800000u) ||
                                (address >= 0x90000000u && address < 0x94000000u);
     uint32_t msr;
@@ -174,7 +174,7 @@ void pad_on_submit(struct rt_pad_context* c, const uint32_t* block) {
     if (!rtleave_save_request(block, pad_cached(block[3]), pad_cached(block[4]))) return;
     msr = interrupts_off();
     /* Memory holds the command from now on, before the submit routine's
-     * own flush: an uncached read can't see what the block held before. */
+     * own flush: a read from memory can't see what the block held before. */
     if (in_game_memory) {
         __asm__ volatile("dcbst 0, %0" : : "r"(block) : "memory");
         __asm__ volatile("sync" : : : "memory");
@@ -186,16 +186,30 @@ void pad_on_submit(struct rt_pad_context* c, const uint32_t* block) {
     interrupts_restore(msr);
 }
 
+/* A word of the game's memory as memory holds it, not as the CPU's cache
+ * may remember it: its cache line is dropped first (dcbf), then read
+ * through the same cached address the game uses. Not through the uncached
+ * view (`address | 0x40000000`): Cars 2 and other games on its engine
+ * replace the Wii's memory mappings with their own and leave that view
+ * out, so reading it stopped them with a DSI at their first PADRead (a
+ * black screen). dcbf never loses data: a line the SDK has written since is
+ * written back, which its own flush would do anyway. */
+static uint32_t pad_read_memory_word(uint32_t address) {
+    volatile const uint32_t* word = (volatile const uint32_t*)(uintptr_t)address;
+    __asm__ volatile("dcbf 0, %0\n\tsync" : : "r"(word) : "memory");
+    return *word;
+}
+
 /* The pending save requests: each still with IOS, or now over (its
- * command word in memory, read uncached through 0xC0000000/0xD0000000, no
- * longer the one submitted). Interrupts off, as at its callers. */
+ * command word in memory, pad_read_memory_word, no longer the one
+ * submitted). Interrupts off, as at its callers. */
 static void pad_check_pending(struct rt_pad_context* c, uint32_t t) {
     uint32_t words[RTLEAVE_PENDING_SLOTS + 1];
     uint32_t i;
     for (i = 0; i <= RTLEAVE_PENDING_SLOTS; ++i) {
         const uint32_t entry = i < RTLEAVE_PENDING_SLOTS ? c->leave.pending[i] : c->leave.newest;
         const uint32_t block = RTLEAVE_PENDING_BLOCK(entry);
-        words[i] = block != 0 ? *(const volatile uint32_t*)(uintptr_t)(block | 0x40000000u) : 0;
+        words[i] = block != 0 ? pad_read_memory_word(block) : 0;
     }
     rtleave_pending(&c->leave, t, words);
 }

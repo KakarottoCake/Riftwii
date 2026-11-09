@@ -2611,38 +2611,8 @@ static bool HomebrewAppPackOn(const FrontendState& state)
 	return riftwii::wii::homebrew_app_stand_in(state.model.selections(), state.game_id, app, dropped);
 }
 
-static bool CursedGame(const FrontendState& state);
-static bool CursedEngineGame(const FrontendState& state);
-
-static std::string LaunchNoteTitle(const FrontendState& state)
-{
-	if (CursedGame(state)) return tr("This game is cursed");
-	if (CursedEngineGame(state)) return tr("This game may be cursed");
-	return tr("Before you play");
-}
-
 static const char* const kHomebrewAppWarning =
 	"CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.";
-
-// Cars 2 (SCY?4Q): testers saw it go black with the GameCube adapter in
-// game, and again with screenshots on; it seems to refuse any change to it.
-// Toy Story 3 (STS?4Q) and Disney Infinity (SQI?4Q) share its engine: not
-// seen failing yet, so their note says they may do the same.
-static bool GameIdIs(const FrontendState& state, const char* three)
-{
-	return state.game_id.size() >= 6 && state.game_id.compare(0, 3, three) == 0 &&
-	       state.game_id.compare(4, 2, "4Q") == 0;
-}
-
-static bool CursedGame(const FrontendState& state)
-{
-	return GameIdIs(state, "SCY");
-}
-
-static bool CursedEngineGame(const FrontendState& state)
-{
-	return GameIdIs(state, "STS") || GameIdIs(state, "SQI");
-}
 
 static bool FrontPortsReached(const FrontendState& state)
 {
@@ -2653,13 +2623,6 @@ static bool FrontPortsReached(const FrontendState& state)
 static std::string LaunchNote(const FrontendState& state)
 {
 	std::string note = state.launch_warning;
-	if (CursedGame(state)) {
-		if (!note.empty()) note += " ";
-		note += tr("Cars 2 is cursed: it goes to a black screen if RiftWii changes anything in it. Turn off the GameCube adapter (Settings), screenshots, cheats and mods for it. If it still won't boot, send a problem report.");
-	} else if (CursedEngineGame(state)) {
-		if (!note.empty()) note += " ";
-		note += tr("This game may be cursed: it runs on Cars 2's engine, which goes to a black screen if RiftWii changes anything in it. If it won't boot, turn off the GameCube adapter (Settings), screenshots, cheats and mods for it, and send a problem report.");
-	}
 	if (HomebrewAppPackOn(state)) {
 		if (!note.empty()) note += " ";
 		note += tr(kHomebrewAppWarning);
@@ -15308,10 +15271,10 @@ static int MenuHome(FrontendState& state)
 				// the CTGP warning off before it said what to do.
 				if (fromBanner) {
 					// Start on the banner screen: Play goes on with it.
-					if (ShowPopup(LaunchNoteTitle(state), LaunchNote(state), tr("Play"), tr("Not now")) == 0)
+					if (ShowPopup(tr("Before you play"), LaunchNote(state), tr("Play"), tr("Not now")) == 0)
 						startBtn.button.SetState(STATE::CLICKED);
 				} else {
-					ShowPopup(LaunchNoteTitle(state), LaunchNote(state) + " " + tr("Press Start again to play."), tr("OK"));
+					ShowPopup(tr("Before you play"), LaunchNote(state) + " " + tr("Press Start again to play."), tr("OK"));
 				}
 			} else if (!PickCodeModStart(state)) {
 				// B: back on the game page
