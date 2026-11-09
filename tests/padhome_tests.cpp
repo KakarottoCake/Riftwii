@@ -469,6 +469,27 @@ void TestFloatBits() {
 
 }  // namespace
 
+// The stand-in's raw status (KPADGetUnifiedWpadStatus), as Mario Kart Wii
+// reads a Classic Controller: no error, device 2, a Classic format, the
+// buttons big-endian; the rest at rest, whatever the buffer held before.
+static void TestWpadStatus() {
+    std::uint8_t entry[RTHOME_WPAD_STATUS_BYTES + 4];
+    for (std::uint8_t& b : entry) b = 0xAA;
+    rthome_wpad_status(entry, RTHOME_WR_HOME, RTHOME_CL_HOME | 0x0010u);
+    EXPECT_EQ(entry[0], 0x80u);
+    EXPECT_EQ(entry[1], 0x00u);
+    EXPECT_EQ(entry[40], 2u);  // a Classic Controller
+    EXPECT_EQ(entry[41], 0u);  // no error
+    EXPECT_EQ(entry[42], 0x08u);
+    EXPECT_EQ(entry[43], 0x10u);
+    EXPECT_TRUE(entry[54] >= 6u && entry[54] <= 8u);  // a Classic format
+    for (unsigned i = 2; i < 40; ++i) EXPECT_EQ(entry[i], 0u);
+    for (unsigned i = 44; i < 54; ++i) EXPECT_EQ(entry[i], 0u);
+    EXPECT_EQ(entry[55], 0u);
+    // Only its 56 bytes.
+    for (unsigned i = RTHOME_WPAD_STATUS_BYTES; i < sizeof(entry); ++i) EXPECT_EQ(entry[i], 0xAAu);
+}
+
 int main() {
     TestComboStartsStandIn();
     TestLettingGoStartsOver();
@@ -486,6 +507,7 @@ int main() {
     TestKeep();
     TestReadsPads();
     TestFloatBits();
+    TestWpadStatus();
     if (g_failures == 0) std::cout << "padhome: all passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }

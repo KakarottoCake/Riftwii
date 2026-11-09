@@ -110,7 +110,10 @@ int main(int argc, char** argv) {
                     "HBMCalc 0x%08x, HBMGetSelectBtnNum 0x%08x%s\n",
                     kpad.address, kpad.status_bytes, kpad.takes_error ? ", takes the error's address" : "", probe,
                     small_data, hbm.init, hbm.calc, hbm.select,
-                    kpad.address && probe && hbm.calc ? "" : "  (HOME Menu by a GameCube controller: off)");
+                    kpad.address && probe && hbm.calc && hbm.select ? "" : "  (HOME Menu by a GameCube controller: off)");
+        const riftwii::KpadUnified unified = riftwii::find_kpad_unified(text);
+        if (unified.address != 0)
+            std::printf("  KPADGetUnifiedWpadStatus 0x%08x (status %u bytes)\n", unified.address, unified.status_bytes);
     }
     return failures == 0 ? 0 : 1;
 }

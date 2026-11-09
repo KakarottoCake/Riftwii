@@ -163,12 +163,21 @@ void rthome_remote(const struct rthome* h, uint32_t* hold, uint32_t* trig, uint3
  * once. A menu that opened keeps it on and starts the count again; a game
  * that never read the stand-in can't take one (it reads only the channels
  * it knows); one that read it but opened no menu RTHOME_REFUSALS times in a
- * row looks for HOME somewhere a stand-in can't reach (Mario Kart Wii: only
- * its signed-in players' controllers, 27 Oct). Two, not one: Super Smash
+ * row looks for HOME somewhere a stand-in can't reach. Two, not one: Super Smash
  * Bros. Brawl and Tatsunoko vs. Capcom refuse once during their intros. A
  * stand-in that never came (every channel has a controller) proves nothing. */
 #define RTHOME_REFUSALS 2u
 int rthome_keep(struct rthome* h, int read_by_game);
+
+/* A raw Wii Remote status with a Classic Controller, as the SDK's
+ * KPADGetUnifiedWpadStatus copies them (WPADCLStatus, 56 bytes in the 2008
+ * SDK), for the stand-in: the Remote's buttons, a Classic Controller (device
+ * 2), no error, the Classic's buttons, sticks and triggers at rest, and a
+ * Classic data format. Mario Kart Wii takes a Classic Controller's buttons
+ * from there, not from the KPAD read, and only with no error and a Classic
+ * format (6 to 8; 9 Nov, Dolphin). Big-endian, written byte by byte. */
+#define RTHOME_WPAD_STATUS_BYTES 56u
+void rthome_wpad_status(uint8_t* entry, uint32_t remote_hold, uint32_t classic_hold);
 
 /* An IEEE single's bits for `numerator` / RTHOME_AXIS_FULL (from -FULL to
  * FULL), made with integers only: the blob has no floating-point unit use

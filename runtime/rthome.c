@@ -273,6 +273,27 @@ int rthome_keep(struct rthome* h, int read_by_game) {
     return h->refusals < RTHOME_REFUSALS;
 }
 
+/* WPADCLStatus: the Remote's buttons at 0, its device type at 40 and error
+ * at 41, the Classic's buttons at 42, its sticks (four halfwords) and
+ * triggers (two bytes) after, then the data format at 54. */
+#define RTHOME_WPAD_BUTTONS 0u
+#define RTHOME_WPAD_DEV 40u
+#define RTHOME_WPAD_CL_BUTTONS 42u
+#define RTHOME_WPAD_FORMAT 54u
+#define RTHOME_WPAD_DEV_CLASSIC 2u
+#define RTHOME_WPAD_FORMAT_CLASSIC 7u  /* with acceleration, as KPAD reports the stand-in (PAD_FORMAT_CLASSIC) */
+
+void rthome_wpad_status(uint8_t* entry, uint32_t remote_hold, uint32_t classic_hold) {
+    uint32_t i;
+    for (i = 0; i < RTHOME_WPAD_STATUS_BYTES; ++i) entry[i] = 0;  /* no error, sticks and triggers at rest */
+    entry[RTHOME_WPAD_BUTTONS] = (uint8_t)(remote_hold >> 8);
+    entry[RTHOME_WPAD_BUTTONS + 1] = (uint8_t)remote_hold;
+    entry[RTHOME_WPAD_DEV] = RTHOME_WPAD_DEV_CLASSIC;
+    entry[RTHOME_WPAD_CL_BUTTONS] = (uint8_t)(classic_hold >> 8);
+    entry[RTHOME_WPAD_CL_BUTTONS + 1] = (uint8_t)classic_hold;
+    entry[RTHOME_WPAD_FORMAT] = RTHOME_WPAD_FORMAT_CLASSIC;
+}
+
 uint32_t rthome_float_bits(int32_t numerator) {
     uint32_t sign = 0, magnitude, top = 0;
     if (numerator == 0) return 0;

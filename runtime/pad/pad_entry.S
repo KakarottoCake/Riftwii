@@ -16,6 +16,7 @@ _pad_blob_start:
     .long pad_hook_probe - _pad_blob_start, pad_replay_probe - _pad_blob_start, pad_continue_probe - _pad_blob_start
     .long pad_hook_menu - _pad_blob_start, pad_replay_menu - _pad_blob_start, pad_continue_menu - _pad_blob_start
     .long pad_hook_select - _pad_blob_start, pad_replay_select - _pad_blob_start, pad_continue_select - _pad_blob_start
+    .long pad_hook_unified - _pad_blob_start, pad_replay_unified - _pad_blob_start, pad_continue_unified - _pad_blob_start
 
 /* u32 PADRead(PADStatus status[4]): the original first, through the
  * replay slot (which returns here), then pad_on_read(ctx, status, its
@@ -250,6 +251,30 @@ pad_hook_select:
     addi 1, 1, 0x20
     blr
 
+/* void KPADGetUnifiedWpadStatus(chan, status[], count): the original
+ * first, then pad_on_unified(ctx, chan, status, count) puts the
+ * stand-in's raw status in. Frame: 8 chan, 12 status, 16 count. */
+    .globl pad_hook_unified
+pad_hook_unified:
+    stwu 1, -0x20(1)
+    mflr 0
+    stw 0, 0x24(1)
+    stw 3, 0x08(1)
+    stw 4, 0x0C(1)
+    stw 5, 0x10(1)
+    bl pad_replay_unified
+    lwz 4, 0x08(1)
+    lwz 5, 0x0C(1)
+    lwz 6, 0x10(1)
+    bl 11f
+11: mflr 3
+    addi 3, 3, pad_context_data - 11b
+    bl pad_on_unified
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    blr
+
 /* Loader-filled: the hooked function's first word (and nops), then the
  * jump to its second word through r12. */
     .macro PAD_REPLAY name
@@ -276,6 +301,7 @@ pad_continue_\name:
     PAD_REPLAY probe
     PAD_REPLAY menu
     PAD_REPLAY select
+    PAD_REPLAY unified
 
     .balign 32
     .globl pad_context_data

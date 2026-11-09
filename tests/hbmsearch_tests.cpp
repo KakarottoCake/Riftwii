@@ -271,6 +271,56 @@ void TestNoBanner() {
     EXPECT_EQ(found.calc, 0u);
 }
 
+// KPADGetUnifiedWpadStatus as Mario Kart Wii (RMCE01) has it at
+// 0x8019808c, word for word: 56-byte statuses, 1,336-byte KPAD blocks.
+const std::uint32_t kMkwUnified[] = {
+    0x9421FFD0u, 0x7C0802A6u, 0x90010034u, 0x39610030u, 0x4BE8899Du, 0x1C030538u,
+    0x3C608034u, 0x28050010u, 0x38631460u, 0x7C992378u, 0x7CBA2B78u, 0x7FA30214u,
+    0x40810008u, 0x3B400010u, 0x4800E449u, 0x8B7D010Eu, 0x7C7C1B78u, 0x3BE0FFFCu,
+    0x4800004Cu, 0x2C1B0000u, 0x3BC0000Fu, 0x41820008u, 0x3BDBFFFFu, 0x7FDBF378u,
+    0x480274C1u, 0x2C030003u, 0x41820010u, 0x1C1E0038u, 0x7C7D0214u, 0x9BE30139u,
+    0x1C1E0038u, 0x7F23CB78u, 0x38A00038u, 0x7C9D0214u, 0x38840110u, 0x4BE6DE1Du,
+    0x3B390038u, 0x2C1A0000u, 0x3B5AFFFFu, 0x4082FFB0u, 0x7F83E378u, 0x4800E405u,
+    0x39610030u, 0x4BE8894Du, 0x80010034u, 0x7C0803A6u, 0x38210030u, 0x4E800020u,
+};
+
+// A function that also limits a count to 16 (`cmplwi r5,16`) but indexes
+// no KPAD block and copies nothing: not taken.
+void put_count_limiter(Section& t) {
+    t.put(stwu_r1(0x20));
+    t.put(kMflrR0);
+    t.put(cmplwi(5, 16));
+    t.put(li(5, 16));
+    t.put(mulli(0, 4, 56));
+    t.put(kBlr);
+}
+
+void TestKpadUnified() {
+    {
+        Section t{0x8019808c, {}};
+        for (std::uint32_t w : kMkwUnified) t.put(w);
+        put_count_limiter(t);
+        const riftwii::KpadUnified u = riftwii::find_kpad_unified({t.range()});
+        EXPECT_EQ(u.address, 0x8019808cu);
+        EXPECT_EQ(u.status_bytes, 56u);
+    }
+    {
+        // Not there (most games): nothing.
+        Section t{0x80100000, {}};
+        put_count_limiter(t);
+        const riftwii::KpadUnified u = riftwii::find_kpad_unified({t.range()});
+        EXPECT_EQ(u.address, 0u);
+        EXPECT_EQ(u.status_bytes, 0u);
+    }
+    {
+        // Two that fit: neither is taken.
+        Section t{0x80100000, {}};
+        for (std::uint32_t w : kMkwUnified) t.put(w);
+        for (std::uint32_t w : kMkwUnified) t.put(w);
+        EXPECT_EQ(riftwii::find_kpad_unified({t.range()}).address, 0u);
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -283,6 +333,7 @@ int main() {
     TestCalcAnswers(true);
     TestCalcAnswers(false);
     TestNoBanner();
+    TestKpadUnified();
     if (g_failures == 0) std::cout << "hbmsearch: all passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }

@@ -251,6 +251,46 @@ std::uint32_t find_wpad_probe(const std::vector<CodeRange>& text) {
     return matches == 1 ? found : 0;
 }
 
+KpadUnified find_kpad_unified(const std::vector<CodeRange>& text) {
+    constexpr std::uint32_t kCmplwiR5By16 = 0x28050010u;
+    KpadUnified found;
+    unsigned matches = 0;
+    std::vector<std::uint32_t> checked;
+    for (const CodeRange& r : text) {
+        if (r.bytes == nullptr) continue;
+        for (std::size_t k = 0; k * 4 + 4 <= r.size; ++k) {
+            if (be32(r.bytes + 4 * k) != kCmplwiR5By16) continue;
+            const std::uint32_t start = function_start(text, r.address + static_cast<std::uint32_t>(4 * k), 24);
+            if (start == 0 || std::find(checked.begin(), checked.end(), start) != checked.end()) continue;
+            checked.push_back(start);
+            bool channel_block = false, limit = false;
+            std::int32_t multiples[8] = {}, copies[8] = {};
+            unsigned n_multiples = 0, n_copies = 0;
+            each_word(text, start, 80, [&](std::uint32_t, std::uint32_t w) {
+                if (opcode(w) == 7) {  // mulli
+                    if (reg_a(w) == 3 && simm(w) >= 256) channel_block = true;
+                    else if (n_multiples < 8) multiples[n_multiples++] = simm(w);
+                }
+                if (opcode(w) == 14 && reg_a(w) == 0) {  // li
+                    if (simm(w) == 16) limit = true;
+                    if (reg_d(w) == 5 && n_copies < 8) copies[n_copies++] = simm(w);
+                }
+                return true;
+            });
+            std::uint32_t size = 0;
+            for (unsigned m = 0; m < n_multiples; ++m)
+                for (unsigned c = 0; c < n_copies; ++c)
+                    if (multiples[m] == copies[c] && multiples[m] >= 40 && multiples[m] <= 96)
+                        size = static_cast<std::uint32_t>(multiples[m]);
+            if (!channel_block || !limit || size == 0) continue;
+            found.address = start;
+            found.status_bytes = size;
+            ++matches;
+        }
+    }
+    return matches == 1 ? found : KpadUnified{};
+}
+
 std::uint32_t find_small_data_base(const std::vector<CodeRange>& sections, std::uint32_t entry) {
     std::uint32_t high = 0;
     bool have_high = false;

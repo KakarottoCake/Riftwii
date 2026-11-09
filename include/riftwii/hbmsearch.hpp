@@ -46,6 +46,20 @@ KpadRead find_kpad_read(const std::vector<CodeRange>& text);
 // move. Its address, or 0 when there is not exactly one.
 std::uint32_t find_wpad_probe(const std::vector<CodeRange>& text);
 
+// KPADGetUnifiedWpadStatus(chan, status[], count): the SDK's copy of a
+// channel's newest raw Wii Remote statuses. Mario Kart Wii reads a Classic
+// Controller's buttons from it, not from the KPAD read (9 Nov), so the
+// stand-in fills it too where it is found; most games leave it out (none
+// of the other 14 programs on hand has it). The one function that limits
+// its count to 16 (`cmplwi r5,16`, `li rX,16`), indexes the channel's KPAD
+// block (`mulli rD,r3,K`, K at least 256) and copies E-byte statuses
+// (`mulli rD,rA,E` and `li r5,E` for the copy, E from 40 to 96).
+struct KpadUnified {
+    std::uint32_t address = 0;       // the function's `stwu`, 0: not exactly one
+    std::uint32_t status_bytes = 0;  // E: 56 in Mario Kart Wii
+};
+KpadUnified find_kpad_unified(const std::vector<CodeRange>& text);
+
 // The small-data base the game's start-up code loads into r13 (`lis
 // r13,hi` then `ori` or `addi r13,r13,lo`), within its first 256 words
 // from `entry`; 0 when not found.

@@ -60,9 +60,10 @@ namespace riftwii::wii {
 void log_pad_diagnostics(std::uint32_t code_base, std::uint32_t print_entry);
 
 // The blob's hooks: PADRead, PADControlMotor, the IPC submit routine,
-// OSSleepThread, OSSuspendThread, the KPAD read, WPADProbe, HBMCalc and
-// HBMGetSelectBtnNum (a code build's veneers, one each).
-constexpr std::uint32_t kPadHookSites = 9;
+// OSSleepThread, OSSuspendThread, the KPAD read, WPADProbe, HBMCalc,
+// HBMGetSelectBtnNum and KPADGetUnifiedWpadStatus (a code build's veneers,
+// one each).
+constexpr std::uint32_t kPadHookSites = 10;
 
 struct PadHook {
     bool active = false;             // planned; install_pad_hook hooks it
@@ -109,6 +110,8 @@ struct PadHook {
     std::uint32_t wpad_probe = 0;         // WPADProbe
     std::uint32_t hbm_calc = 0;           // HBMCalc
     std::uint32_t hbm_select = 0;         // HBMGetSelectBtnNum, which tells the Operations Guide from Close (required)
+    std::uint32_t kpad_unified = 0;       // KPADGetUnifiedWpadStatus (optional: Mario Kart Wii reads a Classic there)
+    std::uint32_t kpad_unified_bytes = 0; // its statuses' size
 };
 
 // Opens /dev/usb/hid on RiftWii's own handle and tells v4 from v5.

@@ -679,6 +679,15 @@ void find_home_menu(const DolHeader& dol, const std::vector<CodeRange>& text, Pa
          "WPADProbe at 0x%08x, HBMCalc at 0x%08x, HBMGetSelectBtnNum at 0x%08x\n",
          kpad.address, kpad.status_bytes, kpad.takes_error ? ", with the error's address" : "", probe, hbm.calc,
          hbm.select);
+    // Optional: where the game has it (Mario Kart Wii), it reads a Classic
+    // Controller's buttons from there, and the stand-in fills it too.
+    const KpadUnified unified = find_kpad_unified(text);
+    out.kpad_unified = unified.address;
+    out.kpad_unified_bytes = unified.status_bytes;
+    if (unified.address != 0)
+        logf("GameCube adapter: KPADGetUnifiedWpadStatus at 0x%08x (%u-byte statuses): the stand-in's raw status "
+             "goes there too\n",
+             unified.address, unified.status_bytes);
 }
 
 }  // namespace
@@ -1095,13 +1104,18 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
                               {hook.wpad_probe, h.hook_probe, h.replay_probe, h.continue_probe, "WPADProbe"},
                               {hook.hbm_calc, h.hook_menu, h.replay_menu, h.continue_menu, "HBMCalc"},
                               {hook.hbm_select, h.hook_select, h.replay_select, h.continue_select,
-                               "HBMGetSelectBtnNum"}};
+                               "HBMGetSelectBtnNum"},
+                              {hook.kpad_unified, h.hook_unified, h.replay_unified, h.continue_unified,
+                               "KPADGetUnifiedWpadStatus"}};
     Site& read_site = sites[0];
     Site& motor_site = sites[1];
     Site& submit_site = sites[2];
     Site& sleep_site = sites[3];
     Site& suspend_site = sites[4];
     Site* const home_sites[4] = {&sites[5], &sites[6], &sites[7], &sites[8]};
+    // Optional for the HOME Menu (a game without it reads the KPAD status
+    // only): missing or not hooked, the rest works as before.
+    Site& unified_site = sites[9];
     const auto is_home_site = [&](const Site& s) {
         for (const Site* home_site : home_sites)
             if (&s == home_site) return true;
@@ -1147,6 +1161,10 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
                 logf("GameCube adapter: PADControlMotor cannot be hooked (%s); no rumble\n", reason.c_str());
             } else if (is_home_site(s)) {
                 home_off(s.name, "cannot be hooked (" + reason + ")");
+            } else if (&s == &unified_site) {
+                logf("GameCube adapter: KPADGetUnifiedWpadStatus cannot be hooked (%s); the stand-in's raw status "
+                     "isn't given\n",
+                     reason.c_str());
             } else if (&s == &suspend_site) {
                 logf("GameCube adapter: OSSuspendThread cannot be hooked (%s); the way back leaves only from sleeps\n",
                      reason.c_str());
@@ -1163,9 +1181,11 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
     }
     if (!home) {
         for (Site* s : home_sites) s->function = 0;
+        unified_site.function = 0;
     }
     sync_code(hook.code_base, hook.code_bytes);
     unsigned veneers = 0;
+    bool unified = false;
     for (const Site& s : sites) {
         if (s.function == 0) continue;
         std::uint32_t target = hook.code_base + s.hook;
@@ -1190,12 +1210,16 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
             // One of the three may already be in: harmless alone, as each
             // returns at once while home_on is 0.
             if (is_home_site(s)) home_off(s.name, "is out of a branch's reach");
+            if (&s == &unified_site)
+                logf("GameCube adapter: KPADGetUnifiedWpadStatus is out of a branch's reach; the stand-in's raw "
+                     "status isn't given\n");
             if (&s == &suspend_site)
                 logf("GameCube adapter: OSSuspendThread is out of a branch's reach; the way back leaves only from sleeps\n");
             continue;
         }
         store_words(s.function, &branch, 1);
         sync_code(s.function & ~31u, 32);
+        if (&s == &unified_site) unified = true;
     }
     // The way back's words in the context, last: return_to_menu, which
     // turns it on, only once both its hooks are in.
@@ -1210,6 +1234,7 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
     ctx->kpad_status_bytes = hook.kpad_status_bytes;
     ctx->kpad_takes_error = hook.kpad_takes_error ? 1u : 0u;
     ctx->pad_read = hook.read;
+    ctx->kpad_unified_bytes = unified ? hook.kpad_unified_bytes : 0u;
     ctx->home.hold = kLeaveHoldMs * ctx->ticks_per_ms;
     ctx->home.press = kHomePressMs * ctx->ticks_per_ms;
     ctx->home.wait = kHomeWaitMs * ctx->ticks_per_ms;

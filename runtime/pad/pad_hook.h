@@ -90,6 +90,9 @@ struct rt_pad_header {
     uint32_t hook_select;      /* HBMGetSelectBtnNum's (which button the menu ends on) */
     uint32_t replay_select;
     uint32_t continue_select;
+    uint32_t hook_unified;     /* KPADGetUnifiedWpadStatus's (the stand-in's raw status, where the game has it) */
+    uint32_t replay_unified;
+    uint32_t continue_unified;
 };
 
 struct rt_pad_context {
@@ -154,6 +157,10 @@ struct rt_pad_context {
     uint32_t home_judged;      /* this stand-in's end has been looked at (pad_home_check) */
     uint32_t last_pad_read;    /* when PADRead last ran (low bit set) */
     uint8_t pad_scratch[48];   /* PADStatus[4] for that read of our own */
+    /* KPADGetUnifiedWpadStatus's statuses' size (loader-filled), 0: not
+     * hooked. Mario Kart Wii takes a Classic Controller's buttons from
+     * there, not from the KPAD read (9 Nov). */
+    uint32_t kpad_unified_bytes;
 };
 
 #ifdef RT_TARGET_PPC

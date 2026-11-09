@@ -21,6 +21,7 @@ int32_t pad_on_kpad(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
 int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int32_t result);
 void pad_on_menu(struct rt_pad_context* c);
 int32_t pad_on_select(struct rt_pad_context* c, int32_t result);
+void pad_on_unified(struct rt_pad_context* c, int32_t chan, uint8_t* status, int32_t count);
 
 /* External interrupts off around the driver: PADRead runs on game
  * threads (some from the SI sampling callback), the replies in the IPC
@@ -557,6 +558,31 @@ int32_t pad_on_select(struct rt_pad_context* c, int32_t result) {
     if (c->home_on) rthome_selected(&c->home, result);
     interrupts_restore(msr);
     return result;
+}
+
+/* KPADGetUnifiedWpadStatus: on the stand-in's channel, every status
+ * copied is the stand-in's raw one (rthome_wpad_status), with the same
+ * buttons its KPAD status has. The SDK's ring of raw statuses has nothing
+ * for a channel no real Remote is on, and Mario Kart Wii reads a Classic
+ * Controller's buttons only from there, so its HOME never got through
+ * (9 Nov). The SDK copies at most 16. */
+void pad_on_unified(struct rt_pad_context* c, int32_t chan, uint8_t* status, int32_t count) {
+    uint32_t msr, t, stand_in, hold, trig, release, remote_hold, remote_trig, remote_release;
+    int32_t axes[6], pointer[2], i;
+    if (!c->home_on || c->kpad_unified_bytes < RTHOME_WPAD_STATUS_BYTES || count <= 0) return;
+    if (count > 16) count = 16;
+    msr = interrupts_off();
+    t = now();
+    stand_in = rthome_stand_in(&c->home, t);
+    if (stand_in == RTHOME_NO_CHANNEL || (uint32_t)chan != stand_in || !pad_in_ram(status) ||
+        !pad_in_ram(status + (uint32_t)count * c->kpad_unified_bytes - 1)) {
+        interrupts_restore(msr);
+        return;
+    }
+    rthome_classic(&c->home, t, &hold, &trig, &release, axes);
+    rthome_remote(&c->home, &remote_hold, &remote_trig, &remote_release, pointer);
+    for (i = 0; i < count; ++i) rthome_wpad_status(status + (uint32_t)i * c->kpad_unified_bytes, remote_hold, hold);
+    interrupts_restore(msr);
 }
 
 uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) {
