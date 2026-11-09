@@ -335,7 +335,7 @@ reader helpers stay beside their source.
 | `discdump` | Copying a disc to a `.wbfs` file: which sectors every partition uses, and the trimmed WBFS layout the copy is written in |
 | `gcdiscs` | Validating a two-disc GameCube game's partner image and the file-table room both need |
 | `gctgc` | TGC images inside GameCube bonus discs: bounded headers, executable sections and file tables |
-| `gcstorage` | The GameCube blob's SD and USB requests (`runtime/gc/gc_storage.h`) against the code before they shared one path (`tests/gc_storage_legacy.h`): the same flushes, IPC blocks, vectors and replies |
+| `gcstorage` | The GameCube blob's SD and USB requests through the shared `gc_ios_call` (`runtime/gc/gc_storage.h`) against the separate per-call paths it replaced (`tests/gc_storage_legacy.h`, already reading the IPC buffers through `gc_cold`): the same flushes, IPC blocks, vectors and replies, including waits that time out, end by `io_reply` or wait on under `ipc_no_timeout` |
 | `gcprograms` | Programs a GameCube game loads itself (`src/patching/gcprograms.cpp`, `runtime/gc/gc_programs.h`): ELF programs on the disc, where their words come from on the disc, the patches the blob puts into reads, a program's start taken by the blob, and RiftWii's words a program switch sets |
 
 ### `src/fs/`: file systems and game images: FAT32, NTFS, WBFS, RVZ

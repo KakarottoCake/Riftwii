@@ -702,9 +702,21 @@ struct gc_rt_cold {
     uint32_t crash_chain[4];  /* the saved LRs up the stack: who called whom */
     uint32_t crash_word;
 };
+/* IOS reads and writes the four request buffers by DMA, whole 32-byte cache
+ * lines each: every one starts on a line, and the struct is whole lines, so
+ * nothing after it shares the last one (the loader places it 32-aligned). */
+#define GC_COLD_LINE(member) (__builtin_offsetof(struct gc_rt_cold, member) % 32u == 0)
+GC_FLAG_CHECK(gc_cold_ipc_line, GC_COLD_LINE(ipc), "gc_rt_cold.ipc must start a cache line");
+GC_FLAG_CHECK(gc_cold_vec_line, GC_COLD_LINE(vec), "gc_rt_cold.vec must start a cache line");
+GC_FLAG_CHECK(gc_cold_request_line, GC_COLD_LINE(request), "gc_rt_cold.request must start a cache line");
+GC_FLAG_CHECK(gc_cold_response_line, GC_COLD_LINE(response), "gc_rt_cold.response must start a cache line");
+GC_FLAG_CHECK(gc_cold_whole_lines, sizeof(struct gc_rt_cold) % 32u == 0, "gc_rt_cold must be whole cache lines");
 
 /* `cold` is a 32-bit address, as on the Wii; a host test, whose own
- * struct sits above 4 GB, defines GC_HOST_COLD and gives its own. */
+ * struct sits above 4 GB, defines GC_HOST_COLD and gives its own.
+ * It is never 0 inside the game: the loader always places the block and
+ * refuses to start the game unless it is set and 32-byte aligned
+ * (gcnative.cpp), so the blob reads through it with no check. */
 #ifndef GC_HOST_COLD
 static inline struct gc_rt_cold* gc_cold(const struct gc_rt_context* ctx) {
     return (struct gc_rt_cold*)(uintptr_t)ctx->cold;

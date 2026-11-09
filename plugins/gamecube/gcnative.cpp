@@ -2729,6 +2729,14 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     }
     auto* ctx = reinterpret_cast<gc_rt_context*>(blob_addr + h.context_offset);
     ctx->io_stack = io_stack_addr;
+    // The blob reads its cold state through ctx->cold with no check (gc_rt.h's
+    // gc_cold): it must be set, and 32-byte aligned for IOS's buffers in it.
+    if (cold_addr == 0 || (cold_addr & 31u) != 0) {
+        logf("GameCube: the blob's MEM2 state would be at 0x%08x, not 32-byte aligned; not started\n",
+             static_cast<unsigned>(cold_addr));
+        error = "the GameCube blob's MEM2 state is not 32-byte aligned";
+        return false;
+    }
     ctx->cold = cold_addr;
     ctx->io_buffer = io_buffer_addr;
     fill_gc_runs(static_cast<gc_rt_run*>(staged(runs_addr)), placed, fst_copy_addr != 0 ? fst_copy_addr : fst_addr);

@@ -1,9 +1,14 @@
 /* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* The GameCube blob's storage requests as they were before they shared
- * one request path (runtime/gc/gc_storage.h), for tests/gcstorage_tests.cpp
- * to compare the two. Only its time-base reads go through gc_timebase(),
- * as the new code's do, so the host can build it. */
+/* The GameCube blob's storage requests as separate per-call code paths
+ * (one polled ioctlv, one polled ioctl, the SD and USB builders each with
+ * its own request block), for tests/gcstorage_tests.cpp to compare with the
+ * shared gc_ios_call of runtime/gc/gc_storage.h. This is gc_rt.c's code
+ * as it was in the commit just before that change (abd92674), where the
+ * IPC buffers had already moved to struct gc_rt_cold (read through
+ * gc_cold); it is not the code from before the blob diet. The one edit:
+ * its time-base reads (mftb) go through gc_timebase(), as the new code's
+ * do, so the host can build it. */
 /* One ioctlv to IOS and its reply, by polling (the Wii Remotes' reads may
  * be in flight meanwhile; their replies go to gc_bt.c). Returns IOS's
  * result, or -1000 when IOS does not answer. */

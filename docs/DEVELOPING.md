@@ -182,8 +182,12 @@ Two scripts on the card drive a run without hands on a controller:
   `py -3.13 tools/gc_hooks_emutest.py --devkitppc C:/devkitPro/devkitPPC`
   runs every hook trampoline of `runtime/gc/gc_entry.S` and of its old
   copy in `tests/fixtures/gc-legacy/` with the same game registers
-  (Unicorn): both must make the same calls and leave the same registers
-  and stack.
+  (Unicorn): both must make the same calls with the same arguments and
+  leave the same stack and the same registers, except the scratch
+  registers the new trampolines use: r12 for the EXI hooks, r11, r12 and
+  CTR for the DVDLow and load hooks (all volatile in the PowerPC EABI, so
+  no caller relies on them). It is a manual check: it needs devkitPPC and
+  `pip install unicorn`, and neither ctest nor CI runs it.
 
   `py -3.13 tools/gc_io_emutest.py --devkitppc C:/devkitPro/devkitPPC`
   checks the built PowerPC worker with Unicorn (`pip install unicorn`)
