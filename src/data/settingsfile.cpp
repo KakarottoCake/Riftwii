@@ -190,6 +190,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "own" || value == "shared" || value == "real" || value == "real_b") gc_card = value;
         } else if (key == "gc_backups") {
             if (value == "on" || value == "off") gc_backups = value;
+        } else if (key == "leave_buttons") {
+            if (value == "on" || value == "off") leave_buttons = value;
         } else if (key == "nintendont_saves") {
             if (value == "ask" || value == "asked") nintendont_saves = value;
         } else if (key == "usb_gecko_log") {
@@ -277,6 +279,7 @@ std::string LoaderSettings::serialize() const {
     s += "emunand_keeps = " + emunand_keeps + "\n";
     s += "gc_card = " + gc_card + "\n";
     s += "gc_backups = " + gc_backups + "\n";
+    s += "leave_buttons = " + leave_buttons + "\n";
     s += "nintendont_saves = " + nintendont_saves + "\n";
     s += "usb_gecko_log = " + usb_gecko_log + "\n";
     s += "wiird_debugger = " + wiird_debugger + "\n";

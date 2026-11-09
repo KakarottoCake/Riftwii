@@ -4236,6 +4236,21 @@ msgstr "Pour un jeu qui ne regarde que le port A : la carte réelle du port B de
 msgid "Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A."
 msgstr "Le port A n'a pas de carte mémoire lisible. Pour une carte dans le port B, choisissez Carte réelle du port B, comme port A."
 
+msgid "Leaving a game"
+msgstr "Quitter un jeu"
+
+msgid "HOME or buttons"
+msgstr "HOME ou boutons"
+
+msgid "HOME only"
+msgstr "HOME seulement"
+
+msgid "In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game's own button combos can't leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console's Reset button then gets back."
+msgstr "Dans les jeux GameCube, maintenez HOME deux secondes pour revenir à RiftWii (HOME et - sur une Wiimote seule). HOME ou boutons : maintenir L, R, Z et Start sur une manette GameCube quitte aussi, et dans les jeux Wii avec l'adaptateur. HOME seulement désactive les boutons, pour que les combinaisons d'un jeu ne le quittent pas par accident. Sans Wiimote ni Wii U Pro Controller, seul le bouton Reset de la console permet de revenir."
+
+msgid "L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote or a Wii U Pro Controller for two seconds to leave the game."
+msgstr "L, R, Z et Start sont désactivés (Paramètres > Jeux > Quitter un jeu) : maintenez HOME sur une Wiimote ou une manette Wii U Pro deux secondes pour quitter le jeu."
+
 msgid "Calibrate a GameCube controller"
 msgstr "Calibrer une manette GameCube"
 

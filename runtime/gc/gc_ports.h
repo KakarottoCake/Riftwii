@@ -30,8 +30,30 @@
 
 #define GC_PORTS 4u
 #define GC_PORT_NONE 0xFFu
+/* The way back's button combo on a GameCube controller (PADStatus's
+ * button bits): Start, L, R and Z, all four held. */
+#define GC_PORTS_LEAVE_BUTTONS 0x1070u
+#define GC_PORTS_STATUS_BYTES 12u  /* one port's PADStatus */
+
 /* One remote slot per port: a slot's own port is its number. */
 typedef char gc_ports_one_slot_each[(GC_BT_REMOTES == GC_PORTS) ? 1 : -1];
+
+/* Whether a port the game reads without an error holds the way back's
+ * combo, in the four PADStatus records as PADRead filled them (the
+ * adapter's and the remotes' ports included). With `home_only`
+ * (Settings > Leaving a game: HOME only) the combo never counts: only
+ * HOME, which gc_bt.c reads on its own, leaves. */
+static inline int gc_ports_leave_held(const uint8_t* status, int home_only) {
+    uint32_t port;
+    if (home_only) return 0;
+    for (port = 0; port < GC_PORTS; ++port) {
+        const uint8_t* pad = status + GC_PORTS_STATUS_BYTES * port;
+        const uint32_t buttons = ((uint32_t)pad[0] << 8) | pad[1];
+        const int no_error = pad[10] == 0;
+        if (no_error && (buttons & GC_PORTS_LEAVE_BUTTONS) == GC_PORTS_LEAVE_BUTTONS) return 1;
+    }
+    return 0;
+}
 
 /* Controllers currently identified by the SDK's four SI type words.
  * Wireless flags do not change the controller class; errors and BUSY do.

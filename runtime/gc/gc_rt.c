@@ -2016,12 +2016,12 @@ static void gc_leave(struct gc_rt_context* ctx) {
 /* HOME on a Wii Remote with an extension or on a Classic Controller (HOME
  * and - on a Wii Remote alone, whose HOME is the game's Y), or L, R, Z and
  * Start together on a GameCube controller (the pads as the game reads
- * them), held for leave_hold ticks; checked at every pad read. Not while
- * storage is preparing buffers, nor within half a second of the game's last
- * memory card access (a save may be under way): the next read tries
- * again. */
+ * them; not with GC_FLAG_HOME_ONLY), held for leave_hold ticks; checked
+ * at every pad read. Not while storage is preparing buffers, nor within
+ * half a second of the game's last memory card access (a save may be
+ * under way): the next read tries again. */
 #define GC_CARD_QUIET_TICKS 30375000u  /* half a second of the timebase */
-#define GC_LEAVE_PAD 0x1070u  /* Start, L, R, Z */
+#define GC_LEAVE_PAD GC_PORTS_LEAVE_BUTTONS  /* Start, L, R, Z */
 /* Since when the memory card has had no access (leave_card_quiet), noted
  * while something waits for it to be quiet. */
 static void gc_card_note(struct gc_rt_context* ctx, uint32_t now) {
@@ -2036,15 +2036,11 @@ static int gc_card_quiet(const struct gc_rt_context* ctx, uint32_t now) {
     return ctx->card == 0 || now - ctx->leave_card_quiet >= GC_CARD_QUIET_TICKS;
 }
 static void gc_leave_check(struct gc_rt_context* ctx, const uint8_t* status) {
-    uint32_t port, now;
+    uint32_t now;
     int held = 0;
     if (ctx->leave_buf == 0 || ctx->leave_fd == 0xFFFFFFFFu) return;
     if (ctx->bt && gc_bt_home_held((const struct gc_bt*)(uintptr_t)ctx->bt)) held = 1;
-    for (port = 0; port < 4 && !held; ++port) {
-        const uint8_t* pad = status + 12 * port;
-        const uint32_t buttons = ((uint32_t)pad[0] << 8) | pad[1];
-        if (pad[10] == 0 && (buttons & GC_LEAVE_PAD) == GC_LEAVE_PAD) held = 1;
-    }
+    if (!held && gc_ports_leave_held(status, (ctx->flags & GC_FLAG_HOME_ONLY) != 0)) held = 1;
     if (!held) {
         ctx->leave_since = 0;
         return;

@@ -4236,6 +4236,21 @@ msgstr "슬롯 A만 찾는 게임용: 슬롯 B의 실제 카드가 슬롯 A가 �
 msgid "Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A."
 msgstr "슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B의 카드를 쓰려면 \"슬롯 B의 실제 카드를 슬롯 A로\"를 고르세요."
 
+msgid "Leaving a game"
+msgstr "게임 나가기"
+
+msgid "HOME or buttons"
+msgstr "HOME 또는 버튼"
+
+msgid "HOME only"
+msgstr "HOME만"
+
+msgid "In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game's own button combos can't leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console's Reset button then gets back."
+msgstr "게임큐브 게임에서 HOME을 2초 동안 누르고 있으면 RiftWii로 돌아갑니다 (Wii 리모컨만 쓸 때는 HOME과 -). HOME 또는 버튼: 게임큐브 컨트롤러의 L, R, Z, Start를 누르고 있어도 나가며, 어댑터를 쓰는 Wii 게임에서도 마찬가지입니다. HOME만은 버튼을 꺼서 게임의 버튼 조합으로 실수로 나가지 않게 합니다. Wii 리모컨도 Wii U Pro 컨트롤러도 없으면 본체의 리셋 버튼으로만 돌아갈 수 있습니다."
+
+msgid "L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote or a Wii U Pro Controller for two seconds to leave the game."
+msgstr "L, R, Z, Start는 꺼져 있습니다 (설정 > 게임 > 게임 나가기). Wii 리모컨이나 Wii U Pro 컨트롤러의 HOME을 2초 동안 누르고 있으면 게임을 나갑니다."
+
 msgid "Calibrate a GameCube controller"
 msgstr "게임큐브 컨트롤러 보정"
 

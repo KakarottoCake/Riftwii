@@ -9697,8 +9697,12 @@ static std::vector<GcControlsCard> GcControlsCards()
 		cards.push_back({tr("Wii Remote, held sideways"),
 			{{"2", "A"}, {"1", "B"}, {"A", "X"}, {"HOME", "Y"}, {"B", "R"}, {"-", "Z"}, {"+", "Start"},
 				{"D-pad", tr("Stick")}}, tr("Hold HOME and - for two seconds to leave the game.")});
+	// Settings > Games > Leaving a game, HOME only: the buttons leave nothing.
+	const bool buttonsLeave = riftwii::wii::Settings().leave_buttons != "off";
 	if (pads.gamecube)
-		cards.push_back({tr("GameCube controller"), {}, tr("Hold L, R, Z and Start for two seconds to leave the game.")});
+		cards.push_back({tr("GameCube controller"), {}, buttonsLeave
+			? std::string(tr("Hold L, R, Z and Start for two seconds to leave the game."))
+			: std::string(tr("L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote or a Wii U Pro Controller for two seconds to leave the game."))});
 	return cards;
 }
 
@@ -17073,7 +17077,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kUsbInput, kGcCard, kGcBackups, kDiscLight, kNintendontSaves, kParental, kSdGames, kIos, kNet, kResync, kWads, kDiscCopy,
+	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kUsbInput, kGcCard, kGcBackups, kLeaveButtons, kDiscLight, kNintendontSaves, kParental, kSdGames, kIos, kNet, kResync, kWads, kDiscCopy,
 		kMissingCovers, kRescan, kPartitionFailures, kUpdate, kReport, kTests, kGeckoLog, kWiirdDebugger, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -17127,6 +17131,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		option(tr("Online server"), ServerName(settings.wfc_server), settings.wfc_server != "off", kServer);
 		option(tr("Quitting a game"), settings.return_to == "menu" ? tr("Wii Menu") : tr("Back to RiftWii"),
 			settings.return_to != "menu", kReturnTo);
+		option(tr("Leaving a game"), settings.leave_buttons == "off" ? tr("HOME only") : tr("HOME or buttons"),
+			settings.leave_buttons == "off", kLeaveButtons);
 		option(tr("In-game screenshots"), settings.screenshots == "demo" ? std::string("Demo")
 			: settings.screenshots == "on" ? tr("On") : tr("Off"), settings.screenshots != "off", kShots,
 			FlowRow::Kind::Toggle);
@@ -17413,7 +17419,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			switch (a) {
 				case kWidth: case kDeflicker: case kBorders: case kVideoMode: case kAspect:
 					return SettingsSection::Picture;
-				case kEmulators: case kGameLanguage: case kGameCios: case kWiiSaves: case kEmuNandFolder: case kEmuNandKeeps: case kNonGames: case kReturnTo: case kShots: case kGcCard: case kGcBackups: case kDiscLight: case kNintendontSaves:
+				case kEmulators: case kGameLanguage: case kGameCios: case kWiiSaves: case kEmuNandFolder: case kEmuNandKeeps: case kNonGames: case kReturnTo: case kLeaveButtons: case kShots: case kGcCard: case kGcBackups: case kDiscLight: case kNintendontSaves:
 				case kParental:
 					return SettingsSection::Games;
 				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest: case kGcCalibrate: case kUsbInput:
@@ -17540,6 +17546,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kWiiMusic: return tr("Read this Wii's own menu music into memory. A theme's music takes priority. Menu music sets whether it plays.");
 			case kSounds: return tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.");
 			case kReturnTo: return ReturnToNote();
+			case kLeaveButtons: return tr("In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game's own button combos can't leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console's Reset button then gets back.");
 			case kShots: return tr("Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it.");
 			case kDiscTile: return DiscTileNote();
 			case kDiscLight: return tr("Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong.");
@@ -17915,6 +17922,11 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					rebuild();
 					break;
 				}
+				case kLeaveButtons:
+					settings.leave_buttons = settings.leave_buttons == "off" ? "on" : "off";
+					saveAndNote(tr("In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game's own button combos can't leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console's Reset button then gets back."));
+					rebuild();
+					break;
 				case kGcBackups:
 					settings.gc_backups = settings.gc_backups == "off" ? "on" : "off";
 					saveAndNote(tr("Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page."));
