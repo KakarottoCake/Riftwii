@@ -57,13 +57,6 @@ const Tables& tables() {
     return t;
 }
 
-int hex_digit(int c) {
-    if (c >= '0' && c <= '9') return c - '0';
-    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-    return -1;
-}
-
 }  // namespace
 
 Aes128Decrypt::Aes128Decrypt(const std::array<std::uint8_t, 16>& key) {
@@ -114,34 +107,6 @@ void Aes128Decrypt::decrypt_cbc(const std::uint8_t iv[16], const std::uint8_t* i
         for (int i = 0; i < 16; ++i) out[at + i] = plain[i] ^ prev[i];
         std::memcpy(prev, cipher, 16);
     }
-}
-
-bool ctgp_parse_key(const std::uint8_t* data, std::size_t size, std::array<std::uint8_t, 16>& out,
-                    std::string& error) {
-    if (size == 16) {
-        std::memcpy(out.data(), data, 16);
-        return true;
-    }
-    std::array<std::uint8_t, 16> key{};
-    int digits = 0;
-    for (std::size_t i = 0; i < size; ++i) {
-        const int c = data[i];
-        if (c == ' ' || c == '\t' || c == '\r' || c == '\n') continue;
-        const int v = hex_digit(c);
-        if (v < 0 || digits >= 32) {
-            error = "the key file is neither 16 raw bytes nor 32 hex digits";
-            return false;
-        }
-        if ((digits & 1) == 0) key[digits / 2] = static_cast<std::uint8_t>(v << 4);
-        else key[digits / 2] |= static_cast<std::uint8_t>(v);
-        ++digits;
-    }
-    if (digits != 32) {
-        error = "the key file is neither 16 raw bytes nor 32 hex digits";
-        return false;
-    }
-    out = key;
-    return true;
 }
 
 std::array<std::uint8_t, 16> ctgp_efa_chunk_iv(const CtgpChunkIv& iv, std::uint32_t sector) {

@@ -32,11 +32,6 @@ private:
     std::uint8_t round_keys_[11][16];
 };
 
-// The key file: 16 raw bytes, or 32 hex digits (spaces and a trailing newline
-// allowed).
-bool ctgp_parse_key(const std::uint8_t* data, std::size_t size, std::array<std::uint8_t, 16>& out,
-                    std::string& error);
-
 constexpr std::uint32_t kCtgpEfaChunkSectors = 64;  // 32 KiB
 constexpr std::uint32_t kCtgpEfaChunkBytes = 64 * 512;
 

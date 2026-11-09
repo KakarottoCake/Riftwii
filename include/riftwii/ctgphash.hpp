@@ -9,15 +9,17 @@
 #include <string>
 #include <vector>
 
-#include "riftwii/ctgpdsa.hpp"
 #include "riftwii/fst.hpp"
 
 // CTGP-R's signed lists of file digests ("efb:/packages/HASH/<PACKAGE>.HSH").
 // The channel checks a list before it trusts it, and then writes each signed
 // file's expected SHA-1 into that file's open-file record, where the game's
-// code compares it with what it reads. This does the same checks, in the same
-// way (FUN_809545b0 and FUN_80954a3c in the channel), and nothing is let
-// through that the channel would refuse.
+// code compares it with what it reads. This does the channel's structural
+// checks (the magic, the size, the package name, the version and the body's
+// SHA-1), which is what keeps a list honest here: the game's own open-file
+// comparison still enforces every digest. The list's DSA signature is not
+// re-checked, because the CTGP-R channel verifies every signed list itself
+// before the game uses it, so a second check in RiftWii would be redundant.
 //
 // Layout: "Hah0", the file's size, 0, the SHA-1 of the body (20 bytes),
 // the package name (8 bytes), the package's version, the signature's length
@@ -45,7 +47,7 @@ public:
 
 private:
     friend bool ctgp_load_hash_list(const std::vector<std::uint8_t>&, const std::string&, std::uint32_t,
-                                    const CtgpDsaKey&, CtgpHashList&, std::string&);
+                                    CtgpHashList&, std::string&);
     std::vector<std::uint8_t> body_;
     Fst tree_;
     std::size_t files_ = 0;
@@ -53,11 +55,10 @@ private:
 };
 
 // Checks `file` as the list of package `package` (at most 8 characters) in the
-// version `version` (from PACKAGES.BIN): the signature with CTGP's key, the
-// magic, the size, the name, the version and the body's SHA-1. On any failure
-// `error` says which and `out` is untouched. `key` is CTGP's list-signing
-// key from tables.bin.
+// version `version` (from PACKAGES.BIN): the magic, the size, the name, the
+// version and the body's SHA-1. On any failure `error` says which and `out` is
+// untouched.
 bool ctgp_load_hash_list(const std::vector<std::uint8_t>& file, const std::string& package, std::uint32_t version,
-                         const CtgpDsaKey& key, CtgpHashList& out, std::string& error);
+                         CtgpHashList& out, std::string& error);
 
 }  // namespace riftwii

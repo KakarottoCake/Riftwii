@@ -54,7 +54,10 @@ bool read_whole(const char* path, const char* what, std::vector<std::uint8_t>& o
 }  // namespace
 
 bool ctgpr_native_wanted() {
-    return exists(kCtgprKeyPath) || exists(kCtgprRowsPath) || exists(kCtgprTablesPath);
+    // CTGP-R's own files are on the card: its installer put them there. The
+    // launch needs nothing of its own, so their presence is what turns the
+    // native launch on.
+    return exists(kCtgprBlobPath) && exists(kCtgprJellyPath);
 }
 
 bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const CtgpLaunchPlan>& out,
@@ -68,22 +71,20 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
         error = "CTGP-R supports the NTSC-U, NTSC-J and PAL discs of Mario Kart Wii";
         return false;
     }
-    // RiftWii's three files first, so a missing one is named before anything
-    // is read from CTGP-R's own.
-    std::vector<std::uint8_t> key_file, tables_file;
-    if (!read_whole(kCtgprKeyPath, "The CTGP-R key file", key_file, error) ||
-        !read_whole(kCtgprRowsPath, "The CTGP-R row table", in.rows_bin, error) ||
-        !read_whole(kCtgprTablesPath, "The CTGP-R tables file", tables_file, error))
-        return false;
-    std::array<std::uint8_t, 16> key{};
-    if (!ctgp_parse_key(key_file.data(), key_file.size(), key, error)) return false;
-    std::fill(key_file.begin(), key_file.end(), 0);
-    if (!ctgp_parse_tables(tables_file.data(), tables_file.size(), in.tables, error)) return false;
+    // The launch carries CTGP-R's own non-secret constants (the package-disk
+    // key and chunk IV, the row table); it reads nothing from the card but
+    // CTGP-R's own files. So the player needs no RiftWii files at all.
     if (!exists(kCtgprBlobPath) || !exists(kCtgprJellyPath)) {
         error = "CTGP-R is not installed on the SD card (sd:/ctgpr/blob.bin and jelly.bin are missing): install it "
                 "with its own installer first";
         return false;
     }
+    std::array<std::uint8_t, 16> key = ctgp_blob_key();
+    in.tables.efa_iv = ctgp_blob_chunk_iv();
+    in.tables.efb_key = ctgp_jelly_key_words();
+    std::size_t row_size = 0;
+    const std::uint8_t* row_data = ctgp_embedded_row_table(row_size);
+    in.rows_bin.assign(row_data, row_data + row_size);
     std::vector<std::uint8_t> ini;
     std::string ignored;
     FILE* config = std::fopen(kCtgprConfigPath, "rb");
@@ -104,7 +105,7 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
     std::fill(key.begin(), key.end(), 0);
     Fat32Volume efa;
     if (!Fat32Volume::mount(reader, efa, error)) {
-        error = "CTGP-R's package disk (blob.bin) does not open with efa.key and tables.bin: " + error;
+        error = "CTGP-R's package disk (blob.bin) does not open: " + error;
         return false;
     }
     auto fetch = [&](const char* path, std::vector<std::uint8_t>& bytes) {
@@ -123,6 +124,22 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
         }
         return true;
     };
+
+    // The course and cup tables the settings step copies into the game: CTGP's
+    // own plain files on the package disk, so RiftWii carries none of them. The
+    // 32 base-track course IDs come from CTGP.CRS; the two cup layouts the
+    // "cup/course layout" setting picks come from the alphabetic .cup files.
+    std::vector<std::uint8_t> crs, cup_en, cup_jp;
+    if (!fetch("/PACKAGES/CTGPR/CTGP.CRS", crs) ||
+        !ctgp_course_from_crs(crs.data(), crs.size(), in.tables.course, error))
+        return false;
+    if (!fetch("/PACKAGES/CTGPR/alphabeticEN.cup", cup_en) ||
+        !ctgp_layout_from_cup(cup_en.data(), cup_en.size(), in.tables.layouts[0], error))
+        return false;
+    if (!fetch("/PACKAGES/CTGPR/alphabeticJP.cup", cup_jp) ||
+        !ctgp_layout_from_cup(cup_jp.data(), cup_jp.size(), in.tables.layouts[1], error))
+        return false;
+
     // The version first: only the tested one is started.
     if (!fetch("/PACKAGES.BIN", in.packages_bin)) return false;
     std::vector<CtgpPackage> versions;
@@ -228,8 +245,7 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
             error = std::string("cannot read the hash list for ") + name;
             return false;
         }
-        if (!ctgp_load_hash_list(bytes, name, ctgp_package_version(versions, name), in.tables.list_key, list,
-                                 error)) {
+        if (!ctgp_load_hash_list(bytes, name, ctgp_package_version(versions, name), list, error)) {
             error = std::string("the hash list for ") + name + " is not accepted: " + error;
             return false;
         }

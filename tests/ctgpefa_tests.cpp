@@ -50,29 +50,8 @@ static void test_cbc_sp800_38a() {
     EXPECT_TRUE(q == p);
 }
 
-static void test_key_file() {
-    std::array<std::uint8_t, 16> key{};
-    std::string error;
-    const std::string text = "10 32 54 76 98 ba dc fe 01 23 45 67 89 AB cd eF\n";
-    EXPECT_TRUE(ctgp_parse_key(reinterpret_cast<const std::uint8_t*>(text.data()), text.size(), key, error));
-    EXPECT_EQ(key[0], 0x10);
-    EXPECT_EQ(key[15], 0xEF);
-    const std::string compact = "1032547698badcfe0123456789abcdef";
-    std::array<std::uint8_t, 16> key2{};
-    EXPECT_TRUE(ctgp_parse_key(reinterpret_cast<const std::uint8_t*>(compact.data()), compact.size(), key2, error));
-    EXPECT_TRUE(key == key2);
-    std::uint8_t raw[16];
-    for (int i = 0; i < 16; ++i) raw[i] = static_cast<std::uint8_t>(i);
-    EXPECT_TRUE(ctgp_parse_key(raw, 16, key2, error));
-    EXPECT_EQ(key2[5], 5);
-    const std::string bad = "1032";
-    EXPECT_TRUE(!ctgp_parse_key(reinterpret_cast<const std::uint8_t*>(bad.data()), bad.size(), key, error));
-    const std::string bad2 = "zz32547698badcfe0123456789abcdef";
-    EXPECT_TRUE(!ctgp_parse_key(reinterpret_cast<const std::uint8_t*>(bad2.data()), bad2.size(), key, error));
-}
-
 static void test_reader() {
-    // Made-up fixed IV words (CTGP's own come from tables.bin at run time).
+    // Made-up fixed IV words (CTGP's own are ctgp_blob_chunk_iv, ctgptables.hpp).
     CtgpChunkIv fixed;
     fixed.w0 = 0x11223344;
     fixed.w1 = 0x55667788;
@@ -132,7 +111,7 @@ static void test_efb_key() {
     const std::uint16_t time = static_cast<std::uint16_t>((20 << 11) | (46 << 5) | (2 / 2));
     EXPECT_EQ(ctgp_fat_seconds(time, date), 1790282762u);    // 2026-09-24 20:46:02, taken as UTC
     EXPECT_EQ(ctgp_fat_seconds(0, static_cast<std::uint16_t>((0 << 9) | (1 << 5) | 1)), 315532800u);   // 1980-01-01
-    // Made-up fixed words 1 and 3 (CTGP's own come from tables.bin).
+    // Made-up fixed words 1 and 3 (CTGP's own are ctgp_jelly_key_words, ctgptables.hpp).
     CtgpEfbKeyWords words;
     words.w1 = 0x0A0B0C0D;
     words.w3 = 0x01020304;
@@ -144,7 +123,6 @@ static void test_efb_key() {
 int main() {
     test_fips_197();
     test_cbc_sp800_38a();
-    test_key_file();
     test_reader();
     test_efb_key();
     if (g_failures == 0) std::cout << "ctgpefa tests passed" << std::endl;

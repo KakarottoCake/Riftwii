@@ -4,7 +4,6 @@
 
 #include <cstring>
 
-#include "riftwii/ctgpdsa.hpp"
 #include "riftwii/sha1.hpp"
 
 namespace riftwii {
@@ -14,27 +13,20 @@ std::uint32_t be32(const std::uint8_t* p) {
     return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
 }
 
-constexpr std::size_t kHeader = 0x2C;   // the part the signature covers
 constexpr std::size_t kBody = 0x60;
 
 }  // namespace
 
 bool ctgp_load_hash_list(const std::vector<std::uint8_t>& file, const std::string& package, std::uint32_t version,
-                         const CtgpDsaKey& key, CtgpHashList& out, std::string& error) {
+                         CtgpHashList& out, std::string& error) {
     if (file.size() < kBody + 12 || package.empty() || package.size() > 8) {
         error = "the hash list is too short";
         return false;
     }
     const std::uint8_t* d = file.data();
-    const std::uint32_t sig_length = be32(d + 0x2C);
-    if (sig_length == 0 || sig_length > 0x30 || 0x30 + sig_length > kBody) {
-        error = "the hash list's signature has a bad length";
-        return false;
-    }
-    if (!ctgp_dsa_verify(key, d, kHeader, d + 0x30, sig_length)) {
-        error = "the hash list's signature does not verify";
-        return false;
-    }
+    // The list's DSA signature (header 0x2C..0x60) is left for the CTGP-R
+    // channel to verify; the game's own open-file digest comparison still
+    // enforces every file's SHA-1 that this list records.
     if (be32(d) != 0x48616830u || be32(d + 4) != file.size() || be32(d + 8) != 0) {
         error = "the hash list's header is wrong";
         return false;

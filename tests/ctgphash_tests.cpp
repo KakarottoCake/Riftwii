@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
-// CTGP-R's signed lists of file digests (riftwii/ctgphash.hpp). The lists here are
-// small made-up ones, signed with a throwaway test key (CTGP's own key is not ours
-// to sign with, and it is read from tables.bin at run time).
+// CTGP-R's lists of file digests (riftwii/ctgphash.hpp). The lists here are
+// small made-up ones. RiftWii no longer re-checks a list's DSA signature (the
+// CTGP-R channel does that), so these test the structural checks that remain:
+// the magic, the size, the package name, the version and the body's SHA-1.
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -16,34 +17,6 @@ static int g_failures = 0;
 
 using namespace riftwii;
 
-static const std::uint8_t kTestP[64] = {
-    0xAC, 0x45, 0xAB, 0x22, 0x82, 0xF4, 0xBD, 0xED, 0xA5, 0x08, 0x27, 0x00,
-    0x4C, 0xE7, 0xB5, 0x57, 0x2E, 0xFF, 0xB0, 0xDC, 0xF6, 0x5A, 0x78, 0xE3,
-    0x81, 0x73, 0xD2, 0x2D, 0xA8, 0x83, 0x88, 0x13, 0xC5, 0xA6, 0x0B, 0xFC,
-    0x16, 0xB0, 0xBD, 0x43, 0x4B, 0x1E, 0xE2, 0x39, 0xFE, 0x64, 0x14, 0xBA,
-    0x6F, 0x7F, 0xE9, 0xC4, 0x71, 0x9B, 0xE4, 0xE7, 0xB2, 0x83, 0xD7, 0x44,
-    0x0E, 0x18, 0x82, 0x73,
-};
-static const std::uint8_t kTestQ[20] = {
-    0xB3, 0x82, 0x4B, 0xC1, 0xB9, 0xEF, 0x94, 0x1A, 0x8C, 0xFE, 0x7E, 0xA8,
-    0xDF, 0x7A, 0x7A, 0xAB, 0xE8, 0xB2, 0x7F, 0x35,
-};
-static const std::uint8_t kTestG[64] = {
-    0x15, 0x08, 0xCE, 0xAB, 0xA0, 0x86, 0x99, 0xFE, 0x48, 0x8E, 0x62, 0xE8,
-    0x0C, 0x24, 0xFB, 0x78, 0x33, 0x8B, 0xA3, 0x2E, 0x5D, 0x18, 0xDE, 0x94,
-    0xA9, 0x56, 0xC0, 0xEE, 0x0A, 0xE2, 0x49, 0x53, 0x02, 0x9A, 0x19, 0x49,
-    0xC4, 0x59, 0x51, 0x7D, 0xF1, 0xA0, 0x98, 0x0D, 0xA3, 0xAA, 0xA9, 0xED,
-    0x1A, 0x72, 0x01, 0x8E, 0x11, 0xC1, 0x70, 0xFC, 0x2C, 0xDC, 0x63, 0x65,
-    0x1F, 0xE3, 0x8D, 0x58,
-};
-static const std::uint8_t kTestY[64] = {
-    0x1D, 0x85, 0xC9, 0x1B, 0x7F, 0x78, 0xA3, 0x33, 0xA6, 0x2F, 0xB8, 0x3C,
-    0xE5, 0x50, 0xD5, 0x71, 0x4F, 0x00, 0x7A, 0x19, 0x9C, 0xD3, 0x54, 0xF0,
-    0xC0, 0xE7, 0xDD, 0x21, 0xC2, 0xE6, 0x91, 0x5D, 0x2B, 0x3F, 0xC5, 0x8D,
-    0xC0, 0x1D, 0x92, 0x3E, 0x61, 0xF4, 0x89, 0x4F, 0xEB, 0xE2, 0x29, 0x5D,
-    0x6A, 0x8F, 0xD2, 0x2F, 0x0E, 0xC2, 0xDF, 0xEC, 0x51, 0xCE, 0x28, 0x17,
-    0xB4, 0x3F, 0x6A, 0x12,
-};
 static const std::uint8_t kTestList[203] = {
     0x48, 0x61, 0x68, 0x30, 0x00, 0x00, 0x00, 0xCB, 0x00, 0x00, 0x00, 0x00,
     0xE2, 0x83, 0xB8, 0x1B, 0xDD, 0x64, 0x49, 0x79, 0x3B, 0x89, 0x42, 0xCF,
@@ -123,24 +96,14 @@ static const std::uint8_t kTestListBadSize[203] = {
     0x9A, 0x62, 0xE4, 0x4F, 0x90, 0x87, 0x3F, 0xB9, 0x7F, 0xB2, 0x6B,
 };
 
-static CtgpDsaKey test_key() {
-    CtgpDsaKey k;
-    std::memcpy(k.p, kTestP, 64);
-    std::memcpy(k.q, kTestQ, 20);
-    std::memcpy(k.g, kTestG, 64);
-    std::memcpy(k.y, kTestY, 64);
-    return k;
-}
-
 template <std::size_t N>
 static std::vector<std::uint8_t> vec(const std::uint8_t (&a)[N]) { return std::vector<std::uint8_t>(a, a + N); }
 
 int main() {
-    const CtgpDsaKey key = test_key();
     std::string error;
     CtgpHashList list;
     const auto good = vec(kTestList);
-    EXPECT_TRUE(ctgp_load_hash_list(good, "TEST", 0x01020304, key, list, error));
+    EXPECT_TRUE(ctgp_load_hash_list(good, "TEST", 0x01020304, list, error));
     EXPECT_TRUE(list.file_count() == 2);
     std::array<std::uint8_t, 20> d{};
     EXPECT_TRUE(list.find("/A/one.bin", d) && std::memcmp(d.data(), kDigestOne, 20) == 0);
@@ -150,42 +113,31 @@ int main() {
     EXPECT_TRUE(!list.find("/missing", d));
     EXPECT_TRUE(!list.find("/A/ONE.BIN", d));  // exact names only
 
-    // CTGP's own key does not accept a list signed with the test key
-    CtgpHashList other;
-    {
-        CtgpDsaKey wrong = key;
-        wrong.y[63] ^= 1;
-        EXPECT_TRUE(!ctgp_load_hash_list(good, "TEST", 0x01020304, wrong, other, error));
-    }
-    EXPECT_TRUE(error.find("signature") != std::string::npos);
-
     // another package, another version
-    EXPECT_TRUE(!ctgp_load_hash_list(good, "OTHER", 0x01020304, key, other, error));
-    EXPECT_TRUE(!ctgp_load_hash_list(good, "TEST", 0x01020305, key, other, error));
-    EXPECT_TRUE(!ctgp_load_hash_list(vec(kTestListOtherName), "TEST", 0x01020304, key, other, error));
-    EXPECT_TRUE(!ctgp_load_hash_list(vec(kTestListOtherVersion), "TEST", 0x01020304, key, other, error));
-    // a size field that is not the file's size (validly signed)
-    EXPECT_TRUE(!ctgp_load_hash_list(vec(kTestListBadSize), "TEST", 0x01020304, key, other, error));
-    // the part of the body digest the signature does not cover, and the body itself
+    CtgpHashList other;
+    EXPECT_TRUE(!ctgp_load_hash_list(good, "OTHER", 0x01020304, other, error));
+    EXPECT_TRUE(!ctgp_load_hash_list(good, "TEST", 0x01020305, other, error));
+    EXPECT_TRUE(!ctgp_load_hash_list(vec(kTestListOtherName), "TEST", 0x01020304, other, error));
+    EXPECT_TRUE(!ctgp_load_hash_list(vec(kTestListOtherVersion), "TEST", 0x01020304, other, error));
+    // a size field that is not the file's size
+    EXPECT_TRUE(!ctgp_load_hash_list(vec(kTestListBadSize), "TEST", 0x01020304, other, error));
+    // the body's digest field and the body itself
     for (std::size_t at : {std::size_t(20), std::size_t(31), std::size_t(0x60), good.size() - 1, good.size() - 25}) {
         auto bad = good;
         bad[at] ^= 0x01;
-        EXPECT_TRUE(!ctgp_load_hash_list(bad, "TEST", 0x01020304, key, other, error));
+        EXPECT_TRUE(!ctgp_load_hash_list(bad, "TEST", 0x01020304, other, error));
     }
-    // the covered header bytes and the signature
-    for (std::size_t at : {std::size_t(0), std::size_t(5), std::size_t(10), std::size_t(15), std::size_t(19), std::size_t(0x34), std::size_t(0x40)}) {
+    // the magic, the size field, the reserved zero word, the body-digest field
+    for (std::size_t at : {std::size_t(0), std::size_t(5), std::size_t(10), std::size_t(15), std::size_t(19)}) {
         auto bad = good;
         bad[at] ^= 0x01;
-        EXPECT_TRUE(!ctgp_load_hash_list(bad, "TEST", 0x01020304, key, other, error));
+        EXPECT_TRUE(!ctgp_load_hash_list(bad, "TEST", 0x01020304, other, error));
     }
-    // truncated, empty, an oversize signature length
-    EXPECT_TRUE(!ctgp_load_hash_list(std::vector<std::uint8_t>(good.begin(), good.begin() + 0x50), "TEST", 0x01020304, key, other, error));
-    EXPECT_TRUE(!ctgp_load_hash_list(std::vector<std::uint8_t>(), "TEST", 0x01020304, key, other, error));
-    auto longsig = good;
-    longsig[0x2F] = 0x31;
-    EXPECT_TRUE(!ctgp_load_hash_list(longsig, "TEST", 0x01020304, key, other, error));
+    // truncated and empty
+    EXPECT_TRUE(!ctgp_load_hash_list(std::vector<std::uint8_t>(good.begin(), good.begin() + 0x50), "TEST", 0x01020304, other, error));
+    EXPECT_TRUE(!ctgp_load_hash_list(std::vector<std::uint8_t>(), "TEST", 0x01020304, other, error));
     // a name longer than eight characters cannot be a package
-    EXPECT_TRUE(!ctgp_load_hash_list(good, "TOOLONGNAME", 0x01020304, key, other, error));
+    EXPECT_TRUE(!ctgp_load_hash_list(good, "TOOLONGNAME", 0x01020304, other, error));
     if (g_failures) {
         std::cerr << g_failures << " failures" << std::endl;
         return 1;

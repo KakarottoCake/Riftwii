@@ -12,23 +12,18 @@
 // Offline only: online play, LAN play and ghost signing stay off.
 namespace riftwii::wii {
 
-// Made from the player's own copy of CTGP-R, never part of RiftWii
-// (docs/CTGPR.md, "Files the native launch needs"):
-//   efa.key     the package disk's AES key
-//   rows.bin    the table of game addresses CTGP-R hooks
-//   tables.bin  the channel's constants (riftwii/ctgptables.hpp)
-inline constexpr const char* kCtgprKeyPath = "sd:/riftwii/ctgpr/efa.key";
-inline constexpr const char* kCtgprRowsPath = "sd:/riftwii/ctgpr/rows.bin";
-inline constexpr const char* kCtgprTablesPath = "sd:/riftwii/ctgpr/tables.bin";
-// CTGP-R's own files, as its installer puts them on the card.
+// The launch needs only CTGP-R's own files, as its installer puts them on the
+// card (docs/CTGPR.md). RiftWii carries CTGP-R's non-secret constants and row
+// table in its own build, and reads the course and cup tables from blob.bin at
+// run time, so the player needs no RiftWii files for it.
 inline constexpr const char* kCtgprBlobPath = "sd:/ctgpr/blob.bin";
 inline constexpr const char* kCtgprJellyPath = "sd:/ctgpr/jelly.bin";
 inline constexpr const char* kCtgprConfigPath = "sd:/ctgpr/config.ini";
 
-// Whether the player has set up the native launch: any of the three
-// RiftWii files above is on the card. Then the CTGP-R pack starts natively,
-// and a file that is missing is named in the launch's error instead of
-// falling back to the CTGP-R Channel (which does not start from RiftWii).
+// Whether CTGP-R is installed on the card (blob.bin and jelly.bin are there).
+// Then the CTGP-R pack starts natively, and a problem is named in the launch's
+// error instead of falling back to the CTGP-R Channel (which does not start
+// from RiftWii).
 bool ctgpr_native_wanted();
 
 // Builds the plan for the game `game_id` (its 4th character names the
