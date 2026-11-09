@@ -17,6 +17,7 @@
 #include "riftwii/patch.hpp"
 #include "riftwii/videopatch.hpp"
 #include "riftwii/wfcpatch.hpp"
+#include "rtpadcal.h"
 
 // E1: boot an unmodified disc the way the System Menu would, from a
 // homebrew loader. The sequence (drive reset, disc id, partition table,
@@ -221,6 +222,11 @@ struct LaunchExtras {
     bool return_to_menu = false;
     // In-game screenshots (wii/hooks/shothook.hpp); demo also shoots by itself.
     bool gc_rumble_off = false;  // Settings > GameCube rumble Off: PADControlMotor does nothing
+    // Settings > Controllers > Calibrate a GameCube controller: the
+    // stretch for each calibrated controller, for the pad hooks (a Wii
+    // game's with USB controllers on, a GameCube game's always).
+    bool pad_calibrated = false;
+    rtpadcal_table pad_calibration{};
     bool screenshots = false;
     bool screenshots_demo = false;
     bool region_video = false;  // the Region video fix (riftwii/gxpatches.hpp)

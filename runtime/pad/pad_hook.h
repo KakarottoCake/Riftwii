@@ -118,6 +118,10 @@ struct rt_pad_context {
      * out (gcad_layout_for) so the game doesn't again (#506). Loader-filled. */
     uint32_t link_count;
     uint32_t ven_at, xbox_at, links_at, catalog_at;
+    /* The GameCube controllers' calibrations (rtpadcal.h's table, in MEM2
+     * after the driver's state), 0: none stored. The Wii's own ports take
+     * theirs here, the adapter's and the USB pads' in the driver. */
+    uint32_t cal;
 };
 
 #ifdef RT_TARGET_PPC

@@ -370,6 +370,12 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
         }
     }
 
+    // Settings > Controllers > Calibrate a GameCube controller.
+    if (extras.pad_calibrated) {
+        request.pad_calibration = &extras.pad_calibration;
+        request.pad_calibration_bytes = sizeof(extras.pad_calibration);
+    }
+
     if (g_crash_screen.size() == GC_CRASH_SCREEN_BYTES) {
         request.crash_screen = g_crash_screen.data();
         request.crash_screen_bytes = static_cast<std::uint32_t>(g_crash_screen.size());

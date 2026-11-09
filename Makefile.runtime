@@ -279,13 +279,13 @@ $(PADOUT):
 $(PADOUT)/pad_entry.o: $(PADSRC)/pad_entry.S $(PADSRC)/pad_hook.h runtime/rtleave.h | $(PADOUT)
 	$(CC) $(CFLAGS) -I$(PADSRC) -c -o $@ $<
 
-$(PADOUT)/pad_hook.o: $(PADSRC)/pad_hook.c $(PADSRC)/pad_hook.h runtime/rtgcad.h runtime/rthid.h runtime/rtleave.h | $(PADOUT)
+$(PADOUT)/pad_hook.o: $(PADSRC)/pad_hook.c $(PADSRC)/pad_hook.h runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h runtime/rtleave.h | $(PADOUT)
 	$(CC) $(CFLAGS) -I$(PADSRC) -c -o $@ $<
 
 $(PADOUT)/rthid.o: runtime/rthid.c runtime/rthid.h runtime/rtgcad.h | $(PADOUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(PADOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h runtime/rthid.h | $(PADOUT)
+$(PADOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h | $(PADOUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(PADOUT)/rtleave.o: runtime/rtleave.c runtime/rtleave.h | $(PADOUT)
@@ -312,10 +312,10 @@ $(PADAOUT):
 $(PADAOUT)/pad_entry.o: $(PADSRC)/pad_entry.S $(PADSRC)/pad_hook.h runtime/rtleave.h | $(PADAOUT)
 	$(CC) $(CFLAGS) -DGCAD_ADAPTER_ONLY -I$(PADSRC) -c -o $@ $<
 
-$(PADAOUT)/pad_hook.o: $(PADSRC)/pad_hook.c $(PADSRC)/pad_hook.h runtime/rtgcad.h runtime/rthid.h runtime/rtleave.h | $(PADAOUT)
+$(PADAOUT)/pad_hook.o: $(PADSRC)/pad_hook.c $(PADSRC)/pad_hook.h runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h runtime/rtleave.h | $(PADAOUT)
 	$(CC) $(CFLAGS) -DGCAD_ADAPTER_ONLY -I$(PADSRC) -c -o $@ $<
 
-$(PADAOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h runtime/rthid.h | $(PADAOUT)
+$(PADAOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h | $(PADAOUT)
 	$(CC) $(CFLAGS) -DGCAD_ADAPTER_ONLY -c -o $@ $<
 
 $(PADAOUT)/rtleave.o: runtime/rtleave.c runtime/rtleave.h | $(PADAOUT)
@@ -342,10 +342,10 @@ $(PADPOUT):
 $(PADPOUT)/pad_entry.o: $(PADSRC)/pad_entry.S $(PADSRC)/pad_hook.h runtime/rtleave.h | $(PADPOUT)
 	$(CC) $(CFLAGS) -DGCAD_PADS_ONLY -I$(PADSRC) -c -o $@ $<
 
-$(PADPOUT)/pad_hook.o: $(PADSRC)/pad_hook.c $(PADSRC)/pad_hook.h runtime/rtgcad.h runtime/rthid.h runtime/rtleave.h | $(PADPOUT)
+$(PADPOUT)/pad_hook.o: $(PADSRC)/pad_hook.c $(PADSRC)/pad_hook.h runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h runtime/rtleave.h | $(PADPOUT)
 	$(CC) $(CFLAGS) -DGCAD_PADS_ONLY -I$(PADSRC) -c -o $@ $<
 
-$(PADPOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h runtime/rthid.h | $(PADPOUT)
+$(PADPOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h | $(PADPOUT)
 	$(CC) $(CFLAGS) -DGCAD_PADS_ONLY -c -o $@ $<
 
 $(PADPOUT)/rtleave.o: runtime/rtleave.c runtime/rtleave.h | $(PADPOUT)
@@ -378,7 +378,7 @@ $(GCOUT):
 $(GCOUT)/gc_entry.o: $(GCSRC)/gc_entry.S $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h $(GCSRC)/gc_layout.h | $(GCOUT)
 	$(CC) $(CFLAGS) -I$(GCSRC) -c -o $@ $<
 
-$(GCOUT)/gc_rt.o: $(GCSRC)/gc_rt.c $(GCSRC)/gc_rt.h $(GCSRC)/gc_layout.h $(GCSRC)/gc_video.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_load.h $(GCSRC)/gc_crash.h $(GCSRC)/gc_bt.h $(GCSRC)/gc_card.h $(GCSRC)/gc_gcad.h $(GCSRC)/gc_disc.h $(GCSRC)/gc_storage.h $(GCSRC)/gc_usb_write.h runtime/rtgcad.h runtime/rthid.h | $(GCOUT)
+$(GCOUT)/gc_rt.o: $(GCSRC)/gc_rt.c $(GCSRC)/gc_rt.h $(GCSRC)/gc_layout.h $(GCSRC)/gc_video.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_load.h $(GCSRC)/gc_crash.h $(GCSRC)/gc_bt.h $(GCSRC)/gc_card.h $(GCSRC)/gc_gcad.h $(GCSRC)/gc_disc.h $(GCSRC)/gc_storage.h $(GCSRC)/gc_usb_write.h runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h | $(GCOUT)
 	$(CC) $(CFLAGS) -I$(GCSRC) -c -o $@ $<
 
 $(GCOUT)/gc_bt.o: $(GCSRC)/gc_bt.c $(GCSRC)/gc_bt.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h | $(GCOUT)
@@ -387,13 +387,13 @@ $(GCOUT)/gc_bt.o: $(GCSRC)/gc_bt.c $(GCSRC)/gc_bt.h $(GCSRC)/gc_ports.h $(GCSRC)
 $(GCOUT)/gc_card.o: $(GCSRC)/gc_card.c $(GCSRC)/gc_card.h $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h | $(GCOUT)
 	$(CC) $(CFLAGS) -I$(GCSRC) -c -o $@ $<
 
-$(GCOUT)/gc_gcad.o: $(GCSRC)/gc_gcad.c $(GCSRC)/gc_gcad.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_rt.h runtime/rtgcad.h runtime/rthid.h | $(GCOUT)
+$(GCOUT)/gc_gcad.o: $(GCSRC)/gc_gcad.c $(GCSRC)/gc_gcad.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_rt.h runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h | $(GCOUT)
 	$(CC) $(CFLAGS) -I$(GCSRC) -c -o $@ $<
 
-$(GCOUT)/rthid.o: runtime/rthid.c runtime/rthid.h runtime/rtgcad.h runtime/rthid.h | $(GCOUT)
+$(GCOUT)/rthid.o: runtime/rthid.c runtime/rthid.h runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h | $(GCOUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(GCOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h runtime/rthid.h | $(GCOUT)
+$(GCOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h | $(GCOUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(GCOBJS) $(GCRVZOBJS): $(RT_TEST_STAMP)
@@ -419,7 +419,7 @@ $(GCRVZOUT):
 $(GCRVZOUT)/gc_entry.o: $(GCSRC)/gc_entry.S $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h $(GCSRC)/gc_layout.h | $(GCRVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -I$(GCSRC) -c -o $@ $<
 
-$(GCRVZOUT)/gc_rt.o: $(GCSRC)/gc_rt.c $(GCSRC)/gc_rt.h $(GCSRC)/gc_layout.h $(GCSRC)/gc_video.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_load.h $(GCSRC)/gc_crash.h $(GCSRC)/gc_bt.h $(GCSRC)/gc_card.h $(GCSRC)/gc_gcad.h $(GCSRC)/gc_rvz.h $(GCSRC)/gc_disc.h $(GCSRC)/gc_storage.h $(GCSRC)/gc_usb_write.h runtime/rtgcad.h runtime/rthid.h | $(GCRVZOUT)
+$(GCRVZOUT)/gc_rt.o: $(GCSRC)/gc_rt.c $(GCSRC)/gc_rt.h $(GCSRC)/gc_layout.h $(GCSRC)/gc_video.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_load.h $(GCSRC)/gc_crash.h $(GCSRC)/gc_bt.h $(GCSRC)/gc_card.h $(GCSRC)/gc_gcad.h $(GCSRC)/gc_rvz.h $(GCSRC)/gc_disc.h $(GCSRC)/gc_storage.h $(GCSRC)/gc_usb_write.h runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h | $(GCRVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -I$(GCSRC) -c -o $@ $<
 
 $(GCRVZOUT)/gc_bt.o: $(GCSRC)/gc_bt.c $(GCSRC)/gc_bt.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h | $(GCRVZOUT)
@@ -428,13 +428,13 @@ $(GCRVZOUT)/gc_bt.o: $(GCSRC)/gc_bt.c $(GCSRC)/gc_bt.h $(GCSRC)/gc_ports.h $(GCS
 $(GCRVZOUT)/gc_card.o: $(GCSRC)/gc_card.c $(GCSRC)/gc_card.h $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h | $(GCRVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -I$(GCSRC) -c -o $@ $<
 
-$(GCRVZOUT)/gc_gcad.o: $(GCSRC)/gc_gcad.c $(GCSRC)/gc_gcad.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_rt.h runtime/rtgcad.h runtime/rthid.h | $(GCRVZOUT)
+$(GCRVZOUT)/gc_gcad.o: $(GCSRC)/gc_gcad.c $(GCSRC)/gc_gcad.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_rt.h runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h | $(GCRVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -I$(GCSRC) -c -o $@ $<
 
-$(GCRVZOUT)/rthid.o: runtime/rthid.c runtime/rthid.h runtime/rtgcad.h runtime/rthid.h | $(GCRVZOUT)
+$(GCRVZOUT)/rthid.o: runtime/rthid.c runtime/rthid.h runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h | $(GCRVZOUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(GCRVZOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h runtime/rthid.h | $(GCRVZOUT)
+$(GCRVZOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h | $(GCRVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -c -o $@ $<
 
 $(GCRVZOUT)/gc_rvz.o: $(GCSRC)/gc_rvz.c $(GCSRC)/gc_rvz.h runtime/rtrvz.h | $(GCRVZOUT)

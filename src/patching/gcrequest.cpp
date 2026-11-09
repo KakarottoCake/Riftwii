@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/gcrequest.hpp"
 #include "rthid.h"
+#include "rtpadcal.h"
 
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/mempatch.hpp"
@@ -261,6 +262,11 @@ bool gc_request_check(const rwp_gc_launch* request, std::uint32_t bytes, std::ui
     if (!sized(request->hid_catalog, request->hid_catalog_bytes) ||
         (request->hid_catalog != nullptr && request->hid_catalog_bytes != sizeof(rthid_catalog))) {
         why = "the USB controller mappings have the wrong size";
+        return false;
+    }
+    if (!sized(request->pad_calibration, request->pad_calibration_bytes) ||
+        (request->pad_calibration != nullptr && request->pad_calibration_bytes != sizeof(rtpadcal_table))) {
+        why = "the controllers' calibration has the wrong size";
         return false;
     }
     if (!sized(request->cheat_gct, request->cheat_gct_bytes) ||
