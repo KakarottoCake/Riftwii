@@ -112,7 +112,11 @@ __attribute__((noinline)) int32_t run_launch(const rwp_gc_launch& request) {
         return RWP_LAUNCH_FAILED;
     }
     const riftwii::wii::GcImage image = image_of(request);
-    const riftwii::wii::GcLaunchExtras extras = extras_of(request);
+    riftwii::wii::GcLaunchExtras extras = extras_of(request);
+    if (!riftwii::gc_memory_from_request(request, extras.pack_memory, error)) {
+        copy_reason(request, error.c_str());
+        return RWP_LAUNCH_FAILED;
+    }
     riftwii::wii::LaunchGcNative(image, has_packs ? &plan : nullptr, extras, error, request.error_code);
     copy_reason(request, error.empty() ? "the game did not start" : error.c_str());
     return RWP_LAUNCH_FAILED;

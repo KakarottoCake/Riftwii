@@ -46,6 +46,7 @@
 #include "riftwii/gctgc.hpp"
 #include "riftwii/gcvideo.hpp"
 #include "riftwii/gcoverlay.hpp"
+#include "riftwii/gcmempatch.hpp"
 #include "riftwii/gxpatches.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/launch.hpp"
@@ -2183,6 +2184,49 @@ static void place_gc_handler_return() {
     ICInvalidateRange(reinterpret_cast<void*>(kCodeHandlerEntry), 4);
 }
 
+// The packs' <memory> patches worked out against the game as it stands,
+// RiftWii's own changes to its code made (riftwii/gcmempatch.hpp): they
+// may write anywhere in MEM1 below `loader_floor`, where RiftWii's own
+// parts of the launch start (BI2, the blob, the FST at MEM1's top), but
+// not into the code handler's area when cheats run, nor over the return
+// a game's own branch to it lands on. False, with `error`, for a patch
+// that writes elsewhere: the launch stops, never a partly applied mod.
+static bool plan_pack_memory(const Dol& dol, const std::vector<MemoryPatch>& patches, std::uint32_t loader_floor,
+                             const GcCheats& cheats, std::vector<GcMemoryWrite>& writes, std::string& error) {
+    std::vector<GcStagedSection> sections;
+    for (const Section& s : dol.text) sections.push_back(GcStagedSection{s.address, s.data(), s.size()});
+    for (const Section& s : dol.data) sections.push_back(GcStagedSection{s.address, s.data(), s.size()});
+    std::vector<MemoryRegion> writable{{0x80000000u, loader_floor - 0x80000000u}};
+    std::vector<MemoryRegion> exclusions;
+    if (!cheats.gct.empty()) {
+        exclusions.push_back(MemoryRegion{kCodeHandlerAddress, kCodeListEnd - kCodeHandlerAddress});
+    } else if (cheats.builtin != 0) {
+        exclusions.push_back(MemoryRegion{kCodeHandlerEntry, 4});
+    }
+    writable = subtract_memory_regions(writable, exclusions);
+    std::vector<std::string> notes;
+    const bool ok = plan_gc_memory_writes(patches, sections, writable, writes, notes, error);
+    for (const std::string& note : notes) logf("Packs: %s\n", note.c_str());
+    if (!ok) {
+        error = "a pack's memory patch: " + error;
+        return false;
+    }
+    logf("Packs: %u memory patch(es) come to %u write(s), made as the game starts\n",
+         static_cast<unsigned>(patches.size()), static_cast<unsigned>(writes.size()));
+    return true;
+}
+
+// The writes, into the game's memory at the hand-over, after RiftWii's
+// own: the log is closed by then.
+static void write_pack_memory(const std::vector<GcMemoryWrite>& writes) {
+    for (const GcMemoryWrite& w : writes) {
+        void* at = reinterpret_cast<void*>(w.address);
+        std::memcpy(at, w.bytes.data(), w.bytes.size());
+        DCFlushRange(at, w.bytes.size());
+        ICInvalidateRange(at, w.bytes.size());
+    }
+}
+
 // The Wii Remotes' map for this game (riftwii/gccontrols.hpp): the
 // built-in one, then sd:/riftwii/gc/controls/default.txt and the game's
 // own file over it, each line said in the log when it could not be used.
@@ -4100,6 +4144,11 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             cheats.builtin = builtin;
         }
     }
+    // The packs' memory patches, after every change of RiftWii's above
+    // and the cheats' choice (their area is not the packs' to write).
+    std::vector<GcMemoryWrite> pack_writes;
+    if (!extras.pack_memory.empty() && !plan_pack_memory(dol, extras.pack_memory, bi2_addr, cheats, pack_writes, error))
+        return false;
 
     // The SD card goes to the blob only now, after every patch above, so
     // their log lines still reach boot.log (testers send it). The card,
@@ -4224,6 +4273,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // After the clear above, which would have taken them.
     if (!cheats.gct.empty()) place_gc_cheats(cheats, image.id);
     else if (cheats.builtin != 0) place_gc_handler_return();
+    // The packs' memory patches last, so they win over the globals above.
+    write_pack_memory(pack_writes);
     // IOS's replies stay polled: no IPC interrupt reaches the game.
     store32(0xCD000004, 0);
     // Nor any other of Hollywood's interrupts: the game's OS knows none of
