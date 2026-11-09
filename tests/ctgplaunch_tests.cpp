@@ -122,29 +122,28 @@ static void test_assemble() {
     EXPECT_TRUE(!ctgp_assemble(bad, plan, error));
 }
 
-// Only the tested CTGP-R version is started.
+// Only the tested CTGP-R core is required; any track-package version runs.
 static void test_version_guard() {
     CtgpLaunchPlan plan;
     std::string error;
     CtgpInputs in = inputs();
     EXPECT_TRUE(ctgp_assemble(in, plan, error));
-    // a newer core
+    // a different core is refused
     CtgpInputs other = in;
     set(other.packages_bin, 16 + 8, 0x01030413);
     EXPECT_TRUE(!ctgp_assemble(other, plan, error));
-    EXPECT_TRUE(error.find("not the one RiftWii was tested with") != std::string::npos);
+    EXPECT_TRUE(error.find("different core") != std::string::npos);
     EXPECT_TRUE(error.find("0x01030413") != std::string::npos);
-    // another CTGPR package
-    other = in;
-    set(other.packages_bin, 32 + 8, 0x01031200);
-    EXPECT_TRUE(!ctgp_assemble(other, plan, error));
-    // no CORE at all
+    // no CORE at all is refused
     other = in;
     std::memcpy(&other.packages_bin[16], "XORE", 4);
     EXPECT_TRUE(!ctgp_assemble(other, plan, error));
+    // the tested core with any track-package (CTGPR) version is accepted
     std::vector<CtgpPackage> packages = {{"CORE", kCtgpTestedCoreVersion, 0}, {"CTGPR", kCtgpTestedCtgprVersion, 0}};
     EXPECT_TRUE(ctgp_check_versions(packages, error));
-    packages[1].version = 0;
+    packages[1].version = 0x09999999;  // a newer/different track pack: still fine
+    EXPECT_TRUE(ctgp_check_versions(packages, error));
+    packages[0].version = 0;  // a different core: refused
     EXPECT_TRUE(!ctgp_check_versions(packages, error));
 }
 

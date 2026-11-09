@@ -130,13 +130,17 @@ std::string version_text(std::uint32_t v) {
 }  // namespace
 
 bool ctgp_check_versions(const std::vector<CtgpPackage>& packages, std::string& error) {
+    // Only the CORE package (CTGP-R's game-side code) governs the addresses the
+    // native launch relies on -- the hook row table and the memory map. The
+    // CTGPR track package can be any version: its courses and cups are read
+    // from the player's own package disk at launch, not from anything RiftWii
+    // carries, so a newer track pack on the tested core is fine.
     const std::uint32_t core = ctgp_package_version(packages, "CORE");
+    if (core == kCtgpTestedCoreVersion) return true;
     const std::uint32_t ctgpr = ctgp_package_version(packages, "CTGPR");
-    if (core == kCtgpTestedCoreVersion && ctgpr == kCtgpTestedCtgprVersion) return true;
-    error = "this CTGP-R version (core " + version_text(core) + ", CTGPR " + version_text(ctgpr) +
-            ") is not the one RiftWii was tested with (core " + version_text(kCtgpTestedCoreVersion) + ", CTGPR " +
-            version_text(kCtgpTestedCtgprVersion) + "), so RiftWii does not start it. Start CTGP-R from the "
-            "Homebrew Channel instead";
+    error = "this CTGP-R has a different core (core " + version_text(core) + ", CTGPR " + version_text(ctgpr) +
+            ") from the one RiftWii was tested with (core " + version_text(kCtgpTestedCoreVersion) +
+            "), so RiftWii does not start it. Start CTGP-R from the Homebrew Channel instead";
     return false;
 }
 

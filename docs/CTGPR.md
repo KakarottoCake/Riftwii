@@ -27,9 +27,12 @@ The CTGP-R developers allow it on these conditions, which the code keeps:
   give a valid signature (`include/riftwii/ctgpsign.hpp`); ghosts save
   and replay on the console, and CTGP's server rejects them.
 
-It starts only the CTGP-R version it was tested with (PACKAGES.BIN:
-core `0x01030412`, CTGPR `0x01031192`). Any other version stops the
-launch with that on screen and in `boot.log`, before anything is placed.
+It starts CTGP-R only on the core it was tested with (PACKAGES.BIN
+core `0x01030412`), which governs the game addresses the launch uses; a
+different core stops the launch with that on screen and in `boot.log`,
+before anything is placed. The CTGPR track package can be any version:
+its courses and cups are read from the player's own package disk, so a
+newer track pack on the tested core runs.
 RiftWii's own extras stay out of the game: no runtime, codes, video or
 game preferences, game fixes, GameCube adapter, screenshots, crash
 recorder or Return to RiftWii (CTGP's channel button comes back to
