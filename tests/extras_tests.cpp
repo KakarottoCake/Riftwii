@@ -1932,6 +1932,16 @@ void TestCoverArt() {
     EXPECT_TRUE(s.serialize().find("gc_backups = off\n") != std::string::npos);
     s.parse("gc_backups = maybe\n");
     EXPECT_EQ(s.gc_backups, "off");
+    // Leaving a game: the button combo is on by default; off (HOME only)
+    // is kept, anything else ignored.
+    EXPECT_EQ(s.leave_buttons, "on");
+    s.parse("leave_buttons = off\n");
+    EXPECT_EQ(s.leave_buttons, "off");
+    EXPECT_TRUE(s.serialize().find("leave_buttons = off\n") != std::string::npos);
+    s.parse("leave_buttons = sometimes\n");
+    EXPECT_EQ(s.leave_buttons, "off");
+    s.parse("leave_buttons = on\n");
+    EXPECT_EQ(s.leave_buttons, "on");
     // Nintendont's saves: asked once; the answer (Not now too) is kept, anything else ignored.
     EXPECT_EQ(s.nintendont_saves, "ask");
     s.parse("nintendont_saves = asked\n");

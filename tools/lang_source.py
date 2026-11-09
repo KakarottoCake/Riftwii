@@ -8809,6 +8809,59 @@ FR.update({
         "La carte mémoire du port B n'a pas pu être lue. Remettez-la, ou choisissez une autre carte sur la page du jeu.",
 })
 
+# Leaving a game (#511): HOME only turns the controllers' button combo off.
+T.update({
+    'Leaving a game': ('Salir de un juego', 'ゲームをやめるとき', 'Sair de um jogo', 'Uscire da un gioco'),
+    'HOME or buttons': ('HOME o botones', 'HOMEかボタン', 'HOME ou botões', 'HOME o pulsanti'),
+    'HOME only': ('Solo HOME', 'HOMEのみ', 'Só HOME', 'Solo HOME'),
+    'In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game\'s own button combos can\'t leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console\'s Reset button then gets back.': (
+        'En los juegos de GameCube, mantén HOME dos segundos para volver a RiftWii (HOME y - con un mando de Wii solo). '
+        'HOME o botones: mantener L, R, Z y Start en un mando de GameCube también sale, y en los juegos de Wii con el '
+        'adaptador. Solo HOME desactiva los botones, para que las combinaciones de un juego no lo cierren por accidente. Sin un mando de Wii ni un Wii U Pro Controller, solo el botón Reset de la consola vuelve.',
+        'ゲームキューブのゲームでは、HOMEを2秒押し続けるとRiftWiiに戻ります (Wiiリモコンだけのときは HOMEと-)。'
+        '「HOMEかボタン」では、ゲームキューブコントローラーのL、R、Z、Startを押し続けても戻ります (アダプターを使う'
+        'Wiiのゲームでも)。「HOMEのみ」ではボタンで戻らないので、ゲームのボタン操作でまちがって終わりません。WiiリモコンもWii U Proコントローラーもないときは、本体のリセットボタンだけで戻れます。',
+        'Nos jogos de GameCube, segure HOME por dois segundos para voltar ao RiftWii (HOME e - num Wii Remote sozinho). '
+        'HOME ou botões: segurar L, R, Z e Start num controle de GameCube também sai, e nos jogos de Wii com o '
+        'adaptador. Só HOME desativa os botões, para que as combinações de um jogo não o fechem por acidente. Sem um Wii Remote nem um Wii U Pro Controller, só o botão Reset do console volta.',
+        "Nei giochi GameCube, tieni premuto HOME per due secondi per tornare a RiftWii (HOME e - su un Wii Remote da "
+        "solo). HOME o pulsanti: anche tenere premuti L, R, Z e Start su un controller GameCube fa uscire, e nei giochi "
+        "Wii con l'adattatore. Solo HOME disattiva i pulsanti, così le combinazioni di un gioco non lo chiudono per errore. Senza un Wii Remote né un Wii U Pro Controller, solo il pulsante Reset della console fa tornare."),
+})
+KO.update({
+    'Leaving a game': '게임 나가기',
+    'HOME or buttons': 'HOME 또는 버튼',
+    'HOME only': 'HOME만',
+    'In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game\'s own button combos can\'t leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console\'s Reset button then gets back.':
+        '게임큐브 게임에서 HOME을 2초 동안 누르고 있으면 RiftWii로 돌아갑니다 (Wii 리모컨만 쓸 때는 HOME과 -). '
+        'HOME 또는 버튼: 게임큐브 컨트롤러의 L, R, Z, Start를 누르고 있어도 나가며, 어댑터를 쓰는 Wii 게임에서도 '
+        '마찬가지입니다. HOME만은 버튼을 꺼서 게임의 버튼 조합으로 실수로 나가지 않게 합니다. Wii 리모컨도 Wii U Pro 컨트롤러도 없으면 본체의 리셋 버튼으로만 돌아갈 수 있습니다.',
+})
+FR.update({
+    'Leaving a game': 'Quitter un jeu',
+    'HOME or buttons': 'HOME ou boutons',
+    'HOME only': 'HOME seulement',
+    'In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game\'s own button combos can\'t leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console\'s Reset button then gets back.':
+        "Dans les jeux GameCube, maintenez HOME deux secondes pour revenir à RiftWii (HOME et - sur une Wiimote seule). "
+        "HOME ou boutons : maintenir L, R, Z et Start sur une manette GameCube quitte aussi, et dans les jeux Wii avec "
+        "l'adaptateur. HOME seulement désactive les boutons, pour que les combinaisons d'un jeu ne le quittent pas par accident. Sans Wiimote ni Wii U Pro Controller, seul le bouton Reset de la console permet de revenir.",
+})
+
+# Leaving a game, HOME only: the GameCube controller card says the buttons are off.
+T.update({
+    'L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote or a Wii U Pro Controller for two seconds to leave the game.': (
+        'L, R, Z y Start están desactivados (Ajustes > Juegos > Salir de un juego): mantén HOME en un mando de Wii o un Wii U Pro Controller dos segundos para salir del juego.',
+        'L、R、Z、Startはオフです (設定 > ゲーム > ゲームをやめるとき)。WiiリモコンかWii U ProコントローラーのHOMEを2秒押し続けるとゲームをやめます。',
+        'L, R, Z e Start estão desativados (Configurações > Jogos > Sair de um jogo): segure HOME num Wii Remote ou num Wii U Pro Controller por dois segundos para sair do jogo.',
+        "L, R, Z e Start sono disattivati (Impostazioni > Giochi > Uscire da un gioco): tieni premuto HOME su un Wii Remote o un Wii U Pro Controller per due secondi per uscire dal gioco."),
+})
+KO.update({
+    'L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote or a Wii U Pro Controller for two seconds to leave the game.': 'L, R, Z, Start는 꺼져 있습니다 (설정 > 게임 > 게임 나가기). Wii 리모컨이나 Wii U Pro 컨트롤러의 HOME을 2초 동안 누르고 있으면 게임을 나갑니다.',
+})
+FR.update({
+    'L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote or a Wii U Pro Controller for two seconds to leave the game.': "L, R, Z et Start sont désactivés (Paramètres > Jeux > Quitter un jeu) : maintenez HOME sur une Wiimote ou une manette Wii U Pro deux secondes pour quitter le jeu.",
+})
+
 # Settings > Controllers > Calibrate a GameCube controller (#511).
 T.update({
     'Calibrate a GameCube controller': ('Calibrar un mando de GameCube', 'ゲームキューブコントローラーの調整', 'Calibrar um controle de GameCube', 'Calibra un controller GameCube'),

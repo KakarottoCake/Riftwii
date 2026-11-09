@@ -80,6 +80,7 @@ riftwii::wii::GcImage image_of(const rwp_gc_launch& request) {
 riftwii::wii::GcLaunchExtras extras_of(const rwp_gc_launch& request) {
     riftwii::wii::GcLaunchExtras extras;
     extras.rumble_off = request.rumble_off != 0;
+    extras.leave_home_only = request.leave_home_only != 0;
     extras.in_dolphin = request.in_dolphin != 0;
     if (request.cheat_gct != nullptr)
         extras.cheat_gct.assign(request.cheat_gct, request.cheat_gct + request.cheat_gct_bytes);
