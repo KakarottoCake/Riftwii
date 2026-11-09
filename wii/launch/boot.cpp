@@ -3050,14 +3050,17 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     if (vsd.active) {
         std::string why;
         if (!install_vsd_hook(vsd, why)) {
-            if (!pad_reset) {
+            if (options.install_resident || g_vsd.enabled) {
                 error = "the virtual SD card: " + why;
                 return false;
             }
-            // Only the Reset's request needed the card: the game starts as
-            // it did before, and a Reset restarts it as it always does.
-            logf("Reset: the game's own Reset restarts it without the GameCube adapter or USB controllers: the SD "
-                 "card could not be shared with the game (%s)\n", why.c_str());
+            // With no runtime and no virtual card, the pass-through was only there for the Reset's request
+            // (the Reset may already be off, when the adapter's hook could not be planned): the game starts
+            // as it did before, and a Reset restarts it as it always does.
+            if (pad_reset) {
+                logf("Reset: the game's own Reset restarts it without the GameCube adapter or USB controllers: the "
+                     "SD card could not be shared with the game (%s)\n", why.c_str());
+            }
             pad_reset = false;
             // The pass-through is not in, so the game opens its own card again: this handle must not be
             // holding it.
