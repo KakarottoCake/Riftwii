@@ -4224,11 +4224,11 @@ msgstr "HOME o pulsanti"
 msgid "HOME only"
 msgstr "Solo HOME"
 
-msgid "In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game's own button combos can't leave by accident. Without a Wii Remote, only the console's Reset button then gets back."
-msgstr "Nei giochi GameCube, tieni premuto HOME per due secondi per tornare a RiftWii (HOME e - su un Wii Remote da solo). HOME o pulsanti: anche tenere premuti L, R, Z e Start su un controller GameCube fa uscire, e nei giochi Wii con l'adattatore. Solo HOME disattiva i pulsanti, così le combinazioni di un gioco non lo chiudono per errore. Senza un Wii Remote, solo il pulsante Reset della console fa tornare."
+msgid "In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game's own button combos can't leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console's Reset button then gets back."
+msgstr "Nei giochi GameCube, tieni premuto HOME per due secondi per tornare a RiftWii (HOME e - su un Wii Remote da solo). HOME o pulsanti: anche tenere premuti L, R, Z e Start su un controller GameCube fa uscire, e nei giochi Wii con l'adattatore. Solo HOME disattiva i pulsanti, così le combinazioni di un gioco non lo chiudono per errore. Senza un Wii Remote né un Wii U Pro Controller, solo il pulsante Reset della console fa tornare."
 
-msgid "L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote for two seconds to leave the game."
-msgstr "L, R, Z e Start sono disattivati (Impostazioni > Giochi > Uscire da un gioco): tieni premuto HOME su un Wii Remote per due secondi per uscire dal gioco."
+msgid "L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote or a Wii U Pro Controller for two seconds to leave the game."
+msgstr "L, R, Z e Start sono disattivati (Impostazioni > Giochi > Uscire da un gioco): tieni premuto HOME su un Wii Remote o un Wii U Pro Controller per due secondi per uscire dal gioco."
 
 msgid "Calibrate a GameCube controller"
 msgstr "Calibra un controller GameCube"

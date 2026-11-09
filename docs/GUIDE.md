@@ -1047,8 +1047,8 @@ L, R, Z and Start then leave nothing, in GameCube games and in Wii
 games played with the adapter, and HOME (HOME and − on a Wii Remote
 alone, HOME on a Classic Controller or a Wii U Pro Controller) still
 leaves. A USB pad's Guide button presses L, R, Z and Start, so it
-leaves nothing either. Without a Wii Remote, only the console's
-**Reset** button then gets back.
+leaves nothing either. Without a Wii Remote or a Wii U Pro Controller,
+only the console's **Reset** button then gets back.
 The console's **Reset** button restarts the game, as on a GameCube, in
 the games where that is known to work (Super Mario Sunshine, USA, and
 Super Mario Eclipse); in the others it goes back to RiftWii, as holding
