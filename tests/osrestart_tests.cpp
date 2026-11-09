@@ -221,11 +221,57 @@ void the_trigger_stub() {
 
 }  // namespace
 
+// The pad hook takes the game's own Reset only where nothing else does and
+// it can be hooked (#458): adapter or USB controllers in use, a request to
+// leave, no runtime, no code build, no MetaFortress, the card free.
+void the_pad_hook_takes_the_reset() {
+    using riftwii::PadResetLaunch;
+    using riftwii::pad_hook_takes_reset;
+    PadResetLaunch launch;
+    launch.reset_wanted = true;
+    launch.pads_on = true;
+    const char* why = "unset";
+    EXPECT_TRUE(pad_hook_takes_reset(launch, why));
+    EXPECT_TRUE(why == nullptr);
+
+    // No request, no pads, or the runtime in: nothing to keep, no reason.
+    PadResetLaunch none = launch;
+    none.reset_wanted = false;
+    why = "unset";
+    EXPECT_TRUE(!pad_hook_takes_reset(none, why));
+    EXPECT_TRUE(why == nullptr);
+    none = launch;
+    none.pads_on = false;
+    why = "unset";
+    EXPECT_TRUE(!pad_hook_takes_reset(none, why));
+    EXPECT_TRUE(why == nullptr);
+    none = launch;
+    none.runtime_in = true;
+    why = "unset";
+    EXPECT_TRUE(!pad_hook_takes_reset(none, why));
+    EXPECT_TRUE(why == nullptr);
+
+    // Each thing in the way gives its own reason.
+    PadResetLaunch code = launch;
+    code.code_build = true;
+    EXPECT_TRUE(!pad_hook_takes_reset(code, why));
+    EXPECT_TRUE(why != nullptr && std::strstr(why, "code build") != nullptr);
+    PadResetLaunch checked = launch;
+    checked.hooks_allowed = false;
+    EXPECT_TRUE(!pad_hook_takes_reset(checked, why));
+    EXPECT_TRUE(why != nullptr && std::strstr(why, "checks its own code") != nullptr);
+    PadResetLaunch held = launch;
+    held.sd_card_free = false;
+    EXPECT_TRUE(!pad_hook_takes_reset(held, why));
+    EXPECT_TRUE(why != nullptr && std::strstr(why, "NAND emulation") != nullptr);
+}
+
 int main() {
     os_restart_is_found();
     os_sleep_thread_is_found();
     os_suspend_thread_is_found();
     the_trigger_stub();
+    the_pad_hook_takes_the_reset();
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;

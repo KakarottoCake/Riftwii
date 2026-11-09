@@ -140,6 +140,15 @@ std::uint32_t find_os_restart(const std::vector<CodeRange>& text) {
     return matches == 1 ? found : 0;
 }
 
+bool pad_hook_takes_reset(const PadResetLaunch& launch, const char*& why) {
+    why = nullptr;
+    if (!launch.reset_wanted || !launch.pads_on || launch.runtime_in) return false;
+    if (launch.code_build) why = "a code build's pad blob is in MEM2, out of a branch's reach from OSRestart";
+    else if (!launch.hooks_allowed) why = "the game checks its own code, and the hook on OSRestart would change it";
+    else if (!launch.sd_card_free) why = "d2x's NAND emulation holds the SD card the request is written to";
+    return why == nullptr;
+}
+
 std::vector<std::uint32_t> restart_trigger_stub(std::uint32_t stub_address, std::uint32_t sleep_thread,
                                                 std::uint32_t displaced, std::uint32_t ticks,
                                                 std::uint32_t os_restart) {

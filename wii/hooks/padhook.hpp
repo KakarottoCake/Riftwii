@@ -86,6 +86,19 @@ struct PadHook {
     std::uint32_t resident_last_write = 0;  // the resident's save-write time (SD saves), 0: none
     std::uint32_t resident_busy = 0;        // its savegame engine's busy word (with the above)
     std::uint32_t resident_queued = 0;      // and its queue count
+    // The game's own Reset (#458), in a launch with no resident runtime to
+    // take it: the caller fills these after find_pad_functions and before
+    // plan_pad_hook. restart_os 0: left alone (a code build never has it).
+    std::uint32_t restart_os = 0;           // OSRestart
+    std::uint32_t restart_ioctlv = 0;       // the game's synchronous IOS_Ioctlv
+    std::uint32_t restart_lba = 0;          // the request's sector on the card
+    std::int32_t restart_sdio_fd = -1;      // the card, held open for the game since the launch
+    std::uint32_t restart_sdio_mode = 0;    // RTRESTART_SD_*
+    std::vector<std::uint8_t> restart_armed;  // the sector the Reset writes
+    std::vector<std::uint8_t> restart_idle;   // the sector as the file holds it
+    std::uint32_t restart_block = 0;        // planned: the block in MEM2, at the end of the state
+    std::uint32_t restart_block_bytes = 0;  // and its bytes (part of state_bytes)
+    bool restart_hooked = false;            // install_pad_hook put the hook on OSRestart
 };
 
 // Opens /dev/usb/hid on RiftWii's own handle and tells v4 from v5.
@@ -165,5 +178,11 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
 
 // After the patches and the cheats, just before the handover.
 bool install_pad_hook(PadHook& hook, std::string& why);
+
+// After Return to RiftWii has been patched in for the channel (the Reset
+// leaves through the game's OSReturnToMenu, which starts it): turns the
+// Reset on, in the words install_pad_hook left off. False when the hook
+// is not on OSRestart.
+bool enable_pad_reset(PadHook& hook, std::uint32_t os_return_to_menu);
 
 }  // namespace riftwii::wii

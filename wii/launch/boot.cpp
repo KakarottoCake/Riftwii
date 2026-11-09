@@ -48,6 +48,7 @@
 #include "gcadapter.hpp"
 #include "hidpads.hpp"
 #include "padhook.hpp"
+#include "rtrestart.h"
 #include "resident.hpp"
 #include "faulthook.hpp"
 #include "shothook.hpp"
@@ -1547,6 +1548,11 @@ bool restart_test_keep() {
     return it != Settings().other.end() && it->second == "on";
 }
 
+// What the game's own Reset keeps or loses, for the log: its packs where the
+// resident runtime takes it, the GameCube adapter and USB controllers where
+// the pad hook does (#458, a launch with no runtime).
+const char* g_reset_loses = "its packs";
+
 struct RestartRequest {
     std::uint32_t lba = 0;             // 0: the Reset is left alone
     std::vector<std::uint8_t> armed;   // the sector the Reset writes
@@ -1558,19 +1564,39 @@ RestartRequest g_restart_request;
 // whenever a request was made but cannot be kept; says nothing when none was.
 void prepare_restart_request(const BootOptions& options) {
     g_restart_request = RestartRequest{};
+    g_reset_loses = "its packs";
     if (g_extras.restart_args.empty()) return;
     if (!options.install_resident) {
-        logf("Reset: the game's own Reset restarts it as it always does: no RiftWii runtime goes into this game, "
-             "and the runtime is what takes the Reset\n");
-        return;
+        // No runtime to take the Reset: the pad hook does, where the adapter
+        // or USB controllers are in use and it can (#458). Else the game
+        // restarts the way the console always does.
+        PadResetLaunch launch;
+        launch.reset_wanted = true;
+        launch.pads_on = g_extras.gc_adapter != GcAdapterMode::Off;
+        launch.runtime_in = false;
+        launch.code_build = !g_extras.code_builds.empty() || g_extras.code_build_in_image;
+        launch.hooks_allowed = gx_patch_allowed(g_extras.game_id, GamePatchKind::RuntimeHooks);
+        launch.sd_card_free = !sd_held_by_d2x_fat();
+        const char* blocked = nullptr;
+        if (!pad_hook_takes_reset(launch, blocked)) {
+            if (blocked != nullptr) {
+                logf("Reset: the game's own Reset restarts it as it always does, without the GameCube adapter or USB "
+                     "controllers: %s\n", blocked);
+            } else {
+                logf("Reset: the game's own Reset restarts it as it always does: no RiftWii runtime goes into this "
+                     "game, and the runtime is what takes the Reset\n");
+            }
+            return;
+        }
+        g_reset_loses = "the GameCube adapter and USB controllers";
     }
     if (debug_off("reset")) {
         logf("Reset: debug_off: the game's own Reset is left to the game\n");
         return;
     }
     if (ChannelTitle() == 0 && !restart_test_keep()) {
-        logf("Reset: the game's own Reset restarts it without its packs: the RiftWii channel is not installed, and it "
-             "is what starts RiftWii again\n");
+        logf("Reset: the game's own Reset restarts it without %s: the RiftWii channel is not installed, and it "
+             "is what starts RiftWii again\n", g_reset_loses);
         return;
     }
     // The restart starts without the menu, so the cIOS this launch runs on
@@ -1586,7 +1612,7 @@ void prepare_restart_request(const BootOptions& options) {
     RestartCios cios = RestartCios::Unchanged;
     if (!restart_request_sectors(g_extras.restart_args, launch_ios, kRestartSector, request.armed, request.idle, cios,
                                  why)) {
-        logf("Reset: the game's own Reset restarts it without its packs: %s\n", why.c_str());
+        logf("Reset: the game's own Reset restarts it without %s: %s\n", g_reset_loses, why.c_str());
         return;
     }
     if (cios == RestartCios::Pinned) {
@@ -1601,7 +1627,7 @@ void prepare_restart_request(const BootOptions& options) {
     // The close is what flushes the sector to the card, so a failed close is a failed write.
     if (file != nullptr) written = std::fclose(file) == 0 && written;
     if (!written) {
-        logf("Reset: the game's own Reset restarts it without its packs: %s could not be made\n", kRestartFile);
+        logf("Reset: the game's own Reset restarts it without %s: %s could not be made\n", g_reset_loses, kRestartFile);
         return;
     }
     forget_sd_layout();
@@ -1609,7 +1635,7 @@ void prepare_restart_request(const BootOptions& options) {
     if (!resolve_sd_file(kRestartFile, placed, why) || placed.fragments.empty() ||
         placed.fragments.front().sector_count == 0 || placed.fragments.front().sector == 0 ||
         placed.fragments.front().sector > 0xFFFFFFFFu) {
-        logf("Reset: the game's own Reset restarts it without its packs: %s has no sector to write (%s)\n",
+        logf("Reset: the game's own Reset restarts it without %s: %s has no sector to write (%s)\n", g_reset_loses,
              kRestartFile, why.empty() ? "not on the card" : why.c_str());
         return;
     }
@@ -1705,6 +1731,78 @@ void plan_restart(const DolHeader& dol, bool game_checks_its_code, bool runtime_
         out.return_to_menu = 0;
         logf("Reset: the channel is launched directly: %s\n", menu_error.c_str());
     }
+}
+
+// The game's own Reset taken by the pad hook (#458): what the loader found
+// in the game's code, for plan_pad_restart.
+struct PadRestart {
+    std::uint32_t os_restart = 0;
+    std::uint32_t return_to_menu = 0;
+    std::uint32_t ioctlv = 0;  // the game's synchronous IOS_Ioctlv
+};
+
+// For a launch with no runtime where the adapter's hook is in the game, the
+// request is prepared and `return_ok` says Return to RiftWii points the
+// game's OSReturnToMenu at the channel: whether the Reset can be taken
+// there. Every outcome is logged here, while boot.log is open.
+bool plan_pad_restart(const DolHeader& dol, bool game_checks_its_code, bool return_ok, PadRestart& out) {
+    out = PadRestart{};
+    const char* const loses = "the GameCube adapter and USB controllers";
+    if (g_restart_request.lba == 0) return false;
+    if (game_checks_its_code) {
+        logf("Reset: the game's own Reset restarts it without %s: the game checks its own code, and the hook on "
+             "OSRestart would change it\n", loses);
+        return false;
+    }
+    if (!return_ok) {
+        logf("Reset: the game's own Reset restarts it without %s: it leaves through OSReturnToMenu, and Return to "
+             "RiftWii does not point that at the RiftWii channel in this launch\n", loses);
+        return false;
+    }
+    std::vector<CodeRange> text;
+    for (std::size_t i = 0; i < kDolTextSections; ++i) {
+        const DolSection& s = dol.sections[i];
+        if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
+    }
+    std::vector<CodeRange> all;
+    for (std::size_t i = 0; i < kDolSections; ++i) {
+        const DolSection& s = dol.sections[i];
+        if (s.used()) all.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
+    }
+    const std::uint32_t os_restart = find_os_restart(text);
+    if (os_restart == 0) {
+        logf("Reset: the game's own Reset restarts it without %s: its OSRestart was not found\n", loses);
+        return false;
+    }
+    std::string why;
+    const std::uint32_t first = *reinterpret_cast<const volatile std::uint32_t*>(os_restart);
+    if (!displaceable(first, 12, why)) {
+        logf("Reset: the game's own Reset restarts it without %s: OSRestart cannot be hooked (its first word %s)\n",
+             loses, why.c_str());
+        return false;
+    }
+    std::string menu_error;
+    std::uint32_t return_to_menu = 0;
+    if (!find_os_return_to_menu(text, all, return_to_menu, menu_error)) {
+        logf("Reset: the game's own Reset restarts it without %s: %s\n", loses, menu_error.c_str());
+        return false;
+    }
+    IpcSymbols symbols;
+    IpcApi api;
+    std::string search_error;
+    if (!find_ipc_symbols(text, symbols, search_error) || !find_ipc_api(text, symbols, api, search_error) ||
+        api.sync[kIpcIoctlvCmd] == 0) {
+        logf("Reset: the game's own Reset restarts it without %s: the game's IOS_Ioctlv was not found\n", loses);
+        return false;
+    }
+    out.os_restart = os_restart;
+    out.return_to_menu = return_to_menu;
+    out.ioctlv = api.sync[kIpcIoctlvCmd];
+    logf("Reset: the adapter's hook takes the game's own Reset (OSRestart 0x%08x): the request is in sector %u of "
+         "the card (%s), and it leaves through OSReturnToMenu (0x%08x), which Return to RiftWii points at the "
+         "channel; the SD card is held open for it\n", os_restart, g_restart_request.lba, kRestartFile,
+         return_to_menu);
+    return true;
 }
 
 // Test switch: settings.txt "debug_reset = <N>" makes the game restart
@@ -2350,6 +2448,26 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     GameExtras extras;
     gc_adapter = prepare_gc_pads(dol, gc_adapter, gx_protected, extras.pad);
 
+    // The game's own Reset where no runtime takes it (#458): the adapter's
+    // hook does, which needs the SD card for the request and Return to
+    // RiftWii for the way to the channel.
+    PadRestart pad_restart;
+    bool pad_reset = false;
+    if (!options.install_resident && g_restart_request.lba != 0) {
+        if (!gc_adapter) {
+            logf("Reset: the game's own Reset restarts it without the GameCube adapter or USB controllers: the "
+                 "adapter's hook is not in this game\n");
+        } else if (g_vsd.enabled) {
+            logf("Reset: the game's own Reset restarts it without the GameCube adapter or USB controllers: a virtual "
+                 "SD card holds the card\n");
+        } else {
+            const bool return_ok = !debug_off("returnto") && !code_build &&
+                                   gx_patch_allowed(probe.header.game_id, GamePatchKind::ReturnTo) &&
+                                   return_title() != 0 && return_title() == ChannelTitle();
+            pad_reset = plan_pad_restart(dol, gx_protected, return_ok, pad_restart);
+        }
+    }
+
     // E4: the SD card again, with our own fd this time, left open and
     // selected for the runtime.
     sdio::Card card;
@@ -2385,7 +2503,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // to the runtime, just below. ES is opened only when Reset is called:
     // holding an extra handle during play can exhaust the game's ES contexts.
     RestartOptions restart_plan;
-    plan_restart(dol, gx_protected, runtime_code_in_mem2, card_required || file_device, restart_plan);
+    // (Without the runtime the adapter's hook takes the Reset, planned above.)
+    if (options.install_resident) plan_restart(dol, gx_protected, runtime_code_in_mem2, card_required || file_device, restart_plan);
     if (card_required || file_device) {
         if (!options.install_resident) {
             error = "SD-backed replacements, savegame redirection and RVZ games need the resident runtime";
@@ -2400,6 +2519,18 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             file_device = false;
             sdio::close_card(card);  // a half-opened card is not handed on
             card = sdio::Card{};
+        }
+    }
+    if (pad_reset) {
+        release_card_and_log();
+        std::string open_error;
+        if (!sdio::open_card(card, open_error)) {
+            // Past the end of boot.log: on screen only.
+            logf("Reset: the game's own Reset restarts it without the GameCube adapter or USB controllers: the SD "
+                 "card, where the request is written, could not be opened (%s)\n", open_error.c_str());
+            sdio::close_card(card);  // a half-opened card is not handed on
+            card = sdio::Card{};
+            pad_reset = false;
         }
     }
     if (card.fd >= 0) {
@@ -2483,7 +2614,11 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // City Folk from the USB drive with a pack on the SD card found no
     // card for its letters and pictures. The game's commands go one at a
     // time beside the runtime's reads on the same handle.
-    if (!g_vsd.enabled && options.install_resident && card.fd >= 0) {
+    // A launch with no runtime that holds the card for the Reset's request
+    // (#458) gives the game the same pass-through: it could not open a card
+    // held open.
+    bool game_uses_sd = false;
+    if (!g_vsd.enabled && (options.install_resident || pad_reset) && card.fd >= 0) {
         std::string why;
         VsdImage whole;
         // The card's size, from its first sector (its file systems' end).
@@ -2509,6 +2644,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             }
             return false;
         };
+        game_uses_sd = has_sd_driver();
         if (gx_protected) {
             why = "the game checks its own code (MetaFortress)";
         } else if (whole_mem1_why != nullptr) {
@@ -2547,11 +2683,16 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             known[VSD_CLOSE] = resident.entries[RT_IPC_SYNC(kIpcClose)];
             known[VSD_IOCTL] = resident.entries[RT_IPC_SYNC(kIpcIoctlCmd)];
             known[VSD_IOCTLV] = resident.entries[RT_IPC_SYNC(kIpcIoctlvCmd)];
-            if (!plan_vsd_hook(dol, whole, device, resident.new_arena1_hi, mem1_floor, resident.new_arena2_lo, 0,
-                               options.memory_patches, vsd, why, resident.data_bytes != 0,
-                               resident.data_bytes != 0 ? resident.stage_base : 0, known)) {
+            // With no runtime the blob finds the game's functions itself and
+            // goes below the game's own arena ends.
+            const bool with_runtime = options.install_resident;
+            if (!plan_vsd_hook(dol, whole, device, with_runtime ? resident.new_arena1_hi : game_arena1_hi(),
+                               mem1_floor, with_runtime ? resident.new_arena2_lo : read32(0x80003124), 0,
+                               options.memory_patches, vsd, why, with_runtime && resident.data_bytes != 0,
+                               with_runtime && resident.data_bytes != 0 ? resident.stage_base : 0,
+                               with_runtime ? known : nullptr)) {
                 vsd = VsdHook{};
-            } else {
+            } else if (with_runtime) {
                 // The runtime's reads and saves and the game's own commands
                 // go to the one card: each waits while the other's write is
                 // still being programmed, where a mod read landing then
@@ -2568,7 +2709,18 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             }
         }
         if (!vsd.active) logf("SD card for the game: not passed through: %s\n", why.c_str());
-        else logf("SD card for the game: passed through beside the runtime (%u sectors)\n", whole.sectors);
+        else logf("SD card for the game: passed through%s (%u sectors)\n",
+                  options.install_resident ? " beside the runtime" : " beside the Reset's request", whole.sectors);
+    }
+    if (pad_reset && game_uses_sd && !vsd.active) {
+        // The game reaches for its SD card (Album, stage builder), and the
+        // card held for the Reset could not be shared: the game keeps its
+        // card and its own Reset.
+        logf("Reset: the game's own Reset restarts it without the GameCube adapter or USB controllers: the game uses "
+             "its SD card, which could not be shared with the request's\n");
+        sdio::close_card(card);
+        card = sdio::Card{};
+        pad_reset = false;
     }
     if (g_vsd.enabled && !options.install_resident) {
         std::string why;
@@ -2618,7 +2770,22 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // An RVZ game whose adapter could not be planned (or later installed)
     // starts without it, as every other game does: plan_pad_hook writes
     // nothing before it fails, and its "GameCube adapter: off" line says why.
+    if (pad_reset) {
+        PadHook& pad = extras.pad;
+        pad.restart_os = pad_restart.os_restart;
+        pad.restart_ioctlv = pad_restart.ioctlv;
+        pad.restart_lba = g_restart_request.lba;
+        pad.restart_sdio_fd = card.fd;
+        pad.restart_sdio_mode = card.d2x ? RTRESTART_SD_D2X : card.sdhc ? RTRESTART_SD_SDHC : RTRESTART_SD_BYTES;
+        pad.restart_armed = g_restart_request.armed;
+        pad.restart_idle = g_restart_request.idle;
+    }
     plan_game_extras(dol, extras_context, extras);
+    if (pad_reset && (!extras.pad.active || extras.pad.restart_os == 0)) {
+        logf("Reset: the game's own Reset restarts it without the GameCube adapter or USB controllers: the adapter's "
+             "hook could not take it\n");
+        pad_reset = false;
+    }
     // Never left open for the game (it may keep this IOS).
     CloseAllNandPermissions("Launch");
     logf("Handing over\n");
@@ -2875,8 +3042,15 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     if (vsd.active) {
         std::string why;
         if (!install_vsd_hook(vsd, why)) {
-            error = "the virtual SD card: " + why;
-            return false;
+            if (!pad_reset) {
+                error = "the virtual SD card: " + why;
+                return false;
+            }
+            // Only the Reset's request needed the card: the game starts as
+            // it did before, and a Reset restarts it as it always does.
+            logf("Reset: the game's own Reset restarts it without the GameCube adapter or USB controllers: the SD "
+                 "card could not be shared with the game (%s)\n", why.c_str());
+            pad_reset = false;
         }
     }
     install_game_extras(extras);
@@ -2910,6 +3084,20 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
              restart_plan.return_to_menu);
     } else if (resident.restart_hooked) {
         logf("Reset: the RiftWii channel is launched directly (Return to RiftWii is not patched in for it)\n");
+    }
+    if (pad_reset) {
+        // Past the end of boot.log: on screen only.
+        if (returns_to_channel && return_to == ChannelTitle() &&
+            enable_pad_reset(extras.pad, pad_restart.return_to_menu)) {
+            logf("Reset: on: the game's own Reset leaves through OSReturnToMenu (0x%08x), which now starts the "
+                 "RiftWii channel\n", pad_restart.return_to_menu);
+        } else if (!extras.pad.restart_hooked) {
+            logf("Reset: not hooked after all: the game's own Reset restarts it without the GameCube adapter or USB "
+                 "controllers\n");
+        } else {
+            logf("Reset: not on: the game's own Reset restarts it without the GameCube adapter or USB controllers: "
+                 "Return to RiftWii is not patched in for the channel\n");
+        }
     }
     install_wpad_log_last(extras);
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));

@@ -27,6 +27,7 @@
 #include "riftwii_pada_bin.h"
 #include "riftwii_padp_bin.h"
 #include "rtgcad.h"
+#include "rtrestart.h"
 #include "skin.hpp"
 
 namespace riftwii::wii {
@@ -896,6 +897,18 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     const rt_pad_header& h = header(kind);
     out.code_bytes = align_up(h.size);
     out.state_bytes = align_up(out.adapter_only ? GCAD_OWNER_BYTES(version) : layout.bytes);
+    // The game's own Reset (#458): its block follows the driver's state, in
+    // MEM2 (a code build, whose blob is in MEM2 out of OSRestart's reach,
+    // never has one).
+    std::uint32_t restart_block_at = 0;
+    if (out.restart_os != 0 && mem1_veneer == 0 && out.restart_armed.size() == RTRESTART_SECTOR &&
+        out.restart_idle.size() == RTRESTART_SECTOR && h.hook_restart != 0) {
+        restart_block_at = out.state_bytes;
+        out.restart_block_bytes = align_up(sizeof(rtrestart_block));
+        out.state_bytes += out.restart_block_bytes;
+    } else {
+        out.restart_os = 0;
+    }
     logf("USB controllers: %s driver (%u bytes), room for %u other USB pad(s) and %u layout(s) (%u bytes)%s, state %u bytes%s\n",
          kind == kBlobAdapter ? "the adapter's" : kind == kBlobPads ? "the USB pads'" : "the full",
          static_cast<unsigned>(h.size), static_cast<unsigned>(out.link_count), static_cast<unsigned>(out.map_count),
@@ -952,6 +965,7 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         }
     }
     // In MEM2 the MEM1 arena and the MEM2 arena's start stay as they were.
+    if (out.restart_os != 0) out.restart_block = out.state_base + restart_block_at;
     out.new_arena1_hi = mem1_veneer != 0 ? arena1_hi : out.code_base;
     out.new_arena2_lo = mem1_veneer != 0 ? arena2_lo : out.state_base + out.state_bytes;
 
@@ -995,6 +1009,19 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     ctx->catalog_at = layout.catalog;
 
     ctx->idle_reset = out.idle_reset;
+    if (out.restart_os != 0) {
+        // Everything but the words that turn it on (enable_pad_reset).
+        auto* block = reinterpret_cast<rtrestart_block*>(out.restart_block);
+        std::memset(block, 0, sizeof(*block));
+        std::memcpy(block->armed, out.restart_armed.data(), RTRESTART_SECTOR);
+        std::memcpy(block->idle, out.restart_idle.data(), RTRESTART_SECTOR);
+        block->state.lba = out.restart_lba;
+        block->state.sdio_fd = static_cast<std::uint32_t>(out.restart_sdio_fd);
+        block->state.sdio_mode = out.restart_sdio_mode;
+        block->state.ioctlv = out.restart_ioctlv;
+        DCFlushRange(block, sizeof(*block));
+        ctx->restart = out.restart_block;
+    }
     out.active = true;
     logf("GameCube adapter: blob %u bytes at 0x%08x, state %u bytes at 0x%08x%s%s%s\n", h.size, out.code_base,
          out.state_bytes, out.state_base, out.adapter_only ? " (the adapter alone: no other USB pad)" : "",
@@ -1018,17 +1045,20 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
     struct Site {
         std::uint32_t function, hook, replay, resume;
         const char* name;
-    } sites[kPadHookSites] = {{hook.read, h.hook_read, h.replay_read, h.continue_read, "PADRead"},
+    } sites[kPadHookSites + 1] = {{hook.read, h.hook_read, h.replay_read, h.continue_read, "PADRead"},
                               {hook.motor, h.hook_motor, h.replay_motor, h.continue_motor, "PADControlMotor"},
                               {hook.ipc_submit, h.hook_submit, h.replay_submit, h.continue_submit, "the IPC submit routine"},
                               {hook.sleep_thread, h.hook_sleep, h.replay_sleep, h.continue_sleep, "OSSleepThread"},
                               {hook.suspend_thread, h.hook_suspend, h.replay_suspend, h.continue_suspend,
-                               "OSSuspendThread"}};
+                               "OSSuspendThread"},
+                              {hook.restart_os, h.hook_restart, h.replay_restart, h.continue_restart,
+                               "OSRestart"}};
     Site& read_site = sites[0];
     Site& motor_site = sites[1];
     Site& submit_site = sites[2];
     Site& sleep_site = sites[3];
     Site& suspend_site = sites[4];
+    Site& restart_site = sites[5];
     // The way back needs both of its hooks: without either it stays off
     // (the one that went in is harmless alone).
     const auto way_back_off = [&](const char* name, const std::string& reason) {
@@ -1060,6 +1090,9 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
             } else if (&s == &suspend_site) {
                 logf("GameCube adapter: OSSuspendThread cannot be hooked (%s); the way back leaves only from sleeps\n",
                      reason.c_str());
+            } else if (&s == &restart_site) {
+                logf("Reset: the game's own Reset restarts it without the adapter or USB controllers: OSRestart "
+                     "cannot be hooked (%s)\n", reason.c_str());
             } else {
                 way_back_off(s.name, "cannot be hooked (" + reason + ")");
             }
@@ -1096,10 +1129,20 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
             if (&s == &submit_site || &s == &sleep_site) way_back_off(s.name, "is out of a branch's reach");
             if (&s == &suspend_site)
                 logf("GameCube adapter: OSSuspendThread is out of a branch's reach; the way back leaves only from sleeps\n");
+            if (&s == &restart_site)
+                logf("Reset: the game's own Reset restarts it without the adapter or USB controllers: OSRestart is "
+                     "out of a branch's reach\n");
             continue;
         }
         store_words(s.function, &branch, 1);
         sync_code(s.function & ~31u, 32);
+    }
+    // The loop above stored a branch on OSRestart's first word when it hooked it.
+    if (hook.restart_os != 0 && restart_site.function != 0) {
+        const std::uint32_t word = *reinterpret_cast<const std::uint32_t*>(hook.restart_os);
+        std::uint32_t offset = word & 0x03FFFFFCu;
+        if (offset & 0x02000000u) offset |= 0xFC000000u;
+        hook.restart_hooked = (word >> 26) == 18 && hook.restart_os + offset == hook.code_base + h.hook_restart;
     }
     // The way back's words in the context, last: return_to_menu, which
     // turns it on, only once both its hooks are in.
@@ -1117,6 +1160,14 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
              static_cast<unsigned>(kLeaveHoldMs), static_cast<unsigned>(ctx->leave.hold),
              static_cast<unsigned>(kSaveQuietMs));
     }
+    return true;
+}
+
+bool enable_pad_reset(PadHook& hook, std::uint32_t os_return_to_menu) {
+    if (!hook.active || !hook.restart_hooked || hook.restart_block == 0 || os_return_to_menu == 0) return false;
+    auto* block = reinterpret_cast<rtrestart_block*>(hook.restart_block);
+    block->state.return_to_menu = os_return_to_menu;
+    DCFlushRange(block, sizeof(block->state));
     return true;
 }
 
