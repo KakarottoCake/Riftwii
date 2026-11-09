@@ -1719,7 +1719,6 @@ T = {
     "480p picture": ("Imagen en 480p", "480pの映像", "Imagem em 480p", "Immagine in 480p"),
     "On (480p)": ("Sí (480p)", "オン (480p)", "Sim (480p)", "Sì (480p)"),
     "Widescreen": ("Panorámico", "ワイド画面", "Widescreen", "Panoramico"),
-    "480p is for US and Japanese games; this European game keeps its own picture.": ("480p es para juegos de EE. UU. y Japón; este juego europeo mantiene su propia imagen.", "480pはアメリカと日本のゲーム用で、このヨーロッパのゲームはゲームのままの映像になります。", "480p é para jogos dos EUA e do Japão; este jogo europeu mantém a sua própria imagem.", "Il 480p è per i giochi americani e giapponesi; questo gioco europeo mantiene la sua immagine."),
     "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first.": ("Da una imagen más nítida y estable con un cable por componentes, incluso en juegos sin modo 480p; algunos preguntan antes.", "コンポーネントケーブルで、くっきり安定した映像にします。480pのないゲームも対象で、先に確認を求めるゲームもあります。", "Dá uma imagem mais nítida e estável com cabo componente, mesmo em jogos sem modo 480p; alguns jogos perguntam antes.", "Dà un'immagine più nitida e stabile con un cavo component, anche nei giochi senza modo 480p; alcuni chiedono prima."),
     "Fills a widescreen TV with the game world; menus and text stay stretched.": ("Llena una TV panorámica con el mundo del juego; los menús y el texto siguen estirados.", "ゲームの世界をワイドテレビいっぱいに広げます。メニューと文字は横に伸びたままです。", "Preenche uma TV widescreen com o mundo do jogo; os menus e o texto continuam esticados.", "Riempie una TV panoramica con il mondo di gioco; i menu e il testo restano allungati."),
     "16:9 isn't available for this game yet.": ("El 16:9 aún no está disponible para este juego.", "このゲームではまだ16:9を使えません。", "O 16:9 ainda não está disponível para este jogo.", "Il 16:9 non è ancora disponibile per questo gioco."),
@@ -3741,8 +3740,6 @@ KO = {
         "켬 (480p)",
     "Widescreen":
         "와이드 화면",
-    "480p is for US and Japanese games; this European game keeps its own picture.":
-        "480p는 미국과 일본 게임용이며, 이 유럽 게임은 원래 화면을 그대로 씁니다.",
     "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first.":
         "컴포넌트 케이블에서 더 선명하고 안정적인 화면을 보여 주며, 480p가 없는 게임도 해당됩니다. 일부 게임은 먼저 물어봅니다.",
     "Fills a widescreen TV with the game world; menus and text stay stretched.":
@@ -5797,8 +5794,6 @@ FR = {
         "Activé (480p)",
     "Widescreen":
         "Écran large",
-    "480p is for US and Japanese games; this European game keeps its own picture.":
-        "Le 480p est pour les jeux américains et japonais ; ce jeu européen garde sa propre image.",
     "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first.":
         "Donne une image plus nette et plus stable avec un câble composante, même dans les jeux sans mode 480p ; certains posent d'abord la question.",
     "Fills a widescreen TV with the game world; menus and text stay stretched.":
@@ -8817,6 +8812,275 @@ FR.update({
         "La carte mémoire de chaque jeu GameCube dont l'option Carte mémoire est sur Par défaut. Le choix propre d'un jeu l'emporte.",
     "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page.":
         "La carte mémoire du port B n'a pas pu être lue. Remettez-la, ou choisissez une autre carte sur la page du jeu.",
+})
+
+# 240p output (#511): Video mode's 240p and the GameCube game page's Picture lines.
+T.update({
+    "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture.": (
+        "240p es para televisores CRT y pixel art: la imagen de 480 líneas del juego sale una línea sí y otra no, "
+        "progresiva y sin parpadeo. Los juegos que dibujan menos líneas conservan su propia imagen.",
+        "240pはブラウン管テレビとドット絵向けです。ゲームの480ラインの画面を1ラインおきに、ちらつきのないプログレッシブで"
+        "出力します。ラインの少ないゲームは元の画面のままです。",
+        "240p é para TVs de tubo (CRT) e pixel art: a imagem de 480 linhas do jogo sai uma linha sim, outra não, "
+        "progressiva e sem cintilação. Jogos que desenham menos linhas mantêm a própria imagem.",
+        "240p è per i televisori CRT e la pixel art: l'immagine a 480 righe del gioco esce una riga sì e una no, "
+        "progressiva e senza sfarfallio. I giochi che disegnano meno righe mantengono la propria immagine."),
+    "GameCube games left on Default get it too.": (
+        "Los juegos de GameCube en Predeterminado también lo usan.",
+        "「標準」のゲームキューブのゲームにも使われます。",
+        "Os jogos de GameCube em Padrão também o usam.",
+        "Anche i giochi GameCube su Predefinito lo usano."),
+    "Picture lines": ("Líneas de imagen", "映像のライン数", "Linhas da imagem", "Righe dell'immagine"),
+    "480p and 240p are for US and Japanese games; this European game keeps its own picture.": (
+        "480p y 240p son para juegos de EE. UU. y Japón; este juego europeo mantiene su propia imagen.",
+        "480pと240pはアメリカと日本のゲーム用で、このヨーロッパのゲームはゲームのままの映像になります。",
+        "480p e 240p são para jogos dos EUA e do Japão; este jogo europeu mantém a sua própria imagem.",
+        "Il 480p e il 240p sono per i giochi americani e giapponesi; questo gioco europeo mantiene la sua immagine."),
+})
+KO.update({
+    "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture.":
+        "240p는 CRT TV와 도트 그래픽용입니다. 게임의 480라인 화면을 한 줄씩 건너뛰어 깜박임 없는 프로그레시브로 "
+        "내보냅니다. 라인이 더 적은 게임은 원래 화면을 유지합니다.",
+    "GameCube games left on Default get it too.": "기본값인 게임큐브 게임에도 적용됩니다.",
+    "Picture lines": "화면 라인 수",
+    "480p and 240p are for US and Japanese games; this European game keeps its own picture.": "480p와 240p는 미국과 일본 게임용이며, 이 유럽 게임은 원래 화면을 그대로 씁니다.",
+})
+FR.update({
+    "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture.":
+        "Le 240p est pour les téléviseurs cathodiques et le pixel art : l'image de 480 lignes du jeu sort une ligne "
+        "sur deux, en progressif et sans scintillement. Les jeux qui dessinent moins de lignes gardent leur image.",
+    "GameCube games left on Default get it too.": "Les jeux GameCube sur Par défaut l'utilisent aussi.",
+    "Picture lines": "Lignes de l'image",
+    "480p and 240p are for US and Japanese games; this European game keeps its own picture.": "Le 480p et le 240p sont pour les jeux américains et japonais ; ce jeu européen garde sa propre image.",
+})
+
+# Leaving a game (#511): HOME only turns the controllers' button combo off.
+T.update({
+    'Leaving a game': ('Salir de un juego', 'ゲームをやめるとき', 'Sair de um jogo', 'Uscire da un gioco'),
+    'HOME or buttons': ('HOME o botones', 'HOMEかボタン', 'HOME ou botões', 'HOME o pulsanti'),
+    'HOME only': ('Solo HOME', 'HOMEのみ', 'Só HOME', 'Solo HOME'),
+    'In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game\'s own button combos can\'t leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console\'s Reset button then gets back.': (
+        'En los juegos de GameCube, mantén HOME dos segundos para volver a RiftWii (HOME y - con un mando de Wii solo). '
+        'HOME o botones: mantener L, R, Z y Start en un mando de GameCube también sale, y en los juegos de Wii con el '
+        'adaptador. Solo HOME desactiva los botones, para que las combinaciones de un juego no lo cierren por accidente. Sin un mando de Wii ni un Wii U Pro Controller, solo el botón Reset de la consola vuelve.',
+        'ゲームキューブのゲームでは、HOMEを2秒押し続けるとRiftWiiに戻ります (Wiiリモコンだけのときは HOMEと-)。'
+        '「HOMEかボタン」では、ゲームキューブコントローラーのL、R、Z、Startを押し続けても戻ります (アダプターを使う'
+        'Wiiのゲームでも)。「HOMEのみ」ではボタンで戻らないので、ゲームのボタン操作でまちがって終わりません。WiiリモコンもWii U Proコントローラーもないときは、本体のリセットボタンだけで戻れます。',
+        'Nos jogos de GameCube, segure HOME por dois segundos para voltar ao RiftWii (HOME e - num Wii Remote sozinho). '
+        'HOME ou botões: segurar L, R, Z e Start num controle de GameCube também sai, e nos jogos de Wii com o '
+        'adaptador. Só HOME desativa os botões, para que as combinações de um jogo não o fechem por acidente. Sem um Wii Remote nem um Wii U Pro Controller, só o botão Reset do console volta.',
+        "Nei giochi GameCube, tieni premuto HOME per due secondi per tornare a RiftWii (HOME e - su un Wii Remote da "
+        "solo). HOME o pulsanti: anche tenere premuti L, R, Z e Start su un controller GameCube fa uscire, e nei giochi "
+        "Wii con l'adattatore. Solo HOME disattiva i pulsanti, così le combinazioni di un gioco non lo chiudono per errore. Senza un Wii Remote né un Wii U Pro Controller, solo il pulsante Reset della console fa tornare."),
+})
+KO.update({
+    'Leaving a game': '게임 나가기',
+    'HOME or buttons': 'HOME 또는 버튼',
+    'HOME only': 'HOME만',
+    'In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game\'s own button combos can\'t leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console\'s Reset button then gets back.':
+        '게임큐브 게임에서 HOME을 2초 동안 누르고 있으면 RiftWii로 돌아갑니다 (Wii 리모컨만 쓸 때는 HOME과 -). '
+        'HOME 또는 버튼: 게임큐브 컨트롤러의 L, R, Z, Start를 누르고 있어도 나가며, 어댑터를 쓰는 Wii 게임에서도 '
+        '마찬가지입니다. HOME만은 버튼을 꺼서 게임의 버튼 조합으로 실수로 나가지 않게 합니다. Wii 리모컨도 Wii U Pro 컨트롤러도 없으면 본체의 리셋 버튼으로만 돌아갈 수 있습니다.',
+})
+FR.update({
+    'Leaving a game': 'Quitter un jeu',
+    'HOME or buttons': 'HOME ou boutons',
+    'HOME only': 'HOME seulement',
+    'In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game\'s own button combos can\'t leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console\'s Reset button then gets back.':
+        "Dans les jeux GameCube, maintenez HOME deux secondes pour revenir à RiftWii (HOME et - sur une Wiimote seule). "
+        "HOME ou boutons : maintenir L, R, Z et Start sur une manette GameCube quitte aussi, et dans les jeux Wii avec "
+        "l'adaptateur. HOME seulement désactive les boutons, pour que les combinaisons d'un jeu ne le quittent pas par accident. Sans Wiimote ni Wii U Pro Controller, seul le bouton Reset de la console permet de revenir.",
+})
+
+# Leaving a game, HOME only: the GameCube controller card says the buttons are off.
+T.update({
+    'L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote or a Wii U Pro Controller for two seconds to leave the game.': (
+        'L, R, Z y Start están desactivados (Ajustes > Juegos > Salir de un juego): mantén HOME en un mando de Wii o un Wii U Pro Controller dos segundos para salir del juego.',
+        'L、R、Z、Startはオフです (設定 > ゲーム > ゲームをやめるとき)。WiiリモコンかWii U ProコントローラーのHOMEを2秒押し続けるとゲームをやめます。',
+        'L, R, Z e Start estão desativados (Configurações > Jogos > Sair de um jogo): segure HOME num Wii Remote ou num Wii U Pro Controller por dois segundos para sair do jogo.',
+        "L, R, Z e Start sono disattivati (Impostazioni > Giochi > Uscire da un gioco): tieni premuto HOME su un Wii Remote o un Wii U Pro Controller per due secondi per uscire dal gioco."),
+})
+KO.update({
+    'L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote or a Wii U Pro Controller for two seconds to leave the game.': 'L, R, Z, Start는 꺼져 있습니다 (설정 > 게임 > 게임 나가기). Wii 리모컨이나 Wii U Pro 컨트롤러의 HOME을 2초 동안 누르고 있으면 게임을 나갑니다.',
+})
+FR.update({
+    'L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote or a Wii U Pro Controller for two seconds to leave the game.': "L, R, Z et Start sont désactivés (Paramètres > Jeux > Quitter un jeu) : maintenez HOME sur une Wiimote ou une manette Wii U Pro deux secondes pour quitter le jeu.",
+})
+
+# Settings > Controllers > Calibrate a GameCube controller (#511).
+T.update({
+    'Calibrate a GameCube controller': ('Calibrar un mando de GameCube', 'ゲームキューブコントローラーの調整', 'Calibrar um controle de GameCube', 'Calibra un controller GameCube'),
+    "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use.": (
+        'Prueba un mando de GameCube y corrige uno gastado: palancas que no llegan al borde, palancas que se mueven solas, gatillos que no bajan del todo. Los juegos de GameCube reciben la corrección, y los de Wii mientras se usa un adaptador de GameCube o un mando USB.',
+        'ゲームキューブコントローラーをテストし、古くなったものを直します。端まで届かないスティック、勝手に動くスティック、最後まで押せないトリガー。ゲームキューブのゲームに反映され、Wiiのゲームにはゲームキューブアダプターか USBコントローラーを使っている間だけ反映されます。',
+        'Testa um controle de GameCube e corrige um gasto: alavancas que não chegam à borda, alavancas que se movem sozinhas, gatilhos que não vão até o fim. Os jogos de GameCube recebem a correção, e os de Wii enquanto um adaptador de GameCube ou um controle USB estiver em uso.',
+        'Prova un controller GameCube e corregge uno consumato: levette che non arrivano al bordo, levette che si muovono da sole, grilletti che non scendono del tutto. I giochi GameCube ricevono la correzione, e i giochi Wii mentre è in uso un adattatore GameCube o un controller USB.'),
+    "Wii's GameCube port {1}": ('Puerto de GameCube {1} de la Wii', 'Wiiのゲームキューブ端子{1}', 'Entrada de GameCube {1} do Wii', 'Porta GameCube {1} della Wii'),
+    'Adapter port {1}': ('Puerto {1} del adaptador', 'アダプターの端子{1}', 'Entrada {1} do adaptador', "Porta {1} dell'adattatore"),
+    'USB controller {1}': ('Mando USB {1}', 'USBコントローラー {1}', 'Controle USB {1}', 'Controller USB {1}'),
+    'C stick': ('Palanca C', 'Cスティック', 'Alavanca C', 'Levetta C'),
+    'Up': ('Arriba', '上', 'Cima', 'Su'),
+    'Down': ('Abajo', '下', 'Baixo', 'Giù'),
+    'Left': ('Izquierda', '左', 'Esquerda', 'Sinistra'),
+    'Right': ('Derecha', '右', 'Direita', 'Destra'),
+    'Calibrate': ('Calibrar', '調整', 'Calibrar', 'Calibra'),
+    'Reset to default': ('Restablecer', '初期設定に戻す', 'Restaurar padrão', 'Ripristina'),
+    'Dead zone -': ('Zona muerta -', '遊び -', 'Zona morta -', 'Zona morta -'),
+    'Dead zone +': ('Zona muerta +', '遊び +', 'Zona morta +', 'Zona morta +'),
+    'Dead zone: {1}': ('Zona muerta: {1}', '遊び: {1}', 'Zona morta: {1}', 'Zona morta: {1}'),
+    'RiftWii keeps the calibrations of four USB controllers at most. Reset one to make room.': (
+        'RiftWii guarda la calibración de cuatro mandos USB como máximo. Restablece uno para hacer sitio.',
+        'RiftWiiが保存できるUSBコントローラーの調整は4台までです。1台を初期設定に戻してください。',
+        'O RiftWii guarda a calibração de no máximo quatro controles USB. Restaure um para liberar espaço.',
+        'RiftWii conserva la calibrazione di quattro controller USB al massimo. Ripristinane uno per fare spazio.'),
+    'The SD card could not take the calibration. Is it locked or full?': (
+        'No se pudo guardar la calibración en la tarjeta SD. ¿Está bloqueada o llena?',
+        'SDカードに調整を保存できませんでした。ロックされているか、いっぱいではありませんか？',
+        'Não foi possível salvar a calibração no cartão SD. Ele está travado ou cheio?',
+        'Impossibile salvare la calibrazione sulla scheda SD. È bloccata o piena?'),
+    'Turn the control stick slowly around its edge two or three times, pushing it into every corner. Then press A.': (
+        'Gira la palanca de control despacio por el borde dos o tres veces, llevándola a cada esquina. Luego pulsa A.',
+        'コントロールスティックを端に沿ってゆっくり2、3回まわし、すべての角まで倒してください。それからAを押してください。',
+        'Gire a alavanca de controle devagar pela borda duas ou três vezes, levando-a a cada canto. Depois aperte A.',
+        'Ruota lentamente la levetta di controllo lungo il bordo due o tre volte, spingendola in ogni angolo. Poi premi A.'),
+    'Now turn the C stick around its edge the same way. Then press A.': (
+        'Ahora gira la palanca C por el borde de la misma forma. Luego pulsa A.',
+        '次にCスティックも同じように端に沿ってまわしてください。それからAを押してください。',
+        'Agora gire a alavanca C pela borda do mesmo jeito. Depois aperte A.',
+        'Ora ruota allo stesso modo la levetta C lungo il bordo. Poi premi A.'),
+    'Press L all the way down and let go, then R. Then press A.': (
+        'Pulsa L hasta el fondo y suéltalo, luego R. Después pulsa A.',
+        'Lを最後まで押してはなし、次にRも同じようにしてください。それからAを押してください。',
+        'Aperte L até o fim e solte, depois R. Em seguida aperte A.',
+        'Premi L fino in fondo e rilascialo, poi R. Quindi premi A.'),
+    'Plug a GameCube controller into the Wii or the adapter, or plug in a USB controller.': (
+        'Conecta un mando de GameCube a la Wii o al adaptador, o conecta un mando USB.',
+        'ゲームキューブコントローラーをWiiかアダプターに、またはUSBコントローラーをつないでください。',
+        'Conecte um controle de GameCube ao Wii ou ao adaptador, ou conecte um controle USB.',
+        "Collega un controller GameCube alla Wii o all'adattatore, oppure collega un controller USB."),
+    'Press a button on another controller to show it. On the controller, hold Start to calibrate it or B to go back.': (
+        'Pulsa un botón de otro mando para verlo. En el mando, mantén Start para calibrarlo o B para volver.',
+        'ほかのコントローラーのボタンを押すと表示が切り替わります。コントローラーのStartを長押しで調整、Bを長押しで戻ります。',
+        'Aperte um botão de outro controle para vê-lo. No controle, segure Start para calibrá-lo ou B para voltar.',
+        "Premi un pulsante di un altro controller per vederlo. Sul controller, tieni premuto Start per calibrarlo o B per tornare indietro."),
+    'The controller was unplugged. Nothing was changed.': (
+        'Se desconectó el mando. No se cambió nada.',
+        'コントローラーが抜かれました。何も変更していません。',
+        'O controle foi desconectado. Nada foi alterado.',
+        'Il controller è stato scollegato. Non è stato cambiato nulla.'),
+    'Reset this controller?': ('¿Restablecer este mando?', 'このコントローラーを初期設定に戻しますか？', 'Restaurar este controle?', 'Ripristinare questo controller?'),
+    '{1} goes back to how it is without a calibration: no stretch and no dead zone.': (
+        '{1} vuelve a funcionar sin calibración: sin ajuste de alcance y sin zona muerta.',
+        '{1}を調整なしの状態に戻します。範囲の補正も遊びもなくなります。',
+        '{1} volta a funcionar sem calibração: sem ajuste de alcance e sem zona morta.',
+        '{1} torna a funzionare senza calibrazione: nessuna estensione e nessuna zona morta.'),
+    'Keep it': ('Mantener', 'そのままにする', 'Manter', 'Mantieni'),
+    'Back to default.': ('Restablecido.', '初期設定に戻しました。', 'Padrão restaurado.', 'Ripristinato.'),
+    'Calibration canceled. Nothing was changed.': (
+        'Calibración cancelada. No se cambió nada.',
+        '調整を中止しました。何も変更していません。',
+        'Calibração cancelada. Nada foi alterado.',
+        'Calibrazione annullata. Non è stato cambiato nulla.'),
+    'The stick did not reach every side yet. Keep turning it around its edge.': (
+        'La palanca aún no llegó a todos los lados. Sigue girándola por el borde.',
+        'スティックがまだすべての方向に届いていません。端に沿ってまわし続けてください。',
+        'A alavanca ainda não chegou a todos os lados. Continue girando pela borda.',
+        'La levetta non ha ancora raggiunto tutti i lati. Continua a ruotarla lungo il bordo.'),
+    'The C stick did not reach every side yet. Keep turning it around its edge.': (
+        'La palanca C aún no llegó a todos los lados. Sigue girándola por el borde.',
+        'Cスティックがまだすべての方向に届いていません。端に沿ってまわし続けてください。',
+        'A alavanca C ainda não chegou a todos os lados. Continue girando pela borda.',
+        'La levetta C non ha ancora raggiunto tutti i lati. Continua a ruotarla lungo il bordo.'),
+    "Calibrated. GameCube games now get this controller's full range, and Wii games do while a GameCube adapter or USB controller is in use.": (
+        'Calibrado. Los juegos de GameCube ya reciben todo el recorrido de este mando, y los de Wii mientras se usa un adaptador de GameCube o un mando USB.',
+        '調整しました。ゲームキューブのゲームでこのコントローラーの全範囲が使えます。Wiiのゲームではゲームキューブアダプターか USBコントローラーを使っている間だけ使えます。',
+        'Calibrado. Os jogos de GameCube agora recebem todo o alcance deste controle, e os de Wii enquanto um adaptador de GameCube ou um controle USB estiver em uso.',
+        "Calibrato. Ora i giochi GameCube ricevono tutta l'escursione di questo controller, e i giochi Wii mentre è in uso un adattatore GameCube o un controller USB."),
+    'Stick {1}, {2}   C stick {3}, {4}   L {5}   R {6}': (
+        'Palanca {1}, {2}   Palanca C {3}, {4}   L {5}   R {6}',
+        'スティック {1}, {2}   Cスティック {3}, {4}   L {5}   R {6}',
+        'Alavanca {1}, {2}   Alavanca C {3}, {4}   L {5}   R {6}',
+        'Levetta {1}, {2}   Levetta C {3}, {4}   L {5}   R {6}'),
+    'not calibrated': ('sin calibrar', '未調整', 'não calibrado', 'non calibrato'),
+    'calibrated': ('calibrado', '調整済み', 'calibrado', 'calibrato'),
+    'calibrating': ('calibrando', '調整中', 'calibrando', 'calibrazione in corso'),
+    'No GameCube controller found': ('No se encontró ningún mando de GameCube', 'ゲームキューブコントローラーが見つかりません', 'Nenhum controle de GameCube encontrado', 'Nessun controller GameCube trovato'),
+})
+KO.update({
+    'Calibrate a GameCube controller': '게임큐브 컨트롤러 보정',
+    "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use.": '게임큐브 컨트롤러를 테스트하고 낡은 컨트롤러를 바로잡습니다. 끝까지 닿지 않는 스틱, 저절로 움직이는 스틱, 끝까지 눌리지 않는 트리거. 게임큐브 게임에 적용되고, Wii 게임에는 게임큐브 어댑터나 USB 컨트롤러를 쓰는 동안 적용됩니다.',
+    "Wii's GameCube port {1}": 'Wii 게임큐브 포트 {1}',
+    'Adapter port {1}': '어댑터 포트 {1}',
+    'USB controller {1}': 'USB 컨트롤러 {1}',
+    'C stick': 'C 스틱',
+    'Up': '위',
+    'Down': '아래',
+    'Left': '왼쪽',
+    'Right': '오른쪽',
+    'Calibrate': '보정',
+    'Reset to default': '기본값으로',
+    'Dead zone -': '데드존 -',
+    'Dead zone +': '데드존 +',
+    'Dead zone: {1}': '데드존: {1}',
+    'RiftWii keeps the calibrations of four USB controllers at most. Reset one to make room.': 'RiftWii는 USB 컨트롤러 보정을 최대 4개까지 저장합니다. 하나를 기본값으로 되돌리세요.',
+    'The SD card could not take the calibration. Is it locked or full?': 'SD 카드에 보정을 저장하지 못했습니다. 잠겨 있거나 가득 찼나요?',
+    'Turn the control stick slowly around its edge two or three times, pushing it into every corner. Then press A.': '컨트롤 스틱을 가장자리를 따라 천천히 두세 번 돌리고 모든 모서리까지 밀어 주세요. 그런 다음 A를 누르세요.',
+    'Now turn the C stick around its edge the same way. Then press A.': '이제 C 스틱도 같은 방법으로 돌리세요. 그런 다음 A를 누르세요.',
+    'Press L all the way down and let go, then R. Then press A.': 'L을 끝까지 눌렀다 놓고, R도 똑같이 하세요. 그런 다음 A를 누르세요.',
+    'Plug a GameCube controller into the Wii or the adapter, or plug in a USB controller.': '게임큐브 컨트롤러를 Wii나 어댑터에 꽂거나 USB 컨트롤러를 연결하세요.',
+    'Press a button on another controller to show it. On the controller, hold Start to calibrate it or B to go back.': '다른 컨트롤러의 버튼을 누르면 그 컨트롤러가 표시됩니다. 컨트롤러에서 Start를 길게 누르면 보정, B를 길게 누르면 돌아갑니다.',
+    'The controller was unplugged. Nothing was changed.': '컨트롤러가 분리되었습니다. 아무것도 바뀌지 않았습니다.',
+    'Reset this controller?': '이 컨트롤러를 기본값으로 되돌릴까요?',
+    '{1} goes back to how it is without a calibration: no stretch and no dead zone.': '{1}을(를) 보정 없는 상태로 되돌립니다. 범위 보정과 데드존이 없어집니다.',
+    'Keep it': '그대로 두기',
+    'Back to default.': '기본값으로 되돌렸습니다.',
+    'Calibration canceled. Nothing was changed.': '보정을 취소했습니다. 아무것도 바뀌지 않았습니다.',
+    'The stick did not reach every side yet. Keep turning it around its edge.': '스틱이 아직 모든 방향에 닿지 않았습니다. 가장자리를 따라 계속 돌리세요.',
+    'The C stick did not reach every side yet. Keep turning it around its edge.': 'C 스틱이 아직 모든 방향에 닿지 않았습니다. 가장자리를 따라 계속 돌리세요.',
+    "Calibrated. GameCube games now get this controller's full range, and Wii games do while a GameCube adapter or USB controller is in use.": '보정했습니다. 이제 게임큐브 게임에서 이 컨트롤러의 전체 범위를 쓰고, Wii 게임에서는 게임큐브 어댑터나 USB 컨트롤러를 쓰는 동안 씁니다.',
+    'Stick {1}, {2}   C stick {3}, {4}   L {5}   R {6}': '스틱 {1}, {2}   C 스틱 {3}, {4}   L {5}   R {6}',
+    'not calibrated': '보정 안 됨',
+    'calibrated': '보정됨',
+    'calibrating': '보정 중',
+    'No GameCube controller found': '게임큐브 컨트롤러가 없습니다',
+})
+FR.update({
+    'Calibrate a GameCube controller': 'Calibrer une manette GameCube',
+    "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use.": "Teste une manette GameCube et corrige une manette usée : sticks qui n'atteignent pas le bord, sticks qui dérivent, gâchettes qui ne descendent pas jusqu'au bout. Les jeux GameCube en profitent, et les jeux Wii tant qu'un adaptateur GameCube ou une manette USB est utilisé.",
+    "Wii's GameCube port {1}": 'Port GameCube {1} de la Wii',
+    'Adapter port {1}': "Port {1} de l'adaptateur",
+    'USB controller {1}': 'Manette USB {1}',
+    'C stick': 'Stick C',
+    'Up': 'Haut',
+    'Down': 'Bas',
+    'Left': 'Gauche',
+    'Right': 'Droite',
+    'Calibrate': 'Calibrer',
+    'Reset to default': 'Réinitialiser',
+    'Dead zone -': 'Zone morte -',
+    'Dead zone +': 'Zone morte +',
+    'Dead zone: {1}': 'Zone morte : {1}',
+    'RiftWii keeps the calibrations of four USB controllers at most. Reset one to make room.': "RiftWii garde la calibration de quatre manettes USB au plus. Réinitialisez-en une pour faire de la place.",
+    'The SD card could not take the calibration. Is it locked or full?': "La calibration n'a pas pu être enregistrée sur la carte SD. Est-elle verrouillée ou pleine ?",
+    'Turn the control stick slowly around its edge two or three times, pushing it into every corner. Then press A.': "Faites tourner lentement le stick le long du bord deux ou trois fois, en le poussant dans chaque coin. Puis appuyez sur A.",
+    'Now turn the C stick around its edge the same way. Then press A.': 'Faites maintenant tourner le stick C de la même façon. Puis appuyez sur A.',
+    'Press L all the way down and let go, then R. Then press A.': "Enfoncez L jusqu'au bout et relâchez, puis R. Ensuite appuyez sur A.",
+    'Plug a GameCube controller into the Wii or the adapter, or plug in a USB controller.': "Branchez une manette GameCube sur la Wii ou l'adaptateur, ou branchez une manette USB.",
+    'Press a button on another controller to show it. On the controller, hold Start to calibrate it or B to go back.': "Appuyez sur un bouton d'une autre manette pour l'afficher. Sur la manette, maintenez Start pour la calibrer ou B pour revenir.",
+    'The controller was unplugged. Nothing was changed.': "La manette a été débranchée. Rien n'a été changé.",
+    'Reset this controller?': 'Réinitialiser cette manette ?',
+    '{1} goes back to how it is without a calibration: no stretch and no dead zone.': "{1} revient à son état sans calibration : ni étirement ni zone morte.",
+    'Keep it': 'La garder',
+    'Back to default.': 'Réinitialisée.',
+    'Calibration canceled. Nothing was changed.': "Calibration annulée. Rien n'a été changé.",
+    'The stick did not reach every side yet. Keep turning it around its edge.': "Le stick n'a pas encore atteint tous les côtés. Continuez à le faire tourner le long du bord.",
+    'The C stick did not reach every side yet. Keep turning it around its edge.': "Le stick C n'a pas encore atteint tous les côtés. Continuez à le faire tourner le long du bord.",
+    "Calibrated. GameCube games now get this controller's full range, and Wii games do while a GameCube adapter or USB controller is in use.": "Calibrée. Les jeux GameCube reçoivent maintenant toute la course de cette manette, et les jeux Wii tant qu'un adaptateur GameCube ou une manette USB est utilisé.",
+    'Stick {1}, {2}   C stick {3}, {4}   L {5}   R {6}': 'Stick {1}, {2}   Stick C {3}, {4}   L {5}   R {6}',
+    'not calibrated': 'non calibrée',
+    'calibrated': 'calibrée',
+    'calibrating': 'calibration en cours',
+    'No GameCube controller found': 'Aucune manette GameCube trouvée',
 })
 
 if __name__ == "__main__":

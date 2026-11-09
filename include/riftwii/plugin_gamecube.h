@@ -64,6 +64,7 @@ typedef struct rwp_gc_launch {
     uint32_t shared_card;  /* the shared memory card, not the game's own */
     uint32_t drive_timing; /* reads take a GameCube drive's time */
     uint32_t progressive;  /* 480p */
+    uint32_t line240;      /* 240p: every other line of whole 480-line pictures, progressive (never with 480p) */
     uint32_t widescreen;   /* 3D drawn for 16:9 */
     uint32_t sharp;        /* the sharper picture */
     uint32_t sixty_hz;     /* a European game told the TV takes 60 Hz */
@@ -99,6 +100,7 @@ typedef struct rwp_gc_launch {
     /* What the launch reads from the settings and the launch's extras
      * (wii/launch/boot.hpp's LaunchExtras), as they are now. */
     uint32_t rumble_off;       /* Wii Remote rumble off */
+    uint32_t leave_home_only;  /* only HOME leaves the game: L, R, Z and Start held do not */
     uint32_t in_dolphin;       /* running in Dolphin, not on a Wii */
     const uint8_t* cheat_gct;  /* the code list; NULL: no cheats */
     uint32_t cheat_gct_bytes;
@@ -157,6 +159,13 @@ typedef struct rwp_gc_launch {
     const rwp_fragment* disc2_usb_fragments;
     uint32_t disc2_usb_fragment_count;
     uint64_t disc2_usb_file_bytes;
+
+    /* The GameCube controllers' calibrations (Settings > Controllers >
+     * Calibrate a GameCube controller): runtime/rtpadcal.h's
+     * rtpadcal_table, which the loader puts in MEM2 for the game's pad
+     * hooks. NULL and 0: none stored, and the game changes nothing. */
+    const void* pad_calibration;
+    uint32_t pad_calibration_bytes;
 
     /* Out: the reason when launch returns RWP_LAUNCH_FAILED. */
     char* error;

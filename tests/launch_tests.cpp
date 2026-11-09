@@ -456,6 +456,9 @@ static void test_saves() {
         EXPECT_EQ(back.game.gc_progressive, std::string("game"));
         EXPECT_EQ(back.game.gc_widescreen, std::string("game"));
         EXPECT_EQ(back.game.gc_language, std::string("game"));
+        gc.game.gc_progressive = "240p";
+        back.restore(gc.save());
+        EXPECT_EQ(back.game.gc_progressive, std::string("240p"));
         back.restore("*riftwii*\tgcprogressive\t1080p\n*riftwii*\tgcwidescreen\t21:9\n*riftwii*\tgclanguage\tklingon\n");
         EXPECT_EQ(back.game.gc_progressive, std::string("global"));
         EXPECT_EQ(back.game.gc_widescreen, std::string("global"));
@@ -551,6 +554,32 @@ static void test_saves() {
         console.wii_progressive = false;
         EXPECT_TRUE(riftwii::gc_progressive_on(g, "GMSJ01", console));
         EXPECT_FALSE(riftwii::gc_progressive_on(g, "GLMP01", console));
+
+        // 240p: picked for the game, or Default with Settings' Video
+        // mode on 240p, which wins over the Wii's 480p; never a PAL game,
+        // never with 480p or the game's own picked.
+        {
+            riftwii::GameSettings line;
+            riftwii::GcConsoleSettings crt;
+            EXPECT_FALSE(riftwii::gc_line240_on(line, "GMSE01", crt));
+            crt.video_mode = "240p";
+            EXPECT_TRUE(riftwii::gc_line240_on(line, "GMSE01", crt));
+            EXPECT_FALSE(riftwii::gc_line240_on(line, "GLMP01", crt));
+            crt.wii_progressive = true;
+            crt.component_cable = true;
+            EXPECT_FALSE(riftwii::gc_progressive_on(line, "GMSE01", crt));
+            EXPECT_TRUE(riftwii::gc_line240_on(line, "GMSE01", crt));
+            line.gc_progressive = "480p";
+            EXPECT_TRUE(riftwii::gc_progressive_on(line, "GMSE01", crt));
+            EXPECT_FALSE(riftwii::gc_line240_on(line, "GMSE01", crt));
+            line.gc_progressive = "game";
+            EXPECT_FALSE(riftwii::gc_line240_on(line, "GMSE01", crt));
+            line.gc_progressive = "240p";
+            crt.video_mode = "game";
+            EXPECT_TRUE(riftwii::gc_line240_on(line, "GMSE01", crt));
+            EXPECT_FALSE(riftwii::gc_progressive_on(line, "GMSE01", crt));
+            EXPECT_FALSE(riftwii::gc_line240_on(line, "GLMP01", crt));
+        }
         // A European game at Smoother (60 Hz) takes EURGB60 interlaced, which
         // gc_video_pick never makes progressive, so 480p is never asked of it.
         g.gc_speed = "60";

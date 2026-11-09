@@ -145,7 +145,8 @@ Now RiftWii has its own channel on the Wii Menu. It also lets games go
   - **HOME** on a Wii Remote with a Nunchuk, a Classic Controller, or a
     Wii U Pro Controller;
   - **HOME and −** together on a Wii Remote alone;
-  - **L, R, Z and Start** together on a GameCube controller.
+  - **L, R, Z and Start** together on a GameCube controller (unless
+    Settings > Games > Leaving a game is *HOME only*).
 
 ### Step 9: If something goes wrong
 
@@ -502,8 +503,14 @@ USB drive: choose another Saves option on its page.
     *Remove* for those. After a game has run once, the page tells you
     which borders it left.
 - **Video mode** makes the game use another TV signal: *NTSC (480i)*,
-  *PAL 60 Hz*, *PAL 50 Hz*, *480p* (needs a component cable) or *The
-  console's* setting. *Game's own* leaves it to the game.
+  *PAL 60 Hz*, *PAL 50 Hz*, *480p* (needs a component cable), *240p* or
+  *The console's* setting. *Game's own* leaves it to the game.
+  *240p* is for CRT TVs and pixel art: a game that draws a whole
+  480-line picture sends every other line of it, progressive at 60 Hz,
+  with no interlace flicker and the flicker filter off (European Wii games switch to 60 Hz for it). Games that draw fewer lines keep their own
+  picture. In Settings it also applies to GameCube games whose Picture
+  lines are on *Default*. Some TVs and capture devices don't take
+  240p.
 - **Region video fix** (off unless you turn it on) is for a US or
   Japanese game that shows no picture on a console from another region:
   the game is told the video hardware matches its region.
@@ -661,6 +668,10 @@ the tiles.
 - **Quitting a game**: *Back to RiftWii* makes the Wii Menu button of a
   game's HOME Menu start RiftWii again (it needs the RiftWii channel);
   *Wii Menu* leaves it as it was.
+- **Leaving a game**: *HOME or buttons* (at first) lets L, R, Z and Start
+  held on a GameCube controller go back to RiftWii, as holding HOME does;
+  *HOME only* turns those buttons off (see [Leaving a
+  game](#gamecube-games)). Saved as `leave_buttons = on` or `off`.
 - **Menu sounds** (Normal, Quiet, Off) and **Menu music**: the music is
   `music.ogg` (Ogg Vorbis, up to 6 MB) from `sd:/riftwii/`, or else the one
   the release puts in `sd:/apps/riftwii/`, looped while the menu is open.
@@ -922,7 +933,9 @@ played, Favourites), can hide them as they hide any game.
 A GameCube game's page has its own options in place of a Wii game's
 picture and online settings: **Memory card** (*Default*, which follows **Settings > Games > GameCube
 memory card**, *This game's own*, *Shared* or, on an original Wii, *Real
-card in slot A* or *Real card in slot B*), **480p picture** (not for European games), **Sharper
+card in slot A* or *Real card in slot B*), **Picture lines** (*On (480p)*, *240p* for a CRT TV, as
+Settings > Picture > Video mode describes, or *Off*; European GameCube games never get 480p or
+240p), **Sharper
 picture**, **Widescreen**, **Picture width**, **Game language** and, for European
 games, **Game speed** (60 Hz instead of 50). **Widescreen** *16:9* draws
 the game's 3D world wider for a widescreen TV; its menus and text stay
@@ -1041,6 +1054,14 @@ Nintendont's memory cards, for all games at once:
 - L, R, Z and Start together on a GameCube controller.
 
 RiftWii waits for a save in progress before it goes back to the menu.
+If a game's own button combos (or a pad held in a bag) keep leaving it
+by accident, set **Settings > Games > Leaving a game** to *HOME only*:
+L, R, Z and Start then leave nothing, in GameCube games and in Wii
+games played with the adapter, and HOME (HOME and − on a Wii Remote
+alone, HOME on a Classic Controller or a Wii U Pro Controller) still
+leaves. A USB pad's Guide button presses L, R, Z and Start, so it
+leaves nothing either. Without a Wii Remote or a Wii U Pro Controller,
+only the console's **Reset** button then gets back.
 The console's **Reset** button restarts the game, as on a GameCube, in
 the games where that is known to work (Super Mario Sunshine, USA, and
 Super Mario Eclipse); in the others it goes back to RiftWii, as holding

@@ -270,6 +270,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     }
     request.drive_timing = image.drive_timing ? 1 : 0;
     request.progressive = image.progressive ? 1 : 0;
+    request.line240 = image.line240 ? 1 : 0;
     request.widescreen = image.widescreen ? 1 : 0;
     request.sharp = image.sharp ? 1 : 0;
     request.sixty_hz = image.sixty_hz ? 1 : 0;
@@ -333,6 +334,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     // The settings and the launch's extras, as they are now.
     const LaunchExtras& extras = CurrentLaunchExtras();
     request.rumble_off = extras.rumble_off ? 1 : 0;
+    request.leave_home_only = Settings().leave_buttons == "off" ? 1 : 0;
     request.in_dolphin = running_in_dolphin() ? 1 : 0;
     if (!extras.cheat_gct.empty()) {
         request.cheat_gct = extras.cheat_gct.data();
@@ -368,6 +370,12 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
             request.adapter_dev = dev;
             request.adapter_rumble = extras.gc_rumble_off ? 0 : 1;
         }
+    }
+
+    // Settings > Controllers > Calibrate a GameCube controller.
+    if (extras.pad_calibrated) {
+        request.pad_calibration = &extras.pad_calibration;
+        request.pad_calibration_bytes = sizeof(extras.pad_calibration);
     }
 
     if (g_crash_screen.size() == GC_CRASH_SCREEN_BYTES) {

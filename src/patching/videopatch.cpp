@@ -86,23 +86,43 @@ bool convert(std::uint8_t* p, const VideoTarget& target) {
     const std::uint32_t tv = be32(p + kTvMode);
     std::uint32_t mode = tv & 3;
     const bool from576 = pal_lines(tv);
-    const bool to576 = target.format == kViPal;
+    // No format (240p alone, as a GameCube game gets it): each table
+    // keeps its own.
+    const bool keep_format = target.format < 0;
+    const std::uint32_t format = keep_format ? tv >> 2 : static_cast<std::uint32_t>(target.format);
+    const bool to576 = keep_format ? from576 : target.format == kViPal;
     Kind kind = kFull;
     const bool standard = kind_of(p, kind);
     if (from576 != to576 && !standard) return false;  // unknown heights: leave it whole
     // 480p only exists in 480 lines; field-rendered and double-strike
     // tables have no progressive form and stay as they are.
     const bool full = kind == kFull || kind == kFullAa;
-    const bool to_progressive = target.progressive && !to576 && mode == 0 && full && standard;
-    const bool to_interlaced = mode == 2 && (!target.progressive || to576);
-    if (from576 != to576 || to_progressive) {
+    // 240p: a whole 480-line frame, interlaced or progressive, only in a
+    // 480-line format (576-line PAL has no 240-line form; 288p is not
+    // offered).
+    const bool to_240p = target.line240 && !to576 && mode != 1 && full && standard;
+    const bool to_progressive = !to_240p && target.progressive && !to576 && mode == 0 && full && standard;
+    // With no format a table that cannot be 240p stays as made.
+    const bool to_interlaced = !to_240p && !keep_format && mode == 2 && (!target.progressive || to576);
+    if (from576 != to576 || to_progressive || to_240p) {
         const Heights& h = to576 ? kLines576[kind] : kLines480[kind];
         put16(p + kEfbHeight, h.efb);
         put16(p + kXfbHeight, h.xfb);
         put16(p + kViY, h.y);
         put16(p + kViHeight, h.h);
     }
-    if (to_progressive) {
+    if (to_240p) {
+        // The game keeps drawing and copying its whole 480-line picture
+        // (many games size their viewport themselves, so a 240-line
+        // drawing area would cut off the bottom half), into a 480-line
+        // frame buffer kept as two interleaved fields. The VI, in double
+        // strike, shows one field each retrace: every other line of the
+        // picture, 240 lines, progressive. The copy cannot halve the
+        // picture itself: its y scale only enlarges.
+        mode = 1;
+        put32(p + kXfbMode, 1);  // double field: the VI reads every other line
+        set_filter(p, Deflicker::Off);
+    } else if (to_progressive) {
         mode = 2;
         put32(p + kXfbMode, 0);  // single field
         set_filter(p, Deflicker::Off);
@@ -111,8 +131,8 @@ bool convert(std::uint8_t* p, const VideoTarget& target) {
         put32(p + kXfbMode, full ? 1 : 0);  // full frames: double field
         set_filter(p, Deflicker::Medium);
     }
-    const std::uint32_t now = (static_cast<std::uint32_t>(target.format) << 2) | mode;
-    const bool changed = now != tv || from576 != to576 || to_progressive || to_interlaced;
+    const std::uint32_t now = (format << 2) | mode;
+    const bool changed = now != tv || from576 != to576 || to_progressive || to_interlaced || to_240p;
     put32(p + kTvMode, now);
     return changed;
 }
@@ -169,13 +189,14 @@ const char* to_string(VideoMode m) {
         case VideoMode::Pal60: return "pal60";
         case VideoMode::Pal50: return "pal50";
         case VideoMode::Progressive: return "480p";
+        case VideoMode::Line240: return "240p";
         default: return "game";
     }
 }
 
 bool parse_video_mode(const std::string& s, VideoMode& out) {
     for (VideoMode m : {VideoMode::Game, VideoMode::System, VideoMode::Ntsc, VideoMode::Pal60, VideoMode::Pal50,
-                        VideoMode::Progressive}) {
+                        VideoMode::Progressive, VideoMode::Line240}) {
         if (s == to_string(m)) {
             out = m;
             return true;
@@ -206,7 +227,7 @@ bool parse_deflicker(const std::string& s, Deflicker& out) {
 
 std::string VideoPatchReport::describe() const {
     std::string s = std::to_string(modes) + " video mode(s), " + std::to_string(patched) + " changed";
-    if (converted != 0) s += " (" + std::to_string(converted) + " to the chosen TV format)";
+    if (converted != 0) s += " (" + std::to_string(converted) + " to the chosen TV format or 240p)";
     if (side_borders || top_borders) {
         s += "; the game draws black borders";
         s += side_borders && top_borders ? " at the sides and top" : side_borders ? " at the sides" : " at the top";
@@ -231,7 +252,7 @@ void patch_video_modes(std::uint8_t* bytes, std::size_t size, const VideoSetting
         if (!is_mode(p)) continue;
         ++report.modes;
         bool changed = false;
-        if (settings.target.format >= 0 && convert(p, settings.target)) {
+        if ((settings.target.format >= 0 || settings.target.line240) && convert(p, settings.target)) {
             ++report.converted;
             changed = true;
         }
@@ -260,7 +281,12 @@ void patch_video_modes(std::uint8_t* bytes, std::size_t size, const VideoSetting
             put16(p + kXfbHeight, full);
             changed = true;
         }
-        if (settings.deflicker != Deflicker::Game) {
+        // With 240p the Deflicker setting skips the double-strike
+        // tables: the ones made 240p already have their filter off, and a
+        // game's own double-strike table keeps its own filter (blending
+        // neighbouring lines only blurs a picture that does not flicker).
+        const bool sharp_240p = settings.target.line240 && double_strike(tv);
+        if (settings.deflicker != Deflicker::Game && !sharp_240p) {
             std::uint8_t before[7];
             for (std::size_t i = 0; i < 7; ++i) before[i] = p[kFilter + i];
             set_filter(p, settings.deflicker);

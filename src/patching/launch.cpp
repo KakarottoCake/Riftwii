@@ -106,7 +106,9 @@ bool gc_widescreen_on(const GameSettings& game, const std::string& id, const GcC
 bool gc_progressive_on(const GameSettings& game, const std::string& id, const GcConsoleSettings& console) {
     if (gc_pal_game(id)) return false;
     if (game.gc_progressive == "480p") return true;
-    if (game.gc_progressive == "game") return false;
+    if (game.gc_progressive == "game" || game.gc_progressive == "240p") return false;
+    // Settings' 240p wins over the Wii's 480p setting.
+    if (console.video_mode == "240p") return false;
     // Both have to say so: the Wii set to 480p and a component cable seen,
     // as for a Wii game (boot.cpp) and as a GameCube offers 480p only with
     // the cable in. The setting alone was on in a tester's Wii whose
@@ -116,6 +118,13 @@ bool gc_progressive_on(const GameSettings& game, const std::string& id, const Gc
     // game is told yes without asking. An adapter that does not report as
     // a component cable takes On (480p).
     return console.wii_progressive && console.component_cable;
+}
+
+bool gc_line240_on(const GameSettings& game, const std::string& id, const GcConsoleSettings& console) {
+    if (gc_pal_game(id)) return false;
+    if (game.gc_progressive == "240p") return true;
+    if (game.gc_progressive != "global") return false;
+    return console.video_mode == "240p";
 }
 
 bool gc_sixty_hz_on(const GameSettings& game, const std::string& id) {
@@ -463,7 +472,7 @@ std::string LaunchModel::save() const {
     // "global", the default, is written as nothing.
     if (game.gc_card != "global") text += "*riftwii*\tgccard\t" + clean(game.gc_card) + "\n";
     // "global", the default, is written as nothing.
-    if (game.gc_progressive == "480p" || game.gc_progressive == "game")
+    if (game.gc_progressive == "480p" || game.gc_progressive == "240p" || game.gc_progressive == "game")
         text += "*riftwii*\tgcprogressive\t" + game.gc_progressive + "\n";
     if (game.gc_widescreen == "16:9" || game.gc_widescreen == "game")
         text += "*riftwii*\tgcwidescreen\t" + game.gc_widescreen + "\n";
@@ -569,7 +578,7 @@ void LaunchModel::restore(const std::string& text) {
                                    ? value
                                    : "global";
             } else if (key == "gcprogressive") {
-                game.gc_progressive = value == "480p" || value == "game" ? value : "global";
+                game.gc_progressive = value == "480p" || value == "240p" || value == "game" ? value : "global";
             } else if (key == "gcwidescreen") {
                 game.gc_widescreen = value == "16:9" || value == "game" ? value : "global";
             } else if (key == "gclanguage") {

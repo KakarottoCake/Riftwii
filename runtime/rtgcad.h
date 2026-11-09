@@ -53,6 +53,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "rthid.h"
+#include "rtpadcal.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -294,6 +295,11 @@ typedef struct gcad {
     uint8_t peer_count;        /* up to GCAD_HID_PADS */
     const rthid_catalog* catalog;
     const rthid_layout* mapping; /* non-null only for a configured pad */
+    /* The calibrations a game applies to the adapter's ports and the USB
+     * pads (rtpadcal.h), read on the list owner only; null in the menu,
+     * whose test pages show what the controllers really send. The
+     * environment sets it after initialization, which zeroes it. */
+    const rtpadcal_table* cal;
     uint32_t slot;             /* callback routing: 0 adapter, 1..4 pads */
     uint16_t input_bytes;
     uint8_t endpoint_in, endpoint_out, interface_number;

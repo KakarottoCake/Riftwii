@@ -42,6 +42,7 @@ riftwii::wii::GcImage image_of(const rwp_gc_launch& request) {
     }
     image.drive_timing = request.drive_timing != 0;
     image.progressive = request.progressive != 0;
+    image.line240 = request.line240 != 0;
     image.widescreen = request.widescreen != 0;
     image.language = request.language;
     image.sharp = request.sharp != 0;
@@ -80,6 +81,7 @@ riftwii::wii::GcImage image_of(const rwp_gc_launch& request) {
 riftwii::wii::GcLaunchExtras extras_of(const rwp_gc_launch& request) {
     riftwii::wii::GcLaunchExtras extras;
     extras.rumble_off = request.rumble_off != 0;
+    extras.leave_home_only = request.leave_home_only != 0;
     extras.in_dolphin = request.in_dolphin != 0;
     if (request.cheat_gct != nullptr)
         extras.cheat_gct.assign(request.cheat_gct, request.cheat_gct + request.cheat_gct_bytes);
@@ -96,6 +98,7 @@ riftwii::wii::GcLaunchExtras extras_of(const rwp_gc_launch& request) {
     extras.adapter_dev = request.adapter_dev;
     extras.ven_fd = request.ven_fd;
     extras.adapter_rumble = request.adapter_rumble != 0;
+    extras.pad_calibration = request.pad_calibration;
     if (request.way_back_kind != RWP_GC_WAY_BACK_NONE) {
         extras.way_back_title = request.way_back_title;
         extras.way_back_view = request.way_back_view;

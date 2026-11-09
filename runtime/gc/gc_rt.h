@@ -26,7 +26,7 @@
 #include "gc_load.h"
 
 #define GC_RT_MAGIC 0x52574744u          /* "RWGD" */
-#define GC_RT_VERSION 13u                /* also in gc_entry.S's header */
+#define GC_RT_VERSION 14u                /* also in gc_entry.S's header */
 #define GC_RT_CONTEXT_MAGIC 0x52574743u  /* "RWGC" */
 
 /* The way back owns its IPC memory even when storage DMA is quarantined. */
@@ -124,6 +124,10 @@ struct gc_rt_header {
     uint32_t program_saved;         /* GC_PROGRAM_SAVED_BYTES (gc_layout.h); its stack word loader-written */
     uint32_t replay_fatal;          /* __OSUnhandledException's first word, then the jump to its second */
     uint32_t continue_fatal;
+    /* A Triforce arcade game (gc_tri.h): GC_TRI_HOOKS entries of three
+     * words, hook, replay and continue, for the arcade SDK functions the
+     * loader replaces. */
+    uint32_t tri_hooks;
 };
 
 /* libogc. A game built on libogc (Sonic Riders Tournament Edition, a
@@ -311,6 +315,7 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_FLAG_OLD_REBOOT 0x10000u  /* the program-switch hook is on __OSReboot(resetCode, forceMenu), an SDK before
                                       * __OSBootDolSimple: the program is the offset at GC_OS_BOOT_DOL */
 #define GC_OS_BOOT_DOL 0x800030ECu   /* that SDK's OSResetSystem puts OSSetBootDol's offset here (0: none named) */
+#define GC_FLAG_HOME_ONLY 0x80000u  /* Settings > Leaving a game, HOME only: L, R, Z and Start held do not leave */
 #define GC_FLAG_NO_SI_SAMPLE 0x40000u  /* tests in Dolphin (sd:/riftwii/gc/test/nosisample): the SI's polling
                                         * interrupt is kept off, as a Wii with no GameCube controller plugged in
                                         * never raises it, so the PAD sampling stand-in runs (gc_sample_tick) */
@@ -323,12 +328,12 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
                          GC_FLAG_FAKE_REMOTE | GC_FLAG_FAKE_PRO | GC_FLAG_CRASH_BLACK | GC_FLAG_STREAM_ONLY | \
                          GC_FLAG_PROGRESSIVE | GC_FLAG_RESET_TEST | GC_FLAG_EXEC_TEST | GC_FLAG_DISC_TEST | \
                          GC_FLAG_SD_SLOW | GC_FLAG_WIDEN | GC_FLAG_PAD_TRACE_PENDING | GC_FLAG_TRACE_GAMEPLAY | \
-                         GC_FLAG_OLD_REBOOT | GC_FLAG_NO_SI_SAMPLE)
+                         GC_FLAG_OLD_REBOOT | GC_FLAG_NO_SI_SAMPLE | GC_FLAG_HOME_ONLY)
 #define GC_FLAGS_ALL_SUM (GC_FLAG_PRESS + GC_FLAG_CRASH + GC_FLAG_LEAVE + GC_FLAG_REMOTE_RUMBLE + GC_FLAG_RUMBLE_TEST + \
                           GC_FLAG_FAKE_REMOTE + GC_FLAG_FAKE_PRO + GC_FLAG_CRASH_BLACK + GC_FLAG_STREAM_ONLY + \
                           GC_FLAG_PROGRESSIVE + GC_FLAG_RESET_TEST + GC_FLAG_EXEC_TEST + GC_FLAG_DISC_TEST + \
                           GC_FLAG_SD_SLOW + GC_FLAG_WIDEN + GC_FLAG_PAD_TRACE_PENDING + GC_FLAG_TRACE_GAMEPLAY + \
-                          GC_FLAG_OLD_REBOOT + GC_FLAG_NO_SI_SAMPLE)
+                          GC_FLAG_OLD_REBOOT + GC_FLAG_NO_SI_SAMPLE + GC_FLAG_HOME_ONLY)
 /* The runtime is built as C99 (-Wpedantic rejects _Static_assert), so C uses an
  * array whose size goes negative when the check fails. */
 #ifdef __cplusplus
@@ -356,7 +361,8 @@ GC_FLAG_CHECK(gc_flags_single_bits, GC_FLAG_IS_BIT(GC_FLAG_PRESS) &&
                GC_FLAG_IS_BIT(GC_FLAG_PAD_TRACE_PENDING) &&
                GC_FLAG_IS_BIT(GC_FLAG_TRACE_GAMEPLAY) &&
                GC_FLAG_IS_BIT(GC_FLAG_OLD_REBOOT) &&
-               GC_FLAG_IS_BIT(GC_FLAG_NO_SI_SAMPLE),
+               GC_FLAG_IS_BIT(GC_FLAG_NO_SI_SAMPLE) &&
+               GC_FLAG_IS_BIT(GC_FLAG_HOME_ONLY),
                "GC_FLAG_* values must be single bits");
 
 /* A stopped game's crash record remains available to problem reports
@@ -540,8 +546,9 @@ struct gc_rt_context {
     uint32_t cold;            /* struct gc_rt_cold (loader-placed in MEM2), never 0 */
     uint32_t rvz_ticks;       /* timebase ticks spent in its reads (card and decoding), wraps */
     uint32_t test_motor;      /* GC_FLAG_RUMBLE_TEST: the game's PADControlMotor (hooked), 0: not found */
-    /* The way back to RiftWii: holding HOME (or L, R, Z and Start) for
-     * leave_hold ticks launches the title in leave_buf through /dev/es. */
+    /* The way back to RiftWii: holding HOME (or L, R, Z and Start, unless
+     * GC_FLAG_HOME_ONLY) for leave_hold ticks launches the title in
+     * leave_buf through /dev/es. */
     uint32_t leave_fd;        /* /dev/es, opened by the loader; 0xFFFFFFFF: no way back */
     uint32_t leave_buf;       /* GC_LEAVE_BYTES, aligned: title at 0, ticket view at 0x20, then private IPC */
     uint32_t leave_hold;      /* timebase ticks */
@@ -663,6 +670,16 @@ struct gc_rt_context {
     uint32_t sample_quiet;
     uint32_t samples_stood_in;
     uint32_t sample_queued;
+    /* A Triforce arcade game: its boards' struct gc_tri (gc_tri.h,
+     * loader-placed in MEM2); 0: a GameCube game. In the bytes the alarm's
+     * 32-byte alignment pads to anyway, so the context's size stays. */
+    uint32_t tri;
+    /* The GameCube controllers' calibrations (rtpadcal.h's table,
+     * loader-placed in MEM2), 0: none stored. The Wii's own ports take
+     * theirs in gc_on_pad_read, the adapter's and the USB pads' in the
+     * driver (gc_gcad's copy of the address). In the bytes sample_alarm's
+     * 32-byte alignment pads anyway: the context is full to its room. */
+    uint32_t pad_cal;
     uint8_t sample_alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
 };
 
@@ -737,6 +754,10 @@ uint32_t gc_on_load_callbacks_done(struct gc_rt_context* ctx, uint32_t group);
 uint32_t gc_on_disk_id(struct gc_rt_context* ctx, uint32_t id, uint32_t cb);
 uint32_t gc_on_inquiry(struct gc_rt_context* ctx, uint32_t info, uint32_t cb);
 uint32_t gc_on_done(struct gc_rt_context* ctx, uint32_t cb);
+/* A disc command answered without the disc (a Triforce media board's):
+ * counted, the DI's immediate register set to `imm` when `with_imm`, and
+ * the callback queued with "transfer complete", as gc_on_done does. */
+void gc_di_finish(struct gc_rt_context* ctx, uint32_t cb, int with_imm, uint32_t imm);
 uint32_t gc_on_stop_motor(struct gc_rt_context* ctx, uint32_t cb);
 uint32_t gc_on_audio_status(struct gc_rt_context* ctx, uint32_t sub, uint32_t cb);
 uint32_t gc_on_audio_stream(struct gc_rt_context* ctx, uint32_t sub, uint32_t length, uint32_t offset, uint32_t cb);
