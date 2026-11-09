@@ -42,6 +42,7 @@ riftwii::wii::GcImage image_of(const rwp_gc_launch& request) {
     }
     image.drive_timing = request.drive_timing != 0;
     image.progressive = request.progressive != 0;
+    image.line240 = request.line240 != 0;
     image.widescreen = request.widescreen != 0;
     image.language = request.language;
     image.sharp = request.sharp != 0;
