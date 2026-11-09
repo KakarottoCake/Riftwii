@@ -5,13 +5,18 @@
     .section .text.pad_entry, "ax", @progbits
     .globl _pad_blob_start
 _pad_blob_start:
-    .long 0x52575044, 5, _pad_blob_end - _pad_blob_start, pad_context_data - _pad_blob_start
+    .long 0x52575044, 6, _pad_blob_end - _pad_blob_start, pad_context_data - _pad_blob_start
     .long pad_hook_read - _pad_blob_start, pad_replay_read - _pad_blob_start, pad_continue_read - _pad_blob_start
     .long pad_hook_motor - _pad_blob_start, pad_replay_motor - _pad_blob_start, pad_continue_motor - _pad_blob_start
     .long pad_complete - _pad_blob_start
     .long pad_hook_submit - _pad_blob_start, pad_replay_submit - _pad_blob_start, pad_continue_submit - _pad_blob_start
     .long pad_hook_sleep - _pad_blob_start, pad_replay_sleep - _pad_blob_start, pad_continue_sleep - _pad_blob_start
     .long pad_hook_suspend - _pad_blob_start, pad_replay_suspend - _pad_blob_start, pad_continue_suspend - _pad_blob_start
+#ifndef GCAD_PADS_ONLY
+    .long pad_hook_restart - _pad_blob_start, pad_replay_restart - _pad_blob_start, pad_continue_restart - _pad_blob_start
+#else
+    .long 0, 0, 0
+#endif
 
 /* u32 PADRead(PADStatus status[4]): the original first, through the
  * replay slot (which returns here), then pad_on_read(ctx, status, its
@@ -157,6 +162,37 @@ pad_hook_suspend:
     mtctr 12
     bctr
 
+#ifndef GCAD_PADS_ONLY
+/* OSRestart(resetCode), the game's own Reset (#458): pad_on_restart(ctx)
+ * returns the game's OSReturnToMenu once the launch request is on the card,
+ * else 0. With an address, interrupts go on (as the HOME Menu's Reset has
+ * them) and OSReturnToMenu takes over, never to return; otherwise
+ * OSRestart runs from its first word, as if called directly. Frame: 8
+ * resetCode. */
+    .globl pad_hook_restart
+pad_hook_restart:
+    stwu 1, -0x20(1)
+    mflr 0
+    stw 0, 0x24(1)
+    stw 3, 0x08(1)
+    bl 7f
+7:  mflr 3
+    addi 3, 3, pad_context_data - 7b
+    bl pad_on_restart
+    mr 12, 3
+    lwz 3, 0x08(1)
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    cmpwi 12, 0
+    beq pad_replay_restart
+    mfmsr 11
+    ori 11, 11, 0x8000
+    mtmsr 11
+    mtctr 12
+    bctr
+#endif
+
 /* Loader-filled: the hooked function's first word (and nops), then the
  * jump to its second word through r12. */
     .macro PAD_REPLAY name
@@ -179,6 +215,9 @@ pad_continue_\name:
     PAD_REPLAY submit
     PAD_REPLAY sleep
     PAD_REPLAY suspend
+#ifndef GCAD_PADS_ONLY
+    PAD_REPLAY restart
+#endif
 
     .balign 32
     .globl pad_context_data

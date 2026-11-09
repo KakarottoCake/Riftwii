@@ -15,6 +15,9 @@ void pad_on_complete(struct rt_pad_context* c, int32_t result, uint32_t tag);
 void pad_on_submit(struct rt_pad_context* c, const uint32_t* block);
 uint32_t pad_on_sleep(struct rt_pad_context* c);
 uint32_t pad_on_suspend(struct rt_pad_context* c, uint32_t thread);
+#ifndef GCAD_PADS_ONLY
+uint32_t pad_on_restart(struct rt_pad_context* c);
+#endif
 
 /* External interrupts off around the driver: PADRead runs on game
  * threads (some from the SI sampling callback), the replies in the IPC
@@ -302,6 +305,80 @@ uint32_t pad_on_suspend(struct rt_pad_context* c, uint32_t thread) {
     if (!rtleave_self_suspend(thread, *(volatile uint32_t*)(uintptr_t)0x800000E4u, c->leave_thread)) return 0;
     return pad_on_sleep(c);
 }
+
+#ifndef GCAD_PADS_ONLY
+/* ---- The game's own Reset (#458) ---- */
+
+/* The card goes on programming the sector after its write is accepted, and
+ * the launch that follows ends with IOS being reloaded, which would reset
+ * the card: 50 ms of the time base (60.75 MHz) is far longer than a
+ * sector takes. */
+#define PAD_RESTART_SETTLE_TICKS 3037500u
+
+/* The game's IOS_Ioctlv (fd, ioctl, in count, io count, vectors). */
+typedef int32_t (*pad_ioctlv_sync_fn)(int32_t fd, uint32_t ioctl, uint32_t in_count, uint32_t io_count,
+                                      struct rtrestart_vector* vec);
+
+static void pad_flush(const void* p, uint32_t len) {
+    uintptr_t line = (uintptr_t)p & ~(uintptr_t)31u;
+    const uintptr_t end = (uintptr_t)p + len;
+    for (; line < end; line += 32u) __asm__ volatile("dcbf 0, %0" : : "r"(line) : "memory");
+    __asm__ volatile("sync" : : : "memory");
+}
+
+/* One sector of the card, from `sector` (a line-aligned 512 bytes of the
+ * block), through the game's own synchronous IOS_Ioctlv. */
+static int32_t pad_restart_write(struct rtrestart_block* blk, const uint8_t* sector) {
+    const struct rtrestart_state* st = &blk->state;
+    struct rtrestart_call call;
+    rtrestart_prepare_write(blk, st->sdio_mode, st->lba, sector, &call);
+    pad_flush(&blk->request, sizeof(blk->request));
+    pad_flush(blk->response, sizeof(blk->response));
+    pad_flush(blk->vec, sizeof(blk->vec));
+    pad_flush(sector, RTRESTART_SECTOR);
+    return ((pad_ioctlv_sync_fn)(uintptr_t)st->ioctlv)((int32_t)st->sdio_fd, call.ioctl, call.in_count,
+                                                       call.out_count, blk->vec);
+}
+
+static void pad_restart_settle(void) {
+    const uint32_t start = now();
+    while (now() - start < PAD_RESTART_SETTLE_TICKS) {
+    }
+}
+
+/* OSRestart(resetCode): the request goes on the card, then the game leaves
+ * through its own OSReturnToMenu, which Return to RiftWii points at the
+ * channel; RiftWii finds the request there and starts the same game again
+ * with the adapter and USB pads. Returns that function's address, or 0 to
+ * let the game's own restart go on, as it would without RiftWii: nothing to
+ * go by (the loader leaves the Reset alone when the card, the channel or
+ * the game's IOS call are missing), a thread that cannot wait for IOS (an
+ * interrupt handler: interrupts off), or a write IOS refused. */
+uint32_t pad_on_restart(struct rt_pad_context* c) {
+    struct rtrestart_block* blk = (struct rtrestart_block*)(uintptr_t)c->restart;
+    struct rtrestart_state* st;
+    uint32_t msr;
+    int32_t result;
+    if (blk == 0) return 0;
+    st = &blk->state;
+    ++st->asked;
+    if (st->return_to_menu == 0 || st->lba == 0 || st->ioctlv == 0 || st->refused != 0) return 0;
+    __asm__ volatile("mfmsr %0" : "=r"(msr));
+    if ((msr & 0x8000u) == 0) return 0;
+    result = pad_restart_write(blk, blk->armed);
+    if (result < 0) {
+        st->result = (uint32_t)result;
+        ++st->refused;
+        /* In case part of it landed: the game's own restart that follows
+         * can take the card down while it still programs this sector. */
+        if (pad_restart_write(blk, blk->idle) >= 0) pad_restart_settle();
+        return 0;
+    }
+    ++st->written;
+    pad_restart_settle();
+    return st->return_to_menu;
+}
+#endif
 
 uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) {
     const uint32_t msr = interrupts_off();

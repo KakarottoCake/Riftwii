@@ -23,9 +23,10 @@
 
 #include "rtgcad.h"
 #include "rtleave.h"
+#include "rtrestart.h"
 
 #define RT_PAD_MAGIC 0x52575044u          /* "RWPD" */
-#define RT_PAD_VERSION 5u               /* also in pad_entry.S's header */
+#define RT_PAD_VERSION 6u               /* also in pad_entry.S's header */
 #define RT_PAD_CONTEXT_MAGIC 0x52575043u  /* "RWPC" */
 #define RT_PAD_CONTEXT_BYTES 256u
 
@@ -74,6 +75,9 @@ struct rt_pad_header {
     uint32_t hook_suspend;     /* OSSuspendThread's (or from a thread suspending itself) */
     uint32_t replay_suspend;
     uint32_t continue_suspend;
+    uint32_t hook_restart;     /* OSRestart's (the game's own Reset, #458; not in the code builds' blob) */
+    uint32_t replay_restart;
+    uint32_t continue_restart;
 };
 
 struct rt_pad_context {
@@ -118,6 +122,10 @@ struct rt_pad_context {
      * out (gcad_layout_for) so the game doesn't again (#506). Loader-filled. */
     uint32_t link_count;
     uint32_t ven_at, xbox_at, links_at, catalog_at;
+    /* The game's own Reset (#458), in a launch with no resident runtime to
+     * take it: a struct rtrestart_block in MEM2 (its state says whether
+     * it is on), 0: the game's Reset is left alone. */
+    uint32_t restart;
 };
 
 #ifdef RT_TARGET_PPC
