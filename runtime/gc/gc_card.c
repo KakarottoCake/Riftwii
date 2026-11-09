@@ -133,12 +133,201 @@ static uint32_t card_dma(struct gc_rt_context* ctx, struct gc_card* card, uint32
     return 1;
 }
 
+/* --- The real card in slot B, seen as slot A (card->real_slot_b) ---------
+ * Each EXI call the game makes for slot A's card is carried out on channel
+ * 1's registers at once, the way the SDK's own functions program them, and
+ * waited for: a transfer is a few bytes or one 128-byte page or 512-byte
+ * block, so the wait is short. Callbacks still run from the card's alarm,
+ * with channel 0, so the game's card library finds its slot A state. */
+
+/* Polls of the card's interrupt after a program or erase: every half a
+ * millisecond or so, for about a second. The SDK's own timeout says what
+ * happened if the card never answers. */
+#define GC_CARD_REAL_POLL_TICKS 30000u
+#define GC_CARD_REAL_WAIT_POLLS 2000u
+/* Turns of a transfer's busy loop before it is given up as failed. */
+#define GC_CARD_REAL_SPINS 1000000u
+
+#ifdef GC_CARD_FAKE_EXI
+/* Host tests: their own registers (tests/gccardruntime_tests.cpp). */
+uint32_t card_exi_read(uint32_t chan, uint32_t reg);
+void card_exi_write(uint32_t chan, uint32_t reg, uint32_t value);
+#else
+static uint32_t card_exi_read(uint32_t chan, uint32_t reg) {
+    return *(volatile uint32_t*)(uintptr_t)(GC_EXI_REG_BASE + chan * 0x14u + reg * 4u);
+}
+static void card_exi_write(uint32_t chan, uint32_t reg, uint32_t value) {
+    *(volatile uint32_t*)(uintptr_t)(GC_EXI_REG_BASE + chan * 0x14u + reg * 4u) = value;
+}
+#endif
+
+static int real_present(void) { return (card_exi_read(GC_CARD_REAL_CHAN, GC_EXI_CSR) & GC_EXI_CSR_EXT) != 0; }
+
+/* Starts a transfer and waits for its end, then clears its status bit
+ * (masked on this channel, but left set it would show in every look). */
+static int real_transfer(uint32_t control) {
+    uint32_t spins = 0;
+    card_exi_write(GC_CARD_REAL_CHAN, GC_EXI_CR, control | GC_EXI_CR_START);
+    while (card_exi_read(GC_CARD_REAL_CHAN, GC_EXI_CR) & GC_EXI_CR_START) {
+        if (++spins > GC_CARD_REAL_SPINS) return 0;
+    }
+    {
+        const uint32_t csr = card_exi_read(GC_CARD_REAL_CHAN, GC_EXI_CSR);
+        card_exi_write(GC_CARD_REAL_CHAN, GC_EXI_CSR, (csr & GC_EXI_CSR_SETUP) | GC_EXI_CSR_TCINT);
+    }
+    return 1;
+}
+
+/* The command's first bytes, as the emulated card keeps them: which
+ * command it is, and whether the card's interrupt was turned on. */
+static void real_note(struct gc_card* card, uint32_t value) {
+    const uint32_t n = card->count++;
+    if (n < sizeof(card->cmd)) card->cmd[n] = (uint8_t)value;
+    if (n == 0) card->last_cmd = value;
+    if (n == 1 && card->cmd[0] == GC_CARD_SET_INTERRUPT) card->irq_on = value & 1u;
+}
+
+static void real_select(struct gc_card* card, uint32_t freq) {
+    const uint32_t csr = card_exi_read(GC_CARD_REAL_CHAN, GC_EXI_CSR);
+    card_exi_write(GC_CARD_REAL_CHAN, GC_EXI_CSR,
+                   (csr & GC_EXI_CSR_MASKS) | GC_EXI_CSR_CS0 | ((freq & 7u) << 4));
+    card->selected = 1;
+    card->count = 0;
+    card->cmd[0] = 0;
+}
+
+static void real_deselect(struct gc_rt_context* ctx, struct gc_card* card) {
+    const uint32_t csr = card_exi_read(GC_CARD_REAL_CHAN, GC_EXI_CSR);
+    const uint32_t cmd = card->count ? card->cmd[0] : 0;
+    card_exi_write(GC_CARD_REAL_CHAN, GC_EXI_CSR, csr & GC_EXI_CSR_MASKS);
+    card->selected = 0;
+    if (cmd == GC_CARD_PROGRAM) card->programs++;
+    if (cmd == GC_CARD_ERASE_SECTOR || cmd == GC_CARD_ERASE_ALL) card->erases++;
+    /* The card raises its interrupt when the program or erase is done. Its
+     * channel's interrupt stays masked (the game's SDK never set up slot
+     * B), so the bit is polled from the alarm instead. */
+    if (card->irq_on && (cmd == GC_CARD_PROGRAM || cmd == GC_CARD_ERASE_SECTOR || cmd == GC_CARD_ERASE_ALL)) {
+        card->real_wait = GC_CARD_REAL_WAIT_POLLS;
+        if (!card->alarm_set) {
+            card->alarm_set = 1;
+            gc_set_alarm(ctx, card->alarm, GC_CARD_REAL_POLL_TICKS);
+        }
+    }
+}
+
+static uint32_t real_imm(struct gc_card* card, uint8_t* buf, uint32_t length, uint32_t type) {
+    uint32_t data = 0;
+    uint32_t i;
+    if (length == 0 || length > 4) return 0;
+    if (type != GC_EXI_READ) {
+        for (i = 0; i < length; ++i) {
+            data |= (uint32_t)buf[i] << (24u - 8u * i);
+            real_note(card, buf[i]);
+        }
+    } else {
+        card->count += length;
+    }
+    card_exi_write(GC_CARD_REAL_CHAN, GC_EXI_DATA, data);
+    if (!real_transfer((type << 2) | ((length - 1u) << 4))) return 0;
+    if (type != GC_EXI_WRITE) {
+        data = card_exi_read(GC_CARD_REAL_CHAN, GC_EXI_DATA);
+        for (i = 0; i < length; ++i) buf[i] = (uint8_t)(data >> (24u - 8u * i));
+    }
+    return 1;
+}
+
+static uint32_t real_dma(struct gc_card* card, uint32_t buf, uint32_t length, uint32_t type) {
+    card_exi_write(GC_CARD_REAL_CHAN, GC_EXI_MAR, buf & 0x03FFFFE0u);
+    card_exi_write(GC_CARD_REAL_CHAN, GC_EXI_LENGTH, length);
+    card->count += length;
+    if (type == GC_EXI_READ && card->cmd[0] == GC_CARD_READ) card->reads++;
+    return (uint32_t)real_transfer(GC_EXI_CR_DMA | (type << 2));
+}
+
+/* The card's ID, read as EXIGetID does: two zero bytes out, four in. */
+static uint32_t real_id(struct gc_card* card) {
+    uint8_t bytes[4] = {0, 0, 0, 0};
+    uint32_t ok;
+    if (!real_present()) return 0;
+    real_select(card, 0);
+    ok = real_imm(card, bytes, 2, GC_EXI_WRITE) && real_imm(card, bytes, 4, GC_EXI_READ);
+    {
+        const uint32_t csr = card_exi_read(GC_CARD_REAL_CHAN, GC_EXI_CSR);
+        card_exi_write(GC_CARD_REAL_CHAN, GC_EXI_CSR, csr & GC_EXI_CSR_MASKS);
+    }
+    card->selected = 0;
+    card->count = 0;
+    if (!ok) return 0;
+    return ((uint32_t)bytes[0] << 24) | ((uint32_t)bytes[1] << 16) | ((uint32_t)bytes[2] << 8) | bytes[3];
+}
+
+static uint32_t real_on_exi(struct gc_rt_context* ctx, struct gc_card* card, uint32_t fn, uint32_t a0, uint32_t a1,
+                            uint32_t a2, uint32_t a3, uint32_t a4, uint32_t* pass) {
+    const uint32_t chan = a0;
+    if (chan == GC_CARD_REAL_CHAN) {
+        /* The game's own slot B: empty, since its card is slot A now. */
+        if ((fn == GC_EXI_SELECT || fn == GC_EXI_LOCK || fn == GC_EXI_GET_ID) && a1 != 0) return 0;
+        if (fn == GC_EXI_SELECT || fn == GC_EXI_LOCK || fn == GC_EXI_GET_ID || fn == GC_EXI_PROBE ||
+            fn == GC_EXI_PROBE_EX || fn == GC_EXI_ATTACH) {
+            *pass = 0;
+            if (fn == GC_EXI_GET_ID) *(uint32_t*)(uintptr_t)a2 = 0;
+            return fn == GC_EXI_PROBE_EX ? 0xFFFFFFFFu : 0;  /* EXIProbeEx: -1, nothing there */
+        }
+        return 0;  /* the rest only follow a select, which never succeeds */
+    }
+    if (chan != 0) return 0;  /* the serial port: the hardware's */
+    if (fn == GC_EXI_SELECT || fn == GC_EXI_LOCK || fn == GC_EXI_GET_ID) {
+        if (a1 != 0) return 0;  /* the clock and SRAM (device 1), the rest of channel 0 */
+    } else if (fn == GC_EXI_IMM || fn == GC_EXI_DMA || fn == GC_EXI_SYNC || fn == GC_EXI_DESELECT) {
+        if (!card->selected) return 0;
+    } else if (fn == GC_EXI_UNLOCK) {
+        if (!card->locked) return 0;
+    }
+    *pass = 0;
+    if (fn != GC_EXI_PROBE && fn != GC_EXI_PROBE_EX) card->activity++;
+    if (fn == GC_EXI_SELECT) {
+        if (card->selected) return 0;
+        real_select(card, a2);
+        return 1;
+    }
+    if (fn == GC_EXI_DESELECT) {
+        real_deselect(ctx, card);
+        return 1;
+    }
+    if (fn == GC_EXI_IMM || fn == GC_EXI_DMA) {
+        const uint32_t ok = fn == GC_EXI_IMM ? real_imm(card, (uint8_t*)(uintptr_t)a1, a2, a3)
+                                             : real_dma(card, a1, a2, a3);
+        if (ok && a4) {
+            card->tc_callback = a4;
+            card_alarm(ctx, card);
+        }
+        return ok;
+    }
+    if (fn == GC_EXI_SYNC) return 1;  /* every transfer has finished already */
+    if (fn == GC_EXI_LOCK) {
+        card->locked = 1;
+        return 1;
+    }
+    if (fn == GC_EXI_UNLOCK) {
+        card->locked = 0;
+        return 1;
+    }
+    if (fn == GC_EXI_GET_ID) {
+        const uint32_t id = real_id(card);
+        *(uint32_t*)(uintptr_t)a2 = id;
+        return id != 0;
+    }
+    if (fn == GC_EXI_PROBE_EX) return real_present() ? 1u : 0xFFFFFFFFu;
+    return (uint32_t)real_present();  /* probe and attach */
+}
+
 uint32_t gc_on_exi(struct gc_rt_context* ctx, uint32_t fn, uint32_t a0, uint32_t a1, uint32_t a2, uint32_t a3,
                    uint32_t a4, uint32_t* pass) {
     struct gc_card* card = card_of(ctx);
     const uint32_t chan = a0;
     (void)a4;
     *pass = 1;
+    if (card != 0 && card->real_slot_b) return real_on_exi(ctx, card, fn, a0, a1, a2, a3, a4, pass);
     if (card == 0 || chan != 0) return 0;  /* slot B and the serial port: the hardware's */
     if (fn == GC_EXI_SELECT || fn == GC_EXI_LOCK || fn == GC_EXI_GET_ID) {
         if (a1 != 0) return 0;  /* the clock and SRAM (device 1), the rest of channel 0 */
@@ -194,6 +383,21 @@ void gc_card_on_alarm(struct gc_rt_context* ctx, struct gc_card* card, uint32_t 
     card->alarm_set = 0;
     card->tc_callback = 0;
     if (tc) ((gc_exi_callback_fn)(uintptr_t)tc)(0, os_context);
+    if (card->real_wait) {
+        /* The real card in slot B: its program or erase is done when it
+         * raises its interrupt; until then, look again shortly. */
+        const uint32_t csr = card_exi_read(GC_CARD_REAL_CHAN, GC_EXI_CSR);
+        if (csr & GC_EXI_CSR_EXIINT) {
+            card_exi_write(GC_CARD_REAL_CHAN, GC_EXI_CSR, (csr & GC_EXI_CSR_SETUP) | GC_EXI_CSR_EXIINT);
+            card->real_wait = 0;
+            card->exi_pending = 1;
+        } else if (--card->real_wait != 0) {
+            card->alarm_set = 1;
+            gc_set_alarm(ctx, card->alarm, GC_CARD_REAL_POLL_TICKS);
+        } else {
+            card->real_timeouts++;  /* the game's own timeout reports it */
+        }
+    }
     if (card->exi_pending) {
         /* The game's handler, as EXISetExiCallback left it in channel 0's block. */
         const uint32_t exi = card->ecb ? *(const uint32_t*)(uintptr_t)card->ecb : 0;

@@ -368,6 +368,9 @@ static void test_external_card_request() {
     // Slot B's real card goes beside the external card in slot A.
     fixture.request.real_card = RWP_GC_REAL_CARD_B;
     EXPECT_TRUE(fixture.check(why));
+    // But not in its place: slot A is then the real card.
+    fixture.request.real_card = RWP_GC_REAL_CARD_B_AS_A;
+    EXPECT_FALSE(fixture.check(why));
     fixture.request.real_card = RWP_GC_REAL_CARD_NONE;
     part.sector = 0xFFFFFFFFull;
     EXPECT_FALSE(fixture.check(why));
@@ -394,6 +397,19 @@ static void test_screen_offset_request() {
     EXPECT_TRUE(fixture.check(why));
 }
 
+static void test_slot_b_as_a_request() {
+    Fixture fixture;
+    std::string why;
+    fixture.request.real_card = RWP_GC_REAL_CARD_B_AS_A;
+    EXPECT_TRUE(fixture.check(why));
+    // Slot A is the real card: no shared SD card there too.
+    fixture.request.shared_card = 1;
+    EXPECT_FALSE(fixture.check(why));
+    fixture.request.shared_card = 0;
+    fixture.request.real_card = RWP_GC_REAL_CARD_B_AS_A + 1;
+    EXPECT_FALSE(fixture.check(why));
+}
+
 static void test_volume_boost_request() {
     Fixture fixture;
     std::string why;
@@ -413,6 +429,7 @@ int main() {
     test_external_card_request();
     test_screen_offset_request();
     test_volume_boost_request();
+    test_slot_b_as_a_request();
     {
         Fixture mappings;
         std::string error;
@@ -439,7 +456,7 @@ int main() {
     card_choice.request.shared_card = 1;
     EXPECT_TRUE(card_choice.check(why));
     card_choice.request.shared_card = 0;
-    card_choice.request.real_card = 3;
+    card_choice.request.real_card = RWP_GC_REAL_CARD_B_AS_A + 1;
     EXPECT_FALSE(card_choice.check(why));
     test_layout();
     test_plan_round_trip();

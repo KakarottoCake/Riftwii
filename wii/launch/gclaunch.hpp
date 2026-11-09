@@ -24,6 +24,7 @@ struct GcImage {
     std::string patch_source;  // set: `path` is a patch (gcpatch.hpp) to make the game from this original
     bool real_card = false;
     bool real_card_b = false;  // this game's own card in slot A, the real card in slot B passed through
+    bool real_card_b_as_a = false;  // the real card in slot B as the game's slot A (gc_card.h's real_slot_b)
     std::string external_card_path{};
     std::vector<std::uint8_t> external_card{};
     std::vector<Fragment> card_fragments{};

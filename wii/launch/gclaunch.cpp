@@ -1134,6 +1134,7 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         image.shared_card = card == "shared";
         image.real_card = card == "real";
         image.real_card_b = card == "real_b";
+        image.real_card_b_as_a = card == "real_b_as_a";
         if (card == "nintendont" || card == "dolphin") {
             image.external_card_path = ExternalCardPath(image.id, card);
             if (image.external_card_path.empty()) {
@@ -1145,6 +1146,7 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         if (extras.game_id == image.id && extras.gc_card_fallback) {
             image.real_card = false;
             image.real_card_b = false;
+            image.real_card_b_as_a = false;
             image.shared_card = false;
         }
         // "global" follows Settings and the Wii's own settings, as a Wii

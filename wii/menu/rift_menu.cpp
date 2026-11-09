@@ -9118,7 +9118,7 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 			: GcCardName(game.gc_card);
 		card.on = game.gc_card != "global";
 		const std::string used = riftwii::gc_card_effective(game, riftwii::wii::Settings().gc_card);
-		card.dim = (used == "real" || used == "real_b") && riftwii::wii::is_wii_u();
+		card.dim = (used == "real" || used == "real_b" || used == "real_b_as_a") && riftwii::wii::is_wii_u();
 		rows.push_back(card);
 		refs.push_back({W::GcCard});
 		FlowRow progressive;
@@ -9840,6 +9840,7 @@ static std::string GcCardName(const std::string& card)
 {
 	if (card == "real") return tr("Real card in slot A");
 	if (card == "real_b") return tr("Real card in slot B");
+	if (card == "real_b_as_a") return tr("Real card in slot B, as slot A");
 	if (card == "shared") return tr("Shared");
 	if (card == "nintendont") return tr("Nintendont's card");
 	if (card == "dolphin") return tr("Dolphin's card");
@@ -9851,6 +9852,20 @@ static std::string GcCardName(const std::string& card)
 static std::string EffectiveGcCard(const FrontendState& state)
 {
 	return riftwii::gc_card_effective(state.model.game, riftwii::wii::Settings().gc_card);
+}
+
+// A real card is the game's slot A, so its saves are not on the SD card.
+static bool GcCardIsRealSlotA(const std::string& card)
+{
+	return card == "real" || card == "real_b_as_a";
+}
+
+// What the game page says when a real card is the game's slot A.
+static std::string GcRealSlotANote(const std::string& card)
+{
+	if (card == "real_b_as_a")
+		return tr("This game uses the real card in slot B as its slot A. Its saves are not on the SD card.");
+	return tr("This game uses the real card in slot A. Its saves are not on the SD card.");
 }
 
 // The game's card, named as the loader names it (gcnative.cpp): its own
@@ -9902,7 +9917,7 @@ static bool ReadGcCardSpace(const std::string& path, riftwii::GcCardSpace& space
 
 static bool GcCardFull(const FrontendState& state)
 {
-	if (EffectiveGcCard(state) == "real") return false;
+	if (GcCardIsRealSlotA(EffectiveGcCard(state))) return false;
 	riftwii::GcCardSpace space;
 	return ReadGcCardSpace(GcCardPath(state), space) && space.full();
 }
@@ -11292,10 +11307,24 @@ static int ReadRealCardWithBar(riftwii::wii::GcRealCard& physical, std::vector<s
 	return result;
 }
 
+// The slot to copy from: the one holding a card when only one does,
+// otherwise the player's choice, each slot marked empty where nothing
+// answers in it. -1: Back.
+static int PickRealGcCardSlot()
+{
+	const bool inA = riftwii::wii::GcRealSlotHasCard(0);
+	const bool inB = riftwii::wii::GcRealSlotHasCard(1);
+	if (inA != inB) {
+		logf("Memory card: only slot %c holds a card, so it is the one copied from\n", inA ? 'A' : 'B');
+		return inA ? 0 : 1;
+	}
+	return ChooseTwo(tr("Memory card"), tr("Choose the slot holding the memory card."),
+		tr("Slot A"), inA ? "" : tr("Empty"), tr("Slot B"), inB ? "" : tr("Empty"));
+}
+
 static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 {
-	const int slot = ChooseTwo(tr("Memory card"), tr("Choose the slot holding the memory card."),
-		tr("Slot A"), "", tr("Slot B"), "");
+	const int slot = PickRealGcCardSlot();
 	if (slot < 0) return;
 	riftwii::wii::GcRealCard physical;
 	int result = physical.Open(slot);
@@ -11458,7 +11487,8 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 
 static void MenuGcCard(FrontendState& state)
 {
-	const bool real = EffectiveGcCard(state) == "real";
+	const std::string used = EffectiveGcCard(state);
+	const bool real = GcCardIsRealSlotA(used);
 	const bool noSlots = riftwii::wii::is_wii_u();
 	std::vector<FlowRow> rows(3);
 	for (FlowRow& row : rows) row.kind = FlowRow::Kind::Action;
@@ -11470,7 +11500,7 @@ static void MenuGcCard(FrontendState& state)
 	rows[1].dim = rows[2].dim = noSlots;
 	const auto note = [&](int row) -> std::string {
 		if (row > 0 && noSlots) return tr("Wii U has no GameCube memory card slots.");
-		if (real) return tr("This game uses the real card in slot A. Its saves are not on the SD card.");
+		if (real) return GcRealSlotANote(used);
 		return tr("Nothing is written to the card. Copies go to the SD card.");
 	};
 	RunRowPage(tr("Memory Card"), GameTitle(state), rows, note, [&](int row, const PageAside& aside) {
@@ -11612,9 +11642,12 @@ static bool ReadyGcStart(FrontendState& state)
 	state.gc_card_fallback = false;
 	const riftwii::wii::ImageGame* game = SelectedGcGame(state);
 	if (!game) return true;
-	if (EffectiveGcCard(state) == "real") {
+	const std::string used = EffectiveGcCard(state);
+	if (GcCardIsRealSlotA(used)) {
+		// Slot B's card as slot A is read from slot B.
+		const int slot = used == "real" ? 0 : 1;
 		riftwii::wii::GcRealCard physical;
-		int result = physical.Open(0);
+		int result = physical.Open(slot);
 		std::vector<std::uint8_t> system;
 		riftwii::GcCardSpace space;
 		std::array<std::uint8_t, 12> flashId{};
@@ -11622,7 +11655,7 @@ static bool ReadyGcStart(FrontendState& state)
 		if (result >= 0) result = physical.ReadSystem(system);
 		if (result >= 0 && (!riftwii::gc_card_space(system, physical.Bytes(), space, error) ||
 			!riftwii::gc_card_flash_id(system, flashId))) {
-			logf("Memory card: the card in slot A cannot be played with: %s\n",
+			logf("Memory card: the card in slot %c cannot be played with: %s\n", 'A' + slot,
 				error.empty() ? "its header holds no card ID" : error.c_str());
 			result = CARD_ERROR_BROKEN;
 		}
@@ -11631,11 +11664,14 @@ static bool ReadyGcStart(FrontendState& state)
 		if (result < 0) {
 			std::string why = GcRealError(result);
 			if (riftwii::wii::is_wii_u()) why = tr("Wii U has no GameCube memory card slots.");
+			else if ((result == CARD_ERROR_NOCARD || result == CARD_ERROR_WRONGDEVICE) && slot == 0)
+				why = tr("Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A.");
 			else if (result == CARD_ERROR_NOCARD || result == CARD_ERROR_WRONGDEVICE)
-				why = tr("Slot A has no readable memory card. A card in slot B cannot be used as slot A.");
-			if (ShowPopup(tr("Real card in slot A"), why, tr("Use this game's SD card"), tr("Cancel")) != 0) return false;
+				why = tr("The memory card in slot B could not be read. Put it back in, or choose another card on the game's page.");
+			if (ShowPopup(GcCardName(used), why, tr("Use this game's SD card"), tr("Cancel")) != 0) return false;
 			state.gc_card_fallback = true;
-			logf("GameCube: the player chose this game's SD card for this launch because slot A could not be mounted; the saved real-card choice is kept.\n");
+			logf("GameCube: the player chose this game's SD card for this launch because slot %c could not be mounted; the saved real-card choice is kept.\n",
+				'A' + slot);
 		}
 	}
 	if (!ShowGcControlsOnce(state)) return false;
@@ -13880,7 +13916,7 @@ static std::string PlayTileNote(const FrontendState& state)
 static std::string GcSaveNote(const FrontendState& state)
 {
 	const std::string used = EffectiveGcCard(state);
-	if (used == "real") return tr("This game uses the real card in slot A. Its saves are not on the SD card.");
+	if (GcCardIsRealSlotA(used)) return GcRealSlotANote(used);
 	const std::string card = GcCardPath(state);
 	if (used == "nintendont" || used == "dolphin")
 		return tr("Saves are written to {1}. A backup is kept before the game starts.", {card});
@@ -13985,7 +14021,7 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 	// save mode. Its cheats are picked as a Wii game's are.
 	const bool cardFull = gamecube && GcCardFull(state);
 	const std::string saves = cardFull ? std::string(tr("Memory card full"))
-		: gamecube && EffectiveGcCard(state) == "real" ? std::string(tr("Real card in slot A"))
+		: gamecube && GcCardIsRealSlotA(EffectiveGcCard(state)) ? GcCardName(EffectiveGcCard(state))
 		: gamecube ? std::string(tr("Memory Card")) + " \xC2\xB7 SD"
 		: !state.model.pack_save_owner().empty() ? std::string(tr("Kept by the pack"))
 		// The tile names where the saves go; "Default (...)" doesn't fit it.
@@ -14177,6 +14213,8 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				if (nintendont && dolphin) help = tr("Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only).");
 				else if (nintendont) help = tr("Use this game's card, a shared card, Nintendont's card, or a real card in slot A (Wii only).");
 				else if (dolphin) help = tr("Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only).");
+				if (state.model.game.gc_card == "real_b_as_a")
+					help = tr("For a game that only looks in slot A: the real card in slot B is its slot A, and slot B looks empty to it (original Wii only).");
 				say(help);
 			}
 			else if (ref.what == RowRef::What::GcProgressive && riftwii::gc_pal_game(state.game_id))
@@ -14268,6 +14306,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 					if (!riftwii::wii::is_wii_u()) {
 						sources.push_back("real");
 						sources.push_back("real_b");
+						sources.push_back("real_b_as_a");
 					}
 					for (const char* source : {"nintendont", "dolphin"}) {
 						if (!riftwii::wii::ExternalCardPath(state.game_id, source).empty()) sources.push_back(source);

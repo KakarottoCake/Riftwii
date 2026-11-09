@@ -404,7 +404,7 @@ static void test_saves() {
     EXPECT_EQ(prefs.game.gc_card, std::string("global"));
     // The real card in slot B, and an explicit "own", survive a save;
     // "global" (the default) is written as nothing.
-    for (const char* card : {"real_b", "own", "real", "nintendont"}) {
+    for (const char* card : {"real_b", "own", "real", "nintendont", "real_b_as_a"}) {
         model.game.gc_card = card;
         prefs.restore(model.save());
         EXPECT_EQ(prefs.game.gc_card, std::string(card));
@@ -418,6 +418,10 @@ static void test_saves() {
     EXPECT_EQ(riftwii::gc_card_effective(card_game, "real_b"), std::string("real_b"));
     EXPECT_EQ(riftwii::gc_card_effective(card_game, "shared"), std::string("shared"));
     EXPECT_EQ(riftwii::gc_card_effective(card_game, "dolphin"), std::string("own"));
+    // The slot B card as slot A is a game's own choice only, never Settings'.
+    EXPECT_EQ(riftwii::gc_card_effective(card_game, "real_b_as_a"), std::string("own"));
+    card_game.gc_card = "real_b_as_a";
+    EXPECT_EQ(riftwii::gc_card_effective(card_game, "shared"), std::string("real_b_as_a"));
     card_game.gc_card = "own";
     EXPECT_EQ(riftwii::gc_card_effective(card_game, "real"), std::string("own"));
     // Fast is the default; one saved as fast before stays fast.

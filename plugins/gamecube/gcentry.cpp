@@ -29,6 +29,7 @@ riftwii::wii::GcImage image_of(const rwp_gc_launch& request) {
     image.rvz = request.is_rvz != 0;
     image.real_card = request.real_card == RWP_GC_REAL_CARD_A;
     image.real_card_b = request.real_card == RWP_GC_REAL_CARD_B;
+    image.real_card_b_as_a = request.real_card == RWP_GC_REAL_CARD_B_AS_A;
     std::copy_n(request.real_card_flash_id, image.real_card_flash_id.size(), image.real_card_flash_id.begin());
     image.shared_card = request.shared_card != 0;
     if (request.external_card != nullptr) {

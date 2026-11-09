@@ -95,7 +95,35 @@ struct gc_card {
     uint32_t flushes;
     int32_t flush_error;
     uint32_t last_cmd;
+    /* The real card in slot B, seen as slot A (loader-filled, 1: on). The
+     * game's slot A card commands go to EXI channel 1's registers as they
+     * are, byte for byte, instead of to the image, and its own look at
+     * slot B finds nothing there, so one card is never reached two ways.
+     * The image and its file are not used. */
+    uint32_t real_slot_b;
+    /* A program or erase on the real card: alarm polls left for the card's
+     * interrupt before the game's EXI callback runs (0: not waiting). */
+    uint32_t real_wait;
+    uint32_t real_timeouts;  /* waits that ran out, for a memory dump */
 };
+
+/* The real card's channel and the EXI registers (Wii: 0xCD006800, five
+ * words a channel; Yet Another GameCube Documentation's EXI section). */
+#define GC_CARD_REAL_CHAN 1u
+#define GC_EXI_REG_BASE 0xCD006800u
+#define GC_EXI_CSR 0u
+#define GC_EXI_MAR 1u
+#define GC_EXI_LENGTH 2u
+#define GC_EXI_CR 3u
+#define GC_EXI_DATA 4u
+#define GC_EXI_CSR_MASKS 0x405u  /* the three interrupt masks: kept as they are */
+#define GC_EXI_CSR_EXIINT 0x002u /* the device's interrupt (a card's program or erase done); write 1 clears */
+#define GC_EXI_CSR_TCINT 0x008u  /* a transfer done; write 1 clears */
+#define GC_EXI_CSR_CS0 0x080u    /* device 0 selected */
+#define GC_EXI_CSR_EXT 0x1000u   /* a device is plugged in */
+#define GC_EXI_CSR_SETUP 0x7F5u  /* the masks, the clock and the selects: what a status clear writes back */
+#define GC_EXI_CR_START 1u
+#define GC_EXI_CR_DMA 2u
 
 #ifdef RT_TARGET_PPC
 struct gc_rt_context;

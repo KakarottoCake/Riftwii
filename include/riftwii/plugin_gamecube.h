@@ -31,10 +31,13 @@ typedef struct rwp_gc_pack_entry {
 
 /* rwp_gc_launch's real_card. A: slot A is the physical card, with no
  * emulated card. B: the emulated card in slot A, and slot B's physical
- * card, which the loader never takes over, with its ID in SRAM. */
+ * card, which the loader never takes over, with its ID in SRAM. B_AS_A:
+ * slot B's physical card is the game's slot A (runtime/gc/gc_card.h's
+ * real_slot_b), its ID in SRAM's slot A, and slot B looks empty. */
 #define RWP_GC_REAL_CARD_NONE 0u
 #define RWP_GC_REAL_CARD_A 1u
 #define RWP_GC_REAL_CARD_B 2u
+#define RWP_GC_REAL_CARD_B_AS_A 3u
 
 #define RWP_GC_PIECE_IMAGE 0u
 #define RWP_GC_PIECE_DEVICE 1u

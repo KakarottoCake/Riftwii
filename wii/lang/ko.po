@@ -2892,9 +2892,6 @@ msgstr "메모리 카드 읽는 중"
 msgid "Keep the card in its slot. Nothing is written to it."
 msgstr "카드를 슬롯에 그대로 두세요. 아무것도 쓰지 않습니다."
 
-msgid "Slot A has no readable memory card. A card in slot B cannot be used as slot A."
-msgstr "슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B의 카드는 슬롯 A로 사용할 수 없습니다."
-
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "실제 카드를 준비하지 못했습니다. 카드를 확인하고 다시 시도하세요."
 
@@ -4226,3 +4223,18 @@ msgstr "더 크게 (+6 dB)"
 
 msgid "Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten."
 msgstr "소리가 작은 게임의 모든 소리를 키웁니다. +6 dB에서는 가장 큰 소리가 뭉개질 수 있습니다."
+
+msgid "Real card in slot B, as slot A"
+msgstr "슬롯 B의 실제 카드를 슬롯 A로"
+
+msgid "This game uses the real card in slot B as its slot A. Its saves are not on the SD card."
+msgstr "이 게임은 슬롯 B의 실제 카드를 슬롯 A로 사용합니다. 세이브는 SD 카드에 없습니다."
+
+msgid "For a game that only looks in slot A: the real card in slot B is its slot A, and slot B looks empty to it (original Wii only)."
+msgstr "슬롯 A만 찾는 게임용: 슬롯 B의 실제 카드가 슬롯 A가 되고, 슬롯 B는 비어 보입니다 (초기형 Wii만)."
+
+msgid "Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A."
+msgstr "슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B의 카드는 슬롯 B의 실제 카드를 슬롯 A로를 고르세요."
+
+msgid "Empty"
+msgstr "비어 있음"

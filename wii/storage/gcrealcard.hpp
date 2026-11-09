@@ -11,6 +11,11 @@ namespace riftwii::wii {
 // also supplies the bounce buffer for raw EXI DMA; both must be in MEM1.
 void InitGcRealCards();
 
+// Whether something answers in the slot's memory card port (0: A, 1: B),
+// without mounting it: for saying which slots hold a card. False on a Wii
+// U and while a card session is open.
+bool GcRealSlotHasCard(int slot);
+
 // One read-only session. Removal is sticky until the next Open, even when
 // another card is inserted while the player reads a confirmation popup.
 class GcRealCard {

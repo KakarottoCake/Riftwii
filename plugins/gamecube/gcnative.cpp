@@ -2935,7 +2935,23 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         logf("GameCube: the real memory card in slot B is the game's too, beside its own card in slot A; SRAM holds "
              "that card's ID\n");
     }
-    if (image.real_card) {
+    if (image.real_card_b_as_a) {
+        // Slot B's real card as slot A: the EXI hooks below send slot A's
+        // card commands to slot B's channel (gc_card.h's real_slot_b), so
+        // they go on as for an emulated card, with an image that is never
+        // used and no file to write back to. SRAM's slot A holds the card's
+        // ID, as a GameCube's mount of it in slot A would leave it.
+        const rwp_host& host = plugin::host();
+        if (!RWP_HOST_HAS(&host, set_sram_flash_id_a) || !host.set_sram_flash_id_a ||
+            host.set_sram_flash_id_a(image.real_card_flash_id.data()) < 0) {
+            error = RWP_GC_REAL_CARD_SRAM_ERROR;
+            if (error_code != nullptr) *error_code = RWP_GC_ERROR_REAL_CARD_SRAM;
+            return false;
+        }
+        card_image.assign(GC_CARD_BYTES, 0xFF);
+        logf("GameCube: the real memory card in slot B is the game's slot A; slot B looks empty to the game, and "
+             "SRAM's slot A holds that card's ID\n");
+    } else if (image.real_card) {
         const rwp_host& host = plugin::host();
         if (!RWP_HOST_HAS(&host, set_sram_flash_id_a) || !host.set_sram_flash_id_a ||
             host.set_sram_flash_id_a(image.real_card_flash_id.data()) < 0) {
@@ -3659,6 +3675,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                 memcard->ecb = ecb;
                 memcard->run_count = static_cast<std::uint32_t>(card_runs.size());
                 std::copy(card_runs.begin(), card_runs.end(), memcard->runs);
+                memcard->real_slot_b = image.real_card_b_as_a ? 1 : 0;
                 ctx->card = card_addr;
             }
             // The names of the hooks a test picks, for the log.
@@ -3674,8 +3691,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             // problem report shows the cause.
             switch (decision.verdict) {
             case GcExiVerdict::Hook:
-                logf("GameCube: memory card in slot A (EXI blocks 0x%08x, EXIImm 0x%08x, EXIGetID 0x%08x)\n", ecb,
-                     exi[GC_EXI_IMM], exi[GC_EXI_GET_ID]);
+                logf("GameCube: memory card in slot A (EXI blocks 0x%08x, EXIImm 0x%08x, EXIGetID 0x%08x)%s\n", ecb,
+                     exi[GC_EXI_IMM], exi[GC_EXI_GET_ID],
+                     image.real_card_b_as_a ? ": the real card in slot B, through EXI channel 1" : "");
                 if (found_exi.probe_ex_absent && found_exi.old_sdk) {
                     logf("GameCube: memory card: no EXIProbeEx was found; the 0x38-byte layout is accepted without "
                          "one, so the other ten EXI functions are hooked\n");
@@ -4120,6 +4138,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             memcard->on_usb = image.card_on_usb ? 1 : 0;
             memcard->run_count = static_cast<std::uint32_t>(card_runs.size());
             std::copy(card_runs.begin(), card_runs.end(), memcard->runs);
+            memcard->real_slot_b = image.real_card_b_as_a ? 1 : 0;
             unswitched.push_back(blob_addr + h.context_offset + offsetof(gc_rt_context, card));
             unswitched.push_back(card_addr + offsetof(gc_card, image));
             unswitched.push_back(card_addr + offsetof(gc_card, run_count));

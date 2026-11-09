@@ -2892,9 +2892,6 @@ msgstr "Leyendo la tarjeta de memoria"
 msgid "Keep the card in its slot. Nothing is written to it."
 msgstr "Deja la tarjeta en su ranura. No se escribe nada en ella."
 
-msgid "Slot A has no readable memory card. A card in slot B cannot be used as slot A."
-msgstr "La ranura A no tiene una tarjeta legible. Una tarjeta en la ranura B no puede usarse como A."
-
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "No se pudo preparar la tarjeta real. Comprueba la tarjeta e inténtalo de nuevo."
 
@@ -4226,3 +4223,18 @@ msgstr "Aún más alto (+6 dB)"
 
 msgid "Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten."
 msgstr "Sube todo el sonido de un juego silencioso. A +6 dB los sonidos más fuertes pueden aplanarse."
+
+msgid "Real card in slot B, as slot A"
+msgstr "Tarjeta real de la ranura B, como ranura A"
+
+msgid "This game uses the real card in slot B as its slot A. Its saves are not on the SD card."
+msgstr "Este juego usa la tarjeta real de la ranura B como su ranura A. Sus partidas no están en la tarjeta SD."
+
+msgid "For a game that only looks in slot A: the real card in slot B is its slot A, and slot B looks empty to it (original Wii only)."
+msgstr "Para un juego que solo busca en la ranura A: la tarjeta real de la ranura B es su ranura A, y la ranura B le parece vacía (solo Wii original)."
+
+msgid "Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A."
+msgstr "La ranura A no tiene una tarjeta de memoria legible. Para una tarjeta en la ranura B, elige Tarjeta real de la ranura B, como ranura A."
+
+msgid "Empty"
+msgstr "Vacía"

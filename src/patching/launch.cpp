@@ -571,6 +571,7 @@ void LaunchModel::restore(const std::string& text) {
                 game.gc_disc_reads = value == "drive" ? "drive" : "fast";
             } else if (key == "gccard") {
                 game.gc_card = value == "own" || value == "shared" || value == "real" || value == "real_b" ||
+                                       value == "real_b_as_a" ||
                                        value == "nintendont" || value == "dolphin"
                                    ? value
                                    : "global";

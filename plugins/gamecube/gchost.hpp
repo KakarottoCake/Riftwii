@@ -39,6 +39,7 @@ struct GcImage {
     std::uint64_t usb_bytes = 0;
     bool real_card = false;
     bool real_card_b = false;  // slot B's physical card beside the emulated one in slot A
+    bool real_card_b_as_a = false;  // slot B's physical card as the game's slot A (gc_card.h's real_slot_b)
     std::array<std::uint8_t, 12> real_card_flash_id{};
     bool card_on_usb = false;
     std::string external_card_path;

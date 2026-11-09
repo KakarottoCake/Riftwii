@@ -205,13 +205,18 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     // The backup first, as before the loader moved into the plugin: before
     // the game can write to the card.
     std::array<std::uint8_t, 12> physical_id{};
-    if (image.real_card) {
+    if (image.real_card || image.real_card_b_as_a) {
+        // Slot B's card as slot A is read from slot B, and its ID goes to
+        // SRAM's slot A, where the game looks.
+        const int slot = image.real_card ? 0 : 1;
         GcRealCard physical;
         std::vector<std::uint8_t> system;
         GcCardSpace space;
-        if (physical.Open(0) < 0 || physical.ReadSystem(system) < 0 ||
+        if (physical.Open(slot) < 0 || physical.ReadSystem(system) < 0 ||
             !gc_card_space(system, physical.Bytes(), space, error) || !gc_card_flash_id(system, physical_id)) {
-            error = tr("The memory card could not be read. It may have changed or been removed. Nothing was copied.");
+            error = slot == 0
+                ? tr("The memory card could not be read. It may have changed or been removed. Nothing was copied.")
+                : tr("The memory card in slot B could not be read. Put it back in, or choose another card on the game's page.");
             return false;
         }
         if ((system[0x25] != 0) != gc_card_shift_jis(image.id)) {
@@ -222,7 +227,10 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
         // emulated-card launch may have left an SD ID there. libogc's mount
         // only checks the cached ID's byte sum, not the header identity.
         // Pass this physical header's ID, preserving its serial/saves.
-        logf("GameCube: the game will use the real memory card in slot A because the Memory card option (the game's, or Settings' when it is Default) selects it.\n");
+        if (slot == 0)
+            logf("GameCube: the game will use the real memory card in slot A because the Memory card option (the game's, or Settings' when it is Default) selects it.\n");
+        else
+            logf("GameCube: the game will use the real memory card in slot B as its slot A, and find slot B empty, because the game's Memory card option selects it.\n");
     } else {
         // Slot B's real card: the loader only takes over slot A, so the
         // card reaches the game as it is; SRAM gets its ID, as for slot A.
@@ -255,7 +263,10 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     request.path = image.path.c_str();
     request.id = image.id.c_str();
     request.is_rvz = GcImageIsRvz(image.path) ? 1 : 0;
-    request.real_card = image.real_card ? RWP_GC_REAL_CARD_A : image.real_card_b ? RWP_GC_REAL_CARD_B : RWP_GC_REAL_CARD_NONE;
+    request.real_card = image.real_card ? RWP_GC_REAL_CARD_A
+                      : image.real_card_b_as_a ? RWP_GC_REAL_CARD_B_AS_A
+                      : image.real_card_b ? RWP_GC_REAL_CARD_B
+                                          : RWP_GC_REAL_CARD_NONE;
     std::copy(physical_id.begin(), physical_id.end(), request.real_card_flash_id);
     request.shared_card = image.shared_card ? 1 : 0;
     std::vector<rwp_fragment> card_fragments;

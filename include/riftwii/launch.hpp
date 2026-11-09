@@ -138,7 +138,8 @@ struct GameSettings {
     // one card for all the games of its encoding (gc_card_path).
     // global (Settings' GameCube memory card), own, shared, real (the real
     // card in slot A), real_b (this game's own card in slot A and the real
-    // card in slot B), nintendont, dolphin.
+    // card in slot B), real_b_as_a (the real card in slot B as the game's
+    // slot A, for a game that only looks there), nintendont, dolphin.
     std::string gc_card = "global";
     // A GameCube game's picture and language (gcnative.cpp does each).
     // "global", the default, follows Settings and the Wii's own settings
