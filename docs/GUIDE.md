@@ -1045,8 +1045,9 @@ A pack's memory patches (`<memory>`: plain, with an `original`, from a
 before it starts, after RiftWii's own changes, as Dolphin does. One
 whose `original` differs is skipped and logged; one that would write
 over RiftWii's own part of memory stops the start, with the reason.
-They are written once, at the start: a game that later loads another
-program from its disc doesn't get them again in it yet. Packs with
+A game that switches to another program on its disc (a compilation
+starting one of its games) keeps its packs and their choices: that
+program gets the same files and memory patches. Packs with
 savegame or shift patches don't start yet, and say so. A mod shipped as a patch (`.xdelta` or `.vcdiff`) goes in
 `sd:/riftwii/patches/`: it is listed as the game it makes when its
 original is in `sd:/games` or `usb:/games`, and the first start makes that game as

@@ -9,6 +9,8 @@
 #include <cstdio>
 
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/gcexecpacks.hpp"
+#include "textfile.hpp"
 
 #include "launchrun.hpp"
 #include "frontend.hpp"
@@ -236,6 +238,24 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
             PackageChoices p;
             p.xml_sd_path = x.find_first_of(":/") == std::string::npos ? "sd:/riivolution/" + x : x;
             packs.push_back(p);
+        }
+        // A switch to another program keeps the packs the game started
+        // with, and their choices (riftwii/gcexecpacks.hpp), so the program
+        // gets the same files and memory patches. Not a game from a TGC
+        // image: the packs were for the disc it came from.
+        if (h.gc_exec && h.gc_tgc == 0 && h.xmls.empty()) {
+            std::string kept;
+            if (ReadTextFile(kGcExecPacksFile, kept, kMaxGcExecPacksBytes)) {
+                // exec.txt names the image as the launch wrote it.
+                const std::string& image_path = h.path.empty() ? gc.path : h.path;
+                if (gc_exec_packs_parse(kept, gc.id, image_path, packs)) {
+                    logf("GameCube: the program starts with the %u pack(s) the game started with (%s)\n",
+                         static_cast<unsigned>(packs.size()), kGcExecPacksFile);
+                } else {
+                    logf("GameCube: %s is for another game or image, or not whole: the program starts without packs\n",
+                         kGcExecPacksFile);
+                }
+            }
         }
         return LaunchGcGame(gc, packs, error);
     }
