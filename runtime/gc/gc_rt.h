@@ -667,6 +667,12 @@ struct gc_rt_context {
     uint32_t sample_quiet;
     uint32_t samples_stood_in;
     uint32_t sample_queued;
+    /* The GameCube controllers' calibrations (rtpadcal.h's table,
+     * loader-placed in MEM2), 0: none stored. The Wii's own ports take
+     * theirs in gc_on_pad_read, the adapter's and the USB pads' in the
+     * driver (gc_gcad's copy of the address). In the bytes sample_alarm's
+     * 32-byte alignment pads anyway: the context is full to its room. */
+    uint32_t pad_cal;
     uint8_t sample_alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
 };
 

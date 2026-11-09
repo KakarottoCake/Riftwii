@@ -9,6 +9,7 @@
 
 #include "riftwii/dol.hpp"
 #include "riftwii/patch.hpp"
+#include "rtpadcal.h"
 
 // The GameCube controller adapter for Wii U in games that support the
 // GameCube controller: the game's PADRead and PADControlMotor are hooked
@@ -86,6 +87,10 @@ struct PadHook {
     std::uint32_t resident_last_write = 0;  // the resident's save-write time (SD saves), 0: none
     std::uint32_t resident_busy = 0;        // its savegame engine's busy word (with the above)
     std::uint32_t resident_queued = 0;      // and its queue count
+    // The GameCube controllers' calibrations (Settings > Controllers), put
+    // after the driver's state in MEM2; nullptr: none stored, none placed.
+    const rtpadcal_table* calibration = nullptr;
+    std::uint32_t calibration_base = 0;     // where the table went, 0: none
 };
 
 // Opens /dev/usb/hid on RiftWii's own handle and tells v4 from v5.

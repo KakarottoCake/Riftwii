@@ -44,7 +44,7 @@ bool gc_memory_from_request(const rwp_gc_launch& request, std::vector<MemoryPatc
 // size (the packs' FST and 32 header bytes, the window's entries, their
 // memory patches within kMaxPlanMemoryBytes of values, the
 // cheats, the code handler, a whole crash screen of `crash_screen_bytes`,
-// the way back's view). False, with `why`, otherwise.
+// the way back's view, a whole table of controller calibrations). False, with `why`, otherwise.
 bool gc_request_check(const rwp_gc_launch* request, std::uint32_t bytes, std::uint32_t crash_screen_bytes,
                       std::string& why);
 
