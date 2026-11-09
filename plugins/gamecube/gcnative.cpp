@@ -1392,8 +1392,25 @@ std::vector<std::uint32_t> find_dtv_reads(const Code& code) {
 // register, loads rm->viTVMode (`lwz rX,0(rR)`) and takes its low two
 // bits (interlaced, double-strike or progressive), reads the start-up TV
 // mode at 0x800000CC, and shifts viTVMode right by 2 (its TV format). The
-// one function doing all three in its first 0x80 bytes; 0 if not exactly one.
+// one function doing all three in its first 0x80 bytes.
+// The 2001 SDK's (Luigi's Mansion, 0x801e7c88) is older: viTVMode is
+// only 0, 1 or 2 (no TV format bits), compared with 2 (progressive) at
+// once, and the start-up TV mode comes from a three-word getter (`lis
+// rA,0x8000; lwz r3,0xCC(rA); blr`) it calls. Taken only when no function
+// has the newer shape, so a newer game's choice is unchanged.
+// 0 if not exactly one of either.
 std::uint32_t find_vi_configure(const Code& code) {
+    // The 2001 SDK's getter of the start-up TV mode.
+    std::vector<std::uint32_t> boot_mode_getters;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if (!is_lis(w, 0x8000) || !code.has(a + 8)) return;
+        const std::uint32_t load = code.at(a + 4);
+        const bool loads_boot_mode = opcode(load) == 32 && reg_d(load) == 3 && reg_a(load) == reg_d(w) &&
+                                     (load & 0xFFFF) == 0xCC;
+        if (loads_boot_mode && code.at(a + 8) == 0x4E800020) boot_mode_getters.push_back(a);
+    });
+    std::uint32_t found_2001 = 0;
+    unsigned count_2001 = 0;
     std::uint32_t found = 0;
     unsigned count = 0;
     const std::uint32_t low_two_bits = rlwinm_low(0, 30, 31);
@@ -1401,6 +1418,7 @@ std::uint32_t find_vi_configure(const Code& code) {
     code.each([&](std::uint32_t start, std::uint32_t) {
         if (!code.has(start - 4) || code.at(start - 4) != 0x4E800020) return;  // a function's first word
         bool takes_interlace = false, reads_boot_mode = false, takes_format = false;
+        bool compares_progressive = false, calls_boot_mode_getter = false;
         bool high_8000[32] = {};
         for (std::uint32_t a = start; code.has(a) && a < start + 0x80; a += 4) {
             const std::uint32_t w = code.at(a);
@@ -1408,17 +1426,30 @@ std::uint32_t find_vi_configure(const Code& code) {
             if (opcode(w) == 15 && reg_a(w) == 0) high_8000[reg_d(w)] = (w & 0xFFFF) == 0x8000;  // lis rA,0x8000
             if (opcode(w) == 32 && high_8000[reg_a(w)] && (w & 0xFFFF) == 0xCC) reads_boot_mode = true;
             if (opcode(w) == 32 && (w & 0xFFFF) == 0 && reg_a(w) > 3) {  // lwz rX,0(rR), rR kept from r3
-                for (std::uint32_t b = a + 4; b < a + 24; b += 4)
+                for (std::uint32_t b = a + 4; b < a + 24 && code.has(b); b += 4) {
                     if (is_rlwinm_of(code.at(b), reg_d(w), low_two_bits)) takes_interlace = true;
+                    // cmpwi rX,2: the 2001 SDK's viTVMode is progressive
+                    const std::uint32_t compare_with_2 = 0x2C000002u | (reg_d(w) << 16);
+                    if (code.at(b) == compare_with_2) compares_progressive = true;
+                }
             }
             if (opcode(w) == 21 && (w & 0xFFFF) == shift_right_2) takes_format = true;
+            if (const std::uint32_t callee = bl_target(a, w)) {
+                for (std::uint32_t getter : boot_mode_getters)
+                    if (callee == getter) calls_boot_mode_getter = true;
+            }
         }
         if (takes_interlace && reads_boot_mode && takes_format) {
             found = start;
             ++count;
         }
+        if (compares_progressive && calls_boot_mode_getter) {
+            found_2001 = start;
+            ++count_2001;
+        }
     });
-    return count == 1 ? found : 0;
+    if (count != 0) return count == 1 ? found : 0;
+    return count_2001 == 1 ? found_2001 : 0;
 }
 
 // GXSetProjection(f32 mtx[4][4], GXProjectionType type): it compares the
