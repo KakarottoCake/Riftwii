@@ -302,6 +302,13 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     // Kept here until the launch returns: the request points into them.
     std::vector<rwp_gc_pack_entry> pack_entries;
     if (pack != nullptr) gc_plan_to_request(*pack, pack_entries, request);
+    std::vector<std::uint8_t> pack_memory;
+    if (!gc_memory_to_bytes(image.pack_memory, pack_memory, error)) return false;
+    if (!pack_memory.empty()) {
+        request.pack_memory = pack_memory.data();
+        request.pack_memory_bytes = static_cast<std::uint32_t>(pack_memory.size());
+        request.pack_memory_count = static_cast<std::uint32_t>(image.pack_memory.size());
+    }
 
     // The settings and the launch's extras, as they are now.
     const LaunchExtras& extras = CurrentLaunchExtras();

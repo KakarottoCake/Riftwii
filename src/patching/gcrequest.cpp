@@ -4,6 +4,9 @@
 #include "rthid.h"
 
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/mempatch.hpp"
+
+#include <cstring>
 
 namespace riftwii {
 namespace {
@@ -23,6 +26,26 @@ std::uint32_t piece_kind(GcPiece::Kind kind) {
 
 // A pointer and the size it is given with agree: both set, or both none.
 bool sized(const void* pointer, std::uint32_t bytes) { return (pointer == nullptr) == (bytes == 0); }
+
+// A memory patch's head in pack_memory (gc_memory_to_bytes): five words.
+constexpr std::size_t kMemoryHeadWords = 5;
+constexpr std::size_t kMemoryHeadBytes = kMemoryHeadWords * 4;
+constexpr std::uint32_t kMemoryHasOffset = 1u << 0;
+constexpr std::uint32_t kMemoryOcarina = 1u << 1;
+constexpr std::uint32_t kMemorySearch = 1u << 2;
+
+std::size_t padded_to_word(std::size_t bytes) { return (bytes + 3) & ~std::size_t(3); }
+
+void append_word(std::vector<std::uint8_t>& out, std::uint32_t word) {
+    std::uint8_t bytes[4];
+    std::memcpy(bytes, &word, sizeof(bytes));
+    out.insert(out.end(), bytes, bytes + sizeof(bytes));
+}
+
+void append_padded(std::vector<std::uint8_t>& out, const std::vector<std::uint8_t>& bytes) {
+    out.insert(out.end(), bytes.begin(), bytes.end());
+    out.resize(out.size() + padded_to_word(bytes.size()) - bytes.size(), 0);
+}
 
 }  // namespace
 
@@ -74,6 +97,77 @@ bool gc_plan_from_request(const rwp_gc_launch& request, GcOverlayPlan& plan, std
             return false;
         }
         plan.entries.push_back(entry);
+    }
+    return true;
+}
+
+bool gc_memory_to_bytes(const std::vector<MemoryPatch>& patches, std::vector<std::uint8_t>& out, std::string& why) {
+    out.clear();
+    for (std::size_t i = 0; i < patches.size(); ++i) {
+        const MemoryPatch& patch = patches[i];
+        if (!patch.valuefile.empty() && patch.value.empty()) {
+            why = "memory patch " + std::to_string(i) + "'s file " + patch.valuefile + " was not read";
+            return false;
+        }
+        if (patch.offset > 0xFFFFFFFFull || patch.align > 0xFFFFFFFFull) {
+            why = "memory patch " + std::to_string(i) + " points past the GameCube's 32-bit addresses";
+            return false;
+        }
+        std::uint32_t kind = 0;
+        if (patch.has_offset) kind |= kMemoryHasOffset;
+        if (patch.ocarina) kind |= kMemoryOcarina;
+        if (patch.search) kind |= kMemorySearch;
+        append_word(out, kind);
+        append_word(out, static_cast<std::uint32_t>(patch.offset));
+        append_word(out, static_cast<std::uint32_t>(patch.align));
+        append_word(out, static_cast<std::uint32_t>(patch.value.size()));
+        append_word(out, static_cast<std::uint32_t>(patch.original.size()));
+        append_padded(out, patch.value);
+        append_padded(out, patch.original);
+    }
+    return true;
+}
+
+bool gc_memory_from_request(const rwp_gc_launch& request, std::vector<MemoryPatch>& patches, std::string& why) {
+    patches.clear();
+    const std::uint8_t* bytes = request.pack_memory;
+    const std::size_t total = request.pack_memory_bytes;
+    std::size_t at = 0;
+    const auto take = [&](std::size_t length, std::vector<std::uint8_t>& into) {
+        const std::size_t padded = padded_to_word(length);
+        if (padded < length || padded > total - at) return false;
+        into.assign(bytes + at, bytes + at + length);
+        at += padded;
+        return true;
+    };
+    for (std::uint32_t i = 0; i < request.pack_memory_count; ++i) {
+        if (total - at < kMemoryHeadBytes) {
+            why = "the packs' memory patch " + std::to_string(i) + " is cut short";
+            return false;
+        }
+        std::uint32_t head[kMemoryHeadWords];
+        std::memcpy(head, bytes + at, kMemoryHeadBytes);
+        at += kMemoryHeadBytes;
+        const std::uint32_t kind = head[0];
+        if ((kind & ~(kMemoryHasOffset | kMemoryOcarina | kMemorySearch)) != 0) {
+            why = "the packs' memory patch " + std::to_string(i) + " has unknown kind bits";
+            return false;
+        }
+        MemoryPatch patch;
+        patch.has_offset = (kind & kMemoryHasOffset) != 0;
+        patch.ocarina = (kind & kMemoryOcarina) != 0;
+        patch.search = (kind & kMemorySearch) != 0;
+        patch.offset = head[1];
+        patch.align = head[2];
+        if (!take(head[3], patch.value) || !take(head[4], patch.original)) {
+            why = "the packs' memory patch " + std::to_string(i) + " runs past its bytes";
+            return false;
+        }
+        patches.push_back(std::move(patch));
+    }
+    if (at != total) {
+        why = "the packs' memory patches leave " + std::to_string(total - at) + " bytes over";
+        return false;
     }
     return true;
 }
@@ -144,6 +238,18 @@ bool gc_request_check(const rwp_gc_launch* request, std::uint32_t bytes, std::ui
         }
     } else if (request->pack_fst_bytes != 0 || request->pack_header != nullptr || request->pack_entry_count != 0) {
         why = "the launch request has parts of a packs' plan without its FST";
+        return false;
+    }
+    // The memory patches' values are bounded as a launch's are
+    // (kMaxPlanMemoryBytes), plus each patch's head and padding; every
+    // patch takes at least its head, so the count is bounded by the bytes.
+    const std::uint64_t memory_cap =
+        std::uint64_t(kMaxPlanMemoryBytes) + std::uint64_t(request->pack_memory_count) * (kMemoryHeadBytes + 6);
+    if (!sized(request->pack_memory, request->pack_memory_bytes) ||
+        (request->pack_memory == nullptr) != (request->pack_memory_count == 0) ||
+        request->pack_memory_bytes > memory_cap ||
+        std::uint64_t(request->pack_memory_count) * kMemoryHeadBytes > request->pack_memory_bytes) {
+        why = "the packs' memory patches in the launch request are not whole";
         return false;
     }
     if (!sized(request->hid_catalog, request->hid_catalog_bytes) ||

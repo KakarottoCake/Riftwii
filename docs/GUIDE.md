@@ -1040,8 +1040,20 @@ to play with GameCube controllers.
 **Mods:** Riivolution packs for a GameCube game go in
 `sd:/riivolution/` as for Wii games, and are picked on the game's page.
 RiftWii serves their files to the game without changing the image.
-Packs with memory, savegame or shift patches don't start yet, and say
-so. A mod shipped as a patch (`.xdelta` or `.vcdiff`) goes in
+A pack's memory patches (`<memory>`: plain, with an `original`, from a
+`valuefile`, `search` and `ocarina`) are written into the game just
+before it starts, after RiftWii's own changes, as Dolphin does. One
+whose `original` differs is skipped and logged; one that would write
+over RiftWii's own part of memory stops the start, with the reason.
+A game that switches to another program on its disc (a compilation
+starting one of its games) keeps its packs and their choices: that
+program gets the same files and memory patches. `<shift>` patches
+work as for Wii games. Packs with savegame patches don't start, and
+say so: a GameCube game saves to its memory card, not to the Wii's
+save folders. A modded image bigger than a real disc (1.36 GB) plays
+too, as an ISO or an RVZ, as long as its disc is smaller than 4 GB, the
+most a GameCube game can address; packs on such an image need room for
+their files after it, below that limit. A mod shipped as a patch (`.xdelta` or `.vcdiff`) goes in
 `sd:/riftwii/patches/`: it is listed as the game it makes when its
 original is in `sd:/games` or `usb:/games`, and the first start makes that game as
 `sd:/games/<its ID>/game.iso` (the card needs room for it), an ordinary

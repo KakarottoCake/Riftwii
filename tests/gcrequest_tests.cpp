@@ -147,6 +147,84 @@ static void test_no_packs() {
     EXPECT_TRUE(why.find("without its FST") != std::string::npos);
 }
 
+static void test_memory_round_trip() {
+    // Every kind of <memory> patch comes back as it went: a plain one with
+    // an original, a search with an odd-sized value (padding), an ocarina
+    // one, and one with no offset.
+    std::vector<MemoryPatch> patches(4);
+    patches[0].has_offset = true;
+    patches[0].offset = 0x80001820;
+    patches[0].value = {0x94, 0x21, 0xFF, 0xF0};
+    patches[0].original = {0x7C, 0x08, 0x02, 0xA6};
+    patches[1].search = true;
+    patches[1].align = 4;
+    patches[1].value = {1, 2, 3, 4, 5};
+    patches[1].original = {9, 9, 9};
+    patches[2].ocarina = true;
+    patches[2].has_offset = true;
+    patches[2].offset = 0x80002400;
+    patches[2].value = {0x38, 0x60, 0x00, 0x01};
+    patches[3].value = {0xAA};
+    std::vector<std::uint8_t> bytes;
+    std::string why;
+    EXPECT_TRUE(gc_memory_to_bytes(patches, bytes, why));
+    EXPECT_EQ(bytes.size() % 4, 0u);
+    Fixture f;
+    f.request.pack_memory = bytes.data();
+    f.request.pack_memory_bytes = static_cast<std::uint32_t>(bytes.size());
+    f.request.pack_memory_count = static_cast<std::uint32_t>(patches.size());
+    EXPECT_TRUE(f.check(why));
+    std::vector<MemoryPatch> back;
+    EXPECT_TRUE(gc_memory_from_request(f.request, back, why));
+    EXPECT_EQ(back.size(), patches.size());
+    for (std::size_t i = 0; i < back.size() && i < patches.size(); ++i) {
+        EXPECT_EQ(back[i].offset, patches[i].offset);
+        EXPECT_EQ(back[i].has_offset, patches[i].has_offset);
+        EXPECT_EQ(back[i].search, patches[i].search);
+        EXPECT_EQ(back[i].ocarina, patches[i].ocarina);
+        EXPECT_EQ(back[i].align, patches[i].align);
+        EXPECT_TRUE(back[i].value == patches[i].value);
+        EXPECT_TRUE(back[i].original == patches[i].original);
+    }
+    // A count that disagrees with the bytes, either way, is refused.
+    f.request.pack_memory_count = 5;
+    EXPECT_FALSE(gc_memory_from_request(f.request, back, why));
+    f.request.pack_memory_count = 3;
+    EXPECT_FALSE(gc_memory_from_request(f.request, back, why));
+    // So are bytes without a count, a count without bytes, and more
+    // patches than the bytes could hold heads for.
+    f.request.pack_memory_count = 0;
+    EXPECT_FALSE(f.check(why));
+    f.request.pack_memory_count = 4;
+    f.request.pack_memory = nullptr;
+    EXPECT_FALSE(f.check(why));
+    f.request.pack_memory = bytes.data();
+    f.request.pack_memory_count = static_cast<std::uint32_t>(bytes.size() / 20 + 1);
+    EXPECT_FALSE(f.check(why));
+    // A length that runs past the end.
+    std::vector<std::uint8_t> cut(bytes.begin(), bytes.begin() + 24);
+    f.request.pack_memory = cut.data();
+    f.request.pack_memory_bytes = static_cast<std::uint32_t>(cut.size());
+    f.request.pack_memory_count = 1;
+    EXPECT_FALSE(gc_memory_from_request(f.request, back, why));
+    // The DOL side refuses an offset past 32 bits and a valuefile not read.
+    std::vector<MemoryPatch> wide(1);
+    wide[0].has_offset = true;
+    wide[0].offset = 0x100000000ull;
+    wide[0].value = {1};
+    EXPECT_FALSE(gc_memory_to_bytes(wide, bytes, why));
+    std::vector<MemoryPatch> unread(1);
+    unread[0].valuefile = "/mod/code.bin";
+    EXPECT_FALSE(gc_memory_to_bytes(unread, bytes, why));
+    // No patches: no bytes, and a request without them still checks.
+    EXPECT_TRUE(gc_memory_to_bytes({}, bytes, why));
+    EXPECT_TRUE(bytes.empty());
+    Fixture none;
+    EXPECT_TRUE(none.check(why));
+    EXPECT_TRUE(gc_memory_from_request(none.request, back, why));
+    EXPECT_TRUE(back.empty());
+}
+
 static void test_refusals() {
     std::string why;
     // The size: shorter (an older DOL), or a size field that disagrees.
@@ -322,6 +400,7 @@ int main() {
     test_layout();
     test_plan_round_trip();
     test_no_packs();
+    test_memory_round_trip();
     test_refusals();
     if (g_failures == 0) std::cout << "gcrequest: all passed" << std::endl;
     return g_failures == 0 ? 0 : 1;

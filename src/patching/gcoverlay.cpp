@@ -258,4 +258,75 @@ bool gc_disc_runs_rvz(std::uint64_t image_size, const GcOverlayPlan* plan, std::
     return disc_runs(nullptr, image_size, plan, out, error);
 }
 
+namespace {
+
+bool same_disc_path(const std::string& a, const std::string& b) {
+    if (a.size() != b.size()) return false;
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        const auto lower = [](char c) { return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c; };
+        if (lower(a[i]) != lower(b[i])) return false;
+    }
+    return true;
+}
+
+// The disc file at `path` (the SDK's paths are case-insensitive), or
+// Fst::npos for none or a folder.
+std::uint32_t find_disc_file(const Fst& fst, const std::string& path) {
+    std::uint32_t index = fst.find(path, false);
+    if (index == Fst::npos) index = fst.find(path, true);
+    if (index != Fst::npos && fst.entries()[index].is_directory) return Fst::npos;
+    return index;
+}
+
+}  // namespace
+
+void apply_gc_shifts(const std::vector<ShiftPatch>& shifts, const Fst& fst, std::vector<GcFile>& files,
+                     std::vector<std::string>& notes) {
+    const auto file_named = [&files](const std::string& path) -> GcFile* {
+        for (GcFile& f : files) {
+            if (same_disc_path(f.disc_path, path)) return &f;
+        }
+        return nullptr;
+    };
+    for (const ShiftPatch& shift : shifts) {
+        const std::string head = "shift " + shift.source + " -> " + shift.destination + ": ";
+        const std::uint32_t source = find_disc_file(fst, shift.source);
+        const std::uint32_t target = find_disc_file(fst, shift.destination);
+        if (source == Fst::npos || target == Fst::npos) {
+            notes.push_back(head + (source == Fst::npos ? "the source" : "the destination") +
+                            " is not a disc file, skipped");
+            continue;
+        }
+        // The source as the packs left it: its own new pieces, else the
+        // image's bytes where the disc has it.
+        std::vector<GcPiece> pieces;
+        std::uint64_t bytes = 0;
+        std::string source_path;
+        fst.path_of(source, source_path);
+        if (const GcFile* changed = file_named(source_path)) {
+            pieces = changed->pieces;
+            for (const GcPiece& piece : pieces) bytes += piece.length;
+        } else {
+            const FstEntry& entry = fst.entries()[source];
+            GcPiece piece;
+            piece.kind = GcPiece::Kind::Image;
+            piece.source = entry.offset;
+            piece.length = entry.size;
+            bytes = entry.size;
+            if (piece.length != 0) pieces.push_back(piece);
+        }
+        std::string destination;
+        fst.path_of(target, destination);
+        if (GcFile* existing = file_named(destination)) {
+            existing->pieces = pieces;
+        } else {
+            GcFile file;
+            file.disc_path = destination;
+            file.pieces = pieces;
+            files.push_back(std::move(file));
+        }
+        notes.push_back(head + std::to_string(bytes) + " bytes");
+    }
+}
+
 }  // namespace riftwii

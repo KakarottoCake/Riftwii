@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "riftwii/gcoverlay.hpp"
+#include "riftwii/patch.hpp"
 #include "riftwii/plugin_gamecube.h"
 
 // The gamecube plugin's request (riftwii/plugin_gamecube.h) from both
@@ -25,9 +26,23 @@ void gc_plan_to_request(const GcOverlayPlan& plan, std::vector<rwp_gc_pack_entry
 // `why`, when a piece has an unknown kind.
 bool gc_plan_from_request(const rwp_gc_launch& request, GcOverlayPlan& plan, std::string& why);
 
+// The packs' <memory> patches as the request carries them (pack_memory):
+// for each, a head of five 32-bit words in the console's own byte order
+// (its kind bits, its offset, its search stride, the lengths of its value
+// and of its original), then the value and the original, each padded to 4
+// bytes. False, with `why`, for a patch the GameCube loader can't take:
+// an offset past 32 bits or a valuefile not read into `value` yet.
+bool gc_memory_to_bytes(const std::vector<MemoryPatch>& patches, std::vector<std::uint8_t>& out, std::string& why);
+
+// The patches back from a request's pack_memory (none when it has none).
+// False, with `why`, when the bytes don't hold exactly pack_memory_count
+// whole patches.
+bool gc_memory_from_request(const rwp_gc_launch& request, std::vector<MemoryPatch>& patches, std::string& why);
+
 // Whether `request` (`bytes` long) is one this plugin can read: its size,
 // the game's path and ID, an error buffer, and every pointer set with its
-// size (the packs' FST and 32 header bytes, the window's entries, the
+// size (the packs' FST and 32 header bytes, the window's entries, their
+// memory patches within kMaxPlanMemoryBytes of values, the
 // cheats, the code handler, a whole crash screen of `crash_screen_bytes`,
 // the way back's view). False, with `why`, otherwise.
 bool gc_request_check(const rwp_gc_launch* request, std::uint32_t bytes, std::uint32_t crash_screen_bytes,

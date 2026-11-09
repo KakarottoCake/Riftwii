@@ -30,8 +30,10 @@
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/expand.hpp"
 #include "riftwii/fst.hpp"
+#include "riftwii/gcexecpacks.hpp"
 #include "riftwii/gcoverlay.hpp"
 #include "riftwii/gcvideo.hpp"
+#include "riftwii/mempatch.hpp"
 #include "riftwii/patch.hpp"
 #include "riftwii/redirect.hpp"
 #include "riftwii/rvz.hpp"
@@ -416,9 +418,52 @@ bool to_pieces(const AppliedFile& file, std::vector<GcPiece>& out, std::string& 
 
 bool read_text(const std::string& path, std::string& text) { return ReadWholeFile(path, text); }
 
-// The packs' files as overlay files, in the order the Wii path applies them.
+// A pack's <memory> patches for a GameCube game, each valuefile read now
+// while the card is mounted, into `memory` after those of the packs
+// before it. Unlike a Wii launch, a valuefile the card lacks stops the
+// launch: never a partly applied mod. `memory_bytes` counts every value
+// and original across the launch's packs, within kMaxPlanMemoryBytes.
+bool read_gc_memory_patches(const std::string& xml, const std::vector<MemoryPatch>& planned, GcProvider& provider,
+                            std::vector<MemoryPatch>& memory, std::size_t& memory_bytes, std::string& error) {
+    for (MemoryPatch patch : planned) {
+        if (!patch.valuefile.empty()) {
+            std::unique_ptr<ByteSource> source;
+            std::string open_error;
+            if (provider.open_external(patch.valuefile, source, open_error) != OpenStatus::Ok || !source) {
+                error = xml + ": the memory patch's file " + patch.valuefile + " cannot be read (" + open_error + ")";
+                return false;
+            }
+            const std::uint64_t size = source->size();
+            if (size == 0 || size > kMaxMemoryValueBytes) {
+                error = xml + ": the memory patch's file " + patch.valuefile + " is empty or larger than " +
+                        std::to_string(kMaxMemoryValueBytes) + " bytes";
+                return false;
+            }
+            if (!try_resize(patch.value, static_cast<std::size_t>(size)) ||
+                !source->read(0, patch.value.data(), patch.value.size())) {
+                error = xml + ": cannot read the memory patch's file " + patch.valuefile;
+                return false;
+            }
+        }
+        const std::size_t patch_bytes = patch.value.size() + patch.original.size();
+        if (patch_bytes > kMaxPlanMemoryBytes - memory_bytes) {
+            error = xml + ": the selected memory patches carry more than " +
+                    std::to_string(kMaxPlanMemoryBytes >> 20) + " MiB of values in all";
+            return false;
+        }
+        memory_bytes += patch_bytes;
+        memory.push_back(std::move(patch));
+    }
+    return true;
+}
+
+// The packs' files as overlay files, in the order the Wii path applies
+// them, and their memory patches in `memory`.
 bool plan_packs(const std::vector<PackageChoices>& packages, const std::uint8_t* boot, const Fst& fst,
-                GcProvider& provider, std::vector<GcFile>& out, std::string& error) {
+                GcProvider& provider, std::vector<GcFile>& out, std::vector<MemoryPatch>& memory, std::string& error) {
+    std::size_t memory_bytes = 0;
+    // <shift> patches, applied after every pack's files are laid out.
+    std::vector<ShiftPatch> shifts;
     DiscIdentity disc;
     disc.id.assign(reinterpret_cast<const char*>(boot), 6);
     disc.number = boot[6];
@@ -445,6 +490,7 @@ bool plan_packs(const std::vector<PackageChoices>& packages, const std::uint8_t*
         }
         PlanOptions allowed;
         allowed.allow_filename_targets = true;
+        allowed.allow_memory = true;
         allowed.allow_folders = true;
         Plan plan;
         if (!plan_package(package, disc, allowed, plan, error)) {
@@ -458,13 +504,18 @@ bool plan_packs(const std::vector<PackageChoices>& packages, const std::uint8_t*
             };
             for (FilePatch& f : plan.files) to_usb(f.external);
             for (FolderPatch& f : plan.folders) to_usb(f.external);
+            for (MemoryPatch& m : plan.memory) to_usb(m.valuefile);
         }
         // Never a partly applied mod: what GameCube games cannot take yet
         // stops the launch.
-        if (!plan.memory.empty() || !plan.savegames.empty() || !plan.shifts.empty()) {
-            error = xml + ": memory, savegame and shift patches are not supported for GameCube games yet";
+        if (!plan.savegames.empty()) {
+            error = xml + ": savegame patches are not supported for GameCube games yet";
             return false;
         }
+        shifts.insert(shifts.end(), plan.shifts.begin(), plan.shifts.end());
+        if (!read_gc_memory_patches(xml, plan.memory, provider, memory, memory_bytes, error)) return false;
+        if (!plan.memory.empty())
+            logf("GameCube: %s: %u memory patch(es)\n", xml.c_str(), static_cast<unsigned>(plan.memory.size()));
         std::vector<std::string> notes;
         std::vector<FilePatch> expanded;
         if (!expand_plan(plan, fst, provider, expanded, notes, error)) {
@@ -513,6 +564,9 @@ bool plan_packs(const std::vector<PackageChoices>& packages, const std::uint8_t*
              static_cast<unsigned long long>(applied->size()), static_cast<unsigned>(f.pieces.size()));
         out.push_back(std::move(f));
     }
+    std::vector<std::string> shift_notes;
+    apply_gc_shifts(shifts, fst, out, shift_notes);
+    for (const std::string& note : shift_notes) logf("GameCube: %s\n", note.c_str());
     return true;
 }
 
@@ -860,9 +914,28 @@ void ScanUsbGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
 
 namespace {
 
+// The packs a switch to another program on the disc keeps
+// (riftwii/gcexecpacks.hpp): written for a launch with packs, removed for
+// one without, so a restart never picks up an earlier launch's packs.
+void remember_exec_packs(const GcImage& image, const std::vector<PackageChoices>& packages) {
+    std::remove(kGcExecPacksFile);
+    if (packages.empty()) return;
+    std::string text;
+    if (!gc_exec_packs_text(image.id, image.path, packages, text)) {
+        logf("GameCube: a pack's name can't be kept for a switch to another program; that program starts without "
+             "the packs\n");
+        return;
+    }
+    if (!WriteWholeFile(kGcExecPacksFile, text.data(), text.size())) {
+        std::remove(kGcExecPacksFile);
+        logf("GameCube: %s could not be written; a switch to another program starts it without the packs\n",
+             kGcExecPacksFile);
+    }
+}
+
 // The packs as a plan over the image (riftwii/gcoverlay.hpp): their files
 // read from the image and the card, laid out past the image's end.
-bool plan_gc_packs(const GcImage& image, const std::vector<PackageChoices>& packages, GcOverlayPlan& plan,
+bool plan_gc_packs(GcImage& image, const std::vector<PackageChoices>& packages, GcOverlayPlan& plan,
                    UsbCheck& usb_check, std::string& error) {
     std::unique_ptr<ByteSource> disc;
     if (!OpenGcDisc(image.path, disc, error)) return false;
@@ -893,7 +966,7 @@ bool plan_gc_packs(const GcImage& image, const std::vector<PackageChoices>& pack
     }
     GcProvider provider(iso, fst);
     std::vector<GcFile> files;
-    if (!plan_packs(packages, boot.data(), fst, provider, files, error)) return false;
+    if (!plan_packs(packages, boot.data(), fst, provider, files, image.pack_memory, error)) return false;
     if (!plan_gc_overlay(boot, fst_bytes, iso_size, files, plan, error)) return false;
     usb_check = provider.usb_check();
     logf("GameCube: the packs change %u file(s); the new FST is %u bytes at 0x%llx\n",
@@ -1151,6 +1224,7 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
     }
     const bool card_on_usb = GcImageOnUsb(image.external_card_path);
     if ((GcImageOnUsb(image.path) || packs_on_usb || card_on_usb) && !ready_usb(image, usb_check, error)) return false;
+    remember_exec_packs(image, packages);
     return LaunchGcNative(image, has_packs ? &plan : nullptr, error);
 }
 
