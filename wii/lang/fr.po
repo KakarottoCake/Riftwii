@@ -4233,6 +4233,27 @@ msgstr "La carte mémoire de chaque jeu GameCube dont l'option Carte mémoire es
 msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
 msgstr "La carte mémoire du port B n'a pas pu être lue. Remettez-la, ou choisissez une autre carte sur la page du jeu."
 
+msgid "CTGP-R only starts with the Mario Kart Wii game."
+msgstr "CTGP-R ne se lance qu'avec le jeu Mario Kart Wii."
+
+msgid "CTGP-R works with the US, Japanese and European versions of Mario Kart Wii only."
+msgstr "CTGP-R ne fonctionne qu'avec les versions américaine, japonaise et européenne de Mario Kart Wii."
+
+msgid "CTGP-R is not installed on the SD card. Install it with its own installer first."
+msgstr "CTGP-R n'est pas installé sur la carte SD. Installez-le d'abord avec son propre installateur."
+
+msgid "This version of CTGP-R can't be started from RiftWii yet. Start CTGP-R from the Homebrew Channel instead."
+msgstr "Cette version de CTGP-R ne peut pas encore être lancée depuis RiftWii. Lancez CTGP-R depuis le Homebrew Channel."
+
+msgid "CTGP-R could not be started. Its files on the SD card may be damaged or incomplete: install CTGP-R again. The reason is in sd:/riftwii/boot.log."
+msgstr "CTGP-R n'a pas pu démarrer. Ses fichiers sur la carte SD sont peut-être endommagés ou incomplets : réinstallez CTGP-R. La raison se trouve dans sd:/riftwii/boot.log."
+
+msgid "This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead."
+msgstr "Cette version de CTGP Revolution ne peut pas encore être lancée depuis RiftWii (ou ses fichiers sur la carte SD sont endommagés). Lancez CTGP depuis le Homebrew Channel."
+
+msgid "CTGP Revolution: this version can't be started from RiftWii (see Start)."
+msgstr "CTGP Revolution : cette version ne peut pas être lancée depuis RiftWii (voir Démarrer)."
+
 msgid "Calibrate a GameCube controller"
 msgstr "Calibrer une manette GameCube"
 

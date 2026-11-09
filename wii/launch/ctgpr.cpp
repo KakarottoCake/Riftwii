@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <vector>
 
+#include "i18n.hpp"
 #include "log.hpp"
 #include "online.hpp"
 #include "riftwii/checkedalloc.hpp"
@@ -57,7 +58,105 @@ bool read_whole(const char* path, const char* what, std::vector<std::uint8_t>& o
     return ok;
 }
 
+// CTGP-R's package disk (blob.bin), opened for reading: the card file's
+// sectors, decrypted a chunk at a time. `reader` stays valid for as long as
+// `efa` is used.
+bool open_package_disk(const CtgpTables& tables, BlockReader& reader, Fat32Volume& efa, std::string& error) {
+    Fat32File blob;
+    if (!resolve_sd_file(kCtgprBlobPath, blob, error)) return false;
+    std::array<std::uint8_t, 16> key = ctgp_blob_key();
+    const std::uint64_t blob_size = blob.entry.size & ~511ull;
+    reader = ctgp_efa_block_reader(
+        [blob](std::uint64_t offset, std::uint32_t length, std::uint8_t* bytes) {
+            return read_sd_file(blob, offset, bytes, length);
+        },
+        blob_size, key, tables.efa_iv);
+    std::fill(key.begin(), key.end(), 0);
+    if (!Fat32Volume::mount(reader, efa, error)) {
+        error = "CTGP-R's package disk (blob.bin) does not open: " + error;
+        return false;
+    }
+    return true;
+}
+
+// A file of the package disk, read whole. `max` caps its size before the
+// resize, so a FAT entry claiming a huge size cannot make RiftWii try to
+// allocate it and eat the heap.
+bool fetch_from_package_disk(Fat32Volume& efa, const char* path, std::vector<std::uint8_t>& bytes,
+                             std::uint64_t max, std::string& error) {
+    Fat32File f;
+    if (!efa.lookup(path, f, error)) {
+        error = std::string(path) + " on CTGP-R's package disk: " + error;
+        return false;
+    }
+    if (f.entry.size > max) {
+        error = std::string(path) + " on CTGP-R's package disk is larger than it can be";
+        return false;
+    }
+    if (!try_resize(bytes, f.entry.size)) {
+        error = std::string(path) + " on CTGP-R's package disk does not fit in memory";
+        return false;
+    }
+    if (!efa.read(f, 0, bytes.data(), bytes.size())) {
+        error = std::string("cannot read ") + path + " from CTGP-R's package disk";
+        return false;
+    }
+    return true;
+}
+
+// Why a launch stopped, for the words the player sees. The technical detail
+// (names, numbers) goes to boot.log instead.
+enum class Failure { Other, NotMarioKart, Region, NotInstalled, Version };
+
+std::string failure_text(Failure why) {
+    switch (why) {
+    case Failure::NotMarioKart: return tr("CTGP-R only starts with the Mario Kart Wii game.");
+    case Failure::Region:
+        return tr("CTGP-R works with the US, Japanese and European versions of Mario Kart Wii only.");
+    case Failure::NotInstalled:
+        return tr("CTGP-R is not installed on the SD card. Install it with its own installer first.");
+    case Failure::Version:
+        return tr("This version of CTGP-R can't be started from RiftWii yet. Start CTGP-R from the Homebrew Channel instead.");
+    case Failure::Other: break;
+    }
+    return tr("CTGP-R could not be started. Its files on the SD card may be damaged or incomplete: install CTGP-R again. The reason is in sd:/riftwii/boot.log.");
+}
+
+// What the installed CTGP-R is to the native launch, worked out once and kept:
+// the menu asks on every redraw, and the answer reads the card.
+bool g_status_known = false;
+CtgprNativeStatus g_status = CtgprNativeStatus::NotInstalled;
+
+CtgprNativeStatus work_out_status() {
+    if (!exists(kCtgprBlobPath) || !exists(kCtgprJellyPath)) return CtgprNativeStatus::NotInstalled;
+    CtgpTables tables;
+    tables.efa_iv = ctgp_blob_chunk_iv();
+    BlockReader reader;
+    Fat32Volume efa;
+    std::string error;
+    std::vector<std::uint8_t> packages_bin;
+    std::vector<CtgpPackage> versions;
+    if (!open_package_disk(tables, reader, efa, error) ||
+        !fetch_from_package_disk(efa, "/PACKAGES.BIN", packages_bin, kCtgpFetchCeiling, error) ||
+        !ctgp_parse_packages(packages_bin.data(), packages_bin.size(), versions, error) ||
+        !ctgp_check_versions(versions, error)) {
+        logf("CTGP-R: the installed copy cannot be started natively: %s\n", error.c_str());
+        return CtgprNativeStatus::Unsupported;
+    }
+    return CtgprNativeStatus::Supported;
+}
+
 }  // namespace
+
+CtgprNativeStatus ctgpr_native_status() {
+    if (!g_status_known) {
+        g_status = work_out_status();
+        g_status_known = true;
+    }
+    return g_status;
+}
+
+void ctgpr_native_status_forget() { g_status_known = false; }
 
 bool ctgpr_native_wanted() {
     // CTGP-R's own files are on the card: its installer put them there. The
@@ -66,14 +165,19 @@ bool ctgpr_native_wanted() {
     return exists(kCtgprBlobPath) && exists(kCtgprJellyPath);
 }
 
-bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const CtgpLaunchPlan>& out,
-                          std::string& error) {
+namespace {
+
+// The launch itself. `error` is technical (for boot.log); `why` says which
+// words the player gets, and stays Other unless a step names it.
+bool prepare_impl(const std::string& game_id, std::shared_ptr<const CtgpLaunchPlan>& out, std::string& error,
+                  Failure& why) {
     CtgpInputs in;
     // Mario Kart Wii only: the native launch writes CTGP-R's Mario Kart Wii
     // hooks at fixed game addresses, so it must never run on another game, even
     // one whose disc ID happens to share the region letter.
     if (game_id.compare(0, 3, "RMC") != 0) {
         error = "CTGP-R only starts the Mario Kart Wii disc (its game ID starts \"RMC\")";
+        why = Failure::NotMarioKart;
         return false;
     }
     switch (game_id.size() > 3 ? game_id[3] : '?') {
@@ -82,6 +186,7 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
     case 'P': in.region = CtgpRegion::P; break;
     default:
         error = "CTGP-R supports the NTSC-U, NTSC-J and PAL discs of Mario Kart Wii";
+        why = Failure::Region;
         return false;
     }
     // The launch carries CTGP-R's own non-secret constants (the package-disk
@@ -90,9 +195,9 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
     if (!exists(kCtgprBlobPath) || !exists(kCtgprJellyPath)) {
         error = "CTGP-R is not installed on the SD card (sd:/ctgpr/blob.bin and jelly.bin are missing): install it "
                 "with its own installer first";
+        why = Failure::NotInstalled;
         return false;
     }
-    std::array<std::uint8_t, 16> key = ctgp_blob_key();
     in.tables.efa_iv = ctgp_blob_chunk_iv();
     in.tables.efb_key = ctgp_jelly_key_words();
     std::size_t row_size = 0;
@@ -107,44 +212,13 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
     }
 
     // efa: the package disk, read raw from the card's sectors.
-    Fat32File blob;
-    if (!resolve_sd_file(kCtgprBlobPath, blob, error)) return false;
-    const std::uint64_t blob_size = blob.entry.size & ~511ull;
-    BlockReader reader = ctgp_efa_block_reader(
-        [blob](std::uint64_t offset, std::uint32_t length, std::uint8_t* bytes) {
-            return read_sd_file(blob, offset, bytes, length);
-        },
-        blob_size, key, in.tables.efa_iv);
-    std::fill(key.begin(), key.end(), 0);
+    BlockReader reader;
     Fat32Volume efa;
-    if (!Fat32Volume::mount(reader, efa, error)) {
-        error = "CTGP-R's package disk (blob.bin) does not open: " + error;
-        return false;
-    }
-    // `max` caps the file at what the launch can use, checked before the
-    // resize so a FAT entry claiming a huge size cannot make RiftWii try to
-    // allocate it and eat the heap. BOOT.BIN and BOAT.BIN get their real
-    // placement limits (ctgpimage.hpp); the rest get a generous general
-    // ceiling (kCtgpFetchCeiling).
+    if (!open_package_disk(in.tables, reader, efa, error)) return false;
+    // BOOT.BIN and BOAT.BIN get their real placement limits (ctgpimage.hpp);
+    // the rest get a generous general ceiling (kCtgpFetchCeiling).
     auto fetch = [&](const char* path, std::vector<std::uint8_t>& bytes, std::uint64_t max) {
-        Fat32File f;
-        if (!efa.lookup(path, f, error)) {
-            error = std::string(path) + " on CTGP-R's package disk: " + error;
-            return false;
-        }
-        if (f.entry.size > max) {
-            error = std::string(path) + " on CTGP-R's package disk is larger than it can be";
-            return false;
-        }
-        if (!try_resize(bytes, f.entry.size)) {
-            error = std::string(path) + " on CTGP-R's package disk does not fit in memory";
-            return false;
-        }
-        if (!efa.read(f, 0, bytes.data(), bytes.size())) {
-            error = std::string("cannot read ") + path + " from CTGP-R's package disk";
-            return false;
-        }
-        return true;
+        return fetch_from_package_disk(efa, path, bytes, max, error);
     };
 
     // The course table and the cup layouts the settings step copies into the
@@ -156,7 +230,10 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
     if (!fetch("/PACKAGES.BIN", in.packages_bin, kCtgpFetchCeiling)) return false;
     std::vector<CtgpPackage> versions;
     if (!ctgp_parse_packages(in.packages_bin.data(), in.packages_bin.size(), versions, error)) return false;
-    if (!ctgp_check_versions(versions, error)) return false;
+    if (!ctgp_check_versions(versions, error)) {
+        why = Failure::Version;
+        return false;
+    }
     logf("CTGP-R: core 0x%08x, CTGPR 0x%08x: the tested version\n",
          static_cast<unsigned>(ctgp_package_version(versions, "CORE")),
          static_cast<unsigned>(ctgp_package_version(versions, "CTGPR")));
@@ -288,6 +365,18 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
         logf("CTGP-R: and %u more files not found\n", static_cast<unsigned>(plan->missing.size() - kMissingShown));
     out = std::move(plan);
     return true;
+}
+
+}  // namespace
+
+bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const CtgpLaunchPlan>& out,
+                          std::string& error) {
+    Failure why = Failure::Other;
+    std::string technical;
+    if (prepare_impl(game_id, out, technical, why)) return true;
+    logf("CTGP-R: the native launch stops: %s\n", technical.c_str());
+    error = failure_text(why);
+    return false;
 }
 
 }  // namespace riftwii::wii

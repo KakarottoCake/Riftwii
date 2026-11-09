@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include "ctgpr.hpp"
 #include "launchrun.hpp"
 #include "banners.hpp"
 #include "di.hpp"
@@ -316,6 +317,9 @@ void PrepareGameChoices(FrontendState& state, const std::string& game_id, const 
 }
 
 std::string ScanPackages(FrontendState& state, bool reuse_catalog, void (*step)(const char*)) {
+    // The card may have changed since the last scan (CTGP-R installed or
+    // updated): the menu's notes ask the card again, once.
+    ctgpr_native_status_forget();
     state.model.packages.clear();
     state.model.forget_game_choices();
     if (!reuse_catalog || !state.package_catalog.ready) state.package_catalog = ReadPackageCatalog();

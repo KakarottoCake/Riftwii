@@ -2620,10 +2620,20 @@ static const char* const kHomebrewAppWarning =
 	"CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.";
 static const char* const kCtgpNativeNote =
 	"CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.";
+static const char* const kCtgpUnsupportedNote =
+	"This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead.";
 
+// What the launch will do with the pack, as the Start note says it. The
+// "offline only" note is for a CTGP Revolution the launch can start; one it
+// refuses (another version) gets its own words instead.
 static const char* HomebrewAppNote()
 {
-	return riftwii::wii::ctgpr_native_wanted() ? kCtgpNativeNote : kHomebrewAppWarning;
+	switch (riftwii::wii::ctgpr_native_status()) {
+	case riftwii::wii::CtgprNativeStatus::Supported: return kCtgpNativeNote;
+	case riftwii::wii::CtgprNativeStatus::Unsupported: return kCtgpUnsupportedNote;
+	case riftwii::wii::CtgprNativeStatus::NotInstalled: break;
+	}
+	return kHomebrewAppWarning;
 }
 
 static bool FrontPortsReached(const FrontendState& state)
@@ -13179,8 +13189,15 @@ static std::string ModsNote(const FrontendState& state, const std::string& scanS
 	if (const std::string problem = riftwii::wii::ModPlaceProblem(state, true); !problem.empty())
 		return FlatCapped(problem, 90);
 	if (HomebrewAppPackOn(state))
-		return riftwii::wii::ctgpr_native_wanted() ? tr("CTGP Revolution: offline only (see Start).")
-							   : tr("CTGP Revolution does not work from RiftWii yet (see Start).");
+	{
+		switch (riftwii::wii::ctgpr_native_status()) {
+		case riftwii::wii::CtgprNativeStatus::Supported: return tr("CTGP Revolution: offline only (see Start).");
+		case riftwii::wii::CtgprNativeStatus::Unsupported:
+			return tr("CTGP Revolution: this version can't be started from RiftWii (see Start).");
+		case riftwii::wii::CtgprNativeStatus::NotInstalled: break;
+		}
+		return tr("CTGP Revolution does not work from RiftWii yet (see Start).");
+	}
 	std::size_t enabled = 0;
 	const std::size_t shown = ShownPacks(state, &enabled);
 	if (shown == 0) {

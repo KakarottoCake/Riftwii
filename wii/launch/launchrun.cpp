@@ -510,10 +510,8 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
                 options.allow_ios_fallback = true;
                 options.preserve_current_ios =
                     source.kind != LaunchSource::Kind::Disc || MenuCiosSlot() != 0 || s.on_cios;
-                if (!prepare_ctgpr_launch(s.probe.header.game_id, options.ctgpr, error)) {
-                    error = "CTGP-R: " + error;
-                    return false;
-                }
+                // The error is already in the player's words and names CTGP-R.
+                if (!prepare_ctgpr_launch(s.probe.header.game_id, options.ctgpr, error)) return false;
                 return boot_game(s.probe, std::move(options), error);
             }
             SetCtgpDefaults(app);
