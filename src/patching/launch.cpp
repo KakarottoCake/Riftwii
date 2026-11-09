@@ -459,8 +459,8 @@ std::string LaunchModel::save() const {
     // Fast is the default while drive timing can freeze games on a Wii
     // (the ARAM streaming race); a "fast" saved before stays fast.
     if (game.gc_disc_reads == "drive") text += "*riftwii*\tgcdiscreads\tdrive\n";
-    if (game.gc_card == "shared" || game.gc_card == "real" || game.gc_card == "nintendont" || game.gc_card == "dolphin")
-        text += "*riftwii*\tgccard\t" + game.gc_card + "\n";
+    // "global", the default, is written as nothing.
+    if (game.gc_card != "global") text += "*riftwii*\tgccard\t" + clean(game.gc_card) + "\n";
     // "global", the default, is written as nothing.
     if (game.gc_progressive == "480p" || game.gc_progressive == "game")
         text += "*riftwii*\tgcprogressive\t" + game.gc_progressive + "\n";
@@ -563,7 +563,10 @@ void LaunchModel::restore(const std::string& text) {
             } else if (key == "gcdiscreads") {
                 game.gc_disc_reads = value == "drive" ? "drive" : "fast";
             } else if (key == "gccard") {
-                game.gc_card = value == "shared" || value == "real" || value == "nintendont" || value == "dolphin" ? value : "own";
+                game.gc_card = value == "own" || value == "shared" || value == "real" || value == "real_b" ||
+                                       value == "nintendont" || value == "dolphin"
+                                   ? value
+                                   : "global";
             } else if (key == "gcprogressive") {
                 game.gc_progressive = value == "480p" || value == "game" ? value : "global";
             } else if (key == "gcwidescreen") {
@@ -611,6 +614,12 @@ void LaunchModel::restore(const std::string& text) {
             packages[i].enabled = false;
         }
     }
+}
+
+std::string gc_card_effective(const GameSettings& game, const std::string& settings_card) {
+    if (game.gc_card != "global") return game.gc_card;
+    if (settings_card == "shared" || settings_card == "real" || settings_card == "real_b") return settings_card;
+    return "own";
 }
 
 }  // namespace riftwii

@@ -187,13 +187,14 @@ bool gc_request_check(const rwp_gc_launch* request, std::uint32_t bytes, std::ui
         why = "the launch request has no room for a reason";
         return false;
     }
-    if (request->real_card > 1 || (request->real_card && request->shared_card)) {
+    if (request->real_card > RWP_GC_REAL_CARD_B ||
+        (request->real_card == RWP_GC_REAL_CARD_A && request->shared_card)) {
         why = "the launch request has conflicting memory card choices";
         return false;
     }
     if (request->external_card != nullptr) {
         const std::uint32_t bytes = request->external_card_bytes;
-        if (request->real_card || bytes < (512u << 10) || bytes > (16u << 20) || (bytes & (bytes - 1u)) != 0 ||
+        if (request->real_card == RWP_GC_REAL_CARD_A || bytes < (512u << 10) || bytes > (16u << 20) || (bytes & (bytes - 1u)) != 0 ||
             request->card_fragment_count == 0 || request->card_fragment_count > 32 || !request->card_fragments ||
             (request->card_on_usb && request->usb_fd < 0)) {
             why = "the external memory card request is not whole";

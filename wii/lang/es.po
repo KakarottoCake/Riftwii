@@ -4202,3 +4202,15 @@ msgstr "Luz de la ranura de discos"
 
 msgid "Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong."
 msgstr "Parpadea suavemente al cargar un juego o copiar un disco. Se apaga al terminar o si algo falla."
+
+msgid "Real card in slot B"
+msgstr "Tarjeta real en la ranura B"
+
+msgid "GameCube memory card"
+msgstr "Tarjeta de memoria de GameCube"
+
+msgid "The memory card of every GameCube game whose own Memory card option is Default. A game's own choice wins."
+msgstr "La tarjeta de memoria de cada juego de GameCube cuya opción Tarjeta de memoria está en Predeterminado. La elección propia de un juego tiene prioridad."
+
+msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
+msgstr "No se pudo leer la tarjeta de memoria de la ranura B. Vuelve a insertarla o elige otra tarjeta en la página del juego."

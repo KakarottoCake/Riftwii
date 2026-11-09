@@ -920,8 +920,9 @@ choices, and Home's Show button (all games, games with mods, Recently
 played, Favourites), can hide them as they hide any game.
 
 A GameCube game's page has its own options in place of a Wii game's
-picture and online settings: **Memory card** (*This game's own*,
-*Shared* or, on an original Wii, *Real card in slot A*), **480p picture** (not for European games), **Sharper
+picture and online settings: **Memory card** (*Default*, which follows **Settings > Games > GameCube
+memory card**, *This game's own*, *Shared* or, on an original Wii, *Real
+card in slot A* or *Real card in slot B*), **480p picture** (not for European games), **Sharper
 picture**, **Picture width**, **Game language** and, for European
 games, **Game speed** (60 Hz instead of 50).
 
@@ -942,7 +943,20 @@ has no readable card, the card is damaged, or its Japanese/Western text
 encoding differs from the game, RiftWii offers **Use this game's SD card**
 or **Cancel**. Accepting uses *This game's own* for this launch; the saved
 real-card choice stays. A card in slot B alone
-cannot serve as the game's slot A. Wii U has no memory card slots; the real
+cannot serve as the game's slot A.
+
+**Real card in slot B** keeps the game's own card from the SD card in slot
+A and lets the game use the physical card in slot B as well, as a
+GameCube with two cards would (Animal Crossing's saves on the SD card's
+card, a real card in slot B to trade items or keep other saves). RiftWii
+only ever takes over slot A, so slot B is the real hardware; before the
+game starts RiftWii reads that card's ID into the console's settings, as
+it does for slot A, so a card formatted on another console is accepted.
+
+**Settings > Games > GameCube memory card** sets the card for every
+GameCube game whose own **Memory card** is *Default*: *This game's own*
+(at first), *Shared*, or on an original Wii *Real card in slot A* or *B*.
+A game's own choice wins. Wii U has no memory card slots; the real
 choice is unavailable there.
 
 The GameCube **Saves** page offers the SD **Memory Card** tools and

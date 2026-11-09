@@ -4202,3 +4202,15 @@ msgstr "Luce del vano disco"
 
 msgid "Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong."
 msgstr "Lampeggia lentamente durante il caricamento di un gioco o la copia di un disco. Si spegne al termine o in caso di errore."
+
+msgid "Real card in slot B"
+msgstr "Scheda reale nello slot B"
+
+msgid "GameCube memory card"
+msgstr "Scheda di memoria GameCube"
+
+msgid "The memory card of every GameCube game whose own Memory card option is Default. A game's own choice wins."
+msgstr "La scheda di memoria di ogni gioco GameCube la cui opzione Scheda di memoria è su Predefinito. Vale la scelta del gioco stesso."
+
+msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
+msgstr "Impossibile leggere la scheda di memoria nello slot B. Reinseriscila o scegli un'altra scheda nella pagina del gioco."

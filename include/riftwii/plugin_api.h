@@ -201,6 +201,10 @@ typedef struct rwp_host {
      * the loader's heap, including the arenas it can still grow into.
      * This is total space, not the largest single allocation available. */
     uint32_t (*heap_free_bytes)(void);
+
+    /* Added after heap_free_bytes (check RWP_HOST_HAS). As
+     * set_sram_flash_id_a, for slot B. */
+    int32_t (*set_sram_flash_id_b)(const uint8_t flash_id[12]);
 } rwp_host;
 
 /* What a plugin gives RiftWii: a constant table in its image, found by

@@ -136,7 +136,10 @@ struct GameSettings {
     std::string gc_disc_reads = "fast";
     // A GameCube game's memory card: "own" is the game's own file, "shared"
     // one card for all the games of its encoding (gc_card_path).
-    std::string gc_card = "own";  // own, shared, real (slot A), nintendont, dolphin
+    // global (Settings' GameCube memory card), own, shared, real (the real
+    // card in slot A), real_b (this game's own card in slot A and the real
+    // card in slot B), nintendont, dolphin.
+    std::string gc_card = "global";
     // A GameCube game's picture and language (gcnative.cpp does each).
     // "global", the default, follows Settings and the Wii's own settings
     // as a Wii game's rows do (GcConsoleSettings, resolved below); "game"
@@ -176,6 +179,11 @@ bool gc_pal_game(const std::string& id);
 // What a GameCube game's "global" options follow: Settings' choices for
 // every game and the Wii's own settings (the menu and the loader read
 // them from the console; a test sets them by hand).
+// The memory card a GameCube game uses: its own choice, or for "global"
+// Settings' (`settings_card`: own, shared, real or real_b; anything else
+// is own).
+std::string gc_card_effective(const GameSettings& game, const std::string& settings_card);
+
 struct GcConsoleSettings {
     std::string aspect = "game";            // LoaderSettings::aspect: "game" (the Wii's TV setting), "4:3", "16:9"
     std::string game_language = "console";  // LoaderSettings::game_language (riftwii/gamelang.hpp names)

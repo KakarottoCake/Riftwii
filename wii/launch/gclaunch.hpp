@@ -23,6 +23,7 @@ struct GcImage {
     std::string id;    // ID6 from its header
     std::string patch_source;  // set: `path` is a patch (gcpatch.hpp) to make the game from this original
     bool real_card = false;
+    bool real_card_b = false;  // this game's own card in slot A, the real card in slot B passed through
     std::string external_card_path{};
     std::vector<std::uint8_t> external_card{};
     std::vector<Fragment> card_fragments{};

@@ -4202,3 +4202,15 @@ msgstr "Luz da entrada de discos"
 
 msgid "Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong."
 msgstr "Pisca suavemente ao carregar um jogo ou copiar um disco. Apaga ao terminar ou se algo der errado."
+
+msgid "Real card in slot B"
+msgstr "Cartão real no slot B"
+
+msgid "GameCube memory card"
+msgstr "Cartão de memória do GameCube"
+
+msgid "The memory card of every GameCube game whose own Memory card option is Default. A game's own choice wins."
+msgstr "O cartão de memória de cada jogo de GameCube cuja opção Cartão de memória está em Padrão. A escolha do próprio jogo tem prioridade."
+
+msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
+msgstr "Não foi possível ler o cartão de memória no slot B. Coloque-o de volta ou escolha outro cartão na página do jogo."

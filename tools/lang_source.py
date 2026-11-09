@@ -8777,5 +8777,37 @@ FR.update({
     'Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong.': 'Clignote doucement pendant le chargement d’un jeu ou la copie d’un disque. S’éteint à la fin ou en cas de problème.',
 })
 
+# GameCube memory card: the real card in slot B, and Settings' card for every game.
+T.update({
+    'Real card in slot B': ('Tarjeta real en la ranura B', 'スロットBの実物カード', 'Cartão real no slot B', 'Scheda reale nello slot B'),
+    'GameCube memory card': ('Tarjeta de memoria de GameCube', 'ゲームキューブのメモリーカード', 'Cartão de memória do GameCube', 'Scheda di memoria GameCube'),
+    "The memory card of every GameCube game whose own Memory card option is Default. A game's own choice wins.": (
+        'La tarjeta de memoria de cada juego de GameCube cuya opción Tarjeta de memoria está en Predeterminado. La elección propia de un juego tiene prioridad.',
+        'メモリーカードの設定が「標準」のゲームキューブのゲームが使うメモリーカードです。ゲームごとの設定が優先されます。',
+        'O cartão de memória de cada jogo de GameCube cuja opção Cartão de memória está em Padrão. A escolha do próprio jogo tem prioridade.',
+        "La scheda di memoria di ogni gioco GameCube la cui opzione Scheda di memoria è su Predefinito. Vale la scelta del gioco stesso."),
+    "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page.": (
+        'No se pudo leer la tarjeta de memoria de la ranura B. Vuelve a insertarla o elige otra tarjeta en la página del juego.',
+        'スロットBのメモリーカードを読めませんでした。差し直すか、ゲームのページで別のカードを選んでください。',
+        'Não foi possível ler o cartão de memória no slot B. Coloque-o de volta ou escolha outro cartão na página do jogo.',
+        "Impossibile leggere la scheda di memoria nello slot B. Reinseriscila o scegli un'altra scheda nella pagina del gioco."),
+})
+KO.update({
+    'Real card in slot B': '슬롯 B의 실제 카드',
+    'GameCube memory card': '게임큐브 메모리 카드',
+    "The memory card of every GameCube game whose own Memory card option is Default. A game's own choice wins.":
+        '메모리 카드 옵션이 기본값인 모든 게임큐브 게임의 메모리 카드입니다. 게임별 선택이 우선합니다.',
+    "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page.":
+        '슬롯 B의 메모리 카드를 읽을 수 없습니다. 다시 꽂거나 게임 페이지에서 다른 카드를 고르세요.',
+})
+FR.update({
+    'Real card in slot B': 'Carte réelle dans le port B',
+    'GameCube memory card': 'Carte mémoire GameCube',
+    "The memory card of every GameCube game whose own Memory card option is Default. A game's own choice wins.":
+        "La carte mémoire de chaque jeu GameCube dont l'option Carte mémoire est sur Par défaut. Le choix propre d'un jeu l'emporte.",
+    "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page.":
+        "La carte mémoire du port B n'a pas pu être lue. Remettez-la, ou choisissez une autre carte sur la page du jeu.",
+})
+
 if __name__ == "__main__":
     main()

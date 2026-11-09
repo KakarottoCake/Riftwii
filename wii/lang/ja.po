@@ -4202,3 +4202,15 @@ msgstr "ディスクスロットの光"
 
 msgid "Blinks gently while a game loads or a disc is copied. Turns off when finished or if something goes wrong."
 msgstr "ゲームの読み込み中やディスクのコピー中にゆっくり点滅します。完了時やエラー時には消えます。"
+
+msgid "Real card in slot B"
+msgstr "スロットBの実物カード"
+
+msgid "GameCube memory card"
+msgstr "ゲームキューブのメモリーカード"
+
+msgid "The memory card of every GameCube game whose own Memory card option is Default. A game's own choice wins."
+msgstr "メモリーカードの設定が「標準」のゲームキューブのゲームが使うメモリーカードです。ゲームごとの設定が優先されます。"
+
+msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
+msgstr "スロットBのメモリーカードを読めませんでした。差し直すか、ゲームのページで別のカードを選んでください。"

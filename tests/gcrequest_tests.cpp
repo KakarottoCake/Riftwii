@@ -363,9 +363,12 @@ static void test_external_card_request() {
     EXPECT_FALSE(fixture.check(why));
     fixture.request.usb_fd = 4;
     EXPECT_TRUE(fixture.check(why));
-    fixture.request.real_card = 1;
+    fixture.request.real_card = RWP_GC_REAL_CARD_A;
     EXPECT_FALSE(fixture.check(why));
-    fixture.request.real_card = 0;
+    // Slot B's real card goes beside the external card in slot A.
+    fixture.request.real_card = RWP_GC_REAL_CARD_B;
+    EXPECT_TRUE(fixture.check(why));
+    fixture.request.real_card = RWP_GC_REAL_CARD_NONE;
     part.sector = 0xFFFFFFFFull;
     EXPECT_FALSE(fixture.check(why));
     part.sector = 100;
@@ -395,7 +398,13 @@ int main() {
     card_choice.request.shared_card = 1;
     EXPECT_FALSE(card_choice.check(why));
     card_choice.request.shared_card = 0;
-    card_choice.request.real_card = 2;
+    // Slot B's real card goes with the emulated card in slot A, shared or not.
+    card_choice.request.real_card = RWP_GC_REAL_CARD_B;
+    EXPECT_TRUE(card_choice.check(why));
+    card_choice.request.shared_card = 1;
+    EXPECT_TRUE(card_choice.check(why));
+    card_choice.request.shared_card = 0;
+    card_choice.request.real_card = 3;
     EXPECT_FALSE(card_choice.check(why));
     test_layout();
     test_plan_round_trip();
