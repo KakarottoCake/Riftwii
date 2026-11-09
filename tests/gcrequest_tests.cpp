@@ -363,9 +363,12 @@ static void test_external_card_request() {
     EXPECT_FALSE(fixture.check(why));
     fixture.request.usb_fd = 4;
     EXPECT_TRUE(fixture.check(why));
-    fixture.request.real_card = 1;
+    fixture.request.real_card = RWP_GC_REAL_CARD_A;
     EXPECT_FALSE(fixture.check(why));
-    fixture.request.real_card = 0;
+    // Slot B's real card goes beside the external card in slot A.
+    fixture.request.real_card = RWP_GC_REAL_CARD_B;
+    EXPECT_TRUE(fixture.check(why));
+    fixture.request.real_card = RWP_GC_REAL_CARD_NONE;
     part.sector = 0xFFFFFFFFull;
     EXPECT_FALSE(fixture.check(why));
     part.sector = 100;
