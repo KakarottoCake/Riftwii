@@ -929,6 +929,11 @@ the Wii's own **Screen Position** (Wii Settings > Screen), as Wii games
 do, when RiftWii finds where the game reads its position (the log says
 so); otherwise the game keeps its own.
 
+With **480p picture** on, games start in 480p without asking "Turn on
+progressive scan?". Games from 2001 such as Luigi's Mansion would ask
+every time, so RiftWii tells them the console's 480p setting is off and
+switches their picture to 480p itself.
+
 **Memory cards** are files on the SD card, in `sd:/riftwii/gc/cards/`:
 one for each game (`GMSE01.raw`), or with **Memory card** set to
 *Shared* one for every game that shares it (`shared.raw`, and

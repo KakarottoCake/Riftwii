@@ -212,6 +212,63 @@ void test_sram_reads() {
     if (vi_reads.display_offset.size() == 1) EXPECT_EQ(vi_reads.display_offset[0], display);
 }
 
+// The 2001 SDK's OSGetProgressiveMode, as Luigi's Mansion (GLME01) has
+// it: the lock, `lbz r0,0x13(r31)`, `rlwinm. r0,r0,0,24,24` (bit 7 tested
+// in place), then `beq` to `li r31,0` past `li r31,1`. `record` false
+// makes the plain rlwinm the setter uses to compare the byte. Returns
+// where the load is.
+std::uint32_t add_old_progressive_getter(Text& t, std::uint32_t copy, bool record) {
+    const unsigned base = 31;
+    t.add(kBlr);
+    t.add(lis(3, static_cast<std::uint16_t>((copy + 0x8000) >> 16)));
+    t.add(addi(base, 3, static_cast<std::uint16_t>(copy & 0xFFFF)));
+    t.add(kNop);  // bl OSDisableInterrupts
+    t.add(lwz(0, base, 0x48));
+    t.add(addi(4, base, 0x48));
+    t.add(kNop);
+    const std::uint32_t load = t.here();
+    t.add(lbz(0, base, 0x13));
+    t.add(rlwinm_word(0, 0, 0, 24, 24) | (record ? 1u : 0u));
+    const std::uint32_t branch = t.here();
+    t.add(beq(branch, branch + 12));
+    t.add(addi(31, 0, 1));  // li r31,1
+    t.add(0x48000008u);     // b past the li r31,0
+    t.add(addi(31, 0, 0));  // li r31,0
+    t.add(kBlr);
+    return load;
+}
+
+void test_old_progressive_getter() {
+    constexpr std::uint32_t kCopy = 0x804CB260;  // Luigi's Mansion's copy
+    {
+        Text t;
+        const std::uint32_t getter = add_old_progressive_getter(t, kCopy, true);
+        add_old_progressive_getter(t, kCopy, false);  // OSSetProgressiveMode's compare
+        const riftwii::GcSramReads reads = riftwii::find_gc_sram_reads(t.ranges());
+        EXPECT_EQ(reads.copy, kCopy);
+        // Not the newer getter's read (the bit is not shifted down), and
+        // not the setter's.
+        EXPECT_EQ(reads.progressive.size(), 0u);
+        EXPECT_EQ(reads.progressive_asks.size(), 1u);
+        if (reads.progressive_asks.size() == 1) EXPECT_EQ(reads.progressive_asks[0], getter);
+    }
+    {
+        // A newer SDK's getter is not one of these.
+        Text t;
+        add_sram_getter(t, kCopy, 0x13, 25);
+        const riftwii::GcSramReads reads = riftwii::find_gc_sram_reads(t.ranges());
+        EXPECT_EQ(reads.progressive.size(), 1u);
+        EXPECT_EQ(reads.progressive_asks.size(), 0u);
+    }
+    {
+        // Another bit of 0x13 tested in place (bit 6 is not 480p): no.
+        Text t;
+        add_old_progressive_getter(t, kCopy, true);
+        t.words[t.words.size() - 6] = rlwinm_word(0, 0, 0, 25, 25) | 1u;
+        EXPECT_EQ(riftwii::find_gc_sram_reads(t.ranges()).progressive_asks.size(), 0u);
+    }
+}
+
 // A render mode as the SDK's tables hold one: TV mode, fbWidth, then the
 // VI's origin and width, xfbMode and field rendering.
 struct Mode {
@@ -495,6 +552,7 @@ int main() {
     test_copy_filter();
     test_video_pick();
     test_sram_reads();
+    test_old_progressive_getter();
     test_tlut();
     if (g_failures == 0) std::cout << "gcvideo tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;

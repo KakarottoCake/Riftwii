@@ -1680,16 +1680,32 @@ static void apply_picture_and_language(const GcImage& image, Code& code, ReplayH
     // in and OSGetProgressiveMode says the console's 480p setting is on
     // (or the player holds B at start): both are told yes. A game that has
     // no 480p is switched to it by VIConfigure (gc_on_vi_configure).
+    // A 2001 SDK game (Luigi's Mansion) asks "Turn on progressive scan?"
+    // when its setting says yes, so its setting answers no instead
+    // (riftwii/gcvideo.hpp, progressive_asks) and VIConfigure makes its
+    // picture 480p without the question.
     if (pal_480p) {
         logf("GameCube: 480p left off: %s is a PAL game, its picture is not NTSC's 480 lines\n", image.id.c_str());
     } else if (progressive) {
         const std::vector<std::uint32_t> dtv = find_dtv_reads(code);
         for (std::uint32_t a : dtv) code.put(a, li(reg_d(code.at(a)), 1));  // a component cable is in
         for (std::uint32_t a : sram.progressive) code.put(a, li(reg_d(code.at(a)), 0x80));  // the 480p setting is on
+        const bool skip_question = vi_hooked && !sram.progressive_asks.empty();
+        if (skip_question) {
+            for (std::uint32_t a : sram.progressive_asks) code.put(a, li(reg_d(code.at(a)), 0));  // the setting is off
+        }
         if (vi_hooked) ctx->flags |= GC_FLAG_PROGRESSIVE;
         logf("GameCube: 480p: %u cable check(s) and %u 480p setting read(s) answer yes; VIConfigure 0x%08x %s\n",
              static_cast<unsigned>(dtv.size()), static_cast<unsigned>(sram.progressive.size()), vi_configure,
              vi_hooked ? "turns interlaced modes into 480p" : "not hooked: a game without its own 480p stays interlaced");
+        if (skip_question) {
+            logf("GameCube: 480p: %u read(s) of the 2001 SDK's 480p setting answer no, so the game skips its "
+                 "\"progressive scan?\" question and VIConfigure gives it 480p\n",
+                 static_cast<unsigned>(sram.progressive_asks.size()));
+        } else if (!sram.progressive_asks.empty()) {
+            logf("GameCube: 480p: the 2001 SDK's 480p setting is left as the console has it, since VIConfigure is not "
+                 "hooked; the game may ask its \"progressive scan?\" question\n");
+        }
     }
     // Game speed: a European game is told its TV takes 60 Hz. Each read of
     // either 60 Hz flag (riftwii/gcvideo.hpp) answers yes, and a game with
