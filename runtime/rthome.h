@@ -96,6 +96,12 @@ struct rthome {
     uint32_t remote_hold, remote_trig, remote_release;
     int32_t pointer[2];     /* where it points, x right and y down, over RTHOME_POINTER_FULL (the screen's edge) */
     uint32_t refusals;      /* stand-ins in a row the game read but opened no menu for (rthome_keep) */
+    /* Ticks the stand-in is there with nothing pressed before its HOME
+     * (loader-filled; 0: HOME from the start). A game may take no new press
+     * on the frame a controller appears: Naruto Shippuden: Clash of Ninja
+     * Revolution III saw the stand-in's HOME held but never newly pressed
+     * (9 Nov, Dolphin), so its menu never opened. */
+    uint32_t announce;
 };
 
 /* At each PADRead, the four ports' statuses (12 bytes each) as the game
@@ -135,10 +141,10 @@ int rthome_reads_pads(const struct rthome* h, uint32_t now, uint32_t window);
 int rthome_menu_open(const struct rthome* h);
 
 /* The stand-in's Classic Controller at `now`, worked out once per PADRead
- * sample and the same for every read until the next: HOME alone while pressing;
- * then the kept port's buttons mapped (A, B, X, Y as themselves, Start as
- * HOME to close the menu, Z as ZR, L and R as themselves, the D-pad as the
- * D-pad), with the combo's buttons ignored until each is let go. Its
+ * sample and the same for every read until the next: nothing (`announce`),
+ * then HOME alone, while pressing; then the kept port's buttons mapped (A,
+ * B, X, Y as themselves, Start as HOME to close the menu, Z as ZR, L and R
+ * as themselves, the D-pad as the D-pad), with the combo's buttons ignored until each is let go. Its
  * hold, trig (newly pressed) and release words, and the left stick (the
  * control stick), the right stick (the C-stick) and the two triggers as
  * fractions: `axes` gets numerators over `RTHOME_AXIS_FULL`, a dead zone
@@ -148,9 +154,9 @@ void rthome_classic(struct rthome* h, uint32_t now, uint32_t* hold, uint32_t* tr
                     int32_t axes[6]);
 
 /* The Wii Remote side of the same sample, worked out by rthome_classic (so
- * called after it): HOME alone while pressing; then A, B and the D-pad as
- * the Remote's own and Start as its HOME, with the same combo buttons
- * ignored; and the pointer, from the screen's centre at the press, moved
+ * called after it): nothing, then HOME alone, while pressing; then A, B
+ * and the D-pad as the Remote's own and Start as its HOME, with the same
+ * combo buttons ignored; and the pointer, from the screen's centre at the press, moved
  * by the control stick (full tilt crosses the screen in about a second)
  * and kept on the screen. `pointer` gets numerators over
  * RTHOME_POINTER_FULL, x right and y down, as KPAD reports a Remote's. */

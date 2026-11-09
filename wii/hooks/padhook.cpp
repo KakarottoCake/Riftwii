@@ -55,6 +55,11 @@ constexpr std::uint32_t kSaveQuietMs = 1000;
 // or loading, showing its crossed-out HOME icon. It counts as closed once
 // HBMCalc has not run for a while (it runs through the closing animation).
 constexpr std::uint32_t kHomePressMs = 600;
+// Before it presses HOME, the stand-in is there with nothing pressed for a
+// moment: Naruto Shippuden: Clash of Ninja Revolution III takes no new
+// press on the frame a controller appears, and so never opened its menu
+// on a HOME held from the start (9 Nov, Dolphin).
+constexpr std::uint32_t kHomeAnnounceMs = 200;
 constexpr std::uint32_t kHomeWaitMs = 2000;
 constexpr std::uint32_t kHomeLingerMs = 300;
 // v5 serves 16 handles, picked by the open mode: libogc's USB takes 0 and
@@ -1237,6 +1242,7 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
     ctx->kpad_unified_bytes = unified ? hook.kpad_unified_bytes : 0u;
     ctx->home.hold = kLeaveHoldMs * ctx->ticks_per_ms;
     ctx->home.press = kHomePressMs * ctx->ticks_per_ms;
+    ctx->home.announce = kHomeAnnounceMs * ctx->ticks_per_ms;
     ctx->home.wait = kHomeWaitMs * ctx->ticks_per_ms;
     ctx->home.linger = kHomeLingerMs * ctx->ticks_per_ms;
     ctx->home.channel = RTHOME_NO_CHANNEL;

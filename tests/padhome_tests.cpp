@@ -472,6 +472,35 @@ void TestFloatBits() {
 // The stand-in's raw status (KPADGetUnifiedWpadStatus), as Mario Kart Wii
 // reads a Classic Controller: no error, device 2, a Classic format, the
 // buttons big-endian; the rest at rest, whatever the buffer held before.
+// With `announce`, the stand-in is there with nothing pressed first, then
+// HOME is newly pressed and held for `press`: Naruto Shippuden: Clash of
+// Ninja Revolution III takes no new press on the frame a controller appears.
+static void TestAnnounce() {
+    rthome h = Fresh();
+    h.announce = 200;
+    HoldCombo(h, 1000, 3100);
+    EXPECT_EQ(h.phase, RTHOME_PRESSING);
+    const std::uint32_t start = h.since & ~1u;
+    std::uint32_t hold, trig, release, remote_hold, remote_trig, remote_release;
+    std::int32_t axes[6], pointer[2];
+    rthome_pads(&h, Pads().port(1, kGcCombo).s, start + 100);
+    rthome_classic(&h, start + 100, &hold, &trig, &release, axes);
+    rthome_remote(&h, &remote_hold, &remote_trig, &remote_release, pointer);
+    EXPECT_EQ(hold, 0u);
+    EXPECT_EQ(remote_hold, 0u);
+    rthome_pads(&h, Pads().port(1, kGcCombo).s, start + 250);
+    rthome_classic(&h, start + 250, &hold, &trig, &release, axes);
+    rthome_remote(&h, &remote_hold, &remote_trig, &remote_release, pointer);
+    EXPECT_EQ(hold, RTHOME_CL_HOME);
+    EXPECT_EQ(trig, RTHOME_CL_HOME);  // newly pressed, a sample after the stand-in appeared
+    EXPECT_EQ(remote_trig, RTHOME_WR_HOME);
+    // The press lasts `press` after the announcement, not from the start.
+    EXPECT_EQ(rthome_stand_in(&h, start + 700), 0u);
+    EXPECT_EQ(h.phase, RTHOME_PRESSING);
+    rthome_stand_in(&h, start + 810);
+    EXPECT_EQ(h.phase, RTHOME_WAITING);
+}
+
 static void TestWpadStatus() {
     std::uint8_t entry[RTHOME_WPAD_STATUS_BYTES + 4];
     for (std::uint8_t& b : entry) b = 0xAA;
@@ -508,6 +537,7 @@ int main() {
     TestReadsPads();
     TestFloatBits();
     TestWpadStatus();
+    TestAnnounce();
     if (g_failures == 0) std::cout << "padhome: all passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }

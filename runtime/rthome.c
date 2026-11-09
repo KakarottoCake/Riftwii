@@ -129,7 +129,7 @@ void rthome_menu_frame(struct rthome* h, uint32_t now) {
 void rthome_selected(struct rthome* h, int32_t button) { h->selected = (uint32_t)button; }
 
 uint32_t rthome_stand_in(struct rthome* h, uint32_t now) {
-    if (h->phase == RTHOME_PRESSING && elapsed(now, h->since) >= h->press) {
+    if (h->phase == RTHOME_PRESSING && elapsed(now, h->since) >= h->announce + h->press) {
         h->phase = h->menu_seen != 0 ? RTHOME_OPEN : RTHOME_WAITING;
         h->since = now | 1u;
     }
@@ -222,8 +222,10 @@ void rthome_classic(struct rthome* h, uint32_t now, uint32_t* hold, uint32_t* tr
                     int32_t axes[6]) {
     uint32_t i, buttons, remote;
     if (h->phase == RTHOME_PRESSING) {
-        buttons = RTHOME_CL_HOME;
-        remote = RTHOME_WR_HOME;
+        /* Nothing pressed while it announces itself, then HOME. */
+        const int announcing = elapsed(now, h->since) < h->announce;
+        buttons = announcing ? 0u : RTHOME_CL_HOME;
+        remote = announcing ? 0u : RTHOME_WR_HOME;
         for (i = 0; i < 6; ++i) axes[i] = 0;
     } else {
         buttons = mapped(pad_buttons(h->pad) & ~h->stale);
