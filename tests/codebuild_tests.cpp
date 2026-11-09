@@ -139,6 +139,24 @@ void test_dol_jumps() {
     EXPECT_EQ(code_hook_pattern(CodeHook::AudioFrame)[0], 0x3800000Eu);
 }
 
+// A Sylverant-patched Phantasy Star Online branches to the handler's
+// entry itself: found whether the branch links or not, and nothing
+// found in a game that only branches elsewhere.
+void test_builtin_handler_branch() {
+    Bytes text;
+    put(text, 0x60000000);
+    put(text, encode_b(0x80300004, 0x80300000));  // b elsewhere
+    put(text, encode_b(0x80300008, kCodeHandlerEntry) | 1u);  // bl to the entry
+    put(text, encode_b(0x8030000C, kCodeHandlerEntry));  // b to the entry
+    std::vector<CodeRange> ranges{{0x80300000, text.data(), text.size()}};
+    EXPECT_EQ(find_builtin_handler_branch(ranges), 0x80300008u);
+    Bytes plain;
+    put(plain, 0x60000000);
+    put(plain, encode_b(0x80300004, kCodeHandlerAddress));  // the handler's start, not its entry
+    std::vector<CodeRange> none{{0x80300000, plain.data(), plain.size()}};
+    EXPECT_EQ(find_builtin_handler_branch(none), 0u);
+}
+
 void test_relocate() {
     Bytes handler(0x200, 0);
     handler[0x104] = 0x3D; handler[0x105] = 0xE0; handler[0x106] = 0x80; handler[0x107] = 0x00;
@@ -535,6 +553,7 @@ int main(int argc, char** argv) {
     test_gameconfig();
     test_hooks();
     test_dol_jumps();
+    test_builtin_handler_branch();
     test_relocate();
     test_debugger_handlers(argv[1]);
     test_join();
