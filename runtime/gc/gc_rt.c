@@ -2742,16 +2742,20 @@ static void gc_note_projection_caller(struct gc_rt_context* ctx, uint32_t caller
 }
 
 /* GXSetProjection(mtx, type) with 16:9 on: a perspective projection
- * (type 0) is copied with its x scale, mtx[0][0], times 3/4: the same
- * view drawn into a picture a widescreen TV stretches by 4/3. An
- * orthographic one (type 1: menus, text, the 2D layers) is left alone.
- * GXSetProjection reads the copy at once, so one is enough, and the
- * game's own matrix is never changed (games set the same one every
- * frame). gc_hook_projection runs the original on what this returns. */
+ * (type 0) is copied with its x row, [0][0] and [0][2], times 3/4: the
+ * same view drawn into a picture a widescreen TV stretches by 4/3, about
+ * the same centre ([0][2] is a frustum's offset, 0 when it is centred).
+ * An orthographic one (type 1: menus, text, the 2D layers) is left
+ * alone. GXSetProjection reads the copy at once, so one is enough, and
+ * the game's own matrix is never changed (games set the same one every
+ * frame). The copy is in MEM2 (gc_rt_cold): the CPU reads it there as
+ * well as in MEM1. gc_hook_projection runs the original on what this
+ * returns. */
 #define GC_GX_PERSPECTIVE 0u
 
 uint32_t gc_on_projection(struct gc_rt_context* ctx, uint32_t mtx, uint32_t type, uint32_t caller) {
     const uint32_t* matrix = (const uint32_t*)(uintptr_t)mtx;
+    uint32_t* copy = gc_cold(ctx)->projection;
     uint32_t i;
     if (type != GC_GX_PERSPECTIVE) {
         ++ctx->orthographics;
@@ -2759,9 +2763,12 @@ uint32_t gc_on_projection(struct gc_rt_context* ctx, uint32_t mtx, uint32_t type
     }
     ++ctx->projections;
     gc_note_projection_caller(ctx, caller, matrix);
-    for (i = 0; i < 16; ++i) ctx->projection[i] = matrix[i];
-    if (ctx->flags & GC_FLAG_WIDEN) ctx->projection[0] = gc_float_three_quarters(matrix[0]);
-    return (uint32_t)(uintptr_t)ctx->projection;
+    for (i = 0; i < 16; ++i) copy[i] = matrix[i];
+    if (ctx->flags & GC_FLAG_WIDEN) {
+        copy[0] = gc_float_three_quarters(matrix[0]);
+        copy[2] = gc_float_three_quarters(matrix[2]);
+    }
+    return (uint32_t)(uintptr_t)copy;
 }
 
 /* PADControlMotor(chan, command) has run (gc_hook_pad_motor): a GameCube

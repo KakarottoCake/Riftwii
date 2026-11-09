@@ -2016,8 +2016,14 @@ msgstr "480p é para jogos dos EUA e do Japão; este jogo europeu mantém a sua 
 msgid "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."
 msgstr "Dá uma imagem mais nítida e estável com cabo componente, mesmo em jogos sem modo 480p; alguns jogos perguntam antes."
 
-msgid "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental)."
-msgstr "Preenche uma TV widescreen com o mundo do jogo; os menus continuam esticados e alguns jogos mostram cores erradas (experimental)."
+msgid "Fills a widescreen TV with the game world; menus and text stay stretched."
+msgstr "Preenche uma TV widescreen com o mundo do jogo; os menus e o texto continuam esticados."
+
+msgid "This game lays copies of its picture over the scene (heat haze, water), which come out doubled in 16:9, so it keeps its own picture."
+msgstr "Este jogo coloca cópias da sua imagem sobre a cena (miragem de calor, água), que em 16:9 ficam duplicadas, então mantém a sua própria imagem."
+
+msgid "Not for this game"
+msgstr "Não para este jogo"
 
 msgid "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one)."
 msgstr "O idioma em que este jogo é jogado, sem mudar a configuração do Wii (a maioria dos jogos dos EUA e do Japão tem só um)."

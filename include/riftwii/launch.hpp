@@ -194,18 +194,18 @@ struct GcConsoleSettings {
     std::string video_width = "game";       // LoaderSettings::video_width (riftwii/videopatch.hpp names)
 };
 
-// Whether the game's 3D is drawn for 16:9: only "16:9", picked for the
-// game; "game" and "global" (Default) keep the game's own picture, as the
-// widening is experimental.
-bool gc_widescreen_on(const GameSettings& game, const GcConsoleSettings& console);
+// Whether the game's 3D is drawn for 16:9: "16:9" yes, "game" no,
+// "global" as Settings' aspect says, and its "game" as the Wii's TV.
+// Never for a game on gxpatches.hpp's gc_widescreen_off list.
+bool gc_widescreen_on(const GameSettings& game, const std::string& id, const GcConsoleSettings& console);
 
-// Held back from this release, to come back in a PR of their own: on a Wii,
+// Held back from this release, to come back in a PR of its own: on a Wii,
 // "As on a GameCube" loading still freezes Super Mario Eclipse at its
-// welcome scene, and 16:9 inverts the colours in some games. While a switch
-// is off, its row is hidden from the game page and the launch ignores the
-// choice; a choice already saved in a game's settings is kept for then.
+// welcome scene. While a switch is off, its row is hidden from the game
+// page and the launch ignores the choice; a choice already saved in a
+// game's settings is kept for then.
 constexpr bool kGcDriveTimingReady = false;
-constexpr bool kGcWidescreenReady = false;
+constexpr bool kGcWidescreenReady = true;
 
 // Whether the game gets 480p: "480p" yes, "game" no, "global" when the
 // Wii's own 480p setting is on and a component cable is plugged in. Never

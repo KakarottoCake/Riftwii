@@ -9132,10 +9132,15 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 			FlowRow widescreen;
 			widescreen.kind = FlowRow::Kind::Option;
 			widescreen.label = tr("Widescreen");
-			widescreen.on = game.gc_widescreen != "global";
-			const std::string widescreenNow = riftwii::gc_widescreen_on(game, console)
+			// A game on gxpatches' list keeps its own picture whatever is
+			// picked: the row is dimmed and A says why.
+			widescreen.dim = riftwii::gc_widescreen_off(state.game_id) != riftwii::GcWidescreenOff::no;
+			widescreen.on = game.gc_widescreen != "global" && !widescreen.dim;
+			const std::string widescreenNow = riftwii::gc_widescreen_on(game, state.game_id, console)
 				? std::string("16:9") : std::string(tr("Game's own"));
-			widescreen.value = game.gc_widescreen == "global" ? tr("Default ({1})", {widescreenNow}) : widescreenNow;
+			if (widescreen.dim) widescreen.value = tr("Not for this game");
+			else if (game.gc_widescreen == "global") widescreen.value = tr("Default ({1})", {widescreenNow});
+			else widescreen.value = widescreenNow;
 			rows.push_back(widescreen);
 			refs.push_back({W::GcWidescreen});
 		}
@@ -14169,8 +14174,11 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				say(tr("Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."));
 			else if (ref.what == RowRef::What::GcProgressive)
 				say(tr("Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."));
+			else if (ref.what == RowRef::What::GcWidescreen &&
+				 riftwii::gc_widescreen_off(state.game_id) != riftwii::GcWidescreenOff::no)
+				say(tr("This game lays copies of its picture over the scene (heat haze, water), which come out doubled in 16:9, so it keeps its own picture."));
 			else if (ref.what == RowRef::What::GcWidescreen)
-				say(tr("Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental)."));
+				say(tr("Fills a widescreen TV with the game world; menus and text stay stretched."));
 			else if (ref.what == RowRef::What::GcSharp)
 				say(tr("Turns off the soft blur some games add."));
 			else if (ref.what == RowRef::What::GcWidth)
@@ -14274,6 +14282,12 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				    !AskGc480p())
 					next = StepValue(kGcProgressiveChoices, next, direction);
 				game.gc_progressive = next;
+			}
+			else if (ref.what == RowRef::What::GcWidescreen &&
+				 riftwii::gc_widescreen_off(state.game_id) != riftwii::GcWidescreenOff::no) {
+				// The row is dimmed: nothing to change, only why.
+				say(tr("This game lays copies of its picture over the scene (heat haze, water), which come out doubled in 16:9, so it keeps its own picture."));
+				changed = false;
 			}
 			else if (ref.what == RowRef::What::GcWidescreen) game.gc_widescreen = StepValue(kGcWidescreenChoices, game.gc_widescreen, direction);
 			else if (ref.what == RowRef::What::GcSharp) game.gc_sharp = game.gc_sharp == "on" ? "off" : "on";

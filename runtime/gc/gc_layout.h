@@ -14,7 +14,7 @@
  * finds nothing on (gc_ports_idle_update), and the PAD sampling
  * stand-in's alarm (gc_sample_tick). What neither the game nor the hot
  * paths touch is in struct gc_rt_cold, in MEM2 (gc_rt.h). */
-#define GC_RT_CONTEXT_BYTES 0x600
+#define GC_RT_CONTEXT_BYTES 0x5C0
 
 /* gc_entry.S's gc_program_saved: a program the game loaded itself keeps
  * its registers there while gc_on_program_start runs (gc_hook_program).

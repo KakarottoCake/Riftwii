@@ -251,8 +251,8 @@ only (how its choices files and macros work), never copied. Behavioural referenc
   B held at start), as the games' own question shows it. Ideas: forcing
   progressive scan and widescreen are options Nintendont also offers
   (named here as the idea only; its source was not read), and widening
-  only the perspective projection, by its x scale times 3/4, is the
-  common widescreen approach. How each SDK function is found by its
+  only the perspective projection, its x row ([0][0] and the frustum's
+  offset [0][2]) times 3/4, is the common widescreen approach. How each SDK function is found by its
   instructions (the SRAM copy's lock, VIGetDTVStatus, VIConfigure,
   GXSetProjection) was worked out from Super Mario Sunshine's and Luigi's
   Mansion's own code. No code from Nintendont, Swiss, Dolphin or any

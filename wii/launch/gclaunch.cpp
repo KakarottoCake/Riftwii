@@ -33,6 +33,7 @@
 #include "riftwii/gcexecpacks.hpp"
 #include "riftwii/gcoverlay.hpp"
 #include "riftwii/gcvideo.hpp"
+#include "riftwii/gxpatches.hpp"
 #include "riftwii/mempatch.hpp"
 #include "riftwii/patch.hpp"
 #include "riftwii/redirect.hpp"
@@ -1152,7 +1153,7 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         const GcConsoleSettings console = GcConsoleNow();
         const GameSettings& game = choices.game;
         image.progressive = gc_progressive_on(game, image.id, console);
-        image.widescreen = kGcWidescreenReady && gc_widescreen_on(game, console);
+        image.widescreen = kGcWidescreenReady && gc_widescreen_on(game, image.id, console);
         image.language = gc_language_number(game, console);
         image.sharp = game.gc_sharp == "on";
         image.sixty_hz = gc_sixty_hz_on(game, image.id);
@@ -1175,7 +1176,10 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
              "the Wii's TV %s), Game language %s (Settings' %s, the Wii's language %d)\n",
              game.gc_progressive.c_str(), console.wii_progressive ? "on" : "off",
              console.component_cable ? "plugged in" : "not seen", gc_pal_game(image.id) ? ", a PAL game never gets 480p" : "",
-             kGcWidescreenReady ? game.gc_widescreen.c_str() : "held back from this release",
+             !kGcWidescreenReady ? "held back from this release"
+             : gc_widescreen_off(image.id) != GcWidescreenOff::no
+                 ? "off for this game (its screen effects copy the picture over the scene, gxpatches.cpp)"
+                 : game.gc_widescreen.c_str(),
              console.aspect.c_str(), console.wii_widescreen ? "16:9" : "4:3", game.gc_language.c_str(),
              console.game_language.c_str(), console.wii_language);
     }

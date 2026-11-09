@@ -1721,7 +1721,9 @@ T = {
     "Widescreen": ("Panorámico", "ワイド画面", "Widescreen", "Panoramico"),
     "480p is for US and Japanese games; this European game keeps its own picture.": ("480p es para juegos de EE. UU. y Japón; este juego europeo mantiene su propia imagen.", "480pはアメリカと日本のゲーム用で、このヨーロッパのゲームはゲームのままの映像になります。", "480p é para jogos dos EUA e do Japão; este jogo europeu mantém a sua própria imagem.", "Il 480p è per i giochi americani e giapponesi; questo gioco europeo mantiene la sua immagine."),
     "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first.": ("Da una imagen más nítida y estable con un cable por componentes, incluso en juegos sin modo 480p; algunos preguntan antes.", "コンポーネントケーブルで、くっきり安定した映像にします。480pのないゲームも対象で、先に確認を求めるゲームもあります。", "Dá uma imagem mais nítida e estável com cabo componente, mesmo em jogos sem modo 480p; alguns jogos perguntam antes.", "Dà un'immagine più nitida e stabile con un cavo component, anche nei giochi senza modo 480p; alcuni chiedono prima."),
-    "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental).": ("Llena una TV panorámica con el mundo del juego; los menús siguen estirados y algunos juegos muestran colores erróneos (experimental).", "ゲームの世界をワイドテレビいっぱいに広げます。メニューは横に伸びたままで、色がおかしくなるゲームもあります (試験的)。", "Preenche uma TV widescreen com o mundo do jogo; os menus continuam esticados e alguns jogos mostram cores erradas (experimental).", "Riempie una TV panoramica con il mondo di gioco; i menu restano allungati e alcuni giochi mostrano colori sbagliati (sperimentale)."),
+    "Fills a widescreen TV with the game world; menus and text stay stretched.": ("Llena una TV panorámica con el mundo del juego; los menús y el texto siguen estirados.", "ゲームの世界をワイドテレビいっぱいに広げます。メニューと文字は横に伸びたままです。", "Preenche uma TV widescreen com o mundo do jogo; os menus e o texto continuam esticados.", "Riempie una TV panoramica con il mondo di gioco; i menu e il testo restano allungati."),
+    "This game lays copies of its picture over the scene (heat haze, water), which come out doubled in 16:9, so it keeps its own picture.": ("Este juego pone copias de su imagen sobre la escena (calima, agua), que en 16:9 salen dobles, así que mantiene su propia imagen.", "このゲームは画面のコピーを場面に重ねる (かげろう、水など) ため、16:9では二重に見えます。そのためゲームのままの映像になります。", "Este jogo coloca cópias da sua imagem sobre a cena (miragem de calor, água), que em 16:9 ficam duplicadas, então mantém a sua própria imagem.", "Questo gioco sovrappone alla scena copie della sua immagine (foschia di calore, acqua), che in 16:9 risultano doppie, quindi mantiene la sua immagine."),
+    "Not for this game": ("No para este juego", "このゲームには使えません", "Não para este jogo", "Non per questo gioco"),
     "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one).": ("El idioma en que se juega este juego, sin cambiar el ajuste de la Wii (la mayoría de los juegos de EE. UU. y Japón tienen solo uno).", "このゲームを遊ぶ言語で、Wii本体の設定は変わりません (アメリカと日本のゲームの多くは1言語だけです)。", "O idioma em que este jogo é jogado, sem mudar a configuração do Wii (a maioria dos jogos dos EUA e do Japão tem só um).", "La lingua in cui si gioca questo gioco, senza cambiare l'impostazione della Wii (la maggior parte dei giochi americani e giapponesi ne ha una sola)."),
     "Controls": ("Controles", "操作", "Controles", "Comandi"),
     "Fast suits almost every game; a few need the GameCube's own, slower speed (experimental, it can freeze some games).": ("Rápida sirve para casi todos los juegos; unos pocos necesitan la velocidad más lenta propia de la GameCube (experimental, puede congelar algunos juegos).", "高速はほとんどのゲームに向いています。ゲームキューブ本来の遅い速さが必要なゲームも少しあります (試験的、一部のゲームが止まることがあります)。", "Rápida serve para quase todos os jogos; alguns poucos precisam da velocidade mais lenta do próprio GameCube (experimental, pode travar alguns jogos).", "Veloce va bene per quasi tutti i giochi; pochi richiedono la velocità, più lenta, propria del GameCube (sperimentale, può bloccare alcuni giochi)."),
@@ -3743,8 +3745,12 @@ KO = {
         "480p는 미국과 일본 게임용이며, 이 유럽 게임은 원래 화면을 그대로 씁니다.",
     "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first.":
         "컴포넌트 케이블에서 더 선명하고 안정적인 화면을 보여 주며, 480p가 없는 게임도 해당됩니다. 일부 게임은 먼저 물어봅니다.",
-    "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental).":
-        "게임 세계를 와이드 TV에 가득 채웁니다. 메뉴는 늘어난 채로 남고, 일부 게임은 색이 잘못 나올 수 있습니다 (실험적).",
+    "Fills a widescreen TV with the game world; menus and text stay stretched.":
+        "게임 세계를 와이드 TV에 가득 채웁니다. 메뉴와 글자는 늘어난 채로 남습니다.",
+    "This game lays copies of its picture over the scene (heat haze, water), which come out doubled in 16:9, so it keeps its own picture.":
+        "이 게임은 화면의 복사본을 장면 위에 겹쳐 그리기 때문에 (아지랑이, 물) 16:9에서는 두 겹으로 보여서 원래 화면을 그대로 씁니다.",
+    "Not for this game":
+        "이 게임에는 사용할 수 없음",
     "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one).":
         "이 게임을 플레이할 언어이며 Wii 본체 설정은 바뀌지 않습니다 (미국·일본 게임은 대부분 언어가 하나뿐입니다).",
     "Controls":
@@ -5795,8 +5801,12 @@ FR = {
         "Le 480p est pour les jeux américains et japonais ; ce jeu européen garde sa propre image.",
     "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first.":
         "Donne une image plus nette et plus stable avec un câble composante, même dans les jeux sans mode 480p ; certains posent d'abord la question.",
-    "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental).":
-        "Remplit une TV grand écran avec le monde du jeu ; les menus restent étirés et certains jeux montrent des couleurs fausses (expérimental).",
+    "Fills a widescreen TV with the game world; menus and text stay stretched.":
+        "Remplit une TV grand écran avec le monde du jeu ; les menus et le texte restent étirés.",
+    "This game lays copies of its picture over the scene (heat haze, water), which come out doubled in 16:9, so it keeps its own picture.":
+        "Ce jeu pose des copies de son image sur la scène (brume de chaleur, eau), qui apparaissent en double en 16:9 ; il garde donc sa propre image.",
+    "Not for this game":
+        "Pas pour ce jeu",
     "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one).":
         "La langue dans laquelle ce jeu se joue, sans changer le réglage de la Wii (la plupart des jeux américains et japonais n'en ont qu'une).",
     "Controls":
