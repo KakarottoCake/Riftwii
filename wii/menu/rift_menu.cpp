@@ -8636,7 +8636,7 @@ static const char* ProtectedGameNote()
 static const char* const kWidths[] = {"global", "game", "framebuffer", "704", "720"};
 static const char* const kDeflickers[] = {"global", "game", "off", "low", "medium", "high"};
 static const char* const kBorderModes[] = {"global", "keep", "remove", "remove_all"};
-static const char* const kVideoModes[] = {"global", "game", "system", "ntsc", "pal60", "pal50", "480p"};
+static const char* const kVideoModes[] = {"global", "game", "system", "ntsc", "pal60", "pal50", "480p", "240p"};
 static const char* const kAspects[] = {"global", "game", "4:3", "16:9"};
 static std::string AspectName(const std::string& v)
 {
@@ -8648,7 +8648,7 @@ static const char* const kGameLanguages[] = {"global", "console", "ja", "en", "d
 // first (riftwii::GcConsoleSettings), then the game's choices; the
 // languages are the console's GameCube setting, then riftwii::kGcLanguages
 // in the SRAM's order.
-static const char* const kGcProgressiveChoices[] = {"global", "480p", "game"};
+static const char* const kGcProgressiveChoices[] = {"global", "480p", "240p", "game"};
 static const char* const kGcWidescreenChoices[] = {"global", "16:9", "game"};
 static const char* const kGcLanguageChoices[] = {"global", "game", "english", "german", "french", "spanish", "italian",
 	"dutch"};
@@ -8761,7 +8761,15 @@ static std::string VideoModeName(const std::string& v)
 	if (v == "pal60") return "PAL 60 Hz";
 	if (v == "pal50") return "PAL 50 Hz";
 	if (v == "480p") return "480p";
+	if (v == "240p") return "240p";
 	return tr("Game's own");
+}
+// Video mode's note: 240p's own, else what each signal needs.
+static std::string VideoModeNote(const std::string& v, bool settings)
+{
+	if (v != "240p") return tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable.");
+	const std::string note = tr("240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture.");
+	return settings ? note + " " + tr("GameCube games left on Default get it too.") : note;
 }
 static std::string GameLanguageName(const std::string& v)
 {
@@ -9122,10 +9130,12 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		progressive.dim = riftwii::gc_pal_game(state.game_id);
 		progressive.on = game.gc_progressive != "global" && !progressive.dim;
 		const bool progressiveNow = riftwii::gc_progressive_on(game, state.game_id, console);
+		const bool line240Now = riftwii::gc_line240_on(game, state.game_id, console);
+		const std::string nowName = progressiveNow ? std::string(tr("On")) : line240Now ? std::string("240p") : std::string(tr("Off"));
 		if (progressive.dim) progressive.value = tr("Not for European games");
 		else if (game.gc_progressive == "global")
-			progressive.value = tr("Default ({1})", {progressiveNow ? std::string(tr("On")) : std::string(tr("Off"))});
-		else progressive.value = progressiveNow ? tr("On (480p)") : tr("Off");
+			progressive.value = tr("Default ({1})", {nowName});
+		else progressive.value = progressiveNow ? tr("On (480p)") : line240Now ? std::string("240p") : tr("Off");
 		rows.push_back(progressive);
 		refs.push_back({W::GcProgressive});
 		if (riftwii::kGcWidescreenReady) {
@@ -14131,7 +14141,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				say(seen.empty() ? how : seen + " " + how);
 			}
 			else if (ref.what == RowRef::What::VideoMode)
-				say(tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable."));
+				say(VideoModeNote(gameSettings.video_mode == "global" ? riftwii::wii::Settings().video_mode : gameSettings.video_mode, false));
 			else if (ref.what == RowRef::What::RegionVideo)
 				say(tr("For a US or Japanese game that shows no picture on a console from another region: the game is told the video hardware matches its region."));
 			else if (ref.what == RowRef::What::Aspect)
@@ -14164,6 +14174,9 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			}
 			else if (ref.what == RowRef::What::GcProgressive && riftwii::gc_pal_game(state.game_id))
 				say(tr("480p is for US and Japanese games; this European game keeps its own picture."));
+			else if (ref.what == RowRef::What::GcProgressive &&
+				 riftwii::gc_line240_on(state.model.game, state.game_id, riftwii::wii::GcConsoleNow()))
+				say(tr("240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture."));
 			else if (ref.what == RowRef::What::GcProgressive && state.model.game.gc_progressive == "global" &&
 				 !riftwii::gc_progressive_on(state.model.game, state.game_id, riftwii::wii::GcConsoleNow()))
 				say(tr("Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."));
@@ -16961,7 +16974,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kWidth: return WidthNote(settings.video_width);
 			case kDeflicker: return tr("A filter that softens the picture to hide flicker. Off gives the sharpest picture.");
 			case kBorders: return tr(kBordersNote);
-			case kVideoMode: return tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable.");
+			case kVideoMode: return VideoModeNote(settings.video_mode, true);
 			case kAspect: return tr("Makes the game use 4:3 or widescreen 16:9 whatever the Wii's TV setting says. Not every game can be changed.");
 			case kGameLanguage: return tr("The language the game is told the console uses. Pick one the game has: some games stop without it.");
 			case kGameCios: return tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works.");
@@ -17193,7 +17206,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				case kVideoMode:
 					settings.video_mode = StepValue(kVideoModes, settings.video_mode, direction, false);
-					saveAndNote(tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable."));
+					saveAndNote(VideoModeNote(settings.video_mode, true));
 					rebuild();
 					break;
 				case kAspect:

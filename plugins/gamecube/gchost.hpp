@@ -48,6 +48,7 @@ struct GcImage {
     bool shared_card = false;
     bool drive_timing = true;
     bool progressive = false;
+    bool line240 = false;  // 240p (rwp_gc_launch's line240)
     bool widescreen = false;
     int language = -1;
     bool sharp = false;

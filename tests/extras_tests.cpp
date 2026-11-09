@@ -1268,6 +1268,9 @@ void TestVideoModes() {
     EXPECT_TRUE(m == VideoMode::Pal60);
     EXPECT_TRUE(parse_video_mode("480p", m));
     EXPECT_TRUE(m == VideoMode::Progressive);
+    EXPECT_TRUE(parse_video_mode("240p", m));
+    EXPECT_TRUE(m == VideoMode::Line240);
+    EXPECT_EQ(std::string(to_string(VideoMode::Line240)), "240p");
     EXPECT_FALSE(parse_video_mode("PAL", m));
     EXPECT_EQ(std::string(to_string(VideoMode::System)), "system");
 
@@ -1327,6 +1330,68 @@ void TestVideoModes() {
     EXPECT_EQ(copy[503], 2);  // PAL: to 480 lines, then progressive
     EXPECT_EQ(get16(copy, 506), 480u);
     EXPECT_EQ(copy[403], 2);
+
+    // 240p (NTSC): whole 480-line frames, interlaced or 480p, become
+    // double-strike tables with a 240-line frame buffer (the game's copy
+    // takes every other line), a single field and the filter off.
+    s = VideoSettings{};
+    s.target.format = kViNtsc;
+    s.target.line240 = true;
+    s.deflicker = Deflicker::High;  // ignored on the 240p tables
+    EXPECT_TRUE(s.any());
+    copy = data;
+    report = VideoPatchReport{};
+    patch_video_modes(copy.data(), copy.size(), s, report);
+    EXPECT_EQ(report.modes, 7u);
+    EXPECT_EQ(copy[3], 1);                // TVNtsc480IntDf: double strike
+    EXPECT_EQ(get16(copy, 6), 480u);      // the game still draws 480 lines
+    EXPECT_EQ(get16(copy, 8), 240u);      // and copies every other one
+    EXPECT_EQ(get16(copy, 12), 0u);
+    EXPECT_EQ(get16(copy, 16), 480u);
+    EXPECT_EQ(copy[23], 0);               // single field
+    for (std::size_t i = 0; i < 7; ++i) EXPECT_EQ(copy[50 + i], sharp[i]);
+    EXPECT_EQ(copy[103], 1);              // the anti-aliased one too
+    EXPECT_EQ(get16(copy, 106), 242u);
+    EXPECT_EQ(get16(copy, 108), 240u);
+    EXPECT_EQ(copy[403], 1);              // TVNtsc480Prog
+    EXPECT_EQ(get16(copy, 408), 240u);
+    EXPECT_EQ(copy[203], 1);              // already double strike: as made but its filter
+    EXPECT_EQ(get16(copy, 208), 240u);
+    EXPECT_EQ(copy[250], deflicker[0]);   // not given Deflicker's High either
+    EXPECT_EQ(copy[303], 0);              // unusual heights: the format only, interlaced
+    EXPECT_EQ(get16(copy, 308), 456u);
+    EXPECT_EQ(copy[503], 1);              // PAL 528: to 480 lines, then 240p
+    EXPECT_EQ(get16(copy, 506), 480u);
+    EXPECT_EQ(get16(copy, 508), 240u);
+    EXPECT_EQ(get16(copy, 512), 0u);
+    EXPECT_EQ(copy[603], 1);              // the scaled PAL table too
+    EXPECT_EQ(get16(copy, 608), 240u);
+
+    // 240p with no format (a GameCube game): each table keeps its own
+    // format; 576-line ones have no 240p and stay interlaced.
+    s.target.format = -1;
+    s.deflicker = Deflicker::Game;
+    copy = data;
+    report = VideoPatchReport{};
+    patch_video_modes(copy.data(), copy.size(), s, report);
+    EXPECT_EQ(copy[3], 1);
+    EXPECT_EQ(get16(copy, 8), 240u);
+    EXPECT_EQ(copy[403], 1);
+    EXPECT_EQ(copy[503], 4);              // PAL: as made
+    EXPECT_EQ(get16(copy, 506), 528u);
+    EXPECT_EQ(get16(copy, 508), 528u);
+    EXPECT_EQ(copy[303], 0);              // unusual heights: as made
+    EXPECT_EQ(copy[203], 1);
+    EXPECT_EQ(report.converted, 3u);      // the two NTSC 480i tables and 480p
+
+    // EuRGB60 (a PAL game's 240p): 60 Hz double strike.
+    s.target.format = kViEurgb60;
+    copy = data;
+    report = VideoPatchReport{};
+    patch_video_modes(copy.data(), copy.size(), s, report);
+    EXPECT_EQ(copy[3], 21);
+    EXPECT_EQ(copy[503], 21);
+    EXPECT_EQ(get16(copy, 508), 240u);
 }
 
 // Settings > Games on the SD card: sd_games = on|off.
@@ -2062,7 +2127,7 @@ void TestHeadlessArguments() {
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RSBE01", "code_build=/Project+"}, h, error));
     // Every value USB Loader GX's hand-off sends (its RiftWii.cpp tables):
     // a value it sends that RiftWii no longer takes stops every GX launch.
-    for (const char* v : {"system", "game", "pal50", "pal60", "ntsc", "480p"})
+    for (const char* v : {"system", "game", "pal50", "pal60", "ntsc", "480p", "240p"})
         EXPECT_TRUE(parse_headless_launch({"--launch", "game=RMCE01", std::string("video_mode=") + v}, h, error));
     for (const char* v : {"game", "off", "low", "medium", "high"})
         EXPECT_TRUE(parse_headless_launch({"--launch", "game=RMCE01", std::string("deflicker=") + v}, h, error));

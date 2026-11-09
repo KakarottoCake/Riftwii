@@ -270,6 +270,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     }
     request.drive_timing = image.drive_timing ? 1 : 0;
     request.progressive = image.progressive ? 1 : 0;
+    request.line240 = image.line240 ? 1 : 0;
     request.widescreen = image.widescreen ? 1 : 0;
     request.sharp = image.sharp ? 1 : 0;
     request.sixty_hz = image.sixty_hz ? 1 : 0;

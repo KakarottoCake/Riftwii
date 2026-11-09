@@ -4214,3 +4214,9 @@ msgstr "メモリーカードの設定が「標準」のゲームキューブの
 
 msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
 msgstr "スロットBのメモリーカードを読めませんでした。差し直すか、ゲームのページで別のカードを選んでください。"
+
+msgid "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture."
+msgstr "240pはブラウン管テレビとドット絵向けです。ゲームの480ラインの画面を1ラインおきに、ちらつきのないプログレッシブで出力します。ラインの少ないゲームは元の画面のままです。"
+
+msgid "GameCube games left on Default get it too."
+msgstr "「標準」のゲームキューブのゲームにも使われます。"

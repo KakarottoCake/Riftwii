@@ -394,8 +394,21 @@ static void test_screen_offset_request() {
     EXPECT_TRUE(fixture.check(why));
 }
 
+// 480p and 240p are one choice: both at once is refused.
+static void test_picture_lines_request() {
+    Fixture fixture;
+    std::string why;
+    fixture.request.line240 = 1;
+    EXPECT_TRUE(fixture.check(why));
+    fixture.request.progressive = 1;
+    EXPECT_FALSE(fixture.check(why));
+    fixture.request.line240 = 0;
+    EXPECT_TRUE(fixture.check(why));
+}
+
 int main() {
     test_external_card_request();
+    test_picture_lines_request();
     test_screen_offset_request();
     {
         Fixture mappings;

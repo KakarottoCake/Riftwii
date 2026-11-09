@@ -4214,3 +4214,9 @@ msgstr "La tarjeta de memoria de cada juego de GameCube cuya opción Tarjeta de 
 
 msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
 msgstr "No se pudo leer la tarjeta de memoria de la ranura B. Vuelve a insertarla o elige otra tarjeta en la página del juego."
+
+msgid "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture."
+msgstr "240p es para televisores CRT y pixel art: la imagen de 480 líneas del juego sale una línea sí y otra no, progresiva y sin parpadeo. Los juegos que dibujan menos líneas conservan su propia imagen."
+
+msgid "GameCube games left on Default get it too."
+msgstr "Los juegos de GameCube en Predeterminado también lo usan."

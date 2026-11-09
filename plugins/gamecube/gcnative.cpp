@@ -48,6 +48,7 @@
 #include "riftwii/gcoverlay.hpp"
 #include "riftwii/gcmempatch.hpp"
 #include "riftwii/gxpatches.hpp"
+#include "riftwii/videopatch.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/launch.hpp"
 #include "riftwii/redirect.hpp"
@@ -1651,6 +1652,29 @@ LmLoader find_lm_loader(const std::string& id, const Code& code) {
     return out;
 }
 
+// 240p: the game's own render mode tables, in its data, become
+// double-strike ones before it starts, as a Wii game's do
+// (riftwii/videopatch.hpp). The game then copies each whole 480-line
+// picture into a 240-line frame buffer, every other line with no
+// blending, and the VI sends it progressive. Nothing runs in the game
+// for it. Tables with other heights stay as made, and a game that
+// builds its mode in code keeps its own picture (the log says so).
+static void apply_240p(Dol& dol) {
+    VideoSettings video;
+    video.target.line240 = true;  // no format: each table keeps its own
+    VideoPatchReport report;
+    for (Section& section : dol.data) {
+        auto* bytes = const_cast<std::uint8_t*>(section.data());
+        patch_video_modes(bytes, section.size(), video, report);
+    }
+    if (report.converted == 0) {
+        logf("GameCube: 240p not applied: %s, none of them a whole 480-line picture, so the game keeps its own\n",
+             report.describe().c_str());
+    } else {
+        logf("GameCube: 240p: %s\n", report.describe().c_str());
+    }
+}
+
 // The game's picture and language options (its Options page), patched
 // into the staged code. `replay_hook(fn, entry, replay, back)` hooks a
 // function that then runs on (false: it cannot be hooked).
@@ -3233,6 +3257,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             replay_hook(fn, entry, replay, back);
             return true;
         }, h, ctx, test_no_widen, test_no_vi_hook);
+        if (image.line240) apply_240p(dol);
 
         // A Japanese game picks its IPL font (Shift-JIS or ANSI) from the
         // Japanese console strap, VI DTV bit 0x2, which a Western Wii or Wii U

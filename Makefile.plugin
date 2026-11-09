@@ -48,7 +48,7 @@ gamecube_SRC := src/patching/gclayout.cpp src/patching/gcclock.cpp src/patching/
                 src/patching/gcvideo.cpp src/patching/gcfont.cpp src/patching/gcdsp.cpp src/data/gccontrols.cpp src/patching/gcoverlay.cpp \
                 src/patching/gcrequest.cpp src/patching/gcmempatch.cpp src/patching/mempatch.cpp src/fs/gccard.cpp src/fs/rvz.cpp src/data/sha1.cpp \
                 src/patching/symsearch.cpp src/patching/codehook.cpp src/patching/hook.cpp \
-                src/fs/fragments.cpp src/patching/gxpatches.cpp src/patching/launch.cpp runtime/rtrvz.c
+                src/fs/fragments.cpp src/patching/gxpatches.cpp src/patching/launch.cpp src/patching/videopatch.cpp runtime/rtrvz.c
 gamecube_CXX := yes
 
 # What libstdc++'s headers leave out of line for std::map and no plugin

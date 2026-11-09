@@ -316,7 +316,9 @@ window (`PrepareGcGameInMenu` in `wii/menu/rift_menu.cpp`).
 `gamecube` plugin's `plugins/gamecube/gcnative.cpp`, loaded on first use;
 [PLUGINS.md](PLUGINS.md)). The
 loader reads the game's choices file into a `GcImage` (disc reads, memory
-card, 480p, 16:9, language). The plain-C `rwp_gc_launch` carries
+card, 480p or 240p, 16:9, language; 240p rewrites the game's render mode
+tables in its data before it starts, as `src/patching/videopatch.cpp`
+does for a Wii game). The plain-C `rwp_gc_launch` carries
 `real_card` separately from `shared_card`, with the twelve-byte physical
 header ID verified by the DOL; `gc_request_check` rejects conflicting
 choices. The loader plans its Riivolution packs as a window past

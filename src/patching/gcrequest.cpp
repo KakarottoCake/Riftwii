@@ -192,6 +192,10 @@ bool gc_request_check(const rwp_gc_launch* request, std::uint32_t bytes, std::ui
         why = "the launch request has conflicting memory card choices";
         return false;
     }
+    if (request->progressive && request->line240) {
+        why = "the launch request asks for 480p and 240p at once";
+        return false;
+    }
     if (request->screen_offset_set && (request->screen_offset < -32 || request->screen_offset > 32)) {
         why = "the launch request's screen position " + std::to_string(request->screen_offset) +
               " is outside -32 to 32";
