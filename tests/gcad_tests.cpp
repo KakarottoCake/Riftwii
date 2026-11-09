@@ -11,6 +11,7 @@
 // adapter is unplugged. Reports and rumble are the adapter's (Dolphin's
 // GCAdapter.cpp).
 #include "rtgcad.h"
+#include "riftwii/padcal.hpp"
 #include "riftwii/symsearch.hpp"
 
 #include <algorithm>
@@ -652,6 +653,43 @@ static void TestV5() {
 // The gray plug (#506): no rumble while the adapter says it is out (port
 // status 0x10 without 0x04); rumble once it is in; pulled while a motor
 // runs, the adapter is told to stop.
+// A game's copy of an adapter port gets that port's calibration
+// (rtpadcal.h): a worn stick reaching 70 reads as a healthy one's full
+// tilt, another port and the driver's own reading stay as they were, and
+// with no table nothing changes.
+static void TestCalibrationApplied() {
+    FakeHid hid;
+    Driver d;
+    Start(hid, d, 5);
+    gcad* g = d.g;
+    EXPECT_TRUE(DeliverSettled(Report(0x14, 0, 0, 131, 125)));  // the origin
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 131 + 70, 125 - 35)));
+    gcad_pad out[GCAD_PORTS];
+    EXPECT_EQ(gcad_read_ports(g, 0, out, d.now) & 1u, 1u);
+    EXPECT_EQ(static_cast<int>(out[0].stick_x), 70);  // no table: as it is
+
+    riftwii::PadCalibration worn;
+    worn.main = {70, 70, 70, 70};
+    static rtpadcal_table table;
+    table = rtpadcal_table{};
+    table.adapter[1] = riftwii::pad_calibration_stretch(worn);
+    g->cal = &table;
+    EXPECT_EQ(gcad_read_ports(g, 0, out, d.now) & 1u, 1u);
+    EXPECT_EQ(static_cast<int>(out[0].stick_x), 70);  // port 2's calibration, not this one's
+    table.adapter[0] = table.adapter[1];
+    EXPECT_EQ(gcad_read_ports(g, 0, out, d.now) & 1u, 1u);
+    EXPECT_EQ(static_cast<int>(out[0].stick_x), static_cast<int>(riftwii::kPadMainStickReach));
+    EXPECT_EQ(static_cast<int>(out[0].stick_y), -52);  // half way down is half of 104
+    // Again: the driver keeps the controller's own values, so nothing is
+    // stretched twice.
+    EXPECT_EQ(gcad_read_ports(g, 0, out, d.now) & 1u, 1u);
+    EXPECT_EQ(static_cast<int>(out[0].stick_x), static_cast<int>(riftwii::kPadMainStickReach));
+    g->cal = nullptr;
+    gcad_stop(g, d.now);
+    Pump();
+}
+
 static void TestRumbleNeedsGrayPlug() {
     FakeHid hid;
     Driver d;
@@ -1908,6 +1946,7 @@ int main() {
     TestPadMoved();
     TestV5();
     TestRumbleNeedsGrayPlug();
+    TestCalibrationApplied();
     TestV5OwnedElsewhere();
     TestV5AlreadyResumed();
     TestV5SetProtocolRefused();

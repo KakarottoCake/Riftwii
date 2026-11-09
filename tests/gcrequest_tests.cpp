@@ -7,6 +7,7 @@
 #include "riftwii/gcrequest.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "rthid.h"
+#include "rtpadcal.h"
 
 #include <cstddef>
 #include <cstring>
@@ -74,6 +75,7 @@ static void test_layout() {
     EXPECT_TRUE(offsetof(rwp_gc_launch, pack_entry_count) < offsetof(rwp_gc_launch, rumble_off));
     EXPECT_TRUE(offsetof(rwp_gc_launch, code_handler_bytes) < offsetof(rwp_gc_launch, crash_screen));
     EXPECT_TRUE(offsetof(rwp_gc_launch, way_back_view_bytes) < offsetof(rwp_gc_launch, error));
+    EXPECT_TRUE(offsetof(rwp_gc_launch, pad_calibration_bytes) < offsetof(rwp_gc_launch, error));
     // The out code is last, and a request is checked against the whole struct, so a DOL
     // and a plugin of different builds still refuse each other.
     EXPECT_EQ(offsetof(rwp_gc_launch, error_code) + sizeof(void*), sizeof(rwp_gc_launch));
@@ -394,9 +396,29 @@ static void test_screen_offset_request() {
     EXPECT_TRUE(fixture.check(why));
 }
 
+// The controllers' calibration crosses the plugin line whole, or not at all.
+static void test_pad_calibration_request() {
+    Fixture fixture;
+    std::string why;
+    rtpadcal_table table{};
+    fixture.request.pad_calibration = &table;
+    EXPECT_FALSE(fixture.check(why));  // a table with no size
+    fixture.request.pad_calibration_bytes = sizeof(table) - 4;
+    EXPECT_FALSE(fixture.check(why));
+    fixture.request.pad_calibration_bytes = sizeof(table) + 4;
+    EXPECT_FALSE(fixture.check(why));
+    fixture.request.pad_calibration_bytes = sizeof(table);
+    EXPECT_TRUE(fixture.check(why));
+    fixture.request.pad_calibration = nullptr;
+    EXPECT_FALSE(fixture.check(why));  // a size with no table
+    fixture.request.pad_calibration_bytes = 0;
+    EXPECT_TRUE(fixture.check(why));   // none stored
+}
+
 int main() {
     test_external_card_request();
     test_screen_offset_request();
+    test_pad_calibration_request();
     {
         Fixture mappings;
         std::string error;

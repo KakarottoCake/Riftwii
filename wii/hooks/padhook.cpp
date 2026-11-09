@@ -896,6 +896,11 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     const rt_pad_header& h = header(kind);
     out.code_bytes = align_up(h.size);
     out.state_bytes = align_up(out.adapter_only ? GCAD_OWNER_BYTES(version) : layout.bytes);
+    // The controllers' calibrations after the driver's state, which the
+    // driver never zeroes past its own end; only when one is stored, as a
+    // code build may have no room to spare.
+    const std::uint32_t calibration_at = out.calibration != nullptr ? out.state_bytes : 0;
+    if (out.calibration != nullptr) out.state_bytes += align_up(sizeof(rtpadcal_table));
     logf("USB controllers: %s driver (%u bytes), room for %u other USB pad(s) and %u layout(s) (%u bytes)%s, state %u bytes%s\n",
          kind == kBlobAdapter ? "the adapter's" : kind == kBlobPads ? "the USB pads'" : "the full",
          static_cast<unsigned>(h.size), static_cast<unsigned>(out.link_count), static_cast<unsigned>(out.map_count),
@@ -975,8 +980,16 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
                  static_cast<unsigned>(mapping->report_bytes), static_cast<unsigned>(mapping->size));
         }
     }
+    out.calibration_base = 0;
+    if (out.calibration != nullptr) {
+        out.calibration_base = out.state_base + calibration_at;
+        std::memcpy(reinterpret_cast<void*>(out.calibration_base), out.calibration, sizeof(rtpadcal_table));
+        logf("GameCube controllers: calibrations at 0x%08x (%u bytes)\n", out.calibration_base,
+             static_cast<unsigned>(sizeof(rtpadcal_table)));
+    }
     DCFlushRange(reinterpret_cast<void*>(out.state_base), out.state_bytes);
     ctx->state = out.state_base;
+    ctx->cal = out.calibration_base;
     ctx->ioctl_async = ioctl_async;
     ctx->ioctlv_async = ioctlv_async;
     ctx->complete_entry = out.code_base + h.complete;

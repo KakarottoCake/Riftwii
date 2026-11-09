@@ -2609,6 +2609,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const std::uint32_t bt_addr = mem2_take(sizeof(gc_bt));
     // The GameCube adapter's state (gc_gcad.h), when the menu opened it.
     const std::uint32_t gcad_addr = extras.adapter_fd >= 0 ? mem2_take(sizeof(gc_gcad)) : 0;
+    // The controllers' calibrations, when any is stored (rtpadcal.h).
+    const std::uint32_t pad_cal_addr = extras.pad_calibration != nullptr ? mem2_take(sizeof(rtpadcal_table)) : 0;
     const std::uint32_t crash_addr = mem2_take(GC_CRASH_SCREEN_BYTES);  // the card, then the strip
     const std::uint32_t runs_addr = mem2_take(runs_bytes);
     // An RVZ's reader: its state and the pieces of the RVZ on the card.
@@ -3167,6 +3169,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         ad->known_dev = extras.adapter_dev;
         ad->ticks_per_ms = 60750;  // the timebase, the bus clock / 4 in Wii mode
         ad->rumble = extras.adapter_rumble ? 1 : 0;
+        ad->cal = reinterpret_cast<const rtpadcal_table*>(pad_cal_addr);
         for (std::uint8_t& port : ad->port_of) port = GC_PORT_NONE;
         ctx->gcad = gcad_addr;
         logf("GameCube: USB controller driver on (/dev/usb/hid v%u fd %d, adapter device %d, rumble %s), state 0x%08x\n",
@@ -3187,6 +3190,15 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                  static_cast<unsigned>(mapping->vid), static_cast<unsigned>(mapping->pid),
                  static_cast<unsigned>(mapping->report_bytes));
         }
+    }
+    // GameCube controllers calibrated in Settings > Controllers: the Wii's
+    // own ports take theirs at each PADRead (gc_on_pad_read), the adapter's
+    // and the USB pads' in its driver (above).
+    if (pad_cal_addr != 0) {
+        std::memcpy(staged(pad_cal_addr), extras.pad_calibration, sizeof(rtpadcal_table));
+        ctx->pad_cal = pad_cal_addr;
+        logf("GameCube: controller calibrations at 0x%08x (%u bytes)\n", pad_cal_addr,
+             static_cast<unsigned>(sizeof(rtpadcal_table)));
     }
     auto* memcard = reinterpret_cast<gc_card*>(card_addr);
     std::memset(memcard, 0, sizeof(*memcard));
