@@ -4214,3 +4214,15 @@ msgstr "메모리 카드 옵션이 기본값인 모든 게임큐브 게임의 �
 
 msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
 msgstr "슬롯 B의 메모리 카드를 읽을 수 없습니다. 다시 꽂거나 게임 페이지에서 다른 카드를 고르세요."
+
+msgid "Leaving a game"
+msgstr "게임 나가기"
+
+msgid "HOME or buttons"
+msgstr "HOME 또는 버튼"
+
+msgid "HOME only"
+msgstr "HOME만"
+
+msgid "In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game's own button combos can't leave by accident."
+msgstr "게임큐브 게임에서 HOME을 2초 동안 누르고 있으면 RiftWii로 돌아갑니다 (Wii 리모컨만 쓸 때는 HOME과 -). HOME 또는 버튼: 게임큐브 컨트롤러의 L, R, Z, Start를 누르고 있어도 나가며, 어댑터를 쓰는 Wii 게임에서도 마찬가지입니다. HOME만은 버튼을 꺼서 게임의 버튼 조합으로 실수로 나가지 않게 합니다."

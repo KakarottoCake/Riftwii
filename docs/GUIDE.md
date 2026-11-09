@@ -145,7 +145,8 @@ Now RiftWii has its own channel on the Wii Menu. It also lets games go
   - **HOME** on a Wii Remote with a Nunchuk, a Classic Controller, or a
     Wii U Pro Controller;
   - **HOME and −** together on a Wii Remote alone;
-  - **L, R, Z and Start** together on a GameCube controller.
+  - **L, R, Z and Start** together on a GameCube controller (unless
+    Settings > Games > Leaving a game is *HOME only*).
 
 ### Step 9: If something goes wrong
 
@@ -661,6 +662,10 @@ the tiles.
 - **Quitting a game**: *Back to RiftWii* makes the Wii Menu button of a
   game's HOME Menu start RiftWii again (it needs the RiftWii channel);
   *Wii Menu* leaves it as it was.
+- **Leaving a game**: *HOME or buttons* (at first) lets L, R, Z and Start
+  held on a GameCube controller go back to RiftWii, as holding HOME does;
+  *HOME only* turns those buttons off (see [Leaving a
+  game](#gamecube-games)). Saved as `leave_buttons = on` or `off`.
 - **Menu sounds** (Normal, Quiet, Off) and **Menu music**: the music is
   `music.ogg` (Ogg Vorbis, up to 6 MB) from `sd:/riftwii/`, or else the one
   the release puts in `sd:/apps/riftwii/`, looped while the menu is open.
@@ -1036,6 +1041,13 @@ Nintendont's memory cards, for all games at once:
 - L, R, Z and Start together on a GameCube controller.
 
 RiftWii waits for a save in progress before it goes back to the menu.
+If a game's own button combos (or a pad held in a bag) keep leaving it
+by accident, set **Settings > Games > Leaving a game** to *HOME only*:
+L, R, Z and Start then leave nothing, in GameCube games and in Wii
+games played with the adapter, and HOME (HOME and − on a Wii Remote
+alone, HOME on a Classic Controller or a Wii U Pro Controller) still
+leaves. A USB pad's Guide button presses L, R, Z and Start, so it
+leaves nothing either.
 The console's **Reset** button restarts the game, as on a GameCube, in
 the games where that is known to work (Super Mario Sunshine, USA, and
 Super Mario Eclipse); in the others it goes back to RiftWii, as holding

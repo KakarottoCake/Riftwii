@@ -8809,5 +8809,43 @@ FR.update({
         "La carte mémoire du port B n'a pas pu être lue. Remettez-la, ou choisissez une autre carte sur la page du jeu.",
 })
 
+# Leaving a game (#511): HOME only turns the controllers' button combo off.
+T.update({
+    'Leaving a game': ('Salir de un juego', 'ゲームをやめるとき', 'Sair de um jogo', 'Uscire da un gioco'),
+    'HOME or buttons': ('HOME o botones', 'HOMEかボタン', 'HOME ou botões', 'HOME o pulsanti'),
+    'HOME only': ('Solo HOME', 'HOMEのみ', 'Só HOME', 'Solo HOME'),
+    'In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game\'s own button combos can\'t leave by accident.': (
+        'En los juegos de GameCube, mantén HOME dos segundos para volver a RiftWii (HOME y - con un mando de Wii solo). '
+        'HOME o botones: mantener L, R, Z y Start en un mando de GameCube también sale, y en los juegos de Wii con el '
+        'adaptador. Solo HOME desactiva los botones, para que las combinaciones de un juego no lo cierren por accidente.',
+        'ゲームキューブのゲームでは、HOMEを2秒押し続けるとRiftWiiに戻ります (Wiiリモコンだけのときは HOMEと-)。'
+        '「HOMEかボタン」では、ゲームキューブコントローラーのL、R、Z、Startを押し続けても戻ります (アダプターを使う'
+        'Wiiのゲームでも)。「HOMEのみ」ではボタンで戻らないので、ゲームのボタン操作でまちがって終わりません。',
+        'Nos jogos de GameCube, segure HOME por dois segundos para voltar ao RiftWii (HOME e - num Wii Remote sozinho). '
+        'HOME ou botões: segurar L, R, Z e Start num controle de GameCube também sai, e nos jogos de Wii com o '
+        'adaptador. Só HOME desativa os botões, para que as combinações de um jogo não o fechem por acidente.',
+        "Nei giochi GameCube, tieni premuto HOME per due secondi per tornare a RiftWii (HOME e - su un Wii Remote da "
+        "solo). HOME o pulsanti: anche tenere premuti L, R, Z e Start su un controller GameCube fa uscire, e nei giochi "
+        "Wii con l'adattatore. Solo HOME disattiva i pulsanti, così le combinazioni di un gioco non lo chiudono per errore."),
+})
+KO.update({
+    'Leaving a game': '게임 나가기',
+    'HOME or buttons': 'HOME 또는 버튼',
+    'HOME only': 'HOME만',
+    'In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game\'s own button combos can\'t leave by accident.':
+        '게임큐브 게임에서 HOME을 2초 동안 누르고 있으면 RiftWii로 돌아갑니다 (Wii 리모컨만 쓸 때는 HOME과 -). '
+        'HOME 또는 버튼: 게임큐브 컨트롤러의 L, R, Z, Start를 누르고 있어도 나가며, 어댑터를 쓰는 Wii 게임에서도 '
+        '마찬가지입니다. HOME만은 버튼을 꺼서 게임의 버튼 조합으로 실수로 나가지 않게 합니다.',
+})
+FR.update({
+    'Leaving a game': 'Quitter un jeu',
+    'HOME or buttons': 'HOME ou boutons',
+    'HOME only': 'HOME seulement',
+    'In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game\'s own button combos can\'t leave by accident.':
+        "Dans les jeux GameCube, maintenez HOME deux secondes pour revenir à RiftWii (HOME et - sur une Wiimote seule). "
+        "HOME ou boutons : maintenir L, R, Z et Start sur une manette GameCube quitte aussi, et dans les jeux Wii avec "
+        "l'adaptateur. HOME seulement désactive les boutons, pour que les combinaisons d'un jeu ne le quittent pas par accident.",
+})
+
 if __name__ == "__main__":
     main()

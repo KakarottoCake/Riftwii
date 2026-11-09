@@ -4214,3 +4214,15 @@ msgstr "O cartão de memória de cada jogo de GameCube cuja opção Cartão de m
 
 msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
 msgstr "Não foi possível ler o cartão de memória no slot B. Coloque-o de volta ou escolha outro cartão na página do jogo."
+
+msgid "Leaving a game"
+msgstr "Sair de um jogo"
+
+msgid "HOME or buttons"
+msgstr "HOME ou botões"
+
+msgid "HOME only"
+msgstr "Só HOME"
+
+msgid "In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game's own button combos can't leave by accident."
+msgstr "Nos jogos de GameCube, segure HOME por dois segundos para voltar ao RiftWii (HOME e - num Wii Remote sozinho). HOME ou botões: segurar L, R, Z e Start num controle de GameCube também sai, e nos jogos de Wii com o adaptador. Só HOME desativa os botões, para que as combinações de um jogo não o fechem por acidente."

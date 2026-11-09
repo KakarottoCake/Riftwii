@@ -86,6 +86,11 @@ struct LoaderSettings {
     // the memory card of a GameCube game whose own choice is "global".
     std::string gc_card = "own";
     std::string gc_backups = "on";        // on, off: copy a GameCube game's memory card to sd:/riftwii/gc/backups before it starts
+    // Leaving a game (#511): on, the controllers' button combo (L, R, Z
+    // and Start held on a GameCube controller) goes back to RiftWii as
+    // holding HOME does; off, only HOME does, so a game's own combos
+    // can't leave it by accident.
+    std::string leave_buttons = "on";
     std::string nintendont_saves = "ask"; // ask, asked: whether Home has asked about bringing Nintendont's saves (any answer, Not now too, makes it "asked")
     // For developers with a USB Gecko (wii/core/gecko.hpp):
     std::string usb_gecko_log = "off";    // on, off: RiftWii's log also goes to a USB Gecko in slot B, with what libraries print

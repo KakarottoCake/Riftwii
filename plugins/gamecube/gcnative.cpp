@@ -1527,6 +1527,10 @@ static void prepare_leave(gc_rt_context* ctx, std::uint32_t buf, bool test, cons
     ctx->leave_buf = 0;
     ctx->leave_hold = 2 * 60750000u;  // two seconds of the timebase (the bus clock / 4)
     ctx->leave_since = 0;
+    // Settings > Leaving a game, HOME only: L, R, Z and Start held leave
+    // nothing, so a game's own combos near it can't end the game by
+    // accident (players asked after losing progress, #511).
+    if (extras.leave_home_only) ctx->flags |= GC_FLAG_HOME_ONLY;
     auto* bytes = reinterpret_cast<std::uint8_t*>(buf);
     std::memset(bytes, 0, kLeaveBytes);
     const bool view_fits = extras.way_back_view_bytes <= GC_LEAVE_REQUEST_OFFSET - kLeaveViewOffset;
@@ -1541,8 +1545,9 @@ static void prepare_leave(gc_rt_context* ctx, std::uint32_t buf, bool test, cons
         DCFlushRange(bytes, kLeaveBytes);
         ctx->leave_fd = static_cast<std::uint32_t>(fd);
         ctx->leave_buf = buf;
-        logf("GameCube: holding HOME for two seconds goes to %08x-%08x\n", static_cast<u32>(title >> 32),
-             static_cast<u32>(title));
+        logf("GameCube: holding HOME%s for two seconds goes to %08x-%08x\n",
+             extras.leave_home_only ? " (only HOME: Settings turned L, R, Z and Start off)" : " or L, R, Z and Start",
+             static_cast<u32>(title >> 32), static_cast<u32>(title));
         return;
     }
     logf("GameCube: no way back to RiftWii: none of the titles to go back to is installed\n");

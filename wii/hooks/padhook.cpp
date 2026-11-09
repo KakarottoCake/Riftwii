@@ -17,6 +17,7 @@
 
 #include "hidsession.hpp"
 #include "ios_reload.hpp"
+#include "loadersettings.hpp"
 #include "log.hpp"
 #include "pad_hook.h"
 #include "pentablet.h"
@@ -666,7 +667,13 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
     // burn-in reduction on, adapter-only play may then dim the screen.
     logf("GameCube adapter: PADRead at 0x%08x (%u error stores), PADControlMotor at 0x%08x, screen-dimming reset at 0x%08x\n",
          out.read, out.read_sites, out.motor, out.idle_reset);
-    find_way_back(dol, text, out);
+    // Settings > Leaving a game, HOME only: the combo leaves nothing, so
+    // its hooks are not put in at all (HOME opens the game's HOME Menu).
+    if (Settings().leave_buttons == "off") {
+        logf("GameCube adapter: no way back to RiftWii by the controller: Settings > Leaving a game is HOME only\n");
+    } else {
+        find_way_back(dol, text, out);
+    }
 
     if (!take_adapter_handle(out.fd, out.version, out.known_dev, why, &out.devices_unknown)) {
         if (!demo) return false;
