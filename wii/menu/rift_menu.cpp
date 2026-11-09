@@ -14285,13 +14285,15 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				std::string next = StepValue(kGcProgressiveChoices, game.gc_progressive, direction);
 				// Without a component cable seen nothing says the TV takes
 				// 480p (the Wii's own setting may be from another cable):
-				// asked once, when 480p is picked; Cancel goes on past it.
+				// asked once, when 480p is picked; Cancel keeps the row as
+				// it was (stepping on would land on 240p, a picture change
+				// the player didn't ask for either).
 				riftwii::GameSettings picked = game;
 				picked.gc_progressive = next;
 				const riftwii::GcConsoleSettings console = riftwii::wii::GcConsoleNow();
 				if (!console.component_cable && riftwii::gc_progressive_on(picked, state.game_id, console) &&
 				    !AskGc480p())
-					next = StepValue(kGcProgressiveChoices, next, direction);
+					next = game.gc_progressive;
 				game.gc_progressive = next;
 			}
 			else if (ref.what == RowRef::What::GcWidescreen) game.gc_widescreen = StepValue(kGcWidescreenChoices, game.gc_widescreen, direction);

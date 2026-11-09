@@ -80,7 +80,7 @@ bool parse_video_mode(const std::string& s, VideoMode& out);
 struct VideoPatchReport {
     unsigned modes = 0;         // render mode tables found
     unsigned patched = 0;       // of those, changed
-    unsigned converted = 0;     // of those, moved to the target format
+    unsigned converted = 0;     // of those, moved to the target format or made 240p
     bool side_borders = false;  // a mode draws narrower than the TV line
     bool top_borders = false;   // a mode leaves lines of the TV picture unused
     std::string describe() const;

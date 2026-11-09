@@ -227,7 +227,7 @@ bool parse_deflicker(const std::string& s, Deflicker& out) {
 
 std::string VideoPatchReport::describe() const {
     std::string s = std::to_string(modes) + " video mode(s), " + std::to_string(patched) + " changed";
-    if (converted != 0) s += " (" + std::to_string(converted) + " to the chosen TV format)";
+    if (converted != 0) s += " (" + std::to_string(converted) + " to the chosen TV format or 240p)";
     if (side_borders || top_borders) {
         s += "; the game draws black borders";
         s += side_borders && top_borders ? " at the sides and top" : side_borders ? " at the sides" : " at the top";
@@ -281,9 +281,10 @@ void patch_video_modes(std::uint8_t* bytes, std::size_t size, const VideoSetting
             put16(p + kXfbHeight, full);
             changed = true;
         }
-        // With 240p the double-strike tables keep their filter off:
-        // blending neighbouring lines only blurs a picture that does not
-        // flicker.
+        // With 240p the Deflicker setting skips the double-strike
+        // tables: the ones made 240p already have their filter off, and a
+        // game's own double-strike table keeps its own filter (blending
+        // neighbouring lines only blurs a picture that does not flicker).
         const bool sharp_240p = settings.target.line240 && double_strike(tv);
         if (settings.deflicker != Deflicker::Game && !sharp_240p) {
             std::uint8_t before[7];

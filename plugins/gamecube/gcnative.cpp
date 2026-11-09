@@ -1672,8 +1672,12 @@ static void apply_240p(Dol& dol) {
         auto* bytes = const_cast<std::uint8_t*>(section.data());
         patch_video_modes(bytes, section.size(), video, report);
     }
-    if (report.converted == 0) {
-        logf("GameCube: 240p not applied: %s, none of them a whole 480-line picture, so the game keeps its own\n",
+    if (report.modes == 0) {
+        logf("GameCube: 240p not applied: no video mode tables were found in the game's data (it builds its "
+             "modes in code), so the game keeps its own picture\n");
+    } else if (report.converted == 0) {
+        logf("GameCube: 240p not applied: %s, none of them a whole 480-line picture to turn into 240p (a "
+             "double-strike one is 240p already), so the game keeps its own\n",
              report.describe().c_str());
     } else {
         logf("GameCube: 240p: %s\n", report.describe().c_str());
