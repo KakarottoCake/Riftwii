@@ -25,6 +25,7 @@
 #include "gc_programs.h"
 #include "gc_rt.h"
 #include "gc_rvz.h"
+#include "gc_tri.h"
 #include "gc_video.h"
 #include "gcblobs.h"
 #include "rtzstd.h"
@@ -44,6 +45,7 @@
 #include "riftwii/gcprograms.hpp"
 #include "riftwii/gcreset.hpp"
 #include "riftwii/gctgc.hpp"
+#include "riftwii/gctriforce.hpp"
 #include "riftwii/gcvideo.hpp"
 #include "riftwii/gcoverlay.hpp"
 #include "riftwii/gcmempatch.hpp"
@@ -474,6 +476,7 @@ struct DvdLow {
     std::uint32_t read = 0, seek = 0, disk_id = 0, inquiry = 0, stop_motor = 0, request_error = 0;
     std::uint32_t audio_stream = 0, audio_status = 0, audio_config = 0, reset = 0;
     std::uint32_t set_alarm = 0;
+    bool triforce = false;  // the arcade SDK's disc layer (find_triforce_dvd_low)
 };
 
 // The start of the function holding `at`: the word after the previous blr.
@@ -747,7 +750,10 @@ bool find_dvd_low(const Code& code, DvdLow& out, std::string& error) {
                 }
     if (just_read == 0) {
         out = DvdLow{};
-        if (find_triforce_dvd_low(code, calls, out)) return true;
+        if (find_triforce_dvd_low(code, calls, out)) {
+            out.triforce = true;
+            return true;
+        }
         error = "the game's disc functions were not found";
         return false;
     }
@@ -2576,6 +2582,11 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     Code code(dol.text);
     DvdLow low;
     if (!find_dvd_low(code, low, error)) return false;
+    // A Triforce arcade game: the arcade SDK's functions that talk to its
+    // boards (riftwii/gctriforce.hpp), found while the code is the game's own.
+    GcTriforceFunctions triforce;
+    if (low.triforce) triforce = find_gc_triforce_functions(code.ranges());
+    const bool triforce_on = low.triforce && triforce.complete();
     // The cheats' hook, found while the code is still the game's own.
     GcCheats cheats;
     std::string cheats_off;
@@ -2676,6 +2687,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // The blob's state that MEM1 does not need (gc_rt.h's gc_rt_cold).
     const std::uint32_t cold_addr = mem2_take(sizeof(gc_rt_cold));
     const std::uint32_t bt_addr = mem2_take(sizeof(gc_bt));
+    // A Triforce game's boards (gc_tri.h).
+    const std::uint32_t tri_addr = triforce_on ? mem2_take(sizeof(gc_tri)) : 0;
     // The GameCube adapter's state (gc_gcad.h), when the menu opened it.
     const std::uint32_t gcad_addr = extras.adapter_fd >= 0 ? mem2_take(sizeof(gc_gcad)) : 0;
     const std::uint32_t crash_addr = mem2_take(GC_CRASH_SCREEN_BYTES);  // the card, then the strip
@@ -3222,6 +3235,11 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // start-up, idle discovery is serviced by the heartbeat.
     ctx->bt = bt_addr;
     static_cast<gc_bt*>(staged(bt_addr))->map = controls;
+    // A Triforce game's boards: what they answer with, then the hooks below.
+    if (tri_addr != 0) {
+        gc_tri_identity(*static_cast<gc_tri*>(staged(tri_addr)), image.id.size() > 3 ? image.id[3] : 'E');
+        ctx->tri = tri_addr;
+    }
     // The GameCube adapter for Wii U: its driver runs from the game's
     // PADRead on the handle the menu opened (gc_gcad.h); its controllers
     // take their ports before the Wii Remotes.
@@ -3411,6 +3429,29 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             hook(low.audio_status, h.hook_audio_status);
             hook(low.audio_config, h.hook_cb_r5);
             hook(low.audio_stream, h.hook_audio_stream);
+        }
+        // A Triforce game: its arcade SDK's board functions to the blob
+        // (gc_tri.h). SITransfer runs the original for ports 2-4.
+        if (low.triforce && !triforce_on) {
+            logf("GameCube: Triforce game, but these arcade functions were not found, so its boards are not "
+                 "answered and it stops at its start: %s\n",
+                 triforce.missing.c_str());
+        } else if (triforce_on) {
+            const std::uint32_t table = blob_addr + h.tri_hooks;
+            for (unsigned i = 0; i < GC_TRI_HOOKS; ++i) {
+                const std::uint32_t fn = triforce.hooks[i];
+                const std::uint32_t entry = load32(table + 12 * i);
+                if (i == GC_TRI_SI_TRANSFER)
+                    replay_hook(fn, entry, load32(table + 12 * i + 4), load32(table + 12 * i + 8));
+                else
+                    hook(fn, entry);
+            }
+            logf("GameCube: Triforce boards answered by RiftWii (state 0x%08x): SITransfer 0x%08x, baseboard EXI "
+                 "0x%08x-0x%08x, media board write 0x%08x, inquiry 0x%08x, command 0x%08x; the controller in port 1 "
+                 "is the cabinet (Start, A coin, B item, X cancel, stick wheel, R accelerator, L brake)\n",
+                 tri_addr, triforce.hooks[GC_TRI_SI_TRANSFER], triforce.hooks[GC_TRI_EXI_CONNECT],
+                 triforce.hooks[GC_TRI_EXI_WRITE_LANCNT], triforce.hooks[GC_TRI_DI_WRITE],
+                 triforce.hooks[GC_TRI_DI_INQUIRY], triforce.hooks[GC_TRI_DI_EXECUTE]);
         }
         const unsigned di_patches = redirect_di_registers(code, di_regs);
         unsigned wii_mixed = 0;

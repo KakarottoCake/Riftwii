@@ -13,6 +13,7 @@
 #include "gc_load.h"
 #include "gc_disc.h"
 #include "gc_programs.h"
+#include "gc_tri.h"
 #ifdef RT_RVZ
 #include "gc_rvz.h"
 #endif
@@ -822,6 +823,10 @@ static uint32_t gc_read_begin(struct gc_rt_context* ctx, uint32_t addr, uint32_t
 }
 
 uint32_t gc_on_read(struct gc_rt_context* ctx, uint32_t addr, uint32_t length, uint32_t offset, uint32_t cb) {
+    /* A Triforce game reads its media board's status and mailboxes
+     * through the same command as its data (gc_tri.h). */
+    if (ctx->tri != 0 && gc_tri_is_board(offset))
+        return gc_tri_on_read(ctx, (struct gc_tri*)(uintptr_t)ctx->tri, addr, length, offset, cb);
     return gc_read_begin(ctx, addr, length, offset, cb, 0);
 }
 
@@ -1017,6 +1022,12 @@ uint32_t gc_on_done(struct gc_rt_context* ctx, uint32_t cb) {
     gc_set_imm(ctx, 0);  /* RequestError: no error */
     gc_complete(ctx, cb, GC_DI_TC);
     return 1;
+}
+
+void gc_di_finish(struct gc_rt_context* ctx, uint32_t cb, int with_imm, uint32_t imm) {
+    gc_command_seen(ctx, 1);
+    if (with_imm) gc_set_imm(ctx, imm);
+    gc_complete(ctx, cb, GC_DI_TC);
 }
 
 /* A frame buffer register's address: bits 0-23, shifted by 5 when bit 28

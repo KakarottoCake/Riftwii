@@ -105,6 +105,9 @@ const char* const kCredits[] = {
     "",
     "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied.",
     "",
+    "naari3's Mario Kart Arcade GP2 decompilation and Dolphin's Triforce boards: how the arcade "
+    "boards answer the game, read as documentation; no code copied.",
+    "",
     "projectPiki's Pikmin 2 decompilation: GameCube SDK controller lifecycle behaviour, "
     "read as documentation; no code copied.",
     "",
