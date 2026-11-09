@@ -6,7 +6,9 @@
  * The game's EXI functions (the bus the card hangs on) are hooked: for
  * channel 0, device 0 the blob answers as a card would, from an image
  * of the whole card in MEM2; the other devices (the clock and SRAM on
- * channel 0, slot B, the serial port) still go to the hardware. What the
+ * channel 0, slot B, the serial port) still go to the hardware, except
+ * slot B with the real card in slot B used as slot A (real_slot_b),
+ * which the game is told is empty. What the
  * game programs or erases goes back to the card file once the card has
  * been quiet for a moment, from the heartbeat.
  *

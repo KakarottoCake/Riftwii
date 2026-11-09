@@ -1886,18 +1886,21 @@ void gc_on_ai_dma(struct gc_rt_context* ctx, uint32_t start, uint32_t length) {
     const uint32_t addr = 0x80000000u | (start & 0x01FFFFE0u);
     int16_t* out = (int16_t*)(uintptr_t)addr;
     const int mix_stream = st != 0 && st->playing && (cr & GC_AI_PSTAT) != 0 && length != 0;
-    /* A buffer handed over again right after itself was scaled already. */
-    const int boost = ctx->volume_gain > GC_VOLUME_UNITY && length != 0 && start != ctx->volume_last;
+    const int boost_on = ctx->volume_gain > GC_VOLUME_UNITY && length != 0;
+    int boost = 0;
     if ((++ctx->ai_dmas & 1023) == 0) gc_trace(ctx, GC_TRACE_AI);
-    if (!mix_stream && !boost) return;
+    if (!mix_stream && !boost_on) return;
     /* The DSP wrote the buffer behind the cache: read what it wrote. */
     gc_invalidate(addr, length);
+    /* A buffer handed over again unchanged was scaled already
+     * (gc_volume_print): its fingerprint is the one kept after the last. */
+    if (boost_on) boost = gc_volume_print(out, length / 2) != ctx->volume_last;
     if (mix_stream) gc_stream_mix(ctx, st, out, length / 4, cr);
     if (boost) {
         gc_volume_scale(out, length / 2, ctx->volume_gain);
-        ctx->volume_last = start;
         ctx->volume_buffers++;
     }
+    if (boost_on) ctx->volume_last = gc_volume_print(out, length / 2);
     gc_flush(addr, length);
 }
 

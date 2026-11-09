@@ -44,4 +44,22 @@ static inline void gc_volume_scale(int16_t* samples, uint32_t count, uint32_t ga
     }
 }
 
+/* A fingerprint of a buffer: its length and sixteen samples spread
+ * across it, mixed. The hook keeps the one of the buffer it last scaled;
+ * a buffer handed over again unchanged (a mixer that fell behind replays
+ * its last) has that same fingerprint and is not made louder twice. The
+ * address alone can't tell: a game may mix into one buffer every frame.
+ * A silent buffer matches another silent one, which is harmless. */
+static inline uint32_t gc_volume_print(const int16_t* samples, uint32_t count) {
+    const uint32_t stride = count / 16u;
+    uint32_t print = 0x811C9DC5u ^ count;
+    uint32_t i;
+    if (count == 0) return print;
+    for (i = 0; i < 16u; ++i) {
+        const uint32_t at = stride * i;  /* 0 for all sixteen in a buffer under 16 samples */
+        print = (print ^ (uint16_t)samples[at]) * 0x01000193u;
+    }
+    return print;
+}
+
 #endif

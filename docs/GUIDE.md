@@ -979,9 +979,8 @@ A game's own choice wins. Wii U has no memory card slots; the real
 choice is unavailable there.
 
 The GameCube **Saves** page offers the SD **Memory Card** tools and
-**Copy from a memory card in the Wii**. Choose **Slot A** or **Slot B** (an
-empty slot is marked so, and with a card in only one slot it is used
-without asking), then **This game's saves** (the game's own SD image, even when it currently
+**Copy from a memory card in the Wii**. Choose **Slot A** or **Slot B** (with
+a card in only one slot it is used without asking), then **This game's saves** (the game's own SD image, even when it currently
 uses a shared/real card) or **Every save** (the shared SD image for the
 physical card's encoding). RiftWii shows the matching count, how many will
 fit, duplicates left alone and unusable saves, plus the destination, before

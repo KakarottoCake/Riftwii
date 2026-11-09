@@ -71,9 +71,28 @@ void test_scale() {
 
 }  // namespace
 
+// A buffer handed over again unchanged has the fingerprint kept after the
+// last one; a fresh mix in the same buffer has another, so a game that
+// mixes into one buffer every frame is boosted every time.
+void test_print() {
+    std::vector<std::int16_t> buffer(1024);
+    for (std::size_t i = 0; i < buffer.size(); ++i) buffer[i] = static_cast<std::int16_t>(i * 37 - 9000);
+    const auto count = static_cast<std::uint32_t>(buffer.size());
+    gc_volume_scale(buffer.data(), count, GC_VOLUME_PLUS_3DB);
+    const std::uint32_t kept = gc_volume_print(buffer.data(), count);
+    EXPECT_EQ(gc_volume_print(buffer.data(), count), kept);  // replayed: the same
+    for (std::size_t i = 0; i < buffer.size(); ++i) buffer[i] = static_cast<std::int16_t>(i * 53 - 7000);
+    EXPECT_TRUE(gc_volume_print(buffer.data(), count) != kept);  // the next mix, same address
+    EXPECT_TRUE(gc_volume_print(buffer.data(), count / 2) != gc_volume_print(buffer.data(), count));
+    std::int16_t tiny[3] = {1, 2, 3};
+    gc_volume_print(tiny, 3);  // under sixteen samples: reads only the first, no overrun
+    gc_volume_print(tiny, 0);
+}
+
 int main() {
     test_gains();
     test_scale();
+    test_print();
     if (g_failures == 0) std::cout << "gcvolume tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }
