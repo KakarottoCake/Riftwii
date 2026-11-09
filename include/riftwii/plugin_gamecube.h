@@ -31,10 +31,13 @@ typedef struct rwp_gc_pack_entry {
 
 /* rwp_gc_launch's real_card. A: slot A is the physical card, with no
  * emulated card. B: the emulated card in slot A, and slot B's physical
- * card, which the loader never takes over, with its ID in SRAM. */
+ * card, which the loader never takes over, with its ID in SRAM. B_AS_A:
+ * slot B's physical card is the game's slot A (runtime/gc/gc_card.h's
+ * real_slot_b), its ID in SRAM's slot A, and slot B looks empty. */
 #define RWP_GC_REAL_CARD_NONE 0u
 #define RWP_GC_REAL_CARD_A 1u
 #define RWP_GC_REAL_CARD_B 2u
+#define RWP_GC_REAL_CARD_B_AS_A 3u
 
 #define RWP_GC_PIECE_IMAGE 0u
 #define RWP_GC_PIECE_DEVICE 1u
@@ -72,6 +75,7 @@ typedef struct rwp_gc_launch {
     uint32_t vi_width;     /* the picture width (riftwii/gcvideo.hpp); 0 the game's own */
     uint32_t screen_offset_set; /* the game is told screen_offset as the console's screen position */
     int32_t screen_offset;      /* the Wii's screen position (-32 to 32), as the SRAM's byte 0x10 */
+    uint32_t volume_boost_db;   /* 0, 3 or 6: the game's sound made that much louder (runtime/gc/gc_volume.h) */
     /* An image on the USB drive (path "usb:/..."): d2x's /dev/usb2, open
      * under the d2x cIOS the launch reloaded into (-1: the image is on
      * the SD card), and the image file's pieces in the drive's 512-byte

@@ -404,7 +404,7 @@ static void test_saves() {
     EXPECT_EQ(prefs.game.gc_card, std::string("global"));
     // The real card in slot B, and an explicit "own", survive a save;
     // "global" (the default) is written as nothing.
-    for (const char* card : {"real_b", "own", "real", "nintendont"}) {
+    for (const char* card : {"real_b", "own", "real", "nintendont", "real_b_as_a"}) {
         model.game.gc_card = card;
         prefs.restore(model.save());
         EXPECT_EQ(prefs.game.gc_card, std::string(card));
@@ -418,6 +418,10 @@ static void test_saves() {
     EXPECT_EQ(riftwii::gc_card_effective(card_game, "real_b"), std::string("real_b"));
     EXPECT_EQ(riftwii::gc_card_effective(card_game, "shared"), std::string("shared"));
     EXPECT_EQ(riftwii::gc_card_effective(card_game, "dolphin"), std::string("own"));
+    // The slot B card as slot A is a game's own choice only, never Settings'.
+    EXPECT_EQ(riftwii::gc_card_effective(card_game, "real_b_as_a"), std::string("own"));
+    card_game.gc_card = "real_b_as_a";
+    EXPECT_EQ(riftwii::gc_card_effective(card_game, "shared"), std::string("real_b_as_a"));
     card_game.gc_card = "own";
     EXPECT_EQ(riftwii::gc_card_effective(card_game, "real"), std::string("own"));
     // Fast is the default; one saved as fast before stays fast.
@@ -496,6 +500,23 @@ static void test_saves() {
         back.restore("*riftwii*\tgcspeed\t100\n");
         EXPECT_EQ(back.game.gc_speed, std::string("50"));
         EXPECT_FALSE(riftwii::gc_sixty_hz_on(back.game, "GLMP01"));
+
+        // Volume boost: off writes nothing, +3 and +6 dB round-trip, and
+        // any other value read back is off.
+        EXPECT_TRUE(gc.save().find("gcvolume") == std::string::npos);
+        EXPECT_EQ(riftwii::gc_volume_boost_db(gc.game), 0u);
+        for (const char* boost : {"3", "6"}) {
+            gc.game.gc_volume = boost;
+            back.restore(gc.save());
+            EXPECT_EQ(back.game.gc_volume, std::string(boost));
+        }
+        EXPECT_EQ(riftwii::gc_volume_boost_db(back.game), 6u);
+        back.game.gc_volume = "3";
+        EXPECT_EQ(riftwii::gc_volume_boost_db(back.game), 3u);
+        back.restore("*riftwii*\tgcvolume\t12\n");
+        EXPECT_EQ(back.game.gc_volume, std::string("off"));
+        EXPECT_EQ(riftwii::gc_volume_boost_db(back.game), 0u);
+        gc.game.gc_volume = "off";
         {
             riftwii::GameSettings w;
             riftwii::GcConsoleSettings settings;

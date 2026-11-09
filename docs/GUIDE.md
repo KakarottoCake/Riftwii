@@ -933,10 +933,11 @@ played, Favourites), can hide them as they hide any game.
 A GameCube game's page has its own options in place of a Wii game's
 picture and online settings: **Memory card** (*Default*, which follows **Settings > Games > GameCube
 memory card**, *This game's own*, *Shared* or, on an original Wii, *Real
-card in slot A* or *Real card in slot B*), **Picture lines** (*On (480p)*, *240p* for a CRT TV, as
+card in slot A*, *Real card in slot B* or *Real card in slot B, as slot A*), **Picture lines** (*On (480p)*, *240p* for a CRT TV, as
 Settings > Picture > Video mode describes, or *Off*; European GameCube games never get 480p or
 240p), **Sharper
-picture**, **Widescreen**, **Picture width**, **Game language** and, for European
+picture**, **Widescreen**, **Picture width**, **Volume boost** (all of a quiet game's sound
++3 or +6 dB louder), **Game language** and, for European
 games, **Game speed** (60 Hz instead of 50). **Widescreen** *16:9* draws
 the game's 3D world wider for a widescreen TV; its menus and text stay
 4:3 and are stretched. Pick it only with the TV set to fill a 16:9
@@ -946,6 +947,11 @@ is *16:9*. Super Mario Sunshine and its mods don't offer it yet. GameCube games 
 the Wii's own **Screen Position** (Wii Settings > Screen), as Wii games
 do, when RiftWii finds where the game reads its position (the log says
 so); otherwise the game keeps its own.
+
+With **Picture lines** on *On (480p)*, games start in 480p without asking "Turn on
+progressive scan?". Games from 2001 such as Luigi's Mansion would ask
+every time, so RiftWii tells them the console's 480p setting is off and
+switches their picture to 480p itself.
 
 **Memory cards** are files on the SD card, in `sd:/riftwii/gc/cards/`:
 one for each game (`GMSE01.raw`), or with **Memory card** set to
@@ -963,8 +969,13 @@ on the SD card and RiftWii does not automatically back them up. If slot A
 has no readable card, the card is damaged, or its Japanese/Western text
 encoding differs from the game, RiftWii offers **Use this game's SD card**
 or **Cancel**. Accepting uses *This game's own* for this launch; the saved
-real-card choice stays. A card in slot B alone
-cannot serve as the game's slot A.
+real-card choice stays.
+
+**Real card in slot B, as slot A** is for a game that only looks in slot A:
+the physical card in slot B becomes the game's slot A (its saves go to that
+card, not the SD card), and slot B looks empty to the game. RiftWii passes
+the game's card commands to slot B as they are; check it with a card whose
+saves you have copied first.
 
 **Real card in slot B** keeps the game's own card from the SD card in slot
 A and lets the game use the physical card in slot B as well, as a
@@ -981,8 +992,8 @@ A game's own choice wins. Wii U has no memory card slots; the real
 choice is unavailable there.
 
 The GameCube **Saves** page offers the SD **Memory Card** tools and
-**Copy from a memory card in the Wii**. Choose **Slot A** or **Slot B**,
-then **This game's saves** (the game's own SD image, even when it currently
+**Copy from a memory card in the Wii**. Choose **Slot A** or **Slot B** (with
+a card in only one slot it is used without asking), then **This game's saves** (the game's own SD image, even when it currently
 uses a shared/real card) or **Every save** (the shared SD image for the
 physical card's encoding). RiftWii shows the matching count, how many will
 fit, duplicates left alone and unusable saves, plus the destination, before

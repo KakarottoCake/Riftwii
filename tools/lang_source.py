@@ -6268,9 +6268,6 @@ FR.update({
     "Reading the memory card": "Lecture de la carte mémoire",
     "Keep the card in its slot. Nothing is written to it.": "Laissez la carte dans son port. Rien n'y est écrit.",
 })
-T['Slot A has no readable memory card. A card in slot B cannot be used as slot A.'] = ('La ranura A no tiene una tarjeta legible. Una tarjeta en la ranura B no puede usarse como A.', 'スロットAに読み込めるメモリーカードがありません。スロットBのカードはAとして使えません。', 'O slot A não tem cartão legível. Um cartão no slot B não pode ser usado como slot A.', 'Lo slot A non contiene una scheda leggibile. Una scheda nello slot B non può essere usata come slot A.')
-KO['Slot A has no readable memory card. A card in slot B cannot be used as slot A.'] = '슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B의 카드는 슬롯 A로 사용할 수 없습니다.'
-FR['Slot A has no readable memory card. A card in slot B cannot be used as slot A.'] = 'Le port A ne contient aucune carte lisible. Une carte du port B ne peut pas servir de port A.'
 
 T['The real card could not be prepared. Check the card and try again.'] = ('No se pudo preparar la tarjeta real. Comprueba la tarjeta e inténtalo de nuevo.', '実物のカードを準備できませんでした。カードを確認してもう一度お試しください。', 'Não foi possível preparar o cartão real. Verifique o cartão e tente novamente.', 'Impossibile preparare la scheda reale. Controlla la scheda e riprova.')
 KO['The real card could not be prepared. Check the card and try again.'] = '실제 카드를 준비하지 못했습니다. 카드를 확인하고 다시 시도하세요.'
@@ -8812,6 +8809,70 @@ FR.update({
         "La carte mémoire de chaque jeu GameCube dont l'option Carte mémoire est sur Par défaut. Le choix propre d'un jeu l'emporte.",
     "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page.":
         "La carte mémoire du port B n'a pas pu être lue. Remettez-la, ou choisissez une autre carte sur la page du jeu.",
+})
+
+# GameCube games' Volume boost (runtime/gc/gc_volume.h).
+T.update({
+    'Volume boost': ('Aumento de volumen', '音量アップ', 'Aumento de volume', 'Aumento del volume'),
+    'Louder (+3 dB)': ('Más alto (+3 dB)', '大きく (+3 dB)', 'Mais alto (+3 dB)', 'Più forte (+3 dB)'),
+    'Loudest (+6 dB)': ('Aún más alto (+6 dB)', 'もっと大きく (+6 dB)', 'Ainda mais alto (+6 dB)', 'Ancora più forte (+6 dB)'),
+    "Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten.": (
+        'Sube todo el sonido de un juego silencioso. A +6 dB los sonidos más fuertes pueden aplanarse.',
+        '音が小さいゲームの音をすべて大きくします。+6 dBでは、いちばん大きな音がつぶれることがあります。',
+        'Aumenta todo o som de um jogo baixo. Em +6 dB os sons mais altos podem ficar achatados.',
+        'Alza tutto il suono di un gioco silenzioso. A +6 dB i suoni più forti possono appiattirsi.'),
+})
+KO.update({
+    'Volume boost': '볼륨 키우기',
+    'Louder (+3 dB)': '크게 (+3 dB)',
+    'Loudest (+6 dB)': '더 크게 (+6 dB)',
+    "Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten.":
+        '소리가 작은 게임의 모든 소리를 키웁니다. +6 dB에서는 가장 큰 소리가 뭉개질 수 있습니다.',
+})
+FR.update({
+    'Volume boost': 'Volume renforcé',
+    'Louder (+3 dB)': 'Plus fort (+3 dB)',
+    'Loudest (+6 dB)': 'Encore plus fort (+6 dB)',
+    "Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten.":
+        "Rend plus fort tout le son d'un jeu trop discret. À +6 dB, les sons les plus forts peuvent être écrêtés.",
+})
+
+# GameCube memory card: the real card in slot B as the game's slot A.
+T.update({
+    'Real card in slot B, as slot A': ('Tarjeta real de la ranura B, como ranura A', 'スロットBの実物カードをスロットAとして', 'Cartão real do slot B, como slot A', 'Scheda reale dello slot B, come slot A'),
+    'This game uses the real card in slot B as its slot A. Its saves are not on the SD card.': (
+        'Este juego usa la tarjeta real de la ranura B como su ranura A. Sus partidas no están en la tarjeta SD.',
+        'このゲームはスロットBの実物カードをスロットAとして使います。セーブはSDカードにはありません。',
+        'Este jogo usa o cartão real do slot B como seu slot A. Os saves dele não ficam no cartão SD.',
+        'Questo gioco usa la scheda reale dello slot B come suo slot A. I salvataggi non sono sulla scheda SD.'),
+    'For a game that only looks in slot A: the real card in slot B is its slot A, and slot B looks empty to it (original Wii only).': (
+        'Para un juego que solo busca en la ranura A: la tarjeta real de la ranura B es su ranura A, y la ranura B le parece vacía (solo Wii original).',
+        'スロットAしか見ないゲーム用です。スロットBの実物カードがスロットAになり、スロットBは空に見えます (初代Wiiのみ)。',
+        'Para um jogo que só procura no slot A: o cartão real do slot B é o slot A dele, e o slot B parece vazio (só Wii original).',
+        'Per un gioco che guarda solo nello slot A: la scheda reale dello slot B diventa il suo slot A, e lo slot B sembra vuoto (solo Wii originale).'),
+    'Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A.': (
+        'La ranura A no tiene una tarjeta de memoria legible. Para una tarjeta en la ranura B, elige Tarjeta real de la ranura B, como ranura A.',
+        'スロットAに読めるメモリーカードがありません。スロットBのカードを使うには「スロットBの実物カードをスロットAとして」を選んでください。',
+        'O slot A não tem um cartão de memória legível. Para um cartão no slot B, escolha Cartão real do slot B, como slot A.',
+        'Lo slot A non ha una scheda di memoria leggibile. Per una scheda nello slot B, scegli Scheda reale dello slot B, come slot A.'),
+})
+KO.update({
+    'Real card in slot B, as slot A': '슬롯 B의 실제 카드를 슬롯 A로',
+    'This game uses the real card in slot B as its slot A. Its saves are not on the SD card.':
+        '이 게임은 슬롯 B의 실제 카드를 슬롯 A로 사용합니다. 세이브는 SD 카드에 없습니다.',
+    'For a game that only looks in slot A: the real card in slot B is its slot A, and slot B looks empty to it (original Wii only).':
+        '슬롯 A만 찾는 게임용: 슬롯 B의 실제 카드가 슬롯 A가 되고, 슬롯 B는 비어 보입니다 (초기형 Wii만).',
+    'Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A.':
+        '슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B의 카드를 쓰려면 "슬롯 B의 실제 카드를 슬롯 A로"를 고르세요.',
+})
+FR.update({
+    'Real card in slot B, as slot A': 'Carte réelle du port B, comme port A',
+    'This game uses the real card in slot B as its slot A. Its saves are not on the SD card.':
+        "Ce jeu utilise la carte réelle du port B comme son port A. Ses sauvegardes ne sont pas sur la carte SD.",
+    'For a game that only looks in slot A: the real card in slot B is its slot A, and slot B looks empty to it (original Wii only).':
+        "Pour un jeu qui ne regarde que le port A : la carte réelle du port B devient son port A, et le port B lui paraît vide (Wii d'origine seulement).",
+    'Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A.':
+        "Le port A n'a pas de carte mémoire lisible. Pour une carte dans le port B, choisissez Carte réelle du port B, comme port A.",
 })
 
 # 240p output (#511): Video mode's 240p and the GameCube game page's Picture lines.
