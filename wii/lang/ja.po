@@ -2889,9 +2889,6 @@ msgstr "メモリーカードを読み込み中"
 msgid "Keep the card in its slot. Nothing is written to it."
 msgstr "カードをスロットに入れたままにしてください。何も書き込みません。"
 
-msgid "Slot A has no readable memory card. A card in slot B cannot be used as slot A."
-msgstr "スロットAに読み込めるメモリーカードがありません。スロットBのカードはAとして使えません。"
-
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "実物のカードを準備できませんでした。カードを確認してもう一度お試しください。"
 
@@ -4211,6 +4208,30 @@ msgstr "メモリーカードの設定が「標準」のゲームキューブの
 
 msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
 msgstr "スロットBのメモリーカードを読めませんでした。差し直すか、ゲームのページで別のカードを選んでください。"
+
+msgid "Volume boost"
+msgstr "音量アップ"
+
+msgid "Louder (+3 dB)"
+msgstr "大きく (+3 dB)"
+
+msgid "Loudest (+6 dB)"
+msgstr "もっと大きく (+6 dB)"
+
+msgid "Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten."
+msgstr "音が小さいゲームの音をすべて大きくします。+6 dBでは、いちばん大きな音がつぶれることがあります。"
+
+msgid "Real card in slot B, as slot A"
+msgstr "スロットBの実物カードをスロットAとして"
+
+msgid "This game uses the real card in slot B as its slot A. Its saves are not on the SD card."
+msgstr "このゲームはスロットBの実物カードをスロットAとして使います。セーブはSDカードにはありません。"
+
+msgid "For a game that only looks in slot A: the real card in slot B is its slot A, and slot B looks empty to it (original Wii only)."
+msgstr "スロットAしか見ないゲーム用です。スロットBの実物カードがスロットAになり、スロットBは空に見えます (初代Wiiのみ)。"
+
+msgid "Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A."
+msgstr "スロットAに読めるメモリーカードがありません。スロットBのカードを使うには「スロットBの実物カードをスロットAとして」を選んでください。"
 
 msgid "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture."
 msgstr "240pはブラウン管テレビとドット絵向けです。ゲームの480ラインの画面を1ラインおきに、ちらつきのないプログレッシブで出力します。ラインの少ないゲームは元の画面のままです。"

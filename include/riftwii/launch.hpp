@@ -138,7 +138,8 @@ struct GameSettings {
     // one card for all the games of its encoding (gc_card_path).
     // global (Settings' GameCube memory card), own, shared, real (the real
     // card in slot A), real_b (this game's own card in slot A and the real
-    // card in slot B), nintendont, dolphin.
+    // card in slot B), real_b_as_a (the real card in slot B as the game's
+    // slot A, for a game that only looks there), nintendont, dolphin.
     std::string gc_card = "global";
     // A GameCube game's picture and language (gcnative.cpp does each).
     // "global", the default, follows Settings and the Wii's own settings
@@ -163,6 +164,10 @@ struct GameSettings {
     // takes 60 Hz, so a game with a 60 Hz mode of its own plays in it;
     // "50" is the game as made.
     std::string gc_speed = "50";
+    // Volume boost, for a quiet game: "3" or "6" makes all its sound
+    // that many decibels louder (runtime/gc/gc_volume.h); "off" is the
+    // game as made.
+    std::string gc_volume = "off";
 };
 
 // The GameCube's languages in the order of their number in its settings
@@ -222,6 +227,9 @@ bool gc_line240_on(const GameSettings& game, const std::string& id, const GcCons
 
 // Whether a European game (gc_pal_game) is told the TV takes 60 Hz.
 bool gc_sixty_hz_on(const GameSettings& game, const std::string& id);
+
+// The game's Volume boost in decibels: 0 (off), 3 or 6.
+unsigned gc_volume_boost_db(const GameSettings& game);
 
 // The picture width the game gets, as a riftwii/videopatch.hpp name:
 // the game's pick, or Settings' for "global" ("game" for anything else).

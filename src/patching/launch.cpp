@@ -131,6 +131,12 @@ bool gc_sixty_hz_on(const GameSettings& game, const std::string& id) {
     return gc_pal_game(id) && game.gc_speed == "60";
 }
 
+unsigned gc_volume_boost_db(const GameSettings& game) {
+    if (game.gc_volume == "3") return 3;
+    if (game.gc_volume == "6") return 6;
+    return 0;
+}
+
 std::string gc_picture_width(const GameSettings& game, const GcConsoleSettings& console) {
     const std::string& chosen = game.gc_width == "global" ? console.video_width : game.gc_width;
     for (const char* name : {"framebuffer", "704", "720"})
@@ -480,6 +486,7 @@ std::string LaunchModel::save() const {
     if (game.gc_sharp == "on") text += "*riftwii*\tgcsharp\ton\n";
     if (game.gc_width != "global") text += "*riftwii*\tgcwidth\t" + clean(game.gc_width) + "\n";
     if (game.gc_speed == "60") text += "*riftwii*\tgcspeed\t60\n";
+    if (game.gc_volume == "3" || game.gc_volume == "6") text += "*riftwii*\tgcvolume\t" + game.gc_volume + "\n";
     for (const LaunchPackage& p : packages) {
         // Only this game's packs: the file is per game ID, and another
         // game's pack could not be turned on here anyway.
@@ -573,6 +580,7 @@ void LaunchModel::restore(const std::string& text) {
                 game.gc_disc_reads = value == "drive" ? "drive" : "fast";
             } else if (key == "gccard") {
                 game.gc_card = value == "own" || value == "shared" || value == "real" || value == "real_b" ||
+                                       value == "real_b_as_a" ||
                                        value == "nintendont" || value == "dolphin"
                                    ? value
                                    : "global";
@@ -589,6 +597,8 @@ void LaunchModel::restore(const std::string& text) {
                 game.gc_width = known ? value : "global";
             } else if (key == "gcspeed") {
                 game.gc_speed = value == "60" ? "60" : "50";
+            } else if (key == "gcvolume") {
+                game.gc_volume = value == "3" || value == "6" ? value : "off";
             }
             continue;
         }

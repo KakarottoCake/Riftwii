@@ -1135,6 +1135,7 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         image.shared_card = card == "shared";
         image.real_card = card == "real";
         image.real_card_b = card == "real_b";
+        image.real_card_b_as_a = card == "real_b_as_a";
         if (card == "nintendont" || card == "dolphin") {
             image.external_card_path = ExternalCardPath(image.id, card);
             if (image.external_card_path.empty()) {
@@ -1146,6 +1147,7 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         if (extras.game_id == image.id && extras.gc_card_fallback) {
             image.real_card = false;
             image.real_card_b = false;
+            image.real_card_b_as_a = false;
             image.shared_card = false;
         }
         // "global" follows Settings and the Wii's own settings, as a Wii
@@ -1159,6 +1161,7 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         image.sharp = game.gc_sharp == "on";
         image.sixty_hz = gc_sixty_hz_on(game, image.id);
         image.vi_width = gc_vi_width(gc_picture_width(game, console));
+        image.volume_boost_db = gc_volume_boost_db(game);
         // The Wii's screen position (Wii Settings > Screen > Screen
         // Position), as a Wii game gets it. A GameCube game reads its own
         // from the SRAM, which nothing on a Wii sets.
