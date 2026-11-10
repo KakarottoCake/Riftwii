@@ -853,8 +853,31 @@ static void test_cheat_sources() {
     EXPECT_TRUE(restored.game.cheat_names.count("USB only"));
 }
 
+static void test_exclusive_pack_reenabled() {
+    const riftwii::DiscIdentity disc{"RMCE01", 0, 0};
+    riftwii::LaunchModel model;
+    model.add("ctgp.xml", "sd:/riivolution/ctgp.xml", kModSimple, &disc);
+    model.add("other.xml", "sd:/riivolution/other.xml", kModA, &disc);
+    EXPECT_TRUE(model.set_enabled(0, true));
+    EXPECT_TRUE(model.cycle(0, 0, 1));  // CTGP option off
+    EXPECT_EQ(model.packages[0].package.options[0].selected, std::size_t(0));
+    EXPECT_TRUE(model.set_enabled(1, true));
+    model.game.cheats = true;
+    EXPECT_TRUE(model.cycle(0, 0, 1));  // CTGP option on again
+    EXPECT_TRUE(model.keep_only_package(0));
+    EXPECT_TRUE(model.packages[0].enabled);
+    EXPECT_FALSE(model.packages[1].enabled);
+    EXPECT_FALSE(model.game.cheats);
+    EXPECT_FALSE(model.keep_only_package(0));  // no further changes
+    EXPECT_TRUE(model.set_enabled(0, false));
+    EXPECT_TRUE(model.set_enabled(1, true));
+    EXPECT_FALSE(model.keep_only_package(0));
+    EXPECT_TRUE(model.packages[1].enabled);
+}
+
 int main() {
     test_cheat_sources();
+    test_exclusive_pack_reenabled();
     test_riivolution_config();
     test_model();
     test_simple_package_activation();

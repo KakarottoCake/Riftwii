@@ -40,6 +40,18 @@ bool sd_volume_end_bytes(std::uint64_t& out, std::string& error) {
     return true;
 }
 
+bool read_sd_boot_sector(std::uint64_t& volume_lba, std::vector<std::uint8_t>& sector, std::string& error) {
+    if (!ensure_mounted(error)) return false;
+    volume_lba = g_volume.geometry().volume_lba;
+    alignas(32) std::uint8_t block[512];
+    if (!read_blocks(volume_lba, 1, block)) {
+        error = "cannot read the SD card's boot sector";
+        return false;
+    }
+    sector.assign(block, block + 512);
+    return true;
+}
+
 bool resolve_sd_directory(const std::string& sd_path, rtfat_volume& out, std::string& error) {
     if (sd_path.compare(0, 4, "sd:/") != 0) {
         error = "'" + sd_path + "' is not an sd:/ folder path";

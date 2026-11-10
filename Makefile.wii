@@ -32,7 +32,7 @@ BUILD		:=	build_wii
 # wii/ and src/ are sorted into subfolders by area (docs/MAP.md); the build
 # still puts every object in one folder, so base names stay unique.
 WII_DIRS	:=	wii wii/core wii/menu wii/launch wii/hooks wii/controllers wii/storage wii/online
-SRC_DIRS	:=	src/fs src/disc src/patching src/net src/art src/data
+SRC_DIRS	:=	src/fs src/disc src/patching src/net src/art src/data src/ctgpr
 SOURCES		:=	$(WII_DIRS) $(SRC_DIRS) runtime vendor-pugixml/src vendor-zstd \
 				vendor-libgui/source/libwiigui \
 				vendor-libgui/source vendor-wwfc channel/common

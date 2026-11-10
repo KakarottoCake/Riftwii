@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstddef>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -91,5 +92,15 @@ inline bool is_menu_font_file(const std::string& path) {
 
 bool plan_update_writes(const ThemePack& apps, const std::string& release, const std::string& plugin_dir,
                         const std::string& dol_path, std::vector<UpdateWrite>& out, std::string& error);
+
+// The boot.dol this run came from, as the loader's first argument names it
+// (`launch_path`, null or empty when it passed none). The Homebrew Channel
+// gives "sd:/apps/riftwii/boot.dol" (older loaders "/apps/riftwii/boot.dol");
+// `is_file` says whether a path is a file on the card. Empty when RiftWii was
+// started from another device (usb:/...), since nothing on the card is then
+// the running DOL: the update has nothing to replace, and a CTGP-R launch has
+// no card path to come back to. Only a start with no usable launch path at all
+// falls back to sd:/apps/riftwii/boot.dol, when that file exists.
+std::string running_dol_path(const char* launch_path, const std::function<bool(const std::string&)>& is_file);
 
 }  // namespace riftwii

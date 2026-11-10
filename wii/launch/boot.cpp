@@ -59,6 +59,7 @@
 #include "umsdev.hpp"
 #include "usbcatalog.hpp"
 #include "wfc.hpp"
+#include "riftwii/ctgpfiles.hpp"
 #include "codehandleronly_bin.h"
 #include "codehandler_bin.h"
 #include "codehandlerslota_bin.h"
@@ -1222,6 +1223,45 @@ void move_bi2_arguments_below(std::uint32_t arena_end) {
 }
 
 // Why a game gets none of the blobs below its MEM1 arena's top, or nullptr.
+// The last of the CTGP-R launch, after libogc's shutdown and the system call
+// vector (ctgplaunch.hpp, ctgpmmu.hpp), with interrupts off until the game
+// turns them on:
+//   - CTGP's flags at 0x80000CC0-0CF0 sit in the system call slot past the
+//     28-byte handler just written: libogc's own handler is cleared from
+//     there (the other slots were cleared with the image).
+//   - The locked cache: the game's start-up turns HID2[LCE] on and copies
+//     into 0xE0000000, but no BAT maps it here (a crash-time readout showed
+//     DBAT2 free): 128 KB at 0xE0000000, identity, cached.
+//   - The channel's memory map: the page table was placed with the image;
+//     the segment registers, SDR1, DBAT7 (the start-up map of low memory the
+//     core swaps out) and DBAT0 (the 4 MB the channel keeps at 0x80C00000).
+//     DBAT7 first: it maps MEM1 while DBAT0 shrinks, so this code and its
+//     stack stay mapped.
+void start_ctgp_memory_map(const CtgpLaunchPlan& plan) {
+    std::memset(reinterpret_cast<void*>(0x80000C1C), 0, 0x100 - 0x1C);
+    DCFlushRange(reinterpret_cast<void*>(0x80000C00), 0x100);
+    ICInvalidateRange(reinterpret_cast<void*>(0x80000C00), 0x100);
+    std::uint32_t level;
+    _CPU_ISR_Disable(level);
+    (void)level;
+    mtspr(DBAT2U, 0xE0000003);
+    mtspr(DBAT2L, 0xE0000002);
+    __asm__ volatile("isync");
+    if (!plan.mmu) return;
+    const CtgpMmu& m = plan.mmu_regs;
+    mtspr(DBAT7U, m.dbat7u);
+    mtspr(DBAT7L, m.dbat7l);
+    __asm__ volatile("isync");
+    mtspr(DBAT0U, m.dbat0u);
+    mtspr(DBAT0L, m.dbat0l);
+    __asm__ volatile("isync");
+    for (std::uint32_t i = 0; i < 16; ++i) __asm__ volatile("mtsrin %0,%1" : : "r"(m.sr[i]), "r"(i << 28));
+    __asm__ volatile("sync");
+    mtspr(SDR1, m.sdr1);
+    for (std::uint32_t ea = 0; ea < 0x40000; ea += 0x1000) __asm__ volatile("tlbie %0" : : "r"(ea));
+    __asm__ volatile("sync; isync");
+}
+
 const char* whole_mem1_reason(bool code_build, bool clears_mem1_top) {
     if (code_build) return "a code build uses all of the game's memory";
     if (clears_mem1_top) return "the game clears the memory they would use";
@@ -2010,9 +2050,14 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // offset may change below.
     PartitionDataHeader header = layout.data_header;
     bool header_changed = false;
-    const bool relocates = !options.virtual_files.empty() || !options.relocations.empty();
+    // CTGP-R's packages add and replace files in the game's table: their
+    // offsets are the virtual handles of CTGP's open-file records, which its
+    // own code in the game serves (no runtime).
+    const bool ctgp_files = options.ctgpr && !options.ctgpr->files.empty();
+    const bool runtime_relocates = !options.virtual_files.empty() || !options.relocations.empty();
+    const bool relocates = runtime_relocates || ctgp_files;
     if (relocates) {
-        if (!options.install_resident) {
+        if (runtime_relocates && !options.install_resident) {
             error = "relocated files need the resident runtime";
             return false;
         }
@@ -2034,6 +2079,12 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             std::vector<std::uint32_t> indices;
             if (!fst.create_files(new_files, indices, error)) return false;
         }
+        if (ctgp_files) {
+            const std::uint32_t before = fst.count();
+            if (!ctgp_merge_files(fst, options.ctgpr->files, error)) return false;
+            logf("CTGP-R: %u package files in the game's table (%u -> %u entries)\n",
+                 static_cast<unsigned>(options.ctgpr->files.size()), before, fst.count());
+        }
         for (const FstRelocation& r : options.relocations) {
             if (!r.create) {
                 std::uint32_t index = fst.find(r.disc_path, false);
@@ -2054,7 +2105,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         LoadOverride fst_override;
         fst_override.offset = layout.data_header.fst_offset;
         fst_override.what = "FST";
-        if (created == 0) {
+        if (created == 0 && !ctgp_files) {
             fst_override.bytes = layout.fst_bytes;
             if (!fst.patch_image(fst_override.bytes, error)) return false;
         } else {
@@ -2153,7 +2204,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         if (!encode_partition_data_fields(header, fields.bytes.data(), error)) return false;
         overrides.push_back(std::move(fields));
     }
-    if (relocates) {
+    if (runtime_relocates) {
         // Should the game read its FST or data header again, the runtime
         // serves the same bytes.
         for (std::size_t i = 0; i < overrides.size(); ++i) {
@@ -2757,7 +2808,13 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // An RVZ game whose adapter could not be planned (or later installed)
     // starts without it, as every other game does: plan_pad_hook writes
     // nothing before it fails, and its "GameCube adapter: off" line says why.
-    plan_game_extras(dol, extras_context, extras);
+    if (options.ctgpr) {
+        // CTGP-R's code sits at the top of MEM1 where these blobs would go,
+        // and it installs its own crash handler.
+        logf("CTGP-R: none of RiftWii's in-game extras (GameCube adapter, screenshots, crash recorder)\n");
+    } else {
+        plan_game_extras(dol, extras_context, extras);
+    }
     // Never left open for the game (it may keep this IOS).
     CloseAllNandPermissions("Launch");
     logf("Handing over\n");
@@ -2790,13 +2847,17 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     const std::uint32_t below_extras = vsd.active && !vsd.code_in_mem2 ? vsd.new_arena1_hi
                                        : options.install_resident      ? resident.new_arena1_hi
                                                                        : load32(0x80000038);
-    const std::uint32_t arena1_top = extras.arena1_hi(below_extras);
+    // CTGP-R: the game's MEM1 arena ends where CTGP's image starts.
+    const std::uint32_t arena1_top = options.ctgpr ? options.ctgpr->arena1_hi : extras.arena1_hi(below_extras);
     // Not into a game that checks its own code (MetaFortress): the patch
     // changes it, and The Smurfs: Dance Party stopped after its logos.
     const bool return_disabled = debug_off("returnto");
     const bool return_allowed = allow_game_patch(GamePatchKind::ReturnTo, "Return to RiftWii");
-    const u64 return_to = !return_allowed || plain_code_build || return_disabled ? 0 : return_title();
+    const u64 return_to = !return_allowed || plain_code_build || return_disabled || options.ctgpr ? 0 : return_title();
     if (plain_code_build) logf("Return to: off: a code build starts without RiftWii's extras\n");
+    // CTGP-R leaves through its own way back (its channel buttons start
+    // RiftWii again, ctgplaunch.hpp), so the game's code is not patched.
+    if (options.ctgpr) logf("Return to: off: CTGP-R comes back to RiftWii through its own channel button\n");
     const ReturnStubPlan return_plan = plan_return_stub(arena1_top, return_to != 0, code_build || clears_mem1_top);
     const std::uint32_t return_stub = return_plan.address;
     const std::uint32_t arena1_end = return_plan.arena1_hi;
@@ -2804,7 +2865,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         logf("Return to RiftWii: the stub uses low memory at 0x%08x because the game clears MEM1 above its arena.\n",
              return_stub);
     }
-    if (options.install_resident || vsd.active || extras.any() || return_stub != 0) store32(0x80000034, arena1_end);
+    if (options.install_resident || vsd.active || extras.any() || return_stub != 0 || options.ctgpr)
+        store32(0x80000034, arena1_end);
     store32(0x80003110, arena1_end);
     {
         // Test builds: less of MEM1 for the game (mem::TestGameSqueeze).
@@ -2955,7 +3017,9 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             ICInvalidateRange(reinterpret_cast<void*>(r.address), r.length);
         }
     };
-    {
+    if (options.ctgpr) {
+        logf("Game fixes: none: CTGP-R patches Mario Kart Wii itself\n");
+    } else {
         GxReport gx;
         const bool own_executable = !options.main_dol.empty();
         unsigned changed = gx_game_patches(probe.header.game_id, dol, loaded_spans, gx, own_executable);
@@ -2966,7 +3030,10 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         for (const std::string& note : gx.notes) logf("Game fixes: %s\n", note.c_str());
         if (changed) sync_loaded();
     }
-    apply_wpad_probe_test(loaded, loaded_spans, gx_protected, plain_code_build, extras.wlog);
+    if (!options.ctgpr)
+        apply_wpad_probe_test(loaded, loaded_spans, gx_protected, plain_code_build, extras.wlog);
+    else
+        logf("CTGP-R: RiftWii diagnostic hooks skipped (wpad_probe, debug_crash, debug_reset, debug_gecko)\n");
     if (game_keeps_picture_width(probe.header.game_id) &&
         (g_extras.video.width != VideoWidth::Game || g_extras.video.remove_borders)) {
         logf("Video: width and borders as the game has them: its picture breaks when they change\n");
@@ -3004,7 +3071,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         else
             codes_first = codes_run_first(debugger_handler, !late.empty());
     }
-    if (allow_game_patch(GamePatchKind::Fix480p, "480p fix")) {
+    if (!options.ctgpr && allow_game_patch(GamePatchKind::Fix480p, "480p fix")) {
         GxReport gx;
         if (debug_off("480p")) logf("Game fixes: debug_off: no 480p fix\n");
         else if (plain_code_build) logf("Game fixes: no 480p fix: a code build starts without RiftWii's extras\n");
@@ -3019,12 +3086,53 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         }
     }
     install_game_extras(extras);
-    apply_debug_crash(dol);
-    apply_debug_reset(dol, resident.restart_hooked ? hooked_os_restart : 0);
+    if (!options.ctgpr) {
+        apply_debug_crash(dol);
+        apply_debug_reset(dol, resident.restart_hooked ? hooked_os_restart : 0);
+    }
     // Last, in gamepatches.c's order: Wiimmfi's Mario Kart Wii patch goes
     // below everything else in the MEM1 arena. Packs bring their own online
     // setup (and may have replaced the code these patches expect).
-    if (g_extras.server != WfcServer::Off) {
+    if (options.ctgpr) {
+        // Online play stays off for CTGP-R: no server swap, whatever Settings > Online says; the
+        // plan stubs the game's network calls. CTGP-R's code goes in last of
+        // all, over everything else that went into the game.
+        logf("WFC: not patched: CTGP-R starts offline only\n");
+        const CtgpMemoryState state = [&] {
+            CtgpMemoryState st;
+            st.loader_end = reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi());
+            st.apploader_end = static_cast<std::uint32_t>(kApploaderLoadAddress + ((app_bytes + 31) & ~31ull));
+            st.fst_address = load32(0x80000038);
+            st.bi2_address = load32(0x800000F4);
+            st.loaded = loaded;
+            return st;
+        }();
+        if (!ctgp_check_layout(*options.ctgpr, state, error)) {
+            error = "CTGP-R: " + error;
+            return false;
+        }
+        struct CtgpMemory final : MemoryAccess {
+            bool read(std::uint32_t address, std::uint8_t* out, std::size_t length) override {
+                std::memcpy(out, reinterpret_cast<const void*>(address), length);
+                return true;
+            }
+            bool write(std::uint32_t address, const std::uint8_t* bytes, std::size_t length) override {
+                std::memcpy(reinterpret_cast<void*>(address), bytes, length);
+                const std::uint32_t start = address & ~31u;
+                const std::uint32_t end = (address + static_cast<std::uint32_t>(length) + 31) & ~31u;
+                DCFlushRange(reinterpret_cast<void*>(start), end - start);
+                ICInvalidateRange(reinterpret_cast<void*>(start), end - start);
+                return true;
+            }
+        } ctgp_memory;
+        if (!ctgp_place(*options.ctgpr, ctgp_memory, error)) {
+            error = "CTGP-R: " + error;
+            return false;
+        }
+        logf("CTGP-R: image placed at 0x%08x-0x%08x, %u game patches, arena top 0x%08x\n", kCtgpImageStart,
+             options.ctgpr->image_end, static_cast<unsigned>(options.ctgpr->game_ops.size()),
+             options.ctgpr->arena1_hi);
+    } else if (g_extras.server != WfcServer::Off) {
         const bool packs = !options.memory_patches.empty() || !options.virtual_files.empty() ||
                            file_replacements;
         if (!allow_game_patch(GamePatchKind::Wfc, "Online server")) {
@@ -3078,6 +3186,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     }
     place_vsd_hook(vsd);  // to the bottom of the MEM2 arena, as the runtime's data above
     dolboot_system_call_vector();  // what the system software leaves for a game (channel/common/dolboot.h)
+    if (options.ctgpr) start_ctgp_memory_map(*options.ctgpr);
     if (codes_first && !debug_off("prerun")) run_codes_before_game();
     if (!late.empty()) {
         // The start file's parts over this loader: the stub, its table and
@@ -3488,6 +3597,53 @@ void write_play_log(const DiscProbe& probe, const std::array<std::string, 10>& b
 
 bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) {
     DiscLightActivity discLight;
+    if (options.ctgpr) {
+        // The native CTGP-R launch takes nothing of RiftWii's into the game
+        // but CTGP-R itself: CTGP-R hooks the IPC functions the runtime
+        // would, serves its files and saves itself, and patches the game. No
+        // online server (online play stays off), no codes, no video or game
+        // preferences, no in-game extras, no Return to RiftWii.
+        options.install_resident = false;
+        options.resident_gecko = false;
+        options.replacements.clear();
+        options.virtual_files.clear();
+        options.sd_replacements.clear();
+        options.table_entries.clear();
+        options.relocations.clear();
+        options.memory_patches.clear();
+        options.main_dol.clear();
+        options.savegame_dir.clear();
+        options.savegame_clone = false;
+        options.savegame_clone_empty = false;
+        options.savegame_own = false;
+        options.file_device = false;
+        g_extras.server = WfcServer::Off;
+        g_extras.wfc_domain.clear();
+        g_extras.cheat_gct.clear();
+        g_extras.cheat_count = 0;
+        g_extras.code_builds.clear();
+        g_extras.code_build_in_image = false;
+        g_extras.code_list_start = 0;
+        g_extras.code_list_end = 0;
+        g_extras.pokes.clear();
+        g_extras.wiird_debugger = false;
+        g_extras.wiird_pause = false;
+        g_extras.gc_adapter = GcAdapterMode::Off;
+        g_extras.screenshots = false;
+        g_extras.screenshots_demo = false;
+        g_extras.video = VideoSettings{};
+        g_extras.region_video = false;
+        g_extras.aspect = -1;
+        g_extras.rumble_off = false;
+        g_extras.speaker_off = false;
+        g_extras.region_strings = false;
+        g_extras.language = -1;
+        g_extras.gc_rumble_off = false;
+        g_extras.return_to = 0;
+        g_extras.restart_args.clear();
+        g_vsd = VsdImage{};
+        logf("CTGP-R: offline only; RiftWii's own extras stay out of the game\n");
+    }
     // Use the probed ID even for headless/autorun callers that did not set
     // menu extras. Refuse a partial pack before any of its bytes are loaded.
     g_extras.game_id = probe.header.game_id;
@@ -3558,8 +3714,10 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
         }
     }
     // Judged under the running IOS: with the adapter on, the game keeps it
-    // (below).
-    settle_gc_adapter(running_ios, di::frag_device(), "the game", false);
+    // (below). Not for CTGP-R: a plugged-in USB pad would switch the adapter
+    // back on, keep the IOS for it and leave its handle open in a game that
+    // has no pad hook to use it.
+    if (!options.ctgpr) settle_gc_adapter(running_ios, di::frag_device(), "the game", false);
     // Games on IOS57 start under it even when the runtime needs the card:
     // Just Dance 2014 goes black under IOS58 (on a tester's Wii U, with a
     // save-only pack and with a files-only one) and runs under IOS57, which

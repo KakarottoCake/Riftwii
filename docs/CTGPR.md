@@ -1,10 +1,154 @@
 # CTGP-R 1.03 from RiftWii
 
-Status for 2.7.0 RC2: **experimental, untested on a Wii.** The Guide keeps
-telling players to start CTGP from the Homebrew Channel until a console run
-reaches an offline race.
+RiftWii has two ways to start CTGP-R 1.03's pack:
 
-## How RiftWii starts it
+* **The native launch, offline only** (below, "The native launch"):
+  RiftWii loads Mario Kart Wii and places CTGP-R's code in it itself,
+  with no channel app. Used when its files are set up on the card.
+* **The CTGP-R Channel as a Homebrew Channel app** (the rest of this
+  page): experimental, and it stops before CTGP's menus on testers'
+  consoles. Used when the native launch's files are not on the card.
+
+## The native launch (offline only)
+
+It keeps to these rules:
+
+* **No multiplayer.** The game's network calls are stubbed (they return
+  -76, as under the channel without network settings), LAN mode and UPnP
+  are never set whatever `sd:/ctgpr/config.ini` says, and Settings >
+  Online's server swap is skipped. Nothing in RiftWii turns online on
+  (`src/ctgpr/ctgpapply.cpp`, `ctgpfields.cpp`, `wii/launch/boot.cpp`).
+* **Anti-cheat intact.** No tamper branch is changed, and CTGP's scanner
+  thread runs. Each signed digest list (`CTGPR.HSH`, `CORE.HSH`) has its DSA
+  signature checked against CTGP-R's own public list-signing key before it is
+  trusted (`src/ctgpr/ctgpdsa.cpp`, `ctgphash.cpp`). Like the channel, DSA
+  takes only the first 20 raw header bytes; the package name and version are
+  outside those bytes. RiftWii therefore also binds the full body's digest to
+  a locally checked package/version reference, refusing an unknown reference
+  rather than trusting a relabelled list. This matters here because
+  the channel, which would otherwise verify the lists, never runs. Each list's
+  per-file SHA-1 is then written into the game's open-file records, where
+  CTGP's own code compares each signed file as it reads it. Apart from the
+  My Stuff exception below, every file needs a digest regardless of list flags;
+  duplicate game paths and conflicting digests for shared sources are refused.
+  Only MYSTUFF package records with flag 2 clear and a source below
+  `sda:/ctgpr/my stuff/` may be unsigned. That directory/device check ignores
+  ASCII letter case and refuses parent (`..`) components, backslashes and
+  other devices. Every other resolved file must have a signed digest.
+  The checked release's HASH directory has only CORE.HSH and CTGPR.HSH.
+  CORE signs the music/font FST lists (`debug/fsnm.bin`, `debug/fsfont*.bin`),
+  but neither list authenticates their replacement payloads. `no_music` and
+  non-default `font` therefore keep the defaults, with a reason in `boot.log`.
+  The directly loaded `deyazhashes.hsh` is checked against CTGPR.HSH's
+  `debug/smallfile.sml` digest. Core files are bound to their checked roles:
+  BOOT.BIN to `debug/bigfile1.big`, BOAT.BIN to `debug/bigfile7.big`, and
+  BEAT.BIN to `debug/bigfile6.big`. The pinned complete CORE body digest binds
+  that mapping to this release; substituting another signed core file fails.
+  Package lists are capped at eight lists, 8 MiB of input, 8,192 total files
+  and 2 MiB of copied paths; each list allows 8,192 tree entries, 4,096 files,
+  1,024 bytes per source/destination path and 1 MiB of copied paths. Checked
+  allocations refuse malformed lists through the existing files-damaged error.
+  The channel button's launch path points at RiftWii's `boot.dol`.
+* **Replacement ghost key.** The card's signing key (on `jelly.bin`) and the
+  console's MAC are not read. CTGP gets a key RiftWii made to prevent accepted
+  signatures (`include/riftwii/ctgpsign.hpp`). A fixed sample made offline
+  with that key's signing numbers fails RiftWii's DSA verifier under both the
+  supplied public value and CTGP's real list-signing public key. This tests
+  neither CTGP's in-game signer nor the ghost server's public key, and proves
+  no universal rejection claim. The decompile shows the signer takes its
+  key from the loader block; the in-game jelly mount is for content.
+  Ghost saving, replay and server rejection with the replacement key remain
+  unverified. Earlier console saves/replays used the card's own key.
+
+It starts CTGP-R only on the versions this launch is made for (PACKAGES.BIN
+core `0x01030412`, CTGPR `0x01031192` or `0x01031196`). The core governs the
+game addresses the launch uses, and the CTGPR track package governs the cup
+layouts, which are baked into this build for this CTGPR content; a different
+core or a different track package stops the launch with that on screen and in
+`boot.log`, before anything is placed. (A later step that works the cup layouts
+out from the player's own package disk will let the track-package version vary
+again.) The two accepted CTGPR numbers are the same content: CTGP republished
+PACKAGES.BIN with `0x01031196` without re-versioning `CTGPR.HSH`, whose body
+and own label (still `0x01031192`) are unchanged, and the core, tracks,
+`CTGP.CRS` and `.cup` files are identical on both. The build binds that one
+`CTGPR.HSH` body digest to both numbers (`ctgphash.cpp`), so a card whose
+PACKAGES.BIN lists either number verifies and the menu marks it supported.
+
+Native launches also refuse RVZ images: those need RiftWii's resident disc
+reader, whose hooks and page table have not been shown to coexist with
+CTGP-R's. Use a disc, ISO or WBFS. The earlier console results below cover
+disc and USB; they provide no evidence for RVZ.
+
+RiftWii's own extras stay out of the game: no runtime, codes, video or
+game preferences, game fixes, GameCube adapter, screenshots, crash
+recorder or Return to RiftWii (CTGP's channel button is pointed back at
+RiftWii instead, and CTGP has its own crash handler). *Not confirmed:* that the
+channel and Rankings buttons return to RiftWii; on a real Wii the channel
+button is a known black-screen bug, so leave CTGP with the power button or
+Reset.
+
+### Files the native launch needs
+
+Only CTGP-R's own files, as its installer leaves them on the card:
+
+| File | What it is |
+| --- | --- |
+| `sd:/ctgpr/blob.bin` | CTGP-R's package disk (an encrypted FAT image of its code and data) |
+| `sd:/ctgpr/jelly.bin` | CTGP-R's hash disk (its signed lists of file digests) |
+| `sd:/ctgpr/config.ini` | CTGP-R's own settings (optional) |
+
+The player needs no RiftWii files for it. CTGP-R's own constants are not
+secrets: its package-disk AES key and chunk IV and its jelly key words are
+four of its own PPC instruction words, and its row table (`CRT0`, the row
+count, three words a row for NTSC-U/NTSC-J/PAL, then 54 region words) is plain
+data. RiftWii carries them in its own build (`include/riftwii/ctgptables.hpp`,
+`src/ctgpr/ctgprowdata.cpp`, generated by `tools/ctgpr/gen_rowdata.py`). The
+course table and the two cup layouts are plain CTGP-R data too, baked into the
+build the same way (`src/ctgpr/ctgpapply.cpp`), so RiftWii carries none of those
+from a file either. (They used to be read from `CTGP.CRS` and the
+`alphabetic*.cup` files on `blob.bin`, but the channel derives the real tables
+from those, so copying them verbatim gave the game the wrong cups; a later step
+will derive them correctly and the baked copies will go.)
+
+When CTGP-R is not installed (no `blob.bin` or `jelly.bin`), the pack goes the
+channel-app way, as before. When it is, the launch is native, and it stops with
+a sentence that names any problem (`CTGP-R is not installed on the SD card`, a
+package disk that does not open, a hash list RiftWii could not read, an untested
+version). The error is on the failed-launch screen and in `boot.log`; nothing
+is placed in memory before every check has passed, so RiftWii never starts the
+game half set up.
+
+### Memory
+
+The launch's big buffers (BOOT.BIN and BOAT.BIN as read and as linked, the
+record table, the page table, the package and hash lists) are `CtgpBytes`, which
+draw from one 6 MB MEM2 block (`include/riftwii/ctgparena.hpp`, reserved in
+`wii/launch/ctgpr.cpp` with `mem::TryMem2Alloc`) instead of the MEM1-first
+default heap. The as-read copies are freed once the plan holds the linked ones.
+The block is released when the plan is destroyed or the launch fails; a buffer
+that finds no room in it uses the heap. `boot.log` says how much of the block
+was used at the most.
+
+### Checks
+
+Host tests cover each step with made-up data (`tests/ctgp*_tests.cpp`):
+the DSA signature check accepts a correctly signed list and rejects a tampered
+one (`ctgpdsa_tests`, `ctgphash_tests`, with a throwaway test key, since
+CTGP-R's key is not ours to sign with), the ghost-signing key is laid out as
+the channel's and a fixed negative signature sample is checked, the baked course table and cup
+layouts are checked against their known-good values, online and LAN stay off
+whatever config.ini says (enabled or not), the native launch is refused for a
+disc that is not Mario Kart Wii, a BOOT/BOAT image that would not fit MEM1 is
+refused, and untested versions (core or CTGPR) are refused. The earlier
+build of this launch (on 3.1.0) was tested on a PAL Wii from disc and
+USB (menus, custom tracks, VS, a full Grand Prix, Time Trial ghost save
+and replay) with the card's own signing key; this one replaces that key and
+needs a Dolphin and a Wii run. There is no current Dolphin/Wii evidence for
+ghost save/replay with this key or launch memory pressure; host size/layout
+checks and the build's start-up stash address do not establish either.
+The channel button's return to RiftWii (a black screen on a real Wii) is a known open bug.
+
+## How RiftWii starts the CTGP-R Channel app
 
 CTGP-R 1.03's Riivolution XML replaces `main.dol` with the CTGP-R Channel
 (`/apps/ctgpr/boot.dol`). `homebrew_app_stand_in` (`wii/launch/modplan.cpp`)
@@ -120,12 +264,6 @@ when armed and `IOS reload block cleared` / `could not be cleared` after a
 failure.
 
 ## On hold (2026-10-04)
-
-A CTGP-R developer (who asked not to be named) offered help: they want
-CTGP to run from RiftWii as long as its anti-cheat keeps working. They
-sent a tool that decrypts `blob.bin`; it uses the same key and IV scheme
-the decompile in `D:/AI Projects/CTGPR DECOMP/` already found, so nothing
-new came from it, and none of it goes into RiftWii.
 
 The fix has to come from CTGP's side: its channel reloads IOS twice and d2x
 fakes only the first (above), and the reloads live in CTGP's encrypted,
