@@ -789,6 +789,10 @@ static void bt_check_extensions(struct gc_bt* bt) {
             if (stalled_extension) {
                 bt->ext_given_up++;
                 bt->progress |= GC_BT_SEEN_EXT_GIVEN_UP;
+            } else {
+                /* Only status answers were lost: a Nunchuk or Classic
+                 * Controller plugged in later gets its own tries. */
+                r->ext_retries = 0;
             }
             bt_set_mode(bt, r);
         }
