@@ -9949,7 +9949,8 @@ static std::string GcRealSlotANote(const std::string& card)
 }
 
 // The game's card, named as the loader names it (gcnative.cpp): its own
-// file, or the shared one when the game's Memory card option says so.
+// file, or the shared one when the game's Memory card option says so (a
+// named card, cards/named or named-jp, is GcCardPath's own case).
 static bool GcCardShared(const FrontendState& state)
 {
 	return EffectiveGcCard(state) == "shared";
@@ -10636,14 +10637,16 @@ static NamedCardPick MenuPickNamedGcCard(const std::string& gameId, std::string&
 	const bool shiftJis = riftwii::gc_card_shift_jis(gameId);
 	std::vector<std::string> names = ListNamedGcCards(shiftJis);
 	// The game's card may not be made yet (it is, at its first start).
-	if (!name.empty() && std::none_of(names.begin(), names.end(), [&](const std::string& n) { return n == name; }))
+	// FAT names ignore case: "trades" in the choices file is Trades.raw.
+	const auto isGameCard = [&](const std::string& n) { return !name.empty() && LowerAscii(n) == LowerAscii(name); };
+	if (!name.empty() && std::none_of(names.begin(), names.end(), isGameCard))
 		names.insert(names.begin(), name);
 	std::vector<FlowRow> rows;
 	for (const std::string& n : names) {
 		FlowRow row;
 		row.kind = FlowRow::Kind::Action;
 		row.label = n;
-		row.on = n == name;
+		row.on = isGameCard(n);
 		row.value = row.on ? tr("In use") : tr("Pick");
 		rows.push_back(row);
 	}
@@ -10674,7 +10677,7 @@ static NamedCardPick MenuPickNamedGcCard(const std::string& gameId, std::string&
 	};
 	int initial = 0;
 	for (std::size_t i = 0; i < names.size(); ++i)
-		if (names[i] == name) initial = static_cast<int>(i);
+		if (isGameCard(names[i])) initial = static_cast<int>(i);
 	if (names.empty()) initial = static_cast<int>(newRow);
 	RunRowPage(tr("Named cards"), shiftJis ? tr("Japanese games' cards") : tr("Cards for this game's region"), rows, note,
 		[&](int row, const PageAside&) {

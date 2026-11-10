@@ -960,9 +960,9 @@ Saves page puts one back.
 
 **Named cards** are extra cards with names you choose, for more than one
 card per game (a card for each player, a card for trading) or one card
-for a few games. Set **Memory card** to *A named card*: a page lists your
+for a few games. Step **Memory card** on past *Shared*: a page lists your
 named cards, and **New card** names a new one with the keyboard (letters,
-digits, spaces, `-` and `'`, up to 32). A new card is made the first time
+digits, spaces, `-` and `'` only, no dots, up to 32). A new card is made the first time
 a game uses it. Press A on the row again to switch to another named card,
 or pick **Other kinds of card** to go back to the usual choices. They are
 kept in `sd:/riftwii/gc/cards/named/` (`named-jp/` for Japanese games, whose

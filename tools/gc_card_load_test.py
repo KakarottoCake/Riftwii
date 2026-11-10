@@ -40,6 +40,9 @@ std::size_t read_bytes;
 unsigned writes;
 unsigned formats;
 bool erased_header;
+std::string card_path;     // the launch's card_path for the next load
+std::string opened_path;   // the last path opened
+std::string made_folder;   // the last folder made
 
 std::string gc_card_path(const std::string&, bool) { return "card.raw"; }
 bool gc_card_shift_jis(const std::string&) { return false; }
@@ -47,7 +50,12 @@ void logf(const char*, ...) {}
 void forget_sd_layout() {}
 void format_card(std::vector<std::uint8_t>&, bool) { ++formats; }
 
-std::FILE* test_open(const char*, const char* mode) {
+int test_mkdir(const char* folder, int) {
+    made_folder = folder;
+    return 0;
+}
+std::FILE* test_open(const char* path, const char* mode) {
+    opened_path = path;
     if (mode[0] == 'w') {
         ++writes;
         return reinterpret_cast<std::FILE*>(1);
@@ -74,6 +82,7 @@ std::size_t test_write(const void*, std::size_t, std::size_t count, std::FILE*) 
 
 bool load() {
     Image image;
+    image.card_path = card_path;
     std::vector<std::uint8_t> card_image;
     // LOADER_BLOCK
     return ready;
@@ -107,6 +116,12 @@ int main() {
     check(false, GC_CARD_BYTES, 0, false, false, false, true);
     check(true, 0x80000, 0, false, false, false);
     check(true, -1, 0, false, false, false);
+    // A named card (the launch's card_path) is the file used, its folder made.
+    card_path = "sd:/riftwii/gc/cards/named/Trades.raw";
+    check(false, -1, 0, false, true, true, false);
+    assert(opened_path == card_path);
+    assert(made_folder == "sd:/riftwii/gc/cards/named");
+    card_path.clear();
     std::puts("GameCube card load: failed reads preserve the file; only new, empty or erased cards format");
 }
 '''
@@ -126,6 +141,7 @@ def main():
                       "fclose": "close", "fread": "read", "fwrite": "write"}[name]
         block = block.replace(f"std::{name}", f"test_{substitute}")
     block = block.replace("stat(path.c_str()", "test_stat(path.c_str()")
+    block = block.replace("mkdir(", "test_mkdir(")
     with tempfile.TemporaryDirectory(prefix="riftwii-gc-card-") as directory:
         temporary = Path(directory)
         test = temporary / "card.cpp"

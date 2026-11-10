@@ -111,7 +111,8 @@ std::string card_file(const GcImage& image) {
 // Before the game starts: a copy of the memory card it will use in
 // sd:/riftwii/gc/backups/<card>/ (riftwii/gcbackup.hpp), the newest five
 // kept, none when the card has not changed since the last one. A shared
-// card's copies go in backups/shared, as they hold every game's saves.
+// card's copies go in backups/shared, as they hold every game's saves; a
+// named card's in backups/named/<name> (named-jp for Japanese games).
 // Nothing here stops the start: a copy that fails is only logged.
 void back_up_card(const GcImage& image) {
     const std::string path = card_file(image);
