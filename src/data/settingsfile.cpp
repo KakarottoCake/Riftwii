@@ -397,6 +397,14 @@ bool game_still_found(const std::vector<std::string>& listed, const std::string&
     if (drive.empty()) return false;
     if (scan_reaches_path(drive + ":/wbfs", path, true)) return true;
     if (scan_reaches_path(drive + ":/games", path, gamecube)) return true;
+    // The GameCube scan also looks in any top folder whose subfolders hold
+    // game.iso images (gclaunch.cpp's gc_top_folders_with_games): a game at
+    // <top>/<game>/<file> may still be found that way.
+    if (gamecube) {
+        const std::size_t top = drive.size() + 2;  // after "sd:/"
+        const std::string rest = path.size() > top ? path.substr(top) : std::string();
+        if (std::count(rest.begin(), rest.end(), '/') == 2) return true;
+    }
     for (const std::string& entry : listed)
         if (game_folder_finds(entry, path)) return true;
     return false;

@@ -2162,6 +2162,10 @@ void TestCoverArt() {
     EXPECT_FALSE(game_still_found({}, "sd:/games/x/a.iso", false));
     // GameCube games are read one level down in games (games/Zelda/game.iso).
     EXPECT_TRUE(game_still_found({}, "sd:/games/Zelda/game.iso", true));
+    // ...and a top folder of game.iso folders is looked in anyway.
+    EXPECT_TRUE(game_still_found({}, "sd:/Wii Games/Zelda/game.iso", true));
+    EXPECT_FALSE(game_still_found({}, "sd:/Wii Games/Zelda/game.iso", false));
+    EXPECT_FALSE(game_still_found({}, "sd:/Wii Games/More/Zelda/game.iso", true));
     // An outer folder keeps only what it reaches one level down.
     EXPECT_TRUE(game_still_found({"sd:/Wii Games"}, "sd:/Wii Games/USB Loader GX/a.iso", false));
     EXPECT_FALSE(game_still_found({"sd:/Wii Games"}, "sd:/Wii Games/USB Loader GX/Alpha/a.iso", false));

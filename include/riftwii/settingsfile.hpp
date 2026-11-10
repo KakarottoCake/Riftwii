@@ -247,7 +247,8 @@ bool game_folder_finds(const std::string& entry, const std::string& path);
 // `listed`: by one of them, or by the wbfs (one level down) and games
 // folders every scan reads; games is read one level down for GameCube
 // games (`gamecube`, Nintendont's games/<name>/game.iso) and flat for Wii
-// ones. Placement only: a scan's file kinds may still leave it out, which
+// ones; a GameCube game one folder inside any top folder counts as found,
+// as the GameCube scan looks there for game.iso folders. Placement only: a scan's file kinds may still leave it out, which
 // the next scan settles.
 bool game_still_found(const std::vector<std::string>& listed, const std::string& path, bool gamecube);
 

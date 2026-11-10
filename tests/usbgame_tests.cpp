@@ -500,6 +500,17 @@ void test_ciso_detection() {
     for (std::size_t i = 0; i < CisoFinds::kSeenKept + 10; ++i) flood.note("sd:/x/" + std::to_string(i) + ".ciso");
     EXPECT_EQ(flood.total, CisoFinds::kSeenKept + 10);
     EXPECT_EQ(flood.seen.size(), CisoFinds::kSeenKept);
+    // A merge of one that ran past its names counts the rest as found once,
+    // and keeps no more than kSeenKept names.
+    CisoFinds into;
+    into.note("usb:/z.ciso");
+    into.merge(flood);
+    EXPECT_EQ(into.total, CisoFinds::kSeenKept + 11);
+    EXPECT_EQ(into.seen.size(), CisoFinds::kSeenKept);
+    CisoFinds fresh;
+    fresh.merge(flood);
+    EXPECT_EQ(fresh.total, flood.total);
+    EXPECT_EQ(fresh.seen.size(), CisoFinds::kSeenKept);
 
     // Two spellings of one file on FAT are one path (the scan lists a game
     // two folders reach once, by this).
