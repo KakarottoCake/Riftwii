@@ -391,10 +391,18 @@ static void test_secondary_compression() {
         EXPECT_FALSE(vcdiff_head(reader(patch_of({first, second}, 0x01)), patch_of({first, second}, 0x01).size(),
                                  reader(Bytes()), 0, 4, head, checked, error));
     }
-    // A window saying so in a patch that names no compressor is refused
-    // where it is met, as before.
-    EXPECT_FALSE(apply(patch_of({first, second}), {}, out, error));
-    EXPECT_TRUE(error.find("compressed") != std::string::npos);
+    // A later window saying so in a patch that names no compressor is
+    // refused just the same: nothing written, not listed as a game's.
+    for (std::uint8_t which : {1, 2, 4, 7}) {
+        second.compressed = which;
+        const Bytes unnamed = patch_of({first, second});
+        EXPECT_FALSE(apply(unnamed, {}, out, error));
+        EXPECT_TRUE(error.find("compressed") != std::string::npos);
+        EXPECT_TRUE(out.empty());
+        error.clear();
+        EXPECT_FALSE(vcdiff_head(reader(unnamed), unnamed.size(), reader(Bytes()), 0, 4, head, checked, error));
+        EXPECT_TRUE(error.find("compressed") != std::string::npos);
+    }
     second.compressed = 0;
 
     // Damage in a patch that names a compressor, met while its windows

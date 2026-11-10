@@ -167,7 +167,7 @@ public:
         // then compresses a section only where that makes it smaller, and
         // each window says which of its sections are (its Delta_Indicator).
         // So the name is read past, and what is refused is a window with
-        // a compressed section (uncompressed_to_end).
+        // a compressed section (uncompressed_to_end), named or not.
         if (m[4] & kDecompress) {
             std::uint8_t compressor;
             if (!byte(compressor)) return fail("the patch's header is damaged");
@@ -183,28 +183,38 @@ public:
     }
 
     // Whether no window from here to the patch's end has a compressed
-    // section, asked before anything is made of a patch that names a
-    // compressor: otherwise a patch whose first windows are plain would be
-    // listed as a game, or written halfway to the card, and only then
-    // refused. Reads each window's first few bytes and skips its sections;
-    // the place in the patch is kept.
+    // section, asked before anything is made of a patch: otherwise a patch
+    // whose first windows are plain would be listed as a game, or written
+    // halfway to the card, and only then refused. Asked whether or not the
+    // header names a compressor, since a later window's indicator is just
+    // as unusable in a patch that names none. Reads each window's first few
+    // bytes and skips its sections; the place in the patch is kept.
+    //
+    // Damage met while looking is an error only for a patch that names a
+    // compressor (as before). In one that names none, the look stops there
+    // and window() reports the damage, with its own message, when it comes
+    // to that window.
     bool uncompressed_to_end() {
-        if (!names_compressor_) return true;
         const std::uint64_t start = pos_;
+        auto damaged = [&](const char* why) {
+            if (names_compressor_) return fail(why);
+            pos_ = start;
+            return true;  // stop looking; window() will say what is wrong
+        };
         while (!at_end()) {
             std::uint8_t win, delta_ind;
             std::uint64_t seg_len, seg_pos, delta_len, window_len;
-            if (!byte(win)) return fail("a patch window is cut short");
+            if (!byte(win)) return damaged("a patch window is cut short");
             if ((win & (kSource | kTarget)) && (!integer(seg_len) || !integer(seg_pos)))
-                return fail("a patch window is cut short");
-            if (!integer(delta_len)) return fail("a patch window is cut short");
+                return damaged("a patch window is cut short");
+            if (!integer(delta_len)) return damaged("a patch window is cut short");
             const std::uint64_t delta_start = pos_;
-            if (!integer(window_len) || !byte(delta_ind)) return fail("a patch window is cut short");
+            if (!integer(window_len) || !byte(delta_ind)) return damaged("a patch window is cut short");
             if (delta_ind != 0) return fail(kCompressed);
             // The next window starts where this one's length says: past
             // what was just read, and inside the patch.
             if (delta_len < pos_ - delta_start || delta_len > patch_size_ - delta_start)
-                return fail("a patch window's length does not match its contents");
+                return damaged("a patch window's length does not match its contents");
             pos_ = delta_start + delta_len;
         }
         pos_ = start;
