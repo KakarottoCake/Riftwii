@@ -502,6 +502,7 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
              * next report saying one is plugged in is a new attachment. */
             r->ext_step = 0;
             r->ext_wait = 0;
+            r->ext_retries = 0;  /* step 0: no tries used, as on every way back to it */
             bt_set_mode(bt, r);
             return;
         }
@@ -683,6 +684,7 @@ static void bt_on_signal(struct gc_bt* bt, struct gc_bt_remote* r, uint32_t slot
          * report mode and its extension was never read. */
         r->ext_step = GC_BT_EXT_STATUS_ASKED;
         r->ext_wait = 0;
+        r->ext_retries = 0;  /* channels opened again: a fresh start */
     }
 }
 
