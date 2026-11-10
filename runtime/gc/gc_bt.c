@@ -487,6 +487,7 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
         /* A status report: the extension may have come or gone. The
          * remote stops reporting until the mode is set again. */
         const uint32_t plugged = p[4] & 0x02u;
+        const uint32_t seen_before = r->ext_seen;
         bt->progress |= plugged ? GC_BT_SEEN_STATUS | GC_BT_SEEN_EXTENSION : GC_BT_SEEN_STATUS;
         r->ext_seen = plugged ? 1u : 0u;
         if (!plugged) {
@@ -508,9 +509,11 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
         }
         if (plugged && (r->ext_step == 0 || r->ext_step == GC_BT_EXT_STATUS_ASKED)) {
             /* From step 0 this is a new attachment (even one whose unplug
-             * report was lost): it gets its own tries. The answer to a
-             * retry's status request (step 5) keeps counting. */
-            if (r->ext_step == 0) r->ext_retries = 0;
+             * report was lost): it gets its own tries. So does the first
+             * one seen after retries that only asked for a lost status
+             * answer (no extension yet). The answer to a retry for an
+             * extension already seen (step 5) keeps counting. */
+            if (r->ext_step == 0 || !seen_before) r->ext_retries = 0;
             r->ext_step = 1;
             r->ext_wait = 0;
             bt_ext_write(bt, r, 0xF0, 0x55);
