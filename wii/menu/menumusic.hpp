@@ -56,6 +56,8 @@ std::string MenuMusicPickProblem();
 // songs and playlists, sorted, hidden names left out. The USB drive only
 // once Home has read it.
 std::vector<MusicFolderEntry> MenuMusicBrowse(const std::string& folder);
+// The same folder's folders only, for Settings' Game folders page.
+std::vector<MusicFolderEntry> MenuFolderBrowse(const std::string& folder);
 // How many songs a folder pick would play ("sd:/Music/"), its folders'
 // included, as MenuMusicStart counts them.
 std::size_t MenuMusicFolderSongs(const std::string& folder);

@@ -201,8 +201,11 @@ for their folders and controllers.
 4. Game images go in `wbfs` (`.wbfs` or `.iso`, also in `Title [ID]`
    folders the way USB Loader GX keeps them) or `games` (`.iso`, `.rvz`)
    at the top of the SD card or the USB drive. The zip's `usb-drive` folder shows
-   where. Games kept somewhere else can be added with a line in
-   `sd:/riftwii/settings.txt`, folders split by `;`:
+   where. Games kept somewhere else can be added in Settings > Drives >
+   Game folders: Add a folder, open the folder that holds them, and pick
+   Use this folder (press a folder in the list to remove it; up to 8).
+   The page writes the `game_folders` line of `sd:/riftwii/settings.txt`,
+   which can also be edited by hand, folders split by `;`:
    `game_folders = /Wii Games; usb:/iso/wii` (a plain `/path` is looked
    for on both drives; `sd:/` or `usb:/` in front limits it to one). A
    drive with several partitions is read from the one holding those

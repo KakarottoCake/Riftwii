@@ -2104,6 +2104,98 @@ void TestCoverArt() {
     LoaderSettings back;
     back.parse(s.serialize());
     EXPECT_EQ(back.game_folders.size(), 5u);
+
+    // The Game folders page: a plain entry is both drives', a named one
+    // that drive's, whatever its case or slashes.
+    const GameFolderPlace both = game_folder_place("/Wii Games/");
+    EXPECT_EQ(both.drive, "");
+    EXPECT_EQ(both.path, "/Wii Games");
+    const GameFolderPlace usb2 = game_folder_place("USB2:\\iso\\wii");
+    EXPECT_EQ(usb2.drive, "usb2");
+    EXPECT_EQ(usb2.path, "/iso/wii");
+    EXPECT_EQ(game_folder_place("sd:").path, "/");
+
+    LoaderSettings pick;
+    EXPECT_TRUE(add_game_folder(pick, "sd:/Wii Games") == GameFolderAdd::Added);
+    EXPECT_TRUE(add_game_folder(pick, "SD:/wii games/") == GameFolderAdd::AlreadyListed);
+    EXPECT_TRUE(add_game_folder(pick, "usb:/Wii Games") == GameFolderAdd::Added);
+    EXPECT_TRUE(add_game_folder(pick, "usb2:/iso") == GameFolderAdd::Added);
+    EXPECT_TRUE(add_game_folder(pick, "usb:/WBFS") == GameFolderAdd::AlwaysSearched);
+    EXPECT_TRUE(add_game_folder(pick, "usb:/games/") == GameFolderAdd::AlwaysSearched);
+    EXPECT_TRUE(add_game_folder(pick, "usb2:/") == GameFolderAdd::NotAFolder);
+    // The longest entry the file keeps: "sd:" and 197 more; one more is too long.
+    {
+        LoaderSettings longest;
+        const std::string fits = "sd:/" + std::string(196, 'a');
+        EXPECT_TRUE(add_game_folder(longest, fits) == GameFolderAdd::Added);
+        EXPECT_TRUE(add_game_folder(longest, fits + "b") == GameFolderAdd::NotAFolder);
+        LoaderSettings back;
+        back.parse(longest.serialize());
+        EXPECT_TRUE(back.game_folders == longest.game_folders);
+    }
+    // A folder inside a listed one (or inside games) is its own entry: a
+    // scan reads one level of folders, so the outer one doesn't reach the
+    // inner one's game folders (the scan drops a game found twice).
+    EXPECT_TRUE(add_game_folder(pick, "sd:/Wii Games/USB Loader GX") == GameFolderAdd::Added);
+    EXPECT_TRUE(add_game_folder(pick, "usb:/games/Wii backups") == GameFolderAdd::Added);
+    pick.game_folders.pop_back();
+    pick.game_folders.pop_back();
+    EXPECT_TRUE(add_game_folder(pick, "usb:/") == GameFolderAdd::NotAFolder);
+    EXPECT_TRUE(add_game_folder(pick, "/no drive") == GameFolderAdd::NotAFolder);
+    EXPECT_TRUE(add_game_folder(pick, "nand:/title") == GameFolderAdd::NotAFolder);
+    EXPECT_TRUE(add_game_folder(pick, "usbx:/games2") == GameFolderAdd::NotAFolder);
+    // No scan reads a usb0 or a partition past the last one.
+    EXPECT_TRUE(add_game_folder(pick, "usb0:/games2") == GameFolderAdd::NotAFolder);
+    EXPECT_TRUE(add_game_folder(pick, "usb999:/games2") == GameFolderAdd::NotAFolder);
+
+    // Which folder finds a game, after one is taken off the list.
+    EXPECT_TRUE(game_folder_finds("sd:/Wii Games", "sd:/wii games/X/a.iso"));
+    EXPECT_TRUE(game_folder_finds("/Wii Games", "usb2:/Wii Games/a.iso"));
+    EXPECT_FALSE(game_folder_finds("sd:/Wii Games", "usb:/Wii Games/a.iso"));
+    EXPECT_FALSE(game_folder_finds("sd:/Wii Games", "sd:/Wii Games/X/Y/a.iso"));
+    EXPECT_FALSE(game_folder_finds("sd:/", "sd:/a.iso"));
+    // wbfs and games are read anyway: taking a hand-written "sd:/wbfs" or a
+    // folder inside wbfs off the list leaves those games.
+    EXPECT_TRUE(game_still_found({}, "sd:/wbfs/Game [RMCE01]/RMCE01.wbfs", false));
+    EXPECT_TRUE(game_still_found({}, "usb2:/WBFS/Backups/a.iso", false));
+    EXPECT_TRUE(game_still_found({}, "sd:/games/a.iso", false));
+    EXPECT_FALSE(game_still_found({}, "sd:/games/x/a.iso", false));
+    // GameCube games are read one level down in games (games/Zelda/game.iso).
+    EXPECT_TRUE(game_still_found({}, "sd:/games/Zelda/game.iso", true));
+    // ...and a top folder of game.iso folders is looked in anyway.
+    EXPECT_TRUE(game_still_found({}, "sd:/Wii Games/Zelda/game.iso", true));
+    EXPECT_FALSE(game_still_found({}, "sd:/Wii Games/Zelda/game.iso", false));
+    EXPECT_FALSE(game_still_found({}, "sd:/Wii Games/More/Zelda/game.iso", true));
+    // An outer folder keeps only what it reaches one level down.
+    EXPECT_TRUE(game_still_found({"sd:/Wii Games"}, "sd:/Wii Games/USB Loader GX/a.iso", false));
+    EXPECT_FALSE(game_still_found({"sd:/Wii Games"}, "sd:/Wii Games/USB Loader GX/Alpha/a.iso", false));
+    EXPECT_TRUE(add_game_folder(pick, "sd:/a;b") == GameFolderAdd::NotAFolder);
+    EXPECT_TRUE(add_game_folder(pick, "sd:/x/../y") == GameFolderAdd::NotAFolder);
+    EXPECT_EQ(pick.game_folders.size(), 3u);
+    if (pick.game_folders.size() == 3) {
+        EXPECT_EQ(pick.game_folders[0], "sd:/Wii Games");
+        EXPECT_EQ(pick.game_folders[2], "usb2:/iso");
+    }
+    // What the page adds is what a scan reads, and it survives a save.
+    const std::vector<std::string> pickedUsb2 = game_folders_on(pick, "usb2");
+    EXPECT_EQ(pickedUsb2.size(), 1u);
+    LoaderSettings pickBack;
+    pickBack.parse(pick.serialize());
+    EXPECT_TRUE(pickBack.game_folders == pick.game_folders);
+    // A hand-written list keeps a folder inside another: its games may be
+    // two levels below the outer one, which a scan doesn't reach.
+    LoaderSettings nested;
+    nested.parse("game_folders = /Wii Games; /Wii Games/USB Loader GX; /games/Wii backups; /wii games\n");
+    // ...and the same folder in another case is one folder (FAT ignores case).
+    EXPECT_EQ(game_folders_on(nested, "sd").size(), 3u);
+    // A folder settings.txt lists for both drives covers a pick on either.
+    LoaderSettings plain;
+    plain.game_folders = {"/Wii Games"};
+    EXPECT_TRUE(add_game_folder(plain, "usb:/Wii Games") == GameFolderAdd::AlreadyListed);
+    LoaderSettings full;
+    for (std::size_t i = 0; i < kMaxGameFolders; ++i) full.game_folders.push_back("sd:/f" + std::to_string(i));
+    EXPECT_TRUE(add_game_folder(full, "sd:/one more") == GameFolderAdd::Full);
+    EXPECT_EQ(full.game_folders.size(), kMaxGameFolders);
 }
 
 void TestHeadlessArguments() {

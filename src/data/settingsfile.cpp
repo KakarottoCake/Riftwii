@@ -10,11 +10,11 @@
 #include "riftwii/gamelang.hpp"
 #include "riftwii/musiclist.hpp"
 #include "riftwii/textlines.hpp"
+#include "riftwii/imagevolume.hpp"
+#include "riftwii/usbgame.hpp"
 
 namespace riftwii {
 namespace {
-
-constexpr std::size_t kMaxGameFolders = 8;
 
 std::string trim(const std::string& s) {
     std::size_t a = 0;
@@ -307,6 +307,50 @@ std::string LoaderSettings::serialize() const {
     return s;
 }
 
+GameFolderPlace game_folder_place(const std::string& entry) {
+    GameFolderPlace place;
+    std::string path = entry;
+    std::replace(path.begin(), path.end(), '\\', '/');
+    const std::size_t colon = path.find(':');
+    if (colon != std::string::npos) {
+        place.drive = path.substr(0, colon);
+        for (char& c : place.drive) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        path.erase(0, colon + 1);
+    }
+    while (!path.empty() && path.back() == '/') path.pop_back();
+    if (path.empty() || path[0] != '/') path.insert(path.begin(), '/');
+    place.path = path;
+    return place;
+}
+
+GameFolderAdd add_game_folder(LoaderSettings& settings, const std::string& picked) {
+    const GameFolderPlace place = game_folder_place(picked);
+    // The pick always names its drive; a drive's top would make every
+    // folder on it a game folder, and the file can't hold ';' or "..".
+    // sd, usb, or a USB partition a scan can reach: usb2, usb3...
+    const bool named_drive = place.drive == "sd" || is_usb_path(place.drive + ":/");
+    // The whole entry ("sd:/...") must fit the 200 that parse() keeps, or
+    // it would be saved and then dropped at the next start.
+    const std::size_t entry_size = place.drive.size() + 1 + place.path.size();
+    if (!named_drive || place.path == "/" || entry_size > 200 || place.path.find(';') != std::string::npos ||
+        place.path.find("..") != std::string::npos) {
+        return GameFolderAdd::NotAFolder;
+    }
+    // FAT and NTFS names ignore case, so "/WBFS" is the wbfs folder.
+    const std::string wanted = path_fold_case(place.path);
+    if (wanted == "/wbfs" || wanted == "/games") return GameFolderAdd::AlwaysSearched;
+    // A folder inside or around a listed one is fine: a scan reads only one
+    // level of folders, and a game found twice is dropped by its path.
+    for (const std::string& entry : settings.game_folders) {
+        const GameFolderPlace listed = game_folder_place(entry);
+        const bool same_drive = listed.drive.empty() || listed.drive == place.drive;
+        if (same_drive && path_fold_case(listed.path) == wanted) return GameFolderAdd::AlreadyListed;
+    }
+    if (settings.game_folders.size() >= kMaxGameFolders) return GameFolderAdd::Full;
+    settings.game_folders.push_back(place.drive + ":" + place.path);
+    return GameFolderAdd::Added;
+}
+
 std::vector<std::string> game_folders_on(const LoaderSettings& settings, const std::string& device) {
     std::vector<std::string> out;
     for (std::string f : settings.game_folders) {
@@ -320,14 +364,50 @@ std::vector<std::string> game_folders_on(const LoaderSettings& settings, const s
         while (!f.empty() && f.back() == '/') f.pop_back();
         if (f.empty()) continue;
         if (f[0] != '/') f.insert(f.begin(), '/');
-        std::string lower = f;
-        for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        const std::string lower = path_fold_case(f);
         if (lower == "/wbfs" || lower == "/games") continue;
+        // FAT and NTFS ignore case: "/wii games" is "/Wii Games".
         bool seen = false;
-        for (const std::string& o : out) seen = seen || o == f;
+        for (const std::string& o : out) seen = seen || path_fold_case(o) == lower;
         if (!seen) out.push_back(f);
     }
     return out;
+}
+
+namespace {
+
+// The drive of a game's path ("usb2" of "usb2:/x.iso"), in lower case.
+std::string path_drive(const std::string& path) {
+    const std::size_t colon = path.find(':');
+    return colon == std::string::npos ? std::string() : path_fold_case(path.substr(0, colon));
+}
+
+}  // namespace
+
+bool game_folder_finds(const std::string& entry, const std::string& path) {
+    const GameFolderPlace place = game_folder_place(entry);
+    if (place.path == "/") return false;
+    const std::string drive = path_drive(path);
+    if (drive.empty() || (!place.drive.empty() && place.drive != drive)) return false;
+    return scan_reaches_path(drive + ":" + place.path, path, true);
+}
+
+bool game_still_found(const std::vector<std::string>& listed, const std::string& path, bool gamecube) {
+    const std::string drive = path_drive(path);
+    if (drive.empty()) return false;
+    if (scan_reaches_path(drive + ":/wbfs", path, true)) return true;
+    if (scan_reaches_path(drive + ":/games", path, gamecube)) return true;
+    // The GameCube scan also looks in any top folder whose subfolders hold
+    // game.iso images (gclaunch.cpp's gc_top_folders_with_games): a game at
+    // <top>/<game>/<file> may still be found that way.
+    if (gamecube) {
+        const std::size_t top = drive.size() + 2;  // after "sd:/"
+        const std::string rest = path.size() > top ? path.substr(top) : std::string();
+        if (std::count(rest.begin(), rest.end(), '/') == 2) return true;
+    }
+    for (const std::string& entry : listed)
+        if (game_folder_finds(entry, path)) return true;
+    return false;
 }
 
 VideoSettings effective_video(const GameSettings& game, const LoaderSettings& global) {

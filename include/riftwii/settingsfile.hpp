@@ -105,7 +105,8 @@ struct LoaderSettings {
     std::string parental_exits = "show";  // show, pin, hide: the HOME Menu's Homebrew Channel and Priiloader (or Restart) buttons
     std::string parental_settings = "open";  // open, pin: whether Settings asks for the PIN
     std::set<std::string> favorites;      // game IDs and profiles' tile keys, written "favorites = ID,ID@slug"
-    // More folders to look for games in, besides wbfs and games:
+    // More folders to look for games in, besides wbfs and games (Settings >
+    // Drives > Game folders writes them, game_folders_on reads them):
     // "game_folders = /Wii Games; usb:/iso". A plain "/path" is looked
     // for on both drives, "sd:/path" or "usb:/path" on that one.
     // A folder holding ';' cannot be named: saving leaves it out.
@@ -220,8 +221,48 @@ private:
 
 // The extra game folders for one drive ("sd" or "usb"), as "/path":
 // slashes turned forward, no trailing slash, wbfs and games left out
-// (they are always looked in).
+// (they are always looked in). A folder inside another is kept: a scan
+// reads only one level of folders, so the outer one may not reach its
+// games; the scan drops a game it found twice by its path instead.
 std::vector<std::string> game_folders_on(const LoaderSettings& settings, const std::string& device);
+
+// How many game_folders settings.txt keeps; more are left out when read.
+constexpr std::size_t kMaxGameFolders = 8;
+
+// One game_folders entry, split for the Game folders page: the drive it
+// is looked for on ("" for both, "sd", "usb", "usb2" for a USB drive's
+// second partition) and the folder ("/Wii Games").
+struct GameFolderPlace {
+    std::string drive;
+    std::string path;
+};
+GameFolderPlace game_folder_place(const std::string& entry);
+
+// Whether a scan of the game_folders entry `entry` finds the game at
+// `path` ("usb2:/Wii Games/x/a.iso"): on the entry's drive (any drive for
+// an entry without one), in the folder or one level down. A drive's top,
+// which no scan reads, finds nothing.
+bool game_folder_finds(const std::string& entry, const std::string& path);
+// Whether the game at `path` is still found with game_folders set to
+// `listed`: by one of them, or by the wbfs (one level down) and games
+// folders every scan reads; games is read one level down for GameCube
+// games (`gamecube`, Nintendont's games/<name>/game.iso) and flat for Wii
+// ones; a GameCube game one folder inside any top folder counts as found,
+// as the GameCube scan looks there for game.iso folders. Placement only: a scan's file kinds may still leave it out, which
+// the next scan settles.
+bool game_still_found(const std::vector<std::string>& listed, const std::string& path, bool gamecube);
+
+// What adding a folder picked on the Game folders page did.
+enum class GameFolderAdd {
+    Added,
+    AlreadyListed,   // the same folder on that drive, or on both drives
+    AlwaysSearched,  // wbfs or games, which every scan reads anyway
+    Full,            // kMaxGameFolders already
+    NotAFolder,      // a drive's top, or a name settings.txt can't hold
+};
+// Adds a folder the menu's folder pick chose ("sd:/Wii Games",
+// "usb2:/iso/wii") to game_folders, for that drive only.
+GameFolderAdd add_game_folder(LoaderSettings& settings, const std::string& picked);
 
 // The video settings a launch uses: the game's own choices, where it has
 // them, over the global defaults. The mode is left for the Wii to turn
