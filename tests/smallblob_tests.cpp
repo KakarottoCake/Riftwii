@@ -196,10 +196,11 @@ void test_stub() {
     compare({0, 0, 0, 64, {7, 8, 0, 0, 0}});
 }
 void* map_memory() {
-    void* address = reinterpret_cast<void*>(std::uintptr_t{0x91000000u});
 #if defined(_WIN32) || defined(__CYGWIN__)
+    void* address = reinterpret_cast<void*>(std::uintptr_t{0x91000000u});
     return VirtualAlloc(address, 0x20000, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 #elif defined(__linux__)
+    void* address = reinterpret_cast<void*>(std::uintptr_t{0x91000000u});
     void* region = mmap(address, 0x20000, PROT_READ | PROT_WRITE,
                          MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
     if (region == MAP_FAILED) return nullptr;
