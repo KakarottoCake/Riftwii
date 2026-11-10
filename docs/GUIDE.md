@@ -1123,7 +1123,10 @@ their files after it, below that limit. A mod shipped as a patch (`.xdelta` or `
 `sd:/riftwii/patches/`: it is listed as the game it makes when its
 original is in `sd:/games` or `usb:/games`, and the first start makes that game as
 `sd:/games/<its ID>/game.iso` (the card needs room for it), an ordinary
-game from then on.
+game from then on. RiftWii cannot read a patch whose contents are
+compressed, which is how xdelta3 makes them unless it is told not to: such
+a patch is not listed, and `sd:/riftwii/session.log` says why. A patch made
+with `xdelta3 -S none -e -s original.iso modded.iso mod.xdelta` works.
 
 ### RVZ games
 

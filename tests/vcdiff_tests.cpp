@@ -64,6 +64,7 @@ struct Window {
     std::uint64_t length = 0;
     bool checksum = false;
     std::uint32_t adler = 0;
+    std::uint8_t compressed = 0;  // Delta_Indicator: 1 data, 2 instructions, 4 addresses
     void add(const Bytes& bytes) {
         inst.push_back(1);  // ADD, size follows
         put_int(inst, bytes.size());
@@ -89,6 +90,7 @@ struct Window {
 
 static Bytes patch_of(const std::vector<Window>& windows, std::uint8_t header = 0) {
     Bytes p = {0xD6, 0xC3, 0xC4, 0x00, header};
+    if (header & 0x01) p.push_back(2);  // the secondary compressor's ID: xdelta3's LZMA
     for (const Window& w : windows) {
         p.push_back(std::uint8_t(w.indicator | (w.checksum ? 4 : 0)));
         if (w.indicator) {
@@ -97,7 +99,7 @@ static Bytes patch_of(const std::vector<Window>& windows, std::uint8_t header = 
         }
         Bytes body;
         put_int(body, w.length);
-        body.push_back(0);
+        body.push_back(w.compressed);
         put_int(body, w.data.size());
         put_int(body, w.inst.size());
         put_int(body, w.addr.size());
@@ -248,9 +250,7 @@ static void test_checksums_and_refusals() {
     w.adler ^= 1;
     EXPECT_FALSE(apply(patch_of({w}), {}, out, error));
     w.adler ^= 1;
-    // Secondary compression and a code table of its own: refused.
-    EXPECT_FALSE(apply(patch_of({w}, 0x01), {}, out, error));
-    EXPECT_TRUE(error.find("compressed") != std::string::npos);
+    // A code table of its own: refused.
     EXPECT_FALSE(apply(patch_of({w}, 0x02), {}, out, error));
     // A copy from beyond the original's end.
     Window far;
@@ -340,9 +340,85 @@ static void test_checksums_and_refusals() {
     EXPECT_EQ(vcdiff_adler32(wiki.data(), wiki.size()), 0x11E60398u);
 }
 
+// A patch that names a secondary compressor is taken when no window uses
+// it, and refused before anything is written when one does.
+static void test_secondary_compression() {
+    const Bytes original = vcdiff_original();
+    Bytes out;
+    std::string error;
+
+    // xdelta3 with its own settings names LZMA in every patch. A change
+    // at the file's start leaves every section under the ten bytes xdelta3
+    // compresses from, so nothing in this one is compressed.
+    Bytes plain;
+    EXPECT_TRUE(read_file(g_dir + "/vcdiff/xdelta3-default-plain.vcdiff", plain));
+    EXPECT_TRUE(plain.size() > 5 && (plain[4] & 0x01) != 0);
+    EXPECT_TRUE(apply(plain, original, out, error));
+    EXPECT_EQ(error, "");
+    EXPECT_TRUE(out == vcdiff_start_changed());
+    Bytes head;
+    bool checked = false;
+    EXPECT_TRUE(vcdiff_head(reader(plain), plain.size(), reader(original), original.size(), 4, head, checked, error));
+    EXPECT_TRUE(checked);
+    EXPECT_EQ(std::string(head.begin(), head.end()), "Rift");
+
+    // Two changes in the middle make the instructions longer, and xdelta3
+    // compresses them: refused, with the way to make a readable patch.
+    Bytes lzma;
+    EXPECT_TRUE(read_file(g_dir + "/vcdiff/xdelta3-default-lzma.vcdiff", lzma));
+    EXPECT_FALSE(apply(lzma, original, out, error));
+    EXPECT_TRUE(error.find("compressed") != std::string::npos);
+    EXPECT_TRUE(error.find("-S none") != std::string::npos);
+    EXPECT_TRUE(out.empty());
+    EXPECT_FALSE(vcdiff_head(reader(lzma), lzma.size(), reader(original), original.size(), 4, head, checked, error));
+    EXPECT_TRUE(error.find("compressed") != std::string::npos);
+
+    // The same on patches built here. The compressor named, no window
+    // using it:
+    Window first;
+    first.add(text("first "));
+    Window second;
+    second.add(text("second"));
+    EXPECT_TRUE(apply(patch_of({first, second}, 0x01), {}, out, error));
+    EXPECT_EQ(std::string(out.begin(), out.end()), "first second");
+    // A later window using it: the first window is fine, yet nothing of
+    // it is written, and the patch does not pass as a game's either.
+    for (std::uint8_t which : {1, 2, 4, 7}) {
+        second.compressed = which;
+        EXPECT_FALSE(apply(patch_of({first, second}, 0x01), {}, out, error));
+        EXPECT_TRUE(error.find("compressed") != std::string::npos);
+        EXPECT_TRUE(out.empty());
+        EXPECT_FALSE(vcdiff_head(reader(patch_of({first, second}, 0x01)), patch_of({first, second}, 0x01).size(),
+                                 reader(Bytes()), 0, 4, head, checked, error));
+    }
+    // A window saying so in a patch that names no compressor is refused
+    // where it is met, as before.
+    EXPECT_FALSE(apply(patch_of({first, second}), {}, out, error));
+    EXPECT_TRUE(error.find("compressed") != std::string::npos);
+    second.compressed = 0;
+
+    // Damage in a patch that names a compressor, met while its windows
+    // are looked through: cut short at every length, and a window whose
+    // length points before its own start or past the patch's end.
+    const Bytes whole = patch_of({first, second}, 0x01);
+    const std::size_t one_window = patch_of({first}, 0x01).size();  // a whole patch too
+    for (std::size_t length = 0; length < whole.size(); ++length) {
+        const Bytes cut(whole.begin(), whole.begin() + static_cast<std::ptrdiff_t>(length));
+        EXPECT_EQ(apply(cut, {}, out, error), length == one_window);
+        if (length != one_window) EXPECT_TRUE(out.empty());
+    }
+    for (std::uint8_t length : {0, 1, 0x7F}) {
+        Bytes bad = whole;
+        bad[7] = length;  // the first window's length, after the compressor's ID and its indicator
+        EXPECT_FALSE(apply(bad, {}, out, error));
+        EXPECT_TRUE(out.empty());
+    }
+}
+
 int main(int argc, char** argv) {
     g_dir = argc > 1 ? argv[1] : "tests/fixtures";
     test_xdelta3_fixture();
+    test_secondary_compression();
     test_add_run_and_self_copy();
     test_address_modes();
     test_combined_codes();
