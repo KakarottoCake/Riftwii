@@ -443,13 +443,8 @@ bool HomebrewAppPackOn(const FrontendState& state) { return CtgprPackAnswers(sta
 bool ApplyCtgprPrecedence(FrontendState& state) {
     const std::size_t ctgp = CtgprPackOn(state);
     if (ctgp == SIZE_MAX) return false;
-    bool changed = false;
-    for (std::size_t i = 0; i < state.model.packages.size(); ++i)
-        if (i != ctgp && state.model.packages[i].enabled && state.model.set_enabled(i, false)) changed = true;
-    if (state.model.game.cheats) {
-        state.model.game.cheats = false;
-        changed = true;
-    }
+    const bool changed = state.model.keep_only_package(ctgp);
+    if (changed) state.ctgpr_cache.valid = false;
     if (changed) logf("CTGP-R is on for %s: other mods and cheats switched off\n", state.game_id.c_str());
     return changed;
 }
@@ -524,7 +519,9 @@ bool SaveChoicesTo(const LaunchModel& model, const std::string& path, std::strin
     return true;
 }
 
-bool SaveChoices(const FrontendState& state, std::string& error) {
+bool SaveChoices(FrontendState& state, std::string& error) {
+    state.ctgpr_cache.valid = false;
+    ApplyCtgprPrecedence(state);
     if (state.choices_path.empty()) {
         error = "cannot save choices: no game is selected";
         return false;

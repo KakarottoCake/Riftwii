@@ -13836,11 +13836,6 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 				else if (lockedOut) say(CtgprModsNote());
 				else changed = state.model.set_enabled(ref.pkg, !p.enabled);
 				if (!changed && p.valid && !lockedOut) say("This pack cannot be turned on.");
-				// CTGP-R switched on: the other mods and the cheats go off.
-				if (changed && p.enabled && riftwii::wii::ApplyCtgprPrecedence(state)) {
-					ctgprSaid = true;
-					say(tr("CTGP-R is on, so cheats and other mods were turned off. They can't be enabled while it is on."));
-				}
 				// The game gets one SD card: a code build turned on turns off
 				// the ones on another card (another .raw image, or the SD card).
 				if (changed && p.enabled && p.code_build()) {
@@ -13974,6 +13969,12 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 				}
 			}
 			if (changed) {
+				// Options can turn CTGP-R back on too, not just the pack switch.
+				state.ctgpr_cache.valid = false;
+				if (riftwii::wii::ApplyCtgprPrecedence(state)) {
+					ctgprSaid = true;
+					say(tr("CTGP-R is on, so cheats and other mods were turned off. They can't be enabled while it is on."));
+				}
 				std::string error;
 				if (!SaveChoices(state, error)) say(error);
 				BuildModRows(state, scanStatus, rows, refs);

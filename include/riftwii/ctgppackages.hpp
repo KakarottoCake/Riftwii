@@ -16,6 +16,11 @@
 // loader block as the package ids.
 namespace riftwii {
 
+// The installed set has only a handful of packages. Bound metadata before
+// growing its strings and vector, even for a structurally valid disk file.
+constexpr std::uint32_t kCtgpMaxPackages = 64;
+constexpr std::size_t kCtgpPackagesMaxBytes = (kCtgpMaxPackages + 1) * 16;
+
 struct CtgpPackage {
     std::string name;            // up to 8 characters
     std::uint32_t version = 0;

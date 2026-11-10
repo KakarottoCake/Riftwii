@@ -326,7 +326,7 @@ static void test_attach_files() {
     };
     std::array<std::uint8_t, 20> digest{};
     for (int i = 0; i < 20; ++i) digest[i] = std::uint8_t(0x40 + i);
-    const CtgpHashList hashes = CtgpHashList::unverified_for_tests({{"/Scene/a.szs", digest}});
+    const CtgpHashList hashes = CtgpHashList::unverified_for_tests({{"/Scene/a.szs", digest}, {"/b.bin", digest}});
     EXPECT_TRUE(!ctgp_attach_files(plan, {fst}, {nullptr}, resolver, error));   // a signed file without a list
     EXPECT_TRUE(ctgp_assemble(in, plan, error));
     EXPECT_TRUE(ctgp_attach_files(plan, {fst}, {&hashes}, resolver, error));

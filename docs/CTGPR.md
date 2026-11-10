@@ -21,10 +21,20 @@ The CTGP-R developers allow it on these conditions, which the code keeps:
 * **Anti-cheat intact.** No tamper branch is changed, and CTGP's scanner
   thread runs. Each signed digest list (`CTGPR.HSH`, `CORE.HSH`) has its DSA
   signature checked against CTGP-R's own public list-signing key before it is
-  trusted (`src/ctgpr/ctgpdsa.cpp`, `ctgphash.cpp`); this matters here because
+  trusted (`src/ctgpr/ctgpdsa.cpp`, `ctgphash.cpp`). Like the channel, DSA
+  takes only the first 20 raw header bytes; the package name and version are
+  outside those bytes. RiftWii therefore also binds the full body's digest to
+  a locally checked package/version reference, refusing an unknown reference
+  rather than trusting a relabelled list. This matters here because
   the channel, which would otherwise verify the lists, never runs. Each list's
   per-file SHA-1 is then written into the game's open-file records, where
-  CTGP's own code compares every served file as it reads it. The core loader
+  CTGP's own code compares every served file as it reads it. Every resolved
+  package file needs a signed digest, regardless of the package-list flags;
+  duplicate game paths and conflicting digests for shared sources are refused.
+  Unsigned My Stuff, music and font replacements therefore cannot be served
+  by this native launch. The directly loaded `deyazhashes.hsh` is checked
+  against CTGPR.HSH's `debug/smallfile.sml` digest, as the channel checks it.
+  The core loader
   code RiftWii places directly (`BOOT.BIN`, `BOAT.BIN`, `BEAT.BIN`), which is
   not served through those open-file records, is checked too: the SHA-1 of each
   one must appear among the digests in the signature-checked `CORE.HSH`, or the
@@ -34,10 +44,11 @@ The CTGP-R developers allow it on these conditions, which the code keeps:
   to CTGP's own data is the path its channel button starts, which points at
   RiftWii's `boot.dol`.
 * **No ghost signing.** The card's signing key (on `jelly.bin`) and the
-  console's MAC are not read. CTGP gets a key RiftWii made that can never
-  give a valid signature (`include/riftwii/ctgpsign.hpp`). CTGP's server
-  will reject the ghosts. *Not confirmed:* that ghosts save and replay on a
-  console with this key (the earlier build did, with the card's own key).
+  console's MAC are not read. CTGP gets a key RiftWii made to prevent accepted
+  signatures (`include/riftwii/ctgpsign.hpp`). A host test shows one signature
+  from it fails local verification. *Not confirmed:* that ghosts save and
+  replay on a console with this key, or that the server rejects them (the
+  earlier build saved and replayed ghosts with the card's own key).
 
 It starts CTGP-R only on the versions this launch is made for (PACKAGES.BIN
 core `0x01030412`, CTGPR `0x01031196`). The core governs the game addresses
@@ -46,6 +57,19 @@ are baked into this build for that one CTGPR version; a different core or a
 different track package stops the launch with that on screen and in `boot.log`,
 before anything is placed. (A later step that works the cup layouts out from
 the player's own package disk will let the track-package version vary again.)
+The local untouched reference available for this review has CTGPR
+`0x01031192`, not `0x01031196`; its CORE and CTGPR lists verify, and its
+BOOT/BOAT/BEAT and track hashes match their signed digests. There is no
+checked hash-list body reference for `0x01031196` yet, so this build refuses
+that version too. The menu marks it unsupported. The version pin has not
+been relaxed; an untouched `0x01031196` install is needed before native
+launches can resume.
+
+Native launches also refuse RVZ images: those need RiftWii's resident disc
+reader, whose hooks and page table have not been shown to coexist with
+CTGP-R's. Use a disc, ISO or WBFS. The earlier console results below cover
+disc and USB; they provide no evidence for RVZ.
+
 RiftWii's own extras stay out of the game: no runtime, codes, video or
 game preferences, game fixes, GameCube adapter, screenshots, crash
 recorder or Return to RiftWii (CTGP's channel button is pointed back at

@@ -4403,3 +4403,6 @@ msgstr "calibration en cours"
 
 msgid "No GameCube controller found"
 msgstr "Aucune manette GameCube trouvée"
+
+msgid "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead."
+msgstr "CTGP-R ne peut pas démarrer depuis une image RVZ. Utilisez un disque, un ISO ou un WBFS."

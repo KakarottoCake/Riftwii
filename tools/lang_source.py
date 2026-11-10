@@ -9256,5 +9256,22 @@ FR.update({
     'No GameCube controller found': 'Aucune manette GameCube trouvée',
 })
 
+# CTGP-R's native launch cannot keep the RVZ resident reader.
+T.update({
+    "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead.": (
+        "CTGP-R no puede iniciarse desde una imagen RVZ. Usa un disco, ISO o WBFS.",
+        "CTGP-RはRVZ形式では起動できません。ディスク、ISO、WBFSを使ってください。",
+        "O CTGP-R não pode iniciar de uma imagem RVZ. Use um disco, ISO ou WBFS.",
+        "CTGP-R non può avviarsi da un'immagine RVZ. Usa un disco, ISO o WBFS."),
+})
+KO.update({
+    "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead.":
+        "CTGP-R은 RVZ 이미지에서 시작할 수 없습니다. 디스크, ISO 또는 WBFS를 사용하세요.",
+})
+FR.update({
+    "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead.":
+        "CTGP-R ne peut pas démarrer depuis une image RVZ. Utilisez un disque, un ISO ou un WBFS.",
+})
+
 if __name__ == "__main__":
     main()

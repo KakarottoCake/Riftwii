@@ -147,7 +147,7 @@ std::size_t CtgprPackOn(const FrontendState& state);
 // the app's, or CTGP-R's native one. Kept like CtgprPackOn's answer.
 bool HomebrewAppPackOn(const FrontendState& state);
 bool ApplyCtgprPrecedence(FrontendState& state);
-bool SaveChoices(const FrontendState& state, std::string& error);
+bool SaveChoices(FrontendState& state, std::string& error);
 // `model`'s choices written to `path` (a profile's new file), safely as SaveChoices.
 bool SaveChoicesTo(const riftwii::LaunchModel& model, const std::string& path, std::string& error);
 // The game just selected, opened as one of its profiles: its choices from

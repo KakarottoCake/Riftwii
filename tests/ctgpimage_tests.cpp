@@ -60,6 +60,24 @@ static void test_link() {
     EXPECT_TRUE(!ctgp_link(b2, c2, r3.data(), r3.size(), 0, error));
 }
 
+static void test_skip_overflow() {
+    CtgpBytes boot(4, 0), boat(4, 0), beat;
+    rec(beat, 0, 0xCA, 0, 0);
+    // This sequence wrapped the 32-bit offset back into the tiny buffer.
+    for (unsigned i = 0; i < 65537; ++i) rec(beat, 65535, 0xC9, 0, 0);
+    rec(beat, 1, 1, 0, 0);
+    std::string error;
+    EXPECT_TRUE(!ctgp_link(boot, boat, beat.data(), beat.size(), 0, error));
+    EXPECT_TRUE(error.find("skip") != std::string::npos);
+    EXPECT_EQ(get(boot, 0), 0u);
+    // A skip to the end is harmless; writing there is not.
+    beat.clear();
+    rec(beat, 0, 0xCA, 0, 0);
+    rec(beat, 4, 0xC9, 0, 0);
+    rec(beat, 0, 1, 0, 0);
+    EXPECT_TRUE(!ctgp_link(boot, boat, beat.data(), beat.size(), 0, error));
+}
+
 static CtgpRowTable table() {
     CtgpRowTable t;
     t.words.resize(kCtgpRowCount * 3);
@@ -139,6 +157,7 @@ static void test_row_table() {
 
 int main() {
     test_link();
+    test_skip_overflow();
     test_image();
     test_row_table();
     if (g_failures == 0) std::cout << "ctgpimage tests passed" << std::endl;

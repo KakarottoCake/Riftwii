@@ -7,7 +7,7 @@
 
 #include "riftwii/ctgpfields.hpp"
 
-// Ghosts saved under RiftWii's CTGP-R launch are never validly signed.
+// RiftWii supplies an unusable key instead of the card's ghost-signing key.
 //
 // The channel hands the game a DSA private key (each card's own, kept on
 // jelly.bin) that CTGP-R's code signs every saved ghost with, plus a tag made
@@ -19,14 +19,12 @@
 // a null pointer (BOAT 0x81779418) and CTGP's crash handler reboots it. So the
 // launch hands over a key RiftWii made for this, laid out as the channel lays
 // out a real one (OpenSSL's DSA and BIGNUM structures, the private value's
-// words masked), that cannot produce a signature anyone accepts:
-//   - its generator is 2, whose order is not the subgroup's prime q, so the
-//     DSA check fails for any public value, and
-//   - its public value does not belong to its private value either.
+// words masked), with generator 2 and deliberately mismatched public and
+// private values. This is intended to prevent accepted signatures.
 // The 20 bytes that name the card's key (from BANNER.BIN) and the console tag
-// stay zero. Saving and replaying a ghost on the console still works; the
-// server sees a bad signature. tests/ctgpsign_tests.cpp checks that a
-// signature made with this key fails verification.
+// stay zero. tests/ctgpsign_tests.cpp checks that one signature made with
+// this key fails local verification. Saving and replaying with this key and
+// rejection by the server have not been confirmed on a real Wii.
 namespace riftwii {
 
 constexpr std::uint32_t kCtgpConsoleTag = 0x816ff4e8;    // 2 words, left 0

@@ -326,7 +326,7 @@ bool ctgp_assemble(const CtgpInputs& in, CtgpLaunchPlan& plan, std::string& erro
             error = "deyazhashes.hsh holds fewer than 255 digests";
             return false;
         }
-        std::vector<std::uint8_t> table(kCtgpTrackHashesALength + kCtgpTrackHashesBLength, 0);
+        CtgpBytes table(kCtgpTrackHashesALength + kCtgpTrackHashesBLength, 0);
         std::memcpy(table.data(), in.track_hashes.data(), kCtgpTrackHashCount * 20);
         for (const auto& [address, from, length] :
              {std::tuple<std::uint32_t, std::uint32_t, std::uint32_t>{kCtgpTrackHashesA, 0, kCtgpTrackHashesALength},

@@ -26,10 +26,14 @@
 //
 // Layout: "Hah0", the file's size, 0, the SHA-1 of the body (20 bytes),
 // the package name (8 bytes), the package's version, the signature's length
-// (at most 48), a DER DSA signature (over the header, taken as the digest),
+// (at most 48), a DER DSA signature (over the first 20 raw header bytes),
 // then at 0x60 the body: a file system table whose file entries give the
 // position of a 20-byte digest inside the body.
 namespace riftwii {
+
+// The native launch also needs an independently known body/version binding:
+// the channel's signature does not cover its version label.
+bool ctgp_has_hash_reference(const std::string& package, std::uint32_t version);
 
 class CtgpHashList {
 public:
@@ -44,6 +48,8 @@ public:
     // CORE.HSH gives them (it does not know them); it confirms instead that
     // each placed file's SHA-1 appears among the signed list's digests.
     bool contains_digest(const std::array<std::uint8_t, 20>& digest) const;
+
+    bool matches_digest(const std::string& path, const std::array<std::uint8_t, 20>& digest) const;
 
     std::size_t file_count() const { return files_ + direct_.size(); }
 
@@ -68,7 +74,8 @@ private:
 // Checks `file` as the list of package `package` (at most 8 characters) in the
 // version `version` (from PACKAGES.BIN): the DSA signature against CTGP-R's
 // public key, then the magic, the size, the name, the version and the body's
-// SHA-1. On any failure `error` says which and `out` is untouched. `key` is
+// SHA-1 and a known body/version binding (the name and version are unsigned).
+// On any failure `error` says which and `out` is untouched. `key` is
 // only for tests; the default is CTGP-R's own public list-signing key.
 bool ctgp_load_hash_list(const CtgpBytes& file, const std::string& package, std::uint32_t version,
                          CtgpHashList& out, std::string& error, const CtgpDsaKey* key = nullptr);

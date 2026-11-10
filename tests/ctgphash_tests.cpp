@@ -158,6 +158,24 @@ int main() {
     EXPECT_TRUE(!ctgp_load_hash_list(good, "TEST", 0x01020304, other, error));
     EXPECT_TRUE(error.find("signature") != std::string::npos);
 
+    // The channel signs only the first 20 bytes, so relabelling the name
+    // and version keeps a valid signature. The body/version binding must
+    // still refuse this as either supported production package.
+    for (const char* name : {"CORE", "CTGPR"}) {
+        auto relabelled = good;
+        std::memset(relabelled.data() + 0x20, 0, 8);
+        std::memcpy(relabelled.data() + 0x20, name, std::strlen(name));
+        const std::uint32_t version = name[1] == 'O' ? 0x01030412u : 0x01031196u;
+        for (unsigned i = 0; i < 4; ++i) relabelled[0x28 + i] = version >> (24 - 8 * i);
+        EXPECT_TRUE(!ctgp_load_hash_list(relabelled, name, version, other, error, &key));
+        EXPECT_TRUE(error.find("known reference") != std::string::npos);
+    }
+
+    EXPECT_TRUE(ctgp_has_hash_reference("CORE", 0x01030412));
+    EXPECT_TRUE(ctgp_has_hash_reference("CTGPR", 0x01031192));
+    EXPECT_TRUE(!ctgp_has_hash_reference("CTGPR", 0x01031196));
+    EXPECT_TRUE(!ctgp_has_hash_reference("CORE", 0x01030413));
+
     // another package, another version
     EXPECT_TRUE(!ctgp_load_hash_list(good, "OTHER", 0x01020304, other, error, &key));
     EXPECT_TRUE(!ctgp_load_hash_list(good, "TEST", 0x01020305, other, error, &key));
@@ -185,6 +203,16 @@ int main() {
     EXPECT_TRUE(!ctgp_load_hash_list(longsig, "TEST", 0x01020304, other, error, &key));
     // a name longer than eight characters cannot be a package
     EXPECT_TRUE(!ctgp_load_hash_list(good, "TOOLONGNAME", 0x01020304, other, error, &key));
+
+    // Directly loaded track hashes need the channel's signed debug name.
+    const CtgpBytes tracks(255 * 20, 0x5A);
+    const auto tracks_digest = sha1(tracks.data(), tracks.size());
+    const auto track_list = CtgpHashList::unverified_for_tests({{"/debug/smallfile.sml", tracks_digest}});
+    EXPECT_TRUE(track_list.matches_digest("/debug/smallfile.sml", tracks_digest));
+    auto changed_tracks = tracks;
+    changed_tracks[100] ^= 1;
+    EXPECT_TRUE(!track_list.matches_digest("/debug/smallfile.sml", sha1(changed_tracks.data(), changed_tracks.size())));
+    EXPECT_TRUE(!track_list.matches_digest("/deyazhashes.hsh", tracks_digest));
 
     // Membership by digest (not by name): the native launch confirms directly
     // placed loader code this way, since it does not know the names CORE.HSH

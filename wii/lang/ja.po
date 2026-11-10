@@ -4403,3 +4403,6 @@ msgstr "調整中"
 
 msgid "No GameCube controller found"
 msgstr "ゲームキューブコントローラーが見つかりません"
+
+msgid "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead."
+msgstr "CTGP-RはRVZ形式では起動できません。ディスク、ISO、WBFSを使ってください。"

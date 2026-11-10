@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "i18n.hpp"
+#include "di.hpp"
 #include "log.hpp"
 #include "memlimits.hpp"
 #include "online.hpp"
@@ -146,7 +147,7 @@ bool fetch_from_package_disk(Fat32Volume& efa, const char* path, CtgpBytes& byte
 
 // Why a launch stopped, for the words the player sees. The technical detail
 // (names, numbers) goes to boot.log instead.
-enum class Failure { Other, NotMarioKart, Region, NotInstalled, Version };
+enum class Failure { Other, NotMarioKart, Region, NotInstalled, Version, Rvz };
 
 std::string failure_text(Failure why) {
     switch (why) {
@@ -157,6 +158,8 @@ std::string failure_text(Failure why) {
         return tr("CTGP-R is not installed on the SD card. Install it with its own installer first.");
     case Failure::Version:
         return tr("This version of CTGP-R can't be started from RiftWii yet. Start CTGP-R from the Homebrew Channel instead.");
+    case Failure::Rvz:
+        return tr("CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead.");
     case Failure::Other: break;
     }
     return tr("CTGP-R could not be started. Its files on the SD card may be damaged or incomplete: install CTGP-R again. The reason is in sd:/riftwii/boot.log.");
@@ -177,10 +180,15 @@ CtgprNativeStatus work_out_status() {
     CtgpBytes packages_bin;
     std::vector<CtgpPackage> versions;
     if (!open_package_disk(tables, reader, efa, error) ||
-        !fetch_from_package_disk(efa, "/PACKAGES.BIN", packages_bin, kCtgpFetchCeiling, error) ||
+        !fetch_from_package_disk(efa, "/PACKAGES.BIN", packages_bin, kCtgpPackagesMaxBytes, error) ||
         !ctgp_parse_packages(packages_bin.data(), packages_bin.size(), versions, error) ||
         !ctgp_check_versions(versions, error)) {
         logf("CTGP-R: the installed copy cannot be started natively: %s\n", error.c_str());
+        return CtgprNativeStatus::Unsupported;
+    }
+    if (!ctgp_has_hash_reference("CORE", ctgp_package_version(versions, "CORE")) ||
+        !ctgp_has_hash_reference("CTGPR", ctgp_package_version(versions, "CTGPR"))) {
+        logf("CTGP-R: the installed version has no authenticated hash-list body reference in this build\n");
         return CtgprNativeStatus::Unsupported;
     }
     return CtgprNativeStatus::Supported;
@@ -211,6 +219,11 @@ namespace {
 // words the player gets, and stays Other unless a step names it.
 bool prepare_impl(const std::string& game_id, std::shared_ptr<const CtgpLaunchPlan>& out, std::string& error,
                   Failure& why) {
+    if (di::has_partition_resolver()) {
+        error = "RVZ needs RiftWii's resident reader, which conflicts with the native CTGP-R hooks and page table";
+        why = Failure::Rvz;
+        return false;
+    }
     CtgpInputs in;
     // Mario Kart Wii only: the native launch writes CTGP-R's Mario Kart Wii
     // hooks at fixed game addresses, so it must never run on another game, even
@@ -267,10 +280,16 @@ bool prepare_impl(const std::string& game_id, std::shared_ptr<const CtgpLaunchPl
     // package disk any more.
 
     // The version first: only the tested one is started.
-    if (!fetch("/PACKAGES.BIN", in.packages_bin, kCtgpFetchCeiling)) return false;
+    if (!fetch("/PACKAGES.BIN", in.packages_bin, kCtgpPackagesMaxBytes)) return false;
     std::vector<CtgpPackage> versions;
     if (!ctgp_parse_packages(in.packages_bin.data(), in.packages_bin.size(), versions, error)) return false;
     if (!ctgp_check_versions(versions, error)) {
+        why = Failure::Version;
+        return false;
+    }
+    if (!ctgp_has_hash_reference("CORE", ctgp_package_version(versions, "CORE")) ||
+        !ctgp_has_hash_reference("CTGPR", ctgp_package_version(versions, "CTGPR"))) {
+        error = "the installed package version has no authenticated hash-list body reference in this build";
         why = Failure::Version;
         return false;
     }
@@ -326,6 +345,7 @@ bool prepare_impl(const std::string& game_id, std::shared_ptr<const CtgpLaunchPl
     if (!ctgp_assemble(in, *plan, error)) return false;
     // The code files as read are in the plan now (linked); the rest of the
     // launch needs none of them, so their room goes to the package lists.
+    const Sha1Digest track_digest = sha1(in.track_hashes.data(), in.track_hashes.size());
     // The core code's digests, for the CORE.HSH check below, before the copies go.
     struct CoreCodeDigest {
         const char* what;
@@ -341,7 +361,7 @@ bool prepare_impl(const std::string& game_id, std::shared_ptr<const CtgpLaunchPl
     CtgpBytes().swap(in.beat_bin);
     CtgpBytes().swap(in.packages_bin);
     CtgpBytes().swap(in.track_hashes);
-    logf("CTGP-R: offline only: online and LAN play off, ghosts saved unsigned\n");
+    logf("CTGP-R: offline only: online and LAN play off, ghost signer given an unusable key\n");
 
     // The signed lists of file digests that vouch for CTGPR's and CORE's
     // files: on the second package disk, jelly.bin, which opens with a key
@@ -396,7 +416,7 @@ bool prepare_impl(const std::string& game_id, std::shared_ptr<const CtgpLaunchPl
             return false;
         }
         CtgpBytes bytes;
-        if (!try_resize(bytes, f.entry.size) || !efb.read(f, 0, bytes.data(), bytes.size())) {
+        if (f.entry.size > kCtgpFetchCeiling || !try_resize(bytes, f.entry.size) || !efb.read(f, 0, bytes.data(), bytes.size())) {
             error = std::string("cannot read the hash list for ") + name;
             return false;
         }
@@ -407,6 +427,12 @@ bool prepare_impl(const std::string& game_id, std::shared_ptr<const CtgpLaunchPl
         return true;
     };
     if (!load_hashes("CTGPR", ctgpr_hashes) || !load_hashes("CORE", core_hashes)) return false;
+    // The channel verifies this file under its signed debug/smallfile.sml
+    // name, not its on-disk name (FUN_80954b04).
+    if (!ctgpr_hashes.matches_digest("/debug/smallfile.sml", track_digest)) {
+        error = "deyazhashes.hsh does not match CTGPR.HSH's signed debug/smallfile.sml digest";
+        return false;
+    }
     // The DSA signature of each list is checked against CTGP-R's own key as it
     // loads (ctgp_load_hash_list); the per-file digests those lists carry are
     // written into the game's open-file records, where CTGP's code compares

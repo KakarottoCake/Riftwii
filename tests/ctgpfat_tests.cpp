@@ -190,6 +190,22 @@ static void test_fat16_and_active_fat() {
     EXPECT_EQ(be32(p, ctgp_part::data_start), 1u + 2 * 64 + 32);  // 512 entries of 32 bytes
 }
 
+static void test_active_fat() {
+    for (const unsigned flags : {0x81u, 0x00u, 0x01u}) {
+        auto sector = efa_sector();
+        sector[0x10] = 2;
+        sector[0x28] = flags;
+        CtgpFatVolume volume;
+        CtgpPartitionPlacement placement;
+        std::string error;
+        std::vector<std::uint8_t> partition;
+        EXPECT_TRUE(ctgp_parse_boot_sector(sector.data(), sector.size(), 2048, volume, error));
+        EXPECT_TRUE(ctgp_build_partition(volume, placement, partition, error));
+        const std::uint32_t active_offset = flags == 0x81 ? volume.sectors_per_fat : 0;
+        EXPECT_EQ(be32(partition, ctgp_part::fat_start), 2048u + volume.reserved_sectors + active_offset);
+    }
+}
+
 static void test_sda_partition() {
     // A FAT32 card whose volume starts at block 2048.
     std::vector<std::uint8_t> card(512 * 2049, 0);
@@ -237,6 +253,7 @@ int main() {
     test_volume_not_at_sector_zero();
     test_fat16_and_active_fat();
     test_sda_partition();
+    test_active_fat();
     if (g_failures == 0) std::cout << "ctgpfat tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }

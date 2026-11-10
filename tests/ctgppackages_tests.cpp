@@ -84,8 +84,29 @@ static void test_refusals() {
     EXPECT_TRUE(!ctgp_parse_packages(b.data(), 8, p, error));
 }
 
+static void test_record_cap() {
+    for (std::uint32_t count : {kCtgpMaxPackages, kCtgpMaxPackages + 1, 0xFFFFFu}) {
+        std::vector<std::uint8_t> bytes((std::size_t(count) + 1) * 16, 0);
+        std::memcpy(bytes.data(), "PAK0", 4);
+        auto put = [&](std::size_t offset, std::uint32_t value) {
+            for (unsigned i = 0; i < 4; ++i) bytes[offset + i] = value >> (24 - i * 8);
+        };
+        put(4, bytes.size());
+        put(12, count);
+        std::vector<CtgpPackage> packages = {{"unchanged", 7, 0}};
+        std::string error;
+        EXPECT_TRUE(ctgp_parse_packages(bytes.data(), bytes.size(), packages, error) == (count == kCtgpMaxPackages));
+        if (count > kCtgpMaxPackages) {
+            EXPECT_EQ(packages.size(), std::size_t(1));
+            EXPECT_EQ(packages[0].name, std::string("unchanged"));
+            EXPECT_TRUE(error.find("too many") != std::string::npos);
+        }
+    }
+}
+
 int main() {
     test_list();
+    test_record_cap();
     test_refusals();
     if (g_failures == 0) std::cout << "ctgppackages tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;

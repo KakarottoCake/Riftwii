@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <set>
 
 namespace riftwii {
 
@@ -83,6 +84,12 @@ bool CtgpRecordTable::add(const std::string& key, int device, const CtgpOpenFile
     const auto known = entries_.find(key);
     if (known != entries_.end()) {
         slot = known->second;
+        const std::size_t record = slot.address - kCtgpRecordBlock;
+        // Shared sources must carry the same authenticated bytes, even when
+        // different package paths refer to them.
+        if (image_[record + 0x4E] != static_cast<unsigned>(file.hashed) ||
+            (file.hashed && std::memcmp(image_.data() + record + 0xB4, file.digest.data(), 20) != 0))
+            return false;
         return true;
     }
     if (device < 0 || device > 2) return false;
@@ -149,6 +156,13 @@ bool ctgp_add_package(CtgpRecordTable& table, const std::vector<CtgpPackageFile>
                       const CtgpSourceResolver& resolver, const CtgpHashList* hashes,
                       std::vector<CtgpMergedFile>& out, std::string& error) {
     std::vector<CtgpMergedFile> merged;
+    std::set<std::string> names;
+    for (const CtgpPackageFile& f : files) {
+        if (!names.insert(f.game_path).second) {
+            error = "the package repeats the game path " + f.game_path;
+            return false;
+        }
+    }
     for (const CtgpPackageFile& f : files) {
         const bool required = (f.flags & 1) != 0;
         const auto colon = f.source.find(':');
@@ -162,14 +176,19 @@ bool ctgp_add_package(CtgpRecordTable& table, const std::vector<CtgpPackageFile>
             CtgpOpenFile open;
             open.size = src.size;
             open.first_cluster = src.first_cluster;
-            open.hashed = (f.flags & 2) != 0;
-            // A file that already has a record is shared without a second look,
-            // as in the channel; a new signed file needs its digest from the list.
-            if (open.hashed && !table.has(f.source) && !(hashes && hashes->find(f.game_path, open.digest))) {
-                error = "the package lists " + f.game_path + " as signed, but its hash list does not have it";
+            // Package lists are untrusted. Their flags cannot opt a served
+            // file out of CTGP-R's own digest check.
+            open.hashed = true;
+            if (!(hashes && hashes->find(f.game_path, open.digest))) {
+                error = "the package file " + f.game_path + " has no signed digest";
                 return false;
             }
+            const bool shared = table.has(f.source);
             ok = table.add(f.source, dev, open, slot);
+            if (!ok && shared) {
+                error = "the package reuses " + f.source + " with a different signed digest";
+                return false;
+            }
         }
         if (!ok) {
             if (required) {

@@ -24,7 +24,11 @@ bool ctgp_parse_packages(const std::uint8_t* data, std::size_t size,
         error = "package list has an unknown format";
         return false;
     }
-    if (count > 0xFFFFFu || total != (std::uint64_t(count) + 1) * 16 || total > size) {
+    if (count > kCtgpMaxPackages) {
+        error = "package list has too many records";
+        return false;
+    }
+    if (total != (std::uint64_t(count) + 1) * 16 || total > size) {
         error = "package list size does not match its record count";
         return false;
     }

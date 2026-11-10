@@ -50,7 +50,7 @@ constexpr std::uint32_t ctgp_partition_address(int device) {
 struct CtgpOpenFile {
     std::uint32_t size = 0;
     std::uint32_t first_cluster = 0;  // 0 for an empty file
-    bool hashed = false;              // flag 2 in the package list: SHA-1 state kept in the record
+    bool hashed = false;              // SHA-1 state kept in the record
     std::array<std::uint8_t, 20> digest{};  // hashed: the digest the whole file must have (record offset 0xB4)
 };
 
@@ -130,11 +130,9 @@ struct CtgpMergedFile {
 // The package's first pass in the channel: every file is looked up and given
 // a record. A file that is missing (or finds no room) is left out, unless its
 // flags say the package cannot do without it, which fails the package.
-// A file with flag 2 has to be on `hashes`, the package's verified list of
-// digests (ctgp_load_hash_list), which gives its record the digest the game's
-// code will hold the file to; a signed file the list does not name, or no list
-// at all, fails the package, as in the channel. `out` gets the files that have
-// a record, in list order.
+// Every resolved file needs a digest in `hashes`, whatever the flags say.
+// Repeated game paths fail; a shared source must retain the same digest.
+// `out` gets the files that have a record, in list order.
 bool ctgp_add_package(CtgpRecordTable& table, const std::vector<CtgpPackageFile>& files,
                       const CtgpSourceResolver& resolver, const CtgpHashList* hashes,
                       std::vector<CtgpMergedFile>& out, std::string& error);

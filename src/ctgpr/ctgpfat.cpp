@@ -95,7 +95,7 @@ bool ctgp_build_partition(const CtgpFatVolume& vol, const CtgpPartitionPlacement
     } else if (clusters < 0xFFF5) {
         type = 2;
         root_cluster = 0;
-    } else if ((vol.ext_flags & 0x80) == 0) {
+    } else if ((vol.ext_flags & 0x80) != 0) {
         fat_start += (vol.ext_flags & 0xFu) * vol.sectors_per_fat;  // the active FAT
     }
 

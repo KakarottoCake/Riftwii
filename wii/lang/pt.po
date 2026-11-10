@@ -4403,3 +4403,6 @@ msgstr "calibrando"
 
 msgid "No GameCube controller found"
 msgstr "Nenhum controle de GameCube encontrado"
+
+msgid "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead."
+msgstr "O CTGP-R não pode iniciar de uma imagem RVZ. Use um disco, ISO ou WBFS."

@@ -70,11 +70,17 @@ bool ctgp_link(CtgpBytes& boot, CtgpBytes& boat, const std::uint8_t* beat,
         }
         if (type == 0xCB) return true;
         if (cur < 0) { error = "relocation before a section was selected"; return false; }
+        CtgpBytes& buf = *bufs[cur];
+        // Bound even skip-only records before adding: off must not wrap on
+        // the Wii's 32-bit size_t or escape the selected section.
+        if (off > buf.size() || skip > buf.size() - off) {
+            error = "relocation skip outside its section";
+            return false;
+        }
         off += skip;
         if (type == 0xC9) continue;
         if (section > 1) { error = "relocation names a section that does not exist"; return false; }
-        CtgpBytes& buf = *bufs[cur];
-        if (std::size_t(off) + 4 > buf.size()) { error = "relocation outside its section"; return false; }
+        if (off > buf.size() || buf.size() - off < 4) { error = "relocation outside its section"; return false; }
         std::uint32_t val = base[section] + addend;
         if (type > 9) val -= base[cur] + off;
         const std::uint32_t w = get32(buf, off);

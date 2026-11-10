@@ -289,8 +289,38 @@ static void test_package_and_merge() {
     EXPECT_TRUE(!ctgp_merge_files(fst, clash, error));
 }
 
+static void test_untrusted_flags_and_duplicates() {
+    const std::array<std::uint8_t, 20> digest{};
+    const auto hashes = CtgpHashList::unverified_for_tests({{"/a", digest}, {"/alias", digest}});
+    auto resolver = [](const std::string&, const std::string&, CtgpSourceFile& file) {
+        file.size = 4;
+        file.first_cluster = 9;
+        return true;
+    };
+    CtgpRecordTable table;
+    std::vector<CtgpMergedFile> merged;
+    std::string error;
+    // Clearing flag 2 still produces a hashed record.
+    EXPECT_TRUE(ctgp_add_package(table, {{"/a", "efa:/a", 0}}, resolver, &hashes, merged, error));
+    EXPECT_EQ(table.image()[kCtgpRecordPools[0].start - kCtgpRecordBlock + 0x4E], 1);
+    CtgpRecordTable missing;
+    EXPECT_TRUE(!ctgp_add_package(missing, {{"/unsigned", "efa:/unsigned", 0}}, resolver, &hashes, merged, error));
+    EXPECT_TRUE(!ctgp_add_package(missing, {{"/a", "efa:/a", 0}}, resolver, nullptr, merged, error));
+    // Duplicate game paths are rejected even if the first record cleared all flags.
+    EXPECT_TRUE(!ctgp_add_package(missing, {{"/a", "efa:/x", 0}, {"/a", "efa:/a", 2}},
+                                 resolver, &hashes, merged, error));
+    EXPECT_EQ(missing.used(), 0u);
+    // Shared sources are safe only when the signed digests agree.
+    EXPECT_TRUE(ctgp_add_package(table, {{"/alias", "efa:/a", 0}}, resolver, &hashes, merged, error));
+    auto changed = digest;
+    changed[0] = 1;
+    const auto conflicting = CtgpHashList::unverified_for_tests({{"/alias", changed}});
+    EXPECT_TRUE(!ctgp_add_package(table, {{"/alias", "efa:/a", 0}}, resolver, &conflicting, merged, error));
+}
+
 int main() {
     test_pools();
+    test_untrusted_flags_and_duplicates();
     test_record();
     test_table();
     test_overflow();
