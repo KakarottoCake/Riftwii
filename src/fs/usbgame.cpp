@@ -350,21 +350,17 @@ std::string path_fold_case(const std::string& path) {
     return folded;
 }
 
-std::vector<std::size_t> repeated_paths(const std::vector<std::string>& paths, std::size_t from) {
-    std::vector<std::size_t> repeated;
-    std::set<std::string> earlier;
-    for (std::size_t i = 0; i < paths.size(); ++i) {
-        const bool again = !earlier.insert(path_fold_case(paths[i])).second;
-        if (again && i >= from) repeated.push_back(i);
-    }
-    return repeated;
-}
-
-bool path_in_folder(const std::string& path, const std::string& folder) {
+bool scan_reaches_path(const std::string& folder, const std::string& path, bool nested) {
     std::string inside = path_fold_case(folder);
     while (!inside.empty() && inside.back() == '/') inside.pop_back();
     inside += '/';
-    return path_fold_case(path).compare(0, inside.size(), inside) == 0;
+    const std::string folded = path_fold_case(path);
+    if (folded.compare(0, inside.size(), inside) != 0) return false;
+    // What is left is "name" or, one level down, "folder/name".
+    const std::string rest = folded.substr(inside.size());
+    if (rest.empty()) return false;
+    const std::size_t slashes = static_cast<std::size_t>(std::count(rest.begin(), rest.end(), '/'));
+    return slashes == 0 || (nested && slashes == 1 && rest.front() != '/' && rest.back() != '/');
 }
 
 void CisoFinds::note(const std::string& path) {

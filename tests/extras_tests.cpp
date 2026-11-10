@@ -2144,6 +2144,25 @@ void TestCoverArt() {
     EXPECT_TRUE(add_game_folder(pick, "/no drive") == GameFolderAdd::NotAFolder);
     EXPECT_TRUE(add_game_folder(pick, "nand:/title") == GameFolderAdd::NotAFolder);
     EXPECT_TRUE(add_game_folder(pick, "usbx:/games2") == GameFolderAdd::NotAFolder);
+    // No scan reads a usb0 or a partition past the last one.
+    EXPECT_TRUE(add_game_folder(pick, "usb0:/games2") == GameFolderAdd::NotAFolder);
+    EXPECT_TRUE(add_game_folder(pick, "usb999:/games2") == GameFolderAdd::NotAFolder);
+
+    // Which folder finds a game, after one is taken off the list.
+    EXPECT_TRUE(game_folder_finds("sd:/Wii Games", "sd:/wii games/X/a.iso"));
+    EXPECT_TRUE(game_folder_finds("/Wii Games", "usb2:/Wii Games/a.iso"));
+    EXPECT_FALSE(game_folder_finds("sd:/Wii Games", "usb:/Wii Games/a.iso"));
+    EXPECT_FALSE(game_folder_finds("sd:/Wii Games", "sd:/Wii Games/X/Y/a.iso"));
+    EXPECT_FALSE(game_folder_finds("sd:/", "sd:/a.iso"));
+    // wbfs and games are read anyway: taking a hand-written "sd:/wbfs" or a
+    // folder inside wbfs off the list leaves those games.
+    EXPECT_TRUE(game_still_found({}, "sd:/wbfs/Game [RMCE01]/RMCE01.wbfs"));
+    EXPECT_TRUE(game_still_found({}, "usb2:/WBFS/Backups/a.iso"));
+    EXPECT_TRUE(game_still_found({}, "sd:/games/a.iso"));
+    EXPECT_FALSE(game_still_found({}, "sd:/games/x/a.iso"));
+    // An outer folder keeps only what it reaches one level down.
+    EXPECT_TRUE(game_still_found({"sd:/Wii Games"}, "sd:/Wii Games/USB Loader GX/a.iso"));
+    EXPECT_FALSE(game_still_found({"sd:/Wii Games"}, "sd:/Wii Games/USB Loader GX/Alpha/a.iso"));
     EXPECT_TRUE(add_game_folder(pick, "sd:/a;b") == GameFolderAdd::NotAFolder);
     EXPECT_TRUE(add_game_folder(pick, "sd:/x/../y") == GameFolderAdd::NotAFolder);
     EXPECT_EQ(pick.game_folders.size(), 3u);

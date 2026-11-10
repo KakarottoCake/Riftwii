@@ -182,13 +182,11 @@ bool is_ciso_image_name(const std::string& name);
 
 // A path as FAT and NTFS compare names: ASCII letters in lower case.
 std::string path_fold_case(const std::string& path);
-// Of `paths`, the indices from `from` on whose path (case ignored) came
-// earlier in the list: a game two listed folders reach (riftwii/
-// settingsfile.hpp's game_folders), to be listed once. Ascending.
-std::vector<std::size_t> repeated_paths(const std::vector<std::string>& paths, std::size_t from);
-// True when `path` is in `folder` or below it ("sd:/Wii Games" holds
-// "sd:/wii games/x/a.iso"), case ignored.
-bool path_in_folder(const std::string& path, const std::string& folder);
+// True when a scan of `folder` reaches the file at `path`, case ignored:
+// a file in the folder, or with `nested` one in a folder directly inside
+// it ("sd:/Wii Games" reaches "sd:/wii games/x/a.iso", not ".../x/y/a.iso"),
+// as the menu's scan reads it.
+bool scan_reaches_path(const std::string& folder, const std::string& path, bool nested);
 
 // The .ciso files one scan found: the first few paths, in scan order, and
 // how many in all (a card full of them must not grow the list unbounded).

@@ -501,20 +501,16 @@ void test_ciso_detection() {
     EXPECT_EQ(flood.total, CisoFinds::kSeenKept + 10);
     EXPECT_EQ(flood.seen.size(), CisoFinds::kSeenKept);
 
-    // Games two folders reach: the later ones, case ignored.
-    const std::vector<std::string> found = {"sd:/wbfs/A [RMCE01]/RMCE01.wbfs", "sd:/Wii Games/b.iso",
-                                            "sd:/wii games/B.iso", "sd:/WBFS/a [rmce01]/rmce01.wbfs", "sd:/c.iso"};
-    const std::vector<std::size_t> again = repeated_paths(found, 1);
-    EXPECT_EQ(again.size(), static_cast<std::size_t>(2));
-    if (again.size() == 2) {
-        EXPECT_EQ(again[0], static_cast<std::size_t>(2));
-        EXPECT_EQ(again[1], static_cast<std::size_t>(3));
-    }
-    EXPECT_TRUE(repeated_paths(found, 4).empty());
-    EXPECT_TRUE(path_in_folder("sd:/wii games/X/a.iso", "sd:/Wii Games"));
-    EXPECT_TRUE(path_in_folder("sd:/Wii Games/a.iso", "sd:/Wii Games/"));
-    EXPECT_FALSE(path_in_folder("sd:/Wii Games2/a.iso", "sd:/Wii Games"));
-    EXPECT_FALSE(path_in_folder("usb:/Wii Games/a.iso", "sd:/Wii Games"));
+    // Two spellings of one file on FAT are one path (the scan lists a game
+    // two folders reach once, by this).
+    EXPECT_EQ(path_fold_case("sd:/WBFS/A [RMCE01]/RMCE01.wbfs"), path_fold_case("sd:/wbfs/a [rmce01]/rmce01.wbfs"));
+    EXPECT_TRUE(scan_reaches_path("sd:/Wii Games", "sd:/wii games/X/a.iso", true));
+    EXPECT_TRUE(scan_reaches_path("sd:/Wii Games/", "sd:/Wii Games/a.iso", false));
+    EXPECT_FALSE(scan_reaches_path("sd:/Wii Games", "sd:/Wii Games/X/a.iso", false));
+    // Only one level down, as the scan reads.
+    EXPECT_FALSE(scan_reaches_path("sd:/Wii Games", "sd:/Wii Games/X/Y/a.iso", true));
+    EXPECT_FALSE(scan_reaches_path("sd:/Wii Games", "sd:/Wii Games2/a.iso", true));
+    EXPECT_FALSE(scan_reaches_path("sd:/Wii Games", "usb:/Wii Games/a.iso", true));
 
     // Many: only the first few paths are kept, the count goes on.
     CisoFinds many;

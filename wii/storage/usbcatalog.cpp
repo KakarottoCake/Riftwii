@@ -1073,16 +1073,18 @@ void scan_wbfs(const WbfsPartition& partition, const std::string& prefix,
 // subfolders one level down, any image kind.
 void scan_own_folders(const ImageVolume& volume, const std::string& device, ImageDevice kind, ImageCatalog& c,
                       std::string& failure) {
+    // The paths listed so far (path_fold_case): a folder inside wbfs or
+    // another listed one finds some games a second time, and the same file
+    // (case ignored) is listed once.
+    std::set<std::string> listed;
+    for (const ImageGame& game : c.games) listed.insert(path_fold_case(game.path));
     for (const std::string& folder : game_folders_on(Settings(), device)) {
         const std::size_t before = c.games.size();
         scan_dir(volume, device + ":/", kind, device + ":" + folder, true, UsbImageFormat::Rvz, c, failure);
-        // A folder inside wbfs or another listed one finds some games a
-        // second time: the same file (case ignored) is listed once.
-        std::vector<std::string> paths;
-        for (const ImageGame& game : c.games) paths.push_back(game.path);
-        const std::vector<std::size_t> again = repeated_paths(paths, before);
-        for (auto it = again.rbegin(); it != again.rend(); ++it)
-            c.games.erase(c.games.begin() + static_cast<std::ptrdiff_t>(*it));
+        for (std::size_t i = before; i < c.games.size();) {
+            if (listed.insert(path_fold_case(c.games[i].path)).second) ++i;
+            else c.games.erase(c.games.begin() + static_cast<std::ptrdiff_t>(i));
+        }
         logf("%s scan: %s:%s (game_folders): %u game(s)\n", device_name(kind), device.c_str(), folder.c_str(),
              static_cast<unsigned>(c.games.size() - before));
     }
