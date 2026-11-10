@@ -4404,9 +4404,6 @@ msgstr "Aucune manette GameCube trouvée"
 msgid "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead."
 msgstr "CTGP-R ne peut pas démarrer depuis une image RVZ. Utilisez un disque, un ISO ou un WBFS."
 
-msgid "A named card"
-msgstr "Une carte nommée"
-
 msgid "Named: {1}"
 msgstr "Nommée : {1}"
 
@@ -4422,14 +4419,8 @@ msgstr "Nouvelle carte"
 msgid "Other kinds of card"
 msgstr "Autres types de carte"
 
-msgid "Back to the list"
-msgstr "Retour à la liste"
-
 msgid "A new, empty card. It is made the first time a game uses it."
 msgstr "Une carte neuve et vide. Elle est créée la première fois qu'un jeu l'utilise."
-
-msgid "This game's own card, the shared card or a real card instead."
-msgstr "La carte propre à ce jeu, la carte partagée ou une vraie carte à la place."
 
 msgid "Named cards are kept in {1}. Give one to several games, or several to one game."
 msgstr "Les cartes nommées sont dans {1}. Donnez-en une à plusieurs jeux, ou plusieurs à un jeu."
@@ -4460,3 +4451,6 @@ msgstr "Une carte mémoire nommée est créée la première fois qu'un jeu qui l
 
 msgid "Go back to how this named memory card was on a day you pick, for every game that uses it."
 msgstr "Remettez cette carte mémoire nommée dans son état du jour choisi, pour tous les jeux qui l'utilisent."
+
+msgid "Switches this game to {1}. Back keeps the card it has."
+msgstr "Passe ce jeu sur {1}. Retour garde la carte qu'il a."

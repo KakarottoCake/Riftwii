@@ -850,7 +850,8 @@ opens it: saves with their icons, copied out as `.gci`, deleted, or added
 from `sd:/riftwii/gc/saves`. Before each start (Settings' Back up saves,
 on by default) the loader copies the card the game will use to
 `sd:/riftwii/gc/backups/<card>/<date>_<time>.raw` (`src/fs/gcbackup.cpp`),
-`<card>` being the card file's name (the game's ID, or `shared`), keeping
+`<card>` being the card file's name (the game's ID, or `shared`; a named
+card's go to `backups/named/<name>`, `named-jp/` for Japanese games), keeping
 the newest five and skipping the copy while the card matches the newest.
 The Saves page's Restore an older save lists them by date and puts the one
 picked back over the card, after a backup of the card as it is now, so a

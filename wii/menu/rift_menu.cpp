@@ -9924,7 +9924,6 @@ static std::string GcCardName(const std::string& card)
 	if (card == "shared") return tr("Shared");
 	if (card == "nintendont") return tr("Nintendont's card");
 	if (card == "dolphin") return tr("Dolphin's card");
-	if (card == "named") return tr("A named card");
 	return tr("This game's own");
 }
 
@@ -10586,7 +10585,10 @@ static std::vector<std::string> ListNamedGcCards(bool shiftJis)
 	while (dirent* entry = readdir(dir)) {
 		if (++seen > 2000) break;
 		std::string name = entry->d_name;
-		if (name.size() <= 4 || name.compare(name.size() - 4, 4, ".raw") != 0) continue;
+		// Cards are files; a folder called X.raw is not one.
+		if (entry->d_type == DT_DIR) continue;
+		// FAT ignores case: a PC may have written Trades.RAW.
+		if (name.size() <= 4 || LowerAscii(name.substr(name.size() - 4)) != ".raw") continue;
 		name.resize(name.size() - 4);
 		if (riftwii::gc_card_name_clean(name) != name) continue;
 		if (names.size() < 200) names.push_back(name);
@@ -10619,9 +10621,11 @@ enum class NamedCardPick { Picked, Other, Back };
 
 // Memory card > A named card, on a GameCube game's page: the named cards
 // of the game's encoding, New card, and the other kinds of card. `name`
-// is the game's card now, lit; on Picked it is the card picked. Called
-// with the GUI halted, as RunRowPage is.
-static NamedCardPick MenuPickNamedGcCard(const std::string& gameId, std::string& name)
+// is the game's card now, lit; on Picked it is the card picked. Other
+// switches the game to `otherCard` (the next kind on the Memory card row,
+// as shown), which the row's note names. Called with the GUI halted, as
+// RunRowPage is.
+static NamedCardPick MenuPickNamedGcCard(const std::string& gameId, std::string& name, const std::string& otherCard)
 {
 	const bool shiftJis = riftwii::gc_card_shift_jis(gameId);
 	std::vector<std::string> names = ListNamedGcCards(shiftJis);
@@ -10645,7 +10649,7 @@ static NamedCardPick MenuPickNamedGcCard(const std::string& gameId, std::string&
 	FlowRow other;
 	other.kind = FlowRow::Kind::Action;
 	other.label = tr("Other kinds of card");
-	other.value = tr("Back to the list");
+	other.value = tr("Switch");
 	rows.push_back(other);
 	const std::size_t newRow = names.size();
 	const std::size_t otherRow = names.size() + 1;
@@ -10657,7 +10661,7 @@ static NamedCardPick MenuPickNamedGcCard(const std::string& gameId, std::string&
 		if (static_cast<std::size_t>(row) == newRow)
 			return tr("A new, empty card. It is made the first time a game uses it.");
 		if (static_cast<std::size_t>(row) == otherRow)
-			return tr("This game's own card, the shared card or a real card instead.");
+			return tr("Switches this game to {1}. Back keeps the card it has.", {otherCard});
 		return tr("Named cards are kept in {1}. Give one to several games, or several to one game.",
 			{riftwii::gc_named_card_folder(shiftJis)});
 	};
@@ -14597,16 +14601,21 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 					const std::string next = onNamed ? std::string("named") : StepList(sources, game.gc_card, direction);
 					if (next == "named") {
 						std::string name = game.gc_card_name;
+						// Where Other kinds of card goes, named as the row would show it.
+						const std::string afterNamed = StepList(sources, "named", direction);
+						const std::string afterNamedShown = afterNamed == "global"
+							? tr("Default ({1})", {GcCardName(riftwii::gc_card_effective(riftwii::GameSettings(), riftwii::wii::Settings().gc_card))})
+							: GcCardName(afterNamed);
 						transition::Hold(transition::Kind::SlideForward);
 						mainWindow->Remove(&w);
-						const NamedCardPick pick = MenuPickNamedGcCard(state.game_id, name);
+						const NamedCardPick pick = MenuPickNamedGcCard(state.game_id, name, afterNamedShown);
 						transition::Hold(transition::Kind::SlideBack);
 						mainWindow->Append(&w);
 						if (pick == NamedCardPick::Picked) {
 							game.gc_card = "named";
 							game.gc_card_name = name;
 						} else if (pick == NamedCardPick::Other) {
-							game.gc_card = StepList(sources, "named", direction);
+							game.gc_card = afterNamed;
 						} else changed = false;
 					} else game.gc_card = next;
 				}

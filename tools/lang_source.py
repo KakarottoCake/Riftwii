@@ -9275,15 +9275,12 @@ FR.update({
 
 # GameCube named memory cards (#511).
 T.update({
-    "A named card": ("Una tarjeta con nombre", "名前付きカード", "Um cartão com nome", "Una scheda con nome"),
     "Named: {1}": ("Con nombre: {1}", "名前付き: {1}", "Com nome: {1}", "Con nome: {1}"),
     "Saves go to the named memory card {1} on the SD card: {2}.": ("Las partidas se guardan en la tarjeta de memoria con nombre {1} de la tarjeta SD: {2}.", "セーブはSDカードの名前付きメモリーカード「{1}」に入ります: {2}。", "Os jogos salvos vão para o cartão de memória com nome {1} no cartão SD: {2}.", "I salvataggi vanno nella scheda di memoria con nome {1} sulla scheda SD: {2}."),
     "Name the new card": ("Ponle nombre a la tarjeta nueva", "新しいカードの名前", "Dê um nome ao cartão novo", "Dai un nome alla nuova scheda"),
     "New card": ("Tarjeta nueva", "新しいカード", "Cartão novo", "Nuova scheda"),
     "Other kinds of card": ("Otros tipos de tarjeta", "ほかの種類のカード", "Outros tipos de cartão", "Altri tipi di scheda"),
-    "Back to the list": ("Volver a la lista", "リストにもどる", "Voltar à lista", "Torna all'elenco"),
     "A new, empty card. It is made the first time a game uses it.": ("Una tarjeta nueva y vacía. Se crea la primera vez que un juego la usa.", "新しい空のカードです。ゲームが初めて使うときに作られます。", "Um cartão novo e vazio. Ele é criado na primeira vez que um jogo o usa.", "Una scheda nuova e vuota. Viene creata la prima volta che un gioco la usa."),
-    "This game's own card, the shared card or a real card instead.": ("La tarjeta propia de este juego, la compartida o una tarjeta real en su lugar.", "かわりに、このゲーム専用のカード、共有カード、本物のカードを使います。", "O cartão próprio deste jogo, o compartilhado ou um cartão real no lugar.", "La scheda propria di questo gioco, quella condivisa o una scheda vera al suo posto."),
     "Named cards are kept in {1}. Give one to several games, or several to one game.": ("Las tarjetas con nombre se guardan en {1}. Dale una a varios juegos, o varias a un juego.", "名前付きカードは{1}にあります。1枚を複数のゲームで使っても、1つのゲームで何枚も使ってもかまいません。", "Os cartões com nome ficam em {1}. Dê um a vários jogos, ou vários a um jogo.", "Le schede con nome sono in {1}. Danne una a più giochi, o più di una a un gioco."),
     "Named cards": ("Tarjetas con nombre", "名前付きカード一覧", "Cartões com nome", "Schede con nome"),
     "Japanese games' cards": ("Tarjetas de juegos japoneses", "日本のゲームのカード", "Cartões de jogos japoneses", "Schede dei giochi giapponesi"),
@@ -9292,15 +9289,12 @@ T.update({
     "Press A to pick another named card or make a new one; Left for the other kinds of card.": ("Pulsa A para elegir otra tarjeta con nombre o crear una nueva; Izquierda para los otros tipos de tarjeta.", "Aでほかの名前付きカードを選ぶか新しく作り、左でほかの種類のカードにします。", "Aperte A para escolher outro cartão com nome ou criar um novo; Esquerda para os outros tipos de cartão.", "Premi A per scegliere un'altra scheda con nome o crearne una nuova; Sinistra per gli altri tipi di scheda."),
 })
 KO.update({
-    "A named card": "이름 있는 카드",
     "Named: {1}": "이름: {1}",
     "Saves go to the named memory card {1} on the SD card: {2}.": "저장 데이터는 SD 카드의 이름 있는 메모리 카드 {1}에 저장됩니다: {2}.",
     "Name the new card": "새 카드 이름",
     "New card": "새 카드",
     "Other kinds of card": "다른 종류의 카드",
-    "Back to the list": "목록으로",
     "A new, empty card. It is made the first time a game uses it.": "새 빈 카드입니다. 게임이 처음 사용할 때 만들어집니다.",
-    "This game's own card, the shared card or a real card instead.": "대신 이 게임 전용 카드, 공유 카드 또는 실제 카드를 사용합니다.",
     "Named cards are kept in {1}. Give one to several games, or several to one game.": "이름 있는 카드는 {1}에 있습니다. 한 장을 여러 게임에, 또는 여러 장을 한 게임에 쓸 수 있습니다.",
     "Named cards": "이름 있는 카드 목록",
     "Japanese games' cards": "일본 게임용 카드",
@@ -9309,15 +9303,12 @@ KO.update({
     "Press A to pick another named card or make a new one; Left for the other kinds of card.": "A를 눌러 다른 이름 있는 카드를 고르거나 새로 만들고, 왼쪽으로 다른 종류의 카드를 고릅니다.",
 })
 FR.update({
-    "A named card": "Une carte nommée",
     "Named: {1}": "Nommée : {1}",
     "Saves go to the named memory card {1} on the SD card: {2}.": "Les sauvegardes vont sur la carte mémoire nommée {1} de la carte SD : {2}.",
     "Name the new card": "Nommez la nouvelle carte",
     "New card": "Nouvelle carte",
     "Other kinds of card": "Autres types de carte",
-    "Back to the list": "Retour à la liste",
     "A new, empty card. It is made the first time a game uses it.": "Une carte neuve et vide. Elle est créée la première fois qu'un jeu l'utilise.",
-    "This game's own card, the shared card or a real card instead.": "La carte propre à ce jeu, la carte partagée ou une vraie carte à la place.",
     "Named cards are kept in {1}. Give one to several games, or several to one game.": "Les cartes nommées sont dans {1}. Donnez-en une à plusieurs jeux, ou plusieurs à un jeu.",
     "Named cards": "Cartes nommées",
     "Japanese games' cards": "Cartes des jeux japonais",
@@ -9352,6 +9343,17 @@ KO.update({
 FR.update({
     "A named memory card is made the first time a game that uses it starts: {1}.": "Une carte mémoire nommée est créée la première fois qu'un jeu qui l'utilise démarre : {1}.",
     "Go back to how this named memory card was on a day you pick, for every game that uses it.": "Remettez cette carte mémoire nommée dans son état du jour choisi, pour tous les jeux qui l'utilisent.",
+})
+
+# Named memory cards: where Other kinds of card goes (#511).
+T.update({
+    "Switches this game to {1}. Back keeps the card it has.": ("Cambia este juego a {1}. Atrás mantiene la tarjeta que tiene.", "このゲームを {1} に切り替えます。もどるで今のカードのままです。", "Troca este jogo para {1}. Voltar mantém o cartão que ele tem.", "Passa questo gioco a {1}. Indietro mantiene la scheda che ha."),
+})
+KO.update({
+    "Switches this game to {1}. Back keeps the card it has.": "이 게임을 {1}(으)로 바꿉니다. 뒤로를 누르면 지금 카드를 그대로 씁니다.",
+})
+FR.update({
+    "Switches this game to {1}. Back keeps the card it has.": "Passe ce jeu sur {1}. Retour garde la carte qu'il a.",
 })
 
 if __name__ == "__main__":
