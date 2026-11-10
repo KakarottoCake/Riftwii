@@ -154,7 +154,7 @@ bool ctgp_parse_package_fst(const std::uint8_t* data, std::size_t size, std::vec
 
 bool ctgp_add_package(CtgpRecordTable& table, const std::vector<CtgpPackageFile>& files,
                       const CtgpSourceResolver& resolver, const CtgpHashList* hashes,
-                      std::vector<CtgpMergedFile>& out, std::string& error) {
+                      std::vector<CtgpMergedFile>& out, std::string& error, bool allow_unsigned) {
     std::vector<CtgpMergedFile> merged;
     std::set<std::string> names;
     for (const CtgpPackageFile& f : files) {
@@ -176,10 +176,14 @@ bool ctgp_add_package(CtgpRecordTable& table, const std::vector<CtgpPackageFile>
             CtgpOpenFile open;
             open.size = src.size;
             open.first_cluster = src.first_cluster;
-            // Package lists are untrusted. Their flags cannot opt a served
-            // file out of CTGP-R's own digest check.
-            open.hashed = true;
-            if (!(hashes && hashes->find(f.game_path, open.digest))) {
+            // Package lists are untrusted, so a signed package's flags cannot
+            // opt a served file out of CTGP-R's own digest check: it hashes
+            // every file. The one exception is My Stuff (allow_unsigned), the
+            // player's own replacement files, which the channel serves unsigned;
+            // there it follows the channel's rule (chan_internal FUN_809561d4),
+            // hashing a file only when the list marks it signed with flag 2.
+            open.hashed = allow_unsigned ? (f.flags & 2) != 0 : true;
+            if (open.hashed && !(hashes && hashes->find(f.game_path, open.digest))) {
                 error = "the package file " + f.game_path + " has no signed digest";
                 return false;
             }

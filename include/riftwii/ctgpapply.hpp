@@ -107,10 +107,13 @@ constexpr std::uint32_t kCtgpLayoutCount = 0x816ffed8;
 // no_ct_24p.bin), My Stuff's (`my_stuff` 1..3: all, no tracks, music only),
 // NOMUSIC's (`no_music`), one font (`font` 1..3), then CORE's. `hash_list`
 // names the package whose signed digest list vouches for the files (empty for
-// none).
+// none). `allow_unsigned` is true only for My Stuff, the one package whose
+// files are the player's own and may be served without a signed digest (as the
+// channel serves them); every other package is strict.
 struct CtgpPackageList {
     std::string path;       // on the package disk (efa:)
     std::string hash_list;  // "CTGPR", "CORE" or ""
+    bool allow_unsigned = false;
 };
 std::vector<CtgpPackageList> ctgp_package_lists(const CtgpSettings& settings);
 

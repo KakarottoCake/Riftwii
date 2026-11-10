@@ -30,7 +30,14 @@ const std::uint8_t* reference_body(const std::string& package, std::uint32_t ver
         0xBA, 0x40, 0xD3, 0xFE, 0x0A, 0x7C, 0xA9, 0x7E, 0x1F, 0x65,
     };
     if (package == "CORE" && version == 0x01030412) return core_body;
-    if (package == "CTGPR" && version == 0x01031192) return ctgpr_body;
+    // CTGP bumped PACKAGES.BIN's CTGPR version from 0x01031192 (build 1192) to
+    // 0x01031196 (build 1196) without re-versioning CTGPR.HSH: its body, and its
+    // own version label (still 0x01031192), are unchanged. Bind either
+    // PACKAGES.BIN version to that one body, so both a 1192 card and a 1196 card
+    // are accepted; the body-digest match still proves the list's identity, so
+    // the extra key is a correctness fix with no loss of integrity (a body that
+    // is not this one is refused whichever version keyed the lookup).
+    if (package == "CTGPR" && (version == 0x01031192 || version == 0x01031196)) return ctgpr_body;
     return nullptr;
 }
 
@@ -41,7 +48,8 @@ bool ctgp_has_hash_reference(const std::string& package, std::uint32_t version) 
 }
 
 bool ctgp_load_hash_list(const CtgpBytes& file, const std::string& package, std::uint32_t version,
-                         CtgpHashList& out, std::string& error, const CtgpDsaKey* key) {
+                         CtgpHashList& out, std::string& error, const CtgpDsaKey* key,
+                         const std::array<std::uint8_t, 20>* reference) {
     if (file.size() < kBody + 12 || package.empty() || package.size() > 8) {
         error = "the hash list is too short";
         return false;
@@ -69,17 +77,24 @@ bool ctgp_load_hash_list(const CtgpBytes& file, const std::string& package, std:
         error = "the hash list is for another package";
         return false;
     }
-    if (be32(d + 0x28) != version) {
-        error = "the hash list is for another version of the package";
-        return false;
-    }
     const Sha1Digest body_digest = sha1(d + kBody, file.size() - kBody);
     if (std::memcmp(body_digest.data(), d + 0x0C, 20) != 0) {
         error = "the hash list's body does not match its digest";
         return false;
     }
-    const std::uint8_t* reference = reference_body(package, version);
-    const bool known_identity = reference && std::memcmp(body_digest.data(), reference, 20) == 0;
+    // The signed reference for this (package, PACKAGES.BIN version) proves the
+    // list's identity by its whole body, so its own version label (0x28) does
+    // not have to equal `version`. (`reference` is a test-only override.)
+    const std::uint8_t* const expected_body = reference ? reference->data() : reference_body(package, version);
+    const bool known_identity = expected_body && std::memcmp(body_digest.data(), expected_body, 20) == 0;
+    // Only when no reference vouches for the body do we fall back to the list's
+    // own version label, which must then equal the requested version. This is
+    // the test/dev path; a current production card reaches known_identity above
+    // even though its CTGPR.HSH label (0x01031192) lags PACKAGES.BIN (0x01031196).
+    if (!known_identity && be32(d + 0x28) != version) {
+        error = "the hash list is for another version of the package";
+        return false;
+    }
     if (!known_identity && (!key || package == "CORE" || package == "CTGPR")) {
         error = "the signed hash-list body is not a known reference for this package version";
         return false;

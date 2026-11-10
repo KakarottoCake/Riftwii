@@ -172,9 +172,37 @@ int main() {
     }
 
     EXPECT_TRUE(ctgp_has_hash_reference("CORE", 0x01030412));
+    // Both PACKAGES.BIN CTGPR builds (1192 and 1196) bind to the one CTGPR.HSH
+    // body, since CTGP did not re-version the list between them.
     EXPECT_TRUE(ctgp_has_hash_reference("CTGPR", 0x01031192));
-    EXPECT_TRUE(!ctgp_has_hash_reference("CTGPR", 0x01031196));
+    EXPECT_TRUE(ctgp_has_hash_reference("CTGPR", 0x01031196));
     EXPECT_TRUE(!ctgp_has_hash_reference("CORE", 0x01030413));
+
+    // The fix for the 1196 card: a list whose own version label (0x28) differs
+    // from the PACKAGES.BIN version still loads when its body matches the signed
+    // reference. A real card has PACKAGES.BIN CTGPR 0x01031196 but a CTGPR.HSH
+    // still labelled 0x01031192. The reference is supplied here because the real
+    // list body is CTGP data we do not ship; production uses the built-in
+    // CTGPR/CORE references keyed on the PACKAGES.BIN version.
+    {
+        const Sha1Digest bd = sha1(good.data() + 0x60, good.size() - 0x60);
+        std::array<std::uint8_t, 20> body{};
+        std::memcpy(body.data(), bd.data(), 20);
+        auto relabelled = good;
+        const std::uint32_t label = 0x01031192u;  // the card's CTGPR.HSH 0x28 label
+        for (unsigned i = 0; i < 4; ++i) relabelled[0x28 + i] = static_cast<std::uint8_t>(label >> (24 - 8 * i));
+        // label (0x01031192) != requested PACKAGES.BIN version (0x01031196), but
+        // the body matches the reference, so the list is accepted.
+        CtgpHashList ok_list;
+        EXPECT_TRUE(ctgp_load_hash_list(relabelled, "TEST", 0x01031196u, ok_list, error, &key, &body));
+        EXPECT_TRUE(ok_list.file_count() == 2);
+        // A relabelled older list whose body is not the reference is still
+        // refused, label and version mismatch and all.
+        auto wrong = body;
+        wrong[0] ^= 0x01;
+        CtgpHashList refused;
+        EXPECT_TRUE(!ctgp_load_hash_list(relabelled, "TEST", 0x01031196u, refused, error, &key, &wrong));
+    }
 
     // another package, another version
     EXPECT_TRUE(!ctgp_load_hash_list(good, "OTHER", 0x01020304, other, error, &key));

@@ -123,10 +123,14 @@ bool ctgp_assemble(const CtgpInputs& inputs, CtgpLaunchPlan& plan, std::string& 
 // writes the record table and the partitions' lists of open files into the plan's
 // BOOT image, and keeps the files for the game's file system table in plan.files
 // (ctgp_merge_files puts them there at launch). A file the resolver does not
-// find is left out unless its list says it is needed.
+// find is left out unless its list says it is needed. `allow_unsigned`, when
+// given, has one flag per package (true only for My Stuff): a true package may
+// serve the player's own unsigned files; every other package stays strict and
+// needs a signed digest for each served file. An empty `allow_unsigned` means
+// every package is strict.
 bool ctgp_attach_files(CtgpLaunchPlan& plan, const std::vector<CtgpBytes>& package_fsts,
                        const std::vector<const CtgpHashList*>& hash_lists, const CtgpSourceResolver& resolver,
-                       std::string& error);
+                       std::string& error, const std::vector<bool>& allow_unsigned = {});
 
 // What the plan must not collide with, as the loader sees it right before
 // the jump.

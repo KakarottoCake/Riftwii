@@ -261,15 +261,18 @@ std::vector<CtgpOp> ctgp_apply_settings(const CtgpSettings& s) {
 
 std::vector<CtgpPackageList> ctgp_package_lists(const CtgpSettings& s) {
     std::vector<CtgpPackageList> out;
-    out.push_back({s.ctgpr_enabled ? "/PACKAGES/CTGPR/FST.BIN" : "/PACKAGES/CTGPR/no_ct_24p.bin", "CTGPR"});
-    if (s.my_stuff == 1) out.push_back({"/PACKAGES/MYSTUFF/FST.BIN", ""});
-    if (s.no_music) out.push_back({"/PACKAGES/NOMUSIC/FST.BIN", ""});
-    if (s.font == 1) out.push_back({"/PACKAGES/FONT/fontChalky.bin", ""});
-    if (s.font == 2) out.push_back({"/PACKAGES/FONT/fontOutline.bin", ""});
-    if (s.font == 3) out.push_back({"/PACKAGES/FONT/fontMVBoli.bin", ""});
-    if (s.my_stuff == 2) out.push_back({"/PACKAGES/MYSTUFF/fst_no_tracks.bin", ""});
-    if (s.my_stuff == 3) out.push_back({"/PACKAGES/MYSTUFF/fst_brstm.bin", ""});
-    out.push_back({"/PACKAGES/CORE/FST.BIN", "CORE"});
+    out.push_back({s.ctgpr_enabled ? "/PACKAGES/CTGPR/FST.BIN" : "/PACKAGES/CTGPR/no_ct_24p.bin", "CTGPR", false});
+    // My Stuff is the player's own files: no signed digest list vouches for
+    // them, and the channel serves them unsigned, so this package alone is
+    // allowed unsigned files.
+    if (s.my_stuff == 1) out.push_back({"/PACKAGES/MYSTUFF/FST.BIN", "", true});
+    if (s.no_music) out.push_back({"/PACKAGES/NOMUSIC/FST.BIN", "", false});
+    if (s.font == 1) out.push_back({"/PACKAGES/FONT/fontChalky.bin", "", false});
+    if (s.font == 2) out.push_back({"/PACKAGES/FONT/fontOutline.bin", "", false});
+    if (s.font == 3) out.push_back({"/PACKAGES/FONT/fontMVBoli.bin", "", false});
+    if (s.my_stuff == 2) out.push_back({"/PACKAGES/MYSTUFF/fst_no_tracks.bin", "", true});
+    if (s.my_stuff == 3) out.push_back({"/PACKAGES/MYSTUFF/fst_brstm.bin", "", true});
+    out.push_back({"/PACKAGES/CORE/FST.BIN", "CORE", false});
     return out;
 }
 

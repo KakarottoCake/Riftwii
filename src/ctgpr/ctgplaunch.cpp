@@ -393,9 +393,13 @@ bool ctgp_assemble(const CtgpInputs& in, CtgpLaunchPlan& plan, std::string& erro
 
 bool ctgp_attach_files(CtgpLaunchPlan& plan, const std::vector<CtgpBytes>& package_fsts,
                        const std::vector<const CtgpHashList*>& hash_lists, const CtgpSourceResolver& resolver,
-                       std::string& error) {
+                       std::string& error, const std::vector<bool>& allow_unsigned) {
     if (hash_lists.size() != package_fsts.size()) {
         error = "every package needs its hash list entry (or null)";
+        return false;
+    }
+    if (!allow_unsigned.empty() && allow_unsigned.size() != package_fsts.size()) {
+        error = "every package needs its unsigned-files flag";
         return false;
     }
     const std::uint32_t table_end = kCtgpRecordBlock + kCtgpRecordCount * kCtgpRecordSize;
@@ -415,7 +419,8 @@ bool ctgp_attach_files(CtgpLaunchPlan& plan, const std::vector<CtgpBytes>& packa
         }
         listed += files.size();
         const std::size_t before = all.size();
-        if (!ctgp_add_package(table, files, resolver, hash_lists[i], all, error)) {
+        const bool unsigned_ok = !allow_unsigned.empty() && allow_unsigned[i];
+        if (!ctgp_add_package(table, files, resolver, hash_lists[i], all, error, unsigned_ok)) {
             error = "package " + std::to_string(i) + ": " + error;
             return false;
         }

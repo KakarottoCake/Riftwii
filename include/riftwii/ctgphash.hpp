@@ -64,7 +64,8 @@ public:
 
 private:
     friend bool ctgp_load_hash_list(const CtgpBytes&, const std::string&, std::uint32_t,
-                                    CtgpHashList&, std::string&, const CtgpDsaKey*);
+                                    CtgpHashList&, std::string&, const CtgpDsaKey*,
+                                    const std::array<std::uint8_t, 20>*);
     CtgpBytes body_;
     Fst tree_;
     std::size_t files_ = 0;
@@ -73,11 +74,21 @@ private:
 
 // Checks `file` as the list of package `package` (at most 8 characters) in the
 // version `version` (from PACKAGES.BIN): the DSA signature against CTGP-R's
-// public key, then the magic, the size, the name, the version and the body's
-// SHA-1 and a known body/version binding (the name and version are unsigned).
-// On any failure `error` says which and `out` is untouched. `key` is
-// only for tests; the default is CTGP-R's own public list-signing key.
+// public key, then the magic, the size, the name, the body's SHA-1 and a known
+// body/version binding (the name and version are unsigned). The list's own
+// version label (at 0x28) does not have to equal `version`: the channel never
+// re-versioned CTGPR.HSH when PACKAGES.BIN moved from build 1192 to 1196, so a
+// current card carries PACKAGES.BIN CTGPR 0x01031196 with a CTGPR.HSH still
+// labelled 0x01031192. Identity comes from the body digest keyed on the
+// PACKAGES.BIN version; the label is only required to match when no such
+// reference vouches for the body (the test/dev path).
+// On any failure `error` says which and `out` is untouched. `key` and
+// `reference` are only for tests (`key` default is CTGP-R's own public
+// list-signing key; `reference`, when set, stands in for the built-in
+// body/version binding so the relaxation can be exercised without shipping
+// real list bytes).
 bool ctgp_load_hash_list(const CtgpBytes& file, const std::string& package, std::uint32_t version,
-                         CtgpHashList& out, std::string& error, const CtgpDsaKey* key = nullptr);
+                         CtgpHashList& out, std::string& error, const CtgpDsaKey* key = nullptr,
+                         const std::array<std::uint8_t, 20>* reference = nullptr);
 
 }  // namespace riftwii

@@ -457,9 +457,12 @@ bool prepare_impl(const std::string& game_id, std::shared_ptr<const CtgpLaunchPl
     logf("CTGP-R: core code matches CORE.HSH digests\n");
 
     std::vector<const CtgpHashList*> hash_lists;
-    for (const CtgpPackageList& l : package_lists)
+    std::vector<bool> allow_unsigned;
+    for (const CtgpPackageList& l : package_lists) {
         hash_lists.push_back(l.hash_list == "CTGPR" ? &ctgpr_hashes : l.hash_list == "CORE" ? &core_hashes : nullptr);
-    if (!ctgp_attach_files(*plan, lists, hash_lists, resolver, error)) return false;
+        allow_unsigned.push_back(l.allow_unsigned);
+    }
+    if (!ctgp_attach_files(*plan, lists, hash_lists, resolver, error, allow_unsigned)) return false;
     for (const std::string& note : plan->notes) logf("%s\n", note.c_str());
     // Files a package lists that are not on the card or the package disk:
     // left out, as the channel leaves them (a required one fails above).

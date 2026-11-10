@@ -162,6 +162,9 @@ static void test_package_lists() {
     EXPECT_TRUE(l[2].path == "/PACKAGES/FONT/fontMVBoli.bin");
     EXPECT_TRUE(l[3].path == "/PACKAGES/MYSTUFF/fst_no_tracks.bin");
     EXPECT_TRUE(l[4].path == "/PACKAGES/CORE/FST.BIN");
+    // Only My Stuff may serve unsigned files.
+    EXPECT_TRUE(l[3].allow_unsigned);
+    EXPECT_TRUE(!l[0].allow_unsigned && !l[1].allow_unsigned && !l[2].allow_unsigned && !l[4].allow_unsigned);
     s.my_stuff = 1;
     s.font = 0;
     s.no_music = false;

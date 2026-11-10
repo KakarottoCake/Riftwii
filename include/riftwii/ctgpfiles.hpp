@@ -130,12 +130,18 @@ struct CtgpMergedFile {
 // The package's first pass in the channel: every file is looked up and given
 // a record. A file that is missing (or finds no room) is left out, unless its
 // flags say the package cannot do without it, which fails the package.
-// Every resolved file needs a digest in `hashes`, whatever the flags say.
+// Every resolved file needs a digest in `hashes`, whatever the flags say -
+// package lists are untrusted, so a signed package's flags cannot opt a file
+// out of the digest check. `allow_unsigned` is the one exception, for the My
+// Stuff package: its files are the player's own, unsigned, and the channel
+// itself serves them without a digest (it hashes a file only when the list's
+// flag 2 is set; chan_internal FUN_809561d4). With `allow_unsigned`, a file
+// is hashed, and so needs a digest, only when its flag 2 is set.
 // Repeated game paths fail; a shared source must retain the same digest.
 // `out` gets the files that have a record, in list order.
 bool ctgp_add_package(CtgpRecordTable& table, const std::vector<CtgpPackageFile>& files,
                       const CtgpSourceResolver& resolver, const CtgpHashList* hashes,
-                      std::vector<CtgpMergedFile>& out, std::string& error);
+                      std::vector<CtgpMergedFile>& out, std::string& error, bool allow_unsigned = false);
 
 // Puts the files into the game's file system table: a file the game already
 // has is pointed at the handle, a new one is created (with its directories).

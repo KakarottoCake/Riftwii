@@ -318,9 +318,39 @@ static void test_untrusted_flags_and_duplicates() {
     EXPECT_TRUE(!ctgp_add_package(table, {{"/alias", "efa:/a", 0}}, resolver, &conflicting, merged, error));
 }
 
+// My Stuff's unsigned files are allowed only for the package that permits them.
+static void test_my_stuff_unsigned() {
+    auto resolver = [](const std::string&, const std::string&, CtgpSourceFile& file) {
+        file.size = 4;
+        file.first_cluster = 9;
+        return true;
+    };
+    std::string error;
+    // A My Stuff file with no signed digest (flag 2 clear) is allowed when the
+    // package permits unsigned files; its record is left unhashed.
+    CtgpRecordTable mine;
+    std::vector<CtgpMergedFile> merged;
+    EXPECT_TRUE(ctgp_add_package(mine, {{"/replace.szs", "sda:/My Stuff/replace.szs", 0}},
+                                 resolver, nullptr, merged, error, /*allow_unsigned=*/true));
+    EXPECT_EQ(merged.size(), (std::size_t)1);
+    EXPECT_EQ(mine.image()[kCtgpRecordPools[0].start - kCtgpRecordBlock + 0x4E], 0);  // not hashed
+    // The same unsigned file in a strict (non-My-Stuff) package is refused.
+    CtgpRecordTable strict;
+    std::vector<CtgpMergedFile> none;
+    EXPECT_TRUE(!ctgp_add_package(strict, {{"/replace.szs", "sda:/replace.szs", 0}},
+                                  resolver, nullptr, none, error, /*allow_unsigned=*/false));
+    EXPECT_TRUE(error.find("no signed digest") != std::string::npos);
+    // Even in My Stuff, a file the list marks signed (flag 2) still needs its
+    // digest, as in the channel: with no list it is refused.
+    CtgpRecordTable mine2;
+    EXPECT_TRUE(!ctgp_add_package(mine2, {{"/signed.szs", "sda:/My Stuff/signed.szs", 2}},
+                                  resolver, nullptr, none, error, /*allow_unsigned=*/true));
+}
+
 int main() {
     test_pools();
     test_untrusted_flags_and_duplicates();
+    test_my_stuff_unsigned();
     test_record();
     test_table();
     test_overflow();
