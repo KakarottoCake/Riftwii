@@ -205,6 +205,15 @@ typedef struct rwp_host {
     /* Added after heap_free_bytes (check RWP_HOST_HAS). As
      * set_sram_flash_id_a, for slot B. */
     int32_t (*set_sram_flash_id_b)(const uint8_t flash_id[12]);
+
+    /* Added after set_sram_flash_id_b (check RWP_HOST_HAS). zlib's
+     * streaming inflater, the loader's own copy (inflateInit2_, inflate
+     * and inflateEnd), on a z_stream the plugin owns: zlib.h's layout,
+     * with the plugin's own zalloc and zfree. Each returns zlib's code
+     * (Z_OK, Z_STREAM_END, Z_DATA_ERROR...). */
+    int32_t (*zlib_inflate_init2)(void* stream, int32_t window_bits, const char* version, int32_t stream_size);
+    int32_t (*zlib_inflate)(void* stream, int32_t flush);
+    int32_t (*zlib_inflate_end)(void* stream);
 } rwp_host;
 
 /* What a plugin gives RiftWii: a constant table in its image, found by

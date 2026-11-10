@@ -11,6 +11,7 @@
 #include "riftwii/ctgpfat.hpp"
 #include "riftwii/ctgpapply.hpp"
 #include "riftwii/ctgplaunch.hpp"
+#include "riftwii/plugin_ctgpr.hpp"
 
 static int g_failures = 0;
 #define EXPECT_TRUE(cond) do { if (!(cond)) { std::cerr << "FAILED: " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
@@ -550,7 +551,51 @@ static void test_native_stand_in() {
     EXPECT_TRUE(!ctgp_is_native_stand_in("RMC", "sd:/apps/ctgpr/boot.dol"));
 }
 
+// The ctgpr plugin's request (riftwii/plugin_ctgpr.hpp): the plugin takes only
+// a request of its own size and type layout, with the plan and the SD reads.
+static bool fake_resolve(const std::string&, Fat32File&, std::string&) { return false; }
+static bool fake_read(const Fat32File&, std::uint64_t, std::uint8_t*, std::size_t) { return false; }
+static bool fake_boot_sector(std::uint64_t&, std::vector<std::uint8_t>&, std::string&) { return false; }
+
+static void test_plugin_request() {
+    CtgpLaunchPlan plan;
+    CtgprLaunchRequest request;
+    request.layout = ctgpr_request_layout();
+    request.game_id = "RMCP01";
+    request.plan = &plan;
+    request.sd.resolve = fake_resolve;
+    request.sd.read = fake_read;
+    request.sd.boot_sector = fake_boot_sector;
+    std::string why;
+    EXPECT_TRUE(ctgpr_request_check(&request, sizeof(request), why));
+    // Nothing at all, or a request of another size (another build's).
+    EXPECT_TRUE(!ctgpr_request_check(nullptr, sizeof(request), why));
+    EXPECT_TRUE(!ctgpr_request_check(&request, sizeof(request) - 4, why));
+    CtgprLaunchRequest other = request;
+    other.size = sizeof(request) + 4;
+    EXPECT_TRUE(!ctgpr_request_check(&other, sizeof(other), why));
+    // Types laid out differently from the plugin's.
+    other = request;
+    other.layout ^= 1;
+    EXPECT_TRUE(!ctgpr_request_check(&other, sizeof(other), why));
+    EXPECT_TRUE(why.find("laid out") != std::string::npos);
+    // No plan to fill, or no way to read the card.
+    other = request;
+    other.plan = nullptr;
+    EXPECT_TRUE(!ctgpr_request_check(&other, sizeof(other), why));
+    other = request;
+    other.sd.read = nullptr;
+    EXPECT_TRUE(!ctgpr_request_check(&other, sizeof(other), why));
+    // The layout number follows the shared types' sizes.
+    EXPECT_TRUE(ctgpr_request_layout() != 0);
+    // The failures the DOL turns into its own words keep their numbers.
+    EXPECT_EQ(static_cast<int>(CtgprFailure::Other), 0);
+    EXPECT_EQ(static_cast<int>(CtgprFailure::Version), 4);
+    EXPECT_EQ(kCtgprPlanReady, 0);
+}
+
 int main() {
+    test_plugin_request();
     test_native_stand_in();
     test_common_flag();
     test_track_hashes();

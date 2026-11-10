@@ -10,7 +10,8 @@ Status: stage (a) is built (the loader, API 1, the `selftest` plugin, the
 packaging and the checks; "Stage (a) as built" below). Stage (b), the
 GameCube loader as the `gamecube` plugin, is built too ("Stage (b): the
 GameCube loader as a plugin" has its design, "Stage (b) as built" what
-came out and the sizes); stage (c) is still the design. No number here was measured on a Wii; the sizes
+came out and the sizes), and so is the native CTGP-R launch's planning as
+the `ctgpr` plugin ("The ctgpr plugin"); stage (c) is still the design. No number here was measured on a Wii; the sizes
 of stage (a) are from the Wii build, the rest are estimates. The words
 "must" and "will" describe the design.
 
@@ -146,6 +147,7 @@ what the loader needs:
 | Zstandard | `zstd_decompress`, `zstd_frame_size`, `zstd_is_error` | the three `ZSTD_*` the RVZ reader and the RVZ blob need |
 | The USB drive, after API 2 | `usb_read` (512-byte sectors through d2x's `/dev/usb2`, once a GameCube game's launch has opened it; checked with `RWP_HOST_HAS`) | `ums::Read` |
 | Slot B's card ID, after `heap_free_bytes` | `set_sram_flash_id_b` (as `set_sram_flash_id_a`, for slot B: the real card in slot B a GameCube game uses beside its emulated slot A) |
+| zlib, after `set_sram_flash_id_b` | `zlib_inflate_init2`, `zlib_inflate`, `zlib_inflate_end` (the loader's own zlib on a `z_stream` the plugin owns, with its own `zalloc`/`zfree`; checked with `RWP_HOST_HAS`) | `inflateInit2_`, `inflate`, `inflateEnd` (the `ctgpr` plugin's unpacker of CTGP-R's channel program) |
 | Slot A's card ID, after `usb_read` | `set_sram_flash_id_a` (12 ID bytes; compares ID and complemented byte-sum checksum, changes only those 13 bytes in SRAM-ex; 1 committed to RTC SRAM, 0 already matched, -1 unable to commit; checked with `RWP_HOST_HAS`) | `__SYS_LockSramEx`, `__SYS_UnlockSramEx(1)`, `__SYS_SyncSram` |
 
 Appending the SRAM setter preserves API 2 and all existing offsets; the
@@ -300,6 +302,77 @@ missing (the launch fails with the add-on sentence and the log line
 `GameCube games need RiftWii's gamecube plugin in ...`, and RiftWii comes
 back), and the arena check of stage (a) for each (`is the heap's again`).
 Only a Wii shows the timing, the SD card's hand-over and the d2x cases.
+
+## The ctgpr plugin
+
+The native CTGP-R launch ([CTGPR.md](CTGPR.md)) builds its plan in the
+`ctgpr` plugin (`plugins/ctgpr/`): CTGP-R's package disks opened and
+decrypted, its hash lists and their signatures checked, its code linked, its
+settings, cup layouts and files worked out. The DOL keeps what needs no
+plugin (whether a pack is CTGP-R's, the cheat and pack lockout, the menu's
+notes, the translated sentences) and what must happen after the plugin is
+gone (the plan checked against the loaded game and written into MEM1,
+`src/ctgpr/ctgpplace.cpp`; the memory map started). The table
+"Where the code lives" in CTGPR.md lists every file on each side.
+
+| Piece | Where |
+| --- | --- |
+| The request | `include/riftwii/plugin_ctgpr.hpp`: `CtgprLaunchRequest` (the game's ID, CTGP's way back to RiftWii, the DOL's `CtgpArena` and its raw SD reads in; the plan, a `CtgprFailure` and the technical reason out) and `ctgpr_request_check` (`tests/ctgplaunch_tests.cpp`) |
+| The DOL's side | `wii/launch/ctgpr.cpp`: `prepare_ctgpr_launch` checks what it can alone (not an RVZ, a Mario Kart Wii disc, CTGP-R's files there), reserves the 6 MB MEM2 block, calls `plugin::Launch("ctgpr", ...)` and then `plugin::ShutdownAll`, and turns a failure into its sentence |
+| The plugin | `plugins/ctgpr/ctgprentry.cpp` (`rwp_init`, the table, `launch`, the `inflate*` names on the host's zlib), `ctgprprepare.cpp` (the launch's steps, moved from `wii/launch/ctgpr.cpp`), and its own copies of `src/ctgpr/` but `ctgpplace.cpp`, `src/fs/fat32.cpp`, `src/fs/fragments.cpp`, `src/disc/fst.cpp` and `src/data/sha1.cpp` (`Makefile.plugin`'s `ctgpr_SRC`) |
+| Out of the DOL | `Makefile.wii`: `src/ctgpr/` but `ctgpplace.cpp` in `EXCLUDES` |
+| Updates | `tools/make_release_zip.py` and `tools/make_update_pack.py` require it beside `gamecube`; `plan_update_writes` writes it with the other plugins before the DOL |
+
+Unlike `rwp_gc_launch`, the request is C++: the plan the plugin fills is the
+DOL's own `CtgpLaunchPlan`, whose big buffers (`CtgpBytes`) the plugin
+allocates from the DOL's `CtgpArena` (its copy of `g_ctgp_arena` points at
+the DOL's for the length of the launch), and whose small ones come from the
+loader's heap through `mem1_alloc` (`memalign` and `free`, as the DOL's own
+`new` and `delete`). The DOL then reads and frees the plan with its own code
+after the plugin is shut down. That is sound because the loader only loads a
+plugin with its own build stamp (the same compiler and headers), and
+`CtgprLaunchRequest::layout`, a number made of the shared types' sizes, makes
+a mismatch a refusal rather than a crash. The plan holds no pointer into the
+plugin's image. `launch` returns `kCtgprPlanReady` (0) with the plan built,
+which is the one difference from the gamecube plugin's launch (it returns only
+on failure). On `RWP_LAUNCH_NO_MEMORY` (its escape) the plugin's locals are
+not unwound; the DOL gives the MEM2 block back whole, since nothing points
+into it any more.
+
+What building it needed:
+
+- `std::unordered_map` (the record table, the hash lists): libstdc++'s
+  `hash_bytes.o` and `hashtable_c++0x.o` are taken out of the library as
+  `tree.o` is (`<name>_LIBSTDCXX` in `Makefile.plugin`), and the runtime
+  gives them `floor`.
+- The runtime (`plugins/common/rwpruntime.cpp`) has `malloc` and `free` (on
+  `mem1_alloc`, as `new`), `strtol`, `tolower` and `strnlen` too.
+- `ctgpfields.cpp`'s settings table is a constant array (`CtgpFieldList`), not
+  a `std::vector` a static constructor would have built.
+- `ctgpefa.cpp` makes its `shared_ptr` from `new`, as the gamecube plugin's
+  disc does.
+- zlib's header comes from devkitPro's portlibs (`<name>_CXXFLAGS`); its
+  inflater is the loader's, through the three new host entries.
+
+Measured (Wii build of this branch, release, against the same commit with
+CTGP-R in the DOL):
+
+| | Before | After |
+| --- | ---: | ---: |
+| `boot.dol` (packed) | 2,504,992 bytes | 2,449,408 bytes |
+| The DOL unpacked | 4,895,328 bytes | 4,784,960 bytes |
+| The program's end in MEM1 (`__bss_end`) | `0x80FDCDA0` | `0x80FC1920` |
+| MEM1 back to the heap at every start | | 111,744 bytes (109 KiB) |
+| CTGP-R symbols left in the DOL | 99,799 bytes | 7,493 bytes |
+| `ctgpr.<version>.rwp` on the card | | 168,440 bytes |
+| Its share of the arena (384 KiB) | | 156,352 bytes (image 154,368, `.bss` 1,955, 1,162 relocations) |
+
+Not run in Dolphin or on a Wii yet: a CTGP-R launch with the plugin there
+(the log has `Plugins: ctgpr 1 read from ...`, `Plugin ctgpr: version 1
+ready`, the `CTGP-R: ...` lines as before, then `Plugins: ctgpr shut down
+(CTGP-R's plan is built)` and the arena `is the heap's again`), and the same
+with the plugin missing (the launch fails with the add-on sentence and
+`CTGP-R: the native launch needs RiftWii's ctgpr plugin in ...`).
 
 RiftWii's loader (`boot.dol`) is linked at `0x80A00000` and grows upward
 toward the apploader at `0x81200000`; its heap is the space between its

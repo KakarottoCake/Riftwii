@@ -564,10 +564,13 @@ static void TestTables() {
     EXPECT_EQ(offsetof(rwp_host, usb_read) + sizeof(void*), offsetof(rwp_host, set_sram_flash_id_a));
     EXPECT_EQ(offsetof(rwp_host, set_sram_flash_id_a) + sizeof(void*), offsetof(rwp_host, heap_free_bytes));
     EXPECT_EQ(offsetof(rwp_host, heap_free_bytes) + sizeof(void*), offsetof(rwp_host, set_sram_flash_id_b));
-    EXPECT_EQ(offsetof(rwp_host, set_sram_flash_id_b) + sizeof(void*), sizeof(rwp_host));
+    EXPECT_EQ(offsetof(rwp_host, set_sram_flash_id_b) + sizeof(void*), offsetof(rwp_host, zlib_inflate_init2));
+    EXPECT_EQ(offsetof(rwp_host, zlib_inflate_init2) + sizeof(void*), offsetof(rwp_host, zlib_inflate));
+    EXPECT_EQ(offsetof(rwp_host, zlib_inflate) + sizeof(void*), offsetof(rwp_host, zlib_inflate_end));
+    EXPECT_EQ(offsetof(rwp_host, zlib_inflate_end) + sizeof(void*), sizeof(rwp_host));
     // Every entry is one pointer, none skipped: on the Wii (4-byte
-    // pointers) the table is 2 words and 40 functions.
-    EXPECT_EQ(sizeof(rwp_host), 8u + 40u * sizeof(void*));
+    // pointers) the table is 2 words and 43 functions.
+    EXPECT_EQ(sizeof(rwp_host), 8u + 43u * sizeof(void*));
     EXPECT_TRUE(offsetof(rwp_plugin, probe) < offsetof(rwp_plugin, shutdown));
     EXPECT_TRUE(offsetof(rwp_plugin, shutdown) < offsetof(rwp_plugin, launch));
     EXPECT_EQ(offsetof(rwp_plugin, launch) + sizeof(void*), sizeof(rwp_plugin));
@@ -712,6 +715,24 @@ static void TestUpdateOrder() {
         EXPECT_EQ(writes[5].path, std::string("sd:/apps/renamed/OFL.txt"));
         EXPECT_TRUE(writes[6].dol);
     }
+    // The ctgpr plugin (docs/PLUGINS.md, "The ctgpr plugin") goes with the
+    // others, stamped the same, before the DOL.
+    ThemePack withCtgpr = apps;
+    withCtgpr.files.push_back(ThemePackFile{"riftwii/plugins/ctgpr.2610-500.rwp", 4450, 170000});
+    EXPECT_TRUE(riftwii::plan_update_writes(withCtgpr, "v2610-500", folder, dol, writes, why));
+    EXPECT_EQ(writes.size(), 4u);
+    if (writes.size() == 4) {
+        bool ctgpr = false;
+        for (std::size_t i = 0; i + 1 < writes.size(); ++i) {
+            if (writes[i].path == folder + "ctgpr.2610-500.rwp") ctgpr = !writes[i].dol && writes[i].size == 170000u;
+        }
+        EXPECT_TRUE(ctgpr);
+        EXPECT_TRUE(writes[3].dol);
+    }
+    // One from another build is refused like any plugin.
+    withCtgpr.files.back().path = "riftwii/plugins/ctgpr.2610-499.rwp";
+    EXPECT_FALSE(riftwii::plan_update_writes(withCtgpr, "v2610-500", folder, dol, writes, why));
+    EXPECT_TRUE(writes.empty());
     // A pack with no plugins: the DOL alone.
     ThemePack plain;
     plain.files = {ThemePackFile{"riftwii/icon.png", 0, 50}};

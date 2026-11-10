@@ -20,6 +20,8 @@
 #include <memory>
 #include <vector>
 
+#include <zlib.h>
+
 #include "d2xsd.hpp"
 #include "i18n.hpp"
 #include "loadersettings.hpp"
@@ -432,6 +434,14 @@ uint32_t HostHeapFreeBytes() {
            arena_free(SYS_GetArena2Lo(), SYS_GetArena2Hi());
 }
 
+int32_t HostZlibInflateInit2(void* stream, int32_t window_bits, const char* version, int32_t stream_size) {
+    return inflateInit2_(static_cast<z_streamp>(stream), window_bits, version, stream_size);
+}
+
+int32_t HostZlibInflate(void* stream, int32_t flush) { return inflate(static_cast<z_streamp>(stream), flush); }
+
+int32_t HostZlibInflateEnd(void* stream) { return inflateEnd(static_cast<z_streamp>(stream)); }
+
 // Every entry in plugin_api.h's order, which a plugin was built against;
 // tests/plugin_tests.cpp checks that order and that none is skipped.
 const rwp_host kHost = {
@@ -479,10 +489,13 @@ const rwp_host kHost = {
     HostSetSramFlashIdA,
     HostHeapFreeBytes,
     HostSetSramFlashIdB,
+    HostZlibInflateInit2,
+    HostZlibInflate,
+    HostZlibInflateEnd,
 };
 // A missing initializer would leave the last entries NULL without a word:
 // the count is checked against the struct's size.
-static_assert(sizeof(rwp_host) == 8 + 40 * sizeof(void*), "kHost and plugin_api.h's rwp_host disagree");
+static_assert(sizeof(rwp_host) == 8 + 43 * sizeof(void*), "kHost and plugin_api.h's rwp_host disagree");
 
 // ---- Refusals ----
 

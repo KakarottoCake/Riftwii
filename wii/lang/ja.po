@@ -4293,12 +4293,6 @@ msgstr "このバージョンのCTGP-Rは、まだRiftWiiから起動できま�
 msgid "CTGP-R could not be started. Its files on the SD card may be damaged or incomplete: install CTGP-R again. The reason is in sd:/riftwii/boot.log."
 msgstr "CTGP-Rを起動できませんでした。SDカード上のファイルが壊れているか、足りない可能性があります。CTGP-Rをもう一度インストールしてください。理由はsd:/riftwii/boot.logにあります。"
 
-msgid "This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead."
-msgstr "このバージョンのCTGP Revolutionは、まだRiftWiiから起動できません（またはSDカード上のファイルが壊れています）。代わりにHomebrew Channelから起動してください。"
-
-msgid "CTGP Revolution: this version can't be started from RiftWii (see Start)."
-msgstr "CTGP Revolution：このバージョンはRiftWiiから起動できません（「はじめる」を参照）。"
-
 msgid "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use."
 msgstr "ゲームキューブコントローラーをテストし、古くなったものを直します。端まで届かないスティック、勝手に動くスティック、最後まで押せないトリガー。ゲームキューブのゲームに反映され、Wiiのゲームにはゲームキューブアダプターか USBコントローラーを使っている間だけ反映されます。"
 

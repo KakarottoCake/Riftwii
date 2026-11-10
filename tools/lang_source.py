@@ -9036,16 +9036,6 @@ T.update({
         "CTGP-Rを起動できませんでした。SDカード上のファイルが壊れているか、足りない可能性があります。CTGP-Rをもう一度インストールしてください。理由はsd:/riftwii/boot.logにあります。",
         "Não foi possível iniciar o CTGP-R. Os arquivos dele no cartão SD podem estar danificados ou incompletos: instale o CTGP-R de novo. O motivo está em sd:/riftwii/boot.log.",
         "Impossibile avviare CTGP-R. I suoi file sulla scheda SD potrebbero essere danneggiati o incompleti: reinstalla CTGP-R. Il motivo è in sd:/riftwii/boot.log."),
-    "This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead.": (
-        "Esta versión de CTGP Revolution todavía no se puede iniciar desde RiftWii (o sus archivos en la tarjeta SD están dañados). Inicia CTGP desde el Homebrew Channel.",
-        "このバージョンのCTGP Revolutionは、まだRiftWiiから起動できません（またはSDカード上のファイルが壊れています）。代わりにHomebrew Channelから起動してください。",
-        "Esta versão do CTGP Revolution ainda não pode ser iniciada pelo RiftWii (ou os arquivos dele no cartão SD estão danificados). Inicie o CTGP pelo Homebrew Channel.",
-        "Questa versione di CTGP Revolution non si può ancora avviare da RiftWii (oppure i suoi file sulla scheda SD sono danneggiati). Avvia CTGP dall'Homebrew Channel."),
-    "CTGP Revolution: this version can't be started from RiftWii (see Start).": (
-        "CTGP Revolution: esta versión no se puede iniciar desde RiftWii (mira Jugar).",
-        "CTGP Revolution：このバージョンはRiftWiiから起動できません（「はじめる」を参照）。",
-        "CTGP Revolution: esta versão não pode ser iniciada pelo RiftWii (veja Jogar).",
-        "CTGP Revolution: questa versione non si può avviare da RiftWii (vedi Gioca)."),
 })
 KO.update({
     "CTGP-R only starts with the Mario Kart Wii game.":
@@ -9058,10 +9048,6 @@ KO.update({
         "이 버전의 CTGP-R은 아직 RiftWii에서 시작할 수 없습니다. 대신 홈브류 채널에서 CTGP-R을 시작하세요.",
     "CTGP-R could not be started. Its files on the SD card may be damaged or incomplete: install CTGP-R again. The reason is in sd:/riftwii/boot.log.":
         "CTGP-R을 시작할 수 없습니다. SD 카드의 파일이 손상되었거나 일부가 없을 수 있습니다. CTGP-R을 다시 설치하세요. 이유는 sd:/riftwii/boot.log에 있습니다.",
-    "This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead.":
-        "이 버전의 CTGP Revolution은 아직 RiftWii에서 시작할 수 없습니다(또는 SD 카드의 파일이 손상되었습니다). 대신 홈브류 채널에서 CTGP를 시작하세요.",
-    "CTGP Revolution: this version can't be started from RiftWii (see Start).":
-        "CTGP Revolution: 이 버전은 RiftWii에서 시작할 수 없습니다 (시작 항목 참조)",
 })
 FR.update({
     "CTGP-R only starts with the Mario Kart Wii game.":
@@ -9074,10 +9060,6 @@ FR.update({
         "Cette version de CTGP-R ne peut pas encore être lancée depuis RiftWii. Lancez CTGP-R depuis le Homebrew Channel.",
     "CTGP-R could not be started. Its files on the SD card may be damaged or incomplete: install CTGP-R again. The reason is in sd:/riftwii/boot.log.":
         "CTGP-R n'a pas pu démarrer. Ses fichiers sur la carte SD sont peut-être endommagés ou incomplets : réinstallez CTGP-R. La raison se trouve dans sd:/riftwii/boot.log.",
-    "This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead.":
-        "Cette version de CTGP Revolution ne peut pas encore être lancée depuis RiftWii (ou ses fichiers sur la carte SD sont endommagés). Lancez CTGP depuis le Homebrew Channel.",
-    "CTGP Revolution: this version can't be started from RiftWii (see Start).":
-        "CTGP Revolution : cette version ne peut pas être lancée depuis RiftWii (voir Démarrer).",
 })
 
 # Settings > Controllers > Calibrate a GameCube controller (#511).

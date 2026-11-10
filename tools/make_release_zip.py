@@ -35,7 +35,7 @@ REPO_URL = "https://github.com/KakarottoCake/Riftwii"
 VERSION = re.compile(r"^[0-9]{4}-[0-9]+$")
 PLUGIN_FILE = re.compile(r"^([A-Za-z0-9_-]{1,16})\.([A-Za-z0-9_-]{1,32})\.rwp$")
 # make_update_pack.py refuses a zip without these, so refuse it here first.
-REQUIRED_PLUGINS = ("gamecube",)
+REQUIRED_PLUGINS = ("gamecube", "ctgpr")
 TEXT_SUFFIXES = (".txt", ".md", ".xml", ".ini")
 
 

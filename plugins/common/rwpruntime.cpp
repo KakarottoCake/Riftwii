@@ -153,6 +153,63 @@ size_t strlen(const char* text) {
     return length;
 }
 
+size_t strnlen(const char* text, size_t most) {
+    size_t length = 0;
+    while (length < most && text[length] != '\0') ++length;
+    return length;
+}
+
+int tolower(int c) { return c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c; }
+
+// The C library's strtol: leading spaces, a sign, base 0 (0x, 0 or
+// decimal), 2 to 36, clamped to LONG_MIN/LONG_MAX on overflow. No errno: a
+// plugin has none.
+long strtol(const char* text, char** end, int base) {
+    const char* p = text;
+    while (*p == ' ' || (*p >= '\t' && *p <= '\r')) ++p;
+    bool negative = false;
+    if (*p == '+' || *p == '-') negative = *p++ == '-';
+    if ((base == 0 || base == 16) && p[0] == '0' && (p[1] == 'x' || p[1] == 'X')) {
+        const char d = p[2];
+        if ((d >= '0' && d <= '9') || (d >= 'a' && d <= 'f') || (d >= 'A' && d <= 'F')) {
+            p += 2;
+            base = 16;
+        }
+    }
+    if (base == 0) base = *p == '0' ? 8 : 10;
+    const unsigned long limit = negative ? 0x80000000ul : 0x7FFFFFFFul;
+    unsigned long value = 0;
+    bool any = false, over = false;
+    for (;; ++p) {
+        int digit;
+        if (*p >= '0' && *p <= '9') digit = *p - '0';
+        else if (*p >= 'a' && *p <= 'z') digit = *p - 'a' + 10;
+        else if (*p >= 'A' && *p <= 'Z') digit = *p - 'A' + 10;
+        else break;
+        if (base < 2 || digit >= base) break;
+        any = true;
+        if (value > (limit - static_cast<unsigned long>(digit)) / static_cast<unsigned long>(base)) over = true;
+        else value = value * static_cast<unsigned long>(base) + static_cast<unsigned long>(digit);
+    }
+    if (end != nullptr) *end = const_cast<char*>(any ? p : text);
+    if (over) value = limit;
+    return negative ? static_cast<long>(0ul - value) : static_cast<long>(value);
+}
+
+// libstdc++'s hash tables size their buckets with it.
+double floor(double x) {
+    if (!(x == x) || x >= 4503599627370496.0 || x <= -4503599627370496.0) return x;  // NaN, or no fraction
+    const double whole = static_cast<double>(static_cast<long long>(x));
+    return whole > x ? whole - 1.0 : whole;
+}
+
+// The C library's heap: RiftWii's, as operator new's.
+void* malloc(size_t bytes) { return host().mem1_alloc(bytes == 0 ? 1 : static_cast<std::uint32_t>(bytes)); }
+
+void free(void* block) {
+    if (block != nullptr) host().mem1_free(block);
+}
+
 int vsnprintf(char* out, size_t bytes, const char* format, va_list args) {
     return host().format(out, static_cast<std::uint32_t>(bytes), format, args);
 }

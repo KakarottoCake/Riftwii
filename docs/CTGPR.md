@@ -98,8 +98,9 @@ Only CTGP-R's own files, as its installer leaves them on the card:
 | `sd:/ctgpr/jelly.bin` | CTGP-R's hash disk (its signed lists of file digests) |
 | `sd:/ctgpr/config.ini` | CTGP-R's own settings (optional) |
 
-The player needs no RiftWii files for it. CTGP-R's own constants are not
-secrets: its package-disk AES key and chunk IV and its jelly key words are
+The player needs no other files for it than RiftWii's own (its `ctgpr`
+plugin, which every release carries, "Where the code lives" below). CTGP-R's
+own constants are not secrets: its package-disk AES key and chunk IV and its jelly key words are
 four of its own PPC instruction words, and its row table (`CRT0`, the row
 count, three words a row for NTSC-U/NTSC-J/PAL, then 54 region words) is plain
 data. RiftWii carries them in its own build (`include/riftwii/ctgptables.hpp`,
@@ -143,9 +144,31 @@ When CTGP-R is not installed (no `blob.bin` or `jelly.bin`), the pack goes the
 channel-app way, as before. When it is, the launch is native, and it stops with
 a sentence that names any problem (`CTGP-R is not installed on the SD card`, a
 package disk that does not open, a hash list RiftWii could not read, an untested
-version). The error is on the failed-launch screen and in `boot.log`; nothing
-is placed in memory before every check has passed, so RiftWii never starts the
-game half set up.
+version, the `ctgpr` plugin missing or from another RiftWii). The error is on
+the failed-launch screen and in `boot.log`; nothing is placed in memory before
+every check has passed, so RiftWii never starts the game half set up.
+
+The menu's notes ("offline only" on the game page and at Start) need only
+`blob.bin` and `jelly.bin` to be there (looked at once, again after a pack
+scan): which CTGP-R version they hold is in
+the encrypted package disk, which only the plugin reads, and the menu does not
+load the plugin for a note. An untested version is refused when it is started.
+
+### Where the code lives
+
+Everything that reads, decrypts, checks and builds CTGP-R is the `ctgpr`
+plugin (`plugins/ctgpr/`, [PLUGINS.md](PLUGINS.md#the-ctgpr-plugin)), loaded
+into the plugin arena at the top of MEM2 only when CTGP-R starts, and shut
+down again as soon as its plan is built:
+
+| In the `ctgpr` plugin | In the DOL |
+| --- | --- |
+| The package disks opened and decrypted (`ctgpefa`, `ctgpfat`), the hash lists and their DSA check (`ctgphash`, `ctgpdsa`), the row table and the image linker (`ctgprowdata`, `ctgptables`, `ctgpimage`), the package lists and the record table (`ctgppackages`, `ctgpfiles`), the settings and their writes (`ctgpfields`, `ctgpapply`), the course table, the cup layouts and the channel program's unpacker (`ctgpstage2`), the assembly and the memory map (`ctgplaunch`, `ctgpmmu`), the ghost key (`ctgpsign`); the launch's steps that read them (`plugins/ctgpr/ctgprprepare.cpp`) | Whether a pack is CTGP-R's channel swap and the cheat/other-pack lockout (`ctgp_is_native_stand_in`, `CtgprPackOn`, `ApplyCtgprPrecedence`); the menu's notes; the MEM2 block for the plan's buffers, the plugin's launch and the translated sentences (`wii/launch/ctgpr.cpp`); the raw SD reads the plugin is given (`wii/storage/sdfile.cpp`); the plan checked against the loaded game and written into MEM1, the files put into the game's file system table (`src/ctgpr/ctgpplace.cpp`) and the memory map started (`start_ctgp_memory_map` in `wii/launch/boot.cpp`) |
+
+The plan the plugin fills is the DOL's own `CtgpLaunchPlan`, handed over by
+address in `CtgprLaunchRequest` (`include/riftwii/plugin_ctgpr.hpp`): its big
+buffers are already in the DOL's MEM2 block, so nothing is copied. The host
+tests build all of `src/ctgpr` as before.
 
 ### Memory
 
@@ -160,6 +183,11 @@ the block's peak. The as-read copies are freed once the plan holds the linked on
 The block is released when the plan is destroyed or the launch fails; a buffer
 that finds no room in it uses the heap. `boot.log` says how much of the block
 was used at the most.
+
+The code itself is not in MEM1 either: the `ctgpr` plugin (about 150 KB of
+the 384 KiB plugin arena) is read from the card into MEM2 when CTGP-R starts
+and given back before the game loads. The DOL keeps about 7 KB for CTGP-R
+(the lockout, the placement and the launch's frame).
 
 ### Checks
 
