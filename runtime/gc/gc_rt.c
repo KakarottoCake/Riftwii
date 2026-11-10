@@ -3029,6 +3029,11 @@ static void gc_aram_copy(uint32_t to_main, uint32_t main, uint32_t aram, uint32_
  * 3/4 of a timebase tick (60.75 a microsecond) a byte. */
 #define GC_AR_HOLD_TICKS(length) (GC_AR_HOLD_MIN_TICKS + (length) / 4u * 3u)
 #define GC_AR_BUSY_RETRY_TICKS 61u  /* 1 us: the hardware's 32 bytes were still going */
+/* 100 us past its time with the hardware still busy: the interrupt is let
+ * go anyway (the transfer's ARINT comes when the hardware ends), so a busy
+ * bit that never clears neither keeps the game's callback back for good
+ * nor keeps an alarm going off every microsecond. */
+#define GC_AR_BUSY_LIMIT_TICKS 6075u
 #define GC_DSP_CSR_ACKS (GC_DSP_CSR_AIINT | GC_DSP_CSR_ARINT | GC_DSP_CSR_DSPINT)
 
 /* Writes the DSP's control register with ARINTMSK `on`, the rest as it
@@ -3043,9 +3048,13 @@ static void gc_ar_hold(struct gc_rt_context* ctx, uint32_t length) {
     struct gc_rt_cold* cold = gc_cold(ctx);
     const uint32_t msr = gc_irq_off();
     if (ctx->set_alarm != 0 && (cold->ar_held || (gc_read16(GC_DSP_CSR) & GC_DSP_CSR_ARINTMSK) != 0)) {
+        const uint32_t end = gc_timebase() + GC_AR_HOLD_TICKS(length);
         gc_ar_mask_set(0);
+        /* A transfer started while one is held never brings the held
+         * one's time forward: the later end is kept (a signed difference,
+         * so the timebase wrapping does not matter). */
+        if (!cold->ar_held || (int32_t)(end - cold->ar_release_at) > 0) cold->ar_release_at = end;
         cold->ar_held = 1;
-        cold->ar_release_at = gc_timebase() + GC_AR_HOLD_TICKS(length);
         ctx->ar_waits++;
     }
     gc_irq_restore(msr);
@@ -3059,10 +3068,13 @@ static void gc_ar_release(struct gc_rt_context* ctx) {
     cold->ar_alarm_queued = 0;
     if (!cold->ar_held) return;
     if (left > 0 || (gc_read16(GC_DSP_CSR) & GC_DSP_CSR_DMA_BUSY) != 0) {
-        if (left <= 0) ctx->ar_wait_timeouts++;  /* the hardware still going past the time */
-        cold->ar_alarm_queued = 1;
-        gc_set_alarm(ctx, cold->ar_alarm, left > (int32_t)GC_AR_BUSY_RETRY_TICKS ? (uint32_t)left : GC_AR_BUSY_RETRY_TICKS);
-        return;
+        if (left <= -(int32_t)GC_AR_BUSY_LIMIT_TICKS) {
+            ctx->ar_wait_timeouts++;  /* still busy long past its time: let it go, counted once */
+        } else {
+            cold->ar_alarm_queued = 1;
+            gc_set_alarm(ctx, cold->ar_alarm, left > (int32_t)GC_AR_BUSY_RETRY_TICKS ? (uint32_t)left : GC_AR_BUSY_RETRY_TICKS);
+            return;
+        }
     }
     cold->ar_held = 0;
     gc_ar_mask_set(1);  /* the finished transfer's ARINT now raises the interrupt */

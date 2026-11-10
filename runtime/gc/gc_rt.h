@@ -565,8 +565,8 @@ struct gc_rt_context {
     uint32_t orthographics;   /* orthographic ones, left alone */
     /* The ARAM interrupt held back as long as a GameCube's transfer
      * (gc_ar_hold): the transfers held; without the hold, the longest
-     * wait for one to be pending (gc_after_ar_dma); the times the hardware
-     * was still going when its time had come, or a wait ran out. */
+     * wait for one to be pending (gc_after_ar_dma); the holds let go with
+     * the hardware still busy long past their time, or waits that ran out. */
     uint32_t ar_waits;
     uint32_t ar_wait_longest;
     uint32_t ar_wait_timeouts;
