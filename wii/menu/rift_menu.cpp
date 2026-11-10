@@ -11201,7 +11201,9 @@ static std::string GcGameCardFile(const std::string& id)
 	riftwii::LaunchModel choices;
 	if (ReadSmallFile(std::string(riftwii::wii::kChoicesDir) + "/" + id + ".txt", 1u << 20, bytes))
 		choices.restore(std::string(bytes.begin(), bytes.end()));
-	return riftwii::gc_card_file_of(choices.game, riftwii::wii::Settings().gc_card, id);
+	riftwii::GcNintendontSave save;
+	save.id = id;
+	return riftwii::gc_nintendont_route(save, choices.game, riftwii::wii::Settings().gc_card);
 }
 
 // Name the USB partition so equal card names can be told apart.
@@ -14474,7 +14476,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				else if (dolphin) help = tr("Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only).");
 				if (state.model.game.gc_card == "real_b_as_a")
 					help = tr("For a game that only looks in slot A: the real card in slot B is its slot A, and slot B looks empty to it (original Wii only).");
-				if (state.model.game.gc_card == "named")
+				if (state.model.game.gc_card == "named" && !state.model.game.gc_card_name.empty())
 					help = tr("Press A to pick another named card or make a new one; Left for the other kinds of card.");
 				say(help);
 			}
@@ -14582,7 +14584,8 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 					}
 					// A named card opens its picker: on the way to it, and
 					// with A on it again (to change cards; Left steps on).
-					const bool onNamed = game.gc_card == "named" && direction > 0;
+					// (Named with no usable name plays as Default: it steps on.)
+					const bool onNamed = game.gc_card == "named" && !game.gc_card_name.empty() && direction > 0;
 					const std::string next = onNamed ? std::string("named") : StepList(sources, game.gc_card, direction);
 					if (next == "named") {
 						std::string name = game.gc_card_name;

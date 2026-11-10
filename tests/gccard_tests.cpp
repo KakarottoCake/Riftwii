@@ -1507,23 +1507,30 @@ static void test_nintendont_saves_and_routing() {
     EXPECT_FALSE(saves[0].shift_jis);
     EXPECT_EQ(saves[2].id, std::string("GZLE08"));  // the same four letters, another maker: its own card
     // The card of the save's own game, by the directory entry, never by the file name.
-    EXPECT_EQ(gc_nintendont_route(saves[0], false), std::string("sd:/riftwii/gc/cards/GZLE01.raw"));
-    EXPECT_EQ(gc_nintendont_route(saves[1], false), std::string("sd:/riftwii/gc/cards/GALP01.raw"));
-    EXPECT_EQ(gc_nintendont_route(saves[2], false), std::string("sd:/riftwii/gc/cards/GZLE08.raw"));
+    // Its game follows Settings' card (its choices left at Default).
+    const GameSettings own_card;
+    EXPECT_EQ(gc_nintendont_route(saves[0], own_card, "own"), std::string("sd:/riftwii/gc/cards/GZLE01.raw"));
+    EXPECT_EQ(gc_nintendont_route(saves[1], own_card, "own"), std::string("sd:/riftwii/gc/cards/GALP01.raw"));
+    EXPECT_EQ(gc_nintendont_route(saves[2], own_card, "own"), std::string("sd:/riftwii/gc/cards/GZLE08.raw"));
+    // A game set to a named card gets its saves on that card.
+    GameSettings named_card;
+    named_card.gc_card = "named";
+    named_card.gc_card_name = "Trades";
+    EXPECT_EQ(gc_nintendont_route(saves[0], named_card, "shared"), std::string("sd:/riftwii/gc/cards/named/Trades.raw"));
     // A game set to Shared goes to the shared card of its text encoding.
-    EXPECT_EQ(gc_nintendont_route(saves[0], true), std::string("sd:/riftwii/gc/cards/shared.raw"));
-    EXPECT_EQ(gc_nintendont_route(saves[1], true), std::string("sd:/riftwii/gc/cards/shared.raw"));
+    EXPECT_EQ(gc_nintendont_route(saves[0], own_card, "shared"), std::string("sd:/riftwii/gc/cards/shared.raw"));
+    EXPECT_EQ(gc_nintendont_route(saves[1], own_card, "shared"), std::string("sd:/riftwii/gc/cards/shared.raw"));
     const Bytes japanese = card_with_saves({"GZLJ01", "GALK01"}, true);
     std::vector<GcNintendontSave> jp;
     EXPECT_TRUE(gc_nintendont_list(0, japanese.data(), japanese.size(), jp, error));
     EXPECT_TRUE(jp[0].shift_jis);
-    EXPECT_EQ(gc_nintendont_route(jp[0], false), std::string("sd:/riftwii/gc/cards/GZLJ01.raw"));
-    EXPECT_EQ(gc_nintendont_route(jp[0], true), std::string("sd:/riftwii/gc/cards/shared-jp.raw"));
-    EXPECT_EQ(gc_nintendont_route(jp[1], false), std::string("sd:/riftwii/gc/cards/GALK01.raw"));
+    EXPECT_EQ(gc_nintendont_route(jp[0], own_card, "own"), std::string("sd:/riftwii/gc/cards/GZLJ01.raw"));
+    EXPECT_EQ(gc_nintendont_route(jp[0], own_card, "shared"), std::string("sd:/riftwii/gc/cards/shared-jp.raw"));
+    EXPECT_EQ(gc_nintendont_route(jp[1], own_card, "own"), std::string("sd:/riftwii/gc/cards/GALK01.raw"));
     // An ID that is not capitals and digits is a card named by its bytes, not a way out of the folder.
     GcNintendontSave odd = saves[0];
     odd.id = "../x";
-    EXPECT_EQ(gc_nintendont_route(odd, false).find(".."), std::string::npos);
+    EXPECT_EQ(gc_nintendont_route(odd, own_card, "own").find(".."), std::string::npos);
     // Not a memory card, and not a whole one.
     EXPECT_FALSE(gc_nintendont_list(0, multi.data(), 100, saves, error));
     EXPECT_FALSE(error.empty());

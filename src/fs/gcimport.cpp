@@ -354,7 +354,9 @@ bool gc_nintendont_list(std::size_t card_index, const std::uint8_t* card, std::s
     return true;
 }
 
-std::string gc_nintendont_route(const GcNintendontSave& save, bool shared) { return gc_card_path(save.id, shared); }
+std::string gc_nintendont_route(const GcNintendontSave& save, const GameSettings& game, const std::string& settings_card) {
+    return gc_card_file_of(game, settings_card, save.id);
+}
 
 void gc_nintendont_blank_card(std::vector<std::uint8_t>& card, const std::uint8_t* source, std::size_t source_bytes,
                               bool shift_jis, std::uint64_t format_time) {

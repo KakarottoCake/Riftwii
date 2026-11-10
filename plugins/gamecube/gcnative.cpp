@@ -3066,8 +3066,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
              trace_sector, trace_count, why.empty() ? "" : ": ", why.c_str());
     }
 
-    // The memory card in slot A (gc_card.h): one file per game, or the shared one
-    // (gc_card_path), made and formatted the first time. Its whole image goes to MEM2 at the
+    // The memory card in slot A (gc_card.h): the game's own file, the shared one or a
+    // named one (the launch's card_path, else gc_card_path), made and formatted the first time. Its whole image goes to MEM2 at the
     // jump, and the blob writes what the game saves back to its sectors.
     std::vector<std::uint8_t> card_image;
     std::vector<gc_card_run> card_runs;
