@@ -496,6 +496,10 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
             r->ext_retries = 0;  /* the next one plugged in gets its own tries */
         }
         if (plugged && (r->ext_step == 0 || r->ext_step == GC_BT_EXT_STATUS_ASKED)) {
+            /* From step 0 this is a new attachment (even one whose unplug
+             * report was lost): it gets its own tries. The answer to a
+             * retry's status request (step 5) keeps counting. */
+            if (r->ext_step == 0) r->ext_retries = 0;
             r->ext_step = 1;
             r->ext_wait = 0;
             bt_ext_write(bt, r, 0xF0, 0x55);
