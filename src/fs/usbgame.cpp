@@ -343,17 +343,48 @@ bool is_ciso_image_name(const std::string& name) {
     return true;
 }
 
+std::string path_fold_case(const std::string& path) {
+    std::string folded = path;
+    for (char& c : folded)
+        if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+    return folded;
+}
+
+bool scan_reaches_path(const std::string& folder, const std::string& path, bool nested) {
+    std::string inside = path_fold_case(folder);
+    while (!inside.empty() && inside.back() == '/') inside.pop_back();
+    inside += '/';
+    const std::string folded = path_fold_case(path);
+    if (folded.compare(0, inside.size(), inside) != 0) return false;
+    // What is left is "name" or, one level down, "folder/name".
+    const std::string rest = folded.substr(inside.size());
+    if (rest.empty()) return false;
+    const std::size_t slashes = static_cast<std::size_t>(std::count(rest.begin(), rest.end(), '/'));
+    return slashes == 0 || (nested && slashes == 1 && rest.front() != '/' && rest.back() != '/');
+}
+
 void CisoFinds::note(const std::string& path) {
+    const std::string folded = path_fold_case(path);
+    if (seen.count(folded) != 0) return;
+    if (seen.size() < kSeenKept) seen.insert(folded);
     if (paths.size() < kPathsKept) paths.push_back(path);
     ++total;
 }
 
 void CisoFinds::merge(const CisoFinds& other) {
+    // A path both hold counts once, here as in note().
     for (const std::string& path : other.paths) {
+        if (seen.count(path_fold_case(path)) != 0) continue;
         if (paths.size() >= kPathsKept) break;
         paths.push_back(path);
     }
-    total += other.total;
+    for (const std::string& path : other.seen) {
+        if (seen.count(path) != 0) continue;
+        if (seen.size() < kSeenKept) seen.insert(path);
+        ++total;
+    }
+    // Finds past the other's kSeenKept: counted, without names to compare.
+    if (other.total > other.seen.size()) total += other.total - other.seen.size();
 }
 
 namespace {
@@ -472,8 +503,9 @@ std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images,
         const bool loose = directory == device + "games" || directory == device + "wbfs";
         for (std::size_t j = 0; j < images.size(); ++j) {
             if (i == j || image.id != images[j].id) continue;
-            // Overlapping custom roots can encounter the same file twice.
-            if (j < i && image.path == images[j].path) {
+            // Overlapping custom roots can encounter the same file twice,
+            // spelled in another case ("wbfs" scanned, "WBFS" on the card).
+            if (j < i && path_fold_case(image.path) == path_fold_case(images[j].path)) {
                 hidden_by[i] = static_cast<int>(j);
                 break;
             }

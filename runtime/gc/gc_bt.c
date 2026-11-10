@@ -15,7 +15,8 @@
 #define GC_BT_EP_ACL_IN 0x82u
 #define GC_BT_EP_ACL_OUT 0x02u
 #define GC_BT_WRITE_POLLS 20000000u  /* polls before a write counts as lost */
-#define GC_BT_EXT_WAIT 60u      /* PADReads (a second) an extension's start may take a step */
+#define GC_BT_EXT_WAIT 60u      /* PADReads (a second) an extension's start may take a step, a status
+                                 * answer may take, or the quiet time after a give-up lasts */
 #define GC_BT_EXT_RETRIES 3u
 
 /* HCI opcodes (OGF << 10 | OCF). */
@@ -486,13 +487,33 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
         /* A status report: the extension may have come or gone. The
          * remote stops reporting until the mode is set again. */
         const uint32_t plugged = p[4] & 0x02u;
+        const uint32_t seen_before = r->ext_seen;
         bt->progress |= plugged ? GC_BT_SEEN_STATUS | GC_BT_SEEN_EXTENSION : GC_BT_SEEN_STATUS;
+        r->ext_seen = plugged ? 1u : 0u;
         if (!plugged) {
+            /* Also the answer to a retry's status request: nothing to
+             * start, the mode below lets the remote play alone. */
             r->ext_step = 0;
             r->ext_kind = GC_BT_EXT_NONE;
             r->ext_retries = 0;  /* the next one plugged in gets its own tries */
         }
-        if (plugged && r->ext_step == 0) {
+        if (plugged && r->ext_step == GC_BT_EXT_GAVE_UP) {
+            /* The last retry's answer, late: the remote plays alone. One
+             * request has one answer, so the quiet time ends here: the
+             * next report saying one is plugged in is a new attachment. */
+            r->ext_step = 0;
+            r->ext_wait = 0;
+            r->ext_retries = 0;  /* step 0: no tries used, as on every way back to it */
+            bt_set_mode(bt, r);
+            return;
+        }
+        if (plugged && (r->ext_step == 0 || r->ext_step == GC_BT_EXT_STATUS_ASKED)) {
+            /* From step 0 this is a new attachment (even one whose unplug
+             * report was lost): it gets its own tries. So does the first
+             * one seen after retries that only asked for a lost status
+             * answer (no extension yet). The answer to a retry for an
+             * extension already seen (step 5) keeps counting. */
+            if (r->ext_step == 0 || !seen_before) r->ext_retries = 0;
             r->ext_step = 1;
             r->ext_wait = 0;
             bt_ext_write(bt, r, 0xF0, 0x55);
@@ -504,15 +525,19 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
     }
     if (id == 0x22 && length >= 6 && p[4] == 0x16) {
         if (p[5] != 0) {
-            /* Refused (or unplugged meanwhile): bt_check_extensions starts
-             * it again at the next PADRead. */
+            /* Refused (or unplugged meanwhile) while starting one:
+             * bt_check_extensions starts it again at the next PADRead. */
             bt->ext_error = p[5];
             bt->progress |= GC_BT_SEEN_EXT_ERROR;
-            r->ext_wait = GC_BT_EXT_WAIT;
+            /* Only while starting one: a late refusal after a give-up
+             * doesn't cut its quiet time short. */
+            if (r->ext_step >= 1 && r->ext_step <= 3) r->ext_wait = GC_BT_EXT_WAIT;
             return;
         }
         bt->progress |= GC_BT_SEEN_EXT_WRITE;
-        r->ext_wait = 0;
+        /* Only an answer the start is waiting for restarts its wait: a late
+         * one after a retry or a give-up leaves those times alone. */
+        if (r->ext_step >= 1 && r->ext_step <= 3) r->ext_wait = 0;
         if (r->ext_step == 1) {
             r->ext_step = 2;
             bt_ext_write(bt, r, 0xFB, 0x00);
@@ -660,6 +685,11 @@ static void bt_on_signal(struct gc_bt* bt, struct gc_bt_remote* r, uint32_t slot
         led[0] = 0x15;
         led[1] = 0x00;
         bt_report(bt, r, led, 2);
+        /* Waited for like a retry's: without an answer the remote got no
+         * report mode and its extension was never read. */
+        r->ext_step = GC_BT_EXT_STATUS_ASKED;
+        r->ext_wait = 0;
+        r->ext_retries = 0;  /* channels opened again: a fresh start */
     }
 }
 
@@ -747,7 +777,12 @@ static void bt_open(struct gc_bt* bt) {
  * a report mode is set, and the mode waits for the extension. After a
  * second it is started again from a status request, up to
  * GC_BT_EXT_RETRIES times; then the remote is played alone (its buttons, and
- * HOME and - to leave), and the trace says so (GC_BT_SEEN_EXT_GIVEN_UP). */
+ * HOME and - to leave), and the trace says so (GC_BT_SEEN_EXT_GIVEN_UP).
+ * The status request's answer can go missing too (Eternal Darkness lost
+ * both the ID read's reply and the retry's status report): it is waited
+ * for as a step of its own (GC_BT_EXT_STATUS_ASKED), so a lost answer leads
+ * to the next retry instead of a remote whose Classic Controller or
+ * Nunchuk is never read. */
 static void bt_check_extensions(struct gc_bt* bt) {
     uint32_t i;
     for (i = 0; i < GC_BT_REMOTES && bt->stage != GC_BT_STAGE_FAILED; ++i) {
@@ -755,18 +790,41 @@ static void bt_check_extensions(struct gc_bt* bt) {
         uint8_t request[2];
         if (!r->used || !r->ready || r->ext_step == 0 || r->ext_step == 4) continue;
         if (++r->ext_wait < GC_BT_EXT_WAIT) continue;
+        if (r->ext_step == GC_BT_EXT_GAVE_UP) {
+            /* Quiet since the give-up: one plugged in from now on is new. */
+            r->ext_step = 0;
+            r->ext_wait = 0;
+            r->ext_retries = 0;
+            continue;
+        }
+        /* Steps 1-3: an extension was reported plugged in and stalled.
+         * Step 5: only the status answer is missing; an extension counts if
+         * an earlier status report said one is plugged in (ext_seen). */
+        const uint32_t stalled_extension = r->ext_step != GC_BT_EXT_STATUS_ASKED || r->ext_seen;
         r->ext_wait = 0;
         r->ext_step = 0;
         if (r->ext_retries < GC_BT_EXT_RETRIES) {
             r->ext_retries++;
-            bt->progress |= GC_BT_SEEN_EXT_RETRY;
+            /* The trace's "tried again" is about an extension: a bare
+             * remote's lost status answer is retried without saying so. */
+            if (stalled_extension) bt->progress |= GC_BT_SEEN_EXT_RETRY;
+            r->ext_step = GC_BT_EXT_STATUS_ASKED;
             request[0] = 0x15;  /* its status report starts the extension again */
             request[1] = 0x00;
             bt_report(bt, r, request, 2);
         } else {
             r->ext_kind = GC_BT_EXT_NONE;
-            bt->ext_given_up++;
-            bt->progress |= GC_BT_SEEN_EXT_GIVEN_UP;
+            /* The trace says an extension was given up only when one was
+             * seen: a bare remote whose status answers were lost just plays. */
+            if (stalled_extension) {
+                bt->ext_given_up++;
+                bt->progress |= GC_BT_SEEN_EXT_GIVEN_UP;
+                r->ext_step = GC_BT_EXT_GAVE_UP;
+            } else {
+                /* Only status answers were lost: a Nunchuk or Classic
+                 * Controller plugged in later gets its own tries. */
+                r->ext_retries = 0;
+            }
             bt_set_mode(bt, r);
         }
     }
