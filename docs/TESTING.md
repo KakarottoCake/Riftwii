@@ -272,6 +272,11 @@ and `sd:/riftwii/gc/trace.bin`.
 - [ ] **Memory card**: save in the game, restart it, the save loads; the
   Saves tile lists it with its icon; copy it out as `.gci`, delete it,
   add it back; Options > Memory card > Shared uses `shared.raw`.
+- [ ] **Named memory cards**: Options > Memory card on to a named card
+  opens Named cards; New card makes one (`cards/named/<name>.raw` at the
+  game's start), a second game picked onto it sees the first one's save,
+  its backups go to `backups/named/<name>`, Restore an older save puts one
+  back, and Other kinds of card switches to the kind its note names.
 - [ ] **Leaving**: hold HOME for two seconds (HOME and - on a Wii Remote
   alone; L, R, Z and Start on a GameCube controller, which leave nothing
   with Settings > Games > Leaving a game on HOME only), just after saving:

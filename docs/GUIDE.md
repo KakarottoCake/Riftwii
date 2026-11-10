@@ -579,8 +579,8 @@ installed channels and NTFS USB images have no delete action. Patch-only entries
 a WBFS-formatted drive have no image-file delete action either.
 
 **Delete its saves too** starts off. Turning it on also deletes RiftWii's
-separate saves and that game's own GameCube card and backups. Shared cards,
-pack-managed saves, other loaders' saves and the Wii's internal saves are
+separate saves and that game's own GameCube card and backups. Shared and
+named cards, pack-managed saves, other loaders' saves and the Wii's internal saves are
 kept. Saves are also kept when another copy with the same game ID remains.
 USB deletion needs FAT32; NTFS drives remain read-only.
 
@@ -935,7 +935,7 @@ played, Favourites), can hide them as they hide any game.
 
 A GameCube game's page has its own options in place of a Wii game's
 picture and online settings: **Memory card** (*Default*, which follows **Settings > Games > GameCube
-memory card**, *This game's own*, *Shared* or, on an original Wii, *Real
+memory card**, *This game's own*, *Shared*, *A named card* or, on an original Wii, *Real
 card in slot A*, *Real card in slot B* or *Real card in slot B, as slot A*), **Picture lines** (*On (480p)*, *240p* for a CRT TV, as
 Settings > Picture > Video mode describes, or *Off*; European GameCube games never get 480p or
 240p), **Sharper
@@ -960,6 +960,19 @@ GameCube saves** on (it is at first), the card is copied to
 `sd:/riftwii/gc/backups/` before the game starts, when it has changed;
 the newest five copies are kept, and **Restore an older save** on the
 Saves page puts one back.
+
+**Named cards** are extra cards with names you choose, for more than one
+card per game (a card for each player, a card for trading) or one card
+for a few games. Step **Memory card** on past *Shared*: a page lists your
+named cards, and **New card** names a new one with the keyboard (letters,
+digits, spaces, `-` and `'` only, no dots, up to 32). A new card is made the first time
+a game uses it. Press A on the row again to switch to another named card,
+or pick **Other kinds of card** to go back to the usual choices. They are
+kept in `sd:/riftwii/gc/cards/named/` (`named-jp/` for Japanese games, whose
+cards use another text encoding), are backed up to
+`sd:/riftwii/gc/backups/named/` like any card, and their saves show on
+the game's **Saves** page. Settings' **GameCube memory card** has no named
+cards: they are chosen game by game.
 
 On an original Wii with GameCube memory card slots, **Real card in slot A**
 lets the game read and write that physical card directly. Its saves are not
@@ -992,7 +1005,7 @@ choice is unavailable there.
 The GameCube **Saves** page offers the SD **Memory Card** tools and
 **Copy from a memory card in the Wii**. Choose **Slot A** or **Slot B** (with
 a card in only one slot it is used without asking), then **This game's saves** (the game's own SD image, even when it currently
-uses a shared/real card) or **Every save** (the shared SD image for the
+uses a shared/real card; its named card when it uses one) or **Every save** (the shared SD image for the
 physical card's encoding). RiftWii shows the matching count, how many will
 fit, duplicates left alone and unusable saves, plus the destination, before
 you confirm. It never overwrites a same-name save for the same game/maker.
@@ -1046,7 +1059,8 @@ Nintendont's memory cards, for all games at once:
   twenty games fills twenty RiftWii cards, and a `GMSE.raw` that also holds
   another maker's game does not mix them. A game set to a **Shared** memory
   card on its page gets its saves on `shared.raw` (or `shared-jp.raw` for a
-  Japanese game) instead. A game with no card yet gets a new one.
+  Japanese game) instead, and a game set to a named card gets them on that
+  card. A game with no card yet gets a new one.
 - RiftWii then says what happened, as Bring your Dolphin saves does: added,
   already there (and skipped), could not be used, and a full card. A save a
   card already has (same game, maker and name) is never overwritten, and
@@ -1290,9 +1304,15 @@ Homebrew Channel when you want to play online.
 RiftWii loads Mario Kart Wii itself and puts CTGP's code into it (it
 doesn't start the CTGP-R Channel). You need no extra files for it: just
 install CTGP Revolution on the card as usual (`sd:/ctgpr/`), and RiftWii
-reads everything it needs from your own copy at launch. The game page
-says "offline only" while CTGP's pack is on. RiftWii only starts the CTGP
-Revolution version it was tested with; after a CTGP update it says so and
+reads everything it needs from your own copy at launch. The part of
+RiftWii that does this is an add-on that comes with every RiftWii
+(`sd:/apps/riftwii/plugins/ctgpr.<version>.rwp`); if it is missing or from
+another RiftWii, starting CTGP says so, and updating RiftWii again puts it
+back. The game page says "offline only" while CTGP's pack is on. Your cup
+layout setting (default, alphabetical or your own) is read from your CTGP
+install, so a CTGP track update works without a RiftWii update. An update
+to CTGP's core code is different: RiftWii only starts the core it was
+tested with, and after such an update it says so when you start CTGP and
 doesn't start it. The Mario Kart Channel and Rankings buttons in CTGP's
 menu are meant to bring you back to RiftWii, but that is not confirmed:
 on a real Wii the channel button is known to end on a black screen. Leave

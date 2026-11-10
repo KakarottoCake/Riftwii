@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/launch.hpp"
+
 namespace riftwii {
 
 // Bringing the saves from Dolphin's GC folder into a GameCube memory card
@@ -188,9 +190,11 @@ bool gc_nintendont_list(std::size_t card_index, const std::uint8_t* card, std::s
 // The RiftWii card file a save goes to, by the six-character ID of its
 // own directory entry, never by the name of the Nintendont file (a
 // "GMSE.raw" can hold a second maker's game, and ninmem.raw holds many):
-// sd:/riftwii/gc/cards/<ID>.raw, or shared.raw / shared-jp.raw when that
-// game's memory card setting is Shared (`shared`).
-std::string gc_nintendont_route(const GcNintendontSave& save, bool shared);
+// the card that game uses, by its own choices (`game`, from its choices
+// file) and Settings' card (`settings_card`): sd:/riftwii/gc/cards/<ID>.raw,
+// shared.raw / shared-jp.raw, or its named card (riftwii/launch.hpp's
+// gc_card_file_of).
+std::string gc_nintendont_route(const GcNintendontSave& save, const GameSettings& game, const std::string& settings_card);
 
 // A new, empty RiftWii card for a save's game, formatted like the card the
 // save came from (the first 0x200 bytes of `source` give its flash ID) in

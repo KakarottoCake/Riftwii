@@ -5,6 +5,7 @@
 // attribution and the API tables' version rules; the in-app update's
 // order (plugins before the DOL); and a file written by
 // tools/make_plugin.py read back by the C++ reader.
+#include "../plugins/common/rwptrack.hpp"
 #include "riftwii/plugin_api.h"
 #include "riftwii/pluginfile.hpp"
 #include "riftwii/sha256.hpp"
@@ -564,10 +565,13 @@ static void TestTables() {
     EXPECT_EQ(offsetof(rwp_host, usb_read) + sizeof(void*), offsetof(rwp_host, set_sram_flash_id_a));
     EXPECT_EQ(offsetof(rwp_host, set_sram_flash_id_a) + sizeof(void*), offsetof(rwp_host, heap_free_bytes));
     EXPECT_EQ(offsetof(rwp_host, heap_free_bytes) + sizeof(void*), offsetof(rwp_host, set_sram_flash_id_b));
-    EXPECT_EQ(offsetof(rwp_host, set_sram_flash_id_b) + sizeof(void*), sizeof(rwp_host));
+    EXPECT_EQ(offsetof(rwp_host, set_sram_flash_id_b) + sizeof(void*), offsetof(rwp_host, zlib_inflate_init2));
+    EXPECT_EQ(offsetof(rwp_host, zlib_inflate_init2) + sizeof(void*), offsetof(rwp_host, zlib_inflate));
+    EXPECT_EQ(offsetof(rwp_host, zlib_inflate) + sizeof(void*), offsetof(rwp_host, zlib_inflate_end));
+    EXPECT_EQ(offsetof(rwp_host, zlib_inflate_end) + sizeof(void*), sizeof(rwp_host));
     // Every entry is one pointer, none skipped: on the Wii (4-byte
-    // pointers) the table is 2 words and 40 functions.
-    EXPECT_EQ(sizeof(rwp_host), 8u + 40u * sizeof(void*));
+    // pointers) the table is 2 words and 43 functions.
+    EXPECT_EQ(sizeof(rwp_host), 8u + 43u * sizeof(void*));
     EXPECT_TRUE(offsetof(rwp_plugin, probe) < offsetof(rwp_plugin, shutdown));
     EXPECT_TRUE(offsetof(rwp_plugin, shutdown) < offsetof(rwp_plugin, launch));
     EXPECT_EQ(offsetof(rwp_plugin, launch) + sizeof(void*), sizeof(rwp_plugin));
@@ -644,6 +648,89 @@ static void TestToolFixture(const std::string& fixtures) {
     EXPECT_EQ(riftwii::plugin_check_table(memory.data(), header, base, header.api_version, why), PluginRefusal::None);
 }
 
+// A plugin launch's heap blocks (plugins/common/rwptrack.hpp): what an escape
+// gives back is exactly what was taken and not yet freed, once each.
+static void TestBlockTracker() {
+    riftwii::plugin::BlockTracker tracker;
+    std::vector<void*> slots(64);
+    std::vector<int> blocks(100);
+    EXPECT_TRUE(tracker.add(&blocks[0]));  // not tracking yet: ignored, and nothing to refuse
+    tracker.start(slots.data(), 64);
+    EXPECT_TRUE(tracker.active());
+    for (int i = 0; i < 40; ++i) EXPECT_TRUE(tracker.add(&blocks[i]));
+    for (int i = 0; i < 40; i += 2) tracker.remove(&blocks[i]);  // freed in the launch
+    tracker.remove(&blocks[90]);  // a block from before tracking: left alone
+    EXPECT_EQ(tracker.live(), 20u);
+    // Freed slots are used again, and the probe still finds the rest.
+    for (int i = 40; i < 44; ++i) EXPECT_TRUE(tracker.add(&blocks[i]));
+    EXPECT_EQ(tracker.live(), 24u);
+    std::vector<int> seen(100, 0);
+    const std::uint32_t freed = tracker.sweep([&](void* block) { ++seen[static_cast<int*>(block) - blocks.data()]; });
+    EXPECT_EQ(freed, 24u);
+    bool exact = true;
+    for (int i = 0; i < 100; ++i) {
+        const int expected = (i < 40 && i % 2 == 1) || (i >= 40 && i < 44) ? 1 : 0;
+        if (seen[i] != expected) exact = false;
+    }
+    EXPECT_TRUE(exact);
+    EXPECT_FALSE(tracker.active());
+    tracker.add(&blocks[50]);  // stopped: nothing is noted any more
+    EXPECT_EQ(tracker.sweep([](void*) {}), 0u);
+    // Three quarters live: the next block is refused (the runtime gives it
+    // back and never hands it out), and the table stays exact.
+    tracker.start(slots.data(), 64);
+    for (int i = 0; i < 48; ++i) EXPECT_TRUE(tracker.add(&blocks[i]));
+    EXPECT_FALSE(tracker.add(&blocks[48]));
+    EXPECT_EQ(tracker.live(), 48u);
+    EXPECT_EQ(tracker.sweep([](void*) {}), 48u);
+    // Churn: many more allocations and frees than slots never fill the table
+    // while few blocks are live, and every live block is still found.
+    tracker.start(slots.data(), 64);
+    bool held[100] = {};
+    std::uint32_t state = 12345, live = 0;
+    bool all_added = true;
+    for (int step = 0; step < 20000; ++step) {
+        state = state * 1103515245u + 12345u;
+        const int b = static_cast<int>((state >> 8) % 100);
+        if (held[b]) {
+            tracker.remove(&blocks[b]);
+            held[b] = false;
+            --live;
+        } else if (live < 30) {
+            if (!tracker.add(&blocks[b])) all_added = false;
+            held[b] = true;
+            ++live;
+        }
+    }
+    EXPECT_TRUE(all_added);
+    EXPECT_EQ(tracker.live(), live);
+    std::vector<int> found(100, 0);
+    EXPECT_EQ(tracker.sweep([&](void* block) { ++found[static_cast<int*>(block) - blocks.data()]; }), live);
+    bool matches = true;
+    for (int i = 0; i < 100; ++i) {
+        if (found[i] != (held[i] ? 1 : 0)) matches = false;
+    }
+    EXPECT_TRUE(matches);
+    EXPECT_TRUE(tracker.peak() <= 30u);
+    // Heap-like addresses (32-byte aligned, one region) fill a big table
+    // with short probes: they spread over the whole table.
+    std::vector<void*> big(1u << 16);
+    tracker.start(big.data(), static_cast<std::uint32_t>(big.size()));
+    bool all_fit = true;
+    const std::uintptr_t base = 0x90800000u;
+    for (std::uint32_t k = 0; k < 40000; ++k) {
+        if (!tracker.add(reinterpret_cast<void*>(base + 32u * k))) all_fit = false;
+    }
+    EXPECT_TRUE(all_fit);
+    EXPECT_EQ(tracker.peak(), 40000u);
+    std::uint32_t lower_half = 0;
+    for (std::size_t i = 0; i < big.size() / 2; ++i) lower_half += big[i] != nullptr ? 1u : 0u;
+    EXPECT_TRUE(lower_half > 15000u && lower_half < 25000u);
+    for (std::uint32_t k = 0; k < 40000; k += 2) tracker.remove(reinterpret_cast<void*>(base + 32u * k));
+    EXPECT_EQ(tracker.live(), 20000u);
+    EXPECT_EQ(tracker.sweep([](void*) {}), 20000u);
+}
+
 // The in-app update (riftwii/update.hpp's plan_update_writes): the
 // release's plugins first, next to the running DOL, then the DOL last; the
 // rest of the apps part waits for the new DOL's first start.
@@ -712,6 +799,24 @@ static void TestUpdateOrder() {
         EXPECT_EQ(writes[5].path, std::string("sd:/apps/renamed/OFL.txt"));
         EXPECT_TRUE(writes[6].dol);
     }
+    // The ctgpr plugin (docs/PLUGINS.md, "The ctgpr plugin") goes with the
+    // others, stamped the same, before the DOL.
+    ThemePack withCtgpr = apps;
+    withCtgpr.files.push_back(ThemePackFile{"riftwii/plugins/ctgpr.2610-500.rwp", 4450, 170000});
+    EXPECT_TRUE(riftwii::plan_update_writes(withCtgpr, "v2610-500", folder, dol, writes, why));
+    EXPECT_EQ(writes.size(), 4u);
+    if (writes.size() == 4) {
+        bool ctgpr = false;
+        for (std::size_t i = 0; i + 1 < writes.size(); ++i) {
+            if (writes[i].path == folder + "ctgpr.2610-500.rwp") ctgpr = !writes[i].dol && writes[i].size == 170000u;
+        }
+        EXPECT_TRUE(ctgpr);
+        EXPECT_TRUE(writes[3].dol);
+    }
+    // One from another build is refused like any plugin.
+    withCtgpr.files.back().path = "riftwii/plugins/ctgpr.2610-499.rwp";
+    EXPECT_FALSE(riftwii::plan_update_writes(withCtgpr, "v2610-500", folder, dol, writes, why));
+    EXPECT_TRUE(writes.empty());
     // A pack with no plugins: the DOL alone.
     ThemePack plain;
     plain.files = {ThemePackFile{"riftwii/icon.png", 0, 50}};
@@ -739,6 +844,35 @@ static void TestUpdateOrder() {
 // Which boot.dol a run came from: the SD card's, or nothing when it was
 // started from another device (a CTGP-R launch must not be sent back to the
 // SD copy, and an update has nothing to replace there).
+// The note CTGP-R's way back reads its path from: written only for a card
+// DOL, read back only by the same build, only for a file that is there.
+static void TestCtgprReturnNote() {
+    const auto card_has = [](const std::string& path) { return path == "sd:/apps/rwctgp/boot.dol"; };
+    const std::string note = riftwii::ctgpr_return_note_text("sd:/apps/rwctgp/boot.dol", "2611-154");
+    EXPECT_EQ(note, std::string("sd:/apps/rwctgp/boot.dol\n2611-154\n"));
+    EXPECT_EQ(riftwii::ctgpr_return_note_path(note, "2611-154", card_has), std::string("sd:/apps/rwctgp/boot.dol"));
+    // another build's note, or a file that is gone
+    EXPECT_EQ(riftwii::ctgpr_return_note_path(note, "2611-155", card_has), std::string());
+    EXPECT_EQ(riftwii::ctgpr_return_note_path(note, "2611-154", [](const std::string&) { return false; }),
+              std::string());
+    // line ends from an editor are fine
+    EXPECT_EQ(riftwii::ctgpr_return_note_path("sd:/apps/rwctgp/boot.dol \r\n2611-154\r\n", "2611-154", card_has),
+              std::string("sd:/apps/rwctgp/boot.dol"));
+    // a DOL outside apps/ is a card DOL too (the writer and reader agree)
+    const auto any = [](const std::string&) { return true; };
+    EXPECT_EQ(riftwii::ctgpr_return_note_path(riftwii::ctgpr_return_note_text("sd:/boot.dol", "v"), "v", any),
+              std::string("sd:/boot.dol"));
+    // never written or taken: another device, no .dol, a climb, no version, no version line
+    EXPECT_EQ(riftwii::ctgpr_return_note_text("usb:/apps/riftwii/boot.dol", "v"), std::string());
+    EXPECT_EQ(riftwii::ctgpr_return_note_text("sd:/apps/riftwii/boot.elf", "v"), std::string());
+    EXPECT_EQ(riftwii::ctgpr_return_note_text("sd:/apps/../x/boot.dol", "v"), std::string());
+    EXPECT_EQ(riftwii::ctgpr_return_note_text("sd:/apps/riftwii/boot.dol", ""), std::string());
+    EXPECT_EQ(riftwii::ctgpr_return_note_path("usb:/apps/riftwii/boot.dol\nv\n", "v", any), std::string());
+    EXPECT_EQ(riftwii::ctgpr_return_note_path("sd:/apps/x/../y/boot.dol\nv\n", "v", any), std::string());
+    EXPECT_EQ(riftwii::ctgpr_return_note_path("sd:/apps/riftwii/boot.dol", "v", any), std::string());
+    EXPECT_EQ(riftwii::ctgpr_return_note_path("sd:/" + std::string(300, 'a') + ".dol\nv\n", "v", any), std::string());
+}
+
 static void TestRunningDolPath() {
     const auto card_has = [](const std::string& path) { return path == "sd:/apps/riftwii/boot.dol"; };
     EXPECT_EQ(riftwii::running_dol_path("sd:/apps/riftwii/boot.dol", card_has), std::string("sd:/apps/riftwii/boot.dol"));
@@ -772,6 +906,8 @@ int main(int argc, char** argv) {
     TestDescribeAddress();
     TestTables();
     TestUpdateOrder();
+    TestBlockTracker();
+    TestCtgprReturnNote();
     if (argc > 1) {
         TestToolFixture(argv[1]);
     } else {

@@ -39,9 +39,9 @@ APPS = "sd-card/apps/"
 PLUGINS = "riftwii/plugins/"
 PLUGIN_FILE = re.compile(r"^([A-Za-z0-9_-]{1,16})\.([A-Za-z0-9_-]{1,32})\.rwp$")
 # Plugins a release's DOL cannot do without (docs/PLUGINS.md): a zip
-# missing one would give its players a RiftWii whose GameCube games say the
-# add-on is missing.
-REQUIRED_PLUGINS = ("gamecube",)
+# missing one would give its players a RiftWii whose GameCube games, or
+# CTGP-R's native launch, say the add-on is missing.
+REQUIRED_PLUGINS = ("gamecube", "ctgpr")
 # The full menu font (wii/menu/fullfont.hpp): the in-app update writes it
 # next to the new DOL with the plugins, before the DOL.
 MENU_FONT = "riftwii/font.ttf"

@@ -50,6 +50,13 @@ EXCLUDES	+=	src/patching/gclayout.cpp src/patching/gcclock.cpp src/patching/gcre
 # pugixml's own stream functions (PUGIXML_NO_STL below), libstdc++'s locale
 # and iostream code (over 500 KiB) would be linked into the DOL.
 EXCLUDES	+=	src/patching/patchstream.cpp
+# The native CTGP-R launch's planning lives in the ctgpr plugin
+# (Makefile.plugin's ctgpr_SRC, docs/PLUGINS.md "The ctgpr plugin"), loaded
+# only when CTGP-R starts; the DOL keeps ctgpplace.cpp, which places the
+# finished plan. The host tests still build all of src/ctgpr (CMakeLists.txt).
+EXCLUDES	+=	src/ctgpr/ctgpapply.cpp src/ctgpr/ctgpdsa.cpp src/ctgpr/ctgpefa.cpp src/ctgpr/ctgpfat.cpp src/ctgpr/ctgpfields.cpp src/ctgpr/ctgpfiles.cpp \
+				src/ctgpr/ctgphash.cpp src/ctgpr/ctgpimage.cpp src/ctgpr/ctgplaunch.cpp src/ctgpr/ctgpmmu.cpp src/ctgpr/ctgppackages.cpp src/ctgpr/ctgprowdata.cpp \
+				src/ctgpr/ctgpsign.cpp src/ctgpr/ctgpstage2.cpp src/ctgpr/ctgptables.cpp
 INCLUDES	:=	$(WII_DIRS) vendor-libgui/source include runtime runtime/resident runtime/pad runtime/gc runtime/shot runtime/fault runtime/vsd vendor-pugixml/src vendor-bearssl/inc vendor-wwfc vendor-zstd \
 				channel/common
 DATA		:=	wii/assets wii/lang vendor-gecko vendor-libgui/source/images vendor-libgui/source/fonts vendor-libgui/source/sounds vendor-libgui/source/lang \

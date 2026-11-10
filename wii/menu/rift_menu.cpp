@@ -2613,17 +2613,15 @@ static const char* const kHomebrewAppWarning =
 	"CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.";
 static const char* const kCtgpNativeNote =
 	"CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.";
-static const char* const kCtgpUnsupportedNote =
-	"This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead.";
 
-// What the launch will do with the pack, as the Start note says it. The
-// "offline only" note is for a CTGP Revolution the launch can start; one it
-// refuses (another version) gets its own words instead.
+// What the launch will do with the pack, as the Start note says it. With
+// CTGP-R's files on the card it starts natively, offline only; a version the
+// launch cannot start is named when it is started (wii/launch/ctgpr.hpp: the
+// version is in the package disk only the ctgpr plugin reads).
 static const char* HomebrewAppNote()
 {
 	switch (riftwii::wii::ctgpr_native_status()) {
-	case riftwii::wii::CtgprNativeStatus::Supported: return kCtgpNativeNote;
-	case riftwii::wii::CtgprNativeStatus::Unsupported: return kCtgpUnsupportedNote;
+	case riftwii::wii::CtgprNativeStatus::Installed: return kCtgpNativeNote;
 	case riftwii::wii::CtgprNativeStatus::NotInstalled: break;
 	}
 	return kHomebrewAppWarning;
@@ -2663,7 +2661,8 @@ static std::string LaunchNote(const FrontendState& state)
 	// A game image runs under d2x. Only a d2x on base 58 reaches a Wii U's
 	// front USB ports in game, and the launch puts it first with the
 	// adapter in use (image_cios_order); on any other d2x the adapter works
-	// from the rear ports only. Which port the adapter is in cannot be told
+	// from the lower back port at most (#540: base 57 there only, base 56
+	// sees it but can't use it, base 38 nowhere). Which port the adapter is in cannot be told
 	// from IOS's device ID yet, so the note comes whenever the game will not
 	// start on a slot whose base was read as 58: none installed, the bases
 	// unreadable, another cIOS picked for it, or a USB-keyboard game. A
@@ -2673,7 +2672,7 @@ static std::string LaunchNote(const FrontendState& state)
 	    riftwii::wii::Settings().gc_adapter != "off" && riftwii::wii::is_wii_u() &&
 	    !FrontPortsReached(state)) {
 		if (!note.empty()) note += " ";
-		note += tr("On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.");
+		note += tr("On a Wii U the GameCube adapter may only work in game from the lower back USB port.");
 	}
 	return note;
 }
@@ -9183,10 +9182,13 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		FlowRow card;
 		card.kind = FlowRow::Kind::Option;
 		card.label = tr("Memory card");
-		card.value = game.gc_card == "global"
+		// A named card without a usable name plays as Default: shown so.
+		const bool followsSettings = game.gc_card == "global" || (game.gc_card == "named" && game.gc_card_name.empty());
+		card.value = followsSettings
 			? tr("Default ({1})", {GcCardName(riftwii::gc_card_effective(game, riftwii::wii::Settings().gc_card))})
+			: game.gc_card == "named" ? tr("Named: {1}", {game.gc_card_name})
 			: GcCardName(game.gc_card);
-		card.on = game.gc_card != "global";
+		card.on = !followsSettings;
 		const std::string used = riftwii::gc_card_effective(game, riftwii::wii::Settings().gc_card);
 		card.dim = (used == "real" || used == "real_b" || used == "real_b_as_a") && riftwii::wii::is_wii_u();
 		rows.push_back(card);
@@ -9945,7 +9947,8 @@ static std::string GcRealSlotANote(const std::string& card)
 }
 
 // The game's card, named as the loader names it (gcnative.cpp): its own
-// file, or the shared one when the game's Memory card option says so.
+// file, or the shared one when the game's Memory card option says so (a
+// named card, cards/named or named-jp, is GcCardPath's own case).
 static bool GcCardShared(const FrontendState& state)
 {
 	return EffectiveGcCard(state) == "shared";
@@ -9956,13 +9959,16 @@ static std::string GcCardPath(const FrontendState& state)
 	const std::string source = EffectiveGcCard(state);
 	if (source == "nintendont" || source == "dolphin")
 		return riftwii::wii::ExternalCardPath(state.game_id, source);
-	return riftwii::gc_card_path(state.game_id, GcCardShared(state));
+	// The game's own, the shared or a named card, as the launch picks it.
+	const std::string file = riftwii::gc_card_file(state.game_id, source, state.model.game.gc_card_name);
+	return file.empty() ? riftwii::gc_card_path(state.game_id, GcCardShared(state)) : file;
 }
 
 static std::string GcBackupFolder(const FrontendState& state, bool shared)
 {
 	const std::string folder = riftwii::gc_backup_folder(state.game_id, shared);
 	const std::string source = EffectiveGcCard(state);
+	if (source == "named") return riftwii::gc_card_backup_folder(GcCardPath(state));
 	return source == "nintendont" || source == "dolphin" ? folder + "/external" : folder;
 }
 
@@ -10135,9 +10141,24 @@ static riftwii::GcBackupResult BackupMenuCard(const std::string& path, const std
 	return failed;
 }
 
+// The SD card folders a card file goes in, made when missing: a named
+// card's (cards/named, cards/named-jp) is made only when a game starts, and
+// the menu may write to the card first (a copy, a Nintendont save).
+static void MakeGcCardFolders(const std::string& path)
+{
+	mkdir("sd:/riftwii", 0777);
+	mkdir("sd:/riftwii/gc", 0777);
+	mkdir("sd:/riftwii/gc/cards", 0777);
+	const std::size_t slash = path.rfind('/');
+	if (slash != std::string::npos) mkdir(path.substr(0, slash).c_str(), 0777);
+}
+
 static bool OverwriteMenuCard(const std::string& path, const std::vector<std::uint8_t>& bytes, std::string& error)
 {
-	if (!riftwii::is_usb_path(path)) return riftwii::gc_overwrite_file(path, bytes, error);
+	if (!riftwii::is_usb_path(path)) {
+		MakeGcCardFolders(path);
+		return riftwii::gc_overwrite_file(path, bytes, error);
+	}
 	std::vector<std::uint8_t> before;
 	if (ReadSmallFile(path, riftwii::kGcBackupMaxBytes, before) && before.size() == bytes.size() &&
 		WriteChangedBlocks(path, before, bytes, CardChange::Import)) return true;
@@ -10527,10 +10548,8 @@ static bool RestoreGcBackup(const std::string& cardPath, const std::string& fold
 	for (const std::string& old : before.pruned)
 		logf("GameCube card %s: oldest backup %s/%s deleted, to keep the newest %u\n", cardPath.c_str(), folder.c_str(),
 			old.c_str(), static_cast<unsigned>(riftwii::kGcBackupsKept));
-	// A card that was never made: its folder may be missing too.
-	mkdir("sd:/riftwii", 0777);
-	mkdir("sd:/riftwii/gc", 0777);
-	mkdir("sd:/riftwii/gc/cards", 0777);
+	// A card that was never made: its folder may be missing too
+	// (OverwriteMenuCard makes it).
 	if (!OverwriteMenuCard(cardPath, bytes, why)) {
 		logf("GameCube card %s: the restore from %s could not be written: %s\n", cardPath.c_str(), from.c_str(), why.c_str());
 		ShowPopup(tr("Save not restored"), tr("RiftWii could not write the memory card: {1}", {FlatCapped(why, 120)}), tr("OK"));
@@ -10541,6 +10560,153 @@ static bool RestoreGcBackup(const std::string& cardPath, const std::string& fold
 		tr("The memory card is as it was on {1}. The save from before is kept among the older saves, so you can go back to it.", {when}),
 		tr("OK"));
 	return true;
+}
+
+// A name in lower case, for comparing names as FAT does (ASCII only:
+// card names are, gc_card_name_clean).
+static std::string LowerAscii(std::string text)
+{
+	for (char& c : text)
+		if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+	return text;
+}
+
+// The named cards of one encoding on the SD card (riftwii/gccard.hpp's
+// gc_named_card_folder), by name, sorted. Only clean names: a file put
+// there by hand with another name is left alone.
+static std::vector<std::string> ListNamedGcCards(bool shiftJis)
+{
+	std::vector<std::string> names;
+	DIR* dir = opendir(riftwii::gc_named_card_folder(shiftJis).c_str());
+	if (!dir) return names;
+	// Capped: a damaged directory chain can make readdir go round forever.
+	unsigned seen = 0;
+	while (dirent* entry = readdir(dir)) {
+		if (++seen > 2000) break;
+		std::string name = entry->d_name;
+		// Cards are files; a folder called X.raw is not one (asked with
+		// stat when the listing doesn't say).
+		if (entry->d_type == DT_DIR) continue;
+		if (entry->d_type == DT_UNKNOWN) {
+			struct stat st;
+			const std::string full = riftwii::gc_named_card_folder(shiftJis) + "/" + entry->d_name;
+			if (stat(full.c_str(), &st) != 0 || S_ISDIR(st.st_mode)) continue;
+		}
+		// FAT ignores case: a PC may have written Trades.RAW.
+		if (name.size() <= 4 || LowerAscii(name.substr(name.size() - 4)) != ".raw") continue;
+		name.resize(name.size() - 4);
+		if (riftwii::gc_card_name_clean(name) != name) continue;
+		if (names.size() < 200) names.push_back(name);
+	}
+	closedir(dir);
+	std::sort(names.begin(), names.end(), [](const std::string& a, const std::string& b) {
+		return LowerAscii(a) < LowerAscii(b);
+	});
+	return names;
+}
+
+// A new named card's name, typed on the keyboard. False: Back.
+static bool AskGcCardName(std::string& name)
+{
+	GuiSearchKeys keys(std::string(), tr("Name the new card"), riftwii::kGcCardNameMax);
+	mainWindow->SetState(STATE::DISABLED);
+	mainWindow->Append(&keys);
+	keys.SetState(STATE::DEFAULT);
+	ResumeGui();
+	while (keys.Result() == 0) usleep(20000);
+	HaltGui();
+	mainWindow->Remove(&keys);
+	mainWindow->SetState(STATE::DEFAULT);
+	if (keys.Result() < 0) return false;
+	name = keys.Text();
+	return true;
+}
+
+enum class NamedCardPick { Picked, Other, Back };
+
+// Memory card > A named card, on a GameCube game's page: the named cards
+// of the game's encoding, New card, and the other kinds of card. `name`
+// is the game's card now, lit; on Picked it is the card picked. Other
+// switches the game to `otherCard` (the next kind on the Memory card row,
+// as shown), which the row's note names. Called with the GUI halted, as
+// RunRowPage is.
+static NamedCardPick MenuPickNamedGcCard(const std::string& gameId, std::string& name, const std::string& otherCard)
+{
+	const bool shiftJis = riftwii::gc_card_shift_jis(gameId);
+	std::vector<std::string> names = ListNamedGcCards(shiftJis);
+	// The game's card may not be made yet (it is, at its first start).
+	// FAT names ignore case: "trades" in the choices file is Trades.raw.
+	const auto isGameCard = [&](const std::string& n) { return !name.empty() && LowerAscii(n) == LowerAscii(name); };
+	if (!name.empty() && std::none_of(names.begin(), names.end(), isGameCard))
+		names.insert(names.begin(), name);
+	std::vector<FlowRow> rows;
+	for (const std::string& n : names) {
+		FlowRow row;
+		row.kind = FlowRow::Kind::Action;
+		row.label = n;
+		row.on = isGameCard(n);
+		row.value = row.on ? tr("In use") : tr("Pick");
+		rows.push_back(row);
+	}
+	FlowRow newCard;
+	newCard.kind = FlowRow::Kind::Action;
+	newCard.label = tr("New card");
+	newCard.value = tr("Add");
+	rows.push_back(newCard);
+	FlowRow other;
+	other.kind = FlowRow::Kind::Action;
+	other.label = tr("Other kinds of card");
+	other.value = tr("Switch");
+	rows.push_back(other);
+	const std::size_t newRow = names.size();
+	const std::size_t otherRow = names.size() + 1;
+
+	NamedCardPick result = NamedCardPick::Back;
+	std::string said;
+	const auto note = [&](int row) -> std::string {
+		// A name that can't be used is said on New card only.
+		if (!said.empty() && static_cast<std::size_t>(row) == newRow) return said;
+		if (static_cast<std::size_t>(row) == newRow)
+			return tr("A new, empty card. It is made the first time a game uses it.");
+		if (static_cast<std::size_t>(row) == otherRow)
+			return tr("Switches this game to {1}. Back keeps the card it has.", {otherCard});
+		return tr("Named cards are kept in {1}. Give one to several games, or several to one game.",
+			{riftwii::gc_named_card_folder(shiftJis)});
+	};
+	int initial = 0;
+	for (std::size_t i = 0; i < names.size(); ++i)
+		if (isGameCard(names[i])) initial = static_cast<int>(i);
+	if (names.empty()) initial = static_cast<int>(newRow);
+	RunRowPage(tr("Named cards"), shiftJis ? tr("Japanese games' cards") : tr("Cards for this game's region"), rows, note,
+		[&](int row, const PageAside&) {
+			said.clear();
+			const std::size_t at = static_cast<std::size_t>(row);
+			if (at == otherRow) {
+				result = NamedCardPick::Other;
+				return true;
+			}
+			if (at < names.size()) {
+				name = names[at];
+				result = NamedCardPick::Picked;
+				return true;
+			}
+			std::string typed;
+			if (!AskGcCardName(typed)) return false;
+			const std::string clean = riftwii::gc_card_name_clean(typed);
+			if (clean.empty()) {
+				said = tr("Use 1 to {1} letters, digits, spaces, - or ' for a card's name.",
+					{std::to_string(riftwii::kGcCardNameMax)});
+				return false;
+			}
+			// FAT names ignore case: a name that is there already is that card.
+			name = clean;
+			for (const std::string& n : names)
+				if (LowerAscii(n) == LowerAscii(clean)) name = n;
+			logf("Settings: GameCube game %s now uses the named memory card %s\n", gameId.c_str(), name.c_str());
+			result = NamedCardPick::Picked;
+			return true;
+		}, nullptr, 0, initial);
+	return result;
 }
 
 // The game's card's backups, newest first, on a page of their own; the one
@@ -10576,7 +10742,10 @@ static bool MenuGcRestore(FrontendState& state)
 		rows.push_back(row);
 	}
 	bool restored = false;
+	// A named card may be several games' card, as the shared one is.
+	const bool named = EffectiveGcCard(state) == "named";
 	const auto note = [&](int) -> std::string {
+		if (named) return tr("Press A to put this named memory card back to how it was then, for every game that uses it.");
 		return shared ? tr("Press A to put the shared memory card back to how it was then, for every game on it.")
 			: tr("Press A to put this game's save back to how it was then.");
 	};
@@ -10586,7 +10755,9 @@ static bool MenuGcRestore(FrontendState& state)
 		// The question in the title, short in every language; the date and
 		// time in the body. Cancel is the second button, the one B and HOME
 		// press, so backing out never changes a save.
-		const std::string body = shared
+		const std::string body = named
+			? tr("Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them.", {when})
+			: shared
 			? tr("Every game's save on the shared memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them.", {when})
 			: tr("Your save goes back to how it was on {1}. Your save as it is now is kept as a copy first, so you can come back to it.", {when});
 		if (ShowPopup(tr("Restore this save?"), body, tr("Restore"), tr("Cancel")) != 0) return false;
@@ -10622,7 +10793,9 @@ static std::string GcDolphinSummary(const riftwii::GcImportCount& count, bool le
 static bool GcDolphinImport(const FrontendState& state, const std::string& cardPath, bool shared,
 	std::vector<std::uint8_t>& changed, riftwii::GcImportCount& count, bool& leftOut)
 {
-	const riftwii::GcDolphinFiles found = riftwii::gc_dolphin_scan(kGcDolphinDir, riftwii::gc_dolphin_regions(state.game_id, shared));
+	// A named card may hold several regions' games, as the shared one does.
+	const bool everyRegion = shared || EffectiveGcCard(state) == "named";
+	const riftwii::GcDolphinFiles found = riftwii::gc_dolphin_scan(kGcDolphinDir, riftwii::gc_dolphin_regions(state.game_id, everyRegion));
 	if (found.gci.empty() && found.raw.empty()) {
 		ShowPopup(tr("No saves from Dolphin"),
 			tr("RiftWii found no saves for this memory card in {1}. Copy Dolphin's GC folder there (in Dolphin: File > Open User Folder, then GC): it holds the USA, EUR and JAP folders.",
@@ -10703,8 +10876,10 @@ static void MenuGcSdCard(FrontendState& state)
 	// A card is 2 MB; the library takes 4 to 128 Mbit ones.
 	if (!ReadSmallFile(path, 16u << 20, card, &missing)) {
 		if (missing) {
+			const bool namedCard = EffectiveGcCard(state) == "named";
 			ShowPopup(tr("No memory card yet"),
-				shared ? tr("The shared memory card is made the first time a game that uses it starts: {1}.", {path})
+				namedCard ? tr("A named memory card is made the first time a game that uses it starts: {1}.", {path})
+				: shared ? tr("The shared memory card is made the first time a game that uses it starts: {1}.", {path})
 					: tr("This game's memory card is made the first time the game starts: {1}.", {path}), tr("OK"));
 		} else {
 			logf("The GameCube memory card at %s could not be read. The file was not changed.\n", path.c_str());
@@ -10796,6 +10971,9 @@ static void MenuGcSdCard(FrontendState& state)
 		const std::size_t at = static_cast<std::size_t>(row);
 		if (at == info.saves.size() + 1) {
 			if (!haveBackups) return tr("RiftWii keeps a copy each time you start the game.");
+			// A named card may be several games' card, as the shared one is.
+			if (EffectiveGcCard(state) == "named")
+				return tr("Go back to how this named memory card was on a day you pick, for every game that uses it.");
 			return shared ? tr("Go back to how the shared memory card was on a day you pick, for every game on it.")
 				: tr("Go back to how your save was on a day you pick.");
 		}
@@ -11034,15 +11212,17 @@ static void ListNintendontSaves(NintendontFinds& finds)
 	}
 }
 
-// Whether the game's own page says its memory card is the shared one (the
-// choices file the page keeps; none means its own card).
-static bool GcGameUsesSharedCard(const std::string& id)
+// The card file a game's saves go to, by the choices file its page keeps
+// (none: Settings' card): its own, the shared or its named card.
+static std::string GcGameCardFile(const std::string& id)
 {
 	std::vector<std::uint8_t> bytes;
-	if (!ReadSmallFile(std::string(riftwii::wii::kChoicesDir) + "/" + id + ".txt", 1u << 20, bytes)) return false;
 	riftwii::LaunchModel choices;
-	choices.restore(std::string(bytes.begin(), bytes.end()));
-	return riftwii::gc_card_effective(choices.game, riftwii::wii::Settings().gc_card) == "shared";
+	if (ReadSmallFile(std::string(riftwii::wii::kChoicesDir) + "/" + id + ".txt", 1u << 20, bytes))
+		choices.restore(std::string(bytes.begin(), bytes.end()));
+	riftwii::GcNintendontSave save;
+	save.id = id;
+	return riftwii::gc_nintendont_route(save, choices.game, riftwii::wii::Settings().gc_card);
 }
 
 // Name the USB partition so equal card names can be told apart.
@@ -11057,7 +11237,7 @@ static std::string NintendontCardLabel(const riftwii::GcNintendontCard& card)
 
 // Copies the saves at `picks` (indices into finds.saves, ascending) to
 // RiftWii's cards. Each save goes to the card of the game in its own
-// directory entry (riftwii::gc_nintendont_route); a card is read, backed up
+// directory entry uses (GcGameCardFile: its own, shared or named card); a card is read, backed up
 // before it is written, and written once, with the blocks in the order that
 // leaves the old card in charge if the write is cut off. The Nintendont
 // files are only read. Counts what came of it into `total`.
@@ -11066,22 +11246,18 @@ static void BringNintendontSaves(const NintendontFinds& finds, const std::vector
 {
 	struct Target {
 		std::string path;
-		std::string id;
-		bool shared = false;
 		std::vector<std::size_t> picks;
 	};
 	std::vector<Target> targets;
 	for (std::size_t pick : picks) {
 		const riftwii::GcNintendontSave& save = finds.saves[pick];
-		const bool shared = GcGameUsesSharedCard(save.id);
-		const std::string path = riftwii::gc_nintendont_route(save, shared);
+		// The card the game uses: a named card's game reads only that one.
+		const std::string path = GcGameCardFile(save.id);
 		auto found = std::find_if(targets.begin(), targets.end(), [&](const Target& t) { return t.path == path; });
 		if (found == targets.end()) {
 			targets.push_back(Target());
 			found = targets.end() - 1;
 			found->path = path;
-			found->id = save.id;
-			found->shared = shared;
 		}
 		found->picks.push_back(pick);
 	}
@@ -11136,7 +11312,7 @@ static void BringNintendontSaves(const NintendontFinds& finds, const std::vector
 				const time_t now = time(nullptr);
 				struct tm local;
 				localtime_r(&now, &local);
-				const std::string folder = riftwii::gc_backup_folder(target.id, target.shared);
+				const std::string folder = riftwii::gc_card_backup_folder(target.path);
 				const riftwii::GcBackupResult backup = BackupMenuCard(target.path, folder, riftwii::gc_backup_stamp(local));
 				if (backup.what == riftwii::GcBackupResult::What::Failed) {
 					logf("Nintendont saves: %s was not changed, as it could not be backed up: %s\n", target.path.c_str(),
@@ -11152,9 +11328,6 @@ static void BringNintendontSaves(const NintendontFinds& finds, const std::vector
 			if (written && exists) {
 				written = WriteChangedBlocks(target.path, before, card, CardChange::Import);
 			} else if (written) {
-				mkdir("sd:/riftwii", 0777);
-				mkdir("sd:/riftwii/gc", 0777);
-				mkdir("sd:/riftwii/gc/cards", 0777);
 				written = OverwriteMenuCard(target.path, card, why);
 				if (written) riftwii::wii::forget_sd_layout();
 			}
@@ -11477,7 +11650,12 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 		ShowPopup(tr("Memory card"), GcRealError(CARD_ERROR_ENCODING), tr("OK"));
 		return;
 	}
-	const std::string path = riftwii::gc_card_path(targetId, shared);
+	// "This game's saves" go to its own SD image, even when it is set to
+	// Shared (as before), or to its named card, the one it plays with.
+	const bool toNamed = !shared && EffectiveGcCard(state) == "named";
+	const std::string path = toNamed
+		? riftwii::gc_card_file_of(state.model.game, riftwii::wii::Settings().gc_card, targetId)
+		: riftwii::gc_card_path(targetId, shared);
 	const riftwii::GcRecovery recovered = riftwii::gc_recover_card(path, error);
 	if (recovered == riftwii::GcRecovery::Failed || recovered == riftwii::GcRecovery::BothKept) {
 		logf("GameCube: %s could not be recovered before the copy: %s\n", path.c_str(), error.c_str());
@@ -11544,13 +11722,13 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 		ShowPopup(tr("Memory card"), GcRealError(CARD_ERROR_IOERROR), tr("OK"));
 		return;
 	}
-	const auto backup = BackupMenuCard(path, riftwii::gc_backup_folder(targetId, shared), stamp);
+	const auto backup = BackupMenuCard(path, riftwii::gc_card_backup_folder(path), stamp);
 	if (backup.what == riftwii::GcBackupResult::What::Failed) {
 		ShowPopup(tr("Saves not brought"),
 			tr("RiftWii could not keep a copy of the memory card, so it was not changed: {1}", {FlatCapped(backup.error, 120)}), tr("OK"));
 		return;
 	}
-	mkdir("sd:/riftwii/gc/cards", 0777);
+	MakeGcCardFolders(path);
 	if (!riftwii::gc_real_commit(path, plan.image, unchanged, error)) {
 		logf("GameCube: saves from slot %c were not copied to %s: %s\n", 'A' + slot, path.c_str(), error.c_str());
 		ShowPopup(tr("Memory card"), sourceChanged ? GcRealError(CARD_ERROR_IOERROR)
@@ -13276,9 +13454,7 @@ static std::string ModsNote(const FrontendState& state, const std::string& scanS
 	if (riftwii::wii::HomebrewAppPackOn(state))
 	{
 		switch (riftwii::wii::ctgpr_native_status()) {
-		case riftwii::wii::CtgprNativeStatus::Supported: return tr("CTGP Revolution: offline only (see Start).");
-		case riftwii::wii::CtgprNativeStatus::Unsupported:
-			return tr("CTGP Revolution: this version can't be started from RiftWii (see Start).");
+		case riftwii::wii::CtgprNativeStatus::Installed: return tr("CTGP Revolution: offline only (see Start).");
 		case riftwii::wii::CtgprNativeStatus::NotInstalled: break;
 		}
 		return tr("CTGP Revolution does not work from RiftWii yet (see Start).");
@@ -14345,11 +14521,14 @@ static std::string GcSaveNote(const FrontendState& state)
 	const std::string card = GcCardPath(state);
 	if (used == "nintendont" || used == "dolphin")
 		return tr("Saves are written to {1}. A backup is kept before the game starts.", {card});
+	// Two lines at most: the full card's note takes the place of where it is.
+	if (GcCardFull(state)) return GcCardFullNote(state);
+	if (used == "named")
+		return tr("Saves go to the named memory card {1} on the SD card: {2}.", {state.model.game.gc_card_name, card}) + " " +
+			tr("Press A to see its saves.");
 	const std::string where = GcCardShared(state)
 		? tr("Saves go to the shared memory card on the SD card: {1}.", {card})
 		: tr("Saves go to this game's own memory card on the SD card: {1}.", {card});
-	// Two lines at most: the full card's note takes the place of where it is.
-	if (GcCardFull(state)) return GcCardFullNote(state);
 	return where + " " + tr("Press A to see its saves.");
 }
 
@@ -14644,6 +14823,8 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				else if (dolphin) help = tr("Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only).");
 				if (state.model.game.gc_card == "real_b_as_a")
 					help = tr("For a game that only looks in slot A: the real card in slot B is its slot A, and slot B looks empty to it (original Wii only).");
+				if (state.model.game.gc_card == "named" && !state.model.game.gc_card_name.empty())
+					help = tr("Press A to pick another named card or make a new one; Left for the other kinds of card.");
 				say(help);
 			}
 			else if (ref.what == RowRef::What::GcProgressive && riftwii::gc_pal_game(state.game_id))
@@ -14739,7 +14920,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			else if (ref.what == RowRef::What::GcCard) {
 				// Asked when switching, where it matters: the saves stay behind.
 				if (AskGcCardSwitch()) {
-					std::vector<std::string> sources{"global", "own", "shared"};
+					std::vector<std::string> sources{"global", "own", "shared", "named"};
 					if (!riftwii::wii::is_wii_u()) {
 						sources.push_back("real");
 						sources.push_back("real_b");
@@ -14748,7 +14929,35 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 					for (const char* source : {"nintendont", "dolphin"}) {
 						if (!riftwii::wii::ExternalCardPath(state.game_id, source).empty()) sources.push_back(source);
 					}
-					game.gc_card = StepList(sources, game.gc_card, direction);
+					// A named card opens its picker: on the way to it, and
+					// with A on it again (to change cards; Left steps on).
+					// (Named with no usable name plays as Default: it steps on.)
+					const bool namedUnusable = game.gc_card == "named" && game.gc_card_name.empty();
+					const bool onNamed = game.gc_card == "named" && !namedUnusable && direction > 0;
+					// Shown as Default, so it steps from Default.
+					const std::string current = namedUnusable ? std::string("global") : game.gc_card;
+					const std::string next = onNamed ? std::string("named") : StepList(sources, current, direction);
+					if (next == "named") {
+						// Lit only when the game is on it now; a name left from
+						// before another kind of card was picked is not.
+						std::string name = game.gc_card == "named" ? game.gc_card_name : std::string();
+						// Where Other kinds of card goes, named as the row would show it.
+						const std::string afterNamed = StepList(sources, "named", direction);
+						const std::string afterNamedShown = afterNamed == "global"
+							? tr("Default ({1})", {GcCardName(riftwii::gc_card_effective(riftwii::GameSettings(), riftwii::wii::Settings().gc_card))})
+							: GcCardName(afterNamed);
+						transition::Hold(transition::Kind::SlideForward);
+						mainWindow->Remove(&w);
+						const NamedCardPick pick = MenuPickNamedGcCard(state.game_id, name, afterNamedShown);
+						transition::Hold(transition::Kind::SlideBack);
+						mainWindow->Append(&w);
+						if (pick == NamedCardPick::Picked) {
+							game.gc_card = "named";
+							game.gc_card_name = name;
+						} else if (pick == NamedCardPick::Other) {
+							game.gc_card = afterNamed;
+						} else changed = false;
+					} else game.gc_card = next;
 				}
 				else changed = false;
 			}
@@ -14979,7 +15188,7 @@ static bool MenuManageGame(FrontendState& state)
 			deleteRows[1].label = tr("Delete this game");
 			const std::vector<std::string> deleteHelp{
 				keepSharedSaves ? tr("Saves are kept because another copy of this game remains.")
-					: tr("Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."),
+					: tr("Only RiftWii's separate saves. Shared and named cards, pack saves and the Wii's own saves are kept."),
 				tr("Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too.")};
 			const bool removed = EmulatorRowsPage(tr("Delete this game"), deleteRows, deleteHelp, [&](int row, int) {
 				if (row == 0) {

@@ -969,8 +969,8 @@ msgstr "Mostra o disco do jogo abaixo da caixa na página do jogo. A imagem vem 
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "A música está ligada, mas não há nada para tocar: coloque um music.ogg em sd:/riftwii ou escolha um tema com música."
 
-msgid "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work."
-msgstr "No Wii U, o adaptador de GameCube pode não funcionar no jogo pelas portas USB da frente; as de trás funcionam."
+msgid "On a Wii U the GameCube adapter may only work in game from the lower back USB port."
+msgstr "No Wii U, o adaptador de GameCube pode funcionar no jogo só pela porta USB traseira de baixo."
 
 msgid "This game needs nearly all of the Wii's memory, and this RVZ's {1} KiB blocks take about {2} KB of it in game: Newer Super Mario Bros. Wii crashed that way. If it crashes, convert the RVZ again in Dolphin with a block size of 32 KiB."
 msgstr "Este jogo precisa de quase toda a memória do Wii, e os blocos de {1} KiB deste RVZ ocupam cerca de {2} KB dela durante o jogo: foi assim que o Newer Super Mario Bros. Wii travou. Se travar, converta o RVZ de novo no Dolphin com um tamanho de bloco de 32 KiB."
@@ -4158,8 +4158,8 @@ msgstr "Jogos ocultos ficam na unidade. Configurações > Início > Mostrar jogo
 msgid "Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."
 msgstr "Remove a imagem, capas e truques do jogo. Os dados salvos ficam, a menos que você escolha excluí-los também."
 
-msgid "Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."
-msgstr "Apenas os dados separados do RiftWii. Cartões compartilhados e dados dos pacotes e do Wii são mantidos."
+msgid "Only RiftWii's separate saves. Shared and named cards, pack saves and the Wii's own saves are kept."
+msgstr "Apenas os dados separados do RiftWii. Cartões compartilhados e com nome e dados dos pacotes e do Wii são mantidos."
 
 msgid "Its image files, covers and cheats will be deleted. This cannot be undone."
 msgstr "Suas imagens, capas e truques serão excluídos. Não é possível desfazer."
@@ -4292,12 +4292,6 @@ msgstr "Esta versão do CTGP-R ainda não pode ser iniciada pelo RiftWii. Inicie
 
 msgid "CTGP-R could not be started. Its files on the SD card may be damaged or incomplete: install CTGP-R again. The reason is in sd:/riftwii/boot.log."
 msgstr "Não foi possível iniciar o CTGP-R. Os arquivos dele no cartão SD podem estar danificados ou incompletos: instale o CTGP-R de novo. O motivo está em sd:/riftwii/boot.log."
-
-msgid "This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead."
-msgstr "Esta versão do CTGP Revolution ainda não pode ser iniciada pelo RiftWii (ou os arquivos dele no cartão SD estão danificados). Inicie o CTGP pelo Homebrew Channel."
-
-msgid "CTGP Revolution: this version can't be started from RiftWii (see Start)."
-msgstr "CTGP Revolution: esta versão não pode ser iniciada pelo RiftWii (veja Jogar)."
 
 msgid "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use."
 msgstr "Testa um controle de GameCube e corrige um gasto: alavancas que não chegam à borda, alavancas que se movem sozinhas, gatilhos que não vão até o fim. Os jogos de GameCube recebem a correção, e os de Wii enquanto um adaptador de GameCube ou um controle USB estiver em uso."
@@ -4451,3 +4445,54 @@ msgstr "Mais pastas onde procurar jogos, no cartão SD ou na unidade USB, além 
 
 msgid "Home looks for games in these folders when you leave Settings."
 msgstr "O Início procura jogos nestas pastas quando você sair das Configurações."
+
+msgid "Named: {1}"
+msgstr "Com nome: {1}"
+
+msgid "Saves go to the named memory card {1} on the SD card: {2}."
+msgstr "Os jogos salvos vão para o cartão de memória com nome {1} no cartão SD: {2}."
+
+msgid "Name the new card"
+msgstr "Dê um nome ao cartão novo"
+
+msgid "New card"
+msgstr "Cartão novo"
+
+msgid "Other kinds of card"
+msgstr "Outros tipos de cartão"
+
+msgid "A new, empty card. It is made the first time a game uses it."
+msgstr "Um cartão novo e vazio. Ele é criado na primeira vez que um jogo o usa."
+
+msgid "Named cards are kept in {1}. Give one to several games, or several to one game."
+msgstr "Os cartões com nome ficam em {1}. Dê um a vários jogos, ou vários a um jogo."
+
+msgid "Named cards"
+msgstr "Cartões com nome"
+
+msgid "Japanese games' cards"
+msgstr "Cartões de jogos japoneses"
+
+msgid "Cards for this game's region"
+msgstr "Cartões da região deste jogo"
+
+msgid "Use 1 to {1} letters, digits, spaces, - or ' for a card's name."
+msgstr "Use de 1 a {1} letras, dígitos, espaços, - ou ' no nome do cartão."
+
+msgid "Press A to pick another named card or make a new one; Left for the other kinds of card."
+msgstr "Aperte A para escolher outro cartão com nome ou criar um novo; Esquerda para os outros tipos de cartão."
+
+msgid "Press A to put this named memory card back to how it was then, for every game that uses it."
+msgstr "Aperte A para voltar este cartão de memória com nome a como estava então, para todos os jogos que o usam."
+
+msgid "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them."
+msgstr "Todos os dados deste cartão de memória com nome voltam a como estavam em {1}. Como estão agora é guardado antes como cópia, para você poder voltar a eles."
+
+msgid "A named memory card is made the first time a game that uses it starts: {1}."
+msgstr "Um cartão de memória com nome é criado na primeira vez que um jogo que o usa é iniciado: {1}."
+
+msgid "Go back to how this named memory card was on a day you pick, for every game that uses it."
+msgstr "Volte este cartão de memória com nome a como estava no dia que você escolher, para todos os jogos que o usam."
+
+msgid "Switches this game to {1}. Back keeps the card it has."
+msgstr "Troca este jogo para {1}. Voltar mantém o cartão que ele tem."

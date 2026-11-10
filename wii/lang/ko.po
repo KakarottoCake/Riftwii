@@ -969,8 +969,8 @@ msgstr "게임 페이지에서 케이스 아래에 게임 디스크를 표시합
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "음악이 켜져 있지만 재생할 음악이 없습니다. sd:/riftwii에 music.ogg를 넣거나 음악이 있는 테마를 고르세요."
 
-msgid "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work."
-msgstr "Wii U에서 게임큐브 어댑터를 전면 USB 포트에 연결하면 게임 중에 작동하지 않을 수 있으나, 후면 포트에서는 정상적으로 작동합니다."
+msgid "On a Wii U the GameCube adapter may only work in game from the lower back USB port."
+msgstr "Wii U에서는 게임 중에 게임큐브 어댑터가 후면 아래쪽 USB 포트에서만 작동할 수 있습니다."
 
 msgid "This game needs nearly all of the Wii's memory, and this RVZ's {1} KiB blocks take about {2} KB of it in game: Newer Super Mario Bros. Wii crashed that way. If it crashes, convert the RVZ again in Dolphin with a block size of 32 KiB."
 msgstr "이 게임은 Wii의 메모리를 거의 전부 사용하며, 이 RVZ의 {1} KiB 블록은 게임 중에 약 {2} KB를 차지합니다. Newer Super Mario Bros. Wii가 이 때문에 멈췄습니다. 멈추면 Dolphin에서 블록 크기 32 KiB로 RVZ를 다시 변환하세요."
@@ -4158,8 +4158,8 @@ msgstr "숨긴 게임은 드라이브에 남습니다. 설정 > 홈 > 숨긴 게
 msgid "Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."
 msgstr "게임 이미지, 표지와 치트를 삭제합니다. 저장 데이터는 삭제하도록 선택하지 않으면 유지됩니다."
 
-msgid "Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."
-msgstr "RiftWii의 개별 저장 데이터만 삭제합니다. 공유 카드, 팩과 Wii 본체의 저장 데이터는 유지됩니다."
+msgid "Only RiftWii's separate saves. Shared and named cards, pack saves and the Wii's own saves are kept."
+msgstr "RiftWii의 개별 저장 데이터만 삭제합니다. 공유 카드와 이름 있는 카드, 팩과 Wii 본체의 저장 데이터는 유지됩니다."
 
 msgid "Its image files, covers and cheats will be deleted. This cannot be undone."
 msgstr "이미지 파일, 표지와 치트가 삭제됩니다. 되돌릴 수 없습니다."
@@ -4292,12 +4292,6 @@ msgstr "이 버전의 CTGP-R은 아직 RiftWii에서 시작할 수 없습니다.
 
 msgid "CTGP-R could not be started. Its files on the SD card may be damaged or incomplete: install CTGP-R again. The reason is in sd:/riftwii/boot.log."
 msgstr "CTGP-R을 시작할 수 없습니다. SD 카드의 파일이 손상되었거나 일부가 없을 수 있습니다. CTGP-R을 다시 설치하세요. 이유는 sd:/riftwii/boot.log에 있습니다."
-
-msgid "This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead."
-msgstr "이 버전의 CTGP Revolution은 아직 RiftWii에서 시작할 수 없습니다(또는 SD 카드의 파일이 손상되었습니다). 대신 홈브류 채널에서 CTGP를 시작하세요."
-
-msgid "CTGP Revolution: this version can't be started from RiftWii (see Start)."
-msgstr "CTGP Revolution: 이 버전은 RiftWii에서 시작할 수 없습니다 (시작 항목 참조)"
 
 msgid "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use."
 msgstr "게임큐브 컨트롤러를 테스트하고 낡은 컨트롤러를 바로잡습니다. 끝까지 닿지 않는 스틱, 저절로 움직이는 스틱, 끝까지 눌리지 않는 트리거. 게임큐브 게임에 적용되고, Wii 게임에는 게임큐브 어댑터나 USB 컨트롤러를 쓰는 동안 적용됩니다."
@@ -4451,3 +4445,54 @@ msgstr "wbfs와 games 말고도 SD 카드나 USB 드라이브에서 게임을 �
 
 msgid "Home looks for games in these folders when you leave Settings."
 msgstr "설정을 나가면 홈이 이 폴더들에서 게임을 찾습니다."
+
+msgid "Named: {1}"
+msgstr "이름: {1}"
+
+msgid "Saves go to the named memory card {1} on the SD card: {2}."
+msgstr "저장 데이터는 SD 카드의 이름 있는 메모리 카드 {1}에 저장됩니다: {2}."
+
+msgid "Name the new card"
+msgstr "새 카드 이름"
+
+msgid "New card"
+msgstr "새 카드"
+
+msgid "Other kinds of card"
+msgstr "다른 종류의 카드"
+
+msgid "A new, empty card. It is made the first time a game uses it."
+msgstr "새 빈 카드입니다. 게임이 처음 사용할 때 만들어집니다."
+
+msgid "Named cards are kept in {1}. Give one to several games, or several to one game."
+msgstr "이름 있는 카드는 {1}에 있습니다. 한 장을 여러 게임에, 또는 여러 장을 한 게임에 쓸 수 있습니다."
+
+msgid "Named cards"
+msgstr "이름 있는 카드 목록"
+
+msgid "Japanese games' cards"
+msgstr "일본 게임용 카드"
+
+msgid "Cards for this game's region"
+msgstr "이 게임 지역용 카드"
+
+msgid "Use 1 to {1} letters, digits, spaces, - or ' for a card's name."
+msgstr "카드 이름에는 영문자, 숫자, 공백, -, '를 1~{1}자 사용하세요."
+
+msgid "Press A to pick another named card or make a new one; Left for the other kinds of card."
+msgstr "A를 눌러 다른 이름 있는 카드를 고르거나 새로 만들고, 왼쪽으로 다른 종류의 카드를 고릅니다."
+
+msgid "Press A to put this named memory card back to how it was then, for every game that uses it."
+msgstr "A를 누르면 이 이름 있는 메모리 카드를 그때 상태로 되돌립니다. 이 카드를 쓰는 모든 게임에 적용됩니다."
+
+msgid "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them."
+msgstr "이 이름 있는 메모리 카드의 모든 저장 데이터가 {1} 상태로 되돌아갑니다. 지금 상태는 먼저 사본으로 보관하므로 다시 되돌릴 수 있습니다."
+
+msgid "A named memory card is made the first time a game that uses it starts: {1}."
+msgstr "이름 있는 메모리 카드는 그 카드를 쓰는 게임을 처음 시작할 때 만들어집니다: {1}."
+
+msgid "Go back to how this named memory card was on a day you pick, for every game that uses it."
+msgstr "이 이름 있는 메모리 카드를 고른 날의 상태로 되돌립니다. 이 카드를 쓰는 모든 게임에 적용됩니다."
+
+msgid "Switches this game to {1}. Back keeps the card it has."
+msgstr "이 게임을 {1}(으)로 바꿉니다. 뒤로를 누르면 지금 카드를 그대로 씁니다."

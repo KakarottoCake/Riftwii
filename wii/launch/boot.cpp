@@ -5,6 +5,7 @@
 // SPDX-FileCopyrightText: WiiFlow contributors <https://github.com/Fledge68/WiiFlow_Lite>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "boot.hpp"
+#include "ctgpr.hpp"
 #include "progress.hpp"
 
 #include <fat.h>
@@ -3133,6 +3134,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         logf("CTGP-R: image placed at 0x%08x-0x%08x, %u game patches, arena top 0x%08x\n", kCtgpImageStart,
              options.ctgpr->image_end, static_cast<unsigned>(options.ctgpr->game_ops.size()),
              options.ctgpr->arena1_hi);
+        leave_ctgpr_return_note();
     } else if (g_extras.server != WfcServer::Off) {
         const bool packs = !options.memory_patches.empty() || !options.virtual_files.empty() ||
                            file_replacements;
