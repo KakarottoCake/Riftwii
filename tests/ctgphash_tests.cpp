@@ -177,15 +177,29 @@ int main() {
 
     // The channel signs only the first 20 bytes, so relabelling the name
     // and version keeps a valid signature. The body/version binding must
-    // still refuse this as either supported production package.
-    for (const char* name : {"CORE", "CTGPR"}) {
+    // still refuse this for CORE, whose fixed addresses the launch relies on.
+    // A CTGPR list is accepted on its signature when its label is the version
+    // PACKAGES.BIN names (a CTGPR update), and refused when it is not.
+    auto relabelled_as = [&](const char* name, std::uint32_t label) {
         auto relabelled = good;
         std::memset(relabelled.data() + 0x20, 0, 8);
         std::memcpy(relabelled.data() + 0x20, name, std::strlen(name));
-        const std::uint32_t version = name[1] == 'O' ? 0x01030412u : 0x01031196u;
-        for (unsigned i = 0; i < 4; ++i) relabelled[0x28 + i] = version >> (24 - 8 * i);
-        EXPECT_TRUE(!ctgp_load_hash_list(relabelled, name, version, other, error, &key));
-        EXPECT_TRUE(error.find("known reference") != std::string::npos);
+        for (unsigned i = 0; i < 4; ++i) relabelled[0x28 + i] = static_cast<std::uint8_t>(label >> (24 - 8 * i));
+        return relabelled;
+    };
+    EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CORE", 0x01030412u), "CORE", 0x01030412u, other, error, &key));
+    EXPECT_TRUE(error.find("known reference") != std::string::npos);
+    {
+        CtgpHashList update;
+        EXPECT_TRUE(ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031200u), "CTGPR", 0x01031200u, update, error, &key));
+        EXPECT_TRUE(update.file_count() == 2);
+        // its label must still be PACKAGES.BIN's version
+        EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031199u), "CTGPR", 0x01031200u, update, error, &key));
+        EXPECT_TRUE(error.find("another version") != std::string::npos);
+        // and its signature must verify
+        auto forged = relabelled_as("CTGPR", 0x01031200u);
+        forged[0x34] ^= 0x01;
+        EXPECT_TRUE(!ctgp_load_hash_list(forged, "CTGPR", 0x01031200u, update, error, &key));
     }
 
     EXPECT_TRUE(ctgp_has_hash_reference("CORE", 0x01030412));

@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The channel's "apply settings" step (riftwii/ctgpapply.hpp).
 #include <cstdint>
+#include <cstring>
+#include <string>
 #include <iostream>
 #include <map>
 #include <vector>
@@ -26,13 +28,20 @@ static bool has_row(const std::vector<CtgpOp>& ops, std::uint32_t row, std::uint
     return false;
 }
 
-// The course table and the cup layouts are now baked into the build
-// (ctgpapply.cpp): the course table is {8, 1, 2, 4} then the fixed tail, and
-// the two layouts each have 54 groups.
+// The course table is baked into the build (ctgpapply.cpp): {8, 1, 2, 4} then
+// the fixed tail. The cup layout comes in the settings (read from the player's
+// install); the ones here are small made-up layouts.
+static CtgpLayout made_layout(std::uint32_t groups, std::uint8_t first) {
+    CtgpLayout l;
+    l.groups = groups;
+    for (std::uint32_t i = 0; i < kCtgpLayoutTracks; ++i) l.tracks[i] = static_cast<std::uint8_t>(first + i % 200);
+    return l;
+}
 
 static void test_defaults_offline() {
     CtgpSettings s;
     s.cup_course_layout_using = 0;
+    s.layout = made_layout(54, 32);
     const auto ops = ctgp_apply_settings(s);
     const auto m = stores(ops);
     EXPECT_EQ(m.at(0x816ff518), 1u);
@@ -44,8 +53,8 @@ static void test_defaults_offline() {
     EXPECT_EQ(m.at(0x816ffb74), 0x1cu);           // the 32nd course word (tail's last)
     EXPECT_EQ(kCtgpCourseTable + 4 * 32, kCtgpLayoutWords);
     EXPECT_EQ(m.at(kCtgpLayoutCount), 62u);       // 54 groups + 8
-    EXPECT_EQ(m.at(kCtgpLayoutWords), 111u);      // first track of layout 0
-    EXPECT_EQ(m.at(kCtgpLayoutWords + 4 * 215), 137u);   // its last track
+    EXPECT_EQ(m.at(kCtgpLayoutWords), 32u);       // the layout's first track
+    EXPECT_EQ(m.at(kCtgpLayoutWords + 4 * 215), 47u);    // its last (32 + 215 % 200)
     EXPECT_EQ(kCtgpLayoutWords + 4 * 216, kCtgpLayoutCount);   // the words end where the count starts
     // offline: the network is stubbed out
     EXPECT_EQ(m.at(0x816b5328), 0u);
@@ -132,17 +141,97 @@ static void test_disabled() {
 }
 
 static void test_layouts() {
+    // The words are the layout's track bytes, one each, for its groups only.
     CtgpSettings s;
     s.cup_course_layout_using = 1;
+    s.layout = made_layout(3, 100);
     auto m = stores(ctgp_apply_settings(s));
-    EXPECT_EQ(m.at(kCtgpLayoutWords), 195u);              // first track of layout 1
-    EXPECT_EQ(m.at(kCtgpLayoutWords + 4 * 11), 141u);
-    EXPECT_EQ(m.at(kCtgpLayoutWords + 4 * 215), 247u);    // its last track
-    EXPECT_EQ(m.at(kCtgpLayoutCount), 62u);       // 54 groups + 8
-    s.cup_course_layout_using = 2;                // layout 2 is empty
+    EXPECT_EQ(m.at(kCtgpLayoutWords), 100u);
+    EXPECT_EQ(m.at(kCtgpLayoutWords + 4 * 11), 111u);     // the third cup's last track
+    EXPECT_EQ(m.count(kCtgpLayoutWords + 4 * 12), (std::size_t)0);
+    EXPECT_EQ(m.at(kCtgpLayoutCount), 11u);       // 3 groups + 8
+    s.layout = CtgpLayout();                      // an empty layout: no cups
     m = stores(ctgp_apply_settings(s));
     EXPECT_EQ(m.at(kCtgpLayoutCount), 8u);
     EXPECT_EQ(m.count(kCtgpLayoutWords), (std::size_t)0);
+    // The choice: 0, 1 or 2, anything else 0.
+    for (int v : {0, 1, 2}) {
+        s.cup_course_layout_using = v;
+        EXPECT_EQ(ctgp_layout_choice(s), v);
+    }
+    for (int v : {-1, 3, 4, 99}) {
+        s.cup_course_layout_using = v;
+        EXPECT_EQ(ctgp_layout_choice(s), 0);
+    }
+    // config.ini's language picks the alphabetical file (6 is Japanese).
+    EXPECT_EQ(ctgp_settings_from_ini("[ctgpr]\nlanguage = 6\ncup_course_layout_using = 1\n", {}, CtgpRegion::P).language, 6);
+    EXPECT_EQ(ctgp_settings_from_ini("[ctgpr]\n", {}, CtgpRegion::P).language, 0);
+}
+
+// A .cup file as the channel saves it: "CUP2", a big-endian group count, then
+// 216 track bytes (made up here).
+static std::vector<std::uint8_t> made_cup(std::uint32_t groups) {
+    std::vector<std::uint8_t> b(kCtgpCupFileBytes, 0xff);
+    std::memcpy(b.data(), "CUP2", 4);
+    b[4] = static_cast<std::uint8_t>(groups >> 24);
+    b[5] = static_cast<std::uint8_t>(groups >> 16);
+    b[6] = static_cast<std::uint8_t>(groups >> 8);
+    b[7] = static_cast<std::uint8_t>(groups);
+    for (std::uint32_t i = 0; i < groups * 4 && i < kCtgpLayoutTracks; ++i) b[8 + i] = static_cast<std::uint8_t>(0x20 + (i * 7) % 0xdf);
+    return b;
+}
+
+static void test_cup_files() {
+    std::string error;
+    CtgpLayout l;
+    // A hand-built file is copied as it is: no reordering.
+    auto cup = made_cup(5);
+    EXPECT_TRUE(ctgp_layout_from_cup(cup.data(), cup.size(), l, error));
+    EXPECT_EQ(l.groups, 5u);
+    for (std::uint32_t i = 0; i < 20; ++i) EXPECT_EQ(l.tracks[i], cup[8 + i]);
+    // and reaches the game word for word
+    CtgpSettings s;
+    s.layout = l;
+    const auto m = stores(ctgp_apply_settings(s));
+    for (std::uint32_t i = 0; i < 20; ++i) EXPECT_EQ(m.at(kCtgpLayoutWords + 4 * i), static_cast<std::uint32_t>(cup[8 + i]));
+    EXPECT_EQ(m.at(kCtgpLayoutCount), 13u);
+    // The most cups a layout holds; bytes past its groups are not looked at.
+    cup = made_cup(54);
+    EXPECT_TRUE(ctgp_layout_from_cup(cup.data(), cup.size(), l, error) && l.groups == 54);
+    cup = made_cup(0);
+    EXPECT_TRUE(ctgp_layout_from_cup(cup.data(), cup.size(), l, error) && l.groups == 0);
+
+    // Refused: the channel's checks, and a track that does not exist.
+    const CtgpLayout before = made_layout(2, 40);
+    auto refused = [&](const std::vector<std::uint8_t>& bytes) {
+        CtgpLayout out = before;
+        std::string why;
+        const bool ok = ctgp_layout_from_cup(bytes.data(), bytes.size(), out, why);
+        return !ok && !why.empty() && out.groups == before.groups && out.tracks == before.tracks;
+    };
+    EXPECT_TRUE(refused(made_cup(55)));                       // more cups than fit
+    EXPECT_TRUE(refused(made_cup(0xffffffffu)));
+    auto bad = made_cup(5);
+    bad[0] = 'X';                                             // not CUP2
+    EXPECT_TRUE(refused(bad));
+    bad = made_cup(5);
+    bad.pop_back();                                           // short
+    EXPECT_TRUE(refused(bad));
+    bad = made_cup(5);
+    bad.push_back(0);                                         // long
+    EXPECT_TRUE(refused(bad));
+    bad = made_cup(5);
+    bad[8 + 19] = 0xff;                                       // no such track
+    EXPECT_TRUE(refused(bad));
+    EXPECT_TRUE(refused({}));
+    CtgpLayout out;
+    EXPECT_TRUE(!ctgp_layout_from_cup(nullptr, kCtgpCupFileBytes, out, error));
+
+    // A settings-table entry (the channel program's layout) is the same
+    // without the magic.
+    const auto entry = made_cup(7);
+    EXPECT_TRUE(ctgp_layout_from_entry(entry.data() + 4, l, error) && l.groups == 7 && l.tracks[27] == entry[8 + 27]);
+    EXPECT_TRUE(!ctgp_layout_from_entry(made_cup(60).data() + 4, l, error));
 }
 
 static void test_package_lists() {
@@ -194,6 +283,7 @@ int main() {
     test_options();
     test_disabled();
     test_layouts();
+    test_cup_files();
     if (g_failures == 0) std::cout << "ctgpapply tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }

@@ -1288,9 +1288,11 @@ RiftWii loads Mario Kart Wii itself and puts CTGP's code into it (it
 doesn't start the CTGP-R Channel). You need no extra files for it: just
 install CTGP Revolution on the card as usual (`sd:/ctgpr/`), and RiftWii
 reads everything it needs from your own copy at launch. The game page
-says "offline only" while CTGP's pack is on. RiftWii only starts the CTGP
-Revolution version it was tested with; after a CTGP update it says so and
-doesn't start it. The Mario Kart Channel and Rankings buttons in CTGP's
+says "offline only" while CTGP's pack is on. Your cup layout setting
+(default, alphabetical or your own) is read from your CTGP install, so a
+CTGP track update works without a RiftWii update. An update to CTGP's core
+code is different: RiftWii only starts the core it was tested with, and
+after such an update it says so and doesn't start it. The Mario Kart Channel and Rankings buttons in CTGP's
 menu are meant to bring you back to RiftWii, but that is not confirmed:
 on a real Wii the channel button is known to end on a black screen. Leave
 CTGP with the Wii's power button or Reset.

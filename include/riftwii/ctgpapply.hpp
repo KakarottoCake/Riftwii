@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -21,9 +23,20 @@ namespace riftwii {
 // comment). The ones the key table does not name are called opt_XXX; their
 // meaning is not known yet and the defaults are what the channel starts with
 // before anything sets them.
+// One cup layout: `groups` cups of four tracks, the track bytes in order, as
+// the channel's settings table holds them and copies them into the game.
+constexpr std::uint32_t kCtgpLayoutTracks = 216;
+constexpr std::uint32_t kCtgpLayoutMaxGroups = 54;
+constexpr std::size_t kCtgpCupFileBytes = 0xe0;
+struct CtgpLayout {
+    std::uint32_t groups = 0;
+    std::array<std::uint8_t, kCtgpLayoutTracks> tracks{};
+};
+
 struct CtgpSettings {
     bool ctgpr_enabled = true;          // ini "ctgpr" (0x816ff518)
-    std::int32_t cup_course_layout_using = 0;     // +0xb4, 0..2
+    std::int32_t cup_course_layout_using = 0;     // +0xb4, 0..2 (ctgp_layout_choice)
+    std::int32_t language = 0;                    // ini "language" (+0x7cc): 6 picks the JP alphabetical cups
     std::int32_t room_race_count = 0;             // +0xec, byte at 0x80000a46
     std::int32_t anti_cheat = 0;                  // +0x90
     std::int32_t anti_cheat_fr_strength = 0;      // +0x448
@@ -51,6 +64,11 @@ struct CtgpSettings {
     // not named by the key table
     std::int32_t opt_754 = 0, opt_494 = 0, opt_760 = 0, opt_7d0 = 0, opt_8bc = 0;
     bool opt_8b1 = false;
+    // The layout cup_course_layout_using picks, read by the launch from the
+    // player's install (not from config.ini): layout 0 from the channel
+    // program, 1 from alphabeticEN.cup (alphabeticJP.cup when language is 6),
+    // 2 from sd:/ctgpr/cuplayout.cup.
+    CtgpLayout layout;
     // what the package files say
     std::uint32_t ctgpr_package_version = 0;   // 0 when the package is missing
     std::uint32_t core_package_version = 0;
@@ -84,8 +102,19 @@ constexpr std::uint32_t kCtgpRowStub1 = 28, kCtgpRowStub2 = 29, kCtgpRowPatchA =
 CtgpSettings ctgp_settings_from_ini(const std::string& config_ini, const std::vector<CtgpPackage>& packages,
                                     CtgpRegion region);
 
-// The operations, in order. The course table and the cup layouts are baked
-// into the build (ctgpapply.cpp), the same way the row table is. Already-zero
+// Which of the channel's three layouts the settings pick: 0, 1 or 2 (anything
+// else falls back to 0).
+int ctgp_layout_choice(const CtgpSettings& settings);
+
+// A layout entry of the channel's settings table (a big-endian group count,
+// then 216 track bytes) or a .cup file (exactly 0xe0 bytes: "CUP2", then an
+// entry). Refused: more than 54 groups, or a track byte of 0xff in them.
+bool ctgp_layout_from_entry(const std::uint8_t* entry, CtgpLayout& out, std::string& error);
+bool ctgp_layout_from_cup(const std::uint8_t* data, std::size_t size, CtgpLayout& out, std::string& error);
+
+// The operations, in order. The course table is baked into the build
+// (ctgpapply.cpp), the same way the row table is; the cup layout is
+// settings.layout. Already-zero
 // memory the channel copies in at the end (its three runtime tables for
 // 0x816ff9f8, 0x816ff260 and 0x816fe0e0) stays zero: the launcher's image
 // starts zeroed.

@@ -31,8 +31,10 @@
 // position of a 20-byte digest inside the body.
 namespace riftwii {
 
-// The native launch also needs an independently known body/version binding:
-// the channel's signature does not cover its version label.
+// The native launch also needs an independently known body/version binding
+// for CORE: the channel's signature does not cover its version label. CTGPR
+// lists without one are accepted on their signature and label alone
+// (ctgp_load_hash_list).
 bool ctgp_has_hash_reference(const std::string& package, std::uint32_t version);
 
 class CtgpHashList {

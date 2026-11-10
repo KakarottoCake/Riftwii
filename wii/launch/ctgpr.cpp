@@ -21,6 +21,7 @@
 #include "riftwii/ctgpefa.hpp"
 #include "riftwii/ctgphash.hpp"
 #include "riftwii/ctgppackages.hpp"
+#include "riftwii/ctgpstage2.hpp"
 #include "riftwii/ctgptables.hpp"
 #include "riftwii/sha1.hpp"
 #include "sdfile.hpp"
@@ -149,6 +150,74 @@ bool fetch_from_package_disk(Fat32Volume& efa, const char* path, CtgpBytes& byte
 // (names, numbers) goes to boot.log instead.
 enum class Failure { Other, NotMarioKart, Region, NotInstalled, Version, Rvz };
 
+// The cup layout config.ini picks (cup_course_layout_using), read from the
+// player's install the way CTGP-R's channel reads it:
+//   0: the channel's default, from the channel program in MAIN.DOL
+//      (ctgpstage2.hpp);
+//   1: alphabetical, alphabeticEN.cup (alphabeticJP.cup when the channel's
+//      language is 6), copied as it is;
+//   2: the player's own sd:/ctgpr/cuplayout.cup; without a usable one the
+//      channel's slot stays empty (no cups), as the channel leaves it.
+// A layout that is damaged or out of range stops the launch; nothing of it
+// reaches the game.
+bool read_cup_layout(Fat32Volume& efa, const CtgpSettings& settings, CtgpLayout& out, std::string& error,
+                     Failure& why) {
+    if (!settings.ctgpr_enabled) return true;  // no custom tracks: no cups are written
+    const int choice = ctgp_layout_choice(settings);
+    if (choice == 1) {
+        const char* path = settings.language == 6 ? "/PACKAGES/CTGPR/alphabeticJP.cup" : "/PACKAGES/CTGPR/alphabeticEN.cup";
+        CtgpBytes cup;
+        if (!fetch_from_package_disk(efa, path, cup, kCtgpCupFileBytes, error)) return false;
+        if (!ctgp_layout_from_cup(cup.data(), cup.size(), out, error)) {
+            error = std::string(path) + ": " + error;
+            return false;
+        }
+        logf("CTGP-R: cup layout 1 (alphabetical) from %s: %u cups\n", path, static_cast<unsigned>(out.groups));
+        return true;
+    }
+    if (choice == 2) {
+        out = CtgpLayout();
+        std::vector<std::uint8_t> cup;
+        std::string ignored;
+        struct stat st;
+        if (stat(kCtgprCupLayoutPath, &st) != 0 || !S_ISREG(st.st_mode) || st.st_size != static_cast<off_t>(kCtgpCupFileBytes) ||
+            !read_whole(kCtgprCupLayoutPath, "cuplayout.cup", cup, ignored)) {
+            logf("CTGP-R: cup layout 2 (your own): no usable %s, so no cups (as the channel)\n", kCtgprCupLayoutPath);
+            return true;
+        }
+        std::string reason;
+        if (!ctgp_layout_from_cup(cup.data(), cup.size(), out, reason)) {
+            out = CtgpLayout();
+            logf("CTGP-R: cup layout 2 (your own): %s is not used (%s), so no cups\n", kCtgprCupLayoutPath,
+                 reason.c_str());
+            return true;
+        }
+        logf("CTGP-R: cup layout 2 (your own) from %s: %u cups\n", kCtgprCupLayoutPath, static_cast<unsigned>(out.groups));
+        return true;
+    }
+    // Layout 0: decode the channel program and take its first layout.
+    CtgpBytes dol;
+    if (!fetch_from_package_disk(efa, "/PACKAGES/CHAN/MAIN.DOL", dol, kCtgpFetchCeiling, error)) return false;
+    CtgpStage2Table table;
+    CtgpStage2Result result = ctgp_stage2_table(dol.data(), dol.size(), table, error);
+    CtgpChannelCups cups;
+    if (result == CtgpStage2Result::Ok) result = ctgp_stage2_cups(dol.data(), dol.size(), table, cups, error);
+    if (result != CtgpStage2Result::Ok) {
+        error = "the channel program in MAIN.DOL: " + error;
+        if (result == CtgpStage2Result::Unsupported) why = Failure::Version;
+        return false;
+    }
+    if (!ctgp_layout_from_entry(cups.entries.data(), out, error)) {
+        error = "the channel program's default cup layout: " + error;
+        return false;
+    }
+    logf("CTGP-R: cup layout 0 (default) from MAIN.DOL's channel program: table built in %u steps, %u KB "
+         "unpacked, layouts at 0x%08x, %u cups\n",
+         static_cast<unsigned>(table.steps), static_cast<unsigned>(cups.inflated / 1024),
+         static_cast<unsigned>(cups.address), static_cast<unsigned>(out.groups));
+    return true;
+}
+
 std::string failure_text(Failure why) {
     switch (why) {
     case Failure::NotMarioKart: return tr("CTGP-R only starts with the Mario Kart Wii game.");
@@ -186,9 +255,8 @@ CtgprNativeStatus work_out_status() {
         logf("CTGP-R: the installed copy cannot be started natively: %s\n", error.c_str());
         return CtgprNativeStatus::Unsupported;
     }
-    if (!ctgp_has_hash_reference("CORE", ctgp_package_version(versions, "CORE")) ||
-        !ctgp_has_hash_reference("CTGPR", ctgp_package_version(versions, "CTGPR"))) {
-        logf("CTGP-R: the installed version has no authenticated hash-list body reference in this build\n");
+    if (!ctgp_has_hash_reference("CORE", ctgp_package_version(versions, "CORE"))) {
+        logf("CTGP-R: the installed core has no authenticated hash-list body reference in this build\n");
         return CtgprNativeStatus::Unsupported;
     }
     return CtgprNativeStatus::Supported;
@@ -274,11 +342,6 @@ bool prepare_impl(const std::string& game_id, std::shared_ptr<const CtgpLaunchPl
         return fetch_from_package_disk(efa, path, bytes, max, error);
     };
 
-    // The course table and the cup layouts the settings step copies into the
-    // game are baked into the build (ctgpapply.cpp), the same way the row table
-    // is, so the launch reads neither CTGP.CRS nor the .cup files from the
-    // package disk any more.
-
     // The version first: only the tested one is started.
     if (!fetch("/PACKAGES.BIN", in.packages_bin, kCtgpPackagesMaxBytes)) return false;
     std::vector<CtgpPackage> versions;
@@ -287,18 +350,26 @@ bool prepare_impl(const std::string& game_id, std::shared_ptr<const CtgpLaunchPl
         why = Failure::Version;
         return false;
     }
-    if (!ctgp_has_hash_reference("CORE", ctgp_package_version(versions, "CORE")) ||
-        !ctgp_has_hash_reference("CTGPR", ctgp_package_version(versions, "CTGPR"))) {
-        error = "the installed package version has no authenticated hash-list body reference in this build";
+    if (!ctgp_has_hash_reference("CORE", ctgp_package_version(versions, "CORE"))) {
+        error = "the installed core has no authenticated hash-list body reference in this build";
         why = Failure::Version;
         return false;
     }
-    logf("CTGP-R: core 0x%08x, CTGPR 0x%08x: the tested version\n",
-         static_cast<unsigned>(ctgp_package_version(versions, "CORE")),
-         static_cast<unsigned>(ctgp_package_version(versions, "CTGPR")));
+    {
+        const std::uint32_t ctgpr = ctgp_package_version(versions, "CTGPR");
+        const bool tested = ctgpr == kCtgpTestedCtgprVersion1192 || ctgpr == kCtgpTestedCtgprVersion1196;
+        logf("CTGP-R: core 0x%08x (the tested one), CTGPR 0x%08x (%s)\n",
+             static_cast<unsigned>(ctgp_package_version(versions, "CORE")), static_cast<unsigned>(ctgpr),
+             tested ? "the tested one" : "a newer track package: its signed list is checked as it loads");
+    }
 
     // The code files and everything built from them go to MEM2 (CtgpBytes).
     reserve_launch_arena();
+    // The cup layout first: its buffers are gone again before BOOT.BIN and
+    // BOAT.BIN are read, so the arena's peak stays theirs.
+    if (!read_cup_layout(efa, ctgp_settings_from_ini(in.config_ini, versions, in.region), in.cup_layout, error,
+                         why))
+        return false;
     if (!fetch("/PACKAGES/CORE/BOOT.BIN", in.boot_bin, kCtgpBootMax) ||
         !fetch("/PACKAGES/CORE/BOAT.BIN", in.boat_bin, kCtgpBoatMax) ||
         !fetch("/PACKAGES/CORE/BEAT.BIN", in.beat_bin, kCtgpFetchCeiling))

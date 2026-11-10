@@ -132,23 +132,16 @@ std::string version_text(std::uint32_t v) {
 
 bool ctgp_check_versions(const std::vector<CtgpPackage>& packages, std::string& error) {
     // The CORE package (CTGP-R's game-side code) governs the addresses the
-    // native launch relies on -- the hook row table and the memory map. The
-    // CTGPR track package governs the cup layouts, which are baked into this
-    // build for one CTGP-R version (ctgpapply.cpp), so both must match the
-    // tested versions. (A later step that derives the cups from the player's
-    // own package disk will let the CTGPR version vary again.)
+    // native launch relies on -- the hook row table and the memory map -- so
+    // it must be the tested version. The CTGPR track package may be any
+    // version: the launch reads its cups from the player's install, and its
+    // signed hash list must carry the same version (ctgp_load_hash_list).
     const std::uint32_t core = ctgp_package_version(packages, "CORE");
     const std::uint32_t ctgpr = ctgp_package_version(packages, "CTGPR");
-    // 0x01031192 and 0x01031196 are the same CTGP-R content (identical core and
-    // identical CTGPR.HSH body; CTGP republished PACKAGES.BIN without
-    // re-versioning the list), so either CTGPR number is accepted with the
-    // tested core.
-    const bool ctgpr_ok = ctgpr == kCtgpTestedCtgprVersion1192 || ctgpr == kCtgpTestedCtgprVersion1196;
-    if (core == kCtgpTestedCoreVersion && ctgpr_ok) return true;
+    if (core == kCtgpTestedCoreVersion && ctgpr != 0) return true;
     error = "this CTGP-R is a different version (core " + version_text(core) + ", CTGPR " + version_text(ctgpr) +
-            ") from the ones this launch is made for (core " + version_text(kCtgpTestedCoreVersion) + ", CTGPR " +
-            version_text(kCtgpTestedCtgprVersion1192) + " or " + version_text(kCtgpTestedCtgprVersion1196) +
-            "), so RiftWii does not start it. Start CTGP-R from the Homebrew Channel instead";
+            ") from the one this launch is made for (core " + version_text(kCtgpTestedCoreVersion) +
+            " with a CTGPR package), so RiftWii does not start it. Start CTGP-R from the Homebrew Channel instead";
     return false;
 }
 
@@ -254,7 +247,8 @@ bool ctgp_assemble(const CtgpInputs& in, CtgpLaunchPlan& plan, std::string& erro
     store(0x816FFAD0, 4, 0);           // DBAT7L
     store(0x816FFAD4, 4, 0x80001FFF);  // IBAT0U: 0x80000000, 256 MB, Vs Vp
     store(0x816FFAD8, 4, 0x00000002);  // IBAT0L: physical 0, cached, read/write
-    const CtgpSettings settings = ctgp_settings_from_ini(in.config_ini, packages, in.region);
+    CtgpSettings settings = ctgp_settings_from_ini(in.config_ini, packages, in.region);
+    settings.layout = in.cup_layout;
     for (const CtgpOp& op : ctgp_apply_settings(settings)) {
         switch (op.kind) {
         case CtgpOpKind::Store:

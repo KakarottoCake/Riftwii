@@ -19,6 +19,8 @@ namespace riftwii::wii {
 inline constexpr const char* kCtgprBlobPath = "sd:/ctgpr/blob.bin";
 inline constexpr const char* kCtgprJellyPath = "sd:/ctgpr/jelly.bin";
 inline constexpr const char* kCtgprConfigPath = "sd:/ctgpr/config.ini";
+// The player's own cup layout, which CTGP-R's channel saves (layout 2).
+inline constexpr const char* kCtgprCupLayoutPath = "sd:/ctgpr/cuplayout.cup";
 
 // Whether CTGP-R is installed on the card (blob.bin and jelly.bin are there).
 // Then the CTGP-R pack starts natively, and a problem is named in the launch's

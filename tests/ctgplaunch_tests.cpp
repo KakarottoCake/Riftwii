@@ -74,8 +74,10 @@ static CtgpInputs inputs() {
     in.sda_boot_sector = fat_sector(64, 32, 2, 8192, 8388608, "SDCARD     ");
     in.sda_volume_lba = 2048;
     in.config_ini = "[ctgpr]\nctgpr = yes\nlanmode = yes\nroom_race_count = 3\ncup_course_layout_using = 1\n";
-    // The course table and cup layouts are baked into the build (ctgpapply.cpp),
-    // so nothing is set on in.tables here beyond the package-disk keys.
+    // The course table is baked into the build (ctgpapply.cpp); the chosen cup
+    // layout is read from the install by the Wii side, made up here.
+    in.cup_layout.groups = 54;
+    for (std::size_t i = 0; i < in.cup_layout.tracks.size(); ++i) in.cup_layout.tracks[i] = static_cast<std::uint8_t>(0x20 + i);
     in.region = CtgpRegion::P;
     return in;
 }
@@ -98,7 +100,9 @@ static void test_assemble() {
     EXPECT_EQ(get(plan.boot, 0x816ffa2c - kCtgpBootBase), 12u);      // player_count_offline default
     EXPECT_EQ(get(plan.boot, 0x816ff9dc - kCtgpBootBase), 0x01031196u);   // CTGPR id
     EXPECT_EQ(get(plan.boot, 0x816ff518 - kCtgpBootBase), 1u);       // ctgpr = yes
-    EXPECT_EQ(get(plan.boot, 0x816ffed8 - kCtgpBootBase), 62u);      // layout 1: 54 groups + 8
+    EXPECT_EQ(get(plan.boot, 0x816ffed8 - kCtgpBootBase), 62u);      // the layout: 54 groups + 8
+    EXPECT_EQ(get(plan.boot, 0x816ffb78 - kCtgpBootBase), 0x20u);    // its first track, as given
+    EXPECT_EQ(get(plan.boot, 0x816ffb78 + 4 * 215 - kCtgpBootBase), 0x20u + 215);
     EXPECT_EQ(get(plan.boot, 0x816ff9f4 - kCtgpBootBase), 0u);       // lanmode = yes in config.ini, still off
     EXPECT_EQ(get(plan.boot, 0x816b5328 - kCtgpBootBase), 0u);       // no network settings handed over
     // the unusable signing key is in place, nothing names a card's key
@@ -123,8 +127,9 @@ static void test_assemble() {
     EXPECT_TRUE(!ctgp_assemble(bad, plan, error));
 }
 
-// Both the tested core and the tested CTGPR track package are required: the cup
-// layouts are baked for one CTGPR version, so another track pack is refused too.
+// The tested core is required: the launch writes into its code at fixed
+// places. The CTGPR track package may be another version (its cups come from
+// the install, its signed list is checked as it loads), but must be there.
 static void test_version_guard() {
     CtgpLaunchPlan plan;
     std::string error;
@@ -140,22 +145,27 @@ static void test_version_guard() {
     EXPECT_TRUE(!ctgp_assemble(other, plan, error));
     EXPECT_TRUE(error.find("different version") != std::string::npos);
     EXPECT_TRUE(error.find("0x01030413") != std::string::npos);
-    // a different CTGPR track package is refused now that the cups are baked
+    // a newer CTGPR track package is accepted, and named to the game
     other = in;
     set(other.packages_bin, 16 + 16 + 8, 0x01031197);   // CTGPR is the second record
-    EXPECT_TRUE(!ctgp_assemble(other, plan, error));
-    EXPECT_TRUE(error.find("0x01031197") != std::string::npos);
+    EXPECT_TRUE(ctgp_assemble(other, plan, error));
+    EXPECT_EQ(get(plan.boot, 0x816ff9dc - kCtgpBootBase), 0x01031197u);
     // no CORE at all is refused
     other = in;
     std::memcpy(&other.packages_bin[16], "XORE", 4);
     EXPECT_TRUE(!ctgp_assemble(other, plan, error));
-    // the tested core and either tested CTGPR number (same content) are accepted
+    // no CTGPR at all is refused
+    other = in;
+    std::memcpy(&other.packages_bin[32], "XTGPR", 5);
+    EXPECT_TRUE(!ctgp_assemble(other, plan, error));
     std::vector<CtgpPackage> packages = {{"CORE", kCtgpTestedCoreVersion, 0},
                                          {"CTGPR", kCtgpTestedCtgprVersion1196, 0}};
     EXPECT_TRUE(ctgp_check_versions(packages, error));
-    packages[1].version = kCtgpTestedCtgprVersion1192;  // the republished-only number: also accepted
+    packages[1].version = kCtgpTestedCtgprVersion1192;
     EXPECT_TRUE(ctgp_check_versions(packages, error));
-    packages[1].version = 0x09999999;  // a different track pack: refused
+    packages[1].version = 0x09999999;  // another track pack: accepted
+    EXPECT_TRUE(ctgp_check_versions(packages, error));
+    packages[1].version = 0;           // none: refused
     EXPECT_TRUE(!ctgp_check_versions(packages, error));
     packages[1].version = kCtgpTestedCtgprVersion1196;
     packages[0].version = 0;  // a different core: refused
