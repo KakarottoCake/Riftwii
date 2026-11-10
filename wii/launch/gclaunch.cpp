@@ -1133,6 +1133,8 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         // "global" follows Settings' GameCube memory card.
         const std::string card = gc_card_effective(choices.game, Settings().gc_card);
         image.shared_card = card == "shared";
+        image.card_path = gc_card_file(image.id, card, choices.game.gc_card_name);
+        if (card == "named") logf("GameCube: the game's memory card is the named card %s\n", image.card_path.c_str());
         image.real_card = card == "real";
         image.real_card_b = card == "real_b";
         image.real_card_b_as_a = card == "real_b_as_a";
@@ -1149,6 +1151,7 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
             image.real_card_b = false;
             image.real_card_b_as_a = false;
             image.shared_card = false;
+            image.card_path = gc_card_path(image.id, false);
         }
         // "global" follows Settings and the Wii's own settings, as a Wii
         // game's rows do.

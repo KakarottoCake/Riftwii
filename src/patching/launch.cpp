@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/launch.hpp"
 
+#include "riftwii/gccard.hpp"
 #include "riftwii/textlines.hpp"
 
 namespace riftwii {
@@ -492,6 +493,7 @@ std::string LaunchModel::save() const {
     if (game.gc_disc_reads == "drive") text += "*riftwii*\tgcdiscreads\tdrive\n";
     // "global", the default, is written as nothing.
     if (game.gc_card != "global") text += "*riftwii*\tgccard\t" + clean(game.gc_card) + "\n";
+    if (game.gc_card == "named") text += "*riftwii*\tgccardname\t" + clean(game.gc_card_name) + "\n";
     // "global", the default, is written as nothing.
     if (game.gc_progressive == "480p" || game.gc_progressive == "240p" || game.gc_progressive == "game")
         text += "*riftwii*\tgcprogressive\t" + game.gc_progressive + "\n";
@@ -597,9 +599,12 @@ void LaunchModel::restore(const std::string& text) {
             } else if (key == "gccard") {
                 game.gc_card = value == "own" || value == "shared" || value == "real" || value == "real_b" ||
                                        value == "real_b_as_a" ||
-                                       value == "nintendont" || value == "dolphin"
+                                       value == "nintendont" || value == "dolphin" || value == "named"
                                    ? value
                                    : "global";
+            } else if (key == "gccardname") {
+                // Untrusted (a file on the card): only a clean name, else none.
+                game.gc_card_name = gc_card_name_clean(value);
             } else if (key == "gcprogressive") {
                 game.gc_progressive = value == "480p" || value == "240p" || value == "game" ? value : "global";
             } else if (key == "gcwidescreen") {
@@ -652,7 +657,10 @@ void LaunchModel::restore(const std::string& text) {
 }
 
 std::string gc_card_effective(const GameSettings& game, const std::string& settings_card) {
-    if (game.gc_card != "global") return game.gc_card;
+    // A named card with no usable name (a hand-edited file, a missing
+    // gccardname line) follows Settings, as an unknown choice does.
+    const bool named_without_name = game.gc_card == "named" && game.gc_card_name.empty();
+    if (game.gc_card != "global" && !named_without_name) return game.gc_card;
     if (settings_card == "shared" || settings_card == "real" || settings_card == "real_b") return settings_card;
     return "own";
 }

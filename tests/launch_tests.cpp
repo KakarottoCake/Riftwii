@@ -424,6 +424,26 @@ static void test_saves() {
     EXPECT_EQ(riftwii::gc_card_effective(card_game, "shared"), std::string("real_b_as_a"));
     card_game.gc_card = "own";
     EXPECT_EQ(riftwii::gc_card_effective(card_game, "real"), std::string("own"));
+    // A named card (#511) keeps its name through a save; a missing or
+    // unusable name follows Settings, as an unknown choice does.
+    model.game.gc_card = "named";
+    model.game.gc_card_name = "Player 2";
+    prefs.restore(model.save());
+    EXPECT_EQ(prefs.game.gc_card, std::string("named"));
+    EXPECT_EQ(prefs.game.gc_card_name, std::string("Player 2"));
+    EXPECT_EQ(riftwii::gc_card_effective(prefs.game, "shared"), std::string("named"));
+    model.game.gc_card_name = "";
+    prefs.restore(model.save());
+    EXPECT_EQ(riftwii::gc_card_effective(prefs.game, "shared"), std::string("shared"));
+    {
+        riftwii::LaunchModel edited;
+        edited.restore("*riftwii*\tgccard\tnamed\n*riftwii*\tgccardname\t../../x\n");
+        EXPECT_EQ(edited.game.gc_card_name, std::string());
+        EXPECT_EQ(riftwii::gc_card_effective(edited.game, "own"), std::string("own"));
+    }
+    model.game.gc_card = "global";
+    model.game.gc_card_name.clear();
+    EXPECT_TRUE(model.save().find("gccardname") == std::string::npos);
     // Fast is the default; one saved as fast before stays fast.
     {
         riftwii::LaunchModel fresh;

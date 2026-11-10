@@ -4403,3 +4403,48 @@ msgstr "게임큐브 컨트롤러가 없습니다"
 
 msgid "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead."
 msgstr "CTGP-R은 RVZ 이미지에서 시작할 수 없습니다. 디스크, ISO 또는 WBFS를 사용하세요."
+
+msgid "A named card"
+msgstr "이름 있는 카드"
+
+msgid "Named: {1}"
+msgstr "이름: {1}"
+
+msgid "Saves go to the named memory card {1} on the SD card: {2}."
+msgstr "저장 데이터는 SD 카드의 이름 있는 메모리 카드 {1}에 저장됩니다: {2}."
+
+msgid "Name the new card"
+msgstr "새 카드 이름"
+
+msgid "New card"
+msgstr "새 카드"
+
+msgid "Other kinds of card"
+msgstr "다른 종류의 카드"
+
+msgid "Back to the list"
+msgstr "목록으로"
+
+msgid "A new, empty card. It is made the first time a game uses it."
+msgstr "새 빈 카드입니다. 게임이 처음 사용할 때 만들어집니다."
+
+msgid "This game's own card, the shared card or a real card instead."
+msgstr "대신 이 게임 전용 카드, 공유 카드 또는 실제 카드를 사용합니다."
+
+msgid "Named cards are kept in {1}. Give one to several games, or several to one game."
+msgstr "이름 있는 카드는 {1}에 있습니다. 한 장을 여러 게임에, 또는 여러 장을 한 게임에 쓸 수 있습니다."
+
+msgid "Named cards"
+msgstr "이름 있는 카드 목록"
+
+msgid "Japanese games' cards"
+msgstr "일본 게임용 카드"
+
+msgid "Cards for this game's region"
+msgstr "이 게임 지역용 카드"
+
+msgid "Use 1 to {1} letters, digits, spaces, - or _ for a card's name."
+msgstr "카드 이름에는 영문자, 숫자, 공백, -, _를 1~{1}자 사용하세요."
+
+msgid "Press A to pick another named card or make a new one; Left for the other kinds of card."
+msgstr "A를 눌러 다른 이름 있는 카드를 고르거나 새로 만들고, 왼쪽으로 다른 종류의 카드를 고릅니다."

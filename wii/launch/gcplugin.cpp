@@ -101,14 +101,21 @@ std::uint32_t way_back_kind(GcWayBack kind) {
     return RWP_GC_WAY_BACK_NONE;
 }
 
+// The emulated card the game saves to: the launch's choice (own, shared
+// or a named card), else the game's own or the shared one by its ID, as
+// a launch that set no card_path always did.
+std::string card_file(const GcImage& image) {
+    return image.card_path.empty() ? gc_card_path(image.id, image.shared_card) : image.card_path;
+}
+
 // Before the game starts: a copy of the memory card it will use in
 // sd:/riftwii/gc/backups/<card>/ (riftwii/gcbackup.hpp), the newest five
 // kept, none when the card has not changed since the last one. A shared
 // card's copies go in backups/shared, as they hold every game's saves.
 // Nothing here stops the start: a copy that fails is only logged.
 void back_up_card(const GcImage& image) {
-    const std::string path = gc_card_path(image.id, image.shared_card);
-    const std::string folder = gc_backup_folder(image.id, image.shared_card);
+    const std::string path = card_file(image);
+    const std::string folder = gc_card_backup_folder(path);
     // The Wii's clock, as the menu's own clock shows it.
     const time_t now = time(nullptr);
     struct tm local;
@@ -145,11 +152,12 @@ void back_up_card(const GcImage& image) {
 // format a new one (NEW-03). False when it is still only at .old: the game
 // is not started then. A card beside a .old is used, with a log line.
 bool recover_card(const GcImage& image, std::string& error) {
-    const std::string path = gc_card_path(image.id, image.shared_card);
+    const std::string path = card_file(image);
     // A card from before an odd ID got a name of its own (MIN-04): copied
     // to the new name once, the old file left for any other ID that shared
-    // it.
-    const std::string legacy = gc_card_legacy_path(image.id, image.shared_card);
+    // it. Named cards never had another name.
+    const bool own_or_shared = path == gc_card_path(image.id, image.shared_card);
+    const std::string legacy = own_or_shared ? gc_card_legacy_path(image.id, image.shared_card) : std::string();
     struct stat card_stat;
     if (!legacy.empty() && stat(path.c_str(), &card_stat) != 0 && stat((path + ".old").c_str(), &card_stat) != 0 &&
         stat(legacy.c_str(), &card_stat) == 0) {
@@ -255,7 +263,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
         } else if (!recover_card(image, error)) return false;
         if (image.external_card.empty() && Settings().gc_backups != "off") back_up_card(image);
         logf("GameCube: the game will save to %s because the Memory card option (the game's, or Settings' when it is Default) selects this file.\n",
-             (image.external_card_path.empty() ? gc_card_path(image.id, image.shared_card) : image.external_card_path).c_str());
+             (image.external_card_path.empty() ? card_file(image) : image.external_card_path).c_str());
     }
 
     rwp_gc_launch request{};
@@ -269,6 +277,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
                                           : RWP_GC_REAL_CARD_NONE;
     std::copy(physical_id.begin(), physical_id.end(), request.real_card_flash_id);
     request.shared_card = image.shared_card ? 1 : 0;
+    request.card_path = image.card_path.empty() ? nullptr : image.card_path.c_str();
     std::vector<rwp_fragment> card_fragments;
     if (!image.external_card.empty()) {
         request.external_card = image.external_card.data();

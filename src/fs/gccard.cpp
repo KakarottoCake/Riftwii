@@ -769,6 +769,42 @@ std::string gc_card_path(const std::string& game_id, bool shared) {
     return "sd:/riftwii/gc/cards/" + file + ".raw";
 }
 
+std::string gc_card_name_clean(const std::string& typed) {
+    std::size_t first = 0;
+    std::size_t last = typed.size();
+    while (first < last && typed[first] == ' ') ++first;
+    while (last > first && typed[last - 1] == ' ') --last;
+    const std::string name = typed.substr(first, last - first);
+    if (name.empty() || name.size() > kGcCardNameMax) return std::string();
+    for (const char c : name) {
+        const bool letter = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+        const bool digit = c >= '0' && c <= '9';
+        if (!letter && !digit && c != ' ' && c != '-' && c != '_') return std::string();
+    }
+    return name;
+}
+
+std::string gc_named_card_folder(bool shift_jis) {
+    return shift_jis ? "sd:/riftwii/gc/cards/named-jp" : "sd:/riftwii/gc/cards/named";
+}
+
+std::string gc_named_card_path(const std::string& name, bool shift_jis) {
+    const std::string clean = gc_card_name_clean(name);
+    // Only a name that is already clean: one with spaces trimmed off would
+    // name another card than the one stored.
+    if (clean.empty() || clean != name) return std::string();
+    return gc_named_card_folder(shift_jis) + "/" + clean + ".raw";
+}
+
+std::string gc_card_file(const std::string& game_id, const std::string& card, const std::string& card_name) {
+    if (card == "own") return gc_card_path(game_id, false);
+    if (card == "shared") return gc_card_path(game_id, true);
+    // real_b keeps the game's own card in slot A, beside the real one.
+    if (card == "real_b") return gc_card_path(game_id, false);
+    if (card == "named") return gc_named_card_path(card_name, gc_card_shift_jis(game_id));
+    return std::string();
+}
+
 std::string gc_card_legacy_path(const std::string& game_id, bool shared) {
     if (shared) return std::string();
     // The name before MIN-04: the ID's capitals and digits only.

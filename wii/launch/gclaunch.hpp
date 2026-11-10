@@ -29,6 +29,10 @@ struct GcImage {
     std::vector<std::uint8_t> external_card{};
     std::vector<Fragment> card_fragments{};
     bool shared_card = false;  // the memory card is the shared one, not the game's own (the Memory card option)
+    // The emulated card's file in slot A when RiftWii keeps it (the game's
+    // own, the shared one or a named one: riftwii/gccard.hpp's
+    // gc_card_file); "" for the real cards and other loaders' cards.
+    std::string card_path{};
     bool drive_timing = true;  // reads take a GameCube drive's time (the game's Loading speed option)
     bool progressive = false;  // 480p (the game's 480p picture option)
     bool line240 = false;      // 240p (that option's 240p, or Settings' Video mode on Default)

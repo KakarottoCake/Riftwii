@@ -4403,3 +4403,48 @@ msgstr "ゲームキューブコントローラーが見つかりません"
 
 msgid "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead."
 msgstr "CTGP-RはRVZ形式では起動できません。ディスク、ISO、WBFSを使ってください。"
+
+msgid "A named card"
+msgstr "名前付きカード"
+
+msgid "Named: {1}"
+msgstr "名前付き: {1}"
+
+msgid "Saves go to the named memory card {1} on the SD card: {2}."
+msgstr "セーブはSDカードの名前付きメモリーカード「{1}」に入ります: {2}。"
+
+msgid "Name the new card"
+msgstr "新しいカードの名前"
+
+msgid "New card"
+msgstr "新しいカード"
+
+msgid "Other kinds of card"
+msgstr "ほかの種類のカード"
+
+msgid "Back to the list"
+msgstr "リストにもどる"
+
+msgid "A new, empty card. It is made the first time a game uses it."
+msgstr "新しい空のカードです。ゲームが初めて使うときに作られます。"
+
+msgid "This game's own card, the shared card or a real card instead."
+msgstr "かわりに、このゲーム専用のカード、共有カード、本物のカードを使います。"
+
+msgid "Named cards are kept in {1}. Give one to several games, or several to one game."
+msgstr "名前付きカードは{1}にあります。1枚を複数のゲームで使っても、1つのゲームで何枚も使ってもかまいません。"
+
+msgid "Named cards"
+msgstr "名前付きカード一覧"
+
+msgid "Japanese games' cards"
+msgstr "日本のゲームのカード"
+
+msgid "Cards for this game's region"
+msgstr "このゲームの地域のカード"
+
+msgid "Use 1 to {1} letters, digits, spaces, - or _ for a card's name."
+msgstr "カードの名前には、英字、数字、スペース、-、_を1〜{1}文字使ってください。"
+
+msgid "Press A to pick another named card or make a new one; Left for the other kinds of card."
+msgstr "Aでほかの名前付きカードを選ぶか新しく作り、左でほかの種類のカードにします。"

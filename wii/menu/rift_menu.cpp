@@ -9186,6 +9186,7 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		card.label = tr("Memory card");
 		card.value = game.gc_card == "global"
 			? tr("Default ({1})", {GcCardName(riftwii::gc_card_effective(game, riftwii::wii::Settings().gc_card))})
+			: game.gc_card == "named" && !game.gc_card_name.empty() ? tr("Named: {1}", {game.gc_card_name})
 			: GcCardName(game.gc_card);
 		card.on = game.gc_card != "global";
 		const std::string used = riftwii::gc_card_effective(game, riftwii::wii::Settings().gc_card);
@@ -9921,6 +9922,7 @@ static std::string GcCardName(const std::string& card)
 	if (card == "shared") return tr("Shared");
 	if (card == "nintendont") return tr("Nintendont's card");
 	if (card == "dolphin") return tr("Dolphin's card");
+	if (card == "named") return tr("A named card");
 	return tr("This game's own");
 }
 
@@ -9957,13 +9959,16 @@ static std::string GcCardPath(const FrontendState& state)
 	const std::string source = EffectiveGcCard(state);
 	if (source == "nintendont" || source == "dolphin")
 		return riftwii::wii::ExternalCardPath(state.game_id, source);
-	return riftwii::gc_card_path(state.game_id, GcCardShared(state));
+	// The game's own, the shared or a named card, as the launch picks it.
+	const std::string file = riftwii::gc_card_file(state.game_id, source, state.model.game.gc_card_name);
+	return file.empty() ? riftwii::gc_card_path(state.game_id, GcCardShared(state)) : file;
 }
 
 static std::string GcBackupFolder(const FrontendState& state, bool shared)
 {
 	const std::string folder = riftwii::gc_backup_folder(state.game_id, shared);
 	const std::string source = EffectiveGcCard(state);
+	if (source == "named") return riftwii::gc_card_backup_folder(GcCardPath(state));
 	return source == "nintendont" || source == "dolphin" ? folder + "/external" : folder;
 }
 
@@ -10542,6 +10547,136 @@ static bool RestoreGcBackup(const std::string& cardPath, const std::string& fold
 		tr("The memory card is as it was on {1}. The save from before is kept among the older saves, so you can go back to it.", {when}),
 		tr("OK"));
 	return true;
+}
+
+// A name in lower case, for comparing names as FAT does (ASCII only:
+// card names are, gc_card_name_clean).
+static std::string LowerAscii(std::string text)
+{
+	for (char& c : text)
+		if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+	return text;
+}
+
+// The named cards of one encoding on the SD card (riftwii/gccard.hpp's
+// gc_named_card_folder), by name, sorted. Only clean names: a file put
+// there by hand with another name is left alone.
+static std::vector<std::string> ListNamedGcCards(bool shiftJis)
+{
+	std::vector<std::string> names;
+	DIR* dir = opendir(riftwii::gc_named_card_folder(shiftJis).c_str());
+	if (!dir) return names;
+	while (dirent* entry = readdir(dir)) {
+		std::string name = entry->d_name;
+		if (name.size() <= 4 || name.compare(name.size() - 4, 4, ".raw") != 0) continue;
+		name.resize(name.size() - 4);
+		if (riftwii::gc_card_name_clean(name) != name) continue;
+		if (names.size() < 200) names.push_back(name);
+	}
+	closedir(dir);
+	std::sort(names.begin(), names.end(), [](const std::string& a, const std::string& b) {
+		return LowerAscii(a) < LowerAscii(b);
+	});
+	return names;
+}
+
+// A new named card's name, typed on the keyboard. False: Back.
+static bool AskGcCardName(std::string& name)
+{
+	GuiSearchKeys keys(std::string(), tr("Name the new card"), riftwii::kGcCardNameMax);
+	mainWindow->SetState(STATE::DISABLED);
+	mainWindow->Append(&keys);
+	keys.SetState(STATE::DEFAULT);
+	ResumeGui();
+	while (keys.Result() == 0) usleep(20000);
+	HaltGui();
+	mainWindow->Remove(&keys);
+	mainWindow->SetState(STATE::DEFAULT);
+	if (keys.Result() < 0) return false;
+	name = keys.Text();
+	return true;
+}
+
+enum class NamedCardPick { Picked, Other, Back };
+
+// Memory card > A named card, on a GameCube game's page: the named cards
+// of the game's encoding, New card, and the other kinds of card. `name`
+// is the game's card now, lit; on Picked it is the card picked. Called
+// with the GUI halted, as RunRowPage is.
+static NamedCardPick MenuPickNamedGcCard(const std::string& gameId, std::string& name)
+{
+	const bool shiftJis = riftwii::gc_card_shift_jis(gameId);
+	std::vector<std::string> names = ListNamedGcCards(shiftJis);
+	// The game's card may not be made yet (it is, at its first start).
+	if (!name.empty() && std::none_of(names.begin(), names.end(), [&](const std::string& n) { return n == name; }))
+		names.insert(names.begin(), name);
+	std::vector<FlowRow> rows;
+	for (const std::string& n : names) {
+		FlowRow row;
+		row.kind = FlowRow::Kind::Action;
+		row.label = n;
+		row.on = n == name;
+		row.value = row.on ? tr("In use") : tr("Pick");
+		rows.push_back(row);
+	}
+	FlowRow newCard;
+	newCard.kind = FlowRow::Kind::Action;
+	newCard.label = tr("New card");
+	newCard.value = tr("Add");
+	rows.push_back(newCard);
+	FlowRow other;
+	other.kind = FlowRow::Kind::Action;
+	other.label = tr("Other kinds of card");
+	other.value = tr("Back to the list");
+	rows.push_back(other);
+	const std::size_t newRow = names.size();
+	const std::size_t otherRow = names.size() + 1;
+
+	NamedCardPick result = NamedCardPick::Back;
+	std::string said;
+	const auto note = [&](int row) -> std::string {
+		if (!said.empty()) return said;
+		if (static_cast<std::size_t>(row) == newRow)
+			return tr("A new, empty card. It is made the first time a game uses it.");
+		if (static_cast<std::size_t>(row) == otherRow)
+			return tr("This game's own card, the shared card or a real card instead.");
+		return tr("Named cards are kept in {1}. Give one to several games, or several to one game.",
+			{riftwii::gc_named_card_folder(shiftJis)});
+	};
+	int initial = 0;
+	for (std::size_t i = 0; i < names.size(); ++i)
+		if (names[i] == name) initial = static_cast<int>(i);
+	if (names.empty()) initial = static_cast<int>(newRow);
+	RunRowPage(tr("Named cards"), shiftJis ? tr("Japanese games' cards") : tr("Cards for this game's region"), rows, note,
+		[&](int row, const PageAside&) {
+			said.clear();
+			const std::size_t at = static_cast<std::size_t>(row);
+			if (at == otherRow) {
+				result = NamedCardPick::Other;
+				return true;
+			}
+			if (at < names.size()) {
+				name = names[at];
+				result = NamedCardPick::Picked;
+				return true;
+			}
+			std::string typed;
+			if (!AskGcCardName(typed)) return false;
+			const std::string clean = riftwii::gc_card_name_clean(typed);
+			if (clean.empty()) {
+				said = tr("Use 1 to {1} letters, digits, spaces, - or _ for a card's name.",
+					{std::to_string(riftwii::kGcCardNameMax)});
+				return false;
+			}
+			// FAT names ignore case: a name that is there already is that card.
+			name = clean;
+			for (const std::string& n : names)
+				if (LowerAscii(n) == LowerAscii(clean)) name = n;
+			logf("Settings: GameCube game %s now uses the named memory card %s\n", gameId.c_str(), name.c_str());
+			result = NamedCardPick::Picked;
+			return true;
+		}, nullptr, 0, initial);
+	return result;
 }
 
 // The game's card's backups, newest first, on a page of their own; the one
@@ -14019,6 +14154,10 @@ static std::string GcSaveNote(const FrontendState& state)
 	const std::string card = GcCardPath(state);
 	if (used == "nintendont" || used == "dolphin")
 		return tr("Saves are written to {1}. A backup is kept before the game starts.", {card});
+	if (GcCardFull(state)) return GcCardFullNote(state);
+	if (used == "named")
+		return tr("Saves go to the named memory card {1} on the SD card: {2}.", {state.model.game.gc_card_name, card}) + " " +
+			tr("Press A to see its saves.");
 	const std::string where = GcCardShared(state)
 		? tr("Saves go to the shared memory card on the SD card: {1}.", {card})
 		: tr("Saves go to this game's own memory card on the SD card: {1}.", {card});
@@ -14318,6 +14457,8 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				else if (dolphin) help = tr("Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only).");
 				if (state.model.game.gc_card == "real_b_as_a")
 					help = tr("For a game that only looks in slot A: the real card in slot B is its slot A, and slot B looks empty to it (original Wii only).");
+				if (state.model.game.gc_card == "named")
+					help = tr("Press A to pick another named card or make a new one; Left for the other kinds of card.");
 				say(help);
 			}
 			else if (ref.what == RowRef::What::GcProgressive && riftwii::gc_pal_game(state.game_id))
@@ -14413,7 +14554,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			else if (ref.what == RowRef::What::GcCard) {
 				// Asked when switching, where it matters: the saves stay behind.
 				if (AskGcCardSwitch()) {
-					std::vector<std::string> sources{"global", "own", "shared"};
+					std::vector<std::string> sources{"global", "own", "shared", "named"};
 					if (!riftwii::wii::is_wii_u()) {
 						sources.push_back("real");
 						sources.push_back("real_b");
@@ -14422,7 +14563,24 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 					for (const char* source : {"nintendont", "dolphin"}) {
 						if (!riftwii::wii::ExternalCardPath(state.game_id, source).empty()) sources.push_back(source);
 					}
-					game.gc_card = StepList(sources, game.gc_card, direction);
+					// A named card opens its picker: on the way to it, and
+					// with A on it again (to change cards; Left steps on).
+					const bool onNamed = game.gc_card == "named" && direction > 0;
+					const std::string next = onNamed ? std::string("named") : StepList(sources, game.gc_card, direction);
+					if (next == "named") {
+						std::string name = game.gc_card_name;
+						transition::Hold(transition::Kind::SlideForward);
+						mainWindow->Remove(&w);
+						const NamedCardPick pick = MenuPickNamedGcCard(state.game_id, name);
+						transition::Hold(transition::Kind::SlideBack);
+						mainWindow->Append(&w);
+						if (pick == NamedCardPick::Picked) {
+							game.gc_card = "named";
+							game.gc_card_name = name;
+						} else if (pick == NamedCardPick::Other) {
+							game.gc_card = StepList(sources, "named", direction);
+						} else changed = false;
+					} else game.gc_card = next;
 				}
 				else changed = false;
 			}

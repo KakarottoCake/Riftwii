@@ -162,4 +162,29 @@ std::string gc_card_legacy_path(const std::string& game_id, bool shared);
 // Whether the game's card is Shift-JIS (a Japanese game's region letter).
 bool gc_card_shift_jis(const std::string& game_id);
 
+// Named cards (#511): cards a player makes and gives to games on their
+// pages, several per game or one for a few games (a card per player, a
+// trading card). Each is sd:/riftwii/gc/cards/named/<name>.raw, or
+// named-jp/ for Shift-JIS cards: a card holds one encoding's file names,
+// so a game is only offered the cards of its own encoding, and the
+// subfolders keep them apart from <ID>.raw and shared.raw. A named card
+// is made and formatted the first time a game uses it, as a game's own is.
+constexpr std::size_t kGcCardNameMax = 32;
+// A name as typed, trimmed of spaces at both ends, when it can be a
+// file's name: 1 to kGcCardNameMax letters (A-Z, a-z), digits, spaces,
+// '-' and '_'. "" when it cannot (empty, too long, any other character),
+// so nothing a player types or a settings file holds leaves the folder.
+std::string gc_card_name_clean(const std::string& typed);
+// The folder a game's named cards are in: named, or named-jp for a
+// Japanese game's.
+std::string gc_named_card_folder(bool shift_jis);
+// A named card's file; "" when the name is not a clean one.
+std::string gc_named_card_path(const std::string& name, bool shift_jis);
+// The card file a game saves to for a Memory card choice (the effective
+// one, riftwii/launch.hpp's gc_card_effective): "own", "shared" and
+// "named" (with `card_name`) are files RiftWii keeps; "" for the real
+// cards and other loaders' cards, which are not RiftWii's files, and for
+// a named card whose name is not a clean one.
+std::string gc_card_file(const std::string& game_id, const std::string& card, const std::string& card_name);
+
 }  // namespace riftwii

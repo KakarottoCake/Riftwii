@@ -1664,7 +1664,47 @@ static void test_external_loader_files() {
     EXPECT_TRUE(gc_dolphin_card_for_game(dolphin).empty());
 }
 
+// Named cards (#511): the names a player may give, their files, and the
+// card file each Memory card choice saves to.
+static void test_named_cards() {
+    EXPECT_EQ(gc_card_name_clean("Player 1"), std::string("Player 1"));
+    EXPECT_EQ(gc_card_name_clean("  trade_card-2  "), std::string("trade_card-2"));
+    EXPECT_EQ(gc_card_name_clean(std::string(kGcCardNameMax, 'a')), std::string(kGcCardNameMax, 'a'));
+    EXPECT_EQ(gc_card_name_clean(std::string(kGcCardNameMax + 1, 'a')), std::string());
+    EXPECT_EQ(gc_card_name_clean(""), std::string());
+    EXPECT_EQ(gc_card_name_clean("   "), std::string());
+    for (const char* bad : {"..", "a/b", "a\\b", ".hidden", "a.raw", "a:b", "caf\xc3\xa9", "tab\there", "x;y"})
+        EXPECT_EQ(gc_card_name_clean(bad), std::string());
+
+    EXPECT_EQ(gc_named_card_path("Player 1", false), std::string("sd:/riftwii/gc/cards/named/Player 1.raw"));
+    EXPECT_EQ(gc_named_card_path("Player 1", true), std::string("sd:/riftwii/gc/cards/named-jp/Player 1.raw"));
+    // Only a name that is already clean: never one that would be trimmed.
+    EXPECT_EQ(gc_named_card_path(" Player 1", false), std::string());
+    EXPECT_EQ(gc_named_card_path("../GALE01", false), std::string());
+
+    EXPECT_EQ(gc_card_file("GALE01", "own", ""), std::string("sd:/riftwii/gc/cards/GALE01.raw"));
+    EXPECT_EQ(gc_card_file("GALE01", "real_b", ""), std::string("sd:/riftwii/gc/cards/GALE01.raw"));
+    EXPECT_EQ(gc_card_file("GALE01", "shared", ""), std::string("sd:/riftwii/gc/cards/shared.raw"));
+    EXPECT_EQ(gc_card_file("GALJ01", "shared", ""), std::string("sd:/riftwii/gc/cards/shared-jp.raw"));
+    EXPECT_EQ(gc_card_file("GALE01", "named", "Trades"), std::string("sd:/riftwii/gc/cards/named/Trades.raw"));
+    EXPECT_EQ(gc_card_file("GALJ01", "named", "Trades"), std::string("sd:/riftwii/gc/cards/named-jp/Trades.raw"));
+    for (const char* elsewhere : {"real", "real_b_as_a", "nintendont", "dolphin", "global", ""})
+        EXPECT_EQ(gc_card_file("GALE01", elsewhere, "Trades"), std::string());
+    EXPECT_EQ(gc_card_file("GALE01", "named", ""), std::string());
+    EXPECT_EQ(gc_card_file("GALE01", "named", "../x"), std::string());
+
+    // Backups follow the card file; a named card's never mix with a game's
+    // own card of the same name.
+    EXPECT_EQ(gc_card_backup_folder("sd:/riftwii/gc/cards/GALE01.raw"), std::string("sd:/riftwii/gc/backups/GALE01"));
+    EXPECT_EQ(gc_card_backup_folder("sd:/riftwii/gc/cards/named/GALE01.raw"),
+              std::string("sd:/riftwii/gc/backups/named/GALE01"));
+    EXPECT_EQ(gc_card_backup_folder("sd:/riftwii/gc/cards/named-jp/Trades.raw"),
+              std::string("sd:/riftwii/gc/backups/named-jp/Trades"));
+    EXPECT_EQ(gc_card_backup_folder(gc_card_path("GMSJ01", true)), gc_backup_folder("GMSJ01", true));
+}
+
 int main() {
+    test_named_cards();
     test_external_loader_files();
     {
         const auto root = std::filesystem::temp_directory_path() / "riftwii_external_backup_test";

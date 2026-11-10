@@ -932,7 +932,7 @@ played, Favourites), can hide them as they hide any game.
 
 A GameCube game's page has its own options in place of a Wii game's
 picture and online settings: **Memory card** (*Default*, which follows **Settings > Games > GameCube
-memory card**, *This game's own*, *Shared* or, on an original Wii, *Real
+memory card**, *This game's own*, *Shared*, *A named card* or, on an original Wii, *Real
 card in slot A*, *Real card in slot B* or *Real card in slot B, as slot A*), **Picture lines** (*On (480p)*, *240p* for a CRT TV, as
 Settings > Picture > Video mode describes, or *Off*; European GameCube games never get 480p or
 240p), **Sharper
@@ -957,6 +957,19 @@ GameCube saves** on (it is at first), the card is copied to
 `sd:/riftwii/gc/backups/` before the game starts, when it has changed;
 the newest five copies are kept, and **Restore an older save** on the
 Saves page puts one back.
+
+**Named cards** are extra cards with names you choose, for more than one
+card per game (a card for each player, a card for trading) or one card
+for a few games. Set **Memory card** to *A named card*: a page lists your
+named cards, and **New card** names a new one with the keyboard (letters,
+digits, spaces, `-` and `_`, up to 32). A new card is made the first time
+a game uses it. Press A on the row again to switch to another named card,
+or pick **Other kinds of card** to go back to the usual choices. They are
+kept in `sd:/riftwii/gc/cards/named/` (`named-jp/` for Japanese games, whose
+cards use another text encoding), are backed up to
+`sd:/riftwii/gc/backups/named/` like any card, and their saves show on
+the game's **Saves** page. Settings' **GameCube memory card** has no named
+cards: they are chosen game by game.
 
 On an original Wii with GameCube memory card slots, **Real card in slot A**
 lets the game read and write that physical card directly. Its saves are not

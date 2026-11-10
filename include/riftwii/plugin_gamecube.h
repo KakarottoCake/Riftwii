@@ -65,6 +65,7 @@ typedef struct rwp_gc_launch {
     const rwp_fragment* card_fragments;
     uint32_t card_fragment_count;
     uint32_t shared_card;  /* the shared memory card, not the game's own */
+    const char* card_path; /* the emulated card's file (own, shared or named card); NULL: by the ID and shared_card */
     uint32_t drive_timing; /* reads take a GameCube drive's time */
     uint32_t progressive;  /* 480p */
     uint32_t line240;      /* 240p: every other line of whole 480-line pictures, progressive (never with 480p) */

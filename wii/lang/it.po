@@ -4403,3 +4403,48 @@ msgstr "Nessun controller GameCube trovato"
 
 msgid "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead."
 msgstr "CTGP-R non può avviarsi da un'immagine RVZ. Usa un disco, ISO o WBFS."
+
+msgid "A named card"
+msgstr "Una scheda con nome"
+
+msgid "Named: {1}"
+msgstr "Con nome: {1}"
+
+msgid "Saves go to the named memory card {1} on the SD card: {2}."
+msgstr "I salvataggi vanno nella scheda di memoria con nome {1} sulla scheda SD: {2}."
+
+msgid "Name the new card"
+msgstr "Dai un nome alla nuova scheda"
+
+msgid "New card"
+msgstr "Nuova scheda"
+
+msgid "Other kinds of card"
+msgstr "Altri tipi di scheda"
+
+msgid "Back to the list"
+msgstr "Torna all'elenco"
+
+msgid "A new, empty card. It is made the first time a game uses it."
+msgstr "Una scheda nuova e vuota. Viene creata la prima volta che un gioco la usa."
+
+msgid "This game's own card, the shared card or a real card instead."
+msgstr "La scheda propria di questo gioco, quella condivisa o una scheda vera al suo posto."
+
+msgid "Named cards are kept in {1}. Give one to several games, or several to one game."
+msgstr "Le schede con nome sono in {1}. Danne una a più giochi, o più di una a un gioco."
+
+msgid "Named cards"
+msgstr "Schede con nome"
+
+msgid "Japanese games' cards"
+msgstr "Schede dei giochi giapponesi"
+
+msgid "Cards for this game's region"
+msgstr "Schede per la regione di questo gioco"
+
+msgid "Use 1 to {1} letters, digits, spaces, - or _ for a card's name."
+msgstr "Usa da 1 a {1} lettere, cifre, spazi, - o _ per il nome della scheda."
+
+msgid "Press A to pick another named card or make a new one; Left for the other kinds of card."
+msgstr "Premi A per scegliere un'altra scheda con nome o crearne una nuova; Sinistra per gli altri tipi di scheda."

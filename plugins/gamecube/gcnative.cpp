@@ -3137,7 +3137,13 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                 return false;
             }
         } else {
-            const std::string path = gc_card_path(image.id, image.shared_card);
+            // The game's own, the shared or a named card (the Memory card
+            // option, as the launch resolved it into card_path).
+            const std::string path = image.card_path.empty() ? gc_card_path(image.id, image.shared_card) : image.card_path;
+            // A named card's folder (named or named-jp) on a card that has
+            // none yet; the cards folder itself is made above.
+            const std::size_t folder_end = path.rfind('/');
+            if (folder_end != std::string::npos) mkdir(path.substr(0, folder_end).c_str(), 0777);
             card_image.assign(GC_CARD_BYTES, 0xFF);
             bool ready = false;
             bool exists = false;
