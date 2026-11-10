@@ -1580,6 +1580,40 @@ void TestSettings() {
     LoaderSettings foldersThird;
     foldersThird.parse(foldersAgain.serialize());
     EXPECT_TRUE(foldersThird.game_folders == foldersAgain.game_folders);
+
+    // Nor can one holding a line break: written out, the rest of its name
+    // would be a settings line of its own (here, as the last folder, one
+    // that turns the SD card's games off). Saving leaves it out too.
+    LoaderSettings brokenLine;
+    brokenLine.game_folders = {"/ok", "sd:/Games\nsd_games = off"};
+    const std::string brokenLineText = brokenLine.serialize();
+    EXPECT_TRUE(brokenLineText.find("game_folders = /ok\n") != std::string::npos);
+    EXPECT_TRUE(brokenLineText.find("sd_games = off") == std::string::npos);
+    LoaderSettings brokenLineAgain;
+    brokenLineAgain.parse(brokenLineText);
+    EXPECT_EQ(brokenLineAgain.sd_games, LoaderSettings{}.sd_games);
+    EXPECT_EQ(brokenLineAgain.game_folders.size(), 1u);
+    // The same for the other two names that come from the drive: the
+    // menu's music and the theme's folder. RiftWii's own are saved instead.
+    LoaderSettings brokenNames;
+    brokenNames.music_file = "usb:/music/a\nsd_games = off/";
+    brokenNames.theme = "night\nsd_games = off";
+    const std::string brokenNamesText = brokenNames.serialize();
+    EXPECT_TRUE(brokenNamesText.find("sd_games = off") == std::string::npos);
+    EXPECT_TRUE(brokenNamesText.find("music_file = \n") != std::string::npos);
+    EXPECT_TRUE(brokenNamesText.find("theme = default\n") != std::string::npos);
+    LoaderSettings brokenNamesAgain;
+    brokenNamesAgain.parse(brokenNamesText);
+    EXPECT_EQ(brokenNamesAgain.sd_games, LoaderSettings{}.sd_games);
+    EXPECT_TRUE(brokenNamesAgain.other.empty());
+    // Names the line keeps are written as before, spaces inside included.
+    LoaderSettings keptNames;
+    keptNames.music_file = "usb:/My Music/Wii Shop.ogg";
+    keptNames.theme = "Night Sky";
+    LoaderSettings keptNamesAgain;
+    keptNamesAgain.parse(keptNames.serialize());
+    EXPECT_EQ(keptNamesAgain.music_file, keptNames.music_file);
+    EXPECT_EQ(keptNamesAgain.theme, keptNames.theme);
 }
 
 void TestWfc() {
@@ -2171,6 +2205,20 @@ void TestCoverArt() {
     EXPECT_FALSE(game_still_found({"sd:/Wii Games"}, "sd:/Wii Games/USB Loader GX/Alpha/a.iso", false));
     EXPECT_TRUE(add_game_folder(pick, "sd:/a;b") == GameFolderAdd::NotAFolder);
     EXPECT_TRUE(add_game_folder(pick, "sd:/x/../y") == GameFolderAdd::NotAFolder);
+    // A name with a line break in it (NTFS allows one) would leave the
+    // rest of the name as a settings line of its own in settings.txt, and
+    // a space at the end is trimmed off when the file is read.
+    EXPECT_TRUE(add_game_folder(pick, "sd:/Games\nsd_games = off") == GameFolderAdd::NotAFolder);
+    EXPECT_TRUE(add_game_folder(pick, "usb:/Games\r") == GameFolderAdd::NotAFolder);
+    EXPECT_TRUE(add_game_folder(pick, "usb:/Wii Games ") == GameFolderAdd::NotAFolder);
+    // A space inside a name, or at the end of a folder on the way, is kept.
+    {
+        LoaderSettings spaced;
+        EXPECT_TRUE(add_game_folder(spaced, "usb:/My Games /Wii") == GameFolderAdd::Added);
+        LoaderSettings spacedBack;
+        spacedBack.parse(spaced.serialize());
+        EXPECT_TRUE(spacedBack.game_folders == spaced.game_folders);
+    }
     EXPECT_EQ(pick.game_folders.size(), 3u);
     if (pick.game_folders.size() == 3) {
         EXPECT_EQ(pick.game_folders[0], "sd:/Wii Games");

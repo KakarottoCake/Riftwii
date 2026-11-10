@@ -109,7 +109,8 @@ struct LoaderSettings {
     // Drives > Game folders writes them, game_folders_on reads them):
     // "game_folders = /Wii Games; usb:/iso". A plain "/path" is looked
     // for on both drives, "sd:/path" or "usb:/path" on that one.
-    // A folder holding ';' cannot be named: saving leaves it out.
+    // A folder holding ';' or a line break cannot be named: saving leaves
+    // it out.
     std::vector<std::string> game_folders;
     std::map<std::string, std::string> other;
 
@@ -258,7 +259,8 @@ enum class GameFolderAdd {
     AlreadyListed,   // the same folder on that drive, or on both drives
     AlwaysSearched,  // wbfs or games, which every scan reads anyway
     Full,            // kMaxGameFolders already
-    NotAFolder,      // a drive's top, or a name settings.txt can't hold
+    NotAFolder,      // a drive's top, or a name settings.txt can't hold (';', "..", a line
+                     // break, a space at its end, too long)
 };
 // Adds a folder the menu's folder pick chose ("sd:/Wii Games",
 // "usb2:/iso/wii") to game_folders, for that drive only.
