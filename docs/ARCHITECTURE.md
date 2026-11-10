@@ -388,11 +388,13 @@ non-NTSC paths and other game regions keep their own behavior.
   game's ARAM addresses raised so its own sound program reads MEM2
   (except in games whose own checks need them as they are,
   `gc_keeps_aram_addresses`: Mario Party 4), and
-  each `ARStartDMA` called with interrupts off returning only once its
-  interrupt is pending (a Wii's
-  instant transfers otherwise let ARQ's chained chunks finish in the
-  middle of the game's own bookkeeping); the options; the trace; the way
-  back; the crash screen.
+  each `ARStartDMA`'s interrupt held back (its `ARINTMSK` cleared, an
+  alarm setting it again) as long as a GameCube's transfer takes, since a
+  Wii's are instant and games count on finishing their own bookkeeping
+  after posting a transfer before its callback runs (JSystem's transfer
+  count; the Thousand-Year Door's list of transfers, which crashed when a
+  callback came first); the options; the trace; the way back; the crash
+  screen.
 - `gc_bt.c`: a Bluetooth driver for Wii Remotes, Nunchuks, Classic
   Controllers and Wii U Pro Controllers, filled into the pad ports. A Pro
   is told apart by its extension ID (`01 20`), asked for report mode 0x34
