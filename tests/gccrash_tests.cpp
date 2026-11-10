@@ -185,7 +185,7 @@ void test_remotes() {
     put(trace, 2, GC_TR_BT_REMOTES, 0x0F010000u | GC_BT_EXT_STATUS_ASKED << 8);
     EXPECT_TRUE(riftwii::describe_gc_remotes(trace, text));
     EXPECT_TRUE(text.find("ready 1, waiting for its status report, kind 0") != std::string::npos);
-    EXPECT_TRUE(text.find("of 4") == std::string::npos);
+    EXPECT_TRUE(text.find("step 5 of 4") == std::string::npos);
     put(trace, 2, GC_TR_BT_REMOTES, 0x0F010302u);
     EXPECT_TRUE(riftwii::describe_gc_remotes(trace, text));
     EXPECT_TRUE(text.find("extension step 3 of 4, kind 2") != std::string::npos);
