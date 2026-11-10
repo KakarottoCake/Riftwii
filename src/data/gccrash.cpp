@@ -182,11 +182,15 @@ bool describe_gc_remotes(const std::vector<std::uint8_t>& trace, std::string& te
     }
     text += "Last connection status " + byte_hex(link >> 24) + ", authentication status " + byte_hex(link >> 16) +
             ", disconnect reason " + byte_hex(link >> 8) + ", extension error " + byte_hex(link) + ".\n";
+    // Steps 1 to 4 start the extension (4: ready); 5 waits for the answer
+    // to a status request (runtime/gc/gc_bt.c's GC_BT_EXT_STATUS_ASKED).
+    const std::uint32_t step = (first_remote >> 8) & 0xFFu;
+    const std::string step_text = step == 5 ? std::string("waiting for its status report")
+                                            : "extension step " + std::to_string(step) + " of 4";
     text += "Last extension ID " + byte_hex(ext >> 24) + " " + byte_hex(ext >> 16) + ", last report mode " +
             byte_hex(ext >> 8) + ", extensions given up " + std::to_string(ext & 0xFFu) + "; the first remote: " +
             "channels " + byte_hex(first_remote >> 24) + ", ready " + std::to_string((first_remote >> 16) & 0xFFu) +
-            ", extension step " + std::to_string((first_remote >> 8) & 0xFFu) + " of 4, kind " +
-            std::to_string(first_remote & 0xFFu) + ".\n";
+            ", " + step_text + ", kind " + std::to_string(first_remote & 0xFFu) + ".\n";
     return true;
 }
 

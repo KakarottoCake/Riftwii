@@ -181,6 +181,14 @@ void test_remotes() {
     EXPECT_TRUE(text.find("the extension's start was given up") != std::string::npos);
     EXPECT_TRUE(text.find("extension error 0x07") != std::string::npos);
     EXPECT_TRUE(text.find("last report mode 0x30, extensions given up 1") != std::string::npos);
+    // A remote waiting for a status report says so, not "step 5 of 4".
+    put(trace, 2, GC_TR_BT_REMOTES, 0x0F010500u);
+    EXPECT_TRUE(riftwii::describe_gc_remotes(trace, text));
+    EXPECT_TRUE(text.find("ready 1, waiting for its status report, kind 0") != std::string::npos);
+    EXPECT_TRUE(text.find("of 4") == std::string::npos);
+    put(trace, 2, GC_TR_BT_REMOTES, 0x0F010302u);
+    EXPECT_TRUE(riftwii::describe_gc_remotes(trace, text));
+    EXPECT_TRUE(text.find("extension step 3 of 4, kind 2") != std::string::npos);
     EXPECT_TRUE(text.find("Wii U Pro Controller") == std::string::npos);
     // A Wii U Pro Controller identified: its own line, its ID and mode 0x34.
     put(trace, 2, GC_TR_BT_PROGRESS, reached | GC_BT_SEEN_PRO);

@@ -17,8 +17,10 @@
 #define GC_BT_WRITE_POLLS 20000000u  /* polls before a write counts as lost */
 #define GC_BT_EXT_WAIT 60u      /* PADReads (a second) an extension's start may take a step */
 #define GC_BT_EXT_RETRIES 3u
-/* A retry asked the remote for its status and waits for the answer, which
- * starts the extension again (bt_check_extensions). */
+/* A status request is waiting for its answer: the first one when the
+ * remote's channels open, or a retry's (bt_check_extensions). The answer
+ * (bt_on_input's 0x20) starts the extension, or sets the report mode when
+ * none is plugged in; a lost one leads to the next retry. */
 #define GC_BT_EXT_STATUS_ASKED 5u
 
 /* HCI opcodes (OGF << 10 | OCF). */
@@ -665,6 +667,10 @@ static void bt_on_signal(struct gc_bt* bt, struct gc_bt_remote* r, uint32_t slot
         led[0] = 0x15;
         led[1] = 0x00;
         bt_report(bt, r, led, 2);
+        /* Waited for like a retry's: without an answer the remote got no
+         * report mode and its extension was never read. */
+        r->ext_step = GC_BT_EXT_STATUS_ASKED;
+        r->ext_wait = 0;
     }
 }
 

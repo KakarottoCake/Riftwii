@@ -102,7 +102,7 @@ struct gc_bt_remote {
     uint8_t spare[2];
     uint32_t ctrl_cid;  /* the remote's end of each channel */
     uint32_t intr_cid;
-    uint32_t ext_step;  /* 0 none, 1-3 starting it (gc_bt.c), 4 ready, 5 a retry's status asked for */
+    uint32_t ext_step;  /* 0 none, 1-3 starting it (gc_bt.c), 4 ready, 5 a status request waiting for its answer */
     uint32_t ext_kind;
     uint8_t core[2];    /* the buttons, as the remote sends them */
     uint8_t ext[GC_PRO_BYTES];  /* the extension's first six bytes; a Pro Controller's eleven */
