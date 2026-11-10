@@ -1471,6 +1471,12 @@ void ReserveUsbBuffers() {
     ums::ReserveBuffer();
 }
 
+void LogUsbBuffers() {
+    const void* d2x = ums::Buffer();
+    logf("USB buffers (MEM2, taken at start-up): menu's driver %p, d2x's %p%s\n", static_cast<void*>(g_picked.bounce),
+         d2x, g_picked.bounce && d2x ? "" : " (0: MEM2 was full; the USB drive may not be readable)");
+}
+
 bool usb_volume_ready() {
     UsbLocked locked;
     return !g_usb_volumes.empty();

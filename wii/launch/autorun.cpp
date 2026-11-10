@@ -194,6 +194,7 @@ void RunAutorun() {
              SYS_GetArena1Lo(), SYS_GetArena1Hi(), SYS_GetArena2Lo(), SYS_GetArena2Hi());
     }
     mem::LogLimits();
+    LogUsbBuffers();
     mem::LogUsage("autorun");
     std::vector<std::string> script_lines;
     {
@@ -449,6 +450,7 @@ void RunAutorun() {
         } else if (cmd == "launch") {
             // The GUI's path without the GUI: identify, scan, restore the
             // saved choices, compile and boot.
+            mem::TestFillArena();  // test_limits.txt: the arena as a big library's menu leaves it
             FrontendState state;
             if (source.kind != LaunchSource::Kind::Disc) {
                 state.use_usb = source.kind == LaunchSource::Kind::Usb;

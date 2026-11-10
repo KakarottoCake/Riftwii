@@ -151,6 +151,8 @@ void InitUsbLock();
 // MEM2 arena; once the arena is full a USB drive could no longer be read
 // and a game on it not launched.
 void ReserveUsbBuffers();
+// One log line: where those buffers are, or that one could not be taken.
+void LogUsbBuffers();
 // Whether the menu's view of the USB drive is up (no drive is started for it).
 bool usb_volume_ready();
 // Whether libfat has a FAT32 partition of the USB drive mounted as usb:/,

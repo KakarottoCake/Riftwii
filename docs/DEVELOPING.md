@@ -269,11 +269,15 @@ Mario Bros. Wii v1.30 runs with 336 KiB less MEM2 and dies at the start with
 352 KiB less.
 
 `mem2_arena_left_kib = N` leaves the loader's MEM2 arena as a large
-library's menu does (covers and the Wii Menu's sounds), N KiB left, for a
-launch straight from `autorun.txt`; `heap_grow_kib = H` grows the heap by
-H KiB first and frees it after, so the heap has room as on the tester's
-Wii (pass more than MEM1's heap, e.g. 12288, to grow it into MEM2). The
-log's "Memory: TEST BUILD: MEM2 arena filled" line says what was left.
+library's menu does (covers and the Wii Menu's sounds), N KiB left, when
+autorun's `launch` starts (after `usb` has mounted the drive, as the menu
+had); `heap_grow_kib = H` grows the heap by H KiB first and frees it after,
+so the heap has room as on the tester's Wii (pass more than MEM1's heap,
+e.g. 12288, to grow it into MEM2; the line says if it landed in MEM1). The
+log's "Memory: TEST BUILD: MEM2 arena filled" line says what was left and
+where the heap grew. The USB drive's bounce buffers are taken at start-up
+(main.cpp, ReserveUsbBuffers), so the knob shows that a launch works on a
+full arena; the "USB buffers" line shows where they are.
 
 The same blob runs the Wii U Pro Controller translator and keeps a trace of
 the game's Bluetooth traffic in the log (docs/BLUETOOTH.md).

@@ -33,6 +33,8 @@ bool OpenWaiting(std::string& error, int seconds);
 // launch failed with "no MEM2 left for the USB buffer" (a tester with a
 // large library on 2611-151). Open takes it itself when this did not run.
 void ReserveBuffer();
+// That buffer, or nullptr while it has not been taken.
+const std::uint8_t* Buffer();
 // Before an IOS reload: the fd and a failed open belong to the IOS that is
 // going away (a disc's packs failing under IOS 58 must be tried again
 // once Settings has loaded the d2x slot).

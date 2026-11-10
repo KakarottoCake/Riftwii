@@ -398,6 +398,8 @@ void ReserveBuffer() {
     if (!g_bounce) g_bounce = skin::Mem2Alloc(kBounceBytes);
 }
 
+const std::uint8_t* Buffer() { return g_bounce; }
+
 bool OpenWaiting(std::string& error, int seconds) {
     // A deadline, not a count of tries: one Open can take up to the calls'
     // time limit and still fail without the device being stuck. No new try

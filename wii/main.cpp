@@ -476,6 +476,7 @@ void OpenSessionLog(bool sd_mounted) {
     }
     riftwii::wii::EnsureMetaAhbAccess();
     riftwii::wii::mem::LogLimits();
+    riftwii::wii::LogUsbBuffers();
     riftwii::wii::mem::LogUsage("start");
 }
 
