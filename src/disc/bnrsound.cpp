@@ -93,9 +93,12 @@ bool decode_bns(const std::uint8_t* d, std::size_t size, BannerSound& out, std::
         }
         frames = std::min(frames, (data_size - at[c]) / 8 * 14);
     }
-    // Decoded straight into the stereo buffer: no copy per channel.
+    // Decoded straight into the stereo buffer: no copy per channel. A
+    // sound with no frames has no buffer to point into (the second
+    // channel's place would be one past a null pointer), and nothing to
+    // decode: decode_banner_sound refuses it as empty.
     out.pcm.assign(frames * 2, 0);
-    for (unsigned c = 0; c < channels; ++c) {
+    for (unsigned c = 0; c < channels && frames != 0; ++c) {
         // The DSP's ADPCM info: 16 coefficients, the gain, the first
         // frame's header, then the two samples before it.
         std::int16_t coef[16];
