@@ -371,15 +371,22 @@ CTGP-R in the DOL):
 | The program's end in MEM1 (`__bss_end`) | `0x80FDCDA0` | `0x80FC1920` |
 | MEM1 back to the heap at every start | | 111,744 bytes (109 KiB) |
 | CTGP-R symbols left in the DOL | 99,799 bytes | 7,493 bytes |
-| `ctgpr.<version>.rwp` on the card | | 168,440 bytes |
-| Its share of the arena (384 KiB) | | 156,352 bytes (image 154,368, `.bss` 1,955, 1,162 relocations) |
+| `ctgpr.<version>.rwp` on the card | | 171,460 bytes |
+| Its share of the arena (384 KiB) | | 158,880 bytes (image 156,896, `.bss` 1,971, 1,203 relocations) |
 
-Not run in Dolphin or on a Wii yet: a CTGP-R launch with the plugin there
-(the log has `Plugins: ctgpr 1 read from ...`, `Plugin ctgpr: version 1
-ready`, the `CTGP-R: ...` lines as before, then `Plugins: ctgpr shut down
-(CTGP-R's plan is built)` and the arena `is the heap's again`), and the same
-with the plugin missing (the launch fails with the add-on sentence and
-`CTGP-R: the native launch needs RiftWii's ctgpr plugin in ...`).
+Run with the plugin there: in Dolphin with the real Wii system software
+(real IOS, d2x, Mario Kart Wii from USB) for layouts 0 and 1, and for a
+CTGP-R install that updated itself, each reaching CTGP-R's title screen and
+demo races; and on a real PAL Wii (USB through d2x 249), where the
+alphabetical and default layouts raced and a ghost saved. The log has
+`Plugins: ctgpr 1 read from ...`, `Plugin ctgpr: version 1 ready`, the
+`CTGP-R: ...` lines as before, the most heap blocks the plugin held at once,
+then `Plugins: ctgpr shut down (CTGP-R's plan is built)` and the arena `is
+the heap's again`. With the plugin missing (Dolphin), the launch fails with
+the add-on sentence and `CTGP-R: the native launch needs RiftWii's ctgpr
+plugin in ...`. Not run yet: a real-Wii launch from the SD card or the disc,
+NTSC-U and NTSC-J, layout 2 (`cuplayout.cup`) on a Wii, and the missing
+plugin on a Wii.
 
 RiftWii's loader (`boot.dol`) is linked at `0x80A00000` and grows upward
 toward the apploader at `0x81200000`; its heap is the space between its
