@@ -3715,8 +3715,10 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
         }
     }
     // Judged under the running IOS: with the adapter on, the game keeps it
-    // (below).
-    settle_gc_adapter(running_ios, di::frag_device(), "the game", false);
+    // (below). Not for CTGP-R: a plugged-in USB pad would switch the adapter
+    // back on, keep the IOS for it and leave its handle open in a game that
+    // has no pad hook to use it.
+    if (!options.ctgpr) settle_gc_adapter(running_ios, di::frag_device(), "the game", false);
     // Games on IOS57 start under it even when the runtime needs the card:
     // Just Dance 2014 goes black under IOS58 (on a tester's Wii U, with a
     // save-only pack and with a files-only one) and runs under IOS57, which
