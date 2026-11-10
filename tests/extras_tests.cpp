@@ -2122,14 +2122,13 @@ void TestCoverArt() {
     EXPECT_TRUE(add_game_folder(pick, "usb2:/iso") == GameFolderAdd::Added);
     EXPECT_TRUE(add_game_folder(pick, "usb:/WBFS") == GameFolderAdd::AlwaysSearched);
     EXPECT_TRUE(add_game_folder(pick, "usb:/games/") == GameFolderAdd::AlwaysSearched);
-    // A folder in wbfs or games is read with it already: listed twice otherwise.
-    EXPECT_TRUE(add_game_folder(pick, "sd:/wbfs/Title [RMCE01]") == GameFolderAdd::AlwaysSearched);
-    EXPECT_TRUE(add_game_folder(pick, "usb:/Games/GALE01") == GameFolderAdd::AlwaysSearched);
-    // Inside or around a listed folder on the same drive: scanned twice.
-    EXPECT_TRUE(add_game_folder(pick, "sd:/Wii Games/Title [RMCE01]") == GameFolderAdd::AlreadyListed);
     EXPECT_TRUE(add_game_folder(pick, "usb2:/") == GameFolderAdd::NotAFolder);
-    // "/Wii Games2" is not inside "/Wii Games".
-    EXPECT_TRUE(add_game_folder(pick, "sd:/Wii Games2") == GameFolderAdd::Added);
+    // A folder inside a listed one (or inside games) is its own entry: a
+    // scan reads one level of folders, so the outer one doesn't reach the
+    // inner one's game folders (the scan drops a game found twice).
+    EXPECT_TRUE(add_game_folder(pick, "sd:/Wii Games/USB Loader GX") == GameFolderAdd::Added);
+    EXPECT_TRUE(add_game_folder(pick, "usb:/games/Wii backups") == GameFolderAdd::Added);
+    pick.game_folders.pop_back();
     pick.game_folders.pop_back();
     EXPECT_TRUE(add_game_folder(pick, "usb:/") == GameFolderAdd::NotAFolder);
     EXPECT_TRUE(add_game_folder(pick, "/no drive") == GameFolderAdd::NotAFolder);
@@ -2147,20 +2146,11 @@ void TestCoverArt() {
     LoaderSettings pickBack;
     pickBack.parse(pick.serialize());
     EXPECT_TRUE(pickBack.game_folders == pick.game_folders);
-    // A hand-written list with a folder inside another, or inside wbfs,
-    // reads each game once.
+    // A hand-written list keeps a folder inside another: its games may be
+    // two levels below the outer one, which a scan doesn't reach.
     LoaderSettings nested;
-    nested.parse("game_folders = /Wii Games; /Wii Games/Mario; sd:/wbfs/Title; /Other\n");
-    const std::vector<std::string> nestedSd = game_folders_on(nested, "sd");
-    EXPECT_EQ(nestedSd.size(), 2u);
-    if (nestedSd.size() == 2) {
-        EXPECT_EQ(nestedSd[0], "/Wii Games");
-        EXPECT_EQ(nestedSd[1], "/Other");
-    }
-    LoaderSettings around;
-    around.game_folders = {"usb:/iso/wii"};
-    EXPECT_TRUE(add_game_folder(around, "usb:/iso") == GameFolderAdd::AlreadyListed);
-    EXPECT_TRUE(add_game_folder(around, "sd:/iso") == GameFolderAdd::Added);
+    nested.parse("game_folders = /Wii Games; /Wii Games/USB Loader GX; /games/Wii backups\n");
+    EXPECT_EQ(game_folders_on(nested, "sd").size(), 3u);
     // A folder settings.txt lists for both drives covers a pick on either.
     LoaderSettings plain;
     plain.game_folders = {"/Wii Games"};

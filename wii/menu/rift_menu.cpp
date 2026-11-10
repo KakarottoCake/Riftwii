@@ -13783,7 +13783,9 @@ static std::string GameFolderDriveName(const riftwii::GameFolderPlace& place)
 	if (place.drive == "sd") return tr("SD card");
 	if (place.drive == "usb") return tr("USB drive");
 	// Another partition of the USB drive, as the folder pick names it.
-	return std::string(tr("USB drive")) + " (" + place.drive + ":)";
+	if (place.drive.compare(0, 3, "usb") == 0) return std::string(tr("USB drive")) + " (" + place.drive + ":)";
+	// A drive written by hand that RiftWii doesn't read games from: as written.
+	return place.drive + ":";
 }
 
 // Settings > Drives > Game folders: the folders settings.txt's
@@ -13895,7 +13897,7 @@ static bool MenuGameFolders(std::vector<std::string>& folders)
 							noteTxt.SetText(tr("Added. Its games show on Home when you leave Settings."));
 							break;
 						case riftwii::GameFolderAdd::AlreadyListed:
-							noteTxt.SetText(tr("That folder is in the list already, or one inside it or around it is."));
+							noteTxt.SetText(tr("That folder is in the list already."));
 							break;
 						case riftwii::GameFolderAdd::AlwaysSearched:
 							noteTxt.SetText(tr("RiftWii always looks in wbfs and games, so there is no need to add them."));

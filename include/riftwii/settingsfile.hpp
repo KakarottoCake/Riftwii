@@ -220,9 +220,10 @@ private:
 };
 
 // The extra game folders for one drive ("sd" or "usb"), as "/path":
-// slashes turned forward, no trailing slash, wbfs and games and folders in
-// them left out (they are always looked in), and a folder inside another
-// listed one left out too, so no game is found twice.
+// slashes turned forward, no trailing slash, wbfs and games left out
+// (they are always looked in). A folder inside another is kept: a scan
+// reads only one level of folders, so the outer one may not reach its
+// games; the scan drops a game it found twice by its path instead.
 std::vector<std::string> game_folders_on(const LoaderSettings& settings, const std::string& device);
 
 // How many game_folders settings.txt keeps; more are left out when read.
@@ -240,8 +241,8 @@ GameFolderPlace game_folder_place(const std::string& entry);
 // What adding a folder picked on the Game folders page did.
 enum class GameFolderAdd {
     Added,
-    AlreadyListed,   // the same folder on that drive or on both, or one inside or around a listed one
-    AlwaysSearched,  // wbfs or games or a folder in them, which every scan reads anyway
+    AlreadyListed,   // the same folder on that drive, or on both drives
+    AlwaysSearched,  // wbfs or games, which every scan reads anyway
     Full,            // kMaxGameFolders already
     NotAFolder,      // a drive's top, or a name settings.txt can't hold
 };
