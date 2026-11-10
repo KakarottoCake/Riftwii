@@ -477,7 +477,11 @@ std::string running_dol_path(const char* launch_path, const std::function<bool(c
         if (colon != std::string::npos && !on_sd) return "";
         std::string tail = path.size() >= 4 ? path.substr(path.size() - 4) : std::string();
         for (char& c : tail) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-        if (on_sd && tail == ".dol" && is_file(path)) return path;
+        // argv[0] is the loader's, but it names the file an update replaces
+        // and CTGP-R's way back: a path that climbs out with ".." is not used.
+        const bool climbs = path.find("/../") != std::string::npos ||
+                            (path.size() >= 3 && path.compare(path.size() - 3, 3, "/..") == 0);
+        if (on_sd && !climbs && tail == ".dol" && is_file(path)) return path;
     }
     return is_file(kDefaultDol) ? kDefaultDol : "";
 }

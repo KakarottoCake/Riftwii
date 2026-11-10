@@ -752,6 +752,10 @@ static void TestRunningDolPath() {
     EXPECT_EQ(riftwii::running_dol_path(nullptr, card_has), std::string("sd:/apps/riftwii/boot.dol"));
     EXPECT_EQ(riftwii::running_dol_path("", card_has), std::string("sd:/apps/riftwii/boot.dol"));
     EXPECT_EQ(riftwii::running_dol_path(nullptr, [](const std::string&) { return false; }), std::string());
+    // A path that climbs out with ".." is not taken, even if the file is there.
+    const auto any = [](const std::string&) { return true; };
+    EXPECT_EQ(riftwii::running_dol_path("sd:/apps/../x.dol", card_has), std::string("sd:/apps/riftwii/boot.dol"));
+    EXPECT_EQ(riftwii::running_dol_path("sd:/apps/../x.dol", any), std::string("sd:/apps/riftwii/boot.dol"));
 }
 
 int main(int argc, char** argv) {
