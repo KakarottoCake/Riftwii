@@ -1466,6 +1466,11 @@ void InitUsbLock() {
     if (LWP_MutexInit(&g_usb_lock, true) < 0) g_usb_lock = LWP_MUTEX_NULL;  // ensure_usb then mounts nothing
 }
 
+void ReserveUsbBuffers() {
+    if (!g_picked.bounce) g_picked.bounce = skin::Mem2Alloc(kPickedBounce);
+    ums::ReserveBuffer();
+}
+
 bool usb_volume_ready() {
     UsbLocked locked;
     return !g_usb_volumes.empty();

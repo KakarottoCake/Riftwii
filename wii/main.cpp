@@ -492,6 +492,8 @@ int main() {
     riftwii::wii::InitNandPermissionLock();
     // Before any thread reads the USB drive (the drive scan, the covers).
     riftwii::wii::InitUsbLock();
+    // Before the menu fills the MEM2 arena (covers, the Wii Menu's sounds).
+    riftwii::wii::ReserveUsbBuffers();
     riftwii::wii::startup::Mark(Step::Cards);
     riftwii::wii::InitGcRealCards();
     riftwii::wii::startup::Mark(Step::Restart);

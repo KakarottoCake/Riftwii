@@ -268,6 +268,13 @@ MEM1 arena, the start of its MEM2 arena or its end. In Dolphin, Newer Super
 Mario Bros. Wii v1.30 runs with 336 KiB less MEM2 and dies at the start with
 352 KiB less.
 
+`mem2_arena_left_kib = N` leaves the loader's MEM2 arena as a large
+library's menu does (covers and the Wii Menu's sounds), N KiB left, for a
+launch straight from `autorun.txt`; `heap_grow_kib = H` grows the heap by
+H KiB first and frees it after, so the heap has room as on the tester's
+Wii (pass more than MEM1's heap, e.g. 12288, to grow it into MEM2). The
+log's "Memory: TEST BUILD: MEM2 arena filled" line says what was left.
+
 The same blob runs the Wii U Pro Controller translator and keeps a trace of
 the game's Bluetooth traffic in the log (docs/BLUETOOTH.md).
 `pro_controller = off` keeps the trace and leaves the traffic alone;

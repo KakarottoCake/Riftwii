@@ -88,6 +88,8 @@ unsigned g_game_mem1_kib = 0, g_game_mem2_kib = 0, g_game_mem2_top_kib = 0;
 bool g_wii_mem2_top = false;
 bool g_console_type_as_wii = false;
 bool g_wii_u_card_slots = false;
+bool g_arena_filled = false;
+u32 g_arena_filled_kib = 0;
 #ifdef RIFTWII_TEST_LIMITS
 void* g_pieces[64];
 
@@ -117,7 +119,7 @@ void TestBallast() {
 #ifdef RIFTWII_TEST_LIMITS
     FILE* f = std::fopen("sd:/riftwii/test_limits.txt", "r");
     if (!f) return;
-    unsigned ballast = 0, chunk = 256, pieces = 0;
+    unsigned ballast = 0, chunk = 256, pieces = 0, arena_left = ~0u, heap_grow = 0;
     char line[96];
     while (std::fgets(line, sizeof(line), f)) {
         unsigned v = 0;
@@ -130,8 +132,25 @@ void TestBallast() {
         else if (ReadSetting(line, "wii_mem2_top", v)) g_wii_mem2_top = v != 0;
         else if (ReadSetting(line, "console_type_as_wii", v)) g_console_type_as_wii = v != 0;
         else if (ReadSetting(line, "wii_u_card_slots", v)) g_wii_u_card_slots = v != 0;
+        else if (ReadSetting(line, "mem2_arena_left_kib", v)) arena_left = v;
+        else if (ReadSetting(line, "heap_grow_kib", v)) heap_grow = v;
     }
     std::fclose(f);
+    // "mem2_arena_left_kib = N" (with "heap_grow_kib = H"): the MEM2 arena
+    // as a large library's menu leaves it (a tester's: 7 KiB left, the
+    // heap 10 MiB free). The heap grows by H KiB first, the arena is then
+    // taken down to N KiB, and the heap's block is freed after it (the
+    // heap keeps it: its top no longer meets the arena's start, so malloc
+    // cannot give it back).
+    if (arena_left != ~0u) {
+        void* grown = heap_grow ? std::malloc(std::size_t(heap_grow) << 10) : nullptr;
+        const u32 keep = arena_left << 10;
+        const u32 lo = Address(SYS_GetArena2Lo()), hi = Address(SYS_GetArena2Hi());
+        if (hi > lo + keep + 32) skin::Mem2Alloc(hi - lo - keep - 32);
+        std::free(grown);
+        g_arena_filled_kib = (Address(SYS_GetArena2Hi()) - Address(SYS_GetArena2Lo())) >> 10;
+        g_arena_filled = true;
+    }
     // Never freed: the run (menu and launch) has that much less.
     for (unsigned held = 0; held < ballast; held += chunk) {
         void* p = std::malloc(std::size_t(chunk) << 10);
@@ -183,6 +202,9 @@ void LogLimits() {
          kMem1Ceiling, kMem2Floor, g_mem2_top, kMem2Floor, g_dolphin ? ", poisoned in Dolphin" : "");
     stash::Log();
     if (g_ballast_kib) logf("Memory: TEST BUILD: %u KiB of the heap held back (test_limits.txt)\n", g_ballast_kib);
+    if (g_arena_filled)
+        logf("Memory: TEST BUILD: MEM2 arena filled, %u KiB left (test_limits.txt)\n",
+             static_cast<unsigned>(g_arena_filled_kib));
 }
 
 // libogc's kernel heap (lwp_wkspace.c), 64 KiB: thread stacks without a
