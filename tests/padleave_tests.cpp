@@ -369,6 +369,36 @@ void TestPendingSave() {
     EXPECT_FALSE(rtleave_due(&h, 1, 9100, 0, 0));
 }
 
+// The hold the HOME Menu by the controller gave up on (#387): primed as held
+// long enough, the next read with the combo still held is due at once (the
+// saves quiet), one with it let go starts over, and a save still with IOS
+// keeps it waiting as any hold.
+void TestHeldThrough() {
+    for (std::uint32_t now : {5000u, 5001u}) {
+        rtleave l{};
+        l.hold = 100;
+        l.quiet = 50;
+        rtleave_held_through(&l, now);
+        EXPECT_TRUE(rtleave_due(&l, 1, now + 16, 0, 0));
+    }
+    {
+        rtleave l{};
+        l.hold = 100;
+        l.quiet = 50;
+        rtleave_held_through(&l, 5000);
+        EXPECT_FALSE(rtleave_due(&l, 0, 5016, 0, 0));  // let go: not this hold
+        EXPECT_FALSE(rtleave_due(&l, 1, 5032, 0, 0));  // a new hold starts its own count
+    }
+    {
+        rtleave l{};
+        l.hold = 100;
+        l.quiet = 50;
+        rtleave_note_save(&l, 4990);
+        rtleave_held_through(&l, 5000);
+        EXPECT_FALSE(rtleave_due(&l, 1, 5016, 0, 0));  // a save just now: wait for the quiet
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -378,6 +408,7 @@ int main() {
     TestQuietAtLeave();
     TestSleepLeaves();
     TestPendingSave();
+    TestHeldThrough();
     if (g_failures == 0) {
         std::cout << "ALL PAD LEAVE TESTS PASSED" << std::endl;
         return 0;

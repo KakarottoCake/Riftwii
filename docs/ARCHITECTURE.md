@@ -151,6 +151,46 @@ decisions are `runtime/rtleave.c`, host-tested. With any of the three
 functions missing, or one of the two hooks impossible, the way back stays
 off and boot.log says why; the adapter works as before.
 
+Where it can, the same combo opens the game's own HOME Menu instead
+(#224 part 1). Four more hooks, found by structure in
+`src/patching/hbmsearch.cpp`: the KPAD read (its ring buffer of statuses
+walked backwards gives the status's size), `WPADProbe`, `HBMCalc` (the
+function after `HBMInit`, which the HOME Menu's version banner leads to)
+and `HBMGetSelectBtnNum` (which tells the Operations Guide from Close).
+Two more where a game has them: `KPADGetUnifiedWpadStatus`, where Mario
+Kart Wii takes a Classic Controller's buttons, and the callback a game
+gives `KPADSetConnectCallback`, which GoldenEye 007 waits on before it
+reads a channel; the stand-in fills the first and is reported to the
+second.
+The blob stands a Classic Controller in on a free Wii Remote channel:
+`WPADProbe` says it is there, and the KPAD read gives its status, nothing
+pressed for 0.2 s (Naruto Shippuden: Clash of Ninja Revolution III takes no
+new press on a controller's first frame), then HOME held for 0.6 s (a
+Virtual Console game wants half a second). The game then opens
+its menu, or doesn't (mid-save, it shows its crossed-out HOME icon), and
+`HBMCalc` running tells the blob the menu is up: the stand-in then carries
+the pad (A, B, X, Y, Start as HOME to close it, the sticks with a dead
+zone, the combo's own buttons ignored until let go). The stand-in's Wii
+Remote carries the same presses (A, B, the D-pad, HOME) and, while the
+menu is up, a pointer the control stick moves: some games look only at the
+Remote, and Bomberman Blast hands a Classic Controller to its menu as a
+plain Remote. Some games stop their
+own KPAD reads and `PADRead` while the menu is up (Kamen Rider: Super
+Climax Heroes); the blob then reads the pads itself from the menu's
+`WPADProbe` and refreshes the status the KPAD read last filled. Once
+`HBMCalc` stops, the stand-in is gone, so games that read GameCube
+controllers themselves never see an extra player. Missing any of the
+four, the combo stays the way back; a game that never reads the
+stand-in's channel turns it back into the way back the first time, and one
+that reads it but opens no menu twice in a row the second time (twice, not
+once: Brawl and Tatsunoko vs. Capcom refuse once during their intros). A
+combo still held when that is decided is itself the way back. Code builds
+and Settings > Leaving a game on HOME only get the pad blob built without
+the HOME Menu (`RT_PAD_NO_HOME`, byte for byte the blob before it), so
+they give up none of their memory to it.
+The decisions are `runtime/rthome.c`, host-tested. The 2006 Virtual
+Console programs (Super Mario World, A Link to the Past, Bomberman '93)
+have neither the banner nor this KPAD layout, and keep the way back.
 **Packs that add GameCube controllers** (#352). A game that reads only
 Wii Remotes has no `PADRead`, so the adapter has nothing to hook. A mod
 pack can give it one, and this is the supported way to do it: the pack

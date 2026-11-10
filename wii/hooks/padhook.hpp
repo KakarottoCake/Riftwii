@@ -39,6 +39,16 @@
 // suspends itself to wait leave as a sleeping one would (N64 Virtual
 // Console's pad-reading thread); without it only sleeps leave.
 //
+// The HOME Menu (#224 part 1): with the KPAD read, WPADProbe, HBMCalc and
+// HBMGetSelectBtnNum found and hooked (riftwii/hbmsearch.hpp), the same combo opens the game's
+// own HOME Menu instead, on a Classic Controller the blob stands in on a
+// free channel until the menu closes (runtime/rthome.h); the stand-in's
+// Wii Remote carries the same presses and a pointer, for games that look
+// only at the Remote (Bomberman Blast). Missing any of the four, in a game
+// that never reads the stand-in's channel, or in one that reads it but
+// opens no menu twice in a row (Mario Kart Wii), the combo is the way back
+// as before.
+//
 // Anything that stands in the way turns the adapter off with a reason
 // for the log, never fails the launch: no PADRead in the game, a pack's
 // memory patch on the memory it would take, or (after the patches) a
@@ -50,8 +60,10 @@ namespace riftwii::wii {
 void log_pad_diagnostics(std::uint32_t code_base, std::uint32_t print_entry);
 
 // The blob's hooks: PADRead, PADControlMotor, the IPC submit routine,
-// OSSleepThread and OSSuspendThread (a code build's veneers, one each).
-constexpr std::uint32_t kPadHookSites = 5;
+// OSSleepThread, OSSuspendThread, the KPAD read, WPADProbe, HBMCalc,
+// HBMGetSelectBtnNum and KPADGetUnifiedWpadStatus (a code build's veneers,
+// one each).
+constexpr std::uint32_t kPadHookSites = 10;
 
 struct PadHook {
     bool active = false;             // planned; install_pad_hook hooks it
@@ -66,6 +78,7 @@ struct PadHook {
     std::uint32_t state_bytes = 0;
     bool adapter_only = false;       // the state is the adapter's alone (no other USB pad could be used)
     bool pads_only = false;          // the USB pads blob: no adapter, Switch Pro or DualShock 3 code (a code build)
+    bool home_blob = false;          // the blob with the HOME Menu by the controller (#387); else the one without
     std::uint32_t link_count = 0;    // pad links in the state (4, or a code build's pads plugged in at the launch)
     std::uint32_t map_count = 0;     // the catalog's layouts the game keeps
     std::uint32_t map_bytes = 0;     // and their bytes (packed, #506)
@@ -91,6 +104,18 @@ struct PadHook {
     // after the driver's state in MEM2; nullptr: none stored, none placed.
     const rtpadcal_table* calibration = nullptr;
     std::uint32_t calibration_base = 0;     // where the table went, 0: none
+    // The HOME Menu; any of the four required (kpad_read, wpad_probe,
+    // hbm_calc, hbm_select) 0: off.
+    std::uint32_t kpad_read = 0;          // the KPAD read (KPADReadEx in newer SDKs)
+    std::uint32_t kpad_status_bytes = 0;  // its status's size
+    bool kpad_takes_error = false;        // its fourth argument is the error's address
+    std::uint32_t wpad_probe = 0;         // WPADProbe
+    std::uint32_t hbm_calc = 0;           // HBMCalc
+    std::uint32_t hbm_select = 0;         // HBMGetSelectBtnNum, which tells the Operations Guide from Close (required)
+    std::uint32_t kpad_unified = 0;       // KPADGetUnifiedWpadStatus (optional: Mario Kart Wii reads a Classic there)
+    std::uint32_t kpad_unified_bytes = 0; // its statuses' size
+    std::uint32_t kpad_connect = 0;       // the game's connect callbacks in KPAD's block (optional, GoldenEye 007): channel 0's
+    std::uint32_t kpad_connect_stride = 0;  // and the block's size per channel
 };
 
 // Opens /dev/usb/hid on RiftWii's own handle and tells v4 from v5.
