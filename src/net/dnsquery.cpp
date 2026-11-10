@@ -32,12 +32,15 @@ constexpr int kMaxNamePointers = 16;
 constexpr unsigned kMaxAnswers = 32;
 constexpr std::size_t kMaxAliases = 8;
 
+// Big-endian 16-bit value at `p`.
 std::uint16_t read16(const std::uint8_t* p) { return static_cast<std::uint16_t>((p[0] << 8) | p[1]); }
 
+// Big-endian 32-bit value at `p`.
 std::uint32_t read32(const std::uint8_t* p) {
     return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
 }
 
+// ASCII lowercase of `c`.
 char lower(char c) { return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c; }
 
 // Host names compare without case and without a final dot.
@@ -49,6 +52,7 @@ std::string normalized(const std::string& host) {
     return name;
 }
 
+// Whether `c` (already lowercase) may appear in a host name label.
 bool name_character(char c) {
     return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_';
 }

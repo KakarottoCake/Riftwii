@@ -140,7 +140,8 @@ only (how its choices files and macros work), never copied. Behavioural referenc
   for the byte layout only (`include/riftwii/dnsquery.hpp`, `src/net/dnsquery.cpp`):
   the connection flags and where the DNS servers sit, as set out in Dolphin's
   `Core/IOS/Network/NCD/WiiNetConfig.h` (GPL-2.0-or-later, read for behaviour
-  only, at `master`); no Dolphin code was used. The DNS question and answer
+  only, at commit `a14c88ba67a51b0a563a5fc800cd089e82ffacaf`) and WiiBrew's
+  `config.dat` page; no Dolphin code was used. The DNS question and answer
   follow RFC 1035.
 - libruntimeiospatch (GPL-2.0; Joseph Jordan, damysteryman, Christopher
   Bratusek, DarkMatterCore, megazig, FIX94), as shipped in USB Loader GX at
