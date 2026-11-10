@@ -24,12 +24,14 @@ struct GcImage {
     std::string patch_source;  // set: `path` is a patch (gcpatch.hpp) to make the game from this original
     bool real_card = false;
     bool real_card_b = false;  // this game's own card in slot A, the real card in slot B passed through
+    bool real_card_b_as_a = false;  // the real card in slot B as the game's slot A (gc_card.h's real_slot_b)
     std::string external_card_path{};
     std::vector<std::uint8_t> external_card{};
     std::vector<Fragment> card_fragments{};
     bool shared_card = false;  // the memory card is the shared one, not the game's own (the Memory card option)
     bool drive_timing = true;  // reads take a GameCube drive's time (the game's Loading speed option)
     bool progressive = false;  // 480p (the game's 480p picture option)
+    bool line240 = false;      // 240p (that option's 240p, or Settings' Video mode on Default)
     bool widescreen = false;   // 3D drawn for 16:9 (its Widescreen option)
     int language = -1;         // the SRAM language the game reads (its Game language option); -1: the console's
     bool sharp = false;        // every line copied without the game's blur (its Sharper picture option)
@@ -37,6 +39,7 @@ struct GcImage {
     std::uint32_t vi_width = 0;  // its Picture width, as the blob takes it (riftwii/gcvideo.hpp); 0: the game's own
     bool screen_offset_set = false;  // the game is told the Wii's screen position
     int screen_offset = 0;           // that position, -32 to 32 (the Wii's IPL.DH)
+    std::uint32_t volume_boost_db = 0;  // its Volume boost: 0, 3 or 6 dB louder
     // On the USB drive: the d2x slot picked for the game (0: RiftWii's
     // choice), and, once the launch has found them, the file's pieces in
     // the drive's sectors with its size (the request's usb_fragments).

@@ -138,13 +138,15 @@ struct GameSettings {
     // one card for all the games of its encoding (gc_card_path).
     // global (Settings' GameCube memory card), own, shared, real (the real
     // card in slot A), real_b (this game's own card in slot A and the real
-    // card in slot B), nintendont, dolphin.
+    // card in slot B), real_b_as_a (the real card in slot B as the game's
+    // slot A, for a game that only looks there), nintendont, dolphin.
     std::string gc_card = "global";
     // A GameCube game's picture and language (gcnative.cpp does each).
     // "global", the default, follows Settings and the Wii's own settings
     // as a Wii game's rows do (GcConsoleSettings, resolved below); "game"
     // is the game's own whatever those say.
     // "480p": progressive scan, for a US or Japanese game on a component cable;
+    // "240p": every other line of the game's 480-line picture, progressive, for a CRT;
     std::string gc_progressive = "global";
     // "16:9": the game's 3D drawn for a widescreen TV;
     std::string gc_widescreen = "global";
@@ -162,6 +164,10 @@ struct GameSettings {
     // takes 60 Hz, so a game with a 60 Hz mode of its own plays in it;
     // "50" is the game as made.
     std::string gc_speed = "50";
+    // Volume boost, for a quiet game: "3" or "6" makes all its sound
+    // that many decibels louder (runtime/gc/gc_volume.h); "off" is the
+    // game as made.
+    std::string gc_volume = "off";
 };
 
 // The GameCube's languages in the order of their number in its settings
@@ -192,6 +198,7 @@ struct GcConsoleSettings {
     bool component_cable = false;           // the video hardware says a component cable is plugged in
     int wii_language = -1;                  // the Wii's language, as libogc's CONF_LANG_* number
     std::string video_width = "game";       // LoaderSettings::video_width (riftwii/videopatch.hpp names)
+    std::string video_mode = "game";        // LoaderSettings::video_mode: "240p" there makes Default 240p
 };
 
 // Whether the game's 3D is drawn for 16:9: only "16:9", picked for the
@@ -212,8 +219,17 @@ constexpr bool kGcWidescreenReady = false;
 // for a PAL game (gc_pal_game).
 bool gc_progressive_on(const GameSettings& game, const std::string& id, const GcConsoleSettings& console);
 
+// Whether the game gets 240p: "240p" yes, "480p" and "game" no,
+// "global" when Settings > Picture > Video mode is 240p (a CRT player's
+// choice for every game). It wins over Default's 480p. Never for a PAL
+// game, as 480p: its picture is 576 lines.
+bool gc_line240_on(const GameSettings& game, const std::string& id, const GcConsoleSettings& console);
+
 // Whether a European game (gc_pal_game) is told the TV takes 60 Hz.
 bool gc_sixty_hz_on(const GameSettings& game, const std::string& id);
+
+// The game's Volume boost in decibels: 0 (off), 3 or 6.
+unsigned gc_volume_boost_db(const GameSettings& game);
 
 // The picture width the game gets, as a riftwii/videopatch.hpp name:
 // the game's pick, or Settings' for "global" ("game" for anything else).

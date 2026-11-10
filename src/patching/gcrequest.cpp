@@ -188,9 +188,19 @@ bool gc_request_check(const rwp_gc_launch* request, std::uint32_t bytes, std::ui
         why = "the launch request has no room for a reason";
         return false;
     }
-    if (request->real_card > RWP_GC_REAL_CARD_B ||
-        (request->real_card == RWP_GC_REAL_CARD_A && request->shared_card)) {
+    // A real card as slot A leaves no room for an SD card there.
+    const bool real_slot_a = request->real_card == RWP_GC_REAL_CARD_A || request->real_card == RWP_GC_REAL_CARD_B_AS_A;
+    if (request->real_card > RWP_GC_REAL_CARD_B_AS_A || (real_slot_a && request->shared_card)) {
         why = "the launch request has conflicting memory card choices";
+        return false;
+    }
+    if (request->volume_boost_db != 0 && request->volume_boost_db != 3 && request->volume_boost_db != 6) {
+        why = "the launch request's volume boost of " + std::to_string(request->volume_boost_db) +
+              " dB is not 0, 3 or 6";
+        return false;
+    }
+    if (request->progressive && request->line240) {
+        why = "the launch request asks for 480p and 240p at once";
         return false;
     }
     if (request->screen_offset_set && (request->screen_offset < -32 || request->screen_offset > 32)) {
@@ -200,7 +210,7 @@ bool gc_request_check(const rwp_gc_launch* request, std::uint32_t bytes, std::ui
     }
     if (request->external_card != nullptr) {
         const std::uint32_t bytes = request->external_card_bytes;
-        if (request->real_card == RWP_GC_REAL_CARD_A || bytes < (512u << 10) || bytes > (16u << 20) || (bytes & (bytes - 1u)) != 0 ||
+        if (real_slot_a || bytes < (512u << 10) || bytes > (16u << 20) || (bytes & (bytes - 1u)) != 0 ||
             request->card_fragment_count == 0 || request->card_fragment_count > 32 || !request->card_fragments ||
             (request->card_on_usb && request->usb_fd < 0)) {
             why = "the external memory card request is not whole";

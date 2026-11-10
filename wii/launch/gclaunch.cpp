@@ -1097,6 +1097,7 @@ GcConsoleSettings GcConsoleNow() {
     console.component_cable = VIDEO_HaveComponentCable() != 0;
     console.wii_language = CONF_GetLanguage();
     console.video_width = Settings().video_width;
+    console.video_mode = Settings().video_mode;
     return console;
 }
 
@@ -1134,6 +1135,7 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         image.shared_card = card == "shared";
         image.real_card = card == "real";
         image.real_card_b = card == "real_b";
+        image.real_card_b_as_a = card == "real_b_as_a";
         if (card == "nintendont" || card == "dolphin") {
             image.external_card_path = ExternalCardPath(image.id, card);
             if (image.external_card_path.empty()) {
@@ -1145,6 +1147,7 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         if (extras.game_id == image.id && extras.gc_card_fallback) {
             image.real_card = false;
             image.real_card_b = false;
+            image.real_card_b_as_a = false;
             image.shared_card = false;
         }
         // "global" follows Settings and the Wii's own settings, as a Wii
@@ -1152,11 +1155,13 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         const GcConsoleSettings console = GcConsoleNow();
         const GameSettings& game = choices.game;
         image.progressive = gc_progressive_on(game, image.id, console);
+        image.line240 = gc_line240_on(game, image.id, console);
         image.widescreen = kGcWidescreenReady && gc_widescreen_on(game, console);
         image.language = gc_language_number(game, console);
         image.sharp = game.gc_sharp == "on";
         image.sixty_hz = gc_sixty_hz_on(game, image.id);
         image.vi_width = gc_vi_width(gc_picture_width(game, console));
+        image.volume_boost_db = gc_volume_boost_db(game);
         // The Wii's screen position (Wii Settings > Screen > Screen
         // Position), as a Wii game gets it. A GameCube game reads its own
         // from the SRAM, which nothing on a Wii sets.
@@ -1181,7 +1186,8 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
     }
     logf("GameCube: %s (%s), disc reads %s\n", image.id.c_str(), image.path.c_str(),
          image.drive_timing ? "at a GameCube drive's speed" : "at the SD card's speed");
-    logf("GameCube: picture %s, %s, %s, %s; language %s\n", image.progressive ? "480p" : "the game's own",
+    logf("GameCube: picture %s, %s, %s, %s; language %s\n",
+         image.progressive ? "480p" : image.line240 ? "240p (Settings' Video mode or the game's choice)" : "the game's own",
          image.widescreen ? "16:9" : "the game's own aspect", image.sharp ? "sharper" : "the game's own blur",
          image.sixty_hz ? "60 Hz where the game has it" : "the game's own speed",
          image.language >= 0 ? kGcLanguages[image.language] : "the console's");

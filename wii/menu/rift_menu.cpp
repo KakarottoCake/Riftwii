@@ -3534,11 +3534,34 @@ public:
 			std::unique_ptr<GuiText> label(new GuiText(tile.label.c_str(), 15, skin::kInk));
 			label->SetParent(this);
 			label->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-			// Two lines from y + 42 end by y + 84, inside a short card's 96
-			// (4:3 wraps "Recently played" and most translations).
-			const int labelY = shortCard ? 42 : tile.value.empty() ? 88 : 76;
-			label->SetPosition(tile.x + tile.w / 2 - screenwidth / 2, tile.y + labelY);
+			// A short card and a card with no count wrap the name at two lines
+			// (4:3 wraps "Recently played" and most translations); a tall card
+			// with a count wraps at three.
 			label->SetWrap(true, tile.w - 12, shortCard || tile.value.empty() ? 2 : 3);
+			// A short card and a card with no count have the picture and the
+			// name centred in the card as one block, worked out below (a short
+			// card's count sits in its top-right corner, clear of both). A tall
+			// card with a count keeps the fixed places: the name sits below
+			// the picture, then the count below the name.
+			int labelY = tile.value.empty() ? 88 : 76;
+			int iconTop = 30;
+			if (shortCard || tile.value.empty()) {
+				// One line, or two when the name is wider than the card or has
+				// a newline of its own in a translation.
+				int lines = label->GetTextWidth() > tile.w - 12 ? 2 : 1;
+				if (tile.label.find('\n') != std::string::npos) lines = 2;
+				const int picture = shortCard ? 35 : 42;  // the 28px picture, scaled
+				// A broken translation file can give an empty name, and then
+				// only the picture is left to centre. A short card's count is
+				// placed separately, in its corner.
+				const bool pictureOnly = tile.label.empty();
+				const int block = pictureOnly ? picture : picture + 4 + 18 * lines;
+				const int top = (tile.h - block) / 2;
+				iconTop = top + (picture - 28) / 2;
+				labelY = top + picture + 4;
+			}
+			iconTops_.push_back(iconTop);
+			label->SetPosition(tile.x + tile.w / 2 - screenwidth / 2, tile.y + labelY);
 			labels_.push_back(std::move(label));
 			std::unique_ptr<GuiText> count(new GuiText(tile.value.c_str(), 16, skin::kInkSoft));
 			count->SetParent(this);
@@ -3570,10 +3593,10 @@ public:
 				skin::DrawNine(over, x - 8, y - 8, w + 16, h + 16, skin::kTileCorner,
 					static_cast<int>(255 * lift * transition::Pulse()));
 			}
-			// A short card's picture is smaller and higher (35px from y + 3)
-			// so that two lines of name end inside it.
+			// A short card's picture is smaller (35px) so that two lines of
+			// name fit below it; its place comes from the constructor.
 			const bool shortCard = tile.h <= kChoiceShortCard;
-			const float iconY = shortCard ? 6 : 30, iconScale = shortCard ? 1.25f : 1.5f;
+			const float iconY = static_cast<float>(iconTops_[index]), iconScale = shortCard ? 1.25f : 1.5f;
 			if (tile.icon) skin::Draw(*tile.icon, tile.x + (tile.w - 28) / 2.0f, tile.y + iconY, 255, iconScale);
 			labels_[index]->Draw();
 			if (!tile.value.empty()) counts_[index]->Draw();
@@ -3586,6 +3609,7 @@ private:
 	int current_;
 	std::vector<std::unique_ptr<GuiText>> labels_;
 	std::vector<std::unique_ptr<GuiText>> counts_;
+	std::vector<int> iconTops_;  // each card's picture, from the card's top
 };
 
 static int PickHomeChoice(const char* name, std::vector<TileSpec>& tiles, int current)
@@ -8582,7 +8606,7 @@ struct RowRef {
 	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Aspect, Rumble, Speaker,
 		RegionStrings, Language, Cios, NandSource, Server, Favorite, Pack, Option, Note, ResetOptions,
 		AddCodes, ForgetCodes, MakeImage, Cover, Memory, About, GcDiscReads, GcCard, GcProgressive, GcWidescreen,
-		GcSharp, GcWidth, GcSpeed, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile, CodeStart, CrashLogs, CoverSet, CoverPick } what = What::Note;
+		GcSharp, GcWidth, GcSpeed, GcVolume, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile, CodeStart, CrashLogs, CoverSet, CoverPick } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -8638,7 +8662,7 @@ static const char* ProtectedGameNote()
 static const char* const kWidths[] = {"global", "game", "framebuffer", "704", "720"};
 static const char* const kDeflickers[] = {"global", "game", "off", "low", "medium", "high"};
 static const char* const kBorderModes[] = {"global", "keep", "remove", "remove_all"};
-static const char* const kVideoModes[] = {"global", "game", "system", "ntsc", "pal60", "pal50", "480p"};
+static const char* const kVideoModes[] = {"global", "game", "system", "ntsc", "pal60", "pal50", "480p", "240p"};
 static const char* const kAspects[] = {"global", "game", "4:3", "16:9"};
 static std::string AspectName(const std::string& v)
 {
@@ -8650,7 +8674,16 @@ static const char* const kGameLanguages[] = {"global", "console", "ja", "en", "d
 // first (riftwii::GcConsoleSettings), then the game's choices; the
 // languages are the console's GameCube setting, then riftwii::kGcLanguages
 // in the SRAM's order.
-static const char* const kGcProgressiveChoices[] = {"global", "480p", "game"};
+static const char* const kGcProgressiveChoices[] = {"global", "480p", "240p", "game"};
+// Volume boost: off, then +3 and +6 dB (GameSettings::gc_volume).
+static const char* const kGcVolumeChoices[] = {"off", "3", "6"};
+
+static std::string GcVolumeName(const std::string& volume)
+{
+	if (volume == "3") return tr("Louder (+3 dB)");
+	if (volume == "6") return tr("Loudest (+6 dB)");
+	return tr("Off (as made)");
+}
 static const char* const kGcWidescreenChoices[] = {"global", "16:9", "game"};
 static const char* const kGcLanguageChoices[] = {"global", "game", "english", "german", "french", "spanish", "italian",
 	"dutch"};
@@ -8763,7 +8796,15 @@ static std::string VideoModeName(const std::string& v)
 	if (v == "pal60") return "PAL 60 Hz";
 	if (v == "pal50") return "PAL 50 Hz";
 	if (v == "480p") return "480p";
+	if (v == "240p") return "240p";
 	return tr("Game's own");
+}
+// Video mode's note: 240p's own, else what each signal needs.
+static std::string VideoModeNote(const std::string& v, bool settings)
+{
+	if (v != "240p") return tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable.");
+	const std::string note = tr("240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture.");
+	return settings ? note + " " + tr("GameCube games left on Default get it too.") : note;
 }
 static std::string GameLanguageName(const std::string& v)
 {
@@ -9111,12 +9152,12 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 			: GcCardName(game.gc_card);
 		card.on = game.gc_card != "global";
 		const std::string used = riftwii::gc_card_effective(game, riftwii::wii::Settings().gc_card);
-		card.dim = (used == "real" || used == "real_b") && riftwii::wii::is_wii_u();
+		card.dim = (used == "real" || used == "real_b" || used == "real_b_as_a") && riftwii::wii::is_wii_u();
 		rows.push_back(card);
 		refs.push_back({W::GcCard});
 		FlowRow progressive;
 		progressive.kind = FlowRow::Kind::Option;
-		progressive.label = tr("480p picture");
+		progressive.label = tr("Picture lines");
 		// "global" is shown as what it comes to now, as a Wii game's rows
 		// show Settings' choice.
 		const riftwii::GcConsoleSettings console = riftwii::wii::GcConsoleNow();
@@ -9124,10 +9165,12 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		progressive.dim = riftwii::gc_pal_game(state.game_id);
 		progressive.on = game.gc_progressive != "global" && !progressive.dim;
 		const bool progressiveNow = riftwii::gc_progressive_on(game, state.game_id, console);
+		const bool line240Now = riftwii::gc_line240_on(game, state.game_id, console);
+		const std::string nowName = progressiveNow ? std::string(tr("On")) : line240Now ? std::string("240p") : std::string(tr("Off"));
 		if (progressive.dim) progressive.value = tr("Not for European games");
 		else if (game.gc_progressive == "global")
-			progressive.value = tr("Default ({1})", {progressiveNow ? std::string(tr("On")) : std::string(tr("Off"))});
-		else progressive.value = progressiveNow ? tr("On (480p)") : tr("Off");
+			progressive.value = tr("Default ({1})", {nowName});
+		else progressive.value = progressiveNow ? tr("On (480p)") : line240Now ? std::string("240p") : tr("Off");
 		rows.push_back(progressive);
 		refs.push_back({W::GcProgressive});
 		if (riftwii::kGcWidescreenReady) {
@@ -9165,6 +9208,13 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 			rows.push_back(speed);
 			refs.push_back({W::GcSpeed});
 		}
+		FlowRow volume;
+		volume.kind = FlowRow::Kind::Option;
+		volume.label = tr("Volume boost");
+		volume.on = riftwii::gc_volume_boost_db(game) != 0;
+		volume.value = GcVolumeName(game.gc_volume);
+		rows.push_back(volume);
+		refs.push_back({W::GcVolume});
 		FlowRow language;
 		language.kind = FlowRow::Kind::Option;
 		language.label = tr("Game language");
@@ -9830,6 +9880,7 @@ static std::string GcCardName(const std::string& card)
 {
 	if (card == "real") return tr("Real card in slot A");
 	if (card == "real_b") return tr("Real card in slot B");
+	if (card == "real_b_as_a") return tr("Real card in slot B, as slot A");
 	if (card == "shared") return tr("Shared");
 	if (card == "nintendont") return tr("Nintendont's card");
 	if (card == "dolphin") return tr("Dolphin's card");
@@ -9841,6 +9892,20 @@ static std::string GcCardName(const std::string& card)
 static std::string EffectiveGcCard(const FrontendState& state)
 {
 	return riftwii::gc_card_effective(state.model.game, riftwii::wii::Settings().gc_card);
+}
+
+// A real card is the game's slot A, so its saves are not on the SD card.
+static bool GcCardIsRealSlotA(const std::string& card)
+{
+	return card == "real" || card == "real_b_as_a";
+}
+
+// What the game page says when a real card is the game's slot A.
+static std::string GcRealSlotANote(const std::string& card)
+{
+	if (card == "real_b_as_a")
+		return tr("This game uses the real card in slot B as its slot A. Its saves are not on the SD card.");
+	return tr("This game uses the real card in slot A. Its saves are not on the SD card.");
 }
 
 // The game's card, named as the loader names it (gcnative.cpp): its own
@@ -9892,7 +9957,7 @@ static bool ReadGcCardSpace(const std::string& path, riftwii::GcCardSpace& space
 
 static bool GcCardFull(const FrontendState& state)
 {
-	if (EffectiveGcCard(state) == "real") return false;
+	if (GcCardIsRealSlotA(EffectiveGcCard(state))) return false;
 	riftwii::GcCardSpace space;
 	return ReadGcCardSpace(GcCardPath(state), space) && space.full();
 }
@@ -11282,10 +11347,26 @@ static int ReadRealCardWithBar(riftwii::wii::GcRealCard& physical, std::vector<s
 	return result;
 }
 
+// The slot to copy from: the one holding a card when only one does,
+// otherwise the player's choice, with neither marked: both hold a card,
+// or neither answered, which may only mean the check wasn't possible (a
+// Wii U, a card already open), so opening the chosen slot says what is
+// wrong. -1: Back.
+static int PickRealGcCardSlot()
+{
+	const bool inA = riftwii::wii::GcRealSlotHasCard(0);
+	const bool inB = riftwii::wii::GcRealSlotHasCard(1);
+	if (inA != inB) {
+		logf("Memory card: only slot %c holds a card, so it is the one copied from\n", inA ? 'A' : 'B');
+		return inA ? 0 : 1;
+	}
+	return ChooseTwo(tr("Memory card"), tr("Choose the slot holding the memory card."),
+		tr("Slot A"), "", tr("Slot B"), "");
+}
+
 static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 {
-	const int slot = ChooseTwo(tr("Memory card"), tr("Choose the slot holding the memory card."),
-		tr("Slot A"), "", tr("Slot B"), "");
+	const int slot = PickRealGcCardSlot();
 	if (slot < 0) return;
 	riftwii::wii::GcRealCard physical;
 	int result = physical.Open(slot);
@@ -11448,7 +11529,8 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 
 static void MenuGcCard(FrontendState& state)
 {
-	const bool real = EffectiveGcCard(state) == "real";
+	const std::string used = EffectiveGcCard(state);
+	const bool real = GcCardIsRealSlotA(used);
 	const bool noSlots = riftwii::wii::is_wii_u();
 	std::vector<FlowRow> rows(3);
 	for (FlowRow& row : rows) row.kind = FlowRow::Kind::Action;
@@ -11460,7 +11542,7 @@ static void MenuGcCard(FrontendState& state)
 	rows[1].dim = rows[2].dim = noSlots;
 	const auto note = [&](int row) -> std::string {
 		if (row > 0 && noSlots) return tr("Wii U has no GameCube memory card slots.");
-		if (real) return tr("This game uses the real card in slot A. Its saves are not on the SD card.");
+		if (real) return GcRealSlotANote(used);
 		return tr("Nothing is written to the card. Copies go to the SD card.");
 	};
 	RunRowPage(tr("Memory Card"), GameTitle(state), rows, note, [&](int row, const PageAside& aside) {
@@ -11602,9 +11684,12 @@ static bool ReadyGcStart(FrontendState& state)
 	state.gc_card_fallback = false;
 	const riftwii::wii::ImageGame* game = SelectedGcGame(state);
 	if (!game) return true;
-	if (EffectiveGcCard(state) == "real") {
+	const std::string used = EffectiveGcCard(state);
+	if (GcCardIsRealSlotA(used)) {
+		// Slot B's card as slot A is read from slot B.
+		const int slot = used == "real" ? 0 : 1;
 		riftwii::wii::GcRealCard physical;
-		int result = physical.Open(0);
+		int result = physical.Open(slot);
 		std::vector<std::uint8_t> system;
 		riftwii::GcCardSpace space;
 		std::array<std::uint8_t, 12> flashId{};
@@ -11612,7 +11697,7 @@ static bool ReadyGcStart(FrontendState& state)
 		if (result >= 0) result = physical.ReadSystem(system);
 		if (result >= 0 && (!riftwii::gc_card_space(system, physical.Bytes(), space, error) ||
 			!riftwii::gc_card_flash_id(system, flashId))) {
-			logf("Memory card: the card in slot A cannot be played with: %s\n",
+			logf("Memory card: the card in slot %c cannot be played with: %s\n", 'A' + slot,
 				error.empty() ? "its header holds no card ID" : error.c_str());
 			result = CARD_ERROR_BROKEN;
 		}
@@ -11621,11 +11706,14 @@ static bool ReadyGcStart(FrontendState& state)
 		if (result < 0) {
 			std::string why = GcRealError(result);
 			if (riftwii::wii::is_wii_u()) why = tr("Wii U has no GameCube memory card slots.");
+			else if ((result == CARD_ERROR_NOCARD || result == CARD_ERROR_WRONGDEVICE) && slot == 0)
+				why = tr("Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A.");
 			else if (result == CARD_ERROR_NOCARD || result == CARD_ERROR_WRONGDEVICE)
-				why = tr("Slot A has no readable memory card. A card in slot B cannot be used as slot A.");
-			if (ShowPopup(tr("Real card in slot A"), why, tr("Use this game's SD card"), tr("Cancel")) != 0) return false;
+				why = tr("The memory card in slot B could not be read. Put it back in, or choose another card on the game's page.");
+			if (ShowPopup(GcCardName(used), why, tr("Use this game's SD card"), tr("Cancel")) != 0) return false;
 			state.gc_card_fallback = true;
-			logf("GameCube: the player chose this game's SD card for this launch because slot A could not be mounted; the saved real-card choice is kept.\n");
+			logf("GameCube: the player chose this game's SD card for this launch because slot %c could not be mounted; the saved real-card choice is kept.\n",
+				'A' + slot);
 		}
 	}
 	if (!ShowGcControlsOnce(state)) return false;
@@ -13870,7 +13958,7 @@ static std::string PlayTileNote(const FrontendState& state)
 static std::string GcSaveNote(const FrontendState& state)
 {
 	const std::string used = EffectiveGcCard(state);
-	if (used == "real") return tr("This game uses the real card in slot A. Its saves are not on the SD card.");
+	if (GcCardIsRealSlotA(used)) return GcRealSlotANote(used);
 	const std::string card = GcCardPath(state);
 	if (used == "nintendont" || used == "dolphin")
 		return tr("Saves are written to {1}. A backup is kept before the game starts.", {card});
@@ -13924,6 +14012,7 @@ static int ChangedGameSettings(const riftwii::GameSettings& g)
 	if (g.gc_sharp == "on") ++changed;
 	if (g.gc_width != "global") ++changed;
 	if (g.gc_speed == "60") ++changed;
+	if (riftwii::gc_volume_boost_db(g) != 0) ++changed;
 	if (g.rumble == "off") ++changed;
 	if (g.speaker == "off") ++changed;
 	return changed;
@@ -13974,7 +14063,7 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 	// save mode. Its cheats are picked as a Wii game's are.
 	const bool cardFull = gamecube && GcCardFull(state);
 	const std::string saves = cardFull ? std::string(tr("Memory card full"))
-		: gamecube && EffectiveGcCard(state) == "real" ? std::string(tr("Real card in slot A"))
+		: gamecube && GcCardIsRealSlotA(EffectiveGcCard(state)) ? GcCardName(EffectiveGcCard(state))
 		: gamecube ? std::string(tr("Memory Card")) + " \xC2\xB7 SD"
 		: !state.model.pack_save_owner().empty() ? std::string(tr("Kept by the pack"))
 		// The tile names where the saves go; "Default (...)" doesn't fit it.
@@ -14137,7 +14226,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				say(seen.empty() ? how : seen + " " + how);
 			}
 			else if (ref.what == RowRef::What::VideoMode)
-				say(tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable."));
+				say(VideoModeNote(gameSettings.video_mode == "global" ? riftwii::wii::Settings().video_mode : gameSettings.video_mode, false));
 			else if (ref.what == RowRef::What::RegionVideo)
 				say(tr("For a US or Japanese game that shows no picture on a console from another region: the game is told the video hardware matches its region."));
 			else if (ref.what == RowRef::What::Aspect)
@@ -14166,10 +14255,15 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				if (nintendont && dolphin) help = tr("Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only).");
 				else if (nintendont) help = tr("Use this game's card, a shared card, Nintendont's card, or a real card in slot A (Wii only).");
 				else if (dolphin) help = tr("Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only).");
+				if (state.model.game.gc_card == "real_b_as_a")
+					help = tr("For a game that only looks in slot A: the real card in slot B is its slot A, and slot B looks empty to it (original Wii only).");
 				say(help);
 			}
 			else if (ref.what == RowRef::What::GcProgressive && riftwii::gc_pal_game(state.game_id))
-				say(tr("480p is for US and Japanese games; this European game keeps its own picture."));
+				say(tr("480p and 240p are for US and Japanese games; this European game keeps its own picture."));
+			else if (ref.what == RowRef::What::GcProgressive &&
+				 riftwii::gc_line240_on(state.model.game, state.game_id, riftwii::wii::GcConsoleNow()))
+				say(tr("240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture."));
 			else if (ref.what == RowRef::What::GcProgressive && state.model.game.gc_progressive == "global" &&
 				 !riftwii::gc_progressive_on(state.model.game, state.game_id, riftwii::wii::GcConsoleNow()))
 				say(tr("Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."));
@@ -14183,6 +14277,8 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				say(WidthNote(gameSettings.gc_width == "global" ? riftwii::wii::Settings().video_width : gameSettings.gc_width));
 			else if (ref.what == RowRef::What::GcSpeed)
 				say(tr("Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz."));
+			else if (ref.what == RowRef::What::GcVolume)
+				say(tr("Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten."));
 			else if (ref.what == RowRef::What::GcLanguage)
 				say(tr("The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one)."));
 			else if (ref.what == RowRef::What::GcControls)
@@ -14255,6 +14351,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 					if (!riftwii::wii::is_wii_u()) {
 						sources.push_back("real");
 						sources.push_back("real_b");
+						sources.push_back("real_b_as_a");
 					}
 					for (const char* source : {"nintendont", "dolphin"}) {
 						if (!riftwii::wii::ExternalCardPath(state.game_id, source).empty()) sources.push_back(source);
@@ -14265,26 +14362,29 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			}
 			else if (ref.what == RowRef::What::GcProgressive && riftwii::gc_pal_game(state.game_id)) {
 				// The row is dimmed: nothing to change, only why.
-				say(tr("480p is for US and Japanese games; this European game keeps its own picture."));
+				say(tr("480p and 240p are for US and Japanese games; this European game keeps its own picture."));
 				changed = false;
 			}
 			else if (ref.what == RowRef::What::GcProgressive) {
 				std::string next = StepValue(kGcProgressiveChoices, game.gc_progressive, direction);
 				// Without a component cable seen nothing says the TV takes
 				// 480p (the Wii's own setting may be from another cable):
-				// asked once, when 480p is picked; Cancel goes on past it.
+				// asked once, when 480p is picked; Cancel keeps the row as
+				// it was (stepping on would land on 240p, a picture change
+				// the player didn't ask for either).
 				riftwii::GameSettings picked = game;
 				picked.gc_progressive = next;
 				const riftwii::GcConsoleSettings console = riftwii::wii::GcConsoleNow();
 				if (!console.component_cable && riftwii::gc_progressive_on(picked, state.game_id, console) &&
 				    !AskGc480p())
-					next = StepValue(kGcProgressiveChoices, next, direction);
+					next = game.gc_progressive;
 				game.gc_progressive = next;
 			}
 			else if (ref.what == RowRef::What::GcWidescreen) game.gc_widescreen = StepValue(kGcWidescreenChoices, game.gc_widescreen, direction);
 			else if (ref.what == RowRef::What::GcSharp) game.gc_sharp = game.gc_sharp == "on" ? "off" : "on";
 			else if (ref.what == RowRef::What::GcWidth) game.gc_width = StepValue(kWidths, game.gc_width, direction);
 			else if (ref.what == RowRef::What::GcSpeed) game.gc_speed = game.gc_speed == "60" ? "50" : "60";
+			else if (ref.what == RowRef::What::GcVolume) game.gc_volume = StepValue(kGcVolumeChoices, game.gc_volume, direction);
 			else if (ref.what == RowRef::What::GcLanguage) game.gc_language = StepValue(kGcLanguageChoices, game.gc_language, direction);
 			else if (ref.what == RowRef::What::GcControls) {
 				ShowGcControls(false);
@@ -14328,6 +14428,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 					game.gc_sharp = fresh.gc_sharp;
 					game.gc_width = fresh.gc_width;
 					game.gc_speed = fresh.gc_speed;
+					game.gc_volume = fresh.gc_volume;
 					// Kept: cheats, save mode, packs, favourite.
 					logf("Game settings: %s options reset to the defaults (saves, cheats, mods kept)\n", state.game_id.c_str());
 				}
@@ -17458,7 +17559,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kWidth: return WidthNote(settings.video_width);
 			case kDeflicker: return tr("A filter that softens the picture to hide flicker. Off gives the sharpest picture.");
 			case kBorders: return tr(kBordersNote);
-			case kVideoMode: return tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable.");
+			case kVideoMode: return VideoModeNote(settings.video_mode, true);
 			case kAspect: return tr("Makes the game use 4:3 or widescreen 16:9 whatever the Wii's TV setting says. Not every game can be changed.");
 			case kGameLanguage: return tr("The language the game is told the console uses. Pick one the game has: some games stop without it.");
 			case kGameCios: return tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works.");
@@ -17692,7 +17793,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				case kVideoMode:
 					settings.video_mode = StepValue(kVideoModes, settings.video_mode, direction, false);
-					saveAndNote(tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable."));
+					saveAndNote(VideoModeNote(settings.video_mode, true));
 					rebuild();
 					break;
 				case kAspect:

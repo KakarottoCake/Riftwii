@@ -73,7 +73,7 @@ struct gc_rt_header {
     uint32_t hook_cb_r5;      /* DVDLowAudioBufferConfig(on, size, cb) */
     uint32_t hook_audio_stream;  /* DVDLowAudioStream(sub, length, offset, cb) */
     uint32_t alarm_entry;     /* the OSAlarm handler that runs the callback */
-    uint32_t hook_ai_dma;     /* AIInitDMA(start, length): the stream mixed in, then the original */
+    uint32_t hook_ai_dma;     /* AIInitDMA(start, length): the stream mixed in, the Volume boost, then the original */
     uint32_t replay_ai_dma;   /* 16 bytes: AIInitDMA's displaced first word, then padding */
     uint32_t continue_ai_dma; /* 16 bytes: the jump to its second word */
     uint32_t hook_pad_read;   /* PADRead(status): the original, then the test presses (GC_FLAG_PRESS) */
@@ -671,6 +671,14 @@ struct gc_rt_context {
     uint32_t sample_quiet;
     uint32_t samples_stood_in;
     uint32_t sample_queued;
+    /* Volume boost (gc_volume.h): the gain in 1/256ths each AI buffer is
+     * scaled by in gc_on_ai_dma (loader-filled; 0 or GC_VOLUME_UNITY: off),
+     * and the fingerprint (gc_volume_print) of the last buffer handed
+     * over, as the AI plays it, so one handed over again unchanged (a mixer
+     * that fell behind replays its last) is not made louder twice. */
+    uint32_t volume_gain;
+    uint32_t volume_last;
+    uint32_t volume_buffers;  /* buffers scaled, for a memory dump */
     /* A Triforce arcade game: its boards' struct gc_tri (gc_tri.h,
      * loader-placed in MEM2); 0: a GameCube game. In the bytes the alarm's
      * 32-byte alignment pads to anyway, so the context's size stays. */

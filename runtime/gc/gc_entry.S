@@ -163,8 +163,8 @@ gc_hook_\name:
     GC_LOAD_HOOK load_callbacks, gc_on_load_callbacks
 
 /* AIInitDMA(start, length): gc_on_ai_dma(ctx, start, length) mixes the
- * disc stream into the buffer, then the original runs from the replay
- * slot with the game's arguments. Frame: 8 start, 12 length. */
+ * disc stream into the buffer and applies the Volume boost, then the
+ * original runs from the replay slot with the game's arguments. Frame: 8 start, 12 length. */
     .globl gc_hook_ai_dma
 gc_hook_ai_dma:
     stwu 1, -0x20(1)

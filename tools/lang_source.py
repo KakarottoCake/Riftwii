@@ -1719,7 +1719,6 @@ T = {
     "480p picture": ("Imagen en 480p", "480pの映像", "Imagem em 480p", "Immagine in 480p"),
     "On (480p)": ("Sí (480p)", "オン (480p)", "Sim (480p)", "Sì (480p)"),
     "Widescreen": ("Panorámico", "ワイド画面", "Widescreen", "Panoramico"),
-    "480p is for US and Japanese games; this European game keeps its own picture.": ("480p es para juegos de EE. UU. y Japón; este juego europeo mantiene su propia imagen.", "480pはアメリカと日本のゲーム用で、このヨーロッパのゲームはゲームのままの映像になります。", "480p é para jogos dos EUA e do Japão; este jogo europeu mantém a sua própria imagem.", "Il 480p è per i giochi americani e giapponesi; questo gioco europeo mantiene la sua immagine."),
     "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first.": ("Da una imagen más nítida y estable con un cable por componentes, incluso en juegos sin modo 480p; algunos preguntan antes.", "コンポーネントケーブルで、くっきり安定した映像にします。480pのないゲームも対象で、先に確認を求めるゲームもあります。", "Dá uma imagem mais nítida e estável com cabo componente, mesmo em jogos sem modo 480p; alguns jogos perguntam antes.", "Dà un'immagine più nitida e stabile con un cavo component, anche nei giochi senza modo 480p; alcuni chiedono prima."),
     "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental).": ("Llena una TV panorámica con el mundo del juego; los menús siguen estirados y algunos juegos muestran colores erróneos (experimental).", "ゲームの世界をワイドテレビいっぱいに広げます。メニューは横に伸びたままで、色がおかしくなるゲームもあります (試験的)。", "Preenche uma TV widescreen com o mundo do jogo; os menus continuam esticados e alguns jogos mostram cores erradas (experimental).", "Riempie una TV panoramica con il mondo di gioco; i menu restano allungati e alcuni giochi mostrano colori sbagliati (sperimentale)."),
     "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one).": ("El idioma en que se juega este juego, sin cambiar el ajuste de la Wii (la mayoría de los juegos de EE. UU. y Japón tienen solo uno).", "このゲームを遊ぶ言語で、Wii本体の設定は変わりません (アメリカと日本のゲームの多くは1言語だけです)。", "O idioma em que este jogo é jogado, sem mudar a configuração do Wii (a maioria dos jogos dos EUA e do Japão tem só um).", "La lingua in cui si gioca questo gioco, senza cambiare l'impostazione della Wii (la maggior parte dei giochi americani e giapponesi ne ha una sola)."),
@@ -3739,8 +3738,6 @@ KO = {
         "켬 (480p)",
     "Widescreen":
         "와이드 화면",
-    "480p is for US and Japanese games; this European game keeps its own picture.":
-        "480p는 미국과 일본 게임용이며, 이 유럽 게임은 원래 화면을 그대로 씁니다.",
     "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first.":
         "컴포넌트 케이블에서 더 선명하고 안정적인 화면을 보여 주며, 480p가 없는 게임도 해당됩니다. 일부 게임은 먼저 물어봅니다.",
     "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental).":
@@ -5791,8 +5788,6 @@ FR = {
         "Activé (480p)",
     "Widescreen":
         "Écran large",
-    "480p is for US and Japanese games; this European game keeps its own picture.":
-        "Le 480p est pour les jeux américains et japonais ; ce jeu européen garde sa propre image.",
     "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first.":
         "Donne une image plus nette et plus stable avec un câble composante, même dans les jeux sans mode 480p ; certains posent d'abord la question.",
     "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental).":
@@ -6263,9 +6258,6 @@ FR.update({
     "Reading the memory card": "Lecture de la carte mémoire",
     "Keep the card in its slot. Nothing is written to it.": "Laissez la carte dans son port. Rien n'y est écrit.",
 })
-T['Slot A has no readable memory card. A card in slot B cannot be used as slot A.'] = ('La ranura A no tiene una tarjeta legible. Una tarjeta en la ranura B no puede usarse como A.', 'スロットAに読み込めるメモリーカードがありません。スロットBのカードはAとして使えません。', 'O slot A não tem cartão legível. Um cartão no slot B não pode ser usado como slot A.', 'Lo slot A non contiene una scheda leggibile. Una scheda nello slot B non può essere usata come slot A.')
-KO['Slot A has no readable memory card. A card in slot B cannot be used as slot A.'] = '슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B의 카드는 슬롯 A로 사용할 수 없습니다.'
-FR['Slot A has no readable memory card. A card in slot B cannot be used as slot A.'] = 'Le port A ne contient aucune carte lisible. Une carte du port B ne peut pas servir de port A.'
 
 T['The real card could not be prepared. Check the card and try again.'] = ('No se pudo preparar la tarjeta real. Comprueba la tarjeta e inténtalo de nuevo.', '実物のカードを準備できませんでした。カードを確認してもう一度お試しください。', 'Não foi possível preparar o cartão real. Verifique o cartão e tente novamente.', 'Impossibile preparare la scheda reale. Controlla la scheda e riprova.')
 KO['The real card could not be prepared. Check the card and try again.'] = '실제 카드를 준비하지 못했습니다. 카드를 확인하고 다시 시도하세요.'
@@ -8807,6 +8799,110 @@ FR.update({
         "La carte mémoire de chaque jeu GameCube dont l'option Carte mémoire est sur Par défaut. Le choix propre d'un jeu l'emporte.",
     "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page.":
         "La carte mémoire du port B n'a pas pu être lue. Remettez-la, ou choisissez une autre carte sur la page du jeu.",
+})
+
+# GameCube games' Volume boost (runtime/gc/gc_volume.h).
+T.update({
+    'Volume boost': ('Aumento de volumen', '音量アップ', 'Aumento de volume', 'Aumento del volume'),
+    'Louder (+3 dB)': ('Más alto (+3 dB)', '大きく (+3 dB)', 'Mais alto (+3 dB)', 'Più forte (+3 dB)'),
+    'Loudest (+6 dB)': ('Aún más alto (+6 dB)', 'もっと大きく (+6 dB)', 'Ainda mais alto (+6 dB)', 'Ancora più forte (+6 dB)'),
+    "Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten.": (
+        'Sube todo el sonido de un juego silencioso. A +6 dB los sonidos más fuertes pueden aplanarse.',
+        '音が小さいゲームの音をすべて大きくします。+6 dBでは、いちばん大きな音がつぶれることがあります。',
+        'Aumenta todo o som de um jogo baixo. Em +6 dB os sons mais altos podem ficar achatados.',
+        'Alza tutto il suono di un gioco silenzioso. A +6 dB i suoni più forti possono appiattirsi.'),
+})
+KO.update({
+    'Volume boost': '볼륨 키우기',
+    'Louder (+3 dB)': '크게 (+3 dB)',
+    'Loudest (+6 dB)': '더 크게 (+6 dB)',
+    "Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten.":
+        '소리가 작은 게임의 모든 소리를 키웁니다. +6 dB에서는 가장 큰 소리가 뭉개질 수 있습니다.',
+})
+FR.update({
+    'Volume boost': 'Volume renforcé',
+    'Louder (+3 dB)': 'Plus fort (+3 dB)',
+    'Loudest (+6 dB)': 'Encore plus fort (+6 dB)',
+    "Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten.":
+        "Rend plus fort tout le son d'un jeu trop discret. À +6 dB, les sons les plus forts peuvent être écrêtés.",
+})
+
+# GameCube memory card: the real card in slot B as the game's slot A.
+T.update({
+    'Real card in slot B, as slot A': ('Tarjeta real de la ranura B, como ranura A', 'スロットBの実物カードをスロットAとして', 'Cartão real do slot B, como slot A', 'Scheda reale dello slot B, come slot A'),
+    'This game uses the real card in slot B as its slot A. Its saves are not on the SD card.': (
+        'Este juego usa la tarjeta real de la ranura B como su ranura A. Sus partidas no están en la tarjeta SD.',
+        'このゲームはスロットBの実物カードをスロットAとして使います。セーブはSDカードにはありません。',
+        'Este jogo usa o cartão real do slot B como seu slot A. Os saves dele não ficam no cartão SD.',
+        'Questo gioco usa la scheda reale dello slot B come suo slot A. I salvataggi non sono sulla scheda SD.'),
+    'For a game that only looks in slot A: the real card in slot B is its slot A, and slot B looks empty to it (original Wii only).': (
+        'Para un juego que solo busca en la ranura A: la tarjeta real de la ranura B es su ranura A, y la ranura B le parece vacía (solo Wii original).',
+        'スロットAしか見ないゲーム用です。スロットBの実物カードがスロットAになり、スロットBは空に見えます (初代Wiiのみ)。',
+        'Para um jogo que só procura no slot A: o cartão real do slot B é o slot A dele, e o slot B parece vazio (só Wii original).',
+        'Per un gioco che guarda solo nello slot A: la scheda reale dello slot B diventa il suo slot A, e lo slot B sembra vuoto (solo Wii originale).'),
+    'Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A.': (
+        'La ranura A no tiene una tarjeta de memoria legible. Para una tarjeta en la ranura B, elige Tarjeta real de la ranura B, como ranura A.',
+        'スロットAに読めるメモリーカードがありません。スロットBのカードを使うには「スロットBの実物カードをスロットAとして」を選んでください。',
+        'O slot A não tem um cartão de memória legível. Para um cartão no slot B, escolha Cartão real do slot B, como slot A.',
+        'Lo slot A non ha una scheda di memoria leggibile. Per una scheda nello slot B, scegli Scheda reale dello slot B, come slot A.'),
+})
+KO.update({
+    'Real card in slot B, as slot A': '슬롯 B의 실제 카드를 슬롯 A로',
+    'This game uses the real card in slot B as its slot A. Its saves are not on the SD card.':
+        '이 게임은 슬롯 B의 실제 카드를 슬롯 A로 사용합니다. 세이브는 SD 카드에 없습니다.',
+    'For a game that only looks in slot A: the real card in slot B is its slot A, and slot B looks empty to it (original Wii only).':
+        '슬롯 A만 찾는 게임용: 슬롯 B의 실제 카드가 슬롯 A가 되고, 슬롯 B는 비어 보입니다 (초기형 Wii만).',
+    'Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A.':
+        '슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B의 카드를 쓰려면 "슬롯 B의 실제 카드를 슬롯 A로"를 고르세요.',
+})
+FR.update({
+    'Real card in slot B, as slot A': 'Carte réelle du port B, comme port A',
+    'This game uses the real card in slot B as its slot A. Its saves are not on the SD card.':
+        "Ce jeu utilise la carte réelle du port B comme son port A. Ses sauvegardes ne sont pas sur la carte SD.",
+    'For a game that only looks in slot A: the real card in slot B is its slot A, and slot B looks empty to it (original Wii only).':
+        "Pour un jeu qui ne regarde que le port A : la carte réelle du port B devient son port A, et le port B lui paraît vide (Wii d'origine seulement).",
+    'Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A.':
+        "Le port A n'a pas de carte mémoire lisible. Pour une carte dans le port B, choisissez Carte réelle du port B, comme port A.",
+})
+
+# 240p output (#511): Video mode's 240p and the GameCube game page's Picture lines.
+T.update({
+    "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture.": (
+        "240p es para televisores CRT y pixel art: la imagen de 480 líneas del juego sale una línea sí y otra no, "
+        "progresiva y sin parpadeo. Los juegos que dibujan menos líneas conservan su propia imagen.",
+        "240pはブラウン管テレビとドット絵向けです。ゲームの480ラインの画面を1ラインおきに、ちらつきのないプログレッシブで"
+        "出力します。ラインの少ないゲームは元の画面のままです。",
+        "240p é para TVs de tubo (CRT) e pixel art: a imagem de 480 linhas do jogo sai uma linha sim, outra não, "
+        "progressiva e sem cintilação. Jogos que desenham menos linhas mantêm a própria imagem.",
+        "240p è per i televisori CRT e la pixel art: l'immagine a 480 righe del gioco esce una riga sì e una no, "
+        "progressiva e senza sfarfallio. I giochi che disegnano meno righe mantengono la propria immagine."),
+    "GameCube games left on Default get it too.": (
+        "Los juegos de GameCube en Predeterminado también lo usan.",
+        "「標準」のゲームキューブのゲームにも使われます。",
+        "Os jogos de GameCube em Padrão também o usam.",
+        "Anche i giochi GameCube su Predefinito lo usano."),
+    "Picture lines": ("Líneas de imagen", "映像のライン数", "Linhas da imagem", "Righe dell'immagine"),
+    "480p and 240p are for US and Japanese games; this European game keeps its own picture.": (
+        "480p y 240p son para juegos de EE. UU. y Japón; este juego europeo mantiene su propia imagen.",
+        "480pと240pはアメリカと日本のゲーム用で、このヨーロッパのゲームはゲームのままの映像になります。",
+        "480p e 240p são para jogos dos EUA e do Japão; este jogo europeu mantém a sua própria imagem.",
+        "Il 480p e il 240p sono per i giochi americani e giapponesi; questo gioco europeo mantiene la sua immagine."),
+})
+KO.update({
+    "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture.":
+        "240p는 CRT TV와 도트 그래픽용입니다. 게임의 480라인 화면을 한 줄씩 건너뛰어 깜박임 없는 프로그레시브로 "
+        "내보냅니다. 라인이 더 적은 게임은 원래 화면을 유지합니다.",
+    "GameCube games left on Default get it too.": "기본값인 게임큐브 게임에도 적용됩니다.",
+    "Picture lines": "화면 라인 수",
+    "480p and 240p are for US and Japanese games; this European game keeps its own picture.": "480p와 240p는 미국과 일본 게임용이며, 이 유럽 게임은 원래 화면을 그대로 씁니다.",
+})
+FR.update({
+    "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture.":
+        "Le 240p est pour les téléviseurs cathodiques et le pixel art : l'image de 480 lignes du jeu sort une ligne "
+        "sur deux, en progressif et sans scintillement. Les jeux qui dessinent moins de lignes gardent leur image.",
+    "GameCube games left on Default get it too.": "Les jeux GameCube sur Par défaut l'utilisent aussi.",
+    "Picture lines": "Lignes de l'image",
+    "480p and 240p are for US and Japanese games; this European game keeps its own picture.": "Le 480p et le 240p sont pour les jeux américains et japonais ; ce jeu européen garde sa propre image.",
 })
 
 # Leaving a game (#511): HOME only turns the controllers' button combo off.

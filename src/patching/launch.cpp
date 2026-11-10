@@ -105,7 +105,9 @@ bool gc_widescreen_on(const GameSettings& game, const GcConsoleSettings& console
 bool gc_progressive_on(const GameSettings& game, const std::string& id, const GcConsoleSettings& console) {
     if (gc_pal_game(id)) return false;
     if (game.gc_progressive == "480p") return true;
-    if (game.gc_progressive == "game") return false;
+    if (game.gc_progressive == "game" || game.gc_progressive == "240p") return false;
+    // Settings' 240p wins over the Wii's 480p setting.
+    if (console.video_mode == "240p") return false;
     // Both have to say so: the Wii set to 480p and a component cable seen,
     // as for a Wii game (boot.cpp) and as a GameCube offers 480p only with
     // the cable in. The setting alone was on in a tester's Wii whose
@@ -117,9 +119,22 @@ bool gc_progressive_on(const GameSettings& game, const std::string& id, const Gc
     return console.wii_progressive && console.component_cable;
 }
 
+bool gc_line240_on(const GameSettings& game, const std::string& id, const GcConsoleSettings& console) {
+    if (gc_pal_game(id)) return false;
+    if (game.gc_progressive == "240p") return true;
+    if (game.gc_progressive != "global") return false;
+    return console.video_mode == "240p";
+}
+
 bool gc_sixty_hz_on(const GameSettings& game, const std::string& id) {
     // US and Japanese games are 60 Hz already.
     return gc_pal_game(id) && game.gc_speed == "60";
+}
+
+unsigned gc_volume_boost_db(const GameSettings& game) {
+    if (game.gc_volume == "3") return 3;
+    if (game.gc_volume == "6") return 6;
+    return 0;
 }
 
 std::string gc_picture_width(const GameSettings& game, const GcConsoleSettings& console) {
@@ -462,7 +477,7 @@ std::string LaunchModel::save() const {
     // "global", the default, is written as nothing.
     if (game.gc_card != "global") text += "*riftwii*\tgccard\t" + clean(game.gc_card) + "\n";
     // "global", the default, is written as nothing.
-    if (game.gc_progressive == "480p" || game.gc_progressive == "game")
+    if (game.gc_progressive == "480p" || game.gc_progressive == "240p" || game.gc_progressive == "game")
         text += "*riftwii*\tgcprogressive\t" + game.gc_progressive + "\n";
     if (game.gc_widescreen == "16:9" || game.gc_widescreen == "game")
         text += "*riftwii*\tgcwidescreen\t" + game.gc_widescreen + "\n";
@@ -471,6 +486,7 @@ std::string LaunchModel::save() const {
     if (game.gc_sharp == "on") text += "*riftwii*\tgcsharp\ton\n";
     if (game.gc_width != "global") text += "*riftwii*\tgcwidth\t" + clean(game.gc_width) + "\n";
     if (game.gc_speed == "60") text += "*riftwii*\tgcspeed\t60\n";
+    if (game.gc_volume == "3" || game.gc_volume == "6") text += "*riftwii*\tgcvolume\t" + game.gc_volume + "\n";
     for (const LaunchPackage& p : packages) {
         // Only this game's packs: the file is per game ID, and another
         // game's pack could not be turned on here anyway.
@@ -564,11 +580,12 @@ void LaunchModel::restore(const std::string& text) {
                 game.gc_disc_reads = value == "drive" ? "drive" : "fast";
             } else if (key == "gccard") {
                 game.gc_card = value == "own" || value == "shared" || value == "real" || value == "real_b" ||
+                                       value == "real_b_as_a" ||
                                        value == "nintendont" || value == "dolphin"
                                    ? value
                                    : "global";
             } else if (key == "gcprogressive") {
-                game.gc_progressive = value == "480p" || value == "game" ? value : "global";
+                game.gc_progressive = value == "480p" || value == "240p" || value == "game" ? value : "global";
             } else if (key == "gcwidescreen") {
                 game.gc_widescreen = value == "16:9" || value == "game" ? value : "global";
             } else if (key == "gclanguage") {
@@ -580,6 +597,8 @@ void LaunchModel::restore(const std::string& text) {
                 game.gc_width = known ? value : "global";
             } else if (key == "gcspeed") {
                 game.gc_speed = value == "60" ? "60" : "50";
+            } else if (key == "gcvolume") {
+                game.gc_volume = value == "3" || value == "6" ? value : "off";
             }
             continue;
         }

@@ -2010,9 +2010,6 @@ msgstr "Sim (480p)"
 msgid "Widescreen"
 msgstr "Widescreen"
 
-msgid "480p is for US and Japanese games; this European game keeps its own picture."
-msgstr "480p é para jogos dos EUA e do Japão; este jogo europeu mantém a sua própria imagem."
-
 msgid "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."
 msgstr "Dá uma imagem mais nítida e estável com cabo componente, mesmo em jogos sem modo 480p; alguns jogos perguntam antes."
 
@@ -2891,9 +2888,6 @@ msgstr "Lendo o cartão de memória"
 
 msgid "Keep the card in its slot. Nothing is written to it."
 msgstr "Deixe o cartão no slot. Nada é gravado nele."
-
-msgid "Slot A has no readable memory card. A card in slot B cannot be used as slot A."
-msgstr "O slot A não tem cartão legível. Um cartão no slot B não pode ser usado como slot A."
 
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "Não foi possível preparar o cartão real. Verifique o cartão e tente novamente."
@@ -4214,6 +4208,42 @@ msgstr "O cartão de memória de cada jogo de GameCube cuja opção Cartão de m
 
 msgid "The memory card in slot B could not be read. Put it back in, or choose another card on the game's page."
 msgstr "Não foi possível ler o cartão de memória no slot B. Coloque-o de volta ou escolha outro cartão na página do jogo."
+
+msgid "Volume boost"
+msgstr "Aumento de volume"
+
+msgid "Louder (+3 dB)"
+msgstr "Mais alto (+3 dB)"
+
+msgid "Loudest (+6 dB)"
+msgstr "Ainda mais alto (+6 dB)"
+
+msgid "Makes all of a quiet game's sound louder. At +6 dB the loudest sounds may flatten."
+msgstr "Aumenta todo o som de um jogo baixo. Em +6 dB os sons mais altos podem ficar achatados."
+
+msgid "Real card in slot B, as slot A"
+msgstr "Cartão real do slot B, como slot A"
+
+msgid "This game uses the real card in slot B as its slot A. Its saves are not on the SD card."
+msgstr "Este jogo usa o cartão real do slot B como seu slot A. Os saves dele não ficam no cartão SD."
+
+msgid "For a game that only looks in slot A: the real card in slot B is its slot A, and slot B looks empty to it (original Wii only)."
+msgstr "Para um jogo que só procura no slot A: o cartão real do slot B é o slot A dele, e o slot B parece vazio (só Wii original)."
+
+msgid "Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A."
+msgstr "O slot A não tem um cartão de memória legível. Para um cartão no slot B, escolha Cartão real do slot B, como slot A."
+
+msgid "240p is for CRT TVs and pixel art: the game's 480-line picture goes out every other line, progressive, with no flicker. Games that draw fewer lines keep their own picture."
+msgstr "240p é para TVs de tubo (CRT) e pixel art: a imagem de 480 linhas do jogo sai uma linha sim, outra não, progressiva e sem cintilação. Jogos que desenham menos linhas mantêm a própria imagem."
+
+msgid "GameCube games left on Default get it too."
+msgstr "Os jogos de GameCube em Padrão também o usam."
+
+msgid "Picture lines"
+msgstr "Linhas da imagem"
+
+msgid "480p and 240p are for US and Japanese games; this European game keeps its own picture."
+msgstr "480p e 240p são para jogos dos EUA e do Japão; este jogo europeu mantém a sua própria imagem."
 
 msgid "Leaving a game"
 msgstr "Sair de um jogo"
