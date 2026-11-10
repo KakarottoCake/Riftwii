@@ -719,6 +719,11 @@ void test_gc_catalog_selection() {
         EXPECT_EQ(hidden[3], 1);  // Independent of directory listing order.
         EXPECT_EQ(hidden[0], -1);
 
+        // One file two scans reach in two spellings (game_folders' "WBFS/Mario"
+        // and the built-in "wbfs") is listed once.
+        images = {{"sd:/wbfs/Mario/game.iso", "GXXE01", 0}, {"sd:/WBFS/Mario/game.iso", "GXXE01", 0}};
+        EXPECT_TRUE(gc_catalog_hidden_by(images) == (std::vector<int>{-1, 0}));
+
         images = {{root + "/disc2.rvz", "GXXE01", 1}, {root + "/game.iso", "GXXE01", 0}};
         hidden = gc_catalog_hidden_by(images);
         EXPECT_EQ(hidden[0], 1);

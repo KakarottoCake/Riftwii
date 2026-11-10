@@ -764,7 +764,7 @@ void scan_gc_directory(const std::string& directory, bool nested, bool report_ot
         }
         if (is_gc_image_name(entry.name)) {
             const bool known_wii = std::any_of(listed.begin(), listed.end(), [&](const ImageGame& game) {
-                return game.path == path && game.checked && !game.gamecube;
+                return path_fold_case(game.path) == path_fold_case(path) && game.checked && !game.gamecube;
             });
             if (!gc_scan_should_open(path, known_wii)) continue;
             ++opened;

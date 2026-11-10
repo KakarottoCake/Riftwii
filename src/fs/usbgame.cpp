@@ -503,8 +503,9 @@ std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images,
         const bool loose = directory == device + "games" || directory == device + "wbfs";
         for (std::size_t j = 0; j < images.size(); ++j) {
             if (i == j || image.id != images[j].id) continue;
-            // Overlapping custom roots can encounter the same file twice.
-            if (j < i && image.path == images[j].path) {
+            // Overlapping custom roots can encounter the same file twice,
+            // spelled in another case ("wbfs" scanned, "WBFS" on the card).
+            if (j < i && path_fold_case(image.path) == path_fold_case(images[j].path)) {
                 hidden_by[i] = static_cast<int>(j);
                 break;
             }
