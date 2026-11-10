@@ -127,7 +127,9 @@ the part of MAIN.DOL that builds its unpacking table in a small sandboxed
 interpreter (only the instructions that code uses, a step limit, and no memory
 outside the DOL's own sections and a stack), then maps and inflates the packed
 program in 32 KB pieces and keeps only the layout table, which it finds through
-the channel's own settings step. It takes about a quarter of a second. Nothing
+the channel's own settings step. This is done only when layout 0 is chosen, and
+reads and unpacks about 1.5 MB (a quarter of a second on a computer; the time on
+a Wii has not been measured yet). Nothing
 of MAIN.DOL runs on the Wii itself.
 
 A layout with more than 54 cups or a track number of `0xff` (no such track) is

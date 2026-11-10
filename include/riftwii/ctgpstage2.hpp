@@ -55,7 +55,10 @@ bool ctgp_parse_dol(const std::uint8_t* dol, std::size_t size, CtgpDolLayout& ou
 constexpr std::uint32_t kCtgpPpcStackTop = 0x81000000;
 constexpr std::uint32_t kCtgpPpcStackBytes = 64 * 1024;
 constexpr std::uint32_t kCtgpPpcHid0 = 0x0011c264;
-constexpr std::uint32_t kCtgpPpcMaxLines = 8192;  // overlay cap: 256 KB per view
+// The overlay's cap, per view: 1024 lines (32 KB of stores; the views live on
+// the heap, so a runaway program cannot take much of it). CTGP-R 1.03's
+// builder touches about 20 data lines and 170 code lines.
+constexpr std::uint32_t kCtgpPpcMaxLines = 1024;
 
 class CtgpPpc {
 public:
