@@ -2663,7 +2663,8 @@ static std::string LaunchNote(const FrontendState& state)
 	// A game image runs under d2x. Only a d2x on base 58 reaches a Wii U's
 	// front USB ports in game, and the launch puts it first with the
 	// adapter in use (image_cios_order); on any other d2x the adapter works
-	// from the rear ports only. Which port the adapter is in cannot be told
+	// from the lower back port at most (#540: base 57 there only, base 56
+	// sees it but can't use it, base 38 nowhere). Which port the adapter is in cannot be told
 	// from IOS's device ID yet, so the note comes whenever the game will not
 	// start on a slot whose base was read as 58: none installed, the bases
 	// unreadable, another cIOS picked for it, or a USB-keyboard game. A
@@ -2673,7 +2674,7 @@ static std::string LaunchNote(const FrontendState& state)
 	    riftwii::wii::Settings().gc_adapter != "off" && riftwii::wii::is_wii_u() &&
 	    !FrontPortsReached(state)) {
 		if (!note.empty()) note += " ";
-		note += tr("On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.");
+		note += tr("On a Wii U the GameCube adapter may only work in game from the lower back USB port.");
 	}
 	return note;
 }

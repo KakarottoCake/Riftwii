@@ -969,8 +969,8 @@ msgstr "Mostra il disco del gioco sotto la custodia nella pagina del gioco. L'im
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "La musica è attiva, ma non c'è niente da suonare: metti un music.ogg in sd:/riftwii o scegli un tema con musica."
 
-msgid "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work."
-msgstr "Su Wii U l'adattatore GameCube potrebbe non funzionare in gioco dalle porte USB anteriori; quelle posteriori funzionano."
+msgid "On a Wii U the GameCube adapter may only work in game from the lower back USB port."
+msgstr "Su Wii U l'adattatore GameCube potrebbe funzionare in gioco solo dalla porta USB posteriore in basso."
 
 msgid "This game needs nearly all of the Wii's memory, and this RVZ's {1} KiB blocks take about {2} KB of it in game: Newer Super Mario Bros. Wii crashed that way. If it crashes, convert the RVZ again in Dolphin with a block size of 32 KiB."
 msgstr "Questo gioco usa quasi tutta la memoria del Wii, e i blocchi da {1} KiB di questo RVZ ne occupano circa {2} KB durante il gioco: Newer Super Mario Bros. Wii si bloccava così. Se si blocca, riconverti l'RVZ in Dolphin con una dimensione dei blocchi di 32 KiB."

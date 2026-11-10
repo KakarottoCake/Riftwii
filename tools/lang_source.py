@@ -892,11 +892,11 @@ T = {
         "音楽はオンですが、流す曲がありません。sd:/riftwiiにmusic.oggを置くか、音楽のあるテーマを選んでください。",
         "A música está ligada, mas não há nada para tocar: coloque um music.ogg em sd:/riftwii ou escolha um tema com música.",
         "La musica è attiva, ma non c'è niente da suonare: metti un music.ogg in sd:/riftwii o scegli un tema con musica."),
-    "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.": (
-        "En una Wii U, el adaptador de GameCube puede no funcionar en el juego desde los puertos USB delanteros; los traseros sí funcionan.",
-        "Wii Uでは、前面のUSBポートだとゲーム中にゲームキューブアダプターが動かないことがあります。背面のポートなら動きます。",
-        "No Wii U, o adaptador de GameCube pode não funcionar no jogo pelas portas USB da frente; as de trás funcionam.",
-        "Su Wii U l'adattatore GameCube potrebbe non funzionare in gioco dalle porte USB anteriori; quelle posteriori funzionano."),
+    "On a Wii U the GameCube adapter may only work in game from the lower back USB port.": (
+        "En una Wii U, puede que el adaptador de GameCube solo funcione en el juego desde el puerto USB trasero de abajo.",
+        "Wii Uでは、ゲーム中にゲームキューブアダプターが動くのは背面の下のUSBポートだけのことがあります。",
+        "No Wii U, o adaptador de GameCube pode funcionar no jogo só pela porta USB traseira de baixo.",
+        "Su Wii U l'adattatore GameCube potrebbe funzionare in gioco solo dalla porta USB posteriore in basso."),
     # A game that needs nearly all of MEM2, from an RVZ with big blocks: {1}
     # the block size in KiB, {2} what the RVZ's reader takes in game, in KB.
     "This game needs nearly all of the Wii's memory, and this RVZ's {1} KiB blocks take about {2} KB of it in game: Newer Super Mario Bros. Wii crashed that way. If it crashes, convert the RVZ again in Dolphin with a block size of 32 KiB.": (
@@ -3032,8 +3032,8 @@ KO = {
         "게임 페이지에서 케이스 아래에 게임 디스크를 표시합니다. 이미지는 다운로드가 켜져 있을 때 GameTDB에서 받아 sd:/riftwii/discs에 저장됩니다.",
     "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.":
         "음악이 켜져 있지만 재생할 음악이 없습니다. sd:/riftwii에 music.ogg를 넣거나 음악이 있는 테마를 고르세요.",
-    "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.":
-        "Wii U에서 게임큐브 어댑터를 전면 USB 포트에 연결하면 게임 중에 작동하지 않을 수 있으나, 후면 포트에서는 정상적으로 작동합니다.",
+    "On a Wii U the GameCube adapter may only work in game from the lower back USB port.":
+        "Wii U에서는 게임 중에 게임큐브 어댑터가 후면 아래쪽 USB 포트에서만 작동할 수 있습니다.",
     "This game needs nearly all of the Wii's memory, and this RVZ's {1} KiB blocks take about {2} KB of it in game: Newer Super Mario Bros. Wii crashed that way. If it crashes, convert the RVZ again in Dolphin with a block size of 32 KiB.":
         "이 게임은 Wii의 메모리를 거의 전부 사용하며, 이 RVZ의 {1} KiB 블록은 게임 중에 약 {2} KB를 차지합니다. Newer Super Mario Bros. Wii가 이 때문에 멈췄습니다. 멈추면 Dolphin에서 블록 크기 32 KiB로 RVZ를 다시 변환하세요.",
     "Packs on USB are experimental; if it fails, copy them to SD.":
@@ -4906,8 +4906,8 @@ FR = {
         "Affiche le disque du jeu sous sa boîte sur la page du jeu. L'image vient de GameTDB quand les téléchargements sont activés et est gardée dans sd:/riftwii/discs.",
     "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.":
         "La musique est activée, mais il n'y a rien à jouer : mettez un music.ogg dans sd:/riftwii ou choisissez un thème avec musique.",
-    "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.":
-        "Sur Wii U, l'adaptateur GameCube peut ne pas fonctionner sur les ports USB avant; utilisez les ports arrière.",
+    "On a Wii U the GameCube adapter may only work in game from the lower back USB port.":
+        "Sur Wii U, l'adaptateur GameCube peut ne fonctionner en jeu que sur le port USB arrière du bas.",
     "This game needs nearly all of the Wii's memory, and this RVZ's {1} KiB blocks take about {2} KB of it in game: Newer Super Mario Bros. Wii crashed that way. If it crashes, convert the RVZ again in Dolphin with a block size of 32 KiB.":
         "Ce jeu utilise presque toute la mémoire de la Wii, et les blocs de {1} Kio de ce RVZ en prennent environ {2} Ko pendant le jeu: c'est ainsi que Newer Super Mario Bros. Wii plantait. S'il plante, reconvertissez le RVZ dans Dolphin avec une taille de bloc de 32 Kio.",
     "Packs on USB are experimental; if it fails, copy them to SD.":
