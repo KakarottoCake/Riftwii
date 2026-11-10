@@ -525,8 +525,8 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
     }
     if (id == 0x22 && length >= 6 && p[4] == 0x16) {
         if (p[5] != 0) {
-            /* Refused (or unplugged meanwhile): bt_check_extensions starts
-             * it again at the next PADRead. */
+            /* Refused (or unplugged meanwhile) while starting one:
+             * bt_check_extensions starts it again at the next PADRead. */
             bt->ext_error = p[5];
             bt->progress |= GC_BT_SEEN_EXT_ERROR;
             /* Only while starting one: a late refusal after a give-up
@@ -535,7 +535,9 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
             return;
         }
         bt->progress |= GC_BT_SEEN_EXT_WRITE;
-        r->ext_wait = 0;
+        /* Only an answer the start is waiting for restarts its wait: a late
+         * one after a retry or a give-up leaves those times alone. */
+        if (r->ext_step >= 1 && r->ext_step <= 3) r->ext_wait = 0;
         if (r->ext_step == 1) {
             r->ext_step = 2;
             bt_ext_write(bt, r, 0xFB, 0x00);
