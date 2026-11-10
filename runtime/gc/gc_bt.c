@@ -17,6 +17,9 @@
 #define GC_BT_WRITE_POLLS 20000000u  /* polls before a write counts as lost */
 #define GC_BT_EXT_WAIT 60u      /* PADReads (a second) an extension's start may take a step */
 #define GC_BT_EXT_RETRIES 3u
+/* A retry asked the remote for its status and waits for the answer, which
+ * starts the extension again (bt_check_extensions). */
+#define GC_BT_EXT_STATUS_ASKED 5u
 
 /* HCI opcodes (OGF << 10 | OCF). */
 #define GC_HCI_ACCEPT_CONNECTION 0x0409u
@@ -488,11 +491,13 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
         const uint32_t plugged = p[4] & 0x02u;
         bt->progress |= plugged ? GC_BT_SEEN_STATUS | GC_BT_SEEN_EXTENSION : GC_BT_SEEN_STATUS;
         if (!plugged) {
+            /* Also the answer to a retry's status request: nothing to
+             * start, the mode below lets the remote play alone. */
             r->ext_step = 0;
             r->ext_kind = GC_BT_EXT_NONE;
             r->ext_retries = 0;  /* the next one plugged in gets its own tries */
         }
-        if (plugged && r->ext_step == 0) {
+        if (plugged && (r->ext_step == 0 || r->ext_step == GC_BT_EXT_STATUS_ASKED)) {
             r->ext_step = 1;
             r->ext_wait = 0;
             bt_ext_write(bt, r, 0xF0, 0x55);
@@ -747,7 +752,12 @@ static void bt_open(struct gc_bt* bt) {
  * a report mode is set, and the mode waits for the extension. After a
  * second it is started again from a status request, up to
  * GC_BT_EXT_RETRIES times; then the remote is played alone (its buttons, and
- * HOME and - to leave), and the trace says so (GC_BT_SEEN_EXT_GIVEN_UP). */
+ * HOME and - to leave), and the trace says so (GC_BT_SEEN_EXT_GIVEN_UP).
+ * The status request's answer can go missing too (Eternal Darkness lost
+ * both the ID read's reply and the retry's status report): it is waited
+ * for as a step of its own (GC_BT_EXT_STATUS_ASKED), so a lost answer leads
+ * to the next retry instead of a remote whose Classic Controller or
+ * Nunchuk is never read. */
 static void bt_check_extensions(struct gc_bt* bt) {
     uint32_t i;
     for (i = 0; i < GC_BT_REMOTES && bt->stage != GC_BT_STAGE_FAILED; ++i) {
@@ -760,6 +770,7 @@ static void bt_check_extensions(struct gc_bt* bt) {
         if (r->ext_retries < GC_BT_EXT_RETRIES) {
             r->ext_retries++;
             bt->progress |= GC_BT_SEEN_EXT_RETRY;
+            r->ext_step = GC_BT_EXT_STATUS_ASKED;
             request[0] = 0x15;  /* its status report starts the extension again */
             request[1] = 0x00;
             bt_report(bt, r, request, 2);
