@@ -306,9 +306,14 @@ static void test_untrusted_flags_and_duplicates() {
     CtgpRecordTable missing;
     EXPECT_TRUE(!ctgp_add_package(missing, {{"/unsigned", "efa:/unsigned", 0}}, resolver, &hashes, merged, error));
     EXPECT_TRUE(!ctgp_add_package(missing, {{"/a", "efa:/a", 0}}, resolver, nullptr, merged, error));
-    // Duplicate game paths are rejected even if the first record cleared all flags.
-    EXPECT_TRUE(!ctgp_add_package(missing, {{"/a", "efa:/x", 0}, {"/a", "efa:/a", 2}},
-                                 resolver, &hashes, merged, error));
+    // A repeated game path is allowed, but every entry is still hashed: a
+    // first entry with all flags cleared cannot stand in unsigned.
+    CtgpRecordTable repeated;
+    std::vector<CtgpMergedFile> repeated_merged;
+    EXPECT_TRUE(ctgp_add_package(repeated, {{"/a", "efa:/x", 0}, {"/a", "efa:/a", 2}},
+                                 resolver, &hashes, repeated_merged, error));
+    EXPECT_EQ(repeated_merged.size(), 2u);
+    EXPECT_EQ(repeated.image()[kCtgpRecordPools[0].start - kCtgpRecordBlock + 0x4E], 1);
     EXPECT_EQ(missing.used(), 0u);
     // Shared sources are safe only when the signed digests agree.
     EXPECT_TRUE(ctgp_add_package(table, {{"/alias", "efa:/a", 0}}, resolver, &hashes, merged, error));

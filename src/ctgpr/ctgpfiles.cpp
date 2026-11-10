@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <cstring>
-#include <set>
 
 #include "riftwii/checkedalloc.hpp"
 
@@ -246,13 +245,11 @@ bool ctgp_add_package(CtgpRecordTable& table, const std::vector<CtgpPackageFile>
         error = "no room to attach the package list";
         return false;
     }
-    std::set<std::string> names;
-    for (const CtgpPackageFile& f : files) {
-        if (!names.insert(f.game_path).second) {
-            error = "the package repeats the game path " + f.game_path;
-            return false;
-        }
-    }
+    // A package may name a game path more than once (CTGP-R 1.03's own My
+    // Stuff list repeats /Scene/UI/Award_E.szs). Each entry passes its own
+    // digest check below, and ctgp_merge_files lets the last one win, as the
+    // build that raced on a real Wii did. No entry can hide a signed one: only
+    // My Stuff's files under sda:/ctgpr/my stuff/ are ever unhashed.
     for (const CtgpPackageFile& f : files) {
         const bool required = (f.flags & 1) != 0;
         const auto colon = f.source.find(':');
