@@ -89,9 +89,9 @@ struct gc_bt_rq {
  * Problem reports name it (src/data/gccrash.cpp). */
 #define GC_BT_EXT_STATUS_ASKED 5u
 /* gc_bt_remote.ext_step for GC_BT_EXT_WAIT polls after an extension was
- * given up: a status report saying one is plugged in is the late answer to
- * the last retry, not a new attachment, and starts nothing. After it, the
- * retries are counted afresh for the next one plugged in. */
+ * given up: the first status report saying one is plugged in is the late
+ * answer to the last retry, not a new attachment, and starts nothing. After
+ * it (or the quiet time), the next one plugged in gets its own retries. */
 #define GC_BT_EXT_GAVE_UP 6u
 
 /* gc_bt_remote.ext_kind */
@@ -125,7 +125,8 @@ struct gc_bt_remote {
     uint8_t accel_known;  /* accel holds a reading to compare the next with */
     uint8_t jolted;       /* a jolt since the last PADRead */
     uint8_t shake_timer;  /* gc_shake_step's */
-    uint8_t ext_wait;     /* PADReads its extension's start has waited (gc_bt.c) */
+    uint8_t ext_wait;     /* PADReads its extension's start step, its status answer or the quiet
+                           * time after a give-up has waited (gc_bt.c's GC_BT_EXT_WAIT) */
     uint8_t ext_retries;  /* starts given another go */
 };
 

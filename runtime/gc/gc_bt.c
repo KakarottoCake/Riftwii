@@ -15,7 +15,8 @@
 #define GC_BT_EP_ACL_IN 0x82u
 #define GC_BT_EP_ACL_OUT 0x02u
 #define GC_BT_WRITE_POLLS 20000000u  /* polls before a write counts as lost */
-#define GC_BT_EXT_WAIT 60u      /* PADReads (a second) an extension's start may take a step */
+#define GC_BT_EXT_WAIT 60u      /* PADReads (a second) an extension's start may take a step, a status
+                                 * answer may take, or the quiet time after a give-up lasts */
 #define GC_BT_EXT_RETRIES 3u
 
 /* HCI opcodes (OGF << 10 | OCF). */
@@ -496,7 +497,11 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
             r->ext_retries = 0;  /* the next one plugged in gets its own tries */
         }
         if (plugged && r->ext_step == GC_BT_EXT_GAVE_UP) {
-            /* The last retry's answer, late: the remote plays alone. */
+            /* The last retry's answer, late: the remote plays alone. One
+             * request has one answer, so the quiet time ends here: the
+             * next report saying one is plugged in is a new attachment. */
+            r->ext_step = 0;
+            r->ext_wait = 0;
             bt_set_mode(bt, r);
             return;
         }
