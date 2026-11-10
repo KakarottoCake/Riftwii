@@ -3,6 +3,9 @@
 #include "boxart.hpp"
 
 #include <ogc/cache.h>
+#include <ogc/mutex.h>  // before cond.h, which needs mutex_t
+#include <ogc/cond.h>
+#include <ogc/lwp.h>
 #include <sys/stat.h>
 
 #include <cstdio>
@@ -190,17 +193,123 @@ void RunBackgroundFetch() {
 struct Slot {
     std::string id;
     u8* data = nullptr;
+    bool ready = false;  // read and flushed: the GUI may draw it (else being read)
     unsigned used = 0;
     u32 frame = 0;  // the frame it was last drawn in
 };
 Slot g_slots[kSlots];
-std::unordered_map<std::string, Slot*> g_index;  // the filled slots by game
+std::unordered_map<std::string, Slot*> g_index;  // the slots by game, ready or being read
 unsigned g_clock = 0;
-u32 g_readFrame = ~0u;          // the frame a box was last read in
 std::set<std::string> g_absent;  // not on the card (or unreadable)
 // Mod tiles read (or found absent), by the GameTDB entry they matched then:
 // once matched to another (renamed, GameTDB's list changed), read again.
 std::unordered_map<std::string, std::string> g_tileReadFor;
+
+// The card is read by a thread of its own, one box at a time, so the GUI
+// thread never waits on it. A box is a FAT lookup and a 96 KB read: a few
+// frames on a Wii's SD card (a cover, 18 KB, took 26 ms on a tester's),
+// and longer when the covers' loader is reading the card or a USB drive at
+// the same time. Read on the GUI thread, every box that came into view
+// stopped the shelf for those frames, so it never scrolled smoothly.
+//
+// The GUI thread fills in a job (the slot chosen, the file) only while no
+// job is out, and takes the answer back (TakeRead) before the next one.
+// The reader touches nothing but the job and the slot's pixels.
+struct ReadJob {
+    Slot* slot = nullptr;   // out while set
+    std::string id;
+    std::string path;       // BoxPath(id)
+    std::string tile_from;  // a mod tile's FromPath, "" for a game's
+    std::string tile_match; // the GameTDB entry the tile matches now
+    unsigned forgets = 0;   // g_forgets when it went out
+    bool done = false;      // the reader's: answered (under g_readLock)
+    bool ok = false;
+};
+ReadJob g_job;
+unsigned g_forgets = 0;  // ForgetBox and ForgetAllBoxes, so a read in flight is dropped
+mutex_t g_readLock = LWP_MUTEX_NULL;
+cond_t g_readWake = LWP_COND_NULL;
+lwp_t g_reader = LWP_THREAD_NULL;
+alignas(32) u8 g_readerStack[16384];
+
+void* ReaderMain(void*) {
+    LWP_MutexLock(g_readLock);
+    for (;;) {
+        if (!g_job.slot || g_job.done) {
+            LWP_CondWait(g_readWake, g_readLock);
+            continue;
+        }
+        // The job is the reader's until it says done: copied out so the
+        // card is read without the lock.
+        u8* pixels = g_job.slot->data;
+        const std::string path = g_job.path;
+        const std::string tile_from = g_job.tile_from;
+        const std::string tile_match = g_job.tile_match;
+        LWP_MutexUnlock(g_readLock);
+
+        // A tile's picture only when it came from the entry the tile matches now.
+        const bool current = tile_from.empty() || tile_art_current(ReadTileArtFrom(tile_from), tile_match);
+        FILE* f = current ? std::fopen(path.c_str(), "rb") : nullptr;
+        bool ok = false;
+        if (f) {
+            std::uint8_t header[kBoxHeaderSize];
+            ok = std::fread(header, 1, sizeof header, f) == sizeof header && box_header_valid(header) &&
+                 std::fread(pixels, 1, kBoxPixelBytes, f) == kBoxPixelBytes;
+            std::fclose(f);
+        }
+        if (ok) DCFlushRange(pixels, kBoxPixelBytes);
+
+        LWP_MutexLock(g_readLock);
+        g_job.ok = ok;
+        g_job.done = true;
+    }
+    return nullptr;
+}
+
+// The reader, the first time a box is asked for. GUI thread.
+bool ReaderStarted() {
+    if (g_reader != LWP_THREAD_NULL) return true;
+    if (g_readLock == LWP_MUTEX_NULL) {
+        LWP_MutexInit(&g_readLock, false);
+        LWP_CondInit(&g_readWake);
+    }
+    // Below the GUI thread (70), as the covers' loader: it reads while the
+    // GUI waits for the next frame.
+    if (LWP_CreateThread(&g_reader, ReaderMain, nullptr, g_readerStack, sizeof(g_readerStack), 40) < 0) {
+        g_reader = LWP_THREAD_NULL;
+        return false;
+    }
+    return true;
+}
+
+// The answer to the job out, once the reader has one: the slot is ready,
+// or given up and its game noted as not on the card. GUI thread.
+void TakeRead() {
+    if (!g_job.slot) return;
+    bool done, ok;
+    LWP_MutexLock(g_readLock);
+    done = g_job.done;
+    ok = g_job.ok;
+    LWP_MutexUnlock(g_readLock);
+    if (!done) return;
+    Slot* slot = g_job.slot;
+    // Forgotten while it was read (a new download, another SD card): the
+    // slot was emptied already, and the box is read again when asked for.
+    const bool forgotten = g_job.forgets != g_forgets || slot->id != g_job.id;
+    if (ok && !forgotten) {
+        // The texture cache may still hold the slot's last box.
+        GX_InvalidateTexAll();
+        slot->ready = true;
+    } else if (!forgotten) {
+        g_index.erase(slot->id);
+        slot->id.clear();
+        slot->used = 0;
+        g_absent.insert(g_job.id);
+    }
+    LWP_MutexLock(g_readLock);
+    g_job = ReadJob{};
+    LWP_MutexUnlock(g_readLock);
+}
 
 }  // namespace
 
@@ -255,52 +364,52 @@ const u8* BoxTexture(const std::string& game_id) {
         // A tile GameTDB doesn't list has none of its own: its game's shows.
         if (match.empty()) return nullptr;
     }
+    TakeRead();
     const auto found = g_index.find(game_id);
     if (found != g_index.end()) {
-        found->second->used = ++g_clock;
-        found->second->frame = FrameTimer;
-        return found->second->data;
+        Slot* slot = found->second;
+        if (!slot->ready) return nullptr;  // being read
+        slot->used = ++g_clock;
+        slot->frame = FrameTimer;
+        return slot->data;
     }
-    if (g_readFrame == FrameTimer || g_absent.count(game_id)) return nullptr;
-    // A read: the slot drawn longest ago makes room, but never one drawn in
-    // this frame or the last (still on screen). With none free the box
-    // stays a named spine until one is: a screen with more boxes than slots
-    // (a smaller display scale) settles instead of reading for ever.
+    // One read out at a time: the first box asked for while the reader is
+    // free gets it, so the shelf asks for the boxes nearest the focus first.
+    if (g_job.slot || g_absent.count(game_id) || !ReaderStarted()) return nullptr;
+    // The slot drawn longest ago makes room, but never one drawn in this
+    // frame or the last (still on screen, the GPU may still read it). With
+    // none free the box stays a named spine until one is: a screen with
+    // more boxes than slots (a smaller display scale) settles instead of
+    // reading for ever.
     Slot* victim = nullptr;
     for (Slot& s : g_slots) {
         if (!s.id.empty() && s.frame + 1 >= FrameTimer) continue;
         if (!victim || s.used < victim->used) victim = &s;
     }
     if (!victim) return nullptr;
-    if (!victim->id.empty()) g_index.erase(victim->id);
-    victim->id.clear();
-    g_readFrame = FrameTimer;
-    // A tile's picture only when it came from the entry the tile matches now.
-    if (tile) g_tileReadFor[game_id] = match;
-    const bool current = !tile || tile_art_current(ReadTileArtFrom(FromPath(game_id)), match);
-    FILE* f = current ? std::fopen(BoxPath(game_id).c_str(), "rb") : nullptr;
-    if (!f) {
-        g_absent.insert(game_id);
-        return nullptr;
-    }
     if (!victim->data) victim->data = skin::Mem2Alloc(kBoxPixelBytes);
-    std::uint8_t header[kBoxHeaderSize];
-    const bool ok = victim->data && std::fread(header, 1, sizeof header, f) == sizeof header && box_header_valid(header) &&
-                    std::fread(victim->data, 1, kBoxPixelBytes, f) == kBoxPixelBytes;
-    std::fclose(f);
-    if (!ok) {
-        victim->id.clear();
-        victim->used = 0;
-        g_absent.insert(game_id);
-        return nullptr;
-    }
-    DCFlushRange(victim->data, kBoxPixelBytes);
-    GX_InvalidateTexAll();
+    if (!victim->data) return nullptr;
+    if (!victim->id.empty()) g_index.erase(victim->id);
     victim->id = game_id;
+    victim->ready = false;
     victim->used = ++g_clock;
     victim->frame = FrameTimer;
     g_index[game_id] = victim;
-    return victim->data;
+    if (tile) g_tileReadFor[game_id] = match;
+
+    LWP_MutexLock(g_readLock);
+    g_job = ReadJob{};
+    g_job.slot = victim;
+    g_job.id = game_id;
+    g_job.path = BoxPath(game_id);
+    if (tile) {
+        g_job.tile_from = FromPath(game_id);
+        g_job.tile_match = match;
+    }
+    g_job.forgets = g_forgets;
+    LWP_CondSignal(g_readWake);
+    LWP_MutexUnlock(g_readLock);
+    return nullptr;
 }
 
 const u8* TileBoxTexture(const std::string& cover_name, const std::string& game_id, const u8* front, bool* tile_box) {
@@ -321,19 +430,24 @@ const u8* TileBoxTexture(const std::string& cover_name, const std::string& game_
 void ForgetBox(const std::string& game_id) {
     g_absent.erase(game_id);
     g_tileReadFor.erase(game_id);
+    // A read of it in flight may be of the old file.
+    if (g_job.slot && g_job.id == game_id) ++g_forgets;
     const auto found = g_index.find(game_id);
     if (found == g_index.end()) return;
     found->second->id.clear();
+    found->second->ready = false;
     found->second->used = 0;
     g_index.erase(found);
 }
 
 void ForgetAllBoxes() {
+    ++g_forgets;  // a read in flight was of the old card
     g_absent.clear();
     g_tileReadFor.clear();
     g_index.clear();
     for (Slot& s : g_slots) {
         s.id.clear();
+        s.ready = false;
         s.used = 0;
     }
 }

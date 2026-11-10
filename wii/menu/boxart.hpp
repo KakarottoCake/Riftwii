@@ -31,8 +31,10 @@ bool TakeBoxFetch(std::string& game_id, CoverFetch& got, std::string& error);
 
 // The game's box as an RGB5A3 texture of kBoxWidth x kBoxHeight (the
 // spine in its first kBoxSpineWidth columns), or nullptr while there is
-// none in memory. Reads at most one box from the card a frame, so a shelf
-// fills in over a few frames instead of stopping. GUI thread only.
+// none in memory. A box not in memory is read from the card by a thread
+// of its own, one at a time, the first asked for first: ask for the boxes
+// nearest the focus before the others. The GUI thread never waits on the
+// card. GUI thread only.
 const u8* BoxTexture(const std::string& game_id);
 // Drops what the pool remembers about the game (after a new download).
 void ForgetBox(const std::string& game_id);
