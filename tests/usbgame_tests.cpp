@@ -476,6 +476,13 @@ void test_ciso_detection() {
               std::string("Home: CISO DETECTED: sd:/games/Test [GXXE01]/game.ciso (RiftWii plays .iso, .gcm and "
                           ".rvz; convert it with Dolphin)"));
 
+    // A file two scans reach (a game folder inside another) counts once.
+    CisoFinds twice;
+    twice.note("sd:/Wii Games/x/a.ciso");
+    twice.note("sd:/Wii Games/x/a.ciso");
+    EXPECT_EQ(twice.total, static_cast<std::size_t>(1));
+    EXPECT_EQ(twice.paths.size(), static_cast<std::size_t>(1));
+
     // Many: only the first few paths are kept, the count goes on.
     CisoFinds many;
     for (int i = 0; i < 10; ++i) many.note("sd:/games/g" + std::to_string(i) + ".ciso");

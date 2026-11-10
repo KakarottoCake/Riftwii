@@ -344,6 +344,7 @@ bool is_ciso_image_name(const std::string& name) {
 }
 
 void CisoFinds::note(const std::string& path) {
+    if (!seen.insert(path).second) return;
     if (paths.size() < kPathsKept) paths.push_back(path);
     ++total;
 }

@@ -13687,6 +13687,15 @@ static bool MenuPickFolder(std::string& picked)
 			whereText = "..." + tail;
 			whereTxt.SetText(whereText.c_str());
 		}
+		// One folder name too long by itself: its end, a character at a
+		// time (a UTF-8 character's bytes go together).
+		while (whereTxt.GetTextWidth() > kWhereWidth && tail.size() > 1) {
+			std::size_t cut = 1;
+			while (cut < tail.size() && (static_cast<unsigned char>(tail[cut]) & 0xC0) == 0x80) ++cut;
+			tail.erase(0, cut);
+			whereText = "..." + tail;
+			whereTxt.SetText(whereText.c_str());
+		}
 	};
 	NoteCard noteCard;
 	GuiFlowList list(44, 84, 540, 5);

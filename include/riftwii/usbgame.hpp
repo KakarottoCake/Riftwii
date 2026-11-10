@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -185,6 +186,9 @@ struct CisoFinds {
     static constexpr std::size_t kPathsKept = 4;
     std::vector<std::string> paths;
     std::size_t total = 0;
+    // Every path noted, so a file two scans reach (a game folder inside
+    // another, riftwii/settingsfile.hpp's game_folders) counts once.
+    std::set<std::string> seen;
     void note(const std::string& path);
     // Adds another scan's finds after these, so the SD card's and the USB
     // drive's are said together.

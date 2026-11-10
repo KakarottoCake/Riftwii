@@ -2123,6 +2123,16 @@ void TestCoverArt() {
     EXPECT_TRUE(add_game_folder(pick, "usb:/WBFS") == GameFolderAdd::AlwaysSearched);
     EXPECT_TRUE(add_game_folder(pick, "usb:/games/") == GameFolderAdd::AlwaysSearched);
     EXPECT_TRUE(add_game_folder(pick, "usb2:/") == GameFolderAdd::NotAFolder);
+    // The longest entry the file keeps: "sd:" and 197 more; one more is too long.
+    {
+        LoaderSettings longest;
+        const std::string fits = "sd:/" + std::string(196, 'a');
+        EXPECT_TRUE(add_game_folder(longest, fits) == GameFolderAdd::Added);
+        EXPECT_TRUE(add_game_folder(longest, fits + "b") == GameFolderAdd::NotAFolder);
+        LoaderSettings back;
+        back.parse(longest.serialize());
+        EXPECT_TRUE(back.game_folders == longest.game_folders);
+    }
     // A folder inside a listed one (or inside games) is its own entry: a
     // scan reads one level of folders, so the outer one doesn't reach the
     // inner one's game folders (the scan drops a game found twice).

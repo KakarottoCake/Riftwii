@@ -326,7 +326,10 @@ GameFolderAdd add_game_folder(LoaderSettings& settings, const std::string& picke
     // The pick always names its drive; a drive's top would make every
     // folder on it a game folder, and the file can't hold ';' or "..".
     const bool named_drive = place.drive == "sd" || place.drive.compare(0, 3, "usb") == 0;
-    if (!named_drive || place.path == "/" || place.path.size() > 200 || place.path.find(';') != std::string::npos ||
+    // The whole entry ("sd:/...") must fit the 200 that parse() keeps, or
+    // it would be saved and then dropped at the next start.
+    const std::size_t entry_size = place.drive.size() + 1 + place.path.size();
+    if (!named_drive || place.path == "/" || entry_size > 200 || place.path.find(';') != std::string::npos ||
         place.path.find("..") != std::string::npos) {
         return GameFolderAdd::NotAFolder;
     }
