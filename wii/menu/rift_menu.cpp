@@ -18861,7 +18861,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 								auto& games = catalog->games;
 								games.erase(std::remove_if(games.begin(), games.end(), [&](const riftwii::wii::ImageGame& g) {
 									// A folder still listed, or wbfs/games, keeps the game.
-									return riftwii::game_folder_finds(gone, g.path) && !riftwii::game_still_found(folders, g.path);
+									return riftwii::game_folder_finds(gone, g.path) && !riftwii::game_still_found(folders, g.path, g.gamecube);
 								}), games.end());
 							}
 						}

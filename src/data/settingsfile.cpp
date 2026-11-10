@@ -392,11 +392,11 @@ bool game_folder_finds(const std::string& entry, const std::string& path) {
     return scan_reaches_path(drive + ":" + place.path, path, true);
 }
 
-bool game_still_found(const std::vector<std::string>& listed, const std::string& path) {
+bool game_still_found(const std::vector<std::string>& listed, const std::string& path, bool gamecube) {
     const std::string drive = path_drive(path);
     if (drive.empty()) return false;
     if (scan_reaches_path(drive + ":/wbfs", path, true)) return true;
-    if (scan_reaches_path(drive + ":/games", path, false)) return true;
+    if (scan_reaches_path(drive + ":/games", path, gamecube)) return true;
     for (const std::string& entry : listed)
         if (game_folder_finds(entry, path)) return true;
     return false;

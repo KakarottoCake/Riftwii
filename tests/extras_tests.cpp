@@ -2156,13 +2156,15 @@ void TestCoverArt() {
     EXPECT_FALSE(game_folder_finds("sd:/", "sd:/a.iso"));
     // wbfs and games are read anyway: taking a hand-written "sd:/wbfs" or a
     // folder inside wbfs off the list leaves those games.
-    EXPECT_TRUE(game_still_found({}, "sd:/wbfs/Game [RMCE01]/RMCE01.wbfs"));
-    EXPECT_TRUE(game_still_found({}, "usb2:/WBFS/Backups/a.iso"));
-    EXPECT_TRUE(game_still_found({}, "sd:/games/a.iso"));
-    EXPECT_FALSE(game_still_found({}, "sd:/games/x/a.iso"));
+    EXPECT_TRUE(game_still_found({}, "sd:/wbfs/Game [RMCE01]/RMCE01.wbfs", false));
+    EXPECT_TRUE(game_still_found({}, "usb2:/WBFS/Backups/a.iso", false));
+    EXPECT_TRUE(game_still_found({}, "sd:/games/a.iso", false));
+    EXPECT_FALSE(game_still_found({}, "sd:/games/x/a.iso", false));
+    // GameCube games are read one level down in games (games/Zelda/game.iso).
+    EXPECT_TRUE(game_still_found({}, "sd:/games/Zelda/game.iso", true));
     // An outer folder keeps only what it reaches one level down.
-    EXPECT_TRUE(game_still_found({"sd:/Wii Games"}, "sd:/Wii Games/USB Loader GX/a.iso"));
-    EXPECT_FALSE(game_still_found({"sd:/Wii Games"}, "sd:/Wii Games/USB Loader GX/Alpha/a.iso"));
+    EXPECT_TRUE(game_still_found({"sd:/Wii Games"}, "sd:/Wii Games/USB Loader GX/a.iso", false));
+    EXPECT_FALSE(game_still_found({"sd:/Wii Games"}, "sd:/Wii Games/USB Loader GX/Alpha/a.iso", false));
     EXPECT_TRUE(add_game_folder(pick, "sd:/a;b") == GameFolderAdd::NotAFolder);
     EXPECT_TRUE(add_game_folder(pick, "sd:/x/../y") == GameFolderAdd::NotAFolder);
     EXPECT_EQ(pick.game_folders.size(), 3u);

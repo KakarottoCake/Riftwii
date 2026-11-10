@@ -245,9 +245,11 @@ GameFolderPlace game_folder_place(const std::string& entry);
 bool game_folder_finds(const std::string& entry, const std::string& path);
 // Whether the game at `path` is still found with game_folders set to
 // `listed`: by one of them, or by the wbfs (one level down) and games
-// folders every scan reads. Placement only: a scan's file kinds may still
-// leave it out, which the next scan settles.
-bool game_still_found(const std::vector<std::string>& listed, const std::string& path);
+// folders every scan reads; games is read one level down for GameCube
+// games (`gamecube`, Nintendont's games/<name>/game.iso) and flat for Wii
+// ones. Placement only: a scan's file kinds may still leave it out, which
+// the next scan settles.
+bool game_still_found(const std::vector<std::string>& listed, const std::string& path, bool gamecube);
 
 // What adding a folder picked on the Game folders page did.
 enum class GameFolderAdd {
