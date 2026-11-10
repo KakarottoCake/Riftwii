@@ -441,6 +441,18 @@ static void test_saves() {
         EXPECT_EQ(edited.game.gc_card_name, std::string());
         EXPECT_EQ(riftwii::gc_card_effective(edited.game, "own"), std::string("own"));
     }
+    // Where a game's saves go, for tools that write to its card (the
+    // Nintendont saves, the copy from a real card).
+    {
+        riftwii::GameSettings g;
+        EXPECT_EQ(riftwii::gc_card_file_of(g, "own", "GALE01"), std::string("sd:/riftwii/gc/cards/GALE01.raw"));
+        EXPECT_EQ(riftwii::gc_card_file_of(g, "shared", "GALE01"), std::string("sd:/riftwii/gc/cards/shared.raw"));
+        g.gc_card = "named";
+        g.gc_card_name = "Trades";
+        EXPECT_EQ(riftwii::gc_card_file_of(g, "shared", "GALJ01"), std::string("sd:/riftwii/gc/cards/named-jp/Trades.raw"));
+        g.gc_card = "real";
+        EXPECT_EQ(riftwii::gc_card_file_of(g, "shared", "GALE01"), std::string("sd:/riftwii/gc/cards/GALE01.raw"));
+    }
     model.game.gc_card = "global";
     model.game.gc_card_name.clear();
     EXPECT_TRUE(model.save().find("gccardname") == std::string::npos);

@@ -194,6 +194,11 @@ bool gc_pal_game(const std::string& id);
 // is own). "named" comes only from the game's own choice, with
 // game.gc_card_name naming the card (riftwii/gccard.hpp's gc_card_file).
 std::string gc_card_effective(const GameSettings& game, const std::string& settings_card);
+// The emulated card file a GameCube game's saves go to for its choices
+// and Settings' card (riftwii/gccard.hpp's gc_card_file): its own, the
+// shared or its named card; for a real card or another loader's, its own
+// card, the one RiftWii keeps for it on the SD card.
+std::string gc_card_file_of(const GameSettings& game, const std::string& settings_card, const std::string& game_id);
 
 struct GcConsoleSettings {
     std::string aspect = "game";            // LoaderSettings::aspect: "game" (the Wii's TV setting), "4:3", "16:9"

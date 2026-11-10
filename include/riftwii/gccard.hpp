@@ -172,7 +172,8 @@ bool gc_card_shift_jis(const std::string& game_id);
 constexpr std::size_t kGcCardNameMax = 32;
 // A name as typed, trimmed of spaces at both ends, when it can be a
 // file's name: 1 to kGcCardNameMax letters (A-Z, a-z), digits, spaces,
-// '-' and '_'. "" when it cannot (empty, too long, any other character),
+// '-', '_' and '\'' (the menu's keyboard types all but '_'; a name made on a
+// PC may have one). "" when it cannot (empty, too long, any other character),
 // so nothing a player types or a settings file holds leaves the folder.
 std::string gc_card_name_clean(const std::string& typed);
 // The folder a game's named cards are in: named, or named-jp for a

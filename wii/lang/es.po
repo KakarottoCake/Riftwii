@@ -4158,8 +4158,8 @@ msgstr "Los juegos ocultos siguen en la unidad. Ajustes > Inicio > Mostrar juego
 msgid "Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."
 msgstr "Borra la imagen, carátulas y trucos del juego. Las partidas se conservan salvo que también elijas borrarlas."
 
-msgid "Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."
-msgstr "Solo las partidas separadas de RiftWii. Se conservan las tarjetas compartidas y las partidas de los packs y de la Wii."
+msgid "Only RiftWii's separate saves. Shared and named cards, pack saves and the Wii's own saves are kept."
+msgstr "Solo las partidas separadas de RiftWii. Se conservan las tarjetas compartidas y con nombre, y las partidas de los packs y de la Wii."
 
 msgid "Its image files, covers and cheats will be deleted. This cannot be undone."
 msgstr "Se borrarán sus imágenes, carátulas y trucos. No se puede deshacer."
@@ -4443,8 +4443,8 @@ msgstr "Tarjetas de juegos japoneses"
 msgid "Cards for this game's region"
 msgstr "Tarjetas para la región de este juego"
 
-msgid "Use 1 to {1} letters, digits, spaces, - or _ for a card's name."
-msgstr "Usa de 1 a {1} letras, dígitos, espacios, - o _ para el nombre de la tarjeta."
+msgid "Use 1 to {1} letters, digits, spaces, - or ' for a card's name."
+msgstr "Usa de 1 a {1} letras, dígitos, espacios, - o ' para el nombre de la tarjeta."
 
 msgid "Press A to pick another named card or make a new one; Left for the other kinds of card."
 msgstr "Pulsa A para elegir otra tarjeta con nombre o crear una nueva; Izquierda para los otros tipos de tarjeta."

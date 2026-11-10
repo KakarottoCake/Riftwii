@@ -8678,9 +8678,9 @@ MORE["fr"]['Hidden games stay on the drive. Settings > Home > Show hidden games 
 T["Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."] = ('Borra la imagen, carátulas y trucos del juego. Las partidas se conservan salvo que también elijas borrarlas.', 'ゲームのイメージ、カバー、チートを削除します。セーブデータは、削除を選ばない限り残ります。', 'Remove a imagem, capas e truques do jogo. Os dados salvos ficam, a menos que você escolha excluí-los também.', 'Rimuove immagine, copertine e trucchi del gioco. I salvataggi restano, salvo scelta di eliminarli.')
 MORE["ko"]["Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."] = '게임 이미지, 표지와 치트를 삭제합니다. 저장 데이터는 삭제하도록 선택하지 않으면 유지됩니다.'
 MORE["fr"]["Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."] = 'Supprime l’image, les jaquettes et les codes du jeu. Les sauvegardes restent, sauf si vous choisissez aussi de les supprimer.'
-T["Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."] = ('Solo las partidas separadas de RiftWii. Se conservan las tarjetas compartidas y las partidas de los packs y de la Wii.', 'RiftWiiの個別セーブのみです。共有カード、パックのセーブ、Wii本体のセーブは残ります。', 'Apenas os dados separados do RiftWii. Cartões compartilhados e dados dos pacotes e do Wii são mantidos.', 'Solo i salvataggi separati di RiftWii. Le schede condivise e i salvataggi dei pacchetti e della Wii restano.')
-MORE["ko"]["Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."] = 'RiftWii의 개별 저장 데이터만 삭제합니다. 공유 카드, 팩과 Wii 본체의 저장 데이터는 유지됩니다.'
-MORE["fr"]["Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."] = 'Uniquement les sauvegardes séparées de RiftWii. Les cartes partagées et les sauvegardes des packs et de la Wii restent.'
+T["Only RiftWii's separate saves. Shared and named cards, pack saves and the Wii's own saves are kept."] = ('Solo las partidas separadas de RiftWii. Se conservan las tarjetas compartidas y con nombre, y las partidas de los packs y de la Wii.', 'RiftWiiの個別セーブのみです。共有カードと名前付きカード、パックのセーブ、Wii本体のセーブは残ります。', 'Apenas os dados separados do RiftWii. Cartões compartilhados e com nome e dados dos pacotes e do Wii são mantidos.', 'Solo i salvataggi separati di RiftWii. Le schede condivise e con nome e i salvataggi dei pacchetti e della Wii restano.')
+MORE["ko"]["Only RiftWii's separate saves. Shared and named cards, pack saves and the Wii's own saves are kept."] = 'RiftWii의 개별 저장 데이터만 삭제합니다. 공유 카드와 이름 있는 카드, 팩과 Wii 본체의 저장 데이터는 유지됩니다.'
+MORE["fr"]["Only RiftWii's separate saves. Shared and named cards, pack saves and the Wii's own saves are kept."] = 'Uniquement les sauvegardes séparées de RiftWii. Les cartes partagées et nommées et les sauvegardes des packs et de la Wii restent.'
 T['Its image files, covers and cheats will be deleted. This cannot be undone.'] = ('Se borrarán sus imágenes, carátulas y trucos. No se puede deshacer.', 'イメージファイル、カバー、チートを削除します。元には戻せません。', 'Suas imagens, capas e truques serão excluídos. Não é possível desfazer.', 'I suoi file immagine, copertine e trucchi saranno eliminati. Non si può annullare.')
 MORE["ko"]['Its image files, covers and cheats will be deleted. This cannot be undone.'] = '이미지 파일, 표지와 치트가 삭제됩니다. 되돌릴 수 없습니다.'
 MORE["fr"]['Its image files, covers and cheats will be deleted. This cannot be undone.'] = 'Ses images, jaquettes et codes seront supprimés. Cette action est irréversible.'
@@ -9288,7 +9288,7 @@ T.update({
     "Named cards": ("Tarjetas con nombre", "名前付きカード一覧", "Cartões com nome", "Schede con nome"),
     "Japanese games' cards": ("Tarjetas de juegos japoneses", "日本のゲームのカード", "Cartões de jogos japoneses", "Schede dei giochi giapponesi"),
     "Cards for this game's region": ("Tarjetas para la región de este juego", "このゲームの地域のカード", "Cartões da região deste jogo", "Schede per la regione di questo gioco"),
-    "Use 1 to {1} letters, digits, spaces, - or _ for a card's name.": ("Usa de 1 a {1} letras, dígitos, espacios, - o _ para el nombre de la tarjeta.", "カードの名前には、英字、数字、スペース、-、_を1〜{1}文字使ってください。", "Use de 1 a {1} letras, dígitos, espaços, - ou _ no nome do cartão.", "Usa da 1 a {1} lettere, cifre, spazi, - o _ per il nome della scheda."),
+    "Use 1 to {1} letters, digits, spaces, - or ' for a card's name.": ("Usa de 1 a {1} letras, dígitos, espacios, - o ' para el nombre de la tarjeta.", "カードの名前には、英字、数字、スペース、-、'を1〜{1}文字使ってください。", "Use de 1 a {1} letras, dígitos, espaços, - ou ' no nome do cartão.", "Usa da 1 a {1} lettere, cifre, spazi, - o ' per il nome della scheda."),
     "Press A to pick another named card or make a new one; Left for the other kinds of card.": ("Pulsa A para elegir otra tarjeta con nombre o crear una nueva; Izquierda para los otros tipos de tarjeta.", "Aでほかの名前付きカードを選ぶか新しく作り、左でほかの種類のカードにします。", "Aperte A para escolher outro cartão com nome ou criar um novo; Esquerda para os outros tipos de cartão.", "Premi A per scegliere un'altra scheda con nome o crearne una nuova; Sinistra per gli altri tipi di scheda."),
 })
 KO.update({
@@ -9305,7 +9305,7 @@ KO.update({
     "Named cards": "이름 있는 카드 목록",
     "Japanese games' cards": "일본 게임용 카드",
     "Cards for this game's region": "이 게임 지역용 카드",
-    "Use 1 to {1} letters, digits, spaces, - or _ for a card's name.": "카드 이름에는 영문자, 숫자, 공백, -, _를 1~{1}자 사용하세요.",
+    "Use 1 to {1} letters, digits, spaces, - or ' for a card's name.": "카드 이름에는 영문자, 숫자, 공백, -, '를 1~{1}자 사용하세요.",
     "Press A to pick another named card or make a new one; Left for the other kinds of card.": "A를 눌러 다른 이름 있는 카드를 고르거나 새로 만들고, 왼쪽으로 다른 종류의 카드를 고릅니다.",
 })
 FR.update({
@@ -9322,7 +9322,7 @@ FR.update({
     "Named cards": "Cartes nommées",
     "Japanese games' cards": "Cartes des jeux japonais",
     "Cards for this game's region": "Cartes pour la région de ce jeu",
-    "Use 1 to {1} letters, digits, spaces, - or _ for a card's name.": "Utilisez de 1 à {1} lettres, chiffres, espaces, - ou _ pour le nom de la carte.",
+    "Use 1 to {1} letters, digits, spaces, - or ' for a card's name.": "Utilisez de 1 à {1} lettres, chiffres, espaces, - ou ' pour le nom de la carte.",
     "Press A to pick another named card or make a new one; Left for the other kinds of card.": "Appuyez sur A pour choisir une autre carte nommée ou en créer une ; Gauche pour les autres types de carte.",
 })
 

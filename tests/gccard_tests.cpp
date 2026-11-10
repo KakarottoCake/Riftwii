@@ -1669,6 +1669,7 @@ static void test_external_loader_files() {
 static void test_named_cards() {
     EXPECT_EQ(gc_card_name_clean("Player 1"), std::string("Player 1"));
     EXPECT_EQ(gc_card_name_clean("  trade_card-2  "), std::string("trade_card-2"));
+    EXPECT_EQ(gc_card_name_clean("Bob's card"), std::string("Bob's card"));
     EXPECT_EQ(gc_card_name_clean(std::string(kGcCardNameMax, 'a')), std::string(kGcCardNameMax, 'a'));
     EXPECT_EQ(gc_card_name_clean(std::string(kGcCardNameMax + 1, 'a')), std::string());
     EXPECT_EQ(gc_card_name_clean(""), std::string());

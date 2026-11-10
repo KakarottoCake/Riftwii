@@ -4158,8 +4158,8 @@ msgstr "非表示のゲームもドライブに残ります。設定 > ホーム
 msgid "Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."
 msgstr "ゲームのイメージ、カバー、チートを削除します。セーブデータは、削除を選ばない限り残ります。"
 
-msgid "Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."
-msgstr "RiftWiiの個別セーブのみです。共有カード、パックのセーブ、Wii本体のセーブは残ります。"
+msgid "Only RiftWii's separate saves. Shared and named cards, pack saves and the Wii's own saves are kept."
+msgstr "RiftWiiの個別セーブのみです。共有カードと名前付きカード、パックのセーブ、Wii本体のセーブは残ります。"
 
 msgid "Its image files, covers and cheats will be deleted. This cannot be undone."
 msgstr "イメージファイル、カバー、チートを削除します。元には戻せません。"
@@ -4443,8 +4443,8 @@ msgstr "日本のゲームのカード"
 msgid "Cards for this game's region"
 msgstr "このゲームの地域のカード"
 
-msgid "Use 1 to {1} letters, digits, spaces, - or _ for a card's name."
-msgstr "カードの名前には、英字、数字、スペース、-、_を1〜{1}文字使ってください。"
+msgid "Use 1 to {1} letters, digits, spaces, - or ' for a card's name."
+msgstr "カードの名前には、英字、数字、スペース、-、'を1〜{1}文字使ってください。"
 
 msgid "Press A to pick another named card or make a new one; Left for the other kinds of card."
 msgstr "Aでほかの名前付きカードを選ぶか新しく作り、左でほかの種類のカードにします。"

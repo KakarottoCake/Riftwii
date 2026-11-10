@@ -779,7 +779,7 @@ std::string gc_card_name_clean(const std::string& typed) {
     for (const char c : name) {
         const bool letter = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
         const bool digit = c >= '0' && c <= '9';
-        if (!letter && !digit && c != ' ' && c != '-' && c != '_') return std::string();
+        if (!letter && !digit && c != ' ' && c != '-' && c != '_' && c != '\'') return std::string();
     }
     return name;
 }

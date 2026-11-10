@@ -4158,8 +4158,8 @@ msgstr "숨긴 게임은 드라이브에 남습니다. 설정 > 홈 > 숨긴 게
 msgid "Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."
 msgstr "게임 이미지, 표지와 치트를 삭제합니다. 저장 데이터는 삭제하도록 선택하지 않으면 유지됩니다."
 
-msgid "Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."
-msgstr "RiftWii의 개별 저장 데이터만 삭제합니다. 공유 카드, 팩과 Wii 본체의 저장 데이터는 유지됩니다."
+msgid "Only RiftWii's separate saves. Shared and named cards, pack saves and the Wii's own saves are kept."
+msgstr "RiftWii의 개별 저장 데이터만 삭제합니다. 공유 카드와 이름 있는 카드, 팩과 Wii 본체의 저장 데이터는 유지됩니다."
 
 msgid "Its image files, covers and cheats will be deleted. This cannot be undone."
 msgstr "이미지 파일, 표지와 치트가 삭제됩니다. 되돌릴 수 없습니다."
@@ -4443,8 +4443,8 @@ msgstr "일본 게임용 카드"
 msgid "Cards for this game's region"
 msgstr "이 게임 지역용 카드"
 
-msgid "Use 1 to {1} letters, digits, spaces, - or _ for a card's name."
-msgstr "카드 이름에는 영문자, 숫자, 공백, -, _를 1~{1}자 사용하세요."
+msgid "Use 1 to {1} letters, digits, spaces, - or ' for a card's name."
+msgstr "카드 이름에는 영문자, 숫자, 공백, -, '를 1~{1}자 사용하세요."
 
 msgid "Press A to pick another named card or make a new one; Left for the other kinds of card."
 msgstr "A를 눌러 다른 이름 있는 카드를 고르거나 새로 만들고, 왼쪽으로 다른 종류의 카드를 고릅니다."

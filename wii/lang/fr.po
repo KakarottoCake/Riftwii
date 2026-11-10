@@ -4158,8 +4158,8 @@ msgstr "Les jeux masqués restent sur le disque. Paramètres > Accueil > Affiche
 msgid "Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."
 msgstr "Supprime l’image, les jaquettes et les codes du jeu. Les sauvegardes restent, sauf si vous choisissez aussi de les supprimer."
 
-msgid "Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."
-msgstr "Uniquement les sauvegardes séparées de RiftWii. Les cartes partagées et les sauvegardes des packs et de la Wii restent."
+msgid "Only RiftWii's separate saves. Shared and named cards, pack saves and the Wii's own saves are kept."
+msgstr "Uniquement les sauvegardes séparées de RiftWii. Les cartes partagées et nommées et les sauvegardes des packs et de la Wii restent."
 
 msgid "Its image files, covers and cheats will be deleted. This cannot be undone."
 msgstr "Ses images, jaquettes et codes seront supprimés. Cette action est irréversible."
@@ -4443,8 +4443,8 @@ msgstr "Cartes des jeux japonais"
 msgid "Cards for this game's region"
 msgstr "Cartes pour la région de ce jeu"
 
-msgid "Use 1 to {1} letters, digits, spaces, - or _ for a card's name."
-msgstr "Utilisez de 1 à {1} lettres, chiffres, espaces, - ou _ pour le nom de la carte."
+msgid "Use 1 to {1} letters, digits, spaces, - or ' for a card's name."
+msgstr "Utilisez de 1 à {1} lettres, chiffres, espaces, - ou ' pour le nom de la carte."
 
 msgid "Press A to pick another named card or make a new one; Left for the other kinds of card."
 msgstr "Appuyez sur A pour choisir une autre carte nommée ou en créer une ; Gauche pour les autres types de carte."

@@ -9184,11 +9184,13 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		FlowRow card;
 		card.kind = FlowRow::Kind::Option;
 		card.label = tr("Memory card");
-		card.value = game.gc_card == "global"
+		// A named card without a usable name plays as Default: shown so.
+		const bool followsSettings = game.gc_card == "global" || (game.gc_card == "named" && game.gc_card_name.empty());
+		card.value = followsSettings
 			? tr("Default ({1})", {GcCardName(riftwii::gc_card_effective(game, riftwii::wii::Settings().gc_card))})
-			: game.gc_card == "named" && !game.gc_card_name.empty() ? tr("Named: {1}", {game.gc_card_name})
+			: game.gc_card == "named" ? tr("Named: {1}", {game.gc_card_name})
 			: GcCardName(game.gc_card);
-		card.on = game.gc_card != "global";
+		card.on = !followsSettings;
 		const std::string used = riftwii::gc_card_effective(game, riftwii::wii::Settings().gc_card);
 		card.dim = (used == "real" || used == "real_b" || used == "real_b_as_a") && riftwii::wii::is_wii_u();
 		rows.push_back(card);
@@ -10566,7 +10568,10 @@ static std::vector<std::string> ListNamedGcCards(bool shiftJis)
 	std::vector<std::string> names;
 	DIR* dir = opendir(riftwii::gc_named_card_folder(shiftJis).c_str());
 	if (!dir) return names;
+	// Capped: a damaged directory chain can make readdir go round forever.
+	unsigned seen = 0;
 	while (dirent* entry = readdir(dir)) {
+		if (++seen > 2000) break;
 		std::string name = entry->d_name;
 		if (name.size() <= 4 || name.compare(name.size() - 4, 4, ".raw") != 0) continue;
 		name.resize(name.size() - 4);
@@ -10664,7 +10669,7 @@ static NamedCardPick MenuPickNamedGcCard(const std::string& gameId, std::string&
 			if (!AskGcCardName(typed)) return false;
 			const std::string clean = riftwii::gc_card_name_clean(typed);
 			if (clean.empty()) {
-				said = tr("Use 1 to {1} letters, digits, spaces, - or _ for a card's name.",
+				said = tr("Use 1 to {1} letters, digits, spaces, - or ' for a card's name.",
 					{std::to_string(riftwii::kGcCardNameMax)});
 				return false;
 			}
@@ -11170,15 +11175,15 @@ static void ListNintendontSaves(NintendontFinds& finds)
 	}
 }
 
-// Whether the game's own page says its memory card is the shared one (the
-// choices file the page keeps; none means its own card).
-static bool GcGameUsesSharedCard(const std::string& id)
+// The card file a game's saves go to, by the choices file its page keeps
+// (none: Settings' card): its own, the shared or its named card.
+static std::string GcGameCardFile(const std::string& id)
 {
 	std::vector<std::uint8_t> bytes;
-	if (!ReadSmallFile(std::string(riftwii::wii::kChoicesDir) + "/" + id + ".txt", 1u << 20, bytes)) return false;
 	riftwii::LaunchModel choices;
-	choices.restore(std::string(bytes.begin(), bytes.end()));
-	return riftwii::gc_card_effective(choices.game, riftwii::wii::Settings().gc_card) == "shared";
+	if (ReadSmallFile(std::string(riftwii::wii::kChoicesDir) + "/" + id + ".txt", 1u << 20, bytes))
+		choices.restore(std::string(bytes.begin(), bytes.end()));
+	return riftwii::gc_card_file_of(choices.game, riftwii::wii::Settings().gc_card, id);
 }
 
 // Name the USB partition so equal card names can be told apart.
@@ -11193,7 +11198,7 @@ static std::string NintendontCardLabel(const riftwii::GcNintendontCard& card)
 
 // Copies the saves at `picks` (indices into finds.saves, ascending) to
 // RiftWii's cards. Each save goes to the card of the game in its own
-// directory entry (riftwii::gc_nintendont_route); a card is read, backed up
+// directory entry uses (GcGameCardFile: its own, shared or named card); a card is read, backed up
 // before it is written, and written once, with the blocks in the order that
 // leaves the old card in charge if the write is cut off. The Nintendont
 // files are only read. Counts what came of it into `total`.
@@ -11203,21 +11208,19 @@ static void BringNintendontSaves(const NintendontFinds& finds, const std::vector
 	struct Target {
 		std::string path;
 		std::string id;
-		bool shared = false;
 		std::vector<std::size_t> picks;
 	};
 	std::vector<Target> targets;
 	for (std::size_t pick : picks) {
 		const riftwii::GcNintendontSave& save = finds.saves[pick];
-		const bool shared = GcGameUsesSharedCard(save.id);
-		const std::string path = riftwii::gc_nintendont_route(save, shared);
+		// The card the game uses: a named card's game reads only that one.
+		const std::string path = GcGameCardFile(save.id);
 		auto found = std::find_if(targets.begin(), targets.end(), [&](const Target& t) { return t.path == path; });
 		if (found == targets.end()) {
 			targets.push_back(Target());
 			found = targets.end() - 1;
 			found->path = path;
 			found->id = save.id;
-			found->shared = shared;
 		}
 		found->picks.push_back(pick);
 	}
@@ -11272,7 +11275,7 @@ static void BringNintendontSaves(const NintendontFinds& finds, const std::vector
 				const time_t now = time(nullptr);
 				struct tm local;
 				localtime_r(&now, &local);
-				const std::string folder = riftwii::gc_backup_folder(target.id, target.shared);
+				const std::string folder = riftwii::gc_card_backup_folder(target.path);
 				const riftwii::GcBackupResult backup = BackupMenuCard(target.path, folder, riftwii::gc_backup_stamp(local));
 				if (backup.what == riftwii::GcBackupResult::What::Failed) {
 					logf("Nintendont saves: %s was not changed, as it could not be backed up: %s\n", target.path.c_str(),
@@ -11613,7 +11616,9 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 		ShowPopup(tr("Memory card"), GcRealError(CARD_ERROR_ENCODING), tr("OK"));
 		return;
 	}
-	const std::string path = riftwii::gc_card_path(targetId, shared);
+	// A game's saves go to the card it uses (its own, shared or named).
+	const std::string path = shared ? riftwii::gc_card_path(targetId, true)
+		: riftwii::gc_card_file_of(state.model.game, riftwii::wii::Settings().gc_card, targetId);
 	const riftwii::GcRecovery recovered = riftwii::gc_recover_card(path, error);
 	if (recovered == riftwii::GcRecovery::Failed || recovered == riftwii::GcRecovery::BothKept) {
 		logf("GameCube: %s could not be recovered before the copy: %s\n", path.c_str(), error.c_str());
@@ -11680,7 +11685,7 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 		ShowPopup(tr("Memory card"), GcRealError(CARD_ERROR_IOERROR), tr("OK"));
 		return;
 	}
-	const auto backup = BackupMenuCard(path, riftwii::gc_backup_folder(targetId, shared), stamp);
+	const auto backup = BackupMenuCard(path, riftwii::gc_card_backup_folder(path), stamp);
 	if (backup.what == riftwii::GcBackupResult::What::Failed) {
 		ShowPopup(tr("Saves not brought"),
 			tr("RiftWii could not keep a copy of the memory card, so it was not changed: {1}", {FlatCapped(backup.error, 120)}), tr("OK"));
@@ -14154,6 +14159,7 @@ static std::string GcSaveNote(const FrontendState& state)
 	const std::string card = GcCardPath(state);
 	if (used == "nintendont" || used == "dolphin")
 		return tr("Saves are written to {1}. A backup is kept before the game starts.", {card});
+	// Two lines at most: the full card's note takes the place of where it is.
 	if (GcCardFull(state)) return GcCardFullNote(state);
 	if (used == "named")
 		return tr("Saves go to the named memory card {1} on the SD card: {2}.", {state.model.game.gc_card_name, card}) + " " +
@@ -14161,8 +14167,6 @@ static std::string GcSaveNote(const FrontendState& state)
 	const std::string where = GcCardShared(state)
 		? tr("Saves go to the shared memory card on the SD card: {1}.", {card})
 		: tr("Saves go to this game's own memory card on the SD card: {1}.", {card});
-	// Two lines at most: the full card's note takes the place of where it is.
-	if (GcCardFull(state)) return GcCardFullNote(state);
 	return where + " " + tr("Press A to see its saves.");
 }
 
@@ -14811,7 +14815,7 @@ static bool MenuManageGame(FrontendState& state)
 			deleteRows[1].label = tr("Delete this game");
 			const std::vector<std::string> deleteHelp{
 				keepSharedSaves ? tr("Saves are kept because another copy of this game remains.")
-					: tr("Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."),
+					: tr("Only RiftWii's separate saves. Shared and named cards, pack saves and the Wii's own saves are kept."),
 				tr("Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too.")};
 			const bool removed = EmulatorRowsPage(tr("Delete this game"), deleteRows, deleteHelp, [&](int row, int) {
 				if (row == 0) {

@@ -656,6 +656,11 @@ void LaunchModel::restore(const std::string& text) {
     }
 }
 
+std::string gc_card_file_of(const GameSettings& game, const std::string& settings_card, const std::string& game_id) {
+    const std::string file = gc_card_file(game_id, gc_card_effective(game, settings_card), game.gc_card_name);
+    return file.empty() ? gc_card_path(game_id, false) : file;
+}
+
 std::string gc_card_effective(const GameSettings& game, const std::string& settings_card) {
     // A named card with no usable name (a hand-edited file, a missing
     // gccardname line) follows Settings, as an unknown choice does.
