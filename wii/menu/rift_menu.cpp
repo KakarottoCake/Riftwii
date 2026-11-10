@@ -10663,7 +10663,8 @@ static NamedCardPick MenuPickNamedGcCard(const std::string& gameId, std::string&
 	NamedCardPick result = NamedCardPick::Back;
 	std::string said;
 	const auto note = [&](int row) -> std::string {
-		if (!said.empty()) return said;
+		// A name that can't be used is said on New card only.
+		if (!said.empty() && static_cast<std::size_t>(row) == newRow) return said;
 		if (static_cast<std::size_t>(row) == newRow)
 			return tr("A new, empty card. It is made the first time a game uses it.");
 		if (static_cast<std::size_t>(row) == otherRow)
@@ -10791,7 +10792,9 @@ static std::string GcDolphinSummary(const riftwii::GcImportCount& count, bool le
 static bool GcDolphinImport(const FrontendState& state, const std::string& cardPath, bool shared,
 	std::vector<std::uint8_t>& changed, riftwii::GcImportCount& count, bool& leftOut)
 {
-	const riftwii::GcDolphinFiles found = riftwii::gc_dolphin_scan(kGcDolphinDir, riftwii::gc_dolphin_regions(state.game_id, shared));
+	// A named card may hold several regions' games, as the shared one does.
+	const bool everyRegion = shared || EffectiveGcCard(state) == "named";
+	const riftwii::GcDolphinFiles found = riftwii::gc_dolphin_scan(kGcDolphinDir, riftwii::gc_dolphin_regions(state.game_id, everyRegion));
 	if (found.gci.empty() && found.raw.empty()) {
 		ShowPopup(tr("No saves from Dolphin"),
 			tr("RiftWii found no saves for this memory card in {1}. Copy Dolphin's GC folder there (in Dolphin: File > Open User Folder, then GC): it holds the USA, EUR and JAP folders.",
@@ -14609,7 +14612,9 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 					const std::string current = namedUnusable ? std::string("global") : game.gc_card;
 					const std::string next = onNamed ? std::string("named") : StepList(sources, current, direction);
 					if (next == "named") {
-						std::string name = game.gc_card_name;
+						// Lit only when the game is on it now; a name left from
+						// before another kind of card was picked is not.
+						std::string name = game.gc_card == "named" ? game.gc_card_name : std::string();
 						// Where Other kinds of card goes, named as the row would show it.
 						const std::string afterNamed = StepList(sources, "named", direction);
 						const std::string afterNamedShown = afterNamed == "global"
