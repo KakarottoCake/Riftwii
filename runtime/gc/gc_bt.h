@@ -82,6 +82,18 @@ struct gc_bt_rq {
 #define GC_BT_INTR_OURS 8u
 #define GC_BT_CHANS_READY 15u
 
+/* gc_bt_remote.ext_step while a status request waits for its answer: the
+ * first one when its channels open, or a retry's (gc_bt.c's
+ * bt_check_extensions). The answer (0x20) starts the extension, or sets the
+ * report mode when none is plugged in; a lost one leads to the next retry.
+ * Problem reports name it (src/data/gccrash.cpp). */
+#define GC_BT_EXT_STATUS_ASKED 5u
+/* gc_bt_remote.ext_step for GC_BT_EXT_WAIT polls after an extension was
+ * given up: the first status report saying one is plugged in is the late
+ * answer to the last retry, not a new attachment, and starts nothing. After
+ * it (or the quiet time), the next one plugged in gets its own retries. */
+#define GC_BT_EXT_GAVE_UP 6u
+
 /* gc_bt_remote.ext_kind */
 #define GC_BT_EXT_NONE 0u
 #define GC_BT_EXT_NUNCHUK 1u
@@ -99,10 +111,11 @@ struct gc_bt_remote {
     uint8_t rumble;     /* the motor as the remote has it: bit 0 of every output report it is sent */
     uint32_t rumble_poll;  /* bt->polls when its last rumble report went */
     uint32_t acl_pending;  /* its share of gc_bt.acl_pending */
-    uint8_t spare[2];
+    uint8_t ext_seen;   /* a status report said an extension is plugged in, and none said it left */
+    uint8_t spare;
     uint32_t ctrl_cid;  /* the remote's end of each channel */
     uint32_t intr_cid;
-    uint32_t ext_step;  /* 0 none, 1-3 starting it (gc_bt.c), 4 ready */
+    uint32_t ext_step;  /* 0 none, 1-3 starting it (gc_bt.c), 4 ready, 5 a status request waiting for its answer, 6 just given up */
     uint32_t ext_kind;
     uint8_t core[2];    /* the buttons, as the remote sends them */
     uint8_t ext[GC_PRO_BYTES];  /* the extension's first six bytes; a Pro Controller's eleven */
@@ -112,7 +125,8 @@ struct gc_bt_remote {
     uint8_t accel_known;  /* accel holds a reading to compare the next with */
     uint8_t jolted;       /* a jolt since the last PADRead */
     uint8_t shake_timer;  /* gc_shake_step's */
-    uint8_t ext_wait;     /* PADReads its extension's start has waited (gc_bt.c) */
+    uint8_t ext_wait;     /* PADReads its extension's start step, its status answer or the quiet
+                           * time after a give-up has waited (gc_bt.c's GC_BT_EXT_WAIT) */
     uint8_t ext_retries;  /* starts given another go */
 };
 
