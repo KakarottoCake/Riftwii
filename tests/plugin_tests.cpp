@@ -711,6 +711,24 @@ static void TestBlockTracker() {
         if (found[i] != (held[i] ? 1 : 0)) matches = false;
     }
     EXPECT_TRUE(matches);
+    EXPECT_TRUE(tracker.peak() <= 30u);
+    // Heap-like addresses (32-byte aligned, one region) fill a big table
+    // with short probes: they spread over the whole table.
+    std::vector<void*> big(1u << 16);
+    tracker.start(big.data(), static_cast<std::uint32_t>(big.size()));
+    bool all_fit = true;
+    const std::uintptr_t base = 0x90800000u;
+    for (std::uint32_t k = 0; k < 40000; ++k) {
+        if (!tracker.add(reinterpret_cast<void*>(base + 32u * k))) all_fit = false;
+    }
+    EXPECT_TRUE(all_fit);
+    EXPECT_EQ(tracker.peak(), 40000u);
+    std::uint32_t lower_half = 0;
+    for (std::size_t i = 0; i < big.size() / 2; ++i) lower_half += big[i] != nullptr ? 1u : 0u;
+    EXPECT_TRUE(lower_half > 15000u && lower_half < 25000u);
+    for (std::uint32_t k = 0; k < 40000; k += 2) tracker.remove(reinterpret_cast<void*>(base + 32u * k));
+    EXPECT_EQ(tracker.live(), 20000u);
+    EXPECT_EQ(tracker.sweep([](void*) {}), 20000u);
 }
 
 // The in-app update (riftwii/update.hpp's plan_update_writes): the

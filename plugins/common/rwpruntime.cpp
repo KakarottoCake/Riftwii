@@ -56,6 +56,8 @@ void track_blocks(void** slots, std::uint32_t count) { g_tracker.start(slots, co
 
 void untrack_blocks() { g_tracker.stop(); }
 
+std::uint32_t tracked_peak() { return g_tracker.peak(); }
+
 std::uint32_t free_tracked_blocks() {
     return g_tracker.sweep([](void* block) { g_host->mem1_free(block); });
 }

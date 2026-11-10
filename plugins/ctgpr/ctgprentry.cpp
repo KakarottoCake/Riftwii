@@ -79,6 +79,9 @@ int32_t ctgpr_launch(const void* raw, uint32_t bytes) {
     riftwii::plugin::arm_escape();
     const int32_t result = run_launch(request);
     riftwii::plugin::disarm_escape();
+    riftwii::plugin::host().log("heap blocks held at once: at most %u of the %u the table takes",
+                                static_cast<unsigned>(riftwii::plugin::tracked_peak()),
+                                static_cast<unsigned>(kTrackSlots / 4 * 3));
     riftwii::plugin::untrack_blocks();
     request.arena->release(track);
     riftwii::g_ctgp_arena = nullptr;

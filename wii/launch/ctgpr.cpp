@@ -46,7 +46,7 @@ void reserve_launch_arena() {
     std::size_t bytes = kLaunchArenaBytes;
     void* block = mem::TryMem2Alloc(bytes);
     if (block == nullptr) {
-        logf("CTGP-R: no MEM2 block for the launch's buffers; they use the heap\n");
+        logf("CTGP-R: no MEM2 block for the launch's buffers (the launch cannot start without it)\n");
         return;
     }
     g_launch_arena.attach(block, bytes);

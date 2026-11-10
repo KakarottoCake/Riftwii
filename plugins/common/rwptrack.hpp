@@ -27,7 +27,10 @@ public:
     void start(void** slots, std::uint32_t count) {
         slots_ = slots;
         count_ = count;
+        shift_ = 32;
+        for (std::uint32_t c = count; c > 1; c >>= 1) --shift_;
         live_ = 0;
+        peak_ = 0;
         for (std::uint32_t i = 0; i < count; ++i) slots_[i] = nullptr;
     }
     void stop() {
@@ -36,6 +39,8 @@ public:
     }
     bool active() const { return slots_ != nullptr; }
     std::uint32_t live() const { return live_; }
+    // The most blocks held at once since start().
+    std::uint32_t peak() const { return peak_; }
 
     // False when tracking is on and the table has no room: the caller gives
     // the block back instead of using it.
@@ -45,7 +50,7 @@ public:
         std::uint32_t i = first(block);
         while (slots_[i] != nullptr) i = next(i);
         slots_[i] = block;
-        ++live_;
+        if (++live_ > peak_) peak_ = live_;
         return true;
     }
     // A block not in the table (from before tracking, or from RiftWii's own
@@ -88,15 +93,20 @@ public:
     }
 
 private:
+    // Fibonacci hashing: the product's top bits, which depend on every bit
+    // of the address (its low bits would follow only the address's low bits,
+    // all zero for 32-byte-aligned heap blocks).
     std::uint32_t first(void* block) const {
-        const auto bits = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(block) >> 3);
-        return (bits * 2654435761u) & (count_ - 1);
+        const auto bits = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(block));
+        return shift_ == 0 || shift_ >= 32 ? 0 : (bits * 2654435761u) >> shift_;
     }
     std::uint32_t next(std::uint32_t i) const { return (i + 1) & (count_ - 1); }
 
     void** slots_ = nullptr;
     std::uint32_t count_ = 0;
+    std::uint32_t shift_ = 0;  // 32 - log2(count_), set by start() (zero here: a plugin has no .data)
     std::uint32_t live_ = 0;
+    std::uint32_t peak_ = 0;
 };
 
 }  // namespace riftwii::plugin
