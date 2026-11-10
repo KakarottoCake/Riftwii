@@ -176,16 +176,78 @@ int main() {
     EXPECT_TRUE(error.find("signature") != std::string::npos);
 
     // The channel signs only the first 20 bytes, so relabelling the name
-    // and version keeps a valid signature. The body/version binding must
-    // still refuse this as either supported production package.
-    for (const char* name : {"CORE", "CTGPR"}) {
+    // and version keeps a valid signature. A CTGPR or CORE list is accepted on
+    // its signature when its label is the version PACKAGES.BIN names (CTGP-R
+    // re-issues them under the same number), and refused when it is not.
+    // CORE's fixed addresses are guarded by its code (ctgp_core_code_is_tested).
+    auto relabelled_as = [&](const char* name, std::uint32_t label) {
         auto relabelled = good;
         std::memset(relabelled.data() + 0x20, 0, 8);
         std::memcpy(relabelled.data() + 0x20, name, std::strlen(name));
-        const std::uint32_t version = name[1] == 'O' ? 0x01030412u : 0x01031196u;
-        for (unsigned i = 0; i < 4; ++i) relabelled[0x28 + i] = version >> (24 - 8 * i);
-        EXPECT_TRUE(!ctgp_load_hash_list(relabelled, name, version, other, error, &key));
-        EXPECT_TRUE(error.find("known reference") != std::string::npos);
+        for (unsigned i = 0; i < 4; ++i) relabelled[0x28 + i] = static_cast<std::uint8_t>(label >> (24 - 8 * i));
+        return relabelled;
+    };
+    EXPECT_TRUE(ctgp_load_hash_list(relabelled_as("CORE", 0x01030412u), "CORE", 0x01030412u, other, error, &key));
+    EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CORE", 0x01030411u), "CORE", 0x01030412u, other, error, &key));
+    EXPECT_TRUE(error.find("another version") != std::string::npos);
+    {
+        // The tested core code, by its own SHA-1s; anything else is refused.
+        std::array<std::uint8_t, 20> boot{0x79, 0x0E, 0x0F, 0xED, 0x88, 0x66, 0x36, 0x6D, 0x7B, 0xA0,
+                                          0x07, 0xC6, 0xFF, 0x5E, 0x7A, 0x0D, 0x66, 0x67, 0x2F, 0x18};
+        EXPECT_TRUE(ctgp_core_code_is_tested("BOOT.BIN", boot));
+        EXPECT_TRUE(!ctgp_core_code_is_tested("BOAT.BIN", boot));
+        EXPECT_TRUE(!ctgp_core_code_is_tested("OTHER.BIN", boot));
+        boot[19] ^= 1;
+        EXPECT_TRUE(!ctgp_core_code_is_tested("BOOT.BIN", boot));
+        const std::array<std::uint8_t, 20> boat{0x21, 0x00, 0x02, 0x02, 0xCD, 0x21, 0xAD, 0x99, 0x3E, 0x2C,
+                                                0x8F, 0xBA, 0x1D, 0x7A, 0x8E, 0x46, 0x26, 0xAE, 0x68, 0xC6};
+        const std::array<std::uint8_t, 20> beat{0x9F, 0x4D, 0xA5, 0x13, 0x97, 0x99, 0xD8, 0xA9, 0x36, 0x05,
+                                                0xC6, 0xF7, 0x98, 0xCE, 0xE3, 0xCC, 0x3E, 0x92, 0x25, 0x43};
+        EXPECT_TRUE(ctgp_core_code_is_tested("BOAT.BIN", boat));
+        EXPECT_TRUE(ctgp_core_code_is_tested("BEAT.BIN", beat));
+        // each file's digest only in its own role
+        EXPECT_TRUE(!ctgp_core_code_is_tested("BEAT.BIN", boat));
+        EXPECT_TRUE(!ctgp_core_code_is_tested("BOOT.BIN", beat));
+        auto boat_changed = boat, beat_changed = beat;
+        boat_changed[0] ^= 0x80;
+        beat_changed[10] ^= 0x01;
+        EXPECT_TRUE(!ctgp_core_code_is_tested("BOAT.BIN", boat_changed));
+        EXPECT_TRUE(!ctgp_core_code_is_tested("BEAT.BIN", beat_changed));
+    }
+    {
+        CtgpHashList update;
+        EXPECT_TRUE(ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031200u), "CTGPR", 0x01031200u, update, error, &key));
+        EXPECT_TRUE(update.file_count() == 2);
+        // its label must still be PACKAGES.BIN's version
+        EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031199u), "CTGPR", 0x01031200u, update, error, &key));
+        EXPECT_TRUE(error.find("another version") != std::string::npos);
+        // and its signature must verify
+        auto forged = relabelled_as("CTGPR", 0x01031200u);
+        forged[0x34] ^= 0x01;
+        EXPECT_TRUE(!ctgp_load_hash_list(forged, "CTGPR", 0x01031200u, update, error, &key));
+        // A version that also has a known body (1.03.1192/1196) accepts a
+        // different signed body with the same label: CTGP-R updated a 1196
+        // card's tracks and CTGPR.HSH without changing its version.
+        EXPECT_TRUE(ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031192u), "CTGPR", 0x01031192u, update, error, &key));
+        EXPECT_TRUE(ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031196u), "CTGPR", 0x01031196u, update, error, &key));
+        // but its label must still be PACKAGES.BIN's version
+        EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031192u), "CTGPR", 0x01031196u, update, error, &key));
+        EXPECT_TRUE(error.find("another version") != std::string::npos);
+        // Production passes no key: the signature is checked with CTGP-R's
+        // built-in key, and that check alone decides. This list is signed
+        // with the test key, so it is refused for its signature, never
+        // because no key was passed (CTGP-R's own signatures are CTGP data,
+        // not shipped here; ctgpdsa_tests checks the built-in key).
+        EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031200u), "CTGPR", 0x01031200u, update, error));
+        EXPECT_TRUE(error.find("does not verify") != std::string::npos);
+        // The built-in key passed explicitly is the same path as no key.
+        EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031200u), "CTGPR", 0x01031200u, update, error,
+                                         &ctgp_signing_key()));
+        EXPECT_TRUE(error.find("does not verify") != std::string::npos);
+        // Whichever key verified it, a newer CTGPR list is accepted on that
+        // signature: the decision does not look at whether a key was passed.
+        CtgpHashList newer;
+        EXPECT_TRUE(ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031300u), "CTGPR", 0x01031300u, newer, error, &key));
     }
 
     EXPECT_TRUE(ctgp_has_hash_reference("CORE", 0x01030412));

@@ -4293,12 +4293,6 @@ msgstr "Questa versione di CTGP-R non si può ancora avviare da RiftWii. Avvia C
 msgid "CTGP-R could not be started. Its files on the SD card may be damaged or incomplete: install CTGP-R again. The reason is in sd:/riftwii/boot.log."
 msgstr "Impossibile avviare CTGP-R. I suoi file sulla scheda SD potrebbero essere danneggiati o incompleti: reinstalla CTGP-R. Il motivo è in sd:/riftwii/boot.log."
 
-msgid "This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead."
-msgstr "Questa versione di CTGP Revolution non si può ancora avviare da RiftWii (oppure i suoi file sulla scheda SD sono danneggiati). Avvia CTGP dall'Homebrew Channel."
-
-msgid "CTGP Revolution: this version can't be started from RiftWii (see Start)."
-msgstr "CTGP Revolution: questa versione non si può avviare da RiftWii (vedi Gioca)."
-
 msgid "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use."
 msgstr "Prova un controller GameCube e corregge uno consumato: levette che non arrivano al bordo, levette che si muovono da sole, grilletti che non scendono del tutto. I giochi GameCube ricevono la correzione, e i giochi Wii mentre è in uso un adattatore GameCube o un controller USB."
 

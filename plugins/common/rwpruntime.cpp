@@ -5,6 +5,7 @@
 // plugin (Makefile.plugin), so the plugin has no undefined symbol and calls
 // RiftWii only through rwp_host (docs/PLUGINS.md, "Stage (b)").
 #include "rwpruntime.hpp"
+#include "rwptrack.hpp"
 
 #include <sys/stat.h>
 
@@ -29,6 +30,7 @@ const rwp_host* g_host = nullptr;
 // escape()'s way back: __builtin_setjmp's five words, and whether a launch
 // is inside the window where it may be used.
 void* g_escape_buffer[5];
+BlockTracker g_tracker;
 bool g_escape_armed = false;
 Escape g_escape;
 
@@ -49,6 +51,20 @@ bool start_runtime(const rwp_host* table) {
 const rwp_host& host() { return *g_host; }
 
 void** escape_buffer() { return g_escape_buffer; }
+
+void track_blocks(void** slots, std::uint32_t count) { g_tracker.start(slots, count); }
+
+void untrack_blocks() { g_tracker.stop(); }
+
+std::uint32_t tracked_peak() { return g_tracker.peak(); }
+
+std::uint32_t free_tracked_blocks() {
+    return g_tracker.sweep([](void* block) { g_host->mem1_free(block); });
+}
+
+// The runtime's own allocations and frees, noted while a launch tracks them.
+bool note_allocated(void* block) { return g_tracker.add(block); }
+void note_freed(void* block) { g_tracker.remove(block); }
 
 void arm_escape() {
     g_escape = Escape{};
@@ -74,6 +90,12 @@ void escape(std::int32_t result, const char* why) {
 
 using riftwii::plugin::escape;
 using riftwii::plugin::host;
+namespace riftwii::plugin {
+bool note_allocated(void* block);
+void note_freed(void* block);
+}  // namespace riftwii::plugin
+using riftwii::plugin::note_allocated;
+using riftwii::plugin::note_freed;
 
 // ---- Memory: RiftWii's heap (MEM1, then MEM2 when it is full) ----
 
@@ -83,17 +105,29 @@ void* allocate(std::size_t bytes) {
     // The heap refuses 0 bytes; C++ wants a distinct block for them.
     void* block = host().mem1_alloc(bytes == 0 ? 1 : static_cast<std::uint32_t>(bytes));
     if (block == nullptr) escape(RWP_LAUNCH_NO_MEMORY, "RiftWii's memory is full");
+    if (!note_allocated(block)) {
+        // Untracked, it would stay taken after an escape: given back, and
+        // the launch stops as out of memory.
+        host().mem1_free(block);
+        escape(RWP_LAUNCH_NO_MEMORY, "too many heap blocks at once to track");
+    }
     return block;
+}
+
+void release(void* block) {
+    if (block == nullptr) return;
+    note_freed(block);
+    host().mem1_free(block);
 }
 
 }  // namespace
 
 void* operator new(std::size_t bytes) { return allocate(bytes); }
 void* operator new[](std::size_t bytes) { return allocate(bytes); }
-void operator delete(void* block) noexcept { host().mem1_free(block); }
-void operator delete[](void* block) noexcept { host().mem1_free(block); }
-void operator delete(void* block, std::size_t) noexcept { host().mem1_free(block); }
-void operator delete[](void* block, std::size_t) noexcept { host().mem1_free(block); }
+void operator delete(void* block) noexcept { release(block); }
+void operator delete[](void* block) noexcept { release(block); }
+void operator delete(void* block, std::size_t) noexcept { release(block); }
+void operator delete[](void* block, std::size_t) noexcept { release(block); }
 
 // ---- What libstdc++ would throw: nothing can be thrown here ----
 
@@ -152,6 +186,70 @@ size_t strlen(const char* text) {
     while (text[length] != '\0') ++length;
     return length;
 }
+
+size_t strnlen(const char* text, size_t most) {
+    size_t length = 0;
+    while (length < most && text[length] != '\0') ++length;
+    return length;
+}
+
+int tolower(int c) { return c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c; }
+
+// The C library's strtol: leading spaces, a sign, base 0 (0x, 0 or
+// decimal), 2 to 36, clamped to LONG_MIN/LONG_MAX on overflow. No errno: a
+// plugin has none.
+long strtol(const char* text, char** end, int base) {
+    const char* p = text;
+    while (*p == ' ' || (*p >= '\t' && *p <= '\r')) ++p;
+    bool negative = false;
+    if (*p == '+' || *p == '-') negative = *p++ == '-';
+    if ((base == 0 || base == 16) && p[0] == '0' && (p[1] == 'x' || p[1] == 'X')) {
+        const char d = p[2];
+        if ((d >= '0' && d <= '9') || (d >= 'a' && d <= 'f') || (d >= 'A' && d <= 'F')) {
+            p += 2;
+            base = 16;
+        }
+    }
+    if (base == 0) base = *p == '0' ? 8 : 10;
+    const unsigned long limit = negative ? 0x80000000ul : 0x7FFFFFFFul;
+    unsigned long value = 0;
+    bool any = false, over = false;
+    for (;; ++p) {
+        int digit;
+        if (*p >= '0' && *p <= '9') digit = *p - '0';
+        else if (*p >= 'a' && *p <= 'z') digit = *p - 'a' + 10;
+        else if (*p >= 'A' && *p <= 'Z') digit = *p - 'A' + 10;
+        else break;
+        if (base < 2 || digit >= base) break;
+        any = true;
+        if (value > (limit - static_cast<unsigned long>(digit)) / static_cast<unsigned long>(base)) over = true;
+        else value = value * static_cast<unsigned long>(base) + static_cast<unsigned long>(digit);
+    }
+    if (end != nullptr) *end = const_cast<char*>(any ? p : text);
+    if (over) value = limit;
+    return negative ? static_cast<long>(0ul - value) : static_cast<long>(value);
+}
+
+// libstdc++'s hash tables size their buckets with it.
+double floor(double x) {
+    if (!(x == x) || x >= 4503599627370496.0 || x <= -4503599627370496.0) return x;  // NaN, or no fraction
+    const double whole = static_cast<double>(static_cast<long long>(x));
+    return whole > x ? whole - 1.0 : whole;
+}
+
+// The C library's heap: RiftWii's, as operator new's.
+void* malloc(size_t bytes) {
+    void* block = host().mem1_alloc(bytes == 0 ? 1 : static_cast<std::uint32_t>(bytes));
+    if (block != nullptr && !note_allocated(block)) {
+        // As operator new's: an untracked block is never handed out. A C
+        // caller is told as for a full heap.
+        host().mem1_free(block);
+        return nullptr;
+    }
+    return block;
+}
+
+void free(void* block) { release(block); }
 
 int vsnprintf(char* out, size_t bytes, const char* format, va_list args) {
     return host().format(out, static_cast<std::uint32_t>(bytes), format, args);

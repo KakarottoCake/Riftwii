@@ -25,7 +25,7 @@ std::string lower(std::string s) {
 // Order and addresses are the channel's table (chan_internal 0x80bfe57c,
 // 32 bytes a record), restricted to the records whose variable lies in the
 // block the game reads. Defaults: the channel's settings reset (0x8094e690).
-const std::vector<CtgpField> kFields = {
+const CtgpField kFields[] = {
     B("lanmode", 0x816ff9f4, 0),
     B("item_rain_offline", 0x816ff9fc, 0),
     B("items_land_offline", 0x816ffa00, 0),
@@ -68,7 +68,7 @@ bool parse_int(const std::string& v, std::int32_t& out) {
 
 }  // namespace
 
-const std::vector<CtgpField>& ctgp_fields() { return kFields; }
+CtgpFieldList ctgp_fields() { return {kFields, sizeof kFields / sizeof kFields[0]}; }
 
 bool ctgp_parse_ini_bool(const std::string& value, bool& out) {
     const std::string t = lower(value);
@@ -110,7 +110,7 @@ std::vector<CtgpWordWrite> ctgp_field_writes(const std::string& config_ini) {
         // LAN play is multiplayer: it stays off for a launch from RiftWii,
         // whatever config.ini says.
         if (key == "lanmode") continue;
-        for (std::size_t i = 0; i < kFields.size(); ++i) {
+        for (std::size_t i = 0; i < ctgp_fields().size(); ++i) {
             if (key != kFields[i].key) continue;
             std::int32_t n = 0;
             if (kFields[i].is_bool) {
@@ -123,7 +123,7 @@ std::vector<CtgpWordWrite> ctgp_field_writes(const std::string& config_ini) {
         }
     }
     std::vector<CtgpWordWrite> out;
-    for (std::size_t i = 0; i < kFields.size(); ++i)
+    for (std::size_t i = 0; i < ctgp_fields().size(); ++i)
         out.push_back({kFields[i].address, static_cast<std::uint32_t>(value[i])});
     return out;
 }

@@ -2613,17 +2613,15 @@ static const char* const kHomebrewAppWarning =
 	"CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.";
 static const char* const kCtgpNativeNote =
 	"CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.";
-static const char* const kCtgpUnsupportedNote =
-	"This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead.";
 
-// What the launch will do with the pack, as the Start note says it. The
-// "offline only" note is for a CTGP Revolution the launch can start; one it
-// refuses (another version) gets its own words instead.
+// What the launch will do with the pack, as the Start note says it. With
+// CTGP-R's files on the card it starts natively, offline only; a version the
+// launch cannot start is named when it is started (wii/launch/ctgpr.hpp: the
+// version is in the package disk only the ctgpr plugin reads).
 static const char* HomebrewAppNote()
 {
 	switch (riftwii::wii::ctgpr_native_status()) {
-	case riftwii::wii::CtgprNativeStatus::Supported: return kCtgpNativeNote;
-	case riftwii::wii::CtgprNativeStatus::Unsupported: return kCtgpUnsupportedNote;
+	case riftwii::wii::CtgprNativeStatus::Installed: return kCtgpNativeNote;
 	case riftwii::wii::CtgprNativeStatus::NotInstalled: break;
 	}
 	return kHomebrewAppWarning;
@@ -13277,9 +13275,7 @@ static std::string ModsNote(const FrontendState& state, const std::string& scanS
 	if (riftwii::wii::HomebrewAppPackOn(state))
 	{
 		switch (riftwii::wii::ctgpr_native_status()) {
-		case riftwii::wii::CtgprNativeStatus::Supported: return tr("CTGP Revolution: offline only (see Start).");
-		case riftwii::wii::CtgprNativeStatus::Unsupported:
-			return tr("CTGP Revolution: this version can't be started from RiftWii (see Start).");
+		case riftwii::wii::CtgprNativeStatus::Installed: return tr("CTGP Revolution: offline only (see Start).");
 		case riftwii::wii::CtgprNativeStatus::NotInstalled: break;
 		}
 		return tr("CTGP Revolution does not work from RiftWii yet (see Start).");

@@ -31,8 +31,9 @@
 // position of a 20-byte digest inside the body.
 namespace riftwii {
 
-// The native launch also needs an independently known body/version binding:
-// the channel's signature does not cover its version label.
+// Whether RiftWii knows a hash-list body for this package version. The
+// launch uses it for CORE as "the core this launch is made for"; a known body
+// also lets a list whose label lags PACKAGES.BIN through (ctgp_load_hash_list).
 bool ctgp_has_hash_reference(const std::string& package, std::uint32_t version);
 
 class CtgpHashList {
@@ -74,16 +75,23 @@ private:
 bool ctgp_core_digest_matches(const CtgpHashList& hashes, const std::string& file,
                               const std::array<std::uint8_t, 20>& digest);
 
+// True when `digest` is the SHA-1 of the core code file `file` (BOOT.BIN,
+// BOAT.BIN or BEAT.BIN) of the CORE release this launch is made for. The
+// launch's fixed addresses belong to that code, so it is pinned by the code
+// itself; CORE.HSH, which CTGP-R re-issues, need only be signed and vouch for it.
+bool ctgp_core_code_is_tested(const std::string& file, const std::array<std::uint8_t, 20>& digest);
+
 // Checks `file` as the list of package `package` (at most 8 characters) in the
 // version `version` (from PACKAGES.BIN): the DSA signature against CTGP-R's
-// public key, then the magic, the size, the name, the body's SHA-1 and a known
-// body/version binding (the name and version are unsigned). The list's own
-// version label (at 0x28) does not have to equal `version`: the channel never
-// re-versioned CTGPR.HSH when PACKAGES.BIN moved from build 1192 to 1196, so a
-// current card carries PACKAGES.BIN CTGPR 0x01031196 with a CTGPR.HSH still
-// labelled 0x01031192. Identity comes from the body digest keyed on the
-// PACKAGES.BIN version; the label is only required to match when no such
-// reference vouches for the body (the test/dev path).
+// public key, then the magic, the size, the name and the body's SHA-1. The
+// list's version label (at 0x28) must equal `version`, as the channel
+// requires, unless its body is one RiftWii knows for that version (an earlier
+// 1196 card kept CTGPR.HSH labelled 0x01031192). CTGPR and CORE lists are
+// accepted whatever their body: CTGP-R re-signs them under the same version.
+// The name and label are not signed, so they prove neither which package a
+// signed list was made for nor how recent it is: an older signed list may be
+// accepted, and it still only vouches for the files CTGP-R signed in it.
+// CORE's code is pinned separately (ctgp_core_code_is_tested).
 // On any failure `error` says which and `out` is untouched. `key` and
 // `reference` are only for tests (`key` default is CTGP-R's own public
 // list-signing key; `reference`, when set, stands in for the built-in

@@ -289,6 +289,16 @@ def build(args):
     image, bss_bytes = elf.layout(0)
     alt_image, alt_bss = alt.layout(alt_base)
     relocs = elf.relocations(len(image))
+    # The Wii loader's own bounds check (plugin_relocate in
+    # src/data/pluginfile.cpp): every target inside the image and .bss. A
+    # target outside them still reproduces the link at both bases (the
+    # arithmetic wraps), so the checks below cannot catch it; the compiler
+    # makes one when it folds a table's address with a biased index.
+    for index, (offset, kind, target) in enumerate(relocs):
+        if target > len(image) + bss_bytes:
+            fail("%s: relocation %d at 0x%x points to 0x%x, past the image and .bss (0x%x); the loader "
+                 "refuses that, so keep the address of a table out of an index's arithmetic there"
+                 % (args.elf, index, offset, target, len(image) + bss_bytes))
     if apply(image, relocs, 0) != image:
         fail("the relocations do not describe the plugin as linked")
     if len(alt_image) != len(image) or alt_bss != bss_bytes or apply(image, relocs, alt_base) != alt_image:
