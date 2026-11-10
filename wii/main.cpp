@@ -388,7 +388,9 @@ void AdoptCtgprReturnPath(bool sd_mounted) {
     // Taken (and deleted) at every start, so a note from a launch that went
     // another way never names the folder of a later start.
     const std::string path = riftwii::wii::take_ctgpr_return_note();
-    if (!g_started_without_path || path.empty() || path.size() >= sizeof(g_note_command_line)) return;
+    if (!g_started_without_path || path.empty() || path.size() >= sizeof(g_note_command_line) ||
+        __system_argv == nullptr)
+        return;
     std::memcpy(g_note_command_line, path.c_str(), path.size() + 1);
     g_note_argv[0] = g_note_command_line;
     g_note_argv[1] = nullptr;
