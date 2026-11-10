@@ -69,11 +69,13 @@ different core stops the launch with that on screen and in `boot.log`, before
 anything is placed. The CTGPR track package may be a newer version than the
 tested `0x01031192`/`0x01031196`: its cups are read from the player's own
 install (below), and its files are served only with digests from its signed
-`CTGPR.HSH`, whose label must be the version PACKAGES.BIN names. The two tested
-CTGPR numbers are the same content (CTGP republished PACKAGES.BIN with
-`0x01031196` without re-versioning `CTGPR.HSH`, whose label is still
-`0x01031192`); the build binds that one body digest to both (`ctgphash.cpp`), so
-the label difference is accepted for them.
+`CTGPR.HSH`, whose label must be the version PACKAGES.BIN names. Any list
+that CTGP-R's key signs is accepted under that rule, as the channel does:
+CTGP-R updates its tracks without always changing the version number (a 1196
+card updated in November 2026 has a new `CTGPR.HSH` under the same label). One
+exception is known: an earlier 1196 card kept the 1192 list, label and all; the
+build knows that list's body digest (`ctgphash.cpp`), so its lagging label is
+accepted too.
 
 Native launches also refuse RVZ images: those need RiftWii's resident disc
 reader, whose hooks and page table have not been shown to coexist with

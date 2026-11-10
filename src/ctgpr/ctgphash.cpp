@@ -104,18 +104,15 @@ bool ctgp_load_hash_list(const CtgpBytes& file, const std::string& package, std:
         return false;
     }
     // CORE must be the known body: the launch's fixed addresses belong to it.
-    // A CTGPR list with no known body is accepted on CTGP-R's own key alone,
-    // with its label equal to PACKAGES.BIN's version (checked above): the
-    // channel trusts a CTGPR list on exactly that, and the launch reads the
-    // cups that depend on the track package from the player's install, so a
-    // CTGPR update needs no new reference here. A version that HAS a known
-    // body must still match it: its name and label sit outside the signed
-    // bytes, so an older signed list relabelled as that version is refused.
-    // The signature has been checked by now, with whichever key is in use
-    // (CTGP-R's own unless a test gives another): a list that does not verify
-    // was refused above, so this path depends on that check, not on `key`.
-    const bool ctgpr_by_signature = package == "CTGPR" && expected_body == nullptr;
-    if (!known_identity && !ctgpr_by_signature && (!key || package == "CORE" || package == "CTGPR")) {
+    // CTGPR is accepted on CTGP-R's own signature with its label equal to
+    // PACKAGES.BIN's version (checked above), whatever its body: that is the
+    // rule the channel itself applies, and CTGP-R updates its tracks without
+    // always changing the version number (a 1196 card updated in Nov 2026 has
+    // a new CTGPR.HSH body under the same 1196 label). A known body still
+    // vouches for a list whose label lags PACKAGES.BIN (known_identity). The
+    // signature has been checked by now, with whichever key is in use (CTGP-R's
+    // own unless a test gives another), so this does not depend on `key`.
+    if (!known_identity && package != "CTGPR" && (!key || package == "CORE")) {
         error = "the signed hash-list body is not a known reference for this package version";
         return false;
     }

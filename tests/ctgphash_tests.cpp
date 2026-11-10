@@ -200,11 +200,14 @@ int main() {
         auto forged = relabelled_as("CTGPR", 0x01031200u);
         forged[0x34] ^= 0x01;
         EXPECT_TRUE(!ctgp_load_hash_list(forged, "CTGPR", 0x01031200u, update, error, &key));
-        // A version with a known body (1.03.1192/1196) must still be that body:
-        // another signed list relabelled as it is refused.
-        EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031192u), "CTGPR", 0x01031192u, update, error, &key));
-        EXPECT_TRUE(error.find("known reference") != std::string::npos);
-        EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031196u), "CTGPR", 0x01031196u, update, error, &key));
+        // A version that also has a known body (1.03.1192/1196) accepts a
+        // different signed body with the same label: CTGP-R updated a 1196
+        // card's tracks and CTGPR.HSH without changing its version.
+        EXPECT_TRUE(ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031192u), "CTGPR", 0x01031192u, update, error, &key));
+        EXPECT_TRUE(ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031196u), "CTGPR", 0x01031196u, update, error, &key));
+        // but its label must still be PACKAGES.BIN's version
+        EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031192u), "CTGPR", 0x01031196u, update, error, &key));
+        EXPECT_TRUE(error.find("another version") != std::string::npos);
         // Production passes no key: the signature is checked with CTGP-R's
         // built-in key, and that check alone decides. This list is signed
         // with the test key, so it is refused for its signature, never
