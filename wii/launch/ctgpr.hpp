@@ -52,4 +52,14 @@ void ctgpr_native_status_forget();
 bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const CtgpLaunchPlan>& out,
                           std::string& error);
 
+// CTGP-R's way back (its Mario Kart Channel and Rankings buttons, its crash
+// handler) loads the boot.dol whose path the launch wrote into CTGP-R and
+// jumps to it with no arguments, so that RiftWii would not know which folder
+// it was started from (its add-ons, the next way back and the update follow
+// that folder). The launch also leaves that path in a note on the card; the
+// next start takes it (reads it and deletes it, whoever started RiftWii).
+// The path is used only when the start gave none, and only if it names a
+// .dol file on the card. Empty when there is no usable note.
+std::string take_ctgpr_return_note();
+
 }  // namespace riftwii::wii
