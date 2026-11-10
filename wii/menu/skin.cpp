@@ -632,6 +632,48 @@ void DrawRgb5a3(const u8* data, int w, int h, float x, float y, int alpha, float
     GX_SetVtxDesc(GX_VA_TEX0, GX_NONE);
 }
 
+void DrawRgb5a3Turned(const u8* data, int w, int h, float x, float y, float dw, float dh, float angle, int alpha) {
+    if (!data || alpha <= 0) return;
+    GxTraceTexture(data, w, h, GX_TF_RGB5A3);
+    GXTexObj tex;
+    GX_InitTexObj(&tex, const_cast<u8*>(data), static_cast<u16>(w), static_cast<u16>(h), GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP,
+                  GX_FALSE);
+    GX_InitTexObjLOD(&tex, GX_LINEAR, GX_LINEAR, 0, 0, 0, GX_FALSE, GX_FALSE, GX_ANISO_1);
+    GX_LoadTexObj(&tex, GX_TEXMAP0);
+    GX_SetTevOp(GX_TEVSTAGE0, GX_MODULATE);
+    GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
+    // libgui's 2D view (the identity moved to z = -50, video.cpp); the
+    // quad is drawn about its own middle and turned there. The screen's y
+    // runs down, so a positive angle is clockwise.
+    Mtx view;
+    guMtxIdentity(view);
+    guMtxTransApply(view, view, 0.0f, 0.0f, -50.0f);
+    const f32 hw = dw / 2.0f, hh = dh / 2.0f;
+    Mtx m, mv;
+    guMtxRotRad(m, 'z', angle);
+    guMtxTransApply(m, m, x + hw, y + hh, 0);
+    guMtxConcat(view, m, mv);
+    GX_LoadPosMtxImm(mv, GX_PNMTX0);
+    const u8 a = static_cast<u8>(alpha > 255 ? 255 : alpha);
+    GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+    GX_Position3f32(-hw, -hh, 0);
+    GX_Color4u8(0xFF, 0xFF, 0xFF, a);
+    GX_TexCoord2f32(0, 0);
+    GX_Position3f32(hw, -hh, 0);
+    GX_Color4u8(0xFF, 0xFF, 0xFF, a);
+    GX_TexCoord2f32(1, 0);
+    GX_Position3f32(hw, hh, 0);
+    GX_Color4u8(0xFF, 0xFF, 0xFF, a);
+    GX_TexCoord2f32(1, 1);
+    GX_Position3f32(-hw, hh, 0);
+    GX_Color4u8(0xFF, 0xFF, 0xFF, a);
+    GX_TexCoord2f32(0, 1);
+    GX_End();
+    GX_LoadPosMtxImm(view, GX_PNMTX0);
+    GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
+    GX_SetVtxDesc(GX_VA_TEX0, GX_NONE);
+}
+
 void DrawRgb5a3Part(const u8* data, int w, int h, float u0, float u1, float x, float y, float dw, float dh,
                     int alpha, bool opaque) {
     const u8 a = static_cast<u8>(alpha < 0 ? 0 : alpha > 255 ? 255 : alpha);

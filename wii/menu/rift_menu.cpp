@@ -12364,6 +12364,12 @@ public:
 	// GameTDB's picture of the game's disc, drawn under the box; nullptr
 	// for none. Set with the GUI halted; the menu thread owns it.
 	void SetDisc(const riftwii::wii::DiscArt* art) { discArt = art; }
+	// The page's tile the disc is (GameTile::Disc): lit, the disc grows a
+	// little, as the box does.
+	void LightDisc(const GuiTiles* grid, int tile) {
+		litDiscGrid = grid;
+		litDiscTile = tile;
+	}
 	bool HasDisc() const { return discArt != nullptr; }
 	// A box or cover was drawn: there is something to see up close. Read
 	// by the menu thread, as the textures are the GUI thread's.
@@ -12433,7 +12439,9 @@ private:
 		if (!discArt || !discArt->data) return;
 		// Square, beside the Favourite tile's star; a picture of another
 		// shape keeps it.
-		const float k = static_cast<float>(kHeroDiscSize) / std::max(discArt->w, discArt->h);
+		const float lit = litDiscGrid && litDiscTile >= 0 ? litDiscGrid->Lift(litDiscTile) : 0.0f;
+		const float size = kHeroDiscSize * (1.0f + 0.08f * lit);
+		const float k = size / std::max(discArt->w, discArt->h);
 		const float dw = discArt->w * k, dh = discArt->h * k;
 		const float dx = kHeroX + (kHeroDiscSize - dw) / 2, dy = kHeroDiscY + (kHeroDiscSize - dh) / 2;
 		// A round drop shadow, lit from above as the box's is.
@@ -12441,7 +12449,7 @@ private:
 			constexpr float kDrop = 4.0f;
 			// skin::Draw scales about the picture's centre: place that
 			// centre under the disc's.
-			const float scale = static_cast<float>(kHeroDiscSize) / riftwii::kDiscShadowDisc;
+			const float scale = size / riftwii::kDiscShadowDisc;
 			const float half = riftwii::kDiscShadowSize / 2.0f;
 			const float cx = kHeroX + kHeroDiscSize / 2.0f, cy = kHeroDiscY + kHeroDiscSize / 2.0f;
 			skin::Draw(skin::discShadow, cx - half, cy - half + kDrop, 255, scale);
@@ -12485,6 +12493,8 @@ private:
 	GXColor hue;
 	const GuiTiles* litGrid = nullptr;
 	int litTile = -1;
+	const GuiTiles* litDiscGrid = nullptr;
+	int litDiscTile = -1;
 	volatile bool hasArt = false;
 	u8* rounded = nullptr;  // kBoxFrontWidth x kBoxHeight at most, 32-aligned
 	std::string madeUpTitle, madeUpId;
@@ -12638,6 +12648,167 @@ static void MenuCoverCloseup(const std::string& game_id, const std::string& cove
 			shownBack = closeup.ShowingBack();
 			prompts.SetShown(promptTurn, shownTurn);
 			prompts.SetAction(promptTurn, shownBack ? tr("Front of the box") : tr("Back of the box"));
+		}
+		ResumeGui();
+	}
+	HaltGui();
+	mainWindow->Remove(&w);
+	mainWindow->SetState(STATE::DEFAULT);
+}
+
+// The game's disc up close (A on the disc under its box on its page): it
+// grows out of the page's disc over the dimmed page to most of the screen's
+// height; B puts it back. A (tapped, or held with the pointer dragging
+// round the disc) and Left and Right spin it, as a fidget spinner is: a
+// flick spins it up, it slows quickly and stops of itself in a few seconds.
+class DiscCloseup : public GuiElement {
+public:
+	explicit DiscCloseup(const riftwii::wii::DiscArt* art) : discArt(art) {
+		width = screenwidth;
+		height = screenheight;
+		selectable = true;
+	}
+	// Shrinks back into the page's disc; Closed() once it is there.
+	void Close() { closing = true; }
+	bool Closed() const { return closing && open <= 0.0f; }
+	// A flick, in turns' worth of speed: positive is clockwise.
+	void Kick(float speed) {
+		omega = std::max(-kMaxSpin, std::min(kMaxSpin, omega + speed));
+	}
+	// B since the last call, from any controller.
+	bool TakeBack() {
+		const bool was = back;
+		back = false;
+		return was;
+	}
+
+	void Draw() override {
+		riftwii::wii::DrawTrace trace("the disc up close");
+		open += ((closing ? 0.0f : 1.0f) - open) * 0.25f;
+		if (open < 0.01f) open = 0.0f;
+		if (open > 0.99f) open = 1.0f;
+		f32 vx, vy, vw, vh;
+		Menu_VisibleArea(&vx, &vy, &vw, &vh);
+		Menu_DrawRectangle(vx, vy, vw, vh, (GXColor){0, 0, 0, static_cast<u8>(200 * open)}, 1);
+		// The clock's seconds (not the frames' count), so the spin looks the
+		// same at 50 and 60 a second; a long stall does not throw it.
+		const u64 now = gettime();
+		const float dt = last == 0 ? 0.0f : std::min(0.05f, ticks_to_microsecs(now - last) / 1e6f);
+		last = now;
+		if (!dragging) {
+			angle += omega * dt;
+			// A fidget spinner's bearing: the faster, the more it drags,
+			// and a little steady friction so it settles rather than creeps.
+			const float slowed = omega * std::exp(-kDrag * dt);
+			const float steady = kFriction * dt;
+			omega = std::fabs(slowed) <= steady ? 0.0f : slowed - (slowed < 0 ? -steady : steady);
+			if (std::fabs(omega) < 0.05f) omega = 0.0f;
+		}
+		angle = std::fmod(angle, 2.0f * static_cast<float>(M_PI));
+		if (!discArt || !discArt->data) return;
+		// As large as fits between the band's top and the prompts, in the
+		// picture's own shape; grown out of the page's disc.
+		const float e = open * open * (3 - 2 * open);  // eased
+		const float fromX = kHeroX + kHeroDiscSize / 2.0f, fromY = kHeroDiscY + kHeroDiscSize / 2.0f;
+		const float size = kHeroDiscSize + (kBigSize - kHeroDiscSize) * e;
+		const float cx = fromX + (screenwidth / 2.0f - fromX) * e;
+		const float cy = fromY + (kBigY + kBigSize / 2.0f - fromY) * e;
+		if (skin::discShadow.data) {
+			const float half = riftwii::kDiscShadowSize / 2.0f;
+			skin::Draw(skin::discShadow, cx - half, cy - half + 8.0f * e, static_cast<int>(255 * open),
+				   size / riftwii::kDiscShadowDisc);
+		}
+		const float k = size / std::max(discArt->w, discArt->h);
+		const float dw = discArt->w * k, dh = discArt->h * k;
+		skin::DrawRgb5a3Turned(discArt->data, discArt->w, discArt->h, cx - dw / 2, cy - dh / 2, dw, dh, angle);
+	}
+	void Update(GuiTrigger* t) override {
+		if (state == STATE::DISABLED || !t || closing) return;
+		const u32 wpadBack = WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B;
+		if ((t->wpad && (t->wpad->btns_d & wpadBack)) || (t->pad.btns_d & PAD_BUTTON_B) ||
+		    (t->wiidrcdata.btns_d & WIIDRC_BUTTON_B))
+			back = true;
+		const u32 wpadA = WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A;
+		const bool pressedA = (t->wpad && (t->wpad->btns_d & wpadA)) || (t->pad.btns_d & PAD_BUTTON_A) ||
+				      (t->wiidrcdata.btns_d & WIIDRC_BUTTON_A);
+		const bool heldA = (t->wpad && (t->wpad->btns_h & wpadA)) || (t->pad.btns_h & PAD_BUTTON_A) ||
+				   (t->wiidrcdata.btns_h & WIIDRC_BUTTON_A);
+		// Left and Right flick it that way; A, tapped, flicks it on the
+		// way it already turns (clockwise from rest).
+		if (t->Left()) Kick(-kFlick);
+		if (t->Right()) Kick(kFlick);
+		const bool pointing = t->wpad && t->wpad->ir.valid;
+		if (pointing && heldA && open > 0.9f) {
+			// Dragged round: the disc follows the pointer's angle about its
+			// middle and lets go with the speed it had.
+			const float px = t->wpad->ir.x - screenwidth / 2.0f, py = t->wpad->ir.y - kBigCentreY;
+			const float at = std::atan2(py, px);
+			const u64 now = gettime();
+			if (dragging && t->chan == dragChan) {
+				float step = at - dragAt;
+				const float pi = static_cast<float>(M_PI);
+				if (step > pi) step -= 2 * pi;
+				if (step < -pi) step += 2 * pi;
+				const float dt = std::max(0.001f, ticks_to_microsecs(now - dragTime) / 1e6f);
+				angle += step;
+				omega = std::max(-kMaxSpin, std::min(kMaxSpin, 0.6f * omega + 0.4f * step / dt));
+			} else if (!dragging && px * px + py * py < kBigSize * kBigSize / 4.0f) {
+				dragging = true;
+				dragChan = t->chan;
+				omega = 0.0f;
+			}
+			dragAt = at;
+			dragTime = now;
+		} else if (dragging && t->chan == dragChan) {
+			dragging = false;
+		}
+		if (pressedA && !dragging && !pointing) Kick(omega < 0 ? -kFlick : kFlick);
+		else if (pressedA && pointing) Kick(omega < 0 ? -kFlick * 0.5f : kFlick * 0.5f);
+	}
+
+private:
+	static constexpr float kBigSize = 340.0f, kBigY = 40.0f, kBigCentreY = kBigY + kBigSize / 2.0f;
+	// Radians a second: a flick is a little over a turn a second, a hard
+	// fling up to some five; 1.3 a second of drag and a steady 1.5 rad/s^2
+	// bring the hardest to rest in about four seconds.
+	static constexpr float kFlick = 7.0f, kMaxSpin = 30.0f, kDrag = 1.3f, kFriction = 1.5f;
+	const riftwii::wii::DiscArt* discArt;
+	float open = 0.0f;
+	float angle = 0.0f, omega = 0.0f;
+	u64 last = 0, dragTime = 0;
+	float dragAt = 0.0f;
+	int dragChan = -1;
+	bool dragging = false;
+	bool closing = false, back = false;
+};
+
+// Shows the game's disc up close until B (or the Close prompt), over
+// the game page, which stays where it is underneath.
+static void MenuDiscCloseup(const riftwii::wii::DiscArt* art)
+{
+	DiscCloseup closeup(art);
+	GuiPrompts prompts;
+	const int promptClose = prompts.Add("B", tr("Close"));
+	const int promptSpin = prompts.Add("A", tr("Spin"));
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&closeup);
+	w.Append(&prompts);
+	mainWindow->SetState(STATE::DISABLED);
+	mainWindow->Append(&w);
+	w.SetState(STATE::DEFAULT);
+	ResumeGui();
+	bool closing = false;
+	while (!closeup.Closed()) {
+		usleep(10000);
+		HaltGui();
+		const int prompt = prompts.GetClicked();
+		if (!closing && (closeup.TakeBack() || prompt == promptClose)) {
+			closeup.Close();
+			closing = true;
+			prompts.SetShown(promptClose, false);
+			prompts.SetShown(promptSpin, false);
+		} else if (!closing && prompt == promptSpin) {
+			closeup.Kick(7.0f);
 		}
 		ResumeGui();
 	}
@@ -14253,7 +14424,7 @@ static int ChangedGameSettings(const riftwii::GameSettings& g)
 	return changed;
 }
 
-enum class GameTile { Play, Mods, Cheats, Saves, Favorite, Options, About, Cover };
+enum class GameTile { Play, Mods, Cheats, Saves, Favorite, Options, About, Cover, Disc };
 
 // The game page's tiles: Play first and largest, the mods beside it, then
 // what is changed most (cheats, saves), then the rest; the favourite
@@ -14285,6 +14456,12 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 		if (state.game_id.empty()) return;
 		add(GameTile::Cover, kHeroX, kHeroY, kHeroW, kHeroH, "", "", nullptr, false);
 		tiles.back().hidden = true;
+		// The disc under the box (drawn by HeroCover): A on it shows it
+		// up close.
+		if (disc) {
+			add(GameTile::Disc, kHeroX, kHeroDiscY, kHeroDiscSize, kHeroDiscSize, "", "", nullptr, false);
+			tiles.back().hidden = true;
+		}
 	};
 	std::size_t enabled = 0;
 	const std::size_t shown = ShownPacks(state, &enabled);
@@ -15038,6 +15215,8 @@ static int MenuHome(FrontendState& state)
 	const auto lightHero = [&] {
 		const auto at = std::find(tileWhat.begin(), tileWhat.end(), GameTile::Cover);
 		hero.Light(&tileGrid, at == tileWhat.end() ? -1 : static_cast<int>(at - tileWhat.begin()));
+		const auto discAt = std::find(tileWhat.begin(), tileWhat.end(), GameTile::Disc);
+		hero.LightDisc(&tileGrid, discAt == tileWhat.end() ? -1 : static_cast<int>(discAt - tileWhat.begin()));
 	};
 	lightHero();
 
@@ -15468,6 +15647,9 @@ static int MenuHome(FrontendState& state)
 					if (hero.HasArt()) say(tr("The game's box. Press A to see it up close, then Down for its back."));
 					else say(tr("There is no box art for this game yet."));
 					break;
+				case GameTile::Disc:
+					say(tr("The game's disc. Press A to see it up close, then spin it."));
+					break;
 			}
 		}
 
@@ -15479,6 +15661,8 @@ static int MenuHome(FrontendState& state)
 			} else if (tile == GameTile::Cover) {
 				if (hero.HasArt()) MenuCoverCloseup(state.game_id, PageCoverName(state));
 				else say(tr("There is no box art for this game yet."));
+			} else if (tile == GameTile::Disc) {
+				if (discArt.data) MenuDiscCloseup(&discArt);
 			} else if (tile == GameTile::Saves && SelectedGcGame(state)) {
 				transition::Hold(transition::Kind::SlideForward);
 				mainWindow->Remove(&w);
