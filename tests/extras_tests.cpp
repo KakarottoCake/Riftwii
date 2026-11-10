@@ -2104,6 +2104,16 @@ void TestCoverArt() {
     EXPECT_EQ(s.menu_widescreen, "on");
     EXPECT_EQ(s.screen_size, 90);
     EXPECT_TRUE(s.serialize().find("screen_size = 90\n") != std::string::npos);
+    // A row of digits too long for a number is left alone, here and for
+    // the parental age, without being added up past what an int holds
+    // (which is undefined: the sanitizer build stops on it).
+    {
+        LoaderSettings longNumbers;
+        longNumbers.parse("screen_size = 90\nparental_age = 7\n");
+        longNumbers.parse("screen_size = 99999999999999999999\nparental_age = 99999999999999999999\n");
+        EXPECT_EQ(longNumbers.screen_size, 90);
+        EXPECT_EQ(longNumbers.parental_age, 7);
+    }
     EXPECT_EQ(s.menu_sounds, "quiet");
     s.parse("menu_sounds = off\n");
     EXPECT_EQ(s.menu_sounds, "off");

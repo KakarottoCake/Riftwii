@@ -96,11 +96,13 @@ void LoaderSettings::parse(const std::string& text) {
         } else if (key == "menu_widescreen") {
             if (value == "auto" || value == "on" || value == "off") menu_widescreen = value;
         } else if (key == "screen_size") {
+            // Only a number short enough to be one is added up: a long row
+            // of digits would overflow the int, which is undefined.
             int n = 0;
             bool digits = !value.empty() && value.size() <= 3;
             for (char c : value) {
                 if (c < '0' || c > '9') digits = false;
-                else n = n * 10 + (c - '0');
+                else if (digits) n = n * 10 + (c - '0');
             }
             if (digits && n >= 80 && n <= 100) screen_size = n;
         } else if (key == "return_to") {
@@ -216,11 +218,12 @@ void LoaderSettings::parse(const std::string& text) {
         } else if (key == "parental_mode") {
             if (value == "lock" || value == "hide") parental_mode = value;
         } else if (key == "parental_age") {
+            // As for screen_size: a long row of digits is not added up.
             int age = 0;
             bool digits = !value.empty() && value.size() <= 2;
             for (char c : value) {
                 if (c < '0' || c > '9') digits = false;
-                else age = age * 10 + (c - '0');
+                else if (digits) age = age * 10 + (c - '0');
             }
             if (digits && parental_age_valid(age)) parental_age = age;
         } else if (key == "parental_unrated") {
