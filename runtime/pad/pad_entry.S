@@ -12,11 +12,16 @@ _pad_blob_start:
     .long pad_hook_submit - _pad_blob_start, pad_replay_submit - _pad_blob_start, pad_continue_submit - _pad_blob_start
     .long pad_hook_sleep - _pad_blob_start, pad_replay_sleep - _pad_blob_start, pad_continue_sleep - _pad_blob_start
     .long pad_hook_suspend - _pad_blob_start, pad_replay_suspend - _pad_blob_start, pad_continue_suspend - _pad_blob_start
+#ifndef RT_PAD_NO_HOME
     .long pad_hook_kpad - _pad_blob_start, pad_replay_kpad - _pad_blob_start, pad_continue_kpad - _pad_blob_start
     .long pad_hook_probe - _pad_blob_start, pad_replay_probe - _pad_blob_start, pad_continue_probe - _pad_blob_start
     .long pad_hook_menu - _pad_blob_start, pad_replay_menu - _pad_blob_start, pad_continue_menu - _pad_blob_start
     .long pad_hook_select - _pad_blob_start, pad_replay_select - _pad_blob_start, pad_continue_select - _pad_blob_start
     .long pad_hook_unified - _pad_blob_start, pad_replay_unified - _pad_blob_start, pad_continue_unified - _pad_blob_start
+#endif
+    /* Without the HOME Menu (RT_PAD_NO_HOME) the header ends before its
+     * hooks, and the blob is as it was before it (padhook.cpp reads them
+     * only from the blob with it). */
 
 /* u32 PADRead(PADStatus status[4]): the original first, through the
  * replay slot (which returns here), then pad_on_read(ctx, status, its
@@ -162,6 +167,7 @@ pad_hook_suspend:
     mtctr 12
     bctr
 
+#ifndef RT_PAD_NO_HOME
 /* s32 KPADReadEx(chan, status[], count, &error) (the 2007 read takes
  * three): the original first, then pad_on_kpad(ctx, chan, status, its
  * result, error) puts the stand-in's status in and returns the count.
@@ -275,6 +281,8 @@ pad_hook_unified:
     addi 1, 1, 0x20
     blr
 
+#endif
+
 /* Loader-filled: the hooked function's first word (and nops), then the
  * jump to its second word through r12. */
     .macro PAD_REPLAY name
@@ -297,14 +305,20 @@ pad_continue_\name:
     PAD_REPLAY submit
     PAD_REPLAY sleep
     PAD_REPLAY suspend
+#ifndef RT_PAD_NO_HOME
     PAD_REPLAY kpad
     PAD_REPLAY probe
     PAD_REPLAY menu
     PAD_REPLAY select
     PAD_REPLAY unified
+#endif
 
     .balign 32
     .globl pad_context_data
 pad_context_data:
     .long 0x52575043
+#ifndef RT_PAD_NO_HOME
     .fill 119, 4, 0  /* RT_PAD_CONTEXT_BYTES / 4 - 1 */
+#else
+    .fill 63, 4, 0  /* RT_PAD_CONTEXT_BASE_BYTES / 4 - 1 */
+#endif

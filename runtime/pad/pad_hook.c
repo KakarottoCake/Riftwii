@@ -9,6 +9,17 @@
 #include "rtpadcal.h"
 #include "rthome.h"
 
+/* Built twice (Makefile.runtime): with the HOME Menu by the controller
+ * (#387), for ordinary Wii games; and with RT_PAD_NO_HOME, without it and
+ * with the context as small as before it, for code builds and with
+ * Settings > Leaving a game on HOME only, which leave every byte to the
+ * game. The HOME Menu's fields come last in rt_pad_context, so the smaller
+ * context simply ends before them. */
+#ifdef RT_PAD_NO_HOME
+#include <stddef.h>
+typedef char rt_pad_context_without_home[(offsetof(struct rt_pad_context, home_on) <= RT_PAD_CONTEXT_BASE_BYTES) ? 1 : -1];
+#endif
+
 #define PAD_STATUS_BYTES 12u  /* PADStatus: button, stick x/y, substick x/y, L, R, analog A/B, err, pad */
 
 uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor);
@@ -17,11 +28,13 @@ void pad_on_complete(struct rt_pad_context* c, int32_t result, uint32_t tag);
 void pad_on_submit(struct rt_pad_context* c, const uint32_t* block);
 uint32_t pad_on_sleep(struct rt_pad_context* c);
 uint32_t pad_on_suspend(struct rt_pad_context* c, uint32_t thread);
+#ifndef RT_PAD_NO_HOME
 int32_t pad_on_kpad(struct rt_pad_context* c, int32_t chan, uint8_t* status, int32_t result, int32_t* error);
 int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int32_t result);
 void pad_on_menu(struct rt_pad_context* c);
 int32_t pad_on_select(struct rt_pad_context* c, int32_t result);
 void pad_on_unified(struct rt_pad_context* c, int32_t chan, uint8_t* status, int32_t count);
+#endif
 
 /* External interrupts off around the driver: PADRead runs on game
  * threads (some from the SI sampling callback), the replies in the IPC
@@ -245,12 +258,15 @@ static void pad_resident_write(const struct rt_pad_context* c, int* wrote, uint3
  * ask back, and the hold starts over. The ask notes the thread this
  * PADRead runs on, the one a game whose main thread never sleeps leaves
  * from (rtleave_sleep_leaves). */
+#ifndef RT_PAD_NO_HOME
 static void pad_home_check(struct rt_pad_context* c, const uint8_t* status, uint32_t t);
+#endif
 
 static void pad_leave_check(struct rt_pad_context* c, const uint8_t* status, uint32_t t) {
     int resident_wrote;
     uint32_t resident_last_write;
     const int held = rtleave_held(status);
+#ifndef RT_PAD_NO_HOME
     if (c->home_on) {
         /* Saves that end while the HOME Menu is up are noted as they end,
          * not at its first PADRead after, which would make the way back
@@ -259,6 +275,7 @@ static void pad_leave_check(struct rt_pad_context* c, const uint8_t* status, uin
         pad_home_check(c, status, t);
         return;
     }
+#endif
     if (c->return_to_menu == 0) return;
     if (c->leave_asked == RT_PAD_LEAVE_ASKED && !held) {
         c->leave_asked = 0;
@@ -337,6 +354,7 @@ uint32_t pad_on_suspend(struct rt_pad_context* c, uint32_t thread) {
     return pad_on_sleep(c);
 }
 
+#ifndef RT_PAD_NO_HOME
 /* ---- The HOME Menu (#224 part 1): the same combo, the game's own menu ---- */
 
 /* The game's own memory, where it keeps its KPAD buffers and its answers. */
@@ -603,9 +621,13 @@ static void pad_tell_connect(const struct rt_pad_context* c, uint32_t chan, int3
     ((void (*)(int32_t, int32_t))(uintptr_t)callback)((int32_t)chan, reason);
 }
 
+#endif
+
 uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) {
     const uint32_t msr = interrupts_off();
+#ifndef RT_PAD_NO_HOME
     uint32_t leave = RTHOME_NO_CHANNEL, join = RTHOME_NO_CHANNEL;
+#endif
     const uint32_t t = now();
     gcad* g = state(c);
     uint32_t i, mask = 0;
@@ -663,8 +685,11 @@ uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) 
     }
     c->overlay_mask = mask;
     ++c->reads;
+#ifndef RT_PAD_NO_HOME
     c->last_pad_read = t | 1u;
+#endif
     pad_leave_check(c, status, t);
+#ifndef RT_PAD_NO_HOME
     if (c->kpad_connect != 0) {
         /* The stand-in comes and goes as a Wii Remote would, for a game
          * that reads only the channels its connect callback heard of. */
@@ -675,9 +700,12 @@ uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) 
         c->kpad_connect_info = (c->kpad_connect_info & 0xFFFFu) |
                                ((next == RTHOME_NO_CHANNEL ? 0u : next + 1u) << 16);
     }
+#endif
     interrupts_restore(msr);
+#ifndef RT_PAD_NO_HOME
     if (leave != RTHOME_NO_CHANNEL) pad_tell_connect(c, leave, -1);
     if (join != RTHOME_NO_CHANNEL) pad_tell_connect(c, join, 0);
+#endif
     return motor;
 }
 

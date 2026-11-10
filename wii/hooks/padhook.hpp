@@ -78,6 +78,7 @@ struct PadHook {
     std::uint32_t state_bytes = 0;
     bool adapter_only = false;       // the state is the adapter's alone (no other USB pad could be used)
     bool pads_only = false;          // the USB pads blob: no adapter, Switch Pro or DualShock 3 code (a code build)
+    bool home_blob = false;          // the blob with the HOME Menu by the controller (#387); else the one without
     std::uint32_t link_count = 0;    // pad links in the state (4, or a code build's pads plugged in at the launch)
     std::uint32_t map_count = 0;     // the catalog's layouts the game keeps
     std::uint32_t map_bytes = 0;     // and their bytes (packed, #506)

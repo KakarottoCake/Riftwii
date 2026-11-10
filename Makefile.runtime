@@ -75,6 +75,47 @@ PADPOUT  := $(OUT)/padp
 PADPBLOB := $(OUT)/riftwii_padp.bin
 PADPOBJS := $(PADPOUT)/pad_entry.o $(PADPOUT)/pad_hook.o $(PADPOUT)/rtgcad.o $(PADPOUT)/rthid.o $(PADPOUT)/rtleave.o $(PADPOUT)/rthome.o
 
+# Each of the three again without the HOME Menu by the controller (#387),
+# built with RT_PAD_NO_HOME: the blob as it was before it, for code builds
+# and with Settings > Leaving a game on HOME only (padhook.cpp picks).
+# Only the one picked goes into the game. $(1): its folder and name,
+# $(2): its defines, $(3): rthid.o for the two with other USB pads.
+define PAD_NOHOME_BLOB
+$(OUT)/$(1):
+	@mkdir -p $$@
+
+$(OUT)/$(1)/pad_entry.o: $(PADSRC)/pad_entry.S $(PADSRC)/pad_hook.h runtime/rtleave.h runtime/rthome.h | $(OUT)/$(1)
+	$(CC) $(CFLAGS) $(2) -DRT_PAD_NO_HOME -I$(PADSRC) -c -o $$@ $$<
+
+$(OUT)/$(1)/pad_hook.o: $(PADSRC)/pad_hook.c $(PADSRC)/pad_hook.h runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h runtime/rtleave.h runtime/rthome.h | $(OUT)/$(1)
+	$(CC) $(CFLAGS) $(2) -DRT_PAD_NO_HOME -I$(PADSRC) -c -o $$@ $$<
+
+$(OUT)/$(1)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h | $(OUT)/$(1)
+	$(CC) $(CFLAGS) $(2) -c -o $$@ $$<
+
+$(OUT)/$(1)/rthid.o: runtime/rthid.c runtime/rthid.h runtime/rtgcad.h | $(OUT)/$(1)
+	$(CC) $(CFLAGS) -c -o $$@ $$<
+
+$(OUT)/$(1)/rtleave.o: runtime/rtleave.c runtime/rtleave.h | $(OUT)/$(1)
+	$(CC) $(CFLAGS) -c -o $$@ $$<
+
+$(OUT)/$(1)/riftwii_$(1).elf: $(addprefix $(OUT)/$(1)/,pad_entry.o pad_hook.o rtgcad.o $(3) rtleave.o) $(PADSRC)/pad.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(PADSRC)/pad.ld \
+		-Wl,--defsym,RT_BASE=0x00000000 -o $$@ $$(filter %.o,$$^) -lgcc
+	@$(SIZE) -A $$@ | awk '$$$$1 ~ /^\.(rodata|data|bss)$$$$/ && $$$$2 != 0 { print "runtime: section " $$$$1 " is not empty (" $$$$2 " bytes) in the $(1) pad blob"; bad = 1 } END { exit bad }'
+
+$(OUT)/$(1)/riftwii_$(1)_alt.elf: $(addprefix $(OUT)/$(1)/,pad_entry.o pad_hook.o rtgcad.o $(3) rtleave.o) $(PADSRC)/pad.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(PADSRC)/pad.ld \
+		-Wl,--defsym,RT_BASE=0x12340000 -o $$@ $$(filter %.o,$$^) -lgcc
+
+$(OUT)/riftwii_$(1).bin: $(OUT)/$(1)/riftwii_$(1).elf $(OUT)/$(1)/riftwii_$(1)_alt.elf
+	$(OBJCOPY) -O binary $(OUT)/$(1)/riftwii_$(1).elf $$@
+	$(OBJCOPY) -O binary $(OUT)/$(1)/riftwii_$(1)_alt.elf $(OUT)/$(1)/riftwii_$(1)_alt.bin
+	@cmp $$@ $(OUT)/$(1)/riftwii_$(1)_alt.bin || { echo "runtime: $(1) pad blob differs between link bases; not position independent"; rm -f $$@; exit 1; }
+	@echo "$(1) pad blob (no HOME Menu): $$$$(stat -c %s $$@) bytes"
+endef
+PADNOHOME := $(OUT)/riftwii_padn.bin $(OUT)/riftwii_padan.bin $(OUT)/riftwii_padpn.bin
+
 
 # The GameCube disc blob (runtime/gc): a GameCube game's DVDLow*
 # functions served from the SD card in Wii mode.
@@ -200,7 +241,7 @@ $(FAULTOBJS) $(FAULTOUT)/riftwii_fault.elf $(FAULTOUT)/riftwii_fault_alt.elf: pr
 $(LTO_OBJS) $(LTO_ELFS): Makefile.runtime
 
 .PHONY: all clean
-all: $(BLOB) $(PADBLOB) $(PADABLOB) $(PADPBLOB) $(GCBLOB) $(SHOTBLOB) $(FAULTBLOB) $(WLOGBLOB) $(WLOGTRACEBLOB) $(WLOGTRANSLATEBLOB) $(VSDBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST) \
+all: $(BLOB) $(PADBLOB) $(PADABLOB) $(PADPBLOB) $(PADNOHOME) $(GCBLOB) $(SHOTBLOB) $(FAULTBLOB) $(WLOGBLOB) $(WLOGTRACEBLOB) $(WLOGTRANSLATEBLOB) $(VSDBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST) \
      $(GCRVZBLOB) $(GCRVZZST) $(DOLPACK) $(STUBBLOB)
 
 $(DPOUT):
@@ -377,6 +418,10 @@ $(PADPBLOB): $(PADPOUT)/riftwii_padp.elf $(PADPOUT)/riftwii_padp_alt.elf
 
 $(PADPOUT)/rthid.o: runtime/rthid.c runtime/rthid.h | $(PADPOUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(eval $(call PAD_NOHOME_BLOB,padn,,rthid.o))
+$(eval $(call PAD_NOHOME_BLOB,padan,-DGCAD_ADAPTER_ONLY,))
+$(eval $(call PAD_NOHOME_BLOB,padpn,-DGCAD_PADS_ONLY,rthid.o))
 
 
 
