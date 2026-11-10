@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <map>
 #include <string>
@@ -23,7 +24,17 @@ struct CtgpField {
     std::int32_t def;
 };
 
-const std::vector<CtgpField>& ctgp_fields();
+// The table, as a constant array (no constructor runs for it: the ctgpr
+// plugin has no static constructors, docs/PLUGINS.md).
+struct CtgpFieldList {
+    const CtgpField* first;
+    std::size_t count;
+    const CtgpField* begin() const { return first; }
+    const CtgpField* end() const { return first + count; }
+    std::size_t size() const { return count; }
+    const CtgpField& operator[](std::size_t i) const { return first[i]; }
+};
+CtgpFieldList ctgp_fields();
 
 // config.ini as key -> value (sections ignored, "#" and ";" lines skipped,
 // the last of a repeated key wins).

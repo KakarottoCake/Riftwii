@@ -293,36 +293,4 @@ bool ctgp_add_package(CtgpRecordTable& table, const std::vector<CtgpPackageFile>
     return true;
 }
 
-bool ctgp_merge_files(Fst& fst, const std::vector<CtgpMergedFile>& files, std::string& error) {
-    std::vector<FstNewFile> fresh;
-    for (const CtgpMergedFile& f : files) {
-        // The handle goes into the table's offset field as it is; the table
-        // keeps offsets shifted right by two.
-        const std::uint64_t offset = static_cast<std::uint64_t>(f.handle) << 2;
-        std::uint32_t index = fst.find(f.game_path, false);
-        if (index == Fst::npos) index = fst.find(f.game_path, true);
-        if (index != Fst::npos) {
-            if (fst.entries()[index].is_directory) {
-                error = f.game_path + " is a directory in the game";
-                return false;
-            }
-            if (!fst.set_file_extent(index, offset, f.size, error)) return false;
-        } else {
-            // A later package may name the same new file again: the last one wins.
-            bool again = false;
-            for (FstNewFile& n : fresh) {
-                if (n.path == f.game_path) {
-                    n.offset = offset;
-                    n.size = f.size;
-                    again = true;
-                }
-            }
-            if (!again) fresh.push_back({f.game_path, offset, f.size});
-        }
-    }
-    if (fresh.empty()) return true;
-    std::vector<std::uint32_t> indices;
-    return fst.create_files(fresh, indices, error);
-}
-
 }  // namespace riftwii

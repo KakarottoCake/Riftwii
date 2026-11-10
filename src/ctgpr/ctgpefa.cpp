@@ -155,7 +155,9 @@ struct EfaState {
 
 BlockReader ctgp_efa_block_reader(ByteReader raw, std::uint64_t size, const std::array<std::uint8_t, 16>& key,
                                   const CtgpChunkIv& iv) {
-    auto state = std::make_shared<EfaState>(std::move(raw), size, key, iv);
+    // Not make_shared: without RTTI (the ctgpr plugin) its deleter lookup
+    // needs a libstdc++ function a plugin does not have.
+    std::shared_ptr<EfaState> state(new EfaState(std::move(raw), size, key, iv));
     return [state](std::uint64_t lba, std::uint32_t count, std::uint8_t* out) {
         for (std::uint32_t i = 0; i < count; ++i) {
             const std::uint64_t sector = lba + i;
