@@ -27,6 +27,7 @@
 #include <stdint.h>
 
 #include "gc_bt.h"
+#include "rtsiprobe.h"
 
 #define GC_PORTS 4u
 #define GC_PORT_NONE 0xFFu
@@ -158,24 +159,14 @@ static inline uint32_t gc_ports_played(uint32_t raw_errs, uint32_t filled_errs, 
 }
 
 /* SIProbe's answer for a GameCube controller (the SDK's SI_GC_CONTROLLER). */
-#define GC_PORTS_SI_CONTROLLER 0x09000000u
+#define GC_PORTS_SI_CONTROLLER RT_SI_GC_CONTROLLER
 
 /* What the game's SIProbe(chan) answers, from the SDK's own answer
- * `probed` (gc_hook_si_probe). Some games ask SIProbe which device is in
- * a port and only read a port's PADStatus when it is a controller:
- * Mario Kart: Double Dash!!'s JUTGamePad::read takes a port only when
- * SIProbe says a controller or a WaveBird. A Wii U has no GameCube ports,
- * and a Wii's empty port has nothing in it either, so SIProbe answers "no
- * response" there and the Wii Remote's port is skipped although its
- * PADStatus has err 0. A port in `played` (gc_ports_played) answers as a
- * controller instead, but only while nothing answers there: any device
- * the SDK identified (a controller plugged in later, a GBA, a keyboard)
- * keeps its own answer. The low byte of an answer holds SIDecodeType's
- * errors (no response, busy, unknown); a device's type has it 0. */
+ * `probed` (gc_hook_si_probe): a port in `played` (gc_ports_played)
+ * answers as a controller while nothing answers there (rtsiprobe.h says
+ * why; the Wii games' pad blob gives the same answer). */
 static inline uint32_t gc_ports_probe(uint32_t chan, uint32_t probed, uint32_t played) {
-    const int nothing_answers = (probed & 0xFFu) != 0;
-    if (chan >= GC_PORTS || (played & (1u << chan)) == 0 || !nothing_answers) return probed;
-    return GC_PORTS_SI_CONTROLLER;
+    return rt_si_probe(chan, probed, played);
 }
 
 /* `pads`: bit p set when a GameCube controller answers in port p.

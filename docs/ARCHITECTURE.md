@@ -110,7 +110,12 @@ ports with nothing plugged in; rumble goes back to them. PADRead tells
 the video code which of its own ports are in use, so the Wii's screen
 burn-in reduction leaves the screen lit; for the adapter's pads the
 blob calls the same reset (found by the call near PADRead) on each
-button or stick change.
+button or stick change. Where the game has `SIProbe` (most Wii games
+leave it out; Bomberman Land has it and asks it for all four ports
+every frame), the blob hooks it as RiftWii's GameCube loader does (see
+`gc_ports_probe` below): a port the last `PADRead` filled from the
+adapter or a USB pad answers as a GameCube controller while nothing of
+the console's own answers there (`runtime/rtsiprobe.h`, #510).
 
 The blob comes in three builds of the same driver: the full one;
 `GCAD_ADAPTER_ONLY`, without the other USB pads' code, when the adapter
@@ -186,8 +191,9 @@ that reads it but opens no menu twice in a row the second time (twice, not
 once: Brawl and Tatsunoko vs. Capcom refuse once during their intros). A
 combo still held when that is decided is itself the way back. Code builds
 and Settings > Leaving a game on HOME only get the pad blob built without
-the HOME Menu (`RT_PAD_NO_HOME`, byte for byte the blob before it), so
-they give up none of their memory to it.
+the HOME Menu (`RT_PAD_NO_HOME`: none of its hooks or code, and the
+256-byte context), so they give up none of their memory to it. SIProbe's
+hook is in both builds.
 The decisions are `runtime/rthome.c`, host-tested. The 2006 Virtual
 Console programs (Super Mario World, A Link to the Past, Bomberman '93)
 have neither the banner nor this KPAD layout, and keep the way back.

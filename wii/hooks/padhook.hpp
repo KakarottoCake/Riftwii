@@ -49,6 +49,12 @@
 // opens no menu twice in a row (Mario Kart Wii), the combo is the way back
 // as before.
 //
+// SIProbe, hooked where it is found (#510), in either blob: a game that
+// asks it which device is in a port before it reads the port hears a
+// GameCube controller where the adapter or a USB pad plays, as RiftWii's
+// GameCube loader answers it (runtime/rtsiprobe.h). Without it the
+// adapter works as before in every game that just reads its ports.
+//
 // Anything that stands in the way turns the adapter off with a reason
 // for the log, never fails the launch: no PADRead in the game, a pack's
 // memory patch on the memory it would take, or (after the patches) a
@@ -61,9 +67,9 @@ void log_pad_diagnostics(std::uint32_t code_base, std::uint32_t print_entry);
 
 // The blob's hooks: PADRead, PADControlMotor, the IPC submit routine,
 // OSSleepThread, OSSuspendThread, the KPAD read, WPADProbe, HBMCalc,
-// HBMGetSelectBtnNum and KPADGetUnifiedWpadStatus (a code build's veneers,
-// one each).
-constexpr std::uint32_t kPadHookSites = 10;
+// HBMGetSelectBtnNum, KPADGetUnifiedWpadStatus and SIProbe (a code
+// build's veneers, one each).
+constexpr std::uint32_t kPadHookSites = 11;
 
 struct PadHook {
     bool active = false;             // planned; install_pad_hook hooks it
@@ -72,6 +78,7 @@ struct PadHook {
     unsigned read_sites = 0;         // its error stores
     std::uint32_t motor = 0;         // PADControlMotor, 0: no rumble
     std::uint32_t idle_reset = 0;    // the screen-dimming reset PADRead calls, 0: adapter pads don't keep the screen lit
+    std::uint32_t si_probe = 0;      // SIProbe, 0: not found (a game that asks it which ports have a controller sees none, #510)
     std::uint32_t code_base = 0;     // the blob (MEM1)
     std::uint32_t code_bytes = 0;
     std::uint32_t state_base = 0;    // the driver state (MEM2)
