@@ -148,7 +148,7 @@ struct rt_pad_context {
      * back. Loader-filled: the KPAD status's size, whether the read takes
      * the error's address, the game's PADRead (hooked: read again when the
      * game stops reading its pads while its menu is up), the timings in
-     * home, then home_on once all three hooks are in. */
+     * home, then home_on once all four hooks are in. */
     uint32_t home_on;
     uint32_t kpad_status_bytes;
     uint32_t kpad_takes_error;

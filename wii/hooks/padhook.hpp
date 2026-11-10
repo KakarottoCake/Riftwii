@@ -39,12 +39,12 @@
 // suspends itself to wait leave as a sleeping one would (N64 Virtual
 // Console's pad-reading thread); without it only sleeps leave.
 //
-// The HOME Menu (#224 part 1): with the KPAD read, WPADProbe and HBMCalc
-// found and hooked (riftwii/hbmsearch.hpp), the same combo opens the game's
+// The HOME Menu (#224 part 1): with the KPAD read, WPADProbe, HBMCalc and
+// HBMGetSelectBtnNum found and hooked (riftwii/hbmsearch.hpp), the same combo opens the game's
 // own HOME Menu instead, on a Classic Controller the blob stands in on a
 // free channel until the menu closes (runtime/rthome.h); the stand-in's
 // Wii Remote carries the same presses and a pointer, for games that look
-// only at the Remote (Bomberman Blast). Missing any of the three, in a game
+// only at the Remote (Bomberman Blast). Missing any of the four, in a game
 // that never reads the stand-in's channel, or in one that reads it but
 // opens no menu twice in a row (Mario Kart Wii), the combo is the way back
 // as before.
@@ -104,7 +104,8 @@ struct PadHook {
     // after the driver's state in MEM2; nullptr: none stored, none placed.
     const rtpadcal_table* calibration = nullptr;
     std::uint32_t calibration_base = 0;     // where the table went, 0: none
-    // The HOME Menu; any of the three 0: off.
+    // The HOME Menu; any of the four required (kpad_read, wpad_probe,
+    // hbm_calc, hbm_select) 0: off.
     std::uint32_t kpad_read = 0;          // the KPAD read (KPADReadEx in newer SDKs)
     std::uint32_t kpad_status_bytes = 0;  // its status's size
     bool kpad_takes_error = false;        // its fourth argument is the error's address

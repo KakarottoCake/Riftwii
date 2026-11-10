@@ -1259,7 +1259,7 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
                 return false;
             }
             if (&s == &submit_site || &s == &sleep_site) way_back_off(s.name, "is out of a branch's reach");
-            // One of the three may already be in: harmless alone, as each
+            // Another of the four may already be in: harmless alone, as each
             // returns at once while home_on is 0.
             if (is_home_site(s)) home_off(s.name, "is out of a branch's reach");
             if (&s == &unified_site)

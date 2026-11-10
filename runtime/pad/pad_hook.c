@@ -432,6 +432,12 @@ static void pad_home_status(struct rt_pad_context* c, uint8_t* status, uint32_t 
     const int menu_open = rthome_menu_open(&c->home);
     rthome_classic(&c->home, t, &hold, &trig, &release, axes);
     rthome_remote(&c->home, &remote_hold, &remote_trig, &remote_release, pointer);
+    /* Every field the stand-in doesn't set is 0, as for a still Remote: on
+     * its channel the real read found no controller and left the buffer
+     * as it was, and Brawl, Mario Kart Wii and NASCAR Kart Racing pass a
+     * stack buffer, whose old words would read as motion (CodeRabbit). The
+     * status's whole size, as the KPAD read takes it (132 to 240 bytes). */
+    for (i = 0; i + 4 <= c->kpad_status_bytes; i += 4) pad_put32(status + i, 0);
     pad_put32(status + PAD_KPAD_HOLD, remote_hold);
     pad_put32(status + PAD_KPAD_TRIG, remote_trig);
     pad_put32(status + PAD_KPAD_RELEASE, remote_release);
