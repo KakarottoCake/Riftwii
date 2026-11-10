@@ -487,6 +487,7 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
          * remote stops reporting until the mode is set again. */
         const uint32_t plugged = p[4] & 0x02u;
         bt->progress |= plugged ? GC_BT_SEEN_STATUS | GC_BT_SEEN_EXTENSION : GC_BT_SEEN_STATUS;
+        r->ext_seen = plugged ? 1u : 0u;
         if (!plugged) {
             /* Also the answer to a retry's status request: nothing to
              * start, the mode below lets the remote play alone. */
@@ -767,13 +768,16 @@ static void bt_check_extensions(struct gc_bt* bt) {
         if (!r->used || !r->ready || r->ext_step == 0 || r->ext_step == 4) continue;
         if (++r->ext_wait < GC_BT_EXT_WAIT) continue;
         /* Steps 1-3: an extension was reported plugged in and stalled.
-         * Step 5: only the status answer is missing, so there may be none. */
-        const uint32_t stalled_extension = r->ext_step != GC_BT_EXT_STATUS_ASKED;
+         * Step 5: only the status answer is missing; an extension counts if
+         * an earlier status report said one is plugged in (ext_seen). */
+        const uint32_t stalled_extension = r->ext_step != GC_BT_EXT_STATUS_ASKED || r->ext_seen;
         r->ext_wait = 0;
         r->ext_step = 0;
         if (r->ext_retries < GC_BT_EXT_RETRIES) {
             r->ext_retries++;
-            bt->progress |= GC_BT_SEEN_EXT_RETRY;
+            /* The trace's "tried again" is about an extension: a bare
+             * remote's lost status answer is retried without saying so. */
+            if (stalled_extension) bt->progress |= GC_BT_SEEN_EXT_RETRY;
             r->ext_step = GC_BT_EXT_STATUS_ASKED;
             request[0] = 0x15;  /* its status report starts the extension again */
             request[1] = 0x00;

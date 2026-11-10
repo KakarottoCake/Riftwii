@@ -82,13 +82,14 @@ struct gc_bt_rq {
 #define GC_BT_INTR_OURS 8u
 #define GC_BT_CHANS_READY 15u
 
-/* gc_bt_remote.ext_kind */
-/* A remote's ext_step while a status request waits for its answer: the
+/* gc_bt_remote.ext_step while a status request waits for its answer: the
  * first one when its channels open, or a retry's (gc_bt.c's
  * bt_check_extensions). The answer (0x20) starts the extension, or sets the
  * report mode when none is plugged in; a lost one leads to the next retry.
  * Problem reports name it (src/data/gccrash.cpp). */
 #define GC_BT_EXT_STATUS_ASKED 5u
+
+/* gc_bt_remote.ext_kind */
 #define GC_BT_EXT_NONE 0u
 #define GC_BT_EXT_NUNCHUK 1u
 #define GC_BT_EXT_CLASSIC 2u
@@ -105,7 +106,8 @@ struct gc_bt_remote {
     uint8_t rumble;     /* the motor as the remote has it: bit 0 of every output report it is sent */
     uint32_t rumble_poll;  /* bt->polls when its last rumble report went */
     uint32_t acl_pending;  /* its share of gc_bt.acl_pending */
-    uint8_t spare[2];
+    uint8_t ext_seen;   /* a status report said an extension is plugged in, and none said it left */
+    uint8_t spare;
     uint32_t ctrl_cid;  /* the remote's end of each channel */
     uint32_t intr_cid;
     uint32_t ext_step;  /* 0 none, 1-3 starting it (gc_bt.c), 4 ready, 5 a status request waiting for its answer */
