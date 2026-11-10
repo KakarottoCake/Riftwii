@@ -83,6 +83,12 @@ struct gc_bt_rq {
 #define GC_BT_CHANS_READY 15u
 
 /* gc_bt_remote.ext_kind */
+/* A remote's ext_step while a status request waits for its answer: the
+ * first one when its channels open, or a retry's (gc_bt.c's
+ * bt_check_extensions). The answer (0x20) starts the extension, or sets the
+ * report mode when none is plugged in; a lost one leads to the next retry.
+ * Problem reports name it (src/data/gccrash.cpp). */
+#define GC_BT_EXT_STATUS_ASKED 5u
 #define GC_BT_EXT_NONE 0u
 #define GC_BT_EXT_NUNCHUK 1u
 #define GC_BT_EXT_CLASSIC 2u

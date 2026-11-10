@@ -17,11 +17,6 @@
 #define GC_BT_WRITE_POLLS 20000000u  /* polls before a write counts as lost */
 #define GC_BT_EXT_WAIT 60u      /* PADReads (a second) an extension's start may take a step */
 #define GC_BT_EXT_RETRIES 3u
-/* A status request is waiting for its answer: the first one when the
- * remote's channels open, or a retry's (bt_check_extensions). The answer
- * (bt_on_input's 0x20) starts the extension, or sets the report mode when
- * none is plugged in; a lost one leads to the next retry. */
-#define GC_BT_EXT_STATUS_ASKED 5u
 
 /* HCI opcodes (OGF << 10 | OCF). */
 #define GC_HCI_ACCEPT_CONNECTION 0x0409u
@@ -771,6 +766,9 @@ static void bt_check_extensions(struct gc_bt* bt) {
         uint8_t request[2];
         if (!r->used || !r->ready || r->ext_step == 0 || r->ext_step == 4) continue;
         if (++r->ext_wait < GC_BT_EXT_WAIT) continue;
+        /* Steps 1-3: an extension was reported plugged in and stalled.
+         * Step 5: only the status answer is missing, so there may be none. */
+        const uint32_t stalled_extension = r->ext_step != GC_BT_EXT_STATUS_ASKED;
         r->ext_wait = 0;
         r->ext_step = 0;
         if (r->ext_retries < GC_BT_EXT_RETRIES) {
@@ -782,8 +780,12 @@ static void bt_check_extensions(struct gc_bt* bt) {
             bt_report(bt, r, request, 2);
         } else {
             r->ext_kind = GC_BT_EXT_NONE;
-            bt->ext_given_up++;
-            bt->progress |= GC_BT_SEEN_EXT_GIVEN_UP;
+            /* The trace says an extension was given up only when one was
+             * seen: a bare remote whose status answers were lost just plays. */
+            if (stalled_extension) {
+                bt->ext_given_up++;
+                bt->progress |= GC_BT_SEEN_EXT_GIVEN_UP;
+            }
             bt_set_mode(bt, r);
         }
     }
