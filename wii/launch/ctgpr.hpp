@@ -56,10 +56,13 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
 // handler) loads the boot.dol whose path the launch wrote into CTGP-R and
 // jumps to it with no arguments, so that RiftWii would not know which folder
 // it was started from (its add-ons, the next way back and the update follow
-// that folder). The launch also leaves that path in a note on the card; the
-// next start takes it (reads it and deletes it, whoever started RiftWii).
-// The path is used only when the start gave none, and only if it names a
-// .dol file on the card. Empty when there is no usable note.
+// that folder). So the launch leaves that path in a note on the card, with
+// RiftWii's version, at the handover (leave_ctgpr_return_note, once CTGP-R is
+// in place: a launch that fails before leaves none); the next start takes it
+// (reads it and deletes it, whoever started RiftWii). The path is used only
+// when the start gave none, and only from the same build, for a .dol that is
+// on the card (riftwii/update.hpp). One note per card, not per install.
+void leave_ctgpr_return_note();
 std::string take_ctgpr_return_note();
 
 }  // namespace riftwii::wii

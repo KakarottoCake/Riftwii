@@ -103,4 +103,16 @@ bool plan_update_writes(const ThemePack& apps, const std::string& release, const
 // falls back to sd:/apps/riftwii/boot.dol, when that file exists.
 std::string running_dol_path(const char* launch_path, const std::function<bool(const std::string&)>& is_file);
 
+// CTGP-R's way back starts boot.dol with no path, so a CTGP-R launch leaves
+// the running DOL's path in a note on the card (wii/launch/ctgpr.cpp) and the
+// next start takes it. The note is the path and the RiftWii version, one per
+// line. Its text for `dol_path`, or empty when that is not a DOL on the card
+// that running_dol_path would take.
+std::string ctgpr_return_note_text(const std::string& dol_path, const std::string& version);
+// The path a note names, or empty: a note from another RiftWii build, or one
+// naming anything running_dol_path would not take, or a file that is not
+// there. Trailing spaces and line ends are ignored.
+std::string ctgpr_return_note_path(const std::string& text, const std::string& version,
+                                   const std::function<bool(const std::string&)>& is_file);
+
 }  // namespace riftwii
