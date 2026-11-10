@@ -987,6 +987,12 @@ msgstr "À utiliser à vos risques :"
 msgid "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead."
 msgstr "CTGP Revolution ne fonctionne pas encore depuis RiftWii (blocage sur écran noir ou vert). Lancez-le directement depuis la Chaîne Homebrew."
 
+msgid "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded."
+msgstr "CTGP Revolution démarre hors ligne uniquement depuis RiftWii : le jeu en ligne et en LAN est désactivé, et les fantômes que vous enregistrez ne peuvent pas être envoyés."
+
+msgid "CTGP Revolution: offline only (see Start)."
+msgstr "CTGP Revolution : hors ligne uniquement (voir Démarrer)."
+
 msgid "CTGP Revolution does not work from RiftWii yet (see Start)."
 msgstr "CTGP Revolution ne fonctionne pas encore depuis RiftWii (voir Démarrer)."
 
@@ -4026,6 +4032,18 @@ msgstr "Non appliqué"
 msgid "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start."
 msgstr "Ce jeu vérifie son propre code. Pour qu'il démarre, les modifications d'image, de langue, de région, de manettes, de jeu en ligne et les codes de triche restent désactivés."
 
+msgid "Off (CTGP-R)"
+msgstr "Désactivé (CTGP-R)"
+
+msgid "Cheats can't be turned on while CTGP-R is enabled. Turn CTGP-R off in Mods to use cheats."
+msgstr "Les codes de triche ne peuvent pas être activés tant que CTGP-R est activé. Désactivez CTGP-R dans Mods pour les utiliser."
+
+msgid "Other mods can't be enabled while CTGP-R is on. Turn CTGP-R off to use them."
+msgstr "Les autres mods ne peuvent pas être activés tant que CTGP-R est activé. Désactivez CTGP-R pour les utiliser."
+
+msgid "CTGP-R is on, so cheats and other mods were turned off. They can't be enabled while it is on."
+msgstr "CTGP-R est activé : les codes de triche et les autres mods ont été désactivés. Ils ne peuvent pas être activés tant que CTGP-R est activé."
+
 msgid "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report."
 msgstr "RiftWii a manqué de mémoire au démarrage du jeu. Désactivez la musique du menu et réessayez, ou envoyez un rapport de problème."
 
@@ -4260,6 +4278,27 @@ msgstr "Dans les jeux GameCube, maintenez HOME deux secondes pour revenir à Rif
 msgid "L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote or a Wii U Pro Controller for two seconds to leave the game."
 msgstr "L, R, Z et Start sont désactivés (Paramètres > Jeux > Quitter un jeu) : maintenez HOME sur une Wiimote ou une manette Wii U Pro deux secondes pour quitter le jeu."
 
+msgid "CTGP-R only starts with the Mario Kart Wii game."
+msgstr "CTGP-R ne se lance qu'avec le jeu Mario Kart Wii."
+
+msgid "CTGP-R works with the US, Japanese and European versions of Mario Kart Wii only."
+msgstr "CTGP-R ne fonctionne qu'avec les versions américaine, japonaise et européenne de Mario Kart Wii."
+
+msgid "CTGP-R is not installed on the SD card. Install it with its own installer first."
+msgstr "CTGP-R n'est pas installé sur la carte SD. Installez-le d'abord avec son propre installateur."
+
+msgid "This version of CTGP-R can't be started from RiftWii yet. Start CTGP-R from the Homebrew Channel instead."
+msgstr "Cette version de CTGP-R ne peut pas encore être lancée depuis RiftWii. Lancez CTGP-R depuis le Homebrew Channel."
+
+msgid "CTGP-R could not be started. Its files on the SD card may be damaged or incomplete: install CTGP-R again. The reason is in sd:/riftwii/boot.log."
+msgstr "CTGP-R n'a pas pu démarrer. Ses fichiers sur la carte SD sont peut-être endommagés ou incomplets : réinstallez CTGP-R. La raison se trouve dans sd:/riftwii/boot.log."
+
+msgid "This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead."
+msgstr "Cette version de CTGP Revolution ne peut pas encore être lancée depuis RiftWii (ou ses fichiers sur la carte SD sont endommagés). Lancez CTGP depuis le Homebrew Channel."
+
+msgid "CTGP Revolution: this version can't be started from RiftWii (see Start)."
+msgstr "CTGP Revolution : cette version ne peut pas être lancée depuis RiftWii (voir Démarrer)."
+
 msgid "Calibrate a GameCube controller"
 msgstr "Calibrer une manette GameCube"
 
@@ -4364,3 +4403,6 @@ msgstr "calibration en cours"
 
 msgid "No GameCube controller found"
 msgstr "Aucune manette GameCube trouvée"
+
+msgid "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead."
+msgstr "CTGP-R ne peut pas démarrer depuis une image RVZ. Utilisez un disque, un ISO ou un WBFS."

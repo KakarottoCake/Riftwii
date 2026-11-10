@@ -271,6 +271,22 @@ bool LaunchModel::set_enabled(std::size_t package, bool enabled) {
     return true;
 }
 
+bool LaunchModel::keep_only_package(std::size_t package) {
+    if (package >= packages.size() || !packages[package].enabled || !packages[package].valid) return false;
+    bool changed = false;
+    for (std::size_t i = 0; i < packages.size(); ++i) {
+        if (i != package && packages[i].enabled) {
+            set_enabled(i, false);
+            changed = true;
+        }
+    }
+    if (game.cheats) {
+        game.cheats = false;
+        changed = true;
+    }
+    return changed;
+}
+
 std::vector<LaunchModel::OptionRef> LaunchModel::merge_group(std::size_t package, std::size_t option) const {
     std::vector<OptionRef> group;
     if (package >= packages.size() || option >= packages[package].package.options.size()) return group;

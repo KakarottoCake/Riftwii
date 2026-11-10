@@ -484,6 +484,10 @@ bool Fat32Volume::walk_directory(std::uint32_t directory_cluster,
                 reset_lfn();
                 entry.is_directory = (attr & kAttrDirectory) != 0;
                 entry.first_cluster = (std::uint32_t(le16(e + 0x14)) << 16) | le16(e + 0x1A);
+                entry.create_time = le16(e + 0x0E);
+                entry.create_date = le16(e + 0x10);
+                entry.write_time = le16(e + 0x16);
+                entry.write_date = le16(e + 0x18);
                 entry.size = entry.is_directory ? 0 : le32(e + 0x1C);
                 if (entry.short_name == "." || entry.short_name == "..") continue;
                 bool stop = false;

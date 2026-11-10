@@ -15,12 +15,14 @@
 #include <utility>
 #include <vector>
 
+#include "ctgpr.hpp"
 #include "launchrun.hpp"
 #include "banners.hpp"
 #include "di.hpp"
 #include "vsdimage.hpp"
 #include "i18n.hpp"
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/ctgplaunch.hpp"
 #include "riftwii/riiconfig.hpp"
 #include "riftwii/imagevolume.hpp"
 #include "loadersettings.hpp"
@@ -315,6 +317,10 @@ void PrepareGameChoices(FrontendState& state, const std::string& game_id, const 
 }
 
 std::string ScanPackages(FrontendState& state, bool reuse_catalog, void (*step)(const char*)) {
+    // The card may have changed since the last scan (CTGP-R installed or
+    // updated): the menu's notes ask the card again, once.
+    ctgpr_native_status_forget();
+    state.ctgpr_cache.valid = false;
     state.model.packages.clear();
     state.model.forget_game_choices();
     if (!reuse_catalog || !state.package_catalog.ready) state.package_catalog = ReadPackageCatalog();
@@ -364,9 +370,83 @@ std::string ScanPackages(FrontendState& state, bool reuse_catalog, void (*step)(
     }
     logf("Packages: %u XML file(s), %u shown for %s\n", static_cast<unsigned>(state.model.packages.size()),
          static_cast<unsigned>(shown), state.game_id.empty() ? "no game" : state.game_id.c_str());
+    ApplyCtgprPrecedence(state);
     if (limited) return "First 150 packages shown; directory limit reached";
     if (state.model.packages.empty()) return "No XML packages in sd:/riivolution";
     return kScanReady;
+}
+
+namespace {
+
+// A text that changes whenever the answers could: the game, how many packs
+// the scan found, and every switched-on pack with its choices. Cheap to build
+// (no card access), unlike the answers themselves.
+std::string CtgprCacheKey(const FrontendState& state, const std::vector<PackageChoices>& selections) {
+    std::string key = state.game_id;
+    key += '\n';
+    key += std::to_string(state.model.packages.size());
+    for (const PackageChoices& choice : selections) {
+        key += '\n';
+        key += choice.xml_sd_path;
+        for (const auto& pick : choice.choices) {
+            key += '\t';
+            key += pick.first;
+            key += '=';
+            key += pick.second;
+        }
+    }
+    return key;
+}
+
+std::size_t FindCtgprPackOn(const FrontendState& state, const std::vector<PackageChoices>& selections) {
+    // Each switched-on pack is asked alone: with other packs in the list the
+    // whole-list test (the launch's) says no, as they patch other files.
+    for (const PackageChoices& choice : selections) {
+        std::string app, dropped;
+        if (!homebrew_app_stand_in({choice}, state.game_id, app, dropped)) continue;
+        // Only CTGP-R's own channel swap on Mario Kart Wii locks the other
+        // packs and the cheats off; any other homebrew-app stand-in is an
+        // ordinary pack and leaves them alone.
+        if (!ctgp_is_native_stand_in(state.game_id, app)) continue;
+        for (std::size_t i = 0; i < state.model.packages.size(); ++i)
+            if (state.model.packages[i].path == choice.xml_sd_path) return i;
+    }
+    return SIZE_MAX;
+}
+
+// Both answers, worked out once for the state they depend on. ScanPackages
+// forgets them (the XML on the card may have changed); a change of choices
+// changes the key.
+const CtgprPackCache& CtgprPackAnswers(const FrontendState& state) {
+    CtgprPackCache& cache = state.ctgpr_cache;
+    const std::vector<PackageChoices> selections = state.model.selections();
+    const std::string key = CtgprCacheKey(state, selections);
+    if (cache.valid && cache.key == key) return cache;
+    cache.key = key;
+    cache.pack_on = SIZE_MAX;
+    cache.app_stand_in = false;
+    if (!state.game_id.empty()) {
+        cache.pack_on = FindCtgprPackOn(state, selections);
+        std::string app, dropped;
+        cache.app_stand_in = homebrew_app_stand_in(selections, state.game_id, app, dropped);
+    }
+    cache.valid = true;
+    return cache;
+}
+
+}  // namespace
+
+std::size_t CtgprPackOn(const FrontendState& state) { return CtgprPackAnswers(state).pack_on; }
+
+bool HomebrewAppPackOn(const FrontendState& state) { return CtgprPackAnswers(state).app_stand_in; }
+
+bool ApplyCtgprPrecedence(FrontendState& state) {
+    const std::size_t ctgp = CtgprPackOn(state);
+    if (ctgp == SIZE_MAX) return false;
+    const bool changed = state.model.keep_only_package(ctgp);
+    if (changed) state.ctgpr_cache.valid = false;
+    if (changed) logf("CTGP-R is on for %s: other mods and cheats switched off\n", state.game_id.c_str());
+    return changed;
 }
 
 std::string ModPlaceProblem(const FrontendState& state, bool brief) {
@@ -439,7 +519,9 @@ bool SaveChoicesTo(const LaunchModel& model, const std::string& path, std::strin
     return true;
 }
 
-bool SaveChoices(const FrontendState& state, std::string& error) {
+bool SaveChoices(FrontendState& state, std::string& error) {
+    state.ctgpr_cache.valid = false;
+    ApplyCtgprPrecedence(state);
     if (state.choices_path.empty()) {
         error = "cannot save choices: no game is selected";
         return false;

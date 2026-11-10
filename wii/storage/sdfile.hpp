@@ -23,6 +23,10 @@ bool resolve_sd_file(const std::string& sd_path, Fat32File& out, bool& missing, 
 // them).
 bool list_sd_directory(const std::string& sd_path, std::vector<Fat32Entry>& out, bool& missing,
                        std::string& error);
+// The card's FAT32 volume: where it starts (in 512-byte blocks) and its
+// boot sector, read raw. The CTGP-R launch hands the game a partition made
+// from it (riftwii/ctgpfat.hpp).
+bool read_sd_boot_sector(std::uint64_t& volume_lba, std::vector<std::uint8_t>& sector, std::string& error);
 // Bytes of a file found above, read raw from the card.
 bool read_sd_file(const Fat32File& file, std::uint64_t offset, std::uint8_t* out, std::size_t length);
 // How far the card's FAT32 volume reaches, in bytes: its start plus its
