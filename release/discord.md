@@ -17,25 +17,29 @@ Rewrite it for every release and delete the line below.
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-What's new:
+GameCube, a lot of it:
 
-* Games get back a lot of the memory RiftWii used inside them (thanks grantendo and JackW), and mods load faster
-* Parental controls can lock or hide the Homebrew Channel and Priiloader buttons, and lock Settings
-* After the next update, RiftWii restarts straight into the new version
-* Mod tiles get their own 3D covers and boxes
-* Code mods: Extras and Crash logs rows on the Mods page
-* Wii U Pro Controller: Mario Kart Wii CC cheats work without opening HOME first
+* Paper Mario TTYD no longer crashes partway in
+* GameCube mod packs that change code (memory and shift patches) now start
+* GameCube controller opens the HOME Menu in Wii games: hold L+R+Z+Start (thanks grantendo)
+* CTGP Revolution starts without the disc, offline only
+* Calibrate a GameCube controller (Settings > Controllers)
+* Real memory card in slot B, Volume boost, no more 480p question in old games
+* 240p for CRT TVs
+* Leaving a game: HOME only, so combos can't end a game
+* Mario Kart Arcade GP 2 boots and takes a coin
 
 To test, please:
 
-1. Big mods from SD and USB: faster? Any freezes or missing files?
-2. Saves in a mod with its own save folder, after a restart
-3. Code builds (Project+, REX, PM), especially from sd.raw
-4. Parental controls: set a PIN, try each HOME Menu buttons choice and the Settings lock
-5. MKWii with a Pro Controller and CC cheats
-6. GameCube adapter: pull the gray plug mid-game, rumble should stop and controllers keep working
+1. TTYD past where it crashed, plus Luigi's Mansion and Eclipse
+2. GameCube mods with code changes (Sunshine mods, Eclipse)
+3. L+R+Z+Start HOME Menu with only a GameCube controller
+4. CTGP without the disc, from USB and SD
+5. Calibrate a controller, then play
+6. 240p on a CRT
+7. Slot B memory card on an original Wii
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![What's new](docs/screenshots/2611-128-whats-new.png)
-![HOME Menu with parental controls](docs/screenshots/2611-128-home-menu-parental.png)
+![What's new](docs/screenshots/2611-151-whats-new.png)
+![Calibrate a GameCube controller](docs/screenshots/2611-151-calibrate.png)

@@ -4110,23 +4110,23 @@ msgstr "エミュレートNANDのフォルダです。USB Loader GXの設定に�
 msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
 msgstr "設定とMiiも選ぶと、ゲームはエミュレートNANDのWii本体設定とMiiも使います。そのためにはフォルダに完全なNANDが必要です。"
 
-msgid "More memory for games, faster mod loading"
-msgstr "ゲームのメモリーが増え、MODの読み込みが速く"
+msgid "A GameCube controller opens the HOME Menu"
+msgstr "ゲームキューブのコントローラでHOMEメニュー"
 
-msgid "Parental controls can lock the HOME Menu"
-msgstr "ペアレンタルコントロールでHOMEメニューをロック"
+msgid "CTGP Revolution with no disc (offline)"
+msgstr "CTGP Revolutionをディスクなしで（オフライン）"
 
-msgid "Updates restart into the new version"
-msgstr "更新のあと、新しいバージョンで再起動"
+msgid "GameCube mod packs with code patches"
+msgstr "コードを変えるゲームキューブのMOD"
 
-msgid "Mod tiles get their own 3D covers and boxes"
-msgstr "MODのタイルに専用の3Dパッケージと箱"
+msgid "Calibrate a GameCube controller"
+msgstr "ゲームキューブコントローラーの調整"
 
-msgid "Code mods: Extras and Crash logs rows"
-msgstr "コードMOD：追加機能とクラッシュ記録"
+msgid "240p output for CRT TVs"
+msgstr "ブラウン管テレビ向けの240p出力"
 
-msgid "Wii U Pro Controller cheats without HOME"
-msgstr "Wii U PROコントローラのチートがHOMEなしで"
+msgid "GameCube: slot B card, Volume boost"
+msgstr "ゲームキューブ：スロットBのカード、音量アップ"
 
 msgid "Manage game"
 msgstr "ゲームの管理"
@@ -4298,9 +4298,6 @@ msgstr "このバージョンのCTGP Revolutionは、まだRiftWiiから起動�
 
 msgid "CTGP Revolution: this version can't be started from RiftWii (see Start)."
 msgstr "CTGP Revolution：このバージョンはRiftWiiから起動できません（「はじめる」を参照）。"
-
-msgid "Calibrate a GameCube controller"
-msgstr "ゲームキューブコントローラーの調整"
 
 msgid "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use."
 msgstr "ゲームキューブコントローラーをテストし、古くなったものを直します。端まで届かないスティック、勝手に動くスティック、最後まで押せないトリガー。ゲームキューブのゲームに反映され、Wiiのゲームにはゲームキューブアダプターか USBコントローラーを使っている間だけ反映されます。"

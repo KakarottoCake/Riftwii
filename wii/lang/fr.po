@@ -4110,23 +4110,23 @@ msgstr "Le dossier de la NAND émulée : celui qu'indiquent les réglages d'USB 
 msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
 msgstr "Avec réglages et Mii, les jeux utilisent aussi les réglages de la Wii et les Mii de la NAND émulée. Le dossier doit alors contenir une NAND complète."
 
-msgid "More memory for games, faster mod loading"
-msgstr "Plus de mémoire pour les jeux, mods plus rapides"
+msgid "A GameCube controller opens the HOME Menu"
+msgstr "Une manette GameCube ouvre le menu HOME"
 
-msgid "Parental controls can lock the HOME Menu"
-msgstr "Le contrôle parental peut verrouiller le menu HOME"
+msgid "CTGP Revolution with no disc (offline)"
+msgstr "CTGP Revolution sans disque (hors ligne)"
 
-msgid "Updates restart into the new version"
-msgstr "Les mises à jour redémarrent sur la nouvelle version"
+msgid "GameCube mod packs with code patches"
+msgstr "Packs de mods GameCube avec patchs de code"
 
-msgid "Mod tiles get their own 3D covers and boxes"
-msgstr "Jaquettes 3D et boîtes propres aux mods"
+msgid "Calibrate a GameCube controller"
+msgstr "Calibrer une manette GameCube"
 
-msgid "Code mods: Extras and Crash logs rows"
-msgstr "Mods de code : Extras et journaux de plantage"
+msgid "240p output for CRT TVs"
+msgstr "Sortie 240p pour les téléviseurs CRT"
 
-msgid "Wii U Pro Controller cheats without HOME"
-msgstr "Codes de la manette Pro Wii U sans HOME"
+msgid "GameCube: slot B card, Volume boost"
+msgstr "GameCube : carte en port B, volume plus fort"
 
 msgid "Manage game"
 msgstr "Gérer le jeu"
@@ -4298,9 +4298,6 @@ msgstr "Cette version de CTGP Revolution ne peut pas encore être lancée depuis
 
 msgid "CTGP Revolution: this version can't be started from RiftWii (see Start)."
 msgstr "CTGP Revolution : cette version ne peut pas être lancée depuis RiftWii (voir Démarrer)."
-
-msgid "Calibrate a GameCube controller"
-msgstr "Calibrer une manette GameCube"
 
 msgid "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use."
 msgstr "Teste une manette GameCube et corrige une manette usée : sticks qui n'atteignent pas le bord, sticks qui dérivent, gâchettes qui ne descendent pas jusqu'au bout. Les jeux GameCube en profitent, et les jeux Wii tant qu'un adaptateur GameCube ou une manette USB est utilisé."

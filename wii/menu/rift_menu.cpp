@@ -5174,12 +5174,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"More memory for games, faster mod loading",
-	"Parental controls can lock the HOME Menu",
-	"Updates restart into the new version",
-	"Mod tiles get their own 3D covers and boxes",
-	"Code mods: Extras and Crash logs rows",
-	"Wii U Pro Controller cheats without HOME",
+	"A GameCube controller opens the HOME Menu",
+	"CTGP Revolution with no disc (offline)",
+	"GameCube mod packs with code patches",
+	"Calibrate a GameCube controller",
+	"240p output for CRT TVs",
+	"GameCube: slot B card, Volume boost",
 };
 
 static std::string WhatsNewText()

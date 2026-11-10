@@ -16,38 +16,63 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** Games get back much of the memory RiftWii used inside them, mods load faster, and parents can keep kids out of the Homebrew Channel. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** A big one for GameCube games: mod packs that change a game's code now start, a GameCube controller can open a Wii game's HOME Menu, and Paper Mario: The Thousand-Year Door no longer crashes partway in. CTGP Revolution starts without the disc, and there's 240p for CRT TVs. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-![What's new in this version]({{SCREENSHOTS}}2611-128-whats-new.png)
+![What's new in this version]({{SCREENSHOTS}}2611-151-whats-new.png)
 
 ## What changed
 
-- **More memory for games.** Everything RiftWii keeps running inside a game was rewritten to take less room, with the help of grantendo and JackW. A game from a USB drive with the GameCube adapter now gives up about 20 KB instead of 62 KB, a Wii game from an RVZ about 75 KB instead of 149 KB, and a disc game with a 1,000-file mod about 125 KB instead of 138 KB. Mods and code builds that ran out of memory before may work now.
-- **Mods load faster.** Pack files on the SD card or a USB drive are read straight into the game, with about a quarter of the trips to the card. Saves are written in bigger pieces. Mods that run from a card image (`sd.raw`, like Project+ and REX) read a little ahead, so their many small reads become fewer trips.
-- **RVZ games** use RiftWii's own decompressor: much smaller, just as fast.
-- **Parental controls can lock the HOME Menu.** Two new rows in Settings > Games > Parental controls: **HOME Menu buttons** shows the Homebrew Channel and Priiloader buttons, asks for the PIN first, or hides them so the HOME Menu has only Wii Menu and Power off; **Settings** can ask for the PIN before Settings opens. Both only work once a PIN is set. Not tried on a real Wii yet.
-- **Updates restart into the new version.** From the next update on, the popup after an update says Restart and starts the new RiftWii right away, instead of leaving for the Homebrew Channel.
-- **Mod tiles get their own 3D cover and box** from GameTDB, not only the flat cover (thanks grantendo).
-- **Code mods (Project+, REX and others):** the Mods page has an **Extras** row (On / Off / Ask every launch) and a **Crash logs** row, off at first. The Start question sits in the middle of the screen. A code build only uses the USB controllers plugged in before you press Play, which leaves the game more memory.
-- **GameCube adapter:** no rumble while its gray USB plug is out (that plug powers the motors), and Settings > Controllers > Check USB controllers says when it is. With two adapters, unplugging and plugging back one no longer drops the other.
-- **Wii U Pro Controller:** Mario Kart Wii's Classic Controller cheats work without opening the HOME Menu first. Not tried on a real Wii yet.
+### GameCube games
 
-![The HOME Menu with the Homebrew Channel and Priiloader hidden]({{SCREENSHOTS}}2611-128-home-menu-parental.png)
-![The new HOME Menu buttons row in Parental controls]({{SCREENSHOTS}}2611-128-parental-home-buttons.png)
+- **Paper Mario: The Thousand-Year Door no longer crashes partway into the game.** RiftWii now finishes the game's sound-memory copies on the same schedule a GameCube does. The game wasn't ready for them to finish sooner. Luigi's Mansion and Super Mario Eclipse needed the old timing, and they should still work, but none of the three has been tried on a real Wii yet.
+- **Mod packs that change a game's code now start.** Before, a GameCube pack with memory patches or "shift" patches refused to start. Now they're applied as Dolphin applies them. A game that switches to another program on its disc (like Sonic Gems Collection) keeps its mods too. Savegame patches still can't work, because GameCube games save to memory cards.
+- **Calibrate a GameCube controller** in Settings > Controllers. Turn the sticks and press the triggers, and a worn controller reaches the full range again in games. There's also a dead zone slider for stick drift.
+- **Memory cards:**
+  - A game can use a real memory card in slot B (original Wii only).
+  - A new choice puts the card in slot B where a game looks for slot A.
+  - Settings > Games > GameCube memory card sets the card for every game left on Default.
+- **Volume boost** (+3 dB or +6 dB) on a GameCube game's page, for games that are too quiet.
+- **Old games like Luigi's Mansion no longer ask about progressive scan** every time when 480p is on.
+- **GameCube games follow the Wii's Screen Position** (Wii Settings > Screen), as Wii games do.
+- **Mario Kart Arcade GP 2** boots to its title screen. A on the GameCube controller in port 1 puts in a coin, and Start starts. It has no card reader or camera on a Wii, so it shows a notice about cards.
+- **Patched games with their own code handler** (Phantasy Star Online with Sylverant's patches) no longer crash on the first frame.
+- RiftWii's part inside a GameCube game takes 4.6 KB less of its memory.
+
+### Wii games and controllers
+
+- **A GameCube controller can open the HOME Menu** in Wii games: hold L + R + Z + Start for two seconds. The stick moves the pointer, A selects and Start closes it. In a game where that can't work, the same buttons take you back to RiftWii as before. Thanks grantendo, who tried it on a console in Mario Kart Wii, Naruto Clash of Ninja Revolution 3, Brawl and Cruis'n USA.
+- **CTGP Revolution starts without the Mario Kart Wii disc**, from USB, SD or the disc, using your own CTGP files on the SD card. It's offline only: online play and LAN are always off.
+- **Settings > Games > Leaving a game** has a new **HOME only** choice, so a button combo like L + R + Z + Start can't end a game by accident.
+- **Cars 2** works with the GameCube adapter, screenshots, mods and cheats, and the "cursed" warnings for Cars 2, Toy Story 3 and Disney Infinity are gone.
+
+### Code builds (Project+, REX)
+
+- Starting RiftWii from the Homebrew Channel no longer sends REX to a black screen or Project+ to its controller setup screen (thanks grantendo).
+- On a Wii U, codes that write to memory card slot B are switched off. REX carries one, and it froze on a black screen.
+
+### Picture and menu
+
+- **240p output for CRT TVs**: a new 240p choice in Settings > Picture > Video mode and on each game's page. It needs a CRT to really check, so reports are welcome.
+- The Show and Layout pop-ups center each card's picture and name.
+- A card reader with several slots: RiftWii now stops with a message instead of letting the game read a different slot than the menu did.
+
+![Calibrate a GameCube controller]({{SCREENSHOTS}}2611-151-calibrate.png)
 
 ## What to test
 
-1. **Big mods** from the SD card and from a USB drive (Mario Kart packs, Newer, Retro Rewind, Galaxy packs): do they load as fast or faster? Any freezes or missing files?
-2. **Saves** in a mod with its own save folder: save, turn the Wii off, start again. Is the save there?
-3. **Code builds** (Project+, REX, Project M), especially from `sd.raw`, with Extras and Crash logs on and off.
-4. **Parental controls:** set a PIN, then try each HOME Menu buttons choice and the Settings lock.
-5. **Mario Kart Wii with a Wii U Pro Controller** and Classic Controller cheats: do they work right away?
-6. **GameCube adapter:** pull the gray plug while playing. Does rumble stop and do the controllers keep working?
+1. **Paper Mario: The Thousand-Year Door**: play past the point where it crashed before. Also Luigi's Mansion and Super Mario Eclipse for a while.
+2. **GameCube mod packs** with code changes (Super Mario Sunshine mods, Eclipse and others): do they start and play?
+3. **HOME Menu with a GameCube controller** in Wii games: hold L + R + Z + Start with no Wii Remote.
+4. **CTGP Revolution** without the disc, from USB and from SD.
+5. **Calibrate a GameCube controller**, then try a game. Does the stick feel right?
+6. **240p** on a CRT TV, Wii and GameCube games.
+7. **Memory card in slot B** on an original Wii, and **Volume boost**.
 
 ## Known issues
 
+- **On one tester's console, a GameCube game's crash screen didn't go back to RiftWii.** It does in Dolphin. A problem report from that screen helps.
 - **The emulated NAND on USB hasn't been tried with d2x on a real Wii yet.** If a game won't start with it, the problem report says why.
-- **Phantasy Star Online Episode I & II Plus** doesn't start yet.
-- **Everything or Nothing's THX and MGM logo movies** show in the wrong colours.
+- **Phantasy Star Online Episode I & II Plus** doesn't start yet without patches.
+- **Everything or Nothing's THX and MGM logo movies** show in the wrong colors.
 - **The DualShock 3 over USB** hasn't been confirmed to work yet.
 - **The Wii U GamePad** works in the menu only when RiftWii runs as a Wii VC inject, and never in games.
