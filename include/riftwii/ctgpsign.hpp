@@ -23,7 +23,9 @@
 // private values. This is intended to prevent accepted signatures.
 // The 20 bytes that name the card's key (from BANNER.BIN) and the console tag
 // stay zero. tests/ctgpsign_tests.cpp checks that one signature made with
-// this key fails local verification. Saving and replaying with this key and
+// this key fails our DSA verifier under the supplied public value and CTGP's
+// list-signing public key (not the ghost server's key). It does not run the
+// in-game signer or prove universal rejection. Saving/replaying with this key and
 // rejection by the server have not been confirmed on a real Wii.
 namespace riftwii {
 

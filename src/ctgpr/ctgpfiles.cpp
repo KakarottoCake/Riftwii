@@ -6,6 +6,8 @@
 #include <cstring>
 #include <set>
 
+#include "riftwii/checkedalloc.hpp"
+
 namespace riftwii {
 
 const CtgpRecordPool kCtgpRecordPools[kCtgpPoolCount] = {
@@ -29,6 +31,27 @@ void put32(Bytes& v, std::size_t at, std::uint32_t x) {
     v[at + 1] = static_cast<std::uint8_t>(x >> 16);
     v[at + 2] = static_cast<std::uint8_t>(x >> 8);
     v[at + 3] = static_cast<std::uint8_t>(x);
+}
+
+// FAT names are case-insensitive. Refuse alternate separators and parent
+// components before applying the one unsigned-file exception.
+bool my_stuff_source(const std::string& source) {
+    std::string folded = source;
+    for (char& c : folded) {
+        if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+    }
+    const std::string prefix = "sda:/ctgpr/my stuff/";
+    if (folded.compare(0, prefix.size(), prefix) != 0 || folded.size() == prefix.size() ||
+        folded.find('\\') != std::string::npos || folded.find(':', 4) != std::string::npos)
+        return false;
+    std::size_t start = 4;
+    while (start < folded.size()) {
+        const std::size_t end = folded.find('/', start);
+        if (folded.substr(start, end == std::string::npos ? end : end - start) == "..") return false;
+        if (end == std::string::npos) break;
+        start = end + 1;
+    }
+    return true;
 }
 
 }  // namespace
@@ -67,7 +90,10 @@ std::vector<std::uint8_t> ctgp_build_record(const CtgpOpenFile& file, std::uint3
 }
 
 CtgpRecordTable::CtgpRecordTable()
-    : image_(static_cast<std::size_t>(kCtgpRecordCount) * kCtgpRecordSize, 0), next_free_(kCtgpPoolCount, 0) {}
+    : next_free_(kCtgpPoolCount, 0) {
+    // A failed checked request leaves an empty image for the caller to refuse.
+    try_assign(image_, static_cast<std::size_t>(kCtgpRecordCount) * kCtgpRecordSize, std::uint8_t(0));
+}
 
 std::uint32_t CtgpRecordTable::open_count(int device) const {
     return device >= 0 && device < 3 ? count_[device] : 0;
@@ -81,6 +107,7 @@ bool CtgpRecordTable::has(const std::string& key) const {
 }
 
 bool CtgpRecordTable::add(const std::string& key, int device, const CtgpOpenFile& file, Slot& slot) {
+    if (image_.empty()) return false;
     const auto known = entries_.find(key);
     if (known != entries_.end()) {
         slot = known->second;
@@ -120,11 +147,35 @@ bool CtgpRecordTable::add(const std::string& key, int device, const CtgpOpenFile
 
 bool ctgp_parse_package_fst(const std::uint8_t* data, std::size_t size, std::vector<CtgpPackageFile>& out,
                             std::string& error) {
+    // Reserve room for FST's small names too, before it starts copying them.
+    // Fst::parse checks each name's 255-byte cap and the entry array allocation.
+    if (data == nullptr || size < 12) {
+        error = "the package list is too short";
+        return false;
+    }
+    const std::size_t entries = (std::size_t(data[8]) << 24) | (std::size_t(data[9]) << 16) |
+                                (std::size_t(data[10]) << 8) | data[11];
+    if (entries > kCtgpPackageMaxEntries || entries * 12 > size) {
+        error = "the package list exceeds its entry limit";
+        return false;
+    }
+    if (!have_room(entries * (sizeof(FstEntry) + 256))) {
+        error = "no room for the package tree";
+        return false;
+    }
     Fst fst;
     // File entries hold a string position and flags, not a disc extent: read
     // them as plain numbers.
-    if (!Fst::parse(data, size, false, fst, error)) return false;
+    FstLimits limits;
+    limits.max_entries = kCtgpPackageMaxEntries;
+    limits.max_depth = 32;
+    if (!Fst::parse(data, size, false, fst, error, limits)) return false;
     std::vector<CtgpPackageFile> files;
+    if (!try_reserve(files, std::min<std::size_t>(fst.count(), kCtgpPackageMaxFiles))) {
+        error = "no room for the package list";
+        return false;
+    }
+    std::size_t copied = 0;
     for (std::uint32_t i = 1; i < fst.count(); ++i) {
         const FstEntry& e = fst.entries()[i];
         if (e.is_directory) continue;
@@ -133,16 +184,35 @@ bool ctgp_parse_package_fst(const std::uint8_t* data, std::size_t size, std::vec
             return false;
         }
         const char* s = reinterpret_cast<const char*>(data) + e.offset;
-        const std::size_t room = size - static_cast<std::size_t>(e.offset);
+        const std::size_t room = std::min(size - static_cast<std::size_t>(e.offset), kCtgpPackageMaxPath + 1);
         const std::size_t len = ::strnlen(s, room);
         if (len == room || len == 0) {
-            error = "package list entry " + std::to_string(i) + ": the source path is not terminated";
+            error = "package list entry " + std::to_string(i) + ": the source path is empty, too long or not terminated";
             return false;
         }
-        CtgpPackageFile f;
-        if (!fst.path_of(i, f.game_path)) {
-            error = "package list entry " + std::to_string(i) + ": no path";
+        std::size_t path_length = 0;
+        for (std::uint32_t at = i; at != 0; at = fst.entries()[at].parent)
+            path_length += fst.entries()[at].name.size() + 1;
+        const std::size_t bytes = path_length + len + 2;
+        if (path_length > kCtgpPackageMaxPath || files.size() >= kCtgpPackageMaxFiles ||
+            bytes > kCtgpPackageMaxCopiedBytes - copied) {
+            error = "the package list exceeds its file or copied-path limit";
             return false;
+        }
+        copied += bytes;
+        CtgpPackageFile f;
+        if (!try_reserve(f.game_path, path_length) || !try_reserve(f.source, len)) {
+            error = "no room for the package paths";
+            return false;
+        }
+        // Fill backwards, avoiding unchecked intermediate path copies.
+        f.game_path.resize(path_length);
+        std::size_t end = path_length;
+        for (std::uint32_t at = i; at != 0; at = fst.entries()[at].parent) {
+            const std::string& name = fst.entries()[at].name;
+            end -= name.size();
+            f.game_path.replace(end, name.size(), name);
+            f.game_path[--end] = '/';
         }
         f.source.assign(s, len);
         f.flags = e.size;
@@ -155,7 +225,27 @@ bool ctgp_parse_package_fst(const std::uint8_t* data, std::size_t size, std::vec
 bool ctgp_add_package(CtgpRecordTable& table, const std::vector<CtgpPackageFile>& files,
                       const CtgpSourceResolver& resolver, const CtgpHashList* hashes,
                       std::vector<CtgpMergedFile>& out, std::string& error, bool allow_unsigned) {
+    if (files.size() > kCtgpPackageMaxFiles) {
+        error = "the package list exceeds its file limit";
+        return false;
+    }
+    std::size_t copied = 0;
+    for (const CtgpPackageFile& f : files) {
+        const std::size_t bytes = f.game_path.size() + f.source.size() + 2;
+        if (f.game_path.size() > kCtgpPackageMaxPath || f.source.size() > kCtgpPackageMaxPath ||
+            bytes > kCtgpPackageMaxCopiedBytes - copied) {
+            error = "the package list exceeds its copied-path limit";
+            return false;
+        }
+        copied += bytes;
+    }
     std::vector<CtgpMergedFile> merged;
+    // Copies into the name set, record map and merged paths are bounded too.
+    if (!have_room(copied * 4 + files.size() * 256) || !try_reserve(merged, files.size()) ||
+        !try_reserve(out, out.size() + files.size())) {
+        error = "no room to attach the package list";
+        return false;
+    }
     std::set<std::string> names;
     for (const CtgpPackageFile& f : files) {
         if (!names.insert(f.game_path).second) {
@@ -166,7 +256,10 @@ bool ctgp_add_package(CtgpRecordTable& table, const std::vector<CtgpPackageFile>
     for (const CtgpPackageFile& f : files) {
         const bool required = (f.flags & 1) != 0;
         const auto colon = f.source.find(':');
-        const std::string device = colon == std::string::npos ? std::string() : f.source.substr(0, colon);
+        std::string device = colon == std::string::npos ? std::string() : f.source.substr(0, colon);
+        for (char& c : device) {
+            if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+        }
         const std::string path = colon == std::string::npos ? f.source : f.source.substr(colon + 1);
         CtgpSourceFile src;
         CtgpRecordTable::Slot slot;
@@ -176,13 +269,9 @@ bool ctgp_add_package(CtgpRecordTable& table, const std::vector<CtgpPackageFile>
             CtgpOpenFile open;
             open.size = src.size;
             open.first_cluster = src.first_cluster;
-            // Package lists are untrusted, so a signed package's flags cannot
-            // opt a served file out of CTGP-R's own digest check: it hashes
-            // every file. The one exception is My Stuff (allow_unsigned), the
-            // player's own replacement files, which the channel serves unsigned;
-            // there it follows the channel's rule (chan_internal FUN_809561d4),
-            // hashing a file only when the list marks it signed with flag 2.
-            open.hashed = allow_unsigned ? (f.flags & 2) != 0 : true;
+            // Only MYSTUFF's files inside the channel's SD directory may
+            // opt out. A modified list cannot extend that exception elsewhere.
+            open.hashed = !(allow_unsigned && my_stuff_source(f.source) && (f.flags & 2) == 0);
             if (open.hashed && !(hashes && hashes->find(f.game_path, open.digest))) {
                 error = "the package file " + f.game_path + " has no signed digest";
                 return false;

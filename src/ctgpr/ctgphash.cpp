@@ -43,6 +43,14 @@ const std::uint8_t* reference_body(const std::string& package, std::uint32_t ver
 
 }  // namespace
 
+bool ctgp_core_digest_matches(const CtgpHashList& hashes, const std::string& file,
+                              const std::array<std::uint8_t, 20>& digest) {
+    if (file == "BOOT.BIN") return hashes.matches_digest("/debug/bigfile1.big", digest);
+    if (file == "BOAT.BIN") return hashes.matches_digest("/debug/bigfile7.big", digest);
+    if (file == "BEAT.BIN") return hashes.matches_digest("/debug/bigfile6.big", digest);
+    return false;
+}
+
 bool ctgp_has_hash_reference(const std::string& package, std::uint32_t version) {
     return reference_body(package, version) != nullptr;
 }

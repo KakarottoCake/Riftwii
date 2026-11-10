@@ -42,11 +42,8 @@ public:
     // does not name it.
     bool find(const std::string& path, std::array<std::uint8_t, 20>& digest) const;
 
-    // True when `digest` is the expected digest of some file the list names,
-    // whichever one. The native launch places CTGP-R's loader code (BOOT.BIN,
-    // BOAT.BIN, BEAT.BIN) directly, so it cannot look these up by the names
-    // CORE.HSH gives them (it does not know them); it confirms instead that
-    // each placed file's SHA-1 appears among the signed list's digests.
+    // True when any entry has this digest. This establishes membership only,
+    // not a file's role; use matches_digest for directly loaded core files.
     bool contains_digest(const std::array<std::uint8_t, 20>& digest) const;
 
     bool matches_digest(const std::string& path, const std::array<std::uint8_t, 20>& digest) const;
@@ -71,6 +68,11 @@ private:
     std::size_t files_ = 0;
     std::map<std::string, std::array<std::uint8_t, 20>> direct_;
 };
+
+// Bind a directly loaded CORE file to its role in the pinned CORE release.
+// The debug-name mapping was checked against that release's as-read files.
+bool ctgp_core_digest_matches(const CtgpHashList& hashes, const std::string& file,
+                              const std::array<std::uint8_t, 20>& digest);
 
 // Checks `file` as the list of package `package` (at most 8 characters) in the
 // version `version` (from PACKAGES.BIN): the DSA signature against CTGP-R's

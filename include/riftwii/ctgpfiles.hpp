@@ -106,6 +106,13 @@ struct CtgpPackageFile {
     std::uint32_t flags = 0;
 };
 
+// Package lists are untrusted. These limits include repeated source strings,
+// rather than just the bytes occupied by their on-disk string table.
+constexpr std::size_t kCtgpPackageMaxEntries = 8192;
+constexpr std::size_t kCtgpPackageMaxFiles = 4096;
+constexpr std::size_t kCtgpPackageMaxPath = 1024;
+constexpr std::size_t kCtgpPackageMaxCopiedBytes = 1024 * 1024;
+
 // Reads a package's FST.BIN: a file system table whose file entries carry, in
 // place of the offset, the position of the source path (a C string inside the
 // file) and, in place of the size, the flags.
@@ -136,7 +143,9 @@ struct CtgpMergedFile {
 // Stuff package: its files are the player's own, unsigned, and the channel
 // itself serves them without a digest (it hashes a file only when the list's
 // flag 2 is set; chan_internal FUN_809561d4). With `allow_unsigned`, a file
-// is hashed, and so needs a digest, only when its flag 2 is set.
+// is unhashed only below sda:/ctgpr/my stuff/ (ASCII case-insensitive),
+// with no parent components, backslashes or other device. Everything else
+// needs a signed digest even in this package.
 // Repeated game paths fail; a shared source must retain the same digest.
 // `out` gets the files that have a record, in list order.
 bool ctgp_add_package(CtgpRecordTable& table, const std::vector<CtgpPackageFile>& files,

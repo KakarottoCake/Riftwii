@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/ctgplaunch.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -399,6 +400,18 @@ bool ctgp_assemble(const CtgpInputs& in, CtgpLaunchPlan& plan, std::string& erro
 bool ctgp_attach_files(CtgpLaunchPlan& plan, const std::vector<CtgpBytes>& package_fsts,
                        const std::vector<const CtgpHashList*>& hash_lists, const CtgpSourceResolver& resolver,
                        std::string& error, const std::vector<bool>& allow_unsigned) {
+    if (package_fsts.size() > 8) {
+        error = "too many package lists";
+        return false;
+    }
+    std::size_t list_bytes = 0;
+    for (const CtgpBytes& bytes : package_fsts) {
+        if (bytes.size() > 8 * kCtgpPackageMaxCopiedBytes - list_bytes) {
+            error = "the package lists exceed their total byte limit";
+            return false;
+        }
+        list_bytes += bytes.size();
+    }
     if (hash_lists.size() != package_fsts.size()) {
         error = "every package needs its hash list entry (or null)";
         return false;
@@ -414,6 +427,11 @@ bool ctgp_attach_files(CtgpLaunchPlan& plan, const std::vector<CtgpBytes>& packa
         return false;
     }
     CtgpRecordTable table;
+    if (table.image().empty()) {
+        error = "no room for the package records";
+        return false;
+    }
+    std::size_t copied_bytes = 0;
     std::vector<CtgpMergedFile> all;
     std::size_t listed = 0;
     for (std::size_t i = 0; i < package_fsts.size(); ++i) {
@@ -422,7 +440,23 @@ bool ctgp_attach_files(CtgpLaunchPlan& plan, const std::vector<CtgpBytes>& packa
             error = "package " + std::to_string(i) + ": " + error;
             return false;
         }
+        if (files.size() > kCtgpPackageMaxEntries - listed) {
+            error = "the package lists exceed their total file limit";
+            return false;
+        }
+        for (const CtgpPackageFile& f : files) {
+            const std::size_t bytes = f.game_path.size() + f.source.size() + 2;
+            if (bytes > 2 * kCtgpPackageMaxCopiedBytes - copied_bytes) {
+                error = "the package lists exceed their total copied-path limit";
+                return false;
+            }
+            copied_bytes += bytes;
+        }
         listed += files.size();
+        if (!try_reserve(plan.missing, listed) || !have_room(files.size() * 128)) {
+            error = "no room for missing package paths";
+            return false;
+        }
         const std::size_t before = all.size();
         const bool unsigned_ok = !allow_unsigned.empty() && allow_unsigned[i];
         if (!ctgp_add_package(table, files, resolver, hash_lists[i], all, error, unsigned_ok)) {

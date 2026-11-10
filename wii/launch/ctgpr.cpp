@@ -386,10 +386,18 @@ bool prepare_impl(const std::string& game_id, std::shared_ptr<const CtgpLaunchPl
 
     // The packages' files: the lists config.ini's options pick, in the
     // channel's order (ctgp_package_lists).
-    const auto package_lists = ctgp_package_lists(ctgp_settings_from_ini(in.config_ini, versions, in.region));
+    const auto package_settings = ctgp_settings_from_ini(in.config_ini, versions, in.region);
+    if (package_settings.no_music)
+        logf("CTGP-R: using default music: this release has no signed music payload list\n");
+    if (package_settings.font != 0)
+        logf("CTGP-R: using the default font: this release has no signed font payload list\n");
+    const auto package_lists = ctgp_package_lists(package_settings);
     std::vector<CtgpBytes> lists(package_lists.size());
+    std::size_t list_bytes = 0;
     for (std::size_t i = 0; i < package_lists.size(); ++i) {
-        if (!fetch(package_lists[i].path.c_str(), lists[i], kCtgpFetchCeiling)) return false;
+        const std::size_t remaining = 8 * kCtgpPackageMaxCopiedBytes - list_bytes;
+        if (!fetch(package_lists[i].path.c_str(), lists[i], remaining)) return false;
+        list_bytes += lists[i].size();
         logf("CTGP-R: package list %s\n", package_lists[i].path.c_str());
     }
     CtgpSourceResolver resolver = [&efa](const std::string& device, const std::string& path, CtgpSourceFile& found) {
@@ -440,21 +448,18 @@ bool prepare_impl(const std::string& game_id, std::shared_ptr<const CtgpLaunchPl
     logf("CTGP-R: hash lists' signatures checked against CTGP-R's key (CTGPR %u files, CORE %u files)\n",
          static_cast<unsigned>(ctgpr_hashes.file_count()), static_cast<unsigned>(core_hashes.file_count()));
 
-    // CTGP-R's loader code (BOOT.BIN, BOAT.BIN, BEAT.BIN) is placed straight
-    // into the game, not served through the open-file digest check, so nothing
-    // above would notice a tampered copy. Confirm each one's SHA-1 is among the
-    // digests CORE.HSH vouches for (its signature was checked as it loaded).
-    // The match is by digest, not by the names CORE.HSH gives these files: the
-    // native launch does not know them, and it does not need to.
-    // The digests were taken before the as-read copies were freed (above).
+    // These roles were matched against the locally checked CORE release:
+    // BOOT = bigfile1, BOAT = bigfile7, BEAT = bigfile6. The pinned full-body
+    // digest binds that mapping to this release. Membership alone would let
+    // another signed core file stand in for the required loader role.
     for (const CoreCodeDigest& c : core_code) {
-        if (!core_hashes.contains_digest(c.digest)) {
+        if (!ctgp_core_digest_matches(core_hashes, c.what, c.digest)) {
             error = std::string("CTGP-R's core code does not match its signed hash list: ") + c.what +
-                    " is not among CORE.HSH's digests";
+                    " does not match its named CORE.HSH digest";
             return false;
         }
     }
-    logf("CTGP-R: core code matches CORE.HSH digests\n");
+    logf("CTGP-R: core code matches its named CORE.HSH digests\n");
 
     std::vector<const CtgpHashList*> hash_lists;
     std::vector<bool> allow_unsigned;

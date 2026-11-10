@@ -138,7 +138,24 @@ static CtgpDsaKey test_key() {
 template <std::size_t N>
 static CtgpBytes vec(const std::uint8_t (&a)[N]) { return CtgpBytes(a, a + N); }
 
+static void test_core_roles() {
+    std::array<std::uint8_t, 20> boot{}, boat{}, beat{};
+    boot[0] = 1;
+    boat[0] = 2;
+    beat[0] = 3;
+    const auto hashes = CtgpHashList::unverified_for_tests({
+        {"/debug/bigfile1.big", boot}, {"/debug/bigfile7.big", boat}, {"/debug/bigfile6.big", beat}});
+    EXPECT_TRUE(ctgp_core_digest_matches(hashes, "BOOT.BIN", boot));
+    EXPECT_TRUE(ctgp_core_digest_matches(hashes, "BOAT.BIN", boat));
+    EXPECT_TRUE(ctgp_core_digest_matches(hashes, "BEAT.BIN", beat));
+    EXPECT_TRUE(!ctgp_core_digest_matches(hashes, "BOOT.BIN", boat));
+    EXPECT_TRUE(!ctgp_core_digest_matches(hashes, "BOAT.BIN", beat));
+    EXPECT_TRUE(!ctgp_core_digest_matches(hashes, "BEAT.BIN", boot));
+    EXPECT_TRUE(!ctgp_core_digest_matches(hashes, "OTHER.BIN", boot));
+}
+
 int main() {
+    test_core_roles();
     const CtgpDsaKey key = test_key();
     std::string error;
     CtgpHashList list;

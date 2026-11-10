@@ -330,10 +330,19 @@ static void test_my_stuff_unsigned() {
     // package permits unsigned files; its record is left unhashed.
     CtgpRecordTable mine;
     std::vector<CtgpMergedFile> merged;
-    EXPECT_TRUE(ctgp_add_package(mine, {{"/replace.szs", "sda:/My Stuff/replace.szs", 0}},
+    EXPECT_TRUE(ctgp_add_package(mine, {{"/replace.szs", "SdA:/CTGPR/My Stuff/replace.szs", 0}},
                                  resolver, nullptr, merged, error, /*allow_unsigned=*/true));
     EXPECT_EQ(merged.size(), (std::size_t)1);
     EXPECT_EQ(mine.image()[kCtgpRecordPools[0].start - kCtgpRecordBlock + 0x4E], 0);  // not hashed
+    for (const char* source : {"sda:/elsewhere/payload.bin", "efa:/ctgpr/My Stuff/a",
+                               "sda:/ctgpr/My Stuff/../a", "sda:/ctgpr/My Stuff/sub/../../a",
+                               "sda:/ctgpr/My Stuffish/a", "sda:/ctgpr/My Stuff/"}) {
+        CtgpRecordTable outside;
+        std::vector<CtgpMergedFile> refused;
+        EXPECT_TRUE(!ctgp_add_package(outside, {{"/a", source, 0}}, resolver, nullptr, refused, error, true));
+        EXPECT_TRUE(refused.empty());
+        EXPECT_EQ(outside.used(), 0u);
+    }
     // The same unsigned file in a strict (non-My-Stuff) package is refused.
     CtgpRecordTable strict;
     std::vector<CtgpMergedFile> none;
@@ -343,11 +352,36 @@ static void test_my_stuff_unsigned() {
     // Even in My Stuff, a file the list marks signed (flag 2) still needs its
     // digest, as in the channel: with no list it is refused.
     CtgpRecordTable mine2;
-    EXPECT_TRUE(!ctgp_add_package(mine2, {{"/signed.szs", "sda:/My Stuff/signed.szs", 2}},
+    EXPECT_TRUE(!ctgp_add_package(mine2, {{"/signed.szs", "SdA:/CTGPR/My Stuff/signed.szs", 2}},
                                   resolver, nullptr, none, error, /*allow_unsigned=*/true));
 }
 
+static void test_package_limits() {
+    std::vector<CtgpPackageFile> files;
+    std::string error;
+    auto parse = [&](std::vector<E> es, const std::string& source) {
+        const auto prefix = make_fst(es);
+        for (E& e : es) if (!e.dir) e.a = prefix.size();
+        const auto bytes = make_fst(es, source + '\0');
+        return ctgp_parse_package_fst(bytes.data(), bytes.size(), files, error);
+    };
+    EXPECT_TRUE(parse({{true, "", 0, 2}, {false, "a", 0, 0}}, std::string(kCtgpPackageMaxPath, 'a')));
+    EXPECT_TRUE(!parse({{true, "", 0, 2}, {false, "a", 0, 0}}, std::string(kCtgpPackageMaxPath + 1, 'a')));
+    std::vector<E> many = {{true, "", 0, kCtgpPackageMaxEntries + 1}};
+    for (std::size_t i = 0; i < kCtgpPackageMaxEntries; ++i) many.push_back({false, "a", 0, 0});
+    EXPECT_TRUE(!parse(many, "efa:/a"));
+    many.resize(kCtgpPackageMaxFiles + 2);
+    many[0].b = many.size();
+    EXPECT_TRUE(!parse(many, "efa:/a"));
+    // Repeated offsets still count every copied string against the budget.
+    many.resize(1100);
+    many[0].b = many.size();
+    EXPECT_TRUE(!parse(many, std::string(1024, 'a')));
+    EXPECT_TRUE(error.find("copied-path limit") != std::string::npos);
+}
+
 int main() {
+    test_package_limits();
     test_pools();
     test_untrusted_flags_and_duplicates();
     test_my_stuff_unsigned();

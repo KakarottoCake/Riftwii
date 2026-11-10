@@ -156,15 +156,12 @@ static void test_package_lists() {
     s.no_music = true;
     s.font = 3;
     l = ctgp_package_lists(s);
-    EXPECT_EQ(l.size(), (std::size_t)5);
+    EXPECT_EQ(l.size(), (std::size_t)3);
     EXPECT_TRUE(l[0].path == "/PACKAGES/CTGPR/no_ct_24p.bin");
-    EXPECT_TRUE(l[1].path == "/PACKAGES/NOMUSIC/FST.BIN" && l[1].hash_list.empty());
-    EXPECT_TRUE(l[2].path == "/PACKAGES/FONT/fontMVBoli.bin");
-    EXPECT_TRUE(l[3].path == "/PACKAGES/MYSTUFF/fst_no_tracks.bin");
-    EXPECT_TRUE(l[4].path == "/PACKAGES/CORE/FST.BIN");
-    // Only My Stuff may serve unsigned files.
-    EXPECT_TRUE(l[3].allow_unsigned);
-    EXPECT_TRUE(!l[0].allow_unsigned && !l[1].allow_unsigned && !l[2].allow_unsigned && !l[4].allow_unsigned);
+    EXPECT_TRUE(l[1].path == "/PACKAGES/MYSTUFF/fst_no_tracks.bin");
+    EXPECT_TRUE(l[2].path == "/PACKAGES/CORE/FST.BIN");
+    EXPECT_TRUE(l[1].allow_unsigned);
+    EXPECT_TRUE(!l[0].allow_unsigned && !l[2].allow_unsigned);
     s.my_stuff = 1;
     s.font = 0;
     s.no_music = false;

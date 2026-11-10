@@ -267,10 +267,9 @@ std::vector<CtgpPackageList> ctgp_package_lists(const CtgpSettings& s) {
     // them, and the channel serves them unsigned, so this package alone is
     // allowed unsigned files.
     if (s.my_stuff == 1) out.push_back({"/PACKAGES/MYSTUFF/FST.BIN", "", true});
-    if (s.no_music) out.push_back({"/PACKAGES/NOMUSIC/FST.BIN", "", false});
-    if (s.font == 1) out.push_back({"/PACKAGES/FONT/fontChalky.bin", "", false});
-    if (s.font == 2) out.push_back({"/PACKAGES/FONT/fontOutline.bin", "", false});
-    if (s.font == 3) out.push_back({"/PACKAGES/FONT/fontMVBoli.bin", "", false});
+    // The checked CORE/CTGPR release ships no NOMUSIC.HSH or FONT.HSH.
+    // CORE.HSH authenticates their FST lists (fsnm/fsfont), not the audio
+    // or font payloads. Keep the default files until signed payloads exist.
     if (s.my_stuff == 2) out.push_back({"/PACKAGES/MYSTUFF/fst_no_tracks.bin", "", true});
     if (s.my_stuff == 3) out.push_back({"/PACKAGES/MYSTUFF/fst_brstm.bin", "", true});
     out.push_back({"/PACKAGES/CORE/FST.BIN", "CORE", false});

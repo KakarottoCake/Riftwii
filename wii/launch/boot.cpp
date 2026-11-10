@@ -3030,7 +3030,10 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         for (const std::string& note : gx.notes) logf("Game fixes: %s\n", note.c_str());
         if (changed) sync_loaded();
     }
-    apply_wpad_probe_test(loaded, loaded_spans, gx_protected, plain_code_build, extras.wlog);
+    if (!options.ctgpr)
+        apply_wpad_probe_test(loaded, loaded_spans, gx_protected, plain_code_build, extras.wlog);
+    else
+        logf("CTGP-R: RiftWii diagnostic hooks skipped (wpad_probe, debug_crash, debug_reset, debug_gecko)\n");
     if (game_keeps_picture_width(probe.header.game_id) &&
         (g_extras.video.width != VideoWidth::Game || g_extras.video.remove_borders)) {
         logf("Video: width and borders as the game has them: its picture breaks when they change\n");
@@ -3083,8 +3086,10 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         }
     }
     install_game_extras(extras);
-    apply_debug_crash(dol);
-    apply_debug_reset(dol, resident.restart_hooked ? hooked_os_restart : 0);
+    if (!options.ctgpr) {
+        apply_debug_crash(dol);
+        apply_debug_reset(dol, resident.restart_hooked ? hooked_os_restart : 0);
+    }
     // Last, in gamepatches.c's order: Wiimmfi's Mario Kart Wii patch goes
     // below everything else in the MEM1 arena. Packs bring their own online
     // setup (and may have replaced the code these patches expect).

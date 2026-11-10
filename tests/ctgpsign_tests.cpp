@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The unusable ghost-signing key the launcher hands to CTGP-R (riftwii/ctgpsign.hpp):
-// laid out as the channel lays out a key, and no signature made with it verifies.
+// layout and a fixed negative DSA verification sample; no in-game signer runs here.
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "riftwii/ctgpsign.hpp"
+#include "riftwii/ctgpdsa.hpp"
 
 static int g_failures = 0;
 #define EXPECT_TRUE(cond) do { if (!(cond)) { std::cerr << "FAILED: " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
@@ -16,8 +17,8 @@ static int g_failures = 0;
 using namespace riftwii;
 
 // 2^x mod p: the public value that would belong to the key's private value x,
-// made with tools outside the build (Python). The planted key's stored public
-// value is deliberately not this, so a ghost signed with the key cannot verify.
+// made with Python outside the build. The stored public value differs;
+// this mismatch alone does not prove universal rejection of signatures.
 static const std::uint8_t kYTrue[64] = {
     0x45, 0xBF, 0x6E, 0x4C, 0xF2, 0x47, 0x60, 0x81, 0xD1, 0x12, 0x08, 0x51,
     0xCF, 0x14, 0x06, 0xD5, 0xCC, 0x9C, 0x43, 0x44, 0xC9, 0x4E, 0x14, 0x41,
@@ -30,10 +31,25 @@ static const std::uint8_t kYTrue[64] = {
 int main() {
     const CtgpUnsignedKey k = ctgp_unsigned_key();
 
-    // The planted key is deliberately unusable, exactly as RiftWii relies on:
-    // its generator is 2 (whose order is not the subgroup prime q, so the DSA
-    // check fails for any public value), and its stored public value is not
-    // 2^x mod p, so it does not belong to its private value either.
+    // A fixed sample produced offline by DSA's signing equations with the
+    // supplied p/q/g/x and nonce 123456789. This exercises RiftWii's real DSA
+    // verifier, not CTGP's in-game signer or its ghost server's unknown key.
+    static const std::uint8_t digest[] = "RiftWii ghost test!!!";
+    static const std::uint8_t signature[] = {
+        0x30, 0x2C, 0x02, 0x14, 0x1B, 0xDC, 0xC1, 0x61, 0xDF, 0x8B, 0xD4, 0x30,
+        0x01, 0xB7, 0x31, 0x6A, 0x05, 0x29, 0x9B, 0x87, 0xC6, 0xDF, 0xC2, 0x5E,
+        0x02, 0x14, 0x3E, 0x27, 0x64, 0xE2, 0x9C, 0xEF, 0xD3, 0xAD, 0x3B, 0x1F,
+        0xA6, 0xA2, 0xF8, 0x6C, 0x3A, 0x5C, 0x67, 0xF4, 0x2D, 0x2A,
+    };
+    CtgpDsaKey supplied{};
+    std::memcpy(supplied.p, k.p, sizeof supplied.p);
+    std::memcpy(supplied.q, k.q, sizeof supplied.q);
+    std::memcpy(supplied.g, k.g, sizeof supplied.g);
+    std::memcpy(supplied.y, k.y, sizeof supplied.y);
+    EXPECT_TRUE(!ctgp_dsa_verify(supplied, digest, sizeof digest - 1, signature, sizeof signature));
+    EXPECT_TRUE(!ctgp_dsa_verify(ctgp_signing_key(), digest, sizeof digest - 1, signature, sizeof signature));
+    // Structural mismatches support the intent, but do not prove rejection
+    // of every possible signature or successful saving/replay in the game.
     EXPECT_TRUE(std::memcmp(k.y, kYTrue, 64) != 0);
     // g is 2.
     EXPECT_TRUE(k.g[63] == 2);

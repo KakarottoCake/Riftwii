@@ -357,12 +357,81 @@ static void test_attach_files() {
     EXPECT_EQ(word(0x81628CB8 + 0xB4), 0x40414243u);   // its expected digest
     EXPECT_EQ(plan.files[0].game_path, std::string("/Scene/a.szs"));
     EXPECT_EQ(plan.files[1].handle, 0x8C000000u);
+    // Exercise attachment after music/font fallback, rather than just testing
+    // which lists settings select. The resolver serves real records for both
+    // retained packages; neither unsupported payload package is requested.
+    for (int font = 1; font <= 3; ++font) {
+        CtgpSettings settings;
+        settings.no_music = true;
+        settings.font = font;
+        const auto selected = ctgp_package_lists(settings);
+        std::vector<CtgpBytes> retained;
+        std::vector<const CtgpHashList*> signed_lists;
+        for (const auto& package : selected) {
+            EXPECT_TRUE(package.hash_list == "CTGPR" || package.hash_list == "CORE");
+            retained.push_back(fst);
+            signed_lists.push_back(&hashes);
+        }
+        CtgpLaunchPlan fallback;
+        EXPECT_TRUE(ctgp_assemble(in, fallback, error));
+        EXPECT_TRUE(ctgp_attach_files(fallback, retained, signed_lists, resolver, error));
+        EXPECT_EQ(fallback.files.size(), (std::size_t)4);
+    }
+    CtgpLaunchPlan excessive;
+    EXPECT_TRUE(ctgp_assemble(in, excessive, error));
+    EXPECT_TRUE(!ctgp_attach_files(excessive, std::vector<CtgpBytes>(9, fst),
+                                  std::vector<const CtgpHashList*>(9, &hashes), resolver, error));
     // a missing required file stops the launch plan
     CtgpLaunchPlan plan2;
     EXPECT_TRUE(ctgp_assemble(in, plan2, error));
     auto none = [](const std::string&, const std::string&, CtgpSourceFile&) { return false; };
     fst[12 * 2 + 8] = 0; fst[12 * 2 + 9] = 0; fst[12 * 2 + 10] = 0; fst[12 * 2 + 11] = 3;   // a.szs: required and signed
     EXPECT_TRUE(!ctgp_attach_files(plan2, {fst}, {&hashes}, none, error));
+}
+
+static void test_attachment_budgets() {
+    auto package = [](std::uint32_t count, const std::string& source) {
+        CtgpBytes bytes;
+        std::string names(1, '\0');
+        std::vector<std::uint32_t> offsets;
+        for (std::uint32_t i = 0; i < count; ++i) {
+            offsets.push_back(names.size());
+            names += "file" + std::to_string(i);
+            names.push_back('\0');
+        }
+        auto word = [&](std::uint32_t value) {
+            for (int shift = 24; shift >= 0; shift -= 8) bytes.push_back(value >> shift);
+        };
+        const std::uint32_t source_at = (count + 1) * 12 + names.size();
+        word(0x01000000);
+        word(0);
+        word(count + 1);
+        for (std::uint32_t offset : offsets) {
+            word(offset);
+            word(source_at);
+            word(0);
+        }
+        bytes.insert(bytes.end(), names.begin(), names.end());
+        bytes.insert(bytes.end(), source.begin(), source.end());
+        bytes.push_back(0);
+        return bytes;
+    };
+    auto missing = [](const std::string&, const std::string&, CtgpSourceFile&) { return false; };
+    std::string error;
+    for (bool copied_limit : {false, true}) {
+        const auto list = package(copied_limit ? 1000 : 3000,
+                                  copied_limit ? std::string(900, 'a') : "efa:/a");
+        CtgpLaunchPlan plan;
+        EXPECT_TRUE(ctgp_assemble(inputs(), plan, error));
+        EXPECT_TRUE(!ctgp_attach_files(plan, {list, list, list}, {nullptr, nullptr, nullptr}, missing, error));
+        EXPECT_TRUE(error.find(copied_limit ? "total copied-path limit" : "total file limit") != std::string::npos);
+        EXPECT_TRUE(plan.files.empty());
+    }
+    CtgpLaunchPlan plan;
+    EXPECT_TRUE(ctgp_assemble(inputs(), plan, error));
+    CtgpBytes oversized(8 * kCtgpPackageMaxCopiedBytes + 1, 0);
+    EXPECT_TRUE(!ctgp_attach_files(plan, {oversized}, {nullptr}, missing, error));
+    EXPECT_TRUE(error.find("total byte limit") != std::string::npos);
 }
 
 // The drive startups: the first hook goes through a stub that starts "sda:" and "efa:" once.
@@ -477,6 +546,7 @@ int main() {
     test_track_hashes();
     test_startup();
     test_attach_files();
+    test_attachment_budgets();
     test_operations();
     test_version_guard();
     test_assemble();

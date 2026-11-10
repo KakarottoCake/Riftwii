@@ -28,31 +28,37 @@ The CTGP-R developers allow it on these conditions, which the code keeps:
   rather than trusting a relabelled list. This matters here because
   the channel, which would otherwise verify the lists, never runs. Each list's
   per-file SHA-1 is then written into the game's open-file records, where
-  CTGP's own code compares every served file as it reads it. Every resolved
-  package file needs a signed digest, regardless of the package-list flags;
+  CTGP's own code compares each signed file as it reads it. Apart from the
+  My Stuff exception below, every file needs a digest regardless of list flags;
   duplicate game paths and conflicting digests for shared sources are refused.
-  Unsigned My Stuff, music and font replacements therefore cannot be served
-  by this native launch. The directly loaded `deyazhashes.hsh` is checked
-  against CTGPR.HSH's `debug/smallfile.sml` digest, as the channel checks it.
-  The core loader
-  code RiftWii places directly (`BOOT.BIN`, `BOAT.BIN`, `BEAT.BIN`), which is
-  not served through those open-file records, is checked too: the SHA-1 of each
-  one must appear among the digests in the signature-checked `CORE.HSH`, or the
-  launch stops before anything is placed (`wii/launch/ctgpr.cpp`,
-  `ctgphash.cpp`). The match is by digest, not by the names `CORE.HSH` gives
-  those files, so the launch needs no knowledge of their names. The only change
-  to CTGP's own data is the path its channel button starts, which points at
-  RiftWii's `boot.dol`.
-* **No ghost signing.** The card's signing key (on `jelly.bin`) and the
+  Only MYSTUFF package records with flag 2 clear and a source below
+  `sda:/ctgpr/my stuff/` may be unsigned. That directory/device check ignores
+  ASCII letter case and refuses parent (`..`) components, backslashes and
+  other devices. Every other resolved file must have a signed digest.
+  The checked release's HASH directory has only CORE.HSH and CTGPR.HSH.
+  CORE signs the music/font FST lists (`debug/fsnm.bin`, `debug/fsfont*.bin`),
+  but neither list authenticates their replacement payloads. `no_music` and
+  non-default `font` therefore keep the defaults, with a reason in `boot.log`.
+  The directly loaded `deyazhashes.hsh` is checked against CTGPR.HSH's
+  `debug/smallfile.sml` digest. Core files are bound to their checked roles:
+  BOOT.BIN to `debug/bigfile1.big`, BOAT.BIN to `debug/bigfile7.big`, and
+  BEAT.BIN to `debug/bigfile6.big`. The pinned complete CORE body digest binds
+  that mapping to this release; substituting another signed core file fails.
+  Package lists are capped at eight lists, 8 MiB of input, 8,192 total files
+  and 2 MiB of copied paths; each list allows 8,192 tree entries, 4,096 files,
+  1,024 bytes per source/destination path and 1 MiB of copied paths. Checked
+  allocations refuse malformed lists through the existing files-damaged error.
+  The channel button's launch path points at RiftWii's `boot.dol`.
+* **Replacement ghost key.** The card's signing key (on `jelly.bin`) and the
   console's MAC are not read. CTGP gets a key RiftWii made to prevent accepted
-  signatures (`include/riftwii/ctgpsign.hpp`). A host test shows one signature
-  from it fails local verification. The decompile confirms the in-game ghost
-  signer (`FUN_817773f4`) takes its DSA key only from the loader block RiftWii
-  fills (`0x816ff52c`); the in-game `jelly.bin` open is a content mount, not a
-  key read — so ghosts signed under a RiftWii launch carry the invalid key and
-  are rejected by CTGP's server (static-decompile basis). *Not confirmed on a
-  console:* that ghosts save and replay with this key (the earlier build saved
-  and replayed ghosts with the card's own key).
+  signatures (`include/riftwii/ctgpsign.hpp`). A fixed sample made offline
+  with that key's signing numbers fails RiftWii's DSA verifier under both the
+  supplied public value and CTGP's real list-signing public key. This tests
+  neither CTGP's in-game signer nor the ghost server's public key, and proves
+  no universal rejection claim. The decompile shows the signer takes its
+  key from the loader block; the in-game jelly mount is for content.
+  Ghost saving, replay and server rejection with the replacement key remain
+  unverified. Earlier console saves/replays used the card's own key.
 
 It starts CTGP-R only on the versions this launch is made for (PACKAGES.BIN
 core `0x01030412`, CTGPR `0x01031192` or `0x01031196`). The core governs the
@@ -129,7 +135,7 @@ Host tests cover each step with made-up data (`tests/ctgp*_tests.cpp`):
 the DSA signature check accepts a correctly signed list and rejects a tampered
 one (`ctgpdsa_tests`, `ctgphash_tests`, with a throwaway test key, since
 CTGP-R's key is not ours to sign with), the ghost-signing key is laid out as
-the channel's but is deliberately unusable, the baked course table and cup
+the channel's and a fixed negative signature sample is checked, the baked course table and cup
 layouts are checked against their known-good values, online and LAN stay off
 whatever config.ini says (enabled or not), the native launch is refused for a
 disc that is not Mario Kart Wii, a BOOT/BOAT image that would not fit MEM1 is
@@ -137,8 +143,10 @@ refused, and untested versions (core or CTGPR) are refused. The earlier
 build of this launch (on 3.1.0) was tested on a PAL Wii from disc and
 USB (menus, custom tracks, VS, a full Grand Prix, Time Trial ghost save
 and replay) with the card's own signing key; this one replaces that key and
-needs a Dolphin and a Wii run, and the channel button's return to RiftWii
-(a black screen on a real Wii) is a known open bug.
+needs a Dolphin and a Wii run. There is no current Dolphin/Wii evidence for
+ghost save/replay with this key or launch memory pressure; host size/layout
+checks and the build's start-up stash address do not establish either.
+The channel button's return to RiftWii (a black screen on a real Wii) is a known open bug.
 
 ## How RiftWii starts the CTGP-R Channel app
 

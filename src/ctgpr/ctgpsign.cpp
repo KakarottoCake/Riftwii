@@ -9,8 +9,9 @@ namespace {
 
 // RiftWii's own key, made for this file (tests/ctgpsign_tests.cpp): p is a
 // 512-bit prime and q a 160-bit prime dividing p - 1, as in a real DSA key,
-// so the game's signer works as usual; g = 2 does not have order q, and y is
-// 2^(x+1) mod p, not 2^x. No signature made with it verifies.
+// to provide populated inputs to the signer; g = 2 does not have order q, and y is
+// 2^(x+1) mod p, not 2^x. This is intended to prevent accepted signatures;
+// a fixed local negative sample is tested, not universal server rejection.
 const std::uint8_t kP[64] = {
     0x83, 0x25, 0xCB, 0x66, 0x82, 0xD4, 0x66, 0x29, 0x27, 0x1E, 0xE6, 0xD7,
     0x78, 0x3F, 0x76, 0xBF, 0x2C, 0x1A, 0x81, 0x8F, 0x57, 0x11, 0x71, 0xD5,

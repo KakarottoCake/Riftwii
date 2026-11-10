@@ -105,7 +105,8 @@ constexpr std::uint32_t kCtgpLayoutCount = 0x816ffed8;
 // in its order (the 10-entry table at chan_internal 0x80bff740; the options'
 // callbacks set each entry's flag): CTGPR's list (`ctgpr = no` takes
 // no_ct_24p.bin), My Stuff's (`my_stuff` 1..3: all, no tracks, music only),
-// NOMUSIC's (`no_music`), one font (`font` 1..3), then CORE's. `hash_list`
+// then CORE's. Music/font options retain the default files because the
+// supported release ships no signed payload lists for those packages. `hash_list`
 // names the package whose signed digest list vouches for the files (empty for
 // none). `allow_unsigned` is true only for My Stuff, the one package whose
 // files are the player's own and may be served without a signed digest (as the
