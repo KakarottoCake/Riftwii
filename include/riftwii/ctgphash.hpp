@@ -76,6 +76,12 @@ private:
 bool ctgp_core_digest_matches(const CtgpHashList& hashes, const std::string& file,
                               const std::array<std::uint8_t, 20>& digest);
 
+// True when `digest` is the SHA-1 of the core code file `file` (BOOT.BIN,
+// BOAT.BIN or BEAT.BIN) of the CORE release this launch is made for. The
+// launch's fixed addresses belong to that code, so it is pinned by the code
+// itself; CORE.HSH, which CTGP-R re-issues, need only be signed and vouch for it.
+bool ctgp_core_code_is_tested(const std::string& file, const std::array<std::uint8_t, 20>& digest);
+
 // Checks `file` as the list of package `package` (at most 8 characters) in the
 // version `version` (from PACKAGES.BIN): the DSA signature against CTGP-R's
 // public key, then the magic, the size, the name, the body's SHA-1 and a known

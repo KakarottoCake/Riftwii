@@ -176,10 +176,10 @@ int main() {
     EXPECT_TRUE(error.find("signature") != std::string::npos);
 
     // The channel signs only the first 20 bytes, so relabelling the name
-    // and version keeps a valid signature. The body/version binding must
-    // still refuse this for CORE, whose fixed addresses the launch relies on.
-    // A CTGPR list is accepted on its signature when its label is the version
-    // PACKAGES.BIN names (a CTGPR update), and refused when it is not.
+    // and version keeps a valid signature. A CTGPR or CORE list is accepted on
+    // its signature when its label is the version PACKAGES.BIN names (CTGP-R
+    // re-issues them under the same number), and refused when it is not.
+    // CORE's fixed addresses are guarded by its code (ctgp_core_code_is_tested).
     auto relabelled_as = [&](const char* name, std::uint32_t label) {
         auto relabelled = good;
         std::memset(relabelled.data() + 0x20, 0, 8);
@@ -187,8 +187,19 @@ int main() {
         for (unsigned i = 0; i < 4; ++i) relabelled[0x28 + i] = static_cast<std::uint8_t>(label >> (24 - 8 * i));
         return relabelled;
     };
-    EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CORE", 0x01030412u), "CORE", 0x01030412u, other, error, &key));
-    EXPECT_TRUE(error.find("known reference") != std::string::npos);
+    EXPECT_TRUE(ctgp_load_hash_list(relabelled_as("CORE", 0x01030412u), "CORE", 0x01030412u, other, error, &key));
+    EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CORE", 0x01030411u), "CORE", 0x01030412u, other, error, &key));
+    EXPECT_TRUE(error.find("another version") != std::string::npos);
+    {
+        // The tested core code, by its own SHA-1s; anything else is refused.
+        std::array<std::uint8_t, 20> boot{0x79, 0x0E, 0x0F, 0xED, 0x88, 0x66, 0x36, 0x6D, 0x7B, 0xA0,
+                                          0x07, 0xC6, 0xFF, 0x5E, 0x7A, 0x0D, 0x66, 0x67, 0x2F, 0x18};
+        EXPECT_TRUE(ctgp_core_code_is_tested("BOOT.BIN", boot));
+        EXPECT_TRUE(!ctgp_core_code_is_tested("BOAT.BIN", boot));
+        EXPECT_TRUE(!ctgp_core_code_is_tested("OTHER.BIN", boot));
+        boot[19] ^= 1;
+        EXPECT_TRUE(!ctgp_core_code_is_tested("BOOT.BIN", boot));
+    }
     {
         CtgpHashList update;
         EXPECT_TRUE(ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031200u), "CTGPR", 0x01031200u, update, error, &key));

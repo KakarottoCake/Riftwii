@@ -66,7 +66,10 @@ It keeps to these rules:
 It starts CTGP-R only with the core this launch is made for (PACKAGES.BIN
 core `0x01030412`): the core governs the game addresses the launch uses, so a
 different core stops the launch with that on screen and in `boot.log`, before
-anything is placed. The CTGPR track package may be a newer version than the
+anything is placed. The core's own code (BOOT.BIN, BOAT.BIN and BEAT.BIN) must
+be the tested code, by its SHA-1s, and its signed `CORE.HSH` must vouch for it;
+the list itself may be re-issued (CTGP-R re-signs it under the same number).
+The CTGPR track package may be a newer version than the
 tested `0x01031192`/`0x01031196`: its cups are read from the player's own
 install (below), and its files are served only with digests from its signed
 `CTGPR.HSH`, whose label must be the version PACKAGES.BIN names. Any list

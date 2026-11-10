@@ -446,6 +446,11 @@ bool ctgpr_prepare(CtgprLaunchRequest& request) {
     // digest binds that mapping to this release. Membership alone would let
     // another signed core file stand in for the required loader role.
     for (const CoreCodeDigest& c : core_code) {
+        if (!ctgp_core_code_is_tested(c.what, c.digest)) {
+            error = std::string("CTGP-R's core code is not the version RiftWii supports: ") + c.what +
+                    " is different (update RiftWii)";
+            return false;
+        }
         if (!ctgp_core_digest_matches(core_hashes, c.what, c.digest)) {
             error = std::string("CTGP-R's core code does not match its signed hash list: ") + c.what +
                     " does not match its named CORE.HSH digest";

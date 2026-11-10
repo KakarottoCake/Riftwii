@@ -51,6 +51,25 @@ bool ctgp_core_digest_matches(const CtgpHashList& hashes, const std::string& fil
     return false;
 }
 
+bool ctgp_core_code_is_tested(const std::string& file, const std::array<std::uint8_t, 20>& digest) {
+    // SHA-1s of CORE 0x01030412's code as read from the package disk, the
+    // same on a card from September 2026 and one CTGP-R updated in November.
+    static constexpr std::uint8_t boot[20] = {
+        0x79, 0x0E, 0x0F, 0xED, 0x88, 0x66, 0x36, 0x6D, 0x7B, 0xA0,
+        0x07, 0xC6, 0xFF, 0x5E, 0x7A, 0x0D, 0x66, 0x67, 0x2F, 0x18,
+    };
+    static constexpr std::uint8_t boat[20] = {
+        0x21, 0x00, 0x02, 0x02, 0xCD, 0x21, 0xAD, 0x99, 0x3E, 0x2C,
+        0x8F, 0xBA, 0x1D, 0x7A, 0x8E, 0x46, 0x26, 0xAE, 0x68, 0xC6,
+    };
+    static constexpr std::uint8_t beat[20] = {
+        0x9F, 0x4D, 0xA5, 0x13, 0x97, 0x99, 0xD8, 0xA9, 0x36, 0x05,
+        0xC6, 0xF7, 0x98, 0xCE, 0xE3, 0xCC, 0x3E, 0x92, 0x25, 0x43,
+    };
+    const std::uint8_t* want = file == "BOOT.BIN" ? boot : file == "BOAT.BIN" ? boat : file == "BEAT.BIN" ? beat : nullptr;
+    return want && std::memcmp(digest.data(), want, 20) == 0;
+}
+
 bool ctgp_has_hash_reference(const std::string& package, std::uint32_t version) {
     return reference_body(package, version) != nullptr;
 }
@@ -103,16 +122,17 @@ bool ctgp_load_hash_list(const CtgpBytes& file, const std::string& package, std:
         error = "the hash list is for another version of the package";
         return false;
     }
-    // CORE must be the known body: the launch's fixed addresses belong to it.
-    // CTGPR is accepted on CTGP-R's own signature with its label equal to
-    // PACKAGES.BIN's version (checked above), whatever its body: that is the
-    // rule the channel itself applies, and CTGP-R updates its tracks without
-    // always changing the version number (a 1196 card updated in Nov 2026 has
-    // a new CTGPR.HSH body under the same 1196 label). A known body still
-    // vouches for a list whose label lags PACKAGES.BIN (known_identity). The
-    // signature has been checked by now, with whichever key is in use (CTGP-R's
-    // own unless a test gives another), so this does not depend on `key`.
-    if (!known_identity && package != "CTGPR" && (!key || package == "CORE")) {
+    // CTGPR and CORE are accepted on CTGP-R's own signature with their label
+    // equal to PACKAGES.BIN's version (checked above), whatever their body:
+    // that is the rule the channel itself applies, and CTGP-R re-issues these
+    // lists without changing the version number (a card updated in Nov 2026
+    // has new CTGPR.HSH and CORE.HSH bodies under the same labels). A known
+    // body still vouches for a list whose label lags PACKAGES.BIN
+    // (known_identity). CORE's fixed addresses are protected by its code
+    // itself (ctgp_core_code_is_tested), not by the list's body. The signature
+    // has been checked by now, with whichever key is in use (CTGP-R's own
+    // unless a test gives another), so this does not depend on `key`.
+    if (!known_identity && package != "CTGPR" && package != "CORE" && !key) {
         error = "the signed hash-list body is not a known reference for this package version";
         return false;
     }
