@@ -139,8 +139,13 @@ struct GameSettings {
     // global (Settings' GameCube memory card), own, shared, real (the real
     // card in slot A), real_b (this game's own card in slot A and the real
     // card in slot B), real_b_as_a (the real card in slot B as the game's
-    // slot A, for a game that only looks there), nintendont, dolphin.
+    // slot A, for a game that only looks there), nintendont, dolphin,
+    // named (the player's named card gc_card_name, riftwii/gccard.hpp).
     std::string gc_card = "global";
+    // The named card's name, when gc_card is "named"; always a clean name
+    // (gc_card_name_clean) or "". "named" with "" plays as "global" does
+    // (gc_card_effective), and the game's page shows it as Default.
+    std::string gc_card_name;
     // A GameCube game's picture and language (gcnative.cpp does each).
     // "global", the default, follows Settings and the Wii's own settings
     // as a Wii game's rows do (GcConsoleSettings, resolved below); "game"
@@ -187,8 +192,14 @@ bool gc_pal_game(const std::string& id);
 // them from the console; a test sets them by hand).
 // The memory card a GameCube game uses: its own choice, or for "global"
 // Settings' (`settings_card`: own, shared, real or real_b; anything else
-// is own).
+// is own). "named" comes only from the game's own choice, with
+// game.gc_card_name naming the card (riftwii/gccard.hpp's gc_card_file).
 std::string gc_card_effective(const GameSettings& game, const std::string& settings_card);
+// The emulated card file a GameCube game's saves go to for its choices
+// and Settings' card (riftwii/gccard.hpp's gc_card_file): its own, the
+// shared or its named card; for a real card or another loader's, its own
+// card, the one RiftWii keeps for it on the SD card.
+std::string gc_card_file_of(const GameSettings& game, const std::string& settings_card, const std::string& game_id);
 
 struct GcConsoleSettings {
     std::string aspect = "game";            // LoaderSettings::aspect: "game" (the Wii's TV setting), "4:3", "16:9"

@@ -8678,9 +8678,9 @@ MORE["fr"]['Hidden games stay on the drive. Settings > Home > Show hidden games 
 T["Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."] = ('Borra la imagen, carátulas y trucos del juego. Las partidas se conservan salvo que también elijas borrarlas.', 'ゲームのイメージ、カバー、チートを削除します。セーブデータは、削除を選ばない限り残ります。', 'Remove a imagem, capas e truques do jogo. Os dados salvos ficam, a menos que você escolha excluí-los também.', 'Rimuove immagine, copertine e trucchi del gioco. I salvataggi restano, salvo scelta di eliminarli.')
 MORE["ko"]["Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."] = '게임 이미지, 표지와 치트를 삭제합니다. 저장 데이터는 삭제하도록 선택하지 않으면 유지됩니다.'
 MORE["fr"]["Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."] = 'Supprime l’image, les jaquettes et les codes du jeu. Les sauvegardes restent, sauf si vous choisissez aussi de les supprimer.'
-T["Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."] = ('Solo las partidas separadas de RiftWii. Se conservan las tarjetas compartidas y las partidas de los packs y de la Wii.', 'RiftWiiの個別セーブのみです。共有カード、パックのセーブ、Wii本体のセーブは残ります。', 'Apenas os dados separados do RiftWii. Cartões compartilhados e dados dos pacotes e do Wii são mantidos.', 'Solo i salvataggi separati di RiftWii. Le schede condivise e i salvataggi dei pacchetti e della Wii restano.')
-MORE["ko"]["Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."] = 'RiftWii의 개별 저장 데이터만 삭제합니다. 공유 카드, 팩과 Wii 본체의 저장 데이터는 유지됩니다.'
-MORE["fr"]["Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."] = 'Uniquement les sauvegardes séparées de RiftWii. Les cartes partagées et les sauvegardes des packs et de la Wii restent.'
+T["Only RiftWii's separate saves. Shared and named cards, pack saves and the Wii's own saves are kept."] = ('Solo las partidas separadas de RiftWii. Se conservan las tarjetas compartidas y con nombre, y las partidas de los packs y de la Wii.', 'RiftWiiの個別セーブのみです。共有カードと名前付きカード、パックのセーブ、Wii本体のセーブは残ります。', 'Apenas os dados separados do RiftWii. Cartões compartilhados e com nome e dados dos pacotes e do Wii são mantidos.', 'Solo i salvataggi separati di RiftWii. Le schede condivise e con nome e i salvataggi dei pacchetti e della Wii restano.')
+MORE["ko"]["Only RiftWii's separate saves. Shared and named cards, pack saves and the Wii's own saves are kept."] = 'RiftWii의 개별 저장 데이터만 삭제합니다. 공유 카드와 이름 있는 카드, 팩과 Wii 본체의 저장 데이터는 유지됩니다.'
+MORE["fr"]["Only RiftWii's separate saves. Shared and named cards, pack saves and the Wii's own saves are kept."] = 'Uniquement les sauvegardes séparées de RiftWii. Les cartes partagées et nommées et les sauvegardes des packs et de la Wii restent.'
 T['Its image files, covers and cheats will be deleted. This cannot be undone.'] = ('Se borrarán sus imágenes, carátulas y trucos. No se puede deshacer.', 'イメージファイル、カバー、チートを削除します。元には戻せません。', 'Suas imagens, capas e truques serão excluídos. Não é possível desfazer.', 'I suoi file immagine, copertine e trucchi saranno eliminati. Non si può annullare.')
 MORE["ko"]['Its image files, covers and cheats will be deleted. This cannot be undone.'] = '이미지 파일, 표지와 치트가 삭제됩니다. 되돌릴 수 없습니다.'
 MORE["fr"]['Its image files, covers and cheats will be deleted. This cannot be undone.'] = 'Ses images, jaquettes et codes seront supprimés. Cette action est irréversible.'
@@ -9253,6 +9253,89 @@ KO.update({
 FR.update({
     "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead.":
         "CTGP-R ne peut pas démarrer depuis une image RVZ. Utilisez un disque, un ISO ou un WBFS.",
+})
+
+# GameCube named memory cards (#511).
+T.update({
+    "Named: {1}": ("Con nombre: {1}", "名前付き: {1}", "Com nome: {1}", "Con nome: {1}"),
+    "Saves go to the named memory card {1} on the SD card: {2}.": ("Las partidas se guardan en la tarjeta de memoria con nombre {1} de la tarjeta SD: {2}.", "セーブはSDカードの名前付きメモリーカード「{1}」に入ります: {2}。", "Os jogos salvos vão para o cartão de memória com nome {1} no cartão SD: {2}.", "I salvataggi vanno nella scheda di memoria con nome {1} sulla scheda SD: {2}."),
+    "Name the new card": ("Ponle nombre a la tarjeta nueva", "新しいカードの名前", "Dê um nome ao cartão novo", "Dai un nome alla nuova scheda"),
+    "New card": ("Tarjeta nueva", "新しいカード", "Cartão novo", "Nuova scheda"),
+    "Other kinds of card": ("Otros tipos de tarjeta", "ほかの種類のカード", "Outros tipos de cartão", "Altri tipi di scheda"),
+    "A new, empty card. It is made the first time a game uses it.": ("Una tarjeta nueva y vacía. Se crea la primera vez que un juego la usa.", "新しい空のカードです。ゲームが初めて使うときに作られます。", "Um cartão novo e vazio. Ele é criado na primeira vez que um jogo o usa.", "Una scheda nuova e vuota. Viene creata la prima volta che un gioco la usa."),
+    "Named cards are kept in {1}. Give one to several games, or several to one game.": ("Las tarjetas con nombre se guardan en {1}. Dale una a varios juegos, o varias a un juego.", "名前付きカードは{1}にあります。1枚を複数のゲームで使っても、1つのゲームで何枚も使ってもかまいません。", "Os cartões com nome ficam em {1}. Dê um a vários jogos, ou vários a um jogo.", "Le schede con nome sono in {1}. Danne una a più giochi, o più di una a un gioco."),
+    "Named cards": ("Tarjetas con nombre", "名前付きカード一覧", "Cartões com nome", "Schede con nome"),
+    "Japanese games' cards": ("Tarjetas de juegos japoneses", "日本のゲームのカード", "Cartões de jogos japoneses", "Schede dei giochi giapponesi"),
+    "Cards for this game's region": ("Tarjetas para la región de este juego", "このゲームの地域のカード", "Cartões da região deste jogo", "Schede per la regione di questo gioco"),
+    "Use 1 to {1} letters, digits, spaces, - or ' for a card's name.": ("Usa de 1 a {1} letras, dígitos, espacios, - o ' para el nombre de la tarjeta.", "カードの名前には、英字、数字、スペース、-、'を1〜{1}文字使ってください。", "Use de 1 a {1} letras, dígitos, espaços, - ou ' no nome do cartão.", "Usa da 1 a {1} lettere, cifre, spazi, - o ' per il nome della scheda."),
+    "Press A to pick another named card or make a new one; Left for the other kinds of card.": ("Pulsa A para elegir otra tarjeta con nombre o crear una nueva; Izquierda para los otros tipos de tarjeta.", "Aでほかの名前付きカードを選ぶか新しく作り、左でほかの種類のカードにします。", "Aperte A para escolher outro cartão com nome ou criar um novo; Esquerda para os outros tipos de cartão.", "Premi A per scegliere un'altra scheda con nome o crearne una nuova; Sinistra per gli altri tipi di scheda."),
+})
+KO.update({
+    "Named: {1}": "이름: {1}",
+    "Saves go to the named memory card {1} on the SD card: {2}.": "저장 데이터는 SD 카드의 이름 있는 메모리 카드 {1}에 저장됩니다: {2}.",
+    "Name the new card": "새 카드 이름",
+    "New card": "새 카드",
+    "Other kinds of card": "다른 종류의 카드",
+    "A new, empty card. It is made the first time a game uses it.": "새 빈 카드입니다. 게임이 처음 사용할 때 만들어집니다.",
+    "Named cards are kept in {1}. Give one to several games, or several to one game.": "이름 있는 카드는 {1}에 있습니다. 한 장을 여러 게임에, 또는 여러 장을 한 게임에 쓸 수 있습니다.",
+    "Named cards": "이름 있는 카드 목록",
+    "Japanese games' cards": "일본 게임용 카드",
+    "Cards for this game's region": "이 게임 지역용 카드",
+    "Use 1 to {1} letters, digits, spaces, - or ' for a card's name.": "카드 이름에는 영문자, 숫자, 공백, -, '를 1~{1}자 사용하세요.",
+    "Press A to pick another named card or make a new one; Left for the other kinds of card.": "A를 눌러 다른 이름 있는 카드를 고르거나 새로 만들고, 왼쪽으로 다른 종류의 카드를 고릅니다.",
+})
+FR.update({
+    "Named: {1}": "Nommée : {1}",
+    "Saves go to the named memory card {1} on the SD card: {2}.": "Les sauvegardes vont sur la carte mémoire nommée {1} de la carte SD : {2}.",
+    "Name the new card": "Nommez la nouvelle carte",
+    "New card": "Nouvelle carte",
+    "Other kinds of card": "Autres types de carte",
+    "A new, empty card. It is made the first time a game uses it.": "Une carte neuve et vide. Elle est créée la première fois qu'un jeu l'utilise.",
+    "Named cards are kept in {1}. Give one to several games, or several to one game.": "Les cartes nommées sont dans {1}. Donnez-en une à plusieurs jeux, ou plusieurs à un jeu.",
+    "Named cards": "Cartes nommées",
+    "Japanese games' cards": "Cartes des jeux japonais",
+    "Cards for this game's region": "Cartes pour la région de ce jeu",
+    "Use 1 to {1} letters, digits, spaces, - or ' for a card's name.": "Utilisez de 1 à {1} lettres, chiffres, espaces, - ou ' pour le nom de la carte.",
+    "Press A to pick another named card or make a new one; Left for the other kinds of card.": "Appuyez sur A pour choisir une autre carte nommée ou en créer une ; Gauche pour les autres types de carte.",
+})
+
+# Restoring a named memory card (#511).
+T.update({
+    "Press A to put this named memory card back to how it was then, for every game that uses it.": ("Pulsa A para devolver esta tarjeta de memoria con nombre a como estaba entonces, para todos los juegos que la usan.", "Aを押すと、この名前付きメモリーカードをその時の状態にもどします。使っているすべてのゲームに反映されます。", "Aperte A para voltar este cartão de memória com nome a como estava então, para todos os jogos que o usam.", "Premi A per riportare questa scheda di memoria con nome com'era allora, per tutti i giochi che la usano."),
+    "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them.": ("Todas las partidas de esta tarjeta de memoria con nombre vuelven a como estaban el {1}. Su estado actual se guarda antes como copia, para que puedas volver a él.", "この名前付きメモリーカードのすべてのセーブが{1}の状態にもどります。今の状態は先にコピーとして残すので、あとでもどせます。", "Todos os dados deste cartão de memória com nome voltam a como estavam em {1}. Como estão agora é guardado antes como cópia, para você poder voltar a eles.", "Tutti i salvataggi di questa scheda di memoria con nome tornano com'erano il {1}. Come sono ora viene prima conservato in una copia, così puoi tornarci."),
+})
+KO.update({
+    "Press A to put this named memory card back to how it was then, for every game that uses it.": "A를 누르면 이 이름 있는 메모리 카드를 그때 상태로 되돌립니다. 이 카드를 쓰는 모든 게임에 적용됩니다.",
+    "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them.": "이 이름 있는 메모리 카드의 모든 저장 데이터가 {1} 상태로 되돌아갑니다. 지금 상태는 먼저 사본으로 보관하므로 다시 되돌릴 수 있습니다.",
+})
+FR.update({
+    "Press A to put this named memory card back to how it was then, for every game that uses it.": "Appuyez sur A pour remettre cette carte mémoire nommée dans l'état d'alors, pour tous les jeux qui l'utilisent.",
+    "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them.": "Toutes les sauvegardes de cette carte mémoire nommée reviennent à leur état du {1}. Leur état actuel est d'abord gardé en copie, pour que vous puissiez y revenir.",
+})
+
+# Named memory cards on the Saves page (#511).
+T.update({
+    "A named memory card is made the first time a game that uses it starts: {1}.": ("Una tarjeta de memoria con nombre se crea la primera vez que se inicia un juego que la usa: {1}.", "名前付きメモリーカードは、それを使うゲームを初めて始めたときに作られます: {1}。", "Um cartão de memória com nome é criado na primeira vez que um jogo que o usa é iniciado: {1}.", "Una scheda di memoria con nome viene creata la prima volta che si avvia un gioco che la usa: {1}."),
+    "Go back to how this named memory card was on a day you pick, for every game that uses it.": ("Vuelve a como estaba esta tarjeta de memoria con nombre el día que elijas, para todos los juegos que la usan.", "この名前付きメモリーカードを、選んだ日の状態にもどします。使っているすべてのゲームに反映されます。", "Volte este cartão de memória com nome a como estava no dia que você escolher, para todos os jogos que o usam.", "Riporta questa scheda di memoria con nome a com'era nel giorno che scegli, per tutti i giochi che la usano."),
+})
+KO.update({
+    "A named memory card is made the first time a game that uses it starts: {1}.": "이름 있는 메모리 카드는 그 카드를 쓰는 게임을 처음 시작할 때 만들어집니다: {1}.",
+    "Go back to how this named memory card was on a day you pick, for every game that uses it.": "이 이름 있는 메모리 카드를 고른 날의 상태로 되돌립니다. 이 카드를 쓰는 모든 게임에 적용됩니다.",
+})
+FR.update({
+    "A named memory card is made the first time a game that uses it starts: {1}.": "Une carte mémoire nommée est créée la première fois qu'un jeu qui l'utilise démarre : {1}.",
+    "Go back to how this named memory card was on a day you pick, for every game that uses it.": "Remettez cette carte mémoire nommée dans son état du jour choisi, pour tous les jeux qui l'utilisent.",
+})
+
+# Named memory cards: where Other kinds of card goes (#511).
+T.update({
+    "Switches this game to {1}. Back keeps the card it has.": ("Cambia este juego a {1}. Atrás mantiene la tarjeta que tiene.", "このゲームを {1} に切り替えます。もどるで今のカードのままです。", "Troca este jogo para {1}. Voltar mantém o cartão que ele tem.", "Passa questo gioco a {1}. Indietro mantiene la scheda che ha."),
+})
+KO.update({
+    "Switches this game to {1}. Back keeps the card it has.": "이 게임을 {1}(으)로 바꿉니다. 뒤로를 누르면 지금 카드를 그대로 씁니다.",
+})
+FR.update({
+    "Switches this game to {1}. Back keeps the card it has.": "Passe ce jeu sur {1}. Retour garde la carte qu'il a.",
 })
 
 if __name__ == "__main__":

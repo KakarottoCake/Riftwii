@@ -4158,8 +4158,8 @@ msgstr "Les jeux masqués restent sur le disque. Paramètres > Accueil > Affiche
 msgid "Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."
 msgstr "Supprime l’image, les jaquettes et les codes du jeu. Les sauvegardes restent, sauf si vous choisissez aussi de les supprimer."
 
-msgid "Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."
-msgstr "Uniquement les sauvegardes séparées de RiftWii. Les cartes partagées et les sauvegardes des packs et de la Wii restent."
+msgid "Only RiftWii's separate saves. Shared and named cards, pack saves and the Wii's own saves are kept."
+msgstr "Uniquement les sauvegardes séparées de RiftWii. Les cartes partagées et nommées et les sauvegardes des packs et de la Wii restent."
 
 msgid "Its image files, covers and cheats will be deleted. This cannot be undone."
 msgstr "Ses images, jaquettes et codes seront supprimés. Cette action est irréversible."
@@ -4397,3 +4397,54 @@ msgstr "Aucune manette GameCube trouvée"
 
 msgid "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead."
 msgstr "CTGP-R ne peut pas démarrer depuis une image RVZ. Utilisez un disque, un ISO ou un WBFS."
+
+msgid "Named: {1}"
+msgstr "Nommée : {1}"
+
+msgid "Saves go to the named memory card {1} on the SD card: {2}."
+msgstr "Les sauvegardes vont sur la carte mémoire nommée {1} de la carte SD : {2}."
+
+msgid "Name the new card"
+msgstr "Nommez la nouvelle carte"
+
+msgid "New card"
+msgstr "Nouvelle carte"
+
+msgid "Other kinds of card"
+msgstr "Autres types de carte"
+
+msgid "A new, empty card. It is made the first time a game uses it."
+msgstr "Une carte neuve et vide. Elle est créée la première fois qu'un jeu l'utilise."
+
+msgid "Named cards are kept in {1}. Give one to several games, or several to one game."
+msgstr "Les cartes nommées sont dans {1}. Donnez-en une à plusieurs jeux, ou plusieurs à un jeu."
+
+msgid "Named cards"
+msgstr "Cartes nommées"
+
+msgid "Japanese games' cards"
+msgstr "Cartes des jeux japonais"
+
+msgid "Cards for this game's region"
+msgstr "Cartes pour la région de ce jeu"
+
+msgid "Use 1 to {1} letters, digits, spaces, - or ' for a card's name."
+msgstr "Utilisez de 1 à {1} lettres, chiffres, espaces, - ou ' pour le nom de la carte."
+
+msgid "Press A to pick another named card or make a new one; Left for the other kinds of card."
+msgstr "Appuyez sur A pour choisir une autre carte nommée ou en créer une ; Gauche pour les autres types de carte."
+
+msgid "Press A to put this named memory card back to how it was then, for every game that uses it."
+msgstr "Appuyez sur A pour remettre cette carte mémoire nommée dans l'état d'alors, pour tous les jeux qui l'utilisent."
+
+msgid "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them."
+msgstr "Toutes les sauvegardes de cette carte mémoire nommée reviennent à leur état du {1}. Leur état actuel est d'abord gardé en copie, pour que vous puissiez y revenir."
+
+msgid "A named memory card is made the first time a game that uses it starts: {1}."
+msgstr "Une carte mémoire nommée est créée la première fois qu'un jeu qui l'utilise démarre : {1}."
+
+msgid "Go back to how this named memory card was on a day you pick, for every game that uses it."
+msgstr "Remettez cette carte mémoire nommée dans son état du jour choisi, pour tous les jeux qui l'utilisent."
+
+msgid "Switches this game to {1}. Back keeps the card it has."
+msgstr "Passe ce jeu sur {1}. Retour garde la carte qu'il a."

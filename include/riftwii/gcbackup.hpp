@@ -41,6 +41,11 @@ GcBackupStamp gc_backup_stamp(const std::tm& local);
 // The folder the backups of a game's card go in (gc_card_path's choice of
 // card): sd:/riftwii/gc/backups/<ID> or .../backups/shared(-jp).
 std::string gc_backup_folder(const std::string& game_id, bool shared);
+// The folder for any card file RiftWii keeps (riftwii/gccard.hpp's
+// gc_card_file): backups/<stem> for a game's own or the shared card,
+// backups/named/<name> or backups/named-jp/<name> for a named card, so a
+// card named like a game's ID never shares that game's backups.
+std::string gc_card_backup_folder(const std::string& card_path);
 
 // "2026-10-17_1432.raw", "2026-10-17_1432-2.raw" with serial 2, and
 // "2026-10-17_1432-undo.raw" or "2026-10-17_1432-2-undo.raw" for an undo copy.

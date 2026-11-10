@@ -47,6 +47,7 @@ struct GcImage {
     std::uint32_t external_card_bytes = 0;
     std::vector<Fragment> card_fragments;
     bool shared_card = false;
+    std::string card_path{};  // the emulated card's file (own, shared or named; the request's card_path), "" by the ID
     bool drive_timing = true;
     bool progressive = false;
     bool line240 = false;  // 240p (rwp_gc_launch's line240)

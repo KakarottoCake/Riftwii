@@ -840,13 +840,18 @@ program's. Not with packs (they move the disc's files), a game from a TGC
 image, or a second disc (the patches are for disc 1's offsets).
 
 **Memory cards** (`src/fs/gccard.cpp`): one image per game,
-`sd:/riftwii/gc/cards/<ID>.raw`, or a shared `shared.raw` (`shared-jp.raw`
-for Japanese games), formatted the first time. The game page's Saves tile
+`sd:/riftwii/gc/cards/<ID>.raw`, a shared `shared.raw` (`shared-jp.raw`
+for Japanese games), or a named card the player picks on the game's page,
+`cards/named/<name>.raw` (`cards/named-jp/` for Japanese games), formatted
+the first time. `gc_card_file` (and `gc_card_file_of`, from a game's
+choices) says which file a game uses; the launch passes it to the loader
+as the request's `card_path`. The game page's Saves tile
 opens it: saves with their icons, copied out as `.gci`, deleted, or added
 from `sd:/riftwii/gc/saves`. Before each start (Settings' Back up saves,
 on by default) the loader copies the card the game will use to
 `sd:/riftwii/gc/backups/<card>/<date>_<time>.raw` (`src/fs/gcbackup.cpp`),
-`<card>` being the card file's name (the game's ID, or `shared`), keeping
+`<card>` being the card file's name (the game's ID, or `shared`; a named
+card's backups go to `backups/named/<name>`, `named-jp/` for Japanese games), keeping
 the newest five and skipping the copy while the card matches the newest.
 The Saves page's Restore an older save lists them by date and puts the one
 picked back over the card, after a backup of the card as it is now, so a
@@ -1041,7 +1046,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/cardlog.bin`, `cardlog.txt` | The SD card's failures during the last game, and their text |
 | `sd:/games/<ID>/game.iso` | A GameCube game |
 | `sd:/riftwii/patches/*.xdelta` | Patch-only GameCube mods, built into `sd:/games/<ID>/` once |
-| `sd:/riftwii/gc/cards/<ID>.raw`, `shared.raw`, `shared-jp.raw` | GameCube memory cards |
+| `sd:/riftwii/gc/cards/<ID>.raw`, `shared.raw`, `shared-jp.raw`, `named/<name>.raw`, `named-jp/<name>.raw` | GameCube memory cards (a named card: `gc_named_card_path`) |
 | `sd:/riftwii/gc/saves/*.gci` | GameCube saves copied out, or to add to a card |
 | `sd:/riftwii/gc/backups/real/` | Explicit whole physical-card `.raw` backups, not pruned |
 | `sd:/riftwii/gc/dolphin/` | Dolphin's `GC` folder, copied whole (`USA/Card A/*.gci`, `MemoryCardA.USA.raw`...), for Bring your Dolphin saves (`gcimport.hpp`) |
