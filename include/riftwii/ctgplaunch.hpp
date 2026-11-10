@@ -87,15 +87,23 @@ struct CtgpLaunchPlan {
     CtgpMmu mmu_regs;  // htab left empty here
 };
 
-// The one CTGP-R version this launch was made and tested for (PACKAGES.BIN
-// on the package disk). The launch writes into CTGP's code and data at fixed
-// places, and the cup layouts are baked for this exact CTGPR version
+// The CTGP-R versions this launch was made and tested for (PACKAGES.BIN on
+// the package disk). The launch writes into CTGP's code and data at fixed
+// places, and the cup layouts are baked for this CTGPR content
 // (ctgpapply.cpp), so both the core and the CTGPR versions are pinned: any
 // other version is refused rather than started (ctgp_check_versions). A later
 // step that derives the cups from the player's own package disk will let the
 // CTGPR version vary again.
+//
+// Two PACKAGES.BIN CTGPR numbers name the same content: CTGP republished
+// PACKAGES.BIN with 0x01031196 without re-versioning CTGPR.HSH, whose body and
+// own label (still 0x01031192) are unchanged. The core is 0x01030412 on both,
+// and the tracks, CTGP.CRS and .cup files -- so the baked course and cup
+// tables -- are identical; only the PACKAGES.BIN CTGPR number differs. Both
+// are accepted, keyed to the same CTGPR.HSH body digest (ctgphash.cpp).
 constexpr std::uint32_t kCtgpTestedCoreVersion = 0x01030412;
-constexpr std::uint32_t kCtgpTestedCtgprVersion = 0x01031196;
+constexpr std::uint32_t kCtgpTestedCtgprVersion1192 = 0x01031192;
+constexpr std::uint32_t kCtgpTestedCtgprVersion1196 = 0x01031196;
 
 // True when PACKAGES.BIN names the tested versions; otherwise `error` says
 // which version was found.

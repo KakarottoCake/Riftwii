@@ -51,19 +51,18 @@ The CTGP-R developers allow it on these conditions, which the code keeps:
   earlier build saved and replayed ghosts with the card's own key).
 
 It starts CTGP-R only on the versions this launch is made for (PACKAGES.BIN
-core `0x01030412`, CTGPR `0x01031196`). The core governs the game addresses
-the launch uses, and the CTGPR track package governs the cup layouts, which
-are baked into this build for that one CTGPR version; a different core or a
-different track package stops the launch with that on screen and in `boot.log`,
-before anything is placed. (A later step that works the cup layouts out from
-the player's own package disk will let the track-package version vary again.)
-The local untouched reference available for this review has CTGPR
-`0x01031192`, not `0x01031196`; its CORE and CTGPR lists verify, and its
-BOOT/BOAT/BEAT and track hashes match their signed digests. There is no
-checked hash-list body reference for `0x01031196` yet, so this build refuses
-that version too. The menu marks it unsupported. The version pin has not
-been relaxed; an untouched `0x01031196` install is needed before native
-launches can resume.
+core `0x01030412`, CTGPR `0x01031192` or `0x01031196`). The core governs the
+game addresses the launch uses, and the CTGPR track package governs the cup
+layouts, which are baked into this build for this CTGPR content; a different
+core or a different track package stops the launch with that on screen and in
+`boot.log`, before anything is placed. (A later step that works the cup layouts
+out from the player's own package disk will let the track-package version vary
+again.) The two accepted CTGPR numbers are the same content: CTGP republished
+PACKAGES.BIN with `0x01031196` without re-versioning `CTGPR.HSH`, whose body
+and own label (still `0x01031192`) are unchanged, and the core, tracks,
+`CTGP.CRS` and `.cup` files are identical on both. The build binds that one
+`CTGPR.HSH` body digest to both numbers (`ctgphash.cpp`), so a card whose
+PACKAGES.BIN lists either number verifies and the menu marks it supported.
 
 Native launches also refuse RVZ images: those need RiftWii's resident disc
 reader, whose hooks and page table have not been shown to coexist with

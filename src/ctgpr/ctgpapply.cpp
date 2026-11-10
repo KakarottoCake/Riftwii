@@ -18,9 +18,10 @@ namespace {
 // install-independent permutation of the 32 base slots (not the custom
 // track-ID bytes in CTGP.CRS), and the channel reorders a .cup's body before
 // the game sees it, so copying either file verbatim gives the game the wrong
-// tables. Because the cup layouts are specific to one CTGP-R version, the
-// launch pins kCtgpTestedCtgprVersion (ctgplaunch.hpp); a later step that
-// derives the cups correctly will relax that pin.
+// tables. Because the cup layouts are specific to this CTGP-R content, the
+// launch pins the tested CTGPR versions (kCtgpTestedCtgprVersion1192 and
+// _1196, the same content; ctgplaunch.hpp); a later step that derives the cups
+// correctly will relax that pin.
 
 // The course table at 0x816ffaf8: {8, 1, 2, 4} then the fixed 28-word tail, the
 // internal course IDs of Mario Kart Wii's 32 base tracks in the channel's grid

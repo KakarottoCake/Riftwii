@@ -130,6 +130,10 @@ static void test_version_guard() {
     std::string error;
     CtgpInputs in = inputs();
     EXPECT_TRUE(ctgp_assemble(in, plan, error));
+    // the republished-only CTGPR number (same content) is also accepted
+    CtgpInputs republished = in;
+    set(republished.packages_bin, 16 + 16 + 8, kCtgpTestedCtgprVersion1192);  // CTGPR is the second record
+    EXPECT_TRUE(ctgp_assemble(republished, plan, error));
     // a different core is refused
     CtgpInputs other = in;
     set(other.packages_bin, 16 + 8, 0x01030413);
@@ -145,12 +149,15 @@ static void test_version_guard() {
     other = in;
     std::memcpy(&other.packages_bin[16], "XORE", 4);
     EXPECT_TRUE(!ctgp_assemble(other, plan, error));
-    // the tested core and the tested CTGPR together are accepted
-    std::vector<CtgpPackage> packages = {{"CORE", kCtgpTestedCoreVersion, 0}, {"CTGPR", kCtgpTestedCtgprVersion, 0}};
+    // the tested core and either tested CTGPR number (same content) are accepted
+    std::vector<CtgpPackage> packages = {{"CORE", kCtgpTestedCoreVersion, 0},
+                                         {"CTGPR", kCtgpTestedCtgprVersion1196, 0}};
+    EXPECT_TRUE(ctgp_check_versions(packages, error));
+    packages[1].version = kCtgpTestedCtgprVersion1192;  // the republished-only number: also accepted
     EXPECT_TRUE(ctgp_check_versions(packages, error));
     packages[1].version = 0x09999999;  // a different track pack: refused
     EXPECT_TRUE(!ctgp_check_versions(packages, error));
-    packages[1].version = kCtgpTestedCtgprVersion;
+    packages[1].version = kCtgpTestedCtgprVersion1196;
     packages[0].version = 0;  // a different core: refused
     EXPECT_TRUE(!ctgp_check_versions(packages, error));
 }

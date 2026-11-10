@@ -138,10 +138,15 @@ bool ctgp_check_versions(const std::vector<CtgpPackage>& packages, std::string& 
     // own package disk will let the CTGPR version vary again.)
     const std::uint32_t core = ctgp_package_version(packages, "CORE");
     const std::uint32_t ctgpr = ctgp_package_version(packages, "CTGPR");
-    if (core == kCtgpTestedCoreVersion && ctgpr == kCtgpTestedCtgprVersion) return true;
+    // 0x01031192 and 0x01031196 are the same CTGP-R content (identical core and
+    // identical CTGPR.HSH body; CTGP republished PACKAGES.BIN without
+    // re-versioning the list), so either CTGPR number is accepted with the
+    // tested core.
+    const bool ctgpr_ok = ctgpr == kCtgpTestedCtgprVersion1192 || ctgpr == kCtgpTestedCtgprVersion1196;
+    if (core == kCtgpTestedCoreVersion && ctgpr_ok) return true;
     error = "this CTGP-R is a different version (core " + version_text(core) + ", CTGPR " + version_text(ctgpr) +
-            ") from the one this launch is made for (core " + version_text(kCtgpTestedCoreVersion) + ", CTGPR " +
-            version_text(kCtgpTestedCtgprVersion) +
+            ") from the ones this launch is made for (core " + version_text(kCtgpTestedCoreVersion) + ", CTGPR " +
+            version_text(kCtgpTestedCtgprVersion1192) + " or " + version_text(kCtgpTestedCtgprVersion1196) +
             "), so RiftWii does not start it. Start CTGP-R from the Homebrew Channel instead";
     return false;
 }
