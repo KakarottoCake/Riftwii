@@ -10585,8 +10585,14 @@ static std::vector<std::string> ListNamedGcCards(bool shiftJis)
 	while (dirent* entry = readdir(dir)) {
 		if (++seen > 2000) break;
 		std::string name = entry->d_name;
-		// Cards are files; a folder called X.raw is not one.
+		// Cards are files; a folder called X.raw is not one (asked with
+		// stat when the listing doesn't say).
 		if (entry->d_type == DT_DIR) continue;
+		if (entry->d_type == DT_UNKNOWN) {
+			struct stat st;
+			const std::string full = riftwii::gc_named_card_folder(shiftJis) + "/" + entry->d_name;
+			if (stat(full.c_str(), &st) != 0 || S_ISDIR(st.st_mode)) continue;
+		}
 		// FAT ignores case: a PC may have written Trades.RAW.
 		if (name.size() <= 4 || LowerAscii(name.substr(name.size() - 4)) != ".raw") continue;
 		name.resize(name.size() - 4);
@@ -14597,8 +14603,11 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 					// A named card opens its picker: on the way to it, and
 					// with A on it again (to change cards; Left steps on).
 					// (Named with no usable name plays as Default: it steps on.)
-					const bool onNamed = game.gc_card == "named" && !game.gc_card_name.empty() && direction > 0;
-					const std::string next = onNamed ? std::string("named") : StepList(sources, game.gc_card, direction);
+					const bool namedUnusable = game.gc_card == "named" && game.gc_card_name.empty();
+					const bool onNamed = game.gc_card == "named" && !namedUnusable && direction > 0;
+					// Shown as Default, so it steps from Default.
+					const std::string current = namedUnusable ? std::string("global") : game.gc_card;
+					const std::string next = onNamed ? std::string("named") : StepList(sources, current, direction);
 					if (next == "named") {
 						std::string name = game.gc_card_name;
 						// Where Other kinds of card goes, named as the row would show it.

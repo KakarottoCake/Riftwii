@@ -30,6 +30,7 @@ constexpr unsigned GC_CARD_BYTES = 0x200000;
 struct Image {
     std::string id;
     bool shared_card = false;
+    std::string card_path;  // a named card's file; empty: gc_card_path
 };
 
 bool can_open;
@@ -117,7 +118,7 @@ def main():
     args = parser.parse_args()
     source = (ROOT / "plugins/gamecube/gcnative.cpp").read_text()
     card_start = source.index("    std::vector<std::uint8_t> card_image;")
-    start = source.index("        const std::string path = gc_card_path", card_start)
+    start = source.index("            const std::string path = ", card_start)
     end = source.index("        // The unlocked emulated card", start)
     block = source[start:end]
     for name in ("fopen", "fseek", "ftell", "fclose", "fread", "fwrite"):
