@@ -397,27 +397,18 @@ void WriteUpdateNote(const UpdateNote& note) {
     }
 }
 
-bool EndsWithDol(const std::string& path) {
-    if (path.size() < 4) return false;
-    std::string tail = path.substr(path.size() - 4);
-    for (char& c : tail) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    return tail == ".dol";
-}
-
-// The boot.dol this run came from: the Homebrew Channel passes its path
-// as argv[0] ("sd:/apps/riftwii/boot.dol"; older loaders leave out "sd:").
-// Empty when it is not a file on the SD card.
+// The boot.dol this run came from (running_dol_path, src/net/update.cpp): the
+// Homebrew Channel passes its path as argv[0]. Empty when it is not a file on
+// the SD card, including a start from the USB drive.
 std::string RunningDolPath() {
+    const char* launch_path = nullptr;
     if (__system_argv != nullptr && __system_argv->argvMagic == ARGV_MAGIC && __system_argv->argc > 0 &&
-        __system_argv->argv != nullptr && __system_argv->argv[0] != nullptr) {
-        std::string path = __system_argv->argv[0];
-        if (path.rfind("/apps/", 0) == 0) path = "sd:" + path;
+        __system_argv->argv != nullptr)
+        launch_path = __system_argv->argv[0];
+    return running_dol_path(launch_path, [](const std::string& path) {
         struct stat st;
-        if (path.rfind("sd:/", 0) == 0 && EndsWithDol(path) && stat(path.c_str(), &st) == 0) return path;
-    }
-    struct stat st;
-    if (stat("sd:/apps/riftwii/boot.dol", &st) == 0) return "sd:/apps/riftwii/boot.dol";
-    return "";
+        return stat(path.c_str(), &st) == 0;
+    });
 }
 
 bool Sha256Matches(const std::uint8_t* bytes, std::size_t size, const std::string& expected) {
@@ -1479,6 +1470,8 @@ BannerDownload DownloadGameCubeBanner(const std::string& game_id, bool regional_
     }
     return BannerDownload::None;
 }
+
+std::string SelfDolPath() { return RunningDolPath(); }
 
 void EnsureMetaAhbAccess() {
     const std::string dol = RunningDolPath();

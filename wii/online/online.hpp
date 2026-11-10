@@ -155,6 +155,12 @@ bool CheatsFromGameHacking(const std::string& game_id);
 // Channel starts RiftWii with hardware access from the next start on, for
 // a pack's Homebrew Channel app to inherit. Best effort, logged.
 void EnsureMetaAhbAccess();
+
+// The boot.dol this run came from, as an sd:/ path (the Homebrew Channel's
+// argv[0], else sd:/apps/riftwii/boot.dol when it exists); empty when it is
+// not a file on the SD card. The CTGP-R launch points CTGP's way back to
+// its channel at it.
+std::string SelfDolPath();
 // Fetches the game's cheats into the file, keeping the player's own (cheats
 // added by hand, values filled in). The archive answers with an empty
 // page for a game it has no cheats for: `error` says so. When it has none,

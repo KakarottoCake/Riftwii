@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "nandchannels.hpp"
+#include "riftwii/ctgplaunch.hpp"
 #include "riftwii/disc.hpp"
 #include "riftwii/dol.hpp"
 #include "riftwii/fst.hpp"
@@ -170,6 +171,11 @@ struct BootOptions {
     // root whenever the runtime is installed and the card is up after the
     // IOS reload; otherwise left off with a log line.
     bool file_device = true;
+    // The native CTGP-R launch (wii/launch/ctgpr.hpp): the plan the loader
+    // places right before the jump. Set, the launch carries nothing else of
+    // RiftWii's into the game (no runtime, packs, codes, online server,
+    // in-game extras or Return to RiftWii): CTGP-R hooks the same places.
+    std::shared_ptr<const CtgpLaunchPlan> ctgpr;
 };
 
 // The GameCube controller adapter for Wii U. Auto: on when one is plugged

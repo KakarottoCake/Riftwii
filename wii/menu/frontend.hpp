@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <string>
 
 #include "modplan.hpp"
@@ -30,6 +32,16 @@ struct PreparedGameChoices {
     std::string text;
     bool riivolution = false;
     std::vector<std::string> usb_mods;
+};
+
+// What CtgprPackOn and HomebrewAppPackOn found, kept for as long as the packs
+// and their choices stay as they were: working it out reads every switched-on
+// pack's XML from the card, and the menu asks on every redraw.
+struct CtgprPackCache {
+    bool valid = false;
+    std::string key;                   // the game, the packs and their choices it was worked out for
+    std::size_t pack_on = SIZE_MAX;    // CtgprPackOn's answer
+    bool app_stand_in = false;         // HomebrewAppPackOn's answer
 };
 
 struct FrontendState {
@@ -87,6 +99,8 @@ struct FrontendState {
     // Folders on the USB drive holding code builds for this game (usb_mod_folders),
     // found by ScanPackages. The game does not start while there are any.
     std::vector<std::string> usb_mods;
+    // Not part of the state's meaning: a memo for the const queries below.
+    mutable CtgprPackCache ctgpr_cache;
 };
 
 // Initializes source labels only. It performs no storage enumeration or DI I/O
@@ -120,7 +134,20 @@ std::string ScanPackages(FrontendState& state, bool reuse_catalog = false,
 // build on the USB drive, or one turned on with the game on the SD card. `brief` is
 // the short form for the game page.
 std::string ModPlaceProblem(const FrontendState& state, bool brief = false);
-bool SaveChoices(const FrontendState& state, std::string& error);
+
+// CTGP-R takes precedence over everything else (its anti-cheat must stay
+// whole): while its pack is switched on for the game, cheats and every other
+// pack are locked off. CtgprPackOn returns the index of that pack in
+// state.model.packages, or SIZE_MAX when it is not on. ApplyCtgprPrecedence
+// switches the others and the cheats off and says whether it changed
+// anything (ScanPackages does it for choices saved before the rule).
+std::size_t CtgprPackOn(const FrontendState& state);
+// Whether the switched-on packs only swap the game's executable for a
+// Homebrew Channel app (CTGP Revolution 1.03's channel): the launch is then
+// the app's, or CTGP-R's native one. Kept like CtgprPackOn's answer.
+bool HomebrewAppPackOn(const FrontendState& state);
+bool ApplyCtgprPrecedence(FrontendState& state);
+bool SaveChoices(FrontendState& state, std::string& error);
 // `model`'s choices written to `path` (a profile's new file), safely as SaveChoices.
 bool SaveChoicesTo(const riftwii::LaunchModel& model, const std::string& path, std::string& error);
 // The game just selected, opened as one of its profiles: its choices from

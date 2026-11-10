@@ -267,6 +267,9 @@ public:
     // package with exactly one off option and one choice selects that choice
     // on enable; packages with more choices or options remain explicit.
     bool set_enabled(std::size_t package, bool enabled);
+    // An exclusive pack becoming active takes precedence over other packs
+    // and cheats. Called after both pack switches and option changes.
+    bool keep_only_package(std::size_t package);
     // Moves an option to its next (direction > 0) or previous choice,
     // wrapping through "off". Returns false for a bad index.
     //

@@ -25,6 +25,10 @@ bool CompileSelection(const std::vector<PackageChoices>& packages, CompiledMod& 
                       const LaunchSource& source = LaunchSource());
 bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& source = LaunchSource(),
                     const std::string& save_mode = "nand", const std::string& game_id = "");
+// Whether this choice is the CTGP-R pack and the native launch is set up on
+// the card (wii/launch/ctgpr.hpp): such a launch goes through RunLaunch, not
+// the packs compiled in the menu.
+bool CtgprNativeLaunch(const std::vector<PackageChoices>& packages, const std::string& game_id);
 bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error,
                const LaunchSource& source = LaunchSource(), const std::string& save_mode = "nand",
                const std::string& game_id = "", const MissingModConfirmation& confirm_missing = {});

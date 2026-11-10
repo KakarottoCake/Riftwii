@@ -928,6 +928,17 @@ T = {
         "CTGP Revolution（Homebrew Channelのアプリを起動するパック）はまだRiftWiiから動きません。黒または緑の画面で止まります。CTGPはHomebrew Channelから起動してください。",
         "O CTGP Revolution (um pack que inicia um app do Homebrew Channel) ainda não funciona pelo RiftWii: ele para numa tela preta ou verde. Inicie o CTGP pelo Homebrew Channel.",
         "CTGP Revolution (un pacchetto che avvia un'app dell'Homebrew Channel) non funziona ancora da RiftWii: si ferma su una schermata nera o verde. Avvia CTGP dall'Homebrew Channel."),
+    # CTGP Revolution started natively (its files set up on the card): offline only.
+    "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.": (
+        "CTGP Revolution se inicia sin conexión desde RiftWii: el juego en línea y en LAN están desactivados, y los fantasmas que guardes no se pueden subir.",
+        "RiftWiiからのCTGP Revolutionはオフライン専用です。オンラインとLANのプレイはオフで、保存したゴーストはアップロードできません。",
+        "O CTGP Revolution inicia só offline pelo RiftWii: o jogo online e em LAN ficam desligados, e os fantasmas que você salvar não podem ser enviados.",
+        "CTGP Revolution si avvia solo offline da RiftWii: il gioco online e in LAN è disattivato, e i fantasmi che salvi non si possono caricare."),
+    "CTGP Revolution: offline only (see Start).": (
+        "CTGP Revolution: solo sin conexión (mira Jugar).",
+        "CTGP Revolution：オフライン専用（「はじめる」を参照）。",
+        "CTGP Revolution: só offline (veja Jogar).",
+        "CTGP Revolution: solo offline (vedi Gioca)."),
     "CTGP Revolution does not work from RiftWii yet (see Start).": (
         "CTGP Revolution todavía no funciona desde RiftWii (mira Jugar).",
         "CTGP RevolutionはまだRiftWiiから動きません（「はじめる」を参照）。",
@@ -3033,6 +3044,10 @@ KO = {
         "사용 시 발생하는 문제는 사용자의 책임입니다:",
     "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.":
         "CTGP Revolution(홈브류 채널 앱을 통해 실행하는 팩)은 아직 RiftWii에서 정상적으로 작동하지 않으며, 검은색 또는 녹색 화면에서 멈춥니다. 대신 홈브류 채널에서 CTGP를 실행하세요.",
+    "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.":
+        "RiftWii에서 CTGP Revolution은 오프라인 전용으로 실행됩니다. 온라인 및 LAN 플레이는 꺼지며, 저장한 고스트는 업로드할 수 없습니다.",
+    "CTGP Revolution: offline only (see Start).":
+        "CTGP Revolution: 오프라인 전용 (시작 항목 참조)",
     "CTGP Revolution does not work from RiftWii yet (see Start).":
         "CTGP Revolution은 아직 RiftWii에서 작동하지 않습니다. (시작 항목 참조)",
     " (and {1} more)":
@@ -4903,6 +4918,10 @@ FR = {
         "À utiliser à vos risques :",
     "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.":
         "CTGP Revolution ne fonctionne pas encore depuis RiftWii (blocage sur écran noir ou vert). Lancez-le directement depuis la Chaîne Homebrew.",
+    "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.":
+        "CTGP Revolution démarre hors ligne uniquement depuis RiftWii : le jeu en ligne et en LAN est désactivé, et les fantômes que vous enregistrez ne peuvent pas être envoyés.",
+    "CTGP Revolution: offline only (see Start).":
+        "CTGP Revolution : hors ligne uniquement (voir Démarrer).",
     "CTGP Revolution does not work from RiftWii yet (see Start).":
         "CTGP Revolution ne fonctionne pas encore depuis RiftWii (voir Démarrer).",
     " (and {1} more)":
@@ -8418,6 +8437,38 @@ FR.update({
     "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start.": "Ce jeu vérifie son propre code. Pour qu'il démarre, les modifications d'image, de langue, de région, de manettes, de jeu en ligne et les codes de triche restent désactivés.",
 })
 
+# CTGP-R takes precedence: cheats and other mods are locked off while it is on.
+T.update({
+    "Off (CTGP-R)": ("No (CTGP-R)", "オフ (CTGP-R)", "Desativado (CTGP-R)", "No (CTGP-R)"),
+    "Cheats can't be turned on while CTGP-R is enabled. Turn CTGP-R off in Mods to use cheats.": (
+        "Los trucos no se pueden activar mientras CTGP-R está activado. Desactiva CTGP-R en Mods para usar trucos.",
+        "CTGP-Rが有効の間はチートをオンにできません。チートを使うには、ModでCTGP-Rをオフにしてください。",
+        "As trapaças não podem ser ativadas enquanto o CTGP-R estiver ativado. Desative o CTGP-R em Mods para usá-las.",
+        "I trucchi non possono essere attivati mentre CTGP-R è attivo. Disattiva CTGP-R in Mod per usarli."),
+    "Other mods can't be enabled while CTGP-R is on. Turn CTGP-R off to use them.": (
+        "Los demás mods no se pueden activar mientras CTGP-R está activado. Desactiva CTGP-R para usarlos.",
+        "CTGP-Rが有効の間は、ほかのModを有効にできません。使うには、CTGP-Rをオフにしてください。",
+        "Os outros mods não podem ser ativados enquanto o CTGP-R estiver ativado. Desative o CTGP-R para usá-los.",
+        "Gli altri mod non possono essere attivati mentre CTGP-R è attivo. Disattiva CTGP-R per usarli."),
+    "CTGP-R is on, so cheats and other mods were turned off. They can't be enabled while it is on.": (
+        "CTGP-R está activado, así que los trucos y los demás mods se desactivaron. No se pueden activar mientras CTGP-R esté activado.",
+        "CTGP-Rが有効なので、チートとほかのModをオフにしました。CTGP-Rが有効の間はオンにできません。",
+        "O CTGP-R está ativado, então as trapaças e os outros mods foram desativados. Eles não podem ser ativados enquanto o CTGP-R estiver ativado.",
+        "CTGP-R è attivo, quindi trucchi e altri mod sono stati disattivati. Non possono essere attivati mentre CTGP-R è attivo."),
+})
+KO.update({
+    "Off (CTGP-R)": "끔 (CTGP-R)",
+    "Cheats can't be turned on while CTGP-R is enabled. Turn CTGP-R off in Mods to use cheats.": "CTGP-R이 켜져 있는 동안에는 치트를 켤 수 없습니다. 치트를 쓰려면 Mods에서 CTGP-R을 끄세요.",
+    "Other mods can't be enabled while CTGP-R is on. Turn CTGP-R off to use them.": "CTGP-R이 켜져 있는 동안에는 다른 모드를 켤 수 없습니다. 쓰려면 CTGP-R을 끄세요.",
+    "CTGP-R is on, so cheats and other mods were turned off. They can't be enabled while it is on.": "CTGP-R이 켜져 있어 치트와 다른 모드를 껐습니다. CTGP-R이 켜져 있는 동안에는 켤 수 없습니다.",
+})
+FR.update({
+    "Off (CTGP-R)": "Désactivé (CTGP-R)",
+    "Cheats can't be turned on while CTGP-R is enabled. Turn CTGP-R off in Mods to use cheats.": "Les codes de triche ne peuvent pas être activés tant que CTGP-R est activé. Désactivez CTGP-R dans Mods pour les utiliser.",
+    "Other mods can't be enabled while CTGP-R is on. Turn CTGP-R off to use them.": "Les autres mods ne peuvent pas être activés tant que CTGP-R est activé. Désactivez CTGP-R pour les utiliser.",
+    "CTGP-R is on, so cheats and other mods were turned off. They can't be enabled while it is on.": "CTGP-R est activé : les codes de triche et les autres mods ont été désactivés. Ils ne peuvent pas être activés tant que CTGP-R est activé.",
+})
+
 T.update({
     "RiftWii ran out of memory while starting the game. Turn off menu music and try again, or send a problem report.": (
         "RiftWii se quedó sin memoria al iniciar el juego. Desactiva la música del menú e inténtalo de nuevo, o envía un informe del problema.",
@@ -8523,7 +8574,7 @@ def check(repo):
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/credits.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
                "wii/core/plugins.cpp", "wii/core/memlimits.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp",
-               "wii/menu/picturepicker.cpp"]
+               "wii/menu/picturepicker.cpp", "wii/launch/ctgpr.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:
@@ -8958,6 +9009,77 @@ FR.update({
     'L, R, Z and Start are off (Settings > Games > Leaving a game): hold HOME on a Wii Remote or a Wii U Pro Controller for two seconds to leave the game.': "L, R, Z et Start sont désactivés (Paramètres > Jeux > Quitter un jeu) : maintenez HOME sur une Wiimote ou une manette Wii U Pro deux secondes pour quitter le jeu.",
 })
 
+# CTGP-R's native launch: the failed-launch texts and the Start notes for a version it refuses.
+T.update({
+    "CTGP-R only starts with the Mario Kart Wii game.": (
+        "CTGP-R solo se inicia con el juego Mario Kart Wii.",
+        "CTGP-RはMario Kart Wiiでのみ起動できます。",
+        "O CTGP-R só inicia com o jogo Mario Kart Wii.",
+        "CTGP-R si avvia solo con il gioco Mario Kart Wii."),
+    "CTGP-R works with the US, Japanese and European versions of Mario Kart Wii only.": (
+        "CTGP-R solo funciona con las versiones estadounidense, japonesa y europea de Mario Kart Wii.",
+        "CTGP-Rが使えるのは、Mario Kart Wiiの北米版、日本版、ヨーロッパ版だけです。",
+        "O CTGP-R só funciona com as versões americana, japonesa e europeia de Mario Kart Wii.",
+        "CTGP-R funziona solo con le versioni americana, giapponese ed europea di Mario Kart Wii."),
+    "CTGP-R is not installed on the SD card. Install it with its own installer first.": (
+        "CTGP-R no está instalado en la tarjeta SD. Instálalo primero con su propio instalador.",
+        "CTGP-RがSDカードにインストールされていません。先にCTGP-R自身のインストーラーでインストールしてください。",
+        "O CTGP-R não está instalado no cartão SD. Instale-o primeiro com o instalador do próprio CTGP-R.",
+        "CTGP-R non è installato sulla scheda SD. Installalo prima con il suo installer."),
+    "This version of CTGP-R can't be started from RiftWii yet. Start CTGP-R from the Homebrew Channel instead.": (
+        "Esta versión de CTGP-R todavía no se puede iniciar desde RiftWii. Inicia CTGP-R desde el Homebrew Channel.",
+        "このバージョンのCTGP-Rは、まだRiftWiiから起動できません。代わりにHomebrew Channelから起動してください。",
+        "Esta versão do CTGP-R ainda não pode ser iniciada pelo RiftWii. Inicie o CTGP-R pelo Homebrew Channel.",
+        "Questa versione di CTGP-R non si può ancora avviare da RiftWii. Avvia CTGP-R dall'Homebrew Channel."),
+    "CTGP-R could not be started. Its files on the SD card may be damaged or incomplete: install CTGP-R again. The reason is in sd:/riftwii/boot.log.": (
+        "No se pudo iniciar CTGP-R. Sus archivos en la tarjeta SD pueden estar dañados o incompletos: vuelve a instalar CTGP-R. El motivo está en sd:/riftwii/boot.log.",
+        "CTGP-Rを起動できませんでした。SDカード上のファイルが壊れているか、足りない可能性があります。CTGP-Rをもう一度インストールしてください。理由はsd:/riftwii/boot.logにあります。",
+        "Não foi possível iniciar o CTGP-R. Os arquivos dele no cartão SD podem estar danificados ou incompletos: instale o CTGP-R de novo. O motivo está em sd:/riftwii/boot.log.",
+        "Impossibile avviare CTGP-R. I suoi file sulla scheda SD potrebbero essere danneggiati o incompleti: reinstalla CTGP-R. Il motivo è in sd:/riftwii/boot.log."),
+    "This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead.": (
+        "Esta versión de CTGP Revolution todavía no se puede iniciar desde RiftWii (o sus archivos en la tarjeta SD están dañados). Inicia CTGP desde el Homebrew Channel.",
+        "このバージョンのCTGP Revolutionは、まだRiftWiiから起動できません（またはSDカード上のファイルが壊れています）。代わりにHomebrew Channelから起動してください。",
+        "Esta versão do CTGP Revolution ainda não pode ser iniciada pelo RiftWii (ou os arquivos dele no cartão SD estão danificados). Inicie o CTGP pelo Homebrew Channel.",
+        "Questa versione di CTGP Revolution non si può ancora avviare da RiftWii (oppure i suoi file sulla scheda SD sono danneggiati). Avvia CTGP dall'Homebrew Channel."),
+    "CTGP Revolution: this version can't be started from RiftWii (see Start).": (
+        "CTGP Revolution: esta versión no se puede iniciar desde RiftWii (mira Jugar).",
+        "CTGP Revolution：このバージョンはRiftWiiから起動できません（「はじめる」を参照）。",
+        "CTGP Revolution: esta versão não pode ser iniciada pelo RiftWii (veja Jogar).",
+        "CTGP Revolution: questa versione non si può avviare da RiftWii (vedi Gioca)."),
+})
+KO.update({
+    "CTGP-R only starts with the Mario Kart Wii game.":
+        "CTGP-R은 Mario Kart Wii에서만 시작할 수 있습니다.",
+    "CTGP-R works with the US, Japanese and European versions of Mario Kart Wii only.":
+        "CTGP-R은 Mario Kart Wii의 북미판, 일본판, 유럽판에서만 작동합니다.",
+    "CTGP-R is not installed on the SD card. Install it with its own installer first.":
+        "CTGP-R이 SD 카드에 설치되어 있지 않습니다. 먼저 CTGP-R 자체 설치 프로그램으로 설치하세요.",
+    "This version of CTGP-R can't be started from RiftWii yet. Start CTGP-R from the Homebrew Channel instead.":
+        "이 버전의 CTGP-R은 아직 RiftWii에서 시작할 수 없습니다. 대신 홈브류 채널에서 CTGP-R을 시작하세요.",
+    "CTGP-R could not be started. Its files on the SD card may be damaged or incomplete: install CTGP-R again. The reason is in sd:/riftwii/boot.log.":
+        "CTGP-R을 시작할 수 없습니다. SD 카드의 파일이 손상되었거나 일부가 없을 수 있습니다. CTGP-R을 다시 설치하세요. 이유는 sd:/riftwii/boot.log에 있습니다.",
+    "This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead.":
+        "이 버전의 CTGP Revolution은 아직 RiftWii에서 시작할 수 없습니다(또는 SD 카드의 파일이 손상되었습니다). 대신 홈브류 채널에서 CTGP를 시작하세요.",
+    "CTGP Revolution: this version can't be started from RiftWii (see Start).":
+        "CTGP Revolution: 이 버전은 RiftWii에서 시작할 수 없습니다 (시작 항목 참조)",
+})
+FR.update({
+    "CTGP-R only starts with the Mario Kart Wii game.":
+        "CTGP-R ne se lance qu'avec le jeu Mario Kart Wii.",
+    "CTGP-R works with the US, Japanese and European versions of Mario Kart Wii only.":
+        "CTGP-R ne fonctionne qu'avec les versions américaine, japonaise et européenne de Mario Kart Wii.",
+    "CTGP-R is not installed on the SD card. Install it with its own installer first.":
+        "CTGP-R n'est pas installé sur la carte SD. Installez-le d'abord avec son propre installateur.",
+    "This version of CTGP-R can't be started from RiftWii yet. Start CTGP-R from the Homebrew Channel instead.":
+        "Cette version de CTGP-R ne peut pas encore être lancée depuis RiftWii. Lancez CTGP-R depuis le Homebrew Channel.",
+    "CTGP-R could not be started. Its files on the SD card may be damaged or incomplete: install CTGP-R again. The reason is in sd:/riftwii/boot.log.":
+        "CTGP-R n'a pas pu démarrer. Ses fichiers sur la carte SD sont peut-être endommagés ou incomplets : réinstallez CTGP-R. La raison se trouve dans sd:/riftwii/boot.log.",
+    "This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead.":
+        "Cette version de CTGP Revolution ne peut pas encore être lancée depuis RiftWii (ou ses fichiers sur la carte SD sont endommagés). Lancez CTGP depuis le Homebrew Channel.",
+    "CTGP Revolution: this version can't be started from RiftWii (see Start).":
+        "CTGP Revolution : cette version ne peut pas être lancée depuis RiftWii (voir Démarrer).",
+})
+
 # Settings > Controllers > Calibrate a GameCube controller (#511).
 T.update({
     'Calibrate a GameCube controller': ('Calibrar un mando de GameCube', 'ゲームキューブコントローラーの調整', 'Calibrar um controle de GameCube', 'Calibra un controller GameCube'),
@@ -9132,6 +9254,23 @@ FR.update({
     'calibrated': 'calibrée',
     'calibrating': 'calibration en cours',
     'No GameCube controller found': 'Aucune manette GameCube trouvée',
+})
+
+# CTGP-R's native launch cannot keep the RVZ resident reader.
+T.update({
+    "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead.": (
+        "CTGP-R no puede iniciarse desde una imagen RVZ. Usa un disco, ISO o WBFS.",
+        "CTGP-RはRVZ形式では起動できません。ディスク、ISO、WBFSを使ってください。",
+        "O CTGP-R não pode iniciar de uma imagem RVZ. Use um disco, ISO ou WBFS.",
+        "CTGP-R non può avviarsi da un'immagine RVZ. Usa un disco, ISO o WBFS."),
+})
+KO.update({
+    "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead.":
+        "CTGP-R은 RVZ 이미지에서 시작할 수 없습니다. 디스크, ISO 또는 WBFS를 사용하세요.",
+})
+FR.update({
+    "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead.":
+        "CTGP-R ne peut pas démarrer depuis une image RVZ. Utilisez un disque, un ISO ou un WBFS.",
 })
 
 if __name__ == "__main__":

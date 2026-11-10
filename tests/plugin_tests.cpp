@@ -736,7 +736,30 @@ static void TestUpdateOrder() {
     EXPECT_FALSE(riftwii::plan_update_writes(apps, "v", folder, dol, writes, why));
 }
 
+// Which boot.dol a run came from: the SD card's, or nothing when it was
+// started from another device (a CTGP-R launch must not be sent back to the
+// SD copy, and an update has nothing to replace there).
+static void TestRunningDolPath() {
+    const auto card_has = [](const std::string& path) { return path == "sd:/apps/riftwii/boot.dol"; };
+    EXPECT_EQ(riftwii::running_dol_path("sd:/apps/riftwii/boot.dol", card_has), std::string("sd:/apps/riftwii/boot.dol"));
+    // Older loaders leave out "sd:".
+    EXPECT_EQ(riftwii::running_dol_path("/apps/riftwii/boot.dol", card_has), std::string("sd:/apps/riftwii/boot.dol"));
+    // Started from the USB drive: the SD card's copy is not the running one.
+    EXPECT_EQ(riftwii::running_dol_path("usb:/apps/riftwii/boot.dol", card_has), std::string());
+    EXPECT_EQ(riftwii::running_dol_path("usb:/apps/riftwii/boot.dol", [](const std::string&) { return true; }),
+              std::string());
+    // No launch path at all: the card's default, if it is there.
+    EXPECT_EQ(riftwii::running_dol_path(nullptr, card_has), std::string("sd:/apps/riftwii/boot.dol"));
+    EXPECT_EQ(riftwii::running_dol_path("", card_has), std::string("sd:/apps/riftwii/boot.dol"));
+    EXPECT_EQ(riftwii::running_dol_path(nullptr, [](const std::string&) { return false; }), std::string());
+    // A path that climbs out with ".." is not taken, even if the file is there.
+    const auto any = [](const std::string&) { return true; };
+    EXPECT_EQ(riftwii::running_dol_path("sd:/apps/../x.dol", card_has), std::string("sd:/apps/riftwii/boot.dol"));
+    EXPECT_EQ(riftwii::running_dol_path("sd:/apps/../x.dol", any), std::string("sd:/apps/riftwii/boot.dol"));
+}
+
 int main(int argc, char** argv) {
+    TestRunningDolPath();
     TestSha256();
     TestGoodHeader();
     TestDamagedHeaders();

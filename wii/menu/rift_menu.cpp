@@ -53,6 +53,7 @@
 #include "gui_tiles.hpp"
 #include "gui_busy.hpp"
 #include "memlimits.hpp"
+#include "ctgpr.hpp"
 #include "d2xsd.hpp"
 #include "modpicture.hpp"
 #include "modtiles.hpp"
@@ -2603,18 +2604,30 @@ static bool PacksOnUsb(const FrontendState& state)
 // RVZ game (the catalog's note), packs on the USB drive. What cannot work
 // at all is refused instead (ModPlaceProblem).
 // A pack that swaps the game's executable for a Homebrew Channel app
-// (CTGP Revolution 1.03's CTGP-R Channel): started as the Homebrew Channel
-// starts it (wii/launch/modplan.hpp), but it does not work from RiftWii yet (a
-// black screen from a disc, a green one from USB, on testers' consoles).
-static bool HomebrewAppPackOn(const FrontendState& state)
-{
-	if (state.game_id.empty()) return false;
-	std::string app, dropped;
-	return riftwii::wii::homebrew_app_stand_in(state.model.selections(), state.game_id, app, dropped);
-}
-
+// (CTGP Revolution 1.03's CTGP-R Channel). With the native launch's files on
+// the card (wii/launch/ctgpr.hpp), RiftWii starts CTGP-R itself, offline
+// only. Without them the app is started as the Homebrew Channel starts it
+// (wii/launch/modplan.hpp), which does not work from RiftWii yet (a black
+// screen from a disc, a green one from USB, on testers' consoles).
 static const char* const kHomebrewAppWarning =
 	"CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.";
+static const char* const kCtgpNativeNote =
+	"CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.";
+static const char* const kCtgpUnsupportedNote =
+	"This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead.";
+
+// What the launch will do with the pack, as the Start note says it. The
+// "offline only" note is for a CTGP Revolution the launch can start; one it
+// refuses (another version) gets its own words instead.
+static const char* HomebrewAppNote()
+{
+	switch (riftwii::wii::ctgpr_native_status()) {
+	case riftwii::wii::CtgprNativeStatus::Supported: return kCtgpNativeNote;
+	case riftwii::wii::CtgprNativeStatus::Unsupported: return kCtgpUnsupportedNote;
+	case riftwii::wii::CtgprNativeStatus::NotInstalled: break;
+	}
+	return kHomebrewAppWarning;
+}
 
 static bool FrontPortsReached(const FrontendState& state)
 {
@@ -2625,9 +2638,9 @@ static bool FrontPortsReached(const FrontendState& state)
 static std::string LaunchNote(const FrontendState& state)
 {
 	std::string note = state.launch_warning;
-	if (HomebrewAppPackOn(state)) {
+	if (riftwii::wii::HomebrewAppPackOn(state)) {
 		if (!note.empty()) note += " ";
-		note += tr(kHomebrewAppWarning);
+		note += tr(HomebrewAppNote());
 	}
 	// An RVZ's reader keeps a block as stored and as decoded, and the
 	// decoder's 48 KB, in the game's MEM2: about 300 KB with Dolphin's
@@ -8652,6 +8665,23 @@ static bool GameRowNotApplied(const std::string& gameId, RowRef::What what)
 	return !riftwii::gx_patch_allowed(gameId, kind);
 }
 
+// CTGP-R's rule: with its pack on, cheats and other mods stay off (CTGP's
+// anti-cheat must stay whole). The rows say why when pressed.
+static bool CtgprLocksOthers(const FrontendState& state)
+{
+	return riftwii::wii::CtgprPackOn(state) != SIZE_MAX;
+}
+
+static const char* CtgprCheatsNote()
+{
+	return tr("Cheats can't be turned on while CTGP-R is enabled. Turn CTGP-R off in Mods to use cheats.");
+}
+
+static const char* CtgprModsNote()
+{
+	return tr("Other mods can't be enabled while CTGP-R is on. Turn CTGP-R off to use them.");
+}
+
 static const char* ProtectedGameNote()
 {
 	return tr("This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start.");
@@ -8913,8 +8943,14 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	refs.clear();
 	// Made in any order, shown in groups (below).
 	std::vector<std::pair<FlowRow, RowRef>> made;
+	const bool ctgprOn = CtgprLocksOthers(state);
 	const auto add = [&](FlowRow row, RowRef ref) {
-		if (GameRowNotApplied(state.game_id, ref.what)) {
+		if (ctgprOn && ref.what == RowRef::What::Cheats) {
+			row.dim = true;
+			row.on = false;
+			row.kind = FlowRow::Kind::Option;
+			row.value = tr("Off (CTGP-R)");
+		} else if (GameRowNotApplied(state.game_id, ref.what)) {
 			row.dim = true;
 			row.on = false;
 			row.kind = FlowRow::Kind::Option;
@@ -11733,6 +11769,7 @@ static void BuildModRows(const FrontendState& state, const std::string& scanStat
 		refs.push_back(ref);
 	};
 	std::size_t shown = 0;
+	const std::size_t ctgprPack = riftwii::wii::CtgprPackOn(state);
 	for (std::size_t i = 0; i < state.model.packages.size(); ++i) {
 		const riftwii::LaunchPackage& p = state.model.packages[i];
 		if (!riftwii::show_package(p)) continue;
@@ -11744,6 +11781,7 @@ static void BuildModRows(const FrontendState& state, const std::string& scanStat
 		head.value = !p.valid ? tr("Broken") : p.enabled ? tr("On") : tr("Off");
 		head.on = p.enabled;
 		head.dim = !p.valid;
+		if (p.valid && ctgprPack != SIZE_MAX && i != ctgprPack) head.dim = true;  // pressed, it says why
 		add(head, {RowRef::What::Pack, i});
 		if (!p.valid) {
 			for (const std::string& line : ChunksFitting(p.detail, kNoteRowPixels, 15, 3)) {
@@ -13235,7 +13273,16 @@ static std::string ModsNote(const FrontendState& state, const std::string& scanS
 {
 	if (const std::string problem = riftwii::wii::ModPlaceProblem(state, true); !problem.empty())
 		return FlatCapped(problem, 90);
-	if (HomebrewAppPackOn(state)) return tr("CTGP Revolution does not work from RiftWii yet (see Start).");
+	if (riftwii::wii::HomebrewAppPackOn(state))
+	{
+		switch (riftwii::wii::ctgpr_native_status()) {
+		case riftwii::wii::CtgprNativeStatus::Supported: return tr("CTGP Revolution: offline only (see Start).");
+		case riftwii::wii::CtgprNativeStatus::Unsupported:
+			return tr("CTGP Revolution: this version can't be started from RiftWii (see Start).");
+		case riftwii::wii::CtgprNativeStatus::NotInstalled: break;
+		}
+		return tr("CTGP Revolution does not work from RiftWii yet (see Start).");
+	}
 	std::size_t enabled = 0;
 	const std::size_t shown = ShownPacks(state, &enabled);
 	if (shown == 0) {
@@ -13780,12 +13827,15 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 		}
 		if (acted >= 0 && static_cast<std::size_t>(acted) < refs.size()) {
 			const RowRef ref = refs[static_cast<std::size_t>(acted)];
-			bool changed = false;
+			bool changed = false, ctgprSaid = false;
 			if (ref.what == RowRef::What::Pack) {
 				riftwii::LaunchPackage& p = state.model.packages[ref.pkg];
+				const std::size_t ctgprPack = riftwii::wii::CtgprPackOn(state);
+				const bool lockedOut = p.valid && !p.enabled && ctgprPack != SIZE_MAX && ref.pkg != ctgprPack;
 				if (!p.valid) say("This XML cannot be read; fix it on the card and come back.");
+				else if (lockedOut) say(CtgprModsNote());
 				else changed = state.model.set_enabled(ref.pkg, !p.enabled);
-				if (!changed && p.valid) say("This pack cannot be turned on.");
+				if (!changed && p.valid && !lockedOut) say("This pack cannot be turned on.");
 				// The game gets one SD card: a code build turned on turns off
 				// the ones on another card (another .raw image, or the SD card).
 				if (changed && p.enabled && p.code_build()) {
@@ -13919,12 +13969,18 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 				}
 			}
 			if (changed) {
+				// Options can turn CTGP-R back on too, not just the pack switch.
+				state.ctgpr_cache.valid = false;
+				if (riftwii::wii::ApplyCtgprPrecedence(state)) {
+					ctgprSaid = true;
+					say(tr("CTGP-R is on, so cheats and other mods were turned off. They can't be enabled while it is on."));
+				}
 				std::string error;
 				if (!SaveChoices(state, error)) say(error);
 				BuildModRows(state, scanStatus, rows, refs);
 				list.Refresh();
 				list.Select(acted);
-				shownRow = -1;
+				shownRow = ctgprSaid ? acted : -1;  // the answer stays up
 			}
 		}
 		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
@@ -14068,7 +14124,9 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 		: !state.model.pack_save_owner().empty() ? std::string(tr("Kept by the pack"))
 		// The tile names where the saves go; "Default (...)" doesn't fit it.
 		: std::string(tr(SaveLabel(riftwii::wii::EffectiveSaveMode(state)).c_str()));
-	const std::string cheats = GameRowNotApplied(state.game_id, RowRef::What::Cheats)
+	const bool cheatsLocked = CtgprLocksOthers(state);
+	const std::string cheats = cheatsLocked ? std::string(tr("Off (CTGP-R)"))
+		: GameRowNotApplied(state.game_id, RowRef::What::Cheats)
 		? std::string(tr("Not applied")) : CheatsValue(game);
 	// Until a patch's game is made: what making it takes, where the mods
 	// count would be.
@@ -14214,7 +14272,9 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				(rows[static_cast<std::size_t>(row)].dim || rows[static_cast<std::size_t>(row)].kind == FlowRow::Kind::Info);
 			prompts.SetShown(promptChange, ref.what != RowRef::What::Memory);
 			prompts.SetAction(promptChange, fixedRow ? tr("About this") : tr("Change"));
-			if (GameRowNotApplied(state.game_id, ref.what))
+			if (ref.what == RowRef::What::Cheats && CtgprLocksOthers(state))
+				say(CtgprCheatsNote());
+			else if (GameRowNotApplied(state.game_id, ref.what))
 				say(ProtectedGameNote());
 			else if (ref.what == RowRef::What::Width)
 				say(WidthNote(gameSettings.video_width == "global" ? riftwii::wii::Settings().video_width : gameSettings.video_width));
@@ -14315,6 +14375,11 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 		}
 		if (acted >= 0 && static_cast<std::size_t>(acted) < refs.size()) {
 			const RowRef ref = refs[static_cast<std::size_t>(acted)];
+			if (ref.what == RowRef::What::Cheats && CtgprLocksOthers(state)) {
+				say(CtgprCheatsNote());
+				ResumeGui();
+				continue;
+			}
 			if (GameRowNotApplied(state.game_id, ref.what)) {
 				say(ProtectedGameNote());
 				ResumeGui();
@@ -15172,7 +15237,8 @@ static int MenuHome(FrontendState& state)
 					break;
 				case GameTile::Mods: say(ModsNote(state, scanStatus)); break;
 				case GameTile::Cheats:
-					if (GameRowNotApplied(state.game_id, RowRef::What::Cheats)) say(ProtectedGameNote());
+					if (CtgprLocksOthers(state)) say(CtgprCheatsNote());
+					else if (GameRowNotApplied(state.game_id, RowRef::What::Cheats)) say(ProtectedGameNote());
 					else say(tr("Cheat codes for this game. Press A to choose them."));
 					break;
 				case GameTile::Saves:
@@ -15255,6 +15321,8 @@ static int MenuHome(FrontendState& state)
 				askTileCover(tileCover);
 				rebuildTiles();
 				shownTile = -1;
+			} else if (tile == GameTile::Cheats && CtgprLocksOthers(state)) {
+				say(CtgprCheatsNote());
 			} else if (tile == GameTile::Cheats && GameRowNotApplied(state.game_id, RowRef::What::Cheats)) {
 				say(ProtectedGameNote());
 			} else if (tile == GameTile::Mods || tile == GameTile::Cheats || tile == GameTile::Options) {
