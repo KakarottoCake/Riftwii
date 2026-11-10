@@ -184,7 +184,7 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
     plan.reset();  // its deleter gives the MEM2 block back once nothing is in it
     if (result == RWP_LAUNCH_NO_MEMORY) {
         release_launch_arena(true);
-        logf("CTGP-R: the ctgpr plugin ran out of memory: %s\n", request.error.c_str());
+        logf("CTGP-R: the ctgpr plugin ran out of memory (its own log line above says where)\n");
         error = mem::LaunchOutOfMemoryMessage();
         return false;
     }

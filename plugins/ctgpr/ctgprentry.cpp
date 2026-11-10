@@ -43,7 +43,9 @@ int32_t ctgpr_launch(const void* raw, uint32_t bytes) {
         // back whole (wii/launch/ctgpr.cpp).
         riftwii::g_ctgp_arena = nullptr;
         const riftwii::plugin::Escape taken = riftwii::plugin::escape_taken();
-        request.error = taken.why ? taken.why : "the launch stopped";
+        // Out of memory: no std::string here, its allocation could fail again
+        // with the escape disarmed. The reason goes to the log only.
+        if (taken.result != RWP_LAUNCH_NO_MEMORY) request.error = taken.why ? taken.why : "the launch stopped";
         riftwii::plugin::host().log("the plan stopped: %s", taken.why ? taken.why : "no reason given");
         return taken.result;
     }
