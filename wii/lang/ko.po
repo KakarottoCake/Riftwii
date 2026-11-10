@@ -4403,3 +4403,51 @@ msgstr "게임큐브 컨트롤러가 없습니다"
 
 msgid "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead."
 msgstr "CTGP-R은 RVZ 이미지에서 시작할 수 없습니다. 디스크, ISO 또는 WBFS를 사용하세요."
+
+msgid "Game folders"
+msgstr "게임 폴더"
+
+msgid "Use this folder"
+msgstr "이 폴더 사용"
+
+msgid "Choose a folder"
+msgstr "폴더 선택"
+
+msgid "Open the folder that holds your games, then pick Use this folder."
+msgstr "게임이 들어 있는 폴더를 연 다음 '이 폴더 사용'을 고르세요."
+
+msgid "SD card and USB drive"
+msgstr "SD 카드와 USB 드라이브"
+
+msgid "Add a folder"
+msgstr "폴더 추가"
+
+msgid "RiftWii always looks for games in wbfs and games. It also looks in these folders, and in the folders inside them. Press a folder to remove it."
+msgstr "RiftWii는 항상 wbfs와 games에서 게임을 찾습니다. 이 폴더들과 그 안의 폴더에서도 찾습니다. 폴더를 누르면 목록에서 뺍니다."
+
+msgid "Stop looking for games in {1}? The games stay on the drive."
+msgstr "{1}에서 게임 찾기를 그만둘까요? 게임은 드라이브에 그대로 남습니다."
+
+msgid "Removed. Its games leave Home when you leave Settings."
+msgstr "뺐습니다. 설정을 나가면 그 게임들이 홈에서 사라집니다."
+
+msgid "There are already {1} folders. Remove one to add another."
+msgstr "폴더가 이미 {1}개 있습니다. 하나를 빼야 더 추가할 수 있습니다."
+
+msgid "Added. Its games show on Home when you leave Settings."
+msgstr "추가했습니다. 설정을 나가면 그 게임들이 홈에 나옵니다."
+
+msgid "That folder is in the list already."
+msgstr "그 폴더는 이미 목록에 있습니다."
+
+msgid "RiftWii always looks in wbfs and games, so there is no need to add them."
+msgstr "RiftWii는 항상 wbfs와 games를 찾으므로 추가할 필요가 없습니다."
+
+msgid "That folder can't be added. Pick a folder inside the drive, without ; in its name."
+msgstr "그 폴더는 추가할 수 없습니다. 드라이브 안에 있고 이름에 ;가 없는 폴더를 고르세요."
+
+msgid "More folders to look for games in, on the SD card or the USB drive, besides wbfs and games."
+msgstr "wbfs와 games 말고도 SD 카드나 USB 드라이브에서 게임을 찾을 폴더입니다."
+
+msgid "Home looks for games in these folders when you leave Settings."
+msgstr "설정을 나가면 홈이 이 폴더들에서 게임을 찾습니다."

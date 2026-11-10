@@ -105,7 +105,8 @@ struct LoaderSettings {
     std::string parental_exits = "show";  // show, pin, hide: the HOME Menu's Homebrew Channel and Priiloader (or Restart) buttons
     std::string parental_settings = "open";  // open, pin: whether Settings asks for the PIN
     std::set<std::string> favorites;      // game IDs and profiles' tile keys, written "favorites = ID,ID@slug"
-    // More folders to look for games in, besides wbfs and games:
+    // More folders to look for games in, besides wbfs and games (Settings >
+    // Drives > Game folders writes them, game_folder_place reads them):
     // "game_folders = /Wii Games; usb:/iso". A plain "/path" is looked
     // for on both drives, "sd:/path" or "usb:/path" on that one.
     // A folder holding ';' cannot be named: saving leaves it out.
@@ -222,6 +223,30 @@ private:
 // slashes turned forward, no trailing slash, wbfs and games left out
 // (they are always looked in).
 std::vector<std::string> game_folders_on(const LoaderSettings& settings, const std::string& device);
+
+// How many game_folders settings.txt keeps; more are left out when read.
+constexpr std::size_t kMaxGameFolders = 8;
+
+// One game_folders entry, split for the Game folders page: the drive it
+// is looked for on ("" for both, "sd", "usb", "usb2" for a USB drive's
+// second partition) and the folder ("/Wii Games").
+struct GameFolderPlace {
+    std::string drive;
+    std::string path;
+};
+GameFolderPlace game_folder_place(const std::string& entry);
+
+// What adding a folder picked on the Game folders page did.
+enum class GameFolderAdd {
+    Added,
+    AlreadyListed,   // the same folder on that drive, or on both drives
+    AlwaysSearched,  // wbfs or games, which every scan reads anyway
+    Full,            // kMaxGameFolders already
+    NotAFolder,      // a drive's top, or a name settings.txt can't hold
+};
+// Adds a folder the menu's folder pick chose ("sd:/Wii Games",
+// "usb2:/iso/wii") to game_folders, for that drive only.
+GameFolderAdd add_game_folder(LoaderSettings& settings, const std::string& picked);
 
 // The video settings a launch uses: the game's own choices, where it has
 // them, over the global defaults. The mode is left for the Wii to turn

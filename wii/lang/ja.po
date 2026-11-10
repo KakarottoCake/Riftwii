@@ -4403,3 +4403,51 @@ msgstr "ゲームキューブコントローラーが見つかりません"
 
 msgid "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead."
 msgstr "CTGP-RはRVZ形式では起動できません。ディスク、ISO、WBFSを使ってください。"
+
+msgid "Game folders"
+msgstr "ゲームのフォルダ"
+
+msgid "Use this folder"
+msgstr "このフォルダを使う"
+
+msgid "Choose a folder"
+msgstr "フォルダを選ぶ"
+
+msgid "Open the folder that holds your games, then pick Use this folder."
+msgstr "ゲームが入っているフォルダを開いて、「このフォルダを使う」を選んでください。"
+
+msgid "SD card and USB drive"
+msgstr "SDカードとUSBドライブ"
+
+msgid "Add a folder"
+msgstr "フォルダを追加"
+
+msgid "RiftWii always looks for games in wbfs and games. It also looks in these folders, and in the folders inside them. Press a folder to remove it."
+msgstr "RiftWiiはいつもwbfsとgamesでゲームを探します。ここのフォルダとその中のフォルダも探します。フォルダを押すとなくせます。"
+
+msgid "Stop looking for games in {1}? The games stay on the drive."
+msgstr "{1}でゲームを探すのをやめますか？ゲームはドライブに残ります。"
+
+msgid "Removed. Its games leave Home when you leave Settings."
+msgstr "なくしました。設定を出るとそのゲームはホームから消えます。"
+
+msgid "There are already {1} folders. Remove one to add another."
+msgstr "フォルダはもう{1}個あります。追加するには1つなくしてください。"
+
+msgid "Added. Its games show on Home when you leave Settings."
+msgstr "追加しました。設定を出るとそのゲームがホームに出ます。"
+
+msgid "That folder is in the list already."
+msgstr "そのフォルダはもうリストにあります。"
+
+msgid "RiftWii always looks in wbfs and games, so there is no need to add them."
+msgstr "RiftWiiはいつもwbfsとgamesを探すので、追加はいりません。"
+
+msgid "That folder can't be added. Pick a folder inside the drive, without ; in its name."
+msgstr "そのフォルダは追加できません。ドライブの中の、名前に;がないフォルダを選んでください。"
+
+msgid "More folders to look for games in, on the SD card or the USB drive, besides wbfs and games."
+msgstr "wbfsとgamesのほかに、SDカードやUSBドライブでゲームを探すフォルダです。"
+
+msgid "Home looks for games in these folders when you leave Settings."
+msgstr "設定を出ると、ホームがこれらのフォルダでゲームを探します。"

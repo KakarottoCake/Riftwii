@@ -4403,3 +4403,51 @@ msgstr "Aucune manette GameCube trouvée"
 
 msgid "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead."
 msgstr "CTGP-R ne peut pas démarrer depuis une image RVZ. Utilisez un disque, un ISO ou un WBFS."
+
+msgid "Game folders"
+msgstr "Dossiers de jeux"
+
+msgid "Use this folder"
+msgstr "Utiliser ce dossier"
+
+msgid "Choose a folder"
+msgstr "Choisir un dossier"
+
+msgid "Open the folder that holds your games, then pick Use this folder."
+msgstr "Ouvrez le dossier qui contient vos jeux, puis choisissez Utiliser ce dossier."
+
+msgid "SD card and USB drive"
+msgstr "Carte SD et stockage USB"
+
+msgid "Add a folder"
+msgstr "Ajouter un dossier"
+
+msgid "RiftWii always looks for games in wbfs and games. It also looks in these folders, and in the folders inside them. Press a folder to remove it."
+msgstr "RiftWii cherche toujours les jeux dans wbfs et games. Il cherche aussi dans ces dossiers et dans les dossiers qu'ils contiennent. Appuyez sur un dossier pour le retirer."
+
+msgid "Stop looking for games in {1}? The games stay on the drive."
+msgstr "Ne plus chercher de jeux dans {1} ? Les jeux restent sur le support."
+
+msgid "Removed. Its games leave Home when you leave Settings."
+msgstr "Retiré. Ses jeux quittent l'Accueil quand vous quittez les Paramètres."
+
+msgid "There are already {1} folders. Remove one to add another."
+msgstr "Il y a déjà {1} dossiers. Retirez-en un pour en ajouter un autre."
+
+msgid "Added. Its games show on Home when you leave Settings."
+msgstr "Ajouté. Ses jeux apparaissent sur l'Accueil quand vous quittez les Paramètres."
+
+msgid "That folder is in the list already."
+msgstr "Ce dossier est déjà dans la liste."
+
+msgid "RiftWii always looks in wbfs and games, so there is no need to add them."
+msgstr "RiftWii cherche toujours dans wbfs et games, inutile de les ajouter."
+
+msgid "That folder can't be added. Pick a folder inside the drive, without ; in its name."
+msgstr "Ce dossier ne peut pas être ajouté. Choisissez un dossier à l'intérieur du support, sans ; dans son nom."
+
+msgid "More folders to look for games in, on the SD card or the USB drive, besides wbfs and games."
+msgstr "D'autres dossiers où chercher des jeux, sur la carte SD ou le stockage USB, en plus de wbfs et games."
+
+msgid "Home looks for games in these folders when you leave Settings."
+msgstr "L'Accueil cherche des jeux dans ces dossiers quand vous quittez les Paramètres."

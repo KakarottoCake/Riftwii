@@ -14,8 +14,6 @@
 namespace riftwii {
 namespace {
 
-constexpr std::size_t kMaxGameFolders = 8;
-
 std::string trim(const std::string& s) {
     std::size_t a = 0;
     std::size_t b = s.size();
@@ -305,6 +303,48 @@ std::string LoaderSettings::serialize() const {
     }
     for (const auto& kv : other) s += kv.first + " = " + kv.second + "\n";
     return s;
+}
+
+GameFolderPlace game_folder_place(const std::string& entry) {
+    GameFolderPlace place;
+    std::string path = entry;
+    std::replace(path.begin(), path.end(), '\\', '/');
+    const std::size_t colon = path.find(':');
+    if (colon != std::string::npos) {
+        place.drive = path.substr(0, colon);
+        for (char& c : place.drive) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        path.erase(0, colon + 1);
+    }
+    while (!path.empty() && path.back() == '/') path.pop_back();
+    if (path.empty() || path[0] != '/') path.insert(path.begin(), '/');
+    place.path = path;
+    return place;
+}
+
+GameFolderAdd add_game_folder(LoaderSettings& settings, const std::string& picked) {
+    const GameFolderPlace place = game_folder_place(picked);
+    // The pick always names its drive; a drive's top would make every
+    // folder on it a game folder, and the file can't hold ';' or "..".
+    const bool named_drive = place.drive == "sd" || place.drive.compare(0, 3, "usb") == 0;
+    if (!named_drive || place.path == "/" || place.path.size() > 200 || place.path.find(';') != std::string::npos ||
+        place.path.find("..") != std::string::npos) {
+        return GameFolderAdd::NotAFolder;
+    }
+    // FAT and NTFS names ignore case, so "/WBFS" is the wbfs folder.
+    const auto lower = [](std::string text) {
+        for (char& c : text) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        return text;
+    };
+    const std::string wanted = lower(place.path);
+    if (wanted == "/wbfs" || wanted == "/games") return GameFolderAdd::AlwaysSearched;
+    for (const std::string& entry : settings.game_folders) {
+        const GameFolderPlace listed = game_folder_place(entry);
+        const bool same_drive = listed.drive.empty() || listed.drive == place.drive;
+        if (same_drive && lower(listed.path) == wanted) return GameFolderAdd::AlreadyListed;
+    }
+    if (settings.game_folders.size() >= kMaxGameFolders) return GameFolderAdd::Full;
+    settings.game_folders.push_back(place.drive + ":" + place.path);
+    return GameFolderAdd::Added;
 }
 
 std::vector<std::string> game_folders_on(const LoaderSettings& settings, const std::string& device) {

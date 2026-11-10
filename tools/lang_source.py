@@ -9273,5 +9273,107 @@ FR.update({
         "CTGP-R ne peut pas démarrer depuis une image RVZ. Utilisez un disque, un ISO ou un WBFS.",
 })
 
+# Settings > Drives > Game folders (#511).
+T.update({
+    "Game folders": ("Carpetas de juegos", "ゲームのフォルダ", "Pastas de jogos", "Cartelle dei giochi"),
+    "Use this folder": ("Usar esta carpeta", "このフォルダを使う", "Usar esta pasta", "Usa questa cartella"),
+    "Choose a folder": ("Elige una carpeta", "フォルダを選ぶ", "Escolha uma pasta", "Scegli una cartella"),
+    "Open the folder that holds your games, then pick Use this folder.": (
+        "Abre la carpeta que tiene tus juegos y elige Usar esta carpeta.",
+        "ゲームが入っているフォルダを開いて、「このフォルダを使う」を選んでください。",
+        "Abra a pasta que tem os seus jogos e escolha Usar esta pasta.",
+        "Apri la cartella che contiene i tuoi giochi, poi scegli Usa questa cartella."),
+    "SD card and USB drive": ("Tarjeta SD y unidad USB", "SDカードとUSBドライブ", "Cartão SD e unidade USB", "Scheda SD e unità USB"),
+    "Add a folder": ("Añadir una carpeta", "フォルダを追加", "Adicionar uma pasta", "Aggiungi una cartella"),
+    "RiftWii always looks for games in wbfs and games. It also looks in these folders, and in the folders inside them. Press a folder to remove it.": (
+        "RiftWii siempre busca juegos en wbfs y games. También busca en estas carpetas y en las carpetas que tienen dentro. Pulsa una carpeta para quitarla.",
+        "RiftWiiはいつもwbfsとgamesでゲームを探します。ここのフォルダとその中のフォルダも探します。フォルダを押すとなくせます。",
+        "O RiftWii sempre procura jogos em wbfs e games. Também procura nestas pastas e nas pastas dentro delas. Aperte uma pasta para removê-la.",
+        "RiftWii cerca sempre i giochi in wbfs e games. Cerca anche in queste cartelle e nelle cartelle al loro interno. Premi una cartella per rimuoverla."),
+    "Stop looking for games in {1}? The games stay on the drive.": (
+        "¿Dejar de buscar juegos en {1}? Los juegos se quedan en la unidad.",
+        "{1}でゲームを探すのをやめますか？ゲームはドライブに残ります。",
+        "Parar de procurar jogos em {1}? Os jogos continuam na unidade.",
+        "Smettere di cercare giochi in {1}? I giochi restano sull'unità."),
+    "Removed. Its games leave Home when you leave Settings.": (
+        "Quitada. Sus juegos salen de Inicio al salir de Ajustes.",
+        "なくしました。設定を出るとそのゲームはホームから消えます。",
+        "Removida. Os jogos dela saem do Início quando você sair das Configurações.",
+        "Rimossa. I suoi giochi spariscono da Home quando esci dalle Impostazioni."),
+    "There are already {1} folders. Remove one to add another.": (
+        "Ya hay {1} carpetas. Quita una para añadir otra.",
+        "フォルダはもう{1}個あります。追加するには1つなくしてください。",
+        "Já há {1} pastas. Remova uma para adicionar outra.",
+        "Ci sono già {1} cartelle. Rimuovine una per aggiungerne un'altra."),
+    "Added. Its games show on Home when you leave Settings.": (
+        "Añadida. Sus juegos aparecen en Inicio al salir de Ajustes.",
+        "追加しました。設定を出るとそのゲームがホームに出ます。",
+        "Adicionada. Os jogos dela aparecem no Início quando você sair das Configurações.",
+        "Aggiunta. I suoi giochi compaiono in Home quando esci dalle Impostazioni."),
+    "That folder is in the list already.": (
+        "Esa carpeta ya está en la lista.",
+        "そのフォルダはもうリストにあります。",
+        "Essa pasta já está na lista.",
+        "Quella cartella è già nell'elenco."),
+    "RiftWii always looks in wbfs and games, so there is no need to add them.": (
+        "RiftWii siempre busca en wbfs y games, así que no hace falta añadirlas.",
+        "RiftWiiはいつもwbfsとgamesを探すので、追加はいりません。",
+        "O RiftWii sempre procura em wbfs e games, então não é preciso adicioná-las.",
+        "RiftWii cerca sempre in wbfs e games, quindi non serve aggiungerle."),
+    "That folder can't be added. Pick a folder inside the drive, without ; in its name.": (
+        "No se puede añadir esa carpeta. Elige una carpeta dentro de la unidad, sin ; en el nombre.",
+        "そのフォルダは追加できません。ドライブの中の、名前に;がないフォルダを選んでください。",
+        "Essa pasta não pode ser adicionada. Escolha uma pasta dentro da unidade, sem ; no nome.",
+        "Quella cartella non si può aggiungere. Scegli una cartella dentro l'unità, senza ; nel nome."),
+    "More folders to look for games in, on the SD card or the USB drive, besides wbfs and games.": (
+        "Más carpetas donde buscar juegos, en la tarjeta SD o la unidad USB, además de wbfs y games.",
+        "wbfsとgamesのほかに、SDカードやUSBドライブでゲームを探すフォルダです。",
+        "Mais pastas onde procurar jogos, no cartão SD ou na unidade USB, além de wbfs e games.",
+        "Altre cartelle in cui cercare giochi, sulla scheda SD o sull'unità USB, oltre a wbfs e games."),
+    "Home looks for games in these folders when you leave Settings.": (
+        "Inicio busca juegos en estas carpetas al salir de Ajustes.",
+        "設定を出ると、ホームがこれらのフォルダでゲームを探します。",
+        "O Início procura jogos nestas pastas quando você sair das Configurações.",
+        "Home cerca giochi in queste cartelle quando esci dalle Impostazioni."),
+})
+KO.update({
+    "Game folders": "게임 폴더",
+    "Use this folder": "이 폴더 사용",
+    "Choose a folder": "폴더 선택",
+    "Open the folder that holds your games, then pick Use this folder.": "게임이 들어 있는 폴더를 연 다음 '이 폴더 사용'을 고르세요.",
+    "SD card and USB drive": "SD 카드와 USB 드라이브",
+    "Add a folder": "폴더 추가",
+    "RiftWii always looks for games in wbfs and games. It also looks in these folders, and in the folders inside them. Press a folder to remove it.":
+        "RiftWii는 항상 wbfs와 games에서 게임을 찾습니다. 이 폴더들과 그 안의 폴더에서도 찾습니다. 폴더를 누르면 목록에서 뺍니다.",
+    "Stop looking for games in {1}? The games stay on the drive.": "{1}에서 게임 찾기를 그만둘까요? 게임은 드라이브에 그대로 남습니다.",
+    "Removed. Its games leave Home when you leave Settings.": "뺐습니다. 설정을 나가면 그 게임들이 홈에서 사라집니다.",
+    "There are already {1} folders. Remove one to add another.": "폴더가 이미 {1}개 있습니다. 하나를 빼야 더 추가할 수 있습니다.",
+    "Added. Its games show on Home when you leave Settings.": "추가했습니다. 설정을 나가면 그 게임들이 홈에 나옵니다.",
+    "That folder is in the list already.": "그 폴더는 이미 목록에 있습니다.",
+    "RiftWii always looks in wbfs and games, so there is no need to add them.": "RiftWii는 항상 wbfs와 games를 찾으므로 추가할 필요가 없습니다.",
+    "That folder can't be added. Pick a folder inside the drive, without ; in its name.": "그 폴더는 추가할 수 없습니다. 드라이브 안에 있고 이름에 ;가 없는 폴더를 고르세요.",
+    "More folders to look for games in, on the SD card or the USB drive, besides wbfs and games.": "wbfs와 games 말고도 SD 카드나 USB 드라이브에서 게임을 찾을 폴더입니다.",
+    "Home looks for games in these folders when you leave Settings.": "설정을 나가면 홈이 이 폴더들에서 게임을 찾습니다.",
+})
+FR.update({
+    "Game folders": "Dossiers de jeux",
+    "Use this folder": "Utiliser ce dossier",
+    "Choose a folder": "Choisir un dossier",
+    "Open the folder that holds your games, then pick Use this folder.": "Ouvrez le dossier qui contient vos jeux, puis choisissez Utiliser ce dossier.",
+    "SD card and USB drive": "Carte SD et stockage USB",
+    "Add a folder": "Ajouter un dossier",
+    "RiftWii always looks for games in wbfs and games. It also looks in these folders, and in the folders inside them. Press a folder to remove it.":
+        "RiftWii cherche toujours les jeux dans wbfs et games. Il cherche aussi dans ces dossiers et dans les dossiers qu'ils contiennent. Appuyez sur un dossier pour le retirer.",
+    "Stop looking for games in {1}? The games stay on the drive.": "Ne plus chercher de jeux dans {1} ? Les jeux restent sur le support.",
+    "Removed. Its games leave Home when you leave Settings.": "Retiré. Ses jeux quittent l'Accueil quand vous quittez les Paramètres.",
+    "There are already {1} folders. Remove one to add another.": "Il y a déjà {1} dossiers. Retirez-en un pour en ajouter un autre.",
+    "Added. Its games show on Home when you leave Settings.": "Ajouté. Ses jeux apparaissent sur l'Accueil quand vous quittez les Paramètres.",
+    "That folder is in the list already.": "Ce dossier est déjà dans la liste.",
+    "RiftWii always looks in wbfs and games, so there is no need to add them.": "RiftWii cherche toujours dans wbfs et games, inutile de les ajouter.",
+    "That folder can't be added. Pick a folder inside the drive, without ; in its name.": "Ce dossier ne peut pas être ajouté. Choisissez un dossier à l'intérieur du support, sans ; dans son nom.",
+    "More folders to look for games in, on the SD card or the USB drive, besides wbfs and games.": "D'autres dossiers où chercher des jeux, sur la carte SD ou le stockage USB, en plus de wbfs et games.",
+    "Home looks for games in these folders when you leave Settings.": "L'Accueil cherche des jeux dans ces dossiers quand vous quittez les Paramètres.",
+})
+
 if __name__ == "__main__":
     main()

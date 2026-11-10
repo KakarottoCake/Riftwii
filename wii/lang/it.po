@@ -4403,3 +4403,51 @@ msgstr "Nessun controller GameCube trovato"
 
 msgid "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead."
 msgstr "CTGP-R non può avviarsi da un'immagine RVZ. Usa un disco, ISO o WBFS."
+
+msgid "Game folders"
+msgstr "Cartelle dei giochi"
+
+msgid "Use this folder"
+msgstr "Usa questa cartella"
+
+msgid "Choose a folder"
+msgstr "Scegli una cartella"
+
+msgid "Open the folder that holds your games, then pick Use this folder."
+msgstr "Apri la cartella che contiene i tuoi giochi, poi scegli Usa questa cartella."
+
+msgid "SD card and USB drive"
+msgstr "Scheda SD e unità USB"
+
+msgid "Add a folder"
+msgstr "Aggiungi una cartella"
+
+msgid "RiftWii always looks for games in wbfs and games. It also looks in these folders, and in the folders inside them. Press a folder to remove it."
+msgstr "RiftWii cerca sempre i giochi in wbfs e games. Cerca anche in queste cartelle e nelle cartelle al loro interno. Premi una cartella per rimuoverla."
+
+msgid "Stop looking for games in {1}? The games stay on the drive."
+msgstr "Smettere di cercare giochi in {1}? I giochi restano sull'unità."
+
+msgid "Removed. Its games leave Home when you leave Settings."
+msgstr "Rimossa. I suoi giochi spariscono da Home quando esci dalle Impostazioni."
+
+msgid "There are already {1} folders. Remove one to add another."
+msgstr "Ci sono già {1} cartelle. Rimuovine una per aggiungerne un'altra."
+
+msgid "Added. Its games show on Home when you leave Settings."
+msgstr "Aggiunta. I suoi giochi compaiono in Home quando esci dalle Impostazioni."
+
+msgid "That folder is in the list already."
+msgstr "Quella cartella è già nell'elenco."
+
+msgid "RiftWii always looks in wbfs and games, so there is no need to add them."
+msgstr "RiftWii cerca sempre in wbfs e games, quindi non serve aggiungerle."
+
+msgid "That folder can't be added. Pick a folder inside the drive, without ; in its name."
+msgstr "Quella cartella non si può aggiungere. Scegli una cartella dentro l'unità, senza ; nel nome."
+
+msgid "More folders to look for games in, on the SD card or the USB drive, besides wbfs and games."
+msgstr "Altre cartelle in cui cercare giochi, sulla scheda SD o sull'unità USB, oltre a wbfs e games."
+
+msgid "Home looks for games in these folders when you leave Settings."
+msgstr "Home cerca giochi in queste cartelle quando esci dalle Impostazioni."

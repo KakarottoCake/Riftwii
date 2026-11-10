@@ -2104,6 +2104,48 @@ void TestCoverArt() {
     LoaderSettings back;
     back.parse(s.serialize());
     EXPECT_EQ(back.game_folders.size(), 5u);
+
+    // The Game folders page: a plain entry is both drives', a named one
+    // that drive's, whatever its case or slashes.
+    const GameFolderPlace both = game_folder_place("/Wii Games/");
+    EXPECT_EQ(both.drive, "");
+    EXPECT_EQ(both.path, "/Wii Games");
+    const GameFolderPlace usb2 = game_folder_place("USB2:\\iso\\wii");
+    EXPECT_EQ(usb2.drive, "usb2");
+    EXPECT_EQ(usb2.path, "/iso/wii");
+    EXPECT_EQ(game_folder_place("sd:").path, "/");
+
+    LoaderSettings pick;
+    EXPECT_TRUE(add_game_folder(pick, "sd:/Wii Games") == GameFolderAdd::Added);
+    EXPECT_TRUE(add_game_folder(pick, "SD:/wii games/") == GameFolderAdd::AlreadyListed);
+    EXPECT_TRUE(add_game_folder(pick, "usb:/Wii Games") == GameFolderAdd::Added);
+    EXPECT_TRUE(add_game_folder(pick, "usb2:/iso") == GameFolderAdd::Added);
+    EXPECT_TRUE(add_game_folder(pick, "usb:/WBFS") == GameFolderAdd::AlwaysSearched);
+    EXPECT_TRUE(add_game_folder(pick, "usb:/games/") == GameFolderAdd::AlwaysSearched);
+    EXPECT_TRUE(add_game_folder(pick, "usb:/") == GameFolderAdd::NotAFolder);
+    EXPECT_TRUE(add_game_folder(pick, "/no drive") == GameFolderAdd::NotAFolder);
+    EXPECT_TRUE(add_game_folder(pick, "nand:/title") == GameFolderAdd::NotAFolder);
+    EXPECT_TRUE(add_game_folder(pick, "sd:/a;b") == GameFolderAdd::NotAFolder);
+    EXPECT_TRUE(add_game_folder(pick, "sd:/x/../y") == GameFolderAdd::NotAFolder);
+    EXPECT_EQ(pick.game_folders.size(), 3u);
+    if (pick.game_folders.size() == 3) {
+        EXPECT_EQ(pick.game_folders[0], "sd:/Wii Games");
+        EXPECT_EQ(pick.game_folders[2], "usb2:/iso");
+    }
+    // What the page adds is what a scan reads, and it survives a save.
+    const std::vector<std::string> pickedUsb2 = game_folders_on(pick, "usb2");
+    EXPECT_EQ(pickedUsb2.size(), 1u);
+    LoaderSettings pickBack;
+    pickBack.parse(pick.serialize());
+    EXPECT_TRUE(pickBack.game_folders == pick.game_folders);
+    // A folder settings.txt lists for both drives covers a pick on either.
+    LoaderSettings plain;
+    plain.game_folders = {"/Wii Games"};
+    EXPECT_TRUE(add_game_folder(plain, "usb:/Wii Games") == GameFolderAdd::AlreadyListed);
+    LoaderSettings full;
+    for (std::size_t i = 0; i < kMaxGameFolders; ++i) full.game_folders.push_back("sd:/f" + std::to_string(i));
+    EXPECT_TRUE(add_game_folder(full, "sd:/one more") == GameFolderAdd::Full);
+    EXPECT_EQ(full.game_folders.size(), kMaxGameFolders);
 }
 
 void TestHeadlessArguments() {

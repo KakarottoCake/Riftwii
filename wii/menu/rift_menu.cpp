@@ -13609,6 +13609,315 @@ static bool MenuPickMusic(std::string& choice)
 	return picked;
 }
 
+// A folder on the SD card or a USB drive, for the Game folders page:
+// the drives, then folders down to the one to pick ("sd:/Wii Games",
+// "usb2:/iso"). False: Back.
+static bool MenuPickFolder(std::string& picked)
+{
+	// "" is the top (the drives); "sd:" and "usb:" a drive's top; else a
+	// folder with no '/' at its end, as MenuPickMusic keeps it.
+	std::string folder;
+	const auto isDriveTop = [&]() {
+		if (folder == "sd:") return true;
+		return folder.find('/') == std::string::npos && riftwii::is_usb_path(folder + "/");
+	};
+	const auto listed = [&]() { return isDriveTop() ? folder + "/" : folder; };
+	enum class RowWhat { Up, Use, Drive, Folder };
+	std::vector<RowWhat> whats;
+	std::vector<std::string> names;
+	std::vector<FlowRow> rows;
+	const auto fill = [&]() {
+		whats.clear();
+		names.clear();
+		rows.clear();
+		const auto add = [&](RowWhat what, const std::string& name, const std::string& label, const std::string& value,
+				     bool dim = false) {
+			FlowRow row;
+			row.kind = FlowRow::Kind::Action;
+			row.label = label;
+			row.value = value;
+			row.dim = dim;
+			rows.push_back(row);
+			whats.push_back(what);
+			names.push_back(name);
+		};
+		if (folder.empty()) {
+			add(RowWhat::Drive, "sd:", tr("SD card"), "");
+			const bool usbReady = riftwii::wii::DriveScanDone() && riftwii::wii::usb_volume_ready();
+			if (usbReady) {
+				for (const std::string& root : riftwii::wii::usb_volume_roots()) {
+					const std::string device = riftwii::usb_path_device(root);
+					add(RowWhat::Drive, device, tr("USB drive"), device == "usb:" ? "" : device);
+				}
+			} else {
+				add(RowWhat::Drive, "usb:", tr("USB drive"), "", true);
+			}
+			return;
+		}
+		add(RowWhat::Up, "", tr("Up a folder"), "");
+		// A drive's top would make every folder on it a game folder.
+		if (!isDriveTop()) add(RowWhat::Use, "", tr("Use this folder"), tr("Pick"));
+		for (const riftwii::MusicFolderEntry& e : riftwii::wii::MenuFolderBrowse(listed()))
+			add(RowWhat::Folder, e.name, e.name + "/", "");
+	};
+	fill();
+
+	GuiText titleTxt(tr("Choose a folder"), 30, skin::kInk);
+	Place(titleTxt, 78, 28);
+	TitleBand titleBand;
+	PageIcon pageIcon(&skin::iconDrives);
+	std::string whereText;
+	GuiText whereTxt(whereText.c_str(), 16, skin::kInkDim);
+	whereTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
+	whereTxt.SetPosition(-40, 40);
+	// The folder open now, beside the title: a deep one keeps its last
+	// folders, so it never runs into the title (Dolphin: "sd:/wbfs/Alpha
+	// Test Game 01 [ZT01E1]" reached "Choose a folder").
+	const auto showWhere = [&]() {
+		whereText = folder.empty() ? std::string() : listed();
+		whereTxt.SetText(whereText.c_str());
+		constexpr int kWhereWidth = 250;
+		std::string tail = whereText;
+		while (whereTxt.GetTextWidth() > kWhereWidth) {
+			const std::size_t slash = tail.find('/', 1);
+			if (slash == std::string::npos) break;
+			tail = tail.substr(slash);
+			whereText = "..." + tail;
+			whereTxt.SetText(whereText.c_str());
+		}
+	};
+	NoteCard noteCard;
+	GuiFlowList list(44, 84, 540, 5);
+	list.SetCards(true);
+	list.SetRows(&rows);
+	list.Select(0);
+	GuiText noteTxt("", 15, skin::kInkSoft);
+	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
+	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
+	const std::string help = tr("Open the folder that holds your games, then pick Use this folder.");
+	noteTxt.SetText(help.c_str());
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
+	HideButton(backBtn);
+	GuiPrompts prompts;
+	const int promptBack = prompts.Add("B", tr("Back"));
+	prompts.Add("A", tr("Select"));
+
+	HaltGui();
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleBand);
+	w.Append(&pageIcon);
+	w.Append(&titleTxt);
+	w.Append(&whereTxt);
+	w.Append(&noteCard);
+	w.Append(&list);
+	w.Append(&noteTxt);
+	w.Append(&backBtn.button);
+	w.Append(&prompts);
+	mainWindow->Append(&w);
+	ResumeGui();
+
+	bool done = false;
+	bool chosen = false;
+	while (!done)
+	{
+		usleep(10000);
+		HaltGui();
+		ClearStaleButtons({&backBtn.button});
+		const int acted = list.GetClicked();
+		if (acted >= 0 && static_cast<std::size_t>(acted) < rows.size()) {
+			const std::size_t at = static_cast<std::size_t>(acted);
+			bool moved = false;
+			switch (whats[at]) {
+				case RowWhat::Drive:
+					if (rows[at].dim) {
+						noteTxt.SetText(tr("There is no USB drive, or RiftWii has not finished reading it yet."));
+						break;
+					}
+					folder = names[at];
+					moved = true;
+					break;
+				case RowWhat::Up:
+					folder = isDriveTop() ? std::string() : folder.substr(0, folder.rfind('/'));
+					moved = true;
+					break;
+				case RowWhat::Use:
+					picked = folder;
+					chosen = done = true;
+					break;
+				case RowWhat::Folder:
+					folder = listed() + (isDriveTop() ? "" : "/") + names[at];
+					moved = true;
+					break;
+			}
+			if (moved) {
+				fill();
+				showWhere();
+				list.Refresh();
+				// In a folder, Use this folder rather than the way up.
+				list.Select(folder.empty() || rows.size() < 2 ? 0 : 1);
+				noteTxt.SetText(help.c_str());
+			}
+		}
+		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
+		if (backBtn.Clicked()) done = true;
+		ResumeGui();
+	}
+
+	HaltGui();
+	mainWindow->Remove(&w);
+	return chosen;
+}
+
+// Where a game_folders entry is looked for, as the Game folders page
+// names it.
+static std::string GameFolderDriveName(const riftwii::GameFolderPlace& place)
+{
+	if (place.drive.empty()) return tr("SD card and USB drive");
+	if (place.drive == "sd") return tr("SD card");
+	if (place.drive == "usb") return tr("USB drive");
+	// Another partition of the USB drive, as the folder pick names it.
+	return std::string(tr("USB drive")) + " (" + place.drive + ":)";
+}
+
+// Settings > Drives > Game folders: the folders settings.txt's
+// game_folders adds to wbfs and games, listed, added with the folder pick
+// and removed with a press. Works on `folders`; true when they changed
+// (the caller saves them).
+static bool MenuGameFolders(std::vector<std::string>& folders)
+{
+	riftwii::LoaderSettings scratch;
+	scratch.game_folders = folders;
+	enum class RowWhat { Folder, Add };
+	std::vector<RowWhat> whats;
+	std::vector<FlowRow> rows;
+	const auto fill = [&]() {
+		whats.clear();
+		rows.clear();
+		for (const std::string& entry : scratch.game_folders) {
+			const riftwii::GameFolderPlace place = riftwii::game_folder_place(entry);
+			FlowRow row;
+			row.kind = FlowRow::Kind::Action;
+			row.label = place.path;
+			row.value = GameFolderDriveName(place);
+			row.on = true;
+			rows.push_back(row);
+			whats.push_back(RowWhat::Folder);
+		}
+		FlowRow add;
+		add.kind = FlowRow::Kind::Action;
+		add.label = tr("Add a folder");
+		add.value = tr("Add");
+		add.dim = scratch.game_folders.size() >= riftwii::kMaxGameFolders;
+		rows.push_back(add);
+		whats.push_back(RowWhat::Add);
+	};
+	fill();
+
+	GuiText titleTxt(tr("Game folders"), 30, skin::kInk);
+	Place(titleTxt, 78, 28);
+	TitleBand titleBand;
+	PageIcon pageIcon(&skin::iconDrives);
+	NoteCard noteCard;
+	GuiFlowList list(44, 84, 540, 5);
+	list.SetCards(true);
+	list.SetRows(&rows);
+	// With no folders yet, Add is the only thing to do.
+	list.Select(static_cast<int>(rows.size()) - 1);
+	GuiText noteTxt("", 15, skin::kInkSoft);
+	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
+	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
+	const std::string help = tr("RiftWii always looks for games in wbfs and games. It also looks in these folders, and in the folders inside them. Press a folder to remove it.");
+	noteTxt.SetText(help.c_str());
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
+	HideButton(backBtn);
+	GuiPrompts prompts;
+	const int promptBack = prompts.Add("B", tr("Back"));
+	prompts.Add("A", tr("Select"));
+
+	HaltGui();
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleBand);
+	w.Append(&pageIcon);
+	w.Append(&titleTxt);
+	w.Append(&noteCard);
+	w.Append(&list);
+	w.Append(&noteTxt);
+	w.Append(&backBtn.button);
+	w.Append(&prompts);
+	mainWindow->Append(&w);
+	ResumeGui();
+
+	bool changed = false;
+	bool done = false;
+	while (!done)
+	{
+		usleep(10000);
+		HaltGui();
+		ClearStaleButtons({&backBtn.button});
+		const int acted = list.GetClicked();
+		if (acted >= 0 && static_cast<std::size_t>(acted) < rows.size()) {
+			const std::size_t at = static_cast<std::size_t>(acted);
+			int select = acted;
+			if (whats[at] == RowWhat::Folder) {
+				const std::string body = tr("Stop looking for games in {1}? The games stay on the drive.",
+					{rows[at].label});
+				// Over this page, called with the GUI halted (as AskGcCardSwitch is).
+				const bool remove = ShowPopup(tr("Game folders"), body, tr("Remove"), tr("Cancel")) == 0;
+				if (remove) {
+					scratch.game_folders.erase(scratch.game_folders.begin() + static_cast<std::ptrdiff_t>(at));
+					changed = true;
+					noteTxt.SetText(tr("Removed. Its games leave Home when you leave Settings."));
+				}
+			} else if (rows[at].dim) {
+				noteTxt.SetText(tr("There are already {1} folders. Remove one to add another.",
+					{std::to_string(riftwii::kMaxGameFolders)}).c_str());
+			} else {
+				std::string picked;
+				transition::Hold(transition::Kind::SlideForward);
+				mainWindow->Remove(&w);
+				const bool chose = MenuPickFolder(picked);
+				transition::Hold(transition::Kind::SlideBack);
+				mainWindow->Append(&w);
+				if (chose) {
+					switch (riftwii::add_game_folder(scratch, picked)) {
+						case riftwii::GameFolderAdd::Added:
+							changed = true;
+							select = static_cast<int>(scratch.game_folders.size()) - 1;
+							noteTxt.SetText(tr("Added. Its games show on Home when you leave Settings."));
+							break;
+						case riftwii::GameFolderAdd::AlreadyListed:
+							noteTxt.SetText(tr("That folder is in the list already."));
+							break;
+						case riftwii::GameFolderAdd::AlwaysSearched:
+							noteTxt.SetText(tr("RiftWii always looks in wbfs and games, so there is no need to add them."));
+							break;
+						case riftwii::GameFolderAdd::Full:
+							noteTxt.SetText(tr("There are already {1} folders. Remove one to add another.",
+								{std::to_string(riftwii::kMaxGameFolders)}).c_str());
+							break;
+						case riftwii::GameFolderAdd::NotAFolder:
+							noteTxt.SetText(tr("That folder can't be added. Pick a folder inside the drive, without ; in its name."));
+							break;
+					}
+				}
+			}
+			fill();
+			list.Refresh();
+			list.Select(std::min<int>(select, static_cast<int>(rows.size()) - 1));
+		}
+		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
+		if (backBtn.Clicked()) done = true;
+		ResumeGui();
+	}
+
+	HaltGui();
+	mainWindow->Remove(&w);
+	if (changed) folders = scratch.game_folders;
+	return changed;
+}
+
 // ---------------------------------------------------------------------------
 // Mods: the packs made for the game, opened from the game page.
 
@@ -17184,7 +17493,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kUsbInput, kGcCard, kGcBackups, kLeaveButtons, kDiscLight, kNintendontSaves, kParental, kSdGames, kIos, kNet, kResync, kWads, kDiscCopy,
+	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kUsbInput, kGcCard, kGcBackups, kLeaveButtons, kDiscLight, kNintendontSaves, kParental, kSdGames, kGameFolders, kIos, kNet, kResync, kWads, kDiscCopy,
 		kMissingCovers, kRescan, kPartitionFailures, kUpdate, kReport, kTests, kGeckoLog, kWiirdDebugger, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -17373,6 +17682,13 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		}
 		option(tr("Games on the SD card"), settings.sd_games == "off" ? tr("Don't look") : tr("Look for them"),
 			settings.sd_games == "off", kSdGames);
+		FlowRow gameFolders;
+		gameFolders.kind = FlowRow::Kind::Action;
+		gameFolders.label = tr("Game folders");
+		gameFolders.value = settings.game_folders.empty() ? tr("None") : std::to_string(settings.game_folders.size());
+		gameFolders.on = !settings.game_folders.empty();
+		rows.push_back(gameFolders);
+		actions.push_back(kGameFolders);
 		FlowRow rescan;
 		rescan.kind = FlowRow::Kind::Action;
 		rescan.label = "Look for games again";
@@ -17541,7 +17857,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					return SettingsSection::Look;
 				case kOnline: case kEmulatorCovers: case kSteamGridCovers: case kNetTest: case kNames: case kRiiTag: case kMissingCovers: case kServer: case kUpdate:
 					return SettingsSection::Online;
-				case kSdGames: case kRescan: case kPartitionFailures: case kNet: case kResync: case kWads: case kDiscCopy:
+				case kSdGames: case kGameFolders: case kRescan: case kPartitionFailures: case kNet: case kResync: case kWads: case kDiscCopy:
 					return SettingsSection::Finding;
 				case kHeading:
 				case kExit:  // the hub's Leave RiftWii tile
@@ -17705,6 +18021,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kDiscCopy: return tr("Copies the Wii disc in the drive to the wbfs folder of a FAT32 USB drive or the SD card, with every partition of the disc, so the game plays without the disc. Needs a d2x cIOS.");
 			case kWads: return tr("Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.");
 			case kSdGames: return tr("Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work.");
+			case kGameFolders: return tr("More folders to look for games in, on the SD card or the USB drive, besides wbfs and games.");
 			case kRescan: return tr("Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers.");
 			case kPartitionFailures: return tr("Some partitions of the USB drive could not be opened. Games on the other partitions are still shown. Opens the list, with each partition's problem and what to do.");
 			case kUpdate: return tr("This is RiftWii {1}. Looks on GitHub for a newer release.", {RIFTWII_VERSION});
@@ -17752,7 +18069,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				verb = tr("About this");
 			else if (row.kind == FlowRow::Kind::Action) {
 				const RowAction action = actions[static_cast<std::size_t>(focused)];
-				if (action == kMusicFile || action == kWads || action == kWiiChannel || action == kPartitionFailures)
+				if (action == kMusicFile || action == kWads || action == kWiiChannel || action == kPartitionFailures ||
+				    action == kGameFolders)
 					verb = tr("Open");
 				else
 					verb = tr(row.value.c_str());
@@ -18502,6 +18820,26 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					}
 					rebuild();
 					break;
+				case kGameFolders: {
+					std::vector<std::string> folders = settings.game_folders;
+					transition::Hold(transition::Kind::SlideForward);
+					mainWindow->Remove(&w);
+					const bool changed = MenuGameFolders(folders);
+					transition::Hold(transition::Kind::SlideBack);
+					mainWindow->Append(&w);
+					if (!changed) break;
+					// The drive scan reads game_folders on its thread: wait for
+					// it before the list changes under it.
+					WaitForDriveScan(noteTxt);
+					settings.game_folders = folders;
+					if (saveAndNote(tr("Home looks for games in these folders when you leave Settings."))) {
+						logf("Settings: game folders are now %u\n", static_cast<unsigned>(folders.size()));
+						// Home reads the drives again when you leave Settings.
+						g_scanned = false;
+					}
+					rebuild();
+					break;
+				}
 				case kRescan:
 					WaitForDriveScan(noteTxt);
 					// Halted GUI: no tile can retain an icon that this frees.
