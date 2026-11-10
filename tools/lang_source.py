@@ -9326,5 +9326,19 @@ FR.update({
     "Press A to pick another named card or make a new one; Left for the other kinds of card.": "Appuyez sur A pour choisir une autre carte nommée ou en créer une ; Gauche pour les autres types de carte.",
 })
 
+# Restoring a named memory card (#511).
+T.update({
+    "Press A to put this named memory card back to how it was then, for every game that uses it.": ("Pulsa A para devolver esta tarjeta de memoria con nombre a como estaba entonces, para todos los juegos que la usan.", "Aを押すと、この名前付きメモリーカードをその時の状態にもどします。使っているすべてのゲームに反映されます。", "Aperte A para voltar este cartão de memória com nome a como estava então, para todos os jogos que o usam.", "Premi A per riportare questa scheda di memoria con nome com'era allora, per tutti i giochi che la usano."),
+    "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them.": ("Todas las partidas de esta tarjeta de memoria con nombre vuelven a como estaban el {1}. Su estado actual se guarda antes como copia, para que puedas volver a él.", "この名前付きメモリーカードのすべてのセーブが{1}の状態にもどります。今の状態は先にコピーとして残すので、あとでもどせます。", "Todos os dados deste cartão de memória com nome voltam a como estavam em {1}. Como estão agora é guardado antes como cópia, para você poder voltar a eles.", "Tutti i salvataggi di questa scheda di memoria con nome tornano com'erano il {1}. Come sono ora viene prima conservato in una copia, così puoi tornarci."),
+})
+KO.update({
+    "Press A to put this named memory card back to how it was then, for every game that uses it.": "A를 누르면 이 이름 있는 메모리 카드를 그때 상태로 되돌립니다. 이 카드를 쓰는 모든 게임에 적용됩니다.",
+    "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them.": "이 이름 있는 메모리 카드의 모든 저장 데이터가 {1} 상태로 되돌아갑니다. 지금 상태는 먼저 사본으로 보관하므로 다시 되돌릴 수 있습니다.",
+})
+FR.update({
+    "Press A to put this named memory card back to how it was then, for every game that uses it.": "Appuyez sur A pour remettre cette carte mémoire nommée dans l'état d'alors, pour tous les jeux qui l'utilisent.",
+    "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them.": "Toutes les sauvegardes de cette carte mémoire nommée reviennent à leur état du {1}. Leur état actuel est d'abord gardé en copie, pour que vous puissiez y revenir.",
+})
+
 if __name__ == "__main__":
     main()

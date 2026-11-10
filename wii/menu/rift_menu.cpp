@@ -10143,9 +10143,24 @@ static riftwii::GcBackupResult BackupMenuCard(const std::string& path, const std
 	return failed;
 }
 
+// The SD card folders a card file goes in, made when missing: a named
+// card's (cards/named, cards/named-jp) is made only when a game starts, and
+// the menu may write to the card first (a copy, a Nintendont save).
+static void MakeGcCardFolders(const std::string& path)
+{
+	mkdir("sd:/riftwii", 0777);
+	mkdir("sd:/riftwii/gc", 0777);
+	mkdir("sd:/riftwii/gc/cards", 0777);
+	const std::size_t slash = path.rfind('/');
+	if (slash != std::string::npos) mkdir(path.substr(0, slash).c_str(), 0777);
+}
+
 static bool OverwriteMenuCard(const std::string& path, const std::vector<std::uint8_t>& bytes, std::string& error)
 {
-	if (!riftwii::is_usb_path(path)) return riftwii::gc_overwrite_file(path, bytes, error);
+	if (!riftwii::is_usb_path(path)) {
+		MakeGcCardFolders(path);
+		return riftwii::gc_overwrite_file(path, bytes, error);
+	}
 	std::vector<std::uint8_t> before;
 	if (ReadSmallFile(path, riftwii::kGcBackupMaxBytes, before) && before.size() == bytes.size() &&
 		WriteChangedBlocks(path, before, bytes, CardChange::Import)) return true;
@@ -10535,10 +10550,8 @@ static bool RestoreGcBackup(const std::string& cardPath, const std::string& fold
 	for (const std::string& old : before.pruned)
 		logf("GameCube card %s: oldest backup %s/%s deleted, to keep the newest %u\n", cardPath.c_str(), folder.c_str(),
 			old.c_str(), static_cast<unsigned>(riftwii::kGcBackupsKept));
-	// A card that was never made: its folder may be missing too.
-	mkdir("sd:/riftwii", 0777);
-	mkdir("sd:/riftwii/gc", 0777);
-	mkdir("sd:/riftwii/gc/cards", 0777);
+	// A card that was never made: its folder may be missing too
+	// (OverwriteMenuCard makes it).
 	if (!OverwriteMenuCard(cardPath, bytes, why)) {
 		logf("GameCube card %s: the restore from %s could not be written: %s\n", cardPath.c_str(), from.c_str(), why.c_str());
 		ShowPopup(tr("Save not restored"), tr("RiftWii could not write the memory card: {1}", {FlatCapped(why, 120)}), tr("OK"));
@@ -10717,7 +10730,10 @@ static bool MenuGcRestore(FrontendState& state)
 		rows.push_back(row);
 	}
 	bool restored = false;
+	// A named card may be several games' card, as the shared one is.
+	const bool named = EffectiveGcCard(state) == "named";
 	const auto note = [&](int) -> std::string {
+		if (named) return tr("Press A to put this named memory card back to how it was then, for every game that uses it.");
 		return shared ? tr("Press A to put the shared memory card back to how it was then, for every game on it.")
 			: tr("Press A to put this game's save back to how it was then.");
 	};
@@ -10727,7 +10743,9 @@ static bool MenuGcRestore(FrontendState& state)
 		// The question in the title, short in every language; the date and
 		// time in the body. Cancel is the second button, the one B and HOME
 		// press, so backing out never changes a save.
-		const std::string body = shared
+		const std::string body = named
+			? tr("Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them.", {when})
+			: shared
 			? tr("Every game's save on the shared memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them.", {when})
 			: tr("Your save goes back to how it was on {1}. Your save as it is now is kept as a copy first, so you can come back to it.", {when});
 		if (ShowPopup(tr("Restore this save?"), body, tr("Restore"), tr("Cancel")) != 0) return false;
@@ -11207,7 +11225,6 @@ static void BringNintendontSaves(const NintendontFinds& finds, const std::vector
 {
 	struct Target {
 		std::string path;
-		std::string id;
 		std::vector<std::size_t> picks;
 	};
 	std::vector<Target> targets;
@@ -11220,7 +11237,6 @@ static void BringNintendontSaves(const NintendontFinds& finds, const std::vector
 			targets.push_back(Target());
 			found = targets.end() - 1;
 			found->path = path;
-			found->id = save.id;
 		}
 		found->picks.push_back(pick);
 	}
@@ -11291,9 +11307,6 @@ static void BringNintendontSaves(const NintendontFinds& finds, const std::vector
 			if (written && exists) {
 				written = WriteChangedBlocks(target.path, before, card, CardChange::Import);
 			} else if (written) {
-				mkdir("sd:/riftwii", 0777);
-				mkdir("sd:/riftwii/gc", 0777);
-				mkdir("sd:/riftwii/gc/cards", 0777);
 				written = OverwriteMenuCard(target.path, card, why);
 				if (written) riftwii::wii::forget_sd_layout();
 			}
@@ -11691,7 +11704,7 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 			tr("RiftWii could not keep a copy of the memory card, so it was not changed: {1}", {FlatCapped(backup.error, 120)}), tr("OK"));
 		return;
 	}
-	mkdir("sd:/riftwii/gc/cards", 0777);
+	MakeGcCardFolders(path);
 	if (!riftwii::gc_real_commit(path, plan.image, unchanged, error)) {
 		logf("GameCube: saves from slot %c were not copied to %s: %s\n", 'A' + slot, path.c_str(), error.c_str());
 		ShowPopup(tr("Memory card"), sourceChanged ? GcRealError(CARD_ERROR_IOERROR)

@@ -4448,3 +4448,9 @@ msgstr "カードの名前には、英字、数字、スペース、-、'を1〜
 
 msgid "Press A to pick another named card or make a new one; Left for the other kinds of card."
 msgstr "Aでほかの名前付きカードを選ぶか新しく作り、左でほかの種類のカードにします。"
+
+msgid "Press A to put this named memory card back to how it was then, for every game that uses it."
+msgstr "Aを押すと、この名前付きメモリーカードをその時の状態にもどします。使っているすべてのゲームに反映されます。"
+
+msgid "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them."
+msgstr "この名前付きメモリーカードのすべてのセーブが{1}の状態にもどります。今の状態は先にコピーとして残すので、あとでもどせます。"

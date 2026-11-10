@@ -183,9 +183,11 @@ std::string gc_named_card_folder(bool shift_jis);
 std::string gc_named_card_path(const std::string& name, bool shift_jis);
 // The card file a game saves to for a Memory card choice (the effective
 // one, riftwii/launch.hpp's gc_card_effective): "own", "shared" and
-// "named" (with `card_name`) are files RiftWii keeps; "" for the real
-// cards and other loaders' cards, which are not RiftWii's files, and for
-// a named card whose name is not a clean one.
+// "named" (with `card_name`) are files RiftWii keeps, and "real_b" the
+// game's own file, its slot A beside the real card in slot B; "" for
+// "real" and "real_b_as_a" (a real card is slot A) and other loaders'
+// cards, which are not RiftWii's files, and for a named card whose name is
+// not a clean one.
 std::string gc_card_file(const std::string& game_id, const std::string& card, const std::string& card_name);
 
 }  // namespace riftwii

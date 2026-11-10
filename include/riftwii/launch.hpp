@@ -143,7 +143,8 @@ struct GameSettings {
     // named (the player's named card gc_card_name, riftwii/gccard.hpp).
     std::string gc_card = "global";
     // The named card's name, when gc_card is "named"; always a clean name
-    // (gc_card_name_clean), else gc_card goes back to "global" when read.
+    // (gc_card_name_clean) or "". "named" with "" plays as "global" does
+    // (gc_card_effective), and the game's page shows it as Default.
     std::string gc_card_name;
     // A GameCube game's picture and language (gcnative.cpp does each).
     // "global", the default, follows Settings and the Wii's own settings

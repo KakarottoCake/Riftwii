@@ -4448,3 +4448,9 @@ msgstr "카드 이름에는 영문자, 숫자, 공백, -, '를 1~{1}자 사용�
 
 msgid "Press A to pick another named card or make a new one; Left for the other kinds of card."
 msgstr "A를 눌러 다른 이름 있는 카드를 고르거나 새로 만들고, 왼쪽으로 다른 종류의 카드를 고릅니다."
+
+msgid "Press A to put this named memory card back to how it was then, for every game that uses it."
+msgstr "A를 누르면 이 이름 있는 메모리 카드를 그때 상태로 되돌립니다. 이 카드를 쓰는 모든 게임에 적용됩니다."
+
+msgid "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them."
+msgstr "이 이름 있는 메모리 카드의 모든 저장 데이터가 {1} 상태로 되돌아갑니다. 지금 상태는 먼저 사본으로 보관하므로 다시 되돌릴 수 있습니다."

@@ -4448,3 +4448,9 @@ msgstr "Usa da 1 a {1} lettere, cifre, spazi, - o ' per il nome della scheda."
 
 msgid "Press A to pick another named card or make a new one; Left for the other kinds of card."
 msgstr "Premi A per scegliere un'altra scheda con nome o crearne una nuova; Sinistra per gli altri tipi di scheda."
+
+msgid "Press A to put this named memory card back to how it was then, for every game that uses it."
+msgstr "Premi A per riportare questa scheda di memoria con nome com'era allora, per tutti i giochi che la usano."
+
+msgid "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them."
+msgstr "Tutti i salvataggi di questa scheda di memoria con nome tornano com'erano il {1}. Come sono ora viene prima conservato in una copia, così puoi tornarci."
