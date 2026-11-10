@@ -205,8 +205,21 @@ int main() {
         EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031192u), "CTGPR", 0x01031192u, update, error, &key));
         EXPECT_TRUE(error.find("known reference") != std::string::npos);
         EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031196u), "CTGPR", 0x01031196u, update, error, &key));
-        // and with no key (no signature checked) nothing is accepted on the signature path
+        // Production passes no key: the signature is checked with CTGP-R's
+        // built-in key, and that check alone decides. This list is signed
+        // with the test key, so it is refused for its signature, never
+        // because no key was passed (CTGP-R's own signatures are CTGP data,
+        // not shipped here; ctgpdsa_tests checks the built-in key).
         EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031200u), "CTGPR", 0x01031200u, update, error));
+        EXPECT_TRUE(error.find("does not verify") != std::string::npos);
+        // The built-in key passed explicitly is the same path as no key.
+        EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031200u), "CTGPR", 0x01031200u, update, error,
+                                         &ctgp_signing_key()));
+        EXPECT_TRUE(error.find("does not verify") != std::string::npos);
+        // Whichever key verified it, a newer CTGPR list is accepted on that
+        // signature: the decision does not look at whether a key was passed.
+        CtgpHashList newer;
+        EXPECT_TRUE(ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031300u), "CTGPR", 0x01031300u, newer, error, &key));
     }
 
     EXPECT_TRUE(ctgp_has_hash_reference("CORE", 0x01030412));

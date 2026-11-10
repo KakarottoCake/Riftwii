@@ -111,8 +111,10 @@ bool ctgp_load_hash_list(const CtgpBytes& file, const std::string& package, std:
     // CTGPR update needs no new reference here. A version that HAS a known
     // body must still match it: its name and label sit outside the signed
     // bytes, so an older signed list relabelled as that version is refused.
-    // And the signature itself must have been checked (a key was given).
-    const bool ctgpr_by_signature = package == "CTGPR" && key != nullptr && expected_body == nullptr;
+    // The signature has been checked by now, with whichever key is in use
+    // (CTGP-R's own unless a test gives another): a list that does not verify
+    // was refused above, so this path depends on that check, not on `key`.
+    const bool ctgpr_by_signature = package == "CTGPR" && expected_body == nullptr;
     if (!known_identity && !ctgpr_by_signature && (!key || package == "CORE" || package == "CTGPR")) {
         error = "the signed hash-list body is not a known reference for this package version";
         return false;
