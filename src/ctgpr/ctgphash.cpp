@@ -108,9 +108,12 @@ bool ctgp_load_hash_list(const CtgpBytes& file, const std::string& package, std:
     // with its label equal to PACKAGES.BIN's version (checked above): the
     // channel trusts a CTGPR list on exactly that, and the launch reads the
     // cups that depend on the track package from the player's install, so a
-    // CTGPR update needs no new reference here.
-    const bool ctgpr_by_signature = package == "CTGPR";
-    if (!known_identity && !ctgpr_by_signature && (!key || package == "CORE")) {
+    // CTGPR update needs no new reference here. A version that HAS a known
+    // body must still match it: its name and label sit outside the signed
+    // bytes, so an older signed list relabelled as that version is refused.
+    // And the signature itself must have been checked (a key was given).
+    const bool ctgpr_by_signature = package == "CTGPR" && key != nullptr && expected_body == nullptr;
+    if (!known_identity && !ctgpr_by_signature && (!key || package == "CORE" || package == "CTGPR")) {
         error = "the signed hash-list body is not a known reference for this package version";
         return false;
     }

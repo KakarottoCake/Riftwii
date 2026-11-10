@@ -200,6 +200,13 @@ int main() {
         auto forged = relabelled_as("CTGPR", 0x01031200u);
         forged[0x34] ^= 0x01;
         EXPECT_TRUE(!ctgp_load_hash_list(forged, "CTGPR", 0x01031200u, update, error, &key));
+        // A version with a known body (1.03.1192/1196) must still be that body:
+        // another signed list relabelled as it is refused.
+        EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031192u), "CTGPR", 0x01031192u, update, error, &key));
+        EXPECT_TRUE(error.find("known reference") != std::string::npos);
+        EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031196u), "CTGPR", 0x01031196u, update, error, &key));
+        // and with no key (no signature checked) nothing is accepted on the signature path
+        EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CTGPR", 0x01031200u), "CTGPR", 0x01031200u, update, error));
     }
 
     EXPECT_TRUE(ctgp_has_hash_reference("CORE", 0x01030412));
