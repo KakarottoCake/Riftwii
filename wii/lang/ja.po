@@ -4437,8 +4437,8 @@ msgstr "フォルダはもう{1}個あります。追加するには1つなく�
 msgid "Added. Its games show on Home when you leave Settings."
 msgstr "追加しました。設定を出るとそのゲームがホームに出ます。"
 
-msgid "That folder is in the list already."
-msgstr "そのフォルダはもうリストにあります。"
+msgid "That folder is in the list already, or one inside it or around it is."
+msgstr "そのフォルダか、その中や外側のフォルダがもうリストにあります。"
 
 msgid "RiftWii always looks in wbfs and games, so there is no need to add them."
 msgstr "RiftWiiはいつもwbfsとgamesを探すので、追加はいりません。"

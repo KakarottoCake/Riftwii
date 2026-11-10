@@ -13642,7 +13642,9 @@ static bool MenuPickFolder(std::string& picked)
 			names.push_back(name);
 		};
 		if (folder.empty()) {
-			add(RowWhat::Drive, "sd:", tr("SD card"), "");
+			// With Games on the SD card off, no SD folder is read: dimmed, and
+			// pressed it says why.
+			add(RowWhat::Drive, "sd:", tr("SD card"), "", riftwii::wii::Settings().sd_games == "off");
 			const bool usbReady = riftwii::wii::DriveScanDone() && riftwii::wii::usb_volume_ready();
 			if (usbReady) {
 				for (const std::string& root : riftwii::wii::usb_volume_roots()) {
@@ -13730,6 +13732,10 @@ static bool MenuPickFolder(std::string& picked)
 			bool moved = false;
 			switch (whats[at]) {
 				case RowWhat::Drive:
+					if (rows[at].dim && names[at] == "sd:") {
+						noteTxt.SetText(tr("Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work."));
+						break;
+					}
 					if (rows[at].dim) {
 						noteTxt.SetText(tr("There is no USB drive, or RiftWii has not finished reading it yet."));
 						break;
@@ -13861,8 +13867,9 @@ static bool MenuGameFolders(std::vector<std::string>& folders)
 			const std::size_t at = static_cast<std::size_t>(acted);
 			int select = acted;
 			if (whats[at] == RowWhat::Folder) {
+				// The drive too: the same folder can be listed for each.
 				const std::string body = tr("Stop looking for games in {1}? The games stay on the drive.",
-					{rows[at].label});
+					{rows[at].label + " (" + rows[at].value + ")"});
 				// Over this page, called with the GUI halted (as AskGcCardSwitch is).
 				const bool remove = ShowPopup(tr("Game folders"), body, tr("Remove"), tr("Cancel")) == 0;
 				if (remove) {
@@ -13888,7 +13895,7 @@ static bool MenuGameFolders(std::vector<std::string>& folders)
 							noteTxt.SetText(tr("Added. Its games show on Home when you leave Settings."));
 							break;
 						case riftwii::GameFolderAdd::AlreadyListed:
-							noteTxt.SetText(tr("That folder is in the list already."));
+							noteTxt.SetText(tr("That folder is in the list already, or one inside it or around it is."));
 							break;
 						case riftwii::GameFolderAdd::AlwaysSearched:
 							noteTxt.SetText(tr("RiftWii always looks in wbfs and games, so there is no need to add them."));

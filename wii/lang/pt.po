@@ -4437,8 +4437,8 @@ msgstr "Já há {1} pastas. Remova uma para adicionar outra."
 msgid "Added. Its games show on Home when you leave Settings."
 msgstr "Adicionada. Os jogos dela aparecem no Início quando você sair das Configurações."
 
-msgid "That folder is in the list already."
-msgstr "Essa pasta já está na lista."
+msgid "That folder is in the list already, or one inside it or around it is."
+msgstr "Essa pasta já está na lista, ou está uma que a contém ou que fica dentro dela."
 
 msgid "RiftWii always looks in wbfs and games, so there is no need to add them."
 msgstr "O RiftWii sempre procura em wbfs e games, então não é preciso adicioná-las."

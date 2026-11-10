@@ -305,6 +305,17 @@ std::string LoaderSettings::serialize() const {
     return s;
 }
 
+namespace {
+
+// Whether `folder` is inside `parent` ("/a/b" in "/a"; not "/ab"). Both
+// lower case, no trailing slash.
+bool folder_inside(const std::string& folder, const std::string& parent) {
+    return folder.size() > parent.size() + 1 && folder.compare(0, parent.size(), parent) == 0 &&
+           folder[parent.size()] == '/';
+}
+
+}  // namespace
+
 GameFolderPlace game_folder_place(const std::string& entry) {
     GameFolderPlace place;
     std::string path = entry;
@@ -336,11 +347,16 @@ GameFolderAdd add_game_folder(LoaderSettings& settings, const std::string& picke
         return text;
     };
     const std::string wanted = lower(place.path);
-    if (wanted == "/wbfs" || wanted == "/games") return GameFolderAdd::AlwaysSearched;
+    if (wanted == "/wbfs" || wanted == "/games" || folder_inside(wanted, "/wbfs") || folder_inside(wanted, "/games"))
+        return GameFolderAdd::AlwaysSearched;
+    // A folder inside a listed one, or around one, would be scanned twice
+    // (a scan reads a folder's own folders too): its games listed twice.
     for (const std::string& entry : settings.game_folders) {
         const GameFolderPlace listed = game_folder_place(entry);
         const bool same_drive = listed.drive.empty() || listed.drive == place.drive;
-        if (same_drive && lower(listed.path) == wanted) return GameFolderAdd::AlreadyListed;
+        const std::string other = lower(listed.path);
+        if (same_drive && (other == wanted || folder_inside(wanted, other) || folder_inside(other, wanted)))
+            return GameFolderAdd::AlreadyListed;
     }
     if (settings.game_folders.size() >= kMaxGameFolders) return GameFolderAdd::Full;
     settings.game_folders.push_back(place.drive + ":" + place.path);
@@ -362,12 +378,25 @@ std::vector<std::string> game_folders_on(const LoaderSettings& settings, const s
         if (f[0] != '/') f.insert(f.begin(), '/');
         std::string lower = f;
         for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-        if (lower == "/wbfs" || lower == "/games") continue;
+        if (lower == "/wbfs" || lower == "/games" || folder_inside(lower, "/wbfs") || folder_inside(lower, "/games"))
+            continue;
         bool seen = false;
         for (const std::string& o : out) seen = seen || o == f;
         if (!seen) out.push_back(f);
     }
-    return out;
+    // A folder inside another listed one is read with it already (a
+    // hand-written settings.txt may list both).
+    const auto lower_of = [](std::string text) {
+        for (char& c : text) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        return text;
+    };
+    std::vector<std::string> kept;
+    for (const std::string& f : out) {
+        bool inside = false;
+        for (const std::string& o : out) inside = inside || folder_inside(lower_of(f), lower_of(o));
+        if (!inside) kept.push_back(f);
+    }
+    return kept;
 }
 
 VideoSettings effective_video(const GameSettings& game, const LoaderSettings& global) {

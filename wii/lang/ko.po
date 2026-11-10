@@ -4437,8 +4437,8 @@ msgstr "폴더가 이미 {1}개 있습니다. 하나를 빼야 더 추가할 수
 msgid "Added. Its games show on Home when you leave Settings."
 msgstr "추가했습니다. 설정을 나가면 그 게임들이 홈에 나옵니다."
 
-msgid "That folder is in the list already."
-msgstr "그 폴더는 이미 목록에 있습니다."
+msgid "That folder is in the list already, or one inside it or around it is."
+msgstr "그 폴더나 그 안 또는 바깥의 폴더가 이미 목록에 있습니다."
 
 msgid "RiftWii always looks in wbfs and games, so there is no need to add them."
 msgstr "RiftWii는 항상 wbfs와 games를 찾으므로 추가할 필요가 없습니다."

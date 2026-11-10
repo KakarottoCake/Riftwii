@@ -4437,8 +4437,8 @@ msgstr "Ya hay {1} carpetas. Quita una para añadir otra."
 msgid "Added. Its games show on Home when you leave Settings."
 msgstr "Añadida. Sus juegos aparecen en Inicio al salir de Ajustes."
 
-msgid "That folder is in the list already."
-msgstr "Esa carpeta ya está en la lista."
+msgid "That folder is in the list already, or one inside it or around it is."
+msgstr "Esa carpeta ya está en la lista, o lo está una que la contiene o que está dentro de ella."
 
 msgid "RiftWii always looks in wbfs and games, so there is no need to add them."
 msgstr "RiftWii siempre busca en wbfs y games, así que no hace falta añadirlas."
