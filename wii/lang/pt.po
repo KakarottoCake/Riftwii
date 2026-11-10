@@ -4454,3 +4454,9 @@ msgstr "Aperte A para voltar este cartão de memória com nome a como estava ent
 
 msgid "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them."
 msgstr "Todos os dados deste cartão de memória com nome voltam a como estavam em {1}. Como estão agora é guardado antes como cópia, para você poder voltar a eles."
+
+msgid "A named memory card is made the first time a game that uses it starts: {1}."
+msgstr "Um cartão de memória com nome é criado na primeira vez que um jogo que o usa é iniciado: {1}."
+
+msgid "Go back to how this named memory card was on a day you pick, for every game that uses it."
+msgstr "Volte este cartão de memória com nome a como estava no dia que você escolher, para todos os jogos que o usam."

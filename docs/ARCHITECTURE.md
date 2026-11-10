@@ -840,8 +840,12 @@ program's. Not with packs (they move the disc's files), a game from a TGC
 image, or a second disc (the patches are for disc 1's offsets).
 
 **Memory cards** (`src/fs/gccard.cpp`): one image per game,
-`sd:/riftwii/gc/cards/<ID>.raw`, or a shared `shared.raw` (`shared-jp.raw`
-for Japanese games), formatted the first time. The game page's Saves tile
+`sd:/riftwii/gc/cards/<ID>.raw`, a shared `shared.raw` (`shared-jp.raw`
+for Japanese games), or a named card the player picks on the game's page,
+`cards/named/<name>.raw` (`cards/named-jp/` for Japanese games), formatted
+the first time. `gc_card_file` (and `gc_card_file_of`, from a game's
+choices) says which file a game uses; the launch passes it to the loader
+as the request's `card_path`. The game page's Saves tile
 opens it: saves with their icons, copied out as `.gci`, deleted, or added
 from `sd:/riftwii/gc/saves`. Before each start (Settings' Back up saves,
 on by default) the loader copies the card the game will use to

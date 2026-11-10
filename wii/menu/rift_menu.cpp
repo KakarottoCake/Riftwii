@@ -10862,8 +10862,10 @@ static void MenuGcSdCard(FrontendState& state)
 	// A card is 2 MB; the library takes 4 to 128 Mbit ones.
 	if (!ReadSmallFile(path, 16u << 20, card, &missing)) {
 		if (missing) {
+			const bool namedCard = EffectiveGcCard(state) == "named";
 			ShowPopup(tr("No memory card yet"),
-				shared ? tr("The shared memory card is made the first time a game that uses it starts: {1}.", {path})
+				namedCard ? tr("A named memory card is made the first time a game that uses it starts: {1}.", {path})
+				: shared ? tr("The shared memory card is made the first time a game that uses it starts: {1}.", {path})
 					: tr("This game's memory card is made the first time the game starts: {1}.", {path}), tr("OK"));
 		} else {
 			logf("The GameCube memory card at %s could not be read. The file was not changed.\n", path.c_str());
@@ -10955,6 +10957,9 @@ static void MenuGcSdCard(FrontendState& state)
 		const std::size_t at = static_cast<std::size_t>(row);
 		if (at == info.saves.size() + 1) {
 			if (!haveBackups) return tr("RiftWii keeps a copy each time you start the game.");
+			// A named card may be several games' card, as the shared one is.
+			if (EffectiveGcCard(state) == "named")
+				return tr("Go back to how this named memory card was on a day you pick, for every game that uses it.");
 			return shared ? tr("Go back to how the shared memory card was on a day you pick, for every game on it.")
 				: tr("Go back to how your save was on a day you pick.");
 		}
@@ -11631,9 +11636,12 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 		ShowPopup(tr("Memory card"), GcRealError(CARD_ERROR_ENCODING), tr("OK"));
 		return;
 	}
-	// A game's saves go to the card it uses (its own, shared or named).
-	const std::string path = shared ? riftwii::gc_card_path(targetId, true)
-		: riftwii::gc_card_file_of(state.model.game, riftwii::wii::Settings().gc_card, targetId);
+	// "This game's saves" go to its own SD image, even when it is set to
+	// Shared (as before), or to its named card, the one it plays with.
+	const bool toNamed = !shared && EffectiveGcCard(state) == "named";
+	const std::string path = toNamed
+		? riftwii::gc_card_file_of(state.model.game, riftwii::wii::Settings().gc_card, targetId)
+		: riftwii::gc_card_path(targetId, shared);
 	const riftwii::GcRecovery recovered = riftwii::gc_recover_card(path, error);
 	if (recovered == riftwii::GcRecovery::Failed || recovered == riftwii::GcRecovery::BothKept) {
 		logf("GameCube: %s could not be recovered before the copy: %s\n", path.c_str(), error.c_str());

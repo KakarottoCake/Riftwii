@@ -4454,3 +4454,9 @@ msgstr "Appuyez sur A pour remettre cette carte mémoire nommée dans l'état d'
 
 msgid "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them."
 msgstr "Toutes les sauvegardes de cette carte mémoire nommée reviennent à leur état du {1}. Leur état actuel est d'abord gardé en copie, pour que vous puissiez y revenir."
+
+msgid "A named memory card is made the first time a game that uses it starts: {1}."
+msgstr "Une carte mémoire nommée est créée la première fois qu'un jeu qui l'utilise démarre : {1}."
+
+msgid "Go back to how this named memory card was on a day you pick, for every game that uses it."
+msgstr "Remettez cette carte mémoire nommée dans son état du jour choisi, pour tous les jeux qui l'utilisent."

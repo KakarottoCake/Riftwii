@@ -4454,3 +4454,9 @@ msgstr "Aを押すと、この名前付きメモリーカードをその時の�
 
 msgid "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them."
 msgstr "この名前付きメモリーカードのすべてのセーブが{1}の状態にもどります。今の状態は先にコピーとして残すので、あとでもどせます。"
+
+msgid "A named memory card is made the first time a game that uses it starts: {1}."
+msgstr "名前付きメモリーカードは、それを使うゲームを初めて始めたときに作られます: {1}。"
+
+msgid "Go back to how this named memory card was on a day you pick, for every game that uses it."
+msgstr "この名前付きメモリーカードを、選んだ日の状態にもどします。使っているすべてのゲームに反映されます。"

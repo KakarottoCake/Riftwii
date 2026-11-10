@@ -4454,3 +4454,9 @@ msgstr "A를 누르면 이 이름 있는 메모리 카드를 그때 상태로 �
 
 msgid "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them."
 msgstr "이 이름 있는 메모리 카드의 모든 저장 데이터가 {1} 상태로 되돌아갑니다. 지금 상태는 먼저 사본으로 보관하므로 다시 되돌릴 수 있습니다."
+
+msgid "A named memory card is made the first time a game that uses it starts: {1}."
+msgstr "이름 있는 메모리 카드는 그 카드를 쓰는 게임을 처음 시작할 때 만들어집니다: {1}."
+
+msgid "Go back to how this named memory card was on a day you pick, for every game that uses it."
+msgstr "이 이름 있는 메모리 카드를 고른 날의 상태로 되돌립니다. 이 카드를 쓰는 모든 게임에 적용됩니다."

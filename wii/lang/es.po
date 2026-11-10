@@ -4454,3 +4454,9 @@ msgstr "Pulsa A para devolver esta tarjeta de memoria con nombre a como estaba e
 
 msgid "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them."
 msgstr "Todas las partidas de esta tarjeta de memoria con nombre vuelven a como estaban el {1}. Su estado actual se guarda antes como copia, para que puedas volver a él."
+
+msgid "A named memory card is made the first time a game that uses it starts: {1}."
+msgstr "Una tarjeta de memoria con nombre se crea la primera vez que se inicia un juego que la usa: {1}."
+
+msgid "Go back to how this named memory card was on a day you pick, for every game that uses it."
+msgstr "Vuelve a como estaba esta tarjeta de memoria con nombre el día que elijas, para todos los juegos que la usan."

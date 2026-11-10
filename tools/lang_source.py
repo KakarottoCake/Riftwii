@@ -9340,5 +9340,19 @@ FR.update({
     "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them.": "Toutes les sauvegardes de cette carte mémoire nommée reviennent à leur état du {1}. Leur état actuel est d'abord gardé en copie, pour que vous puissiez y revenir.",
 })
 
+# Named memory cards on the Saves page (#511).
+T.update({
+    "A named memory card is made the first time a game that uses it starts: {1}.": ("Una tarjeta de memoria con nombre se crea la primera vez que se inicia un juego que la usa: {1}.", "名前付きメモリーカードは、それを使うゲームを初めて始めたときに作られます: {1}。", "Um cartão de memória com nome é criado na primeira vez que um jogo que o usa é iniciado: {1}.", "Una scheda di memoria con nome viene creata la prima volta che si avvia un gioco che la usa: {1}."),
+    "Go back to how this named memory card was on a day you pick, for every game that uses it.": ("Vuelve a como estaba esta tarjeta de memoria con nombre el día que elijas, para todos los juegos que la usan.", "この名前付きメモリーカードを、選んだ日の状態にもどします。使っているすべてのゲームに反映されます。", "Volte este cartão de memória com nome a como estava no dia que você escolher, para todos os jogos que o usam.", "Riporta questa scheda di memoria con nome a com'era nel giorno che scegli, per tutti i giochi che la usano."),
+})
+KO.update({
+    "A named memory card is made the first time a game that uses it starts: {1}.": "이름 있는 메모리 카드는 그 카드를 쓰는 게임을 처음 시작할 때 만들어집니다: {1}.",
+    "Go back to how this named memory card was on a day you pick, for every game that uses it.": "이 이름 있는 메모리 카드를 고른 날의 상태로 되돌립니다. 이 카드를 쓰는 모든 게임에 적용됩니다.",
+})
+FR.update({
+    "A named memory card is made the first time a game that uses it starts: {1}.": "Une carte mémoire nommée est créée la première fois qu'un jeu qui l'utilise démarre : {1}.",
+    "Go back to how this named memory card was on a day you pick, for every game that uses it.": "Remettez cette carte mémoire nommée dans son état du jour choisi, pour tous les jeux qui l'utilisent.",
+})
+
 if __name__ == "__main__":
     main()
