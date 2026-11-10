@@ -3645,8 +3645,8 @@ msgstr "Fronte della confezione"
 msgid "Spin"
 msgstr "Gira"
 
-msgid "The game's disc. Press A to see it up close, then spin it."
-msgstr "Il disco del gioco. Premi A per vederlo da vicino e farlo girare."
+msgid "The game's disc. Press A to spin it."
+msgstr "Il disco del gioco. Premi A per farlo girare."
 
 msgid "Music file"
 msgstr "File musicale"

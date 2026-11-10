@@ -12671,7 +12671,10 @@ public:
 	// Shrinks back into the page's disc; Closed() once it is there.
 	void Close() { closing = true; }
 	bool Closed() const { return closing && open <= 0.0f; }
-	// A flick, in turns' worth of speed: positive is clockwise.
+	// A flick on the way it already turns (clockwise from rest); flicks add
+	// up, to the top speed.
+	void Flick() { Kick(omega < 0 ? -kFlick : kFlick); }
+	// A kick of this much speed: positive is clockwise.
 	void Kick(float speed) {
 		omega = std::max(-kMaxSpin, std::min(kMaxSpin, omega + speed));
 	}
@@ -12751,32 +12754,41 @@ public:
 				if (step < -pi) step += 2 * pi;
 				const float dt = std::max(0.001f, ticks_to_microsecs(now - dragTime) / 1e6f);
 				angle += step;
+				dragTravel += std::fabs(step);
 				omega = std::max(-kMaxSpin, std::min(kMaxSpin, 0.6f * omega + 0.4f * step / dt));
 			} else if (!dragging && px * px + py * py < kBigSize * kBigSize / 4.0f) {
 				dragging = true;
 				dragChan = t->chan;
+				dragTravel = 0.0f;
+				dragStart = now;
 				omega = 0.0f;
 			}
 			dragAt = at;
 			dragTime = now;
 		} else if (dragging && t->chan == dragChan) {
 			dragging = false;
+			// Let go without having dragged it anywhere: a tap, which flicks
+			// it on (the pointer's A is a tap far more often than a drag).
+			if (dragTravel < 0.25f && ticks_to_millisecs(gettime() - dragStart) < 500) Flick();
 		}
-		if (pressedA && !dragging && !pointing) Kick(omega < 0 ? -kFlick : kFlick);
-		else if (pressedA && pointing) Kick(omega < 0 ? -kFlick * 0.5f : kFlick * 0.5f);
+		// Without a pointer (a pad, the classic controller): A flicks it.
+		if (pressedA && !pointing) Flick();
 	}
 
 private:
 	static constexpr float kBigSize = 340.0f, kBigY = 40.0f, kBigCentreY = kBigY + kBigSize / 2.0f;
-	// Radians a second: a flick is a little over a turn a second, a hard
-	// fling up to some five; 1.3 a second of drag and a steady 1.5 rad/s^2
-	// bring the hardest to rest in about four seconds.
-	static constexpr float kFlick = 7.0f, kMaxSpin = 30.0f, kDrag = 1.3f, kFriction = 1.5f;
+	// Radians a second: a flick is nearly two turns a second, a hard fling
+	// up to some five; the bearing's drag (1 a second) and a steady
+	// 1 rad/s^2 bring a tap to rest in about two seconds and the hardest
+	// fling in about three and a half, a few turns each: a fidget spinner
+	// that settles rather than one that keeps on.
+	static constexpr float kFlick = 11.0f, kMaxSpin = 30.0f, kDrag = 1.0f, kFriction = 1.0f;
 	const riftwii::wii::DiscArt* discArt;
 	float open = 0.0f;
 	float angle = 0.0f, omega = 0.0f;
 	u64 last = 0, dragTime = 0;
-	float dragAt = 0.0f;
+	float dragAt = 0.0f, dragTravel = 0.0f;
+	u64 dragStart = 0;
 	int dragChan = -1;
 	bool dragging = false;
 	bool closing = false, back = false;
@@ -12808,7 +12820,7 @@ static void MenuDiscCloseup(const riftwii::wii::DiscArt* art)
 			prompts.SetShown(promptClose, false);
 			prompts.SetShown(promptSpin, false);
 		} else if (!closing && prompt == promptSpin) {
-			closeup.Kick(7.0f);
+			closeup.Flick();
 		}
 		ResumeGui();
 	}
@@ -15648,7 +15660,7 @@ static int MenuHome(FrontendState& state)
 					else say(tr("There is no box art for this game yet."));
 					break;
 				case GameTile::Disc:
-					say(tr("The game's disc. Press A to see it up close, then spin it."));
+					say(tr("The game's disc. Press A to spin it."));
 					break;
 			}
 		}

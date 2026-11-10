@@ -3645,8 +3645,8 @@ msgstr "表面"
 msgid "Spin"
 msgstr "回す"
 
-msgid "The game's disc. Press A to see it up close, then spin it."
-msgstr "ゲームのディスクです。Aで拡大して、回して遊べます。"
+msgid "The game's disc. Press A to spin it."
+msgstr "ゲームのディスクです。Aで回せます。"
 
 msgid "Music file"
 msgstr "音楽ファイル"
