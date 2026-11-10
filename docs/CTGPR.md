@@ -46,9 +46,13 @@ The CTGP-R developers allow it on these conditions, which the code keeps:
 * **No ghost signing.** The card's signing key (on `jelly.bin`) and the
   console's MAC are not read. CTGP gets a key RiftWii made to prevent accepted
   signatures (`include/riftwii/ctgpsign.hpp`). A host test shows one signature
-  from it fails local verification. *Not confirmed:* that ghosts save and
-  replay on a console with this key, or that the server rejects them (the
-  earlier build saved and replayed ghosts with the card's own key).
+  from it fails local verification. The decompile confirms the in-game ghost
+  signer (`FUN_817773f4`) takes its DSA key only from the loader block RiftWii
+  fills (`0x816ff52c`); the in-game `jelly.bin` open is a content mount, not a
+  key read — so ghosts signed under a RiftWii launch carry the invalid key and
+  are rejected by CTGP's server (static-decompile basis). *Not confirmed on a
+  console:* that ghosts save and replay with this key (the earlier build saved
+  and replayed ghosts with the card's own key).
 
 It starts CTGP-R only on the versions this launch is made for (PACKAGES.BIN
 core `0x01030412`, CTGPR `0x01031192` or `0x01031196`). The core governs the
