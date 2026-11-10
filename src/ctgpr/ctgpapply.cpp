@@ -56,6 +56,14 @@ public:
         op.size = size;
         ops.push_back(op);
     }
+    // `count` words to consecutive addresses from `address`. Out of line, so
+    // the table's address arrives as a plain pointer: inlined into a loop
+    // that also counts the game address, GCC folded the two into one biased
+    // pointer (the table's address minus 0x816ffaf8), a relocation far
+    // outside the plugin's image that its loader rightly refuses.
+    __attribute__((noinline)) void words(std::uint32_t address, const std::uint32_t* from, std::uint32_t count) {
+        for (std::uint32_t i = 0; i < count; ++i) w32(address + 4 * i, from[i]);
+    }
     std::vector<CtgpOp> ops;
 };
 
@@ -171,8 +179,8 @@ std::vector<CtgpOp> ctgp_apply_settings(const CtgpSettings& s) {
         o.w32(0x816ffa18, fa18);
         o.w32(0x816ffa14, fa14);
     } else {
-        for (int i = 0; i < 4; ++i) o.w32(kCtgpCourseTable + 4 * i, kCourseHead[i]);
-        for (int i = 0; i < 28; ++i) o.w32(kCtgpCourseTable + 16 + 4 * i, kCourseTail[i]);
+        o.words(kCtgpCourseTable, kCourseHead, 4);
+        o.words(kCtgpCourseTable + 16, kCourseTail, 28);
         // The chosen layout, as the channel copies it: one word per track byte
         // of its groups, then the group count plus the eight base cups.
         // ctgp_layout_from_entry/_from_cup bounded both.
