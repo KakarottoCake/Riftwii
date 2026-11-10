@@ -5,6 +5,7 @@
 // plugin (Makefile.plugin), so the plugin has no undefined symbol and calls
 // RiftWii only through rwp_host (docs/PLUGINS.md, "Stage (b)").
 #include "rwpruntime.hpp"
+#include "rwptrack.hpp"
 
 #include <sys/stat.h>
 
@@ -29,6 +30,7 @@ const rwp_host* g_host = nullptr;
 // escape()'s way back: __builtin_setjmp's five words, and whether a launch
 // is inside the window where it may be used.
 void* g_escape_buffer[5];
+BlockTracker g_tracker;
 bool g_escape_armed = false;
 Escape g_escape;
 
@@ -49,6 +51,19 @@ bool start_runtime(const rwp_host* table) {
 const rwp_host& host() { return *g_host; }
 
 void** escape_buffer() { return g_escape_buffer; }
+
+void track_blocks(void** slots, std::uint32_t count) { g_tracker.start(slots, count); }
+
+void untrack_blocks() { g_tracker.stop(); }
+
+std::uint32_t free_tracked_blocks(bool& overflowed) {
+    overflowed = g_tracker.overflowed();
+    return g_tracker.sweep([](void* block) { g_host->mem1_free(block); });
+}
+
+// The runtime's own allocations and frees, noted while a launch tracks them.
+void note_allocated(void* block) { g_tracker.add(block); }
+void note_freed(void* block) { g_tracker.remove(block); }
 
 void arm_escape() {
     g_escape = Escape{};
@@ -74,6 +89,12 @@ void escape(std::int32_t result, const char* why) {
 
 using riftwii::plugin::escape;
 using riftwii::plugin::host;
+namespace riftwii::plugin {
+void note_allocated(void* block);
+void note_freed(void* block);
+}  // namespace riftwii::plugin
+using riftwii::plugin::note_allocated;
+using riftwii::plugin::note_freed;
 
 // ---- Memory: RiftWii's heap (MEM1, then MEM2 when it is full) ----
 
@@ -83,17 +104,24 @@ void* allocate(std::size_t bytes) {
     // The heap refuses 0 bytes; C++ wants a distinct block for them.
     void* block = host().mem1_alloc(bytes == 0 ? 1 : static_cast<std::uint32_t>(bytes));
     if (block == nullptr) escape(RWP_LAUNCH_NO_MEMORY, "RiftWii's memory is full");
+    note_allocated(block);
     return block;
+}
+
+void release(void* block) {
+    if (block == nullptr) return;
+    note_freed(block);
+    host().mem1_free(block);
 }
 
 }  // namespace
 
 void* operator new(std::size_t bytes) { return allocate(bytes); }
 void* operator new[](std::size_t bytes) { return allocate(bytes); }
-void operator delete(void* block) noexcept { host().mem1_free(block); }
-void operator delete[](void* block) noexcept { host().mem1_free(block); }
-void operator delete(void* block, std::size_t) noexcept { host().mem1_free(block); }
-void operator delete[](void* block, std::size_t) noexcept { host().mem1_free(block); }
+void operator delete(void* block) noexcept { release(block); }
+void operator delete[](void* block) noexcept { release(block); }
+void operator delete(void* block, std::size_t) noexcept { release(block); }
+void operator delete[](void* block, std::size_t) noexcept { release(block); }
 
 // ---- What libstdc++ would throw: nothing can be thrown here ----
 
@@ -204,11 +232,13 @@ double floor(double x) {
 }
 
 // The C library's heap: RiftWii's, as operator new's.
-void* malloc(size_t bytes) { return host().mem1_alloc(bytes == 0 ? 1 : static_cast<std::uint32_t>(bytes)); }
-
-void free(void* block) {
-    if (block != nullptr) host().mem1_free(block);
+void* malloc(size_t bytes) {
+    void* block = host().mem1_alloc(bytes == 0 ? 1 : static_cast<std::uint32_t>(bytes));
+    note_allocated(block);
+    return block;
 }
+
+void free(void* block) { release(block); }
 
 int vsnprintf(char* out, size_t bytes, const char* format, va_list args) {
     return host().format(out, static_cast<std::uint32_t>(bytes), format, args);

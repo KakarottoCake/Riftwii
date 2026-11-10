@@ -5,6 +5,7 @@
 // attribution and the API tables' version rules; the in-app update's
 // order (plugins before the DOL); and a file written by
 // tools/make_plugin.py read back by the C++ reader.
+#include "../plugins/common/rwptrack.hpp"
 #include "riftwii/plugin_api.h"
 #include "riftwii/pluginfile.hpp"
 #include "riftwii/sha256.hpp"
@@ -647,6 +648,43 @@ static void TestToolFixture(const std::string& fixtures) {
     EXPECT_EQ(riftwii::plugin_check_table(memory.data(), header, base, header.api_version, why), PluginRefusal::None);
 }
 
+// A plugin launch's heap blocks (plugins/common/rwptrack.hpp): what an escape
+// gives back is exactly what was taken and not yet freed, once each.
+static void TestBlockTracker() {
+    riftwii::plugin::BlockTracker tracker;
+    std::vector<void*> slots(64);
+    std::vector<int> blocks(100);
+    tracker.add(&blocks[0]);  // not tracking yet: ignored
+    tracker.start(slots.data(), 64);
+    EXPECT_TRUE(tracker.active());
+    for (int i = 0; i < 40; ++i) tracker.add(&blocks[i]);
+    for (int i = 0; i < 40; i += 2) tracker.remove(&blocks[i]);  // freed in the launch
+    tracker.remove(&blocks[90]);  // a block from before tracking: left alone
+    EXPECT_EQ(tracker.live(), 20u);
+    // Freed slots are used again, and the probe still finds the rest.
+    for (int i = 40; i < 44; ++i) tracker.add(&blocks[i]);
+    EXPECT_EQ(tracker.live(), 24u);
+    EXPECT_FALSE(tracker.overflowed());
+    std::vector<int> seen(100, 0);
+    const std::uint32_t freed = tracker.sweep([&](void* block) { ++seen[static_cast<int*>(block) - blocks.data()]; });
+    EXPECT_EQ(freed, 24u);
+    bool exact = true;
+    for (int i = 0; i < 100; ++i) {
+        const int expected = (i < 40 && i % 2 == 1) || (i >= 40 && i < 44) ? 1 : 0;
+        if (seen[i] != expected) exact = false;
+    }
+    EXPECT_TRUE(exact);
+    EXPECT_FALSE(tracker.active());
+    tracker.add(&blocks[50]);  // stopped: nothing is noted any more
+    EXPECT_EQ(tracker.sweep([](void*) {}), 0u);
+    // A table three quarters full stops taking blocks and says so.
+    tracker.start(slots.data(), 64);
+    for (int i = 0; i < 60; ++i) tracker.add(&blocks[i]);
+    EXPECT_TRUE(tracker.overflowed());
+    EXPECT_EQ(tracker.live(), 48u);
+    EXPECT_EQ(tracker.sweep([](void*) {}), 48u);
+}
+
 // The in-app update (riftwii/update.hpp's plan_update_writes): the
 // release's plugins first, next to the running DOL, then the DOL last; the
 // rest of the apps part waits for the new DOL's first start.
@@ -793,6 +831,7 @@ int main(int argc, char** argv) {
     TestDescribeAddress();
     TestTables();
     TestUpdateOrder();
+    TestBlockTracker();
     if (argc > 1) {
         TestToolFixture(argv[1]);
     } else {

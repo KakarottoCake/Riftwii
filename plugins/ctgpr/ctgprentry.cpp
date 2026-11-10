@@ -9,6 +9,8 @@
 // with the reason in the request.
 #include <zlib.h>
 
+#include <new>
+
 #include "ctgprprepare.hpp"
 #include "riftwii/ctgparena.hpp"
 #include "riftwii/plugin_ctgpr.hpp"
@@ -18,6 +20,10 @@ namespace {
 
 // Its own version, for logs; the build stamp is what has to match.
 constexpr std::uint32_t kCtgprVersion = 1;
+
+// The table of the launch's heap blocks (rwptrack.hpp), in the DOL's MEM2
+// block: 64K slots (256 KB), room for 48K blocks held at once.
+constexpr std::uint32_t kTrackSlots = 64 * 1024;
 
 // The launch inside escape()'s window (rwpruntime.hpp). Kept out of line:
 // __builtin_setjmp's caller and this must be different functions.
@@ -37,21 +43,41 @@ int32_t ctgpr_launch(const void* raw, uint32_t bytes) {
     // The big buffers go to the DOL's MEM2 block: this image's copy of
     // g_ctgp_arena points at the DOL's arena for the length of the launch.
     riftwii::g_ctgp_arena = request.arena;
+    // An escape unwinds nothing, so the launch's heap blocks are tracked and
+    // given back after one. The table is taken before tracking starts, from
+    // the MEM2 block (without one, nothing is tracked and an escape leaks).
+    void** const track = request.arena != nullptr
+                             ? static_cast<void**>(request.arena->allocate(kTrackSlots * sizeof(void*)))
+                             : nullptr;
+    if (track == nullptr) riftwii::plugin::host().log("no room to track the plan's heap blocks");
     if (__builtin_setjmp(riftwii::plugin::escape_buffer()) != 0) {
-        // Back from escape(): what would have thrown, as a result. What the
-        // launch had allocated stays allocated; the DOL gives the MEM2 block
-        // back whole (wii/launch/ctgpr.cpp).
+        // Back from escape(): what would have thrown, as a result. Every
+        // heap block the launch still held goes back, the plan's and
+        // request.error's among them: nothing of them is used again. The
+        // MEM2 block's own bookkeeping went with them, so the DOL starts it
+        // afresh and gives it back whole (wii/launch/ctgpr.cpp).
+        bool overflowed = false;
+        const std::uint32_t freed = riftwii::plugin::free_tracked_blocks(overflowed);
         riftwii::g_ctgp_arena = nullptr;
+        request.escaped = 1;
+        // Its buffer was one of them: an empty string in its place, which
+        // allocates nothing.
+        new (&request.error) std::string();
         const riftwii::plugin::Escape taken = riftwii::plugin::escape_taken();
         // Out of memory: no std::string here, its allocation could fail again
         // with the escape disarmed. The reason goes to the log only.
         if (taken.result != RWP_LAUNCH_NO_MEMORY) request.error = taken.why ? taken.why : "the launch stopped";
-        riftwii::plugin::host().log("the plan stopped: %s", taken.why ? taken.why : "no reason given");
+        riftwii::plugin::host().log("the plan stopped: %s; %u heap blocks given back%s",
+                                    taken.why ? taken.why : "no reason given", static_cast<unsigned>(freed),
+                                    overflowed ? " (more were not tracked and stay taken)" : "");
         return taken.result;
     }
+    if (track != nullptr) riftwii::plugin::track_blocks(track, kTrackSlots);
     riftwii::plugin::arm_escape();
     const int32_t result = run_launch(request);
     riftwii::plugin::disarm_escape();
+    riftwii::plugin::untrack_blocks();
+    if (track != nullptr) request.arena->release(track);
     riftwii::g_ctgp_arena = nullptr;
     return result;
 }

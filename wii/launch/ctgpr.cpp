@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 
 #include <cstdlib>
+#include <new>
 
 #include "di.hpp"
 #include "i18n.hpp"
@@ -60,12 +61,21 @@ void reserve_launch_arena() {
 // block goes back whole.
 void release_launch_arena(bool stopped = false) {
     if (g_launch_arena_block == nullptr) return;
-    if (g_launch_arena.live_blocks() != 0) {
-        if (!stopped) return;
-        logf("CTGP-R: %u buffers of the stopped plan were never freed; the MEM2 block goes back whole\n",
-             static_cast<unsigned>(g_launch_arena.live_blocks()));
-        g_launch_arena.attach(g_launch_arena_block, 0);
+    if (stopped) {
+        // The plugin left through its escape and gave back every heap block
+        // it held, the arena's bookkeeping nodes among them: the arena is
+        // started afresh in place (not cleared, which would free those nodes
+        // again), and the block goes back whole.
+        logf("CTGP-R: the stopped plan's MEM2 buffers go back whole\n");
+        const std::size_t peak = g_launch_arena.peak();
+        new (&g_launch_arena) CtgpArena();
+        logf("CTGP-R: launch buffers: most in use at once %u KiB of MEM2\n", static_cast<unsigned>(peak / 1024));
+        g_ctgp_arena = nullptr;
+        std::free(g_launch_arena_block);
+        g_launch_arena_block = nullptr;
+        return;
     }
+    if (g_launch_arena.live_blocks() != 0) return;
     logf("CTGP-R: launch buffers: most in use at once %u KiB of MEM2\n",
          static_cast<unsigned>(g_launch_arena.peak() / 1024));
     g_ctgp_arena = nullptr;
@@ -164,11 +174,10 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
     // The code files and everything built from them go to MEM2 (CtgpBytes).
     reserve_launch_arena();
     request.arena = g_ctgp_arena;
-    std::shared_ptr<CtgpLaunchPlan> plan(new CtgpLaunchPlan, [](CtgpLaunchPlan* done) {
-        delete done;
-        release_launch_arena();
-    });
-    request.plan = plan.get();
+    // Held raw until the plugin is done: after an escape its containers'
+    // blocks are already given back, and it must not be destroyed.
+    CtgpLaunchPlan* const built = new CtgpLaunchPlan;
+    request.plan = built;
 
     std::string message;
     const std::int32_t result = plugin::Launch(kPluginName, &request, sizeof(request), message);
@@ -176,6 +185,23 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
     // own types on the DOL's heap and MEM2 block): the plugin's arena goes
     // back to the heap before the game is loaded.
     plugin::ShutdownAll("CTGP-R's plan is built");
+    if (request.escaped != 0) {
+        // Only the plan's own memory: what it held went with the plugin's
+        // blocks (riftwii/plugin_ctgpr.hpp), so no destructor runs.
+        ::operator delete(static_cast<void*>(built));
+        request.plan = nullptr;
+        release_launch_arena(true);
+        if (result == RWP_LAUNCH_NO_MEMORY) {
+            logf("CTGP-R: the ctgpr plugin ran out of memory (its own log line above says where)\n");
+            error = mem::LaunchOutOfMemoryMessage();
+            return false;
+        }
+        return stop(CtgprFailure::Other, request.error.empty() ? "the ctgpr plugin stopped" : request.error);
+    }
+    std::shared_ptr<CtgpLaunchPlan> plan(built, [](CtgpLaunchPlan* done) {
+        delete done;
+        release_launch_arena();
+    });
     if (result == kCtgprPlanReady) {
         // The block itself goes back at the handover, after the last log line.
         logf("CTGP-R: launch buffers: most in use at once %u KiB of MEM2 (plan built)\n",
@@ -185,12 +211,6 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
     }
     request.plan = nullptr;
     plan.reset();  // its deleter gives the MEM2 block back once nothing is in it
-    if (result == RWP_LAUNCH_NO_MEMORY) {
-        release_launch_arena(true);
-        logf("CTGP-R: the ctgpr plugin ran out of memory (its own log line above says where)\n");
-        error = mem::LaunchOutOfMemoryMessage();
-        return false;
-    }
     release_launch_arena();
     if (result < 0) {
         // The plugin is missing, from another RiftWii, damaged or did not

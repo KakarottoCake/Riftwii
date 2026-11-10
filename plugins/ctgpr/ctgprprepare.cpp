@@ -12,6 +12,7 @@
 #include <array>
 #include <cstdarg>
 #include <cstdio>
+#include <utility>
 #include <vector>
 
 #include "riftwii/checkedalloc.hpp"
@@ -55,6 +56,30 @@ void logf(const char* format, ...) {
     host().log_text(line);
 }
 
+// The DOL's SD reads, given only empty objects to fill: RiftWii's own code
+// must never free or replace a block the launch allocated, since the launch
+// tracks its blocks to give them back after an escape (ctgprentry.cpp) and
+// would free such a block a second time. What the DOL fills in is moved
+// over here, in the plugin's own code.
+bool sd_resolve(const CtgprSdAccess& sd, const std::string& path, Fat32File& out, std::string& error) {
+    Fat32File found;
+    std::string why;
+    const bool ok = sd.resolve(path, found, why);
+    out = std::move(found);
+    if (!ok) error = std::move(why);
+    return ok;
+}
+
+bool sd_boot_sector(const CtgprSdAccess& sd, std::uint64_t& volume_lba, std::vector<std::uint8_t>& sector,
+                    std::string& error) {
+    std::vector<std::uint8_t> found;
+    std::string why;
+    const bool ok = sd.boot_sector(volume_lba, found, why);
+    sector = std::move(found);
+    if (!ok) error = std::move(why);
+    return ok;
+}
+
 bool exists(const char* path) {
     struct stat st;
     return stat(path, &st) == 0 && S_ISREG(st.st_mode);
@@ -87,7 +112,7 @@ bool read_whole(const char* path, std::vector<std::uint8_t>& out, std::string& e
 bool open_package_disk(const CtgprSdAccess& sd, const CtgpTables& tables, BlockReader& reader, Fat32Volume& efa,
                        std::string& error) {
     Fat32File blob;
-    if (!sd.resolve(kBlobPath, blob, error)) return false;
+    if (!sd_resolve(sd, kBlobPath, blob, error)) return false;
     std::array<std::uint8_t, 16> key = ctgp_blob_key();
     const std::uint64_t blob_size = blob.entry.size & ~511ull;
     auto read = sd.read;
@@ -291,14 +316,14 @@ bool ctgpr_prepare(CtgprLaunchRequest& request) {
         return false;
     }
     std::uint64_t volume_lba = 0;
-    if (!sd.boot_sector(volume_lba, in.sda_boot_sector, error)) return false;
+    if (!sd_boot_sector(sd, volume_lba, in.sda_boot_sector, error)) return false;
     in.sda_volume_lba = static_cast<std::uint32_t>(volume_lba);
 
     // My Stuff replacing Common.szs turns ghost saving off (the channel checks the same names).
     for (const char* name : kCtgpMyStuffCommons) {
         Fat32File f;
         std::string ignored_error;
-        if (sd.resolve(std::string("sd:/ctgpr/My Stuff/") + name, f, ignored_error) && !f.entry.is_directory) {
+        if (sd_resolve(sd, std::string("sd:/ctgpr/My Stuff/") + name, f, ignored_error) && !f.entry.is_directory) {
             in.my_stuff_common = true;
             logf("CTGP-R: My Stuff holds %s: ghosts will not save\n", name);
             break;
@@ -335,7 +360,7 @@ bool ctgpr_prepare(CtgprLaunchRequest& request) {
     // that verifies, the packages' signed files cannot be used and the launch
     // stops, as the channel's does.
     Fat32File jelly;
-    if (!sd.resolve(kJellyPath, jelly, error)) return false;
+    if (!sd_resolve(sd, kJellyPath, jelly, error)) return false;
     const auto efb_key = ctgp_efb_key(in.tables.efb_key, jelly.entry.write_time, jelly.entry.write_date,
                                       jelly.entry.create_time, jelly.entry.create_date);
     auto read = sd.read;
@@ -373,7 +398,7 @@ bool ctgpr_prepare(CtgprLaunchRequest& request) {
         if (device == "efa") {
             if (!efa.lookup(path, f, ignored_error) || f.entry.is_directory) return false;
         } else if (device == "sda") {
-            if (!sd_copy.resolve("sd:" + path, f, ignored_error) || f.entry.is_directory) return false;
+            if (!sd_resolve(sd_copy, "sd:" + path, f, ignored_error) || f.entry.is_directory) return false;
         } else {
             return false;
         }

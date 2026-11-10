@@ -65,6 +65,12 @@ struct CtgprLaunchRequest {
     CtgpLaunchPlan* plan = nullptr;
     CtgprFailure failure = CtgprFailure::Other;
     std::string error;  // technical, for boot.log
+    // 1 when the plugin left through its escape (no memory, or what would
+    // have thrown): it gave back every heap block its launch held, the
+    // plan's among them, so the DOL must not destroy `plan` (only free its
+    // own block) and must start the CTGP arena afresh, whose bookkeeping
+    // nodes went too.
+    std::uint32_t escaped = 0;
 };
 
 constexpr std::uint32_t ctgpr_request_layout() {

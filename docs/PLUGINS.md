@@ -335,9 +335,16 @@ plugin with its own build stamp (the same compiler and headers), and
 a mismatch a refusal rather than a crash. The plan holds no pointer into the
 plugin's image. `launch` returns `kCtgprPlanReady` (0) with the plan built,
 which is the one difference from the gamecube plugin's launch (it returns only
-on failure). On `RWP_LAUNCH_NO_MEMORY` (its escape) the plugin's locals are
-not unwound; the DOL gives the MEM2 block back whole, since nothing points
-into it any more.
+on failure). An escape (no memory, or what would have thrown) unwinds
+nothing, so while the launch runs the runtime notes every heap block its
+`new` and `malloc` hand out (`plugins/common/rwptrack.hpp`, a 256 KB table
+in the MEM2 block) and the escape gives back what is left, allocating nothing.
+The plan's blocks go with them, so the request says `escaped`: the DOL then
+frees only the plan object itself, starts its `CtgpArena` afresh (its
+bookkeeping nodes went too) and gives the MEM2 block back whole. For that to
+hold, RiftWii's own code must never free a block the plugin allocated: the
+plugin hands the DOL's SD reads only empty objects and moves what they fill
+into its own.
 
 What building it needed:
 
