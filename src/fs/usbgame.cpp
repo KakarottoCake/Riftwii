@@ -368,7 +368,9 @@ bool path_in_folder(const std::string& path, const std::string& folder) {
 }
 
 void CisoFinds::note(const std::string& path) {
-    if (!seen.insert(path_fold_case(path)).second) return;
+    const std::string folded = path_fold_case(path);
+    if (seen.count(folded) != 0) return;
+    if (seen.size() < kSeenKept) seen.insert(folded);
     if (paths.size() < kPathsKept) paths.push_back(path);
     ++total;
 }
@@ -381,9 +383,11 @@ void CisoFinds::merge(const CisoFinds& other) {
         paths.push_back(path);
     }
     for (const std::string& path : other.seen) {
-        if (seen.insert(path).second) ++total;
+        if (seen.count(path) != 0) continue;
+        if (seen.size() < kSeenKept) seen.insert(path);
+        ++total;
     }
-    // Finds the other one counted but no longer names (kept before `seen`).
+    // Finds past the other's kSeenKept: counted, without names to compare.
     if (other.total > other.seen.size()) total += other.total - other.seen.size();
 }
 

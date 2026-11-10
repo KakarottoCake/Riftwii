@@ -495,6 +495,12 @@ void test_ciso_detection() {
     twice.note("usb:/B.ciso");
     EXPECT_EQ(twice.total, static_cast<std::size_t>(2));
 
+    // Past kSeenKept paths every find is counted, and nothing more is kept.
+    CisoFinds flood;
+    for (std::size_t i = 0; i < CisoFinds::kSeenKept + 10; ++i) flood.note("sd:/x/" + std::to_string(i) + ".ciso");
+    EXPECT_EQ(flood.total, CisoFinds::kSeenKept + 10);
+    EXPECT_EQ(flood.seen.size(), CisoFinds::kSeenKept);
+
     // Games two folders reach: the later ones, case ignored.
     const std::vector<std::string> found = {"sd:/wbfs/A [RMCE01]/RMCE01.wbfs", "sd:/Wii Games/b.iso",
                                             "sd:/wii games/B.iso", "sd:/WBFS/a [rmce01]/rmce01.wbfs", "sd:/c.iso"};

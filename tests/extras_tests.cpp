@@ -2143,6 +2143,7 @@ void TestCoverArt() {
     EXPECT_TRUE(add_game_folder(pick, "usb:/") == GameFolderAdd::NotAFolder);
     EXPECT_TRUE(add_game_folder(pick, "/no drive") == GameFolderAdd::NotAFolder);
     EXPECT_TRUE(add_game_folder(pick, "nand:/title") == GameFolderAdd::NotAFolder);
+    EXPECT_TRUE(add_game_folder(pick, "usbx:/games2") == GameFolderAdd::NotAFolder);
     EXPECT_TRUE(add_game_folder(pick, "sd:/a;b") == GameFolderAdd::NotAFolder);
     EXPECT_TRUE(add_game_folder(pick, "sd:/x/../y") == GameFolderAdd::NotAFolder);
     EXPECT_EQ(pick.game_folders.size(), 3u);

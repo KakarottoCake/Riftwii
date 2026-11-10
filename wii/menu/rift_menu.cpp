@@ -18855,16 +18855,26 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						logf("Settings: game folders are now %u\n", static_cast<unsigned>(folders.size()));
 						// A removed folder's games leave Home now, not when the
 						// rescan's part for their drive comes in (as the page says).
+						// Whether a listed folder (`entry`) reaches the game at `path`.
+						const auto reaches = [](const std::string& entry, const std::string& path) {
+							const riftwii::GameFolderPlace place = riftwii::game_folder_place(entry);
+							// A drive's top written by hand is never scanned.
+							if (place.path == "/") return false;
+							const std::size_t colon = path.find(':');
+							const std::string drive = colon == std::string::npos ? std::string() : path.substr(0, colon);
+							if (!place.drive.empty() && riftwii::path_fold_case(drive) != place.drive) return false;
+							return riftwii::path_in_folder(path, drive + ":" + place.path);
+						};
 						for (const std::string& gone : foldersBefore) {
 							if (std::find(folders.begin(), folders.end(), gone) != folders.end()) continue;
-							const riftwii::GameFolderPlace place = riftwii::game_folder_place(gone);
 							for (riftwii::wii::ImageCatalog* catalog : {&state.sd_catalog, &state.usb_catalog}) {
 								auto& games = catalog->games;
 								games.erase(std::remove_if(games.begin(), games.end(), [&](const riftwii::wii::ImageGame& g) {
-									const std::size_t colon = g.path.find(':');
-									const std::string drive = colon == std::string::npos ? std::string() : g.path.substr(0, colon);
-									if (!place.drive.empty() && riftwii::path_fold_case(drive) != place.drive) return false;
-									return riftwii::path_in_folder(g.path, drive + ":" + place.path);
+									if (!reaches(gone, g.path)) return false;
+									// A folder still listed around it keeps the game.
+									for (const std::string& kept : folders)
+										if (reaches(kept, g.path)) return false;
+									return true;
 								}), games.end());
 							}
 						}

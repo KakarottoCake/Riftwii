@@ -180,8 +180,6 @@ CiosReadiness cios_readiness(const CiosSlotState* slots, std::size_t count);
 // from a Mac) are not images.
 bool is_ciso_image_name(const std::string& name);
 
-// The .ciso files one scan found: the first few paths, in scan order, and
-// how many in all (a card full of them must not grow the list unbounded).
 // A path as FAT and NTFS compare names: ASCII letters in lower case.
 std::string path_fold_case(const std::string& path);
 // Of `paths`, the indices from `from` on whose path (case ignored) came
@@ -192,13 +190,18 @@ std::vector<std::size_t> repeated_paths(const std::vector<std::string>& paths, s
 // "sd:/wii games/x/a.iso"), case ignored.
 bool path_in_folder(const std::string& path, const std::string& folder);
 
+// The .ciso files one scan found: the first few paths, in scan order, and
+// how many in all (a card full of them must not grow the list unbounded).
 struct CisoFinds {
     static constexpr std::size_t kPathsKept = 4;
+    // The paths remembered to count each once: a card with more (damaged,
+    // or made to fill the menu's memory) is counted past them as found.
+    static constexpr std::size_t kSeenKept = 2048;
     std::vector<std::string> paths;
     std::size_t total = 0;
-    // Every path noted (path_fold_case), so a file two scans reach (a game
-    // folder inside another, riftwii/settingsfile.hpp's game_folders)
-    // counts once.
+    // The first kSeenKept paths noted (path_fold_case), so a file two scans
+    // reach (a game folder inside another, riftwii/settingsfile.hpp's
+    // game_folders) counts once.
     std::set<std::string> seen;
     void note(const std::string& path);
     // Adds another scan's finds after these, so the SD card's and the USB
