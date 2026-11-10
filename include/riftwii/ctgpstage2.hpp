@@ -5,9 +5,10 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <map>
 #include <string>
 #include <vector>
+
+#include "riftwii/ctgparena.hpp"
 
 // CTGP-R's channel program, decoded from the player's own install
 // (docs/CTGPR.md, "The cup layouts"). The default cup layout exists only in
@@ -55,13 +56,42 @@ bool ctgp_parse_dol(const std::uint8_t* dol, std::size_t size, CtgpDolLayout& ou
 constexpr std::uint32_t kCtgpPpcStackTop = 0x81000000;
 constexpr std::uint32_t kCtgpPpcStackBytes = 64 * 1024;
 constexpr std::uint32_t kCtgpPpcHid0 = 0x0011c264;
-// The overlay's cap, per view: 1024 lines (32 KB of stores; the views live on
-// the heap, so a runaway program cannot take much of it). CTGP-R 1.03's
+// The overlay's cap, per view: 1024 lines (32 KB of stores). CTGP-R 1.03's
 // builder touches about 20 data lines and 170 code lines.
 constexpr std::uint32_t kCtgpPpcMaxLines = 1024;
 
+// A set of 32-byte lines keyed by address, in a slice of one buffer: an
+// open-addressing table of kSlots slots (twice the cap, so probes stay short),
+// each the line's address then its bytes. Address 0 marks an empty slot and 1
+// a removed one (line addresses are multiples of 32 and the decoder's memory
+// starts at 0x80000000, so neither is ever a line).
+class CtgpLineTable {
+public:
+    static constexpr std::uint32_t kSlots = 2 * kCtgpPpcMaxLines;
+    static constexpr std::uint32_t kSlotBytes = 4 + 32;
+    static constexpr std::size_t kBytes = std::size_t(kSlots) * kSlotBytes;
+
+    void attach(std::uint8_t* slots) { slots_ = slots; live_ = 0; }
+    // The line's bytes, or null.
+    const std::uint8_t* find(std::uint32_t line) const;
+    // The line's bytes, made when it is new; null when the table already
+    // holds kCtgpPpcMaxLines lines.
+    std::uint8_t* insert(std::uint32_t line);
+    void erase(std::uint32_t line);
+    // True when any line overlaps [address, end).
+    bool any_in(std::uint64_t address, std::uint64_t end) const;
+
+private:
+    std::uint32_t key(std::uint32_t slot) const;
+    void set_key(std::uint32_t slot, std::uint32_t value);
+    std::uint8_t* slots_ = nullptr;
+    std::uint32_t live_ = 0;
+};
+
 class CtgpPpc {
 public:
+    // Takes its three line tables (about 216 KB) as one CtgpBytes block, so in
+    // a launch they come from the MEM2 arena; freed with the interpreter.
     CtgpPpc(const std::uint8_t* dol, const CtgpDolLayout& layout);
 
     std::uint32_t r[32] = {};
@@ -80,7 +110,7 @@ private:
     using Line = std::array<std::uint8_t, 32>;
     bool mapped(std::uint32_t address) const;  // inside the decoder's memory
     bool backing(std::uint32_t line, Line& out) const;  // the start state of a line
-    bool view(std::uint32_t line, const std::map<std::uint32_t, Line>& layer, Line& out) const;
+    bool view(std::uint32_t line, const CtgpLineTable& layer, Line& out) const;
     bool load(std::uint32_t address, std::uint32_t length, std::uint32_t& value);
     bool store(std::uint32_t address, std::uint32_t length, std::uint32_t value);
     bool flush(std::uint32_t address);
@@ -89,9 +119,10 @@ private:
 
     const std::uint8_t* dol_;
     CtgpDolLayout layout_;
-    std::map<std::uint32_t, Line> data_;    // stored lines (the data view)
-    std::map<std::uint32_t, Line> memory_;  // written-back lines (the memory view)
-    std::map<std::uint32_t, Line> icache_;
+    CtgpBytes pool_;          // the three tables' slots
+    CtgpLineTable data_;      // stored lines (the data view)
+    CtgpLineTable memory_;    // written-back lines (the memory view)
+    CtgpLineTable icache_;
     std::uint32_t iabr_ = 0, dabr_ = 0;
     std::uint32_t steps_ = 0;
     std::string fault_;

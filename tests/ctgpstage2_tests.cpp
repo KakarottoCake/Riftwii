@@ -157,6 +157,14 @@ static void test_refusals() {
     EXPECT_TRUE(run({lis(3, 0x8170), stw(4, 3, 0), kNop}, base + 8, 100).find("outside") != std::string::npos);
     // running off the end of the code
     EXPECT_TRUE(run({kNop}, base + 0x40, 100).find("outside") != std::string::npos);
+    // the store overlay holds 1024 lines: 1000 distinct lines are fine, 1100 are refused
+    auto fill_lines = [&](u32 count) {
+        return run({lis(4, 0x80ff), li(5, count), mtspr(kCtr, 5), stw(5, 4, 0), addi(4, 4, 32),
+                    bdnz(base + 20, base + 12), kNop},
+                   base + 24, 10000);
+    };
+    EXPECT_TRUE(fill_lines(1000).empty());
+    EXPECT_TRUE(fill_lines(1100).find("full") != std::string::npos);
     // its stack works
     EXPECT_TRUE(run({stwu(1, 1, 0xFFE0), stw(1, 1, 8), lwz(5, 1, 8), kNop}, base + 12, 100).empty());
     // a malformed DOL

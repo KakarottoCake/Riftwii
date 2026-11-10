@@ -8,6 +8,7 @@
 #include <cstring>
 #include <zlib.h>
 
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/ctgparena.hpp"
 
 namespace riftwii {
@@ -83,7 +84,75 @@ bool ctgp_parse_dol(const std::uint8_t* dol, std::size_t size, CtgpDolLayout& ou
 // ---------------------------------------------------------------------------
 // The interpreter
 
-CtgpPpc::CtgpPpc(const std::uint8_t* dol, const CtgpDolLayout& layout) : dol_(dol), layout_(layout) {}
+std::uint32_t CtgpLineTable::key(std::uint32_t slot) const { return be32(slots_ + std::size_t(slot) * kSlotBytes); }
+
+void CtgpLineTable::set_key(std::uint32_t slot, std::uint32_t value) {
+    std::uint8_t* p = slots_ + std::size_t(slot) * kSlotBytes;
+    p[0] = static_cast<std::uint8_t>(value >> 24);
+    p[1] = static_cast<std::uint8_t>(value >> 16);
+    p[2] = static_cast<std::uint8_t>(value >> 8);
+    p[3] = static_cast<std::uint8_t>(value);
+}
+
+namespace {
+constexpr std::uint32_t kEmptySlot = 0, kRemovedSlot = 1;
+std::uint32_t first_slot(std::uint32_t line) { return ((line >> 5) * 2654435761u) % CtgpLineTable::kSlots; }
+}  // namespace
+
+const std::uint8_t* CtgpLineTable::find(std::uint32_t line) const {
+    if (slots_ == nullptr) return nullptr;
+    std::uint32_t slot = first_slot(line);
+    for (std::uint32_t probe = 0; probe < kSlots; ++probe, slot = (slot + 1) % kSlots) {
+        const std::uint32_t k = key(slot);
+        if (k == kEmptySlot) return nullptr;
+        if (k == line) return slots_ + std::size_t(slot) * kSlotBytes + 4;
+    }
+    return nullptr;
+}
+
+std::uint8_t* CtgpLineTable::insert(std::uint32_t line) {
+    if (slots_ == nullptr) return nullptr;
+    if (const std::uint8_t* found = find(line)) return const_cast<std::uint8_t*>(found);
+    if (live_ >= kCtgpPpcMaxLines) return nullptr;
+    // The first empty or removed slot on the line's probe path.
+    std::uint32_t slot = first_slot(line);
+    for (std::uint32_t probe = 0; probe < kSlots; ++probe, slot = (slot + 1) % kSlots) {
+        const std::uint32_t k = key(slot);
+        if (k != kEmptySlot && k != kRemovedSlot) continue;
+        set_key(slot, line);
+        ++live_;
+        return slots_ + std::size_t(slot) * kSlotBytes + 4;
+    }
+    return nullptr;
+}
+
+void CtgpLineTable::erase(std::uint32_t line) {
+    const std::uint8_t* found = find(line);
+    if (found == nullptr) return;
+    set_key(static_cast<std::uint32_t>((found - 4 - slots_) / kSlotBytes), kRemovedSlot);
+    --live_;
+}
+
+bool CtgpLineTable::any_in(std::uint64_t address, std::uint64_t end) const {
+    if (slots_ == nullptr) return false;
+    for (std::uint32_t slot = 0; slot < kSlots; ++slot) {
+        const std::uint32_t k = key(slot);
+        if (k == kEmptySlot || k == kRemovedSlot) continue;
+        if (k + 32ull > address && k < end) return true;
+    }
+    return false;
+}
+
+CtgpPpc::CtgpPpc(const std::uint8_t* dol, const CtgpDolLayout& layout) : dol_(dol), layout_(layout) {
+    // One block for all three tables; without it every table stays detached
+    // and the first store, flush or fetch fails, so the decode is refused.
+    if (try_resize(pool_, 3 * CtgpLineTable::kBytes)) {
+        std::fill(pool_.begin(), pool_.end(), 0);
+        data_.attach(pool_.data());
+        memory_.attach(pool_.data() + CtgpLineTable::kBytes);
+        icache_.attach(pool_.data() + 2 * CtgpLineTable::kBytes);
+    }
+}
 
 bool CtgpPpc::backing(std::uint32_t line, Line& out) const {
     out.fill(0);
@@ -123,10 +192,9 @@ bool CtgpPpc::mapped(std::uint32_t address) const {
     return address >= kHandlerAddress && address < kHandlerAddress + sizeof kHandler;
 }
 
-bool CtgpPpc::view(std::uint32_t line, const std::map<std::uint32_t, Line>& layer, Line& out) const {
-    const auto it = layer.find(line);
-    if (it != layer.end()) {
-        out = it->second;
+bool CtgpPpc::view(std::uint32_t line, const CtgpLineTable& layer, Line& out) const {
+    if (const std::uint8_t* found = layer.find(line)) {
+        std::memcpy(out.data(), found, 32);
         return true;
     }
     return backing(line, out);
@@ -143,11 +211,7 @@ bool CtgpPpc::read(std::uint32_t address, std::uint8_t* out, std::uint32_t lengt
 }
 
 bool CtgpPpc::wrote_into(std::uint32_t address, std::uint32_t length) const {
-    const std::uint64_t end = std::uint64_t(address) + length;
-    for (const auto& line : data_) {
-        if (line.first + 32ull > address && line.first < end) return true;
-    }
-    return false;
+    return data_.any_in(address, std::uint64_t(address) + length);
 }
 
 bool CtgpPpc::load(std::uint32_t address, std::uint32_t length, std::uint32_t& value) {
@@ -170,13 +234,14 @@ bool CtgpPpc::store(std::uint32_t address, std::uint32_t length, std::uint32_t v
         fault_ = "a store outside the decoder's memory";
         return false;
     }
-    if (data_.size() >= kCtgpPpcMaxLines && data_.find(line) == data_.end()) {
+    std::uint8_t* slot = data_.insert(line);
+    if (slot == nullptr) {
         fault_ = "the decoder's memory overlay is full";
         return false;
     }
     for (std::uint32_t i = 0; i < length; ++i)
         l[(address & 31) + i] = static_cast<std::uint8_t>(value >> (8 * (length - 1 - i)));
-    data_[line] = l;
+    std::memcpy(slot, l.data(), 32);
     return true;
 }
 
@@ -187,11 +252,12 @@ bool CtgpPpc::flush(std::uint32_t address) {
         fault_ = "a cache flush outside the decoder's memory";
         return false;
     }
-    if (memory_.size() >= kCtgpPpcMaxLines && memory_.find(line) == memory_.end()) {
+    std::uint8_t* slot = memory_.insert(line);
+    if (slot == nullptr) {
         fault_ = "the decoder's memory overlay is full";
         return false;
     }
-    memory_[line] = l;
+    std::memcpy(slot, l.data(), 32);
     return true;
 }
 
@@ -201,16 +267,22 @@ bool CtgpPpc::fetch(std::uint32_t address, std::uint32_t& word) {
         fault_ = "an instruction fetch outside the decoder's memory";
         return false;
     }
-    auto it = icache_.find(line);
-    if (it == icache_.end()) {
+    const std::uint8_t* cached = icache_.find(line);
+    if (cached == nullptr) {
         Line l;
-        if ((address & 3) != 0 || !mapped(address) || !view(line, memory_, l) || icache_.size() >= kCtgpPpcMaxLines) {
+        if ((address & 3) != 0 || !view(line, memory_, l)) {
             fault_ = "an instruction fetch outside the decoder's memory";
             return false;
         }
-        it = icache_.emplace(line, l).first;
+        std::uint8_t* slot = icache_.insert(line);
+        if (slot == nullptr) {
+            fault_ = "the decoder's instruction cache is full";
+            return false;
+        }
+        std::memcpy(slot, l.data(), 32);
+        cached = slot;
     }
-    word = be32(it->second.data() + (address & 31));
+    word = be32(cached + (address & 31));
     return true;
 }
 

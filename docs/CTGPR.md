@@ -154,8 +154,8 @@ BOOT.BIN and BOAT.BIN as read and as linked, the record table, the page table,
 the package and hash lists) are `CtgpBytes`, which
 draw from one 6 MB MEM2 block (`include/riftwii/ctgparena.hpp`, reserved in
 `wii/launch/ctgpr.cpp` with `mem::TryMem2Alloc`) instead of the MEM1-first
-default heap. MAIN.DOL (1.5 MB) and the unpacker's memory (zlib's state and
-window, a 32 KB piece) are freed before BOOT.BIN is read, so they never add to
+default heap. MAIN.DOL (1.5 MB) and the unpacker's memory (the interpreter's
+216 KB of cache and store tables, zlib's state and window, a 32 KB piece) are freed before BOOT.BIN is read, so they never add to
 the block's peak. The as-read copies are freed once the plan holds the linked ones.
 The block is released when the plan is destroyed or the launch fails; a buffer
 that finds no room in it uses the heap. `boot.log` says how much of the block
