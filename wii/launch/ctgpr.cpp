@@ -177,6 +177,9 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
     // back to the heap before the game is loaded.
     plugin::ShutdownAll("CTGP-R's plan is built");
     if (result == kCtgprPlanReady) {
+        // The block itself goes back at the handover, after the last log line.
+        logf("CTGP-R: launch buffers: most in use at once %u KiB of MEM2 (plan built)\n",
+             static_cast<unsigned>(g_launch_arena.peak() / 1024));
         out = std::move(plan);
         return true;
     }
