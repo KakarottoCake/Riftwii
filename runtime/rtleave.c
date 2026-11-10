@@ -123,6 +123,11 @@ int rtleave_due(struct rtleave* l, int held, uint32_t now, int resident_wrote, u
     return rtleave_quiet(l, now, resident_wrote, resident_last_write);
 }
 
+void rtleave_held_through(struct rtleave* l, uint32_t now) {
+    /* rtleave_elapsed clears the low bit, so this reads as hold or hold + 1. */
+    l->since = (now - l->hold) | 1u;
+}
+
 int rtleave_sleep_leaves(uint32_t running, uint32_t main_thread, uint32_t pad_thread, uint32_t asked, uint32_t now,
                          uint32_t fallback) {
     if (running == main_thread) return 1;

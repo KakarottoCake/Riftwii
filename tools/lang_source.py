@@ -892,11 +892,11 @@ T = {
         "音楽はオンですが、流す曲がありません。sd:/riftwiiにmusic.oggを置くか、音楽のあるテーマを選んでください。",
         "A música está ligada, mas não há nada para tocar: coloque um music.ogg em sd:/riftwii ou escolha um tema com música.",
         "La musica è attiva, ma non c'è niente da suonare: metti un music.ogg in sd:/riftwii o scegli un tema con musica."),
-    "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.": (
-        "En una Wii U, el adaptador de GameCube puede no funcionar en el juego desde los puertos USB delanteros; los traseros sí funcionan.",
-        "Wii Uでは、前面のUSBポートだとゲーム中にゲームキューブアダプターが動かないことがあります。背面のポートなら動きます。",
-        "No Wii U, o adaptador de GameCube pode não funcionar no jogo pelas portas USB da frente; as de trás funcionam.",
-        "Su Wii U l'adattatore GameCube potrebbe non funzionare in gioco dalle porte USB anteriori; quelle posteriori funzionano."),
+    "On a Wii U the GameCube adapter may only work in game from the lower back USB port.": (
+        "En una Wii U, puede que el adaptador de GameCube solo funcione en el juego desde el puerto USB trasero de abajo.",
+        "Wii Uでは、ゲーム中にゲームキューブアダプターが動くのは背面の下のUSBポートだけのことがあります。",
+        "No Wii U, o adaptador de GameCube pode funcionar no jogo só pela porta USB traseira de baixo.",
+        "Su Wii U l'adattatore GameCube potrebbe funzionare in gioco solo dalla porta USB posteriore in basso."),
     # A game that needs nearly all of MEM2, from an RVZ with big blocks: {1}
     # the block size in KiB, {2} what the RVZ's reader takes in game, in KB.
     "This game needs nearly all of the Wii's memory, and this RVZ's {1} KiB blocks take about {2} KB of it in game: Newer Super Mario Bros. Wii crashed that way. If it crashes, convert the RVZ again in Dolphin with a block size of 32 KiB.": (
@@ -3032,8 +3032,8 @@ KO = {
         "게임 페이지에서 케이스 아래에 게임 디스크를 표시합니다. 이미지는 다운로드가 켜져 있을 때 GameTDB에서 받아 sd:/riftwii/discs에 저장됩니다.",
     "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.":
         "음악이 켜져 있지만 재생할 음악이 없습니다. sd:/riftwii에 music.ogg를 넣거나 음악이 있는 테마를 고르세요.",
-    "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.":
-        "Wii U에서 게임큐브 어댑터를 전면 USB 포트에 연결하면 게임 중에 작동하지 않을 수 있으나, 후면 포트에서는 정상적으로 작동합니다.",
+    "On a Wii U the GameCube adapter may only work in game from the lower back USB port.":
+        "Wii U에서는 게임 중에 게임큐브 어댑터가 후면 아래쪽 USB 포트에서만 작동할 수 있습니다.",
     "This game needs nearly all of the Wii's memory, and this RVZ's {1} KiB blocks take about {2} KB of it in game: Newer Super Mario Bros. Wii crashed that way. If it crashes, convert the RVZ again in Dolphin with a block size of 32 KiB.":
         "이 게임은 Wii의 메모리를 거의 전부 사용하며, 이 RVZ의 {1} KiB 블록은 게임 중에 약 {2} KB를 차지합니다. Newer Super Mario Bros. Wii가 이 때문에 멈췄습니다. 멈추면 Dolphin에서 블록 크기 32 KiB로 RVZ를 다시 변환하세요.",
     "Packs on USB are experimental; if it fails, copy them to SD.":
@@ -4906,8 +4906,8 @@ FR = {
         "Affiche le disque du jeu sous sa boîte sur la page du jeu. L'image vient de GameTDB quand les téléchargements sont activés et est gardée dans sd:/riftwii/discs.",
     "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.":
         "La musique est activée, mais il n'y a rien à jouer : mettez un music.ogg dans sd:/riftwii ou choisissez un thème avec musique.",
-    "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.":
-        "Sur Wii U, l'adaptateur GameCube peut ne pas fonctionner sur les ports USB avant; utilisez les ports arrière.",
+    "On a Wii U the GameCube adapter may only work in game from the lower back USB port.":
+        "Sur Wii U, l'adaptateur GameCube peut ne fonctionner en jeu que sur le port USB arrière du bas.",
     "This game needs nearly all of the Wii's memory, and this RVZ's {1} KiB blocks take about {2} KB of it in game: Newer Super Mario Bros. Wii crashed that way. If it crashes, convert the RVZ again in Dolphin with a block size of 32 KiB.":
         "Ce jeu utilise presque toute la mémoire de la Wii, et les blocs de {1} Kio de ce RVZ en prennent environ {2} Ko pendant le jeu: c'est ainsi que Newer Super Mario Bros. Wii plantait. S'il plante, reconvertissez le RVZ dans Dolphin avec une taille de bloc de 32 Kio.",
     "Packs on USB are experimental; if it fails, copy them to SD.":
@@ -8627,25 +8627,25 @@ T["With settings and Miis, games also use the emulated NAND's Wii settings and M
 MORE["ko"]["With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."] = '설정과 Mii까지 고르면 게임이 에뮬레이트 NAND의 Wii 설정과 Mii도 사용합니다. 이를 위해 폴더에 완전한 NAND가 있어야 합니다.'
 MORE["fr"]["With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."] = 'Avec réglages et Mii, les jeux utilisent aussi les réglages de la Wii et les Mii de la NAND émulée. Le dossier doit alors contenir une NAND complète.'
 
-# What's new in the release after 2611-67.
-T["More memory for games, faster mod loading"] = ("Más memoria para los juegos y mods más rápidos", "ゲームのメモリーが増え、MODの読み込みが速く", "Mais memória para os jogos e mods mais rápidos", "Più memoria ai giochi, mod più veloci")
-MORE["ko"]["More memory for games, faster mod loading"] = "게임 메모리 증가, MOD 로딩이 더 빠르게"
-MORE["fr"]["More memory for games, faster mod loading"] = "Plus de mémoire pour les jeux, mods plus rapides"
-T["Parental controls can lock the HOME Menu"] = ("El control parental puede bloquear el menú HOME", "ペアレンタルコントロールでHOMEメニューをロック", "O controle dos pais pode bloquear o menu HOME", "Il controllo genitori può bloccare il menu HOME")
-MORE["ko"]["Parental controls can lock the HOME Menu"] = "자녀 보호 기능으로 HOME 메뉴 잠금"
-MORE["fr"]["Parental controls can lock the HOME Menu"] = "Le contrôle parental peut verrouiller le menu HOME"
-T["Updates restart into the new version"] = ("Las actualizaciones reinician en la nueva versión", "更新のあと、新しいバージョンで再起動", "As atualizações reiniciam na nova versão", "Gli aggiornamenti riavviano nella nuova versione")
-MORE["ko"]["Updates restart into the new version"] = "업데이트 후 새 버전으로 재시작"
-MORE["fr"]["Updates restart into the new version"] = "Les mises à jour redémarrent sur la nouvelle version"
-T["Mod tiles get their own 3D covers and boxes"] = ("Portadas 3D y cajas propias para los mods", "MODのタイルに専用の3Dパッケージと箱", "Capas 3D e caixas próprias para os mods", "Copertine 3D e scatole proprie per le mod")
-MORE["ko"]["Mod tiles get their own 3D covers and boxes"] = "MOD 타일에 전용 3D 커버와 상자"
-MORE["fr"]["Mod tiles get their own 3D covers and boxes"] = "Jaquettes 3D et boîtes propres aux mods"
-T["Code mods: Extras and Crash logs rows"] = ("Mods de código: Extras y Registro de fallos", "コードMOD：追加機能とクラッシュ記録", "Mods de código: Extras e Registro de falhas", "Mod di codice: Extra e Log dei crash")
-MORE["ko"]["Code mods: Extras and Crash logs rows"] = "코드 MOD: 추가 기능과 충돌 기록"
-MORE["fr"]["Code mods: Extras and Crash logs rows"] = "Mods de code : Extras et journaux de plantage"
-T["Wii U Pro Controller cheats without HOME"] = ("Trucos con el Mando Pro de Wii U sin HOME", "Wii U PROコントローラのチートがHOMEなしで", "Trapaças com o Controle Pro do Wii U sem HOME", "Trucchi col Wii U Pro Controller senza HOME")
-MORE["ko"]["Wii U Pro Controller cheats without HOME"] = "Wii U PRO 컨트롤러 치트를 HOME 없이"
-MORE["fr"]["Wii U Pro Controller cheats without HOME"] = "Codes de la manette Pro Wii U sans HOME"
+# What's new in the release after 2611-128.
+T["A GameCube controller opens the HOME Menu"] = ("Un mando de GameCube abre el menú HOME", "ゲームキューブのコントローラでHOMEメニュー", "Um controle de GameCube abre o menu HOME", "Un controller GameCube apre il menu HOME")
+MORE["ko"]["A GameCube controller opens the HOME Menu"] = "게임큐브 컨트롤러로 HOME 메뉴 열기"
+MORE["fr"]["A GameCube controller opens the HOME Menu"] = "Une manette GameCube ouvre le menu HOME"
+T["CTGP Revolution with no disc (offline)"] = ("CTGP Revolution sin disco (sin conexión)", "CTGP Revolutionをディスクなしで（オフライン）", "CTGP Revolution sem disco (offline)", "CTGP Revolution senza disco (offline)")
+MORE["ko"]["CTGP Revolution with no disc (offline)"] = "디스크 없이 CTGP Revolution (오프라인)"
+MORE["fr"]["CTGP Revolution with no disc (offline)"] = "CTGP Revolution sans disque (hors ligne)"
+T["GameCube mod packs with code patches"] = ("Packs de mods de GameCube con parches de código", "コードを変えるゲームキューブのMOD", "Pacotes de mods de GameCube com patches de código", "Pacchetti mod GameCube con patch al codice")
+MORE["ko"]["GameCube mod packs with code patches"] = "코드 패치가 있는 게임큐브 MOD"
+MORE["fr"]["GameCube mod packs with code patches"] = "Packs de mods GameCube avec patchs de code"
+T["Calibrate a GameCube controller"] = ("Calibrar un mando de GameCube", "ゲームキューブのコントローラを調整", "Calibrar um controle de GameCube", "Calibra un controller GameCube")
+MORE["ko"]["Calibrate a GameCube controller"] = "게임큐브 컨트롤러 보정"
+MORE["fr"]["Calibrate a GameCube controller"] = "Calibrer une manette GameCube"
+T["240p output for CRT TVs"] = ("Salida 240p para televisores CRT", "ブラウン管テレビ向けの240p出力", "Saída 240p para TVs de tubo", "Uscita 240p per televisori CRT")
+MORE["ko"]["240p output for CRT TVs"] = "CRT TV용 240p 출력"
+MORE["fr"]["240p output for CRT TVs"] = "Sortie 240p pour les téléviseurs CRT"
+T["GameCube: slot B card, Volume boost"] = ("GameCube: tarjeta en la ranura B, más volumen", "ゲームキューブ：スロットBのカード、音量アップ", "GameCube: cartão no slot B, mais volume", "GameCube: scheda nello slot B, volume più alto")
+MORE["ko"]["GameCube: slot B card, Volume boost"] = "게임큐브: 슬롯 B 카드, 볼륨 증폭"
+MORE["fr"]["GameCube: slot B card, Volume boost"] = "GameCube : carte en port B, volume plus fort"
 
 # Game management: own display names and visibility, never file renames.
 T['Manage game'] = ('Gestionar juego', 'ゲームの管理', 'Gerenciar jogo', 'Gestisci gioco')
@@ -9036,16 +9036,6 @@ T.update({
         "CTGP-Rを起動できませんでした。SDカード上のファイルが壊れているか、足りない可能性があります。CTGP-Rをもう一度インストールしてください。理由はsd:/riftwii/boot.logにあります。",
         "Não foi possível iniciar o CTGP-R. Os arquivos dele no cartão SD podem estar danificados ou incompletos: instale o CTGP-R de novo. O motivo está em sd:/riftwii/boot.log.",
         "Impossibile avviare CTGP-R. I suoi file sulla scheda SD potrebbero essere danneggiati o incompleti: reinstalla CTGP-R. Il motivo è in sd:/riftwii/boot.log."),
-    "This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead.": (
-        "Esta versión de CTGP Revolution todavía no se puede iniciar desde RiftWii (o sus archivos en la tarjeta SD están dañados). Inicia CTGP desde el Homebrew Channel.",
-        "このバージョンのCTGP Revolutionは、まだRiftWiiから起動できません（またはSDカード上のファイルが壊れています）。代わりにHomebrew Channelから起動してください。",
-        "Esta versão do CTGP Revolution ainda não pode ser iniciada pelo RiftWii (ou os arquivos dele no cartão SD estão danificados). Inicie o CTGP pelo Homebrew Channel.",
-        "Questa versione di CTGP Revolution non si può ancora avviare da RiftWii (oppure i suoi file sulla scheda SD sono danneggiati). Avvia CTGP dall'Homebrew Channel."),
-    "CTGP Revolution: this version can't be started from RiftWii (see Start).": (
-        "CTGP Revolution: esta versión no se puede iniciar desde RiftWii (mira Jugar).",
-        "CTGP Revolution：このバージョンはRiftWiiから起動できません（「はじめる」を参照）。",
-        "CTGP Revolution: esta versão não pode ser iniciada pelo RiftWii (veja Jogar).",
-        "CTGP Revolution: questa versione non si può avviare da RiftWii (vedi Gioca)."),
 })
 KO.update({
     "CTGP-R only starts with the Mario Kart Wii game.":
@@ -9058,10 +9048,6 @@ KO.update({
         "이 버전의 CTGP-R은 아직 RiftWii에서 시작할 수 없습니다. 대신 홈브류 채널에서 CTGP-R을 시작하세요.",
     "CTGP-R could not be started. Its files on the SD card may be damaged or incomplete: install CTGP-R again. The reason is in sd:/riftwii/boot.log.":
         "CTGP-R을 시작할 수 없습니다. SD 카드의 파일이 손상되었거나 일부가 없을 수 있습니다. CTGP-R을 다시 설치하세요. 이유는 sd:/riftwii/boot.log에 있습니다.",
-    "This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead.":
-        "이 버전의 CTGP Revolution은 아직 RiftWii에서 시작할 수 없습니다(또는 SD 카드의 파일이 손상되었습니다). 대신 홈브류 채널에서 CTGP를 시작하세요.",
-    "CTGP Revolution: this version can't be started from RiftWii (see Start).":
-        "CTGP Revolution: 이 버전은 RiftWii에서 시작할 수 없습니다 (시작 항목 참조)",
 })
 FR.update({
     "CTGP-R only starts with the Mario Kart Wii game.":
@@ -9074,10 +9060,6 @@ FR.update({
         "Cette version de CTGP-R ne peut pas encore être lancée depuis RiftWii. Lancez CTGP-R depuis le Homebrew Channel.",
     "CTGP-R could not be started. Its files on the SD card may be damaged or incomplete: install CTGP-R again. The reason is in sd:/riftwii/boot.log.":
         "CTGP-R n'a pas pu démarrer. Ses fichiers sur la carte SD sont peut-être endommagés ou incomplets : réinstallez CTGP-R. La raison se trouve dans sd:/riftwii/boot.log.",
-    "This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead.":
-        "Cette version de CTGP Revolution ne peut pas encore être lancée depuis RiftWii (ou ses fichiers sur la carte SD sont endommagés). Lancez CTGP depuis le Homebrew Channel.",
-    "CTGP Revolution: this version can't be started from RiftWii (see Start).":
-        "CTGP Revolution : cette version ne peut pas être lancée depuis RiftWii (voir Démarrer).",
 })
 
 # Settings > Controllers > Calibrate a GameCube controller (#511).

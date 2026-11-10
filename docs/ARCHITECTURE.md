@@ -151,6 +151,46 @@ decisions are `runtime/rtleave.c`, host-tested. With any of the three
 functions missing, or one of the two hooks impossible, the way back stays
 off and boot.log says why; the adapter works as before.
 
+Where it can, the same combo opens the game's own HOME Menu instead
+(#224 part 1). Four more hooks, found by structure in
+`src/patching/hbmsearch.cpp`: the KPAD read (its ring buffer of statuses
+walked backwards gives the status's size), `WPADProbe`, `HBMCalc` (the
+function after `HBMInit`, which the HOME Menu's version banner leads to)
+and `HBMGetSelectBtnNum` (which tells the Operations Guide from Close).
+Two more where a game has them: `KPADGetUnifiedWpadStatus`, where Mario
+Kart Wii takes a Classic Controller's buttons, and the callback a game
+gives `KPADSetConnectCallback`, which GoldenEye 007 waits on before it
+reads a channel; the stand-in fills the first and is reported to the
+second.
+The blob stands a Classic Controller in on a free Wii Remote channel:
+`WPADProbe` says it is there, and the KPAD read gives its status, nothing
+pressed for 0.2 s (Naruto Shippuden: Clash of Ninja Revolution III takes no
+new press on a controller's first frame), then HOME held for 0.6 s (a
+Virtual Console game wants half a second). The game then opens
+its menu, or doesn't (mid-save, it shows its crossed-out HOME icon), and
+`HBMCalc` running tells the blob the menu is up: the stand-in then carries
+the pad (A, B, X, Y, Start as HOME to close it, the sticks with a dead
+zone, the combo's own buttons ignored until let go). The stand-in's Wii
+Remote carries the same presses (A, B, the D-pad, HOME) and, while the
+menu is up, a pointer the control stick moves: some games look only at the
+Remote, and Bomberman Blast hands a Classic Controller to its menu as a
+plain Remote. Some games stop their
+own KPAD reads and `PADRead` while the menu is up (Kamen Rider: Super
+Climax Heroes); the blob then reads the pads itself from the menu's
+`WPADProbe` and refreshes the status the KPAD read last filled. Once
+`HBMCalc` stops, the stand-in is gone, so games that read GameCube
+controllers themselves never see an extra player. Missing any of the
+four, the combo stays the way back; a game that never reads the
+stand-in's channel turns it back into the way back the first time, and one
+that reads it but opens no menu twice in a row the second time (twice, not
+once: Brawl and Tatsunoko vs. Capcom refuse once during their intros). A
+combo still held when that is decided is itself the way back. Code builds
+and Settings > Leaving a game on HOME only get the pad blob built without
+the HOME Menu (`RT_PAD_NO_HOME`, byte for byte the blob before it), so
+they give up none of their memory to it.
+The decisions are `runtime/rthome.c`, host-tested. The 2006 Virtual
+Console programs (Super Mario World, A Link to the Past, Bomberman '93)
+have neither the banner nor this KPAD layout, and keep the way back.
 **Packs that add GameCube controllers** (#352). A game that reads only
 Wii Remotes has no `PADRead`, so the adapter has nothing to hook. A mod
 pack can give it one, and this is the supported way to do it: the pack
@@ -388,11 +428,13 @@ non-NTSC paths and other game regions keep their own behavior.
   game's ARAM addresses raised so its own sound program reads MEM2
   (except in games whose own checks need them as they are,
   `gc_keeps_aram_addresses`: Mario Party 4), and
-  each `ARStartDMA` called with interrupts off returning only once its
-  interrupt is pending (a Wii's
-  instant transfers otherwise let ARQ's chained chunks finish in the
-  middle of the game's own bookkeeping); the options; the trace; the way
-  back; the crash screen.
+  each `ARStartDMA`'s interrupt held back (its `ARINTMSK` cleared, an
+  alarm setting it again) as long as a GameCube's transfer takes, since a
+  Wii's are instant and games count on finishing their own bookkeeping
+  after posting a transfer before its callback runs (JSystem's transfer
+  count; the Thousand-Year Door's list of transfers, which crashed when a
+  callback came first); the options; the trace; the way back; the crash
+  screen.
 - `gc_bt.c`: a Bluetooth driver for Wii Remotes, Nunchuks, Classic
   Controllers and Wii U Pro Controllers, filled into the pad ports. A Pro
   is told apart by its extension ID (`01 20`), asked for report mode 0x34
@@ -964,7 +1006,11 @@ OSRestart, OSReturnToMenu and the game's synchronous IOS_Ioctlv, and needs
 Return to RiftWii pointed at the channel. The loader opens the SD card and
 leaves it open for the game; a game with an SD driver (Super Smash Bros.
 Brawl) gets the same whole-card pass-through as beside the runtime, since it
-could not open a card held open. The blob's OSRestart hook
+could not open a card held open. Known limit: that pass-through is refused on an
+SDHC card (over 2 GB), where a game's 2008 SD driver writes to the wrong places,
+so Brawl on such a card (a Wii U's usual) keeps its own Reset, which restarts it
+without the adapter; boot.log's `Reset:` line says so. A game with no SD driver
+(Naruto: Clash of Ninja Revolution 3, console 10 Nov) takes the Reset on any card. The blob's OSRestart hook
 (`pad_hook_restart` in `pad_entry.S`, `pad_on_restart` in `pad_hook.c`)
 writes the sector (`runtime/rtrestart.c`: a CMD25, or d2x's sector write,
 kept apart from the hardware so `tests/rtrestart_tests.cpp` runs it) and

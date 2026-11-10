@@ -969,8 +969,8 @@ msgstr "게임 페이지에서 케이스 아래에 게임 디스크를 표시합
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "음악이 켜져 있지만 재생할 음악이 없습니다. sd:/riftwii에 music.ogg를 넣거나 음악이 있는 테마를 고르세요."
 
-msgid "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work."
-msgstr "Wii U에서 게임큐브 어댑터를 전면 USB 포트에 연결하면 게임 중에 작동하지 않을 수 있으나, 후면 포트에서는 정상적으로 작동합니다."
+msgid "On a Wii U the GameCube adapter may only work in game from the lower back USB port."
+msgstr "Wii U에서는 게임 중에 게임큐브 어댑터가 후면 아래쪽 USB 포트에서만 작동할 수 있습니다."
 
 msgid "This game needs nearly all of the Wii's memory, and this RVZ's {1} KiB blocks take about {2} KB of it in game: Newer Super Mario Bros. Wii crashed that way. If it crashes, convert the RVZ again in Dolphin with a block size of 32 KiB."
 msgstr "이 게임은 Wii의 메모리를 거의 전부 사용하며, 이 RVZ의 {1} KiB 블록은 게임 중에 약 {2} KB를 차지합니다. Newer Super Mario Bros. Wii가 이 때문에 멈췄습니다. 멈추면 Dolphin에서 블록 크기 32 KiB로 RVZ를 다시 변환하세요."
@@ -4110,23 +4110,23 @@ msgstr "에뮬레이트 NAND 폴더입니다. USB Loader GX 설정에 적힌 폴
 msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
 msgstr "설정과 Mii까지 고르면 게임이 에뮬레이트 NAND의 Wii 설정과 Mii도 사용합니다. 이를 위해 폴더에 완전한 NAND가 있어야 합니다."
 
-msgid "More memory for games, faster mod loading"
-msgstr "게임 메모리 증가, MOD 로딩이 더 빠르게"
+msgid "A GameCube controller opens the HOME Menu"
+msgstr "게임큐브 컨트롤러로 HOME 메뉴 열기"
 
-msgid "Parental controls can lock the HOME Menu"
-msgstr "자녀 보호 기능으로 HOME 메뉴 잠금"
+msgid "CTGP Revolution with no disc (offline)"
+msgstr "디스크 없이 CTGP Revolution (오프라인)"
 
-msgid "Updates restart into the new version"
-msgstr "업데이트 후 새 버전으로 재시작"
+msgid "GameCube mod packs with code patches"
+msgstr "코드 패치가 있는 게임큐브 MOD"
 
-msgid "Mod tiles get their own 3D covers and boxes"
-msgstr "MOD 타일에 전용 3D 커버와 상자"
+msgid "Calibrate a GameCube controller"
+msgstr "게임큐브 컨트롤러 보정"
 
-msgid "Code mods: Extras and Crash logs rows"
-msgstr "코드 MOD: 추가 기능과 충돌 기록"
+msgid "240p output for CRT TVs"
+msgstr "CRT TV용 240p 출력"
 
-msgid "Wii U Pro Controller cheats without HOME"
-msgstr "Wii U PRO 컨트롤러 치트를 HOME 없이"
+msgid "GameCube: slot B card, Volume boost"
+msgstr "게임큐브: 슬롯 B 카드, 볼륨 증폭"
 
 msgid "Manage game"
 msgstr "게임 관리"
@@ -4292,15 +4292,6 @@ msgstr "이 버전의 CTGP-R은 아직 RiftWii에서 시작할 수 없습니다.
 
 msgid "CTGP-R could not be started. Its files on the SD card may be damaged or incomplete: install CTGP-R again. The reason is in sd:/riftwii/boot.log."
 msgstr "CTGP-R을 시작할 수 없습니다. SD 카드의 파일이 손상되었거나 일부가 없을 수 있습니다. CTGP-R을 다시 설치하세요. 이유는 sd:/riftwii/boot.log에 있습니다."
-
-msgid "This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead."
-msgstr "이 버전의 CTGP Revolution은 아직 RiftWii에서 시작할 수 없습니다(또는 SD 카드의 파일이 손상되었습니다). 대신 홈브류 채널에서 CTGP를 시작하세요."
-
-msgid "CTGP Revolution: this version can't be started from RiftWii (see Start)."
-msgstr "CTGP Revolution: 이 버전은 RiftWii에서 시작할 수 없습니다 (시작 항목 참조)"
-
-msgid "Calibrate a GameCube controller"
-msgstr "게임큐브 컨트롤러 보정"
 
 msgid "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use."
 msgstr "게임큐브 컨트롤러를 테스트하고 낡은 컨트롤러를 바로잡습니다. 끝까지 닿지 않는 스틱, 저절로 움직이는 스틱, 끝까지 눌리지 않는 트리거. 게임큐브 게임에 적용되고, Wii 게임에는 게임큐브 어댑터나 USB 컨트롤러를 쓰는 동안 적용됩니다."

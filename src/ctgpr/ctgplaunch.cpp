@@ -132,42 +132,17 @@ std::string version_text(std::uint32_t v) {
 
 bool ctgp_check_versions(const std::vector<CtgpPackage>& packages, std::string& error) {
     // The CORE package (CTGP-R's game-side code) governs the addresses the
-    // native launch relies on -- the hook row table and the memory map. The
-    // CTGPR track package governs the cup layouts, which are baked into this
-    // build for one CTGP-R version (ctgpapply.cpp), so both must match the
-    // tested versions. (A later step that derives the cups from the player's
-    // own package disk will let the CTGPR version vary again.)
+    // native launch relies on -- the hook row table and the memory map -- so
+    // it must be the tested version. The CTGPR track package may be any
+    // version: the launch reads its cups from the player's install, and its
+    // signed hash list must carry the same version (ctgp_load_hash_list).
     const std::uint32_t core = ctgp_package_version(packages, "CORE");
     const std::uint32_t ctgpr = ctgp_package_version(packages, "CTGPR");
-    // 0x01031192 and 0x01031196 are the same CTGP-R content (identical core and
-    // identical CTGPR.HSH body; CTGP republished PACKAGES.BIN without
-    // re-versioning the list), so either CTGPR number is accepted with the
-    // tested core.
-    const bool ctgpr_ok = ctgpr == kCtgpTestedCtgprVersion1192 || ctgpr == kCtgpTestedCtgprVersion1196;
-    if (core == kCtgpTestedCoreVersion && ctgpr_ok) return true;
+    if (core == kCtgpTestedCoreVersion && ctgpr != 0) return true;
     error = "this CTGP-R is a different version (core " + version_text(core) + ", CTGPR " + version_text(ctgpr) +
-            ") from the ones this launch is made for (core " + version_text(kCtgpTestedCoreVersion) + ", CTGPR " +
-            version_text(kCtgpTestedCtgprVersion1192) + " or " + version_text(kCtgpTestedCtgprVersion1196) +
-            "), so RiftWii does not start it. Start CTGP-R from the Homebrew Channel instead";
+            ") from the one this launch is made for (core " + version_text(kCtgpTestedCoreVersion) +
+            " with a CTGPR package), so RiftWii does not start it. Start CTGP-R from the Homebrew Channel instead";
     return false;
-}
-
-bool ctgp_is_native_stand_in(const std::string& game_id, const std::string& app) {
-    // Mario Kart Wii only: every region's disc ID starts "RMC" (RMCE, RMCP,
-    // RMCJ, RMCK...). The region letter is the fourth character, so a full ID
-    // is needed, not the bare prefix.
-    if (game_id.size() < 4 || game_id.compare(0, 3, "RMC") != 0) return false;
-    // Exactly CTGP-R's channel app, compared without regard to letter case,
-    // since the card's FAT file system is case-insensitive and the pack's XML
-    // may spell the path either way.
-    static const char kCtgprApp[] = "sd:/apps/ctgpr/boot.dol";
-    if (app.size() != sizeof kCtgprApp - 1) return false;
-    for (std::size_t i = 0; i < app.size(); ++i) {
-        char a = app[i];
-        if (a >= 'A' && a <= 'Z') a = static_cast<char>(a - 'A' + 'a');
-        if (a != kCtgprApp[i]) return false;
-    }
-    return true;
 }
 
 bool ctgp_assemble(const CtgpInputs& in, CtgpLaunchPlan& plan, std::string& error) {
@@ -254,7 +229,8 @@ bool ctgp_assemble(const CtgpInputs& in, CtgpLaunchPlan& plan, std::string& erro
     store(0x816FFAD0, 4, 0);           // DBAT7L
     store(0x816FFAD4, 4, 0x80001FFF);  // IBAT0U: 0x80000000, 256 MB, Vs Vp
     store(0x816FFAD8, 4, 0x00000002);  // IBAT0L: physical 0, cached, read/write
-    const CtgpSettings settings = ctgp_settings_from_ini(in.config_ini, packages, in.region);
+    CtgpSettings settings = ctgp_settings_from_ini(in.config_ini, packages, in.region);
+    settings.layout = in.cup_layout;
     for (const CtgpOp& op : ctgp_apply_settings(settings)) {
         switch (op.kind) {
         case CtgpOpKind::Store:
@@ -296,8 +272,8 @@ bool ctgp_assemble(const CtgpInputs& in, CtgpLaunchPlan& plan, std::string& erro
         store(0x816FF514, 4, static_cast<std::uint32_t>(opts.ghost_saving_mode));
     }
     // A signing key that can never sign a ghost validly, in place of the
-    // card's own, and no console tag (ctgpsign.hpp): the CTGP-R developers'
-    // condition for this launch. Without any key, saving a ghost crashes into
+    // card's own, and no console tag (ctgpsign.hpp): a launch from RiftWii
+    // never signs ghosts. Without any key, saving a ghost crashes into
     // CTGP's reboot-to-channel.
     for (const CtgpWordWrite& w : ctgp_unsigned_key_writes()) store(w.address, 4, w.value);
     // Leaving for the channel starts `channel_stub` instead (a RiftWii change:
@@ -489,70 +465,6 @@ bool ctgp_attach_files(CtgpLaunchPlan& plan, const std::vector<CtgpBytes>& packa
     plan.notes.push_back("CTGP-R: " + std::to_string(package_fsts.size()) + " package lists, " + std::to_string(listed) +
                          " files listed, " + std::to_string(plan.files.size()) + " found (" +
                          std::to_string(table.used()) + " records)");
-    return true;
-}
-
-bool ctgp_check_layout(const CtgpLaunchPlan& plan, const CtgpMemoryState& state, std::string& error) {
-    const std::uint32_t start = kCtgpImageStart;
-    const std::uint32_t end = plan.image_end;
-    if (plan.boot.empty() || plan.boat.empty() || end <= start) {
-        error = "the CTGP-R plan is empty";
-        return false;
-    }
-    if (kCtgpBootBase + plan.boot.size() > kCtgpBoatBase) {
-        error = "BOOT.BIN runs into BOAT.BIN";
-        return false;
-    }
-    if (end > kCtgpMem1End) {
-        error = "the CTGP-R image runs past the end of MEM1";
-        return false;
-    }
-    if (state.loader_end > start) {
-        error = "this loader's memory reaches into the CTGP-R image";
-        return false;
-    }
-    if (state.apploader_end > start) {
-        error = "the apploader image reaches into the CTGP-R image";
-        return false;
-    }
-    if (state.fst_address != 0 && state.fst_address < end) {
-        error = "the game's FST sits inside the CTGP-R image (it needs the FST to be moved)";
-        return false;
-    }
-    if (state.bi2_address != 0 && state.bi2_address < end) {
-        error = "the disc info block (BI2) sits inside the CTGP-R image";
-        return false;
-    }
-    for (const MemoryRegion& r : state.loaded) {
-        const std::uint64_t r_end = std::uint64_t(r.address) + r.length;
-        if (r.length != 0 && r.address < end && r_end > start) {
-            error = "a section of the game's executable lies inside the CTGP-R image";
-            return false;
-        }
-    }
-    return true;
-}
-
-bool ctgp_place(const CtgpLaunchPlan& plan, MemoryAccess& memory, std::string& error) {
-    if (!memory.write(kCtgpBootBase, plan.boot.data(), plan.boot.size()) ||
-        !memory.write(kCtgpBoatBase, plan.boat.data(), plan.boat.size())) {
-        error = "cannot write the CTGP-R image";
-        return false;
-    }
-    for (const CtgpGameOp& op : plan.game_ops) {
-        if (op.kind == CtgpGameOp::Write) {
-            if (!memory.write(op.address, op.bytes.data(), op.bytes.size())) {
-                error = "cannot write a CTGP-R patch";
-                return false;
-            }
-        } else {
-            std::vector<std::uint8_t> tmp(op.length);
-            if (!memory.read(op.from, tmp.data(), tmp.size()) || !memory.write(op.address, tmp.data(), tmp.size())) {
-                error = "cannot move game code for a CTGP-R patch";
-                return false;
-            }
-        }
-    }
     return true;
 }
 

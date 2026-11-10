@@ -5,6 +5,7 @@
 // SPDX-FileCopyrightText: WiiFlow contributors <https://github.com/Fledge68/WiiFlow_Lite>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "boot.hpp"
+#include "ctgpr.hpp"
 #include "progress.hpp"
 
 #include <fat.h>
@@ -122,9 +123,10 @@ static_assert(kCodeVeneers + VSD_ENTRIES * 16 <= kFaultVeneers, "the crash blob'
 constexpr std::uint32_t kCodeReturnStub = kLowReturnStub;
 static_assert(kCodeVeneers + (RT_IPC_ENTRIES + VSD_ENTRIES + 2) * 16 <= kCodeReturnStub, "every veneer must end before the stub");
 // A code build's GameCube adapter blob (in MEM2): its veneers (PADRead's,
-// PADControlMotor's, and the way back's three, padhook.hpp's kPadHookSites),
-// right below the stub. The runtime's, the virtual SD card's and the crash
-// blob's run up from kCodeVeneers and end long before.
+// PADControlMotor's, the way back's three and the HOME Menu's five,
+// padhook.hpp's kPadHookSites), right below the stub. The runtime's, the
+// virtual SD card's and the crash blob's run up from kCodeVeneers and end
+// long before.
 constexpr std::uint32_t kPadVeneers = kCodeReturnStub - kPadHookSites * 16;
 static_assert(kCodeVeneers + (RT_IPC_ENTRIES + VSD_ENTRIES + 2) * 16 <= kPadVeneers,
               "the adapter's veneers must not meet the others");
@@ -3285,8 +3287,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // below everything else in the MEM1 arena. Packs bring their own online
     // setup (and may have replaced the code these patches expect).
     if (options.ctgpr) {
-        // Online play stays off for CTGP-R (the CTGP-R developers'
-        // condition): no server swap, whatever Settings > Online says; the
+        // Online play stays off for CTGP-R: no server swap, whatever Settings > Online says; the
         // plan stubs the game's network calls. CTGP-R's code goes in last of
         // all, over everything else that went into the game.
         logf("WFC: not patched: CTGP-R starts offline only\n");
@@ -3324,6 +3325,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         logf("CTGP-R: image placed at 0x%08x-0x%08x, %u game patches, arena top 0x%08x\n", kCtgpImageStart,
              options.ctgpr->image_end, static_cast<unsigned>(options.ctgpr->game_ops.size()),
              options.ctgpr->arena1_hi);
+        leave_ctgpr_return_note();
     } else if (g_extras.server != WfcServer::Off) {
         const bool packs = !options.memory_patches.empty() || !options.virtual_files.empty() ||
                            file_replacements;

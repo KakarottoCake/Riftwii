@@ -104,6 +104,14 @@ int rtleave_quiet(const struct rtleave* l, uint32_t now, int resident_wrote, uin
  * it back the hold keeps counting; letting go starts it over. */
 int rtleave_due(struct rtleave* l, int held, uint32_t now, int resident_wrote, uint32_t resident_last_write);
 
+/* The combo counts as already held long enough at `now`: the next
+ * rtleave_due with the combo still held is due as soon as the saves are
+ * quiet, and one with it let go starts over. For the hold the HOME Menu by
+ * the controller turned into the way back (#387): the player who still
+ * holds the combo once the game is judged unable to open its menu leaves
+ * with that same hold instead of holding it again. */
+void rtleave_held_through(struct rtleave* l, uint32_t now);
+
 /* Whether the way back, asked for at `asked` (low bit set) by a PADRead
  * running on `pad_thread`, leaves from an OSSleepThread on `running`: on
  * the game's main thread at once, as the HOME Menu's Wii Menu button

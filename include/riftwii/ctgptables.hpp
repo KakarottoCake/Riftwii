@@ -11,8 +11,8 @@
 // The CTGP-R channel's own constants and tables that the native launch needs.
 // They are CTGP-R's, not RiftWii's work, but they are not secrets either: the
 // AES key and the chunk IV are four PPC instruction words from CTGP's own code,
-// and the row table, the course table and the cup layouts are plain CTGP data
-// the developers agreed RiftWii may carry. So the launch reads none of them
+// and the row table, the course table and the cup layouts are plain CTGP
+// data. So the launch reads none of them
 // from a file on the card (there is no efa.key, rows.bin or tables.bin): the
 // keys are built in here, and the row table, course table and cup layouts are
 // baked into the build (ctgprowdata.cpp and ctgpapply.cpp). The one input the

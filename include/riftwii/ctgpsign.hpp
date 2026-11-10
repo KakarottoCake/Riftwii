@@ -11,9 +11,8 @@
 //
 // The channel hands the game a DSA private key (each card's own, kept on
 // jelly.bin) that CTGP-R's code signs every saved ghost with, plus a tag made
-// from the console's wireless MAC. The CTGP-R developers asked that a launch
-// they do not support must not sign ghosts: their ghost server has to reject
-// what it saves. RiftWii does not read the card's key or the MAC at all.
+// from the console's wireless MAC. A launch from RiftWii must not sign
+// ghosts: CTGP's ghost server has to reject what it saves. RiftWii does not read the card's key or the MAC at all.
 //
 // The game still needs a key in that place: with none, its ghost signer reads
 // a null pointer (BOAT 0x81779418) and CTGP's crash handler reboots it. So the

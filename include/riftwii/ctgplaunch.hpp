@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/ctgpapply.hpp"
 #include "riftwii/ctgparena.hpp"
 #include "riftwii/ctgpfiles.hpp"
 #include "riftwii/ctgpimage.hpp"
@@ -51,6 +52,9 @@ struct CtgpInputs {
     CtgpBytes track_hashes;                                                   // efa:/packages/ctgpr/deyazhashes.hsh, may be empty
     bool my_stuff_common = false;  // sd:/ctgpr/My Stuff holds a Common*.szs (kCtgpMyStuffCommons)
     CtgpTables tables;                       // the package-disk keys and IV (ctgptables.hpp)
+    // The cup layout config.ini's cup_course_layout_using picks, read from the
+    // player's install (CtgpSettings::layout); empty (no cups) when not read.
+    CtgpLayout cup_layout;
     // What CTGP starts when it leaves for the channel (kCtgpChannelStub), in
     // CTGP's device names ("sda:/apps/riftwii/boot.dol"); empty keeps the
     // channel's stub. At most kCtgpChannelStubLength - 1 characters.
@@ -88,25 +92,24 @@ struct CtgpLaunchPlan {
 };
 
 // The CTGP-R versions this launch was made and tested for (PACKAGES.BIN on
-// the package disk). The launch writes into CTGP's code and data at fixed
-// places, and the cup layouts are baked for this CTGPR content
-// (ctgpapply.cpp), so both the core and the CTGPR versions are pinned: any
-// other version is refused rather than started (ctgp_check_versions). A later
-// step that derives the cups from the player's own package disk will let the
-// CTGPR version vary again.
+// the package disk). The launch writes into CTGP's game-side code and data at
+// fixed places (the row table, the hooks, the memory map), all of which belong
+// to the core package, so the core version is pinned: any other is refused
+// rather than started (ctgp_check_versions). The CTGPR track package is not
+// pinned: its cups are read from the player's own install, its files are
+// served only with digests from its signed CTGPR.HSH, and that list must carry
+// the version PACKAGES.BIN names (ctgp_load_hash_list).
 //
-// Two PACKAGES.BIN CTGPR numbers name the same content: CTGP republished
+// Two PACKAGES.BIN CTGPR numbers name the tested content: CTGP republished
 // PACKAGES.BIN with 0x01031196 without re-versioning CTGPR.HSH, whose body and
-// own label (still 0x01031192) are unchanged. The core is 0x01030412 on both,
-// and the tracks, CTGP.CRS and .cup files -- so the baked course and cup
-// tables -- are identical; only the PACKAGES.BIN CTGPR number differs. Both
-// are accepted, keyed to the same CTGPR.HSH body digest (ctgphash.cpp).
+// own label (still 0x01031192) are unchanged. Both are keyed to that body's
+// digest (ctgphash.cpp), so the label difference is accepted for them.
 constexpr std::uint32_t kCtgpTestedCoreVersion = 0x01030412;
 constexpr std::uint32_t kCtgpTestedCtgprVersion1192 = 0x01031192;
 constexpr std::uint32_t kCtgpTestedCtgprVersion1196 = 0x01031196;
 
-// True when PACKAGES.BIN names the tested versions; otherwise `error` says
-// which version was found.
+// True when PACKAGES.BIN names the tested core and has a CTGPR package;
+// otherwise `error` says which version was found.
 bool ctgp_check_versions(const std::vector<CtgpPackage>& packages, std::string& error);
 
 // True when a homebrew-app stand-in launch is CTGP-R's own channel swap, and
@@ -120,7 +123,7 @@ bool ctgp_check_versions(const std::vector<CtgpPackage>& packages, std::string& 
 // Kart Wii hooks written into it.
 bool ctgp_is_native_stand_in(const std::string& game_id, const std::string& app);
 
-// Builds the plan. Refuses an untested CTGP-R version (ctgp_check_versions).
+// Builds the plan. Refuses an untested CTGP-R core (ctgp_check_versions).
 // Online play stays off whatever config.ini says: the network calls are
 // stubbed, LAN mode and UPnP are off (ctgpapply.hpp).
 bool ctgp_assemble(const CtgpInputs& inputs, CtgpLaunchPlan& plan, std::string& error);

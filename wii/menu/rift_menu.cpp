@@ -2613,17 +2613,15 @@ static const char* const kHomebrewAppWarning =
 	"CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.";
 static const char* const kCtgpNativeNote =
 	"CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.";
-static const char* const kCtgpUnsupportedNote =
-	"This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead.";
 
-// What the launch will do with the pack, as the Start note says it. The
-// "offline only" note is for a CTGP Revolution the launch can start; one it
-// refuses (another version) gets its own words instead.
+// What the launch will do with the pack, as the Start note says it. With
+// CTGP-R's files on the card it starts natively, offline only; a version the
+// launch cannot start is named when it is started (wii/launch/ctgpr.hpp: the
+// version is in the package disk only the ctgpr plugin reads).
 static const char* HomebrewAppNote()
 {
 	switch (riftwii::wii::ctgpr_native_status()) {
-	case riftwii::wii::CtgprNativeStatus::Supported: return kCtgpNativeNote;
-	case riftwii::wii::CtgprNativeStatus::Unsupported: return kCtgpUnsupportedNote;
+	case riftwii::wii::CtgprNativeStatus::Installed: return kCtgpNativeNote;
 	case riftwii::wii::CtgprNativeStatus::NotInstalled: break;
 	}
 	return kHomebrewAppWarning;
@@ -2663,7 +2661,8 @@ static std::string LaunchNote(const FrontendState& state)
 	// A game image runs under d2x. Only a d2x on base 58 reaches a Wii U's
 	// front USB ports in game, and the launch puts it first with the
 	// adapter in use (image_cios_order); on any other d2x the adapter works
-	// from the rear ports only. Which port the adapter is in cannot be told
+	// from the lower back port at most (#540: base 57 there only, base 56
+	// sees it but can't use it, base 38 nowhere). Which port the adapter is in cannot be told
 	// from IOS's device ID yet, so the note comes whenever the game will not
 	// start on a slot whose base was read as 58: none installed, the bases
 	// unreadable, another cIOS picked for it, or a USB-keyboard game. A
@@ -2673,7 +2672,7 @@ static std::string LaunchNote(const FrontendState& state)
 	    riftwii::wii::Settings().gc_adapter != "off" && riftwii::wii::is_wii_u() &&
 	    !FrontPortsReached(state)) {
 		if (!note.empty()) note += " ";
-		note += tr("On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.");
+		note += tr("On a Wii U the GameCube adapter may only work in game from the lower back USB port.");
 	}
 	return note;
 }
@@ -5174,12 +5173,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"More memory for games, faster mod loading",
-	"Parental controls can lock the HOME Menu",
-	"Updates restart into the new version",
-	"Mod tiles get their own 3D covers and boxes",
-	"Code mods: Extras and Crash logs rows",
-	"Wii U Pro Controller cheats without HOME",
+	"A GameCube controller opens the HOME Menu",
+	"CTGP Revolution with no disc (offline)",
+	"GameCube mod packs with code patches",
+	"Calibrate a GameCube controller",
+	"240p output for CRT TVs",
+	"GameCube: slot B card, Volume boost",
 };
 
 static std::string WhatsNewText()
@@ -13276,9 +13275,7 @@ static std::string ModsNote(const FrontendState& state, const std::string& scanS
 	if (riftwii::wii::HomebrewAppPackOn(state))
 	{
 		switch (riftwii::wii::ctgpr_native_status()) {
-		case riftwii::wii::CtgprNativeStatus::Supported: return tr("CTGP Revolution: offline only (see Start).");
-		case riftwii::wii::CtgprNativeStatus::Unsupported:
-			return tr("CTGP Revolution: this version can't be started from RiftWii (see Start).");
+		case riftwii::wii::CtgprNativeStatus::Installed: return tr("CTGP Revolution: offline only (see Start).");
 		case riftwii::wii::CtgprNativeStatus::NotInstalled: break;
 		}
 		return tr("CTGP Revolution does not work from RiftWii yet (see Start).");

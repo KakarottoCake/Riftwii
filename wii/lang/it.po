@@ -969,8 +969,8 @@ msgstr "Mostra il disco del gioco sotto la custodia nella pagina del gioco. L'im
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "La musica è attiva, ma non c'è niente da suonare: metti un music.ogg in sd:/riftwii o scegli un tema con musica."
 
-msgid "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work."
-msgstr "Su Wii U l'adattatore GameCube potrebbe non funzionare in gioco dalle porte USB anteriori; quelle posteriori funzionano."
+msgid "On a Wii U the GameCube adapter may only work in game from the lower back USB port."
+msgstr "Su Wii U l'adattatore GameCube potrebbe funzionare in gioco solo dalla porta USB posteriore in basso."
 
 msgid "This game needs nearly all of the Wii's memory, and this RVZ's {1} KiB blocks take about {2} KB of it in game: Newer Super Mario Bros. Wii crashed that way. If it crashes, convert the RVZ again in Dolphin with a block size of 32 KiB."
 msgstr "Questo gioco usa quasi tutta la memoria del Wii, e i blocchi da {1} KiB di questo RVZ ne occupano circa {2} KB durante il gioco: Newer Super Mario Bros. Wii si bloccava così. Se si blocca, riconverti l'RVZ in Dolphin con una dimensione dei blocchi di 32 KiB."
@@ -4110,23 +4110,23 @@ msgstr "La cartella della NAND emulata: quella indicata dalle impostazioni di US
 msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
 msgstr "Con impostazioni e Mii, i giochi usano anche le impostazioni della Wii e i Mii della NAND emulata. Per questo la cartella deve contenere una NAND completa."
 
-msgid "More memory for games, faster mod loading"
-msgstr "Più memoria ai giochi, mod più veloci"
+msgid "A GameCube controller opens the HOME Menu"
+msgstr "Un controller GameCube apre il menu HOME"
 
-msgid "Parental controls can lock the HOME Menu"
-msgstr "Il controllo genitori può bloccare il menu HOME"
+msgid "CTGP Revolution with no disc (offline)"
+msgstr "CTGP Revolution senza disco (offline)"
 
-msgid "Updates restart into the new version"
-msgstr "Gli aggiornamenti riavviano nella nuova versione"
+msgid "GameCube mod packs with code patches"
+msgstr "Pacchetti mod GameCube con patch al codice"
 
-msgid "Mod tiles get their own 3D covers and boxes"
-msgstr "Copertine 3D e scatole proprie per le mod"
+msgid "Calibrate a GameCube controller"
+msgstr "Calibra un controller GameCube"
 
-msgid "Code mods: Extras and Crash logs rows"
-msgstr "Mod di codice: Extra e Log dei crash"
+msgid "240p output for CRT TVs"
+msgstr "Uscita 240p per televisori CRT"
 
-msgid "Wii U Pro Controller cheats without HOME"
-msgstr "Trucchi col Wii U Pro Controller senza HOME"
+msgid "GameCube: slot B card, Volume boost"
+msgstr "GameCube: scheda nello slot B, volume più alto"
 
 msgid "Manage game"
 msgstr "Gestisci gioco"
@@ -4292,15 +4292,6 @@ msgstr "Questa versione di CTGP-R non si può ancora avviare da RiftWii. Avvia C
 
 msgid "CTGP-R could not be started. Its files on the SD card may be damaged or incomplete: install CTGP-R again. The reason is in sd:/riftwii/boot.log."
 msgstr "Impossibile avviare CTGP-R. I suoi file sulla scheda SD potrebbero essere danneggiati o incompleti: reinstalla CTGP-R. Il motivo è in sd:/riftwii/boot.log."
-
-msgid "This version of CTGP Revolution can't be started from RiftWii yet (or its files on the SD card are damaged). Start CTGP from the Homebrew Channel instead."
-msgstr "Questa versione di CTGP Revolution non si può ancora avviare da RiftWii (oppure i suoi file sulla scheda SD sono danneggiati). Avvia CTGP dall'Homebrew Channel."
-
-msgid "CTGP Revolution: this version can't be started from RiftWii (see Start)."
-msgstr "CTGP Revolution: questa versione non si può avviare da RiftWii (vedi Gioca)."
-
-msgid "Calibrate a GameCube controller"
-msgstr "Calibra un controller GameCube"
 
 msgid "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use."
 msgstr "Prova un controller GameCube e corregge uno consumato: levette che non arrivano al bordo, levette che si muovono da sole, grilletti che non scendono del tutto. I giochi GameCube ricevono la correzione, e i giochi Wii mentre è in uso un adattatore GameCube o un controller USB."
