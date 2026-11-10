@@ -45,19 +45,23 @@ int32_t ctgpr_launch(const void* raw, uint32_t bytes) {
     riftwii::g_ctgp_arena = request.arena;
     // An escape unwinds nothing, so the launch's heap blocks are tracked and
     // given back after one. The table is taken before tracking starts, from
-    // the MEM2 block (without one, nothing is tracked and an escape leaks).
+    // the MEM2 block. Without it an escape would leak every block the launch
+    // holds, so the launch does not start.
     void** const track = request.arena != nullptr
                              ? static_cast<void**>(request.arena->allocate(kTrackSlots * sizeof(void*)))
                              : nullptr;
-    if (track == nullptr) riftwii::plugin::host().log("no room to track the plan's heap blocks");
+    if (track == nullptr) {
+        riftwii::g_ctgp_arena = nullptr;
+        riftwii::plugin::host().log("no room to track the plan's heap blocks: the launch does not start");
+        return RWP_LAUNCH_NO_MEMORY;
+    }
     if (__builtin_setjmp(riftwii::plugin::escape_buffer()) != 0) {
         // Back from escape(): what would have thrown, as a result. Every
         // heap block the launch still held goes back, the plan's and
         // request.error's among them: nothing of them is used again. The
         // MEM2 block's own bookkeeping went with them, so the DOL starts it
         // afresh and gives it back whole (wii/launch/ctgpr.cpp).
-        bool overflowed = false;
-        const std::uint32_t freed = riftwii::plugin::free_tracked_blocks(overflowed);
+        const std::uint32_t freed = riftwii::plugin::free_tracked_blocks();
         riftwii::g_ctgp_arena = nullptr;
         request.escaped = 1;
         // Its buffer was one of them: an empty string in its place, which
@@ -67,17 +71,16 @@ int32_t ctgpr_launch(const void* raw, uint32_t bytes) {
         // Out of memory: no std::string here, its allocation could fail again
         // with the escape disarmed. The reason goes to the log only.
         if (taken.result != RWP_LAUNCH_NO_MEMORY) request.error = taken.why ? taken.why : "the launch stopped";
-        riftwii::plugin::host().log("the plan stopped: %s; %u heap blocks given back%s",
-                                    taken.why ? taken.why : "no reason given", static_cast<unsigned>(freed),
-                                    overflowed ? " (more were not tracked and stay taken)" : "");
+        riftwii::plugin::host().log("the plan stopped: %s; %u heap blocks given back",
+                                    taken.why ? taken.why : "no reason given", static_cast<unsigned>(freed));
         return taken.result;
     }
-    if (track != nullptr) riftwii::plugin::track_blocks(track, kTrackSlots);
+    riftwii::plugin::track_blocks(track, kTrackSlots);
     riftwii::plugin::arm_escape();
     const int32_t result = run_launch(request);
     riftwii::plugin::disarm_escape();
     riftwii::plugin::untrack_blocks();
-    if (track != nullptr) request.arena->release(track);
+    request.arena->release(track);
     riftwii::g_ctgp_arena = nullptr;
     return result;
 }

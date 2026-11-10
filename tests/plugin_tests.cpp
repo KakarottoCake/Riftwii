@@ -654,17 +654,16 @@ static void TestBlockTracker() {
     riftwii::plugin::BlockTracker tracker;
     std::vector<void*> slots(64);
     std::vector<int> blocks(100);
-    tracker.add(&blocks[0]);  // not tracking yet: ignored
+    EXPECT_TRUE(tracker.add(&blocks[0]));  // not tracking yet: ignored, and nothing to refuse
     tracker.start(slots.data(), 64);
     EXPECT_TRUE(tracker.active());
-    for (int i = 0; i < 40; ++i) tracker.add(&blocks[i]);
+    for (int i = 0; i < 40; ++i) EXPECT_TRUE(tracker.add(&blocks[i]));
     for (int i = 0; i < 40; i += 2) tracker.remove(&blocks[i]);  // freed in the launch
     tracker.remove(&blocks[90]);  // a block from before tracking: left alone
     EXPECT_EQ(tracker.live(), 20u);
     // Freed slots are used again, and the probe still finds the rest.
-    for (int i = 40; i < 44; ++i) tracker.add(&blocks[i]);
+    for (int i = 40; i < 44; ++i) EXPECT_TRUE(tracker.add(&blocks[i]));
     EXPECT_EQ(tracker.live(), 24u);
-    EXPECT_FALSE(tracker.overflowed());
     std::vector<int> seen(100, 0);
     const std::uint32_t freed = tracker.sweep([&](void* block) { ++seen[static_cast<int*>(block) - blocks.data()]; });
     EXPECT_EQ(freed, 24u);
@@ -677,12 +676,41 @@ static void TestBlockTracker() {
     EXPECT_FALSE(tracker.active());
     tracker.add(&blocks[50]);  // stopped: nothing is noted any more
     EXPECT_EQ(tracker.sweep([](void*) {}), 0u);
-    // A table three quarters full stops taking blocks and says so.
+    // Three quarters live: the next block is refused (the runtime gives it
+    // back and never hands it out), and the table stays exact.
     tracker.start(slots.data(), 64);
-    for (int i = 0; i < 60; ++i) tracker.add(&blocks[i]);
-    EXPECT_TRUE(tracker.overflowed());
+    for (int i = 0; i < 48; ++i) EXPECT_TRUE(tracker.add(&blocks[i]));
+    EXPECT_FALSE(tracker.add(&blocks[48]));
     EXPECT_EQ(tracker.live(), 48u);
     EXPECT_EQ(tracker.sweep([](void*) {}), 48u);
+    // Churn: many more allocations and frees than slots never fill the table
+    // while few blocks are live, and every live block is still found.
+    tracker.start(slots.data(), 64);
+    bool held[100] = {};
+    std::uint32_t state = 12345, live = 0;
+    bool all_added = true;
+    for (int step = 0; step < 20000; ++step) {
+        state = state * 1103515245u + 12345u;
+        const int b = static_cast<int>((state >> 8) % 100);
+        if (held[b]) {
+            tracker.remove(&blocks[b]);
+            held[b] = false;
+            --live;
+        } else if (live < 30) {
+            if (!tracker.add(&blocks[b])) all_added = false;
+            held[b] = true;
+            ++live;
+        }
+    }
+    EXPECT_TRUE(all_added);
+    EXPECT_EQ(tracker.live(), live);
+    std::vector<int> found(100, 0);
+    EXPECT_EQ(tracker.sweep([&](void* block) { ++found[static_cast<int*>(block) - blocks.data()]; }), live);
+    bool matches = true;
+    for (int i = 0; i < 100; ++i) {
+        if (found[i] != (held[i] ? 1 : 0)) matches = false;
+    }
+    EXPECT_TRUE(matches);
 }
 
 // The in-app update (riftwii/update.hpp's plan_update_writes): the

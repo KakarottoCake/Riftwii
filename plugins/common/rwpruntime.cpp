@@ -56,13 +56,12 @@ void track_blocks(void** slots, std::uint32_t count) { g_tracker.start(slots, co
 
 void untrack_blocks() { g_tracker.stop(); }
 
-std::uint32_t free_tracked_blocks(bool& overflowed) {
-    overflowed = g_tracker.overflowed();
+std::uint32_t free_tracked_blocks() {
     return g_tracker.sweep([](void* block) { g_host->mem1_free(block); });
 }
 
 // The runtime's own allocations and frees, noted while a launch tracks them.
-void note_allocated(void* block) { g_tracker.add(block); }
+bool note_allocated(void* block) { return g_tracker.add(block); }
 void note_freed(void* block) { g_tracker.remove(block); }
 
 void arm_escape() {
@@ -90,7 +89,7 @@ void escape(std::int32_t result, const char* why) {
 using riftwii::plugin::escape;
 using riftwii::plugin::host;
 namespace riftwii::plugin {
-void note_allocated(void* block);
+bool note_allocated(void* block);
 void note_freed(void* block);
 }  // namespace riftwii::plugin
 using riftwii::plugin::note_allocated;
@@ -104,7 +103,12 @@ void* allocate(std::size_t bytes) {
     // The heap refuses 0 bytes; C++ wants a distinct block for them.
     void* block = host().mem1_alloc(bytes == 0 ? 1 : static_cast<std::uint32_t>(bytes));
     if (block == nullptr) escape(RWP_LAUNCH_NO_MEMORY, "RiftWii's memory is full");
-    note_allocated(block);
+    if (!note_allocated(block)) {
+        // Untracked, it would stay taken after an escape: given back, and
+        // the launch stops as out of memory.
+        host().mem1_free(block);
+        escape(RWP_LAUNCH_NO_MEMORY, "too many heap blocks at once to track");
+    }
     return block;
 }
 
@@ -234,7 +238,12 @@ double floor(double x) {
 // The C library's heap: RiftWii's, as operator new's.
 void* malloc(size_t bytes) {
     void* block = host().mem1_alloc(bytes == 0 ? 1 : static_cast<std::uint32_t>(bytes));
-    note_allocated(block);
+    if (block != nullptr && !note_allocated(block)) {
+        // As operator new's: an untracked block is never handed out. A C
+        // caller is told as for a full heap.
+        host().mem1_free(block);
+        return nullptr;
+    }
     return block;
 }
 

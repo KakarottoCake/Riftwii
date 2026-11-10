@@ -18,9 +18,9 @@ constexpr std::size_t kHeader = 0x2C;   // passed raw to DSA (which truncates to
 constexpr std::size_t kBody = 0x60;
 
 const std::uint8_t* reference_body(const std::string& package, std::uint32_t version) {
-    // Small facts from locally verified lists, not signatures or key data.
-    // The version label itself is unsigned. Bind each supported identity to
-    // its complete body digest, so an older signed list cannot be relabelled.
+    // Small facts from locally verified lists, not signatures or key data:
+    // bodies RiftWii knows per version, which let a list whose (unsigned)
+    // label lags PACKAGES.BIN through. A list need not be one of them.
     static constexpr std::uint8_t core_body[20] = {
         0x40, 0x0C, 0x76, 0x45, 0xC7, 0xC8, 0x02, 0x1E, 0xD6, 0x76,
         0x56, 0x00, 0xF0, 0x51, 0xF8, 0x3B, 0x07, 0x04, 0x7C, 0x0E,
@@ -109,15 +109,15 @@ bool ctgp_load_hash_list(const CtgpBytes& file, const std::string& package, std:
         error = "the hash list's body does not match its digest";
         return false;
     }
-    // The signed reference for this (package, PACKAGES.BIN version) proves the
-    // list's identity by its whole body, so its own version label (0x28) does
-    // not have to equal `version`. (`reference` is a test-only override.)
+    // A body RiftWii knows for this (package, PACKAGES.BIN version) lets the
+    // list's own version label (0x28) differ from `version`. (`reference` is
+    // a test-only override.)
     const std::uint8_t* const expected_body = reference ? reference->data() : reference_body(package, version);
     const bool known_identity = expected_body && std::memcmp(body_digest.data(), expected_body, 20) == 0;
-    // Only when no reference vouches for the body do we fall back to the list's
-    // own version label, which must then equal the requested version. This is
-    // the test/dev path; a current production card reaches known_identity above
-    // even though its CTGPR.HSH label (0x01031192) lags PACKAGES.BIN (0x01031196).
+    // Otherwise the list's own label must be the requested version, as the
+    // channel requires (the usual case: a card CTGP-R updated in Nov 2026
+    // carries new CTGPR.HSH and CORE.HSH bodies under the labels PACKAGES.BIN
+    // names).
     if (!known_identity && be32(d + 0x28) != version) {
         error = "the hash list is for another version of the package";
         return false;

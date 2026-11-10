@@ -199,6 +199,20 @@ int main() {
         EXPECT_TRUE(!ctgp_core_code_is_tested("OTHER.BIN", boot));
         boot[19] ^= 1;
         EXPECT_TRUE(!ctgp_core_code_is_tested("BOOT.BIN", boot));
+        const std::array<std::uint8_t, 20> boat{0x21, 0x00, 0x02, 0x02, 0xCD, 0x21, 0xAD, 0x99, 0x3E, 0x2C,
+                                                0x8F, 0xBA, 0x1D, 0x7A, 0x8E, 0x46, 0x26, 0xAE, 0x68, 0xC6};
+        const std::array<std::uint8_t, 20> beat{0x9F, 0x4D, 0xA5, 0x13, 0x97, 0x99, 0xD8, 0xA9, 0x36, 0x05,
+                                                0xC6, 0xF7, 0x98, 0xCE, 0xE3, 0xCC, 0x3E, 0x92, 0x25, 0x43};
+        EXPECT_TRUE(ctgp_core_code_is_tested("BOAT.BIN", boat));
+        EXPECT_TRUE(ctgp_core_code_is_tested("BEAT.BIN", beat));
+        // each file's digest only in its own role
+        EXPECT_TRUE(!ctgp_core_code_is_tested("BEAT.BIN", boat));
+        EXPECT_TRUE(!ctgp_core_code_is_tested("BOOT.BIN", beat));
+        auto boat_changed = boat, beat_changed = beat;
+        boat_changed[0] ^= 0x80;
+        beat_changed[10] ^= 0x01;
+        EXPECT_TRUE(!ctgp_core_code_is_tested("BOAT.BIN", boat_changed));
+        EXPECT_TRUE(!ctgp_core_code_is_tested("BEAT.BIN", beat_changed));
     }
     {
         CtgpHashList update;

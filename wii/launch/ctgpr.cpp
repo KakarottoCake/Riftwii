@@ -212,6 +212,13 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
     request.plan = nullptr;
     plan.reset();  // its deleter gives the MEM2 block back once nothing is in it
     release_launch_arena();
+    if (result == RWP_LAUNCH_NO_MEMORY) {
+        // Out of memory before the plan started (no room to track its heap
+        // blocks): nothing was taken.
+        logf("CTGP-R: the ctgpr plugin ran out of memory (its own log line above says where)\n");
+        error = mem::LaunchOutOfMemoryMessage();
+        return false;
+    }
     if (result < 0) {
         // The plugin is missing, from another RiftWii, damaged or did not
         // start: its own sentence says which, and what to do.

@@ -290,7 +290,7 @@ bool ctgpr_prepare(CtgprLaunchRequest& request) {
         return false;
     }
     if (!ctgp_has_hash_reference("CORE", ctgp_package_version(versions, "CORE"))) {
-        error = "the installed core has no authenticated hash-list body reference in this build";
+        error = "the installed core version is not the one this build is made for";
         why = CtgprFailure::Version;
         return false;
     }
@@ -442,13 +442,15 @@ bool ctgpr_prepare(CtgprLaunchRequest& request) {
          static_cast<unsigned>(ctgpr_hashes.file_count()), static_cast<unsigned>(core_hashes.file_count()));
 
     // These roles were matched against the locally checked CORE release:
-    // BOOT = bigfile1, BOAT = bigfile7, BEAT = bigfile6. The pinned full-body
-    // digest binds that mapping to this release. Membership alone would let
-    // another signed core file stand in for the required loader role.
+    // BOOT = bigfile1, BOAT = bigfile7, BEAT = bigfile6. Each file must first
+    // be the tested code by its own SHA-1 (the launch's fixed addresses
+    // belong to it), then the signed CORE.HSH must name that digest in that
+    // role: membership alone would let another signed core file stand in.
     for (const CoreCodeDigest& c : core_code) {
         if (!ctgp_core_code_is_tested(c.what, c.digest)) {
             error = std::string("CTGP-R's core code is not the version RiftWii supports: ") + c.what +
                     " is different (update RiftWii)";
+            why = CtgprFailure::Version;
             return false;
         }
         if (!ctgp_core_digest_matches(core_hashes, c.what, c.digest)) {

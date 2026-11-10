@@ -44,10 +44,11 @@ Escape escape_taken();
 // untrack_blocks or free_tracked_blocks, every block operator new and
 // malloc hand out is noted in `slots` (`count`, a power of two), and delete
 // and free take it out. After an escape, free_tracked_blocks gives back
-// what is left (it allocates nothing) and returns how many; `overflowed`
-// says whether the table filled up, so that some were not noted.
+// what is left (it allocates nothing) and returns how many. A block the
+// table has no room for is never handed out: operator new gives it back and
+// escapes as out of memory, malloc gives it back and returns null.
 void track_blocks(void** slots, std::uint32_t count);
 void untrack_blocks();
-std::uint32_t free_tracked_blocks(bool& overflowed);
+std::uint32_t free_tracked_blocks();
 
 }  // namespace riftwii::plugin

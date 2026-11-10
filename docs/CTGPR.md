@@ -23,12 +23,14 @@ It keeps to these rules:
   signature checked against CTGP-R's own public list-signing key before it is
   trusted (`src/ctgpr/ctgpdsa.cpp`, `ctgphash.cpp`). Like the channel, DSA
   takes only the first 20 raw header bytes; the package name and version are
-  outside those bytes. For CORE, RiftWii therefore also binds the full body's
-  digest to a locally checked package/version reference, refusing an unknown
-  one rather than trusting a relabelled list. A CTGPR list with no such
-  reference (a newer track package) is accepted on its signature, as the
-  channel accepts it, when its own version label is the version PACKAGES.BIN
-  names. This matters here because
+  outside those bytes. A list is accepted, as the channel accepts it, when its
+  own version label is the version PACKAGES.BIN names; CTGP-R re-signs both
+  lists under the same version when it updates. Because the label is not
+  signed, an older signed list could stand in for a newer one, and it would
+  still only vouch for files CTGP-R signed. For CORE, the code the launch
+  depends on (`BOOT.BIN`, `BOAT.BIN`, `BEAT.BIN`) is also pinned by its own
+  SHA-1s, so no list can admit different core code; CORE's other files rest
+  on the channel's rule alone. This matters here because
   the channel, which would otherwise verify the lists, never runs. Each list's
   per-file SHA-1 is then written into the game's open-file records, where
   CTGP's own code compares each signed file as it reads it. Apart from the
