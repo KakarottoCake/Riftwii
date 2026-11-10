@@ -844,6 +844,35 @@ static void TestUpdateOrder() {
 // Which boot.dol a run came from: the SD card's, or nothing when it was
 // started from another device (a CTGP-R launch must not be sent back to the
 // SD copy, and an update has nothing to replace there).
+// The note CTGP-R's way back reads its path from: written only for a card
+// DOL, read back only by the same build, only for a file that is there.
+static void TestCtgprReturnNote() {
+    const auto card_has = [](const std::string& path) { return path == "sd:/apps/rwctgp/boot.dol"; };
+    const std::string note = riftwii::ctgpr_return_note_text("sd:/apps/rwctgp/boot.dol", "2611-154");
+    EXPECT_EQ(note, std::string("sd:/apps/rwctgp/boot.dol\n2611-154\n"));
+    EXPECT_EQ(riftwii::ctgpr_return_note_path(note, "2611-154", card_has), std::string("sd:/apps/rwctgp/boot.dol"));
+    // another build's note, or a file that is gone
+    EXPECT_EQ(riftwii::ctgpr_return_note_path(note, "2611-155", card_has), std::string());
+    EXPECT_EQ(riftwii::ctgpr_return_note_path(note, "2611-154", [](const std::string&) { return false; }),
+              std::string());
+    // line ends from an editor are fine
+    EXPECT_EQ(riftwii::ctgpr_return_note_path("sd:/apps/rwctgp/boot.dol \r\n2611-154\r\n", "2611-154", card_has),
+              std::string("sd:/apps/rwctgp/boot.dol"));
+    // a DOL outside apps/ is a card DOL too (the writer and reader agree)
+    const auto any = [](const std::string&) { return true; };
+    EXPECT_EQ(riftwii::ctgpr_return_note_path(riftwii::ctgpr_return_note_text("sd:/boot.dol", "v"), "v", any),
+              std::string("sd:/boot.dol"));
+    // never written or taken: another device, no .dol, a climb, no version, no version line
+    EXPECT_EQ(riftwii::ctgpr_return_note_text("usb:/apps/riftwii/boot.dol", "v"), std::string());
+    EXPECT_EQ(riftwii::ctgpr_return_note_text("sd:/apps/riftwii/boot.elf", "v"), std::string());
+    EXPECT_EQ(riftwii::ctgpr_return_note_text("sd:/apps/../x/boot.dol", "v"), std::string());
+    EXPECT_EQ(riftwii::ctgpr_return_note_text("sd:/apps/riftwii/boot.dol", ""), std::string());
+    EXPECT_EQ(riftwii::ctgpr_return_note_path("usb:/apps/riftwii/boot.dol\nv\n", "v", any), std::string());
+    EXPECT_EQ(riftwii::ctgpr_return_note_path("sd:/apps/x/../y/boot.dol\nv\n", "v", any), std::string());
+    EXPECT_EQ(riftwii::ctgpr_return_note_path("sd:/apps/riftwii/boot.dol", "v", any), std::string());
+    EXPECT_EQ(riftwii::ctgpr_return_note_path("sd:/" + std::string(300, 'a') + ".dol\nv\n", "v", any), std::string());
+}
+
 static void TestRunningDolPath() {
     const auto card_has = [](const std::string& path) { return path == "sd:/apps/riftwii/boot.dol"; };
     EXPECT_EQ(riftwii::running_dol_path("sd:/apps/riftwii/boot.dol", card_has), std::string("sd:/apps/riftwii/boot.dol"));
@@ -878,6 +907,7 @@ int main(int argc, char** argv) {
     TestTables();
     TestUpdateOrder();
     TestBlockTracker();
+    TestCtgprReturnNote();
     if (argc > 1) {
         TestToolFixture(argv[1]);
     } else {

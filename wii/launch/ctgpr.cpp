@@ -4,6 +4,8 @@
 
 #include <sys/stat.h>
 
+#include <cctype>
+#include <cstdio>
 #include <cstdlib>
 #include <new>
 
@@ -16,6 +18,7 @@
 #include "riftwii/ctgparena.hpp"
 #include "riftwii/plugin_ctgpr.hpp"
 #include "riftwii/pluginfile.hpp"
+#include "riftwii/update.hpp"
 #include "sdfile.hpp"
 
 namespace riftwii::wii {
@@ -131,6 +134,46 @@ bool ctgpr_native_wanted() {
     return exists(kCtgprBlobPath) && exists(kCtgprJellyPath);
 }
 
+namespace {
+
+constexpr const char* kReturnNotePath = "sd:/riftwii/ctgpr-return.txt";
+constexpr const char* kReturnNoteTemp = "sd:/riftwii/ctgpr-return.tmp";
+// The path this launch wrote into CTGP-R, for the note at the handover.
+std::string g_return_path;
+
+bool card_file(const std::string& path) {
+    struct stat st;
+    return stat(path.c_str(), &st) == 0 && S_ISREG(st.st_mode);
+}
+
+}  // namespace
+
+void leave_ctgpr_return_note() {
+    const std::string text = ctgpr_return_note_text(g_return_path, RIFTWII_VERSION);
+    g_return_path.clear();
+    if (text.empty()) return;
+    // Whole or not at all: a temporary file renamed over the note.
+    FILE* f = std::fopen(kReturnNoteTemp, "wb");
+    bool ok = f != nullptr && std::fwrite(text.data(), 1, text.size(), f) == text.size();
+    if (f != nullptr && std::fclose(f) != 0) ok = false;
+    std::remove(kReturnNotePath);
+    if (!ok || std::rename(kReturnNoteTemp, kReturnNotePath) != 0) {
+        std::remove(kReturnNoteTemp);
+        logf("CTGP-R: could not leave the way back's path in %s: leaving for the channel restarts RiftWii from "
+             "sd:/apps/riftwii if this copy is elsewhere\n", kReturnNotePath);
+    }
+}
+
+std::string take_ctgpr_return_note() {
+    FILE* f = std::fopen(kReturnNotePath, "rb");
+    if (f == nullptr) return "";
+    char text[512] = {};
+    const std::size_t got = std::fread(text, 1, sizeof(text) - 1, f);
+    std::fclose(f);
+    std::remove(kReturnNotePath);
+    return ctgpr_return_note_path(std::string(text, got), RIFTWII_VERSION, card_file);
+}
+
 bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const CtgpLaunchPlan>& out,
                           std::string& error) {
     const auto stop = [&](CtgprFailure why, const std::string& technical) {
@@ -158,8 +201,10 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
     // Leaving for the channel (its menu buttons, a crash) restarts RiftWii.
     {
         const std::string self = SelfDolPath();
-        if (self.rfind("sd:/", 0) == 0 && self.size() + 1 < kCtgpChannelStubLength)
+        if (self.rfind("sd:/", 0) == 0 && self.size() + 1 < kCtgpChannelStubLength) {
             request.channel_stub = "sda:/" + self.substr(4);
+            g_return_path = self;
+        }
         else if (self.empty())
             logf("CTGP-R: leaving for the CTGP-R Channel will not come back to RiftWii (it was not started from the "
                  "SD card, so there is no path on the card to return to)\n");

@@ -465,6 +465,44 @@ int compare_versions(const std::string& a, const std::string& b) {
     return compare_suffixes(x.suffix, y.suffix);
 }
 
+namespace {
+
+// A DOL on the SD card as running_dol_path takes one: "sd:/...", ending
+// ".dol" (any case), not climbing out with "..".
+bool card_dol_path(const std::string& path) {
+    if (path.rfind("sd:/", 0) != 0 || path.size() < 8) return false;
+    std::string tail = path.substr(path.size() - 4);
+    for (char& c : tail) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    const bool climbs = path.find("/../") != std::string::npos ||
+                        (path.size() >= 3 && path.compare(path.size() - 3, 3, "/..") == 0);
+    return tail == ".dol" && !climbs && path.find('\0') == std::string::npos;
+}
+
+constexpr std::size_t kReturnNotePathMax = 255;
+
+}  // namespace
+
+std::string ctgpr_return_note_text(const std::string& dol_path, const std::string& version) {
+    if (!card_dol_path(dol_path) || dol_path.size() > kReturnNotePathMax || version.empty() ||
+        dol_path.find('\n') != std::string::npos || version.find('\n') != std::string::npos)
+        return "";
+    return dol_path + "\n" + version + "\n";
+}
+
+std::string ctgpr_return_note_path(const std::string& text, const std::string& version,
+                                   const std::function<bool(const std::string&)>& is_file) {
+    const auto trimmed = [](std::string s) {
+        while (!s.empty() && (s.back() == '\n' || s.back() == '\r' || s.back() == ' ' || s.back() == '\t')) s.pop_back();
+        return s;
+    };
+    const std::size_t line = text.find('\n');
+    if (line == std::string::npos) return "";
+    const std::string path = trimmed(text.substr(0, line));
+    const std::string build = trimmed(text.substr(line + 1));
+    if (version.empty() || build != version || path.size() > kReturnNotePathMax || !card_dol_path(path)) return "";
+    return is_file(path) ? path : "";
+}
+
 std::string running_dol_path(const char* launch_path, const std::function<bool(const std::string&)>& is_file) {
     constexpr const char* kDefaultDol = "sd:/apps/riftwii/boot.dol";
     std::string path = launch_path != nullptr ? launch_path : "";

@@ -71,6 +71,7 @@
 #include "restart.hpp"
 #include "wiifont.hpp"
 #include "channel.hpp"
+#include "ctgpr.hpp"
 #include "skin.hpp"
 #include "stash.hpp"
 #include "plugins.hpp"
@@ -368,6 +369,40 @@ bool StartedWithPath() {
            __system_argv->argv != nullptr && __system_argv->argv[0] != nullptr;
 }
 
+// Whether the loader gave a path, as it was before AdoptCtgprReturnPath:
+// CTGP-R's way back starts RiftWii under the game's IOS with none.
+bool g_started_without_path = false;
+// The path CTGP-R's way back left (take_ctgpr_return_note), taken as argv[0]
+// when the start gave none; it stays for the whole run, as crt0's would.
+bool g_path_from_ctgpr_note = false;
+char g_note_command_line[256];
+char* g_note_argv[2];
+
+// At the first mount of the card, and again if the card only mounts after the
+// restart's fresh IOS.
+void AdoptCtgprReturnPath(bool sd_mounted) {
+    static bool asked = false;
+    if (!asked) g_started_without_path = !StartedWithPath();
+    asked = true;
+    if (!sd_mounted || g_path_from_ctgpr_note) return;
+    // Taken (and deleted) at every start, so a note from a launch that went
+    // another way never names the folder of a later start.
+    const std::string path = riftwii::wii::take_ctgpr_return_note();
+    if (!g_started_without_path || path.empty() || path.size() >= sizeof(g_note_command_line) ||
+        __system_argv == nullptr)
+        return;
+    std::memcpy(g_note_command_line, path.c_str(), path.size() + 1);
+    g_note_argv[0] = g_note_command_line;
+    g_note_argv[1] = nullptr;
+    __system_argv->argvMagic = ARGV_MAGIC;
+    __system_argv->commandLine = g_note_command_line;
+    __system_argv->length = static_cast<int>(path.size() + 1);
+    __system_argv->argc = 1;
+    __system_argv->argv = g_note_argv;
+    __system_argv->endARGV = g_note_argv + 1;
+    g_path_from_ctgpr_note = true;
+}
+
 bool StartedFromUsb() {
     return __system_argv != nullptr && __system_argv->argvMagic == ARGV_MAGIC && __system_argv->argc > 0 &&
            __system_argv->argv != nullptr && __system_argv->argv[0] != nullptr &&
@@ -404,7 +439,8 @@ void OpenSessionLog(bool sd_mounted) {
     // pass the DOL's path.
     const bool has_path = __system_argv != nullptr && __system_argv->argvMagic == ARGV_MAGIC &&
                           __system_argv->argc > 0 && __system_argv->argv != nullptr && __system_argv->argv[0] != nullptr;
-    riftwii::wii::logf("Started from %s\n", has_path ? __system_argv->argv[0] : "(no path given)");
+    riftwii::wii::logf("Started from %s%s\n", has_path ? __system_argv->argv[0] : "(no path given)",
+                       g_path_from_ctgpr_note ? " (the path CTGP-R's way back left on the card; the loader gave none)" : "");
     // AHBPROT off (the Homebrew Channel, the channel since version 9): what
     // needs the hardware (IOS patches, the GameCube adapter) can work.
     riftwii::wii::logf("Hardware access: %s\n", read32(0x0D800064) == 0xFFFFFFFF ? "yes" : "no (AHBPROT on)");
@@ -463,6 +499,7 @@ int main() {
     riftwii::wii::startup::Mark(Step::Crash);
     riftwii::wii::CrashInstall();
     bool sd_mounted = MountStartupSd();
+    AdoptCtgprReturnPath(sd_mounted);
     riftwii::wii::startup::Mark(Step::TestLimits);
     riftwii::wii::mem::TestBallast();  // test builds only
 
@@ -526,7 +563,7 @@ int main() {
     // crash handler) loads sd:/apps/riftwii/boot.dol itself and jumps to it,
     // under the game's IOS (a cIOS for a USB game). The menu would stay there
     // and see no USB drive, so it reloads its IOS as after its own restarts.
-    const bool started_under_game_ios = !StartedWithPath() && IOS_GetVersion() != 58;
+    const bool started_under_game_ios = g_started_without_path && IOS_GetVersion() != 58;
     if (started_under_game_ios)
         riftwii::wii::logf("Started under IOS%d with no path (CTGP-R's channel button?): reloading the menu's IOS\n",
                            IOS_GetVersion());
@@ -539,6 +576,7 @@ int main() {
     if (!sd_mounted && restart.kind != riftwii::wii::RestartKind::None) {
         sd_mounted = MountStartupSd();
         if (sd_mounted) {
+            AdoptCtgprReturnPath(true);
             OpenSessionLog(true);
             riftwii::wii::logf("Restarted: %s\n", restart.message.c_str());
             riftwii::wii::logf("SD card: read only after the restart's fresh IOS%d\n", IOS_GetVersion());
