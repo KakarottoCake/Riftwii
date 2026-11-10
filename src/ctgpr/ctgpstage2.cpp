@@ -345,7 +345,7 @@ bool CtgpPpc::step(std::string& error) {
     };
 
     switch (op) {
-    case 7: r[rd] = static_cast<std::uint32_t>(s32(r[ra]) * s32(simm)); break;  // mulli
+    case 7: r[rd] = r[ra] * simm; break;  // mulli: the low word, unsigned (no signed overflow)
     case 8: {                                                                       // subfic
         const std::uint64_t sum = std::uint64_t(~r[ra]) + simm + 1;
         r[rd] = static_cast<std::uint32_t>(sum);
@@ -425,7 +425,7 @@ bool CtgpPpc::step(std::string& error) {
         if (xo9 == 266) set_d(a + b);                                        // add
         else if (xo9 == 40) set_d(b - a);                                    // subf
         else if (xo9 == 104) set_d(0u - a);                                  // neg
-        else if (xo9 == 235) set_d(static_cast<std::uint32_t>(s32(a) * s32(b)));  // mullw
+        else if (xo9 == 235) set_d(a * b);  // mullw: the low word, unsigned (no signed overflow)
         else if (xo9 == 11) set_d(static_cast<std::uint32_t>((std::uint64_t(a) * b) >> 32));  // mulhwu
         else if (xo9 == 459) set_d(b == 0 ? 0 : a / b);                      // divwu
         else if (xo9 == 491) {                                               // divw

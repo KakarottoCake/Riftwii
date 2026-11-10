@@ -134,6 +134,38 @@ static void test_cache_and_breakpoint_registers() {
     EXPECT_EQ(cpu.r[26], 0x38600003u);
 }
 
+// mulli and mullw keep the low word of a product that overflows 32 bits, as
+// the CPU does (worked out unsigned: no signed overflow in the interpreter).
+static void test_multiply_overflow() {
+    const u32 base = 0x80040000;
+    std::vector<u32> code = {
+        lis(3, 0x7fff), ori(3, 3, 0xffff),  // r3 = 0x7fffffff
+        lis(6, 0x8000),                     // r6 = 0x80000000
+        mulli(4, 3, 2),                     // 0xfffffffe
+        mulli(5, 3, 0xffff),                // times -1: 0x80000001
+        mulli(9, 6, 0xffff),                // 0x80000000 times -1: 0x80000000
+        x_form(235, 7, 6, 6),               // mullw: 2^62, low word 0
+        x_form(235, 8, 3, 3),               // mullw: 0x3fffffff00000001, low word 1
+        x_form(235, 10, 6, 3),              // mullw: 0x80000000 * 0x7fffffff, low word 0x80000000
+        kNop,
+    };
+    const u32 stop = base + 4 * static_cast<u32>(code.size() - 1);
+    const auto dol = make_dol({{base, words(code), true}});
+    CtgpDolLayout layout;
+    std::string error;
+    EXPECT_TRUE(ctgp_parse_dol(dol.data(), dol.size(), layout, error));
+    CtgpPpc cpu(dol.data(), layout);
+    cpu.r[1] = kCtgpPpcStackTop - 0x100;
+    cpu.pc = base;
+    EXPECT_TRUE(cpu.run_until(stop, 100, error));
+    EXPECT_EQ(cpu.r[4], 0xfffffffeu);
+    EXPECT_EQ(cpu.r[5], 0x80000001u);
+    EXPECT_EQ(cpu.r[9], 0x80000000u);
+    EXPECT_EQ(cpu.r[7], 0u);
+    EXPECT_EQ(cpu.r[8], 1u);
+    EXPECT_EQ(cpu.r[10], 0x80000000u);
+}
+
 static void test_refusals() {
     const u32 base = 0x80040000;
     std::string error;
@@ -315,6 +347,7 @@ static void test_decode() {
 
 int main() {
     test_cache_and_breakpoint_registers();
+    test_multiply_overflow();
     test_refusals();
     test_decode();
     if (g_failures) {
