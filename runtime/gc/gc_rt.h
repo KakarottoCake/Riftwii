@@ -180,7 +180,7 @@ enum gc_trace_word {
     GC_TR_STREAM_STARVED, GC_TR_STREAM_FETCH_BUSY,
     GC_TR_STREAM_BUFFERED, /* ADPCM bytes in the ring ahead of the decoder */
     GC_TR_ORTHOGRAPHICS, /* orthographic projections seen with 16:9 on (left alone) */
-    GC_TR_AR_WAITS, /* ARAM transfers whose interrupt was waited for (gc_after_ar_dma) */
+    GC_TR_AR_WAITS, /* ARAM transfers whose interrupt was held back (gc_ar_hold) */
     GC_TR_AR_WAIT_LONGEST, /* the longest of those waits, timebase ticks */
     GC_TR_AR_WAIT_TIMEOUTS, /* waits given up: the interrupt did not show in time */
     GC_TR_PROJECTION_CALLERS, /* 16 words: gc_rt_context.projection_callers; with the test remote
@@ -563,8 +563,10 @@ struct gc_rt_context {
     uint32_t vi_mode;         /* GC_TR_VI_MODE */
     uint32_t projections;     /* perspective projections seen (16:9 on) */
     uint32_t orthographics;   /* orthographic ones, left alone */
-    /* gc_after_ar_dma: each ARAM interrupt made pending before the game
-     * goes on. */
+    /* The ARAM interrupt held back as long as a GameCube's transfer
+     * (gc_ar_hold): the transfers held; without the hold, the longest
+     * wait for one to be pending (gc_after_ar_dma); the holds let go with
+     * the hardware still busy long past their time, or waits that ran out. */
     uint32_t ar_waits;
     uint32_t ar_wait_longest;
     uint32_t ar_wait_timeouts;
@@ -726,6 +728,14 @@ struct gc_rt_cold {
     uint32_t crash_gpr[5];    /* r1, r3, r4, r5, r31 */
     uint32_t crash_chain[4];  /* the saved LRs up the stack: who called whom */
     uint32_t crash_word;
+    /* The ARAM interrupt held back (gc_rt.c's gc_ar_hold): the alarm that
+     * lets it go, whether that alarm is in the OS's queue, whether the
+     * interrupt is held (its ARINTMSK cleared by the blob) and the
+     * timebase at which it may come. */
+    uint8_t ar_alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
+    uint32_t ar_alarm_queued;
+    uint32_t ar_held;
+    uint32_t ar_release_at;
 };
 /* IOS reads and writes the four request buffers by DMA, whole 32-byte cache
  * lines each: every one starts on a line, and the struct is whole lines, so

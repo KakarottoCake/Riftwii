@@ -303,8 +303,9 @@ gc_continue_si_probe:
  * with the game's own ARAM address, so the hardware still raises its
  * interrupt but writes nothing of the game's (gc_on_ar_dma says why the
  * buffer holds what it does). The original is called rather than jumped
- * to, so gc_after_ar_dma runs once it has started the hardware: it waits
- * for the transfer's interrupt to be pending before the game goes on.
+ * to, so gc_after_ar_dma runs once it has started the hardware: it sets
+ * the alarm that lets the held interrupt come a GameCube transfer's time
+ * later (gc_rt.c's gc_ar_hold).
  * Frame: 8 r3, 12 r4, 16 r5, 20 r6. */
     .globl gc_hook_ar_dma
 gc_hook_ar_dma:

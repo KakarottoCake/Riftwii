@@ -53,6 +53,7 @@
 #define GC_IO_TIMEOUT_TICKS 303750000u  /* five seconds, independent of polling frequency */
 
 static void gc_io_resume(struct gc_rt_context* ctx);
+static void gc_ar_release(struct gc_rt_context* ctx);
 static int gc_io_start(struct gc_rt_context* ctx, uint32_t job);
 
 static void gc_io_arm(struct gc_rt_context* ctx) {
@@ -1329,6 +1330,10 @@ void gc_on_alarm(struct gc_rt_context* ctx, uint32_t alarm, uint32_t os_context)
         gc_card_on_alarm(ctx, (struct gc_card*)(uintptr_t)ctx->card, os_context);
         return;
     }
+    if (alarm == (uint32_t)(uintptr_t)gc_cold(ctx)->ar_alarm) {
+        gc_ar_release(ctx);
+        return;
+    }
     ctx->alarm_queued = 0;  /* out of the OS's queue now: gc_arm may set it again */
     if (ctx->read_state == GC_READ_COPYING) {
         if (!gc_io_start(ctx, GC_IO_READ)) {
@@ -2470,6 +2475,14 @@ static void gc_forget_game(struct gc_rt_context* ctx, int restart) {
     ctx->sample_queued = 0;
     ctx->sample_quiet = 0;
     gc_zero(ctx->sample_alarm, sizeof(ctx->sample_alarm));
+    {
+        /* The held ARAM interrupt's alarm was in the old OS's queue; the
+         * audio reset puts the DSP's interrupts back to masked anyway. */
+        struct gc_rt_cold* cold = gc_cold(ctx);
+        cold->ar_held = 0;
+        cold->ar_alarm_queued = 0;
+        gc_zero(cold->ar_alarm, sizeof(cold->ar_alarm));
+    }
     ctx->last_read_end = 0;
     ctx->load_saved_heap = 0;
     ctx->load_next = 0;
@@ -2983,6 +2996,90 @@ static void gc_aram_copy(uint32_t to_main, uint32_t main, uint32_t aram, uint32_
     gc_flush((uint32_t)(uintptr_t)to, length);
 }
 
+/* The ARAM interrupt comes as late as a GameCube's would.
+ *
+ * A Wii finishes the hardware's 32 bytes almost at once. A GameCube's ARAM
+ * takes long enough that the thread that started a transfer always gets on
+ * with what it does after the call before the interrupt comes, and games
+ * count on that order:
+ *  - JSystem's ARAM streaming does `count++` (load, add, store, interrupts
+ *    on) right after posting, and its callback does `count--`. A callback
+ *    landing between that load and store was lost, the count stayed at its
+ *    limit and the game waited forever (Super Mario Eclipse after about 560
+ *    transfers, Luigi's Mansion after 272, on a Wii only).
+ *  - Paper Mario: The Thousand-Year Door posts a transfer to ARQ and only
+ *    then puts its record of it into the list its callback searches. A
+ *    callback that came first found no record and read through a null
+ *    pointer: the game crashed partway in (a DSI in the callback, called
+ *    from inside ARQPostRequest's OSRestoreInterrupts).
+ * So the transfer's interrupt is held back: gc_on_ar_dma masks it
+ * (ARINTMSK) before the game's own call starts the hardware, and an alarm
+ * unmasks it a GameCube transfer's time later (GC_AR_HOLD_*), when the
+ * interrupt comes and the game's handler and callback run as usual. With
+ * no alarm to use (the game's OSSetAlarm not found), gc_after_ar_dma makes
+ * the interrupt pending before the game goes on instead, which keeps the
+ * count right but not the Thousand-Year Door's order.
+ *
+ * Only an interrupt the game asked for is held: with ARINTMSK off it polls
+ * ARGetDMAStatus, which reads the hardware and is not touched. A transfer
+ * started while one is held (a game that polls between them) stays held,
+ * the alarm's time moved on to the later one's end. */
+#define GC_AR_HOLD_MIN_TICKS 365u  /* 6 us of a Wii's timebase: a short transfer's set-up */
+/* A GameCube moves about 81 bytes a microsecond to or from ARAM: about
+ * 3/4 of a timebase tick (60.75 a microsecond) a byte. */
+#define GC_AR_HOLD_TICKS(length) (GC_AR_HOLD_MIN_TICKS + (length) / 4u * 3u)
+#define GC_AR_BUSY_RETRY_TICKS 61u  /* 1 us: the hardware's 32 bytes were still going */
+/* 100 us past its time with the hardware still busy: the interrupt is let
+ * go anyway (the transfer's ARINT comes when the hardware ends), so a busy
+ * bit that never clears neither keeps the game's callback back for good
+ * nor keeps an alarm going off every microsecond. */
+#define GC_AR_BUSY_LIMIT_TICKS 6075u
+#define GC_DSP_CSR_ACKS (GC_DSP_CSR_AIINT | GC_DSP_CSR_ARINT | GC_DSP_CSR_DSPINT)
+
+/* Writes the DSP's control register with ARINTMSK `on`, the rest as it
+ * is. The three interrupt bits are written 0, as a 1 would clear one the
+ * game has yet to take. */
+static void gc_ar_mask_set(int on) {
+    const uint16_t csr = gc_read16(GC_DSP_CSR) & ~(GC_DSP_CSR_ACKS | GC_DSP_CSR_ARINTMSK);
+    gc_write16(GC_DSP_CSR, csr | (on ? GC_DSP_CSR_ARINTMSK : 0u));
+}
+
+static void gc_ar_hold(struct gc_rt_context* ctx, uint32_t length) {
+    struct gc_rt_cold* cold = gc_cold(ctx);
+    const uint32_t msr = gc_irq_off();
+    if (ctx->set_alarm != 0 && (cold->ar_held || (gc_read16(GC_DSP_CSR) & GC_DSP_CSR_ARINTMSK) != 0)) {
+        const uint32_t end = gc_timebase() + GC_AR_HOLD_TICKS(length);
+        gc_ar_mask_set(0);
+        /* A transfer started while one is held never brings the held
+         * one's time forward: the later end is kept (a signed difference,
+         * so the timebase wrapping does not matter). */
+        if (!cold->ar_held || (int32_t)(end - cold->ar_release_at) > 0) cold->ar_release_at = end;
+        cold->ar_held = 1;
+        ctx->ar_waits++;
+    }
+    gc_irq_restore(msr);
+}
+
+/* The hold's alarm: the interrupt unmasked once its time has come and the
+ * hardware is done, or the alarm set again for the rest. */
+static void gc_ar_release(struct gc_rt_context* ctx) {
+    struct gc_rt_cold* cold = gc_cold(ctx);
+    const int32_t left = (int32_t)(cold->ar_release_at - gc_timebase());
+    cold->ar_alarm_queued = 0;
+    if (!cold->ar_held) return;
+    if (left > 0 || (gc_read16(GC_DSP_CSR) & GC_DSP_CSR_DMA_BUSY) != 0) {
+        if (left <= -(int32_t)GC_AR_BUSY_LIMIT_TICKS) {
+            ctx->ar_wait_timeouts++;  /* still busy long past its time: let it go, counted once */
+        } else {
+            cold->ar_alarm_queued = 1;
+            gc_set_alarm(ctx, cold->ar_alarm, left > (int32_t)GC_AR_BUSY_RETRY_TICKS ? (uint32_t)left : GC_AR_BUSY_RETRY_TICKS);
+            return;
+        }
+    }
+    cold->ar_held = 0;
+    gc_ar_mask_set(1);  /* the finished transfer's ARINT now raises the interrupt */
+}
+
 uint32_t gc_on_ar_dma(struct gc_rt_context* ctx, uint32_t type, uint32_t main, uint32_t aram, uint32_t length) {
     gc_aram_copy(type != 0, main, aram, length);
     ctx->ar_dmas++;
@@ -3006,43 +3103,40 @@ uint32_t gc_on_ar_dma(struct gc_rt_context* ctx, uint32_t type, uint32_t main, u
         for (i = 0; i < 8; ++i) scratch[i] = first[i];
         gc_flush((uint32_t)(uintptr_t)scratch, 32);
     }
+    gc_ar_hold(ctx, length);
     return gc_physical((uint32_t)(uintptr_t)ctx->aram_scratch);
 }
 
 /* After the game's own ARStartDMA has started the hardware's 32 bytes:
- * with interrupts off, wait until the transfer's interrupt is pending, so
- * it is taken the moment the caller turns them back on.
+ * with the interrupt held (gc_ar_hold), the alarm that lets it go is set.
  *
- * A Wii finishes those 32 bytes almost at once, and the interrupt used to
- * come a few instructions after the call, wherever the game had got to.
- * The SDK's ARQ queue starts a request's next 4 KB chunk from the ARAM
- * interrupt, so a long request's chunks finish one after another while
- * the thread that posted it runs on, a few instructions between each,
- * and the request's callback lands somewhere after ARQPostRequest has
- * returned. JSystem's ARAM streaming does `count++` (load, add, store,
- * interrupts on) right after posting, and its callback does `count--`: a
- * callback between that load and store was lost, the count stayed at its
- * limit and the game waited for it forever (Super Mario Eclipse after
- * about 560 transfers, Luigi's Mansion after 272, with Disc reads Like a
- * GameCube, on a Wii only). A GameCube's ARAM takes long enough that the
- * increment always comes first; Dolphin's JIT never stops between the
- * load and the store.
- *
- * With the interrupt pending before the hook returns, the whole chain
- * runs inside the OSRestoreInterrupts at the end of ARQPostRequest: each
- * chunk's interrupt is taken straight after the last one's rfi, before
- * the thread runs another instruction, and the callback comes before the
- * caller's own bookkeeping, always, as a short request's already did.
- * Only registers are read here (the DSP's control register and the PI's
- * cause): nothing is masked, delayed or written. When the caller has
- * interrupts on, the interrupt is taken as it comes and nothing waits. */
+ * Without the hold (no alarm to use), and with interrupts off, this waits
+ * until the transfer's interrupt is pending, so it is taken the moment the
+ * caller turns them back on: the whole ARQ chain then runs inside the
+ * OSRestoreInterrupts at the end of ARQPostRequest, before the thread's
+ * next instruction, which keeps JSystem's count right (gc_ar_hold says
+ * why). Only registers are read then (the DSP's control register and the
+ * PI's cause). When the caller has interrupts on, nothing waits. */
 #define GC_PI_CAUSE 0xCC003000u
 #define GC_PI_CAUSE_DSP 0x00000040u
 #define GC_MSR_EE 0x8000u
 #define GC_AR_WAIT_TICKS 6075u        /* 100 us of a Wii's timebase; 32 bytes take far less */
 void gc_after_ar_dma(struct gc_rt_context* ctx) {
+    struct gc_rt_cold* cold = gc_cold(ctx);
     uint32_t msr, start, now, waited;
-    __asm__ volatile("mfmsr %0" : "=r"(msr));
+    msr = gc_irq_off();
+    if (cold->ar_held) {
+        /* An alarm already out (a transfer started while one was held)
+         * finds the later end in ar_release_at and waits on for it. */
+        if (!cold->ar_alarm_queued) {
+            const int32_t left = (int32_t)(cold->ar_release_at - gc_timebase());
+            cold->ar_alarm_queued = 1;
+            gc_set_alarm(ctx, cold->ar_alarm, left > (int32_t)GC_AR_BUSY_RETRY_TICKS ? (uint32_t)left : GC_AR_BUSY_RETRY_TICKS);
+        }
+        gc_irq_restore(msr);
+        return;
+    }
+    gc_irq_restore(msr);
     if (msr & GC_MSR_EE) return;
     __asm__ volatile("mftb %0" : "=r"(start));
     for (;;) {
