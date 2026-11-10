@@ -495,6 +495,11 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
             r->ext_kind = GC_BT_EXT_NONE;
             r->ext_retries = 0;  /* the next one plugged in gets its own tries */
         }
+        if (plugged && r->ext_step == GC_BT_EXT_GAVE_UP) {
+            /* The last retry's answer, late: the remote plays alone. */
+            bt_set_mode(bt, r);
+            return;
+        }
         if (plugged && (r->ext_step == 0 || r->ext_step == GC_BT_EXT_STATUS_ASKED)) {
             /* From step 0 this is a new attachment (even one whose unplug
              * report was lost): it gets its own tries. The answer to a
@@ -515,7 +520,9 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
              * it again at the next PADRead. */
             bt->ext_error = p[5];
             bt->progress |= GC_BT_SEEN_EXT_ERROR;
-            r->ext_wait = GC_BT_EXT_WAIT;
+            /* Only while starting one: a late refusal after a give-up
+             * doesn't cut its quiet time short. */
+            if (r->ext_step >= 1 && r->ext_step <= 3) r->ext_wait = GC_BT_EXT_WAIT;
             return;
         }
         bt->progress |= GC_BT_SEEN_EXT_WRITE;
@@ -771,6 +778,13 @@ static void bt_check_extensions(struct gc_bt* bt) {
         uint8_t request[2];
         if (!r->used || !r->ready || r->ext_step == 0 || r->ext_step == 4) continue;
         if (++r->ext_wait < GC_BT_EXT_WAIT) continue;
+        if (r->ext_step == GC_BT_EXT_GAVE_UP) {
+            /* Quiet since the give-up: one plugged in from now on is new. */
+            r->ext_step = 0;
+            r->ext_wait = 0;
+            r->ext_retries = 0;
+            continue;
+        }
         /* Steps 1-3: an extension was reported plugged in and stalled.
          * Step 5: only the status answer is missing; an extension counts if
          * an earlier status report said one is plugged in (ext_seen). */
@@ -793,6 +807,7 @@ static void bt_check_extensions(struct gc_bt* bt) {
             if (stalled_extension) {
                 bt->ext_given_up++;
                 bt->progress |= GC_BT_SEEN_EXT_GIVEN_UP;
+                r->ext_step = GC_BT_EXT_GAVE_UP;
             } else {
                 /* Only status answers were lost: a Nunchuk or Classic
                  * Controller plugged in later gets its own tries. */

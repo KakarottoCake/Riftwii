@@ -189,6 +189,10 @@ void test_remotes() {
     put(trace, 2, GC_TR_BT_REMOTES, 0x0F010302u);
     EXPECT_TRUE(riftwii::describe_gc_remotes(trace, text));
     EXPECT_TRUE(text.find("extension step 3 of 4, kind 2") != std::string::npos);
+    // Just after a give-up it says so too.
+    put(trace, 2, GC_TR_BT_REMOTES, 0x0F010000u | GC_BT_EXT_GAVE_UP << 8);
+    EXPECT_TRUE(riftwii::describe_gc_remotes(trace, text));
+    EXPECT_TRUE(text.find("ready 1, extension just given up, kind 0") != std::string::npos);
     EXPECT_TRUE(text.find("Wii U Pro Controller") == std::string::npos);
     // A Wii U Pro Controller identified: its own line, its ID and mode 0x34.
     put(trace, 2, GC_TR_BT_PROGRESS, reached | GC_BT_SEEN_PRO);

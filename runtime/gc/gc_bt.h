@@ -88,6 +88,11 @@ struct gc_bt_rq {
  * report mode when none is plugged in; a lost one leads to the next retry.
  * Problem reports name it (src/data/gccrash.cpp). */
 #define GC_BT_EXT_STATUS_ASKED 5u
+/* gc_bt_remote.ext_step for GC_BT_EXT_WAIT polls after an extension was
+ * given up: a status report saying one is plugged in is the late answer to
+ * the last retry, not a new attachment, and starts nothing. After it, the
+ * retries are counted afresh for the next one plugged in. */
+#define GC_BT_EXT_GAVE_UP 6u
 
 /* gc_bt_remote.ext_kind */
 #define GC_BT_EXT_NONE 0u
@@ -110,7 +115,7 @@ struct gc_bt_remote {
     uint8_t spare;
     uint32_t ctrl_cid;  /* the remote's end of each channel */
     uint32_t intr_cid;
-    uint32_t ext_step;  /* 0 none, 1-3 starting it (gc_bt.c), 4 ready, 5 a status request waiting for its answer */
+    uint32_t ext_step;  /* 0 none, 1-3 starting it (gc_bt.c), 4 ready, 5 a status request waiting for its answer, 6 just given up */
     uint32_t ext_kind;
     uint8_t core[2];    /* the buttons, as the remote sends them */
     uint8_t ext[GC_PRO_BYTES];  /* the extension's first six bytes; a Pro Controller's eleven */
