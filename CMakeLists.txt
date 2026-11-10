@@ -202,7 +202,7 @@ if(BUILD_TESTING)
     # The SD channel cleanup itself, with NAND mocks and failed FAT renames.
     add_executable(movedchannels_tests tests/movedchannels_tests.cpp wii/storage/movedchannels.cpp)
     target_include_directories(movedchannels_tests PRIVATE
-        tests/movedchannels_mock wii/storage wii/core wii/menu wii/launch)
+        tests/movedchannels_mock tests/wii_mock wii/storage wii/core wii/menu wii/launch)
     target_link_libraries(movedchannels_tests PRIVATE riftwii)
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux" OR CYGWIN OR MSYS OR MINGW)
         target_link_options(movedchannels_tests PRIVATE -Wl,--wrap=rename)
@@ -510,6 +510,10 @@ if(BUILD_TESTING)
             "-Dcurrent=$<TARGET_FILE:${suite}_tests>"
             "-Dtrace=${CMAKE_CURRENT_BINARY_DIR}/${suite}-trace"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/fs_differential.cmake")
+        # Where the engines cannot run (their suites exit 77), the script
+        # says so and the comparison is shown as skipped, not failed.
+        set_tests_properties(${suite}_differential PROPERTIES
+            SKIP_REGULAR_EXPRESSION "skipped: (reference|current) cannot run on this host")
     endforeach()
     add_executable(channel_entry_tests tests/channel_entry_tests.c)
     target_include_directories(channel_entry_tests PRIVATE tests/channel_mock)

@@ -73,8 +73,10 @@ std::vector<std::uint8_t> jvs_command(std::uint8_t node, const std::vector<std::
     return c;
 }
 
-// Sends `p`, then an empty packet, and returns the answer to `p`.
-std::vector<std::uint8_t> exchange(gc_tri& t, const std::vector<std::uint8_t>& p) {
+// Sends `p`, then an empty packet, and returns the answer to `p`. (Not
+// named "exchange": called with a std::vector, that name also finds
+// std::exchange, which libc++ then picks over this one.)
+std::vector<std::uint8_t> send_packet(gc_tri& t, const std::vector<std::uint8_t>& p) {
     std::vector<std::uint8_t> in(128, 0);
     gc_tri_si(&t, p.data(), 128, in.data(), 128);
     const auto empty = packet({});
@@ -127,8 +129,8 @@ void test_type_and_lateness() {
     // The first packet gets no answer; the second gets the first's.
     const auto p = packet({{0x15, 0x00}, {0x16, 0x00}, {0x11, 0x00}});
     EXPECT_EQ(gc_tri_si(&t, p.data(), 128, in, 128), 0);
-    const auto r = exchange(t, packet({{0x10, 0x00}}));
-    // `exchange`'s first send answered `p`; check the one it returned is the 0x10 one.
+    const auto r = send_packet(t, packet({{0x10, 0x00}}));
+    // `send_packet`'s first send answered `p`; check the one it returned is the 0x10 one.
     EXPECT_EQ(checksum_ok(r), 1);
     EXPECT_EQ(answer(r, 0x10).size(), 2);
     EXPECT_EQ(answer(r, 0x10)[1] & 0x10, 0x10);  // the arcade SDK waits for this bit
@@ -143,7 +145,7 @@ void test_type_and_lateness() {
 
 void test_board_identity() {
     gc_tri t = fresh();
-    const auto r = exchange(t, packet({{0x15, 0x00}, {0x16, 0x00}, {0x11, 0x00}, {0x1F, 0x00, 1, 2, 3, 4}}));
+    const auto r = send_packet(t, packet({{0x15, 0x00}, {0x16, 0x00}, {0x11, 0x00}, {0x1F, 0x00, 1, 2, 3, 4}}));
     EXPECT_EQ(checksum_ok(r), 1);
     EXPECT_EQ(answer(r, 0x15)[1], 0x26);
     EXPECT_EQ(answer(r, 0x16)[0], 0x07);
@@ -158,7 +160,7 @@ void test_jvs_reset_and_address() {
     gc_tri t = fresh();
     t.status_switches[1] = 0xFE;
     // Reset: no answer, the sense line up.
-    auto r = exchange(t, packet({jvs_command(0xFF, {0xF0, 0xD9}), {0x10, 0x00}}));
+    auto r = send_packet(t, packet({jvs_command(0xFF, {0xF0, 0xD9}), {0x10, 0x00}}));
     EXPECT_EQ(answer(r, 0x5F).size(), 0);
     EXPECT_EQ(answer(r, 0x40).size(), 0);
     EXPECT_EQ(t.status_switches[1] & 1, 1);
@@ -167,7 +169,7 @@ void test_jvs_reset_and_address() {
     auto frame = jvs_request(0xFF, {0xF1, 0x01});
     std::vector<std::uint8_t> c{0x40, std::uint8_t(frame.size())};
     c.insert(c.end(), frame.begin(), frame.end());
-    r = exchange(t, packet({c}));
+    r = send_packet(t, packet({c}));
     const auto f = unescape(answer(r, 0x40));
     EXPECT_EQ(jvs_sum_ok(f), 1);
     EXPECT_EQ(f.size(), 5);
@@ -192,7 +194,7 @@ void test_jvs_inputs() {
     pad[0] |= 0x01;
     gc_tri_set_pad(&t, pad, 1);
     EXPECT_EQ(t.coins[0], 2);
-    const auto r = exchange(t, packet({jvs_command(1, {0x10, 0x14, 0x20, 1, 2, 0x21, 2, 0x22, 3})}));
+    const auto r = send_packet(t, packet({jvs_command(1, {0x10, 0x14, 0x20, 1, 2, 0x21, 2, 0x22, 3})}));
     EXPECT_EQ(checksum_ok(r), 1);
     const auto f = unescape(answer(r, 0x41));
     EXPECT_EQ(jvs_sum_ok(f), 1);
@@ -227,7 +229,7 @@ void test_jvs_inputs() {
     const auto escaped = answer(r, 0x41);
     for (std::size_t i = 1; i < escaped.size(); ++i) EXPECT_EQ(escaped[i] == 0xE0, 0);
     // A coin taken off by the game.
-    const auto r2 = exchange(t, packet({jvs_command(1, {0x30, 1, 0, 1})}));
+    const auto r2 = send_packet(t, packet({jvs_command(1, {0x30, 1, 0, 1})}));
     EXPECT_EQ(unescape(answer(r2, 0x41))[3], 1);
     EXPECT_EQ(t.coins[0], 1);
 }
@@ -235,7 +237,7 @@ void test_jvs_inputs() {
 void test_jvs_errors() {
     gc_tri t = fresh();
     t.jvs_address = 1;
-    auto r = exchange(t, packet({jvs_command(1, {0x11, 0x5A})}));
+    auto r = send_packet(t, packet({jvs_command(1, {0x11, 0x5A})}));
     auto f = unescape(answer(r, 0x41));
     EXPECT_EQ(jvs_sum_ok(f), 1);
     EXPECT_EQ(f[2], 2);  // unknown command
@@ -245,11 +247,11 @@ void test_jvs_errors() {
     frame[frame.size() - 1] ^= 0x55;
     std::vector<std::uint8_t> c{0x41, std::uint8_t(frame.size())};
     c.insert(c.end(), frame.begin(), frame.end());
-    r = exchange(t, packet({c}));
+    r = send_packet(t, packet({c}));
     f = unescape(answer(r, 0x41));
     EXPECT_EQ(f[2], 3);
     // Another node's frame: no answer.
-    r = exchange(t, packet({jvs_command(2, {0x11})}));
+    r = send_packet(t, packet({jvs_command(2, {0x11})}));
     EXPECT_EQ(answer(r, 0x42).size(), 0);
 }
 
@@ -260,7 +262,7 @@ void test_jvs_outputs() {
     gc_tri t = fresh();
     t.jvs_address = 1;
     t.wheel_state = 2;
-    auto r = exchange(t, packet({jvs_command(1, {0x25, 1, 0x2E, 1, 0x32, 1, 0x80, 0x34, 2, 'A', 'B', 0x33, 1, 0, 0,
+    auto r = send_packet(t, packet({jvs_command(1, {0x25, 1, 0x2E, 1, 0x32, 1, 0x80, 0x34, 2, 'A', 'B', 0x33, 1, 0, 0,
                                                 0x37, 1, 0x10, 0x38, 1, 1, 0x70, 0x18, 1, 2, 3, 4})}));
     auto f = unescape(answer(r, 0x41));
     EXPECT_EQ(jvs_sum_ok(f), 1);
@@ -273,17 +275,17 @@ void test_jvs_outputs() {
     for (std::size_t i = 0; i < reports.size() && 3u + i < f.size(); ++i) EXPECT_EQ(f[3 + i], reports[i]);
     EXPECT_EQ(t.wheel_state, 0);  // lamp bit 0x80: the wheel's reset
     // Cut short: lamps that say three bytes but carry one.
-    r = exchange(t, packet({jvs_command(1, {0x32, 3, 0x01})}));
+    r = send_packet(t, packet({jvs_command(1, {0x32, 3, 0x01})}));
     f = unescape(answer(r, 0x41));
     EXPECT_EQ(f[2], 1);
     EXPECT_EQ(f[3], 2);
     // Namco's 0x70 without its 0x18.
-    r = exchange(t, packet({jvs_command(1, {0x70, 0x17, 1, 2, 3, 4})}));
+    r = send_packet(t, packet({jvs_command(1, {0x70, 0x17, 1, 2, 3, 4})}));
     f = unescape(answer(r, 0x41));
     EXPECT_EQ(f[3], 2);
     // A coin counter going up stops at 0x3FFF.
     t.coins[0] = 0x3FF0;
-    r = exchange(t, packet({jvs_command(1, {0x35, 1, 0x01, 0x00})}));
+    r = send_packet(t, packet({jvs_command(1, {0x35, 1, 0x01, 0x00})}));
     EXPECT_EQ(unescape(answer(r, 0x41))[3], 1);
     EXPECT_EQ(t.coins[0], 0x3FFF);
 }
@@ -291,11 +293,11 @@ void test_jvs_outputs() {
 void test_wheel() {
     gc_tri t = fresh();
     const std::vector<std::uint8_t> request{0x31, 10, 0xFF, 0xFF, 0xFF, 0x01, 0, 0, 0, 0, 0, 0};
-    auto r = exchange(t, packet({request}));
+    auto r = send_packet(t, packet({request}));
     auto a = answer(r, 0x31);
     EXPECT_EQ(a.size(), 3);
     EXPECT_EQ(a[0], 'E');
-    r = exchange(t, packet({request}));
+    r = send_packet(t, packet({request}));
     a = answer(r, 0x31);
     EXPECT_EQ(a.size(), 3);
     EXPECT_EQ(a[0], 'C');

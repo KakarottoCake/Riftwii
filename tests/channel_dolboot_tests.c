@@ -25,6 +25,8 @@ static void* checked_copy(void* dst, const void* src, size_t size) {
 
 // Include the implementation so its private argument writer is tested
 // without shutting down the host or jumping into PowerPC instructions.
+// (macOS's <string.h> already makes memcpy a macro, for its checked copy.)
+#undef memcpy
 #define memcpy checked_copy
 #include "../channel/common/dolboot.c"
 #undef memcpy
