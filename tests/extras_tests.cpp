@@ -2159,7 +2159,8 @@ void TestCoverArt() {
     // A hand-written list keeps a folder inside another: its games may be
     // two levels below the outer one, which a scan doesn't reach.
     LoaderSettings nested;
-    nested.parse("game_folders = /Wii Games; /Wii Games/USB Loader GX; /games/Wii backups\n");
+    nested.parse("game_folders = /Wii Games; /Wii Games/USB Loader GX; /games/Wii backups; /wii games\n");
+    // ...and the same folder in another case is one folder (FAT ignores case).
     EXPECT_EQ(game_folders_on(nested, "sd").size(), 3u);
     // A folder settings.txt lists for both drives covers a pick on either.
     LoaderSettings plain;

@@ -368,8 +368,13 @@ std::vector<std::string> game_folders_on(const LoaderSettings& settings, const s
         std::string lower = f;
         for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
         if (lower == "/wbfs" || lower == "/games") continue;
+        // FAT and NTFS ignore case: "/wii games" is "/Wii Games".
         bool seen = false;
-        for (const std::string& o : out) seen = seen || o == f;
+        for (const std::string& o : out) {
+            std::string other = o;
+            for (char& c : other) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            seen = seen || other == lower;
+        }
         if (!seen) out.push_back(f);
     }
     return out;

@@ -13916,7 +13916,7 @@ static bool MenuGameFolders(std::vector<std::string>& folders)
 								{std::to_string(riftwii::kMaxGameFolders)}).c_str());
 							break;
 						case riftwii::GameFolderAdd::NotAFolder:
-							noteTxt.SetText(tr("That folder can't be added. Pick a folder inside the drive, without ; in its name."));
+							noteTxt.SetText(tr("That folder can't be added. Pick a folder inside the drive with a shorter path, without ; in its name."));
 							break;
 					}
 				}
@@ -18840,6 +18840,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				case kGameFolders: {
 					std::vector<std::string> folders = settings.game_folders;
+					const std::vector<std::string> foldersBefore = folders;
 					transition::Hold(transition::Kind::SlideForward);
 					mainWindow->Remove(&w);
 					const bool changed = MenuGameFolders(folders);
@@ -18852,6 +18853,21 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					settings.game_folders = folders;
 					if (saveAndNote(tr("Home looks for games in these folders when you leave Settings."))) {
 						logf("Settings: game folders are now %u\n", static_cast<unsigned>(folders.size()));
+						// A removed folder's games leave Home now, not when the
+						// rescan's part for their drive comes in (as the page says).
+						for (const std::string& gone : foldersBefore) {
+							if (std::find(folders.begin(), folders.end(), gone) != folders.end()) continue;
+							const riftwii::GameFolderPlace place = riftwii::game_folder_place(gone);
+							for (riftwii::wii::ImageCatalog* catalog : {&state.sd_catalog, &state.usb_catalog}) {
+								auto& games = catalog->games;
+								games.erase(std::remove_if(games.begin(), games.end(), [&](const riftwii::wii::ImageGame& g) {
+									const std::size_t colon = g.path.find(':');
+									const std::string drive = colon == std::string::npos ? std::string() : g.path.substr(0, colon);
+									if (!place.drive.empty() && riftwii::path_fold_case(drive) != place.drive) return false;
+									return riftwii::path_in_folder(g.path, drive + ":" + place.path);
+								}), games.end());
+							}
+						}
 						// Home reads the drives again when you leave Settings.
 						g_scanned = false;
 					}

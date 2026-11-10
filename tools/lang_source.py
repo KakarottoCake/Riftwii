@@ -9320,11 +9320,11 @@ T.update({
         "RiftWiiはいつもwbfsとgamesを探すので、追加はいりません。",
         "O RiftWii sempre procura em wbfs e games, então não é preciso adicioná-las.",
         "RiftWii cerca sempre in wbfs e games, quindi non serve aggiungerle."),
-    "That folder can't be added. Pick a folder inside the drive, without ; in its name.": (
-        "No se puede añadir esa carpeta. Elige una carpeta dentro de la unidad, sin ; en el nombre.",
-        "そのフォルダは追加できません。ドライブの中の、名前に;がないフォルダを選んでください。",
-        "Essa pasta não pode ser adicionada. Escolha uma pasta dentro da unidade, sem ; no nome.",
-        "Quella cartella non si può aggiungere. Scegli una cartella dentro l'unità, senza ; nel nome."),
+    "That folder can't be added. Pick a folder inside the drive with a shorter path, without ; in its name.": (
+        "No se puede añadir esa carpeta. Elige una carpeta dentro de la unidad con una ruta más corta, sin ; en el nombre.",
+        "そのフォルダは追加できません。ドライブの中の、パスがもっと短く名前に;がないフォルダを選んでください。",
+        "Essa pasta não pode ser adicionada. Escolha uma pasta dentro da unidade com um caminho mais curto, sem ; no nome.",
+        "Quella cartella non si può aggiungere. Scegli una cartella dentro l'unità con un percorso più corto, senza ; nel nome."),
     "More folders to look for games in, on the SD card or the USB drive, besides wbfs and games.": (
         "Más carpetas donde buscar juegos, en la tarjeta SD o la unidad USB, además de wbfs y games.",
         "wbfsとgamesのほかに、SDカードやUSBドライブでゲームを探すフォルダです。",
@@ -9351,7 +9351,7 @@ KO.update({
     "Added. Its games show on Home when you leave Settings.": "추가했습니다. 설정을 나가면 그 게임들이 홈에 나옵니다.",
     "That folder is in the list already.": "그 폴더는 이미 목록에 있습니다.",
     "RiftWii always looks in wbfs and games, so there is no need to add them.": "RiftWii는 항상 wbfs와 games를 찾으므로 추가할 필요가 없습니다.",
-    "That folder can't be added. Pick a folder inside the drive, without ; in its name.": "그 폴더는 추가할 수 없습니다. 드라이브 안에 있고 이름에 ;가 없는 폴더를 고르세요.",
+    "That folder can't be added. Pick a folder inside the drive with a shorter path, without ; in its name.": "그 폴더는 추가할 수 없습니다. 드라이브 안에 있고 경로가 더 짧으며 이름에 ;가 없는 폴더를 고르세요.",
     "More folders to look for games in, on the SD card or the USB drive, besides wbfs and games.": "wbfs와 games 말고도 SD 카드나 USB 드라이브에서 게임을 찾을 폴더입니다.",
     "Home looks for games in these folders when you leave Settings.": "설정을 나가면 홈이 이 폴더들에서 게임을 찾습니다.",
 })
@@ -9370,7 +9370,7 @@ FR.update({
     "Added. Its games show on Home when you leave Settings.": "Ajouté. Ses jeux apparaissent sur l'Accueil quand vous quittez les Paramètres.",
     "That folder is in the list already.": "Ce dossier est déjà dans la liste.",
     "RiftWii always looks in wbfs and games, so there is no need to add them.": "RiftWii cherche toujours dans wbfs et games, inutile de les ajouter.",
-    "That folder can't be added. Pick a folder inside the drive, without ; in its name.": "Ce dossier ne peut pas être ajouté. Choisissez un dossier à l'intérieur du support, sans ; dans son nom.",
+    "That folder can't be added. Pick a folder inside the drive with a shorter path, without ; in its name.": "Ce dossier ne peut pas être ajouté. Choisissez un dossier à l'intérieur du support avec un chemin plus court, sans ; dans son nom.",
     "More folders to look for games in, on the SD card or the USB drive, besides wbfs and games.": "D'autres dossiers où chercher des jeux, sur la carte SD ou le stockage USB, en plus de wbfs et games.",
     "Home looks for games in these folders when you leave Settings.": "L'Accueil cherche des jeux dans ces dossiers quand vous quittez les Paramètres.",
 })

@@ -4443,8 +4443,8 @@ msgstr "Quella cartella è già nell'elenco."
 msgid "RiftWii always looks in wbfs and games, so there is no need to add them."
 msgstr "RiftWii cerca sempre in wbfs e games, quindi non serve aggiungerle."
 
-msgid "That folder can't be added. Pick a folder inside the drive, without ; in its name."
-msgstr "Quella cartella non si può aggiungere. Scegli una cartella dentro l'unità, senza ; nel nome."
+msgid "That folder can't be added. Pick a folder inside the drive with a shorter path, without ; in its name."
+msgstr "Quella cartella non si può aggiungere. Scegli una cartella dentro l'unità con un percorso più corto, senza ; nel nome."
 
 msgid "More folders to look for games in, on the SD card or the USB drive, besides wbfs and games."
 msgstr "Altre cartelle in cui cercare giochi, sulla scheda SD o sull'unità USB, oltre a wbfs e games."

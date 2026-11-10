@@ -4443,8 +4443,8 @@ msgstr "그 폴더는 이미 목록에 있습니다."
 msgid "RiftWii always looks in wbfs and games, so there is no need to add them."
 msgstr "RiftWii는 항상 wbfs와 games를 찾으므로 추가할 필요가 없습니다."
 
-msgid "That folder can't be added. Pick a folder inside the drive, without ; in its name."
-msgstr "그 폴더는 추가할 수 없습니다. 드라이브 안에 있고 이름에 ;가 없는 폴더를 고르세요."
+msgid "That folder can't be added. Pick a folder inside the drive with a shorter path, without ; in its name."
+msgstr "그 폴더는 추가할 수 없습니다. 드라이브 안에 있고 경로가 더 짧으며 이름에 ;가 없는 폴더를 고르세요."
 
 msgid "More folders to look for games in, on the SD card or the USB drive, besides wbfs and games."
 msgstr "wbfs와 games 말고도 SD 카드나 USB 드라이브에서 게임을 찾을 폴더입니다."

@@ -4443,8 +4443,8 @@ msgstr "そのフォルダはもうリストにあります。"
 msgid "RiftWii always looks in wbfs and games, so there is no need to add them."
 msgstr "RiftWiiはいつもwbfsとgamesを探すので、追加はいりません。"
 
-msgid "That folder can't be added. Pick a folder inside the drive, without ; in its name."
-msgstr "そのフォルダは追加できません。ドライブの中の、名前に;がないフォルダを選んでください。"
+msgid "That folder can't be added. Pick a folder inside the drive with a shorter path, without ; in its name."
+msgstr "そのフォルダは追加できません。ドライブの中の、パスがもっと短く名前に;がないフォルダを選んでください。"
 
 msgid "More folders to look for games in, on the SD card or the USB drive, besides wbfs and games."
 msgstr "wbfsとgamesのほかに、SDカードやUSBドライブでゲームを探すフォルダです。"

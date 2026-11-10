@@ -1077,13 +1077,12 @@ void scan_own_folders(const ImageVolume& volume, const std::string& device, Imag
         const std::size_t before = c.games.size();
         scan_dir(volume, device + ":/", kind, device + ":" + folder, true, UsbImageFormat::Rvz, c, failure);
         // A folder inside wbfs or another listed one finds some games a
-        // second time: the same file is listed once.
-        for (std::size_t i = before; i < c.games.size();) {
-            bool again = false;
-            for (std::size_t j = 0; j < i && !again; ++j) again = c.games[j].path == c.games[i].path;
-            if (again) c.games.erase(c.games.begin() + static_cast<std::ptrdiff_t>(i));
-            else ++i;
-        }
+        // second time: the same file (case ignored) is listed once.
+        std::vector<std::string> paths;
+        for (const ImageGame& game : c.games) paths.push_back(game.path);
+        const std::vector<std::size_t> again = repeated_paths(paths, before);
+        for (auto it = again.rbegin(); it != again.rend(); ++it)
+            c.games.erase(c.games.begin() + static_cast<std::ptrdiff_t>(*it));
         logf("%s scan: %s:%s (game_folders): %u game(s)\n", device_name(kind), device.c_str(), folder.c_str(),
              static_cast<unsigned>(c.games.size() - before));
     }

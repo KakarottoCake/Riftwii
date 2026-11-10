@@ -343,18 +343,48 @@ bool is_ciso_image_name(const std::string& name) {
     return true;
 }
 
+std::string path_fold_case(const std::string& path) {
+    std::string folded = path;
+    for (char& c : folded)
+        if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+    return folded;
+}
+
+std::vector<std::size_t> repeated_paths(const std::vector<std::string>& paths, std::size_t from) {
+    std::vector<std::size_t> repeated;
+    std::set<std::string> earlier;
+    for (std::size_t i = 0; i < paths.size(); ++i) {
+        const bool again = !earlier.insert(path_fold_case(paths[i])).second;
+        if (again && i >= from) repeated.push_back(i);
+    }
+    return repeated;
+}
+
+bool path_in_folder(const std::string& path, const std::string& folder) {
+    std::string inside = path_fold_case(folder);
+    while (!inside.empty() && inside.back() == '/') inside.pop_back();
+    inside += '/';
+    return path_fold_case(path).compare(0, inside.size(), inside) == 0;
+}
+
 void CisoFinds::note(const std::string& path) {
-    if (!seen.insert(path).second) return;
+    if (!seen.insert(path_fold_case(path)).second) return;
     if (paths.size() < kPathsKept) paths.push_back(path);
     ++total;
 }
 
 void CisoFinds::merge(const CisoFinds& other) {
+    // A path both hold counts once, here as in note().
     for (const std::string& path : other.paths) {
+        if (seen.count(path_fold_case(path)) != 0) continue;
         if (paths.size() >= kPathsKept) break;
         paths.push_back(path);
     }
-    total += other.total;
+    for (const std::string& path : other.seen) {
+        if (seen.insert(path).second) ++total;
+    }
+    // Finds the other one counted but no longer names (kept before `seen`).
+    if (other.total > other.seen.size()) total += other.total - other.seen.size();
 }
 
 namespace {

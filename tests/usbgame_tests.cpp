@@ -482,6 +482,33 @@ void test_ciso_detection() {
     twice.note("sd:/Wii Games/x/a.ciso");
     EXPECT_EQ(twice.total, static_cast<std::size_t>(1));
     EXPECT_EQ(twice.paths.size(), static_cast<std::size_t>(1));
+    // FAT ignores case: the same file spelled two ways is one.
+    twice.note("sd:/wii games/X/A.ciso");
+    EXPECT_EQ(twice.total, static_cast<std::size_t>(1));
+    // A merge keeps it once too, and a later note of a merged path doesn't
+    // count it again.
+    CisoFinds other;
+    other.note("sd:/Wii Games/x/a.ciso");
+    other.note("usb:/b.ciso");
+    twice.merge(other);
+    EXPECT_EQ(twice.total, static_cast<std::size_t>(2));
+    twice.note("usb:/B.ciso");
+    EXPECT_EQ(twice.total, static_cast<std::size_t>(2));
+
+    // Games two folders reach: the later ones, case ignored.
+    const std::vector<std::string> found = {"sd:/wbfs/A [RMCE01]/RMCE01.wbfs", "sd:/Wii Games/b.iso",
+                                            "sd:/wii games/B.iso", "sd:/WBFS/a [rmce01]/rmce01.wbfs", "sd:/c.iso"};
+    const std::vector<std::size_t> again = repeated_paths(found, 1);
+    EXPECT_EQ(again.size(), static_cast<std::size_t>(2));
+    if (again.size() == 2) {
+        EXPECT_EQ(again[0], static_cast<std::size_t>(2));
+        EXPECT_EQ(again[1], static_cast<std::size_t>(3));
+    }
+    EXPECT_TRUE(repeated_paths(found, 4).empty());
+    EXPECT_TRUE(path_in_folder("sd:/wii games/X/a.iso", "sd:/Wii Games"));
+    EXPECT_TRUE(path_in_folder("sd:/Wii Games/a.iso", "sd:/Wii Games/"));
+    EXPECT_FALSE(path_in_folder("sd:/Wii Games2/a.iso", "sd:/Wii Games"));
+    EXPECT_FALSE(path_in_folder("usb:/Wii Games/a.iso", "sd:/Wii Games"));
 
     // Many: only the first few paths are kept, the count goes on.
     CisoFinds many;
