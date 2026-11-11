@@ -1023,9 +1023,22 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     std::uint32_t restart_block_at = 0;
     if (out.restart_os != 0 && mem1_veneer == 0 && out.restart_armed.size() == RTRESTART_SECTOR &&
         out.restart_idle.size() == RTRESTART_SECTOR && h.hook_restart != 0) {
-        restart_block_at = out.state_bytes;
-        out.restart_block_bytes = align_up(sizeof(rtrestart_block));
-        out.state_bytes += out.restart_block_bytes;
+        const std::uint32_t block_bytes = align_up(sizeof(rtrestart_block));
+        const std::uint32_t calibration_bytes = out.calibration != nullptr ? align_up(sizeof(rtpadcal_table)) : 0;
+        const std::uint32_t mem2_start = align_up(arena2_lo);
+        const std::uint32_t mem2_end = read32(kMem2ArenaEndField);
+        // The block is the Reset's alone: where it is the bytes that would
+        // not let the controllers' own state fit, the controllers win and
+        // the game's Reset stays its own.
+        if (mem2_end >= mem2_start && mem2_end - mem2_start >= out.state_bytes + block_bytes + calibration_bytes) {
+            restart_block_at = out.state_bytes;
+            out.restart_block_bytes = block_bytes;
+            out.state_bytes += out.restart_block_bytes;
+        } else {
+            logf("Reset: the game's own Reset restarts it without the adapter or USB controllers: no room in MEM2 for "
+                 "its request block (the controllers still work)\n");
+            out.restart_os = 0;
+        }
     } else {
         out.restart_os = 0;
     }

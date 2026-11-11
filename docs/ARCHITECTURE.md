@@ -1031,7 +1031,8 @@ kept apart from the hardware so `tests/rtrestart_tests.cpp` runs it) and
 leaves through OSReturnToMenu, as the runtime does with Return to RiftWii
 patched in; a refused write puts the idle sector back and the game's own
 restart goes on. The request block (about 1.2 KB) follows the driver's state
-at the bottom of the MEM2 arena. `pad_hook_takes_reset`
+at the bottom of the MEM2 arena. If it does not fit there beside the driver's
+state, the hook goes in without it and the game's Reset stays its own (`boot.log` says so). `pad_hook_takes_reset`
 (`src/patching/osrestart.cpp`) holds what rules it out: a code build (its
 blob is in MEM2), a game that checks its own code, d2x's NAND emulation
 holding the card. The USB pads blob a code build uses leaves the hook out.
