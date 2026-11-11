@@ -110,7 +110,12 @@ ports with nothing plugged in; rumble goes back to them. PADRead tells
 the video code which of its own ports are in use, so the Wii's screen
 burn-in reduction leaves the screen lit; for the adapter's pads the
 blob calls the same reset (found by the call near PADRead) on each
-button or stick change.
+button or stick change. Where the game has `SIProbe` (most Wii games
+leave it out; Bomberman Land has it and asks it for all four ports
+every frame), the blob hooks it as RiftWii's GameCube loader does (see
+`gc_ports_probe` below): a port the last `PADRead` filled from the
+adapter or a USB pad answers as a GameCube controller while nothing of
+the console's own answers there (`runtime/rtsiprobe.h`, #510).
 
 The blob comes in three builds of the same driver: the full one;
 `GCAD_ADAPTER_ONLY`, without the other USB pads' code, when the adapter
@@ -186,8 +191,9 @@ that reads it but opens no menu twice in a row the second time (twice, not
 once: Brawl and Tatsunoko vs. Capcom refuse once during their intros). A
 combo still held when that is decided is itself the way back. Code builds
 and Settings > Leaving a game on HOME only get the pad blob built without
-the HOME Menu (`RT_PAD_NO_HOME`, byte for byte the blob before it), so
-they give up none of their memory to it.
+the HOME Menu (`RT_PAD_NO_HOME`: none of its hooks or code, and the
+256-byte context), so they give up none of their memory to it. SIProbe's
+hook is in both builds.
 The decisions are `runtime/rthome.c`, host-tested. The 2006 Virtual
 Console programs (Super Mario World, A Link to the Past, Bomberman '93)
 have neither the banner nor this KPAD layout, and keep the way back.
@@ -840,13 +846,18 @@ program's. Not with packs (they move the disc's files), a game from a TGC
 image, or a second disc (the patches are for disc 1's offsets).
 
 **Memory cards** (`src/fs/gccard.cpp`): one image per game,
-`sd:/riftwii/gc/cards/<ID>.raw`, or a shared `shared.raw` (`shared-jp.raw`
-for Japanese games), formatted the first time. The game page's Saves tile
+`sd:/riftwii/gc/cards/<ID>.raw`, a shared `shared.raw` (`shared-jp.raw`
+for Japanese games), or a named card the player picks on the game's page,
+`cards/named/<name>.raw` (`cards/named-jp/` for Japanese games), formatted
+the first time. `gc_card_file` (and `gc_card_file_of`, from a game's
+choices) says which file a game uses; the launch passes it to the loader
+as the request's `card_path`. The game page's Saves tile
 opens it: saves with their icons, copied out as `.gci`, deleted, or added
 from `sd:/riftwii/gc/saves`. Before each start (Settings' Back up saves,
 on by default) the loader copies the card the game will use to
 `sd:/riftwii/gc/backups/<card>/<date>_<time>.raw` (`src/fs/gcbackup.cpp`),
-`<card>` being the card file's name (the game's ID, or `shared`), keeping
+`<card>` being the card file's name (the game's ID, or `shared`; a named
+card's backups go to `backups/named/<name>`, `named-jp/` for Japanese games), keeping
 the newest five and skipping the copy while the card matches the newest.
 The Saves page's Restore an older save lists them by date and puts the one
 picked back over the card, after a backup of the card as it is now, so a
@@ -882,12 +893,12 @@ ID, including this change, consistently.
 | Top of arena 2, below its high end (a homebrew app's start only) | When the app lands on RiftWii's own memory (WiiSX, Wii64): the routine that finishes copying it, its plan and a small stack, about 2 KB (`channel/common/dolfar.S`, the far copy in `dolboot.c`) |
 | `0x80002300`–`0x80003000` | With a code build whose code list is elsewhere: veneers into code in MEM2 (the resident runtime's or the virtual SD card's) |
 | `0x80002FE0`–`0x80003000` | Return to RiftWii's stub for code builds and games that clear MEM1's top (RE4, older LEGO games, Ghostbusters). Below the OS globals and past every veneer; an ordinary cheat list ends before it. Other games keep the stub above their MEM1 arena, away from mod loaders' low-memory code |
-| Top of the game's MEM1 arena | Resident runtime code, then the pad blob, the screenshot blob, the crash blob and the Wii Remote log's blob below it. A WiiWare or Virtual Console game has no FST, so its arena runs to `0x81800000`: the blobs are carved from there, never below the end of the loader's heap or of the game's program (`channel_extras_floor`) |
+| Top of the game's MEM1 arena | Resident runtime code (for Super Smash Bros. Brawl only its jumps into the code, 256 bytes: the code is in MEM2, `game_needs_runtime_code_in_mem2`), then the pad blob, the screenshot blob, the crash blob and the Wii Remote log's blob below it. A WiiWare or Virtual Console game has no FST, so its arena runs to `0x81800000`: the blobs are carved from there, never below the end of the loader's heap or of the game's program (`channel_extras_floor`) |
 | `0x90000000`–`0x90800000` | Left alone by the loader: an IOS reload stages its kernel here |
 | `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/core/restart.hpp`) |
 | `0x90809000`–about `0x908ED000` | The start-up stash's copy: translations and GPL, zstd; no font data (`wii/core/stash.hpp`, [MEMORY.md](MEMORY.md)); arena 2 starts above it |
 | From the end of `.bss` (start-up only) | The start-up stash as `boot.dol` loads it, until crt0 has copied it to MEM2; then the MEM1 heap |
-| Bottom of the game's MEM2 arena | Resident runtime data (or the virtual SD card's code and state, about 49 KB plus 12 bytes for each piece of the image on its card), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB), then the Reset's request block (about 1.5 KB) |
+| Bottom of the game's MEM2 arena | Resident runtime data, its code first for code builds and Brawl (or the virtual SD card's code and state, about 49 KB plus 12 bytes for each piece of the image on its card), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB), then the Reset's request block (about 1.5 KB) |
 | `0x90000000`–`0x91000000` | A GameCube game's ARAM (in a GameCube game only) |
 | `0x91000000`–`0x91200000` | A GameCube game's memory card image |
 | `0x91200000`–`0x91300000` | A GameCube game's data buffers: the SD bounce buffer, the I/O worker's stack and staging buffer, the disc audio ring, the trace record, the Wii Remotes' state, the crash screen (its card and the strip of glyphs the register dump is made from) and the disc runs (and an RVZ's reader) |
@@ -929,9 +940,10 @@ apploader load against its own range and stops with "overlaps the
 loader" instead of crashing; no game seen so far comes close (Brawl,
 among the largest, ends at `0x805A5154`).
 
-The in-game part (the resident runtime) is separate and small: 43 KB of
+The in-game part (the resident runtime) is separate and small: 46 KB of
 code at the top of the game's MEM1 arena (or in MEM2 for code builds
-such as Project+), plus its data in MEM2. It is built with `-Os` for that
+such as Project+, and for Super Smash Bros. Brawl, whose match heap needs
+that MEM1), plus its data in MEM2. It is built with `-Os` for that
 reason (`Makefile.runtime`).
 
 ## Restarts and crashes
@@ -994,7 +1006,9 @@ once (`HeadlessArguments`, `wii/launch/headless.cpp`) and starts the game
 again. When the write or the launch is refused the sector goes back to
 `--idle--` and the function runs from the replay slot, the game's own
 restart. Not hooked, with the reason in `boot.log`: no channel installed,
-a game that checks its own code, a runtime placed in MEM2, no card handle,
+a game that checks its own code, a runtime placed in MEM2 with its jumps in
+the code handler's room (code builds, games that clear MEM1's top; Brawl's
+jumps are at the MEM1 arena's top, OSRestart's among them), no card handle,
 a launch that does not fit a sector. `debug_off = reset` turns it off.
 
 A launch with no runtime (no pack, memory patch or saves on the card) used
@@ -1066,7 +1080,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/cardlog.bin`, `cardlog.txt` | The SD card's failures during the last game, and their text |
 | `sd:/games/<ID>/game.iso` | A GameCube game |
 | `sd:/riftwii/patches/*.xdelta` | Patch-only GameCube mods, built into `sd:/games/<ID>/` once |
-| `sd:/riftwii/gc/cards/<ID>.raw`, `shared.raw`, `shared-jp.raw` | GameCube memory cards |
+| `sd:/riftwii/gc/cards/<ID>.raw`, `shared.raw`, `shared-jp.raw`, `named/<name>.raw`, `named-jp/<name>.raw` | GameCube memory cards (a named card: `gc_named_card_path`) |
 | `sd:/riftwii/gc/saves/*.gci` | GameCube saves copied out, or to add to a card |
 | `sd:/riftwii/gc/backups/real/` | Explicit whole physical-card `.raw` backups, not pruned |
 | `sd:/riftwii/gc/dolphin/` | Dolphin's `GC` folder, copied whole (`USA/Card A/*.gci`, `MemoryCardA.USA.raw`...), for Bring your Dolphin saves (`gcimport.hpp`) |

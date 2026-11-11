@@ -13,6 +13,10 @@
  * own small blob beside the resident runtime, so a game without the
  * adapter option never carries it and the resident's ABI is untouched.
  *
+ * SIProbe is hooked too, where found, in both builds (with the HOME Menu
+ * and without): a game that asks it what is in a port before it reads one
+ * hears a controller where the adapter plays (#510, rtsiprobe.h).
+ *
  * Layout (pad_entry.S): the header below, the two trampolines with
  * their loader-filled replay slots, the IPC completion entry, the C
  * code, then the context. Position independent like the resident (the
@@ -30,7 +34,7 @@
 #include "rtrestart.h"
 
 #define RT_PAD_MAGIC 0x52575044u          /* "RWPD" */
-#define RT_PAD_VERSION 6u               /* also in pad_entry.S's header */
+#define RT_PAD_VERSION 7u               /* also in pad_entry.S's header */
 #define RT_PAD_CONTEXT_MAGIC 0x52575043u  /* "RWPC" */
 #define RT_PAD_CONTEXT_BYTES 512u  /* also pad_entry.S's fill */
 /* The context of the blob built without the HOME Menu (RT_PAD_NO_HOME):
@@ -85,6 +89,10 @@ struct rt_pad_header {
     uint32_t hook_restart;     /* OSRestart's (the game's own Reset, #458; not in the code builds' blob) */
     uint32_t replay_restart;
     uint32_t continue_restart;
+    uint32_t hook_si_probe;    /* SIProbe's (a filled port answers as a controller, #510) */
+    uint32_t replay_si_probe;
+    uint32_t continue_si_probe;
+    /* The HOME Menu's, last: the blob without it has a header that ends here. */
     uint32_t hook_kpad;        /* the KPAD read's (the stand-in Classic Controller's status) */
     uint32_t replay_kpad;
     uint32_t continue_kpad;

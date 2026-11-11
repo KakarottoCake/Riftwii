@@ -62,6 +62,15 @@ void test_protected() {
     EXPECT_TRUE(game_clears_mem1_top("RLBEWR"));
     EXPECT_TRUE(game_clears_mem1_top("RGQE70"));  // Ghostbusters: the hotel's PKE tutorial
     EXPECT_TRUE(game_clears_mem1_top("RJ2E52"));  // 007 Quantum of Solace: out of memory
+    // Brawl's match heap: the runtime's code to MEM2, every region; its
+    // MEM1 top is kept, so it is not a game that clears it.
+    EXPECT_TRUE(game_needs_runtime_code_in_mem2("RSBE01"));
+    EXPECT_TRUE(game_needs_runtime_code_in_mem2("RSBP01"));
+    EXPECT_TRUE(game_needs_runtime_code_in_mem2("RSBJ01"));
+    EXPECT_FALSE(game_needs_runtime_code_in_mem2("RMCE01"));
+    EXPECT_FALSE(game_needs_runtime_code_in_mem2("RS"));
+    EXPECT_FALSE(game_clears_mem1_top("RSBE01"));
+    EXPECT_FALSE(game_runs_no_mem2_code("RSBE01"));
     EXPECT_TRUE(game_clears_mem1_top("RJ2P52"));
     EXPECT_FALSE(game_clears_mem1_top("RJ2E01"));  // another publisher's RJ2
     EXPECT_FALSE(game_runs_no_mem2_code("RJ2E52"));

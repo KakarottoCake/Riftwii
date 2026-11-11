@@ -476,6 +476,53 @@ void test_ciso_detection() {
               std::string("Home: CISO DETECTED: sd:/games/Test [GXXE01]/game.ciso (RiftWii plays .iso, .gcm and "
                           ".rvz; convert it with Dolphin)"));
 
+    // A file two scans reach (a game folder inside another) counts once.
+    CisoFinds twice;
+    twice.note("sd:/Wii Games/x/a.ciso");
+    twice.note("sd:/Wii Games/x/a.ciso");
+    EXPECT_EQ(twice.total, static_cast<std::size_t>(1));
+    EXPECT_EQ(twice.paths.size(), static_cast<std::size_t>(1));
+    // FAT ignores case: the same file spelled two ways is one.
+    twice.note("sd:/wii games/X/A.ciso");
+    EXPECT_EQ(twice.total, static_cast<std::size_t>(1));
+    // A merge keeps it once too, and a later note of a merged path doesn't
+    // count it again.
+    CisoFinds other;
+    other.note("sd:/Wii Games/x/a.ciso");
+    other.note("usb:/b.ciso");
+    twice.merge(other);
+    EXPECT_EQ(twice.total, static_cast<std::size_t>(2));
+    twice.note("usb:/B.ciso");
+    EXPECT_EQ(twice.total, static_cast<std::size_t>(2));
+
+    // Past kSeenKept paths every find is counted, and nothing more is kept.
+    CisoFinds flood;
+    for (std::size_t i = 0; i < CisoFinds::kSeenKept + 10; ++i) flood.note("sd:/x/" + std::to_string(i) + ".ciso");
+    EXPECT_EQ(flood.total, CisoFinds::kSeenKept + 10);
+    EXPECT_EQ(flood.seen.size(), CisoFinds::kSeenKept);
+    // A merge of one that ran past its names counts the rest as found once,
+    // and keeps no more than kSeenKept names.
+    CisoFinds into;
+    into.note("usb:/z.ciso");
+    into.merge(flood);
+    EXPECT_EQ(into.total, CisoFinds::kSeenKept + 11);
+    EXPECT_EQ(into.seen.size(), CisoFinds::kSeenKept);
+    CisoFinds fresh;
+    fresh.merge(flood);
+    EXPECT_EQ(fresh.total, flood.total);
+    EXPECT_EQ(fresh.seen.size(), CisoFinds::kSeenKept);
+
+    // Two spellings of one file on FAT are one path (the scan lists a game
+    // two folders reach once, by this).
+    EXPECT_EQ(path_fold_case("sd:/WBFS/A [RMCE01]/RMCE01.wbfs"), path_fold_case("sd:/wbfs/a [rmce01]/rmce01.wbfs"));
+    EXPECT_TRUE(scan_reaches_path("sd:/Wii Games", "sd:/wii games/X/a.iso", true));
+    EXPECT_TRUE(scan_reaches_path("sd:/Wii Games/", "sd:/Wii Games/a.iso", false));
+    EXPECT_FALSE(scan_reaches_path("sd:/Wii Games", "sd:/Wii Games/X/a.iso", false));
+    // Only one level down, as the scan reads.
+    EXPECT_FALSE(scan_reaches_path("sd:/Wii Games", "sd:/Wii Games/X/Y/a.iso", true));
+    EXPECT_FALSE(scan_reaches_path("sd:/Wii Games", "sd:/Wii Games2/a.iso", true));
+    EXPECT_FALSE(scan_reaches_path("sd:/Wii Games", "usb:/Wii Games/a.iso", true));
+
     // Many: only the first few paths are kept, the count goes on.
     CisoFinds many;
     for (int i = 0; i < 10; ++i) many.note("sd:/games/g" + std::to_string(i) + ".ciso");
@@ -682,6 +729,11 @@ void test_gc_catalog_selection() {
         hidden = gc_catalog_hidden_by(images);
         EXPECT_EQ(hidden[3], 1);  // Independent of directory listing order.
         EXPECT_EQ(hidden[0], -1);
+
+        // One file two scans reach in two spellings (game_folders' "WBFS/Mario"
+        // and the built-in "wbfs") is listed once.
+        images = {{"sd:/wbfs/Mario/game.iso", "GXXE01", 0}, {"sd:/WBFS/Mario/game.iso", "GXXE01", 0}};
+        EXPECT_TRUE(gc_catalog_hidden_by(images) == (std::vector<int>{-1, 0}));
 
         images = {{root + "/disc2.rvz", "GXXE01", 1}, {root + "/game.iso", "GXXE01", 0}};
         hidden = gc_catalog_hidden_by(images);

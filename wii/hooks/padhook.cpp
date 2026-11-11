@@ -188,7 +188,8 @@ bool blob_whole(int kind) {
     const rt_pad_header& h = header(kind);
     const std::uint32_t size = blob_size(kind);
     // The blob without the HOME Menu has a header that ends before its
-    // hooks (rt_pad_header's last five), which are never read from it.
+    // hooks (rt_pad_header's last five, after SIProbe's), which are never
+    // read from it.
     const std::uint32_t header_bytes =
         kind < kBlobNoHome ? sizeof(rt_pad_header) : offsetof(rt_pad_header, hook_kpad);
     if (size < header_bytes || h.magic != RT_PAD_MAGIC || h.version != RT_PAD_VERSION || h.size > size ||
@@ -768,6 +769,14 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
         find_way_back(dol, text, out);
         find_home_menu(dol, text, out);
     }
+    out.si_probe = find_gc_si_probe(text, out.read);
+    // Where SIProbe is missing the adapter still plays: only a game that
+    // asks it before reading a port misses the adapter's ports (#510).
+    if (out.si_probe != 0)
+        logf("GameCube adapter: SIProbe at 0x%08x: a port the adapter plays on answers as a GameCube controller\n",
+             out.si_probe);
+    else
+        logf("GameCube adapter: SIProbe not found: a game that asks it which ports have a controller sees none there\n");
 
     if (!take_adapter_handle(out.fd, out.version, out.known_dev, why, &out.devices_unknown)) {
         if (!demo) return false;
@@ -1187,7 +1196,8 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
                               {hook.hbm_select, hh.hook_select, hh.replay_select, hh.continue_select,
                                "HBMGetSelectBtnNum"},
                               {hook.kpad_unified, hh.hook_unified, hh.replay_unified, hh.continue_unified,
-                               "KPADGetUnifiedWpadStatus"}};
+                               "KPADGetUnifiedWpadStatus"},
+                              {hook.si_probe, h.hook_si_probe, h.replay_si_probe, h.continue_si_probe, "SIProbe"}};
     Site& read_site = sites[0];
     Site& motor_site = sites[1];
     Site& submit_site = sites[2];
@@ -1198,6 +1208,8 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
     // Optional for the HOME Menu (a game without it reads the KPAD status
     // only): missing or not hooked, the rest works as before.
     Site& unified_site = sites[10];
+    // In either blob (#510).
+    Site& probe_site = sites[11];
     const auto is_home_site = [&](const Site& s) {
         for (const Site* home_site : home_sites)
             if (&s == home_site) return true;
@@ -1253,6 +1265,9 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
             } else if (&s == &restart_site) {
                 logf("Reset: the game's own Reset restarts it without the adapter or USB controllers: OSRestart "
                      "cannot be hooked (%s)\n", reason.c_str());
+            } else if (&s == &probe_site) {
+                logf("GameCube adapter: SIProbe cannot be hooked (%s); a game that asks it sees no controller there\n",
+                     reason.c_str());
             } else {
                 way_back_off(s.name, "cannot be hooked (" + reason + ")");
             }
@@ -1303,6 +1318,8 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
             if (&s == &restart_site)
                 logf("Reset: the game's own Reset restarts it without the adapter or USB controllers: OSRestart is "
                      "out of a branch's reach\n");
+            if (&s == &probe_site)
+                logf("GameCube adapter: SIProbe is out of a branch's reach; a game that asks it sees no controller there\n");
             continue;
         }
         store_words(s.function, &branch, 1);

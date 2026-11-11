@@ -3,6 +3,14 @@
 foreach(engine reference current)
     execute_process(COMMAND "${${engine}}" "${trace}-${engine}.bin"
         RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE errors)
+    if(result EQUAL 77)
+        # The engine's suite could not run on this host (no memory at the
+        # Wii's addresses), so there are no transcripts to compare. The
+        # test's SKIP_REGULAR_EXPRESSION turns this line into "skipped".
+        file(REMOVE "${trace}-reference.bin" "${trace}-current.bin")
+        message(STATUS "skipped: ${engine} cannot run on this host: ${output}${errors}")
+        return()
+    endif()
     if(NOT result EQUAL 0)
         message(FATAL_ERROR "${engine} failed (${result}): ${output}${errors}")
     endif()

@@ -4158,8 +4158,8 @@ msgstr "숨긴 게임은 드라이브에 남습니다. 설정 > 홈 > 숨긴 게
 msgid "Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."
 msgstr "게임 이미지, 표지와 치트를 삭제합니다. 저장 데이터는 삭제하도록 선택하지 않으면 유지됩니다."
 
-msgid "Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."
-msgstr "RiftWii의 개별 저장 데이터만 삭제합니다. 공유 카드, 팩과 Wii 본체의 저장 데이터는 유지됩니다."
+msgid "Only RiftWii's separate saves. Shared and named cards, pack saves and the Wii's own saves are kept."
+msgstr "RiftWii의 개별 저장 데이터만 삭제합니다. 공유 카드와 이름 있는 카드, 팩과 Wii 본체의 저장 데이터는 유지됩니다."
 
 msgid "Its image files, covers and cheats will be deleted. This cannot be undone."
 msgstr "이미지 파일, 표지와 치트가 삭제됩니다. 되돌릴 수 없습니다."
@@ -4397,3 +4397,102 @@ msgstr "게임큐브 컨트롤러가 없습니다"
 
 msgid "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead."
 msgstr "CTGP-R은 RVZ 이미지에서 시작할 수 없습니다. 디스크, ISO 또는 WBFS를 사용하세요."
+
+msgid "Game folders"
+msgstr "게임 폴더"
+
+msgid "Use this folder"
+msgstr "이 폴더 사용"
+
+msgid "Choose a folder"
+msgstr "폴더 선택"
+
+msgid "Open the folder that holds your games, then pick Use this folder."
+msgstr "게임이 들어 있는 폴더를 연 다음 '이 폴더 사용'을 고르세요."
+
+msgid "SD card and USB drive"
+msgstr "SD 카드와 USB 드라이브"
+
+msgid "Add a folder"
+msgstr "폴더 추가"
+
+msgid "RiftWii always looks for games in wbfs and games. It also looks in these folders, and in the folders inside them. Press a folder to remove it."
+msgstr "RiftWii는 항상 wbfs와 games에서 게임을 찾습니다. 이 폴더들과 그 안의 폴더에서도 찾습니다. 폴더를 누르면 목록에서 뺍니다."
+
+msgid "Stop looking for games in {1}? The games stay on the drive."
+msgstr "{1}에서 게임 찾기를 그만둘까요? 게임은 드라이브에 그대로 남습니다."
+
+msgid "Removed. Its games leave Home when you leave Settings."
+msgstr "뺐습니다. 설정을 나가면 그 게임들이 홈에서 사라집니다."
+
+msgid "There are already {1} folders. Remove one to add another."
+msgstr "폴더가 이미 {1}개 있습니다. 하나를 빼야 더 추가할 수 있습니다."
+
+msgid "Added. Its games show on Home when you leave Settings."
+msgstr "추가했습니다. 설정을 나가면 그 게임들이 홈에 나옵니다."
+
+msgid "That folder is in the list already."
+msgstr "그 폴더는 이미 목록에 있습니다."
+
+msgid "RiftWii always looks in wbfs and games, so there is no need to add them."
+msgstr "RiftWii는 항상 wbfs와 games를 찾으므로 추가할 필요가 없습니다."
+
+msgid "That folder can't be added. Pick a folder inside the drive with a shorter path, without ; in its name."
+msgstr "그 폴더는 추가할 수 없습니다. 드라이브 안에 있고 경로가 더 짧으며 이름에 ;가 없는 폴더를 고르세요."
+
+msgid "More folders to look for games in, on the SD card or the USB drive, besides wbfs and games."
+msgstr "wbfs와 games 말고도 SD 카드나 USB 드라이브에서 게임을 찾을 폴더입니다."
+
+msgid "Home looks for games in these folders when you leave Settings."
+msgstr "설정을 나가면 홈이 이 폴더들에서 게임을 찾습니다."
+
+msgid "Named: {1}"
+msgstr "이름: {1}"
+
+msgid "Saves go to the named memory card {1} on the SD card: {2}."
+msgstr "저장 데이터는 SD 카드의 이름 있는 메모리 카드 {1}에 저장됩니다: {2}."
+
+msgid "Name the new card"
+msgstr "새 카드 이름"
+
+msgid "New card"
+msgstr "새 카드"
+
+msgid "Other kinds of card"
+msgstr "다른 종류의 카드"
+
+msgid "A new, empty card. It is made the first time a game uses it."
+msgstr "새 빈 카드입니다. 게임이 처음 사용할 때 만들어집니다."
+
+msgid "Named cards are kept in {1}. Give one to several games, or several to one game."
+msgstr "이름 있는 카드는 {1}에 있습니다. 한 장을 여러 게임에, 또는 여러 장을 한 게임에 쓸 수 있습니다."
+
+msgid "Named cards"
+msgstr "이름 있는 카드 목록"
+
+msgid "Japanese games' cards"
+msgstr "일본 게임용 카드"
+
+msgid "Cards for this game's region"
+msgstr "이 게임 지역용 카드"
+
+msgid "Use 1 to {1} letters, digits, spaces, - or ' for a card's name."
+msgstr "카드 이름에는 영문자, 숫자, 공백, -, '를 1~{1}자 사용하세요."
+
+msgid "Press A to pick another named card or make a new one; Left for the other kinds of card."
+msgstr "A를 눌러 다른 이름 있는 카드를 고르거나 새로 만들고, 왼쪽으로 다른 종류의 카드를 고릅니다."
+
+msgid "Press A to put this named memory card back to how it was then, for every game that uses it."
+msgstr "A를 누르면 이 이름 있는 메모리 카드를 그때 상태로 되돌립니다. 이 카드를 쓰는 모든 게임에 적용됩니다."
+
+msgid "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them."
+msgstr "이 이름 있는 메모리 카드의 모든 저장 데이터가 {1} 상태로 되돌아갑니다. 지금 상태는 먼저 사본으로 보관하므로 다시 되돌릴 수 있습니다."
+
+msgid "A named memory card is made the first time a game that uses it starts: {1}."
+msgstr "이름 있는 메모리 카드는 그 카드를 쓰는 게임을 처음 시작할 때 만들어집니다: {1}."
+
+msgid "Go back to how this named memory card was on a day you pick, for every game that uses it."
+msgstr "이 이름 있는 메모리 카드를 고른 날의 상태로 되돌립니다. 이 카드를 쓰는 모든 게임에 적용됩니다."
+
+msgid "Switches this game to {1}. Back keeps the card it has."
+msgstr "이 게임을 {1}(으)로 바꿉니다. 뒤로를 누르면 지금 카드를 그대로 씁니다."

@@ -82,11 +82,20 @@ GcBackupStamp gc_backup_stamp(const std::tm& local) {
 }
 
 std::string gc_backup_folder(const std::string& game_id, bool shared) {
+    return gc_card_backup_folder(gc_card_path(game_id, shared));
+}
+
+std::string gc_card_backup_folder(const std::string& card_path) {
     // The card file's own name, so a backup folder always matches its card.
-    const std::string card = gc_card_path(game_id, shared);
-    const std::size_t slash = card.rfind('/');
-    std::string stem = card.substr(slash + 1);
-    stem.resize(stem.size() - (sizeof kExtension - 1));
+    const std::size_t slash = card_path.rfind('/');
+    std::string stem = card_path.substr(slash + 1);
+    if (stem.size() >= sizeof kExtension - 1) stem.resize(stem.size() - (sizeof kExtension - 1));
+    // A named card's folder (named or named-jp) comes along, so its
+    // backups never mix with a game's own card of the same name.
+    const std::string folder = slash == std::string::npos ? std::string() : card_path.substr(0, slash);
+    const std::size_t parent = folder.rfind('/');
+    const std::string sub = parent == std::string::npos ? std::string() : folder.substr(parent + 1);
+    if (sub == "named" || sub == "named-jp") return "sd:/riftwii/gc/backups/" + sub + "/" + stem;
     return "sd:/riftwii/gc/backups/" + stem;
 }
 

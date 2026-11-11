@@ -4158,8 +4158,8 @@ msgstr "Les jeux masqués restent sur le disque. Paramètres > Accueil > Affiche
 msgid "Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."
 msgstr "Supprime l’image, les jaquettes et les codes du jeu. Les sauvegardes restent, sauf si vous choisissez aussi de les supprimer."
 
-msgid "Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."
-msgstr "Uniquement les sauvegardes séparées de RiftWii. Les cartes partagées et les sauvegardes des packs et de la Wii restent."
+msgid "Only RiftWii's separate saves. Shared and named cards, pack saves and the Wii's own saves are kept."
+msgstr "Uniquement les sauvegardes séparées de RiftWii. Les cartes partagées et nommées et les sauvegardes des packs et de la Wii restent."
 
 msgid "Its image files, covers and cheats will be deleted. This cannot be undone."
 msgstr "Ses images, jaquettes et codes seront supprimés. Cette action est irréversible."
@@ -4397,3 +4397,102 @@ msgstr "Aucune manette GameCube trouvée"
 
 msgid "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead."
 msgstr "CTGP-R ne peut pas démarrer depuis une image RVZ. Utilisez un disque, un ISO ou un WBFS."
+
+msgid "Game folders"
+msgstr "Dossiers de jeux"
+
+msgid "Use this folder"
+msgstr "Utiliser ce dossier"
+
+msgid "Choose a folder"
+msgstr "Choisir un dossier"
+
+msgid "Open the folder that holds your games, then pick Use this folder."
+msgstr "Ouvrez le dossier qui contient vos jeux, puis choisissez Utiliser ce dossier."
+
+msgid "SD card and USB drive"
+msgstr "Carte SD et stockage USB"
+
+msgid "Add a folder"
+msgstr "Ajouter un dossier"
+
+msgid "RiftWii always looks for games in wbfs and games. It also looks in these folders, and in the folders inside them. Press a folder to remove it."
+msgstr "RiftWii cherche toujours les jeux dans wbfs et games. Il cherche aussi dans ces dossiers et dans les dossiers qu'ils contiennent. Appuyez sur un dossier pour le retirer."
+
+msgid "Stop looking for games in {1}? The games stay on the drive."
+msgstr "Ne plus chercher de jeux dans {1} ? Les jeux restent sur le support."
+
+msgid "Removed. Its games leave Home when you leave Settings."
+msgstr "Retiré. Ses jeux quittent l'Accueil quand vous quittez les Paramètres."
+
+msgid "There are already {1} folders. Remove one to add another."
+msgstr "Il y a déjà {1} dossiers. Retirez-en un pour en ajouter un autre."
+
+msgid "Added. Its games show on Home when you leave Settings."
+msgstr "Ajouté. Ses jeux apparaissent sur l'Accueil quand vous quittez les Paramètres."
+
+msgid "That folder is in the list already."
+msgstr "Ce dossier est déjà dans la liste."
+
+msgid "RiftWii always looks in wbfs and games, so there is no need to add them."
+msgstr "RiftWii cherche toujours dans wbfs et games, inutile de les ajouter."
+
+msgid "That folder can't be added. Pick a folder inside the drive with a shorter path, without ; in its name."
+msgstr "Ce dossier ne peut pas être ajouté. Choisissez un dossier à l'intérieur du support avec un chemin plus court, sans ; dans son nom."
+
+msgid "More folders to look for games in, on the SD card or the USB drive, besides wbfs and games."
+msgstr "D'autres dossiers où chercher des jeux, sur la carte SD ou le stockage USB, en plus de wbfs et games."
+
+msgid "Home looks for games in these folders when you leave Settings."
+msgstr "L'Accueil cherche des jeux dans ces dossiers quand vous quittez les Paramètres."
+
+msgid "Named: {1}"
+msgstr "Nommée : {1}"
+
+msgid "Saves go to the named memory card {1} on the SD card: {2}."
+msgstr "Les sauvegardes vont sur la carte mémoire nommée {1} de la carte SD : {2}."
+
+msgid "Name the new card"
+msgstr "Nommez la nouvelle carte"
+
+msgid "New card"
+msgstr "Nouvelle carte"
+
+msgid "Other kinds of card"
+msgstr "Autres types de carte"
+
+msgid "A new, empty card. It is made the first time a game uses it."
+msgstr "Une carte neuve et vide. Elle est créée la première fois qu'un jeu l'utilise."
+
+msgid "Named cards are kept in {1}. Give one to several games, or several to one game."
+msgstr "Les cartes nommées sont dans {1}. Donnez-en une à plusieurs jeux, ou plusieurs à un jeu."
+
+msgid "Named cards"
+msgstr "Cartes nommées"
+
+msgid "Japanese games' cards"
+msgstr "Cartes des jeux japonais"
+
+msgid "Cards for this game's region"
+msgstr "Cartes pour la région de ce jeu"
+
+msgid "Use 1 to {1} letters, digits, spaces, - or ' for a card's name."
+msgstr "Utilisez de 1 à {1} lettres, chiffres, espaces, - ou ' pour le nom de la carte."
+
+msgid "Press A to pick another named card or make a new one; Left for the other kinds of card."
+msgstr "Appuyez sur A pour choisir une autre carte nommée ou en créer une ; Gauche pour les autres types de carte."
+
+msgid "Press A to put this named memory card back to how it was then, for every game that uses it."
+msgstr "Appuyez sur A pour remettre cette carte mémoire nommée dans l'état d'alors, pour tous les jeux qui l'utilisent."
+
+msgid "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them."
+msgstr "Toutes les sauvegardes de cette carte mémoire nommée reviennent à leur état du {1}. Leur état actuel est d'abord gardé en copie, pour que vous puissiez y revenir."
+
+msgid "A named memory card is made the first time a game that uses it starts: {1}."
+msgstr "Une carte mémoire nommée est créée la première fois qu'un jeu qui l'utilise démarre : {1}."
+
+msgid "Go back to how this named memory card was on a day you pick, for every game that uses it."
+msgstr "Remettez cette carte mémoire nommée dans son état du jour choisi, pour tous les jeux qui l'utilisent."
+
+msgid "Switches this game to {1}. Back keeps the card it has."
+msgstr "Passe ce jeu sur {1}. Retour garde la carte qu'il a."

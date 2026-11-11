@@ -251,6 +251,15 @@ void test_hostile() {
         EXPECT_EQ(s.frames(), 14u);
     }
     {
+        // No frames at all, in stereo: an empty sound, refused, with no
+        // place worked out in a buffer that is not there (the sanitizer
+        // build stopped on the second channel's).
+        Bytes bns = make_bns();
+        set32(bns, info + 12, 0);
+        EXPECT_TRUE(!decode_banner_sound(bns.data(), bns.size(), s, error));
+        EXPECT_EQ(error, "an empty sound");
+    }
+    {
         // Offsets near 4 GB, which wrapped round on 32 bits.
         for (std::size_t field : {std::size_t(16), std::size_t(0x18), std::size_t(0x20), std::size_t(0x24)}) {
             Bytes bns = make_bns();

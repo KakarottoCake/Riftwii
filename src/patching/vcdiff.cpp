@@ -35,6 +35,10 @@ bool fresh_size(std::vector<std::uint8_t>& v, std::uint64_t n) {
 // A window or section that found no room; callers that report running
 // out of memory in their own words ask an OutOfMemoryScope instead.
 constexpr const char* kNoRoom = "the patch asks for more memory than is free";
+// A window with a compressed section. The words tell whoever made the
+// patch how to make one RiftWii reads.
+constexpr const char* kCompressed =
+    "the patch's data is compressed, which RiftWii cannot read (a patch made with xdelta3's \"-S none\" is not)";
 
 constexpr std::uint8_t kSource = 0x01;   // Win_Indicator: the copy window is in the original
 constexpr std::uint8_t kTarget = 0x02;   // ...or in the patched image made so far
@@ -158,13 +162,62 @@ public:
         std::uint8_t m[5];
         if (!take(m, 5)) return fail("not a VCDIFF patch (too short)");
         if (m[0] != 0xD6 || m[1] != 0xC3 || m[2] != 0xC4 || m[3] != 0) return fail("not a VCDIFF (xdelta) patch");
-        if (m[4] & kDecompress) return fail("the patch's data is compressed (not supported)");
+        // A patch that names a secondary compressor need not use it:
+        // xdelta3 names one (LZMA) in every patch unless told "-S none",
+        // then compresses a section only where that makes it smaller, and
+        // each window says which of its sections are (its Delta_Indicator).
+        // So the name is read past, and what is refused is a window with
+        // a compressed section (uncompressed_to_end), named or not.
+        if (m[4] & kDecompress) {
+            std::uint8_t compressor;
+            if (!byte(compressor)) return fail("the patch's header is damaged");
+            names_compressor_ = true;
+        }
         if (m[4] & kCodeTable) return fail("the patch uses its own code table (not supported)");
         if (m[4] & kAppHeader) {
             std::uint64_t n;
             if (!integer(n) || n > patch_size_ - pos_) return fail("the patch's header is damaged");
             pos_ += n;
         }
+        return true;
+    }
+
+    // Whether no window from here to the patch's end has a compressed
+    // section, asked before anything is made of a patch: otherwise a patch
+    // whose first windows are plain would be listed as a game, or written
+    // halfway to the card, and only then refused. Asked whether or not the
+    // header names a compressor, since a later window's indicator is just
+    // as unusable in a patch that names none. Reads each window's first few
+    // bytes and skips its sections; the place in the patch is kept.
+    //
+    // Damage met while looking is an error only for a patch that names a
+    // compressor (as before). In one that names none, the look stops there
+    // and window() reports the damage, with its own message, when it comes
+    // to that window.
+    bool uncompressed_to_end() {
+        const std::uint64_t start = pos_;
+        auto damaged = [&](const char* why) {
+            if (names_compressor_) return fail(why);
+            pos_ = start;
+            return true;  // stop looking; window() will say what is wrong
+        };
+        while (!at_end()) {
+            std::uint8_t win, delta_ind;
+            std::uint64_t seg_len, seg_pos, delta_len, window_len;
+            if (!byte(win)) return damaged("a patch window is cut short");
+            if ((win & (kSource | kTarget)) && (!integer(seg_len) || !integer(seg_pos)))
+                return damaged("a patch window is cut short");
+            if (!integer(delta_len)) return damaged("a patch window is cut short");
+            const std::uint64_t delta_start = pos_;
+            if (!integer(window_len) || !byte(delta_ind)) return damaged("a patch window is cut short");
+            if (delta_ind != 0) return fail(kCompressed);
+            // The next window starts where this one's length says: past
+            // what was just read, and inside the patch.
+            if (delta_len < pos_ - delta_start || delta_len > patch_size_ - delta_start)
+                return damaged("a patch window's length does not match its contents");
+            pos_ = delta_start + delta_len;
+        }
+        pos_ = start;
         return true;
     }
 
@@ -188,7 +241,7 @@ public:
         if (!integer(window_len) || !byte(delta_ind) || !integer(data_len) || !integer(inst_len) ||
             !integer(addr_len))
             return fail("a patch window is cut short");
-        if (delta_ind != 0) return fail("a patch window's sections are compressed (not supported)");
+        if (delta_ind != 0) return fail(kCompressed);
         const std::uint64_t max = limits_.max_window;
         if (window_len > max || data_len > max || inst_len > max || addr_len > max || seg_len > limits_.max_copy_window)
             return fail("a patch window is larger than RiftWii takes");
@@ -387,6 +440,7 @@ private:
     std::uint64_t pos_ = 0;
     std::uint64_t made_ = 0;
     bool has_adler_ = false;
+    bool names_compressor_ = false;  // the header names a secondary compressor
     std::vector<std::uint8_t> data_, inst_, addr_, seg_, cache_;
     std::uint64_t seg_pos_ = 0;
     std::uint64_t seg_len_ = 0;
@@ -417,7 +471,7 @@ bool apply_vcdiff(const VcdiffReadFn& patch, std::uint64_t patch_size, const Vcd
                   const VcdiffProgressFn& progress, std::string& error, const VcdiffLimits& limits,
                   VcdiffStats* stats) {
     Decoder d(patch, patch_size, source, source_size, read_target, limits, error);
-    if (!d.header()) return false;
+    if (!d.header() || !d.uncompressed_to_end()) return false;
     std::vector<std::uint8_t> out;
     bool any = false;
     while (!d.at_end()) {
@@ -445,7 +499,10 @@ bool vcdiff_head(const VcdiffReadFn& patch, std::uint64_t patch_size, const Vcdi
                  std::string& error, const VcdiffLimits& limits) {
     Decoder d(patch, patch_size, source, source_size, VcdiffReadFn{}, limits, error);
     std::vector<std::uint8_t> first;
-    if (!d.header() || !d.window(first)) return false;
+    // The first window before the rest are looked through: it is what
+    // tells the original apart, so only the right original's patch is
+    // read to its end.
+    if (!d.header() || !d.window(first) || !d.uncompressed_to_end()) return false;
     if (first.size() < length) {
         error = "the patch's first window is too short";
         return false;

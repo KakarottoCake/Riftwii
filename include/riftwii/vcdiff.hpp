@@ -16,7 +16,12 @@ namespace riftwii {
 //
 // The patch is read window by window (xdelta3 writes 8 MB ones); each is
 // checked against its Adler-32 when the patch carries one (xdelta3 does).
-// Patches with secondary compression or their own code table are refused.
+// A patch with a compressed section in any window (secondary compression)
+// or with its own code table is refused, before anything is written (every
+// window is looked through first, whether or not the patch names a
+// compressor). xdelta3 names a compressor in every patch unless told "-S none" and uses
+// it only where a section gets smaller, so a patch naming one is taken
+// when none of its windows uses it (small patches mostly).
 
 // Reads `length` bytes at `offset`; false on an error.
 using VcdiffReadFn = std::function<bool(std::uint64_t offset, void* out, std::size_t length)>;

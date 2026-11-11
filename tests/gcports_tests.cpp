@@ -347,6 +347,26 @@ void test_probe_answers() {
     EXPECT_EQ(gc_ports_probe(0xFFFFFFFFu, no_response, kAllPorts), no_response);
 }
 
+// The Wii games' pad blob gives the same answer (rt_si_probe, #510), from
+// the ports its last PADRead filled from the adapter: a game that asks
+// before the adapter has filled a port (its first reads, or the adapter
+// still starting) hears the console's own answer, then a controller once
+// the adapter plays there. A negative channel (the game's s32) is never
+// changed.
+void test_wii_pad_blob_probe() {
+    const std::uint32_t no_response = 0x08u;
+    const std::uint32_t nothing_filled_yet = 0;
+    EXPECT_EQ(rt_si_probe(0, no_response, nothing_filled_yet), no_response);
+    EXPECT_EQ(rt_si_probe(0, no_response, kPort1), RT_SI_GC_CONTROLLER);
+    EXPECT_EQ(rt_si_probe(3, no_response, kAllPorts), RT_SI_GC_CONTROLLER);
+    EXPECT_EQ(rt_si_probe(static_cast<std::uint32_t>(-1), no_response, kAllPorts), no_response);
+    for (std::uint32_t chan = 0; chan < 6; ++chan) {
+        for (std::uint32_t played = 0; played < 16; ++played) {
+            EXPECT_EQ(rt_si_probe(chan, no_response, played), gc_ports_probe(chan, no_response, played));
+        }
+    }
+}
+
 // The way back's combo (gc_ports_leave_held): all four of Start, L, R
 // and Z on a port read without an error, on any port; never with HOME
 // only (Settings > Leaving a game).
@@ -388,6 +408,7 @@ int main() {
     test_played_ports();
     test_idle_probe_ports();
     test_probe_answers();
+    test_wii_pad_blob_probe();
     test_disabled_native_ports();
     test_native_lifecycle();
     test_remote_only();

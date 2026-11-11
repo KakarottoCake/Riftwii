@@ -532,6 +532,17 @@ std::vector<MusicFolderEntry> MenuMusicBrowse(const std::string& folder) {
     return folders;
 }
 
+std::vector<MusicFolderEntry> MenuFolderBrowse(const std::string& folder) {
+    std::vector<MusicFolderEntry> folders;
+    std::vector<MusicFolderEntry> entries;
+    if (!ListFolder(folder, entries)) return folders;
+    for (const MusicFolderEntry& entry : entries) {
+        if (entry.name.empty() || entry.name[0] == '.' || !entry.is_directory) continue;
+        if (folders.size() < 300) folders.push_back(entry);
+    }
+    return folders;
+}
+
 std::size_t MenuMusicFolderSongs(const std::string& folder) { return music_folder_songs(folder, ListFolder).size(); }
 
 bool MenuMusicKeepForLaunch() {

@@ -8678,9 +8678,9 @@ MORE["fr"]['Hidden games stay on the drive. Settings > Home > Show hidden games 
 T["Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."] = ('Borra la imagen, carátulas y trucos del juego. Las partidas se conservan salvo que también elijas borrarlas.', 'ゲームのイメージ、カバー、チートを削除します。セーブデータは、削除を選ばない限り残ります。', 'Remove a imagem, capas e truques do jogo. Os dados salvos ficam, a menos que você escolha excluí-los também.', 'Rimuove immagine, copertine e trucchi del gioco. I salvataggi restano, salvo scelta di eliminarli.')
 MORE["ko"]["Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."] = '게임 이미지, 표지와 치트를 삭제합니다. 저장 데이터는 삭제하도록 선택하지 않으면 유지됩니다.'
 MORE["fr"]["Remove this game's image, covers and cheats. Saves are kept unless you choose to delete them too."] = 'Supprime l’image, les jaquettes et les codes du jeu. Les sauvegardes restent, sauf si vous choisissez aussi de les supprimer.'
-T["Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."] = ('Solo las partidas separadas de RiftWii. Se conservan las tarjetas compartidas y las partidas de los packs y de la Wii.', 'RiftWiiの個別セーブのみです。共有カード、パックのセーブ、Wii本体のセーブは残ります。', 'Apenas os dados separados do RiftWii. Cartões compartilhados e dados dos pacotes e do Wii são mantidos.', 'Solo i salvataggi separati di RiftWii. Le schede condivise e i salvataggi dei pacchetti e della Wii restano.')
-MORE["ko"]["Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."] = 'RiftWii의 개별 저장 데이터만 삭제합니다. 공유 카드, 팩과 Wii 본체의 저장 데이터는 유지됩니다.'
-MORE["fr"]["Only RiftWii's separate saves. Shared cards, pack saves and the Wii's own saves are kept."] = 'Uniquement les sauvegardes séparées de RiftWii. Les cartes partagées et les sauvegardes des packs et de la Wii restent.'
+T["Only RiftWii's separate saves. Shared and named cards, pack saves and the Wii's own saves are kept."] = ('Solo las partidas separadas de RiftWii. Se conservan las tarjetas compartidas y con nombre, y las partidas de los packs y de la Wii.', 'RiftWiiの個別セーブのみです。共有カードと名前付きカード、パックのセーブ、Wii本体のセーブは残ります。', 'Apenas os dados separados do RiftWii. Cartões compartilhados e com nome e dados dos pacotes e do Wii são mantidos.', 'Solo i salvataggi separati di RiftWii. Le schede condivise e con nome e i salvataggi dei pacchetti e della Wii restano.')
+MORE["ko"]["Only RiftWii's separate saves. Shared and named cards, pack saves and the Wii's own saves are kept."] = 'RiftWii의 개별 저장 데이터만 삭제합니다. 공유 카드와 이름 있는 카드, 팩과 Wii 본체의 저장 데이터는 유지됩니다.'
+MORE["fr"]["Only RiftWii's separate saves. Shared and named cards, pack saves and the Wii's own saves are kept."] = 'Uniquement les sauvegardes séparées de RiftWii. Les cartes partagées et nommées et les sauvegardes des packs et de la Wii restent.'
 T['Its image files, covers and cheats will be deleted. This cannot be undone.'] = ('Se borrarán sus imágenes, carátulas y trucos. No se puede deshacer.', 'イメージファイル、カバー、チートを削除します。元には戻せません。', 'Suas imagens, capas e truques serão excluídos. Não é possível desfazer.', 'I suoi file immagine, copertine e trucchi saranno eliminati. Non si può annullare.')
 MORE["ko"]['Its image files, covers and cheats will be deleted. This cannot be undone.'] = '이미지 파일, 표지와 치트가 삭제됩니다. 되돌릴 수 없습니다.'
 MORE["fr"]['Its image files, covers and cheats will be deleted. This cannot be undone.'] = 'Ses images, jaquettes et codes seront supprimés. Cette action est irréversible.'
@@ -9253,6 +9253,191 @@ KO.update({
 FR.update({
     "CTGP-R can't start from an RVZ image. Use a disc, ISO or WBFS instead.":
         "CTGP-R ne peut pas démarrer depuis une image RVZ. Utilisez un disque, un ISO ou un WBFS.",
+})
+
+# Settings > Drives > Game folders (#511).
+T.update({
+    "Game folders": ("Carpetas de juegos", "ゲームのフォルダ", "Pastas de jogos", "Cartelle dei giochi"),
+    "Use this folder": ("Usar esta carpeta", "このフォルダを使う", "Usar esta pasta", "Usa questa cartella"),
+    "Choose a folder": ("Elige una carpeta", "フォルダを選ぶ", "Escolha uma pasta", "Scegli una cartella"),
+    "Open the folder that holds your games, then pick Use this folder.": (
+        "Abre la carpeta que tiene tus juegos y elige Usar esta carpeta.",
+        "ゲームが入っているフォルダを開いて、「このフォルダを使う」を選んでください。",
+        "Abra a pasta que tem os seus jogos e escolha Usar esta pasta.",
+        "Apri la cartella che contiene i tuoi giochi, poi scegli Usa questa cartella."),
+    "SD card and USB drive": ("Tarjeta SD y unidad USB", "SDカードとUSBドライブ", "Cartão SD e unidade USB", "Scheda SD e unità USB"),
+    "Add a folder": ("Añadir una carpeta", "フォルダを追加", "Adicionar uma pasta", "Aggiungi una cartella"),
+    "RiftWii always looks for games in wbfs and games. It also looks in these folders, and in the folders inside them. Press a folder to remove it.": (
+        "RiftWii siempre busca juegos en wbfs y games. También busca en estas carpetas y en las carpetas que tienen dentro. Pulsa una carpeta para quitarla.",
+        "RiftWiiはいつもwbfsとgamesでゲームを探します。ここのフォルダとその中のフォルダも探します。フォルダを押すとなくせます。",
+        "O RiftWii sempre procura jogos em wbfs e games. Também procura nestas pastas e nas pastas dentro delas. Aperte uma pasta para removê-la.",
+        "RiftWii cerca sempre i giochi in wbfs e games. Cerca anche in queste cartelle e nelle cartelle al loro interno. Premi una cartella per rimuoverla."),
+    "Stop looking for games in {1}? The games stay on the drive.": (
+        "¿Dejar de buscar juegos en {1}? Los juegos se quedan en la unidad.",
+        "{1}でゲームを探すのをやめますか？ゲームはドライブに残ります。",
+        "Parar de procurar jogos em {1}? Os jogos continuam na unidade.",
+        "Smettere di cercare giochi in {1}? I giochi restano sull'unità."),
+    "Removed. Its games leave Home when you leave Settings.": (
+        "Quitada. Sus juegos salen de Inicio al salir de Ajustes.",
+        "なくしました。設定を出るとそのゲームはホームから消えます。",
+        "Removida. Os jogos dela saem do Início quando você sair das Configurações.",
+        "Rimossa. I suoi giochi spariscono da Home quando esci dalle Impostazioni."),
+    "There are already {1} folders. Remove one to add another.": (
+        "Ya hay {1} carpetas. Quita una para añadir otra.",
+        "フォルダはもう{1}個あります。追加するには1つなくしてください。",
+        "Já há {1} pastas. Remova uma para adicionar outra.",
+        "Ci sono già {1} cartelle. Rimuovine una per aggiungerne un'altra."),
+    "Added. Its games show on Home when you leave Settings.": (
+        "Añadida. Sus juegos aparecen en Inicio al salir de Ajustes.",
+        "追加しました。設定を出るとそのゲームがホームに出ます。",
+        "Adicionada. Os jogos dela aparecem no Início quando você sair das Configurações.",
+        "Aggiunta. I suoi giochi compaiono in Home quando esci dalle Impostazioni."),
+    "That folder is in the list already.": (
+        "Esa carpeta ya está en la lista.",
+        "そのフォルダはもうリストにあります。",
+        "Essa pasta já está na lista.",
+        "Quella cartella è già nell'elenco."),
+    "RiftWii always looks in wbfs and games, so there is no need to add them.": (
+        "RiftWii siempre busca en wbfs y games, así que no hace falta añadirlas.",
+        "RiftWiiはいつもwbfsとgamesを探すので、追加はいりません。",
+        "O RiftWii sempre procura em wbfs e games, então não é preciso adicioná-las.",
+        "RiftWii cerca sempre in wbfs e games, quindi non serve aggiungerle."),
+    "That folder can't be added. Pick a folder inside the drive with a shorter path, without ; in its name.": (
+        "No se puede añadir esa carpeta. Elige una carpeta dentro de la unidad con una ruta más corta, sin ; en el nombre.",
+        "そのフォルダは追加できません。ドライブの中の、パスがもっと短く名前に;がないフォルダを選んでください。",
+        "Essa pasta não pode ser adicionada. Escolha uma pasta dentro da unidade com um caminho mais curto, sem ; no nome.",
+        "Quella cartella non si può aggiungere. Scegli una cartella dentro l'unità con un percorso più corto, senza ; nel nome."),
+    "More folders to look for games in, on the SD card or the USB drive, besides wbfs and games.": (
+        "Más carpetas donde buscar juegos, en la tarjeta SD o la unidad USB, además de wbfs y games.",
+        "wbfsとgamesのほかに、SDカードやUSBドライブでゲームを探すフォルダです。",
+        "Mais pastas onde procurar jogos, no cartão SD ou na unidade USB, além de wbfs e games.",
+        "Altre cartelle in cui cercare giochi, sulla scheda SD o sull'unità USB, oltre a wbfs e games."),
+    "Home looks for games in these folders when you leave Settings.": (
+        "Inicio busca juegos en estas carpetas al salir de Ajustes.",
+        "設定を出ると、ホームがこれらのフォルダでゲームを探します。",
+        "O Início procura jogos nestas pastas quando você sair das Configurações.",
+        "Home cerca giochi in queste cartelle quando esci dalle Impostazioni."),
+})
+KO.update({
+    "Game folders": "게임 폴더",
+    "Use this folder": "이 폴더 사용",
+    "Choose a folder": "폴더 선택",
+    "Open the folder that holds your games, then pick Use this folder.": "게임이 들어 있는 폴더를 연 다음 '이 폴더 사용'을 고르세요.",
+    "SD card and USB drive": "SD 카드와 USB 드라이브",
+    "Add a folder": "폴더 추가",
+    "RiftWii always looks for games in wbfs and games. It also looks in these folders, and in the folders inside them. Press a folder to remove it.":
+        "RiftWii는 항상 wbfs와 games에서 게임을 찾습니다. 이 폴더들과 그 안의 폴더에서도 찾습니다. 폴더를 누르면 목록에서 뺍니다.",
+    "Stop looking for games in {1}? The games stay on the drive.": "{1}에서 게임 찾기를 그만둘까요? 게임은 드라이브에 그대로 남습니다.",
+    "Removed. Its games leave Home when you leave Settings.": "뺐습니다. 설정을 나가면 그 게임들이 홈에서 사라집니다.",
+    "There are already {1} folders. Remove one to add another.": "폴더가 이미 {1}개 있습니다. 하나를 빼야 더 추가할 수 있습니다.",
+    "Added. Its games show on Home when you leave Settings.": "추가했습니다. 설정을 나가면 그 게임들이 홈에 나옵니다.",
+    "That folder is in the list already.": "그 폴더는 이미 목록에 있습니다.",
+    "RiftWii always looks in wbfs and games, so there is no need to add them.": "RiftWii는 항상 wbfs와 games를 찾으므로 추가할 필요가 없습니다.",
+    "That folder can't be added. Pick a folder inside the drive with a shorter path, without ; in its name.": "그 폴더는 추가할 수 없습니다. 드라이브 안에 있고 경로가 더 짧으며 이름에 ;가 없는 폴더를 고르세요.",
+    "More folders to look for games in, on the SD card or the USB drive, besides wbfs and games.": "wbfs와 games 말고도 SD 카드나 USB 드라이브에서 게임을 찾을 폴더입니다.",
+    "Home looks for games in these folders when you leave Settings.": "설정을 나가면 홈이 이 폴더들에서 게임을 찾습니다.",
+})
+FR.update({
+    "Game folders": "Dossiers de jeux",
+    "Use this folder": "Utiliser ce dossier",
+    "Choose a folder": "Choisir un dossier",
+    "Open the folder that holds your games, then pick Use this folder.": "Ouvrez le dossier qui contient vos jeux, puis choisissez Utiliser ce dossier.",
+    "SD card and USB drive": "Carte SD et stockage USB",
+    "Add a folder": "Ajouter un dossier",
+    "RiftWii always looks for games in wbfs and games. It also looks in these folders, and in the folders inside them. Press a folder to remove it.":
+        "RiftWii cherche toujours les jeux dans wbfs et games. Il cherche aussi dans ces dossiers et dans les dossiers qu'ils contiennent. Appuyez sur un dossier pour le retirer.",
+    "Stop looking for games in {1}? The games stay on the drive.": "Ne plus chercher de jeux dans {1} ? Les jeux restent sur le support.",
+    "Removed. Its games leave Home when you leave Settings.": "Retiré. Ses jeux quittent l'Accueil quand vous quittez les Paramètres.",
+    "There are already {1} folders. Remove one to add another.": "Il y a déjà {1} dossiers. Retirez-en un pour en ajouter un autre.",
+    "Added. Its games show on Home when you leave Settings.": "Ajouté. Ses jeux apparaissent sur l'Accueil quand vous quittez les Paramètres.",
+    "That folder is in the list already.": "Ce dossier est déjà dans la liste.",
+    "RiftWii always looks in wbfs and games, so there is no need to add them.": "RiftWii cherche toujours dans wbfs et games, inutile de les ajouter.",
+    "That folder can't be added. Pick a folder inside the drive with a shorter path, without ; in its name.": "Ce dossier ne peut pas être ajouté. Choisissez un dossier à l'intérieur du support avec un chemin plus court, sans ; dans son nom.",
+    "More folders to look for games in, on the SD card or the USB drive, besides wbfs and games.": "D'autres dossiers où chercher des jeux, sur la carte SD ou le stockage USB, en plus de wbfs et games.",
+    "Home looks for games in these folders when you leave Settings.": "L'Accueil cherche des jeux dans ces dossiers quand vous quittez les Paramètres.",
+})
+
+# GameCube named memory cards (#511).
+T.update({
+    "Named: {1}": ("Con nombre: {1}", "名前付き: {1}", "Com nome: {1}", "Con nome: {1}"),
+    "Saves go to the named memory card {1} on the SD card: {2}.": ("Las partidas se guardan en la tarjeta de memoria con nombre {1} de la tarjeta SD: {2}.", "セーブはSDカードの名前付きメモリーカード「{1}」に入ります: {2}。", "Os jogos salvos vão para o cartão de memória com nome {1} no cartão SD: {2}.", "I salvataggi vanno nella scheda di memoria con nome {1} sulla scheda SD: {2}."),
+    "Name the new card": ("Ponle nombre a la tarjeta nueva", "新しいカードの名前", "Dê um nome ao cartão novo", "Dai un nome alla nuova scheda"),
+    "New card": ("Tarjeta nueva", "新しいカード", "Cartão novo", "Nuova scheda"),
+    "Other kinds of card": ("Otros tipos de tarjeta", "ほかの種類のカード", "Outros tipos de cartão", "Altri tipi di scheda"),
+    "A new, empty card. It is made the first time a game uses it.": ("Una tarjeta nueva y vacía. Se crea la primera vez que un juego la usa.", "新しい空のカードです。ゲームが初めて使うときに作られます。", "Um cartão novo e vazio. Ele é criado na primeira vez que um jogo o usa.", "Una scheda nuova e vuota. Viene creata la prima volta che un gioco la usa."),
+    "Named cards are kept in {1}. Give one to several games, or several to one game.": ("Las tarjetas con nombre se guardan en {1}. Dale una a varios juegos, o varias a un juego.", "名前付きカードは{1}にあります。1枚を複数のゲームで使っても、1つのゲームで何枚も使ってもかまいません。", "Os cartões com nome ficam em {1}. Dê um a vários jogos, ou vários a um jogo.", "Le schede con nome sono in {1}. Danne una a più giochi, o più di una a un gioco."),
+    "Named cards": ("Tarjetas con nombre", "名前付きカード一覧", "Cartões com nome", "Schede con nome"),
+    "Japanese games' cards": ("Tarjetas de juegos japoneses", "日本のゲームのカード", "Cartões de jogos japoneses", "Schede dei giochi giapponesi"),
+    "Cards for this game's region": ("Tarjetas para la región de este juego", "このゲームの地域のカード", "Cartões da região deste jogo", "Schede per la regione di questo gioco"),
+    "Use 1 to {1} letters, digits, spaces, - or ' for a card's name.": ("Usa de 1 a {1} letras, dígitos, espacios, - o ' para el nombre de la tarjeta.", "カードの名前には、英字、数字、スペース、-、'を1〜{1}文字使ってください。", "Use de 1 a {1} letras, dígitos, espaços, - ou ' no nome do cartão.", "Usa da 1 a {1} lettere, cifre, spazi, - o ' per il nome della scheda."),
+    "Press A to pick another named card or make a new one; Left for the other kinds of card.": ("Pulsa A para elegir otra tarjeta con nombre o crear una nueva; Izquierda para los otros tipos de tarjeta.", "Aでほかの名前付きカードを選ぶか新しく作り、左でほかの種類のカードにします。", "Aperte A para escolher outro cartão com nome ou criar um novo; Esquerda para os outros tipos de cartão.", "Premi A per scegliere un'altra scheda con nome o crearne una nuova; Sinistra per gli altri tipi di scheda."),
+})
+KO.update({
+    "Named: {1}": "이름: {1}",
+    "Saves go to the named memory card {1} on the SD card: {2}.": "저장 데이터는 SD 카드의 이름 있는 메모리 카드 {1}에 저장됩니다: {2}.",
+    "Name the new card": "새 카드 이름",
+    "New card": "새 카드",
+    "Other kinds of card": "다른 종류의 카드",
+    "A new, empty card. It is made the first time a game uses it.": "새 빈 카드입니다. 게임이 처음 사용할 때 만들어집니다.",
+    "Named cards are kept in {1}. Give one to several games, or several to one game.": "이름 있는 카드는 {1}에 있습니다. 한 장을 여러 게임에, 또는 여러 장을 한 게임에 쓸 수 있습니다.",
+    "Named cards": "이름 있는 카드 목록",
+    "Japanese games' cards": "일본 게임용 카드",
+    "Cards for this game's region": "이 게임 지역용 카드",
+    "Use 1 to {1} letters, digits, spaces, - or ' for a card's name.": "카드 이름에는 영문자, 숫자, 공백, -, '를 1~{1}자 사용하세요.",
+    "Press A to pick another named card or make a new one; Left for the other kinds of card.": "A를 눌러 다른 이름 있는 카드를 고르거나 새로 만들고, 왼쪽으로 다른 종류의 카드를 고릅니다.",
+})
+FR.update({
+    "Named: {1}": "Nommée : {1}",
+    "Saves go to the named memory card {1} on the SD card: {2}.": "Les sauvegardes vont sur la carte mémoire nommée {1} de la carte SD : {2}.",
+    "Name the new card": "Nommez la nouvelle carte",
+    "New card": "Nouvelle carte",
+    "Other kinds of card": "Autres types de carte",
+    "A new, empty card. It is made the first time a game uses it.": "Une carte neuve et vide. Elle est créée la première fois qu'un jeu l'utilise.",
+    "Named cards are kept in {1}. Give one to several games, or several to one game.": "Les cartes nommées sont dans {1}. Donnez-en une à plusieurs jeux, ou plusieurs à un jeu.",
+    "Named cards": "Cartes nommées",
+    "Japanese games' cards": "Cartes des jeux japonais",
+    "Cards for this game's region": "Cartes pour la région de ce jeu",
+    "Use 1 to {1} letters, digits, spaces, - or ' for a card's name.": "Utilisez de 1 à {1} lettres, chiffres, espaces, - ou ' pour le nom de la carte.",
+    "Press A to pick another named card or make a new one; Left for the other kinds of card.": "Appuyez sur A pour choisir une autre carte nommée ou en créer une ; Gauche pour les autres types de carte.",
+})
+
+# Restoring a named memory card (#511).
+T.update({
+    "Press A to put this named memory card back to how it was then, for every game that uses it.": ("Pulsa A para devolver esta tarjeta de memoria con nombre a como estaba entonces, para todos los juegos que la usan.", "Aを押すと、この名前付きメモリーカードをその時の状態にもどします。使っているすべてのゲームに反映されます。", "Aperte A para voltar este cartão de memória com nome a como estava então, para todos os jogos que o usam.", "Premi A per riportare questa scheda di memoria con nome com'era allora, per tutti i giochi che la usano."),
+    "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them.": ("Todas las partidas de esta tarjeta de memoria con nombre vuelven a como estaban el {1}. Su estado actual se guarda antes como copia, para que puedas volver a él.", "この名前付きメモリーカードのすべてのセーブが{1}の状態にもどります。今の状態は先にコピーとして残すので、あとでもどせます。", "Todos os dados deste cartão de memória com nome voltam a como estavam em {1}. Como estão agora é guardado antes como cópia, para você poder voltar a eles.", "Tutti i salvataggi di questa scheda di memoria con nome tornano com'erano il {1}. Come sono ora viene prima conservato in una copia, così puoi tornarci."),
+})
+KO.update({
+    "Press A to put this named memory card back to how it was then, for every game that uses it.": "A를 누르면 이 이름 있는 메모리 카드를 그때 상태로 되돌립니다. 이 카드를 쓰는 모든 게임에 적용됩니다.",
+    "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them.": "이 이름 있는 메모리 카드의 모든 저장 데이터가 {1} 상태로 되돌아갑니다. 지금 상태는 먼저 사본으로 보관하므로 다시 되돌릴 수 있습니다.",
+})
+FR.update({
+    "Press A to put this named memory card back to how it was then, for every game that uses it.": "Appuyez sur A pour remettre cette carte mémoire nommée dans l'état d'alors, pour tous les jeux qui l'utilisent.",
+    "Every save on this named memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them.": "Toutes les sauvegardes de cette carte mémoire nommée reviennent à leur état du {1}. Leur état actuel est d'abord gardé en copie, pour que vous puissiez y revenir.",
+})
+
+# Named memory cards on the Saves page (#511).
+T.update({
+    "A named memory card is made the first time a game that uses it starts: {1}.": ("Una tarjeta de memoria con nombre se crea la primera vez que se inicia un juego que la usa: {1}.", "名前付きメモリーカードは、それを使うゲームを初めて始めたときに作られます: {1}。", "Um cartão de memória com nome é criado na primeira vez que um jogo que o usa é iniciado: {1}.", "Una scheda di memoria con nome viene creata la prima volta che si avvia un gioco che la usa: {1}."),
+    "Go back to how this named memory card was on a day you pick, for every game that uses it.": ("Vuelve a como estaba esta tarjeta de memoria con nombre el día que elijas, para todos los juegos que la usan.", "この名前付きメモリーカードを、選んだ日の状態にもどします。使っているすべてのゲームに反映されます。", "Volte este cartão de memória com nome a como estava no dia que você escolher, para todos os jogos que o usam.", "Riporta questa scheda di memoria con nome a com'era nel giorno che scegli, per tutti i giochi che la usano."),
+})
+KO.update({
+    "A named memory card is made the first time a game that uses it starts: {1}.": "이름 있는 메모리 카드는 그 카드를 쓰는 게임을 처음 시작할 때 만들어집니다: {1}.",
+    "Go back to how this named memory card was on a day you pick, for every game that uses it.": "이 이름 있는 메모리 카드를 고른 날의 상태로 되돌립니다. 이 카드를 쓰는 모든 게임에 적용됩니다.",
+})
+FR.update({
+    "A named memory card is made the first time a game that uses it starts: {1}.": "Une carte mémoire nommée est créée la première fois qu'un jeu qui l'utilise démarre : {1}.",
+    "Go back to how this named memory card was on a day you pick, for every game that uses it.": "Remettez cette carte mémoire nommée dans son état du jour choisi, pour tous les jeux qui l'utilisent.",
+})
+
+# Named memory cards: where Other kinds of card goes (#511).
+T.update({
+    "Switches this game to {1}. Back keeps the card it has.": ("Cambia este juego a {1}. Atrás mantiene la tarjeta que tiene.", "このゲームを {1} に切り替えます。もどるで今のカードのままです。", "Troca este jogo para {1}. Voltar mantém o cartão que ele tem.", "Passa questo gioco a {1}. Indietro mantiene la scheda che ha."),
+})
+KO.update({
+    "Switches this game to {1}. Back keeps the card it has.": "이 게임을 {1}(으)로 바꿉니다. 뒤로를 누르면 지금 카드를 그대로 씁니다.",
+})
+FR.update({
+    "Switches this game to {1}. Back keeps the card it has.": "Passe ce jeu sur {1}. Retour garde la carte qu'il a.",
 })
 
 if __name__ == "__main__":

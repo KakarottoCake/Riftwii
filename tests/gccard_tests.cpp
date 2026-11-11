@@ -1507,23 +1507,30 @@ static void test_nintendont_saves_and_routing() {
     EXPECT_FALSE(saves[0].shift_jis);
     EXPECT_EQ(saves[2].id, std::string("GZLE08"));  // the same four letters, another maker: its own card
     // The card of the save's own game, by the directory entry, never by the file name.
-    EXPECT_EQ(gc_nintendont_route(saves[0], false), std::string("sd:/riftwii/gc/cards/GZLE01.raw"));
-    EXPECT_EQ(gc_nintendont_route(saves[1], false), std::string("sd:/riftwii/gc/cards/GALP01.raw"));
-    EXPECT_EQ(gc_nintendont_route(saves[2], false), std::string("sd:/riftwii/gc/cards/GZLE08.raw"));
+    // Its game follows Settings' card (its choices left at Default).
+    const GameSettings own_card;
+    EXPECT_EQ(gc_nintendont_route(saves[0], own_card, "own"), std::string("sd:/riftwii/gc/cards/GZLE01.raw"));
+    EXPECT_EQ(gc_nintendont_route(saves[1], own_card, "own"), std::string("sd:/riftwii/gc/cards/GALP01.raw"));
+    EXPECT_EQ(gc_nintendont_route(saves[2], own_card, "own"), std::string("sd:/riftwii/gc/cards/GZLE08.raw"));
+    // A game set to a named card gets its saves on that card.
+    GameSettings named_card;
+    named_card.gc_card = "named";
+    named_card.gc_card_name = "Trades";
+    EXPECT_EQ(gc_nintendont_route(saves[0], named_card, "shared"), std::string("sd:/riftwii/gc/cards/named/Trades.raw"));
     // A game set to Shared goes to the shared card of its text encoding.
-    EXPECT_EQ(gc_nintendont_route(saves[0], true), std::string("sd:/riftwii/gc/cards/shared.raw"));
-    EXPECT_EQ(gc_nintendont_route(saves[1], true), std::string("sd:/riftwii/gc/cards/shared.raw"));
+    EXPECT_EQ(gc_nintendont_route(saves[0], own_card, "shared"), std::string("sd:/riftwii/gc/cards/shared.raw"));
+    EXPECT_EQ(gc_nintendont_route(saves[1], own_card, "shared"), std::string("sd:/riftwii/gc/cards/shared.raw"));
     const Bytes japanese = card_with_saves({"GZLJ01", "GALK01"}, true);
     std::vector<GcNintendontSave> jp;
     EXPECT_TRUE(gc_nintendont_list(0, japanese.data(), japanese.size(), jp, error));
     EXPECT_TRUE(jp[0].shift_jis);
-    EXPECT_EQ(gc_nintendont_route(jp[0], false), std::string("sd:/riftwii/gc/cards/GZLJ01.raw"));
-    EXPECT_EQ(gc_nintendont_route(jp[0], true), std::string("sd:/riftwii/gc/cards/shared-jp.raw"));
-    EXPECT_EQ(gc_nintendont_route(jp[1], false), std::string("sd:/riftwii/gc/cards/GALK01.raw"));
+    EXPECT_EQ(gc_nintendont_route(jp[0], own_card, "own"), std::string("sd:/riftwii/gc/cards/GZLJ01.raw"));
+    EXPECT_EQ(gc_nintendont_route(jp[0], own_card, "shared"), std::string("sd:/riftwii/gc/cards/shared-jp.raw"));
+    EXPECT_EQ(gc_nintendont_route(jp[1], own_card, "own"), std::string("sd:/riftwii/gc/cards/GALK01.raw"));
     // An ID that is not capitals and digits is a card named by its bytes, not a way out of the folder.
     GcNintendontSave odd = saves[0];
     odd.id = "../x";
-    EXPECT_EQ(gc_nintendont_route(odd, false).find(".."), std::string::npos);
+    EXPECT_EQ(gc_nintendont_route(odd, own_card, "own").find(".."), std::string::npos);
     // Not a memory card, and not a whole one.
     EXPECT_FALSE(gc_nintendont_list(0, multi.data(), 100, saves, error));
     EXPECT_FALSE(error.empty());
@@ -1664,7 +1671,48 @@ static void test_external_loader_files() {
     EXPECT_TRUE(gc_dolphin_card_for_game(dolphin).empty());
 }
 
+// Named cards (#511): the names a player may give, their files, and the
+// card file each Memory card choice saves to.
+static void test_named_cards() {
+    EXPECT_EQ(gc_card_name_clean("Player 1"), std::string("Player 1"));
+    EXPECT_EQ(gc_card_name_clean("  trade_card-2  "), std::string("trade_card-2"));
+    EXPECT_EQ(gc_card_name_clean("Bob's card"), std::string("Bob's card"));
+    EXPECT_EQ(gc_card_name_clean(std::string(kGcCardNameMax, 'a')), std::string(kGcCardNameMax, 'a'));
+    EXPECT_EQ(gc_card_name_clean(std::string(kGcCardNameMax + 1, 'a')), std::string());
+    EXPECT_EQ(gc_card_name_clean(""), std::string());
+    EXPECT_EQ(gc_card_name_clean("   "), std::string());
+    for (const char* bad : {"..", "a/b", "a\\b", ".hidden", "a.raw", "a:b", "caf\xc3\xa9", "tab\there", "x;y"})
+        EXPECT_EQ(gc_card_name_clean(bad), std::string());
+
+    EXPECT_EQ(gc_named_card_path("Player 1", false), std::string("sd:/riftwii/gc/cards/named/Player 1.raw"));
+    EXPECT_EQ(gc_named_card_path("Player 1", true), std::string("sd:/riftwii/gc/cards/named-jp/Player 1.raw"));
+    // Only a name that is already clean: never one that would be trimmed.
+    EXPECT_EQ(gc_named_card_path(" Player 1", false), std::string());
+    EXPECT_EQ(gc_named_card_path("../GALE01", false), std::string());
+
+    EXPECT_EQ(gc_card_file("GALE01", "own", ""), std::string("sd:/riftwii/gc/cards/GALE01.raw"));
+    EXPECT_EQ(gc_card_file("GALE01", "real_b", ""), std::string("sd:/riftwii/gc/cards/GALE01.raw"));
+    EXPECT_EQ(gc_card_file("GALE01", "shared", ""), std::string("sd:/riftwii/gc/cards/shared.raw"));
+    EXPECT_EQ(gc_card_file("GALJ01", "shared", ""), std::string("sd:/riftwii/gc/cards/shared-jp.raw"));
+    EXPECT_EQ(gc_card_file("GALE01", "named", "Trades"), std::string("sd:/riftwii/gc/cards/named/Trades.raw"));
+    EXPECT_EQ(gc_card_file("GALJ01", "named", "Trades"), std::string("sd:/riftwii/gc/cards/named-jp/Trades.raw"));
+    for (const char* elsewhere : {"real", "real_b_as_a", "nintendont", "dolphin", "global", ""})
+        EXPECT_EQ(gc_card_file("GALE01", elsewhere, "Trades"), std::string());
+    EXPECT_EQ(gc_card_file("GALE01", "named", ""), std::string());
+    EXPECT_EQ(gc_card_file("GALE01", "named", "../x"), std::string());
+
+    // Backups follow the card file; a named card's never mix with a game's
+    // own card of the same name.
+    EXPECT_EQ(gc_card_backup_folder("sd:/riftwii/gc/cards/GALE01.raw"), std::string("sd:/riftwii/gc/backups/GALE01"));
+    EXPECT_EQ(gc_card_backup_folder("sd:/riftwii/gc/cards/named/GALE01.raw"),
+              std::string("sd:/riftwii/gc/backups/named/GALE01"));
+    EXPECT_EQ(gc_card_backup_folder("sd:/riftwii/gc/cards/named-jp/Trades.raw"),
+              std::string("sd:/riftwii/gc/backups/named-jp/Trades"));
+    EXPECT_EQ(gc_card_backup_folder(gc_card_path("GMSJ01", true)), gc_backup_folder("GMSJ01", true));
+}
+
 int main() {
+    test_named_cards();
     test_external_loader_files();
     {
         const auto root = std::filesystem::temp_directory_path() / "riftwii_external_backup_test";

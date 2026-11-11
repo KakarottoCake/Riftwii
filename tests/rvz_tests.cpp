@@ -1040,6 +1040,13 @@ int main(int argc, char** argv) {
     TestVerdicts();
     TestDamage();
     TestHostile();
+    // The runtime keeps 32-bit addresses, so its tests need memory below
+    // 4 GiB, which not every host gives (macOS has no way to ask for it).
+    // The image tests above have run and still count.
+    if (LowBuffer(4096) == nullptr) {
+        std::cerr << "no memory below 4 GiB on this host; skipping the runtime tests" << std::endl;
+        return g_failures == 0 ? 77 : 1;  // 77: ctest counts the run skipped, not passed
+    }
     TestRuntime();
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)" << std::endl;

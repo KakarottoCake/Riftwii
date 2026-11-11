@@ -81,6 +81,12 @@ bool game_clears_mem1_top(const std::string& game_id);
 // (an RVZ's reads, a pack's files) cannot move its code to the top of MEM2
 // for them, and stays below the FST, where the game overwrites it.
 bool game_runs_no_mem2_code(const std::string& game_id);
+// Games whose own heaps leave too little of MEM1 for the runtime's code
+// (a pack's files, saves on the card, an RVZ): it goes to MEM2 with its
+// data, and only the small jumps into it stay at the MEM1 arena's top. The
+// adapter, screenshots and crash recorder stay where they are. Never a game
+// of game_runs_no_mem2_code.
+bool game_needs_runtime_code_in_mem2(const std::string& game_id);
 // Games that need nearly all of MEM2, so the few hundred KB an RVZ's reader
 // takes in game can be too much (the menu says so before an RVZ launch).
 bool game_needs_most_of_mem2(const std::string& game_id);

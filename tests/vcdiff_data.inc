@@ -27,3 +27,18 @@ static std::vector<std::uint8_t> vcdiff_patched() {
     b.insert(b.end(), a.begin() + 10000, a.begin() + 14000);
     return b;
 }
+
+// The patched file behind tests/fixtures/vcdiff/xdelta3-default-plain.vcdiff
+// (made with xdelta3 3.2.2 and its own settings, `xdelta3 -e -s original
+// patched`, which name LZMA as the secondary compressor): the original
+// with its first four bytes changed. xdelta3-default-lzma.vcdiff was made
+// the same way from the original with bytes 20000 and 30000 inverted; its
+// instructions are compressed, so only its refusal is tested.
+static std::vector<std::uint8_t> vcdiff_start_changed() {
+    std::vector<std::uint8_t> b = vcdiff_original();
+    b[0] = 'R';
+    b[1] = 'i';
+    b[2] = 'f';
+    b[3] = 't';
+    return b;
+}

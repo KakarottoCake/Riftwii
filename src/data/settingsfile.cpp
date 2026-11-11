@@ -10,11 +10,11 @@
 #include "riftwii/gamelang.hpp"
 #include "riftwii/musiclist.hpp"
 #include "riftwii/textlines.hpp"
+#include "riftwii/imagevolume.hpp"
+#include "riftwii/usbgame.hpp"
 
 namespace riftwii {
 namespace {
-
-constexpr std::size_t kMaxGameFolders = 8;
 
 std::string trim(const std::string& s) {
     std::size_t a = 0;
@@ -22,6 +22,17 @@ std::string trim(const std::string& s) {
     while (a < b && (s[a] == ' ' || s[a] == '\t')) ++a;
     while (b > a && (s[b - 1] == ' ' || s[b - 1] == '\t' || s[b - 1] == '\r')) --b;
     return s.substr(a, b - a);
+}
+
+// Whether a line of settings.txt gives `value` back as it was written. A
+// line break in it would end the line early, the rest being read as a
+// settings line of its own, and spaces, tabs or a '\r' at its ends are
+// trimmed off. The values this matters for are names from the drive (a
+// game folder, the menu's music, a theme's folder): NTFS allows a line
+// break in a name (Linux writes one), and a FAT long name can hold one
+// too, though the usual systems refuse to write it.
+bool line_keeps(const std::string& value) {
+    return value.find('\n') == std::string::npos && trim(value) == value;
 }
 
 }  // namespace
@@ -85,11 +96,13 @@ void LoaderSettings::parse(const std::string& text) {
         } else if (key == "menu_widescreen") {
             if (value == "auto" || value == "on" || value == "off") menu_widescreen = value;
         } else if (key == "screen_size") {
+            // Only a number short enough to be one is added up: a long row
+            // of digits would overflow the int, which is undefined.
             int n = 0;
             bool digits = !value.empty() && value.size() <= 3;
             for (char c : value) {
                 if (c < '0' || c > '9') digits = false;
-                else n = n * 10 + (c - '0');
+                else if (digits) n = n * 10 + (c - '0');
             }
             if (digits && n >= 80 && n <= 100) screen_size = n;
         } else if (key == "return_to") {
@@ -205,11 +218,12 @@ void LoaderSettings::parse(const std::string& text) {
         } else if (key == "parental_mode") {
             if (value == "lock" || value == "hide") parental_mode = value;
         } else if (key == "parental_age") {
+            // As for screen_size: a long row of digits is not added up.
             int age = 0;
             bool digits = !value.empty() && value.size() <= 2;
             for (char c : value) {
                 if (c < '0' || c > '9') digits = false;
-                else age = age * 10 + (c - '0');
+                else if (digits) age = age * 10 + (c - '0');
             }
             if (digits && parental_age_valid(age)) parental_age = age;
         } else if (key == "parental_unrated") {
@@ -251,7 +265,11 @@ std::string LoaderSettings::serialize() const {
     s += "launch_music = " + launch_music + "\n";
     s += "page_banner_sound = " + page_banner_sound + "\n";
     s += "disc_art = " + disc_art + "\n";
-    s += "music_file = " + music_file + "\n";
+    // The song, playlist or folder as the drive names it, and below the
+    // theme's folder: a name the line would not keep (line_keeps) is not
+    // written, or the rest of a name with a line break in it would come
+    // back as a setting. RiftWii's own music and theme are saved instead.
+    s += "music_file = " + (line_keeps(music_file) ? music_file : std::string()) + "\n";
     s += "play_history = " + play_history + "\n";
     s += "home_source = " + home_source + "\n";
     s += "home_sort = " + home_sort + "\n";
@@ -259,7 +277,7 @@ std::string LoaderSettings::serialize() const {
     s += std::string("start_last_game = ") + (start_last_game ? "on" : "off") + "\n";
     s += "home_disc = " + home_disc + "\n";
     s += std::string("nand_non_games = ") + (nand_non_games ? "on" : "off") + "\n";
-    s += "theme = " + theme + "\n";
+    s += "theme = " + (line_keeps(theme) ? theme : std::string("default")) + "\n";
     s += "clock = " + clock + "\n";
     s += "menu_font = " + menu_font + "\n";
     s += "return_to = " + return_to + "\n";
@@ -296,15 +314,66 @@ std::string LoaderSettings::serialize() const {
     }
     if (!game_folders.empty()) {
         // A folder holding ';' is left out: the file joins folders with
-        // ';', so it could not come back whole.
+        // ';', so it could not come back whole. So is one the line would
+        // not keep (line_keeps): the rest of a name with a line break in
+        // it would be read as a settings line of its own.
         std::string list;
         for (const std::string& f : game_folders) {
-            if (f.find(';') == std::string::npos) list += (list.empty() ? "" : "; ") + f;
+            if (f.find(';') == std::string::npos && line_keeps(f)) list += (list.empty() ? "" : "; ") + f;
         }
         if (!list.empty()) s += "game_folders = " + list + "\n";
     }
     for (const auto& kv : other) s += kv.first + " = " + kv.second + "\n";
     return s;
+}
+
+GameFolderPlace game_folder_place(const std::string& entry) {
+    GameFolderPlace place;
+    std::string path = entry;
+    std::replace(path.begin(), path.end(), '\\', '/');
+    const std::size_t colon = path.find(':');
+    if (colon != std::string::npos) {
+        place.drive = path.substr(0, colon);
+        for (char& c : place.drive) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        path.erase(0, colon + 1);
+    }
+    while (!path.empty() && path.back() == '/') path.pop_back();
+    if (path.empty() || path[0] != '/') path.insert(path.begin(), '/');
+    place.path = path;
+    return place;
+}
+
+GameFolderAdd add_game_folder(LoaderSettings& settings, const std::string& picked) {
+    const GameFolderPlace place = game_folder_place(picked);
+    // The pick always names its drive; a drive's top would make every
+    // folder on it a game folder, and the file can't hold ';' or "..".
+    // sd, usb, or a USB partition a scan can reach: usb2, usb3...
+    const bool named_drive = place.drive == "sd" || is_usb_path(place.drive + ":/");
+    // The whole entry ("sd:/...") must fit the 200 that parse() keeps, or
+    // it would be saved and then dropped at the next start.
+    const std::size_t entry_size = place.drive.size() + 1 + place.path.size();
+    if (!named_drive || place.path == "/" || entry_size > 200 || place.path.find(';') != std::string::npos ||
+        place.path.find("..") != std::string::npos) {
+        return GameFolderAdd::NotAFolder;
+    }
+    // A name the file would not give back as it is: a line break ends the
+    // game_folders line early, the rest of the name becoming a settings
+    // line of its own, and a space at the very end is trimmed off when the
+    // file is read, which names another folder.
+    if (!line_keeps(place.path)) return GameFolderAdd::NotAFolder;
+    // FAT and NTFS names ignore case, so "/WBFS" is the wbfs folder.
+    const std::string wanted = path_fold_case(place.path);
+    if (wanted == "/wbfs" || wanted == "/games") return GameFolderAdd::AlwaysSearched;
+    // A folder inside or around a listed one is fine: a scan reads only one
+    // level of folders, and a game found twice is dropped by its path.
+    for (const std::string& entry : settings.game_folders) {
+        const GameFolderPlace listed = game_folder_place(entry);
+        const bool same_drive = listed.drive.empty() || listed.drive == place.drive;
+        if (same_drive && path_fold_case(listed.path) == wanted) return GameFolderAdd::AlreadyListed;
+    }
+    if (settings.game_folders.size() >= kMaxGameFolders) return GameFolderAdd::Full;
+    settings.game_folders.push_back(place.drive + ":" + place.path);
+    return GameFolderAdd::Added;
 }
 
 std::vector<std::string> game_folders_on(const LoaderSettings& settings, const std::string& device) {
@@ -320,14 +389,50 @@ std::vector<std::string> game_folders_on(const LoaderSettings& settings, const s
         while (!f.empty() && f.back() == '/') f.pop_back();
         if (f.empty()) continue;
         if (f[0] != '/') f.insert(f.begin(), '/');
-        std::string lower = f;
-        for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        const std::string lower = path_fold_case(f);
         if (lower == "/wbfs" || lower == "/games") continue;
+        // FAT and NTFS ignore case: "/wii games" is "/Wii Games".
         bool seen = false;
-        for (const std::string& o : out) seen = seen || o == f;
+        for (const std::string& o : out) seen = seen || path_fold_case(o) == lower;
         if (!seen) out.push_back(f);
     }
     return out;
+}
+
+namespace {
+
+// The drive of a game's path ("usb2" of "usb2:/x.iso"), in lower case.
+std::string path_drive(const std::string& path) {
+    const std::size_t colon = path.find(':');
+    return colon == std::string::npos ? std::string() : path_fold_case(path.substr(0, colon));
+}
+
+}  // namespace
+
+bool game_folder_finds(const std::string& entry, const std::string& path) {
+    const GameFolderPlace place = game_folder_place(entry);
+    if (place.path == "/") return false;
+    const std::string drive = path_drive(path);
+    if (drive.empty() || (!place.drive.empty() && place.drive != drive)) return false;
+    return scan_reaches_path(drive + ":" + place.path, path, true);
+}
+
+bool game_still_found(const std::vector<std::string>& listed, const std::string& path, bool gamecube) {
+    const std::string drive = path_drive(path);
+    if (drive.empty()) return false;
+    if (scan_reaches_path(drive + ":/wbfs", path, true)) return true;
+    if (scan_reaches_path(drive + ":/games", path, gamecube)) return true;
+    // The GameCube scan also looks in any top folder whose subfolders hold
+    // game.iso images (gclaunch.cpp's gc_top_folders_with_games): a game at
+    // <top>/<game>/<file> may still be found that way.
+    if (gamecube) {
+        const std::size_t top = drive.size() + 2;  // after "sd:/"
+        const std::string rest = path.size() > top ? path.substr(top) : std::string();
+        if (std::count(rest.begin(), rest.end(), '/') == 2) return true;
+    }
+    for (const std::string& entry : listed)
+        if (game_folder_finds(entry, path)) return true;
+    return false;
 }
 
 VideoSettings effective_video(const GameSettings& game, const LoaderSettings& global) {
