@@ -294,7 +294,9 @@ std::string pack_name_for_request(const std::string& path) {
 std::vector<std::string> RestartArguments(const FrontendState& state, const LaunchExtras& extras,
                                           const HeadlessLaunch* headless) {
     if (state.use_channel || state.game_id.empty()) return {};
-    if (extras.code_build_plain) {
+    // Only a game that has a code build: code_build_plain also comes out true
+    // for any game when settings.txt has "code_build_extras = off".
+    if (extras.code_build_plain && !extras.code_builds.empty()) {
         logf("Reset: the game's own Reset restarts it without its packs: the code build started without RiftWii's "
              "extras\n");
         return {};

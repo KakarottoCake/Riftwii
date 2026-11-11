@@ -119,8 +119,15 @@ settings, not at its menu:
    so nothing starts later: the card refused the write, IOS refused the
    channel's launch.
 
+With no runtime in the launch, the GameCube adapter's hook takes the Reset
+instead where the adapter or USB controllers are in use: it writes the same
+sector through the SD card the loader leaves open for it and leaves through
+OSReturnToMenu, which needs Return to RiftWii pointed at the channel
+(`plan_pad_restart` in `wii/launch/boot.cpp`; its `Reset:` lines say so).
+Without those pads the Reset restarts the game as it always did.
+
 Without the RiftWii channel installed (or without a ticket for it), with a
-game that checks its own code, with no runtime in the launch, with a launch
+game that checks its own code, with no runtime and no adapter hook in the launch, with a launch
 that does not fit one sector (511 bytes) or one RiftWii would refuse, the
 `OSRestart` hook is not installed, `boot.log` says why in a `Reset:` line,
 and the Reset restarts the game without its packs, as before. When the

@@ -31,14 +31,15 @@
 #include "rtgcad.h"
 #include "rthome.h"
 #include "rtleave.h"
+#include "rtrestart.h"
 
 #define RT_PAD_MAGIC 0x52575044u          /* "RWPD" */
-#define RT_PAD_VERSION 6u               /* also in pad_entry.S's header */
+#define RT_PAD_VERSION 7u               /* also in pad_entry.S's header */
 #define RT_PAD_CONTEXT_MAGIC 0x52575043u  /* "RWPC" */
-#define RT_PAD_CONTEXT_BYTES 480u  /* also pad_entry.S's fill */
+#define RT_PAD_CONTEXT_BYTES 512u  /* also pad_entry.S's fill */
 /* The context of the blob built without the HOME Menu (RT_PAD_NO_HOME):
  * everything before home_on, as before #387. */
-#define RT_PAD_CONTEXT_BASE_BYTES 256u  /* also pad_entry.S's fill */
+#define RT_PAD_CONTEXT_BASE_BYTES 288u  /* also pad_entry.S's fill */
 
 /* rt_pad_context.leave_asked: the combo asked for the way back; an
  * OSSleepThread has gone into OSReturnToMenu (rtleave_sleep_leaves: the
@@ -85,6 +86,9 @@ struct rt_pad_header {
     uint32_t hook_suspend;     /* OSSuspendThread's (or from a thread suspending itself) */
     uint32_t replay_suspend;
     uint32_t continue_suspend;
+    uint32_t hook_restart;     /* OSRestart's (the game's own Reset, #458; not in the code builds' blob) */
+    uint32_t replay_restart;
+    uint32_t continue_restart;
     uint32_t hook_si_probe;    /* SIProbe's (a filled port answers as a controller, #510) */
     uint32_t replay_si_probe;
     uint32_t continue_si_probe;
@@ -148,6 +152,10 @@ struct rt_pad_context {
      * out (gcad_layout_for) so the game doesn't again (#506). Loader-filled. */
     uint32_t link_count;
     uint32_t ven_at, xbox_at, links_at, catalog_at;
+    /* The game's own Reset (#458), in a launch with no resident runtime to
+     * take it: a struct rtrestart_block in MEM2 (its state says whether
+     * it is on), 0: the game's Reset is left alone. */
+    uint32_t restart;
     /* The GameCube controllers' calibrations (rtpadcal.h's table, in MEM2
      * after the driver's state), 0: none stored. The Wii's own ports take
      * theirs here, the adapter's and the USB pads' in the driver. */
