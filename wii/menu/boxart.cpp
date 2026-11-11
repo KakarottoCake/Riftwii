@@ -326,6 +326,8 @@ struct ReadJob {
     std::string path;       // BoxPath(id)
     std::string tile_from;  // a mod tile's FromPath, "" for a game's
     std::string tile_match; // the GameTDB entry the tile matches now
+    std::string own;        // the player's own box: its name, cut (once) by the reader before the read
+    OwnCut cut = OwnCut::None;  // the reader's: what that cut came to
     unsigned forgets = 0;   // g_forgets when it went out
     bool done = false;      // the reader's: answered (under g_readLock)
     bool ok = false;
@@ -353,12 +355,22 @@ void* ReaderMain(void*) {
         const std::string path = g_job.path;
         const std::string tile_from = g_job.tile_from;
         const std::string tile_match = g_job.tile_match;
+        const std::string own = g_job.own;
         g_reading = true;
         LWP_MutexUnlock(g_readLock);
 
+        // The player's own box: its PNG cut first, once a picture (the covers'
+        // loader decodes the player's own PNGs on a stack this size too).
+        OwnCut cut = OwnCut::None;
+        std::string read_path = path;
+        if (!own.empty()) {
+            cut = CutOwnBox(own);
+            read_path = cut == OwnCut::Ready ? OwnBoxPath(own) : std::string();
+        }
+
         // A tile's picture only when it came from the entry the tile matches now.
         const bool current = tile_from.empty() || tile_art_current(ReadTileArtFrom(tile_from), tile_match);
-        FILE* f = current ? std::fopen(path.c_str(), "rb") : nullptr;
+        FILE* f = current && !read_path.empty() ? std::fopen(read_path.c_str(), "rb") : nullptr;
         bool ok = false;
         if (f) {
             std::uint8_t header[kBoxHeaderSize];
@@ -370,6 +382,7 @@ void* ReaderMain(void*) {
 
         LWP_MutexLock(g_readLock);
         g_job.ok = ok;
+        g_job.cut = cut;
         g_job.done = true;
         g_reading = false;
         LWP_CondSignal(g_readIdle);
@@ -410,9 +423,11 @@ void OwnRetryLater(const std::string& key) {
     }
 }
 
-void OwnReadFailed(const std::string& key) {
-    std::remove(OwnSourcePath(key.substr(1)).c_str());
-    OwnRetryLater(key);
+// A cut copy that was ready but wouldn't read loses its note (cut again on the retry); a cut that may pass
+// (no memory, the card full) is retried; no usable PNG stays "none".
+void OwnReadFailed(const std::string& key, OwnCut cut) {
+    if (cut == OwnCut::Ready) std::remove(OwnSourcePath(key.substr(1)).c_str());
+    if (cut != OwnCut::None) OwnRetryLater(key);
 }
 
 // The answer to the job out, once the reader has one: the slot is ready,
@@ -440,7 +455,7 @@ void TakeRead() {
         slot->id.clear();
         slot->used = 0;
         g_absent.insert(g_job.id);
-        if (IsOwnKey(g_job.id)) OwnReadFailed(g_job.id);
+        if (IsOwnKey(g_job.id)) OwnReadFailed(g_job.id, g_job.cut);
     }
     LWP_MutexLock(g_readLock);
     g_job = ReadJob{};
@@ -449,9 +464,8 @@ void TakeRead() {
 
 
 // The player's own box for `id` (a game's ID or a mod tile's key); nullptr
-// when there is none, or while it is being cut or read. The cut, once a
-// picture, runs here on the GUI thread (the reader's stack is too small for
-// a PNG decoder); reading the cut copy goes to the reader as any box does.
+// when there is none, or while it is being cut or read. Both happen on the
+// reader's thread, so the shelf never waits for a PNG to be decoded.
 const u8* OwnBoxTexture(const std::string& id) {
     if (!ValidId(id)) return nullptr;
     const std::string key = OwnKey(id);
@@ -488,15 +502,6 @@ const u8* OwnBoxTexture(const std::string& id) {
     if (!victim) return nullptr;
     if (!victim->data) victim->data = skin::Mem2Alloc(kBoxPixelBytes);
     if (!victim->data) return nullptr;
-    const OwnCut cut = CutOwnBox(id);
-    if (cut == OwnCut::Retry) {
-        OwnRetryLater(key);
-        return nullptr;
-    }
-    if (cut == OwnCut::None) {
-        g_absent.insert(key);
-        return nullptr;
-    }
     if (!victim->id.empty()) g_index.erase(victim->id);
     victim->id = key;
     victim->ready = false;
@@ -508,7 +513,7 @@ const u8* OwnBoxTexture(const std::string& id) {
     g_job = ReadJob{};
     g_job.slot = victim;
     g_job.id = key;
-    g_job.path = OwnBoxPath(id);
+    g_job.own = id;
     g_job.forgets = g_forgets;
     LWP_CondSignal(g_readWake);
     LWP_MutexUnlock(g_readLock);
