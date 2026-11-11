@@ -8,6 +8,7 @@
 #include "rtgcad.h"
 #include "rtpadcal.h"
 #include "rthome.h"
+#include "rtsiprobe.h"
 
 /* Built twice (Makefile.runtime): with the HOME Menu by the controller
  * (#387), for ordinary Wii games; and with RT_PAD_NO_HOME, without it and
@@ -28,6 +29,7 @@ void pad_on_complete(struct rt_pad_context* c, int32_t result, uint32_t tag);
 void pad_on_submit(struct rt_pad_context* c, const uint32_t* block);
 uint32_t pad_on_sleep(struct rt_pad_context* c);
 uint32_t pad_on_suspend(struct rt_pad_context* c, uint32_t thread);
+uint32_t pad_on_si_probe(struct rt_pad_context* c, uint32_t chan, uint32_t type);
 #ifndef RT_PAD_NO_HOME
 int32_t pad_on_kpad(struct rt_pad_context* c, int32_t chan, uint8_t* status, int32_t result, int32_t* error);
 int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int32_t result);
@@ -713,6 +715,16 @@ uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) 
     if (join != RTHOME_NO_CHANNEL) pad_tell_connect(c, join, 0);
 #endif
     return motor;
+}
+
+/* SIProbe(chan) has run (pad_hook_si_probe) and found `type`: a port the
+ * last PADRead filled answers as a GameCube controller while nothing of
+ * the console's own answers there, so a game that reads only the ports
+ * SIProbe calls a controller takes the adapter's (#510). Before the first
+ * filled read the game's own answer stands. No counter of its calls: the
+ * context of the blob without the HOME Menu has no word left (256 bytes). */
+uint32_t pad_on_si_probe(struct rt_pad_context* c, uint32_t chan, uint32_t type) {
+    return rt_si_probe(chan, type, c->overlay_mask);
 }
 
 void pad_on_motor(struct rt_pad_context* c, int32_t chan, uint32_t command) {
