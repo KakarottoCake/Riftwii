@@ -5,6 +5,7 @@
 #include <ogc/cache.h>
 #include <sys/stat.h>
 
+#include <cerrno>
 #include <cstdio>
 #include <ctime>
 #include <new>
@@ -281,6 +282,9 @@ struct OwnRetry {
     int tries = 0;
 };
 std::unordered_map<std::string, OwnRetry> g_ownRetry;
+// Names whose PNG was found, so a picture waiting for a slot or a retry
+// doesn't look on the card again every frame.
+std::set<std::string> g_ownFound;
 
 // Cuts the player's PNG into its box when there is no cut one yet or it was
 // cut from another PNG, as a downloaded scan is cut. Ready when a cut box
@@ -292,7 +296,10 @@ OwnCut CutOwnBox(const std::string& id) {
     const std::string note_path = OwnSourcePath(id);
     struct stat png_info {};
     struct stat cut_info {};
-    const bool png_there = stat(png_path.c_str(), &png_info) == 0 && S_ISREG(png_info.st_mode) && png_info.st_size > 0;
+    const bool png_found = stat(png_path.c_str(), &png_info) == 0;
+    // A card that won't answer is not a PNG taken away: keep the cut copy and try again later.
+    if (!png_found && errno != ENOENT && errno != ENOTDIR) return OwnCut::Retry;
+    const bool png_there = png_found && S_ISREG(png_info.st_mode) && png_info.st_size > 0;
     // A cut copy counts only when it is whole: one cut short (the card pulled
     // out while it was written) is cut again, whatever its note says.
     const bool cut_there = stat(cut_path.c_str(), &cut_info) == 0 && S_ISREG(cut_info.st_mode) &&
@@ -355,7 +362,18 @@ const u8* OwnBoxTexture(const std::string& id) {
         found->second->frame = FrameTimer;
         return found->second->data;
     }
-    if (g_readFrame == FrameTimer || g_absent.count(key)) return nullptr;
+    if (g_absent.count(key)) return nullptr;
+    // No PNG, as for most games: noted without using this frame's one read
+    // from the card, so the downloaded picture behind it isn't held up.
+    if (!g_ownFound.count(key)) {
+        struct stat png_info {};
+        if (stat(OwnPngPath(id).c_str(), &png_info) != 0 && (errno == ENOENT || errno == ENOTDIR)) {
+            g_absent.insert(key);
+            return nullptr;
+        }
+        g_ownFound.insert(key);
+    }
+    if (g_readFrame == FrameTimer) return nullptr;
     const auto waiting = g_ownRetry.find(key);
     if (waiting != g_ownRetry.end() && static_cast<s32>(FrameTimer - waiting->second.after) < 0) return nullptr;
     OwnCut cut = OwnCut::None;
@@ -365,15 +383,15 @@ const u8* OwnBoxTexture(const std::string& id) {
     });
     if (picture) {
         g_ownRetry.erase(key);
-    } else if (cut == OwnCut::Retry) {
+    } else if (cut == OwnCut::Retry || cut == OwnCut::Ready) {
+        // Ready, yet it wouldn't read (or no memory for its slot): without its
+        // note it no longer counts as cut, so the retry cuts it again.
+        if (cut == OwnCut::Ready) std::remove(OwnSourcePath(id).c_str());
         OwnRetry& retry = g_ownRetry[key];
         if (++retry.tries < kOwnTries) {
             g_absent.erase(key);
             retry.after = FrameTimer + kOwnRetryFrames;
         }
-    } else if (cut == OwnCut::Ready && g_absent.count(key)) {
-        // Cut, yet it won't read: without its note it is cut again next time.
-        std::remove(OwnSourcePath(id).c_str());
     }
     return picture;
 }
@@ -477,6 +495,13 @@ void ForgetBox(const std::string& game_id) {
     g_absent.erase(game_id);
     g_absent.erase(OwnKey(game_id));
     g_ownRetry.erase(OwnKey(game_id));
+    g_ownFound.erase(OwnKey(game_id));
+    const auto own = g_index.find(OwnKey(game_id));
+    if (own != g_index.end()) {
+        own->second->id.clear();
+        own->second->used = 0;
+        g_index.erase(own);
+    }
     g_tileReadFor.erase(game_id);
     const auto found = g_index.find(game_id);
     if (found == g_index.end()) return;
@@ -488,6 +513,7 @@ void ForgetBox(const std::string& game_id) {
 void ForgetAllBoxes() {
     g_absent.clear();
     g_ownRetry.clear();
+    g_ownFound.clear();
     g_tileReadFor.clear();
     g_index.clear();
     for (Slot& s : g_slots) {
