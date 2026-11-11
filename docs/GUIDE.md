@@ -341,6 +341,19 @@ with its name and its cover on the front. A mod's tile that gets its own
 cover from GameTDB (above) gets that mod's box too, when GameTDB has one,
 kept under the tile key; your own cover for the tile still comes first.
 
+To use your own box, put a whole case's scan (back, spine and front, as
+GameTDB's full covers are, for example 1024 x 680) in `riftwii/boxes` on
+the SD card, named as a cover is: `sd:/riftwii/boxes/RSBE01.png`, or a
+mod tile's key, `sd:/riftwii/boxes/RSBE01@project-v3-2-1.png`. Your own
+3D cover goes in `riftwii/covers3d` the same way, as a picture of the
+case like GameTDB's 3D covers: `sd:/riftwii/covers3d/RSBE01@project-v3-2-1.png`.
+They come before every other box or 3D cover of that tile or game, your
+own flat cover included, and a mod tile's need no GameTDB entry, so the
+tile can be called anything. RiftWii cuts each one the first time it is
+shown and keeps the cut copy beside it (`.own.rw2`, `.own.rw3`); replace
+the PNG and it is cut again. `riftwii/session.log` says when a picture
+can't be used and why.
+
 The **carousel** uses the same boxes, fanned out on an arc with every
 front showing: the one you're on stands forward in the middle, and the
 others turn away and drop back the further out they are. It moves and

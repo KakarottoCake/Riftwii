@@ -113,6 +113,20 @@ struct TileArtOrder {
 // memory comes before the game's 3D cover or box (CoverBeforeBox).
 TileArtOrder tile_art_order(bool is_tile, bool own_png_for_tile, bool flat_first);
 
+// The player's own full box and 3D cover, as their own flat cover (#384):
+// a PNG beside the pictures RiftWii stores, named as those are (a game's
+// ID, or a mod tile's key). sd:/riftwii/boxes/<name>.png is a full cover
+// scan laid out as GameTDB's (back, spine, front); sd:/riftwii/covers3d/
+// <name>.png a 3D cover picture as GameTDB's. Each is cut once into
+// "<name>.own.rw2" or ".own.rw3" beside it and comes before every other
+// box or 3D cover of its tile or game: a mod tile's own needs no GameTDB
+// entry, so a tile can be called anything.
+//
+// Whether the PNG has to be cut (again): it is there, and its cut file is
+// not, or is older than the PNG (the player replaced it). Times are the
+// files' modification times.
+bool own_art_needs_cut(bool png_there, long long png_time, bool cut_there, long long cut_time);
+
 // The boxes a game page downloads for its tile, each once a visit: by name
 // and, for a mod tile, the GameTDB entry it matches, so a box still wanted
 // after its answer (no answer, a renamed tile's old entry's) is never asked

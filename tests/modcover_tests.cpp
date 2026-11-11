@@ -234,6 +234,16 @@ static void TestTileArt() {
     EXPECT_TRUE(tile_art_order(false, false, true).flat_before_game_art);
     EXPECT_TRUE(!tile_art_order(false, false, false).tile_art_first);
     EXPECT_TRUE(!tile_art_order(false, false, false).flat_before_game_art);
+
+    // The player's own box or 3D cover: cut when there is a PNG and no cut
+    // one, or the PNG is newer (replaced); never without a PNG.
+    using riftwii::own_art_needs_cut;
+    EXPECT_TRUE(own_art_needs_cut(true, 100, false, 0));
+    EXPECT_TRUE(own_art_needs_cut(true, 200, true, 100));
+    EXPECT_TRUE(!own_art_needs_cut(true, 100, true, 200));
+    EXPECT_TRUE(!own_art_needs_cut(true, 100, true, 100));
+    EXPECT_TRUE(!own_art_needs_cut(false, 0, true, 100));
+    EXPECT_TRUE(!own_art_needs_cut(false, 0, false, 0));
 }
 
 // A game page's box downloads: each once a visit, and a tile renamed while

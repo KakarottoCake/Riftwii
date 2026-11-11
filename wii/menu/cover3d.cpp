@@ -41,6 +41,15 @@ std::string MissPath(const std::string& id) { return std::string(kDir) + "/" + i
 // Beside a mod tile's picture or miss: the GameTDB entry it came from.
 std::string FromPath(const std::string& id) { return std::string(kDir) + "/" + id + ".mod"; }
 
+// The player's own 3D cover (riftwii::own_art_needs_cut): their PNG, and
+// the picture cut from it beside it. In the pool under '!' and the name,
+// which no ID or key starts with, apart from the downloaded one.
+std::string OwnPngPath(const std::string& id) { return std::string(kDir) + "/" + id + ".png"; }
+std::string OwnStorePath(const std::string& id) { return std::string(kDir) + "/" + id + ".own.rw3"; }
+std::string OwnKey(const std::string& id) { return "!" + id; }
+// GameTDB's are some 60 KB; a player's larger picture is still fine.
+constexpr std::size_t kOwnPngMax = 4u << 20;
+
 // A game's six characters, a homebrew app's four (GameTDB keeps full and
 // 3D covers for those too, riftwii/homebrewmatch.hpp), or a mod tile's
 // key (riftwii/modcover.hpp).
@@ -192,6 +201,117 @@ std::set<std::string> g_absent;  // not on the card (or unreadable)
 // once matched to another (renamed, GameTDB's list changed), read again.
 std::unordered_map<std::string, std::string> g_tileReadFor;
 
+// Reads a stored 3D cover into the pool for `key`: the slot drawn longest
+// ago makes room, never one drawn in this frame or the last (still on
+// screen). `path_of` names the file once a slot is free (it may read the
+// card: never while none is); an empty name, or a file missing or
+// unreadable, notes `key` absent. One read a frame.
+template <typename PathOf>
+const u8* LoadIntoSlot(const std::string& key, PathOf path_of) {
+    Slot* victim = nullptr;
+    for (Slot& s : g_slots) {
+        if (!s.id.empty() && s.frame + 1 >= FrameTimer) continue;
+        if (!victim || s.used < victim->used) victim = &s;
+    }
+    if (!victim) return nullptr;
+    if (!victim->id.empty()) g_index.erase(victim->id);
+    victim->id.clear();
+    g_readFrame = FrameTimer;
+    const std::string path = path_of();
+    FILE* f = path.empty() ? nullptr : std::fopen(path.c_str(), "rb");
+    if (!f) {
+        g_absent.insert(key);
+        return nullptr;
+    }
+    if (!victim->data) victim->data = skin::Mem2Alloc(kCover3dPixelBytes);
+    std::uint8_t header[kCover3dHeaderSize];
+    const bool ok = victim->data && std::fread(header, 1, sizeof header, f) == sizeof header &&
+                    cover3d_header_valid(header) && std::fread(victim->data, 1, kCover3dPixelBytes, f) == kCover3dPixelBytes;
+    std::fclose(f);
+    if (!ok) {
+        victim->id.clear();
+        victim->used = 0;
+        g_absent.insert(key);
+        return nullptr;
+    }
+    DCFlushRange(victim->data, kCover3dPixelBytes);
+    GX_InvalidateTexAll();
+    victim->id = key;
+    victim->used = ++g_clock;
+    victim->frame = FrameTimer;
+    g_index[key] = victim;
+    return victim->data;
+}
+
+// Cuts the player's PNG into a 3D cover when there is no cut one yet or the
+// PNG is newer, as a downloaded one is. True when a cut one is there to
+// read. Kept, so a picture is decoded once, not every visit; a PNG taken
+// away takes its cut copy with it.
+bool CutOwnCover3d(const std::string& id) {
+    const std::string png_path = OwnPngPath(id);
+    const std::string cut_path = OwnStorePath(id);
+    struct stat png_info {};
+    struct stat cut_info {};
+    const bool png_there = stat(png_path.c_str(), &png_info) == 0 && S_ISREG(png_info.st_mode) && png_info.st_size > 0;
+    const bool cut_there = stat(cut_path.c_str(), &cut_info) == 0 && S_ISREG(cut_info.st_mode);
+    if (!png_there) {
+        if (cut_there) std::remove(cut_path.c_str());
+        return false;
+    }
+    if (!own_art_needs_cut(png_there, png_info.st_mtime, cut_there, cut_info.st_mtime)) return true;
+    if (static_cast<std::uint64_t>(png_info.st_size) > kOwnPngMax) {
+        logf("3D covers: your 3D cover %s is %lld bytes, more than the %u MB one may be\n", png_path.c_str(),
+             static_cast<long long>(png_info.st_size), static_cast<unsigned>(kOwnPngMax >> 20));
+        return false;
+    }
+    OutOfMemoryScope out_of_memory;
+    std::vector<std::uint8_t> png;
+    FILE* f = std::fopen(png_path.c_str(), "rb");
+    const bool read = f && try_resize(png, static_cast<std::size_t>(png_info.st_size)) &&
+                      std::fread(png.data(), 1, png.size(), f) == png.size();
+    if (f) std::fclose(f);
+    std::vector<std::uint8_t> rgba;
+    int w = 0, h = 0;
+    std::string why;
+    if (!read || !DecodePngRgba(png, rgba, w, h, why)) {
+        if (out_of_memory.failed()) why = "out of memory";
+        logf("3D covers: your 3D cover %s can't be read: %s\n", png_path.c_str(),
+             read ? why.c_str() : "the card refused it");
+        return false;
+    }
+    std::vector<std::uint8_t>().swap(png);
+    const std::vector<std::uint8_t> file = make_cover3d_file(rgba.data(), w, h);
+    if (file.empty()) {
+        if (out_of_memory.failed())
+            logf("3D covers: no room to cut your 3D cover %s (%dx%d)\n", png_path.c_str(), w, h);
+        else
+            logf("3D covers: your 3D cover %s (%dx%d) can't be used: it should be a picture of the case as "
+                 "GameTDB's 3D covers are\n", png_path.c_str(), w, h);
+        return false;
+    }
+    if (!WriteAll(cut_path, file)) {
+        logf("3D covers: no room on the SD card for the 3D cover cut from %s\n", png_path.c_str());
+        return false;
+    }
+    logf("3D covers: your own 3D cover for %s, cut from %s (%dx%d)\n", id.c_str(), png_path.c_str(), w, h);
+    return true;
+}
+
+// The player's own 3D cover for `id` (a game's ID or a mod tile's key), cut
+// from their PNG the first time it is wanted; nullptr when there is none.
+const u8* OwnCover3dTexture(const std::string& id) {
+    if (!ValidId(id)) return nullptr;
+    const std::string key = OwnKey(id);
+    const auto found = g_index.find(key);
+    if (found != g_index.end()) {
+        found->second->used = ++g_clock;
+        found->second->frame = FrameTimer;
+        return found->second->data;
+    }
+    if (g_readFrame == FrameTimer || g_absent.count(key)) return nullptr;
+    return LoadIntoSlot(key, [&] { return CutOwnCover3d(id) ? OwnStorePath(id) : std::string(); });
+}
+
 }  // namespace
 
 void ForgetCover3dMiss(const std::string& game_id) {
@@ -249,54 +369,31 @@ const u8* Cover3dTexture(const std::string& game_id) {
         return found->second->data;
     }
     if (g_readFrame == FrameTimer || g_absent.count(game_id)) return nullptr;
-    // The slot drawn longest ago makes room, never one drawn in this frame
-    // or the last (still on screen).
-    Slot* victim = nullptr;
-    for (Slot& s : g_slots) {
-        if (!s.id.empty() && s.frame + 1 >= FrameTimer) continue;
-        if (!victim || s.used < victim->used) victim = &s;
-    }
-    if (!victim) return nullptr;
-    if (!victim->id.empty()) g_index.erase(victim->id);
-    victim->id.clear();
-    g_readFrame = FrameTimer;
-    // A tile's picture only when it came from the entry the tile matches now.
-    if (tile) g_tileReadFor[game_id] = match;
-    const bool current = !tile || tile_art_current(ReadTileArtFrom(FromPath(game_id)), match);
-    FILE* f = current ? std::fopen(StorePath(game_id).c_str(), "rb") : nullptr;
-    if (!f) {
-        g_absent.insert(game_id);
-        return nullptr;
-    }
-    if (!victim->data) victim->data = skin::Mem2Alloc(kCover3dPixelBytes);
-    std::uint8_t header[kCover3dHeaderSize];
-    const bool ok = victim->data && std::fread(header, 1, sizeof header, f) == sizeof header &&
-                    cover3d_header_valid(header) && std::fread(victim->data, 1, kCover3dPixelBytes, f) == kCover3dPixelBytes;
-    std::fclose(f);
-    if (!ok) {
-        victim->id.clear();
-        victim->used = 0;
-        g_absent.insert(game_id);
-        return nullptr;
-    }
-    DCFlushRange(victim->data, kCover3dPixelBytes);
-    GX_InvalidateTexAll();
-    victim->id = game_id;
-    victim->used = ++g_clock;
-    victim->frame = FrameTimer;
-    g_index[game_id] = victim;
-    return victim->data;
+    return LoadIntoSlot(game_id, [&] {
+        // A tile's picture only when it came from the entry the tile matches now.
+        if (tile) g_tileReadFor[game_id] = match;
+        const bool current = !tile || tile_art_current(ReadTileArtFrom(FromPath(game_id)), match);
+        return current ? StorePath(game_id) : std::string();
+    });
 }
 
 const u8* TileCover3dTexture(const std::string& cover_name, const std::string& game_id, const u8* front) {
-    // As TileBoxTexture (riftwii::tile_art_order): a mod tile's own 3D
-    // cover after only the player's own PNG for that tile.
+    // As TileBoxTexture: the player's own 3D cover for this tile or game
+    // first, whatever the tile is called (riftwii::own_art_needs_cut), then
+    // riftwii::tile_art_order's: a mod tile's own 3D cover after only the
+    // player's own PNG for that tile.
+    if (const u8* players = OwnCover3dTexture(cover_name)) return players;
     const bool tile = is_tile_art_name(cover_name);
     if (tile_art_order(tile, front && tile && CoverIsTileOwn(cover_name), false).tile_art_first) {
         if (const u8* own_case = Cover3dTexture(cover_name)) return own_case;
     }
     if (tile_art_order(tile, false, front && CoverBeforeBox(cover_name)).flat_before_game_art) return nullptr;
-    return game_id.empty() ? nullptr : Cover3dTexture(game_id);
+    if (game_id.empty()) return nullptr;
+    // A mod tile with no 3D cover of its own: its game's, the player's own first.
+    if (tile) {
+        if (const u8* players_game = OwnCover3dTexture(game_id)) return players_game;
+    }
+    return Cover3dTexture(game_id);
 }
 
 void ForgetCover3d(const std::string& game_id) {

@@ -131,6 +131,12 @@ std::vector<std::string> game_deletion_extras(const std::string& id, bool saves)
         paths.push_back("sd:/riftwii/covers/" + id + extension);
     paths.push_back("sd:/riftwii/boxes/" + id + ".rw2");
     paths.push_back("sd:/riftwii/boxes/" + id + ".none");
+    // The player's own box and 3D cover (riftwii/modcover.hpp), and what was cut from them, go with the game as
+    // their own flat cover does.
+    paths.push_back("sd:/riftwii/boxes/" + id + ".png");
+    paths.push_back("sd:/riftwii/boxes/" + id + ".own.rw2");
+    paths.push_back("sd:/riftwii/covers3d/" + id + ".png");
+    paths.push_back("sd:/riftwii/covers3d/" + id + ".own.rw3");
     paths.push_back("sd:/riftwii/discs/" + id + ".png");
     paths.push_back("sd:/riftwii/discs/" + id + ".none");
     for (const char* extension : {".txt", ".source"}) paths.push_back("sd:/riftwii/cheats/" + id + extension);
