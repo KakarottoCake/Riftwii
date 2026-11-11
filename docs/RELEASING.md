@@ -278,8 +278,8 @@ with mode **discord-repost** and the release's version (`2610-541`). It
 fills in that tag's `release/discord.md` again with the role as it is set
 now and posts it, with its pictures. It builds and publishes nothing.
 When the text itself was wrong, fix `release/discord.md` on main first and
-give **text_ref** `main`: the message and its pictures are then read from
-main, the rest (the DOL's SHA-256 and size) still from the release.
+give **text_ref** `main`: the message, its pictures and the renderer are
+then read from main, and only the DOL (its SHA-256 and size) from the release.
 
 **A wrong release** can be fixed on GitHub: edit its notes, or delete the
 release *and* its tag and publish again from a new commit. Players who
