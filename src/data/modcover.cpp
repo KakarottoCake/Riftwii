@@ -198,6 +198,16 @@ TileArtOrder tile_art_order(bool is_tile, bool own_png_for_tile, bool flat_first
     return order;
 }
 
+std::string own_art_stamp(long long png_size, long long png_time) {
+    return std::to_string(png_size) + " " + std::to_string(png_time);
+}
+
+bool own_art_needs_cut(bool png_there, const std::string& png_stamp, bool cut_there, const std::string& cut_stamp) {
+    if (!png_there) return false;
+    if (!cut_there || cut_stamp.empty()) return true;
+    return cut_stamp != png_stamp;
+}
+
 std::string PageBoxAsks::key(const std::string& name, const std::string& game_id, const std::string& entry) {
     return name == game_id ? name : name + "|" + entry;
 }

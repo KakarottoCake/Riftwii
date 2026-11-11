@@ -234,6 +234,23 @@ static void TestTileArt() {
     EXPECT_TRUE(tile_art_order(false, false, true).flat_before_game_art);
     EXPECT_TRUE(!tile_art_order(false, false, false).tile_art_first);
     EXPECT_TRUE(!tile_art_order(false, false, false).flat_before_game_art);
+
+    // The player's own box or 3D cover: cut when there is a PNG and no cut
+    // copy (or no note of which PNG it came from), or the PNG is another one
+    // than the cut came from, whichever its time; never without a PNG.
+    using riftwii::own_art_needs_cut;
+    using riftwii::own_art_stamp;
+    const std::string png = own_art_stamp(1133513, 1794400000);
+    EXPECT_TRUE(png == "1133513 1794400000");
+    EXPECT_TRUE(own_art_needs_cut(true, png, false, ""));
+    EXPECT_TRUE(own_art_needs_cut(true, png, true, ""));
+    EXPECT_TRUE(!own_art_needs_cut(true, png, true, png));
+    // Replaced by a picture with an older time (copied in from a PC), or the
+    // same time to FAT's two seconds but another size: cut again.
+    EXPECT_TRUE(own_art_needs_cut(true, own_art_stamp(1133513, 1794300000), true, png));
+    EXPECT_TRUE(own_art_needs_cut(true, own_art_stamp(807108, 1794400000), true, png));
+    EXPECT_TRUE(!own_art_needs_cut(false, "", true, png));
+    EXPECT_TRUE(!own_art_needs_cut(false, "", false, ""));
 }
 
 // A game page's box downloads: each once a visit, and a tile renamed while

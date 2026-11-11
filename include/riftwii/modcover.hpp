@@ -113,6 +113,25 @@ struct TileArtOrder {
 // memory comes before the game's 3D cover or box (CoverBeforeBox).
 TileArtOrder tile_art_order(bool is_tile, bool own_png_for_tile, bool flat_first);
 
+// The player's own full box and 3D cover, as their own flat cover (#384):
+// a PNG beside the pictures RiftWii stores, named as those are (a game's
+// ID, or a mod tile's key). sd:/riftwii/boxes/<name>.png is a full cover
+// scan laid out as GameTDB's (back, spine, front); sd:/riftwii/covers3d/
+// <name>.png a 3D cover picture as GameTDB's. Each is cut once into
+// "<name>.own.rw2" or ".own.rw3" beside it and comes before every other
+// box or 3D cover of its tile or game: a mod tile's own needs no GameTDB
+// entry, so a tile can be called anything.
+//
+// Which PNG a cut copy was made from: its size and modification time,
+// kept beside the cut copy as "<name>.own.src". Size and time rather than
+// "newer than the cut": a picture copied in from a PC keeps its own,
+// often older, time, and FAT keeps times to two seconds.
+std::string own_art_stamp(long long png_size, long long png_time);
+// Whether the PNG has to be cut (again): it is there, and there is no cut
+// copy, or the cut copy was made from another PNG (`cut_stamp`, read from
+// "<name>.own.src", differs from `png_stamp`, or is empty: no note).
+bool own_art_needs_cut(bool png_there, const std::string& png_stamp, bool cut_there, const std::string& cut_stamp);
+
 // The boxes a game page downloads for its tile, each once a visit: by name
 // and, for a mod tile, the GameTDB entry it matches, so a box still wanted
 // after its answer (no answer, a renamed tile's old entry's) is never asked
