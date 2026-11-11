@@ -2,6 +2,7 @@
 The message to the testers' Discord channel for the next release, posted
 by the release workflow after the GitHub release is up. Discord's own
 markdown: at most 2000 characters once filled in (the workflow counts).
+-->
 
   {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
@@ -14,7 +15,7 @@ CTGP-R, and a few fixes:
 * New: Settings > Drives > Game folders, and named memory cards for GameCube games
 * Wii Remote no longer stuck on a Classic Controller or Nunchuk (Eternal Darkness), DNS servers from the Wii's settings, xdelta patches that only mention compression
 
-Not tried on a real Wii yet: the Rankings button, SD or disc launch of CTGP-R, Game folders on USB, named cards, the Classic Controller fix and the DNS lookup.
+Not tried on a real Wii yet: the Rankings button, CTGP-R from an SD card, Game folders on USB, named cards, the Classic Controller fix and the DNS lookup.
 
 To test, please:
 
