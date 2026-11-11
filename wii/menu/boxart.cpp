@@ -47,6 +47,7 @@ std::string FromPath(const std::string& id) { return std::string(kBoxDir) + "/" 
 // key starts with, so it never meets the downloaded box of the same name.
 std::string OwnPngPath(const std::string& id) { return std::string(kBoxDir) + "/" + id + ".png"; }
 std::string OwnBoxPath(const std::string& id) { return std::string(kBoxDir) + "/" + id + ".own.rw2"; }
+std::string OwnSourcePath(const std::string& id) { return std::string(kBoxDir) + "/" + id + ".own.src"; }
 std::string OwnKey(const std::string& id) { return "!" + id; }
 // GameTDB's large full cover scans (1024 x 680) are about 1.1 MB.
 constexpr std::size_t kOwnPngMax = 4u << 20;
@@ -255,22 +256,40 @@ const u8* LoadIntoSlot(const std::string& key, PathOf path_of) {
     return victim->data;
 }
 
-// Cuts the player's PNG into its box when there is no cut one yet or the
-// PNG is newer, as a downloaded scan is cut. True when a cut box is there
-// to read. The cut is kept, so this costs one decode per picture, not one
-// a visit; a PNG taken away takes its box with it.
+// The note of which PNG a cut copy came from (riftwii::own_art_stamp), or
+// "" when there is none.
+std::string ReadSourceNote(const std::string& path) {
+    char line[48] = {};
+    FILE* f = std::fopen(path.c_str(), "rb");
+    if (!f) return std::string();
+    const std::size_t got = std::fread(line, 1, sizeof line - 1, f);
+    std::fclose(f);
+    std::string note(line, got);
+    while (!note.empty() && (note.back() == '\n' || note.back() == '\r')) note.pop_back();
+    return note;
+}
+
+// Cuts the player's PNG into its box when there is no cut one yet or it was
+// cut from another PNG, as a downloaded scan is cut. True when a cut box is
+// there to read. The cut is kept, so this costs one decode per picture, not
+// one a visit; a PNG taken away takes its box with it.
 bool CutOwnBox(const std::string& id) {
     const std::string png_path = OwnPngPath(id);
     const std::string cut_path = OwnBoxPath(id);
+    const std::string note_path = OwnSourcePath(id);
     struct stat png_info {};
     struct stat cut_info {};
     const bool png_there = stat(png_path.c_str(), &png_info) == 0 && S_ISREG(png_info.st_mode) && png_info.st_size > 0;
     const bool cut_there = stat(cut_path.c_str(), &cut_info) == 0 && S_ISREG(cut_info.st_mode);
     if (!png_there) {
         if (cut_there) std::remove(cut_path.c_str());
+        std::remove(note_path.c_str());
         return false;
     }
-    if (!own_art_needs_cut(png_there, png_info.st_mtime, cut_there, cut_info.st_mtime)) return true;
+    const std::string png_stamp = own_art_stamp(static_cast<long long>(png_info.st_size),
+                                                static_cast<long long>(png_info.st_mtime));
+    if (!own_art_needs_cut(png_there, png_stamp, cut_there, cut_there ? ReadSourceNote(note_path) : std::string()))
+        return true;
     if (static_cast<std::uint64_t>(png_info.st_size) > kOwnPngMax) {
         logf("Shelf: your box %s is %lld bytes, more than the %u MB a box picture may be\n", png_path.c_str(),
              static_cast<long long>(png_info.st_size), static_cast<unsigned>(kOwnPngMax >> 20));
@@ -300,7 +319,8 @@ bool CutOwnBox(const std::string& id) {
                  "back, spine and front, as GameTDB's full covers are\n", png_path.c_str(), w, h);
         return false;
     }
-    if (!WriteAll(cut_path, box)) {
+    const std::string note = png_stamp + "\n";
+    if (!WriteAll(cut_path, box) || !WriteAll(note_path, std::vector<std::uint8_t>(note.begin(), note.end()))) {
         logf("Shelf: no room on the SD card for the box cut from %s\n", png_path.c_str());
         return false;
     }
