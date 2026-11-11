@@ -3,6 +3,9 @@
 #include "boxart.hpp"
 
 #include <ogc/cache.h>
+#include <ogc/mutex.h>  // before cond.h, which needs mutex_t
+#include <ogc/cond.h>
+#include <ogc/lwp.h>
 #include <sys/stat.h>
 
 #include <cerrno>
@@ -198,65 +201,6 @@ void RunBackgroundFetch() {
     mem::WatchHeap(("after the box download of " + g_background.id).c_str());
 }
 
-struct Slot {
-    std::string id;
-    u8* data = nullptr;
-    unsigned used = 0;
-    u32 frame = 0;  // the frame it was last drawn in
-};
-Slot g_slots[kSlots];
-std::unordered_map<std::string, Slot*> g_index;  // the filled slots by game
-unsigned g_clock = 0;
-u32 g_readFrame = ~0u;          // the frame a box was last read in
-std::set<std::string> g_absent;  // not on the card (or unreadable)
-// Mod tiles read (or found absent), by the GameTDB entry they matched then:
-// once matched to another (renamed, GameTDB's list changed), read again.
-std::unordered_map<std::string, std::string> g_tileReadFor;
-
-// Reads a stored box into the pool for `key`: the slot drawn longest ago
-// makes room, but never one drawn in this frame or the last (still on
-// screen). With none free the box stays a named spine until one is: a
-// screen with more boxes than slots (a smaller display scale) settles
-// instead of reading for ever. `path_of` names the file once a slot is
-// free (it may read the card: never while none is); an empty name, or a
-// file missing or unreadable, notes `key` absent. One read a frame.
-template <typename PathOf>
-const u8* LoadIntoSlot(const std::string& key, PathOf path_of) {
-    Slot* victim = nullptr;
-    for (Slot& s : g_slots) {
-        if (!s.id.empty() && s.frame + 1 >= FrameTimer) continue;
-        if (!victim || s.used < victim->used) victim = &s;
-    }
-    if (!victim) return nullptr;
-    if (!victim->id.empty()) g_index.erase(victim->id);
-    victim->id.clear();
-    g_readFrame = FrameTimer;
-    const std::string path = path_of();
-    FILE* f = path.empty() ? nullptr : std::fopen(path.c_str(), "rb");
-    if (!f) {
-        g_absent.insert(key);
-        return nullptr;
-    }
-    if (!victim->data) victim->data = skin::Mem2Alloc(kBoxPixelBytes);
-    std::uint8_t header[kBoxHeaderSize];
-    const bool ok = victim->data && std::fread(header, 1, sizeof header, f) == sizeof header && box_header_valid(header) &&
-                    std::fread(victim->data, 1, kBoxPixelBytes, f) == kBoxPixelBytes;
-    std::fclose(f);
-    if (!ok) {
-        victim->id.clear();
-        victim->used = 0;
-        g_absent.insert(key);
-        return nullptr;
-    }
-    DCFlushRange(victim->data, kBoxPixelBytes);
-    GX_InvalidateTexAll();
-    victim->id = key;
-    victim->used = ++g_clock;
-    victim->frame = FrameTimer;
-    g_index[key] = victim;
-    return victim->data;
-}
-
 // The note of which PNG a cut copy came from (riftwii::own_art_stamp), or
 // "" when there is none.
 std::string ReadSourceNote(const std::string& path) {
@@ -351,20 +295,177 @@ OwnCut CutOwnBox(const std::string& id) {
     return OwnCut::Ready;
 }
 
-// The player's own box for `id` (a game's ID or a mod tile's key), cut
-// from their PNG the first time it is wanted; nullptr when there is none.
+struct Slot {
+    std::string id;
+    u8* data = nullptr;
+    bool ready = false;  // read and flushed: the GUI may draw it (else being read)
+    unsigned used = 0;
+    u32 frame = 0;  // the frame it was last drawn in
+};
+Slot g_slots[kSlots];
+std::unordered_map<std::string, Slot*> g_index;  // the slots by game, ready or being read
+unsigned g_clock = 0;
+std::set<std::string> g_absent;  // not on the card (or unreadable)
+// Mod tiles read (or found absent), by the GameTDB entry they matched then:
+// once matched to another (renamed, GameTDB's list changed), read again.
+std::unordered_map<std::string, std::string> g_tileReadFor;
+
+// The card is read by a thread of its own, one box at a time, so the GUI
+// thread never waits on it. A box is a FAT lookup and a 96 KB read: a few
+// frames on a Wii's SD card (a cover, 18 KB, took 26 ms on a tester's),
+// and longer when the covers' loader is reading the card or a USB drive at
+// the same time. Read on the GUI thread, every box that came into view
+// stopped the shelf for those frames, so it never scrolled smoothly.
+//
+// The GUI thread fills in a job (the slot chosen, the file) only while no
+// job is out, and takes the answer back (TakeRead) before the next one.
+// The reader touches nothing but the job and the slot's pixels.
+struct ReadJob {
+    Slot* slot = nullptr;   // out while set
+    std::string id;
+    std::string path;       // BoxPath(id)
+    std::string tile_from;  // a mod tile's FromPath, "" for a game's
+    std::string tile_match; // the GameTDB entry the tile matches now
+    unsigned forgets = 0;   // g_forgets when it went out
+    bool done = false;      // the reader's: answered (under g_readLock)
+    bool ok = false;
+};
+ReadJob g_job;
+unsigned g_forgets = 0;  // ForgetBox and ForgetAllBoxes, so a read in flight is dropped
+mutex_t g_readLock = LWP_MUTEX_NULL;
+cond_t g_readWake = LWP_COND_NULL;
+cond_t g_readIdle = LWP_COND_NULL;  // signalled when a read ends
+bool g_readHold = false;    // BoxReaderHold: no new read until BoxReaderRelease
+bool g_reading = false;     // the card is being read, without the lock
+lwp_t g_reader = LWP_THREAD_NULL;
+alignas(32) u8 g_readerStack[16384];
+
+void* ReaderMain(void*) {
+    LWP_MutexLock(g_readLock);
+    for (;;) {
+        if (g_readHold || !g_job.slot || g_job.done) {
+            LWP_CondWait(g_readWake, g_readLock);
+            continue;
+        }
+        // The job is the reader's until it says done: copied out so the
+        // card is read without the lock.
+        u8* pixels = g_job.slot->data;
+        const std::string path = g_job.path;
+        const std::string tile_from = g_job.tile_from;
+        const std::string tile_match = g_job.tile_match;
+        g_reading = true;
+        LWP_MutexUnlock(g_readLock);
+
+        // A tile's picture only when it came from the entry the tile matches now.
+        const bool current = tile_from.empty() || tile_art_current(ReadTileArtFrom(tile_from), tile_match);
+        FILE* f = current ? std::fopen(path.c_str(), "rb") : nullptr;
+        bool ok = false;
+        if (f) {
+            std::uint8_t header[kBoxHeaderSize];
+            ok = std::fread(header, 1, sizeof header, f) == sizeof header && box_header_valid(header) &&
+                 std::fread(pixels, 1, kBoxPixelBytes, f) == kBoxPixelBytes;
+            std::fclose(f);
+        }
+        if (ok) DCFlushRange(pixels, kBoxPixelBytes);
+
+        LWP_MutexLock(g_readLock);
+        g_job.ok = ok;
+        g_job.done = true;
+        g_reading = false;
+        LWP_CondSignal(g_readIdle);
+    }
+    return nullptr;
+}
+
+// The reader, the first time a box is asked for. GUI thread.
+bool ReaderStarted() {
+    if (g_reader != LWP_THREAD_NULL) return true;
+    if (g_readLock == LWP_MUTEX_NULL) {
+        LWP_MutexInit(&g_readLock, false);
+        LWP_CondInit(&g_readWake);
+        LWP_CondInit(&g_readIdle);
+    }
+    // Below the GUI thread (70), as the covers' loader: it reads while the
+    // GUI waits for the next frame.
+    if (LWP_CreateThread(&g_reader, ReaderMain, nullptr, g_readerStack, sizeof(g_readerStack), 40) < 0) {
+        g_reader = LWP_THREAD_NULL;
+        return false;
+    }
+    return true;
+}
+
+// Whether a pool key is the player's own box's (OwnKey), not a game's or a tile's.
+bool IsOwnKey(const std::string& key) { return !key.empty() && key[0] == '!'; }
+
+// Keeps a passing failure of the player's own box from counting as "none":
+// tried again about ten seconds later, up to kOwnTries times. A cut copy that
+// was ready but wouldn't read loses its note, so the next try cuts it again.
+void OwnRetryLater(const std::string& key) {
+    OwnRetry& retry = g_ownRetry[key];
+    if (++retry.tries < kOwnTries) {
+        g_absent.erase(key);
+        retry.after = FrameTimer + kOwnRetryFrames;
+    } else {
+        g_absent.insert(key);
+    }
+}
+
+void OwnReadFailed(const std::string& key) {
+    std::remove(OwnSourcePath(key.substr(1)).c_str());
+    OwnRetryLater(key);
+}
+
+// The answer to the job out, once the reader has one: the slot is ready,
+// or given up and its game noted as not on the card. GUI thread.
+void TakeRead() {
+    if (!g_job.slot) return;
+    bool done, ok;
+    LWP_MutexLock(g_readLock);
+    done = g_job.done;
+    ok = g_job.ok;
+    LWP_MutexUnlock(g_readLock);
+    if (!done) return;
+    Slot* slot = g_job.slot;
+    // Forgotten while it was read (a new download, another SD card): the
+    // slot was emptied already, and the box is read again when asked for.
+    const bool forgotten = g_job.forgets != g_forgets || slot->id != g_job.id;
+    if (ok && !forgotten) {
+        // The texture cache may still hold the slot's last box.
+        GX_InvalidateTexAll();
+        slot->ready = true;
+    } else if (!forgotten) {
+        g_index.erase(slot->id);
+        slot->id.clear();
+        slot->used = 0;
+        g_absent.insert(g_job.id);
+        if (IsOwnKey(g_job.id)) OwnReadFailed(g_job.id);
+    }
+    LWP_MutexLock(g_readLock);
+    g_job = ReadJob{};
+    LWP_MutexUnlock(g_readLock);
+}
+
+
+// The player's own box for `id` (a game's ID or a mod tile's key); nullptr
+// when there is none, or while it is being cut or read. The cut, once a
+// picture, runs here on the GUI thread (the reader's stack is too small for
+// a PNG decoder); reading the cut copy goes to the reader as any box does.
 const u8* OwnBoxTexture(const std::string& id) {
     if (!ValidId(id)) return nullptr;
     const std::string key = OwnKey(id);
+    TakeRead();
     const auto found = g_index.find(key);
     if (found != g_index.end()) {
-        found->second->used = ++g_clock;
-        found->second->frame = FrameTimer;
-        return found->second->data;
+        Slot* slot = found->second;
+        if (!slot->ready) return nullptr;  // being read
+        slot->used = ++g_clock;
+        slot->frame = FrameTimer;
+        return slot->data;
     }
     if (g_absent.count(key)) return nullptr;
-    // No PNG, as for most games: noted without using this frame's one read
-    // from the card, so the downloaded picture behind it isn't held up.
+    // No PNG, as for most games: noted without a read from the card beyond
+    // this one look, so the downloaded box behind it isn't held up. A PNG
+    // found is looked for only once.
     if (!g_ownFound.count(key)) {
         struct stat png_info {};
         if (stat(OwnPngPath(id).c_str(), &png_info) != 0 && (errno == ENOENT || errno == ENOTDIR)) {
@@ -373,30 +474,63 @@ const u8* OwnBoxTexture(const std::string& id) {
         }
         g_ownFound.insert(key);
     }
-    if (g_readFrame == FrameTimer) return nullptr;
     const auto waiting = g_ownRetry.find(key);
     if (waiting != g_ownRetry.end() && static_cast<s32>(FrameTimer - waiting->second.after) < 0) return nullptr;
-    OwnCut cut = OwnCut::None;
-    const u8* picture = LoadIntoSlot(key, [&] {
-        cut = CutOwnBox(id);
-        return cut == OwnCut::Ready ? OwnBoxPath(id) : std::string();
-    });
-    if (picture) {
-        g_ownRetry.erase(key);
-    } else if (cut == OwnCut::Retry || cut == OwnCut::Ready) {
-        // Ready, yet it wouldn't read (or no memory for its slot): without its
-        // note it no longer counts as cut, so the retry cuts it again.
-        if (cut == OwnCut::Ready) std::remove(OwnSourcePath(id).c_str());
-        OwnRetry& retry = g_ownRetry[key];
-        if (++retry.tries < kOwnTries) {
-            g_absent.erase(key);
-            retry.after = FrameTimer + kOwnRetryFrames;
-        }
+    // One read out at a time, as for the downloaded boxes.
+    if (g_job.slot || !ReaderStarted()) return nullptr;
+    Slot* victim = nullptr;
+    for (Slot& s : g_slots) {
+        if (!s.id.empty() && s.frame + 1 >= FrameTimer) continue;
+        if (!victim || s.used < victim->used) victim = &s;
     }
-    return picture;
+    if (!victim) return nullptr;
+    if (!victim->data) victim->data = skin::Mem2Alloc(kBoxPixelBytes);
+    if (!victim->data) return nullptr;
+    const OwnCut cut = CutOwnBox(id);
+    if (cut == OwnCut::Retry) {
+        OwnRetryLater(key);
+        return nullptr;
+    }
+    if (cut == OwnCut::None) {
+        g_absent.insert(key);
+        return nullptr;
+    }
+    if (!victim->id.empty()) g_index.erase(victim->id);
+    victim->id = key;
+    victim->ready = false;
+    victim->used = ++g_clock;
+    victim->frame = FrameTimer;
+    g_index[key] = victim;
+
+    LWP_MutexLock(g_readLock);
+    g_job = ReadJob{};
+    g_job.slot = victim;
+    g_job.id = key;
+    g_job.path = OwnBoxPath(id);
+    g_job.forgets = g_forgets;
+    LWP_CondSignal(g_readWake);
+    LWP_MutexUnlock(g_readLock);
+    return nullptr;
 }
 
 }  // namespace
+
+void BoxReaderHold() {
+    if (g_readLock == LWP_MUTEX_NULL || g_reader == LWP_THREAD_NULL) return;
+    if (LWP_GetSelf() == g_reader) return;
+    LWP_MutexLock(g_readLock);
+    g_readHold = true;
+    while (g_reading) LWP_CondWait(g_readIdle, g_readLock);
+    LWP_MutexUnlock(g_readLock);
+}
+
+void BoxReaderRelease() {
+    if (g_readLock == LWP_MUTEX_NULL || g_reader == LWP_THREAD_NULL) return;
+    LWP_MutexLock(g_readLock);
+    g_readHold = false;
+    LWP_CondSignal(g_readWake);
+    LWP_MutexUnlock(g_readLock);
+}
 
 void ForgetBoxMiss(const std::string& game_id) {
     if (ValidId(game_id)) std::remove(MissPath(game_id).c_str());
@@ -449,19 +583,52 @@ const u8* BoxTexture(const std::string& game_id) {
         // A tile GameTDB doesn't list has none of its own: its game's shows.
         if (match.empty()) return nullptr;
     }
+    TakeRead();
     const auto found = g_index.find(game_id);
     if (found != g_index.end()) {
-        found->second->used = ++g_clock;
-        found->second->frame = FrameTimer;
-        return found->second->data;
+        Slot* slot = found->second;
+        if (!slot->ready) return nullptr;  // being read
+        slot->used = ++g_clock;
+        slot->frame = FrameTimer;
+        return slot->data;
     }
-    if (g_readFrame == FrameTimer || g_absent.count(game_id)) return nullptr;
-    return LoadIntoSlot(game_id, [&] {
-        // A tile's picture only when it came from the entry the tile matches now.
-        if (tile) g_tileReadFor[game_id] = match;
-        const bool current = !tile || tile_art_current(ReadTileArtFrom(FromPath(game_id)), match);
-        return current ? BoxPath(game_id) : std::string();
-    });
+    // One read out at a time: the first box asked for while the reader is
+    // free gets it, so the shelf asks for the boxes nearest the focus first.
+    if (g_job.slot || g_absent.count(game_id) || !ReaderStarted()) return nullptr;
+    // The slot drawn longest ago makes room, but never one drawn in this
+    // frame or the last (still on screen, the GPU may still read it). With
+    // none free the box stays a named spine until one is: a screen with
+    // more boxes than slots (a smaller display scale) settles instead of
+    // reading for ever.
+    Slot* victim = nullptr;
+    for (Slot& s : g_slots) {
+        if (!s.id.empty() && s.frame + 1 >= FrameTimer) continue;
+        if (!victim || s.used < victim->used) victim = &s;
+    }
+    if (!victim) return nullptr;
+    if (!victim->data) victim->data = skin::Mem2Alloc(kBoxPixelBytes);
+    if (!victim->data) return nullptr;
+    if (!victim->id.empty()) g_index.erase(victim->id);
+    victim->id = game_id;
+    victim->ready = false;
+    victim->used = ++g_clock;
+    victim->frame = FrameTimer;
+    g_index[game_id] = victim;
+    if (tile) g_tileReadFor[game_id] = match;
+
+    LWP_MutexLock(g_readLock);
+    g_job = ReadJob{};
+    g_job.slot = victim;
+    g_job.id = game_id;
+    g_job.path = BoxPath(game_id);
+    if (tile) {
+        g_job.tile_from = FromPath(game_id);
+        g_job.tile_match = match;
+    }
+    g_job.forgets = g_forgets;
+    LWP_CondSignal(g_readWake);
+    LWP_MutexUnlock(g_readLock);
+    return nullptr;
 }
 
 const u8* TileBoxTexture(const std::string& cover_name, const std::string& game_id, const u8* front, bool* tile_box) {
@@ -493,24 +660,32 @@ const u8* TileBoxTexture(const std::string& cover_name, const std::string& game_
 
 void ForgetBox(const std::string& game_id) {
     g_absent.erase(game_id);
-    g_absent.erase(OwnKey(game_id));
-    g_ownRetry.erase(OwnKey(game_id));
-    g_ownFound.erase(OwnKey(game_id));
-    const auto own = g_index.find(OwnKey(game_id));
+    g_tileReadFor.erase(game_id);
+    // A read of it in flight may be of the old file.
+    if (g_job.slot && g_job.id == game_id) ++g_forgets;
+    // The player's own box for the name too: looked for and read again.
+    const std::string own_key = OwnKey(game_id);
+    g_absent.erase(own_key);
+    g_ownRetry.erase(own_key);
+    g_ownFound.erase(own_key);
+    if (g_job.slot && g_job.id == own_key) ++g_forgets;
+    const auto own = g_index.find(own_key);
     if (own != g_index.end()) {
         own->second->id.clear();
+        own->second->ready = false;
         own->second->used = 0;
         g_index.erase(own);
     }
-    g_tileReadFor.erase(game_id);
     const auto found = g_index.find(game_id);
     if (found == g_index.end()) return;
     found->second->id.clear();
+    found->second->ready = false;
     found->second->used = 0;
     g_index.erase(found);
 }
 
 void ForgetAllBoxes() {
+    ++g_forgets;  // a read in flight was of the old card
     g_absent.clear();
     g_ownRetry.clear();
     g_ownFound.clear();
@@ -518,6 +693,7 @@ void ForgetAllBoxes() {
     g_index.clear();
     for (Slot& s : g_slots) {
         s.id.clear();
+        s.ready = false;
         s.used = 0;
     }
 }

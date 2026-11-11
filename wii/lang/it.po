@@ -4110,23 +4110,23 @@ msgstr "La cartella della NAND emulata: quella indicata dalle impostazioni di US
 msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
 msgstr "Con impostazioni e Mii, i giochi usano anche le impostazioni della Wii e i Mii della NAND emulata. Per questo la cartella deve contenere una NAND completa."
 
-msgid "A GameCube controller opens the HOME Menu"
-msgstr "Un controller GameCube apre il menu HOME"
+msgid "CTGP-R: updated installs start again"
+msgstr "CTGP-R: le installazioni aggiornate ripartono"
 
-msgid "CTGP Revolution with no disc (offline)"
-msgstr "CTGP Revolution senza disco (offline)"
+msgid "CTGP-R cups come from your install"
+msgstr "CTGP-R: le coppe dalla tua installazione"
 
-msgid "GameCube mod packs with code patches"
-msgstr "Pacchetti mod GameCube con patch al codice"
+msgid "Game folders of your choice"
+msgstr "Cartelle dei giochi a tua scelta"
 
-msgid "Calibrate a GameCube controller"
-msgstr "Calibra un controller GameCube"
+msgid "GameCube: named memory cards"
+msgstr "GameCube: schede con nome"
 
-msgid "240p output for CRT TVs"
-msgstr "Uscita 240p per televisori CRT"
+msgid "Sonic Unleashed sees the adapter on Wii U"
+msgstr "Sonic Unleashed vede l'adattatore su Wii U"
 
-msgid "GameCube: slot B card, Volume boost"
-msgstr "GameCube: scheda nello slot B, volume più alto"
+msgid "Brawl: file-swap packs load a match"
+msgstr "Brawl: i pacchetti di file caricano le partite"
 
 msgid "Manage game"
 msgstr "Gestisci gioco"
@@ -4292,6 +4292,9 @@ msgstr "Questa versione di CTGP-R non si può ancora avviare da RiftWii. Avvia C
 
 msgid "CTGP-R could not be started. Its files on the SD card may be damaged or incomplete: install CTGP-R again. The reason is in sd:/riftwii/boot.log."
 msgstr "Impossibile avviare CTGP-R. I suoi file sulla scheda SD potrebbero essere danneggiati o incompleti: reinstalla CTGP-R. Il motivo è in sd:/riftwii/boot.log."
+
+msgid "Calibrate a GameCube controller"
+msgstr "Calibra un controller GameCube"
 
 msgid "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use."
 msgstr "Prova un controller GameCube e corregge uno consumato: levette che non arrivano al bordo, levette che si muovono da sole, grilletti che non scendono del tutto. I giochi GameCube ricevono la correzione, e i giochi Wii mentre è in uso un adattatore GameCube o un controller USB."

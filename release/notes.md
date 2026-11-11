@@ -16,63 +16,60 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** A big one for GameCube games: mod packs that change a game's code now start, a GameCube controller can open a Wii game's HOME Menu, and Paper Mario: The Thousand-Year Door no longer crashes partway in. CTGP Revolution starts without the disc, and there's 240p for CRT TVs. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** CTGP-R now takes its cup layouts from your own CTGP-R install, loads its code only when you start CTGP-R, and accepts installs that updated themselves again. CTGP-R's way back to RiftWii now works from any folder, and Sonic Unleashed sees the GameCube adapter on a Wii U. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-![What's new in this version]({{SCREENSHOTS}}2611-151-whats-new.png)
+![What's new in this version]({{SCREENSHOTS}}2611-162-whats-new.png)
 
 ## What changed
 
-### GameCube games
+### CTGP-R
 
-- **Paper Mario: The Thousand-Year Door no longer crashes partway into the game.** RiftWii now finishes the game's sound-memory copies on the same schedule a GameCube does. The game wasn't ready for them to finish sooner. Luigi's Mansion and Super Mario Eclipse needed the old timing, and they should still work, but none of the three has been tried on a real Wii yet.
-- **Mod packs that change a game's code now start.** Before, a GameCube pack with memory patches or "shift" patches refused to start. Now they're applied as Dolphin applies them. A game that switches to another program on its disc (like Sonic Gems Collection) keeps its mods too. Savegame patches still can't work, because GameCube games save to memory cards.
-- **Calibrate a GameCube controller** in Settings > Controllers. Turn the sticks and press the triggers, and a worn controller reaches the full range again in games. There's also a dead zone slider for stick drift.
-- **Memory cards:**
-  - A game can use a real memory card in slot B (original Wii only).
-  - A new choice puts the card in slot B where a game looks for slot A.
-  - Settings > Games > GameCube memory card sets the card for every game left on Default.
-- **Volume boost** (+3 dB or +6 dB) on a GameCube game's page, for games that are too quiet.
-- **Old games like Luigi's Mansion no longer ask about progressive scan** every time when 480p is on.
-- **GameCube games follow the Wii's Screen Position** (Wii Settings > Screen), as Wii games do.
-- **Mario Kart Arcade GP 2** boots to its title screen. A on the GameCube controller in port 1 puts in a coin, and Start starts. It has no card reader or camera on a Wii, so it shows a notice about cards.
-- **Patched games with their own code handler** (Phantasy Star Online with Sylverant's patches) no longer crash on the first frame.
-- RiftWii's part inside a GameCube game takes 4.6 KB less of its memory.
+- **CTGP-R installs that updated themselves are accepted again.** 2611-151 refused them. CTGP-R's own updates now start, and a track update needs no RiftWii update. It was tried on a real Wii (PAL, from USB through d2x), with an updated CTGP-R. An SD card or disc launch, NTSC-U and NTSC-J have not been tried on a real Wii yet.
+- **The cup layouts come from your own CTGP-R install.** The default, the alphabetical and your own `cuplayout.cup` layouts are read from your CTGP-R files on the SD card, so RiftWii no longer carries a list of cups. On a real Wii the default and alphabetical layouts raced and a Time Trial ghost saved; your own `cuplayout.cup` has not been tried on a real Wii yet.
+- **CTGP-R's code is only loaded when you start CTGP-R.** It is now a separate add-on (`ctgpr.rwp`) in the zip and the update pack. Everyone else gets a RiftWii that is about 110 KB smaller and 111,744 bytes of the Wii's first memory block back. If the add-on is missing, RiftWii says so.
+- **CTGP-R's Mario Kart Channel button brings back the RiftWii that started it**, from its own folder. Before, a RiftWii outside `sd:/apps/riftwii` came back not knowing where it lived, and the next CTGP-R start said a part of RiftWii was missing. On a real Wii the button came back to RiftWii and CTGP-R started again from it, on an earlier version of this change. The final version, the Rankings button and CTGP-R's crash handler have not been tried on a real Wii yet.
+- **Leaving CTGP-R:** Reset restarts CTGP-R, as Reset does in a game. The way out is CTGP-R's own channel button, which now brings back RiftWii, or the HOME Menu's Wii Menu.
 
 ### Wii games and controllers
 
-- **A GameCube controller can open the HOME Menu** in Wii games: hold L + R + Z + Start for two seconds. The stick moves the pointer, A selects and Start closes it. In a game where that can't work, the same buttons take you back to RiftWii as before. Thanks grantendo, who tried it on a console in Mario Kart Wii, Naruto Clash of Ninja Revolution 3, Brawl and Cruis'n USA.
-- **CTGP Revolution starts without the Mario Kart Wii disc**, from USB, SD or the disc, using your own CTGP files on the SD card. It's offline only: online play and LAN are always off.
-- **Settings > Games > Leaving a game** has a new **HOME only** choice, so a button combo like L + R + Z + Start can't end a game by accident.
-- **Cars 2** works with the GameCube adapter, screenshots, mods and cheats, and the "cursed" warnings for Cars 2, Toy Story 3 and Disney Infinity are gone.
+- **Sonic Unleashed sees the GameCube adapter on a Wii U.** Some Wii games ask which GameCube ports have a controller before they read them, and on a Wii U the answer was "nothing", so the game ignored the adapter and kept asking for a GameCube controller. RiftWii now answers the way a GameCube game gets it. Tried on a Wii U with the adapter, and in Dolphin. Most Wii games don't ask, so they are unchanged.
+- **Super Smash Bros. Brawl with a pack that only swaps files can load a match.** It used to stop at "Can't Alloc Heap(MenuInstance)". RiftWii's code now sits in the second memory block for Brawl. A Training match loads and the GameCube controller plays, and Brawl's Album opens, on a Wii U and in Dolphin. Reset with a pack, cheats together with a pack, replays and the stage builder, USB, Subspace Emissary and packs with memory patches have not been tried on a real Wii yet.
+- **A Wii Remote no longer gets stuck setting up its Classic Controller or Nunchuk** (seen in Eternal Darkness). After its retries it now plays on its own. Tried in Dolphin only, so it is not tried on a real Wii yet.
+- The Wii U GameCube adapter note now says the adapter may only work in game from the lower back USB port, as a tester measured on every port.
 
-### Code builds (Project+, REX)
+### Settings and games
 
-- Starting RiftWii from the Homebrew Channel no longer sends REX to a black screen or Project+ to its controller setup screen (thanks grantendo).
-- On a Wii U, codes that write to memory card slot B are switched off. REX carries one, and it froze on a black screen.
+- **Settings > Drives > Game folders:** add and remove the folders RiftWii looks for games in, with a folder picker (up to 8 folders; `wbfs`, `games` and a drive's top folder are always searched). It saves to the same `game_folders` line in `settings.txt`. Tried in Dolphin with the SD card; a USB drive and a real Wii have not been tried yet.
+- **GameCube named memory cards:** on a GameCube game's page, Memory card > A named card gives a card per player, or one card for several games. New card names one with the keyboard. It is backed up before each start like a game's own card. Tried in Dolphin (Luigi's Mansion starts on a named card); saving in a game to a named card and a real Wii have not been tried yet.
+- **GameCube mods shipped as an xdelta patch** that only mention compression are read now, where before they never showed up as a game. A patch that really is compressed is still refused, and the log says how to make one RiftWii can read (`xdelta3 -S none`).
+- A folder, song or theme with a line break in its name can no longer turn part of the name into a setting. Not tried on a Wii or in Dolphin.
 
-### Picture and menu
+![Game folders in Settings > Drives]({{SCREENSHOTS}}2611-162-game-folders.png)
 
-- **240p output for CRT TVs**: a new 240p choice in Settings > Picture > Video mode and on each game's page. It needs a CRT to really check, so reports are welcome.
-- The Show and Layout pop-ups center each card's picture and name.
-- A card reader with several slots: RiftWii now stops with a message instead of letting the game read a different slot than the menu did.
+### Network
 
-![Calibrate a GameCube controller]({{SCREENSHOTS}}2611-151-calibrate.png)
+- **Names are looked up through the DNS servers saved in the Wii's settings** when the Wii's own lookup fails (covers, updates, network packs, the network test). Nothing changes when your router hands out the DNS servers. Not tried on a real Wii or in Dolphin; it needs someone with typed-in DNS servers.
+
+![A named memory card on a GameCube game]({{SCREENSHOTS}}2611-162-named-cards.png)
 
 ## What to test
 
-1. **Paper Mario: The Thousand-Year Door**: play past the point where it crashed before. Also Luigi's Mansion and Super Mario Eclipse for a while.
-2. **GameCube mod packs** with code changes (Super Mario Sunshine mods, Eclipse and others): do they start and play?
-3. **HOME Menu with a GameCube controller** in Wii games: hold L + R + Z + Start with no Wii Remote.
-4. **CTGP Revolution** without the disc, from USB and from SD.
-5. **Calibrate a GameCube controller**, then try a game. Does the stick feel right?
-6. **240p** on a CRT TV, Wii and GameCube games.
-7. **Memory card in slot B** on an original Wii, and **Volume boost**.
+1. **CTGP-R** from USB, from the SD card and from the disc, with an install that has updated itself. Try the default and the alphabetical cups, and your own `cuplayout.cup` if you have one.
+2. **CTGP-R's Mario Kart Channel button**, with RiftWii in a folder other than `sd:/apps/riftwii`: does it bring RiftWii back, and does CTGP-R start again from it? Also the Rankings button, if you can find it.
+3. **Sonic Unleashed with the GameCube adapter on a Wii U** (Options > Controller Settings > Nintendo GameCube Controller).
+4. **Super Smash Bros. Brawl with a file-swap pack**: a match, Reset, and cheats if you use them.
+5. **Eternal Darkness or another GameCube game** with a Wii Remote and Classic Controller or Nunchuk.
+6. **Settings > Drives > Game folders** with a USB drive.
+7. **A named memory card** in a GameCube game: save in the game, then start it again.
+8. **Typed-in DNS servers** in the Wii's Internet settings: do covers and the update check work?
 
 ## Known issues
 
+- **CTGP-R's Rankings button and crash handler** haven't been tried on a real Wii yet.
 - **On one tester's console, a GameCube game's crash screen didn't go back to RiftWii.** It does in Dolphin. A problem report from that screen helps.
 - **The emulated NAND on USB hasn't been tried with d2x on a real Wii yet.** If a game won't start with it, the problem report says why.
 - **Phantasy Star Online Episode I & II Plus** doesn't start yet without patches.
 - **Everything or Nothing's THX and MGM logo movies** show in the wrong colors.
 - **The DualShock 3 over USB** hasn't been confirmed to work yet.
 - **The Wii U GamePad** works in the menu only when RiftWii runs as a Wii VC inject, and never in games.
+- **xdelta patches that really compress a part** are still refused.

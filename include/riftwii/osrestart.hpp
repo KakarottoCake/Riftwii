@@ -45,6 +45,28 @@ std::uint32_t find_os_sleep_thread(const std::vector<CodeRange>& text);
 // Console), Mario Kart Wii and Super Smash Bros. Brawl.
 std::uint32_t find_os_suspend_thread(const std::vector<CodeRange>& text);
 
+// The pad hook takes the game's own Reset where no runtime does (#458):
+// a launch with no mods, saves on the SD card or RVZ has no resident
+// runtime, so nothing took OSRestart and the game restarted the way the
+// console always does, without the adapter, the USB controllers or the
+// way back. With the GameCube adapter or USB controllers in use, the pad
+// blob (runtime/pad) hooks OSRestart itself, writes the same request to
+// the card and leaves through the game's OSReturnToMenu, which Return to
+// RiftWii points at the channel. What stands in its way, from what is
+// known before the game's code is searched.
+struct PadResetLaunch {
+    bool reset_wanted = false;  // the launch has a restart request to leave (LaunchExtras::restart_args)
+    bool pads_on = false;       // the adapter's and USB controllers' hook is on for this launch
+    bool runtime_in = false;    // the resident runtime is in: it takes the Reset itself
+    bool code_build = false;    // Project+ and the like: the pad blob is in MEM2, out of OSRestart's reach
+    bool hooks_allowed = true;  // false for a game that checks its own code (MetaFortress)
+    bool sd_card_free = true;   // false while d2x's NAND emulation holds the card
+};
+// Whether the pad hook takes the Reset in this launch. When it does not,
+// `why` is the reason for boot.log, or nullptr when there is no Reset to
+// keep (no request, no pads, or the runtime takes it).
+bool pad_hook_takes_reset(const PadResetLaunch& launch, const char*& why);
+
 // Test switch (settings.txt `debug_reset = N`): the game restarts itself
 // as the HOME Menu's Reset does, N seconds after its main thread first
 // sleeps, so Dolphin can show a restart with no controller driven. The

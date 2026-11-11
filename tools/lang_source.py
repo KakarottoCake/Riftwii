@@ -8627,25 +8627,25 @@ T["With settings and Miis, games also use the emulated NAND's Wii settings and M
 MORE["ko"]["With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."] = '설정과 Mii까지 고르면 게임이 에뮬레이트 NAND의 Wii 설정과 Mii도 사용합니다. 이를 위해 폴더에 완전한 NAND가 있어야 합니다.'
 MORE["fr"]["With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."] = 'Avec réglages et Mii, les jeux utilisent aussi les réglages de la Wii et les Mii de la NAND émulée. Le dossier doit alors contenir une NAND complète.'
 
-# What's new in the release after 2611-128.
-T["A GameCube controller opens the HOME Menu"] = ("Un mando de GameCube abre el menú HOME", "ゲームキューブのコントローラでHOMEメニュー", "Um controle de GameCube abre o menu HOME", "Un controller GameCube apre il menu HOME")
-MORE["ko"]["A GameCube controller opens the HOME Menu"] = "게임큐브 컨트롤러로 HOME 메뉴 열기"
-MORE["fr"]["A GameCube controller opens the HOME Menu"] = "Une manette GameCube ouvre le menu HOME"
-T["CTGP Revolution with no disc (offline)"] = ("CTGP Revolution sin disco (sin conexión)", "CTGP Revolutionをディスクなしで（オフライン）", "CTGP Revolution sem disco (offline)", "CTGP Revolution senza disco (offline)")
-MORE["ko"]["CTGP Revolution with no disc (offline)"] = "디스크 없이 CTGP Revolution (오프라인)"
-MORE["fr"]["CTGP Revolution with no disc (offline)"] = "CTGP Revolution sans disque (hors ligne)"
-T["GameCube mod packs with code patches"] = ("Packs de mods de GameCube con parches de código", "コードを変えるゲームキューブのMOD", "Pacotes de mods de GameCube com patches de código", "Pacchetti mod GameCube con patch al codice")
-MORE["ko"]["GameCube mod packs with code patches"] = "코드 패치가 있는 게임큐브 MOD"
-MORE["fr"]["GameCube mod packs with code patches"] = "Packs de mods GameCube avec patchs de code"
-T["Calibrate a GameCube controller"] = ("Calibrar un mando de GameCube", "ゲームキューブのコントローラを調整", "Calibrar um controle de GameCube", "Calibra un controller GameCube")
-MORE["ko"]["Calibrate a GameCube controller"] = "게임큐브 컨트롤러 보정"
-MORE["fr"]["Calibrate a GameCube controller"] = "Calibrer une manette GameCube"
-T["240p output for CRT TVs"] = ("Salida 240p para televisores CRT", "ブラウン管テレビ向けの240p出力", "Saída 240p para TVs de tubo", "Uscita 240p per televisori CRT")
-MORE["ko"]["240p output for CRT TVs"] = "CRT TV용 240p 출력"
-MORE["fr"]["240p output for CRT TVs"] = "Sortie 240p pour les téléviseurs CRT"
-T["GameCube: slot B card, Volume boost"] = ("GameCube: tarjeta en la ranura B, más volumen", "ゲームキューブ：スロットBのカード、音量アップ", "GameCube: cartão no slot B, mais volume", "GameCube: scheda nello slot B, volume più alto")
-MORE["ko"]["GameCube: slot B card, Volume boost"] = "게임큐브: 슬롯 B 카드, 볼륨 증폭"
-MORE["fr"]["GameCube: slot B card, Volume boost"] = "GameCube : carte en port B, volume plus fort"
+# What's new in the release after 2611-151.
+T["CTGP-R: updated installs start again"] = ("CTGP-R: las instalaciones actualizadas vuelven a iniciar", "CTGP-R：更新したインストールが再び起動", "CTGP-R: instalações atualizadas iniciam de novo", "CTGP-R: le installazioni aggiornate ripartono")
+MORE["ko"]["CTGP-R: updated installs start again"] = "CTGP-R: 업데이트된 설치본이 다시 실행"
+MORE["fr"]["CTGP-R: updated installs start again"] = "CTGP-R : les installations mises à jour redémarrent"
+T["CTGP-R cups come from your install"] = ("CTGP-R: las copas salen de tu instalación", "CTGP-R：カップ構成は自分のインストールから", "CTGP-R: as copas vêm da sua instalação", "CTGP-R: le coppe dalla tua installazione")
+MORE["ko"]["CTGP-R cups come from your install"] = "CTGP-R: 컵 구성을 내 설치본에서"
+MORE["fr"]["CTGP-R cups come from your install"] = "CTGP-R : coupes lues dans votre installation"
+T["Game folders of your choice"] = ("Carpetas de juegos a tu elección", "ゲームのフォルダを自分で選べる", "Pastas de jogos à sua escolha", "Cartelle dei giochi a tua scelta")
+MORE["ko"]["Game folders of your choice"] = "게임 폴더를 직접 선택"
+MORE["fr"]["Game folders of your choice"] = "Dossiers de jeux au choix"
+T["GameCube: named memory cards"] = ("GameCube: tarjetas con nombre", "ゲームキューブ：名前付きカード", "GameCube: cartões com nome", "GameCube: schede con nome")
+MORE["ko"]["GameCube: named memory cards"] = "게임큐브: 이름 있는 카드"
+MORE["fr"]["GameCube: named memory cards"] = "GameCube : cartes nommées"
+T["Sonic Unleashed sees the adapter on Wii U"] = ("Sonic Unleashed ve el adaptador en Wii U", "Wii UでSonic Unleashedがアダプターを認識", "Sonic Unleashed vê o adaptador no Wii U", "Sonic Unleashed vede l'adattatore su Wii U")
+MORE["ko"]["Sonic Unleashed sees the adapter on Wii U"] = "Wii U에서 Sonic Unleashed가 어댑터 인식"
+MORE["fr"]["Sonic Unleashed sees the adapter on Wii U"] = "Sonic Unleashed voit l'adaptateur sur Wii U"
+T["Brawl: file-swap packs load a match"] = ("Brawl: los packs de archivos cargan partidas", "Brawl：ファイル差し替えMODで試合が始まる", "Brawl: pacotes de arquivos carregam partidas", "Brawl: i pacchetti di file caricano le partite")
+MORE["ko"]["Brawl: file-swap packs load a match"] = "Brawl: 파일 교체 MOD로 대전 시작"
+MORE["fr"]["Brawl: file-swap packs load a match"] = "Brawl : les packs de fichiers lancent un match"
 
 # Game management: own display names and visibility, never file renames.
 T['Manage game'] = ('Gestionar juego', 'ゲームの管理', 'Gerenciar jogo', 'Gestisci gioco')

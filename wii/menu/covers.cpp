@@ -21,6 +21,7 @@
 #include <set>
 #include <vector>
 
+#include "boxart.hpp"
 #include "fullfont.hpp"
 #include "emulatorcovers.hpp"
 #include "loadersettings.hpp"
@@ -919,6 +920,7 @@ void CoverReadAll(const std::vector<std::string>& game_ids) {
 }
 
 void CoverLoaderHold() {
+    BoxReaderHold();  // the shelf's box reader reads the card too
     if (g_lock == LWP_MUTEX_NULL) return;
     // The loader itself, restarting RiftWii as the menu ran out of memory
     // (memlimits.cpp, MenuOutOfMemory): it would wait for its own read.
@@ -929,6 +931,7 @@ void CoverLoaderHold() {
 }
 
 void CoverLoaderRelease() {
+    BoxReaderRelease();
     if (g_lock == LWP_MUTEX_NULL) return;
     Lock lock;
     g_hold = false;

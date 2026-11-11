@@ -4110,23 +4110,23 @@ msgstr "에뮬레이트 NAND 폴더입니다. USB Loader GX 설정에 적힌 폴
 msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
 msgstr "설정과 Mii까지 고르면 게임이 에뮬레이트 NAND의 Wii 설정과 Mii도 사용합니다. 이를 위해 폴더에 완전한 NAND가 있어야 합니다."
 
-msgid "A GameCube controller opens the HOME Menu"
-msgstr "게임큐브 컨트롤러로 HOME 메뉴 열기"
+msgid "CTGP-R: updated installs start again"
+msgstr "CTGP-R: 업데이트된 설치본이 다시 실행"
 
-msgid "CTGP Revolution with no disc (offline)"
-msgstr "디스크 없이 CTGP Revolution (오프라인)"
+msgid "CTGP-R cups come from your install"
+msgstr "CTGP-R: 컵 구성을 내 설치본에서"
 
-msgid "GameCube mod packs with code patches"
-msgstr "코드 패치가 있는 게임큐브 MOD"
+msgid "Game folders of your choice"
+msgstr "게임 폴더를 직접 선택"
 
-msgid "Calibrate a GameCube controller"
-msgstr "게임큐브 컨트롤러 보정"
+msgid "GameCube: named memory cards"
+msgstr "게임큐브: 이름 있는 카드"
 
-msgid "240p output for CRT TVs"
-msgstr "CRT TV용 240p 출력"
+msgid "Sonic Unleashed sees the adapter on Wii U"
+msgstr "Wii U에서 Sonic Unleashed가 어댑터 인식"
 
-msgid "GameCube: slot B card, Volume boost"
-msgstr "게임큐브: 슬롯 B 카드, 볼륨 증폭"
+msgid "Brawl: file-swap packs load a match"
+msgstr "Brawl: 파일 교체 MOD로 대전 시작"
 
 msgid "Manage game"
 msgstr "게임 관리"
@@ -4292,6 +4292,9 @@ msgstr "이 버전의 CTGP-R은 아직 RiftWii에서 시작할 수 없습니다.
 
 msgid "CTGP-R could not be started. Its files on the SD card may be damaged or incomplete: install CTGP-R again. The reason is in sd:/riftwii/boot.log."
 msgstr "CTGP-R을 시작할 수 없습니다. SD 카드의 파일이 손상되었거나 일부가 없을 수 있습니다. CTGP-R을 다시 설치하세요. 이유는 sd:/riftwii/boot.log에 있습니다."
+
+msgid "Calibrate a GameCube controller"
+msgstr "게임큐브 컨트롤러 보정"
 
 msgid "Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use."
 msgstr "게임큐브 컨트롤러를 테스트하고 낡은 컨트롤러를 바로잡습니다. 끝까지 닿지 않는 스틱, 저절로 움직이는 스틱, 끝까지 눌리지 않는 트리거. 게임큐브 게임에 적용되고, Wii 게임에는 게임큐브 어댑터나 USB 컨트롤러를 쓰는 동안 적용됩니다."

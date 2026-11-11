@@ -239,7 +239,7 @@ private:
     bool padPageHeld[4] = {};    // starts a fresh L click even while carrying a tile
     riftwii::HomeShoulderPages padPages[4], classicPages[4];
     int ShoulderPage(GuiTrigger* t);
-    int shelfStepHeld[4] = {};  // frames + or - has been held on the shelf, per controller
+    float shelfStepHeldMs[4] = {};  // how long + or - has been held on the shelf, per controller
     bool letterUsed[4] = {};
     int SlotAt(int x, int y) const;
     // Moving a game (SetMovable). carryFrom is its index in the list,

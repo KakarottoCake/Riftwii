@@ -1011,6 +1011,32 @@ the code handler's room (code builds, games that clear MEM1's top; Brawl's
 jumps are at the MEM1 arena's top, OSRestart's among them), no card handle,
 a launch that does not fit a sector. `debug_off = reset` turns it off.
 
+A launch with no runtime (no pack, memory patch or saves on the card) used
+to leave the Reset to the game, which then came back without the GameCube
+adapter, the USB controllers or the way back. With the adapter or USB
+controllers in use, the pad blob (`runtime/pad`) takes it instead (#458),
+without the runtime: `plan_pad_restart` in `wii/launch/boot.cpp` finds
+OSRestart, OSReturnToMenu and the game's synchronous IOS_Ioctlv, and needs
+Return to RiftWii pointed at the channel. The loader opens the SD card and
+leaves it open for the game; a game with an SD driver (Super Smash Bros.
+Brawl) gets the same whole-card pass-through as beside the runtime, since it
+could not open a card held open. Known limit: that pass-through is refused on an
+SDHC card (over 2 GB), where a game's 2008 SD driver writes to the wrong places,
+so Brawl on such a card (a Wii U's usual) keeps its own Reset, which restarts it
+without the adapter; boot.log's `Reset:` line says so. A game with no SD driver
+(Naruto: Clash of Ninja Revolution 3, console 10 Nov) takes the Reset on any card. The blob's OSRestart hook
+(`pad_hook_restart` in `pad_entry.S`, `pad_on_restart` in `pad_hook.c`)
+writes the sector (`runtime/rtrestart.c`: a CMD25, or d2x's sector write,
+kept apart from the hardware so `tests/rtrestart_tests.cpp` runs it) and
+leaves through OSReturnToMenu, as the runtime does with Return to RiftWii
+patched in; a refused write puts the idle sector back and the game's own
+restart goes on. The request block (about 1.2 KB) follows the driver's state
+at the bottom of the MEM2 arena. If it does not fit there beside the driver's
+state, the hook goes in without it and the game's Reset stays its own (`boot.log` says so). `pad_hook_takes_reset`
+(`src/patching/osrestart.cpp`) holds what rules it out: a code build (its
+blob is in MEM2), a game that checks its own code, d2x's NAND emulation
+holding the card. The USB pads blob a code build uses leaves the hook out.
+
 Two things restart:
 - a launch that fails (A on the error screen, or two minutes untouched);
 - a crash. `wii/core/crash.cpp` replaces libogc's panic function: it notes
