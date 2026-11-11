@@ -41,6 +41,11 @@ void ForgetBox(const std::string& game_id);
 // Drops everything the pool remembers, pictures and "not on the card"
 // alike: the SD card was put back and may be another one. GUI halted.
 void ForgetAllBoxes();
+// Stops the box reader taking new reads and waits for one in flight, as
+// CoverLoaderHold (which calls it) does for the covers; lifted by
+// BoxReaderRelease (CoverLoaderRelease calls it).
+void BoxReaderHold();
+void BoxReaderRelease();
 // The full box a Home tile shows, or nullptr when its flat cover `front`
 // (CoverTexture(cover_name)) is shown instead or no box is in memory yet.
 // `cover_name` is the tile's (CoverName: a mod tile's key), `game_id` its

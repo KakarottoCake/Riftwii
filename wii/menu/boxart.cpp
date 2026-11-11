@@ -229,13 +229,16 @@ ReadJob g_job;
 unsigned g_forgets = 0;  // ForgetBox and ForgetAllBoxes, so a read in flight is dropped
 mutex_t g_readLock = LWP_MUTEX_NULL;
 cond_t g_readWake = LWP_COND_NULL;
+cond_t g_readIdle = LWP_COND_NULL;  // signalled when a read ends
+bool g_readHold = false;    // BoxReaderHold: no new read until BoxReaderRelease
+bool g_reading = false;     // the card is being read, without the lock
 lwp_t g_reader = LWP_THREAD_NULL;
 alignas(32) u8 g_readerStack[16384];
 
 void* ReaderMain(void*) {
     LWP_MutexLock(g_readLock);
     for (;;) {
-        if (!g_job.slot || g_job.done) {
+        if (g_readHold || !g_job.slot || g_job.done) {
             LWP_CondWait(g_readWake, g_readLock);
             continue;
         }
@@ -245,6 +248,7 @@ void* ReaderMain(void*) {
         const std::string path = g_job.path;
         const std::string tile_from = g_job.tile_from;
         const std::string tile_match = g_job.tile_match;
+        g_reading = true;
         LWP_MutexUnlock(g_readLock);
 
         // A tile's picture only when it came from the entry the tile matches now.
@@ -262,6 +266,8 @@ void* ReaderMain(void*) {
         LWP_MutexLock(g_readLock);
         g_job.ok = ok;
         g_job.done = true;
+        g_reading = false;
+        LWP_CondSignal(g_readIdle);
     }
     return nullptr;
 }
@@ -272,6 +278,7 @@ bool ReaderStarted() {
     if (g_readLock == LWP_MUTEX_NULL) {
         LWP_MutexInit(&g_readLock, false);
         LWP_CondInit(&g_readWake);
+        LWP_CondInit(&g_readIdle);
     }
     // Below the GUI thread (70), as the covers' loader: it reads while the
     // GUI waits for the next frame.
@@ -312,6 +319,23 @@ void TakeRead() {
 }
 
 }  // namespace
+
+void BoxReaderHold() {
+    if (g_readLock == LWP_MUTEX_NULL || g_reader == LWP_THREAD_NULL) return;
+    if (LWP_GetSelf() == g_reader) return;
+    LWP_MutexLock(g_readLock);
+    g_readHold = true;
+    while (g_reading) LWP_CondWait(g_readIdle, g_readLock);
+    LWP_MutexUnlock(g_readLock);
+}
+
+void BoxReaderRelease() {
+    if (g_readLock == LWP_MUTEX_NULL || g_reader == LWP_THREAD_NULL) return;
+    LWP_MutexLock(g_readLock);
+    g_readHold = false;
+    LWP_CondSignal(g_readWake);
+    LWP_MutexUnlock(g_readLock);
+}
 
 void ForgetBoxMiss(const std::string& game_id) {
     if (ValidId(game_id)) std::remove(MissPath(game_id).c_str());

@@ -1486,14 +1486,15 @@ void GuiGameGrid::UpdateShelf(GuiTrigger* t) {
                 held = 0.0f;
                 ShelfStep(step);
             } else {
-                // Each repeat due since the last frame, so a slow frame
-                // doesn't lose any.
+                // One step when a repeat fell due this frame. A frame is
+                // capped at 50 ms (menumotion::frame_ms), under the 83 ms
+                // between repeats, so it can never owe two.
                 const float before = held;
                 held += riftwii::wii::transition::FrameMilliseconds();
                 const auto repeats = [&](float ms) {
                     return ms < kRepeatAfterMs ? 0 : 1 + static_cast<int>((ms - kRepeatAfterMs) / kRepeatEveryMs);
                 };
-                for (int due = repeats(held) - repeats(before); due > 0; --due) ShelfStep(step);
+                if (repeats(held) > repeats(before)) ShelfStep(step);
             }
             return;
         }
