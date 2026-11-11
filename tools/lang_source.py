@@ -7523,6 +7523,24 @@ FR.update({
     "Back of the box": "Dos de la boîte",
     "Front of the box": "Face de la boîte",
 })
+T.update({
+    # The game page's disc, up close and spinning
+    "Spin": ("Girar", "回す", "Girar", "Gira"),
+    "The game's disc. Press A to spin it.": (
+        "El disco del juego. Pulsa A para girarlo.",
+        "ゲームのディスクです。Aで回せます。",
+        "O disco do jogo. Aperte A para girá-lo.",
+        "Il disco del gioco. Premi A per farlo girare."),
+})
+KO.update({
+    "Spin": "돌리기",
+    "The game's disc. Press A to spin it.": "게임 디스크입니다. A로 돌려 보세요.",
+})
+FR.update({
+    "Spin": "Faire tourner",
+    "The game's disc. Press A to spin it.":
+        "Le disque du jeu. Appuyez sur A pour le faire tourner.",
+})
 
 T.update({
     # Settings > Music file (the player's own menu music) and its picker

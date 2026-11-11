@@ -3642,6 +3642,12 @@ msgstr "Dos de la boîte"
 msgid "Front of the box"
 msgstr "Face de la boîte"
 
+msgid "Spin"
+msgstr "Faire tourner"
+
+msgid "The game's disc. Press A to spin it."
+msgstr "Le disque du jeu. Appuyez sur A pour le faire tourner."
+
 msgid "Music file"
 msgstr "Fichier musical"
 

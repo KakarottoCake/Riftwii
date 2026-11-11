@@ -3642,6 +3642,12 @@ msgstr "Parte trasera"
 msgid "Front of the box"
 msgstr "Parte delantera"
 
+msgid "Spin"
+msgstr "Girar"
+
+msgid "The game's disc. Press A to spin it."
+msgstr "El disco del juego. Pulsa A para girarlo."
+
 msgid "Music file"
 msgstr "Archivo de música"
 

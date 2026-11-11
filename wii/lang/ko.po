@@ -3642,6 +3642,12 @@ msgstr "뒷면"
 msgid "Front of the box"
 msgstr "앞면"
 
+msgid "Spin"
+msgstr "돌리기"
+
+msgid "The game's disc. Press A to spin it."
+msgstr "게임 디스크입니다. A로 돌려 보세요."
+
 msgid "Music file"
 msgstr "음악 파일"
 
