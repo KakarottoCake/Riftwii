@@ -12747,23 +12747,36 @@ public:
 			const float px = t->wpad->ir.x - screenwidth / 2.0f, py = t->wpad->ir.y - kBigCentreY;
 			const float at = std::atan2(py, px);
 			const u64 now = gettime();
+			// Right at the middle the angle swings wildly for a pixel or two
+			// of movement, so those samples are ignored; the angle is rebased
+			// on leaving, so crossing the middle adds no spin or travel.
+			const bool outside = px * px + py * py >= kDeadZone * kDeadZone;
 			if (dragging && t->chan == dragChan) {
-				float step = at - dragAt;
-				const float pi = static_cast<float>(M_PI);
-				if (step > pi) step -= 2 * pi;
-				if (step < -pi) step += 2 * pi;
-				const float dt = std::max(0.001f, ticks_to_microsecs(now - dragTime) / 1e6f);
-				angle += step;
-				dragTravel += std::fabs(step);
-				omega = std::max(-kMaxSpin, std::min(kMaxSpin, 0.6f * omega + 0.4f * step / dt));
-			} else if (!dragging && px * px + py * py < kBigSize * kBigSize / 4.0f) {
+				if (!outside) {
+					dragAtValid = false;
+				} else if (!dragAtValid) {
+					dragAt = at;
+					dragTime = now;
+					dragAtValid = true;
+				} else {
+					float step = at - dragAt;
+					const float pi = static_cast<float>(M_PI);
+					if (step > pi) step -= 2 * pi;
+					if (step < -pi) step += 2 * pi;
+					const float dt = std::max(0.001f, ticks_to_microsecs(now - dragTime) / 1e6f);
+					angle += step;
+					dragTravel += std::fabs(step);
+					omega = std::max(-kMaxSpin, std::min(kMaxSpin, 0.6f * omega + 0.4f * step / dt));
+				}
+			} else if (!dragging && outside && px * px + py * py < kBigSize * kBigSize / 4.0f) {
 				dragging = true;
+				dragAtValid = true;
 				dragChan = t->chan;
 				dragTravel = 0.0f;
 				dragStart = now;
 				omega = 0.0f;
 			}
-			if (!dragging || t->chan == dragChan) {
+			if ((!dragging || t->chan == dragChan) && (outside || !dragging)) {
 				dragAt = at;
 				dragTime = now;
 			}
@@ -12779,6 +12792,7 @@ public:
 	}
 
 private:
+	static constexpr float kDeadZone = 24.0f;
 	static constexpr float kBigSize = 340.0f, kBigY = 40.0f, kBigCentreY = kBigY + kBigSize / 2.0f;
 	// Radians a second: a flick is nearly two turns a second, a hard fling
 	// up to some five; the bearing's drag (1 a second) and a steady
@@ -12791,6 +12805,7 @@ private:
 	float angle = 0.0f, omega = 0.0f;
 	u64 last = 0, dragTime = 0;
 	float dragAt = 0.0f, dragTravel = 0.0f;
+	bool dragAtValid = false;
 	u64 dragStart = 0;
 	int dragChan = -1;
 	bool dragging = false;
@@ -12822,9 +12837,9 @@ static void MenuDiscCloseup(const riftwii::wii::DiscArt* art)
 			closing = true;
 			prompts.SetShown(promptClose, false);
 			prompts.SetShown(promptSpin, false);
-		} else if (!closing && prompt == promptSpin) {
-			closeup.Flick();
 		}
+		// A press on Spin needs no handling here: DiscCloseup::Update already
+		// flicks on the A press itself, so flicking again would double it.
 		ResumeGui();
 	}
 	HaltGui();
