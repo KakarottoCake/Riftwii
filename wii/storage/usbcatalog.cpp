@@ -156,7 +156,8 @@ struct PickedDrive {
     bool known = false;
 };
 PickedDrive g_picked;
-s32 g_usb_heap = 1;  // ReserveUsbBuffers' USBStorage_Initialize result; 1 = not asked yet
+bool g_usb_heap_asked = false;
+s32 g_usb_heap = 0;  // ReserveUsbBuffers' USBStorage_Initialize result
 constexpr u32 kPickedBounce = 32 * 1024;
 
 bool reopen_picked();
@@ -327,7 +328,10 @@ bool pick_drive(const usb_device_entry* devices, u8 listed, std::string& error) 
         error = "no MEM2 left for the USB buffer";
         return false;
     }
-    USBStorage_Initialize();
+    if (const s32 heap = USBStorage_Initialize(); heap < 0) {
+        error = "no MEM2 left for libogc's USB storage heap (" + std::to_string(heap) + ")";
+        return false;
+    }
     const std::vector<std::string> wanted = usb_wanted_folders();
     struct Candidate {
         usbstorage_handle handle{};
@@ -1484,13 +1488,16 @@ void ReserveUsbBuffers() {
     // and a no-op every later time. Taken now, so a drive plugged in after
     // the menu filled the arena still starts.
     g_usb_heap = USBStorage_Initialize();
+    g_usb_heap_asked = true;
 }
 
 void LogUsbBuffers() {
     const void* d2x = ums::Buffer();
-    logf("USB buffers (MEM2, taken at start-up): menu's driver %p, d2x's %p, libogc's storage heap %s%s\n",
-         static_cast<void*>(g_picked.bounce), d2x, g_usb_heap >= 0 ? "ok" : std::to_string(g_usb_heap).c_str(),
-         g_picked.bounce && d2x && g_usb_heap >= 0 ? "" : " (MEM2 was full; the USB drive may not be readable)");
+    const bool heap_ok = g_usb_heap_asked && g_usb_heap >= 0;
+    logf("USB buffers (MEM2, taken at start-up): menu's driver %p, d2x's %p, libogc's storage heap %s %d%s\n",
+         static_cast<void*>(g_picked.bounce), d2x, !g_usb_heap_asked ? "not asked" : heap_ok ? "ok" : "failed",
+         static_cast<int>(g_usb_heap),
+         g_picked.bounce && d2x && heap_ok ? "" : " (a 0 or a failure: the MEM2 arena was too small for it)");
 }
 
 bool usb_volume_ready() {
