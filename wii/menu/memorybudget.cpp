@@ -8,6 +8,7 @@
 #include "gcadapter.hpp"
 #include "i18n.hpp"
 #include "loadersettings.hpp"
+#include "resident.hpp"
 #include "riftwii/gxpatches.hpp"
 #include "riftwii_fault_bin.h"
 #include "riftwii_pad_bin.h"
@@ -75,8 +76,10 @@ ExtrasBudget EstimateExtras(const FrontendState& state) {
     const bool whole_mem1 = code_build || clears_mem1_top;
 
     // The mods' runtime (wii/launch/resident.cpp): its code below the MEM1 arena's
-    // top (in MEM2 when the game needs all of MEM1), its data in MEM2.
+    // top (in MEM2 when the game needs all of MEM1), its data in MEM2. Brawl's
+    // code goes to MEM2 too, its jumps into it staying at the MEM1 arena's top.
     const bool runtime = packs || saves || rvz;
+    const bool code_to_mem2 = whole_mem1 || (game_needs_runtime_code_in_mem2(id) && !game_runs_no_mem2_code(id));
     if (runtime) {
         const std::uint32_t code = rvz ? frame_bytes(riftwii_rt_rvz_zst, riftwii_rt_rvz_zst_size)
                                        : frame_bytes(riftwii_rt_zst, riftwii_rt_zst_size);
@@ -84,8 +87,9 @@ ExtrasBudget EstimateExtras(const FrontendState& state) {
         if (packs) data += kTypicalTable + RT_MAX_PENDING * RT_BOUNCE_BYTES;
         if (saves) data += align(sizeof(rt_fs_state)) + 32;
         if (rvz) data += align(rt_rvz_state_bytes(kTypicalRvzExtents, 1)) + kTypicalRvzBuffers;
-        b.add(rvz ? tr("RVZ and mods") : packs ? tr("mods") : tr("saves on the card"), whole_mem1 ? 0 : code,
-              data + (whole_mem1 ? code : 0));
+        const std::uint32_t jumps = code_to_mem2 && !whole_mem1 ? kResidentArenaTopVeneerBytes : 0;
+        b.add(rvz ? tr("RVZ and mods") : packs ? tr("mods") : tr("saves on the card"), code_to_mem2 ? jumps : code,
+              data + (code_to_mem2 ? code : 0));
     }
     // The game's own SD card passed through beside the runtime (wii/launch/boot.cpp).
     // The extent table costs 12 bytes a piece of the image file, and the piece

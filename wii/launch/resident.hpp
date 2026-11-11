@@ -109,6 +109,13 @@ struct ResidentOptions {
     // With mem1_veneers: code and data at the top of MEM2, its end lowered
     // (riftwii/hook.hpp plan_resident_placement mem2_top).
     bool mem2_top = false;
+    // Instead of mem1_veneers: the code goes to MEM2 with the data and its
+    // veneers to the MEM1 arena's top, where the code would have been
+    // (kResidentArenaTopVeneerBytes; game_needs_runtime_code_in_mem2). The
+    // code handler's list room stays the cheats', and OSRestart gets a
+    // veneer of its own after the IPC functions', so the Reset still goes
+    // through the runtime.
+    bool veneers_at_arena_top = false;
     SavegameOptions savegame;
     RvzResidentOptions rvz;
     // The game is an image without a retail BCA: the runtime answers
@@ -117,9 +124,15 @@ struct ResidentOptions {
     RestartOptions restart;
 };
 
+// The veneers' room at the MEM1 arena's top (veneers_at_arena_top): one per
+// IPC function the runtime can hook, then OSRestart's.
+constexpr std::uint32_t kResidentArenaTopVeneerBytes = (RT_IPC_ENTRIES + 1) * 16;
+
 struct ResidentInstall {
-    std::uint32_t code_base = 0;        // the blob, at the top of the MEM1 arena
+    std::uint32_t code_base = 0;        // the blob, at the top of the MEM1 arena (or in MEM2 with veneers)
     std::uint32_t code_bytes = 0;
+    std::uint32_t veneer_base = 0;      // veneers_at_arena_top: their room in MEM1, 0 when none
+    std::uint32_t veneer_bytes = 0;
     std::uint32_t old_arena1_hi = 0;    // the MEM1 arena end as the apploader left it (below the BI2 and FST)
     std::uint32_t new_arena1_hi = 0;    // to be stored at 0x80000034 and 0x80003110 (== code_base)
     std::uint32_t data_base = 0;        // payload and buffers at the bottom of the MEM2 arena, 0 when none
