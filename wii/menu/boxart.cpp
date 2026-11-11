@@ -433,6 +433,8 @@ void TakeRead() {
         // The texture cache may still hold the slot's last box.
         GX_InvalidateTexAll();
         slot->ready = true;
+        // The player's own box read: its earlier failures, if any, are behind it.
+        if (IsOwnKey(g_job.id)) g_ownRetry.erase(g_job.id);
     } else if (!forgotten) {
         g_index.erase(slot->id);
         slot->id.clear();
