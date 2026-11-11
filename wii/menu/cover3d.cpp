@@ -49,8 +49,10 @@ std::string OwnPngPath(const std::string& id) { return std::string(kDir) + "/" +
 std::string OwnStorePath(const std::string& id) { return std::string(kDir) + "/" + id + ".own.rw3"; }
 std::string OwnSourcePath(const std::string& id) { return std::string(kDir) + "/" + id + ".own.src"; }
 std::string OwnKey(const std::string& id) { return "!" + id; }
-// GameTDB's are some 60 KB; a player's larger picture is still fine.
-constexpr std::size_t kOwnPngMax = 4u << 20;
+// As a download's (kMaxPng): GameTDB's are some 60 KB. The 3D covers are
+// read on the GUI thread, so the cap also bounds the one decode a picture's
+// first showing costs.
+constexpr std::size_t kOwnPngMax = kMaxPng;
 
 // A game's six characters, a homebrew app's four (GameTDB keeps full and
 // 3D covers for those too, riftwii/homebrewmatch.hpp), or a mod tile's
