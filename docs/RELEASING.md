@@ -277,6 +277,9 @@ wrong post in Discord, then run Actions > Release > Run workflow on main
 with mode **discord-repost** and the release's version (`2610-541`). It
 fills in that tag's `release/discord.md` again with the role as it is set
 now and posts it, with its pictures. It builds and publishes nothing.
+When the text itself was wrong, fix `release/discord.md` on main first and
+give **text_ref** `main`: the message, its pictures and the renderer are
+then read from main, and only the DOL (its SHA-256 and size) from the release.
 
 **A wrong release** can be fixed on GitHub: edit its notes, or delete the
 release *and* its tag and publish again from a new commit. Players who
@@ -285,9 +288,9 @@ already updated keep that build, so prefer a new release with the fix.
 ## How the workflow works
 
 `.github/workflows/release.yml`, started only by hand
-(`workflow_dispatch`), with three inputs: `mode` (`dry-run`, `publish` or
-`discord-repost`), `discord` (true or false) and `version` (only for
-`discord-repost`). Runs never overlap (`concurrency: release`).
+(`workflow_dispatch`), with four inputs: `mode` (`dry-run`, `publish` or
+`discord-repost`), `discord` (true or false), `version` and `text_ref` (both
+only for `discord-repost`; `text_ref` can only be `main`). Runs never overlap (`concurrency: release`).
 The workflow's token is read-only except in the publish job.
 
 **Job `check`** (Ubuntu): refuses a publish not on main; asks the GitHub
@@ -336,8 +339,10 @@ tag is this commit, goes on, otherwise refuses an existing one; runs
 
 **Job `repost`** (Ubuntu, only in `discord-repost` mode, environment
 `release`, read-only token; `check`, `build` and `publish` are skipped):
-refuses a version that isn't a published release, checks out its tag,
-downloads its `riftwii.dol`, runs `release_notes.py render` with the
+refuses a version that isn't a published release, checks out its tag (or
+main when `text_ref` is `main`, refusing symbolic links in
+`release/discord.md` and `docs/screenshots`), downloads the release's
+`riftwii.dol` (its SHA-256 and size go into the text), runs `release_notes.py render` with the
 tester role as it is set now (`--require-role`) and `post`.
 
 **The Discord post** (`release_notes.py post`): reads the webhook from
