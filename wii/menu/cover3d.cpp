@@ -257,31 +257,47 @@ std::string ReadSourceNote(const std::string& path) {
     return note;
 }
 
+// What a try at the player's own picture came to. Retry: a failure that
+// may pass (no memory, the card full or refusing a read or write): tried
+// again some seconds later, a few times, rather than given up on until
+// RiftWii starts again.
+enum class OwnCut { Ready, None, Retry };
+constexpr u32 kOwnRetryFrames = 600;  // about ten seconds
+constexpr int kOwnTries = 3;
+struct OwnRetry {
+    u32 after = 0;
+    int tries = 0;
+};
+std::unordered_map<std::string, OwnRetry> g_ownRetry;
+
 // Cuts the player's PNG into a 3D cover when there is no cut one yet or it
-// was cut from another PNG, as a downloaded one is. True when a cut one is
-// there to read. Kept, so a picture is decoded once, not every visit; a PNG
+// was cut from another PNG, as a downloaded one is. Ready when a cut one
+// is there to read. Kept, so a picture is decoded once, not every visit; a PNG
 // taken away takes its cut copy with it.
-bool CutOwnCover3d(const std::string& id) {
+OwnCut CutOwnCover3d(const std::string& id) {
     const std::string png_path = OwnPngPath(id);
     const std::string cut_path = OwnStorePath(id);
     const std::string note_path = OwnSourcePath(id);
     struct stat png_info {};
     struct stat cut_info {};
     const bool png_there = stat(png_path.c_str(), &png_info) == 0 && S_ISREG(png_info.st_mode) && png_info.st_size > 0;
-    const bool cut_there = stat(cut_path.c_str(), &cut_info) == 0 && S_ISREG(cut_info.st_mode);
+    // A cut copy counts only when it is whole: one cut short (the card pulled
+    // out while it was written) is cut again, whatever its note says.
+    const bool cut_there = stat(cut_path.c_str(), &cut_info) == 0 && S_ISREG(cut_info.st_mode) &&
+                           static_cast<std::size_t>(cut_info.st_size) == kCover3dHeaderSize + kCover3dPixelBytes;
     if (!png_there) {
         if (cut_there) std::remove(cut_path.c_str());
         std::remove(note_path.c_str());
-        return false;
+        return OwnCut::None;
     }
     const std::string png_stamp = own_art_stamp(static_cast<long long>(png_info.st_size),
                                                 static_cast<long long>(png_info.st_mtime));
     if (!own_art_needs_cut(png_there, png_stamp, cut_there, cut_there ? ReadSourceNote(note_path) : std::string()))
-        return true;
+        return OwnCut::Ready;
     if (static_cast<std::uint64_t>(png_info.st_size) > kOwnPngMax) {
         logf("3D covers: your 3D cover %s is %lld bytes, more than the %u MB one may be\n", png_path.c_str(),
              static_cast<long long>(png_info.st_size), static_cast<unsigned>(kOwnPngMax >> 20));
-        return false;
+        return OwnCut::None;
     }
     OutOfMemoryScope out_of_memory;
     std::vector<std::uint8_t> png;
@@ -296,7 +312,7 @@ bool CutOwnCover3d(const std::string& id) {
         if (out_of_memory.failed()) why = "out of memory";
         logf("3D covers: your 3D cover %s can't be read: %s\n", png_path.c_str(),
              read ? why.c_str() : "the card refused it");
-        return false;
+        return !read || out_of_memory.failed() ? OwnCut::Retry : OwnCut::None;
     }
     std::vector<std::uint8_t>().swap(png);
     const std::vector<std::uint8_t> file = make_cover3d_file(rgba.data(), w, h);
@@ -306,15 +322,15 @@ bool CutOwnCover3d(const std::string& id) {
         else
             logf("3D covers: your 3D cover %s (%dx%d) can't be used: it should be a picture of the case as "
                  "GameTDB's 3D covers are\n", png_path.c_str(), w, h);
-        return false;
+        return out_of_memory.failed() ? OwnCut::Retry : OwnCut::None;
     }
     const std::string note = png_stamp + "\n";
     if (!WriteAll(cut_path, file) || !WriteAll(note_path, std::vector<std::uint8_t>(note.begin(), note.end()))) {
         logf("3D covers: no room on the SD card for the 3D cover cut from %s\n", png_path.c_str());
-        return false;
+        return OwnCut::Retry;
     }
     logf("3D covers: your own 3D cover for %s, cut from %s (%dx%d)\n", id.c_str(), png_path.c_str(), w, h);
-    return true;
+    return OwnCut::Ready;
 }
 
 // The player's own 3D cover for `id` (a game's ID or a mod tile's key), cut
@@ -329,7 +345,26 @@ const u8* OwnCover3dTexture(const std::string& id) {
         return found->second->data;
     }
     if (g_readFrame == FrameTimer || g_absent.count(key)) return nullptr;
-    return LoadIntoSlot(key, [&] { return CutOwnCover3d(id) ? OwnStorePath(id) : std::string(); });
+    const auto waiting = g_ownRetry.find(key);
+    if (waiting != g_ownRetry.end() && static_cast<s32>(FrameTimer - waiting->second.after) < 0) return nullptr;
+    OwnCut cut = OwnCut::None;
+    const u8* picture = LoadIntoSlot(key, [&] {
+        cut = CutOwnCover3d(id);
+        return cut == OwnCut::Ready ? OwnStorePath(id) : std::string();
+    });
+    if (picture) {
+        g_ownRetry.erase(key);
+    } else if (cut == OwnCut::Retry) {
+        OwnRetry& retry = g_ownRetry[key];
+        if (++retry.tries < kOwnTries) {
+            g_absent.erase(key);
+            retry.after = FrameTimer + kOwnRetryFrames;
+        }
+    } else if (cut == OwnCut::Ready && g_absent.count(key)) {
+        // Cut, yet it won't read: without its note it is cut again next time.
+        std::remove(OwnSourcePath(id).c_str());
+    }
+    return picture;
 }
 
 }  // namespace
@@ -418,6 +453,8 @@ const u8* TileCover3dTexture(const std::string& cover_name, const std::string& g
 
 void ForgetCover3d(const std::string& game_id) {
     g_absent.erase(game_id);
+    g_absent.erase(OwnKey(game_id));
+    g_ownRetry.erase(OwnKey(game_id));
     g_tileReadFor.erase(game_id);
     const auto found = g_index.find(game_id);
     if (found == g_index.end()) return;
@@ -428,6 +465,7 @@ void ForgetCover3d(const std::string& game_id) {
 
 void ForgetAllCovers3d() {
     g_absent.clear();
+    g_ownRetry.clear();
     g_tileReadFor.clear();
     g_index.clear();
     for (Slot& s : g_slots) {
