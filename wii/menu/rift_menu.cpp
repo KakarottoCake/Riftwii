@@ -5173,12 +5173,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"A GameCube controller opens the HOME Menu",
-	"CTGP Revolution with no disc (offline)",
-	"GameCube mod packs with code patches",
-	"Calibrate a GameCube controller",
-	"240p output for CRT TVs",
-	"GameCube: slot B card, Volume boost",
+	"CTGP-R: updated installs start again",
+	"CTGP-R cups come from your install",
+	"Game folders of your choice",
+	"GameCube: named memory cards",
+	"Sonic Unleashed sees the adapter on Wii U",
+	"Brawl: file-swap packs load a match",
 };
 
 static std::string WhatsNewText()
