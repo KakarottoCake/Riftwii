@@ -36,7 +36,7 @@ on:
         type: string
         default: ""
       text_ref:
-        description: "discord-repost only: the branch, tag or commit to take release/discord.md, its pictures and the renderer from, e.g. main after fixing a bad message; posted as it is there (empty: the release's own tag)"
+        description: "discord-repost only: main, to take release/discord.md, its pictures and the renderer from main after fixing a bad message (only main is accepted) (empty: the release's own tag)"
         type: string
         default: ""
 
@@ -306,6 +306,11 @@ jobs:
         env:
           TEXT_REF: ${{ inputs.text_ref }}
         run: |
+          # main only: its code is reviewed, and it runs here with the webhook.
+          if [ "$TEXT_REF" != main ]; then
+            echo "::error::text_ref can only be main (got '$TEXT_REF')."
+            exit 1
+          fi
           if [ -n "$(find release/discord.md docs/screenshots -type l)" ]; then
             echo "::error::release/discord.md or docs/screenshots on $TEXT_REF holds a symbolic link: not posted."
             exit 1
