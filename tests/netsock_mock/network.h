@@ -30,6 +30,12 @@ struct sockaddr_in {
 struct hostent { char** h_addr_list; };
 struct pollsd { s32 socket; u32 events; u32 revents; };
 
+// The Wii is big-endian, so these change nothing. macOS's system headers
+// make them macros (netsock.cpp includes <fcntl.h> first), which these
+// definitions would otherwise be expanded through.
+#undef htons
+#undef htonl
+#undef ntohl
 inline std::uint16_t htons(std::uint16_t value) { return value; }
 inline u32 htonl(u32 value) { return value; }
 inline u32 ntohl(u32 value) { return value; }

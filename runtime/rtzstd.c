@@ -294,8 +294,16 @@ static inline int rtzstd_huffman_symbol(const uint16_t* table, unsigned log,
 }
 
 /* The literals loop is the decoder's hottest: -O3 here makes the whole
- * decoder about 8% faster for about 1 KB of code (the rest stays -O2). */
-__attribute__((optimize("O3"))) static int rtzstd_huffman_streams(struct rtzstd_context* ctx, uint8_t* output,
+ * decoder about 8% faster for about 1 KB of code (the rest stays -O2).
+ * Only GCC knows the attribute (the Wii build is GCC); Clang warns that it
+ * ignores it, which the host build's -Werror turns into a failed build. */
+#if defined(__GNUC__) && !defined(__clang__)
+#define RTZSTD_HOT __attribute__((optimize("O3")))
+#else
+#define RTZSTD_HOT
+#endif
+
+RTZSTD_HOT static int rtzstd_huffman_streams(struct rtzstd_context* ctx, uint8_t* output,
                                   unsigned decoded, const uint8_t* src,
                                   unsigned bytes, unsigned streams) {
     struct rtzstd_bits bits[4];

@@ -33,7 +33,9 @@ unsigned key_reads = 0;
 std::array<int, 3> key_choices = {1, -1, -1};
 std::vector<WadKeySource> key_sources;
 bool fail_commit = false;
-int writes_before_failure = -1;
+#ifdef RIFTWII_TEST_WRAP_RENAME
+int writes_before_failure = -1;  // only the rename-wrapped builds count writes
+#endif
 
 void put(std::vector<std::uint8_t>& bytes, std::size_t at, std::uint64_t value, unsigned count) {
     for (unsigned i = 0; i < count; ++i) bytes[at + count - 1 - i] = static_cast<std::uint8_t>(value >> (8 * i));
