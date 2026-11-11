@@ -3646,7 +3646,7 @@ msgid "Spin"
 msgstr "Girar"
 
 msgid "The game's disc. Press A to spin it."
-msgstr "El disco del juego. Aprieta A para girarlo."
+msgstr "El disco del juego. Pulsa A para girarlo."
 
 msgid "Music file"
 msgstr "Archivo de música"

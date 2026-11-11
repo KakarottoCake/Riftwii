@@ -7527,7 +7527,7 @@ T.update({
     # The game page's disc, up close and spinning
     "Spin": ("Girar", "回す", "Girar", "Gira"),
     "The game's disc. Press A to spin it.": (
-        "El disco del juego. Aprieta A para girarlo.",
+        "El disco del juego. Pulsa A para girarlo.",
         "ゲームのディスクです。Aで回せます。",
         "O disco do jogo. Aperte A para girá-lo.",
         "Il disco del gioco. Premi A per farlo girare."),

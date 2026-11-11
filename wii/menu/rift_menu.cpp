@@ -12763,16 +12763,19 @@ public:
 				dragStart = now;
 				omega = 0.0f;
 			}
-			dragAt = at;
-			dragTime = now;
+			if (!dragging || t->chan == dragChan) {
+				dragAt = at;
+				dragTime = now;
+			}
 		} else if (dragging && t->chan == dragChan) {
 			dragging = false;
 			// Let go without having dragged it anywhere: a tap, which flicks
 			// it on (the pointer's A is a tap far more often than a drag).
 			if (dragTravel < 0.25f && ticks_to_millisecs(gettime() - dragStart) < 500) Flick();
 		}
-		// Without a pointer (a pad, the classic controller): A flicks it.
-		if (pressedA && !pointing) Flick();
+		// An A press that did not start a drag (no pointer, or a pad's own
+		// pointer away from the disc) is a tap: A flicks it.
+		if (pressedA && !(dragging && t->chan == dragChan)) Flick();
 	}
 
 private:
