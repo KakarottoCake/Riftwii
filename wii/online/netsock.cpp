@@ -14,6 +14,8 @@
 #include <cstring>
 
 #include "log.hpp"
+#include "netconfig.hpp"
+#include "riftwii/dnsquery.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -117,6 +119,85 @@ bool read_ipv4(const char*& text, std::uint32_t& ip) {
         ip = (ip << 8) | octet;
     }
     return true;
+}
+
+
+// DNS servers answer on this port.
+constexpr std::uint16_t kDnsPort = 53;
+// A DNS server on the home network answers within a fraction of a second;
+// a second try covers a lost datagram, and the whole lookup stays under
+// the seconds IOS's own one takes to give up.
+constexpr int kDnsAnswerWaitMs = 2000;
+constexpr int kDnsTriesPerServer = 2;
+
+// One question to one DNS server, over UDP. Datagrams that are not the
+// answer to this question, or that come from another address, are ignored
+// until the wait ends.
+DnsReply ask_dns_server(std::uint32_t server_ip, const std::string& host, std::uint16_t id, std::uint32_t& ip) {
+    std::uint8_t query[kDnsMaxMessage];
+    const std::size_t query_size = build_dns_query(host, id, query, sizeof(query));
+    if (query_size == 0) return DnsReply::NotAnswer;
+
+    const s32 s = net_socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+    if (s < 0) return DnsReply::NotAnswer;
+    NetServer server;
+    server.ip = server_ip;
+    server.port = kDnsPort;
+    sockaddr_in to = address_of(server);
+
+    DnsReply result = DnsReply::NotAnswer;
+    for (int attempt = 0; attempt < kDnsTriesPerServer && result == DnsReply::NotAnswer; ++attempt) {
+        if (net_sendto(s, query, static_cast<s32>(query_size), 0, reinterpret_cast<sockaddr*>(&to), sizeof(to)) < 0)
+            break;
+        const u64 started = gettime();
+        for (;;) {
+            const u64 elapsed = diff_msec(started, gettime());
+            // Stray datagrams must not restart the wait (as in DiscoverServers).
+            if (cancelled() || elapsed >= static_cast<u64>(kDnsAnswerWaitMs)) break;
+            if (!wait_for(s, POLLIN, kDnsAnswerWaitMs - static_cast<int>(elapsed))) break;
+            std::uint8_t reply[kDnsMaxMessage];
+            sockaddr_in from;
+            socklen_t from_len = sizeof(from);
+            const s32 got = net_recvfrom(s, reply, sizeof(reply), 0, reinterpret_cast<sockaddr*>(&from), &from_len);
+            if (got <= 0 || ntohl(from.sin_addr.s_addr) != server_ip) continue;
+            const DnsReply parsed = parse_dns_reply(reply, static_cast<std::size_t>(got), host, id, ip);
+            if (parsed == DnsReply::NotAnswer) continue;
+            result = parsed;
+            break;
+        }
+    }
+    net_close(s);
+    return result;
+}
+
+// IOS looks names up through the Wii's own resolver, and with DNS servers
+// typed into the Wii's Internet settings that lookup can fail where the
+// same servers answer other devices. So when it does, the servers saved in
+// the NAND's settings are asked directly. False when none are saved for the
+// connection in use, or none of them knows `host`.
+bool resolve_through_saved_dns(const std::string& host, std::uint32_t& ip) {
+    std::vector<std::uint8_t> config;
+    std::string why;
+    if (!ReadSavedNetConfig(config, why)) {
+        logf("DNS: the Wii's network settings could not be read (%s)\n", why.c_str());
+        return false;
+    }
+    const std::vector<std::uint32_t> servers = saved_dns_servers(config.data(), config.size());
+    if (servers.empty()) return false;
+
+    // Any change between questions will do for the ID: it only has to tell
+    // this answer from a late one, and the source address is checked too.
+    static std::uint16_t next_id = 0;
+    for (std::uint32_t server : servers) {
+        if (cancelled()) return false;
+        next_id = static_cast<std::uint16_t>(next_id + 1 + (static_cast<std::uint32_t>(gettime()) & 0xFF));
+        logf("DNS: asking the saved DNS server %u.%u.%u.%u for %s\n", (server >> 24) & 0xFF, (server >> 16) & 0xFF,
+             (server >> 8) & 0xFF, server & 0xFF, host.c_str());
+        const DnsReply reply = ask_dns_server(server, host, next_id, ip);
+        if (reply == DnsReply::Address) return true;
+        logf("DNS: that server %s\n", reply == DnsReply::NoAddress ? "has no address for it" : "did not answer");
+    }
+    return false;
 }
 
 }  // namespace
@@ -250,15 +331,21 @@ bool ResolveServer(const std::string& address, std::uint16_t port, NetServer& ou
         return true;
     }
     hostent* host = net_gethostbyname(address.c_str());
-    if (host == nullptr || host->h_addr_list == nullptr || host->h_addr_list[0] == nullptr) {
-        error = "cannot find the address of " + address;
-        return false;
+    if (host != nullptr && host->h_addr_list != nullptr && host->h_addr_list[0] != nullptr) {
+        std::uint32_t ip;
+        std::memcpy(&ip, host->h_addr_list[0], sizeof(ip));
+        out.ip = ntohl(ip);
+        out.port = port;
+        return true;
     }
-    std::uint32_t ip;
-    std::memcpy(&ip, host->h_addr_list[0], sizeof(ip));
-    out.ip = ntohl(ip);
-    out.port = port;
-    return true;
+    std::uint32_t saved_dns_ip = 0;
+    if (resolve_through_saved_dns(address, saved_dns_ip)) {
+        out.ip = saved_dns_ip;
+        out.port = port;
+        return true;
+    }
+    error = "cannot find the address of " + address;
+    return false;
 }
 
 std::vector<NetServer> DiscoverServers(std::uint16_t port, int timeout_ms) {
