@@ -15,6 +15,8 @@
 # "discord-repost" builds and publishes nothing: it posts an earlier
 # release's Discord message again, filled in from that release's tag with
 # today's tester role (for a post that went out wrong; delete that one first).
+# With text_ref (e.g. main) the message itself is read from there instead,
+# for a release whose own release/discord.md was wrong.
 name: Release
 
 on:
@@ -31,6 +33,10 @@ on:
         default: true
       version:
         description: "discord-repost only: the release to post again, e.g. 2610-541"
+        type: string
+        default: ""
+      text_ref:
+        description: "discord-repost only: the branch, tag or commit to read release/discord.md and docs/screenshots from, e.g. main after fixing a bad message; posted as it is there (empty: the release's own tag)"
         type: string
         default: ""
 
@@ -262,7 +268,8 @@ jobs:
           echo "Posted the testers' message to Discord." >> "$GITHUB_STEP_SUMMARY"
 
   # A published release's Discord message, posted again: the texts are
-  # filled in from that release's tag and its riftwii.dol, with the tester
+  # filled in from that release's tag (or release/discord.md and
+  # docs/screenshots from text_ref) and its riftwii.dol, with the tester
   # role as it is set now, so a post that went out with a wrong role ID (or
   # none) can be replaced. The release itself is left as it is.
   repost:
@@ -291,6 +298,16 @@ jobs:
       - uses: actions/checkout@v5
         with:
           ref: v${{ inputs.version }}
+      # A fixed text: release/discord.md (and its pictures) from text_ref,
+      # the rest of the tree still from the tag.
+      - name: The message from text_ref
+        if: inputs.text_ref != ''
+        env:
+          TEXT_REF: ${{ inputs.text_ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin -- "$TEXT_REF"
+          git checkout FETCH_HEAD -- release/discord.md docs/screenshots
+          echo "release/discord.md and docs/screenshots from $TEXT_REF ($(git rev-parse --short FETCH_HEAD))" >> "$GITHUB_STEP_SUMMARY"
       # The DOL fills in the same SHA-256 and size as the first post's text.
       - name: Fill in the message
         run: |

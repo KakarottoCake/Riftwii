@@ -64,7 +64,17 @@ def tracked(path):
 
 
 def without_comments(template):
-    return re.sub(r"<!--.*?-->\n?", "", template, flags=re.S)
+    # An unclosed comment would go out as text (2611-162's Discord post did),
+    # or swallow the text up to the next comment's end.
+    def drop(match):
+        if "<!--" in match.group(0)[4:]:
+            fail("a <!-- comment --> is not closed before the next <!--: fix it, or the text between them is lost")
+        return ""
+
+    text = re.sub(r"<!--.*?-->\n?", drop, template, flags=re.S)
+    if "<!--" in text or "-->" in text:
+        fail("a <!-- comment --> is not closed (or a --> has no <!--): fix it, or the comment goes out as part of the text")
+    return text
 
 
 def fill(template, values, source):
