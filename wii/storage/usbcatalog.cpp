@@ -156,6 +156,7 @@ struct PickedDrive {
     bool known = false;
 };
 PickedDrive g_picked;
+s32 g_usb_heap = 1;  // ReserveUsbBuffers' USBStorage_Initialize result; 1 = not asked yet
 constexpr u32 kPickedBounce = 32 * 1024;
 
 bool reopen_picked();
@@ -1478,12 +1479,18 @@ void InitUsbLock() {
 void ReserveUsbBuffers() {
     if (!g_picked.bounce) g_picked.bounce = skin::Mem2Alloc(kPickedBounce);
     ums::ReserveBuffer();
+    // libogc's storage driver takes its own 18 KiB heap off the MEM2
+    // arena's top the first time it starts, and nothing more: no IOS call,
+    // and a no-op every later time. Taken now, so a drive plugged in after
+    // the menu filled the arena still starts.
+    g_usb_heap = USBStorage_Initialize();
 }
 
 void LogUsbBuffers() {
     const void* d2x = ums::Buffer();
-    logf("USB buffers (MEM2, taken at start-up): menu's driver %p, d2x's %p%s\n", static_cast<void*>(g_picked.bounce),
-         d2x, g_picked.bounce && d2x ? "" : " (0: MEM2 was full; the USB drive may not be readable)");
+    logf("USB buffers (MEM2, taken at start-up): menu's driver %p, d2x's %p, libogc's storage heap %s%s\n",
+         static_cast<void*>(g_picked.bounce), d2x, g_usb_heap >= 0 ? "ok" : std::to_string(g_usb_heap).c_str(),
+         g_picked.bounce && d2x && g_usb_heap >= 0 ? "" : " (MEM2 was full; the USB drive may not be readable)");
 }
 
 bool usb_volume_ready() {
