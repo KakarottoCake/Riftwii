@@ -391,16 +391,18 @@ bool copy_nand_file_chunked(const std::string& from, const std::string& to, std:
     return ok;
 }
 
-std::vector<std::string> card_names(const std::string& folder) {
-    std::vector<std::string> names;
-    if (DIR* d = opendir(folder.c_str())) {
-        while (dirent* e = readdir(d)) {
-            const std::string n = e->d_name;
-            if (n != "." && n != "..") names.push_back(n);
-        }
-        closedir(d);
+// The names in a card folder; false when the folder could not be read
+// (it is then not taken for an empty one).
+bool card_names(const std::string& folder, std::vector<std::string>& names) {
+    names.clear();
+    DIR* d = opendir(folder.c_str());
+    if (d == nullptr) return false;
+    while (dirent* e = readdir(d)) {
+        const std::string n = e->d_name;
+        if (n != "." && n != "..") names.push_back(n);
     }
-    return names;
+    closedir(d);
+    return true;
 }
 
 }  // namespace
@@ -411,7 +413,13 @@ bool SeedCtgprSdSave(const std::string& game_id, std::string& why) {
     const std::string folder = ctgpr_sd_save_folder(region);
     const std::string nand = ctgpr_nand_data_dir(region);
     const bool existed = is_dir(folder);
-    std::vector<std::string> on_card = card_names(folder);
+    std::vector<std::string> on_card;
+    // A folder that is there but cannot be read may hold the player's save:
+    // it is left alone rather than taken for an empty one.
+    if (!card_names(folder, on_card) && existed) {
+        logf("CTGP-R save: %s could not be read; the folder is left as it is\n", folder.c_str());
+        return true;
+    }
     if (ctgpr_seed_skipped(on_card)) {
         logf("CTGP-R save: %s/rksys.dat is on the card; the folder is left as it is\n", folder.c_str());
         return true;
