@@ -53,8 +53,8 @@ index. Earlier updates did not need that original disc file.
 Putting the game back in partition slot 1, with the same offsets and
 contents, let the previously stuck 1.03.1193 update finish. The original
 channel then installed the later updates and reached "The main
-installation has completed!" The RiftWii run also passed 1.03.1193 and
-started installing those later updates. No channel code, signature check,
+installation has completed!" The separate RiftWii run reached the same
+completion message after installing all offered updates. No channel code, signature check,
 update payload or original game file was changed.
 
 For the CTGP-R channel's image launch, RiftWii now supplies a separate
