@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <map>
+#include <optional>
 #include <vector>
 
 #include "loadersettings.hpp"
@@ -21,14 +22,16 @@
 namespace riftwii::wii {
 namespace {
 
-// FALLBACK: English where a text has no translation.
+// FALLBACK: English where a text has no translation. WIIWARE: WiiWare,
+// Virtual Console and the homebrew apps (<type>Homebrew</type>, the
+// Homebrew view's covers); without it GameTDB sends the discs only, and no
+// app ever matched. GAMECUBE: the GameCube games, which RiftWii starts too.
 // Over https: a forged database would mark games custom (Home's Mods view).
 // GameTDB's chain ends at ISRG Root X1, in tlsroots.c; its http address only
 // redirects here.
-constexpr const char* kWiitdbUrl = "https://www.gametdb.com/wiitdb.zip?FALLBACK=TRUE&LANG=";
-// In one language the database is about 2 MB packed and 10 MB of XML, all
-// of them 10 MB and 41 MB (2026); room to grow, and a stop for anything
-// that unpacks without end.
+constexpr const char* kWiitdbUrl = "https://www.gametdb.com/wiitdb.zip?FALLBACK=TRUE&WIIWARE=1&GAMECUBE=1&LANG=";
+// In one language the database is about 3.3 MB packed and 18 MB of XML
+// (2026); room to grow, and a stop for anything that unpacks without end.
 constexpr std::size_t kMaxZip = 24u << 20;
 constexpr std::uint64_t kMaxXml = 160ull << 20;
 
@@ -50,6 +53,11 @@ unsigned g_mod_titles_written = 0;
 bool g_mod_titles_read_here = false;
 // This card's list found readable this session (once, not on every visit).
 bool g_mod_titles_checked_here = false;
+// The whole database's download, in place of an older RiftWii's discs-only
+// one, failed this session (GameTDB or the network down): not tried again
+// on every visit to Home, which keeps reading the old one meanwhile. A new
+// session or another card tries again; so does the About page's Download.
+bool g_full_download_failed = false;
 // Read from the database this session already (and the file written), for
 // the same reason as Cache::read_now; or stopped by the player.
 bool g_homebrew_read_now = false;
@@ -64,7 +72,11 @@ off_t g_homebrew_checked_size = -1;
 std::time_t g_homebrew_checked_time = 0;
 
 std::string CachePath(const std::string& lang) { return "sd:/riftwii/gameinfo-" + lang + ".txt"; }
-std::string ZipPath(const std::string& lang) { return "sd:/riftwii/wiitdb-" + lang + ".zip"; }
+// Named apart from the discs-only database older RiftWiis downloaded
+// (wiitdb-EN.zip), so a card with only that one gets the whole database:
+// the old file is read until the new one is downloaded, then removed.
+std::string ZipPath(const std::string& lang) { return "sd:/riftwii/wiitdb-all-" + lang + ".zip"; }
+std::string DiscsOnlyZipPath(const std::string& lang) { return "sd:/riftwii/wiitdb-" + lang + ".zip"; }
 std::string MenuLocale() { return gametdb_locale(MenuLanguage()); }
 
 bool Stat(const char* path, struct stat& st) { return stat(path, &st) == 0 && st.st_size > 0; }
@@ -303,6 +315,12 @@ bool GameInfoSource(std::string& path, std::time_t& written) {
         written = st.st_mtime;
         return true;
     }
+    const std::string discs_only = DiscsOnlyZipPath(MenuLocale());
+    if (Stat(discs_only.c_str(), st)) {
+        path = discs_only;
+        written = st.st_mtime;
+        return true;
+    }
     return false;
 }
 
@@ -506,36 +524,62 @@ bool ReadHomebrewTitles(std::string& error, const std::function<bool(double done
 namespace {
 
 // Downloads the database in `lang` to the card; the cache is left alone,
-// so this may run on the network's background thread.
+// so this may run on the network's background thread. The download is read
+// in full (lengths, CRC, the closing tag) before it takes the place of the
+// database on the card, so a damaged one never does, nor removes the older
+// discs-only one. `scanner`, when given, is that read's: the caller then
+// has the database's games without reading it again.
 bool DownloadDatabase(const std::string& lang, std::string& error,
-                      const std::function<void(std::size_t received)>& received) {
-    std::vector<std::uint8_t> body;
-    HttpProgress progress = nullptr;
-    if (received) progress = [&](std::size_t bytes) { received(bytes); };
-    if (!HttpGet(kWiitdbUrl + lang, body, error, kMaxZip, 30000, progress)) {
-        logf("Game details: download failed: %s\n", error.c_str());
-        return false;
-    }
-    if (body.size() < (256u << 10) || Le(body.data(), 4) != 0x04034B50u) {
-        error = "GameTDB sent something that is not its database";
-        logf("Game details: %s (%u bytes)\n", error.c_str(), static_cast<unsigned>(body.size()));
-        return false;
-    }
-    mkdir("sd:/riftwii", 0777);
+                      const std::function<void(std::size_t received)>& received,
+                      WiitdbScanner* scanner = nullptr, const Progress& checking = nullptr) {
     const std::string path = ZipPath(lang);
     const std::string temp = path + ".part";
-    FILE* f = std::fopen(temp.c_str(), "wb");
-    bool ok = f && std::fwrite(body.data(), 1, body.size(), f) == body.size();
-    if (f) std::fclose(f);
+    std::size_t size = 0;
+    {
+        std::vector<std::uint8_t> body;
+        HttpProgress progress = nullptr;
+        if (received) progress = [&](std::size_t bytes) { received(bytes); };
+        if (!HttpGet(kWiitdbUrl + lang, body, error, kMaxZip, 30000, progress)) {
+            logf("Game details: download failed: %s\n", error.c_str());
+            return false;
+        }
+        if (body.size() < (256u << 10) || Le(body.data(), 4) != 0x04034B50u) {
+            error = "GameTDB sent something that is not its database";
+            logf("Game details: %s (%u bytes)\n", error.c_str(), static_cast<unsigned>(body.size()));
+            return false;
+        }
+        mkdir("sd:/riftwii", 0777);
+        FILE* f = std::fopen(temp.c_str(), "wb");
+        const bool written = f && std::fwrite(body.data(), 1, body.size(), f) == body.size();
+        const bool closed = f && std::fclose(f) == 0;
+        if (!written || !closed) {
+            std::remove(temp.c_str());
+            error = "could not write " + path + " (card full?)";
+            logf("Game details: %s\n", error.c_str());
+            return false;
+        }
+        size = body.size();
+    }  // the packed database out of memory before it is read
+    WiitdbScanner own({}, lang);
+    if (!ScanZip(temp, scanner ? *scanner : own, error, checking)) {
+        std::remove(temp.c_str());
+        if (error != "stopped") {
+            logf("Game details: the downloaded database is damaged (%s); it is not kept\n", error.c_str());
+            error = "GameTDB's database arrived damaged: " + error;
+        }
+        return false;
+    }
     std::remove(path.c_str());
-    ok = ok && std::rename(temp.c_str(), path.c_str()) == 0;
-    if (!ok) {
+    if (std::rename(temp.c_str(), path.c_str()) != 0) {
         std::remove(temp.c_str());
         error = "could not write " + path + " (card full?)";
         logf("Game details: %s\n", error.c_str());
         return false;
     }
-    logf("Game details: %u bytes of GameTDB's database saved to %s\n", static_cast<unsigned>(body.size()), path.c_str());
+    logf("Game details: %u bytes of GameTDB's database saved to %s\n", static_cast<unsigned>(size), path.c_str());
+    // An older RiftWii's database, without the homebrew apps: not needed now.
+    if (std::remove(DiscsOnlyZipPath(lang).c_str()) == 0)
+        logf("Game details: removed the older discs-only database %s\n", DiscsOnlyZipPath(lang).c_str());
     return true;
 }
 
@@ -549,6 +593,9 @@ struct BackgroundRead {
     bool started = false;
     std::string lang;
     std::string source;  // empty: download the database first
+    // Read when that download fails: an older RiftWii's discs-only database.
+    std::string fallback;
+    bool download_failed = false;  // and so it was
     std::set<std::string> ids;
     bool ok = false;
     std::string error;
@@ -559,25 +606,41 @@ struct BackgroundRead {
 BackgroundRead g_read;
 
 void ReadInBackground() {
-    if (g_read.source.empty()) {
-        // A cancelled job's download fails within a tenth of a second.
-        if (!DownloadDatabase(g_read.lang, g_read.error, nullptr)) return;
-        g_read.source = ZipPath(g_read.lang);
-    }
-    WiitdbScanner scanner(g_read.ids, g_read.lang);
     // The SD card taken out, or RiftWii left: the read stops (as "stopped")
     // instead of holding the card for the seconds the rest would take.
     const Progress go_on = [](double) { return !NetCancelRequested(); };
-    const bool zip = g_read.source.size() > 4 && g_read.source.compare(g_read.source.size() - 4, 4, ".zip") == 0;
-    const bool read = zip ? ScanZip(g_read.source, scanner, g_read.error, go_on)
-                          : ScanXml(g_read.source, scanner, g_read.error, go_on);
+    std::optional<WiitdbScanner> scanner;
+    scanner.emplace(g_read.ids, g_read.lang);
+    bool read = false;
+    if (g_read.source.empty()) {
+        // A cancelled job's download fails within a tenth of a second.
+        // Checking the download is also the read of it.
+        if (DownloadDatabase(g_read.lang, g_read.error, nullptr, &*scanner, go_on)) {
+            g_read.source = ZipPath(g_read.lang);
+            read = true;
+        } else if (!g_read.fallback.empty() && !NetCancelRequested()) {
+            // Not tried again this session (StartGameInfoRead).
+            g_read.download_failed = true;
+            logf("Game details: reading %s meanwhile\n", g_read.fallback.c_str());
+            g_read.source = g_read.fallback;
+            g_read.error.clear();
+            scanner.emplace(g_read.ids, g_read.lang);  // the failed check's games left out
+        } else {
+            return;
+        }
+    }
+    if (!read) {
+        const bool zip = g_read.source.size() > 4 && g_read.source.compare(g_read.source.size() - 4, 4, ".zip") == 0;
+        read = zip ? ScanZip(g_read.source, *scanner, g_read.error, go_on)
+                   : ScanXml(g_read.source, *scanner, g_read.error, go_on);
+    }
     if (!read) return;
-    g_read.games = scanner.games();
-    if (!try_assign_range(g_read.homebrew, scanner.homebrew().begin(), scanner.homebrew().end())) {
+    g_read.games = scanner->games();
+    if (!try_assign_range(g_read.homebrew, scanner->homebrew().begin(), scanner->homebrew().end())) {
         g_read.error = "no room in memory for the list of GameTDB's apps";
         return;
     }
-    if (!try_assign_range(g_read.customs, scanner.customs().begin(), scanner.customs().end())) {
+    if (!try_assign_range(g_read.customs, scanner->customs().begin(), scanner->customs().end())) {
         g_read.error = "no room in memory for the list of GameTDB's mods";
         return;
     }
@@ -617,6 +680,7 @@ void ForgetGameInfo() {
     ForgetHomebrewTitlesRead();
     g_mod_titles_read_here = false;
     g_mod_titles_checked_here = false;
+    g_full_download_failed = false;
 }
 
 GameInfoReadStart StartGameInfoRead(const std::set<std::string>& wanted, bool download) {
@@ -627,9 +691,13 @@ GameInfoReadStart StartGameInfoRead(const std::set<std::string>& wanted, bool do
     std::time_t source_time = 0;
     const bool have_source = GameInfoSource(source, source_time);
     if (!have_source && !download) return GameInfoReadStart::NothingToRead;
+    // Only an older RiftWii's discs-only database on the card: the whole
+    // one is downloaded in its place (the old one read if that fails).
+    const bool discs_only =
+        have_source && download && !g_full_download_failed && source == DiscsOnlyZipPath(lang);
     const bool stale = have_source && !g_cache.read_now && source_time > g_cache.written;
     // Every game on the drives already looked for: nothing to read.
-    bool missing = !have_source;
+    bool missing = !have_source || discs_only;
     for (const std::string& id : wanted)
         if (!g_cache.games.count(id) && !g_cache.not_listed.count(id)) missing = true;
     // The mods' list (#385) missing (read by a RiftWii from before it), too
@@ -652,13 +720,14 @@ GameInfoReadStart StartGameInfoRead(const std::set<std::string>& wanted, bool do
     if (!stale && !missing) return GameInfoReadStart::NothingToRead;
     BackgroundRead read;
     read.lang = lang;
-    read.source = have_source ? source : "";
+    read.source = have_source && !discs_only ? source : "";
+    if (discs_only) read.fallback = source;
     read.ids = wanted;
     for (const auto& kept : g_cache.games) read.ids.insert(kept.first);
     read.ids.insert(g_cache.not_listed.begin(), g_cache.not_listed.end());
     read.started = true;
     logf("Game details: reading %s for %u game(s) in the background\n",
-         have_source ? source.c_str() : "GameTDB's database (downloading it first)",
+         !read.source.empty() ? read.source.c_str() : "GameTDB's database (downloading it first)",
          static_cast<unsigned>(read.ids.size()));
     g_read = std::move(read);
     g_read_done.store(false, std::memory_order_relaxed);
@@ -674,6 +743,7 @@ bool TakeGameInfoRead(bool& changed) {
     if (!g_read.started || !g_read_done.load(std::memory_order_acquire)) return false;
     BackgroundRead read = std::move(g_read);
     g_read = BackgroundRead();
+    if (read.download_failed) g_full_download_failed = true;
     if (!read.ok) {
         logf("Game details: the background read failed: %s\n", read.error.c_str());
         return true;

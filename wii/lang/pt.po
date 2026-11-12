@@ -2595,8 +2595,8 @@ msgstr "Ainda não há dados dos jogos"
 msgid "Download game details?"
 msgstr "Baixar os dados dos jogos?"
 
-msgid "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?"
-msgstr "Vêm da base de dados do GameTDB com todos os jogos de Wii: cerca de 2 MB, guardados no cartão SD. Baixar agora?"
+msgid "They come from GameTDB's database of every Wii game: about 3 MB, kept on the SD card. Download it now?"
+msgstr "Vêm da base de dados do GameTDB com todos os jogos de Wii: cerca de 3 MB, guardados no cartão SD. Baixar agora?"
 
 msgid "Players"
 msgstr "Jogadores"
