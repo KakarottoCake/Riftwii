@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/ctgpconfig.hpp"
 
+#include <cctype>
 #include <vector>
 
 namespace riftwii {
@@ -12,6 +13,15 @@ std::string trim(const std::string& s) {
     if (first == std::string::npos) return std::string();
     const auto last = s.find_last_not_of(" \t\r\n");
     return s.substr(first, last - first + 1);
+}
+
+// INI section and key names do not depend on case.
+bool same_name(const std::string& a, const std::string& b) {
+    if (a.size() != b.size()) return false;
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        if (std::tolower(static_cast<unsigned char>(a[i])) != std::tolower(static_cast<unsigned char>(b[i]))) return false;
+    }
+    return true;
 }
 
 }  // namespace
@@ -34,7 +44,7 @@ bool ini_add_default(std::string& text, const std::string& section, const std::s
         const std::string t = trim(text.substr(line.first, line.second - line.first));
         if (!t.empty() && t[0] == '[') {
             const auto close = t.find(']');
-            inside = close != std::string::npos && trim(t.substr(1, close - 1)) == section;
+            inside = close != std::string::npos && same_name(trim(t.substr(1, close - 1)), section);
             if (inside) last_in_section = line.second;
             continue;
         }
@@ -44,7 +54,7 @@ bool ini_add_default(std::string& text, const std::string& section, const std::s
         }
         last_in_section = line.second;
         const auto eq = t.find('=');
-        if (trim(t.substr(0, eq)) == key) return false;
+        if (same_name(trim(t.substr(0, eq)), key)) return false;
     }
     const std::string entry = key + " = " + value;
     if (last_in_section != std::string::npos) {
@@ -77,16 +87,16 @@ bool ini_set(std::string& text, const std::string& section, const std::string& k
         const std::string t = trim(line);
         if (!t.empty() && t[0] == '[') {
             const auto close = t.find(']');
-            inside = close != std::string::npos && trim(t.substr(1, close - 1)) == section;
+            inside = close != std::string::npos && same_name(trim(t.substr(1, close - 1)), section);
         } else if (inside && !t.empty() && t[0] != '#' && t[0] != ';') {
             const auto eq = line.find('=');
-            if (trim(line.substr(0, eq)) == key) {
+            if (same_name(trim(line.substr(0, eq)), key)) {
                 const std::string old = eq == std::string::npos ? std::string() : trim(line.substr(eq + 1));
                 if (old_value) *old_value = old;
                 if (old == value) return false;
                 // The key's own indentation stays; the rest of the line
                 // becomes " = value".
-                const std::size_t key_end = at + line.find(key) + key.size();
+                const std::size_t key_end = at + line.find_first_not_of(" \t") + key.size();
                 text.replace(key_end, end - key_end, " = " + value);
                 return true;
             }

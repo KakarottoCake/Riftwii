@@ -26,6 +26,7 @@
 #include "frontend.hpp"
 #include "gameextras.hpp"
 #include "gclaunch.hpp"
+#include "i18n.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
 #include "plugins.hpp"
@@ -104,18 +105,20 @@ std::string basename_of(const std::string& disc_path) {
 // "disable_ios_exploit = yes" in [exploit] unless the player set that key.
 // On d2x's virtual disc (a USB or SD image) that key is set to yes whatever
 // it was, and so are "[sd] compatible_mode" and "[exploit] disable_patches"
-// (ctgpconfig.hpp says why): the channel then reloads
-// into the d2x cIOS before the game, and d2x carries its fragment list
-// across that reload (it saves it to the NAND when a disc game's program
-// reloads IOS, and the reloaded cIOS reads it back). Before any IOS reload,
-// while libfat has the card.
-void SetCtgpDefaults(const std::string& app, bool virtual_disc) {
+// (ctgpconfig.hpp says why): the channel then reloads into the d2x cIOS
+// before the game, and d2x carries its fragment list across that reload (it
+// saves it to the NAND when a disc game's program reloads IOS, and the
+// reloaded cIOS reads it back). Before any IOS reload, while libfat has the
+// card. Returns false, with `error` set, when a virtual disc's changed file
+// cannot be written: the channel would then run its own IOS exploit, which
+// can hang under d2x.
+bool SetCtgpDefaults(const std::string& app, bool virtual_disc, std::string& error) {
     const std::string folder = "sd:/apps/ctgpr/";
     if (app.size() <= folder.size() || strncasecmp(app.c_str(), folder.c_str(), folder.size()) != 0 ||
         app.find('/', folder.size()) != std::string::npos)
-        return;
+        return true;
     struct stat st;
-    if (stat("sd:/ctgpr", &st) != 0 || !S_ISDIR(st.st_mode)) return;
+    if (stat("sd:/ctgpr", &st) != 0 || !S_ISDIR(st.st_mode)) return true;
     const char* path = "sd:/ctgpr/config.ini";
     // No file yet: the defaults go into an empty one.
     std::string text;
@@ -157,6 +160,11 @@ void SetCtgpDefaults(const std::string& app, bool virtual_disc) {
             logf("CTGP: config.ini [%s] %s = yes (was %s)%s\n", k.section, k.name, was,
                  written ? "" : ", NOT written");
     }
+    if (!written && virtual_disc) {
+        error = tr("CTGP-R's settings file (sd:/ctgpr/config.ini) could not be written, so nothing was started. Check that the SD card is not locked or full.");
+        return false;
+    }
+    return true;
 }
 
 // Before the compile, from the packs' own places (d2xnandemu.hpp): the
@@ -548,11 +556,27 @@ bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& sou
     return boot_game(s.probe, std::move(options), error);
 }
 
+// Asked on every redraw by the menu's notes, so worked out once and kept;
+// CtgprNativeForget makes the next ask look at the card again (after the packs
+// are scanned).
+static bool g_native_opted_known = false;
+static bool g_native_opted_in = false;
+
 bool CtgprNativeOptedIn() {
-    return ctgpr_native_opted() && ctgpr_native_wanted();
+    if (!g_native_opted_known) {
+        g_native_opted_in = ctgpr_native_opted() && ctgpr_native_wanted();
+        g_native_opted_known = true;
+    }
+    return g_native_opted_in;
 }
 
+void CtgprNativeForget() { g_native_opted_known = false; }
+
 bool CtgprPackGoesThroughRunLaunch(const std::vector<PackageChoices>& packages, const std::string& game_id) {
+    // An RMC game with CTGP-R's pack chosen goes through RunLaunch even when
+    // the channel's boot.dol is missing (homebrew_app_stand_in does not see
+    // the swap then), so RunLaunch can refuse instead of the game being patched.
+    if (game_id.compare(0, 3, "RMC") == 0 && ctgpr_pack_chosen(packages)) return true;
     std::string app, dropped;
     return homebrew_app_stand_in(packages, game_id, app, dropped) && ctgp_is_native_stand_in(game_id, app);
 }
@@ -579,16 +603,25 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
         // set up to serve that game as the disc (the reload into the cIOS
         // ends the hardware access; the app runs under the cIOS).
         std::string app, dropped;
-        if (game_id.compare(0, 3, "RMC") == 0 && ctgpr_pack_chosen(packages) && !ctgpr_native_opted()) {
+        bool stand_in = homebrew_app_stand_in(packages, game_id, app, dropped);
+        if (!stand_in && game_id.compare(0, 3, "RMC") == 0 && ctgpr_pack_chosen(packages)) {
+            // With the channel's boot.dol missing homebrew_app_stand_in does
+            // not see CTGP-R's swap at all. The native launch does not read
+            // that file, so it goes on when opted into with its files ready;
+            // otherwise the launch stops here rather than patch the game.
             struct stat st;
             if (stat("sd:/apps/ctgpr/boot.dol", &st) != 0 || !S_ISREG(st.st_mode)) {
-                error = "CTGP-R channel: sd:/apps/ctgpr/boot.dol (CTGP-R's channel) is missing, so nothing was "
-                        "started. Put CTGP-R's apps/ctgpr folder on the SD card, or add ctgpnative.txt next to boot.dol for the native launch.";
-                logf("%s\n", error.c_str());
-                return false;
+                if (ctgpr_native_opted() && ctgpr_native_wanted()) {
+                    app = "sd:/apps/ctgpr/boot.dol";
+                    stand_in = true;
+                } else {
+                    error = tr("CTGP-R's channel (sd:/apps/ctgpr/boot.dol) is missing, so nothing was started. Put CTGP-R's apps/ctgpr folder on the SD card.");
+                    logf("%s\n", error.c_str());
+                    return false;
+                }
             }
         }
-        if (homebrew_app_stand_in(packages, game_id, app, dropped)) {
+        if (stand_in) {
             logf("Mods: the packs only replace the game's executable with %s, a Homebrew Channel app: started as "
                  "the Homebrew Channel starts it, not loaded as the game%s\n",
                  app.c_str(), dropped.empty() ? "" : ("; " + dropped + " does not apply to it").c_str());
@@ -632,7 +665,7 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
                 if (!prepare_ctgpr_launch(s.probe.header.game_id, options.ctgpr, error)) return false;
                 return boot_game(s.probe, std::move(options), error);
             }
-            SetCtgpDefaults(app, source.kind != LaunchSource::Kind::Disc);
+            if (!SetCtgpDefaults(app, source.kind != LaunchSource::Kind::Disc, error)) return false;
             if (source.kind != LaunchSource::Kind::Disc) {
                 // The app reloads IOS itself (CTGP asks for IOS37), which
                 // would drop d2x and the game with it: d2x blocks that.
@@ -660,25 +693,6 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
             }
             logf("Homebrew app: IOS%d, hardware access %s\n", IOS_GetVersion(),
                  *reinterpret_cast<volatile u32*>(0xCD800064) == 0xFFFFFFFFu ? "on" : "off");
-            if (ctgpr_channel) {
-                // The channel turns MEM2 protection on (MEM_PROT 0x0d8b420a = 1)
-                // and then clears MEM2 below its start, which IOS leaves at
-                // 0x13620000; d2x's plugins live in 0x13400000-0x1361ffff, so the
-                // clear wipes them and the channel's first IOS reload loses the
-                // virtual disc ("insert disc"). The start moved down to
-                // 0x13400000 (above the IPC buffer at 0x133e0000-0x133fffff,
-                // which the channel uses too) makes the channel's own switch
-                // protect them. Starting the app reloads no IOS under a cIOS, and
-                // each IOS reload puts the start back.
-                if (source.kind != LaunchSource::Kind::Disc &&
-                    *reinterpret_cast<volatile u32*>(0xCD800064) == 0xFFFFFFFFu) {
-                    const u16 before = read16(0xCD8B420C);
-                    write16(0xCD8B420C, 0x3400);
-                    logf("CTGP-R channel: MEM2 protection start moved from 0x%04x to 0x%04x (0x13400000) so the "
-                         "channel's clear keeps d2x's plugins\n",
-                         before, read16(0xCD8B420C));
-                }
-            }
             // CTGP-R's channel app is started without the libogc argument
             // block, exactly as the Homebrew Channel and the apploader leave
             // it: its start-up memory check hashes that block (0x80004008 in
@@ -686,7 +700,36 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
             // fail when d2x served the virtual disc (the block's 12 bytes were
             // the whole difference: crc 0xf07e20fc vs the normal 0xa9399ae0).
             if (ctgpr_channel) logf("CTGP-R channel: starting %s\n", app.c_str());
+            // The channel turns MEM2 protection on (MEM_PROT 0x0d8b420a = 1)
+            // and then clears MEM2 below its start, which IOS leaves at
+            // 0x13620000; d2x's plugins live in 0x13400000-0x1361ffff, so the
+            // clear wipes them and the channel's first IOS reload loses the
+            // virtual disc ("insert disc"). The start moved down to
+            // 0x13400000 (above the IPC buffer at 0x133e0000-0x133fffff,
+            // which the channel uses too) makes the channel's own switch
+            // protect them. Done right before the start, with hardware access
+            // and only under a cIOS: StartHomebrewApp reloads IOS only on
+            // the menu's IOS58 (a fresh one for the app), and any IOS reload
+            // puts the start back, so here it stays until the app runs. If
+            // the start fails, the old value goes back.
+            bool moved = false;
+            u16 protection_before = 0;
+            if (ctgpr_channel && source.kind != LaunchSource::Kind::Disc && IOS_GetVersion() != 58 &&
+                *reinterpret_cast<volatile u32*>(0xCD800064) == 0xFFFFFFFFu) {
+                protection_before = read16(0xCD8B420C);
+                write16(0xCD8B420C, 0x3400);
+                const u16 now = read16(0xCD8B420C);
+                moved = true;
+                logf("CTGP-R channel: MEM2 protection start moved from 0x%04x to 0x%04x (0x13400000) so the "
+                     "channel's clear keeps d2x's plugins\n",
+                     protection_before, now);
+                if (now != 0x3400) logf("CTGP-R channel: the readback is not 0x3400, the move did not take\n");
+            }
             if (StartHomebrewApp(app, error, !ctgpr_channel)) return true;
+            if (moved) {
+                write16(0xCD8B420C, protection_before);
+                logf("CTGP-R channel: MEM2 protection start put back to 0x%04x\n", protection_before);
+            }
             if (ctgpr_channel) logf("CTGP-R channel: it did not start: %s\n", error.c_str());
             ClearIosReloadBlock(error);
             return false;

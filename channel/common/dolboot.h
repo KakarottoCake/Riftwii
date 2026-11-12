@@ -32,6 +32,8 @@ void dolboot_run(const u8* dol, const char* argv0) __attribute__((noreturn));
 // argument line of `length` bytes (in MEM2), or 0 when the DOL lands
 // clear of this program and is copied by it, as before. For the log.
 u32 dolboot_far_address(const u8* dol, u32 length);
+// The same for a start that writes no argument block (dolboot_run_no_args).
+u32 dolboot_far_address_no_args(const u8* dol);
 
 // For a DOL dolboot_valid accepted: whether dolboot_run_line can hand it
 // an argument line of `length` bytes. False only for a DOL that reads

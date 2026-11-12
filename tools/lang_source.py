@@ -938,6 +938,16 @@ T = {
         "CTGP Revolution：専用のチャンネルアプリで起動します。",
         "CTGP Revolution: inicia pelo seu próprio app de canal.",
         "CTGP Revolution: si avvia con la propria app di canale."),
+    "CTGP-R's channel (sd:/apps/ctgpr/boot.dol) is missing, so nothing was started. Put CTGP-R's apps/ctgpr folder on the SD card.": (
+        "Falta el canal de CTGP-R (sd:/apps/ctgpr/boot.dol), así que no se inició nada. Pon la carpeta apps/ctgpr de CTGP-R en la tarjeta SD.",
+        "CTGP-Rのチャンネル（sd:/apps/ctgpr/boot.dol）がないため、何も起動しませんでした。CTGP-Rのapps/ctgprフォルダをSDカードに入れてください。",
+        "O canal do CTGP-R (sd:/apps/ctgpr/boot.dol) está faltando, então nada foi iniciado. Coloque a pasta apps/ctgpr do CTGP-R no cartão SD.",
+        "Manca il canale di CTGP-R (sd:/apps/ctgpr/boot.dol), quindi non è stato avviato nulla. Metti la cartella apps/ctgpr di CTGP-R nella scheda SD."),
+    "CTGP-R's settings file (sd:/ctgpr/config.ini) could not be written, so nothing was started. Check that the SD card is not locked or full.": (
+        "No se pudo escribir el archivo de ajustes de CTGP-R (sd:/ctgpr/config.ini), así que no se inició nada. Comprueba que la tarjeta SD no esté bloqueada ni llena.",
+        "CTGP-Rの設定ファイル（sd:/ctgpr/config.ini）を書き込めなかったため、何も起動しませんでした。SDカードのロックや空き容量を確認してください。",
+        "Não foi possível gravar o arquivo de ajustes do CTGP-R (sd:/ctgpr/config.ini), então nada foi iniciado. Verifique se o cartão SD não está bloqueado nem cheio.",
+        "Impossibile scrivere il file delle impostazioni di CTGP-R (sd:/ctgpr/config.ini), quindi non è stato avviato nulla. Controlla che la scheda SD non sia bloccata né piena."),
     # Mods where they cannot work (refused at Start). {1} is a folder like
     # "usb:/Project+", maybe followed by the piece below.
     " (and {1} more)": (" (y {1} más)", " (ほか{1}件)", " (e mais {1})", " (e altri {1})"),
@@ -3042,6 +3052,10 @@ KO = {
         "CTGP Revolution: 오프라인 전용 (시작 항목 참조)",
     "CTGP Revolution: starts through its own channel app.":
         "CTGP Revolution: 자체 채널 앱으로 시작합니다",
+    "CTGP-R's channel (sd:/apps/ctgpr/boot.dol) is missing, so nothing was started. Put CTGP-R's apps/ctgpr folder on the SD card.":
+        "CTGP-R 채널(sd:/apps/ctgpr/boot.dol)이 없어 아무것도 시작되지 않았습니다. CTGP-R의 apps/ctgpr 폴더를 SD 카드에 넣어 주세요.",
+    "CTGP-R's settings file (sd:/ctgpr/config.ini) could not be written, so nothing was started. Check that the SD card is not locked or full.":
+        "CTGP-R 설정 파일(sd:/ctgpr/config.ini)을 쓸 수 없어 아무것도 시작되지 않았습니다. SD 카드가 잠겨 있거나 가득 찼는지 확인해 주세요.",
     " (and {1} more)":
         " (그리고 {1} 개 더)",
     "Code builds on the USB drive won't work. Move {1} to the SD card.":
@@ -4914,6 +4928,10 @@ FR = {
         "CTGP Revolution : hors ligne uniquement (voir Démarrer).",
     "CTGP Revolution: starts through its own channel app.":
         "CTGP Revolution : démarre avec sa propre application de chaîne.",
+    "CTGP-R's channel (sd:/apps/ctgpr/boot.dol) is missing, so nothing was started. Put CTGP-R's apps/ctgpr folder on the SD card.":
+        "La chaîne de CTGP-R (sd:/apps/ctgpr/boot.dol) est introuvable, rien n'a été démarré. Placez le dossier apps/ctgpr de CTGP-R sur la carte SD.",
+    "CTGP-R's settings file (sd:/ctgpr/config.ini) could not be written, so nothing was started. Check that the SD card is not locked or full.":
+        "Le fichier de réglages de CTGP-R (sd:/ctgpr/config.ini) n'a pas pu être écrit, rien n'a été démarré. Vérifiez que la carte SD n'est ni verrouillée ni pleine.",
     " (and {1} more)":
         " (et {1} autre(s))",
     "Code builds on the USB drive won't work. Move {1} to the SD card.":
@@ -8564,7 +8582,7 @@ def check(repo):
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/credits.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
                "wii/core/plugins.cpp", "wii/core/memlimits.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp",
-               "wii/menu/picturepicker.cpp", "wii/launch/ctgpr.cpp"]
+               "wii/menu/picturepicker.cpp", "wii/launch/ctgpr.cpp", "wii/launch/launchrun.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:

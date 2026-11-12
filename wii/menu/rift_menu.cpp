@@ -2623,7 +2623,7 @@ static bool FrontPortsReached(const FrontendState& state)
 static std::string LaunchNote(const FrontendState& state)
 {
 	std::string note = state.launch_warning;
-	if (riftwii::wii::HomebrewAppPackOn(state) && riftwii::wii::CtgprNativeOptedIn()) {
+	if (riftwii::wii::CtgprNativeStandIn(state) && riftwii::wii::CtgprNativeOptedIn()) {
 		if (!note.empty()) note += " ";
 		note += tr(kCtgpNativeNote);
 	}
@@ -13468,7 +13468,7 @@ static std::string ModsNote(const FrontendState& state, const std::string& scanS
 {
 	if (const std::string problem = riftwii::wii::ModPlaceProblem(state, true); !problem.empty())
 		return FlatCapped(problem, 90);
-	if (riftwii::wii::HomebrewAppPackOn(state))
+	if (riftwii::wii::CtgprNativeStandIn(state))
 	{
 		if (riftwii::wii::CtgprNativeOptedIn()) return tr("CTGP Revolution: offline only (see Start).");
 		return tr("CTGP Revolution: starts through its own channel app.");

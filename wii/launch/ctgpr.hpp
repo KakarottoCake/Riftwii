@@ -28,20 +28,6 @@ inline constexpr const char* kCtgprJellyPath = "sd:/ctgpr/jelly.bin";
 // from RiftWii).
 bool ctgpr_native_wanted();
 
-// What the card's CTGP-R is to the native launch, for the menu's notes. Only
-// whether its files are there: which version they are is in its encrypted
-// package disk, which only the ctgpr plugin reads, and the menu does not load
-// the plugin for a note. A version the launch cannot start is refused, in
-// plain words, when it is started. Worked out once and kept, so the menu can
-// ask on every redraw; ctgpr_native_status_forget makes the next ask look at
-// the card again (after the packs are scanned).
-enum class CtgprNativeStatus {
-    NotInstalled,  // blob.bin or jelly.bin is missing: the pack goes the channel-app way
-    Installed,     // CTGP-R's files are there: the pack starts natively
-};
-CtgprNativeStatus ctgpr_native_status();
-void ctgpr_native_status_forget();
-
 // Builds the plan for the game `game_id` (its 4th character names the
 // region): loads the ctgpr plugin into the plugin arena in MEM2, has it build
 // the plan, and shuts it down again. The card must be mounted. False, with

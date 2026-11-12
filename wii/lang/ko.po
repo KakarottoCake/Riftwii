@@ -993,6 +993,12 @@ msgstr "CTGP Revolution: 오프라인 전용 (시작 항목 참조)"
 msgid "CTGP Revolution: starts through its own channel app."
 msgstr "CTGP Revolution: 자체 채널 앱으로 시작합니다"
 
+msgid "CTGP-R's channel (sd:/apps/ctgpr/boot.dol) is missing, so nothing was started. Put CTGP-R's apps/ctgpr folder on the SD card."
+msgstr "CTGP-R 채널(sd:/apps/ctgpr/boot.dol)이 없어 아무것도 시작되지 않았습니다. CTGP-R의 apps/ctgpr 폴더를 SD 카드에 넣어 주세요."
+
+msgid "CTGP-R's settings file (sd:/ctgpr/config.ini) could not be written, so nothing was started. Check that the SD card is not locked or full."
+msgstr "CTGP-R 설정 파일(sd:/ctgpr/config.ini)을 쓸 수 없어 아무것도 시작되지 않았습니다. SD 카드가 잠겨 있거나 가득 찼는지 확인해 주세요."
+
 msgid " (and {1} more)"
 msgstr " (그리고 {1} 개 더)"
 

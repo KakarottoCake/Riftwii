@@ -88,6 +88,18 @@ static void test_ini_set() {
     EXPECT_EQ(x, std::string("[sd]\n# compatible_mode = no\ncompatible_mode = yes\n"));
 }
 
+static void test_ini_set_case() {
+    // Section and key names match whatever their case; the file's own
+    // spelling of them stays.
+    std::string t = "[SD]\nCompatible_Mode = no\n";
+    std::string old;
+    EXPECT_TRUE(ctgp_channel_disc_config(t, &old));
+    EXPECT_EQ(old, std::string("no"));
+    EXPECT_EQ(t, std::string("[SD]\nCompatible_Mode = yes\n"));
+    std::string u = "[EXPLOIT]\nDisable_IOS_Exploit = no\n";
+    EXPECT_FALSE(ctgp_config_defaults(u));
+}
+
 static void test_disc_patches() {
     std::string t = "[exploit]\r\ndisable_patches = no\r\ndisable_ios_exploit = no\r\n";
     std::string old;
@@ -103,6 +115,7 @@ static void test_disc_patches() {
 
 int main() {
     test_ini_set();
+    test_ini_set_case();
     test_disc_patches();
     test_empty_file();
     test_no_section();

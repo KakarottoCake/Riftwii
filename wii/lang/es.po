@@ -993,6 +993,12 @@ msgstr "CTGP Revolution: solo sin conexión (mira Jugar)."
 msgid "CTGP Revolution: starts through its own channel app."
 msgstr "CTGP Revolution: se inicia con su propia app de canal."
 
+msgid "CTGP-R's channel (sd:/apps/ctgpr/boot.dol) is missing, so nothing was started. Put CTGP-R's apps/ctgpr folder on the SD card."
+msgstr "Falta el canal de CTGP-R (sd:/apps/ctgpr/boot.dol), así que no se inició nada. Pon la carpeta apps/ctgpr de CTGP-R en la tarjeta SD."
+
+msgid "CTGP-R's settings file (sd:/ctgpr/config.ini) could not be written, so nothing was started. Check that the SD card is not locked or full."
+msgstr "No se pudo escribir el archivo de ajustes de CTGP-R (sd:/ctgpr/config.ini), así que no se inició nada. Comprueba que la tarjeta SD no esté bloqueada ni llena."
+
 msgid " (and {1} more)"
 msgstr " (y {1} más)"
 

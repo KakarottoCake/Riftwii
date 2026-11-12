@@ -346,10 +346,14 @@ The channel skips the exploit when `sd:/ctgpr/config.ini` says so in its
 and CTGP only writes keys that differ from the default). Since 2.7.0 RC9,
 RiftWii adds that line before it starts `sd:/apps/ctgpr/boot.dol`
 (`SetCtgpDefaults`, `wii/launch/launchrun.cpp`; the INI merge is
-`riftwii/ctgpconfig.hpp`, tested in `tests/ctgpconfig_tests.cpp`). A value
-the player set is left alone. The key does not affect networking: online
-play comes from CTGP's patches to the game's code. `boot.log` shows
-`CTGP: config.ini set to skip CTGP's own IOS exploit`.
+`riftwii/ctgpconfig.hpp`, tested in `tests/ctgpconfig_tests.cpp`; section
+and key names match whatever their case). From a real disc a value the
+player set is left alone. From a USB or SD image that key and the two others
+above (`[sd] compatible_mode`, `[exploit] disable_patches`) are set to `yes`
+whatever the player had; `boot.log` gives each old value. The keys do not
+affect networking: online play comes from CTGP's patches to the game's code.
+`boot.log` shows e.g. `CTGP: config.ini [exploit] disable_ios_exploit = yes
+(was not set)`.
 
 ## d2x IOS reload block
 

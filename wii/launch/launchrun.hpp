@@ -38,7 +38,8 @@ void ForceCtgprNativeLaunch(bool on);
 #endif
 // Whether the native launch is what the CTGP-R pack will use: opted into
 // (ctgpnative.txt, or autorun's "ctgpnative") and its files are on the card.
-bool CtgprNativeOptedIn();
+bool CtgprNativeOptedIn();  // kept; asked on every redraw
+void CtgprNativeForget();   // the next ask looks at the card again
 bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error,
                const LaunchSource& source = LaunchSource(), const std::string& save_mode = "nand",
                const std::string& game_id = "", const MissingModConfirmation& confirm_missing = {});
