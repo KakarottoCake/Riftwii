@@ -124,6 +124,16 @@ NandList list_nand(const std::string& path, std::vector<std::string>& names, std
     return list_nand_with(nand_read_dir, name, nand_alloc, nand_release, names, count);
 }
 
+// The same, but only ISFS "not found" is NotThere: any other refusal is
+// Failed, with its code in `error`.
+NandList list_nand_strict(const std::string& path, std::vector<std::string>& names, std::uint32_t& count,
+                          std::int32_t& error) {
+    static char name[ISFS_MAXPATH] ATTRIBUTE_ALIGN(32) = {};
+    std::snprintf(name, sizeof(name), "%s", path.c_str());
+    count = 0;
+    return list_nand_strict_with(nand_read_dir, name, nand_alloc, nand_release, names, count, error);
+}
+
 // The Wii's save folder into the card's, its subfolders too.
 bool copy_nand_tree(const std::string& nand, const std::string& sd, unsigned& files, bool permissions_open,
                     std::string& why) {
@@ -410,10 +420,23 @@ bool SeedCtgprSdSave(const std::string& game_id, std::string& why) {
         why = "the Wii's save could not be read (ISFS)";
         return false;
     }
+    // /dev/fs is closed on every way out, so no handle goes on into the probe and the IOS reload.
+    struct NandUser {
+        ~NandUser() { NandClose(); }
+    } nand_user;
     NandPermissionSession permissions("CTGP-R save copy");
     std::vector<std::string> nand_names;
     std::uint32_t count = 0;
-    const NandList listed = list_nand(nand, nand_names, count);
+    std::int32_t code = 0;
+    const NandList listed = list_nand_strict(nand, nand_names, count, code);
+    // Only "not found" is a Wii with no save. Any other answer (a permission
+    // refusal, an ISFS error) says nothing about the save, and an empty folder
+    // made now would let the game start a new save that hides the real one:
+    // the card is left untouched.
+    if (listed == NandList::Failed) {
+        why = "the Wii's save folder " + nand + " could not be listed (ISFS " + std::to_string(code) + ")";
+        return false;
+    }
     if (listed == NandList::NoRoom || listed == NandList::Damaged) {
         why = listed == NandList::NoRoom ? "no room to list " + nand : nand + " lists a damaged folder";
         return false;
@@ -427,11 +450,30 @@ bool SeedCtgprSdSave(const std::string& game_id, std::string& why) {
     }
     logf("CTGP-R save: %s %s; copying the Wii's save from %s\n", folder.c_str(),
          existed ? "has no rksys.dat" : "created", nand.c_str());
-    const std::vector<std::string> plan = ctgpr_seed_plan(nand_names, on_card);
+    std::vector<std::string> plan;
+    for (const std::string& n : ctgpr_seed_plan(nand_names, on_card)) {
+        // A folder inside the data folder is not a save file: left alone.
+        std::vector<std::string> inner;
+        std::uint32_t inner_count = 0;
+        if (list_nand(nand + "/" + n, inner, inner_count) == NandList::Ok) {
+            logf("CTGP-R save: %s/%s is a folder, not copied\n", nand.c_str(), n.c_str());
+            continue;
+        }
+        plan.push_back(n);
+    }
+    // A leftover temporary of an earlier copy that stopped, for a name about
+    // to be written (only our own ending).
+    for (const std::string& n : plan) {
+        const std::string temp = folder + "/" + ctgpr_seed_temp_name(n);
+        struct stat st = {};
+        if (stat(temp.c_str(), &st) == 0 && S_ISREG(st.st_mode) && std::remove(temp.c_str()) == 0)
+            logf("CTGP-R save: removed the leftover %s of an earlier copy\n", temp.c_str());
+    }
     if (listed == NandList::NotThere)
         logf("CTGP-R save: the Wii has no save for %s (a new player): the folder is left empty, the game makes the "
              "save\n", game_id.c_str());
-    // Pieces through one MEM2 block (freed at once); the heap's 32 KiB only if MEM2 has none.
+    // One MEM2 block, freed straight after (TryMem2Alloc may grow `bytes`; 256 KiB of it is
+    // used, in pieces); the heap's 32 KiB only if MEM2 has none.
     std::size_t bytes = 256u * 1024;
     std::uint8_t* buffer = static_cast<std::uint8_t*>(plan.empty() ? nullptr : mem::TryMem2Alloc(bytes));
     std::size_t usable = bytes < 256u * 1024 ? bytes : 256u * 1024;

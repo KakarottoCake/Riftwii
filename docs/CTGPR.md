@@ -242,19 +242,25 @@ IOS and before the probe can reload it, RiftWii does what Riivolution's
 * A folder that already holds `rksys.dat` is left exactly as it is.
 * Otherwise the folder is made and the files of the NAND data folder
   (rksys.dat, banner.bin, wc24dl.vff, wc24scr.vff, whatever is there) are
-  copied in through one 256 KiB MEM2 block, each under a temporary name
+  copied in through one MEM2 block (freed straight after; 256 KiB of it is used), each under a temporary name
   (`<name>.rwtmp`) that is then renamed, rksys.dat last. Nothing on the card is
   overwritten or deleted. If a copy fails, only what that run made is removed
   (a folder it made goes too) and the launch goes on: boot.log says why, and
   the game may start without saving. A failed copy is never turned into an
   empty folder, because a new save made there would shadow the one on the Wii.
+* The Wii's save folder is listed strictly: only ISFS "not found" (-106) means
+  no save. Any other answer (a permission refusal, an ISFS error) fails the
+  seed with the code in boot.log and leaves the card untouched, so no empty
+  folder can hide a real save. A folder inside the data folder is skipped
+  (logged), and a leftover `*.rwtmp` of an earlier stopped copy is removed
+  before a file of that name is written. /dev/fs is closed on every way out.
 * A Wii with no save for the game (a new player) gets the empty folder, as
   Riivolution makes it, and the game starts its own save in it. This follows
   Riivolution's clone and RiftWii's runtime clone, where a missing NAND folder
   is an empty save; it has not been run in Dolphin with CTGP-R.
 
-The game page's Saves row says "SD card" with the folder's name for a pack that
-starts CTGP-R natively.
+The game page's Saves row says "SD card" and its note names the folder for a pack
+that starts CTGP-R natively.
 
 * **Disc:** the app starts under the menu's IOS with hardware access, before
   any probe or IOS reload.

@@ -23,7 +23,14 @@ constexpr std::size_t kNandNameBytes = kNandNameMax + 1;
 // (no such folder, or it is a file); Damaged is a count or list no real
 // NAND could report (the caller reports it); NoRoom is the list buffer
 // having no room (the caller reports that instead).
-enum class NandList { Ok, NotThere, Damaged, NoRoom };
+//
+// Failed is only returned by list_nand_strict_with: the first call was
+// refused for a reason other than "not found" (a permission refusal, an
+// ISFS hiccup), so nothing is known about the folder.
+enum class NandList { Ok, NotThere, Damaged, NoRoom, Failed };
+
+// ISFS's "no such file or folder".
+constexpr std::int32_t kNandNotFound = -106;
 
 // Buffer bytes for `count` names, 32-byte aligned for ISFS. False when the
 // count cannot come from a real NAND.
@@ -57,5 +64,11 @@ using NandFree = void (*)(void* block);
 // released exactly once on every path that allocated it.
 NandList list_nand_with(NandReadDir read_dir, void* ctx, NandAlloc alloc, NandFree release,
                         std::vector<std::string>& names, std::uint32_t& count);
+
+// The same, but only ISFS -106 (not found) is NotThere. Any other negative
+// first result is Failed, with the code in `error`. For a caller that would
+// act on "there is nothing" (CTGP-R's save copy). Others keep the lenient one.
+NandList list_nand_strict_with(NandReadDir read_dir, void* ctx, NandAlloc alloc, NandFree release,
+                               std::vector<std::string>& names, std::uint32_t& count, std::int32_t& error);
 
 }  // namespace riftwii

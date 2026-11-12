@@ -10395,7 +10395,7 @@ static std::string SaveNoteFor(const FrontendState& state, bool read_again = fal
 {
 	const std::string folder = CtgprSaveFolder(state);
 	if (!folder.empty())
-		return tr("CTGP-R keeps its save on the SD card, in {1} (copied from the Wii's save the first time).", {folder});
+		return tr("CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none.", {folder});
 	return SaveNote(state.model, state.game_id, read_again);
 }
 // Where new Wii saves go. The tile opens this page instead of cycling:
