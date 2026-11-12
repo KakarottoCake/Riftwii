@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -41,6 +42,12 @@ std::string printable_utf8(const std::string& text);
 // without packs, the one its disc line names ("Disc: RSBE01  "Super Smash
 // Bros. Brawl"  disc 0 version 2"). "" when neither is there.
 std::string launched_game_id(const std::string& boot_log);
+
+// A pending CTGP-R update's fixed 32-byte DIA0 header and its on-card size.
+// Only metadata is described; no payload, signature or package contents are
+// read or authenticated. Short, damaged and non-printable headers are safe.
+std::string ctgp_update_header_report(const std::uint8_t* data, std::size_t size,
+                                      std::uint64_t file_size);
 
 // settings.txt as a report shows it: a secret's value (riitag_key, the
 // player's RiiTag key, and riitag_id, their Discord ID) replaced by

@@ -5,6 +5,7 @@
 #include <dirent.h>
 #include <malloc.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -211,6 +212,42 @@ ReportPart listing(const std::string& dir) {
     return part;
 }
 
+// RiftWii's launch log ends at the channel handoff. Keep the pending
+// update's identity and storage state early in the next report so a brief
+// "Install Error" can be investigated without uploading the CTGP pack.
+ReportPart ctgp_update_state() {
+    ReportPart part{"CTGP-R update on the SD card", "", true};
+    struct statvfs volume;
+    if (statvfs("sd:/", &volume) == 0) {
+        const std::uint64_t free_bytes = std::uint64_t(volume.f_bavail) * volume.f_frsize;
+        part.text += "SD free space: " + std::to_string(free_bytes) + " bytes\n";
+    } else {
+        part.text += "SD free space: could not be read\n";
+    }
+    for (const char* path : {"sd:/apps/ctgpr/boot.dol", "sd:/ctgpr/blob.bin",
+                             "sd:/ctgpr/jelly.bin", "sd:/ctgpr/update.dif"}) {
+        struct stat info;
+        const bool found = stat(path, &info) == 0 && S_ISREG(info.st_mode) && info.st_size >= 0;
+        part.text += std::string(path) + ": ";
+        if (!found) {
+            part.text += "missing or unreadable\n";
+            continue;
+        }
+        part.text += std::to_string(static_cast<long long>(info.st_size)) + " bytes\n";
+        if (std::strcmp(path, "sd:/ctgpr/update.dif") != 0) continue;
+        FILE* file = std::fopen(path, "rb");
+        if (!file) {
+            part.text += "Update header: could not be opened\n";
+            continue;
+        }
+        std::uint8_t header[32];
+        const std::size_t got = std::fread(header, 1, sizeof(header), file);
+        std::fclose(file);
+        part.text += ctgp_update_header_report(header, got, static_cast<std::uint64_t>(info.st_size));
+    }
+    return part;
+}
+
 // The XMLs of the packs the last launched game had on.
 void add_packs(const std::string& choices, std::vector<ReportPart>& parts) {
     for (const std::string& file : enabled_pack_files(choices)) {
@@ -258,6 +295,8 @@ bool gather(const std::string& reason, std::size_t limit, std::string& report) {
     parts.push_back(file_part(kWpadLogFile));
     const ReportPart boot = file_part("sd:/riftwii/boot.log");
     parts.push_back(boot);
+    if (boot.text.find("CTGP-R channel: starting ") != std::string::npos)
+        parts.push_back(ctgp_update_state());
     // Check each cIOS's results, early: a long report is cut at its end.
     parts.push_back(file_part("sd:/riftwii/usbcheck.txt"));
     ReportPart previous = file_part(kPreviousLog);

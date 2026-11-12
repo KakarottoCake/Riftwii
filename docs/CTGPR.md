@@ -12,6 +12,53 @@ RiftWii has two ways to start CTGP-R 1.03's pack:
   `ctgpnative.txt` sits next to RiftWii's `boot.dol` and its files are on
   the card.
 
+## Update-install investigation (2026-11-12)
+
+The reported failure is a brief **"Install Error! Please try again."**,
+followed by another installation attempt at 0%, with one update remaining.
+The console report ends at the handoff to CTGP-R: RiftWii does not keep
+running inside the channel and cannot log the installer's return value.
+
+Two isolated tests used the player's CTGP-R v1.03.1190 All Inclusive pack,
+the PAL Mario Kart Wii WBFS as Dolphin's inserted disc, and the
+[`es-identify-1` release of RiftWii's Felk fork](https://github.com/RiftWii/dolphin-felk-riftwii/releases/tag/es-identify-1):
+
+- CTGP-R's original `apps/ctgpr/boot.dol` booted directly.
+- The same app started through RiftWii's CTGP-R XML on upstream commit
+  `2d54654b42ae65f3e73bb8c0427921c78058fca0`.
+
+Each had its own 2 GiB FAT32 image and Dolphin user directory. Both used
+`disable_ios_exploit = yes`, `disable_patches = yes`, and
+`compatible_mode = yes`. Cached Interpreter, MMU and accurate CPU cache
+were enabled. The RiftWii run used the unpacked test DOL: the packed DOL
+did not reach its framebuffer in this emulator configuration. Folder sync
+was off during installation so writes stayed in each raw image.
+
+Earlier updates installed, but the last pending update retried at 0%.
+Frame capture of the direct boot also caught the same brief install-error
+message. Its remaining `ctgpr/update.dif` was 12,731,484 bytes, with DIA0
+package ID `4354475052000000` (CTGPR) and version `01031193` in its header.
+The saved image had 1,119,748,096 free bytes, and `blob.bin` had grown from
+999,030,784 to 1,001,062,400 bytes. This rules out an entirely unwritable
+or full card in that control; it does not authenticate the pending update.
+
+**The Wii-specific cause is unresolved.** The console used a USB image
+under d2x IOS248, base IOS38; Dolphin exposes the WBFS as an inserted disc
+under its own IOS and cannot test that cIOS path. A matching failure on
+the direct emulator boot is not proof that the Wii has the same cause.
+The next comparison is a direct Homebrew Channel update on the same Wii
+and card, preserving the pending files before either run changes them.
+
+After a CTGP-R channel launch, problem reports now include the free SD
+space, sizes of the channel, blob, journal and pending update, and only
+the pending update's fixed 32-byte header metadata. They flag a declared
+size that differs from the file size. The field positions were checked
+against the local update's bytes; no CTGP-R updater implementation is
+included. Payloads, signatures, encrypted journal contents and pack assets
+are not uploaded. These diagnostics do not fix or bypass the installer's
+checks. Keep private test cards, console reports and captures outside the
+repository.
+
 ## The native launch (offline only)
 
 It keeps to these rules:

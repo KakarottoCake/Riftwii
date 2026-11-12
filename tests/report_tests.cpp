@@ -23,6 +23,32 @@ static std::string numbered_lines(int count, const char* tag) {
 }
 
 int main() {
+    // A failed updater leaves update.dif on the card. Describe just its
+    // header: a truncated download must not look like a verified update.
+    {
+        std::uint8_t update[32] = {
+            'D', 'I', 'A', '0', 0, 0, 1, 0,
+            0, 0, 0, 0, 0, 0, 0, 0,
+            'C', 'T', 'G', 'P', 'R', 0, 0, 0,
+            1, 3, 0x11, 0x93, 0, 0, 0, 0
+        };
+        const std::string described = ctgp_update_header_report(update, sizeof(update), 256);
+        EXPECT_TRUE(has(described, "Declared size: 256 bytes (matches file)"));
+        EXPECT_TRUE(has(described, "Package ID: 4354475052000000; version: 01031193"));
+        EXPECT_TRUE(has(described, "payload and signature were not checked"));
+        EXPECT_TRUE(has(ctgp_update_header_report(update, sizeof(update), 255), "DOES NOT match file"));
+        EXPECT_TRUE(has(ctgp_update_header_report(update, sizeof(update), 0x100000100ull), "DOES NOT match file"));
+        for (std::size_t size = 0; size < sizeof(update); ++size)
+            EXPECT_TRUE(has(ctgp_update_header_report(update, size, 256), "fewer than 32 bytes"));
+        EXPECT_TRUE(has(ctgp_update_header_report(nullptr, 32, 256), "fewer than 32 bytes"));
+        update[0] = 0;
+        EXPECT_TRUE(has(ctgp_update_header_report(update, sizeof(update), 256), "not DIA0"));
+        update[0] = 'D';
+        update[16] = '\n';
+        update[17] = 0xff;
+        EXPECT_TRUE(has(ctgp_update_header_report(update, sizeof(update), 256), "Package ID: 0aff4750"));
+    }
+
     // A RiiTag key is hidden; every other line stays as it was.
     EXPECT_EQ(hide_settings_secrets("language = auto\nriitag_key = abc123\r\nonline = on\n"),
               std::string("language = auto\nriitag_key = (hidden)\r\nonline = on\n"));
