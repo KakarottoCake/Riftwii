@@ -670,6 +670,11 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
                 // The app reloads IOS itself (CTGP asks for IOS37), which
                 // would drop d2x and the game with it: d2x blocks that.
                 Session s(source, "sd:/riftwii/boot.log");
+                if (ctgpr_channel && !prepare_channel_partition_layout(s.source.game, error)) {
+                    logf("CTGP-R channel: the virtual disc's partition layout could not be prepared (%s)\n", error.c_str());
+                    error = tr("CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log.");
+                    return false;
+                }
                 s.block_ios_reload = true;
                 const bool probed = s.ensure_probe(error);
                 if (ctgpr_channel)

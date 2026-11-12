@@ -4505,3 +4505,6 @@ msgstr "このゲームを {1} に切り替えます。もどるで今のカー�
 
 msgid "CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none."
 msgstr "CTGP-Rはセーブを SDカードの {1} に保存します。フォルダにセーブがないときは、Wiiのセーブがコピーされます。"
+
+msgid "CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."
+msgstr "CTGP-Rのゲームイメージを準備できませんでした。理由はsd:/riftwii/boot.logにあります。"

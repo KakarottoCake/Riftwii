@@ -9459,5 +9459,14 @@ FR.update({
     "CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none.": "CTGP-R garde sa sauvegarde sur la carte SD, dans {1}. La sauvegarde de la Wii y est copiée si le dossier n'en a pas.",
 })
 
+T["CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."] = (
+    "No se pudo preparar la imagen de juego de CTGP-R. El motivo está en sd:/riftwii/boot.log.",
+    "CTGP-Rのゲームイメージを準備できませんでした。理由はsd:/riftwii/boot.logにあります。",
+    "Não foi possível preparar a imagem de jogo do CTGP-R. O motivo está em sd:/riftwii/boot.log.",
+    "Impossibile preparare l'immagine di gioco di CTGP-R. Il motivo è in sd:/riftwii/boot.log.",
+)
+KO["CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."] = "CTGP-R 게임 이미지를 준비하지 못했습니다. 이유는 sd:/riftwii/boot.log에 있습니다."
+FR["CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."] = "Impossible de préparer l'image de jeu de CTGP-R. La raison se trouve dans sd:/riftwii/boot.log."
+
 if __name__ == "__main__":
     main()

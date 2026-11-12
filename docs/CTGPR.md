@@ -12,7 +12,7 @@ RiftWii has two ways to start CTGP-R 1.03's pack:
   `ctgpnative.txt` sits next to RiftWii's `boot.dol` and its files are on
   the card.
 
-## Update-install investigation (2026-11-12)
+## Installing updates from a scrubbed game image (2026-11-12)
 
 The reported failure is a brief **"Install Error! Please try again."**,
 followed by another installation attempt at 0%, with one update remaining.
@@ -42,12 +42,50 @@ The saved image had 1,119,748,096 free bytes, and `blob.bin` had grown from
 999,030,784 to 1,001,062,400 bytes. This rules out an entirely unwritable
 or full card in that control; it does not authenticate the pending update.
 
-**The Wii-specific cause is unresolved.** The console used a USB image
-under d2x IOS248, base IOS38; Dolphin exposes the WBFS as an inserted disc
-under its own IOS and cannot test that cIOS path. A matching failure on
-the direct emulator boot is not proof that the Wii has the same cause.
-The next comparison is a direct Homebrew Channel update on the same Wii
-and card, preserving the pending files before either run changes them.
+The failing operation was opening an original game file for the delta
+patch: `yaz0:dvd:/data_1/files/Race/Course/old_mario_gc.szs`. The installer
+reported status 4 after a source-open result of -9; its file error was
+ENOENT (2). The disc filesystem had mounted **data_0**, not data_1. The
+supplied WBFS's partition table listed the game first and the channel
+installer second: the removed update partition had changed the game's
+index. Earlier updates did not need that original disc file.
+
+Putting the game back in partition slot 1, with the same offsets and
+contents, let the previously stuck 1.03.1193 update finish. The original
+channel then installed the later updates and reached "The main
+installation has completed!" The RiftWii run also passed 1.03.1193 and
+started installing those later updates. No channel code, signature check,
+update payload or original game file was changed.
+
+For the CTGP-R channel's image launch, RiftWii now supplies a separate
+512-byte partition-table sector through d2x's fragment list. A game
+already in slot 1 needs no change. Otherwise its entry exchanges places
+with slot 1; a game-only table gets a second entry naming the same game
+partition. The rest of the disc's mappings, and the original image, stay
+unchanged. The helper is generic; only the CTGP-R channel launch requests
+this layout.
+
+The replacement is `riftwii/channel-partition.bin` on the **same device**
+as the image, because a d2x fragment list selects one device. For USB,
+RiftWii uses a FAT32 partition of that USB drive, with an exclusive
+temporary mount; the image itself may be on another partition. For SD it
+uses the SD card. The file is closed and found again through a fresh raw
+FAT view, and its sector is read back before it is mapped. If a USB drive
+needs this correction but has no FAT32 partition for the header, the
+launch stops with the reason in boot.log. An already correct table needs
+no writable cache partition.
+
+Host tests check table bounds, unchanged bytes, the game-only alias,
+idempotence, fragment splitting, holes, coalescing and physical overflow.
+The test-only autorun command `test_channel_layout` exercises the real SD
+writer and fragment mapping with synthetic one- and two-partition tables,
+checking the replacement sector and the untouched source. Dolphin's CTGP
+test uses the equivalent sector materialized in a private WBFS copy:
+Dolphin exposes the WBFS as an inserted disc and cannot run d2x's USB/SD
+fragment backend. The Wii-specific cIOS path still needs a hardware run;
+the console report used IOS248, base IOS38. Keep that limitation separate
+from the reproduced missing-path failure and successful corrected-image
+installation.
 
 After a CTGP-R channel launch, problem reports now include the free SD
 space, sizes of the channel, blob, journal and pending update, and only
@@ -55,9 +93,8 @@ the pending update's fixed 32-byte header metadata. They flag a declared
 size that differs from the file size. The field positions were checked
 against the local update's bytes; no CTGP-R updater implementation is
 included. Payloads, signatures, encrypted journal contents and pack assets
-are not uploaded. These diagnostics do not fix or bypass the installer's
-checks. Keep private test cards, console reports and captures outside the
-repository.
+are not uploaded. Keep private test cards, console reports and captures
+outside the repository.
 
 ## The native launch (offline only)
 

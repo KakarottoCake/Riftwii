@@ -1016,9 +1016,98 @@ void test_raw_disc_fragments() {
     EXPECT_FALSE(build_raw_disc_fragments(kDual + 1, 2048, list, error));
 }
 
+void test_channel_partition_layout() {
+    std::vector<std::uint8_t> raw(512, 0);
+    be32(raw, 0, 2);
+    be32(raw, 4, 0x40020 / 4);
+    be32(raw, 0x20, 0xf800000 / 4);
+    be32(raw, 0x28, 0x1155d0000ull / 4);
+    be32(raw, 0x2c, 2);
+    std::array<std::uint8_t, 512> sector;
+    std::copy(raw.begin(), raw.end(), sector.begin());
+    const auto original = sector;
+    bool changed = false;
+    std::string error;
+    EXPECT_TRUE(second_game_partition(sector, 0x230480000ull, changed, error));
+    EXPECT_TRUE(changed);
+    EXPECT_TRUE(std::equal(sector.begin() + 0x20, sector.begin() + 0x28, original.begin() + 0x28));
+    EXPECT_TRUE(std::equal(sector.begin() + 0x28, sector.begin() + 0x30, original.begin() + 0x20));
+    for (std::size_t i = 0; i < sector.size(); ++i)
+        if (i < 0x20 || i >= 0x30) EXPECT_EQ(sector[i], original[i]);
+    const auto corrected = sector;
+    EXPECT_TRUE(second_game_partition(sector, 0x230480000ull, changed, error));
+    EXPECT_FALSE(changed);
+    EXPECT_TRUE(sector == corrected);
+
+    // A game-only image gets a second alias to the real partition.
+    sector = original;
+    sector[3] = 1;
+    std::fill(sector.begin() + 0x28, sector.end(), 0);
+    EXPECT_TRUE(second_game_partition(sector, 0x230480000ull, changed, error));
+    EXPECT_TRUE(changed);
+    EXPECT_EQ(sector[3], 2);
+    EXPECT_TRUE(std::equal(sector.begin() + 0x20, sector.begin() + 0x28, sector.begin() + 0x28));
+    EXPECT_TRUE(second_game_partition(sector, 0x230480000ull, changed, error));
+    EXPECT_FALSE(changed);
+
+    sector = original;
+    sector[3] = 61;
+    EXPECT_FALSE(second_game_partition(sector, 0x230480000ull, changed, error));
+    sector = original;
+    sector[7] = 0;
+    EXPECT_FALSE(second_game_partition(sector, 0x230480000ull, changed, error));
+    sector = original;
+    sector[11] = 1;
+    EXPECT_FALSE(second_game_partition(sector, 0x230480000ull, changed, error));
+    sector = original;
+    EXPECT_FALSE(second_game_partition(sector, 0x100000, changed, error));
+    sector = original;
+    sector[3] = 1;
+    EXPECT_FALSE(second_game_partition(sector, 0x230480000ull, changed, error));
+}
+
+void test_replace_d2x_sector() {
+    D2xFragmentList list;
+    list.size = 1024;
+    list.entries = {{0, 1000, 600}, {700, 5000, 100}};
+    list.num = 2;
+    std::string error;
+    EXPECT_TRUE(replace_d2x_sector(list, 0x40000 / 512, 9000, error));
+    std::vector<std::uint8_t> encoded;
+    EXPECT_TRUE(list.encode(encoded, error));
+    EXPECT_EQ(list.entries.size(), 4u);
+    auto resolve = [&](std::uint32_t logical) {
+        for (const auto& entry : list.entries)
+            if (logical >= entry.offset && logical - entry.offset < entry.count)
+                return entry.sector + logical - entry.offset;
+        return 0u;
+    };
+    for (std::uint32_t i = 0; i < 1024; ++i) {
+        const std::uint32_t expected = i == 512 ? 9000 : i < 600 ? 1000 + i :
+                                       i >= 700 && i < 800 ? 5000 + i - 700 : 0;
+        EXPECT_EQ(resolve(i), expected);
+    }
+    EXPECT_TRUE(replace_d2x_sector(list, 511, 8999, error));
+    EXPECT_EQ(resolve(510), 1510u);
+    EXPECT_EQ(resolve(511), 8999u);
+    EXPECT_EQ(resolve(512), 9000u);
+    EXPECT_TRUE(list.encode(encoded, error));
+    EXPECT_FALSE(replace_d2x_sector(list, 1024, 1, error));
+    EXPECT_TRUE(replace_d2x_sector(list, 0, 0xffffffffu, error));
+    EXPECT_EQ(resolve(0), 0xffffffffu);
+    EXPECT_EQ(resolve(1), 1001u);
+    EXPECT_TRUE(list.encode(encoded, error));
+    D2xFragmentList invalid = list;
+    invalid.entries.push_back({512, 12, 1});
+    invalid.num = static_cast<std::uint32_t>(invalid.entries.size());
+    EXPECT_FALSE(replace_d2x_sector(invalid, 512, 9000, error));
+}
+
 }  // namespace
 
 int main() {
+    test_channel_partition_layout();
+    test_replace_d2x_sector();
     test_raw_disc_fragments();
     test_sparse_fragments();
     test_basic();
