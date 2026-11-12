@@ -6,27 +6,21 @@ markdown: at most 2000 characters once filled in (the workflow counts).
 
   {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-CTGP-R, and a few fixes:
+CTGP-R from USB and SD, and a few fixes:
 
-* CTGP-R reads its cup layouts from your own install, loads only when you start it, and installs that updated themselves work again
-* CTGP-R's Mario Kart Channel button brings back the RiftWii that started it, from any folder
-* Sonic Unleashed sees the GameCube adapter on a Wii U
-* Brawl with a file-swap pack loads a match
-* New: Settings > Drives > Game folders, and named memory cards for GameCube games
-* Wii Remote no longer stuck on a Classic Controller or Nunchuk (Eternal Darkness), DNS servers from the Wii's settings, xdelta patches that only mention compression
+* CTGP-R now starts through its own channel from a USB drive or the SD card, with no "insert disc" and no "Before you play" note, and it gets online (room selection reached)
+* RiftWii's own CTGP-R launch (now opt-in, ctgpnative.txt) keeps your Mario Kart save instead of "Continue without saving"
+* Smoother Shelf scrolling, nearby boxes first, no grey border
+* Your own box and 3D cover for any tile
+* Reset keeps the GameCube adapter and USB controllers in games without mods
 
-Not tried on a real Wii yet: the Rankings button, CTGP-R from an SD card, Game folders on USB, named cards, the Classic Controller fix and the DNS lookup.
+Not tried on a real Wii yet: CTGP-R from SD or a disc, a whole CTGP-R online race and Time Trial uploads, the save copy, the Shelf's smoothness and your own boxes.
 
 To test, please:
 
-1. CTGP-R from USB, SD and disc, with an updated install
-2. The channel button, with RiftWii in another folder
-3. Sonic Unleashed with the adapter on a Wii U
-4. Brawl with a file-swap pack: a match and Reset
-5. A named card in a GameCube game, then Game folders on a USB drive
+1. CTGP-R from USB, SD and a disc: straight to CTGP-R's menu?
+2. CTGP-R online: a whole Worldwide race and a Time Trial ghost upload
+3. The Shelf on a real Wii
+4. Reset in a game without mods, with the adapter
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
-
-![What's new](docs/screenshots/2611-162-whats-new.png)
-![Game folders](docs/screenshots/2611-162-game-folders.png)
-![Named memory cards](docs/screenshots/2611-162-named-cards.png)
