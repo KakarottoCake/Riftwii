@@ -105,6 +105,10 @@ void release_wii_remotes() {
 }
 
 ReloadResult reload_ios(int version, std::string& error, bool force) {
+    // The light goes dark before any reload; while a cIOS runs it stays dark
+    // (disclight.cpp), so the cIOS and the DI are set up with no pulse
+    // writing the GPIO.
+    if (force || IOS_GetVersion() != version) DiscLightIosReloaded();
     CoverLoaderHold();  // no SD read in flight across the reload
     // Launches stop the music before they close the log; this is for any
     // reload that comes without that: no audio may run across a reload

@@ -19,3 +19,5 @@ s32 SYS_SetPeriodicAlarm(syswd_t alarm, const timespec* start, const timespec* p
                          alarmcallback callback, void* argument);
 s32 SYS_CancelAlarm(syswd_t alarm);
 void SYS_RegisterResetFunc(sys_resetinfo* info);
+
+s32 IOS_GetVersion();
