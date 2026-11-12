@@ -984,17 +984,14 @@ msgstr "GameCubeのゲームのRVZは試験的な機能です。うまくいか�
 msgid "Play at your own risk:"
 msgstr "自己責任でプレイしてください:"
 
-msgid "CTGP Revolution starts through its own channel app. Its online play and Time Trial are CTGP's own and have not been tested from RiftWii yet."
-msgstr "CTGP Revolutionは専用のチャンネルアプリで起動します。オンラインプレイとタイムトライアルはCTGP独自のもので、RiftWiiからはまだ試していません。"
-
 msgid "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded."
 msgstr "RiftWiiからのCTGP Revolutionはオフライン専用です。オンラインとLANのプレイはオフで、保存したゴーストはアップロードできません。"
 
 msgid "CTGP Revolution: offline only (see Start)."
 msgstr "CTGP Revolution：オフライン専用（「はじめる」を参照）。"
 
-msgid "CTGP Revolution: its own channel app (see Start)."
-msgstr "CTGP Revolution：専用のチャンネルアプリ（「はじめる」を参照）。"
+msgid "CTGP Revolution: starts through its own channel app."
+msgstr "CTGP Revolution：専用のチャンネルアプリで起動します。"
 
 msgid " (and {1} more)"
 msgstr " (ほか{1}件)"
