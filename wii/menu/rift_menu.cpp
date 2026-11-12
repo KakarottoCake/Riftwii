@@ -14696,7 +14696,7 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 	add(GameTile::Cheats, kTilesX, 228, kHalfW, 70, tr("Cheats"), cheats, &skin::iconCheats,
 		game.cheats && !game.cheat_names.empty());
 	add(GameTile::Saves, kRightX, 228, kHalfW, 70, tr("Saves"), saves, &skin::iconSaves,
-		!gamecube && riftwii::wii::EffectiveSaveMode(state) != "nand");
+		!gamecube && (!CtgprSaveFolder(state).empty() || riftwii::wii::EffectiveSaveMode(state) != "nand"));
 	// A full card is a warning, in the theme's colour for one.
 	tiles.back().warn = cardFull;
 	if (disc) {
