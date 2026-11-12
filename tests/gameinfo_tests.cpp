@@ -449,7 +449,8 @@ void TestDiscsOnlyDatabaseIsReplaced() {
     GameInfo info;
     CHECK(PeekGameInfo("RSBE01", info));
 
-    // Online but the download fails: the old one is read meanwhile.
+    // Online but the download fails: the old one is read meanwhile, and
+    // the download is not tried again on every visit to Home this session.
     ForgetGameInfo();
     g_http_expected = true;
     g_http_body.clear();
@@ -458,15 +459,32 @@ void TestDiscsOnlyDatabaseIsReplaced() {
     CHECK(TakeGameInfoRead(changed));
     CHECK(PeekGameInfo("RSBE01", info));
     CHECK(fs::exists(kDiscsOnlyZipPath));
+    g_http_expected = false;
+    CHECK(StartGameInfoRead({"RSBE01"}, true) == GameInfoReadStart::NothingToRead);
 
-    // Online: the whole database takes its place, and its homebrew apps
-    // are kept for the Homebrew view.
-    ForgetGameInfo();
     const std::string xml =
         "<datafile>\n<game name=\"Super Smash Bros. Brawl\"><id>RSBE01</id><type/></game>\n"
         "<game name=\"SNES9xGX\"><id>9XGX</id><type>Homebrew</type>"
         "<locale lang=\"EN\"><title>SNES9xGX</title></locale></game>\n</datafile>\n";
-    g_http_body = ziptest::make_zip({{"wiitdb.xml", xml + std::string(300u << 10, ' '), 0}});
+    const auto full_zip = ziptest::make_zip({{"wiitdb.xml", xml + std::string(300u << 10, ' '), 0}});
+
+    // A download whose CRC is wrong: not kept, and the old one neither
+    // removed nor left unread.
+    ForgetGameInfo();
+    g_http_expected = true;
+    g_http_body = full_zip;
+    g_http_body[g_http_body.size() / 2] ^= 0x20;  // in the stored padding
+    CHECK(StartGameInfoRead({"RSBE01"}, true) == GameInfoReadStart::Started);
+    CHECK(TakeGameInfoRead(changed));
+    CHECK(PeekGameInfo("RSBE01", info));
+    CHECK(!fs::exists(kZipPath));
+    CHECK(!fs::exists(std::string(kZipPath) + ".part"));
+    CHECK(fs::exists(kDiscsOnlyZipPath));
+
+    // Online: the whole database takes its place, and its homebrew apps
+    // are kept for the Homebrew view.
+    ForgetGameInfo();
+    g_http_body = full_zip;
     CHECK(StartGameInfoRead({"RSBE01"}, true) == GameInfoReadStart::Started);
     CHECK(TakeGameInfoRead(changed));
     g_http_expected = false;
