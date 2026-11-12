@@ -4499,3 +4499,6 @@ msgstr "Riporta questa scheda di memoria con nome a com'era nel giorno che scegl
 
 msgid "Switches this game to {1}. Back keeps the card it has."
 msgstr "Passa questo gioco a {1}. Indietro mantiene la scheda che ha."
+
+msgid "CTGP-R keeps its save on the SD card, in {1} (copied from the Wii's save the first time)."
+msgstr "CTGP-R salva sulla scheda SD, in {1} (copiato dal salvataggio della Wii la prima volta)."

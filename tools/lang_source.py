@@ -9440,5 +9440,16 @@ FR.update({
     "Switches this game to {1}. Back keeps the card it has.": "Passe ce jeu sur {1}. Retour garde la carte qu'il a.",
 })
 
+# CTGP-R's save folder on the card, on the game page's Saves row.
+T.update({
+    "CTGP-R keeps its save on the SD card, in {1} (copied from the Wii's save the first time).": ("CTGP-R guarda su partida en la tarjeta SD, en {1} (copiada de la partida de la Wii la primera vez).", "CTGP-Rはセーブを SDカードの {1} に保存します (初回はWiiのセーブからコピーされます)。", "O CTGP-R guarda o save no cartão SD, em {1} (copiado do save do Wii na primeira vez).", "CTGP-R salva sulla scheda SD, in {1} (copiato dal salvataggio della Wii la prima volta)."),
+})
+KO.update({
+    "CTGP-R keeps its save on the SD card, in {1} (copied from the Wii's save the first time).": "CTGP-R은 세이브 데이터를 SD 카드의 {1}에 저장합니다 (처음에는 Wii의 세이브 데이터에서 복사됩니다).",
+})
+FR.update({
+    "CTGP-R keeps its save on the SD card, in {1} (copied from the Wii's save the first time).": "CTGP-R garde sa sauvegarde sur la carte SD, dans {1} (copiée depuis la sauvegarde de la Wii la première fois).",
+})
+
 if __name__ == "__main__":
     main()

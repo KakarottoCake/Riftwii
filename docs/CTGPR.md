@@ -224,7 +224,37 @@ CTGP-R 1.03's Riivolution XML replaces `main.dol` with the CTGP-R Channel
 recognises a choice that only does that, and `RunLaunch` (`wii/launch/launchrun.cpp`)
 starts the app the way the Homebrew Channel does (`StartHomebrewApp`), not
 through the apploader. The save redirect in CTGP's XML cannot apply and is
-dropped.
+dropped (the pack's `<savegame external clone>` is not run).
+
+## CTGP-R's save on the SD card
+
+CTGP-R's own code in the game sends every access to Mario Kart Wii's NAND data
+(`/title/00010004/524d43xx/data/`) to `sd:/riivolution/save/RMC<R>/` on the
+card (R is the game ID's fourth character: E, J, K or P), whatever its
+config.ini's `save_to_sd` says. With no such folder the game cannot open its
+save and shows "Continue without saving / Return to the Wii Menu".
+
+Before a native launch (`SeedCtgprSdSave`, `wii/storage/d2xsave.cpp`; the names
+and the choice of files are `include/riftwii/ctgprsave.hpp`), under the menu's
+IOS and before the probe can reload it, RiftWii does what Riivolution's
+`clone="true"` does for the pack's XML, which the native launch does not run:
+
+* A folder that already holds `rksys.dat` is left exactly as it is.
+* Otherwise the folder is made and the files of the NAND data folder
+  (rksys.dat, banner.bin, wc24dl.vff, wc24scr.vff, whatever is there) are
+  copied in through one 256 KiB MEM2 block, each under a temporary name
+  (`<name>.rwtmp`) that is then renamed, rksys.dat last. Nothing on the card is
+  overwritten or deleted. If a copy fails, only what that run made is removed
+  (a folder it made goes too) and the launch goes on: boot.log says why, and
+  the game may start without saving. A failed copy is never turned into an
+  empty folder, because a new save made there would shadow the one on the Wii.
+* A Wii with no save for the game (a new player) gets the empty folder, as
+  Riivolution makes it, and the game starts its own save in it. This follows
+  Riivolution's clone and RiftWii's runtime clone, where a missing NAND folder
+  is an empty save; it has not been run in Dolphin with CTGP-R.
+
+The game page's Saves row says "SD card" with the folder's name for a pack that
+starts CTGP-R natively.
 
 * **Disc:** the app starts under the menu's IOS with hardware access, before
   any probe or IOS reload.

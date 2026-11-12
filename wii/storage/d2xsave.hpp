@@ -46,4 +46,15 @@ bool save_folder_empty(const std::string& data_dir);
 bool prepare_d2x_saves(const ImageGame& game, const std::string& dir, bool clone, bool clone_into_empty,
                        std::string& error, bool* whole_nand = nullptr);
 
+// Before a native CTGP-R launch, under the menu's IOS (docs/CTGPR.md): CTGP-R
+// keeps Mario Kart Wii's save in sd:/riivolution/save/RMC<R>/, and without
+// that folder the game shows its "Continue without saving" screen. Does what
+// <savegame clone> does: when the folder holds no rksys.dat, makes it and
+// copies the NAND data folder's files in (each under a temporary name, then
+// renamed; rksys.dat last). Nothing on the card is overwritten or deleted but
+// this run's own partial files, and a folder with rksys.dat is left alone. A
+// Wii with no save gets the empty folder. False, with `why`, when it could not
+// be done (the launch goes on; the folder is then left as it was).
+bool SeedCtgprSdSave(const std::string& game_id, std::string& why);
+
 }  // namespace riftwii::wii

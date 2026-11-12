@@ -4499,3 +4499,6 @@ msgstr "Volte este cartão de memória com nome a como estava no dia que você e
 
 msgid "Switches this game to {1}. Back keeps the card it has."
 msgstr "Troca este jogo para {1}. Voltar mantém o cartão que ele tem."
+
+msgid "CTGP-R keeps its save on the SD card, in {1} (copied from the Wii's save the first time)."
+msgstr "O CTGP-R guarda o save no cartão SD, em {1} (copiado do save do Wii na primeira vez)."
