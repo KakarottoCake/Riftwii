@@ -830,10 +830,10 @@ int main() {
             return play;
         };
         const bool booted = !error.empty() ? false : riftwii::wii::mem::GuardLaunchMemory(error, [&] {
-            // The CTGP-R pack with the native launch set up goes through
+            // The CTGP-R pack (its channel app, or the native launch) goes through
             // RunLaunch, not the packs compiled in the menu.
             return (source.kind == riftwii::wii::LaunchSource::Kind::Disc && state.has_compiled &&
-                    !riftwii::wii::CtgprNativeLaunch(state.model.selections(), state.game_id))
+                    !riftwii::wii::CtgprPackGoesThroughRunLaunch(state.model.selections(), state.game_id))
                        ? riftwii::wii::BootCompiled(std::move(state.compiled), error, source, riftwii::wii::EffectiveSaveMode(state), state.game_id)
                        : riftwii::wii::RunLaunch(state.model.selections(), error, source, riftwii::wii::EffectiveSaveMode(state),
                                                  state.game_id, confirm_missing);

@@ -16,56 +16,42 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** CTGP-R now takes its cup layouts from your own CTGP-R install, loads its code only when you start CTGP-R, and accepts installs that updated themselves again. CTGP-R's way back to RiftWii now works from any folder, and Sonic Unleashed sees the GameCube adapter on a Wii U. Every RiftWii offers this update by itself (Settings > Check for a new version).
-
-![What's new in this version]({{SCREENSHOTS}}2611-162-whats-new.png)
+**RiftWii {{VERSION}}.** CTGP-R now starts through its own channel from a USB drive or an SD card, without asking for the disc, and RiftWii's own CTGP-R launch keeps your Mario Kart save. The Shelf scrolls more smoothly, and any tile can have your own box and 3D cover. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
 ## What changed
 
 ### CTGP-R
 
-- **CTGP-R installs that updated themselves are accepted again.** 2611-151 refused them. CTGP-R's own updates now start, and a track update needs no RiftWii update. It was tried on a real Wii (PAL, from USB through d2x), with an updated CTGP-R. An SD card or disc launch, NTSC-U and NTSC-J have not been tried on a real Wii yet.
-- **The cup layouts come from your own CTGP-R install.** The default, the alphabetical and your own `cuplayout.cup` layouts are read from your CTGP-R files on the SD card, so RiftWii no longer carries a list of cups. On a real Wii the default and alphabetical layouts raced and a Time Trial ghost saved; your own `cuplayout.cup` has not been tried on a real Wii yet.
-- **CTGP-R's code is only loaded when you start CTGP-R.** It is now a separate add-on (`ctgpr.rwp`) in the zip and the update pack. Everyone else gets a RiftWii that is about 110 KB smaller and 111,744 bytes of the Wii's first memory block back. If the add-on is missing, RiftWii says so.
-- **CTGP-R's Mario Kart Channel button brings back the RiftWii that started it**, from its own folder. Before, a RiftWii outside `sd:/apps/riftwii` came back not knowing where it lived, and the next CTGP-R start said a part of RiftWii was missing. On a real Wii the button came back to RiftWii and CTGP-R started again from it, on an earlier version of this change. The final version, the Rankings button and CTGP-R's crash handler have not been tried on a real Wii yet.
-- **Leaving CTGP-R:** Reset restarts CTGP-R, as Reset does in a game. The way out is CTGP-R's own channel button, which now brings back RiftWii, or the HOME Menu's Wii Menu.
+- **CTGP-R starts through its own channel, from a disc, a USB drive or the SD card.** This is now the default. From a game on USB or the SD card, the channel used to restart itself at start-up and then ask for the disc ("Please insert the Mario Kart Wii game disc"). RiftWii now starts it the way the Homebrew Channel does, so it keeps the game and goes on to its own menu. Tried on a real Wii from USB (PAL, through d2x): the channel's menu, Mario Kart Wii and custom races. From the SD card and from a disc it has not been tried on a real Wii yet.
+- **CTGP-R goes online again on this path.** Online play and Time Trial uploads are CTGP-R's own here, and RiftWii no longer turns them off. On a real Wii it reached CTGP-R's room selection; a whole online race and a Time Trial upload have not been tried yet.
+- **No "Before you play" note before CTGP-R's channel.** The offline-only note now shows only for RiftWii's own CTGP-R launch.
+- **RiftWii's own CTGP-R launch is now something you opt into**, with an empty file `ctgpnative.txt` next to RiftWii's `boot.dol`. It is offline only, as before.
+- **RiftWii's own CTGP-R launch keeps your Mario Kart save.** It stopped at "Continue without saving / Return to the Wii Menu" when the SD card had no `riivolution/save` folder. CTGP-R keeps its save there, so RiftWii now copies the Wii's save in once, and never overwrites a save already on the card. Tried in Dolphin (a save copied in, a save already there, no save at all). It has not been tried on a real Wii yet.
 
-### Wii games and controllers
+### Menu
 
-- **Sonic Unleashed sees the GameCube adapter on a Wii U.** Some Wii games ask which GameCube ports have a controller before they read them, and on a Wii U the answer was "nothing", so the game ignored the adapter and kept asking for a GameCube controller. RiftWii now answers the way a GameCube game gets it. Tried on a Wii U with the adapter, and in Dolphin. Most Wii games don't ask, so they are unchanged.
-- **Super Smash Bros. Brawl with a pack that only swaps files can load a match.** It used to stop at "Can't Alloc Heap(MenuInstance)". RiftWii's code now sits in the second memory block for Brawl. A Training match loads and the GameCube controller plays, and Brawl's Album opens, on a Wii U and in Dolphin. Reset with a pack, cheats together with a pack, replays and the stage builder, USB, Subspace Emissary and packs with memory patches have not been tried on a real Wii yet.
-- **A Wii Remote no longer gets stuck setting up its Classic Controller or Nunchuk** (seen in Eternal Darkness). After its retries it now plays on its own. Tried in Dolphin only, so it is not tried on a real Wii yet.
-- The Wii U GameCube adapter note now says the adapter may only work in game from the lower back USB port, as a tester measured on every port.
+- **Smoother Shelf scrolling.** The Shelf no longer stops for a moment each time a new box comes into view, and the boxes round the game you're on load first. The grey border round each case is gone. Tried in Dolphin only; the smoothness needs a check on a real Wii.
+- **Your own box and 3D cover for any tile**, whatever it's called: `sd:/riftwii/boxes/<name>.png` (a whole case, laid out like GameTDB's full covers) and `sd:/riftwii/covers3d/<name>.png` (like GameTDB's 3D covers), named like your own covers. Tried in Dolphin; not on a real Wii yet.
 
-### Settings and games
+### Controllers
 
-- **Settings > Drives > Game folders:** add and remove the folders RiftWii looks for games in, with a folder picker (up to 8 folders; `wbfs`, `games` and a drive's top folder are always searched). It saves to the same `game_folders` line in `settings.txt`. Tried in Dolphin with the SD card; a USB drive and a real Wii have not been tried yet.
-- **GameCube named memory cards:** on a GameCube game's page, Memory card > A named card gives a card per player, or one card for several games. New card names one with the keyboard. It is backed up before each start like a game's own card. Tried in Dolphin (Luigi's Mansion starts on a named card); saving in a game to a named card and a real Wii have not been tried yet.
-- **GameCube mods shipped as an xdelta patch** that only mention compression are read now, where before they never showed up as a game. A patch that really is compressed is still refused, and the log says how to make one RiftWii can read (`xdelta3 -S none`).
-- A folder, song or theme with a line break in its name can no longer turn part of the name into a setting. Not tried on a Wii or in Dolphin.
-
-![Game folders in Settings > Drives]({{SCREENSHOTS}}2611-162-game-folders.png)
-
-### Network
-
-- **Names are looked up through the DNS servers saved in the Wii's settings** when the Wii's own lookup fails (covers, updates, network packs, the network test). Nothing changes when your router hands out the DNS servers. Not tried on a real Wii or in Dolphin; it needs someone with typed-in DNS servers.
-
-![A named memory card on a GameCube game]({{SCREENSHOTS}}2611-162-named-cards.png)
+- **Reset keeps the GameCube adapter and USB controllers in Wii games without mods.** Before, the game came back from Reset without them until you started it again from RiftWii. Tried on a Wii U with NARUTO: Clash of Ninja Revolution 3. Super Smash Bros. Brawl on an SD card over 2 GB keeps its own Reset, which still loses the adapter; `boot.log` says which case it was.
 
 ## What to test
 
-1. **CTGP-R** from USB, from the SD card and from the disc, with an install that has updated itself. Try the default and the alphabetical cups, and your own `cuplayout.cup` if you have one.
-2. **CTGP-R's Mario Kart Channel button**, with RiftWii in a folder other than `sd:/apps/riftwii`: does it bring RiftWii back, and does CTGP-R start again from it? Also the Rankings button, if you can find it.
-3. **Sonic Unleashed with the GameCube adapter on a Wii U** (Options > Controller Settings > Nintendo GameCube Controller).
-4. **Super Smash Bros. Brawl with a file-swap pack**: a match, Reset, and cheats if you use them.
-5. **Eternal Darkness or another GameCube game** with a Wii Remote and Classic Controller or Nunchuk.
-6. **Settings > Drives > Game folders** with a USB drive.
-7. **A named memory card** in a GameCube game: save in the game, then start it again.
-8. **Typed-in DNS servers** in the Wii's Internet settings: do covers and the update check work?
+1. **CTGP-R from USB and from the SD card:** does it go straight to CTGP-R's menu, with no "insert disc"?
+2. **CTGP-R from a disc.**
+3. **CTGP-R online:** a whole race in a Worldwide room, and a Time Trial ghost upload.
+4. **RiftWii's own CTGP-R launch** (`ctgpnative.txt`) on a card without `sd:/riivolution/save`: does your save load?
+5. **The Shelf** on a real Wii: is scrolling smooth?
+6. **Your own box or 3D cover** for a mod tile.
+7. **Reset** in a Wii game without mods, with the GameCube adapter or a USB controller.
 
 ## Known issues
 
+- **CTGP-R online:** a whole race and a Time Trial upload haven't been tried from RiftWii yet.
 - **CTGP-R's Rankings button and crash handler** haven't been tried on a real Wii yet.
+- **Super Smash Bros. Brawl's Reset** still loses the GameCube adapter on an SD card over 2 GB.
 - **On one tester's console, a GameCube game's crash screen didn't go back to RiftWii.** It does in Dolphin. A problem report from that screen helps.
 - **The emulated NAND on USB hasn't been tried with d2x on a real Wii yet.** If a game won't start with it, the problem report says why.
 - **Phantasy Star Online Episode I & II Plus** doesn't start yet without patches.

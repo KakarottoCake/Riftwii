@@ -76,6 +76,13 @@ static u32 line_address(const DolHeader* h, u32 length) {
     return line;
 }
 
+// Where the argument line goes for a start that writes arguments (`args`)
+// of a DOL that reads them, else 0: with `args` false no line and no "_arg"
+// block is written, on the in-place path and the far copy alike.
+static u32 args_line_at(const DolHeader* h, const u8* text0, u32 length, bool args) {
+    return args && takes_args(h, text0) ? line_address(h, length) : 0;
+}
+
 // Whether the DOL's sections, its BSS or its argument line (when
 // `line_at` isn't 0) land on [self_lo, self_hi).
 static bool reaches(const DolHeader* h, u32 line_at, u32 length, u32 self_lo, u32 self_hi) {
@@ -200,16 +207,18 @@ bool dolboot_valid(const u8* dol, u32 size) {
 
 // Where dolboot_run_line puts the far copy for `dol` with an argument line
 // of `length` bytes, or 0 when the DOL is copied in place.
-static u32 far_address(const u8* dol, u32 length) {
+static u32 far_address(const u8* dol, u32 length, bool args) {
     extern u8 __app_start[], __bss_end[];
     const DolHeader* h = (const DolHeader*)dol;
-    const u32 line_at = takes_args(h, dol + h->offset[0]) ? line_address(h, length) : 0;
+    const u32 line_at = args_line_at(h, dol + h->offset[0], length, args);
     if (!reaches(h, line_at, length, (u32)__app_start, (u32)__bss_end)) return 0;
     return far_block_in((u32)SYS_GetArena2Lo(), (u32)SYS_GetArena2Hi(), h, (u32)dol, (u32)dol + file_end(h), line_at,
                         length);
 }
 
-u32 dolboot_far_address(const u8* dol, u32 length) { return far_address(dol, length); }
+u32 dolboot_far_address(const u8* dol, u32 length) { return far_address(dol, length, true); }
+
+u32 dolboot_far_address_no_args(const u8* dol) { return far_address(dol, 0, false); }
 
 // Whether a DOL that reads an argument block gets its line of `length`
 // bytes: right after what it fills, below MEM1_HI, and on this program
@@ -268,11 +277,11 @@ void dolboot_system_call_vector(void) {
 
 // The routine and its plan to `at`, then into the routine, with
 // interrupts already off.
-static void far_run(u32 at, const DolHeader* h, const u8* dol, const char* text, u32 length) {
+static void far_run(u32 at, const DolHeader* h, const u8* dol, const char* text, u32 length, bool args) {
     u8* const block = (u8*)at;
     memcpy(block, dolfar_code, (u32)(dolfar_code_end - dolfar_code));
     FarPlan* const plan = (FarPlan*)(block + FAR_PLAN_AT);
-    const u32 line_at = takes_args(h, dol + h->offset[0]) ? line_address(h, length) : 0;
+    const u32 line_at = args_line_at(h, dol + h->offset[0], length, args);
     far_plan_fill(plan, (u32)plan, h, (u32)dol, line_at, text, length);
     DCFlushRange(block, FAR_BYTES);
     ICInvalidateRange(block, FAR_BYTES);
@@ -283,18 +292,24 @@ static void far_run(u32 at, const DolHeader* h, const u8* dol, const char* text,
     }
 }
 
-void dolboot_run_line(const u8* dol, const char* line, u32 length) {
+// `args` false leaves the program's libogc argument block untouched, as the
+// Homebrew Channel and the apploader do (see dolboot_run_no_args).
+static void __attribute__((noreturn)) dolboot_run_inner(const u8* dol, const char* line, u32 length, bool args) {
     u32 n = length;
-    if (n > sizeof(line_copy)) n = sizeof(line_copy);
-    if (n != 0) memcpy(line_copy, line, n);
-    while (n > 0 && line_copy[n - 1] != 0) --n;
-    if (n == 0) {
-        line_copy[0] = 0;
-        n = 1;
+    if (args) {
+        if (n > sizeof(line_copy)) n = sizeof(line_copy);
+        if (n != 0) memcpy(line_copy, line, n);
+        while (n > 0 && line_copy[n - 1] != 0) --n;
+        if (n == 0) {
+            line_copy[0] = 0;
+            n = 1;
+        }
+    } else {
+        n = 0;
     }
     const DolHeader h = *(const DolHeader*)dol;
-    const u32 far_at = far_address(dol, n);
-    const u32 line_at = takes_args(&h, dol + h.offset[0]) ? line_address(&h, n) : 0;
+    const u32 far_at = far_address(dol, n, args);
+    const u32 line_at = args_line_at(&h, dol + h.offset[0], n, args);
     extern u8 __app_start[], __bss_end[];
     if (!far_at && reaches(&h, line_at, n, (u32)__app_start, (u32)__bss_end)) {
         // dolboot_valid (or dolboot_line_fits, for the argument line)
@@ -307,7 +322,7 @@ void dolboot_run_line(const u8* dol, const char* line, u32 length) {
     }
     SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
     IRQ_Disable();
-    if (far_at) far_run(far_at, &h, dol, line_copy, n);
+    if (far_at) far_run(far_at, &h, dol, line_copy, n, args);
     for (int i = 0; i < 18; ++i) {
         if (h.size[i] == 0) continue;
         memmove((void*)h.address[i], dol + h.offset[i], h.size[i]);
@@ -318,11 +333,19 @@ void dolboot_run_line(const u8* dol, const char* line, u32 length) {
         memset((void*)h.bss_address, 0, h.bss_size);
         DCFlushRange((void*)h.bss_address, h.bss_size);
     }
-    set_argv(&h, line_copy, n);
+    if (args) set_argv(&h, line_copy, n);
     dolboot_system_call_vector();
     ((void (*)(void))h.entry)();
     for (;;) {
     }
+}
+
+void dolboot_run_line(const u8* dol, const char* line, u32 length) {
+    dolboot_run_inner(dol, line, length, true);
+}
+
+void dolboot_run_no_args(const u8* dol) {
+    dolboot_run_inner(dol, 0, 0, false);
 }
 
 void dolboot_run(const u8* dol, const char* argv0) {

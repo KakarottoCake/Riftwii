@@ -36,7 +36,41 @@ u8 __bss_end[1];
 const u8 dolfar_code[1];
 const u8 dolfar_code_end[1];
 
+// The far copy's plan for a DOL that reads an argument block: with args
+// false it holds no copy to the block (the DOL's own bytes stay), with args
+// true it has one.
+static int far_plan_tests(void) {
+    DolHeader h = {0};
+    u8 text[64] = {0};
+    *(u32*)(text + 4) = ARGV_MAGIC;
+    h.offset[0] = 0x100;
+    h.address[0] = 0x80003100;
+    h.size[0] = 0x40;
+    h.entry = h.address[0];
+    static FarPlan plan;
+    int failures = 0;
+    for (int args = 0; args <= 1; ++args) {
+        const u32 line_at = args_line_at(&h, text, 10, args != 0);
+        if ((line_at != 0) != (args != 0)) {
+            printf("FAILED: line address %08x with args %d.\n", line_at, args);
+            ++failures;
+        }
+        memset(&plan, 0, sizeof(plan));
+        far_plan_fill(&plan, 0x90000000, &h, 0x91000000, line_at, "boot.dol", 10);
+        int to_block = 0;
+        for (u32 i = 0; i < plan.count; ++i) {
+            if (plan.copy[i][0] == h.address[0] + 8) ++to_block;
+        }
+        if (to_block != args || (plan.args[0] != 0) != (args != 0)) {
+            printf("FAILED: far plan with args %d has %d copies to the argument block.\n", args, to_block);
+            ++failures;
+        }
+    }
+    return failures;
+}
+
 int main(void) {
+    if (far_plan_tests()) return 1;
 #if defined(__SANITIZE_ADDRESS__) || __has_feature(address_sanitizer)
     puts("Channel argument test needs the Wii's MEM1 addresses, reserved by AddressSanitizer.");
     return 77;

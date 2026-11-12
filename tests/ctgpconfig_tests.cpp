@@ -58,7 +58,65 @@ static void test_crlf() {
     EXPECT_EQ(t, std::string("[exploit]\r\ndisable_patches = no\r\ndisable_ios_exploit = yes\r\n[music]\r\nvolume = 3\r\n"));
 }
 
+static void test_ini_set() {
+    // The channel's own default is replaced, nothing else changes.
+    std::string t = "# Auto generated config for ctgp-r channel\r\n\r\n[sd]\r\ncompatible_mode = no\r\n\r\n[video]\r\n"
+                    "video_mode = -1\r\n";
+    std::string old = "x";
+    EXPECT_TRUE(ctgp_channel_disc_config(t, &old));
+    EXPECT_EQ(old, std::string("no"));
+    EXPECT_EQ(t, std::string("# Auto generated config for ctgp-r channel\r\n\r\n[sd]\r\ncompatible_mode = yes\r\n\r\n"
+                             "[video]\r\nvideo_mode = -1\r\n"));
+    // Already yes: unchanged.
+    EXPECT_FALSE(ctgp_channel_disc_config(t, &old));
+    EXPECT_EQ(old, std::string("yes"));
+    // Indented, no spaces, no final line break.
+    std::string u = "[sd]\n  compatible_mode=no";
+    EXPECT_TRUE(ctgp_channel_disc_config(u));
+    EXPECT_EQ(u, std::string("[sd]\n  compatible_mode = yes"));
+    // The same key in another section does not count; a missing one is added.
+    std::string v = "[video]\ncompatible_mode = no\n";
+    EXPECT_TRUE(ctgp_channel_disc_config(v, &old));
+    EXPECT_EQ(old, std::string(""));
+    EXPECT_EQ(v, std::string("[video]\ncompatible_mode = no\n\n[sd]\ncompatible_mode = yes\n"));
+    std::string w;
+    EXPECT_TRUE(ctgp_channel_disc_config(w));
+    EXPECT_EQ(w, std::string("[sd]\ncompatible_mode = yes\n"));
+    // A commented-out line is not the key.
+    std::string x = "[sd]\n# compatible_mode = no\n";
+    EXPECT_TRUE(ctgp_channel_disc_config(x));
+    EXPECT_EQ(x, std::string("[sd]\n# compatible_mode = no\ncompatible_mode = yes\n"));
+}
+
+static void test_ini_set_case() {
+    // Section and key names match whatever their case; the file's own
+    // spelling of them stays.
+    std::string t = "[SD]\nCompatible_Mode = no\n";
+    std::string old;
+    EXPECT_TRUE(ctgp_channel_disc_config(t, &old));
+    EXPECT_EQ(old, std::string("no"));
+    EXPECT_EQ(t, std::string("[SD]\nCompatible_Mode = yes\n"));
+    std::string u = "[EXPLOIT]\nDisable_IOS_Exploit = no\n";
+    EXPECT_FALSE(ctgp_config_defaults(u));
+}
+
+static void test_disc_patches() {
+    std::string t = "[exploit]\r\ndisable_patches = no\r\ndisable_ios_exploit = no\r\n";
+    std::string old;
+    EXPECT_TRUE(ctgp_channel_disc_patches(t, &old));
+    EXPECT_EQ(old, std::string("no"));
+    EXPECT_EQ(t, std::string("[exploit]\r\ndisable_patches = yes\r\ndisable_ios_exploit = no\r\n"));
+    EXPECT_FALSE(ctgp_channel_disc_patches(t, &old));
+    std::string u = "[sd]\ncompatible_mode = no\n";
+    EXPECT_TRUE(ctgp_channel_disc_patches(u, &old));
+    EXPECT_EQ(old, std::string(""));
+    EXPECT_EQ(u, std::string("[sd]\ncompatible_mode = no\n\n[exploit]\ndisable_patches = yes\n"));
+}
+
 int main() {
+    test_ini_set();
+    test_ini_set_case();
+    test_disc_patches();
     test_empty_file();
     test_no_section();
     test_section_present();

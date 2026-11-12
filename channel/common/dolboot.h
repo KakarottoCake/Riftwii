@@ -32,6 +32,8 @@ void dolboot_run(const u8* dol, const char* argv0) __attribute__((noreturn));
 // argument line of `length` bytes (in MEM2), or 0 when the DOL lands
 // clear of this program and is copied by it, as before. For the log.
 u32 dolboot_far_address(const u8* dol, u32 length);
+// The same for a start that writes no argument block (dolboot_run_no_args).
+u32 dolboot_far_address_no_args(const u8* dol);
 
 // For a DOL dolboot_valid accepted: whether dolboot_run_line can hand it
 // an argument line of `length` bytes. False only for a DOL that reads
@@ -41,6 +43,13 @@ u32 dolboot_far_address(const u8* dol, u32 length);
 bool dolboot_line_fits(const u8* dol, u32 length);
 
 void dolboot_run_line(const u8* dol, const char* line, u32 length) __attribute__((noreturn));
+
+// Runs `dol` without writing its libogc argument block, as the Homebrew
+// Channel and the game's apploader leave a program they start: the block's
+// magic, command-line pointer and length stay as the DOL file has them
+// (CTGP-R 1.03's channel hashes that whole first segment, and a filled
+// block made its start-up memory check fail on d2x's virtual disc).
+void dolboot_run_no_args(const u8* dol) __attribute__((noreturn));
 
 // Puts at the system call vector (0x80000C00) the handler the Wii's system
 // software leaves for a program it starts: `sc` returns at once, after

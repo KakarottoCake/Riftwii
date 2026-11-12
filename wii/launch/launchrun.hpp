@@ -25,10 +25,21 @@ bool CompileSelection(const std::vector<PackageChoices>& packages, CompiledMod& 
                       const LaunchSource& source = LaunchSource());
 bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& source = LaunchSource(),
                     const std::string& save_mode = "nand", const std::string& game_id = "");
-// Whether this choice is the CTGP-R pack and the native launch is set up on
-// the card (wii/launch/ctgpr.hpp): such a launch goes through RunLaunch, not
-// the packs compiled in the menu.
-bool CtgprNativeLaunch(const std::vector<PackageChoices>& packages, const std::string& game_id);
+// Whether this choice is the CTGP-R pack (CTGP-R's own channel app standing in
+// for the game): such a launch, the channel's or the native one, goes through
+// RunLaunch, not the packs compiled in the menu.
+bool CtgprPackGoesThroughRunLaunch(const std::vector<PackageChoices>& packages, const std::string& game_id);
+#ifdef RIFTWII_TEST_BUILD
+// Test builds only (autorun's "ctgpnative"; a release build uses a file
+// ctgpnative.txt next to its boot.dol): the CTGP-R pack uses the native
+// launch, when its files are on the card, instead of CTGP-R's own channel app
+// (the default, for a disc, a USB image and an SD image alike).
+void ForceCtgprNativeLaunch(bool on);
+#endif
+// Whether the native launch is what the CTGP-R pack will use: opted into
+// (ctgpnative.txt, or autorun's "ctgpnative") and its files are on the card.
+bool CtgprNativeOptedIn();  // kept; asked on every redraw
+void CtgprNativeForget();   // the next ask looks at the card again
 bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error,
                const LaunchSource& source = LaunchSource(), const std::string& save_mode = "nand",
                const std::string& game_id = "", const MissingModConfirmation& confirm_missing = {});

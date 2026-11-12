@@ -984,17 +984,20 @@ msgstr "O RVZ é experimental para jogos de GameCube; se falhar, use uma cópia 
 msgid "Play at your own risk:"
 msgstr "Jogue por sua conta e risco:"
 
-msgid "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead."
-msgstr "O CTGP Revolution (um pack que inicia um app do Homebrew Channel) ainda não funciona pelo RiftWii: ele para numa tela preta ou verde. Inicie o CTGP pelo Homebrew Channel."
-
 msgid "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded."
 msgstr "O CTGP Revolution inicia só offline pelo RiftWii: o jogo online e em LAN ficam desligados, e os fantasmas que você salvar não podem ser enviados."
 
 msgid "CTGP Revolution: offline only (see Start)."
 msgstr "CTGP Revolution: só offline (veja Jogar)."
 
-msgid "CTGP Revolution does not work from RiftWii yet (see Start)."
-msgstr "O CTGP Revolution ainda não funciona pelo RiftWii (veja Jogar)."
+msgid "CTGP Revolution: starts through its own channel app."
+msgstr "CTGP Revolution: inicia pelo seu próprio app de canal."
+
+msgid "CTGP-R's channel (sd:/apps/ctgpr/boot.dol) is missing, so nothing was started. Put CTGP-R's apps/ctgpr folder on the SD card."
+msgstr "O canal do CTGP-R (sd:/apps/ctgpr/boot.dol) está faltando, então nada foi iniciado. Coloque a pasta apps/ctgpr do CTGP-R no cartão SD."
+
+msgid "CTGP-R's settings file (sd:/ctgpr/config.ini) could not be written, so nothing was started. Check that the SD card is not locked or full."
+msgstr "Não foi possível gravar o arquivo de ajustes do CTGP-R (sd:/ctgpr/config.ini), então nada foi iniciado. Verifique se o cartão SD não está bloqueado nem cheio."
 
 msgid " (and {1} more)"
 msgstr " (e mais {1})"

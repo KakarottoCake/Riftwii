@@ -2605,28 +2605,14 @@ static bool PacksOnUsb(const FrontendState& state)
 // RVZ game (the catalog's note), packs on the USB drive. What cannot work
 // at all is refused instead (ModPlaceProblem).
 // A pack that swaps the game's executable for a Homebrew Channel app
-// (CTGP Revolution 1.03's CTGP-R Channel). With the native launch's files on
-// the card (wii/launch/ctgpr.hpp), RiftWii starts CTGP-R itself, offline
-// only. Without them the app is started as the Homebrew Channel starts it
-// (wii/launch/modplan.hpp), which does not work from RiftWii yet (a black
-// screen from a disc, a green one from USB, on testers' consoles).
-static const char* const kHomebrewAppWarning =
-	"CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.";
+// (CTGP Revolution 1.03's CTGP-R Channel). RiftWii starts that channel app
+// itself (wii/launch/launchrun.cpp), from a disc or from a USB or SD image
+// through d2x, with no note before it: CTGP-R runs as its own channel does.
+// Only with ctgpnative.txt next to boot.dol and the native launch's files on
+// the card (wii/launch/ctgpr.hpp) does it start CTGP-R itself, offline only,
+// and the note before the launch says so.
 static const char* const kCtgpNativeNote =
 	"CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.";
-
-// What the launch will do with the pack, as the Start note says it. With
-// CTGP-R's files on the card it starts natively, offline only; a version the
-// launch cannot start is named when it is started (wii/launch/ctgpr.hpp: the
-// version is in the package disk only the ctgpr plugin reads).
-static const char* HomebrewAppNote()
-{
-	switch (riftwii::wii::ctgpr_native_status()) {
-	case riftwii::wii::CtgprNativeStatus::Installed: return kCtgpNativeNote;
-	case riftwii::wii::CtgprNativeStatus::NotInstalled: break;
-	}
-	return kHomebrewAppWarning;
-}
 
 static bool FrontPortsReached(const FrontendState& state)
 {
@@ -2637,9 +2623,9 @@ static bool FrontPortsReached(const FrontendState& state)
 static std::string LaunchNote(const FrontendState& state)
 {
 	std::string note = state.launch_warning;
-	if (riftwii::wii::HomebrewAppPackOn(state)) {
+	if (riftwii::wii::CtgprNativeStandIn(state) && riftwii::wii::CtgprNativeOptedIn()) {
 		if (!note.empty()) note += " ";
-		note += tr(HomebrewAppNote());
+		note += tr(kCtgpNativeNote);
 	}
 	// An RVZ's reader keeps a block as stored and as decoded, and the
 	// decoder's 48 KB, in the game's MEM2: about 300 KB with Dolphin's
@@ -8478,10 +8464,11 @@ static const riftwii::wii::SharedNandLookup& SharedNandFor(const std::string& ga
 // sd:/riivolution/save/RMC?/ (docs/CTGPR.md), not on the Wii.
 static std::string CtgprSaveFolder(const FrontendState& state)
 {
-	// The same test as the launch (CtgprNativeLaunch): the pack's app must be
-	// CTGP-R's own channel app, and the native launch's files on the card.
-	if (!riftwii::wii::CtgprNativeStandIn(state) ||
-	    riftwii::wii::ctgpr_native_status() != riftwii::wii::CtgprNativeStatus::Installed)
+	// The same test as the launch (ctgpr_native_chosen): the pack's app must be
+	// CTGP-R's own channel app, and the native launch opted into
+	// (ctgpnative.txt) with its files on the card. CTGP-R's own channel, the
+	// default, keeps its save as the channel does, and the setting applies.
+	if (!riftwii::wii::CtgprNativeStandIn(state) || !riftwii::wii::CtgprNativeOptedIn())
 		return std::string();
 	const std::string label = riftwii::ctgpr_save_folder_label(state.game_id);
 	return label.empty() ? std::string() : "sd:/riivolution/save/" + label + "/";
@@ -13481,13 +13468,10 @@ static std::string ModsNote(const FrontendState& state, const std::string& scanS
 {
 	if (const std::string problem = riftwii::wii::ModPlaceProblem(state, true); !problem.empty())
 		return FlatCapped(problem, 90);
-	if (riftwii::wii::HomebrewAppPackOn(state))
+	if (riftwii::wii::CtgprNativeStandIn(state))
 	{
-		switch (riftwii::wii::ctgpr_native_status()) {
-		case riftwii::wii::CtgprNativeStatus::Installed: return tr("CTGP Revolution: offline only (see Start).");
-		case riftwii::wii::CtgprNativeStatus::NotInstalled: break;
-		}
-		return tr("CTGP Revolution does not work from RiftWii yet (see Start).");
+		if (riftwii::wii::CtgprNativeOptedIn()) return tr("CTGP Revolution: offline only (see Start).");
+		return tr("CTGP Revolution: starts through its own channel app.");
 	}
 	std::size_t enabled = 0;
 	const std::size_t shown = ShownPacks(state, &enabled);

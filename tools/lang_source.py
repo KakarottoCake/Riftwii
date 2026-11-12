@@ -922,12 +922,6 @@ T = {
         "自己責任でプレイしてください:",
         "Jogue por sua conta e risco:",
         "Gioca a tuo rischio:"),
-    # A pack that starts a Homebrew Channel app (CTGP Revolution): not working yet.
-    "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.": (
-        "CTGP Revolution (un pack que inicia una app del Homebrew Channel) todavía no funciona desde RiftWii: se queda en una pantalla negra o verde. Inicia CTGP desde el Homebrew Channel.",
-        "CTGP Revolution（Homebrew Channelのアプリを起動するパック）はまだRiftWiiから動きません。黒または緑の画面で止まります。CTGPはHomebrew Channelから起動してください。",
-        "O CTGP Revolution (um pack que inicia um app do Homebrew Channel) ainda não funciona pelo RiftWii: ele para numa tela preta ou verde. Inicie o CTGP pelo Homebrew Channel.",
-        "CTGP Revolution (un pacchetto che avvia un'app dell'Homebrew Channel) non funziona ancora da RiftWii: si ferma su una schermata nera o verde. Avvia CTGP dall'Homebrew Channel."),
     # CTGP Revolution started natively (its files set up on the card): offline only.
     "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.": (
         "CTGP Revolution se inicia sin conexión desde RiftWii: el juego en línea y en LAN están desactivados, y los fantasmas que guardes no se pueden subir.",
@@ -939,11 +933,21 @@ T = {
         "CTGP Revolution：オフライン専用（「はじめる」を参照）。",
         "CTGP Revolution: só offline (veja Jogar).",
         "CTGP Revolution: solo offline (vedi Gioca)."),
-    "CTGP Revolution does not work from RiftWii yet (see Start).": (
-        "CTGP Revolution todavía no funciona desde RiftWii (mira Jugar).",
-        "CTGP RevolutionはまだRiftWiiから動きません（「はじめる」を参照）。",
-        "O CTGP Revolution ainda não funciona pelo RiftWii (veja Jogar).",
-        "CTGP Revolution non funziona ancora da RiftWii (vedi Gioca)."),
+    "CTGP Revolution: starts through its own channel app.": (
+        "CTGP Revolution: se inicia con su propia app de canal.",
+        "CTGP Revolution：専用のチャンネルアプリで起動します。",
+        "CTGP Revolution: inicia pelo seu próprio app de canal.",
+        "CTGP Revolution: si avvia con la propria app di canale."),
+    "CTGP-R's channel (sd:/apps/ctgpr/boot.dol) is missing, so nothing was started. Put CTGP-R's apps/ctgpr folder on the SD card.": (
+        "Falta el canal de CTGP-R (sd:/apps/ctgpr/boot.dol), así que no se inició nada. Pon la carpeta apps/ctgpr de CTGP-R en la tarjeta SD.",
+        "CTGP-Rのチャンネル（sd:/apps/ctgpr/boot.dol）がないため、何も起動しませんでした。CTGP-Rのapps/ctgprフォルダをSDカードに入れてください。",
+        "O canal do CTGP-R (sd:/apps/ctgpr/boot.dol) está faltando, então nada foi iniciado. Coloque a pasta apps/ctgpr do CTGP-R no cartão SD.",
+        "Manca il canale di CTGP-R (sd:/apps/ctgpr/boot.dol), quindi non è stato avviato nulla. Metti la cartella apps/ctgpr di CTGP-R nella scheda SD."),
+    "CTGP-R's settings file (sd:/ctgpr/config.ini) could not be written, so nothing was started. Check that the SD card is not locked or full.": (
+        "No se pudo escribir el archivo de ajustes de CTGP-R (sd:/ctgpr/config.ini), así que no se inició nada. Comprueba que la tarjeta SD no esté bloqueada ni llena.",
+        "CTGP-Rの設定ファイル（sd:/ctgpr/config.ini）を書き込めなかったため、何も起動しませんでした。SDカードのロックや空き容量を確認してください。",
+        "Não foi possível gravar o arquivo de ajustes do CTGP-R (sd:/ctgpr/config.ini), então nada foi iniciado. Verifique se o cartão SD não está bloqueado nem cheio.",
+        "Impossibile scrivere il file delle impostazioni di CTGP-R (sd:/ctgpr/config.ini), quindi non è stato avviato nulla. Controlla che la scheda SD non sia bloccata né piena."),
     # Mods where they cannot work (refused at Start). {1} is a folder like
     # "usb:/Project+", maybe followed by the piece below.
     " (and {1} more)": (" (y {1} más)", " (ほか{1}件)", " (e mais {1})", " (e altri {1})"),
@@ -3042,14 +3046,16 @@ KO = {
         "GameCube 게임의 RVZ는 실험적인 기능입니다. 실패할 경우 ISO 사본을 사용하세요.",
     "Play at your own risk:":
         "사용 시 발생하는 문제는 사용자의 책임입니다:",
-    "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.":
-        "CTGP Revolution(홈브류 채널 앱을 통해 실행하는 팩)은 아직 RiftWii에서 정상적으로 작동하지 않으며, 검은색 또는 녹색 화면에서 멈춥니다. 대신 홈브류 채널에서 CTGP를 실행하세요.",
     "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.":
         "RiftWii에서 CTGP Revolution은 오프라인 전용으로 실행됩니다. 온라인 및 LAN 플레이는 꺼지며, 저장한 고스트는 업로드할 수 없습니다.",
     "CTGP Revolution: offline only (see Start).":
         "CTGP Revolution: 오프라인 전용 (시작 항목 참조)",
-    "CTGP Revolution does not work from RiftWii yet (see Start).":
-        "CTGP Revolution은 아직 RiftWii에서 작동하지 않습니다. (시작 항목 참조)",
+    "CTGP Revolution: starts through its own channel app.":
+        "CTGP Revolution: 자체 채널 앱으로 시작합니다",
+    "CTGP-R's channel (sd:/apps/ctgpr/boot.dol) is missing, so nothing was started. Put CTGP-R's apps/ctgpr folder on the SD card.":
+        "CTGP-R 채널(sd:/apps/ctgpr/boot.dol)이 없어 아무것도 시작되지 않았습니다. CTGP-R의 apps/ctgpr 폴더를 SD 카드에 넣어 주세요.",
+    "CTGP-R's settings file (sd:/ctgpr/config.ini) could not be written, so nothing was started. Check that the SD card is not locked or full.":
+        "CTGP-R 설정 파일(sd:/ctgpr/config.ini)을 쓸 수 없어 아무것도 시작되지 않았습니다. SD 카드가 잠겨 있거나 가득 찼는지 확인해 주세요.",
     " (and {1} more)":
         " (그리고 {1} 개 더)",
     "Code builds on the USB drive won't work. Move {1} to the SD card.":
@@ -4916,14 +4922,16 @@ FR = {
         "Le RVZ est expérimental pour les jeux GameCube; en cas de problème, utilisez une copie ISO.",
     "Play at your own risk:":
         "À utiliser à vos risques :",
-    "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.":
-        "CTGP Revolution ne fonctionne pas encore depuis RiftWii (blocage sur écran noir ou vert). Lancez-le directement depuis la Chaîne Homebrew.",
     "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.":
         "CTGP Revolution démarre hors ligne uniquement depuis RiftWii : le jeu en ligne et en LAN est désactivé, et les fantômes que vous enregistrez ne peuvent pas être envoyés.",
     "CTGP Revolution: offline only (see Start).":
         "CTGP Revolution : hors ligne uniquement (voir Démarrer).",
-    "CTGP Revolution does not work from RiftWii yet (see Start).":
-        "CTGP Revolution ne fonctionne pas encore depuis RiftWii (voir Démarrer).",
+    "CTGP Revolution: starts through its own channel app.":
+        "CTGP Revolution : démarre avec sa propre application de chaîne.",
+    "CTGP-R's channel (sd:/apps/ctgpr/boot.dol) is missing, so nothing was started. Put CTGP-R's apps/ctgpr folder on the SD card.":
+        "La chaîne de CTGP-R (sd:/apps/ctgpr/boot.dol) est introuvable, rien n'a été démarré. Placez le dossier apps/ctgpr de CTGP-R sur la carte SD.",
+    "CTGP-R's settings file (sd:/ctgpr/config.ini) could not be written, so nothing was started. Check that the SD card is not locked or full.":
+        "Le fichier de réglages de CTGP-R (sd:/ctgpr/config.ini) n'a pas pu être écrit, rien n'a été démarré. Vérifiez que la carte SD n'est ni verrouillée ni pleine.",
     " (and {1} more)":
         " (et {1} autre(s))",
     "Code builds on the USB drive won't work. Move {1} to the SD card.":
@@ -8574,7 +8582,7 @@ def check(repo):
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/credits.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
                "wii/core/plugins.cpp", "wii/core/memlimits.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp",
-               "wii/menu/picturepicker.cpp", "wii/launch/ctgpr.cpp"]
+               "wii/menu/picturepicker.cpp", "wii/launch/ctgpr.cpp", "wii/launch/launchrun.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:

@@ -4,10 +4,13 @@ RiftWii has two ways to start CTGP-R 1.03's pack:
 
 * **The native launch, offline only** (below, "The native launch"):
   RiftWii loads Mario Kart Wii and places CTGP-R's code in it itself,
-  with no channel app. Used when its files are set up on the card.
+  with no channel app. Used only with `ctgpnative.txt` next to `boot.dol`
+  and its files set up on the card (autorun test builds: `ctgpnative`).
 * **The CTGP-R Channel as a Homebrew Channel app** (the rest of this
-  page): experimental, and it stops before CTGP's menus on testers'
-  consoles. Used when the native launch's files are not on the card.
+  page): the default, from a real disc and from a USB or SD image through
+  d2x's virtual disc. The native launch is used instead only when a file
+  `ctgpnative.txt` sits next to RiftWii's `boot.dol` and its files are on
+  the card.
 
 ## The native launch (offline only)
 
@@ -226,7 +229,11 @@ starts the app the way the Homebrew Channel does (`StartHomebrewApp`), not
 through the apploader. The save redirect in CTGP's XML cannot apply and is
 dropped (the pack's `<savegame external clone>` is not run).
 
-## CTGP-R's save on the SD card
+## CTGP-R's save on the SD card (native launch)
+
+This section is about the native launch only (`ctgpnative.txt`). By default
+CTGP-R's own channel starts, and it looks after the save itself (its "Copy MKW
+save to SD card?" option); RiftWii copies nothing then.
 
 CTGP-R's own code in the game sends every access to Mario Kart Wii's NAND data
 (`/title/00010004/524d43xx/data/`) to `sd:/riivolution/save/RMC<R>/` on the
@@ -288,45 +295,43 @@ hardware access, as USB Loader GX and WiiFlow do with libruntimeiospatch's
 for CTGP's own reloads. Only the Homebrew Channel app path does this, not
 ordinary game launches. `boot.log` shows `IOS<n>'s ES keeps hardware
 access on for the next IOS` for each, and `Homebrew app: IOS<n>, hardware
-access on` when it worked. Untested on a Wii.
+access on` when it worked.
 
-## Status after 2.7.0 RC9.2 (console test, USB image)
+## Starting the channel from a USB or SD image
 
-On a Wii (USA, d2x in 249, game on a USB drive) RC9.2 stopped right after
-`IOS58's ES keeps hardware access on for the next IOS`: the reload into
-the cIOS never finished. `keep_hardware_access` wrote its byte through
-MEM2's uncached mirror; since 4b26958 it changes the byte inside its
-aligned 32-bit word. With that build the whole RiftWii side worked
-(d2x serves the image, hardware access on through both reloads, the app
-starts) and the CTGP channel opened, after a green, black, green start,
-but asked for the Mario Kart Wii disc. So CTGP's channel does not see
-d2x's virtual disc. Which of its disc steps fails (its own IOS reload,
-the drive's cover status, a drive reset) is not known yet; the console
-gives no log past the handover. Starting CTGP from the Homebrew Channel
-stays the supported way.
+For an image, d2x serves it as the disc, then the channel app runs under
+the cIOS. Three things make that work:
 
-## Why CTGP asks for the disc (diagnostic, 2026-10-02)
+* **No argument block.** CTGP-R 1.03's channel hashes its first stub segment
+  at 0x80004000 in its start-up memory check, and that segment holds the
+  libogc `_arg` block at 0x80004008. RiftWii's loader used to fill that
+  block (the channel's own path, `dolboot_run_line`), so the check failed,
+  the channel restarted itself, and the restart's IOS reload used up d2x's
+  one disc carry ("insert the disc"). RiftWii now starts CTGP-R's channel app
+  without writing the block (`dolboot_run_no_args` in
+  `channel/common/dolboot.c`, the `write_args` flag of `StartHomebrewApp` in
+  `wii/launch/channel.cpp`), as the Homebrew Channel and the apploader leave
+  a program. Other apps still get their arguments.
+* **MEM2 protection start.** The channel turns MEM2 protection on and then
+  clears MEM2 below its start, which IOS leaves at 0x13620000; d2x's plugins
+  live in 0x13400000 to 0x1361ffff. Before it starts the app, RiftWii moves
+  the protection start to 0x13400000 (register 0xCD8B420C, only with
+  hardware access) so the channel's clear leaves them. The next IOS reload
+  puts the start back.
+* **config.ini keys** (`SetCtgpDefaults`): on a virtual disc RiftWii sets
+  `[sd] compatible_mode`, `[exploit] disable_patches` and
+  `[exploit] disable_ios_exploit` to `yes` in `sd:/ctgpr/config.ini`, so the
+  channel reloads into the cIOS it started on (not the game's IOS) and does
+  not rewrite ES patterns in the IOS area of MEM2, where d2x's own modules
+  live. The channel writes `no` for these itself, so the value is set, not
+  only added (`riftwii/ctgpconfig.hpp`, `tests/ctgpconfig_tests.cpp`).
 
-A stand-in app started in CTGP's place (same launch, USB image, d2x 249)
-logged the state at each step:
+`boot.log` names each step: the channel launch chosen, the d2x virtual disc
+set up, the protection move, and the app start.
 
-- At the handover everything is right: IOS249, hardware access on, ES's
-  running title is the game (00010004-RMCE, a disc game), the drive says a
-  disc is in and reads `RMCE01`.
-- A first IOS reload is redirected by d2x into IOS249 and keeps the game,
-  even across a drive reset. After it ES has no running title (-1017).
-- A second IOS reload (IOS37) is not redirected: d2x only redirects a
-  reload while ES names a disc game as running, and that comes back only
-  once the program opens the disc's partition. The real IOS37 then reads
-  the real drive (another disc gave CTGP's "this isn't Mario Kart Wii").
-
-A game opens its partition between reloads; CTGP's loader chain reloads
-IOS more than once before its disc check, so the game is gone by then.
-`channel_installation_ios = 249` in CTGP's config.ini did not change it.
-The reloads are in CTGP's encrypted stages (its loader and the channel in
-blob.bin, which CTGP updates itself), so RiftWii does not patch them.
-CTGP from a USB/SD image stays experimental; start it from the
-Homebrew Channel instead.
+Checked on a Wii with a USB image: the channel opens without restarts, finds
+d2x's virtual disc, and an offline CTGP-R race runs. Dolphin cannot test
+this: its HLE IOS has no d2x.
 
 ## CTGP's own IOS exploit
 
@@ -341,10 +346,14 @@ The channel skips the exploit when `sd:/ctgpr/config.ini` says so in its
 and CTGP only writes keys that differ from the default). Since 2.7.0 RC9,
 RiftWii adds that line before it starts `sd:/apps/ctgpr/boot.dol`
 (`SetCtgpDefaults`, `wii/launch/launchrun.cpp`; the INI merge is
-`riftwii/ctgpconfig.hpp`, tested in `tests/ctgpconfig_tests.cpp`). A value
-the player set is left alone. The key does not affect networking: online
-play comes from CTGP's patches to the game's code. `boot.log` shows
-`CTGP: config.ini set to skip CTGP's own IOS exploit`. Untested on a Wii.
+`riftwii/ctgpconfig.hpp`, tested in `tests/ctgpconfig_tests.cpp`; section
+and key names match whatever their case). From a real disc a value the
+player set is left alone. From a USB or SD image that key and the two others
+above (`[sd] compatible_mode`, `[exploit] disable_patches`) are set to `yes`
+whatever the player had; `boot.log` gives each old value. The keys do not
+affect networking: online play comes from CTGP's patches to the game's code.
+`boot.log` shows e.g. `CTGP: config.ini [exploit] disable_ios_exploit = yes
+(was not set)`.
 
 ## d2x IOS reload block
 
@@ -367,22 +376,6 @@ unknown. When it refuses, the error tells the player to restart the console.
 `boot.log` shows `d2x keeps IOS<n> across the program's own IOS reloads`
 when armed and `IOS reload block cleared` / `could not be cleared` after a
 failure.
-
-## On hold (2026-10-04)
-
-The fix has to come from CTGP's side: its channel reloads IOS twice and d2x
-fakes only the first (above), and the reloads live in CTGP's encrypted,
-anti-cheat-protected code, which RiftWii must not change. Questions for the
-developer when this resumes:
-
-1. What the second reload (into IOS37) is for, and whether CTGP could
-   stay on a d2x cIOS that already emulates Mario Kart Wii's disc.
-2. A supported "started by a loader" mode (a `config.ini` key, or a value
-   RiftWii leaves in memory) that keeps the running cIOS and the disc, with
-   every anti-cheat check kept.
-3. What the anti-cheat needs from the environment (IOS, untouched ES, no
-   hooks in the game) so RiftWii can guarantee it.
-4. Whether the disc check needs anything d2x's emulation lacks.
 
 ## What a console test must show
 

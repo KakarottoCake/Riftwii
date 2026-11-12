@@ -110,23 +110,6 @@ bool resolve_for_plugin(const std::string& sd_path, Fat32File& out, std::string&
 
 }  // namespace
 
-namespace {
-
-bool g_status_known = false;
-CtgprNativeStatus g_status = CtgprNativeStatus::NotInstalled;
-
-}  // namespace
-
-CtgprNativeStatus ctgpr_native_status() {
-    if (!g_status_known) {
-        g_status = ctgpr_native_wanted() ? CtgprNativeStatus::Installed : CtgprNativeStatus::NotInstalled;
-        g_status_known = true;
-    }
-    return g_status;
-}
-
-void ctgpr_native_status_forget() { g_status_known = false; }
-
 bool ctgpr_native_wanted() {
     // CTGP-R's own files are on the card: its installer put them there. The
     // launch needs nothing of its own, so their presence is what turns the
