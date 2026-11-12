@@ -1092,6 +1092,12 @@ void test_replace_d2x_sector() {
     EXPECT_EQ(resolve(511), 8999u);
     EXPECT_EQ(resolve(512), 9000u);
     EXPECT_TRUE(list.encode(encoded, error));
+    EXPECT_TRUE(replace_d2x_sector(list, 650, 9100, error));
+    EXPECT_EQ(resolve(649), 0u);
+    EXPECT_EQ(resolve(650), 9100u);
+    EXPECT_EQ(resolve(651), 0u);
+    EXPECT_EQ(resolve(700), 5000u);
+    EXPECT_TRUE(list.encode(encoded, error));
     EXPECT_FALSE(replace_d2x_sector(list, 1024, 1, error));
     EXPECT_TRUE(replace_d2x_sector(list, 0, 0xffffffffu, error));
     EXPECT_EQ(resolve(0), 0xffffffffu);
