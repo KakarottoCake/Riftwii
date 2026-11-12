@@ -12307,7 +12307,7 @@ static bool FetchGameInfo(const FrontendState& state, riftwii::GameInfo& info)
 			return false;
 		}
 		if (ShowPopup(tr("Download game details?"),
-			    tr("They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?"),
+			    tr("They come from GameTDB's database of every Wii game: about 3 MB, kept on the SD card. Download it now?"),
 			    tr("Download"), tr("Cancel")) != 0)
 			return false;
 		if (!DownloadGameInfoNow()) return false;

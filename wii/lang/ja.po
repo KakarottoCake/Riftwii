@@ -2595,8 +2595,8 @@ msgstr "ゲーム情報はまだありません"
 msgid "Download game details?"
 msgstr "ゲーム情報をダウンロードしますか？"
 
-msgid "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?"
-msgstr "GameTDBの全Wiiゲームのデータベースから取得します（約2 MB、SDカードに保存）。今すぐダウンロードしますか？"
+msgid "They come from GameTDB's database of every Wii game: about 3 MB, kept on the SD card. Download it now?"
+msgstr "GameTDBの全Wiiゲームのデータベースから取得します（約3 MB、SDカードに保存）。今すぐダウンロードしますか？"
 
 msgid "Players"
 msgstr "人数"
