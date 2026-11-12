@@ -425,10 +425,12 @@ const CtgprPackCache& CtgprPackAnswers(const FrontendState& state) {
     cache.key = key;
     cache.pack_on = SIZE_MAX;
     cache.app_stand_in = false;
+    cache.native_stand_in = false;
     if (!state.game_id.empty()) {
         cache.pack_on = FindCtgprPackOn(state, selections);
         std::string app, dropped;
         cache.app_stand_in = homebrew_app_stand_in(selections, state.game_id, app, dropped);
+        cache.native_stand_in = cache.app_stand_in && ctgp_is_native_stand_in(state.game_id, app);
     }
     cache.valid = true;
     return cache;
@@ -439,6 +441,8 @@ const CtgprPackCache& CtgprPackAnswers(const FrontendState& state) {
 std::size_t CtgprPackOn(const FrontendState& state) { return CtgprPackAnswers(state).pack_on; }
 
 bool HomebrewAppPackOn(const FrontendState& state) { return CtgprPackAnswers(state).app_stand_in; }
+
+bool CtgprNativeStandIn(const FrontendState& state) { return CtgprPackAnswers(state).native_stand_in; }
 
 bool ApplyCtgprPrecedence(FrontendState& state) {
     const std::size_t ctgp = CtgprPackOn(state);

@@ -8478,7 +8478,9 @@ static const riftwii::wii::SharedNandLookup& SharedNandFor(const std::string& ga
 // sd:/riivolution/save/RMC?/ (docs/CTGPR.md), not on the Wii.
 static std::string CtgprSaveFolder(const FrontendState& state)
 {
-	if (!riftwii::wii::HomebrewAppPackOn(state) ||
+	// The same test as the launch (CtgprNativeLaunch): the pack's app must be
+	// CTGP-R's own channel app, and the native launch's files on the card.
+	if (!riftwii::wii::CtgprNativeStandIn(state) ||
 	    riftwii::wii::ctgpr_native_status() != riftwii::wii::CtgprNativeStatus::Installed)
 		return std::string();
 	const std::string label = riftwii::ctgpr_save_folder_label(state.game_id);
@@ -10405,7 +10407,10 @@ static void MenuWiiSaves(FrontendState& state)
 {
 	static const char* const kModes[] = {"global", "nand", "separate", "fresh", "emunand"};
 	constexpr int kModeCount = 5;
-	const bool kept = !state.model.pack_save_owner().empty();
+	// CTGP-R started natively keeps its save in its own SD folder whatever is
+	// picked here (RunLaunch), so the page is shown as a pack's that keeps its own.
+	const std::string ctgprFolder = CtgprSaveFolder(state);
+	const bool kept = !state.model.pack_save_owner().empty() || !ctgprFolder.empty();
 	std::vector<FlowRow> rows(kModeCount);
 	for (FlowRow& row : rows) row.kind = FlowRow::Kind::Action;
 	for (int i = 0; i < kModeCount; ++i) {
@@ -10430,6 +10435,8 @@ static void MenuWiiSaves(FrontendState& state)
 	// been swapped since it was last looked up.
 	if (!kept) SharedNandFor(state.game_id, true);
 	const auto note = [&](int row) -> std::string {
+		if (!ctgprFolder.empty())
+			return tr("CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none.", {ctgprFolder});
 		if (kept) return tr("This pack keeps its own saves. Turn it off to choose here.");
 		const std::string shown = kModes[row];
 		const bool fresh = row == current;
