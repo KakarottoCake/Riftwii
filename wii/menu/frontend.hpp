@@ -42,6 +42,7 @@ struct CtgprPackCache {
     std::string key;                   // the game, the packs and their choices it was worked out for
     std::size_t pack_on = SIZE_MAX;    // CtgprPackOn's answer
     bool app_stand_in = false;         // HomebrewAppPackOn's answer
+    bool native_stand_in = false;      // CtgprNativeStandIn's answer
 };
 
 struct FrontendState {
@@ -146,6 +147,9 @@ std::size_t CtgprPackOn(const FrontendState& state);
 // Homebrew Channel app (CTGP Revolution 1.03's channel): the launch is then
 // the app's, or CTGP-R's native one. Kept like CtgprPackOn's answer.
 bool HomebrewAppPackOn(const FrontendState& state);
+// Whether that app is CTGP-R's channel app for Mario Kart Wii, the one the
+// native CTGP-R launch takes the place of (ctgp_is_native_stand_in, as RunLaunch checks it).
+bool CtgprNativeStandIn(const FrontendState& state);
 bool ApplyCtgprPrecedence(FrontendState& state);
 bool SaveChoices(FrontendState& state, std::string& error);
 // `model`'s choices written to `path` (a profile's new file), safely as SaveChoices.

@@ -396,7 +396,45 @@ void test_parse_checked() {
     EXPECT_TRUE(names.empty());
 }
 
+// CTGP-R's save copy: only "not found" is no save; a refusal is a failure.
+void test_strict_first() {
+    for (std::int32_t code : {-102, -1, -101, -4, -1017}) {
+        reset_alloc_counts();
+        FakeDir f;
+        f.first_result = code;
+        f.first_count = 0u;
+        std::vector<std::string> names(1, std::string("old"));
+        std::uint32_t count = 99u;
+        std::int32_t error = 0;
+        const NandList r = list_nand_strict_with(fake_read_dir, &f, counting_alloc, counting_free, names, count, error);
+        EXPECT_TRUE(r == NandList::Failed);
+        EXPECT_EQ(error, code);
+        EXPECT_TRUE(names.empty());
+        EXPECT_EQ(g_allocs, 0);
+        // The lenient call is unchanged.
+        reset_alloc_counts();
+        EXPECT_TRUE(list_nand_with(fake_read_dir, &f, counting_alloc, counting_free, names, count) == NandList::NotThere);
+    }
+    reset_alloc_counts();
+    FakeDir f;
+    f.first_result = kNandNotFound;
+    f.first_count = 0u;
+    std::vector<std::string> names;
+    std::uint32_t count = 0;
+    std::int32_t error = 7;
+    EXPECT_TRUE(list_nand_strict_with(fake_read_dir, &f, counting_alloc, counting_free, names, count, error) ==
+                NandList::NotThere);
+    EXPECT_EQ(error, 0);
+    // Found and empty is Ok, as before.
+    FakeDir e;
+    e.first_result = 0;
+    e.first_count = 0u;
+    EXPECT_TRUE(list_nand_strict_with(fake_read_dir, &e, counting_alloc, counting_free, names, count, error) ==
+                NandList::Ok);
+}
+
 int main() {
+    test_strict_first();
     test_parse_checked();
     test_counts();
     test_rounding();

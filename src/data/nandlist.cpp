@@ -60,12 +60,20 @@ bool parse_nand_list(const char* list, std::size_t list_bytes, std::uint32_t ask
     return parse_nand_list_checked(list, list_bytes, asked, got, names) == NandParse::Ok;
 }
 
-NandList list_nand_with(NandReadDir read_dir, void* ctx, NandAlloc alloc, NandFree release,
-                        std::vector<std::string>& names, std::uint32_t& count) {
+namespace {
+
+NandList list_nand_core(NandReadDir read_dir, void* ctx, NandAlloc alloc, NandFree release,
+                        std::vector<std::string>& names, std::uint32_t& count, bool strict, std::int32_t& error) {
     names.clear();
     count = 0;
-    if (read_dir(ctx, nullptr, &count) < 0) {
+    error = 0;
+    const std::int32_t first = read_dir(ctx, nullptr, &count);
+    if (first < 0) {
         count = 0;
+        if (strict && first != kNandNotFound) {
+            error = first;
+            return NandList::Failed;
+        }
         return NandList::NotThere;
     }
     const std::uint32_t asked = count;
@@ -100,6 +108,19 @@ NandList list_nand_with(NandReadDir read_dir, void* ctx, NandAlloc alloc, NandFr
     release(block);
     count = asked;
     return NandList::Ok;
+}
+
+}  // namespace
+
+NandList list_nand_with(NandReadDir read_dir, void* ctx, NandAlloc alloc, NandFree release,
+                        std::vector<std::string>& names, std::uint32_t& count) {
+    std::int32_t ignored = 0;
+    return list_nand_core(read_dir, ctx, alloc, release, names, count, false, ignored);
+}
+
+NandList list_nand_strict_with(NandReadDir read_dir, void* ctx, NandAlloc alloc, NandFree release,
+                               std::vector<std::string>& names, std::uint32_t& count, std::int32_t& error) {
+    return list_nand_core(read_dir, ctx, alloc, release, names, count, true, error);
 }
 
 }  // namespace riftwii
