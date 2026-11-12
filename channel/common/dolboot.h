@@ -42,6 +42,13 @@ bool dolboot_line_fits(const u8* dol, u32 length);
 
 void dolboot_run_line(const u8* dol, const char* line, u32 length) __attribute__((noreturn));
 
+// Runs `dol` without writing its libogc argument block, as the Homebrew
+// Channel and the game's apploader leave a program they start: the block's
+// magic, command-line pointer and length stay as the DOL file has them
+// (CTGP-R 1.03's channel hashes that whole first segment, and a filled
+// block made its start-up memory check fail on d2x's virtual disc).
+void dolboot_run_no_args(const u8* dol) __attribute__((noreturn));
+
 // Puts at the system call vector (0x80000C00) the handler the Wii's system
 // software leaves for a program it starts: `sc` returns at once, after
 // toggling HID0's bit 28 around a sync (the SDK's and older libogc's cache

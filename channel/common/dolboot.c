@@ -283,18 +283,24 @@ static void far_run(u32 at, const DolHeader* h, const u8* dol, const char* text,
     }
 }
 
-void dolboot_run_line(const u8* dol, const char* line, u32 length) {
+// `args` false leaves the program's libogc argument block untouched, as the
+// Homebrew Channel and the apploader do (see dolboot_run_no_args).
+static void __attribute__((noreturn)) dolboot_run_inner(const u8* dol, const char* line, u32 length, bool args) {
     u32 n = length;
-    if (n > sizeof(line_copy)) n = sizeof(line_copy);
-    if (n != 0) memcpy(line_copy, line, n);
-    while (n > 0 && line_copy[n - 1] != 0) --n;
-    if (n == 0) {
-        line_copy[0] = 0;
-        n = 1;
+    if (args) {
+        if (n > sizeof(line_copy)) n = sizeof(line_copy);
+        if (n != 0) memcpy(line_copy, line, n);
+        while (n > 0 && line_copy[n - 1] != 0) --n;
+        if (n == 0) {
+            line_copy[0] = 0;
+            n = 1;
+        }
+    } else {
+        n = 0;
     }
     const DolHeader h = *(const DolHeader*)dol;
     const u32 far_at = far_address(dol, n);
-    const u32 line_at = takes_args(&h, dol + h.offset[0]) ? line_address(&h, n) : 0;
+    const u32 line_at = args && takes_args(&h, dol + h.offset[0]) ? line_address(&h, n) : 0;
     extern u8 __app_start[], __bss_end[];
     if (!far_at && reaches(&h, line_at, n, (u32)__app_start, (u32)__bss_end)) {
         // dolboot_valid (or dolboot_line_fits, for the argument line)
@@ -318,11 +324,19 @@ void dolboot_run_line(const u8* dol, const char* line, u32 length) {
         memset((void*)h.bss_address, 0, h.bss_size);
         DCFlushRange((void*)h.bss_address, h.bss_size);
     }
-    set_argv(&h, line_copy, n);
+    if (args) set_argv(&h, line_copy, n);
     dolboot_system_call_vector();
     ((void (*)(void))h.entry)();
     for (;;) {
     }
+}
+
+void dolboot_run_line(const u8* dol, const char* line, u32 length) {
+    dolboot_run_inner(dol, line, length, true);
+}
+
+void dolboot_run_no_args(const u8* dol) {
+    dolboot_run_inner(dol, 0, 0, false);
 }
 
 void dolboot_run(const u8* dol, const char* argv0) {

@@ -334,11 +334,11 @@ HomebrewExit HomebrewExitGoesTo() {
     return ChannelTitle() != 0 ? HomebrewExit::RiftWii : HomebrewExit::NotSaid;
 }
 
-bool StartHomebrewApp(const std::string& path, std::string& error) {
+bool StartHomebrewApp(const std::string& path, std::string& error, bool write_args) {
     std::string line = path;
     line.push_back('\0');
     line.push_back('\0');
-    return StartHomebrewApp(path, line, error);
+    return StartHomebrewApp(path, line, error, write_args);
 }
 
 namespace {
@@ -409,9 +409,10 @@ u8* check_homebrew_dol(const std::string& path, u8* dol, u32& size) {
 
 }  // namespace
 
-bool StartHomebrewApp(const std::string& path, const std::string& command_line, std::string& error) {
+bool StartHomebrewApp(const std::string& path, const std::string& command_line, std::string& error,
+                      bool write_args) {
     DiscLightActivity discLight;
-    if (command_line.empty() || command_line.size() > 1024 || command_line.back() != '\0') {
+    if (write_args && (command_line.empty() || command_line.size() > 1024 || command_line.back() != '\0')) {
         error = "The app arguments are empty or exceed the 1024-byte limit.";
         logf("Homebrew app: %s\n", error.c_str());
         return false;
@@ -420,9 +421,11 @@ bool StartHomebrewApp(const std::string& path, const std::string& command_line, 
     u8* dol = read_homebrew_dol(path, size);
     const bool valid = dol && dolboot_valid(dol, size);
     // An app that reads its arguments (its own path, mostly) and has no
-    // place for them is refused rather than started without them.
-    const bool line_fits = valid && dolboot_line_fits(dol, static_cast<u32>(command_line.size()));
-    if (valid && !line_fits) logf("Homebrew app: its argument line has no place in memory\n");
+    // place for them is refused rather than started without them. With
+    // write_args false no line is written at all (see dolboot_run_no_args).
+    const bool line_fits =
+        !write_args || (valid && dolboot_line_fits(dol, static_cast<u32>(command_line.size())));
+    if (write_args && valid && !line_fits) logf("Homebrew app: its argument line has no place in memory\n");
     if (!line_fits) {
         error = path + " is missing, damaged or does not fit next to RiftWii";
         logf("Homebrew app: %s\n", error.c_str());
@@ -478,8 +481,10 @@ bool StartHomebrewApp(const std::string& path, const std::string& command_line, 
         // MEM2's free part may have moved with the reload.
         const bool valid_again = dol && dolboot_valid(dol, size);
         const bool line_fits_again =
-            valid_again && dolboot_line_fits(dol, static_cast<u32>(command_line.size()));
-        if (valid_again && !line_fits_again) logf("Homebrew app: its argument line has no place in memory\n");
+            !write_args ||
+            (valid_again && dolboot_line_fits(dol, static_cast<u32>(command_line.size())));
+        if (write_args && valid_again && !line_fits_again)
+            logf("Homebrew app: its argument line has no place in memory\n");
         if (!line_fits_again) {
             error = tr("{1} could not be read again after the IOS restart", {path});
             logf("Homebrew app: %s\n", error.c_str());
@@ -490,7 +495,8 @@ bool StartHomebrewApp(const std::string& path, const std::string& command_line, 
     plant_return_stub(dol, size);
     // An app that loads over RiftWii itself (WiiSX, Wii64) is finished by
     // a small copier in MEM2, as the Homebrew Channel does it.
-    if (const u32 far_at = dolboot_far_address(dol, static_cast<u32>(command_line.size()))) {
+    if (const u32 far_at =
+            dolboot_far_address(dol, write_args ? static_cast<u32>(command_line.size()) : 0)) {
         logf("Homebrew app: it loads over RiftWii's own memory, so a small copier at 0x%08x finishes starting it\n",
              static_cast<unsigned>(far_at));
     }
@@ -502,7 +508,8 @@ bool StartHomebrewApp(const std::string& path, const std::string& command_line, 
     else fatUnmount("usb:");
     AUDIO_StopDMA();
     StopDiscLight();
-    dolboot_run_line(dol, command_line.data(), static_cast<u32>(command_line.size()));
+    if (write_args) dolboot_run_line(dol, command_line.data(), static_cast<u32>(command_line.size()));
+    else dolboot_run_no_args(dol);
 }
 
 }  // namespace riftwii::wii

@@ -67,8 +67,9 @@ bool StartChannelInstaller(std::string& error, bool allow_unmarked = false, bool
 // Starts a Homebrew Channel app (a DOL on the SD card, `path` with its
 // sd: prefix) as the Homebrew Channel does: the running IOS kept. Returns
 // only if it cannot, with `error` saying why.
-bool StartHomebrewApp(const std::string& path, std::string& error);
-bool StartHomebrewApp(const std::string& path, const std::string& command_line, std::string& error);
+bool StartHomebrewApp(const std::string& path, std::string& error, bool write_args = true);
+bool StartHomebrewApp(const std::string& path, const std::string& command_line, std::string& error,
+                      bool write_args = true);
 
 // Where a homebrew app RiftWii starts goes when it exits, as the menu can
 // tell before reading the app: back to the Homebrew Channel when that

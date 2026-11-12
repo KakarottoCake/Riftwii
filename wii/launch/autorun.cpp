@@ -446,6 +446,12 @@ void RunAutorun() {
                 ok = recompile(error);
                 if (!ok) packages.back().choices.pop_back();
             }
+        } else if (cmd == "ctgpnative") {
+            // The next "launch" of the CTGP-R pack uses the native launch
+            // (when its files are on the card) instead of CTGP-R's own
+            // channel app, which is the default.
+            ForceCtgprNativeLaunch(true);
+            logf("  the CTGP-R pack uses the native launch at the next launch\n");
         } else if (cmd == "launch") {
             // The GUI's path without the GUI: identify, scan, restore the
             // saved choices, compile and boot.
