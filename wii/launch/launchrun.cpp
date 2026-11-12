@@ -548,7 +548,11 @@ bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& sou
     return boot_game(s.probe, std::move(options), error);
 }
 
-bool CtgprNativeLaunch(const std::vector<PackageChoices>& packages, const std::string& game_id) {
+bool CtgprNativeOptedIn() {
+    return ctgpr_native_opted() && ctgpr_native_wanted();
+}
+
+bool CtgprPackGoesThroughRunLaunch(const std::vector<PackageChoices>& packages, const std::string& game_id) {
     std::string app, dropped;
     return homebrew_app_stand_in(packages, game_id, app, dropped) && ctgp_is_native_stand_in(game_id, app);
 }

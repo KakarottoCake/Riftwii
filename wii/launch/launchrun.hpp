@@ -28,7 +28,7 @@ bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& sou
 // Whether this choice is the CTGP-R pack (CTGP-R's own channel app standing in
 // for the game): such a launch, the channel's or the native one, goes through
 // RunLaunch, not the packs compiled in the menu.
-bool CtgprNativeLaunch(const std::vector<PackageChoices>& packages, const std::string& game_id);
+bool CtgprPackGoesThroughRunLaunch(const std::vector<PackageChoices>& packages, const std::string& game_id);
 #ifdef RIFTWII_TEST_BUILD
 // Test builds only (autorun's "ctgpnative"; a release build uses a file
 // ctgpnative.txt next to its boot.dol): the CTGP-R pack uses the native
@@ -36,6 +36,9 @@ bool CtgprNativeLaunch(const std::vector<PackageChoices>& packages, const std::s
 // (the default, for a disc, a USB image and an SD image alike).
 void ForceCtgprNativeLaunch(bool on);
 #endif
+// Whether the native launch is what the CTGP-R pack will use: opted into
+// (ctgpnative.txt, or autorun's "ctgpnative") and its files are on the card.
+bool CtgprNativeOptedIn();
 bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error,
                const LaunchSource& source = LaunchSource(), const std::string& save_mode = "nand",
                const std::string& game_id = "", const MissingModConfirmation& confirm_missing = {});

@@ -984,8 +984,8 @@ msgstr "GameCubeのゲームのRVZは試験的な機能です。うまくいか�
 msgid "Play at your own risk:"
 msgstr "自己責任でプレイしてください:"
 
-msgid "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead."
-msgstr "CTGP Revolution（Homebrew Channelのアプリを起動するパック）はまだRiftWiiから動きません。黒または緑の画面で止まります。CTGPはHomebrew Channelから起動してください。"
+msgid "CTGP Revolution starts through its own channel app. Its online play and Time Trial are CTGP's own and have not been tested from RiftWii yet."
+msgstr "CTGP Revolutionは専用のチャンネルアプリで起動します。オンラインプレイとタイムトライアルはCTGP独自のもので、RiftWiiからはまだ試していません。"
 
 msgid "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded."
 msgstr "RiftWiiからのCTGP Revolutionはオフライン専用です。オンラインとLANのプレイはオフで、保存したゴーストはアップロードできません。"
@@ -993,8 +993,8 @@ msgstr "RiftWiiからのCTGP Revolutionはオフライン専用です。オン�
 msgid "CTGP Revolution: offline only (see Start)."
 msgstr "CTGP Revolution：オフライン専用（「はじめる」を参照）。"
 
-msgid "CTGP Revolution does not work from RiftWii yet (see Start)."
-msgstr "CTGP RevolutionはまだRiftWiiから動きません（「はじめる」を参照）。"
+msgid "CTGP Revolution: its own channel app (see Start)."
+msgstr "CTGP Revolution：専用のチャンネルアプリ（「はじめる」を参照）。"
 
 msgid " (and {1} more)"
 msgstr " (ほか{1}件)"

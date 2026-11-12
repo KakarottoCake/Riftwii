@@ -922,12 +922,12 @@ T = {
         "自己責任でプレイしてください:",
         "Jogue por sua conta e risco:",
         "Gioca a tuo rischio:"),
-    # A pack that starts a Homebrew Channel app (CTGP Revolution): not working yet.
-    "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.": (
-        "CTGP Revolution (un pack que inicia una app del Homebrew Channel) todavía no funciona desde RiftWii: se queda en una pantalla negra o verde. Inicia CTGP desde el Homebrew Channel.",
-        "CTGP Revolution（Homebrew Channelのアプリを起動するパック）はまだRiftWiiから動きません。黒または緑の画面で止まります。CTGPはHomebrew Channelから起動してください。",
-        "O CTGP Revolution (um pack que inicia um app do Homebrew Channel) ainda não funciona pelo RiftWii: ele para numa tela preta ou verde. Inicie o CTGP pelo Homebrew Channel.",
-        "CTGP Revolution (un pacchetto che avvia un'app dell'Homebrew Channel) non funziona ancora da RiftWii: si ferma su una schermata nera o verde. Avvia CTGP dall'Homebrew Channel."),
+    # CTGP Revolution started through its own channel app (the default launch).
+    "CTGP Revolution starts through its own channel app. Its online play and Time Trial are CTGP's own and have not been tested from RiftWii yet.": (
+        "CTGP Revolution se inicia con su propia app de canal. Su juego en línea y las Contrarreloj son de CTGP y aún no se han probado desde RiftWii.",
+        "CTGP Revolutionは専用のチャンネルアプリで起動します。オンラインプレイとタイムトライアルはCTGP独自のもので、RiftWiiからはまだ試していません。",
+        "O CTGP Revolution inicia pelo seu próprio app de canal. O jogo online e o Contra o Relógio são do próprio CTGP e ainda não foram testados pelo RiftWii.",
+        "CTGP Revolution si avvia con la propria app di canale. Il gioco online e la Prova a tempo sono di CTGP e non sono ancora stati provati da RiftWii."),
     # CTGP Revolution started natively (its files set up on the card): offline only.
     "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.": (
         "CTGP Revolution se inicia sin conexión desde RiftWii: el juego en línea y en LAN están desactivados, y los fantasmas que guardes no se pueden subir.",
@@ -939,11 +939,11 @@ T = {
         "CTGP Revolution：オフライン専用（「はじめる」を参照）。",
         "CTGP Revolution: só offline (veja Jogar).",
         "CTGP Revolution: solo offline (vedi Gioca)."),
-    "CTGP Revolution does not work from RiftWii yet (see Start).": (
-        "CTGP Revolution todavía no funciona desde RiftWii (mira Jugar).",
-        "CTGP RevolutionはまだRiftWiiから動きません（「はじめる」を参照）。",
-        "O CTGP Revolution ainda não funciona pelo RiftWii (veja Jogar).",
-        "CTGP Revolution non funziona ancora da RiftWii (vedi Gioca)."),
+    "CTGP Revolution: its own channel app (see Start).": (
+        "CTGP Revolution: su propia app de canal (mira Jugar).",
+        "CTGP Revolution：専用のチャンネルアプリ（「はじめる」を参照）。",
+        "CTGP Revolution: seu próprio app de canal (veja Jogar).",
+        "CTGP Revolution: la propria app di canale (vedi Gioca)."),
     # Mods where they cannot work (refused at Start). {1} is a folder like
     # "usb:/Project+", maybe followed by the piece below.
     " (and {1} more)": (" (y {1} más)", " (ほか{1}件)", " (e mais {1})", " (e altri {1})"),
@@ -3042,14 +3042,14 @@ KO = {
         "GameCube 게임의 RVZ는 실험적인 기능입니다. 실패할 경우 ISO 사본을 사용하세요.",
     "Play at your own risk:":
         "사용 시 발생하는 문제는 사용자의 책임입니다:",
-    "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.":
-        "CTGP Revolution(홈브류 채널 앱을 통해 실행하는 팩)은 아직 RiftWii에서 정상적으로 작동하지 않으며, 검은색 또는 녹색 화면에서 멈춥니다. 대신 홈브류 채널에서 CTGP를 실행하세요.",
+    "CTGP Revolution starts through its own channel app. Its online play and Time Trial are CTGP's own and have not been tested from RiftWii yet.":
+        "CTGP Revolution은 자체 채널 앱으로 실행됩니다. 온라인 플레이와 타임 트라이얼은 CTGP 자체 기능이며 아직 RiftWii에서 테스트되지 않았습니다.",
     "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.":
         "RiftWii에서 CTGP Revolution은 오프라인 전용으로 실행됩니다. 온라인 및 LAN 플레이는 꺼지며, 저장한 고스트는 업로드할 수 없습니다.",
     "CTGP Revolution: offline only (see Start).":
         "CTGP Revolution: 오프라인 전용 (시작 항목 참조)",
-    "CTGP Revolution does not work from RiftWii yet (see Start).":
-        "CTGP Revolution은 아직 RiftWii에서 작동하지 않습니다. (시작 항목 참조)",
+    "CTGP Revolution: its own channel app (see Start).":
+        "CTGP Revolution: 자체 채널 앱 (시작 항목 참조)",
     " (and {1} more)":
         " (그리고 {1} 개 더)",
     "Code builds on the USB drive won't work. Move {1} to the SD card.":
@@ -4916,14 +4916,14 @@ FR = {
         "Le RVZ est expérimental pour les jeux GameCube; en cas de problème, utilisez une copie ISO.",
     "Play at your own risk:":
         "À utiliser à vos risques :",
-    "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.":
-        "CTGP Revolution ne fonctionne pas encore depuis RiftWii (blocage sur écran noir ou vert). Lancez-le directement depuis la Chaîne Homebrew.",
+    "CTGP Revolution starts through its own channel app. Its online play and Time Trial are CTGP's own and have not been tested from RiftWii yet.":
+        "CTGP Revolution démarre avec sa propre application de chaîne. Son jeu en ligne et le Contre-la-montre sont ceux de CTGP et n'ont pas encore été testés depuis RiftWii.",
     "CTGP Revolution starts offline only from RiftWii: online and LAN play are off, and the ghosts you save can't be uploaded.":
         "CTGP Revolution démarre hors ligne uniquement depuis RiftWii : le jeu en ligne et en LAN est désactivé, et les fantômes que vous enregistrez ne peuvent pas être envoyés.",
     "CTGP Revolution: offline only (see Start).":
         "CTGP Revolution : hors ligne uniquement (voir Démarrer).",
-    "CTGP Revolution does not work from RiftWii yet (see Start).":
-        "CTGP Revolution ne fonctionne pas encore depuis RiftWii (voir Démarrer).",
+    "CTGP Revolution: its own channel app (see Start).":
+        "CTGP Revolution : sa propre application de chaîne (voir Démarrer).",
     " (and {1} more)":
         " (et {1} autre(s))",
     "Code builds on the USB drive won't work. Move {1} to the SD card.":
