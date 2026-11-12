@@ -606,6 +606,18 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
                 // other homebrew app is started below as an ordinary app, with
                 // none of CTGP-R's Mario Kart Wii hooks.
                 logf("CTGP-R: native launch (the CTGP-R Channel app is not started)\n");
+                // CTGP-R's own code keeps the save in sd:/riivolution/save/RMC?/ and
+                // shows "Continue without saving" without it. The pack's
+                // <savegame clone> cannot run here (its XML is not applied), so
+                // the Wii's save is copied in once, now, under the menu's IOS
+                // (before the probe can reload it). A failure never stops the
+                // launch: the card is left as it was and the game says so itself.
+                {
+                    std::string why;
+                    if (!SeedCtgprSdSave(game_id, why))
+                        logf("CTGP-R save: not copied (%s); the save will not be kept on the card, and the game may "
+                             "start without saving\n", why.c_str());
+                }
                 Session s(source, "sd:/riftwii/boot.log");
                 // CTGP's files are read from the card after the probe, and
                 // CTGP's own code reads the card in the game.

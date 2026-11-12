@@ -60,6 +60,7 @@
 #include "vsdimage.hpp"
 #include "wfsdrive.hpp"
 #include "appicon.hpp"
+#include "riftwii/ctgprsave.hpp"
 #include "riftwii/modart.hpp"
 #include "bannerplay.hpp"
 #include "banners.hpp"
@@ -8459,6 +8460,20 @@ static const riftwii::wii::SharedNandLookup& SharedNandFor(const std::string& ga
 	}
 	return found;
 }
+// CTGP-R started natively keeps Mario Kart Wii's save on the SD card, in
+// sd:/riivolution/save/RMC?/ (docs/CTGPR.md), not on the Wii.
+static std::string CtgprSaveFolder(const FrontendState& state)
+{
+	// The same test as the launch (ctgpr_native_chosen): the pack's app must be
+	// CTGP-R's own channel app, and the native launch opted into
+	// (ctgpnative.txt) with its files on the card. CTGP-R's own channel, the
+	// default, keeps its save as the channel does, and the setting applies.
+	if (!riftwii::wii::CtgprNativeStandIn(state) || !riftwii::wii::CtgprNativeOptedIn())
+		return std::string();
+	const std::string label = riftwii::ctgpr_save_folder_label(state.game_id);
+	return label.empty() ? std::string() : "sd:/riivolution/save/" + label + "/";
+}
+
 // The Saves tile's note. "SD, emulated NAND" names the folder, since
 // which one (the game's own, the global one or the default) decides which
 // save the game finds; a folder the launch would refuse shows here first.
@@ -8964,7 +8979,10 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	FlowRow saves;
 	saves.kind = FlowRow::Kind::Option;
 	saves.label = tr("Saves");
-	if (!state.model.pack_save_owner().empty()) {
+	if (!CtgprSaveFolder(state).empty()) {
+		saves.value = tr("SD card");
+		saves.dim = true;
+	} else if (!state.model.pack_save_owner().empty()) {
 		saves.value = tr("Kept by the pack");
 		saves.dim = true;
 	} else {
@@ -10361,6 +10379,14 @@ static void RunRowPage(const std::string& title, const std::string& subtitle, st
 	mainWindow->Remove(&w);
 }
 
+// The game page's note for Saves: CTGP-R's own folder when it starts natively.
+static std::string SaveNoteFor(const FrontendState& state, bool read_again = false)
+{
+	const std::string folder = CtgprSaveFolder(state);
+	if (!folder.empty())
+		return tr("CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none.", {folder});
+	return SaveNote(state.model, state.game_id, read_again);
+}
 // Where new Wii saves go. The tile opens this page instead of cycling:
 // the current choice is lit, A picks it and stays, B leaves it unchanged.
 // Saves already made stay where they are.
@@ -10368,7 +10394,10 @@ static void MenuWiiSaves(FrontendState& state)
 {
 	static const char* const kModes[] = {"global", "nand", "separate", "fresh", "emunand"};
 	constexpr int kModeCount = 5;
-	const bool kept = !state.model.pack_save_owner().empty();
+	// CTGP-R started natively keeps its save in its own SD folder whatever is
+	// picked here (RunLaunch), so the page is shown as a pack's that keeps its own.
+	const std::string ctgprFolder = CtgprSaveFolder(state);
+	const bool kept = !state.model.pack_save_owner().empty() || !ctgprFolder.empty();
 	std::vector<FlowRow> rows(kModeCount);
 	for (FlowRow& row : rows) row.kind = FlowRow::Kind::Action;
 	for (int i = 0; i < kModeCount; ++i) {
@@ -10393,6 +10422,8 @@ static void MenuWiiSaves(FrontendState& state)
 	// been swapped since it was last looked up.
 	if (!kept) SharedNandFor(state.game_id, true);
 	const auto note = [&](int row) -> std::string {
+		if (!ctgprFolder.empty())
+			return tr("CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none.", {ctgprFolder});
 		if (kept) return tr("This pack keeps its own saves. Turn it off to choose here.");
 		const std::string shown = kModes[row];
 		const bool fresh = row == current;
@@ -14610,6 +14641,7 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 	const std::string saves = cardFull ? std::string(tr("Memory card full"))
 		: gamecube && GcCardIsRealSlotA(EffectiveGcCard(state)) ? GcCardName(EffectiveGcCard(state))
 		: gamecube ? std::string(tr("Memory Card")) + " \xC2\xB7 SD"
+		: !CtgprSaveFolder(state).empty() ? std::string(tr("SD card"))
 		: !state.model.pack_save_owner().empty() ? std::string(tr("Kept by the pack"))
 		// The tile names where the saves go; "Default (...)" doesn't fit it.
 		: std::string(tr(SaveLabel(riftwii::wii::EffectiveSaveMode(state)).c_str()));
@@ -14655,7 +14687,7 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 	add(GameTile::Cheats, kTilesX, 228, kHalfW, 70, tr("Cheats"), cheats, &skin::iconCheats,
 		game.cheats && !game.cheat_names.empty());
 	add(GameTile::Saves, kRightX, 228, kHalfW, 70, tr("Saves"), saves, &skin::iconSaves,
-		!gamecube && riftwii::wii::EffectiveSaveMode(state) != "nand");
+		!gamecube && (!CtgprSaveFolder(state).empty() || riftwii::wii::EffectiveSaveMode(state) != "nand"));
 	// A full card is a warning, in the theme's colour for one.
 	tiles.back().warn = cardFull;
 	if (disc) {
@@ -15763,7 +15795,7 @@ static int MenuHome(FrontendState& state)
 				case GameTile::Saves:
 					if (state.use_channel) say(ChannelBootNote(state));
 					else if (SelectedGcGame(state)) say(GcSaveNote(state));
-					else say(SaveNote(state.model, state.game_id));
+					else say(SaveNoteFor(state));
 					break;
 				case GameTile::Favorite: say(tr("Favourites have their own view on Home: press 1 there until it shows.")); break;
 				case GameTile::Options:
@@ -15810,7 +15842,7 @@ static int MenuHome(FrontendState& state)
 				mainWindow->Append(&w);
 				rebuildTiles();
 				shownTile = -1;
-				say(SaveNote(state.model, state.game_id, true));
+				say(SaveNoteFor(state, true));
 			} else if (tile == GameTile::Favorite && !state.game_id.empty()) {
 				std::set<std::string>& favorites = riftwii::wii::Settings().favorites;
 				const std::string key = riftwii::wii::TileKey(state);

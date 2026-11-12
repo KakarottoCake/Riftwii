@@ -15,9 +15,11 @@
 
 #include "boot.hpp"
 #include "log.hpp"
+#include "memlimits.hpp"
 #include "nanduse.hpp"
 #include "nandpermissions.hpp"
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/ctgprsave.hpp"
 #include "riftwii/nandlist.hpp"
 #include "riftwii/sharednand.hpp"
 
@@ -120,6 +122,16 @@ NandList list_nand(const std::string& path, std::vector<std::string>& names, std
     std::snprintf(name, sizeof(name), "%s", path.c_str());
     count = 0;
     return list_nand_with(nand_read_dir, name, nand_alloc, nand_release, names, count);
+}
+
+// The same, but only ISFS "not found" is NotThere: any other refusal is
+// Failed, with its code in `error`.
+NandList list_nand_strict(const std::string& path, std::vector<std::string>& names, std::uint32_t& count,
+                          std::int32_t& error) {
+    static char name[ISFS_MAXPATH] ATTRIBUTE_ALIGN(32) = {};
+    std::snprintf(name, sizeof(name), "%s", path.c_str());
+    count = 0;
+    return list_nand_strict_with(nand_read_dir, name, nand_alloc, nand_release, names, count, error);
 }
 
 // The Wii's save folder into the card's, its subfolders too.
@@ -329,6 +341,188 @@ bool prepare_d2x_saves(const ImageGame& game, const std::string& dir, bool clone
     const std::size_t at = error.find(writable);
     if (at != std::string::npos) error.replace(at, writable.size(), dir);
     return ok;
+}
+
+namespace {
+
+// One NAND file into `to` (a temporary name on the card), through `buffer`
+// in pieces: the 2.8 MB save never sits in memory whole.
+bool copy_nand_file_chunked(const std::string& from, const std::string& to, std::uint8_t* buffer,
+                            std::size_t buffer_bytes, std::string& why) {
+    static char name[ISFS_MAXPATH] ATTRIBUTE_ALIGN(32) = {};
+    std::snprintf(name, sizeof(name), "%s", from.c_str());
+    const s32 fd = ISFS_Open(name, ISFS_OPEN_READ);
+    if (fd < 0) {
+        why = from + " could not be opened (" + std::to_string(fd) + ")";
+        return false;
+    }
+    static fstats stats ATTRIBUTE_ALIGN(32) = {};
+    if (ISFS_GetFileStats(fd, &stats) < 0 || stats.file_length > 64u * 1024 * 1024) {
+        ISFS_Close(fd);
+        why = from + " has no size that can be read";
+        return false;
+    }
+    FILE* out = std::fopen(to.c_str(), "wb");
+    if (out == nullptr) {
+        ISFS_Close(fd);
+        why = "cannot write " + to;
+        return false;
+    }
+    bool ok = true;
+    u32 left = stats.file_length;
+    while (left != 0 && ok) {
+        const u32 want = left < buffer_bytes ? left : static_cast<u32>(buffer_bytes);
+        const s32 got = ISFS_Read(fd, buffer, want);
+        if (got != static_cast<s32>(want)) {
+            why = from + " read " + std::to_string(got) + " of " + std::to_string(want) + " bytes";
+            ok = false;
+        } else if (std::fwrite(buffer, 1, want, out) != want) {
+            why = "cannot write " + to + " (the card may be full)";
+            ok = false;
+        }
+        left -= want;
+    }
+    ISFS_Close(fd);
+    if (std::fclose(out) != 0 && ok) {
+        why = "cannot write " + to + " (the card may be full)";
+        ok = false;
+    }
+    if (!ok) std::remove(to.c_str());  // our own temporary file only
+    return ok;
+}
+
+// The names in a card folder; false when the folder could not be read
+// (it is then not taken for an empty one).
+bool card_names(const std::string& folder, std::vector<std::string>& names) {
+    names.clear();
+    DIR* d = opendir(folder.c_str());
+    if (d == nullptr) return false;
+    while (dirent* e = readdir(d)) {
+        const std::string n = e->d_name;
+        if (n != "." && n != "..") names.push_back(n);
+    }
+    closedir(d);
+    return true;
+}
+
+}  // namespace
+
+bool SeedCtgprSdSave(const std::string& game_id, std::string& why) {
+    const char region = ctgpr_save_region(game_id);
+    if (region == 0) return true;  // not a game CTGP-R starts
+    const std::string folder = ctgpr_sd_save_folder(region);
+    const std::string nand = ctgpr_nand_data_dir(region);
+    const bool existed = is_dir(folder);
+    std::vector<std::string> on_card;
+    // A folder that is there but cannot be read may hold the player's save:
+    // it is left alone rather than taken for an empty one.
+    if (!card_names(folder, on_card) && existed) {
+        logf("CTGP-R save: %s could not be read; the folder is left as it is\n", folder.c_str());
+        return true;
+    }
+    if (ctgpr_seed_skipped(on_card)) {
+        logf("CTGP-R save: %s/rksys.dat is on the card; the folder is left as it is\n", folder.c_str());
+        return true;
+    }
+    if (NandOpen() < 0) {
+        why = "the Wii's save could not be read (ISFS)";
+        return false;
+    }
+    // /dev/fs is closed on every way out, so no handle goes on into the probe and the IOS reload.
+    struct NandUser {
+        ~NandUser() { NandClose(); }
+    } nand_user;
+    NandPermissionSession permissions("CTGP-R save copy");
+    std::vector<std::string> nand_names;
+    std::uint32_t count = 0;
+    std::int32_t code = 0;
+    const NandList listed = list_nand_strict(nand, nand_names, count, code);
+    // Only "not found" is a Wii with no save. Any other answer (a permission
+    // refusal, an ISFS error) says nothing about the save, and an empty folder
+    // made now would let the game start a new save that hides the real one:
+    // the card is left untouched.
+    if (listed == NandList::Failed) {
+        why = "the Wii's save folder " + nand + " could not be listed (ISFS " + std::to_string(code) + ")";
+        return false;
+    }
+    if (listed == NandList::NoRoom || listed == NandList::Damaged) {
+        why = listed == NandList::NoRoom ? "no room to list " + nand : nand + " lists a damaged folder";
+        return false;
+    }
+    // No save on the Wii (a new player): the folder alone, as Riivolution
+    // makes it; the game starts a save in it.
+    if (listed == NandList::NotThere) nand_names.clear();
+    if (!existed && !make_dirs(folder)) {
+        why = "cannot create " + folder;
+        return false;
+    }
+    logf("CTGP-R save: %s %s; copying the Wii's save from %s\n", folder.c_str(),
+         existed ? "has no rksys.dat" : "created", nand.c_str());
+    std::vector<std::string> plan;
+    for (const std::string& n : ctgpr_seed_plan(nand_names, on_card)) {
+        // A folder inside the data folder is not a save file: left alone.
+        std::vector<std::string> inner;
+        std::uint32_t inner_count = 0;
+        if (list_nand(nand + "/" + n, inner, inner_count) == NandList::Ok) {
+            logf("CTGP-R save: %s/%s is a folder, not copied\n", nand.c_str(), n.c_str());
+            continue;
+        }
+        plan.push_back(n);
+    }
+    // A leftover temporary of an earlier copy that stopped, for a name about
+    // to be written (only our own ending).
+    for (const std::string& n : plan) {
+        const std::string temp = folder + "/" + ctgpr_seed_temp_name(n);
+        struct stat st = {};
+        if (stat(temp.c_str(), &st) == 0 && S_ISREG(st.st_mode) && std::remove(temp.c_str()) == 0)
+            logf("CTGP-R save: removed the leftover %s of an earlier copy\n", temp.c_str());
+    }
+    if (listed == NandList::NotThere)
+        logf("CTGP-R save: the Wii has no save for %s (a new player): the folder is left empty, the game makes the "
+             "save\n", game_id.c_str());
+    // One MEM2 block, freed straight after (TryMem2Alloc may grow `bytes`; 256 KiB of it is
+    // used, in pieces); the heap's 32 KiB only if MEM2 has none.
+    std::size_t bytes = 256u * 1024;
+    std::uint8_t* buffer = static_cast<std::uint8_t*>(plan.empty() ? nullptr : mem::TryMem2Alloc(bytes));
+    std::size_t usable = bytes < 256u * 1024 ? bytes : 256u * 1024;
+    if (buffer == nullptr && !plan.empty()) {
+        usable = 32u * 1024;
+        buffer = static_cast<std::uint8_t*>(memalign(32, usable));
+        if (buffer == nullptr) {
+            if (!existed) rmdir(folder.c_str());
+            why = "no room to copy the save";
+            return false;
+        }
+        logf("CTGP-R save: no MEM2 block for the copy; using %u KiB of the heap\n", static_cast<unsigned>(usable / 1024));
+    }
+    std::vector<std::string> made;  // the final names this run created
+    bool ok = true;
+    for (const std::string& n : plan) {
+        const std::string to = folder + "/" + n, temp = folder + "/" + ctgpr_seed_temp_name(n);
+        struct stat st = {};
+        if (stat(to.c_str(), &st) == 0) continue;  // appeared meanwhile: never overwritten
+        if (!copy_nand_file_chunked(nand + "/" + n, temp, buffer, usable, why)) {
+            ok = false;
+            break;
+        }
+        if (std::rename(temp.c_str(), to.c_str()) != 0) {
+            std::remove(temp.c_str());
+            why = "cannot rename " + temp + " to " + to;
+            ok = false;
+            break;
+        }
+        made.push_back(to);
+        logf("CTGP-R save: copied %s\n", n.c_str());
+    }
+    std::free(buffer);
+    if (!ok) {
+        // Only what this run made goes, so that no half save is taken for the player's.
+        for (const std::string& f : made) std::remove(f.c_str());
+        if (!existed) rmdir(folder.c_str());
+        return false;
+    }
+    logf("CTGP-R save: %u file(s) copied into %s\n", static_cast<unsigned>(made.size()), folder.c_str());
+    return true;
 }
 
 }  // namespace riftwii::wii

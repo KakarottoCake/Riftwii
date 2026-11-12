@@ -4496,3 +4496,6 @@ msgstr "이 이름 있는 메모리 카드를 고른 날의 상태로 되돌립�
 
 msgid "Switches this game to {1}. Back keeps the card it has."
 msgstr "이 게임을 {1}(으)로 바꿉니다. 뒤로를 누르면 지금 카드를 그대로 씁니다."
+
+msgid "CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none."
+msgstr "CTGP-R은 세이브 데이터를 SD 카드의 {1}에 저장합니다. 폴더에 세이브 데이터가 없으면 Wii의 세이브 데이터가 복사됩니다."
