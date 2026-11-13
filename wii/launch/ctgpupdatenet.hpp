@@ -57,12 +57,18 @@ public:
     // needs jelly.bin made larger, which only CTGP-R's channel does. Nothing
     // was written.
     bool channel_installs() const { return channel_installs_; }
+    // After a failed download(): true when the server, asked again, no
+    // longer offers the update the player agreed to (none, or another size).
+    bool offer_changed() const { return offer_changed_; }
     // Brings the network up and asks the update server whether an update
-    // waits for the installed packages. The connection stays open for
-    // download().
+    // waits for the installed packages. Only the answer is used: download()
+    // asks again on a connection of its own.
     bool check(CtgpCheckReply& reply, std::string& error);
-    // Saves the update the check offered to kCtgpUpdatePath (by way of
-    // kCtgpUpdatePartPath). `progress` may stop it.
+    // Saves the update the check offered (`size` bytes) to kCtgpUpdatePath
+    // (by way of kCtgpUpdatePartPath): asks the server again and downloads at
+    // once, so no connection waits on the player; fails (offer_changed())
+    // when the server now offers something else. A download the server
+    // closes before its first byte is tried once more. `progress` may stop it.
     bool download(std::uint32_t size, const CtgpDownloadProgress& progress, std::string& error);
     // Installs the update at kCtgpUpdatePath into blob.bin. `disc` reads the
     // game's own files; `step` is told how far each file has got.
@@ -70,12 +76,15 @@ public:
 
 private:
     bool run(CtgpUpdRequest& request, std::string& error);
+    bool download_now(std::uint32_t size, const CtgpDownloadProgress& progress, std::string& error);
+    void close_connection();
 
     SocketTransport conn_;
     bool connected_ = false;
     std::size_t next_server_ = 0;
     bool bad_update_ = false;
     bool channel_installs_ = false;
+    bool offer_changed_ = false;
 };
 
 // Puts the pack back as it was before an update that did not finish (power

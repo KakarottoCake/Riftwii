@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "riftwii/ctgpcheck.hpp"
+#include "riftwii/ctgpfetch.hpp"
 
 static int g_failures = 0;
 #define EXPECT_TRUE(cond) do { if (!(cond)) { std::cerr << "FAILED: " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
@@ -220,6 +221,93 @@ void test_download_failures() {
     EXPECT_TRUE(!ctgp_check_exchange(cut.io(), {'C'}, reply, error));
 }
 
+// The download the player agreed to (riftwii/ctgpfetch.hpp): a fresh check
+// first, the same offer, then the download; once more when the server sent
+// nothing; never on a connection left from before.
+void test_fetch() {
+    struct Server {
+        std::vector<std::uint32_t> offers;  // what each check offers (0: nothing)
+        std::vector<std::uint64_t> sends;   // bytes each download gets before it fails (size: works)
+        int checks = 0, downloads = 0, closes = 0;
+        bool open = false;
+        bool bad = false;
+    };
+    const std::uint32_t size = 12042900u;
+    auto steps_for = [&](Server& s) {
+        CtgpFetchSteps st;
+        st.check = [&s](CtgpCheckReply& r, std::string&) {
+            EXPECT_TRUE(!s.open);  // never a check on an old connection
+            s.open = true;
+            const std::uint32_t offer = s.offers.at(std::size_t(s.checks++));
+            r.update_waiting = offer != 0;
+            r.update_bytes = offer;
+            return true;
+        };
+        st.download = [&s](std::uint64_t& received, bool& stopped, bool& bad, std::string& e) {
+            EXPECT_TRUE(s.open);
+            const std::uint64_t got = s.sends.at(std::size_t(s.downloads++));
+            received = got;
+            stopped = false;
+            bad = s.bad;
+            s.open = false;
+            if (got == size) return true;
+            e = "the server closed the download at " + std::to_string(got) + " of " + std::to_string(size) + " bytes";
+            return false;
+        };
+        st.close = [&s] { s.open = false; ++s.closes; };
+        return st;
+    };
+    std::string e;
+    {
+        // The usual case: one check, one download.
+        Server s{{size}, {size}};
+        EXPECT_TRUE(ctgp_fetch_offer(size, steps_for(s), e) == CtgpFetch::Done);
+        EXPECT_EQ(s.checks, 1);
+        EXPECT_EQ(s.downloads, 1);
+    }
+    {
+        // The Wii case: the server closed it at 0 bytes; asked again, it works.
+        Server s{{size, size}, {0, size}};
+        EXPECT_TRUE(ctgp_fetch_offer(size, steps_for(s), e) == CtgpFetch::Done);
+        EXPECT_EQ(s.checks, 2);
+        EXPECT_EQ(s.downloads, 2);
+    }
+    {
+        // Nothing twice: it fails, after one retry only.
+        Server s{{size, size}, {0, 0}};
+        EXPECT_TRUE(ctgp_fetch_offer(size, steps_for(s), e) == CtgpFetch::Failed);
+        EXPECT_EQ(s.downloads, 2);
+        EXPECT_TRUE(e.find("at 0 of") != std::string::npos);
+    }
+    {
+        // Cut part-way: not retried (a retry starts over; the next start does that).
+        Server s{{size}, {4096}};
+        EXPECT_TRUE(ctgp_fetch_offer(size, steps_for(s), e) == CtgpFetch::Failed);
+        EXPECT_EQ(s.downloads, 1);
+    }
+    {
+        // A bad file: not retried.
+        Server s{{size}, {0}};
+        s.bad = true;
+        EXPECT_TRUE(ctgp_fetch_offer(size, steps_for(s), e) == CtgpFetch::Failed);
+        EXPECT_EQ(s.downloads, 1);
+    }
+    {
+        // The offer changed while the player read the prompt: nothing downloaded.
+        Server s{{size + 1}, {}};
+        EXPECT_TRUE(ctgp_fetch_offer(size, steps_for(s), e) == CtgpFetch::OfferChanged);
+        EXPECT_EQ(s.downloads, 0);
+        EXPECT_TRUE(!s.open);
+        Server none{{0}, {}};
+        EXPECT_TRUE(ctgp_fetch_offer(size, steps_for(none), e) == CtgpFetch::OfferChanged);
+        EXPECT_TRUE(e.find("no longer offers") != std::string::npos);
+        // ...or changed on the retry's check.
+        Server later{{size, size + 1}, {0}};
+        EXPECT_TRUE(ctgp_fetch_offer(size, steps_for(later), e) == CtgpFetch::OfferChanged);
+        EXPECT_EQ(later.downloads, 1);
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -228,6 +316,7 @@ int main() {
     test_reply();
     test_exchange_and_download();
     test_download_failures();
+    test_fetch();
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;

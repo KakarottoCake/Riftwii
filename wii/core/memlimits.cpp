@@ -89,6 +89,7 @@ bool g_wii_mem2_top = false;
 bool g_console_type_as_wii = false;
 bool g_wii_u_card_slots = false;
 u32 g_jelly_cut_after = 0;
+u32 g_ctgp_accept_wait_ms = 0;
 #ifdef RIFTWII_TEST_LIMITS
 void* g_pieces[64];
 
@@ -132,6 +133,7 @@ void TestBallast() {
         else if (ReadSetting(line, "console_type_as_wii", v)) g_console_type_as_wii = v != 0;
         else if (ReadSetting(line, "wii_u_card_slots", v)) g_wii_u_card_slots = v != 0;
         else if (ReadSetting(line, "jelly_cut_after", v)) g_jelly_cut_after = v;
+        else if (ReadSetting(line, "ctgp_accept_wait_ms", v)) g_ctgp_accept_wait_ms = v;
     }
     std::fclose(f);
     // Never freed: the run (menu and launch) has that much less.
@@ -166,6 +168,7 @@ bool TestWiiMem2Top() { return g_wii_mem2_top; }
 bool TestConsoleTypeAsWii() { return g_console_type_as_wii; }
 bool TestWiiUCardSlots() { return g_wii_u_card_slots; }
 u32 TestJellyCutAfter() { return g_jelly_cut_after; }
+u32 TestCtgpAcceptWaitMs() { return g_ctgp_accept_wait_ms; }
 
 void DetectDolphin() {
     // Asked while IOS is up: PoisonReloadArea runs mid-reload. Once is

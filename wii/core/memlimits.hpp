@@ -88,6 +88,10 @@ bool TestWiiUCardSlots();
 // replay of the jelly journal can be proven in Dolphin. 0 (off) in other
 // builds.
 u32 TestJellyCutAfter();
+// Test builds: "ctgp_accept_wait_ms = N" waits N ms after "Update" is chosen
+// on the CTGP-R update prompt, as a player reading it would, so the download
+// after an idle wait can be proven in Dolphin. 0 (off) in other builds.
+u32 TestCtgpAcceptWaitMs();
 
 // session.log lines: the limits and the physical sizes (Dolphin's memory
 // size override shows here), then, with LogUsage, what is used and free.

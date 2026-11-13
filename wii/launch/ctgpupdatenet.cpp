@@ -17,6 +17,7 @@
 #include "log.hpp"
 #include "memlimits.hpp"
 #include "plugins.hpp"
+#include "riftwii/ctgpfetch.hpp"
 #include "riftwii/ctgpjournal.hpp"
 #include "riftwii/ctgppackwrite.hpp"
 #include "riftwii/plugin_ctgpupd.hpp"
@@ -248,7 +249,35 @@ bool CtgpUpdater::check(CtgpCheckReply& reply, std::string& error) {
     return true;
 }
 
+void CtgpUpdater::close_connection() {
+    if (connected_) conn_.close();
+    connected_ = false;
+}
+
+// riftwii/ctgpfetch.hpp: a fresh check that must offer the same update, then
+// the download at once; once more if the server sends nothing.
 bool CtgpUpdater::download(std::uint32_t size, const CtgpDownloadProgress& progress, std::string& error) {
+    offer_changed_ = false;
+    CtgpFetchSteps steps;
+    steps.check = [this](CtgpCheckReply& reply, std::string& why) { return check(reply, why); };
+    steps.download = [&](std::uint64_t& received, bool& stopped, bool& bad, std::string& why) {
+        const CtgpDownloadProgress counted = [&](std::uint64_t done, std::uint64_t total) {
+            received = done;
+            stopped = progress && !progress(done, total);
+            return !stopped;
+        };
+        const bool ok = download_now(size, counted, why);
+        bad = bad_update_;
+        return ok;
+    };
+    steps.close = [this] { close_connection(); };
+    steps.log = [](const std::string& line) { logf("CTGP-R update: %s\n", line.c_str()); };
+    const CtgpFetch result = ctgp_fetch_offer(size, steps, error);
+    offer_changed_ = result == CtgpFetch::OfferChanged;
+    return result == CtgpFetch::Done;
+}
+
+bool CtgpUpdater::download_now(std::uint32_t size, const CtgpDownloadProgress& progress, std::string& error) {
     if (!connected_) {
         error = "the update check did not finish";
         return false;

@@ -19870,6 +19870,10 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 					break;
 				}
 				agreed = true;
+				if (const u32 wait = riftwii::wii::mem::TestCtgpAcceptWaitMs()) {
+					logf("CTGP-R update: TEST: waiting %u ms after Update was chosen\n", unsigned(wait));
+					usleep(wait * 1000);
+				}
 			}
 			const bool first = chain.steps().empty();
 			if (!DownloadCtgpUpdate(updater, reply, tr("Update {1}: downloading...", {number}), first, error)) {
