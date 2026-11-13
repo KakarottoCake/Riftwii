@@ -12,6 +12,7 @@
 #include <sdcard/wiisd_io.h>
 
 #include <algorithm>
+#include <functional>
 #include <cctype>
 #include <cerrno>
 #include <cstdio>
@@ -1307,8 +1308,10 @@ bool check_image_game(ImageGame& game, std::string& error) {
     return !rvz_refused(game, error);
 }
 
-bool read_image_disc_file(const ImageGame& game, const std::string& disc_path, std::vector<std::uint8_t>& out,
-                          std::string& error) {
+// Opens the game partition of an image on SD or USB and hands its decrypted
+// data to `use`, all under the USB lock.
+static bool with_image_partition(const ImageGame& game, const std::function<bool(const ByteSource&)>& use,
+                                 std::string& error) {
     UsbLocked locked;
     UsbImage image;
     if (game.wbfs_slot >= 0) {
@@ -1344,7 +1347,7 @@ bool read_image_disc_file(const ImageGame& game, const std::string& disc_path, s
             const std::size_t index = rvz->partition_at(header.data_offset);
             if (index == SIZE_MAX) { error = "the RVZ has no data for its game partition"; return false; }
             const RvzPartitionSource data(*rvz, index);
-            return read_partition_file(data, disc_path, out, error);
+            return use(data);
         }
         std::vector<VolumeEntry> entries;
         std::vector<std::string> siblings;
@@ -1366,7 +1369,20 @@ bool read_image_disc_file(const ImageGame& game, const std::string& disc_path, s
     const bool opened = open_game_partition(*disc, key, data, error);
     std::memset(key, 0, sizeof key);
     if (!opened) return false;
-    return read_partition_file(*data, disc_path, out, error);
+    return use(*data);
+}
+
+bool read_image_disc_file(const ImageGame& game, const std::string& disc_path, std::vector<std::uint8_t>& out,
+                          std::string& error) {
+    return with_image_partition(
+        game, [&](const ByteSource& data) { return read_partition_file(data, disc_path, out, error); }, error);
+}
+
+bool read_image_disc_file(const ImageGame& game, const std::string& disc_path, const PartitionFileSink& sink,
+                          std::uint32_t* size, std::string& error) {
+    return with_image_partition(
+        game, [&](const ByteSource& data) { return read_partition_file(data, disc_path, sink, size, error); },
+        error);
 }
 
 std::vector<std::string> usb_mod_folders(const std::string& game_id) {

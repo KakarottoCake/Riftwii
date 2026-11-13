@@ -369,6 +369,64 @@ bool parse_opening_bnr(const std::uint8_t* data, std::size_t size, OpeningBanner
     return true;
 }
 
+namespace {
+
+// The FST entry of a file in a Wii partition's data.
+bool find_partition_file(const ByteSource& data, const std::string& path, FstEntry& out, std::string& error) {
+    PartitionDataHeader header;
+    if (!read_partition_data_header(data, header, error)) return false;
+    if (header.fst_size > (8u << 20)) {
+        error = "FST too large";
+        return false;
+    }
+    std::vector<std::uint8_t> fst_bytes;
+    if (!try_resize(fst_bytes, static_cast<std::size_t>(header.fst_size))) {
+        error = "out of memory for the FST";
+        return false;
+    }
+    if (!data.read(header.fst_offset, fst_bytes.data(), fst_bytes.size())) {
+        error = "cannot read the FST";
+        return false;
+    }
+    Fst fst;
+    if (!Fst::parse(fst_bytes.data(), fst_bytes.size(), true, fst, error)) return false;
+    const std::uint32_t index = fst.find(path, true);
+    if (index == Fst::npos || fst.entries()[index].is_directory) {
+        error = path + " is not on the disc";
+        return false;
+    }
+    out = fst.entries()[index];
+    return true;
+}
+
+}  // namespace
+
+bool read_partition_file(const ByteSource& data, const std::string& path, const PartitionFileSink& sink,
+                         std::uint32_t* size, std::string& error) {
+    FstEntry e;
+    if (!find_partition_file(data, path, e, error)) return false;
+    if (size != nullptr) *size = e.size;
+    std::vector<std::uint8_t> piece;
+    if (!try_resize(piece, std::min<std::size_t>(e.size, 64 * 1024))) {
+        error = "out of memory for " + path;
+        return false;
+    }
+    std::uint64_t done = 0;
+    while (done < e.size) {
+        const std::size_t take = std::size_t(std::min<std::uint64_t>(piece.size(), e.size - done));
+        if (!data.read(e.offset + done, piece.data(), take)) {
+            error = "cannot read " + path;
+            return false;
+        }
+        if (!sink(piece.data(), take)) {
+            if (error.empty()) error = "could not use " + path;
+            return false;
+        }
+        done += take;
+    }
+    return true;
+}
+
 bool read_partition_file(const ByteSource& data, const std::string& path, std::vector<std::uint8_t>& out,
                          std::string& error, std::size_t max_size) {
     PartitionDataHeader header;

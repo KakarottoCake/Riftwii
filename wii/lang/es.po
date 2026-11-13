@@ -4505,3 +4505,39 @@ msgstr "Cambia este juego a {1}. Atrás mantiene la tarjeta que tiene."
 
 msgid "CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none."
 msgstr "CTGP-R guarda su partida en la tarjeta SD, en {1}. La partida de la Wii se copia si la carpeta no tiene ninguna."
+
+msgid "CTGP-R update"
+msgstr "Actualización de CTGP-R"
+
+msgid "A CTGP-R update is ready. Install it now?"
+msgstr "Hay una actualización de CTGP-R lista. ¿Instalarla ahora?"
+
+msgid "Updating CTGP-R"
+msgstr "Actualizando CTGP-R"
+
+msgid "Installing the update..."
+msgstr "Instalando la actualización..."
+
+msgid "Installing CTGP-R, file {1} of {2}"
+msgstr "Instalando CTGP-R, archivo {1} de {2}"
+
+msgid "The update was installed. CTGP-R starts now."
+msgstr "La actualización se ha instalado. CTGP-R va a empezar."
+
+msgid "CTGP-R update failed"
+msgstr "Error al actualizar CTGP-R"
+
+msgid "The update could not be installed: {1}. CTGP-R starts without it."
+msgstr "No se pudo instalar la actualización: {1}. CTGP-R empezará sin ella."
+
+msgid "A CTGP-R update ({1} MB) is available. Download and install it now?"
+msgstr "Hay una actualización de CTGP-R ({1} MB). ¿Descargarla e instalarla ahora?"
+
+msgid "Downloading the update..."
+msgstr "Descargando la actualización..."
+
+msgid "The update could not be downloaded: {1}. CTGP-R starts without it."
+msgstr "No se pudo descargar la actualización: {1}. CTGP-R empezará sin ella."
+
+msgid "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer."
+msgstr "Una actualización anterior de CTGP-R se interrumpió y no se pudo deshacer: {1}. Vuelve a instalar CTGP-R con su propio instalador."

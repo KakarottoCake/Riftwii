@@ -53,4 +53,10 @@ std::uint32_t free_tracked_blocks();
 // The most heap blocks the launch held at once (for the log).
 std::uint32_t tracked_peak();
 
+// The streams fopen opened and fclose has not closed yet (up to 16 are
+// remembered). An escape leaves them open, and a stream with writes still
+// in its buffer must be closed before anyone else touches its file:
+// close_open_streams closes every one (flushing it) and returns how many.
+std::uint32_t close_open_streams();
+
 }  // namespace riftwii::plugin

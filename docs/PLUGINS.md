@@ -398,6 +398,46 @@ only needed now and then (the menu font, translations, GPL) to MEM2. This
 document is about the other half: code that most launches never run can
 stay on the card until it is needed.
 
+## The ctgpupd plugin
+
+RiftWii's own CTGP-R update check, download and install live in the
+`ctgpupd` plugin (`plugins/ctgpupd/`), which is loaded only when an update
+waits on the card (`sd:/ctgpr/update.dif`) or a check runs, just before a
+CTGP-R launch, and shut down as soon as that is done. Nothing of it is in
+memory the rest of the time.
+
+| Piece | Where |
+| --- | --- |
+| The request | `include/riftwii/plugin_ctgpupd.hpp`: `CtgpUpdRequest` names one operation (`Inspect`, `Check`, `Download`, `Install`), carries the card paths, the DOL's raw SD reads and C library calls, the connection (`connect_next`, `io`), the disc reader and the progress callbacks in, and the update's header, the check's reply and the technical reason out. `ctgpupd_request_check` refuses a request of another size or layout |
+| The DOL's side | `wii/launch/ctgpupdatenet.cpp`: `CtgpUpdater` fills the request, calls `plugin::Launch("ctgpupd", ...)` for each operation and `plugin::ShutdownAll` when it goes; it keeps the network (`NetStart`, the servers, the socket), the console's MAC address, the raw SD reads jelly.bin's key needs, and `CtgpRecoverPackJournal`. The menu (`InstallCtgpUpdateIfWaiting`) keeps the prompts and the progress box, and reads the game's own files through `read_image_disc_file` |
+| The plugin | `plugins/ctgpupd/ctgpupdentry.cpp` (`rwp_init`, the table, `launch` and the four operations; `remove`, `rename`, `fflush`, `fileno` and `fsync` on the DOL's own), and its own copies of the updater's `src/ctgpr/` files, the pack's crypto, `src/disc/fst.cpp` and `src/data/sha1.cpp` (`Makefile.plugin`'s `ctgpupd_SRC`) |
+| Out of the DOL | `Makefile.wii`: the updater's `src/ctgpr/` files but `ctgpjournal.cpp` in `EXCLUDES` |
+| Updates | `tools/make_release_zip.py` and `tools/make_update_pack.py` require it beside `gamecube` and `ctgpr` |
+
+The start-up replay of the undo journal stays in the DOL on purpose. An
+install cut off by a power loss or a crash leaves blob.bin half written, and
+it must be put back before anything reads it, even when the plugin can't be
+loaded (missing, from another RiftWii, or damaged). It needs only
+`ctgpjournal.cpp`, which copies raw 32 KiB chunks back and needs none of the
+pack's crypto.
+
+The request is C++, as with the ctgpr plugin, and every operation runs inside
+the runtime's escape window with its heap blocks tracked (a 64 KB table from
+the heap). An escape first closes every file the operation still had open
+(`close_open_streams`, so what blob.bin's and the journal's streams held is
+written before anyone else touches them), then gives back the tracked blocks
+and says `escaped`. The DOL then puts empty strings in place of the request's
+and, after an `Install`, plays the journal back at once; every chunk of
+blob.bin was saved to the journal before it was changed, so the pack goes back
+as it was.
+
+The install needs about 4 MB of RiftWii's heap at most: the largest section of
+the update (read once into one buffer sized for the largest), the rebuild's
+small windows, and 64 KiB pieces. Each base file is unpacked to a scratch file
+on the card as it is read, and each packed result waits in a scratch file
+(`sd:/ctgpr/update-base-*.tmp`) until it is checked and stored; leftovers are
+removed at the next start.
+
 ## 1. Goals and non-goals
 
 Goals:

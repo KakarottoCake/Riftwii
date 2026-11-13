@@ -9459,5 +9459,97 @@ FR.update({
     "CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none.": "CTGP-R garde sa sauvegarde sur la carte SD, dans {1}. La sauvegarde de la Wii y est copiée si le dossier n'en a pas.",
 })
 
+
+# CTGP-R's updater, run by RiftWii before the game starts (docs/PLUGINS.md, "The ctgpupd plugin").
+T.update({
+    "CTGP-R update": ("Actualización de CTGP-R", "CTGP-Rの更新", "Atualização do CTGP-R", "Aggiornamento di CTGP-R"),
+    "A CTGP-R update is ready. Install it now?": (
+        "Hay una actualización de CTGP-R lista. ¿Instalarla ahora?",
+        "CTGP-Rの更新があります。今インストールしますか？",
+        "Há uma atualização do CTGP-R pronta. Instalar agora?",
+        "C'è un aggiornamento di CTGP-R pronto. Installarlo ora?"),
+    "Updating CTGP-R": ("Actualizando CTGP-R", "CTGP-Rを更新中", "Atualizando o CTGP-R", "Aggiornamento di CTGP-R"),
+    "Installing the update...": ("Instalando la actualización...", "更新をインストールしています...",
+                                "Instalando a atualização...", "Installazione dell'aggiornamento..."),
+    "Installing CTGP-R, file {1} of {2}": ("Instalando CTGP-R, archivo {1} de {2}",
+                                            "CTGP-Rをインストール中 ({1}/{2})",
+                                            "Instalando o CTGP-R, arquivo {1} de {2}",
+                                            "Installazione di CTGP-R, file {1} di {2}"),
+    "The update was installed. CTGP-R starts now.": (
+        "La actualización se ha instalado. CTGP-R va a empezar.",
+        "更新をインストールしました。CTGP-Rを起動します。",
+        "A atualização foi instalada. O CTGP-R vai começar.",
+        "L'aggiornamento è installato. CTGP-R sta per partire."),
+    "CTGP-R update failed": ("Error al actualizar CTGP-R", "CTGP-Rの更新に失敗しました",
+                             "Falha na atualização do CTGP-R", "Aggiornamento di CTGP-R non riuscito"),
+    "The update could not be installed: {1}. CTGP-R starts without it.": (
+        "No se pudo instalar la actualización: {1}. CTGP-R empezará sin ella.",
+        "更新をインストールできませんでした: {1}。CTGP-Rは更新なしで起動します。",
+        "Não foi possível instalar a atualização: {1}. O CTGP-R vai começar sem ela.",
+        "Impossibile installare l'aggiornamento: {1}. CTGP-R partirà senza."),
+})
+KO.update({
+    "CTGP-R update": "CTGP-R 업데이트",
+    "A CTGP-R update is ready. Install it now?": "CTGP-R 업데이트가 준비되었습니다. 지금 설치할까요?",
+    "Updating CTGP-R": "CTGP-R 업데이트 중",
+    "Installing the update...": "업데이트를 설치하는 중...",
+    "Installing CTGP-R, file {1} of {2}": "CTGP-R 설치 중, 파일 {1}/{2}",
+    "The update was installed. CTGP-R starts now.": "업데이트를 설치했습니다. CTGP-R을 시작합니다.",
+    "CTGP-R update failed": "CTGP-R 업데이트 실패",
+    "The update could not be installed: {1}. CTGP-R starts without it.":
+        "업데이트를 설치할 수 없습니다: {1}. CTGP-R은 업데이트 없이 시작합니다.",
+})
+FR.update({
+    "CTGP-R update": "Mise à jour de CTGP-R",
+    "A CTGP-R update is ready. Install it now?": "Une mise à jour de CTGP-R est prête. L'installer maintenant ?",
+    "Updating CTGP-R": "Mise à jour de CTGP-R",
+    "Installing the update...": "Installation de la mise à jour...",
+    "Installing CTGP-R, file {1} of {2}": "Installation de CTGP-R, fichier {1} sur {2}",
+    "The update was installed. CTGP-R starts now.": "La mise à jour est installée. CTGP-R démarre.",
+    "CTGP-R update failed": "Échec de la mise à jour de CTGP-R",
+    "The update could not be installed: {1}. CTGP-R starts without it.":
+        "Impossible d'installer la mise à jour : {1}. CTGP-R démarre sans elle.",
+})
+
+# RiftWii's own CTGP-R update check and download, and the undo of an
+# interrupted update.
+T.update({
+    "A CTGP-R update ({1} MB) is available. Download and install it now?": (
+        "Hay una actualización de CTGP-R ({1} MB). ¿Descargarla e instalarla ahora?",
+        "CTGP-Rの更新（{1} MB）があります。今ダウンロードしてインストールしますか？",
+        "Há uma atualização do CTGP-R ({1} MB). Baixar e instalar agora?",
+        "È disponibile un aggiornamento di CTGP-R ({1} MB). Scaricarlo e installarlo ora?"),
+    "Downloading the update...": ("Descargando la actualización...", "更新をダウンロードしています...",
+                                  "Baixando a atualização...", "Download dell'aggiornamento..."),
+    "The update could not be downloaded: {1}. CTGP-R starts without it.": (
+        "No se pudo descargar la actualización: {1}. CTGP-R empezará sin ella.",
+        "更新をダウンロードできませんでした: {1}。CTGP-Rは更新なしで起動します。",
+        "Não foi possível baixar a atualização: {1}. O CTGP-R vai começar sem ela.",
+        "Impossibile scaricare l'aggiornamento: {1}. CTGP-R partirà senza."),
+    "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer.": (
+        "Una actualización anterior de CTGP-R se interrumpió y no se pudo deshacer: {1}. Vuelve a instalar CTGP-R con su propio instalador.",
+        "以前のCTGP-Rの更新が中断され、元に戻せませんでした: {1}。CTGP-R専用のインストーラーで再インストールしてください。",
+        "Uma atualização anterior do CTGP-R foi interrompida e não pôde ser desfeita: {1}. Instale o CTGP-R de novo com o instalador dele.",
+        "Un aggiornamento precedente di CTGP-R è stato interrotto e non è stato possibile annullarlo: {1}. Reinstalla CTGP-R con il suo programma di installazione."),
+})
+KO.update({
+    "A CTGP-R update ({1} MB) is available. Download and install it now?":
+        "CTGP-R 업데이트({1} MB)가 있습니다. 지금 다운로드해서 설치할까요?",
+    "Downloading the update...": "업데이트를 다운로드하는 중...",
+    "The update could not be downloaded: {1}. CTGP-R starts without it.":
+        "업데이트를 다운로드할 수 없습니다: {1}. CTGP-R은 업데이트 없이 시작합니다.",
+    "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer.":
+        "이전 CTGP-R 업데이트가 중단되었고 되돌릴 수 없습니다: {1}. CTGP-R 설치 프로그램으로 다시 설치하세요.",
+})
+FR.update({
+    "A CTGP-R update ({1} MB) is available. Download and install it now?":
+        "Une mise à jour de CTGP-R ({1} Mo) est disponible. La télécharger et l'installer maintenant ?",
+    "Downloading the update...": "Téléchargement de la mise à jour...",
+    "The update could not be downloaded: {1}. CTGP-R starts without it.":
+        "Impossible de télécharger la mise à jour : {1}. CTGP-R démarre sans elle.",
+    "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer.":
+        "Une mise à jour précédente de CTGP-R a été interrompue et n'a pas pu être annulée : {1}. Réinstallez CTGP-R avec son propre programme d'installation.",
+})
+
 if __name__ == "__main__":
     main()

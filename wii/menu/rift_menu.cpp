@@ -61,6 +61,8 @@
 #include "wfsdrive.hpp"
 #include "appicon.hpp"
 #include "riftwii/ctgprsave.hpp"
+#include "riftwii/ctgpupdate.hpp"
+#include "ctgpupdatenet.hpp"
 #include "riftwii/modart.hpp"
 #include "bannerplay.hpp"
 #include "banners.hpp"
@@ -19562,6 +19564,149 @@ bool ConfirmLaunchMissingModInputs(const FrontendState& state,
 	return play;
 }
 
+// Asks CTGP-R's update server whether an update is waiting for the
+// installed packages and, if the player wants it, downloads it to
+// sd:/ctgpr/update.dif. True when the download is there to install.
+static bool CheckCtgpUpdateServer(riftwii::wii::CtgpUpdater& updater)
+{
+	std::string error;
+	riftwii::CtgpCheckReply reply;
+	if (!updater.check(reply, error)) {
+		logf("CTGP-R update: no check: %s\n", error.c_str());
+		return false;
+	}
+	if (!reply.update_waiting) return false;
+	const std::string megabytes = std::to_string((reply.update_bytes + (1u << 19)) >> 20);
+	if (ShowPopup(tr("CTGP-R update"),
+			tr("A CTGP-R update ({1} MB) is available. Download and install it now?", {megabytes}),
+			tr("Install"), tr("Not now")) != 0) {
+		logf("CTGP-R update: the player chose not to download it\n");
+		return false;
+	}
+	ProgressBar bar(56, 280, 528);
+	PopupBox box(tr("Updating CTGP-R"), tr("Downloading the update..."));
+	box.AddProgress(&bar);
+	const bool ok = updater.download(
+		reply.update_bytes,
+		[&](std::uint64_t done, std::uint64_t total) {
+			HaltGui();
+			bar.Set(total ? double(done) / double(total) : 1.0);
+			ResumeGui();
+			return true;
+		},
+		error);
+	HaltGui();
+	box.Close();
+	ResumeGui();
+	if (!ok) {
+		logf("CTGP-R update: download failed: %s\n", error.c_str());
+		ShowPopup(tr("CTGP-R update failed"),
+			tr("The update could not be downloaded: {1}. CTGP-R starts without it.", {FlatCapped(error, 140)}),
+			tr("OK"));
+	}
+	return ok;
+}
+
+// CTGP-R's own installer stops under RiftWii while it reads base files from
+// the game disc. The channel leaves the download at sd:/ctgpr/update.dif;
+// RiftWii installs it itself, before the game starts, so the installer's
+// disc read is never on the path. The work is done by the ctgpupd plugin,
+// loaded here and shut down when `updater` goes.
+static void InstallCtgpUpdateIfWaiting(FrontendState& state)
+{
+	if (riftwii::wii::CtgprPackOn(state) == SIZE_MAX) return;
+	const riftwii::wii::ImageGame& game = riftwii::wii::SelectedSource(state).game;
+	const riftwii::wii::LaunchSource::Kind kind = riftwii::wii::SelectedSource(state).kind;
+	if (kind == riftwii::wii::LaunchSource::Kind::Disc) {
+		// A retail disc's files are read through the menu's own DI path;
+		// the image path below is the one RiftWii launches from.
+		logf("CTGP-R update: the game runs from a disc, so its base files are not read here\n");
+		return;
+	}
+	const char* const update_path = riftwii::wii::kCtgpUpdatePath;
+	{
+		std::string journal_error;
+		if (!riftwii::wii::CtgpRecoverPackJournal(journal_error)) {
+			ShowPopup(tr("CTGP-R update"),
+				tr("An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer.",
+					{FlatCapped(journal_error, 140)}),
+				tr("OK"));
+			return;
+		}
+	}
+	riftwii::wii::CtgpUpdater updater;
+	bool asked = false;
+	struct stat st;
+	if (stat(update_path, &st) != 0) {
+		if (!CheckCtgpUpdateServer(updater)) return;
+		asked = true;
+	}
+	riftwii::wii::CtgpUpdateInfo info;
+	std::string error;
+	if (!updater.inspect(info, error)) {
+		logf("CTGP-R update: %s: %s\n", update_path, error.c_str());
+		return;
+	}
+	logf("CTGP-R update: %s (%llu bytes, %u files) is waiting\n", info.component.c_str(),
+		(unsigned long long)info.bytes, unsigned(info.files));
+	if (!asked && ShowPopup(tr("CTGP-R update"), tr("A CTGP-R update is ready. Install it now?"), tr("Install"),
+			tr("Not now")) != 0) {
+		logf("CTGP-R update: the player chose not to install it\n");
+		return;
+	}
+
+	// Nothing on the network may write to the card while the pack is being
+	// rewritten.
+	riftwii::wii::NetCancelBackground();
+	riftwii::wii::NetWaitForBackground();
+
+	ProgressBar bar(56, 280, 528);
+	PopupBox box(tr("Updating CTGP-R"), tr("Installing the update..."));
+	box.AddProgress(&bar);
+
+	riftwii::CtgpDiscBase disc = [game](const std::string& path, const riftwii::CtgpDiscSink& sink,
+					     std::uint32_t* size, std::string& why) {
+		return riftwii::wii::read_image_disc_file(game, path, sink, size, why);
+	};
+	// What the install has to work with, and (below) what it left.
+	riftwii::wii::mem::LogUsage("CTGP-R update start");
+	riftwii::wii::mem::CheckHeap("CTGP-R update start");
+	// The bar moves inside each file too (a file takes most of a minute on
+	// a Wii); it is redrawn at most five times a second.
+	u64 lastDrawn = 0;
+	const bool ok = updater.install(
+		disc,
+		[&](std::size_t index, std::size_t count, const std::string& path, double part) {
+			const u64 now = gettime();
+			if (lastDrawn != 0 && part > 0.0 && part < 1.0 && diff_msec(lastDrawn, now) < 200) return;
+			lastDrawn = now;
+			HaltGui();
+			bar.Set(count ? (double(index) + part) / double(count) : 1.0);
+			box.SetBody(tr("Installing CTGP-R, file {1} of {2}", {std::to_string(index + 1),
+								   std::to_string(count)}) +
+				    "\n" + path);
+			ResumeGui();
+		},
+		error);
+	riftwii::wii::mem::LogUsage("CTGP-R update end");
+	riftwii::wii::mem::CheckHeap("CTGP-R update end");
+	HaltGui();
+	box.Close();
+	ResumeGui();
+	if (ok) {
+		logf("CTGP-R update: done\n");
+		if (std::rename(update_path, "sd:/ctgpr/update.dif.installed") != 0)
+			logf("CTGP-R update: installed but %s could not be renamed; it will be offered again\n",
+				update_path);
+		ShowPopup(tr("CTGP-R update"), tr("The update was installed. CTGP-R starts now."), tr("OK"));
+	} else {
+		logf("CTGP-R update: FAILED: %s\n", error.c_str());
+		ShowPopup(tr("CTGP-R update failed"),
+			tr("The update could not be installed: {1}. CTGP-R starts without it.", {FlatCapped(error, 140)}),
+			tr("OK"));
+	}
+}
+
 int MainMenu(int menu, FrontendState& state)
 {
 	int currentMenu = menu;
@@ -19569,6 +19714,13 @@ int MainMenu(int menu, FrontendState& state)
 	if (startupCancelled) logf("Home: B held during startup skipped starting the last game.\n");
 	g_lastGameStartPending = menu == MENU_SOURCE && riftwii::wii::Settings().start_last_game &&
 		!startupCancelled && !MenuButtonHeld() && riftwii::wii::CurrentRestartNote().kind == riftwii::wii::RestartKind::None;
+
+	// A CTGP-R update cut off by a power loss or crash left blob.bin half
+	// written; put it back before anything reads it.
+	{
+		std::string journal_error;
+		riftwii::wii::CtgpRecoverPackJournal(journal_error);
+	}
 
 	// Pick the native widescreen pictures using the saved display width.
 	riftwii::wii::ApplyMenuDisplay();
@@ -19651,6 +19803,7 @@ int MainMenu(int menu, FrontendState& state)
 	// the next game page reads a fresh catalog when it sees this one empty.
 	state.package_catalog = riftwii::wii::PackageCatalog{};
 	state.prepared_choices = riftwii::wii::PreparedGameChoices{};
+	if (currentMenu == MENU_LAUNCH) InstallCtgpUpdateIfWaiting(state);
 	if (currentMenu == MENU_LAUNCH || currentMenu == MENU_BOOT || currentMenu == MENU_DUMP || currentMenu == MENU_CHANNEL ||
 		currentMenu == MENU_PLAY_CHANNEL || currentMenu == MENU_HOMEBREW) {
 		if (currentMenu == MENU_LAUNCH) {

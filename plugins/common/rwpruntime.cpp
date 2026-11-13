@@ -86,6 +86,19 @@ void escape(std::int32_t result, const char* why) {
     stop();
 }
 
+FILE* g_open_streams[16];
+
+std::uint32_t close_open_streams() {
+    std::uint32_t closed = 0;
+    for (FILE*& stream : g_open_streams) {
+        if (stream == nullptr) continue;
+        g_host->stream_close(stream);
+        stream = nullptr;
+        ++closed;
+    }
+    return closed;
+}
+
 }  // namespace riftwii::plugin
 
 using riftwii::plugin::escape;
@@ -266,9 +279,25 @@ int snprintf(char* out, size_t bytes, const char* format, ...) {
 // ---- Files: the C library's calls on rwp_host's streams ----
 // A FILE* here is the loader's own FILE, which the plugin only passes back.
 
-FILE* fopen(const char* path, const char* mode) { return static_cast<FILE*>(host().stream_open(path, mode)); }
+FILE* fopen(const char* path, const char* mode) {
+    FILE* const file = static_cast<FILE*>(host().stream_open(path, mode));
+    if (file != nullptr) {
+        for (FILE*& slot : riftwii::plugin::g_open_streams) {
+            if (slot == nullptr) {
+                slot = file;
+                break;
+            }
+        }
+    }
+    return file;
+}
 
-int fclose(FILE* file) { return host().stream_close(file) == 0 ? 0 : EOF; }
+int fclose(FILE* file) {
+    for (FILE*& slot : riftwii::plugin::g_open_streams) {
+        if (slot == file) slot = nullptr;
+    }
+    return host().stream_close(file) == 0 ? 0 : EOF;
+}
 
 size_t fread(void* buffer, size_t size, size_t count, FILE* file) {
     if (size == 0 || count == 0) return 0;
