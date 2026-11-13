@@ -103,7 +103,8 @@ std::uint32_t be32_at(const std::vector<std::uint8_t>& d, std::size_t at) {
 // A DIA0 holding `sections` one after another. `listed` (when not 0) is the
 // count its table claims, for a table that leaves sections out; the header's
 // unpacked size is always the sum of all the sections'.
-std::vector<std::uint8_t> make_dia(const std::vector<std::vector<std::uint8_t>>& sections, std::uint32_t listed = 0) {
+std::vector<std::uint8_t> make_dia(const std::vector<std::vector<std::uint8_t>>& sections, std::uint32_t listed = 0,
+                                   const char* component = "CTGPR") {
     const std::uint32_t count = listed != 0 ? listed : std::uint32_t(sections.size());
     const std::uint32_t base_offset = 0x64;
     const std::uint32_t table_offset = base_offset + 16;
@@ -119,7 +120,7 @@ std::vector<std::uint8_t> make_dia(const std::vector<std::vector<std::uint8_t>>&
     put32(out, total);
     put32(out, 0);
     put32(out, 0);
-    put_name(out, "CTGPR");
+    put_name(out, component);
     put32(out, 0x01031193u);
     put32(out, unpacked);
     put32(out, 0);  // signature length
@@ -130,7 +131,7 @@ std::vector<std::uint8_t> make_dia(const std::vector<std::vector<std::uint8_t>>&
     put32(out, base_offset);
     put32(out, count);        // sections
     put32(out, table_offset);
-    put_name(out, "CTGPR");
+    put_name(out, component);
     put32(out, 0x01031192u);
     put32(out, 0);
     std::uint32_t at = first_section;
@@ -481,6 +482,33 @@ void test_apply_failure_kind() {
     MemoryTarget other;
     EXPECT_TRUE(!run(good, 17, other, failure, "MKWII"));
     EXPECT_TRUE(failure == CtgpUpdateFailure::BadUpdate);
+    // An update for another package (CORE) whose base files are all CTGPR's:
+    // refused as permanent before any base file is asked for.
+    {
+        const auto core = make_dia({make_section(17, good, "/Race/Course/NEW.szs")}, 0, "CORE");
+        CtgpDia parsed;
+        std::string why;
+        EXPECT_TRUE(ctgp_dia_parse(core.data(), core.size(), parsed, why));
+        EXPECT_TRUE(parsed.component == "CORE" && parsed.bases.size() == 1);
+        EXPECT_TRUE(!ctgp_dia_supported(parsed, why));
+        EXPECT_TRUE(why.find("CORE") != std::string::npos);
+        const CtgpUpdateRead read = [&core](std::uint64_t offset, std::uint8_t* out, std::size_t length) {
+            if (offset + length > core.size()) return false;
+            std::memcpy(out, core.data() + offset, length);
+            return true;
+        };
+        MemoryTarget unsupported;
+        unsupported.fail_load = true;  // a base asked for would show as Temporary
+        failure = CtgpUpdateFailure::None;
+        EXPECT_TRUE(!ctgp_update_apply(read, core.size(), unsupported, nullptr, CtgpUpdateFileDone(),
+                                       CtgpUpdateStep(), failure, why));
+        EXPECT_TRUE(failure == CtgpUpdateFailure::BadUpdate);
+        EXPECT_TRUE(unsupported.stored.empty() && unsupported.checked.empty());
+        EXPECT_TRUE(!ctgp_update_apply(core.data(), core.size(), unsupported, nullptr, why));
+        // The CTGPR update with the same sections is supported.
+        const auto ctgpr = make_dia({make_section(17, good, "/Race/Course/NEW.szs")});
+        EXPECT_TRUE(ctgp_dia_parse(ctgpr.data(), ctgpr.size(), parsed, why) && ctgp_dia_supported(parsed, why));
+    }
     // The pack's own target says the same for a package it doesn't know, and
     // asks the card for nothing first.
     {

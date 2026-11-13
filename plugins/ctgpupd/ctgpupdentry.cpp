@@ -128,7 +128,10 @@ bool read_dia(const std::string& path, std::uint64_t expected, riftwii::CtgpDia&
         if (bad != nullptr && !sized) *bad = true;
         return false;
     }
-    if (!riftwii::ctgp_dia_parse_prefix(prefix.data(), prefix.size(), length, dia, error)) {
+    // An update for another package can never install here: refused before
+    // any version is compared or file read.
+    if (!riftwii::ctgp_dia_parse_prefix(prefix.data(), prefix.size(), length, dia, error) ||
+        !riftwii::ctgp_dia_supported(dia, error)) {
         if (bad != nullptr) *bad = true;
         return false;
     }

@@ -1072,7 +1072,7 @@ bool ctgp_update_apply(const std::uint8_t* dia, std::size_t size, CtgpUpdateTarg
                        const std::function<void(const std::string&)>& log,
                        const CtgpUpdateFileDone& file_done, std::string& error) {
     CtgpDia update;
-    if (!ctgp_dia_parse(dia, size, update, error)) {
+    if (!ctgp_dia_parse(dia, size, update, error) || !ctgp_dia_supported(update, error)) {
         return false;
     }
     return apply_sections(
@@ -1115,7 +1115,8 @@ bool ctgp_update_apply(const CtgpUpdateRead& read, std::uint64_t size, CtgpUpdat
         return false;
     }
     CtgpDia update;
-    if (!ctgp_dia_parse_prefix(prefix.data(), prefix.size(), size, update, error)) {
+    if (!ctgp_dia_parse_prefix(prefix.data(), prefix.size(), size, update, error) ||
+        !ctgp_dia_supported(update, error)) {
         return false;  // BadUpdate
     }
     return apply_sections(
@@ -1125,6 +1126,12 @@ bool ctgp_update_apply(const CtgpUpdateRead& read, std::uint64_t size, CtgpUpdat
             return read(place.offset, out.data(), out.size());
         },
         target, log, file_done, step, failure, error);
+}
+
+bool ctgp_dia_supported(const CtgpDia& dia, std::string& error) {
+    if (dia.component == "CTGPR") return true;
+    error = "the update is for a package RiftWii doesn't install (" + dia.component + "), only CTGPR";
+    return false;
 }
 
 bool ctgp_dia_verify_signature(const CtgpUpdateRead& read, std::uint64_t size, const CtgpDsaKey& key,

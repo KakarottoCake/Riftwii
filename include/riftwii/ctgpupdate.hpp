@@ -283,6 +283,12 @@ constexpr std::size_t kCtgpDiaPrefixBytes = 16 * 1024;
 bool ctgp_dia_parse_prefix(const std::uint8_t* data, std::size_t size, std::uint64_t total,
                            CtgpDia& out, std::string& error);
 
+// Whether RiftWii can install this update at all: only CTGP-R's own package
+// (CTGPR) is updated here, whatever its base files name. False, with the
+// reason, for any other package: that never changes, so the caller sets the
+// update aside rather than trying it again.
+bool ctgp_dia_supported(const CtgpDia& dia, std::string& error);
+
 // The DIA0's own signature, checked the way CTGP-R's channel checks it: a
 // DSA signature (DER, at 0x24, its length at 0x20) of the SHA-1 of the whole
 // file, with the length field zeroed and 0x24..0x54 (where the signature
