@@ -411,7 +411,7 @@ memory the rest of the time.
 | The request | `include/riftwii/plugin_ctgpupd.hpp`: `CtgpUpdRequest` names one operation (`Inspect`, `Check`, `Download`, `Install`), carries the card paths, the DOL's raw SD reads and C library calls, the connection (`connect_next`, `io`), the disc reader and the progress callbacks in, and the update's header, the check's reply and the technical reason out. `ctgpupd_request_check` refuses a request of another size or layout |
 | The DOL's side | `wii/launch/ctgpupdatenet.cpp`: `CtgpUpdater` fills the request, calls `plugin::Launch("ctgpupd", ...)` for each operation and `plugin::ShutdownAll` when it goes; it keeps the network (`NetStart`, the servers, the socket), the console's MAC address, the raw SD reads jelly.bin's key needs, and `CtgpRecoverPackJournal`. The menu (`InstallCtgpUpdateIfWaiting`) keeps the prompts and the progress box, and reads the game's own files through `read_image_disc_file` |
 | The plugin | `plugins/ctgpupd/ctgpupdentry.cpp` (`rwp_init`, the table, `launch` and the four operations; `remove`, `rename`, `fflush`, `fileno` and `fsync` on the DOL's own), and its own copies of the updater's `src/ctgpr/` files, the pack's crypto, `src/disc/fst.cpp` and `src/data/sha1.cpp` (`Makefile.plugin`'s `ctgpupd_SRC`) |
-| Out of the DOL | `Makefile.wii`: the updater's `src/ctgpr/` files but `ctgpjournal.cpp` in `EXCLUDES` |
+| Out of the DOL | `Makefile.wii`: the updater's `src/ctgpr/` files (`ctgphashupdate.cpp` among them) in `EXCLUDES`; the DOL keeps `ctgpjournal.cpp` (the start-up replay) and `ctgpchain.cpp` (the menu's chain) |
 | Updates | `tools/make_release_zip.py` and `tools/make_update_pack.py` require it beside `gamecube` and `ctgpr` |
 
 Every update is checked against CTGP-R's own signature before it is used:
@@ -423,9 +423,36 @@ after CTGP-R signed it, or one with no signature, is refused, and the menu
 sets it aside as `update.dif.bad`. Each rebuilt file is then also checked
 against jelly.bin's `CTGPR.HSH` before it is stored.
 
+Two kinds of update are installed: CTGP-R's pack (`CTGPR`, into blob.bin)
+and its hash lists (`HASH`, into jelly.bin, `src/ctgpr/ctgphashupdate.cpp`).
+The server offers one at a time, in whatever order it likes, and the menu
+installs them one after another until it has nothing newer
+(`riftwii/ctgpchain.hpp`: one prompt for the whole chain, the installed
+versions read again after every step, at most ten steps, a step that fails
+ends it and CTGP-R starts on what went in).
+
+A HASH update's sections each rebuild a whole signed list (`/core.hsh`,
+`/ctgpr.hsh`; DIF0 version 0, no base files). Every list is rebuilt and
+checked in memory first (its own DSA signature, size, name and body digest,
+besides the update's signature), and goes over the existing
+`/PACKAGES/HASH/<NAME>.HSH`; jelly.bin's `/PACKAGES.BIN` then names the new
+HASH version, as CTGP-R's channel leaves them. jelly.bin's key is made from
+its own directory entry's times on the SD card, so jelly.bin is written only
+where it already lies, in whole 512-byte blocks, through the DOL's
+`write_sd_file_in_place` (`fat32_write_in_place`): its entry, the FAT and
+FSInfo are never written, and libfat, which never reads jelly.bin's data,
+holds none of it. jelly.bin is never made larger: lists that would not fit
+in its free space stop the step before anything is written, as does a card
+that refuses a write of jelly.bin's first block back over itself. The writes
+go through their own undo journal (`sd:/ctgpr/update-journal-jelly.bin`);
+everything is read back and checked before the journal is removed, and any
+failure puts jelly.bin back.
+
 The start-up replay of the undo journal stays in the DOL on purpose. An
 install cut off by a power loss or a crash leaves blob.bin half written, and
-it must be put back before anything reads it, even when the plugin can't be
+it must be put back before anything reads it (jelly.bin's journal first, then
+blob.bin's, each tried whatever the other gives; jelly.bin's entry is read again afterwards and must be unchanged,
+so its key is), even when the plugin can't be
 loaded (missing, from another RiftWii, or damaged). It needs only
 `ctgpjournal.cpp`, which copies raw 32 KiB chunks back and needs none of the
 pack's crypto. If a journal can't be played back (the card won't give its
