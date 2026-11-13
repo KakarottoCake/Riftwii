@@ -222,13 +222,16 @@ bool CtgpPackUpdateTarget::base_unpacked_size(const std::string& component, cons
     }
     if (have == 0 || stored == 0) return false;
     const bool yaz0 = have >= 16 && std::memcmp(head, "Yaz0", 4) == 0;
-    if (yaz0 && (packed || !from_pack)) {
+    // As load_base will read it: a pack file is packed exactly when the
+    // entry says so; a disc file by its first bytes.
+    if (from_pack && packed != yaz0) return false;
+    if (yaz0) {
         size = (std::uint32_t(head[4]) << 24) | (std::uint32_t(head[5]) << 16) | (std::uint32_t(head[6]) << 8) |
                head[7];
     } else {
         size = stored;
     }
-    return true;
+    return size <= kCtgpUpdateMaxFileBytes;
 }
 
 bool CtgpPackUpdateTarget::check_file(const std::string& path, bool packed,

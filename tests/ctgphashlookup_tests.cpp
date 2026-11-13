@@ -129,6 +129,45 @@ void test_pack_target_check() {
         EXPECT_TRUE(error.find("game disc") != std::string::npos);
         EXPECT_TRUE(target.check_file("/changelog.bin", false, other, error));
     }
+    // Base sizes for the bar, from the disc: a Yaz0 file by its header, a
+    // plain one by its length; nothing for a missing file, no disc or a
+    // package the target can't read.
+    {
+        const auto disc = [](const std::string& path, const riftwii::CtgpDiscSink& sink, std::uint32_t* size,
+                             std::string& why) {
+            std::vector<std::uint8_t> file;
+            if (path == "/y.szs") {
+                file = {'Y', 'a', 'z', '0', 0, 0x01, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 1, 2};
+            } else if (path == "/huge.szs") {
+                file = {'Y', 'a', 'z', '0', 0xFF, 0xFF, 0xFF, 0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF};
+            } else if (path == "/p.bin") {
+                file.assign(40, 7);
+            } else if (path == "/s.bin") {
+                file = {1, 2, 3};
+            } else {
+                why = "no such file";
+                return false;
+            }
+            if (size) *size = std::uint32_t(file.size());
+            // Two pieces, as a disc read may hand them over.
+            if (!sink(file.data(), 5)) return false;
+            return sink(file.data() + 5, file.size() - 5);
+        };
+        riftwii::CtgpPackUpdateTarget with_disc(pack, disc, list, "ctgphashlookup_unused_");
+        std::uint32_t size = 1;
+        EXPECT_TRUE(with_disc.base_unpacked_size("RMC", "/y.szs", true, size) && size == 0x10000);
+        EXPECT_TRUE(with_disc.base_unpacked_size("RMC", "/p.bin", true, size) && size == 40);
+        EXPECT_TRUE(with_disc.base_unpacked_size("RMC", "/s.bin", false, size) && size == 3);
+        EXPECT_TRUE(!with_disc.base_unpacked_size("RMC", "/huge.szs", true, size));
+        EXPECT_TRUE(!with_disc.base_unpacked_size("RMC", "/none.szs", true, size));
+        EXPECT_TRUE(!with_disc.base_unpacked_size("MKWII", "/y.szs", true, size));
+        // The pack isn't open here: its files can't be sized.
+        EXPECT_TRUE(!with_disc.base_unpacked_size("CTGPR", "/y.szs", true, size));
+        EXPECT_TRUE(!target.base_unpacked_size("RMC", "/y.szs", true, size));  // no disc
+        // Sizing leaves nothing behind: an unlisted unpacked file is still
+        // taken (no disc base was counted).
+        EXPECT_TRUE(with_disc.check_file("/changelog.bin", false, other, error));
+    }
     auto damaged = list;
     damaged.back() ^= 1;
     riftwii::CtgpPackUpdateTarget broken(pack, riftwii::CtgpDiscBase(), damaged, "ctgphashlookup_unused_");

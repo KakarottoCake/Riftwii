@@ -920,8 +920,9 @@ constexpr double kRebuildOfRest = 0.35 / 0.55;
 // files) the times fit 1.63 s per MB of unpacked base files plus 10.8 s per MB
 // of the rebuilt file; in Dolphin (pr-11, pr-13: 1193 and 1194, nine files)
 // 0.66 and 3.11 s, within 7% for seven of the nine. The section-size model
-// above was off by up to 24% there, and too low on 1194, so "about a minute"
-// showed with nearly two left. The Wii's ratio is used.
+// above was off by up to 24% there, and too low on 1194 in Dolphin, where
+// "about a minute" showed with nearly two left. The Wii's ratio is used; how
+// well it predicts 1194 on a Wii is still to be timed.
 constexpr double kBaseWeight = 1.63 / 10.83;
 
 // For the callers that don't ask why an apply failed.
@@ -1026,6 +1027,9 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
     // section left it (C2.szs from 1194's own 29.szs): its size is the one
     // that section declares.
     std::vector<std::pair<std::string, std::uint32_t>> rebuilt_here;
+    // Each (component, path) is asked once: a disc file costs an image open.
+    std::vector<std::pair<std::string, std::uint32_t>> asked;
+    std::size_t asked_count = 0;
     for (std::size_t index = 0; index < count; ++index) {
         const CtgpDiaSection& place = update.sections[index];
         std::uint8_t head[0x20 + 16 * kCtgpDifMaxEntries];
@@ -1038,7 +1042,10 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         if (value <= kCtgpUpdateMaxFileBytes) unpacked_of[index] = double(value);
         const std::uint32_t entries = be32(head + 0x1C);
         if (!by_bases) continue;
-        if (entries > kCtgpDifMaxEntries || 0x20u + 16u * entries > want) {
+        // Nothing is asked of the target for a header that ctgp_dif_parse
+        // would refuse anyway.
+        if (std::memcmp(head, "DIF0", 4) != 0 || be32(head + 4) != place.size || be32(head + 8) != 0 ||
+            value > kCtgpUpdateMaxFileBytes || entries > kCtgpDifMaxEntries || 0x20u + 16u * entries > want) {
             by_bases = false;
             continue;
         }
@@ -1062,8 +1069,20 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
                     }
                 }
             }
-            by_bases = known || target.base_unpacked_size(component, name,
-                                                          (be32(entry + 12) & kCtgpDifFlagPacked) != 0, size);
+            const std::string key = component + ":" + name;
+            for (const auto& earlier : asked) {
+                if (!known && earlier.first == key) {
+                    size = earlier.second;
+                    known = true;
+                }
+            }
+            if (!known) {
+                ++asked_count;
+                by_bases = target.base_unpacked_size(component, name, (be32(entry + 12) & kCtgpDifFlagPacked) != 0,
+                                                     size) &&
+                           size <= kCtgpUpdateMaxFileBytes;
+                if (by_bases) asked.emplace_back(key, size);
+            }
             bases_of[index] += double(size);
         }
         // This section's own path, for a later section that rebuilds from it.
@@ -1076,11 +1095,17 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
             rebuilt_here.emplace_back(own, value);
         }
     }
+    if (log) {
+        log(by_bases ? "the bar weighs each file by its " + std::to_string(asked_count) +
+                           " base file(s) read for their size and the file it rebuilds"
+                     : std::string("the bar weighs each file by its section (a base file's size could not be read)"));
+    }
     double weight_total = 0;
     for (std::size_t index = 0; index < count; ++index) {
         if (by_bases) {
             const double bases = kBaseWeight * bases_of[index];
-            weight[index] = bases + unpacked_of[index];
+            // One byte at least, so a bar of empty files still moves.
+            weight[index] = bases + unpacked_of[index] + 1.0;
             base_share[index] = weight[index] > 0 ? bases / weight[index] : 0.0;
         } else {
             weight[index] = kSectionWeight * double(update.sections[index].size) + unpacked_of[index];

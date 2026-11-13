@@ -741,7 +741,7 @@ void test_update_step_by_bases() {
     MemoryTarget target;
     target.base_size = 7000;
     const double k = 1.63 / 10.83;
-    const double w1 = k * 7000 + 17, w2 = k * 17 + 13;
+    const double w1 = k * 7000 + 17 + 1, w2 = k * 17 + 13 + 1;
     const double s1 = w1 / (w1 + w2);
     std::string error;
     std::vector<std::pair<std::size_t, double>> seen;
@@ -766,11 +766,37 @@ void test_update_step_by_bases() {
     // replaces: the second's base is sized from the first section (17), not
     // asked of the target.
     EXPECT_EQ(target.sized.size(), std::size_t(1));
+    for (std::size_t i = 1; i < seen.size(); ++i) EXPECT_TRUE(seen[i].second >= seen[i - 1].second);
+    EXPECT_TRUE(!seen.empty() && seen.back().second == 1.0);
     // The first file's bases end at their share of it.
     const double base_end = k * 7000 / w1;
     bool found = false;
     for (double part : parts) found = found || (part > base_end - 1e-9 && part < base_end + 1e-9);
     EXPECT_TRUE(found);
+}
+
+// A size the target can't give, or a header ctgp_dif_parse would refuse:
+// the bar falls back to the sections, and a damaged header asks nothing.
+void test_update_step_by_bases_fallback() {
+    const std::vector<std::uint8_t> seventeen = {0x40, 'h', 'e', 'l', 'l', 'o', 0x14, 1, 0x33};
+    auto section = make_section(17, seventeen, "/Race/Course/NEW.szs");
+    std::vector<std::string> lines;
+    MemoryTarget target;
+    target.base_size = 0;  // can't say
+    auto dia = make_dia(section);
+    std::string error;
+    EXPECT_TRUE(ctgp_update_apply(dia.data(), dia.size(), target, [&](const std::string& l) { lines.push_back(l); },
+                                  error));
+    bool fell_back = false;
+    for (const auto& l : lines) fell_back = fell_back || l.find("weighs each file by its section") != std::string::npos;
+    EXPECT_TRUE(fell_back);
+    // A section whose declared size is wrong: no base is asked for.
+    section[7] ^= 1;
+    dia = make_dia(section);
+    MemoryTarget damaged;
+    damaged.base_size = 7000;
+    EXPECT_TRUE(!ctgp_update_apply(dia.data(), dia.size(), damaged, nullptr, error));
+    EXPECT_TRUE(damaged.sized.empty());
 }
 
 // Nintendo's Yaz0, built by hand: header, then a flag byte and its items.
@@ -1089,6 +1115,7 @@ void test_update_plain_files() {
 int main() {
     test_dif_flags();
     test_update_step_by_bases();
+    test_update_step_by_bases_fallback();
     test_update_plain_files();
     test_yaz0_round_trip();
     test_dia_parse();
