@@ -3237,7 +3237,13 @@ public:
 		riftwii::wii::DrawPill(x, y, width, 14, skin::WithAlpha(skin::kScrollTrack, alpha));
 		shown = transition::Follow(shown, fraction, 90.0f, 0.0005f);
 		const float filled = shown * width;
-		if (!unknown)
+		// A fill shorter than the track's rounded end is the track's own end
+		// cut at the fill: a pill that narrow is a tall sliver standing out
+		// past the track's curve at the left. From the end's width on, it is
+		// its own pill, as before.
+		if (!unknown && filled < 14.0f)
+			riftwii::wii::DrawPillStart(x, y, width, filled, 14, skin::WithAlpha(skin::kAccent, alpha));
+		else if (!unknown)
 			riftwii::wii::DrawPill(x, y, filled, 14, skin::WithAlpha(skin::kAccent, alpha));
 		if (!unknown && fraction >= 1.0f) return;
 		shine += transition::FrameMilliseconds();
