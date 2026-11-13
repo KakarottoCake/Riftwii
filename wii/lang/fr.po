@@ -4583,3 +4583,15 @@ msgstr "Mise à jour {1} : téléchargement..."
 
 msgid "the server offered an update for {1}, which RiftWii doesn't install"
 msgstr "le serveur a proposé une mise à jour pour {1}, que RiftWii n'installe pas"
+
+msgid "the server offered {1} {2}, which is not newer than what is installed"
+msgstr "le serveur a proposé {1} {2}, qui n'est pas plus récent que ce qui est installé"
+
+msgid "the server offered {1} {2} again after it was installed"
+msgstr "le serveur a proposé à nouveau {1} {2} après son installation"
+
+msgid "{1} updates were installed in a row, the most at one start; the rest install next time"
+msgstr "{1} mises à jour ont été installées à la suite, le maximum en un démarrage ; les autres s'installent la prochaine fois"
+
+msgid "the last update went in, but its file on the SD card could not be moved aside"
+msgstr "la dernière mise à jour a été installée, mais son fichier sur la carte SD n'a pas pu être mis de côté"

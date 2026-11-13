@@ -540,11 +540,15 @@ bool install_hash(CtgpUpdRequest& request, const riftwii::CtgpDia& dia, std::uin
         return write(*jelly, offset, data, bytes);
     };
     bool rolled_back = true;
+    bool permanent = false;
     // libogc's SD driver writes synchronously: a raw write is on the card
     // when it returns.
     const bool ok = riftwii::ctgp_hash_update_install(raw, jelly->entry.size & ~511ull, key, riftwii::ctgp_blob_chunk_iv(),
                                                       lists, dia.version, request.jelly_journal_path,
-                                                      [] { return true; }, rolled_back, error);
+                                                      [] { return true; }, rolled_back, error, nullptr, &permanent);
+    // One that can never go into this jelly.bin (nothing was written) is set
+    // aside, so it isn't offered at every start.
+    if (!ok && permanent) request.bad_update = 1;
     if (ok) {
         if (request.step) request.step(0, 1, "jelly.bin", 1.0, 1.0);
         log_line(request, "jelly.bin now has hash lists " + version_text(dia.version) +

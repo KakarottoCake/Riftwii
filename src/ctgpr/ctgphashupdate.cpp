@@ -44,7 +44,11 @@ std::uint64_t clusters_for(std::uint64_t bytes, std::uint32_t cluster) {
 }
 
 // The list checked as CTGP-R's: its signature, size, name and body digest,
-// under its own label.
+// under its own label. The label is not tied to the HASH update's version or
+// to blob.bin's CTGPR version: CTGP-R's own lists run ahead of the pack (HASH
+// 0x01031374's CTGPR.HSH is labelled 1194 while the pack is still at 1192 or
+// 1193), and the channel installs them as they come. The native launch's
+// label rule (ctgp_load_hash_list against PACKAGES.BIN) is separate.
 bool check_list(const std::vector<std::uint8_t>& bytes, const std::string& package, std::string& error,
                 const CtgpDsaKey* key) {
     if (bytes.size() < 0x2C) {
@@ -79,6 +83,9 @@ bool ctgp_packages_set_version(std::vector<std::uint8_t>& list, const std::strin
         record[9] = std::uint8_t(version >> 16);
         record[10] = std::uint8_t(version >> 8);
         record[11] = std::uint8_t(version);
+        // As CTGP-R's channel does when it installs an update: the record's
+        // 0x40000000 flag goes (no card seen so far has it set).
+        record[12] = std::uint8_t(record[12] & ~0x40u);
         found = true;
     }
     if (!found) error = "PACKAGES.BIN has no " + component + " record";
@@ -156,7 +163,9 @@ bool ctgp_hash_update_build(const CtgpUpdateRead& read, std::uint64_t size, cons
     return true;
 }
 
-bool ctgp_hash_update_fits(CtgpPackWriter& jelly, const std::vector<CtgpHashUpdateList>& lists, std::string& error) {
+bool ctgp_hash_update_fits(CtgpPackWriter& jelly, const std::vector<CtgpHashUpdateList>& lists, std::string& error,
+                           bool* permanent) {
+    if (permanent != nullptr) *permanent = false;
     const std::uint32_t cluster = jelly.cluster_bytes();
     if (cluster == 0) {
         error = "jelly.bin is not open";
@@ -169,6 +178,7 @@ bool ctgp_hash_update_fits(CtgpPackWriter& jelly, const std::vector<CtgpHashUpda
         if (!jelly.read_file(list.disk_path, [](const std::uint8_t*, std::size_t) { return true; }, &old_size,
                              read_error)) {
             error = "jelly.bin has no " + list.disk_path + " to replace (" + read_error + ")";
+            if (permanent != nullptr) *permanent = true;
             return false;
         }
         const std::uint64_t now = clusters_for(old_size, cluster);
@@ -178,6 +188,7 @@ bool ctgp_hash_update_fits(CtgpPackWriter& jelly, const std::vector<CtgpHashUpda
     if (more > jelly.free_clusters()) {
         error = "the new hash lists need " + std::to_string(more) + " more clusters than jelly.bin has free (" +
                 std::to_string(jelly.free_clusters()) + ")";
+        if (permanent != nullptr) *permanent = true;
         return false;
     }
     std::vector<std::uint8_t> packages;
@@ -248,14 +259,16 @@ bool ctgp_hash_update_install(const CtgpPackIo& raw, std::uint64_t size, const s
                               const CtgpChunkIv& iv, const std::vector<CtgpHashUpdateList>& lists,
                               std::uint32_t version, const std::string& journal_path,
                               const std::function<bool()>& sync, bool& rolled_back, std::string& error,
-                              const CtgpDsaKey* dsa_key) {
+                              const CtgpDsaKey* dsa_key, bool* permanent) {
     rolled_back = true;  // nothing written yet
+    if (permanent != nullptr) *permanent = false;
     CtgpPackIo read_only;
     read_only.read = raw.read;
     read_only.write = [](std::uint64_t, const std::uint8_t*, std::uint32_t) { return false; };
     {
         CtgpPackWriter look;
-        const bool fits = look.open(read_only, size, key, iv, error) && ctgp_hash_update_fits(look, lists, error);
+        const bool fits =
+            look.open(read_only, size, key, iv, error) && ctgp_hash_update_fits(look, lists, error, permanent);
         look.close();
         if (!fits) {
             error = "jelly.bin: " + error;

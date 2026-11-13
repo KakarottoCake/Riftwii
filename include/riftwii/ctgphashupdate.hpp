@@ -50,7 +50,10 @@ bool ctgp_hash_update_build(const CtgpUpdateRead& read, std::uint64_t size, cons
 // each list's path already, and the disk's free space covers what the lists
 // grow by. Reads only; run before the journal starts, so a list that can't
 // go in stops the step with nothing written.
-bool ctgp_hash_update_fits(CtgpPackWriter& jelly, const std::vector<CtgpHashUpdateList>& lists, std::string& error);
+// `permanent` (may be null) is set when it can never go in on this jelly.bin
+// (a list it doesn't hold, or not enough room), rather than the card failing.
+bool ctgp_hash_update_fits(CtgpPackWriter& jelly, const std::vector<CtgpHashUpdateList>& lists, std::string& error,
+                           bool* permanent = nullptr);
 
 // Writes the lists into jelly.bin, each over its existing file, then sets
 // the HASH record of jelly's /PACKAGES.BIN to `version`. `jelly` must be
@@ -66,7 +69,8 @@ bool ctgp_hash_update_verify(CtgpPackWriter& jelly, const std::vector<CtgpHashUp
                              std::uint32_t version, std::string& error, const CtgpDsaKey* key = nullptr);
 
 // Sets the version of record `component` in a PACKAGES.BIN ("PAK0", the
-// count at 12, 16-byte records from 16: name[8], version). False when the
+// count at 12, 16-byte records from 16: name[8], version, flags), and clears
+// the record's 0x40000000 flag, as CTGP-R's channel does. False when the
 // list is malformed or has no such record.
 bool ctgp_packages_set_version(std::vector<std::uint8_t>& list, const std::string& component, std::uint32_t version,
                                std::string& error);
@@ -88,10 +92,12 @@ bool ctgp_packages_set_version(std::vector<std::uint8_t>& list, const std::strin
 // entry, and with it the key, never changes. `sync` makes raw writes
 // durable. `rolled_back` tells a failure that left jelly.bin as it was from
 // one that could not be undone now (the journal stays for the next start).
+// `permanent` (may be null) is set when nothing was written because the
+// update can never go into this jelly.bin (ctgp_hash_update_fits).
 bool ctgp_hash_update_install(const CtgpPackIo& raw, std::uint64_t size, const std::array<std::uint8_t, 16>& key,
                               const CtgpChunkIv& iv, const std::vector<CtgpHashUpdateList>& lists,
                               std::uint32_t version, const std::string& journal_path,
                               const std::function<bool()>& sync, bool& rolled_back, std::string& error,
-                              const CtgpDsaKey* dsa_key = nullptr);
+                              const CtgpDsaKey* dsa_key = nullptr, bool* permanent = nullptr);
 
 }  // namespace riftwii

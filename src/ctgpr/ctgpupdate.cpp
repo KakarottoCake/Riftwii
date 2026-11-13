@@ -971,6 +971,12 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
             failure = CtgpUpdateFailure::BadUpdate;
             return false;
         }
+        if (files.version != kCtgpDifVersion) {
+            // A whole-file section belongs to a HASH update (ctgphashupdate.cpp).
+            error = "a CTGPR update section is in the hash-list format";
+            failure = CtgpUpdateFailure::BadUpdate;
+            return false;
+        }
         const std::string path = ctgp_dif_path(data, section.size(), files.path_table);
         if (path.empty()) {
             error = "an update section has no file path";

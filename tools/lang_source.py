@@ -9584,6 +9584,10 @@ T.update({
     "Update {1}: CTGP-R's hash lists": ('Actualización {1}: listas de hashes de CTGP-R', '更新 {1}: CTGP-Rのハッシュリスト', 'Atualização {1}: listas de hashes do CTGP-R', 'Aggiornamento {1}: elenchi di hash di CTGP-R'),
     'Update {1}: downloading...': ('Actualización {1}: descargando...', '更新 {1}: ダウンロード中...', 'Atualização {1}: a transferir...', 'Aggiornamento {1}: download in corso...'),
     "the server offered an update for {1}, which RiftWii doesn't install": ('el servidor ofreció una actualización para {1}, que RiftWii no instala', 'サーバーが{1}の更新を提示しましたが、RiftWiiはそれをインストールしません', 'o servidor ofereceu uma atualização para {1}, que o RiftWii não instala', 'il server ha offerto un aggiornamento per {1}, che RiftWii non installa'),
+    'the server offered {1} {2}, which is not newer than what is installed': ('el servidor ofreció {1} {2}, que no es más reciente que lo instalado', 'サーバーが{1} {2}を提示しましたが、インストール済みのものより新しくありません', 'o servidor ofereceu {1} {2}, que não é mais recente do que o que está instalado', 'il server ha offerto {1} {2}, che non è più recente di quanto installato'),
+    'the server offered {1} {2} again after it was installed': ('el servidor volvió a ofrecer {1} {2} después de instalarlo', 'サーバーがインストール後に{1} {2}を再び提示しました', 'o servidor voltou a oferecer {1} {2} depois de ter sido instalado', 'il server ha offerto di nuovo {1} {2} dopo che era stato installato'),
+    '{1} updates were installed in a row, the most at one start; the rest install next time': ('se instalaron {1} actualizaciones seguidas, el máximo en un inicio; el resto se instala la próxima vez', '{1}件の更新を続けてインストールしました。1回の起動ではこれが上限で、残りは次回インストールされます', 'foram instaladas {1} atualizações seguidas, o máximo num arranque; as restantes instalam-se da próxima vez', 'sono stati installati {1} aggiornamenti di fila, il massimo per un avvio; gli altri si installano la prossima volta'),
+    'the last update went in, but its file on the SD card could not be moved aside': ('la última actualización se instaló, pero su archivo en la tarjeta SD no se pudo apartar', '最後の更新はインストールされましたが、SDカード上のそのファイルを移動できませんでした', 'a última atualização foi instalada, mas o seu ficheiro no cartão SD não pôde ser posto de lado', "l'ultimo aggiornamento è stato installato, ma il suo file sulla scheda SD non è stato possibile spostarlo"),
 })
 KO.update({
     'A CTGP-R update is available. Update CTGP-R to the latest version now? The first update is {1} MB; there may be more after it.':
@@ -9608,6 +9612,14 @@ KO.update({
         '업데이트 {1}: 다운로드 중...',
     "the server offered an update for {1}, which RiftWii doesn't install":
         '서버가 {1}의 업데이트를 제공했지만 RiftWii는 이를 설치하지 않습니다',
+    'the server offered {1} {2}, which is not newer than what is installed':
+        '서버가 {1} {2}을(를) 제공했지만 설치된 것보다 새롭지 않습니다',
+    'the server offered {1} {2} again after it was installed':
+        '서버가 설치 후에 {1} {2}을(를) 다시 제공했습니다',
+    '{1} updates were installed in a row, the most at one start; the rest install next time':
+        '{1}개의 업데이트를 연속으로 설치했습니다. 한 번 시작할 때의 최대치이며, 나머지는 다음에 설치됩니다',
+    'the last update went in, but its file on the SD card could not be moved aside':
+        '마지막 업데이트는 설치되었지만 SD 카드의 해당 파일을 옮길 수 없었습니다',
 })
 FR.update({
     'A CTGP-R update is available. Update CTGP-R to the latest version now? The first update is {1} MB; there may be more after it.':
@@ -9632,6 +9644,14 @@ FR.update({
         'Mise à jour {1} : téléchargement...',
     "the server offered an update for {1}, which RiftWii doesn't install":
         "le serveur a proposé une mise à jour pour {1}, que RiftWii n'installe pas",
+    'the server offered {1} {2}, which is not newer than what is installed':
+        "le serveur a proposé {1} {2}, qui n'est pas plus récent que ce qui est installé",
+    'the server offered {1} {2} again after it was installed':
+        'le serveur a proposé à nouveau {1} {2} après son installation',
+    '{1} updates were installed in a row, the most at one start; the rest install next time':
+        "{1} mises à jour ont été installées à la suite, le maximum en un démarrage ; les autres s'installent la prochaine fois",
+    'the last update went in, but its file on the SD card could not be moved aside':
+        "la dernière mise à jour a été installée, mais son fichier sur la carte SD n'a pas pu être mis de côté",
 })
 
 if __name__ == "__main__":

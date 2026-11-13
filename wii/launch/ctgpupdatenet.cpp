@@ -87,16 +87,25 @@ void remove_scratch_files() {
 std::uint32_t g_jelly_blocks_left = 0;
 bool g_jelly_cut_armed = false;
 
+bool g_jelly_probe_seen = false;
+
 bool jelly_write(const Fat32File& file, std::uint64_t offset, const std::uint8_t* data, std::size_t length) {
     if (!g_jelly_cut_armed) return write_sd_file_in_place(file, offset, data, length);
+    // The lock probe (the first write, jelly.bin's first block over itself)
+    // doesn't count: the cut lands in the install's own writes.
+    if (!g_jelly_probe_seen) {
+        g_jelly_probe_seen = true;
+        return write_sd_file_in_place(file, offset, data, length);
+    }
     const std::size_t blocks = length / 512;
     if (g_jelly_blocks_left >= blocks) {
         g_jelly_blocks_left -= std::uint32_t(blocks);
         return write_sd_file_in_place(file, offset, data, length);
     }
+    static bool told = false;
     if (g_jelly_blocks_left > 0) write_sd_file_in_place(file, offset, data, std::size_t(g_jelly_blocks_left) * 512);
-    if (g_jelly_blocks_left != 0 || blocks != 0)
-        logf("CTGP-R update: TEST: the card stops taking jelly.bin writes here (jelly_cut_after)\n");
+    if (!told) logf("CTGP-R update: TEST: the card stops taking jelly.bin writes here (jelly_cut_after)\n");
+    told = true;
     g_jelly_blocks_left = 0;
     return false;
 }
@@ -142,6 +151,7 @@ bool CtgpUpdater::run(CtgpUpdRequest& request, std::string& error) {
     request.sd.write = jelly_write;
     g_jelly_cut_armed = request.op == CtgpUpdOp::Install && mem::TestJellyCutAfter() != 0;
     g_jelly_blocks_left = mem::TestJellyCutAfter();
+    g_jelly_probe_seen = false;
     if (g_jelly_cut_armed) logf("CTGP-R update: TEST: jelly.bin writes stop after %u blocks\n", unsigned(g_jelly_blocks_left));
     request.libc.remove = libc_remove;
     request.libc.rename = libc_rename;
@@ -284,6 +294,8 @@ bool CtgpUpdater::install(const CtgpDiscBase& disc, const CtgpUpdateStep& step, 
 
 namespace {
 
+bool recover_blob_journal(std::string& error);
+
 // The start-up undo of a HASH update cut off inside jelly.bin. The journal
 // holds jelly.bin's bytes as they lie on the card, so the replay needs no
 // key: it writes them back in place (never the entry, the FAT or FSInfo).
@@ -343,7 +355,21 @@ bool recover_jelly_journal(std::string& error) {
 
 bool CtgpRecoverPackJournal(std::string& error) {
     remove_scratch_files();
-    if (!recover_jelly_journal(error)) return false;
+    // Both are tried, whatever the other gives: one that can't be undone
+    // now must not leave the other half written.
+    std::string jelly_error;
+    const bool jelly_ok = recover_jelly_journal(jelly_error);
+    const bool blob_ok = recover_blob_journal(error);
+    if (!jelly_ok) {
+        error = jelly_error;
+        return false;
+    }
+    return blob_ok;
+}
+
+namespace {
+
+bool recover_blob_journal(std::string& error) {
     switch (presence(kCtgpJournalPath)) {
     case Presence::Absent:
         return true;
@@ -379,6 +405,8 @@ bool CtgpRecoverPackJournal(std::string& error) {
     logf("CTGP-R update: an interrupted update could not be undone: %s\n", error.c_str());
     return false;
 }
+
+}  // namespace
 
 bool CtgpPackReady(std::string& message) {
     std::string error;

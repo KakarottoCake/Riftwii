@@ -19837,6 +19837,14 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 	};
 	for (;;) {
 		const std::string number = std::to_string(chain.next_number());
+		// The step limit goes before the server is asked: nothing is
+		// downloaded that this start won't install.
+		if (chain.steps().size() >= riftwii::kCtgpChainMaxSteps) {
+			logf("CTGP-R update: the chain stops after %zu updates (the most at one start)\n", chain.steps().size());
+			failed = tr("{1} updates were installed in a row, the most at one start; the rest install next time",
+				{std::to_string(chain.steps().size())});
+			break;
+		}
 		if (!updateWaiting()) {
 			// Asking the server is a download: it waits for the Downloads
 			// setting, like covers and cheats. An update already on the
@@ -19897,8 +19905,21 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 				: "the chain's step limit";
 			logf("CTGP-R update: the chain stops: %s %s is %s\n", info.component.c_str(),
 				CtgpVersionText(info.version).c_str(), why);
-			if (verdict == riftwii::CtgpChainVerdict::NotOurs) {
+			const std::string offered = CtgpVersionText(info.version);
+			switch (verdict) {
+			case riftwii::CtgpChainVerdict::NotOurs:
 				failed = tr("the server offered an update for {1}, which RiftWii doesn't install", {info.component});
+				break;
+			case riftwii::CtgpChainVerdict::NotNewer:
+				failed = tr("the server offered {1} {2}, which is not newer than what is installed", {info.component, offered});
+				break;
+			case riftwii::CtgpChainVerdict::Repeat:
+				failed = tr("the server offered {1} {2} again after it was installed", {info.component, offered});
+				break;
+			default:
+				failed = tr("{1} updates were installed in a row, the most at one start; the rest install next time",
+					{std::to_string(chain.steps().size())});
+				break;
 			}
 			break;
 		}
@@ -19974,6 +19995,7 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 		std::remove("sd:/ctgpr/update.dif.installed");
 		if (std::rename(update_path, "sd:/ctgpr/update.dif.installed") != 0) {
 			logf("CTGP-R update: installed but %s could not be renamed; the chain stops\n", update_path);
+			failed = tr("the last update went in, but its file on the SD card could not be moved aside");
 			break;
 		}
 	}

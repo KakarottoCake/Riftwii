@@ -302,6 +302,12 @@ void test_set_version() {
     EXPECT_TRUE(ctgp_packages_set_version(p, "HASH", 0x01031375u, e));
     EXPECT_TRUE(p[0x28] == 0x01 && p[0x29] == 0x03 && p[0x2A] == 0x13 && p[0x2B] == 0x75);
     EXPECT_TRUE(p[0x18] == 0x01 && p[0x1B] == 0x00);  // RMC untouched
+    // The 0x40000000 flag goes, as the channel clears it; the type byte stays.
+    p[0x2C] = std::uint8_t(p[0x2C] | 0x40);
+    p[0x1C] = std::uint8_t(p[0x1C] | 0x40);
+    EXPECT_TRUE(ctgp_packages_set_version(p, "HASH", 0x01031376u, e));
+    EXPECT_TRUE(p[0x2C] == 0x0b && p[0x2B] == 0x76);
+    EXPECT_TRUE((p[0x1C] & 0x40) != 0);  // another record's flag untouched
     EXPECT_TRUE(!ctgp_packages_set_version(p, "CTGPR", 1, e));
     p.resize(20);
     EXPECT_TRUE(!ctgp_packages_set_version(p, "HASH", 1, e));
