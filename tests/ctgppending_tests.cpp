@@ -29,6 +29,35 @@ int main() {
     // It could not be read now (the card, memory, the plugin): left for next time.
     EXPECT_TRUE(ctgp_pending_step(false, false, v1192, 0, 0) == CtgpPendingStep::Stop);
 
+    // What an update file is (ctgp_update_kind). A signed DIA0 for CTGPR or
+    // HASH: used.
+    EXPECT_TRUE(ctgp_update_kind(true, true, true, true) == CtgpUpdateKind::Usable);
+    // A signed DIA0 for another package (GHOST): genuine, CTGP-R's channel
+    // installs it; not bad.
+    EXPECT_TRUE(ctgp_update_kind(true, true, true, false) == CtgpUpdateKind::ChannelInstalls);
+    // Not a DIA0 of the right size, or a signature that fails: bad, whatever
+    // package it names.
+    EXPECT_TRUE(ctgp_update_kind(true, false, false, false) == CtgpUpdateKind::Bad);
+    EXPECT_TRUE(ctgp_update_kind(true, true, false, true) == CtgpUpdateKind::Bad);
+    EXPECT_TRUE(ctgp_update_kind(true, true, false, false) == CtgpUpdateKind::Bad);
+    // The card failed to give it: says nothing about the file.
+    EXPECT_TRUE(ctgp_update_kind(false, true, false, false) == CtgpUpdateKind::Unreadable);
+    EXPECT_TRUE(ctgp_update_kind(false, false, false, false) == CtgpUpdateKind::Unreadable);
+    // A GHOST download ends removed, not set aside (ctgp_finish_download with
+    // neither checked nor bad).
+    {
+        std::set<std::string> card = {"update.dif.part"};
+        const auto rm = [&](const char* path) { return card.erase(path) ? 0 : -1; };
+        const auto mv = [&](const char* from, const char* to) {
+            if (!card.erase(from)) return -1;
+            card.insert(to);
+            return 0;
+        };
+        EXPECT_TRUE(ctgp_finish_download(false, false, "update.dif.part", "update.dif", "update.dif.bad", rm, mv) ==
+                    CtgpDownloadEnd::Removed);
+        EXPECT_TRUE(card.empty());
+    }
+
     // The move: an older file of the target name goes first, then the rename.
     std::set<std::string> files = {"update.dif", "update.dif.bad"};
     bool locked = false;

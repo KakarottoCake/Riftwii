@@ -732,7 +732,8 @@ void test_update_step_weighted() {
 }
 
 // With the bases' sizes known, each file weighs 1.63/10.83 of its bases'
-// unpacked bytes plus its own, and the bases' part of its bar is theirs.
+// unpacked bytes plus its own plus 120000 for being a file, and the bases'
+// part of its bar is 1.99/9.11 of their bytes against its own.
 void test_update_step_by_bases() {
     const std::vector<std::uint8_t> seventeen = {0x40, 'h', 'e', 'l', 'l', 'o', 0x14, 1, 0x33};
     const std::vector<std::uint8_t> thirteen = {0x20, 'a', 'b', 'c', 0x18, 0x13, 0x13, 0x28, 0x00, 'q', 0x13};
@@ -741,7 +742,7 @@ void test_update_step_by_bases() {
     MemoryTarget target;
     target.base_size = 7000;
     const double k = 1.63 / 10.83;
-    const double w1 = k * 7000 + 17 + 1, w2 = k * 17 + 13 + 1;
+    const double w1 = k * 7000 + 17 + 120000, w2 = k * 17 + 13 + 120000;
     const double s1 = w1 / (w1 + w2);
     std::string error;
     std::vector<std::pair<std::size_t, double>> seen;
@@ -769,7 +770,8 @@ void test_update_step_by_bases() {
     for (std::size_t i = 1; i < seen.size(); ++i) EXPECT_TRUE(seen[i].second >= seen[i - 1].second);
     EXPECT_TRUE(!seen.empty() && seen.back().second == 1.0);
     // The first file's bases end at their share of it.
-    const double base_end = k * 7000 / w1;
+    const double t = 1.99 / 9.11;
+    const double base_end = t * 7000 / (t * 7000 + 17);
     bool found = false;
     for (double part : parts) found = found || (part > base_end - 1e-9 && part < base_end + 1e-9);
     EXPECT_TRUE(found);

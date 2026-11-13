@@ -59,6 +59,21 @@ inline bool ctgp_update_waiting(const std::string& path,
     return false;
 }
 
+// What an update file is, from what the ctgpupd plugin read of it.
+// `read`: the card gave what was asked (a read that failed says nothing about
+// the file); `dia0`: its header and tables read as a DIA0 of the size
+// expected; `signed_ok`: CTGP-R's signature checks out over all of it;
+// `ours`: its package is one RiftWii installs (ctgp_dia_supported).
+// A signed update for another package (GHOST, on 2611-208) is genuine: it is
+// not "bad", CTGP-R's channel installs it, and the file is removed so the
+// channel downloads it fresh.
+enum class CtgpUpdateKind { Usable, ChannelInstalls, Bad, Unreadable };
+inline CtgpUpdateKind ctgp_update_kind(bool read, bool dia0, bool signed_ok, bool ours) {
+    if (!read) return CtgpUpdateKind::Unreadable;
+    if (!dia0 || !signed_ok) return CtgpUpdateKind::Bad;
+    return ours ? CtgpUpdateKind::Usable : CtgpUpdateKind::ChannelInstalls;
+}
+
 // How a download ends. A checked one replaces `update`; one the check
 // found can never be installed (CtgpUpdRequest::bad_update) is kept as
 // `bad_path`, so the menu can say it was set aside, as it does for one found

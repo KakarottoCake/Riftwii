@@ -266,7 +266,7 @@ bool CtgpUpdater::download(std::uint32_t size, const CtgpDownloadProgress& progr
     steps.check = [this](CtgpCheckReply& reply, std::string& why) { return check(reply, why, true); };
     steps.download = [&](bool& closed_at_start, std::string& why) {
         const bool ok = download_now(size, progress, why);
-        closed_at_start = !ok && !bad_update_ && ctgp_download_closed_at_start(why);
+        closed_at_start = !ok && !bad_update_ && !channel_installs_ && ctgp_download_closed_at_start(why);
         return ok;
     };
     steps.close = [this] { close_connection(); };

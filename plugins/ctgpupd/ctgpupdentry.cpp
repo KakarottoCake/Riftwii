@@ -142,10 +142,7 @@ bool read_dia(const std::string& path, std::uint64_t expected, riftwii::CtgpDia&
         if (bad != nullptr && !sized) *bad = true;
         return false;
     }
-    // An update for another package can never install here: refused before
-    // any version is compared or file read.
-    if (!riftwii::ctgp_dia_parse_prefix(prefix.data(), prefix.size(), length, dia, error) ||
-        !riftwii::ctgp_dia_supported(dia, error)) {
+    if (!riftwii::ctgp_dia_parse_prefix(prefix.data(), prefix.size(), length, dia, error)) {
         if (bad != nullptr) *bad = true;
         return false;
     }
@@ -220,15 +217,41 @@ bool verify_signature(const std::string& path, std::string& error, bool* bad = n
     return ok;
 }
 
+// The update at `path`: its header and tables (read_dia), then the
+// signature over all of it, and whether it is for a package RiftWii installs
+// (ctgppending.hpp's ctgp_update_kind). True only for one to use. Otherwise
+// `error` says why, and request.bad_update (it can never be installed) or
+// request.channel_installs (genuine, for a package CTGP-R's channel installs,
+// such as GHOST) is set. An update for another package is refused before any
+// version is compared or file read.
+bool read_update(CtgpUpdRequest& request, const std::string& path, std::uint64_t expected, riftwii::CtgpDia& dia,
+                 std::uint64_t& length, std::string& error) {
+    bool header_bad = false, signature_bad = false;
+    const bool header = read_dia(path, expected, dia, length, error, &header_bad);
+    const bool signed_ok = header && verify_signature(path, error, &signature_bad);
+    std::string other;
+    const bool ours = header && riftwii::ctgp_dia_supported(dia, other);
+    const bool read = header ? signed_ok || signature_bad : header_bad;
+    switch (riftwii::ctgp_update_kind(read, header, signed_ok, ours)) {
+    case riftwii::CtgpUpdateKind::Usable:
+        return true;
+    case riftwii::CtgpUpdateKind::ChannelInstalls:
+        request.channel_installs = 2;
+        error = other + "; CTGP-R's channel installs it";
+        return false;
+    case riftwii::CtgpUpdateKind::Bad:
+        request.bad_update = 1;
+        return false;
+    case riftwii::CtgpUpdateKind::Unreadable:
+        return false;
+    }
+    return false;
+}
+
 bool inspect(CtgpUpdRequest& request) {
     riftwii::CtgpDia dia;
     std::uint64_t length = 0;
-    bool bad = false;
-    if (!read_dia(request.update_path, 0, dia, length, request.error, &bad) ||
-        !verify_signature(request.update_path, request.error, &bad)) {
-        request.bad_update = bad ? 1 : 0;
-        return false;
-    }
+    if (!read_update(request, request.update_path, 0, dia, length, request.error)) return false;
     request.dia_component = dia.component;
     request.dia_version = dia.version;
     request.dia_base_version = base_version_of(dia);
@@ -327,18 +350,19 @@ bool download(CtgpUpdRequest& request) {
     bool bad = false;
     if (ok) {
         // The header and tables must read as a DIA0 of the size offered,
-        // for CTGPR, signed by CTGP-R. One that can never install (`bad`) is
-        // kept as update.dif.bad, as a waiting one would be.
+        // for CTGPR or HASH, signed by CTGP-R. One that can never install
+        // (`bad`) is kept as update.dif.bad, as a waiting one would be; a
+        // genuine one for another package is removed, for CTGP-R's channel
+        // to download and install.
         riftwii::CtgpDia dia;
         std::uint64_t length = 0;
-        ok = read_dia(request.part_path, request.download_bytes, dia, length, request.error, &bad) &&
-             verify_signature(request.part_path, request.error, &bad);
-        if (ok) {
-            char line[80];
-            std::snprintf(line, sizeof line, "downloaded %s version %08x", dia.component.c_str(),
-                          static_cast<unsigned>(dia.version));
-            log_line(request, line);
-        }
+        ok = read_update(request, request.part_path, request.download_bytes, dia, length, request.error);
+        bad = request.bad_update != 0;
+        char line[96];
+        std::snprintf(line, sizeof line, "downloaded %s version %08x%s", dia.component.c_str(),
+                      static_cast<unsigned>(dia.version),
+                      request.channel_installs != 0 ? ", which CTGP-R's channel installs: removed" : "");
+        if (ok || request.channel_installs != 0) log_line(request, line);
     }
     const std::string bad_path = request.update_path + ".bad";
     const auto remove = [](const char* path) { return g_libc->remove(path); };
@@ -565,21 +589,13 @@ bool install(CtgpUpdRequest& request) {
     std::string& error = request.error;
     riftwii::CtgpDia dia;
     std::uint64_t length = 0;
-    bool bad = false;
-    if (!read_dia(request.update_path, 0, dia, length, error, &bad)) {
-        request.bad_update = bad ? 1 : 0;
-        return false;
-    }
+    // Checked again here, before anything is written: every byte the install
+    // reads is then CTGP-R's.
+    if (!read_update(request, request.update_path, 0, dia, length, error)) return false;
     request.dia_component = dia.component;
     request.dia_version = dia.version;
     request.dia_files = static_cast<std::uint32_t>(dia.sections.size());
     request.update_bytes = length;
-    // Checked again here, before anything is written: every byte the install
-    // reads is then CTGP-R's.
-    if (!verify_signature(request.update_path, error, &bad)) {
-        request.bad_update = bad ? 1 : 0;
-        return false;
-    }
     if (dia.component == "HASH") return install_hash(request, dia, length);
     riftwii::CtgpUpdateFailure failure = riftwii::CtgpUpdateFailure::Temporary;
 

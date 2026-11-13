@@ -911,9 +911,11 @@ bool rebuild_write(void* user, const std::uint8_t* data, std::size_t length) {
 // journal and is synced first), so it gets a fifth. The log's stage lines
 // (bases unpacked, packed, stored) give the real split.
 // With the bases' sizes known (below) a file's base share comes from them
-// instead; the rest splits between rebuilding and storing as here.
+// instead (kBaseTimeShare), and the rest splits 1:5 between rebuilding and
+// storing: on Jack's Wii (2611-208, the 1194 update) rebuilding the four big
+// files took 7-16 s and storing them 28-58 s.
 constexpr double kBaseShare = 0.45;
-constexpr double kRebuildOfRest = 0.35 / 0.55;
+constexpr double kRebuildOfRest = 0.2;
 
 // A file's weight from what its time goes on: unpacking its base files and
 // rebuilding, packing and storing it. On Jack's Wii (2611-186, the five 1193
@@ -921,9 +923,19 @@ constexpr double kRebuildOfRest = 0.35 / 0.55;
 // of the rebuilt file; in Dolphin (pr-11, pr-13: 1193 and 1194, nine files)
 // 0.66 and 3.11 s, within 7% for seven of the nine. The section-size model
 // above was off by up to 24% there, and too low on 1194 in Dolphin, where
-// "about a minute" showed with nearly two left. The Wii's ratio is used; how
-// well it predicts 1194 on a Wii is still to be timed.
+// "about a minute" showed with nearly two left. The Wii's ratio is used; on
+// 1194 (2611-208, 13 files) it fits too (1.61 and 10.4 s), with each file's
+// weights within 3 points of its share of the time.
 constexpr double kBaseWeight = 1.63 / 10.83;
+// Within a file, unpacking its bases on 2611-208 took 1.99 s per MB of base
+// files, against 9.11 s per MB of the file for everything after, so that is
+// the base part of its bar. (It differs from kBaseWeight's ratio because the
+// whole-update fit also carries the small files.)
+constexpr double kBaseTimeShare = 1.99 / 9.11;
+// Every file costs some time however small it is (opening, the journal,
+// syncing): the nine small 1194 files took 10.5 s for 0.3 MB between them.
+// Worth about 0.12 MB of rebuilt file each.
+constexpr double kFileWeight = 120000.0;
 
 // For the callers that don't ask why an apply failed.
 CtgpUpdateFailure& ignored_failure() {
@@ -1104,9 +1116,9 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
     for (std::size_t index = 0; index < count; ++index) {
         if (by_bases) {
             const double bases = kBaseWeight * bases_of[index];
-            // One byte at least, so a bar of empty files still moves.
-            weight[index] = bases + unpacked_of[index] + 1.0;
-            base_share[index] = weight[index] > 0 ? bases / weight[index] : 0.0;
+            weight[index] = bases + unpacked_of[index] + kFileWeight;
+            const double base_time = kBaseTimeShare * bases_of[index];
+            base_share[index] = base_time > 0 ? base_time / (base_time + unpacked_of[index]) : 0.0;
         } else {
             weight[index] = kSectionWeight * double(update.sections[index].size) + unpacked_of[index];
         }

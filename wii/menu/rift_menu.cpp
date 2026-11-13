@@ -19657,6 +19657,10 @@ static bool DownloadCtgpUpdate(riftwii::wii::CtgpUpdater& updater, const riftwii
 			ShowPopup(tr("CTGP-R update"),
 				tr("The CTGP-R update the server offers changed after Update was chosen, so nothing was downloaded. RiftWii checks again the next time CTGP-R starts. CTGP-R starts now."),
 				tr("OK"));
+	} else if (!ok && updater.channel_installs()) {
+		// Genuine, for a package CTGP-R's channel installs (GHOST): the
+		// plugin removed it, and the caller says the channel installs it.
+		logf("CTGP-R update: %s\n", error.c_str());
 	} else if (!ok && updater.bad_update()) {
 		// The plugin kept it as update.dif.bad: it can never be installed.
 		logf("CTGP-R update: the download can't be used, set aside as update.dif.bad: %s\n", error.c_str());
@@ -19792,6 +19796,16 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 		// A move that fails stops here: the file is still there, and offering
 		// it would only fail again.
 		const bool inspected = InspectCtgpUpdate(updater, info, error);
+		if (!inspected && updater.channel_installs()) {
+			// Genuine, for a package CTGP-R's channel installs (GHOST): it
+			// goes, so the channel downloads it fresh, and CTGP-R starts.
+			logf("CTGP-R update: %s: %s\n", update_path, error.c_str());
+			if (std::remove(update_path) != 0) logf("CTGP-R update: %s could not be removed\n", update_path);
+			ShowPopup(tr("CTGP-R update"),
+				tr("The next CTGP-R update is in a form RiftWii can't install, so CTGP-R's channel installs it itself. CTGP-R starts now."),
+				tr("OK"));
+			return;
+		}
 		switch (riftwii::ctgp_pending_step(inspected, updater.bad_update(), info.pack_version, info.version,
 			info.base_version)) {
 		case riftwii::CtgpPendingStep::Stop:
@@ -19891,6 +19905,11 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 			}
 			const bool first = chain.steps().empty();
 			if (!DownloadCtgpUpdate(updater, reply, tr("Update {1}: downloading...", {number}), first, error)) {
+				if (updater.channel_installs()) {
+					channel_form = true;
+					channel_rest = true;
+					break;
+				}
 				failed = updater.offer_changed()
 					? std::string(tr("the update the server offers changed after Update was chosen, so nothing was downloaded"))
 					: error;
@@ -19898,6 +19917,13 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 				break;
 			}
 			if (!InspectCtgpUpdate(updater, info, error)) {
+				if (updater.channel_installs()) {
+					logf("CTGP-R update: %s\n", error.c_str());
+					if (std::remove(update_path) != 0) logf("CTGP-R update: %s could not be removed\n", update_path);
+					channel_form = true;
+					channel_rest = true;
+					break;
+				}
 				if (updater.bad_update()) {
 					SetCtgpUpdateAside(error);
 					told = true;
