@@ -88,7 +88,15 @@ public:
         window_ms_[next_] = ms;
         next_ = (next_ + 1) % kWindow;
         if (count_ < kWindow) ++count_;
-        if (ms < kFirstEstimateMs || fraction <= 0 || fraction <= from_f || ms <= from_ms) return;
+        if (ms < kFirstEstimateMs || fraction <= 0 || fraction <= from_f || ms <= from_ms) {
+            // No rate to go by (nothing done over the whole window): the
+            // figure holds, and the time it held is never counted down later.
+            if (shown_at_ != 0) {
+                shown_at_ = ms;
+                outside_since_ = 0;
+            }
+            return;
+        }
         const double estimate = (1 - fraction) * double(ms - from_ms) / (fraction - from_f);  // ms
         if (shown_at_ == 0) {
             shown_ms_ = estimate;

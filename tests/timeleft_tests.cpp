@@ -245,6 +245,29 @@ int main() {
         t.update(1.0, 13000);
         EXPECT_TRUE(!t.ready());
     }
+    // A stall longer than the rate window (two minutes): 20% at 60 s, then
+    // nothing until 600 s, then 20.1% at 601 s. The silent nine minutes must
+    // not be counted down once progress comes back: the figure held at about
+    // four minutes for the 80% left, and must not drop to "Less than a
+    // minute" (CodeRabbit 4563297759).
+    {
+        TimeLeft t;
+        for (std::uint64_t s = 0; s <= 60; ++s) t.update(0.2 * double(s) / 60.0, s * 1000);
+        const std::uint64_t before = t.seconds();
+        EXPECT_TRUE(t.ready() && before >= 200 && before <= 260);
+        for (std::uint64_t s = 61; s <= 600; ++s) t.update(0.2, s * 1000);
+        // It counts down until no progress has come for four seconds, then holds.
+        const std::uint64_t held = t.seconds();
+        EXPECT_TRUE(held + 5 >= before && held <= before);
+        t.update(0.201, 601000);
+        if (t.seconds() + 2 < held) std::cerr << "stall: " << before << " s before, " << t.seconds() << " s after" << std::endl;
+        EXPECT_TRUE(t.seconds() + 2 >= held);
+        EXPECT_TRUE(t.text().wording == TimeLeftWording::AboutMinutes);
+        // And it keeps going down at the pace of the clock from there, not by the stall.
+        for (std::uint64_t s = 602; s <= 605; ++s) t.update(0.201 + 0.0005 * double(s - 601), s * 1000);
+        EXPECT_TRUE(t.seconds() + 8 >= held && t.text().wording == TimeLeftWording::AboutMinutes);
+    }
+
     // The wording's edges and steps.
     EXPECT_TRUE(time_left_text(0).wording == TimeLeftWording::UnderAMinute);
     EXPECT_TRUE(time_left_text(44).wording == TimeLeftWording::UnderAMinute);
