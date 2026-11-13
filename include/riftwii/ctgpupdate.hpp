@@ -149,7 +149,9 @@ constexpr std::uint32_t kCtgpDifMaxEntries = 8;
 // The word at +0x14 of a DIF0 header is a set of flags, as CTGP-R's channel
 // reads it: bit 0 says the rebuilt file is stored Yaz0-packed (the channel
 // opens it as "yaz0:<path>"); clear, it is stored as it is. 0x00020000 is
-// set in every pack section seen so far and the channel never tests it.
+// set in every CTGPR section seen (the 1193 and 1194 updates: 0x00020001 for
+// the courses, 0x00020000 for the small unpacked files), and the channel's
+// installer never tests it, so it is accepted and ignored.
 // HASH updates' sections carry 0 (plain, whole file). Each entry's word at
 // +0x0C says the same of that base file. A bit outside these is a feature
 // RiftWii doesn't know: the section is genuine but RiftWii can't install it.
@@ -228,7 +230,10 @@ using CtgpProgress = std::function<void(std::uint64_t done, std::uint64_t total)
 // shorter than the update expects, a file the hash list does not vouch for).
 // Unsupported when the update is well formed but uses a DIF0 feature RiftWii
 // doesn't know (kCtgpDifFlagsKnown): it is genuine, so it is not set aside as
-// bad, and CTGP-R's own channel installs it instead.
+// bad, and CTGP-R's own channel installs it instead. A section's flags are
+// all checked before anything is written; a base file from a package the
+// target can't read shows only when that section is reached (and the
+// install is rolled back).
 enum class CtgpUpdateFailure : std::uint32_t { None = 0, Temporary = 1, BadUpdate = 2, Unsupported = 3 };
 
 // What the updater needs from the console: the files the sections rebuild

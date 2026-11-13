@@ -121,10 +121,12 @@ bool ctgp_hash_update_build(const CtgpUpdateRead& read, std::uint64_t size, cons
         }
         CtgpHashUpdateList list;
         list.section_path = ctgp_dif_path(section.data(), section.size(), dif.path_table);
-        // jelly.bin holds the lists unpacked, each written whole.
+        // jelly.bin holds the lists unpacked, each written whole. A signed
+        // section in another form (packed, rebuilt from base files, or larger
+        // than RiftWii takes) is one RiftWii can't install, not a bad one.
         if ((dif.flags & kCtgpDifFlagPacked) != 0 || !dif.entries.empty() ||
             dif.unpacked_size > kCtgpHashListMaxBytes) {
-            failure = CtgpUpdateFailure::BadUpdate;
+            failure = CtgpUpdateFailure::Unsupported;
             error = "the HASH update's " + list.section_path + " is not a whole list";
             return false;
         }

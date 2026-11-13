@@ -38,7 +38,9 @@ public:
     // `hash_list` is jelly.bin's /PACKAGES/HASH/CTGPR.HSH: every rebuilt
     // file's stored bytes must match its digest there, or nothing is written.
     // A file stored unpacked that the list doesn't name (CTGP-R lists only
-    // the courses) is taken on the update's signature and exact rebuild.
+    // the courses) is taken without a content check when it was rebuilt only
+    // from the update's signed commands and the pack's own files; one rebuilt
+    // from the game disc is refused.
     CtgpPackUpdateTarget(CtgpPackWriter& pack, CtgpDiscBase disc, std::vector<std::uint8_t> hash_list,
                          std::string temp_prefix = "sd:/ctgpr/update-base-");
 
@@ -58,6 +60,7 @@ private:
     std::vector<std::uint8_t> hash_list_;
     std::string temp_prefix_;
     unsigned temp_number_ = 0;
+    bool disc_base_ = false;  // the file being rebuilt has a base from the disc
 };
 
 }  // namespace riftwii

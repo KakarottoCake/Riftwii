@@ -19995,8 +19995,9 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 		if (!ok && updater.channel_installs()) {
 			// A genuine update that needs jelly.bin made larger, or is in a
 			// form RiftWii doesn't know: CTGP-R's channel installs it.
-			// Nothing was written. The file goes, so the channel downloads
-			// it fresh; it is not "bad".
+			// Nothing of it is left on the card (anything written was put
+			// back). The file goes, so the channel downloads it fresh; it is
+			// not "bad".
 			channel_form = updater.channel_installs_unknown_form();
 			logf("CTGP-R update: %s; CTGP-R's channel installs it itself\n", error.c_str());
 			if (std::remove(update_path) != 0) logf("CTGP-R update: %s could not be removed\n", update_path);
@@ -20035,7 +20036,7 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 	if (channel_rest) {
 		ShowPopup(tr("CTGP-R update"),
 			done == 0 ? std::string(channel_form
-					? tr("The next CTGP-R update is in a form RiftWii can't install yet, so CTGP-R's channel installs it itself. CTGP-R starts now.")
+					? tr("The next CTGP-R update is in a form RiftWii can't install, so CTGP-R's channel installs it itself. CTGP-R starts now.")
 					: tr("The next CTGP-R update needs more room in jelly.bin, so CTGP-R's channel installs it itself. CTGP-R starts now."))
 			: reached.empty()
 				? std::string(tr("CTGP-R's hash lists were updated. CTGP-R's channel installs the next update itself. CTGP-R starts now."))

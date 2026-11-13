@@ -88,11 +88,12 @@ bool CtgpPackUpdateTarget::load_base(const std::string& component, const std::st
                                      std::unique_ptr<CtgpBaseSource>& out, const CtgpProgress& progress,
                                      CtgpUpdateFailure& failure, std::string& error) {
     const bool from_pack = component == "CTGPR";
+    if (!from_pack) disc_base_ = true;
     if (!from_pack && component != "RMC") {
         // Signed by CTGP-R, but asking for files RiftWii has no way to give:
-        // trying again can never work.
+        // trying again can never work, but CTGP-R's channel can install it.
         error = "the update needs files from a package RiftWii can't read (" + component + ")";
-        failure = CtgpUpdateFailure::BadUpdate;
+        failure = CtgpUpdateFailure::Unsupported;
         return false;
     }
     if (!from_pack && !disc_) {
@@ -136,9 +137,18 @@ bool CtgpPackUpdateTarget::load_base(const std::string& component, const std::st
     const auto use = [&](const std::uint8_t* data, std::size_t length) {
         return plain ? put(data, length) : decoder.feed(data, length, why);
     };
+    bool mismatch = false;
     const auto decide = [&]() {
         decided = true;
-        plain = from_pack ? !packed : (head.size() < 4 || std::memcmp(head.data(), "Yaz0", 4) != 0);
+        const bool yaz0 = head.size() >= 4 && std::memcmp(head.data(), "Yaz0", 4) == 0;
+        if (from_pack && !packed && yaz0) {
+            // The update expects the pack's file unpacked and it is packed:
+            // the pack is not what the update was made for. Rebuilding from
+            // the packed bytes would make a wrong file.
+            mismatch = true;
+            return false;
+        }
+        plain = from_pack ? !packed : !yaz0;
         const bool ok = use(head.data(), head.size());
         head.clear();
         head.shrink_to_fit();
@@ -169,7 +179,10 @@ bool CtgpPackUpdateTarget::load_base(const std::string& component, const std::st
         ok = decoder.finish(why);
     }
     if (!ok) {
-        std::string reason = !why.empty() ? why : write_failed ? "a scratch file could not be written" : read_error;
+        std::string reason = mismatch       ? "the pack stores it packed, and the update expects it unpacked"
+                             : !why.empty() ? why
+                             : write_failed ? "a scratch file could not be written"
+                                            : read_error;
         if (reason.empty()) {
             reason = "it could not be read";
         }
@@ -190,13 +203,27 @@ bool CtgpPackUpdateTarget::check_file(const std::string& path, bool packed,
     std::array<std::uint8_t, 20> expected{};
     std::string why;
     bool unlisted = false;
+    // Each file's bases are loaded before it is checked; the flag covers
+    // this file only (reset below on every path).
+    struct Reset {
+        bool& flag;
+        ~Reset() { flag = false; }
+    } reset{disc_base_};
     if (!ctgp_hash_list_digest(hash_list_.data(), hash_list_.size(), "CTGPR", path, expected, why, &unlisted)) {
         // CTGP-R's list names only the files it checks itself (the packed
         // courses); its small unpacked files (cup lists, names, tables) have
-        // no entry, and are taken on the update's signature and the exact
-        // rebuild. A packed file always needs its entry.
-        if (unlisted && !packed) {
+        // no entry. Such a file is taken without a content check, when it was
+        // rebuilt only from the update's signed commands and the pack's own
+        // files (the pack is the version the update names, checked before
+        // the install starts): a base from the game disc could be another
+        // revision of the disc. A packed file always needs its entry.
+        if (unlisted && !packed && !disc_base_) {
             return true;
+        }
+        if (unlisted && !packed) {
+            error = path + " cannot be checked: CTGP-R's hash list does not name it, and it is rebuilt from the game "
+                           "disc";
+            return false;
         }
         error = path + " cannot be checked: " + why;
         return false;

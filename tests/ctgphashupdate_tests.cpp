@@ -374,6 +374,19 @@ void test_build() {
     EXPECT_TRUE(ctgp_dia_parse(d.data(), d.size(), dia, e));
     EXPECT_TRUE(!ctgp_hash_update_build(read, d.size(), dia, lists, failure, e, &key));
     EXPECT_TRUE(failure == CtgpUpdateFailure::BadUpdate);
+    // A signed list in a form RiftWii doesn't install (stored packed, or a
+    // flag it doesn't know): left to CTGP-R's channel, not bad.
+    const std::size_t flags_at = 0x64 + 16 + 8 + 0x14;
+    d = hash_dia(good, "/test.hsh");
+    d[flags_at + 3] = 0x01;
+    EXPECT_TRUE(ctgp_dia_parse(d.data(), d.size(), dia, e));
+    EXPECT_TRUE(!ctgp_hash_update_build(read, d.size(), dia, lists, failure, e, &key));
+    EXPECT_TRUE(failure == CtgpUpdateFailure::Unsupported);
+    d = hash_dia(good, "/test.hsh");
+    d[flags_at + 1] = 0x04;
+    EXPECT_TRUE(ctgp_dia_parse(d.data(), d.size(), dia, e));
+    EXPECT_TRUE(!ctgp_hash_update_build(read, d.size(), dia, lists, failure, e, &key));
+    EXPECT_TRUE(failure == CtgpUpdateFailure::Unsupported);
 }
 
 struct Setup {

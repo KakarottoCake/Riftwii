@@ -420,7 +420,7 @@ public:
         if (component != "CTGPR") {
             // As the pack's target: a package it can never read.
             error = "unknown package " + component;
-            failure = CtgpUpdateFailure::BadUpdate;
+            failure = CtgpUpdateFailure::Unsupported;
             return false;
         }
         if (path != expected_path) {
@@ -512,10 +512,11 @@ void test_apply_failure_kind() {
     EXPECT_TRUE(error.find("shorter than the update expects") != std::string::npos);
     EXPECT_TRUE(damaged.stored.empty());
 
-    // A signed update asking for a package no target can read: never installable.
+    // A signed update asking for a package no target can read: never
+    // installable here, but genuine: CTGP-R's channel installs it.
     MemoryTarget other;
     EXPECT_TRUE(!run(good, 17, other, failure, "MKWII"));
-    EXPECT_TRUE(failure == CtgpUpdateFailure::BadUpdate);
+    EXPECT_TRUE(failure == CtgpUpdateFailure::Unsupported);
     // An update for another package (CORE) whose base files are all CTGPR's:
     // refused as permanent before any base file is asked for.
     {
@@ -552,7 +553,7 @@ void test_apply_failure_kind() {
         CtgpUpdateFailure why = CtgpUpdateFailure::Temporary;
         std::string reason;
         EXPECT_TRUE(!pack_target.load_base("MKWII", "/x.szs", true, base, CtgpProgress(), why, reason));
-        EXPECT_TRUE(why == CtgpUpdateFailure::BadUpdate);
+        EXPECT_TRUE(why == CtgpUpdateFailure::Unsupported);
         EXPECT_TRUE(reason.find("MKWII") != std::string::npos);
         // The disc is needed and missing: that is not the update's fault.
         why = CtgpUpdateFailure::Temporary;
@@ -942,6 +943,18 @@ void test_update_plain_files() {
         EXPECT_TRUE(target.base_packed[0] && target.checked_packed[0]);
         std::vector<std::uint8_t> unpacked;
         EXPECT_TRUE(ctgp_yaz0_decode_nintendo(target.stored.data(), target.stored.size(), unpacked, error));
+    }
+    {
+        // The same in a later section: found before the first section is
+        // rebuilt, so nothing is asked for or stored.
+        MemoryTarget target;
+        const auto dia = make_dia({make_section(17, {0x40, 'h', 'e', 'l', 'l', 'o', 0x14, 1, 0x33},
+                                                "/Race/Course/NEW.szs"),
+                                   make_section_flags(5, {0x40, 'h', 'e', 'l', 'l', 'o'}, "/x.bin", 0x00020000u,
+                                                      {{"CTGPR", 2}})});
+        EXPECT_TRUE(!apply(dia, target, failure));
+        EXPECT_TRUE(failure == CtgpUpdateFailure::Unsupported);
+        EXPECT_TRUE(target.stored.empty() && target.checked.empty() && target.base_packed.empty());
     }
     {
         // A flag RiftWii doesn't know: Unsupported, nothing asked or stored.

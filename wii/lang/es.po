@@ -4599,8 +4599,8 @@ msgstr "la última actualización se instaló, pero su archivo en la tarjeta SD 
 msgid "The next CTGP-R update needs more room in jelly.bin, so CTGP-R's channel installs it itself. CTGP-R starts now."
 msgstr "La siguiente actualización de CTGP-R necesita más espacio en jelly.bin, así que el canal de CTGP-R la instala por sí mismo. CTGP-R se inicia ahora."
 
-msgid "The next CTGP-R update is in a form RiftWii can't install yet, so CTGP-R's channel installs it itself. CTGP-R starts now."
-msgstr "La siguiente actualización de CTGP-R está en un formato que RiftWii aún no puede instalar, así que el canal de CTGP-R la instala por sí mismo. CTGP-R se inicia ahora."
+msgid "The next CTGP-R update is in a form RiftWii can't install, so CTGP-R's channel installs it itself. CTGP-R starts now."
+msgstr "La siguiente actualización de CTGP-R está en un formato que RiftWii no puede instalar, así que el canal de CTGP-R la instala por sí mismo. CTGP-R se inicia ahora."
 
 msgid "CTGP-R's hash lists were updated. CTGP-R's channel installs the next update itself. CTGP-R starts now."
 msgstr "Se han actualizado las listas de hashes de CTGP-R. El canal de CTGP-R instala la siguiente actualización por sí mismo. CTGP-R se inicia ahora."

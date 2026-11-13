@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -118,6 +119,16 @@ void test_pack_target_check() {
     EXPECT_TRUE(target.check_file("/changelog.bin", false, other, error));
     EXPECT_TRUE(target.check_file("/Race/Course/X.szs", false, sample_digest(), error));
     EXPECT_TRUE(!target.check_file("/Race/Course/X.szs", false, other, error));
+    // An unlisted unpacked file rebuilt from the game disc is refused (the
+    // disc could be another revision); the next file starts clean.
+    {
+        std::unique_ptr<riftwii::CtgpBaseSource> base;
+        riftwii::CtgpUpdateFailure why = riftwii::CtgpUpdateFailure::Temporary;
+        EXPECT_TRUE(!target.load_base("RMC", "/x.bmg", false, base, riftwii::CtgpProgress(), why, error));
+        EXPECT_TRUE(!target.check_file("/changelog.bin", false, other, error));
+        EXPECT_TRUE(error.find("game disc") != std::string::npos);
+        EXPECT_TRUE(target.check_file("/changelog.bin", false, other, error));
+    }
     auto damaged = list;
     damaged.back() ^= 1;
     riftwii::CtgpPackUpdateTarget broken(pack, riftwii::CtgpDiscBase(), damaged, "ctgphashlookup_unused_");

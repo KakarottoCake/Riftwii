@@ -936,6 +936,33 @@ private:
     const CtgpBaseSource& inner_;
 };
 
+// Whether a section's header (its first `size` bytes, as many as could be
+// read) uses a flag RiftWii doesn't know, in the section or one of its base
+// entries. Only what is there is looked at: a short or damaged header is
+// left to ctgp_dif_parse when the section is loaded.
+bool dif_head_unsupported(const std::uint8_t* head, std::size_t size, std::string& why) {
+    if (size < 0x20 || std::memcmp(head, "DIF0", 4) != 0) return false;
+    const std::uint32_t flags = be32(head + 0x14);
+    if ((flags & ~kCtgpDifFlagsKnown) != 0) {
+        char text[64];
+        std::snprintf(text, sizeof text, "DIF0 uses a feature RiftWii doesn't know (flags %08x)", unsigned(flags));
+        why = text;
+        return true;
+    }
+    const std::uint32_t count = be32(head + 0x1C);
+    for (std::uint32_t i = 0; i < count && i < kCtgpDifMaxEntries && 0x30u + i * 16 <= size; ++i) {
+        const std::uint32_t entry_flags = be32(head + 0x20 + i * 16 + 12);
+        if ((entry_flags & ~kCtgpDifFlagPacked) != 0) {
+            char text[80];
+            std::snprintf(text, sizeof text, "DIF0 base file uses a feature RiftWii doesn't know (flags %08x)",
+                          unsigned(entry_flags));
+            why = text;
+            return true;
+        }
+    }
+    return false;
+}
+
 bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section, const CtgpUpdatePeek& peek,
                     CtgpUpdateTarget& target, const std::function<void(const std::string&)>& log,
                     const CtgpUpdateFileDone& file_done, const CtgpUpdateStep& step, CtgpUpdateFailure& failure,
@@ -978,6 +1005,19 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         weight_total += weight[index];
     }
     if (weight_total <= 0) weight_total = 1;
+    // Every section's flags first: a genuine update in a form RiftWii doesn't
+    // know stops here, before anything is rebuilt or written.
+    if (peek) {
+        std::uint8_t head[0x20 + 16 * kCtgpDifMaxEntries];
+        for (const CtgpDiaSection& place : update.sections) {
+            const std::size_t want = std::min<std::size_t>(place.size, sizeof head);
+            if (want < 0x20 || !peek(place.offset, head, want)) continue;
+            if (dif_head_unsupported(head, want, error)) {
+                failure = CtgpUpdateFailure::Unsupported;
+                return false;
+            }
+        }
+    }
     double weight_before = 0;
     for (std::size_t index = 0; index < count; ++index) {
         const CtgpDiaSection& place = update.sections[index];
@@ -1045,8 +1085,9 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
             CtgpUpdateFailure base_failure = CtgpUpdateFailure::Temporary;
             if (!target.load_base(entry.component, base_path, entry.packed, owned.back(), base_progress, base_failure,
                                   error)) {
-                failure = base_failure == CtgpUpdateFailure::BadUpdate ? CtgpUpdateFailure::BadUpdate
-                                                                        : CtgpUpdateFailure::Temporary;
+                failure = base_failure == CtgpUpdateFailure::BadUpdate || base_failure == CtgpUpdateFailure::Unsupported
+                              ? base_failure
+                              : CtgpUpdateFailure::Temporary;
                 return false;
             }
             watched.emplace_back(new WatchedBase(*owned.back()));
@@ -1075,7 +1116,7 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
             return kept;
         };
         std::unique_ptr<CtgpYaz0ExactWriter> writer;
-        if (pack_output) writer.reset(new CtgpYaz0ExactWriter(files.unpacked_size, keep));
+        if (pack_output) writer = std::make_unique<CtgpYaz0ExactWriter>(files.unpacked_size, keep);
         RebuildSink sink;
         sink.writer = writer.get();
         sink.plain = keep;
