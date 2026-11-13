@@ -19684,7 +19684,7 @@ static bool SetCtgpUpdateAside(const std::string& error)
 static bool InspectCtgpUpdate(riftwii::wii::CtgpUpdater& updater, riftwii::wii::CtgpUpdateInfo& info,
 	std::string& error)
 {
-	PopupBox box(tr("CTGP-R update"), tr("Checking the CTGP-R update..."));
+	PopupBox box(tr("CTGP-R update"), tr("Checking for a CTGP-R update..."));
 	ResumeGui();
 	const bool ok = updater.inspect(info, error);
 	HaltGui();

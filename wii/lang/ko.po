@@ -4545,9 +4545,6 @@ msgstr "업데이트를 다운로드할 수 없습니다: {1}. CTGP-R은 업데�
 msgid "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer."
 msgstr "이전 CTGP-R 업데이트가 중단되었고 되돌릴 수 없습니다: {1}. CTGP-R 설치 프로그램으로 다시 설치하세요."
 
-msgid "Checking the CTGP-R update..."
-msgstr "CTGP-R 업데이트를 확인하는 중..."
-
 msgid "The CTGP-R update on the SD card can't be used ({1}), so it was set aside."
 msgstr "SD 카드의 CTGP-R 업데이트를 사용할 수 없어서({1}) 따로 옮겼습니다."
 
