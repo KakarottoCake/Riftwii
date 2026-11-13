@@ -431,23 +431,15 @@ installs them one after another until it has nothing newer
 versions read again after every step, at most ten steps, a step that fails
 ends it and CTGP-R starts on what went in).
 
-A HASH update's sections each rebuild a whole signed list (`/core.hsh`,
-`/ctgpr.hsh`; DIF0 version 0, no base files). Every list is rebuilt and
-checked in memory first (its own DSA signature, size, name and body digest,
-besides the update's signature), and goes over the existing
-`/PACKAGES/HASH/<NAME>.HSH`; jelly.bin's `/PACKAGES.BIN` then names the new
-HASH version, as CTGP-R's channel leaves them. jelly.bin's key is made from
-its own directory entry's times on the SD card, so jelly.bin is written only
-where it already lies, in whole 512-byte blocks, through the DOL's
-`write_sd_file_in_place` (`fat32_write_in_place`): its entry, the FAT and
-FSInfo are never written, and libfat, which never reads jelly.bin's data,
-holds none of it. jelly.bin is never made larger: an update whose lists
-would not fit in its free space (or that adds a list jelly.bin doesn't hold)
-stops the chain before anything is written, and its file is removed, not set
-aside, so CTGP-R's channel, which does make jelly.bin larger, downloads and
-installs it itself. A card that refuses a write of jelly.bin's first block
-back over itself also stops the step before anything is written, but the
-file stays for the next start. The writes
+A HASH update's lists are rebuilt and checked in memory first, each against
+its own signature as well as the update's, before anything is written.
+jelly.bin is then written only where it already lies on the SD card, through
+the DOL's `write_sd_file_in_place`: its directory entry, the FAT and FSInfo
+are never written, so CTGP-R keeps opening it as before. jelly.bin is never
+made larger: an update that would need more room stops the chain before
+anything is written, and its file is removed, not set aside, so CTGP-R's
+channel installs it itself. A card that refuses writes also stops the step
+before anything is written, and the file stays for the next start. The writes
 go through their own undo journal (`sd:/ctgpr/update-journal-jelly.bin`);
 everything is read back and checked before the journal is removed, and any
 failure puts jelly.bin back.
@@ -455,8 +447,7 @@ failure puts jelly.bin back.
 The start-up replay of the undo journal stays in the DOL on purpose. An
 install cut off by a power loss or a crash leaves blob.bin half written, and
 it must be put back before anything reads it (jelly.bin's journal first, then
-blob.bin's, each tried whatever the other gives; jelly.bin's entry is read again afterwards and must be unchanged,
-so its key is), even when the plugin can't be
+blob.bin's, each tried whatever the other gives), even when the plugin can't be
 loaded (missing, from another RiftWii, or damaged). It needs only
 `ctgpjournal.cpp`, which copies raw 32 KiB chunks back and needs none of the
 pack's crypto. If a journal can't be played back (the card won't give its
