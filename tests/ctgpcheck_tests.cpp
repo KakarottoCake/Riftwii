@@ -60,7 +60,7 @@ struct ScriptedServer {
         };
         io.receive_some = [this](std::uint8_t* out, std::size_t max, std::size_t& got) {
             got = std::min({max, chunk, script.size() - at});
-            std::memcpy(out, script.data() + at, got);
+            if (got != 0) std::memcpy(out, script.data() + at, got);
             at += got;
             return true;
         };
