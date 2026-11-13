@@ -242,6 +242,31 @@ int main() {
         std::remove(jp.c_str());
     }
 
+    {   // a journal that is already there is never emptied by a new begin
+        MemPack p = make_pack(size);
+        const auto old = filled(100, 0x5A);
+        spit(jp, old);
+        CtgpPackJournal j;
+        EXPECT_TRUE(!j.begin(jp, p.io(), size, err));
+        EXPECT_TRUE(slurp(jp) == old);
+        std::remove(jp.c_str());
+    }
+#ifndef _WIN32
+    {   // a lookup that fails for another reason than "not there" (here a name
+        // too long for the file system) is not taken as "no journal"
+        MemPack p = make_pack(size);
+        const std::string odd = (dir / std::string(300, 'j')).string();
+        std::size_t n = 0;
+        EXPECT_TRUE(ctgp_journal_recover(odd, p.io(), size, p.sync(), n, err) == CtgpJournalRecovery::Failed);
+        EXPECT_TRUE(!err.empty());
+        CtgpPackJournal j;
+        EXPECT_TRUE(!j.begin(odd, p.io(), size, err));
+        // whereas a missing folder on the way is "not there"
+        EXPECT_TRUE(ctgp_journal_recover((dir / "nodir" / "j.bin").string(), p.io(), size, p.sync(), n, err) ==
+                    CtgpJournalRecovery::None);
+    }
+#endif
+
     fs::remove_all(dir);
     if (g_failures == 0) std::cout << "ctgpjournal: all tests passed" << std::endl;
     return g_failures ? 1 : 0;

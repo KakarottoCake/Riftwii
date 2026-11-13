@@ -43,9 +43,12 @@ enum class CtgpUpdOp : std::uint32_t {
 };
 
 // The DOL's raw reads of the SD card (wii/storage/sdfile.hpp): jelly.bin's
-// key is made from its directory entry's times.
+// key is made from its directory entry's times. The DOL finds jelly.bin
+// before the call and keeps it: what the lookup allocates stays in the DOL's
+// hands, so an escape in the plugin cannot strand it.
 struct CtgpUpdSdAccess {
-    bool (*resolve)(const std::string& sd_path, Fat32File& out, std::string& error) = nullptr;
+    const Fat32File* jelly = nullptr;  // null when it was not found
+    std::string jelly_error;           // why, when jelly is null
     bool (*read)(const Fat32File& file, std::uint64_t offset, std::uint8_t* out, std::size_t length) = nullptr;
 };
 
@@ -57,6 +60,9 @@ struct CtgpUpdLibc {
     int (*fflush)(std::FILE* file) = nullptr;
     int (*fileno)(std::FILE* file) = nullptr;
     int (*fsync)(int fd) = nullptr;
+    // The DOL's errno: the plugin's stat is the DOL's (rwp_host::path_info),
+    // and the journal tells "not there" from an SD error by it.
+    int* (*errno_location)() = nullptr;
 };
 
 constexpr std::uint32_t ctgpupd_request_layout();
@@ -70,7 +76,6 @@ struct CtgpUpdRequest {
     std::string update_path;   // sd:/ctgpr/update.dif
     std::string part_path;     // sd:/ctgpr/update.dif.part
     std::string blob_path;     // sd:/ctgpr/blob.bin
-    std::string jelly_path;    // sd:/ctgpr/jelly.bin
     std::string journal_path;  // sd:/ctgpr/update-journal.bin
     std::string scratch_prefix;  // sd:/ctgpr/update-base-
     CtgpUpdSdAccess sd;
@@ -131,7 +136,7 @@ inline bool ctgpupd_request_check(const void* raw, std::uint32_t bytes, std::str
     }
     const CtgpUpdLibc& c = request->libc;
     if (c.remove == nullptr || c.rename == nullptr || c.fflush == nullptr || c.fileno == nullptr ||
-        c.fsync == nullptr || request->sd.resolve == nullptr || request->sd.read == nullptr) {
+        c.fsync == nullptr || c.errno_location == nullptr || request->sd.read == nullptr) {
         why = "the request is missing one of the DOL's functions";
         return false;
     }

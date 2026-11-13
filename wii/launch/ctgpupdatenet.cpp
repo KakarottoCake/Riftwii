@@ -84,10 +84,8 @@ int libc_rename(const char* from, const char* to) { return std::rename(from, to)
 int libc_fflush(std::FILE* file) { return std::fflush(file); }
 int libc_fileno(std::FILE* file) { return fileno(file); }
 int libc_fsync(int fd) { return fsync(fd); }
+int* libc_errno() { return &errno; }
 
-bool resolve_for_plugin(const std::string& sd_path, Fat32File& out, std::string& error) {
-    return resolve_sd_file(sd_path, out, error);
-}
 
 }  // namespace
 
@@ -102,16 +100,26 @@ bool CtgpUpdater::run(CtgpUpdRequest& request, std::string& error) {
     request.update_path = kCtgpUpdatePath;
     request.part_path = kCtgpUpdatePartPath;
     request.blob_path = kCtgprBlobPath;
-    request.jelly_path = kCtgprJellyPath;
     request.journal_path = kCtgpJournalPath;
     request.scratch_prefix = "sd:/ctgpr/update-base-";
-    request.sd.resolve = resolve_for_plugin;
+    // jelly.bin (Check and Install read it) is found here and kept in this
+    // frame until the plugin returns (riftwii/plugin_ctgpupd.hpp).
+    Fat32File jelly;
+    if (request.op == CtgpUpdOp::Check || request.op == CtgpUpdOp::Install) {
+        std::string why;
+        if (resolve_sd_file(kCtgprJellyPath, jelly, why)) {
+            request.sd.jelly = &jelly;
+        } else {
+            request.sd.jelly_error = why;
+        }
+    }
     request.sd.read = read_sd_file;
     request.libc.remove = libc_remove;
     request.libc.rename = libc_rename;
     request.libc.fflush = libc_fflush;
     request.libc.fileno = libc_fileno;
     request.libc.fsync = libc_fsync;
+    request.libc.errno_location = libc_errno;
     request.log = [](const std::string& line) { logf("CTGP-R update: %s\n", line.c_str()); };
 
     std::string message;

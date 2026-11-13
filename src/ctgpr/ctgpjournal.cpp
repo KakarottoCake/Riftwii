@@ -3,6 +3,7 @@
 #include "riftwii/ctgpjournal.hpp"
 
 #include <algorithm>
+#include <cerrno>
 #include <cstdio>
 #include <cstring>
 #include <set>
@@ -49,11 +50,15 @@ bool sync_file(std::FILE* f) {
     return true;
 }
 
-// stat, not fopen: a journal that is there but can't be opened must not
-// look absent, or its undo would be skipped.
-bool file_exists(const std::string& path) {
+// Absent only when the card says the file is not there: any other failure
+// (an SD read error) is Unknown, and nothing then goes ahead as if no
+// journal were there.
+enum class Presence { Absent, Present, Unknown };
+Presence presence(const std::string& path) {
     struct stat st;
-    return stat(path.c_str(), &st) == 0;
+    errno = 0;
+    if (stat(path.c_str(), &st) == 0) return Presence::Present;
+    return errno == ENOENT || errno == ENOTDIR ? Presence::Absent : Presence::Unknown;
 }
 
 struct Entry {
@@ -229,11 +234,19 @@ bool CtgpPackJournal::begin(const std::string& path, const CtgpPackIo& pack, std
         error = "journal already started";
         return false;
     }
-    if (file_exists(path)) {
+    switch (presence(path)) {
+    case Presence::Present:
         error = "a journal from an earlier update is still there";
         return false;
+    case Presence::Unknown:
+        error = "the SD card could not say whether a journal is already there";
+        return false;
+    case Presence::Absent:
+        break;
     }
-    std::FILE* f = std::fopen(path.c_str(), "wb");
+    // "x": created only if it is not there, so an existing journal is never
+    // emptied, whatever the check above saw.
+    std::FILE* f = std::fopen(path.c_str(), "wbx");
     if (!f) {
         error = "cannot create the journal";
         return false;
@@ -316,7 +329,15 @@ CtgpJournalRecovery ctgp_journal_recover(const std::string& path, const CtgpPack
                                          std::string& error) {
     error.clear();
     restored = 0;
-    if (!file_exists(path)) return CtgpJournalRecovery::None;
+    switch (presence(path)) {
+    case Presence::Absent:
+        return CtgpJournalRecovery::None;
+    case Presence::Unknown:
+        error = "the SD card could not say whether the journal is there";
+        return CtgpJournalRecovery::Failed;
+    case Presence::Present:
+        break;
+    }
     return play_back_file(path, pack, pack_size, sync_pack, restored, error);
 }
 

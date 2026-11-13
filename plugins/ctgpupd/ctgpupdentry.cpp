@@ -76,23 +76,22 @@ bool read_list(riftwii::CtgpPackWriter& disk, std::vector<riftwii::CtgpPackage>&
 // jelly.bin, read only. Its key is made from its FAT times, so it is found
 // through the card's own directory entry (the DOL's raw reads).
 bool open_jelly(const CtgpUpdRequest& request, riftwii::CtgpPackWriter& disk, std::string& error) {
-    riftwii::Fat32File jelly;
-    // The DOL fills its own strings: one of the plugin's, which the DOL could
-    // free or grow, must not be in its hands (riftwii/plugin_ctgpupd.hpp).
-    std::string why;
-    if (!request.sd.resolve(request.jelly_path, jelly, why)) {
-        error = why;
+    // Found and kept by the DOL (riftwii/plugin_ctgpupd.hpp): only borrowed
+    // here, never copied, so nothing the DOL allocated is in the plugin's hands.
+    const riftwii::Fat32File* const jelly = request.sd.jelly;
+    if (jelly == nullptr) {
+        error = request.sd.jelly_error.empty() ? std::string("jelly.bin was not found") : request.sd.jelly_error;
         return false;
     }
-    const auto key = riftwii::ctgp_efb_key(riftwii::ctgp_jelly_key_words(), jelly.entry.write_time,
-                                           jelly.entry.write_date, jelly.entry.create_time, jelly.entry.create_date);
+    const auto key = riftwii::ctgp_efb_key(riftwii::ctgp_jelly_key_words(), jelly->entry.write_time,
+                                           jelly->entry.write_date, jelly->entry.create_time, jelly->entry.create_date);
     riftwii::CtgpPackIo io;
     const auto read = request.sd.read;
     io.read = [jelly, read](std::uint64_t offset, std::uint32_t bytes, std::uint8_t* out) {
-        return read(jelly, offset, out, bytes);
+        return read(*jelly, offset, out, bytes);
     };
     io.write = [](std::uint64_t, const std::uint8_t*, std::uint32_t) { return false; };
-    return disk.open(io, jelly.entry.size & ~511ull, key, riftwii::ctgp_blob_chunk_iv(), error);
+    return disk.open(io, jelly->entry.size & ~511ull, key, riftwii::ctgp_blob_chunk_iv(), error);
 }
 
 bool read_hash_list(const CtgpUpdRequest& request, std::vector<std::uint8_t>& out, std::string& error) {
@@ -483,6 +482,11 @@ void rwp_shutdown(void) {}
 int remove(const char* path) { return g_libc != nullptr ? g_libc->remove(path) : -1; }
 int rename(const char* from, const char* to) { return g_libc != nullptr ? g_libc->rename(from, to) : -1; }
 int fflush(FILE* file) { return g_libc != nullptr ? g_libc->fflush(file) : -1; }
+// errno is the DOL's, which its stat (behind the runtime's) sets.
+int* __errno(void) {
+    static int own = 0;
+    return g_libc != nullptr ? g_libc->errno_location() : &own;
+}
 int fileno(FILE* file) { return g_libc != nullptr ? g_libc->fileno(file) : -1; }
 int fsync(int fd) { return g_libc != nullptr ? g_libc->fsync(fd) : -1; }
 

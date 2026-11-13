@@ -17,6 +17,7 @@ constexpr std::uint32_t kChunkBytes = kCtgpEfaChunkBytes;  // 32 KiB
 constexpr std::uint32_t kSectorBytes = 512;
 constexpr std::uint32_t kFatEndOfChain = 0x0FFFFFF8u;
 constexpr std::uint32_t kFatMask = 0x0FFFFFFFu;
+constexpr std::uint32_t kFatBadCluster = 0x0FFFFFF7u;
 
 std::uint16_t le16(const std::uint8_t* p) {
     return std::uint16_t(p[0]) | (std::uint16_t(p[1]) << 8);
@@ -280,6 +281,14 @@ struct CtgpPackWriter::Impl {
             cluster = next_cluster(cluster);
             if (cluster >= kFatEndOfChain) {
                 return true;
+            }
+            // A cluster in use links on or ends its chain: a free (0),
+            // reserved (1) or bad link means the file table is damaged, and
+            // writing over such a chain could put two pieces of a file in
+            // one cluster. Every cluster returned is therefore allocated.
+            if (cluster < 2 || cluster == kFatBadCluster) {
+                error = "the package disk's file table is damaged";
+                return false;
             }
             if (++guard > cluster_count) {
                 error = "the package disk has a loop in a file";
