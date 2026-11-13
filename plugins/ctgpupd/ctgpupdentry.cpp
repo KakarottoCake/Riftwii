@@ -19,6 +19,7 @@
 #include "riftwii/ctgpjournal.hpp"
 #include "riftwii/ctgppackages.hpp"
 #include "riftwii/ctgppackwrite.hpp"
+#include "riftwii/ctgppending.hpp"
 #include "riftwii/ctgptables.hpp"
 #include "riftwii/ctgpupdate.hpp"
 #include "riftwii/ctgpupdater.hpp"
@@ -60,12 +61,8 @@ riftwii::CtgpPackIo file_io(std::FILE* file, bool writable) {
     return io;
 }
 
-std::uint64_t file_size(std::FILE* file) {
-    fseeko(file, 0, SEEK_END);
-    const std::uint64_t size = static_cast<std::uint64_t>(ftello(file));
-    fseeko(file, 0, SEEK_SET);
-    return size;
-}
+// riftwii/ctgppending.hpp: false when the card would not give the size.
+bool file_size(std::FILE* file, std::uint64_t& size) { return riftwii::ctgp_file_size(file, size); }
 
 bool read_list(riftwii::CtgpPackWriter& disk, std::vector<riftwii::CtgpPackage>& out, std::string& error) {
     std::vector<std::uint8_t> bytes;
@@ -112,7 +109,11 @@ bool read_dia(const std::string& path, std::uint64_t expected, riftwii::CtgpDia&
         error = path + " could not be opened";
         return false;
     }
-    length = file_size(file);
+    if (!file_size(file, length)) {
+        std::fclose(file);
+        error = path + ": the SD card would not give its size";
+        return false;
+    }
     constexpr std::uint64_t kUpdateMax = 64u << 20;
     const bool sized = length > 0 && length <= kUpdateMax && (expected == 0 || length == expected);
     bool ok = sized;
@@ -156,7 +157,11 @@ std::uint32_t base_version_of(const riftwii::CtgpDia& dia) {
 std::uint32_t pack_version(const CtgpUpdRequest& request, const std::string& component) {
     std::FILE* blob = std::fopen(request.blob_path.c_str(), "rb");
     if (blob == nullptr) return 0;
-    const std::uint64_t size = file_size(blob);
+    std::uint64_t size = 0;
+    if (!file_size(blob, size)) {
+        std::fclose(blob);
+        return 0;
+    }
     riftwii::CtgpPackWriter disk;
     std::vector<riftwii::CtgpPackage> packages;
     std::string error;
@@ -178,7 +183,12 @@ bool verify_signature(const std::string& path, std::string& error, bool* bad = n
         error = path + " could not be opened";
         return false;
     }
-    const std::uint64_t size = file_size(file);
+    std::uint64_t size = 0;
+    if (!file_size(file, size)) {
+        std::fclose(file);
+        error = path + ": the SD card would not give its size";
+        return false;
+    }
     bool read_failed = false;
     const riftwii::CtgpUpdateRead read = [file, &read_failed](std::uint64_t offset, std::uint8_t* out,
                                                              std::size_t length) {
@@ -219,7 +229,12 @@ bool installed_packages(const CtgpUpdRequest& request, std::vector<riftwii::Ctgp
             error = request.blob_path + " could not be opened";
             return false;
         }
-        const std::uint64_t size = file_size(blob);
+        std::uint64_t size = 0;
+        if (!file_size(blob, size)) {
+            std::fclose(blob);
+            error = request.blob_path + ": the SD card would not give its size";
+            return false;
+        }
         riftwii::CtgpPackWriter disk;
         const bool ok = disk.open(file_io(blob, false), size & ~511ull, error) && read_list(disk, package_disk, error);
         disk.close();
@@ -456,7 +471,12 @@ bool install(CtgpUpdRequest& request) {
         error = request.blob_path + " could not be opened for writing";
         return false;
     }
-    const std::uint64_t blob_size = file_size(blob);
+    std::uint64_t blob_size = 0;
+    if (!file_size(blob, blob_size)) {
+        std::fclose(blob);
+        error = request.blob_path + ": the SD card would not give its size";
+        return false;
+    }
     const auto sync_blob = [blob]() { return g_libc->fflush(blob) == 0 && g_libc->fsync(g_libc->fileno(blob)) == 0; };
     // Every 32 KiB of blob.bin the update changes is copied to the card
     // first, so a power cut or crash halfway can be undone at the next start

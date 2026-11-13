@@ -86,10 +86,13 @@ CtgpPackUpdateTarget::CtgpPackUpdateTarget(CtgpPackWriter& pack, CtgpDiscBase di
 
 bool CtgpPackUpdateTarget::load_base(const std::string& component, const std::string& path,
                                      std::unique_ptr<CtgpBaseSource>& out, const CtgpProgress& progress,
-                                     std::string& error) {
+                                     CtgpUpdateFailure& failure, std::string& error) {
     const bool from_pack = component == "CTGPR";
     if (!from_pack && component != "RMC") {
-        error = "the update names an unknown package (" + component + ")";
+        // Signed by CTGP-R, but asking for files RiftWii has no way to give:
+        // trying again can never work.
+        error = "the update needs files from a package RiftWii can't read (" + component + ")";
+        failure = CtgpUpdateFailure::BadUpdate;
         return false;
     }
     if (!from_pack && !disc_) {

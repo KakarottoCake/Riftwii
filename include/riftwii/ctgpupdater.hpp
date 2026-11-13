@@ -42,7 +42,7 @@ public:
 
     bool load_base(const std::string& component, const std::string& path,
                    std::unique_ptr<CtgpBaseSource>& out, const CtgpProgress& progress,
-                   std::string& error) override;
+                   CtgpUpdateFailure& failure, std::string& error) override;
     bool check_file(const std::string& path, const std::array<std::uint8_t, 20>& digest,
                     std::string& error) override;
     bool store_file(const std::string& path, const CtgpPieces& packed, const CtgpProgress& progress,

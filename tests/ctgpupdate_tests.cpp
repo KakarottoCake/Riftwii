@@ -12,7 +12,9 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/ctgppackwrite.hpp"
 #include "riftwii/ctgpupdate.hpp"
+#include "riftwii/ctgpupdater.hpp"
 #include "riftwii/ctgpyaz0.hpp"
 #include "riftwii/sha1.hpp"
 
@@ -72,7 +74,7 @@ bool collect(void* user, const std::uint8_t* data, std::size_t length) {
 
 // A DIF0 whose one entry rebuilds from a single base file.
 std::vector<std::uint8_t> make_section(std::uint32_t unpacked, const std::vector<std::uint8_t>& stream,
-                                       const std::string& path) {
+                                       const std::string& path, const std::string& component = "CTGPR") {
     const std::uint32_t header = 0x30;
     const std::uint32_t path_table = header + std::uint32_t(stream.size());
     const std::uint32_t total = path_table + std::uint32_t(path.size()) + 1;
@@ -85,7 +87,7 @@ std::vector<std::uint8_t> make_section(std::uint32_t unpacked, const std::vector
     put32(out, 0x00020001u);
     put32(out, unpacked);
     put32(out, 1);
-    put_name(out, "CTGPR");
+    put_name(out, component.c_str());
     put32(out, path_table);
     put32(out, 1);
     out.insert(out.end(), stream.begin(), stream.end());
@@ -383,16 +385,26 @@ class MemoryTarget : public CtgpUpdateTarget {
 public:
     bool load_base(const std::string& component, const std::string& path,
                    std::unique_ptr<CtgpBaseSource>& out, const CtgpProgress& progress,
-                   std::string& error) override {
-        if (component != "CTGPR" || path != "/Race/Course/NEW.szs") {
+                   CtgpUpdateFailure& failure, std::string& error) override {
+        if (component != "CTGPR") {
+            // As the pack's target: a package it can never read.
+            error = "unknown package " + component;
+            failure = CtgpUpdateFailure::BadUpdate;
+            return false;
+        }
+        if (path != "/Race/Course/NEW.szs") {
             error = "unexpected base " + component + " " + path;
+            return false;
+        }
+        if (fail_load) {
+            error = "no room for a scratch file";  // left Temporary
             return false;
         }
         if (progress) progress(7, 7);
         if (fail_base_reads) {
             out = std::make_unique<UnreadableBase>();
         } else {
-            out = std::make_unique<MemoryBase>("ABCDEFG");
+            out = std::make_unique<MemoryBase>(base_text);
         }
         return true;
     }
@@ -422,21 +434,24 @@ public:
     std::array<std::uint8_t, 20> last_digest{};
     bool refuse = false;
     bool fail_base_reads = false;
+    bool fail_load = false;
+    std::string base_text = "ABCDEFG";
     std::string scratch;
 };
 
 // Why an apply failed: a section whose commands are broken is the update's
 // own fault (set it aside); a base file the card could not read is not.
 void test_apply_failure_kind() {
-    auto run = [](const std::vector<std::uint8_t>& stream, std::uint32_t size, MemoryTarget& target,
-                  CtgpUpdateFailure& failure) {
-        const auto dia = make_dia(make_section(size, stream, "/Race/Course/NEW.szs"));
+    std::string error;
+    auto run = [&error](const std::vector<std::uint8_t>& stream, std::uint32_t size, MemoryTarget& target,
+                        CtgpUpdateFailure& failure, const std::string& component = "CTGPR") {
+        const auto dia = make_dia(make_section(size, stream, "/Race/Course/NEW.szs", component));
         const CtgpUpdateRead read = [&dia](std::uint64_t offset, std::uint8_t* out, std::size_t length) {
             if (offset + length > dia.size()) return false;
             std::memcpy(out, dia.data() + offset, length);
             return true;
         };
-        std::string error;
+        error.clear();
         return ctgp_update_apply(read, dia.size(), target, nullptr, CtgpUpdateFileDone(), CtgpUpdateStep(), failure,
                                  error);
     };
@@ -450,8 +465,43 @@ void test_apply_failure_kind() {
     EXPECT_TRUE(!run({0x55}, 1, broken, failure));  // no such opcode
     EXPECT_TRUE(failure == CtgpUpdateFailure::BadUpdate);
     EXPECT_TRUE(broken.stored.empty());
-    EXPECT_TRUE(!run({0x14, 200}, 207, broken, failure));  // a base copy past the base's end
+    // A copy past the end of the base file: the (signed) commands expect a
+    // longer base, so the base is damaged, and that can be put right.
+    EXPECT_TRUE(!run({0x14, 200}, 207, broken, failure));
+    EXPECT_TRUE(failure == CtgpUpdateFailure::Temporary);
+    EXPECT_TRUE(error.find("shorter than the update expects") != std::string::npos);
+    MemoryTarget damaged;  // a base that unpacks to fewer bytes than the good update reads
+    damaged.base_text = "A";
+    EXPECT_TRUE(!run(good, 17, damaged, failure));
+    EXPECT_TRUE(failure == CtgpUpdateFailure::Temporary);
+    EXPECT_TRUE(error.find("shorter than the update expects") != std::string::npos);
+    EXPECT_TRUE(damaged.stored.empty());
+
+    // A signed update asking for a package no target can read: never installable.
+    MemoryTarget other;
+    EXPECT_TRUE(!run(good, 17, other, failure, "MKWII"));
     EXPECT_TRUE(failure == CtgpUpdateFailure::BadUpdate);
+    // The pack's own target says the same for a package it doesn't know, and
+    // asks the card for nothing first.
+    {
+        CtgpPackWriter pack;
+        CtgpPackUpdateTarget pack_target(pack, CtgpDiscBase(), {}, "ctgpupdate_unused_");
+        std::unique_ptr<CtgpBaseSource> base;
+        CtgpUpdateFailure why = CtgpUpdateFailure::Temporary;
+        std::string reason;
+        EXPECT_TRUE(!pack_target.load_base("MKWII", "/x.szs", base, CtgpProgress(), why, reason));
+        EXPECT_TRUE(why == CtgpUpdateFailure::BadUpdate);
+        EXPECT_TRUE(reason.find("MKWII") != std::string::npos);
+        // The disc is needed and missing: that is not the update's fault.
+        why = CtgpUpdateFailure::Temporary;
+        EXPECT_TRUE(!pack_target.load_base("RMC", "/x.szs", base, CtgpProgress(), why, reason));
+        EXPECT_TRUE(why == CtgpUpdateFailure::Temporary);
+    }
+    // A base the card could not give (no room for its scratch file): temporary.
+    MemoryTarget full;
+    full.fail_load = true;
+    EXPECT_TRUE(!run(good, 17, full, failure));
+    EXPECT_TRUE(failure == CtgpUpdateFailure::Temporary);
 
     MemoryTarget card;
     card.fail_base_reads = true;

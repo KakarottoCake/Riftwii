@@ -522,6 +522,13 @@ public:
 bool ctgp_dif_apply(const std::uint8_t* data, std::size_t size, const CtgpDif& section,
                     const std::vector<const CtgpBaseSource*>& bases,
                     CtgpUpdateWrite write, void* user, std::string& error) {
+    return ctgp_dif_apply(data, size, section, bases, write, user, nullptr, error);
+}
+
+bool ctgp_dif_apply(const std::uint8_t* data, std::size_t size, const CtgpDif& section,
+                    const std::vector<const CtgpBaseSource*>& bases,
+                    CtgpUpdateWrite write, void* user, bool* base_short, std::string& error) {
+    if (base_short != nullptr) *base_short = false;
     if (data == nullptr || write == nullptr) {
         error = "empty update section";
         return false;
@@ -628,6 +635,7 @@ bool ctgp_dif_apply(const std::uint8_t* data, std::size_t size, const CtgpDif& s
             }
             const CtgpBaseSource& base = *bases[index - 1];
             if (base_position[index] < 0 || std::uint64_t(base_position[index]) + count > base.size()) {
+                if (base_position[index] >= 0 && base_short != nullptr) *base_short = true;
                 return false;
             }
             std::uint32_t left = count;
@@ -807,6 +815,7 @@ bool ctgp_dif_apply(const std::uint8_t* data, std::size_t size, const CtgpDif& s
         }
         for (std::size_t i = 1; i < base_position.size(); ++i) {
             if (base_position[i] < 0 || std::uint64_t(base_position[i]) > bases[i - 1]->size()) {
+                if (base_position[i] >= 0 && base_short != nullptr) *base_short = true;
                 error = "update section seeks outside a base file";
                 return false;
             }
@@ -957,7 +966,10 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
                 const double inner = total ? double(done) / double(total) : 0.0;
                 report(kBaseShare * (double(b) + std::min(1.0, inner)) / double(base_count));
             };
-            if (!target.load_base(entry.component, base_path, owned.back(), base_progress, error)) {
+            CtgpUpdateFailure base_failure = CtgpUpdateFailure::Temporary;
+            if (!target.load_base(entry.component, base_path, owned.back(), base_progress, base_failure, error)) {
+                failure = base_failure == CtgpUpdateFailure::BadUpdate ? CtgpUpdateFailure::BadUpdate
+                                                                        : CtgpUpdateFailure::Temporary;
                 return false;
             }
             watched.emplace_back(new WatchedBase(*owned.back()));
@@ -984,11 +996,17 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         sink.total = files.unpacked_size;
         sink.next_tick = 128 * 1024;
         sink.tick = [&](double part) { report(kBaseShare + kRebuildShare * part); };
-        if (!ctgp_dif_apply(data, section.size(), files, sources, rebuild_write, &sink, error)) {
+        bool base_short = false;
+        if (!ctgp_dif_apply(data, section.size(), files, sources, rebuild_write, &sink, &base_short, error)) {
             bool base_failed = false;
             for (const auto& base : watched) base_failed = base_failed || base->failed;
             if (!sink.why.empty()) {
                 error = path + ": " + sink.why;
+            } else if (base_short) {
+                // A base file shorter than the commands expect: a damaged
+                // file in the pack or on the disc, which can be put right.
+                error = path + ": a file it is rebuilt from is shorter than the update expects "
+                               "(a damaged file in the pack or on the game disc?)";
             } else if (!base_failed) {
                 failure = CtgpUpdateFailure::BadUpdate;  // the commands themselves
             }

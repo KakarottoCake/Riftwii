@@ -7,7 +7,10 @@
 // moved out of the way. Kept apart from the menu so the host tests can check
 // it.
 
+#include <sys/types.h>
+
 #include <cstdint>
+#include <cstdio>
 #include <functional>
 #include <string>
 
@@ -40,6 +43,19 @@ inline bool ctgp_move_aside(const std::string& from, const std::string& to,
                             const std::function<int(const char*, const char*)>& rename) {
     remove(to.c_str());
     return rename(from.c_str(), to.c_str()) == 0;
+}
+
+// The length of an open file, left at its start. False when the card would
+// not say (a failed seek, or ftello's -1): that is the card's fault, never
+// the file's, so a caller must not take it as a file that is empty or too
+// large.
+inline bool ctgp_file_size(std::FILE* file, std::uint64_t& size) {
+    size = 0;
+    if (fseeko(file, 0, SEEK_END) != 0) return false;
+    const off_t end = ftello(file);
+    if (end < 0 || fseeko(file, 0, SEEK_SET) != 0) return false;
+    size = static_cast<std::uint64_t>(end);
+    return true;
 }
 
 }  // namespace riftwii

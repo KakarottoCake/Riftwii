@@ -50,6 +50,33 @@ int main() {
     EXPECT_TRUE(!ctgp_move_aside("update.dif", "update.dif.installed", remove, rename));
     EXPECT_TRUE(files == std::set<std::string>{"update.dif"});
 
+    // The size of a file, and a stream the card can't size (a pipe: its seeks
+    // fail), which must not look like an empty or huge file.
+    {
+        const std::string path = "ctgppending_size_test.bin";
+        std::FILE* out = std::fopen(path.c_str(), "wb");
+        EXPECT_TRUE(out != nullptr);
+        if (out != nullptr) {
+            std::fwrite("0123456789", 1, 10, out);
+            std::fclose(out);
+        }
+        std::FILE* in = std::fopen(path.c_str(), "rb");
+        std::uint64_t size = 99;
+        EXPECT_TRUE(in != nullptr && ctgp_file_size(in, size) && size == 10);
+        char first = 0;
+        EXPECT_TRUE(in != nullptr && std::fread(&first, 1, 1, in) == 1 && first == '0');  // left at the start
+        if (in != nullptr) std::fclose(in);
+        std::remove(path.c_str());
+        std::FILE* pipe = popen("true", "r");
+        EXPECT_TRUE(pipe != nullptr);
+        if (pipe != nullptr) {
+            size = 99;
+            EXPECT_TRUE(!ctgp_file_size(pipe, size));
+            EXPECT_TRUE(size == 0);
+            pclose(pipe);
+        }
+    }
+
     if (g_failures == 0) std::cout << "ctgppending: all tests passed" << std::endl;
     return g_failures ? 1 : 0;
 }

@@ -188,28 +188,45 @@ using CtgpUpdateWrite = bool (*)(void* user, const std::uint8_t* data, std::size
 bool ctgp_dif_apply(const std::uint8_t* data, std::size_t size, const CtgpDif& section,
                     const std::vector<const CtgpBaseSource*>& bases,
                     CtgpUpdateWrite write, void* user, std::string& error);
+// The same; `base_short` (may be null) is set when it failed because a
+// command reached past the end of a base file. The commands are CTGP-R's
+// (signed), so that points at a damaged base file rather than at the update.
+bool ctgp_dif_apply(const std::uint8_t* data, std::size_t size, const CtgpDif& section,
+                    const std::vector<const CtgpBaseSource*>& bases,
+                    CtgpUpdateWrite write, void* user, bool* base_short, std::string& error);
 
 // Bounds a section before its unpacked size is used: the channel's own limit
 // is 64 KiB more than the output, and no pack file is over a few megabytes.
 constexpr std::uint32_t kCtgpUpdateMaxFileBytes = 64u * 1024u * 1024u;
 
+// How far a long step has got, `done` of `total` (any unit); for a bar.
+using CtgpProgress = std::function<void(std::uint64_t done, std::uint64_t total)>;
+
+// Why an apply failed, for a caller that must decide whether to keep the
+// update file: BadUpdate when the update itself is at fault (its tables or a
+// section's commands don't hold together, or it names a package RiftWii
+// can't update), so trying it again can never work; Temporary for everything
+// else (the card, the disc, memory, a base file that could not be read or is
+// shorter than the update expects, a file the hash list does not vouch for).
+enum class CtgpUpdateFailure : std::uint32_t { None = 0, Temporary = 1, BadUpdate = 2 };
+
 // What the updater needs from the console: the files the sections rebuild
 // from, and somewhere to put the results. The pack side opens each entry's
 // file ("CTGPR" in the pack, "RMC" on the game disc), unpacks it, and stores
 // the packed result at the section's own path.
-// How far a long step has got, `done` of `total` (any unit); for a bar.
-using CtgpProgress = std::function<void(std::uint64_t done, std::uint64_t total)>;
-
 class CtgpUpdateTarget {
 public:
     virtual ~CtgpUpdateTarget() = default;
     // `component` is the entry's eight-byte name; `path` its file path. The
     // returned source owns the data, so a target may keep it in memory or in
     // a temporary file; it must stay readable until the section is stored.
-    // `progress` (may be empty) is told how far the unpacking has got.
+    // `progress` (may be empty) is told how far the unpacking has got. On a
+    // failure `failure` says whose fault it is: it comes in as Temporary (the
+    // card, the disc, memory), and a target sets BadUpdate when the entry
+    // asks for something it can never give (a package it doesn't know).
     virtual bool load_base(const std::string& component, const std::string& path,
                            std::unique_ptr<CtgpBaseSource>& out, const CtgpProgress& progress,
-                           std::string& error) = 0;
+                           CtgpUpdateFailure& failure, std::string& error) = 0;
     // Called with the SHA-1 of each packed file before it is stored. A file
     // that fails is not stored and the update stops.
     virtual bool check_file(const std::string& path, const std::array<std::uint8_t, 20>& digest,
@@ -255,12 +272,6 @@ bool ctgp_update_apply(const CtgpUpdateRead& read, std::uint64_t size, CtgpUpdat
                        const CtgpUpdateFileDone& file_done, const CtgpUpdateStep& step,
                        std::string& error);
 
-// Why an apply failed, for a caller that must decide whether to keep the
-// update file: BadUpdate when the update itself is at fault (its tables or a
-// section's commands don't hold together), so trying it again can never
-// work; Temporary for everything else (the card, memory, a base file that
-// could not be read, a file the hash list does not vouch for).
-enum class CtgpUpdateFailure : std::uint32_t { None = 0, Temporary = 1, BadUpdate = 2 };
 bool ctgp_update_apply(const CtgpUpdateRead& read, std::uint64_t size, CtgpUpdateTarget& target,
                        const std::function<void(const std::string&)>& log,
                        const CtgpUpdateFileDone& file_done, const CtgpUpdateStep& step,
