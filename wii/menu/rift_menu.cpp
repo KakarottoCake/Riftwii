@@ -19567,11 +19567,22 @@ bool ConfirmLaunchMissingModInputs(const FrontendState& state,
 // Asks CTGP-R's update server whether an update is waiting for the
 // installed packages and, if the player wants it, downloads it to
 // sd:/ctgpr/update.dif. True when the download is there to install.
+// Called and returns with the GUI halted.
 static bool CheckCtgpUpdateServer(riftwii::wii::CtgpUpdater& updater)
 {
 	std::string error;
 	riftwii::CtgpCheckReply reply;
-	if (!updater.check(reply, error)) {
+	bool checked;
+	{
+		// The network may take a few seconds to come up: the screen keeps
+		// drawing while it does.
+		PopupBox box(tr("CTGP-R update"), tr("Checking for a CTGP-R update..."));
+		ResumeGui();
+		checked = updater.check(reply, error);
+		HaltGui();
+		box.Close();
+	}
+	if (!checked) {
 		logf("CTGP-R update: no check: %s\n", error.c_str());
 		return false;
 	}
@@ -19583,21 +19594,26 @@ static bool CheckCtgpUpdateServer(riftwii::wii::CtgpUpdater& updater)
 		logf("CTGP-R update: the player chose not to download it\n");
 		return false;
 	}
-	ProgressBar bar(56, 280, 528);
-	PopupBox box(tr("Updating CTGP-R"), tr("Downloading the update..."));
-	box.AddProgress(&bar);
-	const bool ok = updater.download(
-		reply.update_bytes,
-		[&](std::uint64_t done, std::uint64_t total) {
-			HaltGui();
-			bar.Set(total ? double(done) / double(total) : 1.0);
-			ResumeGui();
-			return true;
-		},
-		error);
-	HaltGui();
-	box.Close();
-	ResumeGui();
+	bool ok;
+	{
+		ProgressBar bar(56, 280, 528);
+		PopupBox box(tr("Updating CTGP-R"), tr("Downloading the update..."));
+		box.AddProgress(&bar);
+		// The power button waits while the download is written to the card.
+		const riftwii::wii::CardWriteHold hold;
+		ResumeGui();
+		ok = updater.download(
+			reply.update_bytes,
+			[&](std::uint64_t done, std::uint64_t total) {
+				HaltGui();
+				bar.Set(total ? double(done) / double(total) : 1.0);
+				ResumeGui();
+				return true;
+			},
+			error);
+		HaltGui();
+		box.Close();
+	}
 	if (!ok) {
 		logf("CTGP-R update: download failed: %s\n", error.c_str());
 		ShowPopup(tr("CTGP-R update failed"),
@@ -19611,7 +19627,8 @@ static bool CheckCtgpUpdateServer(riftwii::wii::CtgpUpdater& updater)
 // the game disc. The channel leaves the download at sd:/ctgpr/update.dif;
 // RiftWii installs it itself, before the game starts, so the installer's
 // disc read is never on the path. The work is done by the ctgpupd plugin,
-// loaded here and shut down when `updater` goes.
+// loaded here and shut down when `updater` goes. Called and returns with the
+// GUI halted.
 static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 {
 	if (riftwii::wii::CtgprPackOn(state) == SIZE_MAX) return;
@@ -19645,6 +19662,9 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 	std::string error;
 	if (!updater.inspect(info, error)) {
 		logf("CTGP-R update: %s: %s\n", update_path, error.c_str());
+		ShowPopup(tr("CTGP-R update failed"),
+			tr("The update could not be installed: {1}. CTGP-R starts without it.", {FlatCapped(error, 140)}),
+			tr("OK"));
 		return;
 	}
 	logf("CTGP-R update: %s (%llu bytes, %u files) is waiting\n", info.component.c_str(),
@@ -19660,10 +19680,6 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 	riftwii::wii::NetCancelBackground();
 	riftwii::wii::NetWaitForBackground();
 
-	ProgressBar bar(56, 280, 528);
-	PopupBox box(tr("Updating CTGP-R"), tr("Installing the update..."));
-	box.AddProgress(&bar);
-
 	riftwii::CtgpDiscBase disc = [game](const std::string& path, const riftwii::CtgpDiscSink& sink,
 					     std::uint32_t* size, std::string& why) {
 		return riftwii::wii::read_image_disc_file(game, path, sink, size, why);
@@ -19671,28 +19687,37 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 	// What the install has to work with, and (below) what it left.
 	riftwii::wii::mem::LogUsage("CTGP-R update start");
 	riftwii::wii::mem::CheckHeap("CTGP-R update start");
-	// The bar moves inside each file too (a file takes most of a minute on
-	// a Wii); it is redrawn at most five times a second.
-	u64 lastDrawn = 0;
-	const bool ok = updater.install(
-		disc,
-		[&](std::size_t index, std::size_t count, const std::string& path, double part) {
-			const u64 now = gettime();
-			if (lastDrawn != 0 && part > 0.0 && part < 1.0 && diff_msec(lastDrawn, now) < 200) return;
-			lastDrawn = now;
-			HaltGui();
-			bar.Set(count ? (double(index) + part) / double(count) : 1.0);
-			box.SetBody(tr("Installing CTGP-R, file {1} of {2}", {std::to_string(index + 1),
-								   std::to_string(count)}) +
-				    "\n" + FlatCapped(path, 60));
-			ResumeGui();
-		},
-		error);
+	bool ok;
+	{
+		ProgressBar bar(56, 280, 528);
+		PopupBox box(tr("Updating CTGP-R"), tr("Installing the update..."));
+		box.AddProgress(&bar);
+		// The power button waits while blob.bin is rewritten (and, on a
+		// failure, put back).
+		const riftwii::wii::CardWriteHold hold;
+		ResumeGui();
+		// The bar moves inside each file too (a file takes most of a minute on
+		// a Wii); it is redrawn at most five times a second.
+		u64 lastDrawn = 0;
+		ok = updater.install(
+			disc,
+			[&](std::size_t index, std::size_t count, const std::string& path, double part) {
+				const u64 now = gettime();
+				if (lastDrawn != 0 && part > 0.0 && part < 1.0 && diff_msec(lastDrawn, now) < 200) return;
+				lastDrawn = now;
+				HaltGui();
+				bar.Set(count ? (double(index) + part) / double(count) : 1.0);
+				box.SetBody(tr("Installing CTGP-R, file {1} of {2}", {std::to_string(index + 1),
+									   std::to_string(count)}) +
+					    "\n" + FlatCapped(path, 60));
+				ResumeGui();
+			},
+			error);
+		HaltGui();
+		box.Close();
+	}
 	riftwii::wii::mem::LogUsage("CTGP-R update end");
 	riftwii::wii::mem::CheckHeap("CTGP-R update end");
-	HaltGui();
-	box.Close();
-	ResumeGui();
 	if (ok) {
 		logf("CTGP-R update: done\n");
 		// The last update's file goes first: FAT does not rename onto a

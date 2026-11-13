@@ -55,7 +55,11 @@ void remove_scratch_files() {
     DIR* dir = opendir("sd:/ctgpr");
     if (dir == nullptr) return;
     std::vector<std::string> names;
+    // A damaged folder can repeat its entries forever: the scan stops after
+    // more than CTGP-R's folder ever holds.
+    unsigned seen = 0;
     while (const dirent* entry = readdir(dir)) {
+        if (++seen > 4096) break;
         const std::string name = entry->d_name;
         if (name.size() > 16 && name.compare(0, 12, "update-base-") == 0 &&
             name.compare(name.size() - 4, 4, ".tmp") == 0)

@@ -4536,6 +4536,9 @@ msgstr "CTGP-Rの更新（{1} MB）があります。今ダウンロードして
 msgid "Downloading the update..."
 msgstr "更新をダウンロードしています..."
 
+msgid "Checking for a CTGP-R update..."
+msgstr "CTGP-Rの更新を確認しています..."
+
 msgid "The update could not be downloaded: {1}. CTGP-R starts without it."
 msgstr "更新をダウンロードできませんでした: {1}。CTGP-Rは更新なしで起動します。"
 

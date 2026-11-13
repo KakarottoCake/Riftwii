@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The undo journal for in-place pack updates (riftwii/ctgpjournal.hpp), with
 // a synthetic in-memory pack.
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -12,6 +13,13 @@
 #include <vector>
 
 #include "riftwii/ctgpjournal.hpp"
+
+#ifdef _WIN32
+#include <process.h>
+#define getpid _getpid
+#else
+#include <unistd.h>
+#endif
 
 static int g_failures = 0;
 #define EXPECT_TRUE(cond) do { if (!(cond)) { std::cerr << "FAILED: " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
@@ -78,7 +86,11 @@ void do_writes(CtgpPackIo io) {
 }  // namespace
 
 int main() {
-    fs::path dir = fs::temp_directory_path() / ("ctgpjournal_test_" + std::to_string(std::rand()));
+    // A folder of this run's own: its process ID and the clock, emptied first.
+    fs::path dir = fs::temp_directory_path() /
+                   ("ctgpjournal_test_" + std::to_string(::getpid()) + "_" +
+                    std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    fs::remove_all(dir);
     fs::create_directories(dir);
     const std::string jp = (dir / "j.bin").string();
     const std::size_t size = 6 * kChunk;

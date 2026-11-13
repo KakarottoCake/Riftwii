@@ -4536,6 +4536,9 @@ msgstr "Há uma atualização do CTGP-R ({1} MB). Baixar e instalar agora?"
 msgid "Downloading the update..."
 msgstr "Baixando a atualização..."
 
+msgid "Checking for a CTGP-R update..."
+msgstr "Procurando uma atualização do CTGP-R..."
+
 msgid "The update could not be downloaded: {1}. CTGP-R starts without it."
 msgstr "Não foi possível baixar a atualização: {1}. O CTGP-R vai começar sem ela."
 

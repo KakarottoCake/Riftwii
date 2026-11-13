@@ -9521,6 +9521,8 @@ T.update({
         "È disponibile un aggiornamento di CTGP-R ({1} MB). Scaricarlo e installarlo ora?"),
     "Downloading the update...": ("Descargando la actualización...", "更新をダウンロードしています...",
                                   "Baixando a atualização...", "Download dell'aggiornamento..."),
+    "Checking for a CTGP-R update...": ("Buscando una actualización de CTGP-R...", "CTGP-Rの更新を確認しています...",
+                                        "Procurando uma atualização do CTGP-R...", "Ricerca di un aggiornamento di CTGP-R..."),
     "The update could not be downloaded: {1}. CTGP-R starts without it.": (
         "No se pudo descargar la actualización: {1}. CTGP-R empezará sin ella.",
         "更新をダウンロードできませんでした: {1}。CTGP-Rは更新なしで起動します。",
@@ -9536,6 +9538,7 @@ KO.update({
     "A CTGP-R update ({1} MB) is available. Download and install it now?":
         "CTGP-R 업데이트({1} MB)가 있습니다. 지금 다운로드해서 설치할까요?",
     "Downloading the update...": "업데이트를 다운로드하는 중...",
+    "Checking for a CTGP-R update...": "CTGP-R 업데이트를 확인하는 중...",
     "The update could not be downloaded: {1}. CTGP-R starts without it.":
         "업데이트를 다운로드할 수 없습니다: {1}. CTGP-R은 업데이트 없이 시작합니다.",
     "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer.":
@@ -9545,6 +9548,7 @@ FR.update({
     "A CTGP-R update ({1} MB) is available. Download and install it now?":
         "Une mise à jour de CTGP-R ({1} Mo) est disponible. La télécharger et l'installer maintenant ?",
     "Downloading the update...": "Téléchargement de la mise à jour...",
+    "Checking for a CTGP-R update...": "Recherche d'une mise à jour de CTGP-R...",
     "The update could not be downloaded: {1}. CTGP-R starts without it.":
         "Impossible de télécharger la mise à jour : {1}. CTGP-R démarre sans elle.",
     "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer.":
