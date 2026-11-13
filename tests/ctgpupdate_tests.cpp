@@ -267,6 +267,100 @@ void test_apply_full_window() {
     EXPECT_TRUE(!ctgp_dif_apply(section.data(), section.size(), dif, bases, collect, &output, error));
 }
 
+// A two-file DIA0 for the signature tests, signed (by sign_test_dia) with a
+// throwaway DSA test key: CTGP-R's own key can only check, never sign.
+std::vector<std::uint8_t> signed_test_dia_unsigned() {
+    const std::vector<std::uint8_t> stream = {0x40, 'h', 'e', 'l', 'l', 'o'};
+    return make_dia({make_section(5, stream, "NEW.SZS"), make_section(5, stream, "TWO.SZS")});
+}
+
+std::vector<std::uint8_t> from_hex(const char* text) {
+    std::vector<std::uint8_t> out;
+    for (; text[0] && text[1]; text += 2) {
+        auto nibble = [](char c) { return c <= '9' ? c - '0' : (c | 0x20) - 'a' + 10; };
+        out.push_back(std::uint8_t(nibble(text[0]) * 16 + nibble(text[1])));
+    }
+    return out;
+}
+
+// The throwaway test key's public half (p, q, g, y) and its signature of
+// signed_test_dia_unsigned(), made once off-line for this test.
+const char* const kTestDsaP =
+        "801256947dfccd8ff8147518fd464cf127cb4932af3e0a7d6a810574adadc4c8"
+        "ea97f69a4d2a6b77d134f32db2e4101a3fbec2d27507aabd342a51ceb6560107";
+const char* const kTestDsaQ = "9b53fa398b9f3e4d3ff352b16b6c6df7268ce515";
+const char* const kTestDsaG =
+        "5b6a18977e127b870fab45bec39e8df659f1c212b2f9ad5c32e9e6f24eabb7d5"
+        "d454f24fb029e78c4a96fce217a6f8f351e742a78ff53f2bf7cbd46e1296a7c4";
+const char* const kTestDsaY =
+        "21f92ddc1dd7f75d9229d5cb540591bf9a9e813fa53a991753e489589b379de2"
+        "4891ba55c7cda314944aed1ec019760f1aafcedd1429b9fa86f7664e8ae08f25";
+const char* const kTestDiaSignature =
+        "302c0214768a3b024fababfce9bde832020560704baf9ec0021401c9efcfcc37"
+        "962239fee2e667d38695ab4ec32c";
+
+void test_dia_signature() {
+    CtgpDsaKey key{};
+    const auto p = from_hex(kTestDsaP), q = from_hex(kTestDsaQ), g = from_hex(kTestDsaG), y = from_hex(kTestDsaY);
+    std::memcpy(key.p, p.data(), 64);
+    std::memcpy(key.q, q.data(), 20);
+    std::memcpy(key.g, g.data(), 64);
+    std::memcpy(key.y, y.data(), 64);
+    const auto signature = from_hex(kTestDiaSignature);
+    auto dia = signed_test_dia_unsigned();
+    dia[0x23] = std::uint8_t(signature.size());
+    std::copy(signature.begin(), signature.end(), dia.begin() + 0x24);
+    auto verify = [&](const std::vector<std::uint8_t>& file, const CtgpDsaKey& with) {
+        std::string error;
+        const CtgpUpdateRead read = [&file](std::uint64_t offset, std::uint8_t* out, std::size_t length) {
+            if (offset + length > file.size()) return false;
+            std::memcpy(out, file.data() + offset, length);
+            return true;
+        };
+        return ctgp_dia_verify_signature(read, file.size(), with, nullptr, error);
+    };
+    EXPECT_TRUE(verify(dia, key));
+    // Another key (CTGP-R's own) does not vouch for it.
+    EXPECT_TRUE(!verify(dia, ctgp_signing_key()));
+
+    // The change review found the table checks alone let through: the table
+    // moved up and cut to one entry, that section stretched over the rest of
+    // the file, and its own size field to match. The tables still tile the
+    // file and the first file still checks out, so it parses; the signature
+    // is what refuses it.
+    auto tampered = dia;
+    const std::uint32_t total = std::uint32_t(tampered.size());
+    auto set32 = [&](std::size_t at, std::uint32_t value) {
+        tampered[at] = std::uint8_t(value >> 24); tampered[at + 1] = std::uint8_t(value >> 16);
+        tampered[at + 2] = std::uint8_t(value >> 8); tampered[at + 3] = std::uint8_t(value);
+    };
+    set32(0x5C, 1);                    // one section
+    set32(0x60, 0x7C);                 // the table, moved up to end where the first section starts
+    set32(0x7C, 0x84);                 // that section's offset
+    set32(0x80, total - 0x84);         // stretched to the end of the file
+    set32(0x84 + 4, total - 0x84);     // and its DIF0 size field to match
+    CtgpDia parsed;
+    std::string error;
+    EXPECT_TRUE(ctgp_dia_parse(tampered.data(), tampered.size(), parsed, error));
+    EXPECT_EQ(parsed.sections.size(), std::size_t(1));
+    EXPECT_TRUE(!verify(tampered, key));
+
+    // Any other change is refused too: a byte of the last file, the count
+    // alone, a byte added, and no signature at all.
+    auto changed = dia;
+    changed.back() ^= 0x01;
+    EXPECT_TRUE(!verify(changed, key));
+    changed = dia;
+    changed[0x5F] = 1;
+    EXPECT_TRUE(!verify(changed, key));
+    changed = dia;
+    changed.push_back(0);
+    EXPECT_TRUE(!verify(changed, key));
+    changed = dia;
+    changed[0x23] = 0;
+    EXPECT_TRUE(!verify(changed, key));
+}
+
 class MemoryTarget : public CtgpUpdateTarget {
 public:
     bool load_base(const std::string& component, const std::string& path,
@@ -549,6 +643,7 @@ int main() {
     test_apply();
     test_apply_distance();
     test_apply_full_window();
+    test_dia_signature();
     test_update_apply();
     test_apply_rejects_bad_stream();
     test_yaz0_nintendo_matches();

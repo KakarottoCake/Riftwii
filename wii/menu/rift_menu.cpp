@@ -19641,6 +19641,20 @@ static void MoveCtgpUpdate(const char* to)
 		logf("CTGP-R update: %s could not be renamed to %s\n", riftwii::wii::kCtgpUpdatePath, to);
 }
 
+// Reads the waiting update's header and checks its signature, which reads
+// the whole file (a few seconds on a Wii): a box shows meanwhile. Called and
+// returns with the GUI halted.
+static bool InspectCtgpUpdate(riftwii::wii::CtgpUpdater& updater, riftwii::wii::CtgpUpdateInfo& info,
+	std::string& error)
+{
+	PopupBox box(tr("CTGP-R update"), tr("Checking the CTGP-R update..."));
+	ResumeGui();
+	const bool ok = updater.inspect(info, error);
+	HaltGui();
+	box.Close();
+	return ok;
+}
+
 // CTGP-R's own installer stops under RiftWii while it reads base files from
 // the game disc. The channel leaves the download at sd:/ctgpr/update.dif;
 // RiftWii installs it itself, before the game starts, so the installer's
@@ -19680,7 +19694,7 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 		// as update.dif.bad; one already installed (a power cut between the
 		// install and its rename) is retired. Either way the server is then
 		// asked again, so a stale file never blocks later updates.
-		if (!updater.inspect(info, error)) {
+		if (!InspectCtgpUpdate(updater, info, error)) {
 			if (!updater.refused()) {
 				// The plugin could not run: the file may be fine, so it stays.
 				logf("CTGP-R update: %s: %s\n", update_path, error.c_str());
@@ -19718,7 +19732,7 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 		}
 		if (!CheckCtgpUpdateServer(updater)) return;
 		asked = true;
-		if (!updater.inspect(info, error)) {
+		if (!InspectCtgpUpdate(updater, info, error)) {
 			logf("CTGP-R update: %s: %s\n", update_path, error.c_str());
 			ShowPopup(tr("CTGP-R update failed"),
 				tr("The update could not be installed: {1}. CTGP-R starts without it.", {FlatCapped(error, 140)}),

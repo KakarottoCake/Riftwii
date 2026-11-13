@@ -160,10 +160,28 @@ std::uint32_t pack_version(const CtgpUpdRequest& request, const std::string& com
     return version;
 }
 
+// The whole file at `path` against CTGP-R's signature (ctgpupdate.hpp): an
+// update changed after CTGP-R signed it, its tables included, is refused.
+bool verify_signature(const std::string& path, std::string& error) {
+    std::FILE* file = std::fopen(path.c_str(), "rb");
+    if (file == nullptr) {
+        error = path + " could not be opened";
+        return false;
+    }
+    const std::uint64_t size = file_size(file);
+    const riftwii::CtgpUpdateRead read = [file](std::uint64_t offset, std::uint8_t* out, std::size_t length) {
+        return fseeko(file, static_cast<off_t>(offset), SEEK_SET) == 0 && std::fread(out, 1, length, file) == length;
+    };
+    const bool ok = riftwii::ctgp_dia_verify_signature(read, size, riftwii::ctgp_signing_key(), nullptr, error);
+    std::fclose(file);
+    return ok;
+}
+
 bool inspect(CtgpUpdRequest& request) {
     riftwii::CtgpDia dia;
     std::uint64_t length = 0;
     if (!read_dia(request.update_path, 0, dia, length, request.error)) return false;
+    if (!verify_signature(request.update_path, request.error)) return false;
     request.dia_component = dia.component;
     request.dia_version = dia.version;
     request.dia_base_version = base_version_of(dia);
@@ -255,7 +273,8 @@ bool download(CtgpUpdRequest& request) {
         // The header and tables must read as a DIA0 of the size offered.
         riftwii::CtgpDia dia;
         std::uint64_t length = 0;
-        ok = read_dia(request.part_path, request.download_bytes, dia, length, request.error);
+        ok = read_dia(request.part_path, request.download_bytes, dia, length, request.error) &&
+             verify_signature(request.part_path, request.error);
         if (ok) {
             char line[80];
             std::snprintf(line, sizeof line, "downloaded %s version %08x", dia.component.c_str(),
@@ -398,6 +417,9 @@ bool install(CtgpUpdRequest& request) {
     request.dia_version = dia.version;
     request.dia_files = static_cast<std::uint32_t>(dia.sections.size());
     request.update_bytes = length;
+    // Checked again here, before anything is written: every byte the install
+    // reads is then CTGP-R's.
+    if (!verify_signature(request.update_path, error)) return false;
 
     std::FILE* blob = std::fopen(request.blob_path.c_str(), "r+b");
     if (blob == nullptr) {

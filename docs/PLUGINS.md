@@ -414,6 +414,15 @@ memory the rest of the time.
 | Out of the DOL | `Makefile.wii`: the updater's `src/ctgpr/` files but `ctgpjournal.cpp` in `EXCLUDES` |
 | Updates | `tools/make_release_zip.py` and `tools/make_update_pack.py` require it beside `gamecube` and `ctgpr` |
 
+Every update is checked against CTGP-R's own signature before it is used:
+after the download, when a waiting one is looked at, and again just before
+the install writes anything (`ctgp_dia_verify_signature`, the same digest the
+channel makes, over the whole file, with the public key RiftWii already
+carries for the hash lists). An update whose tables or files were changed
+after CTGP-R signed it, or one with no signature, is refused, and the menu
+sets it aside as `update.dif.bad`. Each rebuilt file is then also checked
+against jelly.bin's `CTGPR.HSH` before it is stored.
+
 The start-up replay of the undo journal stays in the DOL on purpose. An
 install cut off by a power loss or a crash leaves blob.bin half written, and
 it must be put back before anything reads it, even when the plugin can't be

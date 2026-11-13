@@ -11,6 +11,8 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/ctgpdsa.hpp"
+
 // CTGP-R's own update format, as the channel writes it to
 // sda:/ctgpr/update.dif (docs/PLUGINS.md, "The ctgpupd plugin"). RiftWii applies an
 // update itself so the channel's installer does not have to read base files
@@ -258,5 +260,17 @@ bool ctgp_update_apply(const CtgpUpdateRead& read, std::uint64_t size, CtgpUpdat
 constexpr std::size_t kCtgpDiaPrefixBytes = 16 * 1024;
 bool ctgp_dia_parse_prefix(const std::uint8_t* data, std::size_t size, std::uint64_t total,
                            CtgpDia& out, std::string& error);
+
+// The DIA0's own signature, checked the way CTGP-R's channel checks it: a
+// DSA signature (DER, at 0x24, its length at 0x20) of the SHA-1 of the whole
+// file, with the length field zeroed and 0x24..0x54 (where the signature
+// sits) replaced by a fixed pattern. Every byte of the update is covered, so
+// an update whose tables or sections were changed after CTGP-R signed it is
+// refused. Verification only: `key` is a public key (ctgp_signing_key(),
+// riftwii/ctgpdsa.hpp, for real updates). `progress` (may be empty) is told
+// the bytes read so far.
+bool ctgp_dia_verify_signature(const CtgpUpdateRead& read, std::uint64_t size, const CtgpDsaKey& key,
+                               const std::function<void(std::uint64_t done, std::uint64_t total)>& progress,
+                               std::string& error);
 
 }  // namespace riftwii

@@ -72,7 +72,8 @@ ctgpr_LIBSTDCXX := hash_bytes.o hashtable_c++0x.o
 # that was cut off.
 ctgpupd_SRC := src/ctgpr/ctgpupdate.cpp src/ctgpr/ctgpupdater.cpp src/ctgpr/ctgppackwrite.cpp src/ctgpr/ctgpyaz0.cpp \
                src/ctgpr/ctgpjournal.cpp src/ctgpr/ctgpcheck.cpp src/ctgpr/ctgphashlookup.cpp src/ctgpr/ctgppackages.cpp \
-               src/ctgpr/ctgptables.cpp src/ctgpr/ctgpefa.cpp src/disc/wiicrypt.cpp src/disc/fst.cpp src/data/sha1.cpp
+               src/ctgpr/ctgptables.cpp src/ctgpr/ctgpefa.cpp src/ctgpr/ctgpdsa.cpp src/disc/wiicrypt.cpp src/disc/fst.cpp \
+               src/data/sha1.cpp
 ctgpupd_CXX := yes
 
 # What libstdc++'s headers leave out of line for std::map and no plugin

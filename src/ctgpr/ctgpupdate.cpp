@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/ctgpupdate.hpp"
 
+#include "riftwii/ctgpdsa.hpp"
 #include "riftwii/ctgpyaz0.hpp"
 #include "riftwii/sha1.hpp"
 
@@ -1054,6 +1055,58 @@ bool ctgp_update_apply(const CtgpUpdateRead& read, std::uint64_t size, CtgpUpdat
             return read(place.offset, out.data(), out.size());
         },
         target, log, file_done, step, error);
+}
+
+bool ctgp_dia_verify_signature(const CtgpUpdateRead& read, std::uint64_t size, const CtgpDsaKey& key,
+                               const std::function<void(std::uint64_t done, std::uint64_t total)>& progress,
+                               std::string& error) {
+    constexpr std::size_t kSignedHeader = 0x68;
+    if (!read || size < kSignedHeader) {
+        error = "the update is too small to carry a signature";
+        return false;
+    }
+    std::vector<std::uint8_t> chunk(64 * 1024);
+    if (!read(0, chunk.data(), kSignedHeader)) {
+        error = "the update file could not be read";
+        return false;
+    }
+    if (std::memcmp(chunk.data(), "DIA0", 4) != 0) {
+        error = "not a DIA0 update";
+        return false;
+    }
+    const std::uint32_t length = be32(chunk.data() + 0x20);
+    if (length == 0 || length > 0x30) {
+        error = "the update is not signed";
+        return false;
+    }
+    std::uint8_t signature[0x30];
+    std::memcpy(signature, chunk.data() + 0x24, length);
+    // What the channel puts in place of the signature before it hashes.
+    static const std::uint8_t kFill[0x30] = {
+        0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,
+        0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x0F, 0x1E, 0x2D, 0x3C, 0x4B, 0x5A, 0x69, 0x78,
+        0xDE, 0xAD, 0xBE, 0xEF, 0x0B, 0xAD, 0xC0, 0xDE, 0xDE, 0xFA, 0xCE, 0xD0, 0xDA, 0xD0, 0x00, 0x00};
+    std::memset(chunk.data() + 0x20, 0, 4);
+    std::memcpy(chunk.data() + 0x24, kFill, sizeof kFill);
+    Sha1 digest;
+    digest.update(chunk.data(), kSignedHeader);
+    std::uint64_t done = kSignedHeader;
+    while (done < size) {
+        const std::size_t take = std::size_t(std::min<std::uint64_t>(chunk.size(), size - done));
+        if (!read(done, chunk.data(), take)) {
+            error = "the update file could not be read";
+            return false;
+        }
+        digest.update(chunk.data(), take);
+        done += take;
+        if (progress) progress(done, size);
+    }
+    const Sha1Digest value = digest.finish();
+    if (!ctgp_dsa_verify(key, value.data(), value.size(), signature, length)) {
+        error = "the update is not signed by CTGP-R, or was changed after it was signed";
+        return false;
+    }
+    return true;
 }
 
 }  // namespace riftwii
