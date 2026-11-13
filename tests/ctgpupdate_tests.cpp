@@ -610,7 +610,7 @@ void test_update_apply() {
             EXPECT_EQ(index, std::size_t(0));
             EXPECT_EQ(total, std::size_t(1));
             EXPECT_TRUE(path == "/Race/Course/NEW.szs");
-            EXPECT_TRUE(overall == part);  // one file: the whole
+            EXPECT_TRUE(overall > part - 1e-9 && overall < part + 1e-9);  // one file: the whole
             parts.push_back(part);
         },
         error));
@@ -619,13 +619,16 @@ void test_update_apply() {
     EXPECT_TRUE(!parts.empty() && parts.front() == 0.0 && parts.back() == 1.0);
 }
 
-// Two files of 17 and 13 bytes: the whole moves by size, 17/30 for the
-// first file and 13/30 for the second, the same in both.
+// Two files of 17 and 13 bytes: the whole moves by each file's weight, 3.45
+// times its section's size plus its unpacked size, the same in both.
 void test_update_step_weighted() {
     const std::vector<std::uint8_t> seventeen = {0x40, 'h', 'e', 'l', 'l', 'o', 0x14, 1, 0x33};
     const std::vector<std::uint8_t> thirteen = {0x20, 'a', 'b', 'c', 0x18, 0x13, 0x13, 0x28, 0x00, 'q', 0x13};
-    const auto dia = make_dia({make_section(17, seventeen, "/Race/Course/NEW.szs"),
-                               make_section(13, thirteen, "/Race/Course/NEW.szs")});
+    const auto first = make_section(17, seventeen, "/Race/Course/NEW.szs");
+    const auto second = make_section(13, thirteen, "/Race/Course/NEW.szs");
+    const auto dia = make_dia({first, second});
+    const double w1 = 3.45 * double(first.size()) + 17, w2 = 3.45 * double(second.size()) + 13;
+    const double s1 = w1 / (w1 + w2), s2 = w2 / (w1 + w2);
     MemoryTarget target;
     std::string error;
     std::vector<std::pair<std::size_t, double>> seen;  // file, overall
@@ -645,7 +648,7 @@ void test_update_step_weighted() {
     EXPECT_TRUE(seen.size() >= 6);
     for (std::size_t i = 1; i < seen.size(); ++i) EXPECT_TRUE(seen[i].second >= seen[i - 1].second);
     for (std::size_t i = 0; i < seen.size(); ++i) {
-        const double want = seen[i].first == 0 ? 17.0 / 30.0 * parts[i] : 17.0 / 30.0 + 13.0 / 30.0 * parts[i];
+        const double want = seen[i].first == 0 ? s1 * parts[i] : s1 + s2 * parts[i];
         EXPECT_TRUE(seen[i].second > want - 1e-9 && seen[i].second < want + 1e-9);
     }
     EXPECT_TRUE(!seen.empty() && seen.front().second == 0.0 && seen.back().second == 1.0);

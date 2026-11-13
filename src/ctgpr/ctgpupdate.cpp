@@ -837,6 +837,16 @@ bool ctgp_dif_apply(const std::uint8_t* data, std::size_t size, const CtgpDif& s
 namespace {
 
 using CtgpSectionLoader = std::function<bool(const CtgpDiaSection&, std::vector<std::uint8_t>&, std::string&)>;
+// Reads `length` bytes at `offset` of the update, for a look at a section's
+// header before the section itself is loaded.
+using CtgpUpdatePeek = std::function<bool(std::uint64_t offset, std::uint8_t* out, std::size_t length)>;
+
+// How long a file takes, for the bar: on Jack's Wii (2611-186) the five files'
+// times fit 18.3 s per MB of the update's own section plus 5.3 s per MB of
+// the file it rebuilds (within 8% for four of them, 29% for the fifth; the
+// unpacked size alone was off by up to 25%). So a file weighs its section's
+// size 3.45 times plus its unpacked size.
+constexpr double kSectionWeight = 3.45;
 
 // The rebuilt bytes go straight into the packer; the packed bytes into
 // pieces and the checksum. Nothing the size of the file is held unpacked.
@@ -864,10 +874,12 @@ bool rebuild_write(void* user, const std::uint8_t* data, std::size_t length) {
 
 // Shares of one file's bar: unpacking its bases, then rebuilding and packing
 // it, then checking and storing it.
-// Measured in Dolphin (pr-8): unpacking a file's bases takes about half its
-// time, the rebuild and packing most of the rest.
-constexpr double kBaseShare = 0.5;
-constexpr double kRebuildShare = 0.45;
+// In Dolphin (pr-8) unpacking a file's bases took about half its time and
+// storing almost none; on a Wii storing is slower (each 32 KiB goes to the
+// journal and is synced first), so it gets a fifth. The log's stage lines
+// (bases unpacked, packed, stored) give the real split.
+constexpr double kBaseShare = 0.45;
+constexpr double kRebuildShare = 0.35;
 
 // For the callers that don't ask why an apply failed.
 CtgpUpdateFailure& ignored_failure() {
@@ -892,8 +904,8 @@ private:
     const CtgpBaseSource& inner_;
 };
 
-bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section, CtgpUpdateTarget& target,
-                    const std::function<void(const std::string&)>& log,
+bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section, const CtgpUpdatePeek& peek,
+                    CtgpUpdateTarget& target, const std::function<void(const std::string&)>& log,
                     const CtgpUpdateFileDone& file_done, const CtgpUpdateStep& step, CtgpUpdateFailure& failure,
                     std::string& error) {
     // Anything that goes wrong is Temporary unless it is set to BadUpdate
@@ -915,6 +927,26 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
     // out of the table shows here, and the install is then rolled back.
     std::uint64_t unpacked_total = 0;
     const std::size_t count = update.sections.size();
+    // Each file's weight in the bar (kSectionWeight), from the table and a
+    // look at each section's header (its unpacked size at 0x18). A header
+    // that can't be read only makes the bar less even; the section itself is
+    // checked when it is loaded.
+    std::vector<double> weight(count, 0.0);
+    double weight_total = 0;
+    for (std::size_t index = 0; index < count; ++index) {
+        const CtgpDiaSection& place = update.sections[index];
+        std::uint8_t head[4] = {};
+        double unpacked = double(update.unpacked_size) / double(count ? count : 1);
+        if (peek && place.size >= 0x1c && peek(std::uint64_t(place.offset) + 0x18, head, sizeof head)) {
+            const std::uint32_t value = (std::uint32_t(head[0]) << 24) | (std::uint32_t(head[1]) << 16) |
+                                        (std::uint32_t(head[2]) << 8) | head[3];
+            if (value <= kCtgpUpdateMaxFileBytes) unpacked = double(value);
+        }
+        weight[index] = kSectionWeight * double(place.size) + unpacked;
+        weight_total += weight[index];
+    }
+    if (weight_total <= 0) weight_total = 1;
+    double weight_before = 0;
     for (std::size_t index = 0; index < count; ++index) {
         const CtgpDiaSection& place = update.sections[index];
         if (!load_section(place, section, error)) {
@@ -942,14 +974,14 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
             failure = CtgpUpdateFailure::BadUpdate;
             return false;
         }
-        // This file's share of the whole: its unpacked size of the header's
-        // total (unpacked_total already counts it).
-        const double before = double(unpacked_total - files.unpacked_size);
-        const double whole = update.unpacked_size ? double(update.unpacked_size) : 1.0;
+        // This file's share of the whole, by weight.
+        const double before = weight_before;
+        const double mine = weight[index];
+        weight_before += mine;
         const auto report = [&](double part) {
             if (step) {
                 const double clamped = std::min(1.0, std::max(0.0, part));
-                const double overall = (before + clamped * double(files.unpacked_size)) / whole;
+                const double overall = (before + clamped * mine) / weight_total;
                 step(index, count, path, clamped, std::min(1.0, std::max(0.0, overall)));
             }
         };
@@ -984,6 +1016,12 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
             sources.push_back(watched.back().get());
         }
         report(kBaseShare);
+        if (log) {
+            std::uint64_t base_bytes = 0;
+            for (const auto& base : owned) base_bytes += base->size();
+            log(path + ": " + std::to_string(base_count) + " base file(s) unpacked, " + std::to_string(base_bytes) +
+                " bytes");
+        }
 
         // Packed exactly as CTGP-R packs it: its hash lists cover the stored
         // bytes.
@@ -1038,6 +1076,7 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         watched.clear();
         owned.clear();
         report(kBaseShare + kRebuildShare);
+        if (log) log(path + ": rebuilt and packed, " + std::to_string(packed.size()) + " bytes to store");
         const Sha1Digest packed_digest = digest.finish();
         if (!target.check_file(path, packed_digest, error)) {
             return false;
@@ -1089,6 +1128,11 @@ bool ctgp_update_apply(const std::uint8_t* dia, std::size_t size, CtgpUpdateTarg
             out.assign(dia + place.offset, dia + place.offset + place.size);
             return true;
         },
+        [dia, size](std::uint64_t offset, std::uint8_t* out, std::size_t length) {
+            if (offset + length > size) return false;
+            std::memcpy(out, dia + offset, length);
+            return true;
+        },
         target, log, file_done, CtgpUpdateStep(), ignored_failure(), error);
 }
 
@@ -1133,6 +1177,7 @@ bool ctgp_update_apply(const CtgpUpdateRead& read, std::uint64_t size, CtgpUpdat
             out.resize(place.size);
             return read(place.offset, out.data(), out.size());
         },
+        read,
         target, log, file_done, step, failure, error);
 }
 
