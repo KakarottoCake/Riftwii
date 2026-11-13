@@ -43,8 +43,10 @@ inline TimeLeftText time_left_text(std::uint64_t seconds) {
 class TimeLeft {
 public:
     static constexpr std::uint64_t kFirstEstimateMs = 10000;  // nothing before this
-    static constexpr std::uint64_t kSampleMs = 1000;          // the rate is sampled at most once a second
-    static constexpr double kWeight = 0.15;                   // a new sample's share of the average
+    static constexpr std::uint64_t kSampleMs = 1000;          // one sample a second
+    static constexpr int kWindow = 30;                        // the rate over the last 30 samples
+    static constexpr double kKeep = 0.2;                      // the shown figure holds within 20%...
+    static constexpr std::uint64_t kSustainMs = 10000;        // ...or for 10 s outside it
 
     // `fraction` of the job done (0 to 1, never going back), `ms` since it
     // began.
@@ -53,25 +55,48 @@ public:
         if (fraction > 1) fraction = 1;
         if (fraction < fraction_) fraction = fraction_;
         fraction_ = fraction;
-        ms_ = ms;
-        if (ms < sample_ms_ + kSampleMs) return;
-        const double rate = (fraction - sample_fraction_) / double(ms - sample_ms_);
-        sample_fraction_ = fraction;
-        sample_ms_ = ms;
-        if (ms < kFirstEstimateMs || fraction <= 0) return;
-        if (rate_ <= 0) {
-            // The first estimate: the average over the whole job so far.
-            rate_ = fraction / double(ms);
+        if (count_ > 0 && ms < sample_ms_[(next_ + kWindow - 1) % kWindow] + kSampleMs) return;
+        // The rate over the window: a stage that is quick or slow for a few
+        // seconds (files differ) moves it little; a real change shows within
+        // half a minute.
+        const int oldest = count_ < kWindow ? 0 : next_;
+        const double from_f = count_ == 0 ? 0 : sample_fraction_[oldest];
+        const std::uint64_t from_ms = count_ == 0 ? 0 : sample_ms_[oldest];
+        sample_fraction_[next_] = fraction;
+        sample_ms_[next_] = ms;
+        next_ = (next_ + 1) % kWindow;
+        if (count_ < kWindow) ++count_;
+        if (ms < kFirstEstimateMs || fraction <= 0 || ms <= from_ms) return;
+        const double rate = count_ < kWindow ? fraction / double(ms) : (fraction - from_f) / double(ms - from_ms);
+        if (rate <= 0) return;
+        rate_ = rate;
+        // What is shown counts down by itself; only an estimate that stays
+        // more than kKeep away from it for kSustainMs moves it.
+        const double estimate = (1 - fraction) / rate_;  // ms
+        const double counted = shown_ms_ > double(ms - shown_at_) ? shown_ms_ - double(ms - shown_at_) : 0;
+        const bool outside = estimate < counted * (1 - kKeep) || estimate > counted * (1 + kKeep);
+        if (!outside) outside_since_ = 0;
+        else if (outside_since_ == 0) outside_since_ = ms;
+        if (shown_at_ == 0 || (outside && ms - outside_since_ >= kSustainMs)) {
+            shown_ms_ = estimate;
+            outside_since_ = 0;
         } else {
-            rate_ = kWeight * rate + (1 - kWeight) * rate_;
+            shown_ms_ = counted;
         }
+        shown_at_ = ms;
     }
 
     // Whether there is an estimate yet.
     bool ready() const { return rate_ > 0 && fraction_ < 1; }
 
-    // Seconds left at the smoothed rate; 0 until ready().
+    // Seconds left as shown; 0 until ready().
     std::uint64_t seconds() const {
+        if (!ready()) return 0;
+        return static_cast<std::uint64_t>(shown_ms_ / 1000.0 + 0.5);
+    }
+
+    // Seconds left at the window's rate alone, without the hold.
+    std::uint64_t raw_seconds() const {
         if (!ready()) return 0;
         return static_cast<std::uint64_t>((1 - fraction_) / rate_ / 1000.0 + 0.5);
     }
@@ -80,10 +105,14 @@ public:
 
 private:
     double fraction_ = 0;
-    std::uint64_t ms_ = 0;
-    double sample_fraction_ = 0;
-    std::uint64_t sample_ms_ = 0;
+    double sample_fraction_[kWindow] = {};
+    std::uint64_t sample_ms_[kWindow] = {};
+    int next_ = 0;
+    int count_ = 0;
     double rate_ = 0;  // share per millisecond
+    double shown_ms_ = 0;
+    std::uint64_t shown_at_ = 0;
+    std::uint64_t outside_since_ = 0;
 };
 
 }  // namespace riftwii

@@ -45,6 +45,20 @@ inline bool ctgp_move_aside(const std::string& from, const std::string& to,
     return rename(from.c_str(), to.c_str()) == 0;
 }
 
+// Whether an update waits at `path`. `size_of` gives a file's length (0 on
+// success, as stat). An empty file is not an update: CTGP-R's own channel
+// leaves a 0-byte update.dif when it starts, so one is removed quietly (no
+// notice, nothing set aside) and the server is asked as if none were there.
+inline bool ctgp_update_waiting(const std::string& path,
+                                const std::function<int(const char*, std::uint64_t*)>& size_of,
+                                const std::function<int(const char*)>& remove) {
+    std::uint64_t size = 0;
+    if (size_of(path.c_str(), &size) != 0) return false;
+    if (size != 0) return true;
+    remove(path.c_str());
+    return false;
+}
+
 // How a download ends. A checked one replaces `update`; one the check
 // found can never be installed (CtgpUpdRequest::bad_update) is kept as
 // `bad_path`, so the menu can say it was set aside, as it does for one found

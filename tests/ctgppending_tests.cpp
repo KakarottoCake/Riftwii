@@ -3,6 +3,7 @@
 // What the menu does with a CTGP-R update already on the card
 // (riftwii/ctgppending.hpp).
 #include <iostream>
+#include <map>
 #include <set>
 #include <string>
 
@@ -49,6 +50,28 @@ int main() {
     locked = true;
     EXPECT_TRUE(!ctgp_move_aside("update.dif", "update.dif.installed", remove, rename));
     EXPECT_TRUE(files == std::set<std::string>{"update.dif"});
+
+    // An update waiting: a real one is; an empty one (CTGP-R's channel
+    // leaves one) is removed and isn't; none is not.
+    {
+        std::map<std::string, std::uint64_t> card = {{"update.dif", 12731484}};
+        const auto size_of = [&card](const char* path, std::uint64_t* size) {
+            const auto it = card.find(path);
+            if (it == card.end()) return -1;
+            *size = it->second;
+            return 0;
+        };
+        const auto drop = [&card](const char* path) { return card.erase(path) ? 0 : -1; };
+        EXPECT_TRUE(ctgp_update_waiting("update.dif", size_of, drop));
+        EXPECT_TRUE(card.count("update.dif") == 1);
+        card["update.dif"] = 0;
+        EXPECT_TRUE(!ctgp_update_waiting("update.dif", size_of, drop));
+        EXPECT_TRUE(card.empty());
+        EXPECT_TRUE(!ctgp_update_waiting("update.dif", size_of, drop));
+        // An empty one that can't be removed is still not an update.
+        card["update.dif"] = 0;
+        EXPECT_TRUE(!ctgp_update_waiting("update.dif", size_of, [](const char*) { return -1; }));
+    }
 
     // How a download ends: checked → update.dif; found unusable → kept as
     // update.dif.bad (an older one replaced); anything else → removed.

@@ -19744,8 +19744,23 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 	bool asked = false;
 	riftwii::wii::CtgpUpdateInfo info;
 	std::string error;
-	struct stat st;
-	if (stat(update_path, &st) == 0) {
+	// An empty update.dif (CTGP-R's channel leaves one when it starts) is
+	// not an update: it goes quietly, and the server is asked as usual.
+	const auto updateWaiting = [update_path]() {
+		return riftwii::ctgp_update_waiting(
+			update_path,
+			[](const char* path, std::uint64_t* size) {
+				struct stat st;
+				if (stat(path, &st) != 0) return -1;
+				*size = static_cast<std::uint64_t>(st.st_size);
+				return 0;
+			},
+			[](const char* path) {
+				logf("CTGP-R update: %s is empty (CTGP-R's channel leaves one), removed\n", path);
+				return std::remove(path);
+			});
+	};
+	if (updateWaiting()) {
 		// A file left on the card may not be usable any more: one that can't
 		// be read, or one made for another version of the pack, is set aside
 		// as update.dif.bad; one already installed (a power cut between the
@@ -19795,7 +19810,7 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 			break;
 		}
 	}
-	if (stat(update_path, &st) != 0) {
+	if (!updateWaiting()) {
 		// Asking the server is a download: it waits for the Downloads
 		// setting, like covers and cheats. An update already on the card
 		// installs either way.
@@ -19838,7 +19853,8 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 	bool ok;
 	{
 		ProgressBar bar(56, 280, 528);
-		PopupBox box(tr("Updating CTGP-R"), tr("Installing the update..."));
+		PopupBox box(tr("Updating CTGP-R"),
+			std::string(tr("Installing the update...")) + "\n" + tr("Working out the time left..."));
 		box.AddProgress(&bar);
 		// The power button waits while blob.bin is rewritten (and, on a
 		// failure, put back).
@@ -19849,12 +19865,16 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 		// time left both follow the update's share done by size (the files
 		// differ by more than twice), not file by file.
 		u64 lastDrawn = 0;
-		const u64 started = gettime();
+		// The clock starts with the first file: the checks before it (the
+		// update's signature, the journal) move no bar and would only make
+		// the first estimate long.
+		u64 started = 0;
 		riftwii::TimeLeft estimate;
 		ok = updater.install(
 			disc,
 			[&](std::size_t index, std::size_t count, const std::string& path, double part, double overall) {
 				const u64 now = gettime();
+				if (started == 0) started = now;
 				estimate.update(overall, diff_msec(started, now));
 				if (lastDrawn != 0 && part > 0.0 && part < 1.0 && diff_msec(lastDrawn, now) < 200) return;
 				lastDrawn = now;

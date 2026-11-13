@@ -864,8 +864,10 @@ bool rebuild_write(void* user, const std::uint8_t* data, std::size_t length) {
 
 // Shares of one file's bar: unpacking its bases, then rebuilding and packing
 // it, then checking and storing it.
-constexpr double kBaseShare = 0.35;
-constexpr double kRebuildShare = 0.6;
+// Measured in Dolphin (pr-8): unpacking a file's bases takes about half its
+// time, the rebuild and packing most of the rest.
+constexpr double kBaseShare = 0.5;
+constexpr double kRebuildShare = 0.45;
 
 // For the callers that don't ask why an apply failed.
 CtgpUpdateFailure& ignored_failure() {
