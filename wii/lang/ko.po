@@ -4604,3 +4604,6 @@ msgstr "CTGP-R의 해시 목록이 업데이트되었습니다. 다음 업데이
 
 msgid "CTGP-R was updated to {1}. CTGP-R's channel installs the next update itself. CTGP-R starts now."
 msgstr "CTGP-R이 {1}(으)로 업데이트되었습니다. 다음 업데이트는 CTGP-R 채널이 직접 설치합니다. CTGP-R을 시작합니다."
+
+msgid "The CTGP-R update on offer changed while the prompt was up, so nothing was downloaded. It is offered again the next time CTGP-R starts. CTGP-R starts now."
+msgstr "안내가 표시된 동안 제공된 CTGP-R 업데이트가 바뀌어 아무것도 다운로드하지 않았습니다. 다음에 CTGP-R을 시작할 때 다시 제공됩니다. CTGP-R을 시작합니다."

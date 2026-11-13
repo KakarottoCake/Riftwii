@@ -19644,7 +19644,15 @@ static bool DownloadCtgpUpdate(riftwii::wii::CtgpUpdater& updater, const riftwii
 		HaltGui();
 		box.Close();
 	}
-	if (!ok && updater.bad_update()) {
+	if (!ok && updater.offer_changed()) {
+		// Not a fault: the server's offer changed after the player agreed
+		// (none now, or another size). Nothing was downloaded.
+		logf("CTGP-R update: nothing downloaded: %s\n", error.c_str());
+		if (say_failure)
+			ShowPopup(tr("CTGP-R update"),
+				tr("The CTGP-R update on offer changed while the prompt was up, so nothing was downloaded. It is offered again the next time CTGP-R starts. CTGP-R starts now."),
+				tr("OK"));
+	} else if (!ok && updater.bad_update()) {
 		// The plugin kept it as update.dif.bad: it can never be installed.
 		logf("CTGP-R update: the download can't be used, set aside as update.dif.bad: %s\n", error.c_str());
 		ShowPopup(tr("CTGP-R update"),

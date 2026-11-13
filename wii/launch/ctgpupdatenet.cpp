@@ -197,7 +197,7 @@ bool CtgpUpdater::inspect(CtgpUpdateInfo& out, std::string& error) {
     return true;
 }
 
-bool CtgpUpdater::check(CtgpCheckReply& reply, std::string& error) {
+bool CtgpUpdater::check(CtgpCheckReply& reply, std::string& error, bool keep_open) {
     if (!NetStart(error)) return false;
     CtgpUpdRequest request;
     request.op = CtgpUpdOp::Check;
@@ -242,6 +242,8 @@ bool CtgpUpdater::check(CtgpCheckReply& reply, std::string& error) {
         return false;
     }
     reply = request.reply;
+    // Only download() keeps it: the player may take a while over the prompt.
+    if (!keep_open) close_connection();
     logf("CTGP-R update: %s answered: status %u, %s\n", host != nullptr ? host : "the server",
          unsigned(reply.status),
          reply.update_waiting ? ("an update of " + std::to_string(reply.update_bytes) + " bytes").c_str()
@@ -259,15 +261,10 @@ void CtgpUpdater::close_connection() {
 bool CtgpUpdater::download(std::uint32_t size, const CtgpDownloadProgress& progress, std::string& error) {
     offer_changed_ = false;
     CtgpFetchSteps steps;
-    steps.check = [this](CtgpCheckReply& reply, std::string& why) { return check(reply, why); };
-    steps.download = [&](std::uint64_t& received, bool& stopped, bool& bad, std::string& why) {
-        const CtgpDownloadProgress counted = [&](std::uint64_t done, std::uint64_t total) {
-            received = done;
-            stopped = progress && !progress(done, total);
-            return !stopped;
-        };
-        const bool ok = download_now(size, counted, why);
-        bad = bad_update_;
+    steps.check = [this](CtgpCheckReply& reply, std::string& why) { return check(reply, why, true); };
+    steps.download = [&](bool& closed_at_start, std::string& why) {
+        const bool ok = download_now(size, progress, why);
+        closed_at_start = !ok && !bad_update_ && ctgp_download_closed_at_start(why);
         return ok;
     };
     steps.close = [this] { close_connection(); };

@@ -63,11 +63,12 @@ public:
     // Brings the network up and asks the update server whether an update
     // waits for the installed packages. Only the answer is used: download()
     // asks again on a connection of its own.
-    bool check(CtgpCheckReply& reply, std::string& error);
+    // (`keep_open`: download()'s own check, which downloads on it at once.)
+    bool check(CtgpCheckReply& reply, std::string& error, bool keep_open = false);
     // Saves the update the check offered (`size` bytes) to kCtgpUpdatePath
     // (by way of kCtgpUpdatePartPath): asks the server again and downloads at
     // once, so no connection waits on the player; fails (offer_changed())
-    // when the server now offers something else. A download the server
+    // when the server now offers none, or one of another size. A download the server
     // closes before its first byte is tried once more. `progress` may stop it.
     bool download(std::uint32_t size, const CtgpDownloadProgress& progress, std::string& error);
     // Installs the update at kCtgpUpdatePath into blob.bin. `disc` reads the

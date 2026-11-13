@@ -213,6 +213,28 @@ void test_download_failures() {
     EXPECT_TRUE(!ctgp_download(none.io(), kCtgpCheckMaxUpdateBytes + 1, keep, CtgpDownloadProgress(), error));
     EXPECT_TRUE(none.sent.empty());
 
+    // Which failures are "the server closed it before its first byte"
+    // (riftwii/ctgpfetch.hpp retries only those), from ctgp_download itself.
+    {
+        ScriptedServer closed;  // sends nothing, then closes
+        EXPECT_TRUE(!ctgp_download(closed.io(), 1000, keep, CtgpDownloadProgress(), error));
+        EXPECT_TRUE(ctgp_download_closed_at_start(error));
+        ScriptedServer later;  // closes after some bytes
+        later.script.assign(10, 0xAB);
+        EXPECT_TRUE(!ctgp_download(later.io(), 1000, keep, CtgpDownloadProgress(), error));
+        EXPECT_TRUE(!ctgp_download_closed_at_start(error));
+        ScriptedServer card_full;
+        card_full.script.assign(500, 0xAB);
+        EXPECT_TRUE(!ctgp_download(card_full.io(), 500, [](const std::uint8_t*, std::size_t) { return false; },
+                                   CtgpDownloadProgress(), error));
+        EXPECT_TRUE(!ctgp_download_closed_at_start(error));
+        ScriptedServer broken;
+        CtgpCheckIo io = broken.io();
+        io.receive_some = [](std::uint8_t*, std::size_t, std::size_t&) { return false; };  // reset or timeout
+        EXPECT_TRUE(!ctgp_download(io, 1000, keep, CtgpDownloadProgress(), error));
+        EXPECT_TRUE(!ctgp_download_closed_at_start(error));
+    }
+
     // A reply cut short.
     ScriptedServer cut;
     cut.script = make_reply(true, 10);
@@ -243,15 +265,13 @@ void test_fetch() {
             r.update_bytes = offer;
             return true;
         };
-        st.download = [&s](std::uint64_t& received, bool& stopped, bool& bad, std::string& e) {
+        st.download = [&s](bool& closed_at_start, std::string& e) {
             EXPECT_TRUE(s.open);
             const std::uint64_t got = s.sends.at(std::size_t(s.downloads++));
-            received = got;
-            stopped = false;
-            bad = s.bad;
             s.open = false;
             if (got == size) return true;
             e = "the server closed the download at " + std::to_string(got) + " of " + std::to_string(size) + " bytes";
+            closed_at_start = !s.bad && ctgp_download_closed_at_start(e);
             return false;
         };
         st.close = [&s] { s.open = false; ++s.closes; };
@@ -290,6 +310,20 @@ void test_fetch() {
         Server s{{size}, {0}};
         s.bad = true;
         EXPECT_TRUE(ctgp_fetch_offer(size, steps_for(s), e) == CtgpFetch::Failed);
+        EXPECT_EQ(s.downloads, 1);
+    }
+    {
+        // A card that can't take the file fails at 0 bytes too: not retried.
+        Server s{{size}, {0}};
+        CtgpFetchSteps st = steps_for(s);
+        st.download = [&s](bool& closed_at_start, std::string& e) {
+            ++s.downloads;
+            s.open = false;
+            e = "the update could not be saved";
+            closed_at_start = ctgp_download_closed_at_start(e);
+            return false;
+        };
+        EXPECT_TRUE(ctgp_fetch_offer(size, st, e) == CtgpFetch::Failed);
         EXPECT_EQ(s.downloads, 1);
     }
     {
