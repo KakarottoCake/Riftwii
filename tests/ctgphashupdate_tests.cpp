@@ -509,6 +509,7 @@ void test_refusals(const fs::path& dir) {
             bool grow = true;
             went_in = ctgp_hash_update_install(tio, t.card.jelly_size, t.key, kIv, {new_list()}, 0x01031375u, jp,
                                                [] { return true; }, rolled_back, e, &key, &grow);
+            const std::string why = e;
             EXPECT_TRUE(!grow);
             if (went_in) break;
             if (fs::exists(jp)) {
@@ -519,17 +520,11 @@ void test_refusals(const fs::path& dir) {
                             CtgpJournalRecovery::Failed);
             }
             EXPECT_TRUE(t.card.img.bytes == t.before_card && !fs::exists(jp));
-            if (e.find("could not be looked up") != std::string::npos) saw_lookup = true;
-            if (e.find("TEST.HSH could not be read") != std::string::npos) saw_read = true;
+            if (why.find("could not be looked up") != std::string::npos) saw_lookup = true;
+            if (why.find("TEST.HSH could not be read") != std::string::npos) saw_read = true;
         }
+        // The last budget was enough: the same list went in on that card.
         EXPECT_TRUE(saw_lookup && saw_read && went_in);
-        // The same list on a card that reads: it goes in (the reads above
-        // were the only fault).
-        reads_left = -1;
-        bool grow = true;
-        EXPECT_TRUE(ctgp_hash_update_install(counted, s.card.jelly_size, s.key, kIv, {new_list()}, 0x01031375u, jp,
-                                             [] { return true; }, rolled_back, e, &key, &grow));
-        EXPECT_TRUE(!grow);
     }
     {
         // A damaged disk is never "the channel's to install": only a list
@@ -538,12 +533,13 @@ void test_refusals(const fs::path& dir) {
             Damage damage;
             const char* path;
             bool grow;
+            const char* says;
         };
         const Case cases[] = {
-            {Damage::HashOutside, "/PACKAGES/HASH/TEST.HSH", false},
-            {Damage::HashIsFile, "/PACKAGES/HASH/TEST.HSH", false},
-            {Damage::HashRunsOff, "/PACKAGES/HASH/OTHER.HSH", false},
-            {Damage::HashFullEnd, "/PACKAGES/HASH/OTHER.HSH", true},  // read to its end: missing
+            {Damage::HashOutside, "/PACKAGES/HASH/TEST.HSH", false, "lies outside it"},
+            {Damage::HashIsFile, "/PACKAGES/HASH/TEST.HSH", false, "is not a folder"},
+            {Damage::HashRunsOff, "/PACKAGES/HASH/OTHER.HSH", false, "ends early"},
+            {Damage::HashFullEnd, "/PACKAGES/HASH/OTHER.HSH", true, "has no"},  // read to its end: missing
         };
         for (const Case& c : cases) {
             Setup s = setup(64, c.damage);
@@ -554,6 +550,7 @@ void test_refusals(const fs::path& dir) {
             EXPECT_TRUE(!ctgp_hash_update_install(raw_io(raw), s.card.jelly_size, s.key, kIv, {list}, 2, jp,
                                                   [] { return true; }, rolled_back, e, &key, &grow));
             EXPECT_TRUE(grow == c.grow);
+            EXPECT_TRUE(e.find(c.says) != std::string::npos);
             EXPECT_TRUE(raw.writes == 0 && s.card.img.bytes == s.before_card && !fs::exists(jp));
         }
     }

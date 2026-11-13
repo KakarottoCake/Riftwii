@@ -72,9 +72,11 @@ public:
     using Sink = std::function<bool(const std::uint8_t* data, std::size_t length)>;
     bool read_file(const std::string& path, const Sink& sink, std::uint32_t* size, std::string& error);
 
-    // Whether the file is there (`present`, and its `size`). False only when
-    // the disk could not be read (or the path names a folder): a file that
-    // is simply not there is true with `present` false.
+    // Whether the file is there (`present`, and its `size`). A file that is
+    // simply not there (its folder read to a clean end) is true with
+    // `present` false. False, `present` false, for anything else that stops
+    // the lookup: a read error, a damaged folder (outside the disk, a chain
+    // that runs off it), a part of the wrong kind, or a path naming a folder.
     bool stat_file(const std::string& path, bool& present, std::uint32_t& size, std::string& error);
 
     // Free clusters, as the FAT says before any pending write is flushed.

@@ -404,7 +404,11 @@ struct CtgpPackWriter::Impl {
     // disk or whose chain runs off it, or a part of the wrong kind (a file
     // where a folder is meant, or the reverse) leaves it false: the disk is
     // damaged or not CTGP-R's layout, which neither RiftWii nor a re-download
-    // mends, but nothing about the update itself is wrong.
+    // mends, but nothing about the update itself is wrong. (walk_chain lets
+    // a chain that runs off the image end there, as some packs claim a
+    // larger volume than the file holds; here that only counts against a
+    // name not found in a folder with no end mark, and failing closed means
+    // the update stays on the card rather than being deleted.)
     bool find(const std::string& path, Dirent& out, std::string& error, bool* missing = nullptr) const {
         if (missing != nullptr) *missing = false;
         if (path.empty() || path[0] != '/') {
