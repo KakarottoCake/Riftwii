@@ -4553,3 +4553,12 @@ msgstr "A atualização do CTGP-R no cartão SD não pode ser usada ({1}), entã
 
 msgid "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, so it was set aside."
 msgstr "A atualização do CTGP-R no cartão SD é para a versão {1}, mas o CTGP-R {2} está instalado, então foi deixada de lado."
+
+msgid "The CTGP-R update on the SD card can't be used ({1}), and it could not be moved aside. CTGP-R starts without it."
+msgstr "A atualização do CTGP-R no cartão SD não pode ser usada ({1}) e não foi possível deixá-la de lado. O CTGP-R inicia sem ela."
+
+msgid "The CTGP-R update on the SD card is already installed, but it could not be moved aside. CTGP-R starts now."
+msgstr "A atualização do CTGP-R no cartão SD já está instalada, mas não foi possível deixá-la de lado. O CTGP-R inicia agora."
+
+msgid "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, and it could not be moved aside. CTGP-R starts without it."
+msgstr "A atualização do CTGP-R no cartão SD é para a versão {1}, mas o CTGP-R {2} está instalado, e não foi possível deixá-la de lado. O CTGP-R inicia sem ela."

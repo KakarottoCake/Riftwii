@@ -9544,7 +9544,21 @@ T.update({
         "La actualización de CTGP-R de la tarjeta SD es para la versión {1}, pero está instalado CTGP-R {2}, así que se ha apartado.",
         "SDカードのCTGP-Rの更新はバージョン{1}用ですが、インストールされているのはCTGP-R {2}のため、別に移しました。",
         "A atualização do CTGP-R no cartão SD é para a versão {1}, mas o CTGP-R {2} está instalado, então foi deixada de lado.",
-        "L'aggiornamento di CTGP-R sulla scheda SD è per la versione {1}, ma è installato CTGP-R {2}, quindi è stato messo da parte."),
+        "L'aggiornamento di CTGP-R sulla scheda SD è per la versione {1}, ma è installato CTGP-R {2}, quindi è stato messo da parte."),    "The CTGP-R update on the SD card can't be used ({1}), and it could not be moved aside. CTGP-R starts without it.": (
+        "La actualización de CTGP-R de la tarjeta SD no se puede usar ({1}) y no se ha podido apartar. CTGP-R se inicia sin ella.",
+        "SDカードのCTGP-Rの更新は使用できず（{1}）、別に移すこともできませんでした。CTGP-Rは更新なしで起動します。",
+        "A atualização do CTGP-R no cartão SD não pode ser usada ({1}) e não foi possível deixá-la de lado. O CTGP-R inicia sem ela.",
+        "L'aggiornamento di CTGP-R sulla scheda SD non può essere usato ({1}) e non è stato possibile metterlo da parte. CTGP-R si avvia senza."),
+    "The CTGP-R update on the SD card is already installed, but it could not be moved aside. CTGP-R starts now.": (
+        "La actualización de CTGP-R de la tarjeta SD ya está instalada, pero no se ha podido apartar. CTGP-R se inicia ahora.",
+        "SDカードのCTGP-Rの更新はすでにインストールされていますが、別に移せませんでした。CTGP-Rを起動します。",
+        "A atualização do CTGP-R no cartão SD já está instalada, mas não foi possível deixá-la de lado. O CTGP-R inicia agora.",
+        "L'aggiornamento di CTGP-R sulla scheda SD è già installato, ma non è stato possibile metterlo da parte. CTGP-R si avvia ora."),
+    "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, and it could not be moved aside. CTGP-R starts without it.": (
+        "La actualización de CTGP-R de la tarjeta SD es para la versión {1}, pero está instalado CTGP-R {2}, y no se ha podido apartar. CTGP-R se inicia sin ella.",
+        "SDカードのCTGP-Rの更新はバージョン{1}用ですが、インストールされているのはCTGP-R {2}で、別に移すこともできませんでした。CTGP-Rは更新なしで起動します。",
+        "A atualização do CTGP-R no cartão SD é para a versão {1}, mas o CTGP-R {2} está instalado, e não foi possível deixá-la de lado. O CTGP-R inicia sem ela.",
+        "L'aggiornamento di CTGP-R sulla scheda SD è per la versione {1}, ma è installato CTGP-R {2}, e non è stato possibile metterlo da parte. CTGP-R si avvia senza."),
 })
 KO.update({
     "A CTGP-R update ({1} MB) is available. Download and install it now?":
@@ -9559,7 +9573,12 @@ KO.update({
     "The CTGP-R update on the SD card can't be used ({1}), so it was set aside.":
         "SD 카드의 CTGP-R 업데이트를 사용할 수 없어서({1}) 따로 옮겼습니다.",
     "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, so it was set aside.":
-        "SD 카드의 CTGP-R 업데이트는 {1} 버전용이지만 설치된 것은 CTGP-R {2}이라서 따로 옮겼습니다.",
+        "SD 카드의 CTGP-R 업데이트는 {1} 버전용이지만 설치된 것은 CTGP-R {2}이라서 따로 옮겼습니다.",    "The CTGP-R update on the SD card can't be used ({1}), and it could not be moved aside. CTGP-R starts without it.":
+        "SD 카드의 CTGP-R 업데이트를 사용할 수 없고({1}) 따로 옮길 수도 없었습니다. CTGP-R은 업데이트 없이 시작합니다.",
+    "The CTGP-R update on the SD card is already installed, but it could not be moved aside. CTGP-R starts now.":
+        "SD 카드의 CTGP-R 업데이트는 이미 설치되어 있지만 따로 옮길 수 없었습니다. CTGP-R을 시작합니다.",
+    "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, and it could not be moved aside. CTGP-R starts without it.":
+        "SD 카드의 CTGP-R 업데이트는 {1} 버전용이지만 설치된 것은 CTGP-R {2}이고, 따로 옮길 수도 없었습니다. CTGP-R은 업데이트 없이 시작합니다.",
 })
 FR.update({
     "A CTGP-R update ({1} MB) is available. Download and install it now?":
@@ -9574,7 +9593,12 @@ FR.update({
     "The CTGP-R update on the SD card can't be used ({1}), so it was set aside.":
         "La mise à jour de CTGP-R sur la carte SD est inutilisable ({1}) : elle a été mise de côté.",
     "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, so it was set aside.":
-        "La mise à jour de CTGP-R sur la carte SD est pour la version {1}, mais CTGP-R {2} est installé : elle a été mise de côté.",
+        "La mise à jour de CTGP-R sur la carte SD est pour la version {1}, mais CTGP-R {2} est installé : elle a été mise de côté.",    "The CTGP-R update on the SD card can't be used ({1}), and it could not be moved aside. CTGP-R starts without it.":
+        "La mise à jour de CTGP-R sur la carte SD est inutilisable ({1}) et n'a pas pu être mise de côté. CTGP-R démarre sans elle.",
+    "The CTGP-R update on the SD card is already installed, but it could not be moved aside. CTGP-R starts now.":
+        "La mise à jour de CTGP-R sur la carte SD est déjà installée, mais elle n'a pas pu être mise de côté. CTGP-R démarre.",
+    "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, and it could not be moved aside. CTGP-R starts without it.":
+        "La mise à jour de CTGP-R sur la carte SD est pour la version {1}, mais CTGP-R {2} est installé, et elle n'a pas pu être mise de côté. CTGP-R démarre sans elle.",
 })
 
 if __name__ == "__main__":

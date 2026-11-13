@@ -4553,3 +4553,12 @@ msgstr "SDカードのCTGP-Rの更新は使用できないため（{1}）、別�
 
 msgid "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, so it was set aside."
 msgstr "SDカードのCTGP-Rの更新はバージョン{1}用ですが、インストールされているのはCTGP-R {2}のため、別に移しました。"
+
+msgid "The CTGP-R update on the SD card can't be used ({1}), and it could not be moved aside. CTGP-R starts without it."
+msgstr "SDカードのCTGP-Rの更新は使用できず（{1}）、別に移すこともできませんでした。CTGP-Rは更新なしで起動します。"
+
+msgid "The CTGP-R update on the SD card is already installed, but it could not be moved aside. CTGP-R starts now."
+msgstr "SDカードのCTGP-Rの更新はすでにインストールされていますが、別に移せませんでした。CTGP-Rを起動します。"
+
+msgid "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, and it could not be moved aside. CTGP-R starts without it."
+msgstr "SDカードのCTGP-Rの更新はバージョン{1}用ですが、インストールされているのはCTGP-R {2}で、別に移すこともできませんでした。CTGP-Rは更新なしで起動します。"

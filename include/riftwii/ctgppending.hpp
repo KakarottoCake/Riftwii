@@ -45,6 +45,24 @@ inline bool ctgp_move_aside(const std::string& from, const std::string& to,
     return rename(from.c_str(), to.c_str()) == 0;
 }
 
+// How a download ends. A checked one replaces `update`; one the check
+// found can never be installed (CtgpUpdRequest::bad_update) is kept as
+// `bad_path`, so the menu can say it was set aside, as it does for one found
+// waiting; anything else (the card, the connection) is removed.
+enum class CtgpDownloadEnd { Kept, SetAside, Removed };
+inline CtgpDownloadEnd ctgp_finish_download(bool checked, bool bad, const std::string& part,
+                                            const std::string& update, const std::string& bad_path,
+                                            const std::function<int(const char*)>& remove,
+                                            const std::function<int(const char*, const char*)>& rename) {
+    if (checked) {
+        if (ctgp_move_aside(part, update, remove, rename)) return CtgpDownloadEnd::Kept;
+    } else if (bad) {
+        if (ctgp_move_aside(part, bad_path, remove, rename)) return CtgpDownloadEnd::SetAside;
+    }
+    remove(part.c_str());
+    return CtgpDownloadEnd::Removed;
+}
+
 // The length of an open file, left at its start. False when the card would
 // not say (a failed seek, or ftello's -1): that is the card's fault, never
 // the file's, so a caller must not take it as a file that is empty or too

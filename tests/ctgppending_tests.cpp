@@ -50,6 +50,28 @@ int main() {
     EXPECT_TRUE(!ctgp_move_aside("update.dif", "update.dif.installed", remove, rename));
     EXPECT_TRUE(files == std::set<std::string>{"update.dif"});
 
+    // How a download ends: checked → update.dif; found unusable → kept as
+    // update.dif.bad (an older one replaced); anything else → removed.
+    locked = false;
+    files = {"update.dif.part", "update.dif.bad"};
+    EXPECT_TRUE(ctgp_finish_download(false, true, "update.dif.part", "update.dif", "update.dif.bad", remove, rename) ==
+                CtgpDownloadEnd::SetAside);
+    EXPECT_TRUE(files == std::set<std::string>{"update.dif.bad"});
+    files = {"update.dif.part"};
+    EXPECT_TRUE(ctgp_finish_download(true, false, "update.dif.part", "update.dif", "update.dif.bad", remove, rename) ==
+                CtgpDownloadEnd::Kept);
+    EXPECT_TRUE(files == std::set<std::string>{"update.dif"});
+    files = {"update.dif.part"};
+    EXPECT_TRUE(ctgp_finish_download(false, false, "update.dif.part", "update.dif", "update.dif.bad", remove, rename) ==
+                CtgpDownloadEnd::Removed);
+    EXPECT_TRUE(files.empty());
+    // A bad one that can't be moved is removed, and is not reported as set aside.
+    files = {"update.dif.part", "update.dif.bad"};
+    const auto no_rename = [](const char*, const char*) { return -1; };
+    EXPECT_TRUE(ctgp_finish_download(false, true, "update.dif.part", "update.dif", "update.dif.bad", remove,
+                                     no_rename) == CtgpDownloadEnd::Removed);
+    EXPECT_TRUE(files.empty());
+
     // The size of a file, and a stream the card can't size (a pipe: its seeks
     // fail), which must not look like an empty or huge file.
     {

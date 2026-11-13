@@ -19615,7 +19615,13 @@ static bool CheckCtgpUpdateServer(riftwii::wii::CtgpUpdater& updater)
 		HaltGui();
 		box.Close();
 	}
-	if (!ok) {
+	if (!ok && updater.bad_update()) {
+		// The plugin kept it as update.dif.bad: it can never be installed.
+		logf("CTGP-R update: the download can't be used, set aside as update.dif.bad: %s\n", error.c_str());
+		ShowPopup(tr("CTGP-R update"),
+			tr("The CTGP-R update on the SD card can't be used ({1}), so it was set aside.", {FlatCapped(error, 140)}),
+			tr("OK"));
+	} else if (!ok) {
 		logf("CTGP-R update: download failed: %s\n", error.c_str());
 		ShowPopup(tr("CTGP-R update failed"),
 			tr("The update could not be downloaded: {1}. CTGP-R starts without it.", {FlatCapped(error, 140)}),
@@ -19659,7 +19665,10 @@ static bool SetCtgpUpdateAside(const std::string& error)
 {
 	logf("CTGP-R update: %s can't be used: %s\n", riftwii::wii::kCtgpUpdatePath, error.c_str());
 	if (!MoveCtgpUpdate("sd:/ctgpr/update.dif.bad")) {
-		ShowCtgpUpdateFailed(error + "; it could not be moved aside");
+		ShowPopup(tr("CTGP-R update failed"),
+			tr("The CTGP-R update on the SD card can't be used ({1}), and it could not be moved aside. CTGP-R starts without it.",
+				{FlatCapped(error, 140)}),
+			tr("OK"));
 		return false;
 	}
 	logf("CTGP-R update: set aside as update.dif.bad\n");
@@ -19736,7 +19745,9 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 			logf("CTGP-R update: %s is %s, which is already installed\n", update_path,
 				CtgpVersionText(info.version).c_str());
 			if (!MoveCtgpUpdate("sd:/ctgpr/update.dif.installed")) {
-				ShowCtgpUpdateFailed("it is already installed; it could not be moved aside");
+				ShowPopup(tr("CTGP-R update"),
+					tr("The CTGP-R update on the SD card is already installed, but it could not be moved aside. CTGP-R starts now."),
+					tr("OK"));
 				return;
 			}
 			break;
@@ -19748,8 +19759,10 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 			logf("CTGP-R update: %s updates %s, but the pack is %s\n", update_path,
 				CtgpVersionText(info.base_version).c_str(), CtgpVersionText(info.pack_version).c_str());
 			if (!MoveCtgpUpdate("sd:/ctgpr/update.dif.bad")) {
-				ShowCtgpUpdateFailed("it is for version " + CtgpVersionText(info.base_version) +
-					"; it could not be moved aside");
+				ShowPopup(tr("CTGP-R update failed"),
+					tr("The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, and it could not be moved aside. CTGP-R starts without it.",
+						{CtgpVersionText(info.base_version), CtgpVersionText(info.pack_version)}),
+					tr("OK"));
 				return;
 			}
 			logf("CTGP-R update: set aside as update.dif.bad\n");

@@ -4553,3 +4553,12 @@ msgstr "SD 카드의 CTGP-R 업데이트를 사용할 수 없어서({1}) 따로 
 
 msgid "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, so it was set aside."
 msgstr "SD 카드의 CTGP-R 업데이트는 {1} 버전용이지만 설치된 것은 CTGP-R {2}이라서 따로 옮겼습니다."
+
+msgid "The CTGP-R update on the SD card can't be used ({1}), and it could not be moved aside. CTGP-R starts without it."
+msgstr "SD 카드의 CTGP-R 업데이트를 사용할 수 없고({1}) 따로 옮길 수도 없었습니다. CTGP-R은 업데이트 없이 시작합니다."
+
+msgid "The CTGP-R update on the SD card is already installed, but it could not be moved aside. CTGP-R starts now."
+msgstr "SD 카드의 CTGP-R 업데이트는 이미 설치되어 있지만 따로 옮길 수 없었습니다. CTGP-R을 시작합니다."
+
+msgid "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, and it could not be moved aside. CTGP-R starts without it."
+msgstr "SD 카드의 CTGP-R 업데이트는 {1} 버전용이지만 설치된 것은 CTGP-R {2}이고, 따로 옮길 수도 없었습니다. CTGP-R은 업데이트 없이 시작합니다."

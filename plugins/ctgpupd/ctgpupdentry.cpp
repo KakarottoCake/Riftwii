@@ -307,12 +307,15 @@ bool download(CtgpUpdRequest& request) {
         ok = false;
         request.error = "the update could not be saved to the card";
     }
+    bool bad = false;
     if (ok) {
-        // The header and tables must read as a DIA0 of the size offered.
+        // The header and tables must read as a DIA0 of the size offered,
+        // for CTGPR, signed by CTGP-R. One that can never install (`bad`) is
+        // kept as update.dif.bad, as a waiting one would be.
         riftwii::CtgpDia dia;
         std::uint64_t length = 0;
-        ok = read_dia(request.part_path, request.download_bytes, dia, length, request.error) &&
-             verify_signature(request.part_path, request.error);
+        ok = read_dia(request.part_path, request.download_bytes, dia, length, request.error, &bad) &&
+             verify_signature(request.part_path, request.error, &bad);
         if (ok) {
             char line[80];
             std::snprintf(line, sizeof line, "downloaded %s version %08x", dia.component.c_str(),
@@ -320,15 +323,22 @@ bool download(CtgpUpdRequest& request) {
             log_line(request, line);
         }
     }
-    if (ok) {
-        g_libc->remove(request.update_path.c_str());
-        if (g_libc->rename(part_path, request.update_path.c_str()) != 0) {
-            ok = false;
-            request.error = "the update could not be renamed to " + request.update_path;
-        }
+    const std::string bad_path = request.update_path + ".bad";
+    const auto remove = [](const char* path) { return g_libc->remove(path); };
+    const auto rename = [](const char* from, const char* to) { return g_libc->rename(from, to); };
+    switch (riftwii::ctgp_finish_download(ok, !ok && bad, request.part_path, request.update_path, bad_path, remove,
+                                          rename)) {
+    case riftwii::CtgpDownloadEnd::Kept:
+        return true;
+    case riftwii::CtgpDownloadEnd::SetAside:
+        request.bad_update = 1;
+        log_line(request, "the download can't be used, kept as " + bad_path + ": " + request.error);
+        return false;
+    case riftwii::CtgpDownloadEnd::Removed:
+        if (ok) request.error = "the update could not be renamed to " + request.update_path;
+        return false;
     }
-    if (!ok) g_libc->remove(part_path);
-    return ok;
+    return false;
 }
 
 // The pack's /PACKAGES.BIN names CTGPR's version: the next check must see
@@ -396,6 +406,12 @@ bool install_into(CtgpUpdRequest& request, riftwii::CtgpPackWriter& pack, const 
     // The update rebuilds from the files the pack has now: it only fits the
     // version its header names. A pack of another version would be rebuilt
     // from the wrong bytes, so it is refused.
+    // Only CTGPR is installed here (read_dia already refused any other; this
+    // keeps the version compare below about the same package).
+    if (!riftwii::ctgp_dia_supported(dia, error)) {
+        failure = riftwii::CtgpUpdateFailure::BadUpdate;
+        return false;
+    }
     std::vector<riftwii::CtgpPackage> packages;
     std::uint32_t installed = 0;
     if (read_list(pack, packages, error)) installed = riftwii::ctgp_package_version(packages, "CTGPR");
