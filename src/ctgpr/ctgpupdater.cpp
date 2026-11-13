@@ -212,7 +212,11 @@ bool CtgpPackUpdateTarget::check_file(const std::string& path, bool packed,
     if (!ctgp_hash_list_digest(hash_list_.data(), hash_list_.size(), "CTGPR", path, expected, why, &unlisted)) {
         // CTGP-R's list names only the files it checks itself (the packed
         // courses); its small unpacked files (cup lists, names, tables) have
-        // no entry. Such a file is taken without a content check, when it was
+        // no entry, and the update itself carries no digest of each rebuilt
+        // file (the DIA0 section table is only offsets and sizes; the DIF0
+        // header has none either). Such a file is taken, as CTGP-R's own
+        // channel takes it, on the DIA0 signature, the exact rebuild and its
+        // exact size (ctgp_dif_apply), when it was
         // rebuilt only from the update's signed commands and the pack's own
         // files (the pack is the version the update names, checked before
         // the install starts): a base from the game disc could be another

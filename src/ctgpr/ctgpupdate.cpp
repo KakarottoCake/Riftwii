@@ -1038,6 +1038,8 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         // Stored as CTGP-R's channel stores it: Yaz0-packed, or (course
         // lists, names, small tables) as it is.
         const bool pack_output = (files.flags & kCtgpDifFlagPacked) != 0;
+        bool plain_base = false;
+        for (const CtgpDifEntry& entry : files.entries) plain_base = plain_base || !entry.packed;
         const std::string path = ctgp_dif_path(data, section.size(), files.path_table);
         if (path.empty()) {
             error = "an update section has no file path";
@@ -1134,6 +1136,11 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
                 // file in the pack or on the disc, which can be put right.
                 error = path + ": a file it is rebuilt from is shorter than the update expects "
                                "(a damaged file in the pack or on the game disc?)";
+            } else if (plain_base) {
+                // An unpacked pack file has no Yaz0 framing to catch damage:
+                // commands that don't fit it point at the file, which can be
+                // put right, rather than at the update. Rolled back.
+                error = path + ": " + error + " (rebuilt from an unpacked file in the pack; is that file damaged?)";
             } else if (!base_failed) {
                 failure = CtgpUpdateFailure::BadUpdate;  // the commands themselves
             }
@@ -1141,7 +1148,7 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         }
         if (sink.written != files.unpacked_size) {
             error = path + " was not rebuilt completely";
-            failure = CtgpUpdateFailure::BadUpdate;
+            if (!plain_base) failure = CtgpUpdateFailure::BadUpdate;
             return false;
         }
         if (writer && !writer->finish(error)) {

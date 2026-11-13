@@ -9,6 +9,8 @@
 #include <cstring>
 #include <utility>
 #include <iostream>
+#include <list>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -101,10 +103,12 @@ std::vector<std::uint8_t> make_section(std::uint32_t unpacked, const std::vector
 // file is rebuilt from its old self.
 std::vector<std::uint8_t> make_section_flags(std::uint32_t unpacked, const std::vector<std::uint8_t>& stream,
                                              const std::string& path, std::uint32_t flags,
-                                             const std::vector<std::pair<std::string, std::uint32_t>>& bases) {
+                                             const std::vector<std::pair<std::string, std::uint32_t>>& bases,
+                                             const std::string& base_path = std::string()) {
     const std::uint32_t header = 0x20 + 16 * std::uint32_t(bases.size());
     const std::uint32_t path_table = header + std::uint32_t(stream.size());
-    const std::uint32_t total = path_table + std::uint32_t(path.size()) + 1;
+    const std::uint32_t base_table = path_table + std::uint32_t(path.size()) + 1;
+    const std::uint32_t total = base_table + (base_path.empty() ? 0 : std::uint32_t(base_path.size()) + 1);
     std::vector<std::uint8_t> out;
     out.insert(out.end(), {'D', 'I', 'F', '0'});
     put32(out, total);
@@ -116,14 +120,45 @@ std::vector<std::uint8_t> make_section_flags(std::uint32_t unpacked, const std::
     put32(out, std::uint32_t(bases.size()));
     for (const auto& base : bases) {
         put_name(out, base.first.c_str());
-        put32(out, path_table);
+        put32(out, base_path.empty() ? path_table : base_table);
         put32(out, base.second);
     }
     out.insert(out.end(), stream.begin(), stream.end());
     out.insert(out.end(), path.begin(), path.end());
     out.push_back(0);
+    if (!base_path.empty()) {
+        out.insert(out.end(), base_path.begin(), base_path.end());
+        out.push_back(0);
+    }
     return out;
 }
+
+// A target over an in-memory pack of files, storing as it goes: a later
+// section's base is what an earlier one stored.
+class MapTarget : public CtgpUpdateTarget {
+public:
+    bool load_base(const std::string&, const std::string& path, bool, std::unique_ptr<CtgpBaseSource>& out,
+                   const CtgpProgress&, CtgpUpdateFailure&, std::string& error) override {
+        auto it = files.find(path);
+        if (it == files.end()) {
+            error = "no " + path;
+            return false;
+        }
+        texts.push_back(std::string(it->second.begin(), it->second.end()));
+        out = std::make_unique<MemoryBase>(texts.back());
+        return true;
+    }
+    bool check_file(const std::string&, bool, const std::array<std::uint8_t, 20>&, std::string&) override {
+        return true;
+    }
+    bool store_file(const std::string& path, const CtgpPieces& packed, const CtgpProgress&, std::string&) override {
+        std::vector<std::uint8_t>& f = files[path];
+        f.assign(packed.size(), 0);
+        return packed.read(0, f.data(), f.size());
+    }
+    std::map<std::string, std::vector<std::uint8_t>> files;
+    std::list<std::string> texts;
+};
 
 std::uint32_t be32_at(const std::vector<std::uint8_t>& d, std::size_t at) {
     return (std::uint32_t(d[at]) << 24) | (std::uint32_t(d[at + 1]) << 16) | (std::uint32_t(d[at + 2]) << 8) | d[at + 3];
@@ -908,6 +943,17 @@ void test_update_plain_files() {
         return ctgp_update_apply(read, dia.size(), target, nullptr, CtgpUpdateFileDone(), CtgpUpdateStep(), failure,
                                  error);
     };
+    const auto apply_map = [&error](const std::vector<std::uint8_t>& dia, MapTarget& target,
+                                    CtgpUpdateFailure& failure) {
+        const CtgpUpdateRead read = [&dia](std::uint64_t offset, std::uint8_t* out, std::size_t length) {
+            if (offset + length > dia.size()) return false;
+            std::memcpy(out, dia.data() + offset, length);
+            return true;
+        };
+        error.clear();
+        return ctgp_update_apply(read, dia.size(), target, nullptr, CtgpUpdateFileDone(), CtgpUpdateStep(), failure,
+                                 error);
+    };
     CtgpUpdateFailure failure = CtgpUpdateFailure::Temporary;
     {
         // Whole: stored as it is, checked as unpacked.
@@ -943,6 +989,30 @@ void test_update_plain_files() {
         EXPECT_TRUE(target.base_packed[0] && target.checked_packed[0]);
         std::vector<std::uint8_t> unpacked;
         EXPECT_TRUE(ctgp_yaz0_decode_nintendo(target.stored.data(), target.stored.size(), unpacked, error));
+    }
+    {
+        // Commands that don't fit an unpacked pack base: the base may be
+        // damaged, so temporary (rolled back), not a bad update.
+        MemoryTarget target;
+        target.expected_path = "/trackNames-EN.bmg";
+        const auto dia = make_dia(make_section_flags(1, {0x55}, "/trackNames-EN.bmg", 0x00020000u, {{"CTGPR", 0}}));
+        EXPECT_TRUE(!apply(dia, target, failure));
+        EXPECT_TRUE(failure == CtgpUpdateFailure::Temporary);
+        EXPECT_TRUE(target.stored.empty());
+    }
+    {
+        // A file rebuilt from another that an earlier section of the same
+        // update replaced (CTGPR 1194's C2.szs from its new 29.szs) reads the
+        // new one: sections are applied and stored in order.
+        MapTarget target;
+        target.files["/A.bin"] = bytes("OLDOLDO");
+        const auto dia = make_dia({make_section_flags(7, {0x60, 'N', 'E', 'W', 'N', 'E', 'W', 'N'}, "/A.bin",
+                                                      0x00020000u, {}),
+                                   make_section_flags(9, {0x10, 'x', 'y', 0x14, 1}, "/B.bin", 0x00020000u,
+                                                      {{"CTGPR", 0}}, "/A.bin")});
+        EXPECT_TRUE(apply_map(dia, target, failure));
+        EXPECT_EQ(target.files["/A.bin"], bytes("NEWNEWN"));
+        EXPECT_EQ(target.files["/B.bin"], bytes("xyNEWNEWN"));
     }
     {
         // The same in a later section: found before the first section is
