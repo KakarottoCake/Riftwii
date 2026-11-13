@@ -275,16 +275,15 @@ bool ctgp_hash_update_install(const CtgpPackIo& raw, std::uint64_t size, const s
             return false;
         }
     }
-    std::uint8_t first[512];
-    if (!raw.read(0, 512, first) || !raw.write(0, first, 512) || !sync()) {
-        error = "jelly.bin could not be written (is the SD card locked?)";
-        return false;
-    }
+    // No write to jelly.bin happens outside the journal: a locked card stops
+    // at the journal's creation, and a raw write the card refuses is the
+    // first journaled write (its chunk already saved), so it rolls back.
     CtgpPackJournal journal;
     if (!journal.begin(journal_path, raw, size, error)) {
-        error = "the undo journal for jelly.bin could not be started: " + error;
+        error = "the undo journal for jelly.bin could not be started (is the SD card locked?): " + error;
         return false;
     }
+    rolled_back = false;  // from here a failure is undone through the journal
     CtgpPackWriter jelly;
     bool ok = jelly.open(journal.io(), size, key, iv, error) && ctgp_hash_update_write(jelly, lists, version, error);
     // The writer keeps the last chunk it changed: out before anything is read back.

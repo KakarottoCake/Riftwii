@@ -119,7 +119,13 @@ bool ctgp_load_hash_list(const CtgpBytes& file, const std::string& package, std:
     // carries new CTGPR.HSH and CORE.HSH bodies under the labels PACKAGES.BIN
     // names).
     if (!known_identity && be32(d + 0x28) != version) {
-        error = "the hash list is for another version of the package";
+        // Ahead: CTGP-R's hash lists came before the pack update they
+        // describe, as CTGP-R's own channel leaves them part-way through its
+        // updates (a stock card can be in this state). Its channel finishes it.
+        error = be32(d + 0x28) > version
+                    ? "the hash list is for a newer version than the one installed (a CTGP-R update is not "
+                      "finished): start CTGP-R through its channel once to finish its update"
+                    : "the hash list is for another version of the package";
         return false;
     }
     // CTGPR and CORE are accepted on CTGP-R's own signature with their label

@@ -438,15 +438,34 @@ void test_refusals(const fs::path& dir) {
         EXPECT_TRUE(grow);  // the channel creates the list
     }
     {
-        // A locked card: the probe fails, nothing journalled.
+        // The journal can't be made (a locked card): nothing written at all.
+        Setup s = setup(64);
+        Raw raw{&s.card, s.before_entry};
+        const std::string nowhere = (dir / "no-such-folder" / "journal.bin").string();
+        bool grow = true;
+        EXPECT_TRUE(!ctgp_hash_update_install(raw_io(raw), s.card.jelly_size, s.key, kIv, {new_list()}, 2, nowhere,
+                                              [] { return true; }, rolled_back, e, &key, &grow));
+        EXPECT_TRUE(rolled_back && raw.writes == 0 && s.card.img.bytes == s.before_card && !fs::exists(nowhere));
+        EXPECT_TRUE(!grow);  // the card's fault: the update may go in next time
+    }
+    {
+        // The card refuses jelly.bin's raw writes from the first one: that
+        // write was journaled first, so the card is unchanged, and the
+        // journal stays until the card takes writes again; then the replay
+        // leaves jelly.bin as it was. (No write happens outside the journal.)
         Setup s = setup(64);
         Raw raw{&s.card, s.before_entry};
         raw.writes_left = 0;
         bool grow = true;
         EXPECT_TRUE(!ctgp_hash_update_install(raw_io(raw), s.card.jelly_size, s.key, kIv, {new_list()}, 2, jp,
                                               [] { return true; }, rolled_back, e, &key, &grow));
+        EXPECT_TRUE(!rolled_back && s.card.img.bytes == s.before_card && fs::exists(jp));
+        EXPECT_TRUE(!grow);
+        raw.writes_left = -1;
+        std::size_t restored = 0;
+        EXPECT_TRUE(ctgp_journal_recover(jp, raw_io(raw), s.card.jelly_size, [] { return true; }, restored, e) ==
+                    CtgpJournalRecovery::RolledBack);
         EXPECT_TRUE(s.card.img.bytes == s.before_card && !fs::exists(jp));
-        EXPECT_TRUE(!grow);  // the card's fault: the update may go in next time
     }
     {
         // A read-back that doesn't check out (the wrong key for verifying):
