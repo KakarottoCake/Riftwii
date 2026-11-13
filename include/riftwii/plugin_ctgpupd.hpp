@@ -38,8 +38,9 @@ enum class CtgpUpdOp : std::uint32_t {
     // Saves the update the check offered (download_bytes) to part_path,
     // checks its header, and renames it to update_path.
     Download = 3,
-    // Installs the update at update_path into blob_path, guarded by the
-    // undo journal at journal_path.
+    // Installs the update at update_path: a CTGPR update into blob_path,
+    // guarded by the undo journal at journal_path; a HASH update into
+    // jelly.bin (sd.jelly, written in place), guarded by jelly_journal_path.
     Install = 4,
 };
 
@@ -51,6 +52,10 @@ struct CtgpUpdSdAccess {
     const Fat32File* jelly = nullptr;  // null when it was not found
     std::string jelly_error;           // why, when jelly is null
     bool (*read)(const Fat32File& file, std::uint64_t offset, std::uint8_t* out, std::size_t length) = nullptr;
+    // Writes whole 512-byte blocks of jelly.bin where they lie on the card,
+    // never its directory entry, the FAT or FSInfo (wii/storage/sdfile.hpp's
+    // write_sd_file_in_place), so its key stays the same: for a HASH update.
+    bool (*write)(const Fat32File& file, std::uint64_t offset, const std::uint8_t* data, std::size_t length) = nullptr;
 };
 
 // The C library calls the plugin's runtime has no host function for: the
@@ -78,6 +83,7 @@ struct CtgpUpdRequest {
     std::string part_path;     // sd:/ctgpr/update.dif.part
     std::string blob_path;     // sd:/ctgpr/blob.bin
     std::string journal_path;  // sd:/ctgpr/update-journal.bin
+    std::string jelly_journal_path;  // sd:/ctgpr/update-journal-jelly.bin
     std::string scratch_prefix;  // sd:/ctgpr/update-base-
     CtgpUpdSdAccess sd;
     CtgpUpdLibc libc;
@@ -145,7 +151,7 @@ inline bool ctgpupd_request_check(const void* raw, std::uint32_t bytes, std::str
     }
     const CtgpUpdLibc& c = request->libc;
     if (c.remove == nullptr || c.rename == nullptr || c.fflush == nullptr || c.fileno == nullptr ||
-        c.fsync == nullptr || c.errno_location == nullptr || request->sd.read == nullptr) {
+        c.fsync == nullptr || c.errno_location == nullptr || request->sd.read == nullptr || request->sd.write == nullptr) {
         why = "the request is missing one of the DOL's functions";
         return false;
     }

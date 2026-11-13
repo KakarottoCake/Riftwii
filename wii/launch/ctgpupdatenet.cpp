@@ -102,11 +102,12 @@ bool CtgpUpdater::run(CtgpUpdRequest& request, std::string& error) {
     request.part_path = kCtgpUpdatePartPath;
     request.blob_path = kCtgprBlobPath;
     request.journal_path = kCtgpJournalPath;
+    request.jelly_journal_path = kCtgpJellyJournalPath;
     request.scratch_prefix = "sd:/ctgpr/update-base-";
     // jelly.bin (Check and Install read it) is found here and kept in this
     // frame until the plugin returns (riftwii/plugin_ctgpupd.hpp).
     Fat32File jelly;
-    if (request.op == CtgpUpdOp::Check || request.op == CtgpUpdOp::Install) {
+    if (request.op == CtgpUpdOp::Check || request.op == CtgpUpdOp::Install || request.op == CtgpUpdOp::Inspect) {
         std::string why;
         if (resolve_sd_file(kCtgprJellyPath, jelly, why)) {
             request.sd.jelly = &jelly;
@@ -115,6 +116,7 @@ bool CtgpUpdater::run(CtgpUpdRequest& request, std::string& error) {
         }
     }
     request.sd.read = read_sd_file;
+    request.sd.write = write_sd_file_in_place;
     request.libc.remove = libc_remove;
     request.libc.rename = libc_rename;
     request.libc.fflush = libc_fflush;
@@ -253,8 +255,68 @@ bool CtgpUpdater::install(const CtgpDiscBase& disc, const CtgpUpdateStep& step, 
     return ok;
 }
 
+namespace {
+
+// The start-up undo of a HASH update cut off inside jelly.bin. The journal
+// holds jelly.bin's bytes as they lie on the card, so the replay needs no
+// key: it writes them back in place (never the entry, the FAT or FSInfo).
+// The key is made from the entry's times, so the entry is read again after
+// the replay and must be exactly what it was: then the key is unchanged.
+bool recover_jelly_journal(std::string& error) {
+    switch (presence(kCtgpJellyJournalPath)) {
+    case Presence::Absent:
+        return true;
+    case Presence::Unknown:
+        error = "the SD card could not say whether sd:/ctgpr/update-journal-jelly.bin is there";
+        logf("CTGP-R update: %s\n", error.c_str());
+        return false;
+    case Presence::Present:
+        break;
+    }
+    forget_sd_layout();
+    Fat32File jelly;
+    std::string why;
+    if (!resolve_sd_file(kCtgprJellyPath, jelly, why)) {
+        error = "a CTGP-R update was interrupted, and sd:/ctgpr/jelly.bin could not be found to undo it (" + why + ")";
+        logf("CTGP-R update: %s\n", error.c_str());
+        return false;
+    }
+    CtgpPackIo io;
+    io.read = [&jelly](std::uint64_t offset, std::uint32_t bytes, std::uint8_t* out) {
+        return read_sd_file(jelly, offset, out, bytes);
+    };
+    io.write = [&jelly](std::uint64_t offset, const std::uint8_t* data, std::uint32_t bytes) {
+        return write_sd_file_in_place(jelly, offset, data, bytes);
+    };
+    std::size_t restored = 0;
+    const CtgpJournalRecovery result = ctgp_journal_recover(
+        kCtgpJellyJournalPath, io, jelly.entry.size & ~std::uint64_t(511), [] { return true; }, restored, error);
+    if (result == CtgpJournalRecovery::Failed) {
+        logf("CTGP-R update: an interrupted jelly.bin update could not be undone: %s\n", error.c_str());
+        return false;
+    }
+    forget_sd_layout();
+    Fat32File after;
+    if (!resolve_sd_file(kCtgprJellyPath, after, why) || after.entry.write_time != jelly.entry.write_time ||
+        after.entry.write_date != jelly.entry.write_date || after.entry.create_time != jelly.entry.create_time ||
+        after.entry.create_date != jelly.entry.create_date || after.entry.size != jelly.entry.size ||
+        after.entry.first_cluster != jelly.entry.first_cluster) {
+        error = "jelly.bin's directory entry is not what it was before the undo";
+        logf("CTGP-R update: %s\n", error.c_str());
+        return false;
+    }
+    if (result == CtgpJournalRecovery::RolledBack)
+        logf("CTGP-R update: an interrupted hash-list update was undone (%zu chunks of jelly.bin put back; its "
+             "entry and key unchanged)\n",
+             restored);
+    return true;
+}
+
+}  // namespace
+
 bool CtgpRecoverPackJournal(std::string& error) {
     remove_scratch_files();
+    if (!recover_jelly_journal(error)) return false;
     switch (presence(kCtgpJournalPath)) {
     case Presence::Absent:
         return true;

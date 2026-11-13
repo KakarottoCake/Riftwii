@@ -16,6 +16,7 @@
 
 #include "riftwii/ctgpcheck.hpp"
 #include "riftwii/ctgpefa.hpp"
+#include "riftwii/ctgphashupdate.hpp"
 #include "riftwii/ctgpjournal.hpp"
 #include "riftwii/ctgppackages.hpp"
 #include "riftwii/ctgppackwrite.hpp"
@@ -97,6 +98,19 @@ bool read_hash_list(const CtgpUpdRequest& request, std::vector<std::uint8_t>& ou
     disk.close();
     if (!ok) error = "jelly.bin: " + error;
     return ok;
+}
+
+// The version of `component` jelly.bin's /PACKAGES.BIN names; 0 when it
+// can't be read.
+std::uint32_t jelly_version(const CtgpUpdRequest& request, const std::string& component) {
+    riftwii::CtgpPackWriter disk;
+    std::vector<riftwii::CtgpPackage> packages;
+    std::string error;
+    std::uint32_t version = 0;
+    if (open_jelly(request, disk, error) && read_list(disk, packages, error))
+        version = riftwii::ctgp_package_version(packages, component);
+    disk.close();
+    return version;
 }
 
 // The update's header and tables, from the first bytes of the file.
@@ -218,7 +232,10 @@ bool inspect(CtgpUpdRequest& request) {
     request.dia_component = dia.component;
     request.dia_version = dia.version;
     request.dia_base_version = base_version_of(dia);
-    request.pack_version = pack_version(request, dia.component);
+    request.pack_version = dia.component == "HASH" ? jelly_version(request, "HASH") : pack_version(request, dia.component);
+    // A HASH update brings whole lists: it goes onto any older set.
+    if (dia.component == "HASH" && request.pack_version != 0 && request.pack_version < dia.version)
+        request.dia_base_version = request.pack_version;
     request.dia_files = static_cast<std::uint32_t>(dia.sections.size());
     request.update_bytes = length;
     return true;
@@ -406,9 +423,9 @@ bool install_into(CtgpUpdRequest& request, riftwii::CtgpPackWriter& pack, const 
     // The update rebuilds from the files the pack has now: it only fits the
     // version its header names. A pack of another version would be rebuilt
     // from the wrong bytes, so it is refused.
-    // Only CTGPR is installed here (read_dia already refused any other; this
+    // Only CTGPR is installed here (a HASH update goes to install_hash; this
     // keeps the version compare below about the same package).
-    if (!riftwii::ctgp_dia_supported(dia, error)) {
+    if (!riftwii::ctgp_dia_is_pack_update(dia, error)) {
         failure = riftwii::CtgpUpdateFailure::BadUpdate;
         return false;
     }
@@ -464,6 +481,80 @@ bool install_into(CtgpUpdRequest& request, riftwii::CtgpPackWriter& pack, const 
     return ok && note_version(pack, dia.version, error);
 }
 
+// A HASH update: CTGP-R's new signed hash lists, into jelly.bin. Every list
+// is rebuilt and checked against CTGP-R's signature in memory first; then
+// they are written where jelly.bin already lies on the card (the DOL's
+// sd.write), never its directory entry, so its key stays the same; through
+// an undo journal; read back and checked; and only then is the journal
+// removed (riftwii/ctgphashupdate.hpp).
+bool install_hash(CtgpUpdRequest& request, const riftwii::CtgpDia& dia, std::uint64_t length) {
+    std::string& error = request.error;
+    const riftwii::Fat32File* const jelly = request.sd.jelly;
+    if (jelly == nullptr) {
+        error = "jelly.bin: " + (request.sd.jelly_error.empty() ? std::string("not found") : request.sd.jelly_error);
+        return false;
+    }
+    const std::uint32_t installed = jelly_version(request, "HASH");
+    if (installed == 0) {
+        error = "jelly.bin's version list could not be read";
+        return false;
+    }
+    if (dia.version <= installed) {
+        error = "jelly.bin already has hash lists " + version_text(installed) + ", not older than this update (" +
+                version_text(dia.version) + ")";
+        return false;
+    }
+    if (request.step) request.step(0, 1, "jelly.bin", 0.0, 0.0);
+    std::FILE* update_file = std::fopen(request.update_path.c_str(), "rb");
+    if (update_file == nullptr) {
+        error = "the update file could not be reopened";
+        return false;
+    }
+    const riftwii::CtgpUpdateRead read_update = [update_file](std::uint64_t offset, std::uint8_t* out,
+                                                              std::size_t bytes) {
+        return fseeko(update_file, static_cast<off_t>(offset), SEEK_SET) == 0 &&
+               std::fread(out, 1, bytes, update_file) == bytes;
+    };
+    std::vector<riftwii::CtgpHashUpdateList> lists;
+    riftwii::CtgpUpdateFailure failure = riftwii::CtgpUpdateFailure::Temporary;
+    const bool built = riftwii::ctgp_hash_update_build(read_update, length, dia, lists, failure, error);
+    std::fclose(update_file);
+    if (!built) {
+        // Nothing was written: a broken update can be set aside at once.
+        if (failure == riftwii::CtgpUpdateFailure::BadUpdate) request.bad_update = 1;
+        return false;
+    }
+    for (const riftwii::CtgpHashUpdateList& list : lists)
+        log_line(request, list.disk_path + ": " + std::to_string(list.bytes.size()) + " bytes, signed list for " +
+                              version_text(list.label));
+    if (request.step) request.step(0, 1, "jelly.bin", 0.3, 0.3);
+    const auto key = riftwii::ctgp_efb_key(riftwii::ctgp_jelly_key_words(), jelly->entry.write_time,
+                                           jelly->entry.write_date, jelly->entry.create_time, jelly->entry.create_date);
+    riftwii::CtgpPackIo raw;
+    const auto read = request.sd.read;
+    const auto write = request.sd.write;
+    raw.read = [jelly, read](std::uint64_t offset, std::uint32_t bytes, std::uint8_t* out) {
+        return read(*jelly, offset, out, bytes);
+    };
+    raw.write = [jelly, write](std::uint64_t offset, const std::uint8_t* data, std::uint32_t bytes) {
+        return write(*jelly, offset, data, bytes);
+    };
+    bool rolled_back = true;
+    // libogc's SD driver writes synchronously: a raw write is on the card
+    // when it returns.
+    const bool ok = riftwii::ctgp_hash_update_install(raw, jelly->entry.size & ~511ull, key, riftwii::ctgp_blob_chunk_iv(),
+                                                      lists, dia.version, request.jelly_journal_path,
+                                                      [] { return true; }, rolled_back, error);
+    if (ok) {
+        if (request.step) request.step(0, 1, "jelly.bin", 1.0, 1.0);
+        log_line(request, "jelly.bin now has hash lists " + version_text(dia.version) +
+                              " (written in place; its entry and key unchanged)");
+    } else if (rolled_back) {
+        log_line(request, "jelly.bin was left as it was");
+    }
+    return ok;
+}
+
 bool install(CtgpUpdRequest& request) {
     std::string& error = request.error;
     riftwii::CtgpDia dia;
@@ -483,6 +574,7 @@ bool install(CtgpUpdRequest& request) {
         request.bad_update = bad ? 1 : 0;
         return false;
     }
+    if (dia.component == "HASH") return install_hash(request, dia, length);
     riftwii::CtgpUpdateFailure failure = riftwii::CtgpUpdateFailure::Temporary;
 
     std::FILE* blob = std::fopen(request.blob_path.c_str(), "r+b");

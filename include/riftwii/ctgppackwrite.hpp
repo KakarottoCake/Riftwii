@@ -74,6 +74,8 @@ public:
 
     // Free clusters, as the FAT says before any pending write is flushed.
     std::uint32_t free_clusters() const;
+    // The size of one cluster in bytes (0 when not open).
+    std::uint32_t cluster_bytes() const;
 
 private:
     struct Impl;

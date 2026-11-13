@@ -156,6 +156,10 @@ struct CtgpDif {
     std::uint32_t header_size = 0;
     std::uint32_t path_table = 0;
     std::uint32_t unpacked_size = 0;  // the new file's length
+    // 0x00020001 for a file rebuilt from base files; 0 for one rebuilt from
+    // the section's own commands alone (no entries), as a HASH update's
+    // lists are.
+    std::uint32_t version = 0;
     std::vector<CtgpDifEntry> entries;
 };
 
@@ -286,11 +290,14 @@ constexpr std::size_t kCtgpDiaPrefixBytes = 16 * 1024;
 bool ctgp_dia_parse_prefix(const std::uint8_t* data, std::size_t size, std::uint64_t total,
                            CtgpDia& out, std::string& error);
 
-// Whether RiftWii can install this update at all: only CTGP-R's own package
-// (CTGPR) is updated here, whatever its base files name. False, with the
-// reason, for any other package: that never changes, so the caller sets the
-// update aside rather than trying it again.
+// Whether RiftWii can install this update at all: CTGP-R's pack (CTGPR,
+// into blob.bin, ctgp_update_apply) and its hash lists (HASH, into jelly.bin,
+// riftwii/ctgphashupdate.hpp). False, with the reason, for any other
+// package: that never changes, so the caller sets the update aside rather
+// than trying it again.
 bool ctgp_dia_supported(const CtgpDia& dia, std::string& error);
+// Whether it is a CTGPR update, the only kind ctgp_update_apply rebuilds.
+bool ctgp_dia_is_pack_update(const CtgpDia& dia, std::string& error);
 
 // The DIA0's own signature, checked the way CTGP-R's channel checks it: a
 // DSA signature (DER, at 0x24, its length at 0x20) of the SHA-1 of the whole

@@ -26,6 +26,8 @@ namespace riftwii::wii {
 inline constexpr const char* kCtgpUpdatePath = "sd:/ctgpr/update.dif";
 inline constexpr const char* kCtgpUpdatePartPath = "sd:/ctgpr/update.dif.part";
 inline constexpr const char* kCtgpJournalPath = "sd:/ctgpr/update-journal.bin";
+// The undo journal of a HASH update's writes into jelly.bin.
+inline constexpr const char* kCtgpJellyJournalPath = "sd:/ctgpr/update-journal-jelly.bin";
 
 // The update waiting on the card.
 struct CtgpUpdateInfo {

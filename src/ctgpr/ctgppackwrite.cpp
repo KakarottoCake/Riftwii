@@ -806,6 +806,10 @@ bool CtgpPackWriter::read_file(const std::string& path, const Sink& sink, std::u
     return true;
 }
 
+std::uint32_t CtgpPackWriter::cluster_bytes() const {
+    return impl_ == nullptr ? 0 : std::uint32_t(impl_->cluster_bytes());
+}
+
 std::uint32_t CtgpPackWriter::free_clusters() const {
     if (impl_ == nullptr) {
         return 0;

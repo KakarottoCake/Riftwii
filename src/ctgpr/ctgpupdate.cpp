@@ -15,6 +15,9 @@ namespace riftwii {
 namespace {
 
 constexpr std::uint32_t kCtgpDifVersion = 0x00020001u;
+// A section that rebuilds its file from nothing but its own commands (a HASH
+// update's lists): no entries, no base files.
+constexpr std::uint32_t kCtgpDifVersionWhole = 0u;
 constexpr std::uint32_t kCtgpDiaHeaderBytes = 0x64;
 constexpr std::size_t kCtgpYaz0HeaderSize = kCtgpYaz0HeaderBytes;
 constexpr std::size_t kCtgpDifMaxHeader = 0x1000;
@@ -433,7 +436,8 @@ bool ctgp_dif_parse(const std::uint8_t* data, std::size_t size, CtgpDif& out, st
     }
     const std::uint32_t path_table = be32(data + 0x0C);
     const std::uint32_t header_size = be32(data + 0x10);
-    if (be32(data + 0x14) != kCtgpDifVersion) {
+    const std::uint32_t version = be32(data + 0x14);
+    if (version != kCtgpDifVersion && version != kCtgpDifVersionWhole) {
         error = "DIF0 has an unknown version";
         return false;
     }
@@ -447,6 +451,10 @@ bool ctgp_dif_parse(const std::uint8_t* data, std::size_t size, CtgpDif& out, st
         error = "DIF0 has too many entries";
         return false;
     }
+    if (version == kCtgpDifVersionWhole && count != 0) {
+        error = "DIF0 whole-file section names base files";
+        return false;
+    }
     const std::uint64_t entries_end = 0x20ull + std::uint64_t(count) * 16;
     if (header_size < entries_end || header_size > kCtgpDifMaxHeader || header_size > path_table ||
         path_table > size) {
@@ -454,6 +462,7 @@ bool ctgp_dif_parse(const std::uint8_t* data, std::size_t size, CtgpDif& out, st
         return false;
     }
     out.size = declared;
+    out.version = version;
     out.header_size = header_size;
     out.path_table = path_table;
     out.unpacked_size = unpacked;
@@ -1119,7 +1128,7 @@ bool ctgp_update_apply(const std::uint8_t* dia, std::size_t size, CtgpUpdateTarg
                        const std::function<void(const std::string&)>& log,
                        const CtgpUpdateFileDone& file_done, std::string& error) {
     CtgpDia update;
-    if (!ctgp_dia_parse(dia, size, update, error) || !ctgp_dia_supported(update, error)) {
+    if (!ctgp_dia_parse(dia, size, update, error) || !ctgp_dia_is_pack_update(update, error)) {
         return false;
     }
     return apply_sections(
@@ -1168,7 +1177,7 @@ bool ctgp_update_apply(const CtgpUpdateRead& read, std::uint64_t size, CtgpUpdat
     }
     CtgpDia update;
     if (!ctgp_dia_parse_prefix(prefix.data(), prefix.size(), size, update, error) ||
-        !ctgp_dia_supported(update, error)) {
+        !ctgp_dia_is_pack_update(update, error)) {
         return false;  // BadUpdate
     }
     return apply_sections(
@@ -1182,8 +1191,14 @@ bool ctgp_update_apply(const CtgpUpdateRead& read, std::uint64_t size, CtgpUpdat
 }
 
 bool ctgp_dia_supported(const CtgpDia& dia, std::string& error) {
+    if (dia.component == "CTGPR" || dia.component == "HASH") return true;
+    error = "the update is for a package RiftWii doesn't install (" + dia.component + "), only CTGPR and HASH";
+    return false;
+}
+
+bool ctgp_dia_is_pack_update(const CtgpDia& dia, std::string& error) {
     if (dia.component == "CTGPR") return true;
-    error = "the update is for a package RiftWii doesn't install (" + dia.component + "), only CTGPR";
+    error = "the update is for " + dia.component + ", not CTGP-R's pack (CTGPR)";
     return false;
 }
 
