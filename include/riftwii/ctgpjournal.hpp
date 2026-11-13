@@ -34,7 +34,8 @@ public:
     bool begin(const std::string& path, const CtgpPackIo& pack, std::uint64_t pack_size, std::string& error);
 
     // The pack io to give CtgpPackWriter::open. A write that cannot be
-    // journaled returns false without touching the pack.
+    // journaled returns false without touching the pack, and so does every
+    // write after it.
     CtgpPackIo io();
 
     // Update finished: sync_pack() flushes blob.bin to the card, then the
@@ -54,8 +55,10 @@ private:
 enum class CtgpJournalRecovery { None, RolledBack, Failed };
 
 // Start-up check: if a journal exists at `path`, writes its complete entries
-// back into the pack, syncs, then removes it. A torn or corrupt last entry is
-// ignored. A journal for a pack of another size is left alone (Failed).
+// back into the pack, syncs, then removes it. A torn last entry (the append
+// a power cut stopped, whose chunk was never written) is ignored. A damaged
+// entry with more after it, a read error, or a journal for a pack of another
+// size fails and leaves the journal for another try (Failed).
 CtgpJournalRecovery ctgp_journal_recover(const std::string& path, const CtgpPackIo& pack, std::uint64_t pack_size,
                                          const std::function<bool()>& sync_pack, std::size_t& restored,
                                          std::string& error);

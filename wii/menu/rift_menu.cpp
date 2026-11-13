@@ -19684,7 +19684,7 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 			bar.Set(count ? (double(index) + part) / double(count) : 1.0);
 			box.SetBody(tr("Installing CTGP-R, file {1} of {2}", {std::to_string(index + 1),
 								   std::to_string(count)}) +
-				    "\n" + path);
+				    "\n" + FlatCapped(path, 60));
 			ResumeGui();
 		},
 		error);
@@ -19695,6 +19695,9 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 	ResumeGui();
 	if (ok) {
 		logf("CTGP-R update: done\n");
+		// The last update's file goes first: FAT does not rename onto a
+		// file that is there.
+		std::remove("sd:/ctgpr/update.dif.installed");
 		if (std::rename(update_path, "sd:/ctgpr/update.dif.installed") != 0)
 			logf("CTGP-R update: installed but %s could not be renamed; it will be offered again\n",
 				update_path);
@@ -19716,7 +19719,9 @@ int MainMenu(int menu, FrontendState& state)
 		!startupCancelled && !MenuButtonHeld() && riftwii::wii::CurrentRestartNote().kind == riftwii::wii::RestartKind::None;
 
 	// A CTGP-R update cut off by a power loss or crash left blob.bin half
-	// written; put it back before anything reads it.
+	// written; put it back before anything reads it. If it can't be put back
+	// now, every CTGP-R launch tries again and refuses to start while it
+	// can't (CtgpPackReady).
 	{
 		std::string journal_error;
 		riftwii::wii::CtgpRecoverPackJournal(journal_error);

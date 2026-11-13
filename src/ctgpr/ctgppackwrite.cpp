@@ -419,7 +419,7 @@ struct CtgpPackWriter::Impl {
                 cluster = 2;
             }
             bool wrapped = false;
-            while (cluster < max_cluster && fat[cluster] != 0) {
+            while (cluster < max_cluster && cluster < fat.size() && fat[cluster] != 0) {
                 ++cluster;
                 if (cluster >= max_cluster && !wrapped) {
                     cluster = 2;
@@ -540,18 +540,25 @@ bool CtgpPackWriter::open(const CtgpPackIo& io, std::uint64_t size, const std::a
         close();
         return false;
     }
-    d.data_start = d.reserved + d.fats * d.fat_sectors;
-    if (d.total_sectors <= d.data_start) {
+    // Only whole 32 KiB chunks of the file can be read and written, so the
+    // volume is taken to end at the last whole one.
+    const std::uint64_t file_sectors = (size / kChunkBytes) * kChunkBytes / kSectorBytes;
+    const std::uint64_t data_start = std::uint64_t(d.reserved) + std::uint64_t(d.fats) * d.fat_sectors;
+    if (d.total_sectors <= data_start || file_sectors <= data_start) {
         error = "the package disk has no data area";
         close();
         return false;
     }
+    d.data_start = std::uint32_t(data_start);
     d.cluster_count = (d.total_sectors - d.data_start) / d.sectors_per_cluster;
     // The pack's header may claim a larger volume than the file on the card
-    // holds; never allocate a cluster whose bytes are not in the file.
-    const std::uint64_t file_clusters = (size / kSectorBytes - d.data_start) / d.sectors_per_cluster;
-    d.max_cluster = std::uint32_t(std::min<std::uint64_t>(std::uint64_t(d.cluster_count) + 2,
-                                                         std::min<std::uint64_t>(file_clusters + 2, 0x0FFFFFF5ull)));
+    // holds; never allocate a cluster whose bytes are not in the file, nor one
+    // past the end of the FAT.
+    const std::uint64_t file_clusters = (file_sectors - data_start) / d.sectors_per_cluster;
+    const std::uint64_t fat_entries = std::uint64_t(d.fat_sectors) * (kSectorBytes / 4);
+    d.max_cluster = std::uint32_t(std::min<std::uint64_t>(
+        std::min<std::uint64_t>(std::uint64_t(d.cluster_count) + 2, file_clusters + 2),
+        std::min<std::uint64_t>(fat_entries, 0x0FFFFFF5ull)));
     if (!d.load_fat(error)) {
         close();
         return false;
@@ -661,7 +668,8 @@ bool CtgpPackWriter::replace_file(const std::string& path, std::size_t size, con
         ++used;
     }
 
-    const std::uint32_t first = chain.empty() ? 0 : chain.front();
+    // An empty file has no first cluster: every cluster of its chain is freed below.
+    const std::uint32_t first = used == 0 ? 0 : chain.front();
     std::uint8_t dirent[32];
     if (!d.image->read(entry.offset, dirent, sizeof(dirent))) {
         error = "could not read the file's folder entry";

@@ -158,6 +158,21 @@ int main() {
         EXPECT_EQ(n, std::size_t(3));
         EXPECT_TRUE(r.data == orig);
     }
+    {   // a damaged entry with more after it: the journal itself is damaged,
+        // so the replay fails and the journal is kept for another try
+        MemPack p = make_pack(size);
+        CtgpPackJournal j;
+        EXPECT_TRUE(j.begin(jp, p.io(), size, err));
+        do_writes(j.io());
+        auto jd = slurp(jp);
+        jd[20 + 12 + 100] ^= 0xFF;  // inside the first entry's data
+        spit(jp, jd);
+        std::size_t n = 0;
+        EXPECT_TRUE(ctgp_journal_recover(jp, p.io(), size, p.sync(), n, err) == CtgpJournalRecovery::Failed);
+        EXPECT_TRUE(!err.empty());
+        EXPECT_TRUE(exists(jp));
+        std::remove(jp.c_str());
+    }
     {   // pack size mismatch: nothing written, journal kept
         MemPack p = make_pack(size);
         CtgpPackJournal j;

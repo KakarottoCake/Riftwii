@@ -33,6 +33,8 @@ void* g_escape_buffer[5];
 BlockTracker g_tracker;
 bool g_escape_armed = false;
 Escape g_escape;
+// An escape a guard caught, waiting for raise_pending (run_guarded).
+bool g_pending = false;
 
 // A trap: a program exception, which RiftWii's crash screen reports with
 // the plugin's name and offset (wii/core/crash.cpp).
@@ -69,6 +71,7 @@ void note_freed(void* block) { g_tracker.remove(block); }
 void arm_escape() {
     g_escape = Escape{};
     g_escape_armed = true;
+    g_pending = false;
 }
 
 void disarm_escape() { g_escape_armed = false; }
@@ -84,6 +87,36 @@ void escape(std::int32_t result, const char* why) {
     }
     if (g_host != nullptr) g_host->log("stopping: %s (outside a launch, nothing can be given back)", why);
     stop();
+}
+
+// The guard's own escape point, and whether an escape is waiting for
+// raise_pending (rwpruntime.hpp).
+namespace {
+__attribute__((noinline)) bool run_with_buffer(bool (*fn)(void*), void* context) {
+    if (__builtin_setjmp(g_escape_buffer) != 0) return false;
+    g_escape_armed = true;
+    return fn(context);
+}
+}  // namespace
+
+bool run_guarded(bool (*fn)(void* context), void* context) {
+    if (g_pending) return false;  // an escape is already waiting: nothing more runs
+    void* outer[5];
+    std::memcpy(outer, g_escape_buffer, sizeof outer);
+    const bool outer_armed = g_escape_armed;
+    g_escape = Escape{};
+    const bool ok = run_with_buffer(fn, context);
+    // escape() disarms and fills g_escape before it jumps.
+    if (!ok && g_escape.why != nullptr) g_pending = true;
+    std::memcpy(g_escape_buffer, outer, sizeof outer);
+    g_escape_armed = outer_armed;
+    return ok;
+}
+
+void raise_pending() {
+    if (!g_pending) return;
+    g_pending = false;
+    escape(g_escape.result, g_escape.why);
 }
 
 FILE* g_open_streams[16];
@@ -282,12 +315,15 @@ int snprintf(char* out, size_t bytes, const char* format, ...) {
 FILE* fopen(const char* path, const char* mode) {
     FILE* const file = static_cast<FILE*>(host().stream_open(path, mode));
     if (file != nullptr) {
+        bool kept = false;
         for (FILE*& slot : riftwii::plugin::g_open_streams) {
             if (slot == nullptr) {
                 slot = file;
+                kept = true;
                 break;
             }
         }
+        if (!kept) host().log("more than 16 files open at once: %s is not closed after an escape", path);
     }
     return file;
 }

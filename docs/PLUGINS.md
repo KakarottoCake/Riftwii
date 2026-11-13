@@ -419,7 +419,10 @@ install cut off by a power loss or a crash leaves blob.bin half written, and
 it must be put back before anything reads it, even when the plugin can't be
 loaded (missing, from another RiftWii, or damaged). It needs only
 `ctgpjournal.cpp`, which copies raw 32 KiB chunks back and needs none of the
-pack's crypto.
+pack's crypto. If a journal can't be played back (the card won't give its
+bytes, or the journal itself is damaged), it stays on the card and every
+CTGP-R launch, through the channel or native, tries again and refuses to
+start while it can't (`CtgpPackReady`).
 
 The request is C++, as with the ctgpr plugin, and every operation runs inside
 the runtime's escape window with its heap blocks tracked (a 64 KB table from
@@ -429,11 +432,19 @@ written before anyone else touches them), then gives back the tracked blocks
 and says `escaped`. The DOL then puts empty strings in place of the request's
 and, after an `Install`, plays the journal back at once; every chunk of
 blob.bin was saved to the journal before it was changed, so the pack goes back
-as it was.
+as it was. One place needs more: the disc reader is the DOL's, and it calls
+the plugin's sink while it holds the USB lock and buffers of its own. The sink
+runs under `run_guarded` (`plugins/common/rwpruntime.hpp`), so an escape
+inside it returns false to the DOL, which cleans up and returns normally, and
+`raise_pending` carries the escape on from the plugin's side. The plugin
+borrows the DOL's `std::function`s for an operation rather than copying them,
+and hands the DOL's callbacks only empty strings of its own to fill.
 
-The install needs about 4 MB of RiftWii's heap at most: the largest section of
-the update (read once into one buffer sized for the largest), the rebuild's
-small windows, and 64 KiB pieces. Each base file is unpacked to a scratch file
+The install's memory is the largest section of the update (read once into one
+buffer sized for the largest, 3.5 MB for the update it was tested with) plus a
+few hundred KB of windows and buffers; an update with a larger section needs
+that much more, and one that doesn't fit stops through the escape and is
+rolled back. Each base file is unpacked to a scratch file
 on the card as it is read, and each packed result waits in a scratch file
 (`sd:/ctgpr/update-base-*.tmp`) until it is checked and stored; leftovers are
 removed at the next start.

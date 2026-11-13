@@ -68,4 +68,10 @@ private:
 // false only when a journal is there and could not be played back.
 bool CtgpRecoverPackJournal(std::string& error);
 
+// For every CTGP-R launch: true when blob.bin is whole (no undo journal left,
+// or the one left was played back now). False with the player's sentence
+// when an interrupted update could not be undone: CTGP-R must not start on a
+// half-written pack.
+bool CtgpPackReady(std::string& message);
+
 }  // namespace riftwii::wii

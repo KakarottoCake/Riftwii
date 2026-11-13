@@ -77,7 +77,13 @@ bool read_list(riftwii::CtgpPackWriter& disk, std::vector<riftwii::CtgpPackage>&
 // through the card's own directory entry (the DOL's raw reads).
 bool open_jelly(const CtgpUpdRequest& request, riftwii::CtgpPackWriter& disk, std::string& error) {
     riftwii::Fat32File jelly;
-    if (!request.sd.resolve(request.jelly_path, jelly, error)) return false;
+    // The DOL fills its own strings: one of the plugin's, which the DOL could
+    // free or grow, must not be in its hands (riftwii/plugin_ctgpupd.hpp).
+    std::string why;
+    if (!request.sd.resolve(request.jelly_path, jelly, why)) {
+        error = why;
+        return false;
+    }
     const auto key = riftwii::ctgp_efb_key(riftwii::ctgp_jelly_key_words(), jelly.entry.write_time,
                                            jelly.entry.write_date, jelly.entry.create_time, jelly.entry.create_date);
     riftwii::CtgpPackIo io;
@@ -179,7 +185,12 @@ bool check(CtgpUpdRequest& request) {
     std::vector<std::uint8_t> message;
     if (!riftwii::ctgp_check_request(request.mac, packages, message, request.error)) return false;
     std::string last_error;
-    while (request.connect_next(last_error)) {
+    for (;;) {
+        std::string why;  // the DOL's to fill (see open_jelly)
+        if (!request.connect_next(why)) {
+            if (!why.empty()) last_error = why;
+            break;
+        }
         if (riftwii::ctgp_check_exchange(request.io, message, request.reply, last_error)) return true;
         log_line(request, last_error);
         if (request.disconnect) request.disconnect();
@@ -229,13 +240,13 @@ bool download(CtgpUpdRequest& request) {
 }
 
 // The pack's /PACKAGES.BIN names CTGPR's version: the next check must see
-// the new one, or it would offer the same update again.
-void note_version(const CtgpUpdRequest& request, riftwii::CtgpPackWriter& pack, std::uint32_t version) {
+// the new one, or it would offer the same update again. A failure fails the
+// install, which the journal then rolls back.
+bool note_version(riftwii::CtgpPackWriter& pack, std::uint32_t version, std::string& error) {
     std::vector<std::uint8_t> list;
-    std::string error;
     if (!pack.read_file("/PACKAGES.BIN", list, error) || list.size() < 16) {
-        log_line(request, "the pack's version list could not be read: " + error);
-        return;
+        error = "the pack's version list could not be read: " + error;
+        return false;
     }
     const std::uint32_t count = (std::uint32_t(list[12]) << 24) | (std::uint32_t(list[13]) << 16) |
                                 (std::uint32_t(list[14]) << 8) | list[15];
@@ -247,8 +258,42 @@ void note_version(const CtgpUpdRequest& request, riftwii::CtgpPackWriter& pack, 
         record[10] = std::uint8_t(version >> 8);
         record[11] = std::uint8_t(version);
     }
-    if (!pack.replace_file("/PACKAGES.BIN", list.data(), list.size(), error))
-        log_line(request, "the pack's version list was not updated: " + error);
+    if (!pack.replace_file("/PACKAGES.BIN", list.data(), list.size(), error)) {
+        error = "the pack's version list was not updated: " + error;
+        return false;
+    }
+    return true;
+}
+
+// The DOL's disc reader, borrowed for the operation rather than copied (a
+// copy's state would be the DOL's allocations, which an escape could not
+// give back). The sink it is handed runs under the DOL's frames, which hold
+// the USB lock and buffers of their own, so it runs guarded: an escape inside
+// it returns false to the DOL, which then cleans up and returns, and the
+// escape goes on from here.
+struct GuardedSink {
+    const riftwii::CtgpDiscSink* sink;
+    const std::uint8_t* data;
+    std::size_t length;
+};
+
+bool call_sink(void* context) {
+    const auto* call = static_cast<const GuardedSink*>(context);
+    return (*call->sink)(call->data, call->length);
+}
+
+riftwii::CtgpDiscBase borrow_disc(const CtgpUpdRequest& request) {
+    if (!request.disc) return riftwii::CtgpDiscBase();
+    const riftwii::CtgpDiscBase* const disc = &request.disc;
+    return [disc](const std::string& path, const riftwii::CtgpDiscSink& sink, std::uint32_t* size, std::string& why) {
+        const riftwii::CtgpDiscSink guarded = [&sink](const std::uint8_t* data, std::size_t length) {
+            GuardedSink call{&sink, data, length};
+            return riftwii::plugin::run_guarded(call_sink, &call);
+        };
+        const bool ok = (*disc)(path, guarded, size, why);
+        riftwii::plugin::raise_pending();
+        return ok;
+    };
 }
 
 // The install against an open, journaled pack.
@@ -270,11 +315,18 @@ bool install_into(CtgpUpdRequest& request, riftwii::CtgpPackWriter& pack, const 
                 std::to_string(base_version);
         return false;
     }
+    // Every rebuilt file is checked against jelly.bin's CTGPR.HSH before it
+    // is written. CTGP-R's channel keeps that list at the newest version it
+    // knows, so a file that changed again after this update's version does
+    // not match and the update is refused: safe, and the next update brings
+    // the pack up to the list. Without the list nothing could be checked, so
+    // the install does not start.
     std::vector<std::uint8_t> hash_list;
-    std::string list_error;
-    if (!read_hash_list(request, hash_list, list_error))
-        log_line(request, "no hash list to check the files against (" + list_error + "); nothing will be written");
-    riftwii::CtgpPackUpdateTarget target(pack, request.disc, std::move(hash_list), request.scratch_prefix);
+    if (!read_hash_list(request, hash_list, error)) {
+        error = "no hash list to check the files against: " + error;
+        return false;
+    }
+    riftwii::CtgpPackUpdateTarget target(pack, borrow_disc(request), std::move(hash_list), request.scratch_prefix);
     log_line(request, "installing");
     std::FILE* update_file = std::fopen(request.update_path.c_str(), "rb");
     if (update_file == nullptr) {
@@ -290,8 +342,7 @@ bool install_into(CtgpUpdRequest& request, riftwii::CtgpPackWriter& pack, const 
         read_update, length, target, [&](const std::string& line) { log_line(request, line); },
         riftwii::CtgpUpdateFileDone(), request.step, error);
     std::fclose(update_file);
-    if (ok) note_version(request, pack, dia.version);
-    return ok;
+    return ok && note_version(pack, dia.version, error);
 }
 
 bool install(CtgpUpdRequest& request) {
@@ -328,9 +379,15 @@ bool install(CtgpUpdRequest& request) {
     pack.close();
     if (journaled) {
         std::string journal_error;
+        if (ok && !journal.commit(sync_blob, journal_error)) {
+            // blob.bin may not be on the card as written, or the journal is
+            // still there and would undo the update at the next start: the
+            // update is not installed, and is rolled back now.
+            ok = false;
+            error = "the update could not be finished: " + journal_error;
+        }
         if (ok) {
-            if (!journal.commit(sync_blob, journal_error))
-                log_line(request, "installed, but the undo journal was not removed: " + journal_error);
+            // Installed: blob.bin is synced and the journal is gone.
         } else if (journal.rollback(sync_blob, journal_error)) {
             log_line(request, "the pack was put back as it was (" + std::to_string(journal.chunks()) + " chunks)");
         } else {

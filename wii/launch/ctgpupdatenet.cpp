@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "ctgpr.hpp"
+#include "i18n.hpp"
 #include "log.hpp"
 #include "plugins.hpp"
 #include "riftwii/ctgpjournal.hpp"
@@ -256,6 +257,13 @@ bool CtgpRecoverPackJournal(std::string& error) {
         break;
     }
     logf("CTGP-R update: an interrupted update could not be undone: %s\n", error.c_str());
+    return false;
+}
+
+bool CtgpPackReady(std::string& message) {
+    std::string error;
+    if (CtgpRecoverPackJournal(error)) return true;
+    message = tr("An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer.", {error});
     return false;
 }
 
