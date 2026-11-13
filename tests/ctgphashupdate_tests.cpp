@@ -132,22 +132,48 @@ std::vector<std::uint8_t> packages_bin(std::uint32_t hash_version) {
     return p;
 }
 
+// Damage to the inner disk, for telling a list that is not there from a disk
+// that can't be read right.
+enum class Damage {
+    None,
+    HashOutside,     // /PACKAGES/HASH's cluster lies outside the disk
+    HashIsFile,      // /PACKAGES/HASH is a file, not a folder
+    HashFullEnd,     // /PACKAGES/HASH fills its cluster (no end mark) and its chain ends there: clean
+    HashRunsOff,     // the same, but its chain runs off the disk
+    Far,             // no damage: /PACKAGES/HASH and its list in later 32 KiB chunks than the root
+};
+
 // jelly.bin's inner disk, plain: /PACKAGES.BIN and /PACKAGES/HASH/TEST.HSH,
 // 4 KiB clusters; `clusters` sets how much is free.
-fatimg::Bytes inner_plain(const std::vector<std::uint8_t>& list, std::uint32_t clusters) {
+fatimg::Bytes inner_plain(const std::vector<std::uint8_t>& list, std::uint32_t clusters,
+                          Damage damage = Damage::None) {
     fatimg::Image img(512, 8, 0, clusters);
     fatimg::Bytes root = fatimg::short_entry("PACKAGESBIN", 0x20, 4, 0x40);
     const fatimg::Bytes dir = fatimg::short_entry("PACKAGES   ", 0x10, 3, 0);
     root.insert(root.end(), dir.begin(), dir.end());
     img.write_dir({2}, root);
-    img.write_dir({3}, fatimg::short_entry("HASH       ", 0x10, 5, 0));
-    img.write_dir({5}, fatimg::short_entry("TEST    HSH", 0x20, 6, std::uint32_t(list.size())));
+    const bool far = damage == Damage::Far;
+    const std::uint32_t hash_cluster = far ? 20u : 5u, list_cluster = far ? 30u : 6u;
+    img.write_dir({3}, fatimg::short_entry("HASH       ", damage == Damage::HashIsFile ? 0x20 : 0x10,
+                                           damage == Damage::HashOutside ? 0x0FFFFF00u : hash_cluster, 0));
+    fatimg::Bytes hash = fatimg::short_entry("TEST    HSH", 0x20, list_cluster, std::uint32_t(list.size()));
+    if (damage == Damage::HashFullEnd || damage == Damage::HashRunsOff) {
+        // No end mark: every other slot a deleted entry.
+        while (hash.size() < img.cluster_bytes()) {
+            fatimg::Bytes gone = fatimg::short_entry("GONE    HSH", 0x20, 0, 0);
+            gone[0] = 0xE5;
+            hash.insert(hash.end(), gone.begin(), gone.end());
+        }
+    }
+    img.write_dir({hash_cluster}, hash);
     img.write_data({4}, packages_bin(0x01031374u));
-    img.write_data({6}, list);
+    img.write_data({list_cluster}, list);
     // Every other cluster in use, so the disk is as full as asked.
     std::vector<std::uint32_t> filler;
-    for (std::uint32_t c = 7; c < 2 + clusters; ++c) filler.push_back(c);
+    for (std::uint32_t c = 7; c < 2 + clusters; ++c)
+        if (c != hash_cluster && c != list_cluster) filler.push_back(c);
     if (!filler.empty()) img.chain(filler);
+    if (damage == Damage::HashRunsOff) img.set_fat(5, 0x0FFFFF00u);
     fatimg::Bytes out = img.bytes;
     out.resize((out.size() + kChunk - 1) / kChunk * kChunk, 0);
     return out;
@@ -357,14 +383,14 @@ struct Setup {
     std::array<std::uint8_t, 16> key{};
 };
 
-Setup setup(std::uint32_t inner_clusters) {
+Setup setup(std::uint32_t inner_clusters, Damage damage = Damage::None) {
     Setup s;
     const auto old_list = vec(kTestList, sizeof(kTestList));
     Fat32Entry e;
     e.write_time = e.create_time = kTime;
     e.write_date = e.create_date = kDate;
     s.key = jelly_key(e);
-    s.card = make_card(encrypt(inner_plain(old_list, inner_clusters), s.key));
+    s.card = make_card(encrypt(inner_plain(old_list, inner_clusters, damage), s.key));
     lookup(s.card, s.before_entry);
     s.before_card = s.card.img.bytes;
     return s;
@@ -463,16 +489,40 @@ void test_refusals(const fs::path& dir) {
             look.close();
         }
         const int open_reads = reads;
-        // The first read after opening looks the list up; the next reads its
-        // data (the list fits in one cluster). A fault in either is the card's.
-        for (int extra = 0; extra < 2; ++extra) {
-            reads_left = open_reads + extra;
+        // Every read after the first `extra` past opening fails, on a fresh
+        // card each time, until the budget is enough for the whole install:
+        // a failure is never "the channel's to install", and the card ends as
+        // it was. Both the lookup and the read of the old list are reached.
+        bool saw_lookup = false, saw_read = false, went_in = false;
+        for (int extra = 0; extra < 400 && !went_in; ++extra) {
+            Setup t = setup(64, Damage::Far);
+            Raw traw{&t.card, t.before_entry};
+            const CtgpPackIo tbase = raw_io(traw);
+            int left = open_reads + extra;
+            CtgpPackIo tio;
+            tio.read = [&](std::uint64_t offset, std::uint32_t length, std::uint8_t* out) {
+                if (left == 0) return false;
+                --left;
+                return tbase.read(offset, length, out);
+            };
+            tio.write = tbase.write;
             bool grow = true;
-            EXPECT_TRUE(!ctgp_hash_update_install(counted, s.card.jelly_size, s.key, kIv, {new_list()}, 2, jp,
-                                                  [] { return true; }, rolled_back, e, &key, &grow));
+            went_in = ctgp_hash_update_install(tio, t.card.jelly_size, t.key, kIv, {new_list()}, 0x01031375u, jp,
+                                               [] { return true; }, rolled_back, e, &key, &grow);
             EXPECT_TRUE(!grow);
-            EXPECT_TRUE(raw.writes == 0 && s.card.img.bytes == s.before_card && !fs::exists(jp));
+            if (went_in) break;
+            if (fs::exists(jp)) {
+                // Cut in the read-back: the replay with a card that reads
+                // puts it back.
+                std::size_t restored = 0;
+                EXPECT_TRUE(ctgp_journal_recover(jp, tbase, t.card.jelly_size, [] { return true; }, restored, e) !=
+                            CtgpJournalRecovery::Failed);
+            }
+            EXPECT_TRUE(t.card.img.bytes == t.before_card && !fs::exists(jp));
+            if (e.find("could not be looked up") != std::string::npos) saw_lookup = true;
+            if (e.find("TEST.HSH could not be read") != std::string::npos) saw_read = true;
         }
+        EXPECT_TRUE(saw_lookup && saw_read && went_in);
         // The same list on a card that reads: it goes in (the reads above
         // were the only fault).
         reads_left = -1;
@@ -480,6 +530,32 @@ void test_refusals(const fs::path& dir) {
         EXPECT_TRUE(ctgp_hash_update_install(counted, s.card.jelly_size, s.key, kIv, {new_list()}, 0x01031375u, jp,
                                              [] { return true; }, rolled_back, e, &key, &grow));
         EXPECT_TRUE(!grow);
+    }
+    {
+        // A damaged disk is never "the channel's to install": only a list
+        // looked for in a folder read to its clean end counts as missing.
+        struct Case {
+            Damage damage;
+            const char* path;
+            bool grow;
+        };
+        const Case cases[] = {
+            {Damage::HashOutside, "/PACKAGES/HASH/TEST.HSH", false},
+            {Damage::HashIsFile, "/PACKAGES/HASH/TEST.HSH", false},
+            {Damage::HashRunsOff, "/PACKAGES/HASH/OTHER.HSH", false},
+            {Damage::HashFullEnd, "/PACKAGES/HASH/OTHER.HSH", true},  // read to its end: missing
+        };
+        for (const Case& c : cases) {
+            Setup s = setup(64, c.damage);
+            Raw raw{&s.card, s.before_entry};
+            CtgpHashUpdateList list = new_list();
+            list.disk_path = c.path;
+            bool grow = !c.grow;
+            EXPECT_TRUE(!ctgp_hash_update_install(raw_io(raw), s.card.jelly_size, s.key, kIv, {list}, 2, jp,
+                                                  [] { return true; }, rolled_back, e, &key, &grow));
+            EXPECT_TRUE(grow == c.grow);
+            EXPECT_TRUE(raw.writes == 0 && s.card.img.bytes == s.before_card && !fs::exists(jp));
+        }
     }
     {
         // The journal can't be made (a locked card): nothing written at all.

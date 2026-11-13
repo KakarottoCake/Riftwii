@@ -277,7 +277,11 @@ struct CtgpPackWriter::Impl {
         return fat[cluster];
     }
 
-    bool walk_chain(std::uint32_t first, std::vector<std::uint32_t>& out, std::string& error) const {
+    // `clean` (may be null) is set when the chain ended at an end-of-chain
+    // mark, not by running off the image.
+    bool walk_chain(std::uint32_t first, std::vector<std::uint32_t>& out, std::string& error,
+                    bool* clean = nullptr) const {
+        if (clean != nullptr) *clean = false;
         out.clear();
         std::uint32_t cluster = first;
         std::uint32_t guard = 0;
@@ -289,6 +293,7 @@ struct CtgpPackWriter::Impl {
             }
             cluster = next_cluster(cluster);
             if (cluster >= kFatEndOfChain) {
+                if (clean != nullptr) *clean = true;
                 return true;
             }
             // A cluster in use links on or ends its chain: a free (0),
@@ -311,10 +316,15 @@ struct CtgpPackWriter::Impl {
     }
 
     // One directory entry by name. Case-insensitive, long names included.
+    // `clean_end` (may be null) is set when a name not found was looked for
+    // in the whole folder: its end mark was read, or its chain ended where
+    // the file table says. A chain that runs off the image is not a clean end.
     bool find_in_directory(std::uint32_t directory, const std::string& name, Dirent& out,
-                           std::string& error) const {
+                           std::string& error, bool* clean_end = nullptr) const {
+        if (clean_end != nullptr) *clean_end = false;
         std::vector<std::uint32_t> chain;
-        if (!walk_chain(directory, chain, error)) {
+        bool chain_clean = false;
+        if (!walk_chain(directory, chain, error, &chain_clean)) {
             return false;
         }
         std::string long_name;
@@ -329,6 +339,7 @@ struct CtgpPackWriter::Impl {
             for (std::size_t at = 0; at + 32 <= block.size(); at += 32) {
                 const std::uint8_t* entry = block.data() + at;
                 if (entry[0] == 0x00) {
+                    if (clean_end != nullptr) *clean_end = true;
                     return true;  // end of this folder
                 }
                 if (entry[0] == 0xE5) {
@@ -383,11 +394,17 @@ struct CtgpPackWriter::Impl {
                 long_name.clear();
             }
         }
+        if (clean_end != nullptr) *clean_end = chain_clean && !chain.empty();
         return true;
     }
 
     // `missing` (may be null) is set only when the disk was read and a part
-    // of the path is not there; a read error leaves it false.
+    // of the path is not there: the folder that should hold it was read to
+    // its clean end. A read error, a folder whose cluster lies outside the
+    // disk or whose chain runs off it, or a part of the wrong kind (a file
+    // where a folder is meant, or the reverse) leaves it false: the disk is
+    // damaged or not CTGP-R's layout, which neither RiftWii nor a re-download
+    // mends, but nothing about the update itself is wrong.
     bool find(const std::string& path, Dirent& out, std::string& error, bool* missing = nullptr) const {
         if (missing != nullptr) *missing = false;
         if (path.empty() || path[0] != '/') {
@@ -406,11 +423,20 @@ struct CtgpPackWriter::Impl {
                 error = "a package path has an empty part";
                 return false;
             }
+            if (directory < 2 || directory >= max_cluster) {
+                error = "the package disk's folder for " + path + " lies outside it";
+                return false;
+            }
             Dirent found;
-            if (!find_in_directory(directory, part, found, error)) {
+            bool clean_end = false;
+            if (!find_in_directory(directory, part, found, error, &clean_end)) {
                 return false;
             }
             if (!found.found) {
+                if (!clean_end) {
+                    error = "the package disk's folder for " + path + " ends early";
+                    return false;
+                }
                 error = "the package does not hold " + path;
                 if (missing != nullptr) *missing = true;
                 return false;
