@@ -501,6 +501,13 @@ public:
     std::vector<bool> base_packed;
     std::string expected_path = "/Race/Course/NEW.szs";
     std::string packed_scratch_path() const override { return scratch; }
+    bool base_unpacked_size(const std::string&, const std::string& path, bool, std::uint32_t& size) override {
+        sized.push_back(path);
+        size = base_size;
+        return base_size != 0;
+    }
+    std::uint32_t base_size = 0;  // 0: can't say (the bar weighs by sections)
+    std::vector<std::string> sized;
     std::array<std::uint8_t, 20> last_digest{};
     bool refuse = false;
     bool fail_base_reads = false;
@@ -722,6 +729,46 @@ void test_update_step_weighted() {
         EXPECT_TRUE(seen[i].second > want - 1e-9 && seen[i].second < want + 1e-9);
     }
     EXPECT_TRUE(!seen.empty() && seen.front().second == 0.0 && seen.back().second == 1.0);
+}
+
+// With the bases' sizes known, each file weighs 1.63/10.83 of its bases'
+// unpacked bytes plus its own, and the bases' part of its bar is theirs.
+void test_update_step_by_bases() {
+    const std::vector<std::uint8_t> seventeen = {0x40, 'h', 'e', 'l', 'l', 'o', 0x14, 1, 0x33};
+    const std::vector<std::uint8_t> thirteen = {0x20, 'a', 'b', 'c', 0x18, 0x13, 0x13, 0x28, 0x00, 'q', 0x13};
+    const auto dia = make_dia({make_section(17, seventeen, "/Race/Course/NEW.szs"),
+                               make_section(13, thirteen, "/Race/Course/NEW.szs")});
+    MemoryTarget target;
+    target.base_size = 7000;
+    const double k = 1.63 / 10.83;
+    const double w1 = k * 7000 + 17, w2 = k * 7000 + 13;
+    const double s1 = w1 / (w1 + w2);
+    std::string error;
+    std::vector<std::pair<std::size_t, double>> seen;
+    std::vector<double> parts;
+    EXPECT_TRUE(ctgp_update_apply(
+        [&](std::uint64_t offset, std::uint8_t* out, std::size_t length) {
+            if (offset + length > dia.size()) return false;
+            std::memcpy(out, dia.data() + offset, length);
+            return true;
+        },
+        dia.size(), target, [](const std::string&) {}, CtgpUpdateFileDone(),
+        [&](std::size_t index, std::size_t, const std::string&, double part, double overall) {
+            seen.emplace_back(index, overall);
+            parts.push_back(part);
+        },
+        error));
+    // Every base was sized once, before the first file began.
+    EXPECT_EQ(target.sized.size(), std::size_t(2));
+    for (std::size_t i = 0; i < seen.size(); ++i) {
+        const double want = seen[i].first == 0 ? s1 * parts[i] : s1 + (1 - s1) * parts[i];
+        EXPECT_TRUE(seen[i].second > want - 1e-9 && seen[i].second < want + 1e-9);
+    }
+    // The first file's bases end at their share of it.
+    const double base_end = k * 7000 / w1;
+    bool found = false;
+    for (double part : parts) found = found || (part > base_end - 1e-9 && part < base_end + 1e-9);
+    EXPECT_TRUE(found);
 }
 
 // Nintendo's Yaz0, built by hand: header, then a flag byte and its items.
@@ -1039,6 +1086,7 @@ void test_update_plain_files() {
 
 int main() {
     test_dif_flags();
+    test_update_step_by_bases();
     test_update_plain_files();
     test_yaz0_round_trip();
     test_dia_parse();

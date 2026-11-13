@@ -198,6 +198,39 @@ bool CtgpPackUpdateTarget::load_base(const std::string& component, const std::st
     return true;
 }
 
+bool CtgpPackUpdateTarget::base_unpacked_size(const std::string& component, const std::string& path, bool packed,
+                                              std::uint32_t& size) {
+    size = 0;
+    const bool from_pack = component == "CTGPR";
+    if (!from_pack && (component != "RMC" || !disc_)) return false;
+    // The first 16 bytes are enough: a Yaz0 header holds the unpacked size.
+    // The read stops there (the sink says no more).
+    std::uint8_t head[16] = {};
+    std::size_t have = 0;
+    std::uint32_t stored = 0;
+    const auto take = [&](const std::uint8_t* data, std::size_t length) {
+        const std::size_t n = std::min(length, sizeof head - have);
+        std::memcpy(head + have, data, n);
+        have += n;
+        return have < sizeof head;
+    };
+    std::string ignored;
+    if (from_pack) {
+        pack_.read_file(package_path(path), take, &stored, ignored);
+    } else {
+        disc_(path, take, &stored, ignored);
+    }
+    if (have == 0 || stored == 0) return false;
+    const bool yaz0 = have >= 16 && std::memcmp(head, "Yaz0", 4) == 0;
+    if (yaz0 && (packed || !from_pack)) {
+        size = (std::uint32_t(head[4]) << 24) | (std::uint32_t(head[5]) << 16) | (std::uint32_t(head[6]) << 8) |
+               head[7];
+    } else {
+        size = stored;
+    }
+    return true;
+}
+
 bool CtgpPackUpdateTarget::check_file(const std::string& path, bool packed,
                                       const std::array<std::uint8_t, 20>& digest, std::string& error) {
     std::array<std::uint8_t, 20> expected{};

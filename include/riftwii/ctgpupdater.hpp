@@ -51,6 +51,9 @@ public:
                     std::string& error) override;
     bool store_file(const std::string& path, const CtgpPieces& packed, const CtgpProgress& progress,
                     std::string& error) override;
+    // Reads only a base file's first bytes (pack or disc), for the bar.
+    bool base_unpacked_size(const std::string& component, const std::string& path, bool packed,
+                            std::uint32_t& size) override;
     // The packed file waits in a scratch file beside the bases' ones.
     std::string packed_scratch_path() const override { return temp_prefix_ + "packed.tmp"; }
 

@@ -265,6 +265,18 @@ public:
     // Where each packed file is kept until it is stored: a scratch file's
     // path, or empty to keep it in memory.
     virtual std::string packed_scratch_path() const { return std::string(); }
+    // For the progress bar only, before the install starts: a base file's
+    // unpacked size, from as little of it as can be read (its Yaz0 header).
+    // False when the target can't say; the bar then weighs files by their
+    // sections instead.
+    virtual bool base_unpacked_size(const std::string& component, const std::string& path, bool packed,
+                                    std::uint32_t& size) {
+        (void)component;
+        (void)path;
+        (void)packed;
+        size = 0;
+        return false;
+    }
 };
 
 // Applies every section of a downloaded DIA0, in order. `log` (may be empty)

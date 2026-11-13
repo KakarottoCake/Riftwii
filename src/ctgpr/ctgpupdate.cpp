@@ -910,8 +910,19 @@ bool rebuild_write(void* user, const std::uint8_t* data, std::size_t length) {
 // storing almost none; on a Wii storing is slower (each 32 KiB goes to the
 // journal and is synced first), so it gets a fifth. The log's stage lines
 // (bases unpacked, packed, stored) give the real split.
+// With the bases' sizes known (below) a file's base share comes from them
+// instead; the rest splits between rebuilding and storing as here.
 constexpr double kBaseShare = 0.45;
-constexpr double kRebuildShare = 0.35;
+constexpr double kRebuildOfRest = 0.35 / 0.55;
+
+// A file's weight from what its time goes on: unpacking its base files and
+// rebuilding, packing and storing it. On Jack's Wii (2611-186, the five 1193
+// files) the times fit 1.63 s per MB of unpacked base files plus 10.8 s per MB
+// of the rebuilt file; in Dolphin (pr-11, pr-13: 1193 and 1194, nine files)
+// 0.66 and 3.11 s, within 7% for seven of the nine. The section-size model
+// above was off by up to 24% there, and too low on 1194, so "about a minute"
+// showed with nearly two left. The Wii's ratio is used.
+constexpr double kBaseWeight = 1.63 / 10.83;
 
 // For the callers that don't ask why an apply failed.
 CtgpUpdateFailure& ignored_failure() {
@@ -986,25 +997,6 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
     // out of the table shows here, and the install is then rolled back.
     std::uint64_t unpacked_total = 0;
     const std::size_t count = update.sections.size();
-    // Each file's weight in the bar (kSectionWeight), from the table and a
-    // look at each section's header (its unpacked size at 0x18). A header
-    // that can't be read only makes the bar less even; the section itself is
-    // checked when it is loaded.
-    std::vector<double> weight(count, 0.0);
-    double weight_total = 0;
-    for (std::size_t index = 0; index < count; ++index) {
-        const CtgpDiaSection& place = update.sections[index];
-        std::uint8_t head[4] = {};
-        double unpacked = double(update.unpacked_size) / double(count ? count : 1);
-        if (peek && place.size >= 0x1c && peek(std::uint64_t(place.offset) + 0x18, head, sizeof head)) {
-            const std::uint32_t value = (std::uint32_t(head[0]) << 24) | (std::uint32_t(head[1]) << 16) |
-                                        (std::uint32_t(head[2]) << 8) | head[3];
-            if (value <= kCtgpUpdateMaxFileBytes) unpacked = double(value);
-        }
-        weight[index] = kSectionWeight * double(place.size) + unpacked;
-        weight_total += weight[index];
-    }
-    if (weight_total <= 0) weight_total = 1;
     // Every section's flags first: a genuine update in a form RiftWii doesn't
     // know stops here, before anything is rebuilt or written.
     if (peek) {
@@ -1018,6 +1010,60 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
             }
         }
     }
+    // Each file's weight in the bar. Best: from what its time goes on, the
+    // base files it unpacks and the file it rebuilds (kBaseWeight), with the
+    // bases' sizes from their headers (the target's base_unpacked_size).
+    // When any of those can't be had, every file falls back to the section
+    // and unpacked sizes (kSectionWeight). A header that can't be read only
+    // makes the bar less even; the section itself is checked when it is
+    // loaded.
+    std::vector<double> weight(count, 0.0);
+    std::vector<double> base_share(count, kBaseShare);
+    std::vector<double> unpacked_of(count, double(update.unpacked_size) / double(count ? count : 1));
+    std::vector<double> bases_of(count, 0.0);
+    bool by_bases = static_cast<bool>(peek);
+    for (std::size_t index = 0; index < count; ++index) {
+        const CtgpDiaSection& place = update.sections[index];
+        std::uint8_t head[0x20 + 16 * kCtgpDifMaxEntries];
+        const std::size_t want = std::min<std::size_t>(place.size, sizeof head);
+        if (!peek || want < 0x20 || !peek(place.offset, head, want)) {
+            by_bases = false;
+            continue;
+        }
+        const std::uint32_t value = be32(head + 0x18);
+        if (value <= kCtgpUpdateMaxFileBytes) unpacked_of[index] = double(value);
+        const std::uint32_t entries = be32(head + 0x1C);
+        if (!by_bases) continue;
+        if (entries > kCtgpDifMaxEntries || 0x20u + 16u * entries > want) {
+            by_bases = false;
+            continue;
+        }
+        for (std::uint32_t e = 0; e < entries && by_bases; ++e) {
+            const std::uint8_t* entry = head + 0x20 + 16 * e;
+            const std::uint32_t at = be32(entry + 8);
+            char name[0x101] = {};
+            const std::size_t length = at < place.size ? std::min<std::size_t>(place.size - at, 0x100) : 0;
+            std::uint32_t size = 0;
+            by_bases = length > 0 && peek(std::uint64_t(place.offset) + at, reinterpret_cast<std::uint8_t*>(name),
+                                          length) &&
+                       std::memchr(name, 0, length) != nullptr &&
+                       target.base_unpacked_size(eight_byte_name(entry), name,
+                                                 (be32(entry + 12) & kCtgpDifFlagPacked) != 0, size);
+            bases_of[index] += double(size);
+        }
+    }
+    double weight_total = 0;
+    for (std::size_t index = 0; index < count; ++index) {
+        if (by_bases) {
+            const double bases = kBaseWeight * bases_of[index];
+            weight[index] = bases + unpacked_of[index];
+            base_share[index] = weight[index] > 0 ? bases / weight[index] : 0.0;
+        } else {
+            weight[index] = kSectionWeight * double(update.sections[index].size) + unpacked_of[index];
+        }
+        weight_total += weight[index];
+    }
+    if (weight_total <= 0) weight_total = 1;
     double weight_before = 0;
     for (std::size_t index = 0; index < count; ++index) {
         const CtgpDiaSection& place = update.sections[index];
@@ -1055,6 +1101,8 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         // This file's share of the whole, by weight.
         const double before = weight_before;
         const double mine = weight[index];
+        const double base_part = files.entries.empty() ? 0.0 : base_share[index];
+        const double rebuild_part = (1.0 - base_part) * kRebuildOfRest;
         weight_before += mine;
         const auto report = [&](double part) {
             if (step) {
@@ -1082,7 +1130,7 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
             owned.emplace_back();
             const CtgpProgress base_progress = [&](std::uint64_t done, std::uint64_t total) {
                 const double inner = total ? double(done) / double(total) : 0.0;
-                report(kBaseShare * (double(b) + std::min(1.0, inner)) / double(base_count));
+                report(base_part * (double(b) + std::min(1.0, inner)) / double(base_count));
             };
             CtgpUpdateFailure base_failure = CtgpUpdateFailure::Temporary;
             if (!target.load_base(entry.component, base_path, entry.packed, owned.back(), base_progress, base_failure,
@@ -1095,7 +1143,7 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
             watched.emplace_back(new WatchedBase(*owned.back()));
             sources.push_back(watched.back().get());
         }
-        report(kBaseShare);
+        report(base_part);
         if (log) {
             std::uint64_t base_bytes = 0;
             for (const auto& base : owned) base_bytes += base->size();
@@ -1124,7 +1172,7 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         sink.plain = keep;
         sink.total = files.unpacked_size;
         sink.next_tick = 128 * 1024;
-        sink.tick = [&](double part) { report(kBaseShare + kRebuildShare * part); };
+        sink.tick = [&](double part) { report(base_part + rebuild_part * part); };
         bool base_short = false;
         if (!ctgp_dif_apply(data, section.size(), files, sources, rebuild_write, &sink, &base_short, error)) {
             bool base_failed = false;
@@ -1163,7 +1211,7 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         sources.clear();
         watched.clear();
         owned.clear();
-        report(kBaseShare + kRebuildShare);
+        report(base_part + rebuild_part);
         if (log) {
             log(path + (pack_output ? ": rebuilt and packed, " : ": rebuilt (stored unpacked), ") +
                 std::to_string(packed.size()) + " bytes to store");
@@ -1173,8 +1221,8 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
             return false;
         }
         const CtgpProgress store_progress = [&](std::uint64_t done, std::uint64_t total) {
-            report(kBaseShare + kRebuildShare +
-                   (1.0 - kBaseShare - kRebuildShare) * (total ? double(done) / double(total) : 1.0));
+            report(base_part + rebuild_part +
+                   (1.0 - base_part - rebuild_part) * (total ? double(done) / double(total) : 1.0));
         };
         if (!target.store_file(path, packed, store_progress, error)) {
             return false;
