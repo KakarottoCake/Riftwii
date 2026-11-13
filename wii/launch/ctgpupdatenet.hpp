@@ -46,10 +46,11 @@ public:
 
     // Reads the header of the update at kCtgpUpdatePath.
     bool inspect(CtgpUpdateInfo& out, std::string& error);
-    // After a failed call: true when the plugin ran and refused (the file
-    // itself is the problem), false when the plugin could not be loaded or
-    // ran out of memory (the file may be fine).
-    bool refused() const { return refused_; }
+    // After a failed inspect() or install(): true when the update file itself
+    // can never be installed (not a CTGP-R update, a bad signature, broken
+    // commands) and, for install(), the pack was put back. False when the
+    // card, memory or the plugin was at fault: the file may be fine.
+    bool bad_update() const { return bad_update_; }
     // Brings the network up and asks the update server whether an update
     // waits for the installed packages. The connection stays open for
     // download().
@@ -67,7 +68,7 @@ private:
     SocketTransport conn_;
     bool connected_ = false;
     std::size_t next_server_ = 0;
-    bool refused_ = false;
+    bool bad_update_ = false;
 };
 
 // Puts the pack back as it was before an update that did not finish (power

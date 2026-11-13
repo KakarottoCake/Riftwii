@@ -60,6 +60,7 @@
 #include "vsdimage.hpp"
 #include "wfsdrive.hpp"
 #include "appicon.hpp"
+#include "riftwii/ctgppending.hpp"
 #include "riftwii/ctgprsave.hpp"
 #include "riftwii/ctgpupdate.hpp"
 #include "ctgpupdatenet.hpp"
@@ -19632,13 +19633,40 @@ static std::string CtgpVersionText(std::uint32_t version)
 	return text;
 }
 
-// Moves sd:/ctgpr/update.dif out of the way (an older file of that name
-// goes first: FAT does not rename onto a file that is there).
-static void MoveCtgpUpdate(const char* to)
+// Moves sd:/ctgpr/update.dif out of the way (riftwii/ctgppending.hpp).
+// False, and the file still there, when the rename failed.
+static bool MoveCtgpUpdate(const char* to)
 {
-	std::remove(to);
-	if (std::rename(riftwii::wii::kCtgpUpdatePath, to) != 0)
-		logf("CTGP-R update: %s could not be renamed to %s\n", riftwii::wii::kCtgpUpdatePath, to);
+	if (riftwii::ctgp_move_aside(riftwii::wii::kCtgpUpdatePath, to,
+		    [](const char* path) { return std::remove(path); },
+		    [](const char* from, const char* name) { return std::rename(from, name); }))
+		return true;
+	logf("CTGP-R update: %s could not be renamed to %s\n", riftwii::wii::kCtgpUpdatePath, to);
+	return false;
+}
+
+static void ShowCtgpUpdateFailed(const std::string& error)
+{
+	ShowPopup(tr("CTGP-R update failed"),
+		tr("The update could not be installed: {1}. CTGP-R starts without it.", {FlatCapped(error, 140)}),
+		tr("OK"));
+}
+
+// An update that can never be installed (CtgpUpdater::bad_update) is set
+// aside as update.dif.bad, so it isn't offered again and the server can be
+// asked for a good one. Says which happened; false when it is still there.
+static bool SetCtgpUpdateAside(const std::string& error)
+{
+	logf("CTGP-R update: %s can't be used: %s\n", riftwii::wii::kCtgpUpdatePath, error.c_str());
+	if (!MoveCtgpUpdate("sd:/ctgpr/update.dif.bad")) {
+		ShowCtgpUpdateFailed(error + "; it could not be moved aside");
+		return false;
+	}
+	logf("CTGP-R update: set aside as update.dif.bad\n");
+	ShowPopup(tr("CTGP-R update"),
+		tr("The CTGP-R update on the SD card can't be used ({1}), so it was set aside.", {FlatCapped(error, 140)}),
+		tr("OK"));
+	return true;
 }
 
 // Reads the waiting update's header and checks its signature, which reads
@@ -19694,32 +19722,44 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 		// as update.dif.bad; one already installed (a power cut between the
 		// install and its rename) is retired. Either way the server is then
 		// asked again, so a stale file never blocks later updates.
-		if (!InspectCtgpUpdate(updater, info, error)) {
-			if (!updater.refused()) {
-				// The plugin could not run: the file may be fine, so it stays.
-				logf("CTGP-R update: %s: %s\n", update_path, error.c_str());
-				ShowPopup(tr("CTGP-R update failed"),
-					tr("The update could not be installed: {1}. CTGP-R starts without it.", {FlatCapped(error, 140)}),
-					tr("OK"));
-				return;
-			}
-			logf("CTGP-R update: %s can't be used, set aside as update.dif.bad: %s\n", update_path, error.c_str());
-			MoveCtgpUpdate("sd:/ctgpr/update.dif.bad");
-			ShowPopup(tr("CTGP-R update"),
-				tr("The CTGP-R update on the SD card can't be used ({1}), so it was set aside.", {FlatCapped(error, 140)}),
-				tr("OK"));
-		} else if (info.pack_version != 0 && info.pack_version == info.version) {
+		// A move that fails stops here: the file is still there, and offering
+		// it would only fail again.
+		const bool inspected = InspectCtgpUpdate(updater, info, error);
+		switch (riftwii::ctgp_pending_step(inspected, updater.bad_update(), info.pack_version, info.version,
+			info.base_version)) {
+		case riftwii::CtgpPendingStep::Stop:
+			// The card, memory or the plugin: the file may be fine, so it stays.
+			logf("CTGP-R update: %s: %s\n", update_path, error.c_str());
+			ShowCtgpUpdateFailed(error);
+			return;
+		case riftwii::CtgpPendingStep::Retire:
 			logf("CTGP-R update: %s is %s, which is already installed\n", update_path,
 				CtgpVersionText(info.version).c_str());
-			MoveCtgpUpdate("sd:/ctgpr/update.dif.installed");
-		} else if (info.pack_version != 0 && info.pack_version != info.base_version) {
-			logf("CTGP-R update: %s updates %s, but the pack is %s; set aside as update.dif.bad\n", update_path,
+			if (!MoveCtgpUpdate("sd:/ctgpr/update.dif.installed")) {
+				ShowCtgpUpdateFailed("it is already installed; it could not be moved aside");
+				return;
+			}
+			break;
+		case riftwii::CtgpPendingStep::SetAside:
+			if (!inspected) {
+				if (!SetCtgpUpdateAside(error)) return;
+				break;
+			}
+			logf("CTGP-R update: %s updates %s, but the pack is %s\n", update_path,
 				CtgpVersionText(info.base_version).c_str(), CtgpVersionText(info.pack_version).c_str());
-			MoveCtgpUpdate("sd:/ctgpr/update.dif.bad");
+			if (!MoveCtgpUpdate("sd:/ctgpr/update.dif.bad")) {
+				ShowCtgpUpdateFailed("it is for version " + CtgpVersionText(info.base_version) +
+					"; it could not be moved aside");
+				return;
+			}
+			logf("CTGP-R update: set aside as update.dif.bad\n");
 			ShowPopup(tr("CTGP-R update"),
 				tr("The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, so it was set aside.",
 					{CtgpVersionText(info.base_version), CtgpVersionText(info.pack_version)}),
 				tr("OK"));
+			break;
+		case riftwii::CtgpPendingStep::Install:
+			break;
 		}
 	}
 	if (stat(update_path, &st) != 0) {
@@ -19733,10 +19773,12 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 		if (!CheckCtgpUpdateServer(updater)) return;
 		asked = true;
 		if (!InspectCtgpUpdate(updater, info, error)) {
+			if (updater.bad_update()) {
+				SetCtgpUpdateAside(error);
+				return;
+			}
 			logf("CTGP-R update: %s: %s\n", update_path, error.c_str());
-			ShowPopup(tr("CTGP-R update failed"),
-				tr("The update could not be installed: {1}. CTGP-R starts without it.", {FlatCapped(error, 140)}),
-				tr("OK"));
+			ShowCtgpUpdateFailed(error);
 			return;
 		}
 	}
@@ -19802,9 +19844,12 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 		ShowPopup(tr("CTGP-R update"), tr("The update was installed. CTGP-R starts now."), tr("OK"));
 	} else {
 		logf("CTGP-R update: FAILED: %s\n", error.c_str());
-		ShowPopup(tr("CTGP-R update failed"),
-			tr("The update could not be installed: {1}. CTGP-R starts without it.", {FlatCapped(error, 140)}),
-			tr("OK"));
+		// The pack was put back; an update that can never install is set
+		// aside so it isn't offered at every start.
+		if (updater.bad_update())
+			SetCtgpUpdateAside(error);
+		else
+			ShowCtgpUpdateFailed(error);
 	}
 }
 

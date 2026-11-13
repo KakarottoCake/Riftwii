@@ -96,7 +96,7 @@ CtgpUpdater::~CtgpUpdater() {
 }
 
 bool CtgpUpdater::run(CtgpUpdRequest& request, std::string& error) {
-    refused_ = false;
+    bad_update_ = false;
     request.layout = ctgpupd_request_layout();
     request.update_path = kCtgpUpdatePath;
     request.part_path = kCtgpUpdatePartPath;
@@ -147,7 +147,7 @@ bool CtgpUpdater::run(CtgpUpdRequest& request, std::string& error) {
     error = result == RWP_LAUNCH_NO_MEMORY ? "RiftWii ran out of memory"
             : request.error.empty()        ? "the ctgpupd plugin gave no reason"
                                            : request.error;
-    refused_ = result != RWP_LAUNCH_NO_MEMORY;
+    bad_update_ = result != RWP_LAUNCH_NO_MEMORY && request.bad_update != 0;
     return false;
 }
 

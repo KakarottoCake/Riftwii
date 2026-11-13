@@ -57,6 +57,13 @@ private:
     std::string data_;
 };
 
+// A base file the card will not give: right size, every read fails.
+class UnreadableBase : public CtgpBaseSource {
+public:
+    std::uint32_t size() const override { return 7; }
+    bool read(std::uint32_t, std::uint8_t*, std::size_t) const override { return false; }
+};
+
 bool collect(void* user, const std::uint8_t* data, std::size_t length) {
     auto* out = static_cast<std::vector<std::uint8_t>*>(user);
     out->insert(out->end(), data, data + length);
@@ -345,6 +352,17 @@ void test_dia_signature() {
     EXPECT_EQ(parsed.sections.size(), std::size_t(1));
     EXPECT_TRUE(!verify(tampered, key));
 
+    // The other change review found: the second file left out, its table
+    // entry dropped, the rest moved up and every size fixed to match. The
+    // shortened file is a well-formed one-file update (it parses), but it is
+    // not what CTGP-R signed.
+    const std::vector<std::uint8_t> stream = {0x40, 'h', 'e', 'l', 'l', 'o'};
+    auto compacted = make_dia({make_section(5, stream, "NEW.SZS")});
+    compacted[0x23] = std::uint8_t(signature.size());
+    std::copy(signature.begin(), signature.end(), compacted.begin() + 0x24);
+    EXPECT_TRUE(ctgp_dia_parse(compacted.data(), compacted.size(), parsed, error));
+    EXPECT_TRUE(!verify(compacted, key));
+
     // Any other change is refused too: a byte of the last file, the count
     // alone, a byte added, and no signature at all.
     auto changed = dia;
@@ -371,7 +389,11 @@ public:
             return false;
         }
         if (progress) progress(7, 7);
-        out = std::make_unique<MemoryBase>("ABCDEFG");
+        if (fail_base_reads) {
+            out = std::make_unique<UnreadableBase>();
+        } else {
+            out = std::make_unique<MemoryBase>("ABCDEFG");
+        }
         return true;
     }
     bool check_file(const std::string& path, const std::array<std::uint8_t, 20>& digest,
@@ -399,8 +421,49 @@ public:
     std::string packed_scratch_path() const override { return scratch; }
     std::array<std::uint8_t, 20> last_digest{};
     bool refuse = false;
+    bool fail_base_reads = false;
     std::string scratch;
 };
+
+// Why an apply failed: a section whose commands are broken is the update's
+// own fault (set it aside); a base file the card could not read is not.
+void test_apply_failure_kind() {
+    auto run = [](const std::vector<std::uint8_t>& stream, std::uint32_t size, MemoryTarget& target,
+                  CtgpUpdateFailure& failure) {
+        const auto dia = make_dia(make_section(size, stream, "/Race/Course/NEW.szs"));
+        const CtgpUpdateRead read = [&dia](std::uint64_t offset, std::uint8_t* out, std::size_t length) {
+            if (offset + length > dia.size()) return false;
+            std::memcpy(out, dia.data() + offset, length);
+            return true;
+        };
+        std::string error;
+        return ctgp_update_apply(read, dia.size(), target, nullptr, CtgpUpdateFileDone(), CtgpUpdateStep(), failure,
+                                 error);
+    };
+    const std::vector<std::uint8_t> good = {0x40, 'h', 'e', 'l', 'l', 'o', 0x14, 1, 0x33};
+    CtgpUpdateFailure failure = CtgpUpdateFailure::Temporary;
+    MemoryTarget fine;
+    EXPECT_TRUE(run(good, 17, fine, failure));
+    EXPECT_TRUE(failure == CtgpUpdateFailure::None);
+
+    MemoryTarget broken;
+    EXPECT_TRUE(!run({0x55}, 1, broken, failure));  // no such opcode
+    EXPECT_TRUE(failure == CtgpUpdateFailure::BadUpdate);
+    EXPECT_TRUE(broken.stored.empty());
+    EXPECT_TRUE(!run({0x14, 200}, 207, broken, failure));  // a base copy past the base's end
+    EXPECT_TRUE(failure == CtgpUpdateFailure::BadUpdate);
+
+    MemoryTarget card;
+    card.fail_base_reads = true;
+    EXPECT_TRUE(!run(good, 17, card, failure));
+    EXPECT_TRUE(failure == CtgpUpdateFailure::Temporary);
+    EXPECT_TRUE(card.stored.empty());
+
+    MemoryTarget strict;  // the hash list does not vouch for it: maybe a newer list will
+    strict.refuse = true;
+    EXPECT_TRUE(!run(good, 17, strict, failure));
+    EXPECT_TRUE(failure == CtgpUpdateFailure::Temporary);
+}
 
 void test_update_apply() {
     std::vector<std::uint8_t> stream = {0x40, 'h', 'e', 'l', 'l', 'o', 0x14, 1, 0x33};
@@ -644,6 +707,7 @@ int main() {
     test_apply_distance();
     test_apply_full_window();
     test_dia_signature();
+    test_apply_failure_kind();
     test_update_apply();
     test_apply_rejects_bad_stream();
     test_yaz0_nintendo_matches();

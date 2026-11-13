@@ -858,9 +858,36 @@ bool rebuild_write(void* user, const std::uint8_t* data, std::size_t length) {
 constexpr double kBaseShare = 0.35;
 constexpr double kRebuildShare = 0.6;
 
+// For the callers that don't ask why an apply failed.
+CtgpUpdateFailure& ignored_failure() {
+    static CtgpUpdateFailure unused = CtgpUpdateFailure::None;
+    return unused;
+}
+
+// A base file whose reads are watched: a section's commands that fail with
+// every base read fine are the update's own fault.
+class WatchedBase : public CtgpBaseSource {
+public:
+    explicit WatchedBase(const CtgpBaseSource& inner) : inner_(inner) {}
+    std::uint32_t size() const override { return inner_.size(); }
+    bool read(std::uint32_t offset, std::uint8_t* out, std::size_t length) const override {
+        const bool ok = inner_.read(offset, out, length);
+        if (!ok) failed = true;
+        return ok;
+    }
+    mutable bool failed = false;
+
+private:
+    const CtgpBaseSource& inner_;
+};
+
 bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section, CtgpUpdateTarget& target,
                     const std::function<void(const std::string&)>& log,
-                    const CtgpUpdateFileDone& file_done, const CtgpUpdateStep& step, std::string& error) {
+                    const CtgpUpdateFileDone& file_done, const CtgpUpdateStep& step, CtgpUpdateFailure& failure,
+                    std::string& error) {
+    // Anything that goes wrong is Temporary unless it is set to BadUpdate
+    // where the update itself is at fault.
+    failure = CtgpUpdateFailure::Temporary;
     if (log) {
         log("CTGP-R update " + update.component + ": " + std::to_string(update.sections.size()) + " files");
     }
@@ -889,16 +916,19 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         const std::uint8_t* data = section.data();
         CtgpDif files;
         if (!ctgp_dif_parse(data, section.size(), files, error)) {
+            failure = CtgpUpdateFailure::BadUpdate;
             return false;
         }
         const std::string path = ctgp_dif_path(data, section.size(), files.path_table);
         if (path.empty()) {
             error = "an update section has no file path";
+            failure = CtgpUpdateFailure::BadUpdate;
             return false;
         }
         unpacked_total += files.unpacked_size;
         if (unpacked_total > update.unpacked_size) {
             error = "the update's files are larger than its header says";
+            failure = CtgpUpdateFailure::BadUpdate;
             return false;
         }
         const auto report = [&](double part) {
@@ -908,6 +938,8 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         };
         report(0.0);
         std::vector<std::unique_ptr<CtgpBaseSource>> owned;
+        std::vector<std::unique_ptr<WatchedBase>> watched;
+        watched.reserve(files.entries.size());
         std::vector<const CtgpBaseSource*> sources;
         owned.reserve(files.entries.size());
         sources.reserve(files.entries.size());
@@ -917,6 +949,7 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
             const std::string base_path = ctgp_dif_path(data, section.size(), entry.path_offset);
             if (base_path.empty()) {
                 error = "an update entry has no path";
+                failure = CtgpUpdateFailure::BadUpdate;
                 return false;
             }
             owned.emplace_back();
@@ -927,7 +960,8 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
             if (!target.load_base(entry.component, base_path, owned.back(), base_progress, error)) {
                 return false;
             }
-            sources.push_back(owned.back().get());
+            watched.emplace_back(new WatchedBase(*owned.back()));
+            sources.push_back(watched.back().get());
         }
         report(kBaseShare);
 
@@ -951,13 +985,18 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         sink.next_tick = 128 * 1024;
         sink.tick = [&](double part) { report(kBaseShare + kRebuildShare * part); };
         if (!ctgp_dif_apply(data, section.size(), files, sources, rebuild_write, &sink, error)) {
+            bool base_failed = false;
+            for (const auto& base : watched) base_failed = base_failed || base->failed;
             if (!sink.why.empty()) {
                 error = path + ": " + sink.why;
+            } else if (!base_failed) {
+                failure = CtgpUpdateFailure::BadUpdate;  // the commands themselves
             }
             return false;
         }
         if (sink.written != files.unpacked_size) {
             error = path + " was not rebuilt completely";
+            failure = CtgpUpdateFailure::BadUpdate;
             return false;
         }
         if (!writer.finish(error)) {
@@ -970,6 +1009,7 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         }
         // The bases are not needed any more: their scratch files go now.
         sources.clear();
+        watched.clear();
         owned.clear();
         report(kBaseShare + kRebuildShare);
         const Sha1Digest packed_digest = digest.finish();
@@ -996,8 +1036,10 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
     }
     if (unpacked_total != update.unpacked_size) {
         error = "the update's files do not add up to the size its header says";
+        failure = CtgpUpdateFailure::BadUpdate;
         return false;
     }
+    failure = CtgpUpdateFailure::None;
     return true;
 }
 
@@ -1021,7 +1063,7 @@ bool ctgp_update_apply(const std::uint8_t* dia, std::size_t size, CtgpUpdateTarg
             out.assign(dia + place.offset, dia + place.offset + place.size);
             return true;
         },
-        target, log, file_done, CtgpUpdateStep(), error);
+        target, log, file_done, CtgpUpdateStep(), ignored_failure(), error);
 }
 
 bool ctgp_update_apply(const CtgpUpdateRead& read, std::uint64_t size, CtgpUpdateTarget& target,
@@ -1034,6 +1076,15 @@ bool ctgp_update_apply(const CtgpUpdateRead& read, std::uint64_t size, CtgpUpdat
                        const std::function<void(const std::string&)>& log,
                        const CtgpUpdateFileDone& file_done, const CtgpUpdateStep& step,
                        std::string& error) {
+    CtgpUpdateFailure failure = CtgpUpdateFailure::None;
+    return ctgp_update_apply(read, size, target, log, file_done, step, failure, error);
+}
+
+bool ctgp_update_apply(const CtgpUpdateRead& read, std::uint64_t size, CtgpUpdateTarget& target,
+                       const std::function<void(const std::string&)>& log,
+                       const CtgpUpdateFileDone& file_done, const CtgpUpdateStep& step,
+                       CtgpUpdateFailure& failure, std::string& error) {
+    failure = CtgpUpdateFailure::BadUpdate;
     if (!read || size < 0x64) {
         error = "the update file is too small";
         return false;
@@ -1042,11 +1093,12 @@ bool ctgp_update_apply(const CtgpUpdateRead& read, std::uint64_t size, CtgpUpdat
     std::vector<std::uint8_t> prefix(prefix_size);
     if (!read(0, prefix.data(), prefix.size())) {
         error = "the update file could not be read";
+        failure = CtgpUpdateFailure::Temporary;
         return false;
     }
     CtgpDia update;
     if (!ctgp_dia_parse_prefix(prefix.data(), prefix.size(), size, update, error)) {
-        return false;
+        return false;  // BadUpdate
     }
     return apply_sections(
         update,
@@ -1054,7 +1106,7 @@ bool ctgp_update_apply(const CtgpUpdateRead& read, std::uint64_t size, CtgpUpdat
             out.resize(place.size);
             return read(place.offset, out.data(), out.size());
         },
-        target, log, file_done, step, error);
+        target, log, file_done, step, failure, error);
 }
 
 bool ctgp_dia_verify_signature(const CtgpUpdateRead& read, std::uint64_t size, const CtgpDsaKey& key,

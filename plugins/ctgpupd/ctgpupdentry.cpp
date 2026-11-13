@@ -103,8 +103,10 @@ bool read_hash_list(const CtgpUpdRequest& request, std::vector<std::uint8_t>& ou
 }
 
 // The update's header and tables, from the first bytes of the file.
+// `bad` (may be null) is set when the file was read and is not a DIA0 of the
+// right size, rather than the card failing to give it.
 bool read_dia(const std::string& path, std::uint64_t expected, riftwii::CtgpDia& dia, std::uint64_t& length,
-              std::string& error) {
+              std::string& error, bool* bad = nullptr) {
     std::FILE* file = std::fopen(path.c_str(), "rb");
     if (file == nullptr) {
         error = path + " could not be opened";
@@ -112,7 +114,8 @@ bool read_dia(const std::string& path, std::uint64_t expected, riftwii::CtgpDia&
     }
     length = file_size(file);
     constexpr std::uint64_t kUpdateMax = 64u << 20;
-    bool ok = length > 0 && length <= kUpdateMax && (expected == 0 || length == expected);
+    const bool sized = length > 0 && length <= kUpdateMax && (expected == 0 || length == expected);
+    bool ok = sized;
     std::vector<std::uint8_t> prefix;
     if (ok) {
         prefix.resize(length < riftwii::kCtgpDiaPrefixBytes ? std::size_t(length) : riftwii::kCtgpDiaPrefixBytes);
@@ -121,9 +124,14 @@ bool read_dia(const std::string& path, std::uint64_t expected, riftwii::CtgpDia&
     std::fclose(file);
     if (!ok) {
         error = path + " is empty, too large or unreadable";
+        if (bad != nullptr && !sized) *bad = true;
         return false;
     }
-    return riftwii::ctgp_dia_parse_prefix(prefix.data(), prefix.size(), length, dia, error);
+    if (!riftwii::ctgp_dia_parse_prefix(prefix.data(), prefix.size(), length, dia, error)) {
+        if (bad != nullptr) *bad = true;
+        return false;
+    }
+    return true;
 }
 
 // A package version as CTGP-R shows it: 0x01031193 is "1.03.1193".
@@ -162,26 +170,38 @@ std::uint32_t pack_version(const CtgpUpdRequest& request, const std::string& com
 
 // The whole file at `path` against CTGP-R's signature (ctgpupdate.hpp): an
 // update changed after CTGP-R signed it, its tables included, is refused.
-bool verify_signature(const std::string& path, std::string& error) {
+// `bad` (may be null) is set when the whole file was read and the signature
+// does not check out, rather than the card failing to give it.
+bool verify_signature(const std::string& path, std::string& error, bool* bad = nullptr) {
     std::FILE* file = std::fopen(path.c_str(), "rb");
     if (file == nullptr) {
         error = path + " could not be opened";
         return false;
     }
     const std::uint64_t size = file_size(file);
-    const riftwii::CtgpUpdateRead read = [file](std::uint64_t offset, std::uint8_t* out, std::size_t length) {
-        return fseeko(file, static_cast<off_t>(offset), SEEK_SET) == 0 && std::fread(out, 1, length, file) == length;
+    bool read_failed = false;
+    const riftwii::CtgpUpdateRead read = [file, &read_failed](std::uint64_t offset, std::uint8_t* out,
+                                                             std::size_t length) {
+        const bool ok =
+            fseeko(file, static_cast<off_t>(offset), SEEK_SET) == 0 && std::fread(out, 1, length, file) == length;
+        if (!ok) read_failed = true;
+        return ok;
     };
     const bool ok = riftwii::ctgp_dia_verify_signature(read, size, riftwii::ctgp_signing_key(), nullptr, error);
     std::fclose(file);
+    if (!ok && !read_failed && bad != nullptr) *bad = true;
     return ok;
 }
 
 bool inspect(CtgpUpdRequest& request) {
     riftwii::CtgpDia dia;
     std::uint64_t length = 0;
-    if (!read_dia(request.update_path, 0, dia, length, request.error)) return false;
-    if (!verify_signature(request.update_path, request.error)) return false;
+    bool bad = false;
+    if (!read_dia(request.update_path, 0, dia, length, request.error, &bad) ||
+        !verify_signature(request.update_path, request.error, &bad)) {
+        request.bad_update = bad ? 1 : 0;
+        return false;
+    }
     request.dia_component = dia.component;
     request.dia_version = dia.version;
     request.dia_base_version = base_version_of(dia);
@@ -352,7 +372,8 @@ riftwii::CtgpDiscBase borrow_disc(const CtgpUpdRequest& request) {
 
 // The install against an open, journaled pack.
 bool install_into(CtgpUpdRequest& request, riftwii::CtgpPackWriter& pack, const riftwii::CtgpDia& dia,
-                  std::uint64_t length) {
+                  std::uint64_t length, riftwii::CtgpUpdateFailure& failure) {
+    failure = riftwii::CtgpUpdateFailure::Temporary;
     std::string& error = request.error;
     // The update rebuilds from the files the pack has now: it only fits the
     // version its header names. A pack of another version would be rebuilt
@@ -384,8 +405,9 @@ bool install_into(CtgpUpdRequest& request, riftwii::CtgpPackWriter& pack, const 
         const std::uint32_t label = (std::uint32_t(hash_list[0x28]) << 24) | (std::uint32_t(hash_list[0x29]) << 16) |
                                     (std::uint32_t(hash_list[0x2A]) << 8) | hash_list[0x2B];
         if (label < dia.version) {
+            // Short enough for the menu's notice (140 characters) to show whole.
             error = "CTGP-R's hash list in jelly.bin is for " + version_text(label) + ", older than this update (" +
-                    version_text(dia.version) + "), so its files can't be checked and nothing was installed";
+                    version_text(dia.version) + "), so its files can't be checked";
             return false;
         }
     }
@@ -403,7 +425,7 @@ bool install_into(CtgpUpdRequest& request, riftwii::CtgpPackWriter& pack, const 
     };
     const bool ok = riftwii::ctgp_update_apply(
         read_update, length, target, [&](const std::string& line) { log_line(request, line); },
-        riftwii::CtgpUpdateFileDone(), request.step, error);
+        riftwii::CtgpUpdateFileDone(), request.step, failure, error);
     std::fclose(update_file);
     return ok && note_version(pack, dia.version, error);
 }
@@ -412,14 +434,22 @@ bool install(CtgpUpdRequest& request) {
     std::string& error = request.error;
     riftwii::CtgpDia dia;
     std::uint64_t length = 0;
-    if (!read_dia(request.update_path, 0, dia, length, error)) return false;
+    bool bad = false;
+    if (!read_dia(request.update_path, 0, dia, length, error, &bad)) {
+        request.bad_update = bad ? 1 : 0;
+        return false;
+    }
     request.dia_component = dia.component;
     request.dia_version = dia.version;
     request.dia_files = static_cast<std::uint32_t>(dia.sections.size());
     request.update_bytes = length;
     // Checked again here, before anything is written: every byte the install
     // reads is then CTGP-R's.
-    if (!verify_signature(request.update_path, error)) return false;
+    if (!verify_signature(request.update_path, error, &bad)) {
+        request.bad_update = bad ? 1 : 0;
+        return false;
+    }
+    riftwii::CtgpUpdateFailure failure = riftwii::CtgpUpdateFailure::Temporary;
 
     std::FILE* blob = std::fopen(request.blob_path.c_str(), "r+b");
     if (blob == nullptr) {
@@ -438,7 +468,7 @@ bool install(CtgpUpdRequest& request) {
     if (!journaled) {
         error = "the undo journal could not be started: " + error;
     } else if (pack.open(journal.io(), blob_size, error)) {
-        ok = install_into(request, pack, dia, length);
+        ok = install_into(request, pack, dia, length, failure);
     }
     // The writer keeps the last chunk it changed: write it out before the
     // journal is closed either way.
@@ -456,6 +486,9 @@ bool install(CtgpUpdRequest& request) {
             // Installed: blob.bin is synced and the journal is gone.
         } else if (journal.rollback(sync_blob, journal_error)) {
             log_line(request, "the pack was put back as it was (" + std::to_string(journal.chunks()) + " chunks)");
+            // Nothing of the update is left in blob.bin: a broken update can
+            // now be set aside without stranding half of it.
+            if (failure == riftwii::CtgpUpdateFailure::BadUpdate) request.bad_update = 1;
         } else {
             log_line(request, "the pack could not be put back now (" + journal_error + "); the next start tries again");
         }

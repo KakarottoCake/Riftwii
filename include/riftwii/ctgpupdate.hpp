@@ -255,6 +255,17 @@ bool ctgp_update_apply(const CtgpUpdateRead& read, std::uint64_t size, CtgpUpdat
                        const CtgpUpdateFileDone& file_done, const CtgpUpdateStep& step,
                        std::string& error);
 
+// Why an apply failed, for a caller that must decide whether to keep the
+// update file: BadUpdate when the update itself is at fault (its tables or a
+// section's commands don't hold together), so trying it again can never
+// work; Temporary for everything else (the card, memory, a base file that
+// could not be read, a file the hash list does not vouch for).
+enum class CtgpUpdateFailure : std::uint32_t { None = 0, Temporary = 1, BadUpdate = 2 };
+bool ctgp_update_apply(const CtgpUpdateRead& read, std::uint64_t size, CtgpUpdateTarget& target,
+                       const std::function<void(const std::string&)>& log,
+                       const CtgpUpdateFileDone& file_done, const CtgpUpdateStep& step,
+                       CtgpUpdateFailure& failure, std::string& error);
+
 // The header and tables of a DIA0, for a caller that has read the start of
 // the file (16 KiB is plenty). `total` is the whole download's length.
 constexpr std::size_t kCtgpDiaPrefixBytes = 16 * 1024;

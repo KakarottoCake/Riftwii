@@ -107,6 +107,12 @@ struct CtgpUpdRequest {
     std::uint64_t update_bytes = 0;
     CtgpCheckReply reply;  // Check
     std::string error;
+    // Inspect and Install: 1 when the update file itself is at fault (it is
+    // not a DIA0, its signature does not check out, or a section's commands
+    // are broken) and trying it again can never work; after an Install, only
+    // once nothing of it is left in blob.bin. 0 for a failure of the card,
+    // memory or anything else that may pass next time.
+    std::uint32_t bad_update = 0;
     // 1 when the plugin left through its escape (no memory, or what would
     // have thrown): every heap block the operation held went back, the
     // strings above among them, so the DOL must not use or destroy them.
