@@ -9463,23 +9463,7 @@ FR.update({
 # CTGP-R's updater, run by RiftWii before the game starts (docs/PLUGINS.md, "The ctgpupd plugin").
 T.update({
     "CTGP-R update": ("Actualización de CTGP-R", "CTGP-Rの更新", "Atualização do CTGP-R", "Aggiornamento di CTGP-R"),
-    "A CTGP-R update is ready. Install it now?": (
-        "Hay una actualización de CTGP-R lista. ¿Instalarla ahora?",
-        "CTGP-Rの更新があります。今インストールしますか？",
-        "Há uma atualização do CTGP-R pronta. Instalar agora?",
-        "C'è un aggiornamento di CTGP-R pronto. Installarlo ora?"),
     "Updating CTGP-R": ("Actualizando CTGP-R", "CTGP-Rを更新中", "Atualizando o CTGP-R", "Aggiornamento di CTGP-R"),
-    "Installing the update...": ("Instalando la actualización...", "更新をインストールしています...",
-                                "Instalando a atualização...", "Installazione dell'aggiornamento..."),
-    "Installing CTGP-R, file {1} of {2}": ("Instalando CTGP-R, archivo {1} de {2}",
-                                            "CTGP-Rをインストール中 ({1}/{2})",
-                                            "Instalando o CTGP-R, arquivo {1} de {2}",
-                                            "Installazione di CTGP-R, file {1} di {2}"),
-    "The update was installed. CTGP-R starts now.": (
-        "La actualización se ha instalado. CTGP-R va a empezar.",
-        "更新をインストールしました。CTGP-Rを起動します。",
-        "A atualização foi instalada. O CTGP-R vai começar.",
-        "L'aggiornamento è installato. CTGP-R sta per partire."),
     "CTGP-R update failed": ("Error al actualizar CTGP-R", "CTGP-Rの更新に失敗しました",
                              "Falha na atualização do CTGP-R", "Aggiornamento di CTGP-R non riuscito"),
     "The update could not be installed: {1}. CTGP-R starts without it.": (
@@ -9490,22 +9474,14 @@ T.update({
 })
 KO.update({
     "CTGP-R update": "CTGP-R 업데이트",
-    "A CTGP-R update is ready. Install it now?": "CTGP-R 업데이트가 준비되었습니다. 지금 설치할까요?",
     "Updating CTGP-R": "CTGP-R 업데이트 중",
-    "Installing the update...": "업데이트를 설치하는 중...",
-    "Installing CTGP-R, file {1} of {2}": "CTGP-R 설치 중, 파일 {1}/{2}",
-    "The update was installed. CTGP-R starts now.": "업데이트를 설치했습니다. CTGP-R을 시작합니다.",
     "CTGP-R update failed": "CTGP-R 업데이트 실패",
     "The update could not be installed: {1}. CTGP-R starts without it.":
         "업데이트를 설치할 수 없습니다: {1}. CTGP-R은 업데이트 없이 시작합니다.",
 })
 FR.update({
     "CTGP-R update": "Mise à jour de CTGP-R",
-    "A CTGP-R update is ready. Install it now?": "Une mise à jour de CTGP-R est prête. L'installer maintenant ?",
     "Updating CTGP-R": "Mise à jour de CTGP-R",
-    "Installing the update...": "Installation de la mise à jour...",
-    "Installing CTGP-R, file {1} of {2}": "Installation de CTGP-R, fichier {1} sur {2}",
-    "The update was installed. CTGP-R starts now.": "La mise à jour est installée. CTGP-R démarre.",
     "CTGP-R update failed": "Échec de la mise à jour de CTGP-R",
     "The update could not be installed: {1}. CTGP-R starts without it.":
         "Impossible d'installer la mise à jour : {1}. CTGP-R démarre sans elle.",
@@ -9514,13 +9490,6 @@ FR.update({
 # RiftWii's own CTGP-R update check and download, and the undo of an
 # interrupted update.
 T.update({
-    "A CTGP-R update ({1} MB) is available. Download and install it now?": (
-        "Hay una actualización de CTGP-R ({1} MB). ¿Descargarla e instalarla ahora?",
-        "CTGP-Rの更新（{1} MB）があります。今ダウンロードしてインストールしますか？",
-        "Há uma atualização do CTGP-R ({1} MB). Baixar e instalar agora?",
-        "È disponibile un aggiornamento di CTGP-R ({1} MB). Scaricarlo e installarlo ora?"),
-    "Downloading the update...": ("Descargando la actualización...", "更新をダウンロードしています...",
-                                  "Baixando a atualização...", "Download dell'aggiornamento..."),
     "Checking for a CTGP-R update...": ("Buscando una actualización de CTGP-R...", "CTGP-Rの更新を確認しています...",
                                         "Procurando uma atualização do CTGP-R...", "Ricerca di un aggiornamento di CTGP-R..."),
     "The update could not be downloaded: {1}. CTGP-R starts without it.": (
@@ -9561,9 +9530,6 @@ T.update({
     "About {1} minutes left": ("Quedan aproximadamente {1} minutos", "残り約{1}分", "Faltam cerca de {1} minutos", "Mancano circa {1} minuti"),
 })
 KO.update({
-    "A CTGP-R update ({1} MB) is available. Download and install it now?":
-        "CTGP-R 업데이트({1} MB)가 있습니다. 지금 다운로드해서 설치할까요?",
-    "Downloading the update...": "업데이트를 다운로드하는 중...",
     "Checking for a CTGP-R update...": "CTGP-R 업데이트를 확인하는 중...",
     "The update could not be downloaded: {1}. CTGP-R starts without it.":
         "업데이트를 다운로드할 수 없습니다: {1}. CTGP-R은 업데이트 없이 시작합니다.",
@@ -9585,9 +9551,6 @@ KO.update({
         "약 {1}분 남음",
 })
 FR.update({
-    "A CTGP-R update ({1} MB) is available. Download and install it now?":
-        "Une mise à jour de CTGP-R ({1} Mo) est disponible. La télécharger et l'installer maintenant ?",
-    "Downloading the update...": "Téléchargement de la mise à jour...",
     "Checking for a CTGP-R update...": "Recherche d'une mise à jour de CTGP-R...",
     "The update could not be downloaded: {1}. CTGP-R starts without it.":
         "Impossible de télécharger la mise à jour : {1}. CTGP-R démarre sans elle.",
@@ -9607,6 +9570,68 @@ FR.update({
         "Environ une minute restante",
     "About {1} minutes left":
         "Environ {1} minutes restantes",
+})
+
+T.update({
+    'A CTGP-R update is available. Update CTGP-R to the latest version now? The first update is {1} MB; there may be more after it.': ('Hay una actualización de CTGP-R. ¿Actualizar CTGP-R a la última versión ahora? La primera actualización ocupa {1} MB; puede haber más después.', 'CTGP-Rの更新があります。今すぐCTGP-Rを最新版に更新しますか? 最初の更新は{1} MBで、その後にもまだあるかもしれません。', 'Há uma atualização do CTGP-R. Atualizar o CTGP-R para a versão mais recente agora? A primeira atualização tem {1} MB; pode haver mais depois dela.', "È disponibile un aggiornamento di CTGP-R. Aggiornare ora CTGP-R all'ultima versione? Il primo aggiornamento è di {1} MB; potrebbero essercene altri dopo."),
+    'A CTGP-R update is ready. Update CTGP-R to the latest version now?': ('Hay una actualización de CTGP-R lista. ¿Actualizar CTGP-R a la última versión ahora?', 'CTGP-Rの更新の準備ができています。今すぐCTGP-Rを最新版に更新しますか?', 'Uma atualização do CTGP-R está pronta. Atualizar o CTGP-R para a versão mais recente agora?', "Un aggiornamento di CTGP-R è pronto. Aggiornare ora CTGP-R all'ultima versione?"),
+    'CTGP-R was updated to {1}, but the next update could not be installed: {2}. CTGP-R starts now.': ('CTGP-R se ha actualizado a {1}, pero no se ha podido instalar la siguiente actualización: {2}. CTGP-R se inicia ahora.', 'CTGP-Rは{1}に更新されましたが、次の更新はインストールできませんでした: {2}。CTGP-Rを起動します。', 'O CTGP-R foi atualizado para {1}, mas não foi possível instalar a atualização seguinte: {2}. O CTGP-R inicia agora.', "CTGP-R è stato aggiornato a {1}, ma non è stato possibile installare l'aggiornamento successivo: {2}. CTGP-R si avvia ora."),
+    'CTGP-R was updated to {1}. CTGP-R starts now.': ('CTGP-R se ha actualizado a {1}. CTGP-R se inicia ahora.', 'CTGP-Rは{1}に更新されました。CTGP-Rを起動します。', 'O CTGP-R foi atualizado para {1}. O CTGP-R inicia agora.', 'CTGP-R è stato aggiornato a {1}. CTGP-R si avvia ora.'),
+    "CTGP-R's hash lists were updated, but the next update could not be installed: {1}. CTGP-R starts now.": ('Se han actualizado las listas de hashes de CTGP-R, pero no se ha podido instalar la siguiente actualización: {1}. CTGP-R se inicia ahora.', 'CTGP-Rのハッシュリストは更新されましたが、次の更新はインストールできませんでした: {1}。CTGP-Rを起動します。', 'As listas de hashes do CTGP-R foram atualizadas, mas não foi possível instalar a atualização seguinte: {1}. O CTGP-R inicia agora.', "Gli elenchi di hash di CTGP-R sono stati aggiornati, ma non è stato possibile installare l'aggiornamento successivo: {1}. CTGP-R si avvia ora."),
+    "CTGP-R's hash lists were updated. CTGP-R starts now.": ('Se han actualizado las listas de hashes de CTGP-R. CTGP-R se inicia ahora.', 'CTGP-Rのハッシュリストが更新されました。CTGP-Rを起動します。', 'As listas de hashes do CTGP-R foram atualizadas. O CTGP-R inicia agora.', 'Gli elenchi di hash di CTGP-R sono stati aggiornati. CTGP-R si avvia ora.'),
+    'File {1} of {2}': ('Archivo {1} de {2}', 'ファイル {1}/{2}', 'Ficheiro {1} de {2}', 'File {1} di {2}'),
+    'Update {1}: CTGP-R {2} to {3}': ('Actualización {1}: CTGP-R {2} a {3}', '更新 {1}: CTGP-R {2}から{3}へ', 'Atualização {1}: CTGP-R {2} para {3}', 'Aggiornamento {1}: CTGP-R da {2} a {3}'),
+    "Update {1}: CTGP-R's hash lists": ('Actualización {1}: listas de hashes de CTGP-R', '更新 {1}: CTGP-Rのハッシュリスト', 'Atualização {1}: listas de hashes do CTGP-R', 'Aggiornamento {1}: elenchi di hash di CTGP-R'),
+    'Update {1}: downloading...': ('Actualización {1}: descargando...', '更新 {1}: ダウンロード中...', 'Atualização {1}: a transferir...', 'Aggiornamento {1}: download in corso...'),
+    "the server offered an update for {1}, which RiftWii doesn't install": ('el servidor ofreció una actualización para {1}, que RiftWii no instala', 'サーバーが{1}の更新を提示しましたが、RiftWiiはそれをインストールしません', 'o servidor ofereceu uma atualização para {1}, que o RiftWii não instala', 'il server ha offerto un aggiornamento per {1}, che RiftWii non installa'),
+})
+KO.update({
+    'A CTGP-R update is available. Update CTGP-R to the latest version now? The first update is {1} MB; there may be more after it.':
+        'CTGP-R 업데이트가 있습니다. 지금 CTGP-R을 최신 버전으로 업데이트할까요? 첫 업데이트는 {1} MB이며, 그 뒤에 더 있을 수 있습니다.',
+    'A CTGP-R update is ready. Update CTGP-R to the latest version now?':
+        'CTGP-R 업데이트가 준비되었습니다. 지금 CTGP-R을 최신 버전으로 업데이트할까요?',
+    'CTGP-R was updated to {1}, but the next update could not be installed: {2}. CTGP-R starts now.':
+        'CTGP-R이 {1}(으)로 업데이트되었지만 다음 업데이트를 설치할 수 없었습니다: {2}. CTGP-R을 시작합니다.',
+    'CTGP-R was updated to {1}. CTGP-R starts now.':
+        'CTGP-R이 {1}(으)로 업데이트되었습니다. CTGP-R을 시작합니다.',
+    "CTGP-R's hash lists were updated, but the next update could not be installed: {1}. CTGP-R starts now.":
+        'CTGP-R의 해시 목록이 업데이트되었지만 다음 업데이트를 설치할 수 없었습니다: {1}. CTGP-R을 시작합니다.',
+    "CTGP-R's hash lists were updated. CTGP-R starts now.":
+        'CTGP-R의 해시 목록이 업데이트되었습니다. CTGP-R을 시작합니다.',
+    'File {1} of {2}':
+        '파일 {1}/{2}',
+    'Update {1}: CTGP-R {2} to {3}':
+        '업데이트 {1}: CTGP-R {2}에서 {3}(으)로',
+    "Update {1}: CTGP-R's hash lists":
+        '업데이트 {1}: CTGP-R 해시 목록',
+    'Update {1}: downloading...':
+        '업데이트 {1}: 다운로드 중...',
+    "the server offered an update for {1}, which RiftWii doesn't install":
+        '서버가 {1}의 업데이트를 제공했지만 RiftWii는 이를 설치하지 않습니다',
+})
+FR.update({
+    'A CTGP-R update is available. Update CTGP-R to the latest version now? The first update is {1} MB; there may be more after it.':
+        "Une mise à jour de CTGP-R est disponible. Mettre CTGP-R à jour vers la dernière version maintenant ? La première mise à jour fait {1} Mo ; il peut y en avoir d'autres après.",
+    'A CTGP-R update is ready. Update CTGP-R to the latest version now?':
+        'Une mise à jour de CTGP-R est prête. Mettre CTGP-R à jour vers la dernière version maintenant ?',
+    'CTGP-R was updated to {1}, but the next update could not be installed: {2}. CTGP-R starts now.':
+        "CTGP-R a été mis à jour vers {1}, mais la mise à jour suivante n'a pas pu être installée : {2}. CTGP-R démarre.",
+    'CTGP-R was updated to {1}. CTGP-R starts now.':
+        'CTGP-R a été mis à jour vers {1}. CTGP-R démarre.',
+    "CTGP-R's hash lists were updated, but the next update could not be installed: {1}. CTGP-R starts now.":
+        "Les listes de hachages de CTGP-R ont été mises à jour, mais la mise à jour suivante n'a pas pu être installée : {1}. CTGP-R démarre.",
+    "CTGP-R's hash lists were updated. CTGP-R starts now.":
+        'Les listes de hachages de CTGP-R ont été mises à jour. CTGP-R démarre.',
+    'File {1} of {2}':
+        'Fichier {1} sur {2}',
+    'Update {1}: CTGP-R {2} to {3}':
+        'Mise à jour {1} : CTGP-R {2} vers {3}',
+    "Update {1}: CTGP-R's hash lists":
+        'Mise à jour {1} : listes de hachages de CTGP-R',
+    'Update {1}: downloading...':
+        'Mise à jour {1} : téléchargement...',
+    "the server offered an update for {1}, which RiftWii doesn't install":
+        "le serveur a proposé une mise à jour pour {1}, que RiftWii n'installe pas",
 })
 
 if __name__ == "__main__":

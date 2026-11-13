@@ -4509,32 +4509,14 @@ msgstr "CTGP-R은 세이브 데이터를 SD 카드의 {1}에 저장합니다. �
 msgid "CTGP-R update"
 msgstr "CTGP-R 업데이트"
 
-msgid "A CTGP-R update is ready. Install it now?"
-msgstr "CTGP-R 업데이트가 준비되었습니다. 지금 설치할까요?"
-
 msgid "Updating CTGP-R"
 msgstr "CTGP-R 업데이트 중"
-
-msgid "Installing the update..."
-msgstr "업데이트를 설치하는 중..."
-
-msgid "Installing CTGP-R, file {1} of {2}"
-msgstr "CTGP-R 설치 중, 파일 {1}/{2}"
-
-msgid "The update was installed. CTGP-R starts now."
-msgstr "업데이트를 설치했습니다. CTGP-R을 시작합니다."
 
 msgid "CTGP-R update failed"
 msgstr "CTGP-R 업데이트 실패"
 
 msgid "The update could not be installed: {1}. CTGP-R starts without it."
 msgstr "업데이트를 설치할 수 없습니다: {1}. CTGP-R은 업데이트 없이 시작합니다."
-
-msgid "A CTGP-R update ({1} MB) is available. Download and install it now?"
-msgstr "CTGP-R 업데이트({1} MB)가 있습니다. 지금 다운로드해서 설치할까요?"
-
-msgid "Downloading the update..."
-msgstr "업데이트를 다운로드하는 중..."
 
 msgid "Checking for a CTGP-R update..."
 msgstr "CTGP-R 업데이트를 확인하는 중..."
@@ -4568,3 +4550,36 @@ msgstr "약 1분 남음"
 
 msgid "About {1} minutes left"
 msgstr "약 {1}분 남음"
+
+msgid "A CTGP-R update is available. Update CTGP-R to the latest version now? The first update is {1} MB; there may be more after it."
+msgstr "CTGP-R 업데이트가 있습니다. 지금 CTGP-R을 최신 버전으로 업데이트할까요? 첫 업데이트는 {1} MB이며, 그 뒤에 더 있을 수 있습니다."
+
+msgid "A CTGP-R update is ready. Update CTGP-R to the latest version now?"
+msgstr "CTGP-R 업데이트가 준비되었습니다. 지금 CTGP-R을 최신 버전으로 업데이트할까요?"
+
+msgid "CTGP-R was updated to {1}, but the next update could not be installed: {2}. CTGP-R starts now."
+msgstr "CTGP-R이 {1}(으)로 업데이트되었지만 다음 업데이트를 설치할 수 없었습니다: {2}. CTGP-R을 시작합니다."
+
+msgid "CTGP-R was updated to {1}. CTGP-R starts now."
+msgstr "CTGP-R이 {1}(으)로 업데이트되었습니다. CTGP-R을 시작합니다."
+
+msgid "CTGP-R's hash lists were updated, but the next update could not be installed: {1}. CTGP-R starts now."
+msgstr "CTGP-R의 해시 목록이 업데이트되었지만 다음 업데이트를 설치할 수 없었습니다: {1}. CTGP-R을 시작합니다."
+
+msgid "CTGP-R's hash lists were updated. CTGP-R starts now."
+msgstr "CTGP-R의 해시 목록이 업데이트되었습니다. CTGP-R을 시작합니다."
+
+msgid "File {1} of {2}"
+msgstr "파일 {1}/{2}"
+
+msgid "Update {1}: CTGP-R {2} to {3}"
+msgstr "업데이트 {1}: CTGP-R {2}에서 {3}(으)로"
+
+msgid "Update {1}: CTGP-R's hash lists"
+msgstr "업데이트 {1}: CTGP-R 해시 목록"
+
+msgid "Update {1}: downloading..."
+msgstr "업데이트 {1}: 다운로드 중..."
+
+msgid "the server offered an update for {1}, which RiftWii doesn't install"
+msgstr "서버가 {1}의 업데이트를 제공했지만 RiftWii는 이를 설치하지 않습니다"

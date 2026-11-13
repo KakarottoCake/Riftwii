@@ -4509,32 +4509,14 @@ msgstr "CTGP-R salva sulla scheda SD, in {1}. Il salvataggio della Wii viene cop
 msgid "CTGP-R update"
 msgstr "Aggiornamento di CTGP-R"
 
-msgid "A CTGP-R update is ready. Install it now?"
-msgstr "C'è un aggiornamento di CTGP-R pronto. Installarlo ora?"
-
 msgid "Updating CTGP-R"
 msgstr "Aggiornamento di CTGP-R"
-
-msgid "Installing the update..."
-msgstr "Installazione dell'aggiornamento..."
-
-msgid "Installing CTGP-R, file {1} of {2}"
-msgstr "Installazione di CTGP-R, file {1} di {2}"
-
-msgid "The update was installed. CTGP-R starts now."
-msgstr "L'aggiornamento è installato. CTGP-R sta per partire."
 
 msgid "CTGP-R update failed"
 msgstr "Aggiornamento di CTGP-R non riuscito"
 
 msgid "The update could not be installed: {1}. CTGP-R starts without it."
 msgstr "Impossibile installare l'aggiornamento: {1}. CTGP-R partirà senza."
-
-msgid "A CTGP-R update ({1} MB) is available. Download and install it now?"
-msgstr "È disponibile un aggiornamento di CTGP-R ({1} MB). Scaricarlo e installarlo ora?"
-
-msgid "Downloading the update..."
-msgstr "Download dell'aggiornamento..."
 
 msgid "Checking for a CTGP-R update..."
 msgstr "Ricerca di un aggiornamento di CTGP-R..."
@@ -4568,3 +4550,36 @@ msgstr "Manca circa un minuto"
 
 msgid "About {1} minutes left"
 msgstr "Mancano circa {1} minuti"
+
+msgid "A CTGP-R update is available. Update CTGP-R to the latest version now? The first update is {1} MB; there may be more after it."
+msgstr "È disponibile un aggiornamento di CTGP-R. Aggiornare ora CTGP-R all'ultima versione? Il primo aggiornamento è di {1} MB; potrebbero essercene altri dopo."
+
+msgid "A CTGP-R update is ready. Update CTGP-R to the latest version now?"
+msgstr "Un aggiornamento di CTGP-R è pronto. Aggiornare ora CTGP-R all'ultima versione?"
+
+msgid "CTGP-R was updated to {1}, but the next update could not be installed: {2}. CTGP-R starts now."
+msgstr "CTGP-R è stato aggiornato a {1}, ma non è stato possibile installare l'aggiornamento successivo: {2}. CTGP-R si avvia ora."
+
+msgid "CTGP-R was updated to {1}. CTGP-R starts now."
+msgstr "CTGP-R è stato aggiornato a {1}. CTGP-R si avvia ora."
+
+msgid "CTGP-R's hash lists were updated, but the next update could not be installed: {1}. CTGP-R starts now."
+msgstr "Gli elenchi di hash di CTGP-R sono stati aggiornati, ma non è stato possibile installare l'aggiornamento successivo: {1}. CTGP-R si avvia ora."
+
+msgid "CTGP-R's hash lists were updated. CTGP-R starts now."
+msgstr "Gli elenchi di hash di CTGP-R sono stati aggiornati. CTGP-R si avvia ora."
+
+msgid "File {1} of {2}"
+msgstr "File {1} di {2}"
+
+msgid "Update {1}: CTGP-R {2} to {3}"
+msgstr "Aggiornamento {1}: CTGP-R da {2} a {3}"
+
+msgid "Update {1}: CTGP-R's hash lists"
+msgstr "Aggiornamento {1}: elenchi di hash di CTGP-R"
+
+msgid "Update {1}: downloading..."
+msgstr "Aggiornamento {1}: download in corso..."
+
+msgid "the server offered an update for {1}, which RiftWii doesn't install"
+msgstr "il server ha offerto un aggiornamento per {1}, che RiftWii non installa"

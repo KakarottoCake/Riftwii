@@ -82,6 +82,12 @@ bool TestConsoleTypeAsWii();
 // Test builds: "wii_u_card_slots = 1" treats the console as a Wii U's vWii,
 // with no memory card slots, for the codes reaching slot B (Dolphin).
 bool TestWiiUCardSlots();
+// Test builds: "jelly_cut_after = N" makes the SD card stop taking in-place
+// writes to CTGP-R's jelly.bin after N blocks of a HASH update's install, as
+// a power cut would leave it (its own undo fails too), so the start-up
+// replay of the jelly journal can be proven in Dolphin. 0 (off) in other
+// builds.
+u32 TestJellyCutAfter();
 
 // session.log lines: the limits and the physical sizes (Dolphin's memory
 // size override shows here), then, with LogUsage, what is used and free.

@@ -4509,32 +4509,14 @@ msgstr "CTGP-Rはセーブを SDカードの {1} に保存します。フォル�
 msgid "CTGP-R update"
 msgstr "CTGP-Rの更新"
 
-msgid "A CTGP-R update is ready. Install it now?"
-msgstr "CTGP-Rの更新があります。今インストールしますか？"
-
 msgid "Updating CTGP-R"
 msgstr "CTGP-Rを更新中"
-
-msgid "Installing the update..."
-msgstr "更新をインストールしています..."
-
-msgid "Installing CTGP-R, file {1} of {2}"
-msgstr "CTGP-Rをインストール中 ({1}/{2})"
-
-msgid "The update was installed. CTGP-R starts now."
-msgstr "更新をインストールしました。CTGP-Rを起動します。"
 
 msgid "CTGP-R update failed"
 msgstr "CTGP-Rの更新に失敗しました"
 
 msgid "The update could not be installed: {1}. CTGP-R starts without it."
 msgstr "更新をインストールできませんでした: {1}。CTGP-Rは更新なしで起動します。"
-
-msgid "A CTGP-R update ({1} MB) is available. Download and install it now?"
-msgstr "CTGP-Rの更新（{1} MB）があります。今ダウンロードしてインストールしますか？"
-
-msgid "Downloading the update..."
-msgstr "更新をダウンロードしています..."
 
 msgid "Checking for a CTGP-R update..."
 msgstr "CTGP-Rの更新を確認しています..."
@@ -4568,3 +4550,36 @@ msgstr "残り約1分"
 
 msgid "About {1} minutes left"
 msgstr "残り約{1}分"
+
+msgid "A CTGP-R update is available. Update CTGP-R to the latest version now? The first update is {1} MB; there may be more after it."
+msgstr "CTGP-Rの更新があります。今すぐCTGP-Rを最新版に更新しますか? 最初の更新は{1} MBで、その後にもまだあるかもしれません。"
+
+msgid "A CTGP-R update is ready. Update CTGP-R to the latest version now?"
+msgstr "CTGP-Rの更新の準備ができています。今すぐCTGP-Rを最新版に更新しますか?"
+
+msgid "CTGP-R was updated to {1}, but the next update could not be installed: {2}. CTGP-R starts now."
+msgstr "CTGP-Rは{1}に更新されましたが、次の更新はインストールできませんでした: {2}。CTGP-Rを起動します。"
+
+msgid "CTGP-R was updated to {1}. CTGP-R starts now."
+msgstr "CTGP-Rは{1}に更新されました。CTGP-Rを起動します。"
+
+msgid "CTGP-R's hash lists were updated, but the next update could not be installed: {1}. CTGP-R starts now."
+msgstr "CTGP-Rのハッシュリストは更新されましたが、次の更新はインストールできませんでした: {1}。CTGP-Rを起動します。"
+
+msgid "CTGP-R's hash lists were updated. CTGP-R starts now."
+msgstr "CTGP-Rのハッシュリストが更新されました。CTGP-Rを起動します。"
+
+msgid "File {1} of {2}"
+msgstr "ファイル {1}/{2}"
+
+msgid "Update {1}: CTGP-R {2} to {3}"
+msgstr "更新 {1}: CTGP-R {2}から{3}へ"
+
+msgid "Update {1}: CTGP-R's hash lists"
+msgstr "更新 {1}: CTGP-Rのハッシュリスト"
+
+msgid "Update {1}: downloading..."
+msgstr "更新 {1}: ダウンロード中..."
+
+msgid "the server offered an update for {1}, which RiftWii doesn't install"
+msgstr "サーバーが{1}の更新を提示しましたが、RiftWiiはそれをインストールしません"

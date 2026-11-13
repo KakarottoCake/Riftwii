@@ -15,6 +15,7 @@
 #include "ctgpr.hpp"
 #include "i18n.hpp"
 #include "log.hpp"
+#include "memlimits.hpp"
 #include "plugins.hpp"
 #include "riftwii/ctgpjournal.hpp"
 #include "riftwii/ctgppackwrite.hpp"
@@ -78,6 +79,28 @@ void remove_scratch_files() {
     }
 }
 
+// Test builds (test_limits.txt "jelly_cut_after = N", mem::TestJellyCutAfter):
+// the card takes N blocks of in-place jelly.bin writes during an install and
+// then no more, the last write cut part way, as a power cut would leave it.
+// The plugin's own undo fails too, so the journal stays for the start-up
+// replay. Off (0) in other builds.
+std::uint32_t g_jelly_blocks_left = 0;
+bool g_jelly_cut_armed = false;
+
+bool jelly_write(const Fat32File& file, std::uint64_t offset, const std::uint8_t* data, std::size_t length) {
+    if (!g_jelly_cut_armed) return write_sd_file_in_place(file, offset, data, length);
+    const std::size_t blocks = length / 512;
+    if (g_jelly_blocks_left >= blocks) {
+        g_jelly_blocks_left -= std::uint32_t(blocks);
+        return write_sd_file_in_place(file, offset, data, length);
+    }
+    if (g_jelly_blocks_left > 0) write_sd_file_in_place(file, offset, data, std::size_t(g_jelly_blocks_left) * 512);
+    if (g_jelly_blocks_left != 0 || blocks != 0)
+        logf("CTGP-R update: TEST: the card stops taking jelly.bin writes here (jelly_cut_after)\n");
+    g_jelly_blocks_left = 0;
+    return false;
+}
+
 // The DOL's C library calls, as the plugin takes them (CtgpUpdLibc).
 int libc_remove(const char* path) { return std::remove(path); }
 int libc_rename(const char* from, const char* to) { return std::rename(from, to); }
@@ -116,7 +139,10 @@ bool CtgpUpdater::run(CtgpUpdRequest& request, std::string& error) {
         }
     }
     request.sd.read = read_sd_file;
-    request.sd.write = write_sd_file_in_place;
+    request.sd.write = jelly_write;
+    g_jelly_cut_armed = request.op == CtgpUpdOp::Install && mem::TestJellyCutAfter() != 0;
+    g_jelly_blocks_left = mem::TestJellyCutAfter();
+    if (g_jelly_cut_armed) logf("CTGP-R update: TEST: jelly.bin writes stop after %u blocks\n", unsigned(g_jelly_blocks_left));
     request.libc.remove = libc_remove;
     request.libc.rename = libc_rename;
     request.libc.fflush = libc_fflush;
@@ -127,6 +153,7 @@ bool CtgpUpdater::run(CtgpUpdRequest& request, std::string& error) {
 
     std::string message;
     const std::int32_t result = plugin::Launch(kPluginName, &request, sizeof(request), message);
+    g_jelly_cut_armed = false;
     if (request.escaped != 0) {
         // The strings the plugin filled went back with its heap blocks
         // (riftwii/plugin_ctgpupd.hpp): new empty ones in their place, which
