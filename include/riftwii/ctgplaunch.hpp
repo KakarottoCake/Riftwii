@@ -128,9 +128,10 @@ bool ctgp_is_native_stand_in(const std::string& game_id, const std::string& app)
 // through its own SD driver (/dev/sdio/sdhc), which sets the card up once.
 // CTGP-R reads its own files from the same card through /dev/sdio/slot0 and
 // resets the card first (libogc's start-up, in the channel's IOS calls on a
-// real Wii). After that reset d2x reads the wrong sectors, so CTGP-R sees a
-// disc that is not Mario Kart Wii: "Nice try, but this isn't Mario Kart
-// Wii" from the channel, a black screen from the native launch. RiftWii
+// real Wii). After such a reset d2x reads the wrong sectors (d2xsd.hpp), the
+// most likely reason the channel then says the disc "isn't Mario Kart Wii"
+// and the native launch stays on a black screen (seen on real Wiis; the
+// same images work from USB). RiftWii
 // cannot share the card between the two without changing CTGP-R or d2x, so
 // the launch stops before anything is set up. A disc or a USB image is fine.
 bool ctgp_sd_image_blocked(const std::string& game_id, const std::string& app, bool image_on_sd);
