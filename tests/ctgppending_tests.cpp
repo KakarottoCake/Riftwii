@@ -40,6 +40,7 @@ int main() {
     EXPECT_TRUE(ctgp_update_kind(true, false, false, false) == CtgpUpdateKind::Bad);
     EXPECT_TRUE(ctgp_update_kind(true, true, false, true) == CtgpUpdateKind::Bad);
     EXPECT_TRUE(ctgp_update_kind(true, true, false, false) == CtgpUpdateKind::Bad);
+    EXPECT_TRUE(ctgp_update_kind(true, false, true, true) == CtgpUpdateKind::Bad);
     // The card failed to give it: says nothing about the file.
     EXPECT_TRUE(ctgp_update_kind(false, true, false, false) == CtgpUpdateKind::Unreadable);
     EXPECT_TRUE(ctgp_update_kind(false, false, false, false) == CtgpUpdateKind::Unreadable);

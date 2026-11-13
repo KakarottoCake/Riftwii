@@ -775,6 +775,11 @@ void test_update_step_by_bases() {
     bool found = false;
     for (double part : parts) found = found || (part > base_end - 1e-9 && part < base_end + 1e-9);
     EXPECT_TRUE(found);
+    // Rebuilding takes a fifth of the rest, storing the other four fifths.
+    const double rebuilt_end = base_end + (1 - base_end) * 0.2;
+    found = false;
+    for (double part : parts) found = found || (part > rebuilt_end - 1e-9 && part < rebuilt_end + 1e-9);
+    EXPECT_TRUE(found);
 }
 
 // A size the target can't give, or a header ctgp_dif_parse would refuse:

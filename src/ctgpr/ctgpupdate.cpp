@@ -908,12 +908,12 @@ bool rebuild_write(void* user, const std::uint8_t* data, std::size_t length) {
 // it, then checking and storing it.
 // In Dolphin (pr-8) unpacking a file's bases took about half its time and
 // storing almost none; on a Wii storing is slower (each 32 KiB goes to the
-// journal and is synced first), so it gets a fifth. The log's stage lines
-// (bases unpacked, packed, stored) give the real split.
+// journal and is synced first). The log's stage lines (bases unpacked,
+// packed, stored) give the real split.
 // With the bases' sizes known (below) a file's base share comes from them
-// instead (kBaseTimeShare), and the rest splits 1:5 between rebuilding and
-// storing: on Jack's Wii (2611-208, the 1194 update) rebuilding the four big
-// files took 7-16 s and storing them 28-58 s.
+// instead (kBaseTimeShare). Either way the rest goes a fifth to rebuilding
+// and four fifths to storing: on Jack's Wii (2611-208, the 1194 update)
+// rebuilding the four big files took 7-16 s and storing them 28-58 s.
 constexpr double kBaseShare = 0.45;
 constexpr double kRebuildOfRest = 0.2;
 

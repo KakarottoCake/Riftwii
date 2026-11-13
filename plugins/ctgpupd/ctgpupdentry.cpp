@@ -376,6 +376,8 @@ bool download(CtgpUpdRequest& request) {
         log_line(request, "the download can't be used, kept as " + bad_path + ": " + request.error);
         return false;
     case riftwii::CtgpDownloadEnd::Removed:
+        // Nothing was kept as update.dif.bad, so the menu must not say so.
+        request.bad_update = 0;
         if (ok) request.error = "the update could not be renamed to " + request.update_path;
         return false;
     }
