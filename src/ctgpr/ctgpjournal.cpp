@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstring>
 #include <set>
+#include <sys/stat.h>
 
 #if defined(__unix__) || defined(__APPLE__) || defined(__PPC__)
 #include <unistd.h>
@@ -48,11 +49,11 @@ bool sync_file(std::FILE* f) {
     return true;
 }
 
+// stat, not fopen: a journal that is there but can't be opened must not
+// look absent, or its undo would be skipped.
 bool file_exists(const std::string& path) {
-    std::FILE* f = std::fopen(path.c_str(), "rb");
-    if (!f) return false;
-    std::fclose(f);
-    return true;
+    struct stat st;
+    return stat(path.c_str(), &st) == 0;
 }
 
 struct Entry {
@@ -60,21 +61,22 @@ struct Entry {
     std::vector<std::uint8_t> data;
 };
 
-enum class EntryRead { Ok, Bad, ReadError };
+enum class EntryRead { Ok, Torn, Bad, ReadError };
 
-// Reads the entry at `pos` of a journal `size` bytes long. Bad: the entry is
-// torn or damaged (its bytes are there but do not check out, or the file
-// ends inside it). ReadError: the card did not give bytes the file has.
+// Reads the entry at `pos` of a journal `size` bytes long. Torn: the file
+// ends inside the entry (a cut-off last append). Bad: the entry's bytes are
+// all there but do not check out. ReadError: the card did not give bytes the
+// file has.
 EntryRead read_entry(std::FILE* f, std::uint64_t pos, std::uint64_t size, std::uint64_t pack_size, Entry& e,
                      std::uint32_t& length) {
     std::uint8_t head[12];
-    if (size - pos < sizeof head) return EntryRead::Bad;
+    if (size - pos < sizeof head) return EntryRead::Torn;
     if (std::fread(head, 1, sizeof head, f) != sizeof head) return EntryRead::ReadError;
     e.offset = get64(head);
     length = get32(head + 8);
     if (length == 0 || length > kCtgpJournalChunkBytes || e.offset > pack_size || length > pack_size - e.offset)
         return EntryRead::Bad;
-    if (size - pos < sizeof head + length + 4) return EntryRead::Bad;
+    if (size - pos < sizeof head + length + 4) return EntryRead::Torn;
     e.data.resize(length);
     std::uint8_t tail[4];
     if (std::fread(e.data.data(), 1, length, f) != length || std::fread(tail, 1, 4, f) != 4)
@@ -86,10 +88,11 @@ EntryRead read_entry(std::FILE* f, std::uint64_t pos, std::uint64_t size, std::u
 
 // Writes the entries of the open journal back to the pack, in file order.
 // Each entry is synced to the card before its chunk of the pack is changed,
-// so only the last append can be torn, and its chunk was never written: a
-// bad entry within one entry's length of the end is that, and the replay
-// stops there. A bad entry with more after it, or a read error, means the
-// journal itself is damaged: the replay fails and the journal is kept.
+// so only the last append can be cut off, and its chunk was never written:
+// a file that ends inside an entry is that, and the replay stops there. An
+// entry whose bytes are all there but don't check out, or a read error,
+// means the journal itself is damaged: the replay fails and the journal is
+// kept.
 CtgpJournalRecovery play_back(std::FILE* f, const CtgpPackIo& pack, std::uint64_t pack_size, std::size_t& restored,
                               std::string& error) {
     restored = 0;
@@ -120,7 +123,6 @@ CtgpJournalRecovery play_back(std::FILE* f, const CtgpPackIo& pack, std::uint64_
         error = "journal belongs to a pack of another size";
         return CtgpJournalRecovery::Failed;
     }
-    constexpr std::uint64_t kLongestEntry = 12 + kCtgpJournalChunkBytes + 4;
     std::uint64_t pos = sizeof header;
     Entry e;
     while (pos < size) {
@@ -130,8 +132,8 @@ CtgpJournalRecovery play_back(std::FILE* f, const CtgpPackIo& pack, std::uint64_
             error = "the journal could not be read";
             return CtgpJournalRecovery::Failed;
         }
+        if (read == EntryRead::Torn) break;  // the cut-off last append
         if (read == EntryRead::Bad) {
-            if (size - pos <= kLongestEntry) break;  // the torn last append
             error = "the journal is damaged";
             return CtgpJournalRecovery::Failed;
         }
@@ -178,6 +180,9 @@ struct CtgpPackJournal::Impl {
     // a torn entry, so nothing more goes after it and the pack is not
     // written again until the journal is played back.
     bool failed = false;
+    // From begin until the journal is removed: rollback still works after a
+    // commit that closed the file but could not remove it.
+    bool active = false;
 
     bool journal_chunk(std::uint64_t index) {
         std::uint64_t offset = index * kCtgpJournalChunkBytes;
@@ -250,6 +255,7 @@ bool CtgpPackJournal::begin(const std::string& path, const CtgpPackIo& pack, std
     impl_->file = f;
     impl_->done.clear();
     impl_->failed = false;
+    impl_->active = true;
     return true;
 }
 
@@ -284,19 +290,23 @@ bool CtgpPackJournal::commit(const std::function<bool()>& sync_pack, std::string
         error = "cannot remove the journal";
         return false;
     }
+    impl_->active = false;
     return true;
 }
 
 bool CtgpPackJournal::rollback(const std::function<bool()>& sync_pack, std::string& error) {
     error.clear();
-    if (!impl_->file) {
+    if (!impl_->active) {
         error = "no journal is open";
         return false;
     }
     impl_->close();
     std::size_t restored = 0;
-    return play_back_file(impl_->path, impl_->pack, impl_->pack_size, sync_pack, restored, error) ==
-           CtgpJournalRecovery::RolledBack;
+    if (play_back_file(impl_->path, impl_->pack, impl_->pack_size, sync_pack, restored, error) !=
+        CtgpJournalRecovery::RolledBack)
+        return false;
+    impl_->active = false;
+    return true;
 }
 
 std::size_t CtgpPackJournal::chunks() const { return impl_->done.size(); }

@@ -127,6 +127,19 @@ int main() {
         EXPECT_TRUE(ctgp_journal_recover(jp, p.io(), size, p.sync(), n, err) == CtgpJournalRecovery::None);
         EXPECT_TRUE(p.data == changed);
     }
+    {   // a commit whose pack sync fails keeps the journal, and rollback still works after it
+        MemPack p = make_pack(size);
+        auto orig = p.data;
+        CtgpPackJournal j;
+        EXPECT_TRUE(j.begin(jp, p.io(), size, err));
+        do_writes(j.io());
+        EXPECT_TRUE(!j.commit([]() { return false; }, err));
+        EXPECT_TRUE(exists(jp));
+        EXPECT_TRUE(j.rollback(p.sync(), err));
+        EXPECT_TRUE(p.data == orig);
+        EXPECT_TRUE(!exists(jp));
+        EXPECT_TRUE(!j.rollback(p.sync(), err));  // nothing left to roll back
+    }
     {   // rollback
         MemPack p = make_pack(size);
         auto orig = p.data;
@@ -160,15 +173,15 @@ int main() {
         EXPECT_TRUE(ctgp_journal_recover(jcopy, q.io(), size, q.sync(), n, err) == CtgpJournalRecovery::RolledBack);
         EXPECT_TRUE(q.data == orig);
 
-        // Bad checksum on the last entry.
+        // Bad checksum on a whole last entry: that entry may have been synced
+        // before its chunk changed, so the replay fails and keeps the journal.
         auto bad = jd;
         bad[bad.size() - 1] ^= 0xFF;
         spit(jp, bad);
         MemPack r = p;
-        std::copy(orig.begin() + 3 * kChunk, orig.begin() + 4 * kChunk, r.data.begin() + 3 * kChunk);
-        EXPECT_TRUE(ctgp_journal_recover(jp, r.io(), size, r.sync(), n, err) == CtgpJournalRecovery::RolledBack);
-        EXPECT_EQ(n, std::size_t(3));
-        EXPECT_TRUE(r.data == orig);
+        EXPECT_TRUE(ctgp_journal_recover(jp, r.io(), size, r.sync(), n, err) == CtgpJournalRecovery::Failed);
+        EXPECT_TRUE(fs::exists(jp));
+        fs::remove(jp);
     }
     {   // a damaged entry with more after it: the journal itself is damaged,
         // so the replay fails and the journal is kept for another try

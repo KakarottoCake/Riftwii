@@ -179,6 +179,10 @@ struct CtgpPackWriter::Impl {
     std::uint32_t sectors_per_cluster = 0;
     std::uint32_t reserved = 0;
     std::uint32_t fats = 0;
+    // FAT32 can turn mirroring off and name one FAT the live one; then only
+    // that copy is read and written.
+    bool mirrored = true;
+    std::uint32_t active_fat = 0;
     std::uint32_t fat_sectors = 0;
     std::uint32_t root_cluster = 0;
     std::uint32_t total_sectors = 0;
@@ -205,7 +209,7 @@ struct CtgpPackWriter::Impl {
         fat.assign(std::uint64_t(fat_sectors) * kSectorBytes / 4, 0);
         std::vector<std::uint8_t> block(kSectorBytes);
         for (std::uint32_t sector = 0; sector < fat_sectors; ++sector) {
-            const std::uint64_t at = std::uint64_t(reserved + sector) * kSectorBytes;
+            const std::uint64_t at = (std::uint64_t(reserved) + std::uint64_t(active_fat) * fat_sectors + sector) * kSectorBytes;
             if (!image->read(at, block.data(), block.size())) {
                 error = "could not read the package disk's file table";
                 return false;
@@ -244,7 +248,8 @@ struct CtgpPackWriter::Impl {
                 }
             }
             for (std::uint32_t copy = 0; copy < fats; ++copy) {
-                const std::uint64_t at = std::uint64_t(reserved + copy * fat_sectors + sector) * kSectorBytes;
+                if (!mirrored && copy != active_fat) continue;
+                const std::uint64_t at = (std::uint64_t(reserved) + std::uint64_t(copy) * fat_sectors + sector) * kSectorBytes;
                 if (!image->write(at, block.data(), block.size())) {
                     error = "could not write the package disk's file table";
                     return false;
@@ -530,12 +535,15 @@ bool CtgpPackWriter::open(const CtgpPackIo& io, std::uint64_t size, const std::a
     d.sectors_per_cluster = boot[0x0D];
     d.reserved = le16(boot.data() + 0x0E);
     d.fats = boot[0x10];
+    const std::uint16_t ext_flags = le16(boot.data() + 0x28);
+    d.mirrored = (ext_flags & 0x80) == 0;
+    d.active_fat = d.mirrored ? 0 : (ext_flags & 0x0F);
     d.fat_sectors = le32(boot.data() + 0x24);
     d.root_cluster = le32(boot.data() + 0x2C);
     d.total_sectors = le32(boot.data() + 0x20);
     d.fsinfo_sector = le16(boot.data() + 0x30);
     if (d.bytes_per_sector != kSectorBytes || d.sectors_per_cluster == 0 || d.fats == 0 ||
-        d.fat_sectors == 0 || d.root_cluster < 2) {
+        d.active_fat >= d.fats || d.fat_sectors == 0 || d.root_cluster < 2) {
         error = "the package disk is not a FAT32 volume RiftWii can write";
         close();
         return false;

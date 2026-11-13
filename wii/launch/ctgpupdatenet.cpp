@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <cerrno>
 #include <cstdio>
 #include <new>
 #include <vector>
@@ -44,9 +45,14 @@ CtgpPackIo blob_io(std::FILE* blob) {
     return io;
 }
 
-bool exists(const char* path) {
+enum class Presence { Absent, Present, Unknown };
+
+// Unknown: the card gave an error other than "not there", so a journal may be
+// there; the start-up undo then refuses rather than skip it.
+Presence presence(const char* path) {
     struct stat st;
-    return stat(path, &st) == 0;
+    if (stat(path, &st) == 0) return Presence::Present;
+    return errno == ENOENT || errno == ENOTDIR ? Presence::Absent : Presence::Unknown;
 }
 
 // Scratch files an install that was cut off (a crash, a power cut, a restart
@@ -237,7 +243,16 @@ bool CtgpUpdater::install(const CtgpDiscBase& disc, const CtgpUpdateStep& step, 
 
 bool CtgpRecoverPackJournal(std::string& error) {
     remove_scratch_files();
-    if (!exists(kCtgpJournalPath)) return true;
+    switch (presence(kCtgpJournalPath)) {
+    case Presence::Absent:
+        return true;
+    case Presence::Unknown:
+        error = "the SD card could not say whether sd:/ctgpr/update-journal.bin is there";
+        logf("CTGP-R update: %s\n", error.c_str());
+        return false;
+    case Presence::Present:
+        break;
+    }
     std::FILE* blob = std::fopen(kCtgprBlobPath, "r+b");
     if (blob == nullptr) {
         error = "a CTGP-R update was interrupted, and sd:/ctgpr/blob.bin could not be opened to undo it";
