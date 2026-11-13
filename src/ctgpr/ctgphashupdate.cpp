@@ -174,11 +174,23 @@ bool ctgp_hash_update_fits(CtgpPackWriter& jelly, const std::vector<CtgpHashUpda
     std::uint64_t more = 0;
     for (const CtgpHashUpdateList& list : lists) {
         std::uint32_t old_size = 0;
+        bool present = false;
         std::string read_error;
-        if (!jelly.read_file(list.disk_path, [](const std::uint8_t*, std::size_t) { return true; }, &old_size,
-                             read_error)) {
-            error = "jelly.bin has no " + list.disk_path + " to replace (" + read_error + ")";
+        if (!jelly.stat_file(list.disk_path, present, old_size, read_error)) {
+            // The card or the disk, not the update: it may go in next time.
+            error = "jelly.bin's " + list.disk_path + " could not be looked up: " + read_error;
+            return false;
+        }
+        if (!present) {
+            // CTGP-R's channel creates it; RiftWii never adds to jelly.bin.
+            error = "jelly.bin has no " + list.disk_path + " to replace";
             if (needs_growth != nullptr) *needs_growth = true;
+            return false;
+        }
+        // The whole old list must read, or the replace could fail part-way.
+        if (!jelly.read_file(list.disk_path, [](const std::uint8_t*, std::size_t) { return true; }, nullptr,
+                             read_error)) {
+            error = "jelly.bin's " + list.disk_path + " could not be read: " + read_error;
             return false;
         }
         const std::uint64_t now = clusters_for(old_size, cluster);

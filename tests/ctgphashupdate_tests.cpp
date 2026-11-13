@@ -438,6 +438,50 @@ void test_refusals(const fs::path& dir) {
         EXPECT_TRUE(grow);  // the channel creates the list
     }
     {
+        // The card stops answering reads once jelly.bin is open: the list
+        // can't be looked up. A temporary failure, not "the channel's to
+        // install" (that is only for a list confirmed missing, or no room).
+        Setup s = setup(64);
+        Raw raw{&s.card, s.before_entry};
+        const CtgpPackIo base = raw_io(raw);
+        int reads = 0;
+        int reads_left = -1;
+        CtgpPackIo counted;
+        counted.read = [&](std::uint64_t offset, std::uint32_t length, std::uint8_t* out) {
+            ++reads;
+            if (reads_left == 0) return false;
+            if (reads_left > 0) --reads_left;
+            return base.read(offset, length, out);
+        };
+        counted.write = base.write;
+        {
+            // How many reads opening jelly.bin takes.
+            CtgpPackIo ro = counted;
+            ro.write = [](std::uint64_t, const std::uint8_t*, std::uint32_t) { return false; };
+            CtgpPackWriter look;
+            EXPECT_TRUE(look.open(ro, s.card.jelly_size, s.key, kIv, e));
+            look.close();
+        }
+        const int open_reads = reads;
+        // The first read after opening looks the list up; the next reads its
+        // data (the list fits in one cluster). A fault in either is the card's.
+        for (int extra = 0; extra < 2; ++extra) {
+            reads_left = open_reads + extra;
+            bool grow = true;
+            EXPECT_TRUE(!ctgp_hash_update_install(counted, s.card.jelly_size, s.key, kIv, {new_list()}, 2, jp,
+                                                  [] { return true; }, rolled_back, e, &key, &grow));
+            EXPECT_TRUE(!grow);
+            EXPECT_TRUE(raw.writes == 0 && s.card.img.bytes == s.before_card && !fs::exists(jp));
+        }
+        // The same list on a card that reads: it goes in (the reads above
+        // were the only fault).
+        reads_left = -1;
+        bool grow = true;
+        EXPECT_TRUE(ctgp_hash_update_install(counted, s.card.jelly_size, s.key, kIv, {new_list()}, 0x01031375u, jp,
+                                             [] { return true; }, rolled_back, e, &key, &grow));
+        EXPECT_TRUE(!grow);
+    }
+    {
         // The journal can't be made (a locked card): nothing written at all.
         Setup s = setup(64);
         Raw raw{&s.card, s.before_entry};

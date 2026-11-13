@@ -386,7 +386,10 @@ struct CtgpPackWriter::Impl {
         return true;
     }
 
-    bool find(const std::string& path, Dirent& out, std::string& error) const {
+    // `missing` (may be null) is set only when the disk was read and a part
+    // of the path is not there; a read error leaves it false.
+    bool find(const std::string& path, Dirent& out, std::string& error, bool* missing = nullptr) const {
+        if (missing != nullptr) *missing = false;
         if (path.empty() || path[0] != '/') {
             error = "a package path must be absolute";
             return false;
@@ -409,6 +412,7 @@ struct CtgpPackWriter::Impl {
             }
             if (!found.found) {
                 error = "the package does not hold " + path;
+                if (missing != nullptr) *missing = true;
                 return false;
             }
             if (end == path.size()) {
@@ -803,6 +807,30 @@ bool CtgpPackWriter::read_file(const std::string& path, const Sink& sink, std::u
         error = "a package file runs past the end of the disk";
         return false;
     }
+    return true;
+}
+
+bool CtgpPackWriter::stat_file(const std::string& path, bool& present, std::uint32_t& size, std::string& error) {
+    error.clear();
+    present = false;
+    size = 0;
+    if (impl_ == nullptr || impl_->image == nullptr) {
+        error = "the package disk is not open";
+        return false;
+    }
+    Dirent entry;
+    bool missing = false;
+    if (!impl_->find(path, entry, error, &missing)) {
+        if (!missing) return false;
+        error.clear();
+        return true;
+    }
+    if (entry.directory) {
+        error = path + " is a folder";
+        return false;
+    }
+    present = true;
+    size = entry.size;
     return true;
 }
 
