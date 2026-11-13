@@ -19836,6 +19836,7 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 	std::string failed;   // why the step that stopped the chain failed
 	bool told = false;    // the player was already told about the failure
 	bool channel_rest = false;  // the next update is CTGP-R's channel's to install
+	bool channel_form = false;  // ...because RiftWii doesn't know its form (else: jelly.bin needs more room)
 	bool agreed = false;  // "Update CTGP-R" was chosen
 	// Nothing on the network may write to the card while a pack is being
 	// rewritten.
@@ -19992,9 +19993,11 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 		riftwii::wii::mem::LogUsage("CTGP-R update end");
 		riftwii::wii::mem::CheckHeap("CTGP-R update end");
 		if (!ok && updater.channel_installs()) {
-			// A genuine update that needs jelly.bin made larger, which only
-			// CTGP-R's channel does. Nothing was written. The file goes, so
-			// the channel downloads it fresh; it is not "bad".
+			// A genuine update that needs jelly.bin made larger, or is in a
+			// form RiftWii doesn't know: CTGP-R's channel installs it.
+			// Nothing was written. The file goes, so the channel downloads
+			// it fresh; it is not "bad".
+			channel_form = updater.channel_installs_unknown_form();
 			logf("CTGP-R update: %s; CTGP-R's channel installs it itself\n", error.c_str());
 			if (std::remove(update_path) != 0) logf("CTGP-R update: %s could not be removed\n", update_path);
 			channel_rest = true;
@@ -20031,7 +20034,9 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 		reached.c_str());
 	if (channel_rest) {
 		ShowPopup(tr("CTGP-R update"),
-			done == 0 ? std::string(tr("The next CTGP-R update needs more room in jelly.bin, so CTGP-R's channel installs it itself. CTGP-R starts now."))
+			done == 0 ? std::string(channel_form
+					? tr("The next CTGP-R update is in a form RiftWii can't install yet, so CTGP-R's channel installs it itself. CTGP-R starts now.")
+					: tr("The next CTGP-R update needs more room in jelly.bin, so CTGP-R's channel installs it itself. CTGP-R starts now."))
 			: reached.empty()
 				? std::string(tr("CTGP-R's hash lists were updated. CTGP-R's channel installs the next update itself. CTGP-R starts now."))
 				: tr("CTGP-R was updated to {1}. CTGP-R's channel installs the next update itself. CTGP-R starts now.", {reached}),

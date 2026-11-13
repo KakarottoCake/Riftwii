@@ -11,6 +11,8 @@
 #include <vector>
 
 #include "riftwii/ctgphashlookup.hpp"
+#include "riftwii/ctgppackwrite.hpp"
+#include "riftwii/ctgpupdater.hpp"
 #include "riftwii/sha1.hpp"
 
 static int g_failures = 0;
@@ -85,12 +87,48 @@ void test_lookup() {
     EXPECT_TRUE(!ctgp_hash_list_digest(damaged.data(), damaged.size(), "CTGPR", "/Race/Course/X.szs", digest, error));
     EXPECT_TRUE(!ctgp_hash_list_digest(list.data(), list.size() - 1, "CTGPR", "/Race/Course/X.szs", digest, error));
     EXPECT_TRUE(!ctgp_hash_list_digest(nullptr, 0, "CTGPR", "/Race/Course/X.szs", digest, error));
+
+    // Only a good list without the path says "unlisted".
+    bool unlisted = false;
+    EXPECT_TRUE(!ctgp_hash_list_digest(list.data(), list.size(), "CTGPR", "/changelog.bin", digest, error, &unlisted));
+    EXPECT_TRUE(unlisted);
+    EXPECT_TRUE(ctgp_hash_list_digest(list.data(), list.size(), "CTGPR", "/Race/Course/X.szs", digest, error,
+                                      &unlisted));
+    EXPECT_TRUE(!unlisted);
+    damaged = list;
+    damaged.back() ^= 1;
+    EXPECT_TRUE(!ctgp_hash_list_digest(damaged.data(), damaged.size(), "CTGPR", "/changelog.bin", digest, error,
+                                       &unlisted));
+    EXPECT_TRUE(!unlisted);
+}
+
+// The pack target: a packed file needs its entry and must match it; an
+// unpacked file the list doesn't name (CTGP-R lists only the courses) is
+// taken; an unpacked file it does name must match; a damaged list checks
+// nothing.
+void test_pack_target_check() {
+    riftwii::CtgpPackWriter pack;
+    const auto list = make_list("CTGPR");
+    riftwii::CtgpPackUpdateTarget target(pack, riftwii::CtgpDiscBase(), list, "ctgphashlookup_unused_");
+    std::string error;
+    std::array<std::uint8_t, 20> other{};
+    EXPECT_TRUE(target.check_file("/Race/Course/X.szs", true, sample_digest(), error));
+    EXPECT_TRUE(!target.check_file("/Race/Course/X.szs", true, other, error));
+    EXPECT_TRUE(!target.check_file("/Race/Course/Y.szs", true, other, error));
+    EXPECT_TRUE(target.check_file("/changelog.bin", false, other, error));
+    EXPECT_TRUE(target.check_file("/Race/Course/X.szs", false, sample_digest(), error));
+    EXPECT_TRUE(!target.check_file("/Race/Course/X.szs", false, other, error));
+    auto damaged = list;
+    damaged.back() ^= 1;
+    riftwii::CtgpPackUpdateTarget broken(pack, riftwii::CtgpDiscBase(), damaged, "ctgphashlookup_unused_");
+    EXPECT_TRUE(!broken.check_file("/changelog.bin", false, other, error));
 }
 
 }  // namespace
 
 int main() {
     test_lookup();
+    test_pack_target_check();
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;

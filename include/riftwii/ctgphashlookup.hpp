@@ -18,7 +18,11 @@
 // is a correctness check against the card's own list, not a security check.
 namespace riftwii {
 
+// `unlisted` (may be null) is set when the list itself checks out but has no
+// entry for `path`: CTGP-R's lists name only the files it checks (the
+// courses), not the small plain files beside them.
 bool ctgp_hash_list_digest(const std::uint8_t* list, std::size_t size, const std::string& package,
-                           const std::string& path, std::array<std::uint8_t, 20>& digest, std::string& error);
+                           const std::string& path, std::array<std::uint8_t, 20>& digest, std::string& error,
+                           bool* unlisted = nullptr);
 
 }  // namespace riftwii

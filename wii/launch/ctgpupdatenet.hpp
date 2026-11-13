@@ -57,6 +57,9 @@ public:
     // needs jelly.bin made larger, which only CTGP-R's channel does. Nothing
     // was written.
     bool channel_installs() const { return channel_installs_; }
+    // Why, when channel_installs(): the update is in a form RiftWii doesn't
+    // know (otherwise it needs jelly.bin made larger).
+    bool channel_installs_unknown_form() const { return channel_form_; }
     // After a failed download(): true when the server, asked again, no
     // longer offers the update the player agreed to (none, or another size).
     bool offer_changed() const { return offer_changed_; }
@@ -85,6 +88,7 @@ private:
     std::size_t next_server_ = 0;
     bool bad_update_ = false;
     bool channel_installs_ = false;
+    bool channel_form_ = false;
     bool offer_changed_ = false;
 };
 

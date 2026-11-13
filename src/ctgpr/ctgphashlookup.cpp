@@ -21,7 +21,9 @@ std::uint32_t be32(const std::uint8_t* p) {
 }  // namespace
 
 bool ctgp_hash_list_digest(const std::uint8_t* list, std::size_t size, const std::string& package,
-                           const std::string& path, std::array<std::uint8_t, 20>& digest, std::string& error) {
+                           const std::string& path, std::array<std::uint8_t, 20>& digest, std::string& error,
+                           bool* unlisted) {
+    if (unlisted != nullptr) *unlisted = false;
     if (list == nullptr || size < kBody + 12 || package.empty() || package.size() > 8) {
         error = "the hash list is too short";
         return false;
@@ -51,6 +53,7 @@ bool ctgp_hash_list_digest(const std::uint8_t* list, std::size_t size, const std
     const std::uint32_t index = tree.find(path, false);
     if (index == Fst::npos) {
         error = "the hash list does not name " + path;
+        if (unlisted != nullptr) *unlisted = true;
         return false;
     }
     const FstEntry& e = tree.entries()[index];

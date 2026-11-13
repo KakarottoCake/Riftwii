@@ -8,16 +8,15 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdio>
 #include <cstring>
 #include <memory>
 
 namespace riftwii {
 namespace {
 
-constexpr std::uint32_t kCtgpDifVersion = 0x00020001u;
 // A section that rebuilds its file from nothing but its own commands (a HASH
 // update's lists): no entries, no base files.
-constexpr std::uint32_t kCtgpDifVersionWhole = 0u;
 constexpr std::uint32_t kCtgpDiaHeaderBytes = 0x64;
 constexpr std::size_t kCtgpYaz0HeaderSize = kCtgpYaz0HeaderBytes;
 constexpr std::size_t kCtgpDifMaxHeader = 0x1000;
@@ -420,7 +419,13 @@ bool ctgp_dia_parse_prefix(const std::uint8_t* data, std::size_t size, std::uint
 }
 
 bool ctgp_dif_parse(const std::uint8_t* data, std::size_t size, CtgpDif& out, std::string& error) {
+    return ctgp_dif_parse(data, size, out, nullptr, error);
+}
+
+bool ctgp_dif_parse(const std::uint8_t* data, std::size_t size, CtgpDif& out, bool* unsupported,
+                    std::string& error) {
     out = CtgpDif();
+    if (unsupported != nullptr) *unsupported = false;
     if (!need(size, 0, 0x20) || std::memcmp(data, "DIF0", 4) != 0) {
         error = "not a DIF0 section";
         return false;
@@ -436,11 +441,7 @@ bool ctgp_dif_parse(const std::uint8_t* data, std::size_t size, CtgpDif& out, st
     }
     const std::uint32_t path_table = be32(data + 0x0C);
     const std::uint32_t header_size = be32(data + 0x10);
-    const std::uint32_t version = be32(data + 0x14);
-    if (version != kCtgpDifVersion && version != kCtgpDifVersionWhole) {
-        error = "DIF0 has an unknown version";
-        return false;
-    }
+    const std::uint32_t flags = be32(data + 0x14);
     const std::uint32_t unpacked = be32(data + 0x18);
     if (unpacked > kCtgpUpdateMaxFileBytes) {
         error = "DIF0 output is too large";
@@ -451,18 +452,23 @@ bool ctgp_dif_parse(const std::uint8_t* data, std::size_t size, CtgpDif& out, st
         error = "DIF0 has too many entries";
         return false;
     }
-    if (version == kCtgpDifVersionWhole && count != 0) {
-        error = "DIF0 whole-file section names base files";
-        return false;
-    }
     const std::uint64_t entries_end = 0x20ull + std::uint64_t(count) * 16;
     if (header_size < entries_end || header_size > kCtgpDifMaxHeader || header_size > path_table ||
         path_table > size) {
         error = "DIF0 header is malformed";
         return false;
     }
+    // Checked after the layout, so a damaged header is never taken for a
+    // new feature.
+    if ((flags & ~kCtgpDifFlagsKnown) != 0) {
+        char text[64];
+        std::snprintf(text, sizeof text, "DIF0 uses a feature RiftWii doesn't know (flags %08x)", unsigned(flags));
+        error = text;
+        if (unsupported != nullptr) *unsupported = true;
+        return false;
+    }
     out.size = declared;
-    out.version = version;
+    out.flags = flags;
     out.header_size = header_size;
     out.path_table = path_table;
     out.unpacked_size = unpacked;
@@ -477,6 +483,17 @@ bool ctgp_dif_parse(const std::uint8_t* data, std::size_t size, CtgpDif& out, st
             out = CtgpDif();
             return false;
         }
+        const std::uint32_t entry_flags = be32(entry + 12);
+        if ((entry_flags & ~kCtgpDifFlagPacked) != 0) {
+            char text[80];
+            std::snprintf(text, sizeof text, "DIF0 base file uses a feature RiftWii doesn't know (flags %08x)",
+                          unsigned(entry_flags));
+            error = text;
+            if (unsupported != nullptr) *unsupported = true;
+            out = CtgpDif();
+            return false;
+        }
+        parsed.packed = (entry_flags & kCtgpDifFlagPacked) != 0;
         out.entries.push_back(parsed);
     }
     return true;
@@ -860,7 +877,8 @@ constexpr double kSectionWeight = 3.45;
 // The rebuilt bytes go straight into the packer; the packed bytes into
 // pieces and the checksum. Nothing the size of the file is held unpacked.
 struct RebuildSink {
-    CtgpYaz0ExactWriter* writer = nullptr;
+    CtgpYaz0ExactWriter* writer = nullptr;  // null: the file is stored as it is, through `plain`
+    std::function<bool(const std::uint8_t*, std::size_t)> plain;
     std::string why;
     std::uint64_t written = 0;
     std::uint64_t total = 0;
@@ -870,7 +888,12 @@ struct RebuildSink {
 
 bool rebuild_write(void* user, const std::uint8_t* data, std::size_t length) {
     RebuildSink& sink = *static_cast<RebuildSink*>(user);
-    if (!sink.writer->push(data, length, sink.why)) {
+    if (sink.writer != nullptr) {
+        if (!sink.writer->push(data, length, sink.why)) return false;
+    } else if (!sink.plain(data, length)) {
+        // The card, not the update: said here so it isn't taken for bad
+        // commands.
+        sink.why = "the rebuilt file could not be kept until it is stored";
         return false;
     }
     sink.written += length;
@@ -967,16 +990,14 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         }
         const std::uint8_t* data = section.data();
         CtgpDif files;
-        if (!ctgp_dif_parse(data, section.size(), files, error)) {
-            failure = CtgpUpdateFailure::BadUpdate;
+        bool unsupported = false;
+        if (!ctgp_dif_parse(data, section.size(), files, &unsupported, error)) {
+            failure = unsupported ? CtgpUpdateFailure::Unsupported : CtgpUpdateFailure::BadUpdate;
             return false;
         }
-        if (files.version != kCtgpDifVersion) {
-            // A whole-file section belongs to a HASH update (ctgphashupdate.cpp).
-            error = "a CTGPR update section is in the hash-list format";
-            failure = CtgpUpdateFailure::BadUpdate;
-            return false;
-        }
+        // Stored as CTGP-R's channel stores it: Yaz0-packed, or (course
+        // lists, names, small tables) as it is.
+        const bool pack_output = (files.flags & kCtgpDifFlagPacked) != 0;
         const std::string path = ctgp_dif_path(data, section.size(), files.path_table);
         if (path.empty()) {
             error = "an update section has no file path";
@@ -1022,7 +1043,8 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
                 report(kBaseShare * (double(b) + std::min(1.0, inner)) / double(base_count));
             };
             CtgpUpdateFailure base_failure = CtgpUpdateFailure::Temporary;
-            if (!target.load_base(entry.component, base_path, owned.back(), base_progress, base_failure, error)) {
+            if (!target.load_base(entry.component, base_path, entry.packed, owned.back(), base_progress, base_failure,
+                                  error)) {
                 failure = base_failure == CtgpUpdateFailure::BadUpdate ? CtgpUpdateFailure::BadUpdate
                                                                         : CtgpUpdateFailure::Temporary;
                 return false;
@@ -1038,8 +1060,8 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
                 " bytes");
         }
 
-        // Packed exactly as CTGP-R packs it: its hash lists cover the stored
-        // bytes.
+        // Packed exactly as CTGP-R packs it (or kept as it is, when the
+        // section says so): its hash lists cover the stored bytes.
         packed.clear();
         const std::string scratch = target.packed_scratch_path();
         if (!scratch.empty() && !packed.use_file(scratch, error)) {
@@ -1047,13 +1069,16 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         }
         Sha1 digest;
         bool kept = true;
-        CtgpYaz0ExactWriter writer(files.unpacked_size, [&](const std::uint8_t* bytes, std::size_t length) {
+        const auto keep = [&](const std::uint8_t* bytes, std::size_t length) {
             digest.update(bytes, length);
             kept = packed.append(bytes, length);
             return kept;
-        });
+        };
+        std::unique_ptr<CtgpYaz0ExactWriter> writer;
+        if (pack_output) writer.reset(new CtgpYaz0ExactWriter(files.unpacked_size, keep));
         RebuildSink sink;
-        sink.writer = &writer;
+        sink.writer = writer.get();
+        sink.plain = keep;
         sink.total = files.unpacked_size;
         sink.next_tick = 128 * 1024;
         sink.tick = [&](double part) { report(kBaseShare + kRebuildShare * part); };
@@ -1078,7 +1103,7 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
             failure = CtgpUpdateFailure::BadUpdate;
             return false;
         }
-        if (!writer.finish(error)) {
+        if (writer && !writer->finish(error)) {
             error = path + ": " + error;
             return false;
         }
@@ -1091,9 +1116,12 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         watched.clear();
         owned.clear();
         report(kBaseShare + kRebuildShare);
-        if (log) log(path + ": rebuilt and packed, " + std::to_string(packed.size()) + " bytes to store");
+        if (log) {
+            log(path + (pack_output ? ": rebuilt and packed, " : ": rebuilt (stored unpacked), ") +
+                std::to_string(packed.size()) + " bytes to store");
+        }
         const Sha1Digest packed_digest = digest.finish();
-        if (!target.check_file(path, packed_digest, error)) {
+        if (!target.check_file(path, pack_output, packed_digest, error)) {
             return false;
         }
         const CtgpProgress store_progress = [&](std::uint64_t done, std::uint64_t total) {
@@ -1106,8 +1134,8 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         const std::size_t packed_size = packed.size();
         packed.clear();
         if (log) {
-            log("stored " + path + " (" + std::to_string(files.unpacked_size) + " bytes, " +
-                std::to_string(packed_size) + " packed)");
+            log("stored " + path + " (" + std::to_string(files.unpacked_size) + " bytes" +
+                (pack_output ? ", " + std::to_string(packed_size) + " packed)" : ", unpacked)"));
         }
         report(1.0);
         if (file_done) {

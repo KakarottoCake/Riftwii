@@ -37,13 +37,15 @@ public:
     // ever in memory whole, packed or unpacked.
     // `hash_list` is jelly.bin's /PACKAGES/HASH/CTGPR.HSH: every rebuilt
     // file's stored bytes must match its digest there, or nothing is written.
+    // A file stored unpacked that the list doesn't name (CTGP-R lists only
+    // the courses) is taken on the update's signature and exact rebuild.
     CtgpPackUpdateTarget(CtgpPackWriter& pack, CtgpDiscBase disc, std::vector<std::uint8_t> hash_list,
                          std::string temp_prefix = "sd:/ctgpr/update-base-");
 
-    bool load_base(const std::string& component, const std::string& path,
+    bool load_base(const std::string& component, const std::string& path, bool packed,
                    std::unique_ptr<CtgpBaseSource>& out, const CtgpProgress& progress,
                    CtgpUpdateFailure& failure, std::string& error) override;
-    bool check_file(const std::string& path, const std::array<std::uint8_t, 20>& digest,
+    bool check_file(const std::string& path, bool packed, const std::array<std::uint8_t, 20>& digest,
                     std::string& error) override;
     bool store_file(const std::string& path, const CtgpPieces& packed, const CtgpProgress& progress,
                     std::string& error) override;

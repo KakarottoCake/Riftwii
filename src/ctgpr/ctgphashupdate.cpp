@@ -114,13 +114,16 @@ bool ctgp_hash_update_build(const CtgpUpdateRead& read, std::uint64_t size, cons
             return false;
         }
         CtgpDif dif;
-        if (!ctgp_dif_parse(section.data(), section.size(), dif, error)) {
-            failure = CtgpUpdateFailure::BadUpdate;
+        bool unsupported = false;
+        if (!ctgp_dif_parse(section.data(), section.size(), dif, &unsupported, error)) {
+            failure = unsupported ? CtgpUpdateFailure::Unsupported : CtgpUpdateFailure::BadUpdate;
             return false;
         }
         CtgpHashUpdateList list;
         list.section_path = ctgp_dif_path(section.data(), section.size(), dif.path_table);
-        if (dif.version != 0 || !dif.entries.empty() || dif.unpacked_size > kCtgpHashListMaxBytes) {
+        // jelly.bin holds the lists unpacked, each written whole.
+        if ((dif.flags & kCtgpDifFlagPacked) != 0 || !dif.entries.empty() ||
+            dif.unpacked_size > kCtgpHashListMaxBytes) {
             failure = CtgpUpdateFailure::BadUpdate;
             error = "the HASH update's " + list.section_path + " is not a whole list";
             return false;

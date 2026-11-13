@@ -146,9 +146,20 @@ bool ctgp_dia_parse(const std::uint8_t* data, std::size_t size, CtgpDia& out, st
 constexpr std::size_t kCtgpUpdateWindowBytes = 8192;
 constexpr std::uint32_t kCtgpDifMaxEntries = 8;
 
+// The word at +0x14 of a DIF0 header is a set of flags, as CTGP-R's channel
+// reads it: bit 0 says the rebuilt file is stored Yaz0-packed (the channel
+// opens it as "yaz0:<path>"); clear, it is stored as it is. 0x00020000 is
+// set in every pack section seen so far and the channel never tests it.
+// HASH updates' sections carry 0 (plain, whole file). Each entry's word at
+// +0x0C says the same of that base file. A bit outside these is a feature
+// RiftWii doesn't know: the section is genuine but RiftWii can't install it.
+constexpr std::uint32_t kCtgpDifFlagPacked = 0x00000001u;
+constexpr std::uint32_t kCtgpDifFlagsKnown = 0x00020001u;
+
 struct CtgpDifEntry {
     std::string component;  // "CTGPR", "RMC", ...
     std::uint32_t path_offset = 0;  // from the start of the section
+    bool packed = true;  // the base file is stored Yaz0-packed
 };
 
 struct CtgpDif {
@@ -156,14 +167,17 @@ struct CtgpDif {
     std::uint32_t header_size = 0;
     std::uint32_t path_table = 0;
     std::uint32_t unpacked_size = 0;  // the new file's length
-    // 0x00020001 for a file rebuilt from base files; 0 for one rebuilt from
-    // the section's own commands alone (no entries), as a HASH update's
-    // lists are.
-    std::uint32_t version = 0;
+    // kCtgpDifFlag* above. A section with no entries is rebuilt from its own
+    // commands alone (a whole file), whatever its flags.
+    std::uint32_t flags = 0;
     std::vector<CtgpDifEntry> entries;
 };
 
 bool ctgp_dif_parse(const std::uint8_t* data, std::size_t size, CtgpDif& out, std::string& error);
+// The same; `unsupported` (may be null) is set when it failed only because
+// the section uses a flag RiftWii doesn't know, rather than being malformed.
+bool ctgp_dif_parse(const std::uint8_t* data, std::size_t size, CtgpDif& out, bool* unsupported,
+                    std::string& error);
 
 // The NUL-terminated string at `offset` inside a DIF0 section, bounded by
 // the section. Empty when the offset is outside it or the string is not
@@ -212,7 +226,10 @@ using CtgpProgress = std::function<void(std::uint64_t done, std::uint64_t total)
 // can't update), so trying it again can never work; Temporary for everything
 // else (the card, the disc, memory, a base file that could not be read or is
 // shorter than the update expects, a file the hash list does not vouch for).
-enum class CtgpUpdateFailure : std::uint32_t { None = 0, Temporary = 1, BadUpdate = 2 };
+// Unsupported when the update is well formed but uses a DIF0 feature RiftWii
+// doesn't know (kCtgpDifFlagsKnown): it is genuine, so it is not set aside as
+// bad, and CTGP-R's own channel installs it instead.
+enum class CtgpUpdateFailure : std::uint32_t { None = 0, Temporary = 1, BadUpdate = 2, Unsupported = 3 };
 
 // What the updater needs from the console: the files the sections rebuild
 // from, and somewhere to put the results. The pack side opens each entry's
@@ -221,19 +238,21 @@ enum class CtgpUpdateFailure : std::uint32_t { None = 0, Temporary = 1, BadUpdat
 class CtgpUpdateTarget {
 public:
     virtual ~CtgpUpdateTarget() = default;
-    // `component` is the entry's eight-byte name; `path` its file path. The
+    // `component` is the entry's eight-byte name; `path` its file path;
+    // `packed` the entry's own flag (the file is stored Yaz0-packed). The
     // returned source owns the data, so a target may keep it in memory or in
     // a temporary file; it must stay readable until the section is stored.
     // `progress` (may be empty) is told how far the unpacking has got. On a
     // failure `failure` says whose fault it is: it comes in as Temporary (the
     // card, the disc, memory), and a target sets BadUpdate when the entry
     // asks for something it can never give (a package it doesn't know).
-    virtual bool load_base(const std::string& component, const std::string& path,
+    virtual bool load_base(const std::string& component, const std::string& path, bool packed,
                            std::unique_ptr<CtgpBaseSource>& out, const CtgpProgress& progress,
                            CtgpUpdateFailure& failure, std::string& error) = 0;
-    // Called with the SHA-1 of each packed file before it is stored. A file
-    // that fails is not stored and the update stops.
-    virtual bool check_file(const std::string& path, const std::array<std::uint8_t, 20>& digest,
+    // Called with the SHA-1 of each file as it will be stored (packed or not,
+    // `packed` says which) before it is stored. A file that fails is not
+    // stored and the update stops.
+    virtual bool check_file(const std::string& path, bool packed, const std::array<std::uint8_t, 20>& digest,
                             std::string& error) = 0;
     // `progress` (may be empty) is told how much of the file is written.
     virtual bool store_file(const std::string& path, const CtgpPieces& packed, const CtgpProgress& progress,

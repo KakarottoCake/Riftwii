@@ -40,7 +40,8 @@ constexpr std::uint32_t kCtgpHashListMaxBytes = 1024u * 1024u;
 // Rebuilds and checks every list of the HASH update `dia` (already parsed,
 // its signature already checked), reading the file through `read`. Fails,
 // with `failure` set to BadUpdate, when a section is not a whole-file
-// section, is not named "/<name>.hsh", or its list does not check out; and
+// section, is not named "/<name>.hsh", or its list does not check out; with
+// Unsupported when a section uses a DIF0 flag RiftWii doesn't know; and
 // with Temporary when the file could not be read.
 bool ctgp_hash_update_build(const CtgpUpdateRead& read, std::uint64_t size, const CtgpDia& dia,
                             std::vector<CtgpHashUpdateList>& out, CtgpUpdateFailure& failure, std::string& error,

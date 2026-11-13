@@ -84,7 +84,7 @@ CtgpPackUpdateTarget::CtgpPackUpdateTarget(CtgpPackWriter& pack, CtgpDiscBase di
                                            std::vector<std::uint8_t> hash_list, std::string temp_prefix)
     : pack_(pack), disc_(std::move(disc)), hash_list_(std::move(hash_list)), temp_prefix_(std::move(temp_prefix)) {}
 
-bool CtgpPackUpdateTarget::load_base(const std::string& component, const std::string& path,
+bool CtgpPackUpdateTarget::load_base(const std::string& component, const std::string& path, bool packed,
                                      std::unique_ptr<CtgpBaseSource>& out, const CtgpProgress& progress,
                                      CtgpUpdateFailure& failure, std::string& error) {
     const bool from_pack = component == "CTGPR";
@@ -124,8 +124,9 @@ bool CtgpPackUpdateTarget::load_base(const std::string& component, const std::st
         return true;
     };
     CtgpYaz0StreamDecoder decoder(put);
-    // A disc file that is not compressed at all is used as it is; the first
-    // four bytes say which.
+    // A pack file the entry says is stored unpacked is used as it is. A disc
+    // file that is not compressed at all is too; its first four bytes say
+    // which.
     std::vector<std::uint8_t> head;
     bool decided = false;
     bool plain = false;
@@ -137,7 +138,7 @@ bool CtgpPackUpdateTarget::load_base(const std::string& component, const std::st
     };
     const auto decide = [&]() {
         decided = true;
-        plain = !from_pack && (head.size() < 4 || std::memcmp(head.data(), "Yaz0", 4) != 0);
+        plain = from_pack ? !packed : (head.size() < 4 || std::memcmp(head.data(), "Yaz0", 4) != 0);
         const bool ok = use(head.data(), head.size());
         head.clear();
         head.shrink_to_fit();
@@ -184,11 +185,19 @@ bool CtgpPackUpdateTarget::load_base(const std::string& component, const std::st
     return true;
 }
 
-bool CtgpPackUpdateTarget::check_file(const std::string& path, const std::array<std::uint8_t, 20>& digest,
-                                      std::string& error) {
+bool CtgpPackUpdateTarget::check_file(const std::string& path, bool packed,
+                                      const std::array<std::uint8_t, 20>& digest, std::string& error) {
     std::array<std::uint8_t, 20> expected{};
     std::string why;
-    if (!ctgp_hash_list_digest(hash_list_.data(), hash_list_.size(), "CTGPR", path, expected, why)) {
+    bool unlisted = false;
+    if (!ctgp_hash_list_digest(hash_list_.data(), hash_list_.size(), "CTGPR", path, expected, why, &unlisted)) {
+        // CTGP-R's list names only the files it checks itself (the packed
+        // courses); its small unpacked files (cup lists, names, tables) have
+        // no entry, and are taken on the update's signature and the exact
+        // rebuild. A packed file always needs its entry.
+        if (unlisted && !packed) {
+            return true;
+        }
         error = path + " cannot be checked: " + why;
         return false;
     }

@@ -522,6 +522,8 @@ bool install_hash(CtgpUpdRequest& request, const riftwii::CtgpDia& dia, std::uin
     if (!built) {
         // Nothing was written: a broken update can be set aside at once.
         if (failure == riftwii::CtgpUpdateFailure::BadUpdate) request.bad_update = 1;
+        // Genuine, in a form RiftWii doesn't know: CTGP-R's channel installs it.
+        if (failure == riftwii::CtgpUpdateFailure::Unsupported) request.channel_installs = 2;
         return false;
     }
     for (const riftwii::CtgpHashUpdateList& list : lists)
@@ -622,8 +624,10 @@ bool install(CtgpUpdRequest& request) {
         } else if (journal.rollback(sync_blob, journal_error)) {
             log_line(request, "the pack was put back as it was (" + std::to_string(journal.chunks()) + " chunks)");
             // Nothing of the update is left in blob.bin: a broken update can
-            // now be set aside without stranding half of it.
+            // now be set aside without stranding half of it, and a genuine
+            // one in a form RiftWii doesn't know left to CTGP-R's channel.
             if (failure == riftwii::CtgpUpdateFailure::BadUpdate) request.bad_update = 1;
+            if (failure == riftwii::CtgpUpdateFailure::Unsupported) request.channel_installs = 2;
         } else {
             log_line(request, "the pack could not be put back now (" + journal_error + "); the next start tries again");
         }

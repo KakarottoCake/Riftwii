@@ -96,6 +96,35 @@ std::vector<std::uint8_t> make_section(std::uint32_t unpacked, const std::vector
     return out;
 }
 
+// A DIF0 with the given flags word and base entries (component, entry
+// flags); every entry names the section's own path, as CTGP-R's do when a
+// file is rebuilt from its old self.
+std::vector<std::uint8_t> make_section_flags(std::uint32_t unpacked, const std::vector<std::uint8_t>& stream,
+                                             const std::string& path, std::uint32_t flags,
+                                             const std::vector<std::pair<std::string, std::uint32_t>>& bases) {
+    const std::uint32_t header = 0x20 + 16 * std::uint32_t(bases.size());
+    const std::uint32_t path_table = header + std::uint32_t(stream.size());
+    const std::uint32_t total = path_table + std::uint32_t(path.size()) + 1;
+    std::vector<std::uint8_t> out;
+    out.insert(out.end(), {'D', 'I', 'F', '0'});
+    put32(out, total);
+    put32(out, 0);
+    put32(out, path_table);
+    put32(out, header);
+    put32(out, flags);
+    put32(out, unpacked);
+    put32(out, std::uint32_t(bases.size()));
+    for (const auto& base : bases) {
+        put_name(out, base.first.c_str());
+        put32(out, path_table);
+        put32(out, base.second);
+    }
+    out.insert(out.end(), stream.begin(), stream.end());
+    out.insert(out.end(), path.begin(), path.end());
+    out.push_back(0);
+    return out;
+}
+
 std::uint32_t be32_at(const std::vector<std::uint8_t>& d, std::size_t at) {
     return (std::uint32_t(d[at]) << 24) | (std::uint32_t(d[at + 1]) << 16) | (std::uint32_t(d[at + 2]) << 8) | d[at + 3];
 }
@@ -384,16 +413,17 @@ void test_dia_signature() {
 
 class MemoryTarget : public CtgpUpdateTarget {
 public:
-    bool load_base(const std::string& component, const std::string& path,
+    bool load_base(const std::string& component, const std::string& path, bool packed,
                    std::unique_ptr<CtgpBaseSource>& out, const CtgpProgress& progress,
                    CtgpUpdateFailure& failure, std::string& error) override {
+        base_packed.push_back(packed);
         if (component != "CTGPR") {
             // As the pack's target: a package it can never read.
             error = "unknown package " + component;
             failure = CtgpUpdateFailure::BadUpdate;
             return false;
         }
-        if (path != "/Race/Course/NEW.szs") {
+        if (path != expected_path) {
             error = "unexpected base " + component + " " + path;
             return false;
         }
@@ -409,9 +439,10 @@ public:
         }
         return true;
     }
-    bool check_file(const std::string& path, const std::array<std::uint8_t, 20>& digest,
+    bool check_file(const std::string& path, bool packed, const std::array<std::uint8_t, 20>& digest,
                     std::string& error) override {
         checked.push_back(path);
+        checked_packed.push_back(packed);
         last_digest = digest;
         if (refuse) {
             error = "refused";
@@ -422,7 +453,7 @@ public:
     bool store_file(const std::string& path, const CtgpPieces& packed, const CtgpProgress& progress,
                     std::string& error) override {
         if (progress) progress(packed.size(), packed.size());
-        if (path != "/Race/Course/NEW.szs") {
+        if (path != expected_path) {
             error = "unexpected output " + path;
             return false;
         }
@@ -431,6 +462,9 @@ public:
     }
     std::vector<std::uint8_t> stored;
     std::vector<std::string> checked;
+    std::vector<bool> checked_packed;
+    std::vector<bool> base_packed;
+    std::string expected_path = "/Race/Course/NEW.szs";
     std::string packed_scratch_path() const override { return scratch; }
     std::array<std::uint8_t, 20> last_digest{};
     bool refuse = false;
@@ -517,12 +551,12 @@ void test_apply_failure_kind() {
         std::unique_ptr<CtgpBaseSource> base;
         CtgpUpdateFailure why = CtgpUpdateFailure::Temporary;
         std::string reason;
-        EXPECT_TRUE(!pack_target.load_base("MKWII", "/x.szs", base, CtgpProgress(), why, reason));
+        EXPECT_TRUE(!pack_target.load_base("MKWII", "/x.szs", true, base, CtgpProgress(), why, reason));
         EXPECT_TRUE(why == CtgpUpdateFailure::BadUpdate);
         EXPECT_TRUE(reason.find("MKWII") != std::string::npos);
         // The disc is needed and missing: that is not the update's fault.
         why = CtgpUpdateFailure::Temporary;
-        EXPECT_TRUE(!pack_target.load_base("RMC", "/x.szs", base, CtgpProgress(), why, reason));
+        EXPECT_TRUE(!pack_target.load_base("RMC", "/x.szs", true, base, CtgpProgress(), why, reason));
         EXPECT_TRUE(why == CtgpUpdateFailure::Temporary);
     }
     // A base the card could not give (no room for its scratch file): temporary.
@@ -814,7 +848,115 @@ void test_apply_rejects_bad_stream() {
 
 }  // namespace
 
+// The word at +0x14 is CTGP-R's flags: bit 0 = stored packed. 0x00020000
+// (CTGPR 1194's unpacked files) and 0 (HASH) are known; any other bit is a
+// feature RiftWii doesn't know, told apart from a damaged header.
+void test_dif_flags() {
+    std::string error;
+    CtgpDif dif;
+    bool unsupported = true;
+    const std::vector<std::uint8_t> hello = {0x40, 'h', 'e', 'l', 'l', 'o'};
+    const auto whole = make_section_flags(5, hello, "/changelog.bin", 0x00020000u, {});
+    EXPECT_TRUE(ctgp_dif_parse(whole.data(), whole.size(), dif, &unsupported, error));
+    EXPECT_TRUE(!unsupported);
+    EXPECT_EQ(dif.flags, 0x00020000u);
+    EXPECT_TRUE(dif.entries.empty());
+    std::vector<std::uint8_t> out;
+    EXPECT_TRUE(ctgp_dif_apply(whole.data(), whole.size(), dif, {}, collect, &out, error));
+    EXPECT_EQ(out, bytes("hello"));
+
+    // A plain base (entry flag 0) and a packed one (1).
+    const auto two = make_section_flags(5, hello, "/x.bmg", 0x00020000u, {{"CTGPR", 0}, {"RMC", 1}});
+    EXPECT_TRUE(ctgp_dif_parse(two.data(), two.size(), dif, &unsupported, error));
+    EXPECT_EQ(dif.entries.size(), std::size_t(2));
+    EXPECT_TRUE(!dif.entries[0].packed);
+    EXPECT_TRUE(dif.entries[1].packed);
+
+    // HASH's lists: flags 0.
+    const auto hash = make_section_flags(5, hello, "/ctgpr.hsh", 0, {});
+    EXPECT_TRUE(ctgp_dif_parse(hash.data(), hash.size(), dif, &unsupported, error));
+    EXPECT_EQ(dif.flags, 0u);
+
+    // A bit RiftWii doesn't know, in the section or in an entry.
+    const auto skip = make_section_flags(5, hello, "/x.bin", 0x00020004u, {});
+    EXPECT_TRUE(!ctgp_dif_parse(skip.data(), skip.size(), dif, &unsupported, error));
+    EXPECT_TRUE(unsupported);
+    EXPECT_TRUE(error.find("00020004") != std::string::npos);
+    const auto odd_entry = make_section_flags(5, hello, "/x.bin", 0x00020001u, {{"CTGPR", 3}});
+    EXPECT_TRUE(!ctgp_dif_parse(odd_entry.data(), odd_entry.size(), dif, &unsupported, error));
+    EXPECT_TRUE(unsupported);
+    // A damaged header with an odd flag is damaged, not new.
+    auto damaged = skip;
+    damaged[0x13] = 0x10;  // header longer than the path table allows
+    damaged[0x12] = 0x7F;
+    EXPECT_TRUE(!ctgp_dif_parse(damaged.data(), damaged.size(), dif, &unsupported, error));
+    EXPECT_TRUE(!unsupported);
+}
+
+// CTGPR 1194's form: small files stored unpacked (whole, or rebuilt from
+// their old unpacked selves) beside the packed courses.
+void test_update_plain_files() {
+    std::string error;
+    const auto apply = [&error](const std::vector<std::uint8_t>& dia, MemoryTarget& target, CtgpUpdateFailure& failure) {
+        const CtgpUpdateRead read = [&dia](std::uint64_t offset, std::uint8_t* out, std::size_t length) {
+            if (offset + length > dia.size()) return false;
+            std::memcpy(out, dia.data() + offset, length);
+            return true;
+        };
+        error.clear();
+        return ctgp_update_apply(read, dia.size(), target, nullptr, CtgpUpdateFileDone(), CtgpUpdateStep(), failure,
+                                 error);
+    };
+    CtgpUpdateFailure failure = CtgpUpdateFailure::Temporary;
+    {
+        // Whole: stored as it is, checked as unpacked.
+        MemoryTarget target;
+        target.expected_path = "/changelog.bin";
+        const auto dia = make_dia(make_section_flags(5, {0x40, 'h', 'e', 'l', 'l', 'o'}, "/changelog.bin",
+                                                     0x00020000u, {}));
+        EXPECT_TRUE(apply(dia, target, failure));
+        EXPECT_TRUE(failure == CtgpUpdateFailure::None);
+        EXPECT_EQ(target.stored, bytes("hello"));
+        EXPECT_EQ(target.checked_packed.size(), std::size_t(1));
+        EXPECT_TRUE(!target.checked_packed[0]);
+        const Sha1Digest want = sha1(target.stored.data(), target.stored.size());
+        EXPECT_TRUE(std::memcmp(want.data(), target.last_digest.data(), 20) == 0);
+    }
+    {
+        // From its old unpacked self: the target is told the base is plain.
+        MemoryTarget target;
+        target.expected_path = "/trackNames-EN.bmg";
+        const auto dia = make_dia(make_section_flags(17, {0x40, 'h', 'e', 'l', 'l', 'o', 0x14, 1, 0x33},
+                                                     "/trackNames-EN.bmg", 0x00020000u, {{"CTGPR", 0}}));
+        EXPECT_TRUE(apply(dia, target, failure));
+        EXPECT_EQ(target.stored, bytes("helloABCDEFGGGGGG"));
+        EXPECT_EQ(target.base_packed.size(), std::size_t(1));
+        EXPECT_TRUE(!target.base_packed[0]);
+    }
+    {
+        // A course beside them is still packed and checked as packed.
+        MemoryTarget target;
+        const auto dia = make_dia(make_section(17, {0x40, 'h', 'e', 'l', 'l', 'o', 0x14, 1, 0x33},
+                                               "/Race/Course/NEW.szs"));
+        EXPECT_TRUE(apply(dia, target, failure));
+        EXPECT_TRUE(target.base_packed[0] && target.checked_packed[0]);
+        std::vector<std::uint8_t> unpacked;
+        EXPECT_TRUE(ctgp_yaz0_decode_nintendo(target.stored.data(), target.stored.size(), unpacked, error));
+    }
+    {
+        // A flag RiftWii doesn't know: Unsupported, nothing asked or stored.
+        MemoryTarget target;
+        target.expected_path = "/x.bin";
+        const auto dia = make_dia(make_section_flags(5, {0x40, 'h', 'e', 'l', 'l', 'o'}, "/x.bin", 0x00020004u, {}));
+        EXPECT_TRUE(!apply(dia, target, failure));
+        EXPECT_TRUE(failure == CtgpUpdateFailure::Unsupported);
+        EXPECT_TRUE(target.stored.empty() && target.checked.empty() && target.base_packed.empty());
+    }
+}
+
 int main() {
+    test_dif_flags();
+    test_update_plain_files();
     test_yaz0_round_trip();
     test_dia_parse();
     test_apply();

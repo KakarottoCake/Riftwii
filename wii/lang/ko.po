@@ -4599,6 +4599,9 @@ msgstr "마지막 업데이트는 설치되었지만 SD 카드의 해당 파일�
 msgid "The next CTGP-R update needs more room in jelly.bin, so CTGP-R's channel installs it itself. CTGP-R starts now."
 msgstr "다음 CTGP-R 업데이트는 jelly.bin에 공간이 더 필요하므로 CTGP-R 채널이 직접 설치합니다. CTGP-R을 시작합니다."
 
+msgid "The next CTGP-R update is in a form RiftWii can't install yet, so CTGP-R's channel installs it itself. CTGP-R starts now."
+msgstr "다음 CTGP-R 업데이트는 RiftWii가 아직 설치할 수 없는 형식이므로 CTGP-R 채널이 직접 설치합니다. CTGP-R을 시작합니다."
+
 msgid "CTGP-R's hash lists were updated. CTGP-R's channel installs the next update itself. CTGP-R starts now."
 msgstr "CTGP-R의 해시 목록이 업데이트되었습니다. 다음 업데이트는 CTGP-R 채널이 직접 설치합니다. CTGP-R을 시작합니다."
 
