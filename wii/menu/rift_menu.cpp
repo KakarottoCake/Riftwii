@@ -19626,14 +19626,19 @@ static bool DownloadCtgpUpdate(riftwii::wii::CtgpUpdater& updater, const riftwii
 		// The power button waits while the download is written to the card.
 		const riftwii::wii::CardWriteHold hold;
 		ResumeGui();
-		// The time left goes by bytes.
-		const u64 started = gettime();
+		// The time left goes by bytes, timed from the first bytes: before
+		// them the plugin loads and the server is asked again (several
+		// seconds), and counting that as download time made the first
+		// estimate hundreds of times too long.
+		u64 started = 0;
 		riftwii::TimeLeft estimate;
 		ok = updater.download(
 			reply.update_bytes,
 			[&](std::uint64_t done, std::uint64_t total) {
 				const double fraction = total ? double(done) / double(total) : 1.0;
-				estimate.update(fraction, diff_msec(started, gettime()));
+				const u64 now = gettime();
+				if (started == 0 && done > 0) started = now;
+				if (started != 0) estimate.update(fraction, diff_msec(started, now));
 				HaltGui();
 				bar.Set(fraction);
 				box.SetBody(heading + "\n" + CtgpTimeLeftLine(estimate));

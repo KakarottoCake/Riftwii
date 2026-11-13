@@ -3,6 +3,7 @@
 // One file's digest from a CTGP-R hash list (riftwii/ctgphashlookup.hpp),
 // with a small list built here: a header, then a file table whose one file
 // entry points at its 20-byte digest.
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstring>
@@ -149,9 +150,14 @@ void test_pack_target_check() {
                 return false;
             }
             if (size) *size = std::uint32_t(file.size());
-            // Two pieces, as a disc read may hand them over.
-            if (!sink(file.data(), 5)) return false;
-            return sink(file.data() + 5, file.size() - 5);
+            // In pieces, as a disc read may hand them over: /y.szs a byte at
+            // a time (a first piece shorter than the header), the rest in
+            // pieces of up to 5 bytes, never past the file's end.
+            const std::size_t piece = path == "/y.szs" ? 1 : 5;
+            for (std::size_t at = 0; at < file.size(); at += piece) {
+                if (!sink(file.data() + at, std::min(piece, file.size() - at))) return false;
+            }
+            return true;
         };
         riftwii::CtgpPackUpdateTarget with_disc(pack, disc, list, "ctgphashlookup_unused_");
         std::uint32_t size = 1;
