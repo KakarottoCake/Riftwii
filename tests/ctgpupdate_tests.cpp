@@ -741,7 +741,7 @@ void test_update_step_by_bases() {
     MemoryTarget target;
     target.base_size = 7000;
     const double k = 1.63 / 10.83;
-    const double w1 = k * 7000 + 17, w2 = k * 7000 + 13;
+    const double w1 = k * 7000 + 17, w2 = k * 17 + 13;
     const double s1 = w1 / (w1 + w2);
     std::string error;
     std::vector<std::pair<std::size_t, double>> seen;
@@ -758,12 +758,14 @@ void test_update_step_by_bases() {
             parts.push_back(part);
         },
         error));
-    // Every base was sized once, before the first file began.
-    EXPECT_EQ(target.sized.size(), std::size_t(2));
     for (std::size_t i = 0; i < seen.size(); ++i) {
         const double want = seen[i].first == 0 ? s1 * parts[i] : s1 + (1 - s1) * parts[i];
         EXPECT_TRUE(seen[i].second > want - 1e-9 && seen[i].second < want + 1e-9);
     }
+    // Both files rebuild from /Race/Course/NEW.szs, which the first one
+    // replaces: the second's base is sized from the first section (17), not
+    // asked of the target.
+    EXPECT_EQ(target.sized.size(), std::size_t(1));
     // The first file's bases end at their share of it.
     const double base_end = k * 7000 / w1;
     bool found = false;

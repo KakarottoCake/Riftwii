@@ -1022,6 +1022,10 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
     std::vector<double> unpacked_of(count, double(update.unpacked_size) / double(count ? count : 1));
     std::vector<double> bases_of(count, 0.0);
     bool by_bases = static_cast<bool>(peek);
+    // A base an earlier section of this update replaces is read as that
+    // section left it (C2.szs from 1194's own 29.szs): its size is the one
+    // that section declares.
+    std::vector<std::pair<std::string, std::uint32_t>> rebuilt_here;
     for (std::size_t index = 0; index < count; ++index) {
         const CtgpDiaSection& place = update.sections[index];
         std::uint8_t head[0x20 + 16 * kCtgpDifMaxEntries];
@@ -1046,10 +1050,30 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
             std::uint32_t size = 0;
             by_bases = length > 0 && peek(std::uint64_t(place.offset) + at, reinterpret_cast<std::uint8_t*>(name),
                                           length) &&
-                       std::memchr(name, 0, length) != nullptr &&
-                       target.base_unpacked_size(eight_byte_name(entry), name,
-                                                 (be32(entry + 12) & kCtgpDifFlagPacked) != 0, size);
+                       std::memchr(name, 0, length) != nullptr;
+            if (!by_bases) break;
+            const std::string component = eight_byte_name(entry);
+            bool known = false;
+            if (component == "CTGPR") {
+                for (const auto& earlier : rebuilt_here) {
+                    if (earlier.first == name) {
+                        size = earlier.second;
+                        known = true;
+                    }
+                }
+            }
+            by_bases = known || target.base_unpacked_size(component, name,
+                                                          (be32(entry + 12) & kCtgpDifFlagPacked) != 0, size);
             bases_of[index] += double(size);
+        }
+        // This section's own path, for a later section that rebuilds from it.
+        const std::uint32_t table = be32(head + 0x0C);
+        char own[0x101] = {};
+        const std::size_t own_length = table < place.size ? std::min<std::size_t>(place.size - table, 0x100) : 0;
+        if (by_bases && own_length > 0 &&
+            peek(std::uint64_t(place.offset) + table, reinterpret_cast<std::uint8_t*>(own), own_length) &&
+            std::memchr(own, 0, own_length) != nullptr && value <= kCtgpUpdateMaxFileBytes) {
+            rebuilt_here.emplace_back(own, value);
         }
     }
     double weight_total = 0;
