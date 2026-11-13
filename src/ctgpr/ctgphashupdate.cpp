@@ -280,7 +280,7 @@ bool ctgp_hash_update_install(const CtgpPackIo& raw, std::uint64_t size, const s
     // first journaled write (its chunk already saved), so it rolls back.
     CtgpPackJournal journal;
     if (!journal.begin(journal_path, raw, size, error)) {
-        error = "the undo journal for jelly.bin could not be started (is the SD card locked?): " + error;
+        error = "the undo journal for jelly.bin could not be started: " + error;
         return false;
     }
     rolled_back = false;  // from here a failure is undone through the journal

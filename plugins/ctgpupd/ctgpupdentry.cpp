@@ -554,7 +554,7 @@ bool install_hash(CtgpUpdRequest& request, const riftwii::CtgpDia& dia, std::uin
         log_line(request, "jelly.bin now has hash lists " + version_text(dia.version) +
                               " (written in place; its entry and key unchanged)");
     } else if (rolled_back) {
-        log_line(request, "jelly.bin was left as it was");
+        log_line(request, "nothing of this update was left in jelly.bin");
     }
     return ok;
 }

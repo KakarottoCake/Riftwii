@@ -465,6 +465,7 @@ void test_refusals(const fs::path& dir) {
         std::size_t restored = 0;
         EXPECT_TRUE(ctgp_journal_recover(jp, raw_io(raw), s.card.jelly_size, [] { return true; }, restored, e) ==
                     CtgpJournalRecovery::RolledBack);
+        EXPECT_TRUE(restored == 1);  // the refused write's chunk was journaled first
         EXPECT_TRUE(s.card.img.bytes == s.before_card && !fs::exists(jp));
     }
     {

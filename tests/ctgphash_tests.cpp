@@ -194,6 +194,9 @@ int main() {
     // how to finish it.
     EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CORE", 0x01030413u), "CORE", 0x01030412u, other, error, &key));
     EXPECT_TRUE(error.find("through its channel") != std::string::npos);
+    // No version known (PACKAGES.BIN names no CORE): not called "newer".
+    EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CORE", 0x01030413u), "CORE", 0, other, error, &key));
+    EXPECT_TRUE(error.find("another version") != std::string::npos);
     {
         // The tested core code, by its own SHA-1s; anything else is refused.
         std::array<std::uint8_t, 20> boot{0x79, 0x0E, 0x0F, 0xED, 0x88, 0x66, 0x36, 0x6D, 0x7B, 0xA0,
