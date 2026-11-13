@@ -73,7 +73,9 @@ uses the SD card. The file is closed and found again through a fresh raw
 FAT view, and its sector is read back before it is mapped. If a USB drive
 needs this correction but has no FAT32 partition for the header, the
 launch stops with the reason in boot.log. An already correct table needs
-no writable cache partition.
+no writable cache partition. USB DVD drives with 2048-byte sectors are
+rejected before any header read: this overlay requires 512-byte sectors.
+Layout preparation must succeed before CTGP-R's settings are written.
 
 Host tests check table bounds, unchanged bytes, the game-only alias,
 idempotence, fragment splitting, holes, coalescing and physical overflow.

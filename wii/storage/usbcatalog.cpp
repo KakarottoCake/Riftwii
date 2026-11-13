@@ -1313,6 +1313,12 @@ bool prepare_channel_partition_layout(ImageGame& game, std::string& error) {
         error = "a channel's disc needs a checked ISO or WBFS image";
         return false;
     }
+    // USB DVDs use 2048-byte drive sectors for both reads and fragment
+    // offsets. This header overlay supports only 512-byte sectors.
+    if (game.device == ImageDevice::Usb && __io_usbstorage_sector_size != 512) {
+        error = "the channel's replacement disc header needs 512-byte USB sectors";
+        return false;
+    }
     constexpr std::uint32_t logical = 0x40000 / 512;
     const auto entry = std::find_if(game.fragments.entries.begin(), game.fragments.entries.end(),
         [](const D2xFragment& fragment) {

@@ -13,6 +13,7 @@
 #include <fat.h>
 #include <gccore.h>
 #include <ogc/system.h>
+#include <ogc/usbstorage.h>
 #include <strings.h>
 #include <sys/stat.h>
 
@@ -230,6 +231,22 @@ bool TestChannelPartitionLayout(std::string& error) {
         }
         logf("Partition-layout test: PASS for %u original partition(s); the mapped header is correct and the source is unchanged\n", count);
     }
+    ImageGame usb_dvd;
+    usb_dvd.device = ImageDevice::Usb;
+    usb_dvd.checked = true;
+    usb_dvd.fragments.size = 4096;
+    usb_dvd.fragments.num = 1;
+    usb_dvd.fragments.entries.push_back({0, 0, 4096});
+    const u32 previous_sector_bytes = __io_usbstorage_sector_size;
+    __io_usbstorage_sector_size = 2048;
+    const bool accepted = prepare_channel_partition_layout(usb_dvd, error);
+    __io_usbstorage_sector_size = previous_sector_bytes;
+    if (accepted || error != "the channel's replacement disc header needs 512-byte USB sectors") {
+        error = "the partition-layout test did not reject 2048-byte USB sectors before reading";
+        return false;
+    }
+    logf("Partition-layout test: PASS for a USB DVD; 2048-byte sectors are rejected before reading\n");
+    error.clear();
     return true;
 }
 
