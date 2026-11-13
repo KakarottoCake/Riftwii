@@ -9533,6 +9533,16 @@ T.update({
         "以前のCTGP-Rの更新が中断され、元に戻せませんでした: {1}。CTGP-R専用のインストーラーで再インストールしてください。",
         "Uma atualização anterior do CTGP-R foi interrompida e não pôde ser desfeita: {1}. Instale o CTGP-R de novo com o instalador dele.",
         "Un aggiornamento precedente di CTGP-R è stato interrotto e non è stato possibile annullarlo: {1}. Reinstalla CTGP-R con il suo programma di installazione."),
+    "The CTGP-R update on the SD card can't be used ({1}), so it was set aside.": (
+        "La actualización de CTGP-R de la tarjeta SD no se puede usar ({1}), así que se ha apartado.",
+        "SDカードのCTGP-Rの更新は使用できないため（{1}）、別に移しました。",
+        "A atualização do CTGP-R no cartão SD não pode ser usada ({1}), então foi deixada de lado.",
+        "L'aggiornamento di CTGP-R sulla scheda SD non può essere usato ({1}), quindi è stato messo da parte."),
+    "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, so it was set aside.": (
+        "La actualización de CTGP-R de la tarjeta SD es para la versión {1}, pero está instalado CTGP-R {2}, así que se ha apartado.",
+        "SDカードのCTGP-Rの更新はバージョン{1}用ですが、インストールされているのはCTGP-R {2}のため、別に移しました。",
+        "A atualização do CTGP-R no cartão SD é para a versão {1}, mas o CTGP-R {2} está instalado, então foi deixada de lado.",
+        "L'aggiornamento di CTGP-R sulla scheda SD è per la versione {1}, ma è installato CTGP-R {2}, quindi è stato messo da parte."),
 })
 KO.update({
     "A CTGP-R update ({1} MB) is available. Download and install it now?":
@@ -9543,6 +9553,10 @@ KO.update({
         "업데이트를 다운로드할 수 없습니다: {1}. CTGP-R은 업데이트 없이 시작합니다.",
     "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer.":
         "이전 CTGP-R 업데이트가 중단되었고 되돌릴 수 없습니다: {1}. CTGP-R 설치 프로그램으로 다시 설치하세요.",
+    "The CTGP-R update on the SD card can't be used ({1}), so it was set aside.":
+        "SD 카드의 CTGP-R 업데이트를 사용할 수 없어서({1}) 따로 옮겼습니다.",
+    "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, so it was set aside.":
+        "SD 카드의 CTGP-R 업데이트는 {1} 버전용이지만 설치된 것은 CTGP-R {2}이라서 따로 옮겼습니다.",
 })
 FR.update({
     "A CTGP-R update ({1} MB) is available. Download and install it now?":
@@ -9553,6 +9567,10 @@ FR.update({
         "Impossible de télécharger la mise à jour : {1}. CTGP-R démarre sans elle.",
     "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer.":
         "Une mise à jour précédente de CTGP-R a été interrompue et n'a pas pu être annulée : {1}. Réinstallez CTGP-R avec son propre programme d'installation.",
+    "The CTGP-R update on the SD card can't be used ({1}), so it was set aside.":
+        "La mise à jour de CTGP-R sur la carte SD est inutilisable ({1}) : elle a été mise de côté.",
+    "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, so it was set aside.":
+        "La mise à jour de CTGP-R sur la carte SD est pour la version {1}, mais CTGP-R {2} est installé : elle a été mise de côté.",
 })
 
 if __name__ == "__main__":

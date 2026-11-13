@@ -6,6 +6,7 @@
 #include <cstring>
 #include <memory>
 
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/ctgpefa.hpp"
 #include "riftwii/ctgptables.hpp"
 #include "riftwii/wiicrypt.hpp"
@@ -207,6 +208,14 @@ struct CtgpPackWriter::Impl {
     }
 
     bool load_fat(std::string& error) {
+        // Sized by the boot sector (open has already checked the FAT lies
+        // inside the file): asked for first, so a damaged header is an error
+        // rather than a stop on the Wii (checkedalloc.hpp).
+        const std::uint64_t fat_bytes = std::uint64_t(fat_sectors) * kSectorBytes;
+        if (fat_bytes > kMaxCheckedBytes || !can_allocate(std::size_t(fat_bytes) + fat_sectors)) {
+            error = "there is not enough memory for the package disk's file table";
+            return false;
+        }
         fat.assign(std::uint64_t(fat_sectors) * kSectorBytes / 4, 0);
         std::vector<std::uint8_t> block(kSectorBytes);
         for (std::uint32_t sector = 0; sector < fat_sectors; ++sector) {
@@ -479,6 +488,15 @@ struct CtgpPackWriter::Impl {
         out.clear();
         if (size == 0) {
             return true;
+        }
+        // The size comes from a directory entry: checked before it is asked for.
+        if (size > kCtgpPackMaxFileBytes) {
+            error = "a package file is larger than any the updater reads";
+            return false;
+        }
+        if (!can_allocate(size)) {
+            error = "there is not enough memory to read a package file";
+            return false;
         }
         out.reserve(size);
         std::uint32_t cluster = first;

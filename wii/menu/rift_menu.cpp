@@ -19623,6 +19623,24 @@ static bool CheckCtgpUpdateServer(riftwii::wii::CtgpUpdater& updater)
 	return ok;
 }
 
+// A package version as CTGP-R shows it: 0x01031193 is "1.03.1193".
+static std::string CtgpVersionText(std::uint32_t version)
+{
+	char text[16];
+	snprintf(text, sizeof text, "%x.%02x.%04x", unsigned(version >> 24), unsigned((version >> 16) & 0xFF),
+		unsigned(version & 0xFFFF));
+	return text;
+}
+
+// Moves sd:/ctgpr/update.dif out of the way (an older file of that name
+// goes first: FAT does not rename onto a file that is there).
+static void MoveCtgpUpdate(const char* to)
+{
+	std::remove(to);
+	if (std::rename(riftwii::wii::kCtgpUpdatePath, to) != 0)
+		logf("CTGP-R update: %s could not be renamed to %s\n", riftwii::wii::kCtgpUpdatePath, to);
+}
+
 // CTGP-R's own installer stops under RiftWii while it reads base files from
 // the game disc. The channel leaves the download at sd:/ctgpr/update.dif;
 // RiftWii installs it itself, before the game starts, so the installer's
@@ -19653,19 +19671,60 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 	}
 	riftwii::wii::CtgpUpdater updater;
 	bool asked = false;
-	struct stat st;
-	if (stat(update_path, &st) != 0) {
-		if (!CheckCtgpUpdateServer(updater)) return;
-		asked = true;
-	}
 	riftwii::wii::CtgpUpdateInfo info;
 	std::string error;
-	if (!updater.inspect(info, error)) {
-		logf("CTGP-R update: %s: %s\n", update_path, error.c_str());
-		ShowPopup(tr("CTGP-R update failed"),
-			tr("The update could not be installed: {1}. CTGP-R starts without it.", {FlatCapped(error, 140)}),
-			tr("OK"));
-		return;
+	struct stat st;
+	if (stat(update_path, &st) == 0) {
+		// A file left on the card may not be usable any more: one that can't
+		// be read, or one made for another version of the pack, is set aside
+		// as update.dif.bad; one already installed (a power cut between the
+		// install and its rename) is retired. Either way the server is then
+		// asked again, so a stale file never blocks later updates.
+		if (!updater.inspect(info, error)) {
+			if (!updater.refused()) {
+				// The plugin could not run: the file may be fine, so it stays.
+				logf("CTGP-R update: %s: %s\n", update_path, error.c_str());
+				ShowPopup(tr("CTGP-R update failed"),
+					tr("The update could not be installed: {1}. CTGP-R starts without it.", {FlatCapped(error, 140)}),
+					tr("OK"));
+				return;
+			}
+			logf("CTGP-R update: %s can't be used, set aside as update.dif.bad: %s\n", update_path, error.c_str());
+			MoveCtgpUpdate("sd:/ctgpr/update.dif.bad");
+			ShowPopup(tr("CTGP-R update"),
+				tr("The CTGP-R update on the SD card can't be used ({1}), so it was set aside.", {FlatCapped(error, 140)}),
+				tr("OK"));
+		} else if (info.pack_version != 0 && info.pack_version == info.version) {
+			logf("CTGP-R update: %s is %s, which is already installed\n", update_path,
+				CtgpVersionText(info.version).c_str());
+			MoveCtgpUpdate("sd:/ctgpr/update.dif.installed");
+		} else if (info.pack_version != 0 && info.pack_version != info.base_version) {
+			logf("CTGP-R update: %s updates %s, but the pack is %s; set aside as update.dif.bad\n", update_path,
+				CtgpVersionText(info.base_version).c_str(), CtgpVersionText(info.pack_version).c_str());
+			MoveCtgpUpdate("sd:/ctgpr/update.dif.bad");
+			ShowPopup(tr("CTGP-R update"),
+				tr("The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, so it was set aside.",
+					{CtgpVersionText(info.base_version), CtgpVersionText(info.pack_version)}),
+				tr("OK"));
+		}
+	}
+	if (stat(update_path, &st) != 0) {
+		// Asking the server is a download: it waits for the Downloads
+		// setting, like covers and cheats. An update already on the card
+		// installs either way.
+		if (!riftwii::wii::Settings().online) {
+			logf("CTGP-R update: Downloads are off, so the update server is not asked\n");
+			return;
+		}
+		if (!CheckCtgpUpdateServer(updater)) return;
+		asked = true;
+		if (!updater.inspect(info, error)) {
+			logf("CTGP-R update: %s: %s\n", update_path, error.c_str());
+			ShowPopup(tr("CTGP-R update failed"),
+				tr("The update could not be installed: {1}. CTGP-R starts without it.", {FlatCapped(error, 140)}),
+				tr("OK"));
+			return;
+		}
 	}
 	logf("CTGP-R update: %s (%llu bytes, %u files) is waiting\n", info.component.c_str(),
 		(unsigned long long)info.bytes, unsigned(info.files));

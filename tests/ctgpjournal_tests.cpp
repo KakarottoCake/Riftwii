@@ -224,6 +224,11 @@ int main() {
         auto a = filled(64, 1);
         EXPECT_TRUE(!j.io().write(10, a.data(), 64));
         p.fail_writes = false;
+        // a failed pack write leaves the update uncommittable, and refuses
+        // later writes, until it is rolled back
+        EXPECT_TRUE(!j.io().write(20, a.data(), 64));
+        EXPECT_TRUE(!j.commit(p.sync(), err));
+        EXPECT_TRUE(exists(jp));
         EXPECT_TRUE(j.rollback(p.sync(), err));
         EXPECT_TRUE(p.data == orig);
 

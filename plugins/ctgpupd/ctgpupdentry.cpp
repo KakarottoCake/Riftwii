@@ -126,12 +126,48 @@ bool read_dia(const std::string& path, std::uint64_t expected, riftwii::CtgpDia&
     return riftwii::ctgp_dia_parse_prefix(prefix.data(), prefix.size(), length, dia, error);
 }
 
+// A package version as CTGP-R shows it: 0x01031193 is "1.03.1193".
+std::string version_text(std::uint32_t version) {
+    char text[16];
+    std::snprintf(text, sizeof text, "%x.%02x.%04x", unsigned(version >> 24), unsigned((version >> 16) & 0xFF),
+                  unsigned(version & 0xFFFF));
+    return text;
+}
+
+// The version the update rebuilds from: its base record for its own
+// component (an update with none rebuilds from itself).
+std::uint32_t base_version_of(const riftwii::CtgpDia& dia) {
+    std::uint32_t base_version = dia.version;
+    for (const riftwii::CtgpDiaBase& base : dia.bases) {
+        if (base.component == dia.component) base_version = base.version;
+    }
+    return base_version;
+}
+
+// The version of `component` blob.bin holds now; 0 when it can't be read.
+std::uint32_t pack_version(const CtgpUpdRequest& request, const std::string& component) {
+    std::FILE* blob = std::fopen(request.blob_path.c_str(), "rb");
+    if (blob == nullptr) return 0;
+    const std::uint64_t size = file_size(blob);
+    riftwii::CtgpPackWriter disk;
+    std::vector<riftwii::CtgpPackage> packages;
+    std::string error;
+    std::uint32_t version = 0;
+    if (disk.open(file_io(blob, false), size & ~511ull, error) && read_list(disk, packages, error))
+        version = riftwii::ctgp_package_version(packages, component);
+    disk.close();
+    std::fclose(blob);
+    return version;
+}
+
 bool inspect(CtgpUpdRequest& request) {
     riftwii::CtgpDia dia;
     std::uint64_t length = 0;
     if (!read_dia(request.update_path, 0, dia, length, request.error)) return false;
     request.dia_component = dia.component;
     request.dia_version = dia.version;
+    request.dia_base_version = base_version_of(dia);
+    request.pack_version = pack_version(request, dia.component);
     request.dia_files = static_cast<std::uint32_t>(dia.sections.size());
     request.update_bytes = length;
     return true;
@@ -305,13 +341,10 @@ bool install_into(CtgpUpdRequest& request, riftwii::CtgpPackWriter& pack, const 
     std::vector<riftwii::CtgpPackage> packages;
     std::uint32_t installed = 0;
     if (read_list(pack, packages, error)) installed = riftwii::ctgp_package_version(packages, "CTGPR");
-    std::uint32_t base_version = dia.version;
-    for (const riftwii::CtgpDiaBase& base : dia.bases) {
-        if (base.component == dia.component) base_version = base.version;
-    }
+    const std::uint32_t base_version = base_version_of(dia);
     if (installed != base_version) {
-        error = "this pack is CTGP-R " + std::to_string(installed) + ", but the update rebuilds from " +
-                std::to_string(base_version);
+        error = "this pack is CTGP-R " + version_text(installed) + ", but the update rebuilds from " +
+                version_text(base_version);
         return false;
     }
     // Every rebuilt file is checked against jelly.bin's CTGPR.HSH before it
@@ -324,6 +357,18 @@ bool install_into(CtgpUpdRequest& request, riftwii::CtgpPackWriter& pack, const 
     if (!read_hash_list(request, hash_list, error)) {
         error = "no hash list to check the files against: " + error;
         return false;
+    }
+    // A list older than the update can't vouch for its files: say so plainly
+    // rather than have every file fail its check. (The list's own checks come
+    // later, in ctgp_hash_list_digest; here only its label is read.)
+    if (hash_list.size() >= 0x2C) {
+        const std::uint32_t label = (std::uint32_t(hash_list[0x28]) << 24) | (std::uint32_t(hash_list[0x29]) << 16) |
+                                    (std::uint32_t(hash_list[0x2A]) << 8) | hash_list[0x2B];
+        if (label < dia.version) {
+            error = "CTGP-R's hash list in jelly.bin is for " + version_text(label) + ", older than this update (" +
+                    version_text(dia.version) + "), so its files can't be checked and nothing was installed";
+            return false;
+        }
     }
     riftwii::CtgpPackUpdateTarget target(pack, borrow_disc(request), std::move(hash_list), request.scratch_prefix);
     log_line(request, "installing");

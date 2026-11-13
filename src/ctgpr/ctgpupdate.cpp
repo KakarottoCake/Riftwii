@@ -384,6 +384,11 @@ bool ctgp_dia_parse_prefix(const std::uint8_t* data, std::size_t size, std::uint
         out.bases.push_back(base);
     }
     out.sections.reserve(section_count);
+    // The sections fill the rest of the file, in order and with no gap,
+    // starting after the tables and ending at its last byte. A table that
+    // lists fewer (or other) sections than the file holds leaves bytes over
+    // and is refused, so no file of the update can be skipped.
+    std::uint64_t next = std::max(base_end, table_end);
     for (std::uint32_t i = 0; i < section_count; ++i) {
         const std::uint8_t* entry = data + section_offset + i * 8;
         CtgpDiaSection section;
@@ -394,7 +399,18 @@ bool ctgp_dia_parse_prefix(const std::uint8_t* data, std::size_t size, std::uint
             out = CtgpDia();
             return false;
         }
+        if (section.offset != next) {
+            error = "DIA0 sections do not follow one another";
+            out = CtgpDia();
+            return false;
+        }
+        next = std::uint64_t(section.offset) + section.size;
         out.sections.push_back(section);
+    }
+    if (next != total) {
+        error = "DIA0 sections do not fill the file";
+        out = CtgpDia();
+        return false;
     }
     return true;
 }
@@ -585,7 +601,10 @@ bool ctgp_dif_apply(const std::uint8_t* data, std::size_t size, const CtgpDif& s
         // byte.
         auto window_copy = [&](std::uint32_t count) {
             const std::size_t back = distance + 1;
-            if (count > target - position || back > position || back >= window.size()) {
+            // The ring holds the last window.size() bytes, and each byte is
+            // read before the one written in its place, so a copy may reach
+            // exactly window.size() bytes back.
+            if (count > target - position || back > position || back > window.size()) {
                 return false;
             }
             std::size_t source = position - back;
@@ -853,6 +872,9 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
     std::vector<std::uint8_t> section;
     section.reserve(largest);
     CtgpPieces packed;
+    // The header's unpacked size is the sum of the sections': a section left
+    // out of the table shows here, and the install is then rolled back.
+    std::uint64_t unpacked_total = 0;
     const std::size_t count = update.sections.size();
     for (std::size_t index = 0; index < count; ++index) {
         const CtgpDiaSection& place = update.sections[index];
@@ -871,6 +893,11 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         const std::string path = ctgp_dif_path(data, section.size(), files.path_table);
         if (path.empty()) {
             error = "an update section has no file path";
+            return false;
+        }
+        unpacked_total += files.unpacked_size;
+        if (unpacked_total > update.unpacked_size) {
+            error = "the update's files are larger than its header says";
             return false;
         }
         const auto report = [&](double part) {
@@ -965,6 +992,10 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         if (file_done) {
             file_done(index, count, path);
         }
+    }
+    if (unpacked_total != update.unpacked_size) {
+        error = "the update's files do not add up to the size its header says";
+        return false;
     }
     return true;
 }

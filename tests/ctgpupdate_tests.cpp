@@ -87,11 +87,24 @@ std::vector<std::uint8_t> make_section(std::uint32_t unpacked, const std::vector
     return out;
 }
 
-std::vector<std::uint8_t> make_dia(const std::vector<std::uint8_t>& section) {
+std::uint32_t be32_at(const std::vector<std::uint8_t>& d, std::size_t at) {
+    return (std::uint32_t(d[at]) << 24) | (std::uint32_t(d[at + 1]) << 16) | (std::uint32_t(d[at + 2]) << 8) | d[at + 3];
+}
+
+// A DIA0 holding `sections` one after another. `listed` (when not 0) is the
+// count its table claims, for a table that leaves sections out; the header's
+// unpacked size is always the sum of all the sections'.
+std::vector<std::uint8_t> make_dia(const std::vector<std::vector<std::uint8_t>>& sections, std::uint32_t listed = 0) {
+    const std::uint32_t count = listed != 0 ? listed : std::uint32_t(sections.size());
     const std::uint32_t base_offset = 0x64;
     const std::uint32_t table_offset = base_offset + 16;
-    const std::uint32_t section_offset = table_offset + 8;
-    const std::uint32_t total = section_offset + std::uint32_t(section.size());
+    const std::uint32_t first_section = table_offset + 8 * std::uint32_t(sections.size());
+    std::uint32_t total = first_section;
+    std::uint32_t unpacked = 0;
+    for (const auto& section : sections) {
+        total += std::uint32_t(section.size());
+        unpacked += be32_at(section, 0x18);
+    }
     std::vector<std::uint8_t> out;
     out.insert(out.end(), {'D', 'I', 'A', '0'});
     put32(out, total);
@@ -99,22 +112,30 @@ std::vector<std::uint8_t> make_dia(const std::vector<std::uint8_t>& section) {
     put32(out, 0);
     put_name(out, "CTGPR");
     put32(out, 0x01031193u);
-    put32(out, 0);
+    put32(out, unpacked);
     put32(out, 0);  // signature length
     while (out.size() < 0x54) {
         out.push_back(0);
     }
     put32(out, 1);            // base records
     put32(out, base_offset);
-    put32(out, 1);            // sections
+    put32(out, count);        // sections
     put32(out, table_offset);
     put_name(out, "CTGPR");
     put32(out, 0x01031192u);
     put32(out, 0);
-    put32(out, section_offset);
-    put32(out, std::uint32_t(section.size()));
-    out.insert(out.end(), section.begin(), section.end());
+    std::uint32_t at = first_section;
+    for (const auto& section : sections) {
+        put32(out, at);
+        put32(out, std::uint32_t(section.size()));
+        at += std::uint32_t(section.size());
+    }
+    for (const auto& section : sections) out.insert(out.end(), section.begin(), section.end());
     return out;
+}
+
+std::vector<std::uint8_t> make_dia(const std::vector<std::uint8_t>& section) {
+    return make_dia(std::vector<std::vector<std::uint8_t>>{section});
 }
 
 void test_yaz0_round_trip() {
@@ -152,6 +173,20 @@ void test_dia_parse() {
     // A truncated download is refused.
     CtgpDia again;
     EXPECT_TRUE(!ctgp_dia_parse(dia.data(), dia.size() - 1, again, error));
+
+    // Two files, and a table whose count says one: the length and the first
+    // section still check out, but the second file's bytes are left over, so
+    // the update is refused rather than installed with a file missing.
+    const auto second = make_section(5, stream, "TWO.SZS");
+    const auto both = make_dia({section, second});
+    EXPECT_TRUE(ctgp_dia_parse(both.data(), both.size(), again, error));
+    EXPECT_EQ(again.sections.size(), std::size_t(2));
+    const auto short_table = make_dia({section, second}, 1);
+    EXPECT_TRUE(!ctgp_dia_parse(short_table.data(), short_table.size(), again, error));
+    // Sections that overlap or leave a gap are refused too.
+    auto gap = both;
+    gap[0x74 + 8 + 3] += 1;  // the second section starts one byte late
+    EXPECT_TRUE(!ctgp_dia_parse(gap.data(), gap.size(), again, error));
 }
 
 void test_apply() {
@@ -200,6 +235,33 @@ void test_apply_distance() {
     // A distance that reaches before the start is refused.
     stream = {0x00, 'a', 0x18, 0x13};
     section = make_section(4, stream, "NEW.SZS");
+    EXPECT_TRUE(ctgp_dif_parse(section.data(), section.size(), dif, error));
+    output.clear();
+    EXPECT_TRUE(!ctgp_dif_apply(section.data(), section.size(), dif, bases, collect, &output, error));
+}
+
+void test_apply_full_window() {
+    // A copy may reach back exactly the window's size (8192 bytes; distance
+    // 8191, set with the 0xA form), but not one byte further.
+    std::vector<std::uint8_t> stream = {0x11, 0x1E, 0xEF};  // a literal of 0x111 + 0x1EEF = 8192 bytes
+    for (std::uint32_t i = 0; i < kCtgpUpdateWindowBytes; ++i) stream.push_back(std::uint8_t(i * 7 + 3));
+    const std::size_t literal_end = stream.size();
+    stream.insert(stream.end(), {0x0A, 0x1E, 0xFE, 0x23});  // distance 0x101 + 0x1EFE = 8191, copy 4
+    auto section = make_section(kCtgpUpdateWindowBytes + 4, stream, "NEW.SZS");
+    CtgpDif dif;
+    std::string error;
+    EXPECT_TRUE(ctgp_dif_parse(section.data(), section.size(), dif, error));
+    MemoryBase base("unused");
+    std::vector<const CtgpBaseSource*> bases = {&base};
+    std::vector<std::uint8_t> output;
+    EXPECT_TRUE(ctgp_dif_apply(section.data(), section.size(), dif, bases, collect, &output, error));
+    EXPECT_EQ(output.size(), std::size_t(kCtgpUpdateWindowBytes + 4));
+    if (output.size() == kCtgpUpdateWindowBytes + 4) {
+        EXPECT_TRUE(std::equal(output.begin(), output.begin() + 4, output.begin() + kCtgpUpdateWindowBytes));
+    }
+
+    stream[literal_end + 2] = 0xFF;  // distance 8192: past the window
+    section = make_section(kCtgpUpdateWindowBytes + 4, stream, "NEW.SZS");
     EXPECT_TRUE(ctgp_dif_parse(section.data(), section.size(), dif, error));
     output.clear();
     EXPECT_TRUE(!ctgp_dif_apply(section.data(), section.size(), dif, bases, collect, &output, error));
@@ -270,6 +332,12 @@ void test_update_apply() {
     EXPECT_TRUE(ctgp_update_apply(dia.data(), dia.size(), spilled, [](const std::string&) {}, error));
     EXPECT_TRUE(spilled.stored == target.stored);
     EXPECT_TRUE(std::fopen(spilled.scratch.c_str(), "rb") == nullptr);
+
+    // A header whose unpacked size is not the sum of its files' is refused.
+    auto wrong_size = dia;
+    wrong_size[0x1F] ^= 0x01;
+    MemoryTarget sized;
+    EXPECT_TRUE(!ctgp_update_apply(wrong_size.data(), wrong_size.size(), sized, [](const std::string&) {}, error));
 
     // A file the target's check refuses is never stored.
     MemoryTarget strict;
@@ -480,6 +548,7 @@ int main() {
     test_dia_parse();
     test_apply();
     test_apply_distance();
+    test_apply_full_window();
     test_update_apply();
     test_apply_rejects_bad_stream();
     test_yaz0_nintendo_matches();

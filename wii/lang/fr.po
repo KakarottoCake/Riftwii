@@ -4544,3 +4544,9 @@ msgstr "Impossible de télécharger la mise à jour : {1}. CTGP-R démarre sans 
 
 msgid "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer."
 msgstr "Une mise à jour précédente de CTGP-R a été interrompue et n'a pas pu être annulée : {1}. Réinstallez CTGP-R avec son propre programme d'installation."
+
+msgid "The CTGP-R update on the SD card can't be used ({1}), so it was set aside."
+msgstr "La mise à jour de CTGP-R sur la carte SD est inutilisable ({1}) : elle a été mise de côté."
+
+msgid "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, so it was set aside."
+msgstr "La mise à jour de CTGP-R sur la carte SD est pour la version {1}, mais CTGP-R {2} est installé : elle a été mise de côté."

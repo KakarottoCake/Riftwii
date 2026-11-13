@@ -181,9 +181,10 @@ struct CtgpPackJournal::Impl {
     std::uint64_t pack_size = 0;
     std::FILE* file = nullptr;
     std::set<std::uint64_t> done;  // chunk indices already journaled
-    // Set when an entry could not be appended or synced: the file may end in
-    // a torn entry, so nothing more goes after it and the pack is not
-    // written again until the journal is played back.
+    // Set when an entry could not be appended or synced (the file may end in
+    // a torn entry), or when a pack write failed (the pack may be half
+    // changed): nothing more is written, and commit refuses, until the
+    // journal is played back.
     bool failed = false;
     // From begin until the journal is removed: rollback still works after a
     // commit that closed the file but could not remove it.
@@ -213,7 +214,13 @@ struct CtgpPackJournal::Impl {
         std::uint64_t last = (offset + length - 1) / kCtgpJournalChunkBytes;
         for (std::uint64_t i = first; i <= last; i++)
             if (!done.count(i) && !journal_chunk(i)) return false;
-        return pack.write(offset, data, length);
+        // A pack write that fails may have changed part of its chunks, so the
+        // update can't be committed: commit refuses and the caller rolls back.
+        if (!pack.write(offset, data, length)) {
+            failed = true;
+            return false;
+        }
+        return true;
     }
 
     void close() {

@@ -30,7 +30,9 @@ inline constexpr const char* kCtgpJournalPath = "sd:/ctgpr/update-journal.bin";
 // The update waiting on the card.
 struct CtgpUpdateInfo {
     std::string component;
-    std::uint32_t version = 0;
+    std::uint32_t version = 0;       // the version it brings
+    std::uint32_t base_version = 0;  // the version it rebuilds from
+    std::uint32_t pack_version = 0;  // the version blob.bin holds (0: unknown)
     std::uint32_t files = 0;
     std::uint64_t bytes = 0;
 };
@@ -44,6 +46,10 @@ public:
 
     // Reads the header of the update at kCtgpUpdatePath.
     bool inspect(CtgpUpdateInfo& out, std::string& error);
+    // After a failed call: true when the plugin ran and refused (the file
+    // itself is the problem), false when the plugin could not be loaded or
+    // ran out of memory (the file may be fine).
+    bool refused() const { return refused_; }
     // Brings the network up and asks the update server whether an update
     // waits for the installed packages. The connection stays open for
     // download().
@@ -61,6 +67,7 @@ private:
     SocketTransport conn_;
     bool connected_ = false;
     std::size_t next_server_ = 0;
+    bool refused_ = false;
 };
 
 // Puts the pack back as it was before an update that did not finish (power

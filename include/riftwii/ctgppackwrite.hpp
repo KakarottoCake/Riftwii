@@ -17,11 +17,14 @@
 // the chunks it touches, changes them and encrypts them again; nothing else
 // on the card is rewritten.
 //
-// The image is replaced one file at a time: the new contents go into freshly
-// allocated clusters, the directory entry is switched over, and the old
-// cluster chain is freed. A reader therefore sees either the old file or the
-// new one, never a half-written one, and a file that fails to fit leaves the
-// disk as it was.
+// A file is replaced in place: the packs run close to full, so its own
+// clusters are written over (with new ones added when it grows), then its
+// directory entry gets the new size, and clusters it no longer needs are
+// freed. This is not atomic: a write that fails, or a Reader that fails,
+// partway leaves the file half new, and close() writes out what is pending.
+// A caller that must be able to undo a failure writes through a
+// CtgpPackJournal (riftwii/ctgpjournal.hpp), as the updater does. A file
+// whose cluster chain is damaged is refused before anything is written.
 namespace riftwii {
 
 // Raw access to blob.bin: 512-byte-aligned reads and writes at any offset.
@@ -51,9 +54,10 @@ public:
     void close();
 
     // Replaces the file at an absolute path ("/packages/ctgpr/race/course/
-    // C8.szs", case-insensitive) with `data`. The file must exist; the new
-    // contents may be shorter or longer than the old ones. The directory
-    // entry keeps its name and times.
+    // C8.szs", case-insensitive) with `data`, in place (see above: undo
+    // needs a journal). The file must exist; the new contents may be shorter
+    // or longer than the old ones. The directory entry keeps its name and
+    // times.
     bool replace_file(const std::string& path, const std::uint8_t* data, std::size_t size, std::string& error);
     // The same, taking the new contents from `read` (offset, out, length)
     // one cluster at a time, so they need not be in one block of memory.

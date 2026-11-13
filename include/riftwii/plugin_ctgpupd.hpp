@@ -29,7 +29,8 @@
 namespace riftwii {
 
 enum class CtgpUpdOp : std::uint32_t {
-    // Reads the update waiting at update_path: dia_* out.
+    // Reads the update waiting at update_path (dia_* out) and the version
+    // blob.bin holds now (pack_version, 0 when it can't be read).
     Inspect = 1,
     // Reads the installed versions, then asks the server whether an update
     // waits: reply out. The connection is the DOL's (connect_next, io).
@@ -99,7 +100,9 @@ struct CtgpUpdRequest {
 
     // Out.
     std::string dia_component;  // Inspect, Install
-    std::uint32_t dia_version = 0;
+    std::uint32_t dia_version = 0;       // the version the update brings
+    std::uint32_t dia_base_version = 0;  // the version it rebuilds from
+    std::uint32_t pack_version = 0;      // Inspect: the version blob.bin holds
     std::uint32_t dia_files = 0;
     std::uint64_t update_bytes = 0;
     CtgpCheckReply reply;  // Check
