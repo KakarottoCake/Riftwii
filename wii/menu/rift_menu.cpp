@@ -19650,7 +19650,7 @@ static bool DownloadCtgpUpdate(riftwii::wii::CtgpUpdater& updater, const riftwii
 		logf("CTGP-R update: nothing downloaded: %s\n", error.c_str());
 		if (say_failure)
 			ShowPopup(tr("CTGP-R update"),
-				tr("The CTGP-R update on offer changed while the prompt was up, so nothing was downloaded. It is offered again the next time CTGP-R starts. CTGP-R starts now."),
+				tr("The CTGP-R update the server offers changed after Update was chosen, so nothing was downloaded. RiftWii checks again the next time CTGP-R starts. CTGP-R starts now."),
 				tr("OK"));
 	} else if (!ok && updater.bad_update()) {
 		// The plugin kept it as update.dif.bad: it can never be installed.
@@ -19885,7 +19885,9 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 			}
 			const bool first = chain.steps().empty();
 			if (!DownloadCtgpUpdate(updater, reply, tr("Update {1}: downloading...", {number}), first, error)) {
-				failed = error;
+				failed = updater.offer_changed()
+					? std::string(tr("the update the server offers changed after Update was chosen, so nothing was downloaded"))
+					: error;
 				told = first || updater.bad_update();
 				break;
 			}

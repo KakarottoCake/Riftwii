@@ -4605,5 +4605,8 @@ msgstr "Gli elenchi di hash di CTGP-R sono stati aggiornati. Il prossimo aggiorn
 msgid "CTGP-R was updated to {1}. CTGP-R's channel installs the next update itself. CTGP-R starts now."
 msgstr "CTGP-R è stato aggiornato a {1}. Il prossimo aggiornamento lo installa il canale di CTGP-R. CTGP-R si avvia ora."
 
-msgid "The CTGP-R update on offer changed while the prompt was up, so nothing was downloaded. It is offered again the next time CTGP-R starts. CTGP-R starts now."
-msgstr "L'aggiornamento di CTGP-R offerto è cambiato mentre il messaggio era aperto, quindi non è stato scaricato nulla. Verrà offerto di nuovo al prossimo avvio di CTGP-R. CTGP-R si avvia ora."
+msgid "The CTGP-R update the server offers changed after Update was chosen, so nothing was downloaded. RiftWii checks again the next time CTGP-R starts. CTGP-R starts now."
+msgstr "L'aggiornamento di CTGP-R offerto dal server è cambiato dopo aver scelto Aggiorna, quindi non è stato scaricato nulla. RiftWii controllerà di nuovo al prossimo avvio di CTGP-R. CTGP-R si avvia ora."
+
+msgid "the update the server offers changed after Update was chosen, so nothing was downloaded"
+msgstr "l'aggiornamento offerto dal server è cambiato dopo aver scelto Aggiorna, quindi non è stato scaricato nulla"

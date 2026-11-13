@@ -9591,7 +9591,8 @@ T.update({
     "The next CTGP-R update needs more room in jelly.bin, so CTGP-R's channel installs it itself. CTGP-R starts now.": ('La siguiente actualización de CTGP-R necesita más espacio en jelly.bin, así que el canal de CTGP-R la instala por sí mismo. CTGP-R se inicia ahora.', '次のCTGP-Rの更新はjelly.binにもっと空きが必要なため、CTGP-Rのチャンネルが自分でインストールします。CTGP-Rを起動します。', 'A próxima atualização do CTGP-R precisa de mais espaço no jelly.bin, por isso o canal do CTGP-R instala-a ele próprio. O CTGP-R inicia agora.', 'Il prossimo aggiornamento di CTGP-R richiede più spazio in jelly.bin, quindi lo installa il canale di CTGP-R. CTGP-R si avvia ora.'),
     "CTGP-R's hash lists were updated. CTGP-R's channel installs the next update itself. CTGP-R starts now.": ('Se han actualizado las listas de hashes de CTGP-R. El canal de CTGP-R instala la siguiente actualización por sí mismo. CTGP-R se inicia ahora.', 'CTGP-Rのハッシュリストが更新されました。次の更新はCTGP-Rのチャンネルが自分でインストールします。CTGP-Rを起動します。', 'As listas de hashes do CTGP-R foram atualizadas. O canal do CTGP-R instala a próxima atualização ele próprio. O CTGP-R inicia agora.', 'Gli elenchi di hash di CTGP-R sono stati aggiornati. Il prossimo aggiornamento lo installa il canale di CTGP-R. CTGP-R si avvia ora.'),
     "CTGP-R was updated to {1}. CTGP-R's channel installs the next update itself. CTGP-R starts now.": ('CTGP-R se ha actualizado a {1}. El canal de CTGP-R instala la siguiente actualización por sí mismo. CTGP-R se inicia ahora.', 'CTGP-Rは{1}に更新されました。次の更新はCTGP-Rのチャンネルが自分でインストールします。CTGP-Rを起動します。', 'O CTGP-R foi atualizado para {1}. O canal do CTGP-R instala a próxima atualização ele próprio. O CTGP-R inicia agora.', 'CTGP-R è stato aggiornato a {1}. Il prossimo aggiornamento lo installa il canale di CTGP-R. CTGP-R si avvia ora.'),
-    'The CTGP-R update on offer changed while the prompt was up, so nothing was downloaded. It is offered again the next time CTGP-R starts. CTGP-R starts now.': ('La actualización de CTGP-R ofrecida cambió mientras se mostraba el aviso, así que no se descargó nada. Se volverá a ofrecer la próxima vez que se inicie CTGP-R. CTGP-R se inicia ahora.', '表示中にCTGP-Rの更新内容が変わったため、何もダウンロードされませんでした。次にCTGP-Rを起動したときに再び提示されます。CTGP-Rを起動します。', 'A atualização do CTGP-R oferecida mudou enquanto o aviso estava aberto, por isso nada foi transferido. Será oferecida de novo da próxima vez que o CTGP-R iniciar. O CTGP-R inicia agora.', "L'aggiornamento di CTGP-R offerto è cambiato mentre il messaggio era aperto, quindi non è stato scaricato nulla. Verrà offerto di nuovo al prossimo avvio di CTGP-R. CTGP-R si avvia ora."),
+    'The CTGP-R update the server offers changed after Update was chosen, so nothing was downloaded. RiftWii checks again the next time CTGP-R starts. CTGP-R starts now.': ('La actualización de CTGP-R que ofrece el servidor cambió después de elegir Actualizar, así que no se descargó nada. RiftWii volverá a comprobarlo la próxima vez que se inicie CTGP-R. CTGP-R se inicia ahora.', '「更新」を選んだ後でサーバーが提示するCTGP-Rの更新が変わったため、何もダウンロードされませんでした。次にCTGP-Rを起動するときにRiftWiiが再確認します。CTGP-Rを起動します。', 'A atualização do CTGP-R oferecida pelo servidor mudou depois de escolher Atualizar, por isso nada foi transferido. O RiftWii volta a verificar da próxima vez que o CTGP-R iniciar. O CTGP-R inicia agora.', "L'aggiornamento di CTGP-R offerto dal server è cambiato dopo aver scelto Aggiorna, quindi non è stato scaricato nulla. RiftWii controllerà di nuovo al prossimo avvio di CTGP-R. CTGP-R si avvia ora."),
+    'the update the server offers changed after Update was chosen, so nothing was downloaded': ('la actualización que ofrece el servidor cambió después de elegir Actualizar, así que no se descargó nada', '「更新」を選んだ後でサーバーが提示する更新が変わったため、何もダウンロードされませんでした', 'a atualização oferecida pelo servidor mudou depois de escolher Atualizar, por isso nada foi transferido', "l'aggiornamento offerto dal server è cambiato dopo aver scelto Aggiorna, quindi non è stato scaricato nulla"),
 })
 KO.update({
     'A CTGP-R update is available. Update CTGP-R to the latest version now? The first update is {1} MB; there may be more after it.':
@@ -9616,8 +9617,10 @@ KO.update({
         '업데이트 {1}: 다운로드 중...',
     "the server offered an update for {1}, which RiftWii doesn't install":
         '서버가 {1}의 업데이트를 제공했지만 RiftWii는 이를 설치하지 않습니다',
-    'The CTGP-R update on offer changed while the prompt was up, so nothing was downloaded. It is offered again the next time CTGP-R starts. CTGP-R starts now.':
-        '안내가 표시된 동안 제공된 CTGP-R 업데이트가 바뀌어 아무것도 다운로드하지 않았습니다. 다음에 CTGP-R을 시작할 때 다시 제공됩니다. CTGP-R을 시작합니다.',
+    'The CTGP-R update the server offers changed after Update was chosen, so nothing was downloaded. RiftWii checks again the next time CTGP-R starts. CTGP-R starts now.':
+        '업데이트를 선택한 뒤 서버가 제공하는 CTGP-R 업데이트가 바뀌어 아무것도 다운로드하지 않았습니다. 다음에 CTGP-R을 시작할 때 RiftWii가 다시 확인합니다. CTGP-R을 시작합니다.',
+    'the update the server offers changed after Update was chosen, so nothing was downloaded':
+        '업데이트를 선택한 뒤 서버가 제공하는 업데이트가 바뀌어 아무것도 다운로드하지 않았습니다',
     "The next CTGP-R update needs more room in jelly.bin, so CTGP-R's channel installs it itself. CTGP-R starts now.":
         '다음 CTGP-R 업데이트는 jelly.bin에 공간이 더 필요하므로 CTGP-R 채널이 직접 설치합니다. CTGP-R을 시작합니다.',
     "CTGP-R's hash lists were updated. CTGP-R's channel installs the next update itself. CTGP-R starts now.":
@@ -9656,8 +9659,10 @@ FR.update({
         'Mise à jour {1} : téléchargement...',
     "the server offered an update for {1}, which RiftWii doesn't install":
         "le serveur a proposé une mise à jour pour {1}, que RiftWii n'installe pas",
-    'The CTGP-R update on offer changed while the prompt was up, so nothing was downloaded. It is offered again the next time CTGP-R starts. CTGP-R starts now.':
-        "La mise à jour de CTGP-R proposée a changé pendant que le message était affiché, donc rien n'a été téléchargé. Elle sera proposée à nouveau au prochain démarrage de CTGP-R. CTGP-R démarre.",
+    'The CTGP-R update the server offers changed after Update was chosen, so nothing was downloaded. RiftWii checks again the next time CTGP-R starts. CTGP-R starts now.':
+        "La mise à jour de CTGP-R proposée par le serveur a changé après le choix de Mettre à jour, donc rien n'a été téléchargé. RiftWii vérifiera à nouveau au prochain démarrage de CTGP-R. CTGP-R démarre.",
+    'the update the server offers changed after Update was chosen, so nothing was downloaded':
+        "la mise à jour proposée par le serveur a changé après le choix de Mettre à jour, donc rien n'a été téléchargé",
     "The next CTGP-R update needs more room in jelly.bin, so CTGP-R's channel installs it itself. CTGP-R starts now.":
         "La prochaine mise à jour de CTGP-R a besoin de plus de place dans jelly.bin, donc la chaîne de CTGP-R l'installe elle-même. CTGP-R démarre.",
     "CTGP-R's hash lists were updated. CTGP-R's channel installs the next update itself. CTGP-R starts now.":
