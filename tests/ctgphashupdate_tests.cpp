@@ -419,9 +419,11 @@ void test_refusals(const fs::path& dir) {
         CtgpHashUpdateList big = new_list();
         big.bytes.resize(64 * 1024);
         Raw raw{&s.card, s.before_entry};
+        bool grow = false;
         EXPECT_TRUE(!ctgp_hash_update_install(raw_io(raw), s.card.jelly_size, s.key, kIv, {big}, 2, jp,
-                                              [] { return true; }, rolled_back, e, &key));
+                                              [] { return true; }, rolled_back, e, &key, &grow));
         EXPECT_TRUE(rolled_back && raw.writes == 0 && s.card.img.bytes == s.before_card && !fs::exists(jp));
+        EXPECT_TRUE(grow);  // the channel's to install (it grows jelly.bin), not a bad update
     }
     {
         // A list jelly.bin doesn't hold: nothing written.
@@ -429,27 +431,33 @@ void test_refusals(const fs::path& dir) {
         CtgpHashUpdateList other = new_list();
         other.disk_path = "/PACKAGES/HASH/OTHER.HSH";
         Raw raw{&s.card, s.before_entry};
+        bool grow = false;
         EXPECT_TRUE(!ctgp_hash_update_install(raw_io(raw), s.card.jelly_size, s.key, kIv, {other}, 2, jp,
-                                              [] { return true; }, rolled_back, e, &key));
+                                              [] { return true; }, rolled_back, e, &key, &grow));
         EXPECT_TRUE(raw.writes == 0 && s.card.img.bytes == s.before_card && !fs::exists(jp));
+        EXPECT_TRUE(grow);  // the channel creates the list
     }
     {
         // A locked card: the probe fails, nothing journalled.
         Setup s = setup(64);
         Raw raw{&s.card, s.before_entry};
         raw.writes_left = 0;
+        bool grow = true;
         EXPECT_TRUE(!ctgp_hash_update_install(raw_io(raw), s.card.jelly_size, s.key, kIv, {new_list()}, 2, jp,
-                                              [] { return true; }, rolled_back, e, &key));
+                                              [] { return true; }, rolled_back, e, &key, &grow));
         EXPECT_TRUE(s.card.img.bytes == s.before_card && !fs::exists(jp));
+        EXPECT_TRUE(!grow);  // the card's fault: the update may go in next time
     }
     {
         // A read-back that doesn't check out (the wrong key for verifying):
         // rolled back to the stock bytes, journal gone.
         Setup s = setup(64);
         Raw raw{&s.card, s.before_entry};
+        bool grow = true;
         EXPECT_TRUE(!ctgp_hash_update_install(raw_io(raw), s.card.jelly_size, s.key, kIv, {new_list()}, 2, jp,
-                                              [] { return true; }, rolled_back, e));
+                                              [] { return true; }, rolled_back, e, nullptr, &grow));
         EXPECT_TRUE(rolled_back && s.card.img.bytes == s.before_card && !fs::exists(jp));
+        EXPECT_TRUE(!grow);
     }
 }
 

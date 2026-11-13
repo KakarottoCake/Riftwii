@@ -19827,6 +19827,7 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 	riftwii::CtgpChain chain;
 	std::string failed;   // why the step that stopped the chain failed
 	bool told = false;    // the player was already told about the failure
+	bool channel_rest = false;  // the next update is CTGP-R's channel's to install
 	bool agreed = false;  // "Update CTGP-R" was chosen
 	// Nothing on the network may write to the card while a pack is being
 	// rewritten.
@@ -19976,6 +19977,15 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 		}
 		riftwii::wii::mem::LogUsage("CTGP-R update end");
 		riftwii::wii::mem::CheckHeap("CTGP-R update end");
+		if (!ok && updater.channel_installs()) {
+			// A genuine update that needs jelly.bin made larger, which only
+			// CTGP-R's channel does. Nothing was written. The file goes, so
+			// the channel downloads it fresh; it is not "bad".
+			logf("CTGP-R update: %s; CTGP-R's channel installs it itself\n", error.c_str());
+			if (std::remove(update_path) != 0) logf("CTGP-R update: %s could not be removed\n", update_path);
+			channel_rest = true;
+			break;
+		}
 		if (!ok) {
 			logf("CTGP-R update: FAILED: %s\n", error.c_str());
 			// The pack was put back; an update that can never install is set
@@ -20005,7 +20015,14 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 	const std::string reached = chain.ctgpr_to() != 0 ? CtgpVersionText(chain.ctgpr_to()) : std::string();
 	if (done > 0) logf("CTGP-R update: the chain installed %zu update(s)%s%s\n", done, reached.empty() ? "" : ", CTGPR now ",
 		reached.c_str());
-	if (done == 0 && !failed.empty()) {
+	if (channel_rest) {
+		ShowPopup(tr("CTGP-R update"),
+			done == 0 ? std::string(tr("The next CTGP-R update needs more room in jelly.bin, so CTGP-R's channel installs it itself. CTGP-R starts now."))
+			: reached.empty()
+				? std::string(tr("CTGP-R's hash lists were updated. CTGP-R's channel installs the next update itself. CTGP-R starts now."))
+				: tr("CTGP-R was updated to {1}. CTGP-R's channel installs the next update itself. CTGP-R starts now.", {reached}),
+			tr("OK"));
+	} else if (done == 0 && !failed.empty()) {
 		if (!told) ShowCtgpUpdateFailed(failed);
 	} else if (done > 0 && failed.empty()) {
 		ShowPopup(tr("CTGP-R update"),

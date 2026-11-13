@@ -4595,3 +4595,12 @@ msgstr "{1}件の更新を続けてインストールしました。1回の起�
 
 msgid "the last update went in, but its file on the SD card could not be moved aside"
 msgstr "最後の更新はインストールされましたが、SDカード上のそのファイルを移動できませんでした"
+
+msgid "The next CTGP-R update needs more room in jelly.bin, so CTGP-R's channel installs it itself. CTGP-R starts now."
+msgstr "次のCTGP-Rの更新はjelly.binにもっと空きが必要なため、CTGP-Rのチャンネルが自分でインストールします。CTGP-Rを起動します。"
+
+msgid "CTGP-R's hash lists were updated. CTGP-R's channel installs the next update itself. CTGP-R starts now."
+msgstr "CTGP-Rのハッシュリストが更新されました。次の更新はCTGP-Rのチャンネルが自分でインストールします。CTGP-Rを起動します。"
+
+msgid "CTGP-R was updated to {1}. CTGP-R's channel installs the next update itself. CTGP-R starts now."
+msgstr "CTGP-Rは{1}に更新されました。次の更新はCTGP-Rのチャンネルが自分でインストールします。CTGP-Rを起動します。"

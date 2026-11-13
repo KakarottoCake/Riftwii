@@ -50,10 +50,12 @@ bool ctgp_hash_update_build(const CtgpUpdateRead& read, std::uint64_t size, cons
 // each list's path already, and the disk's free space covers what the lists
 // grow by. Reads only; run before the journal starts, so a list that can't
 // go in stops the step with nothing written.
-// `permanent` (may be null) is set when it can never go in on this jelly.bin
-// (a list it doesn't hold, or not enough room), rather than the card failing.
+// `needs_growth` (may be null) is set when it can't go into jelly.bin as it
+// lies (a list it doesn't hold yet, or not enough free room): a genuine
+// update that CTGP-R's own channel installs by making jelly.bin larger, which
+// RiftWii never does. Not set when the card or the file failed.
 bool ctgp_hash_update_fits(CtgpPackWriter& jelly, const std::vector<CtgpHashUpdateList>& lists, std::string& error,
-                           bool* permanent = nullptr);
+                           bool* needs_growth = nullptr);
 
 // Writes the lists into jelly.bin, each over its existing file, then sets
 // the HASH record of jelly's /PACKAGES.BIN to `version`. `jelly` must be
@@ -92,12 +94,12 @@ bool ctgp_packages_set_version(std::vector<std::uint8_t>& list, const std::strin
 // entry, and with it the key, never changes. `sync` makes raw writes
 // durable. `rolled_back` tells a failure that left jelly.bin as it was from
 // one that could not be undone now (the journal stays for the next start).
-// `permanent` (may be null) is set when nothing was written because the
-// update can never go into this jelly.bin (ctgp_hash_update_fits).
+// `needs_growth` (may be null) is set when nothing was written because the
+// update only goes in with jelly.bin made larger (ctgp_hash_update_fits).
 bool ctgp_hash_update_install(const CtgpPackIo& raw, std::uint64_t size, const std::array<std::uint8_t, 16>& key,
                               const CtgpChunkIv& iv, const std::vector<CtgpHashUpdateList>& lists,
                               std::uint32_t version, const std::string& journal_path,
                               const std::function<bool()>& sync, bool& rolled_back, std::string& error,
-                              const CtgpDsaKey* dsa_key = nullptr, bool* permanent = nullptr);
+                              const CtgpDsaKey* dsa_key = nullptr, bool* needs_growth = nullptr);
 
 }  // namespace riftwii

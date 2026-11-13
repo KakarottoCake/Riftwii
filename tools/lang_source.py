@@ -9588,6 +9588,9 @@ T.update({
     'the server offered {1} {2} again after it was installed': ('el servidor volvió a ofrecer {1} {2} después de instalarlo', 'サーバーがインストール後に{1} {2}を再び提示しました', 'o servidor voltou a oferecer {1} {2} depois de ter sido instalado', 'il server ha offerto di nuovo {1} {2} dopo che era stato installato'),
     '{1} updates were installed in a row, the most at one start; the rest install next time': ('se instalaron {1} actualizaciones seguidas, el máximo en un inicio; el resto se instala la próxima vez', '{1}件の更新を続けてインストールしました。1回の起動ではこれが上限で、残りは次回インストールされます', 'foram instaladas {1} atualizações seguidas, o máximo num arranque; as restantes instalam-se da próxima vez', 'sono stati installati {1} aggiornamenti di fila, il massimo per un avvio; gli altri si installano la prossima volta'),
     'the last update went in, but its file on the SD card could not be moved aside': ('la última actualización se instaló, pero su archivo en la tarjeta SD no se pudo apartar', '最後の更新はインストールされましたが、SDカード上のそのファイルを移動できませんでした', 'a última atualização foi instalada, mas o seu ficheiro no cartão SD não pôde ser posto de lado', "l'ultimo aggiornamento è stato installato, ma il suo file sulla scheda SD non è stato possibile spostarlo"),
+    "The next CTGP-R update needs more room in jelly.bin, so CTGP-R's channel installs it itself. CTGP-R starts now.": ('La siguiente actualización de CTGP-R necesita más espacio en jelly.bin, así que el canal de CTGP-R la instala por sí mismo. CTGP-R se inicia ahora.', '次のCTGP-Rの更新はjelly.binにもっと空きが必要なため、CTGP-Rのチャンネルが自分でインストールします。CTGP-Rを起動します。', 'A próxima atualização do CTGP-R precisa de mais espaço no jelly.bin, por isso o canal do CTGP-R instala-a ele próprio. O CTGP-R inicia agora.', 'Il prossimo aggiornamento di CTGP-R richiede più spazio in jelly.bin, quindi lo installa il canale di CTGP-R. CTGP-R si avvia ora.'),
+    "CTGP-R's hash lists were updated. CTGP-R's channel installs the next update itself. CTGP-R starts now.": ('Se han actualizado las listas de hashes de CTGP-R. El canal de CTGP-R instala la siguiente actualización por sí mismo. CTGP-R se inicia ahora.', 'CTGP-Rのハッシュリストが更新されました。次の更新はCTGP-Rのチャンネルが自分でインストールします。CTGP-Rを起動します。', 'As listas de hashes do CTGP-R foram atualizadas. O canal do CTGP-R instala a próxima atualização ele próprio. O CTGP-R inicia agora.', 'Gli elenchi di hash di CTGP-R sono stati aggiornati. Il prossimo aggiornamento lo installa il canale di CTGP-R. CTGP-R si avvia ora.'),
+    "CTGP-R was updated to {1}. CTGP-R's channel installs the next update itself. CTGP-R starts now.": ('CTGP-R se ha actualizado a {1}. El canal de CTGP-R instala la siguiente actualización por sí mismo. CTGP-R se inicia ahora.', 'CTGP-Rは{1}に更新されました。次の更新はCTGP-Rのチャンネルが自分でインストールします。CTGP-Rを起動します。', 'O CTGP-R foi atualizado para {1}. O canal do CTGP-R instala a próxima atualização ele próprio. O CTGP-R inicia agora.', 'CTGP-R è stato aggiornato a {1}. Il prossimo aggiornamento lo installa il canale di CTGP-R. CTGP-R si avvia ora.'),
 })
 KO.update({
     'A CTGP-R update is available. Update CTGP-R to the latest version now? The first update is {1} MB; there may be more after it.':
@@ -9612,6 +9615,12 @@ KO.update({
         '업데이트 {1}: 다운로드 중...',
     "the server offered an update for {1}, which RiftWii doesn't install":
         '서버가 {1}의 업데이트를 제공했지만 RiftWii는 이를 설치하지 않습니다',
+    "The next CTGP-R update needs more room in jelly.bin, so CTGP-R's channel installs it itself. CTGP-R starts now.":
+        '다음 CTGP-R 업데이트는 jelly.bin에 공간이 더 필요하므로 CTGP-R 채널이 직접 설치합니다. CTGP-R을 시작합니다.',
+    "CTGP-R's hash lists were updated. CTGP-R's channel installs the next update itself. CTGP-R starts now.":
+        'CTGP-R의 해시 목록이 업데이트되었습니다. 다음 업데이트는 CTGP-R 채널이 직접 설치합니다. CTGP-R을 시작합니다.',
+    "CTGP-R was updated to {1}. CTGP-R's channel installs the next update itself. CTGP-R starts now.":
+        'CTGP-R이 {1}(으)로 업데이트되었습니다. 다음 업데이트는 CTGP-R 채널이 직접 설치합니다. CTGP-R을 시작합니다.',
     'the server offered {1} {2}, which is not newer than what is installed':
         '서버가 {1} {2}을(를) 제공했지만 설치된 것보다 새롭지 않습니다',
     'the server offered {1} {2} again after it was installed':
@@ -9644,6 +9653,12 @@ FR.update({
         'Mise à jour {1} : téléchargement...',
     "the server offered an update for {1}, which RiftWii doesn't install":
         "le serveur a proposé une mise à jour pour {1}, que RiftWii n'installe pas",
+    "The next CTGP-R update needs more room in jelly.bin, so CTGP-R's channel installs it itself. CTGP-R starts now.":
+        "La prochaine mise à jour de CTGP-R a besoin de plus de place dans jelly.bin, donc la chaîne de CTGP-R l'installe elle-même. CTGP-R démarre.",
+    "CTGP-R's hash lists were updated. CTGP-R's channel installs the next update itself. CTGP-R starts now.":
+        'Les listes de hachages de CTGP-R ont été mises à jour. La chaîne de CTGP-R installe elle-même la mise à jour suivante. CTGP-R démarre.',
+    "CTGP-R was updated to {1}. CTGP-R's channel installs the next update itself. CTGP-R starts now.":
+        'CTGP-R a été mis à jour vers {1}. La chaîne de CTGP-R installe elle-même la mise à jour suivante. CTGP-R démarre.',
     'the server offered {1} {2}, which is not newer than what is installed':
         "le serveur a proposé {1} {2}, qui n'est pas plus récent que ce qui est installé",
     'the server offered {1} {2} again after it was installed':

@@ -119,6 +119,11 @@ struct CtgpUpdRequest {
     // once nothing of it is left in blob.bin. 0 for a failure of the card,
     // memory or anything else that may pass next time.
     std::uint32_t bad_update = 0;
+    // Install, HASH: 1 when the update is genuine but only goes in with
+    // jelly.bin made larger (more room, or a list it doesn't hold yet), which
+    // CTGP-R's own channel does and RiftWii doesn't. Nothing was written; the
+    // DOL removes the file so the channel downloads it fresh.
+    std::uint32_t channel_installs = 0;
     // 1 when the plugin left through its escape (no memory, or what would
     // have thrown): every heap block the operation held went back, the
     // strings above among them, so the DOL must not use or destroy them.

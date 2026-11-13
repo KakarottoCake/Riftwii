@@ -53,6 +53,10 @@ public:
     // commands) and, for install(), the pack was put back. False when the
     // card, memory or the plugin was at fault: the file may be fine.
     bool bad_update() const { return bad_update_; }
+    // After a failed install() of a HASH update: true when it is genuine but
+    // needs jelly.bin made larger, which only CTGP-R's channel does. Nothing
+    // was written.
+    bool channel_installs() const { return channel_installs_; }
     // Brings the network up and asks the update server whether an update
     // waits for the installed packages. The connection stays open for
     // download().
@@ -71,6 +75,7 @@ private:
     bool connected_ = false;
     std::size_t next_server_ = 0;
     bool bad_update_ = false;
+    bool channel_installs_ = false;
 };
 
 // Puts the pack back as it was before an update that did not finish (power

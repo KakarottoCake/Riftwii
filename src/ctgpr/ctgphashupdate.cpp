@@ -164,8 +164,8 @@ bool ctgp_hash_update_build(const CtgpUpdateRead& read, std::uint64_t size, cons
 }
 
 bool ctgp_hash_update_fits(CtgpPackWriter& jelly, const std::vector<CtgpHashUpdateList>& lists, std::string& error,
-                           bool* permanent) {
-    if (permanent != nullptr) *permanent = false;
+                           bool* needs_growth) {
+    if (needs_growth != nullptr) *needs_growth = false;
     const std::uint32_t cluster = jelly.cluster_bytes();
     if (cluster == 0) {
         error = "jelly.bin is not open";
@@ -178,7 +178,7 @@ bool ctgp_hash_update_fits(CtgpPackWriter& jelly, const std::vector<CtgpHashUpda
         if (!jelly.read_file(list.disk_path, [](const std::uint8_t*, std::size_t) { return true; }, &old_size,
                              read_error)) {
             error = "jelly.bin has no " + list.disk_path + " to replace (" + read_error + ")";
-            if (permanent != nullptr) *permanent = true;
+            if (needs_growth != nullptr) *needs_growth = true;
             return false;
         }
         const std::uint64_t now = clusters_for(old_size, cluster);
@@ -188,7 +188,7 @@ bool ctgp_hash_update_fits(CtgpPackWriter& jelly, const std::vector<CtgpHashUpda
     if (more > jelly.free_clusters()) {
         error = "the new hash lists need " + std::to_string(more) + " more clusters than jelly.bin has free (" +
                 std::to_string(jelly.free_clusters()) + ")";
-        if (permanent != nullptr) *permanent = true;
+        if (needs_growth != nullptr) *needs_growth = true;
         return false;
     }
     std::vector<std::uint8_t> packages;
@@ -259,16 +259,16 @@ bool ctgp_hash_update_install(const CtgpPackIo& raw, std::uint64_t size, const s
                               const CtgpChunkIv& iv, const std::vector<CtgpHashUpdateList>& lists,
                               std::uint32_t version, const std::string& journal_path,
                               const std::function<bool()>& sync, bool& rolled_back, std::string& error,
-                              const CtgpDsaKey* dsa_key, bool* permanent) {
+                              const CtgpDsaKey* dsa_key, bool* needs_growth) {
     rolled_back = true;  // nothing written yet
-    if (permanent != nullptr) *permanent = false;
+    if (needs_growth != nullptr) *needs_growth = false;
     CtgpPackIo read_only;
     read_only.read = raw.read;
     read_only.write = [](std::uint64_t, const std::uint8_t*, std::uint32_t) { return false; };
     {
         CtgpPackWriter look;
         const bool fits =
-            look.open(read_only, size, key, iv, error) && ctgp_hash_update_fits(look, lists, error, permanent);
+            look.open(read_only, size, key, iv, error) && ctgp_hash_update_fits(look, lists, error, needs_growth);
         look.close();
         if (!fits) {
             error = "jelly.bin: " + error;

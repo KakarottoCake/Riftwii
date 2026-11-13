@@ -441,9 +441,13 @@ its own directory entry's times on the SD card, so jelly.bin is written only
 where it already lies, in whole 512-byte blocks, through the DOL's
 `write_sd_file_in_place` (`fat32_write_in_place`): its entry, the FAT and
 FSInfo are never written, and libfat, which never reads jelly.bin's data,
-holds none of it. jelly.bin is never made larger: lists that would not fit
-in its free space stop the step before anything is written, as does a card
-that refuses a write of jelly.bin's first block back over itself. The writes
+holds none of it. jelly.bin is never made larger: an update whose lists
+would not fit in its free space (or that adds a list jelly.bin doesn't hold)
+stops the chain before anything is written, and its file is removed, not set
+aside, so CTGP-R's channel, which does make jelly.bin larger, downloads and
+installs it itself. A card that refuses a write of jelly.bin's first block
+back over itself also stops the step before anything is written, but the
+file stays for the next start. The writes
 go through their own undo journal (`sd:/ctgpr/update-journal-jelly.bin`);
 everything is read back and checked before the journal is removed, and any
 failure puts jelly.bin back.
