@@ -606,16 +606,49 @@ void test_update_apply() {
             return true;
         },
         dia.size(), target, [](const std::string&) {}, CtgpUpdateFileDone(),
-        [&](std::size_t index, std::size_t total, const std::string& path, double part) {
+        [&](std::size_t index, std::size_t total, const std::string& path, double part, double overall) {
             EXPECT_EQ(index, std::size_t(0));
             EXPECT_EQ(total, std::size_t(1));
             EXPECT_TRUE(path == "/Race/Course/NEW.szs");
+            EXPECT_TRUE(overall == part);  // one file: the whole
             parts.push_back(part);
         },
         error));
     EXPECT_TRUE(parts.size() >= 3);
     for (std::size_t i = 1; i < parts.size(); ++i) EXPECT_TRUE(parts[i] >= parts[i - 1]);
     EXPECT_TRUE(!parts.empty() && parts.front() == 0.0 && parts.back() == 1.0);
+}
+
+// Two files of 17 and 13 bytes: the whole moves by size, 17/30 for the
+// first file and 13/30 for the second, the same in both.
+void test_update_step_weighted() {
+    const std::vector<std::uint8_t> seventeen = {0x40, 'h', 'e', 'l', 'l', 'o', 0x14, 1, 0x33};
+    const std::vector<std::uint8_t> thirteen = {0x20, 'a', 'b', 'c', 0x18, 0x13, 0x13, 0x28, 0x00, 'q', 0x13};
+    const auto dia = make_dia({make_section(17, seventeen, "/Race/Course/NEW.szs"),
+                               make_section(13, thirteen, "/Race/Course/NEW.szs")});
+    MemoryTarget target;
+    std::string error;
+    std::vector<std::pair<std::size_t, double>> seen;  // file, overall
+    std::vector<double> parts;
+    EXPECT_TRUE(ctgp_update_apply(
+        [&](std::uint64_t offset, std::uint8_t* out, std::size_t length) {
+            if (offset + length > dia.size()) return false;
+            std::memcpy(out, dia.data() + offset, length);
+            return true;
+        },
+        dia.size(), target, [](const std::string&) {}, CtgpUpdateFileDone(),
+        [&](std::size_t index, std::size_t, const std::string&, double part, double overall) {
+            seen.emplace_back(index, overall);
+            parts.push_back(part);
+        },
+        error));
+    EXPECT_TRUE(seen.size() >= 6);
+    for (std::size_t i = 1; i < seen.size(); ++i) EXPECT_TRUE(seen[i].second >= seen[i - 1].second);
+    for (std::size_t i = 0; i < seen.size(); ++i) {
+        const double want = seen[i].first == 0 ? 17.0 / 30.0 * parts[i] : 17.0 / 30.0 + 13.0 / 30.0 * parts[i];
+        EXPECT_TRUE(seen[i].second > want - 1e-9 && seen[i].second < want + 1e-9);
+    }
+    EXPECT_TRUE(!seen.empty() && seen.front().second == 0.0 && seen.back().second == 1.0);
 }
 
 // Nintendo's Yaz0, built by hand: header, then a flag byte and its items.
@@ -787,6 +820,7 @@ int main() {
     test_dia_signature();
     test_apply_failure_kind();
     test_update_apply();
+    test_update_step_weighted();
     test_apply_rejects_bad_stream();
     test_yaz0_nintendo_matches();
     test_yaz0_stream_decoder();

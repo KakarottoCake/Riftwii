@@ -61,6 +61,7 @@
 #include "wfsdrive.hpp"
 #include "appicon.hpp"
 #include "riftwii/ctgppending.hpp"
+#include "riftwii/timeleft.hpp"
 #include "riftwii/ctgprsave.hpp"
 #include "riftwii/ctgpupdate.hpp"
 #include "ctgpupdatenet.hpp"
@@ -19569,6 +19570,19 @@ bool ConfirmLaunchMissingModInputs(const FrontendState& state,
 // installed packages and, if the player wants it, downloads it to
 // sd:/ctgpr/update.dif. True when the download is there to install.
 // Called and returns with the GUI halted.
+// The time-left line of a CTGP-R update box (riftwii/timeleft.hpp).
+static std::string CtgpTimeLeftLine(const riftwii::TimeLeft& estimate)
+{
+	const riftwii::TimeLeftText text = estimate.text();
+	switch (text.wording) {
+	case riftwii::TimeLeftWording::UnderAMinute: return tr("Less than a minute left");
+	case riftwii::TimeLeftWording::AboutAMinute: return tr("About a minute left");
+	case riftwii::TimeLeftWording::AboutMinutes: return tr("About {1} minutes left", {std::to_string(text.minutes)});
+	case riftwii::TimeLeftWording::WorkingOut: break;
+	}
+	return tr("Working out the time left...");
+}
+
 static bool CheckCtgpUpdateServer(riftwii::wii::CtgpUpdater& updater)
 {
 	std::string error;
@@ -19598,16 +19612,22 @@ static bool CheckCtgpUpdateServer(riftwii::wii::CtgpUpdater& updater)
 	bool ok;
 	{
 		ProgressBar bar(56, 280, 528);
-		PopupBox box(tr("Updating CTGP-R"), tr("Downloading the update..."));
+		PopupBox box(tr("Updating CTGP-R"), std::string(tr("Downloading the update...")) + "\n" + tr("Working out the time left..."));
 		box.AddProgress(&bar);
 		// The power button waits while the download is written to the card.
 		const riftwii::wii::CardWriteHold hold;
 		ResumeGui();
+		// The time left goes by bytes.
+		const u64 started = gettime();
+		riftwii::TimeLeft estimate;
 		ok = updater.download(
 			reply.update_bytes,
 			[&](std::uint64_t done, std::uint64_t total) {
+				const double fraction = total ? double(done) / double(total) : 1.0;
+				estimate.update(fraction, diff_msec(started, gettime()));
 				HaltGui();
-				bar.Set(total ? double(done) / double(total) : 1.0);
+				bar.Set(fraction);
+				box.SetBody(std::string(tr("Downloading the update...")) + "\n" + CtgpTimeLeftLine(estimate));
 				ResumeGui();
 				return true;
 			},
@@ -19825,19 +19845,24 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 		const riftwii::wii::CardWriteHold hold;
 		ResumeGui();
 		// The bar moves inside each file too (a file takes most of a minute on
-		// a Wii); it is redrawn at most five times a second.
+		// a Wii); it is redrawn at most five times a second. The bar and the
+		// time left both follow the update's share done by size (the files
+		// differ by more than twice), not file by file.
 		u64 lastDrawn = 0;
+		const u64 started = gettime();
+		riftwii::TimeLeft estimate;
 		ok = updater.install(
 			disc,
-			[&](std::size_t index, std::size_t count, const std::string& path, double part) {
+			[&](std::size_t index, std::size_t count, const std::string& path, double part, double overall) {
 				const u64 now = gettime();
+				estimate.update(overall, diff_msec(started, now));
 				if (lastDrawn != 0 && part > 0.0 && part < 1.0 && diff_msec(lastDrawn, now) < 200) return;
 				lastDrawn = now;
 				HaltGui();
-				bar.Set(count ? (double(index) + part) / double(count) : 1.0);
+				bar.Set(overall);
 				box.SetBody(tr("Installing CTGP-R, file {1} of {2}", {std::to_string(index + 1),
 									   std::to_string(count)}) +
-					    "\n" + FlatCapped(path, 60));
+					    "\n" + FlatCapped(path, 60) + "\n" + CtgpTimeLeftLine(estimate));
 				ResumeGui();
 			},
 			error);

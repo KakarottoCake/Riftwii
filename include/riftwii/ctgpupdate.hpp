@@ -255,9 +255,12 @@ bool ctgp_update_apply(const std::uint8_t* dia, std::size_t size, CtgpUpdateTarg
 
 // Progress inside file `index` (0-based) of `total`: `part` runs from 0 to 1
 // while its base files are unpacked, it is rebuilt and packed, and stored.
-// Called often enough for a bar to move (a few times a second's work).
-using CtgpUpdateStep =
-    std::function<void(std::size_t index, std::size_t total, const std::string& path, double part)>;
+// `overall` is the share of the whole update done, each file weighted by its
+// unpacked size (the manifest's), so a bar and a time-left estimate move at
+// the same pace through a big file as through a small one. Called often
+// enough for a bar to move (a few times a second's work).
+using CtgpUpdateStep = std::function<void(std::size_t index, std::size_t total, const std::string& path,
+                                          double part, double overall)>;
 
 // The same, reading the download on demand: `read` fills `length` bytes at
 // `offset` and `size` is the file's length. Only the header and one section

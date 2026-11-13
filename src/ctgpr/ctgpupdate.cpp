@@ -940,9 +940,15 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
             failure = CtgpUpdateFailure::BadUpdate;
             return false;
         }
+        // This file's share of the whole: its unpacked size of the header's
+        // total (unpacked_total already counts it).
+        const double before = double(unpacked_total - files.unpacked_size);
+        const double whole = update.unpacked_size ? double(update.unpacked_size) : 1.0;
         const auto report = [&](double part) {
             if (step) {
-                step(index, count, path, std::min(1.0, std::max(0.0, part)));
+                const double clamped = std::min(1.0, std::max(0.0, part));
+                const double overall = (before + clamped * double(files.unpacked_size)) / whole;
+                step(index, count, path, clamped, std::min(1.0, std::max(0.0, overall)));
             }
         };
         report(0.0);

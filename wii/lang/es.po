@@ -4559,3 +4559,12 @@ msgstr "La actualización de CTGP-R de la tarjeta SD ya está instalada, pero no
 
 msgid "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, and it could not be moved aside. CTGP-R starts without it."
 msgstr "La actualización de CTGP-R de la tarjeta SD es para la versión {1}, pero está instalado CTGP-R {2}, y no se ha podido apartar. CTGP-R se inicia sin ella."
+
+msgid "Less than a minute left"
+msgstr "Queda menos de un minuto"
+
+msgid "About a minute left"
+msgstr "Queda aproximadamente un minuto"
+
+msgid "About {1} minutes left"
+msgstr "Quedan aproximadamente {1} minutos"

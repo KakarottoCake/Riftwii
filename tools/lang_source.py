@@ -9556,7 +9556,9 @@ T.update({
         "La actualización de CTGP-R de la tarjeta SD es para la versión {1}, pero está instalado CTGP-R {2}, y no se ha podido apartar. CTGP-R se inicia sin ella.",
         "SDカードのCTGP-Rの更新はバージョン{1}用ですが、インストールされているのはCTGP-R {2}で、別に移すこともできませんでした。CTGP-Rは更新なしで起動します。",
         "A atualização do CTGP-R no cartão SD é para a versão {1}, mas o CTGP-R {2} está instalado, e não foi possível deixá-la de lado. O CTGP-R inicia sem ela.",
-        "L'aggiornamento di CTGP-R sulla scheda SD è per la versione {1}, ma è installato CTGP-R {2}, e non è stato possibile metterlo da parte. CTGP-R si avvia senza."),
+        "L'aggiornamento di CTGP-R sulla scheda SD è per la versione {1}, ma è installato CTGP-R {2}, e non è stato possibile metterlo da parte. CTGP-R si avvia senza."),    "Less than a minute left": ("Queda menos de un minuto", "残り1分未満", "Falta menos de um minuto", "Manca meno di un minuto"),
+    "About a minute left": ("Queda aproximadamente un minuto", "残り約1分", "Falta cerca de um minuto", "Manca circa un minuto"),
+    "About {1} minutes left": ("Quedan aproximadamente {1} minutos", "残り約{1}分", "Faltam cerca de {1} minutos", "Mancano circa {1} minuti"),
 })
 KO.update({
     "A CTGP-R update ({1} MB) is available. Download and install it now?":
@@ -9575,7 +9577,12 @@ KO.update({
     "The CTGP-R update on the SD card is already installed, but it could not be moved aside. CTGP-R starts now.":
         "SD 카드의 CTGP-R 업데이트는 이미 설치되어 있지만 따로 옮길 수 없었습니다. CTGP-R을 시작합니다.",
     "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, and it could not be moved aside. CTGP-R starts without it.":
-        "SD 카드의 CTGP-R 업데이트는 {1} 버전용이지만 설치된 것은 CTGP-R {2}이고, 따로 옮길 수도 없었습니다. CTGP-R은 업데이트 없이 시작합니다.",
+        "SD 카드의 CTGP-R 업데이트는 {1} 버전용이지만 설치된 것은 CTGP-R {2}이고, 따로 옮길 수도 없었습니다. CTGP-R은 업데이트 없이 시작합니다.",    "Less than a minute left":
+        "1분 미만 남음",
+    "About a minute left":
+        "약 1분 남음",
+    "About {1} minutes left":
+        "약 {1}분 남음",
 })
 FR.update({
     "A CTGP-R update ({1} MB) is available. Download and install it now?":
@@ -9594,7 +9601,12 @@ FR.update({
     "The CTGP-R update on the SD card is already installed, but it could not be moved aside. CTGP-R starts now.":
         "La mise à jour de CTGP-R sur la carte SD est déjà installée, mais elle n'a pas pu être mise de côté. CTGP-R démarre.",
     "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, and it could not be moved aside. CTGP-R starts without it.":
-        "La mise à jour de CTGP-R sur la carte SD est pour la version {1}, mais CTGP-R {2} est installé, et elle n'a pas pu être mise de côté. CTGP-R démarre sans elle.",
+        "La mise à jour de CTGP-R sur la carte SD est pour la version {1}, mais CTGP-R {2} est installé, et elle n'a pas pu être mise de côté. CTGP-R démarre sans elle.",    "Less than a minute left":
+        "Moins d'une minute restante",
+    "About a minute left":
+        "Environ une minute restante",
+    "About {1} minutes left":
+        "Environ {1} minutes restantes",
 })
 
 if __name__ == "__main__":

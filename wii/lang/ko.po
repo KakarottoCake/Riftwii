@@ -4559,3 +4559,12 @@ msgstr "SD 카드의 CTGP-R 업데이트는 이미 설치되어 있지만 따로
 
 msgid "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, and it could not be moved aside. CTGP-R starts without it."
 msgstr "SD 카드의 CTGP-R 업데이트는 {1} 버전용이지만 설치된 것은 CTGP-R {2}이고, 따로 옮길 수도 없었습니다. CTGP-R은 업데이트 없이 시작합니다."
+
+msgid "Less than a minute left"
+msgstr "1분 미만 남음"
+
+msgid "About a minute left"
+msgstr "약 1분 남음"
+
+msgid "About {1} minutes left"
+msgstr "약 {1}분 남음"
