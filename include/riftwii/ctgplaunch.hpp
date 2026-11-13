@@ -123,6 +123,18 @@ bool ctgp_check_versions(const std::vector<CtgpPackage>& packages, std::string& 
 // Kart Wii hooks written into it.
 bool ctgp_is_native_stand_in(const std::string& game_id, const std::string& app);
 
+// Whether a CTGP-R launch (its channel app or the native one) has to stop
+// because Mario Kart Wii's image is on the SD card. d2x reads such an image
+// through its own SD driver (/dev/sdio/sdhc), which sets the card up once.
+// CTGP-R reads its own files from the same card through /dev/sdio/slot0 and
+// resets the card first (libogc's start-up, in the channel's IOS calls on a
+// real Wii). After that reset d2x reads the wrong sectors, so CTGP-R sees a
+// disc that is not Mario Kart Wii: "Nice try, but this isn't Mario Kart
+// Wii" from the channel, a black screen from the native launch. RiftWii
+// cannot share the card between the two without changing CTGP-R or d2x, so
+// the launch stops before anything is set up. A disc or a USB image is fine.
+bool ctgp_sd_image_blocked(const std::string& game_id, const std::string& app, bool image_on_sd);
+
 // Builds the plan. Refuses an untested CTGP-R core (ctgp_check_versions).
 // Online play stays off whatever config.ini says: the network calls are
 // stubbed, LAN mode and UPnP are off (ctgpapply.hpp).

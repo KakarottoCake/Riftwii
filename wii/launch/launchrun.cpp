@@ -627,6 +627,16 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
                  app.c_str(), dropped.empty() ? "" : ("; " + dropped + " does not apply to it").c_str());
             // CTGP-R's own channel app (not another app that stands in for the game).
             const bool ctgpr_channel = ctgp_is_native_stand_in(game_id, app);
+            // Mario Kart Wii on the SD card: d2x would read it through its
+            // own SD driver while CTGP-R resets the same card for its files,
+            // and d2x then reads the wrong sectors (ctgplaunch.hpp says
+            // more). Stops before config.ini is touched or IOS is reloaded.
+            if (ctgp_sd_image_blocked(game_id, app, source.kind == LaunchSource::Kind::Sd)) {
+                logf("CTGP-R: the game's image is on the SD card, which CTGP-R also reads for its own files; d2x "
+                     "cannot share the card with it, so nothing was started\n");
+                error = tr("CTGP-R can't start Mario Kart Wii from the SD card, because CTGP-R uses the SD card for its own files. Put Mario Kart Wii on a USB drive, or use the disc.");
+                return false;
+            }
             if (ctgpr_channel && !ctgpr_native_chosen(game_id, app))
                 logf("CTGP-R channel: launch chosen: CTGP-R's own channel app %s is started (%s)\n", app.c_str(),
                      ctgpr_native_opted() ? "the native launch is opted into but its files are not set up"

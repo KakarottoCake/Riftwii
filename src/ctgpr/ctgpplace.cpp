@@ -33,6 +33,10 @@ bool ctgp_is_native_stand_in(const std::string& game_id, const std::string& app)
     return true;
 }
 
+bool ctgp_sd_image_blocked(const std::string& game_id, const std::string& app, bool image_on_sd) {
+    return image_on_sd && ctgp_is_native_stand_in(game_id, app);
+}
+
 bool ctgp_merge_files(Fst& fst, const std::vector<CtgpMergedFile>& files, std::string& error) {
     std::vector<FstNewFile> fresh;
     for (const CtgpMergedFile& f : files) {
