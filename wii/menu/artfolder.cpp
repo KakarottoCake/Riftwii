@@ -5,6 +5,7 @@
 #include <dirent.h>
 #include <ogc/lwp.h>
 
+#include <atomic>
 #include <cerrno>
 #include <map>
 
@@ -14,9 +15,10 @@
 namespace riftwii::wii {
 namespace {
 
-// The look's thread and how many looks it has open. Another thread reads
-// g_look_thread only to find it is not its own, so it needs no lock.
-lwp_t g_look_thread = LWP_THREAD_NULL;
+// The look's thread and how many looks it has open. Other threads read
+// g_look_thread (atomic) only to find it is not their own; g_look_depth is
+// touched by the look's own thread alone, after that check.
+std::atomic<lwp_t> g_look_thread{LWP_THREAD_NULL};
 int g_look_depth = 0;
 
 struct Listing {
@@ -32,6 +34,9 @@ bool ListFolder(const std::string& folder, FolderNames& names) {
     DIR* dir = opendir(folder.c_str());
     if (!dir) return false;
     bool whole = true;
+    // readdir returns null at the end and on a read error alike; only errno
+    // tells them apart. libfat leaves ENOENT (or nothing) at a normal end.
+    errno = 0;
     while (const dirent* entry = readdir(dir)) {
         // Stops at FolderNames::kMaxNames, so a folder whose chain on the
         // card loops back on itself ends here too.
@@ -39,9 +44,15 @@ bool ListFolder(const std::string& folder, FolderNames& names) {
             whole = false;
             break;
         }
+        errno = 0;
     }
+    const int read_error = errno;
     closedir(dir);
-    if (!whole) {
+    if (whole && read_error != 0 && read_error != ENOENT) {
+        whole = false;
+        logf("Pictures: %s could not be read to the end (error %d); each picture is looked for on its own\n",
+             folder.c_str(), read_error);
+    } else if (!whole) {
         logf("Pictures: %s holds too many files to list at once; each picture is looked for on its own\n",
              folder.c_str());
         names.clear();
@@ -54,7 +65,7 @@ bool ListFolder(const std::string& folder, FolderNames& names) {
 // The listing of `path`'s folder when this thread has a look open and the
 // folder could be listed; `name` is then the file's own name.
 const FolderNames* ListingOf(const std::string& path, std::string& name) {
-    if (g_look_depth == 0 || LWP_GetSelf() != g_look_thread) return nullptr;
+    if (LWP_GetSelf() != g_look_thread.load() || g_look_depth == 0) return nullptr;
     const std::size_t slash = path.find_last_of('/');
     if (slash == std::string::npos || slash + 1 >= path.size()) return nullptr;
     const std::string folder = path.substr(0, slash);
@@ -71,17 +82,18 @@ const FolderNames* ListingOf(const std::string& path, std::string& name) {
 }  // namespace
 
 ArtFolderLook::ArtFolderLook() {
-    if (g_look_depth == 0) g_look_thread = LWP_GetSelf();
     // A look opened on a second thread while one is open leaves that
     // thread asking the card, which is always right.
-    if (LWP_GetSelf() == g_look_thread) ++g_look_depth;
+    lwp_t expected = LWP_THREAD_NULL;
+    g_look_thread.compare_exchange_strong(expected, LWP_GetSelf());
+    if (LWP_GetSelf() == g_look_thread.load()) ++g_look_depth;
 }
 
 ArtFolderLook::~ArtFolderLook() {
-    if (LWP_GetSelf() != g_look_thread || g_look_depth == 0) return;
+    if (LWP_GetSelf() != g_look_thread.load() || g_look_depth == 0) return;
     if (--g_look_depth == 0) {
         g_listings.clear();
-        g_look_thread = LWP_THREAD_NULL;
+        g_look_thread.store(LWP_THREAD_NULL);
     }
 }
 

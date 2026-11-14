@@ -193,7 +193,25 @@ static void TestLimits() {
     EXPECT_FALSE(riftwii::parse_home_list(huge, read));
 }
 
+// Long names and paths: the file stops short of the byte limit rather than
+// writing one that is refused when read back.
+static void TestByteLimit() {
+    Games games;
+    for (std::size_t i = 0; i < 4000; ++i) {
+        games.push_back(Game(false, "RMCE01", std::string(riftwii::kHomeListMaxName, 'n') + std::to_string(i % 10),
+                             "sd:/wbfs/" + std::string(900, 'p') + std::to_string(i) + ".wbfs"));
+        games.back().name.resize(riftwii::kHomeListMaxName);
+    }
+    const std::string text = riftwii::serialize_home_list(games);
+    EXPECT_TRUE(text.size() <= riftwii::kHomeListMaxBytes);
+    Games read;
+    EXPECT_TRUE(riftwii::parse_home_list(text, read));
+    EXPECT_TRUE(!read.empty() && read.size() < games.size());
+    for (std::size_t i = 0; i < read.size(); ++i) EXPECT_TRUE(Same(read[i], games[i]));
+}
+
 int main() {
+    TestByteLimit();
     TestRoundTrip();
     TestGamesLeftOut();
     TestRefusedFiles();

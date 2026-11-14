@@ -8,6 +8,9 @@
 namespace riftwii {
 namespace {
 
+// Room kept for the last line (\"end \" and a count of up to 20 digits).
+constexpr std::size_t kFooterRoom = 32;
+
 constexpr const char* kFirstLine = "homelist 1";
 constexpr const char* kLastLineStart = "end ";
 constexpr std::size_t kFieldsInLine = 7;
@@ -115,24 +118,29 @@ std::string serialize_home_list(const std::vector<RememberedGame>& games) {
     for (const RememberedGame& game : games) {
         if (written == kHomeListMaxGames) break;
         if (!remembered_game_valid(game)) continue;
+        std::string line;
         std::string marks;
         if (game.gamecube) marks += 'g';
         if (game.has_mods) marks += 'm';
         if (marks.empty()) marks = "-";
-        text += game.usb ? "usb" : "sd";
-        text += '\t';
-        text += game.id;
-        text += '\t';
-        text += std::to_string(static_cast<unsigned>(game.disc_number));
-        text += '\t';
-        text += marks;
-        text += '\t';
-        text += game.name;
-        text += '\t';
-        text += game.path;
-        text += '\t';
-        text += game.patch_source;
-        text += '\n';
+        line += game.usb ? "usb" : "sd";
+        line += '\t';
+        line += game.id;
+        line += '\t';
+        line += std::to_string(static_cast<unsigned>(game.disc_number));
+        line += '\t';
+        line += marks;
+        line += '\t';
+        line += game.name;
+        line += '\t';
+        line += game.path;
+        line += '\t';
+        line += game.patch_source;
+        line += '\n';
+        // The file must stay readable: a record that would take it past
+        // the byte limit, footer included, is not written, nor any after it.
+        if (text.size() + line.size() + kFooterRoom > kHomeListMaxBytes) break;
+        text += line;
         ++written;
     }
     text += kLastLineStart;
