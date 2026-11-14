@@ -57,6 +57,12 @@ EXCLUDES	+=	src/patching/patchstream.cpp
 EXCLUDES	+=	src/ctgpr/ctgpapply.cpp src/ctgpr/ctgpdsa.cpp src/ctgpr/ctgpefa.cpp src/ctgpr/ctgpfat.cpp src/ctgpr/ctgpfields.cpp src/ctgpr/ctgpfiles.cpp \
 				src/ctgpr/ctgphash.cpp src/ctgpr/ctgpimage.cpp src/ctgpr/ctgplaunch.cpp src/ctgpr/ctgpmmu.cpp src/ctgpr/ctgppackages.cpp src/ctgpr/ctgprowdata.cpp \
 				src/ctgpr/ctgpsign.cpp src/ctgpr/ctgpstage2.cpp src/ctgpr/ctgptables.cpp
+# RiftWii's own CTGP-R update check, download and install live in the
+# ctgpupd plugin (Makefile.plugin's ctgpupd_SRC, docs/PLUGINS.md "The ctgpupd
+# plugin"), loaded only when an update waits or a check runs. The DOL keeps
+# ctgpjournal.cpp, which undoes an install that was cut off at the next start.
+EXCLUDES	+=	src/ctgpr/ctgpupdate.cpp src/ctgpr/ctgpupdater.cpp src/ctgpr/ctgppackwrite.cpp src/ctgpr/ctgpyaz0.cpp \
+				src/ctgpr/ctgpcheck.cpp src/ctgpr/ctgphashlookup.cpp src/ctgpr/ctgphashupdate.cpp
 INCLUDES	:=	$(WII_DIRS) vendor-libgui/source include runtime runtime/resident runtime/pad runtime/gc runtime/shot runtime/fault runtime/vsd vendor-pugixml/src vendor-bearssl/inc vendor-wwfc vendor-zstd \
 				channel/common
 DATA		:=	wii/assets wii/lang vendor-gecko vendor-libgui/source/images vendor-libgui/source/fonts vendor-libgui/source/sounds vendor-libgui/source/lang \

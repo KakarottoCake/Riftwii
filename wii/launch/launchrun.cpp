@@ -22,6 +22,7 @@
 #include "boot.hpp"
 #include "channel.hpp"
 #include "ctgpr.hpp"
+#include "ctgpupdatenet.hpp"
 #include "di.hpp"
 #include "frontend.hpp"
 #include "gameextras.hpp"
@@ -119,6 +120,9 @@ bool SetCtgpDefaults(const std::string& app, bool virtual_disc, std::string& err
         return true;
     struct stat st;
     if (stat("sd:/ctgpr", &st) != 0 || !S_ISDIR(st.st_mode)) return true;
+    // An update RiftWii was installing was cut off and could not be undone:
+    // CTGP-R must not start on a half-written blob.bin.
+    if (!CtgpPackReady(error)) return false;
     const char* path = "sd:/ctgpr/config.ini";
     // No file yet: the defaults go into an empty one.
     std::string text;

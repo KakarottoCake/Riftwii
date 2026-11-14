@@ -60,7 +60,12 @@
 #include "vsdimage.hpp"
 #include "wfsdrive.hpp"
 #include "appicon.hpp"
+#include "riftwii/ctgpchain.hpp"
+#include "riftwii/ctgppending.hpp"
+#include "riftwii/timeleft.hpp"
 #include "riftwii/ctgprsave.hpp"
+#include "riftwii/ctgpupdate.hpp"
+#include "ctgpupdatenet.hpp"
 #include "riftwii/modart.hpp"
 #include "bannerplay.hpp"
 #include "banners.hpp"
@@ -3234,7 +3239,13 @@ public:
 		riftwii::wii::DrawPill(x, y, width, 14, skin::WithAlpha(skin::kScrollTrack, alpha));
 		shown = transition::Follow(shown, fraction, 90.0f, 0.0005f);
 		const float filled = shown * width;
-		if (!unknown)
+		// A fill shorter than the track's rounded end is the track's own end
+		// cut at the fill: a pill that narrow is a tall sliver standing out
+		// past the track's curve at the left. From the end's width on, it is
+		// its own pill, as before.
+		if (!unknown && filled < 14.0f)
+			riftwii::wii::DrawPillStart(x, y, width, filled, 14, skin::WithAlpha(skin::kAccent, alpha));
+		else if (!unknown)
 			riftwii::wii::DrawPill(x, y, filled, 14, skin::WithAlpha(skin::kAccent, alpha));
 		if (!unknown && fraction >= 1.0f) return;
 		shine += transition::FrameMilliseconds();
@@ -19620,6 +19631,524 @@ bool ConfirmLaunchMissingModInputs(const FrontendState& state,
 	return play;
 }
 
+// Asks CTGP-R's update server whether an update is waiting for the
+// installed packages and, if the player wants it, downloads it to
+// sd:/ctgpr/update.dif. True when the download is there to install.
+// Called and returns with the GUI halted.
+// The time-left line of a CTGP-R update box (riftwii/timeleft.hpp).
+static std::string CtgpTimeLeftLine(const riftwii::TimeLeft& estimate)
+{
+	const riftwii::TimeLeftText text = estimate.text();
+	switch (text.wording) {
+	case riftwii::TimeLeftWording::UnderAMinute: return tr("Less than a minute left");
+	case riftwii::TimeLeftWording::AboutAMinute: return tr("About a minute left");
+	case riftwii::TimeLeftWording::AboutMinutes: return tr("About {1} minutes left", {std::to_string(text.minutes)});
+	case riftwii::TimeLeftWording::WorkingOut: break;
+	}
+	return tr("Working out the time left...");
+}
+
+// Asks CTGP-R's update server whether an update waits for the packages on
+// the card now (the plugin reads them again for every check). False when the
+// server could not be asked; `reply` says whether one waits. Called and
+// returns with the GUI halted.
+static bool CheckCtgpUpdateServer(riftwii::wii::CtgpUpdater& updater, riftwii::CtgpCheckReply& reply)
+{
+	std::string error;
+	bool checked;
+	{
+		// The network may take a few seconds to come up: the screen keeps
+		// drawing while it does.
+		PopupBox box(tr("CTGP-R update"), tr("Checking for a CTGP-R update..."));
+		ResumeGui();
+		checked = updater.check(reply, error);
+		HaltGui();
+		box.Close();
+	}
+	if (!checked) logf("CTGP-R update: no check: %s\n", error.c_str());
+	return checked;
+}
+
+// Downloads the update the check offered to sd:/ctgpr/update.dif. `heading`
+// is the box's first line ("Update 2: downloading..."). True when it is
+// there to install; on a failure `error` says why, and the player has been
+// told when the file was set aside, or (`say_failure`) of any failure. Called and returns with the GUI halted.
+static bool DownloadCtgpUpdate(riftwii::wii::CtgpUpdater& updater, const riftwii::CtgpCheckReply& reply,
+	const std::string& heading, bool say_failure, std::string& error)
+{
+	bool ok;
+	{
+		ProgressBar bar(56, 280, 528);
+		PopupBox box(tr("Updating CTGP-R"), heading + "\n" + tr("Working out the time left..."));
+		box.AddProgress(&bar);
+		// The power button waits while the download is written to the card.
+		const riftwii::wii::CardWriteHold hold;
+		ResumeGui();
+		// The time left goes by bytes, timed from the first bytes: before
+		// them the plugin loads and the server is asked again (several
+		// seconds), and counting that as download time made the first
+		// estimate hundreds of times too long.
+		u64 started = 0;
+		riftwii::TimeLeft estimate;
+		ok = updater.download(
+			reply.update_bytes,
+			[&](std::uint64_t done, std::uint64_t total) {
+				const double fraction = total ? double(done) / double(total) : 1.0;
+				const u64 now = gettime();
+				if (started == 0 && done > 0) started = now;
+				if (started != 0) estimate.update(fraction, diff_msec(started, now));
+				HaltGui();
+				bar.Set(fraction);
+				box.SetBody(heading + "\n" + CtgpTimeLeftLine(estimate));
+				ResumeGui();
+				return true;
+			},
+			error);
+		HaltGui();
+		box.Close();
+	}
+	if (!ok && updater.offer_changed()) {
+		// Not a fault: the server's offer changed after the player agreed
+		// (none now, or another size). Nothing was downloaded.
+		logf("CTGP-R update: nothing downloaded: %s\n", error.c_str());
+		if (say_failure)
+			ShowPopup(tr("CTGP-R update"),
+				tr("The CTGP-R update the server offers changed after Update was chosen, so nothing was downloaded. RiftWii checks again the next time CTGP-R starts. CTGP-R starts now."),
+				tr("OK"));
+	} else if (!ok && updater.channel_installs()) {
+		// Genuine, for a package CTGP-R's channel installs (GHOST): the
+		// plugin removed it, and the caller says the channel installs it.
+		logf("CTGP-R update: %s\n", error.c_str());
+	} else if (!ok && updater.bad_update()) {
+		// The plugin kept it as update.dif.bad: it can never be installed.
+		logf("CTGP-R update: the download can't be used, set aside as update.dif.bad: %s\n", error.c_str());
+		ShowPopup(tr("CTGP-R update"),
+			tr("The CTGP-R update on the SD card can't be used ({1}), so it was set aside.", {FlatCapped(error, 140)}),
+			tr("OK"));
+	} else if (!ok) {
+		logf("CTGP-R update: download failed: %s\n", error.c_str());
+		// After a step went in, the chain's summary says it instead.
+		if (say_failure)
+			ShowPopup(tr("CTGP-R update failed"),
+				tr("The update could not be downloaded: {1}. CTGP-R starts without it.", {FlatCapped(error, 140)}),
+				tr("OK"));
+	}
+	return ok;
+}
+
+// A package version as CTGP-R shows it: 0x01031193 is "1.03.1193".
+static std::string CtgpVersionText(std::uint32_t version)
+{
+	char text[16];
+	snprintf(text, sizeof text, "%x.%02x.%04x", unsigned(version >> 24), unsigned((version >> 16) & 0xFF),
+		unsigned(version & 0xFFFF));
+	return text;
+}
+
+// Moves sd:/ctgpr/update.dif out of the way (riftwii/ctgppending.hpp).
+// False, and the file still there, when the rename failed.
+static bool MoveCtgpUpdate(const char* to)
+{
+	if (riftwii::ctgp_move_aside(riftwii::wii::kCtgpUpdatePath, to,
+		    [](const char* path) { return std::remove(path); },
+		    [](const char* from, const char* name) { return std::rename(from, name); }))
+		return true;
+	logf("CTGP-R update: %s could not be renamed to %s\n", riftwii::wii::kCtgpUpdatePath, to);
+	return false;
+}
+
+static void ShowCtgpUpdateFailed(const std::string& error)
+{
+	ShowPopup(tr("CTGP-R update failed"),
+		tr("The update could not be installed: {1}. CTGP-R starts without it.", {FlatCapped(error, 140)}),
+		tr("OK"));
+}
+
+// An update that can never be installed (CtgpUpdater::bad_update) is set
+// aside as update.dif.bad, so it isn't offered again and the server can be
+// asked for a good one. Says which happened; false when it is still there.
+static bool SetCtgpUpdateAside(const std::string& error)
+{
+	logf("CTGP-R update: %s can't be used: %s\n", riftwii::wii::kCtgpUpdatePath, error.c_str());
+	if (!MoveCtgpUpdate("sd:/ctgpr/update.dif.bad")) {
+		ShowPopup(tr("CTGP-R update failed"),
+			tr("The CTGP-R update on the SD card can't be used ({1}), and it could not be moved aside. CTGP-R starts without it.",
+				{FlatCapped(error, 140)}),
+			tr("OK"));
+		return false;
+	}
+	logf("CTGP-R update: set aside as update.dif.bad\n");
+	ShowPopup(tr("CTGP-R update"),
+		tr("The CTGP-R update on the SD card can't be used ({1}), so it was set aside.", {FlatCapped(error, 140)}),
+		tr("OK"));
+	return true;
+}
+
+// Reads the waiting update's header and checks its signature, which reads
+// the whole file (a few seconds on a Wii): a box shows meanwhile. Called and
+// returns with the GUI halted.
+static bool InspectCtgpUpdate(riftwii::wii::CtgpUpdater& updater, riftwii::wii::CtgpUpdateInfo& info,
+	std::string& error)
+{
+	PopupBox box(tr("CTGP-R update"), tr("Checking for a CTGP-R update..."));
+	ResumeGui();
+	const bool ok = updater.inspect(info, error);
+	HaltGui();
+	box.Close();
+	return ok;
+}
+
+// CTGP-R's own installer stops under RiftWii while it reads base files from
+// the game disc. The channel leaves the download at sd:/ctgpr/update.dif;
+// RiftWii installs it itself, before the game starts, so the installer's
+// disc read is never on the path. The work is done by the ctgpupd plugin,
+// loaded here and shut down when `updater` goes. Called and returns with the
+// GUI halted.
+static void InstallCtgpUpdateIfWaiting(FrontendState& state)
+{
+	if (riftwii::wii::CtgprPackOn(state) == SIZE_MAX) return;
+	const riftwii::wii::ImageGame& game = riftwii::wii::SelectedSource(state).game;
+	const riftwii::wii::LaunchSource::Kind kind = riftwii::wii::SelectedSource(state).kind;
+	if (kind == riftwii::wii::LaunchSource::Kind::Disc) {
+		// A retail disc's files are read through the menu's own DI path;
+		// the image path below is the one RiftWii launches from.
+		logf("CTGP-R update: the game runs from a disc, so its base files are not read here\n");
+		return;
+	}
+	const char* const update_path = riftwii::wii::kCtgpUpdatePath;
+	{
+		std::string journal_error;
+		if (!riftwii::wii::CtgpRecoverPackJournal(journal_error)) {
+			ShowPopup(tr("CTGP-R update"),
+				tr("An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer.",
+					{FlatCapped(journal_error, 140)}),
+				tr("OK"));
+			return;
+		}
+	}
+	riftwii::wii::CtgpUpdater updater;
+	riftwii::wii::CtgpUpdateInfo info;
+	std::string error;
+	// An empty update.dif (CTGP-R's channel leaves one when it starts) is
+	// not an update: it goes quietly, and the server is asked as usual.
+	const auto updateWaiting = [update_path]() {
+		return riftwii::ctgp_update_waiting(
+			update_path,
+			[](const char* path, std::uint64_t* size) {
+				struct stat st;
+				if (stat(path, &st) != 0) return -1;
+				*size = static_cast<std::uint64_t>(st.st_size);
+				return 0;
+			},
+			[](const char* path) {
+				logf("CTGP-R update: %s is empty (CTGP-R's channel leaves one), removed\n", path);
+				return std::remove(path);
+			});
+	};
+	if (updateWaiting()) {
+		// A file left on the card may not be usable any more: one that can't
+		// be read, or one made for another version of the pack, is set aside
+		// as update.dif.bad; one already installed (a power cut between the
+		// install and its rename) is retired. Either way the server is then
+		// asked again, so a stale file never blocks later updates.
+		// A move that fails stops here: the file is still there, and offering
+		// it would only fail again.
+		const bool inspected = InspectCtgpUpdate(updater, info, error);
+		if (!inspected && updater.channel_installs()) {
+			// Genuine, for a package CTGP-R's channel installs (GHOST): it
+			// goes, so the channel downloads it fresh, and CTGP-R starts.
+			logf("CTGP-R update: %s: %s\n", update_path, error.c_str());
+			if (std::remove(update_path) != 0) logf("CTGP-R update: %s could not be removed\n", update_path);
+			ShowPopup(tr("CTGP-R update"),
+				tr("The next CTGP-R update is in a form RiftWii can't install, so CTGP-R's channel installs it itself. CTGP-R starts now."),
+				tr("OK"));
+			return;
+		}
+		switch (riftwii::ctgp_pending_step(inspected, updater.bad_update(), info.pack_version, info.version,
+			info.base_version)) {
+		case riftwii::CtgpPendingStep::Stop:
+			// The card, memory or the plugin: the file may be fine, so it stays.
+			logf("CTGP-R update: %s: %s\n", update_path, error.c_str());
+			ShowCtgpUpdateFailed(error);
+			return;
+		case riftwii::CtgpPendingStep::Retire:
+			logf("CTGP-R update: %s is %s, which is already installed\n", update_path,
+				CtgpVersionText(info.version).c_str());
+			if (!MoveCtgpUpdate("sd:/ctgpr/update.dif.installed")) {
+				ShowPopup(tr("CTGP-R update"),
+					tr("The CTGP-R update on the SD card is already installed, but it could not be moved aside. CTGP-R starts now."),
+					tr("OK"));
+				return;
+			}
+			break;
+		case riftwii::CtgpPendingStep::SetAside:
+			if (!inspected) {
+				if (!SetCtgpUpdateAside(error)) return;
+				break;
+			}
+			logf("CTGP-R update: %s updates %s, but the pack is %s\n", update_path,
+				CtgpVersionText(info.base_version).c_str(), CtgpVersionText(info.pack_version).c_str());
+			if (!MoveCtgpUpdate("sd:/ctgpr/update.dif.bad")) {
+				ShowPopup(tr("CTGP-R update failed"),
+					tr("The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, and it could not be moved aside. CTGP-R starts without it.",
+						{CtgpVersionText(info.base_version), CtgpVersionText(info.pack_version)}),
+					tr("OK"));
+				return;
+			}
+			logf("CTGP-R update: set aside as update.dif.bad\n");
+			ShowPopup(tr("CTGP-R update"),
+				tr("The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, so it was set aside.",
+					{CtgpVersionText(info.base_version), CtgpVersionText(info.pack_version)}),
+				tr("OK"));
+			break;
+		case riftwii::CtgpPendingStep::Install:
+			break;
+		}
+	}
+	// The chain (riftwii/ctgpchain.hpp): one update after another, CTGPR and
+	// HASH in whatever order the server offers them, until CTGP-R is
+	// current. The player is asked once for the whole chain. A step that
+	// fails stops it; what went in stays, and CTGP-R starts on it.
+	riftwii::CtgpChain chain;
+	std::string failed;   // why the step that stopped the chain failed
+	bool told = false;    // the player was already told about the failure
+	bool channel_rest = false;  // the next update is CTGP-R's channel's to install
+	bool channel_form = false;  // ...because RiftWii doesn't know its form (else: jelly.bin needs more room)
+	bool agreed = false;  // "Update CTGP-R" was chosen
+	// Nothing on the network may write to the card while a pack is being
+	// rewritten.
+	bool network_stopped = false;
+	riftwii::CtgpDiscBase disc = [game](const std::string& path, const riftwii::CtgpDiscSink& sink,
+					     std::uint32_t* size, std::string& why) {
+		return riftwii::wii::read_image_disc_file(game, path, sink, size, why);
+	};
+	for (;;) {
+		const std::string number = std::to_string(chain.next_number());
+		// The step limit goes before the server is asked: nothing is
+		// downloaded that this start won't install.
+		if (chain.steps().size() >= riftwii::kCtgpChainMaxSteps) {
+			logf("CTGP-R update: the chain stops after %zu updates (the most at one start)\n", chain.steps().size());
+			failed = tr("{1} updates were installed in a row, the most at one start; the rest install next time",
+				{std::to_string(chain.steps().size())});
+			break;
+		}
+		if (!updateWaiting()) {
+			// Asking the server is a download: it waits for the Downloads
+			// setting, like covers and cheats. An update already on the
+			// card installs either way.
+			if (!riftwii::wii::Settings().online) {
+				logf("CTGP-R update: Downloads are off, so the update server is not asked\n");
+				break;
+			}
+			riftwii::CtgpCheckReply reply;
+			if (!CheckCtgpUpdateServer(updater, reply)) break;
+			if (!reply.update_waiting) {
+				logf("CTGP-R update: the server has nothing newer: CTGP-R is current\n");
+				break;
+			}
+			if (!agreed) {
+				const std::string megabytes = std::to_string((reply.update_bytes + (1u << 19)) >> 20);
+				if (ShowPopup(tr("CTGP-R update"),
+						tr("A CTGP-R update is available. Update CTGP-R to the latest version now? The first update is {1} MB; there may be more after it.",
+							{megabytes}),
+						tr("Update"), tr("Not now")) != 0) {
+					logf("CTGP-R update: the player chose not to update\n");
+					break;
+				}
+				agreed = true;
+				if (const u32 wait = riftwii::wii::mem::TestCtgpAcceptWaitMs()) {
+					logf("CTGP-R update: TEST: waiting %u ms after Update was chosen\n", unsigned(wait));
+					usleep(wait * 1000);
+				}
+			}
+			const bool first = chain.steps().empty();
+			if (!DownloadCtgpUpdate(updater, reply, tr("Update {1}: downloading...", {number}), first, error)) {
+				if (updater.channel_installs()) {
+					channel_form = true;
+					channel_rest = true;
+					break;
+				}
+				failed = updater.offer_changed()
+					? std::string(tr("the update the server offers changed after Update was chosen, so nothing was downloaded"))
+					: error;
+				told = first || updater.bad_update();
+				break;
+			}
+			if (!InspectCtgpUpdate(updater, info, error)) {
+				if (updater.channel_installs()) {
+					logf("CTGP-R update: %s\n", error.c_str());
+					if (std::remove(update_path) != 0) logf("CTGP-R update: %s could not be removed\n", update_path);
+					channel_form = true;
+					channel_rest = true;
+					break;
+				}
+				if (updater.bad_update()) {
+					SetCtgpUpdateAside(error);
+					told = true;
+				}
+				failed = error;
+				break;
+			}
+		} else if (!agreed) {
+			// An update the channel (or an earlier start) left on the card.
+			if (ShowPopup(tr("CTGP-R update"), tr("A CTGP-R update is ready. Update CTGP-R to the latest version now?"),
+					tr("Update"), tr("Not now")) != 0) {
+				logf("CTGP-R update: the player chose not to install it\n");
+				break;
+			}
+			agreed = true;
+		}
+		logf("CTGP-R update: step %s: %s %s -> %s (%llu bytes, %u files)\n", number.c_str(), info.component.c_str(),
+			CtgpVersionText(info.pack_version).c_str(), CtgpVersionText(info.version).c_str(),
+			(unsigned long long)info.bytes, unsigned(info.files));
+		const riftwii::CtgpChainVerdict verdict = chain.offer(info.component, info.version, info.pack_version);
+		if (verdict != riftwii::CtgpChainVerdict::Take) {
+			// The update stays on the card; the chain ends here.
+			const char* why = verdict == riftwii::CtgpChainVerdict::NotOurs ? "a package RiftWii doesn't install"
+				: verdict == riftwii::CtgpChainVerdict::NotNewer ? "not newer than what is installed"
+				: verdict == riftwii::CtgpChainVerdict::Repeat ? "offered again after it was installed"
+				: "the chain's step limit";
+			logf("CTGP-R update: the chain stops: %s %s is %s\n", info.component.c_str(),
+				CtgpVersionText(info.version).c_str(), why);
+			const std::string offered = CtgpVersionText(info.version);
+			switch (verdict) {
+			case riftwii::CtgpChainVerdict::NotOurs:
+				failed = tr("the server offered an update for {1}, which RiftWii doesn't install", {info.component});
+				break;
+			case riftwii::CtgpChainVerdict::NotNewer:
+				failed = tr("the server offered {1} {2}, which is not newer than what is installed", {info.component, offered});
+				break;
+			case riftwii::CtgpChainVerdict::Repeat:
+				failed = tr("the server offered {1} {2} again after it was installed", {info.component, offered});
+				break;
+			default:
+				failed = tr("{1} updates were installed in a row, the most at one start; the rest install next time",
+					{std::to_string(chain.steps().size())});
+				break;
+			}
+			break;
+		}
+		if (!network_stopped) {
+			riftwii::wii::NetCancelBackground();
+			riftwii::wii::NetWaitForBackground();
+			network_stopped = true;
+		}
+		const bool hash = info.component == "HASH";
+		const std::string heading = hash
+			? tr("Update {1}: CTGP-R's hash lists", {number})
+			: tr("Update {1}: CTGP-R {2} to {3}", {number, CtgpVersionText(info.pack_version), CtgpVersionText(info.version)});
+		// What the install has to work with, and (below) what it left.
+		riftwii::wii::mem::LogUsage("CTGP-R update start");
+		riftwii::wii::mem::CheckHeap("CTGP-R update start");
+		bool ok;
+		{
+			ProgressBar bar(56, 280, 528);
+			PopupBox box(tr("Updating CTGP-R"), heading + "\n" + tr("Working out the time left..."));
+			box.AddProgress(&bar);
+			// The power button waits while a pack is rewritten (and, on a
+			// failure, put back).
+			const riftwii::wii::CardWriteHold hold;
+			ResumeGui();
+			// The bar moves inside each file too (a file takes most of a
+			// minute on a Wii); it is redrawn at most five times a second.
+			// The bar and the time left both follow the update's share done
+			// by size (the files differ by more than twice), not file by file.
+			u64 lastDrawn = 0;
+			// The clock starts with the first file: the checks before it
+			// (the update's signature, the journal) move no bar and would
+			// only make the first estimate long.
+			u64 started = 0;
+			riftwii::TimeLeft estimate;
+			ok = updater.install(
+				disc,
+				[&](std::size_t index, std::size_t count, const std::string& path, double part, double overall) {
+					const u64 now = gettime();
+					if (started == 0) started = now;
+					estimate.update(overall, diff_msec(started, now));
+					if (lastDrawn != 0 && part > 0.0 && part < 1.0 && diff_msec(lastDrawn, now) < 200) return;
+					lastDrawn = now;
+					HaltGui();
+					bar.Set(overall);
+					box.SetBody(hash ? heading + "\n" + CtgpTimeLeftLine(estimate)
+							 : heading + "\n" +
+								   tr("File {1} of {2}", {std::to_string(index + 1), std::to_string(count)}) +
+								   ": " + FlatCapped(path, 48) + "\n" + CtgpTimeLeftLine(estimate));
+					ResumeGui();
+				},
+				error);
+			HaltGui();
+			box.Close();
+		}
+		riftwii::wii::mem::LogUsage("CTGP-R update end");
+		riftwii::wii::mem::CheckHeap("CTGP-R update end");
+		if (!ok && updater.channel_installs()) {
+			// A genuine update that needs jelly.bin made larger, or is in a
+			// form RiftWii doesn't know: CTGP-R's channel installs it.
+			// Nothing of it is left on the card (anything written was put
+			// back). The file goes, so the channel downloads it fresh; it is
+			// not "bad".
+			channel_form = updater.channel_installs_unknown_form();
+			logf("CTGP-R update: %s; CTGP-R's channel installs it itself\n", error.c_str());
+			if (std::remove(update_path) != 0) logf("CTGP-R update: %s could not be removed\n", update_path);
+			channel_rest = true;
+			break;
+		}
+		if (!ok) {
+			logf("CTGP-R update: FAILED: %s\n", error.c_str());
+			// The pack was put back; an update that can never install is set
+			// aside so it isn't offered at every start.
+			if (updater.bad_update()) {
+				SetCtgpUpdateAside(error);
+				told = true;
+			}
+			failed = error;
+			break;
+		}
+		logf("CTGP-R update: step %s done: %s is %s\n", number.c_str(), info.component.c_str(),
+			CtgpVersionText(info.version).c_str());
+		chain.installed(info.component, info.pack_version, info.version);
+		// The last update's file goes first: FAT does not rename onto a file
+		// that is there.
+		std::remove("sd:/ctgpr/update.dif.installed");
+		if (std::rename(update_path, "sd:/ctgpr/update.dif.installed") != 0) {
+			logf("CTGP-R update: installed but %s could not be renamed; the chain stops\n", update_path);
+			failed = tr("the last update went in, but its file on the SD card could not be moved aside");
+			break;
+		}
+	}
+	// One summary for the whole chain. A failed step never stops the game:
+	// CTGP-R starts on what is installed.
+	const std::size_t done = chain.steps().size();
+	const std::string reached = chain.ctgpr_to() != 0 ? CtgpVersionText(chain.ctgpr_to()) : std::string();
+	if (done > 0) logf("CTGP-R update: the chain installed %zu update(s)%s%s\n", done, reached.empty() ? "" : ", CTGPR now ",
+		reached.c_str());
+	if (channel_rest) {
+		ShowPopup(tr("CTGP-R update"),
+			done == 0 ? std::string(channel_form
+					? tr("The next CTGP-R update is in a form RiftWii can't install, so CTGP-R's channel installs it itself. CTGP-R starts now.")
+					: tr("The next CTGP-R update needs more room in jelly.bin, so CTGP-R's channel installs it itself. CTGP-R starts now."))
+			: reached.empty()
+				? std::string(tr("CTGP-R's hash lists were updated. CTGP-R's channel installs the next update itself. CTGP-R starts now."))
+				: tr("CTGP-R was updated to {1}. CTGP-R's channel installs the next update itself. CTGP-R starts now.", {reached}),
+			tr("OK"));
+	} else if (done == 0 && !failed.empty()) {
+		if (!told) ShowCtgpUpdateFailed(failed);
+	} else if (done > 0 && failed.empty()) {
+		ShowPopup(tr("CTGP-R update"),
+			reached.empty() ? std::string(tr("CTGP-R's hash lists were updated. CTGP-R starts now."))
+					: tr("CTGP-R was updated to {1}. CTGP-R starts now.", {reached}),
+			tr("OK"));
+	} else if (done > 0) {
+		ShowPopup(tr("CTGP-R update"),
+			reached.empty()
+				? tr("CTGP-R's hash lists were updated, but the next update could not be installed: {1}. CTGP-R starts now.",
+					{FlatCapped(failed, 140)})
+				: tr("CTGP-R was updated to {1}, but the next update could not be installed: {2}. CTGP-R starts now.",
+					{reached, FlatCapped(failed, 140)}),
+			tr("OK"));
+	}
+}
+
 int MainMenu(int menu, FrontendState& state)
 {
 	int currentMenu = menu;
@@ -19627,6 +20156,15 @@ int MainMenu(int menu, FrontendState& state)
 	if (startupCancelled) logf("Home: B held during startup skipped starting the last game.\n");
 	g_lastGameStartPending = menu == MENU_SOURCE && riftwii::wii::Settings().start_last_game &&
 		!startupCancelled && !MenuButtonHeld() && riftwii::wii::CurrentRestartNote().kind == riftwii::wii::RestartKind::None;
+
+	// A CTGP-R update cut off by a power loss or crash left blob.bin half
+	// written; put it back before anything reads it. If it can't be put back
+	// now, every CTGP-R launch tries again and refuses to start while it
+	// can't (CtgpPackReady).
+	{
+		std::string journal_error;
+		riftwii::wii::CtgpRecoverPackJournal(journal_error);
+	}
 
 	// Pick the native widescreen pictures using the saved display width.
 	riftwii::wii::ApplyMenuDisplay();
@@ -19709,6 +20247,7 @@ int MainMenu(int menu, FrontendState& state)
 	// the next game page reads a fresh catalog when it sees this one empty.
 	state.package_catalog = riftwii::wii::PackageCatalog{};
 	state.prepared_choices = riftwii::wii::PreparedGameChoices{};
+	if (currentMenu == MENU_LAUNCH) InstallCtgpUpdateIfWaiting(state);
 	if (currentMenu == MENU_LAUNCH || currentMenu == MENU_BOOT || currentMenu == MENU_DUMP || currentMenu == MENU_CHANNEL ||
 		currentMenu == MENU_PLAY_CHANNEL || currentMenu == MENU_HOMEBREW) {
 		if (currentMenu == MENU_LAUNCH) {

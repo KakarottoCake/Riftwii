@@ -119,7 +119,14 @@ bool ctgp_load_hash_list(const CtgpBytes& file, const std::string& package, std:
     // carries new CTGPR.HSH and CORE.HSH bodies under the labels PACKAGES.BIN
     // names).
     if (!known_identity && be32(d + 0x28) != version) {
-        error = "the hash list is for another version of the package";
+        // Ahead: the hash lists came before the pack update they describe,
+        // as CTGP-R's own channel (and RiftWii's chain, when a later step
+        // fails) leaves them part-way through its updates. (0: PACKAGES.BIN
+        // names no such package, so nothing is known.)
+        error = version != 0 && be32(d + 0x28) > version
+                    ? "the hash list is for a newer version than the one installed (a CTGP-R update may not be "
+                      "finished): start CTGP-R through its channel once, or let RiftWii update it, to finish it"
+                    : "the hash list is for another version of the package";
         return false;
     }
     // CTGPR and CORE are accepted on CTGP-R's own signature with their label

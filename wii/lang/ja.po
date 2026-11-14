@@ -4515,6 +4515,114 @@ msgstr "このゲームを {1} に切り替えます。もどるで今のカー�
 msgid "CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none."
 msgstr "CTGP-Rはセーブを SDカードの {1} に保存します。フォルダにセーブがないときは、Wiiのセーブがコピーされます。"
 
+msgid "CTGP-R update"
+msgstr "CTGP-Rの更新"
+
+msgid "Updating CTGP-R"
+msgstr "CTGP-Rを更新中"
+
+msgid "CTGP-R update failed"
+msgstr "CTGP-Rの更新に失敗しました"
+
+msgid "The update could not be installed: {1}. CTGP-R starts without it."
+msgstr "更新をインストールできませんでした: {1}。CTGP-Rは更新なしで起動します。"
+
+msgid "Checking for a CTGP-R update..."
+msgstr "CTGP-Rの更新を確認しています..."
+
+msgid "The update could not be downloaded: {1}. CTGP-R starts without it."
+msgstr "更新をダウンロードできませんでした: {1}。CTGP-Rは更新なしで起動します。"
+
+msgid "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer."
+msgstr "以前のCTGP-Rの更新が中断され、元に戻せませんでした: {1}。CTGP-R専用のインストーラーで再インストールしてください。"
+
+msgid "The CTGP-R update on the SD card can't be used ({1}), so it was set aside."
+msgstr "SDカードのCTGP-Rの更新は使用できないため（{1}）、別に移しました。"
+
+msgid "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, so it was set aside."
+msgstr "SDカードのCTGP-Rの更新はバージョン{1}用ですが、インストールされているのはCTGP-R {2}のため、別に移しました。"
+
+msgid "The CTGP-R update on the SD card can't be used ({1}), and it could not be moved aside. CTGP-R starts without it."
+msgstr "SDカードのCTGP-Rの更新は使用できず（{1}）、別に移すこともできませんでした。CTGP-Rは更新なしで起動します。"
+
+msgid "The CTGP-R update on the SD card is already installed, but it could not be moved aside. CTGP-R starts now."
+msgstr "SDカードのCTGP-Rの更新はすでにインストールされていますが、別に移せませんでした。CTGP-Rを起動します。"
+
+msgid "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, and it could not be moved aside. CTGP-R starts without it."
+msgstr "SDカードのCTGP-Rの更新はバージョン{1}用ですが、インストールされているのはCTGP-R {2}で、別に移すこともできませんでした。CTGP-Rは更新なしで起動します。"
+
+msgid "Less than a minute left"
+msgstr "残り1分未満"
+
+msgid "About a minute left"
+msgstr "残り約1分"
+
+msgid "About {1} minutes left"
+msgstr "残り約{1}分"
+
+msgid "A CTGP-R update is available. Update CTGP-R to the latest version now? The first update is {1} MB; there may be more after it."
+msgstr "CTGP-Rの更新があります。今すぐCTGP-Rを最新版に更新しますか? 最初の更新は{1} MBで、その後にもまだあるかもしれません。"
+
+msgid "A CTGP-R update is ready. Update CTGP-R to the latest version now?"
+msgstr "CTGP-Rの更新の準備ができています。今すぐCTGP-Rを最新版に更新しますか?"
+
+msgid "CTGP-R was updated to {1}, but the next update could not be installed: {2}. CTGP-R starts now."
+msgstr "CTGP-Rは{1}に更新されましたが、次の更新はインストールできませんでした: {2}。CTGP-Rを起動します。"
+
+msgid "CTGP-R was updated to {1}. CTGP-R starts now."
+msgstr "CTGP-Rは{1}に更新されました。CTGP-Rを起動します。"
+
+msgid "CTGP-R's hash lists were updated, but the next update could not be installed: {1}. CTGP-R starts now."
+msgstr "CTGP-Rのハッシュリストは更新されましたが、次の更新はインストールできませんでした: {1}。CTGP-Rを起動します。"
+
+msgid "CTGP-R's hash lists were updated. CTGP-R starts now."
+msgstr "CTGP-Rのハッシュリストが更新されました。CTGP-Rを起動します。"
+
+msgid "File {1} of {2}"
+msgstr "ファイル {1}/{2}"
+
+msgid "Update {1}: CTGP-R {2} to {3}"
+msgstr "更新 {1}: CTGP-R {2}から{3}へ"
+
+msgid "Update {1}: CTGP-R's hash lists"
+msgstr "更新 {1}: CTGP-Rのハッシュリスト"
+
+msgid "Update {1}: downloading..."
+msgstr "更新 {1}: ダウンロード中..."
+
+msgid "the server offered an update for {1}, which RiftWii doesn't install"
+msgstr "サーバーが{1}の更新を提示しましたが、RiftWiiはそれをインストールしません"
+
+msgid "the server offered {1} {2}, which is not newer than what is installed"
+msgstr "サーバーが{1} {2}を提示しましたが、インストール済みのものより新しくありません"
+
+msgid "the server offered {1} {2} again after it was installed"
+msgstr "サーバーがインストール後に{1} {2}を再び提示しました"
+
+msgid "{1} updates were installed in a row, the most at one start; the rest install next time"
+msgstr "{1}件の更新を続けてインストールしました。1回の起動ではこれが上限で、残りは次回インストールされます"
+
+msgid "the last update went in, but its file on the SD card could not be moved aside"
+msgstr "最後の更新はインストールされましたが、SDカード上のそのファイルを移動できませんでした"
+
+msgid "The next CTGP-R update needs more room in jelly.bin, so CTGP-R's channel installs it itself. CTGP-R starts now."
+msgstr "次のCTGP-Rの更新はjelly.binにもっと空きが必要なため、CTGP-Rのチャンネルが自分でインストールします。CTGP-Rを起動します。"
+
+msgid "The next CTGP-R update is in a form RiftWii can't install, so CTGP-R's channel installs it itself. CTGP-R starts now."
+msgstr "次のCTGP-Rの更新はRiftWiiがインストールできない形式のため、CTGP-Rのチャンネルが自分でインストールします。CTGP-Rを起動します。"
+
+msgid "CTGP-R's hash lists were updated. CTGP-R's channel installs the next update itself. CTGP-R starts now."
+msgstr "CTGP-Rのハッシュリストが更新されました。次の更新はCTGP-Rのチャンネルが自分でインストールします。CTGP-Rを起動します。"
+
+msgid "CTGP-R was updated to {1}. CTGP-R's channel installs the next update itself. CTGP-R starts now."
+msgstr "CTGP-Rは{1}に更新されました。次の更新はCTGP-Rのチャンネルが自分でインストールします。CTGP-Rを起動します。"
+
+msgid "The CTGP-R update the server offers changed after Update was chosen, so nothing was downloaded. RiftWii checks again the next time CTGP-R starts. CTGP-R starts now."
+msgstr "「更新」を選んだ後でサーバーが提示するCTGP-Rの更新が変わったため、何もダウンロードされませんでした。次にCTGP-Rを起動するときにRiftWiiが再確認します。CTGP-Rを起動します。"
+
+msgid "the update the server offers changed after Update was chosen, so nothing was downloaded"
+msgstr "「更新」を選んだ後でサーバーが提示する更新が変わったため、何もダウンロードされませんでした"
+
 msgid "The SD card is full"
 msgstr "SDカードがいっぱいです"
 

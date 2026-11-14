@@ -809,4 +809,44 @@ bool Fat32Volume::read(const Fat32File& file, std::uint64_t offset, std::uint8_t
     return true;
 }
 
+bool fat32_write_in_place(const Fat32File& file, const BlockWriter& write, std::uint64_t offset,
+                          const std::uint8_t* data, std::size_t length, std::string& error) {
+    if (!write) {
+        error = "no block writer";
+        return false;
+    }
+    if (offset % kFatBlockBytes != 0 || length % kFatBlockBytes != 0) {
+        error = "an in-place write must cover whole 512-byte blocks";
+        return false;
+    }
+    const std::uint64_t whole = file.entry.size - file.entry.size % kFatBlockBytes;
+    if (offset > whole || length > whole - offset) {
+        error = "an in-place write must end within the file";
+        return false;
+    }
+    if (length == 0) return true;
+    std::vector<PlacedRun> runs;
+    if (!place_on_fragments(file.fragments, offset, length, runs, error)) return false;
+    const std::uint8_t* src = data;
+    for (const PlacedRun& r : runs) {
+        if (r.skip % kFatBlockBytes != 0 || r.length % kFatBlockBytes != 0) {
+            error = "an in-place write landed off a block boundary";
+            return false;
+        }
+        std::uint64_t block = r.source + r.skip / kFatBlockBytes;
+        std::uint64_t left = r.length / kFatBlockBytes;
+        while (left > 0) {
+            const std::uint32_t blocks = static_cast<std::uint32_t>(std::min<std::uint64_t>(left, 64));
+            if (!write(block, blocks, src)) {
+                error = "the card refused a write";
+                return false;
+            }
+            src += static_cast<std::size_t>(blocks) * kFatBlockBytes;
+            block += blocks;
+            left -= blocks;
+        }
+    }
+    return true;
+}
+
 }  // namespace riftwii

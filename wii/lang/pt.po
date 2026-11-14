@@ -4515,6 +4515,114 @@ msgstr "Troca este jogo para {1}. Voltar mantém o cartão que ele tem."
 msgid "CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none."
 msgstr "O CTGP-R guarda o save no cartão SD, em {1}. O save do Wii é copiado se a pasta não tiver nenhum."
 
+msgid "CTGP-R update"
+msgstr "Atualização do CTGP-R"
+
+msgid "Updating CTGP-R"
+msgstr "Atualizando o CTGP-R"
+
+msgid "CTGP-R update failed"
+msgstr "Falha na atualização do CTGP-R"
+
+msgid "The update could not be installed: {1}. CTGP-R starts without it."
+msgstr "Não foi possível instalar a atualização: {1}. O CTGP-R vai começar sem ela."
+
+msgid "Checking for a CTGP-R update..."
+msgstr "Procurando uma atualização do CTGP-R..."
+
+msgid "The update could not be downloaded: {1}. CTGP-R starts without it."
+msgstr "Não foi possível baixar a atualização: {1}. O CTGP-R vai começar sem ela."
+
+msgid "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer."
+msgstr "Uma atualização anterior do CTGP-R foi interrompida e não pôde ser desfeita: {1}. Instale o CTGP-R de novo com o instalador dele."
+
+msgid "The CTGP-R update on the SD card can't be used ({1}), so it was set aside."
+msgstr "A atualização do CTGP-R no cartão SD não pode ser usada ({1}), então foi deixada de lado."
+
+msgid "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, so it was set aside."
+msgstr "A atualização do CTGP-R no cartão SD é para a versão {1}, mas o CTGP-R {2} está instalado, então foi deixada de lado."
+
+msgid "The CTGP-R update on the SD card can't be used ({1}), and it could not be moved aside. CTGP-R starts without it."
+msgstr "A atualização do CTGP-R no cartão SD não pode ser usada ({1}) e não foi possível deixá-la de lado. O CTGP-R inicia sem ela."
+
+msgid "The CTGP-R update on the SD card is already installed, but it could not be moved aside. CTGP-R starts now."
+msgstr "A atualização do CTGP-R no cartão SD já está instalada, mas não foi possível deixá-la de lado. O CTGP-R inicia agora."
+
+msgid "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, and it could not be moved aside. CTGP-R starts without it."
+msgstr "A atualização do CTGP-R no cartão SD é para a versão {1}, mas o CTGP-R {2} está instalado, e não foi possível deixá-la de lado. O CTGP-R inicia sem ela."
+
+msgid "Less than a minute left"
+msgstr "Falta menos de um minuto"
+
+msgid "About a minute left"
+msgstr "Falta cerca de um minuto"
+
+msgid "About {1} minutes left"
+msgstr "Faltam cerca de {1} minutos"
+
+msgid "A CTGP-R update is available. Update CTGP-R to the latest version now? The first update is {1} MB; there may be more after it."
+msgstr "Há uma atualização do CTGP-R. Atualizar o CTGP-R para a versão mais recente agora? A primeira atualização tem {1} MB; pode haver mais depois dela."
+
+msgid "A CTGP-R update is ready. Update CTGP-R to the latest version now?"
+msgstr "Uma atualização do CTGP-R está pronta. Atualizar o CTGP-R para a versão mais recente agora?"
+
+msgid "CTGP-R was updated to {1}, but the next update could not be installed: {2}. CTGP-R starts now."
+msgstr "O CTGP-R foi atualizado para {1}, mas não foi possível instalar a atualização seguinte: {2}. O CTGP-R inicia agora."
+
+msgid "CTGP-R was updated to {1}. CTGP-R starts now."
+msgstr "O CTGP-R foi atualizado para {1}. O CTGP-R inicia agora."
+
+msgid "CTGP-R's hash lists were updated, but the next update could not be installed: {1}. CTGP-R starts now."
+msgstr "As listas de hashes do CTGP-R foram atualizadas, mas não foi possível instalar a atualização seguinte: {1}. O CTGP-R inicia agora."
+
+msgid "CTGP-R's hash lists were updated. CTGP-R starts now."
+msgstr "As listas de hashes do CTGP-R foram atualizadas. O CTGP-R inicia agora."
+
+msgid "File {1} of {2}"
+msgstr "Ficheiro {1} de {2}"
+
+msgid "Update {1}: CTGP-R {2} to {3}"
+msgstr "Atualização {1}: CTGP-R {2} para {3}"
+
+msgid "Update {1}: CTGP-R's hash lists"
+msgstr "Atualização {1}: listas de hashes do CTGP-R"
+
+msgid "Update {1}: downloading..."
+msgstr "Atualização {1}: a transferir..."
+
+msgid "the server offered an update for {1}, which RiftWii doesn't install"
+msgstr "o servidor ofereceu uma atualização para {1}, que o RiftWii não instala"
+
+msgid "the server offered {1} {2}, which is not newer than what is installed"
+msgstr "o servidor ofereceu {1} {2}, que não é mais recente do que o que está instalado"
+
+msgid "the server offered {1} {2} again after it was installed"
+msgstr "o servidor voltou a oferecer {1} {2} depois de ter sido instalado"
+
+msgid "{1} updates were installed in a row, the most at one start; the rest install next time"
+msgstr "foram instaladas {1} atualizações seguidas, o máximo num arranque; as restantes instalam-se da próxima vez"
+
+msgid "the last update went in, but its file on the SD card could not be moved aside"
+msgstr "a última atualização foi instalada, mas o seu ficheiro no cartão SD não pôde ser posto de lado"
+
+msgid "The next CTGP-R update needs more room in jelly.bin, so CTGP-R's channel installs it itself. CTGP-R starts now."
+msgstr "A próxima atualização do CTGP-R precisa de mais espaço no jelly.bin, por isso o canal do CTGP-R instala-a ele próprio. O CTGP-R inicia agora."
+
+msgid "The next CTGP-R update is in a form RiftWii can't install, so CTGP-R's channel installs it itself. CTGP-R starts now."
+msgstr "A próxima atualização do CTGP-R está num formato que o RiftWii não consegue instalar, por isso o canal do CTGP-R instala-a ele próprio. O CTGP-R inicia agora."
+
+msgid "CTGP-R's hash lists were updated. CTGP-R's channel installs the next update itself. CTGP-R starts now."
+msgstr "As listas de hashes do CTGP-R foram atualizadas. O canal do CTGP-R instala a próxima atualização ele próprio. O CTGP-R inicia agora."
+
+msgid "CTGP-R was updated to {1}. CTGP-R's channel installs the next update itself. CTGP-R starts now."
+msgstr "O CTGP-R foi atualizado para {1}. O canal do CTGP-R instala a próxima atualização ele próprio. O CTGP-R inicia agora."
+
+msgid "The CTGP-R update the server offers changed after Update was chosen, so nothing was downloaded. RiftWii checks again the next time CTGP-R starts. CTGP-R starts now."
+msgstr "A atualização do CTGP-R oferecida pelo servidor mudou depois de escolher Atualizar, por isso nada foi transferido. O RiftWii volta a verificar da próxima vez que o CTGP-R iniciar. O CTGP-R inicia agora."
+
+msgid "the update the server offers changed after Update was chosen, so nothing was downloaded"
+msgstr "a atualização oferecida pelo servidor mudou depois de escolher Atualizar, por isso nada foi transferido"
+
 msgid "The SD card is full"
 msgstr "O cartão SD está cheio"
 

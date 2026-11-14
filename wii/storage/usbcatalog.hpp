@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/bnr.hpp"
 #include "riftwii/fat32.hpp"
 #include "riftwii/redirect.hpp"
 #include "riftwii/rvz.hpp"
@@ -121,6 +122,9 @@ bool check_image_game(ImageGame& game, std::string& error);
 // an ISO's or WBFS's decrypted with the console's own key (wii/menu/otpkey.hpp).
 bool read_image_disc_file(const ImageGame& game, const std::string& disc_path, std::vector<std::uint8_t>& out,
                           std::string& error);
+// The same, handing the file to `sink` 64 KiB at a time (riftwii/bnr.hpp).
+bool read_image_disc_file(const ImageGame& game, const std::string& disc_path, const PartitionFileSink& sink,
+                          std::uint32_t* size, std::string& error);
 // For an RVZ game that plays at the player's own risk: the warning to show
 // before it starts. Empty otherwise.
 std::string rvz_warning(const ImageGame& game);

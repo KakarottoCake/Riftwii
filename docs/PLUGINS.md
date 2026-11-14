@@ -398,6 +398,88 @@ only needed now and then (the menu font, translations, GPL) to MEM2. This
 document is about the other half: code that most launches never run can
 stay on the card until it is needed.
 
+## The ctgpupd plugin
+
+RiftWii's own CTGP-R update check, download and install live in the
+`ctgpupd` plugin (`plugins/ctgpupd/`), which is loaded only when an update
+waits on the card (`sd:/ctgpr/update.dif`) or a check runs, just before a
+CTGP-R launch, and shut down as soon as that is done. Nothing of it is in
+memory the rest of the time.
+
+| Piece | Where |
+| --- | --- |
+| The request | `include/riftwii/plugin_ctgpupd.hpp`: `CtgpUpdRequest` names one operation (`Inspect`, `Check`, `Download`, `Install`), carries the card paths, the DOL's raw SD reads and C library calls, the connection (`connect_next`, `io`), the disc reader and the progress callbacks in, and the update's header, the check's reply and the technical reason out. `ctgpupd_request_check` refuses a request of another size or layout |
+| The DOL's side | `wii/launch/ctgpupdatenet.cpp`: `CtgpUpdater` fills the request, calls `plugin::Launch("ctgpupd", ...)` for each operation and `plugin::ShutdownAll` when it goes; it keeps the network (`NetStart`, the servers, the socket), the console's MAC address, the raw SD reads jelly.bin needs, and `CtgpRecoverPackJournal`. The menu (`InstallCtgpUpdateIfWaiting`) keeps the prompts and the progress box, and reads the game's own files through `read_image_disc_file` |
+| The plugin | `plugins/ctgpupd/ctgpupdentry.cpp` (`rwp_init`, the table, `launch` and the four operations; `remove`, `rename`, `fflush`, `fileno` and `fsync` on the DOL's own), and its own copies of the updater's `src/ctgpr/` files, the pack's crypto, `src/disc/fst.cpp` and `src/data/sha1.cpp` (`Makefile.plugin`'s `ctgpupd_SRC`) |
+| Out of the DOL | `Makefile.wii`: the updater's `src/ctgpr/` files (`ctgphashupdate.cpp` among them) in `EXCLUDES`; the DOL keeps `ctgpjournal.cpp` (the start-up replay) and `ctgpchain.cpp` (the menu's chain) |
+| Updates | `tools/make_release_zip.py` and `tools/make_update_pack.py` require it beside `gamecube` and `ctgpr` |
+
+Every update is checked against CTGP-R's own signature before it is used:
+after the download, when a waiting one is looked at, and again just before
+the install writes anything (`ctgp_dia_verify_signature`, the same digest the
+channel makes, over the whole file, with the public key RiftWii already
+carries for the hash lists). An update whose tables or files were changed
+after CTGP-R signed it, or one with no signature, is refused, and the menu
+sets it aside as `update.dif.bad`. Each rebuilt file is then also checked
+against jelly.bin's `CTGPR.HSH` before it is stored.
+
+Two kinds of update are installed: CTGP-R's pack (`CTGPR`, into blob.bin)
+and its hash lists (`HASH`, into jelly.bin, `src/ctgpr/ctgphashupdate.cpp`).
+The server offers one at a time, in whatever order it likes, and the menu
+installs them one after another until it has nothing newer
+(`riftwii/ctgpchain.hpp`: one prompt for the whole chain, the installed
+versions read again after every step, at most ten steps, a step that fails
+ends it and CTGP-R starts on what went in).
+
+A HASH update's lists are rebuilt and checked in memory first, each against
+its own signature as well as the update's, before anything is written.
+jelly.bin is then written only where it already lies on the SD card, through
+the DOL's `write_sd_file_in_place`: its directory entry, the FAT and FSInfo
+are never written, so CTGP-R keeps opening it as before. jelly.bin is never
+made larger: an update that would need more room stops the chain before
+anything is written, and its file is removed, not set aside, so CTGP-R's
+channel installs it itself. A card that refuses writes also stops the step
+before anything is written, and the file stays for the next start. The writes
+go through their own undo journal (`sd:/ctgpr/update-journal-jelly.bin`);
+everything is read back and checked before the journal is removed, and any
+failure puts jelly.bin back.
+
+The start-up replay of the undo journal stays in the DOL on purpose. An
+install cut off by a power loss or a crash leaves blob.bin half written, and
+it must be put back before anything reads it (jelly.bin's journal first, then
+blob.bin's, each tried whatever the other gives), even when the plugin can't be
+loaded (missing, from another RiftWii, or damaged). It needs only
+`ctgpjournal.cpp`, which copies raw 32 KiB chunks back and needs none of the
+pack's crypto. If a journal can't be played back (the card won't give its
+bytes, or the journal itself is damaged), it stays on the card and every
+CTGP-R launch, through the channel or native, tries again and refuses to
+start while it can't (`CtgpPackReady`).
+
+The request is C++, as with the ctgpr plugin, and every operation runs inside
+the runtime's escape window with its heap blocks tracked (a 64 KB table from
+the heap). An escape first closes every file the operation still had open
+(`close_open_streams`, so what blob.bin's and the journal's streams held is
+written before anyone else touches them), then gives back the tracked blocks
+and says `escaped`. The DOL then puts empty strings in place of the request's
+and, after an `Install`, plays the journal back at once; every chunk of
+blob.bin was saved to the journal before it was changed, so the pack goes back
+as it was. One place needs more: the disc reader is the DOL's, and it calls
+the plugin's sink while it holds the USB lock and buffers of its own. The sink
+runs under `run_guarded` (`plugins/common/rwpruntime.hpp`), so an escape
+inside it returns false to the DOL, which cleans up and returns normally, and
+`raise_pending` carries the escape on from the plugin's side. The plugin
+borrows the DOL's `std::function`s for an operation rather than copying them,
+and hands the DOL's callbacks only empty strings of its own to fill.
+
+The install's memory is the largest section of the update (read once into one
+buffer sized for the largest, 3.5 MB for the update it was tested with) plus a
+few hundred KB of windows and buffers; an update with a larger section needs
+that much more, and one that doesn't fit stops through the escape and is
+rolled back. Each base file is unpacked to a scratch file
+on the card as it is read, and each packed result waits in a scratch file
+(`sd:/ctgpr/update-base-*.tmp`) until it is checked and stored; leftovers are
+removed at the next start.
+
 ## 1. Goals and non-goals
 
 Goals:

@@ -53,4 +53,20 @@ std::uint32_t free_tracked_blocks();
 // The most heap blocks the launch held at once (for the log).
 std::uint32_t tracked_peak();
 
+// For plugin code that RiftWii's own code calls back (a sink the DOL feeds
+// while it holds a lock or buffers of its own): runs fn(context) with an
+// escape point of its own, so an escape inside it comes back here instead
+// of jumping over the DOL's frames, whose cleanup would never run. On an
+// escape it returns false and keeps the escape pending; once the DOL's
+// call has returned, raise_pending() leaves through the outer escape as if
+// the escape had happened there.
+bool run_guarded(bool (*fn)(void* context), void* context);
+void raise_pending();
+
+// The streams fopen opened and fclose has not closed yet (up to 16 are
+// remembered). An escape leaves them open, and a stream with writes still
+// in its buffer must be closed before anyone else touches its file:
+// close_open_streams closes every one (flushing it) and returns how many.
+std::uint32_t close_open_streams();
+
 }  // namespace riftwii::plugin
