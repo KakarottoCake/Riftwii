@@ -73,7 +73,20 @@ u32 g_check_value = 0;
 // libogc starts main() at 64. The menu's GUI, watchdog and other threads run
 // above that (70, 80), so across the call the reload runs at the top: when
 // the call returns, it runs before any of them and switches interrupts off.
+// Only the main thread (the one that called ReloadCheckInit) is raised and
+// put back, so a reload from any other thread keeps its own priority.
 constexpr u32 kMainThreadPriority = 64;
+lwp_t g_main_thread = LWP_THREAD_NULL;
+
+void raise_priority() {
+    if (g_main_thread != LWP_THREAD_NULL && LWP_GetSelf() == g_main_thread)
+        LWP_SetThreadPriority(g_main_thread, LWP_PRIO_HIGHEST);
+}
+
+void restore_priority() {
+    if (g_main_thread != LWP_THREAD_NULL && LWP_GetSelf() == g_main_thread)
+        LWP_SetThreadPriority(g_main_thread, kMainThreadPriority);
+}
 
 // The check words, read through the uncached mirror: what memory gives back.
 bool mem2_reads_back() {
@@ -128,6 +141,7 @@ ReloadResult terminal_startup_failure(int version, const char* detail, std::stri
 
 void ReloadCheckInit() {
     if (g_check != nullptr) return;
+    g_main_thread = LWP_GetSelf();
     // From the MEM2 arena's low end, as the menu's textures are taken (and
     // before them, so their own giving back is not blocked by it).
     u32 level;
@@ -249,10 +263,11 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
     write32(kIosVersionAddress, 0);
     arm_mem2_check();
     const u64 launched = gettime();
-    LWP_SetThreadPriority(LWP_GetSelf(), LWP_PRIO_HIGHEST);
+    raise_priority();
     res = ES_LaunchTitleBackground(title, &g_view);
+    const int returned_ms = ms_since(launched);
     if (res < 0) {
-        LWP_SetThreadPriority(LWP_GetSelf(), kMainThreadPriority);
+        restore_priority();
         error = "ES launch failed: " + std::to_string(res);
         restore_subsystems();
         return ReloadResult::Failed;
@@ -279,9 +294,13 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
     int started_ms = 0;
     for (; (read32(kIosVersionAddress) >> 16) == 0; ++started_ms) {
         if (started_ms >= kIosStartTimeoutMs) {
-            if (!mem2_reads_back()) halt_mem2_wrong();
+            // The message allocates: only once MEM2 reads back steadily.
+            for (int i = 0; i < kMem2SteadyReads; ++i) {
+                if (!mem2_reads_back()) halt_mem2_wrong();
+                udelay(1000);
+            }
             _CPU_ISR_Restore(level);
-            LWP_SetThreadPriority(LWP_GetSelf(), kMainThreadPriority);
+            restore_priority();
             return terminal_startup_failure(version, "did not start within 10 s", error);
         }
         if (!mem2_reads_back()) {
@@ -309,8 +328,9 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
     // MEM2 still wrong half a second on: going on, or even showing the
     // failure (it allocates), would be the damage this wait is for.
     if (mem2_back_ms < 0) halt_mem2_wrong();
+    // Interrupts back; the priority stays at the top until libogc's IPC
+    // layer is re-armed below, so no other thread runs on a dead one.
     _CPU_ISR_Restore(level);
-    LWP_SetThreadPriority(LWP_GetSelf(), kMainThreadPriority);
     // What the new kernel's staging does to low MEM2 on a Wii, in Dolphin.
     mem::PoisonReloadArea();
     // libogc polls the IPC ack bit for up to 400 ms and then carries on
@@ -334,7 +354,8 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
                                         : std::string("never seen wrong")) +
                   ")";
     g_reload_detail = "IOS" + std::to_string(version) + " announced itself after " + std::to_string(started_ms) +
-                      " ms (" + std::to_string(announced_ms) + " ms after the call); " + mem2_note + "; " +
+                      " ms (" + std::to_string(announced_ms) + " ms after the call, which returned after " +
+                      std::to_string(returned_ms) + " ms); " + mem2_note + "; " +
                       (ipc_ms >= 0 ? "IPC ready after " + std::to_string(ipc_ms) + " ms"
                                    : std::string("IPC ack bit not seen in 400 ms, continued as libogc does"));
     IRQ_Request(IRQ_PI_ACR, handler, nullptr);
@@ -344,6 +365,7 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
     const s32 now = IOS_GetVersion();
     __IOS_InitializeSubsystems();
     UsbInputIosReloaded();  // whatever IOS came up, the old one's reads are gone
+    restore_priority();
     if (now != version) {
         error = "asked for IOS" + std::to_string(version) + " but IOS" + std::to_string(now) + " came up";
         return ReloadResult::Failed;
