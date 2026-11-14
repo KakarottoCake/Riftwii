@@ -4212,6 +4212,15 @@ msgstr "Utilise la carte du jeu, une carte partagée, celle de Nintendont ou une
 msgid "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "Utilise la carte du jeu, une carte partagée, celle de Dolphin ou une vraie carte dans le port A (Wii uniquement)."
 
+msgid "Could not save choices"
+msgstr "Impossible d'enregistrer les choix"
+
+msgid "Choices for this game could not be saved. Check the SD card is not full or locked."
+msgstr "Les choix pour ce jeu n'ont pas pu être enregistrés. Vérifiez que la carte SD n'est ni pleine ni verrouillée."
+
+msgid "Play anyway?"
+msgstr "Jouer quand même ?"
+
 msgid "Disc slot light"
 msgstr "Lumière du lecteur de disques"
 
@@ -4613,3 +4622,18 @@ msgstr "La mise à jour de CTGP-R proposée par le serveur a changé après le c
 
 msgid "the update the server offers changed after Update was chosen, so nothing was downloaded"
 msgstr "la mise à jour proposée par le serveur a changé après le choix de Mettre à jour, donc rien n'a été téléchargé"
+
+msgid "The SD card is full"
+msgstr "La carte SD est pleine"
+
+msgid "The SD card can't be written"
+msgstr "La carte SD ne peut pas être écrite"
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer, then move files to the computer or delete files you do not need to make room."
+msgstr "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. Mettez la carte dans un ordinateur, puis déplacez des fichiers vers l'ordinateur ou supprimez les fichiers inutiles pour libérer de la place."
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. The card may be locked or read-only. Put the card in a computer and check its lock switch."
+msgstr "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. La carte est peut-être verrouillée ou en lecture seule. Mettez la carte dans un ordinateur et vérifiez son commutateur de verrouillage."
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."
+msgstr "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. Mettez la carte dans un ordinateur et vérifiez si elle comporte des erreurs."

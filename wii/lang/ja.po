@@ -4212,6 +4212,15 @@ msgstr "ゲーム専用、共通、Nintendontのカード、またはスロッ�
 msgid "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "ゲーム専用、共通、Dolphinのカード、またはスロットAの実物のカード（Wiiのみ）を使います。"
 
+msgid "Could not save choices"
+msgstr "設定を保存できませんでした"
+
+msgid "Choices for this game could not be saved. Check the SD card is not full or locked."
+msgstr "このゲームの設定を保存できませんでした。SDカードがいっぱいやロックされていないか確認してください。"
+
+msgid "Play anyway?"
+msgstr "それでもプレイしますか？"
+
 msgid "Disc slot light"
 msgstr "ディスクスロットの光"
 
@@ -4613,3 +4622,18 @@ msgstr "「更新」を選んだ後でサーバーが提示するCTGP-Rの更新
 
 msgid "the update the server offers changed after Update was chosen, so nothing was downloaded"
 msgstr "「更新」を選んだ後でサーバーが提示する更新が変わったため、何もダウンロードされませんでした"
+
+msgid "The SD card is full"
+msgstr "SDカードがいっぱいです"
+
+msgid "The SD card can't be written"
+msgstr "SDカードに書き込めません"
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer, then move files to the computer or delete files you do not need to make room."
+msgstr "RiftWiiが新しいファイルを保存できないため、設定やゲームの選択、ジャケット画像やログが保存されないことがあります。カードをパソコンに入れて、ファイルをパソコンに移動するか、不要なファイルを削除して空きを作ってください。"
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. The card may be locked or read-only. Put the card in a computer and check its lock switch."
+msgstr "RiftWiiが新しいファイルを保存できないため、設定やゲームの選択、ジャケット画像やログが保存されないことがあります。カードがロックされているか、読み取り専用かもしれません。カードをパソコンで確認して、ロックスイッチを確認してください。"
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."
+msgstr "RiftWiiが新しいファイルを保存できないため、設定やゲームの選択、ジャケット画像やログが保存されないことがあります。カードをパソコンに入れて、エラーがないかカードを確認してください。"

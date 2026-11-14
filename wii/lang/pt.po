@@ -4212,6 +4212,15 @@ msgstr "Use o cartão do jogo, um compartilhado, o do Nintendont ou um real na e
 msgid "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "Use o cartão do jogo, um compartilhado, o do Dolphin ou um real na entrada A (só no Wii)."
 
+msgid "Could not save choices"
+msgstr "Não foi possível guardar as escolhas"
+
+msgid "Choices for this game could not be saved. Check the SD card is not full or locked."
+msgstr "As escolhas deste jogo não puderam ser guardadas. Verifica se o cartão SD não está cheio nem bloqueado."
+
+msgid "Play anyway?"
+msgstr "Jogar mesmo assim?"
+
 msgid "Disc slot light"
 msgstr "Luz da entrada de discos"
 
@@ -4613,3 +4622,18 @@ msgstr "A atualização do CTGP-R oferecida pelo servidor mudou depois de escolh
 
 msgid "the update the server offers changed after Update was chosen, so nothing was downloaded"
 msgstr "a atualização oferecida pelo servidor mudou depois de escolher Atualizar, por isso nada foi transferido"
+
+msgid "The SD card is full"
+msgstr "O cartão SD está cheio"
+
+msgid "The SD card can't be written"
+msgstr "Não é possível escrever no cartão SD"
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer, then move files to the computer or delete files you do not need to make room."
+msgstr "O RiftWii não consegue guardar ficheiros novos, pelo que as opções, as escolhas de jogo, as capas e os registos podem não ser guardados. Ponha o cartão num computador e mova ficheiros para o computador ou apague ficheiros de que não precisa para libertar espaço."
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. The card may be locked or read-only. Put the card in a computer and check its lock switch."
+msgstr "O RiftWii não consegue guardar ficheiros novos, pelo que as opções, as escolhas de jogo, as capas e os registos podem não ser guardados. O cartão pode estar bloqueado ou em só leitura. Ponha o cartão num computador e verifique o interruptor de bloqueio."
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."
+msgstr "O RiftWii não consegue guardar ficheiros novos, pelo que as opções, as escolhas de jogo, as capas e os registos podem não ser guardados. Ponha o cartão num computador e verifique se tem erros."

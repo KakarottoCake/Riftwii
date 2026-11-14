@@ -4212,6 +4212,15 @@ msgstr "Usa la scheda del gioco, una condivisa, quella di Nintendont o una reale
 msgid "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "Usa la scheda del gioco, una condivisa, quella di Dolphin o una reale nello slot A (solo Wii)."
 
+msgid "Could not save choices"
+msgstr "Impossibile salvare le scelte"
+
+msgid "Choices for this game could not be saved. Check the SD card is not full or locked."
+msgstr "Le scelte per questo gioco non possono essere salvate. Controlla che la scheda SD non sia piena o bloccata."
+
+msgid "Play anyway?"
+msgstr "Giocare comunque?"
+
 msgid "Disc slot light"
 msgstr "Luce del vano disco"
 
@@ -4613,3 +4622,18 @@ msgstr "L'aggiornamento di CTGP-R offerto dal server è cambiato dopo aver scelt
 
 msgid "the update the server offers changed after Update was chosen, so nothing was downloaded"
 msgstr "l'aggiornamento offerto dal server è cambiato dopo aver scelto Aggiorna, quindi non è stato scaricato nulla"
+
+msgid "The SD card is full"
+msgstr "La scheda SD è piena"
+
+msgid "The SD card can't be written"
+msgstr "Non è possibile scrivere sulla scheda SD"
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer, then move files to the computer or delete files you do not need to make room."
+msgstr "RiftWii non può salvare nuovi file, quindi impostazioni, scelte di gioco, copertine e registri potrebbero non essere salvati. Metti la scheda in un computer, poi sposta i file sul computer o elimina i file che non ti servono per fare spazio."
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. The card may be locked or read-only. Put the card in a computer and check its lock switch."
+msgstr "RiftWii non può salvare nuovi file, quindi impostazioni, scelte di gioco, copertine e registri potrebbero non essere salvati. La scheda potrebbe essere bloccata o in sola lettura. Metti la scheda in un computer e controlla l'interruttore di blocco."
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."
+msgstr "RiftWii non può salvare nuovi file, quindi impostazioni, scelte di gioco, copertine e registri potrebbero non essere salvati. Metti la scheda in un computer e controllala per errori."
