@@ -8759,6 +8759,22 @@ FR.update({
     "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only).": 'Utilise la carte du jeu, une carte partagée, celle de Dolphin ou une vraie carte dans le port A (Wii uniquement).',
 })
 
+T.update({
+    "Could not save choices": ("No se pudieron guardar las opciones", "設定を保存できませんでした", "Não foi possível guardar as escolhas", "Impossibile salvare le scelte"),
+    "Choices for this game could not be saved. Check the SD card is not full or locked.": ("Las opciones de este juego no se pudieron guardar. Comprueba que la tarjeta SD no esté llena ni bloqueada.", "このゲームの設定を保存できませんでした。SDカードがいっぱいやロックされていないか確認してください。", "As escolhas deste jogo não puderam ser guardadas. Verifica se o cartão SD não está cheio nem bloqueado.", "Le scelte per questo gioco non possono essere salvate. Controlla che la scheda SD non sia piena o bloccata."),
+    "Play anyway?": ("¿Jugar de todos modos?", "それでもプレイしますか？", "Jogar mesmo assim?", "Giocare comunque?"),
+})
+KO.update({
+    "Could not save choices": "선택 사항을 저장하지 못했습니다",
+    "Choices for this game could not be saved. Check the SD card is not full or locked.": "이 게임의 선택 사항을 저장하지 못했습니다. SD 카드가 가득 찼거나 잠겨 있는지 확인하세요.",
+    "Play anyway?": "그래도 플레이할까요?",
+})
+FR.update({
+    "Could not save choices": "Impossible d'enregistrer les choix",
+    "Choices for this game could not be saved. Check the SD card is not full or locked.": "Les choix pour ce jeu n'ont pas pu être enregistrés. Vérifiez que la carte SD n'est ni pleine ni verrouillée.",
+    "Play anyway?": "Jouer quand même ?",
+})
+
 def main():
     repo = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
     if not check(repo):
