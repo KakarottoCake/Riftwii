@@ -5,7 +5,8 @@
 namespace riftwii::wii {
 
 // Scoped loading/copying activity. Nested callers share one pulse, and the
-// last return (success, cancellation or failure) leaves the light off.
+// last return (success, cancellation or failure) leaves the light off. No
+// pulse (and no GPIO write) while a cIOS is running or the setting is off.
 class DiscLightActivity {
 public:
     DiscLightActivity();
@@ -25,5 +26,12 @@ private:
 // Before handing memory and interrupts to another program. Also registered
 // with libogc's shutdown hooks, so power-off/restart cannot leave a pulse.
 void StopDiscLight();
+
+// Called at the start of every IOS reload: the light goes dark now, since the
+// IOS (and with it the pulse's context) is about to change. It comes back only
+// through Restart() or a new scope, and only while the running IOS is not a
+// cIOS (slot 200 or up); Restart() and the alarm both check, so a failed launch
+// that leaves the menu on d2x never pulses.
+void DiscLightIosReloaded();
 
 }  // namespace riftwii::wii

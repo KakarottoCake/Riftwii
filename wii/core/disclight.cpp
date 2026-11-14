@@ -24,14 +24,37 @@ unsigned g_generation = 0;
 bool g_lit = false;
 sys_resetinfo g_shutdown{};
 
+// A cIOS (d2x and friends, slots 200 and up, as the rest of the loader
+// reads them) must not share the GPIO register with a pulse: on some Wiis the
+// DI inquiry in a d2x set-up hung for 15 s with the light blinking. The
+// version is one word of memory, so this is safe in the alarm's context.
+bool CiosRunning() {
+    return IOS_GetVersion() >= 200;
+}
+
 // Callers hold the interrupt lock; the alarm already runs in that context.
+// With the light off (the default) nothing here touches the register.
 void SetLight(bool lit) {
+    if (lit == g_lit) return;
     mask32(kGpioOutput, kSlotLight, lit ? kSlotLight : 0);
     g_lit = lit;
 }
 
+// Lock held. Ends every running pulse and invalidates the scopes' claims.
+void Halt() {
+    ++g_generation;
+    g_users = 0;
+    if (g_alarmCreated) SYS_CancelAlarm(g_alarm);
+    SetLight(false);
+}
+
 void Pulse(syswd_t, void*) {
-    if (g_users != 0) SetLight(!g_lit);
+    if (g_users == 0) return;
+    if (CiosRunning()) {
+        Halt();
+        return;
+    }
+    SetLight(!g_lit);
 }
 
 s32 OnShutdown(s32) {
@@ -50,6 +73,10 @@ void DiscLightActivity::Restart() {
 
     u32 level;
     _CPU_ISR_Disable(level);
+    if (CiosRunning()) {  // the light works only on the menu's own, non-c, IOS
+        _CPU_ISR_Restore(level);
+        return;
+    }
     if (active_ && generation_ == g_generation) {
         _CPU_ISR_Restore(level);
         return;
@@ -78,17 +105,16 @@ void DiscLightActivity::Restart() {
         active_ = true;
         SetLight(true);
     } else {
-        SetLight(false);
+        SetLight(false);  // only writes if it was lit
     }
     _CPU_ISR_Restore(level);
     if (!active_) logf("Disc slot light: the timer could not start; continuing with the light off.\n");
 }
 
 DiscLightActivity::~DiscLightActivity() {
-    if (!active_) return;
     u32 level;
     _CPU_ISR_Disable(level);
-    if (generation_ == g_generation && g_users != 0 && --g_users == 0) {
+    if (active_ && generation_ == g_generation && g_users != 0 && --g_users == 0) {
         SYS_CancelAlarm(g_alarm);
         SetLight(false);
     }
@@ -99,11 +125,14 @@ void StopDiscLight() {
     u32 level;
     _CPU_ISR_Disable(level);
     // Scopes from before a handoff must not stop a later retry's light.
-    ++g_generation;
-    g_users = 0;
-    if (g_alarmCreated) SYS_CancelAlarm(g_alarm);
-    SetLight(false);
+    Halt();
     _CPU_ISR_Restore(level);
+}
+
+void DiscLightIosReloaded() {
+    // Also for a reload that then fails (it is called before the version is
+    // even checked): the old IOS may be half gone, so dark is right.
+    StopDiscLight();
 }
 
 }  // namespace riftwii::wii
