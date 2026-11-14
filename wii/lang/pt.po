@@ -12,9 +12,6 @@ msgstr "Layout"
 msgid "Choose"
 msgstr "Escolher"
 
-msgid "Games with mods"
-msgstr "Jogos com mods"
-
 msgid "All games"
 msgstr "Todos os jogos"
 

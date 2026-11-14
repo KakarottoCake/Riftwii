@@ -220,9 +220,12 @@ for their folders and controllers.
 ### Home
 
 RiftWii reads the SD card and the USB drive and shows your games as
-tiles, with the disc drive first. At first it shows only games that
+tiles, with the disc drive first. The games it found the last time show
+at once while it reads the drives again; one you pick meanwhile opens
+as soon as they are read. At first it shows only games that
 have mod packs (they carry a **MODS** tag). The round button at the
-bottom left (or **1**) switches between games with mods, all games, **Homebrew** and,
+bottom left (or **1**) switches between **Mods** (the games with mods),
+**All games**, **Homebrew** and,
 once you have played something, **Recently played**, then
 **Favourites** once you mark a game as one (the star on its banner, or
 **Favourite** on its page). **Minus** and
@@ -943,7 +946,7 @@ back into an ISO or an RVZ with Dolphin's **Convert File...** first.
 
 GameCube games are on Home with your other games, badged **GC**.
 **Settings > Home > Games from > GameCube** shows only these; the other
-choices, and Home's Show button (all games, games with mods, Recently
+choices, and Home's Show button (All games, Mods, Recently
 played, Favourites), can hide them as they hide any game.
 
 A GameCube game's page has its own options in place of a Wii game's
@@ -1193,7 +1196,7 @@ pieces (`.wbfs`, `.wbf1`, ...), as FAT32 needs; keep them together.
 When the copy is done it is on Home, unless something there leaves it
 out; the message at the end then says which, and what to change:
 
-- Home's **Show** is on Games with mods (where Home starts), and the game
+- Home's **Show** is on **Mods** (where Home starts), and the game
   has none: choose **Show > All games**.
 - **Settings > Home > Games from** names another place (the other
   drive, Wii channels or GameCube): set it to All games.

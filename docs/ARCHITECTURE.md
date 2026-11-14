@@ -1065,6 +1065,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/saves/<ID>/` | Saves kept on the card |
 | `sd:/riftwii/history.txt` | Recently played |
 | `sd:/riftwii/order.txt` | Home's own order, one game a line as `drive:ID` (`src/data/homeorder.cpp`) |
+| `sd:/riftwii/homelist.txt` | The games Home found the last time it read the drives, one a line (`src/data/homelist.cpp`). Home shows them at once at the next start and replaces each drive's as that drive is read again; rewritten only when the games changed. Safe to delete |
 | `sd:/riftwii/case_colors.txt` | The player's own case colors for the Home shelf, one a line as `ID rrggbb`; a full six-character ID is one game, a three to five character ID covers every game it starts (`src/art/casecolour.cpp`) |
 | `sd:/riftwii/titles-<lang>.txt` | GameTDB's game names |
 | `sd:/riftwii/lang/<lang>.po` | A translation that overrides the built-in one |

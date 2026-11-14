@@ -173,6 +173,8 @@ The build compiles every folder into one, so no two files share a name.
 | `covers.cpp` | Cover art: download, cache, textures |
 | `madecover.cpp` | Made-up covers for games without one: the blank cover with the name printed on it |
 | `homescan.cpp` | Home's look for games on a thread of its own: the SD card's games first, then the USB drive's |
+| `homeremember.cpp` | The games of the last look, read from and written to `sd:/riftwii/homelist.txt`: Home shows them at once at the next start, while the drives are read again |
+| `artfolder.cpp` | "Is this picture stored?" for every game Home lists: each pictures folder listed once (an `ArtFolderLook`) instead of walked once per question |
 | `guiscript.cpp` | Scripted menu input for tests (`sd:/riftwii/guiscript.txt`) |
 | `drawtrace.cpp` | Where the GUI thread is drawing, for a freeze on a console: the GUI watch and the GX trace (`debug_gx`) |
 | `fullfont.cpp`, `wiifont.cpp` | The full menu font from the card; the Wii Menu's font read from the console and cached on the card |
@@ -406,6 +408,8 @@ reader helpers stay beside their source.
 | `profiles` | `profiles.txt`: a game's extra Home tiles with their own mods; their names, keys and limits |
 | `namekeys` | The Shift of the keyboard a tile's name is typed on: what each key types with Shift off, on by itself (capitals) or pressed (capitals and symbols), and how Shift follows the name |
 | `homeorder` | `order.txt`: Home's own order (Settings > Home order: Your order) |
+| `homelist` | `homelist.txt`: the games Home found the last time it read the drives, shown at the next start until each drive is read again |
+| `foldernames` | A folder's file names kept as hashes, to answer "is this file there?" for many files from one listing |
 | `padcal` | `gccalibration.txt`: each GameCube controller's calibration (Settings > Controllers), and the stretch a game applies, worked out ahead (`runtime/rtpadcal.h`) |
 | `codemods` | `codemods.txt`: each code build's Extras and Crash logs, per game and mod, the rule for several code builds on together, and older builds reading the crash logs' lines |
 | `gametdb` | GameTDB's `wiitdb.xml` read a game at a time, the game details cache, wrapping their text |

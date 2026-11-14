@@ -12,9 +12,6 @@ msgstr "Disposizione"
 msgid "Choose"
 msgstr "Scegli"
 
-msgid "Games with mods"
-msgstr "Giochi con mod"
-
 msgid "All games"
 msgstr "Tutti i giochi"
 

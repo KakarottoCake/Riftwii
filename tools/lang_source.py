@@ -27,7 +27,6 @@ T = {
     # Home
     "Layout": ("Diseño", "レイアウト", "Layout", "Disposizione"),
     "Choose": ("Elegir", "選ぶ", "Escolher", "Scegli"),
-    "Games with mods": ("Juegos con mods", "MODがあるゲーム", "Jogos com mods", "Giochi con mod"),
     "All games": ("Todos los juegos", "すべてのゲーム", "Todos os jogos", "Tutti i giochi"),
     "Recently played": ("Jugados hace poco", "最近遊んだゲーム", "Jogados recentemente", "Giocati di recente"),
     "No game on these drives was played from RiftWii yet. Press 1 for all games.": (
@@ -2430,8 +2429,6 @@ KO = {
     "Layout": "배치",
     "Choose": "선택",
     "Y: view  Z: settings  L/R: pages": "Y: 보기  Z: 설정  L/R: 페이지",
-    "Games with mods":
-        "MOD 지원 게임",
     "All games":
         "모든 게임",
     "Recently played":
@@ -4306,8 +4303,6 @@ FR = {
     "Layout": "Disposition",
     "Choose": "Choisir",
     "Y: view  Z: settings  L/R: pages": "Y: vue  Z: options  L/R: pages",
-    "Games with mods":
-        "Jeux avec mods",
     "All games":
         "Tous les jeux",
     "Recently played":

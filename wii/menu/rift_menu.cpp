@@ -52,6 +52,8 @@
 #include "gui_prompts.hpp"
 #include "gui_tiles.hpp"
 #include "gui_busy.hpp"
+#include "artfolder.hpp"
+#include "homeremember.hpp"
 #include "memlimits.hpp"
 #include "ctgpr.hpp"
 #include "d2xsd.hpp"
@@ -1148,7 +1150,7 @@ static riftwii::PackIndex g_packs;
 static const char* FilterLabel(Filter f)
 {
 	switch (f) {
-		case Filter::Mods: return "Games with mods";
+		case Filter::Mods: return "Mods";
 		case Filter::Wii: return "Wii games";
 		case Filter::GameCube: return "GameCube games";
 		case Filter::Homebrew: return "Homebrew";
@@ -5691,6 +5693,9 @@ static void TakeUsbScanPart(FrontendState& state, riftwii::wii::DriveScanPart& p
 		riftwii::wii::RenameGames(state.usb_catalog);
 		g_renameAfterScan = false;
 	}
+	// Both drives are in: their games are kept for the next start, which
+	// shows them while it reads the drives again.
+	riftwii::wii::RememberGames(state.sd_catalog, state.usb_catalog, g_packs);
 	const bool usb = part.ok;
 	const std::string& error = part.error;
 	// The scan's reads are over: the GameCube adapter may start now, so its
@@ -6838,6 +6843,10 @@ static int MenuSource(FrontendState& state)
 		UpdateModCoverIds();
 		if (riftwii::wii::Settings().home_tiles == "names") return;
 		if (!riftwii::wii::Settings().online) return;
+		// Every game listed is asked about at once (a few hundred under All
+		// games): the pictures' folders are listed once for them all, rather
+		// than walked for each (wii/menu/artfolder.hpp).
+		riftwii::wii::ArtFolderLook look;
 		for (const GridItem& item : items) {
 			// A mod's tile asks for the game's cover, which it shows without
 			// one of its own, and for its own (#385), when GameTDB has one.
@@ -7038,9 +7047,25 @@ static int MenuSource(FrontendState& state)
 	if (!g_scanned) {
 		// The drives are read while Home runs: their games show as each
 		// drive is done (the GameCube adapter may start once both are).
+		// At the first look of a run, the games found at the last start
+		// show meanwhile (wii/menu/homeremember.hpp): each drive's part
+		// replaces its remembered games, and a tile picked before then
+		// opens once the drives are read, as on a rescan.
+		static bool rememberedTried = false;
+		bool remembered = false;
+		if (!rememberedTried) {
+			rememberedTried = true;
+			const bool nothingRead = state.sd_catalog.games.empty() && state.usb_catalog.games.empty() &&
+				state.channels.empty() && !riftwii::wii::DriveScanFinished();
+			if (nothingRead)
+				remembered = riftwii::wii::ShowRememberedGames(state.sd_catalog, state.usb_catalog, g_packs);
+		}
 		StartScan();
 		g_askAfterScan = true;
-		refresh(true);
+		// With remembered games, the start's focus (the last game played,
+		// or the first tile) is set now, as when a part of the scan joins.
+		if (remembered) refreshKeepingTile(std::string(), false);
+		else refresh(true);
 	} else {
 		showStatus();
 	}
@@ -7097,6 +7122,40 @@ static int MenuSource(FrontendState& state)
 	// The status line says covers are coming while they are, and why they
 	// stopped when a download failed.
 	bool coverNoteShown = false;
+	// The view chosen is remembered for the next start, in settings.txt.
+	// Writing that file takes the card a moment (a new file, two renames
+	// and a delete), and it used to be written before the new view was
+	// shown, at every press of 1. The view shows first now; the file is
+	// written once the player has stayed on a view for a moment (so 1
+	// pressed several times writes it once), before a tile opens, or as
+	// Home closes.
+	struct ViewSave {
+		bool due = false;
+		bool tellFailure = false;  // the press that asked says so when the card refuses
+		bool failed = false;       // for Home to say, with the GUI halted
+		u64 asked = 0;
+		void ask(bool tell)
+		{
+			// One write for several presses: it tells when any of them would have.
+			tellFailure = tell || (due && tellFailure);
+			due = true;
+			asked = gettime();
+		}
+		void write()
+		{
+			const bool tell = tellFailure;
+			due = false;
+			tellFailure = false;
+			if (riftwii::wii::SaveSettings()) return;
+			logf("Home: the view could not be saved to settings.txt, so the next start opens on the view saved before\n");
+			failed = tell;
+		}
+		~ViewSave()
+		{
+			if (due) write();
+		}
+	} viewSave;
+	constexpr unsigned kViewSaveDelayMs = 1000;
 	// Home's pairs (1 and 2 together change the view) and its search hold
 	// are watched while Home owns the controllers, decided by the GUI thread
 	// each frame (HomeOwnsControllers), whichever screen, box, carry or
@@ -7126,6 +7185,8 @@ static int MenuSource(FrontendState& state)
 		RestartIfOutOfMemory();
 		riftwii::wii::StartDriveScan();
 		PollMenuDiscCover();
+		// While the GUI draws: Home stays live as the card writes the file.
+		if (viewSave.due && !g_sdGone && diff_msec(viewSave.asked, gettime()) >= kViewSaveDelayMs) viewSave.write();
 		std::string coverNote;
 		// The covers download on the network's own thread, one at a time:
 		// done on the menu's, each held every press for seconds.
@@ -7343,6 +7404,8 @@ static int MenuSource(FrontendState& state)
 		    !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&
 		    riftwii::wii::Cover3dFetchGame().empty() && !DownloadsWaiting()) {
 			bool started = false;
+			// The games not looked at yet are asked about in one go.
+			riftwii::wii::ArtFolderLook look;
 			for (const int i : grid.ShelfWanted()) {
 				const GridItem& item = items[static_cast<std::size_t>(i)];
 				// A mod tile's own (#385), when GameTDB lists the mod, then
@@ -7408,6 +7471,10 @@ static int MenuSource(FrontendState& state)
 			}
 		}
 		HaltGui();
+		if (viewSave.failed) {
+			viewSave.failed = false;
+			toast.Show(tr("Could not save the settings to the SD card."), true);
+		}
 		// The scan's parts as they come in: the SD card's games, then the
 		// USB drive's. Not while a game is carried: its grid stays as it is.
 		std::string openNow;
@@ -7827,10 +7894,10 @@ static int MenuSource(FrontendState& state)
 				g_genre.clear();
 				g_filter = Filter::All;
 				riftwii::wii::Settings().other["view"] = FilterKey(g_filter);
-				// The games are shown either way; only remembering the view
-				// for the next start depends on the card.
-				if (!riftwii::wii::SaveSettings())
-					toast.Show(tr("Could not save the settings to the SD card."), true);
+				// The games are shown either way, and at once; only
+				// remembering the view for the next start depends on the
+				// card, which is written a moment later (viewSave).
+				viewSave.ask(true);
 				logf("Home: all games are now shown\n");
 			}
 			refresh(false);
@@ -7913,6 +7980,9 @@ static int MenuSource(FrontendState& state)
 			clicked = -1;
 		}
 		if (clicked >= 0 && static_cast<std::size_t>(clicked) < entries.size()) {
+			// A game may start from here and never come back to Home: the
+			// view chosen just before is saved first.
+			if (viewSave.due) viewSave.write();
 			g_homeFocus = clicked;
 			HomeEntry entry = entries[static_cast<std::size_t>(clicked)];
 			transition::Rect tile;
@@ -8239,7 +8309,8 @@ static int MenuSource(FrontendState& state)
 			logf("Home: filter %s\n", FilterLabel(g_filter));
 			riftwii::wii::Settings().other["view"] = FilterKey(g_filter);
 			riftwii::wii::Settings().other["home_hints"] = "learned";
-			riftwii::wii::SaveSettings();
+			// Shown at once; settings.txt follows a moment later (viewSave).
+			viewSave.ask(false);
 			refresh(false);
 			matchHomebrewCovers();
 			addCovers();

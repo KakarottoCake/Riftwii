@@ -12,9 +12,6 @@ msgstr "レイアウト"
 msgid "Choose"
 msgstr "選ぶ"
 
-msgid "Games with mods"
-msgstr "MODがあるゲーム"
-
 msgid "All games"
 msgstr "すべてのゲーム"
 
