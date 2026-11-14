@@ -27,6 +27,14 @@ bool Open(std::string& error);
 // cIOS some drives take a while (a tester's NTFS drive answered -100 at
 // once; the WBFS path already waited, in usbcatalog.cpp).
 bool OpenWaiting(std::string& error, int seconds);
+// Takes the 32 KiB MEM2 buffer every read goes through, once, at start-up
+// (main, beside InitUsbLock): taken at the launch instead, it could find
+// the MEM2 arena already filled by the menu's covers and sounds, and the
+// launch failed with "no MEM2 left for the USB buffer" (a tester with a
+// large library on 2611-151). Open takes it itself when this did not run.
+void ReserveBuffer();
+// That buffer, or nullptr while it has not been taken.
+const std::uint8_t* Buffer();
 // Before an IOS reload: the fd and a failed open belong to the IOS that is
 // going away (a disc's packs failing under IOS 58 must be tried again
 // once Settings has loaded the d2x slot).

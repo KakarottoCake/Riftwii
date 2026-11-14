@@ -89,6 +89,7 @@ bool g_wii_mem2_top = false;
 bool g_console_type_as_wii = false;
 bool g_wii_u_card_slots = false;
 #ifdef RIFTWII_TEST_LIMITS
+unsigned g_arena_left_kib = ~0u, g_heap_grow_kib = 0;
 void* g_pieces[64];
 
 const char* SkipSpaces(const char* text) {
@@ -130,6 +131,8 @@ void TestBallast() {
         else if (ReadSetting(line, "wii_mem2_top", v)) g_wii_mem2_top = v != 0;
         else if (ReadSetting(line, "console_type_as_wii", v)) g_console_type_as_wii = v != 0;
         else if (ReadSetting(line, "wii_u_card_slots", v)) g_wii_u_card_slots = v != 0;
+        else if (ReadSetting(line, "mem2_arena_left_kib", v)) g_arena_left_kib = v;
+        else if (ReadSetting(line, "heap_grow_kib", v)) g_heap_grow_kib = v;
     }
     std::fclose(f);
     // Never freed: the run (menu and launch) has that much less.
@@ -151,6 +154,40 @@ void TestBallast() {
         std::free(g_pieces[i]);
         g_pieces[i] = nullptr;
     }
+#endif
+}
+
+void TestFillArena() {
+#ifdef RIFTWII_TEST_LIMITS
+    if (g_arena_left_kib == ~0u) return;
+    // "mem2_arena_left_kib = N" (with "heap_grow_kib = H"): the MEM2 arena
+    // as a large library's menu leaves it (a tester's: 7 KiB left, the
+    // heap 10 MiB free). The heap grows by H KiB first, the arena is then
+    // taken down to N KiB, and the heap's block is freed after it (the
+    // heap keeps it: its top no longer meets the arena's start, so malloc
+    // cannot give it back; the log line says if the arena moved anyway).
+    const unsigned left = g_arena_left_kib;
+    g_arena_left_kib = ~0u;  // once
+    void* grown = nullptr;
+    if (g_heap_grow_kib) {
+        grown = std::malloc(std::size_t(g_heap_grow_kib) << 10);
+        if (!grown) {
+            logf("Memory: TEST BUILD: heap_grow_kib = %u failed; the arena is left as it is\n", g_heap_grow_kib);
+            return;
+        }
+    }
+    const u32 grown_at = Address(grown);
+    const u32 keep = left << 10;
+    const u32 lo = Address(SYS_GetArena2Lo()), hi = Address(SYS_GetArena2Hi());
+    if (hi > lo + keep + 32) skin::Mem2Alloc(hi - lo - keep - 32);
+    const u32 filled_lo = Address(SYS_GetArena2Lo());
+    std::free(grown);
+    const u32 after_lo = Address(SYS_GetArena2Lo());
+    logf("Memory: TEST BUILD: MEM2 arena filled, %u KiB left (test_limits.txt); heap grown %u KiB at 0x%08x%s%s\n",
+         static_cast<unsigned>((Address(SYS_GetArena2Hi()) - after_lo) >> 10), g_heap_grow_kib,
+         static_cast<unsigned>(grown_at),
+         grown_at != 0 && grown_at < kMem2Floor ? " (in MEM1: raise heap_grow_kib past MEM1's heap)" : "",
+         after_lo != filled_lo ? "; ARENA MOVED BACK by the heap's free: this test is void" : "");
 #endif
 }
 
