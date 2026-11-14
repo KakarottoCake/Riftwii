@@ -70,6 +70,10 @@ constexpr u32 kCheckLine = 32;                  // one cache line of check words
 constexpr u32 kCheckBlock = 4096 + kCheckLine;  // a line at each end, a page apart
 volatile u32* g_check = nullptr;                // in MEM2, taken at start-up and kept
 u32 g_check_value = 0;
+// libogc starts main() at 64. The menu's GUI, watchdog and other threads run
+// above that (70, 80), so across the call the reload runs at the top: when
+// the call returns, it runs before any of them and switches interrupts off.
+constexpr u32 kMainThreadPriority = 64;
 
 // The check words, read through the uncached mirror: what memory gives back.
 bool mem2_reads_back() {
@@ -95,6 +99,14 @@ void arm_mem2_check() {
 }
 
 int ms_since(u64 from) { return static_cast<int>(ticks_to_millisecs(gettime() - from)); }
+
+// MEM2 never read back: nothing may run on what it gives (another thread,
+// a callback, the failure message's allocation), so interrupts stay off and
+// the console stops here (no message: it would allocate). Hold POWER.
+[[noreturn]] void halt_mem2_wrong() {
+    g_terminal_failure = true;
+    for (;;) ++g_terminal_spin;
+}
 
 void restore_subsystems() {
     __ES_Close();
@@ -237,8 +249,10 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
     write32(kIosVersionAddress, 0);
     arm_mem2_check();
     const u64 launched = gettime();
+    LWP_SetThreadPriority(LWP_GetSelf(), LWP_PRIO_HIGHEST);
     res = ES_LaunchTitleBackground(title, &g_view);
     if (res < 0) {
+        LWP_SetThreadPriority(LWP_GetSelf(), kMainThreadPriority);
         error = "ES launch failed: " + std::to_string(res);
         restore_subsystems();
         return ReloadResult::Failed;
@@ -265,7 +279,9 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
     int started_ms = 0;
     for (; (read32(kIosVersionAddress) >> 16) == 0; ++started_ms) {
         if (started_ms >= kIosStartTimeoutMs) {
+            if (!mem2_reads_back()) halt_mem2_wrong();
             _CPU_ISR_Restore(level);
+            LWP_SetThreadPriority(LWP_GetSelf(), kMainThreadPriority);
             return terminal_startup_failure(version, "did not start within 10 s", error);
         }
         if (!mem2_reads_back()) {
@@ -290,13 +306,11 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
         }
         udelay(1000);
     }
+    // MEM2 still wrong half a second on: going on, or even showing the
+    // failure (it allocates), would be the damage this wait is for.
+    if (mem2_back_ms < 0) halt_mem2_wrong();
     _CPU_ISR_Restore(level);
-    if (mem2_back_ms < 0) {
-        // MEM2 still wrong half a second after the announce: going on would
-        // be the damage this wait is for. The failure as for an IOS that
-        // never started (the IPC interrupt is still held).
-        return terminal_startup_failure(version, "started, but its memory did not read back within 500 ms", error);
-    }
+    LWP_SetThreadPriority(LWP_GetSelf(), kMainThreadPriority);
     // What the new kernel's staging does to low MEM2 on a Wii, in Dolphin.
     mem::PoisonReloadArea();
     // libogc polls the IPC ack bit for up to 400 ms and then carries on
