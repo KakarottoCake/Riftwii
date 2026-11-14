@@ -7,8 +7,8 @@ RiftWii has two ways to start CTGP-R 1.03's pack:
   with no channel app. Used only with `ctgpnative.txt` next to `boot.dol`
   and its files set up on the card (autorun test builds: `ctgpnative`).
 * **The CTGP-R Channel as a Homebrew Channel app** (the rest of this
-  page): the default, from a real disc and from a USB or SD image through
-  d2x's virtual disc. The native launch is used instead only when a file
+  page): the default, from a real disc and from a USB image through
+  d2x's virtual disc. An SD image is refused (below). The native launch is used instead only when a file
   `ctgpnative.txt` sits next to RiftWii's `boot.dol` and its files are on
   the card.
 
@@ -271,11 +271,14 @@ that starts CTGP-R natively.
 
 * **Disc:** the app starts under the menu's IOS with hardware access, before
   any probe or IOS reload.
-* **ISO/WBFS on USB or SD:** d2x is set up to serve the image as the disc,
+* **ISO/WBFS on USB:** d2x is set up to serve the image as the disc,
   then the app runs under the cIOS. CTGP reloads IOS itself (its channel asks
   for IOS37), which on its own would drop d2x and the virtual disc. Since RC2
   the activation arms d2x's IOS reload block first (below), so those reloads
   land in the same cIOS.
+* **ISO/WBFS on SD:** refused, for the channel and the native launch alike,
+  before anything is set up (`ctgp_sd_image_blocked`). The player is told to
+  put the game on a USB drive or use the disc. See "Why not an SD image".
 * **RVZ:** refused. RiftWii's PPC resident code reads an RVZ; d2x only holds
   its stub, and nothing of RiftWii survives into CTGP's later stages.
 
@@ -297,7 +300,7 @@ ordinary game launches. `boot.log` shows `IOS<n>'s ES keeps hardware
 access on for the next IOS` for each, and `Homebrew app: IOS<n>, hardware
 access on` when it worked.
 
-## Starting the channel from a USB or SD image
+## Starting the channel from a USB image
 
 For an image, d2x serves it as the disc, then the channel app runs under
 the cIOS. Three things make that work:
@@ -348,7 +351,7 @@ RiftWii adds that line before it starts `sd:/apps/ctgpr/boot.dol`
 (`SetCtgpDefaults`, `wii/launch/launchrun.cpp`; the INI merge is
 `riftwii/ctgpconfig.hpp`, tested in `tests/ctgpconfig_tests.cpp`; section
 and key names match whatever their case). From a real disc a value the
-player set is left alone. From a USB or SD image that key and the two others
+player set is left alone. From a USB image that key and the two others
 above (`[sd] compatible_mode`, `[exploit] disable_patches`) are set to `yes`
 whatever the player had; `boot.log` gives each old value. The keys do not
 affect networking: online play comes from CTGP's patches to the game's code.
@@ -377,9 +380,26 @@ unknown. When it refuses, the error tells the player to restart the console.
 when armed and `IOS reload block cleared` / `could not be cleared` after a
 failure.
 
+## Why not an SD image
+
+d2x reads an image on the SD card through its own SD device,
+`/dev/sdio/sdhc`, which sets the card up once and then only selects it
+around each read. CTGP-R reads its own files from the same card through
+`/dev/sdio/slot0` and sets the card up itself first (libogc's start-up resets
+the card and the host controller). After another driver resets the card,
+d2x reads the wrong sectors: RiftWii hit this itself on hardware, which is
+why its own loader uses only d2x's device during an SD launch
+(`wii/storage/d2xsd.hpp`). d2x keeps a game off the card only while its NAND
+emulation is on SD. The results on real Wiis fit: the channel said the disc
+"isn't Mario Kart Wii", and the native launch stayed on a black screen, while
+the same images worked from USB. The mechanism is the most likely cause, not
+yet confirmed with a USB copy of the failing SD image. RiftWii can't share
+the card between the two without changing CTGP-R or d2x, so it refuses the
+launch. A player with only an SD card needs the disc.
+
 ## What a console test must show
 
-1. A USB or SD ISO/WBFS of Mario Kart Wii with CTGP's pack enabled reaches
+1. A USB ISO/WBFS of Mario Kart Wii with CTGP's pack enabled reaches
    the CTGP channel, then an offline race.
 2. Save and load work, and relaunching works.
 3. A failed start (rename `/apps/ctgpr/boot.dol`) logs the clear, and the

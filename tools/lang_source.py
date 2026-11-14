@@ -948,6 +948,11 @@ T = {
         "CTGP-Rの設定ファイル（sd:/ctgpr/config.ini）を書き込めなかったため、何も起動しませんでした。SDカードのロックや空き容量を確認してください。",
         "Não foi possível gravar o arquivo de ajustes do CTGP-R (sd:/ctgpr/config.ini), então nada foi iniciado. Verifique se o cartão SD não está bloqueado nem cheio.",
         "Impossibile scrivere il file delle impostazioni di CTGP-R (sd:/ctgpr/config.ini), quindi non è stato avviato nulla. Controlla che la scheda SD non sia bloccata né piena."),
+    "CTGP-R can't start Mario Kart Wii from the SD card, because CTGP-R uses the SD card for its own files. Put Mario Kart Wii on a USB drive, or use the disc.": (
+        "CTGP-R no puede iniciar Mario Kart Wii desde la tarjeta SD, porque CTGP-R usa la tarjeta SD para sus propios archivos. Pon Mario Kart Wii en una unidad USB o usa el disco.",
+        "CTGP-RはSDカードを自分のファイルに使うため、SDカードからマリオカートWiiを起動できません。マリオカートWiiをUSBドライブに入れるか、ディスクを使ってください。",
+        "O CTGP-R não consegue iniciar o Mario Kart Wii pelo cartão SD, porque o CTGP-R usa o cartão SD para os próprios arquivos. Coloque o Mario Kart Wii em uma unidade USB ou use o disco.",
+        "CTGP-R non può avviare Mario Kart Wii dalla scheda SD, perché CTGP-R usa la scheda SD per i propri file. Metti Mario Kart Wii su un'unità USB o usa il disco."),
     # Mods where they cannot work (refused at Start). {1} is a folder like
     # "usb:/Project+", maybe followed by the piece below.
     " (and {1} more)": (" (y {1} más)", " (ほか{1}件)", " (e mais {1})", " (e altri {1})"),
@@ -3056,6 +3061,8 @@ KO = {
         "CTGP-R 채널(sd:/apps/ctgpr/boot.dol)이 없어 아무것도 시작되지 않았습니다. CTGP-R의 apps/ctgpr 폴더를 SD 카드에 넣어 주세요.",
     "CTGP-R's settings file (sd:/ctgpr/config.ini) could not be written, so nothing was started. Check that the SD card is not locked or full.":
         "CTGP-R 설정 파일(sd:/ctgpr/config.ini)을 쓸 수 없어 아무것도 시작되지 않았습니다. SD 카드가 잠겨 있거나 가득 찼는지 확인해 주세요.",
+    "CTGP-R can't start Mario Kart Wii from the SD card, because CTGP-R uses the SD card for its own files. Put Mario Kart Wii on a USB drive, or use the disc.":
+        "CTGP-R은 SD 카드를 자체 파일용으로 사용하므로 SD 카드에서 마리오 카트 Wii를 시작할 수 없습니다. 마리오 카트 Wii를 USB 드라이브에 넣거나 디스크를 사용해 주세요.",
     " (and {1} more)":
         " (그리고 {1} 개 더)",
     "Code builds on the USB drive won't work. Move {1} to the SD card.":
@@ -4932,6 +4939,8 @@ FR = {
         "La chaîne de CTGP-R (sd:/apps/ctgpr/boot.dol) est introuvable, rien n'a été démarré. Placez le dossier apps/ctgpr de CTGP-R sur la carte SD.",
     "CTGP-R's settings file (sd:/ctgpr/config.ini) could not be written, so nothing was started. Check that the SD card is not locked or full.":
         "Le fichier de réglages de CTGP-R (sd:/ctgpr/config.ini) n'a pas pu être écrit, rien n'a été démarré. Vérifiez que la carte SD n'est ni verrouillée ni pleine.",
+    "CTGP-R can't start Mario Kart Wii from the SD card, because CTGP-R uses the SD card for its own files. Put Mario Kart Wii on a USB drive, or use the disc.":
+        "CTGP-R ne peut pas lancer Mario Kart Wii depuis la carte SD, car CTGP-R utilise la carte SD pour ses propres fichiers. Placez Mario Kart Wii sur un périphérique USB, ou utilisez le disque.",
     " (and {1} more)":
         " (et {1} autre(s))",
     "Code builds on the USB drive won't work. Move {1} to the SD card.":
