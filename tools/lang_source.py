@@ -1735,7 +1735,9 @@ T = {
     "On (480p)": ("Sí (480p)", "オン (480p)", "Sim (480p)", "Sì (480p)"),
     "Widescreen": ("Panorámico", "ワイド画面", "Widescreen", "Panoramico"),
     "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first.": ("Da una imagen más nítida y estable con un cable por componentes, incluso en juegos sin modo 480p; algunos preguntan antes.", "コンポーネントケーブルで、くっきり安定した映像にします。480pのないゲームも対象で、先に確認を求めるゲームもあります。", "Dá uma imagem mais nítida e estável com cabo componente, mesmo em jogos sem modo 480p; alguns jogos perguntam antes.", "Dà un'immagine più nitida e stabile con un cavo component, anche nei giochi senza modo 480p; alcuni chiedono prima."),
-    "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental).": ("Llena una TV panorámica con el mundo del juego; los menús siguen estirados y algunos juegos muestran colores erróneos (experimental).", "ゲームの世界をワイドテレビいっぱいに広げます。メニューは横に伸びたままで、色がおかしくなるゲームもあります (試験的)。", "Preenche uma TV widescreen com o mundo do jogo; os menus continuam esticados e alguns jogos mostram cores erradas (experimental).", "Riempie una TV panoramica con il mondo di gioco; i menu restano allungati e alcuni giochi mostrano colori sbagliati (sperimentale)."),
+    "Fills a widescreen TV with the game world; menus and text stay stretched.": ("Llena una TV panorámica con el mundo del juego; los menús y el texto siguen estirados.", "ゲームの世界をワイドテレビいっぱいに広げます。メニューと文字は横に伸びたままです。", "Preenche uma TV widescreen com o mundo do jogo; os menus e o texto continuam esticados.", "Riempie una TV panoramica con il mondo di gioco; i menu e il testo restano allungati."),
+    "16:9 isn't available for this game yet.": ("El 16:9 aún no está disponible para este juego.", "このゲームではまだ16:9を使えません。", "O 16:9 ainda não está disponível para este jogo.", "Il 16:9 non è ancora disponibile per questo gioco."),
+    "Not for this game": ("No para este juego", "このゲームには使えません", "Não para este jogo", "Non per questo gioco"),
     "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one).": ("El idioma en que se juega este juego, sin cambiar el ajuste de la Wii (la mayoría de los juegos de EE. UU. y Japón tienen solo uno).", "このゲームを遊ぶ言語で、Wii本体の設定は変わりません (アメリカと日本のゲームの多くは1言語だけです)。", "O idioma em que este jogo é jogado, sem mudar a configuração do Wii (a maioria dos jogos dos EUA e do Japão tem só um).", "La lingua in cui si gioca questo gioco, senza cambiare l'impostazione della Wii (la maggior parte dei giochi americani e giapponesi ne ha una sola)."),
     "Controls": ("Controles", "操作", "Controles", "Comandi"),
     "Fast suits almost every game; a few need the GameCube's own, slower speed (experimental, it can freeze some games).": ("Rápida sirve para casi todos los juegos; unos pocos necesitan la velocidad más lenta propia de la GameCube (experimental, puede congelar algunos juegos).", "高速はほとんどのゲームに向いています。ゲームキューブ本来の遅い速さが必要なゲームも少しあります (試験的、一部のゲームが止まることがあります)。", "Rápida serve para quase todos os jogos; alguns poucos precisam da velocidade mais lenta do próprio GameCube (experimental, pode travar alguns jogos).", "Veloce va bene per quasi tutti i giochi; pochi richiedono la velocità, più lenta, propria del GameCube (sperimentale, può bloccare alcuni giochi)."),
@@ -3761,8 +3763,12 @@ KO = {
         "와이드 화면",
     "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first.":
         "컴포넌트 케이블에서 더 선명하고 안정적인 화면을 보여 주며, 480p가 없는 게임도 해당됩니다. 일부 게임은 먼저 물어봅니다.",
-    "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental).":
-        "게임 세계를 와이드 TV에 가득 채웁니다. 메뉴는 늘어난 채로 남고, 일부 게임은 색이 잘못 나올 수 있습니다 (실험적).",
+    "Fills a widescreen TV with the game world; menus and text stay stretched.":
+        "게임 세계를 와이드 TV에 가득 채웁니다. 메뉴와 글자는 늘어난 채로 남습니다.",
+    "16:9 isn't available for this game yet.":
+        "이 게임에서는 아직 16:9를 사용할 수 없습니다.",
+    "Not for this game":
+        "이 게임에는 사용 불가",
     "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one).":
         "이 게임을 플레이할 언어이며 Wii 본체 설정은 바뀌지 않습니다 (미국·일본 게임은 대부분 언어가 하나뿐입니다).",
     "Controls":
@@ -5817,8 +5823,12 @@ FR = {
         "Écran large",
     "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first.":
         "Donne une image plus nette et plus stable avec un câble composante, même dans les jeux sans mode 480p ; certains posent d'abord la question.",
-    "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental).":
-        "Remplit une TV grand écran avec le monde du jeu ; les menus restent étirés et certains jeux montrent des couleurs fausses (expérimental).",
+    "Fills a widescreen TV with the game world; menus and text stay stretched.":
+        "Remplit une TV grand écran avec le monde du jeu ; les menus et le texte restent étirés.",
+    "16:9 isn't available for this game yet.":
+        "Le 16:9 n'est pas encore disponible pour ce jeu.",
+    "Not for this game":
+        "Pas pour ce jeu",
     "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one).":
         "La langue dans laquelle ce jeu se joue, sans changer le réglage de la Wii (la plupart des jeux américains et japonais n'en ont qu'une).",
     "Controls":

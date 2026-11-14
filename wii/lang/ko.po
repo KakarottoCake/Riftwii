@@ -2022,8 +2022,14 @@ msgstr "와이드 화면"
 msgid "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."
 msgstr "컴포넌트 케이블에서 더 선명하고 안정적인 화면을 보여 주며, 480p가 없는 게임도 해당됩니다. 일부 게임은 먼저 물어봅니다."
 
-msgid "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental)."
-msgstr "게임 세계를 와이드 TV에 가득 채웁니다. 메뉴는 늘어난 채로 남고, 일부 게임은 색이 잘못 나올 수 있습니다 (실험적)."
+msgid "Fills a widescreen TV with the game world; menus and text stay stretched."
+msgstr "게임 세계를 와이드 TV에 가득 채웁니다. 메뉴와 글자는 늘어난 채로 남습니다."
+
+msgid "16:9 isn't available for this game yet."
+msgstr "이 게임에서는 아직 16:9를 사용할 수 없습니다."
+
+msgid "Not for this game"
+msgstr "이 게임에는 사용 불가"
 
 msgid "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one)."
 msgstr "이 게임을 플레이할 언어이며 Wii 본체 설정은 바뀌지 않습니다 (미국·일본 게임은 대부분 언어가 하나뿐입니다)."

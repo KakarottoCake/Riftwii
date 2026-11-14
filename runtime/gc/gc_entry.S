@@ -403,9 +403,14 @@ gc_continue_vi_configure:
 /* GXSetProjection(mtx, type), for 16:9: gc_on_projection(ctx, mtx, type,
  * caller) returns the matrix to draw from (a widened copy of a
  * perspective one, or the game's own), and the original runs on it from
- * its replay slot with the game's type. No floating point here or in
- * the C: the game's FPU registers stay as the game left them.
- * Frame: 12 type. */
+ * its replay slot with the game's type and comes back here (a leaf, it
+ * returns through LR) before the hook returns to the game. Inverted
+ * colours were seen only in Super Mario Eclipse on a real Wii, never in
+ * Dolphin, and their cause is not known; in the 16 Oct 2026 tests the
+ * one build with this call and return (2610-495) had the colours right,
+ * the builds that branched into the original had them wrong. Not yet
+ * confirmed on a Wii with this code. No floating point here or in the C:
+ * the game's FPU registers stay as the game left them. Frame: 12 type. */
     .globl gc_hook_projection
 gc_hook_projection:
     stwu 1, -0x20(1)
@@ -420,10 +425,11 @@ gc_hook_projection:
     addi 3, 3, gc_context_data - 1b
     bl gc_on_projection
     lwz 4, 0x0C(1)
+    bl gc_replay_projection
     lwz 0, 0x24(1)
     mtlr 0
     addi 1, 1, 0x20
-    b gc_replay_projection
+    blr
 
     .balign 16
     .globl gc_replay_projection

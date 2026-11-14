@@ -2022,8 +2022,14 @@ msgstr "Widescreen"
 msgid "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."
 msgstr "Dá uma imagem mais nítida e estável com cabo componente, mesmo em jogos sem modo 480p; alguns jogos perguntam antes."
 
-msgid "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental)."
-msgstr "Preenche uma TV widescreen com o mundo do jogo; os menus continuam esticados e alguns jogos mostram cores erradas (experimental)."
+msgid "Fills a widescreen TV with the game world; menus and text stay stretched."
+msgstr "Preenche uma TV widescreen com o mundo do jogo; os menus e o texto continuam esticados."
+
+msgid "16:9 isn't available for this game yet."
+msgstr "O 16:9 ainda não está disponível para este jogo."
+
+msgid "Not for this game"
+msgstr "Não para este jogo"
 
 msgid "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one)."
 msgstr "O idioma em que este jogo é jogado, sem mudar a configuração do Wii (a maioria dos jogos dos EUA e do Japão tem só um)."

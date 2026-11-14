@@ -952,9 +952,14 @@ memory card**, *This game's own*, *Shared*, *A named card* or, on an original Wi
 card in slot A*, *Real card in slot B* or *Real card in slot B, as slot A*), **Picture lines** (*On (480p)*, *240p* for a CRT TV, as
 Settings > Picture > Video mode describes, or *Off*; European GameCube games never get 480p or
 240p), **Sharper
-picture**, **Picture width**, **Volume boost** (all of a quiet game's sound
+picture**, **Widescreen**, **Picture width**, **Volume boost** (all of a quiet game's sound
 +3 or +6 dB louder), **Game language** and, for European
-games, **Game speed** (60 Hz instead of 50). GameCube games also follow
+games, **Game speed** (60 Hz instead of 50). **Widescreen** *16:9* draws
+the game's 3D world wider for a widescreen TV; its menus and text stay
+4:3 and are stretched. Pick it only with the TV set to fill a 16:9
+screen: a TV set to 4:3, zoom or pillarbox shows the picture squashed.
+*Default* keeps the game's own picture unless **Settings > Picture > Aspect ratio**
+is *16:9*. Super Mario Sunshine and its mods don't offer it yet. GameCube games also follow
 the Wii's own **Screen Position** (Wii Settings > Screen), as Wii games
 do, when RiftWii finds where the game reads its position (the log says
 so); otherwise the game keeps its own.

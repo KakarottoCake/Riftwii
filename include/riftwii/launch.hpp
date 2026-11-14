@@ -212,18 +212,25 @@ struct GcConsoleSettings {
     std::string video_mode = "game";        // LoaderSettings::video_mode: "240p" there makes Default 240p
 };
 
-// Whether the game's 3D is drawn for 16:9: only "16:9", picked for the
-// game; "game" and "global" (Default) keep the game's own picture, as the
-// widening is experimental.
-bool gc_widescreen_on(const GameSettings& game, const GcConsoleSettings& console);
+// Whether "global" (Default) widens a GameCube game when Settings' aspect
+// is "game" and the Wii's TV is set to 16:9. Off while few games have been
+// tried: Default keeps the game's own picture unless Settings' aspect is
+// "16:9". True gives the rule from before 17 Oct 2026, the Wii's TV.
+constexpr bool kGcWidescreenFollowsWiiTv = false;
 
-// Held back from this release, to come back in a PR of their own: on a Wii,
+// Whether the game's 3D is drawn for 16:9: "16:9" yes, "game" no,
+// "global" as Settings' aspect says, and its "game" as the Wii's TV only
+// with kGcWidescreenFollowsWiiTv. Never for a game on gxpatches.hpp's
+// gc_widescreen_off list.
+bool gc_widescreen_on(const GameSettings& game, const std::string& id, const GcConsoleSettings& console);
+
+// Held back from this release, to come back in a PR of its own: on a Wii,
 // "As on a GameCube" loading still freezes Super Mario Eclipse at its
-// welcome scene, and 16:9 inverts the colours in some games. While a switch
-// is off, its row is hidden from the game page and the launch ignores the
-// choice; a choice already saved in a game's settings is kept for then.
+// welcome scene. While a switch is off, its row is hidden from the game
+// page and the launch ignores the choice; a choice already saved in a
+// game's settings is kept for then.
 constexpr bool kGcDriveTimingReady = false;
-constexpr bool kGcWidescreenReady = false;
+constexpr bool kGcWidescreenReady = true;
 
 // Whether the game gets 480p: "480p" yes, "game" no, "global" when the
 // Wii's own 480p setting is on and a component cable is plugged in. Never

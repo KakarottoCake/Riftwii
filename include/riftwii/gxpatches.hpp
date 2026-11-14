@@ -119,6 +119,16 @@ bool gc_keeps_aram_addresses(const std::string& game_id);
 // the progressive prompt.
 bool gc_loads_use_queued_heap(const std::string& game_id);
 
+// Why a GameCube game's 16:9 stays off whatever is picked
+// (gc_widescreen_on): widening its 3D camera (GXSetProjection's
+// perspective projections, gcnative.cpp) was seen to go wrong in it, or
+// in a game made from it. The game page dims the row and says so.
+enum class GcWidescreenOff {
+    no,             // 16:9 as picked
+    screen_copies,  // seen wrong on a Wii (a doubled picture, smears): Sunshine and its mods
+};
+GcWidescreenOff gc_widescreen_off(const std::string& game_id);
+
 // GameCube games whose restart (Reset, riftwii/gcreset.hpp) is known to
 // work: MEM1 put back as it was at the jump and the game started at its
 // entry again. Every other game goes back to RiftWii on Reset, as holding
