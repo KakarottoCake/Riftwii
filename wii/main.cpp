@@ -489,6 +489,7 @@ int main() {
     // Keeps the loader out of the memory the game's apploader and IOS
     // reloads overwrite (wii/core/memlimits.hpp).
     riftwii::wii::mem::Init();
+    riftwii::wii::ReloadCheckInit();
     riftwii::wii::InitNandPermissionLock();
     // Before any thread reads the USB drive (the drive scan, the covers).
     riftwii::wii::InitUsbLock();
