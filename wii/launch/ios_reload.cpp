@@ -260,7 +260,7 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
     // Nothing else runs until MEM2 reads back (above). What follows up to
     // there touches only MEM1, the hardware registers and the check words
     // (uncached): no allocation, no log, no std::string. The window opened
-    // 5-10 ms after the call returned on a Wii; the call returns at once.
+    // about 10 ms after the call returned on a Wii; the call returns at once.
     u32 level;
     _CPU_ISR_Disable(level);
     int mem2_wrong_from = -1, mem2_wrong_to = -1;

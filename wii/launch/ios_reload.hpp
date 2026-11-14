@@ -17,16 +17,17 @@ enum class ReloadResult {
     Terminal,        // IOS did not restart after IPC was disabled; do no recovery I/O
 };
 
+// Takes the MEM2 check words reload_ios waits on (MEM2 reads back as zeros
+// for a while after the new IOS starts): once, at start-up, before the menu
+// takes MEM2 for its textures.
+void ReloadCheckInit();
+
 // Reloads IOS the way libogc's IOS_ReloadIOS does, except that a missing
 // ticket view is tolerated under Dolphin, whose HLE boots any IOS it
 // knows without needing one installed in the NAND. Every IOS file
 // descriptor (DI, SD, ...) is invalid afterwards.
 // `force` reloads even when `version` is already running (a fresh IOS for
 // a game when the menu runs under the same cIOS).
-// Takes the MEM2 check words reload_ios waits on (MEM2 reads back as zeros
-// for a while after the new IOS starts): once, at start-up, before the menu
-// takes MEM2 for its textures.
-void ReloadCheckInit();
 ReloadResult reload_ios(int version, std::string& error, bool force = false);
 
 // True only after reload_ios() returned Terminal. Callers must return to a
