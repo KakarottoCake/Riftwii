@@ -4,12 +4,14 @@
 
 #include <ogc/lwp.h>
 #include <ogc/mutex.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <utility>
 
 #include "codebuilds.hpp"
 #include "log.hpp"
+#include "sdwritecheck.hpp"
 #include "memlimits.hpp"
 #include "netpacks.hpp"
 #include "netsock.hpp"
@@ -81,6 +83,12 @@ void ReadUsbDrive(DriveScanPart& part) {
 }
 
 void* ScanMain(void*) {
+    // The probe finishes before the scan can reload IOS.
+    // The menu waits for the scan before unmounting.
+    {
+        struct stat st;
+        ProbeSdWrite(::stat("sd:/", &st) == 0);
+    }
     DriveScanPart sd;
     ReadSdCard(sd);
     {

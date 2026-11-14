@@ -4505,3 +4505,18 @@ msgstr "Passe ce jeu sur {1}. Retour garde la carte qu'il a."
 
 msgid "CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none."
 msgstr "CTGP-R garde sa sauvegarde sur la carte SD, dans {1}. La sauvegarde de la Wii y est copiée si le dossier n'en a pas."
+
+msgid "The SD card is full"
+msgstr "La carte SD est pleine"
+
+msgid "The SD card can't be written"
+msgstr "La carte SD ne peut pas être écrite"
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer, then move files to the computer or delete files you do not need to make room."
+msgstr "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. Mettez la carte dans un ordinateur, puis déplacez des fichiers vers l'ordinateur ou supprimez les fichiers inutiles pour libérer de la place."
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. The card may be locked or read-only. Put the card in a computer and check its lock switch."
+msgstr "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. La carte est peut-être verrouillée ou en lecture seule. Mettez la carte dans un ordinateur et vérifiez son commutateur de verrouillage."
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."
+msgstr "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. Mettez la carte dans un ordinateur et vérifiez si elle comporte des erreurs."

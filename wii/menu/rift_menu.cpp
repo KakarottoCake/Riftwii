@@ -139,6 +139,7 @@
 #include "loadersettings.hpp"
 #include "memorybudget.hpp"
 #include "log.hpp"
+#include "sdwritecheck.hpp"
 #include "ios_reload.hpp"
 #include "menuios.hpp"
 #include "usbprobe.hpp"
@@ -5240,6 +5241,43 @@ static bool ShowTutorialOnce()
 	return !used;
 }
 
+static std::string SettingsWriteFailureText()
+{
+	std::string path = tr("Cannot write sd:/riftwii/settings.txt");
+	switch (riftwii::wii::SdWriteKindGet()) {
+	case riftwii::SdWriteKind::Full:
+		return std::string(tr("The SD card is full")) + ". " + path;
+	case riftwii::SdWriteKind::Locked:
+	case riftwii::SdWriteKind::Other:
+		return std::string(tr("The SD card can't be written")) + ". " + path;
+	case riftwii::SdWriteKind::Fine:
+	default:
+		break;
+	}
+	return path;
+}
+
+static void ShowSdWriteNoticeOnce()
+{
+	if (riftwii::wii::SdWriteNoticeShown())
+		return;
+	const riftwii::SdWriteKind notice_kind = riftwii::wii::SdWriteKindGet();
+	if (notice_kind == riftwii::SdWriteKind::Fine)
+		return;
+	switch (notice_kind) {
+	case riftwii::SdWriteKind::Full:
+		ShowPopup(tr("The SD card is full"), tr("RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer, then move files to the computer or delete files you do not need to make room."), tr("OK"));
+		break;
+	case riftwii::SdWriteKind::Locked:
+		ShowPopup(tr("The SD card can't be written"), tr("RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. The card may be locked or read-only. Put the card in a computer and check its lock switch."), tr("OK"));
+		break;
+	default:
+		ShowPopup(tr("The SD card can't be written"), tr("RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."), tr("OK"));
+		break;
+	}
+	riftwii::wii::SdWriteNoticeMarkShown();
+}
+
 // Hidden files macOS writes on a FAT card ("._name" beside every copied
 // file): counted in the folders RiftWii reads. The game scan and the mod
 // folders skip them; this only suggests dot_clean. "Don't show again"
@@ -7568,6 +7606,7 @@ static int MenuSource(FrontendState& state)
 						riftwii::wii::MenuMusicStop();
 						riftwii::wii::MenuMusicStart();
 						g_forgetPicturesAfterScan = true;
+						riftwii::wii::SdWriteReset();
 						StartScan();
 						riftwii::wii::ForgetAppIcons();
 						riftwii::wii::RescanHomebrewApps();
@@ -7599,6 +7638,8 @@ static int MenuSource(FrontendState& state)
 			toast.Show(fontNote, true);
 			showStatus();
 		}
+		if (!g_askAfterScan && !g_scanning && menu == MENU_NONE && !g_sdGone && !g_sdRemovalPending)
+			ShowSdWriteNoticeOnce();
 		if (!g_scanning && grid.Channels()) {
 			const auto& apps = riftwii::wii::HomebrewApps();
 			const int first = grid.PageFirst();
@@ -17562,7 +17603,8 @@ static void MenuParentalControls()
 	const auto save = [&](const std::function<void()>& undo) {
 		if (riftwii::wii::SaveSettings()) return true;
 		undo();
-		ShowPopup(tr("Parental controls"), tr("Cannot write sd:/riftwii/settings.txt"), tr("OK"));
+		std::string failure = SettingsWriteFailureText();
+		ShowPopup(tr("Parental controls"), failure.c_str(), tr("OK"));
 		return false;
 	};
 	// A new PIN, typed twice; "" when cancelled or the two differ (said).
@@ -18127,7 +18169,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	PageIcon pageIcon(SectionIcon(section));
 	GuiText versionTxt("RiftWii " RIFTWII_VERSION, 15, skin::kInkDim);
 	const auto saveSettings = [&]() {
-		if (!riftwii::wii::SaveSettings()) return std::string(tr("Cannot write sd:/riftwii/settings.txt"));
+		if (!riftwii::wii::SaveSettings()) return SettingsWriteFailureText();
 		return std::string();
 	};
 	// New names: the title list again, and the scanned games renamed.

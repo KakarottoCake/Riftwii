@@ -4505,3 +4505,18 @@ msgstr "이 게임을 {1}(으)로 바꿉니다. 뒤로를 누르면 지금 카�
 
 msgid "CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none."
 msgstr "CTGP-R은 세이브 데이터를 SD 카드의 {1}에 저장합니다. 폴더에 세이브 데이터가 없으면 Wii의 세이브 데이터가 복사됩니다."
+
+msgid "The SD card is full"
+msgstr "SD 카드가 가득 찼습니다"
+
+msgid "The SD card can't be written"
+msgstr "SD 카드에 쓸 수 없습니다"
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer, then move files to the computer or delete files you do not need to make room."
+msgstr "RiftWii가 새 파일을 저장할 수 없어 설정, 게임 선택, 커버 및 로그가 저장되지 않을 수 있습니다. 카드를 컴퓨터에 넣은 뒤 파일을 컴퓨터로 옮기거나 필요 없는 파일을 삭제해 공간을 만드세요."
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. The card may be locked or read-only. Put the card in a computer and check its lock switch."
+msgstr "RiftWii가 새 파일을 저장할 수 없어 설정, 게임 선택, 커버 및 로그가 저장되지 않을 수 있습니다. 카드가 잠겨 있거나 읽기 전용일 수 있습니다. 카드를 컴퓨터에 넣고 잠금 스위치를 확인하세요."
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."
+msgstr "RiftWii가 새 파일을 저장할 수 없어 설정, 게임 선택, 커버 및 로그가 저장되지 않을 수 있습니다. 카드를 컴퓨터에 넣고 카드에 오류가 있는지 확인하세요."

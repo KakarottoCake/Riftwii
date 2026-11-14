@@ -9459,5 +9459,47 @@ FR.update({
     "CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none.": "CTGP-R garde sa sauvegarde sur la carte SD, dans {1}. La sauvegarde de la Wii y est copiée si le dossier n'en a pas.",
 })
 
+T.update({
+    "The SD card is full": (
+        "La tarjeta SD está llena",
+        "SDカードがいっぱいです",
+        "O cartão SD está cheio",
+        "La scheda SD è piena"),
+    "The SD card can't be written": (
+        "No se puede escribir en la tarjeta SD",
+        "SDカードに書き込めません",
+        "Não é possível escrever no cartão SD",
+        "Non è possibile scrivere sulla scheda SD"),
+    "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer, then move files to the computer or delete files you do not need to make room.": (
+        "RiftWii no puede guardar archivos nuevos, por lo que los ajustes, las elecciones de juego, las carátulas y los registros podrían no guardarse. Pon la tarjeta en un ordenador y mueve archivos al ordenador o borra los archivos que no necesites para hacer sitio.",
+        "RiftWiiが新しいファイルを保存できないため、設定やゲームの選択、ジャケット画像やログが保存されないことがあります。カードをパソコンに入れて、ファイルをパソコンに移動するか、不要なファイルを削除して空きを作ってください。",
+        "O RiftWii não consegue guardar ficheiros novos, pelo que as opções, as escolhas de jogo, as capas e os registos podem não ser guardados. Ponha o cartão num computador e mova ficheiros para o computador ou apague ficheiros de que não precisa para libertar espaço.",
+        "RiftWii non può salvare nuovi file, quindi impostazioni, scelte di gioco, copertine e registri potrebbero non essere salvati. Metti la scheda in un computer, poi sposta i file sul computer o elimina i file che non ti servono per fare spazio."),
+    "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. The card may be locked or read-only. Put the card in a computer and check its lock switch.": (
+        "RiftWii no puede guardar archivos nuevos, por lo que los ajustes, las elecciones de juego, las carátulas y los registros podrían no guardarse. La tarjeta puede estar bloqueada o en solo lectura. Pon la tarjeta en un ordenador y comprueba su interruptor de bloqueo.",
+        "RiftWiiが新しいファイルを保存できないため、設定やゲームの選択、ジャケット画像やログが保存されないことがあります。カードがロックされているか、読み取り専用かもしれません。カードをパソコンで確認して、ロックスイッチを確認してください。",
+        "O RiftWii não consegue guardar ficheiros novos, pelo que as opções, as escolhas de jogo, as capas e os registos podem não ser guardados. O cartão pode estar bloqueado ou em só leitura. Ponha o cartão num computador e verifique o interruptor de bloqueio.",
+        "RiftWii non può salvare nuovi file, quindi impostazioni, scelte di gioco, copertine e registri potrebbero non essere salvati. La scheda potrebbe essere bloccata o in sola lettura. Metti la scheda in un computer e controlla l'interruttore di blocco."),
+    "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors.": (
+        "RiftWii no puede guardar archivos nuevos, por lo que los ajustes, las elecciones de juego, las carátulas y los registros podrían no guardarse. Pon la tarjeta en un ordenador y comprueba si tiene errores.",
+        "RiftWiiが新しいファイルを保存できないため、設定やゲームの選択、ジャケット画像やログが保存されないことがあります。カードをパソコンに入れて、エラーがないかカードを確認してください。",
+        "O RiftWii não consegue guardar ficheiros novos, pelo que as opções, as escolhas de jogo, as capas e os registos podem não ser guardados. Ponha o cartão num computador e verifique se tem erros.",
+        "RiftWii non può salvare nuovi file, quindi impostazioni, scelte di gioco, copertine e registri potrebbero non essere salvati. Metti la scheda in un computer e controllala per errori."),
+})
+KO.update({
+    "The SD card is full": "SD 카드가 가득 찼습니다",
+    "The SD card can't be written": "SD 카드에 쓸 수 없습니다",
+    "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer, then move files to the computer or delete files you do not need to make room.": "RiftWii가 새 파일을 저장할 수 없어 설정, 게임 선택, 커버 및 로그가 저장되지 않을 수 있습니다. 카드를 컴퓨터에 넣은 뒤 파일을 컴퓨터로 옮기거나 필요 없는 파일을 삭제해 공간을 만드세요.",
+    "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. The card may be locked or read-only. Put the card in a computer and check its lock switch.": "RiftWii가 새 파일을 저장할 수 없어 설정, 게임 선택, 커버 및 로그가 저장되지 않을 수 있습니다. 카드가 잠겨 있거나 읽기 전용일 수 있습니다. 카드를 컴퓨터에 넣고 잠금 스위치를 확인하세요.",
+    "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors.": "RiftWii가 새 파일을 저장할 수 없어 설정, 게임 선택, 커버 및 로그가 저장되지 않을 수 있습니다. 카드를 컴퓨터에 넣고 카드에 오류가 있는지 확인하세요.",
+})
+FR.update({
+    "The SD card is full": "La carte SD est pleine",
+    "The SD card can't be written": "La carte SD ne peut pas être écrite",
+    "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer, then move files to the computer or delete files you do not need to make room.": "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. Mettez la carte dans un ordinateur, puis déplacez des fichiers vers l'ordinateur ou supprimez les fichiers inutiles pour libérer de la place.",
+    "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. The card may be locked or read-only. Put the card in a computer and check its lock switch.": "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. La carte est peut-être verrouillée ou en lecture seule. Mettez la carte dans un ordinateur et vérifiez son commutateur de verrouillage.",
+    "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors.": "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. Mettez la carte dans un ordinateur et vérifiez si elle comporte des erreurs.",
+})
+
 if __name__ == "__main__":
     main()
