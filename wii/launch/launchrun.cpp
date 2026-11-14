@@ -665,11 +665,16 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
                 if (!prepare_ctgpr_launch(s.probe.header.game_id, options.ctgpr, error)) return false;
                 return boot_game(s.probe, std::move(options), error);
             }
-            if (!SetCtgpDefaults(app, source.kind != LaunchSource::Kind::Disc, error)) return false;
             if (source.kind != LaunchSource::Kind::Disc) {
                 // The app reloads IOS itself (CTGP asks for IOS37), which
                 // would drop d2x and the game with it: d2x blocks that.
                 Session s(source, "sd:/riftwii/boot.log");
+                if (ctgpr_channel && !prepare_channel_partition_layout(s.source.game, error)) {
+                    logf("CTGP-R channel: the virtual disc's partition layout could not be prepared (%s)\n", error.c_str());
+                    error = tr("CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log.");
+                    return false;
+                }
+                if (!SetCtgpDefaults(app, true, error)) return false;
                 s.block_ios_reload = true;
                 const bool probed = s.ensure_probe(error);
                 if (ctgpr_channel)
@@ -690,6 +695,8 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
                 di::close();
                 s.keep_reload_block = true;
                 logf("Homebrew app: d2x serves %s as the disc for it\n", source.game.id.c_str());
+            } else if (!SetCtgpDefaults(app, false, error)) {
+                return false;
             }
             logf("Homebrew app: IOS%d, hardware access %s\n", IOS_GetVersion(),
                  *reinterpret_cast<volatile u32*>(0xCD800064) == 0xFFFFFFFFu ? "on" : "off");

@@ -4514,3 +4514,6 @@ msgstr "이 게임을 {1}(으)로 바꿉니다. 뒤로를 누르면 지금 카�
 
 msgid "CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none."
 msgstr "CTGP-R은 세이브 데이터를 SD 카드의 {1}에 저장합니다. 폴더에 세이브 데이터가 없으면 Wii의 세이브 데이터가 복사됩니다."
+
+msgid "CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."
+msgstr "CTGP-R 게임 이미지를 준비하지 못했습니다. 이유는 sd:/riftwii/boot.log에 있습니다."

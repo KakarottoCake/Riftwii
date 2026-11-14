@@ -1307,6 +1307,104 @@ bool check_image_game(ImageGame& game, std::string& error) {
     return !rvz_refused(game, error);
 }
 
+bool prepare_channel_partition_layout(ImageGame& game, std::string& error) {
+    UsbLocked locked;
+    if (!game.checked || game.format == UsbImageFormat::Rvz) {
+        error = "a channel's disc needs a checked ISO or WBFS image";
+        return false;
+    }
+    // USB DVDs use 2048-byte drive sectors for both reads and fragment
+    // offsets. This header overlay supports only 512-byte sectors.
+    if (game.device == ImageDevice::Usb && __io_usbstorage_sector_size != 512) {
+        error = "the channel's replacement disc header needs 512-byte USB sectors";
+        return false;
+    }
+    constexpr std::uint32_t logical = 0x40000 / 512;
+    const auto entry = std::find_if(game.fragments.entries.begin(), game.fragments.entries.end(),
+        [](const D2xFragment& fragment) {
+            return logical >= fragment.offset && std::uint64_t(logical) <
+                   std::uint64_t(fragment.offset) + fragment.count;
+        });
+    if (entry == game.fragments.entries.end()) {
+        error = "the image does not contain its partition table sector";
+        return false;
+    }
+    const std::uint64_t physical = std::uint64_t(entry->sector) + logical - entry->offset;
+    const BlockReader reader = game.device == ImageDevice::Usb ? BlockReader(&usb_read) : BlockReader(&sd_read);
+    std::array<std::uint8_t, 512> sector ATTRIBUTE_ALIGN(32);
+    bool changed = false;
+    if (!reader(physical, 1, sector.data())) {
+        error = "the image's partition table could not be read";
+        return false;
+    }
+    if (!second_game_partition(sector, std::uint64_t(game.fragments.size) * 512, changed, error)) return false;
+    if (!changed) return true;
+
+    // d2x's fragment list uses one device for all its sectors. Keep the
+    // replacement header on that same drive, including for USB images.
+    // A temporary, exclusive FAT mount also works when the game itself
+    // is on another (NTFS or WBFS) partition of this drive.
+    const bool usb = game.device == ImageDevice::Usb;
+    std::uint64_t cache_lba = 0;
+    bool legacy = false;
+    std::string root = "sd:/";
+    if (usb) {
+        const auto volume = std::find_if(g_usb_volumes.begin(), g_usb_volumes.end(),
+            [](const MountedImageVolume& mounted) { return std::strcmp(mounted.volume->kind(), "FAT32") == 0; });
+        if (volume == g_usb_volumes.end() || volume->lba > 0xffffffffu) {
+            error = "the channel's virtual disc needs a FAT32 partition on the image's drive for its header";
+            return false;
+        }
+        cache_lba = volume->lba;
+        legacy = g_libfat_mounted;
+        if (legacy) fatUnmount("usb:");
+        g_libfat_mounted = false;
+        if (!fatMount("rwlayout", &g_usb_io, static_cast<sec_t>(cache_lba), 8, 64)) {
+            if (legacy) g_libfat_mounted = fatMountSimple("usb", &g_usb_io);
+            error = "the channel's header folder could not be mounted";
+            return false;
+        }
+        root = "rwlayout:/";
+    }
+    const std::string folder = root + "riftwii";
+    const std::string path = folder + "/channel-partition.bin";
+    mkdir(folder.c_str(), 0777);
+    const bool written = WriteWholeFile(path, sector.data(), sector.size());
+    if (usb) {
+        fatUnmount("rwlayout:");
+        if (legacy) g_libfat_mounted = fatMountSimple("usb", &g_usb_io);
+    }
+    if (!written) {
+        error = "the channel's replacement disc header could not be written";
+        return false;
+    }
+    std::vector<Fragment> fragments;
+    std::uint64_t bytes = 0;
+    if (usb) {
+        Fat32Volume volume;
+        Fat32File file;
+        if (!Fat32Volume::mount_at(reader, cache_lba, volume, error) ||
+            !volume.lookup("/riftwii/channel-partition.bin", file, error)) return false;
+        bytes = file.entry.size;
+        fragments = std::move(file.fragments);
+    } else if (!sd_file_pieces(path, bytes, fragments, error)) return false;
+    if (bytes != sector.size() || fragments.empty() || fragments.front().sector_count == 0 ||
+        fragments.front().sector > 0xffffffffu) {
+        error = "the channel's replacement disc header has no usable file sector";
+        return false;
+    }
+    std::array<std::uint8_t, 512> checked ATTRIBUTE_ALIGN(32);
+    if (!reader(fragments.front().sector, 1, checked.data()) || checked != sector) {
+        error = "the channel's replacement disc header did not read back correctly";
+        return false;
+    }
+    if (!replace_d2x_sector(game.fragments, logical, static_cast<std::uint32_t>(fragments.front().sector), error))
+        return false;
+    logf("Homebrew app: the virtual disc presents its game in partition slot 1 using a separate header on %s; "
+         "the original image is unchanged\n", usb ? "the USB drive" : "the SD card");
+    return true;
+}
+
 bool read_image_disc_file(const ImageGame& game, const std::string& disc_path, std::vector<std::uint8_t>& out,
                           std::string& error) {
     UsbLocked locked;
