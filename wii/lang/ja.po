@@ -4212,6 +4212,15 @@ msgstr "ゲーム専用、共通、Nintendontのカード、またはスロッ�
 msgid "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "ゲーム専用、共通、Dolphinのカード、またはスロットAの実物のカード（Wiiのみ）を使います。"
 
+msgid "Could not save choices"
+msgstr "設定を保存できませんでした"
+
+msgid "Choices for this game could not be saved. Check the SD card is not full or locked."
+msgstr "このゲームの設定を保存できませんでした。SDカードがいっぱいやロックされていないか確認してください。"
+
+msgid "Play anyway?"
+msgstr "それでもプレイしますか？"
+
 msgid "Disc slot light"
 msgstr "ディスクスロットの光"
 

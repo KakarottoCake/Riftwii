@@ -4212,6 +4212,15 @@ msgstr "게임 전용, 공용, Nintendont 카드 또는 슬롯 A의 실제 카�
 msgid "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "게임 전용, 공용, Dolphin 카드 또는 슬롯 A의 실제 카드를 사용합니다(Wii만)."
 
+msgid "Could not save choices"
+msgstr "선택 사항을 저장하지 못했습니다"
+
+msgid "Choices for this game could not be saved. Check the SD card is not full or locked."
+msgstr "이 게임의 선택 사항을 저장하지 못했습니다. SD 카드가 가득 찼거나 잠겨 있는지 확인하세요."
+
+msgid "Play anyway?"
+msgstr "그래도 플레이할까요?"
+
 msgid "Disc slot light"
 msgstr "디스크 슬롯 표시등"
 

@@ -4212,6 +4212,15 @@ msgstr "Usa la scheda del gioco, una condivisa, quella di Nintendont o una reale
 msgid "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "Usa la scheda del gioco, una condivisa, quella di Dolphin o una reale nello slot A (solo Wii)."
 
+msgid "Could not save choices"
+msgstr "Impossibile salvare le scelte"
+
+msgid "Choices for this game could not be saved. Check the SD card is not full or locked."
+msgstr "Le scelte per questo gioco non possono essere salvate. Controlla che la scheda SD non sia piena o bloccata."
+
+msgid "Play anyway?"
+msgstr "Giocare comunque?"
+
 msgid "Disc slot light"
 msgstr "Luce del vano disco"
 

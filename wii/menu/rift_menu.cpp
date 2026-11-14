@@ -15597,19 +15597,29 @@ static int MenuHome(FrontendState& state)
 	const auto saveOrSay = [&]() {
 		std::string error;
 		if (SaveChoices(state, error)) return true;
+		logf("Game page: the choices for %s (%s) could not be saved (%s).\n", GameTitle(state).c_str(), state.game_id.c_str(), error.c_str());
 		say(error);
 		return false;
 	};
 	// Start's save: with a banner playing on screen, written with the GUI
 	// running, so the banner does not stop (the page is out of sight).
+	// A failed save asks whether to play anyway; Play keeps the current
+	// choices without saving again.
 	const auto saveForStart = [&]() {
-		if (!bannerHeld) return saveOrSay();
 		std::string error;
-		ResumeGui();
-		const bool saved = SaveChoices(state, error);
-		HaltGui();
-		if (!saved) say(error);
-		return saved;
+		bool saved;
+		if (!bannerHeld) {
+			saved = SaveChoices(state, error);
+		} else {
+			ResumeGui();
+			saved = SaveChoices(state, error);
+			HaltGui();
+		}
+		if (saved) return true;
+		logf("Game page: the choices for %s (%s) could not be saved (%s); asking whether to play anyway.\n", GameTitle(state).c_str(), state.game_id.c_str(), error.c_str());
+		const bool play = ShowPopup(tr("Could not save choices"), std::string(tr("Choices for this game could not be saved. Check the SD card is not full or locked.")) + " " + tr("Play anyway?"), tr("Play"), tr("Not now")) == 0;
+		logf("Game page: the player %s.\n", play ? "played anyway" : "stayed");
+		return play;
 	};
 	// Start's cIOS check reads the slots from the NAND: with a banner
 	// playing on screen, with the GUI running (it stopped for 0.2 s).
@@ -15985,8 +15995,14 @@ static int MenuHome(FrontendState& state)
 		else if (prompt == promptReport) reportBtn.PressSilently();
 
 		if (backBtn.Clicked()) {
-			if (saveOrSay()) menu = MENU_SOURCE;
-			else backBtn.button.ResetState();
+			std::string error;
+			if (SaveChoices(state, error)) {
+				menu = MENU_SOURCE;
+			} else {
+				logf("Game page: the choices for %s (%s) could not be saved (%s); the player left.\n", GameTitle(state).c_str(), state.game_id.c_str(), error.c_str());
+				ShowPopup(tr("Could not save choices"), tr("Choices for this game could not be saved. Check the SD card is not full or locked."), tr("OK"));
+				menu = MENU_SOURCE;
+			}
 		} else if (startBtn.Clicked()) {
 			startBtn.button.ResetState();
 			startHandled = true;
@@ -16069,7 +16085,7 @@ static int MenuHome(FrontendState& state)
 			} else if (!PickCodeModStart(state)) {
 				// B: back on the game page
 			} else if (!saveForStart()) {
-				// the status shows why
+				// Not now stays on the page.
 			} else if (!riftwii::needs_launch_pipeline(!state.model.selections().empty(), riftwii::wii::EffectiveSaveMode(state))) {
 				menu = MENU_BOOT;  // no resident work: boot the game as it is
 			} else if (state.use_usb || state.use_sd || (riftwii::wii::MenuCiosSlot() == 0 && PacksOnUsb(state))) {

@@ -4212,6 +4212,15 @@ msgstr "Usa la tarjeta del juego, una compartida, la de Nintendont o una real en
 msgid "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "Usa la tarjeta del juego, una compartida, la de Dolphin o una real en la ranura A (solo Wii)."
 
+msgid "Could not save choices"
+msgstr "No se pudieron guardar las opciones"
+
+msgid "Choices for this game could not be saved. Check the SD card is not full or locked."
+msgstr "Las opciones de este juego no se pudieron guardar. Comprueba que la tarjeta SD no esté llena ni bloqueada."
+
+msgid "Play anyway?"
+msgstr "¿Jugar de todos modos?"
+
 msgid "Disc slot light"
 msgstr "Luz de la ranura de discos"
 
