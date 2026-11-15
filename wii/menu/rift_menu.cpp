@@ -912,6 +912,19 @@ static std::string FlatCapped(const std::string& text, std::size_t max)
 	return flat;
 }
 
+// FlatCapped, but `max` counts characters, not bytes: a note in Russian or
+// Japanese gets as many letters as one in English (2 or 3 bytes each in UTF-8).
+static std::string FlatCappedChars(const std::string& text, std::size_t max)
+{
+	std::string flat = FlatCapped(text, std::string::npos);
+	std::size_t chars = 0;
+	for (std::size_t i = 0; i < flat.size(); ++i) {
+		if ((static_cast<unsigned char>(flat[i]) & 0xC0) == 0x80) continue;  // inside a character
+		if (chars++ == max) return flat.substr(0, i) + "...";
+	}
+	return flat;
+}
+
 // Pixels a 15-point note row in the 540-wide lists has for its text: the card's
 // width less the paddings and, with scroll arrows showing, their room (482).
 static constexpr int kNoteRowPixels = 470;
@@ -13159,6 +13172,13 @@ static void MenuAbout(const FrontendState& state, riftwii::GameInfo info)
 // page. The file is plain text (riftwii/cheats.hpp); when the Wii is
 // online a missing one is fetched from the GeckoCodes archive.
 
+// A cheat's notes as shown (the list's note card, the keypad's box): long
+// ones roll up through the box (SCROLL::VERTICAL) rather than end in "...",
+// so a button list such as a controller remapper's is read in full. GuiText
+// keeps 20 wrapped lines: about 1200 plain characters in the narrower card;
+// a note longer than that ends its 20th line in "...".
+constexpr std::size_t kCheatNoteChars = 1200;
+
 // A cheat's values (its X's, Y's...) asked one by one on a hex keypad,
 // its notes above it (they say what the values are), then written into
 // the cheat file. False when cancelled or not written (`error` then says
@@ -13178,7 +13198,7 @@ static bool AskCheatValues(const FrontendState& state, const riftwii::Cheat& c, 
 	for (riftwii::CheatField& f : fields) {
 		const std::string title = tr("{1}: {2} ({3} digits)",
 			{FlatCapped(c.name, 22), std::string(1, f.letter), std::to_string(f.digits)});
-		GuiSearchKeys keys(f.value, title, FlatCapped(notes, 220), f.digits);
+		GuiSearchKeys keys(f.value, title, FlatCappedChars(notes, kCheatNoteChars), f.digits);
 		mainWindow->SetState(STATE::DISABLED);
 		mainWindow->Append(&keys);
 		keys.SetState(STATE::DEFAULT);
@@ -13323,6 +13343,7 @@ static void MenuCheats(FrontendState& state)
 	GuiText noteTxt(fileNote.c_str(), 15, skin::kInkSoft);
 	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
 	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
+	noteTxt.SetScroll(SCROLL::VERTICAL);  // a long cheat note rolls up, not cut
 	// A fourth line of the note would run to y 410, over the source label, so
 	// the note keeps to three lines (ending by y 389) while the label shows.
 	const auto showSource = [&]() {
@@ -13418,7 +13439,7 @@ static void MenuCheats(FrontendState& state)
 				std::string note;
 				for (const std::string& n : c.notes) note += (note.empty() ? "" : " ") + n;
 				if (c.needs_values) note = tr("This cheat has values to fill in (the X's): press A to set them.") + (note.empty() ? "" : " " + note);
-				say(FlatCapped(note.empty() ? c.name : c.name + ": " + note, 200));
+				say(FlatCappedChars(note.empty() ? c.name : c.name + ": " + note, kCheatNoteChars));
 			} else if (ref.act == Act::Values) {
 				std::string values;
 				for (const riftwii::CheatField& f : riftwii::wii::CheatFields(state.game_id, file.cheats[ref.cheat].name, state.game_revision))
