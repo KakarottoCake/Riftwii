@@ -18519,17 +18519,17 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					rebuild();
 					break;
 				case kWiiSaves:
-					settings.saves_every_game = StepValue(kSavesEveryGameChoices, settings.saves_every_game, direction, false);
+					settings.saves_every_game = StepValue(kSavesEveryGameChoices, settings.saves_every_game, direction);
 					saveAndNote(tr(kWiiSavesNote));
 					rebuild();
 					break;
 				case kEmuNandFolder:
-					settings.emunand_folder = StepValue(kEmuNandFolderChoices, settings.emunand_folder, direction, false);
+					settings.emunand_folder = StepValue(kEmuNandFolderChoices, settings.emunand_folder, direction);
 					saveAndNote(tr(kEmuNandFolderNote));
 					rebuild();
 					break;
 				case kEmuNandKeeps:
-					settings.emunand_keeps = StepValue(kEmuNandKeepChoices, settings.emunand_keeps, direction, false);
+					settings.emunand_keeps = StepValue(kEmuNandKeepChoices, settings.emunand_keeps, direction);
 					saveAndNote(tr(kEmuNandKeepsNote));
 					rebuild();
 					break;
