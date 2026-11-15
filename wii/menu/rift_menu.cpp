@@ -912,6 +912,19 @@ static std::string FlatCapped(const std::string& text, std::size_t max)
 	return flat;
 }
 
+// FlatCapped, but `max` counts characters, not bytes: a note in Russian or
+// Japanese gets as many letters as one in English (2 or 3 bytes each in UTF-8).
+static std::string FlatCappedChars(const std::string& text, std::size_t max)
+{
+	std::string flat = FlatCapped(text, std::string::npos);
+	std::size_t chars = 0;
+	for (std::size_t i = 0; i < flat.size(); ++i) {
+		if ((static_cast<unsigned char>(flat[i]) & 0xC0) == 0x80) continue;  // inside a character
+		if (chars++ == max) return flat.substr(0, i) + "...";
+	}
+	return flat;
+}
+
 // Pixels a 15-point note row in the 540-wide lists has for its text: the card's
 // width less the paddings and, with scroll arrows showing, their room (482).
 static constexpr int kNoteRowPixels = 470;
@@ -13185,7 +13198,7 @@ static bool AskCheatValues(const FrontendState& state, const riftwii::Cheat& c, 
 	for (riftwii::CheatField& f : fields) {
 		const std::string title = tr("{1}: {2} ({3} digits)",
 			{FlatCapped(c.name, 22), std::string(1, f.letter), std::to_string(f.digits)});
-		GuiSearchKeys keys(f.value, title, FlatCapped(notes, kCheatNoteChars), f.digits);
+		GuiSearchKeys keys(f.value, title, FlatCappedChars(notes, kCheatNoteChars), f.digits);
 		mainWindow->SetState(STATE::DISABLED);
 		mainWindow->Append(&keys);
 		keys.SetState(STATE::DEFAULT);
@@ -13426,7 +13439,7 @@ static void MenuCheats(FrontendState& state)
 				std::string note;
 				for (const std::string& n : c.notes) note += (note.empty() ? "" : " ") + n;
 				if (c.needs_values) note = tr("This cheat has values to fill in (the X's): press A to set them.") + (note.empty() ? "" : " " + note);
-				say(FlatCapped(note.empty() ? c.name : c.name + ": " + note, kCheatNoteChars));
+				say(FlatCappedChars(note.empty() ? c.name : c.name + ": " + note, kCheatNoteChars));
 			} else if (ref.act == Act::Values) {
 				std::string values;
 				for (const riftwii::CheatField& f : riftwii::wii::CheatFields(state.game_id, file.cheats[ref.cheat].name, state.game_revision))
