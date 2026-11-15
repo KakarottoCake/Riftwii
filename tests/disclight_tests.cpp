@@ -32,6 +32,8 @@ bool schedule_fails = false;
 unsigned creates = 0;
 unsigned schedules = 0;
 bool timer_running = false;
+unsigned gpio_writes = 0;
+s32 ios_version = 58;
 alarmcallback pulse = nullptr;
 sys_resetinfo* shutdown_hook = nullptr;
 riftwii::LoaderSettings settings;
@@ -44,6 +46,12 @@ void Tick() {
     pulse(17, nullptr);
     RestoreInterrupts(level);
     CHECK((gpio & ~0x20u) == kOtherPins);
+}
+
+void Tick_cios() {
+    const u32 level = LockInterrupts();
+    pulse(17, nullptr);
+    RestoreInterrupts(level);
 }
 
 bool FailedOperation() {
@@ -64,11 +72,14 @@ void RestoreInterrupts(u32 level) { interrupt_level = level; }
 
 void mask32(u32 address, u32 clear, u32 set) {
     CHECK(interrupt_level != 0);
+    ++gpio_writes;
     CHECK(address == 0x0D8000C0);
     CHECK(clear == 0x20);
     CHECK(set == 0 || set == 0x20);
     gpio = (gpio & ~clear) | set;
 }
+
+s32 IOS_GetVersion() { return ios_version; }
 
 s32 SYS_CreateAlarm(syswd_t* alarm) {
     ++creates;
@@ -111,7 +122,19 @@ int main(int argc, char** argv) {
     schedule_fails = mode == "schedule-failure";
 
     // Default, parser validation, persistence and reset-to-default behavior.
-    CHECK(settings.disc_light);
+    {
+        riftwii::LoaderSettings fresh;
+        CHECK(!fresh.disc_light);  // off by default
+        CHECK(!settings.disc_light);
+        fresh.parse(fresh.serialize());
+        CHECK(!fresh.disc_light);
+        fresh.parse("disc_light = on\n");  // an existing choice is honoured
+        CHECK(fresh.disc_light);
+        riftwii::LoaderSettings kept;
+        kept.parse(fresh.serialize());
+        CHECK(kept.disc_light);
+    }
+    settings.parse("disc_light = on\n");
     settings.parse("disc_light = off\n");
     CHECK(!settings.disc_light);
     settings.parse("disc_light = invalid\n");
@@ -119,11 +142,14 @@ int main(int argc, char** argv) {
     riftwii::LoaderSettings restored;
     restored.parse(settings.serialize());
     CHECK(!restored.disc_light);
-    CHECK(riftwii::settings_after_reset(settings).disc_light);
+    CHECK(!riftwii::settings_after_reset(settings).disc_light);
     {
         DiscLightActivity disabled;
         CHECK(creates == 0 && schedules == 0);
         CHECK(!Lit());
+        DiscLightIosReloaded();  // setting off: no GPIO access at all
+        StopDiscLight();
+        CHECK(gpio_writes == 0 && gpio == kOtherPins);
     }
     settings.parse("disc_light = on\n");
 
@@ -180,6 +206,68 @@ int main(int argc, char** argv) {
             CHECK(shutdown_hook->func(1) == 1);
             CHECK(!Lit() && !timer_running);
         }
+        // A launch's IOS reload: dark now, and dark while a cIOS runs.
+        {
+            DiscLightActivity launch;
+            CHECK(Lit() && timer_running);
+            DiscLightIosReloaded();
+            ios_version = 249;  // d2x came up
+            CHECK(!Lit() && !timer_running);
+            const u32 level = LockInterrupts();  // a queued pulse stays dark
+            pulse(17, nullptr);
+            RestoreInterrupts(level);
+            CHECK(!Lit());
+            {
+                DiscLightActivity scopeA;  // the failed launch ends scope A...
+                CHECK(!Lit() && !timer_running);
+                scopeA.Restart();
+                CHECK(!Lit() && !timer_running);
+            }
+            {
+                DiscLightActivity scopeB;  // ...and B starts, still on d2x
+                CHECK(!Lit() && !timer_running);
+            }
+            launch.Restart();  // a retry on the next cIOS
+            CHECK(!Lit() && !timer_running);
+        }
+        CHECK(!Lit() && !timer_running);
+        {
+            DiscLightActivity stillOnCios;  // menu on d2x after the failure
+            CHECK(!Lit() && !timer_running);
+        }
+        ios_version = 58;  // the menu's own IOS again
+        {
+            DiscLightActivity menuCopy;
+            CHECK(Lit() && timer_running);
+        }
+        CHECK(!Lit() && !timer_running);
+        {
+            // Preserve-current on a cIOS: no reload ever happens, never lit.
+            ios_version = 250;
+            const unsigned before = gpio_writes;
+            DiscLightActivity launch;
+            CHECK(!Lit() && !timer_running && gpio_writes == before);
+            ios_version = 58;
+        }
+        {
+            // Pulse while a cIOS is running turns the light off and stops.
+            DiscLightActivity running;
+            CHECK(Lit() && timer_running);
+            ios_version = 249;
+            Tick_cios();
+            CHECK(!Lit() && !timer_running);
+            const u32 level = LockInterrupts();
+            pulse(17, nullptr);
+            RestoreInterrupts(level);
+            CHECK(!Lit());
+            ios_version = 58;
+        }
+        CHECK(!Lit() && !timer_running);
+        {
+            DiscLightActivity again;
+            CHECK(Lit() && timer_running);
+        }
+        CHECK(!Lit() && !timer_running);
         CHECK(creates == 1);  // reuse the single loader-owned alarm
     }
     CHECK(gpio == kOtherPins);
