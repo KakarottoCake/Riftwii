@@ -84,7 +84,8 @@ enum class STATE {
 
 enum class SCROLL {
 	NONE,
-	HORIZONTAL
+	HORIZONTAL,
+	VERTICAL // RiftWii: wrapped text past SetWrap's lines rolls up a line at a time
 };
 
 enum EFFECT {
