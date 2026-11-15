@@ -999,6 +999,9 @@ msgstr "Manca il canale di CTGP-R (sd:/apps/ctgpr/boot.dol), quindi non è stato
 msgid "CTGP-R's settings file (sd:/ctgpr/config.ini) could not be written, so nothing was started. Check that the SD card is not locked or full."
 msgstr "Impossibile scrivere il file delle impostazioni di CTGP-R (sd:/ctgpr/config.ini), quindi non è stato avviato nulla. Controlla che la scheda SD non sia bloccata né piena."
 
+msgid "CTGP-R can't start Mario Kart Wii from the SD card, because CTGP-R uses the SD card for its own files. Put Mario Kart Wii on a USB drive, or use the disc."
+msgstr "CTGP-R non può avviare Mario Kart Wii dalla scheda SD, perché CTGP-R usa la scheda SD per i propri file. Metti Mario Kart Wii su un'unità USB o usa il disco."
+
 msgid " (and {1} more)"
 msgstr " (e altri {1})"
 

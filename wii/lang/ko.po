@@ -999,6 +999,9 @@ msgstr "CTGP-R 채널(sd:/apps/ctgpr/boot.dol)이 없어 아무것도 시작되�
 msgid "CTGP-R's settings file (sd:/ctgpr/config.ini) could not be written, so nothing was started. Check that the SD card is not locked or full."
 msgstr "CTGP-R 설정 파일(sd:/ctgpr/config.ini)을 쓸 수 없어 아무것도 시작되지 않았습니다. SD 카드가 잠겨 있거나 가득 찼는지 확인해 주세요."
 
+msgid "CTGP-R can't start Mario Kart Wii from the SD card, because CTGP-R uses the SD card for its own files. Put Mario Kart Wii on a USB drive, or use the disc."
+msgstr "CTGP-R은 SD 카드를 자체 파일용으로 사용하므로 SD 카드에서 마리오 카트 Wii를 시작할 수 없습니다. 마리오 카트 Wii를 USB 드라이브에 넣거나 디스크를 사용해 주세요."
+
 msgid " (and {1} more)"
 msgstr " (그리고 {1} 개 더)"
 
