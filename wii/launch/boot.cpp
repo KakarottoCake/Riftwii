@@ -855,10 +855,17 @@ bool probe_disc(DiscProbe& out, std::string& error, const ProbeOptions& options)
         }
         if (!di::reset(true, error)) return false;
     }
-    std::uint8_t drive_info[32];
-    if (!di::inquiry(drive_info, error)) return false;
-    logf("Drive: rev %02x%02x dev %02x%02x fw %02x%02x%02x%02x\n", drive_info[0], drive_info[1], drive_info[2],
-         drive_info[3], drive_info[4], drive_info[5], drive_info[6], drive_info[7]);
+    if (options.virtual_source) {
+        // d2x passes the inquiry on to the physical drive; on one tester's
+        // Wii it hung 15 s and failed the launch. Its answer was only
+        // logged, so an image launch doesn't send it.
+        logf("Drive: not asked (a USB/SD image; d2x would pass the question to the disc drive, and its answer was only logged)\n");
+    } else {
+        std::uint8_t drive_info[32];
+        if (!di::inquiry(drive_info, error)) return false;
+        logf("Drive: rev %02x%02x dev %02x%02x fw %02x%02x%02x%02x\n", drive_info[0], drive_info[1], drive_info[2],
+             drive_info[3], drive_info[4], drive_info[5], drive_info[6], drive_info[7]);
+    }
     if (!di::read_disc_id(out.disc_id, error)) return false;
     publish_disc_id(out.disc_id);
 
