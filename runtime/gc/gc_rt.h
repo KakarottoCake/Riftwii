@@ -343,6 +343,17 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #endif
 GC_FLAG_CHECK(gc_flags_distinct, GC_FLAGS_ALL_OR == GC_FLAGS_ALL_SUM, "GC_FLAG_* values must be distinct bits");
 #define GC_FLAG_IS_BIT(flag) ((flag) != 0u && ((flag) & ((flag) - 1u)) == 0u)
+
+/* A function tools/gc_io_emutest.py calls by its symbol in the blob's ELF.
+ * The blob is linked with LTO, which may inline such a function into its
+ * caller or split it into ".part"/".constprop" copies, leaving no symbol to
+ * call with the original arguments; noipa keeps it whole and named. GCC
+ * only: clang (host tests on a Mac) has no noipa and needs none. */
+#if defined(__GNUC__) && !defined(__clang__)
+#define GC_EMUTEST_ENTRY __attribute__((noipa))
+#else
+#define GC_EMUTEST_ENTRY
+#endif
 GC_FLAG_CHECK(gc_flags_single_bits, GC_FLAG_IS_BIT(GC_FLAG_PRESS) &&
                   GC_FLAG_IS_BIT(GC_FLAG_CRASH) &&
                GC_FLAG_IS_BIT(GC_FLAG_LEAVE) &&

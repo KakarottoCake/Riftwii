@@ -213,10 +213,10 @@ Two scripts on the card drive a run without hands on a controller:
   Its simulated instruction clock is a deadline test, not a hardware
   performance measurement, and it does not replace game tests in Dolphin.
   `--keep-going` runs every test after a failure and lists the failures.
-  Some tests are out of date with the blob (they call `gc_bt_poll` and
-  `gc_card_flush`, which LTO now splits, treat the card's dirty map as
-  inline bytes, and look for zstd under msys2), so those fail until they
-  are brought up to date.
+  The functions it calls by name must keep their symbol through LTO: they
+  are marked `GC_EMUTEST_ENTRY` (`runtime/gc/gc_rt.h`), and a call to one
+  that LTO inlined or split stops with a message naming it. It finds zstd on
+  `PATH` first, then under devkitPro's MSYS2.
 
 Dolphin cannot run a d2x cIOS, so SD and USB image boot can only be
 checked on a Wii (`docs/USB_HARDWARE_TEST.md`). What Dolphin does check
