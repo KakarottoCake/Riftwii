@@ -34,7 +34,7 @@ jobs:
     # x86-64 Linux: the low-memory suites (rtfs, rtfat, hook, rvz) need
     # buffers below 4 GiB (MAP_32BIT), which macOS and ARM don't give.
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30  # two builds: plain and -O2
     steps:
       - uses: actions/checkout@v5
       # The runner image may already have both; and when Ubuntu's package
@@ -50,8 +50,7 @@ jobs:
             python3 -m pip install --user --break-system-packages ninja
             echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           fi
-      # As docs/DEVELOPING.md builds it: no build type. With -O2, GCC 13
-      # warns about a memmove in src/patching/wfcpatch.cpp it can't prove safe.
+      # As docs/DEVELOPING.md builds it: no build type.
       - name: Configure
         run: cmake -S . -B build-host -G Ninja
       - name: Build
@@ -69,6 +68,16 @@ jobs:
             echo "::error::A test found no memory below 4 GiB and skipped. The low-memory tests did not run."
             exit 1
           fi
+      # The same suites built with -O2. The Wii build is optimised (-Os, some
+      # files -O2), so a bug that only shows once the compiler optimises
+      # (undefined behaviour, a warning only -O2 finds) fails here, not on a
+      # console. No build type, so the tests' assert()s stay on.
+      - name: Configure (optimised)
+        run: cmake -S . -B build-o2 -G Ninja -DCMAKE_C_FLAGS=-O2 -DCMAKE_CXX_FLAGS=-O2
+      - name: Build (optimised)
+        run: cmake --build build-o2
+      - name: Test (optimised)
+        run: ctest --test-dir build-o2 --output-on-failure -j4
 
   host-sanitizers:
     name: Host tests (sanitizers)
