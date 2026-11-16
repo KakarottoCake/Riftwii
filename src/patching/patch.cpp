@@ -1465,10 +1465,17 @@ bool SavegameFolderAllowed(const std::string& resolved) {
     for (const char c : resolved) path += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     while (path.size() > 1 && path.back() == '/') path.pop_back();
     if (path.empty() || path == "/") return false;
-    for (const char* kept : {"/riftwii", "/apps", "/private"}) {
+    // Folders that hold someone else's files, which the game's saves could
+    // overwrite: RiftWii's and the Homebrew Channel's, the game images'
+    // (sd:/wbfs, sd:/games), and the emulated NANDs other loaders keep
+    // their saves in (sd:/nands, riftwii/sharednand.hpp).
+    for (const char* kept : {"/riftwii", "/apps", "/private", "/wbfs", "/games", "/nands"}) {
         const std::string folder = kept;
         if (path == folder || path.compare(0, folder.size() + 1, folder + "/") == 0) return false;
     }
+    // The packs' own folder, but not one inside it: a pack's saves usually
+    // go to sd:/riivolution/save/<its name>.
+    if (path == "/riivolution") return false;
     return true;
 }
 
@@ -1754,7 +1761,8 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
                 if (!ResolveExternal(s.external, base, sel, disc, "external", s.external, error)) return false;
                 if (!SavegameFolderAllowed(s.external)) {
                     error = Where(sel) + ": its <savegame> folder " + s.external +
-                            " is the SD card's root or a folder RiftWii or the Homebrew Channel uses; a save needs a folder of its own";
+                            " is the SD card's root, the packs' folder, or a folder RiftWii, the Homebrew Channel, "
+                            "game images or other loaders' saves use; a save needs a folder of its own";
                     return false;
                 }
                 if (!options.allow_savegames) {
