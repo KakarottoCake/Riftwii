@@ -220,10 +220,14 @@ Two scripts on the card drive a run without hands on a controller:
   Its simulated instruction clock is a deadline test, not a hardware
   performance measurement, and it does not replace game tests in Dolphin.
   `--keep-going` runs every test after a failure and lists the failures.
-  The functions it calls by name must keep their symbol through LTO: they
-  are marked `GC_EMUTEST_ENTRY` (`runtime/gc/gc_rt.h`), and a call to one
-  that LTO inlined or split stops with a message naming it. It finds zstd on
-  `PATH` first, then under devkitPro's MSYS2.
+  It calls blob functions by their symbol in the ELF, so each must keep its
+  symbol through LTO. The ones LTO was seen to inline or split
+  (`gc_bt_poll`, `gc_card_flush`) are marked `GC_EMUTEST_ENTRY`
+  (`runtime/gc/gc_rt.h`), which keeps them whole; the rest keep theirs today.
+  A call to one that has lost its symbol stops with a message naming it:
+  mark that one too. Marking costs the game a little speed, so only the
+  functions that need it are marked. It finds zstd on `PATH` first, then
+  under devkitPro's MSYS2.
 
 Dolphin cannot run a d2x cIOS, so SD and USB image boot can only be
 checked on a Wii (`docs/USB_HARDWARE_TEST.md`). What Dolphin does check

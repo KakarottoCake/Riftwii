@@ -164,6 +164,25 @@ void test_last_rename_fails() {
     CHECK(text == "old");
 }
 
+// Only a .bak from an earlier cut-off save, and this save's one rename (the
+// .part into place) fails: the .bak is still what ReadReplacedFile reads,
+// and a later save that works installs the new copy and removes it.
+void test_failed_save_keeps_backup_only_state() {
+    clean();
+    write(kPath + ".bak", "older");
+    fail_rename(1);
+    CHECK(!replace("new"));
+    fail_rename(0);
+    CHECK(!exists(kPath));
+    std::string text;
+    CHECK(ReadReplacedFile(kPath, text));
+    CHECK(text == "older");
+    CHECK(replace("new"));
+    CHECK(read(kPath) == "new");
+    CHECK(!exists(kPath + ".bak"));
+    CHECK(!exists(kPath + ".part"));
+}
+
 }  // namespace
 #endif
 
@@ -176,6 +195,7 @@ int main() {
 #ifdef RIFTWII_TEST_WRAP_RENAME
     test_first_rename_fails();
     test_last_rename_fails();
+    test_failed_save_keeps_backup_only_state();
 #endif
     clean();
     if (g_failures != 0) {
