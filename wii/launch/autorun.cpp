@@ -43,12 +43,7 @@
 namespace riftwii::wii {
 namespace {
 
-std::string trim(const std::string& s) {
-    const auto b = s.find_first_not_of(" \t\r\n");
-    if (b == std::string::npos) return "";
-    const auto e = s.find_last_not_of(" \t\r\n");
-    return s.substr(b, e - b + 1);
-}
+std::string trim(const std::string& s) { return trim_text(s, " \t\r\n"); }
 
 std::string basename_of(const std::string& disc_path) {
     const auto slash = disc_path.find_last_of('/');
