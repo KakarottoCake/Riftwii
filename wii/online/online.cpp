@@ -48,7 +48,9 @@
 namespace riftwii::wii {
 namespace {
 
-constexpr const char* kTitlesUrl = "http://www.gametdb.com/wiitdb.txt?LANG=";
+// Over https, as the game details (wiitdb.zip) are: the names are shown and
+// kept on the card, so nobody on the network may swap them.
+constexpr const char* kTitlesUrl = "https://www.gametdb.com/wiitdb.txt?LANG=";
 // Over https: a cheat's code runs inside the game, so nobody on the way
 // may change it (SEC-02; rc24's chain is in tlsroots.c).
 constexpr const char* kCheatsUrl = "https://codes.rc24.xyz/txt.php?txt=";
@@ -1070,6 +1072,14 @@ bool InstallUpdate(const std::string& latest, std::string& where, std::string& e
     UpdateNote note = ReadUpdateNote();
     if (note.latest != latest || note.dol.url.empty()) {
         error = "release " + latest + " has no riftwii.dol attached";
+        return false;
+    }
+    // update.txt is a file on the card: what it names is checked again, as
+    // the update pack's address is (PackDownload::Reserve), so an edited
+    // note cannot point the download at another server.
+    if (!riftwii_release_asset_url(note.dol.url)) {
+        error = "sd:/riftwii/update.txt names a riftwii.dol that is not one of RiftWii's GitHub releases; "
+                "check for updates again";
         return false;
     }
     where = RunningDolPath();

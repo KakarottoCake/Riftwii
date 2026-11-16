@@ -122,8 +122,10 @@ std::vector<std::string> gametdb_art_ids(const std::string& game_id) {
     return {code, game_id};
 }
 
+// GameTDB's pictures come over https, as the disc art does (disc_art_url):
+// they are kept on the card and shown, so nobody on the network may swap them.
 std::string cover_url(const std::string& region, const std::string& game_id, bool second) {
-    return std::string("http://art.gametdb.com/wii/") + (second ? "coverB/" : "cover/") + region + "/" + game_id + ".png";
+    return std::string("https://art.gametdb.com/wii/") + (second ? "coverB/" : "cover/") + region + "/" + game_id + ".png";
 }
 
 int http_answered_status(const std::string& error) {
@@ -258,7 +260,7 @@ std::vector<std::uint8_t> make_cover_file(const std::uint8_t* rgba, int w, int h
 }
 
 std::string coverfull_url(const std::string& region, const std::string& game_id) {
-    return "http://art.gametdb.com/wii/coverfull/" + region + "/" + game_id + ".png";
+    return "https://art.gametdb.com/wii/coverfull/" + region + "/" + game_id + ".png";
 }
 
 bool spine_strip(int w, int h, int& x0, int& x1) {
@@ -449,7 +451,7 @@ bool round_corners(const std::uint8_t* tiles, int w, int h, int x0, int x1, floa
 }
 
 std::string cover3d_url(const std::string& region, const std::string& game_id) {
-    return "http://art.gametdb.com/wii/cover3D/" + region + "/" + game_id + ".png";
+    return "https://art.gametdb.com/wii/cover3D/" + region + "/" + game_id + ".png";
 }
 
 std::vector<std::uint8_t> make_cover3d_file(const std::uint8_t* rgba, int w, int h) {

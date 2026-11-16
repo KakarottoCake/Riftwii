@@ -31,6 +31,9 @@ int main() {
     // Only the key itself: a longer name that starts the same is not a secret.
     EXPECT_EQ(hide_settings_secrets("riitag_keys = on"), std::string("riitag_keys = on"));
     EXPECT_EQ(hide_settings_secrets("theme = default"), std::string("theme = default"));
+    // The parental PIN's hash: four digits are quick to try against it.
+    EXPECT_EQ(hide_settings_secrets("parental_pin = pbkdf2-sha256$10000$00ff$abcd\nparental_mode = lock\n"),
+              std::string("parental_pin = (hidden)\nparental_mode = lock\n"));
     // A key in a logged address is hidden too, wherever it appears.
     EXPECT_EQ(hide_url_keys("RiiTag: https://riitag.example/wii?game=RMCP01&key=abc123 failed"),
               std::string("RiiTag: https://riitag.example/wii?game=RMCP01&key=(hidden) failed"));
