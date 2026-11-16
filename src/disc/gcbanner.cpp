@@ -11,6 +11,7 @@
 #include "riftwii/fst.hpp"
 #include "riftwii/gccard.hpp"
 #include "riftwii/tpl.hpp"
+#include "riftwii/byteorder.hpp"
 
 namespace riftwii {
 namespace {
@@ -18,10 +19,6 @@ namespace {
 // Over https, as the cheats are (codes.rc24.xyz): rc24's chain is in
 // wii/online/tlsroots.c.
 constexpr const char* kBannerServer = "https://banner.rc24.xyz/";
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
-}
 
 // One NUL-padded field of a record as UTF-8. Line breaks (some long names
 // are split over two lines for the GameCube's own menu) become spaces, and

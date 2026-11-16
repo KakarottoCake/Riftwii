@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/gamefault.hpp"
+#include "riftwii/byteorder.hpp"
 
 #include <cstdio>
 #include <ctime>
@@ -11,11 +12,6 @@ namespace riftwii {
 namespace {
 
 constexpr std::uint64_t kWiiEpoch = 946684800;  // 2000-01-01 in Unix time
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (static_cast<std::uint32_t>(p[0]) << 24) | (static_cast<std::uint32_t>(p[1]) << 16) |
-           (static_cast<std::uint32_t>(p[2]) << 8) | p[3];
-}
 
 std::string hex(std::uint32_t v) {
     char buf[12];

@@ -4,6 +4,7 @@
 // SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/wfcpatch.hpp"
+#include "riftwii/byteorder.hpp"
 
 #include <cstring>
 
@@ -13,9 +14,6 @@ namespace {
 constexpr char kNintendo[] = "nintendowifi.net";
 constexpr std::size_t kNintendoLen = sizeof(kNintendo) - 1;
 
-std::uint32_t be32(const std::uint8_t* p) {
-    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
-}
 void put32(std::uint8_t* p, std::uint32_t v) {
     p[0] = static_cast<std::uint8_t>(v >> 24);
     p[1] = static_cast<std::uint8_t>(v >> 16);

@@ -7,6 +7,7 @@
 #include <cstring>
 
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/byteorder.hpp"
 
 namespace riftwii {
 namespace {
@@ -17,10 +18,6 @@ constexpr std::uint64_t kWadAlign = 0x40;
 // contents are at most a few hundred MB.
 constexpr std::uint64_t kMaxPartBytes = 0x10000;
 constexpr std::size_t kContentMapEntryBytes = 0x1C;
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
-}
 
 std::uint64_t aligned(std::uint64_t value) { return (value + kWadAlign - 1) & ~(kWadAlign - 1); }
 

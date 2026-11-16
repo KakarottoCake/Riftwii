@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/cardlog.hpp"
+#include "riftwii/byteorder.hpp"
 
 #include <cstdarg>
 #include <cstdio>
@@ -9,10 +10,6 @@ namespace riftwii {
 namespace {
 
 constexpr double kTicksPerSecond = 60750000.0;  // the Wii's time base: the 243 MHz bus / 4
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
-}
 
 std::string format(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
 std::string format(const char* fmt, ...) {
