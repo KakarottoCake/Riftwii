@@ -150,7 +150,14 @@ Two scripts on the card drive a run without hands on a controller:
 
 - GameCube games have test switches too: empty files in
   `sd:/riftwii/gc/test/`, read only from there so a stray file among a
-  player's cards, saves and controls cannot set one. `trace` enables repeated
+  player's cards, saves and controls cannot set one. Those that drive the
+  blob's test-only code (`press`, `leave`, `crash`, `crashblack`,
+  `streamonly`, `rumbletest`, `nosisample`, `exec`, `discchange`, `reset`,
+  and the test remote's `fakeremote` and `fakepro`) work in test builds
+  only (`make -f Makefile.wii TEST=1`): a release build leaves that code out
+  of the blob, so the game keeps those bytes of MEM1, and `boot.log` names any
+  such file it ignored (`GC_TEST_ONLY_FLAGS`, `runtime/gc/gc_rt.h`). The
+  others, below, work in both. `trace` enables repeated
   SD trace writes for diagnostics; normally only a crash writes a record,
   preserving its problem report without periodic writes during play. Full
   tracing can itself cause stutter. PAD diagnostics are coalesced until the

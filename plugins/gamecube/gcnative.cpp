@@ -2445,27 +2445,44 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // sd:/riftwii/gc/test/, a folder of their own, away from the player's
     // cards, saves and controls, so a copied folder cannot set one.
     struct stat st_press;
-    const bool test_presses = stat("sd:/riftwii/gc/test/press", &st_press) == 0;
+    // The switches below that drive the blob's test-only code
+    // (GC_TEST_ONLY_FLAGS, runtime/gc/gc_rt.h) are in test builds only, as
+    // the test remote is (#506): a release build reads them as off and
+    // boot.log names any such file left on the card.
+    std::string ignored_test_switches;
+    const auto test_only_switch = [&](const char* name) {
+        const bool present = stat((std::string("sd:/riftwii/gc/test/") + name).c_str(), &st_press) == 0;
+#ifdef RT_TEST_BUILD
+        return present;
+#else
+        if (present) {
+            if (!ignored_test_switches.empty()) ignored_test_switches += ", ";
+            ignored_test_switches += name;
+        }
+        return false;
+#endif
+    };
+    const bool test_presses = test_only_switch("press");
     // Repeated traces add SD traffic. Enable them only for a diagnostic
     // run, never as part of normal controller polling.
     const bool test_trace = stat("sd:/riftwii/gc/test/trace", &st_press) == 0;
     const bool test_sd_slow = stat("sd:/riftwii/gc/test/sd_slow", &st_press) == 0;
     // A test of the way back (gc_rt.h's GC_FLAG_LEAVE).
-    const bool test_leave = stat("sd:/riftwii/gc/test/leave", &st_press) == 0;
+    const bool test_leave = test_only_switch("leave");
     // And of the crash screen (GC_FLAG_CRASH).
-    const bool test_crash = stat("sd:/riftwii/gc/test/crash", &st_press) == 0;
+    const bool test_crash = test_only_switch("crash");
     // And of it on a blanked screen (GC_FLAG_CRASH_BLACK).
-    const bool test_crash_black = stat("sd:/riftwii/gc/test/crashblack", &st_press) == 0;
+    const bool test_crash_black = test_only_switch("crashblack");
     // And of disc audio streaming: the music alone, to compare it with an
     // offline decode (GC_FLAG_STREAM_ONLY).
-    const bool test_stream_only = stat("sd:/riftwii/gc/test/streamonly", &st_press) == 0;
+    const bool test_stream_only = test_only_switch("streamonly");
     // And of the restart: two Reset presses (GC_FLAG_RESET_TEST).
-    const bool test_reset = stat("sd:/riftwii/gc/test/reset", &st_press) == 0;
+    const bool test_reset = test_only_switch("reset");
     // And of a program switch, in a game that has none (gc_on_boot_dol).
-    const bool test_exec = stat("sd:/riftwii/gc/test/exec", &st_press) == 0;
+    const bool test_exec = test_only_switch("exec");
     // And of a two-disc game's change, in a game that never asks for one
     // (GC_FLAG_DISC_TEST): on only when there is a second disc.
-    const bool test_disc_change = stat("sd:/riftwii/gc/test/discchange", &st_press) == 0;
+    const bool test_disc_change = test_only_switch("discchange");
     // And of 16:9's hook without the widening (GC_FLAG_WIDEN).
     const bool test_no_widen = stat("sd:/riftwii/gc/test/nowiden", &st_press) == 0;
     // And of the ARAM addresses left as the SDK gives them in any game
@@ -2480,7 +2497,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // The same with a made-up Wii U Pro Controller (Dolphin has none), in
     // its own report layout (gc_pro.h); it takes the test remote's place.
     const bool test_fake_pro = stat("sd:/riftwii/gc/test/fakepro", &st_press) == 0;
-    const bool test_rumble = stat("sd:/riftwii/gc/test/rumbletest", &st_press) == 0;
+    const bool test_rumble = test_only_switch("rumbletest");
     // And of the picture with fewer of RiftWii's hooks, for colours that
     // came out wrong on a Wii through HDMI (18 Oct): VIConfigure as the
     // game made it, and PADControlMotor not hooked (the only hook the
@@ -2491,7 +2508,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // polling interrupt even with its GameCube ports empty: the blob keeps
     // that interrupt off, as a Wii with no GameCube controller never raises
     // it (gc_sample_tick).
-    const bool test_no_si_sample = stat("sd:/riftwii/gc/test/nosisample", &st_press) == 0;
+    const bool test_no_si_sample = test_only_switch("nosisample");
     // And of the Wii's video encoder at the hand-over, for the same colours
     // (red and blue swapped, in 480p only so far): set in NTSC 480p even
     // for a game without 480p, set in NTSC 480i even for one with it (the
@@ -2534,6 +2551,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     }
     if (!switches.empty()) switches += "]";
     logf("GameCube (native): %s (%s)%s\n", image.id.c_str(), image.path.c_str(), switches.c_str());
+    if (!ignored_test_switches.empty())
+        logf("GameCube: test switches on the SD card, ignored (they work in test builds only, make TEST=1): %s.\n",
+             ignored_test_switches.c_str());
     // What the Wii Remotes' buttons press, from the player's files.
     gc_map controls;
     load_gc_controls(image.id, controls);

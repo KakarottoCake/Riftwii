@@ -1267,7 +1267,7 @@ static void gc_sample_arm(struct gc_rt_context* ctx) {
 static void gc_sample_tick(struct gc_rt_context* ctx, uint32_t os_context) {
     ctx->sample_queued = 0;
     if (ctx->pad_sampling == 0) return;  /* a program without one: the heartbeat starts no more ticks */
-    if (ctx->flags & GC_FLAG_NO_SI_SAMPLE) gc_si_polling_off();
+    if GC_TEST_FLAG(ctx, GC_FLAG_NO_SI_SAMPLE) gc_si_polling_off();
     if (ctx->pad_reads != ctx->sample_reads) {
         ctx->sample_quiet = 0;
     } else if (ctx->sample_quiet < GC_SAMPLE_QUIET_TICKS) {
@@ -1885,7 +1885,7 @@ static void gc_stream_mix(struct gc_rt_context* ctx, struct gc_rt_stream* st, in
                 st->phase = 0;
             }
         }
-        if (ctx->flags & GC_FLAG_STREAM_ONLY) out[2 * i] = out[2 * i + 1] = 0;
+        if GC_TEST_FLAG(ctx, GC_FLAG_STREAM_ONLY) out[2 * i] = out[2 * i + 1] = 0;
         out[2 * i] = (int16_t)gc_clamp16(out[2 * i] + ((l * vol_l) >> 8));
         out[2 * i + 1] = (int16_t)gc_clamp16(out[2 * i + 1] + ((r * vol_r) >> 8));
     }
@@ -2120,7 +2120,7 @@ static void gc_reset_check(struct gc_rt_context* ctx, uint32_t n) {
     if (!restart && !way_back) return;
     __asm__ volatile("mftb %0" : "=r"(now));
     pressed = (gc_read32(GC_PI_INTSR) & GC_PI_RESET_UP) == 0;
-    if ((ctx->flags & GC_FLAG_RESET_TEST) && (n == GC_RESET_TEST_FIRST || n == GC_RESET_TEST_SECOND)) {
+    if (GC_TEST_FLAG(ctx, GC_FLAG_RESET_TEST) && (n == GC_RESET_TEST_FIRST || n == GC_RESET_TEST_SECOND)) {
         /* A press that has just ended, as the button gives one. */
         pressed = 0;
         ctx->reset_down_since = (now - 2u * GC_RESET_DEBOUNCE_TICKS) | 1u;
@@ -2157,7 +2157,7 @@ static void gc_reset_check(struct gc_rt_context* ctx, uint32_t n) {
     }
     /* The test's first press takes the OS's own restart (reset 0), turned
      * into the hot reset as a game's would be; the button the hot reset. */
-    kind = (ctx->flags & GC_FLAG_RESET_TEST) && ctx->restarts == 0 ? GC_OS_RESET_RESTART : GC_OS_RESET_HOTRESET;
+    kind = GC_TEST_FLAG(ctx, GC_FLAG_RESET_TEST) && ctx->restarts == 0 ? GC_OS_RESET_RESTART : GC_OS_RESET_HOTRESET;
     ((gc_reset_system_fn)(uintptr_t)ctx->reset_system)(kind, 0, 0);
 }
 
@@ -2883,13 +2883,13 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
     }
     /* The test of the motor: the game's own PADControlMotor, rumble at
      * the 30th read of every 240 and stop at the 150th. */
-    if ((ctx->flags & GC_FLAG_RUMBLE_TEST) && ctx->test_motor != 0 && ctx->bt && (n % 120) == 30) {
+    if (GC_TEST_FLAG(ctx, GC_FLAG_RUMBLE_TEST) && ctx->test_motor != 0 && ctx->bt && (n % 120) == 30) {
         /* The port the test remote plays on: Dolphin's own GameCube
          * controller may hold port 1, which moves the remote to port 2. */
         const uint32_t port = ((const struct gc_bt*)(uintptr_t)ctx->bt)->port_of[0];
         if (port < 4u) ((void (*)(uint32_t, uint32_t))(uintptr_t)ctx->test_motor)(port, (n % 240) == 30 ? 1u : 0u);
     }
-    if ((ctx->flags & GC_FLAG_PRESS) && status != 0 && (n % 240) < 10) {
+    if (GC_TEST_FLAG(ctx, GC_FLAG_PRESS) && status != 0 && (n % 240) < 10) {
         uint8_t* p = (uint8_t*)(uintptr_t)status;
         const uint32_t which = (n / 240) % 3;
         const uint32_t bit = which == 0 ? 0x0100u : which == 1 ? 0x0200u : 0x1000u;
@@ -2898,7 +2898,7 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
         p[1] = (uint8_t)(now | bit);
         p[10] = 0;
     }
-    if ((ctx->flags & GC_FLAG_LEAVE) && status != 0 && n >= 1800) {
+    if (GC_TEST_FLAG(ctx, GC_FLAG_LEAVE) && status != 0 && n >= 1800) {
         uint8_t* p = (uint8_t*)(uintptr_t)status;
         p[0] |= (uint8_t)(GC_LEAVE_PAD >> 8);
         p[1] |= (uint8_t)GC_LEAVE_PAD;
@@ -2909,9 +2909,9 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
     /* The test of a disc change, with no game that asks for one: the
      * motor stopped as DVDLowStopMotor would stop it, disc 2 going in two
      * seconds later and disc 1 again after the second stop. */
-    if ((ctx->flags & GC_FLAG_DISC_TEST) && (n == GC_DISC_TEST_FIRST || n == GC_DISC_TEST_SECOND))
+    if (GC_TEST_FLAG(ctx, GC_FLAG_DISC_TEST) && (n == GC_DISC_TEST_FIRST || n == GC_DISC_TEST_SECOND))
         gc_disc_motor_stop(ctx);
-    if ((ctx->flags & GC_FLAG_EXEC_TEST) && n == 1500) {
+    if (GC_TEST_FLAG(ctx, GC_FLAG_EXEC_TEST) && n == 1500) {
         /* As OSExec("", {"rwtest"}) would: __OSBootDol's "0" (the disc's
          * own program) first, the restart code OSExec passes. Built a
          * character at a time: the blob has no constant data. */
@@ -2937,10 +2937,10 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
         args[6] = (uint32_t)(uintptr_t)argv;
         gc_on_boot_dol(ctx, args);
     }
-    if ((ctx->flags & GC_FLAG_CRASH) && n == 600) {
+    if (GC_TEST_FLAG(ctx, GC_FLAG_CRASH) && n == 600) {
         /* The crash screen's test on a blanked screen: no active lines, as
          * the SDK has from VIInit to the game's first frame. */
-        if (ctx->flags & GC_FLAG_CRASH_BLACK)
+        if GC_TEST_FLAG(ctx, GC_FLAG_CRASH_BLACK)
             *(volatile uint16_t*)(uintptr_t)GC_VI_VTR = *(volatile uint16_t*)(uintptr_t)GC_VI_VTR & 0x000Fu;
         __asm__ volatile("trap");
     }
@@ -3323,7 +3323,7 @@ static int gc_crash_a(struct gc_rt_context* ctx) {
  * shows, time enough to look at it. */
 #define GC_CRASH_TEST_A_TICKS (20u * 60750000u)
 static void gc_crash_wait(struct gc_rt_context* ctx) {
-    const int test_a = (ctx->flags & GC_FLAG_CRASH) && (ctx->flags & GC_FLAG_LEAVE);
+    const int test_a = GC_TEST_FLAG(ctx, GC_FLAG_CRASH) && GC_TEST_FLAG(ctx, GC_FLAG_LEAVE);
     uint32_t start, now, polled, shown;
     uint32_t toggles = 0;
     __asm__ volatile("mftb %0" : "=r"(start));
