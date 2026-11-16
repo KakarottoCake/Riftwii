@@ -1,7 +1,7 @@
 # Developing RiftWii
 
-Start with `ARCHITECTURE.md` for the map of the code. This page covers
-building, testing and releasing.
+Start with `MAP.md` for where the code is and `ARCHITECTURE.md` for how it
+works together. This page covers building, testing and releasing.
 
 ## Building
 
@@ -24,22 +24,25 @@ The host build needs zlib's headers and library (`zlib1g-dev` on Debian/Ubuntu,
 
 The Wii build needs devkitPPC, libogc, libfat and the portlibs `Makefile.wii`
 lists (FreeType, zlib, libogg/tremor), and the `zstd` command-line
-tool (devkitPro's MSYS2 has it), which packs the runtime blobs, the menu
-font, the translations and the GPL text. Python 3 then adds the font,
-the translations and the GPL to `riftwii.dol` as the start-up stash
-(`tools/dol_stash.py`, [MEMORY.md](MEMORY.md)); `riftwii.elf` has no
-stash and stops at the menu font if started directly. Last, the DOL is
+tool (devkitPro's MSYS2 has it), which packs the runtime blobs, the
+translations and the GPL text. Python 3 then adds the translations and the
+GPL to `riftwii.dol` as the start-up stash (`tools/dol_stash.py`,
+[MEMORY.md](MEMORY.md)); `riftwii.elf` has no stash. The menu font is not
+in the DOL at all: it ships as `apps/riftwii/font.ttf` next to it. Last, the DOL is
 packed (`tools/pack_dol.py`): its sections Zstandard-compressed behind a
 small stub (`runtime/dolpack/`) that unpacks them when it starts, about
 half the file the in-app update downloads and the Homebrew Channel reads.
 The unpacked DOL stays as `build_wii/riftwii-unpacked.dol`, which the
 plugin check and `tools/size_report.py` read. `make -f Makefile.wii
 PACK=0` leaves `riftwii.dol` unpacked (for bisecting a start-up problem).
-A packed DOL that does not unpack whole turns the screen red and stops. It first builds the
-two in-game blobs with `Makefile.runtime` (`build-runtime/riftwii_rt.bin`,
-the resident runtime, and `riftwii_pad.bin`, the pad hook), checking that
-each is position-independent, then embeds them with the font, the
-translations and the Gecko code handler.
+A packed DOL that does not unpack whole turns the screen red and stops.
+Before the DOL, `Makefile.runtime` builds the in-game blobs into
+`build-runtime/` (the resident runtime and its RVZ build, the pad hooks,
+screenshots, the crash recorder, the Wii Remote log, the virtual SD card,
+the GameCube blob, the return stub and the DOL's unpacker; MAP.md's
+`runtime/` table lists them), linking each at two addresses to check it is
+position-independent. The DOL embeds them with the Gecko code handler; the
+GameCube ones go into the `gamecube` plugin instead.
 
 The plugins ([PLUGINS.md](PLUGINS.md)) are built in the same `make`,
 before the DOL, by `Makefile.plugin` (`make -f Makefile.wii plugins`
@@ -70,13 +73,21 @@ Things that bite:
 
 ## Tests
 
-`ctest` runs over 100 suites, one per area (`tests/<area>_tests.cpp`): the XML
+`ctest` runs about 200 suites, one per area (`tests/<area>_tests.cpp`): the XML
 parser and planner, the patch engine, FST and disc parsing, FAT32 and
 NTFS walkers, the WBFS mapper and WBFS drives, the resident runtime's C code (compiled
 for the host with fake IOS calls), the FAT32 and NTFS engines, the
 GameCube adapter driver and the PAD search, the titles, cheats and
 settings files. The in-game code is built for both the host (tests) and
 the Wii from the same sources.
+
+CI runs the suites twice on Linux: as built above, with no build type, and
+again with `-O2` (`-DCMAKE_C_FLAGS=-O2 -DCMAKE_CXX_FLAGS=-O2`), because the
+Wii build is optimised and some bugs only show once the compiler optimises.
+A few suites only run on x86-64 Linux: the low-memory ones (`rtfs`, `rtfat`,
+`hook`, `rvz` and their differentials) need memory below 4 GiB, and some
+others need the linker's `--wrap` (Linux and MSYS2 only). Elsewhere they are
+skipped or not built, which is expected.
 
 Translations: `python tools/lang_source.py` checks that every table entry
 is still in the menu's sources and writes `wii/lang/*.po`. New Japanese
@@ -165,8 +176,11 @@ Two scripts on the card drive a run without hands on a controller:
   (the encoder left as the menu's own mode set it, not set to the game's
   region; both for red and blue swapped in 480p) `exec` (a switch to another program at the 1500th pad read, to the
   disc's own with the argument `rwtest`: `sd:/riftwii/gc/exec.txt` is
-  written, the game leaves, and RiftWii's next start launches it again)
-  and `reset` (the blob presses Reset twice, the
+  written, the game leaves, and RiftWii's next start launches it again),
+  `discchange` (with a disc 2 beside the game: the blob stops the motor
+  itself at the 1500th and 2200th pad reads, so a two-disc game's change
+  can be tried in a game that never asks for one; ARCHITECTURE.md, "5.
+  GameCube games") and `reset` (the blob presses Reset twice, the
   restart, `GC_FLAG_RESET_TEST`). The first GameCube
   line of `sd:/riftwii/boot.log` lists the ones that are on. The test
   remote's results take the `projection_callers` words of the trace

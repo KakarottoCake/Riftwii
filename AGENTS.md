@@ -20,7 +20,8 @@ Where things are (the full map is [docs/MAP.md](docs/MAP.md), the design
 | --- | --- |
 | `src/`, `include/riftwii/` | Platform-free library, built for the host (tests) and the Wii. `src/` is sorted by area: `patching/` (XML parser, patch planner, hooks, game fixes), `disc/`, `fs/` (FAT32, NTFS, WBFS, RVZ), `net/`, `art/`, `data/`; the headers stay in one flat `include/riftwii/`. |
 | `wii/` | The Wii app, sorted by area: `core/`, `menu/` (libwiigui), `launch/` (`boot.cpp`), `hooks/`, `controllers/`, `storage/` (USB/SD), `online/`; translations in `wii/lang/`. |
-| `runtime/` | C code that runs inside the game (resident runtime, pad hook, screenshots, crash recorder, virtual SD). Position-independent blobs. |
+| `runtime/` | C code that runs inside the game (resident runtime, pad hook, screenshots, crash recorder, virtual SD, the GameCube blob in `runtime/gc/`). Position-independent blobs. |
+| `plugins/` | Optional code loaded from the SD card into MEM2 on first use ([docs/PLUGINS.md](docs/PLUGINS.md)): the GameCube loader (`plugins/gamecube/`), the plugins' shared runtime (`common/`) and a self-test. They ship next to the DOL and must come from the same build. |
 | `channel/` | The Wii Menu channel: forwarder, loader, installer. |
 | `tests/` | One host test suite per area (`<area>_tests.cpp`). |
 | `tools/` | Python and C++ helpers (translations, fonts, theme kit, update pack, Dolphin harness). |
@@ -34,7 +35,7 @@ Everything builds on Windows inside devkitPro's MSYS2 shell. Plain Git Bash
 can't find the C++ headers, so wrap commands like this:
 
 ```bash
-MSYSTEM=MSYS /c/devkitPro/msys2/usr/bin/bash -lc "cd '/d/AI Projects/Riftwii' && <command>"
+MSYSTEM=MSYS /c/devkitPro/msys2/usr/bin/bash -lc "cd '<your checkout, e.g. /d/Projects/Riftwii>' && <command>"
 ```
 
 Host library and tests (run them after every change to `src/`, `include/`,
@@ -193,8 +194,10 @@ understand it on the first read.
   <paths>`, never `git add -A`).
 - Branch for anything larger than a fix; don't push or publish unless asked.
 - Releases (version scheme `YYMM-N`, three release assets, notes with
-  screenshots, the stable build flag) follow
-  [docs/DEVELOPING.md](docs/DEVELOPING.md#releasing). Agents never publish a
+  screenshots; there is no Stable or Beta any more, every release is
+  GitHub's latest) follow
+  [docs/DEVELOPING.md](docs/DEVELOPING.md#releasing) and
+  [docs/RELEASING.md](docs/RELEASING.md). Agents never publish a
   release on their own.
 
 ## More documentation

@@ -1,6 +1,14 @@
 /* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* The GameCube disc blob's header and trampolines (gc_rt.h). Each hook
+/* FROZEN COPY, for tools/gc_hooks_emutest.py only: runtime/gc/gc_entry.S
+ * from before the hook trampolines were shared (#515). The emutest runs
+ * both with the same game registers and requires the same calls and the
+ * same end state. Never edit it to make a deliberate change pass: when the
+ * trampolines are meant to behave differently, or once the shared ones have
+ * shipped in two releases with no GameCube hang traced to them, delete this
+ * folder and the comparison instead.
+ *
+ * The GameCube disc blob's header and trampolines (gc_rt.h). Each hook
  * replaces a DVDLow* function at its first word: the game calls it with
  * its own arguments and gets 1 (the command was taken) back. */
 #include "gc_layout.h"
