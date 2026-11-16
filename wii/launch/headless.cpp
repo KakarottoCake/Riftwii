@@ -225,10 +225,10 @@ bool parental_allows(const std::string& game_id, std::string& error) {
     return false;
 }
 
-bool launch(const std::vector<std::string>& args, HeadlessSource source, std::string& error) {
+bool launch(const std::vector<std::string>& args, HeadlessSource request_source, std::string& error) {
     HeadlessLaunch h;
     if (!parse_headless_launch(args, h, error)) return false;
-    const bool continuation = source == HeadlessSource::Continuation;
+    const bool continuation = request_source == HeadlessSource::Continuation;
     // A GameCube game on the SD card goes to RiftWii's own loader. So does
     // one on the USB drive switching to another program on its disc
     // (exec.txt, which names the image's usb: path): the drive is mounted
