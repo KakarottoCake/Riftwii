@@ -10,11 +10,14 @@
 
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/gcexecpacks.hpp"
+#include "riftwii/parental.hpp"
+#include "riftwii/settingsfile.hpp"
 #include "textfile.hpp"
 
 #include "launchrun.hpp"
 #include "frontend.hpp"
 #include "gameextras.hpp"
+#include "gameinfo.hpp"
 #include "gclaunch.hpp"
 #include "ios_reload.hpp"
 #include "loadersettings.hpp"
@@ -195,6 +198,31 @@ bool read_launch_lines(const std::string& path, std::vector<std::string>& args) 
     return launch_lines_from_text(text, args);
 }
 
+// Parental controls (riftwii/parental.hpp) for a start the menu never saw:
+// another loader's, or sd:/riftwii/launch.txt, which a pack's zip could
+// carry. Nobody is at the menu to type the PIN, so a game they restrict is
+// refused, and so is one whose rating cannot be read, as Start does. A
+// game's own Reset and a GameCube program switch carry on a game that
+// already started, so they are not asked again. (Whoever can edit the card
+// can still delete the PIN's line in settings.txt, which is how a parent
+// who forgot it gets back in.)
+bool parental_allows(const std::string& game_id, std::string& error) {
+    const ParentalRules rules = parental_rules(Settings());
+    if (!rules.active) return true;
+    GameInfo info;
+    std::string read_error;
+    const GameInfoResult read = FindGameInfo(game_id, {}, info, read_error);
+    if (read != GameInfoResult::Found && read != GameInfoResult::NotListed) {
+        error = "parental controls are on, and the age rating of " + game_id + " could not be read (" + read_error +
+                "); start it from RiftWii's menu with the PIN";
+        return false;
+    }
+    const int minimum_age = read == GameInfoResult::Found ? rating_minimum_age(info.rating_system, info.rating) : -1;
+    if (parental_verdict(rules, minimum_age) == ParentalVerdict::Allowed) return true;
+    error = "parental controls restrict " + game_id + "; start it from RiftWii's menu with the PIN";
+    return false;
+}
+
 bool launch(const std::vector<std::string>& args, std::string& error) {
     HeadlessLaunch h;
     if (!parse_headless_launch(args, h, error)) return false;
@@ -213,6 +241,7 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
     GcImage gc;
     if ((h.from.empty() || h.from == "sd" || gc_on_usb) && (!h.game.empty() || !h.path.empty()) &&
         FindGcImage(h.game, h.path, gc)) {
+        if (!gc_switch && !parental_allows(gc.id, error)) return false;
         if (h.all_packs || !h.code_builds.empty()) {
             error = "xml=all and code builds are not supported for GameCube games yet";
             return false;
@@ -266,6 +295,7 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
     FrontendState state;
     InitializeFrontend(state);
     if (!select_game(h, state, error)) return false;
+    if (!h.reset && !parental_allows(state.game_id, error)) return false;
     if (h.reset) {
         logf("The game's own Reset: %s starts again, with the packs and choices it had\n", state.game_id.c_str());
     }
