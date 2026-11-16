@@ -197,6 +197,11 @@ static void test_full_featured() {
         EXPECT_FALSE(riftwii::plan_package(moved, disc, AllowAll(), plan, err));
         EXPECT_TRUE(Contains(err, "a save needs a folder of its own"));
     }
+    // The same rule, as a launch checks a save folder it moved beside the
+    // pack's XML (a pack kept in sd:/games/Pack has its /data moved there).
+    EXPECT_FALSE(riftwii::savegame_folder_allowed("/games/Pack/data/save"));
+    EXPECT_FALSE(riftwii::savegame_folder_allowed("/Apps/Pack/save/"));
+    EXPECT_TRUE(riftwii::savegame_folder_allowed("/riivolution/Pack/data/save"));
     for (const char* good : {"/riftwii-saves", "/applications", "/save/apps", "/riivolution/save/RFT", "/gamesaves"}) {
         riftwii::Package moved = with_save;
         moved.patches.at("save").savegames[0].external = good;

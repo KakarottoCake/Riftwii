@@ -103,13 +103,39 @@ std::string hide_url_keys(const std::string& text) {
     return out;
 }
 
+std::string hide_wii_address(const std::string& text) {
+    static const std::string kLead = "Network: up, this Wii is ";
+    const auto is_digit = [](char c) { return c >= '0' && c <= '9'; };
+    std::string out;
+    std::size_t at = 0;
+    for (std::size_t found = text.find(kLead); found != std::string::npos; found = text.find(kLead, found + 1)) {
+        // Past the first two numbers and their dots: what follows is the
+        // part that names this Wii on its network.
+        std::size_t cut = found + kLead.size();
+        for (unsigned dots = 0; dots < 2 && cut < text.size(); ++cut) {
+            if (text[cut] == '.') ++dots;
+            else if (!is_digit(text[cut])) break;
+        }
+        // Only a whole "a.b." followed by a digit (an address logged in
+        // full, before RiftWii logged only "a.b.x.x").
+        if (cut >= text.size() || !is_digit(text[cut]) || text[cut - 1] != '.') continue;
+        std::size_t end = cut;
+        while (end < text.size() && (is_digit(text[end]) || text[end] == '.')) ++end;
+        out.append(text, at, cut - at);
+        out += "x.x";
+        at = end;
+    }
+    out.append(text, at, std::string::npos);
+    return out;
+}
+
 std::string assemble_report(const std::string& raw_summary, const std::vector<ReportPart>& raw_parts,
                             std::size_t limit) {
     const std::string summary = hide_url_keys(printable_utf8(raw_summary));
     std::vector<ReportPart> parts = raw_parts;
     for (ReportPart& p : parts) {
         p.name = printable_utf8(p.name);
-        p.text = hide_url_keys(printable_utf8(p.text));
+        p.text = hide_wii_address(hide_url_keys(printable_utf8(p.text)));
     }
     std::size_t fixed = summary.size() + 64;
     std::size_t largest = 0;

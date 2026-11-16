@@ -203,9 +203,11 @@ bool read_launch_lines(const std::string& path, std::vector<std::string>& args) 
 // carry. Nobody is at the menu to type the PIN, so a game they restrict is
 // refused, and so is one whose rating cannot be read, as Start does. A
 // game's own Reset and a GameCube program switch carry on a game that
-// already started, so they are not asked again. (Whoever can edit the card
-// can still delete the PIN's line in settings.txt, which is how a parent
-// who forgot it gets back in.)
+// already started, so they are not asked again, but only when they come
+// from the files the runtime writes for them (HeadlessSource::Continuation):
+// reset=1 or gc_dol= in a request is asked like any other start. (Whoever
+// can edit the card can still delete the PIN's line in settings.txt, which
+// is how a parent who forgot it gets back in.)
 bool parental_allows(const std::string& game_id, std::string& error) {
     const ParentalRules rules = parental_rules(Settings());
     if (!rules.active) return true;
@@ -223,9 +225,10 @@ bool parental_allows(const std::string& game_id, std::string& error) {
     return false;
 }
 
-bool launch(const std::vector<std::string>& args, std::string& error) {
+bool launch(const std::vector<std::string>& args, HeadlessSource source, std::string& error) {
     HeadlessLaunch h;
     if (!parse_headless_launch(args, h, error)) return false;
+    const bool continuation = source == HeadlessSource::Continuation;
     // A GameCube game on the SD card goes to RiftWii's own loader. So does
     // one on the USB drive switching to another program on its disc
     // (exec.txt, which names the image's usb: path): the drive is mounted
@@ -241,7 +244,7 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
     GcImage gc;
     if ((h.from.empty() || h.from == "sd" || gc_on_usb) && (!h.game.empty() || !h.path.empty()) &&
         FindGcImage(h.game, h.path, gc)) {
-        if (!gc_switch && !parental_allows(gc.id, error)) return false;
+        if (!(continuation && gc_switch) && !parental_allows(gc.id, error)) return false;
         if (h.all_packs || !h.code_builds.empty()) {
             error = "xml=all and code builds are not supported for GameCube games yet";
             return false;
@@ -295,7 +298,7 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
     FrontendState state;
     InitializeFrontend(state);
     if (!select_game(h, state, error)) return false;
-    if (!h.reset && !parental_allows(state.game_id, error)) return false;
+    if (!(continuation && h.reset) && !parental_allows(state.game_id, error)) return false;
     if (h.reset) {
         logf("The game's own Reset: %s starts again, with the packs and choices it had\n", state.game_id.c_str());
     }
@@ -342,8 +345,9 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
 
 }  // namespace
 
-bool HeadlessArguments(std::vector<std::string>& args) {
+bool HeadlessArguments(std::vector<std::string>& args, HeadlessSource& source) {
     args.clear();
+    source = HeadlessSource::Request;
     if (__system_argv != nullptr && __system_argv->argvMagic == ARGV_MAGIC && __system_argv->argv != nullptr) {
         // Started the way a loader starts Friivolution: argv[1] is its
         // binary FRIIV_CFG (NUL bytes and all), read from the argument
@@ -384,23 +388,25 @@ bool HeadlessArguments(std::vector<std::string>& args) {
     args.clear();
     if (read_launch_lines(kGcExecFile, args)) {
         std::remove(kGcExecFile);
+        source = HeadlessSource::Continuation;
         return true;
     }
     // A Wii game's own Reset, taken up once the same way.
     args.clear();
     if (!read_launch_lines(kRestartFile, args)) return false;
     std::remove(kRestartFile);
+    source = HeadlessSource::Continuation;
     return true;
 }
 
-void RunHeadless(const std::vector<std::string>& args) {
+void RunHeadless(const std::vector<std::string>& args, HeadlessSource source) {
     LogOpen(kLogPath);
     std::string line;
     for (const std::string& a : args) line += " " + a;
     logf("RiftWii %s: headless launch:%s\n", RIFTWII_VERSION, line.c_str());
     logf("Running IOS%d rev %d\n", IOS_GetVersion(), IOS_GetRevision());
     std::string error;
-    if (!launch(args, error)) logf("FAILED: %s\n", error.c_str());
+    if (!launch(args, source, error)) logf("FAILED: %s\n", error.c_str());
     LogClose();
 }
 

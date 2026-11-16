@@ -198,6 +198,14 @@ bool is_foreign_xml(const std::string& xml);
 // of an SD/disc path. Placeholders must already be substituted.
 bool resolve_path(const std::string& root, const std::string& path, std::string& output);
 
+// Whether a resolved <savegame> folder ("/riivolution/save/x", any case) is
+// one a game's saves may go to: not the card's root, the packs' folder
+// itself, or a folder holding someone else's files (RiftWii's, the Homebrew
+// Channel's, game images', other loaders' emulated NANDs). plan_package
+// refuses a pack whose folder fails; a launch that moves the folder later
+// (a pack's folder copied beside its XML) checks the new place the same way.
+bool savegame_folder_allowed(const std::string& resolved);
+
 // Replaces every {$name} with the built-ins __gameid (id[0..3)), __region
 // (id[3]), __maker (id[4..6)) and __ngid (the console ID, 8 hex digits),
 // else the matching param value; later params override earlier ones. An

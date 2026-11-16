@@ -33,7 +33,10 @@ from another loader or from `launch.txt` is refused for a game they restrict,
 or whose age rating can't be read, as nobody is at the menu to type the PIN:
 `boot.log` says so, and the game can be started from RiftWii's menu with the
 PIN. A game's own Reset and a GameCube program switch carry on a game that
-already started and are not asked again.
+already started and are not asked again, but only when they come from the
+files RiftWii's runtime writes for them (`restart.txt`, `gc/exec.txt`); a
+`reset=1` or `gc_dol=` in another loader's arguments or `launch.txt` is
+asked like any other start.
 
 A loader that mounted the USB drive itself must let go of it before it
 starts RiftWii (unmount it and shut its driver down, as it does the SD

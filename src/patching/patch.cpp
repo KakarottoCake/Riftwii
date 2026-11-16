@@ -1497,6 +1497,9 @@ bool ResolveExternal(const std::string& raw, const std::string& base, const Sele
     return true;
 }
 }  // namespace
+
+bool savegame_folder_allowed(const std::string& resolved) { return SavegameFolderAllowed(resolved); }
+
 namespace {
 
 bool SameFolded(const std::string& a, const std::string& b) {

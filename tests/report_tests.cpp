@@ -40,6 +40,21 @@ int main() {
     EXPECT_EQ(hide_url_keys("x?KEY=a&b=c"), std::string("x?KEY=(hidden)&b=c"));
     EXPECT_EQ(hide_url_keys("monkey=1 &keys=2 key=3"), std::string("monkey=1 &keys=2 key=3"));
     EXPECT_EQ(hide_url_keys("end?key="), std::string("end?key=(hidden)"));
+    // The Wii's network address, as an older version logged it in full.
+    EXPECT_EQ(hide_wii_address("a\nNetwork: up, this Wii is 192.168.1.20\nb"),
+              std::string("a\nNetwork: up, this Wii is 192.168.x.x\nb"));
+    EXPECT_EQ(hide_wii_address("Network: up, this Wii is 10.0.0.5"), std::string("Network: up, this Wii is 10.0.x.x"));
+    // As this version logs it, or anything that is not an address: unchanged.
+    EXPECT_EQ(hide_wii_address("Network: up, this Wii is 192.168.x.x\n"),
+              std::string("Network: up, this Wii is 192.168.x.x\n"));
+    EXPECT_EQ(hide_wii_address("Network: up, this Wii is unknown"), std::string("Network: up, this Wii is unknown"));
+    EXPECT_EQ(hide_wii_address("Network: up, this Wii is 1.2."), std::string("Network: up, this Wii is 1.2."));
+    {
+        const std::vector<ReportPart> parts = {{"session-previous.log", "Network: up, this Wii is 192.168.1.20\n"}};
+        const std::string r = assemble_report("summary", parts, 10000);
+        EXPECT_FALSE(has(r, "192.168.1.20"));
+        EXPECT_TRUE(has(r, "192.168.x.x"));
+    }
     {
         const std::vector<ReportPart> parts = {{"session.log", "GET /wii?game=X&key=topsecret\n"}};
         const std::string r = assemble_report("summary ?key=alsosecret", parts, 10000);

@@ -53,6 +53,12 @@ std::string hide_settings_secrets(const std::string& settings);
 // posted publicly, so assemble_report applies this to everything.
 std::string hide_url_keys(const std::string& text);
 
+// Every "Network: up, this Wii is a.b.c.d" line with the last two numbers
+// replaced by "x.x", as RiftWii now logs it: a log kept from an older
+// version (session-previous.log after an update) still has the whole
+// address. assemble_report applies this to every part.
+std::string hide_wii_address(const std::string& text);
+
 // The packs a choices file (sd:/riftwii/choices/<ID>.txt) has turned on,
 // as it names them ("RetroRewind6.xml", "mod.xml @ 192.168.1.20:1137").
 std::vector<std::string> enabled_pack_files(const std::string& choices);
