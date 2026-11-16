@@ -11967,16 +11967,21 @@ static void MakeGcCrashCard(const riftwii::wii::ImageGame& game)
 	riftwii::wii::SetGcCrashScreen(std::move(screen), wayBack);
 }
 
-// Before a GameCube game starts: its controls the first time, and its
-// crash screen. False: Back.
+// Before a GameCube game starts: a real memory card it uses checked (with
+// the game's SD card offered when it can't be used), its controls the
+// first time, and its crash screen. False: Back.
 static bool ReadyGcStart(FrontendState& state)
 {
 	state.gc_card_fallback = false;
 	const riftwii::wii::ImageGame* game = SelectedGcGame(state);
 	if (!game) return true;
 	const std::string used = EffectiveGcCard(state);
-	if (GcCardIsRealSlotA(used)) {
-		// Slot B's card as slot A is read from slot B.
+	// "real_b" passes slot B's card through beside the game's own card in
+	// slot A. It is checked too: the launch checks it again and can only
+	// stop, and a Wii's saved choice read on a Wii U would stop every game
+	// left on Default. The fallback drops slot B and keeps the own card.
+	if (GcCardIsRealSlotA(used) || used == "real_b") {
+		// Slot B's card, as slot A or beside it, is read from slot B.
 		const int slot = used == "real" ? 0 : 1;
 		riftwii::wii::GcRealCard physical;
 		int result = physical.Open(slot);

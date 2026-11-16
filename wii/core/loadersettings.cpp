@@ -77,8 +77,10 @@ bool SaveSettings() {
         }
     }
     if (std::rename(temp.c_str(), kPath) != 0) {
-        // The whole new copy stays as .part (read at the next start) and
-        // the old one goes back in place.
+        // The old copy goes back in place and is what the next start reads;
+        // the whole new copy stays as .part, which the next start reads only
+        // when there was no old copy to put back (ReadSavedSettings). The
+        // caller tells the player the save failed.
         if (hadOld) std::rename(backup.c_str(), kPath);
         return false;
     }

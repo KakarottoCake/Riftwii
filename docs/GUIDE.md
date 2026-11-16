@@ -1015,6 +1015,10 @@ card, a real card in slot B to trade items or keep other saves). RiftWii
 only ever takes over slot A, so slot B is the real hardware; before the
 game starts RiftWii reads that card's ID into the console's settings, as
 it does for slot A, so a card formatted on another console is accepted.
+If slot B has no readable card, the card is damaged, its text encoding
+differs from the game's, or the console is a Wii U, RiftWii offers **Use
+this game's SD card** or **Cancel**, as for slot A; the game then starts
+with only its own card in slot A.
 
 **Settings > Games > GameCube memory card** sets the card for every
 GameCube game whose own **Memory card** is *Default*: *This game's own*
