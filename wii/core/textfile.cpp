@@ -93,4 +93,37 @@ bool WriteWholeFile(const std::string& path, const void* data, std::size_t size)
     return written == size && closed;
 }
 
+// libfat's rename refuses a name that is taken, so the old file is moved
+// aside before the new one takes its name (and a .bak from an earlier save
+// is removed first).
+bool ReplaceWholeFile(const std::string& path, const void* data, std::size_t size) {
+    const std::string temp = path + ".part";
+    if (!WriteWholeFile(temp, data, size)) {
+        std::remove(temp.c_str());
+        return false;
+    }
+    const std::string backup = path + ".bak";
+    struct stat present;
+    const bool had_old = stat(path.c_str(), &present) == 0;
+    if (had_old) {
+        std::remove(backup.c_str());
+        if (std::rename(path.c_str(), backup.c_str()) != 0) {
+            std::remove(temp.c_str());
+            return false;
+        }
+    }
+    if (std::rename(temp.c_str(), path.c_str()) != 0) {
+        if (had_old) std::rename(backup.c_str(), path.c_str());
+        return false;
+    }
+    std::remove(backup.c_str());
+    return true;
+}
+
+bool ReadReplacedFile(const std::string& path, std::string& out, std::size_t cap) {
+    struct stat present;
+    if (stat(path.c_str(), &present) == 0) return ReadTextFile(path, out, cap);
+    return ReadTextFile(path + ".bak", out, cap);
+}
+
 }  // namespace riftwii::wii

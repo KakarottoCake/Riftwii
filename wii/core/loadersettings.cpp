@@ -49,41 +49,14 @@ void ReloadSettings() {
     if (ReadSavedSettings(text)) g_settings.parse(text);
 }
 
-// Written whole beside it, then put in its place: truncating it first left
-// it empty after a power cut or a full card, and every setting reset.
+// Written whole beside it, then put in its place (ReplaceWholeFile):
+// truncating it first left it empty after a power cut or a full card, and
+// every setting reset. kEndLine marks a whole copy, so a .part left by a
+// failed last rename is read at the next start (ReadSavedSettings).
 bool SaveSettings() {
     mkdir("sd:/riftwii", 0777);
-    const std::string temp = std::string(kPath) + ".part";
-    FILE* f = std::fopen(temp.c_str(), "wb");
-    if (!f) return false;
     const std::string text = Settings().serialize() + kEndLine;
-    bool ok = std::fwrite(text.data(), 1, text.size(), f) == text.size();
-    ok = std::fclose(f) == 0 && ok;
-    if (!ok) {
-        std::remove(temp.c_str());
-        return false;
-    }
-    // The old copy steps aside as .bak until the new one is in place. With
-    // no settings.txt, a .bak left by an earlier cut-off save is the only
-    // old copy, so it stays until this save has succeeded.
-    const std::string backup = std::string(kPath) + ".bak";
-    struct stat present;
-    const bool hadOld = stat(kPath, &present) == 0;
-    if (hadOld) {
-        std::remove(backup.c_str());
-        if (std::rename(kPath, backup.c_str()) != 0) {
-            std::remove(temp.c_str());
-            return false;
-        }
-    }
-    if (std::rename(temp.c_str(), kPath) != 0) {
-        // The whole new copy stays as .part (read at the next start) and
-        // the old one goes back in place.
-        if (hadOld) std::rename(backup.c_str(), kPath);
-        return false;
-    }
-    std::remove(backup.c_str());
-    return true;
+    return ReplaceWholeFile(kPath, text.data(), text.size());
 }
 
 std::string MenuLanguage() {
