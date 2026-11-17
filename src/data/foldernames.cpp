@@ -9,7 +9,7 @@
 namespace riftwii {
 
 std::uint64_t folder_name_hash(const std::string& name) {
-    std::uint64_t hash = 1469598103934665603ull;  // FNV-1a's offset basis
+    std::uint64_t hash = 14695981039346656037ull;  // FNV-1a's offset basis
     for (const char c : name) {
         const unsigned char lowered =
             c >= 'A' && c <= 'Z' ? static_cast<unsigned char>(c - 'A' + 'a') : static_cast<unsigned char>(c);

@@ -33,7 +33,7 @@ std::map<std::string, Listing> g_listings;
 bool ListFolder(const std::string& folder, FolderNames& names) {
     DIR* dir = opendir(folder.c_str());
     if (!dir) return false;
-    bool whole = true;
+    bool add_failed = false;
     // readdir returns null at the end and on a read error alike; only errno
     // tells them apart. libfat leaves ENOENT (or nothing) at a normal end.
     errno = 0;
@@ -41,20 +41,28 @@ bool ListFolder(const std::string& folder, FolderNames& names) {
         // Stops at FolderNames::kMaxNames, so a folder whose chain on the
         // card loops back on itself ends here too.
         if (!names.add(entry->d_name)) {
-            whole = false;
+            add_failed = true;
             break;
         }
         errno = 0;
     }
-    const int read_error = errno;
+    const int read_error = add_failed ? 0 : errno;
     closedir(dir);
-    if (whole && read_error != 0 && read_error != ENOENT) {
-        whole = false;
+    if (add_failed) {
+        if (names.size() >= FolderNames::kMaxNames) {
+            logf("Pictures: %s holds too many files to list at once; each picture is looked for on its own\n",
+                 folder.c_str());
+        } else {
+            logf("Pictures: no memory to list %s; each picture is looked for on its own\n", folder.c_str());
+        }
+        names.clear();
+        return false;
+    }
+    if (read_error != 0 && read_error != ENOENT) {
+        // A listing cut short would report every picture after the bad spot
+        // as missing (and fetch it again over the player's own file).
         logf("Pictures: %s could not be read to the end (error %d); each picture is looked for on its own\n",
              folder.c_str(), read_error);
-    } else if (!whole) {
-        logf("Pictures: %s holds too many files to list at once; each picture is looked for on its own\n",
-             folder.c_str());
         names.clear();
         return false;
     }

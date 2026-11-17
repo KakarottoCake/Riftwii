@@ -8,7 +8,7 @@
 namespace riftwii {
 namespace {
 
-// Room kept for the last line (\"end \" and a count of up to 20 digits).
+// Room kept for the last line ("end " and a count of up to 20 digits).
 constexpr std::size_t kFooterRoom = 32;
 
 constexpr const char* kFirstLine = "homelist 1";
