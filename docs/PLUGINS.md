@@ -148,6 +148,7 @@ what the loader needs:
 | The USB drive, after API 2 | `usb_read` (512-byte sectors through d2x's `/dev/usb2`, once a GameCube game's launch has opened it; checked with `RWP_HOST_HAS`) | `ums::Read` |
 | Slot B's card ID, after `heap_free_bytes` | `set_sram_flash_id_b` (as `set_sram_flash_id_a`, for slot B: the real card in slot B a GameCube game uses beside its emulated slot A) |
 | zlib, after `set_sram_flash_id_b` | `zlib_inflate_init2`, `zlib_inflate`, `zlib_inflate_end` (the loader's own zlib on a `z_stream` the plugin owns, with its own `zalloc`/`zfree`; checked with `RWP_HOST_HAS`) | `inflateInit2_`, `inflate`, `inflateEnd` (the `ctgpr` plugin's unpacker of CTGP-R's channel program) |
+| Progress, after `zlib_inflate_end` | `progress` (the launch screen's stage and bar, `ProgressStage`; checked with `RWP_HOST_HAS`) | the `gamecube` plugin's launch steps |
 | Slot A's card ID, after `usb_read` | `set_sram_flash_id_a` (12 ID bytes; compares ID and complemented byte-sum checksum, changes only those 13 bytes in SRAM-ex; 1 committed to RTC SRAM, 0 already matched, -1 unable to commit; checked with `RWP_HOST_HAS`) | `__SYS_LockSramEx`, `__SYS_UnlockSramEx(1)`, `__SYS_SyncSram` |
 
 Appending the SRAM setter preserves API 2 and all existing offsets; the
