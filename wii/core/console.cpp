@@ -161,6 +161,18 @@ void ConsoleRevealDeferred() {
     LogPrintHeld();
 }
 
+void ConsoleRevealForCrash() {
+    if (!g_deferred.xfb) return;
+    const DeferredFrame frame = g_deferred;
+    g_deferred = DeferredFrame{};
+    // CON_Init may blank more than its window: no frame copy to put the
+    // rest back from here, and on a crash that does not matter.
+    CON_Init(frame.xfb, frame.x, frame.y, frame.x + frame.width, frame.y + frame.height,
+             frame.fb_width * VI_DISPLAY_PIX_SZ);
+    LogEchoToScreen(true);
+    std::printf("\x1b[38;2;46;46;54m\x1b[48;2;255;255;255m\x1b[2J\x1b[0;0H");
+}
+
 bool ConsoleDeferred() { return g_deferred.xfb != nullptr; }
 
 void WaitForExit() {

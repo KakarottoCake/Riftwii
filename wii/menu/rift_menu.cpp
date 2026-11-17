@@ -19621,10 +19621,11 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	HeroCover box(state.game_id, PageCoverName(state), !state.use_usb && !state.use_sd && !state.use_channel,
 		skin::HueFor(state.game_id), state.use_channel);
 	// Inside the card's log window (176 to 384 down), drop shadow and all
-	// (riftwii::kShadowMargin and its 6 drop below the box): the log, when
-	// it is asked for, clears that window and nothing outside it.
-	constexpr float kBoxScale = 0.85f;
-	box.MoveTo(320 - kHeroW * kBoxScale / 2, 180, kBoxScale);
+	// (it reaches riftwii::kShadowMargin less its 6 drop above the box and
+	// the margin plus the drop below it): the log, when it is asked for,
+	// clears that window and nothing outside it.
+	constexpr float kBoxScale = 0.8f;
+	box.MoveTo(320 - kHeroW * kBoxScale / 2, 186, kBoxScale);
 	box.SetMadeUpName(title, riftwii::emulator_cover_id(state.game_id) ? std::string() : state.game_id);
 	riftwii::wii::BusyRing launchBusy(320, 130);
 	// The launch waits for the start's update check or a cover download
@@ -19672,7 +19673,10 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	// The box's art is read by the cover loader, a few frames after it is
 	// first asked for (a launch from Home rather than the game's page):
 	// a moment for it, as this frame stays on screen.
-	for (int wait = 0; showBox && !box.HasArt() && wait < 25; ++wait) usleep(20000);
+	// Only for art on the card: a game with none would wait for nothing.
+	const bool artOnCard = showBox && (riftwii::wii::CoverStored(PageCoverName(state)) ||
+		riftwii::wii::CoverStored(state.game_id));
+	for (int wait = 0; artOnCard && !box.HasArt() && wait < 25; ++wait) usleep(20000);
 	// Faded in all the way first: this frame stays on screen.
 	transition::Settle();
 	HaltGui();

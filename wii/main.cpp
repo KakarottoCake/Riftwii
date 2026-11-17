@@ -306,7 +306,7 @@ namespace {
 // already halted by MainMenu): its last frame, the launch screen, stays
 // up and the log prints into the white card on it. Music kept for the
 // launch plays on, and LaunchMusicEnd shuts the audio down later.
-// A game launch with Settings > Launch screen on Picture: the game's box
+// A game launch with Settings > Launch screen on Game's box: the box
 // stays on the card (ShowLaunchFrame drew it) and the log is held back
 // until a button or a failure asks for it (console.hpp).
 bool g_log_behind_box = false;

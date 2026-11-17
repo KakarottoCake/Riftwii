@@ -5,6 +5,8 @@
 // SPDX-FileCopyrightText: WiiFlow contributors <https://github.com/Fledge68/WiiFlow_Lite>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "boot.hpp"
+
+#include "console.hpp"
 #include "ctgpr.hpp"
 #include "progress.hpp"
 
@@ -3446,7 +3448,9 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         const std::uint32_t loader_end = reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi());
         if (top < kMem1Start || base < game_end || (base < loader_end && top > kLoaderStart)) {
             // Too late to say so on screen: the card is the runtime's.
-            // The game would start incomplete, so stop here.
+            // The game would start incomplete, so stop here. The log first
+            // when the game's box stood in for it, or the line goes nowhere.
+            ConsoleRevealDeferred();
             std::printf("Start file: no room to finish the game's executable (0x%08x-0x%08x)\n", base, top);
             for (;;) VIDEO_WaitVSync();
         }

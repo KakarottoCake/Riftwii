@@ -23,6 +23,12 @@ void ConsoleDeferInFrame(void* xfb, int fb_width, int fb_height, int x, int y, i
 // player is asked anything (WaitForChoice and WaitForExit call it).
 // Does nothing when the log is on screen already.
 void ConsoleRevealDeferred();
+// The crash screen's way: the deferred window as a console, with no
+// allocation and no log lock (the crash may be inside malloc, or the
+// log's saver stuck on a hung card holding it). The held lines stay
+// held; the crash report is printed next. Does nothing when the log is
+// on screen already.
+void ConsoleRevealForCrash();
 // Whether the log is held back behind the box now.
 bool ConsoleDeferred();
 
