@@ -18,6 +18,13 @@ void logf(const char* format, ...) __attribute__((format(printf, 1, 2)));
 // Whether logf also prints to the text console. ConsoleStart turns it on;
 // it is off during the GUI, where lines go to the SD log only.
 void LogEchoToScreen(bool on);
+// While on, what logf would print to the screen (with the echo off) is
+// kept, the last few KB of it: the launch screen shows the game's box
+// instead of its log, and LogPrintHeld prints the log when it is asked
+// for (a button, or a failure). Turning it on drops what was kept.
+void LogHoldScreen(bool on);
+// Prints what LogHoldScreen kept to the console, and forgets it.
+void LogPrintHeld();
 bool LogEchoesToScreen();
 // Every line is written to the card as it is logged (about 9 ms each on a
 // Wii's SD card), so a hang leaves the line before it. Lines that only

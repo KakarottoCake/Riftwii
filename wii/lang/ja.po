@@ -4122,6 +4122,21 @@ msgstr "エミュレートNANDのフォルダです。USB Loader GXの設定に�
 msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
 msgstr "設定とMiiも選ぶと、ゲームはエミュレートNANDのWii本体設定とMiiも使います。そのためにはフォルダに完全なNANDが必要です。"
 
+msgid "Launch screen"
+msgstr "起動画面"
+
+msgid "Game's box"
+msgstr "ゲームのパッケージ"
+
+msgid "Log"
+msgstr "ログ"
+
+msgid "Press any button to see what RiftWii is doing."
+msgstr "ボタンを押すとRiftWiiの処理内容を表示します。"
+
+msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
+msgstr "ゲームのパッケージ：起動中はゲームのパッケージを表示します。ボタンを押すとRiftWiiの処理内容を表示します。ログ：すべての手順を1行ずつ表示します。起動に失敗したときは、必ずログを表示します。"
+
 msgid "GameCube 16:9 is back"
 msgstr "ゲームキューブの16:9が復活"
 

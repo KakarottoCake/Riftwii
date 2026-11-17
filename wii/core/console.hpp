@@ -15,6 +15,17 @@ void ConsoleStart(bool video_initialised);
 // `fb_height`; the text goes into x, y, width, height, dark on white.
 void ConsoleStartInFrame(void* xfb, int fb_width, int fb_height, int x, int y, int width, int height);
 
+// The launch screen with the game's box on its card instead of the log
+// (Settings > Launch screen): remembers where the log would go and keeps
+// its lines (LogHoldScreen) without touching the screen.
+void ConsoleDeferInFrame(void* xfb, int fb_width, int fb_height, int x, int y, int width, int height);
+// Shows a deferred log now, over the box: on a button, or before the
+// player is asked anything (WaitForChoice and WaitForExit call it).
+// Does nothing when the log is on screen already.
+void ConsoleRevealDeferred();
+// Whether the log is held back behind the box now.
+bool ConsoleDeferred();
+
 // Blocks until RESET, or HOME/Start on any pad, then returns. The
 // GameCube adapter's ports count as pads (GcAdapterScreenStart).
 void WaitForExit();

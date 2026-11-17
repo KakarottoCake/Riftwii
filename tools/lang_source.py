@@ -8654,6 +8654,23 @@ T["With settings and Miis, games also use the emulated NAND's Wii settings and M
 MORE["ko"]["With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."] = '설정과 Mii까지 고르면 게임이 에뮬레이트 NAND의 Wii 설정과 Mii도 사용합니다. 이를 위해 폴더에 완전한 NAND가 있어야 합니다.'
 MORE["fr"]["With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."] = 'Avec réglages et Mii, les jeux utilisent aussi les réglages de la Wii et les Mii de la NAND émulée. Le dossier doit alors contenir une NAND complète.'
 
+# Settings > Launch screen: the game's box or the log while a game starts.
+T["Launch screen"] = ("Pantalla de inicio del juego", "起動画面", "Tela de início do jogo", "Schermata di avvio")
+MORE["ko"]["Launch screen"] = "실행 화면"
+MORE["fr"]["Launch screen"] = "Écran de lancement"
+T["Game's box"] = ("Caja del juego", "ゲームのパッケージ", "Caixa do jogo", "Confezione del gioco")
+MORE["ko"]["Game's box"] = "게임 패키지"
+MORE["fr"]["Game's box"] = "Boîte du jeu"
+T["Log"] = ("Registro", "ログ", "Registro", "Registro")
+MORE["ko"]["Log"] = "로그"
+MORE["fr"]["Log"] = "Journal"
+T["Press any button to see what RiftWii is doing."] = ("Pulsa cualquier botón para ver qué está haciendo RiftWii.", "ボタンを押すとRiftWiiの処理内容を表示します。", "Aperte qualquer botão para ver o que o RiftWii está fazendo.", "Premi un tasto qualsiasi per vedere cosa sta facendo RiftWii.")
+MORE["ko"]["Press any button to see what RiftWii is doing."] = "아무 버튼이나 누르면 RiftWii가 하는 일을 볼 수 있습니다."
+MORE["fr"]["Press any button to see what RiftWii is doing."] = "Appuyez sur un bouton pour voir ce que fait RiftWii."
+T["Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."] = ("Caja del juego: la caja del juego mientras se inicia; pulsa cualquier botón para ver qué está haciendo RiftWii. Registro: cada paso, línea por línea. Si el inicio falla, el registro siempre se muestra.", "ゲームのパッケージ：起動中はゲームのパッケージを表示します。ボタンを押すとRiftWiiの処理内容を表示します。ログ：すべての手順を1行ずつ表示します。起動に失敗したときは、必ずログを表示します。", "Caixa do jogo: a caixa do jogo enquanto ele inicia; aperte qualquer botão para ver o que o RiftWii está fazendo. Registro: cada passo, linha por linha. Se o início falhar, o registro sempre aparece.", "Confezione del gioco: la confezione del gioco mentre si avvia; premi un tasto qualsiasi per vedere cosa sta facendo RiftWii. Registro: ogni passo, riga per riga. Se l'avvio non riesce, il registro appare sempre.")
+MORE["ko"]["Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."] = "게임 패키지: 게임이 시작되는 동안 게임 패키지를 보여 줍니다. 아무 버튼이나 누르면 RiftWii가 하는 일을 볼 수 있습니다. 로그: 모든 단계를 한 줄씩 보여 줍니다. 실행에 실패하면 항상 로그가 나타납니다."
+MORE["fr"]["Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."] = "Boîte du jeu : la boîte du jeu pendant son lancement ; appuyez sur un bouton pour voir ce que fait RiftWii. Journal : chaque étape, ligne par ligne. Un lancement qui échoue affiche toujours le journal."
+
 # What's new in the release after 2611-170.
 T["GameCube 16:9 is back"] = ("Vuelve el 16:9 en GameCube", "ゲームキューブの16:9が復活", "O 16:9 do GameCube está de volta", "Torna il 16:9 per GameCube")
 MORE["ko"]["GameCube 16:9 is back"] = "게임큐브 16:9 복귀"

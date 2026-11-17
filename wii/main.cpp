@@ -302,6 +302,11 @@ namespace {
 // already halted by MainMenu): its last frame, the launch screen, stays
 // up and the log prints into the white card on it. Music kept for the
 // launch plays on, and LaunchMusicEnd shuts the audio down later.
+// A game launch with Settings > Launch screen on Picture: the game's box
+// stays on the card (ShowLaunchFrame drew it) and the log is held back
+// until a button or a failure asks for it (console.hpp).
+bool g_log_behind_box = false;
+
 void EnterConsolePhase(bool music_kept) {
     ShutoffRumble();
     if (!music_kept) ShutdownAudio();
@@ -317,7 +322,10 @@ void EnterConsolePhase(bool music_kept) {
     Menu_MenuToXfb(48 - extra, 388, &left, &barTop);
     left = (left + 1) & ~1;
     const int width = (right - left) & ~7, height = (bottom - top) & ~15;  // whole 8x16 cells
-    riftwii::wii::ConsoleStartInFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight(), left, top, width, height);
+    if (g_log_behind_box)
+        riftwii::wii::ConsoleDeferInFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight(), left, top, width, height);
+    else
+        riftwii::wii::ConsoleStartInFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight(), left, top, width, height);
     riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Console);
     // Under the log, still on the white card: the stage and the bar.
     riftwii::wii::ProgressAttach(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight(), left, barTop, width);
@@ -327,6 +335,8 @@ void EnterConsolePhase(bool music_kept) {
 // wii/core/restart.hpp; also after two minutes untouched) or out to the
 // Homebrew Channel.
 void OfferRestart(const std::string& error) {
+    // The log says what went wrong: on screen now, over the game's box.
+    riftwii::wii::ConsoleRevealDeferred();
     // The failure is the news now: no music under it or the choice below.
     riftwii::wii::LaunchMusicEnd("the launch failed");
     // Players asking for help seldom know where the logs are: say it here,
@@ -789,6 +799,7 @@ int main() {
     const bool heap_whole = riftwii::wii::mem::CheckHeap("menu closed");
     const riftwii::wii::LaunchSource source = riftwii::wii::SelectedSource(state);
 
+    g_log_behind_box = game_launch && riftwii::wii::Settings().launch_log != "on";
     EnterConsolePhase(music_kept);
     // A tester's heap broke between "menu closed" and the first reload
     // (once; the same launch worked when tried again): checked at the steps
@@ -845,7 +856,12 @@ int main() {
             std::exit(0);
         }
         if (!booted) {
-            if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
+            if (riftwii::wii::reload_terminal_failure()) {
+                // The Wii stops here for good: the log shows why. The
+                // console only writes to the frame, with no IOS call.
+                riftwii::wii::ConsoleRevealDeferred();
+                riftwii::wii::halt_after_terminal_reload();
+            }
             riftwii::wii::LogOpen("sd:/riftwii/boot.log", true);  // boot_game closed it and remounted the card
             riftwii::wii::logf("FAILED: %s\n", error.c_str());
             OfferRestart(error);
@@ -857,7 +873,12 @@ int main() {
         riftwii::wii::LogDeclinedUpdate();
         if (riftwii::wii::GuiScriptFailLaunch()) error = "a test failure the guiscript asked for";
         if (!error.empty() || !riftwii::wii::mem::GuardLaunchMemory(error, [&] { return riftwii::wii::RunBoot(true, error, source); })) {
-            if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
+            if (riftwii::wii::reload_terminal_failure()) {
+                // The Wii stops here for good: the log shows why. The
+                // console only writes to the frame, with no IOS call.
+                riftwii::wii::ConsoleRevealDeferred();
+                riftwii::wii::halt_after_terminal_reload();
+            }
             riftwii::wii::LogOpen("sd:/riftwii/boot.log", true);  // boot_game closed it and remounted the card
             riftwii::wii::logf("FAILED: %s\n", error.c_str());
             OfferRestart(error);

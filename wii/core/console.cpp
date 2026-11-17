@@ -137,7 +137,34 @@ void ConsoleStartInFrame(void* xfb, int fb_width, int fb_height, int x, int y, i
     std::printf("\x1b[38;2;46;46;54m\x1b[48;2;255;255;255m\x1b[2J\x1b[0;0H");
 }
 
+namespace {
+struct DeferredFrame {
+    void* xfb = nullptr;
+    int fb_width = 0, fb_height = 0, x = 0, y = 0, width = 0, height = 0;
+};
+DeferredFrame g_deferred;
+}  // namespace
+
+void ConsoleDeferInFrame(void* xfb, int fb_width, int fb_height, int x, int y, int width, int height) {
+    g_deferred = DeferredFrame{xfb, fb_width, fb_height, x, y, width, height};
+    LogEchoToScreen(false);
+    LogHoldScreen(true);
+}
+
+void ConsoleRevealDeferred() {
+    if (!g_deferred.xfb) return;
+    const DeferredFrame frame = g_deferred;
+    g_deferred = DeferredFrame{};
+    // Clears the card, and the box on it, and turns the echo on.
+    ConsoleStartInFrame(frame.xfb, frame.fb_width, frame.fb_height, frame.x, frame.y, frame.width, frame.height);
+    LogPrintHeld();
+    LogHoldScreen(false);
+}
+
+bool ConsoleDeferred() { return g_deferred.xfb != nullptr; }
+
 void WaitForExit() {
+    ConsoleRevealDeferred();
     PAD_Init();
     WPAD_Init();
     AdapterPads adapter(true);
@@ -157,6 +184,7 @@ void WaitForExit() {
 }
 
 ExitChoice WaitForChoice(int timeout_seconds, bool adapter_wanted) {
+    ConsoleRevealDeferred();
     PAD_Init();
     WPAD_Init();
     AdapterPads adapter(adapter_wanted);

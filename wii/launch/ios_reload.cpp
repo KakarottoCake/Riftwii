@@ -90,6 +90,8 @@ unsigned ms_since_ios_reload() {
 
 const std::string& last_reload_detail() { return g_reload_detail; }
 
+bool wii_remotes_released() { return g_wii_remotes_released; }
+
 void release_wii_remotes() {
     if (g_wii_remotes_released) return;
     WPAD_Shutdown();

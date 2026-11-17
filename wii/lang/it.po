@@ -4122,6 +4122,21 @@ msgstr "La cartella della NAND emulata: quella indicata dalle impostazioni di US
 msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
 msgstr "Con impostazioni e Mii, i giochi usano anche le impostazioni della Wii e i Mii della NAND emulata. Per questo la cartella deve contenere una NAND completa."
 
+msgid "Launch screen"
+msgstr "Schermata di avvio"
+
+msgid "Game's box"
+msgstr "Confezione del gioco"
+
+msgid "Log"
+msgstr "Registro"
+
+msgid "Press any button to see what RiftWii is doing."
+msgstr "Premi un tasto qualsiasi per vedere cosa sta facendo RiftWii."
+
+msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
+msgstr "Confezione del gioco: la confezione del gioco mentre si avvia; premi un tasto qualsiasi per vedere cosa sta facendo RiftWii. Registro: ogni passo, riga per riga. Se l'avvio non riesce, il registro appare sempre."
+
 msgid "GameCube 16:9 is back"
 msgstr "Torna il 16:9 per GameCube"
 
