@@ -60,8 +60,10 @@ void Hold(const char* text) {
         n = sizeof(g_held);
     }
     if (g_held_used + n > sizeof(g_held)) {
-        // The oldest lines go first.
-        const std::size_t drop = g_held_used + n - sizeof(g_held);
+        // The oldest lines go first, whole: up to the end of the line the
+        // cut falls in, so what is kept starts at the start of a line.
+        std::size_t drop = g_held_used + n - sizeof(g_held);
+        while (drop < g_held_used && g_held[drop - 1] != '\n') ++drop;
         std::memmove(g_held, g_held + drop, g_held_used - drop);
         g_held_used -= drop;
     }
@@ -80,15 +82,10 @@ void LogKeepScreen() {
 
 void LogPrintHeld() {
     Locked lock;
-    // Starts at a whole line when the oldest part was dropped.
-    std::size_t from = 0;
-    if (g_held_used == sizeof(g_held)) {
-        while (from < g_held_used && g_held[from] != '\n') ++from;
-        if (from < g_held_used) ++from;
-    }
+    // Hold keeps whole lines only (but for one longer than the buffer).
     // The USB Gecko had these lines already, from logf.
     GeckoLeaveOutStdout(true);
-    std::fwrite(g_held + from, 1, g_held_used - from, stdout);
+    std::fwrite(g_held, 1, g_held_used, stdout);
     std::fflush(stdout);
     GeckoLeaveOutStdout(false);
 }

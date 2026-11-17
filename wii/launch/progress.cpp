@@ -90,8 +90,9 @@ void Redraw() {
 
 // With the game's box on the card instead of the log: a button pressed
 // on any pad shows the log. Looked at every 50 ms at most, as the bar's
-// calls come in (in a read loop, thousands of times). GameCube pads at
-// any time (SI has nothing to do with the IOS); the Wii Remotes only
+// calls come in (in a read loop, thousands of times). The Wii's own
+// GameCube ports at any time (SI has nothing to do with the IOS; the
+// USB adapter was stopped as the menu closed); the Wii Remotes only
 // until their stack is shut down before an IOS reload, so a player
 // with only a Wii Remote can ask during the first part of a launch
 // only. A failure shows the log anyway (WaitForChoice).

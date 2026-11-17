@@ -142,12 +142,15 @@ constexpr std::uint64_t kWiiEpochOffset = 946684800;  // 2000-01-01 in Unix seco
 
 std::uint8_t g_tmd[0x4A00] ATTRIBUTE_ALIGN(32);
 
+// Through logf: on screen with the log, held behind the game's box
+// until it is asked for, and in boot.log either way.
 void apploader_report(const char* format, ...) {
+    char text[256];
     va_list args;
     va_start(args, format);
-    std::printf("  apploader: ");
-    std::vprintf(format, args);
+    std::vsnprintf(text, sizeof(text), format, args);
     va_end(args);
+    logf("  apploader: %s", text);
 }
 
 bool aligned32(const void* p) { return (reinterpret_cast<std::uintptr_t>(p) & 31) == 0; }

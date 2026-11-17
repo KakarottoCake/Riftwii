@@ -738,8 +738,9 @@ the tiles.
 - **Launch screen** (Game's box, Log; right after Launch music): while a
   game starts, *Game's box* shows its box on the launch screen's card, as
   on its page, with the progress bar under it. Press any button to see
-  the log instead: a GameCube pad's at any time, a Wii Remote's until
-  the launch hands the Wii Remotes over (before a cIOS is loaded). A
+  the log instead: a GameCube pad's in the Wii's own ports at any time
+  (not one on a USB adapter), a Wii Remote's until the launch hands the
+  Wii Remotes over (before a cIOS is loaded). A
   launch that fails always shows the log, and `boot.log` on the SD card
   has it either way. *Log* prints every step on the card, as before.
   `launch_log = off|on` in `settings.txt`.

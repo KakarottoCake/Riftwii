@@ -19594,7 +19594,9 @@ static int MenuNeedsSd()
 // ---------------------------------------------------------------------------
 // Launch frame: stays on screen while the boot log prints into its card.
 
-static void ShowLaunchFrame(const FrontendState& state, int action)
+// `logOnly`: the log is what comes next on the card whatever the setting
+// (back from the missing-files question, wii/main.cpp).
+static void ShowLaunchFrame(const FrontendState& state, int action, bool logOnly = false)
 {
 	const bool homebrew = action == MENU_HOMEBREW;
 	const std::string title = homebrew ? riftwii::wii::HomebrewToStart().name
@@ -19616,7 +19618,7 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	// the log was asked for (Settings > Launch screen). wii/main.cpp keeps
 	// the log behind it until a button or a failure (console.hpp); the
 	// same test decides there.
-	const bool showBox = (action == MENU_LAUNCH || action == MENU_BOOT || action == MENU_PLAY_CHANNEL) &&
+	const bool showBox = !logOnly && (action == MENU_LAUNCH || action == MENU_BOOT || action == MENU_PLAY_CHANNEL) &&
 		riftwii::wii::Settings().launch_log != "on";
 	HeroCover box(state.game_id, PageCoverName(state), !state.use_usb && !state.use_sd && !state.use_channel,
 		skin::HueFor(state.game_id), state.use_channel);
@@ -19699,7 +19701,9 @@ bool ConfirmLaunchMissingModInputs(const FrontendState& state,
 	ResetVideo_Menu();
 	hidePointers = false;
 	const bool play = ConfirmMissingModInputs(missing);
-	ShowLaunchFrame(state, MENU_LAUNCH);
+	// The launch goes on with its log on the card (wii/main.cpp): no box
+	// to flash up and be cleared at once.
+	ShowLaunchFrame(state, MENU_LAUNCH, true);
 	launchPopup = false;
 	return play;
 }
