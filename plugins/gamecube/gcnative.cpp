@@ -4418,7 +4418,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // and the ARAM stubs is the disc's own program's again.
     ICInvalidateRange(reinterpret_cast<void*>(moved_addr), kMovedBytes);
     ICInvalidateRange(reinterpret_cast<void*>(stubs_addr), kStubBytes);
-    gc_progress("Adding the cheats and controllers", 90);
+    gc_progress("Adding the cheats", 90);
     // The cheats' hook, last: every patch above is in, so none can have
     // taken its word unnoticed.
     if (!cheats.gct.empty()) {
