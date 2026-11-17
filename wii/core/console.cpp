@@ -103,7 +103,17 @@ void ConsoleStart(bool video_initialised) {
     std::printf("\x1b[2;0H");
 }
 
+namespace {
+struct DeferredFrame {
+    void* xfb = nullptr;
+    int fb_width = 0, fb_height = 0, x = 0, y = 0, width = 0, height = 0;
+};
+DeferredFrame g_deferred;
+}  // namespace
+
 void ConsoleStartInFrame(void* xfb, int fb_width, int fb_height, int x, int y, int width, int height) {
+    // The log is on screen from here on: nothing is deferred any more.
+    g_deferred = DeferredFrame{};
     // CON_Init may blank more than its window: keep a copy of the frame and
     // put back everything around the window afterwards.
     const std::size_t stride = static_cast<std::size_t>(fb_width) * VI_DISPLAY_PIX_SZ;
@@ -136,14 +146,6 @@ void ConsoleStartInFrame(void* xfb, int fb_width, int fb_height, int x, int y, i
     // Truecolour: the menu's ink on the card's white.
     std::printf("\x1b[38;2;46;46;54m\x1b[48;2;255;255;255m\x1b[2J\x1b[0;0H");
 }
-
-namespace {
-struct DeferredFrame {
-    void* xfb = nullptr;
-    int fb_width = 0, fb_height = 0, x = 0, y = 0, width = 0, height = 0;
-};
-DeferredFrame g_deferred;
-}  // namespace
 
 void ConsoleDeferInFrame(void* xfb, int fb_width, int fb_height, int x, int y, int width, int height) {
     g_deferred = DeferredFrame{xfb, fb_width, fb_height, x, y, width, height};

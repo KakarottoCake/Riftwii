@@ -203,7 +203,11 @@ void StartChannel(u64 title) {
     if (std::string staging_error; !StageMovedChannel(title, staging_error)) StagingFailed(staging_error);
     if (read) {
         riftwii::wii::boot_channel(std::move(files), error);  // returns only when it did not start
-        if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
+        if (riftwii::wii::reload_terminal_failure()) {
+            // The Wii stops here for good: the log shows why.
+            riftwii::wii::ConsoleRevealDeferred();
+            riftwii::wii::halt_after_terminal_reload();
+        }
     }
     if (!emu_nand.empty()) {
         riftwii::wii::StopDiscLight();
@@ -324,8 +328,13 @@ void EnterConsolePhase(bool music_kept) {
     const int width = (right - left) & ~7, height = (bottom - top) & ~15;  // whole 8x16 cells
     if (g_log_behind_box)
         riftwii::wii::ConsoleDeferInFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight(), left, top, width, height);
-    else
+    else {
         riftwii::wii::ConsoleStartInFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight(), left, top, width, height);
+        // Lines held behind the box before (a launch that came back from
+        // the missing-files question): on screen now, none lost.
+        riftwii::wii::LogPrintHeld();
+        riftwii::wii::LogHoldScreen(false);
+    }
     riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Console);
     // Under the log, still on the white card: the stage and the bar.
     riftwii::wii::ProgressAttach(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight(), left, barTop, width);
@@ -836,6 +845,9 @@ int main() {
             const bool play = ConfirmLaunchMissingModInputs(state, missing);
             ShutoffRumble();
             WPAD_Shutdown();  // release_wii_remotes already remembers this state
+            // The question was drawn over the box: the log from here on,
+            // with what was held behind the box before it.
+            g_log_behind_box = false;
             EnterConsolePhase(launch_music_playing);
             launch_cancelled = !play;
             return play;
