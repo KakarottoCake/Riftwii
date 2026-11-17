@@ -330,10 +330,10 @@ void EnterConsolePhase(bool music_kept) {
         riftwii::wii::ConsoleDeferInFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight(), left, top, width, height);
     else {
         riftwii::wii::ConsoleStartInFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight(), left, top, width, height);
-        // Lines held behind the box before (a launch that came back from
-        // the missing-files question): on screen now, none lost.
+        // The launch's lines so far, shown or held behind the box (a
+        // launch back from the missing-files question): on screen again.
+        // None at the first call.
         riftwii::wii::LogPrintHeld();
-        riftwii::wii::LogHoldScreen(false);
     }
     riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Console);
     // Under the log, still on the white card: the stage and the bar.
@@ -809,6 +809,7 @@ int main() {
     const riftwii::wii::LaunchSource source = riftwii::wii::SelectedSource(state);
 
     g_log_behind_box = game_launch && riftwii::wii::Settings().launch_log != "on";
+    riftwii::wii::LogKeepScreen();
     EnterConsolePhase(music_kept);
     // A tester's heap broke between "menu closed" and the first reload
     // (once; the same launch worked when tried again): checked at the steps

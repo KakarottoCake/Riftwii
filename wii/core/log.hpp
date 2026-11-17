@@ -18,12 +18,13 @@ void logf(const char* format, ...) __attribute__((format(printf, 1, 2)));
 // Whether logf also prints to the text console. ConsoleStart turns it on;
 // it is off during the GUI, where lines go to the SD log only.
 void LogEchoToScreen(bool on);
-// While on, what logf would print to the screen (with the echo off) is
-// kept, the last few KB of it: the launch screen shows the game's box
-// instead of its log, and LogPrintHeld prints the log when it is asked
-// for (a button, or a failure). Turning it on drops what was kept.
-void LogHoldScreen(bool on);
-// Prints what LogHoldScreen kept to the console, and forgets it.
+// From now on (a launch), the last few KB of what logf prints, or would
+// print with the echo off, are kept: the launch screen can show the
+// game's box instead of its log, and its log window is cleared when it
+// is drawn again (after the missing-files question). LogPrintHeld puts
+// those lines back. Drops what was kept before.
+void LogKeepScreen();
+// Prints what LogKeepScreen kept to the console; keeps it for next time.
 void LogPrintHeld();
 bool LogEchoesToScreen();
 // Every line is written to the card as it is logged (about 9 ms each on a

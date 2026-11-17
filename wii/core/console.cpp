@@ -150,7 +150,6 @@ void ConsoleStartInFrame(void* xfb, int fb_width, int fb_height, int x, int y, i
 void ConsoleDeferInFrame(void* xfb, int fb_width, int fb_height, int x, int y, int width, int height) {
     g_deferred = DeferredFrame{xfb, fb_width, fb_height, x, y, width, height};
     LogEchoToScreen(false);
-    LogHoldScreen(true);
 }
 
 void ConsoleRevealDeferred() {
@@ -160,7 +159,6 @@ void ConsoleRevealDeferred() {
     // Clears the card, and the box on it, and turns the echo on.
     ConsoleStartInFrame(frame.xfb, frame.fb_width, frame.fb_height, frame.x, frame.y, frame.width, frame.height);
     LogPrintHeld();
-    LogHoldScreen(false);
 }
 
 bool ConsoleDeferred() { return g_deferred.xfb != nullptr; }

@@ -16,8 +16,8 @@ void ConsoleStart(bool video_initialised);
 void ConsoleStartInFrame(void* xfb, int fb_width, int fb_height, int x, int y, int width, int height);
 
 // The launch screen with the game's box on its card instead of the log
-// (Settings > Launch screen): remembers where the log would go and keeps
-// its lines (LogHoldScreen) without touching the screen.
+// (Settings > Launch screen): remembers where the log would go, without
+// touching the screen; its lines are kept meanwhile (LogKeepScreen).
 void ConsoleDeferInFrame(void* xfb, int fb_width, int fb_height, int x, int y, int width, int height);
 // Shows a deferred log now, over the box: on a button, or before the
 // player is asked anything (WaitForChoice and WaitForExit call it).

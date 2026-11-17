@@ -46,10 +46,10 @@ struct Locked {
 std::string g_backlog;
 constexpr std::size_t kMaxBacklog = 8 * 1024;
 
-// The screen's lines held back by LogHoldScreen. A fixed buffer, not a
+// The screen's last lines, kept by LogKeepScreen. A fixed buffer, not a
 // string: it fills during a launch, when the heap is kept for the game.
 // More than the launch screen's card shows (13 rows of 68).
-bool g_hold = false;
+bool g_keep = false;
 char g_held[3072];
 std::size_t g_held_used = 0;
 
@@ -72,9 +72,9 @@ void Hold(const char* text) {
 
 void LogEchoToScreen(bool on) { g_echo = on; }
 
-void LogHoldScreen(bool on) {
+void LogKeepScreen() {
     Locked lock;
-    g_hold = on;
+    g_keep = true;
     g_held_used = 0;
 }
 
@@ -91,7 +91,6 @@ void LogPrintHeld() {
     std::fwrite(g_held + from, 1, g_held_used - from, stdout);
     std::fflush(stdout);
     GeckoLeaveOutStdout(false);
-    g_held_used = 0;
 }
 bool LogEchoesToScreen() { return g_echo; }
 
@@ -162,7 +161,8 @@ void logf(const char* format, ...) {
         std::vprintf(format, args);
         va_end(args);
         GeckoLeaveOutStdout(false);
-    } else if (g_hold) {
+    }
+    if (g_keep) {
         char text[1024];
         va_start(args, format);
         std::vsnprintf(text, sizeof(text), format, args);
