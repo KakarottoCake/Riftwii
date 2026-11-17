@@ -8654,25 +8654,25 @@ T["With settings and Miis, games also use the emulated NAND's Wii settings and M
 MORE["ko"]["With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."] = '설정과 Mii까지 고르면 게임이 에뮬레이트 NAND의 Wii 설정과 Mii도 사용합니다. 이를 위해 폴더에 완전한 NAND가 있어야 합니다.'
 MORE["fr"]["With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."] = 'Avec réglages et Mii, les jeux utilisent aussi les réglages de la Wii et les Mii de la NAND émulée. Le dossier doit alors contenir une NAND complète.'
 
-# What's new in the release after 2611-151.
-T["CTGP-R: updated installs start again"] = ("CTGP-R: las instalaciones actualizadas vuelven a iniciar", "CTGP-R：更新したインストールが再び起動", "CTGP-R: instalações atualizadas iniciam de novo", "CTGP-R: le installazioni aggiornate ripartono")
-MORE["ko"]["CTGP-R: updated installs start again"] = "CTGP-R: 업데이트된 설치본이 다시 실행"
-MORE["fr"]["CTGP-R: updated installs start again"] = "CTGP-R : les installations mises à jour redémarrent"
-T["CTGP-R cups come from your install"] = ("CTGP-R: las copas salen de tu instalación", "CTGP-R：カップ構成は自分のインストールから", "CTGP-R: as copas vêm da sua instalação", "CTGP-R: le coppe dalla tua installazione")
-MORE["ko"]["CTGP-R cups come from your install"] = "CTGP-R: 컵 구성을 내 설치본에서"
-MORE["fr"]["CTGP-R cups come from your install"] = "CTGP-R : coupes lues dans votre installation"
-T["Game folders of your choice"] = ("Carpetas de juegos a tu elección", "ゲームのフォルダを自分で選べる", "Pastas de jogos à sua escolha", "Cartelle dei giochi a tua scelta")
-MORE["ko"]["Game folders of your choice"] = "게임 폴더를 직접 선택"
-MORE["fr"]["Game folders of your choice"] = "Dossiers de jeux au choix"
-T["GameCube: named memory cards"] = ("GameCube: tarjetas con nombre", "ゲームキューブ：名前付きカード", "GameCube: cartões com nome", "GameCube: schede con nome")
-MORE["ko"]["GameCube: named memory cards"] = "게임큐브: 이름 있는 카드"
-MORE["fr"]["GameCube: named memory cards"] = "GameCube : cartes nommées"
-T["Sonic Unleashed sees the adapter on Wii U"] = ("Sonic Unleashed ve el adaptador en Wii U", "Wii UでSonic Unleashedがアダプターを認識", "Sonic Unleashed vê o adaptador no Wii U", "Sonic Unleashed vede l'adattatore su Wii U")
-MORE["ko"]["Sonic Unleashed sees the adapter on Wii U"] = "Wii U에서 Sonic Unleashed가 어댑터 인식"
-MORE["fr"]["Sonic Unleashed sees the adapter on Wii U"] = "Sonic Unleashed voit l'adaptateur sur Wii U"
-T["Brawl: file-swap packs load a match"] = ("Brawl: los packs de archivos cargan partidas", "Brawl：ファイル差し替えMODで試合が始まる", "Brawl: pacotes de arquivos carregam partidas", "Brawl: i pacchetti di file caricano le partite")
-MORE["ko"]["Brawl: file-swap packs load a match"] = "Brawl: 파일 교체 MOD로 대전 시작"
-MORE["fr"]["Brawl: file-swap packs load a match"] = "Brawl : les packs de fichiers lancent un match"
+# What's new in the release after 2611-170.
+T["GameCube 16:9 is back"] = ("Vuelve el 16:9 en GameCube", "ゲームキューブの16:9が復活", "O 16:9 do GameCube está de volta", "Torna il 16:9 per GameCube")
+MORE["ko"]["GameCube 16:9 is back"] = "게임큐브 16:9 복귀"
+MORE["fr"]["GameCube 16:9 is back"] = "Le 16:9 GameCube est de retour"
+T["RiftWii says when the SD card is full"] = ("RiftWii avisa cuando la tarjeta SD está llena", "SDカードがいっぱいのときにお知らせ", "O RiftWii avisa quando o cartão SD está cheio", "RiftWii avvisa quando la scheda SD è piena")
+MORE["ko"]["RiftWii says when the SD card is full"] = "SD 카드가 가득 차면 알림"
+MORE["fr"]["RiftWii says when the SD card is full"] = "RiftWii signale quand la carte SD est pleine"
+T["A full SD card no longer locks the game page"] = ("Una tarjeta SD llena ya no bloquea la página del juego", "SDカードがいっぱいでもゲームのページから戻れる", "Um cartão SD cheio não trava mais a página do jogo", "Una scheda SD piena non blocca più la pagina del gioco")
+MORE["ko"]["A full SD card no longer locks the game page"] = "SD 카드가 가득 차도 게임 페이지가 멈추지 않음"
+MORE["fr"]["A full SD card no longer locks the game page"] = "Une carte SD pleine ne bloque plus la page du jeu"
+T["Long cheat notes scroll"] = ("Las notas largas de los trucos se desplazan", "長いチートの説明がスクロール", "Notas longas de trapaças rolam", "Le note lunghe dei trucchi scorrono")
+MORE["ko"]["Long cheat notes scroll"] = "긴 치트 설명이 스크롤됨"
+MORE["fr"]["Long cheat notes scroll"] = "Les longues notes des codes défilent"
+T["USB and SD games skip a broken disc drive"] = ("Los juegos de USB y SD ya no esperan al lector roto", "USB・SDのゲームは壊れたドライブを待たない", "Jogos de USB e SD ignoram o leitor quebrado", "I giochi da USB e SD ignorano il lettore guasto")
+MORE["ko"]["USB and SD games skip a broken disc drive"] = "USB·SD 게임이 고장 난 드라이브를 기다리지 않음"
+MORE["fr"]["USB and SD games skip a broken disc drive"] = "Les jeux USB et SD ignorent un lecteur en panne"
+T["Settings > Games toggles work again"] = ("Los interruptores de Ajustes > Juegos funcionan de nuevo", "設定 > ゲームの切り替えが再び動作", "As opções de Configurações > Jogos funcionam de novo", "Le opzioni di Impostazioni > Giochi funzionano di nuovo")
+MORE["ko"]["Settings > Games toggles work again"] = "설정 > 게임의 전환이 다시 작동"
+MORE["fr"]["Settings > Games toggles work again"] = "Les options Paramètres > Jeux remarchent"
 
 # Game management: own display names and visibility, never file renames.
 T['Manage game'] = ('Gestionar juego', 'ゲームの管理', 'Gerenciar jogo', 'Gestisci gioco')

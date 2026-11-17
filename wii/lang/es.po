@@ -4122,23 +4122,23 @@ msgstr "La carpeta de la NAND emulada: la que indican los ajustes de USB Loader 
 msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
 msgstr "Con ajustes y Miis, los juegos también usan los ajustes de Wii y los Miis de la NAND emulada. Para eso la carpeta necesita una NAND completa."
 
-msgid "CTGP-R: updated installs start again"
-msgstr "CTGP-R: las instalaciones actualizadas vuelven a iniciar"
+msgid "GameCube 16:9 is back"
+msgstr "Vuelve el 16:9 en GameCube"
 
-msgid "CTGP-R cups come from your install"
-msgstr "CTGP-R: las copas salen de tu instalación"
+msgid "RiftWii says when the SD card is full"
+msgstr "RiftWii avisa cuando la tarjeta SD está llena"
 
-msgid "Game folders of your choice"
-msgstr "Carpetas de juegos a tu elección"
+msgid "A full SD card no longer locks the game page"
+msgstr "Una tarjeta SD llena ya no bloquea la página del juego"
 
-msgid "GameCube: named memory cards"
-msgstr "GameCube: tarjetas con nombre"
+msgid "Long cheat notes scroll"
+msgstr "Las notas largas de los trucos se desplazan"
 
-msgid "Sonic Unleashed sees the adapter on Wii U"
-msgstr "Sonic Unleashed ve el adaptador en Wii U"
+msgid "USB and SD games skip a broken disc drive"
+msgstr "Los juegos de USB y SD ya no esperan al lector roto"
 
-msgid "Brawl: file-swap packs load a match"
-msgstr "Brawl: los packs de archivos cargan partidas"
+msgid "Settings > Games toggles work again"
+msgstr "Los interruptores de Ajustes > Juegos funcionan de nuevo"
 
 msgid "Manage game"
 msgstr "Gestionar juego"

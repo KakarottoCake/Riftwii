@@ -5174,12 +5174,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"CTGP-R: updated installs start again",
-	"CTGP-R cups come from your install",
-	"Game folders of your choice",
-	"GameCube: named memory cards",
-	"Sonic Unleashed sees the adapter on Wii U",
-	"Brawl: file-swap packs load a match",
+	"GameCube 16:9 is back",
+	"RiftWii says when the SD card is full",
+	"A full SD card no longer locks the game page",
+	"Long cheat notes scroll",
+	"USB and SD games skip a broken disc drive",
+	"Settings > Games toggles work again",
 };
 
 static std::string WhatsNewText()
