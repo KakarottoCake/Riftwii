@@ -5,6 +5,8 @@
 // SPDX-FileCopyrightText: WiiFlow contributors <https://github.com/Fledge68/WiiFlow_Lite>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "boot.hpp"
+
+#include "console.hpp"
 #include "ctgpr.hpp"
 #include "progress.hpp"
 
@@ -140,12 +142,15 @@ constexpr std::uint64_t kWiiEpochOffset = 946684800;  // 2000-01-01 in Unix seco
 
 std::uint8_t g_tmd[0x4A00] ATTRIBUTE_ALIGN(32);
 
+// Through logf: on screen with the log, held behind the game's box
+// until it is asked for, and in boot.log either way.
 void apploader_report(const char* format, ...) {
+    char text[256];
     va_list args;
     va_start(args, format);
-    std::printf("  apploader: ");
-    std::vprintf(format, args);
+    std::vsnprintf(text, sizeof(text), format, args);
     va_end(args);
+    logf("  apploader: %s", text);
 }
 
 bool aligned32(const void* p) { return (reinterpret_cast<std::uintptr_t>(p) & 31) == 0; }
@@ -3446,7 +3451,9 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         const std::uint32_t loader_end = reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi());
         if (top < kMem1Start || base < game_end || (base < loader_end && top > kLoaderStart)) {
             // Too late to say so on screen: the card is the runtime's.
-            // The game would start incomplete, so stop here.
+            // The game would start incomplete, so stop here. The log first
+            // when the game's box stood in for it, or the line goes nowhere.
+            ConsoleRevealDeferred();
             std::printf("Start file: no room to finish the game's executable (0x%08x-0x%08x)\n", base, top);
             for (;;) VIDEO_WaitVSync();
         }

@@ -1431,6 +1431,13 @@ void TestSettingsMusic() {
     EXPECT_TRUE(s.serialize().find("launch_music = off\n") != std::string::npos);
     s.parse("launch_music = loud\n");
     EXPECT_EQ(s.launch_music, "off");
+    // The launch screen: the game's box unless the log was asked for.
+    EXPECT_EQ(s.launch_log, "off");
+    s.parse("launch_log = on\n");
+    EXPECT_EQ(s.launch_log, "on");
+    EXPECT_TRUE(s.serialize().find("launch_log = on\n") != std::string::npos);
+    s.parse("launch_log = maybe\n");
+    EXPECT_EQ(s.launch_log, "on");
     // A game page's banner sound and disc art: off until turned on.
     EXPECT_EQ(s.page_banner_sound, "off");
     EXPECT_EQ(s.disc_art, "off");

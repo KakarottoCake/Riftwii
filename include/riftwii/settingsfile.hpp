@@ -42,6 +42,7 @@ struct LoaderSettings {
     std::string menu_sounds = "quiet";    // normal, quiet (a soft hover tick), off
     std::string menu_music = "on";        // on, off: music.ogg while the menu is open
     std::string launch_music = "on";      // on, off: the music plays on under the launch screen, or fades out as the menu closes
+    std::string launch_log = "off";       // on, off: the launch screen prints the launch's log, or shows the game's box (the log appears on a failure or a button)
     std::string page_banner_sound = "off";  // on, off: a game's page plays its banner's sound when opened outside the Channels view
     std::string disc_art = "off";         // on, off: GameTDB's picture of the game's disc under the box on its page
     // The player's own menu music, picked in Settings or written here:

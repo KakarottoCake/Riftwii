@@ -154,6 +154,8 @@ void ShowOnScreen() {
         VIDEO_Flush();
         std::printf("\x1b[37m\x1b[44m\x1b[2J\x1b[2;0H");
     } else if (g_phase == CrashPhase::Console) {
+        // The game's box may stand in for the log: the console first.
+        ConsoleRevealForCrash();
         std::printf("\n\n");
     } else {
         return;  // no picture yet

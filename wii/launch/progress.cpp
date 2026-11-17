@@ -3,11 +3,15 @@
 #include "progress.hpp"
 
 #include <gccore.h>
+#include <ogc/lwp_watchdog.h>
+#include <wiiuse/wpad.h>
 
 #include <cstdio>
 #include <cstring>
 
+#include "console.hpp"
 #include "guiscript.hpp"
+#include "ios_reload.hpp"
 
 extern "C" u8 console_font_8x16[];
 
@@ -84,6 +88,37 @@ void Redraw() {
     DCFlushRange(g_xfb + g_y * g_stride, (kBarTop + kBarHeight) * g_stride * 4);
 }
 
+// With the game's box on the card instead of the log: a button pressed
+// on any pad shows the log. Looked at every 50 ms at most, as the bar's
+// calls come in (in a read loop, thousands of times). The Wii's own
+// GameCube ports at any time (SI has nothing to do with the IOS; the
+// USB adapter was stopped as the menu closed); the Wii Remotes only
+// until their stack is shut down before an IOS reload, so a player
+// with only a Wii Remote can ask during the first part of a launch
+// only. A failure shows the log anyway (WaitForChoice).
+u64 g_last_look = 0;
+
+void ShowLogOnButton() {
+    if (!g_xfb || !ConsoleDeferred()) return;
+    const u64 now = gettime();
+    if (g_last_look != 0 && ticks_to_millisecs(now - g_last_look) < 50) return;
+    g_last_look = now;
+    bool pressed = false;
+    PAD_ScanPads();
+    for (int i = 0; i < 4; ++i) {
+        if (PAD_ButtonsDown(i) != 0) pressed = true;
+    }
+    if (!wii_remotes_released()) {
+        WPAD_ScanPads();
+        for (int i = 0; i < 4; ++i) {
+            if (WPAD_ButtonsDown(i) != 0) pressed = true;
+        }
+    }
+    if (!pressed) return;
+    ConsoleRevealDeferred();
+    Redraw();
+}
+
 }  // namespace
 
 void ProgressAttach(void* xfb, int fb_width, int fb_height, int x, int y, int width) {
@@ -102,11 +137,13 @@ void ProgressStage(const char* stage, int percent) {
     std::snprintf(g_stage, sizeof(g_stage), "%s", stage);
     if (percent > g_percent) g_percent = percent > 100 ? 100 : percent;
     Redraw();
+    ShowLogOnButton();
     // Test screenshots, only while the card is certainly up.
     if (g_xfb && g_percent <= 60) GuiScriptLaunchShot(g_percent, g_xfb, g_stride * 2, g_screen_height);
 }
 
 void ProgressWithin(unsigned long long done, unsigned long long total, int from, int to) {
+    ShowLogOnButton();
     if (total == 0) return;
     if (done > total) done = total;
     const int percent = from + static_cast<int>((to - from) * done / total);
