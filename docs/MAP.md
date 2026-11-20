@@ -186,6 +186,7 @@ The build compiles every folder into one, so no two files share a name.
 | `gui_shelf.cpp`, `gui_searchkeys.cpp` | The shelf/carousel/3D ring and the search/name keyboard |
 | `transition.cpp` | Screen changes, fades, slides and zooms |
 | `appicon.cpp` | Homebrew app icons, with bounded PNG reads and cached textures |
+| `homebrewart.cpp`, `homebrewart.hpp` | Homebrew cover, box and 3D picture names checked once per app scan, with GameTDB fallbacks |
 | `banners.cpp`, `bannerplay.cpp`, `bannersound.cpp` | Reading/caching disc and channel banners, drawing their layouts and animation, playing their sound |
 | `otpkey.cpp` | Reading the current console's keys for disc banners and moved SD channels; keys stay in memory |
 | `modpicture.cpp` | Mod and saved-tile pictures loaded and fitted for the menu |

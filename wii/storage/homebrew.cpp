@@ -14,6 +14,7 @@
 
 #include "channel.hpp"
 #include "gameinfo.hpp"
+#include "homebrewart.hpp"
 #include "log.hpp"
 #include "riftwii/appmeta.hpp"
 #include "riftwii/homebrewmatch.hpp"
@@ -147,6 +148,7 @@ void RescanHomebrewApps() {
     logf("Homebrew: %u app(s) in sd:/apps%s\n", static_cast<unsigned>(state.apps.size()),
          state.read ? "" : " (the apps folder could not be opened)");
     if (!state.apps.empty()) match_apps(state);
+    ConfigureHomebrewArt(state.apps, true);
 }
 
 bool HomebrewMatchStale() {
@@ -157,6 +159,7 @@ bool HomebrewMatchStale() {
 void MatchHomebrewApps() {
     Scan& state = scan();
     if (state.done && !state.apps.empty()) match_apps(state);
+    ConfigureHomebrewArt(state.apps, false);
 }
 
 const std::vector<HomebrewApp>& HomebrewApps() {

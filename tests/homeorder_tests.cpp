@@ -40,6 +40,9 @@ static void TestProfileKeys() {
 }
 
 static void TestKeys() {
+    const Keys apps{"app:sd:/apps/scummvm", "app:sd:/apps/My%2CApp", "usb:RMCE01"};
+    EXPECT_EQ(riftwii::parse_home_order(riftwii::serialize_home_order(apps)), apps);
+    EXPECT_TRUE(riftwii::parse_home_order("app:sd:/apps/../other\napp:sd:/apps/%00\n").empty());
     const Keys partitions{"usb:RMCE01", "usb2:RMCE01", "usb1:RMCE01@mods/2"};
     EXPECT_EQ(riftwii::parse_home_order(riftwii::serialize_home_order(partitions)), partitions);
     EXPECT_TRUE(riftwii::parse_home_order("usb02:RMCE01\nusb129:RMCE01\n").empty());

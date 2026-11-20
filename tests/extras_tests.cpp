@@ -1572,6 +1572,20 @@ void TestSettings() {
     EXPECT_EQ(favAgain.other.count("favorites"), 0u);
     EXPECT_TRUE(LoaderSettings{}.serialize().find("favorites") == std::string::npos);
 
+    fav.parse("favorites = RMCE01,RMCE01@retro,app:sd:/apps/scummvm,app:sd:/apps/My%2CApp,"
+              "app:sd:/apps/..,app:sd:/apps/a/b,app:sd:/apps/%00,app:sd:/apps/%gg\n");
+    EXPECT_EQ(fav.favorites.size(), 4u);
+    EXPECT_EQ(fav.favorites.count("app:sd:/apps/scummvm"), 1u);
+    EXPECT_EQ(fav.favorites.count("app:sd:/apps/My%2CApp"), 1u);
+    favAgain.parse(fav.serialize());
+    EXPECT_TRUE(favAgain.favorites == fav.favorites);
+    fav.favorites.erase("app:sd:/apps/scummvm");
+    fav.favorites.insert("app:sd:/apps/bad\nonline = off");
+    favAgain.parse(fav.serialize());
+    EXPECT_EQ(favAgain.favorites.count("app:sd:/apps/scummvm"), 0u);
+    EXPECT_EQ(favAgain.favorites.size(), 3u);
+    EXPECT_TRUE(favAgain.online);
+
     // A folder holding ';' cannot come back from the file whole: the file
     // joins folders with ';', so saving leaves it out instead of writing
     // two folders in its place.
