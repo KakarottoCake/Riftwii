@@ -153,6 +153,7 @@ void GuiSearchKeys::Build(const std::string& titleText, const std::string& noteT
         note->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
         note->SetPosition(kPanelX + 10, kBoxY + 8);
         note->SetWrap(true, 572 - 20, 3);
+        note->SetScroll(SCROLL::VERTICAL);  // a long note rolls up through the box
     }
     title = new GuiText(titleText.c_str(), 24, skin::kInk);
     title->SetParent(this);

@@ -175,6 +175,10 @@ private:
     static constexpr std::uint32_t kFatCacheBlocks = 64;
     static constexpr std::size_t kFatCacheWindows = 32;
     mutable std::map<std::uint64_t, std::vector<std::uint8_t>> fat_cache_;
+    // How much of a folder's first cluster is read before the rest of it:
+    // 4 KiB, 128 entries, which is all of a game's folder and one read on
+    // the Wii's SD card (walk_directory).
+    static constexpr std::uint32_t kDirHeadBlocks = 8;
     // Listings by first cluster, dropped whole past kDirCacheEntries.
     static constexpr std::size_t kDirCacheEntries = 32768;
     mutable std::map<std::uint32_t, std::vector<Fat32Entry>> dir_cache_;

@@ -1,20 +1,13 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/gcprograms.hpp"
+#include "riftwii/byteorder.hpp"
 
 #include <algorithm>
 
 namespace riftwii {
 
 namespace {
-
-std::uint32_t read_be32(const std::uint8_t* p) {
-    return std::uint32_t(p[0]) << 24 | std::uint32_t(p[1]) << 16 | std::uint32_t(p[2]) << 8 | p[3];
-}
-
-std::uint16_t read_be16(const std::uint8_t* p) {
-    return static_cast<std::uint16_t>(p[0] << 8 | p[1]);
-}
 
 // The ELF header's fields (the System V ABI's PowerPC supplement).
 constexpr std::size_t kElfHeaderBytes = 0x34;
@@ -86,16 +79,16 @@ bool parse_gc_elf(const std::uint8_t* head, std::size_t head_bytes, std::uint32_
         return false;
     }
     const bool big_endian_32 = head[4] == 1 && head[5] == 2;  // ELFCLASS32, ELFDATA2MSB
-    const std::uint16_t machine = read_be16(head + 0x12);
+    const std::uint16_t machine = be16(head + 0x12);
     const bool powerpc = machine == kElfPowerPc || machine == kElfNoMachine;
-    if (!big_endian_32 || read_be16(head + 0x10) != kElfExecutable || !powerpc) {
+    if (!big_endian_32 || be16(head + 0x10) != kElfExecutable || !powerpc) {
         why = "the file is not a 32-bit PowerPC executable";
         return false;
     }
-    const std::uint32_t entry = read_be32(head + 0x18);
-    const std::uint32_t header_table = read_be32(head + 0x1C);
-    const std::uint16_t header_size = read_be16(head + 0x2A);
-    const std::uint16_t header_count = read_be16(head + 0x2C);
+    const std::uint32_t entry = be32(head + 0x18);
+    const std::uint32_t header_table = be32(head + 0x1C);
+    const std::uint16_t header_size = be16(head + 0x2A);
+    const std::uint16_t header_count = be16(head + 0x2C);
     if (header_size != kProgramHeaderBytes || header_count == 0 || header_count > kMaxProgramHeaders) {
         why = "the program's segment table is not one RiftWii reads";
         return false;
@@ -107,12 +100,12 @@ bool parse_gc_elf(const std::uint8_t* head, std::size_t head_bytes, std::uint32_
     for (unsigned i = 0; i < header_count; ++i) {
         const std::uint8_t* header = head + header_table + i * kProgramHeaderBytes;
         GcElfSegment segment;
-        segment.file_offset = read_be32(header + 0x04);
-        segment.address = read_be32(header + 0x08);
-        segment.file_bytes = read_be32(header + 0x10);
-        segment.memory_bytes = read_be32(header + 0x14);
-        segment.executable = (read_be32(header + 0x18) & kSegmentExecutable) != 0;
-        if (read_be32(header) != kSegmentLoad || segment.memory_bytes == 0) continue;
+        segment.file_offset = be32(header + 0x04);
+        segment.address = be32(header + 0x08);
+        segment.file_bytes = be32(header + 0x10);
+        segment.memory_bytes = be32(header + 0x14);
+        segment.executable = (be32(header + 0x18) & kSegmentExecutable) != 0;
+        if (be32(header) != kSegmentLoad || segment.memory_bytes == 0) continue;
         if (segment.file_bytes > segment.memory_bytes || !within(segment.file_offset, segment.file_bytes, file_bytes)) {
             why = "a segment reaches past the file";
             return false;
@@ -165,8 +158,8 @@ void gc_changed_words(std::uint32_t address, const std::vector<std::uint8_t>& or
                       std::vector<std::pair<std::uint32_t, std::uint32_t>>& out) {
     const std::size_t bytes = std::min(original.size(), patched.size());
     for (std::size_t i = 0; i + 4 <= bytes; i += 4) {
-        const std::uint32_t before = read_be32(&original[i]);
-        const std::uint32_t after = read_be32(&patched[i]);
+        const std::uint32_t before = be32(&original[i]);
+        const std::uint32_t after = be32(&patched[i]);
         if (before != after) out.emplace_back(address + static_cast<std::uint32_t>(i), after);
     }
 }
@@ -258,7 +251,7 @@ std::uint32_t gc_program_start(std::uint32_t entry, const std::uint32_t* words, 
 bool gc_code_branches_to(const std::vector<CodeRange>& text, std::uint32_t target) {
     for (const CodeRange& range : text) {
         for (std::size_t i = 0; i + 4 <= range.size; i += 4) {
-            const std::uint32_t word = read_be32(range.bytes + i);
+            const std::uint32_t word = be32(range.bytes + i);
             const std::uint32_t at = range.address + static_cast<std::uint32_t>(i);
             const unsigned opcode = word >> 26;
             const bool absolute = (word & 2) != 0;
@@ -286,12 +279,12 @@ std::vector<std::uint32_t> gc_resident_words(const std::vector<GcResidentRegion>
         const GcResidentRegion& region = base[r];
         for (std::size_t i = 0; i + 4 <= region.bytes.size(); i += 4) {
             const std::uint32_t address = region.address + static_cast<std::uint32_t>(i);
-            const std::uint32_t before = read_be32(&region.bytes[i]);
+            const std::uint32_t before = be32(&region.bytes[i]);
             bool changed = false;
             for (const std::vector<GcResidentRegion>& state : programs) {
                 const bool same_layout = r < state.size() && state[r].address == region.address &&
                                          state[r].bytes.size() == region.bytes.size();
-                if (same_layout && read_be32(&state[r].bytes[i]) != before) changed = true;
+                if (same_layout && be32(&state[r].bytes[i]) != before) changed = true;
             }
             const bool skip = std::find(excluded.begin(), excluded.end(), address) != excluded.end();
             if (changed && !skip) words.push_back(address);
@@ -304,7 +297,7 @@ std::vector<std::uint32_t> gc_resident_words(const std::vector<GcResidentRegion>
 std::uint32_t gc_resident_word(const std::vector<GcResidentRegion>& state, std::uint32_t address) {
     for (const GcResidentRegion& region : state) {
         if (address < region.address || !within(address - region.address, 4, region.bytes.size())) continue;
-        return read_be32(&region.bytes[address - region.address]);
+        return be32(&region.bytes[address - region.address]);
     }
     return 0;
 }

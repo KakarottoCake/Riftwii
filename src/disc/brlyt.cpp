@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/brlyt.hpp"
+#include "riftwii/byteorder.hpp"
 
 #include <cmath>
 #include <cstring>
@@ -15,11 +16,6 @@ namespace {
 constexpr std::size_t kMaxListNames = 1024;
 constexpr std::size_t kMaxListNameBytes = 255;
 
-std::uint32_t be32(const std::uint8_t* p) {
-    return (static_cast<std::uint32_t>(p[0]) << 24) | (static_cast<std::uint32_t>(p[1]) << 16) |
-           (static_cast<std::uint32_t>(p[2]) << 8) | p[3];
-}
-std::uint16_t be16(const std::uint8_t* p) { return static_cast<std::uint16_t>((p[0] << 8) | p[1]); }
 float bef(const std::uint8_t* p) {
     const std::uint32_t v = be32(p);
     float f;

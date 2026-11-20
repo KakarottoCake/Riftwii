@@ -22,6 +22,7 @@
 #include <cstring>
 
 #include "boot.hpp"
+#include "console.hpp"
 #include "d2xsd.hpp"
 #include "d2xreturnto.hpp"
 #include "di.hpp"
@@ -63,6 +64,10 @@ ReloadResult terminal_startup_failure(int version, const char* detail, std::stri
     // print solely to the already-active console and leave recovery to the
     // top-level terminal path.
     error = "IOS" + std::to_string(version) + " " + detail + "; hold POWER to shut down";
+    // The log first when the game's box stood in for it: shown later, it
+    // would clear this line, which never reaches the held log. Only the
+    // frame and the console are touched, nothing of the IOS.
+    ConsoleRevealDeferred();
     std::printf("%s\n", error.c_str());
     g_terminal_failure = true;
     return ReloadResult::Terminal;
@@ -90,6 +95,8 @@ unsigned ms_since_ios_reload() {
 
 const std::string& last_reload_detail() { return g_reload_detail; }
 
+bool wii_remotes_released() { return g_wii_remotes_released; }
+
 void release_wii_remotes() {
     if (g_wii_remotes_released) return;
     WPAD_Shutdown();
@@ -105,6 +112,10 @@ void release_wii_remotes() {
 }
 
 ReloadResult reload_ios(int version, std::string& error, bool force) {
+    // The light goes dark before any reload; while a cIOS runs it stays dark
+    // (disclight.cpp), so the cIOS and the DI are set up with no pulse
+    // writing the GPIO.
+    if (force || IOS_GetVersion() != version) DiscLightIosReloaded();
     CoverLoaderHold();  // no SD read in flight across the reload
     // Launches stop the music before they close the log; this is for any
     // reload that comes without that: no audio may run across a reload

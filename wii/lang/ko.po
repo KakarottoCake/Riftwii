@@ -12,9 +12,6 @@ msgstr "배치"
 msgid "Choose"
 msgstr "선택"
 
-msgid "Games with mods"
-msgstr "MOD 지원 게임"
-
 msgid "All games"
 msgstr "모든 게임"
 
@@ -998,6 +995,9 @@ msgstr "CTGP-R 채널(sd:/apps/ctgpr/boot.dol)이 없어 아무것도 시작되�
 
 msgid "CTGP-R's settings file (sd:/ctgpr/config.ini) could not be written, so nothing was started. Check that the SD card is not locked or full."
 msgstr "CTGP-R 설정 파일(sd:/ctgpr/config.ini)을 쓸 수 없어 아무것도 시작되지 않았습니다. SD 카드가 잠겨 있거나 가득 찼는지 확인해 주세요."
+
+msgid "CTGP-R can't start Mario Kart Wii from the SD card, because CTGP-R uses the SD card for its own files. Put Mario Kart Wii on a USB drive, or use the disc."
+msgstr "CTGP-R은 SD 카드를 자체 파일용으로 사용하므로 SD 카드에서 마리오 카트 Wii를 시작할 수 없습니다. 마리오 카트 Wii를 USB 드라이브에 넣거나 디스크를 사용해 주세요."
 
 msgid " (and {1} more)"
 msgstr " (그리고 {1} 개 더)"
@@ -2022,8 +2022,14 @@ msgstr "와이드 화면"
 msgid "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."
 msgstr "컴포넌트 케이블에서 더 선명하고 안정적인 화면을 보여 주며, 480p가 없는 게임도 해당됩니다. 일부 게임은 먼저 물어봅니다."
 
-msgid "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental)."
-msgstr "게임 세계를 와이드 TV에 가득 채웁니다. 메뉴는 늘어난 채로 남고, 일부 게임은 색이 잘못 나올 수 있습니다 (실험적)."
+msgid "Fills a widescreen TV with the game world; menus and text stay stretched."
+msgstr "게임 세계를 와이드 TV에 가득 채웁니다. 메뉴와 글자는 늘어난 채로 남습니다."
+
+msgid "16:9 isn't available for this game yet."
+msgstr "이 게임에서는 아직 16:9를 사용할 수 없습니다."
+
+msgid "Not for this game"
+msgstr "이 게임에는 사용 불가"
 
 msgid "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one)."
 msgstr "이 게임을 플레이할 언어이며 Wii 본체 설정은 바뀌지 않습니다 (미국·일본 게임은 대부분 언어가 하나뿐입니다)."
@@ -2595,8 +2601,8 @@ msgstr "아직 게임 정보가 없습니다"
 msgid "Download game details?"
 msgstr "게임 정보를 다운로드할까요?"
 
-msgid "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?"
-msgstr "GameTDB의 모든 Wii 게임 데이터베이스에서 가져옵니다. 약 2 MB이며 SD 카드에 저장됩니다. 지금 다운로드할까요?"
+msgid "They come from GameTDB's database of every Wii game: about 3 MB, kept on the SD card. Download it now?"
+msgstr "GameTDB의 모든 Wii 게임 데이터베이스에서 가져옵니다. 약 3 MB이며 SD 카드에 저장됩니다. 지금 다운로드할까요?"
 
 msgid "Players"
 msgstr "플레이 인원"
@@ -2712,8 +2718,8 @@ msgstr "최대 {1}명"
 msgid "Pages at the sides"
 msgstr "양옆 페이지"
 
-msgid "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
-msgstr "채널: Wii 메뉴처럼 이전 페이지와 다음 페이지의 가장자리를 화면 양옆에 보여 줍니다. 가리키고 A를 누르면 그 페이지로 넘어갑니다."
+msgid "Channels and Covers: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
+msgstr "채널 및 커버: Wii 메뉴처럼 이전 페이지와 다음 페이지의 가장자리를 화면 양옆에 보여 줍니다. 가리키고 A를 누르면 그 페이지로 넘어갑니다."
 
 msgid "Could not save the tiles to the SD card."
 msgstr "타일을 SD 카드에 저장할 수 없습니다."
@@ -3645,6 +3651,12 @@ msgstr "뒷면"
 msgid "Front of the box"
 msgstr "앞면"
 
+msgid "Spin"
+msgstr "돌리기"
+
+msgid "The game's disc. Press A to spin it."
+msgstr "게임 디스크입니다. A로 돌려 보세요."
+
 msgid "Music file"
 msgstr "음악 파일"
 
@@ -4113,23 +4125,38 @@ msgstr "에뮬레이트 NAND 폴더입니다. USB Loader GX 설정에 적힌 폴
 msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
 msgstr "설정과 Mii까지 고르면 게임이 에뮬레이트 NAND의 Wii 설정과 Mii도 사용합니다. 이를 위해 폴더에 완전한 NAND가 있어야 합니다."
 
-msgid "CTGP-R: updated installs start again"
-msgstr "CTGP-R: 업데이트된 설치본이 다시 실행"
+msgid "Launch screen"
+msgstr "실행 화면"
 
-msgid "CTGP-R cups come from your install"
-msgstr "CTGP-R: 컵 구성을 내 설치본에서"
+msgid "Game's box"
+msgstr "게임 패키지"
 
-msgid "Game folders of your choice"
-msgstr "게임 폴더를 직접 선택"
+msgid "Log"
+msgstr "로그"
 
-msgid "GameCube: named memory cards"
-msgstr "게임큐브: 이름 있는 카드"
+msgid "Press any button to see what RiftWii is doing."
+msgstr "아무 버튼이나 누르면 RiftWii가 하는 일을 볼 수 있습니다."
 
-msgid "Sonic Unleashed sees the adapter on Wii U"
-msgstr "Wii U에서 Sonic Unleashed가 어댑터 인식"
+msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
+msgstr "게임 패키지: 게임이 시작되는 동안 게임 패키지를 보여 줍니다. 아무 버튼이나 누르면 RiftWii가 하는 일을 볼 수 있습니다. 로그: 모든 단계를 한 줄씩 보여 줍니다. 실행에 실패하면 항상 로그가 나타납니다."
 
-msgid "Brawl: file-swap packs load a match"
-msgstr "Brawl: 파일 교체 MOD로 대전 시작"
+msgid "GameCube 16:9 is back"
+msgstr "게임큐브 16:9 복귀"
+
+msgid "RiftWii says when the SD card is full"
+msgstr "SD 카드가 가득 차면 알림"
+
+msgid "A full SD card no longer locks the game page"
+msgstr "SD 카드가 가득 차도 게임 페이지가 멈추지 않음"
+
+msgid "Long cheat notes scroll"
+msgstr "긴 치트 설명이 스크롤됨"
+
+msgid "USB and SD games skip a broken disc drive"
+msgstr "USB·SD 게임이 고장 난 드라이브를 기다리지 않음"
+
+msgid "Settings > Games toggles work again"
+msgstr "설정 > 게임의 전환이 다시 작동"
 
 msgid "Manage game"
 msgstr "게임 관리"
@@ -4622,6 +4649,9 @@ msgstr "업데이트를 선택한 뒤 서버가 제공하는 CTGP-R 업데이트
 
 msgid "the update the server offers changed after Update was chosen, so nothing was downloaded"
 msgstr "업데이트를 선택한 뒤 서버가 제공하는 업데이트가 바뀌어 아무것도 다운로드하지 않았습니다"
+
+msgid "CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."
+msgstr "CTGP-R 게임 이미지를 준비하지 못했습니다. 이유는 sd:/riftwii/boot.log에 있습니다."
 
 msgid "The SD card is full"
 msgstr "SD 카드가 가득 찼습니다"

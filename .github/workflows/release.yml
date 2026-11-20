@@ -58,7 +58,7 @@ jobs:
       contents: read
       actions: read
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
         with:
           fetch-depth: 0
       # Every release is for everyone (docs/DEVELOPING.md), so it comes
@@ -116,7 +116,7 @@ jobs:
       TESTER_ROLE_ID: ${{ vars.DISCORD_TESTER_ROLE_ID }}
     # The image's default shell may be plain sh: these steps keep to it.
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
         with:
           # Makefile.wii numbers the build by the commits since the base
           # tag, so it needs the history and the tags.
@@ -203,14 +203,14 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
       # Kept with the run: the files to check by hand after a dry run, and
       # the ELFs that name a crash's offsets (docs/DEVELOPING.md).
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: riftwii-v${{ steps.version.outputs.version }}
           path: |
             out/
             texts/
           if-no-files-found: error
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: riftwii-v${{ steps.version.outputs.version }}-elf
           path: |
@@ -234,8 +234,8 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       TESTER_ROLE_ID: ${{ vars.DISCORD_TESTER_ROLE_ID }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
           name: riftwii-v${{ needs.build.outputs.version }}
           path: release-files
@@ -298,7 +298,7 @@ jobs:
       # With text_ref, the whole tree (the message, its pictures and the
       # renderer with its checks) comes from there; only the DOL's values
       # come from the release. Without it, everything is the release's tag.
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
         with:
           ref: ${{ inputs.text_ref || format('v{0}', inputs.version) }}
       - name: The message's files are plain files

@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/launch.hpp"
+#include "riftwii/gxpatches.hpp"
+
+#include "riftwii/checkedalloc.hpp"
 
 #include "riftwii/gccard.hpp"
 #include "riftwii/textlines.hpp"
@@ -94,13 +97,13 @@ bool gc_pal_game(const std::string& id) {
     return pal_regions.find(id[3]) != std::string::npos;
 }
 
-bool gc_widescreen_on(const GameSettings& game, const GcConsoleSettings& console) {
-    // Only when picked for the game. Widening the 3D is experimental: on
-    // a Wii Super Mario Eclipse's colours came out inverted and its picture
-    // doubled with it, so Default keeps the game's own picture whatever
-    // Settings and the Wii's TV say.
-    (void)console;
-    return game.gc_widescreen == "16:9";
+bool gc_widescreen_on(const GameSettings& game, const std::string& id, const GcConsoleSettings& console) {
+    if (gc_widescreen_off(id) != GcWidescreenOff::no) return false;
+    if (game.gc_widescreen == "16:9") return true;
+    if (game.gc_widescreen == "game") return false;
+    if (console.aspect == "16:9") return true;
+    if (console.aspect == "4:3") return false;
+    return kGcWidescreenFollowsWiiTv && console.wii_widescreen;
 }
 
 bool gc_progressive_on(const GameSettings& game, const std::string& id, const GcConsoleSettings& console) {
@@ -196,10 +199,10 @@ void PackIndex::add_filter(const DiscFilter& filter) {
     filters_.push_back(std::move(badge_filter));
 }
 
-void PackIndex::add_game(const std::string& game_id) {
+bool PackIndex::add_game(const std::string& game_id) {
     DiscFilter filter;
     filter.game = game_id;
-    filters_.push_back(filter);
+    return try_push_back(filters_, std::move(filter));
 }
 
 bool PackIndex::has_packs(const std::string& game_id) const {

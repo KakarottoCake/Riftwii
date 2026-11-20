@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/symsearch.hpp"
+#include "riftwii/byteorder.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -19,11 +20,6 @@ constexpr std::uint32_t kIpcIoctlv = 7;
 // DI commands the SDK's DVD driver sends through IOS_IoctlAsync.
 constexpr std::uint32_t kDiCommands[] = {0x71, 0x70, 0x8A, 0x8D, 0x12, 0xE3, 0xE4, 0x79, 0x88, 0xD9, 0xA8, 0xE0};
 constexpr std::uint32_t kOpenPartition = 0x8B;
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (static_cast<std::uint32_t>(p[0]) << 24) | (static_cast<std::uint32_t>(p[1]) << 16) |
-           (static_cast<std::uint32_t>(p[2]) << 8) | p[3];
-}
 
 std::uint32_t li(unsigned reg, std::uint32_t value) { return 0x38000000u | (reg << 21) | (value & 0xFFFF); }
 

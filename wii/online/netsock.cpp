@@ -241,7 +241,10 @@ bool NetStart(std::string& error, bool retry) {
     g_up = true;
     g_failed = false;
     const u32 ip = net_gethostip();
-    logf("Network: up, this Wii is %u.%u.%u.%u\n", (ip >> 24) & 0xFF, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF);
+    // Only the network's part of the address: the log goes into problem
+    // reports, which are posted publicly, and the first two numbers are
+    // enough to tell a home network from none (0.0) or a self-assigned one.
+    logf("Network: up, this Wii is %u.%u.x.x\n", (ip >> 24) & 0xFF, (ip >> 16) & 0xFF);
     return true;
 }
 

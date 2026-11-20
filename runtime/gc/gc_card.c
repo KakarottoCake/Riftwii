@@ -414,7 +414,7 @@ void gc_card_on_alarm(struct gc_rt_context* ctx, struct gc_card* card, uint32_t 
 
 /* The dirty sectors, a run of them per write, once the card has had a
  * heartbeat without traffic (a save is many programs in a row). */
-void gc_card_flush(struct gc_rt_context* ctx, struct gc_card* card, int force) {
+GC_EMUTEST_ENTRY void gc_card_flush(struct gc_rt_context* ctx, struct gc_card* card, int force) {
     uint32_t r;
     if (card->dirty_count == 0) return;
     if (!force && card->activity != card->seen_activity) {

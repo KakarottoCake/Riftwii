@@ -8,16 +8,12 @@
 
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/fst.hpp"
+#include "riftwii/byteorder.hpp"
 #include "rt_hook.h"
 #include "rtable.h"
 
 namespace riftwii {
 namespace {
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (static_cast<std::uint32_t>(p[0]) << 24) | (static_cast<std::uint32_t>(p[1]) << 16) |
-           (static_cast<std::uint32_t>(p[2]) << 8) | p[3];
-}
 
 bool slot_fits(std::uint32_t offset, std::uint32_t bytes, std::uint32_t size) {
     return (offset & 3) == 0 && offset < size && bytes <= size - offset;

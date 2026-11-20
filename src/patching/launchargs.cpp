@@ -11,6 +11,7 @@
 #include "riftwii/videopatch.hpp"
 #include "riftwii/wfcpatch.hpp"
 #include "riftwii/imagevolume.hpp"
+#include "riftwii/byteorder.hpp"
 
 namespace riftwii {
 namespace {
@@ -344,10 +345,6 @@ std::vector<std::string> headless_launch_arguments(const HeadlessLaunch& h) {
 }
 
 namespace {
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
-}
 
 // A NUL-terminated field of at most `max` bytes (unterminated: all of it).
 std::string field(const std::uint8_t* p, std::size_t max) {

@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 #include <memory>
 #include <set>
 #include <string>
@@ -36,6 +37,15 @@ struct D2xFragmentList {
     // supplies 32-byte alignment before passing this to IOS.
     bool encode(std::vector<std::uint8_t>& out, std::string& error) const;
 };
+
+// Homebrew that names dvd:/data_1 needs a game entry in partition slot 1.
+// Only the standard table sector is changed; partition contents stay intact.
+bool second_game_partition(std::array<std::uint8_t, 512>& sector, std::uint64_t disc_bytes,
+                           bool& changed, std::string& error);
+// Replace one logical sector with a file sector on the SAME physical device.
+// The original image and every other logical sector keep their mappings.
+bool replace_d2x_sector(D2xFragmentList& list, std::uint32_t logical, std::uint32_t physical,
+                        std::string& error);
 
 // A file piece contributes consecutive container bytes.  A split .wbfs is
 // represented by its .wbfs then .wbf1, .wbf2 ... pieces.  The source is used

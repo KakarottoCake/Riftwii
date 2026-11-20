@@ -453,6 +453,94 @@ static void test_directory_cache() {
     EXPECT_TRUE(missing);
 }
 
+// A game's folder holds a file or two: only the head of its cluster is
+// read (64 blocks a game, on a card with 32 KiB clusters, made a scan of a
+// few hundred games read tens of MiB of empty directory blocks). A folder
+// whose entries go on past the head is still read whole, in order.
+static void test_small_folders_read_only_their_head() {
+    Image img(512, 64, 0);
+    const std::uint32_t kGames = 3;
+    Bytes root;
+    cat(root, short_entry("WBFS       ", 0x10, 3, 0));
+    cat(root, short_entry("BIG        ", 0x10, 20, 0));
+    EXPECT_TRUE(img.write_dir({2}, root));
+    Bytes wbfs;
+    cat(wbfs, short_entry(".          ", 0x10, 3, 0));
+    cat(wbfs, short_entry("..         ", 0x10, 0, 0));
+    for (std::uint32_t g = 0; g < kGames; ++g) {
+        char short11[12];
+        std::snprintf(short11, sizeof short11, "GAME%u~1    ", g);
+        const std::u16string name = u"Game " + std::u16string(1, static_cast<char16_t>(u'0' + g)) + u" [AAAA0" +
+                                    std::u16string(1, static_cast<char16_t>(u'0' + g)) + u"]";
+        cat(wbfs, lfn_entries(ucs(name), short11, 0x10, 10 + g, 0));
+        Bytes folder;
+        cat(folder, short_entry(".          ", 0x10, 10 + g, 0));
+        cat(folder, short_entry("..         ", 0x10, 3, 0));
+        const std::u16string image = u"AAAA0" + std::u16string(1, static_cast<char16_t>(u'0' + g)) + u".wbfs";
+        cat(folder, lfn_entries(ucs(image), "AAAA0~1 WBF", 0x20, 100 + g, 4096));
+        EXPECT_TRUE(img.write_dir({10 + g}, folder));
+    }
+    EXPECT_TRUE(img.write_dir({3}, wbfs));
+    // 1100 files: past the head of the first cluster, and into a second.
+    const std::uint32_t kBigFiles = 1100;
+    Bytes big;
+    for (std::uint32_t i = 0; i < kBigFiles; ++i) {
+        char short11[12];
+        std::snprintf(short11, sizeof short11, "F%07uBIN", i);
+        cat(big, short_entry(short11, 0x20, 0, 0));
+    }
+    EXPECT_TRUE(img.write_dir({20, 21}, big));
+
+    int reads = 0;
+    std::uint64_t blocks = 0;
+    const std::uint64_t data_lba = img.cluster_lba(2);
+    const riftwii::BlockReader base = img.reader();
+    auto counted = [&](std::uint64_t lba, std::uint32_t count, std::uint8_t* out) {
+        if (lba >= data_lba) {  // the folders' own blocks, not the boot block or the FAT
+            ++reads;
+            blocks += count;
+        }
+        return base(lba, count, out);
+    };
+    riftwii::Fat32Volume v;
+    std::string err;
+    EXPECT_TRUE(riftwii::Fat32Volume::mount(counted, v, err));
+    std::vector<riftwii::Fat32Entry> entries;
+    reads = 0;
+    blocks = 0;
+    // The root, wbfs and the game's folder: 4 KiB of each.
+    EXPECT_TRUE(v.list("/wbfs/Game 0 [AAAA00]", entries, err));
+    EXPECT_EQ(entries.size(), std::size_t(1));
+    EXPECT_EQ(entries.empty() ? std::string() : entries[0].name, std::string("AAAA00.wbfs"));
+    EXPECT_EQ(reads, 3);
+    EXPECT_EQ(blocks, std::uint64_t(24));
+    // Each further game: its own folder's head, and nothing else.
+    for (std::uint32_t g = 1; g < kGames; ++g) {
+        const std::string digit(1, static_cast<char>('0' + g));
+        EXPECT_TRUE(v.list("/wbfs/Game " + digit + " [AAAA0" + digit + "]", entries, err));
+        EXPECT_EQ(entries.size(), std::size_t(1));
+        EXPECT_EQ(entries.empty() ? std::string() : entries[0].name, "AAAA0" + digit + ".wbfs");
+    }
+    EXPECT_EQ(reads, 3 + static_cast<int>(kGames - 1));
+    EXPECT_EQ(blocks, std::uint64_t(24 + 8 * (kGames - 1)));
+
+    // The big folder: its first cluster in two reads, its second in one,
+    // every file listed once and in the folder's order.
+    reads = 0;
+    blocks = 0;
+    EXPECT_TRUE(v.list("/big", entries, err));
+    EXPECT_EQ(entries.size(), std::size_t(kBigFiles));
+    bool in_order = entries.size() == kBigFiles;
+    for (std::uint32_t i = 0; in_order && i < kBigFiles; ++i) {
+        char name[16];
+        std::snprintf(name, sizeof name, "F%07u.BIN", i);
+        in_order = entries[i].name == name;
+    }
+    EXPECT_TRUE(in_order);
+    EXPECT_EQ(reads, 3);
+    EXPECT_EQ(blocks, std::uint64_t(128));
+}
+
 static void test_mount_failures() {
     std::string err;
     riftwii::Fat32Volume v;
@@ -824,6 +912,7 @@ int main() {
     test_fast_cycle_detection_and_fat_cache();
     test_fat_windows();
     test_directory_cache();
+    test_small_folders_read_only_their_head();
     test_mount_failures();
     test_big_reads_are_chunked();
     if (g_failures == 0) {

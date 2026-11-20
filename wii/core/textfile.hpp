@@ -26,7 +26,23 @@ bool ReadWholeFile(const std::string& path, std::string& out);
 bool ReadWholeFile(const std::string& path, std::vector<std::uint8_t>& out);
 
 // `size` bytes written to `path` in place of what it held. True only when
-// the file opened, every byte was written and it closed cleanly.
+// the file opened, every byte was written and it closed cleanly. A power cut
+// or a full card halfway leaves the file cut short: for caches, logs and
+// files RiftWii can make again. A player's own file uses ReplaceWholeFile.
 bool WriteWholeFile(const std::string& path, const void* data, std::size_t size);
+
+// `size` bytes saved as `path` without ever leaving it half-written. They go
+// to `path.part` first; once that is whole, the old file steps aside as
+// `path.bak` and the new one takes its name, and the .bak is removed. Each
+// step that fails leaves the old copy readable: a failed write removes the
+// .part; a failed last rename puts the old copy back at `path` and keeps the
+// whole new one as `path.part`. A power cut between the two renames leaves
+// only `path.bak`, which ReadReplacedFile reads. With no `path`, a .bak left
+// by an earlier cut-off save stays until this save has succeeded.
+bool ReplaceWholeFile(const std::string& path, const void* data, std::size_t size);
+
+// ReadTextFile of `path`, or of `path.bak` when `path` is missing (a save
+// cut off between ReplaceWholeFile's two renames).
+bool ReadReplacedFile(const std::string& path, std::string& out, std::size_t cap = kTextFileCap);
 
 }  // namespace riftwii::wii

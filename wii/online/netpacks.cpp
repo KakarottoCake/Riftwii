@@ -213,7 +213,8 @@ bool connect_server(SocketTransport& transport, riifs::Client& client, const Net
 
 std::string ReadPackText(const std::string& path) { return read_text(path); }
 
-std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited, bool keep_text) {
+std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited, bool keep_text,
+                                    const std::vector<PackFile>* earlier) {
     limited = false;
     std::vector<PackFile> out;
     std::size_t cached_bytes = 0;
@@ -232,10 +233,22 @@ std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited, bool keep_
     for (const char* folder : {kPackageDir, kPackageDir2}) {
         for (const std::string& name : xml_names(folder, limit - std::min(limit, out.size()), limited)) {
             const std::string path = std::string(folder) + "/" + name;
+            // Read a moment ago, for the SD card's part of this look: the
+            // text kept then is used, and the card is not read again. It
+            // was a pack then (not an XML that only names a server).
+            const PackFile* read_before = nullptr;
+            if (earlier) {
+                for (const PackFile& before : *earlier) {
+                    if (before.text_cached && before.path == path) {
+                        read_before = &before;
+                        break;
+                    }
+                }
+            }
             // An XML that only names a server (Riivolution's way of pointing
             // at one) is not a pack; with no <id> it would show for every game.
-            std::string text = read_text(path);
-            if (text.find("<network") != std::string::npos) {
+            std::string text = read_before ? read_before->text : read_text(path);
+            if (!read_before && text.find("<network") != std::string::npos) {
                 Package package;
                 std::string ignored;
                 if (parse_package(text, package, ignored) && !package.networks.empty() && package.options.empty()) continue;

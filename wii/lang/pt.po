@@ -12,9 +12,6 @@ msgstr "Layout"
 msgid "Choose"
 msgstr "Escolher"
 
-msgid "Games with mods"
-msgstr "Jogos com mods"
-
 msgid "All games"
 msgstr "Todos os jogos"
 
@@ -998,6 +995,9 @@ msgstr "O canal do CTGP-R (sd:/apps/ctgpr/boot.dol) está faltando, então nada 
 
 msgid "CTGP-R's settings file (sd:/ctgpr/config.ini) could not be written, so nothing was started. Check that the SD card is not locked or full."
 msgstr "Não foi possível gravar o arquivo de ajustes do CTGP-R (sd:/ctgpr/config.ini), então nada foi iniciado. Verifique se o cartão SD não está bloqueado nem cheio."
+
+msgid "CTGP-R can't start Mario Kart Wii from the SD card, because CTGP-R uses the SD card for its own files. Put Mario Kart Wii on a USB drive, or use the disc."
+msgstr "O CTGP-R não consegue iniciar o Mario Kart Wii pelo cartão SD, porque o CTGP-R usa o cartão SD para os próprios arquivos. Coloque o Mario Kart Wii em uma unidade USB ou use o disco."
 
 msgid " (and {1} more)"
 msgstr " (e mais {1})"
@@ -2022,8 +2022,14 @@ msgstr "Widescreen"
 msgid "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."
 msgstr "Dá uma imagem mais nítida e estável com cabo componente, mesmo em jogos sem modo 480p; alguns jogos perguntam antes."
 
-msgid "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental)."
-msgstr "Preenche uma TV widescreen com o mundo do jogo; os menus continuam esticados e alguns jogos mostram cores erradas (experimental)."
+msgid "Fills a widescreen TV with the game world; menus and text stay stretched."
+msgstr "Preenche uma TV widescreen com o mundo do jogo; os menus e o texto continuam esticados."
+
+msgid "16:9 isn't available for this game yet."
+msgstr "O 16:9 ainda não está disponível para este jogo."
+
+msgid "Not for this game"
+msgstr "Não para este jogo"
 
 msgid "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one)."
 msgstr "O idioma em que este jogo é jogado, sem mudar a configuração do Wii (a maioria dos jogos dos EUA e do Japão tem só um)."
@@ -2595,8 +2601,8 @@ msgstr "Ainda não há dados dos jogos"
 msgid "Download game details?"
 msgstr "Baixar os dados dos jogos?"
 
-msgid "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?"
-msgstr "Vêm da base de dados do GameTDB com todos os jogos de Wii: cerca de 2 MB, guardados no cartão SD. Baixar agora?"
+msgid "They come from GameTDB's database of every Wii game: about 3 MB, kept on the SD card. Download it now?"
+msgstr "Vêm da base de dados do GameTDB com todos os jogos de Wii: cerca de 3 MB, guardados no cartão SD. Baixar agora?"
 
 msgid "Players"
 msgstr "Jogadores"
@@ -2712,8 +2718,8 @@ msgstr "Até {1} jogadores"
 msgid "Pages at the sides"
 msgstr "Páginas nas laterais"
 
-msgid "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
-msgstr "Canais: as bordas da página anterior e da próxima nas laterais da tela, como no Menu Wii. Aponte para uma e aperte A para ir a essa página."
+msgid "Channels and Covers: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
+msgstr "Canais e capas: as bordas da página anterior e da próxima nas laterais da tela, como no Menu Wii. Aponte para uma e aperte A para ir a essa página."
 
 msgid "Could not save the tiles to the SD card."
 msgstr "Não foi possível salvar os blocos no cartão SD."
@@ -3645,6 +3651,12 @@ msgstr "Verso da caixa"
 msgid "Front of the box"
 msgstr "Frente da caixa"
 
+msgid "Spin"
+msgstr "Girar"
+
+msgid "The game's disc. Press A to spin it."
+msgstr "O disco do jogo. Aperte A para girá-lo."
+
 msgid "Music file"
 msgstr "Arquivo de música"
 
@@ -4113,23 +4125,38 @@ msgstr "A pasta da NAND emulada: a que as configurações do USB Loader GX indic
 msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
 msgstr "Com configurações e Miis, os jogos também usam as configurações do Wii e os Miis da NAND emulada. Para isso a pasta precisa de uma NAND completa."
 
-msgid "CTGP-R: updated installs start again"
-msgstr "CTGP-R: instalações atualizadas iniciam de novo"
+msgid "Launch screen"
+msgstr "Tela de início do jogo"
 
-msgid "CTGP-R cups come from your install"
-msgstr "CTGP-R: as copas vêm da sua instalação"
+msgid "Game's box"
+msgstr "Caixa do jogo"
 
-msgid "Game folders of your choice"
-msgstr "Pastas de jogos à sua escolha"
+msgid "Log"
+msgstr "Registro"
 
-msgid "GameCube: named memory cards"
-msgstr "GameCube: cartões com nome"
+msgid "Press any button to see what RiftWii is doing."
+msgstr "Aperte qualquer botão para ver o que o RiftWii está fazendo."
 
-msgid "Sonic Unleashed sees the adapter on Wii U"
-msgstr "Sonic Unleashed vê o adaptador no Wii U"
+msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
+msgstr "Caixa do jogo: a caixa do jogo enquanto ele inicia; aperte qualquer botão para ver o que o RiftWii está fazendo. Registro: cada passo, linha por linha. Se o início falhar, o registro sempre aparece."
 
-msgid "Brawl: file-swap packs load a match"
-msgstr "Brawl: pacotes de arquivos carregam partidas"
+msgid "GameCube 16:9 is back"
+msgstr "O 16:9 do GameCube está de volta"
+
+msgid "RiftWii says when the SD card is full"
+msgstr "O RiftWii avisa quando o cartão SD está cheio"
+
+msgid "A full SD card no longer locks the game page"
+msgstr "Um cartão SD cheio não trava mais a página do jogo"
+
+msgid "Long cheat notes scroll"
+msgstr "Notas longas de trapaças rolam"
+
+msgid "USB and SD games skip a broken disc drive"
+msgstr "Jogos de USB e SD ignoram o leitor quebrado"
+
+msgid "Settings > Games toggles work again"
+msgstr "As opções de Configurações > Jogos funcionam de novo"
 
 msgid "Manage game"
 msgstr "Gerenciar jogo"
@@ -4622,6 +4649,9 @@ msgstr "A atualização do CTGP-R oferecida pelo servidor mudou depois de escolh
 
 msgid "the update the server offers changed after Update was chosen, so nothing was downloaded"
 msgstr "a atualização oferecida pelo servidor mudou depois de escolher Atualizar, por isso nada foi transferido"
+
+msgid "CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."
+msgstr "Não foi possível preparar a imagem de jogo do CTGP-R. O motivo está em sd:/riftwii/boot.log."
 
 msgid "The SD card is full"
 msgstr "O cartão SD está cheio"

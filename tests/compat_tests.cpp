@@ -187,13 +187,22 @@ static void test_full_featured() {
     EXPECT_TRUE(Contains(err, "option 'Separate save' choice 'On' patch 'save': <savegame> redirection is not supported yet"));
     // A save folder in the card's root or in RiftWii's or the Homebrew
     // Channel's folders is refused (BUG-19); one beside them is fine.
-    for (const char* bad : {"/", "/riftwii", "/RiftWii/saves", "/apps/riftwii", "/private", "/save/../riftwii/x"}) {
+    // So are the game images' folders, other loaders' emulated NANDs and the
+    // packs' folder itself, whose files a game's saves could overwrite.
+    for (const char* bad : {"/", "/riftwii", "/RiftWii/saves", "/apps/riftwii", "/private", "/save/../riftwii/x",
+                            "/wbfs", "/games/GALE01", "/nands/01/title/00010000/524d4345/data", "/riivolution",
+                            "/Riivolution/"}) {
         riftwii::Package moved = with_save;
         moved.patches.at("save").savegames[0].external = bad;
         EXPECT_FALSE(riftwii::plan_package(moved, disc, AllowAll(), plan, err));
         EXPECT_TRUE(Contains(err, "a save needs a folder of its own"));
     }
-    for (const char* good : {"/riftwii-saves", "/applications", "/save/apps"}) {
+    // The same rule, as a launch checks a save folder it moved beside the
+    // pack's XML (a pack kept in sd:/games/Pack has its /data moved there).
+    EXPECT_FALSE(riftwii::savegame_folder_allowed("/games/Pack/data/save"));
+    EXPECT_FALSE(riftwii::savegame_folder_allowed("/Apps/Pack/save/"));
+    EXPECT_TRUE(riftwii::savegame_folder_allowed("/riivolution/Pack/data/save"));
+    for (const char* good : {"/riftwii-saves", "/applications", "/save/apps", "/riivolution/save/RFT", "/gamesaves"}) {
         riftwii::Package moved = with_save;
         moved.patches.at("save").savegames[0].external = good;
         EXPECT_TRUE(riftwii::plan_package(moved, disc, AllowAll(), plan, err));

@@ -220,9 +220,12 @@ for their folders and controllers.
 ### Home
 
 RiftWii reads the SD card and the USB drive and shows your games as
-tiles, with the disc drive first. At first it shows only games that
+tiles, with the disc drive first. The games it found the last time show
+at once while it reads the drives again; one you pick meanwhile opens
+as soon as they are read. At first it shows only games that
 have mod packs (they carry a **MODS** tag). The round button at the
-bottom left (or **1**) switches between games with mods, all games, **Homebrew** and,
+bottom left (or **1**) switches between **Mods** (the games with mods),
+**All games**, **Homebrew** and,
 once you have played something, **Recently played**, then
 **Favourites** once you mark a game as one (the star on its banner, or
 **Favourite** on its page). **Minus** and
@@ -441,8 +444,8 @@ pressed too.
   online, with the server it would use), the controllers it needs and
   those it also takes, each marked *Connected* or *Not connected* when
   the Wii can tell, and its story. The details come from GameTDB's
-  database of every Wii game, `sd:/riftwii/wiitdb-<language>.zip` (about
-  2 MB, in the menu's language with English where there is no
+  database of every Wii game, `sd:/riftwii/wiitdb-all-<language>.zip` (about
+  3 MB, with WiiWare, GameCube and homebrew apps; in the menu's language with English where there is no
   translation): the first visit offers to download it, and a `wiitdb.xml`
   another loader left on the card is used when it is there. The first page opened reads
   it for all your games at once (a few seconds); after that they open at
@@ -642,11 +645,11 @@ the tiles.
   last game's page. After a button or the stick, your game stays selected
   (more games can still come in around it and change its page).
 - **Disc Channel**: the Disc drive's tile on Home, for playing from a
-  disc. A new SD card asks whether you want it after the tour.
+  disc. It shows in the Mods, All games, Wii and GameCube views. A new SD card asks whether you want it after the tour.
 - **Widescreen menu**: on a 16:9 TV the menu is drawn narrower, so covers
   and pictures keep their shape instead of looking stretched. It starts
-  at *4:3*; *16:9* turns it on, and *Automatic* follows the Wii's own TV
-  setting (Wii Settings > Screen > Widescreen).
+  at *Automatic*, which follows the Wii's own TV setting (Wii Settings >
+  Screen > Widescreen); *4:3* and *16:9* choose one for good.
 - **Screen size**: 100% down to 80%. If your TV cuts off the edges of the
   menu (overscan, common with HDMI adapters), lower it until the whole menu
   shows. Setting the TV's picture size to "Just scan", "Direct" or "Fit"
@@ -735,6 +738,15 @@ the tiles.
   pauses while the game's IOS is loaded, and comes back after). *Fade out*
   fades it out when you start a game and keeps it off for the whole launch.
   `launch_music = on|off` in `settings.txt`.
+- **Launch screen** (Game's box, Log; right after Launch music): while a
+  game starts, *Game's box* shows its box on the launch screen's card, as
+  on its page, with the progress bar under it. Press any button to see
+  the log instead: a GameCube pad's in the Wii's own ports at any time
+  (not one on a USB adapter), a Wii Remote's until the launch hands the
+  Wii Remotes over (before a cIOS is loaded). A
+  launch that fails always shows the log, and `boot.log` on the SD card
+  has it either way. *Log* prints every step on the card, as before.
+  `launch_log = off|on` in `settings.txt`.
 - **Banner music on game pages** (off at first): opening a game's page
   from Home's covers, shelf, carousel, 3D covers or names plays the game's
   banner music, as the Channels view's banner screen does, with the menu's
@@ -834,9 +846,11 @@ the tiles.
 
 The Wii's blue disc slot light blinks slowly while RiftWii loads or patches a
 game, or copies a disc. It turns off when the work ends, including a cancelled
-copy or a failed launch, and before the game starts. **Settings > Games > Disc
-slot light** turns it off; it is on by default. This uses the Wii's own light,
-so Dolphin does not show it.
+copy or a failed launch, and before the game starts. It is off by default
+(on some Wiis it disturbed USB and SD-image launches); **Settings > Games >
+Disc slot light** turns it on. It never blinks while a cIOS (such as d2x) is
+the running IOS, so a USB launch that reloads into one stays dark. This uses the Wii's own light, so Dolphin does not show
+it.
 
 ### HOME Menu
 
@@ -943,7 +957,7 @@ back into an ISO or an RVZ with Dolphin's **Convert File...** first.
 
 GameCube games are on Home with your other games, badged **GC**.
 **Settings > Home > Games from > GameCube** shows only these; the other
-choices, and Home's Show button (all games, games with mods, Recently
+choices, and Home's Show button (All games, Mods, Recently
 played, Favourites), can hide them as they hide any game.
 
 A GameCube game's page has its own options in place of a Wii game's
@@ -952,9 +966,14 @@ memory card**, *This game's own*, *Shared*, *A named card* or, on an original Wi
 card in slot A*, *Real card in slot B* or *Real card in slot B, as slot A*), **Picture lines** (*On (480p)*, *240p* for a CRT TV, as
 Settings > Picture > Video mode describes, or *Off*; European GameCube games never get 480p or
 240p), **Sharper
-picture**, **Picture width**, **Volume boost** (all of a quiet game's sound
+picture**, **Widescreen**, **Picture width**, **Volume boost** (all of a quiet game's sound
 +3 or +6 dB louder), **Game language** and, for European
-games, **Game speed** (60 Hz instead of 50). GameCube games also follow
+games, **Game speed** (60 Hz instead of 50). **Widescreen** *16:9* draws
+the game's 3D world wider for a widescreen TV; its menus and text stay
+4:3 and are stretched. Pick it only with the TV set to fill a 16:9
+screen: a TV set to 4:3, zoom or pillarbox shows the picture squashed.
+*Default* keeps the game's own picture unless **Settings > Picture > Aspect ratio**
+is *16:9*. Super Mario Sunshine and its mods don't offer it yet. GameCube games also follow
 the Wii's own **Screen Position** (Wii Settings > Screen), as Wii games
 do, when RiftWii finds where the game reads its position (the log says
 so); otherwise the game keeps its own.
@@ -1008,6 +1027,10 @@ card, a real card in slot B to trade items or keep other saves). RiftWii
 only ever takes over slot A, so slot B is the real hardware; before the
 game starts RiftWii reads that card's ID into the console's settings, as
 it does for slot A, so a card formatted on another console is accepted.
+If slot B has no readable card, the card is damaged, its text encoding
+differs from the game's, or the console is a Wii U, RiftWii offers **Use
+this game's SD card** or **Cancel**, as for slot A; the game then starts
+with only its own card in slot A.
 
 **Settings > Games > GameCube memory card** sets the card for every
 GameCube game whose own **Memory card** is *Default*: *This game's own*
@@ -1193,7 +1216,7 @@ pieces (`.wbfs`, `.wbf1`, ...), as FAT32 needs; keep them together.
 When the copy is done it is on Home, unless something there leaves it
 out; the message at the end then says which, and what to change:
 
-- Home's **Show** is on Games with mods (where Home starts), and the game
+- Home's **Show** is on **Mods** (where Home starts), and the game
   has none: choose **Show > All games**.
 - **Settings > Home > Games from** names another place (the other
   drive, Wii channels or GameCube): set it to All games.

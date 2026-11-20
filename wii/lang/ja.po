@@ -12,9 +12,6 @@ msgstr "レイアウト"
 msgid "Choose"
 msgstr "選ぶ"
 
-msgid "Games with mods"
-msgstr "MODがあるゲーム"
-
 msgid "All games"
 msgstr "すべてのゲーム"
 
@@ -998,6 +995,9 @@ msgstr "CTGP-Rのチャンネル（sd:/apps/ctgpr/boot.dol）がないため、�
 
 msgid "CTGP-R's settings file (sd:/ctgpr/config.ini) could not be written, so nothing was started. Check that the SD card is not locked or full."
 msgstr "CTGP-Rの設定ファイル（sd:/ctgpr/config.ini）を書き込めなかったため、何も起動しませんでした。SDカードのロックや空き容量を確認してください。"
+
+msgid "CTGP-R can't start Mario Kart Wii from the SD card, because CTGP-R uses the SD card for its own files. Put Mario Kart Wii on a USB drive, or use the disc."
+msgstr "CTGP-RはSDカードを自分のファイルに使うため、SDカードからマリオカートWiiを起動できません。マリオカートWiiをUSBドライブに入れるか、ディスクを使ってください。"
 
 msgid " (and {1} more)"
 msgstr " (ほか{1}件)"
@@ -2022,8 +2022,14 @@ msgstr "ワイド画面"
 msgid "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."
 msgstr "コンポーネントケーブルで、くっきり安定した映像にします。480pのないゲームも対象で、先に確認を求めるゲームもあります。"
 
-msgid "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental)."
-msgstr "ゲームの世界をワイドテレビいっぱいに広げます。メニューは横に伸びたままで、色がおかしくなるゲームもあります (試験的)。"
+msgid "Fills a widescreen TV with the game world; menus and text stay stretched."
+msgstr "ゲームの世界をワイドテレビいっぱいに広げます。メニューと文字は横に伸びたままです。"
+
+msgid "16:9 isn't available for this game yet."
+msgstr "このゲームではまだ16:9を使えません。"
+
+msgid "Not for this game"
+msgstr "このゲームには使えません"
 
 msgid "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one)."
 msgstr "このゲームを遊ぶ言語で、Wii本体の設定は変わりません (アメリカと日本のゲームの多くは1言語だけです)。"
@@ -2595,8 +2601,8 @@ msgstr "ゲーム情報はまだありません"
 msgid "Download game details?"
 msgstr "ゲーム情報をダウンロードしますか？"
 
-msgid "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?"
-msgstr "GameTDBの全Wiiゲームのデータベースから取得します（約2 MB、SDカードに保存）。今すぐダウンロードしますか？"
+msgid "They come from GameTDB's database of every Wii game: about 3 MB, kept on the SD card. Download it now?"
+msgstr "GameTDBの全Wiiゲームのデータベースから取得します（約3 MB、SDカードに保存）。今すぐダウンロードしますか？"
 
 msgid "Players"
 msgstr "人数"
@@ -2712,8 +2718,8 @@ msgstr "最大{1}人"
 msgid "Pages at the sides"
 msgstr "左右のページ"
 
-msgid "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
-msgstr "チャンネル: 前と次のページの端を、Wiiメニューのように画面の左右に表示します。そこを指してAを押すと、そのページに移ります。"
+msgid "Channels and Covers: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
+msgstr "チャンネルとパッケージ: 前と次のページの端を、Wiiメニューのように画面の左右に表示します。そこを指してAを押すと、そのページに移ります。"
 
 msgid "Could not save the tiles to the SD card."
 msgstr "タイルをSDカードに保存できませんでした。"
@@ -3645,6 +3651,12 @@ msgstr "裏面"
 msgid "Front of the box"
 msgstr "表面"
 
+msgid "Spin"
+msgstr "回す"
+
+msgid "The game's disc. Press A to spin it."
+msgstr "ゲームのディスクです。Aで回せます。"
+
 msgid "Music file"
 msgstr "音楽ファイル"
 
@@ -4113,23 +4125,38 @@ msgstr "エミュレートNANDのフォルダです。USB Loader GXの設定に�
 msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
 msgstr "設定とMiiも選ぶと、ゲームはエミュレートNANDのWii本体設定とMiiも使います。そのためにはフォルダに完全なNANDが必要です。"
 
-msgid "CTGP-R: updated installs start again"
-msgstr "CTGP-R：更新したインストールが再び起動"
+msgid "Launch screen"
+msgstr "起動画面"
 
-msgid "CTGP-R cups come from your install"
-msgstr "CTGP-R：カップ構成は自分のインストールから"
+msgid "Game's box"
+msgstr "ゲームのパッケージ"
 
-msgid "Game folders of your choice"
-msgstr "ゲームのフォルダを自分で選べる"
+msgid "Log"
+msgstr "ログ"
 
-msgid "GameCube: named memory cards"
-msgstr "ゲームキューブ：名前付きカード"
+msgid "Press any button to see what RiftWii is doing."
+msgstr "ボタンを押すとRiftWiiの処理内容を表示します。"
 
-msgid "Sonic Unleashed sees the adapter on Wii U"
-msgstr "Wii UでSonic Unleashedがアダプターを認識"
+msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
+msgstr "ゲームのパッケージ：起動中はゲームのパッケージを表示します。ボタンを押すとRiftWiiの処理内容を表示します。ログ：すべての手順を1行ずつ表示します。起動に失敗したときは、必ずログを表示します。"
 
-msgid "Brawl: file-swap packs load a match"
-msgstr "Brawl：ファイル差し替えMODで試合が始まる"
+msgid "GameCube 16:9 is back"
+msgstr "ゲームキューブの16:9が復活"
+
+msgid "RiftWii says when the SD card is full"
+msgstr "SDカードがいっぱいのときにお知らせ"
+
+msgid "A full SD card no longer locks the game page"
+msgstr "SDカードがいっぱいでもゲームのページから戻れる"
+
+msgid "Long cheat notes scroll"
+msgstr "長いチートの説明がスクロール"
+
+msgid "USB and SD games skip a broken disc drive"
+msgstr "USB・SDのゲームは壊れたドライブを待たない"
+
+msgid "Settings > Games toggles work again"
+msgstr "設定 > ゲームの切り替えが再び動作"
 
 msgid "Manage game"
 msgstr "ゲームの管理"
@@ -4622,6 +4649,9 @@ msgstr "「更新」を選んだ後でサーバーが提示するCTGP-Rの更新
 
 msgid "the update the server offers changed after Update was chosen, so nothing was downloaded"
 msgstr "「更新」を選んだ後でサーバーが提示する更新が変わったため、何もダウンロードされませんでした"
+
+msgid "CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."
+msgstr "CTGP-Rのゲームイメージを準備できませんでした。理由はsd:/riftwii/boot.logにあります。"
 
 msgid "The SD card is full"
 msgstr "SDカードがいっぱいです"

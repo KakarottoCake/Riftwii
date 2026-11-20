@@ -551,6 +551,18 @@ static void test_native_stand_in() {
     EXPECT_TRUE(!ctgp_is_native_stand_in("RMC", "sd:/apps/ctgpr/boot.dol"));
 }
 
+// CTGP-R with Mario Kart Wii on the SD card stops: d2x and CTGP-R would both
+// drive the card. Only CTGP-R's own app, and only an SD image.
+static void test_sd_image_blocked() {
+    EXPECT_TRUE(ctgp_sd_image_blocked("RMCE01", "sd:/apps/ctgpr/boot.dol", true));
+    EXPECT_TRUE(ctgp_sd_image_blocked("RMCP01", "sd:/apps/CTGPR/boot.dol", true));
+    // a disc or a USB image is fine
+    EXPECT_TRUE(!ctgp_sd_image_blocked("RMCE01", "sd:/apps/ctgpr/boot.dol", false));
+    // another app, or another game, on the SD card is not CTGP-R
+    EXPECT_TRUE(!ctgp_sd_image_blocked("RMCE01", "sd:/apps/other/boot.dol", true));
+    EXPECT_TRUE(!ctgp_sd_image_blocked("SMNE01", "sd:/apps/ctgpr/boot.dol", true));
+}
+
 // The ctgpr plugin's request (riftwii/plugin_ctgpr.hpp): the plugin takes only
 // a request of its own size and type layout, with the plan and the SD reads.
 static bool fake_resolve(const std::string&, Fat32File&, std::string&) { return false; }
@@ -597,6 +609,7 @@ static void test_plugin_request() {
 int main() {
     test_plugin_request();
     test_native_stand_in();
+    test_sd_image_blocked();
     test_common_flag();
     test_track_hashes();
     test_startup();

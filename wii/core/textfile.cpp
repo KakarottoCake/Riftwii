@@ -29,9 +29,19 @@ bool ReadTextFile(const std::string& path, std::string& out, std::size_t cap) {
              static_cast<long long>(st.st_size));
         return false;
     }
-    const std::size_t got = out.empty() ? 0 : std::fread(&out[0], 1, out.size(), f);
+    const std::size_t wanted = out.size();
+    const std::size_t got = wanted == 0 ? 0 : std::fread(&out[0], 1, wanted, f);
     std::fclose(f);
-    out.resize(got);
+    // Fewer bytes than the file holds is a read error (a bad sector, the
+    // card pulled): not the file. Callers then try their backup copy
+    // (ReadReplacedFile, settings.txt's .part and .bak) instead of using a
+    // file cut short.
+    if (got != wanted) {
+        logf("%s: read %u of its %u bytes; not used\n", path.c_str(), static_cast<unsigned>(got),
+             static_cast<unsigned>(wanted));
+        out.clear();
+        return false;
+    }
     return true;
 }
 
@@ -91,6 +101,42 @@ bool WriteWholeFile(const std::string& path, const void* data, std::size_t size)
     const std::size_t written = size == 0 ? 0 : std::fwrite(data, 1, size, f);
     const bool closed = std::fclose(f) == 0;
     return written == size && closed;
+}
+
+// libfat's rename refuses a name that is taken, so the old file is moved
+// aside before the new one takes its name (and a .bak from an earlier save
+// is removed first).
+bool ReplaceWholeFile(const std::string& path, const void* data, std::size_t size) {
+    const std::string temp = path + ".part";
+    if (!WriteWholeFile(temp, data, size)) {
+        std::remove(temp.c_str());
+        return false;
+    }
+    const std::string backup = path + ".bak";
+    struct stat present;
+    const bool had_old = stat(path.c_str(), &present) == 0;
+    if (had_old) {
+        std::remove(backup.c_str());
+        if (std::rename(path.c_str(), backup.c_str()) != 0) {
+            std::remove(temp.c_str());
+            return false;
+        }
+    }
+    if (std::rename(temp.c_str(), path.c_str()) != 0) {
+        if (had_old) std::rename(backup.c_str(), path.c_str());
+        return false;
+    }
+    std::remove(backup.c_str());
+    return true;
+}
+
+bool ReadReplacedFile(const std::string& path, std::string& out, std::size_t cap) {
+    // The main file first; the backup when it is gone (a save cut between
+    // its two renames) or can't be read (over the cap, a bad sector).
+    // A .part left by a first save is not read: it may be cut short.
+    struct stat present;
+    if (stat(path.c_str(), &present) == 0 && ReadTextFile(path, out, cap)) return true;
+    return ReadTextFile(path + ".bak", out, cap);
 }
 
 }  // namespace riftwii::wii

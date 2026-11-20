@@ -631,6 +631,16 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
                  app.c_str(), dropped.empty() ? "" : ("; " + dropped + " does not apply to it").c_str());
             // CTGP-R's own channel app (not another app that stands in for the game).
             const bool ctgpr_channel = ctgp_is_native_stand_in(game_id, app);
+            // Mario Kart Wii on the SD card: d2x would read it through its
+            // own SD driver while CTGP-R resets the same card for its files,
+            // and d2x then reads the wrong sectors (ctgplaunch.hpp says
+            // more). Stops before config.ini is touched or IOS is reloaded.
+            if (ctgp_sd_image_blocked(game_id, app, source.kind == LaunchSource::Kind::Sd)) {
+                logf("CTGP-R: the game's image is on the SD card, which CTGP-R also reads for its own files; d2x "
+                     "cannot share the card with it, so nothing was started\n");
+                error = tr("CTGP-R can't start Mario Kart Wii from the SD card, because CTGP-R uses the SD card for its own files. Put Mario Kart Wii on a USB drive, or use the disc.");
+                return false;
+            }
             if (ctgpr_channel && !ctgpr_native_chosen(game_id, app))
                 logf("CTGP-R channel: launch chosen: CTGP-R's own channel app %s is started (%s)\n", app.c_str(),
                      ctgpr_native_opted() ? "the native launch is opted into but its files are not set up"
@@ -669,11 +679,16 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
                 if (!prepare_ctgpr_launch(s.probe.header.game_id, options.ctgpr, error)) return false;
                 return boot_game(s.probe, std::move(options), error);
             }
-            if (!SetCtgpDefaults(app, source.kind != LaunchSource::Kind::Disc, error)) return false;
             if (source.kind != LaunchSource::Kind::Disc) {
                 // The app reloads IOS itself (CTGP asks for IOS37), which
                 // would drop d2x and the game with it: d2x blocks that.
                 Session s(source, "sd:/riftwii/boot.log");
+                if (ctgpr_channel && !prepare_channel_partition_layout(s.source.game, error)) {
+                    logf("CTGP-R channel: the virtual disc's partition layout could not be prepared (%s)\n", error.c_str());
+                    error = tr("CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log.");
+                    return false;
+                }
+                if (!SetCtgpDefaults(app, true, error)) return false;
                 s.block_ios_reload = true;
                 const bool probed = s.ensure_probe(error);
                 if (ctgpr_channel)
@@ -694,6 +709,8 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
                 di::close();
                 s.keep_reload_block = true;
                 logf("Homebrew app: d2x serves %s as the disc for it\n", source.game.id.c_str());
+            } else if (!SetCtgpDefaults(app, false, error)) {
+                return false;
             }
             logf("Homebrew app: IOS%d, hardware access %s\n", IOS_GetVersion(),
                  *reinterpret_cast<volatile u32*>(0xCD800064) == 0xFFFFFFFFu ? "on" : "off");
