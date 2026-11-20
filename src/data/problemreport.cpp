@@ -38,12 +38,7 @@ std::string shorten(const std::string& text, std::size_t keep, std::size_t& cut)
     return text.substr(0, head) + "\n[... " + std::to_string(cut) + " bytes cut ...]\n" + text.substr(tail);
 }
 
-std::string trim(const std::string& s) {
-    std::size_t a = 0, b = s.size();
-    while (a < b && (s[a] == ' ' || s[a] == '\t' || s[a] == '\r' || s[a] == '\n')) ++a;
-    while (b > a && (s[b - 1] == ' ' || s[b - 1] == '\t' || s[b - 1] == '\r' || s[b - 1] == '\n')) --b;
-    return s.substr(a, b - a);
-}
+std::string trim(const std::string& s) { return trim_text(s, " \t\r\n"); }
 
 }  // namespace
 
@@ -128,13 +123,39 @@ std::string hide_url_keys(const std::string& text) {
     return out;
 }
 
+std::string hide_wii_address(const std::string& text) {
+    static const std::string kLead = "Network: up, this Wii is ";
+    const auto is_digit = [](char c) { return c >= '0' && c <= '9'; };
+    std::string out;
+    std::size_t at = 0;
+    for (std::size_t found = text.find(kLead); found != std::string::npos; found = text.find(kLead, found + 1)) {
+        // Past the first two numbers and their dots: what follows is the
+        // part that names this Wii on its network.
+        std::size_t cut = found + kLead.size();
+        for (unsigned dots = 0; dots < 2 && cut < text.size(); ++cut) {
+            if (text[cut] == '.') ++dots;
+            else if (!is_digit(text[cut])) break;
+        }
+        // Only a whole "a.b." followed by a digit (an address logged in
+        // full, before RiftWii logged only "a.b.x.x").
+        if (cut >= text.size() || !is_digit(text[cut]) || text[cut - 1] != '.') continue;
+        std::size_t end = cut;
+        while (end < text.size() && (is_digit(text[end]) || text[end] == '.')) ++end;
+        out.append(text, at, cut - at);
+        out += "x.x";
+        at = end;
+    }
+    out.append(text, at, std::string::npos);
+    return out;
+}
+
 std::string assemble_report(const std::string& raw_summary, const std::vector<ReportPart>& raw_parts,
                             std::size_t limit) {
     const std::string summary = hide_url_keys(printable_utf8(raw_summary));
     std::vector<ReportPart> parts = raw_parts;
     for (ReportPart& p : parts) {
         p.name = printable_utf8(p.name);
-        p.text = hide_url_keys(printable_utf8(p.text));
+        p.text = hide_wii_address(hide_url_keys(printable_utf8(p.text)));
     }
     std::size_t fixed = summary.size() + 64;
     std::size_t largest = 0;
@@ -208,7 +229,8 @@ std::string hide_settings_secrets(const std::string& settings) {
         if (end == std::string::npos) end = settings.size();
         std::string line = settings.substr(at, end - at);
         std::size_t key = line.find_first_not_of(" \t");
-        if (key != std::string::npos && (secret_key(line, key, "riitag_key") || secret_key(line, key, "riitag_id"))) {
+        if (key != std::string::npos && (secret_key(line, key, "riitag_key") || secret_key(line, key, "riitag_id") ||
+                                         secret_key(line, key, "parental_pin"))) {
             const std::size_t eq = line.find('=', key);
             if (eq != std::string::npos) {
                 const bool cr = !line.empty() && line.back() == '\r';

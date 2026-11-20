@@ -21,6 +21,7 @@
 #include <set>
 #include <vector>
 
+#include "artfolder.hpp"
 #include "boxart.hpp"
 #include "fullfont.hpp"
 #include "homebrewart.hpp"
@@ -65,10 +66,7 @@ std::string ModFromPath(const std::string& key) { return std::string(kCoverDir) 
 // cover is of, apart from the set chosen (a download for the chosen set
 // may not have come yet).
 std::string StoredSecondPath(const std::string& id) { return std::string(kCoverDir) + "/" + id + ".rwc-second"; }
-bool StoredIsSecond(const std::string& id) {
-    struct stat st;
-    return stat(StoredSecondPath(id).c_str(), &st) == 0;
-}
+bool StoredIsSecond(const std::string& id) { return ArtFileThere(StoredSecondPath(id)); }
 
 // A game's six characters, or a homebrew app's four (GameTDB's 9XGX for
 // Snes9x GX, riftwii/homebrewmatch.hpp).
@@ -511,10 +509,12 @@ bool CoverWanted(const std::string& game_id) {
     // to ask. Looked at first, as the player's own PNG may take a USB
     // lookup. A tile's own PNG comes first (a stored cover may be an
     // earlier match's), so a tile's are looked at after it.
+    // Home asks this for every game it lists: inside its ArtFolderLook the
+    // folder is listed once, and these cost no walk of it each.
     struct stat st;
     const auto stored_or_missed = [&] {
-        return (stat(CoverPath(game_id).c_str(), &st) == 0 && StoredIsSecond(game_id) == CoverSecondSet(game_id)) ||
-               (stat(MissPath(game_id).c_str(), &st) == 0 && std::time(nullptr) - st.st_mtime < kRetryAfter);
+        return (ArtFileThere(CoverPath(game_id)) && StoredIsSecond(game_id) == CoverSecondSet(game_id)) ||
+               (ArtFileStat(MissPath(game_id), st) && std::time(nullptr) - st.st_mtime < kRetryAfter);
     };
     if (!tile && stored_or_missed()) return false;
     // The player's own cover is there (and reads): nothing to download.
@@ -556,8 +556,7 @@ std::vector<std::string> TakeBrokenOwnCovers() {
 }
 
 bool CoverSecondSet(const std::string& game_id) {
-    struct stat st;
-    return ValidId(game_id) && !emulator_cover_id(game_id) && stat(SecondSetPath(game_id).c_str(), &st) == 0;
+    return ValidId(game_id) && !emulator_cover_id(game_id) && ArtFileThere(SecondSetPath(game_id));
 }
 
 bool ChooseCoverSet(const std::string& game_id, bool second) {

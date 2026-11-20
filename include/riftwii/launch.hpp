@@ -102,7 +102,9 @@ class PackIndex {
 public:
     void add(const std::string& xml);
     void add_filter(const DiscFilter& filter);
-    void add_game(const std::string& game_id);  // a code build's game
+    // A code build's game, or one remembered with mods. False when there
+    // is no memory for it (the Wii build has no exceptions to throw).
+    bool add_game(const std::string& game_id);
     bool has_packs(const std::string& game_id) const;
     std::size_t size() const { return filters_.size(); }
 

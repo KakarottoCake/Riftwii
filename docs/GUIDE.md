@@ -220,9 +220,12 @@ for their folders and controllers.
 ### Home
 
 RiftWii reads the SD card and the USB drive and shows your games as
-tiles, with the disc drive first. At first it shows only games that
+tiles, with the disc drive first. The games it found the last time show
+at once while it reads the drives again; one you pick meanwhile opens
+as soon as they are read. At first it shows only games that
 have mod packs (they carry a **MODS** tag). The round button at the
-bottom left (or **1**) switches between games with mods, all games, **Homebrew** and,
+bottom left (or **1**) switches between **Mods** (the games with mods),
+**All games**, **Homebrew** and,
 once you have played something, **Recently played**, then
 **Favourites** once you mark a game as one (the star on its banner, or
 **Favourite** on its page). Homebrew apps can join Favourites too: open
@@ -973,7 +976,7 @@ back into an ISO or an RVZ with Dolphin's **Convert File...** first.
 
 GameCube games are on Home with your other games, badged **GC**.
 **Settings > Home > Games from > GameCube** shows only these; the other
-choices, and Home's Show button (all games, games with mods, Recently
+choices, and Home's Show button (All games, Mods, Recently
 played, Favourites), can hide them as they hide any game.
 
 A GameCube game's page has its own options in place of a Wii game's
@@ -1232,7 +1235,7 @@ pieces (`.wbfs`, `.wbf1`, ...), as FAT32 needs; keep them together.
 When the copy is done it is on Home, unless something there leaves it
 out; the message at the end then says which, and what to change:
 
-- Home's **Show** is on Games with mods (where Home starts), and the game
+- Home's **Show** is on **Mods** (where Home starts), and the game
   has none: choose **Show > All games**.
 - **Settings > Home > Games from** names another place (the other
   drive, Wii channels or GameCube): set it to All games.
@@ -1630,6 +1633,27 @@ and product IDs, for example `1234_5678`:
 2. `sd:/controllers/VID_PID.ini`
 3. `sd:/controller.ini`, when its VID and PID match the pad.
 4. RiftWii's own layout for the pad, if it has one.
+
+To bring an existing file over, open **Settings > Controllers > Check USB
+controllers > Import from Nintendont**. Choose a file from the list and
+press A. RiftWii checks `controller.ini` in the root and `nintendont` folder
+on both SD and USB, plus `controllers/VID_PID.ini` on both drives. USB files
+can be on FAT32 or NTFS. The original files stay where they are.
+
+Each selected file is checked before being copied to
+`sd:/riftwii/controllers/VID_PID.ini`, using the device IDs inside it.
+A per-device filename must match those IDs. Existing RiftWii files ask
+**Yes/No** before being replaced; **No** keeps them. Unreadable, oversized
+or unsupported files are skipped with a reason (the session log has parser
+details). Restart RiftWii after importing, and leave **USB input devices**
+on to use the pad. Importing does not change the live controller layout.
+
+The import list holds at most 64 files and checks at most 512 entries in
+each controller folder. If it reports that limit, put the layouts you want
+in a smaller folder and open the import page again. An interrupted save
+may leave a `.import-new` or `.import-old` file beside the layout; RiftWii
+keeps these copies rather than overwriting them. Use a computer to keep or
+restore the old layout and remove those extra files before trying again.
 
 The session log names the file or built-in layout used, the device, its
 assigned port and an unplug. With no usable layout it names the IDs and the

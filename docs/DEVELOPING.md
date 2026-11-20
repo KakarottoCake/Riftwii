@@ -1,7 +1,7 @@
 # Developing RiftWii
 
-Start with `ARCHITECTURE.md` for the map of the code. This page covers
-building, testing and releasing.
+Start with `MAP.md` for where the code is and `ARCHITECTURE.md` for how it
+works together. This page covers building, testing and releasing.
 
 ## Building
 
@@ -24,22 +24,25 @@ The host build needs zlib's headers and library (`zlib1g-dev` on Debian/Ubuntu,
 
 The Wii build needs devkitPPC, libogc, libfat and the portlibs `Makefile.wii`
 lists (FreeType, zlib, libogg/tremor), and the `zstd` command-line
-tool (devkitPro's MSYS2 has it), which packs the runtime blobs, the menu
-font, the translations and the GPL text. Python 3 then adds the font,
-the translations and the GPL to `riftwii.dol` as the start-up stash
-(`tools/dol_stash.py`, [MEMORY.md](MEMORY.md)); `riftwii.elf` has no
-stash and stops at the menu font if started directly. Last, the DOL is
+tool (devkitPro's MSYS2 has it), which packs the runtime blobs, the
+translations and the GPL text. Python 3 then adds the translations and the
+GPL to `riftwii.dol` as the start-up stash (`tools/dol_stash.py`,
+[MEMORY.md](MEMORY.md)); `riftwii.elf` has no stash. The menu font is not
+in the DOL at all: it ships as `apps/riftwii/font.ttf` next to it. Last, the DOL is
 packed (`tools/pack_dol.py`): its sections Zstandard-compressed behind a
 small stub (`runtime/dolpack/`) that unpacks them when it starts, about
 half the file the in-app update downloads and the Homebrew Channel reads.
 The unpacked DOL stays as `build_wii/riftwii-unpacked.dol`, which the
 plugin check and `tools/size_report.py` read. `make -f Makefile.wii
 PACK=0` leaves `riftwii.dol` unpacked (for bisecting a start-up problem).
-A packed DOL that does not unpack whole turns the screen red and stops. It first builds the
-two in-game blobs with `Makefile.runtime` (`build-runtime/riftwii_rt.bin`,
-the resident runtime, and `riftwii_pad.bin`, the pad hook), checking that
-each is position-independent, then embeds them with the font, the
-translations and the Gecko code handler.
+A packed DOL that does not unpack whole turns the screen red and stops.
+Before the DOL, `Makefile.runtime` builds the in-game blobs into
+`build-runtime/` (the resident runtime and its RVZ build, the pad hooks,
+screenshots, the crash recorder, the Wii Remote log, the virtual SD card,
+the GameCube blob, the return stub and the DOL's unpacker; MAP.md's
+`runtime/` table lists them), linking each at two addresses to check it is
+position-independent. The DOL embeds them with the Gecko code handler; the
+GameCube ones go into the `gamecube` plugin instead.
 
 The plugins ([PLUGINS.md](PLUGINS.md)) are built in the same `make`,
 before the DOL, by `Makefile.plugin` (`make -f Makefile.wii plugins`
@@ -70,13 +73,21 @@ Things that bite:
 
 ## Tests
 
-`ctest` runs over 100 suites, one per area (`tests/<area>_tests.cpp`): the XML
+`ctest` runs about 200 suites, one per area (`tests/<area>_tests.cpp`): the XML
 parser and planner, the patch engine, FST and disc parsing, FAT32 and
 NTFS walkers, the WBFS mapper and WBFS drives, the resident runtime's C code (compiled
 for the host with fake IOS calls), the FAT32 and NTFS engines, the
 GameCube adapter driver and the PAD search, the titles, cheats and
 settings files. The in-game code is built for both the host (tests) and
 the Wii from the same sources.
+
+CI runs the suites twice on Linux: as built above, with no build type, and
+again with `-O2` (`-DCMAKE_C_FLAGS=-O2 -DCMAKE_CXX_FLAGS=-O2`), because the
+Wii build is optimised and some bugs only show once the compiler optimises.
+A few suites only run on x86-64 Linux: the low-memory ones (`rtfs`, `rtfat`,
+`hook`, `rvz` and their differentials) need memory below 4 GiB, and some
+others need the linker's `--wrap` (Linux and MSYS2 only). Elsewhere they are
+skipped or not built, which is expected.
 
 Translations: `python tools/lang_source.py` checks that every table entry
 is still in the menu's sources and writes `wii/lang/*.po`. New Japanese
@@ -131,7 +142,8 @@ Two scripts on the card drive a run without hands on a controller:
   build must act like the release one, so a test that needs the release
   build's room must not pass on the test build's extra: use the artificial
   limits below (`test_limits.txt`) to hold the memory back. CI builds both.
-- `sd:/riftwii/guiscript.txt` plays input into the menu and saves
+- `sd:/riftwii/guiscript.txt` (test builds only, like `autorun.txt`: a
+  release build logs that it ignored the file) plays input into the menu and saves
   screenshots (`wait`, `point`, `nopoint`, `press`, `hold`, `release`,
   `glide`, `shot`, `finalshot`, `slowmo <factor>` to stretch every
   transition for frame-by-frame screenshots, and `failnext` and `crash`
@@ -149,7 +161,18 @@ Two scripts on the card drive a run without hands on a controller:
   next heartbeat, so their timestamp and live SI registers describe that
   later sample rather than the triggering PADRead. Without `trace`, a hang
   has no saved heartbeat history, and a normal exit has no saved Bluetooth
-  history; runtime counters remain in RAM. `press` (presses on
+  history; runtime counters remain in RAM. The switches that act for the
+  player work only in the test build (`make -f Makefile.wii TEST=1`, which
+  builds the plugins with `RT_TEST_BUILD`); a release build names them in
+  `boot.log` and ignores them, so a file left from a test run or dropped by a
+  pack's zip cannot press buttons, crash or restart a game. These are
+  `press`, `leave`, `crash`, `crashblack`, `streamonly`, `rumbletest`,
+  `reset`, `exec` and `discchange`, beside `fakeremote` and `fakepro`.
+  The release blob leaves their code out too, so every GameCube game keeps
+  those bytes of MEM1 (`GC_TEST_ONLY_FLAGS`, `runtime/gc/gc_rt.h`).
+  The rest (`trace`, `sd_slow`, `nowiden`, `keeparam`, `novihook`,
+  `nomotor`, `nosisample`, `handover480p`, `handover480i`, `avekeep`) work
+  in both builds, for testers' runs on a Wii. `press` (presses on
   port 1), `leave` (holds the way back), `crash` and `crashblack` (a
   crash on purpose, also on a blanked screen), `streamonly` (disc music
   alone), `nowiden` (16:9's hook without the widening), `keeparam` (ARAM
@@ -168,8 +191,11 @@ Two scripts on the card drive a run without hands on a controller:
   (the encoder left as the menu's own mode set it, not set to the game's
   region; both for red and blue swapped in 480p) `exec` (a switch to another program at the 1500th pad read, to the
   disc's own with the argument `rwtest`: `sd:/riftwii/gc/exec.txt` is
-  written, the game leaves, and RiftWii's next start launches it again)
-  and `reset` (the blob presses Reset twice, the
+  written, the game leaves, and RiftWii's next start launches it again),
+  `discchange` (with a disc 2 beside the game: the blob stops the motor
+  itself at the 1500th and 2200th pad reads, so a two-disc game's change
+  can be tried in a game that never asks for one; ARCHITECTURE.md, "5.
+  GameCube games") and `reset` (the blob presses Reset twice, the
   restart, `GC_FLAG_RESET_TEST`). The first GameCube
   line of `sd:/riftwii/boot.log` lists the ones that are on. The test
   remote's results take the `projection_callers` words of the trace
@@ -202,10 +228,14 @@ Two scripts on the card drive a run without hands on a controller:
   Its simulated instruction clock is a deadline test, not a hardware
   performance measurement, and it does not replace game tests in Dolphin.
   `--keep-going` runs every test after a failure and lists the failures.
-  Some tests are out of date with the blob (they call `gc_bt_poll` and
-  `gc_card_flush`, which LTO now splits, treat the card's dirty map as
-  inline bytes, and look for zstd under msys2), so those fail until they
-  are brought up to date.
+  It calls blob functions by their symbol in the ELF, so each must keep its
+  symbol through LTO. The ones LTO was seen to inline or split
+  (`gc_bt_poll`, `gc_card_flush`) are marked `GC_EMUTEST_ENTRY`
+  (`runtime/gc/gc_rt.h`), which keeps them whole; the rest keep theirs today.
+  A call to one that has lost its symbol stops with a message naming it:
+  mark that one too. Marking costs the game a little speed, so only the
+  functions that need it are marked. It finds zstd on `PATH` first, then
+  under devkitPro's MSYS2.
 
 Dolphin cannot run a d2x cIOS, so SD and USB image boot can only be
 checked on a Wii (`docs/USB_HARDWARE_TEST.md`). What Dolphin does check

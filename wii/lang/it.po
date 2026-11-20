@@ -12,9 +12,6 @@ msgstr "Disposizione"
 msgid "Choose"
 msgstr "Scegli"
 
-msgid "Games with mods"
-msgstr "Giochi con mod"
-
 msgid "All games"
 msgstr "Tutti i giochi"
 
@@ -2721,8 +2718,8 @@ msgstr "Fino a {1} giocatori"
 msgid "Pages at the sides"
 msgstr "Pagine ai lati"
 
-msgid "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
-msgstr "Canali: i bordi della pagina precedente e di quella successiva ai lati dello schermo, come nel Menu Wii. Punta su uno e premi A per passare a quella pagina."
+msgid "Channels and Covers: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
+msgstr "Canali e copertine: i bordi della pagina precedente e di quella successiva ai lati dello schermo, come nel Menu Wii. Punta su uno e premi A per passare a quella pagina."
 
 msgid "Could not save the tiles to the SD card."
 msgstr "Impossibile salvare i riquadri sulla scheda SD."
@@ -3654,6 +3651,12 @@ msgstr "Retro della confezione"
 msgid "Front of the box"
 msgstr "Fronte della confezione"
 
+msgid "Spin"
+msgstr "Gira"
+
+msgid "The game's disc. Press A to spin it."
+msgstr "Il disco del gioco. Premi A per farlo girare."
+
 msgid "Music file"
 msgstr "File musicale"
 
@@ -4556,3 +4559,54 @@ msgstr "RiftWii non può salvare nuovi file, quindi impostazioni, scelte di gioc
 
 msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."
 msgstr "RiftWii non può salvare nuovi file, quindi impostazioni, scelte di gioco, copertine e registri potrebbero non essere salvati. Metti la scheda in un computer e controllala per errori."
+
+msgid "Copies the controller.ini files Nintendont uses (on the SD card or the USB drive) into RiftWii's own controller layouts."
+msgstr "Copia i file controller.ini usati da Nintendont (sulla scheda SD o sull'unità USB) negli schemi dei controller di RiftWii."
+
+msgid "Import from Nintendont"
+msgstr "Importa da Nintendont"
+
+msgid "There is not enough free memory."
+msgstr "Memoria libera insufficiente."
+
+msgid "No controller files were found. Check controller.ini in the root or nintendont folder, or VID_PID.ini in controllers, on the SD card or USB drive."
+msgstr "Nessun file del controller trovato. Controlla controller.ini nella radice o in nintendont, oppure VID_PID.ini in controllers, sulla SD o sull'unità USB."
+
+msgid "Only the first 64 files and 512 entries per folder are checked. Move the files you want into a smaller controllers folder, then try again."
+msgstr "Vengono controllati solo i primi 64 file e 512 elementi per cartella. Metti i file desiderati in una cartella controllers più piccola e riprova."
+
+msgid "Import"
+msgstr "Importa"
+
+msgid "Press A to check and copy this layout to sd:/riftwii/controllers. Existing files ask before being replaced. Restart RiftWii to use imported layouts."
+msgstr "Premi A per controllare e copiare questa configurazione in sd:/riftwii/controllers. I file esistenti chiedono conferma prima di essere sostituiti. Riavvia RiftWii per usarla."
+
+msgid "The file could not be read."
+msgstr "Impossibile leggere il file."
+
+msgid "The controller file is larger than 8 KiB."
+msgstr "Il file del controller supera 8 KiB."
+
+msgid "This layout is invalid or unsupported. See session.log for details."
+msgstr "Questa configurazione non è valida o non è supportata. Dettagli in session.log."
+
+msgid "The device IDs in the file do not match its filename."
+msgstr "Gli ID del dispositivo nel file non corrispondono al suo nome."
+
+msgid "Skipped"
+msgstr "Saltato"
+
+msgid "The layout could not be saved. Check the SD card's free space and lock switch."
+msgstr "Impossibile salvare la configurazione. Controlla lo spazio libero e il blocco della SD."
+
+msgid "{1} already exists. Replace it with {2}?"
+msgstr "{1} esiste già. Sostituirlo con {2}?"
+
+msgid "The existing layout was kept."
+msgstr "La configurazione esistente è stata conservata."
+
+msgid "Imported"
+msgstr "Importato"
+
+msgid "Copied {1} to {2}. Restart RiftWii to use it."
+msgstr "{1} copiato in {2}. Riavvia RiftWii per usarlo."

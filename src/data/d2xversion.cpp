@@ -1,16 +1,13 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/d2xversion.hpp"
+#include "riftwii/byteorder.hpp"
 
 #include <cctype>
 #include <cstring>
 
 namespace riftwii {
 namespace {
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
-}
 
 // A 16-byte field up to its first zero, printable characters only.
 std::string field(const std::uint8_t* p) {

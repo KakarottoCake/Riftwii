@@ -1,18 +1,14 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/titles.hpp"
+#include "riftwii/textlines.hpp"
 
 namespace riftwii {
 namespace {
 
 constexpr std::size_t kMaxTitle = 200;
 
-std::string trim(const std::string& s) {
-    std::size_t a = 0, b = s.size();
-    while (a < b && (s[a] == ' ' || s[a] == '\t' || s[a] == '\r' || s[a] == '\n')) ++a;
-    while (b > a && (s[b - 1] == ' ' || s[b - 1] == '\t' || s[b - 1] == '\r' || s[b - 1] == '\n')) --b;
-    return s.substr(a, b - a);
-}
+std::string trim(const std::string& s) { return trim_text(s, " \t\r\n"); }
 
 // A cut at `limit` bytes moved back to the start of a UTF-8 character,
 // so a long name never ends inside one (as riftwii/profiles.hpp does).

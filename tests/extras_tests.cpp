@@ -1799,8 +1799,8 @@ void TestCoverDownloads() {
 }
 
 void TestCoverArt() {
-    EXPECT_EQ(cover_url("US", "RSBE01"), std::string("http://art.gametdb.com/wii/cover/US/RSBE01.png"));
-    EXPECT_EQ(cover_url("US", "RSBE01", true), std::string("http://art.gametdb.com/wii/coverB/US/RSBE01.png"));
+    EXPECT_EQ(cover_url("US", "RSBE01"), std::string("https://art.gametdb.com/wii/cover/US/RSBE01.png"));
+    EXPECT_EQ(cover_url("US", "RSBE01", true), std::string("https://art.gametdb.com/wii/coverB/US/RSBE01.png"));
     const std::vector<std::string> us = cover_regions("RMCE01", "en");
     EXPECT_EQ(us.size(), 3u);
     EXPECT_EQ(us[0], "US");
@@ -1816,7 +1816,7 @@ void TestCoverArt() {
     EXPECT_EQ(homebrew[0], "US");
     EXPECT_EQ(homebrew[1], "EN");
     EXPECT_EQ(cover_regions("D01A", "en")[0], "US");
-    EXPECT_EQ(cover_url("US", "RMCE01"), "http://art.gametdb.com/wii/cover/US/RMCE01.png");
+    EXPECT_EQ(cover_url("US", "RMCE01"), "https://art.gametdb.com/wii/cover/US/RMCE01.png");
     // WiiWare and Virtual Console art is under the four-letter code, a
     // disc's under its six characters; a GameCube disc that looks like a
     // channel ("PZLE01") still gets its own ID after the code.
@@ -1850,7 +1850,7 @@ void TestCoverArt() {
     EXPECT_EQ(file[8 + tile + 1], 0xFF);
     EXPECT_TRUE(make_cover_file(white.data(), 4, 4).empty());
     // The shelf's box from a full cover: the spine between back and front.
-    EXPECT_EQ(coverfull_url("US", "RMCE01"), "http://art.gametdb.com/wii/coverfull/US/RMCE01.png");
+    EXPECT_EQ(coverfull_url("US", "RMCE01"), "https://art.gametdb.com/wii/coverfull/US/RMCE01.png");
     int sx0 = 0, sx1 = 0;
     EXPECT_TRUE(spine_strip(1024, 680, sx0, sx1));
     EXPECT_EQ(sx0, 483);
@@ -1924,7 +1924,7 @@ void TestCoverArt() {
 
     // A 3D cover: GameTDB's 176x248 kept as it is, see-through parts and all.
     {
-        EXPECT_EQ(cover3d_url("US", "RSBE01"), "http://art.gametdb.com/wii/cover3D/US/RSBE01.png");
+        EXPECT_EQ(cover3d_url("US", "RSBE01"), "https://art.gametdb.com/wii/cover3D/US/RSBE01.png");
         std::vector<std::uint8_t> pic(176 * 248 * 4, 0);  // see-through
         for (int y = 100; y < 248; ++y)
             for (int x = 20; x < 156; ++x) {

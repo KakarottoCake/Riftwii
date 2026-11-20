@@ -12,6 +12,7 @@
 #include "riftwii/fst.hpp"
 #include "riftwii/gccard.hpp"
 #include "riftwii/wiicrypt.hpp"
+#include "riftwii/byteorder.hpp"
 
 namespace riftwii {
 namespace {
@@ -28,17 +29,6 @@ constexpr std::uint64_t kDualLayerBytes = std::uint64_t(kWiiDualLayerSectors) * 
 // A pressed dual-layer Wii disc's real end, 0x1FB4E0000 bytes: libwbfs's
 // table is sized for a little more.
 constexpr std::uint32_t kWiiDualLayerRealSectors = 0x1FB4E0000ull / kWiiSectorBytes;
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
-}
-
-void put_be32(std::uint8_t* p, std::uint32_t v) {
-    p[0] = static_cast<std::uint8_t>(v >> 24);
-    p[1] = static_cast<std::uint8_t>(v >> 16);
-    p[2] = static_cast<std::uint8_t>(v >> 8);
-    p[3] = static_cast<std::uint8_t>(v);
-}
 
 // Marks the raw disc bytes [offset, offset + length) as used, clipped to a
 // dual-layer disc.

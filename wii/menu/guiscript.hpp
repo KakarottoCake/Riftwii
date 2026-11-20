@@ -3,8 +3,10 @@
 #pragma once
 
 // Scripted input for checking the menu without hands on a controller (in
-// Dolphin, for instance). When sd:/riftwii/guiscript.txt exists the menu
-// reads it at start and plays it on channel 0, one command per line:
+// Dolphin, for instance). Test builds only (make -f Makefile.wii TEST=1):
+// a release build logs that it ignored the file and plays nothing. When
+// sd:/riftwii/guiscript.txt exists the menu reads it at start and plays it
+// on channel 0, one command per line:
 //
 //   wait <frames>        let the menu run
 //   point <x> <y>        aim the pointer there (stays until nopoint)

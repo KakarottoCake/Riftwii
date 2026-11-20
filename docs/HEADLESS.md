@@ -28,6 +28,16 @@ the SD card: `argv[1]` is the file's path (`sd:/...`), and the file holds the
 same lines, `--launch` first. RiftWii only reads it, so the file starts the
 same game every time. This is how a WiiFlow plugin starts RiftWii (below).
 
+With parental controls on (Settings > Games > Parental controls), a start
+from another loader or from `launch.txt` is refused for a game they restrict,
+or whose age rating can't be read, as nobody is at the menu to type the PIN:
+`boot.log` says so, and the game can be started from RiftWii's menu with the
+PIN. A game's own Reset and a GameCube program switch carry on a game that
+already started and are not asked again, but only when they come from the
+files RiftWii's runtime writes for them (`restart.txt`, `gc/exec.txt`); a
+`reset=1` or `gc_dol=` in another loader's arguments or `launch.txt` is
+asked like any other start.
+
 A loader that mounted the USB drive itself must let go of it before it
 starts RiftWii (unmount it and shut its driver down, as it does the SD
 card). If RiftWii lists no drive after 4 seconds, it reloads the IOS, which

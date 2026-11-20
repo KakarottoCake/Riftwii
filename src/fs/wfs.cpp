@@ -9,6 +9,7 @@
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/sha1.hpp"
 #include "riftwii/wiicrypt.hpp"
+#include "riftwii/byteorder.hpp"
 
 namespace riftwii {
 namespace {
@@ -73,19 +74,6 @@ constexpr std::size_t kClusterRefBytes = 4 + 8 * kHashBytes;  // first block, a 
 constexpr std::uint32_t kMaxClustersPerMetadataBlock = 48;
 
 enum Category : std::uint8_t { Inline = 0, Blocks = 1, LargeBlocks = 2, Clusters = 3, ClusterBlocks = 4 };
-
-std::uint16_t be16(const std::uint8_t* p) {
-    return static_cast<std::uint16_t>((p[0] << 8) | p[1]);
-}
-std::uint32_t be32(const std::uint8_t* p) {
-    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
-}
-void put_be32(std::uint8_t* p, std::uint32_t x) {
-    p[0] = static_cast<std::uint8_t>(x >> 24);
-    p[1] = static_cast<std::uint8_t>(x >> 16);
-    p[2] = static_cast<std::uint8_t>(x >> 8);
-    p[3] = static_cast<std::uint8_t>(x);
-}
 
 std::size_t round_up_pow2(std::size_t size) {
     std::size_t p = 1;

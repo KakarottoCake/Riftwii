@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/sysfont.hpp"
+#include "riftwii/byteorder.hpp"
 
 #include <cstring>
 
@@ -12,10 +13,6 @@ const std::uint8_t kWiiKoreanFontHash[20] = {0xb7, 0x15, 0x6d, 0xf0, 0xf4, 0xae,
                                              0x58, 0x3e, 0x93, 0x6e, 0x07, 0xc0, 0x98, 0x77, 0x49, 0x0e};
 
 namespace {
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
-}
 
 bool ends_with(const std::string& s, const char* tail) {
     const std::size_t n = std::strlen(tail);

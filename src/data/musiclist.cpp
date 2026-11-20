@@ -44,13 +44,7 @@ bool climbs(const std::string& path) {
     return false;
 }
 
-std::string trim(const std::string& text) {
-    std::size_t start = 0;
-    std::size_t end = text.size();
-    while (start < end && is_stream_space(text[start])) ++start;
-    while (end > start && is_stream_space(text[end - 1])) --end;
-    return text.substr(start, end - start);
-}
+std::string trim(const std::string& text) { return trim_text(text); }
 
 // A small generator of its own, so a seed shuffles the same way on the
 // Wii and in the host tests (std::shuffle's engines differ by library).

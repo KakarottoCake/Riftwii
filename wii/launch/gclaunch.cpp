@@ -1128,7 +1128,8 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
     {
         // No file: the defaults, from an empty text.
         std::string text;
-        ReadWholeFile("sd:/riftwii/choices/" + image.id + ".txt", text);
+        // As the game page reads it: the backup when a save was cut short.
+        ReadReplacedFile("sd:/riftwii/choices/" + image.id + ".txt", text);
         LaunchModel choices;
         choices.restore(text);
         image.drive_timing = kGcDriveTimingReady && choices.game.gc_disc_reads != "fast";

@@ -1,14 +1,11 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/gctgc.hpp"
+#include "riftwii/byteorder.hpp"
 
 namespace riftwii {
 
 namespace {
-
-std::uint32_t read_be32(const std::uint8_t* p) {
-    return std::uint32_t(p[0]) << 24 | std::uint32_t(p[1]) << 16 | std::uint32_t(p[2]) << 8 | p[3];
-}
 
 void write_be32(std::uint8_t* p, std::uint32_t value) {
     p[0] = static_cast<std::uint8_t>(value >> 24);
@@ -29,7 +26,7 @@ constexpr std::size_t kFstEntryBytes = 12;
 bool fst_entry_count(const std::vector<std::uint8_t>& fst, std::uint32_t& count) {
     if (fst.size() < kFstEntryBytes) return false;
     const bool root_is_directory = fst[0] == 1;
-    count = read_be32(&fst[8]);
+    count = be32(&fst[8]);
     return root_is_directory && count >= 1 && count <= fst.size() / kFstEntryBytes;
 }
 
@@ -58,7 +55,7 @@ bool parse_gc_tgc(const std::uint8_t* header, std::size_t header_size, std::uint
         why = "the TGC's header is short";
         return false;
     }
-    if (read_be32(header) != kGcTgcMagic) {
+    if (be32(header) != kGcTgcMagic) {
         why = "the file is not a TGC image (no TGC magic)";
         return false;
     }
@@ -72,15 +69,15 @@ bool parse_gc_tgc(const std::uint8_t* header, std::size_t header_size, std::uint
     GcTgc tgc;
     tgc.disc_offset = disc_offset;
     tgc.bytes = tgc_bytes;
-    tgc.header_bytes = read_be32(header + 0x08);
-    tgc.disc_header_bytes = read_be32(header + 0x0C);
-    tgc.fst_offset = read_be32(header + 0x10);
-    tgc.fst_size = read_be32(header + 0x14);
-    tgc.fst_max = read_be32(header + 0x18);
-    tgc.dol_offset = read_be32(header + 0x1C);
-    tgc.dol_size = read_be32(header + 0x20);
-    tgc.file_area_offset = read_be32(header + 0x24);
-    tgc.file_area_virtual = read_be32(header + 0x34);
+    tgc.header_bytes = be32(header + 0x08);
+    tgc.disc_header_bytes = be32(header + 0x0C);
+    tgc.fst_offset = be32(header + 0x10);
+    tgc.fst_size = be32(header + 0x14);
+    tgc.fst_max = be32(header + 0x18);
+    tgc.dol_offset = be32(header + 0x1C);
+    tgc.dol_size = be32(header + 0x20);
+    tgc.file_area_offset = be32(header + 0x24);
+    tgc.file_area_virtual = be32(header + 0x34);
 
     // The packed disc's header: boot.bin (0x440 bytes) and BI2 (0x2000),
     // which RiftWii reads as it reads them from a disc of its own.
@@ -121,8 +118,8 @@ bool gc_tgc_dol_fits(const std::uint8_t* dol_header, std::size_t header_size, st
     }
     // 7 text and 11 data sections: offsets at 0x00, sizes at 0x90.
     for (int section = 0; section < 18; ++section) {
-        const std::uint32_t offset = read_be32(dol_header + 4 * section);
-        const std::uint32_t size = read_be32(dol_header + 0x90 + 4 * section);
+        const std::uint32_t offset = be32(dol_header + 4 * section);
+        const std::uint32_t size = be32(dol_header + 0x90 + 4 * section);
         if (size == 0) continue;
         if (!within(offset, size, dol_size)) {
             why = "a section of the TGC's program reaches past the program's end";
@@ -152,8 +149,8 @@ bool gc_tgc_rebase_fst(std::vector<std::uint8_t>& fst, const GcTgc& tgc, std::st
             why = "the TGC's FST has an entry that is neither a file nor a directory";
             return false;
         }
-        const std::uint32_t size = read_be32(entry + 8);
-        const std::int64_t placed = std::int64_t(read_be32(entry + 4)) + shift;
+        const std::uint32_t size = be32(entry + 8);
+        const std::int64_t placed = std::int64_t(be32(entry + 4)) + shift;
         if (size == 0) {
             write_be32(entry + 4, tgc.disc_offset);
             continue;
@@ -181,11 +178,11 @@ std::vector<GcFstFile> find_gc_fst_files_ending(const std::vector<std::uint8_t>&
     for (std::uint32_t i = 1; i < count && found.size() < max; ++i) {
         const std::uint8_t* entry = &fst[std::size_t(i) * kFstEntryBytes];
         if (entry[0] != 0) continue;
-        const std::uint32_t name_offset = read_be32(entry) & 0x00FFFFFFu;
+        const std::uint32_t name_offset = be32(entry) & 0x00FFFFFFu;
         if (!name_ends_in(fst, names_at, name_offset, suffix)) continue;
         GcFstFile file;
-        file.offset = read_be32(entry + 4);
-        file.size = read_be32(entry + 8);
+        file.offset = be32(entry + 4);
+        file.size = be32(entry + 8);
         found.push_back(file);
     }
     return found;
@@ -196,8 +193,8 @@ bool find_gc_fst_file_at(const std::vector<std::uint8_t>& fst, std::uint32_t off
     if (!fst_entry_count(fst, count)) return false;
     for (std::uint32_t i = 1; i < count; ++i) {
         const std::uint8_t* entry = &fst[std::size_t(i) * kFstEntryBytes];
-        if (entry[0] != 0 || read_be32(entry + 4) != offset) continue;
-        const std::uint32_t size = read_be32(entry + 8);
+        if (entry[0] != 0 || be32(entry + 4) != offset) continue;
+        const std::uint32_t size = be32(entry + 8);
         if (size == 0) continue;
         out.offset = offset;
         out.size = size;

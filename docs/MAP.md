@@ -98,7 +98,7 @@ headers, generated data and assets with the code that uses them.
 | `Makefile.wii` | The Wii app (`riftwii.dol`); builds the runtime blobs and BearSSL first and embeds them |
 | `Makefile.runtime` | The in-game blobs (resident runtime, RVZ runtime, adapter, screenshot, crash and virtual SD card), each checked position independent |
 | `Makefile.plugin` | The plugins (`plugins/<name>/`), run by `Makefile.wii` with the DOL's version and build stamp; each linked at two bases and checked relocatable |
-| `plugins/` | The plugins' sources (`docs/PLUGINS.md`): `plugin.ld` (their link), `common/` (a C++ plugin's runtime: `new`, `delete`, the C library's names on the host table, the throws that cannot be), `selftest/` (stage (a)'s test plugin, loaded only by the test switch), `gamecube/` (the GameCube loader, with the `runtime/gc` blobs it carries), `ctgpr/` (the native CTGP-R launch's planning) |
+| `plugins/` | The plugins' sources (`docs/PLUGINS.md`): `plugin.ld` (their link), `common/` (a C++ plugin's runtime, `rwpruntime.cpp`: `new`, `delete`, the C library's names on the host table, the throws that cannot be; `rwpzstd.cpp`: Zstandard through the loader's decoder), `selftest/` (stage (a)'s test plugin, loaded only by the test switch), `gamecube/` (the GameCube loader, with the `runtime/gc` blobs it carries), `ctgpr/` (the native CTGP-R launch's planning) |
 | `Makefile.bearssl` | BearSSL for the Wii (https for the update check and problem reports) |
 | `Makefile.channel` | The Wii Menu channel and its installer |
 | `hbc/` | The Homebrew Channel files: `meta.xml` (name, version), `icon.png`, `music.ogg` (the menu's music) |
@@ -139,6 +139,9 @@ The build compiles every folder into one, so no two files share a name.
 | `startuptrace.cpp` | The start-up note: the step each start reached before its log opened, reported by the next start as "The last start stopped at" (`include/riftwii/startupnote.hpp`, `tests/startupnote_tests.cpp`) |
 | `plugins.cpp` | The plugin loader: the file's checks, the arena at the top of MEM2, relocation, the table RiftWii gives a plugin, refusals, crash ranges, the test switch |
 | `textfile.cpp` | Bounded text-file reads shared by settings and the menu |
+| `disclight.cpp` | The disc slot light's pulse while a game loads or a disc is copied; dark while a cIOS runs and at every IOS reload |
+| `sdwritecheck.cpp` | Home's once-per-start check that the SD card can be written (full, locked or faulty), through `src/fs/sdwrite.cpp` |
+| `streamprint.cpp` | Every `FILE` printf routed through `snprintf`'s formatter, so newlib's other formatting engines stay out of the DOL (`src/data/streamformat.cpp`) |
 
 ### `wii/menu/`: the menu: screens, lists, artwork, themes, music, banners, covers
 
@@ -173,6 +176,8 @@ The build compiles every folder into one, so no two files share a name.
 | `covers.cpp` | Cover art: download, cache, textures |
 | `madecover.cpp` | Made-up covers for games without one: the blank cover with the name printed on it |
 | `homescan.cpp` | Home's look for games on a thread of its own: the SD card's games first, then the USB drive's |
+| `homeremember.cpp` | The games of the last look, read from and written to `sd:/riftwii/homelist.txt`: Home shows them at once at the next start, while the drives are read again |
+| `artfolder.cpp` | "Is this picture stored?" for every game Home lists: each pictures folder listed once (an `ArtFolderLook`) instead of walked once per question |
 | `guiscript.cpp` | Scripted menu input for tests (`sd:/riftwii/guiscript.txt`) |
 | `drawtrace.cpp` | Where the GUI thread is drawing, for a freeze on a console: the GUI watch and the GX trace (`debug_gx`) |
 | `fullfont.cpp`, `wiifont.cpp` | The full menu font from the card; the Wii Menu's font read from the console and cached on the card |
@@ -188,6 +193,8 @@ The build compiles every folder into one, so no two files share a name.
 | `memorybudget.cpp` | The game page's estimate of memory used by RiftWii's extras |
 | `vsdmake.cpp` | Planning and copying a code build into a virtual SD image, with progress and cancellation |
 | `ftnobrotli.c` | Keeps FreeType from linking Brotli support |
+| `emulatorcovers.cpp` | Emulator games' covers (the player's own PNGs, libretro's, SteamGridDB's) and the player's own cover for a Wii or GameCube game or a mod tile |
+| `picturepicker.cpp`, `emupicture.cpp` | The cover picker popup (six thumbnails, paging, cancel) and its emulator-picture source, on the network's worker thread |
 
 ### `wii/launch/`: starting a game: IOS, the disc, the apploader, patches, the runtime, the jump
 
@@ -212,6 +219,8 @@ The build compiles every folder into one, so no two files share a name.
 | `gcpatch.cpp` | Patch-only GameCube mods (xdelta): listed as the game they make, prepared once |
 | `dolswitch_stub.S` | Hooks the next executable a Wii game loads so cheats continue |
 | `startfile_stub.S` | Copies and starts a homebrew DOL after RiftWii lets go of memory |
+| `channelidentity.cpp` | The ticket a channel launch identifies as under d2x's NAND emulation, with a generic d2x identity as the fallback on a copied NAND |
+| `d2xreturnto.cpp` | Telling d2x which title to return to, before the game's title runs (d2x refuses it after) |
 
 ### `wii/hooks/`: installing the blobs that run inside the game (the adapter, screenshots, crashes, the virtual SD card)
 
@@ -224,6 +233,7 @@ The build compiles every folder into one, so no two files share a name.
 | `wpadhook.cpp` | Installing the Wii Remote log blob |
 | `vsdhook.cpp` | Finding `sd.raw` for a launch and installing the virtual SD card blob |
 | `vsdimage.cpp` | `sd.raw` as the menu's read-only `vsd:` drive |
+| `wpadsettings.cpp` | Whether a launch carries the Wii Remote log and the Pro Controller translator (`wpad_log`, `pro_controller`, a Pro seen in the menu) |
 
 ### `wii/controllers/`: the GameCube adapter, USB keyboards, mice and pen tablets in the menu, and the Wii Remote queues
 
@@ -237,6 +247,8 @@ The build compiles every folder into one, so no two files share a name.
 | `udraw.c` | The uDraw GameTablet on a Wii Remote, through two wiiuse link wraps |
 | `usbprobe.cpp` | Check each cIOS: the adapter's USB checks across IOS 58 and installed d2x slots, and the saved results |
 | `wpadqueue.cpp` | Wii Remote command queues in MEM2, avoiding libogc's small kernel heap |
+| `hidpads.cpp` | USB controllers for games: their `controller.ini` layouts (the card's, or `src/data/builtinpads.cpp`), the devices plugged in, wired Xbox 360 pads |
+| `startupinput.cpp` | B held at start-up (skip the last game's countdown) remembered while start-up work keeps the menu halted |
 
 ### `wii/storage/`: SD cards and USB drives: game images, raw access, d2x devices, saves
 
@@ -258,6 +270,9 @@ The build compiles every folder into one, so no two files share a name.
 | `nandchannels.cpp` | WiiWare and Virtual Console games on the Wii and in an emulated NAND on the card: listing them, their banners, the files a start needs |
 | `movedchannels.cpp` | Channels the Wii Menu moved to the SD card (`sd:/private/wii/title/<code>/content.bin`): their contents read and decrypted with this Wii's key (or a BootMii `keys.bin`'s), copied to the title's NAND folder for the game and removed at the next start |
 | `wfsdrive.cpp`, `wfsdrive.hpp` | Dragon Quest X's WFS drive as the USB scan finds it: opened with the Wii's WFS key, what is installed on it kept for Home and the start |
+| `externalcard.cpp` | GameCube memory card images listed from a folder for import, and the path of a game's card from another source (`ListImportCards`, `ExternalCardPath`) |
+| `gamefiles.cpp` | Manage game > Delete: the game's image files and RiftWii's own files for it, planned first, partial failures listed |
+| `wadfolder.cpp` | `.wad` files found on the SD card and USB drive and prepared as Home tiles, rechecked before the IOS reload |
 
 ### `wii/online/`: network, downloads, https, problem reports, RiiTag
 
@@ -274,6 +289,7 @@ The build compiles every folder into one, so no two files share a name.
 | `reportsend.cpp` | Gathering and sending problem reports; log rotation; importing a game's crash |
 | `gameinfo.cpp` | Game details for the About page: GameTDB's database on the card, its download, the cache |
 | `riitagsend.cpp` | Sending the game being launched to the player's RiiTag servers |
+| `netconfig.cpp` | The Wii's saved network settings read from the NAND, for the DNS servers typed in there (`src/net/dnsquery.cpp`) |
 
 ## `src/` and `include/riftwii/`: portable code
 
@@ -326,6 +342,7 @@ reader helpers stay beside their source.
 | `extrasbudget` | Counting the memory a launch's extra code and state take from the game |
 | `gcdsp` | Recognizing and patching GameCube sound programs for samples in MEM2 |
 | `gcfont` | Finding Japanese games' font-encoding checks |
+| `gcprograms` | Programs a GameCube game loads itself (`runtime/gc/gc_programs.h`): ELF programs on the disc, where their words come from on the disc, the patches the blob puts into reads, a program's start taken by the blob, and RiftWii's words a program switch sets |
 | `riiconfig` | Reading/writing Riivolution's saved option choices |
 | `vsdbuild`, `vsdparts` | Planning/writing FAT32 virtual SD images and reading their numbered split parts |
 
@@ -346,8 +363,6 @@ reader helpers stay beside their source.
 | `discdump` | Copying a disc to a `.wbfs` file: which sectors every partition uses, and the trimmed WBFS layout the copy is written in |
 | `gcdiscs` | Validating a two-disc GameCube game's partner image and the file-table room both need |
 | `gctgc` | TGC images inside GameCube bonus discs: bounded headers, executable sections and file tables |
-| `gcstorage` | The GameCube blob's SD and USB requests through the shared `gc_ios_call` (`runtime/gc/gc_storage.h`) against the separate per-call paths it replaced (`tests/gc_storage_legacy.h`, already reading the IPC buffers through `gc_cold`): the same flushes, IPC blocks, vectors and replies, including waits that time out, end by `io_reply` or wait on under `ipc_no_timeout` |
-| `gcprograms` | Programs a GameCube game loads itself (`src/patching/gcprograms.cpp`, `runtime/gc/gc_programs.h`): ELF programs on the disc, where their words come from on the disc, the patches the blob puts into reads, a program's start taken by the blob, and RiftWii's words a program switch sets |
 
 ### `src/fs/`: file systems and game images: FAT32, NTFS, WBFS, RVZ
 
@@ -367,6 +382,7 @@ reader helpers stay beside their source.
 | `gcimport` | Importing GameCube saves from Dolphin folders and Nintendont card images |
 | `sdhotplug` | Debounced SD insertion/removal decisions; mounting stays on the Wii side |
 | `zipread`, `zipstream` | Bounded ZIP readers: entries from memory, or a streamed database with size/CRC checks |
+| `sdwrite` | The SD card write probe's decisions: which error means full, locked or faulty, probed once per start |
 
 ### `src/net/`: HTTP, RiiFS, the update check, RiiTag
 
@@ -376,6 +392,7 @@ reader helpers stay beside their source.
 | `update` | The update check |
 | `riifs`, `riifs_sync` | The RiiFS client and its mirror |
 | `riitag` | RiiTag: Wiinnertag.xml, the launch URL, the tag picture's URL for a Discord ID and its fit to the menu |
+| `dnsquery` | Looking up a host through the DNS servers typed into the Wii's settings when IOS's own lookup fails: the question, the bounded answer, the servers from `config.dat` |
 
 ### `src/art/`: pictures: the canvas, PNG, QR codes, themes, covers
 
@@ -391,6 +408,8 @@ reader helpers stay beside their source.
 | `modart` | Candidate picture paths for XML packs, code builds and virtual SD images |
 | `ratingmark` | Choosing the age-rating board's picture from a game's rating |
 | `themelist`, `themepack` | Community theme listings and the built-in themes/apps update-pack format |
+| `emulatorart`, `emulatorbanner` | Emulator games' covers: safe names, libretro's listing and the best match for a game; the Channels view's banner crop |
+| `picturepick` | The cover picker's sources: GameTDB's four cover sets and a mod tile's own entry |
 
 ### `src/data/`: RiftWii's own files: settings, history, cheats, titles, reports
 
@@ -407,6 +426,8 @@ reader helpers stay beside their source.
 | `profiles` | `profiles.txt`: a game's extra Home tiles with their own mods; their names, keys and limits |
 | `namekeys` | The Shift of the keyboard a tile's name is typed on: what each key types with Shift off, on by itself (capitals) or pressed (capitals and symbols), and how Shift follows the name |
 | `homeorder` | `order.txt`: Home's own order (Settings > Home order: Your order) |
+| `homelist` | `homelist.txt`: the games Home found the last time it read the drives, shown at the next start until each drive is read again |
+| `foldernames` | A folder's file names kept as hashes, to answer "is this file there?" for many files from one listing |
 | `padcal` | `gccalibration.txt`: each GameCube controller's calibration (Settings > Controllers), and the stretch a game applies, worked out ahead (`runtime/rtpadcal.h`) |
 | `codemods` | `codemods.txt`: each code build's Extras and Crash logs, per game and mod, the rule for several code builds on together, and older builds reading the crash logs' lines |
 | `gametdb` | GameTDB's `wiitdb.xml` read a game at a time, the game details cache, wrapping their text |
@@ -429,6 +450,13 @@ reader helpers stay beside their source.
 | `offlinegames`, `offlinegames.inc` | GameTDB-derived game IDs with no online play |
 | `sha1`, `sha256` | Hashes used for game data, plugins and downloads |
 | `stashimage` | Validating/finding entries in the build's start-up stash |
+| `hidconfig`, `builtinpads` | Nintendont's `controller.ini` format, read strictly; the layouts RiftWii knows without a file (`builtinpads_data.cpp`) |
+| `gamepage` | A game page's own name, hiding, and the files Manage game > Delete may remove |
+| `homebrewmatch` | A homebrew app's GameTDB entry found by its name, for its cover |
+| `modcover` | A mod's own GameTDB cover, found by its name, strictly (one match or none) |
+| `loaderfiles` | Covers and cheats in other loaders' folders (USB Loader GX, WiiFlow), by disc ID only |
+| `wiiflowplugin` | WiiFlow's emulator plugin files (`sd:/wiiflow/plugins/*.ini`) read as RiftWii's emulator files |
+| `streamformat` | `FILE` output through `snprintf`'s formatter (`wii/core/streamprint.cpp`) |
 
 Header-only helpers in `include/riftwii/`: `checkedalloc.hpp` checks
 allocations before a container grows; `disccache.hpp` tracks disc identity
@@ -487,6 +515,19 @@ to check EXI ownership, failed mounts/reads, deferred close and removal.
 `gccontrols_tests.cpp` exercise the GameCube RVZ reader, disc changes,
 controller port allocation and control mappings. Their implementations
 live in `runtime/gc/`, `src/disc/gcdiscs.cpp` and `src/data/gccontrols.cpp`.
+`gcstorage_tests.cpp` runs the GameCube blob's SD and USB requests through
+the shared `gc_ios_call` (`runtime/gc/gc_storage.h`) against the separate
+per-call paths it replaced (`gc_storage_legacy.h`): the same flushes, IPC
+blocks, vectors and replies, including waits that time out.
+
+Three suites compare today's code with a frozen copy of the code it
+replaced, to prove a rewrite behaves the same: `reference/rtfat.c` and
+`reference/rtfs.c` (the save engine before its rewrite, run by
+`rtfat_differential` and `rtfs_differential`), `gc_storage_legacy.h` (above)
+and `fixtures/gc-legacy/gc_entry_legacy.S` (the GameCube blob's hook
+trampolines, for `tools/gc_hooks_emutest.py`). Each file's header says what
+it proves and when it can be deleted. Never edit a frozen copy to make a
+deliberate change pass: delete the copy and its comparison instead.
 Most other suites follow the same `<area>_tests.cpp` naming. Channel
 entry/loader tests also use `.c`, and `channel_package_tests.py` checks the
 packaged installer; `shrink_theme_pictures_tests.py` checks the theme
@@ -532,7 +573,8 @@ and the `*_mock/` folders provide synthetic files, discs and hardware calls.
 
 The Wii Menu channel (`docs/CHANNEL.md`): `forwarder/` (the channel that
 starts RiftWii), `loader/` (its boot program), `installer/` (the app
-that installs it), `common/` (starting a DOL, keeping hardware access over an IOS reload), `art/` (its artwork,
+that installs it; `installer/cios.cpp` finds the d2x cIOS it reloads into), `common/` (starting a DOL; `keepaccess.c`
+keeps hardware access over an IOS reload), `art/` (its artwork,
 drawn by `tools/make_channel_art.py`).
 
 ## `docs/`
