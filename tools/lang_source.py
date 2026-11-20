@@ -9553,5 +9553,142 @@ FR.update({
     "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors.": "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. Mettez la carte dans un ordinateur et vérifiez si elle comporte des erreurs.",
 })
 
+
+# Importing a Nintendont controller layout.
+T.update({
+    'Import from Nintendont': (
+        'Importar de Nintendont',
+        'Nintendontからコピー',
+        'Importar do Nintendont',
+        'Importa da Nintendont',
+    ),
+    'There is not enough free memory.': (
+        'No hay suficiente memoria libre.',
+        '空きメモリーが足りません。',
+        'Não há memória livre suficiente.',
+        'Memoria libera insufficiente.',
+    ),
+    'No controller files were found. Check controller.ini in the root or nintendont folder, or VID_PID.ini in controllers, on the SD card or USB drive.': (
+        'No se encontraron archivos de mando. Busca controller.ini en la raíz o en nintendont, o VID_PID.ini en controllers, en la SD o la unidad USB.',
+        'コントローラーのファイルがありません。SDカードかUSBドライブのルートかnintendontフォルダのcontroller.ini、またはcontrollersのVID_PID.iniを確認してください。',
+        'Nenhum arquivo de controle encontrado. Confira controller.ini na raiz ou em nintendont, ou VID_PID.ini em controllers, no SD ou na unidade USB.',
+        "Nessun file del controller trovato. Controlla controller.ini nella radice o in nintendont, oppure VID_PID.ini in controllers, sulla SD o sull'unità USB.",
+    ),
+    'Only the first 64 files and 512 entries per folder are checked. Move the files you want into a smaller controllers folder, then try again.': (
+        'Solo se comprueban los primeros 64 archivos y 512 entradas por carpeta. Pon los archivos que quieras en una carpeta controllers más pequeña y vuelve a intentarlo.',
+        '最初の64ファイルと各フォルダの512項目まで確認します。使いたいファイルを、項目の少ないcontrollersフォルダに入れて、もう一度お試しください。',
+        'Só os primeiros 64 arquivos e 512 itens por pasta são verificados. Ponha os arquivos desejados numa pasta controllers menor e tente de novo.',
+        'Vengono controllati solo i primi 64 file e 512 elementi per cartella. Metti i file desiderati in una cartella controllers più piccola e riprova.',
+    ),
+    'Import': (
+        'Importar',
+        'コピー',
+        'Importar',
+        'Importa',
+    ),
+    'Press A to check and copy this layout to sd:/riftwii/controllers. Existing files ask before being replaced. Restart RiftWii to use imported layouts.': (
+        'Pulsa A para comprobar y copiar esta configuración a sd:/riftwii/controllers. Se pregunta antes de reemplazar archivos. Reinicia RiftWii para usarla.',
+        'Aでこの設定を確認してsd:/riftwii/controllersにコピーします。同じファイルがあるときは確認します。使うにはRiftWiiを再起動してください。',
+        'Aperte A para verificar e copiar esta configuração para sd:/riftwii/controllers. Arquivos existentes pedem confirmação antes da troca. Reinicie o RiftWii para usá-la.',
+        'Premi A per controllare e copiare questa configurazione in sd:/riftwii/controllers. I file esistenti chiedono conferma prima di essere sostituiti. Riavvia RiftWii per usarla.',
+    ),
+    'The file could not be read.': (
+        'No se pudo leer el archivo.',
+        'ファイルを読み込めませんでした。',
+        'Não foi possível ler o arquivo.',
+        'Impossibile leggere il file.',
+    ),
+    'The controller file is larger than 8 KiB.': (
+        'El archivo del mando supera los 8 KiB.',
+        'コントローラーのファイルが8 KiBを超えています。',
+        'O arquivo do controle tem mais de 8 KiB.',
+        'Il file del controller supera 8 KiB.',
+    ),
+    'This layout is invalid or unsupported. See session.log for details.': (
+        'Esta configuración no es válida o no es compatible. Más detalles en session.log.',
+        'この設定は無効か未対応です。詳しくはsession.logを確認してください。',
+        'Esta configuração é inválida ou não é compatível. Veja os detalhes em session.log.',
+        'Questa configurazione non è valida o non è supportata. Dettagli in session.log.',
+    ),
+    'The device IDs in the file do not match its filename.': (
+        'Los identificadores del dispositivo no coinciden con el nombre del archivo.',
+        'ファイル内の機器IDがファイル名と一致しません。',
+        'Os IDs do dispositivo no arquivo não correspondem ao nome do arquivo.',
+        'Gli ID del dispositivo nel file non corrispondono al suo nome.',
+    ),
+    'Skipped': (
+        'Omitido',
+        'スキップ',
+        'Ignorado',
+        'Saltato',
+    ),
+    "The layout could not be saved. Check the SD card's free space and lock switch.": (
+        'No se pudo guardar la configuración. Comprueba el espacio libre y el bloqueo de la SD.',
+        '設定を保存できませんでした。SDカードの空き容量とロックスイッチを確認してください。',
+        'Não foi possível salvar a configuração. Confira o espaço livre e a trava do cartão SD.',
+        'Impossibile salvare la configurazione. Controlla lo spazio libero e il blocco della SD.',
+    ),
+    '{1} already exists. Replace it with {2}?': (
+        '{1} ya existe. ¿Reemplazarlo por {2}?',
+        '{1}はすでにあります。{2}で置き換えますか？',
+        '{1} já existe. Substituir por {2}?',
+        '{1} esiste già. Sostituirlo con {2}?',
+    ),
+    'The existing layout was kept.': (
+        'Se ha conservado la configuración existente.',
+        '今の設定を残しました。',
+        'A configuração existente foi mantida.',
+        'La configurazione esistente è stata conservata.',
+    ),
+    'Imported': (
+        'Importado',
+        'コピー済み',
+        'Importado',
+        'Importato',
+    ),
+    'Copied {1} to {2}. Restart RiftWii to use it.': (
+        'Se copió {1} a {2}. Reinicia RiftWii para usarlo.',
+        '{1}を{2}にコピーしました。使うにはRiftWiiを再起動してください。',
+        '{1} foi copiado para {2}. Reinicie o RiftWii para usá-lo.',
+        '{1} copiato in {2}. Riavvia RiftWii per usarlo.',
+    ),
+})
+KO.update({
+    'Import from Nintendont': 'Nintendont에서 가져오기',
+    'There is not enough free memory.': '여유 메모리가 부족합니다.',
+    'No controller files were found. Check controller.ini in the root or nintendont folder, or VID_PID.ini in controllers, on the SD card or USB drive.': '컨트롤러 파일이 없습니다. SD 카드나 USB 드라이브의 루트 또는 nintendont 폴더에 있는 controller.ini, 또는 controllers의 VID_PID.ini를 확인하세요.',
+    'Only the first 64 files and 512 entries per folder are checked. Move the files you want into a smaller controllers folder, then try again.': '처음 64개 파일과 폴더당 512개 항목만 확인합니다. 원하는 파일을 항목이 적은 controllers 폴더에 넣고 다시 시도하세요.',
+    'Import': '가져오기',
+    'Press A to check and copy this layout to sd:/riftwii/controllers. Existing files ask before being replaced. Restart RiftWii to use imported layouts.': 'A를 눌러 설정을 확인하고 sd:/riftwii/controllers로 복사합니다. 기존 파일은 교체 전에 확인합니다. 가져온 설정을 쓰려면 RiftWii를 다시 시작하세요.',
+    'The file could not be read.': '파일을 읽지 못했습니다.',
+    'The controller file is larger than 8 KiB.': '컨트롤러 파일이 8 KiB보다 큽니다.',
+    'This layout is invalid or unsupported. See session.log for details.': '잘못되었거나 지원하지 않는 설정입니다. 자세한 내용은 session.log를 확인하세요.',
+    'The device IDs in the file do not match its filename.': '파일 안의 기기 ID가 파일 이름과 다릅니다.',
+    'Skipped': '건너뜀',
+    "The layout could not be saved. Check the SD card's free space and lock switch.": '설정을 저장하지 못했습니다. SD 카드의 여유 공간과 잠금 스위치를 확인하세요.',
+    '{1} already exists. Replace it with {2}?': '{1}이(가) 이미 있습니다. {2}(으)로 교체할까요?',
+    'The existing layout was kept.': '기존 설정을 유지했습니다.',
+    'Imported': '가져옴',
+    'Copied {1} to {2}. Restart RiftWii to use it.': '{1}을(를) {2}(으)로 복사했습니다. 사용하려면 RiftWii를 다시 시작하세요.',
+})
+FR.update({
+    'Import from Nintendont': 'Importer depuis Nintendont',
+    'There is not enough free memory.': "Il n'y a pas assez de mémoire libre.",
+    'No controller files were found. Check controller.ini in the root or nintendont folder, or VID_PID.ini in controllers, on the SD card or USB drive.': 'Aucun fichier de manette trouvé. Cherchez controller.ini à la racine ou dans nintendont, ou VID_PID.ini dans controllers, sur la SD ou le lecteur USB.',
+    'Only the first 64 files and 512 entries per folder are checked. Move the files you want into a smaller controllers folder, then try again.': 'Seuls les 64 premiers fichiers et 512 éléments par dossier sont vérifiés. Placez les fichiers voulus dans un dossier controllers plus petit, puis réessayez.',
+    'Import': 'Importer',
+    'Press A to check and copy this layout to sd:/riftwii/controllers. Existing files ask before being replaced. Restart RiftWii to use imported layouts.': "Appuyez sur A pour vérifier et copier cette configuration dans sd:/riftwii/controllers. Tout remplacement demande confirmation. Redémarrez RiftWii pour l'utiliser.",
+    'The file could not be read.': 'Impossible de lire le fichier.',
+    'The controller file is larger than 8 KiB.': 'Le fichier de manette dépasse 8 KiB.',
+    'This layout is invalid or unsupported. See session.log for details.': 'Cette configuration est invalide ou non prise en charge. Voir session.log pour les détails.',
+    'The device IDs in the file do not match its filename.': "Les identifiants de l'appareil dans le fichier ne correspondent pas à son nom.",
+    'Skipped': 'Ignoré',
+    "The layout could not be saved. Check the SD card's free space and lock switch.": "Impossible d'enregistrer la configuration. Vérifiez l'espace libre et le verrou de la carte SD.",
+    '{1} already exists. Replace it with {2}?': '{1} existe déjà. Le remplacer par {2} ?',
+    'The existing layout was kept.': 'La configuration existante a été conservée.',
+    'Imported': 'Importé',
+    'Copied {1} to {2}. Restart RiftWii to use it.': "{1} a été copié vers {2}. Redémarrez RiftWii pour l'utiliser.",
+})
+
 if __name__ == "__main__":
     main()

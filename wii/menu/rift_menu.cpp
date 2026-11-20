@@ -98,6 +98,8 @@
 #include "guiscript.hpp"
 #include "credits.hpp"
 #include "gcadapter.hpp"
+#include "nintendontimport.hpp"
+#include "riftwii/hidimport.hpp"
 #include "padcalstore.hpp"
 #include "usbinput.hpp"
 #include "startupinput.hpp"
@@ -16285,6 +16287,95 @@ static std::string AdapterStatus(const riftwii::wii::GcAdapterView& v)
 	}
 }
 
+// Enter and return with the GUI halted, like EmulatorRowsPage.
+static void NintendontLayoutsPage()
+{
+	using namespace riftwii::wii;
+	const std::string title = tr("Import from Nintendont");
+	std::vector<std::string> paths;
+	bool limited = false;
+	if (!FindNintendontLayouts(paths, limited)) {
+		ShowPopup(title, tr("There is not enough free memory."), tr("OK"));
+		return;
+	}
+	if (paths.empty()) {
+		ShowPopup(title, tr("No controller files were found. Check controller.ini in the root or nintendont folder, or VID_PID.ini in controllers, on the SD card or USB drive."), tr("OK"));
+		return;
+	}
+	if (limited) {
+		ShowPopup(title, tr("Only the first 64 files and 512 entries per folder are checked. Move the files you want into a smaller controllers folder, then try again."), tr("OK"));
+	}
+	std::vector<FlowRow> rows;
+	std::vector<std::string> help;
+	if (!riftwii::try_reserve(rows, paths.size()) || !riftwii::try_reserve(help, paths.size())) {
+		ShowPopup(title, tr("There is not enough free memory."), tr("OK"));
+		return;
+	}
+	for (const std::string& path : paths) {
+		FlowRow row;
+		row.kind = FlowRow::Kind::Action;
+		row.label = path;
+		row.value = tr("Import");
+		rows.push_back(row);
+		help.push_back(tr("Press A to check and copy this layout to sd:/riftwii/controllers. Existing files ask before being replaced. Restart RiftWii to use imported layouts."));
+	}
+	// The read buffer lives only while this page is open, off the menu
+	// thread's small stack. The live controller catalog stays untouched.
+	std::unique_ptr<NintendontLayout> layout;
+	if (riftwii::can_allocate(sizeof(NintendontLayout))) {
+		layout.reset(new (std::nothrow) NintendontLayout);
+	}
+	if (!layout) {
+		ShowPopup(title, tr("There is not enough free memory."), tr("OK"));
+		return;
+	}
+	EmulatorRowsPage(title, rows, help, [&](int clicked, int) {
+		const std::string& path = paths[static_cast<std::size_t>(clicked)];
+		std::string detail;
+		const NintendontRead read = ReadNintendontLayout(path, *layout, detail);
+		std::string reason;
+		switch (read) {
+			case NintendontRead::Ready: break;
+			case NintendontRead::Unreadable: reason = tr("The file could not be read."); break;
+			case NintendontRead::TooLarge: reason = tr("The controller file is larger than 8 KiB."); break;
+			case NintendontRead::Invalid: reason = tr("This layout is invalid or unsupported. See session.log for details."); break;
+			case NintendontRead::WrongDevice: reason = tr("The device IDs in the file do not match its filename."); break;
+		}
+		if (read != NintendontRead::Ready) {
+			logf("Controller import: skipped %s. %s %s\n", path.c_str(), reason.c_str(), detail.c_str());
+			rows[static_cast<std::size_t>(clicked)].value = tr("Skipped");
+			ShowPopup(title, path + "\n" + reason, tr("OK"));
+			return false;
+		}
+		const std::string_view text(layout->text.data(), layout->bytes);
+		std::string destination;
+		if (!PrepareControllerFolder()) {
+			ShowPopup(title, tr("The layout could not be saved. Check the SD card's free space and lock switch."), tr("OK"));
+			return false;
+		}
+		auto saved = riftwii::save_hid_import("sd:/riftwii/controllers", text, false, destination, detail);
+		if (saved == riftwii::HidImportSave::Exists) {
+			if (ShowPopupSafeFirst(title, tr("{1} already exists. Replace it with {2}?", {destination, path}),
+				tr("No"), tr("Yes")) != 1) {
+				rows[static_cast<std::size_t>(clicked)].value = tr("Skipped");
+				ShowPopup(title, tr("The existing layout was kept."), tr("OK"));
+				return false;
+			}
+			saved = riftwii::save_hid_import("sd:/riftwii/controllers", text, true, destination, detail);
+		}
+		if (saved != riftwii::HidImportSave::Saved) {
+			logf("Controller import: could not save %s from %s. %s\n", destination.c_str(), path.c_str(), detail.c_str());
+			ShowPopup(title, tr("The layout could not be saved. Check the SD card's free space and lock switch."), tr("OK"));
+			return false;
+		}
+		forget_sd_layout();
+		logf("Controller import: copied %s to %s. Restart RiftWii to use it.\n", path.c_str(), destination.c_str());
+		rows[static_cast<std::size_t>(clicked)].value = tr("Imported");
+		ShowPopup(title, tr("Copied {1} to {2}. Restart RiftWii to use it.", {path, destination}), tr("OK"));
+		return false;
+	});
+}
+
 static void GcAdapterTestPage()
 {
 	GuiText titleTxt(tr("USB controllers"), 30, skin::kInk);
@@ -16309,8 +16400,11 @@ static void GcAdapterTestPage()
 	const int promptBack = prompts.Add("B", tr("Back"));
 	// Which IOS reaches the adapter: games run on a d2x cIOS, the menu on
 	// IOS 58 (a Wii U's front ports work in the menu only).
-	SkinButton checkBtn(skin::pill, skin::pillOver, 4, 198, 380, tr("Check each cIOS"),
+	SkinButton checkBtn(skin::pill, skin::pillOver, 4, 56, 380, tr("Check each cIOS"),
 		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X);
+	SkinButton importBtn(skin::pill, skin::pillOver, 4, 328, 380, tr("Import from Nintendont"), 0, 0, 0);
+	// The French label is the widest of the six translations.
+	importBtn.text.SetFontSize(16);
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
@@ -16324,6 +16418,7 @@ static void GcAdapterTestPage()
 	w.Append(&backBtn.button);
 	w.Append(&prompts);
 	w.Append(&checkBtn.button);
+	w.Append(&importBtn.button);
 	mainWindow->Append(&w);
 	std::string why;
 	// The menu may already run it (its controllers work the menu); then
@@ -16342,7 +16437,13 @@ static void GcAdapterTestPage()
 		usleep(20000);
 		RestartIfOutOfMemory();
 		HaltGui();
-		ClearStaleButtons({&backBtn.button, &checkBtn.button});
+		ClearStaleButtons({&backBtn.button, &checkBtn.button, &importBtn.button});
+		if (importBtn.Clicked()) {
+			importBtn.button.ResetState();
+			mainWindow->Remove(&w);
+			NintendontLayoutsPage();
+			mainWindow->Append(&w);
+		}
 		if (checkBtn.Clicked()) {
 			checkBtn.button.ResetState();
 			if (ShowPopup(tr("Check each cIOS?"),

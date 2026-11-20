@@ -4553,3 +4553,51 @@ msgstr "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages
 
 msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."
 msgstr "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. Mettez la carte dans un ordinateur et vérifiez si elle comporte des erreurs."
+
+msgid "Import from Nintendont"
+msgstr "Importer depuis Nintendont"
+
+msgid "There is not enough free memory."
+msgstr "Il n'y a pas assez de mémoire libre."
+
+msgid "No controller files were found. Check controller.ini in the root or nintendont folder, or VID_PID.ini in controllers, on the SD card or USB drive."
+msgstr "Aucun fichier de manette trouvé. Cherchez controller.ini à la racine ou dans nintendont, ou VID_PID.ini dans controllers, sur la SD ou le lecteur USB."
+
+msgid "Only the first 64 files and 512 entries per folder are checked. Move the files you want into a smaller controllers folder, then try again."
+msgstr "Seuls les 64 premiers fichiers et 512 éléments par dossier sont vérifiés. Placez les fichiers voulus dans un dossier controllers plus petit, puis réessayez."
+
+msgid "Import"
+msgstr "Importer"
+
+msgid "Press A to check and copy this layout to sd:/riftwii/controllers. Existing files ask before being replaced. Restart RiftWii to use imported layouts."
+msgstr "Appuyez sur A pour vérifier et copier cette configuration dans sd:/riftwii/controllers. Tout remplacement demande confirmation. Redémarrez RiftWii pour l'utiliser."
+
+msgid "The file could not be read."
+msgstr "Impossible de lire le fichier."
+
+msgid "The controller file is larger than 8 KiB."
+msgstr "Le fichier de manette dépasse 8 KiB."
+
+msgid "This layout is invalid or unsupported. See session.log for details."
+msgstr "Cette configuration est invalide ou non prise en charge. Voir session.log pour les détails."
+
+msgid "The device IDs in the file do not match its filename."
+msgstr "Les identifiants de l'appareil dans le fichier ne correspondent pas à son nom."
+
+msgid "Skipped"
+msgstr "Ignoré"
+
+msgid "The layout could not be saved. Check the SD card's free space and lock switch."
+msgstr "Impossible d'enregistrer la configuration. Vérifiez l'espace libre et le verrou de la carte SD."
+
+msgid "{1} already exists. Replace it with {2}?"
+msgstr "{1} existe déjà. Le remplacer par {2} ?"
+
+msgid "The existing layout was kept."
+msgstr "La configuration existante a été conservée."
+
+msgid "Imported"
+msgstr "Importé"
+
+msgid "Copied {1} to {2}. Restart RiftWii to use it."
+msgstr "{1} a été copié vers {2}. Redémarrez RiftWii pour l'utiliser."

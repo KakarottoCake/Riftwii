@@ -4553,3 +4553,51 @@ msgstr "RiftWiiが新しいファイルを保存できないため、設定や�
 
 msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."
 msgstr "RiftWiiが新しいファイルを保存できないため、設定やゲームの選択、ジャケット画像やログが保存されないことがあります。カードをパソコンに入れて、エラーがないかカードを確認してください。"
+
+msgid "Import from Nintendont"
+msgstr "Nintendontからコピー"
+
+msgid "There is not enough free memory."
+msgstr "空きメモリーが足りません。"
+
+msgid "No controller files were found. Check controller.ini in the root or nintendont folder, or VID_PID.ini in controllers, on the SD card or USB drive."
+msgstr "コントローラーのファイルがありません。SDカードかUSBドライブのルートかnintendontフォルダのcontroller.ini、またはcontrollersのVID_PID.iniを確認してください。"
+
+msgid "Only the first 64 files and 512 entries per folder are checked. Move the files you want into a smaller controllers folder, then try again."
+msgstr "最初の64ファイルと各フォルダの512項目まで確認します。使いたいファイルを、項目の少ないcontrollersフォルダに入れて、もう一度お試しください。"
+
+msgid "Import"
+msgstr "コピー"
+
+msgid "Press A to check and copy this layout to sd:/riftwii/controllers. Existing files ask before being replaced. Restart RiftWii to use imported layouts."
+msgstr "Aでこの設定を確認してsd:/riftwii/controllersにコピーします。同じファイルがあるときは確認します。使うにはRiftWiiを再起動してください。"
+
+msgid "The file could not be read."
+msgstr "ファイルを読み込めませんでした。"
+
+msgid "The controller file is larger than 8 KiB."
+msgstr "コントローラーのファイルが8 KiBを超えています。"
+
+msgid "This layout is invalid or unsupported. See session.log for details."
+msgstr "この設定は無効か未対応です。詳しくはsession.logを確認してください。"
+
+msgid "The device IDs in the file do not match its filename."
+msgstr "ファイル内の機器IDがファイル名と一致しません。"
+
+msgid "Skipped"
+msgstr "スキップ"
+
+msgid "The layout could not be saved. Check the SD card's free space and lock switch."
+msgstr "設定を保存できませんでした。SDカードの空き容量とロックスイッチを確認してください。"
+
+msgid "{1} already exists. Replace it with {2}?"
+msgstr "{1}はすでにあります。{2}で置き換えますか？"
+
+msgid "The existing layout was kept."
+msgstr "今の設定を残しました。"
+
+msgid "Imported"
+msgstr "コピー済み"
+
+msgid "Copied {1} to {2}. Restart RiftWii to use it."
+msgstr "{1}を{2}にコピーしました。使うにはRiftWiiを再起動してください。"
