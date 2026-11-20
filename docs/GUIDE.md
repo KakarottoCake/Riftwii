@@ -228,7 +228,11 @@ bottom left (or **1**) switches between **Mods** (the games with mods),
 **All games**, **Homebrew** and,
 once you have played something, **Recently played**, then
 **Favourites** once you mark a game as one (the star on its banner, or
-**Favourite** on its page). **Minus** and
+**Favourite** on its page). Homebrew apps can join Favourites too: open
+an app and press the star on its Start question (**1** on a Wii Remote,
+**Y** on a Classic or GameCube controller, **X** on the Wii U GamePad).
+Press it again to remove the app; a filled star means it is a favorite.
+**Minus** and
 **Plus** turn to the previous and next page of games (the arrows at the
 sides and the D-pad at a page's edge do too). **L/R** also turn pages on
 a Classic Controller or GameCube controller. On GameCube, pull all the
@@ -279,6 +283,21 @@ picture is `icon.png` and its name comes from `meta.xml` when present.
 Pick one and confirm **Start**. The question says where the
 app will return when it exits. Use **Look for games again** after adding
 an app.
+
+For homebrew covers, put `<name>.png` in `sd:/riftwii/covers`, using the
+`<name>` from the app's `meta.xml`: for example, `ScummVM.png`. Its own
+3D case picture goes in `sd:/riftwii/covers3d/ScummVM.png`, and its full
+box scan in `sd:/riftwii/boxes/ScummVM.png`, in the same formats as games
+below. RiftWii removes `/ \ : * ? " < > |` and control characters from
+the name, and trims spaces and dots at its ends. Each folder also accepts
+the app's folder name (for `sd:/apps/scummvm`, use `scummvm.png`) as a
+fallback. Your pictures work offline and come before downloaded pictures;
+the metadata name wins over the folder name in each picture folder.
+Use **Look for games again** after adding or changing pictures. Channels
+continues to use the app's `icon.png`.
+
+Favorites follow the app's folder, so changing its metadata name keeps
+its star. Moving or renaming the folder makes it a different app.
 
 To put games in your own order in a tile view, hold **B** (**L** on a
 GameCube controller) and press **A** on a game. With the pointer, drag it
@@ -1615,6 +1634,27 @@ and product IDs, for example `1234_5678`:
 3. `sd:/controller.ini`, when its VID and PID match the pad.
 4. RiftWii's own layout for the pad, if it has one.
 
+To bring an existing file over, open **Settings > Controllers > Check USB
+controllers > Import from Nintendont**. Choose a file from the list and
+press A. RiftWii checks `controller.ini` in the root and `nintendont` folder
+on both SD and USB, plus `controllers/VID_PID.ini` on both drives. USB files
+can be on FAT32 or NTFS. The original files stay where they are.
+
+Each selected file is checked before being copied to
+`sd:/riftwii/controllers/VID_PID.ini`, using the device IDs inside it.
+A per-device filename must match those IDs. Existing RiftWii files ask
+**Yes/No** before being replaced; **No** keeps them. Unreadable, oversized
+or unsupported files are skipped with a reason (the session log has parser
+details). Restart RiftWii after importing, and leave **USB input devices**
+on to use the pad. Importing does not change the live controller layout.
+
+The import list holds at most 64 files and checks at most 512 entries in
+each controller folder. If it reports that limit, put the layouts you want
+in a smaller folder and open the import page again. An interrupted save
+may leave a `.import-new` or `.import-old` file beside the layout; RiftWii
+keeps these copies rather than overwriting them. Use a computer to keep or
+restore the old layout and remove those extra files before trying again.
+
 The session log names the file or built-in layout used, the device, its
 assigned port and an unplug. With no usable layout it names the IDs and the
 path to use; RiftWii does not guess one. Restart RiftWii after editing a
@@ -2070,11 +2110,22 @@ network requests while keeping downloaded covers available.
 **SteamGridDB covers** is an optional fallback and starts off. To use it,
 sign in at [SteamGridDB](https://www.steamgriddb.com/), open
 [Preferences > API](https://www.steamgriddb.com/profile/preferences/api),
-and put your own key alone on one line in `sd:/riftwii/steamgriddb.txt`.
-The setting shows whether a key was found. Enable it to look there only
-after the other sources have no cover. Your key is never put in logs.
-Missing covers are tried again after a week, or when you use
-**Settings > Online > Download missing covers**.
+and choose **Settings > Online > SteamGridDB key** to type your key.
+The on-screen keyboard hides what you type; **Shift** switches between
+lowercase and uppercase letters. A USB keyboard also works. Choose **OK**
+to save, or **Cancel** to keep your previous key. The settings show only
+the saved key's last four characters. **Clear SteamGridDB key** removes it.
+You can still put the key alone on one line in `sd:/riftwii/steamgriddb.txt`;
+menu entry saves to that same file. Your key is never put in logs.
+
+Enable **SteamGridDB covers** to look there only after the other sources
+have no cover. Downloaded pictures stay in `sd:/riftwii/covers/` and
+`sd:/riftwii/banners/`; restarting RiftWii reuses them without a download.
+Each source's "not found" answer is saved beside the picture's cache for a
+week. Missing pictures are tried again after that, or when you use
+**Settings > Online > Download missing covers**. That action keeps pictures
+already saved. A full, locked or unreadable SD card prevents new pictures
+and missing-picture records from being saved; RiftWii reports the failure.
 
 After adding files, use
 **Settings > Drives > Look for games again**. If an emulator or

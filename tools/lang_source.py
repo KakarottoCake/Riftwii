@@ -7718,11 +7718,6 @@ T.update({
         "libretroからカバーをダウンロード。オフでは自分のPNGカバーのみ使います。",
         "Baixa capas de emuladores do libretro. Desligado usa só suas capas PNG.",
         "Scarica copertine da libretro. Se disattivato usa solo le tue copertine PNG."),
-    "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt.": (
-        "Carátulas alternativas de SteamGridDB. Pon tu clave API en sd:/riftwii/steamgriddb.txt.",
-        "SteamGridDBの予備カバー。自分のAPIキーをsd:/riftwii/steamgriddb.txtに入れてください。",
-        "Capas alternativas do SteamGridDB. Coloque sua chave de API em sd:/riftwii/steamgriddb.txt.",
-        "Copertine alternative da SteamGridDB. Metti la tua chiave API in sd:/riftwii/steamgriddb.txt."),
     "Getting covers: {1} left": (
         "Descargando carátulas: quedan {1}",
         "カバーを取得中：残り{1}",
@@ -7736,7 +7731,6 @@ KO.update({
     "Off (key found)": "끄기 (키 있음)",
     "No API key": "API 키 없음",
     "Downloads emulator covers from libretro. Off uses your own PNG covers only.": "libretro에서 표지를 받습니다. 끄면 직접 넣은 PNG 표지만 사용합니다.",
-    "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt.": "SteamGridDB의 대체 표지입니다. 본인의 API 키를 sd:/riftwii/steamgriddb.txt에 넣으세요.",
     "Getting covers: {1} left": "표지 받는 중: {1}개 남음",
 })
 FR.update({
@@ -7746,7 +7740,6 @@ FR.update({
     "Off (key found)": "Non (clé trouvée)",
     "No API key": "Aucune clé API",
     "Downloads emulator covers from libretro. Off uses your own PNG covers only.": "Télécharge les jaquettes depuis libretro. Désactivé : utilise uniquement vos images PNG.",
-    "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt.": "Jaquettes de secours SteamGridDB. Placez votre clé API dans sd:/riftwii/steamgriddb.txt.",
     "Getting covers: {1} left": "Téléchargement des jaquettes : {1} restantes",
 })
 
@@ -9655,6 +9648,209 @@ FR.update({
     'The selected emulated title or save will be deleted. Deleting a title also deletes its save and ticket. This cannot be undone.': 'Le titre ou la sauvegarde émulée sera supprimé. Supprimer un titre supprime aussi sa sauvegarde et son ticket. Cette action est définitive.',
     'The action could not finish. A save may have been partly copied. Backups stay in the emulated NAND folder. See session.log for details.': 'L’action a échoué. Une sauvegarde peut avoir été partiellement copiée. Les copies restent dans le dossier de NAND émulée. Consultez session.log.',
     "The emulated Wii settings will be backed up and removed. The Wii's own settings stay as they are.": 'Les paramètres Wii émulés seront sauvegardés puis retirés. Les paramètres de la Wii resteront inchangés.',
+})
+
+# SteamGridDB keys are entered locally and only their last four characters
+# are shown after saving. Keep the labels short for the Online settings.
+T.update({
+    "SteamGridDB key": ("Clave de SteamGridDB", "SteamGridDB キー", "Chave do SteamGridDB", "Chiave SteamGridDB"),
+    "Clear SteamGridDB key": ("Borrar clave de SteamGridDB", "SteamGridDB キーを消去", "Apagar chave do SteamGridDB", "Cancella chiave SteamGridDB"),
+    "Ends in {1}": ("Termina en {1}", "最後の4文字: {1}", "Termina em {1}", "Termina con {1}"),
+    "Fallback covers from SteamGridDB. Set your key below.": (
+        "Carátulas alternativas de SteamGridDB. Introduce tu clave abajo.",
+        "ほかにカバーがないときはSteamGridDBを使います。下でキーを設定してください。",
+        "Capas alternativas do SteamGridDB. Defina sua chave abaixo.",
+        "Copertine alternative da SteamGridDB. Imposta la tua chiave qui sotto."),
+    "Type your SteamGridDB API key. Only its last four characters are shown.": (
+        "Escribe tu clave API de SteamGridDB. Solo se muestran sus últimos cuatro caracteres.",
+        "SteamGridDBのAPIキーを入力します。最後の4文字だけを表示します。",
+        "Digite sua chave API do SteamGridDB. Apenas os últimos quatro caracteres são mostrados.",
+        "Inserisci la tua chiave API SteamGridDB. Vengono mostrati solo gli ultimi quattro caratteri."),
+    "Removes your SteamGridDB key from the SD card. Saved pictures are kept.": (
+        "Borra tu clave de SteamGridDB de la tarjeta SD. Las imágenes guardadas se conservan.",
+        "SDカードからSteamGridDBのキーを消去します。保存した画像は残ります。",
+        "Apaga sua chave do SteamGridDB do cartão SD. As imagens salvas são mantidas.",
+        "Rimuove la tua chiave SteamGridDB dalla scheda SD. Le immagini salvate vengono conservate."),
+    "Use 16 to 128 letters, numbers, - or _.": (
+        "Usa de 16 a 128 letras, números, - o _.",
+        "16〜128文字の英数字、-、_を使ってください。",
+        "Use de 16 a 128 letras, números, - ou _.",
+        "Usa da 16 a 128 lettere, numeri, - o _."),
+    "SteamGridDB key saved.": ("Clave de SteamGridDB guardada.", "SteamGridDBのキーを保存しました。", "Chave do SteamGridDB salva.", "Chiave SteamGridDB salvata."),
+    "SteamGridDB key cleared.": ("Clave de SteamGridDB borrada.", "SteamGridDBのキーを消去しました。", "Chave do SteamGridDB apagada.", "Chiave SteamGridDB cancellata."),
+    "Could not change the SteamGridDB key. Check the SD card.": (
+        "No se pudo cambiar la clave de SteamGridDB. Revisa la tarjeta SD.",
+        "SteamGridDBのキーを変更できませんでした。SDカードを確認してください。",
+        "Não foi possível alterar a chave do SteamGridDB. Verifique o cartão SD.",
+        "Impossibile cambiare la chiave SteamGridDB. Controlla la scheda SD."),
+})
+KO.update({
+    "SteamGridDB key": "SteamGridDB 키",
+    "Clear SteamGridDB key": "SteamGridDB 키 지우기",
+    "Ends in {1}": "마지막 4글자: {1}",
+    "Fallback covers from SteamGridDB. Set your key below.": "다른 곳에 커버가 없으면 SteamGridDB를 사용합니다. 아래에서 키를 설정하세요.",
+    "Type your SteamGridDB API key. Only its last four characters are shown.": "SteamGridDB API 키를 입력하세요. 마지막 네 글자만 표시됩니다.",
+    "Removes your SteamGridDB key from the SD card. Saved pictures are kept.": "SD 카드에서 SteamGridDB 키를 지웁니다. 저장한 그림은 유지됩니다.",
+    "Use 16 to 128 letters, numbers, - or _.": "영문자, 숫자, - 또는 _로 16~128글자를 입력하세요.",
+    "SteamGridDB key saved.": "SteamGridDB 키를 저장했습니다.",
+    "SteamGridDB key cleared.": "SteamGridDB 키를 지웠습니다.",
+    "Could not change the SteamGridDB key. Check the SD card.": "SteamGridDB 키를 바꿀 수 없습니다. SD 카드를 확인하세요.",
+})
+FR.update({
+    "SteamGridDB key": "Clé SteamGridDB",
+    "Clear SteamGridDB key": "Effacer la clé SteamGridDB",
+    "Ends in {1}": "Se termine par {1}",
+    "Fallback covers from SteamGridDB. Set your key below.": "Pochettes de secours de SteamGridDB. Saisissez votre clé ci-dessous.",
+    "Type your SteamGridDB API key. Only its last four characters are shown.": "Saisissez votre clé API SteamGridDB. Seuls ses quatre derniers caractères sont affichés.",
+    "Removes your SteamGridDB key from the SD card. Saved pictures are kept.": "Efface votre clé SteamGridDB de la carte SD. Les images enregistrées sont conservées.",
+    "Use 16 to 128 letters, numbers, - or _.": "Utilisez de 16 à 128 lettres, chiffres, - ou _.",
+    "SteamGridDB key saved.": "Clé SteamGridDB enregistrée.",
+    "SteamGridDB key cleared.": "Clé SteamGridDB effacée.",
+    "Could not change the SteamGridDB key. Check the SD card.": "Impossible de modifier la clé SteamGridDB. Vérifiez la carte SD.",
+})
+
+
+# Importing a Nintendont controller layout.
+T.update({
+    "Copies the controller.ini files Nintendont uses (on the SD card or the USB drive) into RiftWii's own controller layouts.": (
+        'Copia los archivos controller.ini que usa Nintendont (en la tarjeta SD o la unidad USB) a los esquemas de mando propios de RiftWii.',
+        'Nintendontが使うcontroller.ini（SDカードまたはUSBドライブ）を、RiftWii自身のコントローラー設定にコピーします。',
+        'Copia os arquivos controller.ini que o Nintendont usa (no cartão SD ou na unidade USB) para os esquemas de controle do próprio RiftWii.',
+        'Copia i file controller.ini usati da Nintendont (sulla scheda SD o sull\'unità USB) negli schemi dei controller di RiftWii.'),
+    'Import from Nintendont': (
+        'Importar de Nintendont',
+        'Nintendontからコピー',
+        'Importar do Nintendont',
+        'Importa da Nintendont',
+    ),
+    'There is not enough free memory.': (
+        'No hay suficiente memoria libre.',
+        '空きメモリーが足りません。',
+        'Não há memória livre suficiente.',
+        'Memoria libera insufficiente.',
+    ),
+    'No controller files were found. Check controller.ini in the root or nintendont folder, or VID_PID.ini in controllers, on the SD card or USB drive.': (
+        'No se encontraron archivos de mando. Busca controller.ini en la raíz o en nintendont, o VID_PID.ini en controllers, en la SD o la unidad USB.',
+        'コントローラーのファイルがありません。SDカードかUSBドライブのルートかnintendontフォルダのcontroller.ini、またはcontrollersのVID_PID.iniを確認してください。',
+        'Nenhum arquivo de controle encontrado. Confira controller.ini na raiz ou em nintendont, ou VID_PID.ini em controllers, no SD ou na unidade USB.',
+        "Nessun file del controller trovato. Controlla controller.ini nella radice o in nintendont, oppure VID_PID.ini in controllers, sulla SD o sull'unità USB.",
+    ),
+    'Only the first 64 files and 512 entries per folder are checked. Move the files you want into a smaller controllers folder, then try again.': (
+        'Solo se comprueban los primeros 64 archivos y 512 entradas por carpeta. Pon los archivos que quieras en una carpeta controllers más pequeña y vuelve a intentarlo.',
+        '最初の64ファイルと各フォルダの512項目まで確認します。使いたいファイルを、項目の少ないcontrollersフォルダに入れて、もう一度お試しください。',
+        'Só os primeiros 64 arquivos e 512 itens por pasta são verificados. Ponha os arquivos desejados numa pasta controllers menor e tente de novo.',
+        'Vengono controllati solo i primi 64 file e 512 elementi per cartella. Metti i file desiderati in una cartella controllers più piccola e riprova.',
+    ),
+    'Import': (
+        'Importar',
+        'コピー',
+        'Importar',
+        'Importa',
+    ),
+    'Press A to check and copy this layout to sd:/riftwii/controllers. Existing files ask before being replaced. Restart RiftWii to use imported layouts.': (
+        'Pulsa A para comprobar y copiar esta configuración a sd:/riftwii/controllers. Se pregunta antes de reemplazar archivos. Reinicia RiftWii para usarla.',
+        'Aでこの設定を確認してsd:/riftwii/controllersにコピーします。同じファイルがあるときは確認します。使うにはRiftWiiを再起動してください。',
+        'Aperte A para verificar e copiar esta configuração para sd:/riftwii/controllers. Arquivos existentes pedem confirmação antes da troca. Reinicie o RiftWii para usá-la.',
+        'Premi A per controllare e copiare questa configurazione in sd:/riftwii/controllers. I file esistenti chiedono conferma prima di essere sostituiti. Riavvia RiftWii per usarla.',
+    ),
+    'The file could not be read.': (
+        'No se pudo leer el archivo.',
+        'ファイルを読み込めませんでした。',
+        'Não foi possível ler o arquivo.',
+        'Impossibile leggere il file.',
+    ),
+    'The controller file is larger than 8 KiB.': (
+        'El archivo del mando supera los 8 KiB.',
+        'コントローラーのファイルが8 KiBを超えています。',
+        'O arquivo do controle tem mais de 8 KiB.',
+        'Il file del controller supera 8 KiB.',
+    ),
+    'This layout is invalid or unsupported. See session.log for details.': (
+        'Esta configuración no es válida o no es compatible. Más detalles en session.log.',
+        'この設定は無効か未対応です。詳しくはsession.logを確認してください。',
+        'Esta configuração é inválida ou não é compatível. Veja os detalhes em session.log.',
+        'Questa configurazione non è valida o non è supportata. Dettagli in session.log.',
+    ),
+    'The device IDs in the file do not match its filename.': (
+        'Los identificadores del dispositivo no coinciden con el nombre del archivo.',
+        'ファイル内の機器IDがファイル名と一致しません。',
+        'Os IDs do dispositivo no arquivo não correspondem ao nome do arquivo.',
+        'Gli ID del dispositivo nel file non corrispondono al suo nome.',
+    ),
+    'Skipped': (
+        'Omitido',
+        'スキップ',
+        'Ignorado',
+        'Saltato',
+    ),
+    "The layout could not be saved. Check the SD card's free space and lock switch.": (
+        'No se pudo guardar la configuración. Comprueba el espacio libre y el bloqueo de la SD.',
+        '設定を保存できませんでした。SDカードの空き容量とロックスイッチを確認してください。',
+        'Não foi possível salvar a configuração. Confira o espaço livre e a trava do cartão SD.',
+        'Impossibile salvare la configurazione. Controlla lo spazio libero e il blocco della SD.',
+    ),
+    '{1} already exists. Replace it with {2}?': (
+        '{1} ya existe. ¿Reemplazarlo por {2}?',
+        '{1}はすでにあります。{2}で置き換えますか？',
+        '{1} já existe. Substituir por {2}?',
+        '{1} esiste già. Sostituirlo con {2}?',
+    ),
+    'The existing layout was kept.': (
+        'Se ha conservado la configuración existente.',
+        '今の設定を残しました。',
+        'A configuração existente foi mantida.',
+        'La configurazione esistente è stata conservata.',
+    ),
+    'Imported': (
+        'Importado',
+        'コピー済み',
+        'Importado',
+        'Importato',
+    ),
+    'Copied {1} to {2}. Restart RiftWii to use it.': (
+        'Se copió {1} a {2}. Reinicia RiftWii para usarlo.',
+        '{1}を{2}にコピーしました。使うにはRiftWiiを再起動してください。',
+        '{1} foi copiado para {2}. Reinicie o RiftWii para usá-lo.',
+        '{1} copiato in {2}. Riavvia RiftWii per usarlo.',
+    ),
+})
+KO.update({
+    'Import from Nintendont': 'Nintendont에서 가져오기',
+    "Copies the controller.ini files Nintendont uses (on the SD card or the USB drive) into RiftWii's own controller layouts.": 'Nintendont가 쓰는 controller.ini 파일(SD 카드나 USB 드라이브)을 RiftWii의 컨트롤러 설정으로 복사합니다.',
+    'There is not enough free memory.': '여유 메모리가 부족합니다.',
+    'No controller files were found. Check controller.ini in the root or nintendont folder, or VID_PID.ini in controllers, on the SD card or USB drive.': '컨트롤러 파일이 없습니다. SD 카드나 USB 드라이브의 루트 또는 nintendont 폴더에 있는 controller.ini, 또는 controllers의 VID_PID.ini를 확인하세요.',
+    'Only the first 64 files and 512 entries per folder are checked. Move the files you want into a smaller controllers folder, then try again.': '처음 64개 파일과 폴더당 512개 항목만 확인합니다. 원하는 파일을 항목이 적은 controllers 폴더에 넣고 다시 시도하세요.',
+    'Import': '가져오기',
+    'Press A to check and copy this layout to sd:/riftwii/controllers. Existing files ask before being replaced. Restart RiftWii to use imported layouts.': 'A를 눌러 설정을 확인하고 sd:/riftwii/controllers로 복사합니다. 기존 파일은 교체 전에 확인합니다. 가져온 설정을 쓰려면 RiftWii를 다시 시작하세요.',
+    'The file could not be read.': '파일을 읽지 못했습니다.',
+    'The controller file is larger than 8 KiB.': '컨트롤러 파일이 8 KiB보다 큽니다.',
+    'This layout is invalid or unsupported. See session.log for details.': '잘못되었거나 지원하지 않는 설정입니다. 자세한 내용은 session.log를 확인하세요.',
+    'The device IDs in the file do not match its filename.': '파일 안의 기기 ID가 파일 이름과 다릅니다.',
+    'Skipped': '건너뜀',
+    "The layout could not be saved. Check the SD card's free space and lock switch.": '설정을 저장하지 못했습니다. SD 카드의 여유 공간과 잠금 스위치를 확인하세요.',
+    '{1} already exists. Replace it with {2}?': '{1}이(가) 이미 있습니다. {2}(으)로 교체할까요?',
+    'The existing layout was kept.': '기존 설정을 유지했습니다.',
+    'Imported': '가져옴',
+    'Copied {1} to {2}. Restart RiftWii to use it.': '{1}을(를) {2}(으)로 복사했습니다. 사용하려면 RiftWii를 다시 시작하세요.',
+})
+FR.update({
+    'Import from Nintendont': 'Importer depuis Nintendont',
+    "Copies the controller.ini files Nintendont uses (on the SD card or the USB drive) into RiftWii's own controller layouts.": "Copie les fichiers controller.ini utilisés par Nintendont (sur la carte SD ou le disque USB) dans les configurations de manette de RiftWii.",
+    'There is not enough free memory.': "Il n'y a pas assez de mémoire libre.",
+    'No controller files were found. Check controller.ini in the root or nintendont folder, or VID_PID.ini in controllers, on the SD card or USB drive.': 'Aucun fichier de manette trouvé. Cherchez controller.ini à la racine ou dans nintendont, ou VID_PID.ini dans controllers, sur la SD ou le lecteur USB.',
+    'Only the first 64 files and 512 entries per folder are checked. Move the files you want into a smaller controllers folder, then try again.': 'Seuls les 64 premiers fichiers et 512 éléments par dossier sont vérifiés. Placez les fichiers voulus dans un dossier controllers plus petit, puis réessayez.',
+    'Import': 'Importer',
+    'Press A to check and copy this layout to sd:/riftwii/controllers. Existing files ask before being replaced. Restart RiftWii to use imported layouts.': "Appuyez sur A pour vérifier et copier cette configuration dans sd:/riftwii/controllers. Tout remplacement demande confirmation. Redémarrez RiftWii pour l'utiliser.",
+    'The file could not be read.': 'Impossible de lire le fichier.',
+    'The controller file is larger than 8 KiB.': 'Le fichier de manette dépasse 8 KiB.',
+    'This layout is invalid or unsupported. See session.log for details.': 'Cette configuration est invalide ou non prise en charge. Voir session.log pour les détails.',
+    'The device IDs in the file do not match its filename.': "Les identifiants de l'appareil dans le fichier ne correspondent pas à son nom.",
+    'Skipped': 'Ignoré',
+    "The layout could not be saved. Check the SD card's free space and lock switch.": "Impossible d'enregistrer la configuration. Vérifiez l'espace libre et le verrou de la carte SD.",
+    '{1} already exists. Replace it with {2}?': '{1} existe déjà. Le remplacer par {2} ?',
+    'The existing layout was kept.': 'La configuration existante a été conservée.',
+    'Imported': 'Importé',
+    'Copied {1} to {2}. Restart RiftWii to use it.': "{1} a été copié vers {2}. Redémarrez RiftWii pour l'utiliser.",
 })
 
 if __name__ == "__main__":

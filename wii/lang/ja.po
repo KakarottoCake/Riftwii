@@ -3732,9 +3732,6 @@ msgstr "APIキーなし"
 msgid "Downloads emulator covers from libretro. Off uses your own PNG covers only."
 msgstr "libretroからカバーをダウンロード。オフでは自分のPNGカバーのみ使います。"
 
-msgid "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt."
-msgstr "SteamGridDBの予備カバー。自分のAPIキーをsd:/riftwii/steamgriddb.txtに入れてください。"
-
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "エミュレータのカバー：libretro-thumbnailsの参加者、MobyGames、Fandom。予備のカバー：SteamGridDBの参加者。元の画像はゲームの開発者と発売元のものです。"
 
@@ -4628,3 +4625,84 @@ msgstr "処理を完了できませんでした。セーブの一部だけがコ
 
 msgid "The emulated Wii settings will be backed up and removed. The Wii's own settings stay as they are."
 msgstr "仮想NANDのWii設定をバックアップして削除します。Wii本体の設定は変わりません。"
+
+msgid "SteamGridDB key"
+msgstr "SteamGridDB キー"
+
+msgid "Clear SteamGridDB key"
+msgstr "SteamGridDB キーを消去"
+
+msgid "Ends in {1}"
+msgstr "最後の4文字: {1}"
+
+msgid "Fallback covers from SteamGridDB. Set your key below."
+msgstr "ほかにカバーがないときはSteamGridDBを使います。下でキーを設定してください。"
+
+msgid "Type your SteamGridDB API key. Only its last four characters are shown."
+msgstr "SteamGridDBのAPIキーを入力します。最後の4文字だけを表示します。"
+
+msgid "Removes your SteamGridDB key from the SD card. Saved pictures are kept."
+msgstr "SDカードからSteamGridDBのキーを消去します。保存した画像は残ります。"
+
+msgid "Use 16 to 128 letters, numbers, - or _."
+msgstr "16〜128文字の英数字、-、_を使ってください。"
+
+msgid "SteamGridDB key saved."
+msgstr "SteamGridDBのキーを保存しました。"
+
+msgid "SteamGridDB key cleared."
+msgstr "SteamGridDBのキーを消去しました。"
+
+msgid "Could not change the SteamGridDB key. Check the SD card."
+msgstr "SteamGridDBのキーを変更できませんでした。SDカードを確認してください。"
+
+msgid "Copies the controller.ini files Nintendont uses (on the SD card or the USB drive) into RiftWii's own controller layouts."
+msgstr "Nintendontが使うcontroller.ini（SDカードまたはUSBドライブ）を、RiftWii自身のコントローラー設定にコピーします。"
+
+msgid "Import from Nintendont"
+msgstr "Nintendontからコピー"
+
+msgid "There is not enough free memory."
+msgstr "空きメモリーが足りません。"
+
+msgid "No controller files were found. Check controller.ini in the root or nintendont folder, or VID_PID.ini in controllers, on the SD card or USB drive."
+msgstr "コントローラーのファイルがありません。SDカードかUSBドライブのルートかnintendontフォルダのcontroller.ini、またはcontrollersのVID_PID.iniを確認してください。"
+
+msgid "Only the first 64 files and 512 entries per folder are checked. Move the files you want into a smaller controllers folder, then try again."
+msgstr "最初の64ファイルと各フォルダの512項目まで確認します。使いたいファイルを、項目の少ないcontrollersフォルダに入れて、もう一度お試しください。"
+
+msgid "Import"
+msgstr "コピー"
+
+msgid "Press A to check and copy this layout to sd:/riftwii/controllers. Existing files ask before being replaced. Restart RiftWii to use imported layouts."
+msgstr "Aでこの設定を確認してsd:/riftwii/controllersにコピーします。同じファイルがあるときは確認します。使うにはRiftWiiを再起動してください。"
+
+msgid "The file could not be read."
+msgstr "ファイルを読み込めませんでした。"
+
+msgid "The controller file is larger than 8 KiB."
+msgstr "コントローラーのファイルが8 KiBを超えています。"
+
+msgid "This layout is invalid or unsupported. See session.log for details."
+msgstr "この設定は無効か未対応です。詳しくはsession.logを確認してください。"
+
+msgid "The device IDs in the file do not match its filename."
+msgstr "ファイル内の機器IDがファイル名と一致しません。"
+
+msgid "Skipped"
+msgstr "スキップ"
+
+msgid "The layout could not be saved. Check the SD card's free space and lock switch."
+msgstr "設定を保存できませんでした。SDカードの空き容量とロックスイッチを確認してください。"
+
+msgid "{1} already exists. Replace it with {2}?"
+msgstr "{1}はすでにあります。{2}で置き換えますか？"
+
+msgid "The existing layout was kept."
+msgstr "今の設定を残しました。"
+
+msgid "Imported"
+msgstr "コピー済み"
+
+msgid "Copied {1} to {2}. Restart RiftWii to use it."
+msgstr "{1}を{2}にコピーしました。使うにはRiftWiiを再起動してください。"

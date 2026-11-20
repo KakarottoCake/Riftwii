@@ -12,6 +12,10 @@ void ConfigureEmulatorCovers(const EmulatorCatalog& catalog);
 bool EmulatorCoverWanted(const std::string& id);
 void ForgetEmulatorCoverMiss(const std::string& id);
 bool SteamGridKeyFound();
+// Only the last four characters leave the key reader for display.
+std::string SteamGridKeySuffix();
+bool SaveSteamGridKey(const std::string& key);
+bool ClearSteamGridKey();
 bool EmulatorDownloadedCoversAllowed();
 
 // Local PNGs are checked on the loader thread before the downloaded cache,

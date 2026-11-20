@@ -66,12 +66,17 @@ GuiSearchKeys::GuiSearchKeys(Pin, const std::string& titleText, const std::strin
     Build(titleText, noteText, Mode::Pin);
 }
 
-std::string GuiSearchKeys::Shown() const { return pin ? std::string(text.size(), '*') : text; }
+GuiSearchKeys::GuiSearchKeys(Secret, const std::string& titleText) : maxLength(128) {
+    Build(titleText, "", Mode::Secret);
+}
+
+std::string GuiSearchKeys::Shown() const { return pin || secret ? std::string(text.size(), '*') : text; }
 
 void GuiSearchKeys::Build(const std::string& titleText, const std::string& noteText, Mode mode) {
     hex = mode == Mode::Hex;
-    naming = mode == Mode::Name;
+    naming = mode == Mode::Name || mode == Mode::Secret;
     pin = mode == Mode::Pin;
+    secret = mode == Mode::Secret;
     width = screenwidth;
     height = screenheight;
     selectable = true;
@@ -107,7 +112,7 @@ void GuiSearchKeys::Build(const std::string& titleText, const std::string& noteT
         keys.push_back({tr("Cancel"), 0, Key::Act::Cancel, 4, kKeyLeft + 4 * kKeyPitch, mid, nullptr});
         keys.push_back({tr("OK"), 0, Key::Act::Search, 4, kKeyLeft + 6 * kKeyPitch, wide, nullptr});
     } else {
-        const char* const rows[4] = {"1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM-'."};
+        const char* const rows[4] = {"1234567890", "QWERTYUIOP", "ASDFGHJKL", secret ? "ZXCVBNM-_" : "ZXCVBNM-'."};
         for (int r = 0; r < 4; ++r) {
             int col = 0;
             for (const char* p = rows[r]; *p; ++p, ++col)
@@ -116,9 +121,11 @@ void GuiSearchKeys::Build(const std::string& titleText, const std::string& noteT
         // The third row is one short: the delete key takes the last place.
         keys.push_back({tr("Del"), 0, Key::Act::Back, 2, kKeyLeft + 9 * kKeyPitch, kKeyW, nullptr});
         if (naming) {
-            // Actions: Space, Shift, Clear, Cancel and OK across the card's width.
-            keys.push_back({tr("Space"), ' ', Key::Act::Space, 4, kKeyLeft, mid, nullptr});
-            keys.push_back({tr("Shift"), 0, Key::Act::Shift, 4, kKeyLeft + 2 * kKeyPitch, mid, nullptr});
+            // Keys never contain spaces: give Shift that room in secret
+            // mode. Names keep Space, Shift, Clear, Cancel and OK.
+            if (!secret) keys.push_back({tr("Space"), ' ', Key::Act::Space, 4, kKeyLeft, mid, nullptr});
+            keys.push_back({tr("Shift"), 0, Key::Act::Shift, 4, secret ? kKeyLeft : kKeyLeft + 2 * kKeyPitch,
+                            secret ? wide : mid, nullptr});
             keys.push_back({tr("Clear"), 0, Key::Act::Clear, 4, kKeyLeft + 4 * kKeyPitch, mid, nullptr});
             keys.push_back({tr("Cancel"), 0, Key::Act::Cancel, 4, kKeyLeft + 6 * kKeyPitch, mid, nullptr});
             keys.push_back({tr("OK"), 0, Key::Act::Search, 4, kKeyLeft + 8 * kKeyPitch, mid, nullptr});
@@ -175,10 +182,18 @@ void GuiSearchKeys::Build(const std::string& titleText, const std::string& noteT
     soundOver = new GuiSound(button_over_pcm, button_over_pcm_size, SOUND::PCM);
     soundClick = new GuiSound(button_click_pcm, button_click_pcm_size, SOUND::PCM);
     if (naming) {
-        shift = riftwii::name_shift_for_text(text);
+        shift = secret ? riftwii::NameShift::Off : riftwii::name_shift_for_text(text);
         ShowCase();
     }
     riftwii::wii::UsbInputTyping(true);
+}
+
+char GuiSearchKeys::TypedCharacter(char key) const {
+    if (secret) {
+        if (shift != riftwii::NameShift::Off) return key;
+        return static_cast<char>(std::tolower(static_cast<unsigned char>(key)));
+    }
+    return naming ? riftwii::name_key_char(key, shift) : key;
 }
 
 void GuiSearchKeys::ShowCase() {
@@ -186,7 +201,7 @@ void GuiSearchKeys::ShowCase() {
         if (k.act != Key::Act::Type) continue;
         const bool letter = std::isalpha(static_cast<unsigned char>(k.ch));
         if (!letter && !riftwii::name_key_has_symbol(k.ch)) continue;
-        const char typed = riftwii::name_key_char(k.ch, shift);
+        const char typed = TypedCharacter(k.ch);
         k.caption->SetText(std::string(1, typed).c_str());
     }
 }
@@ -279,7 +294,7 @@ void GuiSearchKeys::Press(const Key& k) {
     case Key::Act::Type:
     case Key::Act::Space:
         if (Live(k) && text.size() < maxLength) {
-            const char typed = naming ? riftwii::name_key_char(k.ch, shift) : k.ch;
+            const char typed = TypedCharacter(k.ch);
             text += typed;
             // The fourth digit lights OK (the last key): from the 0 alone at
             // the bottom, Down would otherwise land on Cancel, the nearest
@@ -305,7 +320,7 @@ void GuiSearchKeys::Press(const Key& k) {
         result = 1;
         break;
     }
-    if (naming && k.act != Key::Act::Shift) shift = riftwii::name_shift_for_text(text);
+    if (naming && !secret && k.act != Key::Act::Shift) shift = riftwii::name_shift_for_text(text);
     if (naming) ShowCase();
     shown->SetText(Shown().c_str());
 }
@@ -340,7 +355,7 @@ void GuiSearchKeys::TypeFromKeyboard() {
         for (std::size_t i = 0; i < keys.size(); ++i) {
             const Key& k = keys[i];
             if ((k.act != Key::Act::Type && k.act != Key::Act::Space) || !Live(k)) continue;
-            const bool symbol = naming && riftwii::name_key_has_symbol(k.ch) &&
+            const bool symbol = naming && !secret && riftwii::name_key_has_symbol(k.ch) &&
                                 riftwii::name_key_char(k.ch, riftwii::NameShift::On) == press.ch;
             if (k.ch != wanted && !symbol) continue;
             focus = static_cast<int>(i);
@@ -349,9 +364,9 @@ void GuiSearchKeys::TypeFromKeyboard() {
                 // The character typed, whatever the card's Shift says: a
                 // digit stays a digit with Shift on.
                 if (text.size() < maxLength) text += press.ch;
-                shift = riftwii::name_shift_for_text(text);
+                if (!secret) shift = riftwii::name_shift_for_text(text);
                 ShowCase();
-                shown->SetText(text.c_str());
+                shown->SetText(Shown().c_str());
             } else {
                 Press(k);
             }

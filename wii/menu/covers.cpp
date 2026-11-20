@@ -24,6 +24,7 @@
 #include "artfolder.hpp"
 #include "boxart.hpp"
 #include "fullfont.hpp"
+#include "homebrewart.hpp"
 #include "emulatorcovers.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
@@ -31,6 +32,7 @@
 #include "netsock.hpp"
 #include "online.hpp"
 #include "riftwii/coverart.hpp"
+#include "riftwii/appmeta.hpp"
 #include "riftwii/emulatorart.hpp"
 #include "riftwii/emulatorbanner.hpp"
 #include "riftwii/modcover.hpp"
@@ -78,6 +80,10 @@ bool ValidId(const std::string& id) {
         if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) return false;
     }
     return true;
+}
+
+bool ReadableId(const std::string& id) {
+    return ValidId(id) || valid_app_tile_key(id);
 }
 
 bool WriteAll(const std::string& path, const std::vector<std::uint8_t>& bytes) {
@@ -284,7 +290,7 @@ Slot* Victim(bool banner) {
 bool NextReadAll(std::string& id, Slot*& slot) {
     while (g_readAllNext < g_readAll.size()) {
         const std::string& next = g_readAll[g_readAllNext];
-        if (!ValidId(next) || g_absent.count(next) || Find(next)) {
+        if (!ReadableId(next) || g_absent.count(next) || Find(next)) {
             ++g_readAllNext;
             continue;
         }
@@ -335,6 +341,7 @@ void* LoaderMain(void*) {
         const bool banner = emulator_banner_id(id);
         const std::size_t pixel_bytes = banner ? kEmulatorBannerPixelBytes : kCoverPixelBytes;
         const bool emulator = emulator_cover_id(id);
+        const bool app = valid_app_tile_key(id);
         const std::string game = emulator || banner ? id : tile_game_id(id);
         const bool tile = game != id;
         std::vector<std::uint8_t> local;
@@ -349,6 +356,16 @@ void* LoaderMain(void*) {
                 std::memcpy(slot->data, picture.data() + 8, pixel_bytes);
                 ok = true;
             }
+        } else if (app) {
+            const std::string name = HomebrewArtName(id, HomebrewArt::Cover);
+            const std::string fallback = HomebrewCoverId(id);
+            own = !name.empty() && own_png(name);
+            // Keep existing ID-named homebrew covers working too, after
+            // the app's metadata/folder picture and before downloads.
+            if (!own && !fallback.empty()) own = own_png(fallback);
+            tile_own = own;
+            if (own) std::memcpy(slot->data, local.data() + kCoverHeaderSize, kCoverPixelBytes);
+            ok = own || (!fallback.empty() && ReadStoredCover(fallback, slot->data));
         } else if (emulator) {
             ok = ReadEmulatorLocalCover(id, local) && local.size() == kCoverFileSize;
             if (ok) std::memcpy(slot->data, local.data() + kCoverHeaderSize, kCoverPixelBytes);
@@ -371,16 +388,16 @@ void* LoaderMain(void*) {
         // A mod's tile without a cover of its own shows the game's. A
         // second-set cover stored while the first set is chosen isn't
         // shown: the first set's download replaces it (CoverWanted).
-        const bool wrong_set = !ok && !emulator && !banner && StoredIsSecond(game) && !CoverSecondSet(game);
-        if (!ok && !banner && cache_allowed && !wrong_set) ok = ReadStoredCover(game, slot->data);
-        if (!ok && !emulator && !banner && ReadLoaderCover(game, local)) {
+        const bool wrong_set = !ok && !app && !emulator && !banner && StoredIsSecond(game) && !CoverSecondSet(game);
+        if (!ok && !app && !banner && cache_allowed && !wrong_set) ok = ReadStoredCover(game, slot->data);
+        if (!ok && !app && !emulator && !banner && ReadLoaderCover(game, local)) {
             std::memcpy(slot->data, local.data() + kCoverHeaderSize, kCoverPixelBytes);
             ok = own = true;
         }
         if (ok) DCFlushRange(slot->data, pixel_bytes);
         // GameTDB's full box art is of the first set only: a second-set
         // cover comes before it, as the player's own does.
-        const bool second_set = ok && !own && !mod_cover && !emulator && !banner && StoredIsSecond(game);
+        const bool second_set = ok && !own && !mod_cover && !app && !emulator && !banner && StoredIsSecond(game);
 
         LWP_MutexLock(g_lock);
         g_reading = false;
@@ -595,6 +612,19 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
     mkdir(kCoverDir, 0777);
     // The second set is the game page's choice, for the game's own cover.
     const bool second = !tile && CoverSecondSet(game_id);
+    // A queued request may arrive after another view saved this picture.
+    // Homebrew uses these same stable GameTDB IDs and files. Recheck here,
+    // before any network call, while still respecting a changed cover set
+    // or a mod tile whose matched game changed.
+    if (!tile || TileStoredForMatch(game_id)) {
+        struct stat info {};
+        if (stat(CoverPath(game_id).c_str(), &info) == 0 && S_ISREG(info.st_mode) &&
+            info.st_size == static_cast<off_t>(kCoverFileSize) && StoredIsSecond(game_id) == second)
+            return CoverFetch::Stored;
+        const std::time_t now = std::time(nullptr);
+        if (stat(MissPath(game_id).c_str(), &info) == 0 && now >= info.st_mtime && now - info.st_mtime < kRetryAfter)
+            return CoverFetch::NotFound;
+    }
     for (const std::string& art_id : gametdb_art_ids(art_of)) {
         for (const std::string& region : cover_regions(art_of, MenuLanguage())) {
             std::vector<std::uint8_t> png;
@@ -726,7 +756,7 @@ bool TakeCoverFetch(std::string& game_id, CoverFetch& got, std::string& error) {
 bool TakenFetchWasSecondSet() { return g_lastFetchSecond; }
 
 const u8* CoverTexture(const std::string& game_id, int rank) {
-    if (!ValidId(game_id) || !Started()) return nullptr;
+    if (!ReadableId(game_id) || !Started()) return nullptr;
     Lock lock;
     if (g_texDirty) {
         // A refilled slot may still be in the texture cache as its old cover.
@@ -745,28 +775,28 @@ const u8* CoverTexture(const std::string& game_id, int rank) {
 }
 
 bool CoverIsOwn(const std::string& name) {
-    if (!ValidId(name) || !Started()) return false;
+    if (!ReadableId(name) || !Started()) return false;
     Lock lock;
     const Slot* s = Find(name);
     return s && s->ready && s->own;
 }
 
 bool CoverIsTileOwn(const std::string& name) {
-    if (!ValidId(name) || !Started()) return false;
+    if (!ReadableId(name) || !Started()) return false;
     Lock lock;
     const Slot* s = Find(name);
     return s && s->ready && s->tileOwn;
 }
 
 unsigned CoverFill(const std::string& name) {
-    if (!ValidId(name) || !Started()) return 0;
+    if (!ReadableId(name) || !Started()) return 0;
     Lock lock;
     const Slot* s = Find(name);
     return s && s->ready ? s->fill : 0;
 }
 
 bool CoverBeforeBox(const std::string& name) {
-    if (!ValidId(name) || !Started()) return false;
+    if (!ReadableId(name) || !Started()) return false;
     Lock lock;
     const Slot* s = Find(name);
     return s && s->ready && (s->own || s->secondSet || s->modCover);
@@ -789,7 +819,7 @@ const u8* EmulatorBannerTexture(const std::string& game_id) {
 }
 
 void CoverPrefetch(const std::string& game_id, int rank) {
-    if (!ValidId(game_id) || !Started()) return;
+    if (!ReadableId(game_id) || !Started()) return;
     Lock lock;
     if (Slot* s = Find(game_id)) {
         if (s->ready) s->touched = gettime();  // still wanted: kept over others
@@ -848,6 +878,7 @@ void SetModCoverIds(std::map<std::string, std::string> ids) {
 }
 
 void ForgetCover(const std::string& game_id) {
+    for (const std::string& key : HomebrewCoverKeys(game_id)) ForgetCover(key);
     // The game's, and its mod tiles' (<ID>@<key>).
     for (auto it = g_ownReads.begin(); it != g_ownReads.end();)
         it = it->first == game_id || it->first.rfind(game_id + "@", 0) == 0 ? g_ownReads.erase(it) : std::next(it);
