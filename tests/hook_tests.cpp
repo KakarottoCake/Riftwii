@@ -416,6 +416,47 @@ struct FakeText {
         word(0x4E800020);  // blr
         return start;
     }
+    // The same function from an SDK built without optimization (LEGO Star
+    // Wars: The Complete Saga): the arguments spilled to the stack, the
+    // command handed to a setup helper as `li r4, N` (it allocates the
+    // block and stores the command), a fill helper, then the block to
+    // `submit` with the callback register or 0. `with_submit` false is
+    // the reboot form of ioctlv, which leaves through another path.
+    std::uint32_t unoptimized_function(std::uint32_t cmd, bool async, std::uint32_t setup, std::uint32_t fill,
+                                       std::uint32_t submit, bool with_submit = true) {
+        const std::uint32_t start = here();
+        word(0x9421FFD0);  // stwu r1,-48(r1)
+        word(0x7C0802A6);  // mflr r0
+        word(0x90010034);  // stw r0,52(r1)
+        word(0x90610008);  // stw r3,8(r1)
+        word(0x7D3E4B78);  // mr r30,r9 (the callback)
+        word(0x80610008);  // lwz r3,8(r1)
+        li(4, cmd);
+        if (async) {
+            word(0x7FC5F378);  // mr r5,r30
+        } else {
+            li(5, 0);
+        }
+        word(0x38E10024);  // addi r7,r1,36 (where the block goes)
+        bl(setup);
+        word(0x80610024);  // lwz r3,36(r1)
+        word(0x8081000C);  // lwz r4,12(r1)
+        bl(fill);
+        if (with_submit) {
+            word(0x80610024);  // lwz r3,36(r1)
+            if (async) {
+                word(0x7FC4F378);  // mr r4,r30
+            } else {
+                li(4, 0);
+            }
+            bl(submit);
+        }
+        word(0x80010034);  // lwz r0,52(r1)
+        word(0x7C0803A6);  // mtlr r0
+        word(0x38210030);  // addi r1,r1,48
+        word(0x4E800020);  // blr
+        return start;
+    }
 };
 
 }  // namespace
@@ -493,6 +534,73 @@ static void TestIpcApiSearch() {
     riftwii::IpcSymbols disagree = s;
     disagree.ioctlv_async = sync_at[7];
     EXPECT_FALSE(riftwii::find_ipc_api({t.range()}, disagree, api, error));
+}
+
+static void TestIpcApiSearchUnoptimized() {
+    // An SDK built without optimization (LEGO Star Wars: The Complete
+    // Saga, grantendo/wiiu#61): the allocator (no size arguments) behind
+    // a setup helper, then the API in the SDK's order with a helper
+    // between the pairs, IOS_Seek not linked, and the reboot form of
+    // ioctlv, which calls the setup helper with 7 but not submit.
+    FakeText t;
+    const std::uint32_t alloc = t.here();
+    t.prologue();
+    const std::uint32_t setup = t.here();
+    t.word(0x9421FFD0);  // stwu r1,-48(r1)
+    t.word(0x7C0802A6);  // mflr r0
+    t.bl(alloc);
+    t.word(0x90030000);  // stw r0,0(r3)
+    t.word(0x4E800020);  // blr
+    const std::uint32_t submit = t.here();
+    t.prologue();
+    const std::uint32_t fill = t.here();
+    t.prologue();
+    std::uint32_t async_at[8] = {}, sync_at[8] = {};
+    for (std::uint32_t cmd = 1; cmd <= 7; ++cmd) {
+        if (cmd == 5) continue;
+        async_at[cmd] = t.unoptimized_function(cmd, true, setup, fill, submit);
+        sync_at[cmd] = t.unoptimized_function(cmd, false, setup, fill, submit);
+        if (cmd == 6) t.prologue();
+    }
+    t.unoptimized_function(7, false, setup, fill, submit, false);
+    for (std::uint32_t cmd : {0x71u, 0x70u, 0x8Au, 0x8Du}) {
+        t.li(4, cmd);
+        t.bl(async_at[6]);
+    }
+    t.li(4, 0x8B);
+    t.li(5, 3);
+    t.li(6, 2);
+    t.bl(async_at[7]);
+
+    riftwii::IpcSymbols s;
+    riftwii::IpcApi api;
+    std::string error;
+    EXPECT_TRUE(riftwii::find_ipc_symbols({t.range()}, s, error));
+    EXPECT_EQ(s.ioctl_async, async_at[6]);
+    EXPECT_EQ(s.ioctlv_async, async_at[7]);
+    EXPECT_TRUE(riftwii::find_ipc_api({t.range()}, s, api, error));
+    for (std::uint32_t cmd = 1; cmd <= 7; ++cmd) {
+        EXPECT_EQ(api.async[cmd], async_at[cmd]);
+        EXPECT_EQ(api.sync[cmd], sync_at[cmd]);
+    }
+    EXPECT_EQ(api.submit, submit);
+
+    // A setup helper only IOS_IoctlAsync calls proves nothing: refused.
+    FakeText u;
+    const std::uint32_t ualloc = u.here();
+    u.prologue();
+    const std::uint32_t usetup = u.here();
+    u.word(0x9421FFD0);
+    u.bl(ualloc);
+    u.word(0x4E800020);
+    const std::uint32_t usubmit = u.here();
+    u.prologue();
+    const std::uint32_t ufill = u.here();
+    u.prologue();
+    riftwii::IpcSymbols us;
+    us.ioctl_async = u.unoptimized_function(6, true, usetup, ufill, usubmit);
+    riftwii::IpcApi uapi;
+    EXPECT_FALSE(riftwii::find_ipc_api({u.range()}, us, uapi, error));
 }
 
 static void TestReturnToMenuSearch() {
@@ -4412,6 +4520,7 @@ int main() {
     TestPlacement();
     TestSymbolSearch();
     TestIpcApiSearch();
+    TestIpcApiSearchUnoptimized();
     TestReturnToMenuSearch();
     TestFsIpcTranslation();
     TestFsSyncIntercept();

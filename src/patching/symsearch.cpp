@@ -197,6 +197,35 @@ std::set<std::uint32_t> call_targets(const std::vector<CodeRange>& text, std::ui
     return targets;
 }
 
+// The value `li r4, N` gives r4 for the call at `call` (looking back a few
+// instructions, not past `start`); -1 when r4 is set some other way there
+// or not at all.
+std::int64_t r4_immediate_before(const std::vector<CodeRange>& text, std::uint32_t start, std::uint32_t call) {
+    for (std::uint32_t back = 4; back <= kArgumentLookback * 4 && call >= start + back; back += 4) {
+        const std::uint32_t p = word_at(text, call - back);
+        if (is_li(p) && rd_of(p) == 4) return static_cast<std::int16_t>(p & 0xFFFFu);
+        const std::uint32_t op = p >> 26;
+        const bool d_form_to_r4 = (op == 14 || op == 15 || (op >= 32 && op <= 35) || (op >= 40 && op <= 43)) &&
+                                  rd_of(p) == 4;                         // addi, addis, loads
+        const bool or_to_r4 = (p & 0xFC0007FEu) == 0x7C000378u && ((p >> 16) & 31u) == 4;  // mr r4, rX
+        if (d_form_to_r4 || or_to_r4 || is_bl(p)) return -1;
+    }
+    return -1;
+}
+
+// The IPC command (1 to 7) a function hands to `setup` as `li r4, N`, or
+// 0 when it doesn't call it that way.
+std::uint32_t setup_command(const std::vector<CodeRange>& text, std::uint32_t start, std::uint32_t end,
+                            std::uint32_t setup) {
+    for (std::uint32_t a = start + 8; a + 4 <= end; a += 4) {
+        const std::uint32_t w = word_at(text, a);
+        if (!is_bl(w) || bl_target(a, w) != setup) continue;
+        const std::int64_t cmd = r4_immediate_before(text, start, a);
+        return cmd >= 1 && cmd <= 7 ? static_cast<std::uint32_t>(cmd) : 0;
+    }
+    return 0;
+}
+
 // How the function hands its block to `submit`: 1 when r4 (the callback)
 // is a register copy (asynchronous), 0 when it is `li r4, 0`
 // (synchronous), -1 when there is no such call.
@@ -258,22 +287,56 @@ bool find_ipc_api(const std::vector<CodeRange>& text, const IpcSymbols& known, I
             submit = bl_target(a, w);  // mr r4, rX (or rX, rX, rX) before the call
         }
     }
-    if (alloc == 0 || submit == 0) {
+    // An SDK built without optimization (LEGO Star Wars: The Complete
+    // Saga, grantendo/wiiu#61) doesn't allocate the block in the API
+    // function: each one hands its command to a setup helper, `li r4, N`
+    // then `bl setup`, and the helper allocates the block (taking no size)
+    // and stores the command. The submit call is the same. That helper
+    // is IOS_IoctlAsync's call made with `li r4, 6`, and it counts only
+    // when another API function in the stretch calls it with another
+    // command.
+    std::uint32_t setup = 0;
+    if (alloc == 0 && submit != 0) {
+        for (std::uint32_t a = known.ioctl_async + 8; a + 4 <= known_end && setup == 0; a += 4) {
+            const std::uint32_t w = word_at(text, a);
+            if (is_bl(w) && r4_immediate_before(text, known.ioctl_async, a) == kIpcIoctlCmd)
+                setup = bl_target(a, w);
+        }
+        if (setup != 0 && !is_stwu_r1(word_at(text, setup))) setup = 0;
+        if (setup != 0) {
+            std::set<std::uint32_t> commands;
+            for (std::size_t i = 0; i < starts.size(); ++i) {
+                const std::uint32_t next = i + 1 < starts.size() ? starts[i + 1] : hi;
+                if (next - starts[i] > kApiMaxFunctionBytes) continue;
+                const std::uint32_t cmd = setup_command(text, starts[i], next, setup);
+                if (cmd != 0) commands.insert(cmd);
+            }
+            if (commands.size() < 2) setup = 0;
+        }
+    }
+    if ((alloc == 0 && setup == 0) || submit == 0) {
         error = "IOS_IoctlAsync does not call a block allocator (64, 32) and a submit routine the expected way";
         return false;
     }
     // Every function in the stretch that uses both helpers and stores
-    // one IPC command is an API function; the reboot forms of ioctlv
-    // (relaunch set in the block) are left alone.
+    // one IPC command (or hands it to the setup helper) is an API
+    // function; the reboot forms of ioctlv (relaunch set in the block) are
+    // left alone.
     for (std::size_t i = 0; i < starts.size(); ++i) {
         const std::uint32_t start = starts[i];
         const std::uint32_t next = i + 1 < starts.size() ? starts[i + 1] : hi;
         if (next - start > kApiMaxFunctionBytes) continue;
         const std::set<std::uint32_t> calls = call_targets(text, start, next);
-        if (!calls.count(alloc) || !calls.count(submit)) continue;
-        const std::set<std::uint32_t> commands = stored_immediates(text, start, next, 0);
-        if (commands.size() != 1) continue;
-        const std::uint32_t cmd = *commands.begin();
+        if (!calls.count(submit)) continue;
+        std::uint32_t cmd = 0;
+        if (alloc != 0) {
+            if (!calls.count(alloc)) continue;
+            const std::set<std::uint32_t> commands = stored_immediates(text, start, next, 0);
+            if (commands.size() != 1) continue;
+            cmd = *commands.begin();
+        } else {
+            cmd = setup_command(text, start, next, setup);
+        }
         if (cmd < 1 || cmd > 7) continue;
         const std::set<std::uint32_t> relaunch = stored_immediates(text, start, next, kBlockRelaunch);
         bool reboots = false;
