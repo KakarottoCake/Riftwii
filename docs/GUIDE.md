@@ -735,6 +735,15 @@ the tiles.
   pauses while the game's IOS is loaded, and comes back after). *Fade out*
   fades it out when you start a game and keeps it off for the whole launch.
   `launch_music = on|off` in `settings.txt`.
+- **Launch screen** (Game's box, Log; right after Launch music): while a
+  game starts, *Game's box* shows its box on the launch screen's card, as
+  on its page, with the progress bar under it. Press any button to see
+  the log instead: a GameCube pad's in the Wii's own ports at any time
+  (not one on a USB adapter), a Wii Remote's until the launch hands the
+  Wii Remotes over (before a cIOS is loaded). A
+  launch that fails always shows the log, and `boot.log` on the SD card
+  has it either way. *Log* prints every step on the card, as before.
+  `launch_log = off|on` in `settings.txt`.
 - **Banner music on game pages** (off at first): opening a game's page
   from Home's covers, shelf, carousel, 3D covers or names plays the game's
   banner music, as the Channels view's banner screen does, with the menu's
