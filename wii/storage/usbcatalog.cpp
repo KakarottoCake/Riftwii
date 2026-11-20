@@ -156,6 +156,8 @@ struct PickedDrive {
     bool known = false;
 };
 PickedDrive g_picked;
+bool g_usb_heap_asked = false;
+s32 g_usb_heap = 0;  // ReserveUsbBuffers' USBStorage_Initialize result
 constexpr u32 kPickedBounce = 32 * 1024;
 
 bool reopen_picked();
@@ -326,7 +328,10 @@ bool pick_drive(const usb_device_entry* devices, u8 listed, std::string& error) 
         error = "no MEM2 left for the USB buffer";
         return false;
     }
-    USBStorage_Initialize();
+    if (const s32 heap = USBStorage_Initialize(); heap < 0) {
+        error = "no MEM2 left for libogc's USB storage heap (" + std::to_string(heap) + ")";
+        return false;
+    }
     const std::vector<std::string> wanted = usb_wanted_folders();
     struct Candidate {
         usbstorage_handle handle{};
@@ -1473,6 +1478,26 @@ bool read_usb_range(const std::string& usb_path, std::uint64_t offset, std::uint
 void InitUsbLock() {
     if (g_usb_lock != LWP_MUTEX_NULL) return;
     if (LWP_MutexInit(&g_usb_lock, true) < 0) g_usb_lock = LWP_MUTEX_NULL;  // ensure_usb then mounts nothing
+}
+
+void ReserveUsbBuffers() {
+    if (!g_picked.bounce) g_picked.bounce = skin::Mem2Alloc(kPickedBounce);
+    ums::ReserveBuffer();
+    // libogc's storage driver takes its own 18 KiB heap off the MEM2
+    // arena's top the first time it starts, and nothing more: no IOS call,
+    // and a no-op every later time. Taken now, so a drive plugged in after
+    // the menu filled the arena still starts.
+    g_usb_heap = USBStorage_Initialize();
+    g_usb_heap_asked = true;
+}
+
+void LogUsbBuffers() {
+    const void* d2x = ums::Buffer();
+    const bool heap_ok = g_usb_heap_asked && g_usb_heap >= 0;
+    logf("USB buffers (MEM2, taken at start-up): menu's driver %p, d2x's %p, libogc's storage heap %s %d%s\n",
+         static_cast<void*>(g_picked.bounce), d2x, !g_usb_heap_asked ? "not asked" : heap_ok ? "ok" : "failed",
+         static_cast<int>(g_usb_heap),
+         g_picked.bounce && d2x && heap_ok ? "" : " (a 0 or a failure: the MEM2 arena was too small for it)");
 }
 
 bool usb_volume_ready() {
