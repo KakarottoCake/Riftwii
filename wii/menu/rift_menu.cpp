@@ -5648,7 +5648,8 @@ static void TakeSdScanPart(FrontendState& state, riftwii::wii::DriveScanPart& pa
 	// as long as a big drive takes to read. The USB part's full index
 	// replaces this one.
 	for (const riftwii::wii::ImageGame& game : state.usb_catalog.games) {
-		if (g_packs.has_packs(game.id) && !part.packs.has_packs(game.id)) part.packs.add_game(game.id);
+		// Out of memory: those games show without mods until the USB part.
+		if (g_packs.has_packs(game.id) && !part.packs.has_packs(game.id) && !part.packs.add_game(game.id)) break;
 	}
 	g_packs = std::move(part.packs);
 	g_sdScanOk = part.ok;

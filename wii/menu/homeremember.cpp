@@ -81,7 +81,10 @@ bool ShowRememberedGames(ImageCatalog& sd, ImageCatalog& usb, PackIndex& packs) 
             logf("Home: there is not enough memory to show the games found at the last start\n");
             return false;
         }
-        if (remembered.has_mods) remembered_packs.add_game(remembered.id);
+        if (remembered.has_mods && !remembered_packs.add_game(remembered.id)) {
+            logf("Home: there is not enough memory to show the games found at the last start\n");
+            return false;
+        }
     }
     if (remembered_sd.games.empty() && remembered_usb.games.empty()) return false;
     logf("Home: showing the %u SD and %u USB game(s) found at the last start (%s) while the drives are read\n",
