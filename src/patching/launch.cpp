@@ -3,6 +3,8 @@
 #include "riftwii/launch.hpp"
 #include "riftwii/gxpatches.hpp"
 
+#include "riftwii/checkedalloc.hpp"
+
 #include "riftwii/gccard.hpp"
 #include "riftwii/textlines.hpp"
 
@@ -197,10 +199,10 @@ void PackIndex::add_filter(const DiscFilter& filter) {
     filters_.push_back(std::move(badge_filter));
 }
 
-void PackIndex::add_game(const std::string& game_id) {
+bool PackIndex::add_game(const std::string& game_id) {
     DiscFilter filter;
     filter.game = game_id;
-    filters_.push_back(filter);
+    return try_push_back(filters_, std::move(filter));
 }
 
 bool PackIndex::has_packs(const std::string& game_id) const {

@@ -37,14 +37,33 @@ void ExcludePackCodeBuilds(const std::string& text, std::vector<CodeBuildFile>& 
     }), builds.end());
 }
 
+// The summary `earlier` made of this very pack: the same name, path and
+// text, so a parse now would give the same. Null when it has none (a pack
+// of the USB drive, a changed file, a text it did not keep).
+const CatalogPackage* ParsedBefore(const PackageCatalog& earlier, const PackFile& pack, const std::string& text) {
+    for (std::size_t i = 0; i < earlier.files.size() && i < earlier.packages.size(); ++i) {
+        const PackFile& before = earlier.files[i];
+        if (before.text_cached && before.path == pack.path && before.file == pack.file && before.text == text)
+            return &earlier.packages[i];
+    }
+    return nullptr;
+}
+
+// What a pack adds to Home's index: its game filter, or for one that does
+// not parse, the game its <id> names.
+void AddToIndex(PackIndex& index, const CatalogPackage& entry, const std::string& text) {
+    if (entry.summary.valid) index.add_filter(entry.summary.package.filter);
+    else if (!text.empty()) index.add(text);
+}
+
 }  // namespace
 
-PackageCatalog ReadPackageCatalog(PackIndex* index) {
+PackageCatalog ReadPackageCatalog(PackIndex* index, const PackageCatalog* earlier) {
     PackageCatalog catalog;
     if (index) *index = PackIndex{};
     // Home's index admits 256 files; the game's option browser uses the
     // first 150. Preserve that difference when handing the snapshot over.
-    catalog.files = ListPackFiles(256, catalog.limited, true);
+    catalog.files = ListPackFiles(256, catalog.limited, true, earlier ? &earlier->files : nullptr);
     catalog.code_builds = ListCodeBuilds();
     if (index) {
         for (const CodeBuildFile& build : catalog.code_builds) index->add_game(build.game_id);
@@ -55,21 +74,26 @@ PackageCatalog ReadPackageCatalog(PackIndex* index) {
         std::string uncached_text;
         if (!pack.text_cached) uncached_text = ReadPackText(pack.path);
         const std::string& text = pack.text_cached ? pack.text : uncached_text;
-        LaunchModel parsed;
-        parsed.add(pack.file, pack.path, text, nullptr);
         CatalogPackage entry;
-        if (!parsed.packages.empty()) {
-            entry.listed = true;
-            entry.summary = std::move(parsed.packages.front());
-            if (index) {
-                if (entry.summary.valid) index->add_filter(entry.summary.package.filter);
-                else if (!text.empty()) index->add(text);
+        const CatalogPackage* parsed_before = earlier ? ParsedBefore(*earlier, pack, text) : nullptr;
+        if (parsed_before) {
+            // Parsed a moment ago for the SD card's part: a big pack's XML
+            // takes the Wii a while, and its summary has not changed.
+            entry = *parsed_before;
+            if (index && entry.listed) AddToIndex(*index, entry, text);
+        } else {
+            LaunchModel parsed;
+            parsed.add(pack.file, pack.path, text, nullptr);
+            if (!parsed.packages.empty()) {
+                entry.listed = true;
+                entry.summary = std::move(parsed.packages.front());
+                // A second full model would exhaust the Wii's heap. Only
+                // metadata for rejecting unrelated packs survives the scan.
+                Package summary;
+                summary.filter = std::move(entry.summary.package.filter);
+                entry.summary.package = std::move(summary);
+                if (index) AddToIndex(*index, entry, text);
             }
-            // A second full model would exhaust the Wii's heap. Only
-            // metadata for rejecting unrelated packs survives the scan.
-            Package summary;
-            summary.filter = std::move(entry.summary.package.filter);
-            entry.summary.package = std::move(summary);
         }
         if (catalog.packages.size() < kMaxGamePackages) ExcludePackCodeBuilds(text, catalog.code_builds);
         catalog.packages.push_back(std::move(entry));
