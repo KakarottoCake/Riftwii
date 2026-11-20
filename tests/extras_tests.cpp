@@ -2017,7 +2017,17 @@ void TestCoverArt() {
     s.parse("page_peek = wide\n");
     EXPECT_EQ(s.page_peek, "off");
     s.page_peek = "on";
-    EXPECT_EQ(s.menu_widescreen, "off");
+    EXPECT_EQ(s.menu_widescreen, "auto");
+    {
+        // A saved file from before the key keeps its 4:3 menu; one with the
+        // key keeps what it says.
+        LoaderSettings old;
+        old.parse_saved("page_peek = on\n");
+        EXPECT_EQ(old.menu_widescreen, "off");
+        LoaderSettings saved;
+        saved.parse_saved("menu_widescreen = auto\n");
+        EXPECT_EQ(saved.menu_widescreen, "auto");
+    }
     EXPECT_EQ(s.play_history, "on");
     s.parse("play_history = off\n");
     EXPECT_EQ(s.play_history, "off");
