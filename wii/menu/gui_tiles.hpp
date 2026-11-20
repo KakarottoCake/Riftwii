@@ -53,6 +53,7 @@ private:
     int TileAt(int x, int y) const;
     int Neighbour(int from, int dx, int dy) const;
     void Layout(int index);
+    void EvenTextSizes();
 
     const std::vector<TileSpec>* tiles = nullptr;
     int focus = 0, hover = -1, clicked = -1;
@@ -62,6 +63,7 @@ private:
     std::vector<riftwii::wii::HoverSwell> swell;
     std::vector<GuiText*> label;
     std::vector<GuiText*> value;
+    std::vector<int> labelSize;  // the size Layout picked for each tile's name
     bool dirty = true;
     GuiSound* soundOver;
     GuiSound* soundClick;

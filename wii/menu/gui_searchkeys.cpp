@@ -164,8 +164,10 @@ void GuiSearchKeys::Build(const std::string& titleText, const std::string& noteT
     }
     title = new GuiText(titleText.c_str(), 24, skin::kInk);
     title->SetParent(this);
-    title->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
-    title->SetPosition(56, 112);  // clear of the text field at y 148, descenders included
+    // Centred on the card (x 34 to 606, around the screen's middle), as the
+    // Show and Layout cards and the popups have their titles.
+    title->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+    title->SetPosition(0, 112);  // clear of the text field at y 148, descenders included
     matches = new GuiText("", 16, skin::kInk);
     matches->SetParent(this);
     matches->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);

@@ -69,6 +69,7 @@ void GuiTiles::Refresh() {
         v->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
         value.push_back(v);
     }
+    labelSize.resize(label.size(), 20);
     if (static_cast<int>(lift.size()) != Count()) {
         lift.assign(Count(), 0.0f);
         swell.assign(Count(), riftwii::wii::HoverSwell{});
@@ -152,19 +153,33 @@ void GuiTiles::Layout(int i) {
     }
     const int room = s.x + s.w - kPad - textX;
     // A long name (a translation) steps down to 15 points before "..." cuts it.
-    for (int size = s.primary ? 26 : 20; size >= 15; --size) {
+    int size = s.primary ? 26 : 20;
+    for (; size > 15; --size) {
         label[i]->SetFontSize(size);
         if (label[i]->GetTextWidth() <= room) break;
     }
+    label[i]->SetFontSize(size);
+    labelSize[i] = size;
     label[i]->SetMaxWidth(room);
     value[i]->SetMaxWidth(room);
-    // A long value (a translation) steps down to 13 points before "..." cuts it.
-    for (int size = 15; size >= 13; --size) {
-        value[i]->SetFontSize(size);
-        if (value[i]->GetTextWidth() <= room) break;
-    }
+    // A long value (a theme's name, a translation) keeps its size and
+    // "..." cuts it: smaller letters on one tile looked out of place.
+    value[i]->SetFontSize(15);
     label[i]->SetPosition(textX, labelY);
     value[i]->SetPosition(textX, labelY + (s.primary ? 28 : 23));
+}
+
+// One long name (a translation) shrinks every tile's name alike (the
+// primary tile's keeps its own size): side by side, a tile in smaller
+// letters than its neighbours looked out of place.
+void GuiTiles::EvenTextSizes() {
+    int labelMin = 20;
+    for (int i = 0; i < Count(); ++i) {
+        const TileSpec& s = (*tiles)[i];
+        if (!s.primary && !s.label.empty()) labelMin = std::min(labelMin, labelSize[i]);
+    }
+    for (int i = 0; i < Count(); ++i)
+        if (!(*tiles)[i].primary) label[i]->SetFontSize(labelMin);
 }
 
 float GuiTiles::SwellScale(int index) const {
@@ -179,6 +194,7 @@ void GuiTiles::Draw() {
     if (dirty) {
         dirty = false;
         for (int i = 0; i < Count(); ++i) Layout(i);
+        EvenTextSizes();
     }
     pressScale = riftwii::wii::transition::PressScale(pressElapsed);
     const int lit = hover >= 0 ? hover : (AnyPointer() ? -1 : focus);
