@@ -29,9 +29,19 @@ bool ReadTextFile(const std::string& path, std::string& out, std::size_t cap) {
              static_cast<long long>(st.st_size));
         return false;
     }
-    const std::size_t got = out.empty() ? 0 : std::fread(&out[0], 1, out.size(), f);
+    const std::size_t wanted = out.size();
+    const std::size_t got = wanted == 0 ? 0 : std::fread(&out[0], 1, wanted, f);
     std::fclose(f);
-    out.resize(got);
+    // Fewer bytes than the file holds is a read error (a bad sector, the
+    // card pulled): not the file. Callers then try their backup copy
+    // (ReadReplacedFile, settings.txt's .part and .bak) instead of using a
+    // file cut short.
+    if (got != wanted) {
+        logf("%s: read %u of its %u bytes; not used\n", path.c_str(), static_cast<unsigned>(got),
+             static_cast<unsigned>(wanted));
+        out.clear();
+        return false;
+    }
     return true;
 }
 

@@ -130,6 +130,22 @@ extern "C" int __wrap_rename(const char* from, const char* to) {
 }
 
 namespace {
+// The next this many reads stop halfway, as a bad sector or a pulled card
+// would leave them.
+int g_short_reads = 0;
+}  // namespace
+
+extern "C" std::size_t __real_fread(void*, std::size_t, std::size_t, FILE*);
+extern "C" std::size_t __wrap_fread(void* data, std::size_t size, std::size_t count, FILE* file) {
+    const std::size_t got = __real_fread(data, size, count, file);
+    if (g_short_reads > 0 && got > 1) {
+        --g_short_reads;
+        return got / 2;
+    }
+    return got;
+}
+
+namespace {
 
 void fail_rename(int which) {
     g_fail_rename = which;
@@ -183,6 +199,24 @@ void test_failed_save_keeps_backup_only_state() {
     CHECK(!exists(kPath + ".part"));
 }
 
+// A main file that opens but reads short is not used: ReadTextFile fails
+// with nothing in `out`, and ReadReplacedFile takes the .bak instead.
+void test_short_read_uses_backup() {
+    clean();
+    write(kPath, "the current choices");
+    write(kPath + ".bak", "the older choices");
+    std::string text = "stale";
+    g_short_reads = 1;
+    CHECK(!riftwii::wii::ReadTextFile(kPath, text));
+    CHECK(text.empty());
+    g_short_reads = 1;
+    CHECK(ReadReplacedFile(kPath, text));
+    CHECK(text == "the older choices");
+    g_short_reads = 0;
+    CHECK(ReadReplacedFile(kPath, text));
+    CHECK(text == "the current choices");
+}
+
 }  // namespace
 #endif
 
@@ -196,6 +230,7 @@ int main() {
     test_first_rename_fails();
     test_last_rename_fails();
     test_failed_save_keeps_backup_only_state();
+    test_short_read_uses_backup();
 #endif
     clean();
     if (g_failures != 0) {
