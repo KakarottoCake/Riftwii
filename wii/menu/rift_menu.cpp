@@ -47,6 +47,7 @@
 
 #include "libwiigui/gui.h"
 #include "transition.hpp"
+#include "textfile.hpp"
 #include "drawtrace.hpp"
 #include "gui_flowlist.hpp"
 #include "gui_prompts.hpp"
@@ -11292,10 +11293,11 @@ static void ListNintendontSaves(NintendontFinds& finds)
 // (none: Settings' card): its own, the shared or its named card.
 static std::string GcGameCardFile(const std::string& id)
 {
-	std::vector<std::uint8_t> bytes;
+	// As the game page reads it: the backup when a save was cut short.
+	std::string text;
 	riftwii::LaunchModel choices;
-	if (ReadSmallFile(std::string(riftwii::wii::kChoicesDir) + "/" + id + ".txt", 1u << 20, bytes))
-		choices.restore(std::string(bytes.begin(), bytes.end()));
+	if (riftwii::wii::ReadReplacedFile(std::string(riftwii::wii::kChoicesDir) + "/" + id + ".txt", text))
+		choices.restore(text);
 	riftwii::GcNintendontSave save;
 	save.id = id;
 	return riftwii::gc_nintendont_route(save, choices.game, riftwii::wii::Settings().gc_card);

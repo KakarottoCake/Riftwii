@@ -121,8 +121,11 @@ bool ReplaceWholeFile(const std::string& path, const void* data, std::size_t siz
 }
 
 bool ReadReplacedFile(const std::string& path, std::string& out, std::size_t cap) {
+    // The main file first; the backup when it is gone (a save cut between
+    // its two renames) or can't be read (over the cap, a bad sector).
+    // A .part left by a first save is not read: it may be cut short.
     struct stat present;
-    if (stat(path.c_str(), &present) == 0) return ReadTextFile(path, out, cap);
+    if (stat(path.c_str(), &present) == 0 && ReadTextFile(path, out, cap)) return true;
     return ReadTextFile(path + ".bak", out, cap);
 }
 
