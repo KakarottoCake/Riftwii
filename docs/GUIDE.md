@@ -642,11 +642,11 @@ the tiles.
   last game's page. After a button or the stick, your game stays selected
   (more games can still come in around it and change its page).
 - **Disc Channel**: the Disc drive's tile on Home, for playing from a
-  disc. A new SD card asks whether you want it after the tour.
+  disc. It shows in the Mods, All games, Wii and GameCube views. A new SD card asks whether you want it after the tour.
 - **Widescreen menu**: on a 16:9 TV the menu is drawn narrower, so covers
   and pictures keep their shape instead of looking stretched. It starts
-  at *4:3*; *16:9* turns it on, and *Automatic* follows the Wii's own TV
-  setting (Wii Settings > Screen > Widescreen).
+  at *Automatic*, which follows the Wii's own TV setting (Wii Settings >
+  Screen > Widescreen); *4:3* and *16:9* choose one for good.
 - **Screen size**: 100% down to 80%. If your TV cuts off the edges of the
   menu (overscan, common with HDMI adapters), lower it until the whole menu
   shows. Setting the TV's picture size to "Just scan", "Direct" or "Fit"

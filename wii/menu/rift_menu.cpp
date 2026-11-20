@@ -1595,14 +1595,16 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 		}
 		return;
 	}
-	// The Disc drive tile belongs to Home's own views (Mods and All games),
-	// as the disc channel does on the Wii Menu. A search, Recently played
-	// and Favorites list particular games, so a tile that is none of them
-	// was only noise there.
+	// The Disc drive tile belongs to Home's own views (Mods, All games, and
+	// the Wii and GameCube views, since the drive plays both), as the disc
+	// channel does on the Wii Menu. A search, Recently played and Favorites
+	// list particular games, so a tile that is none of them was only noise
+	// there; Homebrew and Emulators have nothing the drive can start.
 	const bool searching = searchOpen || !g_search.empty();
 	// A genre lists particular games too: the disc drive has none.
 	const bool genreChosen = !searching && !g_genre.empty();
-	const bool discViews = !searching && !genreChosen && (g_filter == Filter::Mods || g_filter == Filter::All);
+	const bool discViews = !searching && !genreChosen && (g_filter == Filter::Mods || g_filter == Filter::All ||
+		g_filter == Filter::Wii || g_filter == Filter::GameCube);
 	if (discViews) {
 		GridItem disc;
 		disc.title = tr("Disc drive");  // translated whole: the tile splits it into lines
