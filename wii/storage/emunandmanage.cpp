@@ -237,7 +237,17 @@ bool make_card_dirs(const std::string& path) {
 bool make_directory(const Location& location, const Attributes& attributes) {
     std::uint64_t ignored = 0;
     const Kind kind = inspect(location, ignored);
-    if (kind == Kind::Directory) return true;
+    if (kind == Kind::Directory) {
+        if (!location.real) return true;
+        // In the Wii's memory a folder already there (one a failed copy
+        // left) must have the title's owner too, or is put right first.
+        Attributes existing;
+        if (!get_attributes(location.path, existing)) return false;
+        if (existing.owner == attributes.owner && existing.group == attributes.group) return true;
+        existing.owner = attributes.owner;
+        existing.group = attributes.group;
+        return set_attributes(location.path, existing);
+    }
     if (kind != Kind::Missing) return false;
     if (!location.real) return make_card_dirs(location.path);
     const NandPath path(location.path);
@@ -591,8 +601,23 @@ bool perform(const std::string& root, EmuNandAction action, std::uint64_t title,
         const Kind existing = inspect(destination, ignored);
         Tree previous;
         if (existing == Kind::Directory) {
-            if (!scan_tree(destination, "", 0, true, title, previous, error) ||
-                !backup_tree(destination, previous, root + "/riftwii-backups/" + emunand_title_text(title) +
+            if (!scan_tree(destination, "", 0, true, title, previous, error)) return false;
+            // The save being replaced is backed up to the card (FAT) whichever
+            // way it goes: two of its names the card can't tell apart would
+            // leave a backup missing one file. Refused before anything changes.
+            for (std::size_t i = 0; i < previous.nodes.size(); ++i) {
+                for (std::size_t j = i + 1; j < previous.nodes.size(); ++j) {
+                    const std::string& a = previous.nodes[i].relative;
+                    const std::string& b = previous.nodes[j].relative;
+                    if (a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(), [](char x, char y) {
+                            return std::tolower(static_cast<unsigned char>(x)) == std::tolower(static_cast<unsigned char>(y));
+                        })) {
+                        error = "the save being replaced has two names the SD card can't tell apart, so it can't be backed up";
+                        return false;
+                    }
+                }
+            }
+            if (!backup_tree(destination, previous, root + "/riftwii-backups/" + emunand_title_text(title) +
                     (into_wii ? "/wii-save" : "/emulated-save"), error)) return false;
         } else if (existing != Kind::Missing) {
             error = "the destination save folder could not be read";
@@ -606,21 +631,6 @@ bool perform(const std::string& root, EmuNandAction action, std::uint64_t title,
                 return std::tolower(static_cast<unsigned char>(x)) == std::tolower(static_cast<unsigned char>(y));
             });
         };
-        // The save being replaced is backed up to the card (FAT) whichever
-        // way it goes: two of its names the card can't tell apart would
-        // leave a backup missing one file. Refused before anything changes.
-        for (std::size_t i = 0; i < previous.nodes.size(); ++i) {
-            for (std::size_t j = i + 1; j < previous.nodes.size(); ++j) {
-                const std::string& a = previous.nodes[i].relative;
-                const std::string& b = previous.nodes[j].relative;
-                if (a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(), [](char x, char y) {
-                        return std::tolower(static_cast<unsigned char>(x)) == std::tolower(static_cast<unsigned char>(y));
-                    })) {
-                    error = "the save being replaced has two names the SD card can't tell apart, so it can't be backed up";
-                    return false;
-                }
-            }
-        }
         // Two incoming names that would be one file on the card: refused
         // before anything is written.
         for (std::size_t i = 0; i < incoming.nodes.size(); ++i) {
@@ -794,10 +804,11 @@ std::vector<std::string> emunand_manager_folders() {
             if (!whole_end) {
                 // A full buffer and no newline: the file may end right here.
                 const int next = std::fgetc(file);
-                whole_end = next == EOF;
+                // EOF also means a read error: only a real end counts.
+                whole_end = next == EOF && std::feof(file) && !std::ferror(file);
                 if (next != EOF) std::ungetc(next, file);
             }
-            if (!whole_start || !whole_end) continue;
+            if (!whole_start || !whole_end || std::ferror(file)) continue;
             // As the launch reads it (shared_nand_game_line): a UTF-8 BOM
             // and leading blanks before "game:" are allowed.
             const char* at = line;

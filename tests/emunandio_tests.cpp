@@ -162,6 +162,24 @@ void refused_and_failed_writes() {
     CHECK(emunand_manager_action(kRoot, EmuNandAction::SaveToWii, kTitle, error));
     CHECK(nand_files[kData].owner == 0x1001);
 
+    // The same for a folder inside the save.
+    reset();
+    card_file(kData + "/sub/inner.bin", "incoming");
+    nand_files[kData + "/sub"] = {true, ""};
+    nand_files[kData + "/sub"].owner = 0x2222;
+    CHECK(emunand_manager_action(kRoot, EmuNandAction::SaveToWii, kTitle, error));
+    CHECK(nand_files[kData + "/sub"].owner == 0x1001);
+    CHECK(nand_files[kData + "/sub/inner.bin"].bytes == "incoming");
+
+    // A Wii save with two names the card can't tell apart is refused before
+    // any backup is written.
+    reset();
+    card_file(kData + "/save.bin", "incoming");
+    nand_files[kData + "/SAVE.BIN"] = {false, "other case"};
+    CHECK(!emunand_manager_action(kRoot, EmuNandAction::SaveToWii, kTitle, error));
+    CHECK(!fs::exists(kRoot + "/riftwii-backups"));
+    CHECK(nand_files[kData + "/save.bin"].bytes == "old save");
+
     reset();
     card_file(kData + "/bad:name", "unsafe");
     CHECK(!emunand_manager_action(kRoot, EmuNandAction::SaveToWii, kTitle, error));
