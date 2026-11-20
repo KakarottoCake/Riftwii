@@ -2245,11 +2245,11 @@ T = {
         "左右のページ",
         "Páginas nas laterais",
         "Pagine ai lati"),
-    "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.": (
-        "Canales: los bordes de la página anterior y de la siguiente a los lados de la pantalla, como en el Menú de Wii. Apunta a uno y pulsa A para pasar a esa página.",
-        "チャンネル: 前と次のページの端を、Wiiメニューのように画面の左右に表示します。そこを指してAを押すと、そのページに移ります。",
-        "Canais: as bordas da página anterior e da próxima nas laterais da tela, como no Menu Wii. Aponte para uma e aperte A para ir a essa página.",
-        "Canali: i bordi della pagina precedente e di quella successiva ai lati dello schermo, come nel Menu Wii. Punta su uno e premi A per passare a quella pagina."),
+    "Channels and Covers: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.": (
+        "Canales y portadas: los bordes de la página anterior y de la siguiente a los lados de la pantalla, como en el Menú de Wii. Apunta a uno y pulsa A para pasar a esa página.",
+        "チャンネルとパッケージ: 前と次のページの端を、Wiiメニューのように画面の左右に表示します。そこを指してAを押すと、そのページに移ります。",
+        "Canais e capas: as bordas da página anterior e da próxima nas laterais da tela, como no Menu Wii. Aponte para uma e aperte A para ir a essa página.",
+        "Canali e copertine: i bordi della pagina precedente e di quella successiva ai lati dello schermo, come nel Menu Wii. Punta su uno e premi A per passare a quella pagina."),
     # A game's extra Home tiles, each with its own mods (riftwii/profiles.hpp).
     "Could not save the tiles to the SD card.": (
         "No se pudieron guardar las casillas en la tarjeta SD.",
@@ -4240,8 +4240,8 @@ KO = {
         "최대 {1}명",
     "Pages at the sides":
         "양옆 페이지",
-    "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.":
-        "채널: Wii 메뉴처럼 이전 페이지와 다음 페이지의 가장자리를 화면 양옆에 보여 줍니다. 가리키고 A를 누르면 그 페이지로 넘어갑니다.",
+    "Channels and Covers: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.":
+        "채널 및 커버: Wii 메뉴처럼 이전 페이지와 다음 페이지의 가장자리를 화면 양옆에 보여 줍니다. 가리키고 A를 누르면 그 페이지로 넘어갑니다.",
     "Could not save the tiles to the SD card.":
         "타일을 SD 카드에 저장할 수 없습니다.",
     "The tile needs a name.":
@@ -6122,8 +6122,8 @@ FR = {
         "Jusqu'à {1} joueurs",
     "Pages at the sides":
         "Pages sur les côtés",
-    "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.":
-        "Chaînes : les bords de la page précédente et de la suivante sur les côtés de l'écran, comme sur le Menu Wii. Pointez-en un et appuyez sur A pour passer à cette page.",
+    "Channels and Covers: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.":
+        "Chaînes et jaquettes : les bords de la page précédente et de la suivante sur les côtés de l'écran, comme sur le Menu Wii. Pointez-en un et appuyez sur A pour passer à cette page.",
     "Could not save the tiles to the SD card.":
         "Impossible d'enregistrer les tuiles sur la carte SD.",
     "The tile needs a name.":
