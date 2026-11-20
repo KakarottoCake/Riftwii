@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/cardvolume.hpp"
+#include "riftwii/byteorder.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -20,14 +21,6 @@ constexpr std::size_t kBytesPerSectorOffset = 11;
 constexpr std::size_t kSectorsPerClusterOffset = 13;
 constexpr std::size_t kFat16TypeOffset = 54;       // "FAT12   ", "FAT16   ", "FAT     "
 constexpr std::size_t kFat32TypeOffset = 82;       // "FAT32   "
-
-std::uint32_t le32(const std::uint8_t* p) {
-    return std::uint32_t(p[0]) | (std::uint32_t(p[1]) << 8) | (std::uint32_t(p[2]) << 16) | (std::uint32_t(p[3]) << 24);
-}
-
-std::uint16_t le16(const std::uint8_t* p) {
-    return static_cast<std::uint16_t>(p[0] | (p[1] << 8));
-}
 
 bool has_signature(const std::uint8_t* sector) {
     return sector[kSignatureOffset] == 0x55 && sector[kSignatureOffset + 1] == 0xAA;

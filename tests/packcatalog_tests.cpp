@@ -13,6 +13,8 @@ std::vector<riftwii::wii::PackFile> files;
 std::map<std::string, std::string> contents;
 std::vector<std::string> reads;
 unsigned enumerations = 0;
+// The list an earlier catalog of the same look handed to the listing.
+const std::vector<riftwii::wii::PackFile>* earlier_files_given = nullptr;
 std::vector<riftwii::wii::CodeBuildFile> builds = {
     {"mod/codes/RMGE01.gct", "mod", "sd:/mod/codes", "sd:/mod/codes/RMGE01.gct", "RMGE01", true}};
 
@@ -26,8 +28,10 @@ void expect(bool condition, const char* message) {
 namespace riftwii::wii {
 void logf(const char*, ...) {}
 
-std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited, bool keep_text) {
+std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited, bool keep_text,
+                                    const std::vector<PackFile>* earlier) {
     expect(limit == 256 && keep_text, "Home's full index is retained with its already-read text");
+    earlier_files_given = earlier;
     ++enumerations;
     limited = false;
     return files;
@@ -149,6 +153,53 @@ int main() {
     AddCatalogPackages(summarized, actual, &disc);
     expect(reads.size() == 1 && reads[0] == summarized.files[1].path,
            "an uncached pack is read when its own game is selected");
+
+    // The USB drive's part of a look lists every pack again, the SD card's
+    // among them: a pack the card's part read and parsed a moment ago is
+    // taken from its catalog. The summary is marked here, as nothing else
+    // tells a summary taken over from one parsed again.
+    files = {{"card.xml", "sd:/riivolution/card.xml", xmls[0], true},
+             {"changed.xml", "sd:/riivolution/changed.xml", xmls[1], true},
+             {"renamed.xml", "sd:/riivolution/renamed.xml", xmls[0], true},
+             {"uncached.xml", "sd:/riivolution/uncached.xml", "", false},
+             {"broken.xml", "sd:/riivolution/broken.xml", xmls[6], true}};
+    contents["sd:/riivolution/uncached.xml"] = xmls[1];
+    earlier_files_given = &files;
+    riftwii::PackIndex card_index;
+    PackageCatalog card = ReadPackageCatalog(&card_index);
+    expect(earlier_files_given == nullptr, "a look's first catalog has no earlier one to take from");
+    expect(card.packages.size() == 5, "the card's catalog lists every pack");
+    for (CatalogPackage& package : card.packages) package.summary.detail = "taken over";
+    files[1].text = xmls[0];              // the file changed since
+    files[2].file = "apps/renamed.xml";   // the same path under another name
+    files.push_back({"drive.xml @ USB", "usb:/riivolution/drive.xml", "", false});
+    contents["usb:/riivolution/drive.xml"] = xmls[1];
+    reads.clear();
+    riftwii::PackIndex both_index, fresh_index;
+    const PackageCatalog both = ReadPackageCatalog(&both_index, &card);
+    expect(earlier_files_given == &card.files, "the listing is given the earlier catalog's files");
+    expect(both.packages.size() == 6 && both.files.size() == 6, "the second catalog lists the card's packs and the drive's");
+    expect(both.packages[0].summary.detail == "taken over", "an unchanged pack's summary is taken from the earlier catalog");
+    expect(both.packages[1].summary.detail != "taken over", "a pack whose text changed is parsed again");
+    expect(both.packages[2].summary.detail != "taken over", "a pack listed under another name is parsed again");
+    expect(both.packages[4].summary.detail == "taken over" && !both.packages[4].summary.valid,
+           "a pack that does not parse is taken over as it was");
+    expect(both.packages[5].summary.detail != "taken over" && both.packages[5].listed,
+           "a pack the earlier catalog does not have is parsed");
+    // What the index says is the same as with every pack parsed afresh.
+    const PackageCatalog fresh = ReadPackageCatalog(&fresh_index);
+    expect(both_index.size() == fresh_index.size(), "a taken-over summary adds the same to Home's index");
+    for (const char* id : {"RMGE01", "RMCE01", "SMNE01"}) {
+        expect(both_index.has_packs(id) == fresh_index.has_packs(id), "the index answers the same for each game");
+    }
+    expect(both_index.has_packs("RMGE01") && both_index.has_packs("RMCE01") && !both_index.has_packs("SMNE01"),
+           "the taken-over packs still mark their games");
+    for (std::size_t i = 0; i < both.packages.size() && i < fresh.packages.size(); ++i) {
+        expect(both.packages[i].listed == fresh.packages[i].listed &&
+               both.packages[i].summary.valid == fresh.packages[i].summary.valid &&
+               both.packages[i].summary.package.filter.game == fresh.packages[i].summary.package.filter.game,
+               "a taken-over summary lists, validates and filters as a fresh one");
+    }
 
     files = {{"folder.xml", "folder", "<wiidisc version=\"1\" root=\"/MoD/\">" + options + "</wiidisc>", true}};
     builds = {{"auto", "mod", "sd:/mod/codes", "sd:/mod/codes/RMGE01.gct", "RMGE01", false},

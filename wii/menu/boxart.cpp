@@ -16,6 +16,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "artfolder.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "memlimits.hpp"
@@ -548,10 +549,12 @@ bool BoxWanted(const std::string& game_id) {
     const std::string match = TileMatch(game_id);
     // A mod tile GameTDB doesn't list: nothing to ask for (it shows its game's).
     if (is_tile_art_name(game_id) && match.empty()) return false;
+    // Asked for every game Home lists: answered from the folder's listing
+    // inside Home's ArtFolderLook.
     struct stat st;
     StoredArt stored;
-    stored.picture = stat(BoxPath(game_id).c_str(), &st) == 0;
-    stored.recent_miss = stat(MissPath(game_id).c_str(), &st) == 0 && std::time(nullptr) - st.st_mtime < kRetryAfter;
+    stored.picture = ArtFileThere(BoxPath(game_id));
+    stored.recent_miss = ArtFileStat(MissPath(game_id), st) && std::time(nullptr) - st.st_mtime < kRetryAfter;
     if (!match.empty()) stored.from = ReadTileArtFrom(FromPath(game_id));
     return art_wanted(game_id, match, stored);
 }

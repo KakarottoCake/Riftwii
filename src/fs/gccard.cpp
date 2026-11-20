@@ -16,6 +16,7 @@
 // allocated block at 8, then one word per block from block 5 on: 0 for a
 // free block, 0xFFFF for a save's last, else the save's next block.
 #include "riftwii/gccard.hpp"
+#include "riftwii/byteorder.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -75,22 +76,6 @@ constexpr std::uint32_t kPaletteBytes = 256 * 2;
 constexpr std::uint32_t kBannerPixels = 96 * 32;
 constexpr std::uint32_t kIconPixels = kGcIconSide * kGcIconSide;
 constexpr unsigned kIconFrames = 8;
-
-std::uint16_t be16(const std::uint8_t* p) { return static_cast<std::uint16_t>(p[0] << 8 | p[1]); }
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
-}
-
-void put_be16(std::uint8_t* p, std::uint32_t v) {
-    p[0] = static_cast<std::uint8_t>(v >> 8);
-    p[1] = static_cast<std::uint8_t>(v);
-}
-
-void put_be32(std::uint8_t* p, std::uint32_t v) {
-    put_be16(p, v >> 16);
-    put_be16(p + 2, v);
-}
 
 bool checksum_holds(const std::uint8_t* data, std::uint32_t bytes, const std::uint8_t* stored) {
     std::uint8_t computed[4];

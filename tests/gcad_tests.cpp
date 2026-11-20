@@ -22,6 +22,7 @@
 #include <iostream>
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 static int g_failures = 0;
@@ -154,7 +155,9 @@ std::int32_t Handle(Request& r) {
                 h.list_changed = false;
                 FillList(r);
             } else {
-                h.waiting_list.push_back(r);
+                // r is the caller's own copy and isn't used after this: move
+                // it (copying an empty vector here trips GCC 13's -Warray-bounds at -O2).
+                h.waiting_list.push_back(std::move(r));
             }
             return 0;
         case GCAD_V4_CONTROL:
@@ -212,7 +215,7 @@ std::int32_t Handle(Request& r) {
             h.list_changed = false;
             FillList(r);
         } else {
-            h.waiting_list.push_back(r);
+            h.waiting_list.push_back(std::move(r));  // as for v4 above
         }
         return 0;
     case GCAD_V5_ATTACH_FINISH:

@@ -9,6 +9,7 @@
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/disc.hpp"
 #include "riftwii/sha1.hpp"
+#include "riftwii/byteorder.hpp"
 #include "rvz_error.hpp"
 #include "zstd.h"
 
@@ -35,12 +36,6 @@ constexpr std::uint32_t kMaxExceptions = 52 * 64;
 constexpr std::uint64_t kMaxIsoSize = std::uint64_t(1) << 34;
 constexpr std::uint32_t kMaxOpenChunk = 32u << 20;
 constexpr std::uint32_t kZstdSlack = 4096;
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
-}
-
-std::uint64_t be64(const std::uint8_t* p) { return (std::uint64_t(be32(p)) << 32) | be32(p + 4); }
 
 bool digest_is(const std::uint8_t* data, std::size_t length, const std::uint8_t* expected) {
     const Sha1Digest d = sha1(data, length);

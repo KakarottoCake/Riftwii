@@ -3,6 +3,7 @@
 #include "riftwii/disc.hpp"
 
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/byteorder.hpp"
 
 #include <limits>
 
@@ -16,19 +17,6 @@ constexpr std::uint32_t kTmdContentBytes = 36;
 constexpr std::uint32_t kMaxTmdBytes = 64 * 1024;
 constexpr std::uint64_t kMaxApploaderBytes = 2 * 1024 * 1024;
 constexpr std::uint32_t kApploaderLoadAddress = 0x81200000;
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (static_cast<std::uint32_t>(p[0]) << 24) | (static_cast<std::uint32_t>(p[1]) << 16) |
-           (static_cast<std::uint32_t>(p[2]) << 8) | static_cast<std::uint32_t>(p[3]);
-}
-
-std::uint16_t be16(const std::uint8_t* p) {
-    return static_cast<std::uint16_t>((static_cast<std::uint16_t>(p[0]) << 8) | p[1]);
-}
-
-std::uint64_t be64(const std::uint8_t* p) {
-    return (static_cast<std::uint64_t>(be32(p)) << 32) | be32(p + 4);
-}
 
 std::uint64_t shifted(const std::uint8_t* p) {
     return static_cast<std::uint64_t>(be32(p)) << 2;

@@ -11,6 +11,7 @@
 #include <ctime>
 #include <utility>
 
+#include "artfolder.hpp"
 #include "homescan.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
@@ -335,8 +336,7 @@ bool SteamGridKeyFound() {
 bool EmulatorCoverWanted(const std::string& id) {
     CoverGame game;
     if (!FindGame(id, game) || !Settings().online || !Settings().emulator_covers) return false;
-    struct stat info {};
-    if (stat(CoverPath(id).c_str(), &info) == 0) return false;
+    if (ArtFileThere(CoverPath(id))) return false;
     if (!game.covers.empty() && !MissFresh(id, "libretro", game.covers)) return true;
     std::string key;
     return Settings().steamgrid_covers && ReadKey(key) && !MissFresh(id, "steamgrid", Hash(key));
@@ -430,8 +430,10 @@ bool ReadOwnCover(const std::string& name, std::vector<std::uint8_t>& file) {
 bool OwnCoverThere(const std::string& name) {
     if (!emulator_art_component(name + ".png")) return false;
     const std::string relative = "/riftwii/covers/" + name + ".png";
+    // Most games have no cover of the player's own: inside Home's
+    // ArtFolderLook the folder's listing says so without a walk of it.
     struct stat info {};
-    if (stat(("sd:" + relative).c_str(), &info) == 0 && S_ISREG(info.st_mode) && info.st_size > 0) return true;
+    if (ArtFileStat("sd:" + relative, info) && S_ISREG(info.st_mode) && info.st_size > 0) return true;
     std::uint64_t bytes = 0;
     return UsbCoversFolderThere() && read_usb_range("usb:" + relative, 0, nullptr, 0, bytes) && bytes > 0;
 }

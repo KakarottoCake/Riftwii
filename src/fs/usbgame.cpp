@@ -6,6 +6,7 @@
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/langfile.hpp"
 #include "riftwii/titles.hpp"
+#include "riftwii/byteorder.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -14,11 +15,6 @@
 
 namespace riftwii {
 namespace {
-
-std::uint16_t be16(const std::uint8_t* p) { return static_cast<std::uint16_t>((p[0] << 8) | p[1]); }
-std::uint32_t be32(const std::uint8_t* p) {
-    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
-}
 
 bool add(std::uint64_t a, std::uint64_t b, std::uint64_t& out) {
     if (b > std::numeric_limits<std::uint64_t>::max() - a) return false;

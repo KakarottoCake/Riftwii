@@ -12,9 +12,6 @@ msgstr "배치"
 msgid "Choose"
 msgstr "선택"
 
-msgid "Games with mods"
-msgstr "MOD 지원 게임"
-
 msgid "All games"
 msgstr "모든 게임"
 

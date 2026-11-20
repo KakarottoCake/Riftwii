@@ -4,6 +4,7 @@
 // SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/wfcpatch.hpp"
+#include "riftwii/byteorder.hpp"
 
 #include <cstring>
 
@@ -13,9 +14,6 @@ namespace {
 constexpr char kNintendo[] = "nintendowifi.net";
 constexpr std::size_t kNintendoLen = sizeof(kNintendo) - 1;
 
-std::uint32_t be32(const std::uint8_t* p) {
-    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
-}
 void put32(std::uint8_t* p, std::uint32_t v) {
     p[0] = static_cast<std::uint8_t>(v >> 24);
     p[1] = static_cast<std::uint8_t>(v >> 16);
@@ -79,6 +77,9 @@ unsigned patch_https_to_http(std::uint8_t* bytes, std::size_t size) {
     for (std::size_t at = 0; at + 9 <= size; ++at) {
         if (std::memcmp(bytes + at, "https://", 8) != 0 || bytes[at + 8] == 0) continue;
         const std::size_t len = string_length(bytes, size, at);
+        // The match above already makes len at least 9; saying so lets the
+        // compiler see the move below can't underflow (GCC 13 at -O2 warns).
+        if (len < 9) continue;
         // Drop the 's': the rest moves one byte left, the end gets a zero.
         std::memmove(bytes + at + 4, bytes + at + 5, len - 5);
         bytes[at + len - 1] = 0;
@@ -94,6 +95,7 @@ unsigned patch_wfc_domain(std::uint8_t* bytes, std::size_t size, const std::stri
     for (std::size_t at = 0; at + kNintendoLen <= size; ++at) {
         if (std::memcmp(bytes + at, kNintendo, kNintendoLen) != 0) continue;
         const std::size_t len = string_length(bytes, size, at);
+        if (len < kNintendoLen) continue;  // as above: the match guarantees it, the compiler can't see it
         std::memcpy(bytes + at, domain.data(), domain.size());
         std::memmove(bytes + at + domain.size(), bytes + at + kNintendoLen, len - kNintendoLen);
         for (std::size_t i = len - (kNintendoLen - domain.size()); i < len; ++i) bytes[at + i] = 0;

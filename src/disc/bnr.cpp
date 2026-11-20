@@ -8,14 +8,10 @@
 
 #include "riftwii/disc.hpp"
 #include "riftwii/fst.hpp"
+#include "riftwii/byteorder.hpp"
 
 namespace riftwii {
 namespace {
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (static_cast<std::uint32_t>(p[0]) << 24) | (static_cast<std::uint32_t>(p[1]) << 16) |
-           (static_cast<std::uint32_t>(p[2]) << 8) | p[3];
-}
 
 char lower(char c) { return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c; }
 

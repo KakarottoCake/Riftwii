@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/wfstitle.hpp"
+#include "riftwii/byteorder.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -12,10 +13,6 @@ constexpr std::size_t kTmdTitleType = 0x194;
 constexpr std::size_t kTmdFixed = 0x1E4;
 constexpr std::uint32_t kMaxTmdBytes = 0x1E4 + 512 * 36;  // 512 contents at most
 constexpr std::size_t kMaxTitles = 64;
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
-}
 
 bool printable(const std::string& s) {
     for (char c : s) {

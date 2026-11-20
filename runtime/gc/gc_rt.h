@@ -343,6 +343,32 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #endif
 GC_FLAG_CHECK(gc_flags_distinct, GC_FLAGS_ALL_OR == GC_FLAGS_ALL_SUM, "GC_FLAG_* values must be distinct bits");
 #define GC_FLAG_IS_BIT(flag) ((flag) != 0u && ((flag) & ((flag) - 1u)) == 0u)
+
+/* The flags that only test runs set (the files in sd:/riftwii/gc/test/). A
+ * release build leaves their code out, as it does the test remote (#506):
+ * GC_TEST_FLAG reads as 0 there, so the compiler drops each test branch and
+ * the game keeps those bytes of MEM1. They are the switches that act for
+ * the player, which a release plugin never sets (its player_test_switch).
+ * The diagnostics a tester may be asked to switch on on a Wii stay in both
+ * builds: GC_FLAG_SD_SLOW, the trace and GC_FLAG_NO_SI_SAMPLE. */
+#define GC_TEST_ONLY_FLAGS (GC_FLAG_PRESS | GC_FLAG_CRASH | GC_FLAG_CRASH_BLACK | GC_FLAG_LEAVE | GC_FLAG_RUMBLE_TEST | \
+                            GC_FLAG_STREAM_ONLY | GC_FLAG_RESET_TEST | GC_FLAG_EXEC_TEST | GC_FLAG_DISC_TEST)
+#ifdef RT_TEST_BUILD
+#define GC_TEST_FLAG(ctx, flag) ((ctx)->flags & (flag) & GC_TEST_ONLY_FLAGS)
+#else
+#define GC_TEST_FLAG(ctx, flag) ((void)(ctx), 0u)
+#endif
+
+/* A function tools/gc_io_emutest.py calls by its symbol in the blob's ELF.
+ * The blob is linked with LTO, which may inline such a function into its
+ * caller or split it into ".part"/".constprop" copies, leaving no symbol to
+ * call with the original arguments; noipa keeps it whole and named. GCC
+ * only: clang (host tests on a Mac) has no noipa and needs none. */
+#if defined(__GNUC__) && !defined(__clang__)
+#define GC_EMUTEST_ENTRY __attribute__((noipa))
+#else
+#define GC_EMUTEST_ENTRY
+#endif
 GC_FLAG_CHECK(gc_flags_single_bits, GC_FLAG_IS_BIT(GC_FLAG_PRESS) &&
                   GC_FLAG_IS_BIT(GC_FLAG_CRASH) &&
                GC_FLAG_IS_BIT(GC_FLAG_LEAVE) &&

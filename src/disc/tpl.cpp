@@ -1,15 +1,10 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/tpl.hpp"
+#include "riftwii/byteorder.hpp"
 
 namespace riftwii {
 namespace {
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (static_cast<std::uint32_t>(p[0]) << 24) | (static_cast<std::uint32_t>(p[1]) << 16) |
-           (static_cast<std::uint32_t>(p[2]) << 8) | p[3];
-}
-std::uint16_t be16(const std::uint8_t* p) { return static_cast<std::uint16_t>((p[0] << 8) | p[1]); }
 
 // Block size in pixels and bits per pixel.
 bool block_of(std::uint32_t format, int& bw, int& bh, int& bpp) {
