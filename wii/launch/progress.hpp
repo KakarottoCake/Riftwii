@@ -4,7 +4,10 @@
 
 // The progress line of the launch screen: what the launch is doing and a
 // bar with its percentage, drawn straight into the framebuffer under the
-// log (the GUI is stopped by then). Every call is a no-op until
+// log (the GUI is stopped by then). While the game's box stands in for
+// the log (Settings > Launch screen), a button on any pad shows the log:
+// the stage and bar calls look at the pads now and then. Every call is a
+// no-op until
 // ProgressAttach, so autorun launches and tests just skip it.
 namespace riftwii::wii {
 

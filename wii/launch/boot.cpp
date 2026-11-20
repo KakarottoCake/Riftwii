@@ -5,6 +5,8 @@
 // SPDX-FileCopyrightText: WiiFlow contributors <https://github.com/Fledge68/WiiFlow_Lite>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "boot.hpp"
+
+#include "console.hpp"
 #include "ctgpr.hpp"
 #include "progress.hpp"
 
@@ -140,12 +142,15 @@ constexpr std::uint64_t kWiiEpochOffset = 946684800;  // 2000-01-01 in Unix seco
 
 std::uint8_t g_tmd[0x4A00] ATTRIBUTE_ALIGN(32);
 
+// Through logf: on screen with the log, held behind the game's box
+// until it is asked for, and in boot.log either way.
 void apploader_report(const char* format, ...) {
+    char text[256];
     va_list args;
     va_start(args, format);
-    std::printf("  apploader: ");
-    std::vprintf(format, args);
+    std::vsnprintf(text, sizeof(text), format, args);
     va_end(args);
+    logf("  apploader: %s", text);
 }
 
 bool aligned32(const void* p) { return (reinterpret_cast<std::uintptr_t>(p) & 31) == 0; }
@@ -855,10 +860,17 @@ bool probe_disc(DiscProbe& out, std::string& error, const ProbeOptions& options)
         }
         if (!di::reset(true, error)) return false;
     }
-    std::uint8_t drive_info[32];
-    if (!di::inquiry(drive_info, error)) return false;
-    logf("Drive: rev %02x%02x dev %02x%02x fw %02x%02x%02x%02x\n", drive_info[0], drive_info[1], drive_info[2],
-         drive_info[3], drive_info[4], drive_info[5], drive_info[6], drive_info[7]);
+    if (options.virtual_source) {
+        // d2x passes the inquiry on to the physical drive; on one tester's
+        // Wii it hung 15 s and failed the launch. Its answer was only
+        // logged, so an image launch doesn't send it.
+        logf("Drive: not asked (a USB/SD image; d2x would pass the question to the disc drive, and its answer was only logged)\n");
+    } else {
+        std::uint8_t drive_info[32];
+        if (!di::inquiry(drive_info, error)) return false;
+        logf("Drive: rev %02x%02x dev %02x%02x fw %02x%02x%02x%02x\n", drive_info[0], drive_info[1], drive_info[2],
+             drive_info[3], drive_info[4], drive_info[5], drive_info[6], drive_info[7]);
+    }
     if (!di::read_disc_id(out.disc_id, error)) return false;
     publish_disc_id(out.disc_id);
 
@@ -3439,7 +3451,9 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         const std::uint32_t loader_end = reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi());
         if (top < kMem1Start || base < game_end || (base < loader_end && top > kLoaderStart)) {
             // Too late to say so on screen: the card is the runtime's.
-            // The game would start incomplete, so stop here.
+            // The game would start incomplete, so stop here. The log first
+            // when the game's box stood in for it, or the line goes nowhere.
+            ConsoleRevealDeferred();
             std::printf("Start file: no room to finish the game's executable (0x%08x-0x%08x)\n", base, top);
             for (;;) VIDEO_WaitVSync();
         }

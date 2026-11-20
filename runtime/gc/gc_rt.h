@@ -572,7 +572,6 @@ struct gc_rt_context {
     uint32_t ar_wait_timeouts;
     uint32_t vi_width;        /* Picture width (gc_video.h's vi_width): 0 the game's own */
     uint32_t vi_copy[16];     /* the copy of the game's GXRenderModeObj VIConfigure gets (0x3C bytes, gc_video.h) */
-    uint32_t projection[16];  /* the widened copy of the game's projection matrix */
     /* The restart (Reset, gc_on_hot_reset), loader-filled: the game's
      * entry, the regions to put back (struct gc_restart_region in MEM2,
      * 0: no restart) and the game's OSResetSystem. */
@@ -695,14 +694,17 @@ struct gc_rt_context {
 };
 
 /* It fits the room gc_entry.S keeps (gc_layout.h); the rest stays zero. */
-typedef char gc_rt_context_size[(sizeof(struct gc_rt_context) <= GC_RT_CONTEXT_BYTES) ? 1 : -1];
+GC_FLAG_CHECK(gc_rt_context_fits, sizeof(struct gc_rt_context) <= GC_RT_CONTEXT_BYTES,
+              "struct gc_rt_context outgrew GC_RT_CONTEXT_BYTES (gc_layout.h): grow it");
 
 /* The part of the blob's state that neither the game nor its hot paths
  * touch, kept in MEM2 (loader-placed, zeroed) so MEM1 keeps only what has
  * to be there: the storage IPC buffers (IOS reads and writes MEM2 as well
  * as MEM1), the VI's registers noted for the crash screen and the
  * hand-over, the projection callers the trace reports, and a crash's
- * registers. None of it is set by the loader or differs between the
+ * registers. 16:9's matrix copy is the one exception, read once a
+ * projection by the game's GXSetProjection, which reads MEM2 as well as
+ * MEM1. None of it is set by the loader or differs between the
  * programs a game loads (gc_programs.h), so it needs no part in their
  * switch. */
 struct gc_rt_cold {
@@ -722,6 +724,7 @@ struct gc_rt_cold {
      * (gc_vi_hand_over). Two 16-bit registers a word, from 0x00. */
     uint32_t vi_at_jump[GC_VI_HANDOVER_WORDS];
     uint32_t projection_callers[GC_PROJECTION_CALLERS * 4];
+    uint32_t projection[16];  /* 16:9: the widened copy of the game's projection matrix (gc_on_projection) */
     uint32_t exception;       /* set by gc_on_fatal */
     uint32_t dsisr;
     uint32_t dar;

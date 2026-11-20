@@ -304,6 +304,20 @@ bool gc_restart_known_to_work(const std::string& id) {
     return id == "GMSE01" || id == "GMSE04" || id == "GKDP01";
 }
 
+// Super Mario Sunshine (GMS) and the mods made from it. What was seen: on
+// a real Wii (16 Oct 2026), Super Mario Eclipse (GMSE04, a Sunshine mod)
+// with 16:9 showed its airstrip with a second Peach toward the middle and
+// smears at the edges, and its 3D in inverted colours; Dolphin drew it
+// right. A likely reason for the doubling: its screen effects (heat haze,
+// water) lay a copy of the picture over the scene through perspective
+// matrices the game makes itself and never hands to GXSetProjection, so
+// they stay 4:3. Sunshine itself and its other regions were not tried and
+// are left off as a precaution until they are.
+GcWidescreenOff gc_widescreen_off(const std::string& id) {
+    if (id_is(id, "GMS")) return GcWidescreenOff::screen_copies;
+    return GcWidescreenOff::no;
+}
+
 std::vector<GcCodeFix> gc_code_fixes(const std::string& id) {
     std::vector<GcCodeFix> fixes;
     if (id == "GEDE01") {

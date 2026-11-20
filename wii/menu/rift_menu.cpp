@@ -139,6 +139,7 @@
 #include "loadersettings.hpp"
 #include "memorybudget.hpp"
 #include "log.hpp"
+#include "sdwritecheck.hpp"
 #include "ios_reload.hpp"
 #include "menuios.hpp"
 #include "usbprobe.hpp"
@@ -907,6 +908,19 @@ static std::string FlatCapped(const std::string& text, std::size_t max)
 		std::size_t cut = max;  // not inside a UTF-8 character
 		while (cut > 0 && (static_cast<unsigned char>(flat[cut]) & 0xC0) == 0x80) --cut;
 		flat = flat.substr(0, cut) + "...";
+	}
+	return flat;
+}
+
+// FlatCapped, but `max` counts characters, not bytes: a note in Russian or
+// Japanese gets as many letters as one in English (2 or 3 bytes each in UTF-8).
+static std::string FlatCappedChars(const std::string& text, std::size_t max)
+{
+	std::string flat = FlatCapped(text, std::string::npos);
+	std::size_t chars = 0;
+	for (std::size_t i = 0; i < flat.size(); ++i) {
+		if ((static_cast<unsigned char>(flat[i]) & 0xC0) == 0x80) continue;  // inside a character
+		if (chars++ == max) return flat.substr(0, i) + "...";
 	}
 	return flat;
 }
@@ -5160,12 +5174,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"CTGP-R: updated installs start again",
-	"CTGP-R cups come from your install",
-	"Game folders of your choice",
-	"GameCube: named memory cards",
-	"Sonic Unleashed sees the adapter on Wii U",
-	"Brawl: file-swap packs load a match",
+	"GameCube 16:9 is back",
+	"RiftWii says when the SD card is full",
+	"A full SD card no longer locks the game page",
+	"Long cheat notes scroll",
+	"USB and SD games skip a broken disc drive",
+	"Settings > Games toggles work again",
 };
 
 static std::string WhatsNewText()
@@ -5238,6 +5252,43 @@ static bool ShowTutorialOnce()
 		std::fclose(f);
 	}
 	return !used;
+}
+
+static std::string SettingsWriteFailureText()
+{
+	std::string path = tr("Cannot write sd:/riftwii/settings.txt");
+	switch (riftwii::wii::SdWriteKindGet()) {
+	case riftwii::SdWriteKind::Full:
+		return std::string(tr("The SD card is full")) + ". " + path;
+	case riftwii::SdWriteKind::Locked:
+	case riftwii::SdWriteKind::Other:
+		return std::string(tr("The SD card can't be written")) + ". " + path;
+	case riftwii::SdWriteKind::Fine:
+	default:
+		break;
+	}
+	return path;
+}
+
+static void ShowSdWriteNoticeOnce()
+{
+	if (riftwii::wii::SdWriteNoticeShown())
+		return;
+	const riftwii::SdWriteKind notice_kind = riftwii::wii::SdWriteKindGet();
+	if (notice_kind == riftwii::SdWriteKind::Fine)
+		return;
+	switch (notice_kind) {
+	case riftwii::SdWriteKind::Full:
+		ShowPopup(tr("The SD card is full"), tr("RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer, then move files to the computer or delete files you do not need to make room."), tr("OK"));
+		break;
+	case riftwii::SdWriteKind::Locked:
+		ShowPopup(tr("The SD card can't be written"), tr("RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. The card may be locked or read-only. Put the card in a computer and check its lock switch."), tr("OK"));
+		break;
+	default:
+		ShowPopup(tr("The SD card can't be written"), tr("RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."), tr("OK"));
+		break;
+	}
+	riftwii::wii::SdWriteNoticeMarkShown();
 }
 
 // Hidden files macOS writes on a FAT card ("._name" beside every copied
@@ -7568,6 +7619,7 @@ static int MenuSource(FrontendState& state)
 						riftwii::wii::MenuMusicStop();
 						riftwii::wii::MenuMusicStart();
 						g_forgetPicturesAfterScan = true;
+						riftwii::wii::SdWriteReset();
 						StartScan();
 						riftwii::wii::ForgetAppIcons();
 						riftwii::wii::RescanHomebrewApps();
@@ -7599,6 +7651,8 @@ static int MenuSource(FrontendState& state)
 			toast.Show(fontNote, true);
 			showStatus();
 		}
+		if (!g_askAfterScan && !g_scanning && menu == MENU_NONE && !g_sdGone && !g_sdRemovalPending)
+			ShowSdWriteNoticeOnce();
 		if (!g_scanning && grid.Channels()) {
 			const auto& apps = riftwii::wii::HomebrewApps();
 			const int first = grid.PageFirst();
@@ -9219,10 +9273,15 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 			FlowRow widescreen;
 			widescreen.kind = FlowRow::Kind::Option;
 			widescreen.label = tr("Widescreen");
-			widescreen.on = game.gc_widescreen != "global";
-			const std::string widescreenNow = riftwii::gc_widescreen_on(game, console)
+			// A game on gxpatches' list keeps its own picture whatever is
+			// picked: the row is dimmed and A says why.
+			widescreen.dim = riftwii::gc_widescreen_off(state.game_id) != riftwii::GcWidescreenOff::no;
+			widescreen.on = game.gc_widescreen != "global" && !widescreen.dim;
+			const std::string widescreenNow = riftwii::gc_widescreen_on(game, state.game_id, console)
 				? std::string("16:9") : std::string(tr("Game's own"));
-			widescreen.value = game.gc_widescreen == "global" ? tr("Default ({1})", {widescreenNow}) : widescreenNow;
+			if (widescreen.dim) widescreen.value = tr("Not for this game");
+			else if (game.gc_widescreen == "global") widescreen.value = tr("Default ({1})", {widescreenNow});
+			else widescreen.value = widescreenNow;
 			rows.push_back(widescreen);
 			refs.push_back({W::GcWidescreen});
 		}
@@ -12385,14 +12444,21 @@ public:
 	// A box or cover was drawn: there is something to see up close. Read
 	// by the menu thread, as the textures are the GUI thread's.
 	bool HasArt() const { return hasArt; }
+	// Somewhere other than the page's place, `scale`d: the launch
+	// screen shows the box on its card (ShowLaunchFrame).
+	void MoveTo(float x, float y, float scale) {
+		placeX = x;
+		placeY = y;
+		placeScale = scale;
+	}
 	void Draw() override {
 		riftwii::wii::DrawTrace trace("the page's cover");
 		DrawDisc();
 		const float lit = litGrid && litTile >= 0 ? litGrid->Lift(litTile) : 0.0f;
 		const float grow = litGrid && litTile >= 0 ? litGrid->SwellScale(litTile) : 1.0f;
-		const float w = kHeroW * grow, h = kHeroH * grow;
+		const float w = kHeroW * placeScale * grow, h = kHeroH * placeScale * grow;
 		// The cover already sits at the safe left edge: grow inward there.
-		const float x = static_cast<float>(kHeroX), y = kHeroY - (h - kHeroH) / 2;
+		const float x = placeX, y = placeY - (h - kHeroH * placeScale) / 2;
 		const auto ring = [&](float rx, float ry, float rw, float rh) {
 			if (lit <= 0.0f) return;
 			const GXColor c = skin::WithAlpha(skin::kAccent, static_cast<int>(255 * lit));
@@ -12500,6 +12566,7 @@ private:
 	bool disc;
 	bool channel;
 	GXColor hue;
+	float placeX = kHeroX, placeY = kHeroY, placeScale = 1.0f;
 	const GuiTiles* litGrid = nullptr;
 	int litTile = -1;
 	volatile bool hasArt = false;
@@ -13118,6 +13185,13 @@ static void MenuAbout(const FrontendState& state, riftwii::GameInfo info)
 // page. The file is plain text (riftwii/cheats.hpp); when the Wii is
 // online a missing one is fetched from the GeckoCodes archive.
 
+// A cheat's notes as shown (the list's note card, the keypad's box): long
+// ones roll up through the box (SCROLL::VERTICAL) rather than end in "...",
+// so a button list such as a controller remapper's is read in full. GuiText
+// keeps 20 wrapped lines: about 1200 plain characters in the narrower card;
+// a note longer than that ends its 20th line in "...".
+constexpr std::size_t kCheatNoteChars = 1200;
+
 // A cheat's values (its X's, Y's...) asked one by one on a hex keypad,
 // its notes above it (they say what the values are), then written into
 // the cheat file. False when cancelled or not written (`error` then says
@@ -13137,7 +13211,7 @@ static bool AskCheatValues(const FrontendState& state, const riftwii::Cheat& c, 
 	for (riftwii::CheatField& f : fields) {
 		const std::string title = tr("{1}: {2} ({3} digits)",
 			{FlatCapped(c.name, 22), std::string(1, f.letter), std::to_string(f.digits)});
-		GuiSearchKeys keys(f.value, title, FlatCapped(notes, 220), f.digits);
+		GuiSearchKeys keys(f.value, title, FlatCappedChars(notes, kCheatNoteChars), f.digits);
 		mainWindow->SetState(STATE::DISABLED);
 		mainWindow->Append(&keys);
 		keys.SetState(STATE::DEFAULT);
@@ -13282,6 +13356,7 @@ static void MenuCheats(FrontendState& state)
 	GuiText noteTxt(fileNote.c_str(), 15, skin::kInkSoft);
 	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
 	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
+	noteTxt.SetScroll(SCROLL::VERTICAL);  // a long cheat note rolls up, not cut
 	// A fourth line of the note would run to y 410, over the source label, so
 	// the note keeps to three lines (ending by y 389) while the label shows.
 	const auto showSource = [&]() {
@@ -13377,7 +13452,7 @@ static void MenuCheats(FrontendState& state)
 				std::string note;
 				for (const std::string& n : c.notes) note += (note.empty() ? "" : " ") + n;
 				if (c.needs_values) note = tr("This cheat has values to fill in (the X's): press A to set them.") + (note.empty() ? "" : " " + note);
-				say(FlatCapped(note.empty() ? c.name : c.name + ": " + note, 200));
+				say(FlatCappedChars(note.empty() ? c.name : c.name + ": " + note, kCheatNoteChars));
 			} else if (ref.act == Act::Values) {
 				std::string values;
 				for (const riftwii::CheatField& f : riftwii::wii::CheatFields(state.game_id, file.cheats[ref.cheat].name, state.game_revision))
@@ -14571,7 +14646,7 @@ static std::string GameFacts(const FrontendState& state)
 }
 
 // How many of the game's own settings differ from Settings.
-static int ChangedGameSettings(const riftwii::GameSettings& g)
+static int ChangedGameSettings(const riftwii::GameSettings& g, const std::string& gameId)
 {
 	int changed = 0;
 	for (const std::string* v : {&g.video_width, &g.deflicker, &g.borders, &g.video_mode, &g.aspect, &g.language,
@@ -14583,7 +14658,9 @@ static int ChangedGameSettings(const riftwii::GameSettings& g)
 	if (riftwii::kGcDriveTimingReady && g.gc_disc_reads == "drive") ++changed;
 	if (g.gc_card != "global") ++changed;
 	if (g.gc_progressive != "global") ++changed;
-	if (riftwii::kGcWidescreenReady && g.gc_widescreen != "global") ++changed;
+	// A pick saved for a game on the off list counts for nothing (its row is dimmed).
+	if (riftwii::kGcWidescreenReady && g.gc_widescreen != "global" &&
+	    riftwii::gc_widescreen_off(gameId) == riftwii::GcWidescreenOff::no) ++changed;
 	if (g.gc_language != "global") ++changed;
 	if (g.gc_sharp == "on") ++changed;
 	if (g.gc_width != "global") ++changed;
@@ -14631,7 +14708,7 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 	const std::size_t shown = ShownPacks(state, &enabled);
 	const std::string modsOn = enabled == 0 ? std::string() : tr("Mods on: {1}", {std::to_string(enabled)});
 	const riftwii::GameSettings& game = state.model.game;
-	const int changed = ChangedGameSettings(game);
+	const int changed = ChangedGameSettings(game, state.game_id);
 	const bool favorite = riftwii::wii::Settings().favorites.count(riftwii::wii::TileKey(state)) != 0;
 	const riftwii::wii::ImageGame* gamecube = SelectedGcGame(state);
 	const riftwii::wii::ImageGame* toBuild = SelectedGcPatch(state);
@@ -14852,8 +14929,11 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				say(tr("Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."));
 			else if (ref.what == RowRef::What::GcProgressive)
 				say(tr("Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."));
+			else if (ref.what == RowRef::What::GcWidescreen &&
+				 riftwii::gc_widescreen_off(state.game_id) != riftwii::GcWidescreenOff::no)
+				say(tr("16:9 isn't available for this game yet."));
 			else if (ref.what == RowRef::What::GcWidescreen)
-				say(tr("Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental)."));
+				say(tr("Fills a widescreen TV with the game world; menus and text stay stretched."));
 			else if (ref.what == RowRef::What::GcSharp)
 				say(tr("Turns off the soft blur some games add."));
 			else if (ref.what == RowRef::What::GcWidth)
@@ -14995,6 +15075,12 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				    !AskGc480p())
 					next = game.gc_progressive;
 				game.gc_progressive = next;
+			}
+			else if (ref.what == RowRef::What::GcWidescreen &&
+				 riftwii::gc_widescreen_off(state.game_id) != riftwii::GcWidescreenOff::no) {
+				// The row is dimmed: nothing to change, only why.
+				say(tr("16:9 isn't available for this game yet."));
+				changed = false;
 			}
 			else if (ref.what == RowRef::What::GcWidescreen) game.gc_widescreen = StepValue(kGcWidescreenChoices, game.gc_widescreen, direction);
 			else if (ref.what == RowRef::What::GcSharp) game.gc_sharp = game.gc_sharp == "on" ? "off" : "on";
@@ -15556,19 +15642,29 @@ static int MenuHome(FrontendState& state)
 	const auto saveOrSay = [&]() {
 		std::string error;
 		if (SaveChoices(state, error)) return true;
+		logf("Game page: the choices for %s (%s) could not be saved (%s).\n", GameTitle(state).c_str(), state.game_id.c_str(), error.c_str());
 		say(error);
 		return false;
 	};
 	// Start's save: with a banner playing on screen, written with the GUI
 	// running, so the banner does not stop (the page is out of sight).
+	// A failed save asks whether to play anyway; Play keeps the current
+	// choices without saving again.
 	const auto saveForStart = [&]() {
-		if (!bannerHeld) return saveOrSay();
 		std::string error;
-		ResumeGui();
-		const bool saved = SaveChoices(state, error);
-		HaltGui();
-		if (!saved) say(error);
-		return saved;
+		bool saved;
+		if (!bannerHeld) {
+			saved = SaveChoices(state, error);
+		} else {
+			ResumeGui();
+			saved = SaveChoices(state, error);
+			HaltGui();
+		}
+		if (saved) return true;
+		logf("Game page: the choices for %s (%s) could not be saved (%s); asking whether to play anyway.\n", GameTitle(state).c_str(), state.game_id.c_str(), error.c_str());
+		const bool play = ShowPopup(tr("Could not save choices"), std::string(tr("Choices for this game could not be saved. Check the SD card is not full or locked.")) + " " + tr("Play anyway?"), tr("Play"), tr("Not now")) == 0;
+		logf("Game page: the player %s.\n", play ? "played anyway" : "stayed");
+		return play;
 	};
 	// Start's cIOS check reads the slots from the NAND: with a banner
 	// playing on screen, with the GUI running (it stopped for 0.2 s).
@@ -15944,8 +16040,14 @@ static int MenuHome(FrontendState& state)
 		else if (prompt == promptReport) reportBtn.PressSilently();
 
 		if (backBtn.Clicked()) {
-			if (saveOrSay()) menu = MENU_SOURCE;
-			else backBtn.button.ResetState();
+			std::string error;
+			if (SaveChoices(state, error)) {
+				menu = MENU_SOURCE;
+			} else {
+				logf("Game page: the choices for %s (%s) could not be saved (%s); the player left.\n", GameTitle(state).c_str(), state.game_id.c_str(), error.c_str());
+				ShowPopup(tr("Could not save choices"), tr("Choices for this game could not be saved. Check the SD card is not full or locked."), tr("OK"));
+				menu = MENU_SOURCE;
+			}
 		} else if (startBtn.Clicked()) {
 			startBtn.button.ResetState();
 			startHandled = true;
@@ -16028,7 +16130,7 @@ static int MenuHome(FrontendState& state)
 			} else if (!PickCodeModStart(state)) {
 				// B: back on the game page
 			} else if (!saveForStart()) {
-				// the status shows why
+				// Not now stays on the page.
 			} else if (!riftwii::needs_launch_pipeline(!state.model.selections().empty(), riftwii::wii::EffectiveSaveMode(state))) {
 				menu = MENU_BOOT;  // no resident work: boot the game as it is
 			} else if (state.use_usb || state.use_sd || (riftwii::wii::MenuCiosSlot() == 0 && PacksOnUsb(state))) {
@@ -16110,6 +16212,12 @@ static int MenuHome(FrontendState& state)
 
 // ---------------------------------------------------------------------------
 // Settings
+
+// Settings > Launch screen's note.
+static std::string LaunchLogNote()
+{
+	return tr("Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log.");
+}
 
 static const char* const kLanguages[] = {"auto", "en", "es", "ja", "pt", "it", "fr", "ko"};
 
@@ -17562,7 +17670,8 @@ static void MenuParentalControls()
 	const auto save = [&](const std::function<void()>& undo) {
 		if (riftwii::wii::SaveSettings()) return true;
 		undo();
-		ShowPopup(tr("Parental controls"), tr("Cannot write sd:/riftwii/settings.txt"), tr("OK"));
+		std::string failure = SettingsWriteFailureText();
+		ShowPopup(tr("Parental controls"), failure.c_str(), tr("OK"));
 		return false;
 	};
 	// A new PIN, typed twice; "" when cancelled or the two differ (said).
@@ -17735,7 +17844,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kUsbInput, kGcCard, kGcBackups, kLeaveButtons, kDiscLight, kNintendontSaves, kParental, kSdGames, kGameFolders, kIos, kNet, kResync, kWads, kDiscCopy,
+	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kLaunchLog, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kUsbInput, kGcCard, kGcBackups, kLeaveButtons, kDiscLight, kNintendontSaves, kParental, kSdGames, kGameFolders, kIos, kNet, kResync, kWads, kDiscCopy,
 		kMissingCovers, kRescan, kPartitionFailures, kUpdate, kReport, kTests, kGeckoLog, kWiirdDebugger, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -17897,6 +18006,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			settings.launch_music != "off", kLaunchMusic);
 		// Without menu music there is nothing to keep or fade.
 		if (settings.menu_music == "off") rows.back().dim = true;
+		option(tr("Launch screen"), settings.launch_log == "on" ? tr("Log") : tr("Game's box"),
+			settings.launch_log != "on", kLaunchLog);
 		option(tr("Banner music on game pages"), settings.page_banner_sound == "on" ? tr("On") : tr("Off"),
 			settings.page_banner_sound == "on", kPageBannerSound, FlowRow::Kind::Toggle);
 		// The Channels view's banner screen plays it already.
@@ -18093,7 +18204,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kShowHidden: case kPlayHistory: case kDiscTile: case kClockFormat:
 				case kNoClock:
 					return SettingsSection::HomeScreen;
-				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kThemeBrowse: case kFont: case kSounds: case kWiiSounds: case kWiiMusic: case kMusic: case kMusicFile: case kLaunchMusic:
+				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kThemeBrowse: case kFont: case kSounds: case kWiiSounds: case kWiiMusic: case kMusic: case kMusicFile: case kLaunchMusic: case kLaunchLog:
 				case kPageBannerSound: case kDiscArt:
 				case kIos: case kNone:
 					return SettingsSection::Look;
@@ -18127,7 +18238,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	PageIcon pageIcon(SectionIcon(section));
 	GuiText versionTxt("RiftWii " RIFTWII_VERSION, 15, skin::kInkDim);
 	const auto saveSettings = [&]() {
-		if (!riftwii::wii::SaveSettings()) return std::string(tr("Cannot write sd:/riftwii/settings.txt"));
+		if (!riftwii::wii::SaveSettings()) return SettingsWriteFailureText();
 		return std::string();
 	};
 	// New names: the title list again, and the scanned games renamed.
@@ -18224,6 +18335,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kHomeStart: return tr("Last game: Home opens on the page of the last game you played as soon as its drive has been read, unless you have already pressed a button or moved the stick. First page: Home opens on page 1.");
 			case kHomeSort: return tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it.");
 			case kLaunchMusic: return tr("Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game.");
+			case kLaunchLog: return LaunchLogNote();
 			case kPageBannerSound: return tr("Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already.");
 			case kDiscArt: return tr("Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs.");
 			case kMusicFile: return MusicFileNote(settings.music_file);
@@ -18440,17 +18552,17 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					rebuild();
 					break;
 				case kWiiSaves:
-					settings.saves_every_game = StepValue(kSavesEveryGameChoices, settings.saves_every_game, direction, false);
+					settings.saves_every_game = StepValue(kSavesEveryGameChoices, settings.saves_every_game, direction);
 					saveAndNote(tr(kWiiSavesNote));
 					rebuild();
 					break;
 				case kEmuNandFolder:
-					settings.emunand_folder = StepValue(kEmuNandFolderChoices, settings.emunand_folder, direction, false);
+					settings.emunand_folder = StepValue(kEmuNandFolderChoices, settings.emunand_folder, direction);
 					saveAndNote(tr(kEmuNandFolderNote));
 					rebuild();
 					break;
 				case kEmuNandKeeps:
-					settings.emunand_keeps = StepValue(kEmuNandKeepChoices, settings.emunand_keeps, direction, false);
+					settings.emunand_keeps = StepValue(kEmuNandKeepChoices, settings.emunand_keeps, direction);
 					saveAndNote(tr(kEmuNandKeepsNote));
 					rebuild();
 					break;
@@ -18657,6 +18769,11 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kDiscArt:
 					settings.disc_art = settings.disc_art == "on" ? "off" : "on";
 					saveAndNote(tr("Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs."));
+					rebuild();
+					break;
+				case kLaunchLog:
+					settings.launch_log = settings.launch_log == "on" ? "off" : "on";
+					saveAndNote(LaunchLogNote());
 					rebuild();
 					break;
 				case kLaunchMusic:
@@ -19477,7 +19594,9 @@ static int MenuNeedsSd()
 // ---------------------------------------------------------------------------
 // Launch frame: stays on screen while the boot log prints into its card.
 
-static void ShowLaunchFrame(const FrontendState& state, int action)
+// `logOnly`: the log is what comes next on the card whatever the setting
+// (back from the missing-files question, wii/main.cpp).
+static void ShowLaunchFrame(const FrontendState& state, int action, bool logOnly = false)
 {
 	const bool homebrew = action == MENU_HOMEBREW;
 	const std::string title = homebrew ? riftwii::wii::HomebrewToStart().name
@@ -19495,6 +19614,21 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	// As wide as a popup on a widescreen menu: the log printed into it
 	// (wii/main.cpp, EnterConsolePhase) gets the same room.
 	Panel card(skin::panelSettings, 34, 160, PopupExtra());
+	// A game's launch shows its box on the card, as on its page, unless
+	// the log was asked for (Settings > Launch screen). wii/main.cpp keeps
+	// the log behind it until a button or a failure (console.hpp); the
+	// same test decides there.
+	const bool showBox = !logOnly && (action == MENU_LAUNCH || action == MENU_BOOT || action == MENU_PLAY_CHANNEL) &&
+		riftwii::wii::Settings().launch_log != "on";
+	HeroCover box(state.game_id, PageCoverName(state), !state.use_usb && !state.use_sd && !state.use_channel,
+		skin::HueFor(state.game_id), state.use_channel);
+	// Inside the card's log window (176 to 384 down), drop shadow and all
+	// (it reaches riftwii::kShadowMargin less its 6 drop above the box and
+	// the margin plus the drop below it): the log, when it is asked for,
+	// clears that window and nothing outside it.
+	constexpr float kBoxScale = 0.8f;
+	box.MoveTo(320 - kHeroW * kBoxScale / 2, 186, kBoxScale);
+	box.SetMadeUpName(title, riftwii::emulator_cover_id(state.game_id) ? std::string() : state.game_id);
 	riftwii::wii::BusyRing launchBusy(320, 130);
 	// The launch waits for the start's update check or a cover download
 	// first (wii/main.cpp): say so, as nothing else is on the screen yet.
@@ -19506,6 +19640,7 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 		: riftwii::wii::NetBackgroundBusy() ? tr("Waiting for the update check to finish...")
 		: action == MENU_CHANNEL ? tr("RiftWii starts again when it is done.")
 		: homebrew ? tr("The app will start when ready.")
+		: showBox ? tr("Press any button to see what RiftWii is doing.")
 		: tr("The game takes over the screen when it is ready."), 15, skin::kInkDim);
 	Place(footTxt, 0, 444, true);
 
@@ -19517,6 +19652,7 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	w.Append(&doingTxt);
 	w.Append(&titleTxt);
 	w.Append(&card);
+	if (showBox) w.Append(&box);
 	w.Append(&footTxt);
 	w.Append(&launchBusy);
 	mainWindow->Append(&w);
@@ -19532,9 +19668,17 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 		HaltGui();
 		footTxt.SetText(action == MENU_CHANNEL ? tr("RiftWii starts again when it is done.")
 			: homebrew ? tr("The app will start when ready.")
+			: showBox ? tr("Press any button to see what RiftWii is doing.")
 			: tr("The game takes over the screen when it is ready."));
 		ResumeGui();
 	}
+	// The box's art is read by the cover loader, a few frames after it is
+	// first asked for (a launch from Home rather than the game's page):
+	// a moment for it, as this frame stays on screen.
+	// Only for art on the card: a game with none would wait for nothing.
+	const bool artOnCard = showBox && (riftwii::wii::CoverStored(PageCoverName(state)) ||
+		riftwii::wii::CoverStored(state.game_id));
+	for (int wait = 0; artOnCard && !box.HasArt() && wait < 25; ++wait) usleep(20000);
 	// Faded in all the way first: this frame stays on screen.
 	transition::Settle();
 	HaltGui();
@@ -19557,7 +19701,9 @@ bool ConfirmLaunchMissingModInputs(const FrontendState& state,
 	ResetVideo_Menu();
 	hidePointers = false;
 	const bool play = ConfirmMissingModInputs(missing);
-	ShowLaunchFrame(state, MENU_LAUNCH);
+	// The launch goes on with its log on the card (wii/main.cpp): no box
+	// to flash up and be cleared at once.
+	ShowLaunchFrame(state, MENU_LAUNCH, true);
 	launchPopup = false;
 	return play;
 }

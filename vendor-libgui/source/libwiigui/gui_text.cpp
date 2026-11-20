@@ -232,6 +232,9 @@ void GuiText::SetWrap(bool w, int width, int lines)
 	}
 
 	textDynNum = 0;
+	// RiftWii: new lines, so a vertical scroll starts again from the top.
+	textScrollPos = 0;
+	textScrollInitialDelay = TEXT_SCROLL_INITIAL_DELAY;
 }
 
 void GuiText::SetScroll(SCROLL s)
@@ -325,6 +328,32 @@ void GuiText::ResetText()
 /**
  * Draw the text on screen
  */
+// RiftWii: a line made at the whole text's length, cut to its own (a long
+// note's 20 lines took 20 times the text, about 96 KB for 1200 characters).
+static wchar_t *FitLine(wchar_t *line)
+{
+	wchar_t *fit = new wchar_t[wcslen(line) + 1];
+	wcscpy(fit, line);
+	delete[] line;
+	return fit;
+}
+
+// RiftWii: `line` ending in "...", shortened until it fits `width`.
+static wchar_t *EndWithDots(wchar_t *line, FreeTypeGX *font, int width)
+{
+	size_t len = wcslen(line);
+	wchar_t *cut = new wchar_t[len + 4];
+	wcscpy(cut, line);
+	wcscat(cut, L"...");
+	while(len > 0 && font->getWidth(cut) > width)
+	{
+		cut[--len] = 0;
+		wcscat(cut, L"...");
+	}
+	delete[] line;
+	return cut;
+}
+
 // RiftWii: the wrapping, from Draw, so GetLineCount can wrap before the
 // first draw (a popup spaces its parts for the lines its text takes).
 void GuiText::WrapLines(u32 textlen)
@@ -334,13 +363,18 @@ void GuiText::WrapLines(u32 textlen)
 	int linenum = 0;
 	int lastSpace = -1;
 	int lastSpaceIndex = -1;
+	int building = -1; // RiftWii: the line still at the text's length
 
 	while(ch < textlen && linenum < 20)
 	{
 		if(n == 0)
 		{
+			// RiftWii: the line before is finished; it keeps only its own length.
+			if(building >= 0)
+				textDyn[building] = FitLine(textDyn[building]);
 			textDyn[linenum] = new wchar_t[textlen + 1];
 			textDyn[linenum][0] = 0;
+			building = linenum;
 		}
 
 		// RiftWii: a newline ends the line (after the usual break
@@ -398,24 +432,18 @@ void GuiText::WrapLines(u32 textlen)
 		++ch;
 		++n;
 	}
+	if(building >= 0)
+		textDyn[building] = FitLine(textDyn[building]);
 	textDynNum = linenum;
-	// RiftWii: past maxLines the last line shown ends in "...".
+	// RiftWii: past maxLines the last line shown ends in "..." (not when
+	// the lines scroll: they are all shown in turn).
 	// Every line stays allocated (and is freed) as before.
-	if(maxLines > 0 && textDynNum > maxLines)
-	{
-		wchar_t *last = textDyn[maxLines-1];
-		size_t len = wcslen(last);
-		wchar_t *cut = new wchar_t[len + 4];
-		wcscpy(cut, last);
-		wcscat(cut, L"...");
-		while(len > 0 && fontSystem[currentSize]->getWidth(cut) > maxWidth)
-		{
-			cut[--len] = 0;
-			wcscat(cut, L"...");
-		}
-		delete[] last;
-		textDyn[maxLines-1] = cut;
-	}
+	if(maxLines > 0 && textDynNum > maxLines && textScroll != SCROLL::VERTICAL)
+		textDyn[maxLines-1] = EndWithDots(textDyn[maxLines-1], fontSystem[currentSize], maxWidth);
+	// RiftWii: a scrolling text longer than the 20 lines kept says so in its
+	// last line, rather than losing its end without a sign.
+	else if(textScroll == SCROLL::VERTICAL && ch < textlen && textDynNum > 0)
+		textDyn[textDynNum-1] = EndWithDots(textDyn[textDynNum-1], fontSystem[currentSize], maxWidth);
 }
 
 // RiftWii: the lines the text takes at its own size, wrapped and capped at
@@ -479,6 +507,36 @@ void GuiText::Draw()
 		}
 
 		const int shown = (maxLines > 0 && textDynNum > maxLines) ? maxLines : textDynNum;
+		// RiftWii: SCROLL::VERTICAL shows the lines `shown` at a time, from
+		// textScrollPos. A tick is 30 frames (0.5 s at 60 Hz, 0.6 s at 50):
+		// it holds at the top for TEXT_SCROLL_INITIAL_DELAY ticks (about 3 s),
+		// rolls up a line every 3 ticks, holds about 3 s at the end, then
+		// starts again from the top. SetText and SetWrap start it over.
+		int first = 0;
+		if(textScroll == SCROLL::VERTICAL && shown < textDynNum)
+		{
+			const int last = textDynNum - shown;
+			if(textScrollPos > last)
+				textScrollPos = last;
+			if(FrameTimer % 30 == 0)
+			{
+				if(textScrollInitialDelay > 0)
+				{
+					--textScrollInitialDelay;
+				}
+				else if(textScrollPos < last)
+				{
+					++textScrollPos;
+					textScrollInitialDelay = textScrollPos == last ? TEXT_SCROLL_INITIAL_DELAY : 2;
+				}
+				else
+				{
+					textScrollPos = 0;
+					textScrollInitialDelay = TEXT_SCROLL_INITIAL_DELAY;
+				}
+			}
+			first = textScrollPos;
+		}
 		int lineheight = newSize + 6;
 		int voffset = 0;
 
@@ -489,7 +547,7 @@ void GuiText::Draw()
 		int top  = this->GetTop() + voffset;
 
 		for(int i=0; i < shown; ++i)
-			fontSystem[currentSize]->drawText(left, top+i*lineheight, textDyn[i], c, style);
+			fontSystem[currentSize]->drawText(left, top+i*lineheight, textDyn[first+i], c, style);
 	}
 	else
 	{

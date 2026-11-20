@@ -999,6 +999,9 @@ msgstr "La chaîne de CTGP-R (sd:/apps/ctgpr/boot.dol) est introuvable, rien n'a
 msgid "CTGP-R's settings file (sd:/ctgpr/config.ini) could not be written, so nothing was started. Check that the SD card is not locked or full."
 msgstr "Le fichier de réglages de CTGP-R (sd:/ctgpr/config.ini) n'a pas pu être écrit, rien n'a été démarré. Vérifiez que la carte SD n'est ni verrouillée ni pleine."
 
+msgid "CTGP-R can't start Mario Kart Wii from the SD card, because CTGP-R uses the SD card for its own files. Put Mario Kart Wii on a USB drive, or use the disc."
+msgstr "CTGP-R ne peut pas lancer Mario Kart Wii depuis la carte SD, car CTGP-R utilise la carte SD pour ses propres fichiers. Placez Mario Kart Wii sur un périphérique USB, ou utilisez le disque."
+
 msgid " (and {1} more)"
 msgstr " (et {1} autre(s))"
 
@@ -2022,8 +2025,14 @@ msgstr "Écran large"
 msgid "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."
 msgstr "Donne une image plus nette et plus stable avec un câble composante, même dans les jeux sans mode 480p ; certains posent d'abord la question."
 
-msgid "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental)."
-msgstr "Remplit une TV grand écran avec le monde du jeu ; les menus restent étirés et certains jeux montrent des couleurs fausses (expérimental)."
+msgid "Fills a widescreen TV with the game world; menus and text stay stretched."
+msgstr "Remplit une TV grand écran avec le monde du jeu ; les menus et le texte restent étirés."
+
+msgid "16:9 isn't available for this game yet."
+msgstr "Le 16:9 n'est pas encore disponible pour ce jeu."
+
+msgid "Not for this game"
+msgstr "Pas pour ce jeu"
 
 msgid "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one)."
 msgstr "La langue dans laquelle ce jeu se joue, sans changer le réglage de la Wii (la plupart des jeux américains et japonais n'en ont qu'une)."
@@ -4113,23 +4122,38 @@ msgstr "Le dossier de la NAND émulée : celui qu'indiquent les réglages d'USB 
 msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
 msgstr "Avec réglages et Mii, les jeux utilisent aussi les réglages de la Wii et les Mii de la NAND émulée. Le dossier doit alors contenir une NAND complète."
 
-msgid "CTGP-R: updated installs start again"
-msgstr "CTGP-R : les installations mises à jour redémarrent"
+msgid "Launch screen"
+msgstr "Écran de lancement"
 
-msgid "CTGP-R cups come from your install"
-msgstr "CTGP-R : coupes lues dans votre installation"
+msgid "Game's box"
+msgstr "Boîte du jeu"
 
-msgid "Game folders of your choice"
-msgstr "Dossiers de jeux au choix"
+msgid "Log"
+msgstr "Journal"
 
-msgid "GameCube: named memory cards"
-msgstr "GameCube : cartes nommées"
+msgid "Press any button to see what RiftWii is doing."
+msgstr "Appuyez sur un bouton pour voir ce que fait RiftWii."
 
-msgid "Sonic Unleashed sees the adapter on Wii U"
-msgstr "Sonic Unleashed voit l'adaptateur sur Wii U"
+msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
+msgstr "Boîte du jeu : la boîte du jeu pendant son lancement ; appuyez sur un bouton pour voir ce que fait RiftWii. Journal : chaque étape, ligne par ligne. Un lancement qui échoue affiche toujours le journal."
 
-msgid "Brawl: file-swap packs load a match"
-msgstr "Brawl : les packs de fichiers lancent un match"
+msgid "GameCube 16:9 is back"
+msgstr "Le 16:9 GameCube est de retour"
+
+msgid "RiftWii says when the SD card is full"
+msgstr "RiftWii signale quand la carte SD est pleine"
+
+msgid "A full SD card no longer locks the game page"
+msgstr "Une carte SD pleine ne bloque plus la page du jeu"
+
+msgid "Long cheat notes scroll"
+msgstr "Les longues notes des codes défilent"
+
+msgid "USB and SD games skip a broken disc drive"
+msgstr "Les jeux USB et SD ignorent un lecteur en panne"
+
+msgid "Settings > Games toggles work again"
+msgstr "Les options Paramètres > Jeux remarchent"
 
 msgid "Manage game"
 msgstr "Gérer le jeu"
@@ -4211,6 +4235,15 @@ msgstr "Utilise la carte du jeu, une carte partagée, celle de Nintendont ou une
 
 msgid "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "Utilise la carte du jeu, une carte partagée, celle de Dolphin ou une vraie carte dans le port A (Wii uniquement)."
+
+msgid "Could not save choices"
+msgstr "Impossible d'enregistrer les choix"
+
+msgid "Choices for this game could not be saved. Check the SD card is not full or locked."
+msgstr "Les choix pour ce jeu n'ont pas pu être enregistrés. Vérifiez que la carte SD n'est ni pleine ni verrouillée."
+
+msgid "Play anyway?"
+msgstr "Jouer quand même ?"
 
 msgid "Disc slot light"
 msgstr "Lumière du lecteur de disques"
@@ -4508,3 +4541,18 @@ msgstr "CTGP-R garde sa sauvegarde sur la carte SD, dans {1}. La sauvegarde de l
 
 msgid "CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."
 msgstr "Impossible de préparer l'image de jeu de CTGP-R. La raison se trouve dans sd:/riftwii/boot.log."
+
+msgid "The SD card is full"
+msgstr "La carte SD est pleine"
+
+msgid "The SD card can't be written"
+msgstr "La carte SD ne peut pas être écrite"
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer, then move files to the computer or delete files you do not need to make room."
+msgstr "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. Mettez la carte dans un ordinateur, puis déplacez des fichiers vers l'ordinateur ou supprimez les fichiers inutiles pour libérer de la place."
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. The card may be locked or read-only. Put the card in a computer and check its lock switch."
+msgstr "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. La carte est peut-être verrouillée ou en lecture seule. Mettez la carte dans un ordinateur et vérifiez son commutateur de verrouillage."
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."
+msgstr "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. Mettez la carte dans un ordinateur et vérifiez si elle comporte des erreurs."

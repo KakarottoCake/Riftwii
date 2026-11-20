@@ -21,6 +21,9 @@ int worker_starts = 0;
 int worker_joins = 0;
 int sd_reads = 0;
 int usb_reads = 0;
+// Counts calls into ProbeSdWrite, not actual probe I/O runs: the real helper
+// guard prevents repeat I/O, but this mock still counts every scan call.
+int probe_entries_into_probe = 0;
 bool fail_worker = false;
 bool worker_finished = false;
 void* (*worker_entry)(void*) = nullptr;
@@ -83,9 +86,16 @@ void NetWaitForBackground() {
 
 void logf(const char*, ...) {}
 
+void ProbeSdWrite(bool) {
+    EXPECT(!network_busy);
+    EXPECT(!DriveScanDone());
+    ++probe_entries_into_probe;
+}
+
 bool scan_sd_games(ImageCatalog& out, std::string&) {
     EXPECT(!network_busy);
     EXPECT(!DriveScanDone());
+    EXPECT(probe_entries_into_probe == sd_reads + 1);
     ++sd_reads;
     out.status = "new SD result";
     return true;
@@ -138,6 +148,7 @@ int main() {
     EXPECT(network_joins == 0);
     EXPECT(worker_starts == 0);
     EXPECT(sd_reads == 0);
+    EXPECT(probe_entries_into_probe == 0);
 
     network_busy = false;
     StartDriveScan();
@@ -192,5 +203,6 @@ int main() {
     EXPECT(worker_joins == 3);
     EXPECT(sd_reads == 4);
     EXPECT(usb_reads == 4);
+    EXPECT(probe_entries_into_probe == 4);
     return failures == 0 ? 0 : 1;
 }

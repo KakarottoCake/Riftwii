@@ -42,6 +42,7 @@ struct LoaderSettings {
     std::string menu_sounds = "quiet";    // normal, quiet (a soft hover tick), off
     std::string menu_music = "on";        // on, off: music.ogg while the menu is open
     std::string launch_music = "on";      // on, off: the music plays on under the launch screen, or fades out as the menu closes
+    std::string launch_log = "off";       // on, off: the launch screen prints the launch's log, or shows the game's box (the log appears on a failure or a button)
     std::string page_banner_sound = "off";  // on, off: a game's page plays its banner's sound when opened outside the Channels view
     std::string disc_art = "off";         // on, off: GameTDB's picture of the game's disc under the box on its page
     // The player's own menu music, picked in Settings or written here:
@@ -61,7 +62,7 @@ struct LoaderSettings {
     std::string menu_font = "riftwii";    // riftwii, wii: the Wii Menu's own font, read from the NAND (riftwii/sysfont.hpp)
     std::string return_to = "riftwii";    // riftwii, menu: where a game's "Wii Menu" goes
     std::string screenshots = "off";      // in-game screenshots: on, off (demo: Dolphin tests)
-    bool disc_light = true;              // blink during loading and disc copying
+    bool disc_light = false;             // blink during loading and disc copying (off: it upset some consoles' cIOS launches)
     bool online = true;                   // download game names and cheats when the Wii is online
     bool emulator_covers = true;
     bool steamgrid_covers = false;        // requires the player's own key on the SD card

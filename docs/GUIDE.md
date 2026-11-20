@@ -735,6 +735,15 @@ the tiles.
   pauses while the game's IOS is loaded, and comes back after). *Fade out*
   fades it out when you start a game and keeps it off for the whole launch.
   `launch_music = on|off` in `settings.txt`.
+- **Launch screen** (Game's box, Log; right after Launch music): while a
+  game starts, *Game's box* shows its box on the launch screen's card, as
+  on its page, with the progress bar under it. Press any button to see
+  the log instead: a GameCube pad's in the Wii's own ports at any time
+  (not one on a USB adapter), a Wii Remote's until the launch hands the
+  Wii Remotes over (before a cIOS is loaded). A
+  launch that fails always shows the log, and `boot.log` on the SD card
+  has it either way. *Log* prints every step on the card, as before.
+  `launch_log = off|on` in `settings.txt`.
 - **Banner music on game pages** (off at first): opening a game's page
   from Home's covers, shelf, carousel, 3D covers or names plays the game's
   banner music, as the Channels view's banner screen does, with the menu's
@@ -834,9 +843,11 @@ the tiles.
 
 The Wii's blue disc slot light blinks slowly while RiftWii loads or patches a
 game, or copies a disc. It turns off when the work ends, including a cancelled
-copy or a failed launch, and before the game starts. **Settings > Games > Disc
-slot light** turns it off; it is on by default. This uses the Wii's own light,
-so Dolphin does not show it.
+copy or a failed launch, and before the game starts. It is off by default
+(on some Wiis it disturbed USB and SD-image launches); **Settings > Games >
+Disc slot light** turns it on. It never blinks while a cIOS (such as d2x) is
+the running IOS, so a USB launch that reloads into one stays dark. This uses the Wii's own light, so Dolphin does not show
+it.
 
 ### HOME Menu
 
@@ -952,9 +963,14 @@ memory card**, *This game's own*, *Shared*, *A named card* or, on an original Wi
 card in slot A*, *Real card in slot B* or *Real card in slot B, as slot A*), **Picture lines** (*On (480p)*, *240p* for a CRT TV, as
 Settings > Picture > Video mode describes, or *Off*; European GameCube games never get 480p or
 240p), **Sharper
-picture**, **Picture width**, **Volume boost** (all of a quiet game's sound
+picture**, **Widescreen**, **Picture width**, **Volume boost** (all of a quiet game's sound
 +3 or +6 dB louder), **Game language** and, for European
-games, **Game speed** (60 Hz instead of 50). GameCube games also follow
+games, **Game speed** (60 Hz instead of 50). **Widescreen** *16:9* draws
+the game's 3D world wider for a widescreen TV; its menus and text stay
+4:3 and are stretched. Pick it only with the TV set to fill a 16:9
+screen: a TV set to 4:3, zoom or pillarbox shows the picture squashed.
+*Default* keeps the game's own picture unless **Settings > Picture > Aspect ratio**
+is *16:9*. Super Mario Sunshine and its mods don't offer it yet. GameCube games also follow
 the Wii's own **Screen Position** (Wii Settings > Screen), as Wii games
 do, when RiftWii finds where the game reads its position (the log says
 so); otherwise the game keeps its own.

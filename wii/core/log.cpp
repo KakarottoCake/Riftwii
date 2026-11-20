@@ -45,9 +45,50 @@ struct Locked {
 
 std::string g_backlog;
 constexpr std::size_t kMaxBacklog = 8 * 1024;
+
+// The screen's last lines, kept by LogKeepScreen. A fixed buffer, not a
+// string: it fills during a launch, when the heap is kept for the game.
+// More than the launch screen's card shows (13 rows of 68).
+bool g_keep = false;
+char g_held[3072];
+std::size_t g_held_used = 0;
+
+void Hold(const char* text) {
+    std::size_t n = std::char_traits<char>::length(text);
+    if (n > sizeof(g_held)) {
+        text += n - sizeof(g_held);
+        n = sizeof(g_held);
+    }
+    if (g_held_used + n > sizeof(g_held)) {
+        // The oldest lines go first, whole: up to the end of the line the
+        // cut falls in, so what is kept starts at the start of a line.
+        std::size_t drop = g_held_used + n - sizeof(g_held);
+        while (drop < g_held_used && g_held[drop - 1] != '\n') ++drop;
+        std::memmove(g_held, g_held + drop, g_held_used - drop);
+        g_held_used -= drop;
+    }
+    std::memcpy(g_held + g_held_used, text, n);
+    g_held_used += n;
+}
 }
 
 void LogEchoToScreen(bool on) { g_echo = on; }
+
+void LogKeepScreen() {
+    Locked lock;
+    g_keep = true;
+    g_held_used = 0;
+}
+
+void LogPrintHeld() {
+    Locked lock;
+    // Hold keeps whole lines only (but for one longer than the buffer).
+    // The USB Gecko had these lines already, from logf.
+    GeckoLeaveOutStdout(true);
+    std::fwrite(g_held, 1, g_held_used, stdout);
+    std::fflush(stdout);
+    GeckoLeaveOutStdout(false);
+}
 bool LogEchoesToScreen() { return g_echo; }
 
 void LogOpen(const char* sd_path, bool append) {
@@ -117,6 +158,13 @@ void logf(const char* format, ...) {
         std::vprintf(format, args);
         va_end(args);
         GeckoLeaveOutStdout(false);
+    }
+    if (g_keep) {
+        char text[1024];
+        va_start(args, format);
+        std::vsnprintf(text, sizeof(text), format, args);
+        va_end(args);
+        Hold(text);
     }
     // With Settings > USB Gecko log, each line also goes to the USB Gecko
     // as it is logged, with its time, card or no card; the text console

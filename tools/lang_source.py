@@ -948,6 +948,11 @@ T = {
         "CTGP-Rの設定ファイル（sd:/ctgpr/config.ini）を書き込めなかったため、何も起動しませんでした。SDカードのロックや空き容量を確認してください。",
         "Não foi possível gravar o arquivo de ajustes do CTGP-R (sd:/ctgpr/config.ini), então nada foi iniciado. Verifique se o cartão SD não está bloqueado nem cheio.",
         "Impossibile scrivere il file delle impostazioni di CTGP-R (sd:/ctgpr/config.ini), quindi non è stato avviato nulla. Controlla che la scheda SD non sia bloccata né piena."),
+    "CTGP-R can't start Mario Kart Wii from the SD card, because CTGP-R uses the SD card for its own files. Put Mario Kart Wii on a USB drive, or use the disc.": (
+        "CTGP-R no puede iniciar Mario Kart Wii desde la tarjeta SD, porque CTGP-R usa la tarjeta SD para sus propios archivos. Pon Mario Kart Wii en una unidad USB o usa el disco.",
+        "CTGP-RはSDカードを自分のファイルに使うため、SDカードからマリオカートWiiを起動できません。マリオカートWiiをUSBドライブに入れるか、ディスクを使ってください。",
+        "O CTGP-R não consegue iniciar o Mario Kart Wii pelo cartão SD, porque o CTGP-R usa o cartão SD para os próprios arquivos. Coloque o Mario Kart Wii em uma unidade USB ou use o disco.",
+        "CTGP-R non può avviare Mario Kart Wii dalla scheda SD, perché CTGP-R usa la scheda SD per i propri file. Metti Mario Kart Wii su un'unità USB o usa il disco."),
     # Mods where they cannot work (refused at Start). {1} is a folder like
     # "usb:/Project+", maybe followed by the piece below.
     " (and {1} more)": (" (y {1} más)", " (ほか{1}件)", " (e mais {1})", " (e altri {1})"),
@@ -1735,7 +1740,9 @@ T = {
     "On (480p)": ("Sí (480p)", "オン (480p)", "Sim (480p)", "Sì (480p)"),
     "Widescreen": ("Panorámico", "ワイド画面", "Widescreen", "Panoramico"),
     "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first.": ("Da una imagen más nítida y estable con un cable por componentes, incluso en juegos sin modo 480p; algunos preguntan antes.", "コンポーネントケーブルで、くっきり安定した映像にします。480pのないゲームも対象で、先に確認を求めるゲームもあります。", "Dá uma imagem mais nítida e estável com cabo componente, mesmo em jogos sem modo 480p; alguns jogos perguntam antes.", "Dà un'immagine più nitida e stabile con un cavo component, anche nei giochi senza modo 480p; alcuni chiedono prima."),
-    "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental).": ("Llena una TV panorámica con el mundo del juego; los menús siguen estirados y algunos juegos muestran colores erróneos (experimental).", "ゲームの世界をワイドテレビいっぱいに広げます。メニューは横に伸びたままで、色がおかしくなるゲームもあります (試験的)。", "Preenche uma TV widescreen com o mundo do jogo; os menus continuam esticados e alguns jogos mostram cores erradas (experimental).", "Riempie una TV panoramica con il mondo di gioco; i menu restano allungati e alcuni giochi mostrano colori sbagliati (sperimentale)."),
+    "Fills a widescreen TV with the game world; menus and text stay stretched.": ("Llena una TV panorámica con el mundo del juego; los menús y el texto siguen estirados.", "ゲームの世界をワイドテレビいっぱいに広げます。メニューと文字は横に伸びたままです。", "Preenche uma TV widescreen com o mundo do jogo; os menus e o texto continuam esticados.", "Riempie una TV panoramica con il mondo di gioco; i menu e il testo restano allungati."),
+    "16:9 isn't available for this game yet.": ("El 16:9 aún no está disponible para este juego.", "このゲームではまだ16:9を使えません。", "O 16:9 ainda não está disponível para este jogo.", "Il 16:9 non è ancora disponibile per questo gioco."),
+    "Not for this game": ("No para este juego", "このゲームには使えません", "Não para este jogo", "Non per questo gioco"),
     "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one).": ("El idioma en que se juega este juego, sin cambiar el ajuste de la Wii (la mayoría de los juegos de EE. UU. y Japón tienen solo uno).", "このゲームを遊ぶ言語で、Wii本体の設定は変わりません (アメリカと日本のゲームの多くは1言語だけです)。", "O idioma em que este jogo é jogado, sem mudar a configuração do Wii (a maioria dos jogos dos EUA e do Japão tem só um).", "La lingua in cui si gioca questo gioco, senza cambiare l'impostazione della Wii (la maggior parte dei giochi americani e giapponesi ne ha una sola)."),
     "Controls": ("Controles", "操作", "Controles", "Comandi"),
     "Fast suits almost every game; a few need the GameCube's own, slower speed (experimental, it can freeze some games).": ("Rápida sirve para casi todos los juegos; unos pocos necesitan la velocidad más lenta propia de la GameCube (experimental, puede congelar algunos juegos).", "高速はほとんどのゲームに向いています。ゲームキューブ本来の遅い速さが必要なゲームも少しあります (試験的、一部のゲームが止まることがあります)。", "Rápida serve para quase todos os jogos; alguns poucos precisam da velocidade mais lenta do próprio GameCube (experimental, pode travar alguns jogos).", "Veloce va bene per quasi tutti i giochi; pochi richiedono la velocità, più lenta, propria del GameCube (sperimentale, può bloccare alcuni giochi)."),
@@ -3056,6 +3063,8 @@ KO = {
         "CTGP-R 채널(sd:/apps/ctgpr/boot.dol)이 없어 아무것도 시작되지 않았습니다. CTGP-R의 apps/ctgpr 폴더를 SD 카드에 넣어 주세요.",
     "CTGP-R's settings file (sd:/ctgpr/config.ini) could not be written, so nothing was started. Check that the SD card is not locked or full.":
         "CTGP-R 설정 파일(sd:/ctgpr/config.ini)을 쓸 수 없어 아무것도 시작되지 않았습니다. SD 카드가 잠겨 있거나 가득 찼는지 확인해 주세요.",
+    "CTGP-R can't start Mario Kart Wii from the SD card, because CTGP-R uses the SD card for its own files. Put Mario Kart Wii on a USB drive, or use the disc.":
+        "CTGP-R은 SD 카드를 자체 파일용으로 사용하므로 SD 카드에서 마리오 카트 Wii를 시작할 수 없습니다. 마리오 카트 Wii를 USB 드라이브에 넣거나 디스크를 사용해 주세요.",
     " (and {1} more)":
         " (그리고 {1} 개 더)",
     "Code builds on the USB drive won't work. Move {1} to the SD card.":
@@ -3761,8 +3770,12 @@ KO = {
         "와이드 화면",
     "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first.":
         "컴포넌트 케이블에서 더 선명하고 안정적인 화면을 보여 주며, 480p가 없는 게임도 해당됩니다. 일부 게임은 먼저 물어봅니다.",
-    "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental).":
-        "게임 세계를 와이드 TV에 가득 채웁니다. 메뉴는 늘어난 채로 남고, 일부 게임은 색이 잘못 나올 수 있습니다 (실험적).",
+    "Fills a widescreen TV with the game world; menus and text stay stretched.":
+        "게임 세계를 와이드 TV에 가득 채웁니다. 메뉴와 글자는 늘어난 채로 남습니다.",
+    "16:9 isn't available for this game yet.":
+        "이 게임에서는 아직 16:9를 사용할 수 없습니다.",
+    "Not for this game":
+        "이 게임에는 사용 불가",
     "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one).":
         "이 게임을 플레이할 언어이며 Wii 본체 설정은 바뀌지 않습니다 (미국·일본 게임은 대부분 언어가 하나뿐입니다).",
     "Controls":
@@ -4932,6 +4945,8 @@ FR = {
         "La chaîne de CTGP-R (sd:/apps/ctgpr/boot.dol) est introuvable, rien n'a été démarré. Placez le dossier apps/ctgpr de CTGP-R sur la carte SD.",
     "CTGP-R's settings file (sd:/ctgpr/config.ini) could not be written, so nothing was started. Check that the SD card is not locked or full.":
         "Le fichier de réglages de CTGP-R (sd:/ctgpr/config.ini) n'a pas pu être écrit, rien n'a été démarré. Vérifiez que la carte SD n'est ni verrouillée ni pleine.",
+    "CTGP-R can't start Mario Kart Wii from the SD card, because CTGP-R uses the SD card for its own files. Put Mario Kart Wii on a USB drive, or use the disc.":
+        "CTGP-R ne peut pas lancer Mario Kart Wii depuis la carte SD, car CTGP-R utilise la carte SD pour ses propres fichiers. Placez Mario Kart Wii sur un périphérique USB, ou utilisez le disque.",
     " (and {1} more)":
         " (et {1} autre(s))",
     "Code builds on the USB drive won't work. Move {1} to the SD card.":
@@ -5817,8 +5832,12 @@ FR = {
         "Écran large",
     "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first.":
         "Donne une image plus nette et plus stable avec un câble composante, même dans les jeux sans mode 480p ; certains posent d'abord la question.",
-    "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental).":
-        "Remplit une TV grand écran avec le monde du jeu ; les menus restent étirés et certains jeux montrent des couleurs fausses (expérimental).",
+    "Fills a widescreen TV with the game world; menus and text stay stretched.":
+        "Remplit une TV grand écran avec le monde du jeu ; les menus et le texte restent étirés.",
+    "16:9 isn't available for this game yet.":
+        "Le 16:9 n'est pas encore disponible pour ce jeu.",
+    "Not for this game":
+        "Pas pour ce jeu",
     "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one).":
         "La langue dans laquelle ce jeu se joue, sans changer le réglage de la Wii (la plupart des jeux américains et japonais n'en ont qu'une).",
     "Controls":
@@ -8635,25 +8654,42 @@ T["With settings and Miis, games also use the emulated NAND's Wii settings and M
 MORE["ko"]["With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."] = '설정과 Mii까지 고르면 게임이 에뮬레이트 NAND의 Wii 설정과 Mii도 사용합니다. 이를 위해 폴더에 완전한 NAND가 있어야 합니다.'
 MORE["fr"]["With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."] = 'Avec réglages et Mii, les jeux utilisent aussi les réglages de la Wii et les Mii de la NAND émulée. Le dossier doit alors contenir une NAND complète.'
 
-# What's new in the release after 2611-151.
-T["CTGP-R: updated installs start again"] = ("CTGP-R: las instalaciones actualizadas vuelven a iniciar", "CTGP-R：更新したインストールが再び起動", "CTGP-R: instalações atualizadas iniciam de novo", "CTGP-R: le installazioni aggiornate ripartono")
-MORE["ko"]["CTGP-R: updated installs start again"] = "CTGP-R: 업데이트된 설치본이 다시 실행"
-MORE["fr"]["CTGP-R: updated installs start again"] = "CTGP-R : les installations mises à jour redémarrent"
-T["CTGP-R cups come from your install"] = ("CTGP-R: las copas salen de tu instalación", "CTGP-R：カップ構成は自分のインストールから", "CTGP-R: as copas vêm da sua instalação", "CTGP-R: le coppe dalla tua installazione")
-MORE["ko"]["CTGP-R cups come from your install"] = "CTGP-R: 컵 구성을 내 설치본에서"
-MORE["fr"]["CTGP-R cups come from your install"] = "CTGP-R : coupes lues dans votre installation"
-T["Game folders of your choice"] = ("Carpetas de juegos a tu elección", "ゲームのフォルダを自分で選べる", "Pastas de jogos à sua escolha", "Cartelle dei giochi a tua scelta")
-MORE["ko"]["Game folders of your choice"] = "게임 폴더를 직접 선택"
-MORE["fr"]["Game folders of your choice"] = "Dossiers de jeux au choix"
-T["GameCube: named memory cards"] = ("GameCube: tarjetas con nombre", "ゲームキューブ：名前付きカード", "GameCube: cartões com nome", "GameCube: schede con nome")
-MORE["ko"]["GameCube: named memory cards"] = "게임큐브: 이름 있는 카드"
-MORE["fr"]["GameCube: named memory cards"] = "GameCube : cartes nommées"
-T["Sonic Unleashed sees the adapter on Wii U"] = ("Sonic Unleashed ve el adaptador en Wii U", "Wii UでSonic Unleashedがアダプターを認識", "Sonic Unleashed vê o adaptador no Wii U", "Sonic Unleashed vede l'adattatore su Wii U")
-MORE["ko"]["Sonic Unleashed sees the adapter on Wii U"] = "Wii U에서 Sonic Unleashed가 어댑터 인식"
-MORE["fr"]["Sonic Unleashed sees the adapter on Wii U"] = "Sonic Unleashed voit l'adaptateur sur Wii U"
-T["Brawl: file-swap packs load a match"] = ("Brawl: los packs de archivos cargan partidas", "Brawl：ファイル差し替えMODで試合が始まる", "Brawl: pacotes de arquivos carregam partidas", "Brawl: i pacchetti di file caricano le partite")
-MORE["ko"]["Brawl: file-swap packs load a match"] = "Brawl: 파일 교체 MOD로 대전 시작"
-MORE["fr"]["Brawl: file-swap packs load a match"] = "Brawl : les packs de fichiers lancent un match"
+# Settings > Launch screen: the game's box or the log while a game starts.
+T["Launch screen"] = ("Pantalla de inicio del juego", "起動画面", "Tela de início do jogo", "Schermata di avvio")
+MORE["ko"]["Launch screen"] = "실행 화면"
+MORE["fr"]["Launch screen"] = "Écran de lancement"
+T["Game's box"] = ("Caja del juego", "ゲームのパッケージ", "Caixa do jogo", "Confezione del gioco")
+MORE["ko"]["Game's box"] = "게임 패키지"
+MORE["fr"]["Game's box"] = "Boîte du jeu"
+T["Log"] = ("Registro", "ログ", "Registro", "Registro")
+MORE["ko"]["Log"] = "로그"
+MORE["fr"]["Log"] = "Journal"
+T["Press any button to see what RiftWii is doing."] = ("Pulsa cualquier botón para ver qué está haciendo RiftWii.", "ボタンを押すとRiftWiiの処理内容を表示します。", "Aperte qualquer botão para ver o que o RiftWii está fazendo.", "Premi un tasto qualsiasi per vedere cosa sta facendo RiftWii.")
+MORE["ko"]["Press any button to see what RiftWii is doing."] = "아무 버튼이나 누르면 RiftWii가 하는 일을 볼 수 있습니다."
+MORE["fr"]["Press any button to see what RiftWii is doing."] = "Appuyez sur un bouton pour voir ce que fait RiftWii."
+T["Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."] = ("Caja del juego: la caja del juego mientras se inicia; pulsa cualquier botón para ver qué está haciendo RiftWii. Registro: cada paso, línea por línea. Si el inicio falla, el registro siempre se muestra.", "ゲームのパッケージ：起動中はゲームのパッケージを表示します。ボタンを押すとRiftWiiの処理内容を表示します。ログ：すべての手順を1行ずつ表示します。起動に失敗したときは、必ずログを表示します。", "Caixa do jogo: a caixa do jogo enquanto ele inicia; aperte qualquer botão para ver o que o RiftWii está fazendo. Registro: cada passo, linha por linha. Se o início falhar, o registro sempre aparece.", "Confezione del gioco: la confezione del gioco mentre si avvia; premi un tasto qualsiasi per vedere cosa sta facendo RiftWii. Registro: ogni passo, riga per riga. Se l'avvio non riesce, il registro appare sempre.")
+MORE["ko"]["Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."] = "게임 패키지: 게임이 시작되는 동안 게임 패키지를 보여 줍니다. 아무 버튼이나 누르면 RiftWii가 하는 일을 볼 수 있습니다. 로그: 모든 단계를 한 줄씩 보여 줍니다. 실행에 실패하면 항상 로그가 나타납니다."
+MORE["fr"]["Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."] = "Boîte du jeu : la boîte du jeu pendant son lancement ; appuyez sur un bouton pour voir ce que fait RiftWii. Journal : chaque étape, ligne par ligne. Un lancement qui échoue affiche toujours le journal."
+
+# What's new in the release after 2611-170.
+T["GameCube 16:9 is back"] = ("Vuelve el 16:9 en GameCube", "ゲームキューブの16:9が復活", "O 16:9 do GameCube está de volta", "Torna il 16:9 per GameCube")
+MORE["ko"]["GameCube 16:9 is back"] = "게임큐브 16:9 복귀"
+MORE["fr"]["GameCube 16:9 is back"] = "Le 16:9 GameCube est de retour"
+T["RiftWii says when the SD card is full"] = ("RiftWii avisa cuando la tarjeta SD está llena", "SDカードがいっぱいのときにお知らせ", "O RiftWii avisa quando o cartão SD está cheio", "RiftWii avvisa quando la scheda SD è piena")
+MORE["ko"]["RiftWii says when the SD card is full"] = "SD 카드가 가득 차면 알림"
+MORE["fr"]["RiftWii says when the SD card is full"] = "RiftWii signale quand la carte SD est pleine"
+T["A full SD card no longer locks the game page"] = ("Una tarjeta SD llena ya no bloquea la página del juego", "SDカードがいっぱいでもゲームのページから戻れる", "Um cartão SD cheio não trava mais a página do jogo", "Una scheda SD piena non blocca più la pagina del gioco")
+MORE["ko"]["A full SD card no longer locks the game page"] = "SD 카드가 가득 차도 게임 페이지가 멈추지 않음"
+MORE["fr"]["A full SD card no longer locks the game page"] = "Une carte SD pleine ne bloque plus la page du jeu"
+T["Long cheat notes scroll"] = ("Las notas largas de los trucos se desplazan", "長いチートの説明がスクロール", "Notas longas de trapaças rolam", "Le note lunghe dei trucchi scorrono")
+MORE["ko"]["Long cheat notes scroll"] = "긴 치트 설명이 스크롤됨"
+MORE["fr"]["Long cheat notes scroll"] = "Les longues notes des codes défilent"
+T["USB and SD games skip a broken disc drive"] = ("Los juegos de USB y SD ya no esperan al lector roto", "USB・SDのゲームは壊れたドライブを待たない", "Jogos de USB e SD ignoram o leitor quebrado", "I giochi da USB e SD ignorano il lettore guasto")
+MORE["ko"]["USB and SD games skip a broken disc drive"] = "USB·SD 게임이 고장 난 드라이브를 기다리지 않음"
+MORE["fr"]["USB and SD games skip a broken disc drive"] = "Les jeux USB et SD ignorent un lecteur en panne"
+T["Settings > Games toggles work again"] = ("Los interruptores de Ajustes > Juegos funcionan de nuevo", "設定 > ゲームの切り替えが再び動作", "As opções de Configurações > Jogos funcionam de novo", "Le opzioni di Impostazioni > Giochi funzionano di nuovo")
+MORE["ko"]["Settings > Games toggles work again"] = "설정 > 게임의 전환이 다시 작동"
+MORE["fr"]["Settings > Games toggles work again"] = "Les options Paramètres > Jeux remarchent"
 
 # Game management: own display names and visibility, never file renames.
 T['Manage game'] = ('Gestionar juego', 'ゲームの管理', 'Gerenciar jogo', 'Gestisci gioco')
@@ -8757,6 +8793,22 @@ FR.update({
     "Use this game's card, a shared card, Nintendont's card, Dolphin's card, or a real card in slot A (Wii only).": 'Utilise la carte du jeu, une carte partagée, celle de Nintendont ou Dolphin, ou une vraie carte dans le port A (Wii uniquement).',
     "Use this game's card, a shared card, Nintendont's card, or a real card in slot A (Wii only).": 'Utilise la carte du jeu, une carte partagée, celle de Nintendont ou une vraie carte dans le port A (Wii uniquement).',
     "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only).": 'Utilise la carte du jeu, une carte partagée, celle de Dolphin ou une vraie carte dans le port A (Wii uniquement).',
+})
+
+T.update({
+    "Could not save choices": ("No se pudieron guardar las opciones", "設定を保存できませんでした", "Não foi possível guardar as escolhas", "Impossibile salvare le scelte"),
+    "Choices for this game could not be saved. Check the SD card is not full or locked.": ("Las opciones de este juego no se pudieron guardar. Comprueba que la tarjeta SD no esté llena ni bloqueada.", "このゲームの設定を保存できませんでした。SDカードがいっぱいやロックされていないか確認してください。", "As escolhas deste jogo não puderam ser guardadas. Verifica se o cartão SD não está cheio nem bloqueado.", "Le scelte per questo gioco non possono essere salvate. Controlla che la scheda SD non sia piena o bloccata."),
+    "Play anyway?": ("¿Jugar de todos modos?", "それでもプレイしますか？", "Jogar mesmo assim?", "Giocare comunque?"),
+})
+KO.update({
+    "Could not save choices": "선택 사항을 저장하지 못했습니다",
+    "Choices for this game could not be saved. Check the SD card is not full or locked.": "이 게임의 선택 사항을 저장하지 못했습니다. SD 카드가 가득 찼거나 잠겨 있는지 확인하세요.",
+    "Play anyway?": "그래도 플레이할까요?",
+})
+FR.update({
+    "Could not save choices": "Impossible d'enregistrer les choix",
+    "Choices for this game could not be saved. Check the SD card is not full or locked.": "Les choix pour ce jeu n'ont pas pu être enregistrés. Vérifiez que la carte SD n'est ni pleine ni verrouillée.",
+    "Play anyway?": "Jouer quand même ?",
 })
 
 def main():
@@ -9467,6 +9519,48 @@ T["CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.
 )
 KO["CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."] = "CTGP-R 게임 이미지를 준비하지 못했습니다. 이유는 sd:/riftwii/boot.log에 있습니다."
 FR["CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."] = "Impossible de préparer l'image de jeu de CTGP-R. La raison se trouve dans sd:/riftwii/boot.log."
+
+T.update({
+    "The SD card is full": (
+        "La tarjeta SD está llena",
+        "SDカードがいっぱいです",
+        "O cartão SD está cheio",
+        "La scheda SD è piena"),
+    "The SD card can't be written": (
+        "No se puede escribir en la tarjeta SD",
+        "SDカードに書き込めません",
+        "Não é possível escrever no cartão SD",
+        "Non è possibile scrivere sulla scheda SD"),
+    "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer, then move files to the computer or delete files you do not need to make room.": (
+        "RiftWii no puede guardar archivos nuevos, por lo que los ajustes, las elecciones de juego, las carátulas y los registros podrían no guardarse. Pon la tarjeta en un ordenador y mueve archivos al ordenador o borra los archivos que no necesites para hacer sitio.",
+        "RiftWiiが新しいファイルを保存できないため、設定やゲームの選択、ジャケット画像やログが保存されないことがあります。カードをパソコンに入れて、ファイルをパソコンに移動するか、不要なファイルを削除して空きを作ってください。",
+        "O RiftWii não consegue guardar ficheiros novos, pelo que as opções, as escolhas de jogo, as capas e os registos podem não ser guardados. Ponha o cartão num computador e mova ficheiros para o computador ou apague ficheiros de que não precisa para libertar espaço.",
+        "RiftWii non può salvare nuovi file, quindi impostazioni, scelte di gioco, copertine e registri potrebbero non essere salvati. Metti la scheda in un computer, poi sposta i file sul computer o elimina i file che non ti servono per fare spazio."),
+    "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. The card may be locked or read-only. Put the card in a computer and check its lock switch.": (
+        "RiftWii no puede guardar archivos nuevos, por lo que los ajustes, las elecciones de juego, las carátulas y los registros podrían no guardarse. La tarjeta puede estar bloqueada o en solo lectura. Pon la tarjeta en un ordenador y comprueba su interruptor de bloqueo.",
+        "RiftWiiが新しいファイルを保存できないため、設定やゲームの選択、ジャケット画像やログが保存されないことがあります。カードがロックされているか、読み取り専用かもしれません。カードをパソコンで確認して、ロックスイッチを確認してください。",
+        "O RiftWii não consegue guardar ficheiros novos, pelo que as opções, as escolhas de jogo, as capas e os registos podem não ser guardados. O cartão pode estar bloqueado ou em só leitura. Ponha o cartão num computador e verifique o interruptor de bloqueio.",
+        "RiftWii non può salvare nuovi file, quindi impostazioni, scelte di gioco, copertine e registri potrebbero non essere salvati. La scheda potrebbe essere bloccata o in sola lettura. Metti la scheda in un computer e controlla l'interruttore di blocco."),
+    "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors.": (
+        "RiftWii no puede guardar archivos nuevos, por lo que los ajustes, las elecciones de juego, las carátulas y los registros podrían no guardarse. Pon la tarjeta en un ordenador y comprueba si tiene errores.",
+        "RiftWiiが新しいファイルを保存できないため、設定やゲームの選択、ジャケット画像やログが保存されないことがあります。カードをパソコンに入れて、エラーがないかカードを確認してください。",
+        "O RiftWii não consegue guardar ficheiros novos, pelo que as opções, as escolhas de jogo, as capas e os registos podem não ser guardados. Ponha o cartão num computador e verifique se tem erros.",
+        "RiftWii non può salvare nuovi file, quindi impostazioni, scelte di gioco, copertine e registri potrebbero non essere salvati. Metti la scheda in un computer e controllala per errori."),
+})
+KO.update({
+    "The SD card is full": "SD 카드가 가득 찼습니다",
+    "The SD card can't be written": "SD 카드에 쓸 수 없습니다",
+    "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer, then move files to the computer or delete files you do not need to make room.": "RiftWii가 새 파일을 저장할 수 없어 설정, 게임 선택, 커버 및 로그가 저장되지 않을 수 있습니다. 카드를 컴퓨터에 넣은 뒤 파일을 컴퓨터로 옮기거나 필요 없는 파일을 삭제해 공간을 만드세요.",
+    "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. The card may be locked or read-only. Put the card in a computer and check its lock switch.": "RiftWii가 새 파일을 저장할 수 없어 설정, 게임 선택, 커버 및 로그가 저장되지 않을 수 있습니다. 카드가 잠겨 있거나 읽기 전용일 수 있습니다. 카드를 컴퓨터에 넣고 잠금 스위치를 확인하세요.",
+    "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors.": "RiftWii가 새 파일을 저장할 수 없어 설정, 게임 선택, 커버 및 로그가 저장되지 않을 수 있습니다. 카드를 컴퓨터에 넣고 카드에 오류가 있는지 확인하세요.",
+})
+FR.update({
+    "The SD card is full": "La carte SD est pleine",
+    "The SD card can't be written": "La carte SD ne peut pas être écrite",
+    "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer, then move files to the computer or delete files you do not need to make room.": "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. Mettez la carte dans un ordinateur, puis déplacez des fichiers vers l'ordinateur ou supprimez les fichiers inutiles pour libérer de la place.",
+    "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. The card may be locked or read-only. Put the card in a computer and check its lock switch.": "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. La carte est peut-être verrouillée ou en lecture seule. Mettez la carte dans un ordinateur et vérifiez son commutateur de verrouillage.",
+    "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors.": "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. Mettez la carte dans un ordinateur et vérifiez si elle comporte des erreurs.",
+})
 
 if __name__ == "__main__":
     main()
