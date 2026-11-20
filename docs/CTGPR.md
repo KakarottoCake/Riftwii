@@ -12,6 +12,92 @@ RiftWii has two ways to start CTGP-R 1.03's pack:
   `ctgpnative.txt` sits next to RiftWii's `boot.dol` and its files are on
   the card.
 
+## Installing updates from a scrubbed game image (2026-11-12)
+
+The reported failure is a brief **"Install Error! Please try again."**,
+followed by another installation attempt at 0%, with one update remaining.
+The console report ends at the handoff to CTGP-R: RiftWii does not keep
+running inside the channel and cannot log the installer's return value.
+
+Two isolated tests used the player's CTGP-R v1.03.1190 All Inclusive pack,
+the PAL Mario Kart Wii WBFS as Dolphin's inserted disc, and the
+[`es-identify-1` release of RiftWii's Felk fork](https://github.com/RiftWii/dolphin-felk-riftwii/releases/tag/es-identify-1):
+
+- CTGP-R's original `apps/ctgpr/boot.dol` booted directly.
+- The same app started through RiftWii's CTGP-R XML on upstream commit
+  `2d54654b42ae65f3e73bb8c0427921c78058fca0`.
+
+Each had its own 2 GiB FAT32 image and Dolphin user directory. Both used
+`disable_ios_exploit = yes`, `disable_patches = yes`, and
+`compatible_mode = yes`. Cached Interpreter, MMU and accurate CPU cache
+were enabled. The RiftWii run used the unpacked test DOL: the packed DOL
+did not reach its framebuffer in this emulator configuration. Folder sync
+was off during installation so writes stayed in each raw image.
+
+Earlier updates installed, but the last pending update retried at 0%.
+Frame capture of the direct boot also caught the same brief install-error
+message. Its remaining `ctgpr/update.dif` was 12,731,484 bytes, with DIA0
+package ID `4354475052000000` (CTGPR) and version `01031193` in its header.
+The saved image had 1,119,748,096 free bytes, and `blob.bin` had grown from
+999,030,784 to 1,001,062,400 bytes. This rules out an entirely unwritable
+or full card in that control; it does not authenticate the pending update.
+
+The failing operation was opening an original game file for the delta
+patch: `yaz0:dvd:/data_1/files/Race/Course/old_mario_gc.szs`. The installer
+reported status 4 after a source-open result of -9; its file error was
+ENOENT (2). The disc filesystem had mounted **data_0**, not data_1. The
+supplied WBFS's partition table listed the game first and the channel
+installer second: the removed update partition had changed the game's
+index. Earlier updates did not need that original disc file.
+
+Putting the game back in partition slot 1, with the same offsets and
+contents, let the previously stuck 1.03.1193 update finish. The original
+channel then installed the later updates and reached "The main
+installation has completed!" The separate RiftWii run reached the same
+completion message after installing all offered updates. No channel code, signature check,
+update payload or original game file was changed.
+
+For the CTGP-R channel's image launch, RiftWii now supplies a separate
+512-byte partition-table sector through d2x's fragment list. A game
+already in slot 1 needs no change. Otherwise its entry exchanges places
+with slot 1; a game-only table gets a second entry naming the same game
+partition. The rest of the disc's mappings, and the original image, stay
+unchanged. The helper is generic; only the CTGP-R channel launch requests
+this layout.
+
+The replacement is `riftwii/channel-partition.bin` on the **same device**
+as the image, because a d2x fragment list selects one device. For USB,
+RiftWii uses a FAT32 partition of that USB drive, with an exclusive
+temporary mount; the image itself may be on another partition. For SD it
+uses the SD card. The file is closed and found again through a fresh raw
+FAT view, and its sector is read back before it is mapped. If a USB drive
+needs this correction but has no FAT32 partition for the header, the
+launch stops with the reason in boot.log. An already correct table needs
+no writable cache partition. USB DVD drives with 2048-byte sectors are
+rejected before any header read: this overlay requires 512-byte sectors.
+Layout preparation must succeed before CTGP-R's settings are written.
+
+Host tests check table bounds, unchanged bytes, the game-only alias,
+idempotence, fragment splitting, holes, coalescing and physical overflow.
+The test-only autorun command `test_channel_layout` exercises the real SD
+writer and fragment mapping with synthetic one- and two-partition tables,
+checking the replacement sector and the untouched source. Dolphin's CTGP
+test uses the equivalent sector materialized in a private WBFS copy:
+Dolphin exposes the WBFS as an inserted disc and cannot run d2x's USB/SD
+fragment backend. The Wii-specific cIOS path still needs a hardware run;
+the console report used IOS248, base IOS38. Keep that limitation separate
+from the reproduced missing-path failure and successful corrected-image
+installation.
+
+After a CTGP-R channel launch, problem reports now include the free SD
+space, sizes of the channel, blob, journal and pending update, and only
+the pending update's fixed 32-byte header metadata. They flag a declared
+size that differs from the file size. The field positions were checked
+against the local update's bytes; no CTGP-R updater implementation is
+included. Payloads, signatures, encrypted journal contents and pack assets
+are not uploaded. Keep private test cards, console reports and captures
+outside the repository.
+
 ## The native launch (offline only)
 
 It keeps to these rules:
