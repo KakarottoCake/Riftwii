@@ -647,6 +647,100 @@ std::string ciso_log_line(const CisoFinds& finds) {
     return line;
 }
 
+bool second_game_partition(std::array<std::uint8_t, 512>& sector, std::uint64_t disc_bytes,
+                           bool& changed, std::string& error) {
+    changed = false;
+    const std::uint32_t count = be32(sector.data());
+    const std::uint64_t table = std::uint64_t(be32(sector.data() + 4)) * 4;
+    if (count == 0 || count > 60 || table < 0x40020 || table > 0x40200 ||
+        std::uint64_t(std::max(count, 2u)) * 8 > 0x40200 - table) {
+        error = "the disc's partition table does not fit its standard table sector";
+        return false;
+    }
+    for (unsigned group = 1; group < 4; ++group) {
+        if (be32(sector.data() + group * 8) != 0) {
+            error = "the disc has additional partition groups";
+            return false;
+        }
+    }
+    const std::size_t start = static_cast<std::size_t>(table - 0x40000);
+    std::uint32_t game = count;
+    for (std::uint32_t i = 0; i < count; ++i) {
+        const std::uint8_t* entry = sector.data() + start + i * 8;
+        if (be32(entry + 4) != 0) continue;
+        const std::uint64_t offset = std::uint64_t(be32(entry)) * 4;
+        if (offset < 0x50000 || offset > disc_bytes || disc_bytes - offset < 0x2c0) {
+            error = "the game partition lies outside the disc";
+            return false;
+        }
+        if (i == 1) { error.clear(); return true; }
+        if (game == count) game = i;
+    }
+    if (game == count) {
+        error = "the disc has no game partition";
+        return false;
+    }
+    std::uint8_t* second = sector.data() + start + 8;
+    if (count == 1) {
+        // A game-only WBFS has no second entry to exchange. Give the same
+        // partition a second name without inventing a missing update partition.
+        if (std::any_of(second, second + 8, [](std::uint8_t value) { return value != 0; })) {
+            error = "the unused second partition entry is not empty";
+            return false;
+        }
+        std::memcpy(second, sector.data() + start, 8);
+        sector[3] = 2;
+    } else {
+        std::uint8_t* original = sector.data() + start + game * 8;
+        for (unsigned i = 0; i < 8; ++i) std::swap(original[i], second[i]);
+    }
+    changed = true;
+    error.clear();
+    return true;
+}
+
+bool replace_d2x_sector(D2xFragmentList& list, std::uint32_t logical, std::uint32_t physical,
+                        std::string& error) {
+    if (logical >= list.size || list.num != list.entries.size() ||
+        list.entries.size() > kD2xFragmentLimit) {
+        error = "the replacement sector is outside a valid d2x list";
+        return false;
+    }
+    {
+        std::vector<std::uint8_t> encoded;
+        if (!list.encode(encoded, error)) return false;
+    }
+    std::vector<D2xFragment> raw;
+    if (!try_reserve(raw, list.entries.size() + 3)) {
+        error = "there is not enough memory for the disc's replacement sector";
+        return false;
+    }
+    for (const D2xFragment& entry : list.entries) {
+        const std::uint64_t end = std::uint64_t(entry.offset) + entry.count;
+        if (logical < entry.offset || logical >= end) {
+            raw.push_back(entry);
+            continue;
+        }
+        const std::uint32_t before = logical - entry.offset;
+        if (before) raw.push_back({entry.offset, entry.sector, before});
+        if (std::uint64_t(logical) + 1 < end) {
+            const std::uint64_t after_sector = std::uint64_t(entry.sector) + before + 1;
+            if (after_sector > 0xffffffffu) {
+                error = "the replacement splits an invalid physical fragment";
+                return false;
+            }
+            raw.push_back({logical + 1, static_cast<std::uint32_t>(after_sector),
+                           static_cast<std::uint32_t>(end - logical - 1)});
+        }
+    }
+    raw.push_back({logical, physical, 1});
+    std::vector<D2xFragment> checked;
+    if (!validate_fragments(raw, list.size, checked, error)) return false;
+    list.entries = std::move(checked);
+    list.num = static_cast<std::uint32_t>(list.entries.size());
+    return true;
+}
+
 bool build_usb_fragments(const UsbImage& image, D2xFragmentList& out, std::string& error) {
     std::vector<D2xFragment> raw, checked; std::uint64_t sectors = 0;
     if (!build_map(image, raw, sectors, error) || !validate_fragments(raw, sectors, checked, error)) return false;

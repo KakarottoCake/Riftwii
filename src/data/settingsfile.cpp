@@ -38,6 +38,11 @@ bool line_keeps(const std::string& value) {
 
 }  // namespace
 
+void LoaderSettings::parse_saved(const std::string& text) {
+    menu_widescreen = "off";
+    parse(text);
+}
+
 void LoaderSettings::parse(const std::string& text) {
     LineReader in(text);
     std::string line;

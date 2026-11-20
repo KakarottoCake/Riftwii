@@ -1591,14 +1591,16 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 {
 	items.clear();
 	entries.clear();
-	// The Disc drive tile belongs to Home's own views (Mods and All games),
-	// as the disc channel does on the Wii Menu. A search, Recently played
-	// and Favorites list particular games, so a tile that is none of them
-	// was only noise there.
+	// The Disc drive tile belongs to Home's own views (Mods, All games, and
+	// the Wii and GameCube views, since the drive plays both), as the disc
+	// channel does on the Wii Menu. A search, Recently played and Favorites
+	// list particular games, so a tile that is none of them was only noise
+	// there; Homebrew and Emulators have nothing the drive can start.
 	const bool searching = searchOpen || !g_search.empty();
 	// A genre lists particular games too: the disc drive has none.
 	const bool genreChosen = !searching && !g_genre.empty();
-	const bool discViews = !searching && !genreChosen && (g_filter == Filter::Mods || g_filter == Filter::All);
+	const bool discViews = !searching && !genreChosen && (g_filter == Filter::Mods || g_filter == Filter::All ||
+		g_filter == Filter::Wii || g_filter == Filter::GameCube);
 	if (discViews) {
 		GridItem disc;
 		disc.title = tr("Disc drive");  // translated whole: the tile splits it into lines
@@ -12033,16 +12035,21 @@ static void MakeGcCrashCard(const riftwii::wii::ImageGame& game)
 	riftwii::wii::SetGcCrashScreen(std::move(screen), wayBack);
 }
 
-// Before a GameCube game starts: its controls the first time, and its
-// crash screen. False: Back.
+// Before a GameCube game starts: a real memory card it uses checked (with
+// the game's SD card offered when it can't be used), its controls the
+// first time, and its crash screen. False: Back.
 static bool ReadyGcStart(FrontendState& state)
 {
 	state.gc_card_fallback = false;
 	const riftwii::wii::ImageGame* game = SelectedGcGame(state);
 	if (!game) return true;
 	const std::string used = EffectiveGcCard(state);
-	if (GcCardIsRealSlotA(used)) {
-		// Slot B's card as slot A is read from slot B.
+	// "real_b" passes slot B's card through beside the game's own card in
+	// slot A. It is checked too: the launch checks it again and can only
+	// stop, and a Wii's saved choice read on a Wii U would stop every game
+	// left on Default. The fallback drops slot B and keeps the own card.
+	if (GcCardIsRealSlotA(used) || used == "real_b") {
+		// Slot B's card, as slot A or beside it, is read from slot B.
 		const int slot = used == "real" ? 0 : 1;
 		riftwii::wii::GcRealCard physical;
 		int result = physical.Open(slot);
@@ -12432,7 +12439,7 @@ static bool FetchGameInfo(const FrontendState& state, riftwii::GameInfo& info)
 			return false;
 		}
 		if (ShowPopup(tr("Download game details?"),
-			    tr("They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?"),
+			    tr("They come from GameTDB's database of every Wii game: about 3 MB, kept on the SD card. Download it now?"),
 			    tr("Download"), tr("Cancel")) != 0)
 			return false;
 		if (!DownloadGameInfoNow()) return false;
