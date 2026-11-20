@@ -20,10 +20,21 @@ namespace riftwii::wii {
 std::string MenuLanguage() { return "en"; }
 void logf(const char*, ...) {}
 
-bool HttpGet(const std::string&, std::vector<std::uint8_t>&, std::string&, std::size_t, int,
+// A local database scan must not need a download; a test that expects one
+// says so here, with what GameTDB sends (empty: the download fails).
+bool g_http_expected = false;
+std::vector<std::uint8_t> g_http_body;
+std::string g_http_url;
+bool HttpGet(const std::string& url, std::vector<std::uint8_t>& body, std::string& error, std::size_t, int,
              const HttpProgress&, HttpRedirects) {
-    CHECK(false);  // A local database scan must not need a download.
-    return false;
+    CHECK(g_http_expected);
+    g_http_url = url;
+    if (g_http_body.empty()) {
+        error = "no network";
+        return false;
+    }
+    body = g_http_body;
+    return true;
 }
 
 bool g_background_busy = false;
@@ -68,7 +79,8 @@ using namespace riftwii;
 using namespace riftwii::wii;
 
 constexpr const char* kCachePath = "sd:/riftwii/gameinfo-EN.txt";
-constexpr const char* kZipPath = "sd:/riftwii/wiitdb-EN.zip";
+constexpr const char* kZipPath = "sd:/riftwii/wiitdb-all-EN.zip";
+constexpr const char* kDiscsOnlyZipPath = "sd:/riftwii/wiitdb-EN.zip";
 constexpr const char* kHomebrewPath = "sd:/riftwii/homebrew-titles.txt";
 constexpr const char* kModTitlesPath = "sd:/riftwii/mod-titles.txt";
 
@@ -414,6 +426,87 @@ void TestCardReplacementDiscardsGameInfo() {
 }
 }  // namespace
 
+// A card with only the discs-only database an older RiftWii downloaded
+// (no homebrew apps in it, so no Homebrew cover ever matched): it is read
+// while nothing better can be had, and replaced by the whole database,
+// homebrew included, once a download works.
+void TestDiscsOnlyDatabaseIsReplaced() {
+    ForgetGameInfo();
+    fs::create_directories("sd:/riftwii");
+    const std::string old_xml =
+        "<datafile>\n<game name=\"Super Smash Bros. Brawl\"><id>RSBE01</id><type/></game>\n</datafile>\n";
+    const auto old_zip = ziptest::make_zip({{"wiitdb.xml", old_xml + std::string(300u << 10, ' '), 0}});
+    Write(kDiscsOnlyZipPath, reinterpret_cast<const char*>(old_zip.data()), old_zip.size());
+    std::string source;
+    std::time_t source_time = 0;
+    CHECK(GameInfoSource(source, source_time));
+    CHECK(source == kDiscsOnlyZipPath);
+
+    // Offline: the old database is read as before, without a download.
+    bool changed = false;
+    CHECK(StartGameInfoRead({"RSBE01"}, false) == GameInfoReadStart::Started);
+    CHECK(TakeGameInfoRead(changed));
+    GameInfo info;
+    CHECK(PeekGameInfo("RSBE01", info));
+
+    // Online but the download fails: the old one is read meanwhile, and
+    // the download is not tried again on every visit to Home this session.
+    ForgetGameInfo();
+    g_http_expected = true;
+    g_http_body.clear();
+    CHECK(StartGameInfoRead({"RSBE01"}, true) == GameInfoReadStart::Started);
+    CHECK(g_http_url.find("WIIWARE=1") != std::string::npos);
+    CHECK(TakeGameInfoRead(changed));
+    CHECK(PeekGameInfo("RSBE01", info));
+    CHECK(fs::exists(kDiscsOnlyZipPath));
+    g_http_expected = false;
+    CHECK(StartGameInfoRead({"RSBE01"}, true) == GameInfoReadStart::NothingToRead);
+
+    const std::string xml =
+        "<datafile>\n<game name=\"Super Smash Bros. Brawl\"><id>RSBE01</id><type/></game>\n"
+        "<game name=\"SNES9xGX\"><id>9XGX</id><type>Homebrew</type>"
+        "<locale lang=\"EN\"><title>SNES9xGX</title></locale></game>\n</datafile>\n";
+    const auto full_zip = ziptest::make_zip({{"wiitdb.xml", xml + std::string(300u << 10, ' '), 0}});
+
+    // A download whose CRC is wrong: not kept, and the old one neither
+    // removed nor left unread.
+    ForgetGameInfo();
+    g_http_expected = true;
+    g_http_body = full_zip;
+    g_http_body[g_http_body.size() / 2] ^= 0x20;  // in the stored padding
+    CHECK(StartGameInfoRead({"RSBE01"}, true) == GameInfoReadStart::Started);
+    CHECK(TakeGameInfoRead(changed));
+    CHECK(PeekGameInfo("RSBE01", info));
+    CHECK(!fs::exists(kZipPath));
+    CHECK(!fs::exists(std::string(kZipPath) + ".part"));
+    CHECK(fs::exists(kDiscsOnlyZipPath));
+
+    // Online: the whole database takes its place, and its homebrew apps
+    // are kept for the Homebrew view.
+    ForgetGameInfo();
+    g_http_body = full_zip;
+    CHECK(StartGameInfoRead({"RSBE01"}, true) == GameInfoReadStart::Started);
+    CHECK(TakeGameInfoRead(changed));
+    g_http_expected = false;
+    g_http_body.clear();
+    CHECK(fs::exists(kZipPath));
+    CHECK(!fs::exists(kDiscsOnlyZipPath));
+    CHECK(GameInfoSource(source, source_time));
+    CHECK(source == kZipPath);
+    std::vector<HomebrewTitle> titles;
+    CHECK(LoadHomebrewTitles(titles));
+    CHECK(titles.size() == 1 && titles[0].id == "9XGX");
+    // The whole database on the card: nothing to download again.
+    CHECK(StartGameInfoRead({"RSBE01"}, true) == GameInfoReadStart::NothingToRead);
+
+    fs::remove(kZipPath);
+    fs::remove(kCachePath);
+    fs::remove(kHomebrewPath);
+    fs::remove(kModTitlesPath);
+    fs::remove("sd:/riftwii");
+    fs::remove("sd:");
+}
+
 int main() {
     TestStoredTruncationPreservesCache();
     TestIncompleteXmlPreservesLists(false);
@@ -421,5 +514,6 @@ int main() {
     TestBackgroundReadFindsCustomGames();
     TestBackgroundHandoffAndRescan();
     TestCardReplacementDiscardsGameInfo();
+    TestDiscsOnlyDatabaseIsReplaced();
     return failures ? 1 : 0;
 }

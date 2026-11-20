@@ -256,7 +256,8 @@ the function. The game runs its exception handler with interrupts off,
 so its own IOS calls would never complete: the blob drives the IPC
 registers itself, polling for IOS's acknowledgement and reply (and
 passing over a reply to a request the game made before it crashed), on
-a 4 KB stack of its own. It writes `/shared2/riftwii/crash.bin`. At its
+a 256-byte stack of its own (sized at every build by
+`tools/check_fault_stack.py`). It writes `/shared2/riftwii/crash.bin`. At its
 next start the menu turns that into `sd:/riftwii/gamecrash.txt`, deletes
 it, and offers to send a problem report. A game that freezes without an
 exception leaves nothing.

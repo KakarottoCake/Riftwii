@@ -2604,8 +2604,8 @@ msgstr "Ainda não há dados dos jogos"
 msgid "Download game details?"
 msgstr "Baixar os dados dos jogos?"
 
-msgid "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?"
-msgstr "Vêm da base de dados do GameTDB com todos os jogos de Wii: cerca de 2 MB, guardados no cartão SD. Baixar agora?"
+msgid "They come from GameTDB's database of every Wii game: about 3 MB, kept on the SD card. Download it now?"
+msgstr "Vêm da base de dados do GameTDB com todos os jogos de Wii: cerca de 3 MB, guardados no cartão SD. Baixar agora?"
 
 msgid "Players"
 msgstr "Jogadores"
@@ -4535,6 +4535,9 @@ msgstr "Troca este jogo para {1}. Voltar mantém o cartão que ele tem."
 
 msgid "CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none."
 msgstr "O CTGP-R guarda o save no cartão SD, em {1}. O save do Wii é copiado se a pasta não tiver nenhum."
+
+msgid "CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."
+msgstr "Não foi possível preparar a imagem de jogo do CTGP-R. O motivo está em sd:/riftwii/boot.log."
 
 msgid "The SD card is full"
 msgstr "O cartão SD está cheio"
