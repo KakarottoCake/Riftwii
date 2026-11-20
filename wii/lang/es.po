@@ -4557,6 +4557,75 @@ msgstr "RiftWii no puede guardar archivos nuevos, por lo que los ajustes, las el
 msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."
 msgstr "RiftWii no puede guardar archivos nuevos, por lo que los ajustes, las elecciones de juego, las carátulas y los registros podrían no guardarse. Pon la tarjeta en un ordenador y comprueba si tiene errores."
 
+msgid "Manage emulated NAND"
+msgstr "Gestionar NAND emulada"
+
+msgid "See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings."
+msgstr "Mira y cambia lo que hay en una NAND emulada: borra canales instalados en ella, copia la partida de un juego o los Mii entre ella y la Wii, o quita su copia de los ajustes de la Wii."
+
+msgid "Copy save from Wii"
+msgstr "Copiar partida desde Wii"
+
+msgid "Copy save to Wii"
+msgstr "Copiar partida a Wii"
+
+msgid "Delete emulated save"
+msgstr "Borrar partida emulada"
+
+msgid "Delete emulated title"
+msgstr "Borrar título emulado"
+
+msgid "Miis from Wii"
+msgstr "Miis desde Wii"
+
+msgid "Miis to Wii"
+msgstr "Miis a Wii"
+
+msgid "Remove Wii settings"
+msgstr "Quitar ajustes de Wii"
+
+msgid "SYSCONF: {1}; setting.txt: {2}"
+msgstr "SYSCONF: {1}; setting.txt: {2}"
+
+msgid "Present"
+msgstr "Presente"
+
+msgid "Missing"
+msgstr "Ausente"
+
+msgid "Wii memory"
+msgstr "Memoria de Wii"
+
+msgid "Continue"
+msgstr "Continuar"
+
+msgid "Write to Wii"
+msgstr "Escribir en Wii"
+
+msgid "Working..."
+msgstr "Procesando..."
+
+msgid "Done."
+msgstr "Hecho."
+
+msgid "The emulated NAND folder could not be read. See session.log for details."
+msgstr "No se pudo leer la carpeta de NAND emulada. Consulta session.log."
+
+msgid "The destination will be replaced. A backup is kept in the emulated NAND folder first. Keep the Wii turned on until copying finishes."
+msgstr "Se reemplazará el destino. Primero se guardará una copia en la carpeta de NAND emulada. No apagues la Wii hasta terminar."
+
+msgid "This replaces data in the Wii's own memory. Your current save or Miis will change. Are you sure you want to write to the Wii?"
+msgstr "Esto reemplaza datos de la memoria de Wii. Cambiará tu partida o tus Miis. ¿Seguro que quieres escribir en la Wii?"
+
+msgid "The selected emulated title or save will be deleted. Deleting a title also deletes its save and ticket. This cannot be undone."
+msgstr "Se borrará el título o la partida emulada. Borrar un título también borra su partida y ticket. No se puede deshacer."
+
+msgid "The action could not finish. A save may have been partly copied. Backups stay in the emulated NAND folder. See session.log for details."
+msgstr "No se pudo terminar. Una partida puede haberse copiado parcialmente. Las copias siguen en la carpeta de NAND emulada. Consulta session.log."
+
+msgid "The emulated Wii settings will be backed up and removed. The Wii's own settings stay as they are."
+msgstr "Se guardará una copia de los ajustes de Wii emulados y se quitarán. Los ajustes de la Wii no cambiarán."
+
 msgid "SteamGridDB key"
 msgstr "Clave de SteamGridDB"
 
