@@ -703,6 +703,10 @@ std::vector<std::string> emunand_manager_folders() {
     }
     // A per-game folder can be outside /nands. Read only bounded whole lines
     // of the same settings file the launch lookup uses.
+    // Collected first, checked after the file is closed: checking a USB
+    // folder mounts its partition again, which would pull the drive out
+    // from under the settings file still open on it.
+    std::vector<std::string> per_game;
     for (const char* config : {"sd:/apps/usbloader_gx/GXGameSettings.cfg", "usb:/apps/usbloader_gx/GXGameSettings.cfg"}) {
         FILE* file = std::fopen(config, "rb");
         if (!file) continue;
@@ -720,12 +724,20 @@ std::vector<std::string> emunand_manager_folders() {
             const bool whole_start = start;
             start = length > 0 && line[length - 1] == '\n';
             total += length;
-            if (!whole_start || std::strncmp(line, "game:", 5) != 0 || length < 11) continue;
+            if (!whole_start) continue;
+            // As the launch reads it (shared_nand_game_line): a UTF-8 BOM
+            // and leading blanks before "game:" are allowed.
+            const char* at = line;
+            if (std::strncmp(at, "\xEF\xBB\xBF", 3) == 0) at += 3;
+            while (*at == ' ' || *at == '\t') ++at;
+            if (std::strncmp(at, "game:", 5) != 0 || std::strlen(at) < 11) continue;
             std::string path;
-            if (shared_nand_game_line(line, std::string(line + 5, 6), path)) add(path, true);
+            if (shared_nand_game_line(line, std::string(at + 5, 6), path) && per_game.size() < kMaxFolders)
+                try_push_back(per_game, path);
         }
         std::fclose(file);
     }
+    for (const std::string& path : per_game) add(path, true);
     return folders;
 }
 
@@ -769,9 +781,17 @@ bool emunand_manager_list(const std::string& folder, std::vector<EmuNandTitle>& 
     }
     NandSession nand;
     u32 count = 0;
-    if (nand.open && ES_GetNumTitles(&count) >= 0 && count <= kMaxTitles) {
+    // The Wii's own titles only add the copy-to and copy-from choices: the
+    // emulated NAND is still worth showing without them, but the log says
+    // why those choices are missing.
+    if (!nand.open || ES_GetNumTitles(&count) < 0 || count > kMaxTitles) {
+        logf("Emulated NAND: the Wii's own titles could not be listed, so saves can't be copied to or from it now.\n");
+    } else {
         u64* ids = static_cast<u64*>(memalign(32, (count * sizeof(u64) + 31) & ~std::size_t(31)));
-        if (ids && ES_GetTitles(ids, count) >= 0) {
+        const bool listed = ids && ES_GetTitles(ids, count) >= 0;
+        if (!listed)
+            logf("Emulated NAND: the Wii's own titles could not be listed, so saves can't be copied to or from it now.\n");
+        if (listed) {
             for (u32 index = 0; index < count; ++index) {
                 if (!emunand_manageable_title(ids[index])) continue;
                 auto found = std::find_if(titles.begin(), titles.end(), [&](const EmuNandTitle& entry) { return entry.id == ids[index]; });
