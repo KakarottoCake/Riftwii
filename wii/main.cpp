@@ -525,7 +525,9 @@ int main() {
     // Another loader (USB Loader GX) starting a game through RiftWii:
     // no menu (docs/HEADLESS.md).
     riftwii::wii::startup::Mark(Step::ArgumentsRead);
-    if (std::vector<std::string> args; riftwii::wii::HeadlessArguments(args)) {
+    std::vector<std::string> headless_args;
+    riftwii::wii::HeadlessSource headless_source = riftwii::wii::HeadlessSource::Request;
+    if (riftwii::wii::HeadlessArguments(headless_args, headless_source)) {
         // A headless start has no log before its first IOS reload, so it
         // asks here; the menu and autorun ask once their logs are open.
         riftwii::wii::mem::DetectDolphin();
@@ -536,7 +538,7 @@ int main() {
         if (sd_mounted && riftwii::wii::Settings().usb_gecko_log == "on") riftwii::wii::GeckoStart();
         riftwii::wii::ConsoleStart(false);
         riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Console);
-        riftwii::wii::RunHeadless(args);
+        riftwii::wii::RunHeadless(headless_args, headless_source);
         riftwii::wii::logf("Press HOME, Start or RESET to exit.\n");
         riftwii::wii::WaitForExit();
         std::exit(0);

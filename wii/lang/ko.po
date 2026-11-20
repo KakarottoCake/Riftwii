@@ -2721,8 +2721,8 @@ msgstr "최대 {1}명"
 msgid "Pages at the sides"
 msgstr "양옆 페이지"
 
-msgid "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
-msgstr "채널: Wii 메뉴처럼 이전 페이지와 다음 페이지의 가장자리를 화면 양옆에 보여 줍니다. 가리키고 A를 누르면 그 페이지로 넘어갑니다."
+msgid "Channels and Covers: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
+msgstr "채널 및 커버: Wii 메뉴처럼 이전 페이지와 다음 페이지의 가장자리를 화면 양옆에 보여 줍니다. 가리키고 A를 누르면 그 페이지로 넘어갑니다."
 
 msgid "Could not save the tiles to the SD card."
 msgstr "타일을 SD 카드에 저장할 수 없습니다."
@@ -3653,6 +3653,12 @@ msgstr "뒷면"
 
 msgid "Front of the box"
 msgstr "앞면"
+
+msgid "Spin"
+msgstr "돌리기"
+
+msgid "The game's disc. Press A to spin it."
+msgstr "게임 디스크입니다. A로 돌려 보세요."
 
 msgid "Music file"
 msgstr "음악 파일"

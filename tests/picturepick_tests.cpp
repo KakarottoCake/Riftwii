@@ -138,42 +138,42 @@ void gametdb_covers() {
     EXPECT(picture_add_gametdb(list, "DNDA", "EN", PictureSource::GameTDB));
     EXPECT(picture_add_gametdb(list, "RMCE01", "US", PictureSource::GameTDB));  // the same URL again: kept once
     EXPECT(list.size() == 3);
-    EXPECT(list[0].url == "http://art.gametdb.com/wii/cover/US/RMCE01.png");
+    EXPECT(list[0].url == "https://art.gametdb.com/wii/cover/US/RMCE01.png");
     EXPECT(list[0].source == PictureSource::GameTDB);
-    EXPECT(list[1].url == "http://art.gametdb.com/wii/coverB/US/RMCE01.png");
+    EXPECT(list[1].url == "https://art.gametdb.com/wii/coverB/US/RMCE01.png");
     EXPECT(list[1].source == PictureSource::GameTDBSecond);
     EXPECT(!picture_add_gametdb(list, "../x", "US", PictureSource::GameTDB));
     EXPECT(!picture_add_gametdb(list, "RMCE01", "usa", PictureSource::GameTDB));
     EXPECT(!picture_add_gametdb(list, "rmce01", "US", PictureSource::GameTDB));
     EXPECT(list.size() == 3);
-    EXPECT(!picture_candidate_valid({"http://art.gametdb.com/wii/cover/US/../RMCE01.png", PictureSource::GameTDB}));
-    EXPECT(!picture_candidate_valid({"http://art.gametdb.com/wii/coverB/US/RMCE01.png", PictureSource::GameTDB}));
+    EXPECT(!picture_candidate_valid({"https://art.gametdb.com/wii/cover/US/../RMCE01.png", PictureSource::GameTDB}));
+    EXPECT(!picture_candidate_valid({"https://art.gametdb.com/wii/coverB/US/RMCE01.png", PictureSource::GameTDB}));
     EXPECT(!picture_candidate_valid({"http://evil.example/wii/cover/US/RMCE01.png", PictureSource::GameTDB}));
-    EXPECT(!picture_candidate_valid({"http://art.gametdb.com/wii/cover/US/RMCE01.png", PictureSource::Boxart}));
+    EXPECT(!picture_candidate_valid({"https://art.gametdb.com/wii/cover/US/RMCE01.png", PictureSource::Boxart}));
     EXPECT(picture_libretro_url(PictureSource::GameTDB, "Sega - Dreamcast").empty());
     // A mod tile's own entry: first set only, under its own caption.
     std::vector<PictureCandidate> mod;
     EXPECT(picture_add_gametdb(mod, "RMCP01", "EN", PictureSource::GameTDBMod));
-    EXPECT(mod.size() == 1 && mod[0].url == "http://art.gametdb.com/wii/cover/EN/RMCP01.png");
-    EXPECT(!picture_candidate_valid({"http://art.gametdb.com/wii/coverB/EN/RMCP01.png", PictureSource::GameTDBMod}));
+    EXPECT(mod.size() == 1 && mod[0].url == "https://art.gametdb.com/wii/cover/EN/RMCP01.png");
+    EXPECT(!picture_candidate_valid({"https://art.gametdb.com/wii/coverB/EN/RMCP01.png", PictureSource::GameTDBMod}));
     EXPECT(!picture_add_gametdb(mod, "RMCP01", "EN", PictureSource::Boxart));
     // GameTDB's third and fourth sets (cover2/, coverB2/), and the first and
     // second built as the automatic download builds them.
     EXPECT(picture_gametdb_url("RSBE01", "US", PictureSource::GameTDBThird) ==
-           "http://art.gametdb.com/wii/cover2/US/RSBE01.png");
+           "https://art.gametdb.com/wii/cover2/US/RSBE01.png");
     EXPECT(picture_gametdb_url("RSBE01", "US", PictureSource::GameTDBFourth) ==
-           "http://art.gametdb.com/wii/coverB2/US/RSBE01.png");
+           "https://art.gametdb.com/wii/coverB2/US/RSBE01.png");
     EXPECT(picture_gametdb_url("RSBE01", "US", PictureSource::GameTDB) == cover_url("US", "RSBE01", false));
     EXPECT(picture_gametdb_url("RSBE01", "US", PictureSource::GameTDBSecond) == cover_url("US", "RSBE01", true));
     EXPECT(picture_gametdb_url("RSBE01", "US", PictureSource::Title).empty());
     // GameTDB's Chinese regions have four letters; three or five are no region.
     EXPECT(picture_gametdb_url("RSBW01", "ZHTW", PictureSource::GameTDB) ==
-           "http://art.gametdb.com/wii/cover/ZHTW/RSBW01.png");
-    EXPECT(picture_candidate_valid({"http://art.gametdb.com/wii/coverB/ZHCN/RSBC01.png", PictureSource::GameTDBSecond}));
+           "https://art.gametdb.com/wii/cover/ZHTW/RSBW01.png");
+    EXPECT(picture_candidate_valid({"https://art.gametdb.com/wii/coverB/ZHCN/RSBC01.png", PictureSource::GameTDBSecond}));
     EXPECT(picture_gametdb_url("RSBE01", "USA", PictureSource::GameTDB).empty());
     EXPECT(picture_gametdb_url("RSBE01", "ZHTWX", PictureSource::GameTDB).empty());
-    EXPECT(!picture_candidate_valid({"http://art.gametdb.com/wii/cover2/US/RSBE01.png", PictureSource::GameTDBFourth}));
-    EXPECT(picture_candidate_valid({"http://art.gametdb.com/wii/coverB2/US/RSBE01.png", PictureSource::GameTDBFourth}));
+    EXPECT(!picture_candidate_valid({"https://art.gametdb.com/wii/cover2/US/RSBE01.png", PictureSource::GameTDBFourth}));
+    EXPECT(picture_candidate_valid({"https://art.gametdb.com/wii/coverB2/US/RSBE01.png", PictureSource::GameTDBFourth}));
     // The same picture in two GameTDB sets is shown once, the earlier kept;
     // across unrelated sources it stays.
     std::vector<PictureCandidate> sets;
