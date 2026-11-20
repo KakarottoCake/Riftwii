@@ -441,8 +441,8 @@ pressed too.
   online, with the server it would use), the controllers it needs and
   those it also takes, each marked *Connected* or *Not connected* when
   the Wii can tell, and its story. The details come from GameTDB's
-  database of every Wii game, `sd:/riftwii/wiitdb-<language>.zip` (about
-  2 MB, in the menu's language with English where there is no
+  database of every Wii game, `sd:/riftwii/wiitdb-all-<language>.zip` (about
+  3 MB, with WiiWare, GameCube and homebrew apps; in the menu's language with English where there is no
   translation): the first visit offers to download it, and a `wiitdb.xml`
   another loader left on the card is used when it is there. The first page opened reads
   it for all your games at once (a few seconds); after that they open at
