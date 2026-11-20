@@ -6169,7 +6169,9 @@ static void MenuEmulatedNandTitle(const std::string& folder, const riftwii::wii:
 	EmulatorRowsPage(FlatCapped(EmulatedNandTitleLabel(title), 32), rows, help, [&](int clicked, int) {
 		const auto action = actions[static_cast<std::size_t>(clicked)];
 		const bool changed = RunEmulatedNandAction(folder, action, title.id, rows[static_cast<std::size_t>(clicked)].label);
-		return changed && action == EmuNandAction::DeleteTitle;
+		// A deleted title, or a save copied in (the title now has more to
+		// offer): back to the folder page, which lists it afresh.
+		return changed && (action == EmuNandAction::DeleteTitle || action == EmuNandAction::SaveToEmulated);
 	});
 }
 

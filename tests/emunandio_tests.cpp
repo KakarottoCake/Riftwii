@@ -91,9 +91,12 @@ void save_transfers() {
     card_file(kData + "/save.bin", "incoming");
     card_file(kData + "/rw000000.tmp", "a game's own file, not a temporary copy");
     std::string error;
+    // An owner the mock never gives a new file: the published copy must
+    // keep the old file's.
+    nand_files[kData + "/save.bin"].owner = 0x2002;
     CHECK(emunand_manager_action(kRoot, EmuNandAction::SaveToWii, kTitle, error));
     CHECK(nand_files[kData + "/save.bin"].bytes == "incoming");
-    CHECK(nand_files[kData + "/save.bin"].owner == 0x1001);
+    CHECK(nand_files[kData + "/save.bin"].owner == 0x2002);
     CHECK(nand_files[kData + "/rw000000.tmp"].bytes == "a game's own file, not a temporary copy");
     CHECK(nand_files.count(kData + "/obsolete") == 0);
     CHECK(card_read("/riftwii-backups/00010001-57424d45/wii-save.bak0/save.bin") == "old save");

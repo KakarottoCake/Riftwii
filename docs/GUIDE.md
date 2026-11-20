@@ -2243,9 +2243,10 @@ written under a temporary name and renamed into place, but a whole save
 has several files: an interrupted or failed copy can leave only part of
 the new save installed. The backup stays in the emulated NAND folder, and
 `sd:/riftwii/session.log` records completed actions, backup locations and
-failures. To recover, copy the backup's contents back into the title's
-emulated `data` folder on a computer; the manager can then copy that save
-to the Wii again. Saves are limited to 4096 files and folders, eight folder
+failures. To recover, on a computer, keep the backup folder, empty the
+title's emulated `data` folder and copy the backup's contents into it,
+so no file from the cut-short copy stays behind; the manager can then
+copy that save to the Wii again. Saves are limited to 4096 files and folders, eight folder
 levels, 64 MiB per file and 512 MiB in total. Unsafe names and paths that
 the Wii cannot store are refused before copying.
 

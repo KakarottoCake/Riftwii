@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
@@ -240,8 +241,12 @@ bool make_directory(const Location& location, const Attributes& attributes) {
     if (kind != Kind::Missing) return false;
     if (!location.real) return make_card_dirs(location.path);
     const NandPath path(location.path);
-    return path.text[0] && ISFS_CreateDir(path.text, attributes.flags, attributes.owner_perm,
-        attributes.group_perm, attributes.other_perm) >= 0 && set_attributes(location.path, attributes);
+    if (!path.text[0] || ISFS_CreateDir(path.text, attributes.flags, attributes.owner_perm,
+        attributes.group_perm, attributes.other_perm) < 0) return false;
+    if (set_attributes(location.path, attributes)) return true;
+    // Not left behind with the wrong owner: a retry would take it as it is.
+    ISFS_Delete(path.text);
+    return false;
 }
 
 bool remove_one(const Location& location, bool directory) {
@@ -511,6 +516,17 @@ bool perform(const std::string& root, EmuNandAction action, std::uint64_t title,
     }
     if (action == EmuNandAction::DeleteTitle || action == EmuNandAction::DeleteSave) {
         const Location source{false, root + (action == EmuNandAction::DeleteTitle ? paths.title : paths.data)};
+        if (action == EmuNandAction::DeleteTitle) {
+            // An earlier delete that removed the title but not its ticket:
+            // with the title folder surely gone, the ticket file goes now.
+            std::uint64_t ignored = 0;
+            const Location ticket{false, root + paths.ticket};
+            if (inspect(source, ignored) == Kind::Missing && inspect(ticket, ignored) == Kind::File) {
+                if (remove_one(ticket, false)) return true;
+                error = "the title's ticket could not be removed";
+                return false;
+            }
+        }
         Tree tree;
         if (!scan_tree(source, "", 0, action == EmuNandAction::DeleteSave, title, tree, error)) return false;
         // Check the ticket before deleting the title, so a directory posing
@@ -568,11 +584,29 @@ bool perform(const std::string& root, EmuNandAction action, std::uint64_t title,
             error = "the destination save folder could not be read";
             return false;
         }
+        // FAT (the card) ignores case: SAVE.BIN and save.bin are one file
+        // there. The Wii's own memory doesn't.
+        const auto same_name = [&](const std::string& a, const std::string& b) {
+            if (destination.real) return a == b;
+            return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(), [](char x, char y) {
+                return std::tolower(static_cast<unsigned char>(x)) == std::tolower(static_cast<unsigned char>(y));
+            });
+        };
+        // Two incoming names that would be one file on the card: refused
+        // before anything is written.
+        for (std::size_t i = 0; i < incoming.nodes.size(); ++i) {
+            for (std::size_t j = i + 1; j < incoming.nodes.size(); ++j) {
+                if (same_name(incoming.nodes[i].relative, incoming.nodes[j].relative)) {
+                    error = "the save has two names the SD card can't tell apart";
+                    return false;
+                }
+            }
+        }
         // Fail before changing files if the two saves disagree about whether
         // a path is a file or a folder.
         for (const Node& old : previous.nodes) {
             const auto match = std::find_if(incoming.nodes.begin(), incoming.nodes.end(), [&](const Node& node) {
-                return old.relative == node.relative;
+                return same_name(old.relative, node.relative);
             });
             if (match != incoming.nodes.end() && match->directory != old.directory) {
                 error = "the saves use the same name for a file and a folder";
@@ -584,7 +618,7 @@ bool perform(const std::string& root, EmuNandAction action, std::uint64_t title,
         // only after all incoming files are published and a backup is safe.
         for (auto old = previous.nodes.rbegin(); old != previous.nodes.rend(); ++old) {
             const bool kept = std::any_of(incoming.nodes.begin(), incoming.nodes.end(), [&](const Node& node) {
-                return old->relative == node.relative;
+                return same_name(old->relative, node.relative);
             });
             if (!kept && !remove_one(child(destination, old->relative), old->directory)) {
                 error = "the save was copied, but an old file could not be removed";
@@ -724,7 +758,10 @@ std::vector<std::string> emunand_manager_folders() {
             const bool whole_start = start;
             start = length > 0 && line[length - 1] == '\n';
             total += length;
-            if (!whole_start) continue;
+            // Only a whole record: one that ends here (or at the file's
+            // end) and started at a line's start. A longer one, cut by the
+            // buffer, could give a shorter folder name than it has.
+            if (!whole_start || (!start && !std::feof(file))) continue;
             // As the launch reads it (shared_nand_game_line): a UTF-8 BOM
             // and leading blanks before "game:" are allowed.
             const char* at = line;
@@ -732,7 +769,9 @@ std::vector<std::string> emunand_manager_folders() {
             while (*at == ' ' || *at == '\t') ++at;
             if (std::strncmp(at, "game:", 5) != 0 || std::strlen(at) < 11) continue;
             std::string path;
-            if (shared_nand_game_line(line, std::string(at + 5, 6), path) && per_game.size() < kMaxFolders)
+            // Many games share a folder: each folder counts once.
+            if (shared_nand_game_line(line, std::string(at + 5, 6), path) && per_game.size() < kMaxFolders &&
+                std::find(per_game.begin(), per_game.end(), path) == per_game.end())
                 try_push_back(per_game, path);
         }
         std::fclose(file);
