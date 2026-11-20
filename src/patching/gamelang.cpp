@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2008 Nuke (GeckoOS for USB Gecko)
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/gamelang.hpp"
+#include "riftwii/byteorder.hpp"
 
 namespace riftwii {
 namespace {
@@ -14,9 +15,6 @@ constexpr std::uint32_t kPattern[3] = {0x7C600775, 0x40820010, 0x38000000};
 constexpr std::uint32_t kLoad = 0x88610008;  // lbz r3,8(r1)
 constexpr std::size_t kSearchWords = 64;     // the function is short
 
-std::uint32_t be32(const std::uint8_t* p) {
-    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
-}
 void put32(std::uint8_t* p, std::uint32_t v) {
     p[0] = static_cast<std::uint8_t>(v >> 24);
     p[1] = static_cast<std::uint8_t>(v >> 16);

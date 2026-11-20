@@ -5,14 +5,10 @@
 #include <algorithm>
 
 #include "riftwii/dol.hpp"
+#include "riftwii/byteorder.hpp"
 
 namespace riftwii {
 namespace {
-
-std::uint32_t read_be32(const std::uint8_t* p) {
-    return (static_cast<std::uint32_t>(p[0]) << 24) | (static_cast<std::uint32_t>(p[1]) << 16) |
-           (static_cast<std::uint32_t>(p[2]) << 8) | p[3];
-}
 
 void write_be32(std::uint8_t* p, std::uint32_t value) {
     p[0] = static_cast<std::uint8_t>(value >> 24);
@@ -35,13 +31,13 @@ std::vector<std::uint8_t> fill_return_stub(const std::uint8_t* image, std::size_
         error = "the return stub is missing or too short";
         return {};
     }
-    if (return_stub_kind(image) != ReturnStubKind::RiftWii || read_be32(image + RTSTUB_OFFSET_VERSION) != RTSTUB_VERSION) {
+    if (return_stub_kind(image) != ReturnStubKind::RiftWii || be32(image + RTSTUB_OFFSET_VERSION) != RTSTUB_VERSION) {
         error = "the return stub is not the one this RiftWii expects";
         return {};
     }
     // The size the stub was built with: a different one means the image
     // was cut short or came from another build.
-    if (read_be32(image + RTSTUB_OFFSET_SIZE) != size || RTSTUB_BASE + size > RTSTUB_LIMIT) {
+    if (be32(image + RTSTUB_OFFSET_SIZE) != size || RTSTUB_BASE + size > RTSTUB_LIMIT) {
         error = "the return stub's size does not match its header";
         return {};
     }
@@ -65,11 +61,11 @@ std::vector<std::uint8_t> fill_return_stub(const std::uint8_t* image, std::size_
 
 ReturnStubKind return_stub_kind(const std::uint8_t* first_bytes) {
     if (first_bytes == nullptr) return ReturnStubKind::None;
-    if (read_be32(first_bytes + RTSTUB_OFFSET_HBC_MAGIC) != RTSTUB_HBC_MAGIC_STUB ||
-        read_be32(first_bytes + RTSTUB_OFFSET_HBC_MAGIC + 4) != RTSTUB_HBC_MAGIC_HAXX) {
+    if (be32(first_bytes + RTSTUB_OFFSET_HBC_MAGIC) != RTSTUB_HBC_MAGIC_STUB ||
+        be32(first_bytes + RTSTUB_OFFSET_HBC_MAGIC + 4) != RTSTUB_HBC_MAGIC_HAXX) {
         return ReturnStubKind::None;
     }
-    return read_be32(first_bytes + RTSTUB_OFFSET_MAGIC) == RTSTUB_MAGIC ? ReturnStubKind::RiftWii
+    return be32(first_bytes + RTSTUB_OFFSET_MAGIC) == RTSTUB_MAGIC ? ReturnStubKind::RiftWii
                                                                         : ReturnStubKind::HomebrewChannel;
 }
 

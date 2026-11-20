@@ -166,6 +166,24 @@ if(BUILD_TESTING)
     file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/wadinstall-test")
     add_test(NAME wadinstall COMMAND wadinstall_tests)
     set_tests_properties(wadinstall PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/wadinstall-test")
+    # A player's file saved whole or not at all (ReplaceWholeFile), with each
+    # rename failing on purpose where the linker can wrap it.
+    add_executable(textfile_tests tests/textfile_tests.cpp wii/core/textfile.cpp)
+    target_include_directories(textfile_tests PRIVATE tests/wii_mock wii/core)
+    target_link_libraries(textfile_tests PRIVATE riftwii)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux" OR CYGWIN OR MSYS OR MINGW)
+        # fread too, to make a read stop short. No _FORTIFY_SOURCE, which at
+        # -O2 may route fread through glibc's checked copy past the wrap.
+        target_link_options(textfile_tests PRIVATE -Wl,--wrap=rename,--wrap=fread)
+        target_compile_definitions(textfile_tests PRIVATE RIFTWII_TEST_WRAP_RENAME)
+        target_compile_options(textfile_tests PRIVATE -U_FORTIFY_SOURCE)
+    endif()
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(textfile_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/textfile-test")
+    add_test(NAME textfile COMMAND textfile_tests)
+    set_tests_properties(textfile PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/textfile-test")
     # The real drive-scan lifecycle, with workers and network jobs stepped by the test.
     add_executable(homescan_tests tests/homescan_tests.cpp wii/menu/homescan.cpp)
     target_include_directories(homescan_tests PRIVATE

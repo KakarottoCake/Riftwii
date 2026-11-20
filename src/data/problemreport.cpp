@@ -38,12 +38,7 @@ std::string shorten(const std::string& text, std::size_t keep, std::size_t& cut)
     return text.substr(0, head) + "\n[... " + std::to_string(cut) + " bytes cut ...]\n" + text.substr(tail);
 }
 
-std::string trim(const std::string& s) {
-    std::size_t a = 0, b = s.size();
-    while (a < b && (s[a] == ' ' || s[a] == '\t' || s[a] == '\r' || s[a] == '\n')) ++a;
-    while (b > a && (s[b - 1] == ' ' || s[b - 1] == '\t' || s[b - 1] == '\r' || s[b - 1] == '\n')) --b;
-    return s.substr(a, b - a);
-}
+std::string trim(const std::string& s) { return trim_text(s, " \t\r\n"); }
 
 }  // namespace
 

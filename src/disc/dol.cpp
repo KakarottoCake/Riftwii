@@ -1,14 +1,10 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/dol.hpp"
+#include "riftwii/byteorder.hpp"
 
 namespace riftwii {
 namespace {
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (static_cast<std::uint32_t>(p[0]) << 24) | (static_cast<std::uint32_t>(p[1]) << 16) |
-           (static_cast<std::uint32_t>(p[2]) << 8) | p[3];
-}
 
 bool in_ram(std::uint32_t start, std::uint64_t length) {
     const std::uint64_t end = static_cast<std::uint64_t>(start) + length;
@@ -86,8 +82,6 @@ bool parse_dol_header(const std::uint8_t* bytes, std::size_t length, DolHeader& 
 }
 
 namespace {
-
-std::uint16_t be16(const std::uint8_t* p) { return static_cast<std::uint16_t>((p[0] << 8) | p[1]); }
 
 // A load address as the cached one the Wii's CPU runs from: physical
 // (0x00000000, 0x10000000) and uncached (0xC0000000, 0xD0000000)

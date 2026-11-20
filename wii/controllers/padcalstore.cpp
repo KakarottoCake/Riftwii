@@ -21,14 +21,15 @@ constexpr std::size_t kPadCalibrationCap = 16u << 10;
 PadCalibrations LoadPadCalibrations() {
     PadCalibrations calibrations;
     std::string text;
-    if (ReadTextFile(kPadCalibrationPath, text, kPadCalibrationCap)) calibrations.parse(text);
+    if (ReadReplacedFile(kPadCalibrationPath, text, kPadCalibrationCap)) calibrations.parse(text);
     return calibrations;
 }
 
 bool SavePadCalibrations(const PadCalibrations& calibrations) {
     mkdir("sd:/riftwii", 0777);
     const std::string text = calibrations.serialize();
-    const bool saved = WriteWholeFile(kPadCalibrationPath, text.data(), text.size());
+    // Replaced, not overwritten: a power cut halfway keeps the old calibration.
+    const bool saved = ReplaceWholeFile(kPadCalibrationPath, text.data(), text.size());
     logf("GameCube controller calibration: %u controller(s) %s %s\n",
          static_cast<unsigned>(calibrations.entries().size()), saved ? "saved to" : "could not be saved to",
          kPadCalibrationPath);

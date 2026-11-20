@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/fat32.hpp"
+#include "riftwii/byteorder.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -24,12 +25,6 @@ constexpr std::uint8_t kAttrReadOnly = 0x01, kAttrHidden = 0x02, kAttrSystem = 0
                        kAttrDirectory = 0x10;
 constexpr std::uint8_t kAttrLfn = kAttrReadOnly | kAttrHidden | kAttrSystem | kAttrLabel;
 constexpr std::uint8_t kAttrMask = 0x3F;
-
-std::uint16_t le16(const std::uint8_t* p) { return static_cast<std::uint16_t>(p[0] | (p[1] << 8)); }
-std::uint32_t le32(const std::uint8_t* p) {
-    return static_cast<std::uint32_t>(p[0]) | (static_cast<std::uint32_t>(p[1]) << 8) |
-           (static_cast<std::uint32_t>(p[2]) << 16) | (static_cast<std::uint32_t>(p[3]) << 24);
-}
 
 bool ascii_ieq(const std::string& a, const std::string& b) {
     if (a.size() != b.size()) return false;

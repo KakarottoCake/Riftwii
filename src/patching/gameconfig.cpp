@@ -9,12 +9,7 @@
 namespace riftwii {
 namespace {
 
-std::string trim(const std::string& s) {
-    std::size_t a = 0, b = s.size();
-    while (a < b && std::isspace(static_cast<unsigned char>(s[a]))) ++a;
-    while (b > a && std::isspace(static_cast<unsigned char>(s[b - 1]))) --b;
-    return s.substr(a, b - a);
-}
+std::string trim(const std::string& s) { return trim_text(s); }
 
 std::string lower(std::string s) {
     for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));

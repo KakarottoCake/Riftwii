@@ -1,6 +1,15 @@
 /* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /*
+ * FROZEN COPY, for tests only. This is runtime/rtfat.c from before the save
+ * engine's rewrite. rtfat_differential (CMakeLists.txt) runs the same
+ * scenarios through it and through today's engine and requires the same
+ * card I/O, which proves the rewrite kept every save byte for byte.
+ * Never edit it to make a deliberate change pass: when the engine is meant
+ * to issue different I/O, or once the rewrite has shipped in two releases
+ * with no save problem traced to it, delete this file, reference/rtfs.c and
+ * the two *_differential tests instead.
+ *
  * Resumable FAT32 engine (see rtfat.h). Every state function below either
  * changes op->state and returns RT_CONT (run the next state now), issues
  * a transfer and returns RT_IO (come back when it has happened) or ends

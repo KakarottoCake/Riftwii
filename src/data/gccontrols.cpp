@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/gccontrols.hpp"
+#include "riftwii/textlines.hpp"
 
 #include <cstring>
 
@@ -85,13 +86,7 @@ std::string lower(const std::string& text) {
 
 bool is_space(char c) { return c == ' ' || c == '\t' || c == '\r'; }
 
-std::string trim(const std::string& text) {
-    std::size_t begin = 0;
-    std::size_t end = text.size();
-    while (begin < end && is_space(text[begin])) ++begin;
-    while (end > begin && is_space(text[end - 1])) --end;
-    return text.substr(begin, end - begin);
-}
+std::string trim(const std::string& text) { return trim_text(text, " \t\r"); }
 
 // A name from the file as it may go into the log: printable ASCII only,
 // and not too long, so a file of junk cannot fill the log with it.

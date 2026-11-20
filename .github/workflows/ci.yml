@@ -34,7 +34,7 @@ jobs:
     # x86-64 Linux: the low-memory suites (rtfs, rtfat, hook, rvz) need
     # buffers below 4 GiB (MAP_32BIT), which macOS and ARM don't give.
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30  # two builds: plain and -O2
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
       # The runner image may already have both; and when Ubuntu's package
@@ -50,8 +50,7 @@ jobs:
             python3 -m pip install --user --break-system-packages ninja
             echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           fi
-      # As docs/DEVELOPING.md builds it: no build type. With -O2, GCC 13
-      # warns about a memmove in src/patching/wfcpatch.cpp it can't prove safe.
+      # As docs/DEVELOPING.md builds it: no build type.
       - name: Configure
         run: cmake -S . -B build-host -G Ninja
       - name: Build
@@ -69,6 +68,16 @@ jobs:
             echo "::error::A test found no memory below 4 GiB and skipped. The low-memory tests did not run."
             exit 1
           fi
+      # The same suites built with -O2. The Wii build is optimised (-Os, some
+      # files -O2), so a bug that only shows once the compiler optimises
+      # (undefined behaviour, a warning only -O2 finds) fails here, not on a
+      # console. No build type, so the tests' assert()s stay on.
+      - name: Configure (optimised)
+        run: cmake -S . -B build-o2 -G Ninja -DCMAKE_C_FLAGS=-O2 -DCMAKE_CXX_FLAGS=-O2
+      - name: Build (optimised)
+        run: cmake --build build-o2
+      - name: Test (optimised)
+        run: ctest --test-dir build-o2 --output-on-failure -j4
 
   host-sanitizers:
     name: Host tests (sanitizers)
@@ -325,5 +334,25 @@ jobs:
           python3 tools/lang_source.py
           git diff --exit-code -- wii/lang || {
             echo "::error::wii/lang/*.po differ from tools/lang_source.py. Run python3 tools/lang_source.py and commit the result."
+            exit 1
+          }
+
+  generated-tables:
+    name: Generated tables
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      # Committed files a script writes from inputs in the repository: each is
+      # written again here and must come out the same, so neither the table
+      # nor its script can change without the other. (The controller button
+      # pictures, src/art/inputicons_data.cpp, are left out: they are scaled
+      # with Pillow, whose output may change between its versions.)
+      - name: Tables match their scripts
+        run: |
+          python3 tools/make_sjis_table.py src/fs/sjis_table.inc
+          python3 tools/make_builtin_pads.py
+          git diff --exit-code -- src/fs/sjis_table.inc src/data/builtinpads_data.cpp || {
+            echo "::error::A generated table differs from its script. Run the script named at the top of the file and commit the result."
             exit 1
           }

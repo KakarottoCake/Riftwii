@@ -21,23 +21,14 @@ namespace {
 ProfileList g_profiles;
 bool g_profilesRead = false;
 
-// Written whole beside it, then put in its place, as settings.txt.
+// Written whole beside it, then put in its place, as settings.txt
+// (ReplaceWholeFile). It used to remove the old list before the rename, so a
+// failed rename or a power cut there lost every tile.
 bool SaveProfiles(std::string& error) {
     mkdir("sd:/riftwii", 0777);
-    const std::string temp = std::string(kProfilesPath) + ".part";
-    FILE* f = std::fopen(temp.c_str(), "wb");
-    bool ok = f != nullptr;
-    if (f) {
-        const std::string text = g_profiles.serialize();
-        ok = std::fwrite(text.data(), 1, text.size(), f) == text.size();
-        ok = std::fclose(f) == 0 && ok;
-    }
-    if (ok) {
-        std::remove(kProfilesPath);
-        ok = std::rename(temp.c_str(), kProfilesPath) == 0;
-    }
+    const std::string text = g_profiles.serialize();
+    const bool ok = ReplaceWholeFile(kProfilesPath, text.data(), text.size());
     if (!ok) {
-        std::remove(temp.c_str());
         error = tr("Could not save the tiles to the SD card.");
         logf("Home tiles: cannot write %s\n", kProfilesPath);
     }
@@ -67,7 +58,7 @@ ProfileList& Profiles() {
     if (!g_profilesRead) {
         g_profilesRead = true;
         std::string text;
-        if (ReadTextFile(kProfilesPath, text, kMaxProfilesFile)) g_profiles.parse(text);
+        if (ReadReplacedFile(kProfilesPath, text, kMaxProfilesFile)) g_profiles.parse(text);
         if (!g_profiles.all().empty())
             logf("Home tiles: %u read from %s\n", static_cast<unsigned>(g_profiles.all().size()), kProfilesPath);
     }
