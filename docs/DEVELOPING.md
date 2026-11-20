@@ -131,7 +131,8 @@ Two scripts on the card drive a run without hands on a controller:
   build must act like the release one, so a test that needs the release
   build's room must not pass on the test build's extra: use the artificial
   limits below (`test_limits.txt`) to hold the memory back. CI builds both.
-- `sd:/riftwii/guiscript.txt` plays input into the menu and saves
+- `sd:/riftwii/guiscript.txt` (test builds only, like `autorun.txt`: a
+  release build logs that it ignored the file) plays input into the menu and saves
   screenshots (`wait`, `point`, `nopoint`, `press`, `hold`, `release`,
   `glide`, `shot`, `finalshot`, `slowmo <factor>` to stretch every
   transition for frame-by-frame screenshots, and `failnext` and `crash`
@@ -149,7 +150,16 @@ Two scripts on the card drive a run without hands on a controller:
   next heartbeat, so their timestamp and live SI registers describe that
   later sample rather than the triggering PADRead. Without `trace`, a hang
   has no saved heartbeat history, and a normal exit has no saved Bluetooth
-  history; runtime counters remain in RAM. `press` (presses on
+  history; runtime counters remain in RAM. The switches that act for the
+  player work only in the test build (`make -f Makefile.wii TEST=1`, which
+  builds the plugins with `RT_TEST_BUILD`); a release build names them in
+  `boot.log` and ignores them, so a file left from a test run or dropped by a
+  pack's zip cannot press buttons, crash or restart a game. These are
+  `press`, `leave`, `crash`, `crashblack`, `streamonly`, `rumbletest`,
+  `reset`, `exec` and `discchange`, beside `fakeremote` and `fakepro`.
+  The rest (`trace`, `sd_slow`, `nowiden`, `keeparam`, `novihook`,
+  `nomotor`, `nosisample`, `handover480p`, `handover480i`, `avekeep`) work
+  in both builds, for testers' runs on a Wii. `press` (presses on
   port 1), `leave` (holds the way back), `crash` and `crashblack` (a
   crash on purpose, also on a blanked screen), `streamonly` (disc music
   alone), `nowiden` (16:9's hook without the widening), `keeparam` (ARAM

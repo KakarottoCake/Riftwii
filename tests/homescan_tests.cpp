@@ -24,6 +24,11 @@ int usb_reads = 0;
 // Counts calls into ProbeSdWrite, not actual probe I/O runs: the real helper
 // guard prevents repeat I/O, but this mock still counts every scan call.
 int probe_entries_into_probe = 0;
+// The pack catalogs asked for: one for the SD card's part (no earlier
+// one), then one for the USB drive's part, given the card's.
+int pack_catalogs_read = 0;
+int pack_catalogs_given_earlier = 0;
+bool earlier_catalog_was_the_cards = true;
 bool fail_worker = false;
 bool worker_finished = false;
 void* (*worker_entry)(void*) = nullptr;
@@ -111,7 +116,22 @@ bool scan_usb_games(UsbCatalog& out, std::string&) {
 bool list_nand_channels(std::vector<NandChannel>&, std::string&, bool) { return true; }
 bool list_emu_channels(const std::string&, std::vector<NandChannel>&, std::string&, bool) { return true; }
 SharedNandLookup look_up_channel_nand() { return {}; }
-PackageCatalog ReadPackageCatalog(PackIndex*) { return {}; }
+PackageCatalog ReadPackageCatalog(PackIndex*, const PackageCatalog* earlier) {
+    ++pack_catalogs_read;
+    PackageCatalog catalog;
+    catalog.ready = true;
+    if (earlier) {
+        // The USB drive's part: the card's catalog, read just before.
+        ++pack_catalogs_given_earlier;
+        earlier_catalog_was_the_cards = earlier_catalog_was_the_cards && earlier->ready &&
+                                        earlier->files.size() == 1 && earlier->files[0].file == "card.xml";
+        catalog.files.push_back({"card.xml", "sd:/riivolution/card.xml", "", false});
+        catalog.files.push_back({"drive.xml @ USB", "usb:/riivolution/drive.xml", "", false});
+    } else {
+        catalog.files.push_back({"card.xml", "sd:/riivolution/card.xml", "", false});
+    }
+    return catalog;
+}
 void ScanEmulators(EmulatorCatalog&) {}
 unsigned list_wad_channels(bool, std::vector<NandChannel>&) { return 0; }
 
@@ -161,9 +181,19 @@ int main() {
     EXPECT(DriveScanFinished());
     EXPECT(TakeSdScan(part));
     EXPECT(part.catalog.status == "new SD result");
+    // The card's pack catalog stays with the scan for the USB drive's part
+    // (its packs are read once a look): Home is handed one that is not
+    // ready, and the whole catalog with the drive's part.
+    EXPECT(!part.package_catalog.ready);
+    EXPECT(part.package_catalog.files.empty());
     EXPECT(!TakeSdScan(part));
     EXPECT(TakeUsbScan(part));
     EXPECT(part.catalog.status == "new USB result");
+    EXPECT(part.package_catalog.ready);
+    EXPECT(part.package_catalog.files.size() == 2);
+    EXPECT(pack_catalogs_read == 2);
+    EXPECT(pack_catalogs_given_earlier == 1);
+    EXPECT(earlier_catalog_was_the_cards);
     EXPECT(!TakeUsbScan(part));
     WaitDriveScan();
     EXPECT(worker_joins == 1);
@@ -203,6 +233,10 @@ int main() {
     EXPECT(worker_joins == 3);
     EXPECT(sd_reads == 4);
     EXPECT(usb_reads == 4);
+    // Every look: the card's packs once, then all of them given the card's.
+    EXPECT(pack_catalogs_read == 8);
+    EXPECT(pack_catalogs_given_earlier == 4);
+    EXPECT(earlier_catalog_was_the_cards);
     EXPECT(probe_entries_into_probe == 4);
     return failures == 0 ? 0 : 1;
 }

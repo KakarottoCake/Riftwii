@@ -404,7 +404,12 @@ bool Fat32Volume::chain(std::uint32_t first_cluster, std::vector<Fragment>& out,
 bool Fat32Volume::walk_directory(std::uint32_t directory_cluster,
                                  const std::function<bool(const Fat32Entry&, bool& stop)>& visit,
                                  std::string& error) const {
-    // One read per cluster rather than per sector.
+    // One read per cluster rather than per sector, but the first cluster's
+    // head on its own (kDirHeadBlocks): a game's folder holds a file or two,
+    // which end in the cluster's first block, and a scan that read the whole
+    // cluster for each of them (32 or 64 KiB on a big card or drive) read
+    // mostly empty blocks, once per game. The rest of the cluster is read
+    // only when the entries go on past the head.
     std::vector<std::uint8_t> block(static_cast<std::size_t>(geo_.cluster_bytes()));
     std::vector<std::uint16_t> lfn;
     std::uint32_t lfn_expected = 0;  // next sequence number expected, 0 = none pending
@@ -419,20 +424,28 @@ bool Fat32Volume::walk_directory(std::uint32_t directory_cluster,
     std::uint32_t tortoise = directory_cluster;
     std::uint64_t power = 1, steps_since_reset = 0;
     std::uint32_t entries_seen = 0;
+    bool first_cluster = true;
     for (;;) {
         if (cluster < 2 || cluster > geo_.cluster_count + 1) {
             error = "directory chain leaves the volume at cluster " + std::to_string(cluster);
             return false;
         }
-        {
-            const std::uint64_t lba = geo_.cluster_lba(cluster);
-            const std::uint32_t blocks = geo_.sectors_per_cluster * geo_.blocks_per_sector();
-            if (!reader_(lba, blocks, block.data())) {
+        const std::uint64_t cluster_lba = geo_.cluster_lba(cluster);
+        const std::uint32_t cluster_blocks = geo_.sectors_per_cluster * geo_.blocks_per_sector();
+        const std::uint32_t head_blocks = first_cluster ? std::min(kDirHeadBlocks, cluster_blocks) : cluster_blocks;
+        first_cluster = false;
+        for (std::uint32_t blocks_done = 0; blocks_done < cluster_blocks;) {
+            const std::uint32_t blocks = blocks_done == 0 ? head_blocks : cluster_blocks - blocks_done;
+            const std::uint64_t lba = cluster_lba + blocks_done;
+            std::uint8_t* piece = block.data() + static_cast<std::size_t>(blocks_done) * kFatBlockBytes;
+            if (!reader_(lba, blocks, piece)) {
                 error = "cannot read directory blocks " + std::to_string(lba) + "+" + std::to_string(blocks);
                 return false;
             }
-            for (std::size_t off = 0; off + kEntryBytes <= block.size(); off += kEntryBytes) {
-                const std::uint8_t* e = block.data() + off;
+            blocks_done += blocks;
+            const std::size_t piece_bytes = static_cast<std::size_t>(blocks) * kFatBlockBytes;
+            for (std::size_t off = 0; off + kEntryBytes <= piece_bytes; off += kEntryBytes) {
+                const std::uint8_t* e = piece + off;
                 if (e[0] == 0x00) {
                     error.clear();
                     return true;  // end of directory
