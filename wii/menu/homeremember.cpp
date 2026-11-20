@@ -75,8 +75,13 @@ bool ShowRememberedGames(ImageCatalog& sd, ImageCatalog& usb, PackIndex& packs) 
         // Not opened, and not to be: the scan's own entry replaces this
         // one before anything is started from it.
         game.checked = false;
+        // Up to kHomeListMaxGames, from a file on the card: a heap that
+        // cannot hold them starts with Home empty, as without a list.
+        if (!try_push_back((remembered.usb ? remembered_usb : remembered_sd).games, std::move(game))) {
+            logf("Home: there is not enough memory to show the games found at the last start\n");
+            return false;
+        }
         if (remembered.has_mods) remembered_packs.add_game(remembered.id);
-        (remembered.usb ? remembered_usb : remembered_sd).games.push_back(std::move(game));
     }
     if (remembered_sd.games.empty() && remembered_usb.games.empty()) return false;
     logf("Home: showing the %u SD and %u USB game(s) found at the last start (%s) while the drives are read\n",

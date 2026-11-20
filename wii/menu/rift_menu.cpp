@@ -5641,6 +5641,15 @@ static void TakeSdScanPart(FrontendState& state, riftwii::wii::DriveScanPart& pa
 		SetHomeNotice(tr("Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons."));
 	state.package_catalog = std::move(part.package_catalog);
 	state.prepared_choices = riftwii::wii::PreparedGameChoices{};
+	// The SD part's index has the card's and the network's packs only: the
+	// USB drive is read (and mounted) by the USB part. The USB games Home
+	// shows until then (remembered from the last start, or the last scan)
+	// keep the mods they had, or they would drop out of the Mods view for
+	// as long as a big drive takes to read. The USB part's full index
+	// replaces this one.
+	for (const riftwii::wii::ImageGame& game : state.usb_catalog.games) {
+		if (g_packs.has_packs(game.id) && !part.packs.has_packs(game.id)) part.packs.add_game(game.id);
+	}
 	g_packs = std::move(part.packs);
 	g_sdScanOk = part.ok;
 	if (g_renameAfterScan) riftwii::wii::RenameGames(state.sd_catalog);
