@@ -4,6 +4,7 @@
 #include "launchrun.hpp"
 #include "launchsession.hpp"
 #include "d2xsave.hpp"
+#include "d2xsd.hpp"
 #include "progress.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/ctgpconfig.hpp"
@@ -12,11 +13,14 @@
 #include <fat.h>
 #include <gccore.h>
 #include <ogc/system.h>
+#include <ogc/usbstorage.h>
 #include <strings.h>
 #include <sys/stat.h>
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <algorithm>
 
 #include "boot.hpp"
 #include "channel.hpp"
@@ -178,6 +182,74 @@ bool LoadSdVirtualFile(const OpenedPartition& partition, const std::string& disc
 }
 
 
+bool TestChannelPartitionLayout(std::string& error) {
+    const std::string path = "sd:/riftwii/channel-layout-test.bin";
+    for (std::uint32_t count : {1u, 2u}) {
+        std::array<std::uint8_t, 512> original = {};
+        auto put = [&](unsigned at, std::uint32_t value) {
+            for (unsigned i = 0; i < 4; ++i) original[at + i] = static_cast<std::uint8_t>(value >> (24 - i * 8));
+        };
+        put(0, count);
+        put(4, 0x40020 / 4);
+        put(0x20, 0x50000 / 4);
+        if (count == 2) {
+            put(0x28, 0x60000 / 4);
+            put(0x2c, 2);
+        }
+        if (!WriteWholeFile(path, original.data(), original.size())) {
+            error = "the partition-layout test fixture could not be written";
+            return false;
+        }
+        std::uint64_t bytes = 0;
+        std::vector<Fragment> file;
+        if (!sd_file_pieces(path, bytes, file, error) || bytes != 512 || file.empty() ||
+            file.front().sector > 0xffffffffu) return false;
+        ImageGame game;
+        game.device = ImageDevice::Sd;
+        game.checked = true;
+        game.fragments.size = 2048;
+        game.fragments.num = 1;
+        game.fragments.entries.push_back({512, static_cast<std::uint32_t>(file.front().sector), 1});
+        if (!prepare_channel_partition_layout(game, error)) return false;
+        std::array<std::uint8_t, 512> expected = original;
+        if (count == 1) {
+            expected[3] = 2;
+            std::memcpy(expected.data() + 0x28, original.data() + 0x20, 8);
+        } else {
+            std::memcpy(expected.data() + 0x20, original.data() + 0x28, 8);
+            std::memcpy(expected.data() + 0x28, original.data() + 0x20, 8);
+        }
+        std::array<std::uint8_t, 512> actual ATTRIBUTE_ALIGN(32);
+        std::array<std::uint8_t, 512> source ATTRIBUTE_ALIGN(32);
+        const bool mapped = game.fragments.entries.size() == 1 && game.fragments.entries.front().offset == 512 &&
+                            game.fragments.entries.front().count == 1;
+        if (!mapped || !sd_interface()->readSectors(game.fragments.entries.front().sector, 1, actual.data()) ||
+            actual != expected || !sd_interface()->readSectors(static_cast<sec_t>(file.front().sector), 1, source.data()) ||
+            source != original) {
+            error = "the partition-layout test did not preserve the source or map the replacement header";
+            return false;
+        }
+        logf("Partition-layout test: PASS for %u original partition(s); the mapped header is correct and the source is unchanged\n", count);
+    }
+    ImageGame usb_dvd;
+    usb_dvd.device = ImageDevice::Usb;
+    usb_dvd.checked = true;
+    usb_dvd.fragments.size = 4096;
+    usb_dvd.fragments.num = 1;
+    usb_dvd.fragments.entries.push_back({0, 0, 4096});
+    const u32 previous_sector_bytes = __io_usbstorage_sector_size;
+    __io_usbstorage_sector_size = 2048;
+    const bool accepted = prepare_channel_partition_layout(usb_dvd, error);
+    __io_usbstorage_sector_size = previous_sector_bytes;
+    if (accepted || error != "the channel's replacement disc header needs 512-byte USB sectors") {
+        error = "the partition-layout test did not reject 2048-byte USB sectors before reading";
+        return false;
+    }
+    logf("Partition-layout test: PASS for a USB DVD; 2048-byte sectors are rejected before reading\n");
+    error.clear();
+    return true;
+}
+
 }  // namespace
 
 bool AutorunPresent() {
@@ -240,7 +312,9 @@ void RunAutorun() {
         words.next(cmd);
         logf("> %s\n", line.c_str());
         bool ok = true;
-        if (cmd == "usb") {
+        if (cmd == "test_channel_layout") {
+            ok = TestChannelPartitionLayout(error);
+        } else if (cmd == "usb") {
             std::string wanted; int slot=0; words.next(wanted); words.next(slot);
             UsbCatalog catalog; std::string scan_error;
             if (wanted.empty() || !scan_usb_games(catalog, scan_error)) { ok=false; error=wanted.empty()?"usb needs a path or ID6":scan_error; }

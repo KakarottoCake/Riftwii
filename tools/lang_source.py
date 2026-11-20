@@ -2202,7 +2202,7 @@ T = {
     "Could not read them: {1}": ("No se pudieron leer: {1}", "読み込めませんでした：{1}", "Não foi possível lê-los: {1}", "Impossibile leggerli: {1}"),
     "No game details yet": ("Aún no hay datos de los juegos", "ゲーム情報はまだありません", "Ainda não há dados dos jogos", "Ancora nessun dato dei giochi"),
     "Download game details?": ("¿Descargar los datos de los juegos?", "ゲーム情報をダウンロードしますか？", "Baixar os dados dos jogos?", "Scaricare i dati dei giochi?"),
-    "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?": ("Vienen de la base de datos de GameTDB con todos los juegos de Wii: unos 2 MB, guardados en la tarjeta SD. ¿Descargarla ahora?", "GameTDBの全Wiiゲームのデータベースから取得します（約2 MB、SDカードに保存）。今すぐダウンロードしますか？", "Vêm da base de dados do GameTDB com todos os jogos de Wii: cerca de 2 MB, guardados no cartão SD. Baixar agora?", "Provengono dal database di GameTDB con tutti i giochi Wii: circa 2 MB, salvati sulla scheda SD. Scaricarlo ora?"),
+    "They come from GameTDB's database of every Wii game: about 3 MB, kept on the SD card. Download it now?": ("Vienen de la base de datos de GameTDB con todos los juegos de Wii: unos 3 MB, guardados en la tarjeta SD. ¿Descargarla ahora?", "GameTDBの全Wiiゲームのデータベースから取得します（約3 MB、SDカードに保存）。今すぐダウンロードしますか？", "Vêm da base de dados do GameTDB com todos os jogos de Wii: cerca de 3 MB, guardados no cartão SD. Baixar agora?", "Provengono dal database di GameTDB con tutti i giochi Wii: circa 3 MB, salvati sulla scheda SD. Scaricarlo ora?"),
     "Players": ("Jugadores", "人数", "Jogadores", "Giocatori"),
     "1 player": ("1 jugador", "1人", "1 jogador", "1 giocatore"),
     "1 to {1} players": ("De 1 a {1} jugadores", "1～{1}人", "De 1 a {1} jogadores", "Da 1 a {1} giocatori"),
@@ -2245,11 +2245,11 @@ T = {
         "左右のページ",
         "Páginas nas laterais",
         "Pagine ai lati"),
-    "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.": (
-        "Canales: los bordes de la página anterior y de la siguiente a los lados de la pantalla, como en el Menú de Wii. Apunta a uno y pulsa A para pasar a esa página.",
-        "チャンネル: 前と次のページの端を、Wiiメニューのように画面の左右に表示します。そこを指してAを押すと、そのページに移ります。",
-        "Canais: as bordas da página anterior e da próxima nas laterais da tela, como no Menu Wii. Aponte para uma e aperte A para ir a essa página.",
-        "Canali: i bordi della pagina precedente e di quella successiva ai lati dello schermo, come nel Menu Wii. Punta su uno e premi A per passare a quella pagina."),
+    "Channels and Covers: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.": (
+        "Canales y portadas: los bordes de la página anterior y de la siguiente a los lados de la pantalla, como en el Menú de Wii. Apunta a uno y pulsa A para pasar a esa página.",
+        "チャンネルとパッケージ: 前と次のページの端を、Wiiメニューのように画面の左右に表示します。そこを指してAを押すと、そのページに移ります。",
+        "Canais e capas: as bordas da página anterior e da próxima nas laterais da tela, como no Menu Wii. Aponte para uma e aperte A para ir a essa página.",
+        "Canali e copertine: i bordi della pagina precedente e di quella successiva ai lati dello schermo, come nel Menu Wii. Punta su uno e premi A per passare a quella pagina."),
     # A game's extra Home tiles, each with its own mods (riftwii/profiles.hpp).
     "Could not save the tiles to the SD card.": (
         "No se pudieron guardar las casillas en la tarjeta SD.",
@@ -4162,8 +4162,8 @@ KO = {
         "아직 게임 정보가 없습니다",
     "Download game details?":
         "게임 정보를 다운로드할까요?",
-    "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?":
-        "GameTDB의 모든 Wii 게임 데이터베이스에서 가져옵니다. 약 2 MB이며 SD 카드에 저장됩니다. 지금 다운로드할까요?",
+    "They come from GameTDB's database of every Wii game: about 3 MB, kept on the SD card. Download it now?":
+        "GameTDB의 모든 Wii 게임 데이터베이스에서 가져옵니다. 약 3 MB이며 SD 카드에 저장됩니다. 지금 다운로드할까요?",
     "Players":
         "플레이 인원",
     "1 player":
@@ -4240,8 +4240,8 @@ KO = {
         "최대 {1}명",
     "Pages at the sides":
         "양옆 페이지",
-    "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.":
-        "채널: Wii 메뉴처럼 이전 페이지와 다음 페이지의 가장자리를 화면 양옆에 보여 줍니다. 가리키고 A를 누르면 그 페이지로 넘어갑니다.",
+    "Channels and Covers: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.":
+        "채널 및 커버: Wii 메뉴처럼 이전 페이지와 다음 페이지의 가장자리를 화면 양옆에 보여 줍니다. 가리키고 A를 누르면 그 페이지로 넘어갑니다.",
     "Could not save the tiles to the SD card.":
         "타일을 SD 카드에 저장할 수 없습니다.",
     "The tile needs a name.":
@@ -6044,8 +6044,8 @@ FR = {
         "Pas encore d'infos sur les jeux",
     "Download game details?":
         "Télécharger les infos des jeux ?",
-    "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?":
-        "Elles viennent de la base GameTDB de tous les jeux Wii : environ 2 Mo, gardés sur la carte SD. La télécharger maintenant ?",
+    "They come from GameTDB's database of every Wii game: about 3 MB, kept on the SD card. Download it now?":
+        "Elles viennent de la base GameTDB de tous les jeux Wii : environ 3 Mo, gardés sur la carte SD. La télécharger maintenant ?",
     "Players":
         "Joueurs",
     "1 player":
@@ -6122,8 +6122,8 @@ FR = {
         "Jusqu'à {1} joueurs",
     "Pages at the sides":
         "Pages sur les côtés",
-    "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.":
-        "Chaînes : les bords de la page précédente et de la suivante sur les côtés de l'écran, comme sur le Menu Wii. Pointez-en un et appuyez sur A pour passer à cette page.",
+    "Channels and Covers: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.":
+        "Chaînes et jaquettes : les bords de la page précédente et de la suivante sur les côtés de l'écran, comme sur le Menu Wii. Pointez-en un et appuyez sur A pour passer à cette page.",
     "Could not save the tiles to the SD card.":
         "Impossible d'enregistrer les tuiles sur la carte SD.",
     "The tile needs a name.":
@@ -7549,6 +7549,24 @@ FR.update({
     "There is no box art for this game yet.": "Pas encore de jaquette pour ce jeu.",
     "Back of the box": "Dos de la boîte",
     "Front of the box": "Face de la boîte",
+})
+T.update({
+    # The game page's disc, up close and spinning
+    "Spin": ("Girar", "回す", "Girar", "Gira"),
+    "The game's disc. Press A to spin it.": (
+        "El disco del juego. Pulsa A para girarlo.",
+        "ゲームのディスクです。Aで回せます。",
+        "O disco do jogo. Aperte A para girá-lo.",
+        "Il disco del gioco. Premi A per farlo girare."),
+})
+KO.update({
+    "Spin": "돌리기",
+    "The game's disc. Press A to spin it.": "게임 디스크입니다. A로 돌려 보세요.",
+})
+FR.update({
+    "Spin": "Faire tourner",
+    "The game's disc. Press A to spin it.":
+        "Le disque du jeu. Appuyez sur A pour le faire tourner.",
 })
 
 T.update({
@@ -9510,6 +9528,15 @@ KO.update({
 FR.update({
     "CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none.": "CTGP-R garde sa sauvegarde sur la carte SD, dans {1}. La sauvegarde de la Wii y est copiée si le dossier n'en a pas.",
 })
+
+T["CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."] = (
+    "No se pudo preparar la imagen de juego de CTGP-R. El motivo está en sd:/riftwii/boot.log.",
+    "CTGP-Rのゲームイメージを準備できませんでした。理由はsd:/riftwii/boot.logにあります。",
+    "Não foi possível preparar a imagem de jogo do CTGP-R. O motivo está em sd:/riftwii/boot.log.",
+    "Impossibile preparare l'immagine di gioco di CTGP-R. Il motivo è in sd:/riftwii/boot.log.",
+)
+KO["CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."] = "CTGP-R 게임 이미지를 준비하지 못했습니다. 이유는 sd:/riftwii/boot.log에 있습니다."
+FR["CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."] = "Impossible de préparer l'image de jeu de CTGP-R. La raison se trouve dans sd:/riftwii/boot.log."
 
 T.update({
     "The SD card is full": (

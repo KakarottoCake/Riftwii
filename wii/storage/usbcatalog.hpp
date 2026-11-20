@@ -117,6 +117,9 @@ std::uint64_t usb_sector0_hash(const std::uint8_t* sector, std::size_t bytes);
 // d2x fragment list, filling title, revision and disc number (and the ID
 // from the header). Needs the catalog's drive still mounted.
 bool check_image_game(ImageGame& game, std::string& error);
+// A separate header file supplies partition slot 1 to channel updaters.
+// Changes only this launch's fragment list, never the player's image.
+bool prepare_channel_partition_layout(ImageGame& game, std::string& error);
 // A file from the game's partition ("/opening.bnr"): an RVZ's as stored,
 // an ISO's or WBFS's decrypted with the console's own key (wii/menu/otpkey.hpp).
 bool read_image_disc_file(const ImageGame& game, const std::string& disc_path, std::vector<std::uint8_t>& out,

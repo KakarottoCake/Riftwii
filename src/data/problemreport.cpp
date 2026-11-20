@@ -6,6 +6,8 @@
 #include "riftwii/textlines.hpp"
 
 #include <algorithm>
+#include <cstdio>
+#include <cstring>
 
 namespace riftwii {
 namespace {
@@ -44,6 +46,29 @@ std::string trim(const std::string& s) {
 }
 
 }  // namespace
+
+std::string ctgp_update_header_report(const std::uint8_t* data, std::size_t size,
+                                      std::uint64_t file_size) {
+    std::string out = "File size: " + std::to_string(file_size) + " bytes\n";
+    if (data == nullptr || size < 32) return out + "Update header: fewer than 32 bytes could be read\n";
+    if (std::memcmp(data, "DIA0", 4) != 0) return out + "Update header: not DIA0\n";
+    const auto word = [data](std::size_t at) {
+        return (std::uint32_t(data[at]) << 24) | (std::uint32_t(data[at + 1]) << 16) |
+               (std::uint32_t(data[at + 2]) << 8) | std::uint32_t(data[at + 3]);
+    };
+    const std::uint32_t declared_size = word(4);
+    out += "Declared size: " + std::to_string(declared_size) + " bytes";
+    out += declared_size == file_size ? " (matches file)\n" : " (DOES NOT match file)\n";
+    // Hex keeps arbitrary on-card identifiers out of the report's text and
+    // distinguishes the full eight-byte package ID, including region suffixes.
+    char identity[96];
+    std::snprintf(identity, sizeof(identity), "Package ID: %08lx%08lx; version: %08lx\n",
+                  static_cast<unsigned long>(word(16)), static_cast<unsigned long>(word(20)),
+                  static_cast<unsigned long>(word(24)));
+    out += identity;
+    out += "Header metadata only; payload and signature were not checked.\n";
+    return out;
+}
 
 std::string printable_utf8(const std::string& text) {
     std::string out = text;
@@ -103,13 +128,39 @@ std::string hide_url_keys(const std::string& text) {
     return out;
 }
 
+std::string hide_wii_address(const std::string& text) {
+    static const std::string kLead = "Network: up, this Wii is ";
+    const auto is_digit = [](char c) { return c >= '0' && c <= '9'; };
+    std::string out;
+    std::size_t at = 0;
+    for (std::size_t found = text.find(kLead); found != std::string::npos; found = text.find(kLead, found + 1)) {
+        // Past the first two numbers and their dots: what follows is the
+        // part that names this Wii on its network.
+        std::size_t cut = found + kLead.size();
+        for (unsigned dots = 0; dots < 2 && cut < text.size(); ++cut) {
+            if (text[cut] == '.') ++dots;
+            else if (!is_digit(text[cut])) break;
+        }
+        // Only a whole "a.b." followed by a digit (an address logged in
+        // full, before RiftWii logged only "a.b.x.x").
+        if (cut >= text.size() || !is_digit(text[cut]) || text[cut - 1] != '.') continue;
+        std::size_t end = cut;
+        while (end < text.size() && (is_digit(text[end]) || text[end] == '.')) ++end;
+        out.append(text, at, cut - at);
+        out += "x.x";
+        at = end;
+    }
+    out.append(text, at, std::string::npos);
+    return out;
+}
+
 std::string assemble_report(const std::string& raw_summary, const std::vector<ReportPart>& raw_parts,
                             std::size_t limit) {
     const std::string summary = hide_url_keys(printable_utf8(raw_summary));
     std::vector<ReportPart> parts = raw_parts;
     for (ReportPart& p : parts) {
         p.name = printable_utf8(p.name);
-        p.text = hide_url_keys(printable_utf8(p.text));
+        p.text = hide_wii_address(hide_url_keys(printable_utf8(p.text)));
     }
     std::size_t fixed = summary.size() + 64;
     std::size_t largest = 0;
@@ -183,7 +234,8 @@ std::string hide_settings_secrets(const std::string& settings) {
         if (end == std::string::npos) end = settings.size();
         std::string line = settings.substr(at, end - at);
         std::size_t key = line.find_first_not_of(" \t");
-        if (key != std::string::npos && (secret_key(line, key, "riitag_key") || secret_key(line, key, "riitag_id"))) {
+        if (key != std::string::npos && (secret_key(line, key, "riitag_key") || secret_key(line, key, "riitag_id") ||
+                                         secret_key(line, key, "parental_pin"))) {
             const std::size_t eq = line.find('=', key);
             if (eq != std::string::npos) {
                 const bool cr = !line.empty() && line.back() == '\r';
