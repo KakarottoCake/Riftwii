@@ -9565,6 +9565,11 @@ FR.update({
 
 # Importing a Nintendont controller layout.
 T.update({
+    "Copies the controller.ini files Nintendont uses (on the SD card or the USB drive) into RiftWii's own controller layouts.": (
+        'Copia los archivos controller.ini que usa Nintendont (en la tarjeta SD o la unidad USB) a los esquemas de mando propios de RiftWii.',
+        'Nintendontが使うcontroller.ini（SDカードまたはUSBドライブ）を、RiftWii自身のコントローラー設定にコピーします。',
+        'Copia os arquivos controller.ini que o Nintendont usa (no cartão SD ou na unidade USB) para os esquemas de controle do próprio RiftWii.',
+        'Copia i file controller.ini usati da Nintendont (sulla scheda SD o sull\'unità USB) negli schemi dei controller di RiftWii.'),
     'Import from Nintendont': (
         'Importar de Nintendont',
         'Nintendontからコピー',
@@ -9664,6 +9669,7 @@ T.update({
 })
 KO.update({
     'Import from Nintendont': 'Nintendont에서 가져오기',
+    "Copies the controller.ini files Nintendont uses (on the SD card or the USB drive) into RiftWii's own controller layouts.": 'Nintendont가 쓰는 controller.ini 파일(SD 카드나 USB 드라이브)을 RiftWii의 컨트롤러 설정으로 복사합니다.',
     'There is not enough free memory.': '여유 메모리가 부족합니다.',
     'No controller files were found. Check controller.ini in the root or nintendont folder, or VID_PID.ini in controllers, on the SD card or USB drive.': '컨트롤러 파일이 없습니다. SD 카드나 USB 드라이브의 루트 또는 nintendont 폴더에 있는 controller.ini, 또는 controllers의 VID_PID.ini를 확인하세요.',
     'Only the first 64 files and 512 entries per folder are checked. Move the files you want into a smaller controllers folder, then try again.': '처음 64개 파일과 폴더당 512개 항목만 확인합니다. 원하는 파일을 항목이 적은 controllers 폴더에 넣고 다시 시도하세요.',
@@ -9682,6 +9688,7 @@ KO.update({
 })
 FR.update({
     'Import from Nintendont': 'Importer depuis Nintendont',
+    "Copies the controller.ini files Nintendont uses (on the SD card or the USB drive) into RiftWii's own controller layouts.": "Copie les fichiers controller.ini utilisés par Nintendont (sur la carte SD ou le disque USB) dans les configurations de manette de RiftWii.",
     'There is not enough free memory.': "Il n'y a pas assez de mémoire libre.",
     'No controller files were found. Check controller.ini in the root or nintendont folder, or VID_PID.ini in controllers, on the SD card or USB drive.': 'Aucun fichier de manette trouvé. Cherchez controller.ini à la racine ou dans nintendont, ou VID_PID.ini dans controllers, sur la SD ou le lecteur USB.',
     'Only the first 64 files and 512 entries per folder are checked. Move the files you want into a smaller controllers folder, then try again.': 'Seuls les 64 premiers fichiers et 512 éléments par dossier sont vérifiés. Placez les fichiers voulus dans un dossier controllers plus petit, puis réessayez.',

@@ -4557,6 +4557,9 @@ msgstr "RiftWii non può salvare nuovi file, quindi impostazioni, scelte di gioc
 msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."
 msgstr "RiftWii non può salvare nuovi file, quindi impostazioni, scelte di gioco, copertine e registri potrebbero non essere salvati. Metti la scheda in un computer e controllala per errori."
 
+msgid "Copies the controller.ini files Nintendont uses (on the SD card or the USB drive) into RiftWii's own controller layouts."
+msgstr "Copia i file controller.ini usati da Nintendont (sulla scheda SD o sull'unità USB) negli schemi dei controller di RiftWii."
+
 msgid "Import from Nintendont"
 msgstr "Importa da Nintendont"
 
