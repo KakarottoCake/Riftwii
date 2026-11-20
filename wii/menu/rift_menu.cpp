@@ -12753,7 +12753,11 @@ public:
 			const bool outside = px * px + py * py >= kDeadZone * kDeadZone;
 			if (dragging && t->chan == dragChan) {
 				if (!outside) {
+					// Held at the middle the disc stands still (a drag has no
+					// friction): let go there and it stays put, rather than
+					// taking back the speed it had before.
 					dragAtValid = false;
+					omega = 0.0f;
 				} else if (!dragAtValid) {
 					dragAt = at;
 					dragTime = now;
