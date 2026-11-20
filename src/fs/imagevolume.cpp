@@ -7,16 +7,13 @@
 
 #include "riftwii/ntfs.hpp"
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/byteorder.hpp"
 
 namespace riftwii {
 namespace {
 
 constexpr std::size_t kMaxGptEntries = 128;
 
-std::uint32_t le32(const std::uint8_t* p) {
-    return static_cast<std::uint32_t>(p[0]) | (static_cast<std::uint32_t>(p[1]) << 8) |
-           (static_cast<std::uint32_t>(p[2]) << 16) | (static_cast<std::uint32_t>(p[3]) << 24);
-}
 std::uint64_t le64(const std::uint8_t* p) { return le32(p) | (static_cast<std::uint64_t>(le32(p + 4)) << 32); }
 
 VolumeEntry from_fat(const Fat32Entry& e) {

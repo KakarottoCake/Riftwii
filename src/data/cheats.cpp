@@ -10,13 +10,7 @@
 namespace riftwii {
 namespace {
 
-std::string trim(const std::string& s) {
-    std::size_t a = 0;
-    std::size_t b = s.size();
-    while (a < b && std::isspace(static_cast<unsigned char>(s[a]))) ++a;
-    while (b > a && std::isspace(static_cast<unsigned char>(s[b - 1]))) --b;
-    return s.substr(a, b - a);
-}
+std::string trim(const std::string& s) { return trim_text(s); }
 
 // "XXXXXXXX XXXXXXXX": 1 with the two words, 2 when it has that shape
 // with placeholders (letters beyond F) in it, 0 otherwise.

@@ -8,15 +8,12 @@
 
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/imagevolume.hpp"
+#include "riftwii/textlines.hpp"
 
 namespace riftwii {
 namespace {
 
-std::string trim(const std::string& text) {
-    const auto first = text.find_first_not_of(" \t\r");
-    if (first == std::string::npos) return {};
-    return text.substr(first, text.find_last_not_of(" \t\r") - first + 1);
-}
+std::string trim(const std::string& text) { return trim_text(text, " \t\r"); }
 
 bool printable(const std::string& text, bool allow_tabs = false) {
     for (unsigned char c : text) {

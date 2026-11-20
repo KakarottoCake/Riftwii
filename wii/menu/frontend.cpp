@@ -53,7 +53,7 @@ bool ensure_directory(const char* path, std::string& error) {
 bool ReadRiivolutionConfig(const std::string& game_id, RiivolutionConfig& out) {
     const std::string path = std::string(kPackageDir) + "/config/" + riivolution_config_name(game_id) + ".xml";
     std::string text;
-    if (!ReadTextFile(path, text)) return false;
+    if (!ReadReplacedFile(path, text)) return false;
     if (parse_riivolution_config(text, out)) return true;
     logf("Riivolution config %s: not a version 2 config, ignored\n", path.c_str());
     return false;
@@ -75,7 +75,9 @@ void WriteRiivolutionConfig(const FrontendState& state) {
         return;
     }
     const std::string path = dir + "/" + riivolution_config_name(state.game_id) + ".xml";
-    if (!WriteWholeFile(path, text.data(), text.size())) logf("Riivolution config: cannot write %s\n", path.c_str());
+    // Riivolution reads this file too, so it is replaced whole, never left
+    // cut short (ReplaceWholeFile).
+    if (!ReplaceWholeFile(path, text.data(), text.size())) logf("Riivolution config: cannot write %s\n", path.c_str());
 }
 }
 
@@ -301,13 +303,13 @@ void PrepareGameChoices(FrontendState& state, const std::string& game_id, const 
     PreparedGameChoices choices;
     const std::string game_path = std::string(kChoicesDir) + "/" + game_id + ".txt";
     choices.path = profile_key.empty() ? game_path : std::string(kChoicesDir) + "/" + profile_key + ".txt";
-    if (!ReadTextFile(choices.path, choices.text)) {
+    if (!ReadReplacedFile(choices.path, choices.text)) {
         if (!profile_key.empty()) {
-            ReadTextFile(game_path, choices.text);
+            ReadReplacedFile(game_path, choices.text);
         } else if (!game_id.empty()) {
             const std::string config_path = std::string(kPackageDir) + "/config/" +
                                             riivolution_config_name(game_id) + ".xml";
-            choices.riivolution = ReadTextFile(config_path, choices.text);
+            choices.riivolution = ReadReplacedFile(config_path, choices.text);
         }
     }
     if (step) step("reading saved choices");
@@ -496,26 +498,11 @@ std::string ModPlaceProblem(const FrontendState& state, bool brief) {
 bool SaveChoicesTo(const LaunchModel& model, const std::string& path, std::string& error) {
     if (!ensure_directory("sd:/riftwii", error) || !ensure_directory(kChoicesDir, error)) return false;
     // Written whole beside it, then put in its place (as settings.txt): a
-    // power cut or a full card no longer leaves the game's choices empty.
-    const std::string temp = path + ".part";
-    {
-        FILE* out = std::fopen(temp.c_str(), "wb");
-        if (!out) {
-            error = "cannot open " + temp + " for writing";
-            return false;
-        }
-        const std::string text = model.save();
-        const bool written = std::fwrite(text.data(), 1, text.size(), out) == text.size();
-        const bool closed = std::fclose(out) == 0;
-        if (!written || !closed) {
-            std::remove(temp.c_str());
-            error = "cannot write " + path;
-            return false;
-        }
-    }
-    std::remove(path.c_str());
-    if (std::rename(temp.c_str(), path.c_str()) != 0) {
-        std::remove(temp.c_str());
+    // power cut, a full card or a failed rename keeps the old choices
+    // readable (ReadReplacedFile). This used to remove the old file before
+    // the rename, so a failed rename lost both copies.
+    const std::string text = model.save();
+    if (!ReplaceWholeFile(path, text.data(), text.size())) {
         error = "cannot write " + path;
         return false;
     }

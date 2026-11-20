@@ -1,5 +1,8 @@
 /* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
+/* FROZEN COPY, for tests only: runtime/rtfs.c from before the save engine's
+ * rewrite, compared with today's by rtfs_differential. When to delete it
+ * (with reference/rtfat.c) is in reference/rtfat.c's header. */
 #include "rtfs.h"
 
 #define RTFS_MODE_READ 0x01u

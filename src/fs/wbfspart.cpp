@@ -9,6 +9,7 @@
 #include "riftwii/disc.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/imagevolume.hpp"
+#include "riftwii/byteorder.hpp"
 
 namespace riftwii {
 namespace {
@@ -16,10 +17,6 @@ namespace {
 constexpr std::uint32_t kHeaderBytes = 12;          // magic, sector count, two shifts, version, padding
 constexpr std::uint64_t kWiiDiscSectors = 143432ull * 2;  // 32 KiB sectors of a dual-layer disc
 constexpr std::uint32_t kDiscHeaderCopy = 0x100;
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
-}
 
 // Bytes of a run of device blocks, read a block at a time where a read is
 // not block aligned.

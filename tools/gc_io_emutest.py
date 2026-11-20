@@ -17,6 +17,7 @@ import argparse
 import heapq
 from pathlib import Path
 import random
+import shutil
 import struct
 import subprocess
 import tempfile
@@ -66,6 +67,20 @@ EXTRA_FIELDS = {
     "gcad": ("fd", "version", "known_dev", "ticks_per_ms", "polls", "sends", "replies"),
     "disc_change": ("magic", "discs", "current", "state", "due", "alarm", "cover_ticks", "look_ticks"),
 }
+
+
+# struct gc_card's dirty map is a pointer to a bit per sector (gc_card.h),
+# loader-placed in MEM2. The tests give each card one at DIRTY_MAP.
+DIRTY_MAP = 0x900E0000
+
+
+def mark_first_sector_dirty(machine, card):
+    machine.put_object(card, "card", "dirty", DIRTY_MAP)
+    machine.uc.mem_write(DIRTY_MAP, b"\x01")
+
+
+def first_sector_dirty_bits(machine):
+    return bytes(machine.uc.mem_read(DIRTY_MAP, 1))
 
 
 def words(data):
@@ -344,6 +359,9 @@ class Machine:
         for number, value in enumerate(arguments, 3):
             self.set_reg(number, value)
         started = self.ticks
+        if function not in self.functions:
+            raise AssertionError(f"{function} is not a symbol of the blob: LTO inlined or cloned it; "
+                                 "mark it GC_EMUTEST_ENTRY (runtime/gc/gc_rt.h)")
         self.uc.emu_start(self.functions[function], RETURN + 4, count=8000000)
         self.durations.append(self.ticks - started)
         if terminal:
@@ -750,7 +768,7 @@ def test_card(layout):
                         "activity": 1, "seen_activity": 1}.items():
         machine.put_object(card, "card", name, value)
     machine.uc.mem_write(card + layout["card.runs"], struct.pack(">3I", 0, 300, 1))
-    machine.uc.mem_write(card + layout["card.dirty"], b"\x01")
+    mark_first_sector_dirty(machine, card)
     machine.uc.mem_write(image, b"A" * 512)
 
     def heartbeat():
@@ -783,14 +801,14 @@ def test_card_status_error(layout):
     for name, value in {"image": image, "run_count": 1, "dirty_count": 1}.items():
         machine.put_object(card, "card", name, value)
     machine.uc.mem_write(card + layout["card.runs"], struct.pack(">3I", 0, 300, 1))
-    machine.uc.mem_write(card + layout["card.dirty"], b"\x01")
+    mark_first_sector_dirty(machine, card)
     machine.uc.mem_write(image, b"S" * 512)
     machine.sd_status_result = -5
     machine.uc.reg_write(UC_PPC_REG_MSR, machine.uc.reg_read(UC_PPC_REG_MSR) | 0x8000)
     machine.call("gc_card_flush", machine.ctx, card, 1)
     assert machine.writes == [(300, b"S" * 512)]
     assert machine.get_object(card, "card", "dirty_count") == 1, "failed CMD13 lost the dirty save"
-    assert bytes(machine.uc.mem_read(card + layout["card.dirty"], 1)) == b"\x01"
+    assert first_sector_dirty_bits(machine) == b"\x01"
     assert machine.get_object(card, "card", "flush_error") == (-5 & 0xFFFFFFFF)
     assert machine.get("storage_busy") == 0
     assert machine.uc.reg_read(UC_PPC_REG_MSR) & 0x8000, "failed write left interrupts disabled"
@@ -1005,7 +1023,7 @@ def prepare_stalled_leave(machine):
     machine.uc.mem_write(0x90060000, bytes(range(256)))
     machine.put("card", 0x90040000)
     machine.put_object(0x90040000, "card", "dirty_count", 1)
-    machine.uc.mem_write(0x90040000 + machine.layout["card.dirty"], b"\x01")
+    mark_first_sector_dirty(machine, 0x90040000)
 
 
 def protect_storage(machine):
@@ -1088,7 +1106,7 @@ def test_stalled_teardown(layout):
             assert machine.get("io_pending") == pending, "failed drain released DMA quarantine"
             assert not machine.callbacks and not machine.writes
             assert machine.get_object(0x90040000, "card", "dirty_count") == 1
-            assert bytes(machine.uc.mem_read(0x90040000 + layout["card.dirty"], 1)) == b"\x01"
+            assert first_sector_dirty_bits(machine) == b"\x01"
             if function in ("gc_leave", "gc_on_reset_system", "gc_on_hot_reset"):
                 check_private_launch(machine, regions)
                 assert machine.get_object(0x90040000, "card", "flush_error") == (-1000 & 0xFFFFFFFF)
@@ -1217,7 +1235,7 @@ def prepare_returning_leave(machine, failed_save, card_saves=False):
         for name, value in {"image": 0x90080000, "run_count": 1, "dirty_count": 1}.items():
             machine.put_object(card, "card", name, value)
         machine.uc.mem_write(card + machine.layout["card.runs"], struct.pack(">3I", 0, 300, 1))
-        machine.uc.mem_write(card + machine.layout["card.dirty"], b"\x01")
+        mark_first_sector_dirty(machine, card)
         machine.uc.mem_write(0x90080000, b"S" * 512)
         machine.sd_write_result = -5 if failed_save else 0
 
@@ -1478,7 +1496,9 @@ def test_rvz(layout, devkitppc):
     generator = random.Random(229)
     pieces = [generator.randbytes(64) for _ in range(256)]
     payload = b"".join(generator.choice(pieces) + generator.randbytes(4) for _ in range(2000))[:0x20000]
-    zstd = devkitppc.parent / "msys2/usr/bin/zstd.exe"
+    # zstd on PATH (Linux, macOS, CI), else the one devkitPro's MSYS2 has on Windows.
+    found = shutil.which("zstd")
+    zstd = Path(found) if found else devkitppc.parent / "msys2/usr/bin/zstd.exe"
     compressed = subprocess.run([str(zstd), "-q", "-c", "-5"], input=payload,
                                 capture_output=True, check=True).stdout
     read_rvz_fixture(layout, compressed, 0x80000000, payload, "Zstandard")

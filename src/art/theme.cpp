@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/theme.hpp"
+#include "riftwii/textlines.hpp"
 
 #include <cstdint>
 #include <cstdio>
@@ -10,12 +11,7 @@
 namespace riftwii {
 namespace {
 
-std::string trim(const std::string& s) {
-    const auto first = s.find_first_not_of(" \t");
-    if (first == std::string::npos) return std::string();
-    const auto last = s.find_last_not_of(" \t");
-    return s.substr(first, last - first + 1);
-}
+std::string trim(const std::string& s) { return trim_text(s, " \t"); }
 
 std::string to_lower(const std::string& s) {
     std::string out = s;

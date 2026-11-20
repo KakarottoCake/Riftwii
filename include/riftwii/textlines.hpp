@@ -81,4 +81,18 @@ private:
 // Whether `c` is white space to operator>> in the "C" locale.
 bool is_stream_space(char c);
 
+// The "C" locale's white space, as std::isspace and is_stream_space see it.
+inline constexpr std::string_view kTextSpace = " \t\n\v\f\r";
+
+// `text` without any of `chars` at either end. Each file format says which
+// characters it trims (some keep line breaks, some only spaces and tabs), so
+// they pass their own set; the default is all white space. Inline, so the
+// GameCube plugin's files can use it without linking textlines.cpp.
+inline std::string trim_text(std::string_view text, std::string_view chars = kTextSpace) {
+    const std::size_t first = text.find_first_not_of(chars);
+    if (first == std::string_view::npos) return std::string();
+    const std::size_t last = text.find_last_not_of(chars);
+    return std::string(text.substr(first, last - first + 1));
+}
+
 }  // namespace riftwii

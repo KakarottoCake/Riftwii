@@ -3,6 +3,7 @@
 #include "riftwii/fst.hpp"
 
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/byteorder.hpp"
 
 #include <utility>
 
@@ -10,11 +11,6 @@ namespace riftwii {
 namespace {
 
 constexpr std::size_t kEntryBytes = 12;
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (static_cast<std::uint32_t>(p[0]) << 24) | (static_cast<std::uint32_t>(p[1]) << 16) |
-           (static_cast<std::uint32_t>(p[2]) << 8) | static_cast<std::uint32_t>(p[3]);
-}
 
 std::uint32_t be24(const std::uint8_t* p) {
     return (static_cast<std::uint32_t>(p[0]) << 16) | (static_cast<std::uint32_t>(p[1]) << 8) |

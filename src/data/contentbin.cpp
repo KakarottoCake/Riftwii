@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2020 DarkMatterCore (content.bin layout, as wad2bin and YABDM read and write it)
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/contentbin.hpp"
+#include "riftwii/byteorder.hpp"
 
 #include <cstdio>
 
@@ -21,10 +22,6 @@ constexpr std::size_t kKeysOtpOffset = 0x100;
 constexpr std::size_t kOtpConsoleId = 0x24;
 constexpr std::size_t kOtpPrngKey = 0x68;
 constexpr std::size_t kOtpBytes = 0x80;
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
-}
 
 std::uint64_t aligned(std::uint64_t value) { return (value + kAlign - 1) & ~(kAlign - 1); }
 

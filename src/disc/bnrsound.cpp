@@ -6,18 +6,10 @@
 #include <cstring>
 
 #include "riftwii/bnr.hpp"
+#include "riftwii/byteorder.hpp"
 
 namespace riftwii {
 namespace {
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
-}
-std::uint16_t be16(const std::uint8_t* p) { return static_cast<std::uint16_t>((p[0] << 8) | p[1]); }
-std::uint32_t le32(const std::uint8_t* p) {
-    return (std::uint32_t(p[3]) << 24) | (std::uint32_t(p[2]) << 16) | (std::uint32_t(p[1]) << 8) | p[0];
-}
-std::uint16_t le16(const std::uint8_t* p) { return static_cast<std::uint16_t>((p[1] << 8) | p[0]); }
 
 // Mono becomes both sides; more than two channels keep the first two.
 void interleave(const std::vector<std::vector<std::int16_t>>& ch, std::size_t frames, BannerSound& out) {

@@ -47,6 +47,7 @@
 
 #include "libwiigui/gui.h"
 #include "transition.hpp"
+#include "textfile.hpp"
 #include "drawtrace.hpp"
 #include "gui_flowlist.hpp"
 #include "gui_prompts.hpp"
@@ -100,6 +101,8 @@
 #include "guiscript.hpp"
 #include "credits.hpp"
 #include "gcadapter.hpp"
+#include "nintendontimport.hpp"
+#include "riftwii/hidimport.hpp"
 #include "padcalstore.hpp"
 #include "usbinput.hpp"
 #include "startupinput.hpp"
@@ -11375,10 +11378,11 @@ static void ListNintendontSaves(NintendontFinds& finds)
 // (none: Settings' card): its own, the shared or its named card.
 static std::string GcGameCardFile(const std::string& id)
 {
-	std::vector<std::uint8_t> bytes;
+	// As the game page reads it: the backup when a save was cut short.
+	std::string text;
 	riftwii::LaunchModel choices;
-	if (ReadSmallFile(std::string(riftwii::wii::kChoicesDir) + "/" + id + ".txt", 1u << 20, bytes))
-		choices.restore(std::string(bytes.begin(), bytes.end()));
+	if (riftwii::wii::ReadReplacedFile(std::string(riftwii::wii::kChoicesDir) + "/" + id + ".txt", text))
+		choices.restore(text);
 	riftwii::GcNintendontSave save;
 	save.id = id;
 	return riftwii::gc_nintendont_route(save, choices.game, riftwii::wii::Settings().gc_card);
@@ -16608,6 +16612,95 @@ static std::string AdapterStatus(const riftwii::wii::GcAdapterView& v)
 	}
 }
 
+// Enter and return with the GUI halted, like EmulatorRowsPage.
+static void NintendontLayoutsPage()
+{
+	using namespace riftwii::wii;
+	const std::string title = tr("Import from Nintendont");
+	std::vector<std::string> paths;
+	bool limited = false;
+	if (!FindNintendontLayouts(paths, limited)) {
+		ShowPopup(title, tr("There is not enough free memory."), tr("OK"));
+		return;
+	}
+	if (paths.empty()) {
+		ShowPopup(title, tr("No controller files were found. Check controller.ini in the root or nintendont folder, or VID_PID.ini in controllers, on the SD card or USB drive."), tr("OK"));
+		return;
+	}
+	if (limited) {
+		ShowPopup(title, tr("Only the first 64 files and 512 entries per folder are checked. Move the files you want into a smaller controllers folder, then try again."), tr("OK"));
+	}
+	std::vector<FlowRow> rows;
+	std::vector<std::string> help;
+	if (!riftwii::try_reserve(rows, paths.size()) || !riftwii::try_reserve(help, paths.size())) {
+		ShowPopup(title, tr("There is not enough free memory."), tr("OK"));
+		return;
+	}
+	for (const std::string& path : paths) {
+		FlowRow row;
+		row.kind = FlowRow::Kind::Action;
+		row.label = path;
+		row.value = tr("Import");
+		rows.push_back(row);
+		help.push_back(tr("Press A to check and copy this layout to sd:/riftwii/controllers. Existing files ask before being replaced. Restart RiftWii to use imported layouts."));
+	}
+	// The read buffer lives only while this page is open, off the menu
+	// thread's small stack. The live controller catalog stays untouched.
+	std::unique_ptr<NintendontLayout> layout;
+	if (riftwii::can_allocate(sizeof(NintendontLayout))) {
+		layout.reset(new (std::nothrow) NintendontLayout);
+	}
+	if (!layout) {
+		ShowPopup(title, tr("There is not enough free memory."), tr("OK"));
+		return;
+	}
+	EmulatorRowsPage(title, rows, help, [&](int clicked, int) {
+		const std::string& path = paths[static_cast<std::size_t>(clicked)];
+		std::string detail;
+		const NintendontRead read = ReadNintendontLayout(path, *layout, detail);
+		std::string reason;
+		switch (read) {
+			case NintendontRead::Ready: break;
+			case NintendontRead::Unreadable: reason = tr("The file could not be read."); break;
+			case NintendontRead::TooLarge: reason = tr("The controller file is larger than 8 KiB."); break;
+			case NintendontRead::Invalid: reason = tr("This layout is invalid or unsupported. See session.log for details."); break;
+			case NintendontRead::WrongDevice: reason = tr("The device IDs in the file do not match its filename."); break;
+		}
+		if (read != NintendontRead::Ready) {
+			logf("Controller import: skipped %s. %s %s\n", path.c_str(), reason.c_str(), detail.c_str());
+			rows[static_cast<std::size_t>(clicked)].value = tr("Skipped");
+			ShowPopup(title, path + "\n" + reason, tr("OK"));
+			return false;
+		}
+		const std::string_view text(layout->text.data(), layout->bytes);
+		std::string destination;
+		if (!PrepareControllerFolder()) {
+			ShowPopup(title, tr("The layout could not be saved. Check the SD card's free space and lock switch."), tr("OK"));
+			return false;
+		}
+		auto saved = riftwii::save_hid_import("sd:/riftwii/controllers", text, false, destination, detail);
+		if (saved == riftwii::HidImportSave::Exists) {
+			if (ShowPopupSafeFirst(title, tr("{1} already exists. Replace it with {2}?", {destination, path}),
+				tr("No"), tr("Yes")) != 1) {
+				rows[static_cast<std::size_t>(clicked)].value = tr("Skipped");
+				ShowPopup(title, tr("The existing layout was kept."), tr("OK"));
+				return false;
+			}
+			saved = riftwii::save_hid_import("sd:/riftwii/controllers", text, true, destination, detail);
+		}
+		if (saved != riftwii::HidImportSave::Saved) {
+			logf("Controller import: could not save %s from %s. %s\n", destination.c_str(), path.c_str(), detail.c_str());
+			ShowPopup(title, tr("The layout could not be saved. Check the SD card's free space and lock switch."), tr("OK"));
+			return false;
+		}
+		forget_sd_layout();
+		logf("Controller import: copied %s to %s. Restart RiftWii to use it.\n", path.c_str(), destination.c_str());
+		rows[static_cast<std::size_t>(clicked)].value = tr("Imported");
+		ShowPopup(title, tr("Copied {1} to {2}. Restart RiftWii to use it.", {path, destination}), tr("OK"));
+		return false;
+	});
+}
+
 static void GcAdapterTestPage()
 {
 	GuiText titleTxt(tr("USB controllers"), 30, skin::kInk);
@@ -16632,8 +16725,11 @@ static void GcAdapterTestPage()
 	const int promptBack = prompts.Add("B", tr("Back"));
 	// Which IOS reaches the adapter: games run on a d2x cIOS, the menu on
 	// IOS 58 (a Wii U's front ports work in the menu only).
-	SkinButton checkBtn(skin::pill, skin::pillOver, 4, 198, 380, tr("Check each cIOS"),
+	SkinButton checkBtn(skin::pill, skin::pillOver, 4, 56, 380, tr("Check each cIOS"),
 		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X);
+	SkinButton importBtn(skin::pill, skin::pillOver, 4, 328, 380, tr("Import from Nintendont"), 0, 0, 0);
+	// The French label is the widest of the six translations.
+	importBtn.text.SetFontSize(16);
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
@@ -16647,6 +16743,7 @@ static void GcAdapterTestPage()
 	w.Append(&backBtn.button);
 	w.Append(&prompts);
 	w.Append(&checkBtn.button);
+	w.Append(&importBtn.button);
 	mainWindow->Append(&w);
 	std::string why;
 	// The menu may already run it (its controllers work the menu); then
@@ -16665,7 +16762,13 @@ static void GcAdapterTestPage()
 		usleep(20000);
 		RestartIfOutOfMemory();
 		HaltGui();
-		ClearStaleButtons({&backBtn.button, &checkBtn.button});
+		ClearStaleButtons({&backBtn.button, &checkBtn.button, &importBtn.button});
+		if (importBtn.Clicked()) {
+			importBtn.button.ResetState();
+			mainWindow->Remove(&w);
+			NintendontLayoutsPage();
+			mainWindow->Append(&w);
+		}
 		if (checkBtn.Clicked()) {
 			checkBtn.button.ResetState();
 			if (ShowPopup(tr("Check each cIOS?"),
@@ -18167,7 +18270,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kLaunchLog, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kSteamGridKey, kSteamGridClear, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kUsbInput, kGcCard, kGcBackups, kLeaveButtons, kDiscLight, kNintendontSaves, kParental, kSdGames, kGameFolders, kIos, kNet, kResync, kWads, kDiscCopy,
+	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kLaunchLog, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kSteamGridKey, kSteamGridClear, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kNintendontImport, kUsbInput, kGcCard, kGcBackups, kLeaveButtons, kDiscLight, kNintendontSaves, kParental, kSdGames, kGameFolders, kIos, kNet, kResync, kWads, kDiscCopy,
 		kMissingCovers, kRescan, kPartitionFailures, kUpdate, kReport, kTests, kGeckoLog, kWiirdDebugger, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -18263,6 +18366,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		gcCalibrate.value = tr("Open");
 		rows.push_back(gcCalibrate);
 		actions.push_back(kGcCalibrate);
+		// Here too, not only on the USB controllers check page: players
+		// coming from Nintendont look for it among the controller settings.
+		FlowRow nintendontImport;
+		nintendontImport.kind = FlowRow::Kind::Action;
+		nintendontImport.label = tr("Import from Nintendont");
+		nintendontImport.value = tr("Open");
+		rows.push_back(nintendontImport);
+		actions.push_back(kNintendontImport);
 		option(tr("USB input devices"), settings.usb_input == "off" ? tr("Off") : tr("On"),
 			settings.usb_input != "off", kUsbInput, FlowRow::Kind::Toggle);
 		heading(tr("Menu"));
@@ -18527,7 +18638,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kEmulators: case kGameLanguage: case kGameCios: case kWiiSaves: case kEmuNandFolder: case kEmuNandKeeps: case kNonGames: case kReturnTo: case kLeaveButtons: case kShots: case kGcCard: case kGcBackups: case kDiscLight: case kNintendontSaves:
 				case kParental:
 					return SettingsSection::Games;
-				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest: case kGcCalibrate: case kUsbInput:
+				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest: case kGcCalibrate: case kNintendontImport: case kUsbInput:
 					return SettingsSection::Controllers;
 				case kHomeTiles: case kChannelCorners: case kChannelBackground: case kPagePeek: case kGridSpacing: case kHomeSource: case kHomeSort: case kHomeStart: case kStartLastGame:
 				case kShowHidden: case kPlayHistory: case kDiscTile: case kClockFormat:
@@ -18684,6 +18795,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kGcRumble: return tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports.");
 			case kWiiRumble: return tr("Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only.");
 			case kGcTest: return tr("Shows live what the controllers in the adapter are pressing.");
+			case kNintendontImport: return tr("Copies the controller.ini files Nintendont uses (on the SD card or the USB drive) into RiftWii's own controller layouts.");
 			case kGcCalibrate: return tr("Tests a GameCube controller and fixes a worn one: sticks that don't reach the edge, sticks that drift, triggers that don't go all the way. GameCube games get the fix, and Wii games get it while a GameCube adapter or USB controller is in use.");
 			case kUsbInput: return tr("USB pads use controller.ini mappings in the menu and games; wired Xbox 360 pads need none. Off also leaves keyboards, mice, tablets and the uDraw alone.");
 			case kParental: return tr("A PIN that locks or hides the games rated for players older than an age you pick.");
@@ -18849,52 +18961,52 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				}
 				case kWidth:
 					settings.video_width = StepValue(kWidths, settings.video_width, direction, false);
-					saveAndNote(WidthNote(settings.video_width));
+					saveAndNote(help(kWidth));
 					rebuild();
 					break;
 				case kDeflicker:
 					settings.deflicker = StepValue(kDeflickers, settings.deflicker, direction, false);
-					saveAndNote(tr("A filter that softens the picture to hide flicker. Off gives the sharpest picture."));
+					saveAndNote(help(kDeflicker));
 					rebuild();
 					break;
 				case kBorders:
 					settings.borders = StepValue(kBorderModes, settings.borders, direction, false);
-					saveAndNote(tr(kBordersNote));
+					saveAndNote(help(kBorders));
 					rebuild();
 					break;
 				case kVideoMode:
 					settings.video_mode = StepValue(kVideoModes, settings.video_mode, direction, false);
-					saveAndNote(VideoModeNote(settings.video_mode, true));
+					saveAndNote(help(kVideoMode));
 					rebuild();
 					break;
 				case kAspect:
 					settings.aspect = StepValue(kAspects, settings.aspect, direction, false);
-					saveAndNote(tr("Makes the game use 4:3 or widescreen 16:9 whatever the Wii's TV setting says. Not every game can be changed."));
+					saveAndNote(help(kAspect));
 					rebuild();
 					break;
 				case kGameLanguage:
 					settings.game_language = StepValue(kGameLanguages, settings.game_language, direction, false);
-					saveAndNote(tr("The language the game is told the console uses. Pick one the game has: some games stop without it."));
+					saveAndNote(help(kGameLanguage));
 					rebuild();
 					break;
 				case kGameCios:
 					settings.game_cios = StepValue(kCiosChoices, settings.game_cios, direction, false);
-					saveAndNote(tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works."));
+					saveAndNote(help(kGameCios));
 					rebuild();
 					break;
 				case kWiiSaves:
 					settings.saves_every_game = StepValue(kSavesEveryGameChoices, settings.saves_every_game, direction);
-					saveAndNote(tr(kWiiSavesNote));
+					saveAndNote(help(kWiiSaves));
 					rebuild();
 					break;
 				case kEmuNandFolder:
 					settings.emunand_folder = StepValue(kEmuNandFolderChoices, settings.emunand_folder, direction);
-					saveAndNote(tr(kEmuNandFolderNote));
+					saveAndNote(help(kEmuNandFolder));
 					rebuild();
 					break;
 				case kEmuNandKeeps:
 					settings.emunand_keeps = StepValue(kEmuNandKeepChoices, settings.emunand_keeps, direction);
-					saveAndNote(tr(kEmuNandKeepsNote));
+					saveAndNote(help(kEmuNandKeeps));
 					rebuild();
 					break;
 				case kNonGames: {
@@ -18902,10 +19014,13 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					if (!saveOrUndo()) break;
 					note(settings.nand_non_games ? tr("Nintendo's own channels are listed on Home now.")
 									: tr("Only games are listed on Home now."));
-					for (FlowRow& row : rows)
-						if (row.label == tr("Show non-game channels")) {
-							row.value = settings.nand_non_games ? tr("On") : tr("Off");
-							row.on = settings.nand_non_games;
+					// rows and actions are built side by side: the row is found by
+					// its action, so a change to its label (or its translation) cannot
+					// make the lookup miss.
+					for (std::size_t i = 0; i < actions.size() && i < rows.size(); ++i)
+						if (actions[i] == kNonGames) {
+							rows[i].value = settings.nand_non_games ? tr("On") : tr("Off");
+							rows[i].on = settings.nand_non_games;
 							break;
 						}
 					list.Refresh();
@@ -18914,17 +19029,17 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				}
 				case kServer:
 					settings.wfc_server = StepValue(kServers, settings.wfc_server, direction, false);
-					saveAndNote(tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."));
+					saveAndNote(help(kServer));
 					rebuild();
 					break;
 				case kPagePeek:
 					settings.page_peek = settings.page_peek == "off" ? "on" : "off";
-					saveAndNote(tr("Channels and Covers: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."));
+					saveAndNote(help(kPagePeek));
 					rebuild();
 					break;
 				case kPlayHistory:
 					settings.play_history = settings.play_history == "off" ? "on" : "off";
-					saveAndNote(tr("Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown."));
+					saveAndNote(help(kPlayHistory));
 					rebuild();
 					break;
 				case kHomeSource: {
@@ -18940,7 +19055,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						if (sdScanned || choice != "sd") break;
 					}
 					settings.home_source = kSourceChoices[at];
-					saveAndNote(HomeSourceNote(settings.home_source));
+					saveAndNote(help(kHomeSource));
 					rebuild();
 					break;
 				}
@@ -18964,7 +19079,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					int at = 0;
 					while (at < 4 && settings.home_sort != kSortChoices[at]) ++at;
 					settings.home_sort = kSortChoices[((at % 4) + 4 + direction) % 4];
-					saveAndNote(tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it."));
+					saveAndNote(help(kHomeSort));
 					rebuild();
 					break;
 				}
@@ -19012,7 +19127,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					} else {
 						settings.return_to = settings.return_to == "menu" ? "riftwii" : "menu";
 					}
-					saveAndNote(ReturnToNote());
+					saveAndNote(help(kReturnTo));
 					rebuild();
 					break;
 				case kDiscLight:
@@ -19028,28 +19143,28 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						cards.push_back("real_b");
 					}
 					settings.gc_card = StepList(cards, settings.gc_card, 1);
-					saveAndNote(tr("The memory card of every GameCube game whose own Memory card option is Default. A game's own choice wins."));
+					saveAndNote(help(kGcCard));
 					rebuild();
 					break;
 				}
 				case kLeaveButtons:
 					settings.leave_buttons = settings.leave_buttons == "off" ? "on" : "off";
-					saveAndNote(tr("In GameCube games, hold HOME for two seconds to go back to RiftWii (HOME and - on a Wii Remote alone). HOME or buttons: holding L, R, Z and Start on a GameCube controller leaves too, and in Wii games with the adapter. HOME only turns the buttons off, so a game's own button combos can't leave by accident. Without a Wii Remote or a Wii U Pro Controller, only the console's Reset button then gets back."));
+					saveAndNote(help(kLeaveButtons));
 					rebuild();
 					break;
 				case kGcBackups:
 					settings.gc_backups = settings.gc_backups == "off" ? "on" : "off";
-					saveAndNote(tr("Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page."));
+					saveAndNote(help(kGcBackups));
 					rebuild();
 					break;
 				case kShots:
 					settings.screenshots = settings.screenshots == "off" ? "on" : "off";
-					saveAndNote(tr("Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it."));
+					saveAndNote(help(kShots));
 					rebuild();
 					break;
 				case kDiscTile:
 					settings.home_disc = settings.home_disc == "off" ? "on" : "off";
-					saveAndNote(DiscTileNote());
+					saveAndNote(help(kDiscTile));
 					rebuild();
 					break;
 				case kMusic:
@@ -19094,12 +19209,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						break;
 					}
 					settings.page_banner_sound = settings.page_banner_sound == "on" ? "off" : "on";
-					saveAndNote(tr("Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already."));
+					saveAndNote(help(kPageBannerSound));
 					rebuild();
 					break;
 				case kDiscArt:
 					settings.disc_art = settings.disc_art == "on" ? "off" : "on";
-					saveAndNote(tr("Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs."));
+					saveAndNote(help(kDiscArt));
 					rebuild();
 					break;
 				case kLaunchLog:
@@ -19109,12 +19224,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				case kLaunchMusic:
 					settings.launch_music = settings.launch_music == "off" ? "on" : "off";
-					saveAndNote(tr("Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."));
+					saveAndNote(help(kLaunchMusic));
 					rebuild();
 					break;
 				case kHomeTiles:
 					settings.home_tiles = NextHomeTiles(settings.home_tiles);
-					saveAndNote(HomeTilesNote(settings.home_tiles));
+					saveAndNote(help(kHomeTiles));
 					rebuild();
 					break;
 				case kChannelCorners:
@@ -19130,7 +19245,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				case kGridSpacing:
 					settings.grid_spacing = settings.grid_spacing == "roomy" ? "normal" : "roomy";
-					saveAndNote(tr("Roomy makes the Names and Channels tiles a little smaller, with wider gaps between them and at the sides, as on the Wii Menu."));
+					saveAndNote(help(kGridSpacing));
 					rebuild();
 					break;
 				case kWidescreen: {
@@ -19213,7 +19328,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					int at = 0;
 					while (at < 3 && settings.clock != kClocks[at]) ++at;
 					settings.clock = kClocks[((at % 3) + 3 + direction) % 3];
-					saveAndNote(tr("How Home's clock writes the time: 12-hour (with AM and PM) or 24-hour. Automatic writes it as the menu's language does."));
+					saveAndNote(help(kClockFormat));
 					rebuild();
 					break;
 				}
@@ -19291,7 +19406,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					settings.emulator_covers = !settings.emulator_covers;
 					ResetCoverDownloads();
 					riftwii::wii::ForgetAllCovers();
-					saveAndNote(tr("Downloads emulator covers from libretro. Off uses your own PNG covers only."));
+					saveAndNote(help(kEmulatorCovers));
 					rebuild();
 					break;
 				case kSteamGridCovers:
@@ -19362,19 +19477,19 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				case kGcRumble:
 					settings.gc_rumble = settings.gc_rumble == "off" ? "on" : "off";
-					saveAndNote(tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports."));
+					saveAndNote(help(kGcRumble));
 					rebuild();
 					break;
 				case kWiiRumble:
 					settings.wiimote_rumble = settings.wiimote_rumble == "off" ? "on" : "off";
-					saveAndNote(tr("Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only."));
+					saveAndNote(help(kWiiRumble));
 					rebuild();
 					break;
 				case kUsbInput:
 					settings.usb_input = settings.usb_input == "off" ? "on" : "off";
 					// After the save: one that fails puts the setting back, and
 					// the drivers follow what the row shows.
-					saveAndNote(tr("USB pads use controller.ini mappings in the menu and games; wired Xbox 360 pads need none. Off also leaves keyboards, mice, tablets and the uDraw alone."));
+					saveAndNote(help(kUsbInput));
 					riftwii::wii::UsbInputSetEnabled(settings.usb_input != "off");
 					rebuild();
 					break;
@@ -19396,7 +19511,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						break;
 					}
 					settings.gc_adapter = next;
-					saveAndNote(AdapterNote(settings.gc_adapter));
+					saveAndNote(help(kGcAdapter));
 					rebuild();
 					break;
 				}
@@ -19420,6 +19535,15 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					ResumeGui();
 					GcCalibratePage();
 					HaltGui();
+					transition::Hold(transition::Kind::SlideBack);
+					mainWindow->Append(&w);
+					break;
+				case kNintendontImport:
+					// It reads the USB drive: not while the scan does.
+					WaitForDriveScan(noteTxt);
+					transition::Hold(transition::Kind::SlideForward);
+					mainWindow->Remove(&w);
+					NintendontLayoutsPage();
 					transition::Hold(transition::Kind::SlideBack);
 					mainWindow->Append(&w);
 					break;
