@@ -3732,9 +3732,6 @@ msgstr "APIキーなし"
 msgid "Downloads emulator covers from libretro. Off uses your own PNG covers only."
 msgstr "libretroからカバーをダウンロード。オフでは自分のPNGカバーのみ使います。"
 
-msgid "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt."
-msgstr "SteamGridDBの予備カバー。自分のAPIキーをsd:/riftwii/steamgriddb.txtに入れてください。"
-
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "エミュレータのカバー：libretro-thumbnailsの参加者、MobyGames、Fandom。予備のカバー：SteamGridDBの参加者。元の画像はゲームの開発者と発売元のものです。"
 
@@ -4559,6 +4556,36 @@ msgstr "RiftWiiが新しいファイルを保存できないため、設定や�
 
 msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."
 msgstr "RiftWiiが新しいファイルを保存できないため、設定やゲームの選択、ジャケット画像やログが保存されないことがあります。カードをパソコンに入れて、エラーがないかカードを確認してください。"
+
+msgid "SteamGridDB key"
+msgstr "SteamGridDB キー"
+
+msgid "Clear SteamGridDB key"
+msgstr "SteamGridDB キーを消去"
+
+msgid "Ends in {1}"
+msgstr "最後の4文字: {1}"
+
+msgid "Fallback covers from SteamGridDB. Set your key below."
+msgstr "ほかにカバーがないときはSteamGridDBを使います。下でキーを設定してください。"
+
+msgid "Type your SteamGridDB API key. Only its last four characters are shown."
+msgstr "SteamGridDBのAPIキーを入力します。最後の4文字だけを表示します。"
+
+msgid "Removes your SteamGridDB key from the SD card. Saved pictures are kept."
+msgstr "SDカードからSteamGridDBのキーを消去します。保存した画像は残ります。"
+
+msgid "Use 16 to 128 letters, numbers, - or _."
+msgstr "16〜128文字の英数字、-、_を使ってください。"
+
+msgid "SteamGridDB key saved."
+msgstr "SteamGridDBのキーを保存しました。"
+
+msgid "SteamGridDB key cleared."
+msgstr "SteamGridDBのキーを消去しました。"
+
+msgid "Could not change the SteamGridDB key. Check the SD card."
+msgstr "SteamGridDBのキーを変更できませんでした。SDカードを確認してください。"
 
 msgid "Copies the controller.ini files Nintendont uses (on the SD card or the USB drive) into RiftWii's own controller layouts."
 msgstr "Nintendontが使うcontroller.ini（SDカードまたはUSBドライブ）を、RiftWii自身のコントローラー設定にコピーします。"

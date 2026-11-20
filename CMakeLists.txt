@@ -410,6 +410,25 @@ if(BUILD_TESTING)
         target_compile_options(usbkeyboard_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME usbkeyboard COMMAND usbkeyboard_tests)
+    # The production picture worker against real card files and counted
+    # HTTP calls. Separate processes prove caches survive a restart.
+    add_executable(emulatorcovers_io_tests tests/emulatorcovers_io_tests.cpp
+        wii/menu/emulatorcovers.cpp wii/core/textfile.cpp)
+    target_include_directories(emulatorcovers_io_tests PRIVATE
+        tests/movedchannels_mock tests/wii_mock wii/menu wii/core wii/storage
+        wii/launch wii/online runtime runtime/resident)
+    target_link_libraries(emulatorcovers_io_tests PRIVATE riftwii)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(emulatorcovers_io_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/emulatorcovers-card")
+    foreach(mode prepare restart)
+        add_test(NAME emulatorcovers_${mode} COMMAND emulatorcovers_io_tests ${mode})
+        set_tests_properties(emulatorcovers_${mode} PROPERTIES
+            WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/emulatorcovers-card")
+    endforeach()
+    set_tests_properties(emulatorcovers_prepare PROPERTIES FIXTURES_SETUP emulatorcovers_card)
+    set_tests_properties(emulatorcovers_restart PROPERTIES FIXTURES_REQUIRED emulatorcovers_card)
     # The loading/copying light, including timer failures and shutdown.
     add_executable(disclight_tests tests/disclight_tests.cpp wii/core/disclight.cpp)
     target_include_directories(disclight_tests PRIVATE tests/disclight_mock wii/core)

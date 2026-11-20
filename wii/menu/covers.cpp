@@ -595,6 +595,19 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
     mkdir(kCoverDir, 0777);
     // The second set is the game page's choice, for the game's own cover.
     const bool second = !tile && CoverSecondSet(game_id);
+    // A queued request may arrive after another view saved this picture.
+    // Homebrew uses these same stable GameTDB IDs and files. Recheck here,
+    // before any network call, while still respecting a changed cover set
+    // or a mod tile whose matched game changed.
+    if (!tile || TileStoredForMatch(game_id)) {
+        struct stat info {};
+        if (stat(CoverPath(game_id).c_str(), &info) == 0 && S_ISREG(info.st_mode) &&
+            info.st_size == static_cast<off_t>(kCoverFileSize) && StoredIsSecond(game_id) == second)
+            return CoverFetch::Stored;
+        const std::time_t now = std::time(nullptr);
+        if (stat(MissPath(game_id).c_str(), &info) == 0 && now >= info.st_mtime && now - info.st_mtime < kRetryAfter)
+            return CoverFetch::NotFound;
+    }
     for (const std::string& art_id : gametdb_art_ids(art_of)) {
         for (const std::string& region : cover_regions(art_of, MenuLanguage())) {
             std::vector<std::uint8_t> png;

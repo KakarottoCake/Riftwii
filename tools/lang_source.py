@@ -7718,11 +7718,6 @@ T.update({
         "libretroからカバーをダウンロード。オフでは自分のPNGカバーのみ使います。",
         "Baixa capas de emuladores do libretro. Desligado usa só suas capas PNG.",
         "Scarica copertine da libretro. Se disattivato usa solo le tue copertine PNG."),
-    "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt.": (
-        "Carátulas alternativas de SteamGridDB. Pon tu clave API en sd:/riftwii/steamgriddb.txt.",
-        "SteamGridDBの予備カバー。自分のAPIキーをsd:/riftwii/steamgriddb.txtに入れてください。",
-        "Capas alternativas do SteamGridDB. Coloque sua chave de API em sd:/riftwii/steamgriddb.txt.",
-        "Copertine alternative da SteamGridDB. Metti la tua chiave API in sd:/riftwii/steamgriddb.txt."),
     "Getting covers: {1} left": (
         "Descargando carátulas: quedan {1}",
         "カバーを取得中：残り{1}",
@@ -7736,7 +7731,6 @@ KO.update({
     "Off (key found)": "끄기 (키 있음)",
     "No API key": "API 키 없음",
     "Downloads emulator covers from libretro. Off uses your own PNG covers only.": "libretro에서 표지를 받습니다. 끄면 직접 넣은 PNG 표지만 사용합니다.",
-    "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt.": "SteamGridDB의 대체 표지입니다. 본인의 API 키를 sd:/riftwii/steamgriddb.txt에 넣으세요.",
     "Getting covers: {1} left": "표지 받는 중: {1}개 남음",
 })
 FR.update({
@@ -7746,7 +7740,6 @@ FR.update({
     "Off (key found)": "Non (clé trouvée)",
     "No API key": "Aucune clé API",
     "Downloads emulator covers from libretro. Off uses your own PNG covers only.": "Télécharge les jaquettes depuis libretro. Désactivé : utilise uniquement vos images PNG.",
-    "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt.": "Jaquettes de secours SteamGridDB. Placez votre clé API dans sd:/riftwii/steamgriddb.txt.",
     "Getting covers: {1} left": "Téléchargement des jaquettes : {1} restantes",
 })
 
@@ -9573,6 +9566,65 @@ FR.update({
     "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer, then move files to the computer or delete files you do not need to make room.": "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. Mettez la carte dans un ordinateur, puis déplacez des fichiers vers l'ordinateur ou supprimez les fichiers inutiles pour libérer de la place.",
     "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. The card may be locked or read-only. Put the card in a computer and check its lock switch.": "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. La carte est peut-être verrouillée ou en lecture seule. Mettez la carte dans un ordinateur et vérifiez son commutateur de verrouillage.",
     "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors.": "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. Mettez la carte dans un ordinateur et vérifiez si elle comporte des erreurs.",
+})
+
+# SteamGridDB keys are entered locally and only their last four characters
+# are shown after saving. Keep the labels short for the Online settings.
+T.update({
+    "SteamGridDB key": ("Clave de SteamGridDB", "SteamGridDB キー", "Chave do SteamGridDB", "Chiave SteamGridDB"),
+    "Clear SteamGridDB key": ("Borrar clave de SteamGridDB", "SteamGridDB キーを消去", "Apagar chave do SteamGridDB", "Cancella chiave SteamGridDB"),
+    "Ends in {1}": ("Termina en {1}", "最後の4文字: {1}", "Termina em {1}", "Termina con {1}"),
+    "Fallback covers from SteamGridDB. Set your key below.": (
+        "Carátulas alternativas de SteamGridDB. Introduce tu clave abajo.",
+        "ほかにカバーがないときはSteamGridDBを使います。下でキーを設定してください。",
+        "Capas alternativas do SteamGridDB. Defina sua chave abaixo.",
+        "Copertine alternative da SteamGridDB. Imposta la tua chiave qui sotto."),
+    "Type your SteamGridDB API key. Only its last four characters are shown.": (
+        "Escribe tu clave API de SteamGridDB. Solo se muestran sus últimos cuatro caracteres.",
+        "SteamGridDBのAPIキーを入力します。最後の4文字だけを表示します。",
+        "Digite sua chave API do SteamGridDB. Apenas os últimos quatro caracteres são mostrados.",
+        "Inserisci la tua chiave API SteamGridDB. Vengono mostrati solo gli ultimi quattro caratteri."),
+    "Removes your SteamGridDB key from the SD card. Saved pictures are kept.": (
+        "Borra tu clave de SteamGridDB de la tarjeta SD. Las imágenes guardadas se conservan.",
+        "SDカードからSteamGridDBのキーを消去します。保存した画像は残ります。",
+        "Apaga sua chave do SteamGridDB do cartão SD. As imagens salvas são mantidas.",
+        "Rimuove la tua chiave SteamGridDB dalla scheda SD. Le immagini salvate vengono conservate."),
+    "Use 16 to 128 letters, numbers, - or _.": (
+        "Usa de 16 a 128 letras, números, - o _.",
+        "16〜128文字の英数字、-、_を使ってください。",
+        "Use de 16 a 128 letras, números, - ou _.",
+        "Usa da 16 a 128 lettere, numeri, - o _."),
+    "SteamGridDB key saved.": ("Clave de SteamGridDB guardada.", "SteamGridDBのキーを保存しました。", "Chave do SteamGridDB salva.", "Chiave SteamGridDB salvata."),
+    "SteamGridDB key cleared.": ("Clave de SteamGridDB borrada.", "SteamGridDBのキーを消去しました。", "Chave do SteamGridDB apagada.", "Chiave SteamGridDB cancellata."),
+    "Could not change the SteamGridDB key. Check the SD card.": (
+        "No se pudo cambiar la clave de SteamGridDB. Revisa la tarjeta SD.",
+        "SteamGridDBのキーを変更できませんでした。SDカードを確認してください。",
+        "Não foi possível alterar a chave do SteamGridDB. Verifique o cartão SD.",
+        "Impossibile cambiare la chiave SteamGridDB. Controlla la scheda SD."),
+})
+KO.update({
+    "SteamGridDB key": "SteamGridDB 키",
+    "Clear SteamGridDB key": "SteamGridDB 키 지우기",
+    "Ends in {1}": "마지막 4글자: {1}",
+    "Fallback covers from SteamGridDB. Set your key below.": "다른 곳에 커버가 없으면 SteamGridDB를 사용합니다. 아래에서 키를 설정하세요.",
+    "Type your SteamGridDB API key. Only its last four characters are shown.": "SteamGridDB API 키를 입력하세요. 마지막 네 글자만 표시됩니다.",
+    "Removes your SteamGridDB key from the SD card. Saved pictures are kept.": "SD 카드에서 SteamGridDB 키를 지웁니다. 저장한 그림은 유지됩니다.",
+    "Use 16 to 128 letters, numbers, - or _.": "영문자, 숫자, - 또는 _로 16~128글자를 입력하세요.",
+    "SteamGridDB key saved.": "SteamGridDB 키를 저장했습니다.",
+    "SteamGridDB key cleared.": "SteamGridDB 키를 지웠습니다.",
+    "Could not change the SteamGridDB key. Check the SD card.": "SteamGridDB 키를 바꿀 수 없습니다. SD 카드를 확인하세요.",
+})
+FR.update({
+    "SteamGridDB key": "Clé SteamGridDB",
+    "Clear SteamGridDB key": "Effacer la clé SteamGridDB",
+    "Ends in {1}": "Se termine par {1}",
+    "Fallback covers from SteamGridDB. Set your key below.": "Pochettes de secours de SteamGridDB. Saisissez votre clé ci-dessous.",
+    "Type your SteamGridDB API key. Only its last four characters are shown.": "Saisissez votre clé API SteamGridDB. Seuls ses quatre derniers caractères sont affichés.",
+    "Removes your SteamGridDB key from the SD card. Saved pictures are kept.": "Efface votre clé SteamGridDB de la carte SD. Les images enregistrées sont conservées.",
+    "Use 16 to 128 letters, numbers, - or _.": "Utilisez de 16 à 128 lettres, chiffres, - ou _.",
+    "SteamGridDB key saved.": "Clé SteamGridDB enregistrée.",
+    "SteamGridDB key cleared.": "Clé SteamGridDB effacée.",
+    "Could not change the SteamGridDB key. Check the SD card.": "Impossible de modifier la clé SteamGridDB. Vérifiez la carte SD.",
 })
 
 

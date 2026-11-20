@@ -2091,11 +2091,22 @@ network requests while keeping downloaded covers available.
 **SteamGridDB covers** is an optional fallback and starts off. To use it,
 sign in at [SteamGridDB](https://www.steamgriddb.com/), open
 [Preferences > API](https://www.steamgriddb.com/profile/preferences/api),
-and put your own key alone on one line in `sd:/riftwii/steamgriddb.txt`.
-The setting shows whether a key was found. Enable it to look there only
-after the other sources have no cover. Your key is never put in logs.
-Missing covers are tried again after a week, or when you use
-**Settings > Online > Download missing covers**.
+and choose **Settings > Online > SteamGridDB key** to type your key.
+The on-screen keyboard hides what you type; **Shift** switches between
+lowercase and uppercase letters. A USB keyboard also works. Choose **OK**
+to save, or **Cancel** to keep your previous key. The settings show only
+the saved key's last four characters. **Clear SteamGridDB key** removes it.
+You can still put the key alone on one line in `sd:/riftwii/steamgriddb.txt`;
+menu entry saves to that same file. Your key is never put in logs.
+
+Enable **SteamGridDB covers** to look there only after the other sources
+have no cover. Downloaded pictures stay in `sd:/riftwii/covers/` and
+`sd:/riftwii/banners/`; restarting RiftWii reuses them without a download.
+Each source's "not found" answer is saved beside the picture's cache for a
+week. Missing pictures are tried again after that, or when you use
+**Settings > Online > Download missing covers**. That action keeps pictures
+already saved. A full, locked or unreadable SD card prevents new pictures
+and missing-picture records from being saved; RiftWii reports the failure.
 
 After adding files, use
 **Settings > Drives > Look for games again**. If an emulator or

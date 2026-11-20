@@ -3732,9 +3732,6 @@ msgstr "Sin clave API"
 msgid "Downloads emulator covers from libretro. Off uses your own PNG covers only."
 msgstr "Descarga carátulas de libretro. Desactivado usa solo tus carátulas PNG."
 
-msgid "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt."
-msgstr "Carátulas alternativas de SteamGridDB. Pon tu clave API en sd:/riftwii/steamgriddb.txt."
-
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Carátulas de emuladores: colaboradores de libretro-thumbnails, MobyGames y Fandom. Carátulas opcionales: colaboradores de SteamGridDB. El arte original pertenece a los creadores y editores de los juegos."
 
@@ -4559,6 +4556,36 @@ msgstr "RiftWii no puede guardar archivos nuevos, por lo que los ajustes, las el
 
 msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."
 msgstr "RiftWii no puede guardar archivos nuevos, por lo que los ajustes, las elecciones de juego, las carátulas y los registros podrían no guardarse. Pon la tarjeta en un ordenador y comprueba si tiene errores."
+
+msgid "SteamGridDB key"
+msgstr "Clave de SteamGridDB"
+
+msgid "Clear SteamGridDB key"
+msgstr "Borrar clave de SteamGridDB"
+
+msgid "Ends in {1}"
+msgstr "Termina en {1}"
+
+msgid "Fallback covers from SteamGridDB. Set your key below."
+msgstr "Carátulas alternativas de SteamGridDB. Introduce tu clave abajo."
+
+msgid "Type your SteamGridDB API key. Only its last four characters are shown."
+msgstr "Escribe tu clave API de SteamGridDB. Solo se muestran sus últimos cuatro caracteres."
+
+msgid "Removes your SteamGridDB key from the SD card. Saved pictures are kept."
+msgstr "Borra tu clave de SteamGridDB de la tarjeta SD. Las imágenes guardadas se conservan."
+
+msgid "Use 16 to 128 letters, numbers, - or _."
+msgstr "Usa de 16 a 128 letras, números, - o _."
+
+msgid "SteamGridDB key saved."
+msgstr "Clave de SteamGridDB guardada."
+
+msgid "SteamGridDB key cleared."
+msgstr "Clave de SteamGridDB borrada."
+
+msgid "Could not change the SteamGridDB key. Check the SD card."
+msgstr "No se pudo cambiar la clave de SteamGridDB. Revisa la tarjeta SD."
 
 msgid "Copies the controller.ini files Nintendont uses (on the SD card or the USB drive) into RiftWii's own controller layouts."
 msgstr "Copia los archivos controller.ini que usa Nintendont (en la tarjeta SD o la unidad USB) a los esquemas de mando propios de RiftWii."

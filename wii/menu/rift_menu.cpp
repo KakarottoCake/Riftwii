@@ -12244,6 +12244,23 @@ static bool AskTileName(const std::string& title, std::string& name)
 	return true;
 }
 
+static bool AskSteamGridKey(std::string& key)
+{
+	// Start empty: replacing a saved key never reveals it on the keyboard.
+	GuiSearchKeys keys(GuiSearchKeys::Secret{}, tr("SteamGridDB key"));
+	mainWindow->SetState(STATE::DISABLED);
+	mainWindow->Append(&keys);
+	keys.SetState(STATE::DEFAULT);
+	ResumeGui();
+	while (keys.Result() == 0) usleep(20000);
+	HaltGui();
+	mainWindow->Remove(&keys);
+	mainWindow->SetState(STATE::DEFAULT);
+	if (keys.Result() < 0) return false;
+	key = keys.Text();
+	return true;
+}
+
 // A new tile's name to start from: the first mod turned on (what the tile
 // is for, as often as not), else the game's.
 static std::string SuggestedTileName(const FrontendState& state)
@@ -18253,7 +18270,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kLaunchLog, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kNintendontImport, kUsbInput, kGcCard, kGcBackups, kLeaveButtons, kDiscLight, kNintendontSaves, kParental, kSdGames, kGameFolders, kIos, kNet, kResync, kWads, kDiscCopy,
+	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kLaunchLog, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kSteamGridKey, kSteamGridClear, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kNintendontImport, kUsbInput, kGcCard, kGcBackups, kLeaveButtons, kDiscLight, kNintendontSaves, kParental, kSdGames, kGameFolders, kIos, kNet, kResync, kWads, kDiscCopy,
 		kMissingCovers, kRescan, kPartitionFailures, kUpdate, kReport, kTests, kGeckoLog, kWiirdDebugger, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -18502,11 +18519,15 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			FlowRow::Kind::Toggle);
 		option(tr("Covers for emulator games"), settings.emulator_covers ? tr("On") : tr("Off"),
 			settings.emulator_covers, kEmulatorCovers, FlowRow::Kind::Toggle);
-		const bool steamGridKey = riftwii::wii::SteamGridKeyFound();
+		const std::string steamGridSuffix = riftwii::wii::SteamGridKeySuffix();
+		const bool steamGridKey = !steamGridSuffix.empty();
 		option(tr("SteamGridDB covers"), steamGridKey
 			? (settings.steamgrid_covers ? tr("On (key found)") : tr("Off (key found)")) : tr("No API key"),
 			settings.steamgrid_covers, kSteamGridCovers, FlowRow::Kind::Toggle);
 		rows.back().dim = !steamGridKey || !settings.emulator_covers || !settings.online;
+		option(tr("SteamGridDB key"), steamGridKey ? tr("Ends in {1}", {steamGridSuffix}) : tr("No API key"),
+			false, kSteamGridKey, FlowRow::Kind::Action);
+		option(tr("Clear SteamGridDB key"), tr("Clear"), false, kSteamGridClear, FlowRow::Kind::Action);
 		FlowRow names;
 		names.kind = FlowRow::Kind::Action;
 		names.label = tr("Get the latest game names");
@@ -18627,7 +18648,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kPageBannerSound: case kDiscArt:
 				case kIos: case kNone:
 					return SettingsSection::Look;
-				case kOnline: case kEmulatorCovers: case kSteamGridCovers: case kNetTest: case kNames: case kRiiTag: case kMissingCovers: case kServer: case kUpdate:
+				case kOnline: case kEmulatorCovers: case kSteamGridCovers: case kSteamGridKey: case kSteamGridClear: case kNetTest: case kNames: case kRiiTag: case kMissingCovers: case kServer: case kUpdate:
 					return SettingsSection::Online;
 				case kSdGames: case kGameFolders: case kRescan: case kPartitionFailures: case kNet: case kResync: case kWads: case kDiscCopy:
 					return SettingsSection::Finding;
@@ -18763,7 +18784,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kOnline:
 				return tr("Allows downloads of game names, covers, cheats, game details, themes and updates. Files already on the card still work when this is off.");
 			case kEmulatorCovers: return tr("Downloads emulator covers from libretro. Off uses your own PNG covers only.");
-			case kSteamGridCovers: return tr("Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt.");
+			case kSteamGridCovers: return tr("Fallback covers from SteamGridDB. Set your key below.");
+			case kSteamGridKey: return tr("Type your SteamGridDB API key. Only its last four characters are shown.");
+			case kSteamGridClear: return tr("Removes your SteamGridDB key from the SD card. Saved pictures are kept.");
 			case kNames: return tr("Downloads the newest game names from GameTDB.");
 			case kNetTest: return tr("Checks if network is online.");
 			case kRiiTag: return RiiTagNote(settings);
@@ -19389,7 +19412,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kSteamGridCovers:
 					if (!settings.online || !settings.emulator_covers) break;
 					if (!riftwii::wii::SteamGridKeyFound()) {
-						note(tr("Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt."));
+						note(help(kSteamGridKey));
 						break;
 					}
 					settings.steamgrid_covers = !settings.steamgrid_covers;
@@ -19397,6 +19420,31 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					saveAndNote(help(kSteamGridCovers));
 					rebuild();
 					break;
+				case kSteamGridKey: {
+					WaitForDriveScan(noteTxt);
+					std::string key;
+					mainWindow->Remove(&w);
+					const bool entered = AskSteamGridKey(key);
+					mainWindow->Append(&w);
+					if (!entered) break;
+					if (!riftwii::steamgrid_key_valid(key)) {
+						note(tr("Use 16 to 128 letters, numbers, - or _."));
+						break;
+					}
+					const bool saved = riftwii::wii::SaveSteamGridKey(key);
+					if (saved) ResetCoverDownloads();
+					note(saved ? tr("SteamGridDB key saved.") : tr("Could not change the SteamGridDB key. Check the SD card."));
+					rebuild();
+					break;
+				}
+				case kSteamGridClear: {
+					WaitForDriveScan(noteTxt);
+					const bool cleared = riftwii::wii::ClearSteamGridKey();
+					if (cleared) ResetCoverDownloads();
+					note(cleared ? tr("SteamGridDB key cleared.") : tr("Could not change the SteamGridDB key. Check the SD card."));
+					rebuild();
+					break;
+				}
 				case kNames: {
 					if (!settings.online) {
 						note(tr("Downloads are off. Turn on Settings > Online > Downloads first."));
