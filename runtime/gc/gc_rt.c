@@ -1267,7 +1267,7 @@ static void gc_sample_arm(struct gc_rt_context* ctx) {
 static void gc_sample_tick(struct gc_rt_context* ctx, uint32_t os_context) {
     ctx->sample_queued = 0;
     if (ctx->pad_sampling == 0) return;  /* a program without one: the heartbeat starts no more ticks */
-    if GC_TEST_FLAG(ctx, GC_FLAG_NO_SI_SAMPLE) gc_si_polling_off();
+    if (ctx->flags & GC_FLAG_NO_SI_SAMPLE) gc_si_polling_off();
     if (ctx->pad_reads != ctx->sample_reads) {
         ctx->sample_quiet = 0;
     } else if (ctx->sample_quiet < GC_SAMPLE_QUIET_TICKS) {
