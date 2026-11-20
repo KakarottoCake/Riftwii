@@ -2202,7 +2202,7 @@ T = {
     "Could not read them: {1}": ("No se pudieron leer: {1}", "読み込めませんでした：{1}", "Não foi possível lê-los: {1}", "Impossibile leggerli: {1}"),
     "No game details yet": ("Aún no hay datos de los juegos", "ゲーム情報はまだありません", "Ainda não há dados dos jogos", "Ancora nessun dato dei giochi"),
     "Download game details?": ("¿Descargar los datos de los juegos?", "ゲーム情報をダウンロードしますか？", "Baixar os dados dos jogos?", "Scaricare i dati dei giochi?"),
-    "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?": ("Vienen de la base de datos de GameTDB con todos los juegos de Wii: unos 2 MB, guardados en la tarjeta SD. ¿Descargarla ahora?", "GameTDBの全Wiiゲームのデータベースから取得します（約2 MB、SDカードに保存）。今すぐダウンロードしますか？", "Vêm da base de dados do GameTDB com todos os jogos de Wii: cerca de 2 MB, guardados no cartão SD. Baixar agora?", "Provengono dal database di GameTDB con tutti i giochi Wii: circa 2 MB, salvati sulla scheda SD. Scaricarlo ora?"),
+    "They come from GameTDB's database of every Wii game: about 3 MB, kept on the SD card. Download it now?": ("Vienen de la base de datos de GameTDB con todos los juegos de Wii: unos 3 MB, guardados en la tarjeta SD. ¿Descargarla ahora?", "GameTDBの全Wiiゲームのデータベースから取得します（約3 MB、SDカードに保存）。今すぐダウンロードしますか？", "Vêm da base de dados do GameTDB com todos os jogos de Wii: cerca de 3 MB, guardados no cartão SD. Baixar agora?", "Provengono dal database di GameTDB con tutti i giochi Wii: circa 3 MB, salvati sulla scheda SD. Scaricarlo ora?"),
     "Players": ("Jugadores", "人数", "Jogadores", "Giocatori"),
     "1 player": ("1 jugador", "1人", "1 jogador", "1 giocatore"),
     "1 to {1} players": ("De 1 a {1} jugadores", "1～{1}人", "De 1 a {1} jogadores", "Da 1 a {1} giocatori"),
@@ -4162,8 +4162,8 @@ KO = {
         "아직 게임 정보가 없습니다",
     "Download game details?":
         "게임 정보를 다운로드할까요?",
-    "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?":
-        "GameTDB의 모든 Wii 게임 데이터베이스에서 가져옵니다. 약 2 MB이며 SD 카드에 저장됩니다. 지금 다운로드할까요?",
+    "They come from GameTDB's database of every Wii game: about 3 MB, kept on the SD card. Download it now?":
+        "GameTDB의 모든 Wii 게임 데이터베이스에서 가져옵니다. 약 3 MB이며 SD 카드에 저장됩니다. 지금 다운로드할까요?",
     "Players":
         "플레이 인원",
     "1 player":
@@ -6044,8 +6044,8 @@ FR = {
         "Pas encore d'infos sur les jeux",
     "Download game details?":
         "Télécharger les infos des jeux ?",
-    "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?":
-        "Elles viennent de la base GameTDB de tous les jeux Wii : environ 2 Mo, gardés sur la carte SD. La télécharger maintenant ?",
+    "They come from GameTDB's database of every Wii game: about 3 MB, kept on the SD card. Download it now?":
+        "Elles viennent de la base GameTDB de tous les jeux Wii : environ 3 Mo, gardés sur la carte SD. La télécharger maintenant ?",
     "Players":
         "Joueurs",
     "1 player":
@@ -8654,25 +8654,42 @@ T["With settings and Miis, games also use the emulated NAND's Wii settings and M
 MORE["ko"]["With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."] = '설정과 Mii까지 고르면 게임이 에뮬레이트 NAND의 Wii 설정과 Mii도 사용합니다. 이를 위해 폴더에 완전한 NAND가 있어야 합니다.'
 MORE["fr"]["With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."] = 'Avec réglages et Mii, les jeux utilisent aussi les réglages de la Wii et les Mii de la NAND émulée. Le dossier doit alors contenir une NAND complète.'
 
-# What's new in the release after 2611-151.
-T["CTGP-R: updated installs start again"] = ("CTGP-R: las instalaciones actualizadas vuelven a iniciar", "CTGP-R：更新したインストールが再び起動", "CTGP-R: instalações atualizadas iniciam de novo", "CTGP-R: le installazioni aggiornate ripartono")
-MORE["ko"]["CTGP-R: updated installs start again"] = "CTGP-R: 업데이트된 설치본이 다시 실행"
-MORE["fr"]["CTGP-R: updated installs start again"] = "CTGP-R : les installations mises à jour redémarrent"
-T["CTGP-R cups come from your install"] = ("CTGP-R: las copas salen de tu instalación", "CTGP-R：カップ構成は自分のインストールから", "CTGP-R: as copas vêm da sua instalação", "CTGP-R: le coppe dalla tua installazione")
-MORE["ko"]["CTGP-R cups come from your install"] = "CTGP-R: 컵 구성을 내 설치본에서"
-MORE["fr"]["CTGP-R cups come from your install"] = "CTGP-R : coupes lues dans votre installation"
-T["Game folders of your choice"] = ("Carpetas de juegos a tu elección", "ゲームのフォルダを自分で選べる", "Pastas de jogos à sua escolha", "Cartelle dei giochi a tua scelta")
-MORE["ko"]["Game folders of your choice"] = "게임 폴더를 직접 선택"
-MORE["fr"]["Game folders of your choice"] = "Dossiers de jeux au choix"
-T["GameCube: named memory cards"] = ("GameCube: tarjetas con nombre", "ゲームキューブ：名前付きカード", "GameCube: cartões com nome", "GameCube: schede con nome")
-MORE["ko"]["GameCube: named memory cards"] = "게임큐브: 이름 있는 카드"
-MORE["fr"]["GameCube: named memory cards"] = "GameCube : cartes nommées"
-T["Sonic Unleashed sees the adapter on Wii U"] = ("Sonic Unleashed ve el adaptador en Wii U", "Wii UでSonic Unleashedがアダプターを認識", "Sonic Unleashed vê o adaptador no Wii U", "Sonic Unleashed vede l'adattatore su Wii U")
-MORE["ko"]["Sonic Unleashed sees the adapter on Wii U"] = "Wii U에서 Sonic Unleashed가 어댑터 인식"
-MORE["fr"]["Sonic Unleashed sees the adapter on Wii U"] = "Sonic Unleashed voit l'adaptateur sur Wii U"
-T["Brawl: file-swap packs load a match"] = ("Brawl: los packs de archivos cargan partidas", "Brawl：ファイル差し替えMODで試合が始まる", "Brawl: pacotes de arquivos carregam partidas", "Brawl: i pacchetti di file caricano le partite")
-MORE["ko"]["Brawl: file-swap packs load a match"] = "Brawl: 파일 교체 MOD로 대전 시작"
-MORE["fr"]["Brawl: file-swap packs load a match"] = "Brawl : les packs de fichiers lancent un match"
+# Settings > Launch screen: the game's box or the log while a game starts.
+T["Launch screen"] = ("Pantalla de inicio del juego", "起動画面", "Tela de início do jogo", "Schermata di avvio")
+MORE["ko"]["Launch screen"] = "실행 화면"
+MORE["fr"]["Launch screen"] = "Écran de lancement"
+T["Game's box"] = ("Caja del juego", "ゲームのパッケージ", "Caixa do jogo", "Confezione del gioco")
+MORE["ko"]["Game's box"] = "게임 패키지"
+MORE["fr"]["Game's box"] = "Boîte du jeu"
+T["Log"] = ("Registro", "ログ", "Registro", "Registro")
+MORE["ko"]["Log"] = "로그"
+MORE["fr"]["Log"] = "Journal"
+T["Press any button to see what RiftWii is doing."] = ("Pulsa cualquier botón para ver qué está haciendo RiftWii.", "ボタンを押すとRiftWiiの処理内容を表示します。", "Aperte qualquer botão para ver o que o RiftWii está fazendo.", "Premi un tasto qualsiasi per vedere cosa sta facendo RiftWii.")
+MORE["ko"]["Press any button to see what RiftWii is doing."] = "아무 버튼이나 누르면 RiftWii가 하는 일을 볼 수 있습니다."
+MORE["fr"]["Press any button to see what RiftWii is doing."] = "Appuyez sur un bouton pour voir ce que fait RiftWii."
+T["Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."] = ("Caja del juego: la caja del juego mientras se inicia; pulsa cualquier botón para ver qué está haciendo RiftWii. Registro: cada paso, línea por línea. Si el inicio falla, el registro siempre se muestra.", "ゲームのパッケージ：起動中はゲームのパッケージを表示します。ボタンを押すとRiftWiiの処理内容を表示します。ログ：すべての手順を1行ずつ表示します。起動に失敗したときは、必ずログを表示します。", "Caixa do jogo: a caixa do jogo enquanto ele inicia; aperte qualquer botão para ver o que o RiftWii está fazendo. Registro: cada passo, linha por linha. Se o início falhar, o registro sempre aparece.", "Confezione del gioco: la confezione del gioco mentre si avvia; premi un tasto qualsiasi per vedere cosa sta facendo RiftWii. Registro: ogni passo, riga per riga. Se l'avvio non riesce, il registro appare sempre.")
+MORE["ko"]["Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."] = "게임 패키지: 게임이 시작되는 동안 게임 패키지를 보여 줍니다. 아무 버튼이나 누르면 RiftWii가 하는 일을 볼 수 있습니다. 로그: 모든 단계를 한 줄씩 보여 줍니다. 실행에 실패하면 항상 로그가 나타납니다."
+MORE["fr"]["Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."] = "Boîte du jeu : la boîte du jeu pendant son lancement ; appuyez sur un bouton pour voir ce que fait RiftWii. Journal : chaque étape, ligne par ligne. Un lancement qui échoue affiche toujours le journal."
+
+# What's new in the release after 2611-170.
+T["GameCube 16:9 is back"] = ("Vuelve el 16:9 en GameCube", "ゲームキューブの16:9が復活", "O 16:9 do GameCube está de volta", "Torna il 16:9 per GameCube")
+MORE["ko"]["GameCube 16:9 is back"] = "게임큐브 16:9 복귀"
+MORE["fr"]["GameCube 16:9 is back"] = "Le 16:9 GameCube est de retour"
+T["RiftWii says when the SD card is full"] = ("RiftWii avisa cuando la tarjeta SD está llena", "SDカードがいっぱいのときにお知らせ", "O RiftWii avisa quando o cartão SD está cheio", "RiftWii avvisa quando la scheda SD è piena")
+MORE["ko"]["RiftWii says when the SD card is full"] = "SD 카드가 가득 차면 알림"
+MORE["fr"]["RiftWii says when the SD card is full"] = "RiftWii signale quand la carte SD est pleine"
+T["A full SD card no longer locks the game page"] = ("Una tarjeta SD llena ya no bloquea la página del juego", "SDカードがいっぱいでもゲームのページから戻れる", "Um cartão SD cheio não trava mais a página do jogo", "Una scheda SD piena non blocca più la pagina del gioco")
+MORE["ko"]["A full SD card no longer locks the game page"] = "SD 카드가 가득 차도 게임 페이지가 멈추지 않음"
+MORE["fr"]["A full SD card no longer locks the game page"] = "Une carte SD pleine ne bloque plus la page du jeu"
+T["Long cheat notes scroll"] = ("Las notas largas de los trucos se desplazan", "長いチートの説明がスクロール", "Notas longas de trapaças rolam", "Le note lunghe dei trucchi scorrono")
+MORE["ko"]["Long cheat notes scroll"] = "긴 치트 설명이 스크롤됨"
+MORE["fr"]["Long cheat notes scroll"] = "Les longues notes des codes défilent"
+T["USB and SD games skip a broken disc drive"] = ("Los juegos de USB y SD ya no esperan al lector roto", "USB・SDのゲームは壊れたドライブを待たない", "Jogos de USB e SD ignoram o leitor quebrado", "I giochi da USB e SD ignorano il lettore guasto")
+MORE["ko"]["USB and SD games skip a broken disc drive"] = "USB·SD 게임이 고장 난 드라이브를 기다리지 않음"
+MORE["fr"]["USB and SD games skip a broken disc drive"] = "Les jeux USB et SD ignorent un lecteur en panne"
+T["Settings > Games toggles work again"] = ("Los interruptores de Ajustes > Juegos funcionan de nuevo", "設定 > ゲームの切り替えが再び動作", "As opções de Configurações > Jogos funcionam de novo", "Le opzioni di Impostazioni > Giochi funzionano di nuovo")
+MORE["ko"]["Settings > Games toggles work again"] = "설정 > 게임의 전환이 다시 작동"
+MORE["fr"]["Settings > Games toggles work again"] = "Les options Paramètres > Jeux remarchent"
 
 # Game management: own display names and visibility, never file renames.
 T['Manage game'] = ('Gestionar juego', 'ゲームの管理', 'Gerenciar jogo', 'Gestisci gioco')
@@ -9493,6 +9510,15 @@ KO.update({
 FR.update({
     "CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none.": "CTGP-R garde sa sauvegarde sur la carte SD, dans {1}. La sauvegarde de la Wii y est copiée si le dossier n'en a pas.",
 })
+
+T["CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."] = (
+    "No se pudo preparar la imagen de juego de CTGP-R. El motivo está en sd:/riftwii/boot.log.",
+    "CTGP-Rのゲームイメージを準備できませんでした。理由はsd:/riftwii/boot.logにあります。",
+    "Não foi possível preparar a imagem de jogo do CTGP-R. O motivo está em sd:/riftwii/boot.log.",
+    "Impossibile preparare l'immagine di gioco di CTGP-R. Il motivo è in sd:/riftwii/boot.log.",
+)
+KO["CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."] = "CTGP-R 게임 이미지를 준비하지 못했습니다. 이유는 sd:/riftwii/boot.log에 있습니다."
+FR["CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."] = "Impossible de préparer l'image de jeu de CTGP-R. La raison se trouve dans sd:/riftwii/boot.log."
 
 T.update({
     "The SD card is full": (

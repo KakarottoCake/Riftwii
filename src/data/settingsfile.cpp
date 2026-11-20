@@ -37,6 +37,11 @@ bool line_keeps(const std::string& value) {
 
 }  // namespace
 
+void LoaderSettings::parse_saved(const std::string& text) {
+    menu_widescreen = "off";
+    parse(text);
+}
+
 void LoaderSettings::parse(const std::string& text) {
     LineReader in(text);
     std::string line;
@@ -113,6 +118,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "on" || value == "off") disc_light = value == "on";
         } else if (key == "launch_music") {
             if (value == "on" || value == "off") launch_music = value;
+        } else if (key == "launch_log") {
+            if (value == "on" || value == "off") launch_log = value;
         } else if (key == "page_banner_sound") {
             if (value == "on" || value == "off") page_banner_sound = value;
         } else if (key == "disc_art") {
@@ -263,6 +270,7 @@ std::string LoaderSettings::serialize() const {
     s += "menu_music = " + menu_music + "\n";
     s += std::string("disc_light = ") + (disc_light ? "on" : "off") + "\n";
     s += "launch_music = " + launch_music + "\n";
+    s += "launch_log = " + launch_log + "\n";
     s += "page_banner_sound = " + page_banner_sound + "\n";
     s += "disc_art = " + disc_art + "\n";
     // The song, playlist or folder as the drive names it, and below the

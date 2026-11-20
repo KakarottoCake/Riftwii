@@ -1431,6 +1431,13 @@ void TestSettingsMusic() {
     EXPECT_TRUE(s.serialize().find("launch_music = off\n") != std::string::npos);
     s.parse("launch_music = loud\n");
     EXPECT_EQ(s.launch_music, "off");
+    // The launch screen: the game's box unless the log was asked for.
+    EXPECT_EQ(s.launch_log, "off");
+    s.parse("launch_log = on\n");
+    EXPECT_EQ(s.launch_log, "on");
+    EXPECT_TRUE(s.serialize().find("launch_log = on\n") != std::string::npos);
+    s.parse("launch_log = maybe\n");
+    EXPECT_EQ(s.launch_log, "on");
     // A game page's banner sound and disc art: off until turned on.
     EXPECT_EQ(s.page_banner_sound, "off");
     EXPECT_EQ(s.disc_art, "off");
@@ -2010,7 +2017,17 @@ void TestCoverArt() {
     s.parse("page_peek = wide\n");
     EXPECT_EQ(s.page_peek, "off");
     s.page_peek = "on";
-    EXPECT_EQ(s.menu_widescreen, "off");
+    EXPECT_EQ(s.menu_widescreen, "auto");
+    {
+        // A saved file from before the key keeps its 4:3 menu; one with the
+        // key keeps what it says.
+        LoaderSettings old;
+        old.parse_saved("page_peek = on\n");
+        EXPECT_EQ(old.menu_widescreen, "off");
+        LoaderSettings saved;
+        saved.parse_saved("menu_widescreen = auto\n");
+        EXPECT_EQ(saved.menu_widescreen, "auto");
+    }
     EXPECT_EQ(s.play_history, "on");
     s.parse("play_history = off\n");
     EXPECT_EQ(s.play_history, "off");

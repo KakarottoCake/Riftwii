@@ -26,6 +26,7 @@
 #include "i18n.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
+#include "progress.hpp"
 #include "riftwii/sha256.hpp"
 #include "sdfile.hpp"
 #include "sdio.hpp"
@@ -442,6 +443,10 @@ int32_t HostZlibInflate(void* stream, int32_t flush) { return inflate(static_cas
 
 int32_t HostZlibInflateEnd(void* stream) { return inflateEnd(static_cast<z_streamp>(stream)); }
 
+void HostProgress(const char* stage, int32_t percent) {
+    if (stage != nullptr) ProgressStage(stage, static_cast<int>(percent));
+}
+
 // Every entry in plugin_api.h's order, which a plugin was built against;
 // tests/plugin_tests.cpp checks that order and that none is skipped.
 const rwp_host kHost = {
@@ -492,10 +497,11 @@ const rwp_host kHost = {
     HostZlibInflateInit2,
     HostZlibInflate,
     HostZlibInflateEnd,
+    HostProgress,
 };
 // A missing initializer would leave the last entries NULL without a word:
 // the count is checked against the struct's size.
-static_assert(sizeof(rwp_host) == 8 + 43 * sizeof(void*), "kHost and plugin_api.h's rwp_host disagree");
+static_assert(sizeof(rwp_host) == 8 + 44 * sizeof(void*), "kHost and plugin_api.h's rwp_host disagree");
 
 // ---- Refusals ----
 

@@ -214,6 +214,12 @@ typedef struct rwp_host {
     int32_t (*zlib_inflate_init2)(void* stream, int32_t window_bits, const char* version, int32_t stream_size);
     int32_t (*zlib_inflate)(void* stream, int32_t flush);
     int32_t (*zlib_inflate_end)(void* stream);
+
+    /* Added after zlib_inflate_end (check RWP_HOST_HAS). The launch
+     * screen's progress line: `stage`, a few English words ("..." is
+     * added), and the bar at `percent` (0 to 100; it never goes back).
+     * Only before the SD card is handed over (sd_hand_over). */
+    void (*progress)(const char* stage, int32_t percent);
 } rwp_host;
 
 /* What a plugin gives RiftWii: a constant table in its image, found by

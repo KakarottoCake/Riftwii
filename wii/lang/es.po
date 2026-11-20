@@ -2604,8 +2604,8 @@ msgstr "Aún no hay datos de los juegos"
 msgid "Download game details?"
 msgstr "¿Descargar los datos de los juegos?"
 
-msgid "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?"
-msgstr "Vienen de la base de datos de GameTDB con todos los juegos de Wii: unos 2 MB, guardados en la tarjeta SD. ¿Descargarla ahora?"
+msgid "They come from GameTDB's database of every Wii game: about 3 MB, kept on the SD card. Download it now?"
+msgstr "Vienen de la base de datos de GameTDB con todos los juegos de Wii: unos 3 MB, guardados en la tarjeta SD. ¿Descargarla ahora?"
 
 msgid "Players"
 msgstr "Jugadores"
@@ -4122,23 +4122,38 @@ msgstr "La carpeta de la NAND emulada: la que indican los ajustes de USB Loader 
 msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
 msgstr "Con ajustes y Miis, los juegos también usan los ajustes de Wii y los Miis de la NAND emulada. Para eso la carpeta necesita una NAND completa."
 
-msgid "CTGP-R: updated installs start again"
-msgstr "CTGP-R: las instalaciones actualizadas vuelven a iniciar"
+msgid "Launch screen"
+msgstr "Pantalla de inicio del juego"
 
-msgid "CTGP-R cups come from your install"
-msgstr "CTGP-R: las copas salen de tu instalación"
+msgid "Game's box"
+msgstr "Caja del juego"
 
-msgid "Game folders of your choice"
-msgstr "Carpetas de juegos a tu elección"
+msgid "Log"
+msgstr "Registro"
 
-msgid "GameCube: named memory cards"
-msgstr "GameCube: tarjetas con nombre"
+msgid "Press any button to see what RiftWii is doing."
+msgstr "Pulsa cualquier botón para ver qué está haciendo RiftWii."
 
-msgid "Sonic Unleashed sees the adapter on Wii U"
-msgstr "Sonic Unleashed ve el adaptador en Wii U"
+msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
+msgstr "Caja del juego: la caja del juego mientras se inicia; pulsa cualquier botón para ver qué está haciendo RiftWii. Registro: cada paso, línea por línea. Si el inicio falla, el registro siempre se muestra."
 
-msgid "Brawl: file-swap packs load a match"
-msgstr "Brawl: los packs de archivos cargan partidas"
+msgid "GameCube 16:9 is back"
+msgstr "Vuelve el 16:9 en GameCube"
+
+msgid "RiftWii says when the SD card is full"
+msgstr "RiftWii avisa cuando la tarjeta SD está llena"
+
+msgid "A full SD card no longer locks the game page"
+msgstr "Una tarjeta SD llena ya no bloquea la página del juego"
+
+msgid "Long cheat notes scroll"
+msgstr "Las notas largas de los trucos se desplazan"
+
+msgid "USB and SD games skip a broken disc drive"
+msgstr "Los juegos de USB y SD ya no esperan al lector roto"
+
+msgid "Settings > Games toggles work again"
+msgstr "Los interruptores de Ajustes > Juegos funcionan de nuevo"
 
 msgid "Manage game"
 msgstr "Gestionar juego"
@@ -4523,6 +4538,9 @@ msgstr "Cambia este juego a {1}. Atrás mantiene la tarjeta que tiene."
 
 msgid "CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none."
 msgstr "CTGP-R guarda su partida en la tarjeta SD, en {1}. La partida de la Wii se copia si la carpeta no tiene ninguna."
+
+msgid "CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."
+msgstr "No se pudo preparar la imagen de juego de CTGP-R. El motivo está en sd:/riftwii/boot.log."
 
 msgid "The SD card is full"
 msgstr "La tarjeta SD está llena"

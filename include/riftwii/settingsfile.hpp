@@ -35,13 +35,14 @@ struct LoaderSettings {
     std::string channel_background = "none";
     std::string grid_spacing = "normal";  // normal, roomy: Home's grid smaller, with wider gaps at its sides
     std::string page_peek = "on";         // on, off: Channels shows the next and previous pages' nearest columns at its sides
-    std::string menu_widescreen = "off";  // auto (the Wii's own 16:9 setting), on, off: the menu kept in shape on a 16:9 TV
+    std::string menu_widescreen = "auto"; // auto (the Wii's own 16:9 setting), on, off: the menu kept in shape on a 16:9 TV
     int screen_size = 100;                // the menu's size on screen, 80-100 (%), inside what a TV's overscan crops
     bool wii_menu_sounds = false;       // System Menu effects, read from NAND into memory only
     bool wii_menu_music = false;        // System Menu background music; a theme keeps priority
     std::string menu_sounds = "quiet";    // normal, quiet (a soft hover tick), off
     std::string menu_music = "on";        // on, off: music.ogg while the menu is open
     std::string launch_music = "on";      // on, off: the music plays on under the launch screen, or fades out as the menu closes
+    std::string launch_log = "off";       // on, off: the launch screen prints the launch's log, or shows the game's box (the log appears on a failure or a button)
     std::string page_banner_sound = "off";  // on, off: a game's page plays its banner's sound when opened outside the Channels view
     std::string disc_art = "off";         // on, off: GameTDB's picture of the game's disc under the box on its page
     // The player's own menu music, picked in Settings or written here:
@@ -115,6 +116,10 @@ struct LoaderSettings {
     std::map<std::string, std::string> other;
 
     void parse(const std::string& text);
+    // The player's saved file: as parse, but a file from before
+    // menu_widescreen existed keeps the 4:3 menu it had then (only a new
+    // card, with no file, starts on "auto").
+    void parse_saved(const std::string& text);
     std::string serialize() const;
 };
 

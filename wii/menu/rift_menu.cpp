@@ -1595,14 +1595,16 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 		}
 		return;
 	}
-	// The Disc drive tile belongs to Home's own views (Mods and All games),
-	// as the disc channel does on the Wii Menu. A search, Recently played
-	// and Favorites list particular games, so a tile that is none of them
-	// was only noise there.
+	// The Disc drive tile belongs to Home's own views (Mods, All games, and
+	// the Wii and GameCube views, since the drive plays both), as the disc
+	// channel does on the Wii Menu. A search, Recently played and Favorites
+	// list particular games, so a tile that is none of them was only noise
+	// there; Homebrew and Emulators have nothing the drive can start.
 	const bool searching = searchOpen || !g_search.empty();
 	// A genre lists particular games too: the disc drive has none.
 	const bool genreChosen = !searching && !g_genre.empty();
-	const bool discViews = !searching && !genreChosen && (g_filter == Filter::Mods || g_filter == Filter::All);
+	const bool discViews = !searching && !genreChosen && (g_filter == Filter::Mods || g_filter == Filter::All ||
+		g_filter == Filter::Wii || g_filter == Filter::GameCube);
 	if (discViews) {
 		GridItem disc;
 		disc.title = tr("Disc drive");  // translated whole: the tile splits it into lines
@@ -5174,12 +5176,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"CTGP-R: updated installs start again",
-	"CTGP-R cups come from your install",
-	"Game folders of your choice",
-	"GameCube: named memory cards",
-	"Sonic Unleashed sees the adapter on Wii U",
-	"Brawl: file-swap packs load a match",
+	"GameCube 16:9 is back",
+	"RiftWii says when the SD card is full",
+	"A full SD card no longer locks the game page",
+	"Long cheat notes scroll",
+	"USB and SD games skip a broken disc drive",
+	"Settings > Games toggles work again",
 };
 
 static std::string WhatsNewText()
@@ -11967,16 +11969,21 @@ static void MakeGcCrashCard(const riftwii::wii::ImageGame& game)
 	riftwii::wii::SetGcCrashScreen(std::move(screen), wayBack);
 }
 
-// Before a GameCube game starts: its controls the first time, and its
-// crash screen. False: Back.
+// Before a GameCube game starts: a real memory card it uses checked (with
+// the game's SD card offered when it can't be used), its controls the
+// first time, and its crash screen. False: Back.
 static bool ReadyGcStart(FrontendState& state)
 {
 	state.gc_card_fallback = false;
 	const riftwii::wii::ImageGame* game = SelectedGcGame(state);
 	if (!game) return true;
 	const std::string used = EffectiveGcCard(state);
-	if (GcCardIsRealSlotA(used)) {
-		// Slot B's card as slot A is read from slot B.
+	// "real_b" passes slot B's card through beside the game's own card in
+	// slot A. It is checked too: the launch checks it again and can only
+	// stop, and a Wii's saved choice read on a Wii U would stop every game
+	// left on Default. The fallback drops slot B and keeps the own card.
+	if (GcCardIsRealSlotA(used) || used == "real_b") {
+		// Slot B's card, as slot A or beside it, is read from slot B.
 		const int slot = used == "real" ? 0 : 1;
 		riftwii::wii::GcRealCard physical;
 		int result = physical.Open(slot);
@@ -12366,7 +12373,7 @@ static bool FetchGameInfo(const FrontendState& state, riftwii::GameInfo& info)
 			return false;
 		}
 		if (ShowPopup(tr("Download game details?"),
-			    tr("They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?"),
+			    tr("They come from GameTDB's database of every Wii game: about 3 MB, kept on the SD card. Download it now?"),
 			    tr("Download"), tr("Cancel")) != 0)
 			return false;
 		if (!DownloadGameInfoNow()) return false;
@@ -12444,14 +12451,21 @@ public:
 	// A box or cover was drawn: there is something to see up close. Read
 	// by the menu thread, as the textures are the GUI thread's.
 	bool HasArt() const { return hasArt; }
+	// Somewhere other than the page's place, `scale`d: the launch
+	// screen shows the box on its card (ShowLaunchFrame).
+	void MoveTo(float x, float y, float scale) {
+		placeX = x;
+		placeY = y;
+		placeScale = scale;
+	}
 	void Draw() override {
 		riftwii::wii::DrawTrace trace("the page's cover");
 		DrawDisc();
 		const float lit = litGrid && litTile >= 0 ? litGrid->Lift(litTile) : 0.0f;
 		const float grow = litGrid && litTile >= 0 ? litGrid->SwellScale(litTile) : 1.0f;
-		const float w = kHeroW * grow, h = kHeroH * grow;
+		const float w = kHeroW * placeScale * grow, h = kHeroH * placeScale * grow;
 		// The cover already sits at the safe left edge: grow inward there.
-		const float x = static_cast<float>(kHeroX), y = kHeroY - (h - kHeroH) / 2;
+		const float x = placeX, y = placeY - (h - kHeroH * placeScale) / 2;
 		const auto ring = [&](float rx, float ry, float rw, float rh) {
 			if (lit <= 0.0f) return;
 			const GXColor c = skin::WithAlpha(skin::kAccent, static_cast<int>(255 * lit));
@@ -12559,6 +12573,7 @@ private:
 	bool disc;
 	bool channel;
 	GXColor hue;
+	float placeX = kHeroX, placeY = kHeroY, placeScale = 1.0f;
 	const GuiTiles* litGrid = nullptr;
 	int litTile = -1;
 	volatile bool hasArt = false;
@@ -16205,6 +16220,12 @@ static int MenuHome(FrontendState& state)
 // ---------------------------------------------------------------------------
 // Settings
 
+// Settings > Launch screen's note.
+static std::string LaunchLogNote()
+{
+	return tr("Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log.");
+}
+
 static const char* const kLanguages[] = {"auto", "en", "es", "ja", "pt", "it", "fr", "ko"};
 
 // Each language by its own name, as players look for it.
@@ -17830,7 +17851,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kUsbInput, kGcCard, kGcBackups, kLeaveButtons, kDiscLight, kNintendontSaves, kParental, kSdGames, kGameFolders, kIos, kNet, kResync, kWads, kDiscCopy,
+	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kLaunchLog, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kUsbInput, kGcCard, kGcBackups, kLeaveButtons, kDiscLight, kNintendontSaves, kParental, kSdGames, kGameFolders, kIos, kNet, kResync, kWads, kDiscCopy,
 		kMissingCovers, kRescan, kPartitionFailures, kUpdate, kReport, kTests, kGeckoLog, kWiirdDebugger, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -17992,6 +18013,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			settings.launch_music != "off", kLaunchMusic);
 		// Without menu music there is nothing to keep or fade.
 		if (settings.menu_music == "off") rows.back().dim = true;
+		option(tr("Launch screen"), settings.launch_log == "on" ? tr("Log") : tr("Game's box"),
+			settings.launch_log != "on", kLaunchLog);
 		option(tr("Banner music on game pages"), settings.page_banner_sound == "on" ? tr("On") : tr("Off"),
 			settings.page_banner_sound == "on", kPageBannerSound, FlowRow::Kind::Toggle);
 		// The Channels view's banner screen plays it already.
@@ -18188,7 +18211,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kShowHidden: case kPlayHistory: case kDiscTile: case kClockFormat:
 				case kNoClock:
 					return SettingsSection::HomeScreen;
-				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kThemeBrowse: case kFont: case kSounds: case kWiiSounds: case kWiiMusic: case kMusic: case kMusicFile: case kLaunchMusic:
+				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kThemeBrowse: case kFont: case kSounds: case kWiiSounds: case kWiiMusic: case kMusic: case kMusicFile: case kLaunchMusic: case kLaunchLog:
 				case kPageBannerSound: case kDiscArt:
 				case kIos: case kNone:
 					return SettingsSection::Look;
@@ -18319,6 +18342,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kHomeStart: return tr("Last game: Home opens on the page of the last game you played as soon as its drive has been read, unless you have already pressed a button or moved the stick. First page: Home opens on page 1.");
 			case kHomeSort: return tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it.");
 			case kLaunchMusic: return tr("Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game.");
+			case kLaunchLog: return LaunchLogNote();
 			case kPageBannerSound: return tr("Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already.");
 			case kDiscArt: return tr("Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs.");
 			case kMusicFile: return MusicFileNote(settings.music_file);
@@ -18752,6 +18776,11 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kDiscArt:
 					settings.disc_art = settings.disc_art == "on" ? "off" : "on";
 					saveAndNote(tr("Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs."));
+					rebuild();
+					break;
+				case kLaunchLog:
+					settings.launch_log = settings.launch_log == "on" ? "off" : "on";
+					saveAndNote(LaunchLogNote());
 					rebuild();
 					break;
 				case kLaunchMusic:
@@ -19572,7 +19601,9 @@ static int MenuNeedsSd()
 // ---------------------------------------------------------------------------
 // Launch frame: stays on screen while the boot log prints into its card.
 
-static void ShowLaunchFrame(const FrontendState& state, int action)
+// `logOnly`: the log is what comes next on the card whatever the setting
+// (back from the missing-files question, wii/main.cpp).
+static void ShowLaunchFrame(const FrontendState& state, int action, bool logOnly = false)
 {
 	const bool homebrew = action == MENU_HOMEBREW;
 	const std::string title = homebrew ? riftwii::wii::HomebrewToStart().name
@@ -19590,6 +19621,21 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	// As wide as a popup on a widescreen menu: the log printed into it
 	// (wii/main.cpp, EnterConsolePhase) gets the same room.
 	Panel card(skin::panelSettings, 34, 160, PopupExtra());
+	// A game's launch shows its box on the card, as on its page, unless
+	// the log was asked for (Settings > Launch screen). wii/main.cpp keeps
+	// the log behind it until a button or a failure (console.hpp); the
+	// same test decides there.
+	const bool showBox = !logOnly && (action == MENU_LAUNCH || action == MENU_BOOT || action == MENU_PLAY_CHANNEL) &&
+		riftwii::wii::Settings().launch_log != "on";
+	HeroCover box(state.game_id, PageCoverName(state), !state.use_usb && !state.use_sd && !state.use_channel,
+		skin::HueFor(state.game_id), state.use_channel);
+	// Inside the card's log window (176 to 384 down), drop shadow and all
+	// (it reaches riftwii::kShadowMargin less its 6 drop above the box and
+	// the margin plus the drop below it): the log, when it is asked for,
+	// clears that window and nothing outside it.
+	constexpr float kBoxScale = 0.8f;
+	box.MoveTo(320 - kHeroW * kBoxScale / 2, 186, kBoxScale);
+	box.SetMadeUpName(title, riftwii::emulator_cover_id(state.game_id) ? std::string() : state.game_id);
 	riftwii::wii::BusyRing launchBusy(320, 130);
 	// The launch waits for the start's update check or a cover download
 	// first (wii/main.cpp): say so, as nothing else is on the screen yet.
@@ -19601,6 +19647,7 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 		: riftwii::wii::NetBackgroundBusy() ? tr("Waiting for the update check to finish...")
 		: action == MENU_CHANNEL ? tr("RiftWii starts again when it is done.")
 		: homebrew ? tr("The app will start when ready.")
+		: showBox ? tr("Press any button to see what RiftWii is doing.")
 		: tr("The game takes over the screen when it is ready."), 15, skin::kInkDim);
 	Place(footTxt, 0, 444, true);
 
@@ -19612,6 +19659,7 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	w.Append(&doingTxt);
 	w.Append(&titleTxt);
 	w.Append(&card);
+	if (showBox) w.Append(&box);
 	w.Append(&footTxt);
 	w.Append(&launchBusy);
 	mainWindow->Append(&w);
@@ -19627,9 +19675,17 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 		HaltGui();
 		footTxt.SetText(action == MENU_CHANNEL ? tr("RiftWii starts again when it is done.")
 			: homebrew ? tr("The app will start when ready.")
+			: showBox ? tr("Press any button to see what RiftWii is doing.")
 			: tr("The game takes over the screen when it is ready."));
 		ResumeGui();
 	}
+	// The box's art is read by the cover loader, a few frames after it is
+	// first asked for (a launch from Home rather than the game's page):
+	// a moment for it, as this frame stays on screen.
+	// Only for art on the card: a game with none would wait for nothing.
+	const bool artOnCard = showBox && (riftwii::wii::CoverStored(PageCoverName(state)) ||
+		riftwii::wii::CoverStored(state.game_id));
+	for (int wait = 0; artOnCard && !box.HasArt() && wait < 25; ++wait) usleep(20000);
 	// Faded in all the way first: this frame stays on screen.
 	transition::Settle();
 	HaltGui();
@@ -19652,7 +19708,9 @@ bool ConfirmLaunchMissingModInputs(const FrontendState& state,
 	ResetVideo_Menu();
 	hidePointers = false;
 	const bool play = ConfirmMissingModInputs(missing);
-	ShowLaunchFrame(state, MENU_LAUNCH);
+	// The launch goes on with its log on the card (wii/main.cpp): no box
+	// to flash up and be cleared at once.
+	ShowLaunchFrame(state, MENU_LAUNCH, true);
 	launchPopup = false;
 	return play;
 }
