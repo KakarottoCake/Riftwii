@@ -672,7 +672,13 @@ int GuiGameGrid::SlotAt(int x, int y) const {
 }
 
 int GuiGameGrid::ArrowAt(int x, int y) const {
-    if (PagePeek() && y >= TileY(0) && y < TileY(kPerPage - 1) + Geo().tileH) {
+    // Covers' top row starts at y 38, beside Home's Layout and Search
+    // buttons in the top corners (y 24 to 64, rift_menu.cpp): the side
+    // pages' band starts under them, or one press both turned the page and
+    // opened the button's picker. Channels keep those buttons in the bar.
+    constexpr int kCornerButtonsBottom = 64;
+    const int bandTop = covers ? std::max(TileY(0), kCornerButtonsBottom) : TileY(0);
+    if (PagePeek() && y >= bandTop && y < TileY(kPerPage - 1) + Geo().tileH) {
         // A neighbouring page's column is its arrow, from the screen's edge
         // to the page's own columns.
         const Geometry& g = Geo();
