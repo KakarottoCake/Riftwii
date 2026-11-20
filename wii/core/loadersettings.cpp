@@ -37,7 +37,7 @@ LoaderSettings& Settings() {
     if (!g_loaded) {
         g_loaded = true;
         std::string text;
-        if (ReadSavedSettings(text)) g_settings.parse(text);
+        if (ReadSavedSettings(text)) g_settings.parse_saved(text);
     }
     return g_settings;
 }
@@ -46,13 +46,16 @@ void ReloadSettings() {
     g_settings = LoaderSettings{};
     g_loaded = true;
     std::string text;
-    if (ReadSavedSettings(text)) g_settings.parse(text);
+    if (ReadSavedSettings(text)) g_settings.parse_saved(text);
 }
 
 // Written whole beside it, then put in its place (ReplaceWholeFile):
 // truncating it first left it empty after a power cut or a full card, and
-// every setting reset. kEndLine marks a whole copy, so a .part left by a
-// failed last rename is read at the next start (ReadSavedSettings).
+// every setting reset. When the last rename fails, the old copy goes back
+// in place and is what the next start reads; the whole new copy stays as
+// .part (kEndLine marks it whole), which the next start reads only when
+// there was no old copy to put back (ReadSavedSettings). The caller tells
+// the player the save failed.
 bool SaveSettings() {
     mkdir("sd:/riftwii", 0777);
     const std::string text = Settings().serialize() + kEndLine;
