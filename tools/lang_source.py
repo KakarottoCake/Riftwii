@@ -8677,25 +8677,25 @@ T["Game's box: the game's box while it starts; press any button to see what Rift
 MORE["ko"]["Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."] = "게임 패키지: 게임이 시작되는 동안 게임 패키지를 보여 줍니다. 아무 버튼이나 누르면 RiftWii가 하는 일을 볼 수 있습니다. 로그: 모든 단계를 한 줄씩 보여 줍니다. 실행에 실패하면 항상 로그가 나타납니다."
 MORE["fr"]["Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."] = "Boîte du jeu : la boîte du jeu pendant son lancement ; appuyez sur un bouton pour voir ce que fait RiftWii. Journal : chaque étape, ligne par ligne. Un lancement qui échoue affiche toujours le journal."
 
-# What's new in the release after 2611-170.
-T["GameCube 16:9 is back"] = ("Vuelve el 16:9 en GameCube", "ゲームキューブの16:9が復活", "O 16:9 do GameCube está de volta", "Torna il 16:9 per GameCube")
-MORE["ko"]["GameCube 16:9 is back"] = "게임큐브 16:9 복귀"
-MORE["fr"]["GameCube 16:9 is back"] = "Le 16:9 GameCube est de retour"
-T["RiftWii says when the SD card is full"] = ("RiftWii avisa cuando la tarjeta SD está llena", "SDカードがいっぱいのときにお知らせ", "O RiftWii avisa quando o cartão SD está cheio", "RiftWii avvisa quando la scheda SD è piena")
-MORE["ko"]["RiftWii says when the SD card is full"] = "SD 카드가 가득 차면 알림"
-MORE["fr"]["RiftWii says when the SD card is full"] = "RiftWii signale quand la carte SD est pleine"
-T["A full SD card no longer locks the game page"] = ("Una tarjeta SD llena ya no bloquea la página del juego", "SDカードがいっぱいでもゲームのページから戻れる", "Um cartão SD cheio não trava mais a página do jogo", "Una scheda SD piena non blocca più la pagina del gioco")
-MORE["ko"]["A full SD card no longer locks the game page"] = "SD 카드가 가득 차도 게임 페이지가 멈추지 않음"
-MORE["fr"]["A full SD card no longer locks the game page"] = "Une carte SD pleine ne bloque plus la page du jeu"
-T["Long cheat notes scroll"] = ("Las notas largas de los trucos se desplazan", "長いチートの説明がスクロール", "Notas longas de trapaças rolam", "Le note lunghe dei trucchi scorrono")
-MORE["ko"]["Long cheat notes scroll"] = "긴 치트 설명이 스크롤됨"
-MORE["fr"]["Long cheat notes scroll"] = "Les longues notes des codes défilent"
-T["USB and SD games skip a broken disc drive"] = ("Los juegos de USB y SD ya no esperan al lector roto", "USB・SDのゲームは壊れたドライブを待たない", "Jogos de USB e SD ignoram o leitor quebrado", "I giochi da USB e SD ignorano il lettore guasto")
-MORE["ko"]["USB and SD games skip a broken disc drive"] = "USB·SD 게임이 고장 난 드라이브를 기다리지 않음"
-MORE["fr"]["USB and SD games skip a broken disc drive"] = "Les jeux USB et SD ignorent un lecteur en panne"
-T["Settings > Games toggles work again"] = ("Los interruptores de Ajustes > Juegos funcionan de nuevo", "設定 > ゲームの切り替えが再び動作", "As opções de Configurações > Jogos funcionam de novo", "Le opzioni di Impostazioni > Giochi funzionano di nuovo")
-MORE["ko"]["Settings > Games toggles work again"] = "설정 > 게임의 전환이 다시 작동"
-MORE["fr"]["Settings > Games toggles work again"] = "Les options Paramètres > Jeux remarchent"
+# What's new in the release after 2611-179.
+T['Home shows your games at once'] = ('Inicio muestra tus juegos al instante', 'ホームにゲームがすぐ表示', 'O Início mostra seus jogos na hora', 'La Home mostra subito i tuoi giochi')
+MORE["ko"]['Home shows your games at once'] = '홈에 게임이 바로 표시'
+MORE["fr"]['Home shows your games at once'] = "L'accueil affiche vos jeux tout de suite"
+T['Games start behind their box'] = ('Los juegos arrancan tras su caja', '起動中はゲームのパッケージを表示', 'Os jogos iniciam atrás da caixa', 'I giochi partono dietro la confezione')
+MORE["ko"]['Games start behind their box'] = '게임 시작 중 패키지 표시'
+MORE["fr"]['Games start behind their box'] = 'Les jeux démarrent derrière leur boîte'
+T['Manage your emulated NAND'] = ('Gestiona tu NAND emulada', '仮想NANDを管理', 'Gerencie sua NAND emulada', 'Gestisci la NAND emulata')
+MORE["ko"]['Manage your emulated NAND'] = '에뮬레이트 NAND 관리'
+MORE["fr"]['Manage your emulated NAND'] = 'Gérez votre NAND émulée'
+T['Own covers and favorites for homebrew'] = ('Carátulas propias y favoritos para homebrew', 'ホームブリューに自分のカバーとお気に入り', 'Capas próprias e favoritos para homebrew', 'Copertine proprie e preferiti per gli homebrew')
+MORE["ko"]['Own covers and favorites for homebrew'] = '홈브루에 내 커버와 즐겨찾기'
+MORE["fr"]['Own covers and favorites for homebrew'] = 'Pochettes perso et favoris pour les homebrews'
+T['Import Nintendont controller layouts'] = ('Importa los mandos de Nintendont', 'Nintendontのコントローラー設定をコピー', 'Importe controles do Nintendont', 'Importa i controller di Nintendont')
+MORE["ko"]['Import Nintendont controller layouts'] = 'Nintendont 컨트롤러 설정 가져오기'
+MORE["fr"]['Import Nintendont controller layouts'] = 'Importez les manettes de Nintendont'
+T['Type your SteamGridDB key in Settings'] = ('Escribe tu clave de SteamGridDB en Ajustes', '設定でSteamGridDBのキーを入力', 'Digite sua chave do SteamGridDB nas Configurações', 'Inserisci la chiave SteamGridDB nelle Impostazioni')
+MORE["ko"]['Type your SteamGridDB key in Settings'] = '설정에서 SteamGridDB 키 입력'
+MORE["fr"]['Type your SteamGridDB key in Settings'] = 'Saisissez votre clé SteamGridDB dans les Paramètres'
 
 # Game management: own display names and visibility, never file renames.
 T['Manage game'] = ('Gestionar juego', 'ゲームの管理', 'Gerenciar jogo', 'Gestisci gioco')

@@ -5241,12 +5241,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"GameCube 16:9 is back",
-	"RiftWii says when the SD card is full",
-	"A full SD card no longer locks the game page",
-	"Long cheat notes scroll",
-	"USB and SD games skip a broken disc drive",
-	"Settings > Games toggles work again",
+	"Home shows your games at once",
+	"Games start behind their box",
+	"Manage your emulated NAND",
+	"Own covers and favorites for homebrew",
+	"Import Nintendont controller layouts",
+	"Type your SteamGridDB key in Settings",
 };
 
 static std::string WhatsNewText()

@@ -4137,23 +4137,23 @@ msgstr "아무 버튼이나 누르면 RiftWii가 하는 일을 볼 수 있습니
 msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
 msgstr "게임 패키지: 게임이 시작되는 동안 게임 패키지를 보여 줍니다. 아무 버튼이나 누르면 RiftWii가 하는 일을 볼 수 있습니다. 로그: 모든 단계를 한 줄씩 보여 줍니다. 실행에 실패하면 항상 로그가 나타납니다."
 
-msgid "GameCube 16:9 is back"
-msgstr "게임큐브 16:9 복귀"
+msgid "Home shows your games at once"
+msgstr "홈에 게임이 바로 표시"
 
-msgid "RiftWii says when the SD card is full"
-msgstr "SD 카드가 가득 차면 알림"
+msgid "Games start behind their box"
+msgstr "게임 시작 중 패키지 표시"
 
-msgid "A full SD card no longer locks the game page"
-msgstr "SD 카드가 가득 차도 게임 페이지가 멈추지 않음"
+msgid "Manage your emulated NAND"
+msgstr "에뮬레이트 NAND 관리"
 
-msgid "Long cheat notes scroll"
-msgstr "긴 치트 설명이 스크롤됨"
+msgid "Own covers and favorites for homebrew"
+msgstr "홈브루에 내 커버와 즐겨찾기"
 
-msgid "USB and SD games skip a broken disc drive"
-msgstr "USB·SD 게임이 고장 난 드라이브를 기다리지 않음"
+msgid "Import Nintendont controller layouts"
+msgstr "Nintendont 컨트롤러 설정 가져오기"
 
-msgid "Settings > Games toggles work again"
-msgstr "설정 > 게임의 전환이 다시 작동"
+msgid "Type your SteamGridDB key in Settings"
+msgstr "설정에서 SteamGridDB 키 입력"
 
 msgid "Manage game"
 msgstr "게임 관리"

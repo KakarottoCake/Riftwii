@@ -4137,23 +4137,23 @@ msgstr "ボタンを押すとRiftWiiの処理内容を表示します。"
 msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
 msgstr "ゲームのパッケージ：起動中はゲームのパッケージを表示します。ボタンを押すとRiftWiiの処理内容を表示します。ログ：すべての手順を1行ずつ表示します。起動に失敗したときは、必ずログを表示します。"
 
-msgid "GameCube 16:9 is back"
-msgstr "ゲームキューブの16:9が復活"
+msgid "Home shows your games at once"
+msgstr "ホームにゲームがすぐ表示"
 
-msgid "RiftWii says when the SD card is full"
-msgstr "SDカードがいっぱいのときにお知らせ"
+msgid "Games start behind their box"
+msgstr "起動中はゲームのパッケージを表示"
 
-msgid "A full SD card no longer locks the game page"
-msgstr "SDカードがいっぱいでもゲームのページから戻れる"
+msgid "Manage your emulated NAND"
+msgstr "仮想NANDを管理"
 
-msgid "Long cheat notes scroll"
-msgstr "長いチートの説明がスクロール"
+msgid "Own covers and favorites for homebrew"
+msgstr "ホームブリューに自分のカバーとお気に入り"
 
-msgid "USB and SD games skip a broken disc drive"
-msgstr "USB・SDのゲームは壊れたドライブを待たない"
+msgid "Import Nintendont controller layouts"
+msgstr "Nintendontのコントローラー設定をコピー"
 
-msgid "Settings > Games toggles work again"
-msgstr "設定 > ゲームの切り替えが再び動作"
+msgid "Type your SteamGridDB key in Settings"
+msgstr "設定でSteamGridDBのキーを入力"
 
 msgid "Manage game"
 msgstr "ゲームの管理"

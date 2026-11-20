@@ -4137,23 +4137,23 @@ msgstr "Aperte qualquer botão para ver o que o RiftWii está fazendo."
 msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
 msgstr "Caixa do jogo: a caixa do jogo enquanto ele inicia; aperte qualquer botão para ver o que o RiftWii está fazendo. Registro: cada passo, linha por linha. Se o início falhar, o registro sempre aparece."
 
-msgid "GameCube 16:9 is back"
-msgstr "O 16:9 do GameCube está de volta"
+msgid "Home shows your games at once"
+msgstr "O Início mostra seus jogos na hora"
 
-msgid "RiftWii says when the SD card is full"
-msgstr "O RiftWii avisa quando o cartão SD está cheio"
+msgid "Games start behind their box"
+msgstr "Os jogos iniciam atrás da caixa"
 
-msgid "A full SD card no longer locks the game page"
-msgstr "Um cartão SD cheio não trava mais a página do jogo"
+msgid "Manage your emulated NAND"
+msgstr "Gerencie sua NAND emulada"
 
-msgid "Long cheat notes scroll"
-msgstr "Notas longas de trapaças rolam"
+msgid "Own covers and favorites for homebrew"
+msgstr "Capas próprias e favoritos para homebrew"
 
-msgid "USB and SD games skip a broken disc drive"
-msgstr "Jogos de USB e SD ignoram o leitor quebrado"
+msgid "Import Nintendont controller layouts"
+msgstr "Importe controles do Nintendont"
 
-msgid "Settings > Games toggles work again"
-msgstr "As opções de Configurações > Jogos funcionam de novo"
+msgid "Type your SteamGridDB key in Settings"
+msgstr "Digite sua chave do SteamGridDB nas Configurações"
 
 msgid "Manage game"
 msgstr "Gerenciar jogo"
