@@ -463,21 +463,35 @@ bool real_title_attributes(std::uint64_t title, Attributes& attributes) {
     const u16 group = installed ? (static_cast<u16>(tmd_bytes[0x198]) << 8) | tmd_bytes[0x199] : 0;
     std::free(buffer);
     if (!installed) return false;
-    EmuNandTitlePaths paths;
-    emunand_title_paths(title, paths);
-    if (get_attributes(paths.data, attributes)) return true;
+    // The owner always comes from this Wii's uid.sys, never from a folder
+    // already there: one left by a failed import could have another.
     std::vector<std::uint8_t> uids;
     if (!read_small({true, "/sys/uid.sys"}, 12 * 8192, uids) || uids.size() % 12 != 0) return false;
-    for (std::size_t at = 0; at < uids.size(); at += 12) {
+    u32 owner = 0;
+    for (std::size_t at = 0; at < uids.size() && owner == 0; at += 12) {
         std::uint64_t entry = 0;
         for (unsigned i = 0; i < 8; ++i) entry = (entry << 8) | uids[at + i];
         if (entry != title) continue;
-        attributes = {};
-        for (unsigned i = 8; i < 12; ++i) attributes.owner = (attributes.owner << 8) | uids[at + i];
-        attributes.group = group;
-        return attributes.owner >= 0x1000;
+        for (unsigned i = 8; i < 12; ++i) owner = (owner << 8) | uids[at + i];
     }
-    return false;
+    if (owner < 0x1000) return false;
+    EmuNandTitlePaths paths;
+    emunand_title_paths(title, paths);
+    Attributes existing;
+    if (get_attributes(paths.data, existing)) {
+        // The folder's own permissions, the title's owner and group: put
+        // right first when they differ, or nothing is copied.
+        attributes = existing;
+        attributes.owner = owner;
+        attributes.group = group;
+        if (existing.owner == owner && existing.group == group) return true;
+        logf("Emulated NAND: %s had another owner; it is set back to the title's.\n", paths.data.c_str());
+        return set_attributes(paths.data, attributes);
+    }
+    attributes = {};
+    attributes.owner = owner;
+    attributes.group = group;
+    return true;
 }
 
 std::string title_name(const std::string& root, std::uint64_t title) {
@@ -592,6 +606,21 @@ bool perform(const std::string& root, EmuNandAction action, std::uint64_t title,
                 return std::tolower(static_cast<unsigned char>(x)) == std::tolower(static_cast<unsigned char>(y));
             });
         };
+        // The save being replaced is backed up to the card (FAT) whichever
+        // way it goes: two of its names the card can't tell apart would
+        // leave a backup missing one file. Refused before anything changes.
+        for (std::size_t i = 0; i < previous.nodes.size(); ++i) {
+            for (std::size_t j = i + 1; j < previous.nodes.size(); ++j) {
+                const std::string& a = previous.nodes[i].relative;
+                const std::string& b = previous.nodes[j].relative;
+                if (a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(), [](char x, char y) {
+                        return std::tolower(static_cast<unsigned char>(x)) == std::tolower(static_cast<unsigned char>(y));
+                    })) {
+                    error = "the save being replaced has two names the SD card can't tell apart, so it can't be backed up";
+                    return false;
+                }
+            }
+        }
         // Two incoming names that would be one file on the card: refused
         // before anything is written.
         for (std::size_t i = 0; i < incoming.nodes.size(); ++i) {
@@ -761,7 +790,14 @@ std::vector<std::string> emunand_manager_folders() {
             // Only a whole record: one that ends here (or at the file's
             // end) and started at a line's start. A longer one, cut by the
             // buffer, could give a shorter folder name than it has.
-            if (!whole_start || (!start && !std::feof(file))) continue;
+            bool whole_end = start || std::feof(file);
+            if (!whole_end) {
+                // A full buffer and no newline: the file may end right here.
+                const int next = std::fgetc(file);
+                whole_end = next == EOF;
+                if (next != EOF) std::ungetc(next, file);
+            }
+            if (!whole_start || !whole_end) continue;
             // As the launch reads it (shared_nand_game_line): a UTF-8 BOM
             // and leading blanks before "game:" are allowed.
             const char* at = line;

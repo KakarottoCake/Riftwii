@@ -80,6 +80,8 @@ void reset() {
     nand_files[kData + "/save.bin"] = {false, "old save"};
     nand_files[kData + "/obsolete"] = {false, "old extra"};
     nand_files[kEmuNandMiis] = {false, "old Miis"};
+    // The title's owner, 0x1001, as the Wii's uid.sys gives it.
+    nand_files["/sys/uid.sys"] = {false, std::string("\x00\x01\x00\x01\x57\x42\x4D\x45\x00\x00\x10\x01", 12)};
     installed = true;
     fail_write = refuse_data = escaped = false;
     fail_rename_to.clear();
@@ -152,6 +154,14 @@ void refused_and_failed_writes() {
     CHECK(card_read("/riftwii-backups/00010001-57424d45/wii-save.bak0/save.bin") == "old save");
     CHECK(!escaped);
 
+    // A data folder left with another owner (a failed import whose cleanup
+    // failed too) is put back to the title's owner from uid.sys.
+    reset();
+    card_file(kData + "/save.bin", "incoming");
+    nand_files[kData].owner = 0x2222;
+    CHECK(emunand_manager_action(kRoot, EmuNandAction::SaveToWii, kTitle, error));
+    CHECK(nand_files[kData].owner == 0x1001);
+
     reset();
     card_file(kData + "/bad:name", "unsafe");
     CHECK(!emunand_manager_action(kRoot, EmuNandAction::SaveToWii, kTitle, error));
@@ -219,6 +229,9 @@ s32 ES_GetStoredTMD(u64 title, signed_blob* data, u32 size) {
     auto* bytes = reinterpret_cast<u8*>(data);
     std::memset(bytes, 0, size);
     for (unsigned i = 0; i < 8; ++i) bytes[0x18C + i] = static_cast<u8>(title >> (56 - i * 8));
+    // The title's group, as the mock's folders have it.
+    bytes[0x198] = 0x30;
+    bytes[0x199] = 0x31;
     return 0;
 }
 s32 ES_GetNumTitles(u32* count) { *count = installed ? 1 : 0; return 0; }
