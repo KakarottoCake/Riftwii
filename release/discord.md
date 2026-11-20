@@ -5,25 +5,28 @@ markdown: at most 2000 characters once filled in (the workflow counts).
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-GameCube 16:9 and a few fixes:
+Lots of your requests in this one:
 
-* GameCube games can be 16:9 again (game page row, or Settings > Picture > Aspect ratio 16:9)
-* RiftWii says when the SD card is full or can't be written
-* A full SD card no longer traps you on a game page: Back leaves, Play asks "Play anyway?"
-* USB and SD games no longer hang 15 s on a broken or missing disc drive
-* Disc slot light off by default
-* Long cheat notes scroll
-* Settings > Games options switch again
+* Home shows your games at once: no more rescanning at every start
+* Games start behind their box; press any button for the log (Settings > Menu > Launch screen)
+* Settings > Games > Manage emulated NAND: delete installed channels, copy saves and Miis to and from the Wii, remove its Wii settings
+* Your own covers, 3D covers and boxes for homebrew, named after the app (ScummVM.png), and homebrew favorites
+* Settings > Controllers > Import from Nintendont copies your controller.ini
+* Type your SteamGridDB key in Settings > Online; pictures are no longer downloaded again every start
+* Covers view shows the pages either side, GameCube progress bar moves, disc close-up on the game page
 
-Not tried on a real Wii yet: GameCube 16:9 since its fix (Super Mario Eclipse had wrong colors last time).
+Not tried on a real Wii yet: copying saves or Miis into the Wii's own memory.
 
 To test, please:
 
-1. A GameCube game in 16:9, especially Super Mario Eclipse: are the colors right?
-2. A full SD card: does Home say so, and can you leave a game page?
-3. A USB or SD game on a Wii with a broken or empty disc drive
+1. Start RiftWii twice: are your games there at once the second time?
+2. Start a game: box shown, and a button shows the log?
+3. Manage emulated NAND on a real Wii, especially copying a save or the Miis
+4. Import your Nintendont controller.ini, then play with that pad
+5. SteamGridDB: start twice, does your allowance stay put?
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![GameCube 16:9](docs/screenshots/2611-179-gamecube-16x9.png)
-![The SD card is full](docs/screenshots/2611-179-sd-full.png)
+![A game starting behind its box](docs/screenshots/2611-200-launch-box.png)
+![Manage emulated NAND](docs/screenshots/2611-200-emulated-nand.png)
+![Your own homebrew cover](docs/screenshots/2611-200-homebrew-cover.png)

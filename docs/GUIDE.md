@@ -228,7 +228,11 @@ bottom left (or **1**) switches between **Mods** (the games with mods),
 **All games**, **Homebrew** and,
 once you have played something, **Recently played**, then
 **Favourites** once you mark a game as one (the star on its banner, or
-**Favourite** on its page). **Minus** and
+**Favourite** on its page). Homebrew apps can join Favourites too: open
+an app and press the star on its Start question (**1** on a Wii Remote,
+**Y** on a Classic or GameCube controller, **X** on the Wii U GamePad).
+Press it again to remove the app; a filled star means it is a favorite.
+**Minus** and
 **Plus** turn to the previous and next page of games (the arrows at the
 sides and the D-pad at a page's edge do too). **L/R** also turn pages on
 a Classic Controller or GameCube controller. On GameCube, pull all the
@@ -279,6 +283,21 @@ picture is `icon.png` and its name comes from `meta.xml` when present.
 Pick one and confirm **Start**. The question says where the
 app will return when it exits. Use **Look for games again** after adding
 an app.
+
+For homebrew covers, put `<name>.png` in `sd:/riftwii/covers`, using the
+`<name>` from the app's `meta.xml`: for example, `ScummVM.png`. Its own
+3D case picture goes in `sd:/riftwii/covers3d/ScummVM.png`, and its full
+box scan in `sd:/riftwii/boxes/ScummVM.png`, in the same formats as games
+below. RiftWii removes `/ \ : * ? " < > |` and control characters from
+the name, and trims spaces and dots at its ends. Each folder also accepts
+the app's folder name (for `sd:/apps/scummvm`, use `scummvm.png`) as a
+fallback. Your pictures work offline and come before downloaded pictures;
+the metadata name wins over the folder name in each picture folder.
+Use **Look for games again** after adding or changing pictures. Channels
+continues to use the app's `icon.png`.
+
+Favorites follow the app's folder, so changing its metadata name keeps
+its star. Moving or renaming the folder makes it a different app.
 
 To put games in your own order in a tile view, hold **B** (**L** on a
 GameCube controller) and press **A** on a game. With the pointer, drag it
@@ -2091,11 +2110,22 @@ network requests while keeping downloaded covers available.
 **SteamGridDB covers** is an optional fallback and starts off. To use it,
 sign in at [SteamGridDB](https://www.steamgriddb.com/), open
 [Preferences > API](https://www.steamgriddb.com/profile/preferences/api),
-and put your own key alone on one line in `sd:/riftwii/steamgriddb.txt`.
-The setting shows whether a key was found. Enable it to look there only
-after the other sources have no cover. Your key is never put in logs.
-Missing covers are tried again after a week, or when you use
-**Settings > Online > Download missing covers**.
+and choose **Settings > Online > SteamGridDB key** to type your key.
+The on-screen keyboard hides what you type; **Shift** switches between
+lowercase and uppercase letters. A USB keyboard also works. Choose **OK**
+to save, or **Cancel** to keep your previous key. The settings show only
+the saved key's last four characters. **Clear SteamGridDB key** removes it.
+You can still put the key alone on one line in `sd:/riftwii/steamgriddb.txt`;
+menu entry saves to that same file. Your key is never put in logs.
+
+Enable **SteamGridDB covers** to look there only after the other sources
+have no cover. Downloaded pictures stay in `sd:/riftwii/covers/` and
+`sd:/riftwii/banners/`; restarting RiftWii reuses them without a download.
+Each source's "not found" answer is saved beside the picture's cache for a
+week. Missing pictures are tried again after that, or when you use
+**Settings > Online > Download missing covers**. That action keeps pictures
+already saved. A full, locked or unreadable SD card prevents new pictures
+and missing-picture records from being saved; RiftWii reports the failure.
 
 After adding files, use
 **Settings > Drives > Look for games again**. If an emulator or
@@ -2165,3 +2195,61 @@ available.
 Cheat files keep their own picked cheats when you change the Cheat file row.
 If a picked file is removed, its cheats do not come from a different file.
 Downloads and filled values keep cheats already saved in RiftWii's own file.
+
+## Managing an emulated NAND
+
+Open **Settings > Games > Manage emulated NAND**, then choose the folder.
+The page offers the configured save and channel folders, per-game folders
+from USB Loader GX's settings, and folders found under `sd:/nands` and
+`usb:/nands`. USB changes need a FAT32 partition. A folder that is missing
+cannot be opened.
+
+Each title opens its save tools. Installed channels use their banner name
+when it can be read; otherwise the page shows the full title ID. Titles on
+the Wii are also listed so their saves can be copied into the emulated
+NAND. System software, including the Wii Menu and IOS, is hidden and cannot
+be deleted. **Delete emulated title** removes that title's program, save
+and ticket from the chosen folder. It keeps shared program files used by
+other titles. **Delete emulated save** removes only its save. Both ask first
+and cannot be undone. A WAD still in the `wad` folder remains available on
+Home and may install its title again when played.
+
+**Copy save from Wii** and **Copy save to Wii** replace the destination's
+whole save folder, including removing old files absent from the source.
+The destination is backed up first under
+`<NAND folder>/riftwii-backups/<title ID>/emulated-save.bak0` or
+`wii-save.bak0`. Later backups use the next free number. Copying to the Wii
+requires the title to be installed there and asks twice. Only that title's
+save folder is written; its program, ticket and system files are kept.
+These tools copy saves, so the source stays in place.
+
+**Miis from Wii** and **Miis to Wii** copy the complete Mii database,
+replacing all Miis at the destination. The old database is saved next to
+the emulated copy as `shared2/menu/FaceLib/RFL_DB.dat.bak0`; a backup taken
+from the Wii uses `RFL_DB.dat.wii.bak0`. Later backups use the next free
+number. Writing Miis to the Wii asks twice and requires a database the
+same size as the Wii's current one. The files are copied as they are;
+RiftWii does not edit individual Miis or repair damaged databases.
+
+**Remove Wii settings** shows whether the emulated folder contains
+`shared2/sys/SYSCONF` and `title/00000001/00000002/data/setting.txt`.
+After confirmation, both are backed up beside the originals with `.bak0`
+(or the next free number), then removed. There is no tool to copy settings
+into the Wii. A game needing a whole emulated NAND may need these files
+again; preparing a WAD for play can copy missing settings from the Wii.
+
+Keep the Wii turned on until an action finishes. Each replaced file is
+written under a temporary name and renamed into place, but a whole save
+has several files: an interrupted or failed copy can leave only part of
+the new save installed. The backup stays in the emulated NAND folder, and
+`sd:/riftwii/session.log` records completed actions, backup locations and
+failures. To recover, on a computer, keep the backup folder, empty the
+title's emulated `data` folder and copy the backup's contents into it,
+so no file from the cut-short copy stays behind; the manager can then
+copy that save to the Wii again. Saves are limited to 4096 files and folders, eight folder
+levels, 64 MiB per file and 512 MiB in total. Unsafe names and paths that
+the Wii cannot store are refused before copying.
+
+The manager's file operations and refusal cases have host tests. Its menu,
+USB mounting, real-console save permissions and d2x behavior still need
+testing on a Wii; Dolphin cannot exercise d2x's storage path.

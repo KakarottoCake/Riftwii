@@ -7718,11 +7718,6 @@ T.update({
         "libretroからカバーをダウンロード。オフでは自分のPNGカバーのみ使います。",
         "Baixa capas de emuladores do libretro. Desligado usa só suas capas PNG.",
         "Scarica copertine da libretro. Se disattivato usa solo le tue copertine PNG."),
-    "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt.": (
-        "Carátulas alternativas de SteamGridDB. Pon tu clave API en sd:/riftwii/steamgriddb.txt.",
-        "SteamGridDBの予備カバー。自分のAPIキーをsd:/riftwii/steamgriddb.txtに入れてください。",
-        "Capas alternativas do SteamGridDB. Coloque sua chave de API em sd:/riftwii/steamgriddb.txt.",
-        "Copertine alternative da SteamGridDB. Metti la tua chiave API in sd:/riftwii/steamgriddb.txt."),
     "Getting covers: {1} left": (
         "Descargando carátulas: quedan {1}",
         "カバーを取得中：残り{1}",
@@ -7736,7 +7731,6 @@ KO.update({
     "Off (key found)": "끄기 (키 있음)",
     "No API key": "API 키 없음",
     "Downloads emulator covers from libretro. Off uses your own PNG covers only.": "libretro에서 표지를 받습니다. 끄면 직접 넣은 PNG 표지만 사용합니다.",
-    "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt.": "SteamGridDB의 대체 표지입니다. 본인의 API 키를 sd:/riftwii/steamgriddb.txt에 넣으세요.",
     "Getting covers: {1} left": "표지 받는 중: {1}개 남음",
 })
 FR.update({
@@ -7746,7 +7740,6 @@ FR.update({
     "Off (key found)": "Non (clé trouvée)",
     "No API key": "Aucune clé API",
     "Downloads emulator covers from libretro. Off uses your own PNG covers only.": "Télécharge les jaquettes depuis libretro. Désactivé : utilise uniquement vos images PNG.",
-    "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt.": "Jaquettes de secours SteamGridDB. Placez votre clé API dans sd:/riftwii/steamgriddb.txt.",
     "Getting covers: {1} left": "Téléchargement des jaquettes : {1} restantes",
 })
 
@@ -8684,25 +8677,25 @@ T["Game's box: the game's box while it starts; press any button to see what Rift
 MORE["ko"]["Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."] = "게임 패키지: 게임이 시작되는 동안 게임 패키지를 보여 줍니다. 아무 버튼이나 누르면 RiftWii가 하는 일을 볼 수 있습니다. 로그: 모든 단계를 한 줄씩 보여 줍니다. 실행에 실패하면 항상 로그가 나타납니다."
 MORE["fr"]["Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."] = "Boîte du jeu : la boîte du jeu pendant son lancement ; appuyez sur un bouton pour voir ce que fait RiftWii. Journal : chaque étape, ligne par ligne. Un lancement qui échoue affiche toujours le journal."
 
-# What's new in the release after 2611-170.
-T["GameCube 16:9 is back"] = ("Vuelve el 16:9 en GameCube", "ゲームキューブの16:9が復活", "O 16:9 do GameCube está de volta", "Torna il 16:9 per GameCube")
-MORE["ko"]["GameCube 16:9 is back"] = "게임큐브 16:9 복귀"
-MORE["fr"]["GameCube 16:9 is back"] = "Le 16:9 GameCube est de retour"
-T["RiftWii says when the SD card is full"] = ("RiftWii avisa cuando la tarjeta SD está llena", "SDカードがいっぱいのときにお知らせ", "O RiftWii avisa quando o cartão SD está cheio", "RiftWii avvisa quando la scheda SD è piena")
-MORE["ko"]["RiftWii says when the SD card is full"] = "SD 카드가 가득 차면 알림"
-MORE["fr"]["RiftWii says when the SD card is full"] = "RiftWii signale quand la carte SD est pleine"
-T["A full SD card no longer locks the game page"] = ("Una tarjeta SD llena ya no bloquea la página del juego", "SDカードがいっぱいでもゲームのページから戻れる", "Um cartão SD cheio não trava mais a página do jogo", "Una scheda SD piena non blocca più la pagina del gioco")
-MORE["ko"]["A full SD card no longer locks the game page"] = "SD 카드가 가득 차도 게임 페이지가 멈추지 않음"
-MORE["fr"]["A full SD card no longer locks the game page"] = "Une carte SD pleine ne bloque plus la page du jeu"
-T["Long cheat notes scroll"] = ("Las notas largas de los trucos se desplazan", "長いチートの説明がスクロール", "Notas longas de trapaças rolam", "Le note lunghe dei trucchi scorrono")
-MORE["ko"]["Long cheat notes scroll"] = "긴 치트 설명이 스크롤됨"
-MORE["fr"]["Long cheat notes scroll"] = "Les longues notes des codes défilent"
-T["USB and SD games skip a broken disc drive"] = ("Los juegos de USB y SD ya no esperan al lector roto", "USB・SDのゲームは壊れたドライブを待たない", "Jogos de USB e SD ignoram o leitor quebrado", "I giochi da USB e SD ignorano il lettore guasto")
-MORE["ko"]["USB and SD games skip a broken disc drive"] = "USB·SD 게임이 고장 난 드라이브를 기다리지 않음"
-MORE["fr"]["USB and SD games skip a broken disc drive"] = "Les jeux USB et SD ignorent un lecteur en panne"
-T["Settings > Games toggles work again"] = ("Los interruptores de Ajustes > Juegos funcionan de nuevo", "設定 > ゲームの切り替えが再び動作", "As opções de Configurações > Jogos funcionam de novo", "Le opzioni di Impostazioni > Giochi funzionano di nuovo")
-MORE["ko"]["Settings > Games toggles work again"] = "설정 > 게임의 전환이 다시 작동"
-MORE["fr"]["Settings > Games toggles work again"] = "Les options Paramètres > Jeux remarchent"
+# What's new in the release after 2611-179.
+T['Home shows your games at once'] = ('Inicio muestra tus juegos al instante', 'ホームにゲームがすぐ表示', 'O Início mostra seus jogos na hora', 'La Home mostra subito i tuoi giochi')
+MORE["ko"]['Home shows your games at once'] = '홈에 게임이 바로 표시'
+MORE["fr"]['Home shows your games at once'] = "L'accueil affiche vos jeux tout de suite"
+T['Games start behind their box'] = ('Los juegos arrancan tras su caja', '起動中はゲームのパッケージを表示', 'Os jogos iniciam atrás da caixa', 'I giochi partono dietro la confezione')
+MORE["ko"]['Games start behind their box'] = '게임 시작 중 패키지 표시'
+MORE["fr"]['Games start behind their box'] = 'Les jeux démarrent derrière leur boîte'
+T['Manage your emulated NAND'] = ('Gestiona tu NAND emulada', '仮想NANDを管理', 'Gerencie sua NAND emulada', 'Gestisci la NAND emulata')
+MORE["ko"]['Manage your emulated NAND'] = '에뮬레이트 NAND 관리'
+MORE["fr"]['Manage your emulated NAND'] = 'Gérez votre NAND émulée'
+T['Own covers and favorites for homebrew'] = ('Carátulas propias y favoritos para homebrew', 'ホームブリューに自分のカバーとお気に入り', 'Capas próprias e favoritos para homebrew', 'Copertine proprie e preferiti per gli homebrew')
+MORE["ko"]['Own covers and favorites for homebrew'] = '홈브루에 내 커버와 즐겨찾기'
+MORE["fr"]['Own covers and favorites for homebrew'] = 'Pochettes perso et favoris pour les homebrews'
+T['Import Nintendont controller layouts'] = ('Importa los mandos de Nintendont', 'Nintendontのコントローラー設定をコピー', 'Importe controles do Nintendont', 'Importa i controller di Nintendont')
+MORE["ko"]['Import Nintendont controller layouts'] = 'Nintendont 컨트롤러 설정 가져오기'
+MORE["fr"]['Import Nintendont controller layouts'] = 'Importez les manettes de Nintendont'
+T['Type your SteamGridDB key in Settings'] = ('Escribe tu clave de SteamGridDB en Ajustes', '設定でSteamGridDBのキーを入力', 'Digite sua chave do SteamGridDB nas Configurações', 'Inserisci la chiave SteamGridDB nelle Impostazioni')
+MORE["ko"]['Type your SteamGridDB key in Settings'] = '설정에서 SteamGridDB 키 입력'
+MORE["fr"]['Type your SteamGridDB key in Settings'] = 'Saisissez votre clé SteamGridDB dans les Paramètres'
 
 # Game management: own display names and visibility, never file renames.
 T['Manage game'] = ('Gestionar juego', 'ゲームの管理', 'Gerenciar jogo', 'Gestisci gioco')
@@ -9797,6 +9790,147 @@ FR.update({
     "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer, then move files to the computer or delete files you do not need to make room.": "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. Mettez la carte dans un ordinateur, puis déplacez des fichiers vers l'ordinateur ou supprimez les fichiers inutiles pour libérer de la place.",
     "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. The card may be locked or read-only. Put the card in a computer and check its lock switch.": "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. La carte est peut-être verrouillée ou en lecture seule. Mettez la carte dans un ordinateur et vérifiez son commutateur de verrouillage.",
     "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors.": "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. Mettez la carte dans un ordinateur et vérifiez si elle comporte des erreurs.",
+})
+
+
+# Emulated NAND manager.
+T.update({
+    'Manage emulated NAND': ('Gestionar NAND emulada', '仮想NANDの管理', 'Gerenciar NAND emulada', 'Gestisci NAND emulata'),
+    "See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.": (
+        'Mira y cambia lo que hay en una NAND emulada: borra canales instalados en ella, copia la partida de un juego o los Mii entre ella y la Wii, o quita su copia de los ajustes de la Wii.',
+        '仮想NANDの中身を見て変更します。インストールしたチャンネルの削除、ゲームのセーブやMiiのWiiとのコピー、Wiiの設定のコピーの削除ができます。',
+        'Veja e mude o que há numa NAND emulada: apague canais instalados nela, copie o save de um jogo ou os Miis entre ela e o Wii, ou remova a cópia das configurações do Wii.',
+        'Vedi e modifica il contenuto di una NAND emulata: elimina i canali installati, copia il salvataggio di un gioco o i Mii tra essa e la Wii, oppure rimuovi la sua copia delle impostazioni della Wii.'),
+    'Copy save from Wii': ('Copiar partida desde Wii', 'Wiiからセーブをコピー', 'Copiar save do Wii', 'Copia salvataggio dalla Wii'),
+    'Copy save to Wii': ('Copiar partida a Wii', 'Wiiへセーブをコピー', 'Copiar save para o Wii', 'Copia salvataggio sulla Wii'),
+    'Delete emulated save': ('Borrar partida emulada', '仮想NANDのセーブを削除', 'Apagar save emulado', 'Elimina salvataggio emulato'),
+    'Delete emulated title': ('Borrar título emulado', '仮想NANDのタイトルを削除', 'Apagar título emulado', 'Elimina titolo emulato'),
+    'Miis from Wii': ('Miis desde Wii', 'WiiからMiiをコピー', 'Miis do Wii', 'Mii dalla Wii'),
+    'Miis to Wii': ('Miis a Wii', 'WiiへMiiをコピー', 'Miis para o Wii', 'Mii sulla Wii'),
+    'Remove Wii settings': ('Quitar ajustes de Wii', 'Wii設定のコピーを削除', 'Remover configurações do Wii', 'Rimuovi impostazioni Wii'),
+    'SYSCONF: {1}; setting.txt: {2}': ('SYSCONF: {1}; setting.txt: {2}', 'SYSCONF: {1}; setting.txt: {2}', 'SYSCONF: {1}; setting.txt: {2}', 'SYSCONF: {1}; setting.txt: {2}'),
+    'Present': ('Presente', 'あり', 'Presente', 'Presente'),
+    'Missing': ('Ausente', 'なし', 'Ausente', 'Assente'),
+    'Wii memory': ('Memoria de Wii', 'Wii本体のメモリー', 'Memória do Wii', 'Memoria della Wii'),
+    'Continue': ('Continuar', '続ける', 'Continuar', 'Continua'),
+    'Write to Wii': ('Escribir en Wii', 'Wii本体に書き込む', 'Gravar no Wii', 'Scrivi sulla Wii'),
+    'Working...': ('Procesando...', '処理中...', 'Processando...', 'Operazione in corso...'),
+    'Done.': ('Hecho.', '完了しました。', 'Concluído.', 'Fatto.'),
+    'The emulated NAND folder could not be read. See session.log for details.': ('No se pudo leer la carpeta de NAND emulada. Consulta session.log.', '仮想NANDのフォルダを読み込めません。詳細はsession.logを確認してください。', 'Não foi possível ler a pasta da NAND emulada. Veja session.log.', 'Impossibile leggere la cartella della NAND emulata. Vedi session.log.'),
+    'The destination will be replaced. A backup is kept in the emulated NAND folder first. Keep the Wii turned on until copying finishes.': ('Se reemplazará el destino. Primero se guardará una copia en la carpeta de NAND emulada. No apagues la Wii hasta terminar.', 'コピー先を置き換えます。先に仮想NANDのフォルダにバックアップを保存します。コピーが終わるまでWiiの電源を切らないでください。', 'O destino será substituído. Uma cópia será guardada antes na pasta da NAND emulada. Mantenha o Wii ligado até terminar.', 'La destinazione verrà sostituita. Prima verrà salvata una copia nella cartella della NAND emulata. Lascia la Wii accesa fino alla fine.'),
+    "This replaces data in the Wii's own memory. Your current save or Miis will change. Are you sure you want to write to the Wii?": ('Esto reemplaza datos de la memoria de Wii. Cambiará tu partida o tus Miis. ¿Seguro que quieres escribir en la Wii?', 'Wii本体のメモリーのデータを置き換えます。現在のセーブやMiiが変わります。本当にWii本体に書き込みますか？', 'Isto substitui dados da memória do Wii. Seu save ou Miis atuais serão alterados. Quer mesmo gravar no Wii?', 'Verranno sostituiti dati nella memoria della Wii. Il salvataggio o i Mii attuali cambieranno. Vuoi davvero scrivere sulla Wii?'),
+    'The selected emulated title or save will be deleted. Deleting a title also deletes its save and ticket. This cannot be undone.': ('Se borrará el título o la partida emulada. Borrar un título también borra su partida y ticket. No se puede deshacer.', '選んだ仮想NANDのタイトルやセーブを削除します。タイトルの削除ではセーブとチケットも削除します。元に戻せません。', 'O título ou save emulado será apagado. Apagar um título também apaga seu save e ticket. Isso não pode ser desfeito.', 'Il titolo o salvataggio emulato verrà eliminato. Eliminare un titolo elimina anche salvataggio e ticket. Non puoi annullare.'),
+    'The action could not finish. A save may have been partly copied. Backups stay in the emulated NAND folder. See session.log for details.': ('No se pudo terminar. Una partida puede haberse copiado parcialmente. Las copias siguen en la carpeta de NAND emulada. Consulta session.log.', '処理を完了できませんでした。セーブの一部だけがコピーされた可能性があります。バックアップは仮想NANDのフォルダにあります。詳細はsession.logを確認してください。', 'A ação não terminou. Um save pode ter sido copiado em parte. As cópias ficam na pasta da NAND emulada. Veja session.log.', 'Operazione non completata. Un salvataggio potrebbe essere stato copiato solo in parte. Le copie restano nella cartella della NAND emulata. Vedi session.log.'),
+    "The emulated Wii settings will be backed up and removed. The Wii's own settings stay as they are.": ('Se guardará una copia de los ajustes de Wii emulados y se quitarán. Los ajustes de la Wii no cambiarán.', '仮想NANDのWii設定をバックアップして削除します。Wii本体の設定は変わりません。', 'As configurações emuladas do Wii serão copiadas e removidas. As configurações do próprio Wii ficam como estão.', 'Le impostazioni Wii emulate verranno copiate e rimosse. Le impostazioni della Wii resteranno invariate.'),
+})
+KO.update({
+    'Manage emulated NAND': '에뮬레이트 NAND 관리',
+    "See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.": '에뮬레이트 NAND의 내용을 보고 바꿉니다. 설치한 채널을 삭제하거나, 게임 세이브 데이터나 Mii를 Wii와 서로 복사하거나, Wii 설정 사본을 지울 수 있습니다.',
+    'Copy save from Wii': 'Wii에서 저장 데이터 복사',
+    'Copy save to Wii': 'Wii로 저장 데이터 복사',
+    'Delete emulated save': '에뮬레이트 저장 데이터 삭제',
+    'Delete emulated title': '에뮬레이트 타이틀 삭제',
+    'Miis from Wii': 'Wii에서 Mii 복사',
+    'Miis to Wii': 'Wii로 Mii 복사',
+    'Remove Wii settings': 'Wii 설정 사본 삭제',
+    'SYSCONF: {1}; setting.txt: {2}': 'SYSCONF: {1}; setting.txt: {2}',
+    'Present': '있음',
+    'Missing': '없음',
+    'Wii memory': 'Wii 본체 메모리',
+    'Continue': '계속',
+    'Write to Wii': 'Wii에 쓰기',
+    'Working...': '처리 중...',
+    'Done.': '완료했습니다.',
+    'The emulated NAND folder could not be read. See session.log for details.': '에뮬레이트 NAND 폴더를 읽을 수 없습니다. 자세한 내용은 session.log를 확인하세요.',
+    'The destination will be replaced. A backup is kept in the emulated NAND folder first. Keep the Wii turned on until copying finishes.': '대상을 교체합니다. 먼저 에뮬레이트 NAND 폴더에 백업을 저장합니다. 복사가 끝날 때까지 Wii를 켜 두세요.',
+    "This replaces data in the Wii's own memory. Your current save or Miis will change. Are you sure you want to write to the Wii?": 'Wii 본체 메모리의 데이터를 교체합니다. 현재 저장 데이터나 Mii가 바뀝니다. 정말 Wii에 쓰시겠습니까?',
+    'The selected emulated title or save will be deleted. Deleting a title also deletes its save and ticket. This cannot be undone.': '선택한 에뮬레이트 타이틀이나 저장 데이터를 삭제합니다. 타이틀을 삭제하면 저장 데이터와 티켓도 삭제됩니다. 되돌릴 수 없습니다.',
+    'The action could not finish. A save may have been partly copied. Backups stay in the emulated NAND folder. See session.log for details.': '작업을 마치지 못했습니다. 저장 데이터가 일부만 복사되었을 수 있습니다. 백업은 에뮬레이트 NAND 폴더에 있습니다. session.log를 확인하세요.',
+    "The emulated Wii settings will be backed up and removed. The Wii's own settings stay as they are.": '에뮬레이트 Wii 설정을 백업하고 삭제합니다. Wii 본체의 설정은 그대로 유지됩니다.',
+})
+FR.update({
+    'Manage emulated NAND': 'Gérer la NAND émulée',
+    "See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.": "Voir et modifier le contenu d'une NAND émulée : supprimer les chaînes qui y sont installées, copier la sauvegarde d'un jeu ou les Mii entre elle et la Wii, ou retirer sa copie des paramètres de la Wii.",
+    'Copy save from Wii': 'Copier la sauvegarde depuis la Wii',
+    'Copy save to Wii': 'Copier la sauvegarde vers la Wii',
+    'Delete emulated save': 'Supprimer la sauvegarde émulée',
+    'Delete emulated title': 'Supprimer le titre émulé',
+    'Miis from Wii': 'Mii depuis la Wii',
+    'Miis to Wii': 'Mii vers la Wii',
+    'Remove Wii settings': 'Retirer les paramètres Wii',
+    'SYSCONF: {1}; setting.txt: {2}': 'SYSCONF : {1} ; setting.txt : {2}',
+    'Present': 'Présent',
+    'Missing': 'Absent',
+    'Wii memory': 'Mémoire de la Wii',
+    'Continue': 'Continuer',
+    'Write to Wii': 'Écrire sur la Wii',
+    'Working...': 'Opération en cours...',
+    'Done.': 'Terminé.',
+    'The emulated NAND folder could not be read. See session.log for details.': 'Le dossier de NAND émulée est illisible. Consultez session.log.',
+    'The destination will be replaced. A backup is kept in the emulated NAND folder first. Keep the Wii turned on until copying finishes.': 'La destination sera remplacée. Une copie sera conservée dans le dossier de NAND émulée. Laissez la Wii allumée pendant la copie.',
+    "This replaces data in the Wii's own memory. Your current save or Miis will change. Are you sure you want to write to the Wii?": 'Les données dans la mémoire de la Wii seront remplacées. Votre sauvegarde ou vos Mii vont changer. Voulez-vous vraiment écrire sur la Wii ?',
+    'The selected emulated title or save will be deleted. Deleting a title also deletes its save and ticket. This cannot be undone.': 'Le titre ou la sauvegarde émulée sera supprimé. Supprimer un titre supprime aussi sa sauvegarde et son ticket. Cette action est définitive.',
+    'The action could not finish. A save may have been partly copied. Backups stay in the emulated NAND folder. See session.log for details.': 'L’action a échoué. Une sauvegarde peut avoir été partiellement copiée. Les copies restent dans le dossier de NAND émulée. Consultez session.log.',
+    "The emulated Wii settings will be backed up and removed. The Wii's own settings stay as they are.": 'Les paramètres Wii émulés seront sauvegardés puis retirés. Les paramètres de la Wii resteront inchangés.',
+})
+
+# SteamGridDB keys are entered locally and only their last four characters
+# are shown after saving. Keep the labels short for the Online settings.
+T.update({
+    "SteamGridDB key": ("Clave de SteamGridDB", "SteamGridDB キー", "Chave do SteamGridDB", "Chiave SteamGridDB"),
+    "Clear SteamGridDB key": ("Borrar clave de SteamGridDB", "SteamGridDB キーを消去", "Apagar chave do SteamGridDB", "Cancella chiave SteamGridDB"),
+    "Ends in {1}": ("Termina en {1}", "最後の4文字: {1}", "Termina em {1}", "Termina con {1}"),
+    "Fallback covers from SteamGridDB. Set your key below.": (
+        "Carátulas alternativas de SteamGridDB. Introduce tu clave abajo.",
+        "ほかにカバーがないときはSteamGridDBを使います。下でキーを設定してください。",
+        "Capas alternativas do SteamGridDB. Defina sua chave abaixo.",
+        "Copertine alternative da SteamGridDB. Imposta la tua chiave qui sotto."),
+    "Type your SteamGridDB API key. Only its last four characters are shown.": (
+        "Escribe tu clave API de SteamGridDB. Solo se muestran sus últimos cuatro caracteres.",
+        "SteamGridDBのAPIキーを入力します。最後の4文字だけを表示します。",
+        "Digite sua chave API do SteamGridDB. Apenas os últimos quatro caracteres são mostrados.",
+        "Inserisci la tua chiave API SteamGridDB. Vengono mostrati solo gli ultimi quattro caratteri."),
+    "Removes your SteamGridDB key from the SD card. Saved pictures are kept.": (
+        "Borra tu clave de SteamGridDB de la tarjeta SD. Las imágenes guardadas se conservan.",
+        "SDカードからSteamGridDBのキーを消去します。保存した画像は残ります。",
+        "Apaga sua chave do SteamGridDB do cartão SD. As imagens salvas são mantidas.",
+        "Rimuove la tua chiave SteamGridDB dalla scheda SD. Le immagini salvate vengono conservate."),
+    "Use 16 to 128 letters, numbers, - or _.": (
+        "Usa de 16 a 128 letras, números, - o _.",
+        "16〜128文字の英数字、-、_を使ってください。",
+        "Use de 16 a 128 letras, números, - ou _.",
+        "Usa da 16 a 128 lettere, numeri, - o _."),
+    "SteamGridDB key saved.": ("Clave de SteamGridDB guardada.", "SteamGridDBのキーを保存しました。", "Chave do SteamGridDB salva.", "Chiave SteamGridDB salvata."),
+    "SteamGridDB key cleared.": ("Clave de SteamGridDB borrada.", "SteamGridDBのキーを消去しました。", "Chave do SteamGridDB apagada.", "Chiave SteamGridDB cancellata."),
+    "Could not change the SteamGridDB key. Check the SD card.": (
+        "No se pudo cambiar la clave de SteamGridDB. Revisa la tarjeta SD.",
+        "SteamGridDBのキーを変更できませんでした。SDカードを確認してください。",
+        "Não foi possível alterar a chave do SteamGridDB. Verifique o cartão SD.",
+        "Impossibile cambiare la chiave SteamGridDB. Controlla la scheda SD."),
+})
+KO.update({
+    "SteamGridDB key": "SteamGridDB 키",
+    "Clear SteamGridDB key": "SteamGridDB 키 지우기",
+    "Ends in {1}": "마지막 4글자: {1}",
+    "Fallback covers from SteamGridDB. Set your key below.": "다른 곳에 커버가 없으면 SteamGridDB를 사용합니다. 아래에서 키를 설정하세요.",
+    "Type your SteamGridDB API key. Only its last four characters are shown.": "SteamGridDB API 키를 입력하세요. 마지막 네 글자만 표시됩니다.",
+    "Removes your SteamGridDB key from the SD card. Saved pictures are kept.": "SD 카드에서 SteamGridDB 키를 지웁니다. 저장한 그림은 유지됩니다.",
+    "Use 16 to 128 letters, numbers, - or _.": "영문자, 숫자, - 또는 _로 16~128글자를 입력하세요.",
+    "SteamGridDB key saved.": "SteamGridDB 키를 저장했습니다.",
+    "SteamGridDB key cleared.": "SteamGridDB 키를 지웠습니다.",
+    "Could not change the SteamGridDB key. Check the SD card.": "SteamGridDB 키를 바꿀 수 없습니다. SD 카드를 확인하세요.",
+})
+FR.update({
+    "SteamGridDB key": "Clé SteamGridDB",
+    "Clear SteamGridDB key": "Effacer la clé SteamGridDB",
+    "Ends in {1}": "Se termine par {1}",
+    "Fallback covers from SteamGridDB. Set your key below.": "Pochettes de secours de SteamGridDB. Saisissez votre clé ci-dessous.",
+    "Type your SteamGridDB API key. Only its last four characters are shown.": "Saisissez votre clé API SteamGridDB. Seuls ses quatre derniers caractères sont affichés.",
+    "Removes your SteamGridDB key from the SD card. Saved pictures are kept.": "Efface votre clé SteamGridDB de la carte SD. Les images enregistrées sont conservées.",
+    "Use 16 to 128 letters, numbers, - or _.": "Utilisez de 16 à 128 lettres, chiffres, - ou _.",
+    "SteamGridDB key saved.": "Clé SteamGridDB enregistrée.",
+    "SteamGridDB key cleared.": "Clé SteamGridDB effacée.",
+    "Could not change the SteamGridDB key. Check the SD card.": "Impossible de modifier la clé SteamGridDB. Vérifiez la carte SD.",
 })
 
 

@@ -105,7 +105,7 @@ struct LoaderSettings {
     std::string parental_unrated = "allow";  // allow, restrict: a game whose rating RiftWii does not know
     std::string parental_exits = "show";  // show, pin, hide: the HOME Menu's Homebrew Channel and Priiloader (or Restart) buttons
     std::string parental_settings = "open";  // open, pin: whether Settings asks for the PIN
-    std::set<std::string> favorites;      // game IDs and profiles' tile keys, written "favorites = ID,ID@slug"
+    std::set<std::string> favorites;      // game IDs, profiles' tile keys and app_tile_key() homebrew keys
     // More folders to look for games in, besides wbfs and games (Settings >
     // Drives > Game folders writes them, game_folders_on reads them):
     // "game_folders = /Wii Games; usb:/iso". A plain "/path" is looked

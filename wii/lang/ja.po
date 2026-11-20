@@ -3732,9 +3732,6 @@ msgstr "APIキーなし"
 msgid "Downloads emulator covers from libretro. Off uses your own PNG covers only."
 msgstr "libretroからカバーをダウンロード。オフでは自分のPNGカバーのみ使います。"
 
-msgid "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt."
-msgstr "SteamGridDBの予備カバー。自分のAPIキーをsd:/riftwii/steamgriddb.txtに入れてください。"
-
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "エミュレータのカバー：libretro-thumbnailsの参加者、MobyGames、Fandom。予備のカバー：SteamGridDBの参加者。元の画像はゲームの開発者と発売元のものです。"
 
@@ -4140,23 +4137,23 @@ msgstr "ボタンを押すとRiftWiiの処理内容を表示します。"
 msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
 msgstr "ゲームのパッケージ：起動中はゲームのパッケージを表示します。ボタンを押すとRiftWiiの処理内容を表示します。ログ：すべての手順を1行ずつ表示します。起動に失敗したときは、必ずログを表示します。"
 
-msgid "GameCube 16:9 is back"
-msgstr "ゲームキューブの16:9が復活"
+msgid "Home shows your games at once"
+msgstr "ホームにゲームがすぐ表示"
 
-msgid "RiftWii says when the SD card is full"
-msgstr "SDカードがいっぱいのときにお知らせ"
+msgid "Games start behind their box"
+msgstr "起動中はゲームのパッケージを表示"
 
-msgid "A full SD card no longer locks the game page"
-msgstr "SDカードがいっぱいでもゲームのページから戻れる"
+msgid "Manage your emulated NAND"
+msgstr "仮想NANDを管理"
 
-msgid "Long cheat notes scroll"
-msgstr "長いチートの説明がスクロール"
+msgid "Own covers and favorites for homebrew"
+msgstr "ホームブリューに自分のカバーとお気に入り"
 
-msgid "USB and SD games skip a broken disc drive"
-msgstr "USB・SDのゲームは壊れたドライブを待たない"
+msgid "Import Nintendont controller layouts"
+msgstr "Nintendontのコントローラー設定をコピー"
 
-msgid "Settings > Games toggles work again"
-msgstr "設定 > ゲームの切り替えが再び動作"
+msgid "Type your SteamGridDB key in Settings"
+msgstr "設定でSteamGridDBのキーを入力"
 
 msgid "Manage game"
 msgstr "ゲームの管理"
@@ -4667,6 +4664,105 @@ msgstr "RiftWiiが新しいファイルを保存できないため、設定や�
 
 msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."
 msgstr "RiftWiiが新しいファイルを保存できないため、設定やゲームの選択、ジャケット画像やログが保存されないことがあります。カードをパソコンに入れて、エラーがないかカードを確認してください。"
+
+msgid "Manage emulated NAND"
+msgstr "仮想NANDの管理"
+
+msgid "See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings."
+msgstr "仮想NANDの中身を見て変更します。インストールしたチャンネルの削除、ゲームのセーブやMiiのWiiとのコピー、Wiiの設定のコピーの削除ができます。"
+
+msgid "Copy save from Wii"
+msgstr "Wiiからセーブをコピー"
+
+msgid "Copy save to Wii"
+msgstr "Wiiへセーブをコピー"
+
+msgid "Delete emulated save"
+msgstr "仮想NANDのセーブを削除"
+
+msgid "Delete emulated title"
+msgstr "仮想NANDのタイトルを削除"
+
+msgid "Miis from Wii"
+msgstr "WiiからMiiをコピー"
+
+msgid "Miis to Wii"
+msgstr "WiiへMiiをコピー"
+
+msgid "Remove Wii settings"
+msgstr "Wii設定のコピーを削除"
+
+msgid "SYSCONF: {1}; setting.txt: {2}"
+msgstr "SYSCONF: {1}; setting.txt: {2}"
+
+msgid "Present"
+msgstr "あり"
+
+msgid "Missing"
+msgstr "なし"
+
+msgid "Wii memory"
+msgstr "Wii本体のメモリー"
+
+msgid "Continue"
+msgstr "続ける"
+
+msgid "Write to Wii"
+msgstr "Wii本体に書き込む"
+
+msgid "Working..."
+msgstr "処理中..."
+
+msgid "Done."
+msgstr "完了しました。"
+
+msgid "The emulated NAND folder could not be read. See session.log for details."
+msgstr "仮想NANDのフォルダを読み込めません。詳細はsession.logを確認してください。"
+
+msgid "The destination will be replaced. A backup is kept in the emulated NAND folder first. Keep the Wii turned on until copying finishes."
+msgstr "コピー先を置き換えます。先に仮想NANDのフォルダにバックアップを保存します。コピーが終わるまでWiiの電源を切らないでください。"
+
+msgid "This replaces data in the Wii's own memory. Your current save or Miis will change. Are you sure you want to write to the Wii?"
+msgstr "Wii本体のメモリーのデータを置き換えます。現在のセーブやMiiが変わります。本当にWii本体に書き込みますか？"
+
+msgid "The selected emulated title or save will be deleted. Deleting a title also deletes its save and ticket. This cannot be undone."
+msgstr "選んだ仮想NANDのタイトルやセーブを削除します。タイトルの削除ではセーブとチケットも削除します。元に戻せません。"
+
+msgid "The action could not finish. A save may have been partly copied. Backups stay in the emulated NAND folder. See session.log for details."
+msgstr "処理を完了できませんでした。セーブの一部だけがコピーされた可能性があります。バックアップは仮想NANDのフォルダにあります。詳細はsession.logを確認してください。"
+
+msgid "The emulated Wii settings will be backed up and removed. The Wii's own settings stay as they are."
+msgstr "仮想NANDのWii設定をバックアップして削除します。Wii本体の設定は変わりません。"
+
+msgid "SteamGridDB key"
+msgstr "SteamGridDB キー"
+
+msgid "Clear SteamGridDB key"
+msgstr "SteamGridDB キーを消去"
+
+msgid "Ends in {1}"
+msgstr "最後の4文字: {1}"
+
+msgid "Fallback covers from SteamGridDB. Set your key below."
+msgstr "ほかにカバーがないときはSteamGridDBを使います。下でキーを設定してください。"
+
+msgid "Type your SteamGridDB API key. Only its last four characters are shown."
+msgstr "SteamGridDBのAPIキーを入力します。最後の4文字だけを表示します。"
+
+msgid "Removes your SteamGridDB key from the SD card. Saved pictures are kept."
+msgstr "SDカードからSteamGridDBのキーを消去します。保存した画像は残ります。"
+
+msgid "Use 16 to 128 letters, numbers, - or _."
+msgstr "16〜128文字の英数字、-、_を使ってください。"
+
+msgid "SteamGridDB key saved."
+msgstr "SteamGridDBのキーを保存しました。"
+
+msgid "SteamGridDB key cleared."
+msgstr "SteamGridDBのキーを消去しました。"
+
+msgid "Could not change the SteamGridDB key. Check the SD card."
+msgstr "SteamGridDBのキーを変更できませんでした。SDカードを確認してください。"
 
 msgid "Copies the controller.ini files Nintendont uses (on the SD card or the USB drive) into RiftWii's own controller layouts."
 msgstr "Nintendontが使うcontroller.ini（SDカードまたはUSBドライブ）を、RiftWii自身のコントローラー設定にコピーします。"

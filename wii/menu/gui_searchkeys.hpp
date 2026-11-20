@@ -41,6 +41,10 @@ public:
     // The PIN mode: four digits, `note` above the card.
     struct Pin {};
     GuiSearchKeys(Pin, const std::string& title, const std::string& note);
+    // An API key: case-sensitive letters, digits, '-' and '_', masked on
+    // screen. Shift switches letter case and stays set until pressed again.
+    struct Secret {};
+    GuiSearchKeys(Secret, const std::string& title);
     ~GuiSearchKeys() override;
     const std::string& Text() const { return text; }
     // A short line at the right of the title (Home's live search: how many
@@ -77,13 +81,14 @@ private:
     int Neighbour(int from, int dRow) const;
     int Y(int row) const;
 
-    enum class Mode { Search, Hex, Name, Pin };
-    // What the field shows: the text, or a star a digit in the PIN mode.
+    enum class Mode { Search, Hex, Name, Pin, Secret };
+    // What the field shows: text, or stars for a PIN or API key.
     std::string Shown() const;
     void Build(const std::string& titleText, const std::string& noteText, Mode mode);
     // The name mode: the letter keys show the case the next letter takes,
     // and the symbol keys their symbol while Shift is on.
     void ShowCase();
+    char TypedCharacter(char key) const;
 
     std::vector<Key> keys;
     std::string text;
@@ -93,6 +98,7 @@ private:
     bool hex = false;
     bool naming = false;  // the name mode
     bool pin = false;     // the PIN mode
+    bool secret = false; // the API key mode
     riftwii::NameShift shift = riftwii::NameShift::Off;  // the name mode: what the next key types
     GuiText* shown;
     GuiText* title;

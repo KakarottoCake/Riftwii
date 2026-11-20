@@ -3732,9 +3732,6 @@ msgstr "Nessuna chiave API"
 msgid "Downloads emulator covers from libretro. Off uses your own PNG covers only."
 msgstr "Scarica copertine da libretro. Se disattivato usa solo le tue copertine PNG."
 
-msgid "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt."
-msgstr "Copertine alternative da SteamGridDB. Metti la tua chiave API in sd:/riftwii/steamgriddb.txt."
-
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Copertine degli emulatori: collaboratori di libretro-thumbnails, MobyGames e Fandom. Copertine opzionali: collaboratori di SteamGridDB. La grafica originale appartiene agli sviluppatori e agli editori dei giochi."
 
@@ -4140,23 +4137,23 @@ msgstr "Premi un tasto qualsiasi per vedere cosa sta facendo RiftWii."
 msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
 msgstr "Confezione del gioco: la confezione del gioco mentre si avvia; premi un tasto qualsiasi per vedere cosa sta facendo RiftWii. Registro: ogni passo, riga per riga. Se l'avvio non riesce, il registro appare sempre."
 
-msgid "GameCube 16:9 is back"
-msgstr "Torna il 16:9 per GameCube"
+msgid "Home shows your games at once"
+msgstr "La Home mostra subito i tuoi giochi"
 
-msgid "RiftWii says when the SD card is full"
-msgstr "RiftWii avvisa quando la scheda SD è piena"
+msgid "Games start behind their box"
+msgstr "I giochi partono dietro la confezione"
 
-msgid "A full SD card no longer locks the game page"
-msgstr "Una scheda SD piena non blocca più la pagina del gioco"
+msgid "Manage your emulated NAND"
+msgstr "Gestisci la NAND emulata"
 
-msgid "Long cheat notes scroll"
-msgstr "Le note lunghe dei trucchi scorrono"
+msgid "Own covers and favorites for homebrew"
+msgstr "Copertine proprie e preferiti per gli homebrew"
 
-msgid "USB and SD games skip a broken disc drive"
-msgstr "I giochi da USB e SD ignorano il lettore guasto"
+msgid "Import Nintendont controller layouts"
+msgstr "Importa i controller di Nintendont"
 
-msgid "Settings > Games toggles work again"
-msgstr "Le opzioni di Impostazioni > Giochi funzionano di nuovo"
+msgid "Type your SteamGridDB key in Settings"
+msgstr "Inserisci la chiave SteamGridDB nelle Impostazioni"
 
 msgid "Manage game"
 msgstr "Gestisci gioco"
@@ -4667,6 +4664,105 @@ msgstr "RiftWii non può salvare nuovi file, quindi impostazioni, scelte di gioc
 
 msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."
 msgstr "RiftWii non può salvare nuovi file, quindi impostazioni, scelte di gioco, copertine e registri potrebbero non essere salvati. Metti la scheda in un computer e controllala per errori."
+
+msgid "Manage emulated NAND"
+msgstr "Gestisci NAND emulata"
+
+msgid "See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings."
+msgstr "Vedi e modifica il contenuto di una NAND emulata: elimina i canali installati, copia il salvataggio di un gioco o i Mii tra essa e la Wii, oppure rimuovi la sua copia delle impostazioni della Wii."
+
+msgid "Copy save from Wii"
+msgstr "Copia salvataggio dalla Wii"
+
+msgid "Copy save to Wii"
+msgstr "Copia salvataggio sulla Wii"
+
+msgid "Delete emulated save"
+msgstr "Elimina salvataggio emulato"
+
+msgid "Delete emulated title"
+msgstr "Elimina titolo emulato"
+
+msgid "Miis from Wii"
+msgstr "Mii dalla Wii"
+
+msgid "Miis to Wii"
+msgstr "Mii sulla Wii"
+
+msgid "Remove Wii settings"
+msgstr "Rimuovi impostazioni Wii"
+
+msgid "SYSCONF: {1}; setting.txt: {2}"
+msgstr "SYSCONF: {1}; setting.txt: {2}"
+
+msgid "Present"
+msgstr "Presente"
+
+msgid "Missing"
+msgstr "Assente"
+
+msgid "Wii memory"
+msgstr "Memoria della Wii"
+
+msgid "Continue"
+msgstr "Continua"
+
+msgid "Write to Wii"
+msgstr "Scrivi sulla Wii"
+
+msgid "Working..."
+msgstr "Operazione in corso..."
+
+msgid "Done."
+msgstr "Fatto."
+
+msgid "The emulated NAND folder could not be read. See session.log for details."
+msgstr "Impossibile leggere la cartella della NAND emulata. Vedi session.log."
+
+msgid "The destination will be replaced. A backup is kept in the emulated NAND folder first. Keep the Wii turned on until copying finishes."
+msgstr "La destinazione verrà sostituita. Prima verrà salvata una copia nella cartella della NAND emulata. Lascia la Wii accesa fino alla fine."
+
+msgid "This replaces data in the Wii's own memory. Your current save or Miis will change. Are you sure you want to write to the Wii?"
+msgstr "Verranno sostituiti dati nella memoria della Wii. Il salvataggio o i Mii attuali cambieranno. Vuoi davvero scrivere sulla Wii?"
+
+msgid "The selected emulated title or save will be deleted. Deleting a title also deletes its save and ticket. This cannot be undone."
+msgstr "Il titolo o salvataggio emulato verrà eliminato. Eliminare un titolo elimina anche salvataggio e ticket. Non puoi annullare."
+
+msgid "The action could not finish. A save may have been partly copied. Backups stay in the emulated NAND folder. See session.log for details."
+msgstr "Operazione non completata. Un salvataggio potrebbe essere stato copiato solo in parte. Le copie restano nella cartella della NAND emulata. Vedi session.log."
+
+msgid "The emulated Wii settings will be backed up and removed. The Wii's own settings stay as they are."
+msgstr "Le impostazioni Wii emulate verranno copiate e rimosse. Le impostazioni della Wii resteranno invariate."
+
+msgid "SteamGridDB key"
+msgstr "Chiave SteamGridDB"
+
+msgid "Clear SteamGridDB key"
+msgstr "Cancella chiave SteamGridDB"
+
+msgid "Ends in {1}"
+msgstr "Termina con {1}"
+
+msgid "Fallback covers from SteamGridDB. Set your key below."
+msgstr "Copertine alternative da SteamGridDB. Imposta la tua chiave qui sotto."
+
+msgid "Type your SteamGridDB API key. Only its last four characters are shown."
+msgstr "Inserisci la tua chiave API SteamGridDB. Vengono mostrati solo gli ultimi quattro caratteri."
+
+msgid "Removes your SteamGridDB key from the SD card. Saved pictures are kept."
+msgstr "Rimuove la tua chiave SteamGridDB dalla scheda SD. Le immagini salvate vengono conservate."
+
+msgid "Use 16 to 128 letters, numbers, - or _."
+msgstr "Usa da 16 a 128 lettere, numeri, - o _."
+
+msgid "SteamGridDB key saved."
+msgstr "Chiave SteamGridDB salvata."
+
+msgid "SteamGridDB key cleared."
+msgstr "Chiave SteamGridDB cancellata."
+
+msgid "Could not change the SteamGridDB key. Check the SD card."
+msgstr "Impossibile cambiare la chiave SteamGridDB. Controlla la scheda SD."
 
 msgid "Copies the controller.ini files Nintendont uses (on the SD card or the USB drive) into RiftWii's own controller layouts."
 msgstr "Copia i file controller.ini usati da Nintendont (sulla scheda SD o sull'unità USB) negli schemi dei controller di RiftWii."
