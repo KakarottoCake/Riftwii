@@ -6229,7 +6229,7 @@ static void MenuEmulatedNandFolder(const std::string& folder)
 			{sysconf ? tr("Present") : tr("Missing"), settings ? tr("Present") : tr("Missing")}));
 		for (const EmuNandTitle& title : titles) {
 			add(FlatCapped(EmulatedNandTitleLabel(title), 42), riftwii::emunand_title_text(title.id) + "\n" +
-				(title.emulated ? folder : std::string(tr("Wii memory"))));
+				(title.emulated || title.ticket_only ? folder : std::string(tr("Wii memory"))));
 		}
 		return true;
 	};
