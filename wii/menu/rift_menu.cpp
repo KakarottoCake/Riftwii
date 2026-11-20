@@ -6165,6 +6165,9 @@ static void MenuEmulatedNandTitle(const std::string& folder, const riftwii::wii:
 	if (title.emulated) {
 		add(tr("Delete emulated save"), EmuNandAction::DeleteSave);
 		add(tr("Delete emulated title"), EmuNandAction::DeleteTitle);
+	} else if (title.ticket_only) {
+		// Only its ticket is left: deleting the title removes that.
+		add(tr("Delete emulated title"), EmuNandAction::DeleteTitle);
 	}
 	EmulatorRowsPage(FlatCapped(EmulatedNandTitleLabel(title), 32), rows, help, [&](int clicked, int) {
 		const auto action = actions[static_cast<std::size_t>(clicked)];

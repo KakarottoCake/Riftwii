@@ -805,10 +805,12 @@ std::vector<std::string> emunand_manager_folders() {
             while (*at == ' ' || *at == '\t') ++at;
             if (std::strncmp(at, "game:", 5) != 0 || std::strlen(at) < 11) continue;
             std::string path;
-            // Many games share a folder: each folder counts once.
-            if (shared_nand_game_line(line, std::string(at + 5, 6), path) && per_game.size() < kMaxFolders &&
-                std::find(per_game.begin(), per_game.end(), path) == per_game.end())
-                try_push_back(per_game, path);
+            std::string checked;
+            // Many games share a folder: each folder counts once, compared
+            // as emunand_root writes it (no trailing or doubled slashes).
+            if (shared_nand_game_line(line, std::string(at + 5, 6), path) && emunand_root(path, checked) &&
+                per_game.size() < kMaxFolders && std::find(per_game.begin(), per_game.end(), checked) == per_game.end())
+                try_push_back(per_game, checked);
         }
         std::fclose(file);
     }
@@ -849,6 +851,32 @@ bool emunand_manager_list(const std::string& folder, std::vector<EmuNandTitle>& 
             emunand_title_paths(title, paths);
             if (inspect({false, root.path + paths.title}, ignored) != Kind::Directory) continue;
             if (titles.size() >= kMaxTitles || !try_push_back(titles, EmuNandTitle{title, title_name(root.path, title), true, false})) {
+                error = "there are too many titles, or not enough memory to list them";
+                return false;
+            }
+        }
+    }
+    // Tickets with no title folder: what a cut-short delete leaves.
+    std::vector<std::string> ticket_types;
+    if (inspect({false, root.path + "/ticket"}, ignored) == Kind::Directory)
+        directory_names({false, root.path + "/ticket"}, ticket_types);
+    for (const std::string& type : ticket_types) {
+        std::uint64_t type_id = 0;
+        if (type.size() != 8 || !emunand_parse_title(type + "00000001", type_id) ||
+            !emunand_manageable_title(type_id)) continue;
+        std::vector<std::string> names;
+        if (!directory_names({false, root.path + "/ticket/" + type}, names)) continue;
+        for (const std::string& name : names) {
+            std::uint64_t title = 0;
+            if (name.size() != 12 || name.compare(8, 4, ".tik") != 0 ||
+                !emunand_parse_title(type + "-" + name.substr(0, 8), title) || !emunand_manageable_title(title)) continue;
+            const bool listed = std::any_of(titles.begin(), titles.end(), [&](const EmuNandTitle& entry) { return entry.id == title; });
+            EmuNandTitlePaths paths;
+            emunand_title_paths(title, paths);
+            if (listed || inspect({false, root.path + paths.ticket}, ignored) != Kind::File) continue;
+            EmuNandTitle entry{title, emunand_title_text(title), false, false};
+            entry.ticket_only = true;
+            if (titles.size() >= kMaxTitles || !try_push_back(titles, entry)) {
                 error = "there are too many titles, or not enough memory to list them";
                 return false;
             }

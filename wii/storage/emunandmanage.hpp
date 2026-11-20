@@ -13,6 +13,9 @@ struct EmuNandTitle {
     std::string name;
     bool emulated = false;
     bool real = false;
+    // Only a ticket is left of it in the emulated NAND (a delete that
+    // stopped after the title's folder): Delete title finishes it.
+    bool ticket_only = false;
 };
 
 enum class EmuNandAction {

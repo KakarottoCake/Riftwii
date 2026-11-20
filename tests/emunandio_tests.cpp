@@ -176,6 +176,19 @@ void refused_and_failed_writes() {
 void deletion_and_system_files() {
     reset();
     std::string error;
+    {
+        // A ticket left with no title folder is listed and can be deleted.
+        card_file("/ticket/00010001/57424d45.tik", "ticket");
+        std::vector<EmuNandTitle> titles;
+        bool sysconf = false;
+        bool settings = false;
+        CHECK(emunand_manager_list(kRoot, titles, sysconf, settings, error));
+        const auto found = std::find_if(titles.begin(), titles.end(), [](const EmuNandTitle& t) { return t.id == kTitle; });
+        CHECK(found != titles.end() && found->ticket_only && !found->emulated);
+        CHECK(emunand_manager_action(kRoot, EmuNandAction::DeleteTitle, kTitle, error));
+        CHECK(!fs::exists(kRoot + "/ticket/00010001/57424d45.tik"));
+        reset();
+    }
     card_file("/title/00000001/00000002/data/setting.txt", "console settings");
     CHECK(!emunand_manager_action(kRoot, EmuNandAction::DeleteTitle, 0x100000002ULL, error));
     CHECK(card_read(kEmuNandSettings) == "console settings");
