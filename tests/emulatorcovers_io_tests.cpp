@@ -3,6 +3,7 @@
 #include "emulatorcovers.hpp"
 
 #include <ogc/mutex.h>
+#include <sys/stat.h>
 
 #include <cstdarg>
 #include <cstdio>
@@ -185,6 +186,13 @@ LoaderSettings& Settings() {
     return settings;
 }
 bool DriveScanDone() { return true; }
+// artfolder.cpp's listing cache (Wii threads only): outside a look it asks
+// the card, as here.
+bool ArtFileThere(const std::string& path) {
+    struct stat info {};
+    return stat(path.c_str(), &info) == 0;
+}
+bool ArtFileStat(const std::string& path, struct stat& info) { return stat(path.c_str(), &info) == 0; }
 CardWriteHold::CardWriteHold() = default;
 CardWriteHold::~CardWriteHold() = default;
 std::uint64_t usb_mount_generation() { return 1; }

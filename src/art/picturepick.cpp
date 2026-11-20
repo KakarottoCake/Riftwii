@@ -59,7 +59,7 @@ bool gametdb_region(const std::string& region) {
     return (region.size() == 2 || region.size() == 4) && std::all_of(region.begin(), region.end(), [](char c) { return c >= 'A' && c <= 'Z'; });
 }
 
-constexpr const char* kGameTDBArt = "http://art.gametdb.com/wii/";
+constexpr const char* kGameTDBArt = "https://art.gametdb.com/wii/";
 
 // A GameTDB cover URL taken apart and built again from checked parts, as
 // for libretro's: anything else (another host, set or file) is refused.

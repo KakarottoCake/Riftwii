@@ -50,14 +50,21 @@ std::string ctgp_update_header_report(const std::uint8_t* data, std::size_t size
                                       std::uint64_t file_size);
 
 // settings.txt as a report shows it: a secret's value (riitag_key, the
-// player's RiiTag key, and riitag_id, their Discord ID) replaced by
-// "(hidden)", as a report is posted where anyone can read it.
+// player's RiiTag key, riitag_id, their Discord ID, and parental_pin, the
+// parental PIN's hash, which a 4-digit PIN cannot keep secret once public)
+// replaced by "(hidden)", as a report is posted where anyone can read it.
 std::string hide_settings_secrets(const std::string& settings);
 
 // Every "key=" value in a URL's query ("?key=..." or "&key=...", any case)
 // replaced by "(hidden)": a RiiTag key logged with an address. Reports are
 // posted publicly, so assemble_report applies this to everything.
 std::string hide_url_keys(const std::string& text);
+
+// Every "Network: up, this Wii is a.b.c.d" line with the last two numbers
+// replaced by "x.x", as RiftWii now logs it: a log kept from an older
+// version (session-previous.log after an update) still has the whole
+// address. assemble_report applies this to every part.
+std::string hide_wii_address(const std::string& text);
 
 // The packs a choices file (sd:/riftwii/choices/<ID>.txt) has turned on,
 // as it names them ("RetroRewind6.xml", "mod.xml @ 192.168.1.20:1137").

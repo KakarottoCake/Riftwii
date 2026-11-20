@@ -30,7 +30,11 @@ struct PackageCatalog {
 
 // Home also builds its badges during this read, so a file too large to
 // retain need not be opened again just to learn which game it belongs to.
-PackageCatalog ReadPackageCatalog(PackIndex* index = nullptr);
+// `earlier`: the catalog the same look at the drives made a moment ago (the
+// SD card's part; the USB drive's part lists every pack again, the card's
+// among them). A pack it holds with the same name, path and text is
+// neither read nor parsed a second time: its summary is taken from there.
+PackageCatalog ReadPackageCatalog(PackIndex* index = nullptr, const PackageCatalog* earlier = nullptr);
 
 // Matching packs still get their complete options and patches. Others keep
 // their summary in the model, just as a full scan would have listed them.

@@ -142,6 +142,11 @@ void DrawRgb5a3(const u8* data, int w, int h, float x, float y, int alpha = 255,
 // rounded-off corners, where the cover stands in for a square case).
 void DrawRgb5a3Part(const u8* data, int w, int h, float u0, float u1, float x, float y, float dw, float dh,
                     int alpha = 255, bool opaque = false);
+// The whole w x h RGB5A3 texture drawn smoothed into the dw x dh box at
+// (x, y), turned `angle` radians (clockwise on the screen) about the box's
+// middle: the disc held up close, spinning.
+void DrawRgb5a3Turned(const u8* data, int w, int h, float x, float y, float dw, float dh, float angle,
+                      int alpha = 255);
 // Texels [u0, u1) x [v0, v1) of a w x h RGB5A3 texture drawn at (x, y),
 // dw x dh, its colour multiplied by `top` along the top edge and `bottom`
 // along the bottom (a darkening gradient, or a fade); `opaque` as above.
