@@ -122,10 +122,10 @@ public:
     // Roomy spacing: names and channels smaller, with wider gaps and sides
     // (grid_spacing = roomy). Covers and the shelf keep their own sizes.
     void SetRoomy(bool on);
-    // Channels: the neighbouring pages' nearest columns at the screen's
+    // Channels and Covers: the neighbouring pages' nearest columns at the screen's
     // sides (page_peek), read from the settings when Home is built: the
     // GUI thread asks every frame, so not from the settings' string.
-    void SetPagePeek(bool on) { pagePeek = on; }
+    void SetPagePeek(bool on);
     // The items on the page shown: whose icons to have ready.
     int PageFirst() const { return page * kPerPage; }
     // A cover was stored for `id`: draw it from now on.
@@ -199,6 +199,7 @@ private:
         int cols, tileW, tileH, left, top, gapX, gapY;
     };
     const Geometry& Geo() const;
+    float CoverScale() const;       // stored cover to tile, allowing room for the side pages
     float Stretch() const;          // how much wider Channels is drawn on a widescreen menu (1 otherwise)
     float IconScale() const;        // a channel's icon against its own size (1 unless roomy)
     mutable Geometry stretched{};   // Geo()'s, when stretched
@@ -273,13 +274,15 @@ private:
     // Channels: the game's icon (or the disc drive's disc) in its channel
     // at (x, y); false when it has neither (its name is drawn instead).
     bool DrawChannelTile(int index, float x, float y, float scale, bool on, int alpha);
-    // Channels, page_peek on: the pages either side, their nearest column
+    // Channels and Covers, page_peek on: the pages either side, their nearest column
     // showing at the screen's sides, dimmed, carried along by a page turn.
-    bool PagePeek() const;  // SetPagePeek's, in the Channels view only
+    bool PagePeek() const;  // SetPagePeek's, in Channels and Covers only
     float PageStride() const;  // one page to the next, in menu units
     int PeekAlpha(float x, int alpha) const;  // a tile at x: dimmed the further out of the page's columns
     void DrawNeighbourPages(int alpha);
-    void DrawCoverTile(int i, bool on, int alpha);
+    // A neighbouring page not laid out yet has no text slot: its cover or
+    // blank frame is drawn until the made-up cover is ready.
+    void DrawCoverTile(int index, Slot* text, float x, float y, float scale, bool on, int alpha);
     // The cover zoom (CoverZoomed). zoomItem is the game zoomed (-1 none),
     // zoomSlot its tile (-1 on the shelf, which zooms from the box's middle
     // and height, zoomFrom*); zoomBack shows the box's back. zoomShown runs
@@ -376,7 +379,7 @@ private:
 
     const std::vector<GridItem>* items = nullptr;
     Slot slots[kPerPage];
-    // The page turned away from, its names as laid out (Channels with
+    // The page turned away from, its names as laid out (Channels and Covers with
     // page_peek on draws it sliding away, then beside the page).
     Slot leaving[kPerPage];
     int leavingPage = -1;

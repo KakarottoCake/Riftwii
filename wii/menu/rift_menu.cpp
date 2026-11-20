@@ -17949,12 +17949,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			option(tr("Grid spacing"), settings.grid_spacing == "roomy" ? tr("Roomy") : tr("Normal"),
 				settings.grid_spacing == "roomy", kGridSpacing);
 		}
-		// Only the Channels view has channel corners and neighbouring pages to show.
+		// Channel frames have their own settings; both grids can show side pages.
 		if (settings.home_tiles == "channels") {
 			option(tr("Channel corners"), ChannelCornersName(settings.channel_corners), settings.channel_corners != "theme",
 				kChannelCorners);
 			option(tr("Channel background"), settings.channel_background == "card" ? tr("White") : tr("Transparent"),
 				settings.channel_background == "card", kChannelBackground);
+		}
+		if (settings.home_tiles == "channels" || settings.home_tiles == "covers") {
 			option(tr("Pages at the sides"), settings.page_peek == "off" ? tr("Off") : tr("On"),
 				settings.page_peek != "off", kPagePeek, FlowRow::Kind::Toggle);
 		}
@@ -18309,7 +18311,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kChannelBackground:
 				return tr("White will add a box behind channel banners shown in the menu to prevent the banners from becoming transparent.");
 			case kGridSpacing: return tr("Roomy makes the Names and Channels tiles a little smaller, with wider gaps between them and at the sides, as on the Wii Menu.");
-			case kPagePeek: return tr("Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.");
+			case kPagePeek: return tr("Channels and Covers: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.");
 			case kWidescreen: return tr("On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting.");
 			case kScreenSize: return tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.");
 			case kTheme: return tr("The menu's colors and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).");
@@ -18588,7 +18590,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				case kPagePeek:
 					settings.page_peek = settings.page_peek == "off" ? "on" : "off";
-					saveAndNote(tr("Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."));
+					saveAndNote(tr("Channels and Covers: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."));
 					rebuild();
 					break;
 				case kPlayHistory:
