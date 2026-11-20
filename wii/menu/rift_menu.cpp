@@ -30,6 +30,7 @@
 #include <strings.h>
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -158,6 +159,8 @@
 #include "netpacks.hpp"
 #include "netsock.hpp"
 #include "sharednandfind.hpp"
+#include "emunandmanage.hpp"
+#include "riftwii/emunand.hpp"
 #include "otpkey.hpp"
 #include "wadinstall.hpp"
 #include "disccopy.hpp"
@@ -6027,6 +6030,155 @@ static bool EmulatorRowsPage(const std::string& title, std::vector<FlowRow>& row
 	}
 	mainWindow->Remove(&window);
 	return started;  // the caller, like this page's actions, has the GUI halted
+}
+
+static bool RunEmulatedNandAction(const std::string& folder, riftwii::wii::EmuNandAction action,
+	std::uint64_t title, const std::string& label)
+{
+	using namespace riftwii::wii;
+	const bool intoWii = action == EmuNandAction::SaveToWii || action == EmuNandAction::MiisToWii;
+	const bool deleting = action == EmuNandAction::DeleteTitle || action == EmuNandAction::DeleteSave;
+	const std::string note = action == EmuNandAction::RemoveSettings
+		? tr("The emulated Wii settings will be backed up and removed. The Wii's own settings stay as they are.")
+		: deleting
+		? tr("The selected emulated title or save will be deleted. Deleting a title also deletes its save and ticket. This cannot be undone.")
+		: tr("The destination will be replaced. A backup is kept in the emulated NAND folder first. Keep the Wii turned on until copying finishes.");
+	std::string detail = folder;
+	if (title) detail += "\n" + riftwii::emunand_title_text(title);
+	detail += "\n" + note;
+	if (ShowPopupSafeFirst(label, detail, tr("Cancel"), tr("Continue")) != 1) return false;
+	if (intoWii && ShowPopupSafeFirst(label,
+		tr("This replaces data in the Wii's own memory. Your current save or Miis will change. Are you sure you want to write to the Wii?"),
+		tr("Cancel"), tr("Write to Wii")) != 1) return false;
+	bool ok = false;
+	std::string error;
+	{
+		const CardWriteHold hold;
+		PopupBox box(tr("Emulated NAND"), tr("Working..."), {}, {});
+		ResumeGui();
+		ok = emunand_manager_action(folder, action, title, error);
+		HaltGui();
+		forget_sd_layout();
+	}
+	ShowPopup(label, ok ? tr("Done.") : tr("The action could not finish. A save may have been partly copied. Backups stay in the emulated NAND folder. See session.log for details."), tr("OK"));
+	return ok;
+}
+
+static std::string EmulatedNandTitleLabel(const riftwii::wii::EmuNandTitle& title);
+
+static void MenuEmulatedNandTitle(const std::string& folder, const riftwii::wii::EmuNandTitle& title)
+{
+	using namespace riftwii::wii;
+	std::vector<FlowRow> rows;
+	std::vector<std::string> help;
+	std::vector<EmuNandAction> actions;
+	const auto add = [&](const char* label, EmuNandAction action) {
+		FlowRow row;
+		row.kind = FlowRow::Kind::Action;
+		row.label = label;
+		rows.push_back(row);
+		help.push_back(folder + "\n" + riftwii::emunand_title_text(title.id));
+		actions.push_back(action);
+	};
+	if (title.real) add(tr("Copy save from Wii"), EmuNandAction::SaveToEmulated);
+	if (title.real && title.emulated) add(tr("Copy save to Wii"), EmuNandAction::SaveToWii);
+	if (title.emulated) {
+		add(tr("Delete emulated save"), EmuNandAction::DeleteSave);
+		add(tr("Delete emulated title"), EmuNandAction::DeleteTitle);
+	}
+	EmulatorRowsPage(FlatCapped(EmulatedNandTitleLabel(title), 32), rows, help, [&](int clicked, int) {
+		const auto action = actions[static_cast<std::size_t>(clicked)];
+		const bool changed = RunEmulatedNandAction(folder, action, title.id, rows[static_cast<std::size_t>(clicked)].label);
+		return changed && action == EmuNandAction::DeleteTitle;
+	});
+}
+
+// A title the banner gave no name (a disc game's save, a title only on
+// the Wii): its four-letter game code, and GameTDB's name for it when the
+// title list has one, rather than sixteen hex digits.
+static std::string EmulatedNandTitleLabel(const riftwii::wii::EmuNandTitle& title)
+{
+	if (title.name != riftwii::emunand_title_text(title.id)) return title.name;
+	std::string code;
+	for (int shift = 24; shift >= 0; shift -= 8) {
+		const char c = static_cast<char>((title.id >> shift) & 0xff);
+		if (!std::isalnum(static_cast<unsigned char>(c))) return title.name;
+		code += c;
+	}
+	std::string listed;
+	if (riftwii::wii::GameTitleListed(code, listed) && !listed.empty()) return listed + " (" + code + ")";
+	return code;
+}
+
+static void MenuEmulatedNandFolder(const std::string& folder)
+{
+	using namespace riftwii::wii;
+	std::vector<EmuNandTitle> titles;
+	std::vector<FlowRow> rows;
+	std::vector<std::string> help;
+	bool sysconf = false;
+	bool settings = false;
+	std::string error;
+	const auto build = [&] {
+		rows.clear();
+		help.clear();
+		bool ok = false;
+		ResumeGui();
+		ok = emunand_manager_list(folder, titles, sysconf, settings, error);
+		HaltGui();
+		if (!ok) {
+			logf("Emulated NAND: could not list %s because %s.\n", folder.c_str(), error.c_str());
+			ShowPopup(tr("Emulated NAND"), tr("The emulated NAND folder could not be read. See session.log for details."), tr("OK"));
+			return false;
+		}
+		const auto add = [&](const std::string& label, const std::string& note) {
+			FlowRow row;
+			row.kind = FlowRow::Kind::Action;
+			row.label = label;
+			rows.push_back(row);
+			help.push_back(note);
+		};
+		add(tr("Miis from Wii"), folder);
+		add(tr("Miis to Wii"), folder);
+		add(tr("Remove Wii settings"), tr("SYSCONF: {1}; setting.txt: {2}",
+			{sysconf ? tr("Present") : tr("Missing"), settings ? tr("Present") : tr("Missing")}));
+		for (const EmuNandTitle& title : titles) {
+			add(FlatCapped(EmulatedNandTitleLabel(title), 42), riftwii::emunand_title_text(title.id) + "\n" +
+				(title.emulated ? folder : std::string(tr("Wii memory"))));
+		}
+		return true;
+	};
+	if (!build()) return;
+	EmulatorRowsPage(tr("Emulated NAND"), rows, help, [&](int clicked, int) {
+		if (clicked < 3) {
+			const EmuNandAction actions[] = {EmuNandAction::MiisToEmulated, EmuNandAction::MiisToWii, EmuNandAction::RemoveSettings};
+			RunEmulatedNandAction(folder, actions[clicked], 0, rows[static_cast<std::size_t>(clicked)].label);
+		} else {
+			// Copy the entry: refreshing this page invalidates the listing.
+			const EmuNandTitle title = titles[static_cast<std::size_t>(clicked - 3)];
+			MenuEmulatedNandTitle(folder, title);
+		}
+		return !build();
+	});
+}
+
+static void MenuEmulatedNand()
+{
+	std::vector<std::string> folders;
+	ResumeGui();
+	folders = riftwii::wii::emunand_manager_folders();
+	HaltGui();
+	std::vector<FlowRow> rows;
+	for (const std::string& folder : folders) {
+		FlowRow row;
+		row.kind = FlowRow::Kind::Action;
+		row.label = folder;
+		rows.push_back(row);
+	}
+	EmulatorRowsPage(tr("Emulated NAND"), rows, folders, [&](int clicked, int) {
+		MenuEmulatedNandFolder(folders[static_cast<std::size_t>(clicked)]);
+		return false;
+	});
 }
 
 static bool StartEmulator(const riftwii::wii::EmulatorAddon& addon, const riftwii::wii::EmulatorGame& game,
@@ -17844,7 +17996,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kLaunchLog, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kUsbInput, kGcCard, kGcBackups, kLeaveButtons, kDiscLight, kNintendontSaves, kParental, kSdGames, kGameFolders, kIos, kNet, kResync, kWads, kDiscCopy,
+	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kEmuNandManager, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kLaunchLog, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kUsbInput, kGcCard, kGcBackups, kLeaveButtons, kDiscLight, kNintendontSaves, kParental, kSdGames, kGameFolders, kIos, kNet, kResync, kWads, kDiscCopy,
 		kMissingCovers, kRescan, kPartitionFailures, kUpdate, kReport, kTests, kGeckoLog, kWiirdDebugger, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -17891,6 +18043,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			kWiiSaves);
 		option(tr("Emulated NAND"), EmuNandFolderName(settings.emunand_folder), settings.emunand_folder != "gx",
 			kEmuNandFolder);
+		option(tr("Manage emulated NAND"), tr("Open"), false, kEmuNandManager, FlowRow::Kind::Action);
 		option(tr("NAND keeps"), EmuNandKeepsName(settings.emunand_keeps), settings.emunand_keeps != "saves",
 			kEmuNandKeeps);
 		option(tr("Show non-game channels"), settings.nand_non_games ? tr("On") : tr("Off"),
@@ -18195,7 +18348,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			switch (a) {
 				case kWidth: case kDeflicker: case kBorders: case kVideoMode: case kAspect:
 					return SettingsSection::Picture;
-				case kEmulators: case kGameLanguage: case kGameCios: case kWiiSaves: case kEmuNandFolder: case kEmuNandKeeps: case kNonGames: case kReturnTo: case kLeaveButtons: case kShots: case kGcCard: case kGcBackups: case kDiscLight: case kNintendontSaves:
+				case kEmulators: case kGameLanguage: case kGameCios: case kWiiSaves: case kEmuNandFolder: case kEmuNandKeeps: case kEmuNandManager: case kNonGames: case kReturnTo: case kLeaveButtons: case kShots: case kGcCard: case kGcBackups: case kDiscLight: case kNintendontSaves:
 				case kParental:
 					return SettingsSection::Games;
 				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest: case kGcCalibrate: case kUsbInput:
@@ -18373,6 +18526,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					: "Only servers named by <network> in an XML on the card are used.";
 			case kResync: return "The next launch copies every file of its network packs again.";
 			case kDiscCopy: return tr("Copies the Wii disc in the drive to the wbfs folder of a FAT32 USB drive or the SD card, with every partition of the disc, so the game plays without the disc. Needs a d2x cIOS.");
+			case kEmuNandManager: return tr("See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.");
 			case kWads: return tr("Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.");
 			case kSdGames: return tr("Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work.");
 			case kGameFolders: return tr("More folders to look for games in, on the SD card or the USB drive, besides wbfs and games.");
@@ -19230,6 +19384,18 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						g_scanned = false;
 						menu = MENU_SOURCE;
 					}
+					break;
+				case kEmuNandManager:
+					WaitForDriveScan(noteTxt);
+					// Its pages replace this one on screen, as the Emulators page does.
+					transition::Hold(transition::Kind::SlideForward);
+					mainWindow->Remove(&w);
+					MenuEmulatedNand();
+					transition::Hold(transition::Kind::SlideBack);
+					mainWindow->Append(&w);
+					// A deleted channel leaves Home: read the drives again there.
+					g_scanned = false;
+					rebuild();
 					break;
 				case kWads:
 					// The scan lists the emulated NAND's channels the install writes.

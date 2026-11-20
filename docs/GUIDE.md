@@ -2137,3 +2137,60 @@ available.
 Cheat files keep their own picked cheats when you change the Cheat file row.
 If a picked file is removed, its cheats do not come from a different file.
 Downloads and filled values keep cheats already saved in RiftWii's own file.
+
+## Managing an emulated NAND
+
+Open **Settings > Games > Manage emulated NAND**, then choose the folder.
+The page offers the configured save and channel folders, per-game folders
+from USB Loader GX's settings, and folders found under `sd:/nands` and
+`usb:/nands`. USB changes need a FAT32 partition. A folder that is missing
+cannot be opened.
+
+Each title opens its save tools. Installed channels use their banner name
+when it can be read; otherwise the page shows the full title ID. Titles on
+the Wii are also listed so their saves can be copied into the emulated
+NAND. System software, including the Wii Menu and IOS, is hidden and cannot
+be deleted. **Delete emulated title** removes that title's program, save
+and ticket from the chosen folder. It keeps shared program files used by
+other titles. **Delete emulated save** removes only its save. Both ask first
+and cannot be undone. A WAD still in the `wad` folder remains available on
+Home and may install its title again when played.
+
+**Copy save from Wii** and **Copy save to Wii** replace the destination's
+whole save folder, including removing old files absent from the source.
+The destination is backed up first under
+`<NAND folder>/riftwii-backups/<title ID>/emulated-save.bak0` or
+`wii-save.bak0`. Later backups use the next free number. Copying to the Wii
+requires the title to be installed there and asks twice. Only that title's
+save folder is written; its program, ticket and system files are kept.
+These tools copy saves, so the source stays in place.
+
+**Miis from Wii** and **Miis to Wii** copy the complete Mii database,
+replacing all Miis at the destination. The old database is saved next to
+the emulated copy as `shared2/menu/FaceLib/RFL_DB.dat.bak0`; a backup taken
+from the Wii uses `RFL_DB.dat.wii.bak0`. Later backups use the next free
+number. Writing Miis to the Wii asks twice and requires a database the
+same size as the Wii's current one. The files are copied as they are;
+RiftWii does not edit individual Miis or repair damaged databases.
+
+**Remove Wii settings** shows whether the emulated folder contains
+`shared2/sys/SYSCONF` and `title/00000001/00000002/data/setting.txt`.
+After confirmation, both are backed up beside the originals with `.bak0`
+(or the next free number), then removed. There is no tool to copy settings
+into the Wii. A game needing a whole emulated NAND may need these files
+again; preparing a WAD for play can copy missing settings from the Wii.
+
+Keep the Wii turned on until an action finishes. Each replaced file is
+written under a temporary name and renamed into place, but a whole save
+has several files: an interrupted or failed copy can leave only part of
+the new save installed. The backup stays in the emulated NAND folder, and
+`sd:/riftwii/session.log` records completed actions, backup locations and
+failures. To recover, copy the backup's contents back into the title's
+emulated `data` folder on a computer; the manager can then copy that save
+to the Wii again. Saves are limited to 4096 files and folders, eight folder
+levels, 64 MiB per file and 512 MiB in total. Unsafe names and paths that
+the Wii cannot store are refused before copying.
+
+The manager's file operations and refusal cases have host tests. Its menu,
+USB mounting, real-console save permissions and d2x behavior still need
+testing on a Wii; Dolphin cannot exercise d2x's storage path.

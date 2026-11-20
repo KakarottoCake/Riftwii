@@ -4553,3 +4553,72 @@ msgstr "RiftWiiが新しいファイルを保存できないため、設定や�
 
 msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."
 msgstr "RiftWiiが新しいファイルを保存できないため、設定やゲームの選択、ジャケット画像やログが保存されないことがあります。カードをパソコンに入れて、エラーがないかカードを確認してください。"
+
+msgid "Manage emulated NAND"
+msgstr "仮想NANDの管理"
+
+msgid "See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings."
+msgstr "仮想NANDの中身を見て変更します。インストールしたチャンネルの削除、ゲームのセーブやMiiのWiiとのコピー、Wiiの設定のコピーの削除ができます。"
+
+msgid "Copy save from Wii"
+msgstr "Wiiからセーブをコピー"
+
+msgid "Copy save to Wii"
+msgstr "Wiiへセーブをコピー"
+
+msgid "Delete emulated save"
+msgstr "仮想NANDのセーブを削除"
+
+msgid "Delete emulated title"
+msgstr "仮想NANDのタイトルを削除"
+
+msgid "Miis from Wii"
+msgstr "WiiからMiiをコピー"
+
+msgid "Miis to Wii"
+msgstr "WiiへMiiをコピー"
+
+msgid "Remove Wii settings"
+msgstr "Wii設定のコピーを削除"
+
+msgid "SYSCONF: {1}; setting.txt: {2}"
+msgstr "SYSCONF: {1}; setting.txt: {2}"
+
+msgid "Present"
+msgstr "あり"
+
+msgid "Missing"
+msgstr "なし"
+
+msgid "Wii memory"
+msgstr "Wii本体のメモリー"
+
+msgid "Continue"
+msgstr "続ける"
+
+msgid "Write to Wii"
+msgstr "Wii本体に書き込む"
+
+msgid "Working..."
+msgstr "処理中..."
+
+msgid "Done."
+msgstr "完了しました。"
+
+msgid "The emulated NAND folder could not be read. See session.log for details."
+msgstr "仮想NANDのフォルダを読み込めません。詳細はsession.logを確認してください。"
+
+msgid "The destination will be replaced. A backup is kept in the emulated NAND folder first. Keep the Wii turned on until copying finishes."
+msgstr "コピー先を置き換えます。先に仮想NANDのフォルダにバックアップを保存します。コピーが終わるまでWiiの電源を切らないでください。"
+
+msgid "This replaces data in the Wii's own memory. Your current save or Miis will change. Are you sure you want to write to the Wii?"
+msgstr "Wii本体のメモリーのデータを置き換えます。現在のセーブやMiiが変わります。本当にWii本体に書き込みますか？"
+
+msgid "The selected emulated title or save will be deleted. Deleting a title also deletes its save and ticket. This cannot be undone."
+msgstr "選んだ仮想NANDのタイトルやセーブを削除します。タイトルの削除ではセーブとチケットも削除します。元に戻せません。"
+
+msgid "The action could not finish. A save may have been partly copied. Backups stay in the emulated NAND folder. See session.log for details."
+msgstr "処理を完了できませんでした。セーブの一部だけがコピーされた可能性があります。バックアップは仮想NANDのフォルダにあります。詳細はsession.logを確認してください。"
+
+msgid "The emulated Wii settings will be backed up and removed. The Wii's own settings stay as they are."
+msgstr "仮想NANDのWii設定をバックアップして削除します。Wii本体の設定は変わりません。"
