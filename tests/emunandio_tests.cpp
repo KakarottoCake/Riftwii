@@ -379,11 +379,34 @@ bool mount_usb_nand_folder(const std::string&, std::string&, std::string&) { ret
 void unmount_usb_nand_folder() {}
 }  // namespace riftwii::wii
 
+void gx_folders() {
+    // USB Loader GX's per-game settings: a last record exactly the reader's
+    // buffer long (20 KiB less its terminator), with no newline, is still
+    // whole, so its folder is offered.
+    reset();
+    fs::create_directories("sd:/custom");
+    const std::string tail = "NandEmuPath:sd:/custom;";
+    std::string record = "game:RMCE01 = Pad:";
+    record += std::string(20 * 1024 - 1 - record.size() - tail.size() - 1, 'a');
+    record += ";" + tail;
+    CHECK(record.size() == 20 * 1024 - 1);
+    fs::create_directories("sd:/apps/usbloader_gx");
+    {
+        std::ofstream file("sd:/apps/usbloader_gx/GXGameSettings.cfg", std::ios::binary);
+        file << "game:RSBE01 = Pad:a;\n" << record;
+    }
+    const std::vector<std::string> folders = emunand_manager_folders();
+    CHECK(std::count(folders.begin(), folders.end(), std::string("sd:/custom")) == 1);
+    fs::remove_all("sd:/apps");
+    fs::remove_all("sd:/custom");
+}
+
 int main() {
     save_transfers();
     refused_and_failed_writes();
     deletion_and_system_files();
     mii_transfers();
+    gx_folders();
     CHECK(!escaped && handles.empty());
     return failures ? 1 : 0;
 }
