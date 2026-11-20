@@ -84,6 +84,10 @@ void test_picture_names_and_tile_keys() {
     expect(app_cover_names("../outside", "fallback") ==
            std::vector<std::string>({"outside", "fallback"}), "traversal becomes a single safe component");
     expect(app_cover_names(" . .. ", "fallback") == std::vector<std::string>({"fallback"}), "dot-only stem is omitted");
+    // The longest file made from a name, <name>.own.rw2.part, fits FAT's 255.
+    expect(app_cover_names(std::string(242, 'a'), "fallback").front().size() == 242, "a 242-byte name is kept");
+    expect(app_cover_names(std::string(243, 'a'), "fallback") == std::vector<std::string>({"fallback"}),
+           "a 243-byte name leaves no room for .own.rw2.part");
     expect(app_cover_names("", "folder") == std::vector<std::string>({"folder"}), "missing metadata uses folder");
     expect(app_cover_names("same", "same") == std::vector<std::string>({"same"}), "duplicate is checked once");
     expect(app_cover_names(std::string("Bad\0\nName", 9), "folder").front() == "BadName", "control bytes are stripped");

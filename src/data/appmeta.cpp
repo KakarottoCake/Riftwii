@@ -107,9 +107,11 @@ std::vector<std::string> app_cover_names(const std::string& meta_name, const std
         const std::size_t first = name.find_first_not_of(". ");
         if (first == std::string::npos) continue;
         name.erase(0, first);
-        // Leave room for the longest cache suffix (.own.rw2), without
-        // cutting UTF-8. Overlong names still have the folder fallback.
-        if (name.size() > 247) continue;
+        // Leave room in FAT's 255 bytes for the longest file made from it,
+        // the cache's .own.rw2 while it is written (.own.rw2.part, 13
+        // bytes), without cutting UTF-8. Overlong names still have the
+        // folder fallback.
+        if (name.size() > 242) continue;
         if (names.empty() || names.front() != name) names.push_back(std::move(name));
     }
     return names;
