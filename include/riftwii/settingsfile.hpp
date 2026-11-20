@@ -116,6 +116,10 @@ struct LoaderSettings {
     std::map<std::string, std::string> other;
 
     void parse(const std::string& text);
+    // The player's saved file: as parse, but a file from before
+    // menu_widescreen existed keeps the 4:3 menu it had then (only a new
+    // card, with no file, starts on "auto").
+    void parse_saved(const std::string& text);
     std::string serialize() const;
 };
 

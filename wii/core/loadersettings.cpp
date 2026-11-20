@@ -37,7 +37,7 @@ LoaderSettings& Settings() {
     if (!g_loaded) {
         g_loaded = true;
         std::string text;
-        if (ReadSavedSettings(text)) g_settings.parse(text);
+        if (ReadSavedSettings(text)) g_settings.parse_saved(text);
     }
     return g_settings;
 }
@@ -46,7 +46,7 @@ void ReloadSettings() {
     g_settings = LoaderSettings{};
     g_loaded = true;
     std::string text;
-    if (ReadSavedSettings(text)) g_settings.parse(text);
+    if (ReadSavedSettings(text)) g_settings.parse_saved(text);
 }
 
 // Written whole beside it, then put in its place: truncating it first left
