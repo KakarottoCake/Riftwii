@@ -277,6 +277,7 @@ private:
     // Channels: the game's icon (or the disc drive's disc) in its channel
     // at (x, y); false when it has neither (its name is drawn instead).
     bool DrawChannelTile(int index, float x, float y, float scale, bool on, int alpha);
+    void DrawDiscChannel(const IconBox& box, float cx);
     // Channels and Covers, page_peek on: the pages either side, their nearest column
     // showing at the screen's sides, dimmed, carried along by a page turn.
     bool PagePeek() const;  // SetPagePeek's, in Channels and Covers only

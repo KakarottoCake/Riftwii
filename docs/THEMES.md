@@ -211,7 +211,9 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `icon_play`, `icon_mods`, `icon_cheats`, `icon_saves`, `icon_info`, `icon_help` | 28x28 | The game page's tiles: Play, Mods, Cheats, Saves, About; Help in Settings |
 | `icon_picture`, `icon_controllers`, `icon_online`, `icon_home`, `icon_sound`, `icon_power` | 28x28 | Settings' tiles: Picture, Controllers, Online, Home screen, Look and sound, Leave RiftWii |
 | `icon_wii`, `icon_gamecube` | 28x28 | Home's Show choices: Wii games, GameCube games |
-| `icon_disc` | 40x40 | Disc icon (name and channel tiles) |
+| `icon_disc` | 40x40 | Disc icon (name tiles) |
+| `disc_channel` | 64x64 | The Disc Channel's face in the Channels view when no disc is in: stretched over the whole tile, its corners cut to the tile's |
+| `disc_channel_disc` | 64x76 | The disc on that face: the disc in rows 0-63, its reflection in rows 66-75. The menu spins it now and then about its upright middle line, so keep it centred |
 | `disc_case` | 128x176 | The Disc drive's box: its cover tile, and its front and back on the shelf |
 | `blank_cover` | 160x224 | A game's cover when there is no art for it: the menu prints the game's name and ID in its middle, in dark ink on a light picture and light ink on a dark one. Keep the middle plain; the covers view puts its badges along the bottom 30 pixels |
 | `pointer1` to `pointer4` | 96x96 | Each player's pointer; the fingertip must be at the centre (48, 48) |

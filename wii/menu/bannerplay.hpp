@@ -27,6 +27,9 @@ struct RoundClip {
 
 // A static emulator picture, cut to the same corners as animated icons.
 void DrawChannelPicture(const u8* pixels, const RoundClip& clip, int alpha);
+// A picture of `width` x `height` texels in GX texture `format` (the skin's
+// are RGBA8) stretched over the clip, cut to its corners.
+void DrawRoundPicture(const u8* pixels, int width, int height, u8 format, const RoundClip& clip, int alpha);
 
 class BannerPlayer {
 public:

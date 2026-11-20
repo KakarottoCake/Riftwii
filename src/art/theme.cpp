@@ -480,6 +480,8 @@ const std::vector<ThemeImage>& theme_images() {
         {"icon_star", 28, 28},
         {"icon_star_on", 28, 28},
         {"icon_disc", 40, 40},
+        {"disc_channel", 64, 64},
+        {"disc_channel_disc", 64, 76},
         {"tile9", 64, 64},
         {"tile9_over", 64, 64},
         {"tile9_primary", 64, 64},
