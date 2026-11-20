@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "cover3d.hpp"
+#include "homebrewart.hpp"
+#include "riftwii/appmeta.hpp"
 
 #include <ogc/cache.h>
 #include <sys/stat.h>
@@ -45,9 +47,13 @@ std::string FromPath(const std::string& id) { return std::string(kDir) + "/" + i
 // The player's own 3D cover (riftwii::own_art_needs_cut): their PNG, and
 // the picture cut from it beside it. In the pool under '!' and the name,
 // which no ID or key starts with, apart from the downloaded one.
-std::string OwnPngPath(const std::string& id) { return std::string(kDir) + "/" + id + ".png"; }
-std::string OwnStorePath(const std::string& id) { return std::string(kDir) + "/" + id + ".own.rw3"; }
-std::string OwnSourcePath(const std::string& id) { return std::string(kDir) + "/" + id + ".own.src"; }
+std::string OwnPath(const std::string& id, const char* suffix) {
+    const std::string name = valid_app_tile_key(id) ? HomebrewArtName(id, HomebrewArt::Cover3d) : id;
+    return name.empty() ? "" : std::string(kDir) + "/" + name + suffix;
+}
+std::string OwnPngPath(const std::string& id) { return OwnPath(id, ".png"); }
+std::string OwnStorePath(const std::string& id) { return OwnPath(id, ".own.rw3"); }
+std::string OwnSourcePath(const std::string& id) { return OwnPath(id, ".own.src"); }
 std::string OwnKey(const std::string& id) { return "!" + id; }
 // As a download's (kMaxPng): GameTDB's are some 60 KB. The 3D covers are
 // read on the GUI thread, so the cap also bounds the one decode a picture's
@@ -282,6 +288,7 @@ std::set<std::string> g_ownFound;
 // taken away takes its cut copy with it.
 OwnCut CutOwnCover3d(const std::string& id) {
     const std::string png_path = OwnPngPath(id);
+    if (png_path.empty()) return OwnCut::None;
     const std::string cut_path = OwnStorePath(id);
     const std::string note_path = OwnSourcePath(id);
     struct stat png_info {};
@@ -345,7 +352,9 @@ OwnCut CutOwnCover3d(const std::string& id) {
 // The player's own 3D cover for `id` (a game's ID or a mod tile's key), cut
 // from their PNG the first time it is wanted; nullptr when there is none.
 const u8* OwnCover3dTexture(const std::string& id) {
-    if (!ValidId(id)) return nullptr;
+    const bool app = valid_app_tile_key(id);
+    if (!ValidId(id) && !app) return nullptr;
+    if (app && HomebrewArtName(id, HomebrewArt::Cover3d).empty()) return nullptr;
     const std::string key = OwnKey(id);
     const auto found = g_index.find(key);
     if (found != g_index.end()) {
@@ -428,7 +437,7 @@ bool TakeCover3dFetch(std::string& game_id, CoverFetch& got, std::string& error)
 }
 
 const u8* Cover3dTexture(const std::string& game_id) {
-    if (game_id.empty()) return nullptr;
+    if (!ValidId(game_id)) return nullptr;
     const bool tile = is_tile_art_name(game_id);
     const std::string match = tile ? ModTileCoverId(game_id) : std::string();
     if (tile) {
@@ -458,6 +467,11 @@ const u8* TileCover3dTexture(const std::string& cover_name, const std::string& g
     // riftwii::tile_art_order's: a mod tile's own 3D cover after only the
     // player's own PNG for that tile.
     if (const u8* players = OwnCover3dTexture(cover_name)) return players;
+    if (valid_app_tile_key(cover_name)) {
+        if (front && CoverBeforeBox(cover_name)) return nullptr;
+        const std::string fallback = HomebrewCoverId(cover_name);
+        return fallback.empty() ? nullptr : TileCover3dTexture(fallback, fallback, front);
+    }
     const bool tile = is_tile_art_name(cover_name);
     if (tile_art_order(tile, front && tile && CoverIsTileOwn(cover_name), false).tile_art_first) {
         if (const u8* own_case = Cover3dTexture(cover_name)) return own_case;

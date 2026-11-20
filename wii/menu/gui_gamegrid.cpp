@@ -30,8 +30,9 @@ riftwii::PlayerActed GuiGameGrid::acted;
 
 const u8* MadeUpCoverFor(const GridItem& item) {
     if (item.badge == "DISC") return nullptr;
-    // An emulator game's ID is only its cover key: none printed.
-    const std::string id = riftwii::emulator_cover_id(item.id) ? std::string() : item.id;
+    // Apps and emulator games have internal picture keys, not IDs to print.
+    const bool app = item.key.compare(0, 4, "app:") == 0;
+    const std::string id = app || riftwii::emulator_cover_id(item.id) ? std::string() : item.id;
     return riftwii::wii::MadeUpCover(CoverName(item), item.title, id);
 }
 
@@ -567,9 +568,10 @@ void GuiGameGrid::Layout() {
         const std::vector<std::string> lines =
             Wrap(item.title, disc ? Geo().tileW - 46 - kTextLeft - 4 : textWidth - pictureRoom, lineCount);
         for (int l = 0; l < 3; ++l) s.lines[l]->SetText(l < static_cast<int>(lines.size()) ? lines[l].c_str() : "");
-        // An emulator game's id is only its cover key (emu- and a hash): its
-        // system badge names it instead.
-        s.id->SetText(riftwii::emulator_cover_id(item.id) ? "" : item.id.c_str());
+        // Apps' folder keys and emulator picture hashes stay out of the UI;
+        // their badges say what they are.
+        const bool app = item.key.compare(0, 4, "app:") == 0;
+        s.id->SetText(app || riftwii::emulator_cover_id(item.id) ? "" : item.id.c_str());
         std::string badge = item.badge;
         s.badge->SetText(badge.c_str());
         // An emulator author names the system; a long name must stay

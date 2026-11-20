@@ -225,7 +225,11 @@ have mod packs (they carry a **MODS** tag). The round button at the
 bottom left (or **1**) switches between games with mods, all games, **Homebrew** and,
 once you have played something, **Recently played**, then
 **Favourites** once you mark a game as one (the star on its banner, or
-**Favourite** on its page). **Minus** and
+**Favourite** on its page). Homebrew apps can join Favourites too: open
+an app and press the star on its Start question (**1** on a Wii Remote,
+**Y** on a Classic or GameCube controller, **X** on the Wii U GamePad).
+Press it again to remove the app; a filled star means it is a favorite.
+**Minus** and
 **Plus** turn to the previous and next page of games (the arrows at the
 sides and the D-pad at a page's edge do too). **L/R** also turn pages on
 a Classic Controller or GameCube controller. On GameCube, pull all the
@@ -276,6 +280,21 @@ picture is `icon.png` and its name comes from `meta.xml` when present.
 Pick one and confirm **Start**. The question says where the
 app will return when it exits. Use **Look for games again** after adding
 an app.
+
+For homebrew covers, put `<name>.png` in `sd:/riftwii/covers`, using the
+`<name>` from the app's `meta.xml`: for example, `ScummVM.png`. Its own
+3D case picture goes in `sd:/riftwii/covers3d/ScummVM.png`, and its full
+box scan in `sd:/riftwii/boxes/ScummVM.png`, in the same formats as games
+below. RiftWii removes `/ \ : * ? " < > |` and control characters from
+the name, and trims spaces and dots at its ends. Each folder also accepts
+the app's folder name (for `sd:/apps/scummvm`, use `scummvm.png`) as a
+fallback. Your pictures work offline and come before downloaded pictures;
+the metadata name wins over the folder name in each picture folder.
+Use **Look for games again** after adding or changing pictures. Channels
+continues to use the app's `icon.png`.
+
+Favorites follow the app's folder, so changing its metadata name keeps
+its star. Moving or renaming the folder makes it a different app.
 
 To put games in your own order in a tile view, hold **B** (**L** on a
 GameCube controller) and press **A** on a game. With the pointer, drag it

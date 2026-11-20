@@ -94,6 +94,72 @@ std::string app_display_name(const AppMeta& meta, const std::string& folder) {
     return name;
 }
 
+std::vector<std::string> app_cover_names(const std::string& meta_name, const std::string& folder_name) {
+    std::vector<std::string> names;
+    const std::string forbidden = "/\\:*?\"<>|";
+    for (const std::string& candidate : {meta_name, folder_name}) {
+        std::string name;
+        for (const unsigned char c : candidate) {
+            if (c < 32 || c == 127 || forbidden.find(c) != std::string::npos) continue;
+            name.push_back(static_cast<char>(c));
+        }
+        while (!name.empty() && (name.back() == '.' || name.back() == ' ')) name.pop_back();
+        const std::size_t first = name.find_first_not_of(". ");
+        if (first == std::string::npos) continue;
+        name.erase(0, first);
+        // Leave room for the longest cache suffix (.own.rw2), without
+        // cutting UTF-8. Overlong names still have the folder fallback.
+        if (name.size() > 247) continue;
+        if (names.empty() || names.front() != name) names.push_back(std::move(name));
+    }
+    return names;
+}
+
+std::string app_tile_key(const std::string& folder_path) {
+    constexpr const char* root = "sd:/apps/";
+    if (folder_path.compare(0, 9, root) != 0) return "";
+    const std::string folder = folder_path.substr(9);
+    if (folder.empty() || folder == "." || folder == ".." || folder.size() > 255) return "";
+    std::string key = "app:sd:/apps/";
+    constexpr char hex[] = "0123456789ABCDEF";
+    for (const unsigned char c : folder) {
+        if (c < 32 || c == 127 || c == '/' || c == '\\' || c == ':') return "";
+        const bool plain = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                           (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.';
+        if (plain) {
+            key.push_back(static_cast<char>(c));
+        } else {
+            key.push_back('%');
+            key.push_back(hex[c >> 4]);
+            key.push_back(hex[c & 15]);
+        }
+    }
+    return key;
+}
+
+bool valid_app_tile_key(const std::string& key) {
+    if (key.compare(0, 13, "app:sd:/apps/") != 0 || key.size() > 13 + 3 * 255) return false;
+    std::string path = "sd:/apps/";
+    const auto hex_value = [](char c) {
+        if (c >= '0' && c <= '9') return c - '0';
+        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+        return -1;
+    };
+    for (std::size_t at = 13; at < key.size(); ++at) {
+        if (key[at] != '%') {
+            path.push_back(key[at]);
+            continue;
+        }
+        if (at + 2 >= key.size()) return false;
+        const int high = hex_value(key[at + 1]);
+        const int low = hex_value(key[at + 2]);
+        if (high < 0 || low < 0) return false;
+        path.push_back(static_cast<char>((high << 4) | low));
+        at += 2;
+    }
+    return app_tile_key(path) == key;
+}
+
 std::string app_release_date(const std::string& raw) {
     const std::string digits = digits_of(raw);
     if (digits.size() != 8 && digits.size() != 12 && digits.size() != 14) return "";

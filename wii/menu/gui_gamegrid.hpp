@@ -65,8 +65,11 @@ struct GridItem {
 
 // The name a tile's 2D cover is asked by (covers.hpp): a mod's tile asks by
 // its key, so the player's own riftwii/covers/<game ID>@<slug>.png shows on
-// it (else the game's cover); every other tile by its game's ID.
-inline const std::string& CoverName(const GridItem& item) { return item.profile ? item.key : item.id; }
+// it (else the game's cover). An app asks by its folder key, resolved to
+// its metadata/folder PNG or its GameTDB cover by homebrewart.hpp.
+inline const std::string& CoverName(const GridItem& item) {
+    return item.profile || item.key.compare(0, 4, "app:") == 0 ? item.key : item.id;
+}
 
 // The tile's made-up cover (madecover.hpp): its name on a blank cover, for
 // a game with no cover, or nullptr until it is made. Not for the disc drive.
