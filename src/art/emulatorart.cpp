@@ -7,6 +7,7 @@
 #include <string_view>
 
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/emulatorbanner.hpp"
 #include "riftwii/homebrewmatch.hpp"
 #include "riftwii/http.hpp"
 
@@ -337,6 +338,24 @@ bool emulator_cover_id(const std::string& id) {
     return std::all_of(id.begin() + 4, id.end(), [](char c) {
         return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
     });
+}
+
+std::string emulator_art_cache_path(const std::string& id) {
+    if (emulator_banner_id(id)) {
+        return "sd:/riftwii/banners/" + emulator_banner_game_id(id) +
+               (emulator_banner_wide(id) ? ".wide.rwe" : ".rwe");
+    }
+    if (!emulator_cover_id(id)) return "";
+    return "sd:/riftwii/covers/" + id + ".rwc";
+}
+
+std::string emulator_art_miss_path(const std::string& id, const std::string& source) {
+    if (source != "libretro" && source != "steamgrid") return "";
+    if (emulator_banner_id(id)) {
+        return "sd:/riftwii/banners/" + emulator_banner_game_id(id) + "." + source + ".none";
+    }
+    if (!emulator_cover_id(id)) return "";
+    return "sd:/riftwii/covers/" + id + "." + source + ".none";
 }
 
 std::string libretro_cover_name(const std::string& game) {

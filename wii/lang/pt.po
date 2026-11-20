@@ -3729,9 +3729,6 @@ msgstr "Sem chave de API"
 msgid "Downloads emulator covers from libretro. Off uses your own PNG covers only."
 msgstr "Baixa capas de emuladores do libretro. Desligado usa só suas capas PNG."
 
-msgid "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt."
-msgstr "Capas alternativas do SteamGridDB. Coloque sua chave de API em sd:/riftwii/steamgriddb.txt."
-
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Capas de emuladores: colaboradores do libretro-thumbnails, MobyGames e Fandom. Capas opcionais: colaboradores do SteamGridDB. A arte original pertence aos criadores e editores dos jogos."
 
@@ -4553,3 +4550,33 @@ msgstr "O RiftWii não consegue guardar ficheiros novos, pelo que as opções, a
 
 msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."
 msgstr "O RiftWii não consegue guardar ficheiros novos, pelo que as opções, as escolhas de jogo, as capas e os registos podem não ser guardados. Ponha o cartão num computador e verifique se tem erros."
+
+msgid "SteamGridDB key"
+msgstr "Chave do SteamGridDB"
+
+msgid "Clear SteamGridDB key"
+msgstr "Apagar chave do SteamGridDB"
+
+msgid "Ends in {1}"
+msgstr "Termina em {1}"
+
+msgid "Fallback covers from SteamGridDB. Set your key below."
+msgstr "Capas alternativas do SteamGridDB. Defina sua chave abaixo."
+
+msgid "Type your SteamGridDB API key. Only its last four characters are shown."
+msgstr "Digite sua chave API do SteamGridDB. Apenas os últimos quatro caracteres são mostrados."
+
+msgid "Removes your SteamGridDB key from the SD card. Saved pictures are kept."
+msgstr "Apaga sua chave do SteamGridDB do cartão SD. As imagens salvas são mantidas."
+
+msgid "Use 16 to 128 letters, numbers, - or _."
+msgstr "Use de 16 a 128 letras, números, - ou _."
+
+msgid "SteamGridDB key saved."
+msgstr "Chave do SteamGridDB salva."
+
+msgid "SteamGridDB key cleared."
+msgstr "Chave do SteamGridDB apagada."
+
+msgid "Could not change the SteamGridDB key. Check the SD card."
+msgstr "Não foi possível alterar a chave do SteamGridDB. Verifique o cartão SD."

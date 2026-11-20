@@ -3729,9 +3729,6 @@ msgstr "Aucune clé API"
 msgid "Downloads emulator covers from libretro. Off uses your own PNG covers only."
 msgstr "Télécharge les jaquettes depuis libretro. Désactivé : utilise uniquement vos images PNG."
 
-msgid "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt."
-msgstr "Jaquettes de secours SteamGridDB. Placez votre clé API dans sd:/riftwii/steamgriddb.txt."
-
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Jaquettes des émulateurs : contributeurs de libretro-thumbnails, MobyGames et Fandom. Jaquettes facultatives : contributeurs de SteamGridDB. Les images originales appartiennent aux créateurs et éditeurs des jeux."
 
@@ -4553,3 +4550,33 @@ msgstr "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages
 
 msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."
 msgstr "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages, les choix de jeux, les pochettes et les journaux peuvent ne pas être enregistrés. Mettez la carte dans un ordinateur et vérifiez si elle comporte des erreurs."
+
+msgid "SteamGridDB key"
+msgstr "Clé SteamGridDB"
+
+msgid "Clear SteamGridDB key"
+msgstr "Effacer la clé SteamGridDB"
+
+msgid "Ends in {1}"
+msgstr "Se termine par {1}"
+
+msgid "Fallback covers from SteamGridDB. Set your key below."
+msgstr "Pochettes de secours de SteamGridDB. Saisissez votre clé ci-dessous."
+
+msgid "Type your SteamGridDB API key. Only its last four characters are shown."
+msgstr "Saisissez votre clé API SteamGridDB. Seuls ses quatre derniers caractères sont affichés."
+
+msgid "Removes your SteamGridDB key from the SD card. Saved pictures are kept."
+msgstr "Efface votre clé SteamGridDB de la carte SD. Les images enregistrées sont conservées."
+
+msgid "Use 16 to 128 letters, numbers, - or _."
+msgstr "Utilisez de 16 à 128 lettres, chiffres, - ou _."
+
+msgid "SteamGridDB key saved."
+msgstr "Clé SteamGridDB enregistrée."
+
+msgid "SteamGridDB key cleared."
+msgstr "Clé SteamGridDB effacée."
+
+msgid "Could not change the SteamGridDB key. Check the SD card."
+msgstr "Impossible de modifier la clé SteamGridDB. Vérifiez la carte SD."
