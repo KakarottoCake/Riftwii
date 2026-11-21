@@ -6172,6 +6172,31 @@ static bool RunEmulatedNandAction(const std::string& folder, riftwii::wii::EmuNa
 
 static std::string EmulatedNandTitleLabel(const riftwii::wii::EmuNandTitle& title);
 
+// Copies a title to the other drive's emulated NAND (riftwii::wii's
+// emunand_manager_copy_title): RiftWii plays channels only from one on the
+// SD card, so a player whose emulated NAND is on the USB drive moves them.
+static bool RunEmulatedNandCopy(const std::string& folder, const std::string& destination, std::uint64_t title,
+	const std::string& label)
+{
+	using namespace riftwii::wii;
+	const std::string detail = tr("{1}\nfrom {2}\nto {3}\nThe game, its save and its ticket are copied; the original stays. Keep the Wii turned on until copying finishes.",
+		{riftwii::emunand_title_text(title), folder, destination});
+	if (ShowPopupSafeFirst(label, detail, tr("Cancel"), tr("Continue")) != 1) return false;
+	bool ok = false;
+	std::string error;
+	{
+		const CardWriteHold hold;
+		PopupBox box(tr("Emulated NAND"), tr("Working..."), {}, {});
+		ResumeGui();
+		ok = emunand_manager_copy_title(folder, destination, title, error);
+		HaltGui();
+		forget_sd_layout();
+	}
+	ShowPopup(label, ok ? tr("Copied to {1}. Home shows it after the drives are read again.", {destination})
+		: tr("The title could not be copied: {1}", {FlatCapped(error, 160)}), tr("OK"));
+	return ok;
+}
+
 static void MenuEmulatedNandTitle(const std::string& folder, const riftwii::wii::EmuNandTitle& title)
 {
 	using namespace riftwii::wii;
@@ -6186,6 +6211,8 @@ static void MenuEmulatedNandTitle(const std::string& folder, const riftwii::wii:
 		help.push_back(folder + "\n" + riftwii::emunand_title_text(title.id));
 		actions.push_back(action);
 	};
+	// The copy to the other drive, last: not one of emunand_manager_action's.
+	const std::string copyTo = title.emulated ? emunand_copy_destination(folder) : std::string();
 	if (title.real) add(tr("Copy save from Wii"), EmuNandAction::SaveToEmulated);
 	if (title.real && title.emulated) add(tr("Copy save to Wii"), EmuNandAction::SaveToWii);
 	if (title.emulated) {
@@ -6195,7 +6222,19 @@ static void MenuEmulatedNandTitle(const std::string& folder, const riftwii::wii:
 		// Only its ticket is left: deleting the title removes that.
 		add(tr("Delete emulated title"), EmuNandAction::DeleteTitle);
 	}
+	const std::size_t copyRow = rows.size();
+	if (!copyTo.empty()) {
+		FlowRow row;
+		row.kind = FlowRow::Kind::Action;
+		row.label = copyTo.compare(0, 4, "sd:/") == 0 ? tr("Copy to SD card") : tr("Copy to USB drive");
+		rows.push_back(row);
+		help.push_back(tr("Copies this game, its save and its ticket to {1}. RiftWii plays WiiWare and Virtual Console games from an emulated NAND on the SD card.", {copyTo}));
+	}
 	EmulatorRowsPage(FlatCapped(EmulatedNandTitleLabel(title), 32), rows, help, [&](int clicked, int) {
+		if (!copyTo.empty() && static_cast<std::size_t>(clicked) == copyRow) {
+			RunEmulatedNandCopy(folder, copyTo, title.id, rows[copyRow].label);
+			return false;
+		}
 		const auto action = actions[static_cast<std::size_t>(clicked)];
 		const bool changed = RunEmulatedNandAction(folder, action, title.id, rows[static_cast<std::size_t>(clicked)].label);
 		// A deleted title, or a save copied in (the title now has more to
@@ -20488,7 +20527,6 @@ int MainMenu(int menu, FrontendState& state)
 	                                : "sd:/riftwii/guiscript-restart.txt");
 
 	ResumeGui();
-
 	while(currentMenu != MENU_EXIT && currentMenu != MENU_LAUNCH && currentMenu != MENU_BOOT && currentMenu != MENU_DUMP &&
 		currentMenu != MENU_CHANNEL && currentMenu != MENU_PLAY_CHANNEL && currentMenu != MENU_HOMEBREW)
 	{

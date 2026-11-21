@@ -4578,6 +4578,24 @@ msgstr "仮想NANDのセーブを削除"
 msgid "Delete emulated title"
 msgstr "仮想NANDのタイトルを削除"
 
+msgid "Copy to SD card"
+msgstr "SDカードへコピー"
+
+msgid "Copy to USB drive"
+msgstr "USBドライブへコピー"
+
+msgid "Copies this game, its save and its ticket to {1}. RiftWii plays WiiWare and Virtual Console games from an emulated NAND on the SD card."
+msgstr "このゲームとセーブ、チケットを{1}へコピーします。RiftWiiはWiiウェアとバーチャルコンソールをSDカードの仮想NANDから遊びます。"
+
+msgid "{1}\nfrom {2}\nto {3}\nThe game, its save and its ticket are copied; the original stays. Keep the Wii turned on until copying finishes."
+msgstr "{1}\n{2}から\n{3}へ\nゲームとセーブ、チケットをコピーします。元のデータは残ります。終わるまでWiiの電源を切らないでください。"
+
+msgid "Copied to {1}. Home shows it after the drives are read again."
+msgstr "{1}へコピーしました。ドライブをもう一度読み込むとホームに表示されます。"
+
+msgid "The title could not be copied: {1}"
+msgstr "タイトルをコピーできませんでした: {1}"
+
 msgid "Miis from Wii"
 msgstr "WiiからMiiをコピー"
 

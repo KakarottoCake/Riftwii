@@ -28,6 +28,7 @@
 #include "riftwii/nandchannel.hpp"
 #include "riftwii/nandlist.hpp"
 #include "riftwii/sharednand.hpp"
+#include "riftwii/wadfile.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -736,7 +737,229 @@ bool perform(const std::string& root, EmuNandAction action, std::uint64_t title,
     return false;
 }
 
+// Writes `bytes` as `to` on a card: a temporary file in `temp_root`, then
+// renamed over the old one, as copy_file publishes.
+bool write_card_file(const Location& to, const std::vector<std::uint8_t>& bytes, const Location& temp_root,
+                     std::string& error) {
+    Location temp;
+    if (!temporary_path(temp_root, to.path, temp)) {
+        error = "there is no unused temporary filename";
+        return false;
+    }
+    FILE* file = std::fopen(temp.path.c_str(), "wb");
+    bool ok = file != nullptr;
+    if (ok && !bytes.empty()) ok = std::fwrite(bytes.data(), 1, bytes.size(), file) == bytes.size();
+    if (file && std::fclose(file) != 0) ok = false;
+    std::uint64_t ignored = 0;
+    const Kind existing = ok ? inspect(to, ignored) : Kind::Failed;
+    Location old;
+    bool moved_old = false;
+    if (ok && existing == Kind::File) {
+        ok = temporary_path(temp_root, to.path, old) && rename_one(to, old);
+        moved_old = ok;
+    } else if (ok && existing != Kind::Missing) {
+        ok = false;
+    }
+    if (ok) ok = rename_one(temp, to);
+    if (!ok && moved_old) rename_one(old, to);
+    if (!ok) {
+        if (file) remove_one(temp, false);
+        error = "could not write " + to.path;
+        return false;
+    }
+    if (moved_old) remove_one(old, false);
+    return true;
+}
+
+// A shared content the title needs: its file in the source, and the name
+// it takes in the destination (new, or one there already with its hash).
+struct SharedCopy {
+    std::string from;
+    std::string name;
+    std::uint64_t size = 0;
+    bool present = false;  // the destination has it already
+};
+
+bool read_content_map(const std::string& root, std::vector<SharedContent>& map, std::string& error) {
+    map.clear();
+    std::vector<std::uint8_t> bytes;
+    const Location file{false, root + "/shared1/content.map"};
+    std::uint64_t size = 0;
+    const Kind kind = inspect(file, size);
+    if (kind == Kind::Missing) return true;
+    if (kind != Kind::File || !read_small(file, 1u << 20, bytes) || bytes.size() % 28 != 0) {
+        error = "the shared-content list in " + root + " is damaged or could not be read";
+        return false;
+    }
+    map = parse_content_map(bytes.data(), bytes.size());
+    if (map.size() * 28 != bytes.size()) {
+        error = "the shared-content list in " + root + " is damaged";
+        return false;
+    }
+    return true;
+}
+
+bool copy_title(const std::string& from, const std::string& to, std::uint64_t title, std::string& error) {
+    EmuNandTitlePaths paths;
+    if (!emunand_title_paths(title, paths)) {
+        error = "system titles and unknown title types cannot be copied";
+        return false;
+    }
+    // Everything is read and checked first; nothing is written until then.
+    std::vector<std::uint8_t> tmd_bytes;
+    TmdContents tmd;
+    std::string why;
+    if (!read_small({false, from + paths.title + "/content/title.tmd"}, 0x10000, tmd_bytes) ||
+        !parse_tmd_contents(tmd_bytes.data(), tmd_bytes.size(), tmd, why) || tmd.title_id != title) {
+        error = "the title's TMD is missing or damaged, so its program can't be copied";
+        return false;
+    }
+    const Location destination{false, to + paths.title};
+    std::uint64_t size = 0;
+    const Kind there = inspect(destination, size);
+    if (there == Kind::Directory || there == Kind::File) {
+        error = "the title is already in " + to + "; delete it there first to copy it again";
+        return false;
+    }
+    if (there != Kind::Missing) {
+        error = "the destination could not be read";
+        return false;
+    }
+    Tree tree;
+    if (!scan_tree({false, from + paths.title}, "", 0, false, title, tree, error)) return false;
+    const Location ticket{false, from + paths.ticket};
+    std::uint64_t ticket_size = 0;
+    if (inspect(ticket, ticket_size) != Kind::File || ticket_size == 0 || ticket_size > 0x10000) {
+        error = "the title's ticket is missing, so the copy could not start";
+        return false;
+    }
+    std::vector<SharedContent> from_map, to_map;
+    std::vector<SharedCopy> shared;
+    bool map_changed = false;
+    for (const TmdContent& content : tmd.contents) {
+        if ((content.type & 0x8000) == 0) continue;
+        if (from_map.empty() && !read_content_map(from, from_map, error)) return false;
+        if (shared.empty() && to_map.empty() && !read_content_map(to, to_map, error)) return false;
+        SharedCopy copy;
+        if (const SharedContent* known = find_shared_content(to_map, content.sha1)) {
+            copy.name = known->name;
+            copy.present = true;
+        } else {
+            const SharedContent* source = find_shared_content(from_map, content.sha1);
+            if (!source) {
+                error = "a shared content the title uses is missing from " + from;
+                return false;
+            }
+            copy.from = from + "/shared1/" + source->name + ".app";
+            if (inspect({false, copy.from}, copy.size) != Kind::File) {
+                error = "a shared content the title uses could not be read";
+                return false;
+            }
+            copy.name = next_shared_name(to_map);
+            if (copy.name.size() != 8 || !try_push_back(to_map, SharedContent{copy.name, content.sha1})) {
+                error = "the destination has too many shared contents";
+                return false;
+            }
+            map_changed = true;
+        }
+        if (!try_push_back(shared, copy)) {
+            error = "there is not enough memory to list the shared contents";
+            return false;
+        }
+    }
+    // ES lets a title use its save folder by this list's entry for it.
+    const Location uid{false, to + "/sys/uid.sys"};
+    std::vector<std::uint8_t> uid_bytes;
+    const Kind uid_kind = inspect(uid, size);
+    if (uid_kind == Kind::File && !read_small(uid, 12 * 8192, uid_bytes)) {
+        error = "the destination's title ownership list could not be read";
+        return false;
+    }
+    if (uid_kind != Kind::File && uid_kind != Kind::Missing) {
+        error = "the destination's title ownership list could not be read";
+        return false;
+    }
+    if (!add_wad_title_uid(uid_bytes, title, error)) return false;
+
+    // The folders as they are mounted here: the caller's lines name them.
+    logf("Emulated NAND: copying %s: %u files and folders, %llu bytes, %u shared content(s).\n",
+         emunand_title_text(title).c_str(), static_cast<unsigned>(tree.nodes.size()),
+         static_cast<unsigned long long>(tree.bytes), static_cast<unsigned>(shared.size()));
+    // The title's own folder first, then what makes it usable. Cut short,
+    // the half-copied title is taken out again; a shared content copied
+    // before that stays unused, harmless, until the list names it.
+    if (!copy_tree({false, from + paths.title}, destination, tree, Attributes{}, error)) {
+        std::string ignored_error;
+        Tree partial;
+        if (scan_tree(destination, "", 0, false, title, partial, ignored_error)) delete_tree(destination, partial, ignored_error);
+        return false;
+    }
+    const auto undo = [&](const std::string& why_failed) {
+        error = why_failed;
+        std::string ignored_error;
+        delete_tree(destination, tree, ignored_error);
+        return false;
+    };
+    const std::string ticket_dir = (to + paths.ticket).substr(0, (to + paths.ticket).find_last_of('/'));
+    if (!make_card_dirs(ticket_dir) ||
+        !copy_file(ticket, {false, to + paths.ticket}, ticket_size, {false, ticket_dir}, Attributes{}, error))
+        return undo(error.empty() ? "the ticket could not be copied" : error);
+    if (!shared.empty() && !make_card_dirs(to + "/shared1")) return undo("the shared-content folder could not be made");
+    for (const SharedCopy& copy : shared) {
+        if (copy.present) continue;
+        if (!copy_file({false, copy.from}, {false, to + "/shared1/" + copy.name + ".app"}, copy.size,
+                       {false, to + "/shared1"}, Attributes{}, error))
+            return undo(error);
+    }
+    if (map_changed) {
+        const std::vector<std::uint8_t> encoded = serialize_content_map(to_map);
+        if (encoded.size() != to_map.size() * 28 ||
+            !write_card_file({false, to + "/shared1/content.map"}, encoded, {false, to + "/shared1"}, error))
+            return undo(error.empty() ? "the shared-content list could not be written" : error);
+    }
+    if (!make_card_dirs(to + "/sys") || !write_card_file(uid, uid_bytes, {false, to + "/sys"}, error))
+        return undo(error.empty() ? "the title ownership list could not be written" : error);
+    return true;
+}
+
 }  // namespace
+
+std::string emunand_copy_destination(const std::string& folder) {
+    std::string checked;
+    if (!emunand_root(folder, checked)) return std::string();
+    if (shared_nand_on_usb(checked)) {
+        const SharedNandLookup channels = look_up_channel_nand();
+        if (channels.usable && channels.folder.compare(0, 4, "sd:/") == 0 && channels.folder != checked)
+            return channels.folder;
+        return kSdSharedNand;
+    }
+    if (checked.compare(0, 4, "sd:/") == 0) return kUsbSharedNand;
+    return std::string();
+}
+
+bool emunand_manager_copy_title(const std::string& from, const std::string& to, std::uint64_t title,
+                                std::string& error) {
+    error.clear();
+    logf("Emulated NAND: asked to copy title %s from %s to %s.\n", emunand_title_text(title).c_str(), from.c_str(),
+         to.c_str());
+    std::string from_root, to_root;
+    bool ok = emunand_root(from, from_root) && emunand_root(to, to_root) && from_root != to_root;
+    if (!ok) error = "the two emulated NAND folders are not safe to use";
+    // One drive's partition is mounted for writing at a time: the other
+    // folder has to be on the SD card, which always is.
+    if (ok && shared_nand_on_usb(from_root) && shared_nand_on_usb(to_root)) {
+        error = "both folders are on the USB drive; copy through the SD card";
+        ok = false;
+    }
+    CardRoot source;
+    CardRoot target;
+    if (ok) ok = source.Open(from_root, error) && target.Open(to_root, error);
+    if (ok) ok = copy_title(source.path, target.path, title, error);
+    if (ok) logf("Emulated NAND: copied title %s to %s; the original stays in %s.\n", emunand_title_text(title).c_str(),
+                 to.c_str(), from.c_str());
+    else logf("Emulated NAND: could not copy title %s because %s.\n", emunand_title_text(title).c_str(), error.c_str());
+    return ok;
+}
 
 std::vector<std::string> emunand_manager_folders() {
     std::vector<std::string> folders;
