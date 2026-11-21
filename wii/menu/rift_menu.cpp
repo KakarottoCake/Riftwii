@@ -6194,9 +6194,11 @@ static bool RunEmulatedNandCopy(const std::string& folder, const std::string& de
 		HaltGui();
 		forget_sd_layout();
 	}
-	// Home lists channels from the SD card's channel folder only: a copy to
-	// the USB drive is not promised there.
-	const bool forHome = destination.compare(0, 4, "sd:/") == 0;
+	// Home lists channels from the channel folder only, when it is usable:
+	// a copy anywhere else (the USB drive, the sd:/nands/01 fallback) is
+	// not promised there.
+	const riftwii::wii::SharedNandLookup channels = riftwii::wii::look_up_channel_nand();
+	const bool forHome = channels.usable && channels.folder == destination;
 	const std::string result = ok
 		? (forHome ? tr("Copied to {1}. Home shows it after the drives are read again.", {destination})
 		           : tr("Copied to {1}.", {destination}))
