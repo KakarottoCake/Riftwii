@@ -216,7 +216,15 @@ bool may_write_gpr(std::uint32_t p, unsigned r) {
         case 46:  // lmw rD: rD to r31
             return rd <= r;
         case 37: case 39: case 45: case 49: case 51: case 53: case 55:  // stores and FP loads with update
+        case 57: case 61:                                               // psq_lu, psq_stu
             return ra == r;
+        case 4: {
+            // Paired singles: only psq_lux and psq_stux (6-bit extended
+            // opcodes 38 and 39) write a GPR, their rA; the rest write FPRs
+            // or CR.
+            const std::uint32_t xo6 = (p >> 1) & 0x3Fu;
+            return (xo6 == 38 || xo6 == 39) && ra == r;
+        }
         case 31: {
             const std::uint32_t xo = (p >> 1) & 0x3FFu;
             switch (xo) {

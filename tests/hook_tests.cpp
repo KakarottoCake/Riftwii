@@ -635,10 +635,12 @@ static void TestIpcApiSearchUnoptimized() {
     v.li(4, 0);
     v.bl(vsubmit);
     v.word(0x4E800020);  // blr
-    // `lfdux f0, r4, r5` leaves an address in r4; a `bctrl` may change r4.
-    std::uint32_t clobbered[2] = {};
-    const std::uint32_t clobbers[2] = {0x7C042CEEu /* lfdux f0,r4,r5 */, 0x4E800421u /* bctrl */};
-    for (int k = 0; k < 2; ++k) {
+    // `lfdux f0, r4, r5` and the paired-single `psq_lux` / `psq_lu` leave
+    // an address in r4; a `bctrl` may change r4.
+    std::uint32_t clobbered[4] = {};
+    const std::uint32_t clobbers[4] = {0x7C042CEEu /* lfdux f0,r4,r5 */, 0x4E800421u /* bctrl */,
+                                       0x1004284Cu /* psq_lux f0,r4,r5,0,0 */, 0xE4040000u /* psq_lu f0,0(r4),0,0 */};
+    for (int k = 0; k < 4; ++k) {
         clobbered[k] = v.here();
         v.word(0x9421FFD0);  // stwu r1,-48(r1)
         v.li(4, 1);
