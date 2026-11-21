@@ -35,14 +35,14 @@ bool emunand_manager_action(const std::string& folder, EmuNandAction action,
 
 // Moving a title between the drives, for a player whose emulated NAND is on
 // the USB drive: RiftWii plays channels and WADs only from one on the SD
-// card. The other drive's emulated NAND a title in `folder` is copied to:
-// the SD card's channel folder (the one Home lists channels from) or
-// sd:/nands/01 for a folder on the USB drive, usb:/nands/01 for one on the
-// SD card; "" when `folder` is neither.
+// card. Where a title in `folder` is copied to: the SD card's channel
+// folder (the one Home lists channels from, else sd:/nands/01) for a folder
+// on the USB drive or another folder on the card (WiiFlow's nands/default),
+// usb:/nands/01 for the channel folder itself; "" when `folder` is neither.
 std::string emunand_copy_destination(const std::string& folder);
 // Copies the title (its program, save and ticket, the shared contents it
-// uses and its entry in the ownership list) from `from` to `to`, one of
-// them on the SD card. The original stays. Refused when the title is
+// uses and its entry in the ownership list) from `from` to `to`, at least
+// one of them on the SD card. The original stays. Refused when the title is
 // already in `to`; a copy cut short is taken out of `to` again. Same
 // preconditions as emunand_manager_action.
 bool emunand_manager_copy_title(const std::string& from, const std::string& to, std::uint64_t title,

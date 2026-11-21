@@ -4578,11 +4578,8 @@ msgstr "에뮬레이트 저장 데이터 삭제"
 msgid "Delete emulated title"
 msgstr "에뮬레이트 타이틀 삭제"
 
-msgid "Copy to SD card"
-msgstr "SD 카드로 복사"
-
-msgid "Copy to USB drive"
-msgstr "USB 드라이브로 복사"
+msgid "Copy to {1}"
+msgstr "{1}(으)로 복사"
 
 msgid "Copies this game, its save and its ticket to {1}. RiftWii plays WiiWare and Virtual Console games from an emulated NAND on the SD card."
 msgstr "이 게임과 저장 데이터, 티켓을 {1}(으)로 복사합니다. RiftWii는 SD 카드의 에뮬레이트 NAND에서 WiiWare와 버추얼 콘솔을 실행합니다."

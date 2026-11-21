@@ -6172,9 +6172,10 @@ static bool RunEmulatedNandAction(const std::string& folder, riftwii::wii::EmuNa
 
 static std::string EmulatedNandTitleLabel(const riftwii::wii::EmuNandTitle& title);
 
-// Copies a title to the other drive's emulated NAND (riftwii::wii's
-// emunand_manager_copy_title): RiftWii plays channels only from one on the
-// SD card, so a player whose emulated NAND is on the USB drive moves them.
+// Copies a title to another emulated NAND (riftwii::wii's
+// emunand_manager_copy_title): RiftWii plays channels only from the channel
+// folder on the SD card, so a player whose emulated NAND is on the USB
+// drive, or in WiiFlow's folder, moves them.
 static bool RunEmulatedNandCopy(const std::string& folder, const std::string& destination, std::uint64_t title,
 	const std::string& label)
 {
@@ -6226,7 +6227,8 @@ static void MenuEmulatedNandTitle(const std::string& folder, const riftwii::wii:
 	if (!copyTo.empty()) {
 		FlowRow row;
 		row.kind = FlowRow::Kind::Action;
-		row.label = copyTo.compare(0, 4, "sd:/") == 0 ? tr("Copy to SD card") : tr("Copy to USB drive");
+		// The folder by name: two on the same card would read alike.
+		row.label = tr("Copy to {1}", {copyTo});
 		rows.push_back(row);
 		help.push_back(tr("Copies this game, its save and its ticket to {1}. RiftWii plays WiiWare and Virtual Console games from an emulated NAND on the SD card.", {copyTo}));
 	}

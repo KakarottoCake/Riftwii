@@ -927,14 +927,15 @@ bool copy_title(const std::string& from, const std::string& to, std::uint64_t ti
 std::string emunand_copy_destination(const std::string& folder) {
     std::string checked;
     if (!emunand_root(folder, checked)) return std::string();
-    if (shared_nand_on_usb(checked)) {
-        const SharedNandLookup channels = look_up_channel_nand();
-        if (channels.usable && channels.folder.compare(0, 4, "sd:/") == 0 && channels.folder != checked)
-            return channels.folder;
-        return kSdSharedNand;
-    }
-    if (checked.compare(0, 4, "sd:/") == 0) return kUsbSharedNand;
-    return std::string();
+    // The folder Home lists channels from, when it is on the SD card.
+    const SharedNandLookup channels = look_up_channel_nand();
+    const bool channels_on_sd = channels.usable && channels.folder.compare(0, 4, "sd:/") == 0;
+    if (shared_nand_on_usb(checked)) return channels_on_sd && channels.folder != checked ? channels.folder : kSdSharedNand;
+    if (checked.compare(0, 4, "sd:/") != 0) return std::string();
+    // Another folder on the card (WiiFlow's nands/default, one a PC tool
+    // filled): into Home's channel folder. That one itself: to the USB drive.
+    if (channels_on_sd && channels.folder != checked) return channels.folder;
+    return kUsbSharedNand;
 }
 
 bool emunand_manager_copy_title(const std::string& from, const std::string& to, std::uint64_t title,

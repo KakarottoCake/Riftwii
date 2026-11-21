@@ -2236,16 +2236,16 @@ number. Writing Miis to the Wii asks twice and requires a database the
 same size as the Wii's current one. The files are copied as they are;
 RiftWii does not edit individual Miis or repair damaged databases.
 
-**Copy to SD card** (for a title in an emulated NAND on the USB drive)
-and **Copy to USB drive** (for one on the SD card) copy the whole title to
-the other drive's emulated NAND: its program, save and ticket, the shared
-contents it uses and its entry in the NAND's ownership list (`sys/uid.sys`).
-The original stays where it was. RiftWii plays WiiWare and Virtual Console
-games only from an emulated NAND on the SD card, so a USB Loader GX
-emulated NAND kept on the hard drive can be moved title by title. The SD
-card's copy goes to the channel folder Home lists (USB Loader GX's, when
-that is on the SD card), else `sd:/nands/01`; the USB drive's to
-`usb:/nands/01` (FAT32). A title already in the destination is refused:
+**Copy to <folder>** copies the whole title to another emulated NAND:
+its program, save and ticket, the shared contents it uses and its entry in
+the NAND's ownership list (`sys/uid.sys`). The original stays where it
+was. RiftWii plays WiiWare and Virtual Console games only from the channel
+folder on the SD card (USB Loader GX's, when that is on the SD card, else
+`sd:/nands/01`), so a title in an emulated NAND on the USB drive, or in
+another folder on the card such as WiiFlow's `nands/default`, is copied
+there; a title already in the channel folder is copied to `usb:/nands/01`
+(FAT32). An emulated NAND at the very root of a drive (ModMii's SNEEK
+builds) is not listed. A title already in the destination is refused:
 delete it there first to copy it again. A copy cut short is removed from
 the destination again. Home shows the copy after the drives are read again.
 
