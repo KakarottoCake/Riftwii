@@ -3747,6 +3747,9 @@ msgstr "파일 확인"
 msgid "Play anyway"
 msgstr "그대로 플레이"
 
+msgid "Missing for {1}:"
+msgstr "{1}에 없는 항목:"
+
 msgid "USB: {1} partition(s) could not be opened. See Drives."
 msgstr "USB: 파티션 {1}개를 열지 못했습니다. 드라이브를 확인하세요."
 

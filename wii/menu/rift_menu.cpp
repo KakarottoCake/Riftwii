@@ -3434,6 +3434,15 @@ public:
 		panel.SetFace(top, faceHeight);
 		Place(titleTxt, 0, kTitleY - kTop + top, true);
 	}
+	// Larger letters for the body, in the main ink rather than the soft
+	// one, in at most `lines` lines (the room between the title band and
+	// the buttons holds fewer of them).
+	void BodySize(int size, int lines)
+	{
+		bodyTxt.SetFontSize(size);
+		bodyTxt.SetColor(skin::kInk);
+		bodyTxt.SetWrap(true, 528 + 2 * extra, lines);
+	}
 	// The text wrapped across the box in at most `lines` lines: how many it
 	// takes (a box spaces its parts for them).
 	int WrapBody(int lines)
@@ -4029,6 +4038,12 @@ static std::vector<std::string> CodeModsOn(const FrontendState& state)
 
 // Keep each selected pack visible, even when another pack has many missing
 // files. The full paths are in the log; the popup shows a few useful ones.
+// A tester found the boxes' usual 16-point soft grey hard to read on a TV
+// for a question that stops the launch: these use 18 points in the main
+// ink, five lines between the title band and the buttons.
+constexpr int kMissingModTextSize = 18;
+constexpr std::size_t kMissingModLines = 5;
+
 static const char* MissingModExplanation()
 {
 	return tr("Some mod files are missing. Their file or memory changes will be left out. Copy the files and try again, or review the list to play anyway.");
@@ -4043,16 +4058,18 @@ static void CacheMissingModPopupText(const FrontendState& state)
 		probe.GetTextWidth();
 	};
 	cache(tr("Mod files are missing"), 24);
-	cache(MissingModExplanation(), 16);
-	cache(tr("and {1} more", {"0123456789"}).c_str(), 16);
+	cache(MissingModExplanation(), kMissingModTextSize);
+	cache(tr("and {1} more", {"0123456789"}).c_str(), kMissingModTextSize);
 	for (const char* label : {tr("Back"), tr("Review files"), tr("Play anyway"), tr("Next")})
 		cache(label, 22);
-	for (const auto& pack : state.model.selections()) cache(pack.xml_sd_path.c_str(), 16);
+	for (const auto& pack : state.model.selections())
+		cache(tr("Missing for {1}:", {pack.xml_sd_path}).c_str(), kMissingModTextSize);
 }
 
 static int MissingModQuestion(const std::string& title, const std::string& body, const char* proceed)
 {
 	PopupBox box(title, body, tr("Back"), proceed, true);
+	box.BodySize(kMissingModTextSize, kMissingModLines);
 	return box.Wait();
 }
 
@@ -4061,7 +4078,7 @@ static std::string MissingModPath(std::string path, int width)
 	if (!path.empty() && path.front() == '/') path = "sd:" + path;
 	// Preserve the filename and device/root when a deep path would fill
 	// the popup by itself. Never abbreviate the log's copy.
-	GuiText probe(path.c_str(), 16, skin::kInk);
+	GuiText probe(path.c_str(), kMissingModTextSize, skin::kInk);
 	const std::size_t lastSlash = path.find_last_of('/');
 	const std::size_t rootSlash = path.find('/');
 	const std::size_t firstSlash = rootSlash == std::string::npos
@@ -4082,18 +4099,21 @@ bool ConfirmMissingModInputs(const std::vector<riftwii::MissingModInput>& missin
 	}
 	const int width = 528 + 2 * PopupExtra();
 	for (std::size_t packIndex = 0; packIndex < packs.size(); ++packIndex) {
-		std::vector<std::string> rows = ChunksFitting(MissingModPath(packs[packIndex], width), width, 16, 2);
+		// The pack heads its list as a sentence: its path alone read as one
+		// more missing file (a tester took Deluxe.xml itself for missing).
+		const std::string heading = tr("Missing for {1}:", {MissingModPath(packs[packIndex], width)});
+		std::vector<std::string> rows = ChunksFitting(heading, width, kMissingModTextSize, 2);
 		std::size_t count = 0;
 		std::size_t shown = 0;
 		for (const riftwii::MissingModInput& input : missing) {
 			if (input.pack != packs[packIndex]) continue;
 			++count;
-			if (rows.size() >= PopupBox::kBodyLines - 1) continue;
+			if (rows.size() >= kMissingModLines - 1) continue;
 			// A whole folder ends in "/", so it reads as a folder.
 			const bool folder = input.kind == riftwii::MissingModInputKind::Folder;
 			const std::string path = MissingModPath(input.external + (folder ? "/" : ""), width);
-			const std::size_t room = PopupBox::kBodyLines - rows.size() - 1;
-			const auto pathRows = ChunksFitting(path, width, 16, std::min<std::size_t>(2, room));
+			const std::size_t room = kMissingModLines - rows.size() - 1;
+			const auto pathRows = ChunksFitting(path, width, kMissingModTextSize, std::min<std::size_t>(2, room));
 			rows.insert(rows.end(), pathRows.begin(), pathRows.end());
 			++shown;
 		}

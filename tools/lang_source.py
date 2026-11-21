@@ -7782,6 +7782,12 @@ T.update({
         "ほか{1}件",
         "e mais {1}",
         "e altri {1}"),
+    # {1} is the mod's XML file; the missing files and folders follow.
+    "Missing for {1}:": (
+        "Faltan para {1}:",
+        "{1}に見つからないもの:",
+        "Faltando para {1}:",
+        "Mancano per {1}:"),
     "USB: {1} partition(s) could not be opened. See Drives.": (
         "USB: no se pudieron abrir {1} particiones. Ve a Unidades.",
         "USB: {1}個のパーティションを開けませんでした。ドライブを確認してください。",
@@ -7839,6 +7845,7 @@ KO.update({
     "Review files": "파일 확인",
     "Play anyway": "그대로 플레이",
     "and {1} more": "그 외 {1}개",
+    "Missing for {1}:": "{1}에 없는 항목:",
     "USB: {1} partition(s) could not be opened. See Drives.": "USB: 파티션 {1}개를 열지 못했습니다. 드라이브를 확인하세요.",
     "USB scan details": "USB 검색 정보",
     "Some partitions of the USB drive could not be opened. Games on the other partitions are still shown. Opens the list, with each partition's problem and what to do.": "USB 드라이브의 일부 파티션을 열지 못했습니다. 다른 파티션의 게임은 계속 표시됩니다. 파티션마다 문제와 해결 방법이 담긴 목록을 엽니다.",
@@ -7856,6 +7863,7 @@ FR.update({
     "Review files": "Voir les fichiers",
     "Play anyway": "Jouer quand même",
     "and {1} more": "et {1} de plus",
+    "Missing for {1}:": "Manquant pour {1} :",
     "USB: {1} partition(s) could not be opened. See Drives.": "USB : {1} partition(s) non ouverte(s). Voir Supports.",
     "USB scan details": "Détails de recherche USB",
     "Some partitions of the USB drive could not be opened. Games on the other partitions are still shown. Opens the list, with each partition's problem and what to do.": "Certaines partitions du disque USB n'ont pas pu être ouvertes. Les jeux des autres partitions restent affichés. Ouvre la liste, avec le problème de chaque partition et la marche à suivre.",
