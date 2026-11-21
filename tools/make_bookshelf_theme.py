@@ -22,7 +22,8 @@ picture from anywhere else):
   background_plain_wide.png / background_channels_wide.png: the same,
   856 across, for a widescreen menu;
 - theme.ini: cream paper panels, dark brown ink, and the games' own
-  colours mixed with walnut (their banners and plain spines).
+  colours mixed with walnut (their banners and plain spines);
+- LICENSE: CC0, as Indigo's.
 
     python tools/make_bookshelf_theme.py      (needs numpy and Pillow)
 """
@@ -284,10 +285,30 @@ def shelf_picture():
     out[:, :32] = img[:, :32] * ramp + img[:, 256:288] * (1 - ramp)
     return np.clip(out, 0, 255).astype(np.uint8)
 
+LICENSE = """License: CC0-1.0
+Author: RiftWii contributors
+
+Bookshelf, a theme for RiftWii: a light wooden bookcase, your covers
+standing on its shelves, with cream paper panels.
+
+To the extent possible under law, the author has waived all copyright and
+related or neighboring rights to this theme (theme.ini and every PNG
+picture in its folder), under Creative Commons CC0 1.0 Universal:
+https://creativecommons.org/publicdomain/zero/1.0/
+
+The pictures were drawn by RiftWii's tools/make_bookshelf_theme.py
+(https://github.com/KakarottoCake/Riftwii) from layered waves and noise:
+no photos, source images, textures or fonts. The theme keeps RiftWii's own
+sounds and music.
+
+Third-party parts: none.
+"""
+
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "theme.ini").write_bytes(INI.replace("\n", "\r\n").encode("utf-8"))
+    (OUT / "LICENSE").write_bytes(LICENSE.encode("utf-8"))
     WALL_STATE[640] = RNG.bit_generator.state
     Image.fromarray(background()).save(OUT / "background.png", optimize=True)
     Image.fromarray(cover_tile(False)).save(OUT / "cover_tile.png", optimize=True)

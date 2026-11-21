@@ -16,6 +16,8 @@ so the kit always matches the release it ships with. The zip holds:
     riftwii-theme-kit/README.txt          themes/kit/README.txt
     riftwii-theme-kit/THEMES.md           docs/THEMES.md
     riftwii-theme-kit/MyTheme/theme.ini   starter theme (theme_kit)
+    riftwii-theme-kit/MyTheme/LICENSE     its license (CC0), for the
+                                          theme's maker to replace
     riftwii-theme-kit/Midnight/           themes/Midnight (colours only)
     riftwii-theme-kit/Bookshelf/          themes/Bookshelf (its own pictures)
     riftwii-theme-kit/Indigo/             themes/Indigo (its own pictures)
@@ -76,6 +78,7 @@ def main():
             "README.txt": readme.replace("\n", "\r\n").encode("utf-8"),
             "THEMES.md": (ROOT / "docs/THEMES.md").read_bytes(),
             "MyTheme/theme.ini": (gen / "MyTheme/theme.ini").read_bytes(),
+            "MyTheme/LICENSE": (ROOT / "themes/kit/MyTheme/LICENSE").read_bytes(),
         }
         # The sample themes whole: Midnight is colours only, Bookshelf and
         # Indigo have
