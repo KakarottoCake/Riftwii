@@ -234,6 +234,8 @@ bool may_write_gpr(std::uint32_t p, unsigned r) {
                     return ra == r;
                 case 55: case 119: case 311: case 375:  // loads with update write rD and rA
                     return rd == r || ra == r;
+                case 533: case 597:  // lswx, lswi: from rD on, as many registers as the count
+                    return true;
                 default:
                     return rd == r;
             }

@@ -603,8 +603,8 @@ static void TestIpcApiSearchUnoptimized() {
     EXPECT_FALSE(riftwii::find_ipc_api({u.range()}, us, uapi, error));
 
     // r4 changed after its `li` is no longer that command: `li r4, 1`,
-    // `ori r4, r4, 2`, then the setup call hands it 3, so this function
-    // is no IOS_Open; with only r5 and r7 set in between it still is.
+    // `ori r4, r4, 2`, then the setup call hands it 3, so neither function
+    // below is an IOS_Open; with only r5 and r7 set in between it still is.
     FakeText v;
     const std::uint32_t valloc = v.here();
     v.prologue();
@@ -625,6 +625,16 @@ static void TestIpcApiSearchUnoptimized() {
     v.li(4, 0);
     v.bl(vsubmit);
     v.word(0x4E800020);  // blr
+    // The same with `lswi r3, r1, 8`, which loads r3 and r4.
+    const std::uint32_t loaded = v.here();
+    v.word(0x9421FFD0);  // stwu r1,-48(r1)
+    v.li(4, 1);
+    v.word(0x7C6144AA);  // lswi r3,r1,8
+    v.word(0x38E10024);  // addi r7,r1,36
+    v.bl(vsetup);
+    v.li(4, 0);
+    v.bl(vsubmit);
+    v.word(0x4E800020);  // blr
     std::uint32_t vasync[8] = {};
     for (std::uint32_t cmd : {2u, 6u, 7u}) vasync[cmd] = v.unoptimized_function(cmd, true, vsetup, vfill, vsubmit);
     riftwii::IpcSymbols vs;
@@ -636,6 +646,7 @@ static void TestIpcApiSearchUnoptimized() {
     EXPECT_EQ(vapi.async[2], vasync[2]);
     EXPECT_EQ(vapi.sync[1], 0u);
     (void)changed;
+    (void)loaded;
 }
 
 static void TestReturnToMenuSearch() {
