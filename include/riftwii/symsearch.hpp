@@ -100,7 +100,7 @@ struct PadSymbols {
 bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::string& error);
 
 // find_pad_symbols over the game's code (`text`) and the code a pack's
-// <memory> patches will write (`patched`, from memory_patch_code_ranges).
+// <memory> patches will leave (`patched`, from PatchedCode).
 // A PADRead in the patches wins over one in the game: a pack that writes
 // one means it to be read, and the game's may be an SDK copy it never
 // calls. The screen-dimming reset is then looked for beside the pack's

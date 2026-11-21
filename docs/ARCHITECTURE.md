@@ -209,7 +209,7 @@ copy is searched like a game's. Or a plain `<memory>` patch can write it
 (an offset with a value or valuefile; search and ocarina patches have no
 address until they are applied, so they aren't searched). The patches go
 in after the search, so it reads their bytes where they will be written
-(`memory_patch_code_ranges`, `find_pad_symbols_with_patches`). A `PADRead`
+(`PatchedCode`, `find_pad_symbols_with_patches`). A `PADRead`
 from a patch wins over one the game has itself: the pack means its own
 to be read, and the game's may be an SDK copy it never calls. The hooks
 go in after the patches, so they find it in place. For the search

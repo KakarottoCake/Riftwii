@@ -728,7 +728,24 @@ void find_home_menu(const DolHeader& dol, const std::vector<CodeRange>& text, Pa
     }
 }
 
+// The game as loaded, read in place (nothing here writes to it).
+class LoadedGame final : public MemoryAccess {
+public:
+    bool read(std::uint32_t address, std::uint8_t* out, std::size_t length) override {
+        std::memcpy(out, reinterpret_cast<const void*>(address), length);
+        return true;
+    }
+    bool write(std::uint32_t, const std::uint8_t*, std::size_t) override { return false; }
+};
+
 }  // namespace
+
+void read_patched_code(const std::vector<MemoryPatch>& patches, PatchedCode& out) {
+    LoadedGame game;
+    std::string error;
+    if (!out.build(patches, game, error))
+        logf("GameCube adapter: a PADRead in the packs' memory patches isn't looked for: %s\n", error.c_str());
+}
 
 bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<MemoryPatch>& patches, PadHook& out,
                         std::string& why) {
@@ -747,7 +764,9 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
     }
     // A pack's PADRead in its <memory> patches is searched where it will
     // be written; the hooks go in after the patches, so they find it there.
-    const std::vector<CodeRange> patched = memory_patch_code_ranges(patches);
+    PatchedCode patched_code;
+    read_patched_code(patches, patched_code);
+    const std::vector<CodeRange>& patched = patched_code.ranges();
     PadSymbols pad;
     bool from_patch = false;
     std::string error;

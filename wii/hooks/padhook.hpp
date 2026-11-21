@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "riftwii/dol.hpp"
+#include "riftwii/mempatch.hpp"
 #include "riftwii/patch.hpp"
 #include "rtpadcal.h"
 
@@ -186,6 +187,12 @@ AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices);
 // over the game's own. False (with a reason) turns the adapter off.
 bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<MemoryPatch>& patches, PadHook& out,
                         std::string& why);
+
+// Before the <memory> patches, on the game as loaded: what their plain
+// writes will leave (PatchedCode), for a PADRead search. Without memory
+// for it, says so in boot.log and leaves `out` empty (the game's own
+// PADRead is still searched).
+void read_patched_code(const std::vector<MemoryPatch>& patches, PatchedCode& out);
 
 // The adapter's /dev/usb/hid handle for the game, with its HID version and
 // the adapter's v5 device id from the USB list (-1: none): the one

@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/mempatch.hpp"
 
+#include "riftwii/checkedalloc.hpp"
+
 #include <algorithm>
 #include <cstring>
 
@@ -304,17 +306,87 @@ std::uint32_t memory_patch_target(const MemoryPatch& p) {
     return address | 0x80000000u;
 }
 
-std::vector<CodeRange> memory_patch_code_ranges(const std::vector<MemoryPatch>& patches) {
-    std::vector<CodeRange> out;
+namespace {
+
+// The game as loaded, with the plain patches' writes kept aside: reads see
+// the writes over the game, and the game itself is never written.
+class CopyOnWrite final : public MemoryAccess {
+public:
+    CopyOnWrite(MemoryAccess& game, std::map<std::uint32_t, std::vector<std::uint8_t>>& written)
+        : game_(game), written_(written) {}
+
+    bool read(std::uint32_t address, std::uint8_t* out, std::size_t length) override {
+        if (!game_.read(address, out, length)) return false;
+        const std::uint64_t end = std::uint64_t{address} + length;
+        for (const auto& [start, bytes] : written_) {
+            const std::uint64_t stop = std::uint64_t{start} + bytes.size();
+            if (stop <= address || start >= end) continue;
+            const std::uint64_t from = std::max<std::uint64_t>(start, address);
+            const std::uint64_t to = std::min(stop, end);
+            std::memcpy(out + (from - address), bytes.data() + (from - start), static_cast<std::size_t>(to - from));
+        }
+        return true;
+    }
+
+    // One write and every earlier one it touches or overlaps become one
+    // piece, the new bytes on top.
+    bool write(std::uint32_t address, const std::uint8_t* bytes, std::size_t length) override {
+        std::uint64_t lo = address;
+        std::uint64_t hi = std::uint64_t{address} + length;
+        auto first = written_.end();
+        auto last = written_.end();
+        for (auto it = written_.begin(); it != written_.end(); ++it) {
+            const std::uint64_t stop = std::uint64_t{it->first} + it->second.size();
+            if (stop < address || it->first > std::uint64_t{address} + length) continue;
+            if (first == written_.end()) first = it;
+            last = std::next(it);
+            lo = std::min<std::uint64_t>(lo, it->first);
+            hi = std::max(hi, stop);
+        }
+        std::vector<std::uint8_t> joined;
+        if (!try_resize(joined, static_cast<std::size_t>(hi - lo))) return false;
+        for (auto it = first; it != last; ++it) {
+            std::memcpy(joined.data() + (it->first - lo), it->second.data(), it->second.size());
+        }
+        std::memcpy(joined.data() + (address - lo), bytes, length);
+        if (first != written_.end()) written_.erase(first, last);
+        written_[static_cast<std::uint32_t>(lo)] = std::move(joined);
+        return true;
+    }
+
+private:
+    MemoryAccess& game_;
+    std::map<std::uint32_t, std::vector<std::uint8_t>>& written_;
+};
+
+}  // namespace
+
+bool PatchedCode::build(const std::vector<MemoryPatch>& patches, MemoryAccess& memory, std::string& error) {
+    written_.clear();
+    ranges_.clear();
+    CopyOnWrite view(memory, written_);
+    const std::vector<MemoryRegion> ram = {{kGameRam1Start, kGameRam1End - kGameRam1Start},
+                                           {kGameRam2Start, kGameRam2End - kGameRam2Start}};
+    std::vector<std::string> notes;
     for (const MemoryPatch& p : patches) {
         if (!p.has_offset || p.search || p.ocarina || p.value.empty()) continue;
-        // Code is word-aligned, and a range must not wrap past the top of
-        // the address space (the patch would be refused anyway).
-        const std::uint32_t target = memory_patch_target(p);
-        if ((target & 3u) != 0 || std::uint64_t{target} + p.value.size() > (std::uint64_t{1} << 32)) continue;
-        out.push_back(CodeRange{target, p.value.data(), p.value.size()});
+        std::string refused;
+        const OutOfMemoryScope scope;
+        if (!apply_plain(p, ram, view, notes, refused) && scope.failed()) {
+            error = "no memory to read the packs' memory patches";
+            written_.clear();
+            return false;
+        }
     }
-    return out;
+    // Code is word-aligned: a piece's stray leading or trailing bytes
+    // can't hold an instruction.
+    for (const auto& [start, bytes] : written_) {
+        const std::uint32_t begin = (start + 3u) & ~3u;
+        const std::uint64_t end = (std::uint64_t{start} + bytes.size()) & ~std::uint64_t{3};
+        if (end <= begin) continue;
+        ranges_.push_back(CodeRange{begin, bytes.data() + (begin - start), static_cast<std::size_t>(end - begin)});
+    }
+    return true;
 }
 
 std::vector<MemoryRegion> subtract_memory_regions(const std::vector<MemoryRegion>& regions,

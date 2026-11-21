@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -59,13 +60,25 @@ bool apply_memory_patches(const std::vector<MemoryPatch>& patches, const std::ve
 // uncached views of the same RAM are one place).
 std::uint32_t memory_patch_target(const MemoryPatch& p);
 
-// The code the plain patches will write, for a search that runs before
-// they are applied: each plain patch's `value` at its target, pointing
-// into `patches` (which must outlive the ranges). Search and ocarina
-// patches have no address until applied, so they are left out, as is a
-// patch with an empty value (a valuefile not read), one at an address that
-// isn't word-aligned and one that would run past the top of memory.
-std::vector<CodeRange> memory_patch_code_ranges(const std::vector<MemoryPatch>& patches);
+// What the plain patches will leave in memory, for a search that runs
+// before they are applied (RiftWii's PADRead search): they are applied,
+// as apply_memory_patches does, to a copy-on-write view of `memory` (the
+// game as loaded), so a later write wins over an earlier one, a patch
+// whose `original` differs is skipped, and writes that touch become one
+// range. Search and ocarina patches have no address until applied and
+// aren't run; nor is a patch apply_memory_patches would refuse (it is
+// reported when the patches really go in). The ranges hold copies.
+class PatchedCode final {
+public:
+    // False (with `error`) only when there's no memory for the copies.
+    bool build(const std::vector<MemoryPatch>& patches, MemoryAccess& memory, std::string& error);
+    // Word-aligned, in address order, not overlapping.
+    const std::vector<CodeRange>& ranges() const { return ranges_; }
+
+private:
+    std::map<std::uint32_t, std::vector<std::uint8_t>> written_;  // start -> bytes
+    std::vector<CodeRange> ranges_;
+};
 
 // Largest `valuefile` a caller should read into `value`.
 constexpr std::size_t kMaxMemoryValueBytes = 1u << 20;

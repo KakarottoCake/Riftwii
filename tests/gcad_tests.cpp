@@ -1215,8 +1215,32 @@ static void TestPadSearch() {
     EXPECT_EQ(pad.read, 0u);
 }
 
+// The game as loaded, for PatchedCode: 64 KiB of MEM1 from 0x80000000.
+class LoadedRam final : public riftwii::MemoryAccess {
+public:
+    std::vector<std::uint8_t> ram = std::vector<std::uint8_t>(0x10000, 0);
+    void put(std::uint32_t address, const std::vector<std::uint8_t>& bytes) {
+        std::memcpy(ram.data() + (address - 0x80000000u), bytes.data(), bytes.size());
+    }
+    bool read(std::uint32_t address, std::uint8_t* out, std::size_t length) override {
+        if (address < 0x80000000u || address - 0x80000000u + length > ram.size()) return false;
+        std::memcpy(out, ram.data() + (address - 0x80000000u), length);
+        return true;
+    }
+    bool write(std::uint32_t, const std::uint8_t*, std::size_t) override { return false; }  // never written
+};
+
+static riftwii::MemoryPatch PlainPatch(std::uint32_t at, const std::vector<std::uint8_t>& value) {
+    riftwii::MemoryPatch p;
+    p.offset = at;
+    p.has_offset = true;
+    p.value = value;
+    return p;
+}
+
 // A PADRead a pack writes with a <memory> patch is found where it will be
-// written, and wins over the game's own; the game's PADControlMotor stays.
+// written, as the patches will leave it, and wins over the game's own; the
+// game's PADControlMotor stays.
 static void TestPadSearchInPatches() {
     constexpr std::uint32_t kMemset = 0x80004000u;
     // The game: its own PADRead (say an SDK copy it never calls) and
@@ -1233,68 +1257,97 @@ static void TestPadSearchInPatches() {
     const std::vector<std::uint8_t> game_code = game.bytes();
     const std::vector<riftwii::CodeRange> text = {{game.base, game_code.data(), game_code.size()}};
 
-    // The pack's PADRead, written to low memory by a plain patch.
+    // The pack's PADRead, for low memory.
     Asm pack{0x80001800u, {}};
     const std::uint32_t pack_read = pack.here();
     pack.prologue();
     for (unsigned k = 0; k < 4; ++k) pack.pad_error(27, 19, kMemset);
     pack.blr();
-    riftwii::MemoryPatch plain;
-    plain.offset = 0x1800;  // written at 0x80001800
-    plain.has_offset = true;
-    plain.value = pack.bytes();
-    // A search patch has no address before it's applied: left out.
-    riftwii::MemoryPatch search = plain;
-    search.search = true;
-    search.original = {0x60, 0x00, 0x00, 0x00};
-    // A valuefile not read: left out too.
-    riftwii::MemoryPatch unread;
-    unread.offset = 0x80003000u;
-    unread.has_offset = true;
-    unread.valuefile = "/pad.bin";
-    // An uncached offset lands at its cached alias; an unaligned one is
-    // not code.
-    riftwii::MemoryPatch uncached = plain;
-    uncached.offset = 0xC0002000u;
-    riftwii::MemoryPatch unaligned = plain;
-    unaligned.offset = 0x80002002u;
-
-    std::vector<riftwii::MemoryPatch> patches = {plain, search, unread, uncached, unaligned};
-    std::vector<riftwii::CodeRange> patched = riftwii::memory_patch_code_ranges(patches);
-    EXPECT_EQ(patched.size(), 2u);
-    EXPECT_EQ(patched[0].address, 0x80001800u);
-    EXPECT_EQ(patched[0].size, plain.value.size());
-    EXPECT_EQ(patched[1].address, 0x80002000u);
-
-    // Only the first plain patch: its PADRead wins over the game's.
-    patches = {plain};
-    patched = riftwii::memory_patch_code_ranges(patches);
+    const std::vector<std::uint8_t> pack_code = pack.bytes();
+    LoadedRam loaded;
     riftwii::PadSymbols pad;
     bool from_patch = false;
     std::string error;
-    EXPECT_TRUE(riftwii::find_pad_symbols_with_patches(text, patched, pad, from_patch, error));
+    const auto search = [&](const std::vector<riftwii::MemoryPatch>& patches) {
+        riftwii::PatchedCode patched;
+        EXPECT_TRUE(patched.build(patches, loaded, error));
+        return riftwii::find_pad_symbols_with_patches(text, patched.ranges(), pad, from_patch, error);
+    };
+
+    // One plain patch (written at 0x80001800 from offset 0x1800): its
+    // PADRead wins over the game's.
+    const riftwii::MemoryPatch plain = PlainPatch(0x1800, pack_code);
+    EXPECT_TRUE(search({plain}));
     EXPECT_TRUE(from_patch);
     EXPECT_EQ(pad.read, pack_read);
     EXPECT_EQ(pad.read_sites, 4u);
     EXPECT_EQ(pad.control_motor, motor);
 
     // No patches: the game's own, as before.
-    EXPECT_TRUE(riftwii::find_pad_symbols_with_patches(text, {}, pad, from_patch, error));
+    EXPECT_TRUE(search({}));
     EXPECT_FALSE(from_patch);
     EXPECT_EQ(pad.read, game_read);
     EXPECT_EQ(pad.control_motor, motor);
 
     // Patches with no PADRead in them (a few words of a code patch): the
     // game's own, as before.
-    riftwii::MemoryPatch small;
-    small.offset = 0x80200010u;
-    small.has_offset = true;
-    small.value = {0x60, 0x00, 0x00, 0x00};
-    patches = {small};
-    patched = riftwii::memory_patch_code_ranges(patches);
-    EXPECT_TRUE(riftwii::find_pad_symbols_with_patches(text, patched, pad, from_patch, error));
+    EXPECT_TRUE(search({PlainPatch(0x80200010u, {0x60, 0x00, 0x00, 0x00})}));
     EXPECT_FALSE(from_patch);
     EXPECT_EQ(pad.read, game_read);
+
+    // Search and ocarina patches have no address until they're applied,
+    // and an unread valuefile has no bytes: none of them is searched.
+    riftwii::MemoryPatch found_later = plain;
+    found_later.search = true;
+    found_later.original = {0x60, 0x00, 0x00, 0x00};
+    riftwii::MemoryPatch ocarina = plain;
+    ocarina.ocarina = true;
+    riftwii::MemoryPatch unread = PlainPatch(0x1800, {});
+    unread.valuefile = "/pad.bin";
+    EXPECT_TRUE(search({found_later, ocarina, unread}));
+    EXPECT_FALSE(from_patch);
+    EXPECT_EQ(pad.read, game_read);
+
+    // An uncached offset lands at its cached alias.
+    EXPECT_TRUE(search({PlainPatch(0xC0001800u, pack_code)}));
+    EXPECT_TRUE(from_patch);
+    EXPECT_EQ(pad.read, pack_read);
+
+    // The PADRead written in pieces of 8 bytes, one after another, is the
+    // same code once they're all in.
+    std::vector<riftwii::MemoryPatch> pieces;
+    for (std::size_t at = 0; at < pack_code.size(); at += 8) {
+        const std::size_t end = std::min(pack_code.size(), at + 8);
+        pieces.push_back(PlainPatch(0x1800 + static_cast<std::uint32_t>(at),
+                                    std::vector<std::uint8_t>(pack_code.begin() + at, pack_code.begin() + end)));
+    }
+    EXPECT_TRUE(search(pieces));
+    EXPECT_TRUE(from_patch);
+    EXPECT_EQ(pad.read, pack_read);
+
+    // A later patch over the PADRead (its sites become nops): what's left
+    // isn't one, so the game's own is taken.
+    EXPECT_TRUE(search({plain, PlainPatch(0x1800 + 8, std::vector<std::uint8_t>(pack_code.size() - 8, 0x60))}));
+    EXPECT_FALSE(from_patch);
+    EXPECT_EQ(pad.read, game_read);
+
+    // A patch whose original differs from the game is skipped, as when the
+    // patches go in: the game's own PADRead.
+    riftwii::MemoryPatch guarded = plain;
+    guarded.original = {0x12, 0x34, 0x56, 0x78};
+    EXPECT_TRUE(search({guarded}));
+    EXPECT_FALSE(from_patch);
+    EXPECT_EQ(pad.read, game_read);
+    // ... and written when the game has those bytes there.
+    loaded.put(0x80001800u, {0x12, 0x34, 0x56, 0x78});
+    EXPECT_TRUE(search({guarded}));
+    EXPECT_TRUE(from_patch);
+    EXPECT_EQ(pad.read, pack_read);
+    // An original is compared with what earlier patches wrote.
+    loaded.put(0x80001800u, {0, 0, 0, 0});
+    EXPECT_TRUE(search({PlainPatch(0x1800, {0x12, 0x34, 0x56, 0x78}), guarded}));
+    EXPECT_TRUE(from_patch);
+    EXPECT_EQ(pad.read, pack_read);
 
     // A game unsure of its own (two candidates) still plays from the
     // pack's PADRead; there's no PADControlMotor to take from it then.
@@ -1306,9 +1359,9 @@ static void TestPadSearchInPatches() {
     }
     const std::vector<std::uint8_t> twice_code = twice.bytes();
     const std::vector<riftwii::CodeRange> unsure = {{twice.base, twice_code.data(), twice_code.size()}};
-    patches = {plain};
-    patched = riftwii::memory_patch_code_ranges(patches);
-    EXPECT_TRUE(riftwii::find_pad_symbols_with_patches(unsure, patched, pad, from_patch, error));
+    riftwii::PatchedCode patched;
+    EXPECT_TRUE(patched.build({plain}, loaded, error));
+    EXPECT_TRUE(riftwii::find_pad_symbols_with_patches(unsure, patched.ranges(), pad, from_patch, error));
     EXPECT_TRUE(from_patch);
     EXPECT_EQ(pad.read, pack_read);
     EXPECT_EQ(pad.control_motor, 0u);
@@ -1316,11 +1369,7 @@ static void TestPadSearchInPatches() {
     EXPECT_FALSE(riftwii::find_pad_symbols_with_patches(unsure, {}, pad, from_patch, error));
 
     // Two PADReads in the patches: refused, not guessed.
-    riftwii::MemoryPatch second = plain;
-    second.offset = 0x80002400u;
-    patches = {plain, second};
-    patched = riftwii::memory_patch_code_ranges(patches);
-    EXPECT_FALSE(riftwii::find_pad_symbols_with_patches(text, patched, pad, from_patch, error));
+    EXPECT_FALSE(search({plain, PlainPatch(0x2400, pack_code)}));
     EXPECT_TRUE(error.find("memory patches") != std::string::npos);
     EXPECT_EQ(pad.read, 0u);
 }
