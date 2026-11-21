@@ -774,6 +774,7 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
         mod.xml_paths.push_back(selection.xml_sd_path);
         if (!gather_package(selection, probe, fst, provider, files, shifts, mod, memory_bytes, error)) return false;
     }
+    drop_lone_missing_folders(mod.missing_inputs);
     if (files.empty()) {
         apply_shifts(shifts, fst, mod);
         out = std::move(mod);

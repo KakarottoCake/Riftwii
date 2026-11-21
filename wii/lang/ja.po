@@ -3747,6 +3747,9 @@ msgstr "ファイルを確認"
 msgid "Play anyway"
 msgstr "そのまま遊ぶ"
 
+msgid "Missing for {1}:"
+msgstr "{1}に見つからないもの:"
+
 msgid "USB: {1} partition(s) could not be opened. See Drives."
 msgstr "USB: {1}個のパーティションを開けませんでした。ドライブを確認してください。"
 

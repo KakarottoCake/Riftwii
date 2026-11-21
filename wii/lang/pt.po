@@ -3747,6 +3747,9 @@ msgstr "Ver arquivos"
 msgid "Play anyway"
 msgstr "Jogar mesmo assim"
 
+msgid "Missing for {1}:"
+msgstr "Faltando para {1}:"
+
 msgid "USB: {1} partition(s) could not be opened. See Drives."
 msgstr "USB: não foi possível abrir {1} partições. Veja Unidades."
 
