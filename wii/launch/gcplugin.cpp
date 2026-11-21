@@ -295,6 +295,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     request.widescreen = image.widescreen ? 1 : 0;
     request.sharp = image.sharp ? 1 : 0;
     request.sixty_hz = image.sixty_hz ? 1 : 0;
+    request.tv_signal = image.tv_signal;
     request.language = image.language;
     request.vi_width = image.vi_width;
     request.screen_offset_set = image.screen_offset_set ? 1 : 0;

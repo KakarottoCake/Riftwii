@@ -548,7 +548,12 @@ USB drive: choose another Saves option on its page.
   with no interlace flicker and the flicker filter off (European Wii games switch to 60 Hz for it). Games that draw fewer lines keep their own
   picture. In Settings it also applies to GameCube games whose Picture
   lines are on *Default*. Some TVs and capture devices don't take
-  240p.
+  240p. Settings' choice also sets the colour signal of GameCube games:
+  a US or Japanese game goes out as *PAL 60 Hz* when you pick PAL 60 or
+  PAL 50 (a 60 Hz game can't run at 50), or *The console's* on a European
+  Wii, for a TV that shows no colour or the wrong colours with NTSC; 480p
+  and 240p stay NTSC. A European GameCube game at 60 Hz (its Game speed)
+  goes out as PAL 60, or NTSC if you pick NTSC; at 50 Hz it stays PAL.
 - **Region video fix** (off unless you turn it on) is for a US or
   Japanese game that shows no picture on a console from another region:
   the game is told the video hardware matches its region.

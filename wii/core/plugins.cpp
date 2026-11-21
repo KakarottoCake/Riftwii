@@ -395,6 +395,7 @@ void HostShutDownForGame(uint32_t tv_mode) {
     if (tv_mode != RWP_TV_KEEP) {
         GXRModeObj* mode = &TVNtsc480IntDf;
         if (tv_mode == RWP_TV_PAL) mode = &TVPal528IntDf;
+        else if (tv_mode == RWP_TV_EURGB60) mode = &TVEurgb60Hz480IntDf;
         else if (tv_mode == RWP_TV_NTSC_480P) mode = &TVNtsc480Prog;
         void* const frame = VIDEO_GetCurrentFramebuffer();
         VIDEO_Configure(mode);
