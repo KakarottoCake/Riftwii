@@ -104,10 +104,11 @@ bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::
 // A PADRead in the patches wins over one in the game: a pack that writes
 // one means it to be read, and the game's may be an SDK copy it never
 // calls. The screen-dimming reset is then looked for beside the pack's
-// PADRead (in code_with_patches), and PADControlMotor
-// comes from the pack or else the game. `from_patch` says which PADRead
-// was taken. An unsure search of the patches is an error; an unsure
-// search of the game is not when the patches have the PADRead.
+// PADRead (in code_with_patches), and PADControlMotor is the game's own
+// (rumble Off writes to it before the patches go in). `from_patch` says
+// which PADRead was taken. An unsure PADRead in the patches is an error
+// (an unsure PADControlMotor there is not); an unsure search of the game
+// is not when the patches have the PADRead.
 bool find_pad_symbols_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched,
                                    PadSymbols& out, bool& from_patch, std::string& error);
 
@@ -157,6 +158,11 @@ std::int32_t find_gc_pad_enabled_offset(const std::vector<CodeRange>& text, std:
 // word is never a branch, so the hook's replay slot can run it. 0 when
 // there is no PADRead, no such function or more than one.
 std::uint32_t find_gc_si_probe(const std::vector<CodeRange>& text, std::uint32_t pad_read);
+
+// The same with a pack's PADRead (find_pad_symbols_with_patches): the
+// game's code read as `patched` (PatchedCode's ranges) leaves it.
+std::uint32_t find_gc_si_probe_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched,
+                                            std::uint32_t pad_read);
 
 // The SDK's PAD SamplingHandler(interrupt, context), which the SI's polling
 // interrupt calls to run the game's PADSetSamplingCallback callback: a

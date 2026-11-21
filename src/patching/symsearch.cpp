@@ -692,7 +692,10 @@ bool find_pad_symbols_with_patches(const std::vector<CodeRange>& text, const std
     PadSymbols pack;
     if (!patched.empty()) {
         std::string pack_error;
-        if (!find_pad_symbols(patched, pack, pack_error)) {
+        // Only an unsure PADRead in the patches is an error: their
+        // PADControlMotor isn't used (below), so two of those there don't
+        // keep the game's own PADRead from being searched.
+        if (!find_pad_symbols(patched, pack, pack_error) && pack_error.find("PADRead") != std::string::npos) {
             out = PadSymbols{};
             error = "in a pack's memory patches: " + pack_error;
             return false;
@@ -706,7 +709,10 @@ bool find_pad_symbols_with_patches(const std::vector<CodeRange>& text, const std
     out.read = pack.read;
     out.read_sites = pack.read_sites;
     out.idle_reset = find_idle_reset(code_with_patches(text, patched), pack.read);
-    out.control_motor = pack.control_motor != 0 ? pack.control_motor : game_sure ? game.control_motor : 0;
+    // The game's own PADControlMotor, as before packs could bring PADRead
+    // this way: Settings > GameCube rumble Off writes to it before the
+    // patches go in, which would land on bytes a patch hasn't written yet.
+    out.control_motor = game_sure ? game.control_motor : 0;
     from_patch = true;
     error.clear();
     return true;
@@ -1084,16 +1090,22 @@ std::set<std::uint32_t> pad_read_callees(const std::vector<CodeRange>& text, std
 
 }  // namespace
 
-std::uint32_t find_gc_si_probe(const std::vector<CodeRange>& text, std::uint32_t pad_read) {
+namespace {
+
+// SIProbe's shape at each word of `scan`'s ranges, its nine words read by
+// `words_at(range, i, w)`; `view` is the code its calls are followed in.
+template <typename WordsAt>
+std::uint32_t si_probe_scan(const std::vector<CodeRange>& scan, const std::vector<CodeRange>& view,
+                            std::uint32_t pad_read, WordsAt words_at) {
     if (pad_read == 0 || (pad_read & 3u) != 0) return 0;
-    const std::set<std::uint32_t> callees = pad_read_callees(text, pad_read);
+    const std::set<std::uint32_t> callees = pad_read_callees(view, pad_read);
     if (callees.empty()) return 0;
     std::set<std::uint32_t> found;
-    for (const CodeRange& range : text) {
+    for (const CodeRange& range : scan) {
         const std::size_t words = range.size / 4;
         for (std::size_t i = 0; i + 9 <= words; ++i) {
             std::uint32_t w[9];
-            for (unsigned k = 0; k < 9; ++k) w[k] = be32(range.bytes + (i + k) * 4);
+            if (!words_at(range, i, w)) continue;
             if (!small_prologue(w) || !is_bl(w[3]) || !is_bl(w[4]) || !small_epilogue(w + 5)) continue;
             const std::uint32_t at = range.address + static_cast<std::uint32_t>(i * 4);
             const std::uint32_t get_type = bl_target(at + 12, w[3]);
@@ -1101,11 +1113,36 @@ std::uint32_t find_gc_si_probe(const std::vector<CodeRange>& text, std::uint32_t
             // SIGetType is one of PADRead's own calls (its rumble check);
             // SIDecodeType is told apart by the WaveBird's type.
             if (get_type == decode || callees.count(get_type) == 0) continue;
-            if (!loads_wavebird_type(text, decode)) continue;
+            if (!loads_wavebird_type(view, decode)) continue;
             found.insert(at);
         }
     }
     return found.size() == 1 ? *found.begin() : 0;
+}
+
+}  // namespace
+
+std::uint32_t find_gc_si_probe(const std::vector<CodeRange>& text, std::uint32_t pad_read) {
+    return si_probe_scan(text, text, pad_read, [](const CodeRange& range, std::size_t i, std::uint32_t* w) {
+        for (unsigned k = 0; k < 9; ++k) w[k] = be32(range.bytes + (i + k) * 4);
+        return true;
+    });
+}
+
+std::uint32_t find_gc_si_probe_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched,
+                                            std::uint32_t pad_read) {
+    // The game's code scanned whole, each word read as the patches leave
+    // it, so a patch inside SIProbe (even one writing the same bytes) can't
+    // split it out of sight; a patch that changes it is seen.
+    const std::vector<CodeRange> view = code_with_patches(text, patched);
+    return si_probe_scan(text, view, pad_read, [&view](const CodeRange& range, std::size_t i, std::uint32_t* w) {
+        for (unsigned k = 0; k < 9; ++k) {
+            const std::uint32_t at = range.address + static_cast<std::uint32_t>((i + k) * 4);
+            if (!inside(view, at)) return false;
+            w[k] = word_at(view, at);
+        }
+        return true;
+    });
 }
 
 namespace {

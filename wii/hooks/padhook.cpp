@@ -810,7 +810,7 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
     }
     // SIProbe is told by PADRead's own calls, so with a pack's PADRead it
     // is searched in the game's code as the patches will leave it.
-    out.si_probe = find_gc_si_probe(from_patch ? code_with_patches(text, patched) : text, out.read);
+    out.si_probe = from_patch ? find_gc_si_probe_with_patches(text, patched, out.read) : find_gc_si_probe(text, out.read);
     // Where SIProbe is missing the adapter still plays: only a game that
     // asks it before reading a port misses the adapter's ports (#510).
     if (out.si_probe != 0)

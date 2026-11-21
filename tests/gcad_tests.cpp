@@ -1913,6 +1913,70 @@ static void si_probe_function(Asm& code, std::uint32_t get_type, std::uint32_t d
     code.blr();
 }
 
+// SIProbe with a pack's PADRead in its memory patches: found in the game's
+// code even with a patch inside it that writes the same bytes, and not
+// once a patch changes it. And an unsure PADControlMotor in the patches
+// doesn't keep the game's own PADRead from being searched.
+static void TestPatchedSiProbeAndMotor() {
+    Asm game{0x80004000u, {}};
+    const std::uint32_t get_type = game.here();
+    game.op(0x38600008u);  // li r3,8
+    game.blr();
+    const std::uint32_t decode = game.here();
+    game.op(0x38600008u);  // li r3,8
+    game.blr();
+    game.op(0x3C608B10u);  // lis r3,0x8B10
+    game.blr();
+    const std::uint32_t probe = game.here();
+    si_probe_function(game, get_type, decode, false);
+    const std::vector<std::uint8_t> game_code = game.bytes();
+    const std::vector<riftwii::CodeRange> text = {{game.base, game_code.data(), game_code.size()}};
+
+    Asm pack{0x80001800u, {}};
+    const std::uint32_t pack_read = pack.here();
+    pack.bl(get_type);
+    pack.blr();
+    LoadedRam loaded;
+    loaded.put(game.base, game_code);
+    std::string error;
+    // (The patch lists outlive the ranges: they point into them.)
+    const std::uint32_t inside_probe = probe + 12;  // its first bl
+    const std::vector<std::uint8_t> same(game_code.begin() + (inside_probe - game.base),
+                                         game_code.begin() + (inside_probe - game.base) + 4);
+    const std::vector<riftwii::MemoryPatch> same_bytes = {PlainPatch(0x1800, pack.bytes()), PlainPatch(inside_probe, same)};
+    riftwii::PatchedCode patched;
+    EXPECT_TRUE(patched.build(same_bytes, loaded, error));
+    EXPECT_EQ(riftwii::find_gc_si_probe_with_patches(text, patched.ranges(), pack_read), probe);
+    const std::vector<riftwii::MemoryPatch> changed = {PlainPatch(0x1800, pack.bytes()),
+                                                       PlainPatch(inside_probe, {0x60, 0x00, 0x00, 0x00})};
+    EXPECT_TRUE(patched.build(changed, loaded, error));
+    EXPECT_EQ(riftwii::find_gc_si_probe_with_patches(text, patched.ranges(), pack_read), 0u);
+
+    // Two PADControlMotor shapes in the patches, no PADRead there: the
+    // game's own PADRead is still found.
+    constexpr std::uint32_t kMemset = 0x80004000u;
+    Asm game2{0x80200000u, {}};
+    const std::uint32_t game_read = game2.here();
+    game2.prologue();
+    for (unsigned k = 0; k < 4; ++k) game2.pad_error(27, 19, kMemset);
+    game2.blr();
+    const std::vector<std::uint8_t> game2_code = game2.bytes();
+    const std::vector<riftwii::CodeRange> text2 = {{game2.base, game2_code.data(), game2_code.size()}};
+    Asm motors{0x80001800u, {}};
+    for (unsigned f = 0; f < 2; ++f) {
+        motors.prologue();
+        motors.motor_body();
+        motors.blr();
+    }
+    const std::vector<riftwii::MemoryPatch> two_motors = {PlainPatch(0x1800, motors.bytes())};
+    EXPECT_TRUE(patched.build(two_motors, loaded, error));
+    riftwii::PadSymbols pad;
+    bool from_patch = true;
+    EXPECT_TRUE(riftwii::find_pad_symbols_with_patches(text2, patched.ranges(), pad, from_patch, error));
+    EXPECT_FALSE(from_patch);
+    EXPECT_EQ(pad.read, game_read);
+}
+
 static void TestGcSiProbeSearch() {
     for (const bool older : {true, false}) {
         // PADRead calls SIGetType and something else; SIDecodeType returns
@@ -2244,6 +2308,7 @@ int main() {
     TestPadSearchInPatchesDimming();
     TestIsPadRead();
     TestPatchedCodeRanges();
+    TestPatchedSiProbeAndMotor();
     TestPackPadRead();
     TestIdleResetSearch();
     TestGcPadMotorSearch();
