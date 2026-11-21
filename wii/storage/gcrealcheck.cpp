@@ -7,6 +7,7 @@
 #include <ogc/lwp_watchdog.h>
 #include <unistd.h>
 
+#include <atomic>
 #include <utility>
 
 #include "gcrealcard.hpp"
@@ -21,7 +22,9 @@ namespace {
 // (Dolphin: Play on a GameCube game page, 2611-211). A check that never
 // returns keeps its stack, and nothing is freed under it.
 enum class CheckState { Idle, Running, Done };
-volatile CheckState g_state = CheckState::Idle;
+// Written by the check thread, read by the menu thread: atomic. g_result is
+// read only after the thread is joined.
+std::atomic<CheckState> g_state{CheckState::Idle};
 lwp_t g_thread = LWP_THREAD_NULL;
 constexpr u32 kStackBytes = 16 * 1024;
 int g_slot = 0;
@@ -65,15 +68,12 @@ GcRealCardCheck CheckGcRealCard(int slot, unsigned timeout_ms, bool& timed_out, 
     g_state = CheckState::Running;
     logf("Memory card: checking the card in slot %c before the game starts\n", slot_name);
     if (LWP_CreateThread(&g_thread, CheckMain, nullptr, nullptr, kStackBytes, 60) < 0) {
-        // No thread: check here, as before, without the time limit.
+        // No thread: no check either. Checking on the menu's own thread
+        // would bring back the freeze the time limit is there for.
         g_state = CheckState::Idle;
-        logf("Memory card: no thread for the check of slot %c; checking it without a time limit.\n", slot_name);
-        GcRealCard card;
-        result.result = card.Open(slot);
-        if (result.result >= 0) {
-            result.bytes = card.Bytes();
-            result.result = card.ReadSystem(result.system);
-        }
+        logf("Memory card: slot %c was not checked, as no thread could be made for the check (out of memory?).\n",
+             slot_name);
+        result.result = CARD_ERROR_INSSPACE;
         return result;
     }
     const u64 started = gettime();
