@@ -56,7 +56,7 @@ void test_protected() {
     EXPECT_TRUE(game_clears_mem1_top("RB4E08"));
     EXPECT_TRUE(game_clears_mem1_top("RB4P08"));
     EXPECT_FALSE(game_clears_mem1_top("RMCE01"));
-    EXPECT_TRUE(game_clears_mem1_top("RLGE64"));
+    EXPECT_FALSE(game_clears_mem1_top("RLGE64"));  // The Complete Saga plays with the adapter on
     EXPECT_TRUE(game_clears_mem1_top("RLIE64"));
     EXPECT_TRUE(game_clears_mem1_top("RL4P64"));
     EXPECT_TRUE(game_clears_mem1_top("RLBEWR"));

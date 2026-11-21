@@ -1948,8 +1948,8 @@ launch:
   title screen, where RiftWii keeps the code for in-game screenshots,
   the GameCube adapter and crash recording. It gets none of them, and
   *Return to RiftWii* goes to the Wii Menu instead. Its ordinary cheats
-  stay off too, and so do those of The Complete Saga, Indiana Jones 1
-  and 2, Batman, Ghostbusters: The Video Game and 007 Quantum of Solace,
+  stay off too, and so do those of LEGO Indiana Jones 1 and 2, LEGO
+  Batman, Ghostbusters: The Video Game and 007 Quantum of Solace,
   which RiftWii starts the same way: its hooks then use the memory the
   cheat list would go in, and the game starts without cheats (boot.log:
   "Codes are off"). A code build whose gameconfig.txt moves the list
