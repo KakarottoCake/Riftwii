@@ -459,6 +459,29 @@ bool read_small(const Location& source, std::size_t limit, std::vector<std::uint
     return ISFS_Close(file) >= 0 && ok;
 }
 
+// True when the card file reads back whole with `size` bytes and the SHA-1
+// the title's TMD names: only then is a shared content already in the
+// destination used instead of a fresh copy.
+bool card_file_matches(const std::string& path, std::uint64_t size, const Sha1Digest& expected) {
+    std::uint64_t listed_size = 0;
+    if (inspect({false, path}, listed_size) != Kind::File || listed_size != size) return false;
+    FILE* file = std::fopen(path.c_str(), "rb");
+    if (!file) return false;
+    constexpr std::size_t kChunk = 32 * 1024;
+    std::unique_ptr<std::uint8_t[]> buffer(new (std::nothrow) std::uint8_t[kChunk]);
+    Sha1 hash;
+    std::uint64_t read_total = 0;
+    bool ok = buffer != nullptr;
+    while (ok && read_total < size) {
+        const std::size_t want = static_cast<std::size_t>(std::min<std::uint64_t>(kChunk, size - read_total));
+        ok = std::fread(buffer.get(), 1, want, file) == want;
+        if (ok) hash.update(buffer.get(), want);
+        read_total += want;
+    }
+    const bool closed = std::fclose(file) == 0;
+    return ok && closed && hash.finish() == expected;
+}
+
 // Installation is checked through ES again at write time. The ownership of
 // a newly created data folder comes from this Wii's uid.sys, never the card.
 bool real_title_attributes(std::uint64_t title, Attributes& attributes) {
@@ -845,11 +868,9 @@ bool copy_title(const std::string& from, const std::string& to, std::uint64_t ti
         SharedCopy copy;
         const SharedContent* known = find_shared_content(to_map, content.sha1);
         if (known) {
-            // Listed there: used as it is only when its file is there whole.
-            std::uint64_t there_size = 0;
+            // Listed there: used as it is only when its file reads back whole.
             copy.name = known->name;
-            copy.present = inspect({false, to + "/shared1/" + copy.name + ".app"}, there_size) == Kind::File &&
-                           there_size == content.size;
+            copy.present = card_file_matches(to + "/shared1/" + copy.name + ".app", content.size, content.sha1);
         }
         if (!copy.present) {
             const SharedContent* source = find_shared_content(from_map, content.sha1);
