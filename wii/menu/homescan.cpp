@@ -63,9 +63,12 @@ void ReadSdCard(DriveScanPart& part) {
     mem::CheckHeap("after the SD scan");
     std::string channelStatus;
     list_nand_channels(part.channels, channelStatus, true);
-    // And those USB Loader GX keeps in an emulated NAND on the card.
+    // And those in the emulated NAND on the card that WADs go into: USB
+    // Loader GX's channel folder when it is on the card, else sd:/nands/01
+    // (one on the USB drive can't be played from, and Install WAD files
+    // and the wiiware folders put their games in sd:/nands/01 then).
     const SharedNandLookup emu = look_up_channel_nand();
-    if (emu.usable) list_emu_channels(emu.folder, part.channels, channelStatus, true);
+    list_emu_channels(wad_nand_folder(emu), part.channels, channelStatus, true);
     part.unreadable_wads = list_wad_channels(false, part.channels);
     part.packs = ReadPackIndex(part.package_catalog);
     mem::CheckHeap("after the pack index");

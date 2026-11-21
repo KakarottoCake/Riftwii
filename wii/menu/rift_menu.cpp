@@ -4942,7 +4942,13 @@ static bool InstallWads()
 		ShowPopup(tr("Install WAD files"), tr("The emulated NAND folder can't be used: {1}", {FlatCapped(nand.error, 120)}), tr("OK"));
 		return false;
 	}
-	if (ShowPopup(tr("Install WAD files"), tr("Install {1} WAD file(s) into {2}? The Wii itself is not changed.", {std::to_string(files.size()), nand.folder}),
+	// The SD card's emulated NAND, as for the wiiware folders: a channel
+	// folder on the USB drive can't take them (install_wad refuses it).
+	const std::string folder = riftwii::wii::wad_nand_folder(nand);
+	if (folder != nand.folder)
+		logf("Install WAD files: the emulated NAND for channels is %s, not on the SD card, so the WADs go to %s.\n",
+			nand.folder.c_str(), folder.c_str());
+	if (ShowPopup(tr("Install WAD files"), tr("Install {1} WAD file(s) into {2}? The Wii itself is not changed.", {std::to_string(files.size()), folder}),
 		    tr("Install"), tr("Cancel")) != 0) {
 		return false;
 	}
@@ -4965,7 +4971,7 @@ static bool InstallWads()
 			const riftwii::wii::CardWriteHold hold;
 			ResumeGui();
 			int shown = -1;
-			ok = riftwii::wii::install_wad(path, nand.folder, nullptr, [&](double done) {
+			ok = riftwii::wii::install_wad(path, folder, nullptr, [&](double done) {
 				const int percent = static_cast<int>(done * 100);
 				if (percent == shown) return;
 				shown = percent;
@@ -6195,11 +6201,11 @@ static bool RunEmulatedNandCopy(const std::string& folder, const std::string& de
 		HaltGui();
 		forget_sd_layout();
 	}
-	// Home plays channels from the channel folder only, and only when that
-	// is usable and on the SD card: a copy anywhere else (the USB drive,
-	// the sd:/nands/01 fallback) is not promised there.
+	// Home lists channels from one emulated NAND on the SD card, the one
+	// WADs go into (wad_nand_folder): a copy anywhere else (the USB drive,
+	// another folder on the card) is not promised there.
 	const riftwii::wii::SharedNandLookup channels = riftwii::wii::look_up_channel_nand();
-	const bool forHome = channels.usable && channels.folder == destination && destination.compare(0, 4, "sd:/") == 0;
+	const bool forHome = destination == riftwii::wii::wad_nand_folder(channels);
 	const std::string result = ok
 		? (forHome ? tr("Copied to {1}. Home shows it after the drives are read again.", {destination})
 		           : tr("Copied to {1}.", {destination}))

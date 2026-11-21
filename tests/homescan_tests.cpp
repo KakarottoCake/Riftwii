@@ -134,6 +134,7 @@ PackageCatalog ReadPackageCatalog(PackIndex*, const PackageCatalog* earlier) {
 }
 void ScanEmulators(EmulatorCatalog&) {}
 unsigned list_wad_channels(bool, std::vector<NandChannel>&) { return 0; }
+std::string wad_nand_folder(const SharedNandLookup&) { return "sd:/nands/01"; }
 
 std::string RefreshNetworkPacks(const std::function<void(const char*)>&) {
     // The SD part is published while the USB part is still being read.
