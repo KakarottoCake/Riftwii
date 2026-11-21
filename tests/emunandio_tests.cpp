@@ -14,6 +14,7 @@
 #include "emunandmanage.hpp"
 #include "sharednandfind.hpp"
 #include "riftwii/emunand.hpp"
+#include "riftwii/sha1.hpp"
 
 namespace fs = std::filesystem;
 using namespace riftwii;
@@ -401,12 +402,86 @@ void gx_folders() {
     fs::remove_all("sd:/custom");
 }
 
+// A WiiWare title with one shared content, in kRoot, for the copy tests.
+const std::string kShared = std::string(20 * 1024, 'S');
+
+void shared_title_in_source() {
+    const Sha1Digest digest = sha1(reinterpret_cast<const std::uint8_t*>(kShared.data()), kShared.size());
+    std::string tmd(0x1E4 + 36, '\0');
+    for (int i = 0; i < 8; ++i) tmd[0x18C + i] = static_cast<char>(kTitle >> (56 - 8 * i));
+    tmd[0x1DF] = 1;                                     // one content
+    tmd[0x1E4 + 6] = '\x80';                            // type 0x8001: shared
+    tmd[0x1E4 + 7] = '\x01';
+    tmd[0x1E4 + 8 + 6] = static_cast<char>(kShared.size() >> 8);
+    std::memcpy(&tmd[0x1E4 + 16], digest.data(), digest.size());
+    card_file("/title/00010001/57424d45/content/title.tmd", tmd);
+    card_file("/ticket/00010001/57424d45.tik", std::string(0x2A4, 'T'));
+    card_file("/shared1/00000005.app", kShared);
+    card_file("/shared1/content.map", "00000005" + std::string(reinterpret_cast<const char*>(digest.data()), 20));
+}
+
+void dest_file(const std::string& relative, const std::string& bytes) {
+    const fs::path path = "sd:/nands/02" + relative;
+    fs::create_directories(path.parent_path());
+    std::ofstream output(path, std::ios::binary);
+    output << bytes;
+}
+
+std::string dest_read(const std::string& relative) {
+    std::ifstream input("sd:/nands/02" + relative, std::ios::binary);
+    return std::string(std::istreambuf_iterator<char>(input), {});
+}
+
+void shared_content_copies() {
+    const Sha1Digest digest = sha1(reinterpret_cast<const std::uint8_t*>(kShared.data()), kShared.size());
+    const std::string listed = "00000000" + std::string(reinterpret_cast<const char*>(digest.data()), 20);
+    std::string error;
+    bool already = false;
+
+    // The destination lists the content, but its file has the right size
+    // and the wrong bytes (a damaged card): it is copied again, under the
+    // same name, and the list is left alone.
+    reset();
+    shared_title_in_source();
+    dest_file("/shared1/content.map", listed);
+    dest_file("/shared1/00000000.app", std::string(kShared.size(), 'X'));
+    CHECK(emunand_manager_copy_title(kRoot, "sd:/nands/02", kTitle, already, error));
+    CHECK(!already);
+    CHECK(dest_read("/shared1/00000000.app") == kShared);
+    CHECK(dest_read("/shared1/content.map") == listed);
+    CHECK(fs::exists("sd:/nands/02/ticket/00010001/57424d45.tik"));
+
+    // The listed file is there whole: used as it is, nothing else added.
+    fs::remove_all("sd:/nands/02/title");
+    CHECK(emunand_manager_copy_title(kRoot, "sd:/nands/02", kTitle, already, error));
+    CHECK(dest_read("/shared1/content.map") == listed);
+    CHECK(!fs::exists("sd:/nands/02/shared1/00000001.app"));
+
+    // A second copy is refused and says so.
+    CHECK(!emunand_manager_copy_title(kRoot, "sd:/nands/02", kTitle, already, error));
+    CHECK(already);
+
+    // The listed name can't be read as a file (a folder in its place) nor
+    // written over: the copy fails, and the title folder and the ticket it
+    // had made are taken out again.
+    reset();
+    shared_title_in_source();
+    dest_file("/shared1/content.map", listed);
+    fs::create_directories("sd:/nands/02/shared1/00000000.app/inside");
+    CHECK(!emunand_manager_copy_title(kRoot, "sd:/nands/02", kTitle, already, error));
+    CHECK(!already);
+    CHECK(!fs::exists("sd:/nands/02/title/00010001/57424d45"));
+    CHECK(!fs::exists("sd:/nands/02/ticket/00010001/57424d45.tik"));
+    CHECK(dest_read("/shared1/content.map") == listed);
+}
+
 int main() {
     save_transfers();
     refused_and_failed_writes();
     deletion_and_system_files();
     mii_transfers();
     gx_folders();
+    shared_content_copies();
     CHECK(!escaped && handles.empty());
     return failures ? 1 : 0;
 }
