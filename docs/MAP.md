@@ -260,6 +260,7 @@ The build compiles every folder into one, so no two files share a name.
 | `sdio.cpp` | Raw SD card access (`/dev/sdio/slot0`) after libogc's driver is gone |
 | `d2xsd.cpp` | d2x's SD device (`/dev/sdio/sdhc`), when the game itself is on the card |
 | `gcrealcard.cpp`, `gcrealcard.hpp` | Read-only physical GameCube card sessions: early MEM1 DMA reservation, CARD mount, synchronous raw EXI reads, owned EXI cleanup, sticky removal detection and snapshot verification |
+| `gcrealcheck.cpp`, `gcrealcheck.hpp` | The real-card check before a GameCube launch on a thread of its own, with a time limit, so a card that never answers no longer freezes the menu |
 | `sdfile.cpp` | Where a file's bytes lie on the card |
 | `d2xsave.cpp` | Saves of SD and USB games kept by d2x's NAND emulation in a folder of the card or the USB drive |
 | `d2xnandemu.cpp` | Turning d2x's NAND emulation on: RiftWii lets go of the SD card (libfat, boot.log, libogc's driver) while d2x's FAT module mounts it, stays off it while the emulation is on, and takes it back when the emulation does not come on |

@@ -81,4 +81,21 @@ void LaunchMusicPauseForReload(const char* why);
 // where it was, faded in, under the rest of the launch's log.
 void LaunchMusicResumeAfterReload();
 
+// The menu's sound off while a real GameCube memory card is opened, and on
+// again after. A card is locked from power-on until its first mount, which
+// unlocks it with a program on the DSP; libogc starts that program only
+// when the running one makes way, and ASND's (the menu's sound) never
+// does, so the mount waited forever on a real Wii (a tester's freeze on
+// Play with Real card in slot A). Dolphin's card is never locked.
+class MenuAudioOffForCard {
+public:
+    explicit MenuAudioOffForCard(const char* why);
+    ~MenuAudioOffForCard();
+    MenuAudioOffForCard(const MenuAudioOffForCard&) = delete;
+    MenuAudioOffForCard& operator=(const MenuAudioOffForCard&) = delete;
+
+private:
+    bool music_ = false;
+};
+
 }  // namespace riftwii::wii

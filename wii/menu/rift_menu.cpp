@@ -91,6 +91,7 @@
 #include "riftwii/gcimport.hpp"
 #include "riftwii/gcreal.hpp"
 #include "gcrealcard.hpp"
+#include "gcrealcheck.hpp"
 #include "sdfile.hpp"
 #include <ogc/card.h>
 #include "riftwii/gccard.hpp"
@@ -12041,7 +12042,11 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 	const int slot = PickRealGcCardSlot();
 	if (slot < 0) return;
 	riftwii::wii::GcRealCard physical;
-	int result = physical.Open(slot);
+	int result = 0;
+	{
+		const riftwii::wii::MenuAudioOffForCard audioOff("the memory card is opened");
+		result = physical.Open(slot);
+	}
 	std::vector<std::uint8_t> raw;
 	if (result >= 0) {
 		// A 16 MB card is held whole. Ask for it now (the build has no
@@ -12370,14 +12375,34 @@ static bool ReadyGcStart(FrontendState& state)
 	if (GcCardIsRealSlotA(used) || used == "real_b") {
 		// Slot B's card, as slot A or beside it, is read from slot B.
 		const int slot = used == "real" ? 0 : 1;
-		riftwii::wii::GcRealCard physical;
-		int result = physical.Open(slot);
-		std::vector<std::uint8_t> system;
+		const std::string slotName(1, static_cast<char>('A' + slot));
+		// A card that never answers would hold the menu forever: the check
+		// gives up after a few seconds (a tester's Wii froze here).
+		struct Waiting {
+			std::string slot;
+			std::unique_ptr<PopupBox> box;
+		} waiting{slotName, nullptr};
+		bool timedOut = false;
+		riftwii::wii::GcRealCardCheck check;
+		{
+			const riftwii::wii::MenuAudioOffForCard audioOff("the memory card is checked");
+			check = riftwii::wii::CheckGcRealCard(slot, 8000, timedOut, [](void* context) {
+				Waiting& shown = *static_cast<Waiting*>(context);
+				if (shown.box) return;
+				shown.box.reset(new PopupBox(tr("Memory card"), tr("Checking the memory card in slot {1}...", {shown.slot})));
+				ResumeGui();
+			}, &waiting);
+			if (waiting.box) {
+				HaltGui();
+				waiting.box.reset();
+			}
+		}
+		int result = check.result;
+		std::vector<std::uint8_t>& system = check.system;
 		riftwii::GcCardSpace space;
 		std::array<std::uint8_t, 12> flashId{};
 		std::string error;
-		if (result >= 0) result = physical.ReadSystem(system);
-		if (result >= 0 && (!riftwii::gc_card_space(system, physical.Bytes(), space, error) ||
+		if (result >= 0 && (!riftwii::gc_card_space(system, check.bytes, space, error) ||
 			!riftwii::gc_card_flash_id(system, flashId))) {
 			logf("Memory card: the card in slot %c cannot be played with: %s\n", 'A' + slot,
 				error.empty() ? "its header holds no card ID" : error.c_str());
@@ -12388,6 +12413,8 @@ static bool ReadyGcStart(FrontendState& state)
 		if (result < 0) {
 			std::string why = GcRealError(result);
 			if (riftwii::wii::is_wii_u()) why = tr("Wii U has no GameCube memory card slots.");
+			else if (timedOut)
+				why = tr("The memory card in slot {1} did not answer. Take it out, put it back in and restart RiftWii, or use this game's SD card for now.", {slotName});
 			else if ((result == CARD_ERROR_NOCARD || result == CARD_ERROR_WRONGDEVICE) && slot == 0)
 				why = tr("Slot A has no readable memory card. For a card in slot B, choose Real card in slot B, as slot A.");
 			else if (result == CARD_ERROR_NOCARD || result == CARD_ERROR_WRONGDEVICE)

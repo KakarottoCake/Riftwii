@@ -29,6 +29,7 @@
 #include "ios_reload.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
+#include "menumusic.hpp"
 #include "memlimits.hpp"
 #include "netsock.hpp"
 #include "plugins.hpp"
@@ -214,6 +215,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     // The backup first, as before the loader moved into the plugin: before
     // the game can write to the card.
     std::array<std::uint8_t, 12> physical_id{};
+    // A card still locked is unlocked on the DSP, which music kept playing
+    // for the launch would hold (MenuAudioOffForCard says why).
+    if (image.real_card || image.real_card_b_as_a || image.real_card_b) LaunchMusicEnd("a memory card is opened");
     if (image.real_card || image.real_card_b_as_a) {
         // Slot B's card as slot A is read from slot B, and its ID goes to
         // SRAM's slot A, where the game looks.
