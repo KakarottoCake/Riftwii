@@ -10,6 +10,7 @@
 
 #include "log.hpp"
 #include "riftwii/hook.hpp"
+#include "riftwii/mempatch.hpp"
 #include "riftwii/symsearch.hpp"
 #include "riftwii_shot_bin.h"
 #include "shot_hook.h"
@@ -103,8 +104,10 @@ bool plan_shot_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t
     out.ioctlv = ipc.ioctlv_async;
     if (pad_read == 0) {
         PadSymbols pad;
+        bool from_patch = false;
         std::string error;
-        if (find_pad_symbols(text, pad, error)) pad_read = pad.read;
+        if (find_pad_symbols_with_patches(text, memory_patch_code_ranges(patches), pad, from_patch, error))
+            pad_read = pad.read;
     }
     out.pad_read = pad_read;
     if (out.ioctlv == 0 && out.pad_read == 0) {

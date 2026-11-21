@@ -304,6 +304,19 @@ std::uint32_t memory_patch_target(const MemoryPatch& p) {
     return address | 0x80000000u;
 }
 
+std::vector<CodeRange> memory_patch_code_ranges(const std::vector<MemoryPatch>& patches) {
+    std::vector<CodeRange> out;
+    for (const MemoryPatch& p : patches) {
+        if (!p.has_offset || p.search || p.ocarina || p.value.empty()) continue;
+        // Code is word-aligned, and a range must not wrap past the top of
+        // the address space (the patch would be refused anyway).
+        const std::uint32_t target = memory_patch_target(p);
+        if ((target & 3u) != 0 || std::uint64_t{target} + p.value.size() > (std::uint64_t{1} << 32)) continue;
+        out.push_back(CodeRange{target, p.value.data(), p.value.size()});
+    }
+    return out;
+}
+
 std::vector<MemoryRegion> subtract_memory_regions(const std::vector<MemoryRegion>& regions,
                                                    const std::vector<MemoryRegion>& exclusions) {
     struct Interval {

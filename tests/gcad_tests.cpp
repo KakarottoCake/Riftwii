@@ -12,6 +12,7 @@
 // GCAdapter.cpp).
 #include "rtgcad.h"
 #include "riftwii/padcal.hpp"
+#include "riftwii/mempatch.hpp"
 #include "riftwii/symsearch.hpp"
 
 #include <algorithm>
@@ -1214,6 +1215,116 @@ static void TestPadSearch() {
     EXPECT_EQ(pad.read, 0u);
 }
 
+// A PADRead a pack writes with a <memory> patch is found where it will be
+// written, and wins over the game's own; the game's PADControlMotor stays.
+static void TestPadSearchInPatches() {
+    constexpr std::uint32_t kMemset = 0x80004000u;
+    // The game: its own PADRead (say an SDK copy it never calls) and
+    // PADControlMotor.
+    Asm game{0x80200000u, {}};
+    const std::uint32_t game_read = game.here();
+    game.prologue();
+    for (unsigned k = 0; k < 4; ++k) game.pad_error(27, 19, kMemset);
+    game.blr();
+    const std::uint32_t motor = game.here();
+    game.prologue();
+    game.motor_body();
+    game.blr();
+    const std::vector<std::uint8_t> game_code = game.bytes();
+    const std::vector<riftwii::CodeRange> text = {{game.base, game_code.data(), game_code.size()}};
+
+    // The pack's PADRead, written to low memory by a plain patch.
+    Asm pack{0x80001800u, {}};
+    const std::uint32_t pack_read = pack.here();
+    pack.prologue();
+    for (unsigned k = 0; k < 4; ++k) pack.pad_error(27, 19, kMemset);
+    pack.blr();
+    riftwii::MemoryPatch plain;
+    plain.offset = 0x1800;  // written at 0x80001800
+    plain.has_offset = true;
+    plain.value = pack.bytes();
+    // A search patch has no address before it's applied: left out.
+    riftwii::MemoryPatch search = plain;
+    search.search = true;
+    search.original = {0x60, 0x00, 0x00, 0x00};
+    // A valuefile not read: left out too.
+    riftwii::MemoryPatch unread;
+    unread.offset = 0x80003000u;
+    unread.has_offset = true;
+    unread.valuefile = "/pad.bin";
+    // An uncached offset lands at its cached alias; an unaligned one is
+    // not code.
+    riftwii::MemoryPatch uncached = plain;
+    uncached.offset = 0xC0002000u;
+    riftwii::MemoryPatch unaligned = plain;
+    unaligned.offset = 0x80002002u;
+
+    std::vector<riftwii::MemoryPatch> patches = {plain, search, unread, uncached, unaligned};
+    std::vector<riftwii::CodeRange> patched = riftwii::memory_patch_code_ranges(patches);
+    EXPECT_EQ(patched.size(), 2u);
+    EXPECT_EQ(patched[0].address, 0x80001800u);
+    EXPECT_EQ(patched[0].size, plain.value.size());
+    EXPECT_EQ(patched[1].address, 0x80002000u);
+
+    // Only the first plain patch: its PADRead wins over the game's.
+    patches = {plain};
+    patched = riftwii::memory_patch_code_ranges(patches);
+    riftwii::PadSymbols pad;
+    bool from_patch = false;
+    std::string error;
+    EXPECT_TRUE(riftwii::find_pad_symbols_with_patches(text, patched, pad, from_patch, error));
+    EXPECT_TRUE(from_patch);
+    EXPECT_EQ(pad.read, pack_read);
+    EXPECT_EQ(pad.read_sites, 4u);
+    EXPECT_EQ(pad.control_motor, motor);
+
+    // No patches: the game's own, as before.
+    EXPECT_TRUE(riftwii::find_pad_symbols_with_patches(text, {}, pad, from_patch, error));
+    EXPECT_FALSE(from_patch);
+    EXPECT_EQ(pad.read, game_read);
+    EXPECT_EQ(pad.control_motor, motor);
+
+    // Patches with no PADRead in them (a few words of a code patch): the
+    // game's own, as before.
+    riftwii::MemoryPatch small;
+    small.offset = 0x80200010u;
+    small.has_offset = true;
+    small.value = {0x60, 0x00, 0x00, 0x00};
+    patches = {small};
+    patched = riftwii::memory_patch_code_ranges(patches);
+    EXPECT_TRUE(riftwii::find_pad_symbols_with_patches(text, patched, pad, from_patch, error));
+    EXPECT_FALSE(from_patch);
+    EXPECT_EQ(pad.read, game_read);
+
+    // A game unsure of its own (two candidates) still plays from the
+    // pack's PADRead; there's no PADControlMotor to take from it then.
+    Asm twice{0x80200000u, {}};
+    for (unsigned f = 0; f < 2; ++f) {
+        twice.prologue();
+        for (unsigned k = 0; k < 3; ++k) twice.pad_error(27, 19, kMemset);
+        twice.blr();
+    }
+    const std::vector<std::uint8_t> twice_code = twice.bytes();
+    const std::vector<riftwii::CodeRange> unsure = {{twice.base, twice_code.data(), twice_code.size()}};
+    patches = {plain};
+    patched = riftwii::memory_patch_code_ranges(patches);
+    EXPECT_TRUE(riftwii::find_pad_symbols_with_patches(unsure, patched, pad, from_patch, error));
+    EXPECT_TRUE(from_patch);
+    EXPECT_EQ(pad.read, pack_read);
+    EXPECT_EQ(pad.control_motor, 0u);
+    // ... but without the patches it stays refused.
+    EXPECT_FALSE(riftwii::find_pad_symbols_with_patches(unsure, {}, pad, from_patch, error));
+
+    // Two PADReads in the patches: refused, not guessed.
+    riftwii::MemoryPatch second = plain;
+    second.offset = 0x80002400u;
+    patches = {plain, second};
+    patched = riftwii::memory_patch_code_ranges(patches);
+    EXPECT_FALSE(riftwii::find_pad_symbols_with_patches(text, patched, pad, from_patch, error));
+    EXPECT_TRUE(error.find("memory patches") != std::string::npos);
+    EXPECT_EQ(pad.read, 0u);
+}
+
 // A mod pack's own PADRead, the supported way for a pack to give a
 // Wii-Remote-only game GameCube controllers (#352, docs/ARCHITECTURE.md): a
 // framed function in a section the pack adds, with the SDK's "no controller"
@@ -1963,6 +2074,7 @@ int main() {
     TestTransferErrorRelinks();
     TestListErrorRetries();
     TestPadSearch();
+    TestPadSearchInPatches();
     TestPackPadRead();
     TestIdleResetSearch();
     TestGcPadMotorSearch();

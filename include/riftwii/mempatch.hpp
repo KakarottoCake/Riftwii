@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "riftwii/patch.hpp"
+#include "riftwii/symsearch.hpp"
 
 namespace riftwii {
 
@@ -57,6 +58,14 @@ bool apply_memory_patches(const std::vector<MemoryPatch>& patches, const std::ve
 // an uncached 0xC…/0xD… offset at its cached 0x8…/0x9… alias (cached and
 // uncached views of the same RAM are one place).
 std::uint32_t memory_patch_target(const MemoryPatch& p);
+
+// The code the plain patches will write, for a search that runs before
+// they are applied: each plain patch's `value` at its target, pointing
+// into `patches` (which must outlive the ranges). Search and ocarina
+// patches have no address until applied, so they are left out, as is a
+// patch with an empty value (a valuefile not read), one at an address that
+// isn't word-aligned and one that would run past the top of memory.
+std::vector<CodeRange> memory_patch_code_ranges(const std::vector<MemoryPatch>& patches);
 
 // Largest `valuefile` a caller should read into `value`.
 constexpr std::size_t kMaxMemoryValueBytes = 1u << 20;

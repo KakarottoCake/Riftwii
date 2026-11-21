@@ -621,6 +621,36 @@ bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::
     return true;
 }
 
+bool find_pad_symbols_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched,
+                                   PadSymbols& out, bool& from_patch, std::string& error) {
+    from_patch = false;
+    PadSymbols pack;
+    if (!patched.empty()) {
+        std::string pack_error;
+        if (!find_pad_symbols(patched, pack, pack_error)) {
+            out = PadSymbols{};
+            error = "in a pack's memory patches: " + pack_error;
+            return false;
+        }
+    }
+    if (pack.read == 0) return find_pad_symbols(text, out, error);
+    PadSymbols game;
+    std::string game_error;
+    const bool game_sure = find_pad_symbols(text, game, game_error);
+    // The patches' bytes first: where one writes over the game's code,
+    // the search reads what will be there.
+    std::vector<CodeRange> both(patched);
+    both.insert(both.end(), text.begin(), text.end());
+    out = PadSymbols{};
+    out.read = pack.read;
+    out.read_sites = pack.read_sites;
+    out.idle_reset = find_idle_reset(both, pack.read);
+    out.control_motor = pack.control_motor != 0 ? pack.control_motor : game_sure ? game.control_motor : 0;
+    from_patch = true;
+    error.clear();
+    return true;
+}
+
 namespace {
 
 // Every address where `text` (with its terminating NUL) starts.

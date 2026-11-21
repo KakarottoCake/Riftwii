@@ -181,9 +181,11 @@ AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices);
 
 // While boot.log is still open: PADRead and PADControlMotor in the
 // loaded game, into a fresh `out`, then /dev/usb/hid opened for the game
-// (libogc's USB is shut down for it). False (with a reason) turns the
-// adapter off.
-bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::string& why);
+// (libogc's USB is shut down for it). A PADRead in a pack's plain
+// <memory> patches (`patches`, not applied yet) is found too, and wins
+// over the game's own. False (with a reason) turns the adapter off.
+bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<MemoryPatch>& patches, PadHook& out,
+                        std::string& why);
 
 // The adapter's /dev/usb/hid handle for the game, with its HID version and
 // the adapter's v5 device id from the USB list (-1: none): the one

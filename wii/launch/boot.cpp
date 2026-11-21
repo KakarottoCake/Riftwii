@@ -1286,12 +1286,15 @@ const char* whole_mem1_reason(bool code_build, bool clears_mem1_top) {
 // While boot.log is open, on the game as loaded: the adapter's PAD search
 // (false when it turns the adapter off; its USB handle is then let go,
 // so the game's own USB gets it), and Settings > GameCube rumble Off.
-bool prepare_gc_pads(const DolHeader& dol, bool gc_adapter, bool gx_protected, PadHook& pad) {
+// `patches` are the packs' <memory> patches, not applied yet: a PADRead
+// one of them writes is found too.
+bool prepare_gc_pads(const DolHeader& dol, bool gc_adapter, bool gx_protected, const std::vector<MemoryPatch>& patches,
+                     PadHook& pad) {
     if (gx_protected && g_extras.gc_adapter != GcAdapterMode::Off)
         logf("GameCube adapter: off: the game checks its own code (MetaFortress)\n");
     if (gc_adapter) {
         std::string why;
-        if (!find_pad_functions(dol, g_extras.gc_adapter == GcAdapterMode::Demo, pad, why)) {
+        if (!find_pad_functions(dol, g_extras.gc_adapter == GcAdapterMode::Demo, patches, pad, why)) {
             logf("GameCube adapter: off: %s\n", why.c_str());
             gc_adapter = false;
         }
@@ -2652,7 +2655,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // The adapter's PAD search while boot.log is open; the rest of its
     // setup comes after the runtime's, when the log has ended.
     GameExtras extras;
-    gc_adapter = prepare_gc_pads(dol, gc_adapter, gx_protected, extras.pad);
+    gc_adapter = prepare_gc_pads(dol, gc_adapter, gx_protected, options.memory_patches, extras.pad);
 
     // The game's own Reset where no runtime takes it (#458): the adapter's
     // hook does, which needs the SD card for the request and Return to
@@ -4494,7 +4497,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     extras_context.arena1_hi = channel_arena_top;
     extras_context.arena2_lo = read32(0x80003124);
     extras_context.mem1_floor = channel_extras_floor(dol, loader_end);
-    extras_context.gc_adapter = prepare_gc_pads(dol, adapter_wanted, gx_protected, extras.pad);
+    extras_context.gc_adapter = prepare_gc_pads(dol, adapter_wanted, gx_protected, {}, extras.pad);
     extras_context.gx_protected = gx_protected;
     extras_context.clears_mem1_top = clears_mem1_top;
     plan_game_extras(dol, extras_context, extras);
