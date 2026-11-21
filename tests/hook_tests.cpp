@@ -694,9 +694,10 @@ static void TestIpcApiSearchUnoptimized() {
     (void)changed;
     (void)loaded;
 
-    // IOS_IoctlAsync first calls another function with `li r4, 6` (one no
-    // other API function calls): the search passes it over and still
-    // finds the setup helper after it.
+    // IOS_IoctlAsync first calls another function with `li r4, 6`, one
+    // that no other API function calls (only a function that never
+    // submits calls it with 2): the search passes it over and still finds
+    // the setup helper after it.
     FakeText w;
     const std::uint32_t walloc = w.here();
     w.prologue();
@@ -713,6 +714,7 @@ static void TestIpcApiSearchUnoptimized() {
     std::uint32_t wasync[8] = {};
     for (std::uint32_t cmd : {2u, 6u, 7u})
         wasync[cmd] = w.unoptimized_function(cmd, true, wsetup, wfill, wsubmit, true, cmd == 6 ? wother : 0);
+    w.unoptimized_function(2, true, wother, wfill, wsubmit, false);
     riftwii::IpcSymbols ws;
     ws.ioctl_async = wasync[6];
     riftwii::IpcApi wapi;
