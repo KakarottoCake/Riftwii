@@ -400,7 +400,8 @@ bool find_ipc_api(const std::vector<CodeRange>& text, const IpcSymbols& known, I
     // when it starts with a stack frame and another API function in the
     // stretch (one that also calls submit, as below) calls it with another
     // command. Another call made with 6 that isn't the helper is passed
-    // over for the next.
+    // over; when two different functions both pass, which one is the
+    // helper is unclear and the search gives up.
     const auto is_setup_helper = [&](std::uint32_t candidate) {
         if (!is_stwu_r1(word_at(text, candidate))) return false;
         std::set<std::uint32_t> commands;
@@ -414,13 +415,20 @@ bool find_ipc_api(const std::vector<CodeRange>& text, const IpcSymbols& known, I
         return commands.size() >= 2;
     };
     std::uint32_t setup = 0;
+    bool two_helpers = false;
     if (alloc == 0 && submit != 0) {
-        for (std::uint32_t a = known.ioctl_async + 8; a + 4 <= known_end && setup == 0; a += 4) {
+        for (std::uint32_t a = known.ioctl_async + 8; a + 4 <= known_end; a += 4) {
             const std::uint32_t w = word_at(text, a);
             if (!is_bl(w) || r4_immediate_before(text, known.ioctl_async, known_end, a) != kIpcIoctlCmd) continue;
             const std::uint32_t candidate = bl_target(a, w);
-            if (inside(text, candidate) && is_setup_helper(candidate)) setup = candidate;
+            if (candidate == setup || !inside(text, candidate) || !is_setup_helper(candidate)) continue;
+            if (setup != 0) two_helpers = true;
+            setup = candidate;
         }
+    }
+    if (two_helpers) {
+        error = "IOS_IoctlAsync hands command 6 to two functions that both look like the setup helper";
+        return false;
     }
     if ((alloc == 0 && setup == 0) || submit == 0) {
         error = "IOS_IoctlAsync does not call a block allocator (64, 32) and a submit routine the expected way";

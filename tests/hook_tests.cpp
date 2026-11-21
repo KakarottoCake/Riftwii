@@ -743,6 +743,31 @@ static void TestIpcApiSearchUnoptimized() {
     EXPECT_EQ(wapi.async[2], wasync[2]);
     EXPECT_EQ(wapi.async[7], wasync[7]);
     EXPECT_EQ(wapi.async[1], wopen);
+
+    // The same other function before the setup helper in both commands 2
+    // and 6 (not 7): it passes the helper check as well as the real one,
+    // so which is the helper is unclear and the search gives up rather
+    // than miss IOS_IoctlvAsync.
+    FakeText x;
+    const std::uint32_t xalloc = x.here();
+    x.prologue();
+    const std::uint32_t xsetup = x.here();
+    x.word(0x9421FFD0);  // stwu r1,-48(r1)
+    x.bl(xalloc);
+    x.word(0x4E800020);  // blr
+    const std::uint32_t xsubmit = x.here();
+    x.prologue();
+    const std::uint32_t xfill = x.here();
+    x.prologue();
+    const std::uint32_t xother = x.here();
+    x.prologue();
+    std::uint32_t xasync[8] = {};
+    for (std::uint32_t cmd : {2u, 6u, 7u})
+        xasync[cmd] = x.unoptimized_function(cmd, true, xsetup, xfill, xsubmit, true, cmd == 7 ? 0 : xother);
+    riftwii::IpcSymbols xs;
+    xs.ioctl_async = xasync[6];
+    riftwii::IpcApi xapi;
+    EXPECT_FALSE(riftwii::find_ipc_api({x.range()}, xs, xapi, error));
     (void)clobbered;
     (void)twice;
     (void)joined;
