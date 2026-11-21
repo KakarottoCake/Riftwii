@@ -28,6 +28,8 @@ constexpr std::uint64_t kTitle = 0x0001000157413445ull;
 const std::uint8_t kCommonKey[16] = {1, 2, 3};
 const std::uint8_t kTitleKey[16] = {4, 5, 6};
 std::map<std::string, std::vector<std::uint8_t>> usb_files;
+// USB Loader GX's channel folder, as GXGlobal.cfg's NandEmuChanPath gives it.
+std::string channel_nand_folder = "sd:/nands/01";
 unsigned usb_banner_reads = 0;
 unsigned key_reads = 0;
 std::array<int, 3> key_choices = {1, -1, -1};
@@ -230,6 +232,23 @@ void test_drop_play_and_cache() {
     CHECK(channels.empty());
 }
 
+void test_channel_nand_on_usb() {
+    // A tester's USB Loader GX keeps its channels in usb1:/nands/01: a WAD
+    // can only be prepared on the SD card, so it goes to sd:/nands/01.
+    usb_files["usb:/wiiware/game.wad"] = make_wad(20);
+    channel_nand_folder = "usb1:/nands/01";
+    std::vector<NandChannel> channels;
+    list_wad_channels(true, channels);
+    CHECK(channels.size() == 1 && channels[0].emu_nand == "sd:/nands/01");
+    // One on the SD card is used as it is.
+    channel_nand_folder = "sd:/nands/gx";
+    channels.clear();
+    list_wad_channels(true, channels);
+    CHECK(channels.size() == 1 && channels[0].emu_nand == "sd:/nands/gx");
+    channel_nand_folder = "sd:/nands/01";
+    usb_files.clear();
+}
+
 void test_usb_partitions_and_merge() {
     usb_files["usb:/wiiware/game.wad"] = make_wad(20);
     usb_files["usb2:/wiiware/nested/game.wad"] = make_wad(30);
@@ -254,6 +273,16 @@ void test_usb_partitions_and_merge() {
     real = {installed};
     merge_wad_channels(real, channels);
     CHECK(real.size() == 1 && real[0].emu_nand == "sd:/nands/old" && !real[0].wad_path.empty());
+    // An installed copy in an emulated NAND on the USB drive (USB Loader
+    // GX's channel folder there): the WAD stays prepared on the SD card.
+    channels.clear();
+    list_wad_channels(true, channels);  // the merges above moved them out
+    const std::string wad_folder = channels[0].emu_nand;
+    CHECK(wad_folder.compare(0, 4, "sd:/") == 0);
+    installed.emu_nand = "usb1:/nands/01";
+    real = {installed};
+    merge_wad_channels(real, channels);
+    CHECK(real.size() == 1 && real[0].emu_nand == wad_folder && !real[0].wad_path.empty());
 }
 }  // namespace
 
@@ -285,7 +314,7 @@ bool ConsoleWadTitleKey(WadKeySource source, const std::vector<std::uint8_t>&, s
 SharedNandLookup look_up_channel_nand() {
     SharedNandLookup result;
     result.usable = true;
-    result.folder = "sd:/nands/01";
+    result.folder = channel_nand_folder;
     return result;
 }
 bool prepare_wad_nand_system(const std::string&, std::string&) { return true; }
@@ -321,6 +350,7 @@ int main() {
     test_installer_rollback();
     test_verified_installer_sources();
     test_drop_play_and_cache();
+    test_channel_nand_on_usb();
     test_usb_partitions_and_merge();
     fs::remove_all("sd:");
     return failures == 0 ? 0 : 1;

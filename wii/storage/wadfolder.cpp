@@ -168,7 +168,9 @@ void merge_wad_channels(std::vector<NandChannel>& out, std::vector<NandChannel>&
             // copy retains its established launch/save location.
             continue;
         } else {
-            if (!existing->emu_nand.empty()) channel.emu_nand = existing->emu_nand;
+            // The installed copy's folder, when the WAD could be prepared
+            // there: only an emulated NAND on the SD card can be.
+            if (existing->emu_nand.compare(0, 4, "sd:/") == 0) channel.emu_nand = existing->emu_nand;
             *existing = std::move(channel);
         }
     }
@@ -184,8 +186,16 @@ unsigned list_wad_channels(bool usb, std::vector<NandChannel>& out) {
         scan_folder("sd:/wiiware", false, files, visited);
     }
     if (!usb) std::sort(files.begin(), files.end());
+    // WADs are prepared into an emulated NAND on the SD card, the only
+    // place RiftWii plays channels from. USB Loader GX's channel folder is
+    // used when it is on the card; one on the USB drive (a tester's
+    // usb1:/nands/01) can't be, so sd:/nands/01 takes the WADs instead.
     const SharedNandLookup nand = look_up_channel_nand();
-    const std::string folder = nand.usable ? nand.folder : "sd:/nands/01";
+    const bool nand_on_sd = nand.usable && nand.folder.compare(0, 4, "sd:/") == 0;
+    const std::string folder = nand_on_sd ? nand.folder : "sd:/nands/01";
+    if (nand.usable && !nand_on_sd && !files.empty())
+        logf("WiiWare folder: the emulated NAND for channels is %s, not on the SD card, so WADs are prepared in %s.\n",
+             nand.folder.c_str(), folder.c_str());
     mkdir("sd:/riftwii", 0777);
     mkdir(kCache, 0777);
     std::vector<NandChannel> found;
