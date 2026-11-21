@@ -4593,6 +4593,12 @@ msgstr "Copiado a {1}. Inicio lo muestra cuando se vuelvan a leer las unidades."
 msgid "The title could not be copied. See session.log for details."
 msgstr "No se pudo copiar el título. Consulta session.log para ver los detalles."
 
+msgid "Checking the memory card in slot {1}..."
+msgstr "Comprobando la tarjeta de memoria de la ranura {1}..."
+
+msgid "The memory card in slot {1} did not answer. Take it out, put it back in and restart RiftWii, or use this game's SD card for now."
+msgstr "La tarjeta de memoria de la ranura {1} no responde. Sácala, vuelve a insertarla y reinicia RiftWii, o usa por ahora la tarjeta SD de este juego."
+
 msgid "This title is already in {1}. Delete it there first to copy it again."
 msgstr "Este título ya está en {1}. Bórralo allí primero para volver a copiarlo."
 

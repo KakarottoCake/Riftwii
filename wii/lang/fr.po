@@ -4593,6 +4593,12 @@ msgstr "Copié dans {1}. L'accueil l'affiche une fois les supports relus."
 msgid "The title could not be copied. See session.log for details."
 msgstr "Impossible de copier le titre. Voir session.log pour les détails."
 
+msgid "Checking the memory card in slot {1}..."
+msgstr "Vérification de la carte mémoire du port {1}..."
+
+msgid "The memory card in slot {1} did not answer. Take it out, put it back in and restart RiftWii, or use this game's SD card for now."
+msgstr "La carte mémoire du port {1} ne répond pas. Retirez-la, remettez-la et redémarrez RiftWii, ou utilisez pour l'instant la carte SD de ce jeu."
+
 msgid "This title is already in {1}. Delete it there first to copy it again."
 msgstr "Ce titre est déjà dans {1}. Supprimez-le d'abord là-bas pour le copier à nouveau."
 

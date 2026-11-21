@@ -4593,6 +4593,12 @@ msgstr "Copiato in {1}. La Home lo mostra quando le unità vengono rilette."
 msgid "The title could not be copied. See session.log for details."
 msgstr "Impossibile copiare il titolo. Vedi session.log per i dettagli."
 
+msgid "Checking the memory card in slot {1}..."
+msgstr "Controllo della memory card nello slot {1}..."
+
+msgid "The memory card in slot {1} did not answer. Take it out, put it back in and restart RiftWii, or use this game's SD card for now."
+msgstr "La memory card nello slot {1} non ha risposto. Toglila, reinseriscila e riavvia RiftWii, oppure per ora usa la scheda SD di questo gioco."
+
 msgid "This title is already in {1}. Delete it there first to copy it again."
 msgstr "Questo titolo è già in {1}. Eliminalo prima lì per copiarlo di nuovo."
 
