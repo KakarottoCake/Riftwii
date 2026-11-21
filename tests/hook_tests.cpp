@@ -601,6 +601,41 @@ static void TestIpcApiSearchUnoptimized() {
     us.ioctl_async = u.unoptimized_function(6, true, usetup, ufill, usubmit);
     riftwii::IpcApi uapi;
     EXPECT_FALSE(riftwii::find_ipc_api({u.range()}, us, uapi, error));
+
+    // r4 changed after its `li` is no longer that command: `li r4, 1`,
+    // `ori r4, r4, 2`, then the setup call hands it 3, so this function
+    // is no IOS_Open; with only r5 and r7 set in between it still is.
+    FakeText v;
+    const std::uint32_t valloc = v.here();
+    v.prologue();
+    const std::uint32_t vsetup = v.here();
+    v.word(0x9421FFD0);  // stwu r1,-48(r1)
+    v.bl(valloc);
+    v.word(0x4E800020);  // blr
+    const std::uint32_t vsubmit = v.here();
+    v.prologue();
+    const std::uint32_t vfill = v.here();
+    v.prologue();
+    const std::uint32_t changed = v.here();
+    v.word(0x9421FFD0);  // stwu r1,-48(r1)
+    v.li(4, 1);
+    v.word(0x60840002);  // ori r4,r4,2
+    v.word(0x38E10024);  // addi r7,r1,36
+    v.bl(vsetup);
+    v.li(4, 0);
+    v.bl(vsubmit);
+    v.word(0x4E800020);  // blr
+    std::uint32_t vasync[8] = {};
+    for (std::uint32_t cmd : {2u, 6u, 7u}) vasync[cmd] = v.unoptimized_function(cmd, true, vsetup, vfill, vsubmit);
+    riftwii::IpcSymbols vs;
+    vs.ioctl_async = vasync[6];
+    vs.ioctlv_async = vasync[7];
+    riftwii::IpcApi vapi;
+    EXPECT_TRUE(riftwii::find_ipc_api({v.range()}, vs, vapi, error));
+    EXPECT_EQ(vapi.async[6], vasync[6]);
+    EXPECT_EQ(vapi.async[2], vasync[2]);
+    EXPECT_EQ(vapi.sync[1], 0u);
+    (void)changed;
 }
 
 static void TestReturnToMenuSearch() {

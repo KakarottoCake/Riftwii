@@ -197,18 +197,60 @@ std::set<std::uint32_t> call_targets(const std::vector<CodeRange>& text, std::ui
     return targets;
 }
 
+// Whether the instruction may write general register `r`. Errs towards yes:
+// a "yes" only makes the caller give up on that call.
+bool may_write_gpr(std::uint32_t p, unsigned r) {
+    const std::uint32_t op = p >> 26;
+    const unsigned rd = rd_of(p);
+    const unsigned ra = (p >> 16) & 31u;
+    switch (op) {
+        case 7: case 8: case 12: case 13: case 14: case 15:  // mulli, subfic, addic(.), addi, addis
+            return rd == r;
+        case 20: case 21: case 23:                            // rlwimi, rlwinm, rlwnm
+        case 24: case 25: case 26: case 27: case 28: case 29:  // ori, oris, xori, xoris, andi., andis.
+            return ra == r;
+        case 32: case 34: case 40: case 42:  // lwz, lbz, lhz, lha
+            return rd == r;
+        case 33: case 35: case 41: case 43:  // their update forms also write rA
+            return rd == r || ra == r;
+        case 46:  // lmw rD: rD to r31
+            return rd <= r;
+        case 37: case 39: case 45: case 49: case 51: case 53: case 55:  // stores and FP loads with update
+            return ra == r;
+        case 31: {
+            const std::uint32_t xo = (p >> 1) & 0x3FFu;
+            switch (xo) {
+                case 28: case 60: case 444: case 412: case 316: case 476: case 124: case 284:  // and..eqv, or (mr)
+                case 24: case 536: case 792: case 824: case 26: case 922: case 954:  // shifts, cntlzw, exts
+                    return ra == r;
+                case 0: case 32:                                            // cmp, cmpl
+                case 144: case 146: case 210: case 242: case 467:          // mtcrf, mtmsr, mtsr(in), mtspr
+                case 151: case 215: case 407: case 662: case 918: case 150:  // stores
+                case 663: case 727: case 983:                               // FP stores
+                case 54: case 86: case 246: case 278: case 470: case 982: case 1014:  // cache
+                case 598: case 854:                                         // sync, eieio
+                    return false;
+                case 183: case 247: case 439: case 695: case 759:  // stores with update write rA
+                    return ra == r;
+                case 55: case 119: case 311: case 375:  // loads with update write rD and rA
+                    return rd == r || ra == r;
+                default:
+                    return rd == r;
+            }
+        }
+        default:
+            return false;
+    }
+}
+
 // The value `li r4, N` gives r4 for the call at `call` (looking back a few
-// instructions, not past `start`); -1 when r4 is set some other way there
-// or not at all.
+// instructions, not past `start`); -1 when r4 is set some other way there,
+// changed after the `li`, or not set at all.
 std::int64_t r4_immediate_before(const std::vector<CodeRange>& text, std::uint32_t start, std::uint32_t call) {
     for (std::uint32_t back = 4; back <= kArgumentLookback * 4 && call >= start + back; back += 4) {
         const std::uint32_t p = word_at(text, call - back);
         if (is_li(p) && rd_of(p) == 4) return static_cast<std::int16_t>(p & 0xFFFFu);
-        const std::uint32_t op = p >> 26;
-        const bool d_form_to_r4 = (op == 14 || op == 15 || (op >= 32 && op <= 35) || (op >= 40 && op <= 43)) &&
-                                  rd_of(p) == 4;                         // addi, addis, loads
-        const bool or_to_r4 = (p & 0xFC0007FEu) == 0x7C000378u && ((p >> 16) & 31u) == 4;  // mr r4, rX
-        if (d_form_to_r4 || or_to_r4 || is_bl(p)) return -1;
+        if (is_bl(p) || may_write_gpr(p, 4)) return -1;
     }
     return -1;
 }
