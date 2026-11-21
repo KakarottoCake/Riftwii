@@ -4578,6 +4578,24 @@ msgstr "Elimina salvataggio emulato"
 msgid "Delete emulated title"
 msgstr "Elimina titolo emulato"
 
+msgid "Copy to SD card"
+msgstr "Copia sulla scheda SD"
+
+msgid "Copy to USB drive"
+msgstr "Copia sull'unità USB"
+
+msgid "Copies this game, its save and its ticket to {1}. RiftWii plays WiiWare and Virtual Console games from an emulated NAND on the SD card."
+msgstr "Copia questo gioco, il suo salvataggio e il suo ticket in {1}. RiftWii avvia WiiWare e Virtual Console da una NAND emulata sulla scheda SD."
+
+msgid "{1}\nfrom {2}\nto {3}\nThe game, its save and its ticket are copied; the original stays. Keep the Wii turned on until copying finishes."
+msgstr "{1}\nda {2}\na {3}\nVengono copiati il gioco, il salvataggio e il ticket; l'originale resta. Non spegnere la Wii finché non ha finito."
+
+msgid "Copied to {1}. Home shows it after the drives are read again."
+msgstr "Copiato in {1}. La Home lo mostra quando le unità vengono rilette."
+
+msgid "The title could not be copied: {1}"
+msgstr "Impossibile copiare il titolo: {1}"
+
 msgid "Miis from Wii"
 msgstr "Mii dalla Wii"
 

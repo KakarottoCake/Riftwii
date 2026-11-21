@@ -4578,6 +4578,24 @@ msgstr "에뮬레이트 저장 데이터 삭제"
 msgid "Delete emulated title"
 msgstr "에뮬레이트 타이틀 삭제"
 
+msgid "Copy to SD card"
+msgstr "SD 카드로 복사"
+
+msgid "Copy to USB drive"
+msgstr "USB 드라이브로 복사"
+
+msgid "Copies this game, its save and its ticket to {1}. RiftWii plays WiiWare and Virtual Console games from an emulated NAND on the SD card."
+msgstr "이 게임과 저장 데이터, 티켓을 {1}(으)로 복사합니다. RiftWii는 SD 카드의 에뮬레이트 NAND에서 WiiWare와 버추얼 콘솔을 실행합니다."
+
+msgid "{1}\nfrom {2}\nto {3}\nThe game, its save and its ticket are copied; the original stays. Keep the Wii turned on until copying finishes."
+msgstr "{1}\n{2}에서\n{3}(으)로\n게임과 저장 데이터, 티켓을 복사합니다. 원본은 그대로 남습니다. 끝날 때까지 Wii를 끄지 마세요."
+
+msgid "Copied to {1}. Home shows it after the drives are read again."
+msgstr "{1}(으)로 복사했습니다. 드라이브를 다시 읽으면 홈에 표시됩니다."
+
+msgid "The title could not be copied: {1}"
+msgstr "타이틀을 복사할 수 없습니다: {1}"
+
 msgid "Miis from Wii"
 msgstr "Wii에서 Mii 복사"
 
