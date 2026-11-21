@@ -4578,11 +4578,8 @@ msgstr "Supprimer la sauvegarde émulée"
 msgid "Delete emulated title"
 msgstr "Supprimer le titre émulé"
 
-msgid "Copy to SD card"
-msgstr "Copier sur la carte SD"
-
-msgid "Copy to USB drive"
-msgstr "Copier sur le disque USB"
+msgid "Copy to {1}"
+msgstr "Copier dans {1}"
 
 msgid "Copies this game, its save and its ticket to {1}. RiftWii plays WiiWare and Virtual Console games from an emulated NAND on the SD card."
 msgstr "Copie ce jeu, sa sauvegarde et son ticket dans {1}. RiftWii lance les jeux WiiWare et Console Virtuelle depuis une NAND émulée sur la carte SD."

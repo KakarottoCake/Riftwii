@@ -4578,11 +4578,8 @@ msgstr "仮想NANDのセーブを削除"
 msgid "Delete emulated title"
 msgstr "仮想NANDのタイトルを削除"
 
-msgid "Copy to SD card"
-msgstr "SDカードへコピー"
-
-msgid "Copy to USB drive"
-msgstr "USBドライブへコピー"
+msgid "Copy to {1}"
+msgstr "{1}へコピー"
 
 msgid "Copies this game, its save and its ticket to {1}. RiftWii plays WiiWare and Virtual Console games from an emulated NAND on the SD card."
 msgstr "このゲームとセーブ、チケットを{1}へコピーします。RiftWiiはWiiウェアとバーチャルコンソールをSDカードの仮想NANDから遊びます。"
