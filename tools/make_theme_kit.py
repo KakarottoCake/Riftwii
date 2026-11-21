@@ -16,8 +16,11 @@ so the kit always matches the release it ships with. The zip holds:
     riftwii-theme-kit/README.txt          themes/kit/README.txt
     riftwii-theme-kit/THEMES.md           docs/THEMES.md
     riftwii-theme-kit/MyTheme/theme.ini   starter theme (theme_kit)
+    riftwii-theme-kit/MyTheme/LICENSE     its license (CC0), for the
+                                          theme's maker to replace
     riftwii-theme-kit/Midnight/           themes/Midnight (colours only)
     riftwii-theme-kit/Bookshelf/          themes/Bookshelf (its own pictures)
+    riftwii-theme-kit/Indigo/             themes/Indigo (its own pictures)
     riftwii-theme-kit/guide/              themes/kit/guide: where each
                                           picture and colour shows
     riftwii-theme-kit/sounds/             themes/kit/sounds: RiftWii's
@@ -26,6 +29,7 @@ so the kit always matches the release it ships with. The zip holds:
     riftwii-theme-kit/templates/Default/  every picture, default look
     riftwii-theme-kit/templates/Midnight/ the same in Midnight's colours
     riftwii-theme-kit/templates/Bookshelf/ the same in Bookshelf's
+    riftwii-theme-kit/templates/Indigo/   the same in Indigo's
 """
 import pathlib
 import re
@@ -55,7 +59,8 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         gen = pathlib.Path(tmp)
         subprocess.run([tool, str(gen), "Default", "Midnight=" + str(ROOT / "themes/Midnight/theme.ini"),
-                        "Bookshelf=" + str(ROOT / "themes/Bookshelf/theme.ini")], check=True)
+                        "Bookshelf=" + str(ROOT / "themes/Bookshelf/theme.ini"),
+                        "Indigo=" + str(ROOT / "themes/Indigo/theme.ini")], check=True)
         if sys.argv[2] == "--repo":
             kit = ROOT / "themes/kit"
             for old in kit.glob("templates/*/*.png"):
@@ -73,10 +78,12 @@ def main():
             "README.txt": readme.replace("\n", "\r\n").encode("utf-8"),
             "THEMES.md": (ROOT / "docs/THEMES.md").read_bytes(),
             "MyTheme/theme.ini": (gen / "MyTheme/theme.ini").read_bytes(),
+            "MyTheme/LICENSE": (ROOT / "themes/kit/MyTheme/LICENSE").read_bytes(),
         }
-        # The sample themes whole: Midnight is colours only, Bookshelf has
+        # The sample themes whole: Midnight is colours only, Bookshelf and
+        # Indigo have
         # its own pictures (and music, if it ever gets some).
-        for theme in ("Midnight", "Bookshelf"):
+        for theme in ("Midnight", "Bookshelf", "Indigo"):
             for f in sorted((ROOT / "themes" / theme).iterdir()):
                 files[theme + "/" + f.name] = f.read_bytes()
         for f in sorted((ROOT / "themes/kit/guide").glob("*.png")):

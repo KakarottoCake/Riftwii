@@ -91,10 +91,17 @@ std::string StarterIni() {
          "bar = dip\n"
          "# The HOME Menu: wii (the Wii's own) or ios6 (glossy bars and linen).\n"
          "home_menu = wii\n"
+         "# Wood grain along Home's shelf: yes or no (no: a smooth shelf with a thin\n"
+         "# accent line). A theme's own shelf.png wins.\n"
+         "shelf_grain = no\n"
          "\n"
          "[backdrop]\n"
          "# Thin horizontal stripes across the backdrop: yes or no.\n"
          "stripes = yes\n"
+         "# A looping backdrop: how many frames (backdrop_00.png, backdrop_01.png...),\n"
+         "# 2 to 60; 0 for none. And how many a second, 1 to 30.\n"
+         "frames = 0\n"
+         "fps = 12\n"
          "\n"
          "[colors]\n";
     for (const riftwii::ThemeColorKey& k : riftwii::theme_color_keys()) {
