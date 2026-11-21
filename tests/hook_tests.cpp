@@ -715,6 +715,26 @@ static void TestIpcApiSearchUnoptimized() {
     for (std::uint32_t cmd : {2u, 6u, 7u})
         wasync[cmd] = w.unoptimized_function(cmd, true, wsetup, wfill, wsubmit, true, cmd == 6 ? wother : 0);
     w.unoptimized_function(2, true, wother, wfill, wsubmit, false);
+    // An IOS_OpenAsync with a stack local at 0x28(r1), where the reboot
+    // forms set relaunch in the block: still an API function.
+    const std::uint32_t wopen = w.here();
+    w.word(0x9421FFD0);  // stwu r1,-48(r1)
+    w.word(0x7C0802A6);  // mflr r0
+    w.word(0x90010034);  // stw r0,52(r1)
+    w.word(0x7D3E4B78);  // mr r30,r9 (the callback)
+    w.word(0x38000001);  // li r0,1
+    w.word(0x90010028);  // stw r0,40(r1)
+    w.li(4, 1);
+    w.word(0x7FC5F378);  // mr r5,r30
+    w.word(0x38E10024);  // addi r7,r1,36
+    w.bl(wsetup);
+    w.word(0x80610024);  // lwz r3,36(r1)
+    w.word(0x7FC4F378);  // mr r4,r30
+    w.bl(wsubmit);
+    w.word(0x80010034);  // lwz r0,52(r1)
+    w.word(0x7C0803A6);  // mtlr r0
+    w.word(0x38210030);  // addi r1,r1,48
+    w.word(0x4E800020);  // blr
     riftwii::IpcSymbols ws;
     ws.ioctl_async = wasync[6];
     riftwii::IpcApi wapi;
@@ -722,6 +742,7 @@ static void TestIpcApiSearchUnoptimized() {
     EXPECT_EQ(wapi.async[6], wasync[6]);
     EXPECT_EQ(wapi.async[2], wasync[2]);
     EXPECT_EQ(wapi.async[7], wasync[7]);
+    EXPECT_EQ(wapi.async[1], wopen);
     (void)clobbered;
     (void)twice;
     (void)joined;

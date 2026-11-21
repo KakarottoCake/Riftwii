@@ -177,7 +177,10 @@ std::set<std::uint32_t> stored_immediates(const std::vector<CodeRange>& text, st
         if (!is_li(w)) continue;
         for (std::size_t k = 1; k <= kStoreWindow && a + k * 4 < end; ++k) {
             const std::uint32_t s = word_at(text, a + static_cast<std::uint32_t>(k * 4));
-            if ((s & 0xFC000000u) == 0x90000000u && rd_of(s) == rd_of(w) && (s & 0xFFFFu) == offset) {
+            // A store off r1 is to the function's own stack, never the
+            // request block (an unoptimized function keeps its locals there).
+            const unsigned base = (s >> 16) & 31u;
+            if ((s & 0xFC000000u) == 0x90000000u && rd_of(s) == rd_of(w) && base != 1 && (s & 0xFFFFu) == offset) {
                 found.insert(w & 0xFFFFu);
                 break;
             }
