@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/mempatch.hpp"
 
+#include "riftwii/checkedalloc.hpp"
+
 #include <algorithm>
 #include <cstring>
 
@@ -302,6 +304,125 @@ std::uint32_t memory_patch_target(const MemoryPatch& p) {
     std::uint32_t address = static_cast<std::uint32_t>(p.offset);
     if ((address & 0xE0000000u) == 0xC0000000u) address -= 0x40000000u;
     return address | 0x80000000u;
+}
+
+// What `memory` holds at `address` with the writes so far over it.
+bool PatchedCode::read(MemoryAccess& memory, std::uint32_t address, std::vector<std::uint8_t>& out) const {
+    if (!memory.read(address, out.data(), out.size())) return false;
+    const std::uint64_t end = std::uint64_t{address} + out.size();
+    for (const Write& w : writes_) {
+        const std::uint64_t stop = std::uint64_t{w.address} + w.size;
+        if (stop <= address || w.address >= end) continue;
+        const std::uint64_t from = std::max<std::uint64_t>(w.address, address);
+        const std::uint64_t to = std::min(stop, end);
+        std::memcpy(out.data() + (from - address), w.bytes + (from - w.address), static_cast<std::size_t>(to - from));
+    }
+    return true;
+}
+
+bool PatchedCode::build(const std::vector<MemoryPatch>& patches, MemoryAccess& memory, std::string& error) {
+    writes_.clear();
+    joined_.clear();
+    ranges_.clear();
+    // The preview's loops grow with the square of the plain patches it
+    // keeps; past this many (macros can repeat a patch thousands of times)
+    // it gives up rather than hold the launch up, and the game's own
+    // PADRead is searched as before.
+    std::size_t plain = 0;
+    for (const MemoryPatch& p : patches) {
+        if (p.has_offset && !p.search && !p.ocarina && !p.value.empty()) ++plain;
+    }
+    if (plain > kMaxPreviewedPatches) {
+        error = std::to_string(plain) + " plain memory patches, more than the " +
+                std::to_string(kMaxPreviewedPatches) + " the preview reads";
+        return false;
+    }
+    if (!try_reserve(writes_, plain)) {
+        error = "no memory to read the packs' memory patches";
+        return false;
+    }
+    for (const MemoryPatch& p : patches) {
+        if (!p.has_offset || p.search || p.ocarina || p.value.empty()) continue;
+        const std::uint32_t address = memory_patch_target(p);
+        // What apply_plain refuses (outside game RAM) fails the launch
+        // there, with its own message; it isn't previewed.
+        if (!inside_game_ram(address, p.value.size()) || !inside_game_ram(address, p.original.size())) continue;
+        if (!p.original.empty()) {
+            std::vector<std::uint8_t> current;
+            if (!try_resize(current, p.original.size())) {
+                error = "no memory to read the packs' memory patches";
+                writes_.clear();
+                return false;
+            }
+            if (!read(memory, address, current) || current != p.original) continue;  // skipped, as when applied
+        }
+        writes_.push_back(Write{address, p.value.data(), p.value.size()});
+    }
+    if (!join(memory)) {
+        error = "no memory to read the packs' memory patches";
+        writes_.clear();
+        joined_.clear();
+        ranges_.clear();
+        return false;
+    }
+    return true;
+}
+
+// The writes as address ranges: each run of touching or overlapping
+// writes once, the later ones on top, widened to whole words (code is
+// word-aligned; the rest of a partly written word is the game's). A lone
+// whole-word write is used in place.
+bool PatchedCode::join(MemoryAccess& memory) {
+    std::vector<std::size_t> order;
+    if (!try_resize(order, writes_.size()) || !try_reserve(ranges_, writes_.size()) ||
+        !try_reserve(joined_, writes_.size())) {
+        return false;
+    }
+    // By address, document order kept among equals (insertion sort: a
+    // pack has few plain patches, and the standard sorts' code is several
+    // kilobytes in the DOL).
+    for (std::size_t k = 0; k < order.size(); ++k) {
+        std::size_t at = k;
+        while (at > 0 && writes_[order[at - 1]].address > writes_[k].address) {
+            order[at] = order[at - 1];
+            --at;
+        }
+        order[at] = k;
+    }
+    std::size_t first = 0;
+    while (first < order.size()) {
+        const Write& head = writes_[order[first]];
+        const std::uint64_t lo = head.address;
+        std::uint64_t hi = lo + head.size;
+        std::size_t last = first + 1;
+        // Grouped by whole words: two writes into the same word are one
+        // run, or each copy would hold only one of them.
+        while (last < order.size() && (writes_[order[last]].address & ~3u) <= ((hi + 3u) & ~std::uint64_t{3})) {
+            hi = std::max(hi, std::uint64_t{writes_[order[last]].address} + writes_[order[last]].size);
+            ++last;
+        }
+        const std::uint64_t begin = lo & ~std::uint64_t{3};
+        const std::uint64_t end = (hi + 3u) & ~std::uint64_t{3};
+        if (last - first == 1 && begin == lo && end == hi) {
+            ranges_.push_back(CodeRange{head.address, head.bytes, head.size});
+        } else {
+            std::vector<std::uint8_t> run;
+            if (!try_resize(run, static_cast<std::size_t>(end - begin))) return false;
+            // The game's bytes first, for the parts of the edge words no
+            // write covers; then the run's writes in document order, so
+            // the later one wins.
+            if (!memory.read(static_cast<std::uint32_t>(begin), run.data(), run.size())) return false;
+            for (const Write& w : writes_) {
+                if (w.address < lo || w.address >= hi) continue;
+                std::memcpy(run.data() + (w.address - begin), w.bytes, w.size);
+            }
+            joined_.push_back(std::move(run));
+            ranges_.push_back(CodeRange{static_cast<std::uint32_t>(begin), joined_.back().data(),
+                                        static_cast<std::size_t>(end - begin)});
+        }
+        first = last;
+    }
+    return true;
 }
 
 std::vector<MemoryRegion> subtract_memory_regions(const std::vector<MemoryRegion>& regions,

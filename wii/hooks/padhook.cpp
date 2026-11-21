@@ -23,6 +23,7 @@
 #include "pentablet.h"
 #include "riftwii/hbmsearch.hpp"
 #include "riftwii/hook.hpp"
+#include "riftwii/mempatch.hpp"
 #include "riftwii/osrestart.hpp"
 #include "riftwii/symsearch.hpp"
 #include "riftwii_pad_bin.h"
@@ -727,9 +728,39 @@ void find_home_menu(const DolHeader& dol, const std::vector<CodeRange>& text, Pa
     }
 }
 
+// The game as loaded, read in place (nothing here writes to it).
+class LoadedGame final : public MemoryAccess {
+public:
+    bool read(std::uint32_t address, std::uint8_t* out, std::size_t length) override {
+        std::memcpy(out, reinterpret_cast<const void*>(address), length);
+        return true;
+    }
+    bool write(std::uint32_t, const std::uint8_t*, std::size_t) override { return false; }
+};
+
 }  // namespace
 
-bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::string& why) {
+bool pad_read_in_place(std::uint32_t address) {
+    // As far as the search took an error store to belong to a function
+    // (function_start walks back 0x1000 bytes), plus the store's own five
+    // words; it stops at the end of its RAM.
+    constexpr std::uint32_t kWindow = 0x1000 + 5 * 4;
+    const std::uint32_t ram_end = address < 0x90000000u ? 0x81800000u : 0x94000000u;
+    if (address >= ram_end || (address & 3u) != 0) return false;
+    const std::uint32_t bytes = std::min(kWindow, ram_end - address);
+    const std::vector<CodeRange> code = {{address, reinterpret_cast<const std::uint8_t*>(address), bytes}};
+    return is_pad_read(code, address);
+}
+
+void read_patched_code(const std::vector<MemoryPatch>& patches, PatchedCode& out) {
+    LoadedGame game;
+    std::string error;
+    if (!out.build(patches, game, error))
+        logf("GameCube adapter: a PADRead in the packs' memory patches isn't looked for: %s\n", error.c_str());
+}
+
+bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<MemoryPatch>& patches, PadHook& out,
+                        std::string& why) {
     out = PadHook{};
     out.demo = demo;
     bool whole = true;
@@ -743,9 +774,15 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
         const DolSection& s = dol.sections[i];
         if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
     }
+    // A pack's PADRead in its <memory> patches is searched where it will
+    // be written; the hooks go in after the patches, so they find it there.
+    PatchedCode patched_code;
+    read_patched_code(patches, patched_code);
+    const std::vector<CodeRange>& patched = patched_code.ranges();
     PadSymbols pad;
+    bool from_patch = false;
     std::string error;
-    if (!find_pad_symbols(text, pad, error)) {
+    if (!find_pad_symbols_with_patches(text, patched, pad, from_patch, error)) {
         why = "the PAD search is unsure: " + error;
         return false;
     }
@@ -754,13 +791,15 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
         return false;
     }
     out.read = pad.read;
+    out.read_in_patch = from_patch;
     out.read_sites = pad.read_sites;
     out.motor = pad.control_motor;
     out.idle_reset = pad.idle_reset;
     // A screen-dimming reset of 0 means none was found: with the Wii's
     // burn-in reduction on, adapter-only play may then dim the screen.
-    logf("GameCube adapter: PADRead at 0x%08x (%u error stores), PADControlMotor at 0x%08x, screen-dimming reset at 0x%08x\n",
-         out.read, out.read_sites, out.motor, out.idle_reset);
+    logf("GameCube adapter: PADRead at 0x%08x (%u error stores%s), PADControlMotor at 0x%08x, screen-dimming reset at "
+         "0x%08x\n",
+         out.read, out.read_sites, from_patch ? ", in a pack's memory patch" : "", out.motor, out.idle_reset);
     // Settings > Leaving a game, HOME only: the combo leaves nothing, so
     // its hooks are not put in at all (HOME opens the game's HOME Menu).
     if (Settings().leave_buttons == "off") {
@@ -769,7 +808,9 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
         find_way_back(dol, text, out);
         find_home_menu(dol, text, out);
     }
-    out.si_probe = find_gc_si_probe(text, out.read);
+    // SIProbe is told by PADRead's own calls, so with a pack's PADRead it
+    // is searched in the game's code as the patches will leave it.
+    out.si_probe = from_patch ? find_gc_si_probe_with_patches(text, patched, out.read) : find_gc_si_probe(text, out.read);
     // Where SIProbe is missing the adapter still plays: only a game that
     // asks it before reading a port misses the adapter's ports (#510).
     if (out.si_probe != 0)
@@ -1187,6 +1228,17 @@ void log_pad_diagnostics(std::uint32_t code_base, std::uint32_t print_entry) {
 
 bool install_pad_hook(PadHook& hook, std::string& why) {
     if (!hook.active) return false;
+    // A PADRead from the packs' memory patches was chosen from a preview
+    // that doesn't run search patches: checked again now they're all in,
+    // before anything is hooked.
+    if (hook.read_in_patch && !pad_read_in_place(hook.read)) {
+        char buf[96];
+        std::snprintf(buf, sizeof(buf), "the pack's PADRead at 0x%08x isn't there once its memory patches are in",
+                      hook.read);
+        why = buf;
+        hook.active = false;
+        return false;
+    }
     const int kind = kind_of(hook);
     const rt_pad_header& h = header(kind);
     // The HOME Menu's hooks, read only from the blob that has them.

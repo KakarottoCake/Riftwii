@@ -200,12 +200,19 @@ have neither the banner nor this KPAD layout, and keep the way back.
 **Packs that add GameCube controllers** (#352). A game that reads only
 Wii Remotes has no `PADRead`, so the adapter has nothing to hook. A mod
 pack can give it one, and this is the supported way to do it: the pack
-adds a text (code) section to the game's main.dol with its own `PADRead`
-(only text sections are searched), and turns the GameCube controller
-into what the game reads (Super Sentai Battle:
-Ranger Cross's pad pack hooks the game's `KPADReadEx` call and reports a
-Wii Remote with a Nunchuk). RiftWii searches the main.dol that actually
-starts, so the pack's own copy is searched like a game's. For the search
+brings its own `PADRead` and turns the GameCube controller into what the
+game reads (Super Sentai Battle: Ranger Cross's pad pack hooks the game's
+`KPADReadEx` call and reports a Wii Remote with a Nunchuk). The `PADRead`
+can be in a text (code) section the pack adds to the game's main.dol:
+RiftWii searches the main.dol that actually starts, so the pack's own
+copy is searched like a game's. Or a plain `<memory>` patch can write it
+(an offset with a value or valuefile; search and ocarina patches have no
+address until they are applied, so they aren't searched). The patches go
+in after the search, so it reads their bytes where they will be written
+(`PatchedCode`, `find_pad_symbols_with_patches`). A `PADRead`
+from a patch wins over one the game has itself: the pack means its own
+to be read, and the game's may be an SDK copy it never calls. The hooks
+go in after the patches, so they find it in place. For the search
 (`find_pad_symbols`, `src/patching/symsearch.cpp`) to take a function for
 `PADRead`, it must be a framed function (`stwu r1`, then `mflr r0`) with
 at least three of the SDK's "no controller in this port" paths, each
@@ -225,8 +232,9 @@ controller's way back (L, R, Z and Start held two seconds, unless Settings >
 Games > Leaving a game is HOME only), since the
 game's `OSReturnToMenu`, `OSSleepThread` and IPC submit routine are
 found as in any game. `TestPackPadRead` (`tests/gcad_tests.cpp`) keeps a
-routine of this shape found, so a later change to the search fails the
-tests instead of quietly breaking these packs.
+routine of this shape found, and `TestPadSearchInPatches` one written by
+a memory patch, so a later change to the search fails the tests instead
+of quietly breaking these packs.
 
 **Screenshot hook** (`runtime/shot/`, `runtime/rtshot.c`). With In-game
 screenshots on, a third blob hooks the game's `IOS_IoctlvAsync` and, when
