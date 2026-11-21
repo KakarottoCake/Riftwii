@@ -464,7 +464,7 @@ struct Painter {
     Canvas Disc() const { return GlossyDisc(40); }
 
     // The Disc Channel's face with no disc in, as the Wii Menu shows it:
-    // white, a soft grey step just below the middle like a glossy floor,
+    // white (the theme's tile colour), a soft grey step just below the middle like a glossy floor,
     // lighter again towards the foot (shades measured from the Wii Menu in
     // Dolphin). Stretched over the tile's inside, its corners cut there.
     Canvas DiscChannelFace() const {
@@ -479,8 +479,14 @@ struct Painter {
             } else if (t >= 0.68f) {
                 shade = 240.0f + 11.0f * std::min(1.0f, (t - 0.68f) / 0.28f);
             }
-            const auto v = static_cast<std::uint8_t>(shade + 0.5f);
-            c.rect(0, static_cast<float>(y), 64, 1, Rgba{v, v, v, 255});
+            // The Wii's white face in the default look; a theme's own tile
+            // colour, shaded the same way, so a dark theme's Disc Channel
+            // is not the one white tile on Home.
+            const float scale = shade / 255.0f;
+            const auto tint = [scale](std::uint8_t channel) {
+                return static_cast<std::uint8_t>(channel * scale + 0.5f);
+            };
+            c.rect(0, static_cast<float>(y), 64, 1, Rgba{tint(card.r), tint(card.g), tint(card.b), 255});
         }
         return c;
     }

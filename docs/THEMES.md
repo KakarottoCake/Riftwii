@@ -303,11 +303,11 @@ The kit is the [themes/kit](../themes/kit) folder: its
 [README](../themes/kit/README.txt) walks through a theme step by step, and it
 holds a starter `MyTheme/theme.ini` with every setting at its default, guide
 pictures that name every colour and picture on screen, and every picture as
-a template, exactly as RiftWii draws it (in the default look, Midnight's and
-Bookshelf's colours), at the right size. Take only the templates you want to
-change: edit one, keep its size, and save it as PNG in your theme's folder.
-The samples are [themes/Midnight](../themes/Midnight) and
-[themes/Bookshelf](../themes/Bookshelf).
+a template, exactly as RiftWii draws it (in the default look, Midnight's,
+Bookshelf's and Indigo's colours), at the right size. Take only the templates
+you want to change: edit one, keep its size, and save it as PNG in your
+theme's folder. The samples are [themes/Midnight](../themes/Midnight),
+[themes/Bookshelf](../themes/Bookshelf) and [themes/Indigo](../themes/Indigo).
 
 ## Make your own
 
