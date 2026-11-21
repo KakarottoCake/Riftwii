@@ -1616,7 +1616,8 @@ static void TestPadSearchInPatchesDimming() {
     EXPECT_TRUE(patched.build(reset_moved, loaded, error));
 
     // code_with_patches: the game's code around a patch, none overlapping.
-    const std::vector<riftwii::CodeRange> view = riftwii::code_with_patches(text, patched.ranges());
+    std::vector<riftwii::CodeRange> view;
+    EXPECT_TRUE(riftwii::code_with_patches(text, patched.ranges(), view));
     std::size_t covered = 0;
     for (std::size_t k = 0; k < view.size(); ++k) {
         if (k > 0) EXPECT_TRUE(view[k - 1].address + view[k - 1].size <= view[k].address);
@@ -1951,6 +1952,17 @@ static void TestPatchedSiProbeAndMotor() {
                                                        PlainPatch(inside_probe, {0x60, 0x00, 0x00, 0x00})};
     EXPECT_TRUE(patched.build(changed, loaded, error));
     EXPECT_EQ(riftwii::find_gc_si_probe_with_patches(text, patched.ranges(), pack_read), 0u);
+
+    // Thousands of one-word patches over the game's code (each writing the
+    // same bytes): SIProbe is still found, read across all those pieces.
+    std::vector<riftwii::MemoryPatch> many = {PlainPatch(0x1800, pack.bytes())};
+    for (std::uint32_t at = game.base; at + 4 <= game.base + game_code.size(); at += 8) {
+        const std::size_t off = at - game.base;
+        many.push_back(PlainPatch(at, std::vector<std::uint8_t>(game_code.begin() + off, game_code.begin() + off + 4)));
+    }
+    for (std::uint32_t k = 0; k < 3000; ++k) many.push_back(PlainPatch(0x80100000u + 8 * k, {0, 0, 0, 0}));
+    EXPECT_TRUE(patched.build(many, loaded, error));
+    EXPECT_EQ(riftwii::find_gc_si_probe_with_patches(text, patched.ranges(), pack_read), probe);
 
     // Two PADControlMotor shapes in the patches, no PADRead there: the
     // game's own PADRead is still found.

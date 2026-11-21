@@ -121,7 +121,9 @@ bool is_pad_read(const std::vector<CodeRange>& text, std::uint32_t address);
 // order, not overlapping, as PatchedCode gives it) and the parts of
 // `text` no patch writes, in address order, none overlapping. For the
 // searches that follow a pack's PADRead into the game's code.
-std::vector<CodeRange> code_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched);
+// False (and `out` empty) when there's no memory for it.
+bool code_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched,
+                       std::vector<CodeRange>& out);
 
 // PADControlMotor(chan, command) in a GameCube game's own SDK (the one the
 // game was linked with, not the Wii's): after its checks it keeps the

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/symsearch.hpp"
 #include "riftwii/byteorder.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -652,9 +653,27 @@ bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::
     return true;
 }
 
-std::vector<CodeRange> code_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched) {
-    std::vector<CodeRange> out(patched);
-    for (const CodeRange& r : text) {
+bool code_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched,
+                       std::vector<CodeRange>& out) {
+    out.clear();
+    // The game's ranges in address order (a DOL has a few text sections).
+    std::vector<std::size_t> order;
+    if (!try_resize(order, text.size())) return false;
+    for (std::size_t k = 0; k < order.size(); ++k) {
+        std::size_t at = k;
+        while (at > 0 && text[order[at - 1]].address > text[k].address) {
+            order[at] = order[at - 1];
+            --at;
+        }
+        order[at] = k;
+    }
+    // Each patch splits at most one game range in two, so the pieces and
+    // then the whole view fit in these (their sizes come from a pack).
+    std::vector<CodeRange> pieces;
+    if (!try_reserve(pieces, text.size() + patched.size()) || !try_reserve(out, text.size() + 2 * patched.size()))
+        return false;
+    for (const std::size_t k : order) {
+        const CodeRange& r = text[k];
         // The parts of `r` between the patches that land on it.
         std::uint64_t cursor = r.address;
         const std::uint64_t end = std::uint64_t{r.address} + r.size;
@@ -662,28 +681,23 @@ std::vector<CodeRange> code_with_patches(const std::vector<CodeRange>& text, con
             const std::uint64_t p_end = std::uint64_t{p.address} + p.size;
             if (p_end <= cursor || p.address >= end) continue;
             if (p.address > cursor) {
-                out.push_back(CodeRange{static_cast<std::uint32_t>(cursor), r.bytes + (cursor - r.address),
-                                        static_cast<std::size_t>(p.address - cursor)});
+                pieces.push_back(CodeRange{static_cast<std::uint32_t>(cursor), r.bytes + (cursor - r.address),
+                                           static_cast<std::size_t>(p.address - cursor)});
             }
             cursor = std::max(cursor, p_end);
         }
         if (cursor < end) {
-            out.push_back(CodeRange{static_cast<std::uint32_t>(cursor), r.bytes + (cursor - r.address),
-                                    static_cast<std::size_t>(end - cursor)});
+            pieces.push_back(CodeRange{static_cast<std::uint32_t>(cursor), r.bytes + (cursor - r.address),
+                                       static_cast<std::size_t>(end - cursor)});
         }
     }
-    // By address (insertion sort: few ranges, and the standard sort's code
-    // is several kilobytes in the DOL).
-    for (std::size_t k = 1; k < out.size(); ++k) {
-        const CodeRange moving = out[k];
-        std::size_t at = k;
-        while (at > 0 && out[at - 1].address > moving.address) {
-            out[at] = out[at - 1];
-            --at;
-        }
-        out[at] = moving;
+    // Both lists are in address order: merged in one pass.
+    std::size_t a = 0, b = 0;
+    while (a < pieces.size() || b < patched.size()) {
+        const bool take_piece = b == patched.size() || (a < pieces.size() && pieces[a].address < patched[b].address);
+        out.push_back(take_piece ? pieces[a++] : patched[b++]);
     }
-    return out;
+    return true;
 }
 
 bool find_pad_symbols_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched,
@@ -708,7 +722,13 @@ bool find_pad_symbols_with_patches(const std::vector<CodeRange>& text, const std
     out = PadSymbols{};
     out.read = pack.read;
     out.read_sites = pack.read_sites;
-    out.idle_reset = find_idle_reset(code_with_patches(text, patched), pack.read);
+    std::vector<CodeRange> view;
+    if (!code_with_patches(text, patched, view)) {
+        out = PadSymbols{};
+        error = "no memory to read the game's code with a pack's memory patches";
+        return false;
+    }
+    out.idle_reset = find_idle_reset(view, pack.read);
     // The game's own PADControlMotor, as before packs could bring PADRead
     // this way: Settings > GameCube rumble Off writes to it before the
     // patches go in, which would land on bytes a patch hasn't written yet.
@@ -1134,12 +1154,26 @@ std::uint32_t find_gc_si_probe_with_patches(const std::vector<CodeRange>& text, 
     // The game's code scanned whole, each word read as the patches leave
     // it, so a patch inside SIProbe (even one writing the same bytes) can't
     // split it out of sight; a patch that changes it is seen.
-    const std::vector<CodeRange> view = code_with_patches(text, patched);
-    return si_probe_scan(text, view, pad_read, [&view](const CodeRange& range, std::size_t i, std::uint32_t* w) {
+    std::vector<CodeRange> view;
+    if (!code_with_patches(text, patched, view)) return 0;
+    // The scan moves forward a word at a time, so the view's range is kept
+    // and stepped, not looked for again at each word (thousands of patch
+    // pieces over megabytes of code).
+    std::size_t at_range = 0;
+    const auto word_in_view = [&view, &at_range](std::uint32_t at, std::uint32_t& w) {
+        while (at_range > 0 && at < view[at_range].address) --at_range;
+        while (at_range < view.size() && std::uint64_t{at} + 4 > std::uint64_t{view[at_range].address} + view[at_range].size)
+            ++at_range;
+        if (at_range == view.size() || at < view[at_range].address) {
+            if (at_range == view.size() && at_range > 0) --at_range;
+            return false;
+        }
+        w = be32(view[at_range].bytes + (at - view[at_range].address));
+        return true;
+    };
+    return si_probe_scan(text, view, pad_read, [&word_in_view](const CodeRange& range, std::size_t i, std::uint32_t* w) {
         for (unsigned k = 0; k < 9; ++k) {
-            const std::uint32_t at = range.address + static_cast<std::uint32_t>((i + k) * 4);
-            if (!inside(view, at)) return false;
-            w[k] = word_at(view, at);
+            if (!word_in_view(range.address + static_cast<std::uint32_t>((i + k) * 4), w[k])) return false;
         }
         return true;
     });
