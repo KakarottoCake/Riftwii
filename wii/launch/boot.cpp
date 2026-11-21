@@ -762,9 +762,12 @@ VideoTarget resolve_video_target(VideoMode mode, char region, bool progressive_o
         t.progressive = component;
         break;
     case VideoMode::Line240:
-        // 240p: at 60 Hz, EuRGB60 for PAL games, NTSC otherwise. Any
-        // cable carries it (a CRT on the AV cable is the reason for it).
-        t.format = region_video_standard(region) == VI_PAL ? kViEurgb60 : kViNtsc;
+        // 240p: at 60 Hz, EuRGB60 for PAL games and on a console set to
+        // PAL, NTSC otherwise. Any cable carries it (a CRT on the AV cable
+        // is the reason for it). The console's setting says what the TV
+        // takes: on an RGB SCART cable NTSC's encoder gives a red picture
+        // (a tester's US Wii set to PAL 60, a US game in 240p).
+        t.format = region_video_standard(region) == VI_PAL || CONF_GetVideo() == CONF_VIDEO_PAL ? kViEurgb60 : kViNtsc;
         t.line240 = true;
         break;
     default: break;
