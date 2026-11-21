@@ -6184,17 +6184,25 @@ static bool RunEmulatedNandCopy(const std::string& folder, const std::string& de
 		{riftwii::emunand_title_text(title), folder, destination});
 	if (ShowPopupSafeFirst(label, detail, tr("Cancel"), tr("Continue")) != 1) return false;
 	bool ok = false;
-	std::string error;
+	bool alreadyThere = false;
+	std::string error;  // English, for session.log
 	{
 		const CardWriteHold hold;
 		PopupBox box(tr("Emulated NAND"), tr("Working..."), {}, {});
 		ResumeGui();
-		ok = emunand_manager_copy_title(folder, destination, title, error);
+		ok = emunand_manager_copy_title(folder, destination, title, alreadyThere, error);
 		HaltGui();
 		forget_sd_layout();
 	}
-	ShowPopup(label, ok ? tr("Copied to {1}. Home shows it after the drives are read again.", {destination})
-		: tr("The title could not be copied: {1}", {FlatCapped(error, 160)}), tr("OK"));
+	// Home lists channels from the SD card's channel folder only: a copy to
+	// the USB drive is not promised there.
+	const bool forHome = destination.compare(0, 4, "sd:/") == 0;
+	const std::string result = ok
+		? (forHome ? tr("Copied to {1}. Home shows it after the drives are read again.", {destination})
+		           : tr("Copied to {1}.", {destination}))
+		: alreadyThere ? tr("This title is already in {1}. Delete it there first to copy it again.", {destination})
+		: tr("The title could not be copied. See session.log for details.");
+	ShowPopup(label, result, tr("OK"));
 	return ok;
 }
 

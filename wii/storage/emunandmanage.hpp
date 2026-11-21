@@ -43,9 +43,11 @@ std::string emunand_copy_destination(const std::string& folder);
 // Copies the title (its program, save and ticket, the shared contents it
 // uses and its entry in the ownership list) from `from` to `to`, at least
 // one of them on the SD card. The original stays. Refused when the title is
-// already in `to`; a copy cut short is taken out of `to` again. Same
-// preconditions as emunand_manager_action.
+// already in `to` (`already_there` set: the one case the player can act
+// on); a copy cut short is taken out of `to` again as far as the drive
+// still allows. `error` is English, for session.log. Same preconditions as
+// emunand_manager_action.
 bool emunand_manager_copy_title(const std::string& from, const std::string& to, std::uint64_t title,
-                                std::string& error);
+                                bool& already_there, std::string& error);
 
 }  // namespace riftwii::wii

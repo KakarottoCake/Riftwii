@@ -2247,7 +2247,10 @@ there; a title already in the channel folder is copied to `usb:/nands/01`
 (FAT32). An emulated NAND at the very root of a drive (ModMii's SNEEK
 builds) is not listed. A title already in the destination is refused:
 delete it there first to copy it again. A copy cut short is removed from
-the destination again. Home shows the copy after the drives are read again.
+the destination again as far as possible; if the drive was taken out
+during the copy, part of the title can stay there. Put the drive back,
+open the destination folder in this manager and delete the title before
+copying it again. Home shows the copy after the drives are read again.
 
 **Remove Wii settings** shows whether the emulated folder contains
 `shared2/sys/SYSCONF` and `title/00000001/00000002/data/setting.txt`.
