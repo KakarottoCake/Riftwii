@@ -72,6 +72,18 @@ void DrawPill(float x, float y, float width, int height, GXColor colour) {
     }
 }
 
+void DrawPillStart(float x, float y, float width, float shown, int height, GXColor colour) {
+    if (width <= 0 || shown <= 0 || colour.a == 0) return;
+    const float radius = std::min(width / 2.0f, height / 2.0f);
+    for (int row = 0; row < height; ++row) {
+        const float edge = std::min(row + 0.5f, height - row - 0.5f);
+        const float t = std::max(0.0f, 1.0f - edge / radius);
+        const float inset = radius * t * t;
+        const float right = std::min(width - inset, shown);
+        if (right > inset) Menu_DrawRectangle(x + inset, y + row, right - inset, 1, colour, 1);
+    }
+}
+
 void DrawBusyRing(float x, float y, float elapsedMs, int alpha) {
     // A 14 radius: at 10 it read as a speck beside 16-point text on a TV.
     constexpr int offsets[8][2] = {{0, -14}, {10, -10}, {14, 0}, {10, 10},

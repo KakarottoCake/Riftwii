@@ -21,6 +21,12 @@ bool read_blocks(std::uint64_t lba, std::uint32_t count, std::uint8_t* out) {
     return sd_interface()->readSectors(static_cast<sec_t>(lba), count, out);
 }
 
+bool write_blocks(std::uint64_t lba, std::uint32_t count, const std::uint8_t* data) {
+    if (lba > 0xFFFFFFFFull) return false;
+    CoverLoaderHold();
+    return sd_interface()->writeSectors(static_cast<sec_t>(lba), count, data);
+}
+
 bool ensure_mounted(std::string& error) {
     if (g_mounted) return true;
     if (!Fat32Volume::mount(&read_blocks, g_volume, error)) return false;
@@ -151,6 +157,14 @@ bool list_sd_directory(const std::string& sd_path, std::vector<Fat32Entry>& out,
 
 bool read_sd_file(const Fat32File& file, std::uint64_t offset, std::uint8_t* out, std::size_t length) {
     return g_mounted && g_volume.read(file, offset, out, length);
+}
+
+bool write_sd_file_in_place(const Fat32File& file, std::uint64_t offset, const std::uint8_t* data, std::size_t length) {
+    if (!g_mounted) return false;
+    std::string error;
+    if (fat32_write_in_place(file, &write_blocks, offset, data, length, error)) return true;
+    logf("SD: in-place write of %s failed: %s\n", file.entry.name.c_str(), error.c_str());
+    return false;
 }
 
 void forget_sd_layout() {

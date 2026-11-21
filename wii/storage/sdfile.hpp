@@ -29,6 +29,14 @@ bool list_sd_directory(const std::string& sd_path, std::vector<Fat32Entry>& out,
 bool read_sd_boot_sector(std::uint64_t& volume_lba, std::vector<std::uint8_t>& sector, std::string& error);
 // Bytes of a file found above, read raw from the card.
 bool read_sd_file(const Fat32File& file, std::uint64_t offset, std::uint8_t* out, std::size_t length);
+// Overwrites whole 512-byte blocks of a file found above, where they already
+// lie on the card (riftwii/fat32.hpp's fat32_write_in_place): the FAT, FSInfo
+// and every directory sector are left alone, so the file's entry (its times,
+// size and first cluster) never changes. For CTGP-R's jelly.bin, whose key is
+// made from those times. The writes go straight to the card (libogc's SD
+// driver writes synchronously); libfat never reads that file's data, so no
+// libfat cache holds it.
+bool write_sd_file_in_place(const Fat32File& file, std::uint64_t offset, const std::uint8_t* data, std::size_t length);
 // How far the card's FAT32 volume reaches, in bytes: its start plus its
 // size (one boot sector read, kept). Past 32 GiB the card is an SDXC one
 // (an SDHC card holds 32 GB at most).

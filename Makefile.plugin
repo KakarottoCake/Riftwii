@@ -33,7 +33,7 @@ CXX     := $(PREFIX)g++
 PYTHON  ?= python3
 LIBOGC_INC ?= $(DEVKITPRO)/libogc/include
 
-PLUGINS := selftest gamecube ctgpr
+PLUGINS := selftest gamecube ctgpr ctgpupd
 .DEFAULT_GOAL := all
 OUT     := build-plugins
 SDDIR   := $(OUT)/plugins
@@ -65,6 +65,16 @@ ctgpr_CXXFLAGS := -I$(DEVKITPRO)/portlibs/ppc/include
 # std::unordered_map's out-of-line parts (the package lists' record table and
 # the hash lists): the string hash and the bucket-count policy.
 ctgpr_LIBSTDCXX := hash_bytes.o hashtable_c++0x.o
+
+# RiftWii's own CTGP-R update check, download and install (docs/PLUGINS.md,
+# "The ctgpupd plugin"): loaded only when an update waits or a check runs.
+# The DOL keeps ctgpjournal.cpp too, for the start-up replay of an install
+# that was cut off.
+ctgpupd_SRC := src/ctgpr/ctgpupdate.cpp src/ctgpr/ctgphashupdate.cpp src/ctgpr/ctgphash.cpp src/ctgpr/ctgpupdater.cpp src/ctgpr/ctgppackwrite.cpp src/ctgpr/ctgpyaz0.cpp \
+               src/ctgpr/ctgpjournal.cpp src/ctgpr/ctgpcheck.cpp src/ctgpr/ctgphashlookup.cpp src/ctgpr/ctgppackages.cpp \
+               src/ctgpr/ctgptables.cpp src/ctgpr/ctgpefa.cpp src/ctgpr/ctgpdsa.cpp src/disc/wiicrypt.cpp src/disc/fst.cpp \
+               src/data/sha1.cpp
+ctgpupd_CXX := yes
 
 # What libstdc++'s headers leave out of line for std::map and no plugin
 # source defines: the red-black tree's balancing, libstdc++'s tree.o, taken

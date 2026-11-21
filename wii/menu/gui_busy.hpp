@@ -25,6 +25,11 @@ private:
 
 void DrawPill(float x, float y, float width, int height, GXColor colour);
 
+// The left `shown` pixels of a pill `width` wide, cut straight on the right:
+// a bar's fill while it is shorter than the track's rounded end, so it stays
+// inside the track's outline instead of standing out as a tall sliver.
+void DrawPillStart(float x, float y, float width, float shown, int height, GXColor colour);
+
 void DrawBusyRing(float x, float y, float elapsedMs, int alpha = 255);
 
 }  // namespace riftwii::wii
