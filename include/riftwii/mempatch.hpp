@@ -68,8 +68,9 @@ std::uint32_t memory_patch_target(const MemoryPatch& p);
 // and aren't run, so a guard they would change isn't seen here: what is
 // found must be checked again once the patches are in. Nor is a patch
 // apply_memory_patches would refuse (it is reported when the patches
-// really go in). A range of one write points into `patches`, which must
-// outlive this; touching writes are joined into a copy.
+// really go in). A range of one whole-word write points into `patches`,
+// which must outlive this; touching writes, and a write that changes part
+// of a word (the rest of the word read from `memory`), become a copy.
 class PatchedCode final {
 public:
     // False (with `error`) only when there's no memory for the lists or
@@ -85,7 +86,7 @@ private:
         std::size_t size;
     };
     bool read(MemoryAccess& memory, std::uint32_t address, std::vector<std::uint8_t>& out) const;
-    bool join();
+    bool join(MemoryAccess& memory);
 
     std::vector<Write> writes_;                     // document order
     std::vector<std::vector<std::uint8_t>> joined_;  // touching writes, one copy each

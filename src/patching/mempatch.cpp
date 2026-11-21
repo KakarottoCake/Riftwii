@@ -345,7 +345,7 @@ bool PatchedCode::build(const std::vector<MemoryPatch>& patches, MemoryAccess& m
         }
         writes_.push_back(Write{address, p.value.data(), p.value.size()});
     }
-    if (!join()) {
+    if (!join(memory)) {
         error = "no memory to read the packs' memory patches";
         writes_.clear();
         joined_.clear();
@@ -356,44 +356,53 @@ bool PatchedCode::build(const std::vector<MemoryPatch>& patches, MemoryAccess& m
 }
 
 // The writes as address ranges: each run of touching or overlapping
-// writes once, the later ones on top. A lone write is used in place.
-bool PatchedCode::join() {
+// writes once, the later ones on top, widened to whole words (code is
+// word-aligned; the rest of a partly written word is the game's). A lone
+// whole-word write is used in place.
+bool PatchedCode::join(MemoryAccess& memory) {
     std::vector<std::size_t> order;
     if (!try_resize(order, writes_.size()) || !try_reserve(ranges_, writes_.size()) ||
         !try_reserve(joined_, writes_.size())) {
         return false;
     }
-    for (std::size_t k = 0; k < order.size(); ++k) order[k] = k;
-    std::stable_sort(order.begin(), order.end(),
-                     [this](std::size_t a, std::size_t b) { return writes_[a].address < writes_[b].address; });
-    for (std::size_t first = 0; first < order.size();) {
-        const std::uint64_t lo = writes_[order[first]].address;
-        std::uint64_t hi = lo + writes_[order[first]].size;
+    // By address, document order kept among equals (insertion sort: a
+    // pack has few plain patches, and the standard sorts' code is several
+    // kilobytes in the DOL).
+    for (std::size_t k = 0; k < order.size(); ++k) {
+        std::size_t at = k;
+        while (at > 0 && writes_[order[at - 1]].address > writes_[k].address) {
+            order[at] = order[at - 1];
+            --at;
+        }
+        order[at] = k;
+    }
+    std::size_t first = 0;
+    while (first < order.size()) {
+        const Write& head = writes_[order[first]];
+        const std::uint64_t lo = head.address;
+        std::uint64_t hi = lo + head.size;
         std::size_t last = first + 1;
         while (last < order.size() && writes_[order[last]].address <= hi) {
             hi = std::max(hi, std::uint64_t{writes_[order[last]].address} + writes_[order[last]].size);
             ++last;
         }
-        const std::uint8_t* bytes = writes_[order[first]].bytes;
-        if (last - first > 1) {
+        const std::uint64_t begin = lo & ~std::uint64_t{3};
+        const std::uint64_t end = (hi + 3u) & ~std::uint64_t{3};
+        if (last - first == 1 && begin == lo && end == hi) {
+            ranges_.push_back(CodeRange{head.address, head.bytes, head.size});
+        } else {
             std::vector<std::uint8_t> run;
-            if (!try_resize(run, static_cast<std::size_t>(hi - lo))) return false;
-            // Document order within the run, so the later write wins.
-            std::vector<std::size_t> in_run(order.begin() + static_cast<std::ptrdiff_t>(first),
-                                            order.begin() + static_cast<std::ptrdiff_t>(last));
-            std::sort(in_run.begin(), in_run.end());
-            for (const std::size_t k : in_run) {
-                std::memcpy(run.data() + (writes_[k].address - lo), writes_[k].bytes, writes_[k].size);
+            if (!try_resize(run, static_cast<std::size_t>(end - begin))) return false;
+            // The game's bytes first, for the parts of the edge words no
+            // write covers; then the run's writes in document order, so
+            // the later one wins.
+            if (!memory.read(static_cast<std::uint32_t>(begin), run.data(), run.size())) return false;
+            for (const Write& w : writes_) {
+                if (w.address < lo || w.address >= hi) continue;
+                std::memcpy(run.data() + (w.address - begin), w.bytes, w.size);
             }
             joined_.push_back(std::move(run));
-            bytes = joined_.back().data();
-        }
-        // Code is word-aligned: a run's stray leading or trailing bytes
-        // can't hold an instruction.
-        const std::uint64_t begin = (lo + 3u) & ~std::uint64_t{3};
-        const std::uint64_t end = hi & ~std::uint64_t{3};
-        if (end > begin) {
-            ranges_.push_back(CodeRange{static_cast<std::uint32_t>(begin), bytes + (begin - lo),
+            ranges_.push_back(CodeRange{static_cast<std::uint32_t>(begin), joined_.back().data(),
                                         static_cast<std::size_t>(end - begin)});
         }
         first = last;

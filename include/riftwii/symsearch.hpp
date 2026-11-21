@@ -111,6 +111,11 @@ bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::
 bool find_pad_symbols_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched,
                                    PadSymbols& out, bool& from_patch, std::string& error);
 
+// Whether the function at `address` has PADRead's shape (as
+// find_pad_symbols takes one), whatever else is in `text`: for checking a
+// PADRead found earlier, now that the patches are in.
+bool is_pad_read(const std::vector<CodeRange>& text, std::uint32_t address);
+
 // The game's code as the patches will leave it: `patched` (in address
 // order, not overlapping, as PatchedCode gives it) and the parts of
 // `text` no patch writes, in address order, none overlapping. For the

@@ -748,9 +748,7 @@ bool pad_read_in_place(std::uint32_t address) {
     if (address >= ram_end || (address & 3u) != 0) return false;
     const std::uint32_t bytes = std::min(kWindow, ram_end - address);
     const std::vector<CodeRange> code = {{address, reinterpret_cast<const std::uint8_t*>(address), bytes}};
-    PadSymbols found;
-    std::string error;
-    return find_pad_symbols(code, found, error) && found.read == address;
+    return is_pad_read(code, address);
 }
 
 void read_patched_code(const std::vector<MemoryPatch>& patches, PatchedCode& out) {

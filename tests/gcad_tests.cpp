@@ -1215,10 +1215,10 @@ static void TestPadSearch() {
     EXPECT_EQ(pad.read, 0u);
 }
 
-// The game as loaded, for PatchedCode: 64 KiB of MEM1 from 0x80000000.
+// The game as loaded, for PatchedCode: 3 MiB of MEM1 from 0x80000000.
 class LoadedRam final : public riftwii::MemoryAccess {
 public:
-    std::vector<std::uint8_t> ram = std::vector<std::uint8_t>(0x10000, 0);
+    std::vector<std::uint8_t> ram = std::vector<std::uint8_t>(0x300000, 0);
     void put(std::uint32_t address, const std::vector<std::uint8_t>& bytes) {
         std::memcpy(ram.data() + (address - 0x80000000u), bytes.data(), bytes.size());
     }
@@ -1584,6 +1584,7 @@ static void TestPadSearchInPatchesDimming() {
     pack.bl(ports);
     pack.blr();
     LoadedRam loaded;
+    loaded.put(game.base, game_code);
     riftwii::PadSymbols pad;
     bool from_patch = false;
     std::string error;
@@ -1604,6 +1605,16 @@ static void TestPadSearchInPatchesDimming() {
     EXPECT_TRUE(from_patch);
     EXPECT_EQ(pad.idle_reset, 0u);
 
+    // The same with one byte: a patch over part of the store's offset.
+    const std::vector<riftwii::MemoryPatch> one_byte = {PlainPatch(0x1800, pack.bytes()),
+                                                        PlainPatch(ports + 11, {0xD0})};
+    EXPECT_TRUE(patched.build(one_byte, loaded, error));
+    EXPECT_TRUE(riftwii::find_pad_symbols_with_patches(text, patched.ranges(), pad, from_patch, error));
+    EXPECT_TRUE(from_patch);
+    EXPECT_EQ(pad.idle_reset, 0u);
+    // (Built again with the four-byte patch for the view below.)
+    EXPECT_TRUE(patched.build(reset_moved, loaded, error));
+
     // code_with_patches: the game's code around a patch, none overlapping.
     const std::vector<riftwii::CodeRange> view = riftwii::code_with_patches(text, patched.ranges());
     std::size_t covered = 0;
@@ -1612,6 +1623,35 @@ static void TestPadSearchInPatchesDimming() {
         if (view[k].address >= game.base && view[k].address < game.base + game_code.size()) covered += view[k].size;
     }
     EXPECT_EQ(covered, game_code.size());
+}
+
+// is_pad_read checks one function, whatever follows it: the check made
+// again once the patches are in, with another PADRead-shaped function
+// close behind the pack's (find_pad_symbols would call that ambiguous).
+static void TestIsPadRead() {
+    constexpr std::uint32_t kMemset = 0x80004000u;
+    Asm a{0x80001800u, {}};
+    const std::uint32_t first = a.here();
+    a.prologue();
+    for (unsigned k = 0; k < 3; ++k) a.pad_error(27, 19, kMemset);
+    a.blr();
+    const std::uint32_t second = a.here();
+    a.prologue();
+    for (unsigned k = 0; k < 3; ++k) a.pad_error(27, 19, kMemset);
+    a.blr();
+    const std::uint32_t other = a.here();
+    a.prologue();
+    a.pad_error(27, 19, kMemset);  // one site only
+    a.blr();
+    const std::vector<std::uint8_t> code = a.bytes();
+    const std::vector<riftwii::CodeRange> text = {{a.base, code.data(), code.size()}};
+    riftwii::PadSymbols pad;
+    std::string error;
+    EXPECT_FALSE(riftwii::find_pad_symbols(text, pad, error));
+    EXPECT_TRUE(riftwii::is_pad_read(text, first));
+    EXPECT_TRUE(riftwii::is_pad_read(text, second));
+    EXPECT_FALSE(riftwii::is_pad_read(text, other));
+    EXPECT_FALSE(riftwii::is_pad_read(text, first + 4));
 }
 
 // A GameCube game's PADControlMotor: the command's low two bits ORed with
@@ -2175,6 +2215,7 @@ int main() {
     TestPadSearch();
     TestPadSearchInPatches();
     TestPadSearchInPatchesDimming();
+    TestIsPadRead();
     TestPackPadRead();
     TestIdleResetSearch();
     TestGcPadMotorSearch();

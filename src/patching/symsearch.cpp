@@ -558,7 +558,42 @@ std::uint32_t function_start(const std::vector<CodeRange>& text, std::uint32_t a
     return 0;
 }
 
+// At word `i` of `r` (with four words after it), one of PADRead's "no
+// controller in this port" paths: `stb rE,10(rS); mr r3,rS; li r4,0;
+// li r5,10; bl memset`. True with the memset it calls.
+bool pad_error_path(const CodeRange& r, std::size_t i, std::uint32_t& memset_target) {
+    const std::uint32_t w = be32(r.bytes + i * 4);
+    if ((w & 0xFC00FFFFu) != 0x9800000Au) return false;  // stb rE, 10(rS)
+    const std::uint32_t s = (w >> 16) & 31u;
+    const std::uint32_t mr = 0x7C000378u | (s << 21) | (3u << 16) | (s << 11);
+    const std::uint32_t call = be32(r.bytes + (i + 4) * 4);
+    if (be32(r.bytes + (i + 1) * 4) != mr || be32(r.bytes + (i + 2) * 4) != li(4, 0) ||
+        be32(r.bytes + (i + 3) * 4) != li(5, 10) || !is_bl(call)) {
+        return false;
+    }
+    memset_target = bl_target(r.address + static_cast<std::uint32_t>(i * 4) + 16, call);
+    return true;
+}
+
 }  // namespace
+
+bool is_pad_read(const std::vector<CodeRange>& text, std::uint32_t address) {
+    unsigned sites = 0;
+    std::uint32_t memset_target = 0;
+    bool one_memset = true;
+    for (const CodeRange& r : text) {
+        const std::size_t words = r.size / 4;
+        for (std::size_t i = 0; i + 4 < words; ++i) {
+            std::uint32_t target = 0;
+            if (!pad_error_path(r, i, target)) continue;
+            if (function_start(text, r.address + static_cast<std::uint32_t>(i * 4)) != address) continue;
+            if (sites != 0 && target != memset_target) one_memset = false;
+            memset_target = target;
+            ++sites;
+        }
+    }
+    return sites >= kMinReadSites && one_memset;
+}
 
 bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::string& error) {
     out = PadSymbols{};
@@ -570,17 +605,12 @@ bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::
         for (std::size_t i = 0; i + 4 < words; ++i) {
             const std::uint32_t w = be32(r.bytes + i * 4);
             const std::uint32_t at = r.address + static_cast<std::uint32_t>(i * 4);
-            if ((w & 0xFC00FFFFu) == 0x9800000Au) {  // stb rE, 10(rS)
-                const std::uint32_t s = (w >> 16) & 31u;
-                const std::uint32_t mr = 0x7C000378u | (s << 21) | (3u << 16) | (s << 11);
-                const std::uint32_t call = be32(r.bytes + (i + 4) * 4);
-                if (be32(r.bytes + (i + 1) * 4) == mr && be32(r.bytes + (i + 2) * 4) == li(4, 0) &&
-                    be32(r.bytes + (i + 3) * 4) == li(5, 10) && is_bl(call)) {
-                    const std::uint32_t f = function_start(text, at);
-                    if (f != 0) {
-                        read_memsets[f].insert(bl_target(at + 16, call));
-                        ++read_sites[f];
-                    }
+            std::uint32_t memset_target = 0;
+            if (pad_error_path(r, i, memset_target)) {
+                const std::uint32_t f = function_start(text, at);
+                if (f != 0) {
+                    read_memsets[f].insert(memset_target);
+                    ++read_sites[f];
                 }
             }
             if ((w & 0xFC1FFFFFu) == 0x3C008000u) {  // lis rX, 0x8000
@@ -642,7 +672,17 @@ std::vector<CodeRange> code_with_patches(const std::vector<CodeRange>& text, con
                                     static_cast<std::size_t>(end - cursor)});
         }
     }
-    std::sort(out.begin(), out.end(), [](const CodeRange& a, const CodeRange& b) { return a.address < b.address; });
+    // By address (insertion sort: few ranges, and the standard sort's code
+    // is several kilobytes in the DOL).
+    for (std::size_t k = 1; k < out.size(); ++k) {
+        const CodeRange moving = out[k];
+        std::size_t at = k;
+        while (at > 0 && out[at - 1].address > moving.address) {
+            out[at] = out[at - 1];
+            --at;
+        }
+        out[at] = moving;
+    }
     return out;
 }
 
