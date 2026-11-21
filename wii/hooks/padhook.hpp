@@ -76,6 +76,7 @@ struct PadHook {
     bool active = false;             // planned; install_pad_hook hooks it
     bool demo = false;               // no adapter: the first empty port presses A (Dolphin tests)
     std::uint32_t read = 0;          // PADRead
+    bool read_in_patch = false;      // found in the packs' memory patches (checked again once they're in)
     unsigned read_sites = 0;         // its error stores
     std::uint32_t motor = 0;         // PADControlMotor, 0: no rumble
     std::uint32_t idle_reset = 0;    // the screen-dimming reset PADRead calls, 0: adapter pads don't keep the screen lit
@@ -193,6 +194,11 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
 // for it, says so in boot.log and leaves `out` empty (the game's own
 // PADRead is still searched).
 void read_patched_code(const std::vector<MemoryPatch>& patches, PatchedCode& out);
+
+// After the <memory> patches, before any hook: whether `address` is still
+// a PADRead (one taken from a preview of the patches, which doesn't run
+// their search patches).
+bool pad_read_in_place(std::uint32_t address);
 
 // The adapter's /dev/usb/hid handle for the game, with its HID version and
 // the adapter's v5 device id from the USB list (-1: none): the one

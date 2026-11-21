@@ -740,6 +740,19 @@ public:
 
 }  // namespace
 
+bool pad_read_in_place(std::uint32_t address) {
+    // PADRead is well under 2 KiB (the SDK's is about 1.2 KiB): its error
+    // stores all fall in this window, which stops at the end of its RAM.
+    constexpr std::uint32_t kWindow = 0x800;
+    const std::uint32_t ram_end = address < 0x90000000u ? 0x81800000u : 0x94000000u;
+    if (address >= ram_end || (address & 3u) != 0) return false;
+    const std::uint32_t bytes = std::min(kWindow, ram_end - address);
+    const std::vector<CodeRange> code = {{address, reinterpret_cast<const std::uint8_t*>(address), bytes}};
+    PadSymbols found;
+    std::string error;
+    return find_pad_symbols(code, found, error) && found.read == address;
+}
+
 void read_patched_code(const std::vector<MemoryPatch>& patches, PatchedCode& out) {
     LoadedGame game;
     std::string error;
@@ -779,6 +792,7 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
         return false;
     }
     out.read = pad.read;
+    out.read_in_patch = from_patch;
     out.read_sites = pad.read_sites;
     out.motor = pad.control_motor;
     out.idle_reset = pad.idle_reset;
@@ -795,11 +809,9 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
         find_way_back(dol, text, out);
         find_home_menu(dol, text, out);
     }
-    // SIProbe is told by PADRead's own calls, so a pack's PADRead is read
-    // from its patch (the patches' bytes first, over the game's).
-    std::vector<CodeRange> code = patched;
-    code.insert(code.end(), text.begin(), text.end());
-    out.si_probe = find_gc_si_probe(from_patch ? code : text, out.read);
+    // SIProbe is told by PADRead's own calls, so with a pack's PADRead it
+    // is searched in the game's code as the patches will leave it.
+    out.si_probe = find_gc_si_probe(from_patch ? code_with_patches(text, patched) : text, out.read);
     // Where SIProbe is missing the adapter still plays: only a game that
     // asks it before reading a port misses the adapter's ports (#510).
     if (out.si_probe != 0)
@@ -1217,6 +1229,17 @@ void log_pad_diagnostics(std::uint32_t code_base, std::uint32_t print_entry) {
 
 bool install_pad_hook(PadHook& hook, std::string& why) {
     if (!hook.active) return false;
+    // A PADRead from the packs' memory patches was chosen from a preview
+    // that doesn't run search patches: checked again now they're all in,
+    // before anything is hooked.
+    if (hook.read_in_patch && !pad_read_in_place(hook.read)) {
+        char buf[96];
+        std::snprintf(buf, sizeof(buf), "the pack's PADRead at 0x%08x isn't there once its memory patches are in",
+                      hook.read);
+        why = buf;
+        hook.active = false;
+        return false;
+    }
     const int kind = kind_of(hook);
     const rt_pad_header& h = header(kind);
     // The HOME Menu's hooks, read only from the blob that has them.

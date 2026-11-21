@@ -104,12 +104,18 @@ bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::
 // A PADRead in the patches wins over one in the game: a pack that writes
 // one means it to be read, and the game's may be an SDK copy it never
 // calls. The screen-dimming reset is then looked for beside the pack's
-// PADRead (with the patches' bytes over the game's), and PADControlMotor
+// PADRead (in code_with_patches), and PADControlMotor
 // comes from the pack or else the game. `from_patch` says which PADRead
 // was taken. An unsure search of the patches is an error; an unsure
 // search of the game is not when the patches have the PADRead.
 bool find_pad_symbols_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched,
                                    PadSymbols& out, bool& from_patch, std::string& error);
+
+// The game's code as the patches will leave it: `patched` (in address
+// order, not overlapping, as PatchedCode gives it) and the parts of
+// `text` no patch writes, in address order, none overlapping. For the
+// searches that follow a pack's PADRead into the game's code.
+std::vector<CodeRange> code_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched);
 
 // PADControlMotor(chan, command) in a GameCube game's own SDK (the one the
 // game was linked with, not the Wii's): after its checks it keeps the

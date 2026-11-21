@@ -60,7 +60,8 @@ bool is_plain_branch(std::uint32_t word, std::uint32_t at, std::uint32_t& target
 }  // namespace
 
 bool plan_shot_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor,
-                    std::uint32_t arena2_lo, const ShotIpc& known, std::uint32_t pad_read, bool demo, bool direct,
+                    std::uint32_t arena2_lo, const ShotIpc& known, std::uint32_t pad_read, bool pad_read_in_patch, bool demo,
+                    bool direct,
                     const std::vector<MemoryPatch>& patches, ShotHook& out, std::string& why) {
     out = ShotHook{};
     out.demo = demo;
@@ -108,9 +109,13 @@ bool plan_shot_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t
         std::string error;
         PatchedCode patched;
         read_patched_code(patches, patched);
-        if (find_pad_symbols_with_patches(text, patched.ranges(), pad, from_patch, error)) pad_read = pad.read;
+        if (find_pad_symbols_with_patches(text, patched.ranges(), pad, from_patch, error)) {
+            pad_read = pad.read;
+            pad_read_in_patch = from_patch;
+        }
     }
     out.pad_read = pad_read;
+    out.pad_read_in_patch = pad_read != 0 && pad_read_in_patch;
     if (out.ioctlv == 0 && out.pad_read == 0) {
         why = "neither the game's IOS_IoctlvAsync nor a PADRead was found";
         return false;

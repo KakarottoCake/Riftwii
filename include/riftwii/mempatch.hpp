@@ -4,7 +4,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <map>
 #include <string>
 #include <vector>
 
@@ -61,22 +60,35 @@ bool apply_memory_patches(const std::vector<MemoryPatch>& patches, const std::ve
 std::uint32_t memory_patch_target(const MemoryPatch& p);
 
 // What the plain patches will leave in memory, for a search that runs
-// before they are applied (RiftWii's PADRead search): they are applied,
-// as apply_memory_patches does, to a copy-on-write view of `memory` (the
-// game as loaded), so a later write wins over an earlier one, a patch
-// whose `original` differs is skipped, and writes that touch become one
-// range. Search and ocarina patches have no address until applied and
-// aren't run; nor is a patch apply_memory_patches would refuse (it is
-// reported when the patches really go in). The ranges hold copies.
+// before they are applied (RiftWii's PADRead search). In document order,
+// as apply_memory_patches goes: a later write wins over an earlier one,
+// and a patch whose `original` differs from `memory` (the game as loaded,
+// with the earlier writes over it) is skipped. Writes that touch become
+// one range. Search and ocarina patches have no address until applied
+// and aren't run, so a guard they would change isn't seen here: what is
+// found must be checked again once the patches are in. Nor is a patch
+// apply_memory_patches would refuse (it is reported when the patches
+// really go in). A range of one write points into `patches`, which must
+// outlive this; touching writes are joined into a copy.
 class PatchedCode final {
 public:
-    // False (with `error`) only when there's no memory for the copies.
+    // False (with `error`) only when there's no memory for the lists or
+    // the joined copies; the ranges are then empty.
     bool build(const std::vector<MemoryPatch>& patches, MemoryAccess& memory, std::string& error);
     // Word-aligned, in address order, not overlapping.
     const std::vector<CodeRange>& ranges() const { return ranges_; }
 
 private:
-    std::map<std::uint32_t, std::vector<std::uint8_t>> written_;  // start -> bytes
+    struct Write {
+        std::uint32_t address;
+        const std::uint8_t* bytes;
+        std::size_t size;
+    };
+    bool read(MemoryAccess& memory, std::uint32_t address, std::vector<std::uint8_t>& out) const;
+    bool join();
+
+    std::vector<Write> writes_;                     // document order
+    std::vector<std::vector<std::uint8_t>> joined_;  // touching writes, one copy each
     std::vector<CodeRange> ranges_;
 };
 

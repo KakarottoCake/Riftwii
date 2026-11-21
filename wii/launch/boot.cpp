@@ -1459,7 +1459,8 @@ void plan_game_extras(const DolHeader& dol, const ExtrasContext& ctx, GameExtras
         // shots read the frame buffer itself.
         const bool direct = true;
         if (!plan_shot_hook(dol, out.arena1_hi(ctx.arena1_hi), ctx.mem1_floor, out.arena2_lo(ctx.arena2_lo), known,
-                            out.pad.read, g_extras.screenshots_demo, direct, patches, out.shot, why)) {
+                            out.pad.read, out.pad.read_in_patch, g_extras.screenshots_demo, direct, patches,
+                            out.shot, why)) {
             logf("Screenshots: off: %s\n", why.c_str());
         }
     }
@@ -1578,6 +1579,14 @@ void apply_wpad_probe_test(const std::vector<MemoryRegion>& loaded, std::vector<
 // the crash recorder's hooks go in (the Wii Remote log's comes last of
 // all, install_wpad_log_last).
 void install_game_extras(GameExtras& extras) {
+    // Before the adapter's hook goes in on the same PADRead: one from the
+    // packs' memory patches is checked again now they're all in.
+    if (extras.shot.active && extras.shot.pad_read_in_patch && !pad_read_in_place(extras.shot.pad_read)) {
+        logf("Screenshots: the pack's PADRead at 0x%08x isn't there once its memory patches are in; the GameCube "
+             "controller's combo isn't watched\n",
+             extras.shot.pad_read);
+        extras.shot.pad_read = 0;
+    }
     if (extras.pad.active) {
         std::string why;
         if (!install_pad_hook(extras.pad, why)) logf("GameCube adapter: off: %s\n", why.c_str());

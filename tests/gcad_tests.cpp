@@ -1359,8 +1359,10 @@ static void TestPadSearchInPatches() {
     }
     const std::vector<std::uint8_t> twice_code = twice.bytes();
     const std::vector<riftwii::CodeRange> unsure = {{twice.base, twice_code.data(), twice_code.size()}};
+    // (The patch list outlives the ranges: they point into it.)
+    const std::vector<riftwii::MemoryPatch> just_plain = {plain};
     riftwii::PatchedCode patched;
-    EXPECT_TRUE(patched.build({plain}, loaded, error));
+    EXPECT_TRUE(patched.build(just_plain, loaded, error));
     EXPECT_TRUE(riftwii::find_pad_symbols_with_patches(unsure, patched.ranges(), pad, from_patch, error));
     EXPECT_TRUE(from_patch);
     EXPECT_EQ(pad.read, pack_read);
@@ -1562,6 +1564,54 @@ static void TestIdleResetSearch() {
     text = {{other.base, code.data(), code.size()}};
     EXPECT_TRUE(riftwii::find_pad_symbols(text, pad, error));
     EXPECT_EQ(pad.idle_reset, 0u);
+}
+
+// With a pack's PADRead, the screen-dimming reset it calls in the game is
+// read as the patches leave the game's code: a short patch over the reset
+// makes it no reset.
+static void TestPadSearchInPatchesDimming() {
+    constexpr std::uint32_t kMemset = 0x80004000u;
+    Asm game{0x80200000u, {}};
+    game.blr();
+    idle_reset_function(game, -0x6034, false);
+    const std::uint32_t ports = idle_reset_function(game, -0x6038, false);
+    const std::vector<std::uint8_t> game_code = game.bytes();
+    const std::vector<riftwii::CodeRange> text = {{game.base, game_code.data(), game_code.size()}};
+
+    Asm pack{0x80001800u, {}};
+    pack.prologue();
+    for (unsigned k = 0; k < 3; ++k) pack.pad_error(27, 19, kMemset);
+    pack.bl(ports);
+    pack.blr();
+    LoadedRam loaded;
+    riftwii::PadSymbols pad;
+    bool from_patch = false;
+    std::string error;
+    // (The patch lists outlive the ranges: they point into them.)
+    const std::vector<riftwii::MemoryPatch> pack_only = {PlainPatch(0x1800, pack.bytes())};
+    const std::vector<riftwii::MemoryPatch> reset_moved = {PlainPatch(0x1800, pack.bytes()),
+                                                           PlainPatch(ports + 8, {0x90, 0x0D, 0x9F, 0xD0})};
+    riftwii::PatchedCode patched;
+    EXPECT_TRUE(patched.build(pack_only, loaded, error));
+    EXPECT_TRUE(riftwii::find_pad_symbols_with_patches(text, patched.ranges(), pad, from_patch, error));
+    EXPECT_TRUE(from_patch);
+    EXPECT_EQ(pad.idle_reset, ports);
+
+    // The ports' reset stores to another flag once a patch is in: it no
+    // longer follows the Wii Remotes' one, so there is none.
+    EXPECT_TRUE(patched.build(reset_moved, loaded, error));
+    EXPECT_TRUE(riftwii::find_pad_symbols_with_patches(text, patched.ranges(), pad, from_patch, error));
+    EXPECT_TRUE(from_patch);
+    EXPECT_EQ(pad.idle_reset, 0u);
+
+    // code_with_patches: the game's code around a patch, none overlapping.
+    const std::vector<riftwii::CodeRange> view = riftwii::code_with_patches(text, patched.ranges());
+    std::size_t covered = 0;
+    for (std::size_t k = 0; k < view.size(); ++k) {
+        if (k > 0) EXPECT_TRUE(view[k - 1].address + view[k - 1].size <= view[k].address);
+        if (view[k].address >= game.base && view[k].address < game.base + game_code.size()) covered += view[k].size;
+    }
+    EXPECT_EQ(covered, game_code.size());
 }
 
 // A GameCube game's PADControlMotor: the command's low two bits ORed with
@@ -2124,6 +2174,7 @@ int main() {
     TestListErrorRetries();
     TestPadSearch();
     TestPadSearchInPatches();
+    TestPadSearchInPatchesDimming();
     TestPackPadRead();
     TestIdleResetSearch();
     TestGcPadMotorSearch();

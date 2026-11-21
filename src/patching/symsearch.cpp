@@ -507,18 +507,19 @@ bool is_stw_r0_sda(std::uint32_t w) { return (w & 0xFFFF0000u) == 0x900D0000u; }
 // (offsets fit 16 bits).
 constexpr std::int32_t kNoIdleReset = 0x10000;
 std::int32_t idle_reset_flag(const std::vector<CodeRange>& text, std::uint32_t address) {
-    for (const CodeRange& r : text) {
-        if (address < r.address || address - r.address + 16 > r.size) continue;
-        const std::uint8_t* words = r.bytes + (address - r.address);
-        const std::uint32_t second = be32(words + 4);
-        const std::uint32_t third = be32(words + 8);
-        const bool store_then_return = is_stw_r0_sda(second) && third == kLiR3One;
-        const bool return_then_store = second == kLiR3One && is_stw_r0_sda(third);
-        if (be32(words) != kLiR0Zero || !(store_then_return || return_then_store) || be32(words + 12) != kBlr)
-            return kNoIdleReset;
-        return static_cast<std::int16_t>((store_then_return ? second : third) & 0xFFFFu);
+    // Word by word, so the four may come from neighbouring ranges (a
+    // patch over part of the game's code, code_with_patches).
+    for (std::uint32_t k = 0; k < 4; ++k) {
+        if (!inside(text, address + 4 * k)) return kNoIdleReset;
     }
-    return kNoIdleReset;
+    const std::uint32_t second = word_at(text, address + 4);
+    const std::uint32_t third = word_at(text, address + 8);
+    const bool store_then_return = is_stw_r0_sda(second) && third == kLiR3One;
+    const bool return_then_store = second == kLiR3One && is_stw_r0_sda(third);
+    if (word_at(text, address) != kLiR0Zero || !(store_then_return || return_then_store) ||
+        word_at(text, address + 12) != kBlr)
+        return kNoIdleReset;
+    return static_cast<std::int16_t>((store_then_return ? second : third) & 0xFFFFu);
 }
 
 // The idle reset PADRead (or the status helper after it) calls; 0 when no
@@ -621,6 +622,30 @@ bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::
     return true;
 }
 
+std::vector<CodeRange> code_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched) {
+    std::vector<CodeRange> out(patched);
+    for (const CodeRange& r : text) {
+        // The parts of `r` between the patches that land on it.
+        std::uint64_t cursor = r.address;
+        const std::uint64_t end = std::uint64_t{r.address} + r.size;
+        for (const CodeRange& p : patched) {
+            const std::uint64_t p_end = std::uint64_t{p.address} + p.size;
+            if (p_end <= cursor || p.address >= end) continue;
+            if (p.address > cursor) {
+                out.push_back(CodeRange{static_cast<std::uint32_t>(cursor), r.bytes + (cursor - r.address),
+                                        static_cast<std::size_t>(p.address - cursor)});
+            }
+            cursor = std::max(cursor, p_end);
+        }
+        if (cursor < end) {
+            out.push_back(CodeRange{static_cast<std::uint32_t>(cursor), r.bytes + (cursor - r.address),
+                                    static_cast<std::size_t>(end - cursor)});
+        }
+    }
+    std::sort(out.begin(), out.end(), [](const CodeRange& a, const CodeRange& b) { return a.address < b.address; });
+    return out;
+}
+
 bool find_pad_symbols_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched,
                                    PadSymbols& out, bool& from_patch, std::string& error) {
     from_patch = false;
@@ -637,14 +662,10 @@ bool find_pad_symbols_with_patches(const std::vector<CodeRange>& text, const std
     PadSymbols game;
     std::string game_error;
     const bool game_sure = find_pad_symbols(text, game, game_error);
-    // The patches' bytes first: where one writes over the game's code,
-    // the search reads what will be there.
-    std::vector<CodeRange> both(patched);
-    both.insert(both.end(), text.begin(), text.end());
     out = PadSymbols{};
     out.read = pack.read;
     out.read_sites = pack.read_sites;
-    out.idle_reset = find_idle_reset(both, pack.read);
+    out.idle_reset = find_idle_reset(code_with_patches(text, patched), pack.read);
     out.control_motor = pack.control_motor != 0 ? pack.control_motor : game_sure ? game.control_motor : 0;
     from_patch = true;
     error.clear();
