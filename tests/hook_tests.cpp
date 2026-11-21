@@ -649,6 +649,18 @@ static void TestIpcApiSearchUnoptimized() {
         v.bl(vsubmit);
         v.word(0x4E800020);  // blr
     }
+    // A branch past the last `li r4`: `li r4, 3; cmpwi r3, 0; beq L;
+    // li r4, 1; L: bl setup` hands setup 3 or 1, so no one command.
+    const std::uint32_t joined = v.here();
+    v.word(0x9421FFD0);  // stwu r1,-48(r1)
+    v.li(4, 3);
+    v.word(0x2C030000);  // cmpwi r3,0
+    v.word(0x41820008);  // beq +8 (to the bl)
+    v.li(4, 1);
+    v.bl(vsetup);
+    v.li(4, 0);
+    v.bl(vsubmit);
+    v.word(0x4E800020);  // blr
     // Two setup calls with different commands: no one command, so no API
     // function (the allocator path asks the same of its stores).
     const std::uint32_t twice = v.here();
@@ -675,6 +687,7 @@ static void TestIpcApiSearchUnoptimized() {
     (void)loaded;
     (void)clobbered;
     (void)twice;
+    (void)joined;
 }
 
 static void TestReturnToMenuSearch() {

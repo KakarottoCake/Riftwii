@@ -257,13 +257,44 @@ bool is_any_branch(std::uint32_t p) {
     return op == 19 && (xo == 16 || xo == 528);
 }
 
+// Whether a direct branch (b or bc, linked or not) in [start, end) lands
+// after `after` and at or before `upto`: code reached that way skips what
+// comes before its landing.
+bool branch_lands_between(const std::vector<CodeRange>& text, std::uint32_t start, std::uint32_t end,
+                          std::uint32_t after, std::uint32_t upto) {
+    for (std::uint32_t a = start; a + 4 <= end; a += 4) {
+        const std::uint32_t w = word_at(text, a);
+        const std::uint32_t op = w >> 26;
+        if (op != 16 && op != 18) continue;
+        const bool absolute = (w & 2u) != 0;
+        std::int32_t displacement = 0;
+        if (op == 18) {
+            displacement = static_cast<std::int32_t>(w & 0x03FFFFFCu);
+            if (displacement & 0x02000000) displacement -= 0x04000000;
+        } else {
+            displacement = static_cast<std::int16_t>(w & 0xFFFCu);
+        }
+        const std::uint32_t target = absolute ? static_cast<std::uint32_t>(displacement)
+                                              : a + static_cast<std::uint32_t>(displacement);
+        if (target > after && target <= upto) return true;
+    }
+    return false;
+}
+
 // The value `li r4, N` gives r4 for the call at `call` (looking back a few
 // instructions, not past `start`); -1 when r4 is set some other way there,
-// changed after the `li` (or a branch comes between), or not set at all.
-std::int64_t r4_immediate_before(const std::vector<CodeRange>& text, std::uint32_t start, std::uint32_t call) {
+// changed after the `li`, a branch comes between them or lands between
+// them from elsewhere in [start, end) (another path, maybe another r4), or
+// r4 is not set at all.
+std::int64_t r4_immediate_before(const std::vector<CodeRange>& text, std::uint32_t start, std::uint32_t end,
+                                 std::uint32_t call) {
     for (std::uint32_t back = 4; back <= kArgumentLookback * 4 && call >= start + back; back += 4) {
-        const std::uint32_t p = word_at(text, call - back);
-        if (is_li(p) && rd_of(p) == 4) return static_cast<std::int16_t>(p & 0xFFFFu);
+        const std::uint32_t at = call - back;
+        const std::uint32_t p = word_at(text, at);
+        if (is_li(p) && rd_of(p) == 4) {
+            if (branch_lands_between(text, start, end, at, call)) return -1;
+            return static_cast<std::int16_t>(p & 0xFFFFu);
+        }
         if (is_any_branch(p) || may_write_gpr(p, 4)) return -1;
     }
     return -1;
@@ -279,7 +310,7 @@ std::uint32_t setup_command(const std::vector<CodeRange>& text, std::uint32_t st
     for (std::uint32_t a = start + 8; a + 4 <= end; a += 4) {
         const std::uint32_t w = word_at(text, a);
         if (!is_bl(w) || bl_target(a, w) != setup) continue;
-        const std::int64_t cmd = r4_immediate_before(text, start, a);
+        const std::int64_t cmd = r4_immediate_before(text, start, end, a);
         if (cmd < 1 || cmd > 7) return 0;
         const std::uint32_t this_command = static_cast<std::uint32_t>(cmd);
         if (command != 0 && command != this_command) return 0;
@@ -361,7 +392,7 @@ bool find_ipc_api(const std::vector<CodeRange>& text, const IpcSymbols& known, I
     if (alloc == 0 && submit != 0) {
         for (std::uint32_t a = known.ioctl_async + 8; a + 4 <= known_end && setup == 0; a += 4) {
             const std::uint32_t w = word_at(text, a);
-            if (is_bl(w) && r4_immediate_before(text, known.ioctl_async, a) == kIpcIoctlCmd)
+            if (is_bl(w) && r4_immediate_before(text, known.ioctl_async, known_end, a) == kIpcIoctlCmd)
                 setup = bl_target(a, w);
         }
         if (setup != 0 && !is_stwu_r1(word_at(text, setup))) setup = 0;
