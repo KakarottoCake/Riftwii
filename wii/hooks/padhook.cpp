@@ -741,9 +741,10 @@ public:
 }  // namespace
 
 bool pad_read_in_place(std::uint32_t address) {
-    // PADRead is well under 2 KiB (the SDK's is about 1.2 KiB): its error
-    // stores all fall in this window, which stops at the end of its RAM.
-    constexpr std::uint32_t kWindow = 0x800;
+    // As far as the search took an error store to belong to a function
+    // (function_start walks back 0x1000 bytes), plus the store's own five
+    // words; it stops at the end of its RAM.
+    constexpr std::uint32_t kWindow = 0x1000 + 5 * 4;
     const std::uint32_t ram_end = address < 0x90000000u ? 0x81800000u : 0x94000000u;
     if (address >= ram_end || (address & 3u) != 0) return false;
     const std::uint32_t bytes = std::min(kWindow, ram_end - address);

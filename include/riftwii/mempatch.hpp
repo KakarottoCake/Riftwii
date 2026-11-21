@@ -73,8 +73,12 @@ std::uint32_t memory_patch_target(const MemoryPatch& p);
 // of a word (the rest of the word read from `memory`), become a copy.
 class PatchedCode final {
 public:
-    // False (with `error`) only when there's no memory for the lists or
-    // the joined copies; the ranges are then empty.
+    // The most plain patches previewed (see build).
+    static constexpr std::size_t kMaxPreviewedPatches = 4096;
+
+    // False (with `error`) when there's no memory for the lists or the
+    // joined copies, or more than kMaxPreviewedPatches plain patches; the
+    // ranges are then empty.
     bool build(const std::vector<MemoryPatch>& patches, MemoryAccess& memory, std::string& error);
     // Word-aligned, in address order, not overlapping.
     const std::vector<CodeRange>& ranges() const { return ranges_; }

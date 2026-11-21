@@ -1654,6 +1654,33 @@ static void TestIsPadRead() {
     EXPECT_FALSE(riftwii::is_pad_read(text, first + 4));
 }
 
+// PatchedCode's ranges: two writes into one word are one range, with both
+// in it (the rest of the word the game's); past its cap it reads none.
+static void TestPatchedCodeRanges() {
+    LoadedRam loaded;
+    loaded.put(0x80001800u, {0x11, 0x22, 0x33, 0x44});
+    std::string error;
+    riftwii::PatchedCode patched;
+    const std::vector<riftwii::MemoryPatch> two_bytes = {PlainPatch(0x1800, {0xAA}), PlainPatch(0x1802, {0xBB})};
+    EXPECT_TRUE(patched.build(two_bytes, loaded, error));
+    EXPECT_EQ(patched.ranges().size(), 1u);
+    if (patched.ranges().size() == 1) {
+        const riftwii::CodeRange& r = patched.ranges()[0];
+        EXPECT_EQ(r.address, 0x80001800u);
+        EXPECT_EQ(r.size, 4u);
+        EXPECT_EQ(r.bytes[0], 0xAAu);
+        EXPECT_EQ(r.bytes[1], 0x22u);
+        EXPECT_EQ(r.bytes[2], 0xBBu);
+        EXPECT_EQ(r.bytes[3], 0x44u);
+    }
+    std::vector<riftwii::MemoryPatch> many;
+    for (std::size_t k = 0; k <= riftwii::PatchedCode::kMaxPreviewedPatches; ++k)
+        many.push_back(PlainPatch(0x2000 + static_cast<std::uint32_t>(8 * k), {0x60, 0, 0, 0}));
+    EXPECT_FALSE(patched.build(many, loaded, error));
+    EXPECT_TRUE(patched.ranges().empty());
+    EXPECT_TRUE(error.find("plain memory patches") != std::string::npos);
+}
+
 // A GameCube game's PADControlMotor: the command's low two bits ORed with
 // 0x40 in the top half, then SISetCommand and SITransferCommands in a row.
 static void gc_motor_function(Asm& a, std::uint32_t set_command, std::uint32_t transfer, bool second_call) {
@@ -2216,6 +2243,7 @@ int main() {
     TestPadSearchInPatches();
     TestPadSearchInPatchesDimming();
     TestIsPadRead();
+    TestPatchedCodeRanges();
     TestPackPadRead();
     TestIdleResetSearch();
     TestGcPadMotorSearch();

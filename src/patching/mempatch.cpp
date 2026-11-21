@@ -324,7 +324,20 @@ bool PatchedCode::build(const std::vector<MemoryPatch>& patches, MemoryAccess& m
     writes_.clear();
     joined_.clear();
     ranges_.clear();
-    if (!try_reserve(writes_, patches.size())) {
+    // The preview's loops grow with the square of the plain patches it
+    // keeps; past this many (macros can repeat a patch thousands of times)
+    // it gives up rather than hold the launch up, and the game's own
+    // PADRead is searched as before.
+    std::size_t plain = 0;
+    for (const MemoryPatch& p : patches) {
+        if (p.has_offset && !p.search && !p.ocarina && !p.value.empty()) ++plain;
+    }
+    if (plain > kMaxPreviewedPatches) {
+        error = std::to_string(plain) + " plain memory patches, more than the " +
+                std::to_string(kMaxPreviewedPatches) + " the preview reads";
+        return false;
+    }
+    if (!try_reserve(writes_, plain)) {
         error = "no memory to read the packs' memory patches";
         return false;
     }
@@ -382,7 +395,9 @@ bool PatchedCode::join(MemoryAccess& memory) {
         const std::uint64_t lo = head.address;
         std::uint64_t hi = lo + head.size;
         std::size_t last = first + 1;
-        while (last < order.size() && writes_[order[last]].address <= hi) {
+        // Grouped by whole words: two writes into the same word are one
+        // run, or each copy would hold only one of them.
+        while (last < order.size() && (writes_[order[last]].address & ~3u) <= ((hi + 3u) & ~std::uint64_t{3})) {
             hi = std::max(hi, std::uint64_t{writes_[order[last]].address} + writes_[order[last]].size);
             ++last;
         }
