@@ -1611,7 +1611,8 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 		g_filter == Filter::Wii || g_filter == Filter::GameCube);
 	if (discViews) {
 		GridItem disc;
-		disc.title = tr("Disc drive");  // translated whole: the tile splits it into lines
+		// Named as the Wii Menu names it, and as Settings > Home calls it.
+		disc.title = tr("Disc Channel");  // translated whole: the tile splits it into lines
 		disc.badge = "DISC";
 		disc.hue = {88, 92, 104, 255};
 		items.push_back(disc);
@@ -3692,8 +3693,9 @@ static int PickHomeChoice(const char* name, std::vector<TileSpec>& tiles, int cu
 		PAD_BUTTON_B | PAD_BUTTON_START, WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME);
 	HideButton(back);
 	GuiPrompts prompts;
-	const int choosePrompt = prompts.Add("A", tr("Choose"));
+	// B first: Back at the right end, as on every other page.
 	const int backPrompt = prompts.Add("B", tr("Back"));
+	const int choosePrompt = prompts.Add("A", tr("Choose"));
 	ShiftWindow window(0.86f, 0, true);
 	window.Append(&dim);
 	window.Append(&panel);
@@ -4632,16 +4634,20 @@ static int ShowHomeMenu()
 	// iOS 6: Power off is the red one, as an action sheet's destructive button.
 	SkinButton offBtn(ios ? skin::homeBtnDanger : skin::homeBtn, ios ? skin::homeBtnDangerOver : skin::homeBtnOver, 8, 332,
 		twoOnly ? rowMiddle : row2, tr("Power off"), 0, 0, 0);
+	// Leave 24 pixels at either end, including in translations. A long
+	// name (Homebrew Channel) makes all four smaller alike: one button in
+	// smaller letters than the others looked out of place.
+	constexpr int room = 248 - 48;
+	int homeTextSize = 24;
 	for (SkinButton* b : {&hbcBtn, &menuBtn, &priiBtn, &offBtn}) {
 		b->text.SetColor(ios ? skin::kInk : ScaledColor(skin::kAccent, 0.42f));  // dark on the pale buttons, any theme
-		// Leave 24 pixels at either end, including in translations.
-		constexpr int room = 248 - 48;
-		for (int size = 24; size >= 18; --size) {
-			b->text.SetFontSize(size);
+		for (; homeTextSize > 18; --homeTextSize) {
+			b->text.SetFontSize(homeTextSize);
 			if (b->text.GetTextWidth() <= room) break;
 		}
 		b->text.SetMaxWidth(room);
 	}
+	for (SkinButton* b : {&hbcBtn, &menuBtn, &priiBtn, &offBtn}) b->text.SetFontSize(homeTextSize);
 	if (ios) offBtn.text.SetColor(skin::kWhite);
 	// The Wii's: a small pill; iOS 6's: a bar button.
 	const float closeScale = ios ? 1.0f : 0.62f;
@@ -6054,7 +6060,7 @@ static bool EmulatorRowsPage(const std::string& title, std::vector<FlowRow>& row
 	TitleBand titleBand;
 	PageIcon pageIcon(&skin::iconGear);
 	NoteCard noteCard;
-	GuiFlowList list(44, 84, 540, 5);
+	GuiFlowList list(40, 84, 560, 5);
 	list.SetCards(true);
 	list.SetRows(&rows);
 	GuiText noteTxt("", 15, skin::kInkSoft);
@@ -10674,7 +10680,7 @@ static void RunRowPage(const std::string& title, const std::string& subtitle, st
 	statusTxt.SetPosition(-40, 48);
 	NoteCard noteCard;
 	// Taller rows fit fewer in the same space: four of 56 where five of 44 go.
-	GuiFlowList list(44, 84, 540, rowHeight > 0 ? 4 : 5);
+	GuiFlowList list(40, 84, 560, rowHeight > 0 ? 4 : 5);
 	if (rowHeight > 0) list.SetRowHeight(rowHeight);
 	list.SetCards(true);
 	list.SetRows(&rows);
@@ -12709,7 +12715,8 @@ static bool FetchGameInfo(const FrontendState& state, riftwii::GameInfo& info)
 // Where the page's parts go: inside a TV's overscan, 5% of the screen in
 // from each edge (32 across, 24 down), the box over the band's edge.
 static constexpr int kHeroX = 40, kHeroY = 80, kHeroW = 150, kHeroH = 206;
-static constexpr int kTilesX = 214, kTilesRight = 600;  // 40 in from each side, as the box
+// The tiles start 12 after the box, the gap between the tiles themselves.
+static constexpr int kTilesX = kHeroX + kHeroW + 12, kTilesRight = 600;  // 40 in from each side, as the box
 static constexpr int kTilesW = kTilesRight - kTilesX;
 // The game's disc under its box (Settings > Disc art), at the left of
 // the space the Favourite tile has otherwise: as tall as fits between the
@@ -13288,7 +13295,7 @@ public:
 		std::string type, name;
 		bool required = false, seen = false, connected = false;
 	};
-	static constexpr int kGridX = kTilesX, kGridY = 132, kColW = 186, kColGap = 14, kRowH = 38;
+	static constexpr int kGridX = kTilesX, kGridY = 132, kColGap = 14, kColW = (kTilesRight - kTilesX - kColGap) / 2, kRowH = 38;
 	static constexpr int kStoryX = 40, kStoryY = 326, kStoryW = 520, kStoryLines = 4, kLineH = 19;  // ends by y 402, clear of the prompts
 	static constexpr int kControlTextW = 560, kControlFont = 14, kControlLineH = kControlFont + 6;
 
@@ -13886,7 +13893,7 @@ static void MenuCheats(FrontendState& state)
 	GuiText sourceTxt("", 12, skin::kInkDim);
 	Place(sourceTxt, NoteCard::kTextX, NoteCard::kY + NoteCard::kH);
 	NoteCard noteCard;
-	GuiFlowList list(44, 84, 540, 5);
+	GuiFlowList list(40, 84, 560, 5);
 	list.SetCards(true);
 	list.SetRows(&rows);
 	list.Select(0);
@@ -14152,7 +14159,7 @@ static bool MenuPickCodes(const FrontendState& state, std::string& key)
 	whereTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	whereTxt.SetPosition(-40, 40);
 	NoteCard noteCard;
-	GuiFlowList list(44, 84, 540, 5);
+	GuiFlowList list(40, 84, 560, 5);
 	list.SetCards(true);
 	list.SetRows(&rows);
 	// In a folder, the first entry (the game's code file when it is there),
@@ -14315,7 +14322,7 @@ static bool MenuPickMusic(std::string& choice)
 	whereTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	whereTxt.SetPosition(-40, 40);
 	NoteCard noteCard;
-	GuiFlowList list(44, 84, 540, 5);
+	GuiFlowList list(40, 84, 560, 5);
 	list.SetCards(true);
 	list.SetRows(&rows);
 	// In a folder, its first song or folder, not the way up.
@@ -14500,7 +14507,7 @@ static bool MenuPickFolder(std::string& picked)
 		}
 	};
 	NoteCard noteCard;
-	GuiFlowList list(44, 84, 540, 5);
+	GuiFlowList list(40, 84, 560, 5);
 	list.SetCards(true);
 	list.SetRows(&rows);
 	list.Select(0);
@@ -14638,7 +14645,7 @@ static bool MenuGameFolders(std::vector<std::string>& folders)
 	TitleBand titleBand;
 	PageIcon pageIcon(&skin::iconDrives);
 	NoteCard noteCard;
-	GuiFlowList list(44, 84, 540, 5);
+	GuiFlowList list(40, 84, 560, 5);
 	list.SetCards(true);
 	list.SetRows(&rows);
 	// With no folders yet, Add is the only thing to do.
@@ -14847,7 +14854,7 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 	gameTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	gameTxt.SetPosition(-40, 40);
 	NoteCard noteCard;
-	GuiFlowList list(44, 84, 540, 5);
+	GuiFlowList list(40, 84, 560, 5);
 	list.SetCards(true);
 	list.SetRows(&rows);
 	list.Select(0);
@@ -15346,7 +15353,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 	gameTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	gameTxt.SetPosition(-40, 40);
 	NoteCard noteCard;
-	GuiFlowList list(44, 84, 540, 5);
+	GuiFlowList list(40, 84, 560, 5);
 	list.SetCards(true);
 	list.SetRows(&rows);
 	list.Select(1);
@@ -16023,11 +16030,12 @@ static int MenuHome(FrontendState& state)
 	HideButton(backBtn);
 	HideButton(startBtn);
 	GuiPrompts prompts;
+	// B first: Back at the right end, as on every other page, then Select.
+	const int promptBack = prompts.Add("B", tr("Back"));
+	prompts.Add("A", tr("Select"));
 	// The same words as the Play tile: Build and play while the game is still
 	// to be made from its patch (rebuildTiles keeps it so).
 	const int promptPlay = prompts.Add("+", SelectedGcPatch(state) ? tr("Build and play") : tr("Play"));
-	const int promptBack = prompts.Add("B", tr("Back"));
-	prompts.Add("A", tr("Select"));
 	// 1: the compatibility list's report form, as a code (ShowCompatReport).
 	// One short word: the row has no room to spare beside "Build and play".
 	const int promptReport = prompts.Add("1", tr("Report"));
@@ -17533,7 +17541,7 @@ static void CreditsPage()
 		for (std::size_t i = 0; i < lines.size(); ++i) rows[i].label = std::move(lines[i]);
 	}
 	Panel panel(skin::panelSettings, 34, 76);
-	GuiFlowList list(46, 82, 548, 6);
+	GuiFlowList list(40, 82, 560, 6);
 	list.SetRows(&rows);
 	list.Select(0);
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
@@ -17973,11 +17981,11 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 	countTxt.SetPosition(-40, 40);
 	NoteCard noteCard;
 	// The list on the left, the focused theme's preview and facts on the right.
-	GuiFlowList list(44, 84, 340, 5);
+	GuiFlowList list(40, 84, 368, 5);
 	list.SetCards(true);
 	list.SetRows(&rows);
 	list.Select(0);
-	constexpr int kPreviewX = 410, kPreviewY = 92;
+	constexpr int kPreviewX = 600 - ThemePreview::kWidth, kPreviewY = 92;  // its right edge on the page's, 600
 	ThemePreview preview(kPreviewX, kPreviewY, ThemePreview::kWidth, ThemePreview::kHeight);
 	riftwii::wii::BusyRing listBusy(320, 308);
 	riftwii::wii::BusyRing previewBusy(kPreviewX + ThemePreview::kWidth / 2, kPreviewY + 28, false);
@@ -17985,7 +17993,7 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 	Place(previewTxt, kPreviewX + 10, kPreviewY + ThemePreview::kHeight / 2 - 9);
 	GuiText factsTxt("", 14, skin::kInkSoft);
 	Place(factsTxt, kPreviewX, kPreviewY + ThemePreview::kHeight + 10);
-	factsTxt.SetWrap(true, 190, 4);
+	factsTxt.SetWrap(true, ThemePreview::kWidth, 4);
 	GuiText noteTxt(tr("Getting the list of themes..."), 15, skin::kInkSoft);
 	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
 	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
@@ -18918,7 +18926,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	versionTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	versionTxt.SetPosition(-40, 40);
 	NoteCard noteCard;
-	GuiFlowList list(44, 84, 540, 5);
+	GuiFlowList list(40, 84, 560, 5);
 	list.SetCards(true);
 	list.SetRows(&rows);
 	list.Select(0);
@@ -20171,7 +20179,7 @@ static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
 	const int promptBack = prompts.Add("B", tr("Back"));
 	prompts.Add("A", tr("Open"));
 	// Three lines; the third is cut short of the prompts.
-	PromptsNote noteTxt(prompts, 44, 360, 556, 3, 16, skin::kInkSoft);
+	PromptsNote noteTxt(prompts, 40, 360, 560, 3, 16, skin::kInkSoft);
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);

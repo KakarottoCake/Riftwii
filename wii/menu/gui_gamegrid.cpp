@@ -11,6 +11,7 @@
 #include <cmath>
 #include <utility>
 
+#include "bannerplay.hpp"
 #include "boxart.hpp"
 #include "covers.hpp"
 #include "madecover.hpp"
@@ -805,17 +806,45 @@ bool GuiGameGrid::DrawChannelTile(int index, float x, float y, float scale, bool
         rim();
         return true;
     }
-    if ((*items)[index].badge == "DISC" && skin::iconDisc.data) {
-        // The disc drive, as the Wii Menu's Disc Channel: its disc,
-        // large in the middle of a plain channel; its name on the
-        // label when lit, as the others'.
-        frame(skin::channelCard9);
-        if (on) frame(skin::channelCardOver9, true);
-        const float k = std::min(box.clipH * 0.70f, box.clipW * 0.5f) / skin::iconDisc.h;
-        skin::Draw(skin::iconDisc, cx - skin::iconDisc.w / 2.0f, cy - skin::iconDisc.h / 2.0f, alpha, k);
+    if ((*items)[index].badge == "DISC" && skin::discChannel.data && skin::discChannelDisc.data) {
+        DrawDiscChannel(box, cx);
+        rim();
         return true;
     }
     return false;
+}
+
+// The disc drive with no disc in, as the Wii Menu's Disc Channel shows it
+// (watched in Dolphin): a white glossy face, a silver disc about three
+// quarters of the tile high a little above the middle, its reflection on the floor
+// under it. Every six seconds or so the disc makes a half turn about its
+// upright line, speeding up then slowing down, and rests facing front.
+void GuiGameGrid::DrawDiscChannel(const IconBox& box, float cx) {
+    riftwii::wii::RoundClip clip;
+    clip.x = box.clipX;
+    clip.y = box.clipY;
+    clip.w = box.clipW;
+    clip.h = box.clipH;
+    clip.radius = box.radius;
+    riftwii::wii::DrawRoundPicture(skin::discChannel.data, skin::discChannel.w, skin::discChannel.h, GX_TF_RGBA8, clip,
+                                   box.alpha);
+
+    constexpr float kCycleMs = 5950.0f;     // one rest and one turn
+    constexpr float kTurnShare = 0.42f;     // the turn's part of the cycle (2.5 s)
+    constexpr float kDiscRows = 64.0f;      // the disc's rows in the picture, its reflection under them
+    const float phase = riftwii::wii::transition::Cycle(kCycleMs);
+    float turn = 0.0f;
+    if (phase > 1.0f - kTurnShare) turn = riftwii::wii::transition::Ease((phase - (1.0f - kTurnShare)) / kTurnShare);
+    // Seen from the front, a disc turned by an angle is that much narrower.
+    const float narrowing = std::fabs(std::cos(turn * 3.14159265f));
+    const skin::Tex& disc = skin::discChannelDisc;
+    const float k = box.clipH * 0.78f / kDiscRows;
+    // The disc's middle at 47% of the tile's height, as the Wii Menu's.
+    const float discMiddleY = box.clipY + box.clipH * 0.47f;
+    const float pictureMiddleY = discMiddleY + (disc.h / 2.0f - kDiscRows / 2.0f) * k;
+    // Menu_DrawImg scales about the picture's middle.
+    Menu_DrawImg(cx - disc.w / 2.0f, pictureMiddleY - disc.h / 2.0f, static_cast<u16>(disc.w), static_cast<u16>(disc.h),
+                 disc.data, 0, k * narrowing, k, static_cast<u8>(box.alpha));
 }
 
 void GuiGameGrid::DrawCoverTile(int index, Slot* text, float x, float y, float scale, bool on, int alpha) {
@@ -951,7 +980,14 @@ void GuiGameGrid::DrawChannelLabel(int slot, int alpha) {
     const int textW = caption->GetTextWidth();
     const int boxW = textW + 28, boxH = 28;
     int x = TileX(slot) + Geo().tileW / 2 - boxW / 2;
-    x = x < 32 ? 32 : x + boxW > 608 ? 608 - boxW : x;
+    // Kept inside the TV's overscan (5% in from each side) of the menu as it
+    // is shown: a widescreen menu's sides are past the 4:3 middle's 32 and
+    // 608, and its outer columns' labels stay under their tiles.
+    f32 safeX, safeW;
+    Menu_SafeArea(&safeX, &safeW);
+    const int safeLeft = static_cast<int>(safeX + safeW * 0.05f);
+    const int safeRight = static_cast<int>(safeX + safeW * 0.95f);
+    x = x < safeLeft ? safeLeft : x + boxW > safeRight ? safeRight - boxW : x;
     const int y = TileY(slot) + Geo().tileH - 8;
     const int m = riftwii::kLabelMargin;
     skin::DrawNine(skin::label9, x - m, y - m, boxW + 2 * m, boxH + 2 * m, riftwii::kLabelCorner, alpha);
