@@ -44,8 +44,12 @@ bool find_ipc_symbols(const std::vector<CodeRange>& text, IpcSymbols& out, std::
 // 0` in the synchronous one. Functions the game never calls are not in
 // its DOL (the linker drops them) and stay 0 here: nothing calls them,
 // so nothing needs hooking. The reboot forms of ioctlv (relaunch set in
-// the block) are left out. Section 24.3 of docs/CONDUCTOR_REVIEW_2.md;
-// verified on four titles (2007-2009 SDKs) with tools/ipcscan.cpp.
+// the block) are left out. An SDK built without optimization (LEGO Star
+// Wars: The Complete Saga) hands the command to a setup helper instead
+// (`li r4, N` then `bl setup`), which allocates the block and stores it;
+// the same search finds that form. Section 24.3 of
+// docs/CONDUCTOR_REVIEW_2.md; verified on four titles (2007-2009 SDKs)
+// with tools/ipcscan.cpp.
 enum IpcCommand { kIpcOpen = 1, kIpcClose, kIpcRead, kIpcWrite, kIpcSeek, kIpcIoctlCmd, kIpcIoctlvCmd };
 
 struct IpcApi {
