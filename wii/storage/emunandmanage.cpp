@@ -799,7 +799,8 @@ bool read_content_map(const std::string& root, std::vector<SharedContent>& map, 
     return true;
 }
 
-bool copy_title(const std::string& from, const std::string& to, std::uint64_t title, std::string& error) {
+bool copy_title(const std::string& from, const std::string& to, std::uint64_t title, bool& already_there,
+                std::string& error) {
     EmuNandTitlePaths paths;
     if (!emunand_title_paths(title, paths)) {
         error = "system titles and unknown title types cannot be copied";
@@ -818,7 +819,8 @@ bool copy_title(const std::string& from, const std::string& to, std::uint64_t ti
     std::uint64_t size = 0;
     const Kind there = inspect(destination, size);
     if (there == Kind::Directory || there == Kind::File) {
-        error = "the title is already in " + to + "; delete it there first to copy it again";
+        already_there = true;
+        error = "the title is already in the destination; delete it there first to copy it again";
         return false;
     }
     if (there != Kind::Missing) {
@@ -841,20 +843,27 @@ bool copy_title(const std::string& from, const std::string& to, std::uint64_t ti
         if (from_map.empty() && !read_content_map(from, from_map, error)) return false;
         if (shared.empty() && to_map.empty() && !read_content_map(to, to_map, error)) return false;
         SharedCopy copy;
-        if (const SharedContent* known = find_shared_content(to_map, content.sha1)) {
+        const SharedContent* known = find_shared_content(to_map, content.sha1);
+        if (known) {
+            // Listed there: used as it is only when its file is there whole.
+            std::uint64_t there_size = 0;
             copy.name = known->name;
-            copy.present = true;
-        } else {
+            copy.present = inspect({false, to + "/shared1/" + copy.name + ".app"}, there_size) == Kind::File &&
+                           there_size == content.size;
+        }
+        if (!copy.present) {
             const SharedContent* source = find_shared_content(from_map, content.sha1);
             if (!source) {
-                error = "a shared content the title uses is missing from " + from;
+                error = "a shared content the title uses is missing from the source";
                 return false;
             }
             copy.from = from + "/shared1/" + source->name + ".app";
-            if (inspect({false, copy.from}, copy.size) != Kind::File) {
+            if (inspect({false, copy.from}, copy.size) != Kind::File || copy.size != content.size) {
                 error = "a shared content the title uses could not be read";
                 return false;
             }
+        }
+        if (!known) {
             copy.name = next_shared_name(to_map);
             if (copy.name.size() != 8 || !try_push_back(to_map, SharedContent{copy.name, content.sha1})) {
                 error = "the destination has too many shared contents";
@@ -894,16 +903,23 @@ bool copy_title(const std::string& from, const std::string& to, std::uint64_t ti
         if (scan_tree(destination, "", 0, false, title, partial, ignored_error)) delete_tree(destination, partial, ignored_error);
         return false;
     }
+    const Location ticket_copy{false, to + paths.ticket};
+    std::uint64_t ignored_size = 0;
+    const bool ticket_was_there = inspect(ticket_copy, ignored_size) == Kind::File;
+    bool ticket_copied = false;
+    // Best effort: a drive taken out keeps what was written to it.
     const auto undo = [&](const std::string& why_failed) {
         error = why_failed;
         std::string ignored_error;
         delete_tree(destination, tree, ignored_error);
+        if (ticket_copied && !ticket_was_there) remove_one(ticket_copy, false);
         return false;
     };
-    const std::string ticket_dir = (to + paths.ticket).substr(0, (to + paths.ticket).find_last_of('/'));
+    const std::string ticket_dir = ticket_copy.path.substr(0, ticket_copy.path.find_last_of('/'));
     if (!make_card_dirs(ticket_dir) ||
-        !copy_file(ticket, {false, to + paths.ticket}, ticket_size, {false, ticket_dir}, Attributes{}, error))
+        !copy_file(ticket, ticket_copy, ticket_size, {false, ticket_dir}, Attributes{}, error))
         return undo(error.empty() ? "the ticket could not be copied" : error);
+    ticket_copied = true;
     if (!shared.empty() && !make_card_dirs(to + "/shared1")) return undo("the shared-content folder could not be made");
     for (const SharedCopy& copy : shared) {
         if (copy.present) continue;
@@ -927,20 +943,22 @@ bool copy_title(const std::string& from, const std::string& to, std::uint64_t ti
 std::string emunand_copy_destination(const std::string& folder) {
     std::string checked;
     if (!emunand_root(folder, checked)) return std::string();
-    // The folder Home lists channels from, when it is on the SD card.
+    // The folder Home lists channels from when it is on the SD card, else
+    // sd:/nands/01.
     const SharedNandLookup channels = look_up_channel_nand();
     const bool channels_on_sd = channels.usable && channels.folder.compare(0, 4, "sd:/") == 0;
-    if (shared_nand_on_usb(checked)) return channels_on_sd && channels.folder != checked ? channels.folder : kSdSharedNand;
+    const std::string sd_channels = channels_on_sd ? channels.folder : std::string(kSdSharedNand);
+    if (shared_nand_on_usb(checked)) return sd_channels;
     if (checked.compare(0, 4, "sd:/") != 0) return std::string();
     // Another folder on the card (WiiFlow's nands/default, one a PC tool
-    // filled): into Home's channel folder. That one itself: to the USB drive.
-    if (channels_on_sd && channels.folder != checked) return channels.folder;
-    return kUsbSharedNand;
+    // filled): into that folder. That one itself: to the USB drive.
+    return checked != sd_channels ? sd_channels : std::string(kUsbSharedNand);
 }
 
 bool emunand_manager_copy_title(const std::string& from, const std::string& to, std::uint64_t title,
-                                std::string& error) {
+                                bool& already_there, std::string& error) {
     error.clear();
+    already_there = false;
     logf("Emulated NAND: asked to copy title %s from %s to %s.\n", emunand_title_text(title).c_str(), from.c_str(),
          to.c_str());
     std::string from_root, to_root;
@@ -955,7 +973,7 @@ bool emunand_manager_copy_title(const std::string& from, const std::string& to, 
     CardRoot source;
     CardRoot target;
     if (ok) ok = source.Open(from_root, error) && target.Open(to_root, error);
-    if (ok) ok = copy_title(source.path, target.path, title, error);
+    if (ok) ok = copy_title(source.path, target.path, title, already_there, error);
     if (ok) logf("Emulated NAND: copied title %s to %s; the original stays in %s.\n", emunand_title_text(title).c_str(),
                  to.c_str(), from.c_str());
     else logf("Emulated NAND: could not copy title %s because %s.\n", emunand_title_text(title).c_str(), error.c_str());

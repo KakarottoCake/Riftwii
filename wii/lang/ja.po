@@ -4590,8 +4590,11 @@ msgstr "{1}\n{2}から\n{3}へ\nゲームとセーブ、チケットをコピー
 msgid "Copied to {1}. Home shows it after the drives are read again."
 msgstr "{1}へコピーしました。ドライブをもう一度読み込むとホームに表示されます。"
 
-msgid "The title could not be copied: {1}"
-msgstr "タイトルをコピーできませんでした: {1}"
+msgid "The title could not be copied. See session.log for details."
+msgstr "タイトルをコピーできませんでした。詳しくはsession.logを見てください。"
+
+msgid "This title is already in {1}. Delete it there first to copy it again."
+msgstr "このタイトルはすでに{1}にあります。もう一度コピーするには、先にそちらを削除してください。"
 
 msgid "Miis from Wii"
 msgstr "WiiからMiiをコピー"

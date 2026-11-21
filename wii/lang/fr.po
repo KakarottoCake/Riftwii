@@ -4590,8 +4590,11 @@ msgstr "{1}\nde {2}\nvers {3}\nLe jeu, sa sauvegarde et son ticket sont copiés 
 msgid "Copied to {1}. Home shows it after the drives are read again."
 msgstr "Copié dans {1}. L'accueil l'affiche une fois les supports relus."
 
-msgid "The title could not be copied: {1}"
-msgstr "Impossible de copier le titre : {1}"
+msgid "The title could not be copied. See session.log for details."
+msgstr "Impossible de copier le titre. Voir session.log pour les détails."
+
+msgid "This title is already in {1}. Delete it there first to copy it again."
+msgstr "Ce titre est déjà dans {1}. Supprimez-le d'abord là-bas pour le copier à nouveau."
 
 msgid "Miis from Wii"
 msgstr "Mii depuis la Wii"
