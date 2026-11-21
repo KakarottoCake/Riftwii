@@ -247,6 +247,16 @@ void test_channel_nand_on_usb() {
     CHECK(channels.size() == 1 && channels[0].emu_nand == "sd:/nands/gx");
     channel_nand_folder = "sd:/nands/01";
     usb_files.clear();
+    // The same rule for Settings > Install WAD files (wad_nand_folder),
+    // and sd:/nands/01 when the configured folder can't be used.
+    SharedNandLookup nand;
+    nand.usable = true;
+    nand.folder = "usb1:/nands/01";
+    CHECK(wad_nand_folder(nand) == "sd:/nands/01");
+    nand.folder = "sd:/nands/gx";
+    CHECK(wad_nand_folder(nand) == "sd:/nands/gx");
+    nand.usable = false;
+    CHECK(wad_nand_folder(nand) == "sd:/nands/01");
 }
 
 void test_usb_partitions_and_merge() {

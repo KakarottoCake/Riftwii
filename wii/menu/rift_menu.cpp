@@ -4942,7 +4942,13 @@ static bool InstallWads()
 		ShowPopup(tr("Install WAD files"), tr("The emulated NAND folder can't be used: {1}", {FlatCapped(nand.error, 120)}), tr("OK"));
 		return false;
 	}
-	if (ShowPopup(tr("Install WAD files"), tr("Install {1} WAD file(s) into {2}? The Wii itself is not changed.", {std::to_string(files.size()), nand.folder}),
+	// The SD card's emulated NAND, as for the wiiware folders: a channel
+	// folder on the USB drive can't take them (install_wad refuses it).
+	const std::string folder = riftwii::wii::wad_nand_folder(nand);
+	if (folder != nand.folder)
+		logf("Install WAD files: the emulated NAND for channels is %s, not on the SD card, so the WADs go to %s.\n",
+			nand.folder.c_str(), folder.c_str());
+	if (ShowPopup(tr("Install WAD files"), tr("Install {1} WAD file(s) into {2}? The Wii itself is not changed.", {std::to_string(files.size()), folder}),
 		    tr("Install"), tr("Cancel")) != 0) {
 		return false;
 	}
@@ -4965,7 +4971,7 @@ static bool InstallWads()
 			const riftwii::wii::CardWriteHold hold;
 			ResumeGui();
 			int shown = -1;
-			ok = riftwii::wii::install_wad(path, nand.folder, nullptr, [&](double done) {
+			ok = riftwii::wii::install_wad(path, folder, nullptr, [&](double done) {
 				const int percent = static_cast<int>(done * 100);
 				if (percent == shown) return;
 				shown = percent;
