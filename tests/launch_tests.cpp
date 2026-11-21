@@ -655,11 +655,17 @@ static void test_saves() {
             tv.video_mode = "ntsc";
             EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Ntsc);
             tv.video_mode = "global";
-            // 480p and 240p are NTSC pictures.
+            // 480p is an NTSC picture; 240p keeps PAL 60's colours (an RGB
+            // SCART cable shows NTSC red), and stays NTSC when nothing
+            // asks for PAL.
             tv.gc_progressive = "480p";
             EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Ntsc);
             tv.gc_progressive = "240p";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Pal60);
+            set.video_mode = "system";
+            set.wii_video = "ntsc";
             EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Ntsc);
+            set.video_mode = "pal60";
             tv.gc_progressive = "global";
             // A European game: PAL 50 at 50 Hz whatever is asked; at 60 Hz,
             // PAL 60, or NTSC when asked.
