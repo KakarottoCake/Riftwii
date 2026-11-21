@@ -227,10 +227,12 @@ bool may_write_gpr(std::uint32_t p, unsigned r) {
                 case 144: case 146: case 210: case 242: case 467:          // mtcrf, mtmsr, mtsr(in), mtspr
                 case 151: case 215: case 407: case 662: case 918: case 150:  // stores
                 case 663: case 727: case 983:                               // FP stores
+                case 535: case 599:                                         // lfsx, lfdx (an FPR)
                 case 54: case 86: case 246: case 278: case 470: case 982: case 1014:  // cache
                 case 598: case 854:                                         // sync, eieio
                     return false;
                 case 183: case 247: case 439: case 695: case 759:  // stores with update write rA
+                case 567: case 631:  // lfsux, lfdux: rA too (their destination is an FPR)
                     return ra == r;
                 case 55: case 119: case 311: case 375:  // loads with update write rD and rA
                     return rd == r || ra == r;
@@ -245,29 +247,45 @@ bool may_write_gpr(std::uint32_t p, unsigned r) {
     }
 }
 
+// Any branch: b, bc, bclr and bcctr, linked or not. A call (bl, bctrl,
+// blrl) may change r4, and code reached from a branch may come with
+// another r4, so the scan for r4's value stops at one.
+bool is_any_branch(std::uint32_t p) {
+    const std::uint32_t op = p >> 26;
+    if (op == 16 || op == 18) return true;
+    const std::uint32_t xo = (p >> 1) & 0x3FFu;
+    return op == 19 && (xo == 16 || xo == 528);
+}
+
 // The value `li r4, N` gives r4 for the call at `call` (looking back a few
 // instructions, not past `start`); -1 when r4 is set some other way there,
-// changed after the `li`, or not set at all.
+// changed after the `li` (or a branch comes between), or not set at all.
 std::int64_t r4_immediate_before(const std::vector<CodeRange>& text, std::uint32_t start, std::uint32_t call) {
     for (std::uint32_t back = 4; back <= kArgumentLookback * 4 && call >= start + back; back += 4) {
         const std::uint32_t p = word_at(text, call - back);
         if (is_li(p) && rd_of(p) == 4) return static_cast<std::int16_t>(p & 0xFFFFu);
-        if (is_bl(p) || may_write_gpr(p, 4)) return -1;
+        if (is_any_branch(p) || may_write_gpr(p, 4)) return -1;
     }
     return -1;
 }
 
 // The IPC command (1 to 7) a function hands to `setup` as `li r4, N`, or
-// 0 when it doesn't call it that way.
+// 0 when it doesn't call it that way. Every call to `setup` in the
+// function must hand it the same command, as the allocator path asks one
+// stored command of a function.
 std::uint32_t setup_command(const std::vector<CodeRange>& text, std::uint32_t start, std::uint32_t end,
                             std::uint32_t setup) {
+    std::uint32_t command = 0;
     for (std::uint32_t a = start + 8; a + 4 <= end; a += 4) {
         const std::uint32_t w = word_at(text, a);
         if (!is_bl(w) || bl_target(a, w) != setup) continue;
         const std::int64_t cmd = r4_immediate_before(text, start, a);
-        return cmd >= 1 && cmd <= 7 ? static_cast<std::uint32_t>(cmd) : 0;
+        if (cmd < 1 || cmd > 7) return 0;
+        const std::uint32_t this_command = static_cast<std::uint32_t>(cmd);
+        if (command != 0 && command != this_command) return 0;
+        command = this_command;
     }
-    return 0;
+    return command;
 }
 
 // How the function hands its block to `submit`: 1 when r4 (the callback)

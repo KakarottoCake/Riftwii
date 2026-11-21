@@ -635,6 +635,31 @@ static void TestIpcApiSearchUnoptimized() {
     v.li(4, 0);
     v.bl(vsubmit);
     v.word(0x4E800020);  // blr
+    // `lfdux f0, r4, r5` leaves an address in r4; a `bctrl` may change r4.
+    std::uint32_t clobbered[2] = {};
+    const std::uint32_t clobbers[2] = {0x7C042CEEu /* lfdux f0,r4,r5 */, 0x4E800421u /* bctrl */};
+    for (int k = 0; k < 2; ++k) {
+        clobbered[k] = v.here();
+        v.word(0x9421FFD0);  // stwu r1,-48(r1)
+        v.li(4, 1);
+        v.word(clobbers[k]);
+        v.word(0x38E10024);  // addi r7,r1,36
+        v.bl(vsetup);
+        v.li(4, 0);
+        v.bl(vsubmit);
+        v.word(0x4E800020);  // blr
+    }
+    // Two setup calls with different commands: no one command, so no API
+    // function (the allocator path asks the same of its stores).
+    const std::uint32_t twice = v.here();
+    v.word(0x9421FFD0);  // stwu r1,-48(r1)
+    v.li(4, 1);
+    v.bl(vsetup);
+    v.li(4, 2);
+    v.bl(vsetup);
+    v.li(4, 0);
+    v.bl(vsubmit);
+    v.word(0x4E800020);  // blr
     std::uint32_t vasync[8] = {};
     for (std::uint32_t cmd : {2u, 6u, 7u}) vasync[cmd] = v.unoptimized_function(cmd, true, vsetup, vfill, vsubmit);
     riftwii::IpcSymbols vs;
@@ -645,8 +670,11 @@ static void TestIpcApiSearchUnoptimized() {
     EXPECT_EQ(vapi.async[6], vasync[6]);
     EXPECT_EQ(vapi.async[2], vasync[2]);
     EXPECT_EQ(vapi.sync[1], 0u);
+    EXPECT_EQ(vapi.sync[2], 0u);
     (void)changed;
     (void)loaded;
+    (void)clobbered;
+    (void)twice;
 }
 
 static void TestReturnToMenuSearch() {
