@@ -12042,7 +12042,11 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 	const int slot = PickRealGcCardSlot();
 	if (slot < 0) return;
 	riftwii::wii::GcRealCard physical;
-	int result = physical.Open(slot);
+	int result = 0;
+	{
+		const riftwii::wii::MenuAudioOffForCard audioOff("the memory card is opened");
+		result = physical.Open(slot);
+	}
 	std::vector<std::uint8_t> raw;
 	if (result >= 0) {
 		// A 16 MB card is held whole. Ask for it now (the build has no
@@ -12379,15 +12383,19 @@ static bool ReadyGcStart(FrontendState& state)
 			std::unique_ptr<PopupBox> box;
 		} waiting{slotName, nullptr};
 		bool timedOut = false;
-		riftwii::wii::GcRealCardCheck check = riftwii::wii::CheckGcRealCard(slot, 8000, timedOut, [](void* context) {
-			Waiting& shown = *static_cast<Waiting*>(context);
-			if (shown.box) return;
-			shown.box.reset(new PopupBox(tr("Memory card"), tr("Checking the memory card in slot {1}...", {shown.slot})));
-			ResumeGui();
-		}, &waiting);
-		if (waiting.box) {
-			HaltGui();
-			waiting.box.reset();
+		riftwii::wii::GcRealCardCheck check;
+		{
+			const riftwii::wii::MenuAudioOffForCard audioOff("the memory card is checked");
+			check = riftwii::wii::CheckGcRealCard(slot, 8000, timedOut, [](void* context) {
+				Waiting& shown = *static_cast<Waiting*>(context);
+				if (shown.box) return;
+				shown.box.reset(new PopupBox(tr("Memory card"), tr("Checking the memory card in slot {1}...", {shown.slot})));
+				ResumeGui();
+			}, &waiting);
+			if (waiting.box) {
+				HaltGui();
+				waiting.box.reset();
+			}
 		}
 		int result = check.result;
 		std::vector<std::uint8_t>& system = check.system;

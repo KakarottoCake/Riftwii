@@ -600,6 +600,18 @@ void LaunchMusicPauseForReload(const char* why) {
     FadeOutAndStop(why, at_ms >= 0 ? at_ms : 0);
 }
 
+MenuAudioOffForCard::MenuAudioOffForCard(const char* why) : music_(g_playing) {
+    MenuMusicStop();
+    ShutdownAudio();
+    logf("Menu sound: off while %s, so the DSP can unlock the card\n", why);
+}
+
+MenuAudioOffForCard::~MenuAudioOffForCard() {
+    InitAudio();
+    if (music_) MenuMusicStart();
+    logf("Menu sound: on again\n");
+}
+
 void LaunchMusicResumeAfterReload() {
     if (g_resume_at_ms < 0) return;
     const s32 at_ms = g_resume_at_ms;
