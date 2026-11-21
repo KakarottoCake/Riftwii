@@ -4487,24 +4487,30 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     } else {
         mem2_image.swap(mem2_stage);
     }
+    // The console's TV format the game reads (0x800000CC): its own region
+    // always, even in PAL 60: the VI it sets up for that is the same, and
+    // a game told PAL might pick its 576-line modes or refuse to start.
     const std::uint32_t tv_mode = gc_pal_game(image.id) ? 1 : 0;  // PAL or NTSC
-    // The picture the game is handed: the Wii's video encoder in the game's
-    // region (its own region setting must match the game's picture, or a US
-    // game on a PAL Wii shows red as blue), and for a game given 480p the
-    // VI already in NTSC 480p at 54 MHz, as a GameCube with a component
+    // The picture the game is handed: the Wii's video encoder in the
+    // signal the launch chose (gc_tv_signal: the game's region, or PAL 60
+    // or NTSC as Video mode asks; its region setting must suit the game's
+    // picture, or a US game on a PAL Wii shows red as blue), and for a game
+    // given 480p the VI already in NTSC 480p at 54 MHz, as a GameCube with a component
     // cable has it when a game starts. Handed over in 480i, a game that
     // then went to 480p came out with red and blue swapped, its picture
     // doubled side by side and running slowly (Super Mario Sunshine on a
     // Wii U, a Wii through HDMI): an educated guess that the game's own
     // VI set-up leaves the clock at 27 MHz, or that the switch back and
     // forth loses the TV's or the HDMI adapter's lock. Untested on a Wii.
-    std::uint32_t handover = tv_mode == 1 ? RWP_TV_PAL : RWP_TV_NTSC;
+    std::uint32_t handover = image.tv_signal;
+    if (handover != RWP_TV_PAL && handover != RWP_TV_EURGB60) handover = RWP_TV_NTSC;
     const bool handover_480p = handover == RWP_TV_NTSC && (image.progressive || test_handover_480p) && !test_handover_480i;
     if (test_ave_keep) handover = RWP_TV_KEEP;
     else if (handover_480p) handover = RWP_TV_NTSC_480P;
     logf("GameCube: handed over in %s\n", handover == RWP_TV_KEEP          ? "the menu's own video mode (avekeep)"
                                           : handover == RWP_TV_NTSC_480P ? "NTSC 480p"
                                           : handover == RWP_TV_PAL       ? "PAL 576i"
+                                          : handover == RWP_TV_EURGB60   ? "PAL 60 Hz (EuRGB60, 480i)"
                                                                          : "NTSC 480i");
     // Last, while the frame on screen is still the launch screen.
     gc_progress("Starting the game", 100);

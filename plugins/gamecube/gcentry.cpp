@@ -49,6 +49,7 @@ riftwii::wii::GcImage image_of(const rwp_gc_launch& request) {
     image.language = request.language;
     image.sharp = request.sharp != 0;
     image.sixty_hz = request.sixty_hz != 0;
+    image.tv_signal = request.tv_signal;
     image.vi_width = request.vi_width;
     image.screen_offset_set = request.screen_offset_set != 0;
     image.screen_offset = request.screen_offset;

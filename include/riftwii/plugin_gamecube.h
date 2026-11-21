@@ -172,6 +172,11 @@ typedef struct rwp_gc_launch {
     const void* pad_calibration;
     uint32_t pad_calibration_bytes;
 
+    /* The colour signal the video encoder is handed over in, RWP_TV_NTSC,
+     * RWP_TV_PAL or RWP_TV_EURGB60 (riftwii/launch.hpp's gc_tv_signal).
+     * 480p turns NTSC into RWP_TV_NTSC_480P in the plugin. */
+    uint32_t tv_signal;
+
     /* Out: the reason when launch returns RWP_LAUNCH_FAILED. */
     char* error;
     uint32_t error_bytes;

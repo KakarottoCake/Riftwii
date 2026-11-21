@@ -633,6 +633,44 @@ static void test_saves() {
             EXPECT_FALSE(riftwii::gc_progressive_on(line, "GMSE01", crt));
             EXPECT_FALSE(riftwii::gc_line240_on(line, "GLMP01", crt));
         }
+        {
+            // The colour signal: a US game goes out in PAL 60 when Video
+            // mode asks for PAL (a tester's PAL TV turned it red as NTSC).
+            using riftwii::GcTvSignal;
+            riftwii::GameSettings tv;
+            riftwii::GcConsoleSettings set;
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Ntsc);
+            set.video_mode = "pal60";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Pal60);
+            set.video_mode = "pal50";  // a 60 Hz game can't go to 50 Hz: PAL 60, the nearest
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Pal60);
+            set.video_mode = "system";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Ntsc);
+            set.wii_video = "pal60";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Pal60);
+            set.wii_video = "mpal";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Ntsc);
+            // The game's own choice wins over Settings'.
+            set.video_mode = "pal60";
+            tv.video_mode = "ntsc";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Ntsc);
+            tv.video_mode = "global";
+            // 480p and 240p are NTSC pictures.
+            tv.gc_progressive = "480p";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Ntsc);
+            tv.gc_progressive = "240p";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Ntsc);
+            tv.gc_progressive = "global";
+            // A European game: PAL 50 at 50 Hz whatever is asked; at 60 Hz,
+            // PAL 60, or NTSC when asked.
+            set.video_mode = "ntsc";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GLMP01", set) == GcTvSignal::Pal50);
+            tv.gc_speed = "60";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GLMP01", set) == GcTvSignal::Ntsc);
+            set.video_mode = "game";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GLMP01", set) == GcTvSignal::Pal60);
+            EXPECT_EQ(std::string(riftwii::gc_tv_signal_name(GcTvSignal::Pal60)), std::string("PAL 60 Hz"));
+        }
         // A European game at Smoother (60 Hz) takes EURGB60 interlaced, which
         // gc_video_pick never makes progressive, so 480p is never asked of it.
         g.gc_speed = "60";

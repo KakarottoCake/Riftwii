@@ -212,6 +212,9 @@ struct GcConsoleSettings {
     int wii_language = -1;                  // the Wii's language, as libogc's CONF_LANG_* number
     std::string video_width = "game";       // LoaderSettings::video_width (riftwii/videopatch.hpp names)
     std::string video_mode = "game";        // LoaderSettings::video_mode: "240p" there makes Default 240p
+    // The Wii's own TV setting, for Video mode's "system": "ntsc", "pal50",
+    // "pal60" (a European Wii set to 60 Hz) or "mpal".
+    std::string wii_video = "ntsc";
 };
 
 // Whether "global" (Default) widens a GameCube game when Settings' aspect
@@ -247,6 +250,26 @@ bool gc_line240_on(const GameSettings& game, const std::string& id, const GcCons
 
 // Whether a European game (gc_pal_game) is told the TV takes 60 Hz.
 bool gc_sixty_hz_on(const GameSettings& game, const std::string& id);
+
+// The colour signal the Wii's video encoder sends while a GameCube game
+// runs. The game sets up only the VI (lines and timing); the encoder keeps
+// what RiftWii sets just before the game starts, so this is the only say
+// RiftWii has in it. libogc's EuRGB60 mode writes the VI exactly as NTSC
+// does and differs only in the encoder (the PAL colour flag and the
+// EuRGB60 filter), so an NTSC game handed over in it goes out as PAL 60
+// unchanged. A 50 Hz picture can't be made from a 60 Hz game, or the other
+// way round.
+enum class GcTvSignal { Ntsc, Pal50, Pal60 };
+
+// Settings > Picture > Video mode (or the game's own, when not "global";
+// "system" is the Wii's own TV setting) for a GameCube game:
+//  - an NTSC or Japanese game goes out as NTSC, or as PAL 60 for "pal60"
+//    and "pal50" (the nearest a 60 Hz game can come to PAL 50). 480p and
+//    240p stay NTSC: they are NTSC pictures.
+//  - a European game goes out as PAL 50 when it runs at 50 Hz (its Game
+//    speed); at 60 Hz, as PAL 60, or NTSC for "ntsc".
+GcTvSignal gc_tv_signal(const GameSettings& game, const std::string& id, const GcConsoleSettings& console);
+const char* gc_tv_signal_name(GcTvSignal signal);
 
 // The game's Volume boost in decibels: 0 (off), 3 or 6.
 unsigned gc_volume_boost_db(const GameSettings& game);
