@@ -422,14 +422,20 @@ struct FakeText {
     // block and stores the command), a fill helper, then the block to
     // `submit` with the callback register or 0. `with_submit` false is
     // the reboot form of ioctlv, which leaves through another path.
+    // `other`, when set, is another function called with the same
+    // `li r4, cmd` before the setup helper.
     std::uint32_t unoptimized_function(std::uint32_t cmd, bool async, std::uint32_t setup, std::uint32_t fill,
-                                       std::uint32_t submit, bool with_submit = true) {
+                                       std::uint32_t submit, bool with_submit = true, std::uint32_t other = 0) {
         const std::uint32_t start = here();
         word(0x9421FFD0);  // stwu r1,-48(r1)
         word(0x7C0802A6);  // mflr r0
         word(0x90010034);  // stw r0,52(r1)
         word(0x90610008);  // stw r3,8(r1)
         word(0x7D3E4B78);  // mr r30,r9 (the callback)
+        if (other != 0) {
+            li(4, cmd);
+            bl(other);
+        }
         word(0x80610008);  // lwz r3,8(r1)
         li(4, cmd);
         if (async) {
@@ -687,6 +693,33 @@ static void TestIpcApiSearchUnoptimized() {
     EXPECT_EQ(vapi.sync[2], 0u);
     (void)changed;
     (void)loaded;
+
+    // IOS_IoctlAsync first calls another function with `li r4, 6` (one no
+    // other API function calls): the search passes it over and still
+    // finds the setup helper after it.
+    FakeText w;
+    const std::uint32_t walloc = w.here();
+    w.prologue();
+    const std::uint32_t wsetup = w.here();
+    w.word(0x9421FFD0);  // stwu r1,-48(r1)
+    w.bl(walloc);
+    w.word(0x4E800020);  // blr
+    const std::uint32_t wsubmit = w.here();
+    w.prologue();
+    const std::uint32_t wfill = w.here();
+    w.prologue();
+    const std::uint32_t wother = w.here();
+    w.prologue();
+    std::uint32_t wasync[8] = {};
+    for (std::uint32_t cmd : {2u, 6u, 7u})
+        wasync[cmd] = w.unoptimized_function(cmd, true, wsetup, wfill, wsubmit, true, cmd == 6 ? wother : 0);
+    riftwii::IpcSymbols ws;
+    ws.ioctl_async = wasync[6];
+    riftwii::IpcApi wapi;
+    EXPECT_TRUE(riftwii::find_ipc_api({w.range()}, ws, wapi, error));
+    EXPECT_EQ(wapi.async[6], wasync[6]);
+    EXPECT_EQ(wapi.async[2], wasync[2]);
+    EXPECT_EQ(wapi.async[7], wasync[7]);
     (void)clobbered;
     (void)twice;
     (void)joined;

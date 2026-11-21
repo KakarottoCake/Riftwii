@@ -393,26 +393,28 @@ bool find_ipc_api(const std::vector<CodeRange>& text, const IpcSymbols& known, I
     // function: each one hands its command to a setup helper, `li r4, N`
     // then `bl setup`, and the helper allocates the block (taking no size)
     // and stores the command. The submit call is the same. That helper
-    // is IOS_IoctlAsync's call made with `li r4, 6`, and it counts only
-    // when another API function in the stretch calls it with another
-    // command.
+    // is a call IOS_IoctlAsync makes with `li r4, 6`, and it counts only
+    // when it starts with a stack frame and another API function in the
+    // stretch calls it with another command. Another call made with 6
+    // that isn't the helper is passed over for the next.
+    const auto is_setup_helper = [&](std::uint32_t candidate) {
+        if (!is_stwu_r1(word_at(text, candidate))) return false;
+        std::set<std::uint32_t> commands;
+        for (std::size_t i = 0; i < starts.size(); ++i) {
+            const std::uint32_t next = i + 1 < starts.size() ? starts[i + 1] : hi;
+            if (next - starts[i] > kApiMaxFunctionBytes) continue;
+            const std::uint32_t cmd = setup_command(text, starts[i], next, candidate);
+            if (cmd != 0) commands.insert(cmd);
+        }
+        return commands.size() >= 2;
+    };
     std::uint32_t setup = 0;
     if (alloc == 0 && submit != 0) {
         for (std::uint32_t a = known.ioctl_async + 8; a + 4 <= known_end && setup == 0; a += 4) {
             const std::uint32_t w = word_at(text, a);
-            if (is_bl(w) && r4_immediate_before(text, known.ioctl_async, known_end, a) == kIpcIoctlCmd)
-                setup = bl_target(a, w);
-        }
-        if (setup != 0 && !is_stwu_r1(word_at(text, setup))) setup = 0;
-        if (setup != 0) {
-            std::set<std::uint32_t> commands;
-            for (std::size_t i = 0; i < starts.size(); ++i) {
-                const std::uint32_t next = i + 1 < starts.size() ? starts[i + 1] : hi;
-                if (next - starts[i] > kApiMaxFunctionBytes) continue;
-                const std::uint32_t cmd = setup_command(text, starts[i], next, setup);
-                if (cmd != 0) commands.insert(cmd);
-            }
-            if (commands.size() < 2) setup = 0;
+            if (!is_bl(w) || r4_immediate_before(text, known.ioctl_async, known_end, a) != kIpcIoctlCmd) continue;
+            const std::uint32_t candidate = bl_target(a, w);
+            if (inside(text, candidate) && is_setup_helper(candidate)) setup = candidate;
         }
     }
     if ((alloc == 0 && setup == 0) || submit == 0) {
