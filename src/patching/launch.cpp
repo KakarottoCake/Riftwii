@@ -142,7 +142,9 @@ GcTvSignal gc_tv_signal(const GameSettings& game, const std::string& id, const G
         if (!gc_sixty_hz_on(game, id)) return GcTvSignal::Pal50;
         return chosen == "ntsc" ? GcTvSignal::Ntsc : GcTvSignal::Pal60;
     }
-    if (gc_progressive_on(game, id, console) || gc_line240_on(game, id, console)) return GcTvSignal::Ntsc;
+    // 480p is NTSC's own picture. 240p is 60 Hz like 480i, so it keeps
+    // PAL 60's colours when those are asked for (RGB SCART shows NTSC red).
+    if (gc_progressive_on(game, id, console)) return GcTvSignal::Ntsc;
     const bool wants_pal = chosen == "pal60" || chosen == "pal50";
     return wants_pal ? GcTvSignal::Pal60 : GcTvSignal::Ntsc;
 }
