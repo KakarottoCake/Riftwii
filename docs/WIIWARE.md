@@ -14,7 +14,9 @@ Menu.
 ## WAD folders: drop and play
 
 `sd:/wiiware/` and every mounted USB partition's `wiiware/` folder are
-read on Home's background drive worker, including one level of subfolders.
+read on Home's background drive worker, including one level of subfolders,
+and so is each of that drive's Game folders (`game_folders` in
+settings.txt, `wad_folders_on`); a WAD two folders reach is listed once.
 WADs appear as channel games and use the existing covers, box art, banner
 and icon paths. The small header, ticket and title metadata are checked
 on each scan; large contents are not read. Banner names and the decrypted

@@ -408,6 +408,15 @@ std::vector<std::string> game_folders_on(const LoaderSettings& settings, const s
     return out;
 }
 
+std::vector<std::string> wad_folders_on(const LoaderSettings& settings, const std::string& device) {
+    const std::string wiiware = "/wiiware";
+    std::vector<std::string> out{wiiware};
+    for (const std::string& folder : game_folders_on(settings, device)) {
+        if (path_fold_case(folder) != wiiware) out.push_back(folder);
+    }
+    return out;
+}
+
 namespace {
 
 // The drive of a game's path ("usb2" of "usb2:/x.iso"), in lower case.
