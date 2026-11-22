@@ -44,6 +44,7 @@
 #include "log.hpp"
 #include "disclight.hpp"
 #include "memlimits.hpp"
+#include "nandchannels.hpp"
 #include "stash.hpp"
 #include "netsock.hpp"
 #include "riftwii/mempatch.hpp"
@@ -4240,6 +4241,46 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     // which titles ES sees. The same target is used for the later patch.
     const u64 return_to = debug_off("returnto") || !allow_game_patch(GamePatchKind::ReturnTo, "Return to RiftWii")
                               ? 0 : return_title();
+    // Under the emulation of the whole NAND, the way back (the game's "Wii
+    // Menu", which d2x and the patched OSReturnToMenu turn into the return
+    // title) starts that title from the emulated NAND. One made for a WAD
+    // never had it: a vWii fell back to the Wii U's menu. It is copied in
+    // from the Wii now, while the real NAND is still the one ES reads.
+    if (return_to != 0 && !files.emu_nand.empty()) {
+        const unsigned high = static_cast<unsigned>(return_to >> 32);
+        const unsigned low = static_cast<unsigned>(return_to);
+        std::string copy_error;
+        if (files.emu_nand.compare(0, 4, "sd:/") != 0) {
+            logf("Return to %08x-%08x: the emulated NAND %s is not on the SD card, so the channel is not copied "
+                 "there; if it is missing, \"Wii Menu\" cannot return to it.\n",
+                 high, low, files.emu_nand.c_str());
+        } else if (copy_return_channel_to_emu_nand(files.emu_nand, return_to, copy_error)) {
+            logf("Return to %08x-%08x: the channel is in %s, where the game will look for it.\n", high, low,
+                 files.emu_nand.c_str());
+        } else {
+            logf("Return to %08x-%08x: the channel could not be copied to %s because %s; \"Wii Menu\" from the game "
+                 "may not return to it.\n",
+                 high, low, files.emu_nand.c_str(), copy_error.c_str());
+        }
+    }
+    // Every launch from an emulated NAND, with or without a return copy: an
+    // ownership list a failed replacement left only in its .riftwii-old
+    // copy is put back first. If it can't be, the game waits: ES would
+    // give its saves to the wrong owner.
+    if (!files.emu_nand.empty()) {
+        const std::string uid = files.emu_nand + "/sys/uid.sys";
+        const std::string backup = uid + ".riftwii-old";
+        struct stat info;
+        if (stat(uid.c_str(), &info) != 0 && stat(backup.c_str(), &info) == 0) {
+            if (std::rename(backup.c_str(), uid.c_str()) == 0) {
+                logf("Wii channels: %s was put back from its backup.\n", uid.c_str());
+            } else {
+                error = "the emulated NAND's title ownership list (" + uid +
+                        ") could not be restored from its backup; check the SD card";
+                return false;
+            }
+        }
+    }
 
     // As for a disc game: the Wii Remotes, the log and the card go before
     // each reload kills their handles; the card comes back after it, for

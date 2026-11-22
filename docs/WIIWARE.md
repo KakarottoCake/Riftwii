@@ -163,6 +163,17 @@ channel (`d2x: launching 0001000155465457 in place of the Wii Menu`),
 which starts RiftWii again. The other 13 games from an emulated NAND, and
 all of it on a real Wii, are still to do.
 
+That return works only when the RiftWii channel is in the emulated NAND:
+under the emulation of the whole NAND, the game's "Wii Menu" starts the
+return title from that folder. An emulated NAND made for a WAD never had
+it, and on a tester's vWii (2611-208, Actionloop Twist from
+`sd:/wiiware`) HOME > Wii Menu went to the Wii U's menu instead. Before
+a channel starts from an emulated NAND on the SD card, `boot_channel` now
+copies the channel in from the Wii (`copy_return_channel_to_emu_nand`:
+its TMD, ticket, own contents and ownership-list entry, replaced when the
+Wii's copy is newer). With Return to set to the Wii Menu, an emulated NAND
+that has no Wii Menu still cannot return.
+
 A channel the Wii Menu moved to the SD card, Super Mario Bros. (VC, NES):
 the real Wii Menu in this Dolphin moved it (Data Management > Channels >
 Move), leaving only its TMD on the Wii and a 2.5 MB content.bin on the
