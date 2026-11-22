@@ -1109,6 +1109,16 @@ namespace {
 // started for the game, so libogc's USB holds nothing of the menu's.
 // Leaves g_extras.gc_adapter On or Off (Demo stays Demo), and the
 // adapter's USB handle open only when it is On.
+// Whether a launch may put the pad code in, for loading the pads plugin
+// while the card is RiftWii's (PadsPluginForLaunch): Settings > GameCube
+// adapter not Off, or USB pads configured or plugged in, which
+// settle_gc_adapter turns Off into Automatic for. Reads no USB itself (a
+// channel asks before settle_gc_adapter has looked), so it may load the
+// plugin for a launch that ends up without it, never the other way.
+bool pads_may_be_wanted() {
+    return g_extras.gc_adapter != GcAdapterMode::Off || HidPadsWanted() || HidPadsConnected();
+}
+
 void settle_gc_adapter(int game_ios, int d2x_device, const char* d2x_reads, bool fresh_ios) {
     HidPadsPreload();
     const bool usb_pads = HidPadsConnected();
@@ -4159,7 +4169,7 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
     // The pad code's plugin while the card is still RiftWii's: a reload
     // takes the card, and the build a game takes is known only once it is
     // loaded (fetch_pad_build).
-    const PadsPluginForLaunch pads_plugin(g_extras.gc_adapter != GcAdapterMode::Off);
+    const PadsPluginForLaunch pads_plugin(pads_may_be_wanted());
     // Everything IOS holds for us dies with a reload: the Wii Remote stack
     // (which also saves its pairings to NAND on shutdown, so it must go
     // while IPC is still alive), the log, DI and the SD card. With the
@@ -4270,7 +4280,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     };
     // The pad code's plugin while the card is still RiftWii's: each try
     // below reloads IOS, and d2x's NAND emulation may keep the card.
-    const PadsPluginForLaunch pads_plugin(g_extras.gc_adapter != GcAdapterMode::Off);
+    const PadsPluginForLaunch pads_plugin(pads_may_be_wanted());
     std::string attempts;
     const auto note_attempt = [&attempts](const std::string& line) {
         if (!attempts.empty()) attempts += "; ";

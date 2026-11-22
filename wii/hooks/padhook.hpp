@@ -215,8 +215,8 @@ bool fetch_pad_build(PadHook& hook, bool code_build, std::string& message);
 // fetch_pad_build needs no card; it stays loaded through the reload, in
 // RiftWii's own MEM2. Lives for the launch: going out of scope (a launch
 // that failed and came back, or one whose game takes no pad code) shuts
-// the plugin down if fetch_pad_build has not. `wanted`: Settings >
-// GameCube adapter not Off.
+// the plugin down if fetch_pad_build has not. `wanted`: whether the launch
+// may take pad code (boot.cpp's pads_may_be_wanted).
 class PadsPluginForLaunch {
 public:
     explicit PadsPluginForLaunch(bool wanted);
