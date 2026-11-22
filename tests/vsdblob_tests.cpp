@@ -13,6 +13,7 @@
 extern "C" {
 #include "vsd_hook.h"
 }
+#include "riftwii/vsdbuild.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -251,7 +252,7 @@ Blob MakeBlobWith(std::uint32_t backend, const std::vector<rtvsd_extent>& extent
         g_ios.device[i] = static_cast<std::uint8_t>((i * 7) ^ (i >> 9));
     Blob b;
     b.ctx = At<vsd_context>(Alloc(true, sizeof(vsd_context)));
-    b.st = At<vsd_state>(Alloc(true, vsd_state_bytes(extents.size(), bounce_bytes)));
+    b.st = At<vsd_state>(Alloc(true, vsd_state_bytes(false, extents.size(), bounce_bytes)));
     b.ctx->magic = VSD_CONTEXT_MAGIC;
     b.ctx->state = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(b.st));
     vsd_state* st = b.st;
@@ -263,7 +264,7 @@ Blob MakeBlobWith(std::uint32_t backend, const std::vector<rtvsd_extent>& extent
     st->sdhc = g_ios.sdhc;
     st->rca = backend == VSD_BACKEND_SLOT0 ? 0x1234 : 0;
     // The bounce buffer after the extent table, as the loader places it.
-    st->bounce = b.ctx->state + vsd_bounce_offset(extents.size());
+    st->bounce = b.ctx->state + vsd_bounce_offset(false, extents.size());
     st->bounce_sectors = bounce_bytes / 512;
     st->card.sectors = image_sectors;
     for (std::size_t i = 0; i < extents.size(); ++i) rtvsd_extents(&st->card)[i] = extents[i];
@@ -1215,6 +1216,206 @@ void TestReadAheadAgainstDevice() {
     }
 }
 
+// ---- A paged card: the piece list read from the device -------------------
+
+struct PagedCard {
+    Blob blob;
+    std::vector<rtvsd_extent> extents;      // the truth, kept on the host side
+    std::vector<std::uint32_t> page_sectors; // where the list's pages are on the device
+};
+
+// `pieces` pieces of 1-24 sectors laid on the device shuffled, with gaps,
+// and the list's pages in two runs near the device's end, as the loader
+// lays them out (vsd_piece_list, vsd_piece_list_index).
+PagedCard MakePagedCard(std::uint32_t backend, std::uint32_t pieces, std::uint32_t& seed) {
+    const auto next = [&seed](std::uint32_t below) {
+        seed = seed * 1103515245u + 12345u;
+        return ((seed >> 8) & 0xFFFFFFu) % below;
+    };
+    PagedCard pc;
+    std::vector<std::uint32_t> lengths;
+    std::uint32_t image_sectors = 0;
+    for (std::uint32_t i = 0; i < pieces; ++i) {
+        lengths.push_back(1 + next(24));
+        image_sectors += lengths.back();
+    }
+    std::vector<std::uint32_t> order(pieces);
+    for (std::uint32_t i = 0; i < pieces; ++i) order[i] = i;
+    for (std::uint32_t i = pieces; i > 1; --i) std::swap(order[i - 1], order[next(i)]);
+    std::vector<std::uint32_t> device_at(pieces);
+    std::uint32_t at = 64;
+    for (std::uint32_t i : order) {
+        device_at[i] = at;
+        at += lengths[i] + next(4);
+    }
+    std::uint32_t file_sector = 0;
+    for (std::uint32_t i = 0; i < pieces; ++i) {
+        pc.extents.push_back({file_sector, device_at[i], lengths[i]});
+        file_sector += lengths[i];
+    }
+    const std::uint32_t pages = rtvsd_page_count(pieces);
+    // The list file in two runs: the first half of its pages, then the rest further on.
+    std::vector<riftwii::Fragment> file;
+    file.push_back({8000, pages / 2});
+    file.push_back({8100, pages - pages / 2});
+    std::vector<rtvsd_page> index;
+    std::string error;
+    EXPECT_TRUE(riftwii::vsd_piece_list_index(pc.extents, file, index, error));
+    EXPECT_TRUE(at < 8000);
+
+    const std::uint32_t bounce_bytes = vsd_bounce_bytes_for(backend);
+    // MakeBlobWith resets the fake IOS and the device; the state is then made again, paged.
+    pc.blob = MakeBlobWith(backend, {{0, 64, image_sectors}}, image_sectors, false, bounce_bytes);
+    g_mem2_used = 0;
+    Blob& b = pc.blob;
+    b.ctx = At<vsd_context>(Alloc(true, sizeof(vsd_context)));
+    b.st = At<vsd_state>(Alloc(true, vsd_state_bytes(true, pieces, bounce_bytes)));
+    b.ctx->magic = VSD_CONTEXT_MAGIC;
+    b.ctx->state = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(b.st));
+    vsd_state* st = b.st;
+    st->magic = VSD_STATE_MAGIC;
+    st->complete = kComplete;
+    for (std::uint32_t i = 0; i < VSD_ENTRIES; ++i) st->original[i] = 0x81000000 + i * 0x100;
+    st->backend = backend;
+    st->fd = kDeviceFd;
+    st->sdhc = g_ios.sdhc;
+    st->rca = backend == VSD_BACKEND_SLOT0 ? 0x1234 : 0;
+    st->bounce = b.ctx->state + vsd_bounce_offset(true, pieces);
+    st->bounce_sectors = bounce_bytes / 512;
+    st->card.sectors = image_sectors;
+    st->card.extent_count = pieces;
+    st->card.paged = 1;
+    for (std::size_t i = 0; i < index.size(); ++i) rtvsd_pages(&st->card)[i] = index[i];
+    EXPECT_EQ(rtvsd_reset(&st->card), 0);
+    st->card.state = RTVSD_STATE_TRAN;
+    // The page slots and the bounce buffer stay inside the state.
+    const std::uintptr_t slots_end =
+        reinterpret_cast<std::uintptr_t>(rtvsd_page_slot(&st->card, RTVSD_PAGE_SLOTS - 1)) + 512;
+    EXPECT_TRUE(slots_end <= st->bounce);
+    EXPECT_EQ(reinterpret_cast<std::uintptr_t>(rtvsd_page_slot(&st->card, 0)) & 31u, 0u);
+
+    // The list's pages on the device.
+    const std::vector<std::uint8_t> list = riftwii::vsd_piece_list(pc.extents);
+    for (std::uint32_t p = 0; p < pages; ++p) {
+        std::memcpy(g_ios.device.data() + std::size_t(index[p].device_sector) * 512, list.data() + p * 512, 512);
+        pc.page_sectors.push_back(index[p].device_sector);
+    }
+    return pc;
+}
+
+std::uint32_t DeviceOf(const PagedCard& pc, std::uint32_t sector) {
+    for (const rtvsd_extent& e : pc.extents)
+        if (sector >= e.file_sector && sector < e.file_sector + e.count) return e.device_sector + (sector - e.file_sector);
+    return 0xFFFFFFFF;
+}
+
+bool PagedMatches(const PagedCard& pc, std::uint32_t buffer, std::uint32_t image_sector, std::uint32_t count) {
+    for (std::uint32_t s = 0; s < count; ++s) {
+        const std::uint32_t device = DeviceOf(pc, image_sector + s);
+        if (device == 0xFFFFFFFF ||
+            std::memcmp(At<std::uint8_t>(buffer + s * 512), g_ios.device.data() + std::size_t(device) * 512, 512) != 0)
+            return false;
+    }
+    return true;
+}
+
+// Every request is a page of the list (one sector, read) or stays inside one piece.
+bool PagedRequestsFit(const PagedCard& pc) {
+    for (const Piece& p : g_ios.pieces) {
+        bool fits = false;
+        for (std::uint32_t at : pc.page_sectors) fits = fits || (!p.write && p.device_sector == at && p.count == 1);
+        for (std::size_t i = 0; i < pc.extents.size() && !fits; ++i) {
+            const rtvsd_extent& e = pc.extents[i];
+            fits = p.device_sector >= e.device_sector && p.device_sector + p.count <= e.device_sector + e.count;
+        }
+        if (!fits) return false;
+    }
+    return true;
+}
+
+// A paged card answers like the plain one, every backend, sync and async,
+// with and without the read-ahead, through failed requests (some of them
+// the list's pages), reading only the pages it needs.
+void TestPagedAgainstDevice() {
+    std::uint32_t seed = 0x2611u;
+    const auto next = [&seed](std::uint32_t below) {
+        seed = seed * 1103515245u + 12345u;
+        return ((seed >> 8) & 0xFFFFFFu) % below;
+    };
+    for (std::uint32_t backend : {VSD_BACKEND_SLOT0, VSD_BACKEND_D2X_SD, VSD_BACKEND_USB}) {
+        for (std::uint32_t window : {0u, 8u, 32u}) {
+            PagedCard pc = MakePagedCard(backend, 430, seed);
+            const Blob& b = pc.blob;
+            if (window != 0) EnableReadAhead(b, window, next(window * 3));
+            const std::uint32_t image_sectors = b.st->card.sectors;
+            const std::uint32_t buffers[3] = {Alloc(false, 210 * 512), Alloc(false, 210 * 512) + 4,
+                                              Alloc(true, 210 * 512)};
+            const std::uint32_t data = Alloc(false, 210 * 512);
+            const std::size_t mark = g_mem2_used;
+            std::uint32_t position = 0;
+            for (int op = 0; op < 1500; ++op) {
+                g_mem2_used = mark;
+                g_ios.pieces.clear();
+                const bool async = next(2) != 0;
+                const bool big = next(10) == 0;
+                const std::uint32_t count = big ? 1 + next(200) : 1 + next(8);
+                std::uint32_t sector = next(4) != 0 ? position : next(image_sectors);
+                if (sector + count > image_sectors) sector = image_sectors - count;
+                position = sector + count;
+                if (next(20) == 0) g_ios.fail_next = 1;
+                const std::uint32_t buffer = buffers[next(3)];
+                if (next(7) == 0) {
+                    for (std::uint32_t i = 0; i < count * 512; ++i) At<std::uint8_t>(data)[i] = static_cast<std::uint8_t>(next(256));
+                    EXPECT_EQ(Write(b, sector, count, data, async), 0);
+                    EXPECT_TRUE(PagedMatches(pc, data, sector, count));
+                } else {
+                    std::memset(At<std::uint8_t>(buffer), 0xA5, std::size_t(count) * 512);
+                    EXPECT_EQ(Read(b, sector, count, buffer, async), 0);
+                    if (!PagedMatches(pc, buffer, sector, count)) {
+                        std::cerr << "FAILED: paged read " << count << " at " << sector << " (window " << window
+                                  << ", device " << backend << ", op " << op << ")" << std::endl;
+                        ++g_failures;
+                        break;
+                    }
+                }
+                EXPECT_TRUE(PagedRequestsFit(pc));
+                g_ios.fail_next = 0;
+            }
+            EXPECT_EQ(g_ios.bad_buffers, 0u);
+            EXPECT_EQ(b.st->transfer.in_use, 0u);
+            EXPECT_EQ(b.st->gave_up, 0u);
+            EXPECT_TRUE(b.st->page_reads > 0u);
+            // Mostly the game moves on through the image: far fewer page
+            // reads than transfers.
+            EXPECT_TRUE(b.st->page_reads < (b.st->reads + b.st->writes) / 2u);
+        }
+    }
+}
+
+// A page read that fails every try fails the game's request, and the next
+// request reads the page again and works.
+void TestPagedPageFails(bool async) {
+    std::uint32_t seed = 0x5150u;
+    PagedCard pc = MakePagedCard(VSD_BACKEND_D2X_SD, 200, seed);
+    const Blob& b = pc.blob;
+    const std::uint32_t buffer = Alloc(true, 16 * 512);
+    g_ios.fail_next = VSD_TRIES;
+    EXPECT_TRUE(Read(b, 100, 16, buffer, async) < 0);
+    EXPECT_EQ(g_ios.pieces.size(), std::size_t(VSD_TRIES));
+    for (const Piece& p : g_ios.pieces) EXPECT_EQ(p.count, 1u);
+    EXPECT_EQ(b.st->transfer.in_use, 0u);
+    g_ios.pieces.clear();
+    std::memset(At<std::uint8_t>(buffer), 0xA5, 16 * 512);
+    EXPECT_EQ(Read(b, 100, 16, buffer, async), 0);
+    EXPECT_TRUE(PagedMatches(pc, buffer, 100, 16));
+    EXPECT_TRUE(!g_ios.pieces.empty() && g_ios.pieces[0].count == 1);
+    // The same page again: no page read.
+    g_ios.pieces.clear();
+    EXPECT_EQ(Read(b, 101, 2, buffer, async), 0);
+    for (const Piece& p : g_ios.pieces)
+        for (std::uint32_t at : pc.page_sectors) EXPECT_TRUE(p.device_sector != at);
+}
+
 }  // namespace
 
 int main() {
@@ -1254,6 +1455,9 @@ int main() {
     }
     TestReadAheadDevices();
     TestReadAheadAgainstDevice();
+    TestPagedAgainstDevice();
+    TestPagedPageFails(false);
+    TestPagedPageFails(true);
 
     if (g_failures == 0) std::cout << "vsdblob tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;

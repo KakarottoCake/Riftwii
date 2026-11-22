@@ -273,7 +273,7 @@ exception leaves nothing.
 **Virtual SD card** (`runtime/vsd/`, `runtime/rtvsd.c`, `wii/hooks/vsdhook.cpp`).
 When the code builds launched are inside `riftwii/sd.raw` (a FAT32 card
 image on the SD card or the USB drive; `wii/hooks/vsdimage.cpp` lists them
-through a read-only `vsd:` mount of the image), a blob of about 9 KB
+through a read-only `vsd:` mount of the image), a blob of about 10 KB
 hooks the game's IOS_Open, IOS_Close, IOS_Ioctl and IOS_Ioctlv, sync and
 async (`find_ipc_api`). An open of `/dev/sdio/slot0` gets a handle of
 the blob's own, and everything on it is answered by a card model
@@ -289,8 +289,16 @@ and a call on any other handle goes straight back to the game's function;
 the card's CID and CSD are built by the loader (`vsd_card_registers`). The
 code and its state (the image's extent table, 12 bytes a piece of the
 image file on its device, up to 16384 pieces: sized to the image, so three
-pieces cost 36 bytes and an image scattered by a well-used card up to 192
-KB, found by a binary search; then the bounce buffer, sized by the loader
+pieces cost 36 bytes, found by a binary search; an image on the SD card in
+more than 128 pieces instead has its list written beside it,
+`riftwii/<image>.pieces`, 42 pieces to each 512-byte page, and the state
+keeps only an index of the pages, 8 bytes each, and two page slots that a
+read fills from the card when its piece's page is in neither: 1.8 KB
+instead of 50 KB for a 4234-piece image, whose list beside Project+ and
+the GameCube adapter's blob left Brawl too little MEM2 and a black screen;
+in Dolphin, Project+'s start then read 42 pages beside 1,923 requests for
+data. An image on the USB drive keeps its list in memory, as the menu
+cannot make a file there; then the bounce buffer, sized by the loader
 for the device: 32 KB on USB, where every read into MEM1 needs it, and
 `VSD_BOUNCE_BYTES_SD`, 32 KB for now, on the SD card, where only an
 unaligned buffer does; counters in the state say how often) go to the
@@ -1084,6 +1092,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/gamecrash.txt` | The last game crash, from the crash blob's record |
 | `sd:/riftwii/report.txt`, `report-state.txt` | The last problem report as sent, and which crash was already offered |
 | `sd:/riftwii/sd.raw` (or `usb:/riftwii/sd.raw`) | The virtual SD card's image, for code builds inside it |
+| `sd:/riftwii/<image>.pieces` | Where a scattered image on the SD card lies (`sd.raw.pieces`), written at its launch for the in-game blob to read a page at a time; rewritten when the image moves. Safe to delete |
 | `sd:/riftwii/codebuilds.txt` | Code builds picked by hand on the Mods page |
 | `sd:/riftwii/covers/`, `screenshots/` | Cover art as textures; screenshots (menu and games) |
 | `sd:/riftwii/rvz/` | RVZ group tables the runtime reads |
