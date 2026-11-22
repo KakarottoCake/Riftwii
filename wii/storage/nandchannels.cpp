@@ -604,6 +604,15 @@ bool prepare_wad_nand_system(const std::string& folder, std::string& error) {
 
 namespace {
 
+// A file a failed replacement left only as its .riftwii-old copy (both
+// renames failed) gets its name back. False when it could not: the copy is
+// then the only good one and must stay.
+bool recover_emu_file(const std::string& destination) {
+    const std::string old = destination + ".riftwii-old";
+    if (card_file_exists(destination) || !card_file_exists(old)) return true;
+    return std::rename(old.c_str(), destination.c_str()) == 0;
+}
+
 // Writes `bytes` to `destination` through a .riftwii-part file, making
 // the folders on the way (below `folder`).
 bool write_emu_file(const std::string& folder, const std::string& destination, const std::vector<u8>& bytes,
@@ -625,7 +634,11 @@ bool write_emu_file(const std::string& folder, const std::string& destination, c
     // and comes back if the new one cannot take its name, so a failure
     // never loses a file that was there (uid.sys above all).
     const std::string old = destination + ".riftwii-old";
-    std::remove(old.c_str());
+    if (!recover_emu_file(destination)) {
+        std::remove(part.c_str());
+        return false;
+    }
+    std::remove(old.c_str());  // a leftover beside a whole file
     const bool had_old = card_file_exists(destination);
     if (had_old && std::rename(destination.c_str(), old.c_str()) != 0) {
         std::remove(part.c_str());
@@ -715,6 +728,12 @@ bool copy_return_channel_to_emu_nand(const std::string& folder, std::uint64_t ti
     // The ownership list lets ES give the channel its own folder.
     std::vector<u8> uid;
     const std::string uid_path = folder + "/sys/uid.sys";
+    // A list an earlier failed replacement left aside is read, not rebuilt.
+    if (!recover_emu_file(uid_path)) {
+        error = "the emulated NAND's title ownership list is in " + uid_path +
+                ".riftwii-old and could not be put back";
+        return false;
+    }
     if (card_file_exists(uid_path) && !read_card_file(uid_path, 12 * 8192, uid, error)) return false;
     const std::size_t uid_before = uid.size();
     if (!add_wad_title_uid(uid, title, error)) return false;
