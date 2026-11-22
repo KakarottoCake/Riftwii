@@ -616,12 +616,28 @@ bool write_emu_file(const std::string& folder, const std::string& destination, c
     FILE* file = std::fopen(part.c_str(), "wb");
     const bool written = file && std::fwrite(bytes.data(), 1, bytes.size(), file) == bytes.size();
     const bool closed = file && std::fclose(file) == 0;
-    std::remove(destination.c_str());
-    if (!written || !closed || std::rename(part.c_str(), destination.c_str()) != 0) {
+    error = "the SD card could not save " + destination + " (is it full or locked?)";
+    if (!written || !closed) {
         std::remove(part.c_str());
-        error = "the SD card could not save " + destination + " (is it full or locked?)";
         return false;
     }
+    // FAT's rename does not replace a file: the old one steps aside first
+    // and comes back if the new one cannot take its name, so a failure
+    // never loses a file that was there (uid.sys above all).
+    const std::string old = destination + ".riftwii-old";
+    std::remove(old.c_str());
+    const bool had_old = card_file_exists(destination);
+    if (had_old && std::rename(destination.c_str(), old.c_str()) != 0) {
+        std::remove(part.c_str());
+        return false;
+    }
+    if (std::rename(part.c_str(), destination.c_str()) != 0) {
+        if (had_old) std::rename(old.c_str(), destination.c_str());
+        std::remove(part.c_str());
+        return false;
+    }
+    if (had_old) std::remove(old.c_str());
+    error.clear();
     return true;
 }
 
@@ -703,6 +719,13 @@ bool copy_return_channel_to_emu_nand(const std::string& folder, std::uint64_t ti
     const std::size_t uid_before = uid.size();
     if (!add_wad_title_uid(uid, title, error)) return false;
 
+    // An older copy's TMD goes before its contents are replaced: an update
+    // cut short then leaves no title at all (the next launch copies it
+    // again), never an old TMD over new contents that looks playable.
+    if (card_file_exists(folder + tmd_path) && std::remove((folder + tmd_path).c_str()) != 0) {
+        error = "the SD card could not remove the older copy of the channel";
+        return false;
+    }
     for (std::size_t i = 0; i < tmd.contents.size(); ++i) {
         if (!write_emu_file(folder, folder + nand_content_path(title, tmd.contents[i].id), contents[i], error))
             return false;
