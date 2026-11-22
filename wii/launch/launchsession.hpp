@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -13,6 +14,8 @@
 #include "usbcatalog.hpp"
 
 namespace riftwii::wii {
+
+class PadsPluginForLaunch;
 
 // After a launch with d2x's IOS reload block failed: without clearing it,
 // every later IOS reload (the menu's own) would land in the cIOS instead.
@@ -78,6 +81,10 @@ struct Session {
     // keep it, at this partition of the drive (usb_d2x_nand_partition).
     bool own_saves_on_usb = false;
     std::int32_t own_saves_usb_partition = -1;
+    // The pads plugin, loaded before d2x's NAND emulation takes the SD card
+    // (ensure_probe), so boot_game's own load finds it already in memory.
+    // Shut down with the session when the launch comes back.
+    std::shared_ptr<PadsPluginForLaunch> pads_plugin;
     // The game reads the SD card as it runs (packs, saves): the cIOS
     // choice keeps to the bases that reach it (image_cios_order).
     bool sd_in_use = false;

@@ -3521,6 +3521,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
 
 }  // namespace
 
+bool LaunchMayTakePadCode() { return pads_may_be_wanted(); }
+
 // Whether a pack's replacement executable has the SDK's IPC functions the
 // resident runtime hooks (find_ipc_symbols over its text sections).
 static bool executable_has_ipc(const std::vector<std::uint8_t>& bytes, std::string& why) {

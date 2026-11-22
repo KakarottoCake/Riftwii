@@ -20,6 +20,7 @@
 #include <cstdio>
 
 #include "boot.hpp"
+#include "padhook.hpp"
 #include "channel.hpp"
 #include "ctgpr.hpp"
 #include "di.hpp"
@@ -282,6 +283,11 @@ bool Session::ensure_probe(std::string& error) {
         // emulation on only while no title runs. A game on the SD card
         // itself only with d2x on base 56 or 57 (USB Loader GX's rule:
         // the others cannot read the game and keep the save on one card).
+        // d2x's NAND emulation on the SD card takes the card from RiftWii
+        // (enable_d2x_saves), long before boot_game would load the pads
+        // plugin from it: the plugin is loaded now, while the card is ours.
+        if (d2x_ready && !own_saves_on_usb && !pads_plugin)
+            pads_plugin = std::make_shared<PadsPluginForLaunch>(LaunchMayTakePadCode());
         if (d2x_ready) {
             const int base = d2x_base(used_slot);
             std::string why;

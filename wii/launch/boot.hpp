@@ -295,6 +295,11 @@ bool debug_off(const char* what);
 // replacements can be megabytes, and the launch needs them only once).
 bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error);
 
+// Whether a launch may put the pad code in (Settings > GameCube adapter not
+// Off, or USB pads configured or plugged in), so the pads plugin is loaded
+// while the SD card is still RiftWii's (PadsPluginForLaunch).
+bool LaunchMayTakePadCode();
+
 // Starts a WiiWare or Virtual Console game installed on the Wii with
 // RiftWii's own loader, so the game gets Back to RiftWii: reloads the IOS
 // its TMD asks for, has ES run it as its own title (ES_Identify, so its
