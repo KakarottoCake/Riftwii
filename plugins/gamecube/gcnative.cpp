@@ -2983,14 +2983,32 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         std::fclose(limits);
         text[got] = '\0';
         unsigned squeeze_kib = 0;
+        // Line by line, as the Wii side reads the file (memlimits.cpp): a
+        // line counts only when it is "game_mem1_kib = N" from its start (past
+        // spaces), so "# game_mem1_kib = 0" is a comment. The last one wins.
         static const char kKey[] = "game_mem1_kib";
-        // Read by hand: the plugin has no strstr either.
-        const std::string all(text, got);
-        const std::size_t found = all.find(kKey);
-        if (found != std::string::npos) {
-            const char* at = text + found + sizeof kKey - 1;
-            while (*at == ' ' || *at == '\t' || *at == '=') ++at;
-            while (*at >= '0' && *at <= '9' && squeeze_kib < 100000u) squeeze_kib = squeeze_kib * 10u + unsigned(*at++ - '0');
+        const std::size_t key_length = sizeof kKey - 1;
+        for (const char* line = text; *line != '\0';) {
+            const char* at = line;
+            while (*at == ' ' || *at == '\t') ++at;
+            // Compared by hand: the plugin has no strncmp either.
+            std::size_t matched = 0;
+            while (matched < key_length && at[matched] == kKey[matched]) ++matched;
+            if (matched == key_length) {
+                at += key_length;
+                while (*at == ' ' || *at == '\t') ++at;
+                if (*at == '=') {
+                    ++at;
+                    while (*at == ' ' || *at == '\t') ++at;
+                    if (*at >= '0' && *at <= '9') {
+                        unsigned value = 0;
+                        while (*at >= '0' && *at <= '9' && value < 100000u) value = value * 10u + unsigned(*at++ - '0');
+                        squeeze_kib = value;
+                    }
+                }
+            }
+            while (*line != '\0' && *line != '\n') ++line;
+            if (*line == '\n') ++line;
         }
         const std::uint32_t squeeze = squeeze_kib << 10;
         if (squeeze != 0 && squeeze_kib < 16384 && arena_hi - squeeze >= kLoaderCeiling) {

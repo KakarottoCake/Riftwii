@@ -60,9 +60,13 @@ not proven to be the cause of that crash yet (see "First step").
   so it moves with the code. Only the code and the blob's own state are
   there; nothing the game's instructions read directly.
 
-The blob is already position independent (linked at two bases and
-compared), so the body needs no relocation: the loader copies it to its
-MEM2 address and writes the front's veneers with that address.
+The plain (ISO) blob is position independent (linked at two bases and
+compared), so its body needs no relocation: the loader copies it to its
+MEM2 address and writes the front's veneers with that address. The RVZ
+blob is not wholly: its Zstandard tables are reached through absolute
+addresses that `LaunchGcNative` fixes with `apply_resident_relocs`
+(`riftwii_gc_rvz.rel`). That step stays, run against the body's final
+MEM2 address instead of the MEM1 one.
 
 ### One plan for MEM2
 
@@ -115,8 +119,11 @@ KiB of the card, the way back and the stubs.
    whether it crashes earlier with 100 KiB less, which tells whether MEM1 is
    its problem.
 2. **A probe that BAT4 still runs code after OSInit.** The blob's first
-   call after the game's OS is up runs one function from MEM2 and records
-   it in the trace. In Dolphin first, then a test build for a tester.
+   call after the game's OS is up runs one function from MEM2
+   (`gc/test/mem2code`). It leaves `RUN!` in `gc_rt_cold.mem2_code_ran`,
+   which Dolphin reads from memory. On a Wii the answer is what the player
+   sees: the game goes on, or the crash screen shows an ISI at that MEM2
+   address. In Dolphin first, then a test build for a tester.
 
 Only then the split itself.
 
