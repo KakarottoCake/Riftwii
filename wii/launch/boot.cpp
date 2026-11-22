@@ -1289,12 +1289,15 @@ const char* whole_mem1_reason(bool code_build, bool clears_mem1_top) {
 // While boot.log is open, on the game as loaded: the adapter's PAD search
 // (false when it turns the adapter off; its USB handle is then let go,
 // so the game's own USB gets it), and Settings > GameCube rumble Off.
-bool prepare_gc_pads(const DolHeader& dol, bool gc_adapter, bool gx_protected, PadHook& pad) {
+// `patches` are the packs' <memory> patches, not applied yet: a PADRead
+// one of them writes is found too.
+bool prepare_gc_pads(const DolHeader& dol, bool gc_adapter, bool gx_protected, const std::vector<MemoryPatch>& patches,
+                     PadHook& pad) {
     if (gx_protected && g_extras.gc_adapter != GcAdapterMode::Off)
         logf("GameCube adapter: off: the game checks its own code (MetaFortress)\n");
     if (gc_adapter) {
         std::string why;
-        if (!find_pad_functions(dol, g_extras.gc_adapter == GcAdapterMode::Demo, pad, why)) {
+        if (!find_pad_functions(dol, g_extras.gc_adapter == GcAdapterMode::Demo, patches, pad, why)) {
             logf("GameCube adapter: off: %s\n", why.c_str());
             gc_adapter = false;
         }
@@ -1459,7 +1462,8 @@ void plan_game_extras(const DolHeader& dol, const ExtrasContext& ctx, GameExtras
         // shots read the frame buffer itself.
         const bool direct = true;
         if (!plan_shot_hook(dol, out.arena1_hi(ctx.arena1_hi), ctx.mem1_floor, out.arena2_lo(ctx.arena2_lo), known,
-                            out.pad.read, g_extras.screenshots_demo, direct, patches, out.shot, why)) {
+                            out.pad.read, out.pad.read_in_patch, g_extras.screenshots_demo, direct, patches,
+                            out.shot, why)) {
             logf("Screenshots: off: %s\n", why.c_str());
         }
     }
@@ -1578,6 +1582,14 @@ void apply_wpad_probe_test(const std::vector<MemoryRegion>& loaded, std::vector<
 // the crash recorder's hooks go in (the Wii Remote log's comes last of
 // all, install_wpad_log_last).
 void install_game_extras(GameExtras& extras) {
+    // Before the adapter's hook goes in on the same PADRead: one from the
+    // packs' memory patches is checked again now they're all in.
+    if (extras.shot.active && extras.shot.pad_read_in_patch && !pad_read_in_place(extras.shot.pad_read)) {
+        logf("Screenshots: the pack's PADRead at 0x%08x isn't there once its memory patches are in; the GameCube "
+             "controller's combo isn't watched\n",
+             extras.shot.pad_read);
+        extras.shot.pad_read = 0;
+    }
     if (extras.pad.active) {
         std::string why;
         if (!install_pad_hook(extras.pad, why)) logf("GameCube adapter: off: %s\n", why.c_str());
@@ -2655,7 +2667,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // The adapter's PAD search while boot.log is open; the rest of its
     // setup comes after the runtime's, when the log has ended.
     GameExtras extras;
-    gc_adapter = prepare_gc_pads(dol, gc_adapter, gx_protected, extras.pad);
+    gc_adapter = prepare_gc_pads(dol, gc_adapter, gx_protected, options.memory_patches, extras.pad);
 
     // The game's own Reset where no runtime takes it (#458): the adapter's
     // hook does, which needs the SD card for the request and Return to
@@ -4497,7 +4509,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     extras_context.arena1_hi = channel_arena_top;
     extras_context.arena2_lo = read32(0x80003124);
     extras_context.mem1_floor = channel_extras_floor(dol, loader_end);
-    extras_context.gc_adapter = prepare_gc_pads(dol, adapter_wanted, gx_protected, extras.pad);
+    extras_context.gc_adapter = prepare_gc_pads(dol, adapter_wanted, gx_protected, {}, extras.pad);
     extras_context.gx_protected = gx_protected;
     extras_context.clears_mem1_top = clears_mem1_top;
     plan_game_extras(dol, extras_context, extras);

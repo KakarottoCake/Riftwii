@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/symsearch.hpp"
 #include "riftwii/byteorder.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -507,18 +508,19 @@ bool is_stw_r0_sda(std::uint32_t w) { return (w & 0xFFFF0000u) == 0x900D0000u; }
 // (offsets fit 16 bits).
 constexpr std::int32_t kNoIdleReset = 0x10000;
 std::int32_t idle_reset_flag(const std::vector<CodeRange>& text, std::uint32_t address) {
-    for (const CodeRange& r : text) {
-        if (address < r.address || address - r.address + 16 > r.size) continue;
-        const std::uint8_t* words = r.bytes + (address - r.address);
-        const std::uint32_t second = be32(words + 4);
-        const std::uint32_t third = be32(words + 8);
-        const bool store_then_return = is_stw_r0_sda(second) && third == kLiR3One;
-        const bool return_then_store = second == kLiR3One && is_stw_r0_sda(third);
-        if (be32(words) != kLiR0Zero || !(store_then_return || return_then_store) || be32(words + 12) != kBlr)
-            return kNoIdleReset;
-        return static_cast<std::int16_t>((store_then_return ? second : third) & 0xFFFFu);
+    // Word by word, so the four may come from neighbouring ranges (a
+    // patch over part of the game's code, code_with_patches).
+    for (std::uint32_t k = 0; k < 4; ++k) {
+        if (!inside(text, address + 4 * k)) return kNoIdleReset;
     }
-    return kNoIdleReset;
+    const std::uint32_t second = word_at(text, address + 4);
+    const std::uint32_t third = word_at(text, address + 8);
+    const bool store_then_return = is_stw_r0_sda(second) && third == kLiR3One;
+    const bool return_then_store = second == kLiR3One && is_stw_r0_sda(third);
+    if (word_at(text, address) != kLiR0Zero || !(store_then_return || return_then_store) ||
+        word_at(text, address + 12) != kBlr)
+        return kNoIdleReset;
+    return static_cast<std::int16_t>((store_then_return ? second : third) & 0xFFFFu);
 }
 
 // The idle reset PADRead (or the status helper after it) calls; 0 when no
@@ -557,7 +559,42 @@ std::uint32_t function_start(const std::vector<CodeRange>& text, std::uint32_t a
     return 0;
 }
 
+// At word `i` of `r` (with four words after it), one of PADRead's "no
+// controller in this port" paths: `stb rE,10(rS); mr r3,rS; li r4,0;
+// li r5,10; bl memset`. True with the memset it calls.
+bool pad_error_path(const CodeRange& r, std::size_t i, std::uint32_t& memset_target) {
+    const std::uint32_t w = be32(r.bytes + i * 4);
+    if ((w & 0xFC00FFFFu) != 0x9800000Au) return false;  // stb rE, 10(rS)
+    const std::uint32_t s = (w >> 16) & 31u;
+    const std::uint32_t mr = 0x7C000378u | (s << 21) | (3u << 16) | (s << 11);
+    const std::uint32_t call = be32(r.bytes + (i + 4) * 4);
+    if (be32(r.bytes + (i + 1) * 4) != mr || be32(r.bytes + (i + 2) * 4) != li(4, 0) ||
+        be32(r.bytes + (i + 3) * 4) != li(5, 10) || !is_bl(call)) {
+        return false;
+    }
+    memset_target = bl_target(r.address + static_cast<std::uint32_t>(i * 4) + 16, call);
+    return true;
+}
+
 }  // namespace
+
+bool is_pad_read(const std::vector<CodeRange>& text, std::uint32_t address) {
+    unsigned sites = 0;
+    std::uint32_t memset_target = 0;
+    bool one_memset = true;
+    for (const CodeRange& r : text) {
+        const std::size_t words = r.size / 4;
+        for (std::size_t i = 0; i + 4 < words; ++i) {
+            std::uint32_t target = 0;
+            if (!pad_error_path(r, i, target)) continue;
+            if (function_start(text, r.address + static_cast<std::uint32_t>(i * 4)) != address) continue;
+            if (sites != 0 && target != memset_target) one_memset = false;
+            memset_target = target;
+            ++sites;
+        }
+    }
+    return sites >= kMinReadSites && one_memset;
+}
 
 bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::string& error) {
     out = PadSymbols{};
@@ -569,17 +606,12 @@ bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::
         for (std::size_t i = 0; i + 4 < words; ++i) {
             const std::uint32_t w = be32(r.bytes + i * 4);
             const std::uint32_t at = r.address + static_cast<std::uint32_t>(i * 4);
-            if ((w & 0xFC00FFFFu) == 0x9800000Au) {  // stb rE, 10(rS)
-                const std::uint32_t s = (w >> 16) & 31u;
-                const std::uint32_t mr = 0x7C000378u | (s << 21) | (3u << 16) | (s << 11);
-                const std::uint32_t call = be32(r.bytes + (i + 4) * 4);
-                if (be32(r.bytes + (i + 1) * 4) == mr && be32(r.bytes + (i + 2) * 4) == li(4, 0) &&
-                    be32(r.bytes + (i + 3) * 4) == li(5, 10) && is_bl(call)) {
-                    const std::uint32_t f = function_start(text, at);
-                    if (f != 0) {
-                        read_memsets[f].insert(bl_target(at + 16, call));
-                        ++read_sites[f];
-                    }
+            std::uint32_t memset_target = 0;
+            if (pad_error_path(r, i, memset_target)) {
+                const std::uint32_t f = function_start(text, at);
+                if (f != 0) {
+                    read_memsets[f].insert(memset_target);
+                    ++read_sites[f];
                 }
             }
             if ((w & 0xFC1FFFFFu) == 0x3C008000u) {  // lis rX, 0x8000
@@ -617,6 +649,91 @@ bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::
         return false;
     }
     if (!motors.empty()) out.control_motor = *motors.begin();
+    error.clear();
+    return true;
+}
+
+bool code_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched,
+                       std::vector<CodeRange>& out) {
+    out.clear();
+    // The game's ranges in address order (a DOL has a few text sections).
+    std::vector<std::size_t> order;
+    if (!try_resize(order, text.size())) return false;
+    for (std::size_t k = 0; k < order.size(); ++k) {
+        std::size_t at = k;
+        while (at > 0 && text[order[at - 1]].address > text[k].address) {
+            order[at] = order[at - 1];
+            --at;
+        }
+        order[at] = k;
+    }
+    // Each patch splits at most one game range in two, so the pieces and
+    // then the whole view fit in these (their sizes come from a pack).
+    std::vector<CodeRange> pieces;
+    if (!try_reserve(pieces, text.size() + patched.size()) || !try_reserve(out, text.size() + 2 * patched.size()))
+        return false;
+    for (const std::size_t k : order) {
+        const CodeRange& r = text[k];
+        // The parts of `r` between the patches that land on it.
+        std::uint64_t cursor = r.address;
+        const std::uint64_t end = std::uint64_t{r.address} + r.size;
+        for (const CodeRange& p : patched) {
+            const std::uint64_t p_end = std::uint64_t{p.address} + p.size;
+            if (p_end <= cursor || p.address >= end) continue;
+            if (p.address > cursor) {
+                pieces.push_back(CodeRange{static_cast<std::uint32_t>(cursor), r.bytes + (cursor - r.address),
+                                           static_cast<std::size_t>(p.address - cursor)});
+            }
+            cursor = std::max(cursor, p_end);
+        }
+        if (cursor < end) {
+            pieces.push_back(CodeRange{static_cast<std::uint32_t>(cursor), r.bytes + (cursor - r.address),
+                                       static_cast<std::size_t>(end - cursor)});
+        }
+    }
+    // Both lists are in address order: merged in one pass.
+    std::size_t a = 0, b = 0;
+    while (a < pieces.size() || b < patched.size()) {
+        const bool take_piece = b == patched.size() || (a < pieces.size() && pieces[a].address < patched[b].address);
+        out.push_back(take_piece ? pieces[a++] : patched[b++]);
+    }
+    return true;
+}
+
+bool find_pad_symbols_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched,
+                                   PadSymbols& out, bool& from_patch, std::string& error) {
+    from_patch = false;
+    PadSymbols pack;
+    if (!patched.empty()) {
+        std::string pack_error;
+        // Only an unsure PADRead in the patches is an error: their
+        // PADControlMotor isn't used (below), so two of those there don't
+        // keep the game's own PADRead from being searched.
+        if (!find_pad_symbols(patched, pack, pack_error) && pack_error.find("PADRead") != std::string::npos) {
+            out = PadSymbols{};
+            error = "in a pack's memory patches: " + pack_error;
+            return false;
+        }
+    }
+    if (pack.read == 0) return find_pad_symbols(text, out, error);
+    PadSymbols game;
+    std::string game_error;
+    const bool game_sure = find_pad_symbols(text, game, game_error);
+    out = PadSymbols{};
+    out.read = pack.read;
+    out.read_sites = pack.read_sites;
+    std::vector<CodeRange> view;
+    if (!code_with_patches(text, patched, view)) {
+        out = PadSymbols{};
+        error = "no memory to read the game's code with a pack's memory patches";
+        return false;
+    }
+    out.idle_reset = find_idle_reset(view, pack.read);
+    // The game's own PADControlMotor, as before packs could bring PADRead
+    // this way: Settings > GameCube rumble Off writes to it before the
+    // patches go in, which would land on bytes a patch hasn't written yet.
+    out.control_motor = game_sure ? game.control_motor : 0;
+    from_patch = true;
     error.clear();
     return true;
 }
@@ -993,16 +1110,22 @@ std::set<std::uint32_t> pad_read_callees(const std::vector<CodeRange>& text, std
 
 }  // namespace
 
-std::uint32_t find_gc_si_probe(const std::vector<CodeRange>& text, std::uint32_t pad_read) {
+namespace {
+
+// SIProbe's shape at each word of `scan`'s ranges, its nine words read by
+// `words_at(range, i, w)`; `view` is the code its calls are followed in.
+template <typename WordsAt>
+std::uint32_t si_probe_scan(const std::vector<CodeRange>& scan, const std::vector<CodeRange>& view,
+                            std::uint32_t pad_read, WordsAt words_at) {
     if (pad_read == 0 || (pad_read & 3u) != 0) return 0;
-    const std::set<std::uint32_t> callees = pad_read_callees(text, pad_read);
+    const std::set<std::uint32_t> callees = pad_read_callees(view, pad_read);
     if (callees.empty()) return 0;
     std::set<std::uint32_t> found;
-    for (const CodeRange& range : text) {
+    for (const CodeRange& range : scan) {
         const std::size_t words = range.size / 4;
         for (std::size_t i = 0; i + 9 <= words; ++i) {
             std::uint32_t w[9];
-            for (unsigned k = 0; k < 9; ++k) w[k] = be32(range.bytes + (i + k) * 4);
+            if (!words_at(range, i, w)) continue;
             if (!small_prologue(w) || !is_bl(w[3]) || !is_bl(w[4]) || !small_epilogue(w + 5)) continue;
             const std::uint32_t at = range.address + static_cast<std::uint32_t>(i * 4);
             const std::uint32_t get_type = bl_target(at + 12, w[3]);
@@ -1010,11 +1133,50 @@ std::uint32_t find_gc_si_probe(const std::vector<CodeRange>& text, std::uint32_t
             // SIGetType is one of PADRead's own calls (its rumble check);
             // SIDecodeType is told apart by the WaveBird's type.
             if (get_type == decode || callees.count(get_type) == 0) continue;
-            if (!loads_wavebird_type(text, decode)) continue;
+            if (!loads_wavebird_type(view, decode)) continue;
             found.insert(at);
         }
     }
     return found.size() == 1 ? *found.begin() : 0;
+}
+
+}  // namespace
+
+std::uint32_t find_gc_si_probe(const std::vector<CodeRange>& text, std::uint32_t pad_read) {
+    return si_probe_scan(text, text, pad_read, [](const CodeRange& range, std::size_t i, std::uint32_t* w) {
+        for (unsigned k = 0; k < 9; ++k) w[k] = be32(range.bytes + (i + k) * 4);
+        return true;
+    });
+}
+
+std::uint32_t find_gc_si_probe_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched,
+                                            std::uint32_t pad_read) {
+    // The game's code scanned whole, each word read as the patches leave
+    // it, so a patch inside SIProbe (even one writing the same bytes) can't
+    // split it out of sight; a patch that changes it is seen.
+    std::vector<CodeRange> view;
+    if (!code_with_patches(text, patched, view)) return 0;
+    // The scan moves forward a word at a time, so the view's range is kept
+    // and stepped, not looked for again at each word (thousands of patch
+    // pieces over megabytes of code).
+    std::size_t at_range = 0;
+    const auto word_in_view = [&view, &at_range](std::uint32_t at, std::uint32_t& w) {
+        while (at_range > 0 && at < view[at_range].address) --at_range;
+        while (at_range < view.size() && std::uint64_t{at} + 4 > std::uint64_t{view[at_range].address} + view[at_range].size)
+            ++at_range;
+        if (at_range == view.size() || at < view[at_range].address) {
+            if (at_range == view.size() && at_range > 0) --at_range;
+            return false;
+        }
+        w = be32(view[at_range].bytes + (at - view[at_range].address));
+        return true;
+    };
+    return si_probe_scan(text, view, pad_read, [&word_in_view](const CodeRange& range, std::size_t i, std::uint32_t* w) {
+        for (unsigned k = 0; k < 9; ++k) {
+            if (!word_in_view(range.address + static_cast<std::uint32_t>((i + k) * 4), w[k])) return false;
+        }
+        return true;
+    });
 }
 
 namespace {

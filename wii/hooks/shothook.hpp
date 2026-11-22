@@ -32,6 +32,7 @@ struct ShotHook {
     bool demo = false;             // also shoots 20 and 40 s into the game (Dolphin tests)
     std::uint32_t ioctlv = 0;      // IOS_IoctlvAsync (0: no Wii Remote combo)
     std::uint32_t pad_read = 0;    // PADRead (0: no GameCube controller combo)
+    bool pad_read_in_patch = false;  // found in the packs' memory patches (checked again once they're in)
     std::uint32_t code_base = 0;   // the blob (MEM1)
     std::uint32_t code_bytes = 0;
     std::uint32_t state_base = 0;  // state and frame (MEM2)
@@ -53,12 +54,14 @@ struct ShotIpc {
 
 // Before the <memory> patches. `arena1_hi` and `arena2_lo` are the arena
 // ends the other blobs left; `pad_read` is PADRead when the adapter found
-// it (0: searched here). `direct`: no frame copy in MEM2 (the picture is
+// it (0: searched here), and `pad_read_in_patch` whether it was in the
+// packs' memory patches. `direct`: no frame copy in MEM2 (the picture is
 // written straight from the frame buffer), for games that need all their
 // memory, such as big mods: Newer Super Mario Bros. Wii crashes on its
 // title screen with 0.8 MB of MEM2 gone, and runs with 300 KB.
 bool plan_shot_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor,
-                    std::uint32_t arena2_lo, const ShotIpc& known, std::uint32_t pad_read, bool demo, bool direct,
+                    std::uint32_t arena2_lo, const ShotIpc& known, std::uint32_t pad_read, bool pad_read_in_patch, bool demo,
+                    bool direct,
                     const std::vector<MemoryPatch>& patches, ShotHook& out, std::string& why);
 
 // Last of the hooks (after the patches, the cheats and the adapter's).
