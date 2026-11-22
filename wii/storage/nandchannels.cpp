@@ -254,6 +254,16 @@ bool card_file_exists(const std::string& path) {
     return stat(path.c_str(), &st) == 0 && !S_ISDIR(st.st_mode);
 }
 
+// A file a failed replacement left only as its .riftwii-old copy (both
+// renames failed) gets its name back. False when it could not: the copy is
+// then the only good one and must stay. Runs before anything reads or
+// seeds the file, so a fresh copy never takes the original's place.
+bool recover_emu_file(const std::string& destination) {
+    const std::string old = destination + ".riftwii-old";
+    if (card_file_exists(destination) || !card_file_exists(old)) return true;
+    return std::rename(old.c_str(), destination.c_str()) == 0;
+}
+
 s32 open_result(NandAccess& access, const std::string& path) {
     const s32 fd = access.open(path);
     if (fd >= 0) ISFS_Close(fd);
@@ -580,6 +590,12 @@ bool prepare_wad_nand_system(const std::string& folder, std::string& error) {
     NandAccess access;
     for (const char* path : paths) {
         const std::string destination = folder + path;
+        // The emulated NAND's own file, if a failed replacement set it aside,
+        // comes back before the Wii's copy could be seeded in its place.
+        if (!recover_emu_file(destination)) {
+            error = destination + " is in its .riftwii-old copy and could not be put back";
+            return false;
+        }
         if (card_file_exists(destination)) continue;
         std::vector<u8> bytes;
         if (!read_whole(access, path, 128 * 1024, bytes, error)) return false;
@@ -603,15 +619,6 @@ bool prepare_wad_nand_system(const std::string& folder, std::string& error) {
 }
 
 namespace {
-
-// A file a failed replacement left only as its .riftwii-old copy (both
-// renames failed) gets its name back. False when it could not: the copy is
-// then the only good one and must stay.
-bool recover_emu_file(const std::string& destination) {
-    const std::string old = destination + ".riftwii-old";
-    if (card_file_exists(destination) || !card_file_exists(old)) return true;
-    return std::rename(old.c_str(), destination.c_str()) == 0;
-}
 
 // Writes `bytes` to `destination` through a .riftwii-part file, making
 // the folders on the way (below `folder`).

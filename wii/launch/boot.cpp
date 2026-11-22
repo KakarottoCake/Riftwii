@@ -4261,6 +4261,16 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
             logf("Return to %08x-%08x: the channel could not be copied to %s because %s; \"Wii Menu\" from the game "
                  "may not return to it.\n",
                  high, low, files.emu_nand.c_str(), copy_error.c_str());
+            // The game still starts, unless the NAND's ownership list was
+            // left only in its .riftwii-old copy: ES would give the game's
+            // saves to the wrong owner, so it waits for the card to be fixed.
+            const std::string uid = files.emu_nand + "/sys/uid.sys";
+            struct stat info;
+            if (stat(uid.c_str(), &info) != 0 && stat((uid + ".riftwii-old").c_str(), &info) == 0) {
+                error = "the emulated NAND's title ownership list (" + uid +
+                        ") could not be restored from its backup; check the SD card";
+                return false;
+            }
         }
     }
 
