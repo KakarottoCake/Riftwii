@@ -540,6 +540,9 @@ static int transfer_step(struct vsd_state* st, int async, int32_t r, int32_t* ou
             invalidate_range(t->page_slot, RTVSD_SECTOR_BYTES);
             rtvsd_page_arrived(&st->card);
             t->phase = VSD_PHASE_DATA;
+            /* A write of the runtime's may have started during the page
+             * read: wait for it again before the piece (BUG-05). */
+            t->waited = 0;
             sent = transfer_send(st, async);
             if (sent >= 0) goto in_flight;
             return transfer_end(st, sent, out_result, callback, user_data);
