@@ -602,6 +602,118 @@ bool prepare_wad_nand_system(const std::string& folder, std::string& error) {
     return true;
 }
 
+namespace {
+
+// Writes `bytes` to `destination` through a .riftwii-part file, making
+// the folders on the way (below `folder`).
+bool write_emu_file(const std::string& folder, const std::string& destination, const std::vector<u8>& bytes,
+                    std::string& error) {
+    for (std::size_t slash = destination.find('/', folder.size() + 1); slash != std::string::npos;
+         slash = destination.find('/', slash + 1)) {
+        mkdir(destination.substr(0, slash).c_str(), 0777);
+    }
+    const std::string part = destination + ".riftwii-part";
+    FILE* file = std::fopen(part.c_str(), "wb");
+    const bool written = file && std::fwrite(bytes.data(), 1, bytes.size(), file) == bytes.size();
+    const bool closed = file && std::fclose(file) == 0;
+    std::remove(destination.c_str());
+    if (!written || !closed || std::rename(part.c_str(), destination.c_str()) != 0) {
+        std::remove(part.c_str());
+        error = "the SD card could not save " + destination + " (is it full or locked?)";
+        return false;
+    }
+    return true;
+}
+
+}  // namespace
+
+bool copy_return_channel_to_emu_nand(const std::string& folder, std::uint64_t title, std::string& error) {
+    if (folder.compare(0, 4, "sd:/") != 0 || folder.size() <= 4 || folder.find("..") != std::string::npos ||
+        folder.find_first_of("\\", 4) != std::string::npos || folder.find(':', 3) != std::string::npos) {
+        error = "the emulated NAND is not a plain SD folder";
+        return false;
+    }
+    if ((title >> 32) != 0x00010001) {
+        error = "only an ordinary channel can be copied";
+        return false;
+    }
+    char ticket_path[48];
+    std::snprintf(ticket_path, sizeof ticket_path, "/ticket/%08x/%08x.tik", static_cast<unsigned>(title >> 32),
+                  static_cast<unsigned>(title));
+    char title_path[40];
+    std::snprintf(title_path, sizeof title_path, "/title/%08x/%08x", static_cast<unsigned>(title >> 32),
+                  static_cast<unsigned>(title));
+    const std::string tmd_path = std::string(title_path) + "/content/title.tmd";
+
+    if (NandOpen() < 0) {
+        error = "the Wii's storage could not be opened";
+        return false;
+    }
+    struct NandUser {
+        ~NandUser() { NandClose(); }
+    } nand_user;
+    NandAccess access;
+    // Everything is read before anything is written.
+    std::vector<u8> tmd_bytes;
+    std::vector<u8> ticket;
+    TmdContents tmd;
+    std::string why;
+    if (!read_whole(access, tmd_path, kMaxTmdBytes, tmd_bytes, error)) return false;
+    if (!parse_tmd_contents(tmd_bytes.data(), tmd_bytes.size(), tmd, why) || tmd.title_id != title) {
+        error = "the channel's TMD on the Wii is damaged (" + why + ")";
+        return false;
+    }
+    // Already there, the same version as on the Wii: nothing to do. An
+    // older copy (the channel was updated since) is replaced.
+    std::vector<u8> emu_tmd;
+    std::string ignored;
+    if (read_card_file(folder + tmd_path, kMaxTmdBytes, emu_tmd, ignored) && emu_tmd == tmd_bytes &&
+        emu_channel_program_present(folder, title) && card_file_exists(folder + ticket_path)) {
+        return true;
+    }
+    if (!read_whole(access, ticket_path, 0x10000, ticket, error)) return false;
+    // RiftWii's channel is a few small contents of its own; a content much
+    // larger than that, or a shared one, means this is not that channel.
+    constexpr u32 kMaxContentBytes = 8u << 20;
+    std::vector<std::vector<u8>> contents;
+    if (!try_resize(contents, tmd.contents.size())) {
+        error = "out of memory for the channel's contents";
+        return false;
+    }
+    for (std::size_t i = 0; i < tmd.contents.size(); ++i) {
+        const TmdContent& content = tmd.contents[i];
+        if ((content.type & 0x8000) != 0) {
+            error = "the channel uses a shared content, which is not copied";
+            return false;
+        }
+        if (content.size > kMaxContentBytes) {
+            error = "a content of the channel is larger than RiftWii's channel is";
+            return false;
+        }
+        if (!read_whole(access, nand_content_path(title, content.id), kMaxContentBytes, contents[i], error)) return false;
+        if (contents[i].size() != content.size || sha1(contents[i].data(), contents[i].size()) != content.sha1) {
+            error = "a content of the channel on the Wii does not match its TMD";
+            return false;
+        }
+    }
+    // The ownership list lets ES give the channel its own folder.
+    std::vector<u8> uid;
+    const std::string uid_path = folder + "/sys/uid.sys";
+    if (card_file_exists(uid_path) && !read_card_file(uid_path, 12 * 8192, uid, error)) return false;
+    const std::size_t uid_before = uid.size();
+    if (!add_wad_title_uid(uid, title, error)) return false;
+
+    for (std::size_t i = 0; i < tmd.contents.size(); ++i) {
+        if (!write_emu_file(folder, folder + nand_content_path(title, tmd.contents[i].id), contents[i], error))
+            return false;
+    }
+    if (!write_emu_file(folder, folder + ticket_path, ticket, error)) return false;
+    if (uid.size() != uid_before && !write_emu_file(folder, uid_path, uid, error)) return false;
+    mkdir((folder + title_path + "/data").c_str(), 0777);
+    if (!write_emu_file(folder, folder + tmd_path, tmd_bytes, error)) return false;
+    return true;
+}
+
 bool read_nand_channel_banner(const NandChannel& channel, std::vector<std::uint8_t>& out, std::string& error) {
     // A banner with its sound is a few hundred KB; past this it is not one.
     constexpr u32 kMaxBannerBytes = 4u << 20;
