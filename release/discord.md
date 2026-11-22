@@ -7,20 +7,23 @@ markdown: at most 2000 characters once filled in (the workflow counts).
 
 What's new:
 
-* Settings > Games > Manage emulated NAND: copy a WiiWare or VC game from USB Loader GX's emulated NAND on the hard drive (or WiiFlow's nands/default) to the SD card, where RiftWii plays it
-* GameCube games on PAL 60 no longer turn red
-* Mario Kart Wii Deluxe starts again (no more missing Race/Kart folder)
-* Missing-files message easier to read
-* Disc Channel tile like the Wii Menu's, in the theme's color
+* Real GameCube memory cards work on a Wii (the menu's sound was blocking them)
+* WAD files in your Game folders show up too, not just in wiiware/
+* WiiWare/VC from a WAD: HOME > Wii Menu goes back to RiftWii instead of rebooting a Wii U
+* WADs work when USB Loader GX keeps its channels on the USB drive
+* Project+ no longer goes black with the GameCube adapter
+* 240p keeps PAL 60's colors on RGB SCART
+* LEGO Star Wars: The Complete Saga has the adapter and L+R+Z+Start back
 
-Not tried on a real Wii yet: the copy, and GameCube PAL 60 colors.
+Not tried on a real Wii yet: the way back from WAD games.
 
 To test, please:
 
-1. Copy a WiiWare or VC game from your emulated NAND to the SD card, then play it from Home
-2. A US or Japanese GameCube game on PAL 60: are the colors right?
-3. Mario Kart Wii Deluxe, or a pack that used to say files were missing
+1. A real GameCube memory card with a GameCube game: does it save?
+2. A WAD in one of your Game folders: does it show on Home and start?
+3. A WAD game, then HOME > Wii Menu: back in RiftWii?
+4. Project+ with the GameCube adapter
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![Copy to the SD card](docs/screenshots/2611-208-copy-to-sd.png)
+![What's new](docs/screenshots/2611-219-whats-new.png)

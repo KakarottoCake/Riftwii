@@ -8686,24 +8686,24 @@ MORE["ko"]["Game's box: the game's box while it starts; press any button to see 
 MORE["fr"]["Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."] = "Boîte du jeu : la boîte du jeu pendant son lancement ; appuyez sur un bouton pour voir ce que fait RiftWii. Journal : chaque étape, ligne par ligne. Un lancement qui échoue affiche toujours le journal."
 
 # What's new in the release after 2611-179.
-T['Home shows your games at once'] = ('Inicio muestra tus juegos al instante', 'ホームにゲームがすぐ表示', 'O Início mostra seus jogos na hora', 'La Home mostra subito i tuoi giochi')
-MORE["ko"]['Home shows your games at once'] = '홈에 게임이 바로 표시'
-MORE["fr"]['Home shows your games at once'] = "L'accueil affiche vos jeux tout de suite"
-T['Games start behind their box'] = ('Los juegos arrancan tras su caja', '起動中はゲームのパッケージを表示', 'Os jogos iniciam atrás da caixa', 'I giochi partono dietro la confezione')
-MORE["ko"]['Games start behind their box'] = '게임 시작 중 패키지 표시'
-MORE["fr"]['Games start behind their box'] = 'Les jeux démarrent derrière leur boîte'
-T['Manage your emulated NAND'] = ('Gestiona tu NAND emulada', '仮想NANDを管理', 'Gerencie sua NAND emulada', 'Gestisci la NAND emulata')
-MORE["ko"]['Manage your emulated NAND'] = '에뮬레이트 NAND 관리'
-MORE["fr"]['Manage your emulated NAND'] = 'Gérez votre NAND émulée'
-T['Own covers and favorites for homebrew'] = ('Carátulas propias y favoritos para homebrew', 'ホームブリューに自分のカバーとお気に入り', 'Capas próprias e favoritos para homebrew', 'Copertine proprie e preferiti per gli homebrew')
-MORE["ko"]['Own covers and favorites for homebrew'] = '홈브루에 내 커버와 즐겨찾기'
-MORE["fr"]['Own covers and favorites for homebrew'] = 'Pochettes perso et favoris pour les homebrews'
-T['Import Nintendont controller layouts'] = ('Importa los mandos de Nintendont', 'Nintendontのコントローラー設定をコピー', 'Importe controles do Nintendont', 'Importa i controller di Nintendont')
-MORE["ko"]['Import Nintendont controller layouts'] = 'Nintendont 컨트롤러 설정 가져오기'
-MORE["fr"]['Import Nintendont controller layouts'] = 'Importez les manettes de Nintendont'
-T['Type your SteamGridDB key in Settings'] = ('Escribe tu clave de SteamGridDB en Ajustes', '設定でSteamGridDBのキーを入力', 'Digite sua chave do SteamGridDB nas Configurações', 'Inserisci la chiave SteamGridDB nelle Impostazioni')
-MORE["ko"]['Type your SteamGridDB key in Settings'] = '설정에서 SteamGridDB 키 입력'
-MORE["fr"]['Type your SteamGridDB key in Settings'] = 'Saisissez votre clé SteamGridDB dans les Paramètres'
+T['Real GameCube memory cards work'] = ('Las Memory Cards de GameCube funcionan', '本物のゲームキューブのメモリーカードが使える', 'Memory Cards reais de GameCube funcionam', 'Le Memory Card reali del GameCube funzionano')
+MORE["ko"]['Real GameCube memory cards work'] = '실제 게임큐브 메모리 카드 사용 가능'
+MORE["fr"]['Real GameCube memory cards work'] = 'Les vraies cartes mémoire GameCube marchent'
+T['WAD files in your Game folders'] = ('Archivos WAD en tus carpetas de juegos', 'ゲームフォルダのWADファイルも表示', 'Arquivos WAD nas suas pastas de jogos', 'File WAD nelle tue cartelle dei giochi')
+MORE["ko"]['WAD files in your Game folders'] = '게임 폴더의 WAD 파일도 표시'
+MORE["fr"]['WAD files in your Game folders'] = 'Fichiers WAD dans vos dossiers de jeux'
+T['WAD games go back to RiftWii'] = ('Los juegos WAD vuelven a RiftWii', 'WADのゲームからRiftWiiに戻れる', 'Jogos WAD voltam ao RiftWii', 'I giochi WAD tornano a RiftWii')
+MORE["ko"]['WAD games go back to RiftWii'] = 'WAD 게임에서 RiftWii로 돌아가기'
+MORE["fr"]['WAD games go back to RiftWii'] = 'Les jeux WAD reviennent à RiftWii'
+T['240p keeps PAL 60 colors'] = ('240p mantiene los colores de PAL 60', '240pでもPAL 60の色のまま', '240p mantém as cores do PAL 60', '240p mantiene i colori PAL 60')
+MORE["ko"]['240p keeps PAL 60 colors'] = '240p에서도 PAL 60 색상 유지'
+MORE["fr"]['240p keeps PAL 60 colors'] = 'Le 240p garde les couleurs PAL 60'
+T['Project+ starts with the GameCube adapter'] = ('Project+ arranca con el adaptador de GameCube', 'ゲームキューブ用アダプターでもProject+が起動', 'Project+ inicia com o adaptador de GameCube', "Project+ parte con l'adattatore GameCube")
+MORE["ko"]['Project+ starts with the GameCube adapter'] = '게임큐브 어댑터로도 Project+ 실행'
+MORE["fr"]['Project+ starts with the GameCube adapter'] = "Project+ démarre avec l'adaptateur GameCube"
+T['GameCube adapter back in LEGO Star Wars'] = ('El adaptador de GameCube vuelve a LEGO Star Wars', 'LEGO Star Warsでゲームキューブ用アダプターが使える', 'Adaptador de GameCube de volta em LEGO Star Wars', 'Adattatore GameCube di nuovo in LEGO Star Wars')
+MORE["ko"]['GameCube adapter back in LEGO Star Wars'] = 'LEGO Star Wars에서 게임큐브 어댑터 다시 사용'
+MORE["fr"]['GameCube adapter back in LEGO Star Wars'] = "L'adaptateur GameCube revient dans LEGO Star Wars"
 
 # Game management: own display names and visibility, never file renames.
 T['Manage game'] = ('Gestionar juego', 'ゲームの管理', 'Gerenciar jogo', 'Gestisci gioco')

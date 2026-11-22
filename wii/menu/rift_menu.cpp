@@ -5277,12 +5277,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Home shows your games at once",
-	"Games start behind their box",
-	"Manage your emulated NAND",
-	"Own covers and favorites for homebrew",
-	"Import Nintendont controller layouts",
-	"Type your SteamGridDB key in Settings",
+	"Real GameCube memory cards work",
+	"WAD files in your Game folders",
+	"WAD games go back to RiftWii",
+	"240p keeps PAL 60 colors",
+	"Project+ starts with the GameCube adapter",
+	"GameCube adapter back in LEGO Star Wars",
 };
 
 static std::string WhatsNewText()

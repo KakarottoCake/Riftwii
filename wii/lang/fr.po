@@ -4140,23 +4140,23 @@ msgstr "Appuyez sur un bouton pour voir ce que fait RiftWii."
 msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
 msgstr "Boîte du jeu : la boîte du jeu pendant son lancement ; appuyez sur un bouton pour voir ce que fait RiftWii. Journal : chaque étape, ligne par ligne. Un lancement qui échoue affiche toujours le journal."
 
-msgid "Home shows your games at once"
-msgstr "L'accueil affiche vos jeux tout de suite"
+msgid "Real GameCube memory cards work"
+msgstr "Les vraies cartes mémoire GameCube marchent"
 
-msgid "Games start behind their box"
-msgstr "Les jeux démarrent derrière leur boîte"
+msgid "WAD files in your Game folders"
+msgstr "Fichiers WAD dans vos dossiers de jeux"
 
-msgid "Manage your emulated NAND"
-msgstr "Gérez votre NAND émulée"
+msgid "WAD games go back to RiftWii"
+msgstr "Les jeux WAD reviennent à RiftWii"
 
-msgid "Own covers and favorites for homebrew"
-msgstr "Pochettes perso et favoris pour les homebrews"
+msgid "240p keeps PAL 60 colors"
+msgstr "Le 240p garde les couleurs PAL 60"
 
-msgid "Import Nintendont controller layouts"
-msgstr "Importez les manettes de Nintendont"
+msgid "Project+ starts with the GameCube adapter"
+msgstr "Project+ démarre avec l'adaptateur GameCube"
 
-msgid "Type your SteamGridDB key in Settings"
-msgstr "Saisissez votre clé SteamGridDB dans les Paramètres"
+msgid "GameCube adapter back in LEGO Star Wars"
+msgstr "L'adaptateur GameCube revient dans LEGO Star Wars"
 
 msgid "Manage game"
 msgstr "Gérer le jeu"
