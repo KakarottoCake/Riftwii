@@ -399,6 +399,48 @@ only needed now and then (the menu font, translations, GPL) to MEM2. This
 document is about the other half: code that most launches never run can
 stay on the card until it is needed.
 
+## The pads plugin
+
+The in-game pad code (`runtime/pad`: the GameCube adapter, the other USB
+pads and the HOME Menu by the controller) is six builds of one blob
+(`Makefile.runtime`: the full one, adapter only, other USB pads only, and
+each again without the HOME Menu). A game takes one of them, but all six
+were embedded in the DOL. They are the `pads` plugin's now
+(`plugins/pads/`), and the DOL keeps only their sizes.
+
+| Piece | Where |
+| --- | --- |
+| The request | `include/riftwii/plugin_pads.h`: `rwp_pads_request` (which build, the DOL's buffer and its size in; the bytes copied and a reason out) |
+| The plugin | `plugins/pads/pads.c` (`rwp_init`, the table, `launch` copying the build asked for), `padsblobs.S` (the six builds by `.incbin`, from `build-runtime/`, and a table of each one's start and size) |
+| The DOL's side | `wii/hooks/padhook.cpp`: `fetch_pad_build` decides the build (`decide_pad_inputs`, `wants_home_build`: the same answer `plan_pad_hook` gets later), copies it from the plugin into a buffer of its own and shuts the plugin down; `blob(kind)` reads that copy. `wii/launch/boot.cpp` calls it right after `prepare_gc_pads`, in a disc launch and a channel's |
+| The sizes | `build-runtime/riftwii_pad_sizes.h` (`Makefile.runtime`), for the copy's buffer and the game page's memory budget (`wii/menu/memorybudget.cpp`) |
+| Out of the DOL | `Makefile.wii`: the six `riftwii_pad*.bin` out of `BINFILES` |
+| Packaging | `tools/make_release_zip.py` and `tools/make_update_pack.py` require it beside `gamecube` and `ctgpr`; CI's size report lists it |
+
+**When.** The build is decided and copied after the apploader (the search
+for the HOME Menu's functions reads the loaded game) and while the card is
+still RiftWii's: `prepare_gc_pads` runs while `boot.log` is open, and
+the card goes to the game (and the log ends) before the extras are placed.
+The plugin's arena is taken from the top of RiftWii's MEM2 heap and given
+back right after the copy, before the resident runtime and the extras are
+placed, so nothing of the launch lands in it. The copy itself is an
+ordinary heap block (the biggest build is about 33 KB) that lives until
+`install_pad_hook` has put the code into the game. In-game, nothing
+changes: the same bytes go to the same place.
+
+**When the plugin is missing**, damaged or from another RiftWii, the
+launch stops with the loader's sentence ("A part of RiftWii is missing
+(the pads add-on). Update RiftWii again.") and the log line `GameCube
+adapter and USB controllers: the game can't start without the pad code
+from RiftWii's pads plugin in <folder>: ...`. Starting the game without
+the adapter instead would leave a player whose only controllers are
+GameCube or USB ones unable to play, or to leave. Only launches that
+would put the pad code in are stopped: with Settings > GameCube adapter
+Off, or Automatic with no adapter or USB pad plugged in, it is never
+asked for.
+
+Measured: see the pull request (the DOL and MEM1 before and after).
+
 ## 1. Goals and non-goals
 
 Goals:

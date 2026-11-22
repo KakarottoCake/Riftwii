@@ -253,6 +253,7 @@ jobs:
             --plugin build-plugins/selftest.rwp \
             --plugin build-plugins/gamecube.rwp \
             --plugin build-plugins/ctgpr.rwp \
+            --plugin build-plugins/pads.rwp \
             $baseline --json-out size-report.json > size-report.md
           cat size-report.md >> "$GITHUB_STEP_SUMMARY"
       # Sizes only, a few hundred bytes of JSON. Not the DOL: CI publishes

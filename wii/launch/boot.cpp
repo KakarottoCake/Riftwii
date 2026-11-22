@@ -2668,6 +2668,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // setup comes after the runtime's, when the log has ended.
     GameExtras extras;
     gc_adapter = prepare_gc_pads(dol, gc_adapter, gx_protected, options.memory_patches, extras.pad);
+    // Its code from the pads plugin while the card is still RiftWii's.
+    if (gc_adapter && !fetch_pad_build(extras.pad, code_build, error)) return false;
 
     // The game's own Reset where no runtime takes it (#458): the adapter's
     // hook does, which needs the SD card for the request and Return to
@@ -4510,6 +4512,9 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     extras_context.arena2_lo = read32(0x80003124);
     extras_context.mem1_floor = channel_extras_floor(dol, loader_end);
     extras_context.gc_adapter = prepare_gc_pads(dol, adapter_wanted, gx_protected, {}, extras.pad);
+    // Its code from the pads plugin while the card is still RiftWii's
+    // (a channel is never a code build).
+    if (extras_context.gc_adapter && !fetch_pad_build(extras.pad, false, error)) return false;
     extras_context.gx_protected = gx_protected;
     extras_context.clears_mem1_top = clears_mem1_top;
     plan_game_extras(dol, extras_context, extras);

@@ -244,8 +244,20 @@ $(RVZOUT)/rt_zstd.o: private ZSTDFLAGS += -flto=auto
 $(FAULTOBJS) $(FAULTOUT)/riftwii_fault.elf $(FAULTOUT)/riftwii_fault_alt.elf: private CFLAGS += -fstack-usage
 $(LTO_OBJS) $(LTO_ELFS): Makefile.runtime
 
+# The six pad builds are the pads plugin's (plugins/pads, docs/PLUGINS.md),
+# not the DOL's. The DOL keeps only their sizes, to size its copy of the one
+# a game takes and for the game page's memory budget: this header, in
+# padhook.cpp's BlobKind order (riftwii/plugin_pads.h).
+PADBUILDS := $(PADBLOB) $(PADABLOB) $(PADPBLOB) $(OUT)/riftwii_padn.bin $(OUT)/riftwii_padan.bin $(OUT)/riftwii_padpn.bin
+PADSIZES := $(OUT)/riftwii_pad_sizes.h
+$(PADSIZES): $(PADBUILDS)
+	@{ echo "/* Made by Makefile.runtime: the pad builds' sizes (the builds are the pads plugin's). */"; \
+	   printf '#define RIFTWII_PAD_BUILD_BYTES {'; \
+	   for f in $(PADBUILDS); do printf '%su, ' $$(stat -c %s $$f); done; \
+	   echo '}'; } > $@.tmp && mv $@.tmp $@
+
 .PHONY: all clean
-all: $(BLOB) $(PADBLOB) $(PADABLOB) $(PADPBLOB) $(PADNOHOME) $(GCBLOB) $(SHOTBLOB) $(FAULTBLOB) $(WLOGBLOB) $(WLOGTRACEBLOB) $(WLOGTRANSLATEBLOB) $(VSDBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST) \
+all: $(BLOB) $(PADBLOB) $(PADABLOB) $(PADPBLOB) $(PADNOHOME) $(PADSIZES) $(GCBLOB) $(SHOTBLOB) $(FAULTBLOB) $(WLOGBLOB) $(WLOGTRACEBLOB) $(WLOGTRANSLATEBLOB) $(VSDBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST) \
      $(GCRVZBLOB) $(GCRVZZST) $(DOLPACK) $(STUBBLOB)
 
 $(DPOUT):

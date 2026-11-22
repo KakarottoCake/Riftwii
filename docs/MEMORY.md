@@ -128,7 +128,7 @@ Japanese with RiftWii's font.
 | Six translations (`wii/lang/*.po`, zstd) | 166 | At start and when the language changes, one catalog | **Start-up stash** (built) | 165 |
 | The GPL (`LICENSE`, zstd) | 11 | On the credits page | **Start-up stash** (built) | 11 |
 | Menu sounds (`button_click`, `button_over`, `home_open`, `home_close`, raw PCM) | 226 | Played from memory by the DSP whenever the menu makes a sound | Stash next (played straight from the MEM2 copy, as theme sounds already are), not built: `vendor-libgui` names the sounds as linked arrays | 217 (all but the 8 KiB hover tick, which could stay) |
-| Runtime blobs (`riftwii_rt`, `_rvz`, `_gc`, `_gc_rvz`, pad, shot, fault, wlog, vsd, code handler) | 173 | Copied into the game at a launch | The GameCube ones (`riftwii_gc.bin`, `riftwii_gc_rvz.zst` and `.rel`, 73 KiB) are the `gamecube` plugin's since stage (b) ([PLUGINS.md](PLUGINS.md)); the rest stay: their MEM2 copy would have to survive everything a launch does in MEM2 | 73 (with the GameCube loader's code: 196 KiB in all) |
+| Runtime blobs (`riftwii_rt`, `_rvz`, `_gc`, `_gc_rvz`, pad, shot, fault, wlog, vsd, code handler) | 173 | Copied into the game at a launch | The GameCube ones (`riftwii_gc.bin`, `riftwii_gc_rvz.zst` and `.rel`, 73 KiB) are the `gamecube` plugin's since stage (b) ([PLUGINS.md](PLUGINS.md)), and the six pad builds the `pads` plugin's (the DOL copies the one a game takes at the launch, [PLUGINS.md](PLUGINS.md#the-pads-plugin)); the rest stay: their MEM2 copy would have to survive everything a launch does in MEM2 | 73 (with the GameCube loader's code: 196 KiB in all) |
 
 The main font is copied into MEM2 in full before the GUI starts. Korean is
 supplied separately by `apps/riftwii/korean.ttf` (457 KiB, Noto Sans KR

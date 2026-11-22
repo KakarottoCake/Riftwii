@@ -320,7 +320,7 @@ if(BUILD_TESTING)
     add_test(NAME gcrealcard_nomem1 COMMAND gcrealcard_io_tests no-mem1)
     # Exercise the menu's real budget calculation without requiring a Wii
     # build. These headers stand in for bin2o's generated blob declarations.
-    set(memorybudget_blobs riftwii_fault_bin riftwii_pad_bin riftwii_rt_rvz_zst
+    set(memorybudget_blobs riftwii_fault_bin riftwii_pad_sizes riftwii_rt_rvz_zst
         riftwii_rt_zst riftwii_shot_bin riftwii_vsd_bin)
     foreach(blob IN LISTS memorybudget_blobs)
         file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/memorybudget_mock/${blob}.h"
