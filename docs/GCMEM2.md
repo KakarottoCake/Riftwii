@@ -135,3 +135,16 @@ through a save, the crash screen (`gc/test/crash`) and the way back:
 - Wii Remotes, the memory card, disc audio streaming.
 
 Then a test build for testers on a Wii and a vWii.
+
+## Results so far
+
+- 22 November 2026, Dolphin, SpongeBob SquarePants: The Movie (USA,
+  GGVE78) with a tester's settings (480p, 16:9, Wii Remotes on):
+  - `gc/test/mem2code`: the test code in MEM2 (0x91231560) ran at the first
+    pad read and left `RUN!` (0x52554E21) behind. MEM2 still runs code
+    after the game's OSInit, in Dolphin. A Wii is still to check.
+  - `game_mem1_kib = 128`: the arena's top at 0x817C2140 (128 KiB under
+    the usual 0x817E2160); 15 minutes of play in the first level, no
+    crash. 30 minutes without the squeeze, no crash either. The tester's
+    crash (PAL, GGVP78: a DSI reading 0x0C0D0F2C through a pointer that is
+    not one) has not been seen here.

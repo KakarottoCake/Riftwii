@@ -2847,6 +2847,15 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
         ctx->pad_idle = gc_ports_idle_update((const uint8_t*)(uintptr_t)status, native, ctx->pad_transfer_reads);
     gc_guard(ctx);  /* once a frame: IOS rewrites its counter there all the time */
     gc_stream_fetch(ctx);  /* the music ring's top-up, once a frame */
+    {
+        /* The test that MEM2 still runs code (gc_rt_cold.mem2_code): once,
+         * at the first pad read, when the game's OS has long been up. */
+        struct gc_rt_cold* const cold = gc_cold(ctx);
+        if (cold->mem2_code[0] != 0 && cold->mem2_code_ran == 0) {
+            uint32_t (*const mem2_code)(void) = (uint32_t(*)(void))(uintptr_t)cold->mem2_code;
+            cold->mem2_code_ran = mem2_code();
+        }
+    }
     /* The adapter's controllers first: they take their ports before the
      * Wii Remotes fill what is left (gc_gcad.h). */
     if (ctx->gcad && status != 0) {

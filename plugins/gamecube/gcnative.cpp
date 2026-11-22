@@ -2491,6 +2491,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const bool test_reset = player_test_switch("reset");
     // And of a program switch, in a game that has none (gc_on_boot_dol).
     const bool test_exec = player_test_switch("exec");
+    // And of MEM2 still running code once the game's OS is up
+    // (gc_rt_cold.mem2_code, docs/GCMEM2.md).
+    const bool test_mem2_code = player_test_switch("mem2code");
     // And of a two-disc game's change, in a game that never asks for one
     // (GC_FLAG_DISC_TEST): on only when there is a second disc.
     const bool test_disc_change = player_test_switch("discchange");
@@ -2969,6 +2972,37 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         error = "the game's FST is too large";
         return false;
     }
+#ifdef RT_TEST_BUILD
+    // Test builds: sd:/riftwii/test_limits.txt's "game_mem1_kib = N" takes
+    // N KiB more off the game's arena top, as it does for a Wii game, to
+    // find out whether a game's crash is one of memory (docs/GCMEM2.md).
+    if (std::FILE* limits = std::fopen("sd:/riftwii/test_limits.txt", "rb")) {
+        // Read by hand: the plugin has no fgets or sscanf.
+        char text[1024];
+        const std::size_t got = std::fread(text, 1, sizeof text - 1, limits);
+        std::fclose(limits);
+        text[got] = '\0';
+        unsigned squeeze_kib = 0;
+        static const char kKey[] = "game_mem1_kib";
+        // Read by hand: the plugin has no strstr either.
+        const std::string all(text, got);
+        const std::size_t found = all.find(kKey);
+        if (found != std::string::npos) {
+            const char* at = text + found + sizeof kKey - 1;
+            while (*at == ' ' || *at == '\t' || *at == '=') ++at;
+            while (*at >= '0' && *at <= '9' && squeeze_kib < 100000u) squeeze_kib = squeeze_kib * 10u + unsigned(*at++ - '0');
+        }
+        const std::uint32_t squeeze = squeeze_kib << 10;
+        if (squeeze != 0 && squeeze_kib < 16384 && arena_hi - squeeze >= kLoaderCeiling) {
+            arena_hi = (arena_hi - squeeze) & ~31u;
+            logf("GameCube: TEST BUILD: the arena's top lowered %u KiB more, to 0x%08x (test_limits.txt)\n",
+                 squeeze_kib, static_cast<unsigned>(arena_hi));
+        } else if (squeeze != 0) {
+            logf("GameCube: TEST BUILD: game_mem1_kib = %u left out: it would take the arena under the loader\n",
+                 squeeze_kib);
+        }
+    }
+#endif
     // Built here, zeroed, and moved into MEM2 just before the jump with
     // the card's image: the loader's own heap may be where it goes.
     std::vector<std::uint8_t> mem2_stage(mem2_bytes, 0);
@@ -3037,6 +3071,16 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         return false;
     }
     ctx->cold = cold_addr;
+    if (test_mem2_code) {
+        // lis r3,"RU"; ori r3,r3,"N!"; blr: what the first pad read calls in MEM2.
+        auto* cold = static_cast<gc_rt_cold*>(staged(cold_addr));
+        cold->mem2_code[0] = 0x3C600000u | (GC_MEM2_CODE_RAN >> 16);
+        cold->mem2_code[1] = 0x60630000u | (GC_MEM2_CODE_RAN & 0xFFFFu);
+        cold->mem2_code[2] = 0x4E800020u;
+        logf("GameCube: TEST BUILD: the first pad read runs code in MEM2 at 0x%08x; a crash screen with an ISI "
+             "there means MEM2 no longer runs code once the game is up\n",
+             static_cast<unsigned>(cold_addr + offsetof(gc_rt_cold, mem2_code)));
+    }
     ctx->io_buffer = io_buffer_addr;
     fill_gc_runs(static_cast<gc_rt_run*>(staged(runs_addr)), placed, fst_copy_addr != 0 ? fst_copy_addr : fst_addr);
     if (fst_copy_addr != 0) std::memcpy(staged(fst_copy_addr), fst.data(), fst.size());
@@ -4613,6 +4657,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // and nothing reads the heap after.
     std::memmove(reinterpret_cast<void*>(mem2_from), mem2_image.data(), mem2_image.size());
     DCFlushRange(reinterpret_cast<void*>(mem2_from), mem2_image.size());
+    // MEM2's test code (gc_rt_cold.mem2_code) is fetched as instructions.
+    if (test_mem2_code) ICInvalidateRange(reinterpret_cast<void*>(cold_addr), sizeof(gc_rt_cold));
     reinterpret_cast<void (*)(std::uint32_t)>(blob_addr + h.trace_now)(GC_TRACE_JUMP);
     // Until the game's OS installs its own exception handlers, every
     // vector goes to the blob's crash screen (gc_on_fatal), so a crash in

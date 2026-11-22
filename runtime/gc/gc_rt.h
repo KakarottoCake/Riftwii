@@ -765,7 +765,16 @@ struct gc_rt_cold {
     uint32_t ar_alarm_queued;
     uint32_t ar_held;
     uint32_t ar_release_at;
+    /* Test builds (sd:/riftwii/gc/test/mem2code, docs/GCMEM2.md): a few
+     * instructions the loader puts here, in MEM2, that the first pad read
+     * calls once the game's OS is up, to prove MEM2 still runs code after
+     * OSInit. mem2_code_ran gets what they return (GC_MEM2_CODE_RAN); a
+     * MEM2 that no longer runs code stops at the crash screen instead (an
+     * ISI at this address). Zero words: no test. */
+    uint32_t mem2_code[7] __attribute__((aligned(32)));
+    uint32_t mem2_code_ran;
 };
+#define GC_MEM2_CODE_RAN 0x52554E21u /* "RUN!" */
 /* IOS reads and writes the four request buffers by DMA, whole 32-byte cache
  * lines each: every one starts on a line, and the struct is whole lines, so
  * nothing after it shares the last one (the loader places it 32-aligned). */
