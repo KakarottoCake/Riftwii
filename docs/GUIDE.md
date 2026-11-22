@@ -917,7 +917,9 @@ in an emulated NAND keeps its saves in that folder.
 To play your own backed-up `.wad` files, put them in **`sd:/wiiware/`**
 or **`usb:/wiiware/`**. RiftWii also reads numbered USB partitions
 (`usb1:/wiiware/`, `usb2:/wiiware/`, and so on), on FAT32 or NTFS, and one
-level of subfolders. The games appear on Home with their own names,
+level of subfolders. WADs in your **Game folders** (Settings > Drives) are
+found too, so they can sit beside your other games (`sd:/roms/wiiware`).
+The games appear on Home with their own names,
 banners and icons. An SD card is needed even when the WAD is on USB.
 
 Press **Play**. The first start shows **Getting <game> ready, first time

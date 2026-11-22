@@ -385,7 +385,10 @@ GameFolderAdd add_game_folder(LoaderSettings& settings, const std::string& picke
     return GameFolderAdd::Added;
 }
 
-std::vector<std::string> game_folders_on(const LoaderSettings& settings, const std::string& device) {
+// One drive's game_folders, as "/path". `skip_disc_folders` leaves out wbfs
+// and games, which the disc-image scan reads anyway; the WAD scan does not.
+static std::vector<std::string> folders_on(const LoaderSettings& settings, const std::string& device,
+                                           bool skip_disc_folders) {
     std::vector<std::string> out;
     for (std::string f : settings.game_folders) {
         const std::size_t colon = f.find(':');
@@ -399,11 +402,24 @@ std::vector<std::string> game_folders_on(const LoaderSettings& settings, const s
         if (f.empty()) continue;
         if (f[0] != '/') f.insert(f.begin(), '/');
         const std::string lower = path_fold_case(f);
-        if (lower == "/wbfs" || lower == "/games") continue;
+        if (skip_disc_folders && (lower == "/wbfs" || lower == "/games")) continue;
         // FAT and NTFS ignore case: "/wii games" is "/Wii Games".
         bool seen = false;
         for (const std::string& o : out) seen = seen || path_fold_case(o) == lower;
         if (!seen) out.push_back(f);
+    }
+    return out;
+}
+
+std::vector<std::string> game_folders_on(const LoaderSettings& settings, const std::string& device) {
+    return folders_on(settings, device, true);
+}
+
+std::vector<std::string> wad_folders_on(const LoaderSettings& settings, const std::string& device) {
+    const std::string wiiware = "/wiiware";
+    std::vector<std::string> out{wiiware};
+    for (const std::string& folder : folders_on(settings, device, false)) {
+        if (path_fold_case(folder) != wiiware) out.push_back(folder);
     }
     return out;
 }

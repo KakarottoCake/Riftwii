@@ -3,9 +3,11 @@
 // Production folder scan and installer, with synthetic WADs and a raw USB
 // view. Every key and content byte is made up here.
 #include "wadfolder.hpp"
+#include "loadersettings.hpp"
 #include "wadinstall.hpp"
 #include "sharednandfind.hpp"
 #include "usbcatalog.hpp"
+#include "riftwii/settingsfile.hpp"
 #include "riftwii/wadfile.hpp"
 
 #include <algorithm>
@@ -35,6 +37,7 @@ unsigned key_reads = 0;
 std::array<int, 3> key_choices = {1, -1, -1};
 std::vector<WadKeySource> key_sources;
 bool fail_commit = false;
+LoaderSettings settings;
 #ifdef RIFTWII_TEST_WRAP_RENAME
 int writes_before_failure = -1;  // only the rename-wrapped builds count writes
 #endif
@@ -294,6 +297,39 @@ void test_usb_partitions_and_merge() {
     merge_wad_channels(real, channels);
     CHECK(real.size() == 1 && real[0].emu_nand == wad_folder && !real[0].wad_path.empty());
 }
+
+void test_game_folders() {
+    // A tester keeps every game under sd:/roms: WADs in a Game folder are
+    // found as those in wiiware are, one level of subfolders down.
+    fs::remove_all("sd:");
+    settings.parse("game_folders = sd:/roms/wii - wiiware; usb2:/roms\n");
+    write("sd:/roms/wii - wiiware/game.wad", make_wad(20));
+    std::vector<NandChannel> channels;
+    CHECK(list_wad_channels(false, channels) == 0);
+    CHECK(channels.size() == 1 && channels[0].wad_path == "sd:/roms/wii - wiiware/game.wad");
+    // A Game folder that wiiware's own scan reaches too (wiiware itself, in
+    // another case, or a folder inside it) reads each WAD once: one broken
+    // WAD counts once.
+    fs::remove_all("sd:");
+    settings.parse("game_folders = /WiiWare; sd:/wiiware/nested\n");
+    write("sd:/wiiware/nested/broken.wad", {1, 2, 3});
+    channels.clear();
+    CHECK(list_wad_channels(false, channels) == 1);
+    CHECK(channels.empty());
+    // On USB, a Game folder named for one partition is read on that one.
+    usb_files.clear();
+    usb_files["usb:/roms/other.wad"] = make_wad(30);
+    settings.parse("game_folders = usb2:/roms\n");
+    channels.clear();
+    list_wad_channels(true, channels);
+    CHECK(channels.empty());
+    usb_files["usb2:/roms/vc/game.wad"] = make_wad(20);
+    list_wad_channels(true, channels);
+    CHECK(channels.size() == 1 && channels[0].wad_path == "usb2:/roms/vc/game.wad");
+    usb_files.clear();
+    settings = LoaderSettings();
+    fs::remove_all("sd:");
+}
 }  // namespace
 
 #ifdef RIFTWII_TEST_WRAP_RENAME
@@ -313,6 +349,7 @@ extern "C" int __wrap_rename(const char* from, const char* to) {
 
 namespace riftwii::wii {
 void logf(const char*, ...) {}
+LoaderSettings& Settings() { return settings; }
 bool ConsoleWadTitleKey(WadKeySource source, const std::vector<std::uint8_t>&, std::uint8_t out[16]) {
     ++key_reads;
     key_sources.push_back(source);
@@ -362,6 +399,7 @@ int main() {
     test_drop_play_and_cache();
     test_channel_nand_on_usb();
     test_usb_partitions_and_merge();
+    test_game_folders();
     fs::remove_all("sd:");
     return failures == 0 ? 0 : 1;
 }

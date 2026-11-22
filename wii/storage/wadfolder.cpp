@@ -9,12 +9,16 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <set>
 
+#include "loadersettings.hpp"
 #include "log.hpp"
 #include "sharednandfind.hpp"
 #include "usbcatalog.hpp"
 #include "wadinstall.hpp"
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/settingsfile.hpp"
+#include "riftwii/usbgame.hpp"
 #include "riftwii/wadfile.hpp"
 
 namespace riftwii::wii {
@@ -91,7 +95,10 @@ bool safe_entry(const std::string& name) {
            name.find_first_of("/\\:") == std::string::npos;
 }
 
-void scan_folder(const std::string& folder, bool nested, std::vector<std::string>& files, std::size_t& visited) {
+// `listed` holds the paths found so far (path_fold_case): a WAD two of a
+// drive's folders reach is added once, before it counts toward kMaxWads.
+void scan_folder(const std::string& folder, bool nested, std::vector<std::string>& files, std::size_t& visited,
+                 std::set<std::string>& listed) {
     if (files.size() >= kMaxWads || visited >= kMaxEntries) return;
     std::vector<VolumeEntry> entries;
     if (is_usb_path(folder)) {
@@ -119,8 +126,9 @@ void scan_folder(const std::string& folder, bool nested, std::vector<std::string
         if (!safe_entry(entry.name)) continue;
         const std::string path = folder + "/" + entry.name;
         if (entry.is_directory) {
-            if (!nested) scan_folder(path, true, files, visited);
+            if (!nested) scan_folder(path, true, files, visited, listed);
         } else if (entry.name.size() > 4 && strcasecmp(entry.name.c_str() + entry.name.size() - 4, ".wad") == 0) {
+            if (!listed.insert(path_fold_case(path)).second) continue;
             if (!try_push_back(files, path)) break;
         }
     }
@@ -181,14 +189,33 @@ std::string wad_nand_folder(const SharedNandLookup& nand) {
     return on_sd ? nand.folder : std::string("sd:/nands/01");
 }
 
+namespace {
+
+// Every WAD folder of one drive ("sd", "usb", "usb2"): wiiware and the
+// player's game folders (wad_folders_on). A WAD two folders reach, such as
+// a game folder inside wiiware, is listed once.
+void scan_drive_folders(const std::string& device, std::vector<std::string>& files, std::size_t& visited) {
+    std::set<std::string> listed;
+    for (const std::string& folder : wad_folders_on(Settings(), device)) {
+        scan_folder(device + ":" + folder, false, files, visited, listed);
+    }
+}
+
+}  // namespace
+
 unsigned list_wad_channels(bool usb, std::vector<NandChannel>& out) {
     unsigned unreadable = 0;
     std::vector<std::string> files;
     std::size_t visited = 0;
     if (usb) {
-        for (const std::string& root : usb_volume_roots()) scan_folder(root + "wiiware", false, files, visited);
+        for (std::string root : usb_volume_roots()) {
+            // "usb2:/" is the drive "usb2", as game_folders names it.
+            const std::size_t colon = root.find(':');
+            if (colon != std::string::npos) root.erase(colon);
+            scan_drive_folders(root, files, visited);
+        }
     } else {
-        scan_folder("sd:/wiiware", false, files, visited);
+        scan_drive_folders("sd", files, visited);
     }
     if (!usb) std::sort(files.begin(), files.end());
     const SharedNandLookup nand = look_up_channel_nand();

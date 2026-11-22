@@ -2271,6 +2271,28 @@ void TestCoverArt() {
     LoaderSettings pickBack;
     pickBack.parse(pick.serialize());
     EXPECT_TRUE(pickBack.game_folders == pick.game_folders);
+    // WADs are looked for in wiiware and then in the drive's game folders;
+    // a game folder that is wiiware (any case) is read once.
+    {
+        LoaderSettings wads;
+        wads.parse("game_folders = sd:/roms/wii - wiiware; /WiiWare/; usb2:/vc; /Wii Games\n");
+        const std::vector<std::string> sdWads = wad_folders_on(wads, "sd");
+        EXPECT_EQ(sdWads.size(), 3u);
+        if (sdWads.size() == 3) {
+            EXPECT_EQ(sdWads[0], "/wiiware");
+            EXPECT_EQ(sdWads[1], "/roms/wii - wiiware");
+            EXPECT_EQ(sdWads[2], "/Wii Games");
+        }
+        const std::vector<std::string> usb2Wads = wad_folders_on(wads, "usb2");
+        EXPECT_EQ(usb2Wads.size(), 3u);
+        if (usb2Wads.size() == 3) EXPECT_EQ(usb2Wads[1], "/vc");
+        EXPECT_EQ(wad_folders_on(LoaderSettings(), "usb").size(), 1u);
+        // The disc scan reads games and wbfs anyway; the WAD scan only when listed.
+        LoaderSettings discFolders;
+        discFolders.parse("game_folders = sd:/games; sd:/WBFS\n");
+        EXPECT_EQ(game_folders_on(discFolders, "sd").size(), 0u);
+        EXPECT_EQ(wad_folders_on(discFolders, "sd").size(), 3u);
+    }
     // A hand-written list keeps a folder inside another: its games may be
     // two levels below the outer one, which a scan doesn't reach.
     LoaderSettings nested;
