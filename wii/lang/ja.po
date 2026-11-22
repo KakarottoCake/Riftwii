@@ -2784,6 +2784,9 @@ msgstr "「{1}」は専用のMODと設定、それにsd:/riftwii/profilesの画�
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "「{1}」を消しました。このページはゲーム本来のものに戻りました。"
 
+msgid "The game did not start: {1}"
+msgstr "ゲームが起動しませんでした: {1}"
+
 msgid "A part of RiftWii is missing (the {1} add-on). Update RiftWii again."
 msgstr "RiftWiiの一部（{1}アドオン）がありません。もう一度RiftWiiを更新してください。"
 

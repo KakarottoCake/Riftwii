@@ -1033,6 +1033,11 @@ PadsPluginForLaunch::~PadsPluginForLaunch() {
 
 bool pads_plugin_stopped_launch() { return g_pads_refused; }
 
+void release_pads_plugin() {
+    plugin::ShutdownAll("this game takes no pad code");
+    forget_build();
+}
+
 bool fetch_pad_build(PadHook& hook, bool code_build, std::string& message) {
     forget_build();
     g_pads_refused = false;

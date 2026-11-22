@@ -217,7 +217,8 @@ void StartChannel(u64 title) {
         riftwii::wii::StopDiscLight();
         riftwii::wii::logf("Wii channels: it did not start: %s\n", error.c_str());
         if (riftwii::wii::CanRestart())
-            riftwii::wii::WarmRestart(riftwii::wii::RestartKind::LaunchFailed, "The game did not start: " + error);
+            riftwii::wii::WarmRestart(riftwii::wii::RestartKind::LaunchFailed,
+                                      riftwii::wii::tr("The game did not start: {1}", {error}));
         std::exit(0);
     }
     if (!emu_nand.empty()) {

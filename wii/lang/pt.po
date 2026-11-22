@@ -2784,6 +2784,9 @@ msgstr "\"{1}\" sai do início, com seus próprios mods e configurações, e a i
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "\"{1}\" removido. Esta página voltou a ser a do jogo."
 
+msgid "The game did not start: {1}"
+msgstr "O jogo não iniciou: {1}"
+
 msgid "A part of RiftWii is missing (the {1} add-on). Update RiftWii again."
 msgstr "Falta uma parte do RiftWii (o complemento {1}). Atualize o RiftWii de novo."
 

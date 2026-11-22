@@ -2784,6 +2784,9 @@ msgstr "\"{1}\" sparisce dalla home, con le sue mod e impostazioni e la sua imma
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "\"{1}\" tolto. Questa pagina è di nuovo quella del gioco."
 
+msgid "The game did not start: {1}"
+msgstr "Il gioco non si è avviato: {1}"
+
 msgid "A part of RiftWii is missing (the {1} add-on). Update RiftWii again."
 msgstr "Manca una parte di RiftWii (il componente aggiuntivo {1}). Aggiorna di nuovo RiftWii."
 

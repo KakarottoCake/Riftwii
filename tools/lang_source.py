@@ -2356,6 +2356,11 @@ T = {
         "\"{1}\" removido. Esta página voltou a ser a do jogo.",
         "\"{1}\" tolto. Questa pagina è di nuovo quella del gioco."),
     # Plugins (wii/core/plugins.cpp): a part of RiftWii that could not be loaded.
+    "The game did not start: {1}": (
+        "El juego no se inició: {1}",
+        "ゲームが起動しませんでした: {1}",
+        "O jogo não iniciou: {1}",
+        "Il gioco non si è avviato: {1}"),
     "A part of RiftWii is missing (the {1} add-on). Update RiftWii again.": (
         "Falta una parte de RiftWii (el complemento {1}). Vuelve a actualizar RiftWii.",
         "RiftWiiの一部（{1}アドオン）がありません。もう一度RiftWiiを更新してください。",
@@ -4281,6 +4286,8 @@ KO = {
         "\"{1}\" 타일이 자체 MOD와 설정, 그리고 sd:/riftwii/profiles의 그림(있다면)과 함께 홈에서 사라집니다. 게임과 MOD는 그대로 남습니다.",
     "Removed \"{1}\". This page is the game's own again.":
         "\"{1}\" 타일을 제거했습니다. 이 페이지는 다시 게임 자체의 페이지입니다.",
+    "The game did not start: {1}":
+        "게임이 시작되지 않았습니다: {1}",
     "A part of RiftWii is missing (the {1} add-on). Update RiftWii again.":
         "RiftWii의 일부({1} 애드온)가 없습니다. RiftWii를 다시 업데이트해 주세요.",
     "A part of RiftWii is damaged (the {1} add-on). Update RiftWii again.":
@@ -6161,6 +6168,8 @@ FR = {
         "\"{1}\" quitte l'accueil, avec ses propres mods et réglages, et son image dans sd:/riftwii/profiles si elle en a une. Le jeu et ses mods restent.",
     "Removed \"{1}\". This page is the game's own again.":
         "\"{1}\" retirée. Cette page est de nouveau celle du jeu.",
+    "The game did not start: {1}":
+        "Le jeu n'a pas démarré : {1}",
     "A part of RiftWii is missing (the {1} add-on). Update RiftWii again.":
         "Une partie de RiftWii est manquante (le module {1}). Mettez RiftWii à jour à nouveau.",
     "A part of RiftWii is damaged (the {1} add-on). Update RiftWii again.":

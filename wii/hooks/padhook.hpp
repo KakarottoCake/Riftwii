@@ -215,6 +215,11 @@ bool fetch_pad_build(PadHook& hook, bool code_build, std::string& message);
 // letting the system start it without RiftWii's extras (wii/main.cpp).
 bool pads_plugin_stopped_launch();
 
+// A launch whose game takes no pad code after all (prepare_gc_pads turned
+// the adapter off): the plugin shut down now, before the resident runtime
+// and the extras are placed, rather than when the launch is over.
+void release_pads_plugin();
+
 // The pads plugin loaded before a launch lets go of the card (an IOS
 // reload unmounts it; d2x's NAND emulation takes it for a channel), so
 // fetch_pad_build needs no card; it stays loaded through the reload, in

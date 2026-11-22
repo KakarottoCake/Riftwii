@@ -2784,6 +2784,9 @@ msgstr "\"{1}\" 타일이 자체 MOD와 설정, 그리고 sd:/riftwii/profiles�
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "\"{1}\" 타일을 제거했습니다. 이 페이지는 다시 게임 자체의 페이지입니다."
 
+msgid "The game did not start: {1}"
+msgstr "게임이 시작되지 않았습니다: {1}"
+
 msgid "A part of RiftWii is missing (the {1} add-on). Update RiftWii again."
 msgstr "RiftWii의 일부({1} 애드온)가 없습니다. RiftWii를 다시 업데이트해 주세요."
 
