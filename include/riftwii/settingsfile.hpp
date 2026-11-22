@@ -234,8 +234,10 @@ std::vector<std::string> game_folders_on(const LoaderSettings& settings, const s
 
 // The folders a drive's .wad files are looked for in, as "/path": wiiware
 // first, then that drive's game folders (game_folders_on), so a player can
-// keep WADs beside their other games (sd:/roms/wii - wiiware). A game
-// folder that is wiiware itself, in any case, is not listed twice.
+// keep WADs beside their other games (sd:/roms/wii - wiiware). Unlike
+// game_folders_on, a hand-written wbfs or games entry is kept: nothing else
+// looks for WADs there. A game folder that is wiiware itself, in any case,
+// is not listed twice.
 std::vector<std::string> wad_folders_on(const LoaderSettings& settings, const std::string& device);
 
 // How many game_folders settings.txt keeps; more are left out when read.

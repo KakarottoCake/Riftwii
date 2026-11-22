@@ -95,7 +95,10 @@ bool safe_entry(const std::string& name) {
            name.find_first_of("/\\:") == std::string::npos;
 }
 
-void scan_folder(const std::string& folder, bool nested, std::vector<std::string>& files, std::size_t& visited) {
+// `listed` holds the paths found so far (path_fold_case): a WAD two of a
+// drive's folders reach is added once, before it counts toward kMaxWads.
+void scan_folder(const std::string& folder, bool nested, std::vector<std::string>& files, std::size_t& visited,
+                 std::set<std::string>& listed) {
     if (files.size() >= kMaxWads || visited >= kMaxEntries) return;
     std::vector<VolumeEntry> entries;
     if (is_usb_path(folder)) {
@@ -123,8 +126,9 @@ void scan_folder(const std::string& folder, bool nested, std::vector<std::string
         if (!safe_entry(entry.name)) continue;
         const std::string path = folder + "/" + entry.name;
         if (entry.is_directory) {
-            if (!nested) scan_folder(path, true, files, visited);
+            if (!nested) scan_folder(path, true, files, visited, listed);
         } else if (entry.name.size() > 4 && strcasecmp(entry.name.c_str() + entry.name.size() - 4, ".wad") == 0) {
+            if (!listed.insert(path_fold_case(path)).second) continue;
             if (!try_push_back(files, path)) break;
         }
     }
@@ -191,14 +195,9 @@ namespace {
 // player's game folders (wad_folders_on). A WAD two folders reach, such as
 // a game folder inside wiiware, is listed once.
 void scan_drive_folders(const std::string& device, std::vector<std::string>& files, std::size_t& visited) {
-    const std::size_t before = files.size();
+    std::set<std::string> listed;
     for (const std::string& folder : wad_folders_on(Settings(), device)) {
-        scan_folder(device + ":" + folder, false, files, visited);
-    }
-    std::set<std::string> seen;
-    for (std::size_t i = before; i < files.size();) {
-        if (seen.insert(path_fold_case(files[i])).second) ++i;
-        else files.erase(files.begin() + static_cast<std::ptrdiff_t>(i));
+        scan_folder(device + ":" + folder, false, files, visited, listed);
     }
 }
 
