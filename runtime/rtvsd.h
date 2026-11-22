@@ -49,6 +49,19 @@ extern "C" {
 #define RTVSD_MAX_EXTENTS 16384u
 #define RTVSD_SDSC_MAX_SECTORS 0x400000u /* 2 GiB: up to here a standard-capacity card */
 
+/* A piece list on the device (a "paged" card): a scattered image's table,
+ * 12 bytes a piece, took Brawl's MEM2 that Project+ needs (4234 pieces,
+ * 50 KB, with the GameCube adapter's blob beside it: a black screen on a
+ * tester's Wii U). The loader then writes the table to a file on the
+ * device holding the image, 42 pieces to each 512-byte page, big-endian,
+ * and the card keeps only an index (each page's first image sector and
+ * where the page is on the device) and two pages read on demand. A read
+ * of the image sends the page it needs first when neither holds it. */
+#define RTVSD_PAGE_EXTENTS 42u
+#define RTVSD_PAGE_SLOTS 2u
+#define RTVSD_NO_PAGE 0xFFFFFFFFu
+#define rtvsd_page_count(extents) (((uint32_t)(extents) + RTVSD_PAGE_EXTENTS - 1u) / RTVSD_PAGE_EXTENTS)
+
 /* /dev/sdio/slot0 ioctls (wiibrew). */
 #define RTVSD_IOCTL_WRITEHCR 0x01u
 #define RTVSD_IOCTL_READHCR 0x02u
@@ -135,6 +148,13 @@ struct rtvsd_extent {
     uint32_t count;
 };
 
+/* A paged card's index entry: page `n` of the piece list starts with the
+ * piece holding `file_sector` and lies at `device_sector` of the device. */
+struct rtvsd_page {
+    uint32_t file_sector;
+    uint32_t device_sector;
+};
+
 struct rtvsd_answer {
     uint32_t kind;          /* RTVSD_DONE .. RTVSD_EVENT_RELEASE */
     int32_t result;         /* the IOS result when answered */
@@ -163,19 +183,53 @@ struct rtvsd_card {
     uint32_t hcr[64];       /* host controller registers 0x00-0xFF, one byte each, packed 4 to a word */
     uint32_t cid[4];        /* loader-filled: the CID and the CSD as the four words of an R2 response */
     uint32_t csd[4];        /* (bit 127 first, the CRC7 and end bit included) */
-    /* Then, directly after this struct, `extent_count` struct rtvsd_extent:
-     * see rtvsd_extents. */
+    /* A paged card (loader-filled: `paged`; the rest is rtvsd_reset's and
+     * the lookups'): which page each slot holds, the slot used last, and
+     * the page asked for (rtvsd_page_wanted) into which slot. */
+    uint32_t paged;
+    uint32_t page_held[RTVSD_PAGE_SLOTS];
+    uint32_t page_last;
+    uint32_t page_coming;
+    uint32_t page_coming_slot;
+    /* Then, directly after this struct: `extent_count` struct rtvsd_extent
+     * (rtvsd_extents), or for a paged card rtvsd_page_count(extent_count)
+     * struct rtvsd_page (rtvsd_pages) and, 32-byte aligned, the page
+     * slots (rtvsd_page_slot). */
 };
 
 /* The extent table, right behind the card. Whoever allocates a card
- * reserves sizeof(struct rtvsd_card) + rtvsd_extent_bytes(count). */
+ * reserves sizeof(struct rtvsd_card) + rtvsd_table_bytes(paged, count), the
+ * card itself 32-byte aligned (the page slots are a device's DMA target). */
 #define rtvsd_extents(card) ((struct rtvsd_extent*)((card) + 1))
 #define rtvsd_extent_bytes(count) ((uint32_t)(count) * (uint32_t)sizeof(struct rtvsd_extent))
+#define rtvsd_pages(card) ((struct rtvsd_page*)((card) + 1))
+#define rtvsd_page_slots_offset(extents) \
+    (((uint32_t)sizeof(struct rtvsd_card) + rtvsd_page_count(extents) * (uint32_t)sizeof(struct rtvsd_page) + 31u) & ~31u)
+#define rtvsd_page_slot(card, slot) \
+    ((uint8_t*)(card) + rtvsd_page_slots_offset((card)->extent_count) + (uint32_t)(slot) * RTVSD_SECTOR_BYTES)
+#define rtvsd_table_bytes(paged, extents)                                                                     \
+    ((paged) ? rtvsd_page_slots_offset(extents) - (uint32_t)sizeof(struct rtvsd_card) +                         \
+                   RTVSD_PAGE_SLOTS * RTVSD_SECTOR_BYTES                                                       \
+             : rtvsd_extent_bytes(extents))
 
-/* After the loader filled `sectors` and the extents: the card as IOS
- * leaves it at power-up (`cid` and `csd` are left as they are). Returns 0 when the extents cover the image from
- * sector 0 without gaps and within 32 bits, -1 otherwise. */
+/* After the loader filled `sectors` and the extents (or, paged, the
+ * index): the card as IOS leaves it at power-up (`cid` and `csd` are left
+ * as they are). Returns 0 when the extents cover the image from sector 0
+ * without gaps and within 32 bits, -1 otherwise; for a paged card, when
+ * the index starts at sector 0 and rises (the loader checked the pieces
+ * themselves before it wrote them), and no page is held yet. */
 int rtvsd_reset(struct rtvsd_card* card);
+
+/* A paged card, before a lookup of `sector`: 0 when the page holding its
+ * piece is in a slot (or the card is not paged), else 1 with the page's
+ * device sector and the slot to read it into (its address in *slot_address,
+ * as rtvsd_page_slot gives it); that slot holds nothing until
+ * rtvsd_page_arrived. Several lookups for one request (a read's first and
+ * last sector) each ask, the second never taking the first's slot. */
+uint32_t rtvsd_page_wanted(struct rtvsd_card* card, uint32_t sector, uint32_t* device_sector, uint8_t** slot_address);
+
+/* The page rtvsd_page_wanted asked for is in its slot now. */
+void rtvsd_page_arrived(struct rtvsd_card* card);
 
 /* An ioctl other than SENDCMD: `in`/`out` are the request's buffers as
  * the game passed them (big-endian words), NULL when absent. Returns the
@@ -191,12 +245,13 @@ void rtvsd_command(struct rtvsd_card* card, const struct rtvsd_request* req, uin
 
 /* Where `sector` of the image lies: its device sector, and how many
  * sectors from there are contiguous (at most `count`). 0 when outside
- * the image. */
+ * the image, or on a paged card when no slot holds its page. */
 uint32_t rtvsd_map(const struct rtvsd_card* card, uint32_t sector, uint32_t count, uint32_t* device_sector);
 
 /* The piece of the image file holding `sector`: its first image sector in
  * `*first` and its length in sectors (the read-ahead's windows stop at its
- * edges, runtime/rtvsdra.h). 0 when outside the image. */
+ * edges, runtime/rtvsdra.h). 0 when outside the image (or its page is not
+ * held, as for rtvsd_map). */
 uint32_t rtvsd_piece(const struct rtvsd_card* card, uint32_t sector, uint32_t* first);
 
 #ifdef __cplusplus
