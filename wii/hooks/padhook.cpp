@@ -922,14 +922,15 @@ namespace {
 
 // Which USB controllers the game's state makes room for, and so which
 // build of the pad code it takes: from the menu's catalog of USB pads and
-// the handles find_pad_functions opened. The same answer each time it is
-// asked during a launch (fetch_pad_build, then plan_pad_hook). The kept
-// catalog (g_pad_kept) is what plan_pad_hook copies into the game.
+// the handles find_pad_functions opened. fetch_pad_build takes the
+// catalog (`snapshot`), and plan_pad_hook decides again from that same
+// copy, so the two always pick the same build. The kept catalog
+// (g_pad_kept) is what plan_pad_hook copies into the game.
 rthid_catalog g_pad_catalog;
 rthid_catalog g_pad_kept;
-void decide_pad_inputs(PadHook& out, bool code_build) {
+void decide_pad_inputs(PadHook& out, bool code_build, bool snapshot) {
     rthid_catalog& catalog = g_pad_catalog;
-    HidPadsCopyCatalog(catalog);
+    if (snapshot) HidPadsCopyCatalog(catalog);
     // A code build (its blob goes to MEM2's top, through veneers) takes the
     // USB controllers plugged in when it starts and no others: room for
     // those, their mappings, and the blob without what none of them needs
@@ -1007,11 +1008,23 @@ bool wants_home_build(const PadHook& out, bool code_build) {
 
 }  // namespace
 
+PadsPluginForLaunch::PadsPluginForLaunch(bool wanted) {
+    if (!wanted) return;
+    // A refusal is logged by the loader; fetch_pad_build asks again and
+    // stops the launch with the loader's sentence if the game needs it.
+    if (plugin::Use(kPadsPlugin) != nullptr)
+        logf("GameCube adapter and USB controllers: the %s plugin loaded while the card is RiftWii's, for the pad code "
+             "later in the launch\n",
+             kPadsPlugin);
+}
+
+PadsPluginForLaunch::~PadsPluginForLaunch() { plugin::ShutdownAll("the launch no longer needs it"); }
+
 bool fetch_pad_build(PadHook& hook, bool code_build, std::string& message) {
     std::free(g_build);
     g_build = nullptr;
     g_build_kind = -1;
-    decide_pad_inputs(hook, code_build);
+    decide_pad_inputs(hook, code_build, true);
     const int kind = kind_of(hook.adapter_only, hook.pads_only, wants_home_build(hook, code_build));
     const std::uint32_t bytes = kBuildBytes[kind];
     g_build = static_cast<std::uint8_t*>(memalign(32, (bytes + 31u) & ~31u));
@@ -1113,7 +1126,7 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     // (Project+ with the adapter had 512 bytes to spare).
     const std::uint32_t version = out.version == 4 ? 4u : 5u;
     const bool code_build = mem1_veneer != 0;
-    decide_pad_inputs(out, code_build);
+    decide_pad_inputs(out, code_build, false);  // the catalog fetch_pad_build took
     const rthid_catalog& kept = g_pad_kept;
     gcad_layout layout{};
     gcad_layout_for(&layout, out.hid_dormant ? GCAD_LINK_BYTES : GCAD_OWNER_BYTES(version), out.link_count,

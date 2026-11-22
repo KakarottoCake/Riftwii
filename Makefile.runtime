@@ -253,7 +253,7 @@ PADSIZES := $(OUT)/riftwii_pad_sizes.h
 $(PADSIZES): $(PADBUILDS)
 	@{ echo "/* Made by Makefile.runtime: the pad builds' sizes (the builds are the pads plugin's). */"; \
 	   printf '#define RIFTWII_PAD_BUILD_BYTES {'; \
-	   for f in $(PADBUILDS); do printf '%su, ' $$(stat -c %s $$f); done; \
+	   for f in $(PADBUILDS); do n=$$(wc -c < $$f | tr -d ' ') && [ -n "$$n" ] || exit 1; printf '%su, ' $$n; done; \
 	   echo '}'; } > $@.tmp && mv $@.tmp $@
 
 .PHONY: all clean

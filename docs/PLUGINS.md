@@ -412,21 +412,29 @@ were embedded in the DOL. They are the `pads` plugin's now
 | --- | --- |
 | The request | `include/riftwii/plugin_pads.h`: `rwp_pads_request` (which build, the DOL's buffer and its size in; the bytes copied and a reason out) |
 | The plugin | `plugins/pads/pads.c` (`rwp_init`, the table, `launch` copying the build asked for), `padsblobs.S` (the six builds by `.incbin`, from `build-runtime/`, and a table of each one's start and size) |
-| The DOL's side | `wii/hooks/padhook.cpp`: `fetch_pad_build` decides the build (`decide_pad_inputs`, `wants_home_build`: the same answer `plan_pad_hook` gets later), copies it from the plugin into a buffer of its own and shuts the plugin down; `blob(kind)` reads that copy. `wii/launch/boot.cpp` calls it right after `prepare_gc_pads`, in a disc launch and a channel's |
+| The DOL's side | `wii/hooks/padhook.cpp`: `PadsPluginForLaunch` loads the plugin while the card is RiftWii's; `fetch_pad_build` decides the build (`decide_pad_inputs`, `wants_home_build`: the same answer `plan_pad_hook` gets later), copies it from the plugin into a buffer of its own and shuts the plugin down; `blob(kind)` reads that copy. `wii/launch/boot.cpp` loads it before a disc launch's IOS reload and before a channel's tries, and calls `fetch_pad_build` right after `prepare_gc_pads` |
 | The sizes | `build-runtime/riftwii_pad_sizes.h` (`Makefile.runtime`), for the copy's buffer and the game page's memory budget (`wii/menu/memorybudget.cpp`) |
 | Out of the DOL | `Makefile.wii`: the six `riftwii_pad*.bin` out of `BINFILES` |
 | Packaging | `tools/make_release_zip.py` and `tools/make_update_pack.py` require it beside `gamecube` and `ctgpr`; CI's size report lists it |
 
-**When.** The build is decided and copied after the apploader (the search
-for the HOME Menu's functions reads the loaded game) and while the card is
-still RiftWii's: `prepare_gc_pads` runs while `boot.log` is open, and
-the card goes to the game (and the log ends) before the extras are placed.
-The plugin's arena is taken from the top of RiftWii's MEM2 heap and given
-back right after the copy, before the resident runtime and the extras are
-placed, so nothing of the launch lands in it. The copy itself is an
-ordinary heap block (the biggest build is about 33 KB) that lives until
-`install_pad_hook` has put the code into the game. In-game, nothing
-changes: the same bytes go to the same place.
+**When.** The build a game takes is known only once the game is loaded
+(the search for the HOME Menu's functions reads it), but by then a launch
+may have let go of the card: an IOS reload unmounts it, and for a channel
+d2x's NAND emulation may keep it. So the plugin is loaded before that
+(`PadsPluginForLaunch`, in `boot_game` before the reload and in
+`boot_channel` before its tries), while the card is RiftWii's, and stays
+loaded through the reload in RiftWii's own MEM2 (the plugin arena at the
+top of its heap; an IOS reload uses MEM2 below `0x90800000`). Right after
+`prepare_gc_pads`, `fetch_pad_build` decides the build, has the plugin
+copy it and shuts the plugin down, so its arena is the heap's again before
+the resident runtime and the extras are placed and nothing of the launch
+lands in it. A launch that fails and comes back, or whose game takes no
+pad code, shuts it down when `PadsPluginForLaunch` goes out of scope. The
+copy itself is an ordinary heap block (the biggest build is about 33 KB)
+that lives until `install_pad_hook` has put the code into the game.
+`plan_pad_hook` decides the build again from the same catalog snapshot
+and checks it is the one copied. In-game, nothing changes: the same bytes
+go to the same place.
 
 **When the plugin is missing**, damaged or from another RiftWii, the
 launch stops with the loader's sentence ("A part of RiftWii is missing

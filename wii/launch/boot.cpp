@@ -4156,6 +4156,10 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
     // above its heap (kLoaderStart, mem::kMem1Ceiling), the decoder's is
     // RiftWii's own, and nothing up to then masks the audio's interrupts.
     if (!effective.preserve_current_ios) LaunchMusicEnd("the game's IOS is loaded next");
+    // The pad code's plugin while the card is still RiftWii's: a reload
+    // takes the card, and the build a game takes is known only once it is
+    // loaded (fetch_pad_build).
+    const PadsPluginForLaunch pads_plugin(g_extras.gc_adapter != GcAdapterMode::Off);
     // Everything IOS holds for us dies with a reload: the Wii Remote stack
     // (which also saves its pairings to NAND on shutdown, so it must go
     // while IPC is still alive), the log, DI and the SD card. With the
@@ -4264,6 +4268,9 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         if (card) LogReopen();
         else logf("Wii channels: the SD card could not be mounted again after d2x let go of it (boot.log ends here)\n");
     };
+    // The pad code's plugin while the card is still RiftWii's: each try
+    // below reloads IOS, and d2x's NAND emulation may keep the card.
+    const PadsPluginForLaunch pads_plugin(g_extras.gc_adapter != GcAdapterMode::Off);
     std::string attempts;
     const auto note_attempt = [&attempts](const std::string& line) {
         if (!attempts.empty()) attempts += "; ";

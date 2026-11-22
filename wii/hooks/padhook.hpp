@@ -210,6 +210,21 @@ bool pad_read_in_place(std::uint32_t address);
 // GameCube or USB ones could not play, nor leave, without it).
 bool fetch_pad_build(PadHook& hook, bool code_build, std::string& message);
 
+// The pads plugin loaded before a launch lets go of the card (an IOS
+// reload unmounts it; d2x's NAND emulation takes it for a channel), so
+// fetch_pad_build needs no card; it stays loaded through the reload, in
+// RiftWii's own MEM2. Lives for the launch: going out of scope (a launch
+// that failed and came back, or one whose game takes no pad code) shuts
+// the plugin down if fetch_pad_build has not. `wanted`: Settings >
+// GameCube adapter not Off.
+class PadsPluginForLaunch {
+public:
+    explicit PadsPluginForLaunch(bool wanted);
+    ~PadsPluginForLaunch();
+    PadsPluginForLaunch(const PadsPluginForLaunch&) = delete;
+    PadsPluginForLaunch& operator=(const PadsPluginForLaunch&) = delete;
+};
+
 // The adapter's /dev/usb/hid handle for the game, with its HID version and
 // the adapter's v5 device id from the USB list (-1: none): the one
 // look_for_gc_adapter opened, else a fresh one once libogc's USB has let
