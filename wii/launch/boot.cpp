@@ -1112,10 +1112,13 @@ namespace {
 // Whether a launch may put the pad code in, for loading the pads plugin
 // while the card is RiftWii's (PadsPluginForLaunch): Settings > GameCube
 // adapter not Off, or USB pads configured or plugged in, which
-// settle_gc_adapter turns Off into Automatic for. Reads no USB itself (a
-// channel asks before settle_gc_adapter has looked), so it may load the
-// plugin for a launch that ends up without it, never the other way.
+// settle_gc_adapter turns Off into Automatic for. The USB pads' list is
+// read first if nothing has yet (a channel started straight from the card
+// asks before settle_gc_adapter, whose own read then returns at once). It
+// may load the plugin for a launch that ends up without it, never the
+// other way.
 bool pads_may_be_wanted() {
+    HidPadsPreload();
     return g_extras.gc_adapter != GcAdapterMode::Off || HidPadsWanted() || HidPadsConnected();
 }
 

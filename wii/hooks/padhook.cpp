@@ -181,6 +181,12 @@ constexpr std::uint32_t kBuildBytes[kBlobKinds] = RIFTWII_PAD_BUILD_BYTES;
 constexpr char kPadsPlugin[] = "pads";
 std::uint8_t* g_build = nullptr;
 int g_build_kind = -1;
+bool g_pads_refused = false;  // fetch_pad_build stopped this launch
+void forget_build() {
+    std::free(g_build);
+    g_build = nullptr;
+    g_build_kind = -1;
+}
 const std::uint8_t* blob(int kind) { return kind == g_build_kind ? g_build : nullptr; }
 std::uint32_t blob_size(int kind) { return kBuildBytes[kind]; }
 const rt_pad_header& header(int kind) { return *reinterpret_cast<const rt_pad_header*>(blob(kind)); }
@@ -1018,12 +1024,18 @@ PadsPluginForLaunch::PadsPluginForLaunch(bool wanted) {
              kPadsPlugin);
 }
 
-PadsPluginForLaunch::~PadsPluginForLaunch() { plugin::ShutdownAll("the launch no longer needs it"); }
+// Only a launch that failed and came back gets here (a started game never
+// returns): the copy goes with the plugin.
+PadsPluginForLaunch::~PadsPluginForLaunch() {
+    plugin::ShutdownAll("the launch no longer needs it");
+    forget_build();
+}
+
+bool pads_plugin_stopped_launch() { return g_pads_refused; }
 
 bool fetch_pad_build(PadHook& hook, bool code_build, std::string& message) {
-    std::free(g_build);
-    g_build = nullptr;
-    g_build_kind = -1;
+    forget_build();
+    g_pads_refused = false;
     decide_pad_inputs(hook, code_build, true);
     const int kind = kind_of(hook.adapter_only, hook.pads_only, wants_home_build(hook, code_build));
     const std::uint32_t bytes = kBuildBytes[kind];
@@ -1033,6 +1045,7 @@ bool fetch_pad_build(PadHook& hook, bool code_build, std::string& message) {
              static_cast<unsigned>(bytes));
         message = tr("There was not enough memory for the {1} add-on. Restart RiftWii and try again.", {kPadsPlugin});
         close_pad_handles(hook);
+        g_pads_refused = true;
         return false;
     }
     rwp_pads_request request{};
@@ -1050,9 +1063,8 @@ bool fetch_pad_build(PadHook& hook, bool code_build, std::string& message) {
              kPadsPlugin, plugin::Directory().c_str(), why.c_str());
         if (damaged) message = tr("A part of RiftWii is damaged (the {1} add-on). Update RiftWii again.", {kPadsPlugin});
         close_pad_handles(hook);
-        std::free(g_build);
-        g_build = nullptr;
-        g_build_kind = -1;
+        forget_build();
+        g_pads_refused = true;
         return false;
     };
     if (result == -1) return fail("the plugin could not be used (its own line above says why)", false);

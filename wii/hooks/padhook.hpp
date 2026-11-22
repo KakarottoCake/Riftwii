@@ -210,6 +210,11 @@ bool pad_read_in_place(std::uint32_t address);
 // GameCube or USB ones could not play, nor leave, without it).
 bool fetch_pad_build(PadHook& hook, bool code_build, std::string& message);
 
+// Whether the last launch stopped because fetch_pad_build could not give
+// the pad code: a channel's caller then comes back to RiftWii instead of
+// letting the system start it without RiftWii's extras (wii/main.cpp).
+bool pads_plugin_stopped_launch();
+
 // The pads plugin loaded before a launch lets go of the card (an IOS
 // reload unmounts it; d2x's NAND emulation takes it for a channel), so
 // fetch_pad_build needs no card; it stays loaded through the reload, in

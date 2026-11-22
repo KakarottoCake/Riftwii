@@ -50,6 +50,7 @@
 #include "guiscript.hpp"
 #include "i18n.hpp"
 #include "ios_reload.hpp"
+#include "padhook.hpp"
 #include "loadersettings.hpp"
 #include "d2xsd.hpp"
 #include "di.hpp"
@@ -208,6 +209,16 @@ void StartChannel(u64 title) {
             riftwii::wii::ConsoleRevealDeferred();
             riftwii::wii::halt_after_terminal_reload();
         }
+    }
+    if (riftwii::wii::pads_plugin_stopped_launch()) {
+        // Without the pad code the system's own start would leave a player
+        // whose only controllers are GameCube or USB ones with none: back
+        // to RiftWii, which says why.
+        riftwii::wii::StopDiscLight();
+        riftwii::wii::logf("Wii channels: it did not start: %s\n", error.c_str());
+        if (riftwii::wii::CanRestart())
+            riftwii::wii::WarmRestart(riftwii::wii::RestartKind::LaunchFailed, "The game did not start: " + error);
+        std::exit(0);
     }
     if (!emu_nand.empty()) {
         riftwii::wii::StopDiscLight();
