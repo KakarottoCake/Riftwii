@@ -1273,10 +1273,8 @@ void GuiGameGrid::Draw() {
     }
     // Covers and channels: the lit game's name on its own line under the
     // grid. (A channel's had been a label across its tile's foot, as the
-    // Wii Menu's, which covered the top of the row under it.) Not under the
-    // Channels view's taller grid with a theme's raised bar: its clock and
-    // the view's name are on that line there.
-    if (covers || (channels && !skin::BarBump())) {
+    // Wii Menu's, which covered the top of the row under it.)
+    if (covers || channels) {
         // The lit game's name (the focused one's while nothing is lit).
         const int shown = lit >= 0 ? ItemAt(lit) : focus;
         if (shown != captionFor) {
