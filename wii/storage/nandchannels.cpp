@@ -794,8 +794,18 @@ bool copy_nand_title_to_emu(NandAccess& access, const std::string& folder, std::
     std::string ignored;
     bool whole = !map_changed && read_card_file(folder + tmd_path, kMaxTmdBytes, emu_tmd, ignored) &&
                  emu_tmd == tmd_bytes && card_file_exists(folder + ticket_path);
-    for (std::size_t i = 0; whole && i < tmd.contents.size(); ++i)
-        whole = card_file_has_size(destinations[i], tmd.contents[i].size);
+    for (std::size_t i = 0; whole && i < tmd.contents.size(); ++i) {
+        const TmdContent& content = tmd.contents[i];
+        whole = card_file_has_size(destinations[i], content.size);
+        // A shared content's file can be another content of the same size,
+        // left by an earlier run: only its bytes say it is this one. An own
+        // content's name is its ID, so its size is enough.
+        if (whole && (content.type & 0x8000) != 0) {
+            std::vector<u8> there;
+            whole = read_card_file(destinations[i], 8u << 20, there, ignored) &&
+                    sha1(there.data(), there.size()) == content.sha1;
+        }
+    }
     if (whole) {
         if (uid.size() != uid_before && !write_emu_file(folder, uid_path, uid, error)) return false;
         return make_data_folder();
