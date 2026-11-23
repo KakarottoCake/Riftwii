@@ -363,9 +363,18 @@ void RunAutorun() {
             std::string folder, title_text;
             words.next(folder);
             words.next(title_text);
-            const u64 title = std::strtoull(title_text.c_str(), nullptr, 16);
-            ok = copy_return_channel_to_emu_nand(folder, title, error);
-            if (ok) logf("  the channel and its IOS are in %s\n", folder.c_str());
+            // Exactly 16 hex digits: a typo must not copy some other title.
+            char* end = nullptr;
+            const u64 title = std::strtoull(title_text.c_str(), &end, 16);
+            if (title_text.size() != 16 || end == nullptr || *end != '\0' ||
+                title_text.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos) {
+                ok = false;
+                error = "returncopy needs an sd:/ folder and a 16-digit channel title ID";
+            } else {
+                ok = copy_return_channel_to_emu_nand(folder, title, error);
+                // The copy logs the IOS itself when it copies one.
+                if (ok) logf("  the way back is prepared in %s\n", folder.c_str());
+            }
         } else if (cmd == "netscan") {
             // The network packs' list, as the menu's scan fetches it.
             const std::string line = RefreshNetworkPacks(nullptr);
