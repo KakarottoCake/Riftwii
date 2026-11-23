@@ -663,6 +663,243 @@ bool write_emu_file(const std::string& folder, const std::string& destination, c
 
 }  // namespace
 
+namespace {
+
+// Whether the SD card holds `path` as a file of exactly `size` bytes.
+bool card_file_has_size(const std::string& path, std::uint64_t size) {
+    struct stat st;
+    return stat(path.c_str(), &st) == 0 && !S_ISDIR(st.st_mode) && static_cast<std::uint64_t>(st.st_size) == size;
+}
+
+// One title copied from this Wii's NAND into the emulated NAND `folder`:
+// its contents (a shared one through both NANDs' content.map), its ticket,
+// with `owner` its entry in the ownership list and its data folder, and
+// its TMD last, so a copy cut short never looks like a whole title. A
+// title already there in the same version is left as it is (`copied`
+// false). `shared_allowed` false refuses a title with shared contents.
+bool copy_nand_title_to_emu(NandAccess& access, const std::string& folder, std::uint64_t title, bool owner,
+                            bool shared_allowed, TmdContents& tmd, bool& copied, std::string& error) {
+    copied = false;
+    char ticket_path[48];
+    std::snprintf(ticket_path, sizeof ticket_path, "/ticket/%08x/%08x.tik", static_cast<unsigned>(title >> 32),
+                  static_cast<unsigned>(title));
+    char title_path[40];
+    std::snprintf(title_path, sizeof title_path, "/title/%08x/%08x", static_cast<unsigned>(title >> 32),
+                  static_cast<unsigned>(title));
+    const std::string tmd_path = std::string(title_path) + "/content/title.tmd";
+
+    std::vector<u8> tmd_bytes;
+    std::string why;
+    if (!read_whole(access, tmd_path, kMaxTmdBytes, tmd_bytes, error)) return false;
+    if (!parse_tmd_contents(tmd_bytes.data(), tmd_bytes.size(), tmd, why) || tmd.title_id != title) {
+        error = std::string(title_path) + "'s TMD on the Wii is damaged (" + why + ")";
+        return false;
+    }
+
+    // Where each content lives in the emulated NAND. A shared one keeps the
+    // name the emulated NAND's list gives it, or takes a new one there; it
+    // is read from the Wii under the name the Wii's list gives it.
+    std::vector<std::string> destinations;
+    std::vector<std::string> sources;
+    std::vector<SharedContent> wii_map;
+    std::vector<SharedContent> emu_map;
+    bool maps_read = false;
+    bool map_changed = false;
+    const std::string emu_map_path = folder + "/shared1/content.map";
+    for (const TmdContent& content : tmd.contents) {
+        if ((content.type & 0x8000) == 0) {
+            if (!try_push_back(destinations, folder + nand_content_path(title, content.id)) ||
+                !try_push_back(sources, nand_content_path(title, content.id))) {
+                error = "out of memory for the list of contents";
+                return false;
+            }
+            continue;
+        }
+        if (!shared_allowed) {
+            error = "the channel uses a shared content, which is not copied";
+            return false;
+        }
+        if (!maps_read) {
+            std::vector<u8> bytes;
+            if (!read_whole(access, "/shared1/content.map", 1u << 20, bytes, error)) return false;
+            wii_map = parse_content_map(bytes.data(), bytes.size());
+            bytes.clear();
+            // A list a failed replacement left aside is read, not started
+            // again empty: rewriting it would drop other titles' entries.
+            if (!recover_emu_file(emu_map_path)) {
+                error = "the emulated NAND's shared-content list is in " + emu_map_path +
+                        ".riftwii-old and could not be put back";
+                return false;
+            }
+            // An empty list is a list with no entries (the installer writes
+            // one), read as such: read_card_file refuses an empty file.
+            if (card_file_exists(emu_map_path) && !card_file_has_size(emu_map_path, 0) &&
+                !read_card_file(emu_map_path, 1u << 20, bytes, error))
+                return false;
+            emu_map = parse_content_map(bytes.data(), bytes.size());
+            // The parser stops at the first entry that isn't one: a damaged
+            // list would be written back short, and other titles would lose
+            // their shared contents. Refused instead, as the NAND manager does.
+            if (emu_map.size() * 28 != bytes.size()) {
+                error = "the emulated NAND's shared-content list " + emu_map_path + " is damaged";
+                return false;
+            }
+            maps_read = true;
+        }
+        const SharedContent* on_wii = find_shared_content(wii_map, content.sha1);
+        if (on_wii == nullptr) {
+            error = "a shared content of " + std::string(title_path) + " is not in the Wii's content.map";
+            return false;
+        }
+        std::string name;
+        if (const SharedContent* known = find_shared_content(emu_map, content.sha1)) {
+            name = known->name;
+        } else {
+            name = next_shared_name(emu_map);
+            if (name.size() != 8 || !try_push_back(emu_map, SharedContent{name, content.sha1})) {
+                error = "the emulated NAND has too many shared contents";
+                return false;
+            }
+            map_changed = true;
+        }
+        if (!try_push_back(destinations, folder + "/shared1/" + name + ".app") ||
+            !try_push_back(sources, "/shared1/" + on_wii->name + ".app")) {
+            error = "out of memory for the list of contents";
+            return false;
+        }
+    }
+
+    // The ownership list lets ES give a channel its own folder: read (and
+    // the entry added in memory) first, so a title found whole below still
+    // gets an entry a list restored from an older copy had lost.
+    std::vector<u8> uid;
+    const std::string uid_path = folder + "/sys/uid.sys";
+    std::size_t uid_before = 0;
+    const std::string data_path = folder + title_path + "/data";
+    if (owner) {
+        // A list an earlier failed replacement left aside is read, not rebuilt.
+        if (!recover_emu_file(uid_path)) {
+            error = "the emulated NAND's title ownership list is in " + uid_path +
+                    ".riftwii-old and could not be put back";
+            return false;
+        }
+        if (card_file_exists(uid_path) && !read_card_file(uid_path, 12 * 8192, uid, error)) return false;
+        uid_before = uid.size();
+        if (!add_wad_title_uid(uid, title, error)) return false;
+    }
+    // The channel's save folder: one already there is fine; a file in its
+    // place would leave the channel without one.
+    const auto make_data_folder = [&]() {
+        if (!owner) return true;
+        mkdir(data_path.c_str(), 0777);
+        struct stat st;
+        if (stat(data_path.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) return true;
+        error = "the SD card could not make the channel's data folder " + data_path;
+        return false;
+    };
+
+    // Already there, the same version as on the Wii, every content the size
+    // its TMD gives: nothing more than its ownership entry and data folder.
+    // An older copy is replaced.
+    std::vector<u8> emu_tmd;
+    std::string ignored;
+    bool whole = !map_changed && read_card_file(folder + tmd_path, kMaxTmdBytes, emu_tmd, ignored) &&
+                 emu_tmd == tmd_bytes && card_file_exists(folder + ticket_path);
+    for (std::size_t i = 0; whole && i < tmd.contents.size(); ++i) {
+        const TmdContent& content = tmd.contents[i];
+        whole = card_file_has_size(destinations[i], content.size);
+        // A shared content's file can be another content of the same size,
+        // left by an earlier run: only its bytes say it is this one. An own
+        // content's name is its ID, so its size is enough.
+        if (whole && (content.type & 0x8000) != 0) {
+            std::vector<u8> there;
+            whole = read_card_file(destinations[i], 8u << 20, there, ignored) &&
+                    sha1(there.data(), there.size()) == content.sha1;
+        }
+    }
+    if (whole) {
+        if (uid.size() != uid_before && !write_emu_file(folder, uid_path, uid, error)) return false;
+        return make_data_folder();
+    }
+
+    std::vector<u8> ticket;
+    if (!read_whole(access, ticket_path, 0x10000, ticket, error)) return false;
+    // One content in memory at a time (an IOS is a few dozen of them).
+    constexpr u32 kMaxContentBytes = 8u << 20;
+    const auto read_checked = [&](std::size_t i, std::vector<u8>& bytes) {
+        const TmdContent& content = tmd.contents[i];
+        if (content.size > kMaxContentBytes) {
+            error = "a content of " + std::string(title_path) + " is larger than RiftWii copies";
+            return false;
+        }
+        if (!read_whole(access, sources[i], kMaxContentBytes, bytes, error)) return false;
+        if (bytes.size() != content.size || sha1(bytes.data(), bytes.size()) != content.sha1) {
+            error = "a content of " + std::string(title_path) + " on the Wii does not match its TMD";
+            return false;
+        }
+        return true;
+    };
+    // A shared content already in the emulated NAND under its name is kept
+    // only when its bytes are the ones the TMD names (a run cut short can
+    // leave another content's file of the same size there).
+    std::vector<char> keep;
+    if (!try_resize(keep, tmd.contents.size())) {
+        error = "out of memory for the list of contents";
+        return false;
+    }
+    for (std::size_t i = 0; i < tmd.contents.size(); ++i) {
+        const TmdContent& content = tmd.contents[i];
+        if ((content.type & 0x8000) == 0 || !card_file_has_size(destinations[i], content.size)) continue;
+        std::vector<u8> there;
+        keep[i] = read_card_file(destinations[i], kMaxContentBytes, there, ignored) &&
+                  sha1(there.data(), there.size()) == content.sha1;
+    }
+    // Every content is read and checked on the Wii before anything is
+    // replaced, so a source that can't be read leaves an older copy as it
+    // was, still whole.
+    for (std::size_t i = 0; i < tmd.contents.size(); ++i) {
+        if (keep[i]) continue;
+        std::vector<u8> bytes;
+        if (!read_checked(i, bytes)) return false;
+    }
+
+    // The shared-content list as it will be written, made before anything
+    // on the card changes: an empty one (out of memory, or more entries
+    // than it holds) written over the old would cut every title's shared
+    // contents off.
+    std::vector<u8> encoded_map;
+    if (map_changed) {
+        encoded_map = serialize_content_map(emu_map);
+        if (encoded_map.size() != emu_map.size() * 28) {
+            error = "the emulated NAND's list of shared contents could not be made";
+            return false;
+        }
+    }
+
+    // An older copy's TMD goes before its contents are replaced: an update
+    // cut short then leaves no title at all (the next launch copies it
+    // again), never an old TMD over new contents that looks whole.
+    if (card_file_exists(folder + tmd_path) && std::remove((folder + tmd_path).c_str()) != 0) {
+        error = "the SD card could not remove the older copy of " + std::string(title_path);
+        return false;
+    }
+    for (std::size_t i = 0; i < tmd.contents.size(); ++i) {
+        if (keep[i]) continue;
+        std::vector<u8> bytes;
+        if (!read_checked(i, bytes)) return false;
+        if (!write_emu_file(folder, destinations[i], bytes, error)) return false;
+    }
+    if (map_changed && !write_emu_file(folder, emu_map_path, encoded_map, error)) return false;
+    if (!write_emu_file(folder, folder + ticket_path, ticket, error)) return false;
+    if (owner && uid.size() != uid_before && !write_emu_file(folder, uid_path, uid, error)) return false;
+    if (!make_data_folder()) return false;
+    if (!write_emu_file(folder, folder + tmd_path, tmd_bytes, error)) return false;
+    copied = true;
+    return true;
+}
+
+}  // namespace
+
 bool copy_return_channel_to_emu_nand(const std::string& folder, std::uint64_t title, std::string& error) {
     if (folder.compare(0, 4, "sd:/") != 0 || folder.size() <= 4 || folder.find("..") != std::string::npos ||
         folder.find_first_of("\\", 4) != std::string::npos || folder.find(':', 3) != std::string::npos) {
@@ -673,14 +910,6 @@ bool copy_return_channel_to_emu_nand(const std::string& folder, std::uint64_t ti
         error = "only an ordinary channel can be copied";
         return false;
     }
-    char ticket_path[48];
-    std::snprintf(ticket_path, sizeof ticket_path, "/ticket/%08x/%08x.tik", static_cast<unsigned>(title >> 32),
-                  static_cast<unsigned>(title));
-    char title_path[40];
-    std::snprintf(title_path, sizeof title_path, "/title/%08x/%08x", static_cast<unsigned>(title >> 32),
-                  static_cast<unsigned>(title));
-    const std::string tmd_path = std::string(title_path) + "/content/title.tmd";
-
     if (NandOpen() < 0) {
         error = "the Wii's storage could not be opened";
         return false;
@@ -689,77 +918,37 @@ bool copy_return_channel_to_emu_nand(const std::string& folder, std::uint64_t ti
         ~NandUser() { NandClose(); }
     } nand_user;
     NandAccess access;
-    // Everything is read before anything is written.
-    std::vector<u8> tmd_bytes;
-    std::vector<u8> ticket;
-    TmdContents tmd;
-    std::string why;
-    if (!read_whole(access, tmd_path, kMaxTmdBytes, tmd_bytes, error)) return false;
-    if (!parse_tmd_contents(tmd_bytes.data(), tmd_bytes.size(), tmd, why) || tmd.title_id != title) {
-        error = "the channel's TMD on the Wii is damaged (" + why + ")";
+    // RiftWii's channel is a few small contents of its own; a shared one
+    // means this is not that channel.
+    TmdContents channel;
+    bool copied = false;
+    if (!copy_nand_title_to_emu(access, folder, title, true, false, channel, copied, error)) return false;
+    // Starting the channel loads the IOS its TMD names, and under the
+    // emulation of the whole NAND it is read from this folder too. Without
+    // it the console stopped on a black screen, the Wii Remotes cut off (a
+    // tester's vWii, returning from a WiiWare game: the folder held the
+    // game and the channel, never an IOS).
+    if (channel.required_ios == 0) return true;
+    // Titles 1 and 2 are boot2 and the Wii Menu, not IOSes: a damaged TMD
+    // naming them copies no IOS.
+    if (channel.required_ios < 3) {
+        error = "the channel's TMD names IOS" + std::to_string(channel.required_ios) + ", which is not an IOS";
         return false;
     }
-    // Already there, the same version as on the Wii: nothing to do. An
-    // older copy (the channel was updated since) is replaced.
-    std::vector<u8> emu_tmd;
-    std::string ignored;
-    if (read_card_file(folder + tmd_path, kMaxTmdBytes, emu_tmd, ignored) && emu_tmd == tmd_bytes &&
-        emu_channel_program_present(folder, title) && card_file_exists(folder + ticket_path)) {
-        return true;
-    }
-    if (!read_whole(access, ticket_path, 0x10000, ticket, error)) return false;
-    // RiftWii's channel is a few small contents of its own; a content much
-    // larger than that, or a shared one, means this is not that channel.
-    constexpr u32 kMaxContentBytes = 8u << 20;
-    std::vector<std::vector<u8>> contents;
-    if (!try_resize(contents, tmd.contents.size())) {
-        error = "out of memory for the channel's contents";
+    const std::uint64_t ios = 0x0000000100000000ull | channel.required_ios;
+    TmdContents ios_tmd;
+    bool ios_copied = false;
+    if (!copy_nand_title_to_emu(access, folder, ios, false, true, ios_tmd, ios_copied, error)) {
+        error = "IOS" + std::to_string(channel.required_ios) + ", which the channel starts on, could not be copied: " +
+                error;
         return false;
     }
-    for (std::size_t i = 0; i < tmd.contents.size(); ++i) {
-        const TmdContent& content = tmd.contents[i];
-        if ((content.type & 0x8000) != 0) {
-            error = "the channel uses a shared content, which is not copied";
-            return false;
-        }
-        if (content.size > kMaxContentBytes) {
-            error = "a content of the channel is larger than RiftWii's channel is";
-            return false;
-        }
-        if (!read_whole(access, nand_content_path(title, content.id), kMaxContentBytes, contents[i], error)) return false;
-        if (contents[i].size() != content.size || sha1(contents[i].data(), contents[i].size()) != content.sha1) {
-            error = "a content of the channel on the Wii does not match its TMD";
-            return false;
-        }
+    if (ios_copied) {
+        logf("Return to %08x-%08x: IOS%u, which the channel starts on, was copied to %s too (%u contents).\n",
+             static_cast<unsigned>(title >> 32), static_cast<unsigned>(title),
+             static_cast<unsigned>(channel.required_ios), folder.c_str(),
+             static_cast<unsigned>(ios_tmd.contents.size()));
     }
-    // The ownership list lets ES give the channel its own folder.
-    std::vector<u8> uid;
-    const std::string uid_path = folder + "/sys/uid.sys";
-    // A list an earlier failed replacement left aside is read, not rebuilt.
-    if (!recover_emu_file(uid_path)) {
-        error = "the emulated NAND's title ownership list is in " + uid_path +
-                ".riftwii-old and could not be put back";
-        return false;
-    }
-    if (card_file_exists(uid_path) && !read_card_file(uid_path, 12 * 8192, uid, error)) return false;
-    const std::size_t uid_before = uid.size();
-    if (!add_wad_title_uid(uid, title, error)) return false;
-
-    // An older copy's TMD goes before its contents are replaced: an update
-    // cut short then leaves no title at all (the next launch copies it
-    // again), never an old TMD over new contents that looks playable.
-    if (card_file_exists(folder + tmd_path) && std::remove((folder + tmd_path).c_str()) != 0) {
-        error = "the SD card could not remove the older copy of the channel";
-        return false;
-    }
-    for (std::size_t i = 0; i < tmd.contents.size(); ++i) {
-        if (!write_emu_file(folder, folder + nand_content_path(title, tmd.contents[i].id), contents[i], error))
-            return false;
-    }
-    if (!write_emu_file(folder, folder + ticket_path, ticket, error)) return false;
-    if (uid.size() != uid_before && !write_emu_file(folder, uid_path, uid, error)) return false;
-    mkdir((folder + title_path + "/data").c_str(), 0777);
-    if (!write_emu_file(folder, folder + tmd_path, tmd_bytes, error)) return false;
     return true;
 }
 
