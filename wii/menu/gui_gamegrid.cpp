@@ -935,8 +935,8 @@ void GuiGameGrid::DrawCoverTile(int index, Slot* text, float x, float y, float s
             text->lines[l]->SetPosition(at_x(kCoverTextLeft), at_y(8 + l * 16));
             text->lines[l]->Draw();
         }
-        // The ID is drawn with the labels below: MODS moved up a row would
-        // cover it.
+        // The ID is drawn with the labels below: on a narrow tile it gives
+        // way to MODS moved up a row beside it.
         idShown = true;
         // The disc drive has no box art: a disc instead.
         if (item.badge == "DISC") skin::Draw(skin::iconDisc, at_x(20), at_y(44), alpha, scale);
@@ -953,11 +953,20 @@ void GuiGameGrid::DrawCoverTile(int index, Slot* text, float x, float y, float s
     const int modsX = at_x(7);
     // A narrow cover (4:3) has no room for MODS and the source side by side
     // with a gap, rather than touching it ("MODSSD"): over box art MODS goes
-    // a row up, at the cover's right like the badge; over a made-up cover
-    // or a bare tile, whose name and ID fill the middle, into the top right
-    // corner, on the made-up cover's band.
+    // a row up, at the cover's right like the badge; over a made-up cover,
+    // whose name and ID fill the middle, into the top right corner, on the
+    // cover's own band. A bare tile (no cover, not even a made-up one) has
+    // its name from the top: MODS goes a row up as over box art, and the ID
+    // on that row gives way when the two would touch.
     constexpr int kGap = 4;
     const bool sideBySide = modsX + modsW + kGap <= badgeX;
+    const bool bareTile = idShown;
+    const int tagX = sideBySide ? modsX : badgeX + badgeW - modsW;
+    const int tagY = sideBySide ? baseY : boxArt || bareTile ? baseY - 17 : at_y(7);
+    if (idShown && tagged && !sideBySide) {
+        const int idRight = at_x(kCoverTextLeft) + text->id->GetTextWidth();
+        if (idRight + kGap > tagX) idShown = false;
+    }
     if (idShown) {
         text->id->SetPosition(at_x(kCoverTextLeft), at_y(tileH - 40));
         text->id->Draw();
@@ -966,8 +975,6 @@ void GuiGameGrid::DrawCoverTile(int index, Slot* text, float x, float y, float s
     Menu_DrawRectangle(badgeX, baseY - 1, badgeW, 15, skin::WithAlpha(skin::WithAlpha(BadgeColor(item), 235), alpha), 1);
     DrawTinyLabel(text->badge, badgeX + 5, baseY);
     if (tagged) {
-        const int tagX = sideBySide ? modsX : badgeX + badgeW - modsW;
-        const int tagY = sideBySide ? baseY : boxArt ? baseY - 17 : at_y(7);
         Menu_DrawRectangle(tagX, tagY - 1, modsW, 15, skin::WithAlpha(skin::kAccentInk, alpha), 1);
         DrawTinyLabel(text->mods, tagX + 5, tagY);
     }
