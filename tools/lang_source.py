@@ -8055,6 +8055,11 @@ T.update({
         "上下でストーリーをスクロール",
         "Cima e Baixo rolam a história",
         "Su e Giù scorrono la storia"),
+    "Controllers and story": (
+        "Mandos e historia",
+        "コントローラーとストーリー",
+        "Controles e história",
+        "Controller e storia"),
 })
 KO.update({
     "Save location": "저장 위치",
@@ -8068,6 +8073,7 @@ KO.update({
     "Also works with: {1}": "같이 사용 가능: {1}",
     "Up and Down scroll": "위 아래로 넘기기",
     "Up and Down scroll the story": "위 아래로 이야기 넘기기",
+    "Controllers and story": "컨트롤러와 이야기",
 })
 FR.update({
     "Save location": "Emplacement des sauvegardes",
@@ -8081,6 +8087,7 @@ FR.update({
     "Also works with: {1}": "Fonctionne aussi avec : {1}",
     "Up and Down scroll": "Haut et Bas font défiler le texte",
     "Up and Down scroll the story": "Haut et Bas font défiler l’histoire",
+    "Controllers and story": "Manettes et histoire",
 })
 
 

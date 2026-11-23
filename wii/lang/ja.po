@@ -3870,6 +3870,9 @@ msgstr "上下でスクロール"
 msgid "Up and Down scroll the story"
 msgstr "上下でストーリーをスクロール"
 
+msgid "Controllers and story"
+msgstr "コントローラーとストーリー"
+
 msgid "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons."
 msgstr "一部のWADを読み込めませんでした。ファイル名と理由はsd:/riftwii/session.logで確認できます。"
 

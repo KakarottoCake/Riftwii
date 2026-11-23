@@ -18,8 +18,11 @@ public:
     GuiPrompts();
     ~GuiPrompts() override;
     // `button`: the button's name on the badge ("A", "B", "+", "1", "2").
+    // `clickable`: false for a controller hint with no pointer action.
     // Returns the prompt's index.
-    int Add(const std::string& button, const std::string& action);
+    int Add(const std::string& button, const std::string& action, bool clickable = true);
+    // Move this page's prompts to its wider safe area's right edge.
+    void SetRightEdge(int right) { rightEdge = right; }
     void SetAction(int index, const std::string& action);
     void SetShown(int index, bool shown);
     // The prompt the pointer pressed since the last call; -1 when none.
@@ -43,6 +46,7 @@ private:
         GuiText* text;
         bool shown = true;
         bool symbol = false;  // + or -, not a letter
+        bool clickable = true;  // false: a plain controller hint, without a card
         std::string button;   // its name, for its picture (skin::ButtonIcon)
         float pressElapsed = -1.0f;
         int x = 0, w = 0;  // where it is drawn, worked out by Draw
@@ -50,6 +54,7 @@ private:
     std::vector<Prompt> prompts;
     void DrawBadgeText(Prompt& p);
     int hover = -1, clicked = -1;
+    int rightEdge = 600;
     GuiSound* soundOver;
     GuiSound* soundClick;
 };
