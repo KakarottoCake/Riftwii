@@ -40,6 +40,9 @@ struct Handle {
 };
 std::map<std::string, Entry> nand_files;
 std::map<s32, Handle> handles;
+std::vector<u64> real_titles;
+std::map<std::string, std::string> title_names;
+std::vector<std::string> opened_paths;
 bool installed = true;
 bool fail_write = false;
 bool refuse_data = false;
@@ -77,6 +80,9 @@ void reset() {
     fs::create_directories(kRoot);
     nand_files.clear();
     handles.clear();
+    real_titles = {kTitle};
+    title_names.clear();
+    opened_paths.clear();
     nand_files[kData] = {true, ""};
     nand_files[kData + "/save.bin"] = {false, "old save"};
     nand_files[kData + "/obsolete"] = {false, "old extra"};
@@ -250,6 +256,101 @@ void mii_transfers() {
     CHECK(nand_files[kEmuNandMiis].bytes == "new Miis");
 }
 
+void protected_deletes() {
+    const std::uint64_t protected_titles[] = {
+        0x0001000248414341ULL, 0x0001000848414C45ULL,
+        0x0001000148414241ULL, 0x0001000148435445ULL,
+        0x0001000148435641ULL, 0x000100014843584AULL,
+        0x000100014843594AULL,
+    };
+    for (const std::uint64_t title : protected_titles) {
+        reset();
+        EmuNandTitlePaths paths;
+        CHECK(emunand_title_paths(title, paths));
+        card_file(paths.data + "/save.bin", "keep save");
+        card_file(paths.title + "/content/title.tmd", "keep program");
+        card_file(paths.ticket, "keep ticket");
+        std::string error;
+        for (const EmuNandAction action : {EmuNandAction::DeleteSave, EmuNandAction::DeleteTitle}) {
+            CHECK(!emunand_manager_action(kRoot, action, title, error));
+            CHECK(card_read(paths.data + "/save.bin") == "keep save");
+            CHECK(card_read(paths.title + "/content/title.tmd") == "keep program");
+            CHECK(card_read(paths.ticket) == "keep ticket");
+        }
+        // The ticket-only cleanup path must enforce the same protection.
+        fs::remove_all(kRoot + paths.title);
+        CHECK(!emunand_manager_action(kRoot, EmuNandAction::DeleteTitle, title, error));
+        CHECK(card_read(paths.ticket) == "keep ticket");
+        CHECK(writes == 0 && handles.empty());
+    }
+}
+
+// Small synthetic metadata and name headers, without console assets.
+std::string channel_metadata(std::uint64_t title) {
+    std::string tmd(0x1E4 + 36, '\0');
+    for (int i = 0; i < 8; ++i) tmd[0x18C + i] = static_cast<char>(title >> (56 - 8 * i));
+    tmd[0x1DF] = 1;
+    tmd[0x1E7] = 1;  // Content 1, index 0.
+    return tmd;
+}
+
+std::string channel_name_header(const std::string& name) {
+    std::string banner(0x700, '\0');
+    banner.replace(0x40, 4, "IMET");
+    const std::size_t english_name = 0x40 + 0x1C + 84;
+    for (std::size_t i = 0; i < name.size(); ++i) banner[english_name + 2 * i + 1] = name[i];
+    return banner;
+}
+
+void listed_title_names() {
+    reset();
+    constexpr u64 real_channel = 0x0001000154455354ULL;  // TEST.
+    constexpr u64 disc_save = 0x0001000052365245ULL;     // R6RE.
+    real_titles = {kTitle, real_channel, disc_save};
+    title_names["WBME"] = "Listed game";
+    card_file(kData + "/save.bin", "save");
+    card_file("/title/00010000/52365245/data/save.bin", "disc save");
+    nand_files["/title/00010001/54455354/content/title.tmd"] = {false, channel_metadata(real_channel)};
+    nand_files["/title/00010001/54455354/content/00000001.app"] = {false, channel_name_header("Wii banner name")};
+    // A listed title must not open its banner when the title table is cheaper.
+    nand_files["/title/00010001/57424d45/content/title.tmd"] = {false, channel_metadata(kTitle)};
+
+    std::vector<EmuNandTitle> titles;
+    bool sysconf = false;
+    bool settings = false;
+    std::string error;
+    CHECK(emunand_manager_list(kRoot, titles, sysconf, settings, error));
+    CHECK(titles.size() == 3);
+    for (const EmuNandTitle& title : titles) {
+        if (title.id == kTitle) {
+            CHECK(title.name == "Listed game (WBME)");
+            CHECK(title.emulated && title.real);
+        } else if (title.id == real_channel) {
+            CHECK(title.name == "Wii banner name");
+            CHECK(!title.emulated && title.real);
+        } else if (title.id == disc_save) {
+            CHECK(title.name == "R6RE");
+            CHECK(title.emulated && title.real);
+        }
+    }
+    CHECK(std::find(opened_paths.begin(), opened_paths.end(),
+        "/title/00010001/57424d45/content/title.tmd") == opened_paths.end());
+    CHECK(std::find(opened_paths.begin(), opened_paths.end(),
+        "/title/00010000/52365245/content/title.tmd") == opened_paths.end());
+    CHECK(handles.empty() && writes == 0);
+
+    // The same bounded header read also names channels only on the card.
+    real_titles.clear();
+    card_file("/title/00010001/54455354/content/title.tmd", channel_metadata(real_channel));
+    card_file("/title/00010001/54455354/content/00000001.app", channel_name_header("Card banner name"));
+    CHECK(emunand_manager_list(kRoot, titles, sysconf, settings, error));
+    const auto found = std::find_if(titles.begin(), titles.end(), [&](const EmuNandTitle& title) {
+        return title.id == real_channel;
+    });
+    CHECK(found != titles.end() && found->name == "Card banner name" && found->emulated && !found->real);
+    CHECK(handles.empty() && writes == 0);
+}
+
 }  // namespace
 
 s32 ES_GetStoredTMDSize(u64 title, u32* size) {
@@ -266,8 +367,14 @@ s32 ES_GetStoredTMD(u64 title, signed_blob* data, u32 size) {
     bytes[0x199] = 0x31;
     return 0;
 }
-s32 ES_GetNumTitles(u32* count) { *count = installed ? 1 : 0; return 0; }
-s32 ES_GetTitles(u64* titles, u32 count) { if (count) titles[0] = kTitle; return 0; }
+s32 ES_GetNumTitles(u32* count) {
+    *count = installed ? static_cast<u32>(real_titles.size()) : 0;
+    return 0;
+}
+s32 ES_GetTitles(u64* titles, u32 count) {
+    for (u32 i = 0; i < count; ++i) titles[i] = real_titles[i];
+    return 0;
+}
 
 s32 ISFS_ReadDir(const char* path, char* names, u32* count) {
     if (refuse_data && std::string(path).compare(0, kData.size(), kData) == 0) return -102;
@@ -292,6 +399,7 @@ s32 ISFS_ReadDir(const char* path, char* names, u32* count) {
     return 0;
 }
 s32 ISFS_Open(const char* path, u8) {
+    opened_paths.push_back(path);
     if (refuse_data && std::string(path).compare(0, kData.size(), kData) == 0) return -102;
     const auto found = nand_files.find(path);
     if (found == nand_files.end()) return -106;
@@ -369,6 +477,11 @@ s32 ISFS_Rename(const char* from, const char* to) {
 }
 
 namespace riftwii::wii {
+bool GameTitleListed(const std::string& code, std::string& title) {
+    const auto found = title_names.find(code);
+    title = found == title_names.end() ? std::string() : found->second;
+    return true;
+}
 s32 NandOpen() { return 0; }
 void NandClose() {}
 bool open_nand_permissions(const char*) { return true; }
@@ -479,6 +592,8 @@ int main() {
     save_transfers();
     refused_and_failed_writes();
     deletion_and_system_files();
+    protected_deletes();
+    listed_title_names();
     mii_transfers();
     gx_folders();
     shared_content_copies();

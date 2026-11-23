@@ -942,7 +942,7 @@ source worked. Korean-key and vWii-key WADs are not supported by this key reader
 The regular d2x channel-launch requirements still apply.
 
 The old way also works: put `.wad` files in `sd:/wad/` (or `sd:/wads/`)
-and pick **Settings > Drives > Install WAD files**. These copies stay on
+and pick **Settings > Games > Install WAD files**. These copies stay on
 Home independently of the WAD. This installs into the same emulated NAND.
 
 For a game the Wii Menu moved to the SD card, RiftWii looks in
@@ -2213,11 +2213,17 @@ from USB Loader GX's settings, and folders found under `sd:/nands` and
 `usb:/nands`. USB changes need a FAT32 partition. A folder that is missing
 cannot be opened.
 
-Each title opens its save tools. Installed channels use their banner name
-when it can be read; otherwise the page shows the full title ID. Titles on
-the Wii are also listed so their saves can be copied into the emulated
-NAND. System software, including the Wii Menu and IOS, is hidden and cannot
-be deleted. **Delete emulated title** removes that title's program, save
+The list groups disc game saves, channels, system channels, hidden titles
+and other titles under separate headings. Each row shows whether it is in
+the emulated NAND, the Wii's memory or both. Names come from the game-name
+list or the channel's banner; otherwise the four-character code is shown.
+A busy window stays visible while the titles and their names are read.
+
+Each title opens its save tools. Titles on the Wii are also listed so their
+saves can be copied into the emulated NAND. The Wii Menu and IOS stay hidden.
+System channels, hidden titles and console tools such as the Wii Shop and
+Wii U transfer tools have no delete actions, with a reason on their page.
+**Delete emulated title** removes that title's program, save
 and ticket from the chosen folder. It keeps shared program files used by
 other titles. **Delete emulated save** removes only its save. Both ask first
 and cannot be undone. A WAD still in the `wad` folder remains available on

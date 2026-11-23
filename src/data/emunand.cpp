@@ -36,6 +36,39 @@ bool emunand_system_title(std::uint64_t title) {
     return (title >> 32) == 1;
 }
 
+std::string emunand_title_code(std::uint64_t title) {
+    std::string code;
+    for (int shift = 24; shift >= 0; shift -= 8) {
+        const unsigned byte = (title >> shift) & 0xff;
+        const bool letter = (byte >= 'A' && byte <= 'Z') || (byte >= 'a' && byte <= 'z');
+        const bool digit = byte >= '0' && byte <= '9';
+        if (!letter && !digit) return emunand_title_text(title);
+        code += static_cast<char>(byte);
+    }
+    return code;
+}
+
+bool emunand_delete_protected(std::uint64_t title) {
+    const std::uint32_t type = title >> 32;
+    if (type == 1 || type == 0x00010002 || type == 0x00010008) return true;
+    if (type != 0x00010001) return false;
+
+    // Some console tools use the downloadable-channel type. Match the
+    // three-letter family, so every region is protected. Public IDs:
+    // https://wiibrew.org/wiki/Title_database (title IDs only).
+    const std::uint32_t family = static_cast<std::uint32_t>(title) >> 8;
+    switch (family) {
+        case 0x484142:  // HAB*: Wii Shop.
+        case 0x484354:  // HCT*: system transfer.
+        case 0x484356:  // HCV*: Wii U Menu.
+        case 0x484358:  // HCX*: system transfer.
+        case 0x484359:  // HCY*: Wii U system repair.
+            return true;
+        default:
+            return false;
+    }
+}
+
 bool emunand_manageable_title(std::uint64_t title) {
     if (static_cast<std::uint32_t>(title) == 0) return false;
     switch (title >> 32) {

@@ -19,9 +19,13 @@ constexpr unsigned kEmuNandMaxDepth = 8;
 // by a hyphen. No partial parsing of a folder name is allowed.
 bool emunand_parse_title(const std::string& text, std::uint64_t& title);
 std::string emunand_title_text(std::uint64_t title);
+// The four-character game/channel code, or the full ID for non-text IDs.
+std::string emunand_title_code(std::uint64_t title);
 bool emunand_system_title(std::uint64_t title);
 // Only known Wii title types can be changed. System software is never one.
 bool emunand_manageable_title(std::uint64_t title);
+// Shared by the manager's UI and delete operation, including ticket-only titles.
+bool emunand_delete_protected(std::uint64_t title);
 
 struct EmuNandTitlePaths {
     std::string title;
