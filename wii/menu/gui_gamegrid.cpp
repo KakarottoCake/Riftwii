@@ -354,8 +354,10 @@ const GuiGameGrid::Geometry& GuiGameGrid::Geo() const {
 int GuiGameGrid::CoverCaptionY() const {
     // Under the channels' taller grid, 4 under it: centred between the
     // tiles and the clock (8 under left it 4 nearer the clock).
+    // From the last row's resting place, not where a carried tile is now:
+    // carried down to the bar it took the caption off the screen.
     const int gap = channels ? 4 : 8;
-    return std::max(kCaptionY, TileY(kPerPage - 1) + Geo().tileH + gap);
+    return std::max(kCaptionY, BaseY(kPerPage - 1) + Geo().tileH + gap);
 }
 
 int GuiGameGrid::ArrowX(int dir) const {

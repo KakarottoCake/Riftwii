@@ -8439,6 +8439,10 @@ static int MenuSource(FrontendState& state)
 					g_startOnOpen = false;
 					g_reopenBanner.clear();
 					transition::Begin(transition::Kind::ZoomOut, tile);
+					// Start left the banner up and playing (g_lingerBanner):
+					// Home comes back from under it; the game still starts
+					// once the drives are read (g_startWhenScanned).
+					DropLingerBanner();
 					ResumeGui();
 					continue;
 				}
