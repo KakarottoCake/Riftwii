@@ -21,6 +21,7 @@ struct TileSpec {
     std::string value;                          // under the name, smaller; empty for none
     const riftwii::wii::skin::Tex* icon = nullptr;  // 28x28
     bool primary = false;
+    bool opensPage = false;  // opens another screen or a choice; a chevron at the right
     bool on = false;   // the value in the accent's colour (something switched on)
     bool dim = false;  // greyed: still lit and pressed, its page says why
     bool warn = false; // the value in the theme's warning colour (a memory card that is full)
@@ -67,4 +68,5 @@ private:
     bool dirty = true;
     GuiSound* soundOver;
     GuiSound* soundClick;
+    GuiText chevron;
 };

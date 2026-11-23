@@ -53,6 +53,7 @@
 #include "gui_flowlist.hpp"
 #include "gui_prompts.hpp"
 #include "gui_tiles.hpp"
+#include "textmarquee.hpp"
 #include "gui_busy.hpp"
 #include "artfolder.hpp"
 #include "homeremember.hpp"
@@ -790,6 +791,22 @@ static void Place(GuiText& t, int x, int y, bool centre = false)
 {
 	t.SetAlignment(centre ? ALIGN_H::CENTRE : ALIGN_H::LEFT, ALIGN_V::TOP);
 	t.SetPosition(x, y);
+}
+
+// Keep the familiar 40-pixel inset at 4:3. Wider pages retain the TV's
+// five-percent margin plus eight pixels for the cards' soft shadows.
+struct PageBounds {
+	int left = 40, right = 600;
+	int Width() const { return right - left; }
+};
+
+static PageBounds WidePageBounds()
+{
+	f32 safeX, safeW;
+	Menu_SafeArea(&safeX, &safeW);
+	const int inset = static_cast<int>(std::ceil(safeW * 0.05f)) + 8;
+	return {static_cast<int>(std::ceil(safeX)) + inset,
+		static_cast<int>(std::floor(safeX + safeW)) - inset};
 }
 
 // The `n`th lowest set bit of `mask`, or 0.
@@ -2865,20 +2882,24 @@ class NoteCard : public GuiElement {
 public:
 	static constexpr int kX = 40, kY = 316, kW = 560, kH = 86;  // four lines end by y 410, above the prompts (y 418)
 	static constexpr int kTextX = kX + 36, kTextY = kY + 10, kTextW = kW - 40, kLines = 4;
+	explicit NoteCard(int x = kX) : x(x) {}
 	void Draw() override {
-		skin::Draw(skin::iconInfo, kX + 2, kY + 7, GetAlpha() / 2);
+		skin::Draw(skin::iconInfo, x + 2, kY + 7, GetAlpha() / 2);
 	}
+private:
+	int x;
 };
 
 // The icon left of a page's title: the one on the tile that opened it.
 class PageIcon : public GuiElement {
 public:
-	explicit PageIcon(const skin::Tex* icon) : icon(icon) {}
+	explicit PageIcon(const skin::Tex* icon, int x = 40) : icon(icon), x(x) {}
 	void Draw() override {
-		if (icon && icon->data) skin::Draw(*icon, 40, 32, GetAlpha());
+		if (icon && icon->data) skin::Draw(*icon, x, 32, GetAlpha());
 	}
 private:
 	const skin::Tex* icon;
+	int x;
 };
 
 // How much wider a popup (and the launch screen's card) is on each side:
@@ -6080,25 +6101,28 @@ static bool ReadHomebrewTitlesNow()
 // labels are translated when the player's catalog knows them; otherwise
 // the author's text is shown as written.
 static bool EmulatorRowsPage(const std::string& title, std::vector<FlowRow>& rows,
-	const std::vector<std::string>& help, const std::function<bool(int, int)>& act)
+	const std::vector<std::string>& help, const std::function<bool(int, int)>& act, bool wide = false)
 {
+	const PageBounds page = wide ? WidePageBounds() : PageBounds{};
 	GuiText titleTxt(title.c_str(), 30, skin::kInk);
-	Place(titleTxt, 78, 28);
+	Place(titleTxt, page.left + 38, 28);
+	titleTxt.SetMaxWidth(page.Width() - 38);
 	TitleBand titleBand;
-	PageIcon pageIcon(&skin::iconGear);
-	NoteCard noteCard;
-	GuiFlowList list(40, 84, 560, 5);
+	PageIcon pageIcon(&skin::iconGear, page.left);
+	NoteCard noteCard(page.left);
+	GuiFlowList list(page.left, 84, page.Width(), 5);
 	list.SetCards(true);
 	list.SetRows(&rows);
 	GuiText noteTxt("", 15, skin::kInkSoft);
-	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
-	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
+	Place(noteTxt, page.left + 36, NoteCard::kTextY);
+	noteTxt.SetWrap(true, page.Width() - 40, NoteCard::kLines);
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
 	const int back = prompts.Add("B", tr("Back"));
-	const int choose = prompts.Add("A", tr("Open"));
+	const int choose = prompts.Add("A", tr("Open"), false);
+	prompts.SetRightEdge(page.right);
 	GuiWindow window(screenwidth, screenheight);
 	window.Append(&titleBand);
 	window.Append(&pageIcon);
@@ -8849,31 +8873,50 @@ public:
 		y = newY;
 		Place(text, x, y);
 	}
+	void SetMarquee(int width) {
+		marqueeWidth = width;
+		text.SetWrap(false);
+		text.SetMaxWidth(0);
+		text.SetScroll(SCROLL::NONE);
+		marquee.Reset();
+	}
+	void ResetMarquee() { marquee.Reset(); }
 	void Draw() override {
 		riftwii::wii::DrawTrace trace("the page's text");
+		if (marqueeWidth > 0) {
+			marquee.Draw(text, x, y, marqueeWidth, 24, [&](int drawX, int drawY, int alpha) {
+				DrawText(drawX, drawY, alpha);
+			});
+		} else {
+			DrawText(x, y, 255);
+		}
+	}
+private:
+	void DrawText(int drawX, int drawY, int alpha) {
 		text.SetColor((GXColor){0, 0, 0, 255});
 		// The shadow, softer and lower; then the outline: every offset
 		// within its radius (8 at 1, 20 at 2).
-		text.SetAlpha(110);
-		text.SetPosition(x + 1, y + outline + drop);
+		text.SetAlpha(110 * alpha / 255);
+		text.SetPosition(drawX + 1, drawY + outline + drop);
 		text.Draw();
-		text.SetAlpha(225);
+		text.SetAlpha(225 * alpha / 255);
 		for (int dy = -outline; dy <= outline; ++dy)
 			for (int dx = -outline; dx <= outline; ++dx) {
 				if ((dx == 0 && dy == 0) || dx * dx + dy * dy > outline * outline + 1) continue;
-				text.SetPosition(x + dx, y + dy);
+				text.SetPosition(drawX + dx, drawY + dy);
 				text.Draw();
 			}
 		text.SetColor(color);
-		text.SetAlpha(255);
-		text.SetPosition(x, y);
+		text.SetAlpha(alpha);
+		text.SetPosition(drawX, drawY);
 		text.Draw();
 	}
-private:
 	GuiText& text;
 	int x, y;
 	GXColor color;
 	int outline, drop;
+	int marqueeWidth = 0;
+	riftwii::wii::TextMarquee marquee;
 };
 
 // A white card at (x, y) drawn from a panel texture.
@@ -12826,8 +12869,8 @@ static constexpr int kTilesW = kTilesRight - kTilesX;
 // the space the Favourite tile has otherwise: as tall as fits between the
 // box's shadow and the status lines along the bottom, the Favourite tile
 // narrowed to its star beside it.
-static constexpr int kHeroDiscSize = 78, kHeroDiscY = 306;
-static constexpr int kFavoriteY = 310, kFavoriteH = 70;
+static constexpr int kHeroDiscSize = 60, kHeroDiscY = 292;
+static constexpr int kFavoriteY = 298, kFavoriteH = 54;
 static constexpr int kStarX = kHeroX + kHeroDiscSize + 8, kStarW = kHeroX + kHeroW - kStarX;
 
 
@@ -12969,7 +13012,7 @@ private:
 		const float size = kHeroDiscSize * (1.0f + 0.08f * lit);
 		const float k = size / std::max(discArt->w, discArt->h);
 		const float dw = discArt->w * k, dh = discArt->h * k;
-		const float dx = kHeroX + (kHeroDiscSize - dw) / 2, dy = kHeroDiscY + (kHeroDiscSize - dh) / 2;
+		const float dx = placeX + (kHeroDiscSize - dw) / 2, dy = kHeroDiscY + (kHeroDiscSize - dh) / 2;
 		// A round drop shadow, lit from above as the box's is.
 		if (skin::discShadow.data) {
 			constexpr float kDrop = 4.0f;
@@ -12977,7 +13020,7 @@ private:
 			// centre under the disc's.
 			const float scale = size / riftwii::kDiscShadowDisc;
 			const float half = riftwii::kDiscShadowSize / 2.0f;
-			const float cx = kHeroX + kHeroDiscSize / 2.0f, cy = kHeroDiscY + kHeroDiscSize / 2.0f;
+			const float cx = placeX + kHeroDiscSize / 2.0f, cy = kHeroDiscY + kHeroDiscSize / 2.0f;
 			skin::Draw(skin::discShadow, cx - half, cy - half + kDrop, 255, scale);
 		}
 		skin::DrawRgb5a3Part(discArt->data, discArt->w, discArt->h, 0.0f, 1.0f, dx, dy, dw, dh);
@@ -13092,7 +13135,8 @@ public:
 		const float bigW = kBigH * artW / artH, bigX = (screenwidth - bigW) / 2;
 		const float e = open * open * (3 - 2 * open);  // eased
 		const float w = kHeroW + (bigW - kHeroW) * e, h = kHeroH + (kBigH - kHeroH) * e;
-		const float x = kHeroX + (bigX - kHeroX) * e, y = kHeroY + (kBigY - kHeroY) * e;
+		const float fromX = WidePageBounds().left;
+		const float x = fromX + (bigX - fromX) * e, y = kHeroY + (kBigY - kHeroY) * e;
 		// Turned about its middle: narrower towards the half turn, where the
 		// side changes.
 		const float face = std::fabs(std::cos(turn * static_cast<float>(M_PI)));
@@ -13239,7 +13283,7 @@ public:
 		// As large as fits between the band's top and the prompts, in the
 		// picture's own shape; grown out of the page's disc.
 		const float e = open * open * (3 - 2 * open);  // eased
-		const float fromX = kHeroX + kHeroDiscSize / 2.0f, fromY = kHeroDiscY + kHeroDiscSize / 2.0f;
+		const float fromX = WidePageBounds().left + kHeroDiscSize / 2.0f, fromY = kHeroDiscY + kHeroDiscSize / 2.0f;
 		const float size = kHeroDiscSize + (kBigSize - kHeroDiscSize) * e;
 		const float cx = fromX + (screenwidth / 2.0f - fromX) * e;
 		const float cy = fromY + (kBigY + kBigSize / 2.0f - fromY) * e;
@@ -13399,31 +13443,35 @@ public:
 		std::string type, name;
 		bool required = false, seen = false, connected = false;
 	};
-	static constexpr int kGridX = kTilesX, kGridY = 132, kColGap = 14, kColW = (kTilesRight - kTilesX - kColGap) / 2, kRowH = 38;
-	static constexpr int kStoryX = 40, kStoryY = 326, kStoryW = 520, kStoryLines = 4, kLineH = 19;  // ends by y 402, clear of the prompts
-	static constexpr int kControlTextW = 560, kControlFont = 14, kControlLineH = kControlFont + 6;
+	static constexpr int kGridY = 132, kColGap = 14, kRowH = 30;
+	static constexpr int kStoryY = 302, kStoryLines = 5, kLineH = 19;
+	static constexpr int kControlY = 232, kControlTextY = 260;
+	static constexpr int kControlFont = 12;
 
 	AboutBody(std::vector<Fact> facts, std::vector<Control> controls, std::string rating, std::string ratingSystem,
 		const skin::Tex& ratingMark, const std::string& story)
 		: facts(std::move(facts)), controls(std::move(controls)), rating(std::move(rating)),
-		  ratingSystem(std::move(ratingSystem)), ratingMark(ratingMark)
+		  ratingSystem(std::move(ratingSystem)), ratingMark(ratingMark), page(WidePageBounds())
 	{
+		gridX = page.left + 132;
+		columnWidth = (page.right - gridX - kColGap) / 2;
+		storyWidth = page.Width() - 48;
 		width = screenwidth;
 		height = screenheight;
 		for (const Fact& f : this->facts) {
 			std::string upper = f.name;
 			for (char& ch : upper)
 				if (ch >= 'a' && ch <= 'z') ch = static_cast<char>(ch - 'a' + 'A');
-			names.emplace_back(new GuiText(upper.c_str(), 12, skin::kInkDim));
-			values.emplace_back(new GuiText(f.value.c_str(), 16, skin::kInk));
-			values.back()->SetMaxWidth(kColW - 4);
+			names.emplace_back(new GuiText(upper.c_str(), 11, skin::kInkDim));
+			values.emplace_back(new GuiText(f.value.c_str(), 15, skin::kInk));
+			values.back()->SetMaxWidth(columnWidth - 4);
 		}
 		playsWith.reset(new GuiText(Upper(tr("Plays with")).c_str(), 12, skin::kInkDim));
 		storyHead.reset(new GuiText(Upper(tr("Story")).c_str(), 12, skin::kInkDim));
 		ratingTxt.reset(new GuiText(this->rating.c_str(), 26, skin::kInk));
 		systemTxt.reset(new GuiText(this->ratingSystem.c_str(), 11, skin::kInkSoft));
-		// Names use the full width below the cover, with no shortened names
-		// or ellipsis. Measure the translated text in the active menu font.
+		// Controller names stay in the fixed area at the right. Long lists
+		// join the scrollable story instead of pushing it into the bar.
 		const auto joined = [&](bool required) {
 			std::string out;
 			for (const Control& c : this->controls)
@@ -13437,7 +13485,7 @@ public:
 		if (!also.empty()) controlBlocks.push_back(tr("Also works with: {1}", {also}));
 		for (const std::string& block : controlBlocks) {
 			// Even one character per row fits this limit, so no names are cut.
-			for (const std::string& line : ChunksFitting(block, kControlTextW, kControlFont, block.size())) {
+			for (const std::string& line : ChunksFitting(block, page.right - gridX, kControlFont, block.size())) {
 				controlNames.emplace_back(new GuiText(line.c_str(), kControlFont, skin::kInk));
 				controlNames.back()->SetParent(this);
 			}
@@ -13445,13 +13493,12 @@ public:
 		scrollHint.reset(new GuiText(tr("Up and Down scroll the story"), 12, skin::kInkDim));
 		scrollHint->SetParent(this);
 		WrapStory(story);
-		compactControls = controlNames.size() >= 4;
 		// Unusual controller names or a wider user font can need more room.
 		// Let the same read-only scroll area show every name before the story.
-		if (controlNames.size() > 4) {
+		if (controlNames.size() > 1) {
 			std::vector<std::string> details;
 			for (const std::string& block : controlBlocks) {
-				const auto wrapped = ChunksFitting(block, kStoryW, 15, block.size());
+				const auto wrapped = ChunksFitting(block, storyWidth, 15, block.size());
 				details.insert(details.end(), wrapped.begin(), wrapped.end());
 			}
 			if (!lines.empty()) {
@@ -13482,56 +13529,42 @@ public:
 		const int alpha = GetAlpha();
 		// The facts, two to a row.
 		for (std::size_t i = 0; i < facts.size(); ++i) {
-			const int x = kGridX + static_cast<int>(i % 2) * (kColW + kColGap);
+			const int x = gridX + static_cast<int>(i % 2) * (columnWidth + kColGap);
 			const int y = kGridY + static_cast<int>(i / 2) * kRowH;
 			Place(*names[i], x, y);
 			names[i]->Draw();
-			Place(*values[i], x, y + 14);
+			Place(*values[i], x, y + 12);
 			values[i]->Draw();
 		}
 		// The controllers: needed ones first, at full strength; the ones
 		// that also work, fainter; a dot under each one that is connected.
-		const int rows = static_cast<int>((facts.size() + 1) / 2);
-		const int cy = kGridY + rows * kRowH + 4;
-		iconScale = compactControls ? 0.55f : 0.95f;
-		iconY = compactControls ? cy : cy + 18;
-		iconStart = compactControls ? kGridX + playsWith->GetTextWidth() + 12 : kGridX;
-		const int iconWidth = static_cast<int>(40 * iconScale);
-		iconStep = 46;
+		iconStart = gridX + playsWith->GetTextWidth() + 12;
+		iconStep = 40;
 		if (controls.size() > 1) {
-			const int availableWidth = kTilesRight - iconStart - iconWidth;
 			const int gaps = static_cast<int>(controls.size() - 1);
-			iconStep = std::min(iconStep, availableWidth / gaps);
+			iconStep = std::min(iconStep, (page.right - iconStart - 22) / gaps);
 		}
-		int controlBottom = 0;
 		if (!controls.empty()) {
-			Place(*playsWith, kGridX, cy);
+			Place(*playsWith, gridX, kControlY);
 			playsWith->Draw();
 			for (std::size_t i = 0; i < controls.size(); ++i) {
-				const Control& c = controls[i];
-				const float x = static_cast<float>(IconX(static_cast<int>(i)));
-				const int a = c.required ? alpha : alpha * 120 / 255;
-				// No lift on hover: the icons are read, not pressed, and the
-				// pointer's box must stay where the icon is drawn.
-				DrawScaledFromCorner(skin::ControlIcon(c.type), x, iconY, a, iconScale);
-				if (c.connected)
-					Menu_DrawRectangle(x + 40 * iconScale / 2 - 2, iconY + 40 * iconScale + 2, 4, 4,
+				const Control& control = controls[i];
+				const int x = IconX(static_cast<int>(i));
+				const int iconAlpha = control.required ? alpha : alpha * 120 / 255;
+				DrawScaledFromCorner(skin::ControlIcon(control.type), x, kControlY - 2, iconAlpha, kIconScale);
+				if (control.connected) {
+					Menu_DrawRectangle(x + 9, kControlY + 22, 4, 4,
 						skin::WithAlpha(skin::kAccent, alpha), 1);
+				}
 			}
-			// Six pixels after the connection dots and the cover, then six
-			// between text rows. Both one-group and two-group lists flow here.
-			controlBottom = static_cast<int>(iconY) + iconWidth + 6;
-			int textY = std::max(kHeroY + kHeroH + 6, controlBottom + 6);
-			for (auto& name : controlNames) {
-				Place(*name, kStoryX, textY);
-				name->Draw();
-				controlBottom = textY + kControlFont;
-				textY += kControlLineH;
+			if (!controlNames.empty()) {
+				Place(*controlNames.front(), gridX, kControlTextY);
+				controlNames.front()->Draw();
 			}
 		}
 		// The age rating: a badge in the band's top right corner.
 		if (HasRating()) {
-			const float bx = 548, by = 32, bw = 52, bh = 62;
+			const float bx = page.right - 52, by = 32, bw = 52, bh = 62;
 			skin::DrawNine(skin::card9, bx - 8, by - 8, bw + 16, bh + 16, riftwii::kCardCorner, alpha);
 			if (ratingMark.data) {
 				// The mark (64 high at most), centred on the card.
@@ -13549,30 +13582,28 @@ public:
 		}
 		// The story, a window of it at a time.
 		if (!lines.empty()) {
-			// Heading: 12 pixels high, with six pixels on either side. Keep
-			// the last 15-point story row six pixels above the prompts.
-			storyY = std::max(kStoryY, controlBottom + 6 + 12 + 6);
-			const int storyBottom = std::min(418, GuiPrompts::CardTop()) - 6;
-			storyLines = std::min(kStoryLines, 1 + (storyBottom - storyY - 15) / kLineH);
-			first = std::min(first, std::max(0, static_cast<int>(lines.size()) - storyLines));
-			Place(*storyHead, kStoryX, storyY - 18);
+			// Five fixed rows end at 402, with room for descenders and an
+			// eight-pixel gap before the controls band. Metadata never moves it.
+			Place(*storyHead, page.left, kStoryY - 18);
 			storyHead->Draw();
 			if (Scrolls() && scrollHint) {
-				Place(*scrollHint, kStoryX + storyHead->GetTextWidth() + 12, storyY - 18);
+				Place(*scrollHint, page.left + storyHead->GetTextWidth() + 12, kStoryY - 18);
 				scrollHint->Draw();
 			}
-			for (int i = 0; i < storyLines; ++i) {
+			Menu_Scissor(page.left, kStoryY - 4, storyWidth, 104);
+			for (int i = 0; i < kStoryLines; ++i) {
 				const std::size_t at = static_cast<std::size_t>(first + i);
 				shown[i]->SetText(at < lines.size() ? lines[at].c_str() : "");
-				Place(*shown[i], kStoryX, storyY + i * kLineH);
+				Place(*shown[i], page.left, kStoryY + i * kLineH);
 				shown[i]->Draw();
 			}
+			GX_SetScissor(0, 0, Menu_XfbWidth(), Menu_EfbHeight());
 			if (Scrolls()) {
-				if (first > 0) DrawScaledFromCorner(overUp ? skin::scrollUpOver : skin::scrollUp,
-					ArrowX(true), ArrowY(true), alpha, ArrowScale());
-				if (first + storyLines < static_cast<int>(lines.size()))
-					DrawScaledFromCorner(overDown ? skin::scrollDownOver : skin::scrollDown,
-						ArrowX(false), ArrowY(false), alpha, ArrowScale());
+				DrawScaledFromCorner(overUp ? skin::scrollUpOver : skin::scrollUp,
+					ArrowX(), ArrowY(true), first > 0 ? alpha : alpha / 3, kArrowScale);
+				const bool more = first + kStoryLines < static_cast<int>(lines.size());
+				DrawScaledFromCorner(overDown ? skin::scrollDownOver : skin::scrollDown,
+					ArrowX(), ArrowY(false), more ? alpha : alpha / 3, kArrowScale);
 			}
 		}
 	}
@@ -13580,7 +13611,7 @@ public:
 	void Update(GuiTrigger* t) override
 	{
 		if (!t) return;
-		const int most = std::max(0, static_cast<int>(lines.size()) - storyLines);
+		const int most = std::max(0, static_cast<int>(lines.size()) - kStoryLines);
 		if (t->Down() && first < most) ++first;
 		if (t->Up() && first > 0) --first;
 		if (!t->wpad || !t->wpad->ir.valid) {
@@ -13591,10 +13622,10 @@ public:
 		hoverControl = -1;
 		for (int i = 0; i < static_cast<int>(controls.size()); ++i) {
 			const int x = IconX(i);
-			if (px >= x && px < x + 40 * iconScale && py >= iconY && py < iconY + 40 * iconScale) hoverControl = i;
+			if (px >= x && px < x + 40 * kIconScale && py >= kControlY - 2 && py < kControlY - 2 + 40 * kIconScale) hoverControl = i;
 		}
 		overUp = first > 0 && OverArrow(px, py, true);
-		overDown = first + storyLines < static_cast<int>(lines.size()) && OverArrow(px, py, false);
+		overDown = first + kStoryLines < static_cast<int>(lines.size()) && OverArrow(px, py, false);
 		if (t->wpad->btns_d & (WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A)) {
 			if (overUp && first > 0) --first;
 			if (overDown && first < most) ++first;
@@ -13602,21 +13633,12 @@ public:
 	}
 
 private:
-	static constexpr int kArrowX = 572;
-	// With one or two story rows the full-size arrows would overlap.
-	float ArrowScale() const { return storyLines <= 2 ? 0.5f : 1.0f; }
-	int ArrowX(bool up) const {
-		if (storyLines <= 2) return up ? kArrowX - 6 : kArrowX + 17;
-		return kArrowX - 4;
-	}
-	int ArrowY(bool up) const {
-		if (storyLines <= 2) return storyY - 2;
-		return up ? storyY - 6 : storyY + storyLines * kLineH - 30;
-	}
+	static constexpr float kIconScale = 0.55f, kArrowScale = 0.8f;
+	int ArrowX() const { return page.right - 30; }
+	static int ArrowY(bool up) { return up ? 306 : 364; }
 	bool OverArrow(int x, int y, bool up) const {
-		const skin::Tex& arrow = up ? skin::scrollUp : skin::scrollDown;
-		return Scrolls() && x >= ArrowX(up) && x < ArrowX(up) + arrow.w * ArrowScale() &&
-			y >= ArrowY(up) && y < ArrowY(up) + arrow.h * ArrowScale();
+		return Scrolls() && x >= ArrowX() && x < ArrowX() + 28 &&
+			y >= ArrowY(up) && y < ArrowY(up) + 28;
 	}
 	static std::string Upper(std::string text)
 	{
@@ -13625,29 +13647,11 @@ private:
 		return text;
 	}
 	int IconX(int i) const { return iconStart + i * iconStep; }
-	bool Scrolls() const { return static_cast<int>(lines.size()) > storyLines; }
-	// The story in lines as wide as the column, measured in the menu's
-	// font, a word at a time.
+	bool Scrolls() const { return static_cast<int>(lines.size()) > kStoryLines; }
+	// Measure in the active menu font, including text without spaces.
 	void WrapStory(const std::string& text)
 	{
-		GuiText measure("", 15, skin::kInkSoft);
-		std::string line;
-		std::size_t i = 0;
-		while (i < text.size()) {
-			std::size_t j = text.find(' ', i);
-			if (j == std::string::npos) j = text.size();
-			const std::string word = text.substr(i, j - i);
-			const std::string tryLine = line.empty() ? word : line + " " + word;
-			measure.SetText(tryLine.c_str());
-			if (!line.empty() && measure.GetTextWidth() > kStoryW) {
-				lines.push_back(line);
-				line = word;
-			} else {
-				line = tryLine;
-			}
-			i = j + 1;
-		}
-		if (!line.empty()) lines.push_back(line);
+		lines = ChunksFitting(text, storyWidth, 15, text.size());
 	}
 
 	std::vector<Fact> facts;
@@ -13657,14 +13661,12 @@ private:
 	std::vector<std::unique_ptr<GuiText>> names, values, shown, controlNames;
 	std::unique_ptr<GuiText> playsWith, storyHead, ratingTxt, systemTxt;
 	std::unique_ptr<GuiText> scrollHint;
-	bool compactControls = false;
-	int iconStart = kGridX, iconStep = 46;
-	float iconScale = 0.95f;
-	int storyY = kStoryY, storyLines = kStoryLines;
+	PageBounds page;
+	int gridX = 0, columnWidth = 0, storyWidth = 0;
+	int iconStart = 0, iconStep = 40;
 	std::vector<std::string> lines;
 	int first = 0;
 	int hoverControl = -1;
-	float iconY = 0;
 	bool overUp = false, overDown = false;
 };
 
@@ -13722,9 +13724,12 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 		}
 	}
 
+	const PageBounds page = WidePageBounds();
+	const int titleX = page.left + 132;
 	const bool fromDisc = !state.use_usb && !state.use_sd && !state.use_channel;
 	GameBanner banner(skin::HueFor(state.game_id), state.game_id, fromDisc, PageCoverName(state));
 	HeroCover hero(state.game_id, PageCoverName(state), fromDisc, skin::HueFor(state.game_id), state.use_channel);
+	hero.MoveTo(page.left, kHeroY, 0.78f);
 	const skin::Tex& ratingMark = riftwii::wii::RatingBadge(info.rating_system, info.rating);
 	AboutBody body(facts, controls, info.rating, info.rating_system, ratingMark,
 		riftwii::plain_punctuation(info.synopsis));
@@ -13735,13 +13740,13 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 	GuiText whereTxt(overline.c_str(), 13, (GXColor){225, 228, 235, 255});
 	const std::string title = GameOwnTitle(state);
 	hero.SetMadeUpName(title, riftwii::emulator_cover_id(state.game_id) ? std::string() : state.game_id);
-	const int titleRoom = kTilesW - (body.HasRating() ? 70 : 0);
+	const int titleRoom = page.right - titleX - (body.HasRating() ? 70 : 0);
 	GuiText titleTxt(title.c_str(), 28, skin::kWhite);
 	int titleSize = 28;
 	while (titleSize > 20 && titleTxt.GetTextWidth() > titleRoom) titleTxt.SetFontSize(--titleSize);
 	if (titleTxt.GetTextWidth() > titleRoom) titleTxt.SetWrap(true, titleRoom, 2);
-	OutlinedText whereOutlined(whereTxt, kTilesX + 1, 34, (GXColor){225, 228, 235, 255}, 1, 1);
-	OutlinedText titleOutlined(titleTxt, kTilesX, 52, skin::kWhite, 2, 2);
+	OutlinedText whereOutlined(whereTxt, titleX + 1, 34, (GXColor){225, 228, 235, 255}, 1, 1);
+	OutlinedText titleOutlined(titleTxt, titleX, 52, skin::kWhite, 2, 2);
 
 	// The line at the foot: where the details come from, or the control
 	// the pointer is on.
@@ -13754,7 +13759,7 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 		sourceLine = tr("Game details of {1}", {date}) + " \xC2\xB7 GameTDB";
 	}
 	GuiText footTxt(sourceLine.c_str(), 14, skin::kInkDim);
-	Place(footTxt, 40, 428);
+	Place(footTxt, page.left, 424);
 	footTxt.SetMaxWidth(300);
 
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
@@ -13762,8 +13767,10 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 	HideButton(backBtn);
 	GuiPrompts prompts;
 	const int promptBack = prompts.Add("B", tr("Back"));
+	prompts.SetRightEdge(page.right);
 	const bool online = riftwii::wii::Settings().online;
 	const int promptUpdate = online ? prompts.Add("-", tr("Update")) : -1;
+	footTxt.SetMaxWidth(std::max(60, prompts.LeftEdge() - page.left - 16));
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
@@ -15330,6 +15337,10 @@ enum class GameTile { Play, Mods, Cheats, Saves, Favorite, Options, About, Cover
 static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& tiles, std::vector<GameTile>& what,
 	bool disc = false)
 {
+	const PageBounds page = WidePageBounds();
+	const int heroX = page.left;
+	const int tilesX = heroX + kHeroW + 12;
+	const int tilesWidth = page.right - tilesX;
 	tiles.clear();
 	what.clear();
 	const auto add = [&](GameTile kind, int x, int y, int w, int h, const std::string& label, const std::string& value,
@@ -15344,17 +15355,19 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 		t.icon = icon;
 		t.on = on;
 		t.primary = kind == GameTile::Play;
+		t.opensPage = kind == GameTile::Mods || kind == GameTile::Cheats || kind == GameTile::Saves ||
+			kind == GameTile::Options || kind == GameTile::About;
 		tiles.push_back(t);
 		what.push_back(kind);
 	};
 	const auto addCover = [&] {
 		if (state.game_id.empty()) return;
-		add(GameTile::Cover, kHeroX, kHeroY, kHeroW, kHeroH, "", "", nullptr, false);
+		add(GameTile::Cover, heroX, kHeroY, kHeroW, kHeroH, "", "", nullptr, false);
 		tiles.back().hidden = true;
 		// The disc under the box (drawn by HeroCover): A on it shows it
 		// up close.
 		if (disc) {
-			add(GameTile::Disc, kHeroX, kHeroDiscY, kHeroDiscSize, kHeroDiscSize, "", "", nullptr, false);
+			add(GameTile::Disc, heroX, kHeroDiscY, kHeroDiscSize, kHeroDiscSize, "", "", nullptr, false);
 			tiles.back().hidden = true;
 		}
 	};
@@ -15391,46 +15404,48 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 	}
 
 	// The lower rows: two tiles across the tiles' width, 12 apart.
-	constexpr int kHalfW = (kTilesW - 12) / 2, kRightX = kTilesRight - kHalfW;
+	const int halfWidth = (tilesWidth - 12) / 2;
+	const int rightX = page.right - halfWidth;
 	if (state.use_channel) {
 		// A WiiWare or Virtual Console game: no packs are made for them,
 		// and its saves stay where the Wii keeps them. Play across the
 		// row, the cheats and the game's settings under it.
-		add(GameTile::Play, kTilesX, 132, kTilesRight - kTilesX, 84, tr("Play"), "", &skin::iconPlay, false);
-		add(GameTile::Cheats, kTilesX, 228, kHalfW, 70, tr("Cheats"), cheats, &skin::iconCheats,
+		add(GameTile::Play, tilesX, 132, page.right - tilesX, 84, tr("Play"), "", &skin::iconPlay, false);
+		add(GameTile::Cheats, tilesX, 228, halfWidth, 58, tr("Cheats"), cheats, &skin::iconCheats,
 			game.cheats && !game.cheat_names.empty());
-		add(GameTile::Saves, kRightX, 228, kHalfW, 70, tr("Boot"), ChannelBootLabel(game.nand_source),
+		add(GameTile::Saves, rightX, 228, halfWidth, 58, tr("Boot"), ChannelBootLabel(game.nand_source),
 			&skin::iconSaves, game.nand_source != "auto");
-		add(GameTile::Options, kTilesX, 310, kHalfW, 70, tr("Options"),
+		add(GameTile::Options, tilesX, kFavoriteY, halfWidth, kFavoriteH, tr("Options"),
 			changed == 0 ? tr("Default") : tr("{1} changed", {std::to_string(changed)}), &skin::iconGear, changed != 0);
-		add(GameTile::Favorite, kHeroX, 310, kHeroW, 70, tr("Favourite"), favorite ? tr("On") : tr("Off"),
+		add(GameTile::Favorite, heroX, kFavoriteY, kHeroW, kFavoriteH, tr("Favourite"), favorite ? tr("On") : tr("Off"),
 			favorite ? &skin::iconStarOn : &skin::iconStar, favorite);
-		add(GameTile::About, kRightX, 310, kHalfW, 70, tr("Manage game"), "", &skin::iconGear, false);
+		add(GameTile::About, rightX, kFavoriteY, halfWidth, kFavoriteH, tr("Manage game"), "", &skin::iconGear, false);
 		addCover();
 		return;
 	}
-	add(GameTile::Play, kTilesX, 132, 252, 84, play, playValue, &skin::iconPlay, false);
+	const int playWidth = 252 + (tilesWidth - kTilesW) / 2;
+	add(GameTile::Play, tilesX, 132, playWidth, 84, play, playValue, &skin::iconPlay, false);
 	// "On" alone: the tile is narrow ("1 switched on" was cut to "1 switc..."),
 	// and Play beside it says how many.
-	add(GameTile::Mods, kTilesX + 264, 132, kTilesRight - kTilesX - 264, 84, tr("Mods"),
+	add(GameTile::Mods, tilesX + playWidth + 12, 132, tilesWidth - playWidth - 12, 84, tr("Mods"),
 		shown == 0 ? tr("None") : enabled == 0 ? tr("Off") : tr("On"),
 		&skin::iconMods, enabled != 0);
-	add(GameTile::Cheats, kTilesX, 228, kHalfW, 70, tr("Cheats"), cheats, &skin::iconCheats,
+	add(GameTile::Cheats, tilesX, 228, halfWidth, 58, tr("Cheats"), cheats, &skin::iconCheats,
 		game.cheats && !game.cheat_names.empty());
-	add(GameTile::Saves, kRightX, 228, kHalfW, 70, tr("Saves"), saves, &skin::iconSaves,
+	add(GameTile::Saves, rightX, 228, halfWidth, 58, tr("Saves"), saves, &skin::iconSaves,
 		!gamecube && (!CtgprSaveFolder(state).empty() || riftwii::wii::EffectiveSaveMode(state) != "nand"));
 	// A full card is a warning, in the theme's colour for one.
 	tiles.back().warn = cardFull;
 	if (disc) {
-		add(GameTile::Favorite, kStarX, kFavoriteY, kStarW, kFavoriteH, "", "",
+		add(GameTile::Favorite, heroX + kHeroDiscSize + 8, kFavoriteY, kStarW, kFavoriteH, "", "",
 			favorite ? &skin::iconStarOn : &skin::iconStar, favorite);
 	} else {
-		add(GameTile::Favorite, kHeroX, kFavoriteY, kHeroW, kFavoriteH, tr("Favourite"), favorite ? tr("On") : tr("Off"),
+		add(GameTile::Favorite, heroX, kFavoriteY, kHeroW, kFavoriteH, tr("Favourite"), favorite ? tr("On") : tr("Off"),
 			favorite ? &skin::iconStarOn : &skin::iconStar, favorite);
 	}
-	add(GameTile::Options, kTilesX, 310, kHalfW, 70, tr("Options"),
+	add(GameTile::Options, tilesX, kFavoriteY, halfWidth, kFavoriteH, tr("Options"),
 		changed == 0 ? tr("Default") : tr("{1} changed", {std::to_string(changed)}), &skin::iconGear, changed != 0);
-	add(GameTile::About, kRightX, 310, kHalfW, 70, tr("Manage game"), "", &skin::iconGear, false);
+	add(GameTile::About, rightX, kFavoriteY, halfWidth, kFavoriteH, tr("Manage game"), "", &skin::iconGear, false);
 	addCover();
 }
 
@@ -16010,7 +16025,7 @@ static bool MenuManageGame(FrontendState& state)
 		}
 		build();
 		return false;
-	});
+	}, true);
 }
 
 static int MenuHome(FrontendState& state)
@@ -16063,9 +16078,13 @@ static int MenuHome(FrontendState& state)
 	// A console's game page: the game's box on the left, over the band's
 	// edge; its name and a line of facts in the band; tiles to the right,
 	// Play first and largest. All inside a TV's overscan.
+	const PageBounds page = WidePageBounds();
+	const int tilesX = page.left + kHeroW + 12;
+	const int tilesWidth = page.right - tilesX;
 	const bool fromDisc = !state.use_usb && !state.use_sd && !state.use_channel;
 	GameBanner banner(skin::HueFor(state.game_id), state.game_id, fromDisc, PageCoverName(state));
 	HeroCover hero(state.game_id, PageCoverName(state), fromDisc, skin::HueFor(state.game_id), state.use_channel);
+	hero.MoveTo(page.left, kHeroY, 1.0f);
 	if (discArt.data) hero.SetDisc(&discArt);
 	// The band's text, as a store page heads a game: where it is as a small
 	// capital overline, the name large (as large as fits on one line, two
@@ -16086,12 +16105,12 @@ static int MenuHome(FrontendState& state)
 		titleTxt.SetWrap(false);
 		titleTxt.SetFontSize(28);
 		int titleSize = 28;
-		while (titleSize > 22 && titleTxt.GetTextWidth() > kTilesW) titleTxt.SetFontSize(--titleSize);
+		while (titleSize > 22 && titleTxt.GetTextWidth() > tilesWidth) titleTxt.SetFontSize(--titleSize);
 		// A long name gets two smaller lines and moves the facts below it.
-		const bool wraps = titleTxt.GetTextWidth() > kTilesW;
+		const bool wraps = titleTxt.GetTextWidth() > tilesWidth;
 		if (wraps) {
 			titleTxt.SetFontSize(19);
-			titleTxt.SetWrap(true, kTilesW, 2);
+			titleTxt.SetWrap(true, tilesWidth, 2);
 		}
 		return wraps;
 	};
@@ -16101,16 +16120,16 @@ static int MenuHome(FrontendState& state)
 	const std::string facts = GameFacts(state);
 	g_gamePageTiming.Step("checking cached game information");
 	GuiText factsTxt(facts.c_str(), 15, kFactsInk);
-	factsTxt.SetMaxWidth(kTilesW);
-	OutlinedText whereOutlined(whereTxt, kTilesX + 1, kWhereY, kWhereInk, 1, 1);
-	OutlinedText titleOutlined(titleTxt, kTilesX, titleY, skin::kWhite, 2, 2);
-	OutlinedText factsOutlined(factsTxt, kTilesX, factsY, kFactsInk, 1, 1);
+	OutlinedText whereOutlined(whereTxt, tilesX + 1, kWhereY, kWhereInk, 1, 1);
+	OutlinedText titleOutlined(titleTxt, tilesX, titleY, skin::kWhite, 2, 2);
+	OutlinedText factsOutlined(factsTxt, tilesX, factsY, kFactsInk, 1, 1);
+	factsOutlined.SetMarquee(tilesWidth);
 
 	const auto refreshTitle = [&] {
 		titleTxt.SetText(GameTitle(state).c_str());
 		const bool wraps = sizeTitle();
-		titleOutlined.MoveTo(kTilesX, wraps ? 44 : 48);
-		factsOutlined.MoveTo(kTilesX, wraps ? 92 : 86);
+		titleOutlined.MoveTo(tilesX, wraps ? 44 : 48);
+		factsOutlined.MoveTo(tilesX, wraps ? 92 : 86);
 	};
 
 	if (riftwii::wii::g_gxWatch) logf("Game page: texts made\n");
@@ -16136,7 +16155,8 @@ static int MenuHome(FrontendState& state)
 	GuiPrompts prompts;
 	// B first: Back at the right end, as on every other page, then Select.
 	const int promptBack = prompts.Add("B", tr("Back"));
-	prompts.Add("A", tr("Select"));
+	prompts.Add("A", tr("Select"), false);
+	prompts.SetRightEdge(page.right);
 	// The same words as the Play tile: Build and play while the game is still
 	// to be made from its patch (rebuildTiles keeps it so).
 	const int promptPlay = prompts.Add("+", SelectedGcPatch(state) ? tr("Build and play") : tr("Play"));
@@ -16146,9 +16166,12 @@ static int MenuHome(FrontendState& state)
 	SkinButton reportBtn(skin::pill, skin::pillOver, 4, 0, 0, nullptr,
 		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X);
 	HideButton(reportBtn);
-	// Two lines over the prompts: a cIOS remedy or a compile error must
-	// stay readable in full. The second line is cut short of the prompts.
-	PromptsNote statusTxt(prompts, 40, 392, 568, 2, 15, skin::kInkSoft);
+	// Both help lines fit above the controls band, even at 4:3. Longer
+	// errors and translated help scroll through this same two-line area.
+	GuiText statusTxt("", 15, skin::kInkSoft);
+	Place(statusTxt, page.left, 362);
+	statusTxt.SetWrap(true, page.Width(), 2);
+	statusTxt.SetScroll(SCROLL::VERTICAL);
 	// Dump (a development aid) has no button: the Wii Remote's 2 or a
 	// GameCube pad's Z.
 	GuiTrigger trigDump;
@@ -16202,7 +16225,7 @@ static int MenuHome(FrontendState& state)
 	// GUI draws, set with the GUI halted, as the GUI thread reads the text.
 	const std::string modsNote = ModsNote(state, scanStatus);
 	HaltGui();
-	statusTxt.SetText(modsNote);
+	statusTxt.SetText(modsNote.c_str());
 	ResumeGui();
 	// Settings > Banner music on game pages: the game's banner sound, as
 	// the Channels view's banner screen plays it, for a page opened from
@@ -16273,7 +16296,7 @@ static int MenuHome(FrontendState& state)
 	std::string boxStartName = pageBoxWanted();
 	bool boxStart = !boxStartName.empty();
 
-	const auto say = [&](const std::string& text) { statusTxt.SetText(text); };
+	const auto say = [&](const std::string& text) { statusTxt.SetText(text.c_str()); };
 	// After About or Mods the tile may match another GameTDB entry: its own
 	// cover is asked for as at page entry, when no fetch is waiting.
 	const auto askTileCover = [&](const std::string& tileCover) {
@@ -16369,6 +16392,7 @@ static int MenuHome(FrontendState& state)
 		tileGrid.Refresh();
 		lightHero();
 		factsTxt.SetText(GameFacts(state).c_str());
+		factsOutlined.ResetMarquee();
 		prompts.SetAction(promptPlay, SelectedGcPatch(state) ? tr("Build and play") : tr("Play"));
 	};
 	bool discStart = discArtOn && !hero.HasDisc() && riftwii::wii::Settings().online && !riftwii::wii::NetFailed() &&
@@ -20264,6 +20288,7 @@ static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
 		t.label = sections[i].id == SettingsSection::Count ? std::string(tr("Exit")) : SectionName(sections[i].id);
 		t.value = sections[i].value;
 		t.icon = sections[i].icon;
+		t.opensPage = true;
 		tilesSpec.push_back(t);
 	}
 
@@ -20281,7 +20306,7 @@ static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
 	HideButton(backBtn);
 	GuiPrompts prompts;
 	const int promptBack = prompts.Add("B", tr("Back"));
-	prompts.Add("A", tr("Open"));
+	prompts.Add("A", tr("Open"), false);
 	// Three lines; the third is cut short of the prompts.
 	PromptsNote noteTxt(prompts, 40, 360, 560, 3, 16, skin::kInkSoft);
 

@@ -38,10 +38,12 @@ bool Tall(const TileSpec& s) { return s.h >= 100; }
 
 }  // namespace
 
-GuiTiles::GuiTiles() {
+GuiTiles::GuiTiles() : chevron(">", 18, skin::kInkDim) {
     width = screenwidth;
     height = screenheight;
     selectable = true;
+    chevron.SetParent(this);
+    chevron.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
     soundOver = new GuiSound(button_over_pcm, button_over_pcm_size, SOUND::PCM);
     soundClick = new GuiSound(button_click_pcm, button_click_pcm_size, SOUND::PCM);
 }
@@ -151,7 +153,8 @@ void GuiTiles::Layout(int i) {
         // raised to look centred on the tile and its icon (About, Exit).
         if (!hasValue) labelY -= 3;
     }
-    const int room = s.x + s.w - kPad - textX;
+    const int chevronRoom = s.opensPage ? 18 : 0;
+    const int room = s.x + s.w - kPad - textX - chevronRoom;
     // A long name (a translation) steps down to 15 points before "..." cuts it.
     int size = s.primary ? 26 : 20;
     for (; size > 15; --size) {
@@ -210,7 +213,9 @@ void GuiTiles::Draw() {
         f32 safeX, safeW;
         Menu_SafeArea(&safeX, &safeW);
         // At an outer edge the growth goes inward, including its shadow.
-        const float x = std::clamp(s.x - (w - s.w) / 2, safeX + 32 + kShadow, safeX + safeW - 32 - kShadow - w);
+        const float safeLeft = safeX + safeW * 0.05f + kShadow;
+        const float safeRight = safeX + safeW * 0.95f - kShadow;
+        const float x = std::clamp(s.x - (w - s.w) / 2, safeLeft, safeRight - w);
         const float y = std::clamp(s.y - (h - s.h) / 2, 24.0f + kShadow, 456.0f - kShadow - h);
         const skin::Tex& base = s.primary ? skin::tile9Primary : skin::tile9;
         const skin::Tex& over = s.primary ? skin::tile9PrimaryOver : skin::tile9Over;
@@ -233,6 +238,11 @@ void GuiTiles::Draw() {
         label[i]->SetScroll(i == lit ? SCROLL::HORIZONTAL : SCROLL::NONE);
         label[i]->Draw();
         if (!s.value.empty()) value[i]->Draw();
+        if (s.opensPage) {
+            chevron.SetColor(s.dim ? skin::kInkDim : skin::kInkSoft);
+            chevron.SetPosition(s.x + s.w - kPad - 10, s.y + (s.h - 22) / 2 - 2);
+            chevron.Draw();
+        }
         Menu_PopCamera();
     }
     UpdateEffects();
