@@ -129,7 +129,10 @@ Two scripts on the card drive a run without hands on a controller:
   path> <sd path>`, `keep <disc path>`, `hook`, `nofallback`, `boot`,
   `launch`, `channelread <16-digit-title>` (reads a channel's program,
   ticket and certificates as a launch does, without starting it) and
-  `channelboot <16-digit-title>` (reads them and starts the channel).
+  `channelboot <16-digit-title>` (reads them and starts the channel),
+  `returncopy <sd:/folder> <16-digit-title>` (copies the return channel
+  and the IOS it starts on into that emulated NAND, as a launch from it
+  does).
   `test_channel_layout` checks the channel's SD header overlay using
   synthetic one- and two-partition tables, without changing a game image.
   The driver is in the test build only:

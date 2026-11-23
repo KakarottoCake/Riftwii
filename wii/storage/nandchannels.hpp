@@ -69,12 +69,14 @@ bool emu_channel_program_present(const std::string& folder, std::uint64_t title_
 bool prepare_wad_nand_system(const std::string& folder, std::string& error);
 
 // Copies the channel `title` (RiftWii's own, the return title) from this
-// Wii into the emulated NAND `folder` (sd:/...) unless its program is there
+// Wii into the emulated NAND `folder` (sd:/...) unless it is there
 // already: its TMD, ticket and own contents, and its entry in the
-// ownership list. Under d2x's emulation of the whole NAND, "Wii Menu" from
-// a game starts the return title from that folder; without it there, a
-// vWii fell back to the Wii U's menu. False with `error` in a sentence;
-// nothing half-written is left as a playable title (the TMD goes last).
+// ownership list, then the IOS its TMD names (with its shared contents).
+// Under d2x's emulation of the whole NAND, "Wii Menu" from a game starts
+// the return title from that folder, and the IOS from there too; without
+// the channel a vWii fell back to the Wii U's menu, without the IOS it
+// stopped on a black screen. False with `error` in a sentence; nothing
+// half-written is left as a whole title (each TMD goes last).
 bool copy_return_channel_to_emu_nand(const std::string& folder, std::uint64_t title, std::string& error);
 
 // The whole banner file (content index 0), for the Channels view's banner

@@ -357,6 +357,15 @@ void RunAutorun() {
                     if (reload_terminal_failure()) halt_after_terminal_reload();
                 }
             }
+        } else if (cmd == "returncopy") {
+            // The way back's copy into an emulated NAND (the channel, then its
+            // IOS), as a launch from one makes it: returncopy <sd:/folder> <title>.
+            std::string folder, title_text;
+            words.next(folder);
+            words.next(title_text);
+            const u64 title = std::strtoull(title_text.c_str(), nullptr, 16);
+            ok = copy_return_channel_to_emu_nand(folder, title, error);
+            if (ok) logf("  the channel and its IOS are in %s\n", folder.c_str());
         } else if (cmd == "netscan") {
             // The network packs' list, as the menu's scan fetches it.
             const std::string line = RefreshNetworkPacks(nullptr);
