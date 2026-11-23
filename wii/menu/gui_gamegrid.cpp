@@ -61,7 +61,6 @@ constexpr int kCoverTitleSize = 13;  // covers: a tile without a cover
 constexpr int kCaptionSize = 18;     // covers: the lit game's name
 constexpr int kCaptionY = 266;
 constexpr int kShelfCaptionY = 276;  // under the shelf (wii/menu/gui_shelf.cpp)
-constexpr int kChannelLabelSize = 15;  // channels: the lit icon's name
 constexpr int kTextLeft = 11;
 constexpr int kCoverTextLeft = 6;
 // Everything on Home stays inside a TV's overscan: 5% of the screen in from
@@ -345,7 +344,7 @@ float GuiGameGrid::CoverScale() const {
 const GuiGameGrid::Geometry& GuiGameGrid::Geo() const {
     // The top row leaves room above it for the grown ring and its shadow.
     // 120 x 84, the Wii Menu's channel shape (about 1.43 to 1 on a 4:3
-    // menu); clear of the search button (x 568).
+    // menu).
     static const Geometry names = {kNameCols, 120, 84, 61, 36, 13, 12};  // channels: channelGeo
     // Roomy: 9/10 the size and 18 apart, about 77 at each side, the rows
     // centred where the normal ones are.
@@ -388,7 +387,14 @@ const GuiGameGrid::Geometry& GuiGameGrid::Geo() const {
     return stretched;
 }
 
-int GuiGameGrid::CoverCaptionY() const { return std::max(kCaptionY, TileY(kPerPage - 1) + Geo().tileH + 8); }
+int GuiGameGrid::CoverCaptionY() const {
+    // Under the channels' taller grid, 4 under it: centred between the
+    // tiles and the clock (8 under left it 4 nearer the clock).
+    // From the last row's resting place, not where a carried tile is now:
+    // carried down to the bar it took the caption off the screen.
+    const int gap = channels ? 4 : 8;
+    return std::max(kCaptionY, BaseY(kPerPage - 1) + Geo().tileH + gap);
+}
 
 int GuiGameGrid::ArrowX(int dir) const {
     // At the safe area's edges, which a widescreen Channels view widens.
@@ -669,15 +675,14 @@ void GuiGameGrid::TurnPage(int delta) {
         // Down past the lit game's name under the covers, all of it: an
         // edge across it showed the old name's top over the new one's foot.
         const float bottom = static_cast<float>(
-            std::max(TileY(kPerPage - 1) + Geo().tileH + 30, covers ? CoverCaptionY() + kCaptionSize + 14 : 0));
+            std::max(TileY(kPerPage - 1) + Geo().tileH + 30, covers || channels ? CoverCaptionY() + kCaptionSize + 14 : 0));
         // Across the tiles' columns only (their lit edge included): the
-        // search button above the last column and the page arrows stay
-        // out, or the sliding picture took a copy of them along (a
-        // tester saw the magnifier's ghost).
+        // page arrows stay out, or the sliding picture took a copy of them
+        // along (a tester saw a button's ghost).
         const Geometry& g = Geo();
         const float left = std::max({vx, static_cast<float>(g.left - 12), static_cast<float>(ArrowX(-1) + 44)});
         const float right = std::min({vx + vw, static_cast<float>(g.left + cols * g.tileW + (cols - 1) * g.gapX + 12),
-                                      static_cast<float>(ArrowX(1))});  // the right arrow and the search button start here
+                                      static_cast<float>(ArrowX(1))});  // the right arrow starts here
         riftwii::wii::transition::Begin(delta > 0 ? riftwii::wii::transition::Kind::PageForward
                                                   : riftwii::wii::transition::Kind::PageBack,
                                         riftwii::wii::transition::Rect{left, top, right - left, bottom - top});
@@ -712,13 +717,9 @@ int GuiGameGrid::SlotAt(int x, int y) const {
 }
 
 int GuiGameGrid::ArrowAt(int x, int y) const {
-    // Covers' top row starts at y 38, beside Home's Layout and Search
-    // buttons in the top corners (y 24 to 64, rift_menu.cpp): the side
-    // pages' band starts under them, or one press both turned the page and
-    // opened the button's picker. Channels keep those buttons in the bar.
-    constexpr int kCornerButtonsBottom = 64;
-    const int bandTop = covers ? std::max(TileY(0), kCornerButtonsBottom) : TileY(0);
-    if (PagePeek() && y >= bandTop && y < TileY(kPerPage - 1) + Geo().tileH) {
+    // The side pages' band runs the tiles' height (Layout and Search are
+    // on the bar, under it).
+    if (PagePeek() && y >= TileY(0) && y < TileY(kPerPage - 1) + Geo().tileH) {
         // A neighbouring page's column is its arrow, from the screen's edge
         // to the page's own columns.
         const Geometry& g = Geo();
@@ -914,10 +915,28 @@ void GuiGameGrid::DrawCoverTile(int index, Slot* text, float x, float y, float s
     // and shadow, the cover's size, ringed it (plain on a white Wii cover's
     // edge). The card stays for the lit tile's ring and under a tile with
     // no cover.
-    const skin::Tex& frame = skin::coverTile;
-    if (on || (!cover && !madeUp)) skin::Draw(frame, cx - frame.w / 2.0f, cy - frame.h / 2.0f, alpha, scale * kCoverScale);
-    if (on) skin::Draw(skin::coverTileOver, cx - frame.w / 2.0f, cy - frame.h / 2.0f,
-                       static_cast<int>(alpha * riftwii::wii::transition::Pulse()), scale * kCoverScale);
+    //
+    // The card pictures (cover_tile, cover_tile_over) are a cover-sized card
+    // 7 in from their edges, padded 2 more on the right and at the foot to a
+    // texture's multiple of 4: their middle is the card's plus a pixel each
+    // way. The lit card's ring is drawn just inside the card's edge; at the
+    // cover's size the cover hid it, and a pixel off its middle only its
+    // top and left showed. Lit, the card is drawn a ring's width larger all
+    // round, so the ring shows whole, just outside the cover.
+    constexpr float kCardPadding = 1.0f;  // the picture's middle past the card's
+    constexpr float kRingWidth = 2.5f;    // as skinpaint.cpp's Card() draws it
+    const auto draw_card = [&](const skin::Tex& t, int cardAlpha, bool ringOutside) {
+        if (!t.data || cardAlpha <= 0) return;
+        const float k = scale * kCoverScale;
+        const float kx = ringOutside ? k * riftwii::kCoverWidth / (riftwii::kCoverWidth - 2 * kRingWidth) : k;
+        const float ky = ringOutside ? k * riftwii::kCoverHeight / (riftwii::kCoverHeight - 2 * kRingWidth) : k;
+        // Menu_DrawImg scales about the picture's middle: put the card's on
+        // the tile's.
+        Menu_DrawImg(cx + kCardPadding * kx - t.w / 2.0f, cy + kCardPadding * ky - t.h / 2.0f, static_cast<u16>(t.w),
+                     static_cast<u16>(t.h), t.data, 0, kx, ky, static_cast<u8>(cardAlpha > 255 ? 255 : cardAlpha));
+    };
+    if (on || (!cover && !madeUp)) draw_card(skin::coverTile, alpha, on);
+    if (on) draw_card(skin::coverTileOver, static_cast<int>(alpha * riftwii::wii::transition::Pulse()), true);
     if (madeUp) {
         riftwii::wii::DrawMadeUpCover(madeUp, cx - riftwii::kCoverWidth / 2.0f, cy - riftwii::kCoverHeight / 2.0f, alpha,
                                       scale * kCoverScale);
@@ -1023,38 +1042,6 @@ void GuiGameGrid::DrawProfilePicture(int slot, float scale, int alpha) {
     // Menu_DrawImg scales about the picture's middle: put it on the square's.
     Menu_DrawImg(x + size / 2 - pictureSide / 2.0f, y + size / 2 - pictureSide / 2.0f, static_cast<u16>(pictureSide),
                  static_cast<u16>(pictureSide), const_cast<u8*>(picture), 0, k, k, static_cast<u8>(alpha));
-}
-
-void GuiGameGrid::DrawChannelLabel(int slot, int alpha) {
-    const int shown = ItemAt(slot);
-    if (shown != captionFor) {
-        captionFor = shown;
-        measure->SetFontSize(kChannelLabelSize);
-        caption->SetFontSize(kChannelLabelSize);
-        caption->SetText(Fit((*items)[shown].title, 220).c_str());
-        measure->SetFontSize(kTitleSize);
-    }
-    // A pill under the tile, overlapping its foot, as the Wii Menu labels
-    // a channel; inside a TV's overscan.
-    const int textW = caption->GetTextWidth();
-    const int boxW = textW + 28, boxH = 28;
-    int x = TileX(slot) + Geo().tileW / 2 - boxW / 2;
-    // Kept inside the TV's overscan (5% in from each side) of the menu as it
-    // is shown: a widescreen menu's sides are past the 4:3 middle's 32 and
-    // 608, and its outer columns' labels stay under their tiles.
-    f32 safeX, safeW;
-    Menu_SafeArea(&safeX, &safeW);
-    const int safeLeft = static_cast<int>(safeX + safeW * 0.05f);
-    const int safeRight = static_cast<int>(safeX + safeW * 0.95f);
-    x = x < safeLeft ? safeLeft : x + boxW > safeRight ? safeRight - boxW : x;
-    const int y = TileY(slot) + Geo().tileH - 8;
-    const int m = riftwii::kLabelMargin;
-    skin::DrawNine(skin::label9, x - m, y - m, boxW + 2 * m, boxH + 2 * m, riftwii::kLabelCorner, alpha);
-    // The caption is centred on the screen's middle: move it to the box's.
-    // The font's letters sit low in their line: one up looks centred.
-    caption->SetPosition(x + boxW / 2 - screenwidth / 2, y + (boxH - kChannelLabelSize) / 2 - 2);
-    caption->SetAlpha(alpha);
-    caption->Draw();
 }
 
 // Both grids share the sliding strip and its side columns. Names and the
@@ -1320,8 +1307,8 @@ void GuiGameGrid::Draw() {
         if (!on && s.scale < 1.002f) s.scale = 1.0f;  // settled: a channel's icon back on whole pixels
         const int index = ItemAt(i);  // with a game picked up, the tiles shifted round it
         const int a = peek ? PeekAlpha(TileX(i), alpha) : tileAlpha;
-        iconShown[i] = channels && iconDrawer && DrawChannelTile(index, TileX(i), TileY(i), s.scale, on, a);
-        if (iconShown[i]) return;
+        const bool iconShown = channels && iconDrawer && DrawChannelTile(index, TileX(i), TileY(i), s.scale, on, a);
+        if (iconShown) return;
         if (covers) DrawCoverTile(index, &s, TileX(i), TileY(i), s.scale, on, a);
         else DrawNameTile(index, s, TileX(i), TileY(i), on, a);
     };
@@ -1341,10 +1328,10 @@ void GuiGameGrid::Draw() {
         Menu_VisibleArea(&vx, &vy, &vw, &vh);
         Menu_Scissor(vx, vy, vw, vh);
     }
-    // Channels: the lit icon's name on a label across its tile's foot.
-    if (channels && lit >= 0 && lit < kPerPage && iconShown[lit] && page * kPerPage + lit < Count())
-        DrawChannelLabel(lit, peek ? PeekAlpha(TileX(lit), alpha) : tileAlpha);
-    if (covers) {
+    // Covers and channels: the lit game's name on its own line under the
+    // grid. (A channel's had been a label across its tile's foot, as the
+    // Wii Menu's, which covered the top of the row under it.)
+    if (covers || channels) {
         // The lit game's name (the focused one's while nothing is lit).
         const int shown = lit >= 0 ? ItemAt(lit) : focus;
         if (shown != captionFor) {
@@ -1355,7 +1342,8 @@ void GuiGameGrid::Draw() {
         }
         caption->SetPosition(0, CoverCaptionY());
         caption->Draw();
-        PrefetchCovers();
+        // Channels show icons, not covers: nothing to read ahead for them.
+        if (covers) PrefetchCovers();
     }
     if (page > 0)
         riftwii::wii::DrawInvitingArrow(skin::arrowLeft, skin::arrowLeftOver, ArrowX(-1) - 2, ArrowY() - 2,

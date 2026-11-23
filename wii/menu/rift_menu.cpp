@@ -1938,7 +1938,7 @@ public:
 		text.Draw();
 	}
 private:
-	static constexpr int kMaxText = 400;  // the box ends by x 555, clear of the search button (x 568)
+	static constexpr int kMaxText = 400;  // the box ends by x 555
 	GuiText text;
 	int lines = 1, textW = 0;
 	bool isError = false, on = false;
@@ -2490,11 +2490,17 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 	backBtn.button.SetVisible(false);
 	// + and - go to the next and previous game, as on the Wii Menu's
 	// channel screen (a tester's muscle memory); Start is A on it.
-	SkinButton goBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, kPairRightX, 384, tr("Start"),
+	// Settings and Start a little further apart than the usual pair, so
+	// Favourite fits between them: on the bar rather than in a corner of
+	// the banner, where it covered the banner's own art and text.
+	// The star in the middle of the gap between the two buttons, measured on
+	// a screenshot (at 293 it sat 4 pixels left of it).
+	constexpr int kBannerLeftX = 38, kBannerRightX = 358, kBannerStarX = 297;
+	SkinButton goBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, kBannerRightX, 384, tr("Start"),
 		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A | PAD_BUTTON_START, WIIDRC_BUTTON_A);
 	goBtn.text.SetColor(skin::kAccentInk);
 	// A pill like Start's, where the Wii Menu has its "Wii Menu" one.
-	SkinButton pageBtn(skin::pill, skin::pillOver, 4, kPairLeftX, 384, tr("Settings"),
+	SkinButton pageBtn(skin::pill, skin::pillOver, 4, kBannerLeftX, 384, tr("Settings"),
 		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_R, WIIDRC_BUTTON_Y);
 	// The arrows at the screen's sides, level with the banner's middle.
 	f32 safeX, safeW;
@@ -2506,9 +2512,9 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 	SkinButton nextBtn(skin::arrowRight, skin::arrowRightOver, 2, 570 + wide, 155, nullptr,
 		WPAD_BUTTON_RIGHT | WPAD_CLASSIC_BUTTON_RIGHT | WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_RIGHT,
 		WIIDRC_BUTTON_RIGHT | WIIDRC_BUTTON_PLUS);
-	// Favourite: a small round button in the top right corner (or 1), its
-	// star filled while the game shown is one.
-	SkinButton starBtn(skin::roundBtn, skin::roundBtnOver, 2, 560 + wide, 24, nullptr,
+	// Favourite: a small round button between Settings and Start (or 1),
+	// level with their middle, its star filled while the game shown is one.
+	SkinButton starBtn(skin::roundBtn, skin::roundBtnOver, 2, kBannerStarX, 387, nullptr,
 		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X, &skin::iconStar, 0.6f);
 	GuiImage starOn(skin::iconStarOn.data, skin::iconStarOn.w, skin::iconStarOn.h);
 	starOn.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::MIDDLE);
@@ -2952,39 +2958,6 @@ private:
 	bool overshoot;
 	float ms;
 	u64 start = 0;
-};
-
-// The box behind a hover name, so it reads over covers: a rounded card
-// with a soft shadow in the theme's colours (skin::HintBox), sized to the
-// text and fading with it. `anchorX` is the text's centre (centred) or
-// its right end, `top` the text's top, both on screen.
-class HintChip : public GuiElement {
-public:
-	HintChip(GuiText& text, int anchorX, int top, bool centred)
-		: text_(text), anchorX_(anchorX), top_(top), centred_(centred) {}
-	void Draw() override {
-		if (!text_.IsVisible() || text_.GetAlpha() <= 0) return;
-		const int w = (text_.GetTextWidth() + 24 + 3) & ~3, h = 28;
-		const skin::Tex box = skin::HintBox(w, h);
-		if (box.data == nullptr) return;
-		int x = centred_ ? anchorX_ - w / 2 : anchorX_ - w + 12;
-		if (centred_) {
-			// A long name by a corner button stays on the screen (8 in from
-			// its edges, a widescreen menu's too), and its text with it.
-			f32 safeX, safeW;
-			Menu_SafeArea(&safeX, &safeW);
-			const int left = static_cast<int>(safeX) + 8, right = static_cast<int>(safeX + safeW) - 8;
-			x = std::max(left, std::min(x, right - w));
-			text_.SetPosition(x + w / 2 - 320, top_);
-		}
-		Menu_DrawImg(x - riftwii::kHintBoxMargin, top_ - 5 - riftwii::kHintBoxMargin, box.w, box.h, box.data, 0, 1, 1,
-			static_cast<u8>(text_.GetAlpha()));
-	}
-
-private:
-	GuiText& text_;
-	int anchorX_, top_;
-	bool centred_;
 };
 
 // Home with no games on either drive: where to put them, on a card over
@@ -5697,8 +5670,10 @@ static int RequireChannelUpdate(FrontendState& state)
 // Home's look for games runs on a thread of its own (homescan.hpp), so the
 // menu answers while a big USB drive is read: the SD card's games show as
 // soon as the card is read, the drive's after it. Until both are in, Home
-// reads no game image and starts no download, and a game picked meanwhile
-// opens once they are (g_openWhenScanned).
+// reads no game image and starts no download. A game picked meanwhile
+// opens once its drive is read when it needs no game page (a homebrew
+// app, an emulator's game, a channel's banner: OpensDuringScan), else once
+// both are (g_openWhenScanned, or Home's wait as it closes).
 static bool g_scanning = false;
 static bool g_sdScanOk = false;
 static std::string g_sdScanError;      // for WarnAboutDrives, once the USB drive is read too
@@ -5706,6 +5681,9 @@ static std::string g_openWhenScanned;  // the tile picked during the scan, by it
 // That tile was a game at random (B held on the search button): it starts
 // once the drives are read, as it would have straight away.
 static bool g_startWhenScanned = false;
+// The scan's SD part is in (Home took it): from then on the scan reads
+// only the USB drive, and what lives on the card or the Wii opens at once.
+static bool g_sdPartTaken = false;
 // Home's rescan: the profiles' pictures are looked for again once it is
 // done. Not before, as the tiles show the pictures read so far while the
 // drives are read (ProfilePictureIfRead).
@@ -5726,6 +5704,7 @@ static void StartScan()
 	g_sdScanError.clear();
 	g_openWhenScanned.clear();
 	g_startWhenScanned = false;
+	g_sdPartTaken = false;
 	g_scanning = true;
 	g_scanned = true;
 	// Mark the scan pending now, so old results and drive reads stay out.
@@ -5771,6 +5750,32 @@ static bool SdWatchRemountForMenu()
 	mkdir("sd:/riftwii", 0777);
 	riftwii::wii::LogReopen();
 	return true;
+}
+
+// Whether a tile can open while the scan still reads the USB drive: a
+// channel on the Wii or in an emulated NAND on the card, a homebrew app,
+// an emulator's game on the card. A game image's page checks the image
+// first, behind the USB drive's lock even for a game on the card
+// (check_image_game), and the disc's tile reads the drive the scan may be
+// asking: those wait. A game page opened meanwhile waits for the scan too
+// (Home waits for it when it closes).
+static bool OpensDuringScan(const FrontendState& state, const HomeEntry& entry)
+{
+	if (!g_sdPartTaken) return false;
+	switch (entry.kind) {
+	case HomeEntry::Kind::App:
+		return true;
+	case HomeEntry::Kind::Channel: {
+		if (entry.index >= state.channels.size()) return false;
+		const riftwii::wii::NandChannel& channel = state.channels[entry.index];
+		return !riftwii::is_usb_path(channel.emu_nand + "/") && !riftwii::is_usb_path(channel.wad_path);
+	}
+	case HomeEntry::Kind::Emulator:
+		return entry.index < state.emulators.games.size() &&
+		       state.emulators.games[entry.index].path.compare(0, 3, "sd:") == 0;
+	default:
+		return false;
+	}
 }
 
 // The SD card's part of the scan, with the GUI halted.
@@ -6980,8 +6985,11 @@ static int MenuSource(FrontendState& state)
 	// The Wii Menu's bar (it dips under the clock): the view and the page
 	// on its high sides, under its line; a bar that bumps: above it.
 	const bool dip = !skin::BarBump();
-	GuiText pageTxt("", dip ? 14 : 15, skin::kInkDim);
-	GuiText viewTxt("", dip ? 14 : 16, skin::kAccent);
+	// The page's ink and the accent's ink for text, a point larger, not the
+	// dim ink and the bright accent: those came to under 2:1 through a
+	// composite cable on the bar's grey.
+	GuiText pageTxt("", 15, skin::kInk);
+	GuiText viewTxt("", dip ? 15 : 16, skin::kAccentInk);
 	// The room each label has beside the dip; 0 on a bar that bumps, where
 	// the view's own cut-off below applies and the page has no limit.
 	int sideW = 0;
@@ -7005,41 +7013,34 @@ static int MenuSource(FrontendState& state)
 		Place(viewTxt, 40 - wide, 324);
 		viewTxt.SetMaxWidth(190 + wide);  // ends by x 230, clear of the clock; a longer one ends in "..."
 	}
-	// A name while the pointer rests on a round button. Layout and Search
-	// share the bar's status area so neither name covers a game's tile.
-	GuiText settingsHint(tr("Settings"), 17, skin::kInk),
-		actionHint("", 17, skin::kInk);
+	// A name while the pointer rests on a round button. Every one of them
+	// (Show, Layout, Search and the gear) shares the bar's status line, so
+	// no name covers a game's tile and none pops up anywhere else.
+	GuiText actionHint("", 17, skin::kInk);
 	std::string filterLabel;
 	std::string searchLabel;
+	std::string settingsLabel;
 	std::string shownActionLabel;
 	const auto setButtonHints = [&] {
-		const std::string settingsLabel = (g_homePadHints ? "Z: " : "") + std::string(tr("Settings"));
+		settingsLabel = (g_homePadHints ? "Z: " : "") + std::string(tr("Settings"));
 		searchLabel = (g_homePadHints ? "B: " : "") + std::string(tr("Search"));
-		settingsHint.SetText(settingsLabel.c_str());
 	};
 	setButtonHints();
-	// The gear's name stays above its button, centred on it.
-	settingsHint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	settingsHint.SetPosition(568 - 320 + wide, 344);
-	// The search button: in the top right corner, above the page arrow; in
-	// Channels, whose four icons at their own size reach the corner, on the
-	// bar left of the gear.
-	const bool channelsView = riftwii::wii::Settings().home_tiles == "channels";
-	const int searchX = channelsView ? 484 + wide : 568 + wide, searchY = channelsView ? 396 : 24;
-	const int layoutX = channelsView ? 120 - wide : 36 - wide;
+	// Search and Layout: small, on the bar beside the gear and Show, in
+	// every layout. Channels' icons reach the top corners, and buttons
+	// that moved there when the layout changed felt like a jump.
+	const int searchX = 484 + wide, searchY = 396;
+	const int layoutX = 120 - wide;
 	const int layoutY = searchY;
 	const int statusY = dip ? 434 : 392;
 	actionHint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 	actionHint.SetPosition(0, statusY);
-	actionHint.SetMaxWidth((channelsView ? 312 : 400) + 2 * wide);
+	actionHint.SetMaxWidth(312 + 2 * wide);
 	// The shared hint stays clear of All games, the clock and the date,
-	// and of the hand at either button, even in Channels.
-	HintChip settingsChip(settingsHint, 568 + wide, 344, true);
-	int settingsHintAlpha = 0, actionHintAlpha = 0;
-	for (GuiText* hint : {&settingsHint, &actionHint}) {
-		hint->SetAlpha(0);
-		hint->SetVisible(false);
-	}
+	// and of the hand at either button.
+	int actionHintAlpha = 0;
+	actionHint.SetAlpha(0);
+	actionHint.SetVisible(false);
 	std::string clock, date;
 	ClockText(clock, date);
 	// The Wii Menu's way (a bar that dips): the clock in the dip, the date
@@ -7055,11 +7056,12 @@ static int MenuSource(FrontendState& state)
 	Place(dateTxt, 0, dip ? 407 : 359, true);
 	// Ending by y 456, inside a TV's overscan: one line under the date on a
 	// bar that dips, three above the bottom on one that bumps.
-	GuiText statusTxt("", dip ? 15 : 17, skin::kInkSoft);
+	// The page's ink: the softer one came to 2:1 on composite.
+	GuiText statusTxt("", dip ? 15 : 17, skin::kInk);
 	Place(statusTxt, 0, statusY, true);
-	// Channels' small buttons end at x 156 and start at x 484. Keep
+	// The bar's small buttons end at x 156 and start at x 484. Keep
 	// the centred text inside x 164..476, with 8px of breathing room.
-	statusTxt.SetWrap(true, (channelsView ? 312 : 400) + 2 * wide, dip ? 1 : 3);
+	statusTxt.SetWrap(true, 312 + 2 * wide, dip ? 1 : 3);
 	EmptyHomeNote emptyNote;
 	emptyNote.SetVisible(false);
 	HomeEmptyState emptyState;
@@ -7074,9 +7076,8 @@ static int MenuSource(FrontendState& state)
 	SkinButton settingsBtn(skin::roundBtn, skin::roundBtnOver, 2, 530 + wide, 376, nullptr,
 		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_Z, WIIDRC_BUTTON_Y, &skin::iconGear);
 	// Search: B on a GameCube controller, ZL on a Classic Controller (a
-	// Wii Remote has no button left; point and press A). Small, in the top
-	// right corner above the page arrow, inside the overscan (ends at x 606,
-	// starts at y 24), so the gear's name has room; in Channels on the bar.
+	// Wii Remote has no button left; point and press A). Small, on the bar
+	// left of the gear.
 	SkinButton searchBtn(skin::roundBtn, skin::roundBtnOver, 2, searchX, searchY, nullptr,
 		WPAD_CLASSIC_BUTTON_ZL, PAD_BUTTON_B, 0, &skin::iconSearch, 0.5f);
 	searchBtn.backAction = false;
@@ -7116,8 +7117,6 @@ static int MenuSource(FrontendState& state)
 	w.Append(&bar);
 	w.Append(&pageTxt);
 	w.Append(&viewTxt);
-	w.Append(&settingsChip);
-	w.Append(&settingsHint);
 	w.Append(&actionHint);
 	w.Append(&clockTxt);
 	w.Append(&lcd);
@@ -7165,7 +7164,7 @@ static int MenuSource(FrontendState& state)
 	const auto setViewText = [&](const std::string& text) {
 		viewTxt.SetText(text.c_str());
 		if (sideW <= 0) return;
-		for (int size = 14; size >= 12; --size) {
+		for (int size = dip ? 15 : 16; size >= 12; --size) {
 			viewTxt.SetFontSize(size);
 			if (viewTxt.GetTextWidth() <= sideW) break;
 		}
@@ -7178,9 +7177,13 @@ static int MenuSource(FrontendState& state)
 		const bool sourceLimited = g_search.empty() && g_filter != Filter::Homebrew &&
 			riftwii::wii::Settings().home_source != "all";
 		if (sourceLimited) name += std::string(" · ") + HomeSourceName(riftwii::wii::Settings().home_source);
-		if (dip && sourceLimited) {
+		if (dip && sourceLimited && wide == 0 && !grid.Channels()) {
 			// The corner beside the clock is only 89px in 4:3. A scoped
 			// category gets the full line above the bar, below the tiles.
+			// A widescreen menu's corner has the room, and its covers'
+			// caption needs that line (they are taller); so does the
+			// Channels view's (its grid is taller), where the name is made
+			// smaller to fit the corner, or cut short.
 			Place(viewTxt, 0, 316, true);
 			viewTxt.SetFontSize(14);
 			viewTxt.SetMaxWidth(544 + 2 * wide);
@@ -7942,8 +7945,21 @@ static int MenuSource(FrontendState& state)
 				const std::string focused = focusedTile();
 				takePress();
 				TakeSdScanPart(state, part);
+				g_sdPartTaken = true;
 				refreshKeepingTile(focused, false);
 				putPressBack();
+				// A game picked while the card was read opens now, if it
+				// doesn't need the USB drive.
+				if (!g_openWhenScanned.empty()) {
+					const int waiting = findTile(g_openWhenScanned);
+					if (waiting >= 0 && static_cast<std::size_t>(waiting) < entries.size() &&
+					    OpensDuringScan(state, entries[static_cast<std::size_t>(waiting)])) {
+						openNow = g_openWhenScanned;
+						startOpenNow = g_startWhenScanned;
+						g_openWhenScanned.clear();
+						g_startWhenScanned = false;
+					}
+				}
 			}
 			if (riftwii::wii::TakeUsbScan(part)) {
 				const std::string focused = focusedTile();
@@ -7953,8 +7969,12 @@ static int MenuSource(FrontendState& state)
 				putPressBack();
 				g_gameInfoReadDue = true;
 				if (!askAfterLook()) return menu;
-				openNow = g_openWhenScanned;
-				startOpenNow = g_startWhenScanned;
+				// A game the SD card's part let open this same turn stays
+				// chosen: only a choice still waiting replaces it.
+				if (!g_openWhenScanned.empty()) {
+					openNow = g_openWhenScanned;
+					startOpenNow = g_startWhenScanned;
+				}
 				g_openWhenScanned.clear();
 				g_startWhenScanned = false;
 				// Covers, boxes and 3D covers that failed (or were never
@@ -8191,7 +8211,7 @@ static int MenuSource(FrontendState& state)
 			hint.SetAlpha(a);
 			hint.SetVisible(a > 0);
 		};
-		fade(settingsHint, settingsHintAlpha, settingsBtn.button.GetState() == STATE::SELECTED);
+		const bool settingsHovered = settingsBtn.button.GetState() == STATE::SELECTED;
 		const bool filterHovered = filterBtn.button.GetState() == STATE::SELECTED;
 		const bool layoutHovered = layoutBtn.button.GetState() == STATE::SELECTED;
 		const bool searchHovered = searchBtn.button.GetState() == STATE::SELECTED;
@@ -8199,11 +8219,12 @@ static int MenuSource(FrontendState& state)
 		if (layoutHovered) nextActionLabel = tr("Layout");
 		else if (searchHovered) nextActionLabel = searchLabel.c_str();
 		else if (filterHovered) nextActionLabel = filterLabel.c_str();
+		else if (settingsHovered) nextActionLabel = settingsLabel.c_str();
 		if (nextActionLabel && shownActionLabel != nextActionLabel) {
 			shownActionLabel = nextActionLabel;
 			actionHint.SetText(nextActionLabel);
 		}
-		fade(actionHint, actionHintAlpha, layoutHovered || searchHovered || filterHovered);
+		fade(actionHint, actionHintAlpha, layoutHovered || searchHovered || filterHovered || settingsHovered);
 		statusTxt.SetVisible(actionHintAlpha == 0);
 		// Not while the scan has the drives and the network: an update
 		// writes to the card and downloads.
@@ -8393,9 +8414,17 @@ static int MenuSource(FrontendState& state)
 			clicked = -1;
 			toast.Show(tr("Put the SD card back in first."), true);
 		}
-		// Opening a game reads its image, which the scan may be mounting:
-		// it waits for the scan, and Home answers meanwhile.
-		if (g_scanning && clicked >= 0 && static_cast<std::size_t>(clicked) < items.size()) {
+		// Opening a USB or disc game reads its image, which the scan may be
+		// mounting: it waits for the scan, and Home answers meanwhile.
+		// Games on the card or the Wii open once the card's part is in.
+		// A game on the card in the Channels view: its banner screen opens
+		// meanwhile when the card has the banner; going on from it, or no
+		// banner, waits as well (below, after ShowChannel).
+		const bool sdBannerNow = g_scanning && g_sdPartTaken && grid.Channels() && !randomStart &&
+			clicked >= 0 && static_cast<std::size_t>(clicked) < entries.size() &&
+			entries[static_cast<std::size_t>(clicked)].kind == HomeEntry::Kind::Sd;
+		if (g_scanning && clicked >= 0 && static_cast<std::size_t>(clicked) < items.size() && !sdBannerNow &&
+		    !(static_cast<std::size_t>(clicked) < entries.size() && OpensDuringScan(state, entries[static_cast<std::size_t>(clicked)]))) {
 			const GridItem& picked = items[static_cast<std::size_t>(clicked)];
 			g_openWhenScanned = tileIdentity(clicked);
 			g_startWhenScanned = randomStart;
@@ -8450,12 +8479,22 @@ static int MenuSource(FrontendState& state)
 					if (e.kind == HomeEntry::Kind::Disc || e.kind == HomeEntry::Kind::App) return false;
 					const std::string& id = items[static_cast<std::size_t>(i)].id;
 					// The banner already reads the card. Prepare this tile's
-					// choices and cached facts here so Settings uses memory.
-					riftwii::wii::PrepareGameChoices(state, id, e.profile);
+					// choices and cached facts here so Settings uses memory;
+					// not while the drives are read: the choices look in the
+					// USB drive's mod folders, behind the scan's lock (the
+					// page, which waits for the scan, prepares them then).
+					if (!g_scanning) riftwii::wii::PrepareGameChoices(state, id, e.profile);
 					riftwii::GameInfo info;
 					riftwii::wii::PeekGameInfo(id, info);
 					if (riftwii::wii::LoadBanner(id, bytes)) return true;
 					if (!riftwii::wii::BannerWanted(id)) return false;
+					// No game image is read while the drives are: reading one
+					// takes the USB drive's lock even for a game on the card,
+					// and a slow drive's mount would hold Home up. Without a
+					// banner the game goes on to its page, which waits for
+					// the scan (below); it is not marked as missing, so the
+					// banner is read from the image next time.
+					if (g_scanning) return false;
 					std::string why;
 					g_bannersTried.insert(id);
 					if (!StoreEntryBanner(state, e, why)) return false;
@@ -8478,6 +8517,28 @@ static int MenuSource(FrontendState& state)
 					grid.Focus(clicked);
 					if (!grid.TileRect(clicked, tile.x, tile.y, tile.w, tile.h)) tile = transition::Rect{};
 					g_openRect = tile;
+				}
+				// The arrows may have reached a USB game, or the player goes
+				// on from a game image's banner (its page checks the image):
+				// it opens once the drives are read, looked up again then by
+				// what it is (the USB drive's games may have come in or gone).
+				if (go && g_scanning && !OpensDuringScan(state, entries[static_cast<std::size_t>(clicked)])) {
+					g_openWhenScanned = tileIdentity(clicked);
+					g_startWhenScanned = choice == ChannelChoice::Start;
+					logf("Home: %s picked on its banner while the drives are read; it opens once they are\n",
+						g_openWhenScanned.c_str());
+					toast.Show(tr("{1} opens once RiftWii has finished reading the drives.",
+						{items[static_cast<std::size_t>(clicked)].title}), false);
+					state.prepared_choices = riftwii::wii::PreparedGameChoices{};
+					g_startOnOpen = false;
+					g_reopenBanner.clear();
+					transition::Begin(transition::Kind::ZoomOut, tile);
+					// Start left the banner up and playing (g_lingerBanner):
+					// Home comes back from under it; the game still starts
+					// once the drives are read (g_startWhenScanned).
+					DropLingerBanner();
+					ResumeGui();
+					continue;
 				}
 				if (!go) {
 					if (g_favoritesChanged && g_filter == Filter::Favorites) refresh(true);
@@ -8776,6 +8837,10 @@ static int MenuSource(FrontendState& state)
 		g_openWhenScanned.clear();
 		g_startWhenScanned = false;
 	}
+	// A game's page waits too, even a game on the card: the page lists the
+	// game's packs and saves their choices, and the USB drive's packs are
+	// in the catalog only once its part is in (a page opened before would
+	// save a list without them and lose their choices).
 	if (g_scanning && menu != MENU_OPTIONS && !rebuildingHome) {
 		logf("Home: closed while the drives are read; waiting for the scan\n");
 		while (!riftwii::wii::DriveScanDone()) {
@@ -20738,8 +20803,15 @@ int MainMenu(int menu, FrontendState& state)
 	logf("Screen: %s\n", ScreenName(currentMenu));
 	// Leaving the menu from Settings while the drives were still being read
 	// (a channel, HOME > exit): the scan is over before anything else takes
-	// the drives.
-	if (!riftwii::wii::DriveScanDone()) logf("Menu: waiting for the scan to finish reading the drives\n");
+	// the drives, the wait said on screen (a big USB drive takes seconds).
+	if (!riftwii::wii::DriveScanDone()) {
+		logf("Menu: waiting for the scan to finish reading the drives\n");
+		HaltGui();
+		PopupBox box(tr("Play"), tr("Waiting for RiftWii to finish reading the drives..."), {}, {});
+		ResumeGui();
+		riftwii::wii::WaitDriveScan();
+		HaltGui();
+	}
 	riftwii::wii::WaitDriveScan();
 	// The compiler and the game need this memory. After a failed launch,
 	// the next game page reads a fresh catalog when it sees this one empty.
