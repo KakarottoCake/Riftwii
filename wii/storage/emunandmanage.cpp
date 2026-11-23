@@ -21,6 +21,7 @@
 #include "nandpermissions.hpp"
 #include "nanduse.hpp"
 #include "sharednandfind.hpp"
+#include "usbcatalog.hpp"
 #include "usbnand.hpp"
 #include "riftwii/bnr.hpp"
 #include "riftwii/checkedalloc.hpp"
@@ -528,30 +529,57 @@ bool real_title_attributes(std::uint64_t title, Attributes& attributes) {
     return true;
 }
 
-std::string title_name(const std::string& root, std::uint64_t title) {
+std::string title_name(const Location& root, std::uint64_t title) {
+    const std::string code = emunand_title_code(title);
+    // The game-name list keys disc games by their 6-char ID (RSBE01): a
+    // save's 4-char code finds its game there too.
+    const TitleTable* names = LoadedTitles();
+    if (names == nullptr) {
+        // Not read yet (the manager opened before anything else asked for
+        // a name): one lookup reads the list, as the game pages do.
+        std::string ignored;
+        GameTitleListed(code, ignored);
+        names = LoadedTitles();
+    }
+    const std::string* listed = names ? names->find_code(code) : nullptr;
+    if (listed && !listed->empty()) return *listed + " (" + code + ")";
+    // Disc saves and add-on data have no channel banner. Avoid opening a
+    // TMD and content file for every save in a large copied NAND.
+    const std::uint32_t type = title >> 32;
+    if (type == 0x00010000 || type == 0x00010005) return code;
+
     EmuNandTitlePaths paths;
-    emunand_title_paths(title, paths);
+    if (!emunand_title_paths(title, paths)) return code;
     std::vector<std::uint8_t> bytes;
     TmdContents tmd;
     std::string why;
-    if (read_small({false, root + paths.title + "/content/title.tmd"}, 0x10000, bytes) &&
+    if (read_small(child(root, paths.title.substr(1) + "/content/title.tmd"), 0x10000, bytes) &&
         parse_tmd_contents(bytes.data(), bytes.size(), tmd, why) && tmd.title_id == title) {
         const TmdContent* banner = tmd_content_by_index(tmd, 0);
         if (banner) {
-            FILE* file = std::fopen((root + nand_content_path(title, banner->id)).c_str(), "rb");
-            if (file) {
-                std::uint8_t head[0x700];
-                const std::size_t got = std::fread(head, 1, sizeof(head), file);
-                std::fclose(file);
-                std::array<std::string, kBnrLanguages> names;
-                if (parse_banner_names(head, got, names)) {
-                    if (!names[1].empty()) return names[1];  // English, as the channel reader's fallback.
-                    for (const std::string& name : names) if (!name.empty()) return name;
+            const Location content = child(root, nand_content_path(title, banner->id).substr(1));
+            std::uint8_t head[0x700] ATTRIBUTE_ALIGN(32);
+            std::size_t got = 0;
+            if (content.real) {
+                const NandPath path(content.path);
+                const s32 file = ISFS_Open(path.text, ISFS_OPEN_READ);
+                if (file >= 0) {
+                    const s32 read = ISFS_Read(file, head, sizeof(head));
+                    if (read > 0) got = static_cast<std::size_t>(read);
+                    ISFS_Close(file);
                 }
+            } else if (FILE* file = std::fopen(content.path.c_str(), "rb")) {
+                got = std::fread(head, 1, sizeof(head), file);
+                std::fclose(file);
+            }
+            std::array<std::string, kBnrLanguages> names;
+            if (parse_banner_names(head, got, names)) {
+                if (!names[1].empty()) return names[1];  // English, as the channel reader's fallback.
+                for (const std::string& name : names) if (!name.empty()) return name;
             }
         }
     }
-    return emunand_title_text(title);
+    return code;
 }
 
 bool perform(const std::string& root, EmuNandAction action, std::uint64_t title, std::string& error) {
@@ -563,6 +591,10 @@ bool perform(const std::string& root, EmuNandAction action, std::uint64_t title,
         return false;
     }
     if (action == EmuNandAction::DeleteTitle || action == EmuNandAction::DeleteSave) {
+        if (emunand_delete_protected(title)) {
+            error = "system titles cannot be deleted";
+            return false;
+        }
         const Location source{false, root + (action == EmuNandAction::DeleteTitle ? paths.title : paths.data)};
         if (action == EmuNandAction::DeleteTitle) {
             // An earlier delete that removed the title but not its ticket:
@@ -1124,7 +1156,7 @@ bool emunand_manager_list(const std::string& folder, std::vector<EmuNandTitle>& 
             EmuNandTitlePaths paths;
             emunand_title_paths(title, paths);
             if (inspect({false, root.path + paths.title}, ignored) != Kind::Directory) continue;
-            if (titles.size() >= kMaxTitles || !try_push_back(titles, EmuNandTitle{title, title_name(root.path, title), true, false})) {
+            if (titles.size() >= kMaxTitles || !try_push_back(titles, EmuNandTitle{title, {}, true, false})) {
                 error = "there are too many titles, or not enough memory to list them";
                 return false;
             }
@@ -1148,7 +1180,7 @@ bool emunand_manager_list(const std::string& folder, std::vector<EmuNandTitle>& 
             EmuNandTitlePaths paths;
             emunand_title_paths(title, paths);
             if (listed || inspect({false, root.path + paths.ticket}, ignored) != Kind::File) continue;
-            EmuNandTitle entry{title, emunand_title_text(title), false, false};
+            EmuNandTitle entry{title, {}, false, false};
             entry.ticket_only = true;
             if (titles.size() >= kMaxTitles || !try_push_back(titles, entry)) {
                 error = "there are too many titles, or not enough memory to list them";
@@ -1174,7 +1206,7 @@ bool emunand_manager_list(const std::string& folder, std::vector<EmuNandTitle>& 
                 auto found = std::find_if(titles.begin(), titles.end(), [&](const EmuNandTitle& entry) { return entry.id == ids[index]; });
                 if (found != titles.end()) found->real = true;
                 else if (titles.size() < kMaxTitles && !try_push_back(titles,
-                    EmuNandTitle{ids[index], emunand_title_text(ids[index]), false, true})) {
+                    EmuNandTitle{ids[index], {}, false, true})) {
                     std::free(ids);
                     error = "there is not enough memory to list the Wii's titles";
                     return false;
@@ -1182,6 +1214,15 @@ bool emunand_manager_list(const std::string& folder, std::vector<EmuNandTitle>& 
             }
         }
         std::free(ids);
+    }
+    for (EmuNandTitle& title : titles) {
+        title.name = emunand_title_code(title.id);
+        if (title.emulated || title.ticket_only) {
+            title.name = title_name({false, root.path}, title.id);
+        }
+        if (title.real && nand.open && title.name == emunand_title_code(title.id)) {
+            title.name = title_name({true, ""}, title.id);
+        }
     }
     std::sort(titles.begin(), titles.end(), [](const EmuNandTitle& a, const EmuNandTitle& b) { return a.id < b.id; });
     return true;
