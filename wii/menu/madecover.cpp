@@ -193,16 +193,19 @@ std::vector<std::string> WrapName(const std::string& text, int widthLimit, int l
 
 // The size the name is drawn at: kTitleSize, or smaller until each of its
 // words fits on a line ("WarioWare:" had been cut into "WarioWare" and a
-// line starting ": DIY"). Words in a script written without spaces
-// (Japanese: three-byte UTF-8) are cut by characters as before.
+// line starting ": DIY"). A word is cut where WrapName may break a line:
+// at a space, or after a hyphen, which stays with the part before it.
+// Words in a script written without spaces (Japanese: three-byte UTF-8)
+// are cut by characters as before.
 int TitleSizeFor(const std::string& title, int widthLimit) {
     std::vector<std::string> words;
     std::size_t at = 0;
     while (at < title.size()) {
-        std::size_t end = title.find(' ', at);
+        std::size_t end = title.find_first_of(" -", at);
         if (end == std::string::npos) end = title.size();
+        else if (title[end] == '-') ++end;
         if (end > at) words.push_back(title.substr(at, end - at));
-        at = end + 1;
+        at = end < title.size() && title[end] == ' ' ? end + 1 : end;
     }
     // Kana, CJK ideographs, Hangul and full-width forms: the scripts written
     // without spaces. Not every three-byte character (curly quotes, the

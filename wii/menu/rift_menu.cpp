@@ -8421,9 +8421,12 @@ static int MenuSource(FrontendState& state)
 					riftwii::wii::PeekGameInfo(id, info);
 					if (riftwii::wii::LoadBanner(id, bytes)) return true;
 					if (!riftwii::wii::BannerWanted(id)) return false;
-					// A USB game's image may be what the scan is mounting:
-					// its banner waits for the scan, as its page does.
-					if (g_scanning && !OpensDuringScan(state, e)) return false;
+					// No game image is read while the drives are: reading one
+					// takes the USB drive's lock even for a game on the card,
+					// and a slow drive's mount would hold Home up. The banner
+					// is read from the image once the scan is done (shown
+					// meanwhile without it; it is not marked as missing).
+					if (g_scanning) return false;
 					std::string why;
 					g_bannersTried.insert(id);
 					if (!StoreEntryBanner(state, e, why)) return false;
