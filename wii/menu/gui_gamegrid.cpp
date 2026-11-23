@@ -61,7 +61,6 @@ constexpr int kCoverTitleSize = 13;  // covers: a tile without a cover
 constexpr int kCaptionSize = 18;     // covers: the lit game's name
 constexpr int kCaptionY = 266;
 constexpr int kShelfCaptionY = 276;  // under the shelf (wii/menu/gui_shelf.cpp)
-constexpr int kChannelLabelSize = 15;  // channels: the lit icon's name
 constexpr int kTextLeft = 11;
 constexpr int kCoverTextLeft = 6;
 // Everything on Home stays inside a TV's overscan: 5% of the screen in from
@@ -352,7 +351,12 @@ const GuiGameGrid::Geometry& GuiGameGrid::Geo() const {
     return stretched;
 }
 
-int GuiGameGrid::CoverCaptionY() const { return std::max(kCaptionY, TileY(kPerPage - 1) + Geo().tileH + 8); }
+int GuiGameGrid::CoverCaptionY() const {
+    // Under the channels' taller grid, 4 under it: centred between the
+    // tiles and the clock (8 under left it 4 nearer the clock).
+    const int gap = channels ? 4 : 8;
+    return std::max(kCaptionY, TileY(kPerPage - 1) + Geo().tileH + gap);
+}
 
 int GuiGameGrid::ArrowX(int dir) const {
     // At the safe area's edges, which a widescreen Channels view widens.
@@ -632,7 +636,7 @@ void GuiGameGrid::TurnPage(int delta) {
         // Down past the lit game's name under the covers, all of it: an
         // edge across it showed the old name's top over the new one's foot.
         const float bottom = static_cast<float>(
-            std::max(TileY(kPerPage - 1) + Geo().tileH + 30, covers ? CoverCaptionY() + kCaptionSize + 14 : 0));
+            std::max(TileY(kPerPage - 1) + Geo().tileH + 30, covers || channels ? CoverCaptionY() + kCaptionSize + 14 : 0));
         // Across the tiles' columns only (their lit edge included): the
         // search button above the last column and the page arrows stay
         // out, or the sliding picture took a copy of them along (a
@@ -966,38 +970,6 @@ void GuiGameGrid::DrawProfilePicture(int slot, float scale, int alpha) {
                  static_cast<u16>(pictureSide), const_cast<u8*>(picture), 0, k, k, static_cast<u8>(alpha));
 }
 
-void GuiGameGrid::DrawChannelLabel(int slot, int alpha) {
-    const int shown = ItemAt(slot);
-    if (shown != captionFor) {
-        captionFor = shown;
-        measure->SetFontSize(kChannelLabelSize);
-        caption->SetFontSize(kChannelLabelSize);
-        caption->SetText(Fit((*items)[shown].title, 220).c_str());
-        measure->SetFontSize(kTitleSize);
-    }
-    // A pill under the tile, overlapping its foot, as the Wii Menu labels
-    // a channel; inside a TV's overscan.
-    const int textW = caption->GetTextWidth();
-    const int boxW = textW + 28, boxH = 28;
-    int x = TileX(slot) + Geo().tileW / 2 - boxW / 2;
-    // Kept inside the TV's overscan (5% in from each side) of the menu as it
-    // is shown: a widescreen menu's sides are past the 4:3 middle's 32 and
-    // 608, and its outer columns' labels stay under their tiles.
-    f32 safeX, safeW;
-    Menu_SafeArea(&safeX, &safeW);
-    const int safeLeft = static_cast<int>(safeX + safeW * 0.05f);
-    const int safeRight = static_cast<int>(safeX + safeW * 0.95f);
-    x = x < safeLeft ? safeLeft : x + boxW > safeRight ? safeRight - boxW : x;
-    const int y = TileY(slot) + Geo().tileH - 8;
-    const int m = riftwii::kLabelMargin;
-    skin::DrawNine(skin::label9, x - m, y - m, boxW + 2 * m, boxH + 2 * m, riftwii::kLabelCorner, alpha);
-    // The caption is centred on the screen's middle: move it to the box's.
-    // The font's letters sit low in their line: one up looks centred.
-    caption->SetPosition(x + boxW / 2 - screenwidth / 2, y + (boxH - kChannelLabelSize) / 2 - 2);
-    caption->SetAlpha(alpha);
-    caption->Draw();
-}
-
 // Both grids share the sliding strip and its side columns. Names and the
 // shelf keep their own page turns and pointer controls.
 bool GuiGameGrid::PagePeek() const {
@@ -1281,10 +1253,10 @@ void GuiGameGrid::Draw() {
         Menu_VisibleArea(&vx, &vy, &vw, &vh);
         Menu_Scissor(vx, vy, vw, vh);
     }
-    // Channels: the lit icon's name on a label across its tile's foot.
-    if (channels && lit >= 0 && lit < kPerPage && iconShown[lit] && page * kPerPage + lit < Count())
-        DrawChannelLabel(lit, peek ? PeekAlpha(TileX(lit), alpha) : tileAlpha);
-    if (covers) {
+    // Covers and channels: the lit game's name on its own line under the
+    // grid. (A channel's had been a label across its tile's foot, as the
+    // Wii Menu's, which covered the top of the row under it.)
+    if (covers || channels) {
         // The lit game's name (the focused one's while nothing is lit).
         const int shown = lit >= 0 ? ItemAt(lit) : focus;
         if (shown != captionFor) {

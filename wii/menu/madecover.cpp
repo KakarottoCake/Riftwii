@@ -42,6 +42,9 @@ constexpr std::size_t kMaskBytes = static_cast<std::size_t>(riftwii::kCoverWidth
 // Where the name goes on the drawn (2x) cover: under the blank cover's
 // band across the top, above its strip along the foot.
 constexpr int kTitleSize = 24;
+// A word too wide for the cover at kTitleSize steps the name down to this
+// size at the least, rather than being cut between its letters.
+constexpr int kTitleMinSize = 18;
 constexpr int kTitleLineGap = 27;
 constexpr int kTitleLines = 4;
 constexpr int kTitleMargin = 14;
@@ -186,6 +189,41 @@ std::vector<std::string> WrapName(const std::string& text, int widthLimit, int l
     return out;
 }
 
+// The size the name is drawn at: kTitleSize, or smaller until each of its
+// words fits on a line ("WarioWare:" had been cut into "WarioWare" and a
+// line starting ": DIY"). Words in a script written without spaces
+// (Japanese: three-byte UTF-8) are cut by characters as before.
+int TitleSizeFor(const std::string& title, int widthLimit) {
+    std::vector<std::string> words;
+    std::size_t at = 0;
+    while (at < title.size()) {
+        std::size_t end = title.find(' ', at);
+        if (end == std::string::npos) end = title.size();
+        if (end > at) words.push_back(title.substr(at, end - at));
+        at = end + 1;
+    }
+    const auto spaceless_script = [](const std::string& word) {
+        for (unsigned char c : word)
+            if (c >= 0xE0) return true;
+        return false;
+    };
+    int size = kTitleSize;
+    for (; size > kTitleMinSize; --size) {
+        g_text->SetFontSize(size);
+        bool allFit = true;
+        for (const std::string& word : words) {
+            if (spaceless_script(word)) continue;
+            g_text->SetText(word.c_str());
+            if (g_text->GetTextWidth() > widthLimit) {
+                allFit = false;
+                break;
+            }
+        }
+        if (allFit) break;
+    }
+    return size;
+}
+
 void DrawCentred(const std::string& text, int size, GXColor colour, int top) {
     g_text->SetFontSize(size);
     g_text->SetColor(colour);
@@ -199,18 +237,21 @@ void DrawCentred(const std::string& text, int size, GXColor colour, int top) {
 // that corner afterwards (the backdrop fills the whole screen first).
 void Make(const Request& request, Slot& slot) {
     skin::Draw(skin::blankCover, 0, 0, 255, 1.0f);
-    g_text->SetFontSize(kTitleSize);
-    const std::vector<std::string> lines = WrapName(request.title, kDrawW - 2 * kTitleMargin, kTitleLines);
+    const int titleWidth = kDrawW - 2 * kTitleMargin;
+    const int titleSize = TitleSizeFor(request.title, titleWidth);
+    const int lineGap = kTitleLineGap * titleSize / kTitleSize;
+    g_text->SetFontSize(titleSize);
+    const std::vector<std::string> lines = WrapName(request.title, titleWidth, kTitleLines);
     // The name and the ID under it, together in the middle of the space
     // between the band and the foot (the covers view's badges sit there).
     const int idHeight = request.id.empty() ? 0 : kIdGap;
-    const int blockHeight = static_cast<int>(lines.size()) * kTitleLineGap + idHeight;
+    const int blockHeight = static_cast<int>(lines.size()) * lineGap + idHeight;
     int top = (kTitleTop + kTitleBottom - blockHeight) / 2;
     for (const std::string& line : lines) {
-        DrawCentred(line, kTitleSize, g_ink, top);
-        top += kTitleLineGap;
+        DrawCentred(line, titleSize, g_ink, top);
+        top += lineGap;
     }
-    if (!request.id.empty()) DrawCentred(request.id, kIdSize, g_inkDim, top + kIdGap - kTitleLineGap);
+    if (!request.id.empty()) DrawCentred(request.id, kIdSize, g_inkDim, top + kIdGap - lineGap);
 
     GX_SetTexCopySrc(0, 0, kDrawW, kDrawH);
     GX_SetTexCopyDst(riftwii::kCoverWidth, riftwii::kCoverHeight, GX_TF_RGB5A3, GX_TRUE);
