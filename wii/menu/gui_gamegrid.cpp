@@ -1250,8 +1250,8 @@ void GuiGameGrid::Draw() {
         if (!on && s.scale < 1.002f) s.scale = 1.0f;  // settled: a channel's icon back on whole pixels
         const int index = ItemAt(i);  // with a game picked up, the tiles shifted round it
         const int a = peek ? PeekAlpha(TileX(i), alpha) : tileAlpha;
-        iconShown[i] = channels && iconDrawer && DrawChannelTile(index, TileX(i), TileY(i), s.scale, on, a);
-        if (iconShown[i]) return;
+        const bool iconShown = channels && iconDrawer && DrawChannelTile(index, TileX(i), TileY(i), s.scale, on, a);
+        if (iconShown) return;
         if (covers) DrawCoverTile(index, &s, TileX(i), TileY(i), s.scale, on, a);
         else DrawNameTile(index, s, TileX(i), TileY(i), on, a);
     };

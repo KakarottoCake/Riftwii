@@ -204,9 +204,22 @@ int TitleSizeFor(const std::string& title, int widthLimit) {
         if (end > at) words.push_back(title.substr(at, end - at));
         at = end + 1;
     }
+    // Kana, CJK ideographs, Hangul and full-width forms: the scripts written
+    // without spaces. Not every three-byte character (curly quotes, the
+    // trade mark sign), which a Latin word may hold.
     const auto spaceless_script = [](const std::string& word) {
-        for (unsigned char c : word)
-            if (c >= 0xE0) return true;
+        for (std::size_t i = 0; i + 2 < word.size(); ++i) {
+            const unsigned char lead = static_cast<unsigned char>(word[i]);
+            if ((lead & 0xF0) != 0xE0) continue;
+            const unsigned code = ((lead & 0x0Fu) << 12) |
+                                  ((static_cast<unsigned char>(word[i + 1]) & 0x3Fu) << 6) |
+                                  (static_cast<unsigned char>(word[i + 2]) & 0x3Fu);
+            const bool kana = code >= 0x3040 && code <= 0x30FF;
+            const bool ideograph = (code >= 0x3400 && code <= 0x9FFF) || (code >= 0xF900 && code <= 0xFAFF);
+            const bool hangul = code >= 0xAC00 && code <= 0xD7AF;
+            const bool full_width = code >= 0xFF00 && code <= 0xFFEF;
+            if (kana || ideograph || hangul || full_width) return true;
+        }
         return false;
     };
     int size = kTitleSize;

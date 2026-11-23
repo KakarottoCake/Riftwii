@@ -7112,9 +7112,11 @@ static int MenuSource(FrontendState& state)
 		const bool sourceLimited = g_search.empty() && g_filter != Filter::Homebrew &&
 			riftwii::wii::Settings().home_source != "all";
 		if (sourceLimited) name += std::string(" · ") + HomeSourceName(riftwii::wii::Settings().home_source);
-		if (dip && sourceLimited) {
+		if (dip && sourceLimited && wide == 0) {
 			// The corner beside the clock is only 89px in 4:3. A scoped
 			// category gets the full line above the bar, below the tiles.
+			// A widescreen menu's corner has the room, and its covers'
+			// caption needs that line (they are taller).
 			Place(viewTxt, 0, 316, true);
 			viewTxt.SetFontSize(14);
 			viewTxt.SetMaxWidth(544 + 2 * wide);
@@ -7900,8 +7902,12 @@ static int MenuSource(FrontendState& state)
 				putPressBack();
 				g_gameInfoReadDue = true;
 				if (!askAfterLook()) return menu;
-				openNow = g_openWhenScanned;
-				startOpenNow = g_startWhenScanned;
+				// A game the SD card's part let open this same turn stays
+				// chosen: only a choice still waiting replaces it.
+				if (!g_openWhenScanned.empty()) {
+					openNow = g_openWhenScanned;
+					startOpenNow = g_startWhenScanned;
+				}
 				g_openWhenScanned.clear();
 				g_startWhenScanned = false;
 				// Covers, boxes and 3D covers that failed (or were never
@@ -8406,6 +8412,9 @@ static int MenuSource(FrontendState& state)
 					riftwii::wii::PeekGameInfo(id, info);
 					if (riftwii::wii::LoadBanner(id, bytes)) return true;
 					if (!riftwii::wii::BannerWanted(id)) return false;
+					// A USB game's image may be what the scan is mounting:
+					// its banner waits for the scan, as its page does.
+					if (g_scanning && !OpensDuringScan(state, e)) return false;
 					std::string why;
 					g_bannersTried.insert(id);
 					if (!StoreEntryBanner(state, e, why)) return false;
@@ -8428,6 +8437,23 @@ static int MenuSource(FrontendState& state)
 					grid.Focus(clicked);
 					if (!grid.TileRect(clicked, tile.x, tile.y, tile.w, tile.h)) tile = transition::Rect{};
 					g_openRect = tile;
+				}
+				// The arrows may have reached a USB game: it opens once the
+				// drives are read, looked up again then by what it is (the
+				// USB drive's games may have come in or gone).
+				if (go && g_scanning && !OpensDuringScan(state, entries[static_cast<std::size_t>(clicked)])) {
+					g_openWhenScanned = tileIdentity(clicked);
+					g_startWhenScanned = choice == ChannelChoice::Start;
+					logf("Home: %s picked on its banner while the drives are read; it opens once they are\n",
+						g_openWhenScanned.c_str());
+					toast.Show(tr("{1} opens once RiftWii has finished reading the drives.",
+						{items[static_cast<std::size_t>(clicked)].title}), false);
+					state.prepared_choices = riftwii::wii::PreparedGameChoices{};
+					g_startOnOpen = false;
+					g_reopenBanner.clear();
+					transition::Begin(transition::Kind::ZoomOut, tile);
+					ResumeGui();
+					continue;
 				}
 				if (!go) {
 					if (g_favoritesChanged && g_filter == Filter::Favorites) refresh(true);
@@ -8726,7 +8752,10 @@ static int MenuSource(FrontendState& state)
 		g_openWhenScanned.clear();
 		g_startWhenScanned = false;
 	}
-	if (g_scanning && menu != MENU_OPTIONS && !rebuildingHome) {
+	// A game's page opens at once too: only a game on the card or the Wii
+	// gets one during the scan (OpensDuringScan), and starting it waits for
+	// the scan (MainMenu, on its way out).
+	if (g_scanning && menu != MENU_OPTIONS && menu != MENU_HOME && !rebuildingHome) {
 		logf("Home: closed while the drives are read; waiting for the scan\n");
 		while (!riftwii::wii::DriveScanDone()) {
 			riftwii::wii::StartDriveScan();
@@ -20660,10 +20689,18 @@ int MainMenu(int menu, FrontendState& state)
 	}
 
 	logf("Screen: %s\n", ScreenName(currentMenu));
-	// Leaving the menu from Settings while the drives were still being read
-	// (a channel, HOME > exit): the scan is over before anything else takes
-	// the drives.
-	if (!riftwii::wii::DriveScanDone()) logf("Menu: waiting for the scan to finish reading the drives\n");
+	// Leaving the menu from Settings or a game's page while the drives were
+	// still being read (a game started from a page opened during the scan,
+	// a channel, HOME > exit): the scan is over before anything else takes
+	// the drives, the wait said on screen (a big USB drive takes seconds).
+	if (!riftwii::wii::DriveScanDone()) {
+		logf("Menu: waiting for the scan to finish reading the drives\n");
+		HaltGui();
+		PopupBox box(tr("Play"), tr("Waiting for RiftWii to finish reading the drives..."), {}, {});
+		ResumeGui();
+		riftwii::wii::WaitDriveScan();
+		HaltGui();
+	}
 	riftwii::wii::WaitDriveScan();
 	// The compiler and the game need this memory. After a failed launch,
 	// the next game page reads a fresh catalog when it sees this one empty.

@@ -367,7 +367,6 @@ private:
     bool channel_backdrop = false;
     bool roomy = false;  // grid_spacing = roomy
     IconDrawer iconDrawer;
-    bool iconShown[kPerPage] = {};  // channels: the tile drew its icon this frame
     PictureSource pictureSource;
     int pictureSide = 0;
     const u8* ProfilePictureOf(int index) const;
