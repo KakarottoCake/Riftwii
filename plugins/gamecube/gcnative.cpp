@@ -2914,68 +2914,15 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const GcStackTop stack = find_gc_stack_top(read_code, dol.entry);
     const std::uint32_t arena_lo = find_gc_arena_lo(read_code, text_ranges);
     const std::uint32_t game_floor = std::max(stack.address, arena_lo);
-    enum Mem1Piece { kPieceBlob, kPieceCard, kPieceMoved, kPieceLeave, kPieceStubs, kPieceDiSlots, kMem1Pieces };
-    std::vector<GcMem1Piece> mem1_pieces(kMem1Pieces);
-    mem1_pieces[kPieceBlob].bytes = h.size;  // the biggest first: it packs best
-    mem1_pieces[kPieceCard].bytes = sizeof(gc_card);
-    mem1_pieces[kPieceMoved].bytes = kMovedBytes;
-    mem1_pieces[kPieceLeave].bytes = kLeaveBytes;
-    mem1_pieces[kPieceStubs].bytes = kStubBytes;
-    // A libogc game's DI start slots (gc_layout.h), one per site; none for
-    // any other game. Last: a piece of 0 bytes takes no room.
-    const std::uint32_t di_slots_bytes = static_cast<std::uint32_t>(di_starts.size()) * GC_DI_SLOT_WORDS * 4;
-    mem1_pieces[kPieceDiSlots].bytes = di_slots_bytes;
-    std::uint32_t fst_addr = 0;
-    std::uint32_t arena_hi = 0;
-    GcMem1Plan mem1;
-    // The layout for an FST room of `room`; true when it leaves the
-    // arena's top above RiftWii's heap and the game's own floor.
-    auto plan_mem1 = [&](std::uint32_t room) {
-        fst_addr = (kMem1Top - room) & ~31u;
-        mem1 = plan_gc_mem1(fst_addr, mem1_pieces, kBi2Bytes);
-        arena_hi = mem1.arena_hi;
-        // A refused layout (arena top 0) stays refused: the libogc
-        // arithmetic below would wrap it into one that passes.
-        if (arena_hi == 0) return false;
-        // libogc (gc_rt.h, "libogc") does not take ArenaHi from 0x80000034
-        // in every version: Sonic Riders Tournament Edition's sets its
-        // arena's top to the FST's address less 0x800, so with the FST at
-        // MEM1's top its heap covered the blob, and a 1.4 MB read wrote over
-        // it. For such a game the FST goes below everything else, and the
-        // arena ends 0x800 under it: either way of reading the top leaves
-        // the blob, the card and the DI stand-in alone.
-        if (ogc) {
-            fst_addr = (arena_hi - room) & ~31u;
-            arena_hi = (fst_addr - 0x800) & ~31u;
-        }
-        return arena_hi >= kLoaderCeiling && arena_hi >= game_floor;
-    };
-    // A two-disc game's room holds the larger FST; when no layout has room
-    // for that, disc 2 goes and disc 1's room is planned as before.
-    bool planned = false;
-    if (second.on) {
-        const std::uint32_t two_disc_room = gc_two_disc_fst_room(fst_max, second.boot.data());
-        planned = plan_mem1(two_disc_room);
-        if (planned) fst_max = two_disc_room;
-        else drop_second("its FST leaves the game no room at the top of MEM1");
-    }
-    if (!planned) plan_mem1(fst_max);
-    const std::uint32_t blob_addr = mem1_pieces[kPieceBlob].address;
-    const std::uint32_t card_addr = mem1_pieces[kPieceCard].address;
-    const std::uint32_t moved_addr = mem1_pieces[kPieceMoved].address;
-    const std::uint32_t leave_addr = mem1_pieces[kPieceLeave].address;
-    const std::uint32_t stubs_addr = mem1_pieces[kPieceStubs].address;
-    const std::uint32_t di_slots_addr = di_slots_bytes != 0 ? mem1_pieces[kPieceDiSlots].address : 0;
-    const std::uint32_t di_regs = mem1.di_regs;
-    const std::uint32_t bi2_addr = mem1.bi2;
-    if (arena_hi < kLoaderCeiling) {
-        error = "the game's FST is too large";
-        return false;
-    }
-#ifdef RT_TEST_BUILD
     // Test builds: sd:/riftwii/test_limits.txt's "game_mem1_kib = N" takes
-    // N KiB more off the game's arena top, as it does for a Wii game, to
-    // find out whether a game's crash is one of memory (docs/GCMEM2.md).
+    // N KiB more off the top of the game's memory, as it does for a Wii game,
+    // to find out whether a game's crash is one of memory (docs/GCMEM2.md).
+    // Taken out above the FST, before the plan: the FST, BI2's copy and
+    // RiftWii's pieces all move down by it, so a game that reads its limit
+    // from the FST's address (libogc) or BI2's (boot arguments) sees it as
+    // well as one that reads ArenaHi.
+    std::uint32_t squeeze = 0;
+#ifdef RT_TEST_BUILD
     if (std::FILE* limits = std::fopen("sd:/riftwii/test_limits.txt", "rb")) {
         // Read by hand: the plugin has no fgets or sscanf.
         char text[1024];
@@ -3010,17 +2957,79 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             while (*line != '\0' && *line != '\n') ++line;
             if (*line == '\n') ++line;
         }
-        const std::uint32_t squeeze = squeeze_kib << 10;
-        if (squeeze != 0 && squeeze_kib < 16384 && arena_hi - squeeze >= kLoaderCeiling) {
-            arena_hi = (arena_hi - squeeze) & ~31u;
-            logf("GameCube: TEST BUILD: the arena's top lowered %u KiB more, to 0x%08x (test_limits.txt)\n",
-                 squeeze_kib, static_cast<unsigned>(arena_hi));
-        } else if (squeeze != 0) {
-            logf("GameCube: TEST BUILD: game_mem1_kib = %u left out: it would take the arena under the loader\n",
-                 squeeze_kib);
-        }
+        if (squeeze_kib != 0 && squeeze_kib < 16384) squeeze = squeeze_kib << 10;
     }
 #endif
+    enum Mem1Piece { kPieceBlob, kPieceCard, kPieceMoved, kPieceLeave, kPieceStubs, kPieceDiSlots, kMem1Pieces };
+    std::vector<GcMem1Piece> mem1_pieces(kMem1Pieces);
+    mem1_pieces[kPieceBlob].bytes = h.size;  // the biggest first: it packs best
+    mem1_pieces[kPieceCard].bytes = sizeof(gc_card);
+    mem1_pieces[kPieceMoved].bytes = kMovedBytes;
+    mem1_pieces[kPieceLeave].bytes = kLeaveBytes;
+    mem1_pieces[kPieceStubs].bytes = kStubBytes;
+    // A libogc game's DI start slots (gc_layout.h), one per site; none for
+    // any other game. Last: a piece of 0 bytes takes no room.
+    const std::uint32_t di_slots_bytes = static_cast<std::uint32_t>(di_starts.size()) * GC_DI_SLOT_WORDS * 4;
+    mem1_pieces[kPieceDiSlots].bytes = di_slots_bytes;
+    std::uint32_t fst_addr = 0;
+    std::uint32_t arena_hi = 0;
+    GcMem1Plan mem1;
+    // The layout for an FST room of `room`; true when it leaves the
+    // arena's top above RiftWii's heap and the game's own floor.
+    auto plan_mem1 = [&](std::uint32_t room) {
+        fst_addr = (kMem1Top - room - squeeze) & ~31u;
+        mem1 = plan_gc_mem1(fst_addr, mem1_pieces, kBi2Bytes);
+        arena_hi = mem1.arena_hi;
+        // A refused layout (arena top 0) stays refused: the libogc
+        // arithmetic below would wrap it into one that passes.
+        if (arena_hi == 0) return false;
+        // libogc (gc_rt.h, "libogc") does not take ArenaHi from 0x80000034
+        // in every version: Sonic Riders Tournament Edition's sets its
+        // arena's top to the FST's address less 0x800, so with the FST at
+        // MEM1's top its heap covered the blob, and a 1.4 MB read wrote over
+        // it. For such a game the FST goes below everything else, and the
+        // arena ends 0x800 under it: either way of reading the top leaves
+        // the blob, the card and the DI stand-in alone.
+        if (ogc) {
+            fst_addr = (arena_hi - room) & ~31u;
+            arena_hi = (fst_addr - 0x800) & ~31u;
+        }
+        return arena_hi >= kLoaderCeiling && arena_hi >= game_floor;
+    };
+    // A squeeze that leaves no room even for disc 1's FST is left out, and
+    // said so: the test then runs as a release build would.
+    if (squeeze != 0 && !plan_mem1(fst_max)) {
+        logf("GameCube: TEST BUILD: game_mem1_kib = %u left out: it would take the arena under the loader "
+             "or the game's own floor\n", static_cast<unsigned>(squeeze >> 10));
+        squeeze = 0;
+    }
+    // A two-disc game's room holds the larger FST; when no layout has room
+    // for that, disc 2 goes and disc 1's room is planned as before.
+    bool planned = false;
+    if (second.on) {
+        const std::uint32_t two_disc_room = gc_two_disc_fst_room(fst_max, second.boot.data());
+        planned = plan_mem1(two_disc_room);
+        if (planned) fst_max = two_disc_room;
+        else drop_second("its FST leaves the game no room at the top of MEM1");
+    }
+    if (!planned) plan_mem1(fst_max);
+    if (squeeze != 0) {
+        logf("GameCube: TEST BUILD: the top of MEM1 lowered %u KiB more (FST 0x%08x, arena's top 0x%08x; "
+             "test_limits.txt)\n", static_cast<unsigned>(squeeze >> 10), static_cast<unsigned>(fst_addr),
+             static_cast<unsigned>(arena_hi));
+    }
+    const std::uint32_t blob_addr = mem1_pieces[kPieceBlob].address;
+    const std::uint32_t card_addr = mem1_pieces[kPieceCard].address;
+    const std::uint32_t moved_addr = mem1_pieces[kPieceMoved].address;
+    const std::uint32_t leave_addr = mem1_pieces[kPieceLeave].address;
+    const std::uint32_t stubs_addr = mem1_pieces[kPieceStubs].address;
+    const std::uint32_t di_slots_addr = di_slots_bytes != 0 ? mem1_pieces[kPieceDiSlots].address : 0;
+    const std::uint32_t di_regs = mem1.di_regs;
+    const std::uint32_t bi2_addr = mem1.bi2;
+    if (arena_hi < kLoaderCeiling) {
+        error = "the game's FST is too large";
+        return false;
+    }
     // Built here, zeroed, and moved into MEM2 just before the jump with
     // the card's image: the loader's own heap may be where it goes.
     std::vector<std::uint8_t> mem2_stage(mem2_bytes, 0);

@@ -13,7 +13,7 @@ top. RiftWii keeps more there, under the FST, and moves the game's arena top
 
 | Piece | Size | Why it is in MEM1 today |
 | --- | --- | --- |
-| The blob: hooks, replay slots, C code, its context | 73 KiB (ISO), about 123 KiB (RVZ) | the game's own branches jump into it, and a `b` reaches only 32 MB |
+| The blob: hooks, replay slots, C code, its context | 72 KiB (ISO), 88 KiB (RVZ), as built in November 2026 | the game's own branches jump into it, and a `b` reaches only 32 MB |
 | BI2's copy | 8 KiB | a real GameCube keeps it too; Soulcalibur II's developer arguments need it lowest |
 | DI registers' stand-in | 64 bytes (its address must end in 0x6000) | the game's patched disc accesses add 0x6000 to an upper half they load |
 | Memory card struct, way back, code from IOS's counter, ARAM stubs | a few KiB | the game or the blob reaches them by `b` or a short address |
@@ -55,6 +55,14 @@ not proven to be the cause of that crash yet (see "First step").
     stubs as today.
 
   Expected size: about 1 to 3 KiB, depending on the hooks a game needs.
+
+  The way back from the body to the front is far as well: a `b` from MEM2
+  cannot reach MEM1, so the body enters a replay or continue slot through
+  a full address (`lis`/`ori`, `mtctr`, `bctr`), which the loader writes
+  with the front's address. The test that the blob is position independent
+  (linked at two bases and compared) then covers the body alone; the jumps
+  between the two halves are the loader's, checked by the split's own
+  tests below.
 - **Body (MEM2).** The C code, `gc_hook_common` and the assembly behind the
   veneers, and the context. The context stays found PC-relatively, as today,
   so it moves with the code. Only the code and the blob's own state are
@@ -91,7 +99,7 @@ MEM1 blob is today.
 
 ## What it gives back
 
-About 70 KiB of MEM1 for an ISO and about 120 KiB for an RVZ. MEM1's top then
+About 70 KiB of MEM1 for an ISO and about 85 KiB for an RVZ. MEM1's top then
 holds the FST, BI2's copy, the small front, the DI stand-in and the few
 KiB of the card, the way back and the stubs.
 
@@ -114,8 +122,12 @@ KiB of the card, the way back and the stubs.
 ## First step: measure before moving
 
 1. **A GameCube memory squeeze for the test build.** `game_mem1_kib` in
-   `test_limits.txt` takes that many KiB off the game's arena top, as it
-   does for Wii games. With it, SpongeBob SquarePants: The Movie can show
+   `test_limits.txt` takes that many KiB off the top of MEM1, as it does for
+   Wii games. It is taken out above the FST, before the layout is planned,
+   so the FST, BI2's copy and RiftWii's pieces all move down with the
+   arena's top: a game that works out its memory from the FST's address
+   (libogc) or BI2's (boot arguments) is squeezed too. A squeeze that would
+   leave no room is left out, and the log says so. With it, SpongeBob SquarePants: The Movie can show
    whether it crashes earlier with 100 KiB less, which tells whether MEM1 is
    its problem.
 2. **A probe that BAT4 still runs code after OSInit.** The blob's first
