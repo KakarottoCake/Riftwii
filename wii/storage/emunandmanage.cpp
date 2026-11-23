@@ -531,10 +531,11 @@ bool real_title_attributes(std::uint64_t title, Attributes& attributes) {
 
 std::string title_name(const Location& root, std::uint64_t title) {
     const std::string code = emunand_title_code(title);
-    std::string listed;
-    if (code.size() == 4 && GameTitleListed(code, listed) && !listed.empty()) {
-        return listed + " (" + code + ")";
-    }
+    // The game-name list keys disc games by their 6-char ID (RSBE01): a
+    // save's 4-char code finds its game there too.
+    const TitleTable* names = LoadedTitles();
+    const std::string* listed = names ? names->find_code(code) : nullptr;
+    if (listed && !listed->empty()) return *listed + " (" + code + ")";
     // Disc saves and add-on data have no channel banner. Avoid opening a
     // TMD and content file for every save in a large copied NAND.
     const std::uint32_t type = title >> 32;
