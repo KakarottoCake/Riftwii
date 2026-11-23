@@ -904,6 +904,9 @@ void GuiGameGrid::DrawCoverTile(int index, Slot* text, float x, float y, float s
     // No cover: one made up (the name on a blank cover) once it is made.
     const u8* cover = riftwii::wii::CoverTexture(CoverName(item));
     const u8* madeUp = cover ? nullptr : MadeUpCoverFor(item);
+    // Real box art, not a made-up cover (which prints the name and ID into
+    // its own picture, where MODS moved up a row would cover the ID).
+    const bool boxArt = cover != nullptr;
     // A cover stands on its own, a made-up one too: the card's grey edge
     // and shadow, the cover's size, ringed it (plain on a white Wii cover's
     // edge). The card stays for the lit tile's ring and under a tile with
@@ -947,12 +950,13 @@ void GuiGameGrid::DrawCoverTile(int index, Slot* text, float x, float y, float s
     const int modsW = text->mods->GetTextWidth() + 10 + kTinyBold;
     const int modsX = at_x(7);
     // A narrow cover (4:3) has no room for MODS and the source side by side
-    // with a gap: MODS goes a row up, at the cover's right like the badge,
-    // rather than touching it ("MODSSD"). On a tile without a cover the
-    // game's ID is there, and gives way, as on a Names tile without room.
+    // with a gap, rather than touching it ("MODSSD"): over box art MODS goes
+    // a row up, at the cover's right like the badge; over a made-up cover
+    // or a bare tile, whose name and ID fill the middle, into the top right
+    // corner, on the made-up cover's band.
     constexpr int kGap = 4;
     const bool sideBySide = modsX + modsW + kGap <= badgeX;
-    if (idShown && !(tagged && !sideBySide)) {
+    if (idShown) {
         text->id->SetPosition(at_x(kCoverTextLeft), at_y(tileH - 40));
         text->id->Draw();
     }
@@ -961,7 +965,7 @@ void GuiGameGrid::DrawCoverTile(int index, Slot* text, float x, float y, float s
     DrawTinyLabel(text->badge, badgeX + 5, baseY);
     if (tagged) {
         const int tagX = sideBySide ? modsX : badgeX + badgeW - modsW;
-        const int tagY = sideBySide ? baseY : baseY - 17;
+        const int tagY = sideBySide ? baseY : boxArt ? baseY - 17 : at_y(7);
         Menu_DrawRectangle(tagX, tagY - 1, modsW, 15, skin::WithAlpha(skin::kAccentInk, alpha), 1);
         DrawTinyLabel(text->mods, tagX + 5, tagY);
     }
