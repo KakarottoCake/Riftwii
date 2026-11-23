@@ -132,11 +132,11 @@ KiB of the card, the way back and the stubs.
    fill gaps, so the room taken is checked against the layout without it
    and grown until the arena's top is at least that much lower; the log
    gives the bytes it really took (the DI stand-in's address ending in
-   0x6000 moves the layout in 64 KiB steps: 16 KiB asked took 64 in Dolphin).
-   A squeeze that would leave no room is
-   left out, and the log says so. With it, SpongeBob SquarePants: The Movie can show
-   whether it crashes earlier with 100 KiB less, which tells whether MEM1 is
-   its problem.
+   0x6000 moves the layout in 64 KiB steps: 16 KiB asked took 64 in
+   Dolphin). A squeeze that would leave no room is left out, and the log
+   says so. With it, SpongeBob SquarePants: The Movie can show whether it
+   crashes earlier with 100 KiB less, which tells whether MEM1 is its
+   problem.
 2. **A probe that BAT4 still runs code after OSInit.** The blob's first
    call after the game's OS is up runs one function from MEM2
    (`gc/test/mem2code`). It leaves `RUN!` in `gc_rt_cold.mem2_code_ran`,
