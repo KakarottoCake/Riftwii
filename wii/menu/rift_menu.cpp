@@ -13509,7 +13509,9 @@ public:
 			details.insert(details.end(), lines.begin(), lines.end());
 			lines = std::move(details);
 			controlNames.clear();
-			storyHead->SetText(Upper(tr("Plays with")).c_str());
+			// The box starts with the controllers' names, then the story:
+			// its heading says both, not "Plays with" again under the icons.
+			storyHead->SetText(Upper(tr("Controllers and story")).c_str());
 			scrollHint->SetText(tr("Up and Down scroll"));
 		}
 		for (int i = 0; i < kStoryLines; ++i) shown.emplace_back(new GuiText("", 15, skin::kInkSoft));

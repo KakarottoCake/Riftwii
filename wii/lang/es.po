@@ -3900,6 +3900,9 @@ msgstr "Arriba y Abajo desplazan el texto"
 msgid "Up and Down scroll the story"
 msgstr "Arriba y Abajo mueven la historia"
 
+msgid "Controllers and story"
+msgstr "Mandos e historia"
+
 msgid "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons."
 msgstr "No se pudieron leer algunos WAD. Consulta los nombres y motivos en sd:/riftwii/session.log."
 
