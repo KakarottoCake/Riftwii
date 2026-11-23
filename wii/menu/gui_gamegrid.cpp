@@ -285,6 +285,7 @@ GuiGameGrid::~GuiGameGrid() {
     }
     delete measure;
     delete caption;
+    delete letterText;
     delete captionInfo;
     delete spineText;
     delete soundOver;
@@ -1198,6 +1199,7 @@ void GuiGameGrid::Draw() {
     if (covers) ReadAllCovers();
     if (shelf) {
         DrawShelf(alpha);
+        DrawLetter(alpha);
         UpdateEffects();
         return;
     }
@@ -1303,22 +1305,60 @@ void GuiGameGrid::Draw() {
     if (page + 1 < Pages())
         riftwii::wii::DrawInvitingArrow(skin::arrowRight, skin::arrowRightOver, ArrowX(1) - 2, ArrowY() - 2,
                                       1, 0, arrowHover > 0, arrowLift[1], alpha);
+    DrawLetter(alpha);
     UpdateEffects();
+}
+
+void GuiGameGrid::ShowLetter(int item) {
+    if (item < 0 || item >= Count()) return;
+    const std::string& title = (*items)[static_cast<std::size_t>(item)].title;
+    const char letter = riftwii::sort_letter(title);
+    std::string shown(1, letter);
+    if (letter == riftwii::kOtherScriptLetter) {
+        // Another script's group: the game's own first character (a kana,
+        // a hangul syllable) rather than a sign that means nothing.
+        const std::size_t from = riftwii::sort_name_start(title);
+        std::size_t end = from + 1;
+        while (end < title.size() && (static_cast<unsigned char>(title[end]) & 0xC0) == 0x80) ++end;
+        shown = title.substr(from, end - from);
+    }
+    if (!letterText) letterText = new GuiText(nullptr, 64, skin::kInk);
+    letterText->SetText(shown.c_str());
+    // About a second on screen, the last third fading out.
+    letterFrames = 54;
+}
+
+void GuiGameGrid::DrawLetter(int alpha) {
+    if (letterFrames <= 0 || !letterText) return;
+    --letterFrames;
+    const int fade = letterFrames >= 18 ? 255 : letterFrames * 255 / 18;
+    const int a = alpha * fade / 255;
+    // In the middle of the games, on a card of its own. The letter is
+    // placed as the caption is, from the grid's own top and middle.
+    const float size = 104.0f;
+    const float cx = GetLeft() + GetWidth() / 2.0f;
+    f32 vx, vy, vw, vh;
+    Menu_VisibleArea(&vx, &vy, &vw, &vh);
+    const float cy = shelf ? vy + vh * 0.4f : (TileY(0) + TileY(kPerPage - 1) + Geo().tileH) / 2.0f;
+    skin::DrawNine(skin::card9, cx - size / 2, cy - size / 2, size, size, riftwii::kCardCorner, a);
+    letterText->SetParent(this);
+    letterText->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+    // The menu font sits low in its line: its top a little above the
+    // card's middle less half its size.
+    letterText->SetPosition(0, static_cast<int>(cy - GetTop() - 40.0f));
+    letterText->SetAlpha(a);
+    letterText->Draw();
 }
 
 // The first game (in the view's order) whose name starts with the letter
 // after (dir 1) or before (-1) the focused one's, wrapping round. Names that
-// start with anything else come before A; the disc tile (when Home has it)
-// has no letter.
+// start with a digit or a sign come before A, names in another script (not
+// Latin) after Z; the disc tile (when Home has it) has no letter.
 int GuiGameGrid::LetterTarget(int dir) const {
     const auto letter = [&](int i) -> int {
         if ((*items)[static_cast<std::size_t>(i)].badge == "DISC") return -1;
-        const std::string& title = (*items)[static_cast<std::size_t>(i)].title;
-        // As Home sorts them: a leading "The" is skipped.
-        const std::size_t at = riftwii::sort_name_start(title);
-        const char c = at < title.size() ? title[at] : 0;
-        if (c >= 'a' && c <= 'z') return c - 'a' + 'A';
-        return c >= 'A' && c <= 'Z' ? c : '#';
+        // As Home sorts them: past a leading "The", accents taken off.
+        return static_cast<int>(riftwii::sort_letter((*items)[static_cast<std::size_t>(i)].title));
     };
     const int n = Count();
     if (n <= 1) return focus;
@@ -1370,6 +1410,7 @@ bool GuiGameGrid::LetterKeys(GuiTrigger* t) {
     const auto go = [&](int target) {
         if (target == focus) return;
         Focus(target);
+        ShowLetter(target);
         shelfHover = -1;
         hover = -1;
         soundOver->Play();
