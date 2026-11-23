@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "emunandmanage.hpp"
+#include "riftwii/titles.hpp"
 #include "sharednandfind.hpp"
 #include "riftwii/emunand.hpp"
 #include "riftwii/sha1.hpp"
@@ -308,6 +309,8 @@ void listed_title_names() {
     constexpr u64 disc_save = 0x0001000052365245ULL;     // R6RE.
     real_titles = {kTitle, real_channel, disc_save};
     title_names["WBME"] = "Listed game";
+    // A disc game is listed under its 6-character ID; its save's 4-letter code finds it.
+    title_names["R6RE01"] = "Listed disc game";
     card_file(kData + "/save.bin", "save");
     card_file("/title/00010000/52365245/data/save.bin", "disc save");
     nand_files["/title/00010001/54455354/content/title.tmd"] = {false, channel_metadata(real_channel)};
@@ -329,7 +332,7 @@ void listed_title_names() {
             CHECK(title.name == "Wii banner name");
             CHECK(!title.emulated && title.real);
         } else if (title.id == disc_save) {
-            CHECK(title.name == "R6RE");
+            CHECK(title.name == "Listed disc game (R6RE)");
             CHECK(title.emulated && title.real);
         }
     }
@@ -477,10 +480,14 @@ s32 ISFS_Rename(const char* from, const char* to) {
 }
 
 namespace riftwii::wii {
-bool GameTitleListed(const std::string& code, std::string& title) {
-    const auto found = title_names.find(code);
-    title = found == title_names.end() ? std::string() : found->second;
-    return true;
+// The game-name list as the menu has loaded it, made from title_names.
+const riftwii::TitleTable* LoadedTitles() {
+    static riftwii::TitleTable table;
+    table = riftwii::TitleTable{};
+    std::string text;
+    for (const auto& entry : title_names) text += entry.first + " = " + entry.second + "\n";
+    table.add_text(text);
+    return &table;
 }
 s32 NandOpen() { return 0; }
 void NandClose() {}
