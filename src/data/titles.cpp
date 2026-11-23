@@ -87,6 +87,77 @@ std::size_t sort_name_start(const std::string& title) {
     return at < title.size() ? at : 0;
 }
 
+namespace {
+
+// The plain letters of U+00C0 to U+00FF, one per code point. '*' keeps the
+// character as it is (the multiplication and division signs); the others
+// that stand for more than one letter: '1' "ae", '2' "th", '3' "ss".
+constexpr char kLatin1Letters[] =
+    "aaaaaa1ceeeeiiiidnooooo*ouuuuy23"
+    "aaaaaa1ceeeeiiiidnooooo*ouuuuy2y";
+// The same for U+0100 to U+017F (Latin Extended-A): '4' "ij", '5' "oe".
+constexpr char kLatinExtendedLetters[] =
+    "aaaaaacccccccc" "dddd" "eeeeeeeeee" "gggggggg" "hhhh" "iiiiiiiiii" "44" "jj" "kkk" "llllllllll"
+    "nnnnnnnnn" "oooooo" "55" "rrrrrr" "ssssssss" "tttttt" "uuuuuuuuuuuu" "ww" "yyy" "zzzzzz" "s";
+static_assert(sizeof kLatin1Letters == 65, "one letter for each of U+00C0 to U+00FF");
+static_assert(sizeof kLatinExtendedLetters == 129, "one letter for each of U+0100 to U+017F");
+
+// What one table letter stands for.
+const char* plain_letters(char letter) {
+    switch (letter) {
+    case '1': return "ae";
+    case '2': return "th";
+    case '3': return "ss";
+    case '4': return "ij";
+    case '5': return "oe";
+    default: return nullptr;
+    }
+}
+
+}  // namespace
+
+std::string sort_key(const std::string& name) {
+    std::string key;
+    key.reserve(name.size());
+    for (std::size_t i = 0; i < name.size(); ++i) {
+        const unsigned char c = static_cast<unsigned char>(name[i]);
+        if (c < 0x80) {
+            key += static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
+            continue;
+        }
+        // A two-byte UTF-8 character from U+00C0 to U+017F: lead byte C3,
+        // C4 or C5 and a continuation byte.
+        const bool two_bytes = (c == 0xC3 || c == 0xC4 || c == 0xC5) && i + 1 < name.size() &&
+                               (static_cast<unsigned char>(name[i + 1]) & 0xC0) == 0x80;
+        const unsigned code_point =
+            two_bytes ? ((c & 0x1Fu) << 6) | (static_cast<unsigned char>(name[i + 1]) & 0x3Fu) : 0;
+        char letter = '*';
+        if (code_point >= 0xC0 && code_point <= 0xFF) letter = kLatin1Letters[code_point - 0xC0];
+        else if (code_point >= 0x100 && code_point <= 0x17F) letter = kLatinExtendedLetters[code_point - 0x100];
+        if (letter == '*') {
+            key += static_cast<char>(c);
+            continue;
+        }
+        if (const char* letters = plain_letters(letter)) key += letters;
+        else key += letter;
+        ++i;  // the continuation byte
+    }
+    return key;
+}
+
+bool sort_name_less(const std::string& a, const std::string& b) {
+    const std::string key_a = sort_key(a);
+    const std::string key_b = sort_key(b);
+    if (key_a != key_b) return key_a < key_b;
+    return a < b;
+}
+
+char sort_letter(const std::string& title) {
+    const std::string key = sort_key(title.substr(sort_name_start(title)));
+    const char first = key.empty() ? 0 : key[0];
+    return first >= 'a' && first <= 'z' ? static_cast<char>(first - 'a' + 'A') : '#';
+}
+
 std::string folder_title(const std::string& path, const std::string& id) {
     const std::size_t file_slash = path.find_last_of('/');
     if (file_slash == std::string::npos || file_slash == 0) return "";

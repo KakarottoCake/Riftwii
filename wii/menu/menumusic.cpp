@@ -23,6 +23,7 @@
 #include "oggplayer.h"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/musiclist.hpp"
+#include "riftwii/titles.hpp"
 #include "riftwii/imagevolume.hpp"
 #include "skin.hpp"
 #include "usbcatalog.hpp"
@@ -190,7 +191,10 @@ bool ListFolder(const std::string& folder, std::vector<MusicFolderEntry>& out) {
     }
     closedir(dir);
     std::sort(out.begin(), out.end(),
-              [](const MusicFolderEntry& a, const MusicFolderEntry& b) { return a.name < b.name; });
+              [](const MusicFolderEntry& a, const MusicFolderEntry& b) {
+                  // As a person reads them: "apps" beside "Apps", not after "YABDM".
+                  return sort_name_less(a.name, b.name);
+              });
     return true;
 }
 

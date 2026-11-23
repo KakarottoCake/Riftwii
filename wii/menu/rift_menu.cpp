@@ -1467,12 +1467,12 @@ static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered, b
 			{HomeEntry::Kind::App, i, "", apps[i].name + " " + apps[i].coder}, id, key, nullptr});
 	}
 	std::stable_sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
-		// A leading "The" is not sorted on (The Legend of Zelda under L).
-		const int by = strcasecmp(a.gameName.c_str() + riftwii::sort_name_start(a.gameName),
-			b.gameName.c_str() + riftwii::sort_name_start(b.gameName));
-		if (by != 0) return by < 0;
-		const int whole = strcasecmp(a.gameName.c_str(), b.gameName.c_str());
-		if (whole != 0) return whole < 0;
+		// A leading "The" is not sorted on (The Legend of Zelda under L),
+		// nor case or accents (Ōkami among the O's).
+		const std::string nameA = a.gameName.substr(riftwii::sort_name_start(a.gameName));
+		const std::string nameB = b.gameName.substr(riftwii::sort_name_start(b.gameName));
+		if (riftwii::sort_key(nameA) != riftwii::sort_key(nameB)) return riftwii::sort_name_less(nameA, nameB);
+		if (a.gameName != b.gameName) return riftwii::sort_name_less(a.gameName, b.gameName);
 		// The game's own tile first, then its profiles by name.
 		if (a.entry.profile.empty() != b.entry.profile.empty()) return a.entry.profile.empty();
 		return strcasecmp(a.name.c_str(), b.name.c_str()) < 0;
@@ -11068,9 +11068,7 @@ static std::vector<std::string> ListNamedGcCards(bool shiftJis)
 		if (names.size() < 200) names.push_back(name);
 	}
 	closedir(dir);
-	std::sort(names.begin(), names.end(), [](const std::string& a, const std::string& b) {
-		return LowerAscii(a) < LowerAscii(b);
-	});
+	std::sort(names.begin(), names.end(), riftwii::sort_name_less);
 	return names;
 }
 

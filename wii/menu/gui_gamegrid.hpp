@@ -245,6 +245,12 @@ private:
     int ShoulderPage(GuiTrigger* t);
     float shelfStepHeldMs[4] = {};  // how long + or - has been held on the shelf, per controller
     bool letterUsed[4] = {};
+    // The letter a jump went to, shown large over the games for a moment
+    // so a press of B reads as "on to M" rather than a random hop.
+    void ShowLetter(int item);
+    void DrawLetter(int alpha);
+    GuiText* letterText = nullptr;
+    int letterFrames = 0;
     int SlotAt(int x, int y) const;
     // Moving a game (SetMovable). carryFrom is its index in the list,
     // carryTo the place it would land; the tiles between them shift by one.
