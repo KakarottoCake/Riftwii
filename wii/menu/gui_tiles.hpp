@@ -45,7 +45,6 @@ public:
         return index >= 0 && index < static_cast<int>(lift.size()) ? lift[index] : 0.0f;
     }
     float PressedScale(int index) const { return index == pressedTile ? pressScale : 1.0f; }
-    float SwellScale(int index) const;
     void Draw() override;
     void Update(GuiTrigger* t) override;
 

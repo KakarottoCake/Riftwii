@@ -3658,9 +3658,9 @@ public:
 			const TileSpec& tile = tiles_[index];
 			Menu_PushCamera(choices_.PressedScale(index), tile.x + tile.w / 2.0f, tile.y + tile.h / 2.0f);
 			const float lift = choices_.Lift(index);
-			const float grow = choices_.SwellScale(index);
-			const float w = tile.w * grow, h = tile.h * grow;
-			const float x = tile.x - (w - tile.w) / 2, y = tile.y - (h - tile.h) / 2;
+			// Lit, a tile keeps its size (as GuiTiles' do): its ring shows it.
+			const float w = tile.w, h = tile.h;
+			const float x = tile.x, y = tile.y;
 			const skin::Tex& base = index == current_ ? skin::tile9Primary : skin::tile9;
 			const skin::Tex& over = index == current_ ? skin::tile9PrimaryOver : skin::tile9Over;
 			skin::DrawNine(base, x - 8, y - 8, w + 16, h + 16, skin::kTileCorner);
@@ -12969,10 +12969,10 @@ public:
 		riftwii::wii::DrawTrace trace("the page's cover");
 		DrawDisc();
 		const float lit = litGrid && litTile >= 0 ? litGrid->Lift(litTile) : 0.0f;
-		const float grow = litGrid && litTile >= 0 ? litGrid->SwellScale(litTile) : 1.0f;
-		const float w = kHeroW * placeScale * grow, h = kHeroH * placeScale * grow;
-		// The cover already sits at the safe left edge: grow inward there.
-		const float x = placeX, y = placeY - (h - kHeroH * placeScale) / 2;
+		// Lit, the cover keeps its size, as the tiles do (grown, it stuck
+		// out past the Favourite tile under it): its ring shows it.
+		const float w = kHeroW * placeScale, h = kHeroH * placeScale;
+		const float x = placeX, y = placeY;
 		const auto ring = [&](float rx, float ry, float rw, float rh) {
 			if (lit <= 0.0f) return;
 			const GXColor c = skin::WithAlpha(skin::kAccent, static_cast<int>(255 * lit));

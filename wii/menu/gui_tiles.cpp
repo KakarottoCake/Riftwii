@@ -196,11 +196,6 @@ void GuiTiles::EvenTextSizes() {
         if (!(*tiles)[i].primary) label[i]->SetFontSize(labelMin);
 }
 
-float GuiTiles::SwellScale(int index) const {
-    if (index < 0 || index >= Count()) return 1;
-    return riftwii::wii::ButtonSwellScale((*tiles)[index].w, swell[index].Amount());
-}
-
 void GuiTiles::Draw() {
     if (!IsVisible() || !tiles) return;
     riftwii::wii::DrawTrace trace("the page's tiles");
@@ -217,24 +212,19 @@ void GuiTiles::Draw() {
         float& l = lift[i];
         l = std::clamp(swell[i].Advance(i == lit), 0.0f, 1.0f);
         if (s.hidden) continue;
-        // Lit, the tile grows a little about its middle and its ring fades in.
-        const float grow = SwellScale(i);
+        // Lit, the tile keeps its size and its ring fades in (and pulses).
+        // A tile that grew stuck out past the tiles in line with it: the
+        // lit Play 8 to 10 pixels past the column under it, a lit Cheats
+        // past Options, the grid's edges no longer straight.
         Menu_PushCamera(PressedScale(i), s.x + s.w / 2.0f, s.y + s.h / 2.0f);
-        float w = s.w * grow, h = s.h * grow;
+        const float w = s.w, h = s.h;
         f32 safeX, safeW;
         Menu_SafeArea(&safeX, &safeW);
-        // At an outer edge the tile doesn't grow past it (its shadow stays in
-        // the overscan): that side stays put and the other grows its usual
-        // half. Moving the whole growth inward instead pushed the lit Play,
-        // which ends at the right edge, twice as far left, into the cover.
+        // Kept inside the overscan, its shadow too.
         const float safeLeft = safeX + safeW * 0.05f + kShadow;
         const float safeRight = safeX + safeW * 0.95f - kShadow;
-        const float restX = std::clamp(static_cast<float>(s.x), safeLeft, safeRight - s.w);
-        const float restY = std::clamp(static_cast<float>(s.y), 24.0f + kShadow, 456.0f - kShadow - s.h);
-        const float x = std::max(restX - (w - s.w) / 2, std::min(safeLeft, restX));
-        const float y = std::max(restY - (h - s.h) / 2, std::min(24.0f + kShadow, restY));
-        w = std::min(restX + s.w + (w - s.w) / 2, std::max(safeRight, restX + s.w)) - x;
-        h = std::min(restY + s.h + (h - s.h) / 2, std::max(456.0f - kShadow, restY + s.h)) - y;
+        const float x = std::clamp(static_cast<float>(s.x), safeLeft, safeRight - w);
+        const float y = std::clamp(static_cast<float>(s.y), 24.0f + kShadow, 456.0f - kShadow - h);
         const skin::Tex& base = s.primary ? skin::tile9Primary : skin::tile9;
         const skin::Tex& over = s.primary ? skin::tile9PrimaryOver : skin::tile9Over;
         const int tileAlpha = s.dim ? alpha * 3 / 4 : alpha;
