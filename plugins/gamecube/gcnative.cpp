@@ -3004,32 +3004,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         }
         return arena_hi >= kLoaderCeiling && arena_hi >= game_floor;
     };
-    // The room above the FST that lowers the arena's top by at least the
-    // squeeze, against the same layout without it: a gap RiftWii's pieces
-    // fill can swallow a small one. One that leaves no room, or needs 128
-    // KiB more than asked, is left out and said so: the test then runs as
-    // a release build would.
-    if (squeeze != 0) {
-        squeeze_room = 0;
-        const bool base_planned = plan_mem1(fst_max);
-        const std::uint32_t base_arena = arena_hi;
-        bool reached = false;
-        for (squeeze_room = squeeze; base_planned && squeeze_room <= squeeze + 0x20000; squeeze_room += 0x400) {
-            if (!plan_mem1(fst_max)) break;
-            if (base_arena - arena_hi >= squeeze) {
-                reached = true;
-                break;
-            }
-        }
-        if (!reached) {
-            logf("GameCube: TEST BUILD: game_mem1_kib = %u left out: it would take the arena under the loader "
-                 "or the game's own floor\n", static_cast<unsigned>(squeeze >> 10));
-            squeeze = 0;
-            squeeze_room = 0;
-        }
-    }
     // A two-disc game's room holds the larger FST; when no layout has room
-    // for that, disc 2 goes and disc 1's room is planned as before.
+    // for that, disc 2 goes and disc 1's room is planned as before. Decided
+    // without the squeeze below, which never costs a game its second disc.
     bool planned = false;
     if (second.on) {
         const std::uint32_t two_disc_room = gc_two_disc_fst_room(fst_max, second.boot.data());
@@ -3038,19 +3015,33 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         else drop_second("its FST leaves the game no room at the top of MEM1");
     }
     if (!planned) plan_mem1(fst_max);
+    // The room above the FST that lowers the arena's top by at least the
+    // squeeze, against this same layout (a two-disc game's too) without it:
+    // a gap RiftWii's pieces fill can swallow a small one. One that leaves
+    // no room, or needs 128 KiB more than asked, is left out and said so:
+    // the test then runs as a release build would, with the layout above.
     if (squeeze != 0) {
-        // What it took, against the final layout (a two-disc game's too)
-        // planned without it, then the layout planned again with it.
-        const std::uint32_t room = squeeze_room;
-        squeeze_room = 0;
-        plan_mem1(fst_max);
         const std::uint32_t base_arena = arena_hi;
-        squeeze_room = room;
-        plan_mem1(fst_max);
-        logf("GameCube: TEST BUILD: game_mem1_kib = %u: the arena's top 0x%08x, %u bytes under 0x%08x without it "
-             "(FST 0x%08x; test_limits.txt)\n", static_cast<unsigned>(squeeze >> 10),
-             static_cast<unsigned>(arena_hi), static_cast<unsigned>(base_arena - arena_hi),
-             static_cast<unsigned>(base_arena), static_cast<unsigned>(fst_addr));
+        bool reached = false;
+        for (squeeze_room = squeeze; squeeze_room <= squeeze + 0x20000; squeeze_room += 0x400) {
+            if (!plan_mem1(fst_max)) break;
+            if (base_arena - arena_hi >= squeeze) {
+                reached = true;
+                break;
+            }
+        }
+        if (reached) {
+            logf("GameCube: TEST BUILD: game_mem1_kib = %u: the arena's top 0x%08x, %u bytes under 0x%08x without it "
+                 "(FST 0x%08x; test_limits.txt)\n", static_cast<unsigned>(squeeze >> 10),
+                 static_cast<unsigned>(arena_hi), static_cast<unsigned>(base_arena - arena_hi),
+                 static_cast<unsigned>(base_arena), static_cast<unsigned>(fst_addr));
+        } else {
+            logf("GameCube: TEST BUILD: game_mem1_kib = %u left out: it would take the arena under the loader "
+                 "or the game's own floor\n", static_cast<unsigned>(squeeze >> 10));
+            squeeze = 0;
+            squeeze_room = 0;
+            plan_mem1(fst_max);
+        }
     }
     const std::uint32_t blob_addr = mem1_pieces[kPieceBlob].address;
     const std::uint32_t card_addr = mem1_pieces[kPieceCard].address;

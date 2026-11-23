@@ -730,9 +730,10 @@ GC_FLAG_CHECK(gc_rt_context_fits, sizeof(struct gc_rt_context) <= GC_RT_CONTEXT_
  * hand-over, the projection callers the trace reports, and a crash's
  * registers. 16:9's matrix copy is the one exception, read once a
  * projection by the game's GXSetProjection, which reads MEM2 as well as
- * MEM1. None of it is set by the loader or differs between the
- * programs a game loads (gc_programs.h), so it needs no part in their
- * switch. */
+ * MEM1. None of it differs between the programs a game loads
+ * (gc_programs.h), so it needs no part in their switch, and the loader
+ * sets none of it but the MEM2 probe (mem2_code, written only with the
+ * gc/test/mem2code switch, docs/GCMEM2.md). */
 struct gc_rt_cold {
     uint32_t ipc[16] __attribute__((aligned(32)));      /* the IPC request */
     uint32_t vec[8] __attribute__((aligned(32)));       /* three vectors */
