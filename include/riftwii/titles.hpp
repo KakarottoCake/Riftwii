@@ -27,6 +27,10 @@ public:
     const std::string* find(const std::string& id) const;
     // The title for exactly this ID, without the 4-char prefix's; null when none.
     const std::string* find_exact(const std::string& id) const;
+    // The title for a 4-char game code (a save's or a channel's): the code's
+    // own line, else the first 6-char ID it starts (RSBE for RSBE01); null
+    // when none.
+    const std::string* find_code(const std::string& code) const;
     std::size_t size() const { return titles_.size(); }
 
 private:

@@ -2865,9 +2865,17 @@ class NoteCard : public GuiElement {
 public:
 	static constexpr int kX = 40, kY = 316, kW = 560, kH = 86;  // four lines end by y 410, above the prompts (y 418)
 	static constexpr int kTextX = kX + 36, kTextY = kY + 10, kTextW = kW - 40, kLines = 4;
+	// Where its sign sits: the page's left edge (wider pages at 16:9) and
+	// its top (a page with more rows starts it lower). Both are named so a
+	// call can't mean one for the other.
+	explicit NoteCard(int x = kX, int top = kY) : x(x), top(top) {}
 	void Draw() override {
-		skin::Draw(skin::iconInfo, kX + 2, kY + 7, GetAlpha() / 2);
+		// At full strength: at half, a composite cable left it at 1.4:1.
+		skin::Draw(skin::iconInfo, x + 2, top + 7, GetAlpha());
 	}
+private:
+	int x;
+	int top;
 };
 
 // The icon left of a page's title: the one on the tile that opened it.
@@ -4927,7 +4935,7 @@ static void RunUpdate(const std::string& latest)
 	SetHomeNotice(tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest}));
 }
 
-// Settings > Install WAD files: every .wad in sd:/wad into the emulated NAND
+// Settings > Games > Install WAD files: every .wad in sd:/wad into the emulated NAND
 // the channels are listed from (wii/storage/wadinstall.hpp), asked first,
 // with a progress bar. True when any was installed (Home reads them again).
 static bool InstallWads()
@@ -6120,7 +6128,10 @@ static bool EmulatorRowsPage(const std::string& title, std::vector<FlowRow>& row
 			noteTxt.SetText(help[static_cast<std::size_t>(focused)].c_str());
 		if (focused >= 0 && static_cast<std::size_t>(focused) < rows.size()) {
 			const auto kind = rows[static_cast<std::size_t>(focused)].kind;
+			prompts.SetShown(choose, kind != FlowRow::Kind::Info);
 			prompts.SetAction(choose, kind == FlowRow::Kind::Option || kind == FlowRow::Kind::Toggle ? tr("Change") : tr("Open"));
+		} else {
+			prompts.SetShown(choose, false);
 		}
 		if (prompts.GetClicked() == back) backBtn.PressSilently();
 		if (backBtn.Clicked() || ExitRequested) break;
@@ -6229,14 +6240,15 @@ static void MenuEmulatedNandTitle(const std::string& folder, const riftwii::wii:
 		help.push_back(folder + "\n" + riftwii::emunand_title_text(title.id));
 		actions.push_back(action);
 	};
+	const bool protectedTitle = riftwii::emunand_delete_protected(title.id);
 	// The copy to the other drive, last: not one of emunand_manager_action's.
 	const std::string copyTo = title.emulated ? emunand_copy_destination(folder) : std::string();
 	if (title.real) add(tr("Copy save from Wii"), EmuNandAction::SaveToEmulated);
 	if (title.real && title.emulated) add(tr("Copy save to Wii"), EmuNandAction::SaveToWii);
-	if (title.emulated) {
+	if (title.emulated && !protectedTitle) {
 		add(tr("Delete emulated save"), EmuNandAction::DeleteSave);
 		add(tr("Delete emulated title"), EmuNandAction::DeleteTitle);
-	} else if (title.ticket_only) {
+	} else if (title.ticket_only && !protectedTitle) {
 		// Only its ticket is left: deleting the title removes that.
 		add(tr("Delete emulated title"), EmuNandAction::DeleteTitle);
 	}
@@ -6249,7 +6261,15 @@ static void MenuEmulatedNandTitle(const std::string& folder, const riftwii::wii:
 		rows.push_back(row);
 		help.push_back(tr("Copies this game, its save and its ticket to {1}. RiftWii plays WiiWare and Virtual Console games from an emulated NAND on the SD card.", {copyTo}));
 	}
+	if (protectedTitle) {
+		FlowRow row;
+		row.kind = FlowRow::Kind::Info;
+		row.label = tr("System titles cannot be deleted.");
+		rows.push_back(row);
+		help.push_back(folder);
+	}
 	EmulatorRowsPage(FlatCapped(EmulatedNandTitleLabel(title), 32), rows, help, [&](int clicked, int) {
+		if (rows[static_cast<std::size_t>(clicked)].kind == FlowRow::Kind::Info) return false;
 		if (!copyTo.empty() && static_cast<std::size_t>(clicked) == copyRow) {
 			RunEmulatedNandCopy(folder, copyTo, title.id, rows[copyRow].label);
 			return false;
@@ -6262,21 +6282,11 @@ static void MenuEmulatedNandTitle(const std::string& folder, const riftwii::wii:
 	});
 }
 
-// A title the banner gave no name (a disc game's save, a title only on
-// the Wii): its four-letter game code, and GameTDB's name for it when the
-// title list has one, rather than sixteen hex digits.
+// Names are resolved during the busy window, including the title list's
+// first read. Building the rows must not leave the screen blank again.
 static std::string EmulatedNandTitleLabel(const riftwii::wii::EmuNandTitle& title)
 {
-	if (title.name != riftwii::emunand_title_text(title.id)) return title.name;
-	std::string code;
-	for (int shift = 24; shift >= 0; shift -= 8) {
-		const char c = static_cast<char>((title.id >> shift) & 0xff);
-		if (!std::isalnum(static_cast<unsigned char>(c))) return title.name;
-		code += c;
-	}
-	std::string listed;
-	if (riftwii::wii::GameTitleListed(code, listed) && !listed.empty()) return listed + " (" + code + ")";
-	return code;
+	return title.name.empty() ? riftwii::emunand_title_code(title.id) : title.name;
 }
 
 static void MenuEmulatedNandFolder(const std::string& folder)
@@ -6285,19 +6295,34 @@ static void MenuEmulatedNandFolder(const std::string& folder)
 	std::vector<EmuNandTitle> titles;
 	std::vector<FlowRow> rows;
 	std::vector<std::string> help;
+	// Header rows have no title. Keep clicks tied to the title index even
+	// when a group is empty or a refresh adds/removes its heading.
+	std::vector<int> rowTitles;
 	bool sysconf = false;
 	bool settings = false;
 	std::string error;
 	const auto build = [&] {
 		rows.clear();
 		help.clear();
+		rowTitles.clear();
 		bool ok = false;
-		ResumeGui();
-		ok = emunand_manager_list(folder, titles, sysconf, settings, error);
-		HaltGui();
+		{
+			PopupBox box(tr("Emulated NAND"), tr("Reading titles..."));
+			ResumeGui();
+			ok = emunand_manager_list(folder, titles, sysconf, settings, error);
+			HaltGui();
+		}
 		if (!ok) {
 			logf("Emulated NAND: could not list %s because %s.\n", folder.c_str(), error.c_str());
 			ShowPopup(tr("Emulated NAND"), tr("The emulated NAND folder could not be read. See session.log for details."), tr("OK"));
+			return false;
+		}
+		// The bounded title list determines the space needed for rows,
+		// their help and the mapping past the three tools and five headers.
+		const std::size_t rowCount = titles.size() + 8;
+		if (!riftwii::try_reserve(rows, rowCount) || !riftwii::try_reserve(help, rowCount) ||
+			!riftwii::try_reserve(rowTitles, rowCount)) {
+			ShowPopup(tr("Emulated NAND"), tr("There is not enough free memory."), tr("OK"));
 			return false;
 		}
 		const auto add = [&](const std::string& label, const std::string& note) {
@@ -6306,14 +6331,52 @@ static void MenuEmulatedNandFolder(const std::string& folder)
 			row.label = label;
 			rows.push_back(row);
 			help.push_back(note);
+			rowTitles.push_back(-1);
 		};
 		add(tr("Miis from Wii"), folder);
 		add(tr("Miis to Wii"), folder);
 		add(tr("Remove Wii settings"), tr("SYSCONF: {1}; setting.txt: {2}",
 			{sysconf ? tr("Present") : tr("Missing"), settings ? tr("Present") : tr("Missing")}));
-		for (const EmuNandTitle& title : titles) {
-			add(FlatCapped(EmulatedNandTitleLabel(title), 42), riftwii::emunand_title_text(title.id) + "\n" +
-				(title.emulated || title.ticket_only ? folder : std::string(tr("Wii memory"))));
+		struct Group {
+			std::uint32_t type;
+			const char* label;
+		};
+		const Group groups[] = {
+			{0x00010000, tr("Disc game saves")},
+			{0x00010001, tr("Channels")},
+			{0x00010002, tr("System channels")},
+			{0x00010008, tr("Hidden titles")},
+			{0, tr("Other titles")},
+		};
+		for (const Group& group : groups) {
+			bool headingShown = false;
+			for (std::size_t index = 0; index < titles.size(); ++index) {
+				const EmuNandTitle& title = titles[index];
+				const std::uint32_t type = title.id >> 32;
+				const bool other = type != 0x00010000 && type != 0x00010001 &&
+					type != 0x00010002 && type != 0x00010008;
+				if (group.type == 0 ? !other : type != group.type) continue;
+				if (!headingShown) {
+					FlowRow heading;
+					heading.kind = FlowRow::Kind::Info;
+					heading.heading = true;
+					heading.label = group.label;
+					rows.push_back(heading);
+					help.push_back(folder);
+					rowTitles.push_back(-1);
+					headingShown = true;
+				}
+				const bool emulated = title.emulated || title.ticket_only;
+				std::string location = emulated ? folder : std::string();
+				if (title.real) {
+					if (!location.empty()) location += "\n";
+					location += tr("Wii memory");
+				}
+				add(FlatCapped(EmulatedNandTitleLabel(title), 42), riftwii::emunand_title_text(title.id) + "\n" + location);
+				rows.back().value = emulated && title.real ? tr("Emulated + Wii")
+					: emulated ? tr("Emulated NAND") : tr("Wii memory");
+				rowTitles.back() = static_cast<int>(index);
+			}
 		}
 		return true;
 	};
@@ -6324,7 +6387,9 @@ static void MenuEmulatedNandFolder(const std::string& folder)
 			RunEmulatedNandAction(folder, actions[clicked], 0, rows[static_cast<std::size_t>(clicked)].label);
 		} else {
 			// Copy the entry: refreshing this page invalidates the listing.
-			const EmuNandTitle title = titles[static_cast<std::size_t>(clicked - 3)];
+			const int titleIndex = rowTitles[static_cast<std::size_t>(clicked)];
+			if (titleIndex < 0) return false;
+			const EmuNandTitle title = titles[static_cast<std::size_t>(titleIndex)];
 			MenuEmulatedNandTitle(folder, title);
 		}
 		return !build();
@@ -6334,17 +6399,24 @@ static void MenuEmulatedNandFolder(const std::string& folder)
 static void MenuEmulatedNand()
 {
 	std::vector<std::string> folders;
-	ResumeGui();
-	folders = riftwii::wii::emunand_manager_folders();
-	HaltGui();
+	{
+		PopupBox box(tr("Emulated NAND"), tr("Reading folders..."));
+		ResumeGui();
+		folders = riftwii::wii::emunand_manager_folders();
+		HaltGui();
+	}
 	std::vector<FlowRow> rows;
+	// Each row says what opening it does (the help line repeated the
+	// folder's name, which the row already shows).
+	std::vector<std::string> help;
 	for (const std::string& folder : folders) {
 		FlowRow row;
 		row.kind = FlowRow::Kind::Action;
 		row.label = folder;
 		rows.push_back(row);
+		help.push_back(tr("See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings."));
 	}
-	EmulatorRowsPage(tr("Emulated NAND"), rows, folders, [&](int clicked, int) {
+	EmulatorRowsPage(tr("Emulated NAND"), rows, help, [&](int clicked, int) {
 		MenuEmulatedNandFolder(folders[static_cast<std::size_t>(clicked)]);
 		return false;
 	});
@@ -18653,6 +18725,16 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		option(tr("Emulated NAND"), EmuNandFolderName(settings.emunand_folder), settings.emunand_folder != "gx",
 			kEmuNandFolder);
 		option(tr("Manage emulated NAND"), tr("Open"), false, kEmuNandManager, FlowRow::Kind::Action);
+		// WiiWare and Virtual Console games from .wad files, into the
+		// emulated NAND RiftWii lists channels from.
+		const std::size_t wadCount = riftwii::wii::list_wad_files().size();
+		FlowRow wads;
+		wads.kind = FlowRow::Kind::Action;
+		wads.label = tr("Install WAD files");
+		wads.value = wadCount == 0 ? tr("None") : tr("{1} found", {std::to_string(wadCount)});
+		wads.dim = wadCount == 0;
+		rows.push_back(wads);
+		actions.push_back(kWads);
 		option(tr("NAND keeps"), EmuNandKeepsName(settings.emunand_keeps), settings.emunand_keeps != "saves",
 			kEmuNandKeeps);
 		option(tr("Show non-game channels"), settings.nand_non_games ? tr("On") : tr("Off"),
@@ -18833,16 +18915,6 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		resync.value = "Resync";
 		rows.push_back(resync);
 		actions.push_back(kResync);
-		// WiiWare and Virtual Console games from .wad files, into the
-		// emulated NAND RiftWii lists channels from.
-		const std::size_t wadCount = riftwii::wii::list_wad_files().size();
-		FlowRow wads;
-		wads.kind = FlowRow::Kind::Action;
-		wads.label = tr("Install WAD files");
-		wads.value = wadCount == 0 ? tr("None") : tr("{1} found", {std::to_string(wadCount)});
-		wads.dim = wadCount == 0;
-		rows.push_back(wads);
-		actions.push_back(kWads);
 		// A Wii disc to a .wbfs file on the USB drive or the SD card.
 		FlowRow discCopy;
 		discCopy.kind = FlowRow::Kind::Action;
@@ -18971,7 +19043,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			switch (a) {
 				case kWidth: case kDeflicker: case kBorders: case kVideoMode: case kAspect:
 					return SettingsSection::Picture;
-				case kEmulators: case kGameLanguage: case kGameCios: case kWiiSaves: case kEmuNandFolder: case kEmuNandKeeps: case kEmuNandManager: case kNonGames: case kReturnTo: case kLeaveButtons: case kShots: case kGcCard: case kGcBackups: case kDiscLight: case kNintendontSaves:
+				case kEmulators: case kGameLanguage: case kGameCios: case kWiiSaves: case kEmuNandFolder: case kEmuNandKeeps: case kEmuNandManager: case kWads: case kNonGames: case kReturnTo: case kLeaveButtons: case kShots: case kGcCard: case kGcBackups: case kDiscLight: case kNintendontSaves:
 				case kParental:
 					return SettingsSection::Games;
 				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest: case kGcCalibrate: case kNintendontImport: case kUsbInput:
@@ -18986,7 +19058,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					return SettingsSection::Look;
 				case kOnline: case kEmulatorCovers: case kSteamGridCovers: case kSteamGridKey: case kSteamGridClear: case kNetTest: case kNames: case kRiiTag: case kMissingCovers: case kServer: case kUpdate:
 					return SettingsSection::Online;
-				case kSdGames: case kGameFolders: case kRescan: case kPartitionFailures: case kNet: case kResync: case kWads: case kDiscCopy:
+				case kSdGames: case kGameFolders: case kRescan: case kPartitionFailures: case kNet: case kResync: case kDiscCopy:
 					return SettingsSection::Finding;
 				case kHeading:
 				case kExit:  // the hub's Leave RiftWii tile
@@ -20209,48 +20281,40 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	return menu;
 }
 
-// Settings: a tile for each section, with what it is set to now; A opens
-// the section's short list. `focus`: the tile lit, kept between visits.
+// Settings: a tile for each section; A opens the section's short list.
+// `focus`: the tile lit, kept between visits.
 // -1 when the player goes back to Home, kLeaveRiftWii to leave RiftWii.
 static constexpr int kLeaveRiftWii = -3;
-static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
+static int SettingsHub(int& focus, bool fromSection)
 {
 	const riftwii::LoaderSettings& settings = riftwii::wii::Settings();
-	std::string theme = settings.theme == "default" ? std::string(tr("Default")) : settings.theme;
-	if (settings.theme == riftwii::kTimeThemeFolder) theme = "Would You Look at the Time";
-	for (const riftwii::wii::ThemeEntry& t : riftwii::wii::ListMenuThemes())
-		if (t.folder == settings.theme) theme = t.name;
-	const std::size_t games = state.usb_catalog.games.size() + state.sd_catalog.games.size();
-	const std::string tiles = HomeTilesName(settings.home_tiles);
-
 	struct Section {
 		SettingsSection id;
 		const skin::Tex* icon;
-		std::string value;
 		const char* about;
 	};
 	const Section sections[] = {
-		{SettingsSection::Picture, &skin::iconPicture, VideoModeName(settings.video_mode),
-			"How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio."},
-		{SettingsSection::Games, &skin::iconPlay, GameLanguageName(settings.game_language),
-			"The language games are told the console uses, the cIOS they run under, where you go when you quit a game, and in-game screenshots."},
-		{SettingsSection::Controllers, &skin::iconControllers, "",
-			"The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes."},
-		{SettingsSection::HomeScreen, &skin::iconHome, tiles,
-			"How Home shows your games: covers, a shelf or channels, from which drive, in what order, play history and the clock."},
-		{SettingsSection::Look, &skin::iconSound, theme,
-			"The menu's language, theme, letters, size on the TV, sounds and music."},
-		{SettingsSection::Online, &skin::iconOnline, settings.online ? tr("Downloads on") : tr("Downloads off"),
-			"Downloads of game names, covers and cheats, the online server for games, and RiftWii's updates."},
-		{SettingsSection::Finding, &skin::iconDrives, tr("{1} games", {std::to_string(games)}),
-			"Reading the SD card and the USB drive again, and mods from a PC on the network (RiiFS)."},
-		{SettingsSection::More, &skin::iconHelp, RIFTWII_VERSION,
-			"Problem reports, what's new, the tutorial, the RiftWii channel, resetting the settings and the credits."},
+		{SettingsSection::Picture, &skin::iconPicture,
+			"Game picture: width, flicker filter, borders, video mode and aspect ratio."},
+		{SettingsSection::Games, &skin::iconPlay,
+			"Game language, saves, emulated NAND, quitting and screenshots."},
+		{SettingsSection::Controllers, &skin::iconControllers,
+			"USB controllers, button layouts and controller rumble."},
+		{SettingsSection::HomeScreen, &skin::iconHome,
+			"Home layout, game order, drives, play history and clock."},
+		{SettingsSection::Look, &skin::iconSound,
+			"Menu language, theme, font, screen size, sounds and music."},
+		{SettingsSection::Online, &skin::iconOnline,
+			"Downloads, game servers and RiftWii updates."},
+		{SettingsSection::Finding, &skin::iconDrives,
+			"Find games and network packs, or copy a game disc."},
+		{SettingsSection::More, &skin::iconHelp,
+			"Problem reports, what's new, help, the RiftWii channel and credits."},
 		// Not a section: the HOME Menu's ways out, as a tile of its own.
-		{SettingsSection::Count, &skin::iconPower, "",
-			riftwii::parental_rules(settings).exits == riftwii::ParentalExits::Hidden ? "Pick where to go: the Wii Menu, or power off."
-			: HomeRestartsConsole() ? "Pick where to go: the Homebrew Channel, the Wii Menu, a restart of the console, or power off."
-				: "Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off."},
+		{SettingsSection::Count, &skin::iconPower,
+			riftwii::parental_rules(settings).exits == riftwii::ParentalExits::Hidden ? "Wii Menu or power off."
+			: HomeRestartsConsole() ? "Homebrew Channel, Wii Menu, restart or power off."
+				: "Homebrew Channel, Wii Menu, Priiloader or power off."},
 	};
 	// Three across, three down, inside a TV's overscan.
 	std::vector<TileSpec> tilesSpec;
@@ -20262,7 +20326,6 @@ static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
 		t.w = kW;
 		t.h = kH;
 		t.label = sections[i].id == SettingsSection::Count ? std::string(tr("Exit")) : SectionName(sections[i].id);
-		t.value = sections[i].value;
 		t.icon = sections[i].icon;
 		tilesSpec.push_back(t);
 	}
@@ -20282,8 +20345,11 @@ static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
 	GuiPrompts prompts;
 	const int promptBack = prompts.Add("B", tr("Back"));
 	prompts.Add("A", tr("Open"));
-	// Three lines; the third is cut short of the prompts.
-	PromptsNote noteTxt(prompts, 40, 360, 560, 3, 16, skin::kInkSoft);
+	// Two lines beside the same info icon as list pages, below the grid.
+	NoteCard noteCard(NoteCard::kX, 350);
+	GuiText noteTxt("", 16, skin::kInkSoft);
+	Place(noteTxt, NoteCard::kTextX, 360);
+	noteTxt.SetWrap(true, NoteCard::kTextW, 2);
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
@@ -20291,6 +20357,7 @@ static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
 	w.Append(&titleTxt);
 	w.Append(&versionTxt);
 	w.Append(&tileGrid);
+	w.Append(&noteCard);
 	w.Append(&noteTxt);
 	w.Append(&backBtn.button);
 	w.Append(&prompts);
@@ -20334,7 +20401,7 @@ static int MenuSettings(FrontendState& state)
 	static int focus = 0;
 	bool fromSection = false;
 	for (;;) {
-		const int picked = SettingsHub(state, focus, fromSection);
+		const int picked = SettingsHub(focus, fromSection);
 		if (picked == kLeaveRiftWii) return MENU_EXIT;
 		if (picked < 0) return MENU_SOURCE;
 		bool backToHub = false;

@@ -57,6 +57,15 @@ const std::string* TitleTable::find_exact(const std::string& id) const {
     return it == titles_.end() ? nullptr : &it->second;
 }
 
+const std::string* TitleTable::find_code(const std::string& code) const {
+    if (code.size() != 4) return nullptr;
+    // The map is sorted: the code's own line, if any, comes first, then
+    // the IDs that start with it.
+    const auto it = titles_.lower_bound(code);
+    if (it == titles_.end() || it->first.compare(0, 4, code) != 0) return nullptr;
+    return &it->second;
+}
+
 std::string id_from_image_path(const std::string& path) {
     const std::size_t file_slash = path.find_last_of('/');
     const std::string file = file_slash == std::string::npos ? path : path.substr(file_slash + 1);

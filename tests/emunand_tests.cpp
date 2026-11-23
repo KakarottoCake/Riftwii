@@ -18,6 +18,30 @@ int main() {
     CHECK(emunand_parse_title("0001000157424D45", parsed));
     CHECK(parsed == title);
     CHECK(emunand_title_text(title) == "00010001-57424d45");
+    CHECK(emunand_title_code(title) == "WBME");
+    CHECK(emunand_title_code(0x0001000052365245ULL) == "R6RE");
+    CHECK(emunand_title_code(0x0001000161626331ULL) == "abc1");
+    CHECK(emunand_title_code(0x0000000100000002ULL) == "00000001-00000002");
+    CHECK(emunand_title_code(0x00010001412F4243ULL) == "00010001-412f4243");
+    CHECK(emunand_title_code(0x00010001FF424344ULL) == "00010001-ff424344");
+
+    for (const unsigned type : {1, 0x10002, 0x10008}) {
+        CHECK(emunand_delete_protected((std::uint64_t(type) << 32) | 0x57424D45));
+    }
+    // System-channel families must stay protected in every region, even
+    // when they use the ordinary downloadable-channel type.
+    for (const unsigned family : {0x484142, 0x484354, 0x484356, 0x484358, 0x484359}) {
+        for (const unsigned region : {'A', 'E', 'J', 'P', 'K'}) {
+            const std::uint64_t system = 0x0001000100000000ULL | (std::uint64_t(family) << 8) | region;
+            CHECK(emunand_delete_protected(system));
+        }
+    }
+    const std::uint64_t games[] = {title, 0x0001000052365245ULL, 0x0001000148415445ULL,
+                                  0x0001000148435745ULL, 0x0001000448414245ULL,
+                                  0x0001000557354145ULL};
+    for (const std::uint64_t game : games) {
+        CHECK(!emunand_delete_protected(game));
+    }
     for (const char* bad : {"", "00010001/57424d45", "00010001-57424d45/..", "00010001-57424d4g",
                             " 0010001-57424d45", "0001000-157424d45", "0001000157424d45x"}) {
         parsed = 42;

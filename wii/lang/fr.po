@@ -2640,12 +2640,6 @@ msgstr "Choisir"
 msgid "Controllers"
 msgstr "Manettes"
 
-msgid "Downloads off"
-msgstr "Téléchargements désactivés"
-
-msgid "Downloads on"
-msgstr "Téléchargements activés"
-
 msgid "Game settings"
 msgstr "Paramètres du jeu"
 
@@ -2660,30 +2654,6 @@ msgstr "L'image, la langue, le serveur en ligne et le reste pour ce jeu seul. Ce
 
 msgid "{1} changed"
 msgstr "{1} modifiés"
-
-msgid "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio."
-msgstr "L'affichage des jeux sur la TV : largeur de l'image, filtre anti-scintillement, bandes noires, mode vidéo et format."
-
-msgid "The language games are told the console uses, the cIOS they run under, where you go when you quit a game, and in-game screenshots."
-msgstr "La langue annoncée aux jeux, le cIOS qu'ils utilisent, où vous allez en quittant le jeu, et les captures en jeu."
-
-msgid "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes."
-msgstr "L'adaptateur de manettes GameCube pour Wii U, et la vibration des manettes GameCube et des Wiimotes."
-
-msgid "How Home shows your games: covers, a shelf or channels, from which drive, in what order, play history and the clock."
-msgstr "Comment l'accueil montre vos jeux : jaquettes, étagère ou chaînes, quel support, quel ordre, l'historique et l'horloge."
-
-msgid "The menu's language, theme, letters, size on the TV, sounds and music."
-msgstr "La langue, le thème, la police, la taille à l'écran, les sons et la musique du menu."
-
-msgid "Downloads of game names, covers and cheats, the online server for games, and RiftWii's updates."
-msgstr "Téléchargement des noms, jaquettes et codes, le serveur en ligne des jeux et les mises à jour de RiftWii."
-
-msgid "Reading the SD card and the USB drive again, and mods from a PC on the network (RiiFS)."
-msgstr "Relire la carte SD et le disque USB, et les mods d'un PC sur le réseau (RiiFS)."
-
-msgid "Problem reports, what's new, the tutorial, the RiftWii channel, resetting the settings and the credits."
-msgstr "Rapports de problème, nouveautés, le tutoriel, la chaîne RiftWii, la réinitialisation et les crédits."
 
 msgid "About"
 msgstr "À propos"
@@ -4733,3 +4703,60 @@ msgstr "Importé"
 
 msgid "Copied {1} to {2}. Restart RiftWii to use it."
 msgstr "{1} a été copié vers {2}. Redémarrez RiftWii pour l'utiliser."
+
+msgid "Game picture: width, flicker filter, borders, video mode and aspect ratio."
+msgstr "Image : largeur, filtre de scintillement, bordures, mode vidéo et proportions."
+
+msgid "Game language, saves, emulated NAND, quitting and screenshots."
+msgstr "Langue des jeux, sauvegardes, NAND émulée, sortie et captures."
+
+msgid "USB controllers, button layouts and controller rumble."
+msgstr "Manettes USB, configuration des boutons et vibrations."
+
+msgid "Home layout, game order, drives, play history and clock."
+msgstr "Vue de l’accueil, ordre des jeux, lecteurs, historique et horloge."
+
+msgid "Menu language, theme, font, screen size, sounds and music."
+msgstr "Langue du menu, thème, police, taille de l’écran, sons et musique."
+
+msgid "Downloads, game servers and RiftWii updates."
+msgstr "Téléchargements, serveurs de jeux et mises à jour de RiftWii."
+
+msgid "Find games and network packs, or copy a game disc."
+msgstr "Rechercher des jeux et packs réseau, ou copier un disque de jeu."
+
+msgid "Problem reports, what's new, help, the RiftWii channel and credits."
+msgstr "Rapports de problèmes, nouveautés, aide, chaîne RiftWii et crédits."
+
+msgid "Wii Menu or power off."
+msgstr "Menu Wii ou extinction."
+
+msgid "Homebrew Channel, Wii Menu, restart or power off."
+msgstr "Chaîne Homebrew, Menu Wii, redémarrage ou extinction."
+
+msgid "Homebrew Channel, Wii Menu, Priiloader or power off."
+msgstr "Chaîne Homebrew, Menu Wii, Priiloader ou extinction."
+
+msgid "System titles cannot be deleted."
+msgstr "Les titres système ne peuvent pas être supprimés."
+
+msgid "Reading titles..."
+msgstr "Lecture des titres..."
+
+msgid "Reading folders..."
+msgstr "Lecture des dossiers..."
+
+msgid "Disc game saves"
+msgstr "Sauvegardes de jeux sur disque"
+
+msgid "System channels"
+msgstr "Chaînes système"
+
+msgid "Hidden titles"
+msgstr "Titres masqués"
+
+msgid "Other titles"
+msgstr "Autres titres"
+
+msgid "Emulated + Wii"
+msgstr "Émulée + Wii"

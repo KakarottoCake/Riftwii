@@ -24,6 +24,11 @@ static void test_table() {
     riftwii::TitleTable all;
     all.add_text(text);
     EXPECT_EQ(all.size(), std::size_t(4));
+    // A save's 4-char code finds its game's 6-char line, or its own line.
+    EXPECT_TRUE(all.find_code("RMCE") && *all.find_code("RMCE") == "Mario Kart Wii");
+    EXPECT_TRUE(all.find_code("WAAA") && *all.find_code("WAAA") == "Some WiiWare Game");
+    EXPECT_TRUE(all.find_code("RMCP") == nullptr);
+    EXPECT_TRUE(all.find_code("RMC") == nullptr);
     EXPECT_TRUE(all.find("SB4E01") && *all.find("SB4E01") == "Super Mario Galaxy 2");
     EXPECT_TRUE(all.find("RMCE01") && *all.find("RMCE01") == "Mario Kart Wii");
     EXPECT_TRUE(all.find("R8PE01") && *all.find("R8PE01") == "Super Paper Mario");
