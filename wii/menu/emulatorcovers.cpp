@@ -7,10 +7,12 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cerrno>
 #include <cstdio>
 #include <ctime>
 #include <utility>
 
+#include "artfolder.hpp"
 #include "homescan.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
@@ -77,12 +79,17 @@ std::string Hash(const std::string& text) {
 }
 
 std::string CoverPath(const std::string& id) {
-    if (emulator_banner_id(id)) return "sd:/riftwii/banners/" + emulator_banner_game_id(id) + (emulator_banner_wide(id) ? ".wide.rwe" : ".rwe");
-    return "sd:/riftwii/covers/" + id + ".rwc";
+    return emulator_art_cache_path(id);
 }
 std::string MissPath(const std::string& id, const char* source) {
-    if (emulator_banner_id(id)) return "sd:/riftwii/banners/" + emulator_banner_game_id(id) + "." + source + ".none";
-    return "sd:/riftwii/covers/" + id + "." + source + ".none";
+    return emulator_art_miss_path(id, source);
+}
+
+bool SavedCoverThere(const std::string& id) {
+    struct stat info {};
+    const std::size_t size = emulator_banner_id(id) ? kEmulatorBannerFileSize : kCoverFileSize;
+    return stat(CoverPath(id).c_str(), &info) == 0 && S_ISREG(info.st_mode) &&
+           info.st_size == static_cast<off_t>(size);
 }
 
 bool WriteAtomic(const std::string& path, const void* data, std::size_t size) {
@@ -91,10 +98,23 @@ bool WriteAtomic(const std::string& path, const void* data, std::size_t size) {
         std::remove(temporary.c_str());
         return false;
     }
-    std::remove(path.c_str());
-    if (std::rename(temporary.c_str(), path.c_str()) == 0) return true;
-    std::remove(temporary.c_str());
-    return false;
+    // FAT rename cannot replace a file. Keep the previous key or picture
+    // until the replacement is complete, and restore it on a failed rename.
+    const std::string backup = path + ".old";
+    struct stat info {};
+    const bool existed = stat(path.c_str(), &info) == 0;
+    if (existed && (!S_ISREG(info.st_mode) || std::rename(path.c_str(), backup.c_str()) != 0)) {
+        std::remove(temporary.c_str());
+        return false;
+    }
+    if (std::rename(temporary.c_str(), path.c_str()) != 0) {
+        if (existed && std::rename(backup.c_str(), path.c_str()) != 0)
+            logf("Emulator pictures or settings: the previous file could not be restored; its .old copy was kept.\n");
+        std::remove(temporary.c_str());
+        return false;
+    }
+    if (existed) std::remove(backup.c_str());
+    return true;
 }
 
 bool MissFresh(const std::string& id, const char* source, const std::string& identity) {
@@ -103,9 +123,11 @@ bool MissFresh(const std::string& id, const char* source, const std::string& ide
            emulator_art_miss_fresh(text, identity, std::time(nullptr));
 }
 
-void RememberMiss(const std::string& id, const char* source, const std::string& identity) {
+bool RememberMiss(const std::string& id, const char* source, const std::string& identity, std::string& error) {
     const std::string text = emulator_art_miss(identity, std::time(nullptr));
-    if (!text.empty()) WriteAtomic(MissPath(id, source), text.data(), text.size());
+    if (!text.empty() && WriteAtomic(MissPath(id, source), text.data(), text.size())) return true;
+    error = "The missing picture could not be remembered on the SD card.";
+    return false;
 }
 
 bool ReadKey(std::string& key) {
@@ -332,11 +354,33 @@ bool SteamGridKeyFound() {
     return ReadKey(key);
 }
 
+std::string SteamGridKeySuffix() {
+    std::string key;
+    return ReadKey(key) ? key.substr(key.size() - 4) : "";
+}
+
+bool SaveSteamGridKey(const std::string& key) {
+    if (!steamgrid_key_valid(key)) return false;
+    CardWriteHold hold;
+    mkdir("sd:/riftwii", 0777);
+    const std::string text = key + "\n";
+    return WriteAtomic("sd:/riftwii/steamgriddb.txt", text.data(), text.size());
+}
+
+bool ClearSteamGridKey() {
+    CardWriteHold hold;
+    bool ok = true;
+    for (const char* path : {"sd:/riftwii/steamgriddb.txt", "sd:/riftwii/steamgriddb.txt.part",
+                             "sd:/riftwii/steamgriddb.txt.old"}) {
+        if (std::remove(path) != 0 && errno != ENOENT) ok = false;
+    }
+    return ok;
+}
+
 bool EmulatorCoverWanted(const std::string& id) {
     CoverGame game;
     if (!FindGame(id, game) || !Settings().online || !Settings().emulator_covers) return false;
-    struct stat info {};
-    if (stat(CoverPath(id).c_str(), &info) == 0) return false;
+    if (ArtFileThere(CoverPath(id))) return false;
     if (!game.covers.empty() && !MissFresh(id, "libretro", game.covers)) return true;
     std::string key;
     return Settings().steamgrid_covers && ReadKey(key) && !MissFresh(id, "steamgrid", Hash(key));
@@ -430,8 +474,10 @@ bool ReadOwnCover(const std::string& name, std::vector<std::uint8_t>& file) {
 bool OwnCoverThere(const std::string& name) {
     if (!emulator_art_component(name + ".png")) return false;
     const std::string relative = "/riftwii/covers/" + name + ".png";
+    // Most games have no cover of the player's own: inside Home's
+    // ArtFolderLook the folder's listing says so without a walk of it.
     struct stat info {};
-    if (stat(("sd:" + relative).c_str(), &info) == 0 && S_ISREG(info.st_mode) && info.st_size > 0) return true;
+    if (ArtFileStat("sd:" + relative, info) && S_ISREG(info.st_mode) && info.st_size > 0) return true;
     std::uint64_t bytes = 0;
     return UsbCoversFolderThere() && read_usb_range("usb:" + relative, 0, nullptr, 0, bytes) && bytes > 0;
 }
@@ -463,6 +509,9 @@ bool ReadEmulatorBanner(const std::string& key, std::vector<std::uint8_t>& file)
 CoverFetch FetchEmulatorCover(const std::string& id, std::string& error) {
     CoverGame game;
     if (!FindGame(id, game)) return CoverFetch::NotFound;
+    // Requests can outlive the menu's queue check. The worker must check
+    // the persistent cache too, before any index, API or image request.
+    if (SavedCoverThere(id)) return CoverFetch::Stored;
     mkdir("sd:/riftwii", 0777);
     mkdir("sd:/riftwii/covers", 0777);
     mkdir("sd:/riftwii/covers/emulators", 0777);
@@ -489,7 +538,7 @@ CoverFetch FetchEmulatorCover(const std::string& id, std::string& error) {
         // request. Try it again after the usual download retry.
         if (got == Download::Unanswered) return CoverFetch::NoAnswer;
         if (game.banner) logf("Emulator banners: libretro has no title picture for %s; trying the next source.\n", game.name.c_str());
-        RememberMiss(id, "libretro", game.covers);
+        if (!RememberMiss(id, "libretro", game.covers, error)) return CoverFetch::Failed;
     }
     std::string key;
     if (game.steamgrid && ReadKey(key) && !MissFresh(id, "steamgrid", Hash(key))) {
@@ -498,7 +547,7 @@ CoverFetch FetchEmulatorCover(const std::string& id, std::string& error) {
         if (got == Download::Found) return StoreCover(game, file, "SteamGridDB", error);
         if (got == Download::Unanswered) return CoverFetch::NoAnswer;
         if (game.banner) logf("Emulator banners: SteamGridDB has no wide picture for %s; keeping its cover if available.\n", game.name.c_str());
-        RememberMiss(id, "steamgrid", Hash(key));
+        if (!RememberMiss(id, "steamgrid", Hash(key), error)) return CoverFetch::Failed;
     }
     logf("Emulator %s: no matching picture was found for %s; checked sources will be tried again in a week.\n",
          game.banner ? "banners" : "covers", game.name.c_str());

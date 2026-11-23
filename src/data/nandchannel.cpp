@@ -8,6 +8,7 @@
 #include <cstring>
 
 #include "riftwii/bnr.hpp"
+#include "riftwii/byteorder.hpp"
 
 namespace riftwii {
 namespace {
@@ -24,12 +25,6 @@ constexpr std::size_t kTmdContentCountOffset = 0x1DE;
 constexpr std::size_t kTmdBootIndexOffset = 0x1E0;
 constexpr std::size_t kTmdContentsOffset = 0x1E4;
 constexpr std::size_t kTmdContentBytes = 36;
-
-std::uint16_t be16(const std::uint8_t* p) { return static_cast<std::uint16_t>((p[0] << 8) | p[1]); }
-std::uint32_t be32(const std::uint8_t* p) {
-    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
-}
-std::uint64_t be64(const std::uint8_t* p) { return (std::uint64_t(be32(p)) << 32) | be32(p + 4); }
 
 // Channels whose code starts with a Virtual Console letter but that are
 // homebrew: they have their own place to start from, and are not games.

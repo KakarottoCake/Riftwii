@@ -333,6 +333,28 @@ bool record_missing_mod_input(std::vector<MissingModInput>& out, const std::stri
     return try_push_back(out, MissingModInput{pack, external, kind});
 }
 
+void drop_lone_missing_folders(std::vector<MissingModInput>& missing) {
+    const auto misses_more_than_folders = [&missing](const std::string& pack) {
+        for (const MissingModInput& input : missing) {
+            if (input.pack == pack && input.kind != MissingModInputKind::Folder) return true;
+        }
+        return false;
+    };
+    std::vector<bool> lone(missing.size(), false);
+    for (std::size_t i = 0; i < missing.size(); ++i) {
+        const bool folder = missing[i].kind == MissingModInputKind::Folder;
+        lone[i] = folder && !misses_more_than_folders(missing[i].pack);
+    }
+    // Erasing only shrinks the list, so it needs no memory.
+    std::size_t kept = 0;
+    for (std::size_t i = 0; i < missing.size(); ++i) {
+        if (lone[i]) continue;
+        if (kept != i) missing[kept] = std::move(missing[i]);
+        ++kept;
+    }
+    missing.erase(missing.begin() + static_cast<std::ptrdiff_t>(kept), missing.end());
+}
+
 bool expand_plan(const Plan& plan, const Fst& fst, ContentProvider& provider, std::vector<FilePatch>& out,
                  std::vector<std::string>& notes, std::string& error, std::vector<std::string>* missing_folders) {
     std::vector<FilePatch> files;

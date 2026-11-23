@@ -40,7 +40,11 @@ constexpr std::size_t kPackTextCacheBytes = 2u << 20;
 // keep_text retains at most 2 MiB of the text already read to distinguish
 // server-only XMLs. Larger libraries still list in full; uncached XMLs are
 // read when needed. The scan owns the result until it hands it to the menu.
-std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited, bool keep_text = false);
+// `earlier`: the list the same look at the drives made a moment ago (the
+// SD card's part, before the USB drive was read). A pack of the card's two
+// folders whose text it kept is not read from the card a second time.
+std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited, bool keep_text = false,
+                                    const std::vector<PackFile>* earlier = nullptr);
 
 // The folder a pack XML's paths start from, as the pack sees it:
 // "/riivolution" or "/apps/riivolution" (for a network pack, the folder on

@@ -33,6 +33,8 @@
 #include "riftwii/gcexecpacks.hpp"
 #include "riftwii/gcoverlay.hpp"
 #include "riftwii/gcvideo.hpp"
+#include "riftwii/plugin_api.h"
+#include "riftwii/gxpatches.hpp"
 #include "riftwii/mempatch.hpp"
 #include "riftwii/patch.hpp"
 #include "riftwii/redirect.hpp"
@@ -1099,6 +1101,11 @@ GcConsoleSettings GcConsoleNow() {
     console.wii_language = CONF_GetLanguage();
     console.video_width = Settings().video_width;
     console.video_mode = Settings().video_mode;
+    // The Wii's TV setting, for Video mode's "system".
+    const s32 video = CONF_GetVideo();
+    if (video == CONF_VIDEO_PAL) console.wii_video = CONF_GetEuRGB60() > 0 ? "pal60" : "pal50";
+    else if (video == CONF_VIDEO_MPAL) console.wii_video = "mpal";
+    else console.wii_video = "ntsc";
     return console;
 }
 
@@ -1127,7 +1134,8 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
     {
         // No file: the defaults, from an empty text.
         std::string text;
-        ReadWholeFile("sd:/riftwii/choices/" + image.id + ".txt", text);
+        // As the game page reads it: the backup when a save was cut short.
+        ReadReplacedFile("sd:/riftwii/choices/" + image.id + ".txt", text);
         LaunchModel choices;
         choices.restore(text);
         image.drive_timing = kGcDriveTimingReady && choices.game.gc_disc_reads != "fast";
@@ -1160,10 +1168,16 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         const GameSettings& game = choices.game;
         image.progressive = gc_progressive_on(game, image.id, console);
         image.line240 = gc_line240_on(game, image.id, console);
-        image.widescreen = kGcWidescreenReady && gc_widescreen_on(game, console);
+        image.widescreen = kGcWidescreenReady && gc_widescreen_on(game, image.id, console);
         image.language = gc_language_number(game, console);
         image.sharp = game.gc_sharp == "on";
         image.sixty_hz = gc_sixty_hz_on(game, image.id);
+        const GcTvSignal signal = gc_tv_signal(game, image.id, console);
+        image.tv_signal = signal == GcTvSignal::Pal60 ? RWP_TV_EURGB60
+                        : signal == GcTvSignal::Pal50 ? RWP_TV_PAL
+                                                      : RWP_TV_NTSC;
+        logf("GameCube: TV signal %s (Video mode %s, the Wii's TV %s)\n", gc_tv_signal_name(signal),
+             (game.video_mode == "global" ? console.video_mode : game.video_mode).c_str(), console.wii_video.c_str());
         image.vi_width = gc_vi_width(gc_picture_width(game, console));
         image.volume_boost_db = gc_volume_boost_db(game);
         // The Wii's screen position (Wii Settings > Screen > Screen
@@ -1184,7 +1198,10 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
              "the Wii's TV %s), Game language %s (Settings' %s, the Wii's language %d)\n",
              game.gc_progressive.c_str(), console.wii_progressive ? "on" : "off",
              console.component_cable ? "plugged in" : "not seen", gc_pal_game(image.id) ? ", a PAL game never gets 480p" : "",
-             kGcWidescreenReady ? game.gc_widescreen.c_str() : "held back from this release",
+             !kGcWidescreenReady ? "held back from this release"
+             : gc_widescreen_off(image.id) != GcWidescreenOff::no
+                 ? "off for this game (its screen effects copy the picture over the scene, gxpatches.cpp)"
+                 : game.gc_widescreen.c_str(),
              console.aspect.c_str(), console.wii_widescreen ? "16:9" : "4:3", game.gc_language.c_str(),
              console.game_language.c_str(), console.wii_language);
     }

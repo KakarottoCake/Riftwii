@@ -220,12 +220,19 @@ for their folders and controllers.
 ### Home
 
 RiftWii reads the SD card and the USB drive and shows your games as
-tiles, with the disc drive first. At first it shows only games that
+tiles, with the disc drive first. The games it found the last time show
+at once while it reads the drives again; one you pick meanwhile opens
+as soon as they are read. At first it shows only games that
 have mod packs (they carry a **MODS** tag). The round button at the
-bottom left (or **1**) switches between games with mods, all games, **Homebrew** and,
+bottom left (or **1**) switches between **Mods** (the games with mods),
+**All games**, **Homebrew** and,
 once you have played something, **Recently played**, then
 **Favourites** once you mark a game as one (the star on its banner, or
-**Favourite** on its page). **Minus** and
+**Favourite** on its page). Homebrew apps can join Favourites too: open
+an app and press the star on its Start question (**1** on a Wii Remote,
+**Y** on a Classic or GameCube controller, **X** on the Wii U GamePad).
+Press it again to remove the app; a filled star means it is a favorite.
+**Minus** and
 **Plus** turn to the previous and next page of games (the arrows at the
 sides and the D-pad at a page's edge do too). **L/R** also turn pages on
 a Classic Controller or GameCube controller. On GameCube, pull all the
@@ -276,6 +283,21 @@ picture is `icon.png` and its name comes from `meta.xml` when present.
 Pick one and confirm **Start**. The question says where the
 app will return when it exits. Use **Look for games again** after adding
 an app.
+
+For homebrew covers, put `<name>.png` in `sd:/riftwii/covers`, using the
+`<name>` from the app's `meta.xml`: for example, `ScummVM.png`. Its own
+3D case picture goes in `sd:/riftwii/covers3d/ScummVM.png`, and its full
+box scan in `sd:/riftwii/boxes/ScummVM.png`, in the same formats as games
+below. RiftWii removes `/ \ : * ? " < > |` and control characters from
+the name, and trims spaces and dots at its ends. Each folder also accepts
+the app's folder name (for `sd:/apps/scummvm`, use `scummvm.png`) as a
+fallback. Your pictures work offline and come before downloaded pictures;
+the metadata name wins over the folder name in each picture folder.
+Use **Look for games again** after adding or changing pictures. Channels
+continues to use the app's `icon.png`.
+
+Favorites follow the app's folder, so changing its metadata name keeps
+its star. Moving or renaming the folder makes it a different app.
 
 To put games in your own order in a tile view, hold **B** (**L** on a
 GameCube controller) and press **A** on a game. With the pointer, drag it
@@ -441,8 +463,8 @@ pressed too.
   online, with the server it would use), the controllers it needs and
   those it also takes, each marked *Connected* or *Not connected* when
   the Wii can tell, and its story. The details come from GameTDB's
-  database of every Wii game, `sd:/riftwii/wiitdb-<language>.zip` (about
-  2 MB, in the menu's language with English where there is no
+  database of every Wii game, `sd:/riftwii/wiitdb-all-<language>.zip` (about
+  3 MB, with WiiWare, GameCube and homebrew apps; in the menu's language with English where there is no
   translation): the first visit offers to download it, and a `wiitdb.xml`
   another loader left on the card is used when it is there. The first page opened reads
   it for all your games at once (a few seconds); after that they open at
@@ -526,7 +548,14 @@ USB drive: choose another Saves option on its page.
   with no interlace flicker and the flicker filter off (European Wii games switch to 60 Hz for it). Games that draw fewer lines keep their own
   picture. In Settings it also applies to GameCube games whose Picture
   lines are on *Default*. Some TVs and capture devices don't take
-  240p.
+  240p. Settings' choice also sets the colour signal of GameCube games:
+  a US or Japanese game goes out as *PAL 60 Hz* when you pick PAL 60 or
+  PAL 50 (a 60 Hz game can't run at 50), or *The console's* on a European
+  Wii, for a TV that shows no colour or the wrong colours with NTSC; 480p
+  stays NTSC. 240p keeps PAL 60's colours on a console set to PAL and,
+  for GameCube games, when you pick PAL 60 or PAL 50: an RGB SCART cable
+  shows an NTSC picture red. A European GameCube game at 60 Hz (its Game speed)
+  goes out as PAL 60, or NTSC if you pick NTSC; at 50 Hz it stays PAL.
 - **Region video fix** (off unless you turn it on) is for a US or
   Japanese game that shows no picture on a console from another region:
   the game is told the video hardware matches its region.
@@ -642,11 +671,11 @@ the tiles.
   last game's page. After a button or the stick, your game stays selected
   (more games can still come in around it and change its page).
 - **Disc Channel**: the Disc drive's tile on Home, for playing from a
-  disc. A new SD card asks whether you want it after the tour.
+  disc. It shows in the Mods, All games, Wii and GameCube views. A new SD card asks whether you want it after the tour.
 - **Widescreen menu**: on a 16:9 TV the menu is drawn narrower, so covers
   and pictures keep their shape instead of looking stretched. It starts
-  at *4:3*; *16:9* turns it on, and *Automatic* follows the Wii's own TV
-  setting (Wii Settings > Screen > Widescreen).
+  at *Automatic*, which follows the Wii's own TV setting (Wii Settings >
+  Screen > Widescreen); *4:3* and *16:9* choose one for good.
 - **Screen size**: 100% down to 80%. If your TV cuts off the edges of the
   menu (overscan, common with HDMI adapters), lower it until the whole menu
   shows. Setting the TV's picture size to "Just scan", "Direct" or "Fit"
@@ -735,6 +764,15 @@ the tiles.
   pauses while the game's IOS is loaded, and comes back after). *Fade out*
   fades it out when you start a game and keeps it off for the whole launch.
   `launch_music = on|off` in `settings.txt`.
+- **Launch screen** (Game's box, Log; right after Launch music): while a
+  game starts, *Game's box* shows its box on the launch screen's card, as
+  on its page, with the progress bar under it. Press any button to see
+  the log instead: a GameCube pad's in the Wii's own ports at any time
+  (not one on a USB adapter), a Wii Remote's until the launch hands the
+  Wii Remotes over (before a cIOS is loaded). A
+  launch that fails always shows the log, and `boot.log` on the SD card
+  has it either way. *Log* prints every step on the card, as before.
+  `launch_log = off|on` in `settings.txt`.
 - **Banner music on game pages** (off at first): opening a game's page
   from Home's covers, shelf, carousel, 3D covers or names plays the game's
   banner music, as the Channels view's banner screen does, with the menu's
@@ -834,9 +872,11 @@ the tiles.
 
 The Wii's blue disc slot light blinks slowly while RiftWii loads or patches a
 game, or copies a disc. It turns off when the work ends, including a cancelled
-copy or a failed launch, and before the game starts. **Settings > Games > Disc
-slot light** turns it off; it is on by default. This uses the Wii's own light,
-so Dolphin does not show it.
+copy or a failed launch, and before the game starts. It is off by default
+(on some Wiis it disturbed USB and SD-image launches); **Settings > Games >
+Disc slot light** turns it on. It never blinks while a cIOS (such as d2x) is
+the running IOS, so a USB launch that reloads into one stays dark. This uses the Wii's own light, so Dolphin does not show
+it.
 
 ### HOME Menu
 
@@ -877,7 +917,9 @@ in an emulated NAND keeps its saves in that folder.
 To play your own backed-up `.wad` files, put them in **`sd:/wiiware/`**
 or **`usb:/wiiware/`**. RiftWii also reads numbered USB partitions
 (`usb1:/wiiware/`, `usb2:/wiiware/`, and so on), on FAT32 or NTFS, and one
-level of subfolders. The games appear on Home with their own names,
+level of subfolders. WADs in your **Game folders** (Settings > Drives) are
+found too, so they can sit beside your other games (`sd:/roms/wiiware`).
+The games appear on Home with their own names,
 banners and icons. An SD card is needed even when the WAD is on USB.
 
 Press **Play**. The first start shows **Getting <game> ready, first time
@@ -900,7 +942,7 @@ source worked. Korean-key and vWii-key WADs are not supported by this key reader
 The regular d2x channel-launch requirements still apply.
 
 The old way also works: put `.wad` files in `sd:/wad/` (or `sd:/wads/`)
-and pick **Settings > Drives > Install WAD files**. These copies stay on
+and pick **Settings > Games > Install WAD files**. These copies stay on
 Home independently of the WAD. This installs into the same emulated NAND.
 
 For a game the Wii Menu moved to the SD card, RiftWii looks in
@@ -943,7 +985,7 @@ back into an ISO or an RVZ with Dolphin's **Convert File...** first.
 
 GameCube games are on Home with your other games, badged **GC**.
 **Settings > Home > Games from > GameCube** shows only these; the other
-choices, and Home's Show button (all games, games with mods, Recently
+choices, and Home's Show button (All games, Mods, Recently
 played, Favourites), can hide them as they hide any game.
 
 A GameCube game's page has its own options in place of a Wii game's
@@ -952,9 +994,14 @@ memory card**, *This game's own*, *Shared*, *A named card* or, on an original Wi
 card in slot A*, *Real card in slot B* or *Real card in slot B, as slot A*), **Picture lines** (*On (480p)*, *240p* for a CRT TV, as
 Settings > Picture > Video mode describes, or *Off*; European GameCube games never get 480p or
 240p), **Sharper
-picture**, **Picture width**, **Volume boost** (all of a quiet game's sound
+picture**, **Widescreen**, **Picture width**, **Volume boost** (all of a quiet game's sound
 +3 or +6 dB louder), **Game language** and, for European
-games, **Game speed** (60 Hz instead of 50). GameCube games also follow
+games, **Game speed** (60 Hz instead of 50). **Widescreen** *16:9* draws
+the game's 3D world wider for a widescreen TV; its menus and text stay
+4:3 and are stretched. Pick it only with the TV set to fill a 16:9
+screen: a TV set to 4:3, zoom or pillarbox shows the picture squashed.
+*Default* keeps the game's own picture unless **Settings > Picture > Aspect ratio**
+is *16:9*. Super Mario Sunshine and its mods don't offer it yet. GameCube games also follow
 the Wii's own **Screen Position** (Wii Settings > Screen), as Wii games
 do, when RiftWii finds where the game reads its position (the log says
 so); otherwise the game keeps its own.
@@ -1008,6 +1055,10 @@ card, a real card in slot B to trade items or keep other saves). RiftWii
 only ever takes over slot A, so slot B is the real hardware; before the
 game starts RiftWii reads that card's ID into the console's settings, as
 it does for slot A, so a card formatted on another console is accepted.
+If slot B has no readable card, the card is damaged, its text encoding
+differs from the game's, or the console is a Wii U, RiftWii offers **Use
+this game's SD card** or **Cancel**, as for slot A; the game then starts
+with only its own card in slot A.
 
 **Settings > Games > GameCube memory card** sets the card for every
 GameCube game whose own **Memory card** is *Default*: *This game's own*
@@ -1193,7 +1244,7 @@ pieces (`.wbfs`, `.wbf1`, ...), as FAT32 needs; keep them together.
 When the copy is done it is on Home, unless something there leaves it
 out; the message at the end then says which, and what to change:
 
-- Home's **Show** is on Games with mods (where Home starts), and the game
+- Home's **Show** is on **Mods** (where Home starts), and the game
   has none: choose **Show > All games**.
 - **Settings > Home > Games from** names another place (the other
   drive, Wii channels or GameCube): set it to All games.
@@ -1592,6 +1643,27 @@ and product IDs, for example `1234_5678`:
 3. `sd:/controller.ini`, when its VID and PID match the pad.
 4. RiftWii's own layout for the pad, if it has one.
 
+To bring an existing file over, open **Settings > Controllers > Check USB
+controllers > Import from Nintendont**. Choose a file from the list and
+press A. RiftWii checks `controller.ini` in the root and `nintendont` folder
+on both SD and USB, plus `controllers/VID_PID.ini` on both drives. USB files
+can be on FAT32 or NTFS. The original files stay where they are.
+
+Each selected file is checked before being copied to
+`sd:/riftwii/controllers/VID_PID.ini`, using the device IDs inside it.
+A per-device filename must match those IDs. Existing RiftWii files ask
+**Yes/No** before being replaced; **No** keeps them. Unreadable, oversized
+or unsupported files are skipped with a reason (the session log has parser
+details). Restart RiftWii after importing, and leave **USB input devices**
+on to use the pad. Importing does not change the live controller layout.
+
+The import list holds at most 64 files and checks at most 512 entries in
+each controller folder. If it reports that limit, put the layouts you want
+in a smaller folder and open the import page again. An interrupted save
+may leave a `.import-new` or `.import-old` file beside the layout; RiftWii
+keeps these copies rather than overwriting them. Use a computer to keep or
+restore the old layout and remove those extra files before trying again.
+
 The session log names the file or built-in layout used, the device, its
 assigned port and an unplug. With no usable layout it names the IDs and the
 path to use; RiftWii does not guess one. Restart RiftWii after editing a
@@ -1880,8 +1952,8 @@ launch:
   title screen, where RiftWii keeps the code for in-game screenshots,
   the GameCube adapter and crash recording. It gets none of them, and
   *Return to RiftWii* goes to the Wii Menu instead. Its ordinary cheats
-  stay off too, and so do those of The Complete Saga, Indiana Jones 1
-  and 2, Batman, Ghostbusters: The Video Game and 007 Quantum of Solace,
+  stay off too, and so do those of LEGO Indiana Jones 1 and 2, LEGO
+  Batman, Ghostbusters: The Video Game and 007 Quantum of Solace,
   which RiftWii starts the same way: its hooks then use the memory the
   cheat list would go in, and the game starts without cheats (boot.log:
   "Codes are off"). A code build whose gameconfig.txt moves the list
@@ -2047,11 +2119,22 @@ network requests while keeping downloaded covers available.
 **SteamGridDB covers** is an optional fallback and starts off. To use it,
 sign in at [SteamGridDB](https://www.steamgriddb.com/), open
 [Preferences > API](https://www.steamgriddb.com/profile/preferences/api),
-and put your own key alone on one line in `sd:/riftwii/steamgriddb.txt`.
-The setting shows whether a key was found. Enable it to look there only
-after the other sources have no cover. Your key is never put in logs.
-Missing covers are tried again after a week, or when you use
-**Settings > Online > Download missing covers**.
+and choose **Settings > Online > SteamGridDB key** to type your key.
+The on-screen keyboard hides what you type; **Shift** switches between
+lowercase and uppercase letters. A USB keyboard also works. Choose **OK**
+to save, or **Cancel** to keep your previous key. The settings show only
+the saved key's last four characters. **Clear SteamGridDB key** removes it.
+You can still put the key alone on one line in `sd:/riftwii/steamgriddb.txt`;
+menu entry saves to that same file. Your key is never put in logs.
+
+Enable **SteamGridDB covers** to look there only after the other sources
+have no cover. Downloaded pictures stay in `sd:/riftwii/covers/` and
+`sd:/riftwii/banners/`; restarting RiftWii reuses them without a download.
+Each source's "not found" answer is saved beside the picture's cache for a
+week. Missing pictures are tried again after that, or when you use
+**Settings > Online > Download missing covers**. That action keeps pictures
+already saved. A full, locked or unreadable SD card prevents new pictures
+and missing-picture records from being saved; RiftWii reports the failure.
 
 After adding files, use
 **Settings > Drives > Look for games again**. If an emulator or
@@ -2121,3 +2204,88 @@ available.
 Cheat files keep their own picked cheats when you change the Cheat file row.
 If a picked file is removed, its cheats do not come from a different file.
 Downloads and filled values keep cheats already saved in RiftWii's own file.
+
+## Managing an emulated NAND
+
+Open **Settings > Games > Manage emulated NAND**, then choose the folder.
+The page offers the configured save and channel folders, per-game folders
+from USB Loader GX's settings, and folders found under `sd:/nands` and
+`usb:/nands`. USB changes need a FAT32 partition. A folder that is missing
+cannot be opened.
+
+The list groups disc game saves, channels, system channels, hidden titles
+and other titles under separate headings. Each row shows whether it is in
+the emulated NAND, the Wii's memory or both. Names come from the game-name
+list or the channel's banner; otherwise the four-character code is shown.
+A busy window stays visible while the titles and their names are read.
+
+Each title opens its save tools. Titles on the Wii are also listed so their
+saves can be copied into the emulated NAND. The Wii Menu and IOS stay hidden.
+System channels, hidden titles and console tools such as the Wii Shop and
+Wii U transfer tools have no delete actions, with a reason on their page.
+**Delete emulated title** removes that title's program, save
+and ticket from the chosen folder. It keeps shared program files used by
+other titles. **Delete emulated save** removes only its save. Both ask first
+and cannot be undone. A WAD still in the `wad` folder remains available on
+Home and may install its title again when played.
+
+**Copy save from Wii** and **Copy save to Wii** replace the destination's
+whole save folder, including removing old files absent from the source.
+The destination is backed up first under
+`<NAND folder>/riftwii-backups/<title ID>/emulated-save.bak0` or
+`wii-save.bak0`. Later backups use the next free number. Copying to the Wii
+requires the title to be installed there and asks twice. Only that title's
+save folder is written; its program, ticket and system files are kept.
+These tools copy saves, so the source stays in place.
+
+**Miis from Wii** and **Miis to Wii** copy the complete Mii database,
+replacing all Miis at the destination. The old database is saved next to
+the emulated copy as `shared2/menu/FaceLib/RFL_DB.dat.bak0`; a backup taken
+from the Wii uses `RFL_DB.dat.wii.bak0`. Later backups use the next free
+number. Writing Miis to the Wii asks twice and requires a database the
+same size as the Wii's current one. The files are copied as they are;
+RiftWii does not edit individual Miis or repair damaged databases.
+
+**Copy to <folder>** copies the whole title to another emulated NAND:
+its program, save and ticket, the shared contents it uses and its entry in
+the NAND's ownership list (`sys/uid.sys`). The original stays where it
+was. RiftWii plays WiiWare and Virtual Console games only from the channel
+folder on the SD card (USB Loader GX's, when that is on the SD card, else
+`sd:/nands/01`), so a title in an emulated NAND on the USB drive, or in
+another folder on the card such as WiiFlow's `nands/default`, is copied
+there; a title already in the channel folder is copied to `usb:/nands/01`
+(FAT32). An emulated NAND at the very root of a drive (ModMii's SNEEK
+builds) is not listed. A title already in the destination is refused:
+delete it there first to copy it again. A copy cut short is removed from
+the destination again as far as possible; if the drive was taken out
+during the copy, part of the title can stay there. Put the drive back,
+open the destination folder in this manager and delete the title before
+copying it again. Home shows the copy after the drives are read again.
+A system channel, hidden title or console tool (those without delete
+actions) can't be removed here: on a PC, delete its folder
+`<destination>/title/<type>/<ID>` and its ticket
+`<destination>/ticket/<type>/<ID>.tik` (the 8-digit halves of its title
+ID, as the title's page shows it), then copy it again.
+
+**Remove Wii settings** shows whether the emulated folder contains
+`shared2/sys/SYSCONF` and `title/00000001/00000002/data/setting.txt`.
+After confirmation, both are backed up beside the originals with `.bak0`
+(or the next free number), then removed. There is no tool to copy settings
+into the Wii. A game needing a whole emulated NAND may need these files
+again; preparing a WAD for play can copy missing settings from the Wii.
+
+Keep the Wii turned on until an action finishes. Each replaced file is
+written under a temporary name and renamed into place, but a whole save
+has several files: an interrupted or failed copy can leave only part of
+the new save installed. The backup stays in the emulated NAND folder, and
+`sd:/riftwii/session.log` records completed actions, backup locations and
+failures. To recover, on a computer, keep the backup folder, empty the
+title's emulated `data` folder and copy the backup's contents into it,
+so no file from the cut-short copy stays behind; the manager can then
+copy that save to the Wii again. Saves are limited to 4096 files and folders, eight folder
+levels, 64 MiB per file and 512 MiB in total. Unsafe names and paths that
+the Wii cannot store are refused before copying.
+
+The manager's file operations and refusal cases have host tests. Its menu,
+USB mounting, real-console save permissions and d2x behavior still need
+testing on a Wii; Dolphin cannot exercise d2x's storage path.

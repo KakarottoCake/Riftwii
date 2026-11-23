@@ -7,6 +7,7 @@
 #include <set>
 
 #include "riftwii/profiles.hpp"
+#include "riftwii/appmeta.hpp"
 #include "riftwii/imagevolume.hpp"
 #include "riftwii/textlines.hpp"
 
@@ -24,6 +25,7 @@ bool plausible_id(const std::string& id) {
 // key, "RMCE01@retro-rewind", riftwii/profiles.hpp), and "/2" to "/9" for
 // a later disc.
 bool plausible_key(const std::string& key) {
+    if (valid_app_tile_key(key)) return true;
     // Emulator tiles use the full app/game path's SHA-256 rather than a
     // disc ID, so equal ROM names in different folders stay distinct.
     if (key.rfind("emu-", 0) == 0) {

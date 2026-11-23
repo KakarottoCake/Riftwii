@@ -13,7 +13,6 @@ namespace skin = riftwii::wii::skin;
 
 namespace {
 
-constexpr int kRight = 600;  // 8 inside the safe area's right edge (5% of 640 in from the side)
 constexpr int kBadge = 24;   // skin::promptButton
 constexpr int kGap = 10;     // between two prompts' buttons
 constexpr int kTextGap = 8;  // between a badge and its text
@@ -65,8 +64,9 @@ GuiPrompts::~GuiPrompts() {
     delete soundClick;
 }
 
-int GuiPrompts::Add(const std::string& button, const std::string& action) {
+int GuiPrompts::Add(const std::string& button, const std::string& action, bool clickable) {
     Prompt p;
+    p.clickable = clickable;
     // In the card's colour on the glyph's: two-tone in every theme (a dark one
     // has a light glyph).
     p.badge = new GuiText(button.c_str(), 14, skin::kCard);
@@ -115,8 +115,8 @@ int GuiPrompts::CardTop() {
 
 int GuiPrompts::LeftEdge() {
     // The same walk from the right as Draw makes.
-    int right = kRight;
-    int left = kRight + kPadRight;
+    int right = rightEdge;
+    int left = rightEdge + kPadRight;
     for (Prompt& p : prompts) {
         if (!p.shown) continue;
         const int w = kBadge + kTextGap + p.text->GetTextWidth();
@@ -132,7 +132,7 @@ void GuiPrompts::Draw() {
     riftwii::wii::DrawTrace trace("the prompts");
     const int alpha = GetAlpha();
     // Laid out from the right: the first prompt added is the rightmost.
-    int right = kRight;
+    int right = rightEdge;
     for (int i = 0; i < static_cast<int>(prompts.size()); ++i) {
         Prompt& p = prompts[i];
         if (!p.shown) continue;
@@ -145,8 +145,10 @@ void GuiPrompts::Draw() {
         Menu_PushCamera(pressScale, p.x + p.w / 2.0f, kY + kBadge / 2.0f);
         const float bx = static_cast<float>(p.x - kPadLeft), by = static_cast<float>(kY - kPadY);
         const float bw = static_cast<float>(kPadLeft + p.w + kPadRight), bh = static_cast<float>(kBadge + 2 * kPadY);
-        skin::DrawNine(lit ? skin::tile9Over : skin::tile9, bx - kShadow, by - kShadow, bw + 2 * kShadow, bh + 2 * kShadow,
-                       skin::kTileCorner, alpha);
+        if (p.clickable) {
+            skin::DrawNine(lit ? skin::tile9Over : skin::tile9, bx - kShadow, by - kShadow,
+                           bw + 2 * kShadow, bh + 2 * kShadow, skin::kTileCorner, alpha);
+        }
         // The button's own picture (Kenney's Input Prompts); the theme's
         // badge with its name for one that has none.
         const skin::Tex& picture = skin::ButtonIcon(p.button, kBadge);
@@ -174,7 +176,8 @@ void GuiPrompts::Update(GuiTrigger* t) {
     // dips only when the pointer is on it (below).
     for (Prompt& prompt : prompts) {
         const bool pointerOwnsA = pointing && prompt.button == "A";
-        if (prompt.shown && !pointerOwnsA && PromptPressed(prompt.button, *t)) prompt.pressElapsed = 0;
+        if (prompt.shown && prompt.clickable && !pointerOwnsA && PromptPressed(prompt.button, *t))
+            prompt.pressElapsed = 0;
     }
     if (!pointing) {
         bool pointerLive = false;
@@ -187,7 +190,7 @@ void GuiPrompts::Update(GuiTrigger* t) {
     int at = -1;
     for (int i = 0; i < static_cast<int>(prompts.size()); ++i) {
         const Prompt& p = prompts[i];
-        if (p.shown && p.w > 0 && px >= p.x - kPadLeft && px < p.x + p.w + kPadRight && py >= kY - kPadY &&
+        if (p.shown && p.clickable && p.w > 0 && px >= p.x - kPadLeft && px < p.x + p.w + kPadRight && py >= kY - kPadY &&
             py < kY + kBadge + kPadY)
             at = i;
     }

@@ -1,26 +1,29 @@
-<!--
-The message to the testers' Discord channel for the next release, posted
-by the release workflow after the GitHub release is up. Discord's own
-markdown: at most 2000 characters once filled in (the workflow counts).
+<!--
+The message to the testers' Discord channel for the next release, posted
+by the release workflow after the GitHub release is up. Discord's own
+markdown: at most 2000 characters once filled in (the workflow counts).
 -->
+{{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-  {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
+What's new:
 
-CTGP-R from USB and SD, and a few fixes:
+* Real GameCube memory cards work on a Wii (the menu's sound was blocking them)
+* WAD files in your Game folders show up too, not just in wiiware/
+* WiiWare/VC from a WAD: HOME > Wii Menu goes back to RiftWii instead of rebooting a Wii U
+* WADs work when USB Loader GX keeps its channels on the USB drive
+* Project+ no longer goes black with the GameCube adapter
+* 240p keeps PAL 60's colors on RGB SCART
+* LEGO Star Wars: The Complete Saga has the adapter and L+R+Z+Start back
 
-* CTGP-R now starts through its own channel from a USB drive or the SD card, with no "insert disc" and no "Before you play" note, and it gets online (room selection reached)
-* RiftWii's own CTGP-R launch (now opt-in, ctgpnative.txt) keeps your Mario Kart save instead of "Continue without saving"
-* Smoother Shelf scrolling, nearby boxes first, no grey border
-* Your own box and 3D cover for any tile
-* Reset keeps the GameCube adapter and USB controllers in games without mods
-
-Not tried on a real Wii yet: CTGP-R from SD or a disc, a whole CTGP-R online race and Time Trial uploads, the save copy, the Shelf's smoothness and your own boxes.
+Not tried on a real Wii yet: the way back from WAD games.
 
 To test, please:
 
-1. CTGP-R from USB, SD and a disc: straight to CTGP-R's menu?
-2. CTGP-R online: a whole Worldwide race and a Time Trial ghost upload
-3. The Shelf on a real Wii
-4. Reset in a game without mods, with the adapter
+1. A real GameCube memory card with a GameCube game: does it save?
+2. A WAD in one of your Game folders: does it show on Home and start?
+3. A WAD game, then HOME > Wii Menu: back in RiftWii?
+4. Project+ with the GameCube adapter
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
+
+![What's new](docs/screenshots/2611-219-whats-new.png)

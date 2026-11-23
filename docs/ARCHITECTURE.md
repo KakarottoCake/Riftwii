@@ -200,12 +200,19 @@ have neither the banner nor this KPAD layout, and keep the way back.
 **Packs that add GameCube controllers** (#352). A game that reads only
 Wii Remotes has no `PADRead`, so the adapter has nothing to hook. A mod
 pack can give it one, and this is the supported way to do it: the pack
-adds a text (code) section to the game's main.dol with its own `PADRead`
-(only text sections are searched), and turns the GameCube controller
-into what the game reads (Super Sentai Battle:
-Ranger Cross's pad pack hooks the game's `KPADReadEx` call and reports a
-Wii Remote with a Nunchuk). RiftWii searches the main.dol that actually
-starts, so the pack's own copy is searched like a game's. For the search
+brings its own `PADRead` and turns the GameCube controller into what the
+game reads (Super Sentai Battle: Ranger Cross's pad pack hooks the game's
+`KPADReadEx` call and reports a Wii Remote with a Nunchuk). The `PADRead`
+can be in a text (code) section the pack adds to the game's main.dol:
+RiftWii searches the main.dol that actually starts, so the pack's own
+copy is searched like a game's. Or a plain `<memory>` patch can write it
+(an offset with a value or valuefile; search and ocarina patches have no
+address until they are applied, so they aren't searched). The patches go
+in after the search, so it reads their bytes where they will be written
+(`PatchedCode`, `find_pad_symbols_with_patches`). A `PADRead`
+from a patch wins over one the game has itself: the pack means its own
+to be read, and the game's may be an SDK copy it never calls. The hooks
+go in after the patches, so they find it in place. For the search
 (`find_pad_symbols`, `src/patching/symsearch.cpp`) to take a function for
 `PADRead`, it must be a framed function (`stwu r1`, then `mflr r0`) with
 at least three of the SDK's "no controller in this port" paths, each
@@ -225,8 +232,9 @@ controller's way back (L, R, Z and Start held two seconds, unless Settings >
 Games > Leaving a game is HOME only), since the
 game's `OSReturnToMenu`, `OSSleepThread` and IPC submit routine are
 found as in any game. `TestPackPadRead` (`tests/gcad_tests.cpp`) keeps a
-routine of this shape found, so a later change to the search fails the
-tests instead of quietly breaking these packs.
+routine of this shape found, and `TestPadSearchInPatches` one written by
+a memory patch, so a later change to the search fails the tests instead
+of quietly breaking these packs.
 
 **Screenshot hook** (`runtime/shot/`, `runtime/rtshot.c`). With In-game
 screenshots on, a third blob hooks the game's `IOS_IoctlvAsync` and, when
@@ -256,7 +264,8 @@ the function. The game runs its exception handler with interrupts off,
 so its own IOS calls would never complete: the blob drives the IPC
 registers itself, polling for IOS's acknowledgement and reply (and
 passing over a reply to a request the game made before it crashed), on
-a 4 KB stack of its own. It writes `/shared2/riftwii/crash.bin`. At its
+a 256-byte stack of its own (sized at every build by
+`tools/check_fault_stack.py`). It writes `/shared2/riftwii/crash.bin`. At its
 next start the menu turns that into `sd:/riftwii/gamecrash.txt`, deletes
 it, and offers to send a problem report. A game that freezes without an
 exception leaves nothing.
@@ -264,7 +273,7 @@ exception leaves nothing.
 **Virtual SD card** (`runtime/vsd/`, `runtime/rtvsd.c`, `wii/hooks/vsdhook.cpp`).
 When the code builds launched are inside `riftwii/sd.raw` (a FAT32 card
 image on the SD card or the USB drive; `wii/hooks/vsdimage.cpp` lists them
-through a read-only `vsd:` mount of the image), a blob of about 9 KB
+through a read-only `vsd:` mount of the image), a blob of about 10 KB
 hooks the game's IOS_Open, IOS_Close, IOS_Ioctl and IOS_Ioctlv, sync and
 async (`find_ipc_api`). An open of `/dev/sdio/slot0` gets a handle of
 the blob's own, and everything on it is answered by a card model
@@ -280,8 +289,16 @@ and a call on any other handle goes straight back to the game's function;
 the card's CID and CSD are built by the loader (`vsd_card_registers`). The
 code and its state (the image's extent table, 12 bytes a piece of the
 image file on its device, up to 16384 pieces: sized to the image, so three
-pieces cost 36 bytes and an image scattered by a well-used card up to 192
-KB, found by a binary search; then the bounce buffer, sized by the loader
+pieces cost 36 bytes, found by a binary search; an image on the SD card in
+more than 128 pieces instead has its list written beside it,
+`riftwii/<image>.pieces`, 42 pieces to each 512-byte page, and the state
+keeps only an index of the pages, 8 bytes each, and two page slots that a
+read fills from the card when its piece's page is in neither: 1.8 KB
+instead of 50 KB for a 4234-piece image, whose list beside Project+ and
+the GameCube adapter's blob left Brawl too little MEM2 and a black screen;
+in Dolphin, Project+'s start then read 42 pages beside 1,923 requests for
+data. An image on the USB drive keeps its list in memory, as the menu
+cannot make a file there; then the bounce buffer, sized by the loader
 for the device: 32 KB on USB, where every read into MEM1 needs it, and
 `VSD_BOUNCE_BYTES_SD`, 32 KB for now, on the SD card, where only an
 unaligned buffer does; counters in the state say how often) go to the
@@ -1065,6 +1082,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/saves/<ID>/` | Saves kept on the card |
 | `sd:/riftwii/history.txt` | Recently played |
 | `sd:/riftwii/order.txt` | Home's own order, one game a line as `drive:ID` (`src/data/homeorder.cpp`) |
+| `sd:/riftwii/homelist.txt` | The games Home found the last time it read the drives, one a line (`src/data/homelist.cpp`). Home shows them at once at the next start and replaces each drive's as that drive is read again; rewritten only when the games changed. Safe to delete |
 | `sd:/riftwii/case_colors.txt` | The player's own case colors for the Home shelf, one a line as `ID rrggbb`; a full six-character ID is one game, a three to five character ID covers every game it starts (`src/art/casecolour.cpp`) |
 | `sd:/riftwii/titles-<lang>.txt` | GameTDB's game names |
 | `sd:/riftwii/lang/<lang>.po` | A translation that overrides the built-in one |
@@ -1074,6 +1092,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/gamecrash.txt` | The last game crash, from the crash blob's record |
 | `sd:/riftwii/report.txt`, `report-state.txt` | The last problem report as sent, and which crash was already offered |
 | `sd:/riftwii/sd.raw` (or `usb:/riftwii/sd.raw`) | The virtual SD card's image, for code builds inside it |
+| `sd:/riftwii/<image>.pieces` | Where a scattered image on the SD card lies (`sd.raw.pieces`), written at its launch for the in-game blob to read a page at a time; rewritten when the image moves. Safe to delete |
 | `sd:/riftwii/codebuilds.txt` | Code builds picked by hand on the Mods page |
 | `sd:/riftwii/covers/`, `screenshots/` | Cover art as textures; screenshots (menu and games) |
 | `sd:/riftwii/rvz/` | RVZ group tables the runtime reads |
@@ -1089,7 +1108,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/gc/trace.bin`, `trace-crash.bin` | The last GameCube launch's trace (`tools/gc_trace.py`), and the last one with a crash, once offered |
 | `sd:/riftwii/gc/controls_seen.txt` | The controls card was shown |
 | `sd:/riftwii/gc/exec.txt` | A GameCube game's start of another program (OSExec, or a bonus disc's menu starting a game from a TGC image): `--idle--` until then, a headless launch after, read once by RiftWii's next start (see "Switching programs") |
-| `sd:/riftwii/gc/test/press`, `leave`, `crash`, `crashblack`, `streamonly`, `nowiden`, `keeparam`, `fakeremote`, `fakepro`, `rumbletest`, `novihook`, `nomotor`, `nosisample`, `handover480p`, `handover480i`, `avekeep`, `reset`, `exec`, `discchange` | Test switches, in a folder of their own: presses on port 1, holding the way back, a crash on purpose (and on a blanked screen), the disc music alone, 16:9's hook without the widening, the ARAM addresses as the SDK gives them, a made-up Wii Remote through the controls map instead of the Bluetooth (its results in the trace's `projection_callers` words, which that run does not need; `fakepro`: a made-up Wii U Pro Controller in its place), the game's own PADControlMotor called for the test remote's port every 120 pad reads, rumble then stop (with `fakeremote`: the trace's `bt_rumble` word counts the calls and the remote's motor switches), VIConfigure left as the game made it (480p only through the game's own mode), PADControlMotor not hooked, the SI's polling interrupt kept off as on a Wii with no GameCube controller plugged in (so the PAD sampling stand-in, `gc_sample_tick`, runs), an NTSC game handed over with the VI and video encoder already in NTSC 480p even without 480p (a game given 480p is handed over that way anyway), one given 480p handed over in 480i as earlier builds did, the encoder left as the menu set it rather than in the game's region, two Reset presses (at the 1500th and 2200th pad reads; the first through the OS's own restart, reset 0), and a switch to another program (gc_on_boot_dol) at the 1500th pad read in a game without one: to the disc's own program with the argument `rwtest`, through `sd:/riftwii/gc/exec.txt` and the way back, and with a disc 2 beside the game the motor stopped at the 1500th and 2200th pad reads (a disc change and back, `runtime/gc/gc_disc.h`) |
+| `sd:/riftwii/gc/test/press`, `leave`, `crash`, `crashblack`, `streamonly`, `nowiden`, `keeparam`, `fakeremote`, `fakepro`, `rumbletest`, `novihook`, `nomotor`, `nosisample`, `handover480p`, `handover480i`, `avekeep`, `reset`, `exec`, `discchange` | Test switches, in a folder of their own (`press`, `leave`, `crash`, `crashblack`, `streamonly`, `rumbletest`, `reset`, `exec`, `discchange`, `fakeremote` and `fakepro` in test builds only; a release build logs and ignores them): presses on port 1, holding the way back, a crash on purpose (and on a blanked screen), the disc music alone, 16:9's hook without the widening, the ARAM addresses as the SDK gives them, a made-up Wii Remote through the controls map instead of the Bluetooth (its results in the trace's `projection_callers` words, which that run does not need; `fakepro`: a made-up Wii U Pro Controller in its place), the game's own PADControlMotor called for the test remote's port every 120 pad reads, rumble then stop (with `fakeremote`: the trace's `bt_rumble` word counts the calls and the remote's motor switches), VIConfigure left as the game made it (480p only through the game's own mode), PADControlMotor not hooked, the SI's polling interrupt kept off as on a Wii with no GameCube controller plugged in (so the PAD sampling stand-in, `gc_sample_tick`, runs), an NTSC game handed over with the VI and video encoder already in NTSC 480p even without 480p (a game given 480p is handed over that way anyway), one given 480p handed over in 480i as earlier builds did, the encoder left as the menu set it rather than in the game's region, two Reset presses (at the 1500th and 2200th pad reads; the first through the OS's own restart, reset 0), and a switch to another program (gc_on_boot_dol) at the 1500th pad read in a game without one: to the disc's own program with the argument `rwtest`, through `sd:/riftwii/gc/exec.txt` and the way back, and with a disc 2 beside the game the motor stopped at the 1500th and 2200th pad reads (a disc change and back, `runtime/gc/gc_disc.h`) |
 | `sd:/riftwii/autorun.txt`, `guiscript.txt` | Test scripts (see `DEVELOPING.md`); autorun only works in a test build (`make -f Makefile.wii TEST=1`) |
 
 ## Rules the code keeps

@@ -1885,7 +1885,7 @@ static void gc_stream_mix(struct gc_rt_context* ctx, struct gc_rt_stream* st, in
                 st->phase = 0;
             }
         }
-        if (ctx->flags & GC_FLAG_STREAM_ONLY) out[2 * i] = out[2 * i + 1] = 0;
+        if GC_TEST_FLAG(ctx, GC_FLAG_STREAM_ONLY) out[2 * i] = out[2 * i + 1] = 0;
         out[2 * i] = (int16_t)gc_clamp16(out[2 * i] + ((l * vol_l) >> 8));
         out[2 * i + 1] = (int16_t)gc_clamp16(out[2 * i + 1] + ((r * vol_r) >> 8));
     }
@@ -2120,7 +2120,7 @@ static void gc_reset_check(struct gc_rt_context* ctx, uint32_t n) {
     if (!restart && !way_back) return;
     __asm__ volatile("mftb %0" : "=r"(now));
     pressed = (gc_read32(GC_PI_INTSR) & GC_PI_RESET_UP) == 0;
-    if ((ctx->flags & GC_FLAG_RESET_TEST) && (n == GC_RESET_TEST_FIRST || n == GC_RESET_TEST_SECOND)) {
+    if (GC_TEST_FLAG(ctx, GC_FLAG_RESET_TEST) && (n == GC_RESET_TEST_FIRST || n == GC_RESET_TEST_SECOND)) {
         /* A press that has just ended, as the button gives one. */
         pressed = 0;
         ctx->reset_down_since = (now - 2u * GC_RESET_DEBOUNCE_TICKS) | 1u;
@@ -2157,7 +2157,7 @@ static void gc_reset_check(struct gc_rt_context* ctx, uint32_t n) {
     }
     /* The test's first press takes the OS's own restart (reset 0), turned
      * into the hot reset as a game's would be; the button the hot reset. */
-    kind = (ctx->flags & GC_FLAG_RESET_TEST) && ctx->restarts == 0 ? GC_OS_RESET_RESTART : GC_OS_RESET_HOTRESET;
+    kind = GC_TEST_FLAG(ctx, GC_FLAG_RESET_TEST) && ctx->restarts == 0 ? GC_OS_RESET_RESTART : GC_OS_RESET_HOTRESET;
     ((gc_reset_system_fn)(uintptr_t)ctx->reset_system)(kind, 0, 0);
 }
 
@@ -2734,32 +2734,6 @@ uint32_t gc_on_vi_configure(struct gc_rt_context* ctx, uint32_t mode) {
     return used;
 }
 
-/* A float's bits times 3/4, in integers: the blob does no floating point
- * (it runs on the game's FPU state, which it must leave as it found it),
- * so the widening is done on the bits. Zero, denormals, infinities and
- * NaNs come back as they are; a projection has none of them where it is
- * widened. */
-static uint32_t gc_float_three_quarters(uint32_t bits) {
-    const uint32_t sign = bits & 0x80000000u;
-    uint32_t exponent = (bits >> 23) & 0xFFu;
-    uint32_t mantissa;
-    if (exponent <= 1u || exponent == 0xFFu) return bits;
-    /* The 24-bit mantissa with its hidden 1, times 3: 25 or 26 bits. The
-     * value is that times 2^(exponent - 152); back to 24 bits, rounded. */
-    mantissa = ((bits & 0x7FFFFFu) | 0x800000u) * 3u;
-    if (mantissa >= 0x2000000u) {
-        mantissa = (mantissa + 2u) >> 2;
-    } else {
-        mantissa = (mantissa + 1u) >> 1;
-        exponent -= 1u;
-    }
-    if (mantissa == 0x1000000u) {  /* rounded up to the next power of two */
-        mantissa >>= 1;
-        exponent += 1u;
-    }
-    return sign | exponent << 23 | (mantissa & 0x7FFFFFu);
-}
-
 /* Notes the caller (its return address) of a perspective projection for
  * the trace: which of the game's passes are widened, with the shape of
  * the first matrix each one gave. */
@@ -2782,16 +2756,18 @@ static void gc_note_projection_caller(struct gc_rt_context* ctx, uint32_t caller
 }
 
 /* GXSetProjection(mtx, type) with 16:9 on: a perspective projection
- * (type 0) is copied with its x scale, mtx[0][0], times 3/4: the same
- * view drawn into a picture a widescreen TV stretches by 4/3. An
- * orthographic one (type 1: menus, text, the 2D layers) is left alone.
- * GXSetProjection reads the copy at once, so one is enough, and the
- * game's own matrix is never changed (games set the same one every
- * frame). gc_hook_projection runs the original on what this returns. */
+ * (type 0) is copied with its x row widened (gc_projection_widen,
+ * gc_video.h). An orthographic one (type 1: menus, text, the 2D layers) is left
+ * alone. GXSetProjection reads the copy at once, so one is enough, and
+ * the game's own matrix is never changed (games set the same one every
+ * frame). The copy is in MEM2 (gc_rt_cold): the CPU reads it there as
+ * well as in MEM1. gc_hook_projection runs the original on what this
+ * returns. */
 #define GC_GX_PERSPECTIVE 0u
 
 uint32_t gc_on_projection(struct gc_rt_context* ctx, uint32_t mtx, uint32_t type, uint32_t caller) {
     const uint32_t* matrix = (const uint32_t*)(uintptr_t)mtx;
+    uint32_t* copy = gc_cold(ctx)->projection;
     uint32_t i;
     if (type != GC_GX_PERSPECTIVE) {
         ++ctx->orthographics;
@@ -2799,9 +2775,9 @@ uint32_t gc_on_projection(struct gc_rt_context* ctx, uint32_t mtx, uint32_t type
     }
     ++ctx->projections;
     gc_note_projection_caller(ctx, caller, matrix);
-    for (i = 0; i < 16; ++i) ctx->projection[i] = matrix[i];
-    if (ctx->flags & GC_FLAG_WIDEN) ctx->projection[0] = gc_float_three_quarters(matrix[0]);
-    return (uint32_t)(uintptr_t)ctx->projection;
+    for (i = 0; i < 16; ++i) copy[i] = matrix[i];
+    if (ctx->flags & GC_FLAG_WIDEN) gc_projection_widen(copy);
+    return (uint32_t)(uintptr_t)copy;
 }
 
 /* PADControlMotor(chan, command) has run (gc_hook_pad_motor): a GameCube
@@ -2871,6 +2847,15 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
         ctx->pad_idle = gc_ports_idle_update((const uint8_t*)(uintptr_t)status, native, ctx->pad_transfer_reads);
     gc_guard(ctx);  /* once a frame: IOS rewrites its counter there all the time */
     gc_stream_fetch(ctx);  /* the music ring's top-up, once a frame */
+    {
+        /* The test that MEM2 still runs code (gc_rt_cold.mem2_code): once,
+         * at the first pad read, when the game's OS has long been up. */
+        struct gc_rt_cold* const cold = gc_cold(ctx);
+        if (cold->mem2_code[0] != 0 && cold->mem2_code_ran == 0) {
+            uint32_t (*const mem2_code)(void) = (uint32_t(*)(void))(uintptr_t)cold->mem2_code;
+            cold->mem2_code_ran = mem2_code();
+        }
+    }
     /* The adapter's controllers first: they take their ports before the
      * Wii Remotes fill what is left (gc_gcad.h). */
     if (ctx->gcad && status != 0) {
@@ -2907,13 +2892,13 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
     }
     /* The test of the motor: the game's own PADControlMotor, rumble at
      * the 30th read of every 240 and stop at the 150th. */
-    if ((ctx->flags & GC_FLAG_RUMBLE_TEST) && ctx->test_motor != 0 && ctx->bt && (n % 120) == 30) {
+    if (GC_TEST_FLAG(ctx, GC_FLAG_RUMBLE_TEST) && ctx->test_motor != 0 && ctx->bt && (n % 120) == 30) {
         /* The port the test remote plays on: Dolphin's own GameCube
          * controller may hold port 1, which moves the remote to port 2. */
         const uint32_t port = ((const struct gc_bt*)(uintptr_t)ctx->bt)->port_of[0];
         if (port < 4u) ((void (*)(uint32_t, uint32_t))(uintptr_t)ctx->test_motor)(port, (n % 240) == 30 ? 1u : 0u);
     }
-    if ((ctx->flags & GC_FLAG_PRESS) && status != 0 && (n % 240) < 10) {
+    if (GC_TEST_FLAG(ctx, GC_FLAG_PRESS) && status != 0 && (n % 240) < 10) {
         uint8_t* p = (uint8_t*)(uintptr_t)status;
         const uint32_t which = (n / 240) % 3;
         const uint32_t bit = which == 0 ? 0x0100u : which == 1 ? 0x0200u : 0x1000u;
@@ -2922,7 +2907,7 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
         p[1] = (uint8_t)(now | bit);
         p[10] = 0;
     }
-    if ((ctx->flags & GC_FLAG_LEAVE) && status != 0 && n >= 1800) {
+    if (GC_TEST_FLAG(ctx, GC_FLAG_LEAVE) && status != 0 && n >= 1800) {
         uint8_t* p = (uint8_t*)(uintptr_t)status;
         p[0] |= (uint8_t)(GC_LEAVE_PAD >> 8);
         p[1] |= (uint8_t)GC_LEAVE_PAD;
@@ -2933,9 +2918,9 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
     /* The test of a disc change, with no game that asks for one: the
      * motor stopped as DVDLowStopMotor would stop it, disc 2 going in two
      * seconds later and disc 1 again after the second stop. */
-    if ((ctx->flags & GC_FLAG_DISC_TEST) && (n == GC_DISC_TEST_FIRST || n == GC_DISC_TEST_SECOND))
+    if (GC_TEST_FLAG(ctx, GC_FLAG_DISC_TEST) && (n == GC_DISC_TEST_FIRST || n == GC_DISC_TEST_SECOND))
         gc_disc_motor_stop(ctx);
-    if ((ctx->flags & GC_FLAG_EXEC_TEST) && n == 1500) {
+    if (GC_TEST_FLAG(ctx, GC_FLAG_EXEC_TEST) && n == 1500) {
         /* As OSExec("", {"rwtest"}) would: __OSBootDol's "0" (the disc's
          * own program) first, the restart code OSExec passes. Built a
          * character at a time: the blob has no constant data. */
@@ -2961,10 +2946,10 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
         args[6] = (uint32_t)(uintptr_t)argv;
         gc_on_boot_dol(ctx, args);
     }
-    if ((ctx->flags & GC_FLAG_CRASH) && n == 600) {
+    if (GC_TEST_FLAG(ctx, GC_FLAG_CRASH) && n == 600) {
         /* The crash screen's test on a blanked screen: no active lines, as
          * the SDK has from VIInit to the game's first frame. */
-        if (ctx->flags & GC_FLAG_CRASH_BLACK)
+        if GC_TEST_FLAG(ctx, GC_FLAG_CRASH_BLACK)
             *(volatile uint16_t*)(uintptr_t)GC_VI_VTR = *(volatile uint16_t*)(uintptr_t)GC_VI_VTR & 0x000Fu;
         __asm__ volatile("trap");
     }
@@ -3347,7 +3332,7 @@ static int gc_crash_a(struct gc_rt_context* ctx) {
  * shows, time enough to look at it. */
 #define GC_CRASH_TEST_A_TICKS (20u * 60750000u)
 static void gc_crash_wait(struct gc_rt_context* ctx) {
-    const int test_a = (ctx->flags & GC_FLAG_CRASH) && (ctx->flags & GC_FLAG_LEAVE);
+    const int test_a = GC_TEST_FLAG(ctx, GC_FLAG_CRASH) && GC_TEST_FLAG(ctx, GC_FLAG_LEAVE);
     uint32_t start, now, polled, shown;
     uint32_t toggles = 0;
     __asm__ volatile("mftb %0" : "=r"(start));

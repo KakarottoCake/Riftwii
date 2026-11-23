@@ -48,6 +48,9 @@ const std::string& last_reload_detail();
 // and saves pairings to NAND on shutdown, so it must stop while the
 // running IOS is still alive: before any IOS reload and before handoff.
 void release_wii_remotes();
+// Whether release_wii_remotes has run: the Wii Remotes can't be read
+// any more until WPAD_Init.
+bool wii_remotes_released();
 
 // Never returns and never calls IOS/libogc cleanup. Use only after
 // reload_terminal_failure() is true; physical POWER remains available.

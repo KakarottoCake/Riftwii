@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/wiiflowplugin.hpp"
 #include "riftwii/sha256.hpp"
+#include "riftwii/textlines.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -13,12 +14,7 @@ constexpr std::size_t kLineMax = 2048;
 constexpr std::size_t kArgumentsMax = 32;
 constexpr std::size_t kNameMax = 64;
 
-std::string trim(const std::string& text) {
-    std::size_t from = 0, to = text.size();
-    while (from < to && std::isspace(static_cast<unsigned char>(text[from]))) ++from;
-    while (to > from && std::isspace(static_cast<unsigned char>(text[to - 1]))) --to;
-    return text.substr(from, to - from);
-}
+std::string trim(const std::string& text) { return trim_text(text); }
 
 std::string lower(std::string text) {
     for (char& c : text) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));

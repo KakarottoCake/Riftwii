@@ -282,7 +282,8 @@ and `sd:/riftwii/gc/trace.bin`.
   with Settings > Games > Leaving a game on HOME only), just after saving:
   Settings > Return to: RiftWii goes back to the RiftWii channel (the Wii
   Menu without it), Wii Menu to the Wii Menu; the save is there next time.
-- [ ] **A crash** (`sd:/riftwii/gc/test/crash` makes one 600 pad reads in;
+- [ ] **A crash** (with the test build, `make -f Makefile.wii TEST=1`, as
+  the release build ignores these switches: `sd:/riftwii/gc/test/crash` makes one 600 pad reads in;
   `sd:/riftwii/gc/test/crashblack` makes it on a blanked screen, as in a game's
   first moments): the blue screen shows "The game stopped.", the register
   dump (the exception, SRR0 to DAR, R0-R31, the callers, the game's ID and
@@ -291,10 +292,13 @@ and `sd:/riftwii/gc/trace.bin`.
   next start offers the report. In Dolphin, `sd:/riftwii/gc/test/leave` as well
   takes A as pressed after twenty seconds.
 - [ ] **Options**: Disc reads Fast loads sooner; 480p on a component
-  cable (the game asks first); 16:9, picked by hand (Default keeps the
-  game's own), widens the 3D (experimental: on a Wii Super Mario Eclipse's
-  colours inverted and its picture doubled); a PAL game's language
-  changes its menus.
+  cable (the game asks first); 16:9, picked for the game or as Settings'
+  aspect (Default does not follow the Wii's TV for GameCube games yet),
+  widens the 3D with the 2D stretched: check the colours match 16:9 off
+  (inverted colours were seen once, in Super Mario Eclipse on a Wii), and
+  that a TV set to 4:3, zoom or pillarbox shows the picture squashed, as
+  expected; Super Mario Sunshine's row is dimmed, Not for this game; a PAL
+  game's language changes its menus.
 - [ ] **Packs**: Luigi's Mansion with a pack that changes a file.
 
 ## 15. WiiWare and Virtual Console channels

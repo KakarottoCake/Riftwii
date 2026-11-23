@@ -29,7 +29,7 @@ Tex tile, tileOver, coverTile, coverTileOver, roundBtn, roundBtnOver, pill, pill
     stepBack, stepBackOver, stepForward, stepForwardOver, switchOn, switchOff,
     panelGame, panelSettings, popup, bar, bannerStripes, arrowLeft, arrowLeftOver, arrowRight, arrowRightOver, iconDrives,
     scrollUp, scrollUpOver, scrollDown, scrollDownOver,
-    iconGear, iconDisc, discCase, blankCover, iconSearch, iconStar, iconStarOn, hand[4];
+    iconGear, iconDisc, discChannel, discChannelDisc, discCase, blankCover, iconSearch, iconStar, iconStarOn, hand[4];
 
 // Textures and the menu font live below the MEM2 arena's low end, taken
 // once and never freed: the menu keeps them until the game replaces all of
@@ -404,7 +404,7 @@ void Init() {
         {"arrow_left", &arrowLeft}, {"arrow_left_over", &arrowLeftOver}, {"arrow_right", &arrowRight},
         {"arrow_right_over", &arrowRightOver}, {"scroll_up", &scrollUp}, {"scroll_up_over", &scrollUpOver},
         {"scroll_down", &scrollDown}, {"scroll_down_over", &scrollDownOver}, {"icon_drives", &iconDrives},
-        {"icon_gear", &iconGear}, {"icon_search", &iconSearch}, {"icon_star", &iconStar}, {"icon_star_on", &iconStarOn}, {"icon_disc", &iconDisc}, {"disc_case", &discCase}, {"blank_cover", &blankCover}, {"pointer1", &hand[0]}, {"pointer2", &hand[1]},
+        {"icon_gear", &iconGear}, {"icon_search", &iconSearch}, {"icon_star", &iconStar}, {"icon_star_on", &iconStarOn}, {"icon_disc", &iconDisc}, {"disc_channel", &discChannel}, {"disc_channel_disc", &discChannelDisc}, {"disc_case", &discCase}, {"blank_cover", &blankCover}, {"pointer1", &hand[0]}, {"pointer2", &hand[1]},
         {"pointer3", &hand[2]}, {"pointer4", &hand[3]}, {"shelf", &shelfPlank},
         {"tile9", &tile9}, {"tile9_over", &tile9Over}, {"tile9_primary", &tile9Primary},
         {"tile9_primary_over", &tile9PrimaryOver}, {"prompt_button", &promptButton}, {"icon_play", &iconPlay},
@@ -609,6 +609,48 @@ void DrawRgb5a3(const u8* data, int w, int h, float x, float y, int alpha, float
     Mtx m, mv;
     guMtxIdentity(m);
     guMtxScaleApply(m, m, scale, scale, 1.0f);
+    guMtxTransApply(m, m, x + hw, y + hh, 0);
+    guMtxConcat(view, m, mv);
+    GX_LoadPosMtxImm(mv, GX_PNMTX0);
+    const u8 a = static_cast<u8>(alpha > 255 ? 255 : alpha);
+    GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+    GX_Position3f32(-hw, -hh, 0);
+    GX_Color4u8(0xFF, 0xFF, 0xFF, a);
+    GX_TexCoord2f32(0, 0);
+    GX_Position3f32(hw, -hh, 0);
+    GX_Color4u8(0xFF, 0xFF, 0xFF, a);
+    GX_TexCoord2f32(1, 0);
+    GX_Position3f32(hw, hh, 0);
+    GX_Color4u8(0xFF, 0xFF, 0xFF, a);
+    GX_TexCoord2f32(1, 1);
+    GX_Position3f32(-hw, hh, 0);
+    GX_Color4u8(0xFF, 0xFF, 0xFF, a);
+    GX_TexCoord2f32(0, 1);
+    GX_End();
+    GX_LoadPosMtxImm(view, GX_PNMTX0);
+    GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
+    GX_SetVtxDesc(GX_VA_TEX0, GX_NONE);
+}
+
+void DrawRgb5a3Turned(const u8* data, int w, int h, float x, float y, float dw, float dh, float angle, int alpha) {
+    if (!data || alpha <= 0) return;
+    GxTraceTexture(data, w, h, GX_TF_RGB5A3);
+    GXTexObj tex;
+    GX_InitTexObj(&tex, const_cast<u8*>(data), static_cast<u16>(w), static_cast<u16>(h), GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP,
+                  GX_FALSE);
+    GX_InitTexObjLOD(&tex, GX_LINEAR, GX_LINEAR, 0, 0, 0, GX_FALSE, GX_FALSE, GX_ANISO_1);
+    GX_LoadTexObj(&tex, GX_TEXMAP0);
+    GX_SetTevOp(GX_TEVSTAGE0, GX_MODULATE);
+    GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
+    // libgui's 2D view (the identity moved to z = -50, video.cpp); the
+    // quad is drawn about its own middle and turned there. The screen's y
+    // runs down, so a positive angle is clockwise.
+    Mtx view;
+    guMtxIdentity(view);
+    guMtxTransApply(view, view, 0.0f, 0.0f, -50.0f);
+    const f32 hw = dw / 2.0f, hh = dh / 2.0f;
+    Mtx m, mv;
+    guMtxRotRad(m, 'z', angle);
     guMtxTransApply(m, m, x + hw, y + hh, 0);
     guMtxConcat(view, m, mv);
     GX_LoadPosMtxImm(mv, GX_PNMTX0);

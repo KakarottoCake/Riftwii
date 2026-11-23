@@ -27,6 +27,10 @@ public:
     const std::string* find(const std::string& id) const;
     // The title for exactly this ID, without the 4-char prefix's; null when none.
     const std::string* find_exact(const std::string& id) const;
+    // The title for a 4-char game code (a save's or a channel's): the code's
+    // own line, else the first 6-char ID it starts (RSBE for RSBE01); null
+    // when none.
+    const std::string* find_code(const std::string& code) const;
     std::size_t size() const { return titles_.size(); }
 
 private:
@@ -37,6 +41,26 @@ private:
 // "The Legend of Zelda: Twilight Princess" goes under L, as game lists do.
 // 0 when the name has no such word (or is only it).
 std::size_t sort_name_start(const std::string& title);
+
+// A name as lists sort it: ASCII letters in lower case and the accented
+// Latin letters (U+00C0 to U+017F) as their plain ones, so "apps" sorts
+// beside "Apps" and "Ōkami" among the O's ("Æ" and "Œ" as two
+// letters, "ß" as "ss"). Anything else is kept as it is and sorts after
+// the letters, byte by byte.
+std::string sort_key(const std::string& name);
+
+// Whether `a` sorts before `b`: by sort_key, then (names that only differ
+// in case or accents) by their bytes, so the order never depends on how a
+// list came in.
+bool sort_name_less(const std::string& a, const std::string& b);
+
+// The letter a game's name is filed under, as Home sorts it: past a leading
+// "The", its first letter in upper case with accents taken off ('O' for
+// "Ōkami"); '#' for a digit or a sign, which sort before A; '~' for any
+// other script (Japanese, Korean...), which sorts after Z, so each group is
+// at one end of the list only.
+constexpr char kOtherScriptLetter = '~';
+char sort_letter(const std::string& title);
 
 // "Super Mario Galaxy 2" from ".../wbfs/Super Mario Galaxy 2 [SB4E01]/SB4E01.wbfs";
 // empty when the image is not in a "Title [ID]" folder.

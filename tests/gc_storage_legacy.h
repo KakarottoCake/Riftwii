@@ -8,7 +8,11 @@
  * IPC buffers had already moved to struct gc_rt_cold (read through
  * gc_cold); it is not the code from before the blob diet. The one edit:
  * its time-base reads (mftb) go through gc_timebase(), as the new code's
- * do, so the host can build it. */
+ * do, so the host can build it.
+ * FROZEN COPY: never edit it to make a deliberate change to gc_storage.h
+ * pass. When the requests are meant to change, or once the shared path has
+ * shipped in two releases with no SD or USB problem traced to it, delete
+ * this file and the comparison in tests/gcstorage_tests.cpp instead. */
 /* One ioctlv to IOS and its reply, by polling (the Wii Remotes' reads may
  * be in flight meanwhile; their replies go to gc_bt.c). Returns IOS's
  * result, or -1000 when IOS does not answer. */

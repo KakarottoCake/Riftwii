@@ -365,7 +365,19 @@ void use_misplaced_folders(Plan& plan, const std::string& xml_sd_path, const std
         for (SavegamePatch& s : plan.savegames) {
             std::string rest = s.external;
             if (rest.empty() || rest[0] != '/') rest = "/" + rest;
-            if (top_of(rest) == top) s.external = pack_dir + rest;
+            if (top_of(rest) != top) continue;
+            // The pack's folder may itself be one a save must stay out of
+            // (an XML kept in sd:/games/..., say): the save then stays in
+            // the folder plan_package checked, and the files still move.
+            const std::string relocated = pack_dir + rest;
+            if (!savegame_folder_allowed(relocated)) {
+                const std::string kept = "save folder " + rest + " kept: " + relocated +
+                                         " is a folder a save must stay out of";
+                mod.notes.push_back(kept);
+                logf("Mods: %s\n", kept.c_str());
+                continue;
+            }
+            s.external = relocated;
         }
         const std::string note = where + "/" + top + " is not there; using " + where + moved + " instead";
         mod.notes.push_back(note);
@@ -762,6 +774,7 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
         mod.xml_paths.push_back(selection.xml_sd_path);
         if (!gather_package(selection, probe, fst, provider, files, shifts, mod, memory_bytes, error)) return false;
     }
+    drop_lone_missing_folders(mod.missing_inputs);
     if (files.empty()) {
         apply_shifts(shifts, fst, mod);
         out = std::move(mod);

@@ -35,13 +35,14 @@ struct LoaderSettings {
     std::string channel_background = "none";
     std::string grid_spacing = "normal";  // normal, roomy: Home's grid smaller, with wider gaps at its sides
     std::string page_peek = "on";         // on, off: Channels shows the next and previous pages' nearest columns at its sides
-    std::string menu_widescreen = "off";  // auto (the Wii's own 16:9 setting), on, off: the menu kept in shape on a 16:9 TV
+    std::string menu_widescreen = "auto"; // auto (the Wii's own 16:9 setting), on, off: the menu kept in shape on a 16:9 TV
     int screen_size = 100;                // the menu's size on screen, 80-100 (%), inside what a TV's overscan crops
     bool wii_menu_sounds = false;       // System Menu effects, read from NAND into memory only
     bool wii_menu_music = false;        // System Menu background music; a theme keeps priority
     std::string menu_sounds = "quiet";    // normal, quiet (a soft hover tick), off
     std::string menu_music = "on";        // on, off: music.ogg while the menu is open
     std::string launch_music = "on";      // on, off: the music plays on under the launch screen, or fades out as the menu closes
+    std::string launch_log = "off";       // on, off: the launch screen prints the launch's log, or shows the game's box (the log appears on a failure or a button)
     std::string page_banner_sound = "off";  // on, off: a game's page plays its banner's sound when opened outside the Channels view
     std::string disc_art = "off";         // on, off: GameTDB's picture of the game's disc under the box on its page
     // The player's own menu music, picked in Settings or written here:
@@ -61,7 +62,7 @@ struct LoaderSettings {
     std::string menu_font = "riftwii";    // riftwii, wii: the Wii Menu's own font, read from the NAND (riftwii/sysfont.hpp)
     std::string return_to = "riftwii";    // riftwii, menu: where a game's "Wii Menu" goes
     std::string screenshots = "off";      // in-game screenshots: on, off (demo: Dolphin tests)
-    bool disc_light = true;              // blink during loading and disc copying
+    bool disc_light = false;             // blink during loading and disc copying (off: it upset some consoles' cIOS launches)
     bool online = true;                   // download game names and cheats when the Wii is online
     bool emulator_covers = true;
     bool steamgrid_covers = false;        // requires the player's own key on the SD card
@@ -104,7 +105,7 @@ struct LoaderSettings {
     std::string parental_unrated = "allow";  // allow, restrict: a game whose rating RiftWii does not know
     std::string parental_exits = "show";  // show, pin, hide: the HOME Menu's Homebrew Channel and Priiloader (or Restart) buttons
     std::string parental_settings = "open";  // open, pin: whether Settings asks for the PIN
-    std::set<std::string> favorites;      // game IDs and profiles' tile keys, written "favorites = ID,ID@slug"
+    std::set<std::string> favorites;      // game IDs, profiles' tile keys and app_tile_key() homebrew keys
     // More folders to look for games in, besides wbfs and games (Settings >
     // Drives > Game folders writes them, game_folders_on reads them):
     // "game_folders = /Wii Games; usb:/iso". A plain "/path" is looked
@@ -115,6 +116,10 @@ struct LoaderSettings {
     std::map<std::string, std::string> other;
 
     void parse(const std::string& text);
+    // The player's saved file: as parse, but a file from before
+    // menu_widescreen existed keeps the 4:3 menu it had then (only a new
+    // card, with no file, starts on "auto").
+    void parse_saved(const std::string& text);
     std::string serialize() const;
 };
 
@@ -226,6 +231,14 @@ private:
 // reads only one level of folders, so the outer one may not reach its
 // games; the scan drops a game it found twice by its path instead.
 std::vector<std::string> game_folders_on(const LoaderSettings& settings, const std::string& device);
+
+// The folders a drive's .wad files are looked for in, as "/path": wiiware
+// first, then that drive's game folders (game_folders_on), so a player can
+// keep WADs beside their other games (sd:/roms/wii - wiiware). Unlike
+// game_folders_on, a hand-written wbfs or games entry is kept: nothing else
+// looks for WADs there. A game folder that is wiiware itself, in any case,
+// is not listed twice.
+std::vector<std::string> wad_folders_on(const LoaderSettings& settings, const std::string& device);
 
 // How many game_folders settings.txt keeps; more are left out when read.
 constexpr std::size_t kMaxGameFolders = 8;

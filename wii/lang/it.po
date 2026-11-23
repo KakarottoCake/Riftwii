@@ -12,9 +12,6 @@ msgstr "Disposizione"
 msgid "Choose"
 msgstr "Scegli"
 
-msgid "Games with mods"
-msgstr "Giochi con mod"
-
 msgid "All games"
 msgstr "Tutti i giochi"
 
@@ -998,6 +995,9 @@ msgstr "Manca il canale di CTGP-R (sd:/apps/ctgpr/boot.dol), quindi non è stato
 
 msgid "CTGP-R's settings file (sd:/ctgpr/config.ini) could not be written, so nothing was started. Check that the SD card is not locked or full."
 msgstr "Impossibile scrivere il file delle impostazioni di CTGP-R (sd:/ctgpr/config.ini), quindi non è stato avviato nulla. Controlla che la scheda SD non sia bloccata né piena."
+
+msgid "CTGP-R can't start Mario Kart Wii from the SD card, because CTGP-R uses the SD card for its own files. Put Mario Kart Wii on a USB drive, or use the disc."
+msgstr "CTGP-R non può avviare Mario Kart Wii dalla scheda SD, perché CTGP-R usa la scheda SD per i propri file. Metti Mario Kart Wii su un'unità USB o usa il disco."
 
 msgid " (and {1} more)"
 msgstr " (e altri {1})"
@@ -2022,8 +2022,14 @@ msgstr "Panoramico"
 msgid "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."
 msgstr "Dà un'immagine più nitida e stabile con un cavo component, anche nei giochi senza modo 480p; alcuni chiedono prima."
 
-msgid "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental)."
-msgstr "Riempie una TV panoramica con il mondo di gioco; i menu restano allungati e alcuni giochi mostrano colori sbagliati (sperimentale)."
+msgid "Fills a widescreen TV with the game world; menus and text stay stretched."
+msgstr "Riempie una TV panoramica con il mondo di gioco; i menu e il testo restano allungati."
+
+msgid "16:9 isn't available for this game yet."
+msgstr "Il 16:9 non è ancora disponibile per questo gioco."
+
+msgid "Not for this game"
+msgstr "Non per questo gioco"
 
 msgid "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one)."
 msgstr "La lingua in cui si gioca questo gioco, senza cambiare l'impostazione della Wii (la maggior parte dei giochi americani e giapponesi ne ha una sola)."
@@ -2595,8 +2601,8 @@ msgstr "Ancora nessun dato dei giochi"
 msgid "Download game details?"
 msgstr "Scaricare i dati dei giochi?"
 
-msgid "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?"
-msgstr "Provengono dal database di GameTDB con tutti i giochi Wii: circa 2 MB, salvati sulla scheda SD. Scaricarlo ora?"
+msgid "They come from GameTDB's database of every Wii game: about 3 MB, kept on the SD card. Download it now?"
+msgstr "Provengono dal database di GameTDB con tutti i giochi Wii: circa 3 MB, salvati sulla scheda SD. Scaricarlo ora?"
 
 msgid "Players"
 msgstr "Giocatori"
@@ -2634,12 +2640,6 @@ msgstr "Scegli"
 msgid "Controllers"
 msgstr "Controller"
 
-msgid "Downloads off"
-msgstr "Download disattivati"
-
-msgid "Downloads on"
-msgstr "Download attivi"
-
 msgid "Game settings"
 msgstr "Impostazioni del gioco"
 
@@ -2654,30 +2654,6 @@ msgstr "Immagine, lingua, server online e il resto solo per questo gioco. Ciò c
 
 msgid "{1} changed"
 msgstr "{1} modificati"
-
-msgid "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio."
-msgstr "Come i giochi appaiono sulla TV: larghezza dell'immagine, filtro antisfarfallio, bordi neri, modalità video e proporzioni."
-
-msgid "The language games are told the console uses, the cIOS they run under, where you go when you quit a game, and in-game screenshots."
-msgstr "La lingua comunicata ai giochi, il cIOS su cui girano, dove vai quando esci dal gioco e gli screenshot nel gioco."
-
-msgid "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes."
-msgstr "L'adattatore per controller GameCube per Wii U, e la vibrazione dei controller GameCube e dei telecomandi Wii."
-
-msgid "How Home shows your games: covers, a shelf or channels, from which drive, in what order, play history and the clock."
-msgstr "Come la home mostra i tuoi giochi: copertine, scaffale o canali, da quale unità, in che ordine, cronologia e orologio."
-
-msgid "The menu's language, theme, letters, size on the TV, sounds and music."
-msgstr "La lingua, il tema, i caratteri, la dimensione sulla TV, i suoni e la musica del menu."
-
-msgid "Downloads of game names, covers and cheats, the online server for games, and RiftWii's updates."
-msgstr "Download di nomi, copertine e trucchi, il server online dei giochi e gli aggiornamenti di RiftWii."
-
-msgid "Reading the SD card and the USB drive again, and mods from a PC on the network (RiiFS)."
-msgstr "Rileggere la scheda SD e l'unità USB, e mod da un PC in rete (RiiFS)."
-
-msgid "Problem reports, what's new, the tutorial, the RiftWii channel, resetting the settings and the credits."
-msgstr "Segnalazioni di problemi, novità, il tutorial, il canale RiftWii, il ripristino delle impostazioni e i crediti."
 
 msgid "About"
 msgstr "Info"
@@ -2712,8 +2688,8 @@ msgstr "Fino a {1} giocatori"
 msgid "Pages at the sides"
 msgstr "Pagine ai lati"
 
-msgid "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
-msgstr "Canali: i bordi della pagina precedente e di quella successiva ai lati dello schermo, come nel Menu Wii. Punta su uno e premi A per passare a quella pagina."
+msgid "Channels and Covers: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
+msgstr "Canali e copertine: i bordi della pagina precedente e di quella successiva ai lati dello schermo, come nel Menu Wii. Punta su uno e premi A per passare a quella pagina."
 
 msgid "Could not save the tiles to the SD card."
 msgstr "Impossibile salvare i riquadri sulla scheda SD."
@@ -3645,6 +3621,12 @@ msgstr "Retro della confezione"
 msgid "Front of the box"
 msgstr "Fronte della confezione"
 
+msgid "Spin"
+msgstr "Gira"
+
+msgid "The game's disc. Press A to spin it."
+msgstr "Il disco del gioco. Premi A per farlo girare."
+
 msgid "Music file"
 msgstr "File musicale"
 
@@ -3720,9 +3702,6 @@ msgstr "Nessuna chiave API"
 msgid "Downloads emulator covers from libretro. Off uses your own PNG covers only."
 msgstr "Scarica copertine da libretro. Se disattivato usa solo le tue copertine PNG."
 
-msgid "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt."
-msgstr "Copertine alternative da SteamGridDB. Metti la tua chiave API in sd:/riftwii/steamgriddb.txt."
-
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Copertine degli emulatori: collaboratori di libretro-thumbnails, MobyGames e Fandom. Copertine opzionali: collaboratori di SteamGridDB. La grafica originale appartiene agli sviluppatori e agli editori dei giochi."
 
@@ -3737,6 +3716,9 @@ msgstr "Controlla file"
 
 msgid "Play anyway"
 msgstr "Gioca comunque"
+
+msgid "Missing for {1}:"
+msgstr "Mancano per {1}:"
 
 msgid "USB: {1} partition(s) could not be opened. See Drives."
 msgstr "USB: impossibile aprire {1} partizioni. Vedi Unità."
@@ -3887,6 +3869,9 @@ msgstr "Su e Giù scorrono il testo"
 
 msgid "Up and Down scroll the story"
 msgstr "Su e Giù scorrono la storia"
+
+msgid "Controllers and story"
+msgstr "Controller e storia"
 
 msgid "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons."
 msgstr "Impossibile leggere alcuni WAD. Nomi e motivi sono in sd:/riftwii/session.log."
@@ -4113,23 +4098,38 @@ msgstr "La cartella della NAND emulata: quella indicata dalle impostazioni di US
 msgid "With settings and Miis, games also use the emulated NAND's Wii settings and Miis. The folder needs a whole NAND for that."
 msgstr "Con impostazioni e Mii, i giochi usano anche le impostazioni della Wii e i Mii della NAND emulata. Per questo la cartella deve contenere una NAND completa."
 
-msgid "CTGP-R: updated installs start again"
-msgstr "CTGP-R: le installazioni aggiornate ripartono"
+msgid "Launch screen"
+msgstr "Schermata di avvio"
 
-msgid "CTGP-R cups come from your install"
-msgstr "CTGP-R: le coppe dalla tua installazione"
+msgid "Game's box"
+msgstr "Confezione del gioco"
 
-msgid "Game folders of your choice"
-msgstr "Cartelle dei giochi a tua scelta"
+msgid "Log"
+msgstr "Registro"
 
-msgid "GameCube: named memory cards"
-msgstr "GameCube: schede con nome"
+msgid "Press any button to see what RiftWii is doing."
+msgstr "Premi un tasto qualsiasi per vedere cosa sta facendo RiftWii."
 
-msgid "Sonic Unleashed sees the adapter on Wii U"
-msgstr "Sonic Unleashed vede l'adattatore su Wii U"
+msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
+msgstr "Confezione del gioco: la confezione del gioco mentre si avvia; premi un tasto qualsiasi per vedere cosa sta facendo RiftWii. Registro: ogni passo, riga per riga. Se l'avvio non riesce, il registro appare sempre."
 
-msgid "Brawl: file-swap packs load a match"
-msgstr "Brawl: i pacchetti di file caricano le partite"
+msgid "Real GameCube memory cards work"
+msgstr "Le Memory Card reali del GameCube funzionano"
+
+msgid "WAD files in your Game folders"
+msgstr "File WAD nelle tue cartelle dei giochi"
+
+msgid "WAD games go back to RiftWii"
+msgstr "I giochi WAD tornano a RiftWii"
+
+msgid "240p keeps PAL 60 colors"
+msgstr "240p mantiene i colori PAL 60"
+
+msgid "Project+ starts with the GameCube adapter"
+msgstr "Project+ parte con l'adattatore GameCube"
+
+msgid "GameCube adapter back in LEGO Star Wars"
+msgstr "Adattatore GameCube di nuovo in LEGO Star Wars"
 
 msgid "Manage game"
 msgstr "Gestisci gioco"
@@ -4211,6 +4211,15 @@ msgstr "Usa la scheda del gioco, una condivisa, quella di Nintendont o una reale
 
 msgid "Use this game's card, a shared card, Dolphin's card, or a real card in slot A (Wii only)."
 msgstr "Usa la scheda del gioco, una condivisa, quella di Dolphin o una reale nello slot A (solo Wii)."
+
+msgid "Could not save choices"
+msgstr "Impossibile salvare le scelte"
+
+msgid "Choices for this game could not be saved. Check the SD card is not full or locked."
+msgstr "Le scelte per questo gioco non possono essere salvate. Controlla che la scheda SD non sia piena o bloccata."
+
+msgid "Play anyway?"
+msgstr "Giocare comunque?"
 
 msgid "Disc slot light"
 msgstr "Luce del vano disco"
@@ -4505,3 +4514,252 @@ msgstr "Passa questo gioco a {1}. Indietro mantiene la scheda che ha."
 
 msgid "CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none."
 msgstr "CTGP-R salva sulla scheda SD, in {1}. Il salvataggio della Wii viene copiato se la cartella non ne ha."
+
+msgid "CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."
+msgstr "Impossibile preparare l'immagine di gioco di CTGP-R. Il motivo è in sd:/riftwii/boot.log."
+
+msgid "The SD card is full"
+msgstr "La scheda SD è piena"
+
+msgid "The SD card can't be written"
+msgstr "Non è possibile scrivere sulla scheda SD"
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer, then move files to the computer or delete files you do not need to make room."
+msgstr "RiftWii non può salvare nuovi file, quindi impostazioni, scelte di gioco, copertine e registri potrebbero non essere salvati. Metti la scheda in un computer, poi sposta i file sul computer o elimina i file che non ti servono per fare spazio."
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. The card may be locked or read-only. Put the card in a computer and check its lock switch."
+msgstr "RiftWii non può salvare nuovi file, quindi impostazioni, scelte di gioco, copertine e registri potrebbero non essere salvati. La scheda potrebbe essere bloccata o in sola lettura. Metti la scheda in un computer e controlla l'interruttore di blocco."
+
+msgid "RiftWii can't save new files, so settings, game choices, covers and logs may not be saved. Put the card in a computer and check it for errors."
+msgstr "RiftWii non può salvare nuovi file, quindi impostazioni, scelte di gioco, copertine e registri potrebbero non essere salvati. Metti la scheda in un computer e controllala per errori."
+
+msgid "Manage emulated NAND"
+msgstr "Gestisci NAND emulata"
+
+msgid "See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings."
+msgstr "Vedi e modifica il contenuto di una NAND emulata: elimina i canali installati, copia il salvataggio di un gioco o i Mii tra essa e la Wii, oppure rimuovi la sua copia delle impostazioni della Wii."
+
+msgid "Copy save from Wii"
+msgstr "Copia salvataggio dalla Wii"
+
+msgid "Copy save to Wii"
+msgstr "Copia salvataggio sulla Wii"
+
+msgid "Delete emulated save"
+msgstr "Elimina salvataggio emulato"
+
+msgid "Delete emulated title"
+msgstr "Elimina titolo emulato"
+
+msgid "Copy to {1}"
+msgstr "Copia in {1}"
+
+msgid "Copies this game, its save and its ticket to {1}. RiftWii plays WiiWare and Virtual Console games from an emulated NAND on the SD card."
+msgstr "Copia questo gioco, il suo salvataggio e il suo ticket in {1}. RiftWii avvia WiiWare e Virtual Console da una NAND emulata sulla scheda SD."
+
+msgid "{1}\nfrom {2}\nto {3}\nThe game, its save and its ticket are copied; the original stays. Keep the Wii turned on until copying finishes."
+msgstr "{1}\nda {2}\na {3}\nVengono copiati il gioco, il salvataggio e il ticket; l'originale resta. Non spegnere la Wii finché non ha finito."
+
+msgid "Copied to {1}. Home shows it after the drives are read again."
+msgstr "Copiato in {1}. La Home lo mostra quando le unità vengono rilette."
+
+msgid "The title could not be copied. See session.log for details."
+msgstr "Impossibile copiare il titolo. Vedi session.log per i dettagli."
+
+msgid "Checking the memory card in slot {1}..."
+msgstr "Controllo della memory card nello slot {1}..."
+
+msgid "The memory card in slot {1} did not answer. Take it out, put it back in and restart RiftWii, or use this game's SD card for now."
+msgstr "La memory card nello slot {1} non ha risposto. Toglila, reinseriscila e riavvia RiftWii, oppure per ora usa la scheda SD di questo gioco."
+
+msgid "This title is already in {1}. Delete it there first to copy it again."
+msgstr "Questo titolo è già in {1}. Eliminalo prima lì per copiarlo di nuovo."
+
+msgid "Miis from Wii"
+msgstr "Mii dalla Wii"
+
+msgid "Miis to Wii"
+msgstr "Mii sulla Wii"
+
+msgid "Remove Wii settings"
+msgstr "Rimuovi impostazioni Wii"
+
+msgid "SYSCONF: {1}; setting.txt: {2}"
+msgstr "SYSCONF: {1}; setting.txt: {2}"
+
+msgid "Present"
+msgstr "Presente"
+
+msgid "Missing"
+msgstr "Assente"
+
+msgid "Wii memory"
+msgstr "Memoria della Wii"
+
+msgid "Continue"
+msgstr "Continua"
+
+msgid "Write to Wii"
+msgstr "Scrivi sulla Wii"
+
+msgid "Working..."
+msgstr "Operazione in corso..."
+
+msgid "Done."
+msgstr "Fatto."
+
+msgid "The emulated NAND folder could not be read. See session.log for details."
+msgstr "Impossibile leggere la cartella della NAND emulata. Vedi session.log."
+
+msgid "The destination will be replaced. A backup is kept in the emulated NAND folder first. Keep the Wii turned on until copying finishes."
+msgstr "La destinazione verrà sostituita. Prima verrà salvata una copia nella cartella della NAND emulata. Lascia la Wii accesa fino alla fine."
+
+msgid "This replaces data in the Wii's own memory. Your current save or Miis will change. Are you sure you want to write to the Wii?"
+msgstr "Verranno sostituiti dati nella memoria della Wii. Il salvataggio o i Mii attuali cambieranno. Vuoi davvero scrivere sulla Wii?"
+
+msgid "The selected emulated title or save will be deleted. Deleting a title also deletes its save and ticket. This cannot be undone."
+msgstr "Il titolo o salvataggio emulato verrà eliminato. Eliminare un titolo elimina anche salvataggio e ticket. Non puoi annullare."
+
+msgid "The action could not finish. A save may have been partly copied. Backups stay in the emulated NAND folder. See session.log for details."
+msgstr "Operazione non completata. Un salvataggio potrebbe essere stato copiato solo in parte. Le copie restano nella cartella della NAND emulata. Vedi session.log."
+
+msgid "The emulated Wii settings will be backed up and removed. The Wii's own settings stay as they are."
+msgstr "Le impostazioni Wii emulate verranno copiate e rimosse. Le impostazioni della Wii resteranno invariate."
+
+msgid "SteamGridDB key"
+msgstr "Chiave SteamGridDB"
+
+msgid "Clear SteamGridDB key"
+msgstr "Cancella chiave SteamGridDB"
+
+msgid "Ends in {1}"
+msgstr "Termina con {1}"
+
+msgid "Fallback covers from SteamGridDB. Set your key below."
+msgstr "Copertine alternative da SteamGridDB. Imposta la tua chiave qui sotto."
+
+msgid "Type your SteamGridDB API key. Only its last four characters are shown."
+msgstr "Inserisci la tua chiave API SteamGridDB. Vengono mostrati solo gli ultimi quattro caratteri."
+
+msgid "Removes your SteamGridDB key from the SD card. Saved pictures are kept."
+msgstr "Rimuove la tua chiave SteamGridDB dalla scheda SD. Le immagini salvate vengono conservate."
+
+msgid "Use 16 to 128 letters, numbers, - or _."
+msgstr "Usa da 16 a 128 lettere, numeri, - o _."
+
+msgid "SteamGridDB key saved."
+msgstr "Chiave SteamGridDB salvata."
+
+msgid "SteamGridDB key cleared."
+msgstr "Chiave SteamGridDB cancellata."
+
+msgid "Could not change the SteamGridDB key. Check the SD card."
+msgstr "Impossibile cambiare la chiave SteamGridDB. Controlla la scheda SD."
+
+msgid "Copies the controller.ini files Nintendont uses (on the SD card or the USB drive) into RiftWii's own controller layouts."
+msgstr "Copia i file controller.ini usati da Nintendont (sulla scheda SD o sull'unità USB) negli schemi dei controller di RiftWii."
+
+msgid "Import from Nintendont"
+msgstr "Importa da Nintendont"
+
+msgid "There is not enough free memory."
+msgstr "Memoria libera insufficiente."
+
+msgid "No controller files were found. Check controller.ini in the root or nintendont folder, or VID_PID.ini in controllers, on the SD card or USB drive."
+msgstr "Nessun file del controller trovato. Controlla controller.ini nella radice o in nintendont, oppure VID_PID.ini in controllers, sulla SD o sull'unità USB."
+
+msgid "Only the first 64 files and 512 entries per folder are checked. Move the files you want into a smaller controllers folder, then try again."
+msgstr "Vengono controllati solo i primi 64 file e 512 elementi per cartella. Metti i file desiderati in una cartella controllers più piccola e riprova."
+
+msgid "Import"
+msgstr "Importa"
+
+msgid "Press A to check and copy this layout to sd:/riftwii/controllers. Existing files ask before being replaced. Restart RiftWii to use imported layouts."
+msgstr "Premi A per controllare e copiare questa configurazione in sd:/riftwii/controllers. I file esistenti chiedono conferma prima di essere sostituiti. Riavvia RiftWii per usarla."
+
+msgid "The file could not be read."
+msgstr "Impossibile leggere il file."
+
+msgid "The controller file is larger than 8 KiB."
+msgstr "Il file del controller supera 8 KiB."
+
+msgid "This layout is invalid or unsupported. See session.log for details."
+msgstr "Questa configurazione non è valida o non è supportata. Dettagli in session.log."
+
+msgid "The device IDs in the file do not match its filename."
+msgstr "Gli ID del dispositivo nel file non corrispondono al suo nome."
+
+msgid "Skipped"
+msgstr "Saltato"
+
+msgid "The layout could not be saved. Check the SD card's free space and lock switch."
+msgstr "Impossibile salvare la configurazione. Controlla lo spazio libero e il blocco della SD."
+
+msgid "{1} already exists. Replace it with {2}?"
+msgstr "{1} esiste già. Sostituirlo con {2}?"
+
+msgid "The existing layout was kept."
+msgstr "La configurazione esistente è stata conservata."
+
+msgid "Imported"
+msgstr "Importato"
+
+msgid "Copied {1} to {2}. Restart RiftWii to use it."
+msgstr "{1} copiato in {2}. Riavvia RiftWii per usarlo."
+
+msgid "Game picture: width, flicker filter, borders, video mode and aspect ratio."
+msgstr "Immagine: larghezza, filtro sfarfallio, bordi, modalità video e proporzioni."
+
+msgid "Game language, saves, emulated NAND, quitting and screenshots."
+msgstr "Lingua dei giochi, salvataggi, NAND emulata, uscita e schermate."
+
+msgid "USB controllers, button layouts and controller rumble."
+msgstr "Controller USB, disposizione dei pulsanti e vibrazione."
+
+msgid "Home layout, game order, drives, play history and clock."
+msgstr "Aspetto di Home, ordine dei giochi, unità, cronologia e orologio."
+
+msgid "Menu language, theme, font, screen size, sounds and music."
+msgstr "Lingua del menu, tema, carattere, dimensione dello schermo, suoni e musica."
+
+msgid "Downloads, game servers and RiftWii updates."
+msgstr "Download, server dei giochi e aggiornamenti di RiftWii."
+
+msgid "Find games and network packs, or copy a game disc."
+msgstr "Trova giochi e pacchetti di rete, o copia un disco di gioco."
+
+msgid "Problem reports, what's new, help, the RiftWii channel and credits."
+msgstr "Segnalazioni, novità, aiuto, canale RiftWii e crediti."
+
+msgid "Wii Menu or power off."
+msgstr "Menu Wii o spegnimento."
+
+msgid "Homebrew Channel, Wii Menu, restart or power off."
+msgstr "Canale Homebrew, Menu Wii, riavvio o spegnimento."
+
+msgid "Homebrew Channel, Wii Menu, Priiloader or power off."
+msgstr "Canale Homebrew, Menu Wii, Priiloader o spegnimento."
+
+msgid "System titles cannot be deleted."
+msgstr "I titoli di sistema non possono essere eliminati."
+
+msgid "Reading titles..."
+msgstr "Lettura dei titoli..."
+
+msgid "Reading folders..."
+msgstr "Lettura delle cartelle..."
+
+msgid "Disc game saves"
+msgstr "Salvataggi dei giochi su disco"
+
+msgid "System channels"
+msgstr "Canali di sistema"
+
+msgid "Hidden titles"
+msgstr "Titoli nascosti"
+
+msgid "Other titles"
+msgstr "Altri titoli"
+
+msgid "Emulated + Wii"
+msgstr "Emulata + Wii"

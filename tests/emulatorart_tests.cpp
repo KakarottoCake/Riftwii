@@ -3,6 +3,7 @@
 #include "riftwii/emulatorart.hpp"
 #include "riftwii/coverart.hpp"
 #include "riftwii/emulatorfile.hpp"
+#include "riftwii/emulatorbanner.hpp"
 #include "riftwii/settingsfile.hpp"
 
 #include <iostream>
@@ -98,6 +99,33 @@ void misses() {
     EXPECT(!emulator_art_miss_fresh("", "Sega - Dreamcast", now));
     EXPECT(emulator_art_miss("x\ny", now).empty());
     EXPECT(emulator_art_miss("x", 0).empty());
+    // Each source retains its own answer across restarts. A changed API
+    // key or libretro system gets a fresh search; neither expires a picture.
+    const auto fallback = emulator_art_miss(std::string(64, 'a'), now);
+    EXPECT(emulator_art_miss_fresh(fallback, std::string(64, 'a'), now + 60));
+    EXPECT(!emulator_art_miss_fresh(fallback, std::string(64, 'b'), now + 60));
+    for (const auto* stamp : {"0", "-1", "1800000000junk", "99999999999999999999", "1800000000\nextra"}) {
+        EXPECT(!emulator_art_miss_fresh(std::string("RIFTWII-ART-MISS-1\nx\n") + stamp + "\n", "x", now));
+    }
+}
+
+void cache_paths() {
+    using namespace riftwii;
+    const std::string game = "emu-" + std::string(64, 'a');
+    const std::string banner = emulator_banner_key(game);
+    const std::string wide = emulator_banner_key(game, true);
+    EXPECT(emulator_art_cache_path(game) == "sd:/riftwii/covers/" + game + ".rwc");
+    EXPECT(emulator_art_cache_path(banner) == "sd:/riftwii/banners/" + game + ".rwe");
+    EXPECT(emulator_art_cache_path(wide) == "sd:/riftwii/banners/" + game + ".wide.rwe");
+    EXPECT(emulator_art_miss_path(game, "libretro") == "sd:/riftwii/covers/" + game + ".libretro.none");
+    EXPECT(emulator_art_miss_path(banner, "steamgrid") == "sd:/riftwii/banners/" + game + ".steamgrid.none");
+    EXPECT(emulator_art_miss_path(banner, "steamgrid") == emulator_art_miss_path(wide, "steamgrid"));
+    EXPECT(emulator_art_miss_path(game, "steamgrid") != emulator_art_miss_path(banner, "steamgrid"));
+    for (const auto* bad : {"", "../secret", "emu-../secret", "channel-../secret"}) {
+        EXPECT(emulator_art_cache_path(bad).empty());
+        EXPECT(emulator_art_miss_path(bad, "steamgrid").empty());
+    }
+    EXPECT(emulator_art_miss_path(game, "../secret").empty());
 }
 
 void steamgrid() {
@@ -189,6 +217,7 @@ int main() {
     index_parsing();
     matching();
     misses();
+    cache_paths();
     steamgrid();
     settings_and_manifest();
     if (failures) std::cerr << failures << " emulator cover check(s) failed.\n";

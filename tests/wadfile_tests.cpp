@@ -184,6 +184,16 @@ void test_content_map() {
     b.sha1.fill(0x22);
     entries = {a, b};
     EXPECT_EQ(next_shared_name(entries), std::string("0000000b"));
+    // The last names: one past ffffffff is none, never 00000000 again.
+    {
+        SharedContent high;
+        high.name = "fffffffe";
+        std::vector<SharedContent> near_end = {high};
+        EXPECT_EQ(next_shared_name(near_end), std::string("ffffffff"));
+        high.name = "ffffffff";
+        near_end.push_back(high);
+        EXPECT_EQ(next_shared_name(near_end), std::string());
+    }
     const std::vector<std::uint8_t> bytes = serialize_content_map(entries);
     EXPECT_EQ(bytes.size(), std::size_t(2 * 0x1C));
     const std::vector<SharedContent> back = parse_content_map(bytes.data(), bytes.size());

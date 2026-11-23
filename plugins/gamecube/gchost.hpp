@@ -55,6 +55,7 @@ struct GcImage {
     int language = -1;
     bool sharp = false;
     bool sixty_hz = false;
+    std::uint32_t tv_signal = 0;  // RWP_TV_NTSC, RWP_TV_PAL or RWP_TV_EURGB60 (rwp_gc_launch's tv_signal)
     std::uint32_t vi_width = 0;
     bool screen_offset_set = false;  // the game is told screen_offset as the console's screen position
     int screen_offset = 0;

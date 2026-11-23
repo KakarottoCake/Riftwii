@@ -56,7 +56,7 @@ void test_protected() {
     EXPECT_TRUE(game_clears_mem1_top("RB4E08"));
     EXPECT_TRUE(game_clears_mem1_top("RB4P08"));
     EXPECT_FALSE(game_clears_mem1_top("RMCE01"));
-    EXPECT_TRUE(game_clears_mem1_top("RLGE64"));
+    EXPECT_FALSE(game_clears_mem1_top("RLGE64"));  // The Complete Saga plays with the adapter on
     EXPECT_TRUE(game_clears_mem1_top("RLIE64"));
     EXPECT_TRUE(game_clears_mem1_top("RL4P64"));
     EXPECT_TRUE(game_clears_mem1_top("RLBEWR"));
@@ -105,6 +105,13 @@ void test_protected() {
     EXPECT_TRUE(gc_loads_use_queued_heap("GLMP01"));
     EXPECT_TRUE(gc_loads_use_queued_heap("GLME01"));
     EXPECT_FALSE(gc_loads_use_queued_heap("GMSE04"));
+    // 16:9 stays off for Super Mario Sunshine in every region and the mods
+    // made from it (Eclipse is GMSE04): its screen copies; others as picked.
+    EXPECT_TRUE(gc_widescreen_off("GMSE01") == GcWidescreenOff::screen_copies);
+    EXPECT_TRUE(gc_widescreen_off("GMSP01") == GcWidescreenOff::screen_copies);
+    EXPECT_TRUE(gc_widescreen_off("GMSE04") == GcWidescreenOff::screen_copies);
+    EXPECT_TRUE(gc_widescreen_off("GLMP01") == GcWidescreenOff::no);
+    EXPECT_TRUE(gc_widescreen_off("GM4E01") == GcWidescreenOff::no);
     EXPECT_TRUE(gc_restart_known_to_work("GMSE01"));
     EXPECT_TRUE(gc_restart_known_to_work("GMSE04"));
     EXPECT_TRUE(gc_restart_known_to_work("GKDP01"));

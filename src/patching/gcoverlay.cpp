@@ -5,6 +5,7 @@
 #include <algorithm>
 
 #include "riftwii/fst.hpp"
+#include "riftwii/byteorder.hpp"
 #include "rtable.h"
 
 namespace riftwii {
@@ -13,9 +14,6 @@ namespace {
 
 constexpr std::uint64_t kAlign = 0x8000;  // window slots start on a 32 KiB boundary, like the disc's own files
 
-std::uint32_t be32(const std::uint8_t* p) {
-    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
-}
 void poke32(std::uint8_t* p, std::uint32_t v) {
     p[0] = std::uint8_t(v >> 24);
     p[1] = std::uint8_t(v >> 16);

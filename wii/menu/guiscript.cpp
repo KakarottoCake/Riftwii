@@ -6,6 +6,7 @@
 #include <gccore.h>
 #include <wiiuse/wpad.h>
 
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <cstdio>
@@ -185,6 +186,17 @@ void GuiScriptCrashShot(const void* xfb, int width, int height) {
 }
 
 bool GuiScriptLoad(const char* path) {
+#ifndef RIFTWII_TEST_BUILD
+    // Scripted input belongs to the Dolphin harness, in test builds only
+    // (make -f Makefile.wii TEST=1), as autorun does. In a release build a
+    // script left from a test run, or one a pack's zip put on the card,
+    // would press the player's buttons and write screenshots over any file
+    // it names, saves included; it is named in the log and left alone.
+    struct stat script_stat;
+    if (stat(path, &script_stat) == 0 && S_ISREG(script_stat.st_mode))
+        logf("%s ignored: scripted menu input is only in test builds (make -f Makefile.wii TEST=1)\n", path);
+    return false;
+#else
     std::string text;
     if (!ReadWholeFile(path, text)) return false;
     LineReader in(text);
@@ -196,6 +208,7 @@ bool GuiScriptLoad(const char* path) {
     g_active = !g_lines.empty();
     logf("guiscript: %u line(s) from %s\n", static_cast<unsigned>(g_lines.size()), path);
     return g_active;
+#endif
 }
 
 

@@ -5,6 +5,8 @@
 // SPDX-FileCopyrightText: WiiFlow contributors <https://github.com/Fledge68/WiiFlow_Lite>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "boot.hpp"
+
+#include "console.hpp"
 #include "ctgpr.hpp"
 #include "progress.hpp"
 
@@ -42,6 +44,7 @@
 #include "log.hpp"
 #include "disclight.hpp"
 #include "memlimits.hpp"
+#include "nandchannels.hpp"
 #include "stash.hpp"
 #include "netsock.hpp"
 #include "riftwii/mempatch.hpp"
@@ -140,12 +143,15 @@ constexpr std::uint64_t kWiiEpochOffset = 946684800;  // 2000-01-01 in Unix seco
 
 std::uint8_t g_tmd[0x4A00] ATTRIBUTE_ALIGN(32);
 
+// Through logf: on screen with the log, held behind the game's box
+// until it is asked for, and in boot.log either way.
 void apploader_report(const char* format, ...) {
+    char text[256];
     va_list args;
     va_start(args, format);
-    std::printf("  apploader: ");
-    std::vprintf(format, args);
+    std::vsnprintf(text, sizeof(text), format, args);
     va_end(args);
+    logf("  apploader: %s", text);
 }
 
 bool aligned32(const void* p) { return (reinterpret_cast<std::uintptr_t>(p) & 31) == 0; }
@@ -757,9 +763,12 @@ VideoTarget resolve_video_target(VideoMode mode, char region, bool progressive_o
         t.progressive = component;
         break;
     case VideoMode::Line240:
-        // 240p: at 60 Hz, EuRGB60 for PAL games, NTSC otherwise. Any
-        // cable carries it (a CRT on the AV cable is the reason for it).
-        t.format = region_video_standard(region) == VI_PAL ? kViEurgb60 : kViNtsc;
+        // 240p: at 60 Hz, EuRGB60 for PAL games and on a console set to
+        // PAL, NTSC otherwise. Any cable carries it (a CRT on the AV cable
+        // is the reason for it). The console's setting says what the TV
+        // takes: on an RGB SCART cable NTSC's encoder gives a red picture
+        // (a tester's US Wii set to PAL 60, a US game in 240p).
+        t.format = region_video_standard(region) == VI_PAL || CONF_GetVideo() == CONF_VIDEO_PAL ? kViEurgb60 : kViNtsc;
         t.line240 = true;
         break;
     default: break;
@@ -855,10 +864,17 @@ bool probe_disc(DiscProbe& out, std::string& error, const ProbeOptions& options)
         }
         if (!di::reset(true, error)) return false;
     }
-    std::uint8_t drive_info[32];
-    if (!di::inquiry(drive_info, error)) return false;
-    logf("Drive: rev %02x%02x dev %02x%02x fw %02x%02x%02x%02x\n", drive_info[0], drive_info[1], drive_info[2],
-         drive_info[3], drive_info[4], drive_info[5], drive_info[6], drive_info[7]);
+    if (options.virtual_source) {
+        // d2x passes the inquiry on to the physical drive; on one tester's
+        // Wii it hung 15 s and failed the launch. Its answer was only
+        // logged, so an image launch doesn't send it.
+        logf("Drive: not asked (a USB/SD image; d2x would pass the question to the disc drive, and its answer was only logged)\n");
+    } else {
+        std::uint8_t drive_info[32];
+        if (!di::inquiry(drive_info, error)) return false;
+        logf("Drive: rev %02x%02x dev %02x%02x fw %02x%02x%02x%02x\n", drive_info[0], drive_info[1], drive_info[2],
+             drive_info[3], drive_info[4], drive_info[5], drive_info[6], drive_info[7]);
+    }
     if (!di::read_disc_id(out.disc_id, error)) return false;
     publish_disc_id(out.disc_id);
 
@@ -1274,12 +1290,15 @@ const char* whole_mem1_reason(bool code_build, bool clears_mem1_top) {
 // While boot.log is open, on the game as loaded: the adapter's PAD search
 // (false when it turns the adapter off; its USB handle is then let go,
 // so the game's own USB gets it), and Settings > GameCube rumble Off.
-bool prepare_gc_pads(const DolHeader& dol, bool gc_adapter, bool gx_protected, PadHook& pad) {
+// `patches` are the packs' <memory> patches, not applied yet: a PADRead
+// one of them writes is found too.
+bool prepare_gc_pads(const DolHeader& dol, bool gc_adapter, bool gx_protected, const std::vector<MemoryPatch>& patches,
+                     PadHook& pad) {
     if (gx_protected && g_extras.gc_adapter != GcAdapterMode::Off)
         logf("GameCube adapter: off: the game checks its own code (MetaFortress)\n");
     if (gc_adapter) {
         std::string why;
-        if (!find_pad_functions(dol, g_extras.gc_adapter == GcAdapterMode::Demo, pad, why)) {
+        if (!find_pad_functions(dol, g_extras.gc_adapter == GcAdapterMode::Demo, patches, pad, why)) {
             logf("GameCube adapter: off: %s\n", why.c_str());
             gc_adapter = false;
         }
@@ -1444,7 +1463,8 @@ void plan_game_extras(const DolHeader& dol, const ExtrasContext& ctx, GameExtras
         // shots read the frame buffer itself.
         const bool direct = true;
         if (!plan_shot_hook(dol, out.arena1_hi(ctx.arena1_hi), ctx.mem1_floor, out.arena2_lo(ctx.arena2_lo), known,
-                            out.pad.read, g_extras.screenshots_demo, direct, patches, out.shot, why)) {
+                            out.pad.read, out.pad.read_in_patch, g_extras.screenshots_demo, direct, patches,
+                            out.shot, why)) {
             logf("Screenshots: off: %s\n", why.c_str());
         }
     }
@@ -1563,6 +1583,14 @@ void apply_wpad_probe_test(const std::vector<MemoryRegion>& loaded, std::vector<
 // the crash recorder's hooks go in (the Wii Remote log's comes last of
 // all, install_wpad_log_last).
 void install_game_extras(GameExtras& extras) {
+    // Before the adapter's hook goes in on the same PADRead: one from the
+    // packs' memory patches is checked again now they're all in.
+    if (extras.shot.active && extras.shot.pad_read_in_patch && !pad_read_in_place(extras.shot.pad_read)) {
+        logf("Screenshots: the pack's PADRead at 0x%08x isn't there once its memory patches are in; the GameCube "
+             "controller's combo isn't watched\n",
+             extras.shot.pad_read);
+        extras.shot.pad_read = 0;
+    }
     if (extras.pad.active) {
         std::string why;
         if (!install_pad_hook(extras.pad, why)) logf("GameCube adapter: off: %s\n", why.c_str());
@@ -2640,7 +2668,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // The adapter's PAD search while boot.log is open; the rest of its
     // setup comes after the runtime's, when the log has ended.
     GameExtras extras;
-    gc_adapter = prepare_gc_pads(dol, gc_adapter, gx_protected, extras.pad);
+    gc_adapter = prepare_gc_pads(dol, gc_adapter, gx_protected, options.memory_patches, extras.pad);
 
     // The game's own Reset where no runtime takes it (#458): the adapter's
     // hook does, which needs the SD card for the request and Return to
@@ -3439,7 +3467,9 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         const std::uint32_t loader_end = reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi());
         if (top < kMem1Start || base < game_end || (base < loader_end && top > kLoaderStart)) {
             // Too late to say so on screen: the card is the runtime's.
-            // The game would start incomplete, so stop here.
+            // The game would start incomplete, so stop here. The log first
+            // when the game's box stood in for it, or the line goes nowhere.
+            ConsoleRevealDeferred();
             std::printf("Start file: no room to finish the game's executable (0x%08x-0x%08x)\n", base, top);
             for (;;) VIDEO_WaitVSync();
         }
@@ -4211,6 +4241,56 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     // which titles ES sees. The same target is used for the later patch.
     const u64 return_to = debug_off("returnto") || !allow_game_patch(GamePatchKind::ReturnTo, "Return to RiftWii")
                               ? 0 : return_title();
+    // Under the emulation of the whole NAND, the way back (the game's "Wii
+    // Menu", which d2x and the patched OSReturnToMenu turn into the return
+    // title) starts that title from the emulated NAND. One made for a WAD
+    // never had it: a vWii fell back to the Wii U's menu. It is copied in
+    // from the Wii now, while the real NAND is still the one ES reads.
+    if (return_to != 0 && !files.emu_nand.empty()) {
+        const unsigned high = static_cast<unsigned>(return_to >> 32);
+        const unsigned low = static_cast<unsigned>(return_to);
+        std::string copy_error;
+        if (files.emu_nand.compare(0, 4, "sd:/") != 0) {
+            logf("Return to %08x-%08x: the emulated NAND %s is not on the SD card, so the channel is not copied "
+                 "there; if it is missing, \"Wii Menu\" cannot return to it.\n",
+                 high, low, files.emu_nand.c_str());
+        } else if (copy_return_channel_to_emu_nand(files.emu_nand, return_to, copy_error)) {
+            logf("Return to %08x-%08x: the channel is in %s, where the game will look for it.\n", high, low,
+                 files.emu_nand.c_str());
+        } else {
+            logf("Return to %08x-%08x: the channel could not be copied to %s because %s; \"Wii Menu\" from the game "
+                 "may not return to it.\n",
+                 high, low, files.emu_nand.c_str(), copy_error.c_str());
+        }
+    }
+    // Every launch from an emulated NAND, with or without a return copy: an
+    // ownership list or a shared-content list a failed replacement left only
+    // in its .riftwii-old copy is put back first. If one can't be, the game
+    // waits: ES would give its saves to the wrong owner, or find none of the
+    // shared contents its titles use.
+    if (!files.emu_nand.empty()) {
+        struct SystemList {
+            const char* path;
+            const char* what;
+        };
+        const SystemList lists[] = {
+            {"/sys/uid.sys", "title ownership list"},
+            {"/shared1/content.map", "shared-content list"},
+        };
+        for (const SystemList& list : lists) {
+            const std::string file = files.emu_nand + list.path;
+            const std::string backup = file + ".riftwii-old";
+            struct stat info;
+            if (stat(file.c_str(), &info) == 0 || stat(backup.c_str(), &info) != 0) continue;
+            if (std::rename(backup.c_str(), file.c_str()) == 0) {
+                logf("Wii channels: %s was put back from its backup.\n", file.c_str());
+            } else {
+                error = std::string("the emulated NAND's ") + list.what + " (" + file +
+                        ") could not be restored from its backup; check the SD card";
+                return false;
+            }
+        }
+    }
 
     // As for a disc game: the Wii Remotes, the log and the card go before
     // each reload kills their handles; the card comes back after it, for
@@ -4480,7 +4560,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     extras_context.arena1_hi = channel_arena_top;
     extras_context.arena2_lo = read32(0x80003124);
     extras_context.mem1_floor = channel_extras_floor(dol, loader_end);
-    extras_context.gc_adapter = prepare_gc_pads(dol, adapter_wanted, gx_protected, extras.pad);
+    extras_context.gc_adapter = prepare_gc_pads(dol, adapter_wanted, gx_protected, {}, extras.pad);
     extras_context.gx_protected = gx_protected;
     extras_context.clears_mem1_top = clears_mem1_top;
     plan_game_extras(dol, extras_context, extras);

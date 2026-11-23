@@ -1431,6 +1431,13 @@ void TestSettingsMusic() {
     EXPECT_TRUE(s.serialize().find("launch_music = off\n") != std::string::npos);
     s.parse("launch_music = loud\n");
     EXPECT_EQ(s.launch_music, "off");
+    // The launch screen: the game's box unless the log was asked for.
+    EXPECT_EQ(s.launch_log, "off");
+    s.parse("launch_log = on\n");
+    EXPECT_EQ(s.launch_log, "on");
+    EXPECT_TRUE(s.serialize().find("launch_log = on\n") != std::string::npos);
+    s.parse("launch_log = maybe\n");
+    EXPECT_EQ(s.launch_log, "on");
     // A game page's banner sound and disc art: off until turned on.
     EXPECT_EQ(s.page_banner_sound, "off");
     EXPECT_EQ(s.disc_art, "off");
@@ -1564,6 +1571,20 @@ void TestSettings() {
     EXPECT_TRUE(favAgain.favorites == fav.favorites);
     EXPECT_EQ(favAgain.other.count("favorites"), 0u);
     EXPECT_TRUE(LoaderSettings{}.serialize().find("favorites") == std::string::npos);
+
+    fav.parse("favorites = RMCE01,RMCE01@retro,app:sd:/apps/scummvm,app:sd:/apps/My%2CApp,"
+              "app:sd:/apps/..,app:sd:/apps/a/b,app:sd:/apps/%00,app:sd:/apps/%gg\n");
+    EXPECT_EQ(fav.favorites.size(), 4u);
+    EXPECT_EQ(fav.favorites.count("app:sd:/apps/scummvm"), 1u);
+    EXPECT_EQ(fav.favorites.count("app:sd:/apps/My%2CApp"), 1u);
+    favAgain.parse(fav.serialize());
+    EXPECT_TRUE(favAgain.favorites == fav.favorites);
+    fav.favorites.erase("app:sd:/apps/scummvm");
+    fav.favorites.insert("app:sd:/apps/bad\nonline = off");
+    favAgain.parse(fav.serialize());
+    EXPECT_EQ(favAgain.favorites.count("app:sd:/apps/scummvm"), 0u);
+    EXPECT_EQ(favAgain.favorites.size(), 3u);
+    EXPECT_TRUE(favAgain.online);
 
     // A folder holding ';' cannot come back from the file whole: the file
     // joins folders with ';', so saving leaves it out instead of writing
@@ -1778,8 +1799,8 @@ void TestCoverDownloads() {
 }
 
 void TestCoverArt() {
-    EXPECT_EQ(cover_url("US", "RSBE01"), std::string("http://art.gametdb.com/wii/cover/US/RSBE01.png"));
-    EXPECT_EQ(cover_url("US", "RSBE01", true), std::string("http://art.gametdb.com/wii/coverB/US/RSBE01.png"));
+    EXPECT_EQ(cover_url("US", "RSBE01"), std::string("https://art.gametdb.com/wii/cover/US/RSBE01.png"));
+    EXPECT_EQ(cover_url("US", "RSBE01", true), std::string("https://art.gametdb.com/wii/coverB/US/RSBE01.png"));
     const std::vector<std::string> us = cover_regions("RMCE01", "en");
     EXPECT_EQ(us.size(), 3u);
     EXPECT_EQ(us[0], "US");
@@ -1795,7 +1816,7 @@ void TestCoverArt() {
     EXPECT_EQ(homebrew[0], "US");
     EXPECT_EQ(homebrew[1], "EN");
     EXPECT_EQ(cover_regions("D01A", "en")[0], "US");
-    EXPECT_EQ(cover_url("US", "RMCE01"), "http://art.gametdb.com/wii/cover/US/RMCE01.png");
+    EXPECT_EQ(cover_url("US", "RMCE01"), "https://art.gametdb.com/wii/cover/US/RMCE01.png");
     // WiiWare and Virtual Console art is under the four-letter code, a
     // disc's under its six characters; a GameCube disc that looks like a
     // channel ("PZLE01") still gets its own ID after the code.
@@ -1829,7 +1850,7 @@ void TestCoverArt() {
     EXPECT_EQ(file[8 + tile + 1], 0xFF);
     EXPECT_TRUE(make_cover_file(white.data(), 4, 4).empty());
     // The shelf's box from a full cover: the spine between back and front.
-    EXPECT_EQ(coverfull_url("US", "RMCE01"), "http://art.gametdb.com/wii/coverfull/US/RMCE01.png");
+    EXPECT_EQ(coverfull_url("US", "RMCE01"), "https://art.gametdb.com/wii/coverfull/US/RMCE01.png");
     int sx0 = 0, sx1 = 0;
     EXPECT_TRUE(spine_strip(1024, 680, sx0, sx1));
     EXPECT_EQ(sx0, 483);
@@ -1903,7 +1924,7 @@ void TestCoverArt() {
 
     // A 3D cover: GameTDB's 176x248 kept as it is, see-through parts and all.
     {
-        EXPECT_EQ(cover3d_url("US", "RSBE01"), "http://art.gametdb.com/wii/cover3D/US/RSBE01.png");
+        EXPECT_EQ(cover3d_url("US", "RSBE01"), "https://art.gametdb.com/wii/cover3D/US/RSBE01.png");
         std::vector<std::uint8_t> pic(176 * 248 * 4, 0);  // see-through
         for (int y = 100; y < 248; ++y)
             for (int x = 20; x < 156; ++x) {
@@ -2010,7 +2031,17 @@ void TestCoverArt() {
     s.parse("page_peek = wide\n");
     EXPECT_EQ(s.page_peek, "off");
     s.page_peek = "on";
-    EXPECT_EQ(s.menu_widescreen, "off");
+    EXPECT_EQ(s.menu_widescreen, "auto");
+    {
+        // A saved file from before the key keeps its 4:3 menu; one with the
+        // key keeps what it says.
+        LoaderSettings old;
+        old.parse_saved("page_peek = on\n");
+        EXPECT_EQ(old.menu_widescreen, "off");
+        LoaderSettings saved;
+        saved.parse_saved("menu_widescreen = auto\n");
+        EXPECT_EQ(saved.menu_widescreen, "auto");
+    }
     EXPECT_EQ(s.play_history, "on");
     s.parse("play_history = off\n");
     EXPECT_EQ(s.play_history, "off");
@@ -2240,6 +2271,28 @@ void TestCoverArt() {
     LoaderSettings pickBack;
     pickBack.parse(pick.serialize());
     EXPECT_TRUE(pickBack.game_folders == pick.game_folders);
+    // WADs are looked for in wiiware and then in the drive's game folders;
+    // a game folder that is wiiware (any case) is read once.
+    {
+        LoaderSettings wads;
+        wads.parse("game_folders = sd:/roms/wii - wiiware; /WiiWare/; usb2:/vc; /Wii Games\n");
+        const std::vector<std::string> sdWads = wad_folders_on(wads, "sd");
+        EXPECT_EQ(sdWads.size(), 3u);
+        if (sdWads.size() == 3) {
+            EXPECT_EQ(sdWads[0], "/wiiware");
+            EXPECT_EQ(sdWads[1], "/roms/wii - wiiware");
+            EXPECT_EQ(sdWads[2], "/Wii Games");
+        }
+        const std::vector<std::string> usb2Wads = wad_folders_on(wads, "usb2");
+        EXPECT_EQ(usb2Wads.size(), 3u);
+        if (usb2Wads.size() == 3) EXPECT_EQ(usb2Wads[1], "/vc");
+        EXPECT_EQ(wad_folders_on(LoaderSettings(), "usb").size(), 1u);
+        // The disc scan reads games and wbfs anyway; the WAD scan only when listed.
+        LoaderSettings discFolders;
+        discFolders.parse("game_folders = sd:/games; sd:/WBFS\n");
+        EXPECT_EQ(game_folders_on(discFolders, "sd").size(), 0u);
+        EXPECT_EQ(wad_folders_on(discFolders, "sd").size(), 3u);
+    }
     // A hand-written list keeps a folder inside another: its games may be
     // two levels below the outer one, which a scan doesn't reach.
     LoaderSettings nested;

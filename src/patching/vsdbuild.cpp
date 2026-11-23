@@ -704,4 +704,54 @@ std::uint32_t vsd_csd_sectors(const std::uint32_t csd[4]) {
     return unit_log2 >= 9u ? units << (unit_log2 - 9u) : units >> (9u - unit_log2);
 }
 
+namespace {
+
+void put_be32(std::uint8_t* p, std::uint32_t v) {
+    p[0] = static_cast<std::uint8_t>(v >> 24);
+    p[1] = static_cast<std::uint8_t>(v >> 16);
+    p[2] = static_cast<std::uint8_t>(v >> 8);
+    p[3] = static_cast<std::uint8_t>(v);
+}
+
+}  // namespace
+
+std::vector<std::uint8_t> vsd_piece_list(const std::vector<rtvsd_extent>& extents) {
+    const std::size_t pages = rtvsd_page_count(extents.size());
+    std::vector<std::uint8_t> out(pages * kVsdSectorBytes, 0);
+    for (std::size_t i = 0; i < extents.size(); ++i) {
+        const std::size_t page = i / RTVSD_PAGE_EXTENTS;
+        const std::size_t slot = i % RTVSD_PAGE_EXTENTS;
+        std::uint8_t* p = out.data() + page * kVsdSectorBytes + slot * 12;
+        put_be32(p, extents[i].file_sector);
+        put_be32(p + 4, extents[i].device_sector);
+        put_be32(p + 8, extents[i].count);
+    }
+    return out;
+}
+
+bool vsd_piece_list_index(const std::vector<rtvsd_extent>& extents, const std::vector<Fragment>& file,
+                          std::vector<rtvsd_page>& out, std::string& error) {
+    out.clear();
+    const std::uint32_t pages = rtvsd_page_count(extents.size());
+    std::uint64_t page = 0;
+    for (const Fragment& f : file) {
+        for (std::uint64_t k = 0; k < f.sector_count && page < pages; ++k, ++page) {
+            const std::uint64_t device_sector = f.sector + k;
+            if (device_sector > 0xFFFFFFFFull) {
+                error = "the piece list lies beyond the drive's first 2 TiB";
+                out.clear();
+                return false;
+            }
+            const std::uint32_t first = extents[static_cast<std::size_t>(page) * RTVSD_PAGE_EXTENTS].file_sector;
+            out.push_back(rtvsd_page{first, static_cast<std::uint32_t>(device_sector)});
+        }
+    }
+    if (out.size() != pages) {
+        error = "the piece list's file is shorter than its " + std::to_string(pages) + " page(s)";
+        out.clear();
+        return false;
+    }
+    return true;
+}
+
 }  // namespace riftwii

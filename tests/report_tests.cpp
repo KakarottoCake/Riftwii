@@ -23,6 +23,32 @@ static std::string numbered_lines(int count, const char* tag) {
 }
 
 int main() {
+    // A failed updater leaves update.dif on the card. Describe just its
+    // header: a truncated download must not look like a verified update.
+    {
+        std::uint8_t update[32] = {
+            'D', 'I', 'A', '0', 0, 0, 1, 0,
+            0, 0, 0, 0, 0, 0, 0, 0,
+            'C', 'T', 'G', 'P', 'R', 0, 0, 0,
+            1, 3, 0x11, 0x93, 0, 0, 0, 0
+        };
+        const std::string described = ctgp_update_header_report(update, sizeof(update), 256);
+        EXPECT_TRUE(has(described, "Declared size: 256 bytes (matches file)"));
+        EXPECT_TRUE(has(described, "Package ID: 4354475052000000; version: 01031193"));
+        EXPECT_TRUE(has(described, "payload and signature were not checked"));
+        EXPECT_TRUE(has(ctgp_update_header_report(update, sizeof(update), 255), "DOES NOT match file"));
+        EXPECT_TRUE(has(ctgp_update_header_report(update, sizeof(update), 0x100000100ull), "DOES NOT match file"));
+        for (std::size_t size = 0; size < sizeof(update); ++size)
+            EXPECT_TRUE(has(ctgp_update_header_report(update, size, 256), "fewer than 32 bytes"));
+        EXPECT_TRUE(has(ctgp_update_header_report(nullptr, 32, 256), "fewer than 32 bytes"));
+        update[0] = 0;
+        EXPECT_TRUE(has(ctgp_update_header_report(update, sizeof(update), 256), "not DIA0"));
+        update[0] = 'D';
+        update[16] = '\n';
+        update[17] = 0xff;
+        EXPECT_TRUE(has(ctgp_update_header_report(update, sizeof(update), 256), "Package ID: 0aff4750"));
+    }
+
     // A RiiTag key is hidden; every other line stays as it was.
     EXPECT_EQ(hide_settings_secrets("language = auto\nriitag_key = abc123\r\nonline = on\n"),
               std::string("language = auto\nriitag_key = (hidden)\r\nonline = on\n"));
@@ -31,12 +57,30 @@ int main() {
     // Only the key itself: a longer name that starts the same is not a secret.
     EXPECT_EQ(hide_settings_secrets("riitag_keys = on"), std::string("riitag_keys = on"));
     EXPECT_EQ(hide_settings_secrets("theme = default"), std::string("theme = default"));
+    // The parental PIN's hash: four digits are quick to try against it.
+    EXPECT_EQ(hide_settings_secrets("parental_pin = pbkdf2-sha256$10000$00ff$abcd\nparental_mode = lock\n"),
+              std::string("parental_pin = (hidden)\nparental_mode = lock\n"));
     // A key in a logged address is hidden too, wherever it appears.
     EXPECT_EQ(hide_url_keys("RiiTag: https://riitag.example/wii?game=RMCP01&key=abc123 failed"),
               std::string("RiiTag: https://riitag.example/wii?game=RMCP01&key=(hidden) failed"));
     EXPECT_EQ(hide_url_keys("x?KEY=a&b=c"), std::string("x?KEY=(hidden)&b=c"));
     EXPECT_EQ(hide_url_keys("monkey=1 &keys=2 key=3"), std::string("monkey=1 &keys=2 key=3"));
     EXPECT_EQ(hide_url_keys("end?key="), std::string("end?key=(hidden)"));
+    // The Wii's network address, as an older version logged it in full.
+    EXPECT_EQ(hide_wii_address("a\nNetwork: up, this Wii is 192.168.1.20\nb"),
+              std::string("a\nNetwork: up, this Wii is 192.168.x.x\nb"));
+    EXPECT_EQ(hide_wii_address("Network: up, this Wii is 10.0.0.5"), std::string("Network: up, this Wii is 10.0.x.x"));
+    // As this version logs it, or anything that is not an address: unchanged.
+    EXPECT_EQ(hide_wii_address("Network: up, this Wii is 192.168.x.x\n"),
+              std::string("Network: up, this Wii is 192.168.x.x\n"));
+    EXPECT_EQ(hide_wii_address("Network: up, this Wii is unknown"), std::string("Network: up, this Wii is unknown"));
+    EXPECT_EQ(hide_wii_address("Network: up, this Wii is 1.2."), std::string("Network: up, this Wii is 1.2."));
+    {
+        const std::vector<ReportPart> parts = {{"session-previous.log", "Network: up, this Wii is 192.168.1.20\n"}};
+        const std::string r = assemble_report("summary", parts, 10000);
+        EXPECT_FALSE(has(r, "192.168.1.20"));
+        EXPECT_TRUE(has(r, "192.168.x.x"));
+    }
     {
         const std::vector<ReportPart> parts = {{"session.log", "GET /wii?game=X&key=topsecret\n"}};
         const std::string r = assemble_report("summary ?key=alsosecret", parts, 10000);

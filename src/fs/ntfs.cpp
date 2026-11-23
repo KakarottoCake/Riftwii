@@ -9,6 +9,7 @@
 #include <set>
 
 #include "riftwii/redirect.hpp"
+#include "riftwii/byteorder.hpp"
 
 namespace riftwii {
 namespace {
@@ -43,11 +44,6 @@ constexpr std::size_t kMaxPathDepth = 64;
 constexpr std::uint32_t kReadChunkBlocks = 128;
 constexpr std::uint64_t kMaxSectors = std::uint64_t(1) << 48;
 
-std::uint16_t le16(const std::uint8_t* p) { return static_cast<std::uint16_t>(p[0] | (p[1] << 8)); }
-std::uint32_t le32(const std::uint8_t* p) {
-    return static_cast<std::uint32_t>(p[0]) | (static_cast<std::uint32_t>(p[1]) << 8) |
-           (static_cast<std::uint32_t>(p[2]) << 16) | (static_cast<std::uint32_t>(p[3]) << 24);
-}
 std::uint64_t le64(const std::uint8_t* p) { return le32(p) | (static_cast<std::uint64_t>(le32(p + 4)) << 32); }
 
 bool power_of_two(std::uint64_t v) { return v != 0 && (v & (v - 1)) == 0; }

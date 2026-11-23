@@ -16,12 +16,15 @@
 #include <unordered_map>
 #include <vector>
 
+#include "artfolder.hpp"
 #include "loadersettings.hpp"
+#include "homebrewart.hpp"
 #include "log.hpp"
 #include "memlimits.hpp"
 #include "netsock.hpp"
 #include "online.hpp"
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/appmeta.hpp"
 #include "riftwii/coverart.hpp"
 #include "riftwii/modcover.hpp"
 #include "skin.hpp"
@@ -49,9 +52,13 @@ std::string FromPath(const std::string& id) { return std::string(kBoxDir) + "/" 
 // The player's own box (riftwii::own_art_needs_cut): their PNG, and the box
 // cut from it beside it. In the pool under '!' and the name, which no ID or
 // key starts with, so it never meets the downloaded box of the same name.
-std::string OwnPngPath(const std::string& id) { return std::string(kBoxDir) + "/" + id + ".png"; }
-std::string OwnBoxPath(const std::string& id) { return std::string(kBoxDir) + "/" + id + ".own.rw2"; }
-std::string OwnSourcePath(const std::string& id) { return std::string(kBoxDir) + "/" + id + ".own.src"; }
+std::string OwnPath(const std::string& id, const char* suffix) {
+    const std::string name = valid_app_tile_key(id) ? HomebrewArtName(id, HomebrewArt::Box) : id;
+    return name.empty() ? "" : std::string(kBoxDir) + "/" + name + suffix;
+}
+std::string OwnPngPath(const std::string& id) { return OwnPath(id, ".png"); }
+std::string OwnBoxPath(const std::string& id) { return OwnPath(id, ".own.rw2"); }
+std::string OwnSourcePath(const std::string& id) { return OwnPath(id, ".own.src"); }
 std::string OwnKey(const std::string& id) { return "!" + id; }
 // GameTDB's large full cover scans (1024 x 680) are about 1.1 MB.
 constexpr std::size_t kOwnPngMax = 4u << 20;
@@ -236,6 +243,7 @@ std::set<std::string> g_ownFound;
 // one a visit; a PNG taken away takes its box with it.
 OwnCut CutOwnBox(const std::string& id) {
     const std::string png_path = OwnPngPath(id);
+    if (png_path.empty()) return OwnCut::None;
     const std::string cut_path = OwnBoxPath(id);
     const std::string note_path = OwnSourcePath(id);
     struct stat png_info {};
@@ -467,7 +475,9 @@ void TakeRead() {
 // when there is none, or while it is being cut or read. Both happen on the
 // reader's thread, so the shelf never waits for a PNG to be decoded.
 const u8* OwnBoxTexture(const std::string& id) {
-    if (!ValidId(id)) return nullptr;
+    const bool app = valid_app_tile_key(id);
+    if (!ValidId(id) && !app) return nullptr;
+    if (app && HomebrewArtName(id, HomebrewArt::Box).empty()) return nullptr;
     const std::string key = OwnKey(id);
     TakeRead();
     const auto found = g_index.find(key);
@@ -548,10 +558,12 @@ bool BoxWanted(const std::string& game_id) {
     const std::string match = TileMatch(game_id);
     // A mod tile GameTDB doesn't list: nothing to ask for (it shows its game's).
     if (is_tile_art_name(game_id) && match.empty()) return false;
+    // Asked for every game Home lists: answered from the folder's listing
+    // inside Home's ArtFolderLook.
     struct stat st;
     StoredArt stored;
-    stored.picture = stat(BoxPath(game_id).c_str(), &st) == 0;
-    stored.recent_miss = stat(MissPath(game_id).c_str(), &st) == 0 && std::time(nullptr) - st.st_mtime < kRetryAfter;
+    stored.picture = ArtFileThere(BoxPath(game_id));
+    stored.recent_miss = ArtFileStat(MissPath(game_id), st) && std::time(nullptr) - st.st_mtime < kRetryAfter;
     if (!match.empty()) stored.from = ReadTileArtFrom(FromPath(game_id));
     return art_wanted(game_id, match, stored);
 }
@@ -581,7 +593,7 @@ bool TakeBoxFetch(std::string& game_id, CoverFetch& got, std::string& error) {
 }
 
 const u8* BoxTexture(const std::string& game_id) {
-    if (game_id.empty()) return nullptr;
+    if (!ValidId(game_id)) return nullptr;
     const bool tile = is_tile_art_name(game_id);
     const std::string match = tile ? ModTileCoverId(game_id) : std::string();
     if (tile) {
@@ -645,8 +657,13 @@ const u8* TileBoxTexture(const std::string& cover_name, const std::string& game_
     // else (riftwii::own_art_needs_cut): a tile's needs no GameTDB entry, so
     // a tile can be called anything and still have its box.
     if (const u8* players = OwnBoxTexture(cover_name)) {
-        if (tile_box) *tile_box = tile;
+        if (tile_box) *tile_box = tile || valid_app_tile_key(cover_name);
         return players;
+    }
+    if (valid_app_tile_key(cover_name)) {
+        if (front && CoverBeforeBox(cover_name)) return nullptr;
+        const std::string fallback = HomebrewCoverId(cover_name);
+        return fallback.empty() ? nullptr : TileBoxTexture(fallback, fallback, front);
     }
     // Then riftwii::tile_art_order's: a mod tile's own box (#385) after only
     // the player's own PNG for that tile.

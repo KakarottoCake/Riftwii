@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/brfnt.hpp"
+#include "riftwii/byteorder.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -12,14 +13,6 @@ const std::uint8_t kWiiBitmapFontHash[20] = {0x4f, 0xad, 0x97, 0xfd, 0x4a, 0x28,
                                              0x7f, 0x3b, 0xbd, 0x29, 0x23, 0x79, 0xf8, 0x70, 0x9e, 0xb9};
 
 namespace {
-
-std::uint32_t be32(const std::uint8_t* p) {
-    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
-}
-std::uint16_t be16(const std::uint8_t* p) { return static_cast<std::uint16_t>((p[0] << 8) | p[1]); }
-std::uint32_t le32(const std::uint8_t* p) {
-    return (std::uint32_t(p[3]) << 24) | (std::uint32_t(p[2]) << 16) | (std::uint32_t(p[1]) << 8) | p[0];
-}
 
 constexpr std::uint32_t kRfnt = 0x52464E54, kRfna = 0x52464E41, kVersion = 0xFEFF0104;
 // The sections read. "FINF", the font's own header, is walked past:

@@ -7,10 +7,96 @@ RiftWii has two ways to start CTGP-R 1.03's pack:
   with no channel app. Used only with `ctgpnative.txt` next to `boot.dol`
   and its files set up on the card (autorun test builds: `ctgpnative`).
 * **The CTGP-R Channel as a Homebrew Channel app** (the rest of this
-  page): the default, from a real disc and from a USB or SD image through
-  d2x's virtual disc. The native launch is used instead only when a file
+  page): the default, from a real disc and from a USB image through
+  d2x's virtual disc. An SD image is refused (below). The native launch is used instead only when a file
   `ctgpnative.txt` sits next to RiftWii's `boot.dol` and its files are on
   the card.
+
+## Installing updates from a scrubbed game image (2026-11-12)
+
+The reported failure is a brief **"Install Error! Please try again."**,
+followed by another installation attempt at 0%, with one update remaining.
+The console report ends at the handoff to CTGP-R: RiftWii does not keep
+running inside the channel and cannot log the installer's return value.
+
+Two isolated tests used the player's CTGP-R v1.03.1190 All Inclusive pack,
+the PAL Mario Kart Wii WBFS as Dolphin's inserted disc, and the
+[`es-identify-1` release of RiftWii's Felk fork](https://github.com/RiftWii/dolphin-felk-riftwii/releases/tag/es-identify-1):
+
+- CTGP-R's original `apps/ctgpr/boot.dol` booted directly.
+- The same app started through RiftWii's CTGP-R XML on upstream commit
+  `2d54654b42ae65f3e73bb8c0427921c78058fca0`.
+
+Each had its own 2 GiB FAT32 image and Dolphin user directory. Both used
+`disable_ios_exploit = yes`, `disable_patches = yes`, and
+`compatible_mode = yes`. Cached Interpreter, MMU and accurate CPU cache
+were enabled. The RiftWii run used the unpacked test DOL: the packed DOL
+did not reach its framebuffer in this emulator configuration. Folder sync
+was off during installation so writes stayed in each raw image.
+
+Earlier updates installed, but the last pending update retried at 0%.
+Frame capture of the direct boot also caught the same brief install-error
+message. Its remaining `ctgpr/update.dif` was 12,731,484 bytes, with DIA0
+package ID `4354475052000000` (CTGPR) and version `01031193` in its header.
+The saved image had 1,119,748,096 free bytes, and `blob.bin` had grown from
+999,030,784 to 1,001,062,400 bytes. This rules out an entirely unwritable
+or full card in that control; it does not authenticate the pending update.
+
+The failing operation was opening an original game file for the delta
+patch: `yaz0:dvd:/data_1/files/Race/Course/old_mario_gc.szs`. The installer
+reported status 4 after a source-open result of -9; its file error was
+ENOENT (2). The disc filesystem had mounted **data_0**, not data_1. The
+supplied WBFS's partition table listed the game first and the channel
+installer second: the removed update partition had changed the game's
+index. Earlier updates did not need that original disc file.
+
+Putting the game back in partition slot 1, with the same offsets and
+contents, let the previously stuck 1.03.1193 update finish. The original
+channel then installed the later updates and reached "The main
+installation has completed!" The separate RiftWii run reached the same
+completion message after installing all offered updates. No channel code, signature check,
+update payload or original game file was changed.
+
+For the CTGP-R channel's image launch, RiftWii now supplies a separate
+512-byte partition-table sector through d2x's fragment list. A game
+already in slot 1 needs no change. Otherwise its entry exchanges places
+with slot 1; a game-only table gets a second entry naming the same game
+partition. The rest of the disc's mappings, and the original image, stay
+unchanged. The helper is generic; only the CTGP-R channel launch requests
+this layout.
+
+The replacement is `riftwii/channel-partition.bin` on the **same device**
+as the image, because a d2x fragment list selects one device. For USB,
+RiftWii uses a FAT32 partition of that USB drive, with an exclusive
+temporary mount; the image itself may be on another partition. For SD it
+uses the SD card. The file is closed and found again through a fresh raw
+FAT view, and its sector is read back before it is mapped. If a USB drive
+needs this correction but has no FAT32 partition for the header, the
+launch stops with the reason in boot.log. An already correct table needs
+no writable cache partition. USB DVD drives with 2048-byte sectors are
+rejected before any header read: this overlay requires 512-byte sectors.
+Layout preparation must succeed before CTGP-R's settings are written.
+
+Host tests check table bounds, unchanged bytes, the game-only alias,
+idempotence, fragment splitting, holes, coalescing and physical overflow.
+The test-only autorun command `test_channel_layout` exercises the real SD
+writer and fragment mapping with synthetic one- and two-partition tables,
+checking the replacement sector and the untouched source. Dolphin's CTGP
+test uses the equivalent sector materialized in a private WBFS copy:
+Dolphin exposes the WBFS as an inserted disc and cannot run d2x's USB/SD
+fragment backend. The Wii-specific cIOS path still needs a hardware run;
+the console report used IOS248, base IOS38. Keep that limitation separate
+from the reproduced missing-path failure and successful corrected-image
+installation.
+
+After a CTGP-R channel launch, problem reports now include the free SD
+space, sizes of the channel, blob, journal and pending update, and only
+the pending update's fixed 32-byte header metadata. They flag a declared
+size that differs from the file size. The field positions were checked
+against the local update's bytes; no CTGP-R updater implementation is
+included. Payloads, signatures, encrypted journal contents and pack assets
+are not uploaded. Keep private test cards, console reports and captures
+outside the repository.
 
 ## The native launch (offline only)
 
@@ -271,11 +357,14 @@ that starts CTGP-R natively.
 
 * **Disc:** the app starts under the menu's IOS with hardware access, before
   any probe or IOS reload.
-* **ISO/WBFS on USB or SD:** d2x is set up to serve the image as the disc,
+* **ISO/WBFS on USB:** d2x is set up to serve the image as the disc,
   then the app runs under the cIOS. CTGP reloads IOS itself (its channel asks
   for IOS37), which on its own would drop d2x and the virtual disc. Since RC2
   the activation arms d2x's IOS reload block first (below), so those reloads
   land in the same cIOS.
+* **ISO/WBFS on SD:** refused, for the channel and the native launch alike,
+  before anything is set up (`ctgp_sd_image_blocked`). The player is told to
+  put the game on a USB drive or use the disc. See "Why not an SD image".
 * **RVZ:** refused. RiftWii's PPC resident code reads an RVZ; d2x only holds
   its stub, and nothing of RiftWii survives into CTGP's later stages.
 
@@ -297,7 +386,7 @@ ordinary game launches. `boot.log` shows `IOS<n>'s ES keeps hardware
 access on for the next IOS` for each, and `Homebrew app: IOS<n>, hardware
 access on` when it worked.
 
-## Starting the channel from a USB or SD image
+## Starting the channel from a USB image
 
 For an image, d2x serves it as the disc, then the channel app runs under
 the cIOS. Three things make that work:
@@ -348,7 +437,7 @@ RiftWii adds that line before it starts `sd:/apps/ctgpr/boot.dol`
 (`SetCtgpDefaults`, `wii/launch/launchrun.cpp`; the INI merge is
 `riftwii/ctgpconfig.hpp`, tested in `tests/ctgpconfig_tests.cpp`; section
 and key names match whatever their case). From a real disc a value the
-player set is left alone. From a USB or SD image that key and the two others
+player set is left alone. From a USB image that key and the two others
 above (`[sd] compatible_mode`, `[exploit] disable_patches`) are set to `yes`
 whatever the player had; `boot.log` gives each old value. The keys do not
 affect networking: online play comes from CTGP's patches to the game's code.
@@ -377,9 +466,26 @@ unknown. When it refuses, the error tells the player to restart the console.
 when armed and `IOS reload block cleared` / `could not be cleared` after a
 failure.
 
+## Why not an SD image
+
+d2x reads an image on the SD card through its own SD device,
+`/dev/sdio/sdhc`, which sets the card up once and then only selects it
+around each read. CTGP-R reads its own files from the same card through
+`/dev/sdio/slot0` and sets the card up itself first (libogc's start-up resets
+the card and the host controller). After another driver resets the card,
+d2x reads the wrong sectors: RiftWii hit this itself on hardware, which is
+why its own loader uses only d2x's device during an SD launch
+(`wii/storage/d2xsd.hpp`). d2x keeps a game off the card only while its NAND
+emulation is on SD. The results on real Wiis fit: the channel said the disc
+"isn't Mario Kart Wii", and the native launch stayed on a black screen, while
+the same images worked from USB. The mechanism is the most likely cause, not
+yet confirmed with a USB copy of the failing SD image. RiftWii can't share
+the card between the two without changing CTGP-R or d2x, so it refuses the
+launch. A player with only an SD card needs the disc.
+
 ## What a console test must show
 
-1. A USB or SD ISO/WBFS of Mario Kart Wii with CTGP's pack enabled reaches
+1. A USB ISO/WBFS of Mario Kart Wii with CTGP's pack enabled reaches
    the CTGP channel, then an offline race.
 2. Save and load work, and relaunching works.
 3. A failed start (rename `/apps/ctgpr/boot.dol`) logs the clear, and the

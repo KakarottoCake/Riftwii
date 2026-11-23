@@ -460,6 +460,30 @@ static void test_missing_selected_inputs() {
     EXPECT_TRUE(missing[1].kind == Kind::Memory);
 }
 
+// A pack missing only a folder (Mario Kart Wii Deluxe's Race/Kart, which
+// its download does not ship) is not asked about; a pack also missing a
+// file keeps its folders in the question.
+static void test_lone_missing_folders() {
+    using Kind = riftwii::MissingModInputKind;
+    std::vector<riftwii::MissingModInput> missing;
+    EXPECT_TRUE(riftwii::record_missing_mod_input(missing, "deluxe.xml", "/mkwdx/Race/Kart", Kind::Folder));
+    EXPECT_TRUE(riftwii::record_missing_mod_input(missing, "half.xml", "/half/Stage", Kind::Folder));
+    EXPECT_TRUE(riftwii::record_missing_mod_input(missing, "half.xml", "/half/main.arc", Kind::File));
+    EXPECT_TRUE(riftwii::record_missing_mod_input(missing, "code.xml", "/code/Sound", Kind::Folder));
+    EXPECT_TRUE(riftwii::record_missing_mod_input(missing, "code.xml", "/code/loader.bin", Kind::Memory));
+    riftwii::drop_lone_missing_folders(missing);
+    EXPECT_EQ(missing.size(), 4u);
+    EXPECT_EQ(missing[0].external, "/half/Stage");
+    EXPECT_EQ(missing[1].external, "/half/main.arc");
+    EXPECT_EQ(missing[2].external, "/code/Sound");
+    EXPECT_EQ(missing[3].external, "/code/loader.bin");
+
+    std::vector<riftwii::MissingModInput> only_folders;
+    EXPECT_TRUE(riftwii::record_missing_mod_input(only_folders, "deluxe.xml", "/mkwdx/Race/Kart", Kind::Folder));
+    riftwii::drop_lone_missing_folders(only_folders);
+    EXPECT_TRUE(only_folders.empty());
+}
+
 // A pack's folders that are not there: the note names the device they were
 // looked for on, and the ones this disc would take are listed for the
 // missing-files question; another region's folder is not.
@@ -540,6 +564,7 @@ static void test_missing_create_folders() {
 
 int main() {
     test_missing_folders();
+    test_lone_missing_folders();
     test_missing_create_folders();
     test_missing_selected_inputs();
     test_rooted();

@@ -20,7 +20,9 @@ static int g_failures = 0;
 // Heap use, for the stacked-patch test: bytes held now and the most since
 // the last reset.
 static std::size_t g_heap_now = 0, g_heap_peak = 0;
-void* operator new(std::size_t n) {
+// Not inlined: at -O2 GCC 13 would see the 16-byte header and the free() of
+// the block's real start, and call them a mismatched new/delete.
+__attribute__((noinline)) void* operator new(std::size_t n) {
     void* p = std::malloc(n + 16);
     if (!p) throw std::bad_alloc();
     *static_cast<std::size_t*>(p) = n;
@@ -28,7 +30,7 @@ void* operator new(std::size_t n) {
     if (g_heap_now > g_heap_peak) g_heap_peak = g_heap_now;
     return static_cast<char*>(p) + 16;
 }
-void operator delete(void* p) noexcept {
+__attribute__((noinline)) void operator delete(void* p) noexcept {
     if (!p) return;
     char* base = static_cast<char*>(p) - 16;
     g_heap_now -= *reinterpret_cast<std::size_t*>(base);

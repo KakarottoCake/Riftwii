@@ -4,12 +4,14 @@
 
 #include <ogc/lwp.h>
 #include <ogc/mutex.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <utility>
 
 #include "codebuilds.hpp"
 #include "log.hpp"
+#include "sdwritecheck.hpp"
 #include "memlimits.hpp"
 #include "netpacks.hpp"
 #include "netsock.hpp"
@@ -45,10 +47,12 @@ void SetStatus(const char* line) {
 }
 
 // The packs and code builds on the drives as they are mounted now (Home's
-// "Games with mods" view and the tiles' mod badges).
-PackIndex ReadPackIndex(PackageCatalog& catalog) {
+// Mods view and the tiles' mod badges). `earlier`: the catalog read for the
+// SD card's part of this look, so the USB drive's part does not read and
+// parse the card's packs a second time.
+PackIndex ReadPackIndex(PackageCatalog& catalog, const PackageCatalog* earlier = nullptr) {
     PackIndex packs;
-    catalog = ReadPackageCatalog(&packs);
+    catalog = ReadPackageCatalog(&packs, earlier);
     logf("Home: %u pack(s) indexed\n", static_cast<unsigned>(packs.size()));
     return packs;
 }
@@ -59,15 +63,18 @@ void ReadSdCard(DriveScanPart& part) {
     mem::CheckHeap("after the SD scan");
     std::string channelStatus;
     list_nand_channels(part.channels, channelStatus, true);
-    // And those USB Loader GX keeps in an emulated NAND on the card.
+    // And those in the emulated NAND on the card that WADs go into: USB
+    // Loader GX's channel folder when it is on the card, else sd:/nands/01
+    // (one on the USB drive can't be played from, and Install WAD files
+    // and the wiiware folders put their games in sd:/nands/01 then).
     const SharedNandLookup emu = look_up_channel_nand();
-    if (emu.usable) list_emu_channels(emu.folder, part.channels, channelStatus, true);
+    list_emu_channels(wad_nand_folder(emu), part.channels, channelStatus, true);
     part.unreadable_wads = list_wad_channels(false, part.channels);
     part.packs = ReadPackIndex(part.package_catalog);
     mem::CheckHeap("after the pack index");
 }
 
-void ReadUsbDrive(DriveScanPart& part) {
+void ReadUsbDrive(DriveScanPart& part, const PackageCatalog& card_packs) {
     SetStatus("Reading the USB drive... (a big drive takes a moment)");
     part.ok = scan_usb_games(part.catalog, part.error);
     part.unreadable_wads = list_wad_channels(true, part.channels);
@@ -76,13 +83,27 @@ void ReadUsbDrive(DriveScanPart& part) {
     ScanEmulators(part.emulators);
     mem::CheckHeap("after the USB scan");
     // After the USB scan: packs on the drive count too.
-    part.packs = ReadPackIndex(part.package_catalog);
+    part.packs = ReadPackIndex(part.package_catalog, &card_packs);
     mem::CheckHeap("after the pack index");
 }
 
 void* ScanMain(void*) {
+    // The probe finishes before the scan can reload IOS.
+    // The menu waits for the scan before unmounting.
+    {
+        struct stat st;
+        ProbeSdWrite(::stat("sd:/", &st) == 0);
+    }
     DriveScanPart sd;
     ReadSdCard(sd);
+    // The card's pack catalog stays here until the USB drive's part, which
+    // lists every pack again and takes the card's from it instead of
+    // reading and parsing them twice at every start. Home needs only the
+    // index (sd.packs) meanwhile: a game's page, which uses the catalog,
+    // opens once both parts are in, and reads the packs itself when it is
+    // handed a catalog that is not ready.
+    PackageCatalog card_packs = std::move(sd.package_catalog);
+    sd.package_catalog = PackageCatalog{};
     {
         Lock lock;
         g_sd = std::move(sd);
@@ -93,7 +114,9 @@ void* ScanMain(void*) {
     std::string networkNote = RefreshNetworkPacks([](const char* line) { SetStatus(line); });
     if (!networkNote.empty()) logf("%s\n", networkNote.c_str());
     DriveScanPart usb;
-    ReadUsbDrive(usb);
+    ReadUsbDrive(usb, card_packs);
+    // Its texts (up to 2 MiB) go before the part is handed over.
+    card_packs = PackageCatalog{};
     usb.network_note = std::move(networkNote);
     {
         Lock lock;

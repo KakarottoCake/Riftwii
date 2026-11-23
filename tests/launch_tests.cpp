@@ -564,22 +564,30 @@ static void test_saves() {
             EXPECT_EQ(riftwii::gc_picture_width(w, settings), std::string("game"));
         }
 
-        // Global resolved: 16:9 never (experimental, only when picked);
-        // the Wii's 480p setting, never for a PAL game; Settings'
-        // language, its "console" the Wii's (CONF_LANG_GERMAN is 2).
+        // Global resolved: Settings' aspect; its "game" the Wii's TV only
+        // with kGcWidescreenFollowsWiiTv (off: the game's own picture);
+        // never for a game on the gc_widescreen_off list (Sunshine); the
+        // Wii's 480p setting, never for a PAL game; Settings' language,
+        // its "console" the Wii's (CONF_LANG_GERMAN is 2).
         riftwii::GameSettings g;
         riftwii::GcConsoleSettings console;
-        EXPECT_FALSE(riftwii::gc_widescreen_on(g, console));
+        EXPECT_FALSE(riftwii::gc_widescreen_on(g, "GLMP01", console));
         console.wii_widescreen = true;
-        EXPECT_FALSE(riftwii::gc_widescreen_on(g, console));
+        EXPECT_EQ(riftwii::gc_widescreen_on(g, "GLMP01", console), riftwii::kGcWidescreenFollowsWiiTv);
+        EXPECT_FALSE(riftwii::gc_widescreen_on(g, "GMSE01", console));
         console.aspect = "16:9";
-        EXPECT_FALSE(riftwii::gc_widescreen_on(g, console));
+        EXPECT_FALSE(riftwii::gc_widescreen_on(g, "GMSE01", console));
+        console.aspect = "4:3";
+        EXPECT_FALSE(riftwii::gc_widescreen_on(g, "GLMP01", console));
+        console.aspect = "16:9";
         console.wii_widescreen = false;
+        EXPECT_TRUE(riftwii::gc_widescreen_on(g, "GLMP01", console));
         g.gc_widescreen = "game";
-        EXPECT_FALSE(riftwii::gc_widescreen_on(g, console));
+        EXPECT_FALSE(riftwii::gc_widescreen_on(g, "GLMP01", console));
         g.gc_widescreen = "16:9";
         console.aspect = "4:3";
-        EXPECT_TRUE(riftwii::gc_widescreen_on(g, console));
+        EXPECT_TRUE(riftwii::gc_widescreen_on(g, "GLMP01", console));
+        EXPECT_FALSE(riftwii::gc_widescreen_on(g, "GMSE04", console));
 
         // Default: the Wii's 480p setting and a component cable seen, both;
         // never a PAL game, never "game".
@@ -624,6 +632,50 @@ static void test_saves() {
             EXPECT_TRUE(riftwii::gc_line240_on(line, "GMSE01", crt));
             EXPECT_FALSE(riftwii::gc_progressive_on(line, "GMSE01", crt));
             EXPECT_FALSE(riftwii::gc_line240_on(line, "GLMP01", crt));
+        }
+        {
+            // The colour signal: a US game goes out in PAL 60 when Video
+            // mode asks for PAL (a tester's PAL TV turned it red as NTSC).
+            using riftwii::GcTvSignal;
+            riftwii::GameSettings tv;
+            riftwii::GcConsoleSettings set;
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Ntsc);
+            set.video_mode = "pal60";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Pal60);
+            set.video_mode = "pal50";  // a 60 Hz game can't go to 50 Hz: PAL 60, the nearest
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Pal60);
+            set.video_mode = "system";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Ntsc);
+            set.wii_video = "pal60";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Pal60);
+            set.wii_video = "mpal";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Ntsc);
+            // The game's own choice wins over Settings'.
+            set.video_mode = "pal60";
+            tv.video_mode = "ntsc";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Ntsc);
+            tv.video_mode = "global";
+            // 480p is an NTSC picture; 240p keeps PAL 60's colours (an RGB
+            // SCART cable shows NTSC red), and stays NTSC when nothing
+            // asks for PAL.
+            tv.gc_progressive = "480p";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Ntsc);
+            tv.gc_progressive = "240p";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Pal60);
+            set.video_mode = "system";
+            set.wii_video = "ntsc";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GMSE01", set) == GcTvSignal::Ntsc);
+            set.video_mode = "pal60";
+            tv.gc_progressive = "global";
+            // A European game: PAL 50 at 50 Hz whatever is asked; at 60 Hz,
+            // PAL 60, or NTSC when asked.
+            set.video_mode = "ntsc";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GLMP01", set) == GcTvSignal::Pal50);
+            tv.gc_speed = "60";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GLMP01", set) == GcTvSignal::Ntsc);
+            set.video_mode = "game";
+            EXPECT_TRUE(riftwii::gc_tv_signal(tv, "GLMP01", set) == GcTvSignal::Pal60);
+            EXPECT_EQ(std::string(riftwii::gc_tv_signal_name(GcTvSignal::Pal60)), std::string("PAL 60 Hz"));
         }
         // A European game at Smoother (60 Hz) takes EURGB60 interlaced, which
         // gc_video_pick never makes progressive, so 480p is never asked of it.

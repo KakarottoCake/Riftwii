@@ -12,6 +12,8 @@
 // "sd:SMNE01", a WiiWare or Virtual Console channel "wii:WBME01"; a second
 // disc "usb:R8PE01/2"), so the same game on the SD card and on a USB drive
 // has a place of its own, as it has a tile of its own. Games the file does not list come after the listed ones, A to Z.
+// Homebrew favorites use app_tile_key() (riftwii/appmeta.hpp), so moving
+// their tiles in Favorites keeps their places across restarts too.
 // The names of games that are gone stay in the file, so a drive taken out
 // for a while does not lose its games' places.
 namespace riftwii {

@@ -18,9 +18,17 @@ went from `0x810F40A0` to `0x810C2FC0`, 196 KiB more heap at every start
 measures where the 8 MiB went and records what the start-up stash moved
 out of it.
 
-The numbers below are from upstream `main` at `5e9f5dd6` (the build before
-the stash), with `powerpc-eabi-readelf -S`, `powerpc-eabi-nm --size-sort -S`
-and the linker map (`build_wii/riftwii.elf.map`).
+**The three tables below are history, not today's DOL.** They are from
+upstream `main` at `5e9f5dd6` (the build before the stash), with
+`powerpc-eabi-readelf -S`, `powerpc-eabi-nm --size-sort -S` and the linker
+map (`build_wii/riftwii.elf.map`). Since then the menu font left the DOL
+(an external `font.ttf`, 750 KiB), most of the unwinding and exception
+tables went (`-fno-exceptions`, "Linked out" below), and the GameCube loader moved into its
+plugin. For today's numbers, read the "Size report" step of CI's Wii build
+(`tools/size_report.py`) or run the same commands on a fresh build. Of the
+items still in MEM1, the largest that could move are the menu sounds (226
+KiB, below) and the controller button pictures (`src/art/inputicons_data.cpp`,
+56 KiB of uncompressed alpha masks that zstd shrinks to about 3 KiB).
 
 ## The sections
 

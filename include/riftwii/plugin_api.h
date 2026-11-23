@@ -64,7 +64,8 @@ typedef struct rwp_sram {
 } rwp_sram;
 
 /* shut_down_for_game's TV modes: the video encoder set for the game's
- * region (libogc's TVNtsc480IntDf and TVPal528IntDf). */
+ * signal (libogc's TVNtsc480IntDf and TVPal528IntDf, and RWP_TV_EURGB60
+ * below). */
 #define RWP_TV_NTSC 0u
 #define RWP_TV_PAL 1u
 /* Test switches only (the GameCube plugin's sd:/riftwii/gc/test/handover480p
@@ -73,6 +74,9 @@ typedef struct rwp_sram {
  * progressive; and the encoder left as the menu's own mode set it. */
 #define RWP_TV_NTSC_480P 2u
 #define RWP_TV_KEEP 3u
+/* PAL 60 (libogc's TVEurgb60Hz480IntDf): the VI as NTSC, the encoder in
+ * PAL colour with its EuRGB60 filter (riftwii/launch.hpp's GcTvSignal). */
+#define RWP_TV_EURGB60 4u
 
 /* What RiftWii gives a plugin's init. Every pointer is set: a function
  * the loader cannot offer is still there and reports a failure. */
@@ -214,6 +218,12 @@ typedef struct rwp_host {
     int32_t (*zlib_inflate_init2)(void* stream, int32_t window_bits, const char* version, int32_t stream_size);
     int32_t (*zlib_inflate)(void* stream, int32_t flush);
     int32_t (*zlib_inflate_end)(void* stream);
+
+    /* Added after zlib_inflate_end (check RWP_HOST_HAS). The launch
+     * screen's progress line: `stage`, a few English words ("..." is
+     * added), and the bar at `percent` (0 to 100; it never goes back).
+     * Only before the SD card is handed over (sd_hand_over). */
+    void (*progress)(const char* stage, int32_t percent);
 } rwp_host;
 
 /* What a plugin gives RiftWii: a constant table in its image, found by

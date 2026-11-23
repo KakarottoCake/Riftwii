@@ -91,6 +91,9 @@ extern Tex iconStar, iconStarOn;         // 28x28 the banner screen's favourite 
 extern Tex discCase;                    // 128x176 RGBA8: the disc drive's box (covers, shelf)
 extern Tex blankCover;                  // 160x224 RGBA8: a game's cover without art (madecover.hpp)
 extern Tex iconDisc;                     // 40x40, the Disc drive tile's picture
+// The Disc Channel with no disc in (Channels view): its 64x64 face, stretched
+// over the tile, and its 64x76 silver disc with the reflection under it.
+extern Tex discChannel, discChannelDisc;
 // The game page's and Settings' tiles (wii/menu/gui_tiles.hpp), 64x64
 // nine-sliced with corner kTileCorner: plain, lit, primary, primary lit.
 extern Tex tile9, tile9Over, tile9Primary, tile9PrimaryOver;
@@ -142,6 +145,11 @@ void DrawRgb5a3(const u8* data, int w, int h, float x, float y, int alpha = 255,
 // rounded-off corners, where the cover stands in for a square case).
 void DrawRgb5a3Part(const u8* data, int w, int h, float u0, float u1, float x, float y, float dw, float dh,
                     int alpha = 255, bool opaque = false);
+// The whole w x h RGB5A3 texture drawn smoothed into the dw x dh box at
+// (x, y), turned `angle` radians (clockwise on the screen) about the box's
+// middle: the disc held up close, spinning.
+void DrawRgb5a3Turned(const u8* data, int w, int h, float x, float y, float dw, float dh, float angle,
+                      int alpha = 255);
 // Texels [u0, u1) x [v0, v1) of a w x h RGB5A3 texture drawn at (x, y),
 // dw x dh, its colour multiplied by `top` along the top edge and `bottom`
 // along the bottom (a darkening gradient, or a fade); `opaque` as above.

@@ -568,10 +568,11 @@ static void TestTables() {
     EXPECT_EQ(offsetof(rwp_host, set_sram_flash_id_b) + sizeof(void*), offsetof(rwp_host, zlib_inflate_init2));
     EXPECT_EQ(offsetof(rwp_host, zlib_inflate_init2) + sizeof(void*), offsetof(rwp_host, zlib_inflate));
     EXPECT_EQ(offsetof(rwp_host, zlib_inflate) + sizeof(void*), offsetof(rwp_host, zlib_inflate_end));
-    EXPECT_EQ(offsetof(rwp_host, zlib_inflate_end) + sizeof(void*), sizeof(rwp_host));
+    EXPECT_EQ(offsetof(rwp_host, zlib_inflate_end) + sizeof(void*), offsetof(rwp_host, progress));
+    EXPECT_EQ(offsetof(rwp_host, progress) + sizeof(void*), sizeof(rwp_host));
     // Every entry is one pointer, none skipped: on the Wii (4-byte
-    // pointers) the table is 2 words and 43 functions.
-    EXPECT_EQ(sizeof(rwp_host), 8u + 43u * sizeof(void*));
+    // pointers) the table is 2 words and 44 functions.
+    EXPECT_EQ(sizeof(rwp_host), 8u + 44u * sizeof(void*));
     EXPECT_TRUE(offsetof(rwp_plugin, probe) < offsetof(rwp_plugin, shutdown));
     EXPECT_TRUE(offsetof(rwp_plugin, shutdown) < offsetof(rwp_plugin, launch));
     EXPECT_EQ(offsetof(rwp_plugin, launch) + sizeof(void*), sizeof(rwp_plugin));

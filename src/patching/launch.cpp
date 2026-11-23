@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/launch.hpp"
+#include "riftwii/gxpatches.hpp"
+
+#include "riftwii/checkedalloc.hpp"
 
 #include "riftwii/gccard.hpp"
 #include "riftwii/textlines.hpp"
@@ -94,13 +97,13 @@ bool gc_pal_game(const std::string& id) {
     return pal_regions.find(id[3]) != std::string::npos;
 }
 
-bool gc_widescreen_on(const GameSettings& game, const GcConsoleSettings& console) {
-    // Only when picked for the game. Widening the 3D is experimental: on
-    // a Wii Super Mario Eclipse's colours came out inverted and its picture
-    // doubled with it, so Default keeps the game's own picture whatever
-    // Settings and the Wii's TV say.
-    (void)console;
-    return game.gc_widescreen == "16:9";
+bool gc_widescreen_on(const GameSettings& game, const std::string& id, const GcConsoleSettings& console) {
+    if (gc_widescreen_off(id) != GcWidescreenOff::no) return false;
+    if (game.gc_widescreen == "16:9") return true;
+    if (game.gc_widescreen == "game") return false;
+    if (console.aspect == "16:9") return true;
+    if (console.aspect == "4:3") return false;
+    return kGcWidescreenFollowsWiiTv && console.wii_widescreen;
 }
 
 bool gc_progressive_on(const GameSettings& game, const std::string& id, const GcConsoleSettings& console) {
@@ -130,6 +133,29 @@ bool gc_line240_on(const GameSettings& game, const std::string& id, const GcCons
 bool gc_sixty_hz_on(const GameSettings& game, const std::string& id) {
     // US and Japanese games are 60 Hz already.
     return gc_pal_game(id) && game.gc_speed == "60";
+}
+
+GcTvSignal gc_tv_signal(const GameSettings& game, const std::string& id, const GcConsoleSettings& console) {
+    std::string chosen = game.video_mode == "global" ? console.video_mode : game.video_mode;
+    if (chosen == "system") chosen = console.wii_video;
+    if (gc_pal_game(id)) {
+        if (!gc_sixty_hz_on(game, id)) return GcTvSignal::Pal50;
+        return chosen == "ntsc" ? GcTvSignal::Ntsc : GcTvSignal::Pal60;
+    }
+    // 480p is NTSC's own picture. 240p is 60 Hz like 480i, so it keeps
+    // PAL 60's colours when those are asked for (RGB SCART shows NTSC red).
+    if (gc_progressive_on(game, id, console)) return GcTvSignal::Ntsc;
+    const bool wants_pal = chosen == "pal60" || chosen == "pal50";
+    return wants_pal ? GcTvSignal::Pal60 : GcTvSignal::Ntsc;
+}
+
+const char* gc_tv_signal_name(GcTvSignal signal) {
+    switch (signal) {
+        case GcTvSignal::Pal50: return "PAL 50 Hz";
+        case GcTvSignal::Pal60: return "PAL 60 Hz";
+        case GcTvSignal::Ntsc: break;
+    }
+    return "NTSC";
 }
 
 unsigned gc_volume_boost_db(const GameSettings& game) {
@@ -196,10 +222,10 @@ void PackIndex::add_filter(const DiscFilter& filter) {
     filters_.push_back(std::move(badge_filter));
 }
 
-void PackIndex::add_game(const std::string& game_id) {
+bool PackIndex::add_game(const std::string& game_id) {
     DiscFilter filter;
     filter.game = game_id;
-    filters_.push_back(filter);
+    return try_push_back(filters_, std::move(filter));
 }
 
 bool PackIndex::has_packs(const std::string& game_id) const {

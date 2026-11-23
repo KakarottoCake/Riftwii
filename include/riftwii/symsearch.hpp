@@ -44,8 +44,12 @@ bool find_ipc_symbols(const std::vector<CodeRange>& text, IpcSymbols& out, std::
 // 0` in the synchronous one. Functions the game never calls are not in
 // its DOL (the linker drops them) and stay 0 here: nothing calls them,
 // so nothing needs hooking. The reboot forms of ioctlv (relaunch set in
-// the block) are left out. Section 24.3 of docs/CONDUCTOR_REVIEW_2.md;
-// verified on four titles (2007-2009 SDKs) with tools/ipcscan.cpp.
+// the block) are left out. An SDK built without optimization (LEGO Star
+// Wars: The Complete Saga) hands the command to a setup helper instead
+// (`li r4, N` then `bl setup`), which allocates the block and stores it;
+// the same search finds that form. Section 24.3 of
+// docs/CONDUCTOR_REVIEW_2.md; verified on four titles (2007-2009 SDKs)
+// with tools/ipcscan.cpp.
 enum IpcCommand { kIpcOpen = 1, kIpcClose, kIpcRead, kIpcWrite, kIpcSeek, kIpcIoctlCmd, kIpcIoctlvCmd };
 
 struct IpcApi {
@@ -95,6 +99,32 @@ struct PadSymbols {
 // when the game has none.
 bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::string& error);
 
+// find_pad_symbols over the game's code (`text`) and the code a pack's
+// <memory> patches will leave (`patched`, from PatchedCode).
+// A PADRead in the patches wins over one in the game: a pack that writes
+// one means it to be read, and the game's may be an SDK copy it never
+// calls. The screen-dimming reset is then looked for beside the pack's
+// PADRead (in code_with_patches), and PADControlMotor is the game's own
+// (rumble Off writes to it before the patches go in). `from_patch` says
+// which PADRead was taken. An unsure PADRead in the patches is an error
+// (an unsure PADControlMotor there is not); an unsure search of the game
+// is not when the patches have the PADRead.
+bool find_pad_symbols_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched,
+                                   PadSymbols& out, bool& from_patch, std::string& error);
+
+// Whether the function at `address` has PADRead's shape (as
+// find_pad_symbols takes one), whatever else is in `text`: for checking a
+// PADRead found earlier, now that the patches are in.
+bool is_pad_read(const std::vector<CodeRange>& text, std::uint32_t address);
+
+// The game's code as the patches will leave it: `patched` (in address
+// order, not overlapping, as PatchedCode gives it) and the parts of
+// `text` no patch writes, in address order, none overlapping. For the
+// searches that follow a pack's PADRead into the game's code.
+// False (and `out` empty) when there's no memory for it.
+bool code_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched,
+                       std::vector<CodeRange>& out);
+
 // PADControlMotor(chan, command) in a GameCube game's own SDK (the one the
 // game was linked with, not the Wii's): after its checks it keeps the
 // command's two low bits (`rlwinm rX, rY, 0, 30, 31`), ORs them into the
@@ -130,6 +160,11 @@ std::int32_t find_gc_pad_enabled_offset(const std::vector<CodeRange>& text, std:
 // word is never a branch, so the hook's replay slot can run it. 0 when
 // there is no PADRead, no such function or more than one.
 std::uint32_t find_gc_si_probe(const std::vector<CodeRange>& text, std::uint32_t pad_read);
+
+// The same with a pack's PADRead (find_pad_symbols_with_patches): the
+// game's code read as `patched` (PatchedCode's ranges) leaves it.
+std::uint32_t find_gc_si_probe_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched,
+                                            std::uint32_t pad_read);
 
 // The SDK's PAD SamplingHandler(interrupt, context), which the SI's polling
 // interrupt calls to run the game's PADSetSamplingCallback callback: a

@@ -254,6 +254,104 @@ int main(int argc, char** argv) {
         }
         EXPECT_TRUE(checked > 20000u);
     }
+    // A paged card: the list file's bytes, its index, and lookups that need
+    // a held page.
+    {
+        std::vector<rtvsd_extent> extents;
+        std::uint32_t file_sector = 0;
+        for (std::uint32_t i = 0; i < 100; ++i) {
+            extents.push_back({file_sector, 50000 - i * 40, 3 + i % 5});
+            file_sector += 3 + i % 5;
+        }
+        const std::vector<std::uint8_t> list = riftwii::vsd_piece_list(extents);
+        EXPECT_EQ(list.size(), std::size_t(3 * 512));  // 42 + 42 + 16 pieces
+        // Piece 43 (page 1, slot 1), big-endian.
+        const std::uint8_t* p = list.data() + 512 + 12;
+        EXPECT_EQ((std::uint32_t(p[0]) << 24 | std::uint32_t(p[1]) << 16 | std::uint32_t(p[2]) << 8 | p[3]),
+                  extents[43].file_sector);
+        EXPECT_EQ((std::uint32_t(p[4]) << 24 | std::uint32_t(p[5]) << 16 | std::uint32_t(p[6]) << 8 | p[7]),
+                  extents[43].device_sector);
+        EXPECT_EQ(p[11], static_cast<std::uint8_t>(extents[43].count));
+        EXPECT_EQ(list[2 * 512 + 16 * 12], 0u);  // past the last piece: zeros
+
+        std::vector<rtvsd_page> index;
+        std::string error;
+        EXPECT_TRUE(!riftwii::vsd_piece_list_index(extents, {{700, 2}}, index, error));  // a page short
+        EXPECT_TRUE(index.empty());
+        EXPECT_TRUE(riftwii::vsd_piece_list_index(extents, {{700, 1}, {900, 8}}, index, error));
+        EXPECT_EQ(index.size(), std::size_t(3));
+        EXPECT_EQ(index[0].file_sector, 0u);
+        EXPECT_EQ(index[0].device_sector, 700u);
+        EXPECT_EQ(index[1].file_sector, extents[42].file_sector);
+        EXPECT_EQ(index[1].device_sector, 900u);
+        EXPECT_EQ(index[2].file_sector, extents[84].file_sector);
+        EXPECT_EQ(index[2].device_sector, 901u);
+
+        // The card, laid out as the blob's state has it (32-byte aligned).
+        const std::size_t bytes = sizeof(rtvsd_card) + rtvsd_table_bytes(1, extents.size());
+        void* raw = nullptr;
+#if defined(_WIN32)
+        raw = _aligned_malloc(bytes, 32);
+#else
+        if (posix_memalign(&raw, 32, bytes) != 0) raw = nullptr;
+#endif
+        std::memset(raw, 0, bytes);
+        rtvsd_card* card = static_cast<rtvsd_card*>(raw);
+        card->sectors = file_sector;
+        card->extent_count = static_cast<std::uint32_t>(extents.size());
+        card->paged = 1;
+        for (std::size_t i = 0; i < index.size(); ++i) rtvsd_pages(card)[i] = index[i];
+        EXPECT_EQ(rtvsd_reset(card), 0);
+        EXPECT_EQ(reinterpret_cast<std::uintptr_t>(rtvsd_page_slot(card, 0)) & 31u, 0u);
+        EXPECT_TRUE(rtvsd_page_slot(card, RTVSD_PAGE_SLOTS - 1) + 512 <= static_cast<std::uint8_t*>(raw) + bytes);
+
+        // Nothing held: no lookup works, and the page is asked for.
+        std::uint32_t device = 0, first = 0;
+        const std::uint32_t in_page_1 = extents[50].file_sector + 1;
+        EXPECT_EQ(rtvsd_map(card, in_page_1, 1, &device), 0u);
+        std::uint8_t* slot = nullptr;
+        EXPECT_EQ(rtvsd_page_wanted(card, in_page_1, &device, &slot), 1u);
+        EXPECT_EQ(device, 900u);
+        std::memcpy(slot, list.data() + 512, 512);
+        rtvsd_page_arrived(card);
+        EXPECT_EQ(rtvsd_page_wanted(card, in_page_1, &device, &slot), 0u);
+        EXPECT_EQ(rtvsd_map(card, in_page_1, 100, &device), extents[50].count - 1);
+        EXPECT_EQ(device, extents[50].device_sector + 1);
+        EXPECT_EQ(rtvsd_piece(card, in_page_1, &first), extents[50].count);
+        EXPECT_EQ(first, extents[50].file_sector);
+        // A second page goes to the other slot; both stay held.
+        const std::uint32_t in_page_2 = extents[99].file_sector;
+        EXPECT_EQ(rtvsd_page_wanted(card, in_page_2, &device, &slot), 1u);
+        EXPECT_EQ(device, 901u);
+        std::memcpy(slot, list.data() + 1024, 512);
+        rtvsd_page_arrived(card);
+        EXPECT_EQ(rtvsd_page_wanted(card, in_page_1, &device, &slot), 0u);
+        EXPECT_EQ(rtvsd_page_wanted(card, in_page_2, &device, &slot), 0u);
+        EXPECT_EQ(rtvsd_map(card, in_page_2, 1, &device), 1u);
+        EXPECT_EQ(device, extents[99].device_sector);
+        // Page 0 then replaces the one used longest ago (page 1's).
+        EXPECT_EQ(rtvsd_page_wanted(card, 0, &device, &slot), 1u);
+        EXPECT_EQ(device, 700u);
+        std::memcpy(slot, list.data(), 512);
+        rtvsd_page_arrived(card);
+        EXPECT_EQ(rtvsd_map(card, in_page_1, 1, &device), 0u);
+        EXPECT_EQ(rtvsd_map(card, in_page_2, 1, &device), 1u);
+        EXPECT_EQ(rtvsd_map(card, 0, 1, &device), 1u);
+        EXPECT_EQ(device, extents[0].device_sector);
+        // Past the image: never asked for.
+        EXPECT_EQ(rtvsd_page_wanted(card, file_sector, &device, &slot), 0u);
+        // An index that does not start at 0, or does not rise, is refused.
+        rtvsd_pages(card)[0].file_sector = 1;
+        EXPECT_EQ(rtvsd_reset(card), -1);
+        rtvsd_pages(card)[0].file_sector = 0;
+        rtvsd_pages(card)[2].file_sector = rtvsd_pages(card)[1].file_sector;
+        EXPECT_EQ(rtvsd_reset(card), -1);
+#if defined(_WIN32)
+        _aligned_free(raw);
+#else
+        std::free(raw);
+#endif
+    }
     // The extents must cover the image from sector 0 without gaps.
     {
         auto ok = make_card(3000, {{0, 5000, 1000}, {1000, 9000, 2000}});

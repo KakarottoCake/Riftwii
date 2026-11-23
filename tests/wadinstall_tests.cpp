@@ -3,9 +3,11 @@
 // Production folder scan and installer, with synthetic WADs and a raw USB
 // view. Every key and content byte is made up here.
 #include "wadfolder.hpp"
+#include "loadersettings.hpp"
 #include "wadinstall.hpp"
 #include "sharednandfind.hpp"
 #include "usbcatalog.hpp"
+#include "riftwii/settingsfile.hpp"
 #include "riftwii/wadfile.hpp"
 
 #include <algorithm>
@@ -28,11 +30,14 @@ constexpr std::uint64_t kTitle = 0x0001000157413445ull;
 const std::uint8_t kCommonKey[16] = {1, 2, 3};
 const std::uint8_t kTitleKey[16] = {4, 5, 6};
 std::map<std::string, std::vector<std::uint8_t>> usb_files;
+// USB Loader GX's channel folder, as GXGlobal.cfg's NandEmuChanPath gives it.
+std::string channel_nand_folder = "sd:/nands/01";
 unsigned usb_banner_reads = 0;
 unsigned key_reads = 0;
 std::array<int, 3> key_choices = {1, -1, -1};
 std::vector<WadKeySource> key_sources;
 bool fail_commit = false;
+LoaderSettings settings;
 #ifdef RIFTWII_TEST_WRAP_RENAME
 int writes_before_failure = -1;  // only the rename-wrapped builds count writes
 #endif
@@ -230,6 +235,33 @@ void test_drop_play_and_cache() {
     CHECK(channels.empty());
 }
 
+void test_channel_nand_on_usb() {
+    // A tester's USB Loader GX keeps its channels in usb1:/nands/01: a WAD
+    // can only be prepared on the SD card, so it goes to sd:/nands/01.
+    usb_files["usb:/wiiware/game.wad"] = make_wad(20);
+    channel_nand_folder = "usb1:/nands/01";
+    std::vector<NandChannel> channels;
+    list_wad_channels(true, channels);
+    CHECK(channels.size() == 1 && channels[0].emu_nand == "sd:/nands/01");
+    // One on the SD card is used as it is.
+    channel_nand_folder = "sd:/nands/gx";
+    channels.clear();
+    list_wad_channels(true, channels);
+    CHECK(channels.size() == 1 && channels[0].emu_nand == "sd:/nands/gx");
+    channel_nand_folder = "sd:/nands/01";
+    usb_files.clear();
+    // The same rule for Settings > Install WAD files (wad_nand_folder),
+    // and sd:/nands/01 when the configured folder can't be used.
+    SharedNandLookup nand;
+    nand.usable = true;
+    nand.folder = "usb1:/nands/01";
+    CHECK(wad_nand_folder(nand) == "sd:/nands/01");
+    nand.folder = "sd:/nands/gx";
+    CHECK(wad_nand_folder(nand) == "sd:/nands/gx");
+    nand.usable = false;
+    CHECK(wad_nand_folder(nand) == "sd:/nands/01");
+}
+
 void test_usb_partitions_and_merge() {
     usb_files["usb:/wiiware/game.wad"] = make_wad(20);
     usb_files["usb2:/wiiware/nested/game.wad"] = make_wad(30);
@@ -254,6 +286,49 @@ void test_usb_partitions_and_merge() {
     real = {installed};
     merge_wad_channels(real, channels);
     CHECK(real.size() == 1 && real[0].emu_nand == "sd:/nands/old" && !real[0].wad_path.empty());
+    // An installed copy in an emulated NAND on the USB drive (USB Loader
+    // GX's channel folder there): the WAD stays prepared on the SD card.
+    channels.clear();
+    list_wad_channels(true, channels);  // the merges above moved them out
+    const std::string wad_folder = channels[0].emu_nand;
+    CHECK(wad_folder.compare(0, 4, "sd:/") == 0);
+    installed.emu_nand = "usb1:/nands/01";
+    real = {installed};
+    merge_wad_channels(real, channels);
+    CHECK(real.size() == 1 && real[0].emu_nand == wad_folder && !real[0].wad_path.empty());
+}
+
+void test_game_folders() {
+    // A tester keeps every game under sd:/roms: WADs in a Game folder are
+    // found as those in wiiware are, one level of subfolders down.
+    fs::remove_all("sd:");
+    settings.parse("game_folders = sd:/roms/wii - wiiware; usb2:/roms\n");
+    write("sd:/roms/wii - wiiware/game.wad", make_wad(20));
+    std::vector<NandChannel> channels;
+    CHECK(list_wad_channels(false, channels) == 0);
+    CHECK(channels.size() == 1 && channels[0].wad_path == "sd:/roms/wii - wiiware/game.wad");
+    // A Game folder that wiiware's own scan reaches too (wiiware itself, in
+    // another case, or a folder inside it) reads each WAD once: one broken
+    // WAD counts once.
+    fs::remove_all("sd:");
+    settings.parse("game_folders = /WiiWare; sd:/wiiware/nested\n");
+    write("sd:/wiiware/nested/broken.wad", {1, 2, 3});
+    channels.clear();
+    CHECK(list_wad_channels(false, channels) == 1);
+    CHECK(channels.empty());
+    // On USB, a Game folder named for one partition is read on that one.
+    usb_files.clear();
+    usb_files["usb:/roms/other.wad"] = make_wad(30);
+    settings.parse("game_folders = usb2:/roms\n");
+    channels.clear();
+    list_wad_channels(true, channels);
+    CHECK(channels.empty());
+    usb_files["usb2:/roms/vc/game.wad"] = make_wad(20);
+    list_wad_channels(true, channels);
+    CHECK(channels.size() == 1 && channels[0].wad_path == "usb2:/roms/vc/game.wad");
+    usb_files.clear();
+    settings = LoaderSettings();
+    fs::remove_all("sd:");
 }
 }  // namespace
 
@@ -274,6 +349,7 @@ extern "C" int __wrap_rename(const char* from, const char* to) {
 
 namespace riftwii::wii {
 void logf(const char*, ...) {}
+LoaderSettings& Settings() { return settings; }
 bool ConsoleWadTitleKey(WadKeySource source, const std::vector<std::uint8_t>&, std::uint8_t out[16]) {
     ++key_reads;
     key_sources.push_back(source);
@@ -285,7 +361,7 @@ bool ConsoleWadTitleKey(WadKeySource source, const std::vector<std::uint8_t>&, s
 SharedNandLookup look_up_channel_nand() {
     SharedNandLookup result;
     result.usable = true;
-    result.folder = "sd:/nands/01";
+    result.folder = channel_nand_folder;
     return result;
 }
 bool prepare_wad_nand_system(const std::string&, std::string&) { return true; }
@@ -321,7 +397,9 @@ int main() {
     test_installer_rollback();
     test_verified_installer_sources();
     test_drop_play_and_cache();
+    test_channel_nand_on_usb();
     test_usb_partitions_and_merge();
+    test_game_folders();
     fs::remove_all("sd:");
     return failures == 0 ? 0 : 1;
 }

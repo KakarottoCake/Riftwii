@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/settingsfile.hpp"
+#include "riftwii/appmeta.hpp"
 #include "riftwii/profiles.hpp"
 #include "riftwii/riitag.hpp"
 
@@ -36,6 +37,11 @@ bool line_keeps(const std::string& value) {
 }
 
 }  // namespace
+
+void LoaderSettings::parse_saved(const std::string& text) {
+    menu_widescreen = "off";
+    parse(text);
+}
 
 void LoaderSettings::parse(const std::string& text) {
     LineReader in(text);
@@ -113,6 +119,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "on" || value == "off") disc_light = value == "on";
         } else if (key == "launch_music") {
             if (value == "on" || value == "off") launch_music = value;
+        } else if (key == "launch_log") {
+            if (value == "on" || value == "off") launch_log = value;
         } else if (key == "page_banner_sound") {
             if (value == "on" || value == "off") page_banner_sound = value;
         } else if (key == "disc_art") {
@@ -162,9 +170,7 @@ void LoaderSettings::parse(const std::string& text) {
             while (at <= value.size()) {
                 const std::size_t comma = std::min(value.find(',', at), value.size());
                 const std::string id = trim(value.substr(at, comma - at));
-                // Game IDs, and profiles' tile keys (riftwii/profiles.hpp);
-                // anything else is noise.
-                if (valid_tile_key(id)) favorites.insert(id);
+                if (valid_tile_key(id) || valid_app_tile_key(id)) favorites.insert(id);
                 at = comma + 1;
             }
         } else if (key == "game_folders") {
@@ -263,6 +269,7 @@ std::string LoaderSettings::serialize() const {
     s += "menu_music = " + menu_music + "\n";
     s += std::string("disc_light = ") + (disc_light ? "on" : "off") + "\n";
     s += "launch_music = " + launch_music + "\n";
+    s += "launch_log = " + launch_log + "\n";
     s += "page_banner_sound = " + page_banner_sound + "\n";
     s += "disc_art = " + disc_art + "\n";
     // The song, playlist or folder as the drive names it, and below the
@@ -309,7 +316,9 @@ std::string LoaderSettings::serialize() const {
     s += "parental_settings = " + parental_settings + "\n";
     if (!favorites.empty()) {
         std::string list;
-        for (const std::string& id : favorites) list += (list.empty() ? "" : ",") + id;
+        for (const std::string& id : favorites) {
+            if (valid_tile_key(id) || valid_app_tile_key(id)) list += (list.empty() ? "" : ",") + id;
+        }
         s += "favorites = " + list + "\n";
     }
     if (!game_folders.empty()) {
@@ -376,7 +385,10 @@ GameFolderAdd add_game_folder(LoaderSettings& settings, const std::string& picke
     return GameFolderAdd::Added;
 }
 
-std::vector<std::string> game_folders_on(const LoaderSettings& settings, const std::string& device) {
+// One drive's game_folders, as "/path". `skip_disc_folders` leaves out wbfs
+// and games, which the disc-image scan reads anyway; the WAD scan does not.
+static std::vector<std::string> folders_on(const LoaderSettings& settings, const std::string& device,
+                                           bool skip_disc_folders) {
     std::vector<std::string> out;
     for (std::string f : settings.game_folders) {
         const std::size_t colon = f.find(':');
@@ -390,11 +402,24 @@ std::vector<std::string> game_folders_on(const LoaderSettings& settings, const s
         if (f.empty()) continue;
         if (f[0] != '/') f.insert(f.begin(), '/');
         const std::string lower = path_fold_case(f);
-        if (lower == "/wbfs" || lower == "/games") continue;
+        if (skip_disc_folders && (lower == "/wbfs" || lower == "/games")) continue;
         // FAT and NTFS ignore case: "/wii games" is "/Wii Games".
         bool seen = false;
         for (const std::string& o : out) seen = seen || path_fold_case(o) == lower;
         if (!seen) out.push_back(f);
+    }
+    return out;
+}
+
+std::vector<std::string> game_folders_on(const LoaderSettings& settings, const std::string& device) {
+    return folders_on(settings, device, true);
+}
+
+std::vector<std::string> wad_folders_on(const LoaderSettings& settings, const std::string& device) {
+    const std::string wiiware = "/wiiware";
+    std::vector<std::string> out{wiiware};
+    for (const std::string& folder : folders_on(settings, device, false)) {
+        if (path_fold_case(folder) != wiiware) out.push_back(folder);
     }
     return out;
 }

@@ -2424,6 +2424,14 @@ static void load_gc_controls(const std::string& game_id, gc_map& map) {
                  gc_controls_describe(map.to[kind][GC_IN_SHAKE]).c_str());
 }
 
+// The launch screen's stage and bar (RiftWii's ProgressStage), from a
+// loader that has them: without it the bar stood still at 3% for the
+// whole of a GameCube launch, then jumped to the game.
+static void gc_progress(const char* stage, int percent) {
+    const rwp_host& host = plugin::host();
+    if (RWP_HOST_HAS(&host, progress) && host.progress != nullptr) host.progress(stage, percent);
+}
+
 bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLaunchExtras& extras, std::string& error,
                      std::uint32_t* error_code) {
     const std::uint32_t card_bytes = image.external_card == nullptr ? GC_CARD_BYTES
@@ -2445,27 +2453,50 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // sd:/riftwii/gc/test/, a folder of their own, away from the player's
     // cards, saves and controls, so a copied folder cannot set one.
     struct stat st_press;
-    const bool test_presses = stat("sd:/riftwii/gc/test/press", &st_press) == 0;
+    // The switches that act for the player (presses, the way back, crashes,
+    // a Reset, a program or disc change, rumble, the music alone) are in test
+    // builds only (make TEST=1), as the test remote is (#506) and autorun is:
+    // in a release build a file left from a test run, or one a pack's zip put
+    // on the card, is named in boot.log and ignored. The others only trace or
+    // leave one of RiftWii's hooks off, for testers' runs on a Wii.
+#ifdef RT_TEST_BUILD
+    constexpr bool kPlayerTestSwitches = true;
+#else
+    constexpr bool kPlayerTestSwitches = false;
+#endif
+    std::string ignored_test_switches;
+    const auto player_test_switch = [&](const char* name) {
+        const std::string path = std::string("sd:/riftwii/gc/test/") + name;
+        if (stat(path.c_str(), &st_press) != 0) return false;
+        if (kPlayerTestSwitches) return true;
+        ignored_test_switches += ignored_test_switches.empty() ? "" : ", ";
+        ignored_test_switches += name;
+        return false;
+    };
+    const bool test_presses = player_test_switch("press");
     // Repeated traces add SD traffic. Enable them only for a diagnostic
     // run, never as part of normal controller polling.
     const bool test_trace = stat("sd:/riftwii/gc/test/trace", &st_press) == 0;
     const bool test_sd_slow = stat("sd:/riftwii/gc/test/sd_slow", &st_press) == 0;
     // A test of the way back (gc_rt.h's GC_FLAG_LEAVE).
-    const bool test_leave = stat("sd:/riftwii/gc/test/leave", &st_press) == 0;
+    const bool test_leave = player_test_switch("leave");
     // And of the crash screen (GC_FLAG_CRASH).
-    const bool test_crash = stat("sd:/riftwii/gc/test/crash", &st_press) == 0;
+    const bool test_crash = player_test_switch("crash");
     // And of it on a blanked screen (GC_FLAG_CRASH_BLACK).
-    const bool test_crash_black = stat("sd:/riftwii/gc/test/crashblack", &st_press) == 0;
+    const bool test_crash_black = player_test_switch("crashblack");
     // And of disc audio streaming: the music alone, to compare it with an
     // offline decode (GC_FLAG_STREAM_ONLY).
-    const bool test_stream_only = stat("sd:/riftwii/gc/test/streamonly", &st_press) == 0;
+    const bool test_stream_only = player_test_switch("streamonly");
     // And of the restart: two Reset presses (GC_FLAG_RESET_TEST).
-    const bool test_reset = stat("sd:/riftwii/gc/test/reset", &st_press) == 0;
+    const bool test_reset = player_test_switch("reset");
     // And of a program switch, in a game that has none (gc_on_boot_dol).
-    const bool test_exec = stat("sd:/riftwii/gc/test/exec", &st_press) == 0;
+    const bool test_exec = player_test_switch("exec");
+    // And of MEM2 still running code once the game's OS is up
+    // (gc_rt_cold.mem2_code, docs/GCMEM2.md).
+    const bool test_mem2_code = player_test_switch("mem2code");
     // And of a two-disc game's change, in a game that never asks for one
     // (GC_FLAG_DISC_TEST): on only when there is a second disc.
-    const bool test_disc_change = stat("sd:/riftwii/gc/test/discchange", &st_press) == 0;
+    const bool test_disc_change = player_test_switch("discchange");
     // And of 16:9's hook without the widening (GC_FLAG_WIDEN).
     const bool test_no_widen = stat("sd:/riftwii/gc/test/nowiden", &st_press) == 0;
     // And of the ARAM addresses left as the SDK gives them in any game
@@ -2480,7 +2511,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // The same with a made-up Wii U Pro Controller (Dolphin has none), in
     // its own report layout (gc_pro.h); it takes the test remote's place.
     const bool test_fake_pro = stat("sd:/riftwii/gc/test/fakepro", &st_press) == 0;
-    const bool test_rumble = stat("sd:/riftwii/gc/test/rumbletest", &st_press) == 0;
+    const bool test_rumble = player_test_switch("rumbletest");
     // And of the picture with fewer of RiftWii's hooks, for colours that
     // came out wrong on a Wii through HDMI (18 Oct): VIConfigure as the
     // game made it, and PADControlMotor not hooked (the only hook the
@@ -2534,6 +2565,10 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     }
     if (!switches.empty()) switches += "]";
     logf("GameCube (native): %s (%s)%s\n", image.id.c_str(), image.path.c_str(), switches.c_str());
+    if (!ignored_test_switches.empty())
+        logf("GameCube: sd:/riftwii/gc/test/ has %s, which only test builds (make TEST=1) obey; ignored.\n",
+             ignored_test_switches.c_str());
+    gc_progress("Reading the game", 10);
     // What the Wii Remotes' buttons press, from the player's files.
     gc_map controls;
     load_gc_controls(image.id, controls);
@@ -2700,6 +2735,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
              "handler 0x%08x, %u DI command start(s) answered at the DI's registers instead of DVDLow hooks\n",
              low.set_alarm, ogc_create_alarm, ogc_di_handler, static_cast<unsigned>(di_starts.size()));
     }
+    gc_progress("Making room for the game", 25);
     logf("GameCube: DVDLowRead 0x%08x, Seek 0x%08x, ReadDiskID 0x%08x, Inquiry 0x%08x, StopMotor 0x%08x, "
          "RequestError 0x%08x, AudioStream 0x%08x, AudioStatus 0x%08x, AudioConfig 0x%08x, Reset 0x%08x, "
          "OSSetAlarm 0x%08x\n",
@@ -2878,6 +2914,60 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const GcStackTop stack = find_gc_stack_top(read_code, dol.entry);
     const std::uint32_t arena_lo = find_gc_arena_lo(read_code, text_ranges);
     const std::uint32_t game_floor = std::max(stack.address, arena_lo);
+    // Test builds: sd:/riftwii/test_limits.txt's "game_mem1_kib = N" takes
+    // N KiB more off the top of the game's memory, as it does for a Wii game,
+    // to find out whether a game's crash is one of memory (docs/GCMEM2.md).
+    // Taken out above the FST, before the plan: the FST, BI2's copy and
+    // RiftWii's pieces all move down by it, so a game that reads its limit
+    // from the FST's address (libogc) or BI2's (boot arguments) sees it as
+    // well as one that reads ArenaHi. `squeeze` is what was asked for,
+    // `squeeze_room` the room above the FST that takes it from the arena's
+    // top: RiftWii's pieces fill gaps, so the two can differ.
+    std::uint32_t squeeze = 0;
+    std::uint32_t squeeze_room = 0;
+#ifdef RT_TEST_BUILD
+    if (std::FILE* limits = std::fopen("sd:/riftwii/test_limits.txt", "rb")) {
+        // Read by hand: the plugin has no fgets or sscanf.
+        char text[1024];
+        const std::size_t got = std::fread(text, 1, sizeof text - 1, limits);
+        std::fclose(limits);
+        text[got] = '\0';
+        unsigned squeeze_kib = 0;
+        // Line by line, as the Wii side reads the file (memlimits.cpp): a
+        // line counts only when it is "game_mem1_kib = N" from its start (past
+        // spaces), so "# game_mem1_kib = 0" is a comment. The last one wins.
+        static const char kKey[] = "game_mem1_kib";
+        const std::size_t key_length = sizeof kKey - 1;
+        for (const char* line = text; *line != '\0';) {
+            const char* at = line;
+            while (*at == ' ' || *at == '\t') ++at;
+            // Compared by hand: the plugin has no strncmp either.
+            std::size_t matched = 0;
+            while (matched < key_length && at[matched] == kKey[matched]) ++matched;
+            if (matched == key_length) {
+                at += key_length;
+                while (*at == ' ' || *at == '\t') ++at;
+                if (*at == '=') {
+                    ++at;
+                    while (*at == ' ' || *at == '\t') ++at;
+                    if (*at >= '0' && *at <= '9') {
+                        unsigned value = 0;
+                        // Digits up to a bound, so a long number can't wrap.
+                        while (*at >= '0' && *at <= '9' && value < 100000u) {
+                            const unsigned digit = unsigned(*at - '0');
+                            value = value * 10u + digit;
+                            ++at;
+                        }
+                        squeeze_kib = value;
+                    }
+                }
+            }
+            while (*line != '\0' && *line != '\n') ++line;
+            if (*line == '\n') ++line;
+        }
+        if (squeeze_kib != 0 && squeeze_kib < 16384) squeeze = squeeze_kib << 10;
+    }
+#endif
     enum Mem1Piece { kPieceBlob, kPieceCard, kPieceMoved, kPieceLeave, kPieceStubs, kPieceDiSlots, kMem1Pieces };
     std::vector<GcMem1Piece> mem1_pieces(kMem1Pieces);
     mem1_pieces[kPieceBlob].bytes = h.size;  // the biggest first: it packs best
@@ -2895,7 +2985,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // The layout for an FST room of `room`; true when it leaves the
     // arena's top above RiftWii's heap and the game's own floor.
     auto plan_mem1 = [&](std::uint32_t room) {
-        fst_addr = (kMem1Top - room) & ~31u;
+        fst_addr = (kMem1Top - room - squeeze_room) & ~31u;
         mem1 = plan_gc_mem1(fst_addr, mem1_pieces, kBi2Bytes);
         arena_hi = mem1.arena_hi;
         // A refused layout (arena top 0) stays refused: the libogc
@@ -2915,7 +3005,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         return arena_hi >= kLoaderCeiling && arena_hi >= game_floor;
     };
     // A two-disc game's room holds the larger FST; when no layout has room
-    // for that, disc 2 goes and disc 1's room is planned as before.
+    // for that, disc 2 goes and disc 1's room is planned as before. Decided
+    // without the squeeze below, which never costs a game its second disc.
     bool planned = false;
     if (second.on) {
         const std::uint32_t two_disc_room = gc_two_disc_fst_room(fst_max, second.boot.data());
@@ -2924,6 +3015,34 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         else drop_second("its FST leaves the game no room at the top of MEM1");
     }
     if (!planned) plan_mem1(fst_max);
+    // The room above the FST that lowers the arena's top by at least the
+    // squeeze, against this same layout (a two-disc game's too) without it:
+    // a gap RiftWii's pieces fill can swallow a small one. One that leaves
+    // no room, or needs 128 KiB more than asked, is left out and said so:
+    // the test then runs as a release build would, with the layout above.
+    if (squeeze != 0) {
+        const std::uint32_t base_arena = arena_hi;
+        bool reached = false;
+        for (squeeze_room = squeeze; squeeze_room <= squeeze + 0x20000; squeeze_room += 0x400) {
+            if (!plan_mem1(fst_max)) break;
+            if (base_arena - arena_hi >= squeeze) {
+                reached = true;
+                break;
+            }
+        }
+        if (reached) {
+            logf("GameCube: TEST BUILD: game_mem1_kib = %u: the arena's top 0x%08x, %u bytes under 0x%08x without it "
+                 "(FST 0x%08x; test_limits.txt)\n", static_cast<unsigned>(squeeze >> 10),
+                 static_cast<unsigned>(arena_hi), static_cast<unsigned>(base_arena - arena_hi),
+                 static_cast<unsigned>(base_arena), static_cast<unsigned>(fst_addr));
+        } else {
+            logf("GameCube: TEST BUILD: game_mem1_kib = %u left out: it would take the arena under the loader "
+                 "or the game's own floor\n", static_cast<unsigned>(squeeze >> 10));
+            squeeze = 0;
+            squeeze_room = 0;
+            plan_mem1(fst_max);
+        }
+    }
     const std::uint32_t blob_addr = mem1_pieces[kPieceBlob].address;
     const std::uint32_t card_addr = mem1_pieces[kPieceCard].address;
     const std::uint32_t moved_addr = mem1_pieces[kPieceMoved].address;
@@ -3004,6 +3123,16 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         return false;
     }
     ctx->cold = cold_addr;
+    if (test_mem2_code) {
+        // lis r3,"RU"; ori r3,r3,"N!"; blr: what the first pad read calls in MEM2.
+        auto* cold = static_cast<gc_rt_cold*>(staged(cold_addr));
+        cold->mem2_code[0] = 0x3C600000u | (GC_MEM2_CODE_RAN >> 16);
+        cold->mem2_code[1] = 0x60630000u | (GC_MEM2_CODE_RAN & 0xFFFFu);
+        cold->mem2_code[2] = 0x4E800020u;
+        logf("GameCube: TEST BUILD: the first pad read runs code in MEM2 at 0x%08x; a crash screen with an ISI "
+             "there means MEM2 no longer runs code once the game is up\n",
+             static_cast<unsigned>(cold_addr + offsetof(gc_rt_cold, mem2_code)));
+    }
     ctx->io_buffer = io_buffer_addr;
     fill_gc_runs(static_cast<gc_rt_run*>(staged(runs_addr)), placed, fst_copy_addr != 0 ? fst_copy_addr : fst_addr);
     if (fst_copy_addr != 0) std::memcpy(staged(fst_copy_addr), fst.data(), fst.size());
@@ -3066,6 +3195,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
              trace_sector, trace_count, why.empty() ? "" : ": ", why.c_str());
     }
 
+    gc_progress("Getting the memory card ready", 35);
     // The memory card in slot A (gc_card.h): the game's own file, the shared one or a
     // named one (the launch's card_path, else gc_card_path), made and formatted the first time. Its whole image goes to MEM2 at the
     // jump, and the blob writes what the game saves back to its sectors.
@@ -3401,6 +3531,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     memcard->landing[0] = 0x7C0802A6;  // mflr r0
     memcard->landing[1] = branch(card_addr + 4, blob_addr + h.stray_entry) | 1;  // bl gc_stray_entry
 
+    gc_progress("Getting the game ready", 45);
     // What follows patches one program: the disc's own, then each program
     // the game loads itself from the disc (riftwii/gcprograms.hpp), which
     // has its own copy of the SDK. RiftWii's part of MEM1 is set up above
@@ -3575,6 +3706,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                  triforce.hooks[GC_TRI_EXI_WRITE_LANCNT], triforce.hooks[GC_TRI_DI_WRITE],
                  triforce.hooks[GC_TRI_DI_INQUIRY], triforce.hooks[GC_TRI_DI_EXECUTE]);
         }
+        // The main program's patching takes most of a launch (seconds on a
+        // Wii): the bar moves through it, step by step.
+        if (main_program) gc_progress("Getting the game ready", 52);
         const unsigned di_patches = redirect_di_registers(code, di_regs);
         unsigned wii_mixed = 0;
         const unsigned wii_blocks = redirect_wii_blocks(code, wii_mixed);
@@ -3687,6 +3821,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             code.put(fix.address, fix.replacement);
             logf("GameCube: game fix at 0x%08x: %s\n", static_cast<unsigned>(fix.address), fix.what);
         }
+        if (main_program) gc_progress("Getting the game ready", 58);
         // Reset restarts the game, as on a GameCube (gc_on_hot_reset): the
         // game's OSResetSystem and its reset routine go to the blob, and MEM1's
         // pieces as they are at the jump are kept in MEM2 to be put back, in
@@ -3976,6 +4111,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         std::vector<std::uint32_t> stub_words;
         // A game whose own checks need the SDK's ARAM addresses keeps them
         // (gxpatches.hpp's gc_keeps_aram_addresses).
+        if (main_program) gc_progress("Getting the game ready", 66);
         const bool keep_aram = gc_keeps_aram_addresses(image.id) || test_keep_aram;
         // Read before ARGetBaseAddress is raised, which changes its shape.
         const std::vector<std::uint32_t> aram_ends_after_base = find_gc_aram_ends_after_base(code.ranges());
@@ -4031,6 +4167,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             logf("GameCube: no GXInitTlutObj keeping stale palette address bits found (none in this game, or another "
                  "SDK's that the search does not know): its palettes load as the game builds them\n");
         }
+        if (main_program) gc_progress("Getting the game ready", 70);
         const GcClocks program_clocks = match_game_to_clocks(code, dol);
         if (main_program) clocks = program_clocks;
         logf("GameCube: ARAM in MEM2 through ARStartDMA 0x%08x, size check %s\n", ar_dma,
@@ -4123,6 +4260,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const std::vector<GcResidentRegion> resident_base = read_resident(resident_pieces);
     if (!patch_program(dol, code, low, ogc, ogc_di_handler, ogc_create_alarm, di_starts, true, error)) return false;
 
+    gc_progress("Getting the game's other programs ready", 75);
     // Programs the game loads itself (riftwii/gcprograms.hpp): its ELF
     // files, each patched as the disc's own program is, from RiftWii's part
     // of MEM1 as it was before any patch; that part is then put back as the
@@ -4399,6 +4537,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // and the ARAM stubs is the disc's own program's again.
     ICInvalidateRange(reinterpret_cast<void*>(moved_addr), kMovedBytes);
     ICInvalidateRange(reinterpret_cast<void*>(stubs_addr), kStubBytes);
+    gc_progress("Adding the cheats", 90);
     // The cheats' hook, last: every patch above is in, so none can have
     // taken its word unnoticed.
     if (!cheats.gct.empty()) {
@@ -4444,25 +4583,33 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     } else {
         mem2_image.swap(mem2_stage);
     }
+    // The console's TV format the game reads (0x800000CC): its own region
+    // always, even in PAL 60: the VI it sets up for that is the same, and
+    // a game told PAL might pick its 576-line modes or refuse to start.
     const std::uint32_t tv_mode = gc_pal_game(image.id) ? 1 : 0;  // PAL or NTSC
-    // The picture the game is handed: the Wii's video encoder in the game's
-    // region (its own region setting must match the game's picture, or a US
-    // game on a PAL Wii shows red as blue), and for a game given 480p the
-    // VI already in NTSC 480p at 54 MHz, as a GameCube with a component
+    // The picture the game is handed: the Wii's video encoder in the
+    // signal the launch chose (gc_tv_signal: the game's region, or PAL 60
+    // or NTSC as Video mode asks; its region setting must suit the game's
+    // picture, or a US game on a PAL Wii shows red as blue), and for a game
+    // given 480p the VI already in NTSC 480p at 54 MHz, as a GameCube with a component
     // cable has it when a game starts. Handed over in 480i, a game that
     // then went to 480p came out with red and blue swapped, its picture
     // doubled side by side and running slowly (Super Mario Sunshine on a
     // Wii U, a Wii through HDMI): an educated guess that the game's own
     // VI set-up leaves the clock at 27 MHz, or that the switch back and
     // forth loses the TV's or the HDMI adapter's lock. Untested on a Wii.
-    std::uint32_t handover = tv_mode == 1 ? RWP_TV_PAL : RWP_TV_NTSC;
+    std::uint32_t handover = image.tv_signal;
+    if (handover != RWP_TV_PAL && handover != RWP_TV_EURGB60) handover = RWP_TV_NTSC;
     const bool handover_480p = handover == RWP_TV_NTSC && (image.progressive || test_handover_480p) && !test_handover_480i;
     if (test_ave_keep) handover = RWP_TV_KEEP;
     else if (handover_480p) handover = RWP_TV_NTSC_480P;
     logf("GameCube: handed over in %s\n", handover == RWP_TV_KEEP          ? "the menu's own video mode (avekeep)"
                                           : handover == RWP_TV_NTSC_480P ? "NTSC 480p"
                                           : handover == RWP_TV_PAL       ? "PAL 576i"
+                                          : handover == RWP_TV_EURGB60   ? "PAL 60 Hz (EuRGB60, 480i)"
                                                                          : "NTSC 480i");
+    // Last, while the frame on screen is still the launch screen.
+    gc_progress("Starting the game", 100);
     logf("Releasing the SD card (the log ends here; the rest is on screen)\n");
     LogClose();
     rwp_sd_card card{};
@@ -4562,6 +4709,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // and nothing reads the heap after.
     std::memmove(reinterpret_cast<void*>(mem2_from), mem2_image.data(), mem2_image.size());
     DCFlushRange(reinterpret_cast<void*>(mem2_from), mem2_image.size());
+    // MEM2's test code (gc_rt_cold.mem2_code) is fetched as instructions.
+    if (test_mem2_code) ICInvalidateRange(reinterpret_cast<void*>(cold_addr), sizeof(gc_rt_cold));
     reinterpret_cast<void (*)(std::uint32_t)>(blob_addr + h.trace_now)(GC_TRACE_JUMP);
     // Until the game's OS installs its own exception handlers, every
     // vector goes to the blob's crash screen (gc_on_fatal), so a crash in

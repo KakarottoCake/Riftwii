@@ -20,6 +20,10 @@ constexpr std::int64_t kEmulatorArtWeek = 7 * 24 * 60 * 60;
 // covers and for the optional libretro system folder in the manifest.
 bool emulator_art_component(const std::string& name);
 bool emulator_cover_id(const std::string& id);
+// Persistent paths use the scanned game's stable ID, never a catalog index
+// or a download session. Banner shapes share source misses, not pictures.
+std::string emulator_art_cache_path(const std::string& id);
+std::string emulator_art_miss_path(const std::string& id, const std::string& source);
 std::string libretro_cover_name(const std::string& game);
 std::string libretro_cover_url(const std::string& system, const std::string& name = "");
 

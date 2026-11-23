@@ -887,7 +887,7 @@ int gc_bt_wants_frame_polls(const struct gc_bt* bt) {
     return 0;
 }
 
-void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
+GC_EMUTEST_ENTRY void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
     uint32_t i, n, msr, handled;
     if (bt->stage == GC_BT_STAGE_FAILED) return;
     msr = gc_irq_off();
