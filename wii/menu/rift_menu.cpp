@@ -5674,8 +5674,10 @@ static int RequireChannelUpdate(FrontendState& state)
 // Home's look for games runs on a thread of its own (homescan.hpp), so the
 // menu answers while a big USB drive is read: the SD card's games show as
 // soon as the card is read, the drive's after it. Until both are in, Home
-// reads no game image and starts no download, and a game picked meanwhile
-// opens once they are (g_openWhenScanned).
+// reads no game image and starts no download. A game picked meanwhile
+// opens once its drive is read when it needs no game page (a homebrew
+// app, an emulator's game, a channel's banner: OpensDuringScan), else once
+// both are (g_openWhenScanned, or Home's wait as it closes).
 static bool g_scanning = false;
 static bool g_sdScanOk = false;
 static std::string g_sdScanError;      // for WarnAboutDrives, once the USB drive is read too
@@ -7099,7 +7101,7 @@ static int MenuSource(FrontendState& state)
 	const auto setViewText = [&](const std::string& text) {
 		viewTxt.SetText(text.c_str());
 		if (sideW <= 0) return;
-		for (int size = 14; size >= 12; --size) {
+		for (int size = dip ? 15 : 16; size >= 12; --size) {
 			viewTxt.SetFontSize(size);
 			if (viewTxt.GetTextWidth() <= sideW) break;
 		}
@@ -7112,11 +7114,13 @@ static int MenuSource(FrontendState& state)
 		const bool sourceLimited = g_search.empty() && g_filter != Filter::Homebrew &&
 			riftwii::wii::Settings().home_source != "all";
 		if (sourceLimited) name += std::string(" · ") + HomeSourceName(riftwii::wii::Settings().home_source);
-		if (dip && sourceLimited && wide == 0) {
+		if (dip && sourceLimited && wide == 0 && !grid.Channels()) {
 			// The corner beside the clock is only 89px in 4:3. A scoped
 			// category gets the full line above the bar, below the tiles.
 			// A widescreen menu's corner has the room, and its covers'
-			// caption needs that line (they are taller).
+			// caption needs that line (they are taller); so does the
+			// Channels view's (its grid is taller), where the name is made
+			// smaller to fit the corner, or cut short.
 			Place(viewTxt, 0, 316, true);
 			viewTxt.SetFontSize(14);
 			viewTxt.SetMaxWidth(544 + 2 * wide);
@@ -8752,10 +8756,11 @@ static int MenuSource(FrontendState& state)
 		g_openWhenScanned.clear();
 		g_startWhenScanned = false;
 	}
-	// A game's page opens at once too: only a game on the card or the Wii
-	// gets one during the scan (OpensDuringScan), and starting it waits for
-	// the scan (MainMenu, on its way out).
-	if (g_scanning && menu != MENU_OPTIONS && menu != MENU_HOME && !rebuildingHome) {
+	// A game's page waits too, even a game on the card: the page lists the
+	// game's packs and saves their choices, and the USB drive's packs are
+	// in the catalog only once its part is in (a page opened before would
+	// save a list without them and lose their choices).
+	if (g_scanning && menu != MENU_OPTIONS && !rebuildingHome) {
 		logf("Home: closed while the drives are read; waiting for the scan\n");
 		while (!riftwii::wii::DriveScanDone()) {
 			riftwii::wii::StartDriveScan();
@@ -20689,9 +20694,8 @@ int MainMenu(int menu, FrontendState& state)
 	}
 
 	logf("Screen: %s\n", ScreenName(currentMenu));
-	// Leaving the menu from Settings or a game's page while the drives were
-	// still being read (a game started from a page opened during the scan,
-	// a channel, HOME > exit): the scan is over before anything else takes
+	// Leaving the menu from Settings while the drives were still being read
+	// (a channel, HOME > exit): the scan is over before anything else takes
 	// the drives, the wait said on screen (a big USB drive takes seconds).
 	if (!riftwii::wii::DriveScanDone()) {
 		logf("Menu: waiting for the scan to finish reading the drives\n");
