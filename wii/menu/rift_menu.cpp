@@ -1920,7 +1920,7 @@ public:
 		text.Draw();
 	}
 private:
-	static constexpr int kMaxText = 400;  // the box ends by x 555, clear of the search button (x 568)
+	static constexpr int kMaxText = 400;  // the box ends by x 555
 	GuiText text;
 	int lines = 1, textW = 0;
 	bool isError = false, on = false;
@@ -2931,39 +2931,6 @@ private:
 	bool overshoot;
 	float ms;
 	u64 start = 0;
-};
-
-// The box behind a hover name, so it reads over covers: a rounded card
-// with a soft shadow in the theme's colours (skin::HintBox), sized to the
-// text and fading with it. `anchorX` is the text's centre (centred) or
-// its right end, `top` the text's top, both on screen.
-class HintChip : public GuiElement {
-public:
-	HintChip(GuiText& text, int anchorX, int top, bool centred)
-		: text_(text), anchorX_(anchorX), top_(top), centred_(centred) {}
-	void Draw() override {
-		if (!text_.IsVisible() || text_.GetAlpha() <= 0) return;
-		const int w = (text_.GetTextWidth() + 24 + 3) & ~3, h = 28;
-		const skin::Tex box = skin::HintBox(w, h);
-		if (box.data == nullptr) return;
-		int x = centred_ ? anchorX_ - w / 2 : anchorX_ - w + 12;
-		if (centred_) {
-			// A long name by a corner button stays on the screen (8 in from
-			// its edges, a widescreen menu's too), and its text with it.
-			f32 safeX, safeW;
-			Menu_SafeArea(&safeX, &safeW);
-			const int left = static_cast<int>(safeX) + 8, right = static_cast<int>(safeX + safeW) - 8;
-			x = std::max(left, std::min(x, right - w));
-			text_.SetPosition(x + w / 2 - 320, top_);
-		}
-		Menu_DrawImg(x - riftwii::kHintBoxMargin, top_ - 5 - riftwii::kHintBoxMargin, box.w, box.h, box.data, 0, 1, 1,
-			static_cast<u8>(text_.GetAlpha()));
-	}
-
-private:
-	GuiText& text_;
-	int anchorX_, top_;
-	bool centred_;
 };
 
 // Home with no games on either drive: where to put them, on a card over
@@ -5759,16 +5726,16 @@ static bool SdWatchRemountForMenu()
 }
 
 // Whether a tile can open while the scan still reads the USB drive: a
-// game on the SD card, a channel on the Wii or in an emulated NAND on the
-// card, a homebrew app, an emulator's game on the card. A USB game's page
-// reads its image, which the scan may be mounting, and the disc's tile
-// reads the drive the scan may be asking: those wait. Starting a game
-// from a page waits for the scan too (Home waits for it when it closes).
+// channel on the Wii or in an emulated NAND on the card, a homebrew app,
+// an emulator's game on the card. A game image's page checks the image
+// first, behind the USB drive's lock even for a game on the card
+// (check_image_game), and the disc's tile reads the drive the scan may be
+// asking: those wait. A game page opened meanwhile waits for the scan too
+// (Home waits for it when it closes).
 static bool OpensDuringScan(const FrontendState& state, const HomeEntry& entry)
 {
 	if (!g_sdPartTaken) return false;
 	switch (entry.kind) {
-	case HomeEntry::Kind::Sd:
 	case HomeEntry::Kind::App:
 		return true;
 	case HomeEntry::Kind::Channel: {
@@ -8356,7 +8323,13 @@ static int MenuSource(FrontendState& state)
 		// Opening a USB or disc game reads its image, which the scan may be
 		// mounting: it waits for the scan, and Home answers meanwhile.
 		// Games on the card or the Wii open once the card's part is in.
-		if (g_scanning && clicked >= 0 && static_cast<std::size_t>(clicked) < items.size() &&
+		// A game on the card in the Channels view: its banner screen opens
+		// meanwhile when the card has the banner; going on from it, or no
+		// banner, waits as well (below, after ShowChannel).
+		const bool sdBannerNow = g_scanning && g_sdPartTaken && grid.Channels() && !randomStart &&
+			clicked >= 0 && static_cast<std::size_t>(clicked) < entries.size() &&
+			entries[static_cast<std::size_t>(clicked)].kind == HomeEntry::Kind::Sd;
+		if (g_scanning && clicked >= 0 && static_cast<std::size_t>(clicked) < items.size() && !sdBannerNow &&
 		    !(static_cast<std::size_t>(clicked) < entries.size() && OpensDuringScan(state, entries[static_cast<std::size_t>(clicked)]))) {
 			const GridItem& picked = items[static_cast<std::size_t>(clicked)];
 			g_openWhenScanned = tileIdentity(clicked);
@@ -8423,9 +8396,10 @@ static int MenuSource(FrontendState& state)
 					if (!riftwii::wii::BannerWanted(id)) return false;
 					// No game image is read while the drives are: reading one
 					// takes the USB drive's lock even for a game on the card,
-					// and a slow drive's mount would hold Home up. The banner
-					// is read from the image once the scan is done (shown
-					// meanwhile without it; it is not marked as missing).
+					// and a slow drive's mount would hold Home up. Without a
+					// banner the game goes on to its page, which waits for
+					// the scan (below); it is not marked as missing, so the
+					// banner is read from the image next time.
 					if (g_scanning) return false;
 					std::string why;
 					g_bannersTried.insert(id);
@@ -8450,9 +8424,10 @@ static int MenuSource(FrontendState& state)
 					if (!grid.TileRect(clicked, tile.x, tile.y, tile.w, tile.h)) tile = transition::Rect{};
 					g_openRect = tile;
 				}
-				// The arrows may have reached a USB game: it opens once the
-				// drives are read, looked up again then by what it is (the
-				// USB drive's games may have come in or gone).
+				// The arrows may have reached a USB game, or the player goes
+				// on from a game image's banner (its page checks the image):
+				// it opens once the drives are read, looked up again then by
+				// what it is (the USB drive's games may have come in or gone).
 				if (go && g_scanning && !OpensDuringScan(state, entries[static_cast<std::size_t>(clicked)])) {
 					g_openWhenScanned = tileIdentity(clicked);
 					g_startWhenScanned = choice == ChannelChoice::Start;

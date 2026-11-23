@@ -308,7 +308,7 @@ float GuiGameGrid::CoverScale() const {
 const GuiGameGrid::Geometry& GuiGameGrid::Geo() const {
     // The top row leaves room above it for the grown ring and its shadow.
     // 120 x 84, the Wii Menu's channel shape (about 1.43 to 1 on a 4:3
-    // menu); clear of the search button (x 568).
+    // menu).
     static const Geometry names = {kNameCols, 120, 84, 61, 36, 13, 12};  // channels: channelGeo
     // Roomy: 9/10 the size and 18 apart, about 77 at each side, the rows
     // centred where the normal ones are.
@@ -638,13 +638,12 @@ void GuiGameGrid::TurnPage(int delta) {
         const float bottom = static_cast<float>(
             std::max(TileY(kPerPage - 1) + Geo().tileH + 30, covers || channels ? CoverCaptionY() + kCaptionSize + 14 : 0));
         // Across the tiles' columns only (their lit edge included): the
-        // search button above the last column and the page arrows stay
-        // out, or the sliding picture took a copy of them along (a
-        // tester saw the magnifier's ghost).
+        // page arrows stay out, or the sliding picture took a copy of them
+        // along (a tester saw a button's ghost).
         const Geometry& g = Geo();
         const float left = std::max({vx, static_cast<float>(g.left - 12), static_cast<float>(ArrowX(-1) + 44)});
         const float right = std::min({vx + vw, static_cast<float>(g.left + cols * g.tileW + (cols - 1) * g.gapX + 12),
-                                      static_cast<float>(ArrowX(1))});  // the right arrow and the search button start here
+                                      static_cast<float>(ArrowX(1))});  // the right arrow starts here
         riftwii::wii::transition::Begin(delta > 0 ? riftwii::wii::transition::Kind::PageForward
                                                   : riftwii::wii::transition::Kind::PageBack,
                                         riftwii::wii::transition::Rect{left, top, right - left, bottom - top});
@@ -679,13 +678,9 @@ int GuiGameGrid::SlotAt(int x, int y) const {
 }
 
 int GuiGameGrid::ArrowAt(int x, int y) const {
-    // Covers' top row starts at y 38, beside Home's Layout and Search
-    // buttons in the top corners (y 24 to 64, rift_menu.cpp): the side
-    // pages' band starts under them, or one press both turned the page and
-    // opened the button's picker. Channels keep those buttons in the bar.
-    constexpr int kCornerButtonsBottom = 64;
-    const int bandTop = covers ? std::max(TileY(0), kCornerButtonsBottom) : TileY(0);
-    if (PagePeek() && y >= bandTop && y < TileY(kPerPage - 1) + Geo().tileH) {
+    // The side pages' band runs the tiles' height (Layout and Search are
+    // on the bar, under it).
+    if (PagePeek() && y >= TileY(0) && y < TileY(kPerPage - 1) + Geo().tileH) {
         // A neighbouring page's column is its arrow, from the screen's edge
         // to the page's own columns.
         const Geometry& g = Geo();
@@ -1285,7 +1280,8 @@ void GuiGameGrid::Draw() {
         }
         caption->SetPosition(0, CoverCaptionY());
         caption->Draw();
-        PrefetchCovers();
+        // Channels show icons, not covers: nothing to read ahead for them.
+        if (covers) PrefetchCovers();
     }
     if (page > 0)
         riftwii::wii::DrawInvitingArrow(skin::arrowLeft, skin::arrowLeftOver, ArrowX(-1) - 2, ArrowY() - 2,
