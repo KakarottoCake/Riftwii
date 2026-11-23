@@ -2870,7 +2870,8 @@ public:
 	// call can't mean one for the other.
 	explicit NoteCard(int x = kX, int top = kY) : x(x), top(top) {}
 	void Draw() override {
-		skin::Draw(skin::iconInfo, x + 2, top + 7, GetAlpha() / 2);
+		// At full strength: at half, a composite cable left it at 1.4:1.
+		skin::Draw(skin::iconInfo, x + 2, top + 7, GetAlpha());
 	}
 private:
 	int x;
