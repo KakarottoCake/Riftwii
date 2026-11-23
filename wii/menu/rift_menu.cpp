@@ -2475,7 +2475,9 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 	// Settings and Start a little further apart than the usual pair, so
 	// Favourite fits between them: on the bar rather than in a corner of
 	// the banner, where it covered the banner's own art and text.
-	constexpr int kBannerLeftX = 38, kBannerRightX = 358, kBannerStarX = 293;
+	// The star in the middle of the gap between the two buttons, measured on
+	// a screenshot (at 293 it sat 4 pixels left of it).
+	constexpr int kBannerLeftX = 38, kBannerRightX = 358, kBannerStarX = 297;
 	SkinButton goBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, kBannerRightX, 384, tr("Start"),
 		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A | PAD_BUTTON_START, WIIDRC_BUTTON_A);
 	goBtn.text.SetColor(skin::kAccentInk);
@@ -2494,7 +2496,7 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 		WIIDRC_BUTTON_RIGHT | WIIDRC_BUTTON_PLUS);
 	// Favourite: a small round button between Settings and Start (or 1),
 	// level with their middle, its star filled while the game shown is one.
-	SkinButton starBtn(skin::roundBtn, skin::roundBtnOver, 2, kBannerStarX, 385, nullptr,
+	SkinButton starBtn(skin::roundBtn, skin::roundBtnOver, 2, kBannerStarX, 387, nullptr,
 		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X, &skin::iconStar, 0.6f);
 	GuiImage starOn(skin::iconStarOn.data, skin::iconStarOn.w, skin::iconStarOn.h);
 	starOn.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::MIDDLE);
@@ -8410,8 +8412,11 @@ static int MenuSource(FrontendState& state)
 					if (e.kind == HomeEntry::Kind::Disc || e.kind == HomeEntry::Kind::App) return false;
 					const std::string& id = items[static_cast<std::size_t>(i)].id;
 					// The banner already reads the card. Prepare this tile's
-					// choices and cached facts here so Settings uses memory.
-					riftwii::wii::PrepareGameChoices(state, id, e.profile);
+					// choices and cached facts here so Settings uses memory;
+					// not while the drives are read: the choices look in the
+					// USB drive's mod folders, behind the scan's lock (the
+					// page, which waits for the scan, prepares them then).
+					if (!g_scanning) riftwii::wii::PrepareGameChoices(state, id, e.profile);
 					riftwii::GameInfo info;
 					riftwii::wii::PeekGameInfo(id, info);
 					if (riftwii::wii::LoadBanner(id, bytes)) return true;
