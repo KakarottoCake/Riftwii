@@ -247,8 +247,22 @@ GXColor BadgeColor(const GridItem& item) {
 // on a dark one, whatever the theme makes them (Midnight's pale accent
 // left MODS white on pale blue, almost unreadable on a TV).
 GXColor ReadableOn(GXColor background) {
-    const int luma = (background.r * 299 + background.g * 587 + background.b * 114) / 1000;
-    return luma > 150 ? GXColor{24, 28, 36, 255} : GXColor{255, 255, 255, 255};
+    // Whichever of the two stands out more from the badge, by the contrast
+    // of their relative luminances (mid tones too, where a plain brightness
+    // cut-off gave white on a badge dark text reads better on).
+    const auto linear = [](std::uint8_t channel) {
+        const float c = channel / 255.0f;
+        return c <= 0.04045f ? c / 12.92f : std::pow((c + 0.055f) / 1.055f, 2.4f);
+    };
+    const auto luminance = [&](GXColor c) {
+        return 0.2126f * linear(c.r) + 0.7152f * linear(c.g) + 0.0722f * linear(c.b);
+    };
+    const GXColor dark{24, 28, 36, 255};
+    const GXColor white{255, 255, 255, 255};
+    const float back = luminance(background);
+    const float withWhite = (1.0f + 0.05f) / (back + 0.05f);
+    const float withDark = (back + 0.05f) / (luminance(dark) + 0.05f);
+    return withDark > withWhite ? dark : white;
 }
 
 // A tiny label (WII, GC, SD, MODS), drawn twice a pixel apart: at 10
@@ -932,9 +946,16 @@ void GuiGameGrid::DrawCoverTile(int index, Slot* text, float x, float y, float s
     DrawTinyLabel(text->badge, badgeX + 5, baseY);
     if (item.mods || item.to_build) {
         const int modsW = text->mods->GetTextWidth() + 10 + kTinyBold;
-        const int modsX = at_x(5);
-        Menu_DrawRectangle(modsX, baseY - 1, modsW, 15, skin::WithAlpha(skin::kAccentInk, alpha), 1);
-        DrawTinyLabel(text->mods, modsX + 5, baseY);
+        const int modsX = at_x(7);
+        // A narrow cover (4:3) has no room for MODS and the source side by
+        // side with a gap: MODS goes a row up, at the cover's right like the
+        // badge, rather than touching it ("MODSSD").
+        constexpr int kGap = 4;
+        const bool sideBySide = modsX + modsW + kGap <= badgeX;
+        const int tagX = sideBySide ? modsX : badgeX + badgeW - modsW;
+        const int tagY = sideBySide ? baseY : baseY - 17;
+        Menu_DrawRectangle(tagX, tagY - 1, modsW, 15, skin::WithAlpha(skin::kAccentInk, alpha), 1);
+        DrawTinyLabel(text->mods, tagX + 5, tagY);
     }
 }
 
