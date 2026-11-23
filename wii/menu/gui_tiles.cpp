@@ -153,6 +153,9 @@ void GuiTiles::Layout(int i) {
         // A name alone: the font's letters sit low in their line, so it is
         // raised to look centred on the tile and its icon (About, Exit).
         if (!hasValue) labelY -= 3;
+        // A name over its value sat 2 to 3 pixels low by the same measure
+        // (Cheats over Off on the game page): raised too.
+        else labelY -= 2;
     }
     const int chevronRoom = s.opensPage ? 18 : 0;
     int room = s.x + s.w - kPad - textX - chevronRoom;
@@ -217,14 +220,21 @@ void GuiTiles::Draw() {
         // Lit, the tile grows a little about its middle and its ring fades in.
         const float grow = SwellScale(i);
         Menu_PushCamera(PressedScale(i), s.x + s.w / 2.0f, s.y + s.h / 2.0f);
-        const float w = s.w * grow, h = s.h * grow;
+        float w = s.w * grow, h = s.h * grow;
         f32 safeX, safeW;
         Menu_SafeArea(&safeX, &safeW);
-        // At an outer edge the growth goes inward, including its shadow.
+        // At an outer edge the tile doesn't grow past it (its shadow stays in
+        // the overscan): that side stays put and the other grows its usual
+        // half. Moving the whole growth inward instead pushed the lit Play,
+        // which ends at the right edge, twice as far left, into the cover.
         const float safeLeft = safeX + safeW * 0.05f + kShadow;
         const float safeRight = safeX + safeW * 0.95f - kShadow;
-        const float x = std::clamp(s.x - (w - s.w) / 2, safeLeft, safeRight - w);
-        const float y = std::clamp(s.y - (h - s.h) / 2, 24.0f + kShadow, 456.0f - kShadow - h);
+        const float restX = std::clamp(static_cast<float>(s.x), safeLeft, safeRight - s.w);
+        const float restY = std::clamp(static_cast<float>(s.y), 24.0f + kShadow, 456.0f - kShadow - s.h);
+        const float x = std::max(restX - (w - s.w) / 2, std::min(safeLeft, restX));
+        const float y = std::max(restY - (h - s.h) / 2, std::min(24.0f + kShadow, restY));
+        w = std::min(restX + s.w + (w - s.w) / 2, std::max(safeRight, restX + s.w)) - x;
+        h = std::min(restY + s.h + (h - s.h) / 2, std::max(456.0f - kShadow, restY + s.h)) - y;
         const skin::Tex& base = s.primary ? skin::tile9Primary : skin::tile9;
         const skin::Tex& over = s.primary ? skin::tile9PrimaryOver : skin::tile9Over;
         const int tileAlpha = s.dim ? alpha * 3 / 4 : alpha;

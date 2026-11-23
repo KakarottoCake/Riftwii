@@ -12883,12 +12883,16 @@ static constexpr int kHeroX = 40, kHeroY = 80, kHeroW = 150, kHeroH = 206;
 // The tiles start 12 after the box, the gap between the tiles themselves.
 static constexpr int kTilesX = kHeroX + kHeroW + 12, kTilesRight = 600;  // 40 in from each side, as the box
 static constexpr int kTilesW = kTilesRight - kTilesX;
+// The tiles' first row starts 12 under the game's band, as the rows are
+// apart; a channel's card (no box) starts there too, level with Play.
+static constexpr int kTilesTop = 132;
 // The game's disc under its box (Settings > Disc art), at the left of
 // the space the Favourite tile has otherwise: as tall as fits between the
 // box's shadow and the status lines along the bottom, the Favourite tile
-// narrowed to its star beside it.
-static constexpr int kHeroDiscSize = 60, kHeroDiscY = 292;
-static constexpr int kFavoriteY = 298, kFavoriteH = 54;
+// narrowed to its star beside it. The lower row is as tall as the one
+// above it (Cheats, Saves), and the disc ends with it.
+static constexpr int kHeroDiscSize = 60, kHeroDiscY = 296;
+static constexpr int kFavoriteY = 298, kFavoriteH = 58;
 static constexpr int kStarX = kHeroX + kHeroDiscSize + 8, kStarW = kHeroX + kHeroW - kStarX;
 
 
@@ -12993,7 +12997,12 @@ public:
 		// A channel's icon gets a card of its own shape (4:3, as the
 		// Channels view shows it), centred down the box's place, rather
 		// than the box's tall one with black above and below.
-		const float ch = icon ? (w - 8) * 3 / 4 + 8 : h, cy = y + (h - ch) / 2;
+		// Its top is 12 under the band, level with the page's first row
+		// (kTilesTop) at any size, rather than centred down the box's
+		// place, which left it 5 pixels above Play and, on About (a
+		// smaller box), over the band's edge.
+		const float ch = icon ? (w - 8) * 3 / 4 + 8 : h;
+		const float cy = icon ? y + (kTilesTop - kHeroY) : y;
 		skin::DrawNine(skin::card9, x - 8, cy - 8, w + 16, ch + 16, riftwii::kCardCorner);
 		ring(x, cy, w, ch);
 		const float ax = x + 4, ay = cy + 4, aw = w - 8, ah = ch - 8;
@@ -15430,7 +15439,7 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 		// A WiiWare or Virtual Console game: no packs are made for them,
 		// and its saves stay where the Wii keeps them. Play across the
 		// row, the cheats and the game's settings under it.
-		add(GameTile::Play, tilesX, 132, page.right - tilesX, 84, tr("Play"), "", &skin::iconPlay, false);
+		add(GameTile::Play, tilesX, kTilesTop, page.right - tilesX, 84, tr("Play"), "", &skin::iconPlay, false);
 		add(GameTile::Cheats, tilesX, 228, halfWidth, 58, tr("Cheats"), cheats, &skin::iconCheats,
 			game.cheats && !game.cheat_names.empty());
 		add(GameTile::Saves, rightX, 228, halfWidth, 58, tr("Boot"), ChannelBootLabel(game.nand_source),
@@ -15444,10 +15453,10 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 		return;
 	}
 	const int playWidth = 252 + (tilesWidth - kTilesW) / 2;
-	add(GameTile::Play, tilesX, 132, playWidth, 84, play, playValue, &skin::iconPlay, false);
+	add(GameTile::Play, tilesX, kTilesTop, playWidth, 84, play, playValue, &skin::iconPlay, false);
 	// "On" alone: the tile is narrow ("1 switched on" was cut to "1 switc..."),
 	// and Play beside it says how many.
-	add(GameTile::Mods, tilesX + playWidth + 12, 132, tilesWidth - playWidth - 12, 84, tr("Mods"),
+	add(GameTile::Mods, tilesX + playWidth + 12, kTilesTop, tilesWidth - playWidth - 12, 84, tr("Mods"),
 		shown == 0 ? tr("None") : enabled == 0 ? tr("Off") : tr("On"),
 		&skin::iconMods, enabled != 0);
 	add(GameTile::Cheats, tilesX, 228, halfWidth, 58, tr("Cheats"), cheats, &skin::iconCheats,
@@ -16189,7 +16198,7 @@ static int MenuHome(FrontendState& state)
 	// Both help lines fit above the controls band, even at 4:3. Longer
 	// errors and translated help scroll through this same two-line area.
 	GuiText statusTxt("", 15, skin::kInkSoft);
-	Place(statusTxt, page.left, 362);
+	Place(statusTxt, page.left, 366);
 	statusTxt.SetWrap(true, page.Width(), 2);
 	statusTxt.SetScroll(SCROLL::VERTICAL);
 	// Dump (a development aid) has no button: the Wii Remote's 2 or a
