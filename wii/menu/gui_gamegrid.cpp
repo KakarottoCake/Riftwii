@@ -879,10 +879,28 @@ void GuiGameGrid::DrawCoverTile(int index, Slot* text, float x, float y, float s
     // and shadow, the cover's size, ringed it (plain on a white Wii cover's
     // edge). The card stays for the lit tile's ring and under a tile with
     // no cover.
-    const skin::Tex& frame = skin::coverTile;
-    if (on || (!cover && !madeUp)) skin::Draw(frame, cx - frame.w / 2.0f, cy - frame.h / 2.0f, alpha, scale * kCoverScale);
-    if (on) skin::Draw(skin::coverTileOver, cx - frame.w / 2.0f, cy - frame.h / 2.0f,
-                       static_cast<int>(alpha * riftwii::wii::transition::Pulse()), scale * kCoverScale);
+    //
+    // The card pictures (cover_tile, cover_tile_over) are a cover-sized card
+    // 7 in from their edges, padded 2 more on the right and at the foot to a
+    // texture's multiple of 4: their middle is the card's plus a pixel each
+    // way. The lit card's ring is drawn just inside the card's edge; at the
+    // cover's size the cover hid it, and a pixel off its middle only its
+    // top and left showed. Lit, the card is drawn a ring's width larger all
+    // round, so the ring shows whole, just outside the cover.
+    constexpr float kCardPadding = 1.0f;  // the picture's middle past the card's
+    constexpr float kRingWidth = 2.5f;    // as skinpaint.cpp's Card() draws it
+    const auto draw_card = [&](const skin::Tex& t, int cardAlpha, bool ringOutside) {
+        if (!t.data || cardAlpha <= 0) return;
+        const float k = scale * kCoverScale;
+        const float kx = ringOutside ? k * riftwii::kCoverWidth / (riftwii::kCoverWidth - 2 * kRingWidth) : k;
+        const float ky = ringOutside ? k * riftwii::kCoverHeight / (riftwii::kCoverHeight - 2 * kRingWidth) : k;
+        // Menu_DrawImg scales about the picture's middle: put the card's on
+        // the tile's.
+        Menu_DrawImg(cx + kCardPadding * kx - t.w / 2.0f, cy + kCardPadding * ky - t.h / 2.0f, static_cast<u16>(t.w),
+                     static_cast<u16>(t.h), t.data, 0, kx, ky, static_cast<u8>(cardAlpha > 255 ? 255 : cardAlpha));
+    };
+    if (on || (!cover && !madeUp)) draw_card(skin::coverTile, alpha, on);
+    if (on) draw_card(skin::coverTileOver, static_cast<int>(alpha * riftwii::wii::transition::Pulse()), true);
     if (madeUp) {
         riftwii::wii::DrawMadeUpCover(madeUp, cx - riftwii::kCoverWidth / 2.0f, cy - riftwii::kCoverHeight / 2.0f, alpha,
                                       scale * kCoverScale);
