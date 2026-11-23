@@ -116,6 +116,13 @@ The list comes from the internet, so RiftWii reads it as untrusted
   plain name, so nothing climbs out of the folder its rule names.
 - The download must match its SHA-256 before anything is written.
 - Icons come only from RiftWii's own site.
+- No app may take RiftWii's own folders (`apps/riftwii`, the channel
+  installer's) as its id, and a path part may not end in a dot or space
+  (FAT drops them) or be malformed UTF-8.
+
+The SHA-256s live in the list, so they are only as good as the list: it
+must always be fetched over verified TLS (`kAppListUrl` is `https://`, and
+stays so).
 
 `app_list.py --check-tool build-host/app_list_check build <manifests> <out>` reads every
 list it builds back through the Wii's parser and fails if the Wii would

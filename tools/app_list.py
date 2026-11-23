@@ -41,6 +41,7 @@ PLATFORMS = {"wii", "vwii", "mini"}
 RESERVED = {"apps", "riftwii", "private", "title", "ticket", "shared1", "shared2", "sys", "import", "meta",
             "tmp", "wfs", "nands", "wbfs", "games", "wad", "wads", "wiiware", "riivolution", "codes",
             "txtcodes", "gct", "saves", "bootmii", "wiiflow", "usbloader_gx", "nintendont", "roms"}
+RESERVED_IDS = {"riftwii", "riftwii_channel", "riftwii-channel"}
 MAX_DOWNLOAD = 128 << 20
 MAX_FILES = 8192
 MAX_UNPACKED = 256 << 20
@@ -61,7 +62,7 @@ class AppError(Exception):
 
 def id_ok(text):
     return (0 < len(text) <= LIMITS["id"] and text[0] not in ". " and text[-1] not in ". "
-            and re.fullmatch(r"[A-Za-z0-9\-_ .+()!]+", text) is not None)
+            and re.fullmatch(r"[A-Za-z0-9\-_ .+()!]+", text) is not None and text.lower() not in RESERVED_IDS)
 
 
 def data_folder_ok(text):
@@ -69,7 +70,7 @@ def data_folder_ok(text):
 
 
 def part_ok(part):
-    return (part not in ("", ".", "..") and len(part.encode()) <= 255
+    return (part.strip(".") != "" and part[-1] not in ". " and len(part.encode()) <= 255
             and not any(ord(c) < 0x20 or ord(c) == 0x7F or c in '/\\:*?"<>|' for c in part))
 
 
@@ -91,7 +92,12 @@ def https_url_ok(url, limit, http_too=False):
     if not m or len(url) > limit:
         return False
     host, path = m.group(1), m.group(2)
-    if "." not in host or not re.search(r"[A-Za-z]", host) or host[0] in ".-" or host[-1] == ".":
+    labels = host.split(".")
+    # A name, never an address in any spelling: no empty label, none that
+    # starts or ends with '-', and the last one letters only.
+    if len(labels) < 2 or any(not lb or lb[0] == "-" or lb[-1] == "-" for lb in labels):
+        return False
+    if not labels[-1].isalpha() or not labels[-1].isascii():
         return False
     return "/../" not in path and "/./" not in path and not path.endswith("/..")
 
@@ -149,8 +155,10 @@ def check_manifest(m, path):
     if "license" in m:
         need(isinstance(m["license"], str) and text_ok(m["license"], LIMITS["license"]), "license is too long")
     need(isinstance(m.get("page"), str) and https_url_ok(m["page"], LIMITS["page"]), "page must be an https:// address")
-    need(isinstance(m.get("platforms"), list) and m["platforms"] and set(m["platforms"]) <= PLATFORMS,
-         "platforms must list some of wii, vwii, mini")
+    need(isinstance(m.get("platforms"), list) and 0 < len(m["platforms"]) <= 3 and len(set(m["platforms"])) ==
+         len(m["platforms"]) and set(m["platforms"]) <= PLATFORMS, "platforms must list some of wii, vwii, mini, once each")
+    if "released" in m.get("source", {}):
+        need(re.fullmatch(r"\d{4}-\d{2}-\d{2}", m["source"]["released"]) is not None, "source.released is YYYY-MM-DD")
     if "newer" in m:
         need(id_ok(m["newer"]) and m["newer"] != m["id"], "newer must be another app's id")
     folders = m.get("data_folders", [])

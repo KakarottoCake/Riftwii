@@ -14,6 +14,11 @@ namespace {
 // A path on the card is at most this long, "apps/<id>/..." included.
 constexpr std::size_t kMaxCardPath = 255;
 
+// Ids an app may never have: its folder would be RiftWii's own
+// (apps/riftwii holds the running boot.dol and the plugins) or the
+// channel installer's. Compared without case (FAT).
+const char* const kReservedIds[] = {"riftwii", "riftwii_channel", "riftwii-channel"};
+
 // Folders on the card an app may never claim as its data: the Wii's own
 // (an emulated NAND's tree at the card's root), RiftWii's, and the ones
 // games, mods and other loaders read. Compared without case (FAT).
@@ -31,11 +36,13 @@ bool same_text_nocase(const std::string& a, const char* b) {
     return i == a.size() && b[i] == '\0';
 }
 
-// One part of a path inside a download: not empty, "." or "..", nothing FAT
-// refuses or reads as a separator, no control character, at most 255 bytes.
-// Other UTF-8 is fine (long file names hold it).
+// One part of a path inside a download: not empty or only dots, nothing
+// FAT refuses or reads as a separator, no control character, no trailing
+// dot or space (FAT drops them, so "boot.dol." would land on boot.dol), at
+// most 255 bytes, well-formed UTF-8 (long file names hold it).
 bool path_part_ok(const std::string& part) {
-    if (part.empty() || part.size() > 255 || part == "." || part == "..") return false;
+    if (part.empty() || part.size() > 255 || part.find_first_not_of('.') == std::string::npos) return false;
+    if (part.back() == '.' || part.back() == ' ' || !utf8_ok(part)) return false;
     for (char c : part) {
         const unsigned char u = static_cast<unsigned char>(c);
         if (u < 0x20 || u == 0x7F) return false;
@@ -97,14 +104,24 @@ bool web_url_ok(const std::string& url, std::size_t max_bytes, bool http_too) {
     const std::size_t host_end = url.find('/', scheme.size());
     if (host_end == std::string::npos || host_end == scheme.size()) return false;
     const std::string host = url.substr(scheme.size(), host_end - scheme.size());
-    bool dot = false, letter = false;
-    for (char c : host) {
-        if (c == '.') dot = true;
-        else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) letter = true;
-        else if (!((c >= '0' && c <= '9') || c == '-')) return false;  // '@', ':' (port), '[' ...
+    // Labels of letters, digits and '-' (no '@', no ':' for a port, no
+    // '['), none empty, and the last one letters only: a name, never an
+    // address in any spelling (0x7f.0x0.0x0.1, 2130706433).
+    std::size_t label_start = 0;
+    bool last_letters = true;
+    for (std::size_t i = 0; i <= host.size(); ++i) {
+        if (i == host.size() || host[i] == '.') {
+            if (i == label_start || host[label_start] == '-' || host[i - 1] == '-') return false;
+            label_start = i + 1;
+            if (i < host.size()) last_letters = true;
+            continue;
+        }
+        const char c = host[i];
+        const bool letter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+        if (!letter) last_letters = false;
+        if (!letter && !((c >= '0' && c <= '9') || c == '-')) return false;
     }
-    // A host of digits and dots only is an IPv4 address.
-    if (!dot || !letter || host.front() == '.' || host.back() == '.' || host.front() == '-') return false;
+    if (host.find('.') == std::string::npos || !last_letters) return false;
     for (std::size_t i = host_end; i < url.size(); ++i) {
         const char c = url[i];
         const bool plain = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' ||
@@ -150,13 +167,16 @@ struct RawApp {
     bool malformed = false;  // a field of the wrong kind, too many entries
 };
 
-// A string field; another kind of value marks the app malformed.
+// A string field; another kind of value, or one too long to keep, marks
+// the app malformed.
 bool read_text(JsonReader& r, RawApp& a, std::string& into) {
     if (r.peek() != '"') {
         a.malformed = true;
         return r.skip_value(1);
     }
-    return r.string(into);
+    if (!r.string(into)) return false;
+    if (r.last_overlong()) a.malformed = true;
+    return true;
 }
 
 // A whole number field.
@@ -189,7 +209,7 @@ bool read_strings(JsonReader& r, RawApp& a, std::vector<std::string>& into, std:
             if (!r.skip_value(2)) return false;
         } else {
             if (!r.string(item)) return false;
-            if (into.size() >= max) a.malformed = true;
+            if (r.last_overlong() || into.size() >= max) a.malformed = true;
             else into.push_back(item);
         }
         if (r.take(',')) continue;
@@ -385,6 +405,9 @@ bool app_id_ok(const std::string& id) {
         const bool ok = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' ||
                         c == '_' || c == ' ' || c == '.' || c == '+' || c == '(' || c == ')' || c == '!';
         if (!ok) return false;
+    }
+    for (const char* reserved : kReservedIds) {
+        if (same_text_nocase(id, reserved)) return false;
     }
     return id != "." && id != "..";
 }

@@ -53,16 +53,26 @@ public:
 
     // A string, with its escapes resolved to UTF-8 (a \u surrogate pair
     // becomes '?': the menu's font has no use for it).
+    // A string longer than kJsonMaxStringBytes is read to its end but not
+    // kept: `out` is left empty and last_overlong() says so, so a list can
+    // leave out the one entry that holds it instead of the whole list.
     bool string(std::string& out) {
         out.clear();
+        overlong_ = false;
         if (!take('"')) return false;
         while (at_ < size_) {
             const unsigned char c = static_cast<unsigned char>(text_[at_++]);
-            if (c == '"') return true;
-            if (out.size() > kJsonMaxStringBytes) return false;
+            if (c == '"') {
+                if (overlong_) out.clear();
+                return true;
+            }
+            if (out.size() > kJsonMaxStringBytes) {
+                overlong_ = true;
+                out.clear();
+            }
             if (c < 0x20) return false;
             if (c != '\\') {
-                out += static_cast<char>(c);
+                if (!overlong_) out += static_cast<char>(c);
                 continue;
             }
             if (at_ >= size_) return false;
@@ -173,11 +183,55 @@ private:
     const char* text_;
     std::size_t size_;
     std::size_t at_ = 0;
+    bool overlong_ = false;
+
+public:
+    // Whether the last string() was longer than the reader keeps.
+    bool last_overlong() const { return overlong_; }
 };
 
 // A name for the menu: printable, nothing that could be taken for layout.
 // Control characters turn into spaces; an empty one is refused.
+// Well-formed UTF-8: no stray continuation byte, no overlong form, no
+// surrogate, nothing past U+10FFFF (how libfat and the font would take
+// those is not something to depend on).
+inline bool utf8_ok(const std::string& text) {
+    std::size_t i = 0;
+    while (i < text.size()) {
+        const unsigned char c = static_cast<unsigned char>(text[i]);
+        std::size_t extra;
+        unsigned code;
+        if (c < 0x80) {
+            ++i;
+            continue;
+        } else if (c >= 0xC2 && c <= 0xDF) {
+            extra = 1;
+            code = c & 0x1Fu;
+        } else if (c >= 0xE0 && c <= 0xEF) {
+            extra = 2;
+            code = c & 0x0Fu;
+        } else if (c >= 0xF0 && c <= 0xF4) {
+            extra = 3;
+            code = c & 0x07u;
+        } else {
+            return false;
+        }
+        if (text.size() - i <= extra) return false;
+        for (std::size_t k = 1; k <= extra; ++k) {
+            const unsigned char n = static_cast<unsigned char>(text[i + k]);
+            if ((n & 0xC0) != 0x80) return false;
+            code = (code << 6) | (n & 0x3Fu);
+        }
+        if ((extra == 2 && code < 0x800) || (extra == 3 && (code < 0x10000 || code > 0x10FFFF)) ||
+            (code >= 0xD800 && code <= 0xDFFF))
+            return false;
+        i += extra + 1;
+    }
+    return true;
+}
+
 inline bool json_clean_text(std::string& text, std::size_t max_bytes) {
+    if (!utf8_ok(text)) return false;
     for (char& c : text) {
         const unsigned char u = static_cast<unsigned char>(c);
         if (u < 0x20 || u == 0x7F) c = ' ';

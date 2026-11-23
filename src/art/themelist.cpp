@@ -40,7 +40,9 @@ bool read_theme(JsonReader& r, RawTheme& t, bool& fatal) {
                 t.malformed = true;
                 return r.skip_value(1);
             }
-            return r.string(into);
+            if (!r.string(into)) return false;
+            if (r.last_overlong()) t.malformed = true;
+            return true;
         };
         const auto whole = [&](std::uint64_t& into, bool& have) {
             std::uint64_t value;

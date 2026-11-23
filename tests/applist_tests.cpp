@@ -264,6 +264,41 @@ void test_install_paths() {
                          "{\"from\":\"*\",\"to\":\"apps/snes9xgx/boot.dol\"}"));
 }
 
+void test_hostile_lists() {
+    // RiftWii's own folders are no app's.
+    EXPECT_TRUE(!app_id_ok("riftwii"));
+    EXPECT_TRUE(!app_id_ok("RiftWii"));
+    EXPECT_TRUE(!app_id_ok("riftwii_channel"));
+    EXPECT_TRUE(left_out("\"id\":\"snes9xgx\"", "\"id\":\"RIFTWII\""));
+    // FAT drops a trailing dot or space: "boot.dol." would land on boot.dol.
+    const Parsed p = parse(list_json(app_json()));
+    std::string path;
+    EXPECT_TRUE(!app_install_path(p.apps[0], "apps/snes9xgx/boot.dol.", path));
+    EXPECT_TRUE(!app_install_path(p.apps[0], "apps/snes9xgx/boot.dol ", path));
+    EXPECT_TRUE(!app_install_path(p.apps[0], "apps/snes9xgx/.../boot.dol", path));
+    // Broken UTF-8 in a path or a name.
+    EXPECT_TRUE(!app_install_path(p.apps[0], "apps/snes9xgx/\xC0\xAF" "boot.dol", path));
+    EXPECT_TRUE(!app_install_path(p.apps[0], "apps/snes9xgx/\x80.dol", path));
+    EXPECT_TRUE(app_install_path(p.apps[0], "apps/snes9xgx/r\xC3\xA9sum\xC3\xA9.txt", path));
+    EXPECT_TRUE(left_out("\"name\":\"Snes9x GX\"", "\"name\":\"Snes9x \xED\xA0\x80\""));
+    // One string too long to keep leaves out its app, and only its app,
+    // even in a field nobody reads.
+    const std::string huge(5000, 'x');
+    Parsed two = parse(list_json(app_json("long", "\"author\":", "\"later\":\"" + huge + "\",\"author\":") + "," +
+                                 app_json("short", "\"name\":\"Snes9x GX\"", "\"name\":\"" + huge + "\"") + "," +
+                                 app_json("fine")));
+    EXPECT_TRUE(two.ok);
+    EXPECT_EQ(two.count, 2u);
+    EXPECT_EQ(two.skipped, 1u);
+    // Hosts that are addresses in disguise.
+    EXPECT_TRUE(!app_download_url_ok("https://0x7f.0x0.0x0.1/a.zip"));
+    EXPECT_TRUE(!app_download_url_ok("https://2130706433/a.zip"));
+    EXPECT_TRUE(!app_download_url_ok("https://a..b.com/a.zip"));
+    EXPECT_TRUE(!app_download_url_ok("https://-a.com/a.zip"));
+    EXPECT_TRUE(!app_download_url_ok("https://a.com1/a.zip"));
+    EXPECT_TRUE(app_download_url_ok("https://objects.github-cdn.example.com/a.zip"));
+}
+
 void test_checks_on_their_own() {
     EXPECT_TRUE(app_id_ok("Wii64 (glN64)"));
     EXPECT_TRUE(!app_id_ok("a:b"));
@@ -307,6 +342,7 @@ int main() {
     test_other_formats_are_listed();
     test_duplicates_and_room();
     test_install_paths();
+    test_hostile_lists();
     test_checks_on_their_own();
     test_theme_list_still_reads();
     if (g_failures) {
