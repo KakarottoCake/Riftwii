@@ -175,7 +175,7 @@ Then a test build for testers on a Wii and a vWii.
   - `gc/test/mem2code`: the test code in MEM2 (0x91231560) ran at the first
     pad read and left `RUN!` (0x52554E21) behind. MEM2 still runs code
     after the game's OSInit, in Dolphin. A Wii is still to check.
-  - `game_mem1_kib = 128`: the arena's top at 0x817C2140 (128 KiB under
+  - `game_mem1_kib = 128`: the arena's top at 0x817C2140 (128 KiB and 32 bytes under
     the usual 0x817E2160); 15 minutes of play in the first level, no
     crash. 30 minutes without the squeeze, no crash either. The tester's
     crash (PAL, GGVP78: a DSI reading 0x0C0D0F2C through a pointer that is
