@@ -2887,7 +2887,8 @@ public:
 	// call can't mean one for the other.
 	explicit NoteCard(int x = kX, int top = kY) : x(x), top(top) {}
 	void Draw() override {
-		skin::Draw(skin::iconInfo, x + 2, top + 7, GetAlpha() / 2);
+		// At full strength: at half, a composite cable left it at 1.4:1.
+		skin::Draw(skin::iconInfo, x + 2, top + 7, GetAlpha());
 	}
 private:
 	int x;
@@ -8778,6 +8779,11 @@ public:
 			GX_SetScissor(0, 0, Menu_XfbWidth(), Menu_EfbHeight());
 		}
 		if (artShown > 0.0f) DrawArt();
+		// A shade over the hue, stripes and art, under the white text: on a
+		// composite cable a bright band (a green one most) left the name at
+		// about 2:1 and its outline blurred away; 40% darker, the name reads
+		// at 4:1 or more and the small lines above and under it at 2.5:1.
+		Menu_FillScreen(-1000, 1000 + kHeight - 4, (GXColor){0, 0, 0, 104});
 		for (int i = 0; i < 4; ++i) Menu_FillScreen(kHeight - 19 + 4 * i, 4, (GXColor){0, 0, 0, static_cast<u8>(10 + 10 * i)});
 		// Keep the game's art, with the same themed edge as the controls band.
 		Menu_FillScreen(kHeight - 3, 3, skin::kAccent);
@@ -13766,7 +13772,8 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 	std::string overline = tr("About this game");
 	for (char& ch : overline)
 		if (ch >= 'a' && ch <= 'z') ch = static_cast<char>(ch - 'a' + 'A');
-	GuiText whereTxt(overline.c_str(), 13, (GXColor){225, 228, 235, 255});
+	// 16 points: at 13 a composite cable blurred its strokes together.
+	GuiText whereTxt(overline.c_str(), 16, (GXColor){225, 228, 235, 255});
 	const std::string title = GameOwnTitle(state);
 	hero.SetMadeUpName(title, riftwii::emulator_cover_id(state.game_id) ? std::string() : state.game_id);
 	const int titleRoom = page.right - titleX - (body.HasRating() ? 70 : 0);
@@ -13774,7 +13781,7 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 	int titleSize = 28;
 	while (titleSize > 20 && titleTxt.GetTextWidth() > titleRoom) titleTxt.SetFontSize(--titleSize);
 	if (titleTxt.GetTextWidth() > titleRoom) titleTxt.SetWrap(true, titleRoom, 2);
-	OutlinedText whereOutlined(whereTxt, titleX + 1, 34, (GXColor){225, 228, 235, 255}, 1, 1);
+	OutlinedText whereOutlined(whereTxt, titleX + 1, 30, (GXColor){225, 228, 235, 255}, 1, 1);
 	OutlinedText titleOutlined(titleTxt, titleX, 52, skin::kWhite, 2, 2);
 
 	// The line at the foot: where the details come from, or the control
@@ -16124,9 +16131,11 @@ static int MenuHome(FrontendState& state)
 		if (ch >= 'a' && ch <= 'z') ch = static_cast<char>(ch - 'a' + 'A');
 	// Centred in the band (y 24, the overscan's edge, to 120), the facts
 	// ending some 16 above its lower edge.
-	constexpr int kWhereY = 30;
+	// The overline and the facts as large as fit: at 13 and 15 points a
+	// composite cable blurred their strokes together (under 2:1).
+	constexpr int kWhereY = 27;
 	const GXColor kWhereInk = {225, 228, 235, 255}, kFactsInk = {235, 237, 242, 255};
-	GuiText whereTxt(where.c_str(), 13, kWhereInk);
+	GuiText whereTxt(where.c_str(), 16, kWhereInk);
 	const std::string title = GameTitle(state);
 	hero.SetMadeUpName(title, riftwii::emulator_cover_id(state.game_id) ? std::string() : state.game_id);
 	GuiText titleTxt(title.c_str(), 28, skin::kWhite);
@@ -16148,7 +16157,7 @@ static int MenuHome(FrontendState& state)
 	g_gamePageTiming.Step("building the banner text");
 	const std::string facts = GameFacts(state);
 	g_gamePageTiming.Step("checking cached game information");
-	GuiText factsTxt(facts.c_str(), 15, kFactsInk);
+	GuiText factsTxt(facts.c_str(), 17, kFactsInk);
 	OutlinedText whereOutlined(whereTxt, tilesX + 1, kWhereY, kWhereInk, 1, 1);
 	OutlinedText titleOutlined(titleTxt, tilesX, titleY, skin::kWhite, 2, 2);
 	OutlinedText factsOutlined(factsTxt, tilesX, factsY, kFactsInk, 1, 1);

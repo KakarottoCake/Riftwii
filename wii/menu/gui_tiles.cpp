@@ -247,7 +247,8 @@ void GuiTiles::Draw() {
         label[i]->Draw();
         if (!s.value.empty()) value[i]->Draw();
         if (chevronShown[i]) {
-            chevron.SetColor(s.dim ? skin::kInkDim : skin::kInkSoft);
+            // The page's ink: the softer one came to 2:1 on composite.
+            chevron.SetColor(s.dim ? skin::kInkDim : skin::kInk);
             chevron.SetPosition(s.x + s.w - kPad - 10, s.y + (s.h - 22) / 2 - 2);
             chevron.Draw();
         }
