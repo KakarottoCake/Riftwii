@@ -243,6 +243,39 @@ GXColor BadgeColor(const GridItem& item) {
     return skin::kBadge;
 }
 
+// The tiny labels' text on `background`: near-black on a light one, white
+// on a dark one, whatever the theme makes them (Midnight's pale accent
+// left MODS white on pale blue, almost unreadable on a TV).
+GXColor ReadableOn(GXColor background) {
+    // Whichever of the two stands out more from the badge, by the contrast
+    // of their relative luminances (mid tones too, where a plain brightness
+    // cut-off gave white on a badge dark text reads better on).
+    const auto linear = [](std::uint8_t channel) {
+        const float c = channel / 255.0f;
+        return c <= 0.04045f ? c / 12.92f : std::pow((c + 0.055f) / 1.055f, 2.4f);
+    };
+    const auto luminance = [&](GXColor c) {
+        return 0.2126f * linear(c.r) + 0.7152f * linear(c.g) + 0.0722f * linear(c.b);
+    };
+    const GXColor dark{24, 28, 36, 255};
+    const GXColor white{255, 255, 255, 255};
+    const float back = luminance(background);
+    const float withWhite = (1.0f + 0.05f) / (back + 0.05f);
+    const float withDark = (back + 0.05f) / (luminance(dark) + 0.05f);
+    return withDark > withWhite ? dark : white;
+}
+
+// A tiny label (WII, GC, SD, MODS), drawn twice a pixel apart: at 10
+// pixels the single-pixel strokes of I, l and T blurred into grey on a TV.
+// Its box is a pixel wider to match (kTinyBold).
+constexpr int kTinyBold = 1;
+void DrawTinyLabel(GuiText* text, int x, int y) {
+    text->SetPosition(x, y);
+    text->Draw();
+    text->SetPosition(x + kTinyBold, y);
+    text->Draw();
+}
+
 }  // namespace
 
 GuiGameGrid::GuiGameGrid() {
@@ -253,7 +286,9 @@ GuiGameGrid::GuiGameGrid() {
         for (int i = 0; i < kPerPage; ++i) {
             Slot& s = set[i];
             for (GuiText*& line : s.lines) line = MakeText(this, kTitleSize, skin::kInk);
-            s.id = MakeText(this, 11, skin::kInkDim);
+            // The softer ink, not the dim one: through a composite cable
+            // the ID came to about 2:1.
+            s.id = MakeText(this, 11, skin::kInkSoft);
             s.badge = MakeText(this, 10, skin::kInkSoft);
             s.mods = MakeText(this, 10, skin::kTextOnAccent);
         }
@@ -602,7 +637,8 @@ void GuiGameGrid::Layout() {
             badge.resize(CharBoundary(badge, badge.size() - 1));
             s.badge->SetText(badge.c_str());
         }
-        s.badge->SetColor(item.badge == "GC" ? skin::kWhite : skin::kInkSoft);
+        s.badge->SetColor(ReadableOn(BadgeColor(item)));
+        s.mods->SetColor(ReadableOn(skin::kAccentInk));
         // The tag beside the badge: BUILD before MODS, as the game must be
         // made before a mod can run on it.
         s.mods->SetText(item.to_build ? "BUILD" : item.mods ? "MODS" : "");
@@ -736,24 +772,22 @@ void GuiGameGrid::DrawNameTile(int index, Slot& s, float x, float y, bool on, in
         skin::Draw(skin::iconDisc, x + tileW - 46 - dx, y + 8 + dy, alpha, s.scale);
     // Source badge and MODS tag along the bottom line.
     const int baseY = static_cast<int>(y + tileH - 26 + grow * (tileH / 2.0f - 26));
-    const int badgeW = s.badge->GetTextWidth() + 10;
+    const int badgeW = s.badge->GetTextWidth() + 10 + kTinyBold;
     const int badgeX = static_cast<int>(x + tileW - kTextLeft - badgeW - dx);
     // The ID gives way to the MODS tag on a tile too narrow for both.
     const int idX = static_cast<int>(x + kTextLeft + dx);
-    const int modsLeft = item.mods || item.to_build ? badgeX - (s.mods->GetTextWidth() + 10) - 5 : badgeX;
+    const int modsLeft = item.mods || item.to_build ? badgeX - (s.mods->GetTextWidth() + 10 + kTinyBold) - 5 : badgeX;
     if (idX + s.id->GetTextWidth() + 4 <= modsLeft) {
         s.id->SetPosition(idX, baseY);
         s.id->Draw();
     }
     Menu_DrawRectangle(badgeX, baseY - 1, badgeW, 15, skin::WithAlpha(BadgeColor(item), alpha), 1);
-    s.badge->SetPosition(badgeX + 5, baseY);
-    s.badge->Draw();
+    DrawTinyLabel(s.badge, badgeX + 5, baseY);
     if (item.mods || item.to_build) {
-        const int modsW = s.mods->GetTextWidth() + 10;
+        const int modsW = s.mods->GetTextWidth() + 10 + kTinyBold;
         const int modsX = badgeX - modsW - 5;
         Menu_DrawRectangle(modsX, baseY - 1, modsW, 15, skin::WithAlpha(skin::kAccentInk, alpha), 1);
-        s.mods->SetPosition(modsX + 5, baseY);
-        s.mods->Draw();
+        DrawTinyLabel(s.mods, modsX + 5, baseY);
     }
 }
 
@@ -851,6 +885,7 @@ void GuiGameGrid::DrawDiscChannel(const IconBox& box, float cx) {
 void GuiGameGrid::DrawCoverTile(int index, Slot* text, float x, float y, float scale, bool on, int alpha) {
     const int tileW = Geo().tileW, tileH = Geo().tileH;
     const GridItem& item = (*items)[index];
+    bool idShown = false;  // a tile without a cover: its ID goes over the labels
     if (text) {
         // GuiText also inherits the grid's alpha. Fade every label with
         // its cover as it moves between the page and the dimmed sides.
@@ -872,6 +907,9 @@ void GuiGameGrid::DrawCoverTile(int index, Slot* text, float x, float y, float s
     // No cover: one made up (the name on a blank cover) once it is made.
     const u8* cover = riftwii::wii::CoverTexture(CoverName(item));
     const u8* madeUp = cover ? nullptr : MadeUpCoverFor(item);
+    // Real box art, not a made-up cover (which prints the name and ID into
+    // its own picture, where MODS moved up a row would cover the ID).
+    const bool boxArt = cover != nullptr;
     // A cover stands on its own, a made-up one too: the card's grey edge
     // and shadow, the cover's size, ringed it (plain on a white Wii cover's
     // edge). The card stays for the lit tile's ring and under a tile with
@@ -898,8 +936,9 @@ void GuiGameGrid::DrawCoverTile(int index, Slot* text, float x, float y, float s
             text->lines[l]->SetPosition(at_x(kCoverTextLeft), at_y(8 + l * 16));
             text->lines[l]->Draw();
         }
-        text->id->SetPosition(at_x(kCoverTextLeft), at_y(tileH - 40));
-        text->id->Draw();
+        // The ID is drawn with the labels below: on a narrow tile it gives
+        // way to MODS moved up a row beside it.
+        idShown = true;
         // The disc drive has no box art: a disc instead.
         if (item.badge == "DISC") skin::Draw(skin::iconDisc, at_x(20), at_y(44), alpha, scale);
         Menu_DrawRectangle(at_x(8), at_y(tileH - 6), (tileW - 16) * scale, 3, skin::WithAlpha(item.hue, alpha), 1);
@@ -907,19 +946,38 @@ void GuiGameGrid::DrawCoverTile(int index, Slot* text, float x, float y, float s
     if (!text) return;
     // Source badge and MODS tag along the bottom, over the cover. The disc
     // drive's box says what it is: no DISC badge over its disc.
-    if (item.badge == "DISC" && !cover && skin::discCase.data) return;
     const int baseY = at_y(tileH - 22);
-    const int badgeW = text->badge->GetTextWidth() + 10;
+    const int badgeW = text->badge->GetTextWidth() + 10 + kTinyBold;
     const int badgeX = at_x(tileW - 5) - badgeW;
+    const bool tagged = item.mods || item.to_build;
+    const int modsW = text->mods->GetTextWidth() + 10 + kTinyBold;
+    const int modsX = at_x(7);
+    // A narrow cover (4:3) has no room for MODS and the source side by side
+    // with a gap, rather than touching it ("MODSSD"): over box art MODS goes
+    // a row up, at the cover's right like the badge; over a made-up cover,
+    // whose name and ID fill the middle, into the top right corner, on the
+    // cover's own band. A bare tile (no cover, not even a made-up one) has
+    // its name from the top: MODS goes a row up as over box art, and the ID
+    // on that row gives way when the two would touch.
+    constexpr int kGap = 4;
+    const bool sideBySide = modsX + modsW + kGap <= badgeX;
+    const bool bareTile = idShown;
+    const int tagX = sideBySide ? modsX : badgeX + badgeW - modsW;
+    const int tagY = sideBySide ? baseY : boxArt || bareTile ? baseY - 17 : at_y(7);
+    if (idShown && tagged && !sideBySide) {
+        const int idRight = at_x(kCoverTextLeft) + text->id->GetTextWidth();
+        if (idRight + kGap > tagX) idShown = false;
+    }
+    if (idShown) {
+        text->id->SetPosition(at_x(kCoverTextLeft), at_y(tileH - 40));
+        text->id->Draw();
+    }
+    if (item.badge == "DISC" && !cover && skin::discCase.data) return;
     Menu_DrawRectangle(badgeX, baseY - 1, badgeW, 15, skin::WithAlpha(skin::WithAlpha(BadgeColor(item), 235), alpha), 1);
-    text->badge->SetPosition(badgeX + 5, baseY);
-    text->badge->Draw();
-    if (item.mods || item.to_build) {
-        const int modsW = text->mods->GetTextWidth() + 10;
-        const int modsX = at_x(5);
-        Menu_DrawRectangle(modsX, baseY - 1, modsW, 15, skin::WithAlpha(skin::kAccentInk, alpha), 1);
-        text->mods->SetPosition(modsX + 5, baseY);
-        text->mods->Draw();
+    DrawTinyLabel(text->badge, badgeX + 5, baseY);
+    if (tagged) {
+        Menu_DrawRectangle(tagX, tagY - 1, modsW, 15, skin::WithAlpha(skin::kAccentInk, alpha), 1);
+        DrawTinyLabel(text->mods, tagX + 5, tagY);
     }
 }
 
