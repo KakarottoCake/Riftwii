@@ -159,6 +159,7 @@ def check_manifest(m, path):
     if "github" in src:
         need(re.fullmatch(r"[A-Za-z0-9\-_.]+/[A-Za-z0-9\-_.]+", src["github"]) is not None, "source.github is owner/repo")
         need(isinstance(src.get("asset"), str) and src["asset"], "source.asset names the release file (a pattern)")
+        need(isinstance(src.get("prerelease", False), bool), "source.prerelease is true or false")
     else:
         need(https_url_ok(src["url"], LIMITS["url"], True), "source.url must be an http:// or https:// address")
         need(isinstance(src.get("version"), str) and text_ok(src["version"], LIMITS["version"]), "a url source needs its version")
@@ -192,6 +193,19 @@ def fetch(url, token=None, accept=None):
 def github_release(repo, tag, token):
     path = f"releases/tags/{tag}" if tag else "releases/latest"
     return json.loads(fetch(f"https://api.github.com/repos/{repo}/{path}", token))
+
+
+def newest_release(src, token):
+    """The release `update` pins: the latest full release, or with
+    "prerelease": true the newest one of any kind (a nightly fork's, each
+    under its own tag so earlier pins stay downloadable)."""
+    if not src.get("prerelease"):
+        return github_release(src["github"], None, token)
+    listing = json.loads(fetch(f"https://api.github.com/repos/{src['github']}/releases?per_page=20", token))
+    for release in listing:
+        if not release.get("draft"):
+            return release
+    raise AppError(f"{src['github']}: no release")
 
 
 def release_asset(release, pattern, where):
@@ -236,7 +250,7 @@ def cmd_update(args):
         src = m.get("source", {})
         if "github" not in src:
             continue
-        release = github_release(src["github"], None, token)
+        release = newest_release(src, token)
         if m.get("pin", {}).get("tag") == release["tag_name"]:
             continue
         asset = release_asset(release, src["asset"], os.path.basename(path))
@@ -297,7 +311,11 @@ def build_one(path, m, token, cache, icons):
             if not icon_entry:
                 own = [n for n in z.namelist() if install_path(m["install"], n) == f"apps/{m['id']}/icon.png"]
                 icon_entry = own[0] if own else None
-            icon = z.read(icon_entry) if icon_entry else None
+            # Sized before it is read: a zip can claim a small file that
+            # unpacks to gigabytes.
+            icon = None
+            if icon_entry and z.getinfo(icon_entry).file_size <= MAX_ICON:
+                icon = z.read(icon_entry)
     else:
         icon = None
     record = {
