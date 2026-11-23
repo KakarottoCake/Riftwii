@@ -128,6 +128,7 @@ static void test_sort_key() {
     EXPECT_EQ(sort_letter("\xC5\x8C" "kami"), 'O');
     EXPECT_EQ(sort_letter("The Legend of Zelda"), 'L');
     EXPECT_EQ(sort_letter("wii Sports"), 'W');
+    EXPECT_EQ(sort_letter("\xC3\xA5r. Mario"), 'A');  // a Latin-1 accent, in UTF-8
     EXPECT_EQ(sort_letter("007: Quantum of Solace"), '#');
     EXPECT_EQ(sort_letter(""), '#');
     // Another script is a group of its own after Z, not a second '#'.

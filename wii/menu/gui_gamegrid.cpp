@@ -1352,8 +1352,8 @@ void GuiGameGrid::DrawLetter(int alpha) {
 
 // The first game (in the view's order) whose name starts with the letter
 // after (dir 1) or before (-1) the focused one's, wrapping round. Names that
-// start with anything else come before A; the disc tile (when Home has it)
-// has no letter.
+// start with a digit or a sign come before A, names in another script (not
+// Latin) after Z; the disc tile (when Home has it) has no letter.
 int GuiGameGrid::LetterTarget(int dir) const {
     const auto letter = [&](int i) -> int {
         if ((*items)[static_cast<std::size_t>(i)].badge == "DISC") return -1;

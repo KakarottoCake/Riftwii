@@ -177,19 +177,20 @@ bool ListFolder(const std::string& folder, std::vector<MusicFolderEntry>& out) {
         std::vector<VolumeEntry> entries;
         if (!list_usb_folder(folder, entries)) return false;
         for (const VolumeEntry& entry : entries) out.push_back({entry.name, entry.is_directory});
-        return true;
+    } else {
+        DIR* dir = opendir(folder.c_str());
+        if (!dir) return false;
+        const std::string base = folder.back() == '/' ? folder : folder + "/";
+        while (dirent* entry = readdir(dir)) {
+            const std::string name = entry->d_name;
+            if (name == "." || name == "..") continue;
+            struct stat st;
+            const bool is_dir = stat((base + name).c_str(), &st) == 0 && S_ISDIR(st.st_mode);
+            out.push_back({name, is_dir});
+        }
+        closedir(dir);
     }
-    DIR* dir = opendir(folder.c_str());
-    if (!dir) return false;
-    const std::string base = folder.back() == '/' ? folder : folder + "/";
-    while (dirent* entry = readdir(dir)) {
-        const std::string name = entry->d_name;
-        if (name == "." || name == "..") continue;
-        struct stat st;
-        const bool is_dir = stat((base + name).c_str(), &st) == 0 && S_ISDIR(st.st_mode);
-        out.push_back({name, is_dir});
-    }
-    closedir(dir);
+    // Both drives in the same order (the USB drive's listing came unsorted).
     std::sort(out.begin(), out.end(),
               [](const MusicFolderEntry& a, const MusicFolderEntry& b) {
                   // As a person reads them: "apps" beside "Apps", not after "YABDM".

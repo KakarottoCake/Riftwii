@@ -1471,7 +1471,8 @@ static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered, b
 		// nor case or accents (Ōkami among the O's).
 		const std::string nameA = a.gameName.substr(riftwii::sort_name_start(a.gameName));
 		const std::string nameB = b.gameName.substr(riftwii::sort_name_start(b.gameName));
-		if (riftwii::sort_key(nameA) != riftwii::sort_key(nameB)) return riftwii::sort_name_less(nameA, nameB);
+		const std::string keyA = riftwii::sort_key(nameA), keyB = riftwii::sort_key(nameB);
+		if (keyA != keyB) return keyA < keyB;
 		if (a.gameName != b.gameName) return riftwii::sort_name_less(a.gameName, b.gameName);
 		// The game's own tile first, then its profiles by name.
 		if (a.entry.profile.empty() != b.entry.profile.empty()) return a.entry.profile.empty();
