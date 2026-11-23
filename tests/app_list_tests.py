@@ -1,9 +1,12 @@
 # SPDX-FileCopyrightText: 2026 RiftWii contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Run with python3 tests/app_list_tests.py from any directory."""
+import email.message
 import importlib.util
+import io
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -12,33 +15,54 @@ app_list = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(app_list)
 
 
+def _opaque(tag):
+    return tag[2:] if tag.startswith("W/") else tag
+
+
 class FakeServer:
-    """Stands in for fetch(): serves `body` with `etag`, and answers a
-    matching If-None-Match with 304 (None), as a server would."""
+    """Stands in for urlopen: serves `body` with `etag`, and answers an
+    If-None-Match that matches weakly (RFC 9110 13.1.2: W/"x" matches "x")
+    with a 304 that carries its current ETag, as a real server may."""
 
     def __init__(self, body, etag=""):
         self.body, self.etag, self.requests = body, etag, []
 
-    def __call__(self, url, token=None, accept=None, validators=None, answer=None):
-        self.requests.append(dict(validators or {}))
-        if validators and validators.get("If-None-Match") == self.etag:
-            return None
-        if answer is not None:
-            answer["If-None-Match"] = app_list.strong_etag(self.etag)
-        return self.body
+    def _headers(self):
+        h = email.message.Message()
+        if self.etag:
+            h["ETag"] = self.etag
+        return h
+
+    def __call__(self, req, timeout=None):
+        sent = req.get_header("If-none-match") or ""
+        self.requests.append(sent)
+        if sent and self.etag and _opaque(sent) == _opaque(self.etag):
+            raise urllib.error.HTTPError(req.full_url, 304, "Not Modified", self._headers(), None)
+        server = self
+
+        class Response(io.BytesIO):
+            headers = server._headers()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        return Response(self.body)
 
 
 class CacheTests(unittest.TestCase):
     def setUp(self):
         self.cache = tempfile.TemporaryDirectory()
-        self.real_fetch = app_list.fetch
+        self.real_urlopen = app_list.urllib.request.urlopen
 
     def tearDown(self):
-        app_list.fetch = self.real_fetch
+        app_list.urllib.request.urlopen = self.real_urlopen
         self.cache.cleanup()
 
     def download(self, server, stamp=None):
-        app_list.fetch = server
+        app_list.urllib.request.urlopen = server
         return app_list.cached_download("https://example.com/app.zip", self.cache.name, stamp)
 
     def test_strong_etag_confirmed_reuses_the_copy(self):
@@ -46,7 +70,7 @@ class CacheTests(unittest.TestCase):
         self.assertEqual(self.download(server), b"one")
         server.body = b"never sent"
         self.assertEqual(self.download(server), b"one")
-        self.assertEqual(server.requests[-1], {"If-None-Match": '"abc"'})
+        self.assertEqual(server.requests[-1], '"abc"')
 
     def test_changed_file_is_downloaded_again(self):
         server = FakeServer(b"one", '"abc"')
@@ -60,7 +84,16 @@ class CacheTests(unittest.TestCase):
         self.download(server)
         server.body = b"two"
         self.assertEqual(self.download(server), b"two")
-        self.assertEqual(server.requests[-1], {})
+        self.assertEqual(server.requests[-1], "")
+
+    def test_strong_to_weak_304_is_not_trusted(self):
+        # The server's ETag turns weak with the same value: it answers the
+        # old strong one with 304 (weak comparison), but the bytes changed.
+        server = FakeServer(b"one", '"abc"')
+        self.download(server)
+        server.body, server.etag = b"two", 'W/"abc"'
+        self.assertEqual(self.download(server), b"two")
+        self.assertEqual(server.requests[-2:], ['"abc"', ""])
 
     def test_no_etag_means_a_fresh_download(self):
         # Last-Modified alone misses changes within its second.

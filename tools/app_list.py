@@ -213,7 +213,13 @@ def fetch(url, token=None, accept=None, validators=None, answer=None):
                 answer["If-None-Match"] = strong_etag(r.headers.get("ETag"))
     except urllib.error.HTTPError as e:
         if e.code == 304 and validators:
-            return None
+            # If-None-Match compares weakly: a 304 proves the copy current
+            # only when it carries the same strong ETag. Anything else is
+            # asked again with no condition.
+            sent = validators.get("If-None-Match", "")
+            if sent and strong_etag(e.headers.get("ETag")) == sent:
+                return None
+            return fetch(url, token, accept, None, answer)
         raise
     if len(data) > MAX_DOWNLOAD:
         raise AppError(f"{url}: bigger than {MAX_DOWNLOAD >> 20} MB")
