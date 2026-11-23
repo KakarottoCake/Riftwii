@@ -125,6 +125,12 @@ KiB of the card, the way back and the stubs.
    sees: the game goes on, or the crash screen shows an ISI at that MEM2
    address. In Dolphin first, then a test build for a tester.
 
+Two small parts of the probe ship in release builds too, and are not part
+of the move: `gc_rt_cold` (in MEM2, not the game's 24 MB) is one 32-byte
+line longer for the probe's code and its mark, and `gc_on_pad_read` checks
+`mem2_code[0] != 0` once per pad read. Only `gc/test/mem2code` puts code
+there; the MEM1 squeeze is in the test build alone (`RT_TEST_BUILD`).
+
 Only then the split itself.
 
 ## Testing the split
