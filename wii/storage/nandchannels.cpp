@@ -859,6 +859,19 @@ bool copy_nand_title_to_emu(NandAccess& access, const std::string& folder, std::
         if (!read_checked(i, bytes)) return false;
     }
 
+    // The shared-content list as it will be written, made before anything
+    // on the card changes: an empty one (out of memory, or more entries
+    // than it holds) written over the old would cut every title's shared
+    // contents off.
+    std::vector<u8> encoded_map;
+    if (map_changed) {
+        encoded_map = serialize_content_map(emu_map);
+        if (encoded_map.size() != emu_map.size() * 28) {
+            error = "the emulated NAND's list of shared contents could not be made";
+            return false;
+        }
+    }
+
     // An older copy's TMD goes before its contents are replaced: an update
     // cut short then leaves no title at all (the next launch copies it
     // again), never an old TMD over new contents that looks whole.
@@ -872,7 +885,7 @@ bool copy_nand_title_to_emu(NandAccess& access, const std::string& folder, std::
         if (!read_checked(i, bytes)) return false;
         if (!write_emu_file(folder, destinations[i], bytes, error)) return false;
     }
-    if (map_changed && !write_emu_file(folder, emu_map_path, serialize_content_map(emu_map), error)) return false;
+    if (map_changed && !write_emu_file(folder, emu_map_path, encoded_map, error)) return false;
     if (!write_emu_file(folder, folder + ticket_path, ticket, error)) return false;
     if (owner && uid.size() != uid_before && !write_emu_file(folder, uid_path, uid, error)) return false;
     if (!make_data_folder()) return false;
@@ -913,7 +926,7 @@ bool copy_return_channel_to_emu_nand(const std::string& folder, std::uint64_t ti
     // game and the channel, never an IOS).
     if (channel.required_ios == 0) return true;
     // Titles 1 and 2 are boot2 and the Wii Menu, not IOSes: a damaged TMD
-    // naming them copies nothing.
+    // naming them copies no IOS.
     if (channel.required_ios < 3) {
         error = "the channel's TMD names IOS" + std::to_string(channel.required_ios) + ", which is not an IOS";
         return false;
