@@ -6405,13 +6405,17 @@ static void MenuEmulatedNand()
 		HaltGui();
 	}
 	std::vector<FlowRow> rows;
+	// Each row says what opening it does (the help line repeated the
+	// folder's name, which the row already shows).
+	std::vector<std::string> help;
 	for (const std::string& folder : folders) {
 		FlowRow row;
 		row.kind = FlowRow::Kind::Action;
 		row.label = folder;
 		rows.push_back(row);
+		help.push_back(tr("See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings."));
 	}
-	EmulatorRowsPage(tr("Emulated NAND"), rows, folders, [&](int clicked, int) {
+	EmulatorRowsPage(tr("Emulated NAND"), rows, help, [&](int clicked, int) {
 		MenuEmulatedNandFolder(folders[static_cast<std::size_t>(clicked)]);
 		return false;
 	});
