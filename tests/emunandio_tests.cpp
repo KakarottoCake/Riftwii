@@ -480,6 +480,12 @@ s32 ISFS_Rename(const char* from, const char* to) {
 }
 
 namespace riftwii::wii {
+// The list is always loaded here, so the manager's read-on-demand call
+// has nothing to do.
+bool GameTitleListed(const std::string&, std::string& title) {
+    title.clear();
+    return true;
+}
 // The game-name list as the menu has loaded it, made from title_names.
 const riftwii::TitleTable* LoadedTitles() {
     static riftwii::TitleTable table;

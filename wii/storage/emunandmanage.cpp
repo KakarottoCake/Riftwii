@@ -534,6 +534,13 @@ std::string title_name(const Location& root, std::uint64_t title) {
     // The game-name list keys disc games by their 6-char ID (RSBE01): a
     // save's 4-char code finds its game there too.
     const TitleTable* names = LoadedTitles();
+    if (names == nullptr) {
+        // Not read yet (the manager opened before anything else asked for
+        // a name): one lookup reads the list, as the game pages do.
+        std::string ignored;
+        GameTitleListed(code, ignored);
+        names = LoadedTitles();
+    }
     const std::string* listed = names ? names->find_code(code) : nullptr;
     if (listed && !listed->empty()) return *listed + " (" + code + ")";
     // Disc saves and add-on data have no channel banner. Avoid opening a

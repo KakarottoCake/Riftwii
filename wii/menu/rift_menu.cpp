@@ -2865,11 +2865,15 @@ class NoteCard : public GuiElement {
 public:
 	static constexpr int kX = 40, kY = 316, kW = 560, kH = 86;  // four lines end by y 410, above the prompts (y 418)
 	static constexpr int kTextX = kX + 36, kTextY = kY + 10, kTextW = kW - 40, kLines = 4;
-	explicit NoteCard(int top = kY) : top(top) {}
+	// Where its sign sits: the page's left edge (wider pages at 16:9) and
+	// its top (a page with more rows starts it lower). Both are named so a
+	// call can't mean one for the other.
+	explicit NoteCard(int x = kX, int top = kY) : x(x), top(top) {}
 	void Draw() override {
-		skin::Draw(skin::iconInfo, kX + 2, top + 7, GetAlpha() / 2);
+		skin::Draw(skin::iconInfo, x + 2, top + 7, GetAlpha() / 2);
 	}
 private:
+	int x;
 	int top;
 };
 
@@ -20337,7 +20341,7 @@ static int SettingsHub(int& focus, bool fromSection)
 	const int promptBack = prompts.Add("B", tr("Back"));
 	prompts.Add("A", tr("Open"));
 	// Two lines beside the same info icon as list pages, below the grid.
-	NoteCard noteCard(350);
+	NoteCard noteCard(NoteCard::kX, 350);
 	GuiText noteTxt("", 16, skin::kInkSoft);
 	Place(noteTxt, NoteCard::kTextX, 360);
 	noteTxt.SetWrap(true, NoteCard::kTextW, 2);
