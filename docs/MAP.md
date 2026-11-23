@@ -40,6 +40,7 @@ headers, generated data and assets with the code that uses them.
 | Menu themes (colours, pictures, music) | `src/art/theme.cpp` (theme.ini), `src/art/skinpaint.cpp` (the painted pictures), `wii/menu/menutheme.cpp`, `wii/menu/skin.cpp`, `themes/`, [THEMES.md](THEMES.md) |
 | Downloading themes (Settings > Theme > Get more themes) | `wii/menu/themestore.cpp`, `wii/online/httpmem.cpp`, `src/art/themelist.cpp` (themes.json), `src/fs/zipread.cpp` (the zip), `tests/themebrowse_tests.cpp`, [THEMES.md](THEMES.md) |
 | The theme kit download | `tools/theme_kit.cpp`, `tools/make_theme_kit.py`, `themes/kit/README.txt` |
+| The app store's list (apps.json) | `src/net/applist.cpp`, `include/riftwii/jsonreader.hpp`, `tools/app_list.py`, `tools/app_list_check.cpp`, `tests/applist_tests.cpp`, [APPSTORE.md](APPSTORE.md) |
 | Menu text and its translations | `tools/lang_source.py` (the table), `wii/core/i18n.cpp`, `wii/lang/*.po` |
 | The entire menu font from `font.ttf` on the card, kept in MEM2 | `tools/make_menu_font.py`, `wii/menu/fullfont.cpp`, `SetMissingGlyphSource` in `vendor-libgui/source/FreeTypeGX.cpp`, `tests/menufont_tests.cpp` |
 | Settings and what they mean | `src/data/settingsfile.cpp`, `wii/core/loadersettings.cpp`, the Settings screen in `wii/menu/rift_menu.cpp` |
@@ -391,6 +392,7 @@ reader helpers stay beside their source.
 | --- | --- |
 | `http` | HTTP GET and POST |
 | `update` | The update check |
+| `applist` | The app store's list: apps.json read as untrusted, and where each zip entry of an app installs |
 | `riifs`, `riifs_sync` | The RiiFS client and its mirror |
 | `riitag` | RiiTag: Wiinnertag.xml, the launch URL, the tag picture's URL for a Discord ID and its fit to the menu |
 | `dnsquery` | Looking up a host through the DNS servers typed into the Wii's settings when IOS's own lookup fails: the question, the bounded answer, the servers from `config.dat` |
@@ -554,6 +556,7 @@ and the `*_mock/` folders provide synthetic files, discs and hardware calls.
 | `menusound_list.cpp` | Lists a NAND content copy's U8 files and BRSAR names/types, optionally validates a named sound in memory; never extracts audio |
 | `ipcscan.cpp`, `rvzstub.cpp` | Host tools: the IPC search on a game's DOL; an RVZ's stub disc for Dolphin |
 | `theme_kit.cpp`, `make_theme_kit.py` | The theme kit zip: template pictures, a starter theme.ini, the guide |
+| `app_list.py`, `app_list_check.cpp` | The app store's list: pins each app's release, checks its download and writes apps.json; reads it back as the Wii does |
 | `rvz/make_test_disc.py` | The RVZ test fixtures |
 | `dolphin/` | Dolphin test harness: `run.sh`, the USB Gecko log reader, a RiiFS test server, movie and screenshot helpers (see `docs/HARNESS.md`) |
 | `attribution_audit.py`, `ci_rules.py` | Code-attribution comparison and the project rules checked by CI |
