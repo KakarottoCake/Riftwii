@@ -4264,18 +4264,28 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         }
     }
     // Every launch from an emulated NAND, with or without a return copy: an
-    // ownership list a failed replacement left only in its .riftwii-old
-    // copy is put back first. If it can't be, the game waits: ES would
-    // give its saves to the wrong owner.
+    // ownership list or a shared-content list a failed replacement left only
+    // in its .riftwii-old copy is put back first. If one can't be, the game
+    // waits: ES would give its saves to the wrong owner, or find none of the
+    // shared contents its titles use.
     if (!files.emu_nand.empty()) {
-        const std::string uid = files.emu_nand + "/sys/uid.sys";
-        const std::string backup = uid + ".riftwii-old";
-        struct stat info;
-        if (stat(uid.c_str(), &info) != 0 && stat(backup.c_str(), &info) == 0) {
-            if (std::rename(backup.c_str(), uid.c_str()) == 0) {
-                logf("Wii channels: %s was put back from its backup.\n", uid.c_str());
+        struct SystemList {
+            const char* path;
+            const char* what;
+        };
+        const SystemList lists[] = {
+            {"/sys/uid.sys", "title ownership list"},
+            {"/shared1/content.map", "shared-content list"},
+        };
+        for (const SystemList& list : lists) {
+            const std::string file = files.emu_nand + list.path;
+            const std::string backup = file + ".riftwii-old";
+            struct stat info;
+            if (stat(file.c_str(), &info) == 0 || stat(backup.c_str(), &info) != 0) continue;
+            if (std::rename(backup.c_str(), file.c_str()) == 0) {
+                logf("Wii channels: %s was put back from its backup.\n", file.c_str());
             } else {
-                error = "the emulated NAND's title ownership list (" + uid +
+                error = std::string("the emulated NAND's ") + list.what + " (" + file +
                         ") could not be restored from its backup; check the SD card";
                 return false;
             }

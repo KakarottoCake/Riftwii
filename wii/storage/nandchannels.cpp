@@ -731,7 +731,11 @@ bool copy_nand_title_to_emu(NandAccess& access, const std::string& folder, std::
                         ".riftwii-old and could not be put back";
                 return false;
             }
-            if (card_file_exists(emu_map_path) && !read_card_file(emu_map_path, 1u << 20, bytes, error)) return false;
+            // An empty list is a list with no entries (the installer writes
+            // one), read as such: read_card_file refuses an empty file.
+            if (card_file_exists(emu_map_path) && !card_file_has_size(emu_map_path, 0) &&
+                !read_card_file(emu_map_path, 1u << 20, bytes, error))
+                return false;
             emu_map = parse_content_map(bytes.data(), bytes.size());
             // The parser stops at the first entry that isn't one: a damaged
             // list would be written back short, and other titles would lose
