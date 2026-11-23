@@ -187,10 +187,18 @@ def check_manifest(m, path):
 
 # ------------------------------------------------------------ downloads ---
 
+def strong_etag(value):
+    """The ETag when it is a strong one, else "": a weak ETag (W/...) may
+    stay the same when the bytes change, and Last-Modified misses changes
+    within its second (RFC 9110, 8.8), so neither proves a copy current."""
+    value = (value or "").strip()
+    return value if value.startswith('"') and value.endswith('"') and len(value) >= 2 else ""
+
+
 def fetch(url, token=None, accept=None, validators=None, answer=None):
-    """GET `url`. With `validators` (a cached copy's ETag and
-    Last-Modified), a 304 returns None: the copy is still the file.
-    `answer` receives the response's own validators."""
+    """GET `url`. With `validators` (a cached copy's strong ETag), a 304
+    returns None: the copy is still the file. `answer` receives the
+    response's strong ETag, if it has one."""
     req = urllib.request.Request(url, headers={"User-Agent": "riftwii-app-list"})
     if token and url.startswith("https://api.github.com/"):
         req.add_header("Authorization", f"Bearer {token}")
@@ -202,8 +210,7 @@ def fetch(url, token=None, accept=None, validators=None, answer=None):
         with urllib.request.urlopen(req, timeout=120) as r:
             data = r.read(MAX_DOWNLOAD + 1)
             if answer is not None:
-                answer["If-None-Match"] = r.headers.get("ETag") or ""
-                answer["If-Modified-Since"] = r.headers.get("Last-Modified") or ""
+                answer["If-None-Match"] = strong_etag(r.headers.get("ETag"))
     except urllib.error.HTTPError as e:
         if e.code == 304 and validators:
             return None
@@ -242,10 +249,10 @@ def release_asset(release, pattern, where):
 def cached_download(url, cache, stamp=None):
     """The file at `url`, from the cache when it is still the same file:
     for a GitHub release file, `stamp` (its asset id and update time, from
-    the API) is part of the cache key; anything else is asked again with
-    its ETag and Last-Modified, so a file replaced at the same address is
-    downloaded again (and then fails its pin) instead of passing on old
-    bytes."""
+    the API) is part of the cache key; anything else is reused only when
+    the server confirms its strong ETag, and downloaded again otherwise, so
+    a file replaced at the same address fails its pin instead of passing on
+    old bytes."""
     os.makedirs(cache, exist_ok=True)
     name = hashlib.sha256(f"{url} {stamp or ''}".encode()).hexdigest()[:24]
     path = os.path.join(cache, name)
@@ -255,7 +262,9 @@ def cached_download(url, cache, stamp=None):
             return open(path, "rb").read()
         validators = {}
         if os.path.exists(meta_path):
-            validators = {k: v for k, v in json.load(open(meta_path, encoding="utf-8")).items() if v}
+            etag = strong_etag(json.load(open(meta_path, encoding="utf-8")).get("If-None-Match"))
+            if etag:
+                validators = {"If-None-Match": etag}
         if validators:
             answer = {}
             data = fetch(url, validators=validators, answer=answer)
