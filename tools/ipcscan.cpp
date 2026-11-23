@@ -56,26 +56,30 @@ int main(int argc, char** argv) {
             if (!sec.used() || sec.offset + sec.size > bytes.size()) continue;
             text.push_back({sec.address, reinterpret_cast<const std::uint8_t*>(bytes.data()) + sec.offset, sec.size});
         }
+        // A failed IPC search is reported and counted, and the finders below
+        // still run: they don't depend on it.
         riftwii::IpcSymbols symbols;
+        riftwii::IpcApi api;
         if (!riftwii::find_ipc_symbols(text, symbols, error)) {
             std::cout << "  " << error << std::endl;
             ++failures;
-            continue;
+        } else {
+            std::printf("  IOS_IoctlAsync 0x%08x (%u DI commands agree), IOS_IoctlvAsync 0x%08x\n",
+                        symbols.ioctl_async, symbols.ioctl_async_commands, symbols.ioctlv_async);
+            if (!riftwii::find_ipc_api(text, symbols, api, error)) {
+                std::cout << "  " << error << std::endl;
+                ++failures;
+            } else {
+                static const char* const names[8] = {"", "Open", "Close", "Read", "Write", "Seek", "Ioctl", "Ioctlv"};
+                for (int c = 1; c <= 7; ++c) {
+                    std::printf("  IOS_%-6s async 0x%08x  sync 0x%08x%s\n", names[c], api.async[c], api.sync[c],
+                                api.async[c] == 0 || api.sync[c] == 0
+                                    ? "  (a form the game never calls is not in its DOL)"
+                                    : "");
+                }
+                std::printf("  their submit routine 0x%08x\n", api.submit);
+            }
         }
-        std::printf("  IOS_IoctlAsync 0x%08x (%u DI commands agree), IOS_IoctlvAsync 0x%08x\n", symbols.ioctl_async,
-                    symbols.ioctl_async_commands, symbols.ioctlv_async);
-        riftwii::IpcApi api;
-        if (!riftwii::find_ipc_api(text, symbols, api, error)) {
-            std::cout << "  " << error << std::endl;
-            ++failures;
-            continue;
-        }
-        static const char* const names[8] = {"", "Open", "Close", "Read", "Write", "Seek", "Ioctl", "Ioctlv"};
-        for (int c = 1; c <= 7; ++c) {
-            std::printf("  IOS_%-6s async 0x%08x  sync 0x%08x%s\n", names[c], api.async[c], api.sync[c],
-                        api.async[c] == 0 || api.sync[c] == 0 ? "  (a form the game never calls is not in its DOL)" : "");
-        }
-        std::printf("  their submit routine 0x%08x\n", api.submit);
         // The exception handler the crash record hooks (runtime/fault).
         std::vector<riftwii::CodeRange> all;
         for (std::size_t s = 0; s < riftwii::kDolSections; ++s) {
