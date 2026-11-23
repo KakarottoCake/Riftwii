@@ -117,7 +117,7 @@ The list comes from the internet, so RiftWii reads it as untrusted
 - The download must match its SHA-256 before anything is written.
 - Icons come only from RiftWii's own site.
 
-`app_list.py build --check-tool build-host/app_list_check` reads every
+`app_list.py --check-tool build-host/app_list_check build <manifests> <out>` reads every
 list it builds back through the Wii's parser and fails if the Wii would
 leave any app out.
 

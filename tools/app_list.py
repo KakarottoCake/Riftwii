@@ -26,6 +26,8 @@ import os
 import re
 import subprocess
 import sys
+import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 
@@ -177,14 +179,27 @@ def check_manifest(m, path):
 
 # ------------------------------------------------------------ downloads ---
 
-def fetch(url, token=None, accept=None):
+def fetch(url, token=None, accept=None, validators=None, answer=None):
+    """GET `url`. With `validators` (a cached copy's ETag and
+    Last-Modified), a 304 returns None: the copy is still the file.
+    `answer` receives the response's own validators."""
     req = urllib.request.Request(url, headers={"User-Agent": "riftwii-app-list"})
     if token and url.startswith("https://api.github.com/"):
         req.add_header("Authorization", f"Bearer {token}")
     if accept:
         req.add_header("Accept", accept)
-    with urllib.request.urlopen(req, timeout=120) as r:
-        data = r.read(MAX_DOWNLOAD + 1)
+    for header, value in (validators or {}).items():
+        req.add_header(header, value)
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            data = r.read(MAX_DOWNLOAD + 1)
+            if answer is not None:
+                answer["If-None-Match"] = r.headers.get("ETag") or ""
+                answer["If-Modified-Since"] = r.headers.get("Last-Modified") or ""
+    except urllib.error.HTTPError as e:
+        if e.code == 304 and validators:
+            return None
+        raise
     if len(data) > MAX_DOWNLOAD:
         raise AppError(f"{url}: bigger than {MAX_DOWNLOAD >> 20} MB")
     return data
@@ -216,16 +231,43 @@ def release_asset(release, pattern, where):
     return hits[0]
 
 
-def cached_download(url, cache):
+def cached_download(url, cache, stamp=None):
+    """The file at `url`, from the cache when it is still the same file:
+    for a GitHub release file, `stamp` (its asset id and update time, from
+    the API) is part of the cache key; anything else is asked again with
+    its ETag and Last-Modified, so a file replaced at the same address is
+    downloaded again (and then fails its pin) instead of passing on old
+    bytes."""
     os.makedirs(cache, exist_ok=True)
-    name = hashlib.sha256(url.encode()).hexdigest()[:24]
+    name = hashlib.sha256(f"{url} {stamp or ''}".encode()).hexdigest()[:24]
     path = os.path.join(cache, name)
+    meta_path = path + ".validators.json"
     if os.path.exists(path):
-        return open(path, "rb").read()
-    data = fetch(url)
+        if stamp:
+            return open(path, "rb").read()
+        validators = {}
+        if os.path.exists(meta_path):
+            validators = {k: v for k, v in json.load(open(meta_path, encoding="utf-8")).items() if v}
+        if validators:
+            answer = {}
+            data = fetch(url, validators=validators, answer=answer)
+            if data is None:
+                return open(path, "rb").read()
+        else:
+            answer = {}
+            data = fetch(url, answer=answer)
+    else:
+        answer = {}
+        data = fetch(url, answer=answer)
     with open(path, "wb") as f:
         f.write(data)
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump(answer, f)
     return data
+
+
+def asset_stamp(asset):
+    return f"{asset.get('id')}-{asset.get('updated_at')}"
 
 
 # ------------------------------------------------------------- commands ---
@@ -254,7 +296,7 @@ def cmd_update(args):
         if m.get("pin", {}).get("tag") == release["tag_name"]:
             continue
         asset = release_asset(release, src["asset"], os.path.basename(path))
-        data = cached_download(asset["browser_download_url"], args.cache)
+        data = cached_download(asset["browser_download_url"], args.cache, asset_stamp(asset))
         m["pin"] = {"tag": release["tag_name"], "sha256": hashlib.sha256(data).hexdigest()}
         with open(path, "w", encoding="utf-8", newline="\n") as f:
             json.dump(m, f, indent=2, ensure_ascii=False)
@@ -276,13 +318,15 @@ def build_one(path, m, token, cache, icons):
         release = github_release(src["github"], pin.get("tag"), token)
         asset = release_asset(release, src["asset"], where)
         url = asset["browser_download_url"]
+        stamp = asset_stamp(asset)
         version = m.get("version") or release["tag_name"].lstrip("vV")
         released = (release.get("published_at") or "")[:10]
     else:
         url, version, released = src["url"], src["version"], src.get("released", "")
+        stamp = None
     if not https_url_ok(url, LIMITS["url"], True):
         raise AppError(f"{where}: the download address {url} breaks the address rule")
-    data = cached_download(url, cache)
+    data = cached_download(url, cache, stamp)
     digest = hashlib.sha256(data).hexdigest()
     if digest != pin["sha256"]:
         raise AppError(f"{where}: the download is not the approved file (sha256 {digest}, pinned {pin['sha256']})")
@@ -315,7 +359,8 @@ def build_one(path, m, token, cache, icons):
             # unpacks to gigabytes.
             icon = None
             if icon_entry and z.getinfo(icon_entry).file_size <= MAX_ICON:
-                icon = z.read(icon_entry)
+                with z.open(icon_entry) as entry:
+                    icon = entry.read(MAX_ICON + 1)
     else:
         icon = None
     record = {
@@ -331,7 +376,9 @@ def build_one(path, m, token, cache, icons):
     if fmt == "zip":
         record["install"] = m["install"]
     if icon and len(icon) <= MAX_ICON and icon[:8] == b"\x89PNG\r\n\x1a\n":
-        record["icon"] = ICON_BASE + m["id"] + ".png"
+        # Percent-encoded: an id may hold a space, which the Wii refuses
+        # in an address.
+        record["icon"] = ICON_BASE + urllib.parse.quote(m["id"], safe="") + ".png"
         if icons:
             with open(os.path.join(icons, m["id"] + ".png"), "wb") as f:
                 f.write(icon)

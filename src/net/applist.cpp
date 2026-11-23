@@ -228,7 +228,14 @@ bool read_install(JsonReader& r, RawApp& a) {
     }
     if (r.take(']')) return true;
     for (;;) {
-        if (!r.take('{')) return false;
+        // A rule that is not an object leaves this app out, not the list.
+        if (r.peek() != '{') {
+            a.malformed = true;
+            if (!r.skip_value(2)) return false;
+            if (r.take(',')) continue;
+            return r.take(']');
+        }
+        r.take('{');
         std::string from, to;
         if (!r.take('}')) {
             for (;;) {

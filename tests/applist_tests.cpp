@@ -182,6 +182,13 @@ void test_data_folders_and_install_rules() {
     std::string many;
     for (int i = 0; i < 7; ++i) many += std::string(i ? "," : "") + "{\"from\":\"x/\",\"to\":\"apps/snes9xgx/\"}";
     EXPECT_TRUE(left_out("\"install\":[", "\"install\":[" + many + "],\"old\":["));
+    // A rule that is not an object leaves out its app, and only its app.
+    const Parsed p = parse(list_json(app_json("bad", "\"install\":[", "\"install\":[null,7,\"x\",") + "," +
+                                     app_json("good")));
+    EXPECT_TRUE(p.ok);
+    EXPECT_EQ(p.count, 1u);
+    EXPECT_EQ(p.skipped, 1u);
+    EXPECT_EQ(std::string(p.apps[0].id), "good");
 }
 
 void test_other_formats_are_listed() {
