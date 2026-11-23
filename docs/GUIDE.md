@@ -2261,6 +2261,11 @@ the destination again as far as possible; if the drive was taken out
 during the copy, part of the title can stay there. Put the drive back,
 open the destination folder in this manager and delete the title before
 copying it again. Home shows the copy after the drives are read again.
+A system channel, hidden title or console tool (those without delete
+actions) can't be removed here: on a PC, delete its folder
+`<destination>/title/<type>/<ID>` and its ticket
+`<destination>/ticket/<type>/<ID>.tik` (the 8-digit halves of its title
+ID, as the title's page shows it), then copy it again.
 
 **Remove Wii settings** shows whether the emulated folder contains
 `shared2/sys/SYSCONF` and `title/00000001/00000002/data/setting.txt`.
