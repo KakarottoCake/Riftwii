@@ -130,6 +130,9 @@ static void test_sort_key() {
     EXPECT_EQ(sort_letter("wii Sports"), 'W');
     EXPECT_EQ(sort_letter("007: Quantum of Solace"), '#');
     EXPECT_EQ(sort_letter(""), '#');
+    // Another script is a group of its own after Z, not a second '#'.
+    EXPECT_EQ(sort_letter("\xE3\x83\x9E\xE3\x83\xAA\xE3\x82\xAA"), riftwii::kOtherScriptLetter);
+    EXPECT_TRUE(riftwii::kOtherScriptLetter > 'Z');
 }
 
 static void test_long_title_cut() {

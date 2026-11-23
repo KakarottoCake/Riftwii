@@ -52,7 +52,10 @@ bool sort_name_less(const std::string& a, const std::string& b);
 
 // The letter a game's name is filed under, as Home sorts it: past a leading
 // "The", its first letter in upper case with accents taken off ('O' for
-// "Ōkami"); '#' for a name that starts with anything else.
+// "Ōkami"); '#' for a digit or a sign, which sort before A; '~' for any
+// other script (Japanese, Korean...), which sorts after Z, so each group is
+// at one end of the list only.
+constexpr char kOtherScriptLetter = '~';
 char sort_letter(const std::string& title);
 
 // "Super Mario Galaxy 2" from ".../wbfs/Super Mario Galaxy 2 [SB4E01]/SB4E01.wbfs";

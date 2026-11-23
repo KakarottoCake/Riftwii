@@ -1311,10 +1311,19 @@ void GuiGameGrid::Draw() {
 
 void GuiGameGrid::ShowLetter(int item) {
     if (item < 0 || item >= Count()) return;
-    const char letter = riftwii::sort_letter((*items)[static_cast<std::size_t>(item)].title);
-    const char text[2] = {letter, '\0'};
+    const std::string& title = (*items)[static_cast<std::size_t>(item)].title;
+    const char letter = riftwii::sort_letter(title);
+    std::string shown(1, letter);
+    if (letter == riftwii::kOtherScriptLetter) {
+        // Another script's group: the game's own first character (a kana,
+        // a hangul syllable) rather than a sign that means nothing.
+        const std::size_t from = riftwii::sort_name_start(title);
+        std::size_t end = from + 1;
+        while (end < title.size() && (static_cast<unsigned char>(title[end]) & 0xC0) == 0x80) ++end;
+        shown = title.substr(from, end - from);
+    }
     if (!letterText) letterText = new GuiText(nullptr, 64, skin::kInk);
-    letterText->SetText(text);
+    letterText->SetText(shown.c_str());
     // About a second on screen, the last third fading out.
     letterFrames = 54;
 }

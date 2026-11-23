@@ -155,7 +155,10 @@ bool sort_name_less(const std::string& a, const std::string& b) {
 char sort_letter(const std::string& title) {
     const std::string key = sort_key(title.substr(sort_name_start(title)));
     const char first = key.empty() ? 0 : key[0];
-    return first >= 'a' && first <= 'z' ? static_cast<char>(first - 'a' + 'A') : '#';
+    if (first >= 'a' && first <= 'z') return static_cast<char>(first - 'a' + 'A');
+    // Bytes from 0x80 sort after every ASCII letter: another script.
+    if (static_cast<unsigned char>(first) >= 0x80) return kOtherScriptLetter;
+    return '#';
 }
 
 std::string folder_title(const std::string& path, const std::string& id) {
