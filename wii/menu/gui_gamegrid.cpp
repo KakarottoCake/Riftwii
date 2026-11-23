@@ -882,6 +882,7 @@ void GuiGameGrid::DrawDiscChannel(const IconBox& box, float cx) {
 void GuiGameGrid::DrawCoverTile(int index, Slot* text, float x, float y, float scale, bool on, int alpha) {
     const int tileW = Geo().tileW, tileH = Geo().tileH;
     const GridItem& item = (*items)[index];
+    bool idShown = false;  // a tile without a cover: its ID goes over the labels
     if (text) {
         // GuiText also inherits the grid's alpha. Fade every label with
         // its cover as it moves between the page and the dimmed sides.
@@ -929,8 +930,9 @@ void GuiGameGrid::DrawCoverTile(int index, Slot* text, float x, float y, float s
             text->lines[l]->SetPosition(at_x(kCoverTextLeft), at_y(8 + l * 16));
             text->lines[l]->Draw();
         }
-        text->id->SetPosition(at_x(kCoverTextLeft), at_y(tileH - 40));
-        text->id->Draw();
+        // The ID is drawn with the labels below: MODS moved up a row would
+        // cover it.
+        idShown = true;
         // The disc drive has no box art: a disc instead.
         if (item.badge == "DISC") skin::Draw(skin::iconDisc, at_x(20), at_y(44), alpha, scale);
         Menu_DrawRectangle(at_x(8), at_y(tileH - 6), (tileW - 16) * scale, 3, skin::WithAlpha(item.hue, alpha), 1);
@@ -938,20 +940,26 @@ void GuiGameGrid::DrawCoverTile(int index, Slot* text, float x, float y, float s
     if (!text) return;
     // Source badge and MODS tag along the bottom, over the cover. The disc
     // drive's box says what it is: no DISC badge over its disc.
-    if (item.badge == "DISC" && !cover && skin::discCase.data) return;
     const int baseY = at_y(tileH - 22);
     const int badgeW = text->badge->GetTextWidth() + 10 + kTinyBold;
     const int badgeX = at_x(tileW - 5) - badgeW;
+    const bool tagged = item.mods || item.to_build;
+    const int modsW = text->mods->GetTextWidth() + 10 + kTinyBold;
+    const int modsX = at_x(7);
+    // A narrow cover (4:3) has no room for MODS and the source side by side
+    // with a gap: MODS goes a row up, at the cover's right like the badge,
+    // rather than touching it ("MODSSD"). On a tile without a cover the
+    // game's ID is there, and gives way, as on a Names tile without room.
+    constexpr int kGap = 4;
+    const bool sideBySide = modsX + modsW + kGap <= badgeX;
+    if (idShown && !(tagged && !sideBySide)) {
+        text->id->SetPosition(at_x(kCoverTextLeft), at_y(tileH - 40));
+        text->id->Draw();
+    }
+    if (item.badge == "DISC" && !cover && skin::discCase.data) return;
     Menu_DrawRectangle(badgeX, baseY - 1, badgeW, 15, skin::WithAlpha(skin::WithAlpha(BadgeColor(item), 235), alpha), 1);
     DrawTinyLabel(text->badge, badgeX + 5, baseY);
-    if (item.mods || item.to_build) {
-        const int modsW = text->mods->GetTextWidth() + 10 + kTinyBold;
-        const int modsX = at_x(7);
-        // A narrow cover (4:3) has no room for MODS and the source side by
-        // side with a gap: MODS goes a row up, at the cover's right like the
-        // badge, rather than touching it ("MODSSD").
-        constexpr int kGap = 4;
-        const bool sideBySide = modsX + modsW + kGap <= badgeX;
+    if (tagged) {
         const int tagX = sideBySide ? modsX : badgeX + badgeW - modsW;
         const int tagY = sideBySide ? baseY : baseY - 17;
         Menu_DrawRectangle(tagX, tagY - 1, modsW, 15, skin::WithAlpha(skin::kAccentInk, alpha), 1);
