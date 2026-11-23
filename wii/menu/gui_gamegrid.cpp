@@ -286,7 +286,9 @@ GuiGameGrid::GuiGameGrid() {
         for (int i = 0; i < kPerPage; ++i) {
             Slot& s = set[i];
             for (GuiText*& line : s.lines) line = MakeText(this, kTitleSize, skin::kInk);
-            s.id = MakeText(this, 11, skin::kInkDim);
+            // The softer ink, not the dim one: through a composite cable
+            // the ID came to about 2:1.
+            s.id = MakeText(this, 11, skin::kInkSoft);
             s.badge = MakeText(this, 10, skin::kInkSoft);
             s.mods = MakeText(this, 10, skin::kTextOnAccent);
         }
