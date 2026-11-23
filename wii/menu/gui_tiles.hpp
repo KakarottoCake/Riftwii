@@ -65,6 +65,7 @@ private:
     std::vector<GuiText*> label;
     std::vector<GuiText*> value;
     std::vector<int> labelSize;  // the size Layout picked for each tile's name
+    std::vector<char> chevronShown;  // opensPage, unless the name needed its room
     bool dirty = true;
     GuiSound* soundOver;
     GuiSound* soundClick;

@@ -2882,12 +2882,16 @@ class NoteCard : public GuiElement {
 public:
 	static constexpr int kX = 40, kY = 316, kW = 560, kH = 86;  // four lines end by y 410, above the prompts (y 418)
 	static constexpr int kTextX = kX + 36, kTextY = kY + 10, kTextW = kW - 40, kLines = 4;
-	explicit NoteCard(int x = kX) : x(x) {}
+	// Where its sign sits: the page's left edge (wider pages at 16:9) and
+	// its top (a page with more rows starts it lower). Both are named so a
+	// call can't mean one for the other.
+	explicit NoteCard(int x = kX, int top = kY) : x(x), top(top) {}
 	void Draw() override {
-		skin::Draw(skin::iconInfo, x + 2, kY + 7, GetAlpha() / 2);
+		skin::Draw(skin::iconInfo, x + 2, top + 7, GetAlpha() / 2);
 	}
 private:
 	int x;
+	int top;
 };
 
 // The icon left of a page's title: the one on the tile that opened it.
@@ -8899,7 +8903,21 @@ private:
 		text.SetAlpha(110 * alpha / 255);
 		text.SetPosition(drawX + 1, drawY + outline + drop);
 		text.Draw();
-		text.SetAlpha(225 * alpha / 255);
+		// The outline is many copies laid over each other, so a faded one
+		// (a marquee's edge) gets each copy so faint that together they
+		// come to the fade: at the plain per-copy alpha they summed to
+		// nearly solid, and the edge read as a hard cut.
+		int layers = 0;
+		for (int dy = -outline; dy <= outline; ++dy)
+			for (int dx = -outline; dx <= outline; ++dx)
+				if (!(dx == 0 && dy == 0) && dx * dx + dy * dy <= outline * outline + 1) ++layers;
+		int layerAlpha = 225 * alpha / 255;
+		if (alpha < 255 && layers > 1) {
+			const float together = 225.0f / 255.0f * static_cast<float>(alpha) / 255.0f;
+			const float each = 1.0f - std::pow(1.0f - together, 1.0f / static_cast<float>(layers));
+			layerAlpha = static_cast<int>(each * 255.0f + 0.5f);
+		}
+		text.SetAlpha(layerAlpha);
 		for (int dy = -outline; dy <= outline; ++dy)
 			for (int dx = -outline; dx <= outline; ++dx) {
 				if ((dx == 0 && dy == 0) || dx * dx + dy * dy > outline * outline + 1) continue;

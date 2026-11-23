@@ -72,6 +72,7 @@ void GuiTiles::Refresh() {
         value.push_back(v);
     }
     labelSize.resize(label.size(), 20);
+    chevronShown.resize(label.size(), 0);
     if (static_cast<int>(lift.size()) != Count()) {
         lift.assign(Count(), 0.0f);
         swell.assign(Count(), riftwii::wii::HoverSwell{});
@@ -154,12 +155,19 @@ void GuiTiles::Layout(int i) {
         if (!hasValue) labelY -= 3;
     }
     const int chevronRoom = s.opensPage ? 18 : 0;
-    const int room = s.x + s.w - kPad - textX - chevronRoom;
+    int room = s.x + s.w - kPad - textX - chevronRoom;
     // A long name (a translation) steps down to 15 points before "..." cuts it.
     int size = s.primary ? 26 : 20;
     for (; size > 15; --size) {
         label[i]->SetFontSize(size);
         if (label[i]->GetTextWidth() <= room) break;
+    }
+    // A name that still doesn't fit beside the chevron (French "Codes de
+    // triche" at 4:3) keeps its words: the chevron gives way.
+    chevronShown[i] = s.opensPage;
+    if (s.opensPage && label[i]->GetTextWidth() > room) {
+        chevronShown[i] = 0;
+        room += chevronRoom;
     }
     label[i]->SetFontSize(size);
     labelSize[i] = size;
@@ -238,7 +246,7 @@ void GuiTiles::Draw() {
         label[i]->SetScroll(i == lit ? SCROLL::HORIZONTAL : SCROLL::NONE);
         label[i]->Draw();
         if (!s.value.empty()) value[i]->Draw();
-        if (s.opensPage) {
+        if (chevronShown[i]) {
             chevron.SetColor(s.dim ? skin::kInkDim : skin::kInkSoft);
             chevron.SetPosition(s.x + s.w - kPad - 10, s.y + (s.h - 22) / 2 - 2);
             chevron.Draw();
