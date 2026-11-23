@@ -733,6 +733,13 @@ bool copy_nand_title_to_emu(NandAccess& access, const std::string& folder, std::
             }
             if (card_file_exists(emu_map_path) && !read_card_file(emu_map_path, 1u << 20, bytes, error)) return false;
             emu_map = parse_content_map(bytes.data(), bytes.size());
+            // The parser stops at the first entry that isn't one: a damaged
+            // list would be written back short, and other titles would lose
+            // their shared contents. Refused instead, as the NAND manager does.
+            if (emu_map.size() * 28 != bytes.size()) {
+                error = "the emulated NAND's shared-content list " + emu_map_path + " is damaged";
+                return false;
+            }
             maps_read = true;
         }
         const SharedContent* on_wii = find_shared_content(wii_map, content.sha1);
@@ -905,6 +912,12 @@ bool copy_return_channel_to_emu_nand(const std::string& folder, std::uint64_t ti
     // tester's vWii, returning from a WiiWare game: the folder held the
     // game and the channel, never an IOS).
     if (channel.required_ios == 0) return true;
+    // Titles 1 and 2 are boot2 and the Wii Menu, not IOSes: a damaged TMD
+    // naming them copies nothing.
+    if (channel.required_ios < 3) {
+        error = "the channel's TMD names IOS" + std::to_string(channel.required_ios) + ", which is not an IOS";
+        return false;
+    }
     const std::uint64_t ios = 0x0000000100000000ull | channel.required_ios;
     TmdContents ios_tmd;
     bool ios_copied = false;
