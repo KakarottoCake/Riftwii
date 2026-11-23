@@ -6920,8 +6920,11 @@ static int MenuSource(FrontendState& state)
 	// The Wii Menu's bar (it dips under the clock): the view and the page
 	// on its high sides, under its line; a bar that bumps: above it.
 	const bool dip = !skin::BarBump();
-	GuiText pageTxt("", dip ? 14 : 15, skin::kInkDim);
-	GuiText viewTxt("", dip ? 14 : 16, skin::kAccent);
+	// The page's ink and the accent's ink for text, a point larger, not the
+	// dim ink and the bright accent: those came to under 2:1 through a
+	// composite cable on the bar's grey.
+	GuiText pageTxt("", 15, skin::kInk);
+	GuiText viewTxt("", dip ? 15 : 16, skin::kAccentInk);
 	// The room each label has beside the dip; 0 on a bar that bumps, where
 	// the view's own cut-off below applies and the page has no limit.
 	int sideW = 0;
@@ -6988,7 +6991,8 @@ static int MenuSource(FrontendState& state)
 	Place(dateTxt, 0, dip ? 407 : 359, true);
 	// Ending by y 456, inside a TV's overscan: one line under the date on a
 	// bar that dips, three above the bottom on one that bumps.
-	GuiText statusTxt("", dip ? 15 : 17, skin::kInkSoft);
+	// The page's ink: the softer one came to 2:1 on composite.
+	GuiText statusTxt("", dip ? 15 : 17, skin::kInk);
 	Place(statusTxt, 0, statusY, true);
 	// The bar's small buttons end at x 156 and start at x 484. Keep
 	// the centred text inside x 164..476, with 8px of breathing room.

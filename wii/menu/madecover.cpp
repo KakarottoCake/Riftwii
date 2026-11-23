@@ -50,7 +50,7 @@ constexpr int kTitleLines = 4;
 constexpr int kTitleMargin = 14;
 constexpr int kTitleTop = 50;
 constexpr int kTitleBottom = 190;
-constexpr int kIdSize = 17;
+constexpr int kIdSize = 20;  // 10 on screen: at 8 a composite cable blurred it away
 constexpr int kIdGap = 30;  // the ID's line under the name, a little apart
 
 enum class SlotState { Empty, Ready };
@@ -76,7 +76,9 @@ GuiText* g_text = nullptr;
 u8* g_mask = nullptr;  // I8: how much of each texel the rounded corners keep
 bool g_inkChosen = false;
 GXColor g_ink = {46, 49, 56, 255};
-GXColor g_inkDim = {118, 123, 133, 255};
+// The ID's ink, darker than a dim grey: a composite cable left that at
+// about 1.6:1 on the white cover.
+GXColor g_inkDim = {84, 88, 98, 255};
 bool g_spineInkChosen = false;
 GXColor g_spineInk = {46, 49, 56, 255};
 // Light ink on a blank cover darker than this (Rec. 601 brightness).
@@ -139,7 +141,7 @@ void ChooseInk() {
     g_inkChosen = true;
     if (!BlankIsLight(kTitleMargin, kDrawW - kTitleMargin, kTitleTop, kTitleBottom, 6)) {
         g_ink = {244, 244, 246, 255};
-        g_inkDim = {188, 191, 200, 255};
+        g_inkDim = {214, 216, 224, 255};
     }
 }
 
