@@ -49,7 +49,9 @@ not proven to be the cause of that crash yet (see "First step").
     (`lis r12,hi; ori r12,r12,lo; mtctr r12; bctr`, 16 bytes). Every hooked
     function is entered at its first word, where r12 and CTR are free;
   - the replay slots (the game's first instructions moved there, then a
-    `b` back into the game), which must stay within reach of the game;
+    jump back into the game), which stay near the game: a moved
+    instruction may itself be a relative branch, and those reach only
+    32 MB;
   - the continue slots for the same reason;
   - the DI stand-in, the memory card's struct, the way back and the ARAM
     stubs as today.
@@ -126,8 +128,13 @@ KiB of the card, the way back and the stubs.
    Wii games. It is taken out above the FST, before the layout is planned,
    so the FST, BI2's copy and RiftWii's pieces all move down with the
    arena's top: a game that works out its memory from the FST's address
-   (libogc) or BI2's (boot arguments) is squeezed too. A squeeze that would
-   leave no room is left out, and the log says so. With it, SpongeBob SquarePants: The Movie can show
+   (libogc) or BI2's (boot arguments) is squeezed too. RiftWii's pieces
+   fill gaps, so the room taken is checked against the layout without it
+   and grown until the arena's top is at least that much lower; the log
+   gives the bytes it really took (the DI stand-in's address ending in
+   0x6000 moves the layout in 64 KiB steps: 16 KiB asked took 64 in Dolphin).
+   A squeeze that would leave no room is
+   left out, and the log says so. With it, SpongeBob SquarePants: The Movie can show
    whether it crashes earlier with 100 KiB less, which tells whether MEM1 is
    its problem.
 2. **A probe that BAT4 still runs code after OSInit.** The blob's first

@@ -2920,8 +2920,11 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // Taken out above the FST, before the plan: the FST, BI2's copy and
     // RiftWii's pieces all move down by it, so a game that reads its limit
     // from the FST's address (libogc) or BI2's (boot arguments) sees it as
-    // well as one that reads ArenaHi.
+    // well as one that reads ArenaHi. `squeeze` is what was asked for,
+    // `squeeze_room` the room above the FST that takes it from the arena's
+    // top: RiftWii's pieces fill gaps, so the two can differ.
     std::uint32_t squeeze = 0;
+    std::uint32_t squeeze_room = 0;
 #ifdef RT_TEST_BUILD
     if (std::FILE* limits = std::fopen("sd:/riftwii/test_limits.txt", "rb")) {
         // Read by hand: the plugin has no fgets or sscanf.
@@ -2949,7 +2952,12 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                     while (*at == ' ' || *at == '\t') ++at;
                     if (*at >= '0' && *at <= '9') {
                         unsigned value = 0;
-                        while (*at >= '0' && *at <= '9' && value < 100000u) value = value * 10u + unsigned(*at++ - '0');
+                        // Digits up to a bound, so a long number can't wrap.
+                        while (*at >= '0' && *at <= '9' && value < 100000u) {
+                            const unsigned digit = unsigned(*at - '0');
+                            value = value * 10u + digit;
+                            ++at;
+                        }
                         squeeze_kib = value;
                     }
                 }
@@ -2977,7 +2985,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // The layout for an FST room of `room`; true when it leaves the
     // arena's top above RiftWii's heap and the game's own floor.
     auto plan_mem1 = [&](std::uint32_t room) {
-        fst_addr = (kMem1Top - room - squeeze) & ~31u;
+        fst_addr = (kMem1Top - room - squeeze_room) & ~31u;
         mem1 = plan_gc_mem1(fst_addr, mem1_pieces, kBi2Bytes);
         arena_hi = mem1.arena_hi;
         // A refused layout (arena top 0) stays refused: the libogc
@@ -2996,12 +3004,29 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         }
         return arena_hi >= kLoaderCeiling && arena_hi >= game_floor;
     };
-    // A squeeze that leaves no room even for disc 1's FST is left out, and
-    // said so: the test then runs as a release build would.
-    if (squeeze != 0 && !plan_mem1(fst_max)) {
-        logf("GameCube: TEST BUILD: game_mem1_kib = %u left out: it would take the arena under the loader "
-             "or the game's own floor\n", static_cast<unsigned>(squeeze >> 10));
-        squeeze = 0;
+    // The room above the FST that lowers the arena's top by at least the
+    // squeeze, against the same layout without it: a gap RiftWii's pieces
+    // fill can swallow a small one. One that leaves no room, or needs 128
+    // KiB more than asked, is left out and said so: the test then runs as
+    // a release build would.
+    if (squeeze != 0) {
+        squeeze_room = 0;
+        const bool base_planned = plan_mem1(fst_max);
+        const std::uint32_t base_arena = arena_hi;
+        bool reached = false;
+        for (squeeze_room = squeeze; base_planned && squeeze_room <= squeeze + 0x20000; squeeze_room += 0x400) {
+            if (!plan_mem1(fst_max)) break;
+            if (base_arena - arena_hi >= squeeze) {
+                reached = true;
+                break;
+            }
+        }
+        if (!reached) {
+            logf("GameCube: TEST BUILD: game_mem1_kib = %u left out: it would take the arena under the loader "
+                 "or the game's own floor\n", static_cast<unsigned>(squeeze >> 10));
+            squeeze = 0;
+            squeeze_room = 0;
+        }
     }
     // A two-disc game's room holds the larger FST; when no layout has room
     // for that, disc 2 goes and disc 1's room is planned as before.
@@ -3014,9 +3039,18 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     }
     if (!planned) plan_mem1(fst_max);
     if (squeeze != 0) {
-        logf("GameCube: TEST BUILD: the top of MEM1 lowered %u KiB more (FST 0x%08x, arena's top 0x%08x; "
-             "test_limits.txt)\n", static_cast<unsigned>(squeeze >> 10), static_cast<unsigned>(fst_addr),
-             static_cast<unsigned>(arena_hi));
+        // What it took, against the final layout (a two-disc game's too)
+        // planned without it, then the layout planned again with it.
+        const std::uint32_t room = squeeze_room;
+        squeeze_room = 0;
+        plan_mem1(fst_max);
+        const std::uint32_t base_arena = arena_hi;
+        squeeze_room = room;
+        plan_mem1(fst_max);
+        logf("GameCube: TEST BUILD: game_mem1_kib = %u: the arena's top 0x%08x, %u bytes under 0x%08x without it "
+             "(FST 0x%08x; test_limits.txt)\n", static_cast<unsigned>(squeeze >> 10),
+             static_cast<unsigned>(arena_hi), static_cast<unsigned>(base_arena - arena_hi),
+             static_cast<unsigned>(base_arena), static_cast<unsigned>(fst_addr));
     }
     const std::uint32_t blob_addr = mem1_pieces[kPieceBlob].address;
     const std::uint32_t card_addr = mem1_pieces[kPieceCard].address;
