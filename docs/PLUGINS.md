@@ -419,8 +419,10 @@ It uses the table's last group, added after `progress` (checked with
 
 The screen is immediate mode: each frame the plugin hands over a list of
 `rwp_draw` commands (the theme's cards, pill and round buttons, bar, title
-band and page arrows; any theme picture by its name, `RWP_SKIN_PICTURE`,
-read the first time it is asked for; text in the theme's colours; pictures it made with
+band and page arrows; a theme's own PNG by its name, `RWP_SKIN_PICTURE`,
+read the first time it is asked for, with a texture of the plugin's for a
+theme without one: `rwp_screen_info.glyph` gives the colour to paint it
+in, so pictures only a plugin uses stay out of the DOL; text in the theme's colours; pictures it made with
 `texture_create`; progress bars; QR codes; a controller's button faces)
 and gets that frame's input back (`rwp_input`: the pointer and the
 buttons of every controller, mapped as the menu maps them, with the

@@ -6,9 +6,11 @@
 #include <cstdio>
 #include <cstring>
 #include <deque>
+#include <map>
 #include <string>
 #include <vector>
 
+#include "riftwii/storeicons.hpp"
 #include "storedata.hpp"
 
 namespace riftwii::appstore {
@@ -68,10 +70,12 @@ public:
         d.arg = which;
         d.flags = lit ? RWP_LIT : 0;
     }
-    void Picture(const std::string& name, int x, int y, int w, int h) {
+    // The theme's PNG `name`, else `own` (a texture of the plugin's).
+    void Picture(const std::string& name, std::uint32_t own, int x, int y, int w, int h) {
         texts_.push_back(name);
         rwp_draw& d = Add(RWP_DRAW_SKIN, x, y, w, h);
         d.arg = RWP_SKIN_PICTURE;
+        d.color = own;
         d.text = texts_.back().c_str();
     }
     void Progress(int x, int y, int w, int h, std::uint32_t permille) {
@@ -202,8 +206,24 @@ private:
         if (!title.empty()) frame_.Text(x, 20, kTitleSize, RWP_COLOR_ON_BAND, title, RWP_ALIGN_LEFT, right_ - x - 280);
     }
 
-    // A theme picture (docs/THEMES.md), `size` pixels square.
-    void Picture(const std::string& name, int x, int y, int size) { frame_.Picture(name, x, y, size, size); }
+    // A theme picture (docs/THEMES.md), `size` pixels square: the theme's
+    // PNG, else the store's own, painted here once in the theme's icon
+    // colour (riftwii/storeicons.hpp; the menu does not carry them).
+    void Picture(const std::string& name, int x, int y, int size) {
+        // Painted once: a failure too is kept (0), not tried each frame.
+        const bool painted = own_pictures_.count(name) != 0;
+        std::uint32_t& own = own_pictures_[name];
+        if (!painted) {
+            const Rgba ink{static_cast<std::uint8_t>(info_.glyph >> 24), static_cast<std::uint8_t>(info_.glyph >> 16),
+                           static_cast<std::uint8_t>(info_.glyph >> 8), static_cast<std::uint8_t>(info_.glyph)};
+            Canvas canvas(0, 0);
+            if (paint_store_icon(name, ink, canvas)) {
+                own = Host().texture_create(canvas.pixels().data(), static_cast<std::uint32_t>(canvas.width()),
+                                            static_cast<std::uint32_t>(canvas.height()));
+            }
+        }
+        frame_.Picture(name, own, x, y, size, size);
+    }
 
     static std::string CategoryPicture(const AppCategory& category) { return std::string("store_") + category.key; }
 
@@ -884,6 +904,7 @@ private:
     const AppCategory* categories_ = nullptr;
     std::vector<std::size_t> category_counts_;
     std::size_t grid_category_ = 0;  // a category grid's
+    std::map<std::string, std::uint32_t> own_pictures_;  // name: texture (0: none)
     std::vector<std::size_t> shown_categories_;
 
     GridKind grid_kind_ = GridKind::Category;

@@ -17,6 +17,7 @@
 #include "i18n.hpp"
 #include "libwiigui/gui.h"
 #include "log.hpp"
+#include "menutheme.hpp"
 #include "riftwii/canvas.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/qrcode.hpp"
@@ -404,10 +405,19 @@ private:
                 break;
             }
             case RWP_SKIN_PICTURE: {
-                if (!picture) break;
-                const float dw = w > 0 ? w : picture->w, dh = h > 0 ? h : picture->h;
-                Menu_DrawImgPart(x, y, dw, dh, static_cast<u16>(picture->w), static_cast<u16>(picture->h), picture->data, 0,
-                                 0, 1, 1, static_cast<u8>(alpha));
+                if (picture) {
+                    const float dw = w > 0 ? w : picture->w, dh = h > 0 ? h : picture->h;
+                    Menu_DrawImgPart(x, y, dw, dh, static_cast<u16>(picture->w), static_cast<u16>(picture->h),
+                                     picture->data, 0, 0, 1, 1, static_cast<u8>(alpha));
+                    break;
+                }
+                // The theme has no such PNG: the plugin's own.
+                if (c.color == 0 || c.color > g_textures.size()) break;
+                const Texture& t = g_textures[c.color - 1];
+                if (!t.data) break;
+                Menu_DrawImgPart(x, y, w > 0 ? w : t.width, h > 0 ? h : t.height, static_cast<u16>(t.paddedWidth),
+                                 static_cast<u16>(t.paddedHeight), t.data, 0, 0, static_cast<f32>(t.width) / t.paddedWidth,
+                                 static_cast<f32>(t.height) / t.paddedHeight, static_cast<u8>(alpha));
                 break;
             }
             case RWP_SKIN_TITLE_BAND: {
@@ -477,6 +487,9 @@ int32_t Open(rwp_screen_info* out) {
         out->safe_x = static_cast<int32_t>(safeX + safeW * 0.05f);
         out->safe_w = static_cast<int32_t>(safeW * 0.90f);
         out->widescreen = skinns::WideMenu() ? 1u : 0u;
+        const ThemeColor& glyph = MenuTheme().colors.glyph;
+        out->glyph = static_cast<uint32_t>(glyph.r) << 24 | static_cast<uint32_t>(glyph.g) << 16 |
+                     static_cast<uint32_t>(glyph.b) << 8 | glyph.a;
     }
     logf("Plugin screen: opened (%s menu)\n", skinns::WideMenu() ? "16:9" : "4:3");
     return 0;

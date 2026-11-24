@@ -91,6 +91,7 @@ typedef struct rwp_screen_info {
     int32_t safe_x;
     int32_t safe_w;
     uint32_t widescreen; /* 1 on a 16:9 menu */
+    uint32_t glyph;      /* the theme's icon colour, 0xRRGGBBAA, for pictures the plugin paints */
 } rwp_screen_info;
 
 /* The buttons of a frame's input, from any controller (Wii Remote,
@@ -147,8 +148,9 @@ typedef struct rwp_input {
 #define RWP_SKIN_ARROW_RIGHT 7
 #define RWP_SKIN_TITLE_BAND 8   /* a page's title band, the full width, h high */
 #define RWP_SKIN_FOOTER 9       /* a page's bottom band, from y 410 down, where the prompts go */
-#define RWP_SKIN_PICTURE 10     /* the theme's picture named by `text` (docs/THEMES.md lists them,
-                                 * e.g. "store_games"), at x y; w h its size, else its own */
+#define RWP_SKIN_PICTURE 10     /* the theme's own PNG named by `text` (docs/THEMES.md lists them,
+                                 * e.g. "store_games") at x y, w h its size; without one, the
+                                 * plugin's own texture `color` (painted in rwp_screen_info's glyph) */
 
 /* The theme's colours for RWP_DRAW_TEXT and RWP_DRAW_RECT, as `color`
  * values; any other value is RGBA itself (0xRRGGBBAA). */

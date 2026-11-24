@@ -153,7 +153,9 @@ is open, so the DOL carries none of them.
 | An app | Laid out like a game's page: its category, name, author and version in the band, its icon, one big action (Install, Update, Replace, Remove), the description, a QR code to its own page, a note when `newer` names an app that does the same job (+ opens it), and along the bottom its size, date, consoles and license, each after its icon. While it installs, the action shows each step and a bar; B stops it. |
 
 The icons are theme pictures (`store_*` in [THEMES.md](THEMES.md)), drawn
-with `RWP_SKIN_PICTURE`, so a theme can replace them.
+with `RWP_SKIN_PICTURE`, so a theme can replace them. The plugin paints
+RiftWii's own (`src/art/storeicons.cpp`) in the theme's icon colour, so the
+DOL carries only the lookup of a theme's PNG.
 
 Search is Home's keyboard: the apps that match are named above it as you
 type, and keys that lead nowhere are dimmed (`app_matches`,

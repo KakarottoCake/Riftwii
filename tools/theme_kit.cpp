@@ -19,6 +19,7 @@
 
 #include "riftwii/pngencode.hpp"
 #include "riftwii/skinpaint.hpp"
+#include "riftwii/storeicons.hpp"
 #include "riftwii/theme.hpp"
 
 namespace {
@@ -124,7 +125,9 @@ bool Templates(const std::filesystem::path& dir, const riftwii::Theme& theme) {
     for (const riftwii::ThemeImage& im : riftwii::theme_images()) {
         riftwii::Canvas c(0, 0);
         std::vector<std::uint8_t> png;
-        if (!riftwii::paint_theme_image(im.name, theme, c) ||
+        const riftwii::Rgba glyph{theme.colors.glyph.r, theme.colors.glyph.g, theme.colors.glyph.b, theme.colors.glyph.a};
+        const bool painted = riftwii::paint_theme_image(im.name, theme, c) || riftwii::paint_store_icon(im.name, glyph, c);
+        if (!painted ||
             !riftwii::encode_png_rgba(c.pixels().data(), static_cast<std::uint32_t>(c.width()),
                                       static_cast<std::uint32_t>(c.height()), png) ||
             !WriteFile(dir / (std::string(im.name) + ".png"), png)) {

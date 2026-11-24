@@ -69,7 +69,7 @@ ctgpr_LIBSTDCXX := hash_bytes.o hashtable_c++0x.o
 # The app store (docs/APPSTORE.md): its pages and downloads, the list's
 # reader and the store's rules, the zip and PNG readers and SHA-256. zlib's
 # header for the inflater, which is the loader's (rwp_host's zlib_*).
-appstore_SRC := src/net/applist.cpp src/net/appcatalog.cpp src/fs/zipread.cpp src/art/themepack.cpp src/art/pngdecode.cpp                 src/data/sha256.cpp src/data/textlines.cpp
+appstore_SRC := src/net/applist.cpp src/net/appcatalog.cpp src/fs/zipread.cpp src/art/themepack.cpp src/art/pngdecode.cpp src/art/canvas.cpp src/art/storeicons.cpp                 src/data/sha256.cpp src/data/textlines.cpp
 appstore_CXX := yes
 appstore_CXXFLAGS := -I$(DEVKITPRO)/portlibs/ppc/include
 
