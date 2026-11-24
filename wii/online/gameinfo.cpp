@@ -243,18 +243,15 @@ std::uint32_t Le(const std::uint8_t* p, int bytes) {
 
 using Progress = std::function<bool(double)>;
 
-// The games whose mods go in the mod list: those read for, less a mod
-// entry kept only because a player typed its ID for a tile. Its first four
-// characters can be any other game's, and that game's mods don't belong
-// to the drives' games (#618). A mod installed as a game, in `wanted`,
-// stays: its base game's mods are the ones its tiles look for.
-std::set<std::string> ModListGames(const std::set<std::string>& ids, const std::set<std::string>& wanted) {
-    std::set<std::string> out;
-    for (const std::string& id : ids) {
-        const auto kept = g_cache.games.find(id);
-        const bool typed_mod = kept != g_cache.games.end() && kept->second.custom && !wanted.count(id);
-        if (!typed_mod) out.insert(id);
-    }
+// The games whose mods go in the mod list: the drives' games (`wanted`)
+// and the one looked up, never every game the cache keeps. The cache also
+// holds entries a player typed for a tile (any game's, retail or mod),
+// and their first four characters would bring another game's mods into
+// the list (#618). A tile's chosen entry is read on its own
+// (LookUpTypedGameInfo), so it is never `id` here.
+std::set<std::string> ModListGames(const std::string& id, const std::set<std::string>& wanted) {
+    std::set<std::string> out = wanted;
+    out.insert(id);
     return out;
 }
 
@@ -362,7 +359,7 @@ GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& 
     ids.insert(id);
     for (const auto& kept : g_cache.games) ids.insert(kept.first);
     ids.insert(g_cache.not_listed.begin(), g_cache.not_listed.end());
-    WiitdbScanner scanner(ids, lang, ModListGames(ids, wanted));
+    WiitdbScanner scanner(ids, lang, ModListGames(id, wanted));
     const bool zip = source.size() > 4 && source.compare(source.size() - 4, 4, ".zip") == 0;
     logf("Game details: reading %s for %u game(s)\n", source.c_str(), static_cast<unsigned>(ids.size()));
     const bool read = zip ? ScanZip(source, scanner, error, progress) : ScanXml(source, scanner, error, progress);
@@ -374,7 +371,9 @@ GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& 
     g_cache.read_now = true;
     // The same pass found the homebrew apps: kept for the Homebrew view.
     if (!SaveHomebrewTitles(scanner.homebrew())) logf("Homebrew: %s could not be written\n", kHomebrewTitlesPath);
-    SaveModTitles(scanner.customs());
+    // Without the drives' games (a headless start's parental check) the
+    // mods found are one game's: the list made for all of them stays.
+    if (!wanted.empty()) SaveModTitles(scanner.customs());
     g_cache.not_listed.clear();
     for (const std::string& wanted_id : ids)
         if (!g_cache.games.count(wanted_id)) g_cache.not_listed.insert(wanted_id);
@@ -655,7 +654,7 @@ struct BackgroundRead {
     std::string fallback;
     bool download_failed = false;  // and so it was
     std::set<std::string> ids;
-    std::set<std::string> mod_games;  // ModListGames(ids)
+    std::set<std::string> mod_games;  // the drives' games: whose mods the list keeps
     bool ok = false;
     std::string error;
     std::map<std::string, GameInfo> games;
@@ -784,7 +783,7 @@ GameInfoReadStart StartGameInfoRead(const std::set<std::string>& wanted, bool do
     read.ids = wanted;
     for (const auto& kept : g_cache.games) read.ids.insert(kept.first);
     read.ids.insert(g_cache.not_listed.begin(), g_cache.not_listed.end());
-    read.mod_games = ModListGames(read.ids, wanted);
+    read.mod_games = wanted;
     read.started = true;
     logf("Game details: reading %s for %u game(s) in the background\n",
          !read.source.empty() ? read.source.c_str() : "GameTDB's database (downloading it first)",

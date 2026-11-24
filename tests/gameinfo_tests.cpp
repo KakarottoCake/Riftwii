@@ -526,6 +526,7 @@ void TestTileIdOutsideTheModList() {
         "<locale lang=\"EN\"><title>Newer Super Mario Bros. Wii</title><synopsis>The mod's story.</synopsis></locale>"
         "</game>\n"
         "<game name=\"Base mod\"><id>SMNE05</id><type>CUSTOM</type></game>\n"
+        "<game name=\"European box\"><id>SMNP01</id><locale lang=\"EN\"><title>NSMBW PAL</title></locale></game>\n"
         "<game name=\"Other region mod\"><id>SMNP04</id><type>CUSTOM</type></game>\n"
         "<game name=\"Unrelated mod\"><id>ZZZP02</id><type>CUSTOM</type></game>\n"
         "</datafile>\n";
@@ -552,6 +553,10 @@ void TestTileIdOutsideTheModList() {
     CHECK(LookUpTypedGameInfo("ZZZP01", info, error) == GameInfoResult::NotListed);
     CHECK(ReadModTitles() == mods);
     CHECK(ReadCache().find("ZZZP01") == std::string::npos);
+    // A retail ID typed for a tile (another region's box) is kept as such,
+    // not as a mod: still its game's mods must stay out of the list.
+    CHECK(LookUpTypedGameInfo("SMNP01", info, error) == GameInfoResult::Found);
+    CHECK(info.title == "NSMBW PAL");
 
     ForgetGameInfo();
     CHECK(PeekGameInfo("SMNP03", info) && info.title == "Newer Super Mario Bros. Wii");
@@ -562,6 +567,12 @@ void TestTileIdOutsideTheModList() {
     CHECK(LoadModTitles(list));
     CHECK(list.size() == 1 && list[0].id == "SMNE05");
     CHECK(PeekGameInfo("SMNP03", info) && info.title == "Newer Super Mario Bros. Wii");
+    // A read without the drives' games (a headless start) leaves the list.
+    ForgetGameInfo();
+    fs::remove(kCachePath);
+    CHECK(FindGameInfo("SMNP04", {}, info, error) == GameInfoResult::Found);
+    CHECK(LoadModTitles(list));
+    CHECK(list.size() == 1 && list[0].id == "SMNE05");
     fs::remove(kZipPath);
     fs::remove(kCachePath);
     fs::remove(kHomebrewPath);

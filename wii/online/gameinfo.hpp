@@ -34,7 +34,7 @@ enum class GameInfoResult { Found, NotListed, NoDatabase, Failed };
 GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& wanted, GameInfo& out,
                             std::string& error, const std::function<bool(double done)>& progress = nullptr);
 
-// The details of an ID the player typed for a mod tile, title included
+// The details of a mod tile's GameTDB entry (typed or chosen), title included
 // (old cached details without one are read again). Only that entry is
 // looked for: the lists of mods and homebrew apps made from the drives'
 // games stay as they are, and an ID that isn't listed is not remembered,

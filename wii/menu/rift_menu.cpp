@@ -13047,7 +13047,7 @@ static bool DownloadGameInfoNow()
 // for it and the drives' games (with a popup and a bar while that takes
 // seconds). Downloads nothing.
 static riftwii::wii::GameInfoResult ReadGameInfo(const FrontendState& state, const std::string& id,
-	riftwii::GameInfo& info, std::string& error, bool typedId = false)
+	riftwii::GameInfo& info, std::string& error, bool tileEntry = false)
 {
 	std::set<std::string> wanted;
 	for (const riftwii::wii::ImageGame& g : state.usb_catalog.games) wanted.insert(g.id);
@@ -13068,9 +13068,9 @@ static riftwii::wii::GameInfoResult ReadGameInfo(const FrontendState& state, con
 		ResumeGui();
 		return !stop;
 	};
-	// An ID the player typed is looked up on its own: the drives' games'
-	// lists stay as they are whether GameTDB has it or not.
-	const riftwii::wii::GameInfoResult result = typedId
+	// A tile's GameTDB entry (typed or chosen) is looked up on its own: the
+	// drives' games' lists stay as they are whether GameTDB has it or not.
+	const riftwii::wii::GameInfoResult result = tileEntry
 		? riftwii::wii::LookUpTypedGameInfo(id, info, error, progress)
 		: riftwii::wii::FindGameInfo(id, wanted, info, error, progress);
 	if (box) {
@@ -13087,9 +13087,12 @@ static riftwii::wii::GameInfoResult ReadGameInfo(const FrontendState& state, con
 static bool FetchGameInfo(const FrontendState& state, riftwii::GameInfo& info)
 {
 	const std::string id = TileDetailsId(state);
+	// A mod tile's chosen GameTDB entry, not one of the drives' games: read
+	// on its own, so its mods never join the drives' games' list.
+	const bool chosenEntry = id != GameInfoKey(state.game_id, state.use_channel);
 	for (int attempt = 0; attempt < 2; ++attempt) {
 		std::string error;
-		const riftwii::wii::GameInfoResult result = ReadGameInfo(state, id, info, error);
+		const riftwii::wii::GameInfoResult result = ReadGameInfo(state, id, info, error, chosenEntry);
 		switch (result) {
 			case riftwii::wii::GameInfoResult::Found:
 				return true;
@@ -15530,8 +15533,10 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 				const bool enteredName = picked && AskTileName(renaming ? tr("Rename the tile") : tr("Name the new tile"), name);
 				const bool useEntryName = entryTitled && riftwii::clean_profile_name(name) == suggested;
 				std::string key, error;
-				if (!enteredName) {
-					// cancelled
+				const bool unchanged = renaming && riftwii::clean_profile_name(name) == riftwii::clean_profile_name(state.profile_name);
+				if (!enteredName || unchanged) {
+					// cancelled, or OK on the name as it was: a GameTDB title
+					// longer than a typed name stays whole
 				} else if (renaming ? riftwii::wii::RenameProfile(state, name, error)
 				                    : riftwii::wii::CreateProfile(state, useEntryName ? fullName : name,
 					                    entry.id, useEntryName, packName, key, error)) {
