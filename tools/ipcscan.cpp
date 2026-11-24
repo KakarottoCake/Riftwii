@@ -5,6 +5,7 @@
 // search on titles before they ever meet the runtime. Also the way back's
 // and the HOME Menu's functions (runtime/pad).
 //   ipcscan <main.dol> [<main.dol> ...]
+#include <cstdint>
 #include <cstdio>
 #include <fstream>
 #include <iostream>
@@ -17,6 +18,17 @@
 #include "riftwii/nandchannel.hpp"
 #include "riftwii/osrestart.hpp"
 #include "riftwii/symsearch.hpp"
+
+namespace {
+
+// Whether a DOL section lies inside the file: its offset and size are
+// compared in 64 bits, as a damaged DOL's offset near 4 GB would wrap a
+// 32-bit sum past the check and the read would leave the file.
+bool inside_file(const riftwii::DolSection& sec, std::size_t file_size) {
+    return std::uint64_t{sec.offset} + sec.size <= file_size;
+}
+
+}  // namespace
 
 int main(int argc, char** argv) {
     if (argc < 2) {
@@ -53,7 +65,7 @@ int main(int argc, char** argv) {
         std::vector<riftwii::CodeRange> text;
         for (std::size_t s = 0; s < riftwii::kDolTextSections; ++s) {
             const riftwii::DolSection& sec = dol.sections[s];
-            if (!sec.used() || sec.offset + sec.size > bytes.size()) continue;
+            if (!sec.used() || !inside_file(sec, bytes.size())) continue;
             text.push_back({sec.address, reinterpret_cast<const std::uint8_t*>(bytes.data()) + sec.offset, sec.size});
         }
         // A failed IPC search is reported and counted, and the finders below
@@ -84,7 +96,7 @@ int main(int argc, char** argv) {
         std::vector<riftwii::CodeRange> all;
         for (std::size_t s = 0; s < riftwii::kDolSections; ++s) {
             const riftwii::DolSection& sec = dol.sections[s];
-            if (!sec.used() || sec.offset + sec.size > bytes.size()) continue;
+            if (!sec.used() || !inside_file(sec, bytes.size())) continue;
             all.push_back({sec.address, reinterpret_cast<const std::uint8_t*>(bytes.data()) + sec.offset, sec.size});
         }
         std::uint32_t unhandled = 0;
