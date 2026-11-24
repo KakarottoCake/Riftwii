@@ -81,12 +81,14 @@ const u8* EmulatorBannerTexture(const std::string& game_id);
 // Asks for a cover to be read ahead (a page next to the one shown), and
 // keeps it in memory while asked for every frame.
 void CoverPrefetch(const std::string& game_id, int rank);
-// Room in MEM2 for this many covers (the games in the grid and the game
-// page), taken once in one piece; never less. GUI thread, before the
-// first CoverTexture.
+// Room in MEM2 for up to this many covers (the games in the grid and the
+// game page), taken once in one piece. Fewer when MEM2 is short (a big
+// library): then the slots take turns, the longest not drawn read again
+// first, but never fewer than the pages around the one shown need. GUI
+// thread, before the first CoverTexture.
 void CoverReserve(int covers);
 // Covers for the loader to read when nothing is asked for, in this order,
-// while there is room: then no page has to wait for its covers.
+// while there is room: a library that fits never waits for its covers.
 void CoverReadAll(const std::vector<std::string>& game_ids);
 // Which of GameTDB's cover sets the game shows (#384): the first, or the
 // second (coverB) that some games have. Kept per game beside its cover

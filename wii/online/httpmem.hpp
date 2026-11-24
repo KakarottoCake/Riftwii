@@ -71,8 +71,10 @@ bool HttpGetStream(const std::string& url, StreamGet& get, std::string& error, i
 // so a file of several MB (an update's DOL and pack, GameTDB's database)
 // needs no block of its size, which a menu with hundreds of games' covers
 // may not have (a tester's Wii ran out of memory in the update). At most
-// `max_bytes`; `length` and `digest` are what came. On failure nothing is
-// left at `path`, and `error` says why in a plain sentence.
+// `max_bytes`; `length` and `digest` are what came. On failure `error`
+// says why in a plain sentence, and nothing of this download is left at
+// `path` (a stale file there is left when the download can't start: no
+// memory, or `path` can't be opened; the next one overwrites it).
 struct FileDownload {
     std::uint64_t length = 0;
     Sha256Digest digest{};

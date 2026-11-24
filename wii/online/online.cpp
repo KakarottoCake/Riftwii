@@ -677,7 +677,6 @@ void FetchPacks() {
 // a time: parse_theme_pack's reader, and its files copied or compared
 // without ever holding one whole (the menu font is MB on its own).
 constexpr const char* kUpdatePackPart = "sd:/riftwii/update-pack.part";
-constexpr std::uint64_t kMaxUpdatePackBytes = 16u << 20;
 
 class PackFile {
 public:
