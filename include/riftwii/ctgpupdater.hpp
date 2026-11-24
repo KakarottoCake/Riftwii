@@ -68,6 +68,11 @@ public:
     // its base files are damaged, and another list would not help
     // (CtgpUpdRequest::hash_list_trouble).
     bool list_did_not_vouch() const { return list_refused_; }
+    // True once a file's rebuilt digest differed from a list of the update's
+    // own version: the update (or the base files it was rebuilt from) is
+    // bad, so the install treats it as a bad update, and it is set aside
+    // rather than tried again at every start.
+    bool update_mismatched() const { return mismatched_; }
     // For tests only: lists made here carry no CTGP-R signature.
     void skip_list_signature_for_tests() { signature_skipped_ = true; }
     // Reads only a base file's first bytes (pack or disc), for the bar.
@@ -83,6 +88,7 @@ private:
     std::string temp_prefix_;
     unsigned temp_number_ = 0;
     bool list_refused_ = false;
+    bool mismatched_ = false;
     bool signature_skipped_ = false;       // tests only
     std::uint32_t required_version_ = 0;
     std::uint32_t list_label_ = 0;     // the list's version label, once read

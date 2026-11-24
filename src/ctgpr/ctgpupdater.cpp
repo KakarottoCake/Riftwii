@@ -235,6 +235,19 @@ bool CtgpPackUpdateTarget::base_unpacked_size(const std::string& component, cons
     return size <= kCtgpUpdateMaxFileBytes;
 }
 
+namespace {
+
+// A package version as CTGP-R shows it: 0x01031193 is "1.03.1193" (the
+// plugin's own messages and the menu write it the same way).
+std::string version_text(std::uint32_t version) {
+    char text[16];
+    std::snprintf(text, sizeof text, "%x.%02x.%04x", unsigned(version >> 24), unsigned((version >> 16) & 0xFF),
+                  unsigned(version & 0xFFFF));
+    return text;
+}
+
+}  // namespace
+
 bool CtgpPackUpdateTarget::check_file(const std::string& path, bool packed,
                                       const std::array<std::uint8_t, 20>& digest, std::string& error) {
     // The list's own checksum only says its parts agree with each other.
@@ -256,12 +269,9 @@ bool CtgpPackUpdateTarget::check_file(const std::string& path, bool packed,
             // one this update needs. The body's checksum and the package
             // name are checked with every lookup (ctgp_hash_list_digest).
             if (required_version_ != 0 && list_label_ < required_version_) {
-                char text[160];
-                std::snprintf(text, sizeof text,
-                              "CTGP-R's hash list in jelly.bin is for 0x%08X, older than this update (0x%08X), so its "
-                              "files can't be checked",
-                              unsigned(list_label_), unsigned(required_version_));
-                list_signature_error_ = text;
+                list_signature_error_ = "CTGP-R's hash list in jelly.bin is for " + version_text(list_label_) +
+                                        ", older than this update (" + version_text(required_version_) +
+                                        "), so its files can't be checked";
             } else {
                 list_signature_checked_ = true;
             }
@@ -315,6 +325,7 @@ bool CtgpPackUpdateTarget::check_file(const std::string& path, bool packed,
     }
     if (digest != expected) {
         if (list_newer) list_refused_ = true;
+        else mismatched_ = true;
         error = path + " was rebuilt, but does not match CTGP-R's hash list; nothing was written for it";
         return false;
     }

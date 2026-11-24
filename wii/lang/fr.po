@@ -5070,17 +5070,32 @@ msgstr "Émulée + Wii"
 msgid "CTGP-R's channel: how CTGP-R signs its update files and hash lists (what the signature covers and the 48-byte filler pattern that stands in for it), read as documentation of behavior. The pattern and CTGP-R's public signing key are carried as data; no code is copied."
 msgstr "Chaîne de CTGP-R : comment CTGP-R signe ses fichiers de mise à jour et ses listes de hachages (ce que couvre la signature et le motif de remplissage de 48 octets qui la remplace), consulté comme documentation du comportement. Le motif et la clé publique de signature de CTGP-R sont repris comme données ; aucun code n’a été copié."
 
-msgid "The CTGP-R update on the SD card can't be checked against this card's hash lists ({1}). Downloads are off, so RiftWii did not ask the update server for newer ones. Turn Downloads on and play again, or start CTGP-R through its own channel, which can update CTGP-R (if ctgpnative.txt is next to boot.dol, delete it first). CTGP-R starts now without the update."
-msgstr "La mise à jour de CTGP-R sur la carte SD ne peut pas être vérifiée avec les listes de hachages de cette carte ({1}). Les téléchargements sont désactivés, donc RiftWii n'a pas demandé de listes plus récentes au serveur de mises à jour. Activez les téléchargements et rejouez, ou lancez CTGP-R par sa propre chaîne, qui peut mettre CTGP-R à jour (si ctgpnative.txt se trouve à côté de boot.dol, supprimez-le d'abord). CTGP-R démarre maintenant sans la mise à jour."
+msgid "The CTGP-R update on the SD card can't be checked against this card's hash lists ({1})."
+msgstr "La mise à jour de CTGP-R sur la carte SD ne peut pas être vérifiée avec les listes de hachages de cette carte ({1})."
 
-msgid "The CTGP-R update on the SD card can't be checked against this card's hash lists ({1}). RiftWii could not reach the update server to ask for newer ones. Try again later, or start CTGP-R through its own channel, which can update CTGP-R (if ctgpnative.txt is next to boot.dol, delete it first). CTGP-R starts now without the update."
-msgstr "La mise à jour de CTGP-R sur la carte SD ne peut pas être vérifiée avec les listes de hachages de cette carte ({1}). RiftWii n'a pas pu joindre le serveur de mises à jour pour demander des listes plus récentes. Réessayez plus tard, ou lancez CTGP-R par sa propre chaîne, qui peut mettre CTGP-R à jour (si ctgpnative.txt se trouve à côté de boot.dol, supprimez-le d'abord). CTGP-R démarre maintenant sans la mise à jour."
+msgid "The update server had no newer hash lists for it."
+msgstr "Le serveur de mises à jour n'avait pas de listes de hachages plus récentes pour elle."
 
-msgid "The CTGP-R update on the SD card can't be checked against this card's hash lists ({1}). The update server did not give RiftWii newer ones. CTGP-R's own channel can update CTGP-R: start CTGP-R through it once (if ctgpnative.txt is next to boot.dol, delete it first). CTGP-R starts now without the update."
-msgstr "La mise à jour de CTGP-R sur la carte SD ne peut pas être vérifiée avec les listes de hachages de cette carte ({1}). Le serveur de mises à jour n'a pas donné de listes plus récentes à RiftWii. La chaîne de CTGP-R peut mettre CTGP-R à jour : lancez CTGP-R par elle une fois (si ctgpnative.txt se trouve à côté de boot.dol, supprimez-le d'abord). CTGP-R démarre maintenant sans la mise à jour."
+msgid "Downloads are off, so RiftWii did not ask the update server for newer ones. Turn Downloads on and play again."
+msgstr "Les téléchargements sont désactivés, donc RiftWii n'a pas demandé de listes plus récentes au serveur de mises à jour. Activez les téléchargements et rejouez."
 
-msgid "The next CTGP-R update has to be installed by CTGP-R's channel, but RiftWii is starting CTGP-R itself, because ctgpnative.txt is next to boot.dol. To finish updating, choose Back, delete ctgpnative.txt from the SD card, then start CTGP-R again. Or choose Play anyway to start CTGP-R as it is."
-msgstr "La prochaine mise à jour de CTGP-R doit être installée par la chaîne de CTGP-R, mais RiftWii lance CTGP-R lui-même, car ctgpnative.txt se trouve à côté de boot.dol. Pour terminer la mise à jour, choisissez Retour, supprimez ctgpnative.txt de la carte SD, puis relancez CTGP-R. Ou choisissez Jouer quand même pour lancer CTGP-R tel quel."
+msgid "RiftWii could not reach the update server to ask for newer ones. Try again later."
+msgstr "RiftWii n'a pas pu joindre le serveur de mises à jour pour demander des listes plus récentes. Réessayez plus tard."
 
-msgid "CTGP-R was updated as far as RiftWii can take it. The next update has to be installed by CTGP-R's channel, but RiftWii is starting CTGP-R itself, because ctgpnative.txt is next to boot.dol. To finish updating, choose Back, delete ctgpnative.txt from the SD card, then start CTGP-R again. Or choose Play anyway to start CTGP-R as it is."
-msgstr "CTGP-R a été mis à jour aussi loin que RiftWii le peut. La prochaine mise à jour doit être installée par la chaîne de CTGP-R, mais RiftWii lance CTGP-R lui-même, car ctgpnative.txt se trouve à côté de boot.dol. Pour terminer la mise à jour, choisissez Retour, supprimez ctgpnative.txt de la carte SD, puis relancez CTGP-R. Ou choisissez Jouer quand même pour lancer CTGP-R tel quel."
+msgid "RiftWii could not download or read what the update server offered."
+msgstr "RiftWii n'a pas pu télécharger ou lire ce que le serveur de mises à jour proposait."
+
+msgid "The update server offered an update that is not newer, and no newer hash lists."
+msgstr "Le serveur de mises à jour a proposé une mise à jour qui n'est pas plus récente, et aucune liste de hachages plus récente."
+
+msgid "RiftWii got a newer update from the update server, but it still can't be checked."
+msgstr "RiftWii a reçu une mise à jour plus récente du serveur de mises à jour, mais elle ne peut toujours pas être vérifiée."
+
+msgid "CTGP-R's own channel can update CTGP-R: start CTGP-R through it once (if ctgpnative.txt is next to boot.dol, delete it first). CTGP-R starts now without the update."
+msgstr "La chaîne de CTGP-R peut mettre CTGP-R à jour : lancez CTGP-R par elle une fois (si ctgpnative.txt se trouve à côté de boot.dol, supprimez-le d'abord). CTGP-R démarre maintenant sans la mise à jour."
+
+msgid "CTGP-R's channel has to install the next update, but ctgpnative.txt makes RiftWii start CTGP-R itself. To update: choose Back, delete ctgpnative.txt from the SD card and start CTGP-R again. Or choose Play anyway."
+msgstr "La chaîne de CTGP-R doit installer la prochaine mise à jour, mais ctgpnative.txt fait que RiftWii lance CTGP-R lui-même. Pour mettre à jour : choisissez Retour, supprimez ctgpnative.txt de la carte SD et relancez CTGP-R. Ou choisissez Jouer quand même."
+
+msgid "CTGP-R was updated as far as RiftWii can. CTGP-R's channel has to install the next update, but ctgpnative.txt makes RiftWii start CTGP-R itself. To finish: choose Back, delete ctgpnative.txt from the SD card and start CTGP-R again. Or choose Play anyway."
+msgstr "CTGP-R a été mis à jour aussi loin que RiftWii le peut. La chaîne de CTGP-R doit installer la prochaine mise à jour, mais ctgpnative.txt fait que RiftWii lance CTGP-R lui-même. Pour terminer : choisissez Retour, supprimez ctgpnative.txt de la carte SD et relancez CTGP-R. Ou choisissez Jouer quand même."

@@ -516,6 +516,10 @@ bool install_into(CtgpUpdRequest& request, riftwii::CtgpPackWriter& pack, const 
         riftwii::CtgpUpdateFileDone(), request.step, failure, error);
     std::fclose(update_file);
     if (!ok && target.list_did_not_vouch()) request.hash_list_trouble = 1;
+    // A digest that differs from the list of the update's own version: the
+    // update is bad (once the pack is put back it is set aside, not retried
+    // at every start).
+    if (!ok && target.update_mismatched()) failure = riftwii::CtgpUpdateFailure::BadUpdate;
     return ok && note_version(pack, dia.version, error);
 }
 
