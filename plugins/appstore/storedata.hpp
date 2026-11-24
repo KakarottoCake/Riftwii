@@ -37,12 +37,50 @@ enum class ListState { Loading, Ready, Failed };
 
 // Finish: the staged files being put in place, which Stop no longer interrupts.
 enum class InstallStage { Download, Check, Unpack, Finish, Done, Failed, Cancelled };
-// Written by the job, read by the page while it runs: atomics, so each read
-// sees a whole value the job stored.
-struct InstallProgress {
-    std::atomic<InstallStage> stage{InstallStage::Download};
-    std::atomic<std::uint32_t> done{0};   // bytes (download) or files (unpack)
-    std::atomic<std::uint32_t> total{0};
+// Written by the job, read by the page while it runs. The three fields go
+// together (a byte count is never read against a file total): the writer
+// makes the sequence number odd while it changes them, and a reader takes
+// a copy only when the number was even and the same before and after
+// (a sequence lock). One writer at a time: the menu before the job starts,
+// then the job.
+class InstallProgress {
+public:
+    struct Snapshot {
+        InstallStage stage = InstallStage::Download;
+        std::uint32_t done = 0;   // bytes (download) or files (unpack)
+        std::uint32_t total = 0;
+    };
+    void Set(InstallStage stage, std::uint32_t done, std::uint32_t total) {
+        sequence_.fetch_add(1);
+        stage_.store(stage);
+        done_.store(done);
+        total_.store(total);
+        sequence_.fetch_add(1);
+    }
+    void SetStage(InstallStage stage) {
+        const Snapshot now = Read();
+        Set(stage, now.done, now.total);
+    }
+    void SetDone(std::uint32_t done) {
+        const Snapshot now = Read();
+        Set(now.stage, done, now.total);
+    }
+    Snapshot Read() const {
+        Snapshot copy;
+        for (;;) {
+            const std::uint32_t before = sequence_.load();
+            copy.stage = stage_.load();
+            copy.done = done_.load();
+            copy.total = total_.load();
+            if ((before & 1u) == 0 && sequence_.load() == before) return copy;
+        }
+    }
+
+private:
+    std::atomic<std::uint32_t> sequence_{0};
+    std::atomic<InstallStage> stage_{InstallStage::Download};
+    std::atomic<std::uint32_t> done_{0};
+    std::atomic<std::uint32_t> total_{0};
 };
 
 class Store {
@@ -65,8 +103,9 @@ public:
     bool StartInstall(std::size_t index);
     bool StartRemove(std::size_t index);
     bool Busy() const { return job_ != Job::None; }
+    // Running, or waiting for an icon's download to end first.
     bool InstallRunning(std::size_t index) const {
-        return (job_ == Job::Install || job_ == Job::Remove) && job_index_ == index;
+        return ((job_ == Job::Install || job_ == Job::Remove) && job_index_ == index) || queued_install_ == index;
     }
     void CancelInstall();
     // The store is closing: no new job starts (a queued icon stays
@@ -118,6 +157,10 @@ private:
     bool shutting_down_ = false;
     bool finished_pending_ = false;
     bool want_list_ = false;
+    // An install asked for while an icon (or the list) was downloading:
+    // it starts as soon as that job ends, before any further icon.
+    static constexpr std::size_t kNone = static_cast<std::size_t>(-1);
+    std::size_t queued_install_ = kNone;
 
     // The jobs' download buffers, taken on the menu thread before they start.
     std::vector<std::uint8_t> list_buffer_;

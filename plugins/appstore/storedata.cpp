@@ -155,20 +155,33 @@ std::string Commit(const std::vector<Move>& moves, const std::string& own, const
         }
         return "";
     }
-    // Back as it was, last first. A file that cannot go back stays in the
-    // backup folder, and the player is told where.
-    bool restored = true;
+    // Back as it was, last first. Two things can stay wrong, and the player
+    // is told each apart: a new file that could not be removed (named), and
+    // an old file that could not go back (it stays in the backup folder).
+    std::string new_left;
+    bool old_left = false;
     for (std::size_t i = backups.size(); i-- > 0;) {
-        if (Exists(moves[i].target) && Host().remove_path(moves[i].target.c_str()) != 0) restored = false;
+        if (Exists(moves[i].target) && Host().remove_path(moves[i].target.c_str()) != 0) {
+            Host().log("%s: the new %s could not be removed", id.c_str(), moves[i].target.c_str());
+            if (new_left.empty()) new_left = moves[i].target;
+            if (!backups[i].empty()) {
+                // Its old file cannot go where the new one still is.
+                old_left = true;
+                Host().log("%s: the old %s stays %s", id.c_str(), moves[i].target.c_str(), backups[i].c_str());
+            }
+            continue;
+        }
         if (!backups[i].empty() && Host().rename_path(backups[i].c_str(), moves[i].target.c_str()) != 0) {
-            restored = false;
+            old_left = true;
             Host().log("%s: %s could not be put back; it is %s", id.c_str(), moves[i].target.c_str(), backups[i].c_str());
         }
     }
-    if (fresh && restored && IsFolder(own)) RemoveTree(own);
-    if (restored) return "the app's files could not be put in place; the old ones were put back";
-    return std::string("the app's files could not be put in place, and some old ones could not be put back: they are in ") +
-           kBackupFolder;
+    if (fresh && new_left.empty() && !old_left && IsFolder(own)) RemoveTree(own);
+    std::string why = "the app's files could not be put in place";
+    if (new_left.empty() && !old_left) return why + "; the old ones were put back";
+    if (!new_left.empty()) why += "; some new files could not be removed, such as " + new_left;
+    if (old_left) why += std::string("; some old files could not be put back: they are in ") + kBackupFolder;
+    return why;
 }
 
 bool PngInflate(const std::uint8_t* data, std::size_t size, std::uint8_t* out, std::size_t out_size) {
@@ -255,6 +268,12 @@ void Store::Start(Job job, std::size_t index) {
 void Store::Pump(std::uint32_t frame) {
     if (job_ != Job::None && !Host().background_running()) Finish();
     if (job_ != Job::None || shutting_down_) return;
+    if (queued_install_ != kNone) {
+        const std::size_t index = queued_install_;
+        Start(Job::Install, index);
+        if (job_ == Job::Install) queued_install_ = kNone;  // else the network thread is busy: next frame
+        return;
+    }
     if (want_list_) {
         // Its memory is taken here, on the menu's thread: a job never
         // allocates much on the network's.
@@ -380,12 +399,15 @@ std::size_t Store::UpdateCount() const {
 }
 
 bool Store::StartInstall(std::size_t index) {
-    if (job_ != Job::None || index >= apps.size() || !app_installable(*apps[index].listing)) return false;
-    progress.stage = InstallStage::Download;
-    progress.done = 0;
-    progress.total = apps[index].listing->size;
-    Start(Job::Install, index);
-    return job_ == Job::Install;
+    if (index >= apps.size() || !app_installable(*apps[index].listing)) return false;
+    // Another install or a removal runs: one at a time, the player waits.
+    if (job_ == Job::Install || job_ == Job::Remove || queued_install_ != kNone) return false;
+    progress.Set(InstallStage::Download, 0, apps[index].listing->size);
+    // An icon or the list may still be downloading (or RiftWii's own
+    // network work): the install waits for it and starts next (Pump).
+    queued_install_ = index;
+    Pump(0);
+    return true;
 }
 
 bool Store::StartRemove(std::size_t index) {
@@ -395,6 +417,17 @@ bool Store::StartRemove(std::size_t index) {
 }
 
 void Store::CancelInstall() {
+    if (queued_install_ != kNone) {
+        // Not begun: nothing to stop but the wait.
+        finished_index = queued_install_;
+        finished_ok = false;
+        finished_remove = false;
+        finished_error = "stopped";
+        finished_pending_ = true;
+        progress.SetStage(InstallStage::Cancelled);
+        queued_install_ = kNone;
+        return;
+    }
     if (job_ != Job::Install) return;
     // Only while the job has not begun moving files in: then it stops and
     // nothing of the app changes. Once moving, it finishes.
@@ -477,7 +510,7 @@ void Store::RunInstall() {
         job_error_ = why;
         // Stopped only when Stop won before anything moved: a failure while
         // moving is reported as one, whatever was pressed.
-        progress.stage = Stopped() ? InstallStage::Cancelled : InstallStage::Failed;
+        progress.SetStage(Stopped() ? InstallStage::Cancelled : InstallStage::Failed);
         clean_up();
         Host().log("%s was not installed: %s", app.id, why.c_str());
     };
@@ -486,12 +519,12 @@ void Store::RunInstall() {
     if (!MakeParents(staging + "/")) return fail("the SD card's riftwii folder could not be written");
 
     // Download, hashed on the way, and no longer than the list says it is.
-    progress.stage = InstallStage::Download;
+    progress.SetStage(InstallStage::Download);
     std::uint8_t digest[32];
-    const auto downloaded = [](std::uint32_t done, void* arg) { static_cast<Store*>(arg)->progress.done = done; };
+    const auto downloaded = [](std::uint32_t done, void* arg) { static_cast<Store*>(arg)->progress.SetDone(done); };
     if (!Host().http_download(app.url, kDownloadFile, app.size, digest, downloaded, this, error, sizeof(error)))
         return fail(Stopped() ? "stopped" : error);
-    progress.stage = InstallStage::Check;
+    progress.SetStage(InstallStage::Check);
     if (Hex(digest, sizeof(digest)) != app.sha256)
         return fail("the download is not the file the app list approved (it may have been changed)");
 
@@ -500,10 +533,9 @@ void Store::RunInstall() {
     // files put in place (Commit, below).
     std::vector<Move> moves;
     if (app.format == AppFormat::Dol) {
-        progress.stage = InstallStage::Unpack;
-        progress.total = 1;
+        progress.Set(InstallStage::Unpack, 0, 1);
         moves.push_back({kDownloadFile, own + "/boot.dol"});
-        progress.done = 1;
+        progress.Set(InstallStage::Unpack, 1, 1);
     } else {
         FILE* zip = std::fopen(kDownloadFile, "rb");
         if (!zip) return fail("the download could not be read back");
@@ -520,9 +552,7 @@ void Store::RunInstall() {
             std::fclose(zip);
             return fail(why);
         }
-        progress.stage = InstallStage::Unpack;
-        progress.done = 0;
-        progress.total = static_cast<std::uint32_t>(plan.size());
+        progress.Set(InstallStage::Unpack, 0, static_cast<std::uint32_t>(plan.size()));
         ZlibStream inflater;
         for (std::size_t i = 0; i < plan.size(); ++i) {
             const std::string staged = staging + "/" + std::to_string(i) + ".part";
@@ -546,7 +576,7 @@ void Store::RunInstall() {
                 return fail(write_failed || !closed ? "the SD card could not be written (is it full?)" : why);
             }
             moves.push_back({staged, "sd:/" + plan[i].path});
-            progress.done.fetch_add(1);
+            progress.SetDone(static_cast<std::uint32_t>(i + 1));
         }
         std::fclose(zip);
     }
@@ -562,11 +592,11 @@ void Store::RunInstall() {
     // Stop and the move in race here; whichever takes the gate first wins.
     int expected = Running;
     if (!gate_.compare_exchange_strong(expected, Committing)) return fail("stopped");
-    progress.stage = InstallStage::Finish;
+    progress.SetStage(InstallStage::Finish);
     const std::string not_placed = Commit(moves, own, app.id);
     if (!not_placed.empty()) return fail(not_placed);
     clean_up();
-    progress.stage = InstallStage::Done;
+    progress.SetStage(InstallStage::Done);
     Host().log("%s %s installed (%u files)", app.id, app.version, static_cast<unsigned>(moves.size() - 1));
     job_ok_ = true;
 }

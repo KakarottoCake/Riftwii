@@ -4311,15 +4311,6 @@ msgstr "Wii에서 풀 수 없습니다. 코드를 스캔하세요."
 msgid "To the SD card, {1}"
 msgstr "SD 카드에, {1}"
 
-msgid "Downloading: {1} of {2}"
-msgstr "다운로드 중: {1} / {2}"
-
-msgid "Checking that it is the approved file..."
-msgstr "승인된 파일인지 확인하는 중..."
-
-msgid "Unpacking: {1} of {2} files"
-msgstr "압축 해제 중: 파일 {1} / {2}"
-
 msgid "Finishing..."
 msgstr "마무리하는 중..."
 
@@ -4331,9 +4322,6 @@ msgstr "sd:/apps의 폴더를 지웁니다. 세이브와 데이터 폴더는 남
 
 msgid "This app is in sd:/apps already, not put there from here. Version {1} replaces its files; its own settings stay."
 msgstr "이 앱은 이미 sd:/apps에 있지만 여기서 설치한 것이 아닙니다. 버전 {1}이(가) 파일을 바꾸며 설정은 남습니다."
-
-msgid "Another download is still running. Try again in a moment."
-msgstr "다른 다운로드가 아직 진행 중입니다. 잠시 후 다시 시도하세요."
 
 msgid "Installed. Find it in Home's Homebrew view."
 msgstr "설치했습니다. 홈의 홈브루 보기에 있습니다."
@@ -4352,6 +4340,24 @@ msgstr "검색: {1}"
 
 msgid "My apps ({1})"
 msgstr "내 앱 ({1})"
+
+msgid "Downloading..."
+msgstr "다운로드 중..."
+
+msgid "Checking the file..."
+msgstr "파일을 확인하는 중..."
+
+msgid "Unpacking..."
+msgstr "압축 해제 중..."
+
+msgid "{1} of {2}"
+msgstr "{1} / {2}"
+
+msgid "{1} of {2} files"
+msgstr "파일 {1} / {2}"
+
+msgid "Another app is being installed. Try again when it is done."
+msgstr "다른 앱을 설치하는 중입니다. 끝난 뒤 다시 시도하세요."
 
 msgid "Disc slot light"
 msgstr "디스크 슬롯 표시등"

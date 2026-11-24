@@ -379,8 +379,9 @@ private:
         frame_.Card(ax, row, aw, 92, focus_ == kHitAction, app.state != AppState::PcOnly);
         hits_.push_back({ax, row, aw, 92, kHitAction});
         if (running) {
-            frame_.Text(ax + 24, row + 16, kBodySize, RWP_COLOR_INK, ProgressText(), RWP_ALIGN_LEFT, aw - 48);
-            frame_.Progress(ax + 24, row + 56, aw - 48, 16, ProgressPermille());
+            frame_.Text(ax + 24, row + 10, kBodySize, RWP_COLOR_INK, ProgressTitle(), RWP_ALIGN_LEFT, aw - 48);
+            frame_.Text(ax + 24, row + 38, kSmallSize, RWP_COLOR_INK_SOFT, ProgressDetail(), RWP_ALIGN_LEFT, aw - 48);
+            frame_.Progress(ax + 24, row + 66, aw - 48, 12, ProgressPermille());
         } else {
             frame_.Text(ax + 24, row + 14, 26, RWP_COLOR_INK, ActionLabel(app), RWP_ALIGN_LEFT, aw - 48);
             frame_.Text(ax + 24, row + 54, kSmallSize, RWP_COLOR_INK_SOFT, ActionNote(app), RWP_ALIGN_LEFT, aw - 48);
@@ -415,7 +416,7 @@ private:
 
         if (running) {
             // Once the files are being put in place there is nothing to stop.
-            if (store_.progress.stage != InstallStage::Finish) Prompt(RWP_KEY_B, tr("Stop"));
+            if (CanStop()) Prompt(RWP_KEY_B, tr("Stop"));
             return;
         }
         Prompt(RWP_KEY_B, tr("Back"));
@@ -446,26 +447,39 @@ private:
         return tr("To the SD card, {1}", size);
     }
 
-    std::string ProgressText() const {
-        const InstallProgress& p = store_.progress;
-        switch (p.stage) {
-            case InstallStage::Download:
-                return tr("Downloading: {1} of {2}", app_size_text(p.done), app_size_text(p.total));
-            case InstallStage::Check: return tr("Checking that it is the approved file...");
-            case InstallStage::Unpack:
-                return tr("Unpacking: {1} of {2} files", std::to_string(p.done), std::to_string(p.total));
+    // The step, on the card's first line, and its numbers on the second:
+    // one line held both, and was cut on a 4:3 menu.
+    std::string ProgressTitle() const {
+        switch (store_.progress.Read().stage) {
+            case InstallStage::Download: return tr("Downloading...");
+            case InstallStage::Check: return tr("Checking the file...");
+            case InstallStage::Unpack: return tr("Unpacking...");
+            case InstallStage::Cancelled: return tr("Stopping...");
             default: return tr("Finishing...");
         }
     }
+    std::string ProgressDetail() const {
+        const InstallProgress::Snapshot p = store_.progress.Read();
+        if (p.stage == InstallStage::Download) return tr("{1} of {2}", app_size_text(p.done), app_size_text(p.total));
+        if (p.stage == InstallStage::Unpack)
+            return tr("{1} of {2} files", std::to_string(p.done), std::to_string(p.total));
+        return "";
+    }
+    // Whether Stop is still taken: until the files start moving in.
+    bool CanStop() const {
+        const InstallStage stage = store_.progress.Read().stage;
+        return stage == InstallStage::Download || stage == InstallStage::Check || stage == InstallStage::Unpack;
+    }
 
     std::uint32_t ProgressPermille() const {
-        const InstallProgress& p = store_.progress;
+        const InstallProgress::Snapshot p = store_.progress.Read();
         if (p.total == 0) return 0;
         const std::uint64_t part = std::uint64_t(p.done) * 1000u / p.total;
         // Downloading is the first 70%, unpacking the rest.
         if (p.stage == InstallStage::Download) return static_cast<std::uint32_t>(part * 7 / 10);
         if (p.stage == InstallStage::Unpack) return static_cast<std::uint32_t>(700 + part * 3 / 10);
-        return 700;
+        if (p.stage == InstallStage::Check) return 700;
+        return 1000;  // everything unpacked: the moves in, or the end
     }
 
     // ---- Input ----
@@ -644,7 +658,7 @@ private:
             case AppState::Update:
                 break;
         }
-        if (!store_.StartInstall(app_index_)) status_ = tr("Another download is still running. Try again in a moment.");
+        if (!store_.StartInstall(app_index_)) status_ = tr("Another app is being installed. Try again when it is done.");
     }
 
     void TakeFinishedInstall() {
@@ -658,7 +672,7 @@ private:
                                                  : tr("Installed. Find it in Home's Homebrew view.");
             return;
         }
-        if (store_.progress.stage == InstallStage::Cancelled) {
+        if (store_.progress.Read().stage == InstallStage::Cancelled) {
             if (here) status_ = tr("Stopped. Nothing was changed.");
             return;
         }

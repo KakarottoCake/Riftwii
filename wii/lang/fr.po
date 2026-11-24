@@ -4311,15 +4311,6 @@ msgstr "La Wii ne peut pas l'extraire : scannez le code."
 msgid "To the SD card, {1}"
 msgstr "Sur la carte SD, {1}"
 
-msgid "Downloading: {1} of {2}"
-msgstr "Téléchargement : {1} sur {2}"
-
-msgid "Checking that it is the approved file..."
-msgstr "Vérification qu'il s'agit du fichier approuvé..."
-
-msgid "Unpacking: {1} of {2} files"
-msgstr "Décompression : {1} fichiers sur {2}"
-
 msgid "Finishing..."
 msgstr "Finalisation..."
 
@@ -4331,9 +4322,6 @@ msgstr "Son dossier dans sd:/apps est supprimé. Ses sauvegardes et dossiers de 
 
 msgid "This app is in sd:/apps already, not put there from here. Version {1} replaces its files; its own settings stay."
 msgstr "Cette appli est déjà dans sd:/apps, sans avoir été installée d'ici. La version {1} remplace ses fichiers ; ses réglages restent."
-
-msgid "Another download is still running. Try again in a moment."
-msgstr "Un autre téléchargement est en cours. Réessayez dans un instant."
 
 msgid "Installed. Find it in Home's Homebrew view."
 msgstr "Installée. Elle est dans la vue Homebrew de l'accueil."
@@ -4352,6 +4340,24 @@ msgstr "Recherche : {1}"
 
 msgid "My apps ({1})"
 msgstr "Mes applis ({1})"
+
+msgid "Downloading..."
+msgstr "Téléchargement..."
+
+msgid "Checking the file..."
+msgstr "Vérification du fichier..."
+
+msgid "Unpacking..."
+msgstr "Décompression..."
+
+msgid "{1} of {2}"
+msgstr "{1} sur {2}"
+
+msgid "{1} of {2} files"
+msgstr "{1} fichiers sur {2}"
+
+msgid "Another app is being installed. Try again when it is done."
+msgstr "Une autre appli est en cours d'installation. Réessayez quand elle sera terminée."
 
 msgid "Disc slot light"
 msgstr "Lumière du lecteur de disques"

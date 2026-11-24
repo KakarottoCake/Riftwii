@@ -4311,15 +4311,6 @@ msgstr "Wiiでは展開できません。コードを読み取ってください
 msgid "To the SD card, {1}"
 msgstr "SDカードへ、{1}"
 
-msgid "Downloading: {1} of {2}"
-msgstr "ダウンロード中: {1} / {2}"
-
-msgid "Checking that it is the approved file..."
-msgstr "承認されたファイルか確認中..."
-
-msgid "Unpacking: {1} of {2} files"
-msgstr "展開中: {1} / {2}ファイル"
-
 msgid "Finishing..."
 msgstr "仕上げ中..."
 
@@ -4331,9 +4322,6 @@ msgstr "sd:/appsのフォルダを削除します。セーブとデータのフ�
 
 msgid "This app is in sd:/apps already, not put there from here. Version {1} replaces its files; its own settings stay."
 msgstr "このアプリはすでにsd:/appsにありますが、ここから入れたものではありません。バージョン{1}でファイルを置き換えます。設定は残ります。"
-
-msgid "Another download is still running. Try again in a moment."
-msgstr "ほかのダウンロードが続いています。少ししてからもう一度試してください。"
 
 msgid "Installed. Find it in Home's Homebrew view."
 msgstr "インストールしました。ホームのHomebrew表示にあります。"
@@ -4352,6 +4340,24 @@ msgstr "検索: {1}"
 
 msgid "My apps ({1})"
 msgstr "マイアプリ({1})"
+
+msgid "Downloading..."
+msgstr "ダウンロード中..."
+
+msgid "Checking the file..."
+msgstr "ファイルを確認中..."
+
+msgid "Unpacking..."
+msgstr "展開中..."
+
+msgid "{1} of {2}"
+msgstr "{1} / {2}"
+
+msgid "{1} of {2} files"
+msgstr "{1} / {2}ファイル"
+
+msgid "Another app is being installed. Try again when it is done."
+msgstr "ほかのアプリをインストール中です。終わってからもう一度試してください。"
 
 msgid "Disc slot light"
 msgstr "ディスクスロットの光"
