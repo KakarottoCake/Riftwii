@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/ctgphashupdate.hpp"
 
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/ctgphash.hpp"
 #include "riftwii/ctgpjournal.hpp"
 
@@ -108,7 +109,14 @@ bool ctgp_hash_update_build(const CtgpUpdateRead& read, std::uint64_t size, cons
             error = "a HASH update section is too large";
             return false;
         }
-        std::vector<std::uint8_t> section(place.size);
+        // The size comes from the update file: ask for the memory first, and
+        // fail in a way the player can retry (nothing has been written).
+        std::vector<std::uint8_t> section;
+        if (!try_resize(section, place.size)) {
+            error = "there is not enough free memory to read the HASH update (" + std::to_string(place.size) +
+                    " bytes); try again";
+            return false;
+        }
         if (!read(place.offset, section.data(), section.size())) {
             error = "the update file could not be read";
             return false;
@@ -142,7 +150,10 @@ bool ctgp_hash_update_build(const CtgpUpdateRead& read, std::uint64_t size, cons
                 return false;
             }
         }
-        list.bytes.reserve(dif.unpacked_size);
+        if (!try_reserve(list.bytes, dif.unpacked_size)) {
+            error = "there is not enough free memory to rebuild " + list.section_path + "; try again";
+            return false;
+        }
         std::string apply_error;
         if (!ctgp_dif_apply(section.data(), section.size(), dif, {}, collect, &list.bytes, apply_error)) {
             failure = CtgpUpdateFailure::BadUpdate;

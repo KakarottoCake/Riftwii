@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/ctgpupdate.hpp"
 
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/ctgpdsa.hpp"
 #include "riftwii/ctgpyaz0.hpp"
 #include "riftwii/sha1.hpp"
@@ -1003,8 +1004,16 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
     for (const CtgpDiaSection& place : update.sections) {
         largest = std::max<std::size_t>(largest, place.size);
     }
+    // Its size comes from the update file, so the memory is asked for
+    // first: without room the install stops here with an error the player
+    // can retry (nothing is written yet), not at the plugin's emergency exit.
     std::vector<std::uint8_t> section;
-    section.reserve(largest);
+    if (!try_reserve(section, largest)) {
+        error = "there is not enough free memory to read the update's largest file (" + std::to_string(largest) +
+                " bytes); try again";
+        failure = CtgpUpdateFailure::Temporary;
+        return false;
+    }
     CtgpPieces packed;
     // The header's unpacked size is the sum of the sections': a section left
     // out of the table shows here, and the install is then rolled back.
@@ -1373,8 +1382,12 @@ bool ctgp_update_apply(const CtgpUpdateRead& read, std::uint64_t size, CtgpUpdat
     }
     return apply_sections(
         update,
-        [&read](const CtgpDiaSection& place, std::vector<std::uint8_t>& out, std::string&) {
-            out.resize(place.size);
+        [&read](const CtgpDiaSection& place, std::vector<std::uint8_t>& out, std::string& why) {
+            if (!try_resize(out, place.size)) {
+                why = "there is not enough free memory to read an update file of " + std::to_string(place.size) +
+                      " bytes; try again";
+                return false;
+            }
             return read(place.offset, out.data(), out.size());
         },
         read,
