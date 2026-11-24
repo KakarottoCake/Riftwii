@@ -5283,12 +5283,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Real GameCube memory cards work",
-	"WAD files in your Game folders",
-	"WAD games go back to RiftWii",
-	"240p keeps PAL 60 colors",
-	"Project+ starts with the GameCube adapter",
-	"GameCube adapter back in LEGO Star Wars",
+	"The Rift Store: get homebrew apps",
+	"Search and Layout on Home's bar",
+	"Wider game pages at 16:9",
+	"Install WAD files is under Games",
+	"Names sort without case or accents",
+	"WAD games go back to RiftWii on a Wii U",
 };
 
 static std::string WhatsNewText()

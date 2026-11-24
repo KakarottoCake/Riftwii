@@ -4113,23 +4113,23 @@ msgstr "Appuyez sur un bouton pour voir ce que fait RiftWii."
 msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
 msgstr "Boîte du jeu : la boîte du jeu pendant son lancement ; appuyez sur un bouton pour voir ce que fait RiftWii. Journal : chaque étape, ligne par ligne. Un lancement qui échoue affiche toujours le journal."
 
-msgid "Real GameCube memory cards work"
-msgstr "Les vraies cartes mémoire GameCube marchent"
+msgid "The Rift Store: get homebrew apps"
+msgstr "Rift Store : des applis homebrew"
 
-msgid "WAD files in your Game folders"
-msgstr "Fichiers WAD dans vos dossiers de jeux"
+msgid "Search and Layout on Home's bar"
+msgstr "Recherche et Disposition sur la barre"
 
-msgid "WAD games go back to RiftWii"
-msgstr "Les jeux WAD reviennent à RiftWii"
+msgid "Wider game pages at 16:9"
+msgstr "Pages de jeu plus larges en 16:9"
 
-msgid "240p keeps PAL 60 colors"
-msgstr "Le 240p garde les couleurs PAL 60"
+msgid "Install WAD files is under Games"
+msgstr "Installer des WAD est dans Jeux"
 
-msgid "Project+ starts with the GameCube adapter"
-msgstr "Project+ démarre avec l'adaptateur GameCube"
+msgid "Names sort without case or accents"
+msgstr "Noms triés sans casse ni accents"
 
-msgid "GameCube adapter back in LEGO Star Wars"
-msgstr "L'adaptateur GameCube revient dans LEGO Star Wars"
+msgid "WAD games go back to RiftWii on a Wii U"
+msgstr "Les jeux WAD reviennent à RiftWii sur Wii U"
 
 msgid "Manage game"
 msgstr "Gérer le jeu"

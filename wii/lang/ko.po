@@ -4113,23 +4113,23 @@ msgstr "아무 버튼이나 누르면 RiftWii가 하는 일을 볼 수 있습니
 msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
 msgstr "게임 패키지: 게임이 시작되는 동안 게임 패키지를 보여 줍니다. 아무 버튼이나 누르면 RiftWii가 하는 일을 볼 수 있습니다. 로그: 모든 단계를 한 줄씩 보여 줍니다. 실행에 실패하면 항상 로그가 나타납니다."
 
-msgid "Real GameCube memory cards work"
-msgstr "실제 게임큐브 메모리 카드 사용 가능"
+msgid "The Rift Store: get homebrew apps"
+msgstr "Rift Store: 홈브루 앱 받기"
 
-msgid "WAD files in your Game folders"
-msgstr "게임 폴더의 WAD 파일도 표시"
+msgid "Search and Layout on Home's bar"
+msgstr "검색과 레이아웃이 홈 바에"
 
-msgid "WAD games go back to RiftWii"
-msgstr "WAD 게임에서 RiftWii로 돌아가기"
+msgid "Wider game pages at 16:9"
+msgstr "16:9에서 더 넓은 게임 페이지"
 
-msgid "240p keeps PAL 60 colors"
-msgstr "240p에서도 PAL 60 색상 유지"
+msgid "Install WAD files is under Games"
+msgstr "WAD 설치는 게임 메뉴에"
 
-msgid "Project+ starts with the GameCube adapter"
-msgstr "게임큐브 어댑터로도 Project+ 실행"
+msgid "Names sort without case or accents"
+msgstr "이름을 대소문자·악센트 없이 정렬"
 
-msgid "GameCube adapter back in LEGO Star Wars"
-msgstr "LEGO Star Wars에서 게임큐브 어댑터 다시 사용"
+msgid "WAD games go back to RiftWii on a Wii U"
+msgstr "Wii U에서도 WAD 게임에서 RiftWii로"
 
 msgid "Manage game"
 msgstr "게임 관리"
