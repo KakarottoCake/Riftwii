@@ -123,8 +123,33 @@ void test_pack_target_check() {
     EXPECT_TRUE(!target.list_did_not_vouch());
     EXPECT_TRUE(target.check_file("/changelog.bin", false, other, error));
     EXPECT_TRUE(!target.list_did_not_vouch());
+    {
+        // A signed list older than the update is refused for every file.
+        riftwii::CtgpPackUpdateTarget old(pack, riftwii::CtgpDiscBase(), list, "ctgphashlookup_unused_");
+        old.skip_list_signature_for_tests();
+        old.set_required_list_version(0x01031195u);  // the list says 1194
+        EXPECT_TRUE(!old.check_file("/Race/Course/X.szs", true, sample_digest(), error));
+        EXPECT_TRUE(error.find("older than this update") != std::string::npos);
+        EXPECT_TRUE(old.list_did_not_vouch());
+    }
+    // A digest that differs from a list of the update's own version (or with
+    // no version known) is a damaged update, not the list's trouble.
     EXPECT_TRUE(!target.check_file("/Race/Course/X.szs", true, other, error));
-    EXPECT_TRUE(target.list_did_not_vouch());
+    EXPECT_TRUE(!target.list_did_not_vouch());
+    {
+        // The list is newer than the update (1194 against 1193): the update
+        // is out of date, and a newer update may match.
+        riftwii::CtgpPackUpdateTarget newer(pack, riftwii::CtgpDiscBase(), list, "ctgphashlookup_unused_");
+        newer.skip_list_signature_for_tests();
+        newer.set_required_list_version(0x01031193u);
+        EXPECT_TRUE(!newer.check_file("/Race/Course/X.szs", true, other, error));
+        EXPECT_TRUE(newer.list_did_not_vouch());
+        riftwii::CtgpPackUpdateTarget same(pack, riftwii::CtgpDiscBase(), list, "ctgphashlookup_unused_");
+        same.skip_list_signature_for_tests();
+        same.set_required_list_version(0x01031194u);
+        EXPECT_TRUE(!same.check_file("/Race/Course/X.szs", true, other, error));
+        EXPECT_TRUE(!same.list_did_not_vouch());
+    }
     EXPECT_TRUE(!target.check_file("/Race/Course/Y.szs", true, other, error));
     EXPECT_TRUE(target.check_file("/changelog.bin", false, other, error));
     EXPECT_TRUE(target.check_file("/Race/Course/X.szs", false, sample_digest(), error));

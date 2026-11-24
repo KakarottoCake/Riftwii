@@ -243,11 +243,28 @@ bool CtgpPackUpdateTarget::check_file(const std::string& path, bool packed,
     // a refusal stays for every later file.
     if (!list_signature_checked_ && list_signature_error_.empty()) {
         std::string why_unsigned;
-        if (ctgp_hash_list_signature_ok(hash_list_.data(), hash_list_.size(), why_unsigned)) {
-            list_signature_checked_ = true;
-        } else {
+        if (!signature_skipped_ && !ctgp_hash_list_signature_ok(hash_list_.data(), hash_list_.size(), why_unsigned)) {
             list_signature_error_ = "CTGP-R's hash list in jelly.bin is not one CTGP-R signed (" + why_unsigned +
                                     "), so no file can be checked against it";
+        } else if (hash_list_.size() < 0x2C) {
+            list_signature_error_ = "CTGP-R's hash list in jelly.bin is too short";
+        } else {
+            list_label_ = (std::uint32_t(hash_list_[0x28]) << 24) | (std::uint32_t(hash_list_[0x29]) << 16) |
+                          (std::uint32_t(hash_list_[0x2A]) << 8) | hash_list_[0x2B];
+            // The version label is outside the signed bytes (ctgp_load_hash_list
+            // says so): an older list CTGP-R signed must not stand in for the
+            // one this update needs. The body's checksum and the package
+            // name are checked with every lookup (ctgp_hash_list_digest).
+            if (required_version_ != 0 && list_label_ < required_version_) {
+                char text[160];
+                std::snprintf(text, sizeof text,
+                              "CTGP-R's hash list in jelly.bin is for 0x%08X, older than this update (0x%08X), so its "
+                              "files can't be checked",
+                              unsigned(list_label_), unsigned(required_version_));
+                list_signature_error_ = text;
+            } else {
+                list_signature_checked_ = true;
+            }
         }
     }
     if (!list_signature_checked_) {
@@ -255,6 +272,11 @@ bool CtgpPackUpdateTarget::check_file(const std::string& path, bool packed,
         error = list_signature_error_;
         return false;
     }
+    // A list newer than the update that no longer matches a file it
+    // rebuilds means the update is out of date (a newer list may belong with
+    // a newer update); a mismatch against a list of the update's own version
+    // means the update or its bases are damaged, which no list would fix.
+    const bool list_newer = required_version_ != 0 && list_label_ > required_version_;
     std::array<std::uint8_t, 20> expected{};
     std::string why;
     bool unlisted = false;
@@ -282,15 +304,17 @@ bool CtgpPackUpdateTarget::check_file(const std::string& path, bool packed,
         if (unlisted && !packed) {
             error = path + " cannot be checked: CTGP-R's hash list does not name it, and it is rebuilt from the game "
                            "disc";
-            list_refused_ = true;
+            if (list_newer) list_refused_ = true;
             return false;
         }
         error = path + " cannot be checked: " + why;
-        list_refused_ = true;
+        // A list that is itself damaged is the list's trouble; one that just
+        // doesn't name the file is, only when it is newer than the update.
+        if (!unlisted || list_newer) list_refused_ = true;
         return false;
     }
     if (digest != expected) {
-        list_refused_ = true;
+        if (list_newer) list_refused_ = true;
         error = path + " was rebuilt, but does not match CTGP-R's hash list; nothing was written for it";
         return false;
     }
