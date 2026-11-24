@@ -123,6 +123,10 @@ void test_install_plan() {
     EXPECT_EQ(plan.size(), 3u);
     EXPECT_EQ(plan[0].path, std::string("apps/snes9xgx/boot.dol"));
     EXPECT_EQ(plan[2].path, std::string("snes9xgx/roms/x"));
+    // A mixed-case id (WiiMedic) still finds its boot.dol.
+    const AppListing mixed = app("WiiMedic", "WiiMedic");
+    EXPECT_TRUE(read({{"apps/WiiMedic/boot.dol", "dol"}}));
+    EXPECT_TRUE(app_plan_install(mixed, entries, plan, error));
     // No boot.dol for the app: refused.
     EXPECT_TRUE(read({{"apps/snes9xgx/meta.xml", "<app/>"}}));
     EXPECT_TRUE(!app_plan_install(a, entries, plan, error));

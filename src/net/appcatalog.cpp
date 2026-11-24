@@ -165,7 +165,9 @@ bool app_plan_install(const AppListing& app, const std::vector<ZipEntry>& entrie
     if (app.format != AppFormat::Zip) return Fail(error, "the download is not a zip file");
     const std::uint32_t max_files = std::min(app.files, kAppMaxFiles);
     const std::uint64_t max_bytes = std::min(app.unpacked_size, kAppMaxUnpackedBytes);
-    const std::string own = std::string("apps/") + app.id + "/";
+    // Lower case as `key` is: FAT does not tell WiiMedic from wiimedic.
+    std::string own = std::string("apps/") + app.id + "/";
+    for (char& c : own) c = Lower(c);
     std::vector<std::string> seen;
     std::uint64_t total = 0;
     bool has_boot = false;

@@ -100,48 +100,75 @@ struct Move {
     std::string staged, target;
 };
 
-// The staged files put in place. Each old file is kept as <file>.bak until
-// every new one is in, and put back if one cannot be moved, so the app is
-// the old version or the new one, never a mix. A power cut in the middle
-// leaves the .bak files, and no file lost. A fresh install that fails
-// leaves no folder behind.
-bool Commit(const std::vector<Move>& moves, const std::string& own) {
+// Where the old files wait while the new ones go in: the store's own
+// folder, under names no app uses, never next to the player's files.
+constexpr const char* kBackupFolder = "sd:/riftwii/apps/backup";
+
+// A name in the backup folder that is not taken: a backup left by an
+// earlier failed install is someone's only copy, so it is never replaced.
+std::string FreeBackupName(const std::string& id, std::size_t& next) {
+    for (;; ++next) {
+        const std::string name = std::string(kBackupFolder) + "/" + id + "-" + std::to_string(next) + ".bak";
+        if (!Exists(name)) {
+            ++next;
+            return name;
+        }
+    }
+}
+
+// The staged files put in place. Each old file waits in the backup folder
+// until every new one is in, and goes back if one cannot be moved, so the
+// app is the old version or the new one, never a mix. A fresh install that
+// fails leaves no folder behind. Returns "" or why it failed; when an old
+// file could not be put back, the reason says where it is.
+std::string Commit(const std::vector<Move>& moves, const std::string& own, const std::string& id) {
     const bool fresh = !IsFolder(own);
     std::vector<std::string> backups;
-    bool ok = true;
-    for (const Move& move : moves) {
+    std::size_t next = 0;
+    bool ok = MakeParents(std::string(kBackupFolder) + "/");
+    for (std::size_t i = 0; ok && i < moves.size(); ++i) {
+        const Move& move = moves[i];
         std::string backup;
         if (!MakeParents(move.target)) {
             ok = false;
             break;
         }
         if (Exists(move.target)) {
-            backup = move.target + ".bak";
-            Host().remove_path(backup.c_str());
+            backup = FreeBackupName(id, next);
             if (Host().rename_path(move.target.c_str(), backup.c_str()) != 0) {
                 ok = false;
                 break;
             }
         }
         if (Host().rename_path(move.staged.c_str(), move.target.c_str()) != 0) {
-            if (!backup.empty()) Host().rename_path(backup.c_str(), move.target.c_str());
+            // This one's old file is put back with the others below.
+            backups.push_back(backup);
+            Host().remove_path(move.target.c_str());
             ok = false;
             break;
         }
         backups.push_back(backup);
     }
-    if (!ok) {
-        for (std::size_t i = backups.size(); i-- > 0;) {
-            Host().remove_path(moves[i].target.c_str());
-            if (!backups[i].empty()) Host().rename_path(backups[i].c_str(), moves[i].target.c_str());
+    if (ok) {
+        for (const std::string& backup : backups) {
+            if (!backup.empty()) Host().remove_path(backup.c_str());
         }
-        if (fresh && IsFolder(own)) RemoveTree(own);
-        return false;
+        return "";
     }
-    for (const std::string& backup : backups) {
-        if (!backup.empty()) Host().remove_path(backup.c_str());
+    // Back as it was, last first. A file that cannot go back stays in the
+    // backup folder, and the player is told where.
+    bool restored = true;
+    for (std::size_t i = backups.size(); i-- > 0;) {
+        if (Exists(moves[i].target) && Host().remove_path(moves[i].target.c_str()) != 0) restored = false;
+        if (!backups[i].empty() && Host().rename_path(backups[i].c_str(), moves[i].target.c_str()) != 0) {
+            restored = false;
+            Host().log("%s: %s could not be put back; it is %s", id.c_str(), moves[i].target.c_str(), backups[i].c_str());
+        }
     }
-    return true;
+    if (fresh && restored && IsFolder(own)) RemoveTree(own);
+    if (restored) return "the app's files could not be put in place; the old ones were put back";
+    return std::string("the app's files could not be put in place, and some old ones could not be put back: they are in ") +
+           kBackupFolder;
 }
 
 bool PngInflate(const std::uint8_t* data, std::size_t size, std::uint8_t* out, std::size_t out_size) {
@@ -221,13 +248,13 @@ void Store::Start(Job job, std::size_t index) {
     job_index_ = index;
     job_ok_ = false;
     job_error_.clear();
-    cancel_ = false;
+    gate_.store(Running);
     if (Host().background_start(RunJob, this) != 0) job_ = Job::None;  // asked again next frame
 }
 
 void Store::Pump(std::uint32_t frame) {
     if (job_ != Job::None && !Host().background_running()) Finish();
-    if (job_ != Job::None) return;
+    if (job_ != Job::None || shutting_down_) return;
     if (want_list_) {
         // Its memory is taken here, on the menu's thread: a job never
         // allocates much on the network's.
@@ -369,8 +396,17 @@ bool Store::StartRemove(std::size_t index) {
 
 void Store::CancelInstall() {
     if (job_ != Job::Install) return;
-    cancel_ = true;
-    Host().background_cancel();
+    // Only while the job has not begun moving files in: then it stops and
+    // nothing of the app changes. Once moving, it finishes.
+    int expected = Running;
+    if (gate_.compare_exchange_strong(expected, StopAsked)) Host().background_cancel();
+}
+
+void Store::Shutdown() {
+    shutting_down_ = true;
+    want_list_ = false;
+    icon_queue_.clear();
+    CancelInstall();
 }
 
 // ---- The jobs, on the network's thread ----
@@ -431,7 +467,9 @@ void Store::RunInstall() {
     };
     const auto fail = [&](const std::string& why) {
         job_error_ = why;
-        progress.stage = cancel_ ? InstallStage::Cancelled : InstallStage::Failed;
+        // Stopped only when Stop won before anything moved: a failure while
+        // moving is reported as one, whatever was pressed.
+        progress.stage = Stopped() ? InstallStage::Cancelled : InstallStage::Failed;
         clean_up();
         Host().log("%s was not installed: %s", app.id, why.c_str());
     };
@@ -444,7 +482,7 @@ void Store::RunInstall() {
     std::uint8_t digest[32];
     const auto downloaded = [](std::uint32_t done, void* arg) { static_cast<Store*>(arg)->progress.done = done; };
     if (!Host().http_download(app.url, kDownloadFile, app.size, digest, downloaded, this, error, sizeof(error)))
-        return fail(cancel_ ? "stopped" : error);
+        return fail(Stopped() ? "stopped" : error);
     progress.stage = InstallStage::Check;
     if (Hex(digest, sizeof(digest)) != app.sha256)
         return fail("the download is not the file the app list approved (it may have been changed)");
@@ -488,19 +526,19 @@ void Store::RunInstall() {
             bool write_failed = false;
             // Stop is heard inside a file too, so a big one does not hold it up.
             const ZipSink write = [&](const std::uint8_t* data, std::size_t size) {
-                if (cancel_) return false;
+                if (Stopped()) return false;
                 write_failed = std::fwrite(data, 1, size, out) != size;
                 return !write_failed;
             };
             const bool unpacked = zip_extract_at(read, entries[plan[i].entry], &inflater, write, why);
             const bool closed = std::fclose(out) == 0;
-            if (cancel_ || !unpacked || !closed) {
+            if (Stopped() || !unpacked || !closed) {
                 std::fclose(zip);
-                if (cancel_) return fail("stopped");
+                if (Stopped()) return fail("stopped");
                 return fail(write_failed || !closed ? "the SD card could not be written (is it full?)" : why);
             }
             moves.push_back({staged, "sd:/" + plan[i].path});
-            progress.done = progress.done + 1;
+            progress.done.fetch_add(1);
         }
         std::fclose(zip);
     }
@@ -513,8 +551,12 @@ void Store::RunInstall() {
     if ((note && std::fclose(note) != 0) || !noted) return fail("the SD card could not be written (is it full?)");
     moves.push_back({note_staged, std::string(kStoreFolder) + "/" + app.id + ".txt"});
 
+    // Stop and the move in race here; whichever takes the gate first wins.
+    int expected = Running;
+    if (!gate_.compare_exchange_strong(expected, Committing)) return fail("stopped");
     progress.stage = InstallStage::Finish;
-    if (!Commit(moves, own)) return fail("the app's files could not be put in place; the old ones were put back");
+    const std::string not_placed = Commit(moves, own, app.id);
+    if (!not_placed.empty()) return fail(not_placed);
     clean_up();
     progress.stage = InstallStage::Done;
     Host().log("%s %s installed (%u files)", app.id, app.version, static_cast<unsigned>(moves.size() - 1));

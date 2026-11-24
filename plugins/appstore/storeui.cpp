@@ -157,8 +157,9 @@ public:
         // An install still running is stopped (nothing of it is kept); a list,
         // an icon or a removal ends on its own. Its end is waited for with a
         // page that says so: the plugin may not be unloaded under its job.
-        store_.CancelInstall();
-        while (Host().background_running()) {
+        store_.Shutdown();
+        while (store_.Busy()) {
+            store_.Pump(input_.frame);  // takes the last job's answer, starts nothing
             frame_.Clear();
             frame_.Skin(RWP_SKIN_TITLE_BAND, info_.left, 0, info_.width, kBand);
             Message(tr("Finishing..."));
@@ -166,7 +167,6 @@ public:
             rwp_input input;
             if (Host().screen_frame(frame_.Data(), frame_.Count(), &input) == 0) input_ = input;
         }
-        store_.Pump(input_.frame);
         return RWP_LAUNCH_DONE;
     }
 

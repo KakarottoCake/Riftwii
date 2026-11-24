@@ -98,7 +98,10 @@ bool ReadHeaders(const std::uint8_t* buffer, std::size_t used, Headers& h, std::
                 h.length = h.length * 10 + c - '0';
             }
         } else if (NameIs(line, size, "transfer-encoding")) {
-            h.chunked = std::string_view(line + 18, size - 18).find("chunked") != std::string_view::npos;
+            // Transfer codings are case-insensitive ("Chunked").
+            std::string coding(line + 18, size - 18);
+            for (char& c : coding) c = c >= 'A' && c <= 'Z' ? static_cast<char>(c + 32) : c;
+            h.chunked = coding.find("chunked") != std::string::npos;
         } else if (NameIs(line, size, "location")) {
             std::size_t from = 9;
             while (from < size && line[from] == ' ') ++from;

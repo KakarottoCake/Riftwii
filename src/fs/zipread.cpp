@@ -102,16 +102,17 @@ bool zip_read_directory_at(const ZipReadAt& read, std::uint64_t size, std::vecto
     if (directory_size > std::uint64_t(total) * (kCentralSize + 3u * 65535u))
         return Fail(error, "the zip file's directory is damaged");
     if (directory_size > kMaxDirectoryBytes) return Fail(error, "the zip file's directory is too big");
-    std::vector<std::uint8_t> directory(directory_size);
-    if (directory_size > 0 && !read(directory_offset, directory.data(), directory_size))
-        return Fail(error, "the zip file could not be read");
-
+    // Read a record at a time: each fixed part, then its name, so no block
+    // as big as the directory is ever needed (an 8 MB one would not find
+    // room in a fragmented heap).
+    std::uint8_t h[kCentralSize];
+    char name[kMaxNameBytes];
     std::size_t at = 0;
     const std::size_t directory_end = directory_size;
     for (unsigned i = 0; i < total; ++i) {
-        if (directory_end - at < kCentralSize || Le32(directory.data() + at) != kCentralSignature)
-            return Fail(error, "the zip file's directory is damaged");
-        const std::uint8_t* h = directory.data() + at;
+        if (directory_end - at < kCentralSize) return Fail(error, "the zip file's directory is damaged");
+        if (!read(std::uint64_t(directory_offset) + at, h, kCentralSize)) return Fail(error, "the zip file could not be read");
+        if (Le32(h) != kCentralSignature) return Fail(error, "the zip file's directory is damaged");
         const unsigned flags = Le16(h + 8);
         ZipEntry entry;
         entry.method = Le16(h + 10);
@@ -126,7 +127,9 @@ bool zip_read_directory_at(const ZipReadAt& read, std::uint64_t size, std::vecto
         if (flags & 1) return Fail(error, "encrypted zip files are not supported");
         if (entry.packed_size == 0xFFFFFFFFu || entry.unpacked_size == 0xFFFFFFFFu || local_offset == 0xFFFFFFFFu)
             return Fail(error, "zip64 files are not supported");
-        entry.name.assign(reinterpret_cast<const char*>(h + kCentralSize), name_size);
+        if (name_size > 0 && !read(std::uint64_t(directory_offset) + at + kCentralSize, reinterpret_cast<std::uint8_t*>(name), name_size))
+            return Fail(error, "the zip file could not be read");
+        entry.name.assign(name, name_size);
         entry.directory = !entry.name.empty() && entry.name.back() == '/';
         at += record;
         if (entry.directory) {

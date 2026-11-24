@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -36,10 +37,12 @@ enum class ListState { Loading, Ready, Failed };
 
 // Finish: the staged files being put in place, which Stop no longer interrupts.
 enum class InstallStage { Download, Check, Unpack, Finish, Done, Failed, Cancelled };
+// Written by the job, read by the page while it runs: atomics, so each read
+// sees a whole value the job stored.
 struct InstallProgress {
-    volatile InstallStage stage = InstallStage::Download;
-    volatile std::uint32_t done = 0;   // bytes (download) or files (unpack)
-    volatile std::uint32_t total = 0;
+    std::atomic<InstallStage> stage{InstallStage::Download};
+    std::atomic<std::uint32_t> done{0};   // bytes (download) or files (unpack)
+    std::atomic<std::uint32_t> total{0};
 };
 
 class Store {
@@ -66,6 +69,10 @@ public:
         return (job_ == Job::Install || job_ == Job::Remove) && job_index_ == index;
     }
     void CancelInstall();
+    // The store is closing: no new job starts (a queued icon stays
+    // queued) and an install is stopped. Busy() then says when the last
+    // one has ended; Pump() takes its answer.
+    void Shutdown();
     InstallProgress progress;
     // The last install or remove's end: the app, and why it failed.
     std::size_t finished_index = static_cast<std::size_t>(-1);
@@ -101,7 +108,14 @@ private:
     std::size_t job_index_ = 0;
     bool job_ok_ = false;
     std::string job_error_;
-    volatile bool cancel_ = false;
+    // An install's Stop against its move into place: Running, then either
+    // StopAsked (the page's Stop won: nothing is moved) or Committing (the
+    // job's move won: Stop is no longer taken). One compare-and-swap each
+    // way, so the two can never both win.
+    enum Gate : int { Running = 0, StopAsked = 1, Committing = 2 };
+    std::atomic<int> gate_{Running};
+    bool Stopped() const { return gate_.load() == StopAsked; }
+    bool shutting_down_ = false;
     bool finished_pending_ = false;
     bool want_list_ = false;
 
