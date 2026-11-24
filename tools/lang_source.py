@@ -8977,6 +8977,16 @@ T['License'] = ('Licencia', 'ライセンス', 'Licença', 'Licenza')
 MORE["ko"]['License'] = '라이선스'
 MORE["fr"]['License'] = 'Licence'
 
+T['{1}.{2} MB'] = ('{1},{2} MB', '{1}.{2} MB', '{1},{2} MB', '{1},{2} MB')
+MORE["ko"]['{1}.{2} MB'] = '{1}.{2} MB'
+MORE["fr"]['{1}.{2} MB'] = '{1},{2} Mo'
+T['{1} KB'] = ('{1} KB', '{1} KB', '{1} KB', '{1} KB')
+MORE["ko"]['{1} KB'] = '{1} KB'
+MORE["fr"]['{1} KB'] = '{1} Ko'
+T['The SD card is too full. Make {1} of room and try again.'] = ('La tarjeta SD está demasiado llena. Libera {1} y vuelve a intentarlo.', 'SDカードの空きが足りません。{1}の空きを作ってからもう一度試してください。', 'O cartão SD está cheio demais. Libere {1} e tente de novo.', 'La scheda SD è troppo piena. Libera {1} e riprova.')
+MORE["ko"]['The SD card is too full. Make {1} of room and try again.'] = 'SD 카드 공간이 부족합니다. {1}를 비운 뒤 다시 시도하세요.'
+MORE["fr"]['The SD card is too full. Make {1} of room and try again.'] = 'La carte SD est trop pleine. Libérez {1} et réessayez.'
+
 def main():
     repo = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
     if not check(repo):

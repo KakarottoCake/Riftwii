@@ -397,6 +397,12 @@ typedef struct rwp_host {
     int32_t (*rename_path)(const char* from, const char* to);
     int32_t (*list_directory)(const char* path, void (*each)(const char* name, uint32_t is_directory, void* arg),
                               void* arg);
+
+    /* Added after list_directory (check RWP_HOST_HAS). The SD card's free
+     * room in KiB (at most 0xFFFFFFFF) into *kib: 0, or -1 when it cannot be
+     * read. It may walk the whole FAT of a big card: call it from a
+     * background job, not from a frame. */
+    int32_t (*sd_free_kib)(uint32_t* kib);
 } rwp_host;
 
 /* What a plugin gives RiftWii: a constant table in its image, found by

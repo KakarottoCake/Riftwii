@@ -5,6 +5,7 @@
 #include <dirent.h>
 #include <malloc.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <unistd.h>
 
 #include <cstdio>
@@ -188,6 +189,16 @@ int32_t ListDirectory(const char* path, void (*each)(const char* name, uint32_t 
     }
     closedir(dir);
     return count;
+}
+
+int32_t SdFreeKib(uint32_t* kib) {
+    if (kib == nullptr) return -1;
+    struct statvfs info{};
+    if (statvfs("sd:/", &info) != 0) return -1;
+    const unsigned long long unit = info.f_frsize != 0 ? info.f_frsize : info.f_bsize;
+    const unsigned long long free_kib = static_cast<unsigned long long>(info.f_bavail) * unit / 1024u;
+    *kib = free_kib > 0xFFFFFFFFull ? 0xFFFFFFFFu : static_cast<uint32_t>(free_kib);
+    return 0;
 }
 
 }  // namespace riftwii::wii::pluginhost

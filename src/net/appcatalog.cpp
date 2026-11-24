@@ -191,15 +191,21 @@ bool app_plan_install(const AppListing& app, const std::vector<ZipEntry>& entrie
     return true;
 }
 
-std::string app_size_text(std::uint64_t bytes) {
-    char text[32];
+// {1} the whole megabytes and {2} the tenth ("{1},{2} Mo" in French), or
+// {1} the kilobytes: the formats come translated from the plugin.
+std::string app_size_text(std::uint64_t bytes, const char* mb_format, const char* kb_format) {
+    const auto fill = [](std::string text, const std::string& one, const std::string& two) {
+        const std::size_t first = text.find("{1}");
+        if (first != std::string::npos) text.replace(first, 3, one);
+        const std::size_t second = text.find("{2}");
+        if (second != std::string::npos) text.replace(second, 3, two);
+        return text;
+    };
     if (bytes >= 1000u * 1000u) {
         const std::uint64_t tenths = (bytes + 50000u) / 100000u;
-        std::snprintf(text, sizeof(text), "%u.%u MB", static_cast<unsigned>(tenths / 10), static_cast<unsigned>(tenths % 10));
-    } else {
-        std::snprintf(text, sizeof(text), "%u KB", static_cast<unsigned>((bytes + 999u) / 1000u));
+        return fill(mb_format, std::to_string(tenths / 10), std::to_string(tenths % 10));
     }
-    return text;
+    return fill(kb_format, std::to_string((bytes + 999u) / 1000u), "");
 }
 
 }  // namespace riftwii

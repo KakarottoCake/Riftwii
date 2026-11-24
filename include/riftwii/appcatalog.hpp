@@ -84,6 +84,6 @@ bool app_plan_install(const AppListing& app, const std::vector<ZipEntry>& entrie
                       std::string& error);
 
 // "3.1 MB", "640 KB": a download's size for the screen.
-std::string app_size_text(std::uint64_t bytes);
+std::string app_size_text(std::uint64_t bytes, const char* mb_format = "{1}.{2} MB", const char* kb_format = "{1} KB");
 
 }  // namespace riftwii

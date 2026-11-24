@@ -526,7 +526,7 @@ private:
             std::string name, value;
         };
         const Fact all[] = {
-            {"store_size", tr("Size"), app_size_text(listing.size)},
+            {"store_size", tr("Size"), SizeText(listing.size)},
             {"store_date", tr("Released"), listing.released},
             {"store_console", tr("Works on"), consoles},
             {"store_license", tr("License"), listing.license},
@@ -560,7 +560,7 @@ private:
     }
 
     std::string ActionNote(const App& app) const {
-        const std::string size = app_size_text(app.listing->size);
+        const std::string size = SizeText(app.listing->size);
         switch (app.state) {
             case AppState::Installed: return tr("Installed, version {1}", app.listing->version);
             case AppState::Update: return tr("Version {1}, {2}", app.listing->version, size);
@@ -584,7 +584,7 @@ private:
     }
     std::string ProgressDetail() const {
         const InstallProgress::Snapshot p = store_.progress.Read();
-        if (p.stage == InstallStage::Download) return tr("{1} of {2}", app_size_text(p.done), app_size_text(p.total));
+        if (p.stage == InstallStage::Download) return tr("{1} of {2}", SizeText(p.done), SizeText(p.total));
         if (p.stage == InstallStage::Unpack)
             return tr("{1} of {2} files", std::to_string(p.done), std::to_string(p.total));
         return "";

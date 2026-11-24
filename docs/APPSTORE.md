@@ -164,19 +164,23 @@ larger, for small TVs and 480i.
 
 An install, on RiftWii's network thread:
 
-1. The download streams to `sd:/riftwii/apps/download.tmp`, hashed on the
+1. The card must have room for the download and its unpacked files side by
+   side, and a megabyte more (the host's `sd_free_kib`, which may walk the
+   whole FAT, so it is asked here and not on a frame); else the player is
+   told how much room to make, before anything is downloaded.
+2. The download streams to `sd:/riftwii/apps/download.tmp`, hashed on the
    way (`HttpGetStream`, `wii/online/httpmem.cpp`), refused past the size
    the list gives, and given up when under 32 KB arrive in 30 seconds.
-2. Its SHA-256 must be the list's, or nothing is written.
-3. A zip's directory is read from the card a piece at a time
+3. Its SHA-256 must be the list's, or nothing is written.
+4. A zip's directory is read from the card a piece at a time
    (`zip_read_directory_at`), the plan checked as a whole
    (`app_plan_install`), and every file unpacked into
    `sd:/riftwii/apps/staging`. Stop is heard inside a file too. Until
    here nothing of the app has changed: a failure, Stop or a full card
    leaves it as it was.
-4. The store's note (`sd:/riftwii/apps/<id>.txt`: the version and
+5. The store's note (`sd:/riftwii/apps/<id>.txt`: the version and
    SHA-256) is staged with the files, its write checked.
-5. Then the files are put in place, each old one kept as `<file>.bak`
+6. Then the files are put in place, each old one kept as `<file>.bak`
    until all are in. If one cannot be moved, the ones already moved are
    put back, so the app is the old version or the new one, never a mix
    (a power cut in the middle leaves the `.bak` files, nothing lost). A

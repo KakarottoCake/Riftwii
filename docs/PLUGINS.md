@@ -415,7 +415,7 @@ It uses the table's last group, added after `progress` (checked with
 | --- | --- | --- |
 | Screen | `screen_open`, `screen_frame`, `screen_close`, `texture_create`, `texture_free`, `text_width`, `translate`, `sound`, `ask_search`, `ask_choice` | `wii/menu/pluginscreen.cpp` |
 | Network | `net_ready`, `http_get`, `http_download`, `background_start`, `background_running`, `background_cancel` | `wii/core/pluginhost.cpp` |
-| Files | `remove_path`, `rename_path`, `list_directory` | `wii/core/pluginhost.cpp` |
+| Files | `remove_path`, `rename_path`, `list_directory`, `sd_free_kib` (after `list_directory`: check `RWP_HOST_HAS`) | `wii/core/pluginhost.cpp` |
 
 The screen is immediate mode: each frame the plugin hands over a list of
 `rwp_draw` commands (the theme's cards, pill and round buttons, bar, title

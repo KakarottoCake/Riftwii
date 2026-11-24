@@ -4407,6 +4407,15 @@ msgstr "Funziona su"
 msgid "License"
 msgstr "Licenza"
 
+msgid "{1}.{2} MB"
+msgstr "{1},{2} MB"
+
+msgid "{1} KB"
+msgstr "{1} KB"
+
+msgid "The SD card is too full. Make {1} of room and try again."
+msgstr "La scheda SD è troppo piena. Libera {1} e riprova."
+
 msgid "Disc slot light"
 msgstr "Luce del vano disco"
 

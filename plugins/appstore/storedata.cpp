@@ -250,6 +250,8 @@ std::string tr(const char* english, const std::string& one, const std::string& t
     return text;
 }
 
+std::string SizeText(std::uint64_t bytes) { return app_size_text(bytes, tr("{1}.{2} MB").c_str(), tr("{1} KB").c_str()); }
+
 void Store::StartList() {
     list_state = ListState::Loading;
     list_error.clear();
@@ -506,17 +508,34 @@ void Store::RunInstall() {
         Host().remove_path(kDownloadFile);
         if (IsFolder(staging)) RemoveTree(staging);
     };
-    const auto fail = [&](const std::string& why) {
+    // `why` is shown to the player; `logged`, when given, goes to the log
+    // in English instead of a translated `why`.
+    const auto fail = [&](const std::string& why, const char* logged = nullptr) {
         job_error_ = why;
         // Stopped only when Stop won before anything moved: a failure while
         // moving is reported as one, whatever was pressed.
         progress.SetStage(Stopped() ? InstallStage::Cancelled : InstallStage::Failed);
         clean_up();
-        Host().log("%s was not installed: %s", app.id, why.c_str());
+        Host().log("%s was not installed: %s", app.id, logged ? logged : why.c_str());
     };
     if (!Host().net_ready(error, sizeof(error))) return fail(error);
     clean_up();
     if (!MakeParents(staging + "/")) return fail("the SD card's riftwii folder could not be written");
+
+    // Room for the download and its unpacked files side by side (an
+    // update's old files are moved, not copied), and a megabyte to spare:
+    // said now, not as a failed write halfway through.
+    const std::uint64_t needed = static_cast<std::uint64_t>(app.size) + app.unpacked_size + 1024u * 1024u;
+    std::uint32_t free_kib = 0;
+    if (RWP_HOST_HAS(&Host(), sd_free_kib) && Host().sd_free_kib(&free_kib) == 0) {
+        Host().log("%s needs %u KiB on the SD card, %u KiB are free", app.id, static_cast<unsigned>(needed / 1024u),
+                   static_cast<unsigned>(free_kib));
+        if (static_cast<std::uint64_t>(free_kib) * 1024u < needed) {
+            const std::uint64_t missing = needed - static_cast<std::uint64_t>(free_kib) * 1024u;
+            return fail(tr("The SD card is too full. Make {1} of room and try again.", SizeText(missing)),
+                        "the SD card is too full");
+        }
+    }
 
     // Download, hashed on the way, and no longer than the list says it is.
     progress.SetStage(InstallStage::Download);

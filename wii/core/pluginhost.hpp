@@ -21,5 +21,6 @@ void BackgroundCancel();
 int32_t RemovePath(const char* path);
 int32_t RenamePath(const char* from, const char* to);
 int32_t ListDirectory(const char* path, void (*each)(const char* name, uint32_t is_directory, void* arg), void* arg);
+int32_t SdFreeKib(uint32_t* kib);
 
 }  // namespace riftwii::wii::pluginhost

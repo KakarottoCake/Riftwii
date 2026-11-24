@@ -4407,6 +4407,15 @@ msgstr "対応機種"
 msgid "License"
 msgstr "ライセンス"
 
+msgid "{1}.{2} MB"
+msgstr "{1}.{2} MB"
+
+msgid "{1} KB"
+msgstr "{1} KB"
+
+msgid "The SD card is too full. Make {1} of room and try again."
+msgstr "SDカードの空きが足りません。{1}の空きを作ってからもう一度試してください。"
+
 msgid "Disc slot light"
 msgstr "ディスクスロットの光"
 

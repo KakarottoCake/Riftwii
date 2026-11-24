@@ -4407,6 +4407,15 @@ msgstr "지원 기기"
 msgid "License"
 msgstr "라이선스"
 
+msgid "{1}.{2} MB"
+msgstr "{1}.{2} MB"
+
+msgid "{1} KB"
+msgstr "{1} KB"
+
+msgid "The SD card is too full. Make {1} of room and try again."
+msgstr "SD 카드 공간이 부족합니다. {1}를 비운 뒤 다시 시도하세요."
+
 msgid "Disc slot light"
 msgstr "디스크 슬롯 표시등"
 

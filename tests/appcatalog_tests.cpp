@@ -260,6 +260,9 @@ void test_sizes() {
     EXPECT_EQ(app_size_text(3100000), std::string("3.1 MB"));
     EXPECT_EQ(app_size_text(640000), std::string("640 KB"));
     EXPECT_EQ(app_size_text(1), std::string("1 KB"));
+    // The plugin passes the translated formats: French writes "2,4 Mo".
+    EXPECT_EQ(app_size_text(2357802, "{1},{2} Mo", "{1} Ko"), std::string("2,4 Mo"));
+    EXPECT_EQ(app_size_text(640000, "{1},{2} Mo", "{1} Ko"), std::string("640 Ko"));
 }
 
 }  // namespace

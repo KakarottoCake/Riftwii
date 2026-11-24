@@ -24,6 +24,8 @@ const rwp_host& Host();
 std::string tr(const char* english);
 std::string tr(const char* english, const std::string& one);
 std::string tr(const char* english, const std::string& one, const std::string& two);
+// A size as the player's language writes it ("2.4 MB", "2,4 Mo").
+std::string SizeText(std::uint64_t bytes);
 
 struct App {
     const AppListing* listing = nullptr;
