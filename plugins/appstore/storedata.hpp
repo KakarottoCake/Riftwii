@@ -113,11 +113,16 @@ public:
 
     // An install (or update) of apps[index]: false when a job is running.
     bool StartInstall(std::size_t index);
+    // Removes the files the store put there and nobody changed; the app's
+    // saves and settings stay (finished_leftovers says where).
     bool StartRemove(std::size_t index);
+    // Then, when the player says so: its folder and data folders, whole.
+    bool StartRemoveData(std::size_t index);
     bool Busy() const { return job_ != Job::None; }
     // Running, or waiting for an icon's download to end first.
     bool InstallRunning(std::size_t index) const {
-        return ((job_ == Job::Install || job_ == Job::Remove) && job_index_ == index) || queued_install_ == index;
+        return ((job_ == Job::Install || job_ == Job::Remove || job_ == Job::RemoveData) && job_index_ == index) ||
+               queued_install_ == index;
     }
     void CancelInstall();
     // The store is closing: no new job starts (a queued icon stays
@@ -130,6 +135,8 @@ public:
     bool finished_ok = false;
     bool finished_remove = false;
     std::string finished_error;
+    // A removal's: the folders of saves and settings it left ("sd:/snes9xgx").
+    std::vector<std::string> finished_leftovers;
     // Read by the page once, then cleared.
     bool TakeFinished() {
         const bool any = finished_pending_;
@@ -149,9 +156,10 @@ public:
     void RunIcon();
     void RunInstall();
     void RunRemove();
+    void RunRemoveData();
 
 private:
-    enum class Job { None, List, Icon, Install, Remove };
+    enum class Job { None, List, Icon, Install, Remove, RemoveData };
     void Start(Job job, std::size_t index);
     void Finish();
 
@@ -159,6 +167,7 @@ private:
     std::size_t job_index_ = 0;
     bool job_ok_ = false;
     std::string job_error_;
+    std::vector<std::string> job_leftovers_;
     // An install's Stop against its move into place: Running, then either
     // StopAsked (the page's Stop won: nothing is moved) or Committing (the
     // job's move won: Stop is no longer taken). One compare-and-swap each

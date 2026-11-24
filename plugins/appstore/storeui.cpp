@@ -30,10 +30,9 @@ constexpr int kGap = 14;
 constexpr int kLine = 26;     // a line of body text
 constexpr int kFactRow = 28;  // a row of an app's facts
 
-constexpr std::uint32_t kWarn = 0xB45F06FFu;  // an update waiting, readable on the light cards
-constexpr std::uint32_t kNoteFill = 0xFDF3DCFFu;
-constexpr std::uint32_t kNoteInk = 0x6B4A06FFu;
-constexpr std::uint32_t kIconPlace = 0xD8E2ECFFu;
+// The theme's colours, so a dark theme's tiles read as well as a light one's.
+constexpr std::uint32_t kWarn = RWP_COLOR_WARN;        // an update waiting, Wii only
+constexpr std::uint32_t kIconPlace = RWP_COLOR_FIELD;  // where an icon goes until it is in
 
 // The frame's draw list. Texts are kept until the frame is handed over.
 class Frame {
@@ -139,10 +138,11 @@ constexpr int kHitAction = 1004;
 constexpr int kHitNewer = 1005;
 constexpr int kHitPage = 1006;
 constexpr int kHitRetry = 1007;
+constexpr int kHitFilter = 1008;
 
 class StoreScreen {
 public:
-    explicit StoreScreen(const rwp_screen_info& info) : info_(info) {
+    StoreScreen(const rwp_screen_info& info, std::uint32_t console) : info_(info), console_(console) {
         left_ = info.safe_x + 8;
         right_ = info.safe_x + info.safe_w - 8;
         middle_ = info.left + info.width / 2;
@@ -251,10 +251,23 @@ private:
         for (const App& app : store_.apps) {
             if (app.state == AppState::Installed || app.state == AppState::Update) ++installed;
         }
-        frame_.Text(right_, 30, kSmallSize, RWP_COLOR_INK_SOFT,
-                    Plural(store_.apps.size(), "1 app", "{1} apps") + "  \xC2\xB7  " +
-                        tr("{1} installed", std::to_string(installed)),
-                    RWP_ALIGN_RIGHT, 270);
+        std::size_t shown = 0;
+        for (const App& app : store_.apps) shown += Shown(app) ? 1 : 0;
+        const std::string counts = Plural(shown, "1 app", "{1} apps") + "  \xC2\xB7  " +
+                                   tr("{1} installed", std::to_string(installed));
+        // The filter: a button at the band's right (- or pointed at and A),
+        // filled while it is on; the counts under it are what it lets through.
+        // Not a prompt: a fifth one did not fit a 4:3 menu's bottom band.
+        const std::string filter = tr("Without a Wii Remote");
+        const int filter_w = 10 + 20 + 8 + Width(filter, kSmallSize) + 14;
+        const int filter_x = right_ - filter_w;
+        // Level with the title: higher would be in the TV's overscan.
+        frame_.Card(filter_x, 14, filter_w, 28, focus_ == kHitFilter, no_remote_);
+        frame_.Button(filter_x + 10, 18, 20, RWP_KEY_MINUS);
+        frame_.Text(filter_x + 38, 16, kSmallSize, RWP_COLOR_INK, filter);
+        hits_.push_back({filter_x, 14, filter_w, 28, kHitFilter});
+        // Clear of the band's lower edge (Bookshelf's is a thick plank).
+        frame_.Text(right_, 44, kSmallSize, RWP_COLOR_INK_SOFT, counts, RWP_ALIGN_RIGHT, 270);
 
         // Four across on a 16:9 menu; three on a 4:3 one, where four would
         // cut the longer names ("Online services"). The tiles share the room
@@ -299,6 +312,21 @@ private:
         Prompt(RWP_KEY_TWO, updates ? tr("My apps ({1})", std::to_string(updates)) : tr("My apps"));
     }
 
+    void ToggleFilter() {
+        Host().sound(RWP_SOUND_CLICK);
+        no_remote_ = !no_remote_;
+        CountCategories();
+    }
+
+    // Whether the filter lets `app` through: with it on, only apps the
+    // list says work with a Classic or GameCube controller.
+    bool Shown(const App& app) const { return !no_remote_ || app_needs_no_wii_remote(app.listing->controllers); }
+
+    // Listed for the Wii only, on a Wii U in Wii mode.
+    bool OtherConsole(const AppListing& listing) const {
+        return console_ == RWP_CONSOLE_VWII && (listing.platforms & kAppOnVWii) == 0;
+    }
+
     bool ListReady() {
         if (store_.list_state == ListState::Ready) return true;
         if (store_.list_state == ListState::Loading) {
@@ -322,7 +350,9 @@ private:
         std::size_t count = 0;
         categories_ = app_categories(count);
         category_counts_.assign(count, 0);
-        for (const App& app : store_.apps) ++category_counts_[app_category_index(app.listing->category)];
+        for (const App& app : store_.apps) {
+            if (Shown(app)) ++category_counts_[app_category_index(app.listing->category)];
+        }
         shown_categories_.clear();
         for (std::size_t i = 0; i < count; ++i) {
             if (category_counts_[i] > 0) shown_categories_.push_back(i);
@@ -417,6 +447,10 @@ private:
                 colour = RWP_COLOR_INK_SOFT;
                 return tr("Get it on a PC");
             case AppState::Get:
+                if (OtherConsole(*app.listing)) {
+                    colour = kWarn;
+                    return tr("Wii only");
+                }
                 break;
         }
         colour = RWP_COLOR_INK_SOFT;
@@ -434,7 +468,35 @@ private:
         frame_.Text(left_, 38, kTitleSize, RWP_COLOR_ON_BAND, listing.name, RWP_ALIGN_LEFT, right_ - left_);
         std::string byline = listing.author;
         if (listing.version[0]) byline += std::string("  \xC2\xB7  ") + listing.version;
-        frame_.Text(left_, 82, kSmallSize, RWP_COLOR_INK_SOFT, byline, RWP_ALIGN_LEFT, right_ - left_);
+        // The controllers it works with, at the band's right, as the list
+        // says: the pictures a game's page shows for GameTDB's controllers,
+        // drawn by the menu (a USB keyboard has none, and is left out here).
+        static const struct {
+            std::uint8_t bit;
+            const char* picture;
+        } kControllers[] = {{kAppWiiRemote, "control_wiimote"},
+                            {kAppNunchuk, "control_nunchuk"},
+                            {kAppClassic, "control_classiccontroller"},
+                            {kAppGameCube, "control_gamecube"}};
+        int icons_x = right_;
+        for (int i = 3; i >= 0; --i) {
+            if ((listing.controllers & kControllers[i].bit) == 0) continue;
+            icons_x -= 32;
+            frame_.Picture(kControllers[i].picture, 0, icons_x, 74, 32, 32);
+            icons_x -= 6;
+        }
+        int byline_end = icons_x < right_ ? icons_x - 16 : right_;
+        if (icons_x < right_) {
+            // Said what the pictures are, before them, when the byline
+            // still fits whole beside the words (a 4:3 menu's often doesn't).
+            const std::string works = tr("Works with");
+            const int label_left = icons_x - 4 - Width(works, kSmallSize);
+            if (left_ + Width(byline, kSmallSize) + 24 <= label_left) {
+                frame_.Text(icons_x - 4, 82, kSmallSize, RWP_COLOR_INK_SOFT, works, RWP_ALIGN_RIGHT);
+                byline_end = label_left - 24;
+            }
+        }
+        frame_.Text(left_, 82, kSmallSize, RWP_COLOR_INK_SOFT, byline, RWP_ALIGN_LEFT, byline_end - left_);
 
         // The icon, and the one big action beside it.
         const int row = kAppBand + 18;
@@ -475,8 +537,9 @@ private:
             const int ny = below;
             below = ny + 40 + 12;
             const bool lit = focus_ == kHitNewer;
-            frame_.Rect(left_, ny, text_w, 40, lit ? 0xF7E3B0FFu : kNoteFill, true);
-            frame_.Text(left_ + 16, ny + 9, kSmallSize, kNoteInk,
+            // Pressed to open that app: a card, as every button is.
+            frame_.Card(left_, ny, text_w, 40, lit);
+            frame_.Text(left_ + 16, ny + 9, kSmallSize, RWP_COLOR_INK,
                         tr("{1} does the same and is kept up to date.", store_.apps[newer].listing->name), RWP_ALIGN_LEFT,
                         text_w - 32);
             hits_.push_back({left_, ny, text_w, 40, kHitNewer});
@@ -592,6 +655,8 @@ private:
             case AppState::PcOnly: return tr("The Wii can't unpack it: scan the code.");
             case AppState::Get: break;
         }
+        // Short, as the card has one line; the warning is asked before installing.
+        if (OtherConsole(*app.listing)) return tr("Listed for the Wii only, {1}", size);
         return tr("To the SD card, {1}", size);
     }
 
@@ -679,6 +744,22 @@ private:
         if (pressed & RWP_KEY_TWO) return OpenMine(), false;
         const int count = static_cast<int>(shown_categories_.size());
         const int columns = FrontColumns();
+        if (pressed & RWP_KEY_MINUS) {
+            ToggleFilter();
+            if (focus_ != kHitFilter) focus_ = std::min(focus_, std::max(0, static_cast<int>(shown_categories_.size()) - 1));
+            return false;
+        }
+        // The filter's button sits above the tiles: up from the first row,
+        // down back to them.
+        if (focus_ == kHitFilter) {
+            if (pressed & RWP_KEY_A) ToggleFilter();
+            else if (pressed & (RWP_KEY_DOWN | RWP_KEY_LEFT)) Focus(0);
+            return false;
+        }
+        if ((pressed & RWP_KEY_UP) && focus_ >= 0 && focus_ < columns) {
+            Focus(kHitFilter);
+            return false;
+        }
         if (focus_ < 0 || focus_ >= count) Focus(0);
         MoveInGrid(pressed, count, columns, false);
         if (pressed & RWP_KEY_A) {
@@ -790,7 +871,7 @@ private:
                 return;
             case AppState::Installed:
                 if (Host().ask_choice(tr("Remove {1}?", name).c_str(),
-                                      tr("Its folder in sd:/apps goes. Its saves and data folders stay.").c_str(),
+                                      tr("Its program goes. Its saves and settings stay until you say otherwise.").c_str(),
                                       tr("Remove").c_str(), tr("Keep it").c_str()) == 1)
                     store_.StartRemove(app_index_);
                 return;
@@ -806,6 +887,12 @@ private:
             case AppState::Update:
                 break;
         }
+        // Every install of a Wii-only app on a Wii U asks: Install, Update and Replace.
+        if (OtherConsole(*app.listing) &&
+            Host().ask_choice(tr("Install {1}?", name).c_str(),
+                              tr("It is listed for the Wii only and may not work on a Wii U.").c_str(),
+                              tr("Install anyway").c_str(), tr("Cancel").c_str()) != 1)
+            return;
         if (!store_.StartInstall(app_index_)) status_ = tr("Another app is being installed. Try again when it is done.");
     }
 
@@ -818,6 +905,20 @@ private:
             if (here)
                 status_ = store_.finished_remove ? tr("{1} is removed.", name)
                                                  : tr("Installed. Find it in Home's Homebrew view.");
+            // What the app wrote stays unless the player says so; B keeps it.
+            if (store_.finished_remove && !store_.finished_leftovers.empty()) {
+                std::string folders;
+                for (const std::string& folder : store_.finished_leftovers)
+                    folders += (folders.empty() ? "" : ", ") + folder;
+                if (Host().ask_choice(tr("Remove its saves too?").c_str(),
+                                      tr("{1} left its saves and settings in {2}. Kept, they are there if you install it again.", name, folders)
+                                          .c_str(),
+                                      tr("Remove them").c_str(), tr("Keep them").c_str()) == 1 &&
+                    store_.StartRemoveData(store_.finished_index) && here)
+                    status_.clear();
+                else if (here)
+                    status_ = tr("Removed. Its saves are kept.");
+            }
             return;
         }
         if (store_.progress.Read().stage == InstallStage::Cancelled) {
@@ -833,7 +934,8 @@ private:
     void OpenCategory(std::size_t category) {
         grid_.clear();
         for (std::size_t i = 0; i < store_.apps.size(); ++i) {
-            if (app_category_index(store_.apps[i].listing->category) == category) grid_.push_back(i);
+            if (app_category_index(store_.apps[i].listing->category) == category && Shown(store_.apps[i]))
+                grid_.push_back(i);
         }
         grid_kind_ = GridKind::Category;
         grid_title_ = tr(categories_[category].name);
@@ -864,7 +966,7 @@ private:
         std::size_t found = 0;
         std::string names;
         for (const App& app : self->store_.apps) {
-            if (!app_matches(*app.listing, typed)) continue;
+            if (!self->Shown(app) || !app_matches(*app.listing, typed)) continue;
             if (found < 5) names += (names.empty() ? "" : ", ") + std::string(app.listing->name);
             ++found;
         }
@@ -872,7 +974,9 @@ private:
         if (typed.empty()) names.clear();
         std::snprintf(line, line_bytes, "%s", typed.empty() ? "" : Plural(found, "1 app", "{1} apps").c_str());
         std::snprintf(matches, matches_bytes, "%s", names.c_str());
-        const std::string keys = app_search_next(self->store_.listings.data(), self->store_.listings.size(), typed);
+        const auto no_remote = [](const AppListing& listing) { return app_needs_no_wii_remote(listing.controllers); };
+        const std::string keys = app_search_next(self->store_.listings.data(), self->store_.listings.size(), typed,
+                                                 self->no_remote_ ? +no_remote : nullptr);
         std::snprintf(next, next_bytes, "%s", keys.c_str());
     }
 
@@ -886,6 +990,7 @@ private:
         if (search_.empty()) return;
         std::vector<std::pair<int, std::size_t>> ranked;
         for (std::size_t i = 0; i < store_.apps.size(); ++i) {
+            if (!Shown(store_.apps[i])) continue;
             const int rank = app_match_rank(*store_.apps[i].listing, search_);
             if (rank > 0) ranked.emplace_back(-rank, i);  // the best first, then by name
         }
@@ -915,6 +1020,8 @@ private:
     }
 
     rwp_screen_info info_;
+    std::uint32_t console_ = RWP_CONSOLE_WII;
+    bool no_remote_ = false;  // the "Without a Wii Remote" filter
     int left_ = 40, right_ = 600, middle_ = 320;
     Store store_;
     Frame frame_;
@@ -958,7 +1065,7 @@ std::int32_t RunStore(rwp_appstore_request& request) {
     std::int32_t result;
     bool changed;
     {
-        StoreScreen screen(info);
+        StoreScreen screen(info, request.console);
         result = screen.Run();
         changed = screen.Changed();
     }

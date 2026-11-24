@@ -9,6 +9,7 @@
 #include <cstring>
 #include <utility>
 
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/pngdecode.hpp"
 #include "riftwii/zipread.hpp"
 #include "rwpruntime.hpp"
@@ -93,6 +94,120 @@ bool RemoveTree(const std::string& folder, int depth = 0) {
         if (entry.second ? !RemoveTree(path, depth + 1) : Host().remove_path(path.c_str()) != 0) return false;
     }
     return Host().remove_path(folder.c_str()) == 0;
+}
+
+std::string RecordPath(const AppListing& app) { return std::string(kStoreFolder) + "/" + app.id + ".txt"; }
+
+// The store's note of `app`, read whole. Unreadable is kept apart from
+// Absent: a note that is there but cannot be read (a short read, no
+// memory, damaged text) must not make the app's files look like no one's.
+enum class Note { Absent, Read, Unreadable };
+Note ReadRecord(const AppListing& app, AppRecord& record) {
+    const std::string path = RecordPath(app);
+    rwp_path_info info;
+    if (Host().path_info(path.c_str(), &info) != 0) return Note::Absent;
+    if (info.is_directory || info.size == 0 || info.size > kAppRecordMaxBytes) return Note::Unreadable;
+    // The text and the list made of it.
+    if (!can_allocate(static_cast<std::size_t>(info.size) * 3)) return Note::Unreadable;
+    std::string text(static_cast<std::size_t>(info.size), '\0');
+    const std::int32_t read = Host().file_read(path.c_str(), 0, &text[0], static_cast<std::uint32_t>(text.size()));
+    if (read < 0 || static_cast<std::uint64_t>(read) != info.size) return Note::Unreadable;
+    return app_record_parse(text, record) ? Note::Read : Note::Unreadable;
+}
+
+bool WriteText(const std::string& path, const std::string& text) {
+    FILE* file = std::fopen(path.c_str(), "wb");
+    if (!file) return false;
+    const bool written = std::fwrite(text.data(), 1, text.size(), file) == text.size();
+    return std::fclose(file) == 0 && written;
+}
+
+// `path` replaced by `text` only once the new text is whole on the card:
+// written beside it first, then swapped in, the old one put back if the
+// swap fails (rename_path does not overwrite).
+bool ReplaceText(const std::string& path, const std::string& text) {
+    const std::string fresh = path + ".new", old = path + ".old";
+    Host().remove_path(fresh.c_str());
+    if (!WriteText(fresh, text)) {
+        Host().remove_path(fresh.c_str());
+        return false;
+    }
+    Host().remove_path(old.c_str());
+    const bool had_old = Exists(path);
+    if (had_old && Host().rename_path(path.c_str(), old.c_str()) != 0) {
+        Host().remove_path(fresh.c_str());
+        return false;
+    }
+    if (Host().rename_path(fresh.c_str(), path.c_str()) != 0) {
+        if (had_old) Host().rename_path(old.c_str(), path.c_str());
+        Host().remove_path(fresh.c_str());
+        return false;
+    }
+    Host().remove_path(old.c_str());
+    return true;
+}
+
+// The CRC-32 of a file on the card, as a zip lists it.
+// Whole only when every byte the card says it has was read (the plugin
+// has no ferror to tell a failed read from the end).
+bool FileCrc(const std::string& path, std::uint32_t& crc) {
+    rwp_path_info info;
+    if (Host().path_info(path.c_str(), &info) != 0 || info.is_directory) return false;
+    FILE* file = std::fopen(path.c_str(), "rb");
+    if (!file) return false;
+    std::uint8_t chunk[4096];
+    crc = 0;
+    std::uint64_t total = 0;
+    std::size_t got;
+    while ((got = std::fread(chunk, 1, sizeof(chunk), file)) > 0) {
+        crc = zip_crc32_update(crc, chunk, got);
+        total += got;
+    }
+    std::fclose(file);
+    return total == info.size;
+}
+
+// What is at `card_path` ("apps/x/boot.dol") against the note's `recorded`.
+AppFileOnCard OnCard(const std::string& card_path, const AppRecordFile* recorded) {
+    const std::string full = "sd:/" + card_path;
+    rwp_path_info info;
+    if (Host().path_info(full.c_str(), &info) != 0) return AppFileOnCard::Absent;
+    if (info.is_directory || recorded == nullptr) return AppFileOnCard::NotOurs;
+    if (info.size != recorded->size) return AppFileOnCard::Changed;
+    std::uint32_t crc = 0;
+    // A file that cannot be read back counts as changed: kept, never lost.
+    if (!FileCrc(full, crc)) return AppFileOnCard::Changed;
+    return crc == recorded->crc ? AppFileOnCard::AsInstalled : AppFileOnCard::Changed;
+}
+
+// The top folder of `card_path` that is the app's: "apps/<id>" or one of
+// its data folders; "" for a path that is neither (a damaged note's).
+std::string AppTop(const AppListing& app, const std::string& card_path) {
+    const std::string own = std::string("apps/") + app.id;
+    if (card_path.compare(0, own.size() + 1, own + "/") == 0) return own;
+    for (std::uint8_t i = 0; i < app.data_folder_count; ++i) {
+        const std::string data = app.data_folders[i];
+        if (card_path.compare(0, data.size() + 1, data + "/") == 0) return data;
+    }
+    return "";
+}
+
+// The folders above a removed file, as far as the app's top folder, each
+// gone if it is now empty (remove_path takes only an empty one).
+void PruneEmpty(const std::string& card_path, const std::string& top) {
+    std::string folder = card_path;
+    while (true) {
+        const std::size_t slash = folder.rfind('/');
+        if (slash == std::string::npos) return;
+        folder.resize(slash);
+        if (folder.size() < top.size()) return;
+        if (Host().remove_path(("sd:/" + folder).c_str()) != 0) return;
+    }
+}
+
+bool HasEntries(const std::string& folder) {
+    Listing listing;
+    return Host().list_directory(folder.c_str(), Collect, &listing) >= 0 && !listing.entries.empty();
 }
 
 // A staged file and where it goes.
@@ -356,10 +471,13 @@ void Store::Finish() {
         }
         case Job::Install:
         case Job::Remove:
+        case Job::RemoveData:
             Refresh(index);
             finished_index = index;
             finished_ok = job_ok_;
-            finished_remove = job == Job::Remove;
+            finished_remove = job != Job::Install;
+            finished_leftovers = job == Job::Remove ? job_leftovers_ : std::vector<std::string>{};
+            job_leftovers_.clear();
             finished_error = job_error_;
             finished_pending_ = true;
             if (job_ok_) changed = true;
@@ -379,9 +497,14 @@ std::size_t Store::Find(const char* id) const {
 void Store::Refresh(std::size_t index) {
     if (index >= apps.size()) return;
     const AppListing& app = *apps[index].listing;
-    const bool folder = IsFolder(std::string("sd:/apps/") + app.id);
+    // Installed means its program is there: a folder left with only its
+    // settings (a removal that kept them) is not.
+    const std::string own = std::string("sd:/apps/") + app.id;
+    const bool program = Exists(own + "/boot.dol") || Exists(own + "/boot.elf");
+    // The note's start is enough here: its version and checksum come first
+    // (a file line cut off at the end is left out).
     char text[512];
-    const std::string record_path = std::string(kStoreFolder) + "/" + app.id + ".txt";
+    const std::string record_path = RecordPath(app);
     const std::int32_t read = Host().file_read(record_path.c_str(), 0, text, sizeof(text) - 1);
     AppRecord record;
     bool has_record = false;
@@ -389,7 +512,7 @@ void Store::Refresh(std::size_t index) {
         text[read] = '\0';
         has_record = app_record_parse(text, record);
     }
-    apps[index].state = app_state(app, folder, has_record ? &record : nullptr);
+    apps[index].state = app_state(app, program, has_record ? &record : nullptr);
 }
 
 std::size_t Store::UpdateCount() const {
@@ -403,7 +526,7 @@ std::size_t Store::UpdateCount() const {
 bool Store::StartInstall(std::size_t index) {
     if (index >= apps.size() || !app_installable(*apps[index].listing)) return false;
     // Another install or a removal runs: one at a time, the player waits.
-    if (job_ == Job::Install || job_ == Job::Remove || queued_install_ != kNone) return false;
+    if (job_ == Job::Install || job_ == Job::Remove || job_ == Job::RemoveData || queued_install_ != kNone) return false;
     progress.Set(InstallStage::Download, 0, apps[index].listing->size);
     // An icon or the list may still be downloading (or RiftWii's own
     // network work): the install waits for it and starts next (Pump).
@@ -416,6 +539,12 @@ bool Store::StartRemove(std::size_t index) {
     if (job_ != Job::None || index >= apps.size()) return false;
     Start(Job::Remove, index);
     return job_ == Job::Remove;
+}
+
+bool Store::StartRemoveData(std::size_t index) {
+    if (job_ != Job::None || index >= apps.size()) return false;
+    Start(Job::RemoveData, index);
+    return job_ == Job::RemoveData;
 }
 
 void Store::CancelInstall() {
@@ -551,9 +680,13 @@ void Store::RunInstall() {
     // a Stop or a full card changes nothing of the app. Only then are the
     // files put in place (Commit, below).
     std::vector<Move> moves;
+    std::vector<AppRecordFile> new_files;  // what each move puts on the card
     if (app.format == AppFormat::Dol) {
         progress.Set(InstallStage::Unpack, 0, 1);
+        std::uint32_t crc = 0;
+        if (!FileCrc(kDownloadFile, crc)) return fail("the download could not be read back");
         moves.push_back({kDownloadFile, own + "/boot.dol"});
+        new_files.push_back({std::string("apps/") + app.id + "/boot.dol", app.size, crc});
         progress.Set(InstallStage::Unpack, 1, 1);
     } else {
         FILE* zip = std::fopen(kDownloadFile, "rb");
@@ -595,18 +728,59 @@ void Store::RunInstall() {
                 return fail(write_failed || !closed ? "the SD card could not be written (is it full?)" : why);
             }
             moves.push_back({staged, "sd:/" + plan[i].path});
+            new_files.push_back({plan[i].path, entries[plan[i].entry].unpacked_size, entries[plan[i].entry].crc});
             progress.SetDone(static_cast<std::uint32_t>(i + 1));
         }
         std::fclose(zip);
     }
 
-    // The store's note, staged with the files: which file this is, for updates.
+    // What is on the card now decides what goes in: a file the app or the
+    // player changed since the store put it there (settings, saves), or one
+    // in a data folder the store never put there, is kept
+    // (app_install_replaces). The note lists what the store put there.
+    AppRecord old_record;
+    const Note old_note = ReadRecord(app, old_record);
+    if (old_note == Note::Unreadable)
+        return fail("the store's note of this app could not be read, so nothing was changed",
+                    "its note in sd:/riftwii/apps could not be read");
+    const bool has_old = old_note == Note::Read;
+    std::vector<Move> placed;
+    std::vector<AppRecordFile> listed;
+    for (std::size_t i = 0; i < moves.size(); ++i) {
+        const std::string& path = new_files[i].path;
+        const AppRecordFile* before = has_old ? app_record_find(old_record, path) : nullptr;
+        const AppFileOnCard on_card = OnCard(path, before);
+        if (!app_install_replaces(app, path, on_card, has_old ? &old_record : nullptr)) {
+            Host().log("%s: kept sd:/%s (%s)", app.id, path.c_str(),
+                       on_card == AppFileOnCard::Changed ? "changed since it was installed" : "not put there by the store");
+            if (before != nullptr) listed.push_back(*before);
+            continue;
+        }
+        placed.push_back(moves[i]);
+        listed.push_back(new_files[i]);
+    }
+    // The old install's files the new one does not have are still the store's.
+    if (has_old) {
+        for (const AppRecordFile& file : old_record.files) {
+            bool there = false;
+            for (const AppRecordFile& now : listed) there = there || now.path == file.path;
+            if (!there) listed.push_back(file);
+        }
+    }
+    // The note must hold all of it: an entry the reader would drop would
+    // leave that file behind at a removal.
+    const std::string record = app_record_text(app, listed);
+    if (listed.size() > kAppMaxFiles || record.size() > kAppRecordMaxBytes)
+        return fail("the app has more files than the store can keep track of", "its note would be too long");
+    moves.swap(placed);
+
+    // The store's note, staged with the files: which file this is, for
+    // updates, and what it put on the card.
     const std::string note_staged = staging + "/note.part";
-    const std::string record = app_record_text(app);
     FILE* note = std::fopen(note_staged.c_str(), "wb");
     const bool noted = note && std::fwrite(record.data(), 1, record.size(), note) == record.size();
     if ((note && std::fclose(note) != 0) || !noted) return fail("the SD card could not be written (is it full?)");
-    moves.push_back({note_staged, std::string(kStoreFolder) + "/" + app.id + ".txt"});
+    moves.push_back({note_staged, RecordPath(app)});
 
     // Stop and the move in race here; whichever takes the gate first wins.
     int expected = Running;
@@ -616,20 +790,79 @@ void Store::RunInstall() {
     if (!not_placed.empty()) return fail(not_placed);
     clean_up();
     progress.SetStage(InstallStage::Done);
-    Host().log("%s %s installed (%u files)", app.id, app.version, static_cast<unsigned>(moves.size() - 1));
+    Host().log("%s %s installed (%u files placed)", app.id, app.version, static_cast<unsigned>(moves.size() - 1));
     job_ok_ = true;
 }
 
 void Store::RunRemove() {
     const AppListing& app = *apps[job_index_].listing;
-    const std::string own = std::string("sd:/apps/") + app.id;
-    // The app's own folder only: its data folders hold its saves.
-    if (IsFolder(own) && !RemoveTree(own)) {
+    // The files the store put on the card and nobody changed since; what
+    // the app wrote (its saves, its settings) stays, and the player is
+    // asked about it after (job_leftovers_).
+    AppRecord record;
+    const Note note = ReadRecord(app, record);
+    if (note == Note::Unreadable) {
+        // Without it the store cannot tell its files from the app's saves.
+        job_error_ = "the store's note of this app could not be read, so nothing was removed";
+        Host().log("%s was not removed: its note in sd:/riftwii/apps could not be read", app.id);
+        return;
+    }
+    const bool has_record = note == Note::Read;
+    std::vector<AppFileOnCard> on_card;
+    std::vector<AppRecordFile> kept;
+    if (has_record) {
+        for (const AppRecordFile& file : record.files) {
+            on_card.push_back(OnCard(file.path, &file));
+            if (on_card.back() == AppFileOnCard::Changed) kept.push_back(file);
+        }
+    }
+    std::string not_removed;
+    for (const std::string& path : app_remove_files(app, has_record ? &record : nullptr, on_card)) {
+        const std::string top = AppTop(app, path);
+        if (top.empty() || !Exists("sd:/" + path)) continue;
+        if (Host().remove_path(("sd:/" + path).c_str()) != 0) {
+            if (not_removed.empty()) not_removed = path;
+            continue;
+        }
+        PruneEmpty(path, top);
+    }
+    if (!not_removed.empty()) {
+        Host().log("%s: sd:/%s could not be removed", app.id, not_removed.c_str());
         job_error_ = "some of its files could not be removed";
         return;
     }
-    Host().remove_path((std::string(kStoreFolder) + "/" + app.id + ".txt").c_str());
-    Host().log("%s removed", app.id);
+    // What is left of the app: its own folder (settings it wrote there),
+    // its data folders.
+    job_leftovers_.clear();
+    if (IsFolder(std::string("sd:/apps/") + app.id)) job_leftovers_.push_back(std::string("sd:/apps/") + app.id);
+    for (std::uint8_t i = 0; i < app.data_folder_count; ++i) {
+        const std::string data = std::string("sd:/") + app.data_folders[i];
+        if (IsFolder(data) && HasEntries(data)) job_leftovers_.push_back(data);
+    }
+    if (job_leftovers_.empty()) {
+        Host().remove_path(RecordPath(app).c_str());
+    } else if (!ReplaceText(RecordPath(app), app_record_text(app, kept, true))) {
+        // The old note stays whole: a later install still tells the kept
+        // files from its own by it.
+        Host().log("%s: the note of its kept files could not be written; the old one stays", app.id);
+    }
+    Host().log("%s removed (%u folders of saves and settings left)", app.id, static_cast<unsigned>(job_leftovers_.size()));
+    job_ok_ = true;
+}
+
+void Store::RunRemoveData() {
+    const AppListing& app = *apps[job_index_].listing;
+    std::vector<std::string> folders{std::string("sd:/apps/") + app.id};
+    for (std::uint8_t i = 0; i < app.data_folder_count; ++i) folders.push_back(std::string("sd:/") + app.data_folders[i]);
+    for (const std::string& folder : folders) {
+        if (IsFolder(folder) && !RemoveTree(folder)) {
+            job_error_ = "some of its files could not be removed";
+            Host().log("%s: %s could not be removed whole", app.id, folder.c_str());
+            return;
+        }
+    }
+    Host().remove_path(RecordPath(app).c_str());
+    Host().log("%s: its saves and settings were removed", app.id);
     job_ok_ = true;
 }
 
@@ -648,6 +881,7 @@ void Store::RunCurrent() {
         case Job::Icon: RunIcon(); break;
         case Job::Install: RunInstall(); break;
         case Job::Remove: RunRemove(); break;
+        case Job::RemoveData: RunRemoveData(); break;
         case Job::None: break;
     }
 }

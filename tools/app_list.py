@@ -38,6 +38,7 @@ CATEGORIES = ["games", "emulators", "media", "internet", "online", "gametools", 
               "wiimenu", "controllers", "creative", "toys"]
 FORMATS = {"zip", "dol", "7z", "rar", "tar", "tar.bz2", "tar.gz"}
 PLATFORMS = {"wii", "vwii", "mini"}
+CONTROLLERS = ["wiimote", "nunchuk", "classic", "gamecube", "keyboard"]
 RESERVED = {"apps", "riftwii", "private", "title", "ticket", "shared1", "shared2", "sys", "import", "meta",
             "tmp", "wfs", "nands", "wbfs", "games", "wad", "wads", "wiiware", "riivolution", "codes",
             "txtcodes", "gct", "saves", "bootmii", "wiiflow", "usbloader_gx", "nintendont", "roms"}
@@ -160,6 +161,11 @@ def check_manifest(m, path):
     need(isinstance(m.get("page"), str) and https_url_ok(m["page"], LIMITS["page"]), "page must be an https:// address")
     need(isinstance(m.get("platforms"), list) and 0 < len(m["platforms"]) <= 3 and len(set(m["platforms"])) ==
          len(m["platforms"]) and set(m["platforms"]) <= PLATFORMS, "platforms must list some of wii, vwii, mini, once each")
+    if "controllers" in m:
+        c = m["controllers"]
+        need(isinstance(c, list) and 0 < len(c) <= len(CONTROLLERS) and all(isinstance(x, str) for x in c) and
+             len(set(c)) == len(c) and set(c) <= set(CONTROLLERS),
+             "controllers must list some of " + ", ".join(CONTROLLERS) + ", once each")
     if "released" in m.get("source", {}):
         need(re.fullmatch(r"\d{4}-\d{2}-\d{2}", m["source"]["released"]) is not None, "source.released is YYYY-MM-DD")
     if "newer" in m:
@@ -396,7 +402,7 @@ def build_one(path, m, token, cache, icons):
     }
     if not text_ok(version, LIMITS["version"]):
         raise AppError(f"{where}: version {version!r} is too long; set version in the manifest")
-    for key in ("license", "newer", "data_folders"):
+    for key in ("license", "newer", "data_folders", "controllers"):
         if key in m:
             record[key] = m[key]
     if fmt == "zip":

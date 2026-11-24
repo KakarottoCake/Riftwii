@@ -4305,14 +4305,50 @@ msgstr "仕上げ中..."
 msgid "Remove {1}?"
 msgstr "{1}を削除しますか?"
 
-msgid "Its folder in sd:/apps goes. Its saves and data folders stay."
-msgstr "sd:/appsのフォルダを削除します。セーブとデータのフォルダは残ります。"
-
 msgid "This app is in sd:/apps already, not put there from here. Version {1} replaces its files; its own settings stay."
 msgstr "このアプリはすでにsd:/appsにありますが、ここから入れたものではありません。バージョン{1}でファイルを置き換えます。設定は残ります。"
 
 msgid "Installed. Find it in Home's Homebrew view."
 msgstr "インストールしました。ホームのHomebrew表示にあります。"
+
+msgid "Its program goes. Its saves and settings stay until you say otherwise."
+msgstr "プログラムを削除します。セーブと設定は、消すと決めるまで残ります。"
+
+msgid "Remove its saves too?"
+msgstr "セーブも削除しますか？"
+
+msgid "{1} left its saves and settings in {2}. Kept, they are there if you install it again."
+msgstr "{1}はセーブと設定を{2}に残しています。残しておけば、また入れたときにそのまま使えます。"
+
+msgid "Remove them"
+msgstr "削除する"
+
+msgid "Keep them"
+msgstr "残す"
+
+msgid "Removed. Its saves are kept."
+msgstr "削除しました。セーブは残しています。"
+
+msgid "Without a Wii Remote"
+msgstr "Wiiリモコンなしで"
+
+msgid "Wii only"
+msgstr "Wii専用"
+
+msgid "Install {1}?"
+msgstr "{1}をインストールしますか？"
+
+msgid "It is listed for the Wii only and may not work on a Wii U."
+msgstr "Wii専用と書かれていて、Wii Uでは動かないことがあります。"
+
+msgid "Install anyway"
+msgstr "それでも入れる"
+
+msgid "Works with"
+msgstr "対応コントローラー"
+
+msgid "Listed for the Wii only, {1}"
+msgstr "Wii専用、{1}"
 
 msgid "{1} is removed."
 msgstr "{1}を削除しました。"

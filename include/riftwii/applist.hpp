@@ -11,7 +11,7 @@
 //
 //   {"schema":1,"generated":"YYYY-MM-DD","apps":[{"id","name","author",
 //    "version","released","category","description","license","page",
-//    "platforms","icon","newer","data_folders",
+//    "platforms","controllers","icon","newer","data_folders",
 //    "download":{"url","format","size","sha256","files","unpacked_size"},
 //    "install":[{"from","to"}]}]}
 //
@@ -45,6 +45,20 @@ constexpr std::uint8_t kAppOnWii = 1;
 constexpr std::uint8_t kAppOnVWii = 2;
 constexpr std::uint8_t kAppOnWiiMini = 4;
 
+// Which controllers an app can be used with (bits of AppListing::controllers),
+// as its manifest says; 0 when the list does not know. "keyboard" is a USB
+// keyboard.
+constexpr std::uint8_t kAppWiiRemote = 1;
+constexpr std::uint8_t kAppNunchuk = 2;
+constexpr std::uint8_t kAppClassic = 4;
+constexpr std::uint8_t kAppGameCube = 8;
+constexpr std::uint8_t kAppKeyboard = 16;
+// Whether an app with these controllers can be used without a Wii Remote:
+// it works with a Classic Controller or a GameCube controller.
+inline bool app_needs_no_wii_remote(std::uint8_t controllers) {
+    return (controllers & (kAppClassic | kAppGameCube)) != 0;
+}
+
 // One rule of an app's install: zip entries under `from` (a folder, ending
 // in '/'; "" for the download's top level; or one file) go under `to` on
 // the card. `to` starts with "apps/<id>/" or one of the app's data folders.
@@ -76,6 +90,7 @@ struct AppListing {
     std::uint8_t install_count;
     std::uint8_t data_folder_count;
     std::uint8_t platforms;       // kAppOn* bits
+    std::uint8_t controllers;     // kApp* controller bits, 0: not known
     AppFormat format;
 };
 

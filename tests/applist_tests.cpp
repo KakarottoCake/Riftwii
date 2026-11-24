@@ -27,6 +27,7 @@ std::string app_json(const std::string& id = "snes9xgx", const std::string& repl
         "\"released\":\"2026-11-18\",\"category\":\"emulators\",\"description\":\"Super Nintendo Emulator\","
         "\"license\":\"GPL-2.0\",\"page\":\"https://github.com/dborth/snes9xgx\","
         "\"icon\":\"https://riftwii.github.io/apps/icons/" + id + ".png\",\"platforms\":[\"wii\",\"vwii\"],"
+        "\"controllers\":[\"wiimote\",\"classic\",\"gamecube\",\"zapper\"],"
         "\"data_folders\":[\"snes9xgx\"],"
         "\"download\":{\"url\":\"https://github.com/dborth/snes9xgx/releases/download/5.0.6/Snes9xGX-5.0.6.zip\","
         "\"format\":\"zip\",\"size\":2500000,\"sha256\":\"" + std::string(kSha) + "\",\"files\":40,"
@@ -86,6 +87,11 @@ void test_reads_an_app() {
     EXPECT_EQ(a.unpacked_size, 6000000u);
     EXPECT_TRUE(a.format == AppFormat::Zip);
     EXPECT_EQ(a.platforms, kAppOnWii | kAppOnVWii);
+    // A controller this RiftWii does not know ("zapper") is passed over.
+    EXPECT_EQ(a.controllers, kAppWiiRemote | kAppClassic | kAppGameCube);
+    EXPECT_TRUE(app_needs_no_wii_remote(a.controllers));
+    EXPECT_TRUE(!app_needs_no_wii_remote(kAppWiiRemote | kAppNunchuk | kAppKeyboard));
+    EXPECT_TRUE(!app_needs_no_wii_remote(0));
     EXPECT_EQ(a.install_count, 2);
     EXPECT_EQ(a.data_folder_count, 1);
     EXPECT_EQ(std::string(a.data_folders[0]), "snes9xgx");
@@ -155,6 +161,9 @@ void test_app_rules() {
     // Platforms: at least one the list knows.
     EXPECT_TRUE(left_out("\"platforms\":[\"wii\",\"vwii\"]", "\"platforms\":[]"));
     EXPECT_TRUE(left_out("\"platforms\":[\"wii\",\"vwii\"]", "\"platforms\":[\"switch\"]"));
+    // Controllers: no field is "not known"; more than five names is broken.
+    EXPECT_TRUE(!left_out("\"controllers\":[\"wiimote\",", "\"controllers2\":[\"wiimote\","));
+    EXPECT_TRUE(left_out("\"controllers\":[\"wiimote\",", "\"controllers\":[\"a\",\"b\",\"c\",\"wiimote\","));
     // An app named as its own better replacement.
     EXPECT_TRUE(left_out("\"platforms\"", "\"newer\":\"snes9xgx\",\"platforms\""));
     EXPECT_TRUE(!left_out("\"platforms\"", "\"newer\":\"snes9xgx-ultimate\",\"platforms\""));

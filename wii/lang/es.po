@@ -4305,14 +4305,50 @@ msgstr "Terminando..."
 msgid "Remove {1}?"
 msgstr "¿Quitar {1}?"
 
-msgid "Its folder in sd:/apps goes. Its saves and data folders stay."
-msgstr "Se borra su carpeta de sd:/apps. Sus partidas y carpetas de datos se quedan."
-
 msgid "This app is in sd:/apps already, not put there from here. Version {1} replaces its files; its own settings stay."
 msgstr "Esta app ya está en sd:/apps, pero no se instaló desde aquí. La versión {1} reemplaza sus archivos; sus ajustes se quedan."
 
 msgid "Installed. Find it in Home's Homebrew view."
 msgstr "Instalada. Búscala en la vista Homebrew de Inicio."
+
+msgid "Its program goes. Its saves and settings stay until you say otherwise."
+msgstr "Se borra el programa. Sus partidas y ajustes se quedan, salvo que digas lo contrario."
+
+msgid "Remove its saves too?"
+msgstr "¿Quitar también sus partidas?"
+
+msgid "{1} left its saves and settings in {2}. Kept, they are there if you install it again."
+msgstr "{1} dejó sus partidas y ajustes en {2}. Si los guardas, seguirán ahí si la vuelves a instalar."
+
+msgid "Remove them"
+msgstr "Quitarlos"
+
+msgid "Keep them"
+msgstr "Guardarlos"
+
+msgid "Removed. Its saves are kept."
+msgstr "Quitada. Sus partidas se guardan."
+
+msgid "Without a Wii Remote"
+msgstr "Sin Wiimote"
+
+msgid "Wii only"
+msgstr "Solo Wii"
+
+msgid "Install {1}?"
+msgstr "¿Instalar {1}?"
+
+msgid "It is listed for the Wii only and may not work on a Wii U."
+msgstr "Está indicada solo para Wii y puede que no funcione en una Wii U."
+
+msgid "Install anyway"
+msgstr "Instalar igualmente"
+
+msgid "Works with"
+msgstr "Funciona con"
+
+msgid "Listed for the Wii only, {1}"
+msgstr "Solo para Wii, {1}"
 
 msgid "{1} is removed."
 msgstr "{1} se ha quitado."
