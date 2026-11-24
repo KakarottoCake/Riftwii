@@ -8757,12 +8757,14 @@ static int MenuSource(FrontendState& state)
 			// conditions: the card, downloads on, the drives read, and the
 			// PIN when parental controls keep Settings closed.
 			const bool locked = riftwii::parental_rules(riftwii::wii::Settings()).lock_settings;
-			if (g_sdGone) {
+			if (grid.Carrying() || grid.CoverZoomed()) {
+				// As the Layout button: not with a tile carried or a cover up close.
+			} else if (g_sdGone) {
 				toast.Show(tr("Put the SD card back in first."), true);
 			} else if (!riftwii::wii::Settings().online) {
 				toast.Show(tr("Downloads are off. Turn on Settings > Online > Downloads first."), true);
 			} else if (g_scanning) {
-				toast.Show(tr("The Rift Store opens once RiftWii has finished reading the drives."), false);
+				toast.Show(tr("RiftWii is still reading the drives. Open the Rift Store again in a moment."), false);
 			} else if (!locked || AskParentalPin(tr("Type the PIN to open the Rift Store."))) {
 				g_focusRestored = true;
 				transition::Hold(transition::Kind::SlideForward);

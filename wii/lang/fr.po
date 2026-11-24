@@ -4425,8 +4425,8 @@ msgstr "Tout le reste."
 msgid "{1} installed"
 msgstr "{1} installées"
 
-msgid "The Rift Store opens once RiftWii has finished reading the drives."
-msgstr "Le Rift Store s'ouvre quand RiftWii a fini de lire les disques."
+msgid "RiftWii is still reading the drives. Open the Rift Store again in a moment."
+msgstr "RiftWii lit encore les disques. Rouvrez le Rift Store dans un instant."
 
 msgid "Type the PIN to open the Rift Store."
 msgstr "Tapez le code PIN pour ouvrir le Rift Store."
