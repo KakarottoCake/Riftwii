@@ -33,29 +33,24 @@ release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 
 -->
-**RiftWii {{VERSION}}.** A tester's idea: a mod's own Home tile can now use its GameTDB entry (like Newer Super Mario Bros. Wii, SMNP03) for its name, cover and About page. Also two fixes from testers: USA games no longer crash on a Japanese Wii, and the Wii Remote's pointer works again after the Remote goes to sleep and wakes up. Everything from 2611-233 (the Rift Store and more) is in it too. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** A fix for big game libraries: with hundreds of games, RiftWii could run out of memory and restart, most often while it downloaded an update or the game details, so an update never finished. Everything from 2611-236 (GameTDB entries for mod tiles and more) is in it too. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-![What's new in this version]({{SCREENSHOTS}}2611-236-whats-new.png)
+If you have a big library and RiftWii keeps restarting when it updates, copy `boot.dol` from this release's zip to `sd:/apps/riftwii/` by hand once, or turn off Wii Menu sounds in Settings before you update.
 
 ## What changed
 
-- **Mod tiles can use a GameTDB entry.** Some mods are on GameTDB as games of their own (Newer Super Mario Bros. Wii, Retro Rewind, Project+). When you make a Home tile for a mod (Mods > Make a Home tile with these mods), pick its entry from a list, or type its six-character ID. The tile on Home then gets that entry's name, cover, box and 3D cover, and its About page shows the mod's own details. On an existing tile, it's under Options > GameTDB entry. The tile still starts the same game with the same mods. A name you typed yourself is never changed, and Automatic matches by the tile's name as before.
-
-![Picking a mod tile's GameTDB entry]({{SCREENSHOTS}}2611-236-gametdb-entry.png)
-
-- **USA games on a Japanese Wii** (and other games from another region) no longer crash at start, as Super Mario Galaxy 2 did with a green screen. When Game language is left on the Wii's own language and the game's region doesn't have that language, the game now gets its region's usual one instead (English for a USA game). A language you pick on the game's page is still used as it is.
-- **The Wii Remote's pointer** works again after the Remote times out and you wake it up. Before, it disappeared or drifted (with a Nunchuk plugged in) until RiftWii was restarted.
+- **Downloads go straight to the SD card.** The update (RiftWii and its plugins) and GameTDB's game details are written to the card as they arrive, instead of being held whole in memory first. An update now needs a few MB of free space on the card, and almost no memory.
+- **Covers take turns in big libraries.** RiftWii no longer keeps room for every game's cover at once: it leaves memory for the shelf's full covers and the rest of the menu, and covers you scroll back to are read again from the card. A library that fits works as before.
 
 ## What to test
 
-1. **Make a Home tile for a mod** that has a GameTDB entry (Newer, Retro Rewind, CTGP...) and pick the entry: does Home show its name and cover, and its About page its details?
-2. **A game from another region**, for example a USA game on a Japanese Wii: does it start, and in English?
-3. **Leave the Wii Remote alone in the menu** until it turns off, then press A: does the pointer go where you aim?
+1. **A big library** (a few hundred games): scroll Home and the shelf with full covers, then update, or open a game's About page so its details download. Does RiftWii keep going?
 
 ## Known issues
 
 - **The way back from a WAD game** hasn't been tried on a real Wii or vWii yet, including this release's vWii fix.
 - **The Rift Store** hasn't been tried on a real Wii yet: its downloads, a full SD card, and Stop while files are being put in place.
+- **Big libraries** were checked in Dolphin only (an update and a 400-game list with memory held back), not yet on a real Wii with a big drive.
 - **GameTDB entries for mod tiles** were checked in Dolphin only. The first start after updating reads the game details once more in the background, so mod covers can be found for every game on your drives.
 - **This release's two fixes** were checked in Dolphin only: a USA game on a real Japanese Wii, and a real Wii Remote waking up in the menu, are still to try.
 - **WiiWare and Virtual Console from another region** don't get the language fallback yet.
