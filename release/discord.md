@@ -15,7 +15,7 @@ New, from a tester's idea:
 
 And two fixes from your reports:
 
-* **USA games on a Japanese Wii** don't crash anymore (Super Mario Galaxy 2's green screen). A game from another region now gets a language it has when it's set to follow the Wii's language.
+* **USA games on a Japanese Wii** don't crash anymore (Super Mario Galaxy 2's green screen). A game from another region now gets a language it has when it's set to follow the Wii's language (not WiiWare or Virtual Console yet).
 * **The Wii Remote pointer** works again after the Remote times out and wakes up.
 
 Everything from 2611-233 (the Rift Store and more) is in it too.
