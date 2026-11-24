@@ -571,4 +571,34 @@ std::string url_encode(const std::string& text) {
     return out;
 }
 
+bool HttpChunkDecoder::line(const std::uint8_t* data, std::size_t size, std::size_t from, std::size_t& end) {
+    for (std::size_t i = from; i + 1 < size; ++i) {
+        if (data[i] == '\r' && data[i + 1] == '\n') {
+            end = i;
+            return true;
+        }
+    }
+    return false;
+}
+
+// "1a2b" with an optional ";extension": hex digits, at most 15 of them
+// (anything bigger than the body's cap fails anyway).
+bool HttpChunkDecoder::chunk_size(const std::uint8_t* text, std::size_t length, std::uint64_t& size) {
+    size = 0;
+    std::size_t at = 0;
+    for (; at < length && text[at] != ';' && text[at] != ' ' && text[at] != '\t'; ++at) {
+        const unsigned char c = text[at];
+        unsigned digit = 0;
+        if (c >= '0' && c <= '9') digit = c - '0';
+        else if (c >= 'a' && c <= 'f') digit = c - 'a' + 10;
+        else if (c >= 'A' && c <= 'F') digit = c - 'A' + 10;
+        else return false;
+        if (at >= 15) return false;
+        size = size * 16 + digit;
+    }
+    if (at == 0) return false;
+    while (at < length && (text[at] == ' ' || text[at] == '\t')) ++at;
+    return at == length || text[at] == ';';
+}
+
 }  // namespace riftwii
