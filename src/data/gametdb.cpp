@@ -119,6 +119,9 @@ std::string raw_id(const std::string& block) {
 WiitdbScanner::WiitdbScanner(std::set<std::string> wanted, std::string lang)
     : wanted_(std::move(wanted)), prefixes_(custom_prefixes(wanted_)), lang_(std::move(lang)) {}
 
+WiitdbScanner::WiitdbScanner(std::set<std::string> wanted, std::string lang, const std::set<std::string>& mod_games)
+    : wanted_(std::move(wanted)), prefixes_(custom_prefixes(mod_games)), lang_(std::move(lang)) {}
+
 void WiitdbScanner::feed(const char* data, std::size_t size) {
     if (complete_) return;
     buffer_.append(data, size);

@@ -2733,6 +2733,9 @@ msgstr "IDを入力"
 msgid "Use the tile's name to look for a match."
 msgstr "タイルの名前で項目を探します。"
 
+msgid "Use the tile's name to look for a match. Now: {1}"
+msgstr "タイルの名前で項目を探します。今: {1}"
+
 msgid "Choose an entry for this tile's cover and About page."
 msgstr "このタイルのカバーと詳細に使う項目を選びます。"
 

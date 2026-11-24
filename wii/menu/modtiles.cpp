@@ -71,8 +71,9 @@ void ForgetProfiles() {
 }
 
 bool CreateProfile(const FrontendState& state, const std::string& name, const std::string& entry_id,
-                   bool use_entry_name, std::string& key, std::string& error) {
-    switch (Profiles().add(state.game_id, name, FirstModPicture(state), key, entry_id, use_entry_name)) {
+                   bool use_entry_name, const std::string& name_before_entry, std::string& key, std::string& error) {
+    switch (Profiles().add(state.game_id, name, FirstModPicture(state), key, entry_id, use_entry_name,
+                           name_before_entry)) {
         case ProfileList::AddResult::Added: break;
         case ProfileList::AddResult::NoName: error = tr("The tile needs a name."); return false;
         case ProfileList::AddResult::GameFull:
@@ -118,8 +119,9 @@ bool RenameProfile(FrontendState& state, const std::string& name, std::string& e
     return true;
 }
 
-bool SetProfileGameTdbEntry(FrontendState& state, const std::string& id, const std::string& title, std::string& error) {
-    if (!Profiles().set_gametdb_entry(state.profile_key, id, title)) {
+bool SetProfileGameTdbEntry(FrontendState& state, const std::string& id, const std::string& title,
+                            const std::string& fallback_name, std::string& error) {
+    if (!Profiles().set_gametdb_entry(state.profile_key, id, title, fallback_name)) {
         error = tr("This tile is not on the list any more.");
         return false;
     }

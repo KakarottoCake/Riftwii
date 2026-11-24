@@ -30,11 +30,17 @@ enum class GameInfoResult { Found, NotListed, NoDatabase, Failed };
 // `id`'s details. When the cache does not have them, the database is read
 // for `id` and every game in `wanted` (the rest of the player's games, so
 // it is read once for all of them). `progress` gets the share done, 0 to
-// 1, and stops the reading by returning false. `want_title` refreshes old
-// cached details without a title when the database is already on the card.
+// 1, and stops the reading by returning false.
 GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& wanted, GameInfo& out,
-                            std::string& error, const std::function<bool(double done)>& progress = nullptr,
-                            bool want_title = false);
+                            std::string& error, const std::function<bool(double done)>& progress = nullptr);
+
+// The details of an ID the player typed for a mod tile, title included
+// (old cached details without one are read again). Only that entry is
+// looked for: the lists of mods and homebrew apps made from the drives'
+// games stay as they are, and an ID that isn't listed is not remembered,
+// so a mistyped one changes nothing on the card.
+GameInfoResult LookUpTypedGameInfo(const std::string& id, GameInfo& out, std::string& error,
+                                   const std::function<bool(double done)>& progress = nullptr);
 
 // `id`'s details when the cache already has them: the game page's line of
 // facts. Reads nothing but the cache file (once a session), never the

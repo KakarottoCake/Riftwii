@@ -243,6 +243,21 @@ std::uint32_t Le(const std::uint8_t* p, int bytes) {
 
 using Progress = std::function<bool(double)>;
 
+// The games whose mods go in the mod list: those read for, less a mod
+// entry kept only because a player typed its ID for a tile. Its first four
+// characters can be any other game's, and that game's mods don't belong
+// to the drives' games (#618). A mod installed as a game, in `wanted`,
+// stays: its base game's mods are the ones its tiles look for.
+std::set<std::string> ModListGames(const std::set<std::string>& ids, const std::set<std::string>& wanted) {
+    std::set<std::string> out;
+    for (const std::string& id : ids) {
+        const auto kept = g_cache.games.find(id);
+        const bool typed_mod = kept != g_cache.games.end() && kept->second.custom && !wanted.count(id);
+        if (!typed_mod) out.insert(id);
+    }
+    return out;
+}
+
 bool ScanComplete(const std::string& path, const WiitdbScanner& scanner, std::string& error) {
     if (scanner.complete()) return true;
     error = path + " ends early, before the database's closing tag";
@@ -325,7 +340,7 @@ bool GameInfoSource(std::string& path, std::time_t& written) {
 }
 
 GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& wanted, GameInfo& out,
-                            std::string& error, const std::function<bool(double done)>& progress, bool want_title) {
+                            std::string& error, const std::function<bool(double done)>& progress) {
     const std::string lang = MenuLocale();
     LoadCache(lang);
     std::string source;
@@ -334,14 +349,9 @@ GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& 
     const bool stale = have_source && !g_cache.read_now && source_time > g_cache.written;
     if (!stale) {
         const auto found = g_cache.games.find(id);
-        // Older caches did not keep titles. The tile picker needs the
-        // database once for an entry already cached without its name.
         if (found != g_cache.games.end()) {
-            const bool title_missing = want_title && found->second.title.empty();
-            if (!title_missing || !have_source || g_cache.read_now) {
-                out = found->second;
-                return GameInfoResult::Found;
-            }
+            out = found->second;
+            return GameInfoResult::Found;
         }
         if (g_cache.not_listed.count(id)) return GameInfoResult::NotListed;
     }
@@ -352,7 +362,7 @@ GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& 
     ids.insert(id);
     for (const auto& kept : g_cache.games) ids.insert(kept.first);
     ids.insert(g_cache.not_listed.begin(), g_cache.not_listed.end());
-    WiitdbScanner scanner(ids, lang);
+    WiitdbScanner scanner(ids, lang, ModListGames(ids, wanted));
     const bool zip = source.size() > 4 && source.compare(source.size() - 4, 4, ".zip") == 0;
     logf("Game details: reading %s for %u game(s)\n", source.c_str(), static_cast<unsigned>(ids.size()));
     const bool read = zip ? ScanZip(source, scanner, error, progress) : ScanXml(source, scanner, error, progress);
@@ -374,6 +384,49 @@ GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& 
     if (!SaveCache()) logf("Game details: %s could not be written\n", CachePath(lang).c_str());
     const auto found = g_cache.games.find(id);
     if (found == g_cache.games.end()) return GameInfoResult::NotListed;
+    out = found->second;
+    return GameInfoResult::Found;
+}
+
+GameInfoResult LookUpTypedGameInfo(const std::string& id, GameInfo& out, std::string& error,
+                                   const Progress& progress) {
+    const std::string lang = MenuLocale();
+    LoadCache(lang);
+    std::string source;
+    std::time_t source_time = 0;
+    const bool have_source = GameInfoSource(source, source_time);
+    const bool stale = have_source && !g_cache.read_now && source_time > g_cache.written;
+    const auto cached = g_cache.games.find(id);
+    // Older caches did not keep titles, and the picker names the tile from
+    // it: such an entry is read again when the database is on the card.
+    if (!stale && cached != g_cache.games.end() && (!cached->second.title.empty() || !have_source)) {
+        out = cached->second;
+        return GameInfoResult::Found;
+    }
+    if (!have_source) return GameInfoResult::NoDatabase;
+
+    // Only this ID, and no game's mods: what the drives' games make (the
+    // mod list, the homebrew list, the games not listed) is left alone, so
+    // an ID that GameTDB doesn't have can't change it (#618).
+    WiitdbScanner scanner({id}, lang, {});
+    const bool zip = source.size() > 4 && source.compare(source.size() - 4, 4, ".zip") == 0;
+    logf("Game details: reading %s for the typed ID %s\n", source.c_str(), id.c_str());
+    const bool read = zip ? ScanZip(source, scanner, error, progress) : ScanXml(source, scanner, error, progress);
+    if (!read) {
+        logf("Game details: %s not read: %s\n", source.c_str(), error.c_str());
+        return GameInfoResult::Failed;
+    }
+    const auto found = scanner.games().find(id);
+    if (found == scanner.games().end()) {
+        logf("Game details: GameTDB does not list the typed ID %s\n", id.c_str());
+        return GameInfoResult::NotListed;
+    }
+    // Kept with the other games' details, so the tile's page opens at once.
+    // A cache older than the database is only added to in memory: written,
+    // it would pass for one made from this database. The next full read
+    // writes it, this entry included.
+    g_cache.games[id] = found->second;
+    if (!stale && !SaveCache()) logf("Game details: %s could not be written\n", CachePath(lang).c_str());
     out = found->second;
     return GameInfoResult::Found;
 }
@@ -602,6 +655,7 @@ struct BackgroundRead {
     std::string fallback;
     bool download_failed = false;  // and so it was
     std::set<std::string> ids;
+    std::set<std::string> mod_games;  // ModListGames(ids)
     bool ok = false;
     std::string error;
     std::map<std::string, GameInfo> games;
@@ -615,7 +669,7 @@ void ReadInBackground() {
     // instead of holding the card for the seconds the rest would take.
     const Progress go_on = [](double) { return !NetCancelRequested(); };
     std::optional<WiitdbScanner> scanner;
-    scanner.emplace(g_read.ids, g_read.lang);
+    scanner.emplace(g_read.ids, g_read.lang, g_read.mod_games);
     bool read = false;
     if (g_read.source.empty()) {
         // A cancelled job's download fails within a tenth of a second.
@@ -629,7 +683,7 @@ void ReadInBackground() {
             logf("Game details: reading %s meanwhile\n", g_read.fallback.c_str());
             g_read.source = g_read.fallback;
             g_read.error.clear();
-            scanner.emplace(g_read.ids, g_read.lang);  // the failed check's games left out
+            scanner.emplace(g_read.ids, g_read.lang, g_read.mod_games);  // the failed check's games left out
         } else {
             return;
         }
@@ -730,6 +784,7 @@ GameInfoReadStart StartGameInfoRead(const std::set<std::string>& wanted, bool do
     read.ids = wanted;
     for (const auto& kept : g_cache.games) read.ids.insert(kept.first);
     read.ids.insert(g_cache.not_listed.begin(), g_cache.not_listed.end());
+    read.mod_games = ModListGames(read.ids, wanted);
     read.started = true;
     logf("Game details: reading %s for %u game(s) in the background\n",
          !read.source.empty() ? read.source.c_str() : "GameTDB's database (downloading it first)",

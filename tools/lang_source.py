@@ -2298,6 +2298,11 @@ T = {
         "タイルの名前で項目を探します。",
         "Procura uma entrada pelo nome do bloco.",
         "Cerca una voce con il nome del riquadro."),
+    "Use the tile's name to look for a match. Now: {1}": (
+        "Busca una entrada con el nombre de la casilla. Ahora: {1}",
+        "タイルの名前で項目を探します。今: {1}",
+        "Procura uma entrada pelo nome do bloco. Agora: {1}",
+        "Cerca una voce con il nome del riquadro. Ora: {1}"),
     "Choose an entry for this tile's cover and About page.": (
         "Elige una entrada para la portada y la información de esta casilla.",
         "このタイルのカバーと詳細に使う項目を選びます。",
@@ -4256,6 +4261,7 @@ KO = {
     "Current entry": "현재 항목",
     "Type an ID": "ID 입력",
     "Use the tile's name to look for a match.": "타일 이름으로 맞는 항목을 찾습니다.",
+    "Use the tile's name to look for a match. Now: {1}": "타일 이름으로 맞는 항목을 찾습니다. 지금: {1}",
     "Choose an entry for this tile's cover and About page.": "이 타일의 표지와 정보에 쓸 항목을 고릅니다.",
     "Enter six letters or numbers.": "영문자나 숫자 6자를 입력하세요.",
     "This ID is not in the GameTDB data on the SD card.": "SD 카드의 GameTDB 데이터에 이 ID가 없습니다.",
@@ -6123,6 +6129,7 @@ FR = {
     "Current entry": "Fiche actuelle",
     "Type an ID": "Saisir un code",
     "Use the tile's name to look for a match.": "Cherche une fiche d'après le nom de la tuile.",
+    "Use the tile's name to look for a match. Now: {1}": "Cherche une fiche d'après le nom de la tuile. Maintenant : {1}",
     "Choose an entry for this tile's cover and About page.": "Choisissez une fiche pour la jaquette et les infos de cette tuile.",
     "Enter six letters or numbers.": "Saisissez six lettres ou chiffres.",
     "This ID is not in the GameTDB data on the SD card.": "Ce code ne figure pas dans les données GameTDB de la carte SD.",

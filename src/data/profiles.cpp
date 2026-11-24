@@ -129,19 +129,23 @@ void ProfileList::parse(const std::string& text) {
         if (line.empty() || line[0] == '#') continue;
         // Older files stop after the name or picture.
         LineReader fields(line, '\t');
-        std::string key, name, art, entry_id, name_source, extra;
+        std::string key, name, art, entry_id, name_source, name_before, extra;
         if (!fields.next(key) || !fields.next(name)) continue;
         fields.next(art);
         fields.next(entry_id);
         fields.next(name_source);
+        fields.next(name_before);
         const std::size_t at = key.find('@');
         if (at == std::string::npos || !valid_tile_key(key) || find(key)) continue;
         Profile p;
         p.game_id = key.substr(0, at);
         p.slug = key.substr(at + 1);
+        // A field this RiftWii doesn't know: the line is from a newer one,
+        // so its entry choice is left out rather than half understood.
         if (!fields.next(extra)) {
             p.gametdb_id = normalize_gametdb_id(entry_id);
-            p.use_entry_name = name_source == "gametdb" && (entry_id.empty() || !p.gametdb_id.empty());
+            p.use_entry_name = name_source == "gametdb" && !p.gametdb_id.empty();
+            if (p.use_entry_name) p.name_before_entry = clean_profile_name(name_before);
         }
         p.name = clean_name(name, p.use_entry_name ? kMaxProfileEntryName : kMaxProfileName);
         if (p.name.empty() || for_game(p.game_id).size() >= kMaxProfilesPerGame) continue;
@@ -157,6 +161,7 @@ std::string ProfileList::serialize() const {
         if (!p.art.empty() || !p.gametdb_id.empty() || p.use_entry_name) out += "\t" + p.art;
         if (!p.gametdb_id.empty() || p.use_entry_name) out += "\t" + p.gametdb_id;
         if (p.use_entry_name) out += "\tgametdb";
+        if (p.use_entry_name && !p.name_before_entry.empty()) out += "\t" + p.name_before_entry;
         out += "\n";
     }
     return out;
@@ -188,13 +193,15 @@ const Profile* ProfileList::find(const std::string& key) const {
 }
 
 ProfileList::AddResult ProfileList::add(const std::string& game_id, const std::string& name, const std::string& art,
-                                        std::string& key, const std::string& entry_id, bool use_entry_name) {
+                                        std::string& key, const std::string& entry_id, bool use_entry_name,
+                                        const std::string& name_before_entry) {
     key.clear();
     if (!plausible_game_id(game_id)) return AddResult::BadGame;
     Profile p;
     p.game_id = game_id;
     p.gametdb_id = normalize_gametdb_id(entry_id);
-    p.use_entry_name = use_entry_name;
+    p.use_entry_name = use_entry_name && !p.gametdb_id.empty();
+    if (p.use_entry_name) p.name_before_entry = clean_profile_name(name_before_entry);
     p.name = clean_name(name, p.use_entry_name ? kMaxProfileEntryName : kMaxProfileName);
     if (p.name.empty()) return AddResult::NoName;
     if (profiles_.size() >= kMaxProfiles) return AddResult::ListFull;
@@ -222,21 +229,32 @@ bool ProfileList::rename(const std::string& key, const std::string& name) {
         if (p.key() != key) continue;
         p.name = clean;
         p.use_entry_name = false;
+        p.name_before_entry.clear();
         return true;
     }
     return false;
 }
 
-bool ProfileList::set_gametdb_entry(const std::string& key, const std::string& id, const std::string& title) {
+bool ProfileList::set_gametdb_entry(const std::string& key, const std::string& id, const std::string& title,
+                                    const std::string& fallback_name) {
     const std::string entry_id = normalize_gametdb_id(id);
     if (!id.empty() && entry_id.empty()) return false;
     for (Profile& profile : profiles_) {
         if (profile.key() != key) continue;
-        if (!entry_id.empty() && profile.use_entry_name) {
+        profile.gametdb_id = entry_id;
+        if (!profile.use_entry_name) return true;
+        if (!entry_id.empty()) {
             const std::string name = clean_name(title, kMaxProfileEntryName);
             if (!name.empty()) profile.name = name;
+            return true;
         }
-        profile.gametdb_id = entry_id;
+        // Back to Automatic: the entry's title goes with the entry.
+        std::string name = profile.name_before_entry;
+        if (name.empty()) name = clean_profile_name(fallback_name);
+        if (!name.empty()) profile.name = name;
+        else profile.name = clean_profile_name(profile.name);
+        profile.use_entry_name = false;
+        profile.name_before_entry.clear();
         return true;
     }
     return false;

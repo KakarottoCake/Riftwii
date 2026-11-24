@@ -599,13 +599,17 @@ Mods page to **Rename this tile...** or **Remove this tile from Home**.
 Removing it keeps the game and the mod files.
 
 When making the tile, choose a **GameTDB entry** to give it that entry's
-cover, box, 3D cover and **About** details. Press OK to keep the suggested
-GameTDB name, or edit it to use your own. On an existing tile, open
-**Options > GameTDB entry** to change the choice. A name you typed or set
-with **Rename this tile...** always wins. **Automatic** keeps the tile's
-name, matches covers by that name as before, and shows the base game's
-details. **Type an ID** looks up a six-character code in the GameTDB data
-already on the SD card, even if the entry isn't in the list for this game.
+cover, box, 3D cover and **About** details. Press OK to keep GameTDB's name
+for it, or edit the name to use your own. On an existing tile, open
+**Options > GameTDB entry** to change the choice; the list starts on the
+one saved. A name you typed or set with **Rename this tile...** always
+wins. A tile that kept GameTDB's name takes the new entry's name when you
+pick another entry. **Automatic** matches covers by the tile's name, as
+before, shows the base game's details, and says which entry the name
+matches now. Going back to it gives a tile that had GameTDB's name the name
+it had before (or the mod's name). **Type an ID** looks up a six-character
+code in the GameTDB data already on the SD card, even if the entry isn't
+in the list for this game; an ID GameTDB doesn't have changes nothing.
 RiftWii saves the choice with the tile in `sd:/riftwii/profiles.txt`.
 It changes what the tile shows, not the game or mods it starts.
 
