@@ -74,13 +74,6 @@ bool MakeParents(const std::string& path) {
     return true;
 }
 
-// `from` in place of `to`: the old file goes first (FAT renames never
-// overwrite).
-bool Replace(const std::string& from, const std::string& to) {
-    if (Exists(to) && Host().remove_path(to.c_str()) != 0) return false;
-    return Host().rename_path(from.c_str(), to.c_str()) == 0;
-}
-
 struct Listing {
     std::vector<std::pair<std::string, bool>> entries;
 };
@@ -100,6 +93,55 @@ bool RemoveTree(const std::string& folder, int depth = 0) {
         if (entry.second ? !RemoveTree(path, depth + 1) : Host().remove_path(path.c_str()) != 0) return false;
     }
     return Host().remove_path(folder.c_str()) == 0;
+}
+
+// A staged file and where it goes.
+struct Move {
+    std::string staged, target;
+};
+
+// The staged files put in place. Each old file is kept as <file>.bak until
+// every new one is in, and put back if one cannot be moved, so the app is
+// the old version or the new one, never a mix. A power cut in the middle
+// leaves the .bak files, and no file lost. A fresh install that fails
+// leaves no folder behind.
+bool Commit(const std::vector<Move>& moves, const std::string& own) {
+    const bool fresh = !IsFolder(own);
+    std::vector<std::string> backups;
+    bool ok = true;
+    for (const Move& move : moves) {
+        std::string backup;
+        if (!MakeParents(move.target)) {
+            ok = false;
+            break;
+        }
+        if (Exists(move.target)) {
+            backup = move.target + ".bak";
+            Host().remove_path(backup.c_str());
+            if (Host().rename_path(move.target.c_str(), backup.c_str()) != 0) {
+                ok = false;
+                break;
+            }
+        }
+        if (Host().rename_path(move.staged.c_str(), move.target.c_str()) != 0) {
+            if (!backup.empty()) Host().rename_path(backup.c_str(), move.target.c_str());
+            ok = false;
+            break;
+        }
+        backups.push_back(backup);
+    }
+    if (!ok) {
+        for (std::size_t i = backups.size(); i-- > 0;) {
+            Host().remove_path(moves[i].target.c_str());
+            if (!backups[i].empty()) Host().rename_path(backups[i].c_str(), moves[i].target.c_str());
+        }
+        if (fresh && IsFolder(own)) RemoveTree(own);
+        return false;
+    }
+    for (const std::string& backup : backups) {
+        if (!backup.empty()) Host().remove_path(backup.c_str());
+    }
+    return true;
 }
 
 bool PngInflate(const std::uint8_t* data, std::size_t size, std::uint8_t* out, std::size_t out_size) {
@@ -381,33 +423,40 @@ void Store::RunIcon() {
 void Store::RunInstall() {
     const AppListing& app = *apps[job_index_].listing;
     char error[200] = "";
+    const std::string own = std::string("sd:/apps/") + app.id;
+    const std::string staging = std::string(kStoreFolder) + "/staging";
+    const auto clean_up = [&] {
+        Host().remove_path(kDownloadFile);
+        if (IsFolder(staging)) RemoveTree(staging);
+    };
     const auto fail = [&](const std::string& why) {
         job_error_ = why;
         progress.stage = cancel_ ? InstallStage::Cancelled : InstallStage::Failed;
-        Host().remove_path(kDownloadFile);
+        clean_up();
         Host().log("%s was not installed: %s", app.id, why.c_str());
     };
     if (!Host().net_ready(error, sizeof(error))) return fail(error);
-    if (!MakeParents(std::string(kStoreFolder) + "/") ) return fail("the SD card's riftwii folder could not be written");
-    Host().remove_path(kDownloadFile);
+    clean_up();
+    if (!MakeParents(staging + "/")) return fail("the SD card's riftwii folder could not be written");
 
-    // Download, hashed on the way.
+    // Download, hashed on the way, and no longer than the list says it is.
     progress.stage = InstallStage::Download;
     std::uint8_t digest[32];
     const auto downloaded = [](std::uint32_t done, void* arg) { static_cast<Store*>(arg)->progress.done = done; };
-    if (!Host().http_download(app.url, kDownloadFile, kAppDownloadMaxBytes, digest, downloaded, this, error,
-                              sizeof(error)))
+    if (!Host().http_download(app.url, kDownloadFile, app.size, digest, downloaded, this, error, sizeof(error)))
         return fail(cancel_ ? "stopped" : error);
     progress.stage = InstallStage::Check;
     if (Hex(digest, sizeof(digest)) != app.sha256)
         return fail("the download is not the file the app list approved (it may have been changed)");
 
-    const std::string own = std::string("sd:/apps/") + app.id;
+    // Everything is first written into the staging folder, where a failure,
+    // a Stop or a full card changes nothing of the app. Only then are the
+    // files put in place (Commit, below).
+    std::vector<Move> moves;
     if (app.format == AppFormat::Dol) {
         progress.stage = InstallStage::Unpack;
         progress.total = 1;
-        if (!MakeParents(own + "/boot.dol") || !Replace(kDownloadFile, own + "/boot.dol"))
-            return fail("the app could not be written to the SD card");
+        moves.push_back({kDownloadFile, own + "/boot.dol"});
         progress.done = 1;
     } else {
         FILE* zip = std::fopen(kDownloadFile, "rb");
@@ -429,50 +478,46 @@ void Store::RunInstall() {
         progress.done = 0;
         progress.total = static_cast<std::uint32_t>(plan.size());
         ZlibStream inflater;
-        for (const AppInstallStep& step : plan) {
-            if (cancel_) {
-                std::fclose(zip);
-                return fail("stopped");
-            }
-            // Each file is written beside its place and then put there, so
-            // none is ever left half written.
-            const std::string target = "sd:/" + step.path;
-            const std::string part = target + ".part";
-            if (!MakeParents(target)) {
-                std::fclose(zip);
-                return fail("a folder could not be made on the SD card");
-            }
-            FILE* out = std::fopen(part.c_str(), "wb");
+        for (std::size_t i = 0; i < plan.size(); ++i) {
+            const std::string staged = staging + "/" + std::to_string(i) + ".part";
+            FILE* out = std::fopen(staged.c_str(), "wb");
             if (!out) {
                 std::fclose(zip);
                 return fail("a file could not be written to the SD card");
             }
+            bool write_failed = false;
+            // Stop is heard inside a file too, so a big one does not hold it up.
             const ZipSink write = [&](const std::uint8_t* data, std::size_t size) {
-                return std::fwrite(data, 1, size, out) == size;
+                if (cancel_) return false;
+                write_failed = std::fwrite(data, 1, size, out) != size;
+                return !write_failed;
             };
-            const bool unpacked = zip_extract_at(read, entries[step.entry], &inflater, write, why);
+            const bool unpacked = zip_extract_at(read, entries[plan[i].entry], &inflater, write, why);
             const bool closed = std::fclose(out) == 0;
-            if (!unpacked || !closed || !Replace(part, target)) {
-                Host().remove_path(part.c_str());
+            if (cancel_ || !unpacked || !closed) {
                 std::fclose(zip);
-                return fail(unpacked && !closed ? "the SD card could not be written (is it full?)" : why);
+                if (cancel_) return fail("stopped");
+                return fail(write_failed || !closed ? "the SD card could not be written (is it full?)" : why);
             }
+            moves.push_back({staged, "sd:/" + plan[i].path});
             progress.done = progress.done + 1;
         }
         std::fclose(zip);
-        Host().remove_path(kDownloadFile);
     }
 
-    // The store's note: which file this is, for updates.
-    const std::string record_path = std::string(kStoreFolder) + "/" + app.id + ".txt";
+    // The store's note, staged with the files: which file this is, for updates.
+    const std::string note_staged = staging + "/note.part";
     const std::string record = app_record_text(app);
-    FILE* note = std::fopen(record_path.c_str(), "wb");
-    if (note) {
-        std::fwrite(record.data(), 1, record.size(), note);
-        std::fclose(note);
-    }
+    FILE* note = std::fopen(note_staged.c_str(), "wb");
+    const bool noted = note && std::fwrite(record.data(), 1, record.size(), note) == record.size();
+    if ((note && std::fclose(note) != 0) || !noted) return fail("the SD card could not be written (is it full?)");
+    moves.push_back({note_staged, std::string(kStoreFolder) + "/" + app.id + ".txt"});
+
+    progress.stage = InstallStage::Finish;
+    if (!Commit(moves, own)) return fail("the app's files could not be put in place; the old ones were put back");
+    clean_up();
     progress.stage = InstallStage::Done;
-    Host().log("%s %s installed", app.id, app.version);
+    Host().log("%s %s installed (%u files)", app.id, app.version, static_cast<unsigned>(moves.size() - 1));
     job_ok_ = true;
 }
 

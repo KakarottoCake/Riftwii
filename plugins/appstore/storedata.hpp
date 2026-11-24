@@ -34,7 +34,8 @@ struct App {
 
 enum class ListState { Loading, Ready, Failed };
 
-enum class InstallStage { Download, Check, Unpack, Done, Failed, Cancelled };
+// Finish: the staged files being put in place, which Stop no longer interrupts.
+enum class InstallStage { Download, Check, Unpack, Finish, Done, Failed, Cancelled };
 struct InstallProgress {
     volatile InstallStage stage = InstallStage::Download;
     volatile std::uint32_t done = 0;   // bytes (download) or files (unpack)

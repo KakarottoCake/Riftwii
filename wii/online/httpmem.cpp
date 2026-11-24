@@ -326,6 +326,12 @@ bool StreamExchange(const HttpUrl& url, StreamGet& get, Headers& headers, std::s
     std::size_t used = 0;          // bytes held in the window
     std::uint64_t body_seen = 0;   // of a body that is not chunked
     bool closed = false;
+    // A trickle is cut off: under 32 KiB in 30 s, the download has stalled
+    // (the time budget alone would let 128 MB take two hours).
+    constexpr std::uint64_t kStallMs = 30000;
+    constexpr std::uint64_t kStallBytes = 32u << 10;
+    u64 stall_since = gettime();
+    std::uint64_t stall_bytes = 0;
     for (;;) {
         if (ticks_to_millisecs(diff_ticks(started, gettime())) > budget_ms) return too_slow();
         if (used == get.capacity) {
@@ -395,6 +401,14 @@ bool StreamExchange(const HttpUrl& url, StreamGet& get, Headers& headers, std::s
             done = headers.has_length && body_seen == headers.length;
         }
         if (progress && got > 0) progress(static_cast<std::size_t>(get.body_length));
+        if (headers.whole && ticks_to_millisecs(diff_ticks(stall_since, gettime())) >= kStallMs) {
+            if (get.body_length - stall_bytes < kStallBytes) {
+                error = url.host + " stopped sending (under 32 KB in 30 s); given up";
+                return false;
+            }
+            stall_since = gettime();
+            stall_bytes = get.body_length;
+        }
         if (done) return true;
         if (closed) {
             if (!headers.chunked && !headers.has_length) return true;  // ends with the connection

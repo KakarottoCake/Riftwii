@@ -4341,8 +4341,8 @@ msgstr "Questa app è già in sd:/apps, ma non è stata messa da qui. La version
 msgid "Another download is still running. Try again in a moment."
 msgstr "Un altro download è ancora in corso. Riprova tra un momento."
 
-msgid "{1} is installed. Find it in Home's Homebrew view."
-msgstr "{1} è installata. La trovi nella vista Homebrew della Home."
+msgid "Installed. Find it in Home's Homebrew view."
+msgstr "Installata. La trovi nella vista Homebrew della Home."
 
 msgid "{1} is removed."
 msgstr "{1} è stata rimossa."

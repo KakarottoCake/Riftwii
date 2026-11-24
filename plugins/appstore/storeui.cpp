@@ -150,9 +150,18 @@ public:
             input_ = input;
             leave = Handle();
         }
-        // An install still running is stopped; its file is left whole or removed.
+        // An install still running is stopped (nothing of it is kept); a list,
+        // an icon or a removal ends on its own. Its end is waited for with a
+        // page that says so: the plugin may not be unloaded under its job.
         store_.CancelInstall();
-        while (Host().background_running()) Host().screen_frame(nullptr, 0, &input_);
+        while (Host().background_running()) {
+            frame_.Clear();
+            frame_.Skin(RWP_SKIN_TITLE_BAND, info_.left, 0, info_.width, kBand);
+            Message(tr("Finishing..."));
+            frame_.Progress(middle_ - 140, 236, 280, 14, (input_.frame * 12) % 1000);
+            rwp_input input;
+            if (Host().screen_frame(frame_.Data(), frame_.Count(), &input) == 0) input_ = input;
+        }
         store_.Pump(input_.frame);
         return RWP_LAUNCH_DONE;
     }
@@ -421,7 +430,8 @@ private:
         store_.WantIcons({app_index_}, input_.frame);
 
         if (running) {
-            Prompt(RWP_KEY_B, tr("Stop"));
+            // Once the files are being put in place there is nothing to stop.
+            if (store_.progress.stage != InstallStage::Finish) Prompt(RWP_KEY_B, tr("Stop"));
             return;
         }
         Prompt(RWP_KEY_B, tr("Back"));
@@ -673,7 +683,7 @@ private:
         if (store_.finished_ok) {
             if (here)
                 status_ = store_.finished_remove ? tr("{1} is removed.", name)
-                                                 : tr("{1} is installed. Find it in Home's Homebrew view.", name);
+                                                 : tr("Installed. Find it in Home's Homebrew view.");
             return;
         }
         if (store_.progress.stage == InstallStage::Cancelled) {

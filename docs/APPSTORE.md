@@ -160,15 +160,27 @@ larger, for small TVs and 480i.
 An install, on RiftWii's network thread:
 
 1. The download streams to `sd:/riftwii/apps/download.tmp`, hashed on the
-   way (`HttpGetStream`, `wii/online/httpmem.cpp`), up to 128 MB.
+   way (`HttpGetStream`, `wii/online/httpmem.cpp`), refused past the size
+   the list gives, and given up when under 32 KB arrive in 30 seconds.
 2. Its SHA-256 must be the list's, or nothing is written.
-3. A `.dol` becomes `sd:/apps/<id>/boot.dol`. A zip's directory is read
-   from the card a piece at a time (`zip_read_directory_at`), the plan
-   checked as a whole (`app_plan_install`), then each file unpacked beside
-   its place (`<file>.part`) and put there, so none is ever half written.
-4. `sd:/riftwii/apps/<id>.txt` notes the version and SHA-256: an app whose
-   note differs from the list has an update. An app folder without a note
-   was put there some other way, and installing replaces its files.
+3. A zip's directory is read from the card a piece at a time
+   (`zip_read_directory_at`), the plan checked as a whole
+   (`app_plan_install`), and every file unpacked into
+   `sd:/riftwii/apps/staging`. Stop is heard inside a file too. Until
+   here nothing of the app has changed: a failure, Stop or a full card
+   leaves it as it was.
+4. The store's note (`sd:/riftwii/apps/<id>.txt`: the version and
+   SHA-256) is staged with the files, its write checked.
+5. Then the files are put in place, each old one kept as `<file>.bak`
+   until all are in. If one cannot be moved, the ones already moved are
+   put back, so the app is the old version or the new one, never a mix
+   (a power cut in the middle leaves the `.bak` files, nothing lost). A
+   fresh install that fails leaves no folder. Files of the old version
+   the new one does not have (its settings) stay.
+
+An app whose note differs from the list has an update. An app folder
+without a note was put there some other way, and installing replaces its
+files.
 
 Remove deletes `sd:/apps/<id>` and the note; the app's data folders stay,
 since they hold its saves. Home's Homebrew view reads `sd:/apps` again

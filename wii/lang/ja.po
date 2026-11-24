@@ -4341,8 +4341,8 @@ msgstr "このアプリはすでにsd:/appsにありますが、ここから入�
 msgid "Another download is still running. Try again in a moment."
 msgstr "ほかのダウンロードが続いています。少ししてからもう一度試してください。"
 
-msgid "{1} is installed. Find it in Home's Homebrew view."
-msgstr "{1}をインストールしました。ホームのHomebrew表示にあります。"
+msgid "Installed. Find it in Home's Homebrew view."
+msgstr "インストールしました。ホームのHomebrew表示にあります。"
 
 msgid "{1} is removed."
 msgstr "{1}を削除しました。"

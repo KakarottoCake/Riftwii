@@ -4341,8 +4341,8 @@ msgstr "이 앱은 이미 sd:/apps에 있지만 여기서 설치한 것이 아�
 msgid "Another download is still running. Try again in a moment."
 msgstr "다른 다운로드가 아직 진행 중입니다. 잠시 후 다시 시도하세요."
 
-msgid "{1} is installed. Find it in Home's Homebrew view."
-msgstr "{1}을(를) 설치했습니다. 홈의 홈브루 보기에 있습니다."
+msgid "Installed. Find it in Home's Homebrew view."
+msgstr "설치했습니다. 홈의 홈브루 보기에 있습니다."
 
 msgid "{1} is removed."
 msgstr "{1}을(를) 삭제했습니다."

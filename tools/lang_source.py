@@ -8905,9 +8905,9 @@ MORE["fr"]['This app is in sd:/apps already, not put there from here. Version {1
 T['Another download is still running. Try again in a moment.'] = ('Otra descarga sigue en curso. Inténtalo de nuevo en un momento.', 'ほかのダウンロードが続いています。少ししてからもう一度試してください。', 'Outro download ainda está em andamento. Tente de novo em instantes.', 'Un altro download è ancora in corso. Riprova tra un momento.')
 MORE["ko"]['Another download is still running. Try again in a moment.'] = '다른 다운로드가 아직 진행 중입니다. 잠시 후 다시 시도하세요.'
 MORE["fr"]['Another download is still running. Try again in a moment.'] = 'Un autre téléchargement est en cours. Réessayez dans un instant.'
-T["{1} is installed. Find it in Home's Homebrew view."] = ('{1} está instalada. Búscala en la vista Homebrew de Inicio.', '{1}をインストールしました。ホームのHomebrew表示にあります。', '{1} foi instalado. Ele está na visão Homebrew da tela inicial.', '{1} è installata. La trovi nella vista Homebrew della Home.')
-MORE["ko"]["{1} is installed. Find it in Home's Homebrew view."] = '{1}을(를) 설치했습니다. 홈의 홈브루 보기에 있습니다.'
-MORE["fr"]["{1} is installed. Find it in Home's Homebrew view."] = "{1} est installée. Elle est dans la vue Homebrew de l'accueil."
+T["Installed. Find it in Home's Homebrew view."] = ('Instalada. Búscala en la vista Homebrew de Inicio.', 'インストールしました。ホームのHomebrew表示にあります。', 'Instalado. Ele está na visão Homebrew da tela inicial.', 'Installata. La trovi nella vista Homebrew della Home.')
+MORE["ko"]["Installed. Find it in Home's Homebrew view."] = '설치했습니다. 홈의 홈브루 보기에 있습니다.'
+MORE["fr"]["Installed. Find it in Home's Homebrew view."] = "Installée. Elle est dans la vue Homebrew de l'accueil."
 T['{1} is removed.'] = ('{1} se ha quitado.', '{1}を削除しました。', '{1} foi removido.', '{1} è stata rimossa.')
 MORE["ko"]['{1} is removed.'] = '{1}을(를) 삭제했습니다.'
 MORE["fr"]['{1} is removed.'] = '{1} est supprimée.'

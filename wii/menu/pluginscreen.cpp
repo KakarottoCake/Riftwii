@@ -37,6 +37,10 @@ Hooks g_hooks;
 constexpr uint32_t kMaxCommands = 1024;
 constexpr std::size_t kMaxTextBytes = 2048;
 constexpr std::size_t kMaxTextures = 256;
+// And in bytes: from the heap (MEM1, then MEM2), so a plugin's pictures
+// never crowd out the menu's. The store's 40 icons take about 1 MB.
+constexpr std::size_t kMaxTextureBytes = 4u << 20;
+std::size_t g_textureBytes = 0;
 constexpr std::size_t kMaxWidthCache = 1024;
 // The bottom bar's flat ends and body, as Home's (rift_menu.cpp's HomeBar).
 constexpr int kBarFlat = 140;
@@ -382,6 +386,7 @@ std::unordered_map<std::string, int> g_widths;  // "<size>:<text>"
 void FreeTextures() {
     for (Texture& t : g_textures) std::free(t.data);
     g_textures.clear();
+    g_textureBytes = 0;
 }
 
 }  // namespace
@@ -439,6 +444,7 @@ uint32_t TextureCreate(const uint8_t* rgba, uint32_t width, uint32_t height) {
     if (rgba == nullptr || width == 0 || height == 0 || width > 640 || height > 480) return 0;
     const int paddedW = static_cast<int>((width + 3) & ~3u), paddedH = static_cast<int>((height + 3) & ~3u);
     const std::size_t bytes = static_cast<std::size_t>(paddedW) * paddedH * 4;
+    if (bytes > kMaxTextureBytes - g_textureBytes) return 0;
     std::vector<std::uint8_t> padded;
     if (!try_resize(padded, bytes)) return 0;
     for (uint32_t row = 0; row < height; ++row)
@@ -465,13 +471,16 @@ uint32_t TextureCreate(const uint8_t* rgba, uint32_t width, uint32_t height) {
     }
     if (g_canvas) H().resume();
     if (handle == 0) std::free(data);
+    else g_textureBytes += bytes;
     return handle;
 }
 
 void TextureFree(uint32_t handle) {
     if (handle == 0 || handle > g_textures.size()) return;
     if (g_canvas) H().halt();
-    std::free(g_textures[handle - 1].data);
+    const Texture& gone = g_textures[handle - 1];
+    if (gone.data) g_textureBytes -= static_cast<std::size_t>(gone.paddedWidth) * gone.paddedHeight * 4;
+    std::free(gone.data);
     g_textures[handle - 1] = Texture{};
     if (g_canvas) H().resume();
 }
