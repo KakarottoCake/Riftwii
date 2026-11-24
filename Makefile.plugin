@@ -133,7 +133,7 @@ $(shell mkdir -p $(OUT) && [ "$$(cat $(STAMP_FILE) 2>/dev/null)" = "$(RIFTWII_BU
 define plugin_rules
 $(OUT)/$(1)/%.o: plugins/$(1)/%.c include/riftwii/plugin_api.h
 	@mkdir -p $$(dir $$@)
-	$$(CC) $$(CFLAGS) -c -o $$@ $$<
+	$$(CC) $$(CFLAGS) -MMD -MP -c -o $$@ $$<
 
 $(OUT)/$(1)/%.o: plugins/$(1)/%.cpp include/riftwii/plugin_api.h
 	@mkdir -p $$(dir $$@)
@@ -141,7 +141,7 @@ $(OUT)/$(1)/%.o: plugins/$(1)/%.cpp include/riftwii/plugin_api.h
 
 $(OUT)/$(1)/%.o: plugins/$(1)/%.S $(wildcard $(RUNTIME_OUT)/*)
 	@mkdir -p $$(dir $$@)
-	$$(CC) $$(ASFLAGS) -x assembler-with-cpp -c -o $$@ $$<
+	$$(CC) $$(ASFLAGS) -x assembler-with-cpp -MMD -MP -c -o $$@ $$<
 
 # The C++ runtime and the src/ copies, under the plugin's own folder.
 $(OUT)/$(1)/common/%.o: plugins/common/%.cpp include/riftwii/plugin_api.h
