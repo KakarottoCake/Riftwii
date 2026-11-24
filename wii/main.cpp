@@ -216,6 +216,17 @@ void StartChannel(u64 title) {
         // to RiftWii, which says why.
         riftwii::wii::StopDiscLight();
         riftwii::wii::logf("Wii channels: it did not start: %s\n", error.c_str());
+        // d2x's FAT module still holding the SD card (it wouldn't let go of
+        // it, boot_channel): RiftWii restarts in place, with no IOS reload,
+        // and would mount the card under it. An IOS reload ends the module
+        // first, so the restarted RiftWii has the card to itself.
+        if (riftwii::wii::sd_held_by_d2x_fat()) {
+            std::string reload_error;
+            riftwii::wii::release_wii_remotes();
+            if (riftwii::wii::reload_ios(IOS_GetVersion(), reload_error, true) ==
+                riftwii::wii::ReloadResult::Terminal)
+                riftwii::wii::halt_after_terminal_reload();
+        }
         if (riftwii::wii::CanRestart())
             riftwii::wii::WarmRestart(riftwii::wii::RestartKind::LaunchFailed,
                                       riftwii::wii::tr("The game did not start: {1}", {error}));
