@@ -502,13 +502,35 @@ private:
         if (newer < store_.apps.size()) Prompt(RWP_KEY_PLUS, tr("Newer app"));
     }
 
-    // How many lines `text` takes at the body size in `width`, at most `most`.
-    // The host wraps at spaces; a little slack covers a word that moves down.
-    static int DescriptionLines(const std::string& text, int width, int most) {
+    // How many lines `text` takes at the body size in `width`, at most
+    // `most`: wrapped at spaces the way the menu's text wraps (libwiigui's
+    // GuiText measures a line with the space after it, and starts a new
+    // line with the word that made it too wide). Kept for the last text, as
+    // the page asks every frame.
+    int DescriptionLines(const std::string& text, int width, int most) {
         if (text.empty()) return 0;
-        const int usable = width * 9 / 10;
-        const int lines = (Width(text, kBodySize) + usable - 1) / usable;
-        return std::max(1, std::min(lines, most));
+        if (text != wrapped_text_ || width != wrapped_width_) {
+            wrapped_text_ = text;
+            wrapped_width_ = width;
+            int lines = 1;
+            std::string line;
+            std::size_t start = 0;
+            while (start < text.size()) {
+                std::size_t end = text.find(' ', start);
+                const bool last = end == std::string::npos;
+                if (last) end = text.size();
+                const std::string word = text.substr(start, end - start);
+                std::string candidate = line.empty() ? word : line + " " + word;
+                if (!line.empty() && Width(last ? candidate : candidate + " ", kBodySize) > width) {
+                    ++lines;
+                    candidate = word;
+                }
+                line = candidate;
+                start = end + 1;
+            }
+            wrapped_lines_ = lines;
+        }
+        return std::min(wrapped_lines_, most);
     }
 
     // Its size, date, consoles and license as a table: each fact's icon, its
@@ -907,6 +929,9 @@ private:
     std::vector<std::size_t> category_counts_;
     std::size_t grid_category_ = 0;  // a category grid's
     std::map<std::string, std::uint32_t> own_pictures_;  // name: texture (0: none)
+    std::string wrapped_text_;  // DescriptionLines' last text, width and count
+    int wrapped_width_ = 0;
+    int wrapped_lines_ = 0;
     std::vector<std::size_t> shown_categories_;
 
     GridKind grid_kind_ = GridKind::Category;
