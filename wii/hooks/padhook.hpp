@@ -200,10 +200,12 @@ void read_patched_code(const std::vector<MemoryPatch>& patches, PatchedCode& out
 // their search patches).
 bool pad_read_in_place(std::uint32_t address);
 
-// After find_pad_functions, while the card is still RiftWii's: the build
-// of the pad code this game takes (by the USB controllers the menu knows
-// and whether the HOME Menu's functions were found) copied from the pads
-// plugin (docs/PLUGINS.md, "The pads plugin"), and the plugin shut down.
+// After find_pad_functions: the build of the pad code this game takes (by
+// the USB controllers the menu knows and whether the HOME Menu's functions
+// were found) copied from the pads plugin (docs/PLUGINS.md, "The pads
+// plugin"), and the plugin shut down. It needs no card: PadsPluginForLaunch
+// loads the plugin before the launch hands the storage over (an IOS reload,
+// d2x's NAND emulation), and the copy comes from that loaded plugin.
 // `code_build` as plan_pad_hook will be told (a nonzero mem1_veneer).
 // False when the plugin can't give it: `message` is the sentence for the
 // player, and the launch stops (a player whose only controllers are

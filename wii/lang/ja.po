@@ -2763,6 +2763,9 @@ msgstr "RiftWiiの一部（{1}アドオン）がありません。もう一度Ri
 msgid "A part of RiftWii is damaged (the {1} add-on). Update RiftWii again."
 msgstr "RiftWiiの一部（{1}アドオン）が壊れています。もう一度RiftWiiを更新してください。"
 
+msgid "A part of RiftWii couldn't be used (the {1} add-on). Update RiftWii again."
+msgstr "RiftWiiの一部（{1}アドオン）が使えませんでした。もう一度RiftWiiを更新してください。"
+
 msgid "The {1} add-on is from a different RiftWii ({2}, this one is {3}). Update RiftWii again."
 msgstr "{1}アドオンは別のRiftWiiのものです（{2}、このRiftWiiは{3}）。もう一度RiftWiiを更新してください。"
 

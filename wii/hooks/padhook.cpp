@@ -1075,7 +1075,12 @@ bool fetch_pad_build(PadHook& hook, bool code_build, std::string& message) {
         g_pads_refused = true;
         return false;
     };
-    if (result == -1) return fail("the plugin could not be used (its own line above says why)", false);
+    if (result == -1) {
+        // The loader's own line says why; the player gets a sentence too,
+        // not whatever `message` held (CodeRabbit on #616).
+        message = tr("A part of RiftWii couldn't be used (the {1} add-on). Update RiftWii again.", {kPadsPlugin});
+        return fail("the plugin could not be used (its own line above says why)", false);
+    }
     if (result != RWP_PADS_COPIED)
         return fail("build " + std::to_string(kind) + " was not copied: " +
                         (request.error[0] != '\0' ? std::string(request.error) : std::string("no reason given")),

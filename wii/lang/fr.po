@@ -2763,6 +2763,9 @@ msgstr "Une partie de RiftWii est manquante (le module {1}). Mettez RiftWii à j
 msgid "A part of RiftWii is damaged (the {1} add-on). Update RiftWii again."
 msgstr "Une partie de RiftWii est endommagée (le module {1}). Mettez RiftWii à jour à nouveau."
 
+msgid "A part of RiftWii couldn't be used (the {1} add-on). Update RiftWii again."
+msgstr "Une partie de RiftWii n'a pas pu être utilisée (le module {1}). Mettez RiftWii à jour à nouveau."
+
 msgid "The {1} add-on is from a different RiftWii ({2}, this one is {3}). Update RiftWii again."
 msgstr "Le module {1} vient d'un autre RiftWii ({2}, celui-ci est {3}). Mettez RiftWii à jour à nouveau."
 

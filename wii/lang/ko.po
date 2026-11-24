@@ -2763,6 +2763,9 @@ msgstr "RiftWii의 일부({1} 애드온)가 없습니다. RiftWii를 다시 업�
 msgid "A part of RiftWii is damaged (the {1} add-on). Update RiftWii again."
 msgstr "RiftWii의 일부({1} 애드온)가 손상되었습니다. RiftWii를 다시 업데이트해 주세요."
 
+msgid "A part of RiftWii couldn't be used (the {1} add-on). Update RiftWii again."
+msgstr "RiftWii의 일부({1} 애드온)를 사용할 수 없었습니다. RiftWii를 다시 업데이트해 주세요."
+
 msgid "The {1} add-on is from a different RiftWii ({2}, this one is {3}). Update RiftWii again."
 msgstr "{1} 애드온은 다른 RiftWii의 것입니다({2}, 이 RiftWii는 {3}). RiftWii를 다시 업데이트해 주세요."
 

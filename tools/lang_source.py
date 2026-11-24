@@ -2361,6 +2361,11 @@ T = {
         "RiftWiiの一部（{1}アドオン）が壊れています。もう一度RiftWiiを更新してください。",
         "Uma parte do RiftWii está danificada (o complemento {1}). Atualize o RiftWii de novo.",
         "Una parte di RiftWii è danneggiata (il componente aggiuntivo {1}). Aggiorna di nuovo RiftWii."),
+    "A part of RiftWii couldn't be used (the {1} add-on). Update RiftWii again.": (
+        "No se pudo usar una parte de RiftWii (el complemento {1}). Vuelve a actualizar RiftWii.",
+        "RiftWiiの一部（{1}アドオン）が使えませんでした。もう一度RiftWiiを更新してください。",
+        "Não foi possível usar uma parte do RiftWii (o complemento {1}). Atualize o RiftWii de novo.",
+        "Non è stato possibile usare una parte di RiftWii (il componente aggiuntivo {1}). Aggiorna di nuovo RiftWii."),
     "The {1} add-on is from a different RiftWii ({2}, this one is {3}). Update RiftWii again.": (
         "El complemento {1} es de otro RiftWii ({2}; este es {3}). Vuelve a actualizar RiftWii.",
         "{1}アドオンは別のRiftWiiのものです（{2}、このRiftWiiは{3}）。もう一度RiftWiiを更新してください。",
@@ -4262,6 +4267,8 @@ KO = {
         "RiftWii의 일부({1} 애드온)가 없습니다. RiftWii를 다시 업데이트해 주세요.",
     "A part of RiftWii is damaged (the {1} add-on). Update RiftWii again.":
         "RiftWii의 일부({1} 애드온)가 손상되었습니다. RiftWii를 다시 업데이트해 주세요.",
+    "A part of RiftWii couldn't be used (the {1} add-on). Update RiftWii again.":
+        "RiftWii의 일부({1} 애드온)를 사용할 수 없었습니다. RiftWii를 다시 업데이트해 주세요.",
     "The {1} add-on is from a different RiftWii ({2}, this one is {3}). Update RiftWii again.":
         "{1} 애드온은 다른 RiftWii의 것입니다({2}, 이 RiftWii는 {3}). RiftWii를 다시 업데이트해 주세요.",
     "There was not enough memory for the {1} add-on. Restart RiftWii and try again.":
@@ -6124,6 +6131,8 @@ FR = {
         "Une partie de RiftWii est manquante (le module {1}). Mettez RiftWii à jour à nouveau.",
     "A part of RiftWii is damaged (the {1} add-on). Update RiftWii again.":
         "Une partie de RiftWii est endommagée (le module {1}). Mettez RiftWii à jour à nouveau.",
+    "A part of RiftWii couldn't be used (the {1} add-on). Update RiftWii again.":
+        "Une partie de RiftWii n'a pas pu être utilisée (le module {1}). Mettez RiftWii à jour à nouveau.",
     "The {1} add-on is from a different RiftWii ({2}, this one is {3}). Update RiftWii again.":
         "Le module {1} vient d'un autre RiftWii ({2}, celui-ci est {3}). Mettez RiftWii à jour à nouveau.",
     "There was not enough memory for the {1} add-on. Restart RiftWii and try again.":
@@ -8580,7 +8589,7 @@ def check(repo):
     sources = ["wii/launch/modplan.cpp", "wii/launch/gclaunch.cpp", "wii/core/i18n.cpp", "wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/credits.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
-               "wii/core/plugins.cpp", "wii/core/memlimits.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp",
+               "wii/core/plugins.cpp", "wii/hooks/padhook.cpp", "wii/core/memlimits.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp",
                "wii/menu/picturepicker.cpp", "wii/launch/ctgpr.cpp", "wii/launch/launchrun.cpp",
                "plugins/appstore/storeui.cpp", "plugins/appstore/storedata.cpp", "plugins/appstore/storeentry.cpp", "src/net/appcatalog.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
