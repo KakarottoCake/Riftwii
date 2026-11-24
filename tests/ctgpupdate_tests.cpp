@@ -15,9 +15,7 @@
 #include <vector>
 
 #include "riftwii/ctgppackwrite.hpp"
-#include "riftwii/ctgppackwrite.hpp"
 #include "riftwii/ctgpupdate.hpp"
-#include "riftwii/ctgpupdater.hpp"
 #include "riftwii/ctgpupdater.hpp"
 #include "riftwii/ctgpyaz0.hpp"
 #include "riftwii/sha1.hpp"
