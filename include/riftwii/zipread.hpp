@@ -75,6 +75,32 @@ using ZipInflater = bool (*)(const std::uint8_t* in, std::size_t in_size, std::u
 bool zip_extract(const std::uint8_t* data, std::size_t size, const ZipEntry& entry, ZipInflater inflate,
                  const ZipSink& sink, std::string& error);
 
+// The same for an archive read in pieces, as the app store reads a
+// download of up to 128 MB from the SD card: `read` fills `out` with
+// `bytes` from `offset` of the archive (`size` bytes in all), false when it
+// cannot. Only the end record, the directory and each entry's local
+// header are read; data_offset is then the entry's place in the file.
+using ZipReadAt = std::function<bool(std::uint64_t offset, std::uint8_t* out, std::size_t bytes)>;
+bool zip_read_directory_at(const ZipReadAt& read, std::uint64_t size, std::vector<ZipEntry>& entries,
+                           std::string& error, std::size_t max_entries = 1000);
+// Raw deflate (RFC 1951) unpacked as its packed bytes arrive: begin(), then
+// feed() with each piece (the unpacked bytes go to `sink`) until it says
+// Done, then end(). The Wii's is zlib's.
+class ZipInflateStream {
+public:
+    enum class Step { More, Done, Bad };
+    virtual bool begin() = 0;
+    virtual Step feed(const std::uint8_t* in, std::size_t size, const ZipSink& sink) = 0;
+    virtual void end() = 0;
+
+protected:
+    ~ZipInflateStream() = default;
+};
+// zip_extract for an archive read in pieces: the packed bytes are read and
+// unpacked a chunk at a time. Checks the size and CRC-32 as zip_extract
+// does, and that the deflate stream ends where the entry does.
+bool zip_extract_at(const ZipReadAt& read, const ZipEntry& entry, ZipInflateStream* inflater, const ZipSink& sink,
+                    std::string& error);
 // The CRC-32 (zip's, the PNG one) of more bytes after `crc`: start from 0.
 std::uint32_t zip_crc32_update(std::uint32_t crc, const std::uint8_t* data, std::size_t size);
 
