@@ -50,30 +50,38 @@ public:
         std::uint32_t done = 0;   // bytes (download) or files (unpack)
         std::uint32_t total = 0;
     };
+    // One thread writes at a time (the menu before an install starts, then
+    // the install's own); the writer keeps its own copy of what it wrote,
+    // so it never has to read the shared one.
     void Set(InstallStage stage, std::uint32_t done, std::uint32_t total) {
+        written_ = Snapshot{stage, done, total};
         sequence_.fetch_add(1);
         stage_.store(stage);
         done_.store(done);
         total_.store(total);
         sequence_.fetch_add(1);
     }
-    void SetStage(InstallStage stage) {
-        const Snapshot now = Read();
-        Set(stage, now.done, now.total);
-    }
-    void SetDone(std::uint32_t done) {
-        const Snapshot now = Read();
-        Set(now.stage, done, now.total);
-    }
+    void SetStage(InstallStage stage) { Set(stage, written_.done, written_.total); }
+    void SetDone(std::uint32_t done) { Set(written_.stage, done, written_.total); }
+
+    // The menu's thread reads (only it). It runs at a higher priority than
+    // the install's thread: had it caught a write half done and waited for
+    // it to end, the writer would never get to finish it. So it tries a few
+    // times and otherwise keeps the last whole snapshot it read.
     Snapshot Read() const {
-        Snapshot copy;
-        for (;;) {
+        for (int attempt = 0; attempt < 4; ++attempt) {
             const std::uint32_t before = sequence_.load();
+            if ((before & 1u) != 0) continue;
+            Snapshot copy;
             copy.stage = stage_.load();
             copy.done = done_.load();
             copy.total = total_.load();
-            if ((before & 1u) == 0 && sequence_.load() == before) return copy;
+            if (sequence_.load() == before) {
+                last_read_ = copy;
+                return copy;
+            }
         }
+        return last_read_;
     }
 
 private:
@@ -81,6 +89,8 @@ private:
     std::atomic<InstallStage> stage_{InstallStage::Download};
     std::atomic<std::uint32_t> done_{0};
     std::atomic<std::uint32_t> total_{0};
+    Snapshot written_;            // the install's thread's own
+    mutable Snapshot last_read_;  // the menu's thread's own
 };
 
 class Store {
