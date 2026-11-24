@@ -127,6 +127,9 @@ typedef struct rwp_input {
 #define RWP_DRAW_QR 7       /* a QR code of `text`, x y and w its side */
 #define RWP_DRAW_BUTTON 8   /* the face of button `arg` (RWP_KEY_*) for the controller in use, x y, h its size */
 #define RWP_DRAW_BACKGROUND 9 /* the theme's background, the whole screen */
+#define RWP_DRAW_PROMPT 10    /* one of the page's prompts on its bottom band, as the menu's pages
+                             * show them: `arg` the button (RWP_KEY_*), `text` what it does. The
+                             * first named is the rightmost. Pointed at and pressed, it is that button. */
 
 #define RWP_LIT 1u
 #define RWP_PRIMARY 2u   /* RWP_DRAW_CARD: the tinted card of a page's main action */
@@ -143,6 +146,7 @@ typedef struct rwp_input {
 #define RWP_SKIN_ARROW_LEFT 6   /* the page arrows */
 #define RWP_SKIN_ARROW_RIGHT 7
 #define RWP_SKIN_TITLE_BAND 8   /* a page's title band, the full width, h high */
+#define RWP_SKIN_FOOTER 9       /* a page's bottom band, from y 410 down, where the prompts go */
 
 /* The theme's colours for RWP_DRAW_TEXT and RWP_DRAW_RECT, as `color`
  * values; any other value is RGBA itself (0xRRGGBBAA). */

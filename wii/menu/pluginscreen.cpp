@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "gui_busy.hpp"
+#include "gui_prompts.hpp"
 #include "i18n.hpp"
 #include "libwiigui/gui.h"
 #include "log.hpp"
@@ -45,6 +46,8 @@ constexpr std::size_t kMaxWidthCache = 1024;
 // The bottom bar's flat ends and body, as Home's (rift_menu.cpp's HomeBar).
 constexpr int kBarFlat = 140;
 constexpr int kBarBody = 8;
+// A page's bottom band, as rift_menu.cpp's PageControlsBand.
+constexpr int kFooterTop = 410;
 
 struct Texture {
     u8* data = nullptr;  // GX_TF_RGBA8, padded to multiples of 4
@@ -128,13 +131,18 @@ public:
     }
     ~Canvas() override {
         for (GuiText* text : texts_) delete text;
+        delete prompts_;
     }
+
+    // Where the prompts end on the right: the safe area's edge.
+    void SetPromptEdge(int right) { promptEdge_ = right; }
 
     // Menu thread, GUI halted.
     void SetCommands(const rwp_draw* commands, uint32_t count) {
         count = std::min(count, kMaxCommands);
         commands_.resize(count);
         std::size_t textIndex = 0;
+        std::vector<std::pair<uint32_t, std::string>> prompts;
         for (uint32_t i = 0; i < count; ++i) {
             commands_[i] = commands[i];
             commands_[i].text = nullptr;
@@ -149,11 +157,28 @@ public:
                     qr_ = QrCode{};
                     if (!make_qr(qrText_, qr_)) qr_ = QrCode{};
                 }
+            } else if (c.kind == RWP_DRAW_PROMPT) {
+                if (c.text != nullptr && ButtonName(c.arg) != nullptr)
+                    prompts.emplace_back(c.arg, std::string(c.text, strnlen(c.text, 120)));
+                commands_[i].kind = 0;  // drawn by the prompts widget
             } else if (c.kind == RWP_DRAW_TEXT) {
                 commands_[i].kind = 0;  // no text: nothing to draw
             }
         }
         textsUsed_ = textIndex;
+        // The menu's own prompts widget, made again only when they change.
+        if (prompts != promptList_) {
+            promptList_ = prompts;
+            delete prompts_;
+            prompts_ = nullptr;
+            if (!promptList_.empty()) {
+                prompts_ = new GuiPrompts();
+                prompts_->SetParent(this);
+                prompts_->SetRightEdge(promptEdge_);
+                // From the right edge inwards, in the plugin's order.
+                for (const auto& prompt : promptList_) prompts_->Add(ButtonName(prompt.first), prompt.second);
+            }
+        }
     }
 
     rwp_input TakeInput() {
@@ -172,6 +197,7 @@ public:
         if (!IsVisible()) return;
         const int alpha = GetAlpha();
         for (const rwp_draw& c : commands_) DrawOne(c, alpha);
+        if (prompts_) prompts_->Draw();
         ++frames_;
     }
 
@@ -194,6 +220,15 @@ public:
         if (t->Down()) input_.pressed |= RWP_KEY_DOWN;
         if (t->Left()) input_.pressed |= RWP_KEY_LEFT;
         if (t->Right()) input_.pressed |= RWP_KEY_RIGHT;
+        if (prompts_) {
+            prompts_->Update(t);
+            // A prompt pointed at and pressed is its button, A's press not.
+            const int clicked = prompts_->GetClicked();
+            if (clicked >= 0 && static_cast<std::size_t>(clicked) < promptList_.size()) {
+                input_.pressed &= ~RWP_KEY_A;
+                input_.pressed |= promptList_[clicked].first;
+            }
+        }
     }
 
 private:
@@ -352,6 +387,16 @@ private:
             case RWP_SKIN_ARROW_RIGHT:
                 skinns::Draw(lit ? skinns::arrowRightOver : skinns::arrowRight, x - 2, y - 2, alpha);
                 break;
+            case RWP_SKIN_FOOTER: {
+                // As a menu page's (rift_menu.cpp's PageControlsBand).
+                Menu_FillScreen(kFooterTop, 1000, skinns::WithAlpha(skinns::kBar, alpha));
+                for (int at = kFooterTop; at < 480; at += 8)
+                    Menu_FillScreen(at, 8, skinns::WithAlpha(Scaled(skinns::kBar, 1.0f - 0.05f * (at - kFooterTop) / 70.0f), alpha));
+                Menu_FillScreen(kFooterTop - 3, 3, skinns::WithAlpha(skinns::kDivider, 45 * alpha / 255));
+                Menu_FillScreen(kFooterTop, 2, skinns::WithAlpha(skinns::kAccent, alpha));
+                Menu_FillScreen(kFooterTop + 2, 1, skinns::WithAlpha(skinns::kCard, 180 * alpha / 255));
+                break;
+            }
             case RWP_SKIN_TITLE_BAND: {
                 // As a menu page's (rift_menu.cpp's TitleBand), `h` high.
                 const int band = c.h > 8 ? c.h : 70;
@@ -376,6 +421,9 @@ private:
     std::size_t textsUsed_ = 0;
     std::string qrText_;
     QrCode qr_;
+    GuiPrompts* prompts_ = nullptr;
+    std::vector<std::pair<uint32_t, std::string>> promptList_;
+    int promptEdge_ = 600;
     rwp_input input_{};
     volatile uint32_t frames_ = 0;
 };
@@ -397,6 +445,11 @@ int32_t Open(rwp_screen_info* out) {
     if (g_canvas != nullptr || !H().halt || !H().resume || !H().window || !H().window()) return -1;
     H().halt();
     g_canvas = new Canvas();
+    {
+        f32 safeX = 0, safeW = 640;
+        Menu_SafeArea(&safeX, &safeW);
+        g_canvas->SetPromptEdge(static_cast<int>(safeX + safeW * 0.95f));
+    }
     H().window()->Append(g_canvas);
     H().resume();
     if (out != nullptr) {

@@ -23,8 +23,7 @@ constexpr int kBodySize = 20;
 
 constexpr int kBand = 72;        // the title band's height
 constexpr int kAppBand = 118;    // an app page's band, with its facts
-constexpr int kBarTop = 376;     // the bottom bar
-constexpr int kPromptY = 418;    // the prompts on it
+constexpr int kBarTop = 404;     // where the page's bottom band (and its prompts) begins
 constexpr int kGap = 14;
 
 constexpr std::uint32_t kWarn = 0xB45F06FFu;  // an update waiting, readable on the light cards
@@ -76,6 +75,12 @@ public:
         rwp_draw& d = Add(RWP_DRAW_QR, x, y, side, side);
         d.text = texts_.back().c_str();
     }
+    void Prompt(std::uint32_t key, const std::string& label) {
+        texts_.push_back(label);
+        rwp_draw& d = Add(RWP_DRAW_PROMPT, 0, 0, 0, 0);
+        d.arg = key;
+        d.text = texts_.back().c_str();
+    }
     void Button(int x, int y, int size, std::uint32_t key) {
         rwp_draw& d = Add(RWP_DRAW_BUTTON, x, y, size, size);
         d.arg = key;
@@ -124,7 +129,6 @@ constexpr int kHitAction = 1004;
 constexpr int kHitNewer = 1005;
 constexpr int kHitPage = 1006;
 constexpr int kHitRetry = 1007;
-constexpr int kHitPrompt = 2000;  // + the prompt's key
 
 class StoreScreen {
 public:
@@ -177,7 +181,7 @@ private:
             case Page::Grid: DrawGrid(); break;
             case Page::App: DrawApp(); break;
         }
-        frame_.Skin(RWP_SKIN_BAR, info_.left, kBarTop, info_.width, 0);
+        frame_.Skin(RWP_SKIN_FOOTER, info_.left, 0, info_.width, 0);
     }
 
     void Band(const std::string& title, int height = kBand) {
@@ -200,20 +204,10 @@ private:
 
     void Prompt(std::uint32_t key, const std::string& label) { prompts_.push_back({key, label}); }
 
+    // The menu's own prompts, from the right edge inwards in the order
+    // named: B Back first, at the edge, as on the menu's pages.
     void DrawPrompts() {
-        if (prompts_.empty()) return;
-        constexpr int kButton = 28, kSpace = 8, kBetween = 30;
-        int total = 0;
-        for (const auto& p : prompts_) total += kButton + kSpace + Width(p.second, kNameSize);
-        total += kBetween * static_cast<int>(prompts_.size() - 1);
-        int x = middle_ - total / 2;
-        for (const auto& p : prompts_) {
-            const int w = kButton + kSpace + Width(p.second, kNameSize);
-            frame_.Button(x, kPromptY, kButton, p.first);
-            frame_.Text(x + kButton + kSpace, kPromptY + 3, kNameSize, RWP_COLOR_INK, p.second);
-            hits_.push_back({x - 6, kPromptY - 6, w + 12, kButton + 12, kHitPrompt + static_cast<int>(p.first)});
-            x += w + kBetween;
-        }
+        for (const auto& prompt : prompts_) frame_.Prompt(prompt.first, prompt.second);
     }
 
     void Message(const std::string& text, int y = 190) {
@@ -506,12 +500,9 @@ private:
     // True when the player leaves the store.
     bool Handle() {
         const int pointed = PointedAt();
-        if (pointed >= 0 && pointed < kHitPrompt) Focus(pointed);
-        // A prompt pointed at and pressed is its button.
-        std::uint32_t pressed = input_.pressed;
-        if (Pressed(RWP_KEY_A) && pointed >= kHitPrompt) {
-            pressed = (pressed & ~RWP_KEY_A) | static_cast<std::uint32_t>(pointed - kHitPrompt);
-        }
+        if (pointed >= 0) Focus(pointed);
+        // A prompt pointed at and pressed comes as its button (the host's).
+        const std::uint32_t pressed = input_.pressed;
         if (pressed & RWP_KEY_HOME) return true;
         switch (page_) {
             case Page::Front: return HandleFront(pressed);
