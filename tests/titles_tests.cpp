@@ -24,6 +24,11 @@ static void test_table() {
     riftwii::TitleTable all;
     all.add_text(text);
     EXPECT_EQ(all.size(), std::size_t(4));
+    // A save's 4-char code finds its game's 6-char line, or its own line.
+    EXPECT_TRUE(all.find_code("RMCE") && *all.find_code("RMCE") == "Mario Kart Wii");
+    EXPECT_TRUE(all.find_code("WAAA") && *all.find_code("WAAA") == "Some WiiWare Game");
+    EXPECT_TRUE(all.find_code("RMCP") == nullptr);
+    EXPECT_TRUE(all.find_code("RMC") == nullptr);
     EXPECT_TRUE(all.find("SB4E01") && *all.find("SB4E01") == "Super Mario Galaxy 2");
     EXPECT_TRUE(all.find("RMCE01") && *all.find("RMCE01") == "Mario Kart Wii");
     EXPECT_TRUE(all.find("R8PE01") && *all.find("R8PE01") == "Super Paper Mario");
@@ -101,6 +106,41 @@ static void test_sort_name() {
     EXPECT_EQ(sort_name_start(""), std::size_t(0));
 }
 
+static void test_sort_key() {
+    using riftwii::sort_key;
+    using riftwii::sort_letter;
+    using riftwii::sort_name_less;
+    // Case is not sorted on: "apps" beside "Apps", before "YABDM".
+    EXPECT_EQ(sort_key("System Volume Information"), std::string("system volume information"));
+    EXPECT_TRUE(sort_name_less("apps", "YABDM"));
+    EXPECT_TRUE(sort_name_less("install", "System Volume Information"));
+    // Accented letters as their plain ones: Okami among the O's.
+    EXPECT_EQ(sort_key("\xC5\x8C" "kami"), std::string("okami"));
+    EXPECT_TRUE(sort_name_less("\xC5\x8C" "kami", "Zak and Wiki"));
+    EXPECT_TRUE(sort_name_less("Mario Kart Wii", "\xC5\x8C" "kami"));
+    EXPECT_EQ(sort_key("Pok\xC3\xA9mon"), std::string("pokemon"));
+    EXPECT_EQ(sort_key("\xC3\x86on Flux \xC3\x9F \xC5\x92uvre \xC3\x9E"), std::string("aeon flux ss oeuvre th"));
+    EXPECT_EQ(sort_key("\xC3\xBF\xC5\xBF"), std::string("ys"));
+    // The multiplication sign and other characters stay as they are.
+    EXPECT_EQ(sort_key("2\xC3\x97" "3"), std::string("2\xC3\x97" "3"));
+    EXPECT_EQ(sort_key("\xE3\x83\x9E\xE3\x83\xAA\xE3\x82\xAA"), std::string("\xE3\x83\x9E\xE3\x83\xAA\xE3\x82\xAA"));
+    // A lead byte without its continuation is kept, never read past.
+    EXPECT_EQ(sort_key("a\xC3"), std::string("a\xC3"));
+    // Names equal but for case keep one order whichever comes first.
+    EXPECT_TRUE(sort_name_less("APPS", "apps"));
+    EXPECT_TRUE(!sort_name_less("apps", "APPS"));
+    // Letters as Home files them.
+    EXPECT_EQ(sort_letter("\xC5\x8C" "kami"), 'O');
+    EXPECT_EQ(sort_letter("The Legend of Zelda"), 'L');
+    EXPECT_EQ(sort_letter("wii Sports"), 'W');
+    EXPECT_EQ(sort_letter("\xC3\xA5r. Mario"), 'A');  // a Latin-1 accent, in UTF-8
+    EXPECT_EQ(sort_letter("007: Quantum of Solace"), '#');
+    EXPECT_EQ(sort_letter(""), '#');
+    // Another script is a group of its own after Z, not a second '#'.
+    EXPECT_EQ(sort_letter("\xE3\x83\x9E\xE3\x83\xAA\xE3\x82\xAA"), riftwii::kOtherScriptLetter);
+    EXPECT_TRUE(riftwii::kOtherScriptLetter > 'Z');
+}
+
 static void test_long_title_cut() {
     // A 300-byte title of 3-byte characters (E6 BC A2 is U+6F22): the
     // 200-byte cut keeps 66 whole ones, never half of one.
@@ -132,6 +172,7 @@ static void test_long_title_cut() {
 }
 int main() {
     test_sort_name();
+    test_sort_key();
     test_table();
     test_id_from_path();
     test_folder_and_choice();

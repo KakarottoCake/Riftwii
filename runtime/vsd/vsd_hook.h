@@ -30,7 +30,10 @@
  * the device can take it (32-byte aligned; MEM2 for the USB drive),
  * otherwise in the bounce buffer and are copied. The loader sizes the
  * bounce buffer for the device (VSD_BOUNCE_BYTES_USB, _SD) and puts it
- * after the state's extent table.
+ * after the state's extent table, or after a paged card's index and page
+ * slots (rtvsd.h): a read whose piece's page neither slot holds first
+ * reads that page from the device (VSD_PHASE_PAGE), with the same retries
+ * as a piece.
  *
  * Read-ahead (runtime/rtvsdra.h, when the loader turned it on): the
  * window holding a read's last sector is read whole into the bounce
@@ -54,8 +57,9 @@
 #define RIFTWII_VSD_HOOK_H
 
 #define VSD_MAGIC 0x52575653u          /* "RWVS" */
-#define VSD_VERSION 3u                 /* also in vsd_entry.S's header; 2: the read-ahead buffer;
-                                        * 3: one shared trampoline, the CID and CSD from the loader */
+#define VSD_VERSION 4u                 /* also in vsd_entry.S's header; 2: the read-ahead buffer;
+                                        * 3: one shared trampoline, the CID and CSD from the loader;
+                                        * 4: a scattered image's piece list read from the device */
 #define VSD_CONTEXT_MAGIC 0x52575658u  /* "RWVX" */
 #define VSD_CONTEXT_BYTES 32u
 #define VSD_STATE_MAGIC 0x52575654u    /* "RWVT" */
@@ -142,6 +146,7 @@ struct vsd_deliver {
 #define VSD_PHASE_DATA 0u    /* a piece of the image is in flight */
 #define VSD_PHASE_SETTLE 1u  /* a CMD13 after a write is in flight */
 #define VSD_PHASE_WAIT 2u    /* a CMD13 before a piece, while the runtime's write programs */
+#define VSD_PHASE_PAGE 3u    /* a page of a paged card's piece list is being read (rtvsd_page_wanted) */
 
 struct vsd_transfer {
     uint32_t kind;                   /* VSD_TAG_TRANSFER */
@@ -168,6 +173,9 @@ struct vsd_transfer {
     uint32_t fill_data;              /* into this slot of it */
     uint32_t plain;                  /* a window failed every try: the rest reads only what the game asked for */
     int32_t answer;                  /* sync: the answer of the request just made */
+    uint32_t page_device;            /* PAGE: the piece list's page on the device, */
+    uint32_t page_slot;              /* the slot it is read into, */
+    uint32_t page_tries;             /* and its tries so far */
 };
 
 struct vsd_state {
@@ -220,6 +228,7 @@ struct vsd_state {
     uint32_t bounced_sectors;
     uint32_t bounced_unaligned;
     uint32_t bounced_most;
+    uint32_t page_reads;             /* a paged card's piece-list pages read (each try counts) */
     uint32_t response[8] __attribute__((aligned(32)));
     struct vsd_ioctlv vec[4] __attribute__((aligned(32)));
     uint32_t words[8] __attribute__((aligned(32)));      /* d2x: the sector and the count */
@@ -229,19 +238,22 @@ struct vsd_state {
      * heap in Dolphin), and a piece that needs the bounce buffer just
      * forgets the window first. */
     struct rtvsd_ra ra __attribute__((aligned(32)));
-    /* Last: the card's extent table follows it in memory (rtvsd_extents),
-     * then the bounce buffer, so the state is vsd_state_bytes(extent
-     * count, bounce bytes) long, not sizeof. */
+    /* Last: the card's extent table (or a paged card's index and page
+     * slots) follows it in memory (rtvsd_extents, rtvsd_pages), then the
+     * bounce buffer, so the state is vsd_state_bytes(paged, extent count,
+     * bounce bytes) long, not sizeof. */
     struct rtvsd_card card __attribute__((aligned(32)));
 };
 
 /* Where the bounce buffer starts in a state holding `extents` pieces of
- * the image, 32-aligned: the struct whole (with its tail padding) plus the
- * table, which starts inside that padding, a few bytes more than needed,
- * never fewer. The state's bytes with a bounce buffer of `bounce_bytes`. */
-#define vsd_bounce_offset(extents) \
-    (((uint32_t)sizeof(struct vsd_state) + rtvsd_extent_bytes(extents) + 31u) & ~31u)
-#define vsd_state_bytes(extents, bounce_bytes) (vsd_bounce_offset(extents) + (uint32_t)(bounce_bytes))
+ * the image (paged or not), 32-aligned: the struct whole (with its tail
+ * padding) plus the table, which starts inside that padding, a few bytes
+ * more than needed, never fewer. The state's bytes with a bounce buffer
+ * of `bounce_bytes`. */
+#define vsd_bounce_offset(paged, extents) \
+    (((uint32_t)sizeof(struct vsd_state) + rtvsd_table_bytes(paged, extents) + 31u) & ~31u)
+#define vsd_state_bytes(paged, extents, bounce_bytes) \
+    (vsd_bounce_offset(paged, extents) + (uint32_t)(bounce_bytes))
 
 /* The blob's C entry points (vsd_entry.S calls them). */
 int vsd_on_ipc(struct vsd_context* ctx, uint32_t entry, uint32_t* args, int32_t* result);

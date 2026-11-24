@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/symsearch.hpp"
 #include "riftwii/byteorder.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -177,7 +178,10 @@ std::set<std::uint32_t> stored_immediates(const std::vector<CodeRange>& text, st
         if (!is_li(w)) continue;
         for (std::size_t k = 1; k <= kStoreWindow && a + k * 4 < end; ++k) {
             const std::uint32_t s = word_at(text, a + static_cast<std::uint32_t>(k * 4));
-            if ((s & 0xFC000000u) == 0x90000000u && rd_of(s) == rd_of(w) && (s & 0xFFFFu) == offset) {
+            // A store off r1 is to the function's own stack, never the
+            // request block (an unoptimized function keeps its locals there).
+            const unsigned base = (s >> 16) & 31u;
+            if ((s & 0xFC000000u) == 0x90000000u && rd_of(s) == rd_of(w) && base != 1 && (s & 0xFFFFu) == offset) {
                 found.insert(w & 0xFFFFu);
                 break;
             }
@@ -195,6 +199,136 @@ std::set<std::uint32_t> call_targets(const std::vector<CodeRange>& text, std::ui
         if (is_bl(w)) targets.insert(bl_target(a, w));
     }
     return targets;
+}
+
+// Whether the instruction may write general register `r`. Errs towards yes:
+// a "yes" only makes the caller give up on that call.
+bool may_write_gpr(std::uint32_t p, unsigned r) {
+    const std::uint32_t op = p >> 26;
+    const unsigned rd = rd_of(p);
+    const unsigned ra = (p >> 16) & 31u;
+    switch (op) {
+        case 7: case 8: case 12: case 13: case 14: case 15:  // mulli, subfic, addic(.), addi, addis
+            return rd == r;
+        case 20: case 21: case 23:                            // rlwimi, rlwinm, rlwnm
+        case 24: case 25: case 26: case 27: case 28: case 29:  // ori, oris, xori, xoris, andi., andis.
+            return ra == r;
+        case 32: case 34: case 40: case 42:  // lwz, lbz, lhz, lha
+            return rd == r;
+        case 33: case 35: case 41: case 43:  // their update forms also write rA
+            return rd == r || ra == r;
+        case 46:  // lmw rD: rD to r31
+            return rd <= r;
+        case 37: case 39: case 45: case 49: case 51: case 53: case 55:  // stores and FP loads with update
+        case 57: case 61:                                               // psq_lu, psq_stu
+            return ra == r;
+        case 4: {
+            // Paired singles: only psq_lux and psq_stux (6-bit extended
+            // opcodes 38 and 39) write a GPR, their rA; the rest write FPRs
+            // or CR.
+            const std::uint32_t xo6 = (p >> 1) & 0x3Fu;
+            return (xo6 == 38 || xo6 == 39) && ra == r;
+        }
+        case 31: {
+            const std::uint32_t xo = (p >> 1) & 0x3FFu;
+            switch (xo) {
+                case 28: case 60: case 444: case 412: case 316: case 476: case 124: case 284:  // and..eqv, or (mr)
+                case 24: case 536: case 792: case 824: case 26: case 922: case 954:  // shifts, cntlzw, exts
+                    return ra == r;
+                case 0: case 32:                                            // cmp, cmpl
+                case 144: case 146: case 210: case 242: case 467:          // mtcrf, mtmsr, mtsr(in), mtspr
+                case 151: case 215: case 407: case 662: case 918: case 150:  // stores
+                case 663: case 727: case 983:                               // FP stores
+                case 535: case 599:                                         // lfsx, lfdx (an FPR)
+                case 54: case 86: case 246: case 278: case 470: case 982: case 1014:  // cache
+                case 598: case 854:                                         // sync, eieio
+                    return false;
+                case 183: case 247: case 439: case 695: case 759:  // stores with update write rA
+                case 567: case 631:  // lfsux, lfdux: rA too (their destination is an FPR)
+                    return ra == r;
+                case 55: case 119: case 311: case 375:  // loads with update write rD and rA
+                    return rd == r || ra == r;
+                case 533: case 597:  // lswx, lswi: from rD on, as many registers as the count
+                    return true;
+                default:
+                    return rd == r;
+            }
+        }
+        default:
+            return false;
+    }
+}
+
+// Any branch: b, bc, bclr and bcctr, linked or not. A call (bl, bctrl,
+// blrl) may change r4, and code reached from a branch may come with
+// another r4, so the scan for r4's value stops at one.
+bool is_any_branch(std::uint32_t p) {
+    const std::uint32_t op = p >> 26;
+    if (op == 16 || op == 18) return true;
+    const std::uint32_t xo = (p >> 1) & 0x3FFu;
+    return op == 19 && (xo == 16 || xo == 528);
+}
+
+// Whether a direct branch (b or bc, linked or not) in [start, end) lands
+// after `after` and at or before `upto`: code reached that way skips what
+// comes before its landing.
+bool branch_lands_between(const std::vector<CodeRange>& text, std::uint32_t start, std::uint32_t end,
+                          std::uint32_t after, std::uint32_t upto) {
+    for (std::uint32_t a = start; a + 4 <= end; a += 4) {
+        const std::uint32_t w = word_at(text, a);
+        const std::uint32_t op = w >> 26;
+        if (op != 16 && op != 18) continue;
+        const bool absolute = (w & 2u) != 0;
+        std::int32_t displacement = 0;
+        if (op == 18) {
+            displacement = static_cast<std::int32_t>(w & 0x03FFFFFCu);
+            if (displacement & 0x02000000) displacement -= 0x04000000;
+        } else {
+            displacement = static_cast<std::int16_t>(w & 0xFFFCu);
+        }
+        const std::uint32_t target = absolute ? static_cast<std::uint32_t>(displacement)
+                                              : a + static_cast<std::uint32_t>(displacement);
+        if (target > after && target <= upto) return true;
+    }
+    return false;
+}
+
+// The value `li r4, N` gives r4 for the call at `call` (looking back a few
+// instructions, not past `start`); -1 when r4 is set some other way there,
+// changed after the `li`, a branch comes between them or lands between
+// them from elsewhere in [start, end) (another path, maybe another r4), or
+// r4 is not set at all.
+std::int64_t r4_immediate_before(const std::vector<CodeRange>& text, std::uint32_t start, std::uint32_t end,
+                                 std::uint32_t call) {
+    for (std::uint32_t back = 4; back <= kArgumentLookback * 4 && call >= start + back; back += 4) {
+        const std::uint32_t at = call - back;
+        const std::uint32_t p = word_at(text, at);
+        if (is_li(p) && rd_of(p) == 4) {
+            if (branch_lands_between(text, start, end, at, call)) return -1;
+            return static_cast<std::int16_t>(p & 0xFFFFu);
+        }
+        if (is_any_branch(p) || may_write_gpr(p, 4)) return -1;
+    }
+    return -1;
+}
+
+// The IPC command (1 to 7) a function hands to `setup` as `li r4, N`, or
+// 0 when it doesn't call it that way. Every call to `setup` in the
+// function must hand it the same command, as the allocator path asks one
+// stored command of a function.
+std::uint32_t setup_command(const std::vector<CodeRange>& text, std::uint32_t start, std::uint32_t end,
+                            std::uint32_t setup) {
+    std::uint32_t command = 0;
+    for (std::uint32_t a = start + 8; a + 4 <= end; a += 4) {
+        const std::uint32_t w = word_at(text, a);
+        if (!is_bl(w) || bl_target(a, w) != setup) continue;
+        const std::int64_t cmd = r4_immediate_before(text, start, end, a);
+        if (cmd < 1 || cmd > 7) return 0;
+        const std::uint32_t this_command = static_cast<std::uint32_t>(cmd);
+        if (command != 0 && command != this_command) return 0;
+        command = this_command;
+    }
+    return command;
 }
 
 // How the function hands its block to `submit`: 1 when r4 (the callback)
@@ -258,22 +392,68 @@ bool find_ipc_api(const std::vector<CodeRange>& text, const IpcSymbols& known, I
             submit = bl_target(a, w);  // mr r4, rX (or rX, rX, rX) before the call
         }
     }
-    if (alloc == 0 || submit == 0) {
+    // An SDK built without optimization (LEGO Star Wars: The Complete
+    // Saga, grantendo/wiiu#61) doesn't allocate the block in the API
+    // function: each one hands its command to a setup helper, `li r4, N`
+    // then `bl setup`, and the helper allocates the block (taking no size)
+    // and stores the command. The submit call is the same. That helper
+    // is a call IOS_IoctlAsync makes with `li r4, 6`, and it counts only
+    // when it starts with a stack frame and another API function in the
+    // stretch (one that also calls submit, as below) calls it with another
+    // command. Another call made with 6 that isn't the helper is passed
+    // over; when two different functions both pass, which one is the
+    // helper is unclear and the search gives up.
+    const auto is_setup_helper = [&](std::uint32_t candidate) {
+        if (!is_stwu_r1(word_at(text, candidate))) return false;
+        std::set<std::uint32_t> commands;
+        for (std::size_t i = 0; i < starts.size(); ++i) {
+            const std::uint32_t next = i + 1 < starts.size() ? starts[i + 1] : hi;
+            if (next - starts[i] > kApiMaxFunctionBytes) continue;
+            if (!call_targets(text, starts[i], next).count(submit)) continue;
+            const std::uint32_t cmd = setup_command(text, starts[i], next, candidate);
+            if (cmd != 0) commands.insert(cmd);
+        }
+        return commands.size() >= 2;
+    };
+    std::uint32_t setup = 0;
+    bool two_helpers = false;
+    if (alloc == 0 && submit != 0) {
+        for (std::uint32_t a = known.ioctl_async + 8; a + 4 <= known_end; a += 4) {
+            const std::uint32_t w = word_at(text, a);
+            if (!is_bl(w) || r4_immediate_before(text, known.ioctl_async, known_end, a) != kIpcIoctlCmd) continue;
+            const std::uint32_t candidate = bl_target(a, w);
+            if (candidate == setup || !inside(text, candidate) || !is_setup_helper(candidate)) continue;
+            if (setup != 0) two_helpers = true;
+            setup = candidate;
+        }
+    }
+    if (two_helpers) {
+        error = "IOS_IoctlAsync hands command 6 to two functions that both look like the setup helper";
+        return false;
+    }
+    if ((alloc == 0 && setup == 0) || submit == 0) {
         error = "IOS_IoctlAsync does not call a block allocator (64, 32) and a submit routine the expected way";
         return false;
     }
     // Every function in the stretch that uses both helpers and stores
-    // one IPC command is an API function; the reboot forms of ioctlv
-    // (relaunch set in the block) are left alone.
+    // one IPC command (or hands it to the setup helper) is an API
+    // function; the reboot forms of ioctlv (relaunch set in the block) are
+    // left alone.
     for (std::size_t i = 0; i < starts.size(); ++i) {
         const std::uint32_t start = starts[i];
         const std::uint32_t next = i + 1 < starts.size() ? starts[i + 1] : hi;
         if (next - start > kApiMaxFunctionBytes) continue;
         const std::set<std::uint32_t> calls = call_targets(text, start, next);
-        if (!calls.count(alloc) || !calls.count(submit)) continue;
-        const std::set<std::uint32_t> commands = stored_immediates(text, start, next, 0);
-        if (commands.size() != 1) continue;
-        const std::uint32_t cmd = *commands.begin();
+        if (!calls.count(submit)) continue;
+        std::uint32_t cmd = 0;
+        if (alloc != 0) {
+            if (!calls.count(alloc)) continue;
+            const std::set<std::uint32_t> commands = stored_immediates(text, start, next, 0);
+            if (commands.size() != 1) continue;
+            cmd = *commands.begin();
+        } else {
+            cmd = setup_command(text, start, next, setup);
+        }
         if (cmd < 1 || cmd > 7) continue;
         const std::set<std::uint32_t> relaunch = stored_immediates(text, start, next, kBlockRelaunch);
         bool reboots = false;
@@ -328,18 +508,19 @@ bool is_stw_r0_sda(std::uint32_t w) { return (w & 0xFFFF0000u) == 0x900D0000u; }
 // (offsets fit 16 bits).
 constexpr std::int32_t kNoIdleReset = 0x10000;
 std::int32_t idle_reset_flag(const std::vector<CodeRange>& text, std::uint32_t address) {
-    for (const CodeRange& r : text) {
-        if (address < r.address || address - r.address + 16 > r.size) continue;
-        const std::uint8_t* words = r.bytes + (address - r.address);
-        const std::uint32_t second = be32(words + 4);
-        const std::uint32_t third = be32(words + 8);
-        const bool store_then_return = is_stw_r0_sda(second) && third == kLiR3One;
-        const bool return_then_store = second == kLiR3One && is_stw_r0_sda(third);
-        if (be32(words) != kLiR0Zero || !(store_then_return || return_then_store) || be32(words + 12) != kBlr)
-            return kNoIdleReset;
-        return static_cast<std::int16_t>((store_then_return ? second : third) & 0xFFFFu);
+    // Word by word, so the four may come from neighbouring ranges (a
+    // patch over part of the game's code, code_with_patches).
+    for (std::uint32_t k = 0; k < 4; ++k) {
+        if (!inside(text, address + 4 * k)) return kNoIdleReset;
     }
-    return kNoIdleReset;
+    const std::uint32_t second = word_at(text, address + 4);
+    const std::uint32_t third = word_at(text, address + 8);
+    const bool store_then_return = is_stw_r0_sda(second) && third == kLiR3One;
+    const bool return_then_store = second == kLiR3One && is_stw_r0_sda(third);
+    if (word_at(text, address) != kLiR0Zero || !(store_then_return || return_then_store) ||
+        word_at(text, address + 12) != kBlr)
+        return kNoIdleReset;
+    return static_cast<std::int16_t>((store_then_return ? second : third) & 0xFFFFu);
 }
 
 // The idle reset PADRead (or the status helper after it) calls; 0 when no
@@ -378,7 +559,42 @@ std::uint32_t function_start(const std::vector<CodeRange>& text, std::uint32_t a
     return 0;
 }
 
+// At word `i` of `r` (with four words after it), one of PADRead's "no
+// controller in this port" paths: `stb rE,10(rS); mr r3,rS; li r4,0;
+// li r5,10; bl memset`. True with the memset it calls.
+bool pad_error_path(const CodeRange& r, std::size_t i, std::uint32_t& memset_target) {
+    const std::uint32_t w = be32(r.bytes + i * 4);
+    if ((w & 0xFC00FFFFu) != 0x9800000Au) return false;  // stb rE, 10(rS)
+    const std::uint32_t s = (w >> 16) & 31u;
+    const std::uint32_t mr = 0x7C000378u | (s << 21) | (3u << 16) | (s << 11);
+    const std::uint32_t call = be32(r.bytes + (i + 4) * 4);
+    if (be32(r.bytes + (i + 1) * 4) != mr || be32(r.bytes + (i + 2) * 4) != li(4, 0) ||
+        be32(r.bytes + (i + 3) * 4) != li(5, 10) || !is_bl(call)) {
+        return false;
+    }
+    memset_target = bl_target(r.address + static_cast<std::uint32_t>(i * 4) + 16, call);
+    return true;
+}
+
 }  // namespace
+
+bool is_pad_read(const std::vector<CodeRange>& text, std::uint32_t address) {
+    unsigned sites = 0;
+    std::uint32_t memset_target = 0;
+    bool one_memset = true;
+    for (const CodeRange& r : text) {
+        const std::size_t words = r.size / 4;
+        for (std::size_t i = 0; i + 4 < words; ++i) {
+            std::uint32_t target = 0;
+            if (!pad_error_path(r, i, target)) continue;
+            if (function_start(text, r.address + static_cast<std::uint32_t>(i * 4)) != address) continue;
+            if (sites != 0 && target != memset_target) one_memset = false;
+            memset_target = target;
+            ++sites;
+        }
+    }
+    return sites >= kMinReadSites && one_memset;
+}
 
 bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::string& error) {
     out = PadSymbols{};
@@ -390,17 +606,12 @@ bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::
         for (std::size_t i = 0; i + 4 < words; ++i) {
             const std::uint32_t w = be32(r.bytes + i * 4);
             const std::uint32_t at = r.address + static_cast<std::uint32_t>(i * 4);
-            if ((w & 0xFC00FFFFu) == 0x9800000Au) {  // stb rE, 10(rS)
-                const std::uint32_t s = (w >> 16) & 31u;
-                const std::uint32_t mr = 0x7C000378u | (s << 21) | (3u << 16) | (s << 11);
-                const std::uint32_t call = be32(r.bytes + (i + 4) * 4);
-                if (be32(r.bytes + (i + 1) * 4) == mr && be32(r.bytes + (i + 2) * 4) == li(4, 0) &&
-                    be32(r.bytes + (i + 3) * 4) == li(5, 10) && is_bl(call)) {
-                    const std::uint32_t f = function_start(text, at);
-                    if (f != 0) {
-                        read_memsets[f].insert(bl_target(at + 16, call));
-                        ++read_sites[f];
-                    }
+            std::uint32_t memset_target = 0;
+            if (pad_error_path(r, i, memset_target)) {
+                const std::uint32_t f = function_start(text, at);
+                if (f != 0) {
+                    read_memsets[f].insert(memset_target);
+                    ++read_sites[f];
                 }
             }
             if ((w & 0xFC1FFFFFu) == 0x3C008000u) {  // lis rX, 0x8000
@@ -438,6 +649,91 @@ bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::
         return false;
     }
     if (!motors.empty()) out.control_motor = *motors.begin();
+    error.clear();
+    return true;
+}
+
+bool code_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched,
+                       std::vector<CodeRange>& out) {
+    out.clear();
+    // The game's ranges in address order (a DOL has a few text sections).
+    std::vector<std::size_t> order;
+    if (!try_resize(order, text.size())) return false;
+    for (std::size_t k = 0; k < order.size(); ++k) {
+        std::size_t at = k;
+        while (at > 0 && text[order[at - 1]].address > text[k].address) {
+            order[at] = order[at - 1];
+            --at;
+        }
+        order[at] = k;
+    }
+    // Each patch splits at most one game range in two, so the pieces and
+    // then the whole view fit in these (their sizes come from a pack).
+    std::vector<CodeRange> pieces;
+    if (!try_reserve(pieces, text.size() + patched.size()) || !try_reserve(out, text.size() + 2 * patched.size()))
+        return false;
+    for (const std::size_t k : order) {
+        const CodeRange& r = text[k];
+        // The parts of `r` between the patches that land on it.
+        std::uint64_t cursor = r.address;
+        const std::uint64_t end = std::uint64_t{r.address} + r.size;
+        for (const CodeRange& p : patched) {
+            const std::uint64_t p_end = std::uint64_t{p.address} + p.size;
+            if (p_end <= cursor || p.address >= end) continue;
+            if (p.address > cursor) {
+                pieces.push_back(CodeRange{static_cast<std::uint32_t>(cursor), r.bytes + (cursor - r.address),
+                                           static_cast<std::size_t>(p.address - cursor)});
+            }
+            cursor = std::max(cursor, p_end);
+        }
+        if (cursor < end) {
+            pieces.push_back(CodeRange{static_cast<std::uint32_t>(cursor), r.bytes + (cursor - r.address),
+                                       static_cast<std::size_t>(end - cursor)});
+        }
+    }
+    // Both lists are in address order: merged in one pass.
+    std::size_t a = 0, b = 0;
+    while (a < pieces.size() || b < patched.size()) {
+        const bool take_piece = b == patched.size() || (a < pieces.size() && pieces[a].address < patched[b].address);
+        out.push_back(take_piece ? pieces[a++] : patched[b++]);
+    }
+    return true;
+}
+
+bool find_pad_symbols_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched,
+                                   PadSymbols& out, bool& from_patch, std::string& error) {
+    from_patch = false;
+    PadSymbols pack;
+    if (!patched.empty()) {
+        std::string pack_error;
+        // Only an unsure PADRead in the patches is an error: their
+        // PADControlMotor isn't used (below), so two of those there don't
+        // keep the game's own PADRead from being searched.
+        if (!find_pad_symbols(patched, pack, pack_error) && pack_error.find("PADRead") != std::string::npos) {
+            out = PadSymbols{};
+            error = "in a pack's memory patches: " + pack_error;
+            return false;
+        }
+    }
+    if (pack.read == 0) return find_pad_symbols(text, out, error);
+    PadSymbols game;
+    std::string game_error;
+    const bool game_sure = find_pad_symbols(text, game, game_error);
+    out = PadSymbols{};
+    out.read = pack.read;
+    out.read_sites = pack.read_sites;
+    std::vector<CodeRange> view;
+    if (!code_with_patches(text, patched, view)) {
+        out = PadSymbols{};
+        error = "no memory to read the game's code with a pack's memory patches";
+        return false;
+    }
+    out.idle_reset = find_idle_reset(view, pack.read);
+    // The game's own PADControlMotor, as before packs could bring PADRead
+    // this way: Settings > GameCube rumble Off writes to it before the
+    // patches go in, which would land on bytes a patch hasn't written yet.
+    out.control_motor = game_sure ? game.control_motor : 0;
+    from_patch = true;
     error.clear();
     return true;
 }
@@ -814,16 +1110,22 @@ std::set<std::uint32_t> pad_read_callees(const std::vector<CodeRange>& text, std
 
 }  // namespace
 
-std::uint32_t find_gc_si_probe(const std::vector<CodeRange>& text, std::uint32_t pad_read) {
+namespace {
+
+// SIProbe's shape at each word of `scan`'s ranges, its nine words read by
+// `words_at(range, i, w)`; `view` is the code its calls are followed in.
+template <typename WordsAt>
+std::uint32_t si_probe_scan(const std::vector<CodeRange>& scan, const std::vector<CodeRange>& view,
+                            std::uint32_t pad_read, WordsAt words_at) {
     if (pad_read == 0 || (pad_read & 3u) != 0) return 0;
-    const std::set<std::uint32_t> callees = pad_read_callees(text, pad_read);
+    const std::set<std::uint32_t> callees = pad_read_callees(view, pad_read);
     if (callees.empty()) return 0;
     std::set<std::uint32_t> found;
-    for (const CodeRange& range : text) {
+    for (const CodeRange& range : scan) {
         const std::size_t words = range.size / 4;
         for (std::size_t i = 0; i + 9 <= words; ++i) {
             std::uint32_t w[9];
-            for (unsigned k = 0; k < 9; ++k) w[k] = be32(range.bytes + (i + k) * 4);
+            if (!words_at(range, i, w)) continue;
             if (!small_prologue(w) || !is_bl(w[3]) || !is_bl(w[4]) || !small_epilogue(w + 5)) continue;
             const std::uint32_t at = range.address + static_cast<std::uint32_t>(i * 4);
             const std::uint32_t get_type = bl_target(at + 12, w[3]);
@@ -831,11 +1133,50 @@ std::uint32_t find_gc_si_probe(const std::vector<CodeRange>& text, std::uint32_t
             // SIGetType is one of PADRead's own calls (its rumble check);
             // SIDecodeType is told apart by the WaveBird's type.
             if (get_type == decode || callees.count(get_type) == 0) continue;
-            if (!loads_wavebird_type(text, decode)) continue;
+            if (!loads_wavebird_type(view, decode)) continue;
             found.insert(at);
         }
     }
     return found.size() == 1 ? *found.begin() : 0;
+}
+
+}  // namespace
+
+std::uint32_t find_gc_si_probe(const std::vector<CodeRange>& text, std::uint32_t pad_read) {
+    return si_probe_scan(text, text, pad_read, [](const CodeRange& range, std::size_t i, std::uint32_t* w) {
+        for (unsigned k = 0; k < 9; ++k) w[k] = be32(range.bytes + (i + k) * 4);
+        return true;
+    });
+}
+
+std::uint32_t find_gc_si_probe_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched,
+                                            std::uint32_t pad_read) {
+    // The game's code scanned whole, each word read as the patches leave
+    // it, so a patch inside SIProbe (even one writing the same bytes) can't
+    // split it out of sight; a patch that changes it is seen.
+    std::vector<CodeRange> view;
+    if (!code_with_patches(text, patched, view)) return 0;
+    // The scan moves forward a word at a time, so the view's range is kept
+    // and stepped, not looked for again at each word (thousands of patch
+    // pieces over megabytes of code).
+    std::size_t at_range = 0;
+    const auto word_in_view = [&view, &at_range](std::uint32_t at, std::uint32_t& w) {
+        while (at_range > 0 && at < view[at_range].address) --at_range;
+        while (at_range < view.size() && std::uint64_t{at} + 4 > std::uint64_t{view[at_range].address} + view[at_range].size)
+            ++at_range;
+        if (at_range == view.size() || at < view[at_range].address) {
+            if (at_range == view.size() && at_range > 0) --at_range;
+            return false;
+        }
+        w = be32(view[at_range].bytes + (at - view[at_range].address));
+        return true;
+    };
+    return si_probe_scan(text, view, pad_read, [&word_in_view](const CodeRange& range, std::size_t i, std::uint32_t* w) {
+        for (unsigned k = 0; k < 9; ++k) {
+            if (!word_in_view(range.address + static_cast<std::uint32_t>((i + k) * 4), w[k])) return false;
+        }
+        return true;
+    });
 }
 
 namespace {

@@ -33,6 +33,7 @@
 #include "riftwii/gcexecpacks.hpp"
 #include "riftwii/gcoverlay.hpp"
 #include "riftwii/gcvideo.hpp"
+#include "riftwii/plugin_api.h"
 #include "riftwii/gxpatches.hpp"
 #include "riftwii/mempatch.hpp"
 #include "riftwii/patch.hpp"
@@ -1100,6 +1101,11 @@ GcConsoleSettings GcConsoleNow() {
     console.wii_language = CONF_GetLanguage();
     console.video_width = Settings().video_width;
     console.video_mode = Settings().video_mode;
+    // The Wii's TV setting, for Video mode's "system".
+    const s32 video = CONF_GetVideo();
+    if (video == CONF_VIDEO_PAL) console.wii_video = CONF_GetEuRGB60() > 0 ? "pal60" : "pal50";
+    else if (video == CONF_VIDEO_MPAL) console.wii_video = "mpal";
+    else console.wii_video = "ntsc";
     return console;
 }
 
@@ -1166,6 +1172,12 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         image.language = gc_language_number(game, console);
         image.sharp = game.gc_sharp == "on";
         image.sixty_hz = gc_sixty_hz_on(game, image.id);
+        const GcTvSignal signal = gc_tv_signal(game, image.id, console);
+        image.tv_signal = signal == GcTvSignal::Pal60 ? RWP_TV_EURGB60
+                        : signal == GcTvSignal::Pal50 ? RWP_TV_PAL
+                                                      : RWP_TV_NTSC;
+        logf("GameCube: TV signal %s (Video mode %s, the Wii's TV %s)\n", gc_tv_signal_name(signal),
+             (game.video_mode == "global" ? console.video_mode : game.video_mode).c_str(), console.wii_video.c_str());
         image.vi_width = gc_vi_width(gc_picture_width(game, console));
         image.volume_boost_db = gc_volume_boost_db(game);
         // The Wii's screen position (Wii Settings > Screen > Screen

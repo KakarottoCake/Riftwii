@@ -2214,21 +2214,11 @@ T = {
     "From GameTDB, the database of Wii games its community keeps.": ("De GameTDB, la base de datos de juegos de Wii que mantiene su comunidad.", "コミュニティが管理するWiiゲームのデータベース、GameTDBより。", "Do GameTDB, a base de dados de jogos de Wii mantida pela comunidade.", "Da GameTDB, il database dei giochi Wii curato dalla sua comunità."),
     "Select": ("Elegir", "決定", "Escolher", "Scegli"),
     "Controllers": ("Mandos", "コントローラー", "Controles", "Controller"),
-    "Downloads off": ("Descargas desactivadas", "ダウンロード：オフ", "Downloads desativados", "Download disattivati"),
-    "Downloads on": ("Descargas activadas", "ダウンロード：オン", "Downloads ativados", "Download attivi"),
     "Game settings": ("Ajustes del juego", "ゲームの設定", "Configurações do jogo", "Impostazioni del gioco"),
     "Mods on: {1}": ("Mods activados: {1}", "オンのMOD：{1}", "Mods ativados: {1}", "Mod attive: {1}"),
     "Starts the game with the mods and settings shown here.": ("Inicia el juego con los mods y ajustes que se ven aquí.", "ここに表示されているMODと設定でゲームを始めます。", "Inicia o jogo com os mods e configurações mostrados aqui.", "Avvia il gioco con le mod e le impostazioni mostrate qui."),
     "This game's own picture, language, online server and the rest. The ones not changed follow Settings.": ("La imagen, el idioma, el servidor en línea y lo demás de este juego. Lo que no cambies sigue lo de Ajustes.", "このゲームだけの画面、言語、オンラインサーバーなど。変えていないものは設定に従います。", "Imagem, idioma, servidor online e o resto só deste jogo. O que não mudar segue as Configurações.", "Immagine, lingua, server online e il resto solo per questo gioco. Ciò che non cambi segue le Impostazioni."),
     "{1} changed": ("{1} cambiados", "{1}個変更", "{1} alterados", "{1} modificati"),
-    "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio.": ("Cómo se ven los juegos en tu TV: ancho de imagen, filtro de parpadeo, bordes negros, modo de vídeo y relación de aspecto.", "テレビでのゲームの映り方：画面の幅、ちらつき防止、黒い帯、映像モード、画面比率。", "Como os jogos aparecem na TV: largura da imagem, filtro de cintilação, bordas pretas, modo de vídeo e proporção.", "Come i giochi appaiono sulla TV: larghezza dell'immagine, filtro antisfarfallio, bordi neri, modalità video e proporzioni."),
-    "The language games are told the console uses, the cIOS they run under, where you go when you quit a game, and in-game screenshots.": ("El idioma que se indica a los juegos, el cIOS con el que funcionan, adónde vas al salir del juego y las capturas en el juego.", "ゲームに伝える言語、ゲームを動かすcIOS、ゲームをやめたときの行き先、ゲーム中のスクリーンショット。", "O idioma informado aos jogos, o cIOS em que rodam, para onde você vai ao sair do jogo e as capturas no jogo.", "La lingua comunicata ai giochi, il cIOS su cui girano, dove vai quando esci dal gioco e gli screenshot nel gioco."),
-    "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes.": ("El adaptador de mandos de GameCube para Wii U, y la vibración de los mandos de GameCube y de Wii.", "Wii U用ゲームキューブコントローラ接続タップと、ゲームキューブコントローラやWiiリモコンの振動。", "O adaptador de controles do GameCube para Wii U, e a vibração dos controles do GameCube e dos Wii Remotes.", "L'adattatore per controller GameCube per Wii U, e la vibrazione dei controller GameCube e dei telecomandi Wii."),
-    "How Home shows your games: covers, a shelf or channels, from which drive, in what order, play history and the clock.": ("Cómo muestra Inicio tus juegos: portadas, estantería o canales, de qué unidad, en qué orden, el historial y el reloj.", "ホームでのゲームの見せ方：パッケージ、棚、チャンネル、どのドライブか、並び順、プレイ履歴、時計。", "Como o Início mostra seus jogos: capas, estante ou canais, de qual unidade, em que ordem, histórico e o relógio.", "Come la home mostra i tuoi giochi: copertine, scaffale o canali, da quale unità, in che ordine, cronologia e orologio."),
-    "The menu's language, theme, letters, size on the TV, sounds and music.": ("El idioma, el tema, la letra, el tamaño en la TV, los sonidos y la música del menú.", "メニューの言語、テーマ、文字、テレビでの大きさ、効果音と音楽。", "O idioma, o tema, a letra, o tamanho na TV, os sons e a música do menu.", "La lingua, il tema, i caratteri, la dimensione sulla TV, i suoni e la musica del menu."),
-    "Downloads of game names, covers and cheats, the online server for games, and RiftWii's updates.": ("Descargas de nombres, portadas y trucos, el servidor en línea de los juegos y las actualizaciones de RiftWii.", "ゲーム名、パッケージ、チートのダウンロード、ゲームのオンラインサーバー、RiftWiiの更新。", "Downloads de nomes, capas e trapaças, o servidor online dos jogos e as atualizações do RiftWii.", "Download di nomi, copertine e trucchi, il server online dei giochi e gli aggiornamenti di RiftWii."),
-    "Reading the SD card and the USB drive again, and mods from a PC on the network (RiiFS).": ("Volver a leer la tarjeta SD y la unidad USB, y mods desde un PC en la red (RiiFS).", "SDカードとUSBドライブの読み直しと、ネットワーク上のPCからのMOD（RiiFS）。", "Ler de novo o cartão SD e a unidade USB, e mods de um PC na rede (RiiFS).", "Rileggere la scheda SD e l'unità USB, e mod da un PC in rete (RiiFS)."),
-    "Problem reports, what's new, the tutorial, the RiftWii channel, resetting the settings and the credits.": ("Informes de problemas, novedades, el tutorial, el canal de RiftWii, restablecer los ajustes y los créditos.", "問題の報告、新しくなったこと、チュートリアル、RiftWiiチャンネル、設定のリセット、クレジット。", "Relatórios de problemas, novidades, o tutorial, o canal RiftWii, redefinir as configurações e os créditos.", "Segnalazioni di problemi, novità, il tutorial, il canale RiftWii, il ripristino delle impostazioni e i crediti."),
     "About": ("Acerca de", "情報", "Sobre", "Info"),
     "Drives": ("Unidades", "ドライブ", "Unidades", "Unità"),
     "Home": ("Inicio", "ホーム", "Início", "Home"),
@@ -4185,10 +4175,6 @@ KO = {
         "선택",
     "Controllers":
         "컨트롤러",
-    "Downloads off":
-        "다운로드 끔",
-    "Downloads on":
-        "다운로드 켬",
     "Game settings":
         "게임 설정",
     "Mods on: {1}":
@@ -4199,22 +4185,6 @@ KO = {
         "이 게임만의 화면, 언어, 온라인 서버 등. 바꾸지 않은 것은 설정을 따릅니다.",
     "{1} changed":
         "{1}개 변경",
-    "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio.":
-        "TV에 게임이 표시되는 방식: 화면 폭, 깜박임 필터, 검은 테두리, 영상 모드, 화면 비율.",
-    "The language games are told the console uses, the cIOS they run under, where you go when you quit a game, and in-game screenshots.":
-        "게임에 알려 주는 언어, 게임이 실행되는 cIOS, 게임을 종료할 때의 이동 위치, 게임 중 스크린샷.",
-    "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes.":
-        "Wii U용 게임큐브 컨트롤러 어댑터, 게임큐브 컨트롤러와 Wii 리모컨의 진동.",
-    "How Home shows your games: covers, a shelf or channels, from which drive, in what order, play history and the clock.":
-        "홈에서 게임을 보여 주는 방식: 커버, 선반, 채널, 드라이브, 순서, 플레이 기록, 시계.",
-    "The menu's language, theme, letters, size on the TV, sounds and music.":
-        "메뉴의 언어, 테마, 글꼴, TV 화면 크기, 효과음과 음악.",
-    "Downloads of game names, covers and cheats, the online server for games, and RiftWii's updates.":
-        "게임 이름, 커버, 치트 다운로드, 게임의 온라인 서버, RiftWii 업데이트.",
-    "Reading the SD card and the USB drive again, and mods from a PC on the network (RiiFS).":
-        "SD 카드와 USB 드라이브 다시 읽기, 네트워크 PC의 MOD (RiiFS).",
-    "Problem reports, what's new, the tutorial, the RiftWii channel, resetting the settings and the credits.":
-        "문제 보고, 새로운 점, 튜토리얼, RiftWii 채널, 설정 초기화, 크레딧.",
     "About":
         "정보",
     "Drives":
@@ -6065,10 +6035,6 @@ FR = {
         "Choisir",
     "Controllers":
         "Manettes",
-    "Downloads off":
-        "Téléchargements désactivés",
-    "Downloads on":
-        "Téléchargements activés",
     "Game settings":
         "Paramètres du jeu",
     "Mods on: {1}":
@@ -6079,22 +6045,6 @@ FR = {
         "L'image, la langue, le serveur en ligne et le reste pour ce jeu seul. Ce qui n'est pas changé suit les Paramètres.",
     "{1} changed":
         "{1} modifiés",
-    "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio.":
-        "L'affichage des jeux sur la TV : largeur de l'image, filtre anti-scintillement, bandes noires, mode vidéo et format.",
-    "The language games are told the console uses, the cIOS they run under, where you go when you quit a game, and in-game screenshots.":
-        "La langue annoncée aux jeux, le cIOS qu'ils utilisent, où vous allez en quittant le jeu, et les captures en jeu.",
-    "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes.":
-        "L'adaptateur de manettes GameCube pour Wii U, et la vibration des manettes GameCube et des Wiimotes.",
-    "How Home shows your games: covers, a shelf or channels, from which drive, in what order, play history and the clock.":
-        "Comment l'accueil montre vos jeux : jaquettes, étagère ou chaînes, quel support, quel ordre, l'historique et l'horloge.",
-    "The menu's language, theme, letters, size on the TV, sounds and music.":
-        "La langue, le thème, la police, la taille à l'écran, les sons et la musique du menu.",
-    "Downloads of game names, covers and cheats, the online server for games, and RiftWii's updates.":
-        "Téléchargement des noms, jaquettes et codes, le serveur en ligne des jeux et les mises à jour de RiftWii.",
-    "Reading the SD card and the USB drive again, and mods from a PC on the network (RiiFS).":
-        "Relire la carte SD et le disque USB, et les mods d'un PC sur le réseau (RiiFS).",
-    "Problem reports, what's new, the tutorial, the RiftWii channel, resetting the settings and the credits.":
-        "Rapports de problème, nouveautés, le tutoriel, la chaîne RiftWii, la réinitialisation et les crédits.",
     "About":
         "À propos",
     "Drives":
@@ -7782,6 +7732,12 @@ T.update({
         "ほか{1}件",
         "e mais {1}",
         "e altri {1}"),
+    # {1} is the mod's XML file; the missing files and folders follow.
+    "Missing for {1}:": (
+        "Faltan para {1}:",
+        "{1}に見つからないもの:",
+        "Faltando para {1}:",
+        "Mancano per {1}:"),
     "USB: {1} partition(s) could not be opened. See Drives.": (
         "USB: no se pudieron abrir {1} particiones. Ve a Unidades.",
         "USB: {1}個のパーティションを開けませんでした。ドライブを確認してください。",
@@ -7839,6 +7795,7 @@ KO.update({
     "Review files": "파일 확인",
     "Play anyway": "그대로 플레이",
     "and {1} more": "그 외 {1}개",
+    "Missing for {1}:": "{1}에 없는 항목:",
     "USB: {1} partition(s) could not be opened. See Drives.": "USB: 파티션 {1}개를 열지 못했습니다. 드라이브를 확인하세요.",
     "USB scan details": "USB 검색 정보",
     "Some partitions of the USB drive could not be opened. Games on the other partitions are still shown. Opens the list, with each partition's problem and what to do.": "USB 드라이브의 일부 파티션을 열지 못했습니다. 다른 파티션의 게임은 계속 표시됩니다. 파티션마다 문제와 해결 방법이 담긴 목록을 엽니다.",
@@ -7856,6 +7813,7 @@ FR.update({
     "Review files": "Voir les fichiers",
     "Play anyway": "Jouer quand même",
     "and {1} more": "et {1} de plus",
+    "Missing for {1}:": "Manquant pour {1} :",
     "USB: {1} partition(s) could not be opened. See Drives.": "USB : {1} partition(s) non ouverte(s). Voir Supports.",
     "USB scan details": "Détails de recherche USB",
     "Some partitions of the USB drive could not be opened. Games on the other partitions are still shown. Opens the list, with each partition's problem and what to do.": "Certaines partitions du disque USB n'ont pas pu être ouvertes. Les jeux des autres partitions restent affichés. Ouvre la liste, avec le problème de chaque partition et la marche à suivre.",
@@ -8097,6 +8055,11 @@ T.update({
         "上下でストーリーをスクロール",
         "Cima e Baixo rolam a história",
         "Su e Giù scorrono la storia"),
+    "Controllers and story": (
+        "Mandos e historia",
+        "コントローラーとストーリー",
+        "Controles e história",
+        "Controller e storia"),
 })
 KO.update({
     "Save location": "저장 위치",
@@ -8110,6 +8073,7 @@ KO.update({
     "Also works with: {1}": "같이 사용 가능: {1}",
     "Up and Down scroll": "위 아래로 넘기기",
     "Up and Down scroll the story": "위 아래로 이야기 넘기기",
+    "Controllers and story": "컨트롤러와 이야기",
 })
 FR.update({
     "Save location": "Emplacement des sauvegardes",
@@ -8123,6 +8087,7 @@ FR.update({
     "Also works with: {1}": "Fonctionne aussi avec : {1}",
     "Up and Down scroll": "Haut et Bas font défiler le texte",
     "Up and Down scroll the story": "Haut et Bas font défiler l’histoire",
+    "Controllers and story": "Manettes et histoire",
 })
 
 
@@ -8607,7 +8572,8 @@ def check(repo):
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/credits.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
                "wii/core/plugins.cpp", "wii/core/memlimits.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp",
-               "wii/menu/picturepicker.cpp", "wii/launch/ctgpr.cpp", "wii/launch/launchrun.cpp"]
+               "wii/menu/picturepicker.cpp", "wii/launch/ctgpr.cpp", "wii/launch/launchrun.cpp",
+               "plugins/appstore/storeui.cpp", "plugins/appstore/storedata.cpp", "plugins/appstore/storeentry.cpp", "src/net/appcatalog.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:
@@ -8678,24 +8644,24 @@ MORE["ko"]["Game's box: the game's box while it starts; press any button to see 
 MORE["fr"]["Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."] = "Boîte du jeu : la boîte du jeu pendant son lancement ; appuyez sur un bouton pour voir ce que fait RiftWii. Journal : chaque étape, ligne par ligne. Un lancement qui échoue affiche toujours le journal."
 
 # What's new in the release after 2611-179.
-T['Home shows your games at once'] = ('Inicio muestra tus juegos al instante', 'ホームにゲームがすぐ表示', 'O Início mostra seus jogos na hora', 'La Home mostra subito i tuoi giochi')
-MORE["ko"]['Home shows your games at once'] = '홈에 게임이 바로 표시'
-MORE["fr"]['Home shows your games at once'] = "L'accueil affiche vos jeux tout de suite"
-T['Games start behind their box'] = ('Los juegos arrancan tras su caja', '起動中はゲームのパッケージを表示', 'Os jogos iniciam atrás da caixa', 'I giochi partono dietro la confezione')
-MORE["ko"]['Games start behind their box'] = '게임 시작 중 패키지 표시'
-MORE["fr"]['Games start behind their box'] = 'Les jeux démarrent derrière leur boîte'
-T['Manage your emulated NAND'] = ('Gestiona tu NAND emulada', '仮想NANDを管理', 'Gerencie sua NAND emulada', 'Gestisci la NAND emulata')
-MORE["ko"]['Manage your emulated NAND'] = '에뮬레이트 NAND 관리'
-MORE["fr"]['Manage your emulated NAND'] = 'Gérez votre NAND émulée'
-T['Own covers and favorites for homebrew'] = ('Carátulas propias y favoritos para homebrew', 'ホームブリューに自分のカバーとお気に入り', 'Capas próprias e favoritos para homebrew', 'Copertine proprie e preferiti per gli homebrew')
-MORE["ko"]['Own covers and favorites for homebrew'] = '홈브루에 내 커버와 즐겨찾기'
-MORE["fr"]['Own covers and favorites for homebrew'] = 'Pochettes perso et favoris pour les homebrews'
-T['Import Nintendont controller layouts'] = ('Importa los mandos de Nintendont', 'Nintendontのコントローラー設定をコピー', 'Importe controles do Nintendont', 'Importa i controller di Nintendont')
-MORE["ko"]['Import Nintendont controller layouts'] = 'Nintendont 컨트롤러 설정 가져오기'
-MORE["fr"]['Import Nintendont controller layouts'] = 'Importez les manettes de Nintendont'
-T['Type your SteamGridDB key in Settings'] = ('Escribe tu clave de SteamGridDB en Ajustes', '設定でSteamGridDBのキーを入力', 'Digite sua chave do SteamGridDB nas Configurações', 'Inserisci la chiave SteamGridDB nelle Impostazioni')
-MORE["ko"]['Type your SteamGridDB key in Settings'] = '설정에서 SteamGridDB 키 입력'
-MORE["fr"]['Type your SteamGridDB key in Settings'] = 'Saisissez votre clé SteamGridDB dans les Paramètres'
+T['Real GameCube memory cards work'] = ('Las Memory Cards de GameCube funcionan', '本物のゲームキューブのメモリーカードが使える', 'Memory Cards reais de GameCube funcionam', 'Le Memory Card reali del GameCube funzionano')
+MORE["ko"]['Real GameCube memory cards work'] = '실제 게임큐브 메모리 카드 사용 가능'
+MORE["fr"]['Real GameCube memory cards work'] = 'Les vraies cartes mémoire GameCube marchent'
+T['WAD files in your Game folders'] = ('Archivos WAD en tus carpetas de juegos', 'ゲームフォルダのWADファイルも表示', 'Arquivos WAD nas suas pastas de jogos', 'File WAD nelle tue cartelle dei giochi')
+MORE["ko"]['WAD files in your Game folders'] = '게임 폴더의 WAD 파일도 표시'
+MORE["fr"]['WAD files in your Game folders'] = 'Fichiers WAD dans vos dossiers de jeux'
+T['WAD games go back to RiftWii'] = ('Los juegos WAD vuelven a RiftWii', 'WADのゲームからRiftWiiに戻れる', 'Jogos WAD voltam ao RiftWii', 'I giochi WAD tornano a RiftWii')
+MORE["ko"]['WAD games go back to RiftWii'] = 'WAD 게임에서 RiftWii로 돌아가기'
+MORE["fr"]['WAD games go back to RiftWii'] = 'Les jeux WAD reviennent à RiftWii'
+T['240p keeps PAL 60 colors'] = ('240p mantiene los colores de PAL 60', '240pでもPAL 60の色のまま', '240p mantém as cores do PAL 60', '240p mantiene i colori PAL 60')
+MORE["ko"]['240p keeps PAL 60 colors'] = '240p에서도 PAL 60 색상 유지'
+MORE["fr"]['240p keeps PAL 60 colors'] = 'Le 240p garde les couleurs PAL 60'
+T['Project+ starts with the GameCube adapter'] = ('Project+ arranca con el adaptador de GameCube', 'ゲームキューブ用アダプターでもProject+が起動', 'Project+ inicia com o adaptador de GameCube', "Project+ parte con l'adattatore GameCube")
+MORE["ko"]['Project+ starts with the GameCube adapter'] = '게임큐브 어댑터로도 Project+ 실행'
+MORE["fr"]['Project+ starts with the GameCube adapter'] = "Project+ démarre avec l'adaptateur GameCube"
+T['GameCube adapter back in LEGO Star Wars'] = ('El adaptador de GameCube vuelve a LEGO Star Wars', 'LEGO Star Warsでゲームキューブ用アダプターが使える', 'Adaptador de GameCube de volta em LEGO Star Wars', 'Adattatore GameCube di nuovo in LEGO Star Wars')
+MORE["ko"]['GameCube adapter back in LEGO Star Wars'] = 'LEGO Star Wars에서 게임큐브 어댑터 다시 사용'
+MORE["fr"]['GameCube adapter back in LEGO Star Wars'] = "L'adaptateur GameCube revient dans LEGO Star Wars"
 
 # Game management: own display names and visibility, never file renames.
 T['Manage game'] = ('Gestionar juego', 'ゲームの管理', 'Gerenciar jogo', 'Gestisci gioco')
@@ -8816,6 +8782,212 @@ FR.update({
     "Choices for this game could not be saved. Check the SD card is not full or locked.": "Les choix pour ce jeu n'ont pas pu être enregistrés. Vérifiez que la carte SD n'est ni pleine ni verrouillée.",
     "Play anyway?": "Jouer quand même ?",
 })
+
+
+# The app store (plugins/appstore, docs/APPSTORE.md) and its Settings row.
+T["Homebrew apps from a list the RiftWii team checks, installed to sd:/apps. RiftWii hosts none of them: each comes from its maker's own release."] = ('Apps homebrew de una lista que revisa el equipo de RiftWii, instaladas en sd:/apps. RiftWii no aloja ninguna: cada una viene de la versión publicada por su autor.', 'RiftWiiチームが確認したリストのHomebrewアプリを、sd:/appsにインストールします。RiftWiiはアプリを置いていません。どれも作者が公開したものです。', 'Apps homebrew de uma lista que a equipe do RiftWii confere, instalados em sd:/apps. O RiftWii não hospeda nenhum: cada um vem da versão publicada pelo autor.', 'App homebrew da un elenco controllato dal team di RiftWii, installate in sd:/apps. RiftWii non ne ospita nessuna: ognuna viene dalla versione pubblicata dal suo autore.')
+MORE["ko"]["Homebrew apps from a list the RiftWii team checks, installed to sd:/apps. RiftWii hosts none of them: each comes from its maker's own release."] = 'RiftWii 팀이 확인한 목록의 홈브루 앱을 sd:/apps에 설치합니다. RiftWii는 앱을 직접 올려 두지 않습니다. 모두 만든 사람이 공개한 파일입니다.'
+MORE["fr"]["Homebrew apps from a list the RiftWii team checks, installed to sd:/apps. RiftWii hosts none of them: each comes from its maker's own release."] = "Des applis homebrew d'une liste vérifiée par l'équipe RiftWii, installées dans sd:/apps. RiftWii n'en héberge aucune : chacune vient de la version publiée par son auteur."
+T['Search apps'] = ('Buscar apps', 'アプリを検索', 'Buscar apps', 'Cerca app')
+MORE["ko"]['Search apps'] = '앱 검색'
+MORE["fr"]['Search apps'] = 'Rechercher des applis'
+T['System tools'] = ('Herramientas', 'システムツール', 'Ferramentas', 'Strumenti di sistema')
+MORE["ko"]['System tools'] = '시스템 도구'
+MORE["fr"]['System tools'] = 'Outils système'
+T['Game tools'] = ('Para juegos', 'ゲーム用ツール', 'Para jogos', 'Strumenti per giochi')
+MORE["ko"]['Game tools'] = '게임 도구'
+MORE["fr"]['Game tools'] = 'Outils de jeu'
+T['Creative'] = ('Creatividad', 'クリエイティブ', 'Criatividade', 'Creatività')
+MORE["ko"]['Creative'] = '창작'
+MORE["fr"]['Creative'] = 'Création'
+T['Demos and toys'] = ('Demos y juguetes', 'デモとおもちゃ', 'Demos e brinquedos', 'Demo e giocattoli')
+MORE["ko"]['Demos and toys'] = '데모와 장난감'
+MORE["fr"]['Demos and toys'] = 'Démos et jouets'
+T['Media'] = ('Multimedia', 'メディア', 'Mídia', 'Multimedia')
+MORE["ko"]['Media'] = '미디어'
+MORE["fr"]['Media'] = 'Médias'
+T['Internet'] = ('Internet', 'インターネット', 'Internet', 'Internet')
+MORE["ko"]['Internet'] = '인터넷'
+MORE["fr"]['Internet'] = 'Internet'
+T['Online services'] = ('Servicios en línea', 'オンラインサービス', 'Serviços online', 'Servizi online')
+MORE["ko"]['Online services'] = '온라인 서비스'
+MORE["fr"]['Online services'] = 'Services en ligne'
+T['Loaders'] = ('Cargadores', 'ローダー', 'Carregadores', 'Loader')
+MORE["ko"]['Loaders'] = '로더'
+MORE["fr"]['Loaders'] = 'Chargeurs'
+T['My apps'] = ('Mis apps', 'マイアプリ', 'Meus apps', 'Le mie app')
+MORE["ko"]['My apps'] = '내 앱'
+MORE["fr"]['My apps'] = 'Mes applis'
+T['Getting the list of apps...'] = ('Obteniendo la lista de apps...', 'アプリのリストを取得中...', 'Obtendo a lista de apps...', "Download dell'elenco delle app...")
+MORE["ko"]['Getting the list of apps...'] = '앱 목록을 받는 중...'
+MORE["fr"]['Getting the list of apps...'] = 'Récupération de la liste des applis...'
+T['Could not get the list of apps: {1}'] = ('No se pudo obtener la lista de apps: {1}', 'アプリのリストを取得できませんでした: {1}', 'Não foi possível obter a lista de apps: {1}', "Impossibile ottenere l'elenco delle app: {1}")
+MORE["ko"]['Could not get the list of apps: {1}'] = '앱 목록을 받을 수 없습니다: {1}'
+MORE["fr"]['Could not get the list of apps: {1}'] = 'Impossible de récupérer la liste des applis : {1}'
+T['No app matches {1}.'] = ('Ninguna app coincide con {1}.', '{1}に合うアプリはありません。', 'Nenhum app corresponde a {1}.', 'Nessuna app corrisponde a {1}.')
+MORE["ko"]['No app matches {1}.'] = '{1}에 맞는 앱이 없습니다.'
+MORE["fr"]['No app matches {1}.'] = 'Aucune appli ne correspond à {1}.'
+T['No apps from here are on the SD card yet.'] = ('Aún no hay en la tarjeta SD apps de aquí.', 'ここから入れたアプリはまだSDカードにありません。', 'Ainda não há apps daqui no cartão SD.', 'Sulla scheda SD non ci sono ancora app da qui.')
+MORE["ko"]['No apps from here are on the SD card yet.'] = '아직 여기서 받은 앱이 SD 카드에 없습니다.'
+MORE["fr"]['No apps from here are on the SD card yet.'] = "Aucune appli d'ici n'est encore sur la carte SD."
+T['On the SD card'] = ('En la tarjeta SD', 'SDカードにあり', 'No cartão SD', 'Sulla scheda SD')
+MORE["ko"]['On the SD card'] = 'SD 카드에 있음'
+MORE["fr"]['On the SD card'] = 'Sur la carte SD'
+T['Get it on a PC'] = ('Consíguela en un PC', 'パソコンで入手', 'Obtenha num PC', 'Scaricala da un PC')
+MORE["ko"]['Get it on a PC'] = 'PC에서 받기'
+MORE["fr"]['Get it on a PC'] = 'À obtenir sur un PC'
+T['Its own page'] = ('Su página', '公式ページ', 'Página dele', 'La sua pagina')
+MORE["ko"]['Its own page'] = '공식 페이지'
+MORE["fr"]['Its own page'] = 'Sa page'
+T['{1} does the same and is kept up to date.'] = ('{1} hace lo mismo y se mantiene al día.', '{1}も同じことができ、更新が続いています。', '{1} faz o mesmo e é mantido em dia.', '{1} fa lo stesso ed è aggiornata.')
+MORE["ko"]['{1} does the same and is kept up to date.'] = '{1}도 같은 일을 하며 계속 업데이트됩니다.'
+MORE["fr"]['{1} does the same and is kept up to date.'] = '{1} fait la même chose et reste à jour.'
+T['Newer app'] = ('App más nueva', '新しいアプリ', 'App mais novo', 'App più recente')
+MORE["ko"]['Newer app'] = '새 앱'
+MORE["fr"]['Newer app'] = 'Appli plus récente'
+T['Next page'] = ('Página siguiente', '次のページ', 'Próxima página', 'Pagina successiva')
+MORE["ko"]['Next page'] = '다음 페이지'
+MORE["fr"]['Next page'] = 'Page suivante'
+T['Installed, version {1}'] = ('Instalada, versión {1}', 'インストール済み、バージョン{1}', 'Instalado, versão {1}', 'Installata, versione {1}')
+MORE["ko"]['Installed, version {1}'] = '설치됨, 버전 {1}'
+MORE["fr"]['Installed, version {1}'] = 'Installée, version {1}'
+T['Version {1}, {2}'] = ('Versión {1}, {2}', 'バージョン{1}、{2}', 'Versão {1}, {2}', 'Versione {1}, {2}')
+MORE["ko"]['Version {1}, {2}'] = '버전 {1}, {2}'
+MORE["fr"]['Version {1}, {2}'] = 'Version {1}, {2}'
+T['It is on the SD card already. Put version {1} in its place.'] = ('Ya está en la tarjeta SD. Pon la versión {1} en su lugar.', 'すでにSDカードにあります。バージョン{1}に置き換えます。', 'Já está no cartão SD. Coloque a versão {1} no lugar.', 'È già sulla scheda SD. Metti la versione {1} al suo posto.')
+MORE["ko"]['It is on the SD card already. Put version {1} in its place.'] = '이미 SD 카드에 있습니다. 버전 {1}(으)로 바꿉니다.'
+MORE["fr"]['It is on the SD card already. Put version {1} in its place.'] = 'Elle est déjà sur la carte SD. Mettre la version {1} à sa place.'
+T["The Wii can't unpack it: scan the code."] = ('La Wii no puede descomprimirla: escanea el código.', 'Wiiでは展開できません。コードを読み取ってください。', 'O Wii não consegue descompactá-lo: leia o código.', 'La Wii non può estrarla: scansiona il codice.')
+MORE["ko"]["The Wii can't unpack it: scan the code."] = 'Wii에서 풀 수 없습니다. 코드를 스캔하세요.'
+MORE["fr"]["The Wii can't unpack it: scan the code."] = "La Wii ne peut pas l'extraire : scannez le code."
+T['To the SD card, {1}'] = ('A la tarjeta SD, {1}', 'SDカードへ、{1}', 'Para o cartão SD, {1}', 'Sulla scheda SD, {1}')
+MORE["ko"]['To the SD card, {1}'] = 'SD 카드에, {1}'
+MORE["fr"]['To the SD card, {1}'] = 'Sur la carte SD, {1}'
+T['Finishing...'] = ('Terminando...', '仕上げ中...', 'Terminando...', 'Completamento...')
+MORE["ko"]['Finishing...'] = '마무리하는 중...'
+MORE["fr"]['Finishing...'] = 'Finalisation...'
+T['Remove {1}?'] = ('¿Quitar {1}?', '{1}を削除しますか?', 'Remover {1}?', 'Rimuovere {1}?')
+MORE["ko"]['Remove {1}?'] = '{1}을(를) 삭제할까요?'
+MORE["fr"]['Remove {1}?'] = 'Supprimer {1} ?'
+T['Its folder in sd:/apps goes. Its saves and data folders stay.'] = ('Se borra su carpeta de sd:/apps. Sus partidas y carpetas de datos se quedan.', 'sd:/appsのフォルダを削除します。セーブとデータのフォルダは残ります。', 'A pasta dele em sd:/apps é apagada. Os saves e as pastas de dados ficam.', 'La sua cartella in sd:/apps viene eliminata. I salvataggi e le cartelle dei dati restano.')
+MORE["ko"]['Its folder in sd:/apps goes. Its saves and data folders stay.'] = 'sd:/apps의 폴더를 지웁니다. 세이브와 데이터 폴더는 남습니다.'
+MORE["fr"]['Its folder in sd:/apps goes. Its saves and data folders stay.'] = 'Son dossier dans sd:/apps est supprimé. Ses sauvegardes et dossiers de données restent.'
+T['This app is in sd:/apps already, not put there from here. Version {1} replaces its files; its own settings stay.'] = ('Esta app ya está en sd:/apps, pero no se instaló desde aquí. La versión {1} reemplaza sus archivos; sus ajustes se quedan.', 'このアプリはすでにsd:/appsにありますが、ここから入れたものではありません。バージョン{1}でファイルを置き換えます。設定は残ります。', 'Este app já está em sd:/apps, mas não foi colocado daqui. A versão {1} substitui os arquivos; as configurações dele ficam.', 'Questa app è già in sd:/apps, ma non è stata messa da qui. La versione {1} ne sostituisce i file; le sue impostazioni restano.')
+MORE["ko"]['This app is in sd:/apps already, not put there from here. Version {1} replaces its files; its own settings stay.'] = '이 앱은 이미 sd:/apps에 있지만 여기서 설치한 것이 아닙니다. 버전 {1}이(가) 파일을 바꾸며 설정은 남습니다.'
+MORE["fr"]['This app is in sd:/apps already, not put there from here. Version {1} replaces its files; its own settings stay.'] = "Cette appli est déjà dans sd:/apps, sans avoir été installée d'ici. La version {1} remplace ses fichiers ; ses réglages restent."
+T["Installed. Find it in Home's Homebrew view."] = ('Instalada. Búscala en la vista Homebrew de Inicio.', 'インストールしました。ホームのHomebrew表示にあります。', 'Instalado. Ele está na visão Homebrew da tela inicial.', 'Installata. La trovi nella vista Homebrew della Home.')
+MORE["ko"]["Installed. Find it in Home's Homebrew view."] = '설치했습니다. 홈의 홈브루 보기에 있습니다.'
+MORE["fr"]["Installed. Find it in Home's Homebrew view."] = "Installée. Elle est dans la vue Homebrew de l'accueil."
+T['{1} is removed.'] = ('{1} se ha quitado.', '{1}を削除しました。', '{1} foi removido.', '{1} è stata rimossa.')
+MORE["ko"]['{1} is removed.'] = '{1}을(를) 삭제했습니다.'
+MORE["fr"]['{1} is removed.'] = '{1} est supprimée.'
+T['{1} was not installed'] = ('{1} no se instaló', '{1}はインストールされませんでした', '{1} não foi instalado', '{1} non è stata installata')
+MORE["ko"]['{1} was not installed'] = '{1}이(가) 설치되지 않았습니다'
+MORE["fr"]['{1} was not installed'] = "{1} n'a pas été installée"
+T['{1} was not removed'] = ('{1} no se quitó', '{1}は削除されませんでした', '{1} não foi removido', '{1} non è stata rimossa')
+MORE["ko"]['{1} was not removed'] = '{1}이(가) 삭제되지 않았습니다'
+MORE["fr"]['{1} was not removed'] = "{1} n'a pas été supprimée"
+T['Search: {1}'] = ('Buscar: {1}', '検索: {1}', 'Busca: {1}', 'Ricerca: {1}')
+MORE["ko"]['Search: {1}'] = '검색: {1}'
+MORE["fr"]['Search: {1}'] = 'Recherche : {1}'
+
+T['My apps ({1})'] = ('Mis apps ({1})', 'マイアプリ({1})', 'Meus apps ({1})', 'Le mie app ({1})')
+MORE["ko"]['My apps ({1})'] = '내 앱 ({1})'
+MORE["fr"]['My apps ({1})'] = 'Mes applis ({1})'
+
+T['Downloading...'] = ('Descargando...', 'ダウンロード中...', 'Baixando...', 'Download in corso...')
+MORE["ko"]['Downloading...'] = '다운로드 중...'
+MORE["fr"]['Downloading...'] = 'Téléchargement...'
+T['Checking the file...'] = ('Comprobando el archivo...', 'ファイルを確認中...', 'Conferindo o arquivo...', 'Verifica del file...')
+MORE["ko"]['Checking the file...'] = '파일을 확인하는 중...'
+MORE["fr"]['Checking the file...'] = 'Vérification du fichier...'
+T['Unpacking...'] = ('Descomprimiendo...', '展開中...', 'Descompactando...', 'Estrazione...')
+MORE["ko"]['Unpacking...'] = '압축 해제 중...'
+MORE["fr"]['Unpacking...'] = 'Décompression...'
+T['{1} of {2}'] = ('{1} de {2}', '{1} / {2}', '{1} de {2}', '{1} di {2}')
+MORE["ko"]['{1} of {2}'] = '{1} / {2}'
+MORE["fr"]['{1} of {2}'] = '{1} sur {2}'
+T['{1} of {2} files'] = ('{1} de {2} archivos', '{1} / {2}ファイル', '{1} de {2} arquivos', '{1} di {2} file')
+MORE["ko"]['{1} of {2} files'] = '파일 {1} / {2}'
+MORE["fr"]['{1} of {2} files'] = '{1} fichiers sur {2}'
+
+T['Another app is being installed. Try again when it is done.'] = ('Se está instalando otra app. Inténtalo de nuevo cuando termine.', 'ほかのアプリをインストール中です。終わってからもう一度試してください。', 'Outro app está sendo instalado. Tente de novo quando terminar.', "È in corso l'installazione di un'altra app. Riprova quando ha finito.")
+MORE["ko"]['Another app is being installed. Try again when it is done.'] = '다른 앱을 설치하는 중입니다. 끝난 뒤 다시 시도하세요.'
+MORE["fr"]['Another app is being installed. Try again when it is done.'] = "Une autre appli est en cours d'installation. Réessayez quand elle sera terminée."
+
+T['Games made by the homebrew community.'] = ('Juegos creados por la comunidad homebrew.', 'ホームブリューのコミュニティが作ったゲーム。', 'Jogos feitos pela comunidade homebrew.', 'Giochi creati dalla comunità homebrew.')
+MORE["ko"]['Games made by the homebrew community.'] = '홈브루 커뮤니티가 만든 게임.'
+MORE["fr"]['Games made by the homebrew community.'] = 'Des jeux faits par la communauté homebrew.'
+T['Play games made for older consoles and computers.'] = ('Juega a juegos de consolas y ordenadores antiguos.', '昔のゲーム機やパソコンのゲームを遊べます。', 'Jogue jogos de consoles e computadores antigos.', 'Gioca ai giochi di vecchie console e computer.')
+MORE["ko"]['Play games made for older consoles and computers.'] = '옛날 게임기와 컴퓨터의 게임을 즐기세요.'
+MORE["fr"]['Play games made for older consoles and computers.'] = 'Jouez aux jeux des anciennes consoles et ordinateurs.'
+T['Look after the Wii itself: backups, storage and setup.'] = ('Cuida la propia Wii: copias, almacenamiento y ajustes.', 'Wii本体の管理：バックアップ、保存、設定。', 'Cuide do próprio Wii: backups, armazenamento e ajustes.', 'Cura la Wii stessa: backup, memoria e impostazioni.')
+MORE["ko"]['Look after the Wii itself: backups, storage and setup.'] = 'Wii 본체 관리: 백업, 저장 공간, 설정.'
+MORE["fr"]['Look after the Wii itself: backups, storage and setup.'] = 'Prenez soin de la Wii : sauvegardes, stockage et réglages.'
+T['Save editors, mod tools and other help for games.'] = ('Editores de partidas, herramientas de mods y más.', 'セーブエディターやMODツールなど、ゲームの手助けに。', 'Editores de saves, ferramentas de mods e outras ajudas.', 'Editor di salvataggi, strumenti per mod e altri aiuti.')
+MORE["ko"]['Save editors, mod tools and other help for games.'] = '세이브 편집기, 모드 도구 등 게임을 돕는 앱.'
+MORE["fr"]['Save editors, mod tools and other help for games.'] = 'Éditeurs de sauvegardes, outils de mods et autres aides.'
+T['Change how the Wii Menu looks and what it does.'] = ('Cambia el aspecto y las funciones del Menú de Wii.', 'Wiiメニューの見た目や働きを変えます。', 'Mude a aparência e as funções do Menu Wii.', "Cambia l'aspetto e le funzioni del Menu Wii.")
+MORE["ko"]['Change how the Wii Menu looks and what it does.'] = 'Wii 메뉴의 모양과 기능을 바꿉니다.'
+MORE["fr"]['Change how the Wii Menu looks and what it does.'] = "Changez l'apparence et les fonctions du Menu Wii."
+T['Test, set up and use more kinds of controllers.'] = ('Prueba, configura y usa más tipos de mandos.', 'いろいろなコントローラーをテストして使えます。', 'Teste, configure e use mais tipos de controles.', 'Prova, configura e usa più tipi di controller.')
+MORE["ko"]['Test, set up and use more kinds of controllers.'] = '더 많은 종류의 컨트롤러를 테스트하고 쓰세요.'
+MORE["fr"]['Test, set up and use more kinds of controllers.'] = 'Testez, réglez et utilisez plus de types de manettes.'
+T['Draw, paint, write and make music.'] = ('Dibuja, pinta, escribe y haz música.', '絵をかいたり、文を書いたり、音楽を作ったり。', 'Desenhe, pinte, escreva e faça música.', 'Disegna, dipingi, scrivi e fai musica.')
+MORE["ko"]['Draw, paint, write and make music.'] = '그리고, 칠하고, 쓰고, 음악을 만드세요.'
+MORE["fr"]['Draw, paint, write and make music.'] = 'Dessinez, peignez, écrivez et faites de la musique.'
+T['Small demos, toys and fun experiments.'] = ('Pequeñas demos, juguetes y experimentos divertidos.', '小さなデモやおもちゃ、楽しい実験。', 'Pequenas demos, brinquedos e experimentos divertidos.', 'Piccole demo, giocattoli ed esperimenti divertenti.')
+MORE["ko"]['Small demos, toys and fun experiments.'] = '작은 데모, 장난감, 재미있는 실험.'
+MORE["fr"]['Small demos, toys and fun experiments.'] = 'Petites démos, jouets et expériences amusantes.'
+T['Watch videos, play music and look at pictures.'] = ('Mira vídeos, escucha música y ve fotos.', '動画を見たり、音楽を聞いたり、写真を見たり。', 'Assista a vídeos, ouça música e veja fotos.', 'Guarda video, ascolta musica e sfoglia foto.')
+MORE["ko"]['Watch videos, play music and look at pictures.'] = '동영상을 보고, 음악을 듣고, 사진을 보세요.'
+MORE["fr"]['Watch videos, play music and look at pictures.'] = 'Vidéos, musique et photos sur la Wii.'
+T['Browse, chat and read on the internet.'] = ('Navega, chatea y lee en internet.', 'インターネットを見たり、チャットしたり。', 'Navegue, converse e leia na internet.', 'Naviga, chatta e leggi su internet.')
+MORE["ko"]['Browse, chat and read on the internet.'] = '인터넷에서 검색하고, 채팅하고, 읽으세요.'
+MORE["fr"]['Browse, chat and read on the internet.'] = 'Naviguez, discutez et lisez sur internet.'
+T["Bring the Wii's online play and channels back."] = ('Recupera el juego en línea y los canales de Wii.', 'Wiiのオンラインプレイとチャンネルを取り戻します。', 'Traga de volta o jogo online e os canais do Wii.', 'Riporta il gioco online e i canali della Wii.')
+MORE["ko"]["Bring the Wii's online play and channels back."] = 'Wii의 온라인 플레이와 채널을 되살립니다.'
+MORE["fr"]["Bring the Wii's online play and channels back."] = 'Retrouvez le jeu en ligne et les chaînes de la Wii.'
+T['Start games and apps from USB drives and SD cards.'] = ('Inicia juegos y apps desde unidades USB y tarjetas SD.', 'USBドライブやSDカードからゲームやアプリを起動。', 'Inicie jogos e apps de pendrives USB e cartões SD.', 'Avvia giochi e app da unità USB e schede SD.')
+MORE["ko"]['Start games and apps from USB drives and SD cards.'] = 'USB 드라이브와 SD 카드에서 게임과 앱을 실행합니다.'
+MORE["fr"]['Start games and apps from USB drives and SD cards.'] = 'Lancez jeux et applis depuis une clé USB ou une carte SD.'
+T['Everything else.'] = ('Todo lo demás.', 'そのほかすべて。', 'Todo o resto.', 'Tutto il resto.')
+MORE["ko"]['Everything else.'] = '그 밖의 모든 것.'
+MORE["fr"]['Everything else.'] = 'Tout le reste.'
+T['{1} installed'] = ('{1} instaladas', '{1}個インストール済み', '{1} instalados', '{1} installate')
+MORE["ko"]['{1} installed'] = '{1}개 설치됨'
+MORE["fr"]['{1} installed'] = '{1} installées'
+
+T['Size'] = ('Tamaño', 'サイズ', 'Tamanho', 'Dimensione')
+MORE["ko"]['Size'] = '크기'
+MORE["fr"]['Size'] = 'Taille'
+T['Works on'] = ('Funciona en', '対応機種', 'Funciona em', 'Funziona su')
+MORE["ko"]['Works on'] = '지원 기기'
+MORE["fr"]['Works on'] = 'Fonctionne sur'
+T['License'] = ('Licencia', 'ライセンス', 'Licença', 'Licenza')
+MORE["ko"]['License'] = '라이선스'
+MORE["fr"]['License'] = 'Licence'
+
+T['{1}.{2} MB'] = ('{1},{2} MB', '{1}.{2} MB', '{1},{2} MB', '{1},{2} MB')
+MORE["ko"]['{1}.{2} MB'] = '{1}.{2} MB'
+MORE["fr"]['{1}.{2} MB'] = '{1},{2} Mo'
+T['{1} KB'] = ('{1} KB', '{1} KB', '{1} KB', '{1} KB')
+MORE["ko"]['{1} KB'] = '{1} KB'
+MORE["fr"]['{1} KB'] = '{1} Ko'
+T['The SD card is too full. Make {1} of room and try again.'] = ('La tarjeta SD está demasiado llena. Libera {1} y vuelve a intentarlo.', 'SDカードの空きが足りません。{1}の空きを作ってからもう一度試してください。', 'O cartão SD está cheio demais. Libere {1} e tente de novo.', 'La scheda SD è troppo piena. Libera {1} e riprova.')
+MORE["ko"]['The SD card is too full. Make {1} of room and try again.'] = 'SD 카드 공간이 부족합니다. {1}를 비운 뒤 다시 시도하세요.'
+MORE["fr"]['The SD card is too full. Make {1} of room and try again.'] = 'La carte SD est trop pleine. Libérez {1} et réessayez.'
+
+# The Rift Store (plugins/appstore, docs/APPSTORE.md): a name, the same in every language.
+T['Rift Store'] = ('Rift Store', 'Rift Store', 'Rift Store', 'Rift Store')
+MORE["ko"]['Rift Store'] = 'Rift Store'
+MORE["fr"]['Rift Store'] = 'Rift Store'
+T['The Rift Store could not open.'] = ('La Rift Store no se pudo abrir.', 'Rift Storeを開けませんでした。', 'A Rift Store não pôde abrir.', 'Il Rift Store non si è aperto.')
+MORE["ko"]['The Rift Store could not open.'] = 'Rift Store를 열 수 없습니다.'
+MORE["fr"]['The Rift Store could not open.'] = "Le Rift Store n'a pas pu s'ouvrir."
+T['The Rift Store could not open: {1}'] = ('La Rift Store no se pudo abrir: {1}', 'Rift Storeを開けませんでした: {1}', 'A Rift Store não pôde abrir: {1}', 'Il Rift Store non si è aperto: {1}')
+MORE["ko"]['The Rift Store could not open: {1}'] = 'Rift Store를 열 수 없습니다: {1}'
+MORE["fr"]['The Rift Store could not open: {1}'] = "Le Rift Store n'a pas pu s'ouvrir : {1}"
 
 def main():
     repo = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
@@ -9805,6 +9977,14 @@ T.update({
     'Copy save to Wii': ('Copiar partida a Wii', 'Wiiへセーブをコピー', 'Copiar save para o Wii', 'Copia salvataggio sulla Wii'),
     'Delete emulated save': ('Borrar partida emulada', '仮想NANDのセーブを削除', 'Apagar save emulado', 'Elimina salvataggio emulato'),
     'Delete emulated title': ('Borrar título emulado', '仮想NANDのタイトルを削除', 'Apagar título emulado', 'Elimina titolo emulato'),
+    'Copy to {1}': ('Copiar a {1}', '{1}へコピー', 'Copiar para {1}', 'Copia in {1}'),
+    'Copies this game, its save and its ticket to {1}. RiftWii plays WiiWare and Virtual Console games from an emulated NAND on the SD card.': ('Copia este juego, su partida y su ticket a {1}. RiftWii juega a WiiWare y Virtual Console desde una NAND emulada en la tarjeta SD.', 'このゲームとセーブ、チケットを{1}へコピーします。RiftWiiはWiiウェアとバーチャルコンソールをSDカードの仮想NANDから遊びます。', 'Copia este jogo, seu save e seu ticket para {1}. O RiftWii joga WiiWare e Virtual Console a partir de uma NAND emulada no cartão SD.', 'Copia questo gioco, il suo salvataggio e il suo ticket in {1}. RiftWii avvia WiiWare e Virtual Console da una NAND emulata sulla scheda SD.'),
+    '{1}\nfrom {2}\nto {3}\nThe game, its save and its ticket are copied; the original stays. Keep the Wii turned on until copying finishes.': ('{1}\nde {2}\na {3}\nSe copian el juego, su partida y su ticket; el original se queda. No apagues la Wii hasta que termine.', '{1}\n{2}から\n{3}へ\nゲームとセーブ、チケットをコピーします。元のデータは残ります。終わるまでWiiの電源を切らないでください。', '{1}\nde {2}\npara {3}\nO jogo, o save e o ticket são copiados; o original fica. Não desligue o Wii até terminar.', "{1}\nda {2}\na {3}\nVengono copiati il gioco, il salvataggio e il ticket; l'originale resta. Non spegnere la Wii finché non ha finito."),
+    'Copied to {1}. Home shows it after the drives are read again.': ('Copiado a {1}. Inicio lo muestra cuando se vuelvan a leer las unidades.', '{1}へコピーしました。ドライブをもう一度読み込むとホームに表示されます。', 'Copiado para {1}. O Início mostra depois que as unidades forem lidas de novo.', 'Copiato in {1}. La Home lo mostra quando le unità vengono rilette.'),
+    'The title could not be copied. See session.log for details.': ('No se pudo copiar el título. Consulta session.log para ver los detalles.', 'タイトルをコピーできませんでした。詳しくはsession.logを見てください。', 'Não foi possível copiar o título. Veja os detalhes em session.log.', 'Impossibile copiare il titolo. Vedi session.log per i dettagli.'),
+    'Checking the memory card in slot {1}...': ('Comprobando la tarjeta de memoria de la ranura {1}...', 'スロット{1}のメモリーカードを確認しています...', 'Verificando o cartão de memória no slot {1}...', 'Controllo della memory card nello slot {1}...'),
+    "The memory card in slot {1} did not answer. Take it out, put it back in and restart RiftWii, or use this game's SD card for now.": ('La tarjeta de memoria de la ranura {1} no responde. Sácala, vuelve a insertarla y reinicia RiftWii, o usa por ahora la tarjeta SD de este juego.', 'スロット{1}のメモリーカードが応答しません。抜いて差し直してからRiftWiiを再起動するか、今はこのゲームのSDカードを使ってください。', 'O cartão de memória no slot {1} não respondeu. Retire-o, coloque-o de novo e reinicie o RiftWii, ou use por enquanto o cartão SD deste jogo.', "La memory card nello slot {1} non ha risposto. Toglila, reinseriscila e riavvia RiftWii, oppure per ora usa la scheda SD di questo gioco."),
+    'This title is already in {1}. Delete it there first to copy it again.': ('Este título ya está en {1}. Bórralo allí primero para volver a copiarlo.', 'このタイトルはすでに{1}にあります。もう一度コピーするには、先にそちらを削除してください。', 'Este título já está em {1}. Apague-o lá primeiro para copiá-lo de novo.', 'Questo titolo è già in {1}. Eliminalo prima lì per copiarlo di nuovo.'),
     'Miis from Wii': ('Miis desde Wii', 'WiiからMiiをコピー', 'Miis do Wii', 'Mii dalla Wii'),
     'Miis to Wii': ('Miis a Wii', 'WiiへMiiをコピー', 'Miis para o Wii', 'Mii sulla Wii'),
     'Remove Wii settings': ('Quitar ajustes de Wii', 'Wii設定のコピーを削除', 'Remover configurações do Wii', 'Rimuovi impostazioni Wii'),
@@ -9830,6 +10010,14 @@ KO.update({
     'Copy save to Wii': 'Wii로 저장 데이터 복사',
     'Delete emulated save': '에뮬레이트 저장 데이터 삭제',
     'Delete emulated title': '에뮬레이트 타이틀 삭제',
+    'Copy to {1}': '{1}(으)로 복사',
+    'Copies this game, its save and its ticket to {1}. RiftWii plays WiiWare and Virtual Console games from an emulated NAND on the SD card.': '이 게임과 저장 데이터, 티켓을 {1}(으)로 복사합니다. RiftWii는 SD 카드의 에뮬레이트 NAND에서 WiiWare와 버추얼 콘솔을 실행합니다.',
+    '{1}\nfrom {2}\nto {3}\nThe game, its save and its ticket are copied; the original stays. Keep the Wii turned on until copying finishes.': '{1}\n{2}에서\n{3}(으)로\n게임과 저장 데이터, 티켓을 복사합니다. 원본은 그대로 남습니다. 끝날 때까지 Wii를 끄지 마세요.',
+    'Copied to {1}. Home shows it after the drives are read again.': '{1}(으)로 복사했습니다. 드라이브를 다시 읽으면 홈에 표시됩니다.',
+    'The title could not be copied. See session.log for details.': '타이틀을 복사할 수 없습니다. 자세한 내용은 session.log를 확인하세요.',
+    'Checking the memory card in slot {1}...': '슬롯 {1}의 메모리 카드를 확인하는 중...',
+    "The memory card in slot {1} did not answer. Take it out, put it back in and restart RiftWii, or use this game's SD card for now.": '슬롯 {1}의 메모리 카드가 응답하지 않습니다. 뺐다가 다시 꽂고 RiftWii를 다시 시작하거나, 지금은 이 게임의 SD 카드를 사용하세요.',
+    'This title is already in {1}. Delete it there first to copy it again.': '이 타이틀은 이미 {1}에 있습니다. 다시 복사하려면 먼저 그곳에서 삭제하세요.',
     'Miis from Wii': 'Wii에서 Mii 복사',
     'Miis to Wii': 'Wii로 Mii 복사',
     'Remove Wii settings': 'Wii 설정 사본 삭제',
@@ -9855,6 +10043,14 @@ FR.update({
     'Copy save to Wii': 'Copier la sauvegarde vers la Wii',
     'Delete emulated save': 'Supprimer la sauvegarde émulée',
     'Delete emulated title': 'Supprimer le titre émulé',
+    'Copy to {1}': 'Copier dans {1}',
+    'Copies this game, its save and its ticket to {1}. RiftWii plays WiiWare and Virtual Console games from an emulated NAND on the SD card.': 'Copie ce jeu, sa sauvegarde et son ticket dans {1}. RiftWii lance les jeux WiiWare et Console Virtuelle depuis une NAND émulée sur la carte SD.',
+    '{1}\nfrom {2}\nto {3}\nThe game, its save and its ticket are copied; the original stays. Keep the Wii turned on until copying finishes.': "{1}\nde {2}\nvers {3}\nLe jeu, sa sauvegarde et son ticket sont copiés ; l'original reste. Laissez la Wii allumée jusqu'à la fin.",
+    'Copied to {1}. Home shows it after the drives are read again.': "Copié dans {1}. L'accueil l'affiche une fois les supports relus.",
+    'The title could not be copied. See session.log for details.': 'Impossible de copier le titre. Voir session.log pour les détails.',
+    'Checking the memory card in slot {1}...': 'Vérification de la carte mémoire du port {1}...',
+    "The memory card in slot {1} did not answer. Take it out, put it back in and restart RiftWii, or use this game's SD card for now.": "La carte mémoire du port {1} ne répond pas. Retirez-la, remettez-la et redémarrez RiftWii, ou utilisez pour l'instant la carte SD de ce jeu.",
+    'This title is already in {1}. Delete it there first to copy it again.': "Ce titre est déjà dans {1}. Supprimez-le d'abord là-bas pour le copier à nouveau.",
     'Miis from Wii': 'Mii depuis la Wii',
     'Miis to Wii': 'Mii vers la Wii',
     'Remove Wii settings': 'Retirer les paramètres Wii',
@@ -10075,6 +10271,166 @@ FR.update({
     'The existing layout was kept.': 'La configuration existante a été conservée.',
     'Imported': 'Importé',
     'Copied {1} to {2}. Restart RiftWii to use it.': "{1} a été copié vers {2}. Redémarrez RiftWii pour l'utiliser.",
+})
+
+# Settings grid help and grouped emulated NAND titles.
+T.update({
+    'Game picture: width, flicker filter, borders, video mode and aspect ratio.': (
+        'Imagen: ancho, filtro de parpadeo, bordes, modo de vídeo y proporción.',
+        'ゲーム画面の幅、ちらつき防止、黒い縁、映像モードと画面比率。',
+        'Imagem: largura, filtro de cintilação, bordas, modo de vídeo e proporção.',
+        'Immagine: larghezza, filtro sfarfallio, bordi, modalità video e proporzioni.',
+    ),
+    'Game language, saves, emulated NAND, quitting and screenshots.': (
+        'Idioma de juegos, partidas, NAND emulada, salida y capturas.',
+        'ゲームの言語、セーブ、仮想NAND、終了とスクリーンショット。',
+        'Idioma dos jogos, saves, NAND emulada, saída e capturas de tela.',
+        'Lingua dei giochi, salvataggi, NAND emulata, uscita e schermate.',
+    ),
+    'USB controllers, button layouts and controller rumble.': (
+        'Mandos USB, asignación de botones y vibración.',
+        'USBコントローラー、ボタンの割り当てと振動。',
+        'Controles USB, configuração de botões e vibração.',
+        'Controller USB, disposizione dei pulsanti e vibrazione.',
+    ),
+    'Home layout, game order, drives, play history and clock.': (
+        'Vista de Inicio, orden de juegos, unidades, historial y reloj.',
+        'ホームの表示、ゲームの順序、ドライブ、プレイ履歴と時計。',
+        'Visual do Início, ordem dos jogos, unidades, histórico e relógio.',
+        'Aspetto di Home, ordine dei giochi, unità, cronologia e orologio.',
+    ),
+    'Menu language, theme, font, screen size, sounds and music.': (
+        'Idioma del menú, tema, letra, tamaño de pantalla, sonidos y música.',
+        'メニューの言語、テーマ、フォント、画面サイズ、効果音と音楽。',
+        'Idioma do menu, tema, fonte, tamanho da tela, sons e música.',
+        'Lingua del menu, tema, carattere, dimensione dello schermo, suoni e musica.',
+    ),
+    'Downloads, game servers and RiftWii updates.': (
+        'Descargas, servidores de juegos y actualizaciones de RiftWii.',
+        'ダウンロード、ゲームのサーバーとRiftWiiの更新。',
+        'Downloads, servidores de jogos e atualizações do RiftWii.',
+        'Download, server dei giochi e aggiornamenti di RiftWii.',
+    ),
+    'Find games and network packs, or copy a game disc.': (
+        'Buscar juegos y packs de red, o copiar un disco de juego.',
+        'ゲームやネットワークのパックの検索、ゲームディスクのコピー。',
+        'Buscar jogos e pacotes de rede, ou copiar um disco de jogo.',
+        'Trova giochi e pacchetti di rete, o copia un disco di gioco.',
+    ),
+    "Problem reports, what's new, help, the RiftWii channel and credits.": (
+        'Informes de problemas, novedades, ayuda, canal RiftWii y créditos.',
+        '問題の報告、新しくなったこと、ヘルプ、RiftWiiチャンネルとクレジット。',
+        'Relatórios de problemas, novidades, ajuda, canal RiftWii e créditos.',
+        'Segnalazioni, novità, aiuto, canale RiftWii e crediti.',
+    ),
+    'Wii Menu or power off.': (
+        'Menú de Wii o apagar.',
+        'Wiiメニュー、または電源オフ。',
+        'Menu do Wii ou desligar.',
+        'Menu Wii o spegnimento.',
+    ),
+    'Homebrew Channel, Wii Menu, restart or power off.': (
+        'Canal Homebrew, menú de Wii, reiniciar o apagar.',
+        'ホームブリューチャンネル、Wiiメニュー、再起動、電源オフ。',
+        'Homebrew Channel, Menu do Wii, reiniciar ou desligar.',
+        'Canale Homebrew, Menu Wii, riavvio o spegnimento.',
+    ),
+    'Homebrew Channel, Wii Menu, Priiloader or power off.': (
+        'Canal Homebrew, menú de Wii, Priiloader o apagar.',
+        'ホームブリューチャンネル、Wiiメニュー、Priiloader、電源オフ。',
+        'Homebrew Channel, Menu do Wii, Priiloader ou desligar.',
+        'Canale Homebrew, Menu Wii, Priiloader o spegnimento.',
+    ),
+    'System titles cannot be deleted.': (
+        'Los títulos del sistema no se pueden borrar.',
+        'システムのタイトルは削除できません。',
+        'Títulos do sistema não podem ser apagados.',
+        'I titoli di sistema non possono essere eliminati.',
+    ),
+    'Reading titles...': (
+        'Leyendo títulos...',
+        'タイトルを読み込んでいます...',
+        'Lendo títulos...',
+        'Lettura dei titoli...',
+    ),
+    'Reading folders...': (
+        'Leyendo carpetas...',
+        'フォルダーを読み込んでいます...',
+        'Lendo pastas...',
+        'Lettura delle cartelle...',
+    ),
+    'Disc game saves': (
+        'Partidas de juegos en disco',
+        'ディスクのゲームのセーブ',
+        'Saves de jogos em disco',
+        'Salvataggi dei giochi su disco',
+    ),
+    'System channels': (
+        'Canales del sistema',
+        'システムチャンネル',
+        'Canais do sistema',
+        'Canali di sistema',
+    ),
+    'Hidden titles': (
+        'Títulos ocultos',
+        '非表示のタイトル',
+        'Títulos ocultos',
+        'Titoli nascosti',
+    ),
+    'Other titles': (
+        'Otros títulos',
+        'その他のタイトル',
+        'Outros títulos',
+        'Altri titoli',
+    ),
+    'Emulated + Wii': (
+        'Emulada + Wii',
+        '仮想NANDとWii',
+        'Emulada + Wii',
+        'Emulata + Wii',
+    ),
+})
+KO.update({
+    'Game picture: width, flicker filter, borders, video mode and aspect ratio.': '게임 화면 너비, 깜박임 필터, 테두리, 영상 모드와 화면 비율.',
+    'Game language, saves, emulated NAND, quitting and screenshots.': '게임 언어, 세이브, 에뮬레이트 NAND, 게임 종료와 스크린샷.',
+    'USB controllers, button layouts and controller rumble.': 'USB 컨트롤러, 버튼 배치와 컨트롤러 진동.',
+    'Home layout, game order, drives, play history and clock.': '홈 화면 배치, 게임 순서, 드라이브, 플레이 기록과 시계.',
+    'Menu language, theme, font, screen size, sounds and music.': '메뉴 언어, 테마, 글꼴, 화면 크기, 효과음과 음악.',
+    'Downloads, game servers and RiftWii updates.': '다운로드, 게임 서버와 RiftWii 업데이트.',
+    'Find games and network packs, or copy a game disc.': '게임과 네트워크 팩을 찾거나 게임 디스크를 복사합니다.',
+    "Problem reports, what's new, help, the RiftWii channel and credits.": '문제 보고, 새로운 소식, 도움말, RiftWii 채널과 제작진.',
+    'Wii Menu or power off.': 'Wii 메뉴 또는 전원 끄기.',
+    'Homebrew Channel, Wii Menu, restart or power off.': '홈브류 채널, Wii 메뉴, 다시 시작 또는 전원 끄기.',
+    'Homebrew Channel, Wii Menu, Priiloader or power off.': '홈브류 채널, Wii 메뉴, Priiloader 또는 전원 끄기.',
+    'System titles cannot be deleted.': '시스템 타이틀은 삭제할 수 없습니다.',
+    'Reading titles...': '타이틀 읽는 중...',
+    'Reading folders...': '폴더 읽는 중...',
+    'Disc game saves': '디스크 게임 세이브',
+    'System channels': '시스템 채널',
+    'Hidden titles': '숨겨진 타이틀',
+    'Other titles': '기타 타이틀',
+    'Emulated + Wii': '에뮬레이트 + Wii',
+})
+FR.update({
+    'Game picture: width, flicker filter, borders, video mode and aspect ratio.': 'Image : largeur, filtre de scintillement, bordures, mode vidéo et proportions.',
+    'Game language, saves, emulated NAND, quitting and screenshots.': 'Langue des jeux, sauvegardes, NAND émulée, sortie et captures.',
+    'USB controllers, button layouts and controller rumble.': 'Manettes USB, configuration des boutons et vibrations.',
+    'Home layout, game order, drives, play history and clock.': 'Vue de l’accueil, ordre des jeux, lecteurs, historique et horloge.',
+    'Menu language, theme, font, screen size, sounds and music.': 'Langue du menu, thème, police, taille de l’écran, sons et musique.',
+    'Downloads, game servers and RiftWii updates.': 'Téléchargements, serveurs de jeux et mises à jour de RiftWii.',
+    'Find games and network packs, or copy a game disc.': 'Rechercher des jeux et packs réseau, ou copier un disque de jeu.',
+    "Problem reports, what's new, help, the RiftWii channel and credits.": 'Rapports de problèmes, nouveautés, aide, chaîne RiftWii et crédits.',
+    'Wii Menu or power off.': 'Menu Wii ou extinction.',
+    'Homebrew Channel, Wii Menu, restart or power off.': 'Chaîne Homebrew, Menu Wii, redémarrage ou extinction.',
+    'Homebrew Channel, Wii Menu, Priiloader or power off.': 'Chaîne Homebrew, Menu Wii, Priiloader ou extinction.',
+    'System titles cannot be deleted.': 'Les titres système ne peuvent pas être supprimés.',
+    'Reading titles...': 'Lecture des titres...',
+    'Reading folders...': 'Lecture des dossiers...',
+    'Disc game saves': 'Sauvegardes de jeux sur disque',
+    'System channels': 'Chaînes système',
+    'Hidden titles': 'Titres masqués',
+    'Other titles': 'Autres titres',
+    'Emulated + Wii': 'Émulée + Wii',
 })
 
 if __name__ == "__main__":

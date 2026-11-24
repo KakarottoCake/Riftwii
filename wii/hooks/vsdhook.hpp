@@ -39,6 +39,12 @@ struct VsdImage {
     bool on_usb = false;                   // extents are the USB drive's sectors
     std::uint32_t sectors = 0;             // the image's size
     std::vector<rtvsd_extent> extents;     // its pieces on the card
+    // A scattered image on the SD card: its piece list written to a file
+    // beside it (`piece_list`), and the index of that file's pages the
+    // in-game blob keeps instead of the whole list (a paged card,
+    // runtime/rtvsd.h). Empty: the list is in the game's memory.
+    std::string piece_list;
+    std::vector<rtvsd_page> pages;
     // The read-ahead buffer (runtime/rtvsdra.h): its window in sectors, 0
     // for none. Only an image file has one: the whole SD card passed
     // through beside the resident runtime does not, since the runtime

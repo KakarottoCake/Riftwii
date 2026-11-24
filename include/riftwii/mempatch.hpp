@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "riftwii/patch.hpp"
+#include "riftwii/symsearch.hpp"
 
 namespace riftwii {
 
@@ -57,6 +58,44 @@ bool apply_memory_patches(const std::vector<MemoryPatch>& patches, const std::ve
 // an uncached 0xC…/0xD… offset at its cached 0x8…/0x9… alias (cached and
 // uncached views of the same RAM are one place).
 std::uint32_t memory_patch_target(const MemoryPatch& p);
+
+// What the plain patches will leave in memory, for a search that runs
+// before they are applied (RiftWii's PADRead search). In document order,
+// as apply_memory_patches goes: a later write wins over an earlier one,
+// and a patch whose `original` differs from `memory` (the game as loaded,
+// with the earlier writes over it) is skipped. Writes that touch become
+// one range. Search and ocarina patches have no address until applied
+// and aren't run, so a guard they would change isn't seen here: what is
+// found must be checked again once the patches are in. Nor is a patch
+// apply_memory_patches would refuse (it is reported when the patches
+// really go in). A range of one whole-word write points into `patches`,
+// which must outlive this; touching writes, and a write that changes part
+// of a word (the rest of the word read from `memory`), become a copy.
+class PatchedCode final {
+public:
+    // The most plain patches previewed (see build).
+    static constexpr std::size_t kMaxPreviewedPatches = 4096;
+
+    // False (with `error`) when there's no memory for the lists or the
+    // joined copies, or more than kMaxPreviewedPatches plain patches; the
+    // ranges are then empty.
+    bool build(const std::vector<MemoryPatch>& patches, MemoryAccess& memory, std::string& error);
+    // Word-aligned, in address order, not overlapping.
+    const std::vector<CodeRange>& ranges() const { return ranges_; }
+
+private:
+    struct Write {
+        std::uint32_t address;
+        const std::uint8_t* bytes;
+        std::size_t size;
+    };
+    bool read(MemoryAccess& memory, std::uint32_t address, std::vector<std::uint8_t>& out) const;
+    bool join(MemoryAccess& memory);
+
+    std::vector<Write> writes_;                     // document order
+    std::vector<std::vector<std::uint8_t>> joined_;  // touching writes, one copy each
+    std::vector<CodeRange> ranges_;
+};
 
 // Largest `valuefile` a caller should read into `value`.
 constexpr std::size_t kMaxMemoryValueBytes = 1u << 20;

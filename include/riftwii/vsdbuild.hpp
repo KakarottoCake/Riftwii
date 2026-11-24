@@ -10,6 +10,9 @@
 #include <unordered_set>
 #include <vector>
 
+#include "riftwii/redirect.hpp"  // Fragment
+#include "rtvsd.h"
+
 // A virtual SD card's image made from files on the menu's side: the menu
 // lists what goes in (a code build's folders, wii/menu/vsdmake.hpp), the card
 // is planned here, then written front to back in one pass. The card is
@@ -121,5 +124,19 @@ constexpr std::uint64_t kVsdMaxFolderEntries = 65536;
 void vsd_card_registers(std::uint32_t sectors, bool sdhc, std::uint32_t cid[4], std::uint32_t csd[4]);
 // The capacity a CSD states, in sectors (the inverse, for the tests).
 std::uint32_t vsd_csd_sectors(const std::uint32_t csd[4]);
+
+// A scattered image's piece list as a file on its drive (a paged card,
+// runtime/rtvsd.h): RTVSD_PAGE_EXTENTS pieces to each 512-byte page, each
+// as three big-endian words (image sector, drive sector, count), the rest
+// of a page zero. The in-game blob reads a page when a read needs it.
+std::vector<std::uint8_t> vsd_piece_list(const std::vector<rtvsd_extent>& extents);
+
+// The card's index for that file once it is written: each page's first
+// image sector and the drive sector the page is at, from the file's own
+// pieces on the drive (`file`, as the drive's FAT gives them). False with
+// `error` when they hold fewer pages than the list has, or lie past what a
+// 32-bit sector reaches.
+bool vsd_piece_list_index(const std::vector<rtvsd_extent>& extents, const std::vector<Fragment>& file,
+                          std::vector<rtvsd_page>& out, std::string& error);
 
 }  // namespace riftwii

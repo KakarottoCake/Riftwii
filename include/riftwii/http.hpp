@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <ctime>
 #include <map>
@@ -114,5 +116,95 @@ std::string url_encode(const std::string& text);
 // room can be checked before it is encoded (wii/online/reportsend.cpp).
 void url_encode_append(const std::string& text, std::string& out);
 std::size_t url_encoded_size(const std::string& text);
+
+// A chunked body decoded as it arrives (a download streamed to the SD
+// card, wii/online/httpmem.hpp's HttpGetStream): feed it the bytes
+// received so far; it hands the body's own bytes to `out` and says how
+// many it used. Unused bytes (a size line not whole yet) are fed again
+// with more behind them. A size line longer than 1 KiB, a chunk not
+// followed by its line end, or a body past `max_body` is Bad.
+class HttpChunkDecoder {
+public:
+    enum class Result { More, Done, Bad };
+    explicit HttpChunkDecoder(std::uint64_t max_body) : max_body_(max_body) {}
+    // `out` returning false stops the decoding (Bad, `stopped()` true).
+    template <typename Out>
+    Result feed(const std::uint8_t* data, std::size_t size, std::size_t& used, Out&& out);
+    std::uint64_t body() const { return body_; }
+    bool stopped() const { return stopped_; }
+
+private:
+    enum class State { Size, Data, DataEnd, Trailer, Done };
+    // One line from data[from, size) without its CRLF; false while it is
+    // not whole.
+    static bool line(const std::uint8_t* data, std::size_t size, std::size_t from, std::size_t& end);
+    static bool chunk_size(const std::uint8_t* text, std::size_t length, std::uint64_t& size);
+
+    State state_ = State::Size;
+    std::uint64_t left_ = 0;  // of the chunk being read
+    std::uint64_t body_ = 0;
+    std::uint64_t max_body_;
+    bool stopped_ = false;
+};
+
+template <typename Out>
+HttpChunkDecoder::Result HttpChunkDecoder::feed(const std::uint8_t* data, std::size_t size, std::size_t& used,
+                                                Out&& out) {
+    used = 0;
+    constexpr std::size_t kMaxLine = 1024;
+    for (;;) {
+        switch (state_) {
+        case State::Size: {
+            std::size_t end = 0;
+            if (!line(data, size, used, end)) return size - used > kMaxLine ? Result::Bad : Result::More;
+            if (end - used > kMaxLine) return Result::Bad;
+            std::uint64_t chunk = 0;
+            if (!chunk_size(data + used, end - used, chunk)) return Result::Bad;
+            used = end + 2;
+            if (chunk == 0) {
+                state_ = State::Trailer;
+            } else {
+                if (chunk > max_body_ - body_) return Result::Bad;
+                left_ = chunk;
+                state_ = State::Data;
+            }
+            break;
+        }
+        case State::Data: {
+            if (used == size) return Result::More;
+            const std::size_t take = static_cast<std::size_t>(std::min<std::uint64_t>(left_, size - used));
+            if (!out(data + used, take)) {
+                stopped_ = true;
+                return Result::Bad;
+            }
+            used += take;
+            left_ -= take;
+            body_ += take;
+            if (left_ == 0) state_ = State::DataEnd;
+            break;
+        }
+        case State::DataEnd:
+            if (size - used < 2) return Result::More;
+            if (data[used] != '\r' || data[used + 1] != '\n') return Result::Bad;
+            used += 2;
+            state_ = State::Size;
+            break;
+        case State::Trailer: {
+            // Trailer fields, if any, then an empty line.
+            std::size_t end = 0;
+            if (!line(data, size, used, end)) return size - used > kMaxLine ? Result::Bad : Result::More;
+            const bool empty = end == used;
+            used = end + 2;
+            if (empty) {
+                state_ = State::Done;
+                return Result::Done;
+            }
+            break;
+        }
+        case State::Done:
+            return Result::Done;
+        }
+    }
+}
 
 }  // namespace riftwii

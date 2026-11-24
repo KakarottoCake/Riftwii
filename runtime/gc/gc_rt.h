@@ -730,9 +730,10 @@ GC_FLAG_CHECK(gc_rt_context_fits, sizeof(struct gc_rt_context) <= GC_RT_CONTEXT_
  * hand-over, the projection callers the trace reports, and a crash's
  * registers. 16:9's matrix copy is the one exception, read once a
  * projection by the game's GXSetProjection, which reads MEM2 as well as
- * MEM1. None of it is set by the loader or differs between the
- * programs a game loads (gc_programs.h), so it needs no part in their
- * switch. */
+ * MEM1. None of it differs between the programs a game loads
+ * (gc_programs.h), so it needs no part in their switch, and the loader
+ * sets none of it but the MEM2 probe (mem2_code, written only with the
+ * gc/test/mem2code switch, docs/GCMEM2.md). */
 struct gc_rt_cold {
     uint32_t ipc[16] __attribute__((aligned(32)));      /* the IPC request */
     uint32_t vec[8] __attribute__((aligned(32)));       /* three vectors */
@@ -765,7 +766,16 @@ struct gc_rt_cold {
     uint32_t ar_alarm_queued;
     uint32_t ar_held;
     uint32_t ar_release_at;
+    /* Test builds (sd:/riftwii/gc/test/mem2code, docs/GCMEM2.md): a few
+     * instructions the loader puts here, in MEM2, that the first pad read
+     * calls once the game's OS is up, to prove MEM2 still runs code after
+     * OSInit. mem2_code_ran gets what they return (GC_MEM2_CODE_RAN); a
+     * MEM2 that no longer runs code stops at the crash screen instead (an
+     * ISI at this address). Zero words: no test. */
+    uint32_t mem2_code[7] __attribute__((aligned(32)));
+    uint32_t mem2_code_ran;
 };
+#define GC_MEM2_CODE_RAN 0x52554E21u /* "RUN!" */
 /* IOS reads and writes the four request buffers by DMA, whole 32-byte cache
  * lines each: every one starts on a line, and the struct is whole lines, so
  * nothing after it shares the last one (the loader places it 32-aligned). */

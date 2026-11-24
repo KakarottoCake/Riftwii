@@ -21,6 +21,7 @@
 #include "nandpermissions.hpp"
 #include "nanduse.hpp"
 #include "sharednandfind.hpp"
+#include "usbcatalog.hpp"
 #include "usbnand.hpp"
 #include "riftwii/bnr.hpp"
 #include "riftwii/checkedalloc.hpp"
@@ -28,6 +29,7 @@
 #include "riftwii/nandchannel.hpp"
 #include "riftwii/nandlist.hpp"
 #include "riftwii/sharednand.hpp"
+#include "riftwii/wadfile.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -458,6 +460,29 @@ bool read_small(const Location& source, std::size_t limit, std::vector<std::uint
     return ISFS_Close(file) >= 0 && ok;
 }
 
+// True when the card file reads back whole with `size` bytes and the SHA-1
+// the title's TMD names: only then is a shared content already in the
+// destination used instead of a fresh copy.
+bool card_file_matches(const std::string& path, std::uint64_t size, const Sha1Digest& expected) {
+    std::uint64_t listed_size = 0;
+    if (inspect({false, path}, listed_size) != Kind::File || listed_size != size) return false;
+    FILE* file = std::fopen(path.c_str(), "rb");
+    if (!file) return false;
+    constexpr std::size_t kChunk = 32 * 1024;
+    std::unique_ptr<std::uint8_t[]> buffer(new (std::nothrow) std::uint8_t[kChunk]);
+    Sha1 hash;
+    std::uint64_t read_total = 0;
+    bool ok = buffer != nullptr;
+    while (ok && read_total < size) {
+        const std::size_t want = static_cast<std::size_t>(std::min<std::uint64_t>(kChunk, size - read_total));
+        ok = std::fread(buffer.get(), 1, want, file) == want;
+        if (ok) hash.update(buffer.get(), want);
+        read_total += want;
+    }
+    const bool closed = std::fclose(file) == 0;
+    return ok && closed && hash.finish() == expected;
+}
+
 // Installation is checked through ES again at write time. The ownership of
 // a newly created data folder comes from this Wii's uid.sys, never the card.
 bool real_title_attributes(std::uint64_t title, Attributes& attributes) {
@@ -504,30 +529,57 @@ bool real_title_attributes(std::uint64_t title, Attributes& attributes) {
     return true;
 }
 
-std::string title_name(const std::string& root, std::uint64_t title) {
+std::string title_name(const Location& root, std::uint64_t title) {
+    const std::string code = emunand_title_code(title);
+    // The game-name list keys disc games by their 6-char ID (RSBE01): a
+    // save's 4-char code finds its game there too.
+    const TitleTable* names = LoadedTitles();
+    if (names == nullptr) {
+        // Not read yet (the manager opened before anything else asked for
+        // a name): one lookup reads the list, as the game pages do.
+        std::string ignored;
+        GameTitleListed(code, ignored);
+        names = LoadedTitles();
+    }
+    const std::string* listed = names ? names->find_code(code) : nullptr;
+    if (listed && !listed->empty()) return *listed + " (" + code + ")";
+    // Disc saves and add-on data have no channel banner. Avoid opening a
+    // TMD and content file for every save in a large copied NAND.
+    const std::uint32_t type = title >> 32;
+    if (type == 0x00010000 || type == 0x00010005) return code;
+
     EmuNandTitlePaths paths;
-    emunand_title_paths(title, paths);
+    if (!emunand_title_paths(title, paths)) return code;
     std::vector<std::uint8_t> bytes;
     TmdContents tmd;
     std::string why;
-    if (read_small({false, root + paths.title + "/content/title.tmd"}, 0x10000, bytes) &&
+    if (read_small(child(root, paths.title.substr(1) + "/content/title.tmd"), 0x10000, bytes) &&
         parse_tmd_contents(bytes.data(), bytes.size(), tmd, why) && tmd.title_id == title) {
         const TmdContent* banner = tmd_content_by_index(tmd, 0);
         if (banner) {
-            FILE* file = std::fopen((root + nand_content_path(title, banner->id)).c_str(), "rb");
-            if (file) {
-                std::uint8_t head[0x700];
-                const std::size_t got = std::fread(head, 1, sizeof(head), file);
-                std::fclose(file);
-                std::array<std::string, kBnrLanguages> names;
-                if (parse_banner_names(head, got, names)) {
-                    if (!names[1].empty()) return names[1];  // English, as the channel reader's fallback.
-                    for (const std::string& name : names) if (!name.empty()) return name;
+            const Location content = child(root, nand_content_path(title, banner->id).substr(1));
+            std::uint8_t head[0x700] ATTRIBUTE_ALIGN(32);
+            std::size_t got = 0;
+            if (content.real) {
+                const NandPath path(content.path);
+                const s32 file = ISFS_Open(path.text, ISFS_OPEN_READ);
+                if (file >= 0) {
+                    const s32 read = ISFS_Read(file, head, sizeof(head));
+                    if (read > 0) got = static_cast<std::size_t>(read);
+                    ISFS_Close(file);
                 }
+            } else if (FILE* file = std::fopen(content.path.c_str(), "rb")) {
+                got = std::fread(head, 1, sizeof(head), file);
+                std::fclose(file);
+            }
+            std::array<std::string, kBnrLanguages> names;
+            if (parse_banner_names(head, got, names)) {
+                if (!names[1].empty()) return names[1];  // English, as the channel reader's fallback.
+                for (const std::string& name : names) if (!name.empty()) return name;
             }
         }
     }
-    return emunand_title_text(title);
+    return code;
 }
 
 bool perform(const std::string& root, EmuNandAction action, std::uint64_t title, std::string& error) {
@@ -539,6 +591,10 @@ bool perform(const std::string& root, EmuNandAction action, std::uint64_t title,
         return false;
     }
     if (action == EmuNandAction::DeleteTitle || action == EmuNandAction::DeleteSave) {
+        if (emunand_delete_protected(title)) {
+            error = "system titles cannot be deleted";
+            return false;
+        }
         const Location source{false, root + (action == EmuNandAction::DeleteTitle ? paths.title : paths.data)};
         if (action == EmuNandAction::DeleteTitle) {
             // An earlier delete that removed the title but not its ticket:
@@ -736,7 +792,246 @@ bool perform(const std::string& root, EmuNandAction action, std::uint64_t title,
     return false;
 }
 
+// Writes `bytes` as `to` on a card: a temporary file in `temp_root`, then
+// renamed over the old one, as copy_file publishes.
+bool write_card_file(const Location& to, const std::vector<std::uint8_t>& bytes, const Location& temp_root,
+                     std::string& error) {
+    Location temp;
+    if (!temporary_path(temp_root, to.path, temp)) {
+        error = "there is no unused temporary filename";
+        return false;
+    }
+    FILE* file = std::fopen(temp.path.c_str(), "wb");
+    bool ok = file != nullptr;
+    if (ok && !bytes.empty()) ok = std::fwrite(bytes.data(), 1, bytes.size(), file) == bytes.size();
+    if (file && std::fclose(file) != 0) ok = false;
+    std::uint64_t ignored = 0;
+    const Kind existing = ok ? inspect(to, ignored) : Kind::Failed;
+    Location old;
+    bool moved_old = false;
+    if (ok && existing == Kind::File) {
+        ok = temporary_path(temp_root, to.path, old) && rename_one(to, old);
+        moved_old = ok;
+    } else if (ok && existing != Kind::Missing) {
+        ok = false;
+    }
+    if (ok) ok = rename_one(temp, to);
+    if (!ok && moved_old) rename_one(old, to);
+    if (!ok) {
+        if (file) remove_one(temp, false);
+        error = "could not write " + to.path;
+        return false;
+    }
+    if (moved_old) remove_one(old, false);
+    return true;
+}
+
+// A shared content the title needs: its file in the source, and the name
+// it takes in the destination (new, or one there already with its hash).
+struct SharedCopy {
+    std::string from;
+    std::string name;
+    std::uint64_t size = 0;
+    bool present = false;  // the destination has it already
+};
+
+bool read_content_map(const std::string& root, std::vector<SharedContent>& map, std::string& error) {
+    map.clear();
+    std::vector<std::uint8_t> bytes;
+    const Location file{false, root + "/shared1/content.map"};
+    std::uint64_t size = 0;
+    const Kind kind = inspect(file, size);
+    if (kind == Kind::Missing) return true;
+    if (kind != Kind::File || !read_small(file, 1u << 20, bytes) || bytes.size() % 28 != 0) {
+        error = "the shared-content list in " + root + " is damaged or could not be read";
+        return false;
+    }
+    map = parse_content_map(bytes.data(), bytes.size());
+    if (map.size() * 28 != bytes.size()) {
+        error = "the shared-content list in " + root + " is damaged";
+        return false;
+    }
+    return true;
+}
+
+bool copy_title(const std::string& from, const std::string& to, std::uint64_t title, bool& already_there,
+                std::string& error) {
+    EmuNandTitlePaths paths;
+    if (!emunand_title_paths(title, paths)) {
+        error = "system titles and unknown title types cannot be copied";
+        return false;
+    }
+    // Everything is read and checked first; nothing is written until then.
+    std::vector<std::uint8_t> tmd_bytes;
+    TmdContents tmd;
+    std::string why;
+    if (!read_small({false, from + paths.title + "/content/title.tmd"}, 0x10000, tmd_bytes) ||
+        !parse_tmd_contents(tmd_bytes.data(), tmd_bytes.size(), tmd, why) || tmd.title_id != title) {
+        error = "the title's TMD is missing or damaged, so its program can't be copied";
+        return false;
+    }
+    const Location destination{false, to + paths.title};
+    std::uint64_t size = 0;
+    const Kind there = inspect(destination, size);
+    if (there == Kind::Directory || there == Kind::File) {
+        already_there = true;
+        error = "the title is already in the destination; delete it there first to copy it again";
+        return false;
+    }
+    if (there != Kind::Missing) {
+        error = "the destination could not be read";
+        return false;
+    }
+    Tree tree;
+    if (!scan_tree({false, from + paths.title}, "", 0, false, title, tree, error)) return false;
+    const Location ticket{false, from + paths.ticket};
+    std::uint64_t ticket_size = 0;
+    if (inspect(ticket, ticket_size) != Kind::File || ticket_size == 0 || ticket_size > 0x10000) {
+        error = "the title's ticket is missing, so the copy could not start";
+        return false;
+    }
+    std::vector<SharedContent> from_map, to_map;
+    std::vector<SharedCopy> shared;
+    bool map_changed = false;
+    for (const TmdContent& content : tmd.contents) {
+        if ((content.type & 0x8000) == 0) continue;
+        if (from_map.empty() && !read_content_map(from, from_map, error)) return false;
+        if (shared.empty() && to_map.empty() && !read_content_map(to, to_map, error)) return false;
+        SharedCopy copy;
+        const SharedContent* known = find_shared_content(to_map, content.sha1);
+        if (known) {
+            // Listed there: used as it is only when its file reads back whole.
+            copy.name = known->name;
+            copy.present = card_file_matches(to + "/shared1/" + copy.name + ".app", content.size, content.sha1);
+        }
+        if (!copy.present) {
+            const SharedContent* source = find_shared_content(from_map, content.sha1);
+            if (!source) {
+                error = "a shared content the title uses is missing from the source";
+                return false;
+            }
+            copy.from = from + "/shared1/" + source->name + ".app";
+            if (inspect({false, copy.from}, copy.size) != Kind::File || copy.size != content.size) {
+                error = "a shared content the title uses could not be read";
+                return false;
+            }
+        }
+        if (!known) {
+            copy.name = next_shared_name(to_map);
+            if (copy.name.size() != 8 || !try_push_back(to_map, SharedContent{copy.name, content.sha1})) {
+                error = "the destination has too many shared contents";
+                return false;
+            }
+            map_changed = true;
+        }
+        if (!try_push_back(shared, copy)) {
+            error = "there is not enough memory to list the shared contents";
+            return false;
+        }
+    }
+    // ES lets a title use its save folder by this list's entry for it.
+    const Location uid{false, to + "/sys/uid.sys"};
+    std::vector<std::uint8_t> uid_bytes;
+    const Kind uid_kind = inspect(uid, size);
+    if (uid_kind == Kind::File && !read_small(uid, 12 * 8192, uid_bytes)) {
+        error = "the destination's title ownership list could not be read";
+        return false;
+    }
+    if (uid_kind != Kind::File && uid_kind != Kind::Missing) {
+        error = "the destination's title ownership list could not be read";
+        return false;
+    }
+    if (!add_wad_title_uid(uid_bytes, title, error)) return false;
+
+    // The folders as they are mounted here: the caller's lines name them.
+    logf("Emulated NAND: copying %s: %u files and folders, %llu bytes, %u shared content(s).\n",
+         emunand_title_text(title).c_str(), static_cast<unsigned>(tree.nodes.size()),
+         static_cast<unsigned long long>(tree.bytes), static_cast<unsigned>(shared.size()));
+    // The title's own folder first, then what makes it usable. Cut short,
+    // the half-copied title is taken out again; a shared content copied
+    // before that stays unused, harmless, until the list names it.
+    if (!copy_tree({false, from + paths.title}, destination, tree, Attributes{}, error)) {
+        std::string ignored_error;
+        Tree partial;
+        if (scan_tree(destination, "", 0, false, title, partial, ignored_error)) delete_tree(destination, partial, ignored_error);
+        return false;
+    }
+    const Location ticket_copy{false, to + paths.ticket};
+    std::uint64_t ignored_size = 0;
+    const bool ticket_was_there = inspect(ticket_copy, ignored_size) == Kind::File;
+    bool ticket_copied = false;
+    // Best effort: a drive taken out keeps what was written to it.
+    const auto undo = [&](const std::string& why_failed) {
+        error = why_failed;
+        std::string ignored_error;
+        delete_tree(destination, tree, ignored_error);
+        if (ticket_copied && !ticket_was_there) remove_one(ticket_copy, false);
+        return false;
+    };
+    const std::string ticket_dir = ticket_copy.path.substr(0, ticket_copy.path.find_last_of('/'));
+    if (!make_card_dirs(ticket_dir) ||
+        !copy_file(ticket, ticket_copy, ticket_size, {false, ticket_dir}, Attributes{}, error))
+        return undo(error.empty() ? "the ticket could not be copied" : error);
+    ticket_copied = true;
+    if (!shared.empty() && !make_card_dirs(to + "/shared1")) return undo("the shared-content folder could not be made");
+    for (const SharedCopy& copy : shared) {
+        if (copy.present) continue;
+        if (!copy_file({false, copy.from}, {false, to + "/shared1/" + copy.name + ".app"}, copy.size,
+                       {false, to + "/shared1"}, Attributes{}, error))
+            return undo(error);
+    }
+    if (map_changed) {
+        const std::vector<std::uint8_t> encoded = serialize_content_map(to_map);
+        if (encoded.size() != to_map.size() * 28 ||
+            !write_card_file({false, to + "/shared1/content.map"}, encoded, {false, to + "/shared1"}, error))
+            return undo(error.empty() ? "the shared-content list could not be written" : error);
+    }
+    if (!make_card_dirs(to + "/sys") || !write_card_file(uid, uid_bytes, {false, to + "/sys"}, error))
+        return undo(error.empty() ? "the title ownership list could not be written" : error);
+    return true;
+}
+
 }  // namespace
+
+std::string emunand_copy_destination(const std::string& folder) {
+    std::string checked;
+    if (!emunand_root(folder, checked)) return std::string();
+    // The folder Home lists channels from when it is on the SD card, else
+    // sd:/nands/01.
+    const SharedNandLookup channels = look_up_channel_nand();
+    const bool channels_on_sd = channels.usable && channels.folder.compare(0, 4, "sd:/") == 0;
+    const std::string sd_channels = channels_on_sd ? channels.folder : std::string(kSdSharedNand);
+    if (shared_nand_on_usb(checked)) return sd_channels;
+    if (checked.compare(0, 4, "sd:/") != 0) return std::string();
+    // Another folder on the card (WiiFlow's nands/default, one a PC tool
+    // filled): into that folder. That one itself: to the USB drive.
+    return checked != sd_channels ? sd_channels : std::string(kUsbSharedNand);
+}
+
+bool emunand_manager_copy_title(const std::string& from, const std::string& to, std::uint64_t title,
+                                bool& already_there, std::string& error) {
+    error.clear();
+    already_there = false;
+    logf("Emulated NAND: asked to copy title %s from %s to %s.\n", emunand_title_text(title).c_str(), from.c_str(),
+         to.c_str());
+    std::string from_root, to_root;
+    bool ok = emunand_root(from, from_root) && emunand_root(to, to_root) && from_root != to_root;
+    if (!ok) error = "the two emulated NAND folders are not safe to use";
+    // One drive's partition is mounted for writing at a time: the other
+    // folder has to be on the SD card, which always is.
+    if (ok && shared_nand_on_usb(from_root) && shared_nand_on_usb(to_root)) {
+        error = "both folders are on the USB drive; copy through the SD card";
+        ok = false;
+    }
+    CardRoot source;
+    CardRoot target;
+    if (ok) ok = source.Open(from_root, error) && target.Open(to_root, error);
+    if (ok) ok = copy_title(source.path, target.path, title, already_there, error);
+    if (ok) logf("Emulated NAND: copied title %s to %s; the original stays in %s.\n", emunand_title_text(title).c_str(),
+                 to.c_str(), from.c_str());
+    else logf("Emulated NAND: could not copy title %s because %s.\n", emunand_title_text(title).c_str(), error.c_str());
+    return ok;
+}
 
 std::vector<std::string> emunand_manager_folders() {
     std::vector<std::string> folders;
@@ -861,7 +1156,7 @@ bool emunand_manager_list(const std::string& folder, std::vector<EmuNandTitle>& 
             EmuNandTitlePaths paths;
             emunand_title_paths(title, paths);
             if (inspect({false, root.path + paths.title}, ignored) != Kind::Directory) continue;
-            if (titles.size() >= kMaxTitles || !try_push_back(titles, EmuNandTitle{title, title_name(root.path, title), true, false})) {
+            if (titles.size() >= kMaxTitles || !try_push_back(titles, EmuNandTitle{title, {}, true, false})) {
                 error = "there are too many titles, or not enough memory to list them";
                 return false;
             }
@@ -885,7 +1180,7 @@ bool emunand_manager_list(const std::string& folder, std::vector<EmuNandTitle>& 
             EmuNandTitlePaths paths;
             emunand_title_paths(title, paths);
             if (listed || inspect({false, root.path + paths.ticket}, ignored) != Kind::File) continue;
-            EmuNandTitle entry{title, emunand_title_text(title), false, false};
+            EmuNandTitle entry{title, {}, false, false};
             entry.ticket_only = true;
             if (titles.size() >= kMaxTitles || !try_push_back(titles, entry)) {
                 error = "there are too many titles, or not enough memory to list them";
@@ -911,7 +1206,7 @@ bool emunand_manager_list(const std::string& folder, std::vector<EmuNandTitle>& 
                 auto found = std::find_if(titles.begin(), titles.end(), [&](const EmuNandTitle& entry) { return entry.id == ids[index]; });
                 if (found != titles.end()) found->real = true;
                 else if (titles.size() < kMaxTitles && !try_push_back(titles,
-                    EmuNandTitle{ids[index], emunand_title_text(ids[index]), false, true})) {
+                    EmuNandTitle{ids[index], {}, false, true})) {
                     std::free(ids);
                     error = "there is not enough memory to list the Wii's titles";
                     return false;
@@ -919,6 +1214,15 @@ bool emunand_manager_list(const std::string& folder, std::vector<EmuNandTitle>& 
             }
         }
         std::free(ids);
+    }
+    for (EmuNandTitle& title : titles) {
+        title.name = emunand_title_code(title.id);
+        if (title.emulated || title.ticket_only) {
+            title.name = title_name({false, root.path}, title.id);
+        }
+        if (title.real && nand.open && title.name == emunand_title_code(title.id)) {
+            title.name = title_name({true, ""}, title.id);
+        }
     }
     std::sort(titles.begin(), titles.end(), [](const EmuNandTitle& a, const EmuNandTitle& b) { return a.id < b.id; });
     return true;

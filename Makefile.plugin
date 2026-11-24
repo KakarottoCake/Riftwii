@@ -33,7 +33,7 @@ CXX     := $(PREFIX)g++
 PYTHON  ?= python3
 LIBOGC_INC ?= $(DEVKITPRO)/libogc/include
 
-PLUGINS := selftest gamecube ctgpr ctgpupd
+PLUGINS := selftest gamecube ctgpr ctgpupd appstore
 .DEFAULT_GOAL := all
 OUT     := build-plugins
 SDDIR   := $(OUT)/plugins
@@ -75,6 +75,13 @@ ctgpupd_SRC := src/ctgpr/ctgpupdate.cpp src/ctgpr/ctgphashupdate.cpp src/ctgpr/c
                src/ctgpr/ctgptables.cpp src/ctgpr/ctgpefa.cpp src/ctgpr/ctgpdsa.cpp src/disc/wiicrypt.cpp src/disc/fst.cpp \
                src/data/sha1.cpp
 ctgpupd_CXX := yes
+
+# The app store (docs/APPSTORE.md): its pages and downloads, the list's
+# reader and the store's rules, the zip and PNG readers and SHA-256. zlib's
+# header for the inflater, which is the loader's (rwp_host's zlib_*).
+appstore_SRC := src/net/applist.cpp src/net/appcatalog.cpp src/fs/zipread.cpp src/art/themepack.cpp src/art/pngdecode.cpp src/art/canvas.cpp src/art/storeicons.cpp                 src/data/sha256.cpp src/data/textlines.cpp
+appstore_CXX := yes
+appstore_CXXFLAGS := -I$(DEVKITPRO)/portlibs/ppc/include
 
 # What libstdc++'s headers leave out of line for std::map and no plugin
 # source defines: the red-black tree's balancing, libstdc++'s tree.o, taken

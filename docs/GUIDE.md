@@ -548,7 +548,14 @@ USB drive: choose another Saves option on its page.
   with no interlace flicker and the flicker filter off (European Wii games switch to 60 Hz for it). Games that draw fewer lines keep their own
   picture. In Settings it also applies to GameCube games whose Picture
   lines are on *Default*. Some TVs and capture devices don't take
-  240p.
+  240p. Settings' choice also sets the colour signal of GameCube games:
+  a US or Japanese game goes out as *PAL 60 Hz* when you pick PAL 60 or
+  PAL 50 (a 60 Hz game can't run at 50), or *The console's* on a European
+  Wii, for a TV that shows no colour or the wrong colours with NTSC; 480p
+  stays NTSC. 240p keeps PAL 60's colours on a console set to PAL and,
+  for GameCube games, when you pick PAL 60 or PAL 50: an RGB SCART cable
+  shows an NTSC picture red. A European GameCube game at 60 Hz (its Game speed)
+  goes out as PAL 60, or NTSC if you pick NTSC; at 50 Hz it stays PAL.
 - **Region video fix** (off unless you turn it on) is for a US or
   Japanese game that shows no picture on a console from another region:
   the game is told the video hardware matches its region.
@@ -910,7 +917,9 @@ in an emulated NAND keeps its saves in that folder.
 To play your own backed-up `.wad` files, put them in **`sd:/wiiware/`**
 or **`usb:/wiiware/`**. RiftWii also reads numbered USB partitions
 (`usb1:/wiiware/`, `usb2:/wiiware/`, and so on), on FAT32 or NTFS, and one
-level of subfolders. The games appear on Home with their own names,
+level of subfolders. WADs in your **Game folders** (Settings > Drives) are
+found too, so they can sit beside your other games (`sd:/roms/wiiware`).
+The games appear on Home with their own names,
 banners and icons. An SD card is needed even when the WAD is on USB.
 
 Press **Play**. The first start shows **Getting <game> ready, first time
@@ -933,7 +942,7 @@ source worked. Korean-key and vWii-key WADs are not supported by this key reader
 The regular d2x channel-launch requirements still apply.
 
 The old way also works: put `.wad` files in `sd:/wad/` (or `sd:/wads/`)
-and pick **Settings > Drives > Install WAD files**. These copies stay on
+and pick **Settings > Games > Install WAD files**. These copies stay on
 Home independently of the WAD. This installs into the same emulated NAND.
 
 For a game the Wii Menu moved to the SD card, RiftWii looks in
@@ -1943,8 +1952,8 @@ launch:
   title screen, where RiftWii keeps the code for in-game screenshots,
   the GameCube adapter and crash recording. It gets none of them, and
   *Return to RiftWii* goes to the Wii Menu instead. Its ordinary cheats
-  stay off too, and so do those of The Complete Saga, Indiana Jones 1
-  and 2, Batman, Ghostbusters: The Video Game and 007 Quantum of Solace,
+  stay off too, and so do those of LEGO Indiana Jones 1 and 2, LEGO
+  Batman, Ghostbusters: The Video Game and 007 Quantum of Solace,
   which RiftWii starts the same way: its hooks then use the memory the
   cheat list would go in, and the game starts without cheats (boot.log:
   "Codes are off"). A code build whose gameconfig.txt moves the list
@@ -2204,11 +2213,17 @@ from USB Loader GX's settings, and folders found under `sd:/nands` and
 `usb:/nands`. USB changes need a FAT32 partition. A folder that is missing
 cannot be opened.
 
-Each title opens its save tools. Installed channels use their banner name
-when it can be read; otherwise the page shows the full title ID. Titles on
-the Wii are also listed so their saves can be copied into the emulated
-NAND. System software, including the Wii Menu and IOS, is hidden and cannot
-be deleted. **Delete emulated title** removes that title's program, save
+The list groups disc game saves, channels, system channels, hidden titles
+and other titles under separate headings. Each row shows whether it is in
+the emulated NAND, the Wii's memory or both. Names come from the game-name
+list or the channel's banner; otherwise the four-character code is shown.
+A busy window stays visible while the titles and their names are read.
+
+Each title opens its save tools. Titles on the Wii are also listed so their
+saves can be copied into the emulated NAND. The Wii Menu and IOS stay hidden.
+System channels, hidden titles and console tools such as the Wii Shop and
+Wii U transfer tools have no delete actions, with a reason on their page.
+**Delete emulated title** removes that title's program, save
 and ticket from the chosen folder. It keeps shared program files used by
 other titles. **Delete emulated save** removes only its save. Both ask first
 and cannot be undone. A WAD still in the `wad` folder remains available on
@@ -2230,6 +2245,27 @@ from the Wii uses `RFL_DB.dat.wii.bak0`. Later backups use the next free
 number. Writing Miis to the Wii asks twice and requires a database the
 same size as the Wii's current one. The files are copied as they are;
 RiftWii does not edit individual Miis or repair damaged databases.
+
+**Copy to <folder>** copies the whole title to another emulated NAND:
+its program, save and ticket, the shared contents it uses and its entry in
+the NAND's ownership list (`sys/uid.sys`). The original stays where it
+was. RiftWii plays WiiWare and Virtual Console games only from the channel
+folder on the SD card (USB Loader GX's, when that is on the SD card, else
+`sd:/nands/01`), so a title in an emulated NAND on the USB drive, or in
+another folder on the card such as WiiFlow's `nands/default`, is copied
+there; a title already in the channel folder is copied to `usb:/nands/01`
+(FAT32). An emulated NAND at the very root of a drive (ModMii's SNEEK
+builds) is not listed. A title already in the destination is refused:
+delete it there first to copy it again. A copy cut short is removed from
+the destination again as far as possible; if the drive was taken out
+during the copy, part of the title can stay there. Put the drive back,
+open the destination folder in this manager and delete the title before
+copying it again. Home shows the copy after the drives are read again.
+A system channel, hidden title or console tool (those without delete
+actions) can't be removed here: on a PC, delete its folder
+`<destination>/title/<type>/<ID>` and its ticket
+`<destination>/ticket/<type>/<ID>.tik` (the 8-digit halves of its title
+ID, as the title's page shows it), then copy it again.
 
 **Remove Wii settings** shows whether the emulated folder contains
 `shared2/sys/SYSCONF` and `title/00000001/00000002/data/setting.txt`.

@@ -17,6 +17,8 @@
 #include "riftwii/vsdbuild.hpp"
 #include "riftwii/vsdparts.hpp"
 #include "riftwii_vsd_bin.h"
+#include "sdfile.hpp"
+#include "textfile.hpp"
 #include "umsdev.hpp"
 #include "usbcatalog.hpp"
 
@@ -109,6 +111,54 @@ std::uint32_t sd_image_data_first(const std::string& first_part) {
     }
     std::fclose(f);
     return first <= 0xFFFFFFFFull ? static_cast<std::uint32_t>(first) : 0u;
+}
+
+// More pieces than this and the list goes to a file on the card (a paged
+// card): 128 pieces are 1.5 KB of the game's memory, about what the index
+// and its two page slots take. Project+ in a 4234-piece image with the
+// GameCube adapter beside it went black in Brawl's MEM2 (50 KB of list).
+constexpr std::size_t kPagedAbove = 128;
+
+// `path`'s bytes are `bytes` already (an earlier launch wrote them): no
+// write, so the card is not written at every start.
+bool file_holds(const std::string& path, const std::vector<std::uint8_t>& bytes) {
+    FILE* f = std::fopen(path.c_str(), "rb");
+    if (f == nullptr) return false;
+    std::vector<std::uint8_t> now(bytes.size() + 1);
+    const std::size_t got = std::fread(now.data(), 1, now.size(), f);
+    std::fclose(f);
+    return got == bytes.size() && std::memcmp(now.data(), bytes.data(), bytes.size()) == 0;
+}
+
+// Writes the image's piece list beside it on the SD card and fills the
+// index of its pages, read back raw (as the blob reads it) to be sure the
+// card holds it. False with `why`: the list then stays in the game's
+// memory, as before.
+bool write_piece_list(VsdImage& image, std::string& why) {
+    const std::string path = image.path + ".pieces";
+    const std::vector<std::uint8_t> bytes = vsd_piece_list(image.extents);
+    if (!file_holds(path, bytes)) {
+        if (!WriteWholeFile(path, bytes.data(), bytes.size())) {
+            why = "it could not be written to " + path;
+            return false;
+        }
+        // The raw lookups below must see the new file, not what they cached.
+        forget_sd_layout();
+    }
+    Fat32File file;
+    if (!resolve_sd_file(path, file, why)) return false;
+    if (file.entry.size != bytes.size()) {
+        why = path + " has " + std::to_string(file.entry.size) + " bytes, not " + std::to_string(bytes.size());
+        return false;
+    }
+    std::vector<std::uint8_t> back(bytes.size());
+    if (!read_sd_file(file, 0, back.data(), back.size()) || back != bytes) {
+        why = path + " did not read back as written";
+        return false;
+    }
+    if (!vsd_piece_list_index(image.extents, file.fragments, image.pages, why)) return false;
+    image.piece_list = path;
+    return true;
 }
 
 }  // namespace
@@ -219,6 +269,22 @@ bool find_vsd_image(const std::string& name, VsdImage& out, std::string& why) {
         out.readahead_anchor =
             sd_image_data_first(stat(out.path.c_str(), &st) == 0 ? out.path : vsd_part_name(out.path, 1));
     }
+    // A scattered image's list goes to the card. On the USB drive it stays
+    // in memory: the menu cannot make a new file there.
+    if (out.extents.size() > kPagedAbove && !out.on_usb) {
+        std::string list_why;
+        if (write_piece_list(out, list_why)) {
+            logf("Virtual SD card: its %u pieces are listed in %s (%u page(s)); the game keeps %u bytes of it\n",
+                 static_cast<unsigned>(out.extents.size()), out.piece_list.c_str(),
+                 static_cast<unsigned>(out.pages.size()),
+                 static_cast<unsigned>(rtvsd_table_bytes(1, out.extents.size())));
+        } else {
+            out.pages.clear();
+            logf("Virtual SD card: its %u pieces stay in the game's memory (%u bytes): the list file failed: %s\n",
+                 static_cast<unsigned>(out.extents.size()),
+                 static_cast<unsigned>(rtvsd_extent_bytes(out.extents.size())), list_why.c_str());
+        }
+    }
     out.enabled = true;
     return true;
 }
@@ -295,7 +361,8 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
     static_assert(RTVSD_RA_MAX_SECTORS * RTVSD_SECTOR_BYTES <= VSD_BOUNCE_BYTES_SD &&
                       RTVSD_RA_MAX_SECTORS * RTVSD_SECTOR_BYTES <= VSD_BOUNCE_BYTES_USB,
                   "the largest read-ahead window must fit the bounce buffer (else read-ahead turns off)");
-    out.state_bytes = align_up(vsd_state_bytes(image.extents.size(), bounce_bytes));
+    const bool paged = !image.pages.empty();
+    out.state_bytes = align_up(vsd_state_bytes(paged, image.extents.size(), bounce_bytes));
     out.code_in_mem2 = mem1_veneers != 0;
     out.veneers = mem1_veneers;
     out.data_bytes = out.state_bytes + (out.code_in_mem2 ? out.code_bytes : 0);
@@ -378,13 +445,29 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
     st->fd = device.fd;
     st->sdhc = device.sdhc ? 1 : 0;
     st->rca = device.rca;
-    st->bounce = out.state_base + vsd_bounce_offset(image.extents.size());
+    st->bounce = out.state_base + vsd_bounce_offset(paged, image.extents.size());
     st->bounce_sectors = bounce_bytes / RTVSD_SECTOR_BYTES;
     st->card.sectors = image.sectors;
     st->card.extent_count = static_cast<std::uint32_t>(image.extents.size());
-    for (std::size_t i = 0; i < image.extents.size(); ++i) rtvsd_extents(&st->card)[i] = image.extents[i];
+    if (paged) {
+        // The pieces themselves are checked here, on a card with the whole
+        // table (the blob checks only the index): the list file holds them.
+        std::vector<std::uint32_t> whole((sizeof(rtvsd_card) + rtvsd_extent_bytes(image.extents.size())) / 4 + 1);
+        rtvsd_card* check = reinterpret_cast<rtvsd_card*>(whole.data());
+        check->sectors = image.sectors;
+        check->extent_count = st->card.extent_count;
+        for (std::size_t i = 0; i < image.extents.size(); ++i) rtvsd_extents(check)[i] = image.extents[i];
+        if (rtvsd_reset(check) != 0 || image.pages.size() != rtvsd_page_count(image.extents.size())) {
+            why = "the image's pieces do not cover it";
+            return false;
+        }
+        st->card.paged = 1;
+        for (std::size_t i = 0; i < image.pages.size(); ++i) rtvsd_pages(&st->card)[i] = image.pages[i];
+    } else {
+        for (std::size_t i = 0; i < image.extents.size(); ++i) rtvsd_extents(&st->card)[i] = image.extents[i];
+    }
     if (rtvsd_reset(&st->card) != 0) {
-        why = "the image's pieces do not cover it";
+        why = paged ? "the index of the image's piece list is out of order" : "the image's pieces do not cover it";
         return false;
     }
     vsd_card_registers(st->card.sectors, st->card.sdhc != 0, st->card.cid, st->card.csd);

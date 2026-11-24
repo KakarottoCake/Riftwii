@@ -10,6 +10,19 @@
 
 /* ---- The card ----------------------------------------------------------- */
 
+/* A paged card's index: page 0 starts at sector 0, the others rise, each
+ * inside the image. */
+static int index_ok(const struct rtvsd_card* card) {
+    const uint32_t pages = rtvsd_page_count(card->extent_count);
+    uint32_t i;
+    if (rtvsd_pages(card)[0].file_sector != 0) return 0;
+    for (i = 1; i < pages; ++i) {
+        const uint32_t first = rtvsd_pages(card)[i].file_sector;
+        if (first <= rtvsd_pages(card)[i - 1u].file_sector || first >= card->sectors) return 0;
+    }
+    return 1;
+}
+
 int rtvsd_reset(struct rtvsd_card* card) {
     uint32_t i, next = 0;
     card->sdhc = card->sectors > RTVSD_SDSC_MAX_SECTORS ? 1u : 0u;
@@ -17,7 +30,12 @@ int rtvsd_reset(struct rtvsd_card* card) {
     card->app_cmd = 0;
     card->bus_width = 0;
     for (i = 0; i < 64u; ++i) card->hcr[i] = 0;
+    for (i = 0; i < RTVSD_PAGE_SLOTS; ++i) card->page_held[i] = RTVSD_NO_PAGE;
+    card->page_last = 0;
+    card->page_coming = RTVSD_NO_PAGE;
+    card->page_coming_slot = 0;
     if (card->sectors == 0 || card->extent_count == 0 || card->extent_count > RTVSD_MAX_EXTENTS) return -1;
+    if (card->paged) return index_ok(card) ? 0 : -1;
     for (i = 0; i < card->extent_count; ++i) {
         const struct rtvsd_extent* e = &rtvsd_extents(card)[i];
         if (e->file_sector != next || e->count == 0 || e->device_sector + e->count < e->device_sector) return -1;
@@ -27,40 +45,110 @@ int rtvsd_reset(struct rtvsd_card* card) {
     return next >= card->sectors ? 0 : -1;
 }
 
-/* The extent holding `sector` (inside the image), by binary search. */
-static const struct rtvsd_extent* extent_of(const struct rtvsd_card* card, uint32_t sector) {
-    uint32_t lo = 0, hi = card->extent_count;
-    const struct rtvsd_extent* e;
+/* ---- A paged card's piece list ------------------------------------------- */
+
+/* The page whose pieces hold `sector` (inside the image), by binary search
+ * of the index. */
+static uint32_t page_of(const struct rtvsd_card* card, uint32_t sector) {
+    uint32_t lo = 0, hi = rtvsd_page_count(card->extent_count);
     while (hi - lo > 1u) {
         const uint32_t mid = lo + ((hi - lo) >> 1);
-        if (rtvsd_extents(card)[mid].file_sector <= sector) lo = mid;
+        if (rtvsd_pages(card)[mid].file_sector <= sector) lo = mid;
         else hi = mid;
     }
-    e = &rtvsd_extents(card)[lo];
-    if (sector < e->file_sector || sector - e->file_sector >= e->count) return 0;
-    return e;
+    return lo;
+}
+
+/* The page's bytes are the device's, big-endian whatever the CPU. */
+static uint32_t load_be32(const uint8_t* p) {
+    return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) | (uint32_t)p[3];
+}
+
+static void page_extent(const uint8_t* page, uint32_t i, struct rtvsd_extent* out) {
+    const uint8_t* p = page + i * 12u;
+    out->file_sector = load_be32(p);
+    out->device_sector = load_be32(p + 4);
+    out->count = load_be32(p + 8);
+}
+
+uint32_t rtvsd_page_wanted(struct rtvsd_card* card, uint32_t sector, uint32_t* device_sector, uint8_t** slot_address) {
+    uint32_t page, slot, spare;
+    if (!card->paged || sector >= card->sectors) return 0;
+    page = page_of(card, sector);
+    for (slot = 0; slot < RTVSD_PAGE_SLOTS; ++slot) {
+        if (card->page_held[slot] == page) {
+            card->page_last = slot;
+            return 0;
+        }
+    }
+    /* Not the slot used last: a request's other lookup may need its page. */
+    spare = (card->page_last + 1u) % RTVSD_PAGE_SLOTS;
+    card->page_held[spare] = RTVSD_NO_PAGE;
+    card->page_coming = page;
+    card->page_coming_slot = spare;
+    card->page_last = spare;
+    *device_sector = rtvsd_pages(card)[page].device_sector;
+    *slot_address = rtvsd_page_slot(card, spare);
+    return 1;
+}
+
+void rtvsd_page_arrived(struct rtvsd_card* card) {
+    if (card->page_coming_slot < RTVSD_PAGE_SLOTS) card->page_held[card->page_coming_slot] = card->page_coming;
+}
+
+/* The extent holding `sector` (inside the image), by binary search, in
+ * `*out`: from the table, or from the slot holding its page. 0 when there
+ * is none (a paged card whose page is not held). */
+static int extent_of(const struct rtvsd_card* card, uint32_t sector, struct rtvsd_extent* out) {
+    if (!card->paged) {
+        uint32_t lo = 0, hi = card->extent_count;
+        while (hi - lo > 1u) {
+            const uint32_t mid = lo + ((hi - lo) >> 1);
+            if (rtvsd_extents(card)[mid].file_sector <= sector) lo = mid;
+            else hi = mid;
+        }
+        /* Field by field: a struct copy could become a memcpy call, which the blob has none of. */
+        out->file_sector = rtvsd_extents(card)[lo].file_sector;
+        out->device_sector = rtvsd_extents(card)[lo].device_sector;
+        out->count = rtvsd_extents(card)[lo].count;
+    } else {
+        const uint32_t page = page_of(card, sector);
+        const uint32_t before = page * RTVSD_PAGE_EXTENTS;
+        const uint32_t in_page = card->extent_count - before < RTVSD_PAGE_EXTENTS ? card->extent_count - before
+                                                                                  : RTVSD_PAGE_EXTENTS;
+        const uint8_t* bytes = 0;
+        uint32_t slot, lo = 0, hi = in_page;
+        for (slot = 0; slot < RTVSD_PAGE_SLOTS; ++slot)
+            if (card->page_held[slot] == page) bytes = rtvsd_page_slot(card, slot);
+        if (bytes == 0) return 0;
+        while (hi - lo > 1u) {
+            const uint32_t mid = lo + ((hi - lo) >> 1);
+            if (load_be32(bytes + mid * 12u) <= sector) lo = mid;
+            else hi = mid;
+        }
+        page_extent(bytes, lo, out);
+    }
+    return sector >= out->file_sector && sector - out->file_sector < out->count;
 }
 
 uint32_t rtvsd_map(const struct rtvsd_card* card, uint32_t sector, uint32_t count, uint32_t* device_sector) {
-    const struct rtvsd_extent* e;
+    struct rtvsd_extent e;
     uint32_t into, run;
     if (count == 0 || sector >= card->sectors) return 0;
     if (count > card->sectors - sector) count = card->sectors - sector;
-    e = extent_of(card, sector);
-    if (e == 0) return 0;
-    into = sector - e->file_sector;
-    run = e->count - into;
-    *device_sector = e->device_sector + into;
+    if (!extent_of(card, sector, &e)) return 0;
+    into = sector - e.file_sector;
+    run = e.count - into;
+    *device_sector = e.device_sector + into;
     return run < count ? run : count;
 }
 
 uint32_t rtvsd_piece(const struct rtvsd_card* card, uint32_t sector, uint32_t* first) {
-    const struct rtvsd_extent* e;
+    struct rtvsd_extent e;
     if (sector >= card->sectors) return 0;
-    e = extent_of(card, sector);
-    if (e == 0) return 0;
-    *first = e->file_sector;
-    return e->count;
+    if (!extent_of(card, sector, &e)) return 0;
+    *first = e.file_sector;
+    return e.count;
 }
 
 /* Host controller registers: bytes, little-endian within a register as

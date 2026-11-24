@@ -200,12 +200,19 @@ have neither the banner nor this KPAD layout, and keep the way back.
 **Packs that add GameCube controllers** (#352). A game that reads only
 Wii Remotes has no `PADRead`, so the adapter has nothing to hook. A mod
 pack can give it one, and this is the supported way to do it: the pack
-adds a text (code) section to the game's main.dol with its own `PADRead`
-(only text sections are searched), and turns the GameCube controller
-into what the game reads (Super Sentai Battle:
-Ranger Cross's pad pack hooks the game's `KPADReadEx` call and reports a
-Wii Remote with a Nunchuk). RiftWii searches the main.dol that actually
-starts, so the pack's own copy is searched like a game's. For the search
+brings its own `PADRead` and turns the GameCube controller into what the
+game reads (Super Sentai Battle: Ranger Cross's pad pack hooks the game's
+`KPADReadEx` call and reports a Wii Remote with a Nunchuk). The `PADRead`
+can be in a text (code) section the pack adds to the game's main.dol:
+RiftWii searches the main.dol that actually starts, so the pack's own
+copy is searched like a game's. Or a plain `<memory>` patch can write it
+(an offset with a value or valuefile; search and ocarina patches have no
+address until they are applied, so they aren't searched). The patches go
+in after the search, so it reads their bytes where they will be written
+(`PatchedCode`, `find_pad_symbols_with_patches`). A `PADRead`
+from a patch wins over one the game has itself: the pack means its own
+to be read, and the game's may be an SDK copy it never calls. The hooks
+go in after the patches, so they find it in place. For the search
 (`find_pad_symbols`, `src/patching/symsearch.cpp`) to take a function for
 `PADRead`, it must be a framed function (`stwu r1`, then `mflr r0`) with
 at least three of the SDK's "no controller in this port" paths, each
@@ -225,8 +232,9 @@ controller's way back (L, R, Z and Start held two seconds, unless Settings >
 Games > Leaving a game is HOME only), since the
 game's `OSReturnToMenu`, `OSSleepThread` and IPC submit routine are
 found as in any game. `TestPackPadRead` (`tests/gcad_tests.cpp`) keeps a
-routine of this shape found, so a later change to the search fails the
-tests instead of quietly breaking these packs.
+routine of this shape found, and `TestPadSearchInPatches` one written by
+a memory patch, so a later change to the search fails the tests instead
+of quietly breaking these packs.
 
 **Screenshot hook** (`runtime/shot/`, `runtime/rtshot.c`). With In-game
 screenshots on, a third blob hooks the game's `IOS_IoctlvAsync` and, when
@@ -265,7 +273,7 @@ exception leaves nothing.
 **Virtual SD card** (`runtime/vsd/`, `runtime/rtvsd.c`, `wii/hooks/vsdhook.cpp`).
 When the code builds launched are inside `riftwii/sd.raw` (a FAT32 card
 image on the SD card or the USB drive; `wii/hooks/vsdimage.cpp` lists them
-through a read-only `vsd:` mount of the image), a blob of about 9 KB
+through a read-only `vsd:` mount of the image), a blob of about 10 KB
 hooks the game's IOS_Open, IOS_Close, IOS_Ioctl and IOS_Ioctlv, sync and
 async (`find_ipc_api`). An open of `/dev/sdio/slot0` gets a handle of
 the blob's own, and everything on it is answered by a card model
@@ -281,8 +289,16 @@ and a call on any other handle goes straight back to the game's function;
 the card's CID and CSD are built by the loader (`vsd_card_registers`). The
 code and its state (the image's extent table, 12 bytes a piece of the
 image file on its device, up to 16384 pieces: sized to the image, so three
-pieces cost 36 bytes and an image scattered by a well-used card up to 192
-KB, found by a binary search; then the bounce buffer, sized by the loader
+pieces cost 36 bytes, found by a binary search; an image on the SD card in
+more than 128 pieces instead has its list written beside it,
+`riftwii/<image>.pieces`, 42 pieces to each 512-byte page, and the state
+keeps only an index of the pages, 8 bytes each, and two page slots that a
+read fills from the card when its piece's page is in neither: 1.8 KB
+instead of 50 KB for a 4234-piece image, whose list beside Project+ and
+the GameCube adapter's blob left Brawl too little MEM2 and a black screen;
+in Dolphin, Project+'s start then read 42 pages beside 1,923 requests for
+data. An image on the USB drive keeps its list in memory, as the menu
+cannot make a file there; then the bounce buffer, sized by the loader
 for the device: 32 KB on USB, where every read into MEM1 needs it, and
 `VSD_BOUNCE_BYTES_SD`, 32 KB for now, on the SD card, where only an
 unaligned buffer does; counters in the state say how often) go to the
@@ -1076,6 +1092,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/gamecrash.txt` | The last game crash, from the crash blob's record |
 | `sd:/riftwii/report.txt`, `report-state.txt` | The last problem report as sent, and which crash was already offered |
 | `sd:/riftwii/sd.raw` (or `usb:/riftwii/sd.raw`) | The virtual SD card's image, for code builds inside it |
+| `sd:/riftwii/<image>.pieces` | Where a scattered image on the SD card lies (`sd.raw.pieces`), written at its launch for the in-game blob to read a page at a time; rewritten when the image moves. Safe to delete |
 | `sd:/riftwii/codebuilds.txt` | Code builds picked by hand on the Mods page |
 | `sd:/riftwii/covers/`, `screenshots/` | Cover art as textures; screenshots (menu and games) |
 | `sd:/riftwii/rvz/` | RVZ group tables the runtime reads |

@@ -211,7 +211,9 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `icon_play`, `icon_mods`, `icon_cheats`, `icon_saves`, `icon_info`, `icon_help` | 28x28 | The game page's tiles: Play, Mods, Cheats, Saves, About; Help in Settings |
 | `icon_picture`, `icon_controllers`, `icon_online`, `icon_home`, `icon_sound`, `icon_power` | 28x28 | Settings' tiles: Picture, Controllers, Online, Home screen, Look and sound, Leave RiftWii |
 | `icon_wii`, `icon_gamecube` | 28x28 | Home's Show choices: Wii games, GameCube games |
-| `icon_disc` | 40x40 | Disc icon (name and channel tiles) |
+| `icon_disc` | 40x40 | Disc icon (name tiles) |
+| `disc_channel` | 64x64 | The Disc Channel's face in the Channels view when no disc is in: stretched over the whole tile, its corners cut to the tile's |
+| `disc_channel_disc` | 64x76 | The disc on that face: the disc in rows 0-63, its reflection in rows 66-75. The menu spins it now and then about its upright middle line, so keep it centred |
 | `disc_case` | 128x176 | The Disc drive's box: its cover tile, and its front and back on the shelf |
 | `blank_cover` | 160x224 | A game's cover when there is no art for it: the menu prints the game's name and ID in its middle, in dark ink on a light picture and light ink on a dark one. Keep the middle plain; the covers view puts its badges along the bottom 30 pixels |
 | `pointer1` to `pointer4` | 96x96 | Each player's pointer; the fingertip must be at the centre (48, 48) |
@@ -221,6 +223,8 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `background_shelf` / `background_shelf_wide` | 640x480 / 856x480 | `background` / `background_wide` while Home shows the shelf, the carousel or 3D covers (Settings > Home tiles), for a background drawn to go with Home's rows of covers (optional) |
 | `background_plain` / `background_plain_wide` | 640x480 / 856x480 | `background` / `background_wide` on every screen but Home, for a background drawn around Home (Bookshelf: its wall without the shelves) (optional) |
 | `background_channels` / `background_channels_wide` | 640x480 / 856x480 | `background` / `background_wide` while Home shows Channels, for a background drawn to go with its three rows (Bookshelf: a shelf under each) (optional) |
+| `store_games`, `store_emulators`, `store_system`, `store_gametools`, `store_wiimenu`, `store_controllers`, `store_creative`, `store_toys`, `store_media`, `store_internet`, `store_online`, `store_loaders`, `store_more`, `store_logo` | 40x40 | The Rift Store's bag beside its name (`store_logo`) and its categories: their tiles on its front (drawn at 28x28 when the tiles are short), the band of a category's page, and an app's icon until its own is in. RiftWii's own are painted by the store's plugin in `glyph`, so they cost the menu nothing; a theme's PNG is read only when the store opens |
+| `store_size`, `store_date`, `store_console`, `store_license` | 28x28 | The facts along the bottom of an app's page in the store, drawn at 24x24: its download's size, its date, the consoles it works on, its license |
 
 ### Widescreen and screen size
 
@@ -301,11 +305,11 @@ The kit is the [themes/kit](../themes/kit) folder: its
 [README](../themes/kit/README.txt) walks through a theme step by step, and it
 holds a starter `MyTheme/theme.ini` with every setting at its default, guide
 pictures that name every colour and picture on screen, and every picture as
-a template, exactly as RiftWii draws it (in the default look, Midnight's and
-Bookshelf's colours), at the right size. Take only the templates you want to
-change: edit one, keep its size, and save it as PNG in your theme's folder.
-The samples are [themes/Midnight](../themes/Midnight) and
-[themes/Bookshelf](../themes/Bookshelf).
+a template, exactly as RiftWii draws it (in the default look, Midnight's,
+Bookshelf's and Indigo's colours), at the right size. Take only the templates
+you want to change: edit one, keep its size, and save it as PNG in your
+theme's folder. The samples are [themes/Midnight](../themes/Midnight),
+[themes/Bookshelf](../themes/Bookshelf) and [themes/Indigo](../themes/Indigo).
 
 ## Make your own
 

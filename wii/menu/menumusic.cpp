@@ -23,6 +23,7 @@
 #include "oggplayer.h"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/musiclist.hpp"
+#include "riftwii/titles.hpp"
 #include "riftwii/imagevolume.hpp"
 #include "skin.hpp"
 #include "usbcatalog.hpp"
@@ -176,21 +177,25 @@ bool ListFolder(const std::string& folder, std::vector<MusicFolderEntry>& out) {
         std::vector<VolumeEntry> entries;
         if (!list_usb_folder(folder, entries)) return false;
         for (const VolumeEntry& entry : entries) out.push_back({entry.name, entry.is_directory});
-        return true;
+    } else {
+        DIR* dir = opendir(folder.c_str());
+        if (!dir) return false;
+        const std::string base = folder.back() == '/' ? folder : folder + "/";
+        while (dirent* entry = readdir(dir)) {
+            const std::string name = entry->d_name;
+            if (name == "." || name == "..") continue;
+            struct stat st;
+            const bool is_dir = stat((base + name).c_str(), &st) == 0 && S_ISDIR(st.st_mode);
+            out.push_back({name, is_dir});
+        }
+        closedir(dir);
     }
-    DIR* dir = opendir(folder.c_str());
-    if (!dir) return false;
-    const std::string base = folder.back() == '/' ? folder : folder + "/";
-    while (dirent* entry = readdir(dir)) {
-        const std::string name = entry->d_name;
-        if (name == "." || name == "..") continue;
-        struct stat st;
-        const bool is_dir = stat((base + name).c_str(), &st) == 0 && S_ISDIR(st.st_mode);
-        out.push_back({name, is_dir});
-    }
-    closedir(dir);
+    // Both drives in the same order (the USB drive's listing came unsorted).
     std::sort(out.begin(), out.end(),
-              [](const MusicFolderEntry& a, const MusicFolderEntry& b) { return a.name < b.name; });
+              [](const MusicFolderEntry& a, const MusicFolderEntry& b) {
+                  // As a person reads them: "apps" beside "Apps", not after "YABDM".
+                  return sort_name_less(a.name, b.name);
+              });
     return true;
 }
 
@@ -598,6 +603,18 @@ void LaunchMusicPauseForReload(const char* why) {
     // not show. Stopped here, as for the game, and started again after.
     const s32 at_ms = g_using_wii || g_format == MusicFormat::Mp3 ? 0 : GetTimeOgg();
     FadeOutAndStop(why, at_ms >= 0 ? at_ms : 0);
+}
+
+MenuAudioOffForCard::MenuAudioOffForCard(const char* why) : music_(g_playing) {
+    MenuMusicStop();
+    ShutdownAudio();
+    logf("Menu sound: off while %s, so the DSP can unlock the card\n", why);
+}
+
+MenuAudioOffForCard::~MenuAudioOffForCard() {
+    InitAudio();
+    if (music_) MenuMusicStart();
+    logf("Menu sound: on again\n");
 }
 
 void LaunchMusicResumeAfterReload() {

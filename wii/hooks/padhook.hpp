@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "riftwii/dol.hpp"
+#include "riftwii/mempatch.hpp"
 #include "riftwii/patch.hpp"
 #include "rtpadcal.h"
 
@@ -75,6 +76,7 @@ struct PadHook {
     bool active = false;             // planned; install_pad_hook hooks it
     bool demo = false;               // no adapter: the first empty port presses A (Dolphin tests)
     std::uint32_t read = 0;          // PADRead
+    bool read_in_patch = false;      // found in the packs' memory patches (checked again once they're in)
     unsigned read_sites = 0;         // its error stores
     std::uint32_t motor = 0;         // PADControlMotor, 0: no rumble
     std::uint32_t idle_reset = 0;    // the screen-dimming reset PADRead calls, 0: adapter pads don't keep the screen lit
@@ -181,9 +183,22 @@ AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices);
 
 // While boot.log is still open: PADRead and PADControlMotor in the
 // loaded game, into a fresh `out`, then /dev/usb/hid opened for the game
-// (libogc's USB is shut down for it). False (with a reason) turns the
-// adapter off.
-bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::string& why);
+// (libogc's USB is shut down for it). A PADRead in a pack's plain
+// <memory> patches (`patches`, not applied yet) is found too, and wins
+// over the game's own. False (with a reason) turns the adapter off.
+bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<MemoryPatch>& patches, PadHook& out,
+                        std::string& why);
+
+// Before the <memory> patches, on the game as loaded: what their plain
+// writes will leave (PatchedCode), for a PADRead search. Without memory
+// for it, says so in boot.log and leaves `out` empty (the game's own
+// PADRead is still searched).
+void read_patched_code(const std::vector<MemoryPatch>& patches, PatchedCode& out);
+
+// After the <memory> patches, before any hook: whether `address` is still
+// a PADRead (one taken from a preview of the patches, which doesn't run
+// their search patches).
+bool pad_read_in_place(std::uint32_t address);
 
 // The adapter's /dev/usb/hid handle for the game, with its HID version and
 // the adapter's v5 device id from the USB list (-1: none): the one

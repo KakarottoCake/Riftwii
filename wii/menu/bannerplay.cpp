@@ -195,10 +195,14 @@ void PlainTev() {
 }  // namespace
 
 void DrawChannelPicture(const u8* pixels, const RoundClip& clip, int alpha) {
-    if (!pixels || alpha <= 0 || clip.w <= 0 || clip.h <= 0) return;
+    DrawRoundPicture(pixels, kEmulatorBannerWidth, kEmulatorBannerHeight, GX_TF_RGB5A3, clip, alpha);
+}
+
+void DrawRoundPicture(const u8* pixels, int width, int height, u8 format, const RoundClip& clip, int alpha) {
+    if (!pixels || width <= 0 || height <= 0 || alpha <= 0 || clip.w <= 0 || clip.h <= 0) return;
     GXTexObj texture;
-    GX_InitTexObj(&texture, const_cast<u8*>(pixels), kEmulatorBannerWidth, kEmulatorBannerHeight,
-                  GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP, GX_FALSE);
+    GX_InitTexObj(&texture, const_cast<u8*>(pixels), static_cast<u16>(width), static_cast<u16>(height),
+                  format, GX_CLAMP, GX_CLAMP, GX_FALSE);
     GX_InitTexObjLOD(&texture, GX_LINEAR, GX_LINEAR, 0, 0, 0, GX_FALSE, GX_FALSE, GX_ANISO_1);
     GX_LoadTexObj(&texture, GX_TEXMAP0);
     GX_SetTevOp(GX_TEVSTAGE0, GX_MODULATE);

@@ -463,6 +463,89 @@ struct Painter {
 
     Canvas Disc() const { return GlossyDisc(40); }
 
+    // The Disc Channel's face with no disc in, as the Wii Menu shows it:
+    // white (the theme's tile colour), a soft grey step just below the middle like a glossy floor,
+    // lighter again towards the foot (shades measured from the Wii Menu in
+    // Dolphin). Stretched over the tile's inside, its corners cut there.
+    Canvas DiscChannelFace() const {
+        Canvas c(64, 64);
+        for (int y = 0; y < 64; ++y) {
+            const float t = (y + 0.5f) / 64.0f;
+            float shade = 255.0f;
+            if (t >= 0.50f && t < 0.55f) {
+                shade = 255.0f - 7.0f * (t - 0.50f) / 0.05f;
+            } else if (t >= 0.55f && t < 0.68f) {
+                shade = 248.0f - 8.0f * (t - 0.55f) / 0.13f;
+            } else if (t >= 0.68f) {
+                shade = 240.0f + 11.0f * std::min(1.0f, (t - 0.68f) / 0.28f);
+            }
+            // The Wii's white face in the default look; a theme's own tile
+            // colour, shaded the same way, so a dark theme's Disc Channel
+            // is not the one white tile on Home.
+            const float scale = shade / 255.0f;
+            const auto tint = [scale](std::uint8_t channel) {
+                return static_cast<std::uint8_t>(channel * scale + 0.5f);
+            };
+            c.rect(0, static_cast<float>(y), 64, 1, Rgba{tint(card.r), tint(card.g), tint(card.b), 255});
+        }
+        return c;
+    }
+
+    // The Disc Channel's silver disc (64x64 at the top) and its faint
+    // reflection on the face's floor (the rows under it). The menu turns
+    // the picture about its upright middle line to spin the disc.
+    static constexpr int kSilverDisc = 64;
+    static constexpr int kSilverGap = 2;
+    static constexpr int kSilverReflection = 10;
+
+    Canvas SilverDisc() const {
+        const int size = kSilverDisc;
+        Canvas c(size, size + kSilverGap + kSilverReflection);
+        const float mid = (size - 1) / 2.0f, rim = size / 2.0f - 0.6f;
+        for (int y = 0; y < size; ++y)
+            for (int x = 0; x < size; ++x) {
+                const float dx = x - mid, dy = y - mid, r = std::sqrt(dx * dx + dy * dy);
+                const float t = r / rim;
+                // Coverage at the outer edge and at the hole's.
+                const float cover = std::clamp(rim + 0.5f - r, 0.0f, 1.0f) * std::clamp(r - rim * 0.09f + 0.5f, 0.0f, 1.0f);
+                if (cover <= 0.0f) continue;
+                float shade;
+                if (t > 0.935f) {
+                    // The white outer rim, greying smoothly into its outline
+                    // (a one-texel line breaks up once the disc is scaled).
+                    shade = 252.0f - 64.0f * std::clamp((t - 0.935f) / 0.065f, 0.0f, 1.0f);
+                } else if (t > 0.30f) {
+                    // Brushed silver: darker towards the hub, light where the
+                    // light falls (top right and bottom left).
+                    const float angle = std::atan2(dy, dx);
+                    const float sheen = std::cos(2.0f * (angle + 0.785398f));
+                    shade = 204.0f + 26.0f * t + 16.0f * sheen;
+                    if (t < 0.33f) shade = 200.0f;  // the hub's outer edge
+                } else if (t > 0.26f) {
+                    shade = 252.0f;  // the hub's white ring
+                } else if (t > 0.22f) {
+                    shade = 212.0f;
+                } else if (t > 0.15f) {
+                    shade = 250.0f;
+                } else {
+                    shade = 226.0f;  // the clear middle round the hole
+                }
+                const auto v = static_cast<std::uint8_t>(std::clamp(shade, 0.0f, 255.0f));
+                c.put(x, y, Rgba{v, v, v, static_cast<std::uint8_t>(255.0f * cover)});
+            }
+        // The reflection: the disc's lowest rows upside down, fading out.
+        for (int row = 0; row < kSilverReflection; ++row) {
+            const float fade = 0.32f * (1.0f - static_cast<float>(row) / kSilverReflection);
+            const int source = size - 1 - row;
+            for (int x = 0; x < size; ++x) {
+                Rgba p = c.at(x, source);
+                p.a = static_cast<std::uint8_t>(p.a * fade);
+                c.put(x, size + kSilverGap + row, p);
+            }
+        }
+        return c;
+    }
+
     // The disc drive's box: a pale blue case like a drive's front, the
     // slot across its top, the disc behind the clear sleeve, the sleeve
     // catching the light from the top left.
@@ -1242,6 +1325,8 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
         {"icon_star", [](const Painter& q) { return q.Star(false); }},
         {"icon_star_on", [](const Painter& q) { return q.Star(true); }},
         {"icon_disc", [](const Painter& q) { return q.Disc(); }},
+        {"disc_channel", [](const Painter& q) { return q.DiscChannelFace(); }},
+        {"disc_channel_disc", [](const Painter& q) { return q.SilverDisc(); }},
         {"tile9", [](const Painter& q) { return q.TileNine(false, false); }},
         {"tile9_over", [](const Painter& q) { return q.TileNine(true, false); }},
         {"tile9_primary", [](const Painter& q) { return q.TileNine(false, true); }},

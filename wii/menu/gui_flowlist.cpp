@@ -28,8 +28,10 @@ constexpr int kDragStart = 8;  // pixels the pointer moves before a press become
 constexpr int kTrackW = 6;
 constexpr int kArrow = 34;       // skin::scrollUp/scrollDown
 constexpr int kArrowRepeat = 8;  // frames between rows while an arrow is held
-constexpr int kArrowRoom = 12;   // controls move in this far while the scroll arrows show
-constexpr int kCardArrowRoom = 30;  // cards end this far in, clear of the scroll arrows
+// While the list scrolls, its arrows and track take the right end of the
+// list's own width (so a scrolling list and a short one span the same
+// space, the page's 40 to 600): the rows end this far in.
+constexpr int kScrollColumn = kArrow + 8;
 constexpr int kIconSide = 32;       // a row's picture (FlowRow::icon)
 constexpr int kIconRoom = kIconSide + 10;  // what it and the gap after it take from the label
 constexpr int kCardGap = 3;         // above and below each card, inside its row
@@ -133,7 +135,7 @@ int GuiFlowList::GetClickedBack() {
 }
 
 int GuiFlowList::RowAt(int x, int y) const {
-    if (x < x0 || x >= x0 + rowWidth || y < y0 || y >= y0 + visible * rowH) return -1;
+    if (x < x0 || x >= RowsRight() || y < y0 || y >= y0 + visible * rowH) return -1;
     const int index = static_cast<int>((y - y0 + scroll) / rowH);
     return index < Count() ? index : -1;
 }
@@ -156,18 +158,22 @@ bool GuiFlowList::Actionable(int row) const {
 
 // Where the rows' controls end: in from the right edge, further while the
 // list scrolls, so the arrows on that edge do not touch a switch or chip.
-int GuiFlowList::ControlsRight() const {
-    if (cards) return CardRight() - kPad;
-    return x0 + rowWidth - kPad - (Count() > visible ? kArrowRoom : 0);
-}
+int GuiFlowList::ControlsRight() const { return RowsRight() - kPad; }
+
+// Where the rows end: the list's right edge, or short of its scroll
+// column while it scrolls.
+int GuiFlowList::RowsRight() const { return x0 + rowWidth - (Count() > visible ? kScrollColumn : 0); }
 
 // A card's edges: indented under its heading as its text is, short of the
 // scroll arrows while they show.
 int GuiFlowList::CardLeft(const FlowRow& r) const { return x0 + (r.indent ? 22 : 0); }
-int GuiFlowList::CardRight() const { return x0 + rowWidth - (Count() > visible ? kCardArrowRoom : 0); }
+int GuiFlowList::CardRight() const { return RowsRight(); }
 
-// The arrows sit on the list's right edge, at the ends of its track.
-int GuiFlowList::ArrowX() const { return x0 + rowWidth + 5 - kArrow / 2; }
+// The arrows end at the list's right edge, at the ends of its track.
+int GuiFlowList::ArrowX() const { return x0 + rowWidth - kArrow; }
+
+// The track runs down the middle of the arrows' column.
+int GuiFlowList::TrackX() const { return x0 + rowWidth - kArrow / 2 - kTrackW / 2; }
 
 int GuiFlowList::ArrowY(int dir) const { return dir < 0 ? y0 : y0 + visible * rowH - kArrow; }
 
@@ -183,7 +189,7 @@ int GuiFlowList::ArrowAt(int x, int y) const {
 }
 
 bool GuiFlowList::OnTrack(int x, int y) const {
-    const int trackX = x0 + rowWidth + 2;
+    const int trackX = TrackX();
     return Count() > visible && x >= trackX - 8 && x < trackX + kTrackW + 12 && y >= y0 + kArrow + 4 &&
            y < y0 + visible * rowH - kArrow - 4;
 }
@@ -240,12 +246,10 @@ void GuiFlowList::Draw() {
             std::string text = riftwii::wii::tr(r.value.c_str());
             if (r.kind == FlowRow::Kind::Action && !r.dim) text += "  \xE2\x80\xBA";
             value[i]->SetText(text.c_str());
-            // A long value (a translation, "Remove all (experimental)")
-            // steps down to 13 points before the chip cuts it off.
-            for (int size = 15; size >= 13; --size) {
-                value[i]->SetFontSize(size);
-                if (value[i]->GetTextWidth() <= kChipW - 20) break;
-            }
+            // A long value (a theme's name, a translation) keeps the
+            // list's size and the chip cuts it off: one row in smaller
+            // letters than the rest looked out of place.
+            value[i]->SetFontSize(15);
             value[i]->SetColor(r.dim ? skin::kInkDim : r.on ? skin::kAccentInk : skin::kInkSoft);
             value[i]->SetMaxWidth(kChipW - 20);
         }
@@ -321,7 +325,7 @@ void GuiFlowList::Draw() {
             // (the highlight, drawn above)
         } else if (index + 1 < Count() && !(index + 1 == lit) && lined((*rows)[index + 1])) {
             const int left = x0 + kPad + (r.indent ? 22 : 0);
-            const int lineRight = cards ? CardRight() - kPad : x0 + rowWidth - kPad;
+            const int lineRight = RowsRight() - kPad;
             Menu_DrawRectangle(left, y + rowH - 1, lineRight - left, 1, skin::WithAlpha(skin::kDivider, alpha), 1);
         }
 
@@ -432,7 +436,7 @@ void GuiFlowList::Draw() {
 
     if (Count() > visible) {
         // Where the list is, along its right edge; A on it (held) drags it.
-        const int trackX = x0 + rowWidth + 2, trackTop = y0 + kArrow + 4, trackH = boxH - 2 * (kArrow + 4);
+        const int trackX = TrackX(), trackTop = y0 + kArrow + 4, trackH = boxH - 2 * (kArrow + 4);
         const int total = Count() * rowH;
         int thumb = trackH * boxH / total;
         if (thumb < 16) thumb = 16;
@@ -545,7 +549,7 @@ void GuiFlowList::Update(GuiTrigger* t) {
         hover = row;
         hoverPart = part;
         if (row >= 0) focus = row;
-        if (a && px >= x0 && px < x0 + rowWidth && py >= y0 && py < y0 + visible * rowH) {
+        if (a && px >= x0 && px < RowsRight() && py >= y0 && py < y0 + visible * rowH) {
             grabChan = t->chan;
             grabY = py;
             grabScroll = aim;

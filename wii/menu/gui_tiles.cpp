@@ -38,10 +38,12 @@ bool Tall(const TileSpec& s) { return s.h >= 100; }
 
 }  // namespace
 
-GuiTiles::GuiTiles() {
+GuiTiles::GuiTiles() : chevron(">", 18, skin::kInkDim) {
     width = screenwidth;
     height = screenheight;
     selectable = true;
+    chevron.SetParent(this);
+    chevron.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
     soundOver = new GuiSound(button_over_pcm, button_over_pcm_size, SOUND::PCM);
     soundClick = new GuiSound(button_click_pcm, button_click_pcm_size, SOUND::PCM);
 }
@@ -69,6 +71,8 @@ void GuiTiles::Refresh() {
         v->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
         value.push_back(v);
     }
+    labelSize.resize(label.size(), 20);
+    chevronShown.resize(label.size(), 0);
     if (static_cast<int>(lift.size()) != Count()) {
         lift.assign(Count(), 0.0f);
         swell.assign(Count(), riftwii::wii::HoverSwell{});
@@ -149,27 +153,47 @@ void GuiTiles::Layout(int i) {
         // A name alone: the font's letters sit low in their line, so it is
         // raised to look centred on the tile and its icon (About, Exit).
         if (!hasValue) labelY -= 3;
+        // A name over its value sat 2 to 3 pixels low by the same measure
+        // (Cheats over Off on the game page): raised too.
+        else labelY -= 2;
     }
-    const int room = s.x + s.w - kPad - textX;
+    const int chevronRoom = s.opensPage ? 18 : 0;
+    int room = s.x + s.w - kPad - textX - chevronRoom;
     // A long name (a translation) steps down to 15 points before "..." cuts it.
-    for (int size = s.primary ? 26 : 20; size >= 15; --size) {
+    int size = s.primary ? 26 : 20;
+    for (; size > 15; --size) {
         label[i]->SetFontSize(size);
         if (label[i]->GetTextWidth() <= room) break;
     }
+    // A name that still doesn't fit beside the chevron (French "Codes de
+    // triche" at 4:3) keeps its words: the chevron gives way.
+    chevronShown[i] = s.opensPage;
+    if (s.opensPage && label[i]->GetTextWidth() > room) {
+        chevronShown[i] = 0;
+        room += chevronRoom;
+    }
+    label[i]->SetFontSize(size);
+    labelSize[i] = size;
     label[i]->SetMaxWidth(room);
     value[i]->SetMaxWidth(room);
-    // A long value (a translation) steps down to 13 points before "..." cuts it.
-    for (int size = 15; size >= 13; --size) {
-        value[i]->SetFontSize(size);
-        if (value[i]->GetTextWidth() <= room) break;
-    }
+    // A long value (a theme's name, a translation) keeps its size and
+    // "..." cuts it: smaller letters on one tile looked out of place.
+    value[i]->SetFontSize(15);
     label[i]->SetPosition(textX, labelY);
     value[i]->SetPosition(textX, labelY + (s.primary ? 28 : 23));
 }
 
-float GuiTiles::SwellScale(int index) const {
-    if (index < 0 || index >= Count()) return 1;
-    return riftwii::wii::ButtonSwellScale((*tiles)[index].w, swell[index].Amount());
+// One long name (a translation) shrinks every tile's name alike (the
+// primary tile's keeps its own size): side by side, a tile in smaller
+// letters than its neighbours looked out of place.
+void GuiTiles::EvenTextSizes() {
+    int labelMin = 20;
+    for (int i = 0; i < Count(); ++i) {
+        const TileSpec& s = (*tiles)[i];
+        if (!s.primary && !s.label.empty()) labelMin = std::min(labelMin, labelSize[i]);
+    }
+    for (int i = 0; i < Count(); ++i)
+        if (!(*tiles)[i].primary) label[i]->SetFontSize(labelMin);
 }
 
 void GuiTiles::Draw() {
@@ -179,6 +203,7 @@ void GuiTiles::Draw() {
     if (dirty) {
         dirty = false;
         for (int i = 0; i < Count(); ++i) Layout(i);
+        EvenTextSizes();
     }
     pressScale = riftwii::wii::transition::PressScale(pressElapsed);
     const int lit = hover >= 0 ? hover : (AnyPointer() ? -1 : focus);
@@ -187,15 +212,19 @@ void GuiTiles::Draw() {
         float& l = lift[i];
         l = std::clamp(swell[i].Advance(i == lit), 0.0f, 1.0f);
         if (s.hidden) continue;
-        // Lit, the tile grows a little about its middle and its ring fades in.
-        const float grow = SwellScale(i);
+        // Lit, the tile keeps its size and its ring fades in (and pulses).
+        // A tile that grew stuck out past the tiles in line with it: the
+        // lit Play 8 to 10 pixels past the column under it, a lit Cheats
+        // past Options, the grid's edges no longer straight.
         Menu_PushCamera(PressedScale(i), s.x + s.w / 2.0f, s.y + s.h / 2.0f);
-        const float w = s.w * grow, h = s.h * grow;
+        const float w = s.w, h = s.h;
         f32 safeX, safeW;
         Menu_SafeArea(&safeX, &safeW);
-        // At an outer edge the growth goes inward, including its shadow.
-        const float x = std::clamp(s.x - (w - s.w) / 2, safeX + 32 + kShadow, safeX + safeW - 32 - kShadow - w);
-        const float y = std::clamp(s.y - (h - s.h) / 2, 24.0f + kShadow, 456.0f - kShadow - h);
+        // Kept inside the overscan, its shadow too.
+        const float safeLeft = safeX + safeW * 0.05f + kShadow;
+        const float safeRight = safeX + safeW * 0.95f - kShadow;
+        const float x = std::clamp(static_cast<float>(s.x), safeLeft, safeRight - w);
+        const float y = std::clamp(static_cast<float>(s.y), 24.0f + kShadow, 456.0f - kShadow - h);
         const skin::Tex& base = s.primary ? skin::tile9Primary : skin::tile9;
         const skin::Tex& over = s.primary ? skin::tile9PrimaryOver : skin::tile9Over;
         const int tileAlpha = s.dim ? alpha * 3 / 4 : alpha;
@@ -217,6 +246,12 @@ void GuiTiles::Draw() {
         label[i]->SetScroll(i == lit ? SCROLL::HORIZONTAL : SCROLL::NONE);
         label[i]->Draw();
         if (!s.value.empty()) value[i]->Draw();
+        if (chevronShown[i]) {
+            // The page's ink: the softer one came to 2:1 on composite.
+            chevron.SetColor(s.dim ? skin::kInkDim : skin::kInk);
+            chevron.SetPosition(s.x + s.w - kPad - 10, s.y + (s.h - 22) / 2 - 2);
+            chevron.Draw();
+        }
         Menu_PopCamera();
     }
     UpdateEffects();

@@ -415,13 +415,18 @@ const SharedContent* find_shared_content(const std::vector<SharedContent>& entri
 }
 
 std::string next_shared_name(const std::vector<SharedContent>& entries) {
-    unsigned long next = 0;
+    // In 64 bits: on the Wii an unsigned long is 32, and one past ffffffff
+    // came back round to 00000000 (or to a name already in the list),
+    // which would overwrite another title's shared content.
+    std::uint64_t next = 0;
     for (const SharedContent& entry : entries) {
-        const unsigned long n = std::strtoul(entry.name.c_str(), nullptr, 16);
+        const std::uint64_t n = std::strtoull(entry.name.c_str(), nullptr, 16);
         if (n + 1 > next) next = n + 1;
     }
+    // Past the last eight-digit name: none left (the callers refuse it).
+    if (next > 0xFFFFFFFFull) return std::string();
     char name[16];
-    std::snprintf(name, sizeof name, "%08lx", next);
+    std::snprintf(name, sizeof name, "%08lx", static_cast<unsigned long>(next));
     return name;
 }
 

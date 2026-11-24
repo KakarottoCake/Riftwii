@@ -135,6 +135,29 @@ bool gc_sixty_hz_on(const GameSettings& game, const std::string& id) {
     return gc_pal_game(id) && game.gc_speed == "60";
 }
 
+GcTvSignal gc_tv_signal(const GameSettings& game, const std::string& id, const GcConsoleSettings& console) {
+    std::string chosen = game.video_mode == "global" ? console.video_mode : game.video_mode;
+    if (chosen == "system") chosen = console.wii_video;
+    if (gc_pal_game(id)) {
+        if (!gc_sixty_hz_on(game, id)) return GcTvSignal::Pal50;
+        return chosen == "ntsc" ? GcTvSignal::Ntsc : GcTvSignal::Pal60;
+    }
+    // 480p is NTSC's own picture. 240p is 60 Hz like 480i, so it keeps
+    // PAL 60's colours when those are asked for (RGB SCART shows NTSC red).
+    if (gc_progressive_on(game, id, console)) return GcTvSignal::Ntsc;
+    const bool wants_pal = chosen == "pal60" || chosen == "pal50";
+    return wants_pal ? GcTvSignal::Pal60 : GcTvSignal::Ntsc;
+}
+
+const char* gc_tv_signal_name(GcTvSignal signal) {
+    switch (signal) {
+        case GcTvSignal::Pal50: return "PAL 50 Hz";
+        case GcTvSignal::Pal60: return "PAL 60 Hz";
+        case GcTvSignal::Ntsc: break;
+    }
+    return "NTSC";
+}
+
 unsigned gc_volume_boost_db(const GameSettings& game) {
     if (game.gc_volume == "3") return 3;
     if (game.gc_volume == "6") return 6;

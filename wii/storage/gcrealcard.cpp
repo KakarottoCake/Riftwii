@@ -152,6 +152,7 @@ int GcRealCard::Open(int slot) {
     CARD_Init(nullptr, nullptr);
     s32 mbits = 0;
     s32 sector = 0;
+    logf("Memory card: asking slot %c for a memory card\n", slot_name);
     const s32 probe = CARD_ProbeEx(slot, &mbits, &sector);
     if (probe < 0) {
         logf("Memory card: nothing answered as a memory card in slot %c (libogc's probe said %d)\n", slot_name,
@@ -174,6 +175,7 @@ int GcRealCard::Open(int slot) {
     previous_exi_callback = EXI_RegisterEXICallback(slot, nullptr);
     std::array<u8, 12> sram_id_before{};
     const bool sram_read_before = sram_card_id(slot, sram_id_before);
+    logf("Memory card: mounting the %d Mbit card in slot %c\n", static_cast<int>(mbits), slot_name);
     const s32 mounted = CARD_Mount(slot, card_workarea, detached);
     if (mounted < 0) {
         logf("Memory card: the %d Mbit card in slot %c could not be mounted (libogc said %d; the DMA workarea is %p in MEM1).\n",

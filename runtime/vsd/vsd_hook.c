@@ -164,12 +164,12 @@ static int direct_ok(const struct vsd_state* st, uint32_t buffer) {
     return 1;
 }
 
-/* Builds the request for the transfer's next piece in the state's blocks
- * and returns the ioctl, with the vector counts. */
-static uint32_t build_piece(struct vsd_state* st, uint32_t device_sector, uint32_t sectors, uint32_t data,
-                            uint32_t* in_count, uint32_t* out_count) {
+/* Builds the request for a read or write on the device (the transfer's
+ * next piece, or a page of the piece list) in the state's blocks and
+ * returns the ioctl, with the vector counts. */
+static uint32_t build_piece(struct vsd_state* st, uint32_t write, uint32_t device_sector, uint32_t sectors,
+                            uint32_t data, uint32_t* in_count, uint32_t* out_count) {
     const uint32_t bytes = sectors * RTVSD_SECTOR_BYTES;
-    const uint32_t write = st->transfer.write;
     if (st->backend == VSD_BACKEND_SLOT0) {
         struct rtvsd_request* rq = &st->request;
         rq->cmd = write ? SD_CMD_WRITE_MULTIPLE : SD_CMD_READ_MULTIPLE;
@@ -431,8 +431,27 @@ static int32_t issue(struct vsd_state* st, int async, int vector, uint32_t ioctl
     return 0;
 }
 
-/* Sends the transfer's next request (a piece, or a CMD13 while the card
- * settles). Returns what issue says; negative when nothing went out. */
+/* A paged card: whether the next piece's lookups need a page of the piece
+ * list no slot holds, with where it is and the slot it goes to. Every
+ * lookup next_piece makes is asked here first: the piece's own sector, and
+ * for a read the read-ahead may take, the transfer's last sector
+ * (rtvsd_ra_direct). rtvsd_page_wanted never gives the second the first's
+ * slot, so both pages are held when next_piece runs. */
+static int page_missing(struct vsd_state* st, uint32_t* device_sector, uint32_t* slot) {
+    struct vsd_transfer* t = &st->transfer;
+    uint8_t* address = 0;
+    if (rtvsd_page_wanted(&st->card, t->sector + t->done, device_sector, &address) ||
+        (!t->write && !t->plain && rtvsd_ra_on(&st->ra) &&
+         rtvsd_page_wanted(&st->card, t->sector + t->count - 1u, device_sector, &address))) {
+        *slot = (uint32_t)(uintptr_t)address;
+        return 1;
+    }
+    return 0;
+}
+
+/* Sends the transfer's next request (a piece, a page of the piece list it
+ * needs first, or a CMD13 while the card settles). Returns what issue
+ * says; negative when nothing went out. */
 static int32_t transfer_send(struct vsd_state* st, int async) {
     struct vsd_transfer* t = &st->transfer;
     if (t->phase == VSD_PHASE_DATA && t->tries == 0 && !t->waited && needs_settle(st, async) && peer_busy(st)) {
@@ -445,9 +464,19 @@ static int32_t transfer_send(struct vsd_state* st, int async) {
         return issue(st, async, 0, RTVSD_IOCTL_SENDCMD, (uint32_t)(uintptr_t)&st->request, sizeof(st->request),
                      (uint32_t)(uintptr_t)st->response, 16);
     }
+    if (st->original[async ? VSD_IOCTLV_ASYNC : VSD_IOCTLV] == 0) return IOS_EINVAL;
+    if (t->phase == VSD_PHASE_DATA && t->tries == 0 && page_missing(st, &t->page_device, &t->page_slot)) {
+        t->phase = VSD_PHASE_PAGE;
+        t->page_tries = 0;
+    }
+    if (t->phase == VSD_PHASE_PAGE) {
+        uint32_t in_count, out_count;
+        const uint32_t number = build_piece(st, 0, t->page_device, 1, t->page_slot, &in_count, &out_count);
+        ++st->page_reads;
+        return issue(st, async, 1, number, in_count, out_count, (uint32_t)(uintptr_t)st->vec, 0);
+    }
     {
         uint32_t device_sector = 0, data = 0, in_count, out_count, number;
-        if (st->original[async ? VSD_IOCTLV_ASYNC : VSD_IOCTLV] == 0) return IOS_EINVAL;
         if (t->tries == 0) {
             t->chunk = next_piece(st, &device_sector, &data);
             if (t->chunk == 0) return IOS_EINVAL;
@@ -457,7 +486,7 @@ static int32_t transfer_send(struct vsd_state* st, int async) {
             device_sector = t->piece_device;
             data = t->piece_data;
         }
-        number = build_piece(st, device_sector, t->chunk, data, &in_count, &out_count);
+        number = build_piece(st, t->write, device_sector, t->chunk, data, &in_count, &out_count);
         if (t->write && needs_settle(st, async)) st->writing = 1;
         ++st->requests;
         return issue(st, async, 1, number, in_count, out_count, (uint32_t)(uintptr_t)st->vec, 0);
@@ -498,6 +527,26 @@ static int transfer_step(struct vsd_state* st, int async, int32_t r, int32_t* ou
     struct vsd_transfer* t = &st->transfer;
     int32_t sent;
     for (;;) {
+        if (t->phase == VSD_PHASE_PAGE) {
+            /* The piece list's page: in its slot, then the piece that
+             * needed it goes (transfer_send asks again, and may want the
+             * request's other page first). */
+            if (r < 0) {
+                ++st->failures;
+                st->last_error = (uint32_t)r;
+                if (++t->page_tries < VSD_TRIES && transfer_send(st, async) >= 0) goto in_flight;
+                return transfer_end(st, r, out_result, callback, user_data);
+            }
+            invalidate_range(t->page_slot, RTVSD_SECTOR_BYTES);
+            rtvsd_page_arrived(&st->card);
+            t->phase = VSD_PHASE_DATA;
+            /* A write of the runtime's may have started during the page
+             * read: wait for it again before the piece (BUG-05). */
+            t->waited = 0;
+            sent = transfer_send(st, async);
+            if (sent >= 0) goto in_flight;
+            return transfer_end(st, sent, out_result, callback, user_data);
+        }
         if (t->phase == VSD_PHASE_WAIT) {
             /* The runtime's write: the card seen idle (or long enough
              * waited), the piece itself goes. */

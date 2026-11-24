@@ -14,7 +14,9 @@ Menu.
 ## WAD folders: drop and play
 
 `sd:/wiiware/` and every mounted USB partition's `wiiware/` folder are
-read on Home's background drive worker, including one level of subfolders.
+read on Home's background drive worker, including one level of subfolders,
+and so is each of that drive's Game folders (`game_folders` in
+settings.txt, `wad_folders_on`); a WAD two folders reach is listed once.
 WADs appear as channel games and use the existing covers, box art, banner
 and icon paths. The small header, ticket and title metadata are checked
 on each scan; large contents are not read. Banner names and the decrypted
@@ -160,6 +162,17 @@ save in the emulated NAND, and HOME > Wii Menu > Yes starts the RiftWii
 channel (`d2x: launching 0001000155465457 in place of the Wii Menu`),
 which starts RiftWii again. The other 13 games from an emulated NAND, and
 all of it on a real Wii, are still to do.
+
+That return works only when the RiftWii channel is in the emulated NAND:
+under the emulation of the whole NAND, the game's "Wii Menu" starts the
+return title from that folder. An emulated NAND made for a WAD never had
+it, and on a tester's vWii (2611-208, Actionloop Twist from
+`sd:/wiiware`) HOME > Wii Menu went to the Wii U's menu instead. Before
+a channel starts from an emulated NAND on the SD card, `boot_channel` now
+copies the channel in from the Wii (`copy_return_channel_to_emu_nand`:
+its TMD, ticket, own contents and ownership-list entry, replaced when the
+Wii's copy is newer). With Return to set to the Wii Menu, an emulated NAND
+that has no Wii Menu still cannot return.
 
 A channel the Wii Menu moved to the SD card, Super Mario Bros. (VC, NES):
 the real Wii Menu in this Dolphin moved it (Data Management > Channels >

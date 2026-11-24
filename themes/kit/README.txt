@@ -16,12 +16,14 @@ What's in here
                          RiftWii draws them in its default look.
   templates/Midnight/    The same pictures in Midnight's colours.
   templates/Bookshelf/   The same pictures in Bookshelf's colours.
+  templates/Indigo/      The same pictures in Indigo's colours.
   sounds/                RiftWii's own sound effects as WAV files, under
                          the names a theme uses for them.
-  Midnight/, Bookshelf/  The two sample themes (in the kit's zip; on
-                         GitHub they are in the themes folder, next to
+  Midnight/, Bookshelf/, The three sample themes (in the kit's zip; on
+  Indigo/                GitHub they are in the themes folder, next to
                          this one). Midnight is colours only; Bookshelf
-                         has its own pictures and the iOS 6 HOME Menu.
+                         has its own pictures and the iOS 6 HOME Menu;
+                         Indigo has its own glass pictures.
   THEMES.md              The full reference (docs/THEMES.md on GitHub):
                          every setting, every picture, its size and
                          where it shows.
@@ -72,9 +74,9 @@ Replace pictures
 ----------------
 
 1. Find the picture in the guide pictures (pink labels), then take it from
-   templates/Default (or templates/Midnight, templates/Bookshelf), for
-   example tile.png, and edit it in any image editor that keeps
-   transparency (GIMP, Krita, Paint.NET, Photopea).
+   templates/Default (or templates/Midnight, templates/Bookshelf,
+   templates/Indigo), for example tile.png, and edit it in any image
+   editor that keeps transparency (GIMP, Krita, Paint.NET, Photopea).
 2. Keep the exact same size in pixels: a picture of any other size is
    skipped. The size includes a see-through margin where the shadow and
    glow go, so keep your artwork where the template's is.

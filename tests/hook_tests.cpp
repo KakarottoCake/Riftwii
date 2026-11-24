@@ -416,6 +416,53 @@ struct FakeText {
         word(0x4E800020);  // blr
         return start;
     }
+    // The same function from an SDK built without optimization (LEGO Star
+    // Wars: The Complete Saga): the arguments spilled to the stack, the
+    // command handed to a setup helper as `li r4, N` (it allocates the
+    // block and stores the command), a fill helper, then the block to
+    // `submit` with the callback register or 0. `with_submit` false is
+    // the reboot form of ioctlv, which leaves through another path.
+    // `other`, when set, is another function called with the same
+    // `li r4, cmd` before the setup helper.
+    std::uint32_t unoptimized_function(std::uint32_t cmd, bool async, std::uint32_t setup, std::uint32_t fill,
+                                       std::uint32_t submit, bool with_submit = true, std::uint32_t other = 0) {
+        const std::uint32_t start = here();
+        word(0x9421FFD0);  // stwu r1,-48(r1)
+        word(0x7C0802A6);  // mflr r0
+        word(0x90010034);  // stw r0,52(r1)
+        word(0x90610008);  // stw r3,8(r1)
+        word(0x7D3E4B78);  // mr r30,r9 (the callback)
+        if (other != 0) {
+            li(4, cmd);
+            bl(other);
+        }
+        word(0x80610008);  // lwz r3,8(r1)
+        li(4, cmd);
+        if (async) {
+            word(0x7FC5F378);  // mr r5,r30
+        } else {
+            li(5, 0);
+        }
+        word(0x38E10024);  // addi r7,r1,36 (where the block goes)
+        bl(setup);
+        word(0x80610024);  // lwz r3,36(r1)
+        word(0x8081000C);  // lwz r4,12(r1)
+        bl(fill);
+        if (with_submit) {
+            word(0x80610024);  // lwz r3,36(r1)
+            if (async) {
+                word(0x7FC4F378);  // mr r4,r30
+            } else {
+                li(4, 0);
+            }
+            bl(submit);
+        }
+        word(0x80010034);  // lwz r0,52(r1)
+        word(0x7C0803A6);  // mtlr r0
+        word(0x38210030);  // addi r1,r1,48
+        word(0x4E800020);  // blr
+        return start;
+    }
 };
 
 }  // namespace
@@ -493,6 +540,237 @@ static void TestIpcApiSearch() {
     riftwii::IpcSymbols disagree = s;
     disagree.ioctlv_async = sync_at[7];
     EXPECT_FALSE(riftwii::find_ipc_api({t.range()}, disagree, api, error));
+}
+
+static void TestIpcApiSearchUnoptimized() {
+    // An SDK built without optimization (LEGO Star Wars: The Complete
+    // Saga, grantendo/wiiu#61): the allocator (no size arguments) behind
+    // a setup helper, then the API in the SDK's order with a helper
+    // between the pairs, IOS_Seek not linked, and the reboot form of
+    // ioctlv, which calls the setup helper with 7 but not submit.
+    FakeText t;
+    const std::uint32_t alloc = t.here();
+    t.prologue();
+    const std::uint32_t setup = t.here();
+    t.word(0x9421FFD0);  // stwu r1,-48(r1)
+    t.word(0x7C0802A6);  // mflr r0
+    t.bl(alloc);
+    t.word(0x90030000);  // stw r0,0(r3)
+    t.word(0x4E800020);  // blr
+    const std::uint32_t submit = t.here();
+    t.prologue();
+    const std::uint32_t fill = t.here();
+    t.prologue();
+    std::uint32_t async_at[8] = {}, sync_at[8] = {};
+    for (std::uint32_t cmd = 1; cmd <= 7; ++cmd) {
+        if (cmd == 5) continue;
+        async_at[cmd] = t.unoptimized_function(cmd, true, setup, fill, submit);
+        sync_at[cmd] = t.unoptimized_function(cmd, false, setup, fill, submit);
+        if (cmd == 6) t.prologue();
+    }
+    t.unoptimized_function(7, false, setup, fill, submit, false);
+    for (std::uint32_t cmd : {0x71u, 0x70u, 0x8Au, 0x8Du}) {
+        t.li(4, cmd);
+        t.bl(async_at[6]);
+    }
+    t.li(4, 0x8B);
+    t.li(5, 3);
+    t.li(6, 2);
+    t.bl(async_at[7]);
+
+    riftwii::IpcSymbols s;
+    riftwii::IpcApi api;
+    std::string error;
+    EXPECT_TRUE(riftwii::find_ipc_symbols({t.range()}, s, error));
+    EXPECT_EQ(s.ioctl_async, async_at[6]);
+    EXPECT_EQ(s.ioctlv_async, async_at[7]);
+    EXPECT_TRUE(riftwii::find_ipc_api({t.range()}, s, api, error));
+    for (std::uint32_t cmd = 1; cmd <= 7; ++cmd) {
+        EXPECT_EQ(api.async[cmd], async_at[cmd]);
+        EXPECT_EQ(api.sync[cmd], sync_at[cmd]);
+    }
+    EXPECT_EQ(api.submit, submit);
+
+    // A setup helper only IOS_IoctlAsync calls proves nothing: refused.
+    FakeText u;
+    const std::uint32_t ualloc = u.here();
+    u.prologue();
+    const std::uint32_t usetup = u.here();
+    u.word(0x9421FFD0);
+    u.bl(ualloc);
+    u.word(0x4E800020);
+    const std::uint32_t usubmit = u.here();
+    u.prologue();
+    const std::uint32_t ufill = u.here();
+    u.prologue();
+    riftwii::IpcSymbols us;
+    us.ioctl_async = u.unoptimized_function(6, true, usetup, ufill, usubmit);
+    riftwii::IpcApi uapi;
+    EXPECT_FALSE(riftwii::find_ipc_api({u.range()}, us, uapi, error));
+
+    // r4 changed after its `li` is no longer that command: `li r4, 1`,
+    // `ori r4, r4, 2`, then the setup call hands it 3, so neither function
+    // below is an IOS_Open; with only r5 and r7 set in between it still is.
+    FakeText v;
+    const std::uint32_t valloc = v.here();
+    v.prologue();
+    const std::uint32_t vsetup = v.here();
+    v.word(0x9421FFD0);  // stwu r1,-48(r1)
+    v.bl(valloc);
+    v.word(0x4E800020);  // blr
+    const std::uint32_t vsubmit = v.here();
+    v.prologue();
+    const std::uint32_t vfill = v.here();
+    v.prologue();
+    const std::uint32_t changed = v.here();
+    v.word(0x9421FFD0);  // stwu r1,-48(r1)
+    v.li(4, 1);
+    v.word(0x60840002);  // ori r4,r4,2
+    v.word(0x38E10024);  // addi r7,r1,36
+    v.bl(vsetup);
+    v.li(4, 0);
+    v.bl(vsubmit);
+    v.word(0x4E800020);  // blr
+    // The same with `lswi r3, r1, 8`, which loads r3 and r4.
+    const std::uint32_t loaded = v.here();
+    v.word(0x9421FFD0);  // stwu r1,-48(r1)
+    v.li(4, 1);
+    v.word(0x7C6144AA);  // lswi r3,r1,8
+    v.word(0x38E10024);  // addi r7,r1,36
+    v.bl(vsetup);
+    v.li(4, 0);
+    v.bl(vsubmit);
+    v.word(0x4E800020);  // blr
+    // `lfdux f0, r4, r5` and the paired-single `psq_lux` / `psq_lu` leave
+    // an address in r4; a `bctrl` may change r4.
+    std::uint32_t clobbered[4] = {};
+    const std::uint32_t clobbers[4] = {0x7C042CEEu /* lfdux f0,r4,r5 */, 0x4E800421u /* bctrl */,
+                                       0x1004284Cu /* psq_lux f0,r4,r5,0,0 */, 0xE4040000u /* psq_lu f0,0(r4),0,0 */};
+    for (int k = 0; k < 4; ++k) {
+        clobbered[k] = v.here();
+        v.word(0x9421FFD0);  // stwu r1,-48(r1)
+        v.li(4, 1);
+        v.word(clobbers[k]);
+        v.word(0x38E10024);  // addi r7,r1,36
+        v.bl(vsetup);
+        v.li(4, 0);
+        v.bl(vsubmit);
+        v.word(0x4E800020);  // blr
+    }
+    // A branch past the last `li r4`: `li r4, 3; cmpwi r3, 0; beq L;
+    // li r4, 1; L: bl setup` hands setup 3 or 1, so no one command.
+    const std::uint32_t joined = v.here();
+    v.word(0x9421FFD0);  // stwu r1,-48(r1)
+    v.li(4, 3);
+    v.word(0x2C030000);  // cmpwi r3,0
+    v.word(0x41820008);  // beq +8 (to the bl)
+    v.li(4, 1);
+    v.bl(vsetup);
+    v.li(4, 0);
+    v.bl(vsubmit);
+    v.word(0x4E800020);  // blr
+    // Two setup calls with different commands: no one command, so no API
+    // function (the allocator path asks the same of its stores).
+    const std::uint32_t twice = v.here();
+    v.word(0x9421FFD0);  // stwu r1,-48(r1)
+    v.li(4, 1);
+    v.bl(vsetup);
+    v.li(4, 2);
+    v.bl(vsetup);
+    v.li(4, 0);
+    v.bl(vsubmit);
+    v.word(0x4E800020);  // blr
+    std::uint32_t vasync[8] = {};
+    for (std::uint32_t cmd : {2u, 6u, 7u}) vasync[cmd] = v.unoptimized_function(cmd, true, vsetup, vfill, vsubmit);
+    riftwii::IpcSymbols vs;
+    vs.ioctl_async = vasync[6];
+    vs.ioctlv_async = vasync[7];
+    riftwii::IpcApi vapi;
+    EXPECT_TRUE(riftwii::find_ipc_api({v.range()}, vs, vapi, error));
+    EXPECT_EQ(vapi.async[6], vasync[6]);
+    EXPECT_EQ(vapi.async[2], vasync[2]);
+    EXPECT_EQ(vapi.sync[1], 0u);
+    EXPECT_EQ(vapi.sync[2], 0u);
+    (void)changed;
+    (void)loaded;
+
+    // IOS_IoctlAsync first calls another function with `li r4, 6`, one
+    // that no other API function calls (only a function that never
+    // submits calls it with 2): the search passes it over and still finds
+    // the setup helper after it.
+    FakeText w;
+    const std::uint32_t walloc = w.here();
+    w.prologue();
+    const std::uint32_t wsetup = w.here();
+    w.word(0x9421FFD0);  // stwu r1,-48(r1)
+    w.bl(walloc);
+    w.word(0x4E800020);  // blr
+    const std::uint32_t wsubmit = w.here();
+    w.prologue();
+    const std::uint32_t wfill = w.here();
+    w.prologue();
+    const std::uint32_t wother = w.here();
+    w.prologue();
+    std::uint32_t wasync[8] = {};
+    for (std::uint32_t cmd : {2u, 6u, 7u})
+        wasync[cmd] = w.unoptimized_function(cmd, true, wsetup, wfill, wsubmit, true, cmd == 6 ? wother : 0);
+    w.unoptimized_function(2, true, wother, wfill, wsubmit, false);
+    // An IOS_OpenAsync with a stack local at 0x28(r1), where the reboot
+    // forms set relaunch in the block: still an API function.
+    const std::uint32_t wopen = w.here();
+    w.word(0x9421FFD0);  // stwu r1,-48(r1)
+    w.word(0x7C0802A6);  // mflr r0
+    w.word(0x90010034);  // stw r0,52(r1)
+    w.word(0x7D3E4B78);  // mr r30,r9 (the callback)
+    w.word(0x38000001);  // li r0,1
+    w.word(0x90010028);  // stw r0,40(r1)
+    w.li(4, 1);
+    w.word(0x7FC5F378);  // mr r5,r30
+    w.word(0x38E10024);  // addi r7,r1,36
+    w.bl(wsetup);
+    w.word(0x80610024);  // lwz r3,36(r1)
+    w.word(0x7FC4F378);  // mr r4,r30
+    w.bl(wsubmit);
+    w.word(0x80010034);  // lwz r0,52(r1)
+    w.word(0x7C0803A6);  // mtlr r0
+    w.word(0x38210030);  // addi r1,r1,48
+    w.word(0x4E800020);  // blr
+    riftwii::IpcSymbols ws;
+    ws.ioctl_async = wasync[6];
+    riftwii::IpcApi wapi;
+    EXPECT_TRUE(riftwii::find_ipc_api({w.range()}, ws, wapi, error));
+    EXPECT_EQ(wapi.async[6], wasync[6]);
+    EXPECT_EQ(wapi.async[2], wasync[2]);
+    EXPECT_EQ(wapi.async[7], wasync[7]);
+    EXPECT_EQ(wapi.async[1], wopen);
+
+    // The same other function before the setup helper in both commands 2
+    // and 6 (not 7): it passes the helper check as well as the real one,
+    // so which is the helper is unclear and the search gives up rather
+    // than miss IOS_IoctlvAsync.
+    FakeText x;
+    const std::uint32_t xalloc = x.here();
+    x.prologue();
+    const std::uint32_t xsetup = x.here();
+    x.word(0x9421FFD0);  // stwu r1,-48(r1)
+    x.bl(xalloc);
+    x.word(0x4E800020);  // blr
+    const std::uint32_t xsubmit = x.here();
+    x.prologue();
+    const std::uint32_t xfill = x.here();
+    x.prologue();
+    const std::uint32_t xother = x.here();
+    x.prologue();
+    std::uint32_t xasync[8] = {};
+    for (std::uint32_t cmd : {2u, 6u, 7u})
+        xasync[cmd] = x.unoptimized_function(cmd, true, xsetup, xfill, xsubmit, true, cmd == 7 ? 0 : xother);
+    riftwii::IpcSymbols xs;
+    xs.ioctl_async = xasync[6];
+    riftwii::IpcApi xapi;
+    EXPECT_FALSE(riftwii::find_ipc_api({x.range()}, xs, xapi, error));
+    (void)clobbered;
+    (void)twice;
+    (void)joined;
 }
 
 static void TestReturnToMenuSearch() {
@@ -4412,6 +4690,7 @@ int main() {
     TestPlacement();
     TestSymbolSearch();
     TestIpcApiSearch();
+    TestIpcApiSearchUnoptimized();
     TestReturnToMenuSearch();
     TestFsIpcTranslation();
     TestFsSyncIntercept();

@@ -36,6 +36,13 @@ bool note_names_missing(const std::string& note);
 bool record_missing_mod_input(std::vector<MissingModInput>& out, const std::string& pack,
                               const std::string& external, MissingModInputKind kind);
 
+// Takes out the missing folders of a pack that misses nothing else. A copy
+// that stopped part way also loses files, and then its folders are named
+// with them; a folder alone is one the pack's XML lists but its download
+// does not ship (Mario Kart Wii Deluxe's /mkwdx/Race/Kart), which
+// Riivolution skips without a word. The log's notes still name it.
+void drop_lone_missing_folders(std::vector<MissingModInput>& missing);
+
 // Turns a plan's <folder> patches into <file> patches against a disc's FST,
 // keeping document order with the plan's own <file> patches (memory and
 // savegame steps are left to their own runtimes). Semantics, from the
