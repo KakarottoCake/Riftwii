@@ -32,9 +32,9 @@ bool read_sd_file(const Fat32File& file, std::uint64_t offset, std::uint8_t* out
 // Bytes of the file at `sd_path` as the card itself holds them, for checking
 // that a write through libfat reached it: libfat's cache (libdvm) drops the
 // result of the sector writes it flushes, and its fsync always says yes.
-// The lookups' cache is dropped first, so the file's directory entry, its
-// cluster chain and its data are all read from the card; false if the entry
-// says the file is shorter than offset + length.
+// Its folder's cached listing and the FAT window are dropped first, so the
+// file's directory entry, its cluster chain and its data are all read from
+// the card; false if the entry says the file is shorter than offset + length.
 bool read_sd_file_from_card(const std::string& sd_path, std::uint64_t offset, std::uint8_t* out, std::size_t length);
 // Overwrites whole 512-byte blocks of a file found above, where they already
 // lie on the card (riftwii/fat32.hpp's fat32_write_in_place): the FAT, FSInfo

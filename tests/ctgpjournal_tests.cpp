@@ -33,7 +33,7 @@ namespace fs = std::filesystem;
 namespace {
 
 constexpr std::uint32_t kChunk = kCtgpJournalChunkBytes;
-constexpr std::size_t kHeader = 44;  // the journal's header (version 2)
+constexpr std::size_t kHeader = 560;  // the journal's header (version 2, with 128 content samples)
 
 // A pack behind a write cache, as blob.bin is on the Wii behind libfat's
 // (libdvm's): writes land in `cache`, and sync() copies them to `card`, except
@@ -320,10 +320,15 @@ int main() {
         EXPECT_TRUE(p.data == orig);
 
         // Journaling fails (pack read fails): the pack write must not happen.
+        bool reads_fail = false;
         CtgpPackIo bad = p.io();
-        bad.read = [](std::uint64_t, std::uint32_t, std::uint8_t*) { return false; };
+        const auto good_read = bad.read;
+        bad.read = [&reads_fail, good_read](std::uint64_t o, std::uint32_t n, std::uint8_t* out) {
+            return !reads_fail && good_read(o, n, out);
+        };
         CtgpPackJournal m;
         EXPECT_TRUE(m.begin(jp, bad, size, err));
+        reads_fail = true;
         EXPECT_TRUE(!m.io().write(0, a.data(), 64));
         EXPECT_TRUE(p.data == orig);
         std::remove(jp.c_str());
@@ -517,6 +522,55 @@ int main() {
         EXPECT_TRUE(p.data == changed);
         EXPECT_TRUE(exists(jp));
         std::remove(jp.c_str());
+    }
+
+    {   // CTGP-R rewritten in place over a cut-off update: the same size, first
+        // cluster and creation time (one identity), other contents. The
+        // samples outside the journal's chunks differ: refused, untouched.
+        CachedPack old_pack = make_cached(size, 0);
+        old_pack.identity = identity_of(100, 0x1000);
+        const auto old_orig = old_pack.cache;
+        {
+            CtgpPackJournal j;
+            EXPECT_TRUE(j.begin(jp, old_pack.io(), size, err));
+            do_writes(j.io());  // chunks 0 to 3; 4 and 5 untouched
+        }
+        CachedPack rewritten = make_cached(size, 42);
+        rewritten.identity = old_pack.identity;
+        const auto rewritten_orig = rewritten.cache;
+        std::size_t n = 0;
+        EXPECT_TRUE(ctgp_journal_recover(jp, rewritten.io(), size, rewritten.sync(), n, err) ==
+                    CtgpJournalRecovery::Failed);
+        EXPECT_TRUE(!err.empty());
+        EXPECT_EQ(n, std::size_t(0));
+        EXPECT_TRUE(rewritten.cache == rewritten_orig && rewritten.card == rewritten_orig);
+        EXPECT_TRUE(exists(jp));
+        // One byte in an untouched chunk's sampled sector is enough.
+        CachedPack nearly = old_pack;
+        nearly.cache[5 * kChunk + 3] ^= 1;
+        nearly.card = nearly.cache;
+        const auto nearly_orig = nearly.cache;
+        EXPECT_TRUE(ctgp_journal_recover(jp, nearly.io(), size, nearly.sync(), n, err) == CtgpJournalRecovery::Failed);
+        EXPECT_TRUE(nearly.cache == nearly_orig);
+        // Bytes the update itself changed are not compared: the pack it was
+        // made for, half updated, is played back.
+        EXPECT_TRUE(ctgp_journal_recover(jp, old_pack.io(), size, old_pack.sync(), n, err) ==
+                    CtgpJournalRecovery::RolledBack);
+        EXPECT_TRUE(old_pack.cache == old_orig);
+        EXPECT_TRUE(!exists(jp));
+    }
+    {   // begin fails cleanly, with no journal made, when the pack can't be
+        // read for its samples or the bookkeeping would not fit in memory
+        MemPack p = make_pack(size);
+        CtgpPackIo io = p.io();
+        io.read = [](std::uint64_t, std::uint32_t, std::uint8_t*) { return false; };
+        CtgpPackJournal j;
+        EXPECT_TRUE(!j.begin(jp, io, size, err));
+        EXPECT_TRUE(!exists(jp));
+        CtgpPackJournal k;
+        EXPECT_TRUE(!k.begin(jp, p.io(), std::uint64_t(1) << 60, err));
+        EXPECT_TRUE(!err.empty());
+        EXPECT_TRUE(!exists(jp));
     }
 
     fs::remove_all(dir);

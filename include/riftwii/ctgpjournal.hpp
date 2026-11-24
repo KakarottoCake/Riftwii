@@ -27,8 +27,12 @@
 // step and keeps the journal.
 //
 // The journal also records the pack's identity (CtgpPackIo::identity) and
-// is never played back into a pack with another one: after CTGP-R is
-// installed again, the old journal's chunks don't belong in the new pack.
+// a sample of its contents, and is never played back into a pack with
+// another identity, or whose sampled bytes outside the journal's own chunks
+// differ: after CTGP-R is installed again, the old journal's chunks don't
+// belong in the new pack. begin sizes all its bookkeeping up front (a few
+// bits and a checksum per chunk of the pack), so a write never needs memory
+// it might not get; begin fails cleanly when there isn't room.
 namespace riftwii {
 
 constexpr std::uint32_t kCtgpJournalChunkBytes = 32 * 1024;

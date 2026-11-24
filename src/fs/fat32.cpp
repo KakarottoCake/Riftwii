@@ -667,6 +667,21 @@ void Fat32Volume::forget_cached() const {
     dir_cache_entries_ = 0;
 }
 
+void Fat32Volume::forget_folder_of(const std::string& path) const {
+    fat_cache_.clear();
+    const std::size_t slash = path.find_last_of('/');
+    std::uint32_t folder = 0;
+    std::string error;
+    if (slash == std::string::npos || !resolve_directory(path.substr(0, slash), folder, error)) {
+        forget_cached();
+        return;
+    }
+    const auto cached = dir_cache_.find(folder);
+    if (cached == dir_cache_.end()) return;
+    dir_cache_entries_ -= std::min(dir_cache_entries_, cached->second.size());
+    dir_cache_.erase(cached);
+}
+
 bool Fat32Volume::resolve_directory(const std::string& path, std::uint32_t& cluster, std::string& error,
                                     bool* missing) const {
     if (missing) *missing = false;

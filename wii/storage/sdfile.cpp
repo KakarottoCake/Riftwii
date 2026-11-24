@@ -160,9 +160,19 @@ bool read_sd_file(const Fat32File& file, std::uint64_t offset, std::uint8_t* out
 }
 
 bool read_sd_file_from_card(const std::string& sd_path, std::uint64_t offset, std::uint8_t* out, std::size_t length) {
-    forget_sd_layout();
-    Fat32File file;
     std::string error;
+    if (sd_path.compare(0, 4, "sd:/") != 0 || !ensure_mounted(error)) return false;
+    // Called once per journal entry (32 KiB), so only what an append to
+    // this file changes is read again: its folder's listing (the entry's
+    // size and first cluster) and the FAT (its chain). The folders above
+    // keep their cached listings, which an append never changes. About four
+    // small reads plus the entry's own bytes, some 15 ms on a Wii's SD card.
+    // Everything this allocates is the DOL's and is given back before it
+    // returns (the listing cache aside, which is the DOL's to keep), and it
+    // never calls into the plugin, so the plugin's escape can't stop it
+    // halfway. It logs only when the check fails, which ends the update.
+    g_volume.forget_folder_of(sd_path.substr(3));
+    Fat32File file;
     if (!resolve_sd_file(sd_path, file, error)) {
         logf("SD: %s could not be found on the card to check a write: %s\n", sd_path.c_str(), error.c_str());
         return false;

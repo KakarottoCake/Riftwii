@@ -465,9 +465,12 @@ every chunk the update or a replay wrote, before the journal is removed. A
 mismatch stops that step and keeps the journal. The journal's header also
 holds the pack's identity, from its directory entry (size, first cluster and
 creation time; for jelly.bin its write time too, which the in-place writes
-never change), and a journal is never played back into a pack with another
-identity: after CTGP-R is installed again, the old chunks don't belong in the
-new pack. Such a journal stays on the card, and the player deletes it.
+never change) and 128 sampled sectors of its contents; a journal is never
+played back into a pack with another identity, or whose samples outside the
+chunks the journal covers (which the update can't have written) differ:
+after CTGP-R is installed again, even rewritten in place with the same
+entry, the old chunks don't belong in the new pack. Such a journal stays on
+the card, and the player deletes it.
 
 The request is C++, as with the ctgpr plugin, and every operation runs inside
 the runtime's escape window with its heap blocks tracked (a 64 KB table from

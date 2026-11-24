@@ -143,6 +143,12 @@ public:
     // Drops the FAT window and the directory listings kept from earlier
     // lookups; needed once something else (libfat) has written the volume.
     void forget_cached() const;
+    // Less than that, for a file something else keeps writing (an undo
+    // journal libfat appends to): drops the FAT window and the listing of
+    // the folder holding `path`, and keeps the listings above it, whose
+    // entries such a write does not change. Everything goes when the folder
+    // can't be found from what is cached.
+    void forget_folder_of(const std::string& path) const;
 
 private:
     bool next_cluster(std::uint32_t cluster, std::uint32_t& next, std::string& error) const;
