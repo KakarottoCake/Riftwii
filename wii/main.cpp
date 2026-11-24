@@ -227,6 +227,14 @@ void StartChannel(u64 title) {
                 riftwii::wii::ReloadResult::Terminal)
                 riftwii::wii::halt_after_terminal_reload();
         }
+        // A reload refused before the old IOS went (an ES error) leaves the
+        // module running and the card held: no restart onto it (it would
+        // mount it as its own). Leaving RiftWii brings the next program up
+        // on its own IOS, which ends the module.
+        if (riftwii::wii::sd_held_by_d2x_fat()) {
+            riftwii::wii::logf("Wii channels: d2x still holds the SD card; leaving RiftWii, not restarting it\n");
+            std::exit(0);
+        }
         if (riftwii::wii::CanRestart())
             riftwii::wii::WarmRestart(riftwii::wii::RestartKind::LaunchFailed,
                                       riftwii::wii::tr("The game did not start: {1}", {error}));
