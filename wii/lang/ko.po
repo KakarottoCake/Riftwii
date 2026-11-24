@@ -4317,8 +4317,11 @@ msgstr "프로그램을 지웁니다. 세이브와 설정은 지우라고 할 �
 msgid "Remove its saves too?"
 msgstr "세이브도 지울까요?"
 
-msgid "{1} left its saves and settings in {2}. An emulator may keep your games, covers and cheats there too: Remove them deletes everything in {2}."
-msgstr "{1}이(가) 세이브와 설정을 {2}에 남겼습니다. 에뮬레이터라면 게임, 커버, 치트도 거기 있을 수 있습니다. 지우기를 고르면 {2} 안의 모든 것이 지워집니다."
+msgid "Remove them deletes everything in {1}: its saves and settings, and an emulator's games, covers and cheats if it keeps them there."
+msgstr "지우기를 고르면 {1} 안의 모든 것이 지워집니다. 세이브와 설정, 그리고 에뮬레이터가 거기 둔 게임, 커버, 치트도 지워집니다."
+
+msgid "The list has no apps."
+msgstr "목록에 앱이 없습니다."
 
 msgid "Remove them"
 msgstr "지우기"

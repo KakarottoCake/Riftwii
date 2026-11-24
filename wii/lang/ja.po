@@ -4317,8 +4317,11 @@ msgstr "プログラムを削除します。セーブと設定は、消すと決
 msgid "Remove its saves too?"
 msgstr "セーブも削除しますか？"
 
-msgid "{1} left its saves and settings in {2}. An emulator may keep your games, covers and cheats there too: Remove them deletes everything in {2}."
-msgstr "{1}はセーブと設定を{2}に残しています。エミュレーターなら、ゲームやカバー、チートもそこにあるかもしれません。「削除する」を選ぶと{2}の中身がすべて消えます。"
+msgid "Remove them deletes everything in {1}: its saves and settings, and an emulator's games, covers and cheats if it keeps them there."
+msgstr "「削除する」を選ぶと{1}の中身がすべて消えます。セーブと設定、そしてエミュレーターがそこに置いたゲーム、カバー、チートもです。"
+
+msgid "The list has no apps."
+msgstr "リストにアプリがありません。"
 
 msgid "Remove them"
 msgstr "削除する"

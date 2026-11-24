@@ -4317,8 +4317,11 @@ msgstr "O programa é apagado. Os saves e as configurações ficam, a não ser q
 msgid "Remove its saves too?"
 msgstr "Remover os saves também?"
 
-msgid "{1} left its saves and settings in {2}. An emulator may keep your games, covers and cheats there too: Remove them deletes everything in {2}."
-msgstr "{1} deixou os saves e as configurações em {2}. Um emulador pode guardar lá também seus jogos, capas e cheats: Remover apaga tudo o que há em {2}."
+msgid "Remove them deletes everything in {1}: its saves and settings, and an emulator's games, covers and cheats if it keeps them there."
+msgstr "Remover apaga tudo o que há em {1}: os saves e as configurações, e os jogos, capas e cheats de um emulador se ele os guarda ali."
+
+msgid "The list has no apps."
+msgstr "A lista não tem apps."
 
 msgid "Remove them"
 msgstr "Remover"

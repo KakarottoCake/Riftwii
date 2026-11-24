@@ -8881,9 +8881,12 @@ MORE["fr"]['Its program goes. Its saves and settings stay until you say otherwis
 T['Remove its saves too?'] = ('¿Quitar también sus partidas?', 'セーブも削除しますか？', 'Remover os saves também?', 'Rimuovere anche i salvataggi?')
 MORE["ko"]['Remove its saves too?'] = '세이브도 지울까요?'
 MORE["fr"]['Remove its saves too?'] = 'Supprimer aussi ses sauvegardes ?'
-T['{1} left its saves and settings in {2}. An emulator may keep your games, covers and cheats there too: Remove them deletes everything in {2}.'] = ('{1} dejó sus partidas y ajustes en {2}. Un emulador puede guardar ahí también tus juegos, carátulas y trucos: Quitarlos elimina todo lo que hay en {2}.', '{1}はセーブと設定を{2}に残しています。エミュレーターなら、ゲームやカバー、チートもそこにあるかもしれません。「削除する」を選ぶと{2}の中身がすべて消えます。', '{1} deixou os saves e as configurações em {2}. Um emulador pode guardar lá também seus jogos, capas e cheats: Remover apaga tudo o que há em {2}.', "{1} ha lasciato salvataggi e impostazioni in {2}. Un emulatore può tenerci anche i tuoi giochi, copertine e trucchi: Rimuovili cancella tutto ciò che c'è in {2}.")
-MORE["ko"]['{1} left its saves and settings in {2}. An emulator may keep your games, covers and cheats there too: Remove them deletes everything in {2}.'] = '{1}이(가) 세이브와 설정을 {2}에 남겼습니다. 에뮬레이터라면 게임, 커버, 치트도 거기 있을 수 있습니다. 지우기를 고르면 {2} 안의 모든 것이 지워집니다.'
-MORE["fr"]['{1} left its saves and settings in {2}. An emulator may keep your games, covers and cheats there too: Remove them deletes everything in {2}.'] = '{1} a laissé ses sauvegardes et réglages dans {2}. Un émulateur peut aussi y garder vos jeux, jaquettes et codes : Les supprimer efface tout ce qui est dans {2}.'
+T["Remove them deletes everything in {1}: its saves and settings, and an emulator's games, covers and cheats if it keeps them there."] = ('Quitarlos elimina todo lo que hay en {1}: sus partidas y ajustes, y los juegos, carátulas y trucos de un emulador si los guarda ahí.', '「削除する」を選ぶと{1}の中身がすべて消えます。セーブと設定、そしてエミュレーターがそこに置いたゲーム、カバー、チートもです。', 'Remover apaga tudo o que há em {1}: os saves e as configurações, e os jogos, capas e cheats de um emulador se ele os guarda ali.', "Rimuovili cancella tutto ciò che c'è in {1}: salvataggi e impostazioni, e giochi, copertine e trucchi di un emulatore se li tiene lì.")
+MORE["ko"]["Remove them deletes everything in {1}: its saves and settings, and an emulator's games, covers and cheats if it keeps them there."] = '지우기를 고르면 {1} 안의 모든 것이 지워집니다. 세이브와 설정, 그리고 에뮬레이터가 거기 둔 게임, 커버, 치트도 지워집니다.'
+MORE["fr"]["Remove them deletes everything in {1}: its saves and settings, and an emulator's games, covers and cheats if it keeps them there."] = "Les supprimer efface tout ce qui est dans {1} : sauvegardes et réglages, et les jeux, jaquettes et codes d'un émulateur s'il les y garde."
+T['The list has no apps.'] = ('La lista no tiene apps.', 'リストにアプリがありません。', 'A lista não tem apps.', "L'elenco non ha app.")
+MORE["ko"]['The list has no apps.'] = '목록에 앱이 없습니다.'
+MORE["fr"]['The list has no apps.'] = "La liste n'a aucune appli."
 T['Remove them'] = ('Quitarlos', '削除する', 'Remover', 'Rimuovili')
 MORE["ko"]['Remove them'] = '지우기'
 MORE["fr"]['Remove them'] = 'Les supprimer'

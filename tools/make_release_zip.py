@@ -143,6 +143,9 @@ def zip_entries(args, values, commit_time):
     entries += [
         ("LICENSE.txt", crlf((ROOT / "LICENSE").read_text(encoding="utf-8"))),
         ("NOTICE.md", crlf((ROOT / "NOTICE.md").read_text(encoding="utf-8"))),
+        # The Rift Store's bag (Lucide, ISC; Feather, MIT) is in boot.dol:
+        # both licenses ask for their text to go with every copy.
+        ("LICENSE-Lucide.txt", crlf((ROOT / "vendor-lucide" / "LICENSE").read_text(encoding="utf-8"))),
     ]
     return entries
 
@@ -159,7 +162,7 @@ def main():
         fail("%r is not a YYMM-N version" % args.version)
 
     # A zip built from changed files would name a commit that doesn't hold them.
-    changed = git("status", "--porcelain", "--untracked-files=no", "--", "hbc", "themes", "release", "channel/installer/hbc", "wii/font", "LICENSE", "NOTICE.md")
+    changed = git("status", "--porcelain", "--untracked-files=no", "--", "hbc", "themes", "release", "channel/installer/hbc", "wii/font", "LICENSE", "NOTICE.md", "vendor-lucide")
     if changed:
         fail("files the zip takes have changes not committed:\n" + changed)
 

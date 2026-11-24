@@ -4317,8 +4317,11 @@ msgstr "Il programma viene eliminato. Salvataggi e impostazioni restano, a meno 
 msgid "Remove its saves too?"
 msgstr "Rimuovere anche i salvataggi?"
 
-msgid "{1} left its saves and settings in {2}. An emulator may keep your games, covers and cheats there too: Remove them deletes everything in {2}."
-msgstr "{1} ha lasciato salvataggi e impostazioni in {2}. Un emulatore può tenerci anche i tuoi giochi, copertine e trucchi: Rimuovili cancella tutto ciò che c'è in {2}."
+msgid "Remove them deletes everything in {1}: its saves and settings, and an emulator's games, covers and cheats if it keeps them there."
+msgstr "Rimuovili cancella tutto ciò che c'è in {1}: salvataggi e impostazioni, e giochi, copertine e trucchi di un emulatore se li tiene lì."
+
+msgid "The list has no apps."
+msgstr "L'elenco non ha app."
 
 msgid "Remove them"
 msgstr "Rimuovili"

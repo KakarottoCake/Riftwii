@@ -272,7 +272,7 @@ private:
         hits_.push_back({filter_x, 14, filter_w, 28, kHitFilter});
         // Clear of the band's lower edge (Bookshelf's is a thick plank).
         frame_.Text(right_, 47, kSmallSize, RWP_COLOR_INK_SOFT, counts, RWP_ALIGN_RIGHT, 270);
-        if (shown == 0) {
+        if (shown == 0 && no_remote_) {
             // The filter let nothing through: the list has no app marked
             // as working without a Wii Remote (yet).
             // Wrapped (on one line the longer translations were cut), so
@@ -280,6 +280,9 @@ private:
             frame_.Text(left_ + 20, 180, 22, RWP_COLOR_INK,
                         tr("No app in the list is marked as working without a Wii Remote. Press - to show them all."),
                         RWP_ALIGN_LEFT, right_ - left_ - 40, 3);
+        } else if (shown == 0) {
+            // A list that loaded but has no app this store can show.
+            Message(tr("The list has no apps."));
         }
 
         // Four across on a 16:9 menu; three on a 4:3 one, where four would
@@ -927,9 +930,11 @@ private:
                 std::string folders;
                 for (const std::string& folder : store_.finished_leftovers)
                     folders += (folders.empty() ? "" : ", ") + folder;
+                // The warning first and the folders once: a long list of
+                // folders cut the end of the text off on a 4:3 menu.
                 const std::string body = tr(
-                    "{1} left its saves and settings in {2}. An emulator may keep your games, covers and cheats there too: Remove them deletes everything in {2}.",
-                    name, folders);
+                    "Remove them deletes everything in {1}: its saves and settings, and an emulator's games, covers and cheats if it keeps them there.",
+                    folders);
                 bool remove = false;
                 if (RWP_HOST_HAS(&Host(), ask_risky)) {
                     remove = Host().ask_risky(tr("Remove its saves too?").c_str(), body.c_str(), tr("Keep them").c_str(),
