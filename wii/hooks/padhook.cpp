@@ -1018,6 +1018,10 @@ bool wants_home_build(const PadHook& out, bool code_build) {
 }  // namespace
 
 PadsPluginForLaunch::PadsPluginForLaunch(bool wanted) {
+    // Every launch starts with no refusal: one that never asks for the pad
+    // code (fetch_pad_build) can't carry an earlier launch's over to the
+    // channel fallback (CodeRabbit CLI, #609).
+    g_pads_refused = false;
     if (!wanted) return;
     // A refusal is logged by the loader; fetch_pad_build asks again and
     // stops the launch with the loader's sentence if the game needs it.
