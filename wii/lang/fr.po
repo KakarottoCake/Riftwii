@@ -5066,3 +5066,6 @@ msgstr "Autres titres"
 
 msgid "Emulated + Wii"
 msgstr "Émulée + Wii"
+
+msgid "CTGP-R's channel: how CTGP-R signs its update files and hash lists (what the signature covers and the 48-byte filler pattern that stands in for it), read as documentation of behavior. The pattern and CTGP-R's public signing key are carried as data; no code is copied."
+msgstr "Chaîne de CTGP-R : comment CTGP-R signe ses fichiers de mise à jour et ses listes de hachages (ce que couvre la signature et le motif de remplissage de 48 octets qui la remplace), consulté comme documentation du comportement. Le motif et la clé publique de signature de CTGP-R sont repris comme données ; aucun code n’a été copié."

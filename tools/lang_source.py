@@ -10433,5 +10433,21 @@ FR.update({
     'Emulated + Wii': 'Émulée + Wii',
 })
 
+# The CTGP-R updater's behavior reference, shown with the other credits.
+T.update({
+    "CTGP-R's channel: how CTGP-R signs its update files and hash lists (what the signature covers and the 48-byte filler pattern that stands in for it), read as documentation of behavior. The pattern and CTGP-R's public signing key are carried as data; no code is copied.": (
+        "Canal de CTGP-R: cómo CTGP-R firma sus archivos de actualización y sus listas de hashes (qué cubre la firma y el patrón de relleno de 48 bytes que ocupa su lugar), consultado como documentación del comportamiento. El patrón y la clave pública de firma de CTGP-R se incluyen como datos; no se copió código.",
+        "CTGP-Rのチャンネル：CTGP-Rが更新ファイルとハッシュ一覧に署名するしくみ（署名が対象とする範囲と、署名の代わりに入れる48バイトの固定パターン）を、動作の資料として参照しました。このパターンとCTGP-Rの公開署名キーはデータとして収録しています。コードはコピーしていません。",
+        "Canal do CTGP-R: como o CTGP-R assina seus arquivos de atualização e suas listas de hashes (o que a assinatura cobre e o padrão de preenchimento de 48 bytes que ocupa o lugar dela), consultado como documentação do comportamento. O padrão e a chave pública de assinatura do CTGP-R são incluídos como dados; nenhum código foi copiado.",
+        "Canale di CTGP-R: come CTGP-R firma i file di aggiornamento e le liste di hash (cosa copre la firma e il motivo di riempimento di 48 byte che ne prende il posto), consultato come documentazione del comportamento. Il motivo e la chiave pubblica di firma di CTGP-R sono inclusi come dati; nessun codice è stato copiato.",
+    ),
+})
+KO.update({
+    "CTGP-R's channel: how CTGP-R signs its update files and hash lists (what the signature covers and the 48-byte filler pattern that stands in for it), read as documentation of behavior. The pattern and CTGP-R's public signing key are carried as data; no code is copied.": "CTGP-R 채널: CTGP-R이 업데이트 파일과 해시 목록에 서명하는 방식(서명이 다루는 범위와 서명 자리에 넣는 48바이트 고정 패턴)을 동작 문서로 참고했습니다. 이 패턴과 CTGP-R의 공개 서명 키는 데이터로 포함되어 있으며, 코드는 복사하지 않았습니다.",
+})
+FR.update({
+    "CTGP-R's channel: how CTGP-R signs its update files and hash lists (what the signature covers and the 48-byte filler pattern that stands in for it), read as documentation of behavior. The pattern and CTGP-R's public signing key are carried as data; no code is copied.": "Chaîne de CTGP-R : comment CTGP-R signe ses fichiers de mise à jour et ses listes de hachages (ce que couvre la signature et le motif de remplissage de 48 octets qui la remplace), consulté comme documentation du comportement. Le motif et la clé publique de signature de CTGP-R sont repris comme données ; aucun code n’a été copié.",
+})
+
 if __name__ == "__main__":
     main()
