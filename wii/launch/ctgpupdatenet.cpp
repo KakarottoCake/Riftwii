@@ -472,7 +472,7 @@ bool recover_blob_journal(std::string& error) {
 bool CtgpPackReady(std::string& message) {
     std::string error;
     if (CtgpRecoverPackJournal(error)) return true;
-    message = tr("An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer.", {error});
+    message = tr("An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer, then delete update-journal.bin and update-journal-jelly.bin from the ctgpr folder on the SD card.", {error});
     return false;
 }
 

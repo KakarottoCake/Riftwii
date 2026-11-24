@@ -9727,11 +9727,11 @@ T.update({
         "更新をダウンロードできませんでした: {1}。CTGP-Rは更新なしで起動します。",
         "Não foi possível baixar a atualização: {1}. O CTGP-R vai começar sem ela.",
         "Impossibile scaricare l'aggiornamento: {1}. CTGP-R partirà senza."),
-    "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer.": (
-        "Una actualización anterior de CTGP-R se interrumpió y no se pudo deshacer: {1}. Vuelve a instalar CTGP-R con su propio instalador.",
-        "以前のCTGP-Rの更新が中断され、元に戻せませんでした: {1}。CTGP-R専用のインストーラーで再インストールしてください。",
-        "Uma atualização anterior do CTGP-R foi interrompida e não pôde ser desfeita: {1}. Instale o CTGP-R de novo com o instalador dele.",
-        "Un aggiornamento precedente di CTGP-R è stato interrotto e non è stato possibile annullarlo: {1}. Reinstalla CTGP-R con il suo programma di installazione."),
+    "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer, then delete update-journal.bin and update-journal-jelly.bin from the ctgpr folder on the SD card.": (
+        "Una actualización anterior de CTGP-R se interrumpió y no se pudo deshacer: {1}. Vuelve a instalar CTGP-R con su propio instalador y después borra update-journal.bin y update-journal-jelly.bin de la carpeta ctgpr de la tarjeta SD.",
+        "以前のCTGP-Rの更新が中断され、元に戻せませんでした: {1}。CTGP-R専用のインストーラーで再インストールしてから、SDカードのctgprフォルダーにあるupdate-journal.binとupdate-journal-jelly.binを削除してください。",
+        "Uma atualização anterior do CTGP-R foi interrompida e não pôde ser desfeita: {1}. Instale o CTGP-R de novo com o instalador dele e depois apague update-journal.bin e update-journal-jelly.bin da pasta ctgpr do cartão SD.",
+        "Un aggiornamento precedente di CTGP-R è stato interrotto e non è stato possibile annullarlo: {1}. Reinstalla CTGP-R con il suo programma di installazione, poi elimina update-journal.bin e update-journal-jelly.bin dalla cartella ctgpr della scheda SD."),
     "The CTGP-R update on the SD card can't be used ({1}), so it was set aside.": (
         "La actualización de CTGP-R de la tarjeta SD no se puede usar ({1}), así que se ha apartado.",
         "SDカードのCTGP-Rの更新は使用できないため（{1}）、別に移しました。",
@@ -9763,8 +9763,8 @@ KO.update({
     "Checking for a CTGP-R update...": "CTGP-R 업데이트를 확인하는 중...",
     "The update could not be downloaded: {1}. CTGP-R starts without it.":
         "업데이트를 다운로드할 수 없습니다: {1}. CTGP-R은 업데이트 없이 시작합니다.",
-    "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer.":
-        "이전 CTGP-R 업데이트가 중단되었고 되돌릴 수 없습니다: {1}. CTGP-R 설치 프로그램으로 다시 설치하세요.",
+    "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer, then delete update-journal.bin and update-journal-jelly.bin from the ctgpr folder on the SD card.":
+        "이전 CTGP-R 업데이트가 중단되었고 되돌릴 수 없습니다: {1}. CTGP-R 설치 프로그램으로 다시 설치한 다음, SD 카드의 ctgpr 폴더에서 update-journal.bin과 update-journal-jelly.bin을 삭제하세요.",
     "The CTGP-R update on the SD card can't be used ({1}), so it was set aside.":
         "SD 카드의 CTGP-R 업데이트를 사용할 수 없어서({1}) 따로 옮겼습니다.",
     "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, so it was set aside.":
@@ -9784,8 +9784,8 @@ FR.update({
     "Checking for a CTGP-R update...": "Recherche d'une mise à jour de CTGP-R...",
     "The update could not be downloaded: {1}. CTGP-R starts without it.":
         "Impossible de télécharger la mise à jour : {1}. CTGP-R démarre sans elle.",
-    "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer.":
-        "Une mise à jour précédente de CTGP-R a été interrompue et n'a pas pu être annulée : {1}. Réinstallez CTGP-R avec son propre programme d'installation.",
+    "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer, then delete update-journal.bin and update-journal-jelly.bin from the ctgpr folder on the SD card.":
+        "Une mise à jour précédente de CTGP-R a été interrompue et n'a pas pu être annulée : {1}. Réinstallez CTGP-R avec son propre programme d'installation, puis supprimez update-journal.bin et update-journal-jelly.bin du dossier ctgpr de la carte SD.",
     "The CTGP-R update on the SD card can't be used ({1}), so it was set aside.":
         "La mise à jour de CTGP-R sur la carte SD est inutilisable ({1}) : elle a été mise de côté.",
     "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, so it was set aside.":

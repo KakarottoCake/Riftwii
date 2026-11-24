@@ -4728,8 +4728,8 @@ msgstr "Procurando uma atualização do CTGP-R..."
 msgid "The update could not be downloaded: {1}. CTGP-R starts without it."
 msgstr "Não foi possível baixar a atualização: {1}. O CTGP-R vai começar sem ela."
 
-msgid "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer."
-msgstr "Uma atualização anterior do CTGP-R foi interrompida e não pôde ser desfeita: {1}. Instale o CTGP-R de novo com o instalador dele."
+msgid "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer, then delete update-journal.bin and update-journal-jelly.bin from the ctgpr folder on the SD card."
+msgstr "Uma atualização anterior do CTGP-R foi interrompida e não pôde ser desfeita: {1}. Instale o CTGP-R de novo com o instalador dele e depois apague update-journal.bin e update-journal-jelly.bin da pasta ctgpr do cartão SD."
 
 msgid "The CTGP-R update on the SD card can't be used ({1}), so it was set aside."
 msgstr "A atualização do CTGP-R no cartão SD não pode ser usada ({1}), então foi deixada de lado."

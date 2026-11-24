@@ -21000,7 +21000,7 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 		std::string journal_error;
 		if (!riftwii::wii::CtgpRecoverPackJournal(journal_error)) {
 			ShowPopup(tr("CTGP-R update"),
-				tr("An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer.",
+				tr("An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer, then delete update-journal.bin and update-journal-jelly.bin from the ctgpr folder on the SD card.",
 					{FlatCapped(journal_error, 140)}),
 				tr("OK"));
 			return;
