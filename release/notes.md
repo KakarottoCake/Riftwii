@@ -35,7 +35,8 @@ have it, or that haven't changed since the last release's tag.
 -->
 **RiftWii {{VERSION}}.** The Rift Store: homebrew apps to browse, install, update and remove from RiftWii itself, with your saves kept. Home's bar, the game page and Settings are tidier, and WAD games go back to RiftWii on a Wii U. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-![The Rift Store]({{SCREENSHOTS}}2611-229-store.png)
+![The Rift Store button on Home's bar]({{SCREENSHOTS}}2611-231-store-button.png)
+![The Rift Store]({{SCREENSHOTS}}2611-231-store.png)
 ![An app's page in the Rift Store]({{SCREENSHOTS}}2611-229-store-app.png)
 ![What's new in this version]({{SCREENSHOTS}}2611-229-whats-new.png)
 
@@ -65,6 +66,7 @@ have it, or that haven't changed since the last release's tag.
 - **At 16:9, the game's page, Manage game and About use the whole width.** A subtitle that's too long scrolls instead of being cut, the help text has two full lines, and buttons that open another screen show an arrow.
 - **About** has a smaller cover, the controllers in the middle, and a story box that never runs into the bottom bar.
 - **Settings' buttons just say Picture, Games, Home...** and its help has the (i) like every other page.
+- **Game settings (the game page's Options) is as wide as the game page at 16:9,** so long setting names fit beside their choice.
 - **Install WAD files is under Settings > Games,** next to Manage emulated NAND.
 - **Manage emulated NAND groups its list** (game saves, channels, system channels, hidden titles), shows game names, says where each title is, and won't delete system titles.
 
