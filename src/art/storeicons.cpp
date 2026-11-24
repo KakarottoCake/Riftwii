@@ -134,6 +134,15 @@ Canvas Category(int which, Rgba glyph) {
             p.ring(14, 14, 3.2f, 1.8f);
             p.arc(14, 14, 7, -2.6f, -1.6f, 1.4f);
             break;
+        case 13: {  // The Rift Store itself: a shopping bag torn by a rift, as in its logo
+            const float body[][2] = {{6.5f, 10}, {21.5f, 10}, {23, 25}, {5, 25}, {6.5f, 10}};
+            for (int i = 0; i + 1 < 5; ++i) p.line(body[i][0], body[i][1], body[i + 1][0], body[i + 1][1], 2.0f);
+            p.arc(10.5f, 10, 2.6f, -kPi, 0, 1.8f);
+            p.arc(17.5f, 10, 2.6f, -kPi, 0, 1.8f);
+            const float tear[][2] = {{14.6f, 10.5f}, {12.9f, 14.2f}, {15.3f, 17.6f}, {12.7f, 21.2f}, {14.3f, 24.6f}};
+            for (int i = 0; i + 1 < 5; ++i) p.line(tear[i][0], tear[i][1], tear[i + 1][0], tear[i + 1][1], 1.7f);
+            break;
+        }
         default:  // More: three dots
             for (float x : {7.0f, 14.0f, 21.0f}) p.circle(x, 14, 2.6f);
             break;
@@ -195,6 +204,10 @@ bool paint_store_icon(const std::string& name, Rgba ink, Canvas& out) {
             out = Category(i, ink);
             return true;
         }
+    }
+    if (key == "logo") {
+        out = Category(13, ink);
+        return true;
     }
     for (int i = 0; i < 4; ++i) {
         if (key == kFacts[i]) {

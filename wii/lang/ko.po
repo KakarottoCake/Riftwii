@@ -4221,20 +4221,11 @@ msgstr "이 게임의 선택 사항을 저장하지 못했습니다. SD 카드�
 msgid "Play anyway?"
 msgstr "그래도 플레이할까요?"
 
-msgid "Get apps"
-msgstr "앱 받기"
-
 msgid "Homebrew apps from a list the RiftWii team checks, installed to sd:/apps. RiftWii hosts none of them: each comes from its maker's own release."
 msgstr "RiftWii 팀이 확인한 목록의 홈브루 앱을 sd:/apps에 설치합니다. RiftWii는 앱을 직접 올려 두지 않습니다. 모두 만든 사람이 공개한 파일입니다."
 
 msgid "Search apps"
 msgstr "앱 검색"
-
-msgid "The app store could not open."
-msgstr "앱 스토어를 열 수 없습니다."
-
-msgid "The app store could not open: {1}"
-msgstr "앱 스토어를 열 수 없습니다: {1}"
 
 msgid "System tools"
 msgstr "시스템 도구"
@@ -4415,6 +4406,15 @@ msgstr "{1} KB"
 
 msgid "The SD card is too full. Make {1} of room and try again."
 msgstr "SD 카드 공간이 부족합니다. {1}를 비운 뒤 다시 시도하세요."
+
+msgid "Rift Store"
+msgstr "Rift Store"
+
+msgid "The Rift Store could not open."
+msgstr "Rift Store를 열 수 없습니다."
+
+msgid "The Rift Store could not open: {1}"
+msgstr "Rift Store를 열 수 없습니다: {1}"
 
 msgid "Disc slot light"
 msgstr "디스크 슬롯 표시등"

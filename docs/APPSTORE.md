@@ -142,7 +142,7 @@ release whose file was replaced) fails `build`, so it is never published.
 
 ## The store on the Wii
 
-Settings > Online > Get apps opens the store. Its pages are the `appstore`
+Settings > Online > Rift Store opens the store (the Rift Store: its name in every language, and its logo, `docs/images/rift-store.png`, made by `tools/make_store_logo.py`). Its pages are the `appstore`
 plugin's (`plugins/appstore/`, docs/PLUGINS.md), loaded only while the store
 is open, so the DOL carries none of them.
 

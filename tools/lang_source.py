@@ -8785,21 +8785,12 @@ FR.update({
 
 
 # The app store (plugins/appstore, docs/APPSTORE.md) and its Settings row.
-T['Get apps'] = ('Obtener apps', 'アプリを入手', 'Obter apps', 'Ottieni app')
-MORE["ko"]['Get apps'] = '앱 받기'
-MORE["fr"]['Get apps'] = 'Obtenir des applis'
 T["Homebrew apps from a list the RiftWii team checks, installed to sd:/apps. RiftWii hosts none of them: each comes from its maker's own release."] = ('Apps homebrew de una lista que revisa el equipo de RiftWii, instaladas en sd:/apps. RiftWii no aloja ninguna: cada una viene de la versión publicada por su autor.', 'RiftWiiチームが確認したリストのHomebrewアプリを、sd:/appsにインストールします。RiftWiiはアプリを置いていません。どれも作者が公開したものです。', 'Apps homebrew de uma lista que a equipe do RiftWii confere, instalados em sd:/apps. O RiftWii não hospeda nenhum: cada um vem da versão publicada pelo autor.', 'App homebrew da un elenco controllato dal team di RiftWii, installate in sd:/apps. RiftWii non ne ospita nessuna: ognuna viene dalla versione pubblicata dal suo autore.')
 MORE["ko"]["Homebrew apps from a list the RiftWii team checks, installed to sd:/apps. RiftWii hosts none of them: each comes from its maker's own release."] = 'RiftWii 팀이 확인한 목록의 홈브루 앱을 sd:/apps에 설치합니다. RiftWii는 앱을 직접 올려 두지 않습니다. 모두 만든 사람이 공개한 파일입니다.'
 MORE["fr"]["Homebrew apps from a list the RiftWii team checks, installed to sd:/apps. RiftWii hosts none of them: each comes from its maker's own release."] = "Des applis homebrew d'une liste vérifiée par l'équipe RiftWii, installées dans sd:/apps. RiftWii n'en héberge aucune : chacune vient de la version publiée par son auteur."
 T['Search apps'] = ('Buscar apps', 'アプリを検索', 'Buscar apps', 'Cerca app')
 MORE["ko"]['Search apps'] = '앱 검색'
 MORE["fr"]['Search apps'] = 'Rechercher des applis'
-T['The app store could not open.'] = ('La tienda de apps no se pudo abrir.', 'アプリストアを開けませんでした。', 'A loja de apps não pôde abrir.', 'Lo store delle app non si è aperto.')
-MORE["ko"]['The app store could not open.'] = '앱 스토어를 열 수 없습니다.'
-MORE["fr"]['The app store could not open.'] = "La boutique d'applis n'a pas pu s'ouvrir."
-T['The app store could not open: {1}'] = ('La tienda de apps no se pudo abrir: {1}', 'アプリストアを開けませんでした: {1}', 'A loja de apps não pôde abrir: {1}', 'Lo store delle app non si è aperto: {1}')
-MORE["ko"]['The app store could not open: {1}'] = '앱 스토어를 열 수 없습니다: {1}'
-MORE["fr"]['The app store could not open: {1}'] = "La boutique d'applis n'a pas pu s'ouvrir : {1}"
 T['System tools'] = ('Herramientas', 'システムツール', 'Ferramentas', 'Strumenti di sistema')
 MORE["ko"]['System tools'] = '시스템 도구'
 MORE["fr"]['System tools'] = 'Outils système'
@@ -8986,6 +8977,17 @@ MORE["fr"]['{1} KB'] = '{1} Ko'
 T['The SD card is too full. Make {1} of room and try again.'] = ('La tarjeta SD está demasiado llena. Libera {1} y vuelve a intentarlo.', 'SDカードの空きが足りません。{1}の空きを作ってからもう一度試してください。', 'O cartão SD está cheio demais. Libere {1} e tente de novo.', 'La scheda SD è troppo piena. Libera {1} e riprova.')
 MORE["ko"]['The SD card is too full. Make {1} of room and try again.'] = 'SD 카드 공간이 부족합니다. {1}를 비운 뒤 다시 시도하세요.'
 MORE["fr"]['The SD card is too full. Make {1} of room and try again.'] = 'La carte SD est trop pleine. Libérez {1} et réessayez.'
+
+# The Rift Store (plugins/appstore, docs/APPSTORE.md): a name, the same in every language.
+T['Rift Store'] = ('Rift Store', 'Rift Store', 'Rift Store', 'Rift Store')
+MORE["ko"]['Rift Store'] = 'Rift Store'
+MORE["fr"]['Rift Store'] = 'Rift Store'
+T['The Rift Store could not open.'] = ('La Rift Store no se pudo abrir.', 'Rift Storeを開けませんでした。', 'A Rift Store não pôde abrir.', 'Il Rift Store non si è aperto.')
+MORE["ko"]['The Rift Store could not open.'] = 'Rift Store를 열 수 없습니다.'
+MORE["fr"]['The Rift Store could not open.'] = "Le Rift Store n'a pas pu s'ouvrir."
+T['The Rift Store could not open: {1}'] = ('La Rift Store no se pudo abrir: {1}', 'Rift Storeを開けませんでした: {1}', 'A Rift Store não pôde abrir: {1}', 'Il Rift Store non si è aperto: {1}')
+MORE["ko"]['The Rift Store could not open: {1}'] = 'Rift Store를 열 수 없습니다: {1}'
+MORE["fr"]['The Rift Store could not open: {1}'] = "Le Rift Store n'a pas pu s'ouvrir : {1}"
 
 def main():
     repo = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")

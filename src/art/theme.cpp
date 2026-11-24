@@ -543,6 +543,7 @@ const std::vector<ThemeImage>& theme_images() {
         {"store_online", 40, 40},
         {"store_loaders", 40, 40},
         {"store_more", 40, 40},
+        {"store_logo", 40, 40},
         {"store_size", 28, 28},
         {"store_date", 28, 28},
         {"store_console", 28, 28},

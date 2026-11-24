@@ -4221,20 +4221,11 @@ msgstr "Les choix pour ce jeu n'ont pas pu être enregistrés. Vérifiez que la 
 msgid "Play anyway?"
 msgstr "Jouer quand même ?"
 
-msgid "Get apps"
-msgstr "Obtenir des applis"
-
 msgid "Homebrew apps from a list the RiftWii team checks, installed to sd:/apps. RiftWii hosts none of them: each comes from its maker's own release."
 msgstr "Des applis homebrew d'une liste vérifiée par l'équipe RiftWii, installées dans sd:/apps. RiftWii n'en héberge aucune : chacune vient de la version publiée par son auteur."
 
 msgid "Search apps"
 msgstr "Rechercher des applis"
-
-msgid "The app store could not open."
-msgstr "La boutique d'applis n'a pas pu s'ouvrir."
-
-msgid "The app store could not open: {1}"
-msgstr "La boutique d'applis n'a pas pu s'ouvrir : {1}"
 
 msgid "System tools"
 msgstr "Outils système"
@@ -4415,6 +4406,15 @@ msgstr "{1} Ko"
 
 msgid "The SD card is too full. Make {1} of room and try again."
 msgstr "La carte SD est trop pleine. Libérez {1} et réessayez."
+
+msgid "Rift Store"
+msgstr "Rift Store"
+
+msgid "The Rift Store could not open."
+msgstr "Le Rift Store n'a pas pu s'ouvrir."
+
+msgid "The Rift Store could not open: {1}"
+msgstr "Le Rift Store n'a pas pu s'ouvrir : {1}"
 
 msgid "Disc slot light"
 msgstr "Lumière du lecteur de disques"

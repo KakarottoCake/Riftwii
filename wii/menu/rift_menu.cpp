@@ -18504,7 +18504,7 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 }
 
 // ---------------------------------------------------------------------------
-// Get apps (Settings > Online): the app store, which is the appstore
+// Rift Store (Settings > Online): the app store, which is the appstore
 // plugin's own screen (docs/APPSTORE.md), so the DOL carries none of its
 // pages. Called and returns with the GUI running; true when apps were
 // installed or removed.
@@ -18519,10 +18519,10 @@ static bool MenuAppStore()
 	riftwii::wii::plugin::ShutdownAll("the app store closed");
 	if (result == RWP_LAUNCH_DONE) return request.changed != 0;
 	if (message.empty())
-		message = request.error[0] ? tr("The app store could not open: {1}", {request.error}) : tr("The app store could not open.");
+		message = request.error[0] ? tr("The Rift Store could not open: {1}", {request.error}) : tr("The Rift Store could not open.");
 	logf("App store: %s\n", request.error[0] ? request.error : "it could not open");
 	HaltGui();
-	ShowPopup(tr("Get apps"), message, tr("OK"));
+	ShowPopup(tr("Rift Store"), message, tr("OK"));
 	ResumeGui();
 	return false;
 }
@@ -19104,7 +19104,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		option(tr("Clear SteamGridDB key"), tr("Clear"), false, kSteamGridClear, FlowRow::Kind::Action);
 		FlowRow apps;
 		apps.kind = FlowRow::Kind::Action;
-		apps.label = tr("Get apps");
+		apps.label = tr("Rift Store");
 		apps.value = tr("Browse");
 		apps.dim = !settings.online;
 		rows.push_back(apps);

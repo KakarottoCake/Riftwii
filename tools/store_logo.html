@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<!-- SPDX-FileCopyrightText: 2026 RiftWii contributors
+     SPDX-License-Identifier: GPL-3.0-or-later
+     The Rift Store's logo, drawn as SVG: tools/make_store_logo.py renders it
+     with a headless browser. #banner (1280x640), #mark (512x512), #wide
+     (1600x400, a header). The font is the menu's (wii/font/rounded.ttf). -->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: Rounded; src: url("../wii/font/rounded.ttf"); }
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+  svg { display: block; }
+  .word { font-family: Rounded; font-weight: 700; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <!-- ===== Shared pieces ===== -->
+    <path id="spark" d="M0,-1 C0.08,-0.22 0.22,-0.08 1,0 C0.22,0.08 0.08,0.22 0,1 C-0.08,0.22 -0.22,0.08 -1,0 C-0.22,-0.08 -0.08,-0.22 0,-1 Z"/>
+    <radialGradient id="flare" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="0.18" stop-color="#bff6ff" stop-opacity="0.8"/>
+      <stop offset="0.5" stop-color="#4fc8ff" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#4fc8ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="streak" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7fe6ff" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#e8fbff" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#7fe6ff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="blur4" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4"/></filter>
+    <filter id="blur10" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="10"/></filter>
+    <filter id="blur24" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="24"/></filter>
+    <!-- For thin shapes: a region in page units, so the blur is never cut to their narrow box. -->
+    <linearGradient id="boltLight" x1="0" y1="0" x2="0.25" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.45" stop-color="#d4f8ff"/>
+      <stop offset="1" stop-color="#55cbff"/>
+    </linearGradient>
+    <linearGradient id="boltDeep" x1="0" y1="0" x2="0.25" y2="1">
+      <stop offset="0" stop-color="#8ff0ff"/>
+      <stop offset="0.5" stop-color="#3cb2ff"/>
+      <stop offset="1" stop-color="#2b5fe8"/>
+    </linearGradient>
+    <radialGradient id="beam" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#6fd8ff" stop-opacity="0.55"/>
+      <stop offset="0.4" stop-color="#4a8dff" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#4a8dff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glowMid" filterUnits="userSpaceOnUse" x="-2000" y="-2000" width="6000" height="6000"><feGaussianBlur stdDeviation="5"/></filter>
+    <filter id="glowSoft" filterUnits="userSpaceOnUse" x="-2000" y="-2000" width="6000" height="6000"><feGaussianBlur stdDeviation="2.2"/></filter>
+    <filter id="glowXL" filterUnits="userSpaceOnUse" x="-2000" y="-2000" width="6000" height="6000"><feGaussianBlur stdDeviation="26"/></filter>
+    <filter id="glowWide" filterUnits="userSpaceOnUse" x="-2000" y="-2000" width="6000" height="6000"><feGaussianBlur stdDeviation="12"/></filter>
+
+    <!-- ===== The mark: 512 units ===== -->
+    <linearGradient id="tile" x1="0.1" y1="0" x2="0.5" y2="1">
+      <stop offset="0" stop-color="#6b4cf0"/>
+      <stop offset="0.45" stop-color="#3424b8"/>
+      <stop offset="1" stop-color="#0a1048"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#3fa8ff" stop-opacity="0.45"/>
+      <stop offset="0.55" stop-color="#5a46e0" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#5a46e0" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="tileCore" cx="0.5" cy="0.62" r="0.55">
+      <stop offset="0" stop-color="#2fb8ff" stop-opacity="0.7"/>
+      <stop offset="0.5" stop-color="#3a52e8" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#3a52e8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="tileGloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="tileRim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e0d8ff" stop-opacity="0.95"/>
+      <stop offset="0.5" stop-color="#8c7dff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#3ab8ff" stop-opacity="0.7"/>
+    </linearGradient>
+    <filter id="tileShadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="18"/>
+      <feOffset dy="20"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.6"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="tileClip"><rect x="24" y="24" width="464" height="464" rx="116"/></clipPath>
+    <!-- The bag's faces. -->
+    <linearGradient id="front" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.7" stop-color="#e3edff"/>
+      <stop offset="1" stop-color="#b9cdfb"/>
+    </linearGradient>
+    <linearGradient id="side" x1="0" y1="0" x2="1" y2="0.4">
+      <stop offset="0" stop-color="#a9bdf4"/>
+      <stop offset="1" stop-color="#7f95e2"/>
+    </linearGradient>
+    <linearGradient id="inside" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b1460"/>
+      <stop offset="1" stop-color="#1d2a92"/>
+    </linearGradient>
+    <radialGradient id="portal" cx="0.5" cy="0.6" r="0.6">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.25" stop-color="#9af2ff"/>
+      <stop offset="0.6" stop-color="#2fa8ff" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#2fa8ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ray" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#bff6ff" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#bff6ff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="cord" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#c8d8ff"/>
+    </linearGradient>
+    <!-- App tiles rising out of the bag. -->
+    <linearGradient id="appA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7cf0ff"/><stop offset="1" stop-color="#2b7bff"/></linearGradient>
+    <linearGradient id="appB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff9ae0"/><stop offset="1" stop-color="#b54dff"/></linearGradient>
+    <linearGradient id="appC" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b6ff8f"/><stop offset="1" stop-color="#22c48a"/></linearGradient>
+    <linearGradient id="appD" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe082"/><stop offset="1" stop-color="#ff8a3d"/></linearGradient>
+    <filter id="appShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="4"/><feOffset dy="4"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.45"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <g id="appTile">
+      <rect x="-1" y="-1" width="2" height="2" rx="0.5" filter="url(#appShadow)"/>
+      <rect x="-1" y="-1" width="2" height="0.95" rx="0.5" fill="#fff" opacity="0.28"/>
+      <rect x="-0.98" y="-0.98" width="1.96" height="1.96" rx="0.48" fill="none" stroke="#fff" stroke-opacity="0.6" stroke-width="0.05"/>
+    </g>
+
+    <!-- The bag's paper and fittings. -->
+    <mask id="bagTear" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+      <rect x="0" y="0" width="512" height="512" fill="#fff"/>
+      <path id="tearCut" fill="#000"/>
+    </mask>
+    <linearGradient id="frontPaper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.6" stop-color="#eef3ff"/>
+      <stop offset="1" stop-color="#d3dffd"/>
+    </linearGradient>
+    <linearGradient id="frontShade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="0.35" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="0.8" stop-color="#3949a8" stop-opacity="0"/>
+      <stop offset="1" stop-color="#3949a8" stop-opacity="0.16"/>
+    </linearGradient>
+    <linearGradient id="frontFoot" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0.75" stop-color="#26348f" stop-opacity="0"/>
+      <stop offset="1" stop-color="#26348f" stop-opacity="0.18"/>
+    </linearGradient>
+    <radialGradient id="riftWash" gradientUnits="userSpaceOnUse" cx="256" cy="330" r="150">
+      <stop offset="0" stop-color="#5fd6ff" stop-opacity="0.32"/>
+      <stop offset="0.45" stop-color="#5fd6ff" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#5fd6ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="band" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4f7ff"/>
+      <stop offset="1" stop-color="#d9e3ff"/>
+    </linearGradient>
+    <linearGradient id="gussetFront" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c2d0fb"/>
+      <stop offset="1" stop-color="#8ea2e6"/>
+    </linearGradient>
+    <linearGradient id="gussetBack" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8c9fe4"/>
+      <stop offset="1" stop-color="#5d70c6"/>
+    </linearGradient>
+    <linearGradient id="insideWall" gradientUnits="userSpaceOnUse" x1="0" y1="196" x2="0" y2="440">
+      <stop offset="0" stop-color="#0e1a6e"/>
+      <stop offset="0.5" stop-color="#1f4fd0"/>
+      <stop offset="1" stop-color="#36b6ff"/>
+    </linearGradient>
+    <linearGradient id="ribbon" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f3f6ff"/>
+      <stop offset="1" stop-color="#b9c8f6"/>
+    </linearGradient>
+    <radialGradient id="grommet" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.5" stop-color="#c8d2f0"/>
+      <stop offset="1" stop-color="#7d8fcf"/>
+    </radialGradient>
+
+    <g id="mark">
+      <!-- No tile: the bag stands in the sky, lit from inside. A soft halo
+           behind it, light rays from its opening (268,205), fading upward. -->
+      <ellipse cx="256" cy="300" rx="190" ry="170" fill="url(#halo)" opacity="0.7"/>
+      <g opacity="0.8" transform="translate(-12,4)">
+        <polygon points="268,205 176,10 224,10" fill="url(#ray)"/>
+        <polygon points="268,205 246,0 290,0" fill="url(#ray)"/>
+        <polygon points="268,205 312,10 360,10" fill="url(#ray)"/>
+        <polygon points="268,205 104,58 132,34" fill="url(#ray)" opacity="0.55"/>
+        <polygon points="268,205 404,34 432,58" fill="url(#ray)" opacity="0.55"/>
+      </g>
+      <ellipse cx="256" cy="209" rx="150" ry="70" fill="url(#portal)" opacity="0.6" filter="url(#blur10)"/>
+
+      <!-- The bag and what comes out of it. One geometry: the front face
+           150,214 362,214 382,436 130,436 (its middle x 256), and the depth
+           (24,-18) added to every point seen behind it. The whole is moved
+           (-12,4) so that the bag with its side sits in the picture's middle. -->
+      <g transform="translate(-12,4)">
+        <!-- Ground: a soft contact shadow, darker right under the foot. -->
+        <ellipse cx="268" cy="442" rx="168" ry="16" fill="#02041a" opacity="0.5" filter="url(#blur10)"/>
+        <ellipse cx="262" cy="438" rx="128" ry="6" fill="#02041a" opacity="0.55" filter="url(#blur4)"/>
+
+        <!-- Inside: the back wall seen through the opening, lit from within
+             by the rift (brightest low in the middle). -->
+        <path d="M150,214 L174,196 H386 L362,214 Z" fill="url(#insideWall)"/>
+        <ellipse cx="266" cy="210" rx="86" ry="8" fill="url(#portal)" opacity="0.95"/>
+        <!-- The back rim: the paper's edge catching the light. -->
+        <path d="M174,196.5 H385.5" stroke="#dfe8ff" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/>
+
+        <!-- Back handle: a ribbon, in the shade, its eyelets on the back rim. -->
+        <path d="M229,200 C229,116 335,116 335,200" fill="none" stroke="#6b7fcf" stroke-width="11" stroke-linecap="round"/>
+        <path d="M229,200 C229,116 335,116 335,200" fill="none" stroke="#9fb0ee" stroke-width="3" stroke-linecap="round"
+              transform="translate(-2.5,-1)" opacity="0.8"/>
+
+        <!-- Side gusset: folded in at its middle, a V at its top, two panels
+             (the front one in the light), the base folded under. -->
+        <path d="M362,214 L377,227 L394,427 L382,436 Z" fill="url(#gussetFront)"/>
+        <path d="M377,227 L386,196 L406,418 L394,427 Z" fill="url(#gussetBack)"/>
+        <path d="M377,227 L394,427" stroke="#4f63b8" stroke-width="1.6" opacity="0.7"/>
+        <path d="M362,214 L377,227 L386,196" fill="none" stroke="#eef3ff" stroke-width="2" stroke-linejoin="round" opacity="0.85"/>
+        <path d="M382,436 L394,427 L406,418" fill="none" stroke="#3a4ea6" stroke-width="2" opacity="0.6"/>
+
+        <!-- Front face, the paper split where the rift runs (mask bagTear). -->
+        <g mask="url(#bagTear)">
+          <g filter="url(#appShadow)">
+            <path d="M150,214 H362 L382,436 H130 Z" fill="url(#frontPaper)"/>
+          </g>
+          <!-- Light from the left, shade toward the right edge and the foot. -->
+          <path d="M150,214 H362 L382,436 H130 Z" fill="url(#frontShade)"/>
+          <path d="M150,214 H362 L382,436 H130 Z" fill="url(#frontFoot)"/>
+          <!-- A soft sheen across the coated paper, from the upper left. -->
+          <path d="M150,244 L206,244 L168,436 L132,436 Z" fill="url(#sheen)"/>
+          <path d="M218,244 L236,244 L198,436 L182,436 Z" fill="url(#sheen)" opacity="0.6"/>
+          <!-- The rift's light on the paper around it. -->
+          <path d="M150,214 H362 L382,436 H130 Z" fill="url(#riftWash)"/>
+          <!-- The turned-over band at the top, its crease shadow under it. -->
+          <path d="M150,214 H362 L364.3,240 H147.6 Z" fill="url(#band)"/>
+          <path d="M147.6,240 H364.3" stroke="#6e83d4" stroke-width="2" opacity="0.55"/>
+          <path d="M147.4,242.5 H364.6" stroke="#ffffff" stroke-width="1.4" opacity="0.7"/>
+          <path d="M151,215.5 H361" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+          <!-- The foot's edge. -->
+          <path d="M130.5,435 H381.5" stroke="#8fa3e6" stroke-width="2" opacity="0.8"/>
+        </g>
+        <!-- Through the split: the lit inside, then the rift itself (riftIntoBag). -->
+        <path id="tearInside" fill="url(#insideWall)"/>
+        <path id="tearGlow" fill="#7fe4ff" opacity="0.45" filter="url(#glowSoft)"/>
+        <path id="tearEdge" fill="none" stroke="#ffffff" stroke-width="1.6" stroke-linejoin="round" opacity="0.95"/>
+        <g id="bagBolt"></g>
+
+        <!-- Front handle: a ribbon with its shade and its sheen, through
+             metal eyelets in the band (centred on the front: 201 and 311). -->
+        <path d="M201,224 C201,138 311,138 311,224" fill="none" stroke="#0b1460" stroke-opacity="0.28" stroke-width="13"
+              stroke-linecap="round" transform="translate(1.5,5)"/>
+        <path d="M201,224 C201,138 311,138 311,224" fill="none" stroke="url(#ribbon)" stroke-width="11.5" stroke-linecap="round"/>
+        <path d="M201,224 C201,138 311,138 311,224" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round"
+              transform="translate(-2.6,-1.4)" opacity="0.9"/>
+        <g>
+          <circle cx="201" cy="227" r="8.5" fill="url(#grommet)" stroke="#6c7fc4" stroke-width="1.2"/>
+          <circle cx="201" cy="227" r="4" fill="#24307a"/>
+          <path d="M195,224 A7,7 0 0 1 204,220.5" fill="none" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" opacity="0.9"/>
+          <circle cx="311" cy="227" r="8.5" fill="url(#grommet)" stroke="#6c7fc4" stroke-width="1.2"/>
+          <circle cx="311" cy="227" r="4" fill="#24307a"/>
+          <path d="M305,224 A7,7 0 0 1 314,220.5" fill="none" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" opacity="0.9"/>
+        </g>
+
+        <!-- A glint off the paper by the tear. -->
+        <use href="#spark" transform="translate(320,304) scale(16)" fill="#ffffff" opacity="0.95"/>
+        <use href="#spark" transform="translate(320,304) scale(30)" fill="#8ff0ff" opacity="0.4" filter="url(#blur4)"/>
+      </g>
+    </g>
+
+    <!-- ===== The wordmark ===== -->
+    <linearGradient id="riftFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.55" stop-color="#eef0ff"/>
+      <stop offset="1" stop-color="#b9bff5"/>
+    </linearGradient>
+    <linearGradient id="storeFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b6f7ff"/>
+      <stop offset="0.5" stop-color="#4fc2ff"/>
+      <stop offset="1" stop-color="#2e6cf0"/>
+    </linearGradient>
+    <!-- Bevel: light on the letters' upper edges, an outer glow, a drop shadow. -->
+    <filter id="bevel" x="-10%" y="-40%" width="120%" height="190%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="soft"/>
+      <feSpecularLighting in="soft" surfaceScale="5" specularConstant="0.9" specularExponent="22" lighting-color="#ffffff" result="spec">
+        <feDistantLight azimuth="250" elevation="50"/>
+      </feSpecularLighting>
+      <feComposite in="spec" in2="SourceAlpha" operator="in" result="specIn"/>
+      <feComposite in="SourceGraphic" in2="specIn" operator="arithmetic" k1="0" k2="1" k3="0.55" k4="0" result="lit"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="16" result="glowBlur"/>
+      <feFlood flood-color="#3fa6ff" flood-opacity="0.75"/>
+      <feComposite in2="glowBlur" operator="in" result="glow"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="5" result="sb"/>
+      <feOffset in="sb" dy="8" result="so"/>
+      <feFlood flood-color="#05082a" flood-opacity="0.7"/>
+      <feComposite in2="so" operator="in" result="shadow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="shadow"/><feMergeNode in="lit"/></feMerge>
+    </filter>
+    <linearGradient id="orbitStroke" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8fe0ff" stop-opacity="0.15"/>
+      <stop offset="0.25" stop-color="#b8f2ff" stop-opacity="0.95"/>
+      <stop offset="0.55" stop-color="#5aa8ff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#b48cff" stop-opacity="0.6"/>
+    </linearGradient>
+    <!-- Nebula: fractal noise tinted violet and blue. -->
+    <filter id="nebulaV" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.0032 0.0055" numOctaves="5" seed="11"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.46  0 0 0 0 0.22  0 0 0 0 0.92  2.2 0 0 0 -0.95"/>
+    </filter>
+    <filter id="nebulaB" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.0045 0.007" numOctaves="5" seed="29"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.16  0 0 0 0 0.5  0 0 0 0 1  2.4 0 0 0 -1.15"/>
+    </filter>
+    <radialGradient id="vignette" cx="0.5" cy="0.5" r="0.75">
+      <stop offset="0.55" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#02030f" stop-opacity="0.85"/>
+    </radialGradient>
+  </defs>
+</svg>
+
+<svg id="art" xmlns="http://www.w3.org/2000/svg"></svg>
+
+<script>
+let seed = 20261124;
+const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+
+function sky(w, h, cx, cy) {
+  let s = `<defs>
+    <linearGradient id="base" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#070823"/><stop offset="1" stop-color="#0c0a2c"/></linearGradient>
+    <radialGradient id="heart" cx="${cx / w}" cy="${cy / h}" r="0.55"><stop offset="0" stop-color="#3b3bd6" stop-opacity="0.7"/><stop offset="1" stop-color="#3b3bd6" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="${w}" height="${h}" fill="url(#base)"/>
+  <rect width="${w}" height="${h}" filter="url(#nebulaV)" opacity="0.6"/>
+  <rect width="${w}" height="${h}" filter="url(#nebulaB)" opacity="0.5"/>
+  <rect width="${w}" height="${h}" fill="url(#heart)"/>`;
+  const count = Math.round(w * h / 3400);
+  for (let i = 0; i < count; i++) {
+    const x = rnd() * w, y = rnd() * h, r = 0.35 + rnd() * rnd() * 1.5, a = 0.2 + rnd() * 0.7;
+    const c = rnd() < 0.15 ? "#bfe4ff" : rnd() < 0.15 ? "#d8c8ff" : "#eef2ff";
+    s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(2)}" fill="${c}" opacity="${a.toFixed(2)}"/>`;
+  }
+  for (let i = 0; i < 9; i++) {
+    const x = rnd() * w, y = rnd() * h, k = 4 + rnd() * 7;
+    s += `<use href="#spark" transform="translate(${x.toFixed(1)},${y.toFixed(1)}) scale(${(k * 2.2).toFixed(1)})" fill="#9fd8ff" opacity="0.25" filter="url(#blur4)"/>
+          <use href="#spark" transform="translate(${x.toFixed(1)},${y.toFixed(1)}) scale(${k.toFixed(1)})" fill="#ffffff" opacity="${(0.55 + rnd() * 0.4).toFixed(2)}"/>`;
+  }
+  return s;
+}
+
+// A tilted orbit: a soft glow, a fine line bright on the left, and particles on it.
+function orbit(cx, cy, rx, ry, tilt) {
+  let s = `<g transform="rotate(${tilt} ${cx} ${cy})">
+    <ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="none" stroke="#3a8cff" stroke-width="14" opacity="0.28" filter="url(#blur10)"/>
+    <ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="none" stroke="url(#orbitStroke)" stroke-width="2.2"/>`;
+  for (let i = 0; i < 26; i++) {
+    const a = rnd() * Math.PI * 2, x = cx + rx * Math.cos(a), y = cy + ry * Math.sin(a);
+    s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(0.8 + rnd() * 1.8).toFixed(2)}" fill="#cdeeff" opacity="${(0.4 + rnd() * 0.5).toFixed(2)}"/>`;
+  }
+  // The bright spot where the orbit passes in front.
+  const fx = cx - rx * 0.62, fy = cy + ry * 0.78;
+  s += `<ellipse cx="${fx}" cy="${fy}" rx="70" ry="70" fill="url(#flare)" opacity="0.55"/>
+        <rect x="${fx - 120}" y="${fy - 1.5}" width="240" height="3" fill="url(#streak)" opacity="0.8"/></g>`;
+  return s;
+}
+
+// ===== The rift =====
+// A tear of light like the one in RiftWii's banner: built by fractal
+// subdivision (each segment's middle pushed sideways, less at each level), so
+// it is rough at every scale; uneven in width; fading to fine points; a few
+// faint tendrils; then lit in layers from a wide soft glow to a white core.
+function rng(seedValue) {
+  let s = seedValue >>> 0;
+  return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+}
+
+// Points from a to b: midpoint displacement, `rough` of the length at first.
+function fractal(a, b, rough, depth, rand) {
+  let pts = [a, b];
+  let reach = Math.hypot(b[0] - a[0], b[1] - a[1]) * rough;
+  for (let level = 0; level < depth; level++) {
+    const next = [pts[0]];
+    for (let i = 1; i < pts.length; i++) {
+      const p = pts[i - 1], q = pts[i];
+      const dx = q[0] - p[0], dy = q[1] - p[1], len = Math.hypot(dx, dy) || 1;
+      const off = (rand() * 2 - 1) * reach;
+      next.push([(p[0] + q[0]) / 2 - dy / len * off, (p[1] + q[1]) / 2 + dx / len * off], q);
+    }
+    pts = next;
+    reach *= 0.56;
+  }
+  return pts;
+}
+
+// A smooth random curve over 0..1 (a few random knots, eased between).
+function wobble(rand, knots) {
+  const v = Array.from({length: knots + 1}, () => rand());
+  return t => {
+    const x = t * knots, i = Math.min(knots - 1, Math.floor(x)), f = x - i, e = f * f * (3 - 2 * f);
+    return v[i] * (1 - e) + v[i + 1] * e;
+  };
+}
+
+// The line as a filled outline: half-width `half(t)` at each point.
+function outline(pts, half) {
+  const lens = [0];
+  for (let i = 1; i < pts.length; i++) lens.push(lens[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const total = lens[lens.length - 1] || 1, left = [], right = [];
+  pts.forEach((p, i) => {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+    const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1;
+    const h = half(lens[i] / total);
+    left.push([p[0] - dy / len * h, p[1] + dx / len * h]);
+    right.push([p[0] + dy / len * h, p[1] - dx / len * h]);
+  });
+  return "M" + left.concat(right.reverse()).map(p => p[0].toFixed(2) + "," + p[1].toFixed(2)).join("L") + "Z";
+}
+const line = pts => pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ");
+
+// The rift from (x, top) to (x, foot); `w` its widest half-width.
+function rift(x, top, foot, w, seedValue, opts = {}) {
+  const rand = rng(seedValue);
+  const span = foot - top;
+  const main = fractal([x, top], [x, foot], opts.rough ?? 0.085, 8, rand);
+  const swell = wobble(rand, 6);
+  // Widest a little above the middle, pointed at both ends, uneven between.
+  const half = t => w * Math.pow(Math.sin(Math.PI * t), 0.7) * (0.55 + 0.75 * swell(t));
+  const body = outline(main, half);
+  const core = outline(main, t => half(t) * 0.42);
+  // Tendrils: short, faint, angled away, from points along the middle.
+  const tendrils = [];
+  for (let k = 0; k < (opts.tendrils ?? 4); k++) {
+    const at = main[Math.floor((0.22 + 0.56 * rand()) * (main.length - 1))];
+    const side = k % 2 ? 1 : -1, angle = (0.35 + rand() * 0.5) * side, len = span * (0.08 + rand() * 0.1);
+    const end = [at[0] + Math.sin(angle) * len, at[1] + Math.cos(angle) * len * (rand() < 0.5 ? 1 : -1)];
+    const pts = fractal(at, end, 0.12, 5, rand);
+    tendrils.push(outline(pts, t => w * 0.32 * Math.pow(1 - t, 1.3)));
+  }
+  const midY = top + span * 0.5;
+  let s = `
+    <ellipse cx="${x}" cy="${midY}" rx="${w * 9}" ry="${span * 0.62}" fill="url(#beam)" opacity="${opts.beam ?? 0.9}"/>
+    <polyline points="${line(main)}" fill="none" stroke="#2f7dff" stroke-width="${w * 12}" stroke-linecap="round" stroke-linejoin="round" filter="url(#glowXL)" opacity="${0.7 * (opts.glow ?? 1)}"/>
+    <polyline points="${line(main)}" fill="none" stroke="#38c8ff" stroke-width="${w * 5}" stroke-linecap="round" stroke-linejoin="round" filter="url(#glowWide)" opacity="${opts.glow ?? 1}"/>
+    <polyline points="${line(main)}" fill="none" stroke="#9ff2ff" stroke-width="${w * 2.4}" stroke-linecap="round" stroke-linejoin="round" filter="url(#glowMid)"/>
+    <g fill="#8eeaff" opacity="0.55">${tendrils.map(d => `<path d="${d}"/>`).join("")}</g>
+    <path d="${body}" fill="#7fe4ff" filter="url(#glowSoft)" opacity="0.9"/>
+    <path d="${body}" fill="#d8faff"/>
+    <path d="${core}" fill="#ffffff"/>`;
+  // Glints at both tips and the light's heart.
+  if (opts.glints !== false) {
+    s += `<use href="#spark" transform="translate(${main[0][0]},${main[0][1]}) scale(${w * 1.6})" fill="#ffffff" opacity="0.85"/>
+      <ellipse cx="${x}" cy="${midY}" rx="${w * 2.6}" ry="${w * 2.6}" fill="url(#flare)" opacity="0.8"/>`;
+  }
+  // Motes of light drifting off it.
+  const motes = opts.motes ?? 14;
+  for (let i = 0; i < motes; i++) {
+    const y = top + span * (0.1 + 0.8 * rand()), dx = (rand() * 2 - 1) * w * 7, r = w * (0.08 + rand() * 0.22);
+    s += `<circle cx="${(x + dx).toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(2)}" fill="#cff6ff" opacity="${(0.35 + rand() * 0.5).toFixed(2)}"/>`;
+  }
+  return s;
+}
+
+// The bag's tear: the paper split (a dark line) and the rift through it, in
+// the bag's own units (its front's middle x 256, top 214, foot 436).
+function riftIntoBag() {
+  // The same line rift() draws for this seed (its first use of the random
+  // numbers), widened into the split it opens in the paper.
+  const seedValue = 5, rough = 0.1, x = 256, top = 214, foot = 436, w = 4.2;
+  const rand = rng(seedValue);
+  const main = fractal([x, top], [x, foot], rough, 8, rand);
+  const swell = wobble(rand, 6);
+  const gap = outline(main, t => w * 2.3 * Math.pow(Math.sin(Math.PI * t), 0.55) * (0.6 + 0.7 * swell(t)));
+  for (const id of ["tearCut", "tearInside", "tearGlow", "tearEdge"]) document.getElementById(id).setAttribute("d", gap);
+  document.getElementById("bagBolt").innerHTML = rift(x, top, foot, w, seedValue, {tendrils: 2, motes: 5, beam: 0, glow: 0.45, rough});
+}
+
+// The wordmark: "Rift", a rift of light, "Store", the tagline between rules.
+function words(x, baseline, size, tag) {
+  const gap = size * 0.46;  // room for the rift and its glow
+  const riftW = measure("Rift", size), storeW = measure("Store", size);
+  const crackX = x + riftW + gap / 2;
+  // The rift runs well past the letters, as in RiftWii's banner; their edges
+  // near it catch its light (a cyan wash on a copy of the words).
+  const capTop = baseline - size * 0.72;
+  let s = `<defs><radialGradient id="spill" gradientUnits="userSpaceOnUse" cx="${crackX}" cy="${baseline - size * 0.36}" r="${size * 0.95}">
+      <stop offset="0" stop-color="#b5f7ff" stop-opacity="1"/><stop offset="0.35" stop-color="#5fd6ff" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#5fd6ff" stop-opacity="0"/></radialGradient></defs>
+    <g filter="url(#bevel)"><text class="word" x="${x}" y="${baseline}" font-size="${size}" fill="url(#riftFill)" letter-spacing="${-size * 0.012}">Rift</text>
+    <text class="word" x="${x + riftW + gap}" y="${baseline}" font-size="${size}" fill="url(#storeFill)" letter-spacing="${-size * 0.012}">Store</text></g>
+    <g fill="url(#spill)"><text class="word" x="${x}" y="${baseline}" font-size="${size}" letter-spacing="${-size * 0.012}">Rift</text>
+    <text class="word" x="${x + riftW + gap}" y="${baseline}" font-size="${size}" letter-spacing="${-size * 0.012}">Store</text></g>
+    ${rift(crackX, capTop - size * 0.36, baseline + size * 0.22, size * 0.05, 31)}`;
+  if (tag) {
+    const ts = size * 0.15, tw = x + riftW + gap + storeW - x;
+    const ty = baseline + size * 0.5;
+    // Letter-spacing also follows the last letter: the tagline's visible
+    // width leaves that out, and it is placed from its left end so that it
+    // sits in the middle of the words; the rules match on both sides.
+    const spacing = ts * 0.42;
+    const tagW = measure(tag, ts, spacing) - spacing;
+    const tagX = x + (tw - tagW) / 2;
+    s += `<text class="word" x="${tagX}" y="${ty}" font-size="${ts}" letter-spacing="${spacing}" fill="#a9c4ff">${tag}</text>`;
+    const ruleY = ty - ts * 0.36, room = ts * 1.3, l = tagX - room - x;
+    if (l > 20) {
+      s += `<rect x="${x}" y="${ruleY}" width="${l}" height="2" rx="1" fill="url(#streak)" opacity="0.7"/>
+            <rect x="${tagX + tagW + room}" y="${ruleY}" width="${l}" height="2" rx="1" fill="url(#streak)" opacity="0.7"/>`;
+    }
+  }
+  return s;
+}
+
+const measurer = document.getElementById("art");
+function measure(text, size, spacing) {
+  const ls = spacing === undefined ? -size * 0.012 : spacing;
+  measurer.innerHTML = `<text class="word" font-size="${size}" letter-spacing="${ls}">${text}</text>`;
+  return measurer.querySelector("text").getComputedTextLength();
+}
+
+// Everything is measured in the real font: wait for it first.
+document.fonts.load('700 100px Rounded').then(() => { riftIntoBag(); layout(); });
+function layout() {
+const kind = (location.hash || "#banner").slice(1);
+const art = document.getElementById("art");
+let w, h, body;
+if (kind === "mark") {
+  w = h = 512;
+  art.setAttribute("width", w); art.setAttribute("height", h);
+  body = `<use href="#mark"/>`;
+} else {
+  const wide = kind === "wide";
+  w = wide ? 1600 : 1280; h = wide ? 400 : 640;
+  art.setAttribute("width", w); art.setAttribute("height", h);
+  const markSize = wide ? 330 : 440, size = wide ? 156 : 150, gap = wide ? 40 : 34;
+  // The bag's visible extent in the mark's 512 units (front, side and
+  // opening, after the mark's own shift): x 118 to 394, its body y 200 to 440.
+  const bagLeft = 118 / 512 * markSize, bagW = (394 - 118) / 512 * markSize;
+  const bagMiddle = 320 / 512 * markSize;
+  const textW = measure("Rift", size) + size * 0.46 + measure("Store", size);
+  // One middle line for both: the words' block runs from the capitals' top
+  // (0.72 of the size above the baseline, in this font) to the tagline's
+  // baseline (0.5 below), so its middle is 0.11 above the baseline; the
+  // bag's body has its middle on the same line.
+  const middle = h / 2;
+  const bagX = (w - (bagW + gap + textW)) / 2;
+  const left = bagX - bagLeft, top = middle - bagMiddle;
+  const tx = bagX + bagW + gap, baseline = middle + size * 0.11;
+  body = sky(w, h, bagX + bagW / 2, h / 2) +
+    orbit(w / 2, h / 2, w * 0.47, h * (wide ? 0.42 : 0.29), wide ? -3 : -6) +
+    `<use href="#mark" transform="translate(${left},${top}) scale(${markSize / 512})"/>` +
+    words(tx, baseline, size, "HOMEBREW FOR YOUR WII") +
+    `<rect width="${w}" height="${h}" fill="url(#vignette)"/>`;
+}
+art.setAttribute("viewBox", `0 0 ${w} ${h}`);
+art.innerHTML = body;
+document.title = "ready";
+}
+</script>
+</body>
+</html>

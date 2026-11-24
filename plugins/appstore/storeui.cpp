@@ -243,7 +243,7 @@ private:
     // The store front: the categories as tiles, each with its icon, and a
     // line under them of what the lit one holds.
     void DrawFront() {
-        Band(tr("Get apps"), kBand, "", 280);  // the counts on the right
+        Band(tr("Rift Store"), kBand, "store_logo", 280);  // the counts on the right
         if (!ListReady()) return;
 
         CountCategories();

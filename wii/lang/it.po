@@ -4221,20 +4221,11 @@ msgstr "Le scelte per questo gioco non possono essere salvate. Controlla che la 
 msgid "Play anyway?"
 msgstr "Giocare comunque?"
 
-msgid "Get apps"
-msgstr "Ottieni app"
-
 msgid "Homebrew apps from a list the RiftWii team checks, installed to sd:/apps. RiftWii hosts none of them: each comes from its maker's own release."
 msgstr "App homebrew da un elenco controllato dal team di RiftWii, installate in sd:/apps. RiftWii non ne ospita nessuna: ognuna viene dalla versione pubblicata dal suo autore."
 
 msgid "Search apps"
 msgstr "Cerca app"
-
-msgid "The app store could not open."
-msgstr "Lo store delle app non si è aperto."
-
-msgid "The app store could not open: {1}"
-msgstr "Lo store delle app non si è aperto: {1}"
 
 msgid "System tools"
 msgstr "Strumenti di sistema"
@@ -4415,6 +4406,15 @@ msgstr "{1} KB"
 
 msgid "The SD card is too full. Make {1} of room and try again."
 msgstr "La scheda SD è troppo piena. Libera {1} e riprova."
+
+msgid "Rift Store"
+msgstr "Rift Store"
+
+msgid "The Rift Store could not open."
+msgstr "Il Rift Store non si è aperto."
+
+msgid "The Rift Store could not open: {1}"
+msgstr "Il Rift Store non si è aperto: {1}"
 
 msgid "Disc slot light"
 msgstr "Luce del vano disco"
