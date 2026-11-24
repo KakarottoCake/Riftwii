@@ -47,8 +47,9 @@ bool AnyPointer() {
 
 int GuiSearchKeys::Y(int row) const { return row == kRows - 1 ? kActionRowY : kFirstRowY + row * kRowPitch; }
 
-GuiSearchKeys::GuiSearchKeys(const std::string& start) : text(start.substr(0, kMaxLength)) {
-    Build(tr("Search games"), "", Mode::Search);
+GuiSearchKeys::GuiSearchKeys(const std::string& start, const std::string& titleText)
+    : text(start.substr(0, kMaxLength)) {
+    Build(titleText.empty() ? std::string(tr("Search games")) : titleText, "", Mode::Search);
 }
 
 GuiSearchKeys::GuiSearchKeys(const std::string& start, const std::string& titleText, const std::string& noteText,

@@ -528,6 +528,26 @@ const std::vector<ThemeImage>& theme_images() {
         {"layout_names", 28, 28},
         // A cover for games without one: the menu prints the name on it.
         {"blank_cover", 160, 224},
+        // The app store's (plugins/appstore): each category's icon on its
+        // front, and the icons of the facts on an app's page.
+        {"store_games", 40, 40},
+        {"store_emulators", 40, 40},
+        {"store_system", 40, 40},
+        {"store_gametools", 40, 40},
+        {"store_wiimenu", 40, 40},
+        {"store_controllers", 40, 40},
+        {"store_creative", 40, 40},
+        {"store_toys", 40, 40},
+        {"store_media", 40, 40},
+        {"store_internet", 40, 40},
+        {"store_online", 40, 40},
+        {"store_loaders", 40, 40},
+        {"store_more", 40, 40},
+        {"store_logo", 40, 40},
+        {"store_size", 28, 28},
+        {"store_date", 28, 28},
+        {"store_console", 28, 28},
+        {"store_license", 28, 28},
     };
     return images;
 }

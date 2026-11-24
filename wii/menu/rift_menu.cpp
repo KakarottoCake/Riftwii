@@ -101,6 +101,9 @@
 #include "riftwii/update.hpp"
 #include "gui_gamegrid.hpp"
 #include "gui_searchkeys.hpp"
+#include "pluginscreen.hpp"
+#include "plugins.hpp"
+#include "riftwii/plugin_appstore.h"
 #include "guiscript.hpp"
 #include "credits.hpp"
 #include "gcadapter.hpp"
@@ -771,8 +774,11 @@ void MenuWatchdogStop()
 	g_watchdogOn = false;
 }
 
+static void LendPluginScreenHelpers();
+
 void InitGUIThreads()
 {
+	LendPluginScreenHelpers();
 	dimAllowed = CONF_Init() >= 0 && CONF_GetScreenSaverMode() == 1;
 	SYS_SetPowerCallback(PowerPressed);
 	SYS_SetResetCallback(ResetPressed);
@@ -6036,9 +6042,10 @@ static void ClockText(std::string& clock, std::string& date)
 // characters that still lead to a game when typed next (see
 // GuiSearchKeys::SetAvailable); it returns the count line.
 static bool AskSearch(std::string& text,
-	const std::function<std::string(const std::string&, std::string& matches, std::string& next)>& typed)
+	const std::function<std::string(const std::string&, std::string& matches, std::string& next)>& typed,
+	const std::string& title = "")
 {
-	GuiSearchKeys keys(text);
+	GuiSearchKeys keys(text, title);
 	std::string matches, next;
 	keys.SetCount(typed(text, matches, next));
 	keys.SetMatches(matches);
@@ -6064,6 +6071,23 @@ static bool AskSearch(std::string& text,
 	mainWindow->SetState(STATE::DEFAULT);
 	if (keys.Result() > 0) text = keys.Text();
 	return keys.Result() > 0;
+}
+
+// A plugin's screen (wii/menu/pluginscreen.hpp, the app store) uses the
+// menu's own popup and search keyboard, and halts the GUI as the pages do.
+static void LendPluginScreenHelpers()
+{
+	riftwii::wii::pluginscreen::Hooks hooks;
+	hooks.halt = HaltGui;
+	hooks.resume = ResumeGui;
+	hooks.window = [] { return mainWindow; };
+	hooks.popup = [](const std::string& title, const std::string& body, const std::string& yes,
+		const std::string& no) { return ShowPopup(title, body, yes, no); };
+	hooks.search = [](std::string& text,
+		const std::function<std::string(const std::string&, std::string&, std::string&)>& typed) {
+		return AskSearch(text, typed, tr("Search apps"));
+	};
+	riftwii::wii::pluginscreen::SetHooks(hooks);
 }
 
 // Keep DI on this thread: the GUI and drive-scan threads must not share its
@@ -18480,6 +18504,30 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 }
 
 // ---------------------------------------------------------------------------
+// Rift Store (Settings > Online): the app store, which is the appstore
+// plugin's own screen (docs/APPSTORE.md), so the DOL carries none of its
+// pages. Called and returns with the GUI running; true when apps were
+// installed or removed.
+static bool MenuAppStore()
+{
+	rwp_appstore_request request;
+	std::memset(&request, 0, sizeof(request));
+	request.size = sizeof(request);
+	std::string message;
+	const int32_t result = riftwii::wii::plugin::Launch("appstore", &request, sizeof(request), message);
+	// Its code and memory go back as soon as it is closed.
+	riftwii::wii::plugin::ShutdownAll("the app store closed");
+	if (result == RWP_LAUNCH_DONE) return request.changed != 0;
+	if (message.empty())
+		message = request.error[0] ? tr("The Rift Store could not open: {1}", {request.error}) : tr("The Rift Store could not open.");
+	logf("App store: %s\n", request.error[0] ? request.error : "it could not open");
+	HaltGui();
+	ShowPopup(tr("Rift Store"), message, tr("OK"));
+	ResumeGui();
+	return false;
+}
+
+// ---------------------------------------------------------------------------
 // My RiiTag (Settings > Online): the player's tag, the picture
 // riitag.t0g3pii.de draws for riitag_id in settings.txt, downloaded each
 // visit (wii/menu/riitagview.hpp). A downloads it again.
@@ -18795,7 +18843,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kEmuNandManager, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kLaunchLog, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kSteamGridKey, kSteamGridClear, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kNintendontImport, kUsbInput, kGcCard, kGcBackups, kLeaveButtons, kDiscLight, kNintendontSaves, kParental, kSdGames, kGameFolders, kIos, kNet, kResync, kWads, kDiscCopy,
+	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kEmuNandManager, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kLaunchLog, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kSteamGridKey, kSteamGridClear, kNetTest, kNames, kRiiTag, kAppStore, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kNintendontImport, kUsbInput, kGcCard, kGcBackups, kLeaveButtons, kDiscLight, kNintendontSaves, kParental, kSdGames, kGameFolders, kIos, kNet, kResync, kWads, kDiscCopy,
 		kMissingCovers, kRescan, kPartitionFailures, kUpdate, kReport, kTests, kGeckoLog, kWiirdDebugger, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -19054,6 +19102,13 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		option(tr("SteamGridDB key"), steamGridKey ? tr("Ends in {1}", {steamGridSuffix}) : tr("No API key"),
 			false, kSteamGridKey, FlowRow::Kind::Action);
 		option(tr("Clear SteamGridDB key"), tr("Clear"), false, kSteamGridClear, FlowRow::Kind::Action);
+		FlowRow apps;
+		apps.kind = FlowRow::Kind::Action;
+		apps.label = tr("Rift Store");
+		apps.value = tr("Browse");
+		apps.dim = !settings.online;
+		rows.push_back(apps);
+		actions.push_back(kAppStore);
 		FlowRow names;
 		names.kind = FlowRow::Kind::Action;
 		names.label = tr("Get the latest game names");
@@ -19174,7 +19229,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kPageBannerSound: case kDiscArt:
 				case kIos: case kNone:
 					return SettingsSection::Look;
-				case kOnline: case kEmulatorCovers: case kSteamGridCovers: case kSteamGridKey: case kSteamGridClear: case kNetTest: case kNames: case kRiiTag: case kMissingCovers: case kServer: case kUpdate:
+				case kOnline: case kEmulatorCovers: case kSteamGridCovers: case kSteamGridKey: case kSteamGridClear: case kNetTest: case kNames: case kRiiTag: case kAppStore: case kMissingCovers: case kServer: case kUpdate:
 					return SettingsSection::Online;
 				case kSdGames: case kGameFolders: case kRescan: case kPartitionFailures: case kNet: case kResync: case kDiscCopy:
 					return SettingsSection::Finding;
@@ -19316,6 +19371,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kNames: return tr("Downloads the newest game names from GameTDB.");
 			case kNetTest: return tr("Checks if network is online.");
 			case kRiiTag: return RiiTagNote(settings);
+			case kAppStore: return settings.online ? tr("Homebrew apps from a list the RiftWii team checks, installed to sd:/apps. RiftWii hosts none of them: each comes from its maker's own release.")
+				: tr("Downloads are off. Turn on Settings > Online > Downloads first.");
 			case kMissingCovers: return tr("Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one.");
 			case kGcAdapter: return AdapterNote(settings.gc_adapter);
 			case kGcRumble: return tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports.");
@@ -19894,6 +19951,27 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					}
 					note(settings.menu_font == runningFont ? tr("This is the font on screen now.")
 						: tr("The menu restarts to show it when you leave Settings."));
+					break;
+				}
+				case kAppStore: {
+					if (!settings.online) {
+						note(tr("Downloads are off. Turn on Settings > Online > Downloads first."));
+						break;
+					}
+					// The scan reads the card and the network the store uses.
+					WaitForDriveScan(noteTxt);
+					transition::Hold(transition::Kind::SlideForward);
+					mainWindow->Remove(&w);
+					ResumeGui();
+					const bool changed = MenuAppStore();
+					HaltGui();
+					if (changed) {
+						// Home's Homebrew view reads sd:/apps again.
+						riftwii::wii::ForgetAppIcons();
+						riftwii::wii::RescanHomebrewApps();
+					}
+					transition::Hold(transition::Kind::SlideBack);
+					mainWindow->Append(&w);
 					break;
 				}
 				case kRiiTag: {

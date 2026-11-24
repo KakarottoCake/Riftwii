@@ -4221,6 +4221,201 @@ msgstr "Las opciones de este juego no se pudieron guardar. Comprueba que la tarj
 msgid "Play anyway?"
 msgstr "¿Jugar de todos modos?"
 
+msgid "Homebrew apps from a list the RiftWii team checks, installed to sd:/apps. RiftWii hosts none of them: each comes from its maker's own release."
+msgstr "Apps homebrew de una lista que revisa el equipo de RiftWii, instaladas en sd:/apps. RiftWii no aloja ninguna: cada una viene de la versión publicada por su autor."
+
+msgid "Search apps"
+msgstr "Buscar apps"
+
+msgid "System tools"
+msgstr "Herramientas"
+
+msgid "Game tools"
+msgstr "Para juegos"
+
+msgid "Creative"
+msgstr "Creatividad"
+
+msgid "Demos and toys"
+msgstr "Demos y juguetes"
+
+msgid "Media"
+msgstr "Multimedia"
+
+msgid "Internet"
+msgstr "Internet"
+
+msgid "Online services"
+msgstr "Servicios en línea"
+
+msgid "Loaders"
+msgstr "Cargadores"
+
+msgid "My apps"
+msgstr "Mis apps"
+
+msgid "Getting the list of apps..."
+msgstr "Obteniendo la lista de apps..."
+
+msgid "Could not get the list of apps: {1}"
+msgstr "No se pudo obtener la lista de apps: {1}"
+
+msgid "No app matches {1}."
+msgstr "Ninguna app coincide con {1}."
+
+msgid "No apps from here are on the SD card yet."
+msgstr "Aún no hay en la tarjeta SD apps de aquí."
+
+msgid "On the SD card"
+msgstr "En la tarjeta SD"
+
+msgid "Get it on a PC"
+msgstr "Consíguela en un PC"
+
+msgid "Its own page"
+msgstr "Su página"
+
+msgid "{1} does the same and is kept up to date."
+msgstr "{1} hace lo mismo y se mantiene al día."
+
+msgid "Newer app"
+msgstr "App más nueva"
+
+msgid "Next page"
+msgstr "Página siguiente"
+
+msgid "Installed, version {1}"
+msgstr "Instalada, versión {1}"
+
+msgid "Version {1}, {2}"
+msgstr "Versión {1}, {2}"
+
+msgid "It is on the SD card already. Put version {1} in its place."
+msgstr "Ya está en la tarjeta SD. Pon la versión {1} en su lugar."
+
+msgid "The Wii can't unpack it: scan the code."
+msgstr "La Wii no puede descomprimirla: escanea el código."
+
+msgid "To the SD card, {1}"
+msgstr "A la tarjeta SD, {1}"
+
+msgid "Finishing..."
+msgstr "Terminando..."
+
+msgid "Remove {1}?"
+msgstr "¿Quitar {1}?"
+
+msgid "Its folder in sd:/apps goes. Its saves and data folders stay."
+msgstr "Se borra su carpeta de sd:/apps. Sus partidas y carpetas de datos se quedan."
+
+msgid "This app is in sd:/apps already, not put there from here. Version {1} replaces its files; its own settings stay."
+msgstr "Esta app ya está en sd:/apps, pero no se instaló desde aquí. La versión {1} reemplaza sus archivos; sus ajustes se quedan."
+
+msgid "Installed. Find it in Home's Homebrew view."
+msgstr "Instalada. Búscala en la vista Homebrew de Inicio."
+
+msgid "{1} is removed."
+msgstr "{1} se ha quitado."
+
+msgid "{1} was not installed"
+msgstr "{1} no se instaló"
+
+msgid "{1} was not removed"
+msgstr "{1} no se quitó"
+
+msgid "Search: {1}"
+msgstr "Buscar: {1}"
+
+msgid "My apps ({1})"
+msgstr "Mis apps ({1})"
+
+msgid "Downloading..."
+msgstr "Descargando..."
+
+msgid "Checking the file..."
+msgstr "Comprobando el archivo..."
+
+msgid "Unpacking..."
+msgstr "Descomprimiendo..."
+
+msgid "{1} of {2}"
+msgstr "{1} de {2}"
+
+msgid "{1} of {2} files"
+msgstr "{1} de {2} archivos"
+
+msgid "Another app is being installed. Try again when it is done."
+msgstr "Se está instalando otra app. Inténtalo de nuevo cuando termine."
+
+msgid "Games made by the homebrew community."
+msgstr "Juegos creados por la comunidad homebrew."
+
+msgid "Play games made for older consoles and computers."
+msgstr "Juega a juegos de consolas y ordenadores antiguos."
+
+msgid "Look after the Wii itself: backups, storage and setup."
+msgstr "Cuida la propia Wii: copias, almacenamiento y ajustes."
+
+msgid "Save editors, mod tools and other help for games."
+msgstr "Editores de partidas, herramientas de mods y más."
+
+msgid "Change how the Wii Menu looks and what it does."
+msgstr "Cambia el aspecto y las funciones del Menú de Wii."
+
+msgid "Test, set up and use more kinds of controllers."
+msgstr "Prueba, configura y usa más tipos de mandos."
+
+msgid "Draw, paint, write and make music."
+msgstr "Dibuja, pinta, escribe y haz música."
+
+msgid "Small demos, toys and fun experiments."
+msgstr "Pequeñas demos, juguetes y experimentos divertidos."
+
+msgid "Watch videos, play music and look at pictures."
+msgstr "Mira vídeos, escucha música y ve fotos."
+
+msgid "Browse, chat and read on the internet."
+msgstr "Navega, chatea y lee en internet."
+
+msgid "Bring the Wii's online play and channels back."
+msgstr "Recupera el juego en línea y los canales de Wii."
+
+msgid "Start games and apps from USB drives and SD cards."
+msgstr "Inicia juegos y apps desde unidades USB y tarjetas SD."
+
+msgid "Everything else."
+msgstr "Todo lo demás."
+
+msgid "{1} installed"
+msgstr "{1} instaladas"
+
+msgid "Size"
+msgstr "Tamaño"
+
+msgid "Works on"
+msgstr "Funciona en"
+
+msgid "License"
+msgstr "Licencia"
+
+msgid "{1}.{2} MB"
+msgstr "{1},{2} MB"
+
+msgid "{1} KB"
+msgstr "{1} KB"
+
+msgid "The SD card is too full. Make {1} of room and try again."
+msgstr "La tarjeta SD está demasiado llena. Libera {1} y vuelve a intentarlo."
+
+msgid "Rift Store"
+msgstr "Rift Store"
+
+msgid "The Rift Store could not open."
+msgstr "La Rift Store no se pudo abrir."
+
+msgid "The Rift Store could not open: {1}"
+msgstr "La Rift Store no se pudo abrir: {1}"
+
 msgid "Disc slot light"
 msgstr "Luz de la ranura de discos"
 

@@ -569,10 +569,30 @@ static void TestTables() {
     EXPECT_EQ(offsetof(rwp_host, zlib_inflate_init2) + sizeof(void*), offsetof(rwp_host, zlib_inflate));
     EXPECT_EQ(offsetof(rwp_host, zlib_inflate) + sizeof(void*), offsetof(rwp_host, zlib_inflate_end));
     EXPECT_EQ(offsetof(rwp_host, zlib_inflate_end) + sizeof(void*), offsetof(rwp_host, progress));
-    EXPECT_EQ(offsetof(rwp_host, progress) + sizeof(void*), sizeof(rwp_host));
+    EXPECT_EQ(offsetof(rwp_host, progress) + sizeof(void*), offsetof(rwp_host, screen_open));
+    EXPECT_EQ(offsetof(rwp_host, screen_open) + sizeof(void*), offsetof(rwp_host, screen_frame));
+    EXPECT_EQ(offsetof(rwp_host, screen_frame) + sizeof(void*), offsetof(rwp_host, screen_close));
+    EXPECT_EQ(offsetof(rwp_host, screen_close) + sizeof(void*), offsetof(rwp_host, texture_create));
+    EXPECT_EQ(offsetof(rwp_host, texture_create) + sizeof(void*), offsetof(rwp_host, texture_free));
+    EXPECT_EQ(offsetof(rwp_host, texture_free) + sizeof(void*), offsetof(rwp_host, text_width));
+    EXPECT_EQ(offsetof(rwp_host, text_width) + sizeof(void*), offsetof(rwp_host, translate));
+    EXPECT_EQ(offsetof(rwp_host, translate) + sizeof(void*), offsetof(rwp_host, sound));
+    EXPECT_EQ(offsetof(rwp_host, sound) + sizeof(void*), offsetof(rwp_host, ask_search));
+    EXPECT_EQ(offsetof(rwp_host, ask_search) + sizeof(void*), offsetof(rwp_host, ask_choice));
+    EXPECT_EQ(offsetof(rwp_host, ask_choice) + sizeof(void*), offsetof(rwp_host, net_ready));
+    EXPECT_EQ(offsetof(rwp_host, net_ready) + sizeof(void*), offsetof(rwp_host, http_get));
+    EXPECT_EQ(offsetof(rwp_host, http_get) + sizeof(void*), offsetof(rwp_host, http_download));
+    EXPECT_EQ(offsetof(rwp_host, http_download) + sizeof(void*), offsetof(rwp_host, background_start));
+    EXPECT_EQ(offsetof(rwp_host, background_start) + sizeof(void*), offsetof(rwp_host, background_running));
+    EXPECT_EQ(offsetof(rwp_host, background_running) + sizeof(void*), offsetof(rwp_host, background_cancel));
+    EXPECT_EQ(offsetof(rwp_host, background_cancel) + sizeof(void*), offsetof(rwp_host, remove_path));
+    EXPECT_EQ(offsetof(rwp_host, remove_path) + sizeof(void*), offsetof(rwp_host, rename_path));
+    EXPECT_EQ(offsetof(rwp_host, rename_path) + sizeof(void*), offsetof(rwp_host, list_directory));
+    EXPECT_EQ(offsetof(rwp_host, list_directory) + sizeof(void*), offsetof(rwp_host, sd_free_kib));
+    EXPECT_EQ(offsetof(rwp_host, sd_free_kib) + sizeof(void*), sizeof(rwp_host));
     // Every entry is one pointer, none skipped: on the Wii (4-byte
-    // pointers) the table is 2 words and 44 functions.
-    EXPECT_EQ(sizeof(rwp_host), 8u + 44u * sizeof(void*));
+    // pointers) the table is 2 words and 64 functions.
+    EXPECT_EQ(sizeof(rwp_host), 8u + 64u * sizeof(void*));
     EXPECT_TRUE(offsetof(rwp_plugin, probe) < offsetof(rwp_plugin, shutdown));
     EXPECT_TRUE(offsetof(rwp_plugin, shutdown) < offsetof(rwp_plugin, launch));
     EXPECT_EQ(offsetof(rwp_plugin, launch) + sizeof(void*), sizeof(rwp_plugin));

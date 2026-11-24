@@ -4221,6 +4221,201 @@ msgstr "이 게임의 선택 사항을 저장하지 못했습니다. SD 카드�
 msgid "Play anyway?"
 msgstr "그래도 플레이할까요?"
 
+msgid "Homebrew apps from a list the RiftWii team checks, installed to sd:/apps. RiftWii hosts none of them: each comes from its maker's own release."
+msgstr "RiftWii 팀이 확인한 목록의 홈브루 앱을 sd:/apps에 설치합니다. RiftWii는 앱을 직접 올려 두지 않습니다. 모두 만든 사람이 공개한 파일입니다."
+
+msgid "Search apps"
+msgstr "앱 검색"
+
+msgid "System tools"
+msgstr "시스템 도구"
+
+msgid "Game tools"
+msgstr "게임 도구"
+
+msgid "Creative"
+msgstr "창작"
+
+msgid "Demos and toys"
+msgstr "데모와 장난감"
+
+msgid "Media"
+msgstr "미디어"
+
+msgid "Internet"
+msgstr "인터넷"
+
+msgid "Online services"
+msgstr "온라인 서비스"
+
+msgid "Loaders"
+msgstr "로더"
+
+msgid "My apps"
+msgstr "내 앱"
+
+msgid "Getting the list of apps..."
+msgstr "앱 목록을 받는 중..."
+
+msgid "Could not get the list of apps: {1}"
+msgstr "앱 목록을 받을 수 없습니다: {1}"
+
+msgid "No app matches {1}."
+msgstr "{1}에 맞는 앱이 없습니다."
+
+msgid "No apps from here are on the SD card yet."
+msgstr "아직 여기서 받은 앱이 SD 카드에 없습니다."
+
+msgid "On the SD card"
+msgstr "SD 카드에 있음"
+
+msgid "Get it on a PC"
+msgstr "PC에서 받기"
+
+msgid "Its own page"
+msgstr "공식 페이지"
+
+msgid "{1} does the same and is kept up to date."
+msgstr "{1}도 같은 일을 하며 계속 업데이트됩니다."
+
+msgid "Newer app"
+msgstr "새 앱"
+
+msgid "Next page"
+msgstr "다음 페이지"
+
+msgid "Installed, version {1}"
+msgstr "설치됨, 버전 {1}"
+
+msgid "Version {1}, {2}"
+msgstr "버전 {1}, {2}"
+
+msgid "It is on the SD card already. Put version {1} in its place."
+msgstr "이미 SD 카드에 있습니다. 버전 {1}(으)로 바꿉니다."
+
+msgid "The Wii can't unpack it: scan the code."
+msgstr "Wii에서 풀 수 없습니다. 코드를 스캔하세요."
+
+msgid "To the SD card, {1}"
+msgstr "SD 카드에, {1}"
+
+msgid "Finishing..."
+msgstr "마무리하는 중..."
+
+msgid "Remove {1}?"
+msgstr "{1}을(를) 삭제할까요?"
+
+msgid "Its folder in sd:/apps goes. Its saves and data folders stay."
+msgstr "sd:/apps의 폴더를 지웁니다. 세이브와 데이터 폴더는 남습니다."
+
+msgid "This app is in sd:/apps already, not put there from here. Version {1} replaces its files; its own settings stay."
+msgstr "이 앱은 이미 sd:/apps에 있지만 여기서 설치한 것이 아닙니다. 버전 {1}이(가) 파일을 바꾸며 설정은 남습니다."
+
+msgid "Installed. Find it in Home's Homebrew view."
+msgstr "설치했습니다. 홈의 홈브루 보기에 있습니다."
+
+msgid "{1} is removed."
+msgstr "{1}을(를) 삭제했습니다."
+
+msgid "{1} was not installed"
+msgstr "{1}이(가) 설치되지 않았습니다"
+
+msgid "{1} was not removed"
+msgstr "{1}이(가) 삭제되지 않았습니다"
+
+msgid "Search: {1}"
+msgstr "검색: {1}"
+
+msgid "My apps ({1})"
+msgstr "내 앱 ({1})"
+
+msgid "Downloading..."
+msgstr "다운로드 중..."
+
+msgid "Checking the file..."
+msgstr "파일을 확인하는 중..."
+
+msgid "Unpacking..."
+msgstr "압축 해제 중..."
+
+msgid "{1} of {2}"
+msgstr "{1} / {2}"
+
+msgid "{1} of {2} files"
+msgstr "파일 {1} / {2}"
+
+msgid "Another app is being installed. Try again when it is done."
+msgstr "다른 앱을 설치하는 중입니다. 끝난 뒤 다시 시도하세요."
+
+msgid "Games made by the homebrew community."
+msgstr "홈브루 커뮤니티가 만든 게임."
+
+msgid "Play games made for older consoles and computers."
+msgstr "옛날 게임기와 컴퓨터의 게임을 즐기세요."
+
+msgid "Look after the Wii itself: backups, storage and setup."
+msgstr "Wii 본체 관리: 백업, 저장 공간, 설정."
+
+msgid "Save editors, mod tools and other help for games."
+msgstr "세이브 편집기, 모드 도구 등 게임을 돕는 앱."
+
+msgid "Change how the Wii Menu looks and what it does."
+msgstr "Wii 메뉴의 모양과 기능을 바꿉니다."
+
+msgid "Test, set up and use more kinds of controllers."
+msgstr "더 많은 종류의 컨트롤러를 테스트하고 쓰세요."
+
+msgid "Draw, paint, write and make music."
+msgstr "그리고, 칠하고, 쓰고, 음악을 만드세요."
+
+msgid "Small demos, toys and fun experiments."
+msgstr "작은 데모, 장난감, 재미있는 실험."
+
+msgid "Watch videos, play music and look at pictures."
+msgstr "동영상을 보고, 음악을 듣고, 사진을 보세요."
+
+msgid "Browse, chat and read on the internet."
+msgstr "인터넷에서 검색하고, 채팅하고, 읽으세요."
+
+msgid "Bring the Wii's online play and channels back."
+msgstr "Wii의 온라인 플레이와 채널을 되살립니다."
+
+msgid "Start games and apps from USB drives and SD cards."
+msgstr "USB 드라이브와 SD 카드에서 게임과 앱을 실행합니다."
+
+msgid "Everything else."
+msgstr "그 밖의 모든 것."
+
+msgid "{1} installed"
+msgstr "{1}개 설치됨"
+
+msgid "Size"
+msgstr "크기"
+
+msgid "Works on"
+msgstr "지원 기기"
+
+msgid "License"
+msgstr "라이선스"
+
+msgid "{1}.{2} MB"
+msgstr "{1}.{2} MB"
+
+msgid "{1} KB"
+msgstr "{1} KB"
+
+msgid "The SD card is too full. Make {1} of room and try again."
+msgstr "SD 카드 공간이 부족합니다. {1}를 비운 뒤 다시 시도하세요."
+
+msgid "Rift Store"
+msgstr "Rift Store"
+
+msgid "The Rift Store could not open."
+msgstr "Rift Store를 열 수 없습니다."
+
+msgid "The Rift Store could not open: {1}"
+msgstr "Rift Store를 열 수 없습니다: {1}"
+
 msgid "Disc slot light"
 msgstr "디스크 슬롯 표시등"
 

@@ -4221,6 +4221,201 @@ msgstr "このゲームの設定を保存できませんでした。SDカード�
 msgid "Play anyway?"
 msgstr "それでもプレイしますか？"
 
+msgid "Homebrew apps from a list the RiftWii team checks, installed to sd:/apps. RiftWii hosts none of them: each comes from its maker's own release."
+msgstr "RiftWiiチームが確認したリストのHomebrewアプリを、sd:/appsにインストールします。RiftWiiはアプリを置いていません。どれも作者が公開したものです。"
+
+msgid "Search apps"
+msgstr "アプリを検索"
+
+msgid "System tools"
+msgstr "システムツール"
+
+msgid "Game tools"
+msgstr "ゲーム用ツール"
+
+msgid "Creative"
+msgstr "クリエイティブ"
+
+msgid "Demos and toys"
+msgstr "デモとおもちゃ"
+
+msgid "Media"
+msgstr "メディア"
+
+msgid "Internet"
+msgstr "インターネット"
+
+msgid "Online services"
+msgstr "オンラインサービス"
+
+msgid "Loaders"
+msgstr "ローダー"
+
+msgid "My apps"
+msgstr "マイアプリ"
+
+msgid "Getting the list of apps..."
+msgstr "アプリのリストを取得中..."
+
+msgid "Could not get the list of apps: {1}"
+msgstr "アプリのリストを取得できませんでした: {1}"
+
+msgid "No app matches {1}."
+msgstr "{1}に合うアプリはありません。"
+
+msgid "No apps from here are on the SD card yet."
+msgstr "ここから入れたアプリはまだSDカードにありません。"
+
+msgid "On the SD card"
+msgstr "SDカードにあり"
+
+msgid "Get it on a PC"
+msgstr "パソコンで入手"
+
+msgid "Its own page"
+msgstr "公式ページ"
+
+msgid "{1} does the same and is kept up to date."
+msgstr "{1}も同じことができ、更新が続いています。"
+
+msgid "Newer app"
+msgstr "新しいアプリ"
+
+msgid "Next page"
+msgstr "次のページ"
+
+msgid "Installed, version {1}"
+msgstr "インストール済み、バージョン{1}"
+
+msgid "Version {1}, {2}"
+msgstr "バージョン{1}、{2}"
+
+msgid "It is on the SD card already. Put version {1} in its place."
+msgstr "すでにSDカードにあります。バージョン{1}に置き換えます。"
+
+msgid "The Wii can't unpack it: scan the code."
+msgstr "Wiiでは展開できません。コードを読み取ってください。"
+
+msgid "To the SD card, {1}"
+msgstr "SDカードへ、{1}"
+
+msgid "Finishing..."
+msgstr "仕上げ中..."
+
+msgid "Remove {1}?"
+msgstr "{1}を削除しますか?"
+
+msgid "Its folder in sd:/apps goes. Its saves and data folders stay."
+msgstr "sd:/appsのフォルダを削除します。セーブとデータのフォルダは残ります。"
+
+msgid "This app is in sd:/apps already, not put there from here. Version {1} replaces its files; its own settings stay."
+msgstr "このアプリはすでにsd:/appsにありますが、ここから入れたものではありません。バージョン{1}でファイルを置き換えます。設定は残ります。"
+
+msgid "Installed. Find it in Home's Homebrew view."
+msgstr "インストールしました。ホームのHomebrew表示にあります。"
+
+msgid "{1} is removed."
+msgstr "{1}を削除しました。"
+
+msgid "{1} was not installed"
+msgstr "{1}はインストールされませんでした"
+
+msgid "{1} was not removed"
+msgstr "{1}は削除されませんでした"
+
+msgid "Search: {1}"
+msgstr "検索: {1}"
+
+msgid "My apps ({1})"
+msgstr "マイアプリ({1})"
+
+msgid "Downloading..."
+msgstr "ダウンロード中..."
+
+msgid "Checking the file..."
+msgstr "ファイルを確認中..."
+
+msgid "Unpacking..."
+msgstr "展開中..."
+
+msgid "{1} of {2}"
+msgstr "{1} / {2}"
+
+msgid "{1} of {2} files"
+msgstr "{1} / {2}ファイル"
+
+msgid "Another app is being installed. Try again when it is done."
+msgstr "ほかのアプリをインストール中です。終わってからもう一度試してください。"
+
+msgid "Games made by the homebrew community."
+msgstr "ホームブリューのコミュニティが作ったゲーム。"
+
+msgid "Play games made for older consoles and computers."
+msgstr "昔のゲーム機やパソコンのゲームを遊べます。"
+
+msgid "Look after the Wii itself: backups, storage and setup."
+msgstr "Wii本体の管理：バックアップ、保存、設定。"
+
+msgid "Save editors, mod tools and other help for games."
+msgstr "セーブエディターやMODツールなど、ゲームの手助けに。"
+
+msgid "Change how the Wii Menu looks and what it does."
+msgstr "Wiiメニューの見た目や働きを変えます。"
+
+msgid "Test, set up and use more kinds of controllers."
+msgstr "いろいろなコントローラーをテストして使えます。"
+
+msgid "Draw, paint, write and make music."
+msgstr "絵をかいたり、文を書いたり、音楽を作ったり。"
+
+msgid "Small demos, toys and fun experiments."
+msgstr "小さなデモやおもちゃ、楽しい実験。"
+
+msgid "Watch videos, play music and look at pictures."
+msgstr "動画を見たり、音楽を聞いたり、写真を見たり。"
+
+msgid "Browse, chat and read on the internet."
+msgstr "インターネットを見たり、チャットしたり。"
+
+msgid "Bring the Wii's online play and channels back."
+msgstr "Wiiのオンラインプレイとチャンネルを取り戻します。"
+
+msgid "Start games and apps from USB drives and SD cards."
+msgstr "USBドライブやSDカードからゲームやアプリを起動。"
+
+msgid "Everything else."
+msgstr "そのほかすべて。"
+
+msgid "{1} installed"
+msgstr "{1}個インストール済み"
+
+msgid "Size"
+msgstr "サイズ"
+
+msgid "Works on"
+msgstr "対応機種"
+
+msgid "License"
+msgstr "ライセンス"
+
+msgid "{1}.{2} MB"
+msgstr "{1}.{2} MB"
+
+msgid "{1} KB"
+msgstr "{1} KB"
+
+msgid "The SD card is too full. Make {1} of room and try again."
+msgstr "SDカードの空きが足りません。{1}の空きを作ってからもう一度試してください。"
+
+msgid "Rift Store"
+msgstr "Rift Store"
+
+msgid "The Rift Store could not open."
+msgstr "Rift Storeを開けませんでした。"
+
+msgid "The Rift Store could not open: {1}"
+msgstr "Rift Storeを開けませんでした: {1}"
+
 msgid "Disc slot light"
 msgstr "ディスクスロットの光"
 

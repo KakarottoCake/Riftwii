@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <string>
 
 #include "online.hpp"
@@ -41,5 +42,27 @@ struct MemoryGet {
 // second of NetCancelBackground when the job is cancellable.
 bool HttpGetInMemory(const std::string& url, MemoryGet& get, std::string& error, int timeout_ms = 15000,
                      const HttpProgress& progress = nullptr, HttpRedirects redirects = HttpRedirects::SameHost);
+
+// A GET whose body is handed on as it arrives instead of kept: a download
+// bigger than memory (an app store app, up to 128 MB) goes to the SD card
+// piece by piece. Only a window of `capacity` bytes is held (the headers
+// must fit it: at least 64 KiB plus a receive's 4 KiB). A chunked body is
+// decoded on the way, so `sink` sees the body's own bytes only.
+struct StreamGet {
+    std::uint8_t* buffer = nullptr;
+    std::size_t capacity = 0;
+    // The longest body taken; a longer one fails as soon as it shows.
+    std::uint64_t max_body = 0;
+    void* tls_block = nullptr;
+    std::size_t tls_bytes = 0;
+    const char* user_agent = nullptr;
+    // Each piece of the body, in order. Returning false stops the
+    // download (a write failed); `error` then says so.
+    std::function<bool(const std::uint8_t* data, std::size_t size)> sink;
+    // What was received in all.
+    std::uint64_t body_length = 0;
+};
+bool HttpGetStream(const std::string& url, StreamGet& get, std::string& error, int timeout_ms = 15000,
+                   const HttpProgress& progress = nullptr, HttpRedirects redirects = HttpRedirects::Follow);
 
 }  // namespace riftwii::wii

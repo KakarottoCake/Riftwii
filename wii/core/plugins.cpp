@@ -25,6 +25,8 @@
 #include "d2xsd.hpp"
 #include "i18n.hpp"
 #include "loadersettings.hpp"
+#include "pluginhost.hpp"
+#include "pluginscreen.hpp"
 #include "log.hpp"
 #include "progress.hpp"
 #include "riftwii/sha256.hpp"
@@ -499,10 +501,31 @@ const rwp_host kHost = {
     HostZlibInflate,
     HostZlibInflateEnd,
     HostProgress,
+    // The screen, network and files (the app store)
+    pluginscreen::Open,
+    pluginscreen::Frame,
+    pluginscreen::Close,
+    pluginscreen::TextureCreate,
+    pluginscreen::TextureFree,
+    pluginscreen::TextWidth,
+    pluginscreen::Translate,
+    pluginscreen::Sound,
+    pluginscreen::AskSearch,
+    pluginscreen::AskChoice,
+    pluginhost::NetReady,
+    pluginhost::HttpGet,
+    pluginhost::HttpDownload,
+    pluginhost::BackgroundStart,
+    pluginhost::BackgroundRunning,
+    pluginhost::BackgroundCancel,
+    pluginhost::RemovePath,
+    pluginhost::RenamePath,
+    pluginhost::ListDirectory,
+    pluginhost::SdFreeKib,
 };
 // A missing initializer would leave the last entries NULL without a word:
 // the count is checked against the struct's size.
-static_assert(sizeof(rwp_host) == 8 + 44 * sizeof(void*), "kHost and plugin_api.h's rwp_host disagree");
+static_assert(sizeof(rwp_host) == 8 + 64 * sizeof(void*), "kHost and plugin_api.h's rwp_host disagree");
 
 // ---- Refusals ----
 
