@@ -512,8 +512,15 @@ bool parse_app_list(const std::string& text, AppListing* out, std::size_t max, s
     return parse_app_list(text.data(), text.size(), out, max, count, skipped, error);
 }
 
-bool app_install_path(const AppListing& app, const std::string& zip_entry, std::string& card_path) {
+bool app_install_path(const AppListing& app, const std::string& raw_entry, std::string& card_path) {
     if (app.format != AppFormat::Zip) return false;
+    // Some zips made on Windows separate folders with backslashes
+    // ("apps\WiiMedic\boot.dol"); they are read as '/', and every part is
+    // checked as usual after that.
+    std::string zip_entry = raw_entry;
+    for (char& c : zip_entry) {
+        if (c == '\\') c = '/';
+    }
     for (std::size_t i = 0; i < app.install_count; ++i) {
         const std::string from = app.install[i].from;
         const std::string to = app.install[i].to;

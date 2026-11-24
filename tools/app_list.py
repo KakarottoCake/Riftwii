@@ -121,7 +121,9 @@ def rule_ok(app_id, data_folders, rule):
 
 def install_path(rules, entry):
     """Where a zip entry goes on the card (src/net/applist.cpp's
-    app_install_path): None when no rule covers it."""
+    app_install_path): None when no rule covers it. Backslashes, which
+    some Windows zip tools write, separate folders as '/' does."""
+    entry = entry.replace("\\", "/")
     for rule in rules:
         src, dst = rule["from"], rule["to"]
         if src == "" or src.endswith("/"):

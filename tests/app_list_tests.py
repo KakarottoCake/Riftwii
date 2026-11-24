@@ -126,6 +126,11 @@ class RuleTests(unittest.TestCase):
         self.assertFalse(app_list.https_url_ok("https://2130706433/a.zip", 300))
         self.assertTrue(app_list.https_url_ok("https://github.com/a/b.zip", 300))
 
+    def test_backslashes_separate_folders(self):
+        rules = [{"from": "apps/x/", "to": "apps/x/"}]
+        self.assertEqual(app_list.install_path(rules, "apps\\x\\boot.dol"), "apps/x/boot.dol")
+        self.assertIsNone(app_list.install_path(rules, "apps/x/a\\..\\b"))
+
     def test_install_path_wildcard(self):
         rules = [{"from": "*/wii/gcmm/", "to": "apps/gcmm/"}]
         self.assertEqual(app_list.install_path(rules, "gcmm_1.5.2/wii/gcmm/boot.dol"), "apps/gcmm/boot.dol")

@@ -279,6 +279,9 @@ void test_hostile_lists() {
     // Broken UTF-8 in a path or a name.
     EXPECT_TRUE(!app_install_path(p.apps[0], "apps/snes9xgx/\xC0\xAF" "boot.dol", path));
     EXPECT_TRUE(!app_install_path(p.apps[0], "apps/snes9xgx/\x80.dol", path));
+    // Backslashes from Windows zip tools separate folders too.
+    EXPECT_TRUE(app_install_path(p.apps[0], "apps\\snes9xgx\\boot.dol", path));
+    EXPECT_EQ(path, "apps/snes9xgx/boot.dol");
     EXPECT_TRUE(app_install_path(p.apps[0], "apps/snes9xgx/r\xC3\xA9sum\xC3\xA9.txt", path));
     EXPECT_TRUE(left_out("\"name\":\"Snes9x GX\"", "\"name\":\"Snes9x \xED\xA0\x80\""));
     // One string too long to keep leaves out its app, and only its app,
