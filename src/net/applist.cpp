@@ -84,7 +84,10 @@ bool folder_prefix(const std::string& from, const std::string& entry, std::strin
         const std::size_t e_end = entry.find('/', e);
         if (f_end == std::string::npos || e_end == std::string::npos) return false;
         const std::string want = from.substr(f, f_end - f);
-        if (want != "*" && want != entry.substr(e, e_end - e)) return false;
+        const std::string part = entry.substr(e, e_end - e);
+        // A part `*` takes is checked as a written one would be: "../x/"
+        // matches no rule, however harmless what follows.
+        if (want == "*" ? !path_part_ok(part) : want != part) return false;
         f = f_end + 1;
         e = e_end + 1;
     }

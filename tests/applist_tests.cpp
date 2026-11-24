@@ -257,6 +257,10 @@ void test_install_paths() {
     EXPECT_TRUE(app_install_path(star.apps[0], "gcmm_1.6/wii/gcmm/meta.xml", path));
     EXPECT_TRUE(!app_install_path(star.apps[0], "wii/gcmm/boot.dol", path));
     EXPECT_TRUE(!app_install_path(star.apps[0], "a/b/wii/gcmm/boot.dol", path));
+    // What `*` takes is checked as a written part is.
+    EXPECT_TRUE(!app_install_path(star.apps[0], "../wii/gcmm/boot.dol", path));
+    EXPECT_TRUE(!app_install_path(star.apps[0], "..\\wii\\gcmm\\boot.dol", path));
+    EXPECT_TRUE(!app_install_path(star.apps[0], "./wii/gcmm/boot.dol", path));
     // Only whole parts, and only in `from`.
     EXPECT_TRUE(left_out("\"from\":\"apps/snes9xgx/\"", "\"from\":\"apps/snes9x*/\""));
     EXPECT_TRUE(left_out("\"to\":\"snes9xgx/\"", "\"to\":\"snes9xgx/*/\""));

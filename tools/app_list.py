@@ -129,7 +129,8 @@ def install_path(rules, entry):
         if src == "" or src.endswith("/"):
             want = src.split("/")[:-1]
             have = entry.split("/")
-            if len(have) <= len(want) or any(w != "*" and w != h for w, h in zip(want, have)):
+            # A part "*" takes must be a plain name too, as the Wii checks it.
+            if len(have) <= len(want) or any((not part_ok(h)) if w == "*" else w != h for w, h in zip(want, have)):
                 continue
             rest = "/".join(have[len(want):])
             if rest.endswith("/") or not relative_path_ok(rest, False):

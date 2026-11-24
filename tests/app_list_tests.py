@@ -135,6 +135,9 @@ class RuleTests(unittest.TestCase):
         rules = [{"from": "*/wii/gcmm/", "to": "apps/gcmm/"}]
         self.assertEqual(app_list.install_path(rules, "gcmm_1.5.2/wii/gcmm/boot.dol"), "apps/gcmm/boot.dol")
         self.assertIsNone(app_list.install_path(rules, "wii/gcmm/boot.dol"))
+        # What "*" takes is checked as a written part is.
+        self.assertIsNone(app_list.install_path(rules, "../wii/gcmm/boot.dol"))
+        self.assertIsNone(app_list.install_path(rules, "..\\wii\\gcmm\\boot.dol"))
 
 
 if __name__ == "__main__":
