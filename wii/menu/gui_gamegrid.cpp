@@ -1139,9 +1139,10 @@ void GuiGameGrid::PrefetchCovers() {
     }
 }
 
-// Room for every game's cover, and the loader told to read them all, from
-// the page shown onwards: once read, no page waits for its covers. Again
-// when the list changes (a filter, a rescan).
+// Room for every game's cover (or as many as MEM2 spares, CoverReserve),
+// and the loader told to read them, from the page shown onwards: when they
+// all fit, no page waits for its covers. Again when the list changes (a
+// filter, a rescan).
 void GuiGameGrid::ReadAllCovers() {
     const std::string first = Count() > 0 ? (*items)[0].id : "", last = Count() > 0 ? (*items)[Count() - 1].id : "";
     if (items == readAllItems && Count() == readAllCount && first == readAllFirst && last == readAllLast) return;

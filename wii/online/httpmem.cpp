@@ -4,7 +4,10 @@
 
 #include <ogc/lwp_watchdog.h>
 
+#include <malloc.h>
+
 #include <algorithm>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <limits>
@@ -495,6 +498,77 @@ bool HttpGetStream(const std::string& url, StreamGet& get, std::string& error, i
     }
     error = "too many redirects from " + parsed.host;
     return false;
+}
+
+namespace {
+
+// The window HttpGetStream reads through: a receive's worth of headers
+// and body at a time (the headers must fit, at least 64 KiB).
+constexpr std::size_t kFileWindow = (64u << 10) + (8u << 10);
+
+struct HeapBlock {
+    void* data = nullptr;
+    explicit HeapBlock(std::size_t bytes) : data(memalign(32, bytes)) {}
+    ~HeapBlock() { std::free(data); }
+    HeapBlock(const HeapBlock&) = delete;
+    HeapBlock& operator=(const HeapBlock&) = delete;
+};
+
+}  // namespace
+
+bool HttpDownloadToFile(const std::string& url, const std::string& path, std::uint64_t max_bytes, FileDownload& got,
+                        std::string& error, int timeout_ms, const HttpProgress& progress, HttpRedirects redirects) {
+    got = FileDownload{};
+    HeapBlock tls(TlsStream::memory_needed());
+    HeapBlock window(kFileWindow);
+    if (tls.data == nullptr || window.data == nullptr) {
+        error = "not enough memory for the download";
+        return false;
+    }
+    FILE* file = std::fopen(path.c_str(), "wb");
+    if (file == nullptr) {
+        error = "cannot write " + path;
+        return false;
+    }
+    Sha256 hash;
+    bool write_failed = false;
+    StreamGet get;
+    get.buffer = static_cast<std::uint8_t*>(window.data);
+    get.capacity = kFileWindow;
+    get.max_body = max_bytes;
+    get.tls_block = tls.data;
+    get.tls_bytes = TlsStream::memory_needed();
+    get.sink = [&](const std::uint8_t* data, std::size_t size) {
+        if (std::fwrite(data, 1, size, file) != size) {
+            write_failed = true;
+            return false;
+        }
+        hash.update(data, size);
+        return true;
+    };
+    bool ok = HttpGetStream(url, get, error, timeout_ms, progress, redirects);
+    if (write_failed) error = "the SD card could not be written (is it full?)";
+    if (std::fclose(file) != 0 && ok) {
+        ok = false;
+        error = "the SD card could not be written (is it full?)";
+    }
+    if (!ok) {
+        // Never half a file: whoever reads it next would take it for whole.
+        std::remove(path.c_str());
+        return false;
+    }
+    got.length = get.body_length;
+    got.digest = hash.finish();
+    return true;
+}
+
+bool DigestMatches(const Sha256Digest& digest, const std::string& expected) {
+    if (expected.size() != 2 * digest.size()) return false;
+    static const char hex[] = "0123456789abcdef";
+    for (std::size_t i = 0; i < digest.size(); ++i) {
+        if (expected[2 * i] != hex[digest[i] >> 4] || expected[2 * i + 1] != hex[digest[i] & 15]) return false;
+    }
+    return true;
 }
 
 }  // namespace riftwii::wii
