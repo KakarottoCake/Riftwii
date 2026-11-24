@@ -508,11 +508,10 @@ void run_codes_before_game() {
 // The render mode tables in what the apploader loaded: patched when the
 // menu asks, and whether the game draws borders remembered for the menu
 // (sd:/riftwii/choices/<ID>.video).
-void apply_video(const std::vector<MemoryRegion>& loaded, bool may_mount) {
+void apply_video(const std::vector<MemoryRegion>& loaded, bool may_mount, int language) {
     VideoPatchReport report;
     unsigned language_sites = 0;
     VideoSettings video = g_extras.video;
-    int language = g_extras.language;
     if (!gx_patch_allowed(g_extras.game_id, GamePatchKind::VideoModes)) {
         logf("Video: video modes left as the game has them: it checks its own code (MetaFortress)\n");
         if (video.width != VideoWidth::Game || video.deflicker != Deflicker::Game || video.remove_borders)
@@ -3103,7 +3102,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     store32(0x80003194, probe.partition.type);
     store32(0x80003198, static_cast<u32>(probe.partition.offset >> 2));
     ProgressStage("Starting the game", 100);
-    configure_video_for_game(video_region_letter(probe));
+    const char disc_region = video_region_letter(probe);
+    configure_video_for_game(disc_region);
     // A Japanese game: the VI configuration bit the System Menu sets on
     // Japanese consoles (USB Loader GX's gamepatches()). Hollywood's
     // registers need AHBPROT, as the Homebrew Channel leaves it.
@@ -3272,8 +3272,17 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         logf("Video: as the game has it: a code build starts without RiftWii's extras\n");
         g_extras.video = VideoSettings{};
     }
+    int language = g_extras.language;
+    if (!options.ctgpr && !plain_code_build && language < 0) {
+        const int console_language = CONF_GetLanguage();
+        language = resolve_disc_language(language, console_language, disc_region);
+        if (language >= 0) {
+            logf("Language: the disc's region does not use the console's language (%s); trying %s instead.\n",
+                 game_language_name(console_language), game_language_name(language));
+        }
+    }
     // The menu's extras, over the game as loaded and patched.
-    apply_video(loaded, card.fd < 0);  // not while the runtime's card handle is open
+    apply_video(loaded, card.fd < 0, language);  // not while the runtime's card handle is open
     bool codes_first = false;  // run the codes once before the game starts
     if (!g_extras.cheat_gct.empty() || g_extras.wiird_debugger) {
         std::string why;
@@ -4625,7 +4634,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     // the online server, the way back. The card stays up for the log and
     // the border note.
     g_card_live_for_log = card;
-    apply_video(loaded, false);
+    apply_video(loaded, false, g_extras.language);
     std::vector<CodeSpan> spans;
     for (const MemoryRegion& r : loaded)
         spans.push_back(CodeSpan{reinterpret_cast<std::uint8_t*>(r.address), r.length, r.address});

@@ -567,9 +567,10 @@ USB drive: choose another Saves option on its page.
 - **Region strings fix** (off unless you turn it on) is for a game from
   another region: where the game looks up the console's country names, it
   finds its own region's.
-- **Game language** tells the game the console is set to another
-  language. Pick one the game has: a game missing it may stop (Super
-  Mario Galaxy 2 from the US has no German, and freezes).
+- **Game language** normally uses the Wii's language. If the disc's region
+  doesn't use that language, RiftWii tries the region's default (for example,
+  English for a US disc on a Japanese Wii). You can still choose a language
+  yourself. Pick one the game has: a game missing it may stop.
 - **cIOS** (SD and USB games) picks the d2x slot the game runs under,
   248 to 252. *Automatic* uses the Menu IOS slot if that is a d2x cIOS.
   Otherwise it first tries the d2x cIOS whose base is the IOS the game asks

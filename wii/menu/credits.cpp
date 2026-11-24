@@ -43,7 +43,7 @@ const char* const kCredits[] = {
     "return-to-channel patch), Nuke (the language patch), crediar (Kirby's MetaFortress patch), dcx2, "
     "container12345, blackb0x and WiiPower. Read as a reference for its automatic cIOS choice, d2x's emulated "
     "NAND and USB device, the Wiinnertag file, the Wii Menu's fonts, the channel ticket layout, the video mode "
-    "tables and hooking a game's second executable.",
+    "tables, the disc language fallback and hooking a game's second executable.",
     "",
     "Gecko OS by Nuke, brkirch, Link and the Gecko authors: the cheat code handler and the WiiRD debugger "
     "(GPL-2.0-or-later).",

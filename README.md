@@ -102,7 +102,7 @@ contains theirs names them in its file header, and
   container12345 and blackb0x (MetaFortress) and WiiPower. Read as a
   reference for its automatic cIOS choice, d2x's emulated NAND and USB
   drive, the Wiinnertag file, the Wii Menu's fonts, the channel ticket
-  layout and the video mode tables.
+  layout, the video mode tables and the disc language fallback.
 - **Gecko OS** by Nuke, brkirch, Link and the Gecko authors: the cheat
   code handler and its WiiRD debugger builds (full source in
   [vendor-gecko](vendor-gecko)).

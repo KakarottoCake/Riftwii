@@ -26,8 +26,15 @@
 #include "gcadapter.hpp"
 #include "usbinput.hpp"
 #include "loadersettings.hpp"
+#include "wpadqueue.hpp"
 
 static void UpdatePadPointers();
+
+static void ConfigureRemotePointer(int channel)
+{
+	WPAD_SetDataFormat(channel, WPAD_FMT_BTNS_ACC_IR);
+	WPAD_SetVRes(channel, screenwidth, screenheight);
+}
 
 int rumbleRequest[4] = {0,0,0,0};
 GuiTrigger userInput[4];
@@ -196,6 +203,8 @@ static void UpdatePadPointers()
 	static float wroteX[4], wroteY[4], wroteA[4];   // what this function left
 	static float givenX[4], givenY[4], givenA[4];   // what libogc had given
 	static bool wrote[4] = {false, false, false, false};
+	static bool remoteConnected[4] = {};
+	static u32 cameraReport[4] = {};
 	// The tilt: held stiller than the pointer (its shake swings the
 	// pointer most at the screen's sides), let go as the Remote turns.
 	const float kTiltRestHz = 0.3f;
@@ -226,8 +235,25 @@ static void UpdatePadPointers()
 		if (!w) continue;
 		// Only a connected remote's data is refreshed by the scan; on an
 		// empty channel ir.valid is still the pointer written last frame.
-		u32 type = 0;
-		const bool remote = WPAD_Probe(i, &type) == WPAD_ERR_NONE;
+		const bool remote = WPAD_Probe(i, nullptr) == WPAD_ERR_NONE;
+		if (remote != remoteConnected[i]) {
+			remoteConnected[i] = remote;
+			cameraReport[i] = 0;
+			wrote[i] = false;
+			steadyOn[i] = false;
+			irSteady[i] = 0;
+			if (remote) ConfigureRemotePointer(i);
+		}
+		if (remote && w->err == WPAD_ERR_NONE && (w->data_present & WPAD_DATA_IR)) {
+			// On reconnect libogc can switch to reports with an attachment
+			// while the camera still sends the wider format. Reassert its
+			// mode once the actual report arrives, not during the handshake.
+			const u32 report = w->data_present & (WPAD_DATA_IR | WPAD_DATA_EXPANSION);
+			if (report != cameraReport[i]) {
+				riftwii::wii::WpadRefreshCameraMode(i);
+				cameraReport[i] = report;
+			}
+		}
 		if (!remote) w->ir.valid = 0;
 		if (wrote[i] && w->ir.x == wroteX[i] && w->ir.y == wroteY[i] && w->ir.angle == wroteA[i]) {
 			w->ir.x = givenX[i];
@@ -490,10 +516,7 @@ void SetupPads()
 	// channels only: the menu never reads the Balance Board's slot. (The
 	// crash with a board on was its missing command queue: wpadqueue.cpp.)
 	for (int chan = WPAD_CHAN_0; chan <= WPAD_CHAN_3; ++chan)
-	{
-		WPAD_SetDataFormat(chan, WPAD_FMT_BTNS_ACC_IR);
-		WPAD_SetVRes(chan, screenwidth, screenheight);
-	}
+		ConfigureRemotePointer(chan);
 
 	for(int i=0; i < 4; i++)
 	{
