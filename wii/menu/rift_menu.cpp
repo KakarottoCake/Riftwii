@@ -101,6 +101,7 @@
 #include "riftwii/update.hpp"
 #include "gui_gamegrid.hpp"
 #include "gui_searchkeys.hpp"
+#include "pluginscreen.hpp"
 #include "guiscript.hpp"
 #include "credits.hpp"
 #include "gcadapter.hpp"
@@ -771,8 +772,11 @@ void MenuWatchdogStop()
 	g_watchdogOn = false;
 }
 
+static void LendPluginScreenHelpers();
+
 void InitGUIThreads()
 {
+	LendPluginScreenHelpers();
 	dimAllowed = CONF_Init() >= 0 && CONF_GetScreenSaverMode() == 1;
 	SYS_SetPowerCallback(PowerPressed);
 	SYS_SetResetCallback(ResetPressed);
@@ -6064,6 +6068,20 @@ static bool AskSearch(std::string& text,
 	mainWindow->SetState(STATE::DEFAULT);
 	if (keys.Result() > 0) text = keys.Text();
 	return keys.Result() > 0;
+}
+
+// A plugin's screen (wii/menu/pluginscreen.hpp, the app store) uses the
+// menu's own popup and search keyboard, and halts the GUI as the pages do.
+static void LendPluginScreenHelpers()
+{
+	riftwii::wii::pluginscreen::Hooks hooks;
+	hooks.halt = HaltGui;
+	hooks.resume = ResumeGui;
+	hooks.window = [] { return mainWindow; };
+	hooks.popup = [](const std::string& title, const std::string& body, const std::string& yes,
+		const std::string& no) { return ShowPopup(title, body, yes, no); };
+	hooks.search = AskSearch;
+	riftwii::wii::pluginscreen::SetHooks(hooks);
 }
 
 // Keep DI on this thread: the GUI and drive-scan threads must not share its
