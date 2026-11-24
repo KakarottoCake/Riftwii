@@ -159,6 +159,22 @@ bool read_sd_file(const Fat32File& file, std::uint64_t offset, std::uint8_t* out
     return g_mounted && g_volume.read(file, offset, out, length);
 }
 
+bool read_sd_file_from_card(const std::string& sd_path, std::uint64_t offset, std::uint8_t* out, std::size_t length) {
+    forget_sd_layout();
+    Fat32File file;
+    std::string error;
+    if (!resolve_sd_file(sd_path, file, error)) {
+        logf("SD: %s could not be found on the card to check a write: %s\n", sd_path.c_str(), error.c_str());
+        return false;
+    }
+    if (offset > file.entry.size || length > file.entry.size - offset) {
+        logf("SD: the card's entry for %s says %u bytes, short of what was written (%llu)\n", sd_path.c_str(),
+             unsigned(file.entry.size), static_cast<unsigned long long>(offset + length));
+        return false;
+    }
+    return read_sd_file(file, offset, out, length);
+}
+
 bool write_sd_file_in_place(const Fat32File& file, std::uint64_t offset, const std::uint8_t* data, std::size_t length) {
     if (!g_mounted) return false;
     std::string error;

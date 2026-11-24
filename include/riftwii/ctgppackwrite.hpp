@@ -27,10 +27,37 @@
 // whose cluster chain is damaged is refused before anything is written.
 namespace riftwii {
 
+// What tells one copy of a pack file from another of the same size, made
+// from the fields of its directory entry that the updater's own writes
+// leave alone (ctgp_pack_identity in riftwii/ctgpjournal.hpp). The undo
+// journal records it and puts nothing back into a pack that doesn't match.
+struct CtgpPackIdentity {
+    bool known = false;
+    std::array<std::uint8_t, 16> bytes{};
+};
+
 // Raw access to blob.bin: 512-byte-aligned reads and writes at any offset.
 struct CtgpPackIo {
     std::function<bool(std::uint64_t offset, std::uint32_t length, std::uint8_t* out)> read;
     std::function<bool(std::uint64_t offset, const std::uint8_t* data, std::uint32_t length)> write;
+
+    // The rest is for the undo journal (riftwii/ctgpjournal.hpp) and may be
+    // left empty, as CtgpPackWriter never uses it.
+    //
+    // On the Wii, `write` and the journal's own file go through libfat,
+    // whose cache (libdvm) drops the result of the sector writes it flushes
+    // and whose fsync always reports success. These read what the card
+    // itself holds, past that cache, so the journal can see that a write
+    // really arrived before it relies on it.
+    //
+    // Pack bytes as the card holds them.
+    std::function<bool(std::uint64_t offset, std::uint32_t length, std::uint8_t* out)> read_card;
+    // Bytes of another file on the same card (the journal), as the card
+    // holds them: its directory entry, its clusters and its data, looked up
+    // afresh. False if the card's entry says the file is shorter.
+    std::function<bool(const std::string& path, std::uint64_t offset, std::uint32_t length, std::uint8_t* out)>
+        read_card_file;
+    CtgpPackIdentity identity;
 };
 
 // The largest file the updater puts back into a pack.

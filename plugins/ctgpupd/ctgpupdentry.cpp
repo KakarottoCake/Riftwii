@@ -62,6 +62,15 @@ riftwii::CtgpPackIo file_io(std::FILE* file, bool writable) {
     return io;
 }
 
+// The undo journal's own file goes through libfat, whose sync can't say
+// whether the card took it: the journal reads each entry back from the card
+// (the DOL's read_sd_file_from_card) before it relies on it.
+void add_card_checks(const CtgpUpdRequest& request, riftwii::CtgpPackIo& io) {
+    const auto read_from_card = request.sd.read_from_card;
+    io.read_card_file = [read_from_card](const std::string& path, std::uint64_t offset, std::uint32_t bytes,
+                                         std::uint8_t* out) { return read_from_card(path, offset, out, bytes); };
+}
+
 // riftwii/ctgppending.hpp: false when the card would not give the size.
 bool file_size(std::FILE* file, std::uint64_t& size) { return riftwii::ctgp_file_size(file, size); }
 
@@ -567,6 +576,13 @@ bool install_hash(CtgpUpdRequest& request, const riftwii::CtgpDia& dia, std::uin
     raw.write = [jelly, write](std::uint64_t offset, const std::uint8_t* data, std::uint32_t bytes) {
         return write(*jelly, offset, data, bytes);
     };
+    // The writes and the reads above go straight to the card, so the
+    // journal's check of the update's writes reads the same way; its own
+    // file goes through libfat and is checked on the card. jelly.bin's
+    // entry (its times make the key) is its identity.
+    raw.read_card = raw.read;
+    add_card_checks(request, raw);
+    raw.identity = riftwii::ctgp_pack_identity(jelly->entry, true);
     bool rolled_back = true;
     bool needs_growth = false;
     // libogc's SD driver writes synchronously: a raw write is on the card
@@ -612,13 +628,29 @@ bool install(CtgpUpdRequest& request) {
         error = request.blob_path + ": the SD card would not give its size";
         return false;
     }
+    const riftwii::Fat32File* const card_blob = request.sd.blob;
+    if (card_blob == nullptr || card_blob->entry.size != blob_size) {
+        std::fclose(blob);
+        error = request.blob_path + " could not be found on the card" +
+                (request.sd.blob_error.empty() ? std::string() : ": " + request.sd.blob_error);
+        return false;
+    }
     const auto sync_blob = [blob]() { return g_libc->fflush(blob) == 0 && g_libc->fsync(g_libc->fileno(blob)) == 0; };
     // Every 32 KiB of blob.bin the update changes is copied to the card
     // first, so a power cut or crash halfway can be undone at the next start
-    // (the DOL's CtgpRecoverPackJournal).
+    // (the DOL's CtgpRecoverPackJournal). libfat's sync says yes even when
+    // the card refused a write, so the journal reads its own entries and the
+    // update's writes back from the card itself (riftwii/ctgpjournal.hpp).
+    riftwii::CtgpPackIo blob_io = file_io(blob, true);
+    add_card_checks(request, blob_io);
+    const auto read = request.sd.read;
+    blob_io.read_card = [card_blob, read](std::uint64_t offset, std::uint32_t bytes, std::uint8_t* out) {
+        return read(*card_blob, offset, out, bytes);
+    };
+    blob_io.identity = riftwii::ctgp_pack_identity(card_blob->entry, false);
     riftwii::CtgpPackJournal journal;
     bool ok = false;
-    const bool journaled = journal.begin(request.journal_path, file_io(blob, true), blob_size, error);
+    const bool journaled = journal.begin(request.journal_path, blob_io, blob_size, error);
     riftwii::CtgpPackWriter pack;
     if (!journaled) {
         error = "the undo journal could not be started: " + error;

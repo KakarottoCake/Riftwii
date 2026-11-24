@@ -134,6 +134,11 @@ bool CtgpUpdater::run(CtgpUpdRequest& request, std::string& error) {
     // jelly.bin (Check and Install read it) is found here and kept in this
     // frame until the plugin returns (riftwii/plugin_ctgpupd.hpp).
     Fat32File jelly;
+    Fat32File blob;
+    // An install records both files' directory entries in its undo journals
+    // (their identity), so they are read from the card as it is now, not
+    // from what the lookups remembered before libfat last wrote it.
+    if (request.op == CtgpUpdOp::Install) forget_sd_layout();
     if (request.op == CtgpUpdOp::Check || request.op == CtgpUpdOp::Install || request.op == CtgpUpdOp::Inspect) {
         std::string why;
         if (resolve_sd_file(kCtgprJellyPath, jelly, why)) {
@@ -142,7 +147,16 @@ bool CtgpUpdater::run(CtgpUpdRequest& request, std::string& error) {
             request.sd.jelly_error = why;
         }
     }
+    if (request.op == CtgpUpdOp::Install) {
+        std::string why;
+        if (resolve_sd_file(kCtgprBlobPath, blob, why)) {
+            request.sd.blob = &blob;
+        } else {
+            request.sd.blob_error = why;
+        }
+    }
     request.sd.read = read_sd_file;
+    request.sd.read_from_card = read_sd_file_from_card;
     request.sd.write = jelly_write;
     g_jelly_cut_armed = request.op == CtgpUpdOp::Install && mem::TestJellyCutAfter() != 0;
     g_jelly_blocks_left = mem::TestJellyCutAfter();
@@ -348,6 +362,12 @@ bool recover_jelly_journal(std::string& error) {
     io.write = [&jelly](std::uint64_t offset, const std::uint8_t* data, std::uint32_t bytes) {
         return write_sd_file_in_place(jelly, offset, data, bytes);
     };
+    // The writes go straight to the card, and so does this read: the replay
+    // is checked there before the journal goes.
+    io.read_card = io.read;
+    // jelly.bin's times make its key and stay as they are through an update,
+    // so they tell this copy from one installed since.
+    io.identity = ctgp_pack_identity(jelly.entry, true);
     std::size_t restored = 0;
     const CtgpJournalRecovery result = ctgp_journal_recover(
         kCtgpJellyJournalPath, io, jelly.entry.size & ~std::uint64_t(511), [] { return true; }, restored, error);
@@ -409,10 +429,28 @@ bool recover_blob_journal(std::string& error) {
     }
     fseeko(blob, 0, SEEK_END);
     const std::uint64_t size = std::uint64_t(ftello(blob));
+    // blob.bin as the card's directory says: the replay is read back from
+    // the card through it (libfat's sync can't tell a refused write), and
+    // its identity must be the one the journal was made for.
+    forget_sd_layout();
+    Fat32File card_blob;
+    std::string why;
+    if (!resolve_sd_file(kCtgprBlobPath, card_blob, why)) {
+        std::fclose(blob);
+        error = "a CTGP-R update was interrupted, and sd:/ctgpr/blob.bin could not be found on the card to undo it (" +
+                why + ")";
+        logf("CTGP-R update: %s\n", error.c_str());
+        return false;
+    }
+    CtgpPackIo io = blob_io(blob);
+    io.read_card = [&card_blob](std::uint64_t offset, std::uint32_t bytes, std::uint8_t* out) {
+        return read_sd_file(card_blob, offset, out, bytes);
+    };
+    io.identity = ctgp_pack_identity(card_blob.entry, false);
     std::size_t restored = 0;
     const CtgpJournalRecovery result = ctgp_journal_recover(
-        kCtgpJournalPath, blob_io(blob), size,
-        [blob]() { return std::fflush(blob) == 0 && fsync(fileno(blob)) == 0; }, restored, error);
+        kCtgpJournalPath, io, size, [blob]() { return std::fflush(blob) == 0 && fsync(fileno(blob)) == 0; },
+        restored, error);
     std::fclose(blob);
     switch (result) {
     case CtgpJournalRecovery::None:

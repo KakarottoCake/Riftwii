@@ -456,6 +456,19 @@ bytes, or the journal itself is damaged), it stays on the card and every
 CTGP-R launch, through the channel or native, tries again and refuses to
 start while it can't (`CtgpPackReady`).
 
+On the Wii a sync can't be trusted: libfat sits on libdvm, whose cache drops
+the result of the sector writes it flushes, and whose fsync always says yes.
+So the journal reads its own work back from the card itself, past that cache
+(the DOL's `read_sd_file` and `read_sd_file_from_card`): each entry, with the
+journal's directory entry looked up afresh, before its chunk is changed; and
+every chunk the update or a replay wrote, before the journal is removed. A
+mismatch stops that step and keeps the journal. The journal's header also
+holds the pack's identity, from its directory entry (size, first cluster and
+creation time; for jelly.bin its write time too, which the in-place writes
+never change), and a journal is never played back into a pack with another
+identity: after CTGP-R is installed again, the old chunks don't belong in the
+new pack. Such a journal stays on the card, and the player deletes it.
+
 The request is C++, as with the ctgpr plugin, and every operation runs inside
 the runtime's escape window with its heap blocks tracked (a 64 KB table from
 the heap). An escape first closes every file the operation still had open

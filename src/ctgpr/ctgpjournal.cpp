@@ -6,8 +6,11 @@
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
+#include <map>
 #include <set>
 #include <sys/stat.h>
+
+#include "riftwii/checkedalloc.hpp"
 
 #if defined(__unix__) || defined(__APPLE__) || defined(__PPC__)
 #include <unistd.h>
@@ -18,11 +21,17 @@ namespace riftwii {
 
 namespace {
 
-// Header: "CJRN", version, pack size (u64), chunk size. Entry: offset (u64),
-// length (u32), data, checksum (u32) over offset, length and data. All big-endian.
+// Header: "CJRN", version, pack size (u64), chunk size, flags (bit 0: the
+// pack's identity is known), the pack's identity (16 bytes), checksum (u32)
+// over everything before it. Entry: offset (u64), length (u32), data,
+// checksum (u32) over offset, length and data. All big-endian. Version 1 had
+// no identity: such a journal is refused rather than played into a pack it
+// can't tell from another.
 constexpr std::uint32_t kMagic = 0x434A524Eu;
-constexpr std::uint32_t kVersion = 1;
-constexpr std::size_t kHeaderBytes = 20;
+constexpr std::uint32_t kVersion = 2;
+constexpr std::size_t kHeaderBytes = 44;
+constexpr std::uint32_t kFlagIdentity = 1;
+constexpr std::size_t kEntryOverhead = 12 + 4;
 
 std::uint32_t crc_update(std::uint32_t crc, const std::uint8_t* data, std::size_t size) {
     crc = ~crc;
@@ -41,6 +50,27 @@ std::uint32_t get32(const std::uint8_t* p) {
     return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
 }
 std::uint64_t get64(const std::uint8_t* p) { return (std::uint64_t(get32(p)) << 32) | get32(p + 4); }
+void put16(std::uint8_t* p, std::uint16_t v) { p[0] = std::uint8_t(v >> 8); p[1] = std::uint8_t(v); }
+
+// Room for one entry, or one chunk read back from the card.
+bool scratch_room(std::vector<std::uint8_t>& scratch, std::size_t bytes) {
+    return scratch.size() >= bytes || try_resize(scratch, bytes);
+}
+
+// Whether the card itself holds `expected` at `offset` of the pack.
+bool card_holds(const CtgpPackIo& pack, std::uint64_t offset, std::uint32_t length, std::uint32_t expected_crc,
+                std::vector<std::uint8_t>& scratch) {
+    if (!scratch_room(scratch, length)) return false;
+    if (!pack.read_card(offset, length, scratch.data())) return false;
+    return crc_update(0, scratch.data(), length) == expected_crc;
+}
+
+// A chunk written (by the update or a replay) and what it should now hold.
+struct Written {
+    std::uint64_t offset;
+    std::uint32_t length;
+    std::uint32_t crc;
+};
 
 bool sync_file(std::FILE* f) {
     if (std::fflush(f) != 0) return false;
@@ -99,8 +129,9 @@ EntryRead read_entry(std::FILE* f, std::uint64_t pos, std::uint64_t size, std::u
 // means the journal itself is damaged: the replay fails and the journal is
 // kept.
 CtgpJournalRecovery play_back(std::FILE* f, const CtgpPackIo& pack, std::uint64_t pack_size, std::size_t& restored,
-                              std::string& error) {
+                              std::vector<Written>& put_back, std::string& error) {
     restored = 0;
+    put_back.clear();
     if (std::fseek(f, 0, SEEK_END) != 0) {
         error = "the journal could not be read";
         return CtgpJournalRecovery::Failed;
@@ -120,13 +151,35 @@ CtgpJournalRecovery play_back(std::FILE* f, const CtgpPackIo& pack, std::uint64_
         error = "the journal could not be read";
         return CtgpJournalRecovery::Failed;
     }
-    if (get32(header) != kMagic || get32(header + 4) != kVersion || get32(header + 16) != kCtgpJournalChunkBytes) {
+    if (get32(header) != kMagic) {
         error = "journal header is not recognised";
+        return CtgpJournalRecovery::Failed;
+    }
+    if (get32(header + 4) != kVersion) {
+        error = "the journal was made by another version of RiftWii, which this one can't play back";
+        return CtgpJournalRecovery::Failed;
+    }
+    if (get32(header + 40) != crc_update(0, header, 40) || get32(header + 16) != kCtgpJournalChunkBytes) {
+        error = "the journal's header is damaged";
         return CtgpJournalRecovery::Failed;
     }
     if (get64(header + 8) != pack_size) {
         error = "journal belongs to a pack of another size";
         return CtgpJournalRecovery::Failed;
+    }
+    // Nothing goes back into a pack this journal wasn't made for: after
+    // CTGP-R was installed again, a pack of the same size holds other bytes
+    // (jelly.bin's are even encrypted for other file times).
+    if ((get32(header + 20) & kFlagIdentity) != 0) {
+        if (!pack.identity.known) {
+            error = "the pack file could not be identified, so the journal is not played back into it";
+            return CtgpJournalRecovery::Failed;
+        }
+        if (std::memcmp(header + 24, pack.identity.bytes.data(), pack.identity.bytes.size()) != 0) {
+            error = "the journal was made for another copy of the pack file (was CTGP-R installed again?), so "
+                    "nothing was put back";
+            return CtgpJournalRecovery::Failed;
+        }
     }
     std::uint64_t pos = sizeof header;
     Entry e;
@@ -146,6 +199,13 @@ CtgpJournalRecovery play_back(std::FILE* f, const CtgpPackIo& pack, std::uint64_
             error = "writing a journaled chunk back failed";
             return CtgpJournalRecovery::Failed;
         }
+        if (pack.read_card) {
+            if (put_back.size() == put_back.capacity() && !try_reserve(put_back, put_back.size() * 2 + 64)) {
+                error = "no memory to note the chunks put back";
+                return CtgpJournalRecovery::Failed;
+            }
+            put_back.push_back({e.offset, length, crc_update(0, e.data.data(), e.data.size())});
+        }
         restored++;
         pos += 12 + std::uint64_t(length) + 4;
     }
@@ -159,12 +219,22 @@ CtgpJournalRecovery play_back_file(const std::string& path, const CtgpPackIo& pa
         error = "cannot open the journal";
         return CtgpJournalRecovery::Failed;
     }
-    CtgpJournalRecovery result = play_back(f, pack, pack_size, restored, error);
+    std::vector<Written> put_back;
+    CtgpJournalRecovery result = play_back(f, pack, pack_size, restored, put_back, error);
     std::fclose(f);
     if (result != CtgpJournalRecovery::RolledBack) return result;
     if (sync_pack && !sync_pack()) {
         error = "syncing the pack failed";
         return CtgpJournalRecovery::Failed;
+    }
+    // The sync may have "worked" with the card refusing the writes: the
+    // journal goes only once the card shows every chunk back as it was.
+    std::vector<std::uint8_t> scratch;
+    for (const Written& w : put_back) {
+        if (!card_holds(pack, w.offset, w.length, w.crc, scratch)) {
+            error = "the SD card did not keep the chunks put back; the journal is kept";
+            return CtgpJournalRecovery::Failed;
+        }
     }
     if (std::remove(path.c_str()) != 0) {
         error = "cannot remove the journal";
@@ -180,7 +250,13 @@ struct CtgpPackJournal::Impl {
     CtgpPackIo pack;
     std::uint64_t pack_size = 0;
     std::FILE* file = nullptr;
+    std::uint64_t file_bytes = 0;  // what has been appended so far
     std::set<std::uint64_t> done;  // chunk indices already journaled
+    // With a card reader: each chunk the update wrote, by index, and the
+    // checksum of what it should now hold, for commit to compare with the
+    // card.
+    std::map<std::uint64_t, std::uint32_t> written;
+    std::vector<std::uint8_t> scratch;
     // Set when an entry could not be appended or synced (the file may end in
     // a torn entry), or when a pack write failed (the pack may be half
     // changed): nothing more is written, and commit refuses, until the
@@ -190,20 +266,68 @@ struct CtgpPackJournal::Impl {
     // commit that closed the file but could not remove it.
     bool active = false;
 
+    // Appends `bytes`, syncs, and (with a card reader) reads them back from
+    // the card: only then does the caller rely on them.
+    bool append(const std::uint8_t* bytes, std::size_t length) {
+        if (std::fwrite(bytes, 1, length, file) != length || !sync_file(file)) return false;
+        const std::uint64_t at = file_bytes;
+        file_bytes += length;
+        if (!pack.read_card_file) return true;
+        if (!scratch_room(scratch, length)) return false;
+        return pack.read_card_file(path, at, std::uint32_t(length), scratch.data()) &&
+               std::memcmp(scratch.data(), bytes, length) == 0;
+    }
+
     bool journal_chunk(std::uint64_t index) {
         std::uint64_t offset = index * kCtgpJournalChunkBytes;
         if (offset >= pack_size) return true;  // beyond the pack: the pack write will fail by itself
         std::uint32_t length = std::uint32_t(std::min<std::uint64_t>(kCtgpJournalChunkBytes, pack_size - offset));
-        std::vector<std::uint8_t> buf(12 + length + 4);
+        std::vector<std::uint8_t> buf(kEntryOverhead + length);
         put64(buf.data(), offset);
         put32(buf.data() + 8, length);
         if (!pack.read || !pack.read(offset, length, buf.data() + 12)) return false;
         put32(buf.data() + 12 + length, crc_update(0, buf.data(), 12 + length));
-        if (std::fwrite(buf.data(), 1, buf.size(), file) != buf.size() || !sync_file(file)) {
+        if (!append(buf.data(), buf.size())) {
             failed = true;
             return false;
         }
         done.insert(index);
+        return true;
+    }
+
+    // After a pack write: what each chunk it touched should now hold. A
+    // chunk it covers whole is in `data`; another is read back through the
+    // pack io, which right after the write is what was meant to be written.
+    bool note_written(std::uint64_t offset, const std::uint8_t* data, std::uint32_t length) {
+        const std::uint64_t first = offset / kCtgpJournalChunkBytes;
+        const std::uint64_t last = (offset + length - 1) / kCtgpJournalChunkBytes;
+        for (std::uint64_t i = first; i <= last; i++) {
+            const std::uint64_t start = i * kCtgpJournalChunkBytes;
+            if (start >= pack_size) break;
+            const std::uint64_t end = std::min<std::uint64_t>(start + kCtgpJournalChunkBytes, pack_size);
+            const std::uint32_t chunk_length = std::uint32_t(end - start);
+            std::uint32_t crc = 0;
+            if (offset <= start && offset + length >= end) {
+                crc = crc_update(0, data + (start - offset), chunk_length);
+            } else {
+                if (!scratch_room(scratch, chunk_length) || !pack.read(start, chunk_length, scratch.data()))
+                    return false;
+                crc = crc_update(0, scratch.data(), chunk_length);
+            }
+            written[i] = crc;
+        }
+        return true;
+    }
+
+    // Whether the card holds every chunk the update wrote as it was written.
+    bool card_has_writes() {
+        if (!pack.read_card) return true;
+        for (const auto& [index, crc] : written) {
+            const std::uint64_t start = index * kCtgpJournalChunkBytes;
+            const std::uint32_t length =
+                std::uint32_t(std::min<std::uint64_t>(kCtgpJournalChunkBytes, pack_size - start));
+            if (!card_holds(pack, start, length, crc, scratch)) return false;
+        }
         return true;
     }
 
@@ -220,6 +344,10 @@ struct CtgpPackJournal::Impl {
             failed = true;
             return false;
         }
+        if (pack.read_card && !note_written(offset, data, length)) {
+            failed = true;
+            return false;
+        }
         return true;
     }
 
@@ -228,6 +356,21 @@ struct CtgpPackJournal::Impl {
         file = nullptr;
     }
 };
+
+CtgpPackIdentity ctgp_pack_identity(const Fat32Entry& entry, bool with_write_time) {
+    CtgpPackIdentity id;
+    id.known = true;
+    std::uint8_t* p = id.bytes.data();
+    put32(p, entry.size);
+    put32(p + 4, entry.first_cluster);
+    put16(p + 8, entry.create_date);
+    put16(p + 10, entry.create_time);
+    if (with_write_time) {
+        put16(p + 12, entry.write_date);
+        put16(p + 14, entry.write_time);
+    }
+    return id;
+}
 
 CtgpPackJournal::CtgpPackJournal() : impl_(new Impl) {}
 CtgpPackJournal::~CtgpPackJournal() {
@@ -258,23 +401,30 @@ bool CtgpPackJournal::begin(const std::string& path, const CtgpPackIo& pack, std
         error = "cannot create the journal";
         return false;
     }
-    std::uint8_t header[kHeaderBytes];
+    std::uint8_t header[kHeaderBytes] = {};
     put32(header, kMagic);
     put32(header + 4, kVersion);
     put64(header + 8, pack_size);
     put32(header + 16, kCtgpJournalChunkBytes);
-    if (std::fwrite(header, 1, sizeof header, f) != sizeof header || !sync_file(f)) {
-        std::fclose(f);
-        std::remove(path.c_str());
-        error = "cannot write the journal header";
-        return false;
+    if (pack.identity.known) {
+        put32(header + 20, kFlagIdentity);
+        std::memcpy(header + 24, pack.identity.bytes.data(), pack.identity.bytes.size());
     }
+    put32(header + 40, crc_update(0, header, 40));
     impl_->path = path;
     impl_->pack = pack;
     impl_->pack_size = pack_size;
     impl_->file = f;
+    impl_->file_bytes = 0;
     impl_->done.clear();
+    impl_->written.clear();
     impl_->failed = false;
+    if (!impl_->append(header, sizeof header)) {
+        impl_->close();
+        std::remove(path.c_str());
+        error = "cannot write the journal header (or the SD card did not keep it)";
+        return false;
+    }
     impl_->active = true;
     return true;
 }
@@ -303,6 +453,12 @@ bool CtgpPackJournal::commit(const std::function<bool()>& sync_pack, std::string
     }
     if (sync_pack && !sync_pack()) {
         error = "syncing the pack failed; the journal is kept";
+        return false;
+    }
+    // libfat's sync says yes even when the card refused a write: the journal
+    // goes only once the card shows every changed chunk as written.
+    if (!impl_->card_has_writes()) {
+        error = "the SD card did not keep the update's writes; the journal is kept";
         return false;
     }
     impl_->close();

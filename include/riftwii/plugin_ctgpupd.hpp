@@ -51,7 +51,17 @@ enum class CtgpUpdOp : std::uint32_t {
 struct CtgpUpdSdAccess {
     const Fat32File* jelly = nullptr;  // null when it was not found
     std::string jelly_error;           // why, when jelly is null
+    // Install: blob.bin as the card's own directory says, found the same way:
+    // the undo journal reads the update's writes back from the card through
+    // it and records its identity (riftwii/ctgpjournal.hpp).
+    const Fat32File* blob = nullptr;
+    std::string blob_error;
     bool (*read)(const Fat32File& file, std::uint64_t offset, std::uint8_t* out, std::size_t length) = nullptr;
+    // Bytes of a file as the card holds them, looked up afresh (wii/storage/
+    // sdfile.hpp's read_sd_file_from_card): the undo journals check their own
+    // entries with it, as libfat's sync can't say whether they arrived.
+    bool (*read_from_card)(const std::string& path, std::uint64_t offset, std::uint8_t* out,
+                           std::size_t length) = nullptr;
     // Writes whole 512-byte blocks of jelly.bin where they lie on the card,
     // never its directory entry, the FAT or FSInfo (wii/storage/sdfile.hpp's
     // write_sd_file_in_place), so its key stays the same: for a HASH update.
@@ -158,7 +168,8 @@ inline bool ctgpupd_request_check(const void* raw, std::uint32_t bytes, std::str
     }
     const CtgpUpdLibc& c = request->libc;
     if (c.remove == nullptr || c.rename == nullptr || c.fflush == nullptr || c.fileno == nullptr ||
-        c.fsync == nullptr || c.errno_location == nullptr || request->sd.read == nullptr || request->sd.write == nullptr) {
+        c.fsync == nullptr || c.errno_location == nullptr || request->sd.read == nullptr || request->sd.write == nullptr ||
+        request->sd.read_from_card == nullptr) {
         why = "the request is missing one of the DOL's functions";
         return false;
     }

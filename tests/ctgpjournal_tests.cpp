@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The undo journal for in-place pack updates (riftwii/ctgpjournal.hpp), with
 // a synthetic in-memory pack.
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
@@ -9,6 +10,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -31,6 +33,86 @@ namespace fs = std::filesystem;
 namespace {
 
 constexpr std::uint32_t kChunk = kCtgpJournalChunkBytes;
+constexpr std::size_t kHeader = 44;  // the journal's header (version 2)
+
+// A pack behind a write cache, as blob.bin is on the Wii behind libfat's
+// (libdvm's): writes land in `cache`, and sync() copies them to `card`, except
+// that the card drops the blocks `lose` names while sync() still says yes,
+// as libdvm's flush does when a sector write fails. read_card sees the card.
+struct CachedPack {
+    std::vector<std::uint8_t> cache, card;
+    std::set<std::uint64_t> pending;  // 512-byte blocks written since the last sync
+    std::set<std::uint64_t> lose;     // blocks the card refuses (sync still says yes)
+    CtgpPackIdentity identity;
+    CtgpPackIo io() {
+        CtgpPackIo io;
+        io.read = [this](std::uint64_t o, std::uint32_t n, std::uint8_t* out) {
+            if (o + n > cache.size()) return false;
+            std::memcpy(out, cache.data() + o, n);
+            return true;
+        };
+        io.write = [this](std::uint64_t o, const std::uint8_t* in, std::uint32_t n) {
+            if (o + n > cache.size()) return false;
+            std::memcpy(cache.data() + o, in, n);
+            for (std::uint64_t b = o / 512; b <= (o + n - 1) / 512; b++) pending.insert(b);
+            return true;
+        };
+        io.read_card = [this](std::uint64_t o, std::uint32_t n, std::uint8_t* out) {
+            if (o + n > card.size()) return false;
+            std::memcpy(out, card.data() + o, n);
+            return true;
+        };
+        io.identity = identity;
+        return io;
+    }
+    std::function<bool()> sync() {
+        return [this] {
+            for (std::uint64_t b : pending)
+                if (!lose.count(b)) std::memcpy(card.data() + b * 512, cache.data() + b * 512, 512);
+            pending.clear();
+            return true;  // whatever the card did, as libdvm's sync
+        };
+    }
+};
+
+CachedPack make_cached(std::size_t size, std::uint8_t seed) {
+    CachedPack p;
+    p.cache.resize(size);
+    for (std::size_t i = 0; i < size; i++) p.cache[i] = std::uint8_t((i * 7 + (i >> 8) + seed) & 0xFF);
+    p.card = p.cache;
+    return p;
+}
+
+CtgpPackIdentity identity_of(std::uint32_t first_cluster, std::uint16_t create_time) {
+    Fat32Entry e;
+    e.size = 6 * kChunk;
+    e.first_cluster = first_cluster;
+    e.create_time = create_time;
+    e.create_date = 0x5B78;
+    e.write_time = 0x1234;
+    e.write_date = 0x5B79;
+    return ctgp_pack_identity(e, true);
+}
+
+// The journal file as the card holds it: the real file, except that reads
+// of the bytes from `lose_from` on come back changed while `losing` is set
+// (the card refused them, and libfat's sync said yes).
+struct CardFile {
+    bool losing = false;
+    std::uint64_t lose_from = 0;
+    std::function<bool(const std::string&, std::uint64_t, std::uint32_t, std::uint8_t*)> reader() {
+        return [this](const std::string& path, std::uint64_t o, std::uint32_t n, std::uint8_t* out) {
+            std::FILE* f = std::fopen(path.c_str(), "rb");
+            if (!f) return false;
+            const bool ok = std::fseek(f, long(o), SEEK_SET) == 0 && std::fread(out, 1, n, f) == n;
+            std::fclose(f);
+            if (ok && losing)
+                for (std::uint32_t i = 0; i < n; i++)
+                    if (o + i >= lose_from) out[i] ^= 0x5A;
+            return ok;
+        };
+    }
+};
 
 struct MemPack {
     std::vector<std::uint8_t> data;
@@ -190,7 +272,7 @@ int main() {
         EXPECT_TRUE(j.begin(jp, p.io(), size, err));
         do_writes(j.io());
         auto jd = slurp(jp);
-        jd[20 + 12 + 100] ^= 0xFF;  // inside the first entry's data
+        jd[kHeader + 12 + 100] ^= 0xFF;  // inside the first entry's data
         spit(jp, jd);
         std::size_t n = 0;
         EXPECT_TRUE(ctgp_journal_recover(jp, p.io(), size, p.sync(), n, err) == CtgpJournalRecovery::Failed);
@@ -271,6 +353,171 @@ int main() {
                     CtgpJournalRecovery::None);
     }
 #endif
+
+    {   // a journal entry the card did not keep: the pack is not written, the
+        // update can't be committed, and the journal stays for the undo
+        CachedPack p = make_cached(size, 0);
+        const auto orig = p.cache;
+        CardFile card;
+        CtgpPackIo io = p.io();
+        io.read_card_file = card.reader();
+        CtgpPackJournal j;
+        EXPECT_TRUE(j.begin(jp, io, size, err));
+        auto a = filled(kChunk, 0xA1);
+        EXPECT_TRUE(j.io().write(0, a.data(), kChunk));
+        card.losing = true;
+        card.lose_from = fs::file_size(jp);  // the next entry never reaches the card
+        auto b = filled(1024, 0xB2);
+        EXPECT_TRUE(!j.io().write(2 * kChunk, b.data(), 1024));
+        EXPECT_TRUE(std::equal(orig.begin() + 2 * kChunk, orig.begin() + 3 * kChunk, p.cache.begin() + 2 * kChunk));
+        EXPECT_TRUE(!j.io().write(4 * kChunk, b.data(), 1024));  // nothing after it either
+        EXPECT_TRUE(std::equal(orig.begin() + 4 * kChunk, orig.end(), p.cache.begin() + 4 * kChunk));
+        EXPECT_TRUE(!j.commit(p.sync(), err));
+        EXPECT_TRUE(exists(jp));
+        card.losing = false;
+        EXPECT_TRUE(j.rollback(p.sync(), err));
+        EXPECT_TRUE(p.cache == orig && p.card == orig);
+        EXPECT_TRUE(!exists(jp));
+
+        // A header the card did not keep: no journal, nothing written.
+        card.losing = true;
+        card.lose_from = 0;
+        CtgpPackJournal k;
+        EXPECT_TRUE(!k.begin(jp, io, size, err));
+        EXPECT_TRUE(!err.empty());
+        EXPECT_TRUE(!exists(jp));
+        EXPECT_TRUE(!k.io().write(0, a.data(), kChunk));
+        EXPECT_TRUE(p.cache == orig);
+    }
+    {   // the pack's sync says yes but the card lost a block: commit keeps the
+        // journal; a rollback whose own writes are lost keeps it too; the
+        // start-up replay then puts the card back
+        CachedPack p = make_cached(size, 0);
+        const auto orig = p.cache;
+        CtgpPackJournal j;
+        EXPECT_TRUE(j.begin(jp, p.io(), size, err));
+        do_writes(j.io());
+        p.lose = {(2 * kChunk - 512) / 512};  // inside the write that spans chunks 1 and 2
+        EXPECT_TRUE(!j.commit(p.sync(), err));
+        EXPECT_TRUE(!err.empty());
+        EXPECT_TRUE(exists(jp));
+        // Chunk 3's new bytes did reach the card; putting them back is lost.
+        p.lose = {(3 * kChunk + 77) / 512};
+        EXPECT_TRUE(!j.rollback(p.sync(), err));
+        EXPECT_TRUE(exists(jp));
+        EXPECT_TRUE(p.card != orig);
+        p.lose.clear();
+        std::size_t n = 0;
+        EXPECT_TRUE(ctgp_journal_recover(jp, p.io(), size, p.sync(), n, err) == CtgpJournalRecovery::RolledBack);
+        EXPECT_TRUE(p.card == orig && p.cache == orig);
+        EXPECT_TRUE(!exists(jp));
+
+        // A start-up replay the card does not keep fails and keeps the journal.
+        CtgpPackJournal k;
+        EXPECT_TRUE(k.begin(jp, p.io(), size, err));
+        do_writes(k.io());
+        EXPECT_TRUE(p.sync()());
+        p.lose = {0};
+        EXPECT_TRUE(ctgp_journal_recover(jp, p.io(), size, p.sync(), n, err) == CtgpJournalRecovery::Failed);
+        EXPECT_TRUE(exists(jp));
+        p.lose.clear();
+        EXPECT_TRUE(ctgp_journal_recover(jp, p.io(), size, p.sync(), n, err) == CtgpJournalRecovery::RolledBack);
+        EXPECT_TRUE(p.card == orig);
+
+        // And when the card takes everything, commit checks it and goes through.
+        CtgpPackJournal m;
+        EXPECT_TRUE(m.begin(jp, p.io(), size, err));
+        do_writes(m.io());
+        const auto changed = p.cache;
+        EXPECT_TRUE(m.commit(p.sync(), err));
+        EXPECT_TRUE(p.card == changed && changed != orig);
+        EXPECT_TRUE(!exists(jp));
+    }
+    {   // CTGP-R installed again over a cut-off update: the new pack has the
+        // same size but other bytes and another identity. The old journal is
+        // refused, the new pack untouched, and the journal kept.
+        CachedPack old_pack = make_cached(size, 0);
+        old_pack.identity = identity_of(100, 0x1000);
+        const auto old_orig = old_pack.cache;
+        {
+            CtgpPackJournal j;
+            EXPECT_TRUE(j.begin(jp, old_pack.io(), size, err));
+            do_writes(j.io());
+            // power cut: the journal object just stops
+        }
+        CachedPack fresh = make_cached(size, 99);
+        fresh.identity = identity_of(200, 0x2000);
+        const auto fresh_orig = fresh.cache;
+        std::size_t n = 0;
+        EXPECT_TRUE(ctgp_journal_recover(jp, fresh.io(), size, fresh.sync(), n, err) == CtgpJournalRecovery::Failed);
+        EXPECT_TRUE(!err.empty());
+        EXPECT_EQ(n, std::size_t(0));
+        EXPECT_TRUE(fresh.cache == fresh_orig && fresh.card == fresh_orig);
+        EXPECT_TRUE(exists(jp));
+        // Same size, same bytes as the old pack, but a new copy (other
+        // creation time): refused too.
+        CachedPack copy = old_pack;
+        copy.identity = identity_of(100, 0x1002);
+        const auto copy_bytes = copy.cache;
+        EXPECT_TRUE(ctgp_journal_recover(jp, copy.io(), size, copy.sync(), n, err) == CtgpJournalRecovery::Failed);
+        EXPECT_TRUE(copy.cache == copy_bytes);
+        // A pack that can't be identified is not written either.
+        CachedPack unknown = fresh;
+        unknown.identity = CtgpPackIdentity();
+        EXPECT_TRUE(ctgp_journal_recover(jp, unknown.io(), size, unknown.sync(), n, err) == CtgpJournalRecovery::Failed);
+        EXPECT_TRUE(unknown.cache == fresh_orig);
+        EXPECT_TRUE(exists(jp));
+        // The pack it was made for: played back.
+        EXPECT_TRUE(ctgp_journal_recover(jp, old_pack.io(), size, old_pack.sync(), n, err) ==
+                    CtgpJournalRecovery::RolledBack);
+        EXPECT_TRUE(old_pack.cache == old_orig && old_pack.card == old_orig);
+        EXPECT_TRUE(!exists(jp));
+    }
+    {   // the identity: write time counts only when asked for
+        Fat32Entry e;
+        e.size = 1234;
+        e.first_cluster = 77;
+        e.create_time = 1;
+        e.create_date = 2;
+        e.write_time = 3;
+        e.write_date = 4;
+        Fat32Entry later = e;
+        later.write_time = 9;
+        EXPECT_TRUE(ctgp_pack_identity(e, false).bytes == ctgp_pack_identity(later, false).bytes);
+        EXPECT_TRUE(ctgp_pack_identity(e, true).bytes != ctgp_pack_identity(later, true).bytes);
+        Fat32Entry moved = e;
+        moved.first_cluster = 78;
+        EXPECT_TRUE(ctgp_pack_identity(e, false).bytes != ctgp_pack_identity(moved, false).bytes);
+        EXPECT_TRUE(ctgp_pack_identity(e, false).known);
+    }
+    {   // a version 1 journal (no identity) and a damaged header: refused, kept
+        MemPack p = make_pack(size);
+        const auto orig = p.data;
+        std::vector<std::uint8_t> v1 = {'C', 'J', 'R', 'N', 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80, 0};
+        v1[8 + 4] = std::uint8_t(size >> 24);
+        v1[8 + 5] = std::uint8_t(size >> 16);
+        v1[8 + 6] = std::uint8_t(size >> 8);
+        v1[8 + 7] = std::uint8_t(size);
+        v1.resize(v1.size() + 12 + 512 + 4, 0x11);
+        spit(jp, v1);
+        std::size_t n = 0;
+        EXPECT_TRUE(ctgp_journal_recover(jp, p.io(), size, p.sync(), n, err) == CtgpJournalRecovery::Failed);
+        EXPECT_TRUE(p.data == orig);
+        EXPECT_TRUE(exists(jp));
+        std::remove(jp.c_str());
+
+        CtgpPackJournal j;
+        EXPECT_TRUE(j.begin(jp, p.io(), size, err));
+        do_writes(j.io());
+        auto jd = slurp(jp);
+        jd[30] ^= 0x01;  // inside the identity
+        spit(jp, jd);
+        const auto changed = p.data;
+        EXPECT_TRUE(ctgp_journal_recover(jp, p.io(), size, p.sync(), n, err) == CtgpJournalRecovery::Failed);
+        EXPECT_TRUE(p.data == changed);
+        EXPECT_TRUE(exists(jp));
+        std::remove(jp.c_str());
+    }
 
     fs::remove_all(dir);
     if (g_failures == 0) std::cout << "ctgpjournal: all tests passed" << std::endl;
