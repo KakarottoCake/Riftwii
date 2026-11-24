@@ -53,6 +53,10 @@ unsigned g_mod_titles_written = 0;
 bool g_mod_titles_read_here = false;
 // This card's list found readable this session (once, not on every visit).
 bool g_mod_titles_checked_here = false;
+// The games' prefixes the list on the card was read for ("# for:"), once
+// known this session: a wanted game outside them reads the database again.
+std::set<std::string> g_mod_titles_for;
+bool g_mod_titles_for_known = false;
 // The whole database's download, in place of an older RiftWii's discs-only
 // one, failed this session (GameTDB or the network down): not tried again
 // on every visit to Home, which keeps reading the old one meanwhile. A new
@@ -188,10 +192,14 @@ bool ReplaceListFile(const char* path, const std::string& text) {
 
 // Written even with no mods found, as the homebrew list is: the file says
 // the database was read for them.
-bool SaveModTitles(const std::vector<CustomGame>& games) {
+bool SaveModTitles(const std::vector<CustomGame>& games, const std::set<std::string>& made_for) {
     g_mod_titles_read_here = true;
+    // Known even when the write fails, so a card that can't take it isn't
+    // read again and again for the same games.
+    g_mod_titles_for = made_for;
+    g_mod_titles_for_known = true;
     std::size_t written = 0;
-    std::string text = serialize_custom_games(games, &written);
+    std::string text = serialize_custom_games(games, &written, made_for);
     // A list cut short (the scan's bound, or the file's) could make a tile's
     // name look like it matches one entry when a dropped one matches too:
     // then no list at all, so no tile gets a mod's cover by a guess.
@@ -199,7 +207,7 @@ bool SaveModTitles(const std::vector<CustomGame>& games) {
     if (cut) {
         logf("Mod covers: GameTDB lists more mods of your games than RiftWii keeps (%u); mod tiles keep their games' covers\n",
              static_cast<unsigned>(games.size()));
-        text = serialize_custom_games({});
+        text = serialize_custom_games({}, nullptr, made_for);
     }
     if (!ReplaceListFile(kModTitlesPath, text)) {
         // The older list stays, still usable; older than the database, it
@@ -242,6 +250,18 @@ std::uint32_t Le(const std::uint8_t* p, int bytes) {
 }
 
 using Progress = std::function<bool(double)>;
+
+// The games whose mods go in the mod list: the drives' games (`wanted`)
+// and the one looked up, never every game the cache keeps. The cache also
+// holds entries a player typed for a tile (any game's, retail or mod),
+// and their first four characters would bring another game's mods into
+// the list (#618). A tile's chosen entry is read on its own
+// (LookUpTypedGameInfo), so it is never `id` here.
+std::set<std::string> ModListGames(const std::string& id, const std::set<std::string>& wanted) {
+    std::set<std::string> out = wanted;
+    out.insert(id);
+    return out;
+}
 
 bool ScanComplete(const std::string& path, const WiitdbScanner& scanner, std::string& error) {
     if (scanner.complete()) return true;
@@ -347,7 +367,7 @@ GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& 
     ids.insert(id);
     for (const auto& kept : g_cache.games) ids.insert(kept.first);
     ids.insert(g_cache.not_listed.begin(), g_cache.not_listed.end());
-    WiitdbScanner scanner(ids, lang);
+    WiitdbScanner scanner(ids, lang, ModListGames(id, wanted));
     const bool zip = source.size() > 4 && source.compare(source.size() - 4, 4, ".zip") == 0;
     logf("Game details: reading %s for %u game(s)\n", source.c_str(), static_cast<unsigned>(ids.size()));
     const bool read = zip ? ScanZip(source, scanner, error, progress) : ScanXml(source, scanner, error, progress);
@@ -359,7 +379,9 @@ GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& 
     g_cache.read_now = true;
     // The same pass found the homebrew apps: kept for the Homebrew view.
     if (!SaveHomebrewTitles(scanner.homebrew())) logf("Homebrew: %s could not be written\n", kHomebrewTitlesPath);
-    SaveModTitles(scanner.customs());
+    // Without the drives' games (a headless start's parental check) the
+    // mods found are one game's: the list made for all of them stays.
+    if (!wanted.empty()) SaveModTitles(scanner.customs(), custom_prefixes(ModListGames(id, wanted)));
     g_cache.not_listed.clear();
     for (const std::string& wanted_id : ids)
         if (!g_cache.games.count(wanted_id)) g_cache.not_listed.insert(wanted_id);
@@ -369,6 +391,49 @@ GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& 
     if (!SaveCache()) logf("Game details: %s could not be written\n", CachePath(lang).c_str());
     const auto found = g_cache.games.find(id);
     if (found == g_cache.games.end()) return GameInfoResult::NotListed;
+    out = found->second;
+    return GameInfoResult::Found;
+}
+
+GameInfoResult LookUpTypedGameInfo(const std::string& id, GameInfo& out, std::string& error,
+                                   const Progress& progress) {
+    const std::string lang = MenuLocale();
+    LoadCache(lang);
+    std::string source;
+    std::time_t source_time = 0;
+    const bool have_source = GameInfoSource(source, source_time);
+    const bool stale = have_source && !g_cache.read_now && source_time > g_cache.written;
+    const auto cached = g_cache.games.find(id);
+    // Older caches did not keep titles, and the picker names the tile from
+    // it: such an entry is read again when the database is on the card.
+    if (!stale && cached != g_cache.games.end() && (!cached->second.title.empty() || !have_source)) {
+        out = cached->second;
+        return GameInfoResult::Found;
+    }
+    if (!have_source) return GameInfoResult::NoDatabase;
+
+    // Only this ID, and no game's mods: what the drives' games make (the
+    // mod list, the homebrew list, the games not listed) is left alone, so
+    // an ID that GameTDB doesn't have can't change it (#618).
+    WiitdbScanner scanner({id}, lang, {});
+    const bool zip = source.size() > 4 && source.compare(source.size() - 4, 4, ".zip") == 0;
+    logf("Game details: reading %s for the typed ID %s\n", source.c_str(), id.c_str());
+    const bool read = zip ? ScanZip(source, scanner, error, progress) : ScanXml(source, scanner, error, progress);
+    if (!read) {
+        logf("Game details: %s not read: %s\n", source.c_str(), error.c_str());
+        return GameInfoResult::Failed;
+    }
+    const auto found = scanner.games().find(id);
+    if (found == scanner.games().end()) {
+        logf("Game details: GameTDB does not list the typed ID %s\n", id.c_str());
+        return GameInfoResult::NotListed;
+    }
+    // Kept with the other games' details, so the tile's page opens at once.
+    // A cache older than the database is only added to in memory: written,
+    // it would pass for one made from this database. The next full read
+    // writes it, this entry included.
+    g_cache.games[id] = found->second;
+    if (!stale && !SaveCache()) logf("Game details: %s could not be written\n", CachePath(lang).c_str());
     out = found->second;
     return GameInfoResult::Found;
 }
@@ -597,6 +662,7 @@ struct BackgroundRead {
     std::string fallback;
     bool download_failed = false;  // and so it was
     std::set<std::string> ids;
+    std::set<std::string> mod_games;  // the drives' games: whose mods the list keeps
     bool ok = false;
     std::string error;
     std::map<std::string, GameInfo> games;
@@ -610,7 +676,7 @@ void ReadInBackground() {
     // instead of holding the card for the seconds the rest would take.
     const Progress go_on = [](double) { return !NetCancelRequested(); };
     std::optional<WiitdbScanner> scanner;
-    scanner.emplace(g_read.ids, g_read.lang);
+    scanner.emplace(g_read.ids, g_read.lang, g_read.mod_games);
     bool read = false;
     if (g_read.source.empty()) {
         // A cancelled job's download fails within a tenth of a second.
@@ -624,7 +690,7 @@ void ReadInBackground() {
             logf("Game details: reading %s meanwhile\n", g_read.fallback.c_str());
             g_read.source = g_read.fallback;
             g_read.error.clear();
-            scanner.emplace(g_read.ids, g_read.lang);  // the failed check's games left out
+            scanner.emplace(g_read.ids, g_read.lang, g_read.mod_games);  // the failed check's games left out
         } else {
             return;
         }
@@ -680,6 +746,8 @@ void ForgetGameInfo() {
     ForgetHomebrewTitlesRead();
     g_mod_titles_read_here = false;
     g_mod_titles_checked_here = false;
+    g_mod_titles_for.clear();
+    g_mod_titles_for_known = false;
     g_full_download_failed = false;
 }
 
@@ -717,6 +785,24 @@ GameInfoReadStart StartGameInfoRead(const std::set<std::string>& wanted, bool do
         }
         if (again) missing = true;
     }
+    // A game the list wasn't read for (on a drive that mounted late, or
+    // copied since): its mods are read too. Asked of the card once a session.
+    if (have_source && !missing) {
+        if (!g_mod_titles_for_known) {
+            std::string text;
+            if (stat(kModTitlesPath, &mods) == 0 && static_cast<std::uint64_t>(mods.st_size) <= kMaxCustomGamesBytes &&
+                try_resize(text, static_cast<std::size_t>(mods.st_size))) {
+                FILE* f = std::fopen(kModTitlesPath, "rb");
+                const bool whole = f && (text.empty() || std::fread(&text[0], 1, text.size(), f) == text.size());
+                if (f) std::fclose(f);
+                if (whole) custom_games_made_for(text, g_mod_titles_for);
+            }
+            g_mod_titles_for_known = true;
+        }
+        for (const std::string& prefix : custom_prefixes(wanted))
+            if (!g_mod_titles_for.count(prefix)) missing = true;
+        if (missing) logf("Mod covers: a game's mods aren't in %s yet: reading the database for them\n", kModTitlesPath);
+    }
     if (!stale && !missing) return GameInfoReadStart::NothingToRead;
     BackgroundRead read;
     read.lang = lang;
@@ -725,6 +811,7 @@ GameInfoReadStart StartGameInfoRead(const std::set<std::string>& wanted, bool do
     read.ids = wanted;
     for (const auto& kept : g_cache.games) read.ids.insert(kept.first);
     read.ids.insert(g_cache.not_listed.begin(), g_cache.not_listed.end());
+    read.mod_games = wanted;
     read.started = true;
     logf("Game details: reading %s for %u game(s) in the background\n",
          !read.source.empty() ? read.source.c_str() : "GameTDB's database (downloading it first)",
@@ -759,7 +846,7 @@ bool TakeGameInfoRead(bool& changed) {
     // As with the About page's read, the same pass found the Homebrew
     // view's apps. Write on the menu's thread, after the complete scan.
     if (!SaveHomebrewTitles(read.homebrew)) logf("Homebrew: %s could not be written\n", kHomebrewTitlesPath);
-    SaveModTitles(read.customs);
+    SaveModTitles(read.customs, custom_prefixes(read.mod_games));
     g_cache.not_listed.clear();
     for (const std::string& id : read.ids)
         if (!g_cache.games.count(id)) g_cache.not_listed.insert(id);

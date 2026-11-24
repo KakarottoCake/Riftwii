@@ -28,6 +28,7 @@ struct GameControl {
 
 struct GameInfo {
     std::string id;
+    std::string title;
     std::string developer;
     std::string publisher;
     std::vector<std::string> genres;   // GameTDB's English words ("racing", "kart racing")
@@ -53,6 +54,9 @@ class WiitdbScanner {
 public:
     static constexpr std::size_t kMaxBlock = 64u << 10;  // a <game> block; longer ones are skipped
     WiitdbScanner(std::set<std::string> wanted, std::string lang);
+    // `mod_games` picks whose mods customs() keeps, when that is not
+    // `wanted` (a lookup of one typed ID keeps none: an empty set).
+    WiitdbScanner(std::set<std::string> wanted, std::string lang, const std::set<std::string>& mod_games);
     void feed(const char* data, std::size_t size);
     // Only a closing </datafile> between game blocks completes the scan.
     bool complete() const { return complete_; }
@@ -67,7 +71,7 @@ public:
 private:
     void take_block(const std::string& block);
     std::set<std::string> wanted_;
-    std::set<std::string> prefixes_;  // custom_prefixes(wanted_)
+    std::set<std::string> prefixes_;  // custom_prefixes of the mod games
     std::string lang_;
     std::string buffer_;
     bool in_game_ = false;

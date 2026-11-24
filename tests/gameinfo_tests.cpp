@@ -12,6 +12,7 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <thread>
 
 static int failures;
 #define CHECK(condition) do { if (!(condition)) { std::cerr << "Line " << __LINE__ << ": " #condition "\n"; ++failures; } } while (0)
@@ -507,6 +508,93 @@ void TestDiscsOnlyDatabaseIsReplaced() {
     fs::remove("sd:");
 }
 
+std::string ReadModTitles() {
+    std::ifstream file(kModTitlesPath, std::ios::binary);
+    return std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+}
+
+// A typed ID is looked up on its own (#618): found or not, the mod list
+// the drives' games made stays byte for byte, a rejected ID is not
+// remembered, and a typed mod's first four characters don't bring another
+// game's mods into the list at the next full read.
+void TestTileIdOutsideTheModList() {
+    fs::create_directories("sd:/riftwii");
+    ForgetGameInfo();
+    const std::string xml =
+        "<datafile>\n<game name=\"Base\"><id>SMNE01</id></game>\n"
+        "<game name=\"Newer\"><id>SMNP03</id><type>CUSTOM</type><genre>platformer</genre>"
+        "<input players=\"4\"><control type=\"wiimote\" required=\"true\"/></input>"
+        "<locale lang=\"EN\"><title>Newer Super Mario Bros. Wii</title><synopsis>The mod's story.</synopsis></locale>"
+        "</game>\n"
+        "<game name=\"Base mod\"><id>SMNE05</id><type>CUSTOM</type></game>\n"
+        "<game name=\"European box\"><id>SMNP01</id><locale lang=\"EN\"><title>NSMBW PAL</title></locale></game>\n"
+        "<game name=\"Other region mod\"><id>SMNP04</id><type>CUSTOM</type></game>\n"
+        "<game name=\"Unrelated mod\"><id>ZZZP02</id><type>CUSTOM</type></game>\n"
+        "<game name=\"Kart\"><id>RMCE01</id></game>\n"
+        "<game name=\"Kart mod\"><id>RMCETO</id><type>CUSTOM</type></game>\n"
+        "</datafile>\n";
+    const auto zip = ziptest::make_zip({{"wiitdb.xml", xml, 0}});
+    Write(kZipPath, reinterpret_cast<const char*>(zip.data()), zip.size());
+    GameInfo old;
+    old.id = "SMNP03";
+    const std::string cache = serialize_game_infos({{old.id, old}});
+    Write(kCachePath, cache.data(), cache.size());
+    const std::string mods = serialize_custom_games({{"SMNE05", "Base mod"}});
+    Write(kModTitlesPath, mods.data(), mods.size());
+    fs::last_write_time(kZipPath, fs::file_time_type::clock::now() - std::chrono::hours(24));
+
+    GameInfo info;
+    std::string error;
+    // An old cached entry without a title is read again for one.
+    CHECK(LookUpTypedGameInfo("SMNP03", info, error) == GameInfoResult::Found);
+    CHECK(info.title == "Newer Super Mario Bros. Wii");
+    CHECK(info.synopsis == "The mod's story.");
+    CHECK(info.players == 4);
+    CHECK(info.genres == std::vector<std::string>{"platformer"});
+    CHECK(info.controls.size() == 1 && info.controls[0].required);
+    CHECK(ReadModTitles() == mods);
+    CHECK(LookUpTypedGameInfo("ZZZP01", info, error) == GameInfoResult::NotListed);
+    CHECK(ReadModTitles() == mods);
+    CHECK(ReadCache().find("ZZZP01") == std::string::npos);
+    // A retail ID typed for a tile (another region's box) is kept as such,
+    // not as a mod: still its game's mods must stay out of the list.
+    CHECK(LookUpTypedGameInfo("SMNP01", info, error) == GameInfoResult::Found);
+    CHECK(info.title == "NSMBW PAL");
+
+    ForgetGameInfo();
+    CHECK(PeekGameInfo("SMNP03", info) && info.title == "Newer Super Mario Bros. Wii");
+    // A full read for the drives' game: its own mods, not the typed mod's
+    // region's, and the typed entry's details kept.
+    CHECK(FindGameInfo("SMNE01", {"SMNE01"}, info, error) == GameInfoResult::Found);
+    std::vector<CustomGame> list;
+    CHECK(LoadModTitles(list));
+    CHECK(list.size() == 1 && list[0].id == "SMNE05");
+    CHECK(PeekGameInfo("SMNP03", info) && info.title == "Newer Super Mario Bros. Wii");
+    // A read without the drives' games (a headless start) leaves the list.
+    CHECK(FindGameInfo("RMCE01", {}, info, error) == GameInfoResult::Found);
+    CHECK(LoadModTitles(list));
+    CHECK(list.size() == 1 && list[0].id == "SMNE05");
+    // A drive that mounts late: its game's details are kept already, but
+    // the list wasn't read for it, so it is read again, this time with
+    // that game's mods (#618).
+    ForgetGameInfo();
+    CHECK(StartGameInfoRead({"SMNE01"}, false) == GameInfoReadStart::NothingToRead);
+    CHECK(StartGameInfoRead({"SMNE01", "RMCE01"}, false) == GameInfoReadStart::Started);
+    bool changed = false;
+    while (!TakeGameInfoRead(changed)) std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    CHECK(LoadModTitles(list));
+    CHECK(list.size() == 2);
+    CHECK(StartGameInfoRead({"SMNE01", "RMCE01"}, false) == GameInfoReadStart::NothingToRead);
+    ForgetGameInfo();
+    CHECK(StartGameInfoRead({"SMNE01", "RMCE01"}, false) == GameInfoReadStart::NothingToRead);
+    fs::remove(kZipPath);
+    fs::remove(kCachePath);
+    fs::remove(kHomebrewPath);
+    fs::remove(kModTitlesPath);
+    fs::remove("sd:/riftwii");
+    fs::remove("sd:");
+}
+
 int main() {
     TestStoredTruncationPreservesCache();
     TestIncompleteXmlPreservesLists(false);
@@ -515,5 +603,6 @@ int main() {
     TestBackgroundHandoffAndRescan();
     TestCardReplacementDiscardsGameInfo();
     TestDiscsOnlyDatabaseIsReplaced();
+    TestTileIdOutsideTheModList();
     return failures ? 1 : 0;
 }
