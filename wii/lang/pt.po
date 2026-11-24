@@ -4143,8 +4143,8 @@ msgstr "Rift Store: baixe apps homebrew"
 msgid "Search and Layout on Home's bar"
 msgstr "Buscar e Layout na barra do início"
 
-msgid "Wider game pages at 16:9"
-msgstr "Páginas de jogo mais largas em 16:9"
+msgid "Big libraries use less memory"
+msgstr "Bibliotecas grandes usam menos memória"
 
 msgid "USA games play on a Japanese Wii"
 msgstr "Jogos dos EUA rodam num Wii japonês"
