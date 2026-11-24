@@ -12,19 +12,19 @@ namespace {
 // docs/APPSTORE.md's table, in the store front's order: the biggest
 // groups first, "more" last.
 constexpr AppCategory kCategories[] = {
-    {"games", "Games"},
-    {"emulators", "Emulators"},
-    {"system", "System tools"},
-    {"gametools", "Game tools"},
-    {"wiimenu", "Wii Menu"},
-    {"controllers", "Controllers"},
-    {"creative", "Creative"},
-    {"toys", "Demos and toys"},
-    {"media", "Media"},
-    {"internet", "Internet"},
-    {"online", "Online services"},
-    {"loaders", "Loaders"},
-    {"more", "More"},
+    {"games", "Games", "Games made by the homebrew community."},
+    {"emulators", "Emulators", "Play games made for older consoles and computers."},
+    {"system", "System tools", "Look after the Wii itself: backups, storage and setup."},
+    {"gametools", "Game tools", "Save editors, mod tools and other help for games."},
+    {"wiimenu", "Wii Menu", "Change how the Wii Menu looks and what it does."},
+    {"controllers", "Controllers", "Test, set up and use more kinds of controllers."},
+    {"creative", "Creative", "Draw, paint, write and make music."},
+    {"toys", "Demos and toys", "Small demos, toys and fun experiments."},
+    {"media", "Media", "Watch videos, play music and look at pictures."},
+    {"internet", "Internet", "Browse, chat and read on the internet."},
+    {"online", "Online services", "Bring the Wii's online play and channels back."},
+    {"loaders", "Loaders", "Start games and apps from USB drives and SD cards."},
+    {"more", "More", "Everything else."},
 };
 constexpr std::size_t kCategoryCount = sizeof(kCategories) / sizeof(kCategories[0]);
 

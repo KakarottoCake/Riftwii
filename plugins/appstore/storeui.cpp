@@ -25,6 +25,8 @@ constexpr int kBand = 72;        // the title band's height
 constexpr int kAppBand = 118;    // an app page's band, with its facts
 constexpr int kBarTop = 404;     // where the page's bottom band (and its prompts) begins
 constexpr int kGap = 14;
+constexpr int kLine = 26;     // a line of body text
+constexpr int kFactRow = 28;  // a row of an app's facts
 
 constexpr std::uint32_t kWarn = 0xB45F06FFu;  // an update waiting, readable on the light cards
 constexpr std::uint32_t kNoteFill = 0xFDF3DCFFu;
@@ -52,7 +54,7 @@ public:
         d.align = align;
         d.text = texts_.back().c_str();
     }
-    void Picture(int x, int y, int w, int h, std::uint32_t texture) {
+    void Texture(int x, int y, int w, int h, std::uint32_t texture) {
         rwp_draw& d = Add(RWP_DRAW_TEXTURE, x, y, w, h);
         d.arg = texture;
     }
@@ -65,6 +67,12 @@ public:
         rwp_draw& d = Add(RWP_DRAW_SKIN, x, y, w, h);
         d.arg = which;
         d.flags = lit ? RWP_LIT : 0;
+    }
+    void Picture(const std::string& name, int x, int y, int w, int h) {
+        texts_.push_back(name);
+        rwp_draw& d = Add(RWP_DRAW_SKIN, x, y, w, h);
+        d.arg = RWP_SKIN_PICTURE;
+        d.text = texts_.back().c_str();
     }
     void Progress(int x, int y, int w, int h, std::uint32_t permille) {
         rwp_draw& d = Add(RWP_DRAW_PROGRESS, x, y, w, h);
@@ -182,11 +190,22 @@ private:
         frame_.Skin(RWP_SKIN_FOOTER, info_.left, 0, info_.width, 0);
     }
 
-    void Band(const std::string& title, int height = kBand) {
+    // The page's band and title; `picture` (a theme picture's name) before it.
+    void Band(const std::string& title, int height = kBand, const std::string& picture = "") {
         frame_.Skin(RWP_SKIN_TITLE_BAND, info_.left, 0, info_.width, height);
+        int x = left_;
+        if (!picture.empty()) {
+            Picture(picture, x, 16, 40);
+            x += 52;
+        }
         // Room on the right for a grid's page and its arrows.
-        if (!title.empty()) frame_.Text(left_, 20, kTitleSize, RWP_COLOR_ON_BAND, title, RWP_ALIGN_LEFT, right_ - left_ - 280);
+        if (!title.empty()) frame_.Text(x, 20, kTitleSize, RWP_COLOR_ON_BAND, title, RWP_ALIGN_LEFT, right_ - x - 280);
     }
+
+    // A theme picture (docs/THEMES.md), `size` pixels square.
+    void Picture(const std::string& name, int x, int y, int size) { frame_.Picture(name, x, y, size, size); }
+
+    static std::string CategoryPicture(const AppCategory& category) { return std::string("store_") + category.key; }
 
     void Prompt(std::uint32_t key, const std::string& label) { prompts_.push_back({key, label}); }
 
@@ -200,40 +219,56 @@ private:
         frame_.Text(middle_, y, 22, RWP_COLOR_INK, text, RWP_ALIGN_CENTER, right_ - left_, 0);
     }
 
-    // The store front: the categories as tiles.
+    // The store front: the categories as tiles, each with its icon, and a
+    // line under them of what the lit one holds.
     void DrawFront() {
         Band(tr("Get apps"));
         if (!ListReady()) return;
 
         CountCategories();
-        // Four across on a 16:9 menu; three on a 4:3 one, where four would
-        // cut the longer names ("Online services"), in lower rows.
-        const int columns = FrontColumns();
-        const int rows = (static_cast<int>(shown_categories_.size()) + columns - 1) / columns;
-        const int gap = rows > 3 ? 10 : kGap;
-        const int h = rows > 3 ? 56 : 76;
-        const int w = (right_ - left_ - (columns - 1) * gap) / columns;
-        const int name_y = rows > 3 ? 6 : 12, count_y = rows > 3 ? 30 : 44;
-        for (std::size_t k = 0; k < shown_categories_.size(); ++k) {
-            const int column = static_cast<int>(k) % columns, row = static_cast<int>(k) / columns;
-            const int tx = left_ + column * (w + gap), ty = 92 + row * (h + gap);
-            const std::size_t category = shown_categories_[k];
-            const bool lit = focus_ == static_cast<int>(k);
-            frame_.Card(tx, ty, w, h, lit);
-            frame_.Text(tx + w / 2, ty + name_y, kNameSize, RWP_COLOR_INK, tr(categories_[category].name), RWP_ALIGN_CENTER,
-                        w - 12);
-            frame_.Text(tx + w / 2, ty + count_y, kSmallSize, RWP_COLOR_INK_SOFT,
-                        Plural(category_counts_[category], "1 app", "{1} apps"), RWP_ALIGN_CENTER, w - 12);
-            hits_.push_back({tx, ty, w, h, static_cast<int>(k)});
-        }
         std::size_t installed = 0;
         for (const App& app : store_.apps) {
             if (app.state == AppState::Installed || app.state == AppState::Update) ++installed;
         }
-        frame_.Text(middle_, 92 + std::max(rows, 3) * (h + gap) - 2, kSmallSize, RWP_COLOR_INK_SOFT,
+        frame_.Text(right_, 30, kSmallSize, RWP_COLOR_INK_SOFT,
                     Plural(store_.apps.size(), "1 app", "{1} apps") + "  \xC2\xB7  " +
-                        tr("{1} from here on the SD card", std::to_string(installed)),
-                    RWP_ALIGN_CENTER);
+                        tr("{1} installed", std::to_string(installed)),
+                    RWP_ALIGN_RIGHT, 270);
+
+        // Four across on a 16:9 menu; three on a 4:3 one, where four would
+        // cut the longer names ("Online services"). The tiles share the room
+        // above the line; the icon is as big as their height lets it be.
+        constexpr int kTop = 88;
+        constexpr int kAboutY = 368;
+        const int columns = FrontColumns();
+        const int rows = (static_cast<int>(shown_categories_.size()) + columns - 1) / columns;
+        const int gap = rows > 3 ? 8 : 12;
+        const int h = std::min(84, (kAboutY - 8 - kTop - (rows - 1) * gap) / std::max(rows, 1));
+        const int w = (right_ - left_ - (columns - 1) * gap) / columns;
+        const int icon = h >= 80 ? 40 : h >= 58 ? 28 : 0;
+        const int block = icon > 0 ? icon + 4 + 22 : 22;  // the icon over the name
+        for (std::size_t k = 0; k < shown_categories_.size(); ++k) {
+            const int column = static_cast<int>(k) % columns, row = static_cast<int>(k) / columns;
+            const int tx = left_ + column * (w + gap), ty = kTop + row * (h + gap);
+            const AppCategory& category = categories_[shown_categories_[k]];
+            const bool lit = focus_ == static_cast<int>(k);
+            frame_.Card(tx, ty, w, h, lit);
+            const int top = ty + (h - block) / 2;
+            if (icon > 0) Picture(CategoryPicture(category), tx + (w - icon) / 2, top, icon);
+            frame_.Text(tx + w / 2, top + block - 24, kNameSize, RWP_COLOR_INK, tr(category.name), RWP_ALIGN_CENTER,
+                        w - 12);
+            hits_.push_back({tx, ty, w, h, static_cast<int>(k)});
+        }
+        // What the lit category holds, and how many; its count is left out
+        // when the line would not fit.
+        if (focus_ >= 0 && focus_ < static_cast<int>(shown_categories_.size())) {
+            const std::size_t index = shown_categories_[focus_];
+            std::string about = tr(categories_[index].about);
+            const std::string counted =
+                about + "  \xC2\xB7  " + Plural(category_counts_[index], "1 app", "{1} apps");
+            if (Width(counted, kSmallSize) <= right_ - left_) about = counted;
+            frame_.Text(middle_, kAboutY, kSmallSize, RWP_COLOR_INK_SOFT, about, RWP_ALIGN_CENTER, right_ - left_);
+        }
         // My apps and Search sit with the other buttons on the bottom band,
         // not beside the title, where a longer translation covered it.
         const std::size_t updates = store_.UpdateCount();
@@ -283,7 +318,9 @@ private:
 
     // A grid of apps: a category, search results or the apps on the card.
     void DrawGrid() {
-        Band(grid_title_);
+        std::string picture;
+        if (grid_kind_ == GridKind::Category) picture = CategoryPicture(categories_[grid_category_]);
+        Band(grid_title_, kBand, picture);
         const int pages = PageCount();
         // The page and its arrows at the band's right.
         if (pages > 1) {
@@ -319,6 +356,11 @@ private:
             frame_.Text(tx + w / 2, ty + 94, kSmallSize, colour, note, RWP_ALIGN_CENTER, w - 16);
             hits_.push_back({tx, ty, w, h, k});
         }
+        // What the lit app is, under the tiles.
+        if (focus_ >= 0 && focus_ < static_cast<int>(shown.size())) {
+            frame_.Text(middle_, 92 + 2 * (h + kGap) + 2, kSmallSize, RWP_COLOR_INK_SOFT,
+                        store_.apps[shown[focus_]].listing->description, RWP_ALIGN_CENTER, right_ - left_);
+        }
         store_.WantIcons(shown, input_.frame);
         Prompt(RWP_KEY_B, tr("Back"));
         if (!grid_.empty()) Prompt(RWP_KEY_A, tr("Open"));
@@ -328,9 +370,13 @@ private:
 
     void Icon(const App& app, int x, int y) {
         if (app.texture) {
-            frame_.Picture(x, y, 128, 48, app.texture);
+            frame_.Texture(x, y, 128, 48, app.texture);
         } else {
+            // No icon (or not downloaded yet): its category's, on a plain field.
+            std::size_t count = 0;
+            const AppCategory* categories = app_categories(count);
             frame_.Rect(x, y, 128, 48, kIconPlace);
+            Picture(CategoryPicture(categories[app_category_index(app.listing->category)]), x + 44, y + 4, 40);
         }
     }
 
@@ -364,11 +410,9 @@ private:
         Band("", kAppBand);
         frame_.Text(left_, 14, kSmallSize, RWP_COLOR_INK_SOFT, tr(categories[app_category_index(listing.category)].name));
         frame_.Text(left_, 38, kTitleSize, RWP_COLOR_ON_BAND, listing.name, RWP_ALIGN_LEFT, right_ - left_);
-        std::string facts = listing.author;
-        if (listing.version[0]) facts += std::string("  \xC2\xB7  ") + listing.version;
-        if (listing.released[0]) facts += std::string("  \xC2\xB7  ") + std::string(listing.released, 4);
-        facts += "  \xC2\xB7  " + app_size_text(listing.size);
-        frame_.Text(left_, 82, kSmallSize, RWP_COLOR_INK_SOFT, facts, RWP_ALIGN_LEFT, right_ - left_);
+        std::string byline = listing.author;
+        if (listing.version[0]) byline += std::string("  \xC2\xB7  ") + listing.version;
+        frame_.Text(left_, 82, kSmallSize, RWP_COLOR_INK_SOFT, byline, RWP_ALIGN_LEFT, right_ - left_);
 
         // The icon, and the one big action beside it.
         const int row = kAppBand + 18;
@@ -395,15 +439,19 @@ private:
         const std::size_t newer = listing.newer[0] ? store_.Find(listing.newer) : store_.apps.size();
         const bool has_newer = newer < store_.apps.size();
         // The list's descriptions are at most 159 bytes: four lines hold them;
-        // two when the note about a newer app needs the room below.
+        // two when the note about a newer app needs the room below. Most
+        // are one line, and the facts follow right under them.
+        const int description_lines = DescriptionLines(listing.description, text_w, has_newer ? 2 : 4);
         frame_.Text(left_, body_y, kBodySize, RWP_COLOR_INK, listing.description, RWP_ALIGN_LEFT, text_w, has_newer ? 2 : 4);
         if (listing.page[0]) {
             frame_.Qr(right_ - kQr, body_y - 6, kQr, listing.page);
             frame_.Text(right_ - kQr / 2, body_y + kQr - 4, kSmallSize, RWP_COLOR_INK_SOFT, tr("Its own page"),
                         RWP_ALIGN_CENTER);
         }
+        int below = body_y + description_lines * kLine + 12;
         if (has_newer) {
-            const int ny = body_y + 64;
+            const int ny = below;
+            below = ny + 40 + 12;
             const bool lit = focus_ == kHitNewer;
             frame_.Rect(left_, ny, text_w, 40, lit ? 0xF7E3B0FFu : kNoteFill, true);
             frame_.Text(left_ + 16, ny + 9, kSmallSize, kNoteInk,
@@ -411,7 +459,15 @@ private:
                         text_w - 32);
             hits_.push_back({left_, ny, text_w, 40, kHitNewer});
         }
-        if (!status_.empty()) frame_.Text(left_, body_y + 108, kSmallSize, RWP_COLOR_ACCENT, status_, RWP_ALIGN_LEFT, text_w);
+        // What an install or removal said, on the last line until the page
+        // is left; the facts in the room above it.
+        constexpr int kStatusY = 368;
+        int facts_end = kBarTop;
+        if (!status_.empty()) {
+            frame_.Text(left_, kStatusY, kSmallSize, RWP_COLOR_ACCENT, status_, RWP_ALIGN_LEFT, text_w);
+            facts_end = kStatusY - 4;
+        }
+        DrawFacts(listing, left_, below, text_w, facts_end);
         store_.WantIcons({app_index_}, input_.frame);
 
         if (running) {
@@ -422,6 +478,54 @@ private:
         Prompt(RWP_KEY_B, tr("Back"));
         if (app.state != AppState::PcOnly) Prompt(RWP_KEY_A, ActionLabel(app));
         if (newer < store_.apps.size()) Prompt(RWP_KEY_PLUS, tr("Newer app"));
+    }
+
+    // How many lines `text` takes at the body size in `width`, at most `most`.
+    // The host wraps at spaces; a little slack covers a word that moves down.
+    static int DescriptionLines(const std::string& text, int width, int most) {
+        if (text.empty()) return 0;
+        const int usable = width * 9 / 10;
+        const int lines = (Width(text, kBodySize) + usable - 1) / usable;
+        return std::max(1, std::min(lines, most));
+    }
+
+    // Its size, date, consoles and license as a table: each fact's icon, its
+    // name and its value, one a row from `y`, as many as end above `end`.
+    // Plain text: nothing here is pressed.
+    void DrawFacts(const AppListing& listing, int x, int y, int width, int end) {
+        std::string consoles;
+        const auto add_console = [&consoles](const char* name) {
+            if (!consoles.empty()) consoles += "  \xC2\xB7  ";
+            consoles += name;
+        };
+        if (listing.platforms & kAppOnWii) add_console("Wii");
+        if (listing.platforms & kAppOnVWii) add_console("vWii");
+        if (listing.platforms & kAppOnWiiMini) add_console("Wii mini");
+        struct Fact {
+            const char* picture;
+            std::string name, value;
+        };
+        const Fact all[] = {
+            {"store_size", tr("Size"), app_size_text(listing.size)},
+            {"store_date", tr("Released"), listing.released},
+            {"store_console", tr("Works on"), consoles},
+            {"store_license", tr("License"), listing.license},
+        };
+        std::vector<const Fact*> facts;
+        int name_w = 0;
+        for (const Fact& fact : all) {
+            if (fact.value.empty()) continue;
+            facts.push_back(&fact);
+            name_w = std::max(name_w, Width(fact.name, kSmallSize));
+        }
+        const int value_x = x + 34 + name_w + 18;
+        for (const Fact* fact : facts) {
+            if (y + kFactRow > end) break;
+            Picture(fact->picture, x, y + 1, 24);
+            frame_.Text(x + 34, y + 2, kSmallSize, RWP_COLOR_INK_SOFT, fact->name);
+            frame_.Text(value_x, y + 2, kSmallSize, RWP_COLOR_INK, fact->value, RWP_ALIGN_LEFT, x + width - value_x);
+            y += kFactRow;
+        }
     }
 
     std::string ActionLabel(const App& app) const {
@@ -689,6 +793,7 @@ private:
         }
         grid_kind_ = GridKind::Category;
         grid_title_ = tr(categories_[category].name);
+        grid_category_ = category;
         EnterGrid();
     }
 
@@ -778,6 +883,7 @@ private:
     int front_focus_ = 0;
     const AppCategory* categories_ = nullptr;
     std::vector<std::size_t> category_counts_;
+    std::size_t grid_category_ = 0;  // a category grid's
     std::vector<std::size_t> shown_categories_;
 
     GridKind grid_kind_ = GridKind::Category;

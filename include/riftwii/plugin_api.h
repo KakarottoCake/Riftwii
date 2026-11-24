@@ -147,6 +147,8 @@ typedef struct rwp_input {
 #define RWP_SKIN_ARROW_RIGHT 7
 #define RWP_SKIN_TITLE_BAND 8   /* a page's title band, the full width, h high */
 #define RWP_SKIN_FOOTER 9       /* a page's bottom band, from y 410 down, where the prompts go */
+#define RWP_SKIN_PICTURE 10     /* the theme's picture named by `text` (docs/THEMES.md lists them,
+                                 * e.g. "store_games"), at x y; w h its size, else its own */
 
 /* The theme's colours for RWP_DRAW_TEXT and RWP_DRAW_RECT, as `color`
  * values; any other value is RGBA itself (0xRRGGBBAA). */

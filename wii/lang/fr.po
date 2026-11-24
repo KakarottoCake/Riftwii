@@ -4263,9 +4263,6 @@ msgstr "Chargeurs"
 msgid "My apps"
 msgstr "Mes applis"
 
-msgid "{1} from here on the SD card"
-msgstr "{1} d'ici sur la carte SD"
-
 msgid "Getting the list of apps..."
 msgstr "Récupération de la liste des applis..."
 
@@ -4358,6 +4355,57 @@ msgstr "{1} fichiers sur {2}"
 
 msgid "Another app is being installed. Try again when it is done."
 msgstr "Une autre appli est en cours d'installation. Réessayez quand elle sera terminée."
+
+msgid "Games made by the homebrew community."
+msgstr "Des jeux faits par la communauté homebrew."
+
+msgid "Play games made for older consoles and computers."
+msgstr "Jouez aux jeux des anciennes consoles et ordinateurs."
+
+msgid "Look after the Wii itself: backups, storage and setup."
+msgstr "Prenez soin de la Wii : sauvegardes, stockage et réglages."
+
+msgid "Save editors, mod tools and other help for games."
+msgstr "Éditeurs de sauvegardes, outils de mods et autres aides."
+
+msgid "Change how the Wii Menu looks and what it does."
+msgstr "Changez l'apparence et les fonctions du Menu Wii."
+
+msgid "Test, set up and use more kinds of controllers."
+msgstr "Testez, réglez et utilisez plus de types de manettes."
+
+msgid "Draw, paint, write and make music."
+msgstr "Dessinez, peignez, écrivez et faites de la musique."
+
+msgid "Small demos, toys and fun experiments."
+msgstr "Petites démos, jouets et expériences amusantes."
+
+msgid "Watch videos, play music and look at pictures."
+msgstr "Vidéos, musique et photos sur la Wii."
+
+msgid "Browse, chat and read on the internet."
+msgstr "Naviguez, discutez et lisez sur internet."
+
+msgid "Bring the Wii's online play and channels back."
+msgstr "Retrouvez le jeu en ligne et les chaînes de la Wii."
+
+msgid "Start games and apps from USB drives and SD cards."
+msgstr "Lancez jeux et applis depuis une clé USB ou une carte SD."
+
+msgid "Everything else."
+msgstr "Tout le reste."
+
+msgid "{1} installed"
+msgstr "{1} installées"
+
+msgid "Size"
+msgstr "Taille"
+
+msgid "Works on"
+msgstr "Fonctionne sur"
+
+msgid "License"
+msgstr "Licence"
 
 msgid "Disc slot light"
 msgstr "Lumière du lecteur de disques"

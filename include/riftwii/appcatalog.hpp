@@ -21,6 +21,7 @@ namespace riftwii {
 struct AppCategory {
     const char* key;   // the list's key ("emulators")
     const char* name;  // English, for the menu's translation
+    const char* about; // one line of what it holds, English, for the translation
 };
 // The store front's categories in their order. The last, "more", holds
 // the apps whose key this RiftWii does not know.

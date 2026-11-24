@@ -148,9 +148,12 @@ is open, so the DOL carries none of them.
 
 | Page | What it shows |
 | --- | --- |
-| Store front | The categories with apps in them, as tiles with their counts (four across on a 16:9 menu, three on a 4:3 one); My apps (with the updates waiting) and Search in the band. |
-| A category, My apps, search results | The apps as tiles: each app's Homebrew Channel icon, its name, and its state (Installed, Update, On the SD card, Get it on a PC) or its author and version. Two rows a page; the D-pad turns the page at the edges, - and + too. |
-| An app | Laid out like a game's page: its facts in the band, its icon, one big action (Install, Update, Replace, Remove), the description, a QR code to its own page, and a note when `newer` names an app that does the same job (+ opens it). While it installs, the action shows each step and a bar; B stops it. |
+| Store front | The categories with apps in them, as tiles with their icons (four across on a 16:9 menu, three on a 4:3 one), and under them a line of what the lit one holds and how many apps; how many apps there are and how many are installed in the band; My apps (with the updates waiting) and Search with the prompts. |
+| A category, My apps, search results | The apps as tiles: each app's Homebrew Channel icon (its category's until it is in), its name, and its state (Installed, Update, On the SD card, Get it on a PC) or its author and version; the lit app's description under them. A category's icon in its band. Two rows a page; the D-pad turns the page at the edges, - and + too. |
+| An app | Laid out like a game's page: its category, name, author and version in the band, its icon, one big action (Install, Update, Replace, Remove), the description, a QR code to its own page, a note when `newer` names an app that does the same job (+ opens it), and along the bottom its size, date, consoles and license, each after its icon. While it installs, the action shows each step and a bar; B stops it. |
+
+The icons are theme pictures (`store_*` in [THEMES.md](THEMES.md)), drawn
+with `RWP_SKIN_PICTURE`, so a theme can replace them.
 
 Search is Home's keyboard: the apps that match are named above it as you
 type, and keys that lead nowhere are dimmed (`app_matches`,

@@ -4263,9 +4263,6 @@ msgstr "ローダー"
 msgid "My apps"
 msgstr "マイアプリ"
 
-msgid "{1} from here on the SD card"
-msgstr "ここから入れたもの: SDカードに{1}個"
-
 msgid "Getting the list of apps..."
 msgstr "アプリのリストを取得中..."
 
@@ -4358,6 +4355,57 @@ msgstr "{1} / {2}ファイル"
 
 msgid "Another app is being installed. Try again when it is done."
 msgstr "ほかのアプリをインストール中です。終わってからもう一度試してください。"
+
+msgid "Games made by the homebrew community."
+msgstr "ホームブリューのコミュニティが作ったゲーム。"
+
+msgid "Play games made for older consoles and computers."
+msgstr "昔のゲーム機やパソコンのゲームを遊べます。"
+
+msgid "Look after the Wii itself: backups, storage and setup."
+msgstr "Wii本体の管理：バックアップ、保存、設定。"
+
+msgid "Save editors, mod tools and other help for games."
+msgstr "セーブエディターやMODツールなど、ゲームの手助けに。"
+
+msgid "Change how the Wii Menu looks and what it does."
+msgstr "Wiiメニューの見た目や働きを変えます。"
+
+msgid "Test, set up and use more kinds of controllers."
+msgstr "いろいろなコントローラーをテストして使えます。"
+
+msgid "Draw, paint, write and make music."
+msgstr "絵をかいたり、文を書いたり、音楽を作ったり。"
+
+msgid "Small demos, toys and fun experiments."
+msgstr "小さなデモやおもちゃ、楽しい実験。"
+
+msgid "Watch videos, play music and look at pictures."
+msgstr "動画を見たり、音楽を聞いたり、写真を見たり。"
+
+msgid "Browse, chat and read on the internet."
+msgstr "インターネットを見たり、チャットしたり。"
+
+msgid "Bring the Wii's online play and channels back."
+msgstr "Wiiのオンラインプレイとチャンネルを取り戻します。"
+
+msgid "Start games and apps from USB drives and SD cards."
+msgstr "USBドライブやSDカードからゲームやアプリを起動。"
+
+msgid "Everything else."
+msgstr "そのほかすべて。"
+
+msgid "{1} installed"
+msgstr "{1}個インストール済み"
+
+msgid "Size"
+msgstr "サイズ"
+
+msgid "Works on"
+msgstr "対応機種"
+
+msgid "License"
+msgstr "ライセンス"
 
 msgid "Disc slot light"
 msgstr "ディスクスロットの光"

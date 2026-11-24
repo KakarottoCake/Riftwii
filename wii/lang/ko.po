@@ -4263,9 +4263,6 @@ msgstr "로더"
 msgid "My apps"
 msgstr "내 앱"
 
-msgid "{1} from here on the SD card"
-msgstr "여기서 받은 앱: SD 카드에 {1}개"
-
 msgid "Getting the list of apps..."
 msgstr "앱 목록을 받는 중..."
 
@@ -4358,6 +4355,57 @@ msgstr "파일 {1} / {2}"
 
 msgid "Another app is being installed. Try again when it is done."
 msgstr "다른 앱을 설치하는 중입니다. 끝난 뒤 다시 시도하세요."
+
+msgid "Games made by the homebrew community."
+msgstr "홈브루 커뮤니티가 만든 게임."
+
+msgid "Play games made for older consoles and computers."
+msgstr "옛날 게임기와 컴퓨터의 게임을 즐기세요."
+
+msgid "Look after the Wii itself: backups, storage and setup."
+msgstr "Wii 본체 관리: 백업, 저장 공간, 설정."
+
+msgid "Save editors, mod tools and other help for games."
+msgstr "세이브 편집기, 모드 도구 등 게임을 돕는 앱."
+
+msgid "Change how the Wii Menu looks and what it does."
+msgstr "Wii 메뉴의 모양과 기능을 바꿉니다."
+
+msgid "Test, set up and use more kinds of controllers."
+msgstr "더 많은 종류의 컨트롤러를 테스트하고 쓰세요."
+
+msgid "Draw, paint, write and make music."
+msgstr "그리고, 칠하고, 쓰고, 음악을 만드세요."
+
+msgid "Small demos, toys and fun experiments."
+msgstr "작은 데모, 장난감, 재미있는 실험."
+
+msgid "Watch videos, play music and look at pictures."
+msgstr "동영상을 보고, 음악을 듣고, 사진을 보세요."
+
+msgid "Browse, chat and read on the internet."
+msgstr "인터넷에서 검색하고, 채팅하고, 읽으세요."
+
+msgid "Bring the Wii's online play and channels back."
+msgstr "Wii의 온라인 플레이와 채널을 되살립니다."
+
+msgid "Start games and apps from USB drives and SD cards."
+msgstr "USB 드라이브와 SD 카드에서 게임과 앱을 실행합니다."
+
+msgid "Everything else."
+msgstr "그 밖의 모든 것."
+
+msgid "{1} installed"
+msgstr "{1}개 설치됨"
+
+msgid "Size"
+msgstr "크기"
+
+msgid "Works on"
+msgstr "지원 기기"
+
+msgid "License"
+msgstr "라이선스"
 
 msgid "Disc slot light"
 msgstr "디스크 슬롯 표시등"

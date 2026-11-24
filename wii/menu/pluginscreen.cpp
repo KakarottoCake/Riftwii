@@ -141,6 +141,7 @@ public:
     void SetCommands(const rwp_draw* commands, uint32_t count) {
         count = std::min(count, kMaxCommands);
         commands_.resize(count);
+        pictures_.assign(count, nullptr);
         std::size_t textIndex = 0;
         std::vector<std::pair<uint32_t, std::string>> prompts;
         for (uint32_t i = 0; i < count; ++i) {
@@ -157,6 +158,11 @@ public:
                     qr_ = QrCode{};
                     if (!make_qr(qrText_, qr_)) qr_ = QrCode{};
                 }
+            } else if (c.kind == RWP_DRAW_SKIN && c.arg == RWP_SKIN_PICTURE && c.text != nullptr) {
+                // Looked up now: the plugin's string is gone once the frame is handed over.
+                const std::string name(c.text, strnlen(c.text, 40));
+                const skinns::Tex* picture = &skinns::Picture(name);
+                if (picture->data) pictures_[i] = picture;
             } else if (c.kind == RWP_DRAW_PROMPT) {
                 if (c.text != nullptr && ButtonName(c.arg) != nullptr)
                     prompts.emplace_back(c.arg, std::string(c.text, strnlen(c.text, 120)));
@@ -196,7 +202,7 @@ public:
     void Draw() override {
         if (!IsVisible()) return;
         const int alpha = GetAlpha();
-        for (const rwp_draw& c : commands_) DrawOne(c, alpha);
+        for (std::size_t i = 0; i < commands_.size(); ++i) DrawOne(commands_[i], pictures_[i], alpha);
         if (prompts_) prompts_->Draw();
         ++frames_;
     }
@@ -266,7 +272,7 @@ private:
         }
     }
 
-    void DrawOne(const rwp_draw& c, int pageAlpha) {
+    void DrawOne(const rwp_draw& c, const skinns::Tex* picture, int pageAlpha) {
         const int alpha = pageAlpha * c.alpha / 255;
         if (alpha <= 0) return;
         const float x = c.x, y = c.y, w = c.w, h = c.h;
@@ -313,7 +319,7 @@ private:
                     Menu_DrawRectangle(x, y, w, h, Colour(c.color, alpha), 1);
                 break;
             case RWP_DRAW_SKIN:
-                DrawSkin(c, alpha);
+                DrawSkin(c, picture, alpha);
                 break;
             case RWP_DRAW_PROGRESS: {
                 const int height = c.h > 0 ? c.h : 14;
@@ -357,7 +363,7 @@ private:
         }
     }
 
-    void DrawSkin(const rwp_draw& c, int alpha) {
+    void DrawSkin(const rwp_draw& c, const skinns::Tex* picture, int alpha) {
         const float x = c.x, y = c.y, w = c.w, h = c.h;
         const bool lit = (c.flags & RWP_LIT) != 0;
         switch (c.arg) {
@@ -397,6 +403,13 @@ private:
                 Menu_FillScreen(kFooterTop + 2, 1, skinns::WithAlpha(skinns::kCard, 180 * alpha / 255));
                 break;
             }
+            case RWP_SKIN_PICTURE: {
+                if (!picture) break;
+                const float dw = w > 0 ? w : picture->w, dh = h > 0 ? h : picture->h;
+                Menu_DrawImgPart(x, y, dw, dh, static_cast<u16>(picture->w), static_cast<u16>(picture->h), picture->data, 0,
+                                 0, 1, 1, static_cast<u8>(alpha));
+                break;
+            }
             case RWP_SKIN_TITLE_BAND: {
                 // As a menu page's (rift_menu.cpp's TitleBand), `h` high.
                 const int band = c.h > 8 ? c.h : 70;
@@ -415,6 +428,7 @@ private:
     }
 
     std::vector<rwp_draw> commands_;
+    std::vector<const skinns::Tex*> pictures_;  // RWP_SKIN_PICTURE's, by command
     std::vector<GuiText*> texts_;
     std::vector<TextLook> looks_;
     std::vector<int> textWidths_;

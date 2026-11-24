@@ -4263,9 +4263,6 @@ msgstr "Loader"
 msgid "My apps"
 msgstr "Le mie app"
 
-msgid "{1} from here on the SD card"
-msgstr "{1} da qui sulla scheda SD"
-
 msgid "Getting the list of apps..."
 msgstr "Download dell'elenco delle app..."
 
@@ -4358,6 +4355,57 @@ msgstr "{1} di {2} file"
 
 msgid "Another app is being installed. Try again when it is done."
 msgstr "È in corso l'installazione di un'altra app. Riprova quando ha finito."
+
+msgid "Games made by the homebrew community."
+msgstr "Giochi creati dalla comunità homebrew."
+
+msgid "Play games made for older consoles and computers."
+msgstr "Gioca ai giochi di vecchie console e computer."
+
+msgid "Look after the Wii itself: backups, storage and setup."
+msgstr "Cura la Wii stessa: backup, memoria e impostazioni."
+
+msgid "Save editors, mod tools and other help for games."
+msgstr "Editor di salvataggi, strumenti per mod e altri aiuti."
+
+msgid "Change how the Wii Menu looks and what it does."
+msgstr "Cambia l'aspetto e le funzioni del Menu Wii."
+
+msgid "Test, set up and use more kinds of controllers."
+msgstr "Prova, configura e usa più tipi di controller."
+
+msgid "Draw, paint, write and make music."
+msgstr "Disegna, dipingi, scrivi e fai musica."
+
+msgid "Small demos, toys and fun experiments."
+msgstr "Piccole demo, giocattoli ed esperimenti divertenti."
+
+msgid "Watch videos, play music and look at pictures."
+msgstr "Guarda video, ascolta musica e sfoglia foto."
+
+msgid "Browse, chat and read on the internet."
+msgstr "Naviga, chatta e leggi su internet."
+
+msgid "Bring the Wii's online play and channels back."
+msgstr "Riporta il gioco online e i canali della Wii."
+
+msgid "Start games and apps from USB drives and SD cards."
+msgstr "Avvia giochi e app da unità USB e schede SD."
+
+msgid "Everything else."
+msgstr "Tutto il resto."
+
+msgid "{1} installed"
+msgstr "{1} installate"
+
+msgid "Size"
+msgstr "Dimensione"
+
+msgid "Works on"
+msgstr "Funziona su"
+
+msgid "License"
+msgstr "Licenza"
 
 msgid "Disc slot light"
 msgstr "Luce del vano disco"

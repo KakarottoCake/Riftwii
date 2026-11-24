@@ -4263,9 +4263,6 @@ msgstr "Cargadores"
 msgid "My apps"
 msgstr "Mis apps"
 
-msgid "{1} from here on the SD card"
-msgstr "{1} de aquí en la tarjeta SD"
-
 msgid "Getting the list of apps..."
 msgstr "Obteniendo la lista de apps..."
 
@@ -4358,6 +4355,57 @@ msgstr "{1} de {2} archivos"
 
 msgid "Another app is being installed. Try again when it is done."
 msgstr "Se está instalando otra app. Inténtalo de nuevo cuando termine."
+
+msgid "Games made by the homebrew community."
+msgstr "Juegos creados por la comunidad homebrew."
+
+msgid "Play games made for older consoles and computers."
+msgstr "Juega a juegos de consolas y ordenadores antiguos."
+
+msgid "Look after the Wii itself: backups, storage and setup."
+msgstr "Cuida la propia Wii: copias, almacenamiento y ajustes."
+
+msgid "Save editors, mod tools and other help for games."
+msgstr "Editores de partidas, herramientas de mods y más."
+
+msgid "Change how the Wii Menu looks and what it does."
+msgstr "Cambia el aspecto y las funciones del Menú de Wii."
+
+msgid "Test, set up and use more kinds of controllers."
+msgstr "Prueba, configura y usa más tipos de mandos."
+
+msgid "Draw, paint, write and make music."
+msgstr "Dibuja, pinta, escribe y haz música."
+
+msgid "Small demos, toys and fun experiments."
+msgstr "Pequeñas demos, juguetes y experimentos divertidos."
+
+msgid "Watch videos, play music and look at pictures."
+msgstr "Mira vídeos, escucha música y ve fotos."
+
+msgid "Browse, chat and read on the internet."
+msgstr "Navega, chatea y lee en internet."
+
+msgid "Bring the Wii's online play and channels back."
+msgstr "Recupera el juego en línea y los canales de Wii."
+
+msgid "Start games and apps from USB drives and SD cards."
+msgstr "Inicia juegos y apps desde unidades USB y tarjetas SD."
+
+msgid "Everything else."
+msgstr "Todo lo demás."
+
+msgid "{1} installed"
+msgstr "{1} instaladas"
+
+msgid "Size"
+msgstr "Tamaño"
+
+msgid "Works on"
+msgstr "Funciona en"
+
+msgid "License"
+msgstr "Licencia"
 
 msgid "Disc slot light"
 msgstr "Luz de la ranura de discos"

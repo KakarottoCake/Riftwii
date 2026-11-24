@@ -4263,9 +4263,6 @@ msgstr "Carregadores"
 msgid "My apps"
 msgstr "Meus apps"
 
-msgid "{1} from here on the SD card"
-msgstr "{1} daqui no cartão SD"
-
 msgid "Getting the list of apps..."
 msgstr "Obtendo a lista de apps..."
 
@@ -4358,6 +4355,57 @@ msgstr "{1} de {2} arquivos"
 
 msgid "Another app is being installed. Try again when it is done."
 msgstr "Outro app está sendo instalado. Tente de novo quando terminar."
+
+msgid "Games made by the homebrew community."
+msgstr "Jogos feitos pela comunidade homebrew."
+
+msgid "Play games made for older consoles and computers."
+msgstr "Jogue jogos de consoles e computadores antigos."
+
+msgid "Look after the Wii itself: backups, storage and setup."
+msgstr "Cuide do próprio Wii: backups, armazenamento e ajustes."
+
+msgid "Save editors, mod tools and other help for games."
+msgstr "Editores de saves, ferramentas de mods e outras ajudas."
+
+msgid "Change how the Wii Menu looks and what it does."
+msgstr "Mude a aparência e as funções do Menu Wii."
+
+msgid "Test, set up and use more kinds of controllers."
+msgstr "Teste, configure e use mais tipos de controles."
+
+msgid "Draw, paint, write and make music."
+msgstr "Desenhe, pinte, escreva e faça música."
+
+msgid "Small demos, toys and fun experiments."
+msgstr "Pequenas demos, brinquedos e experimentos divertidos."
+
+msgid "Watch videos, play music and look at pictures."
+msgstr "Assista a vídeos, ouça música e veja fotos."
+
+msgid "Browse, chat and read on the internet."
+msgstr "Navegue, converse e leia na internet."
+
+msgid "Bring the Wii's online play and channels back."
+msgstr "Traga de volta o jogo online e os canais do Wii."
+
+msgid "Start games and apps from USB drives and SD cards."
+msgstr "Inicie jogos e apps de pendrives USB e cartões SD."
+
+msgid "Everything else."
+msgstr "Todo o resto."
+
+msgid "{1} installed"
+msgstr "{1} instalados"
+
+msgid "Size"
+msgstr "Tamanho"
+
+msgid "Works on"
+msgstr "Funciona em"
+
+msgid "License"
+msgstr "Licença"
 
 msgid "Disc slot light"
 msgstr "Luz da entrada de discos"
