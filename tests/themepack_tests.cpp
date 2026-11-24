@@ -36,6 +36,33 @@ int main() {
         EXPECT_TRUE(pack.retired[1].replacement.empty());
         EXPECT_TRUE(pack.retired[1].files.empty());
     }
+    {
+        // A whole update pack read a few bytes at a time, as the in-app
+        // update reads it from the SD card: the same files, their offsets
+        // counted from the pack's first byte, the apps part found after the
+        // themes part's end.
+        const std::string text = "RIFTWII THEMES 1\nfile Bookshelf/theme.ini 5\nab\ncd\nend\n"
+                                 "RIFTWII APPS 1\nfile riftwii/plugins/a.2611-1.rwp 3\nxyz\nend\n";
+        std::size_t reads = 0;
+        const riftwii::ThemePackReader read = [&](std::size_t at, std::uint8_t* out, std::size_t count) {
+            ++reads;
+            if (at > text.size() || count > text.size() - at) return false;
+            for (std::size_t i = 0; i < count; ++i) out[i] = static_cast<std::uint8_t>(text[at + i]);
+            return true;
+        };
+        ThemePack themes;
+        ThemePack apps;
+        std::size_t split = 0;
+        EXPECT_TRUE(riftwii::parse_theme_pack(read, text.size(), 0, themes, error, riftwii::kThemePackHeader, &split));
+        EXPECT_EQ(text.substr(split, 14), "RIFTWII APPS 1");
+        EXPECT_TRUE(riftwii::parse_theme_pack(read, text.size(), split, apps, error, riftwii::kAppsPackHeader));
+        EXPECT_EQ(apps.files.size(), 1u);
+        EXPECT_EQ(text.substr(apps.files[0].offset, apps.files[0].size), "xyz");
+        EXPECT_TRUE(reads > 0);
+        // A card that can't be read is a pack that isn't whole.
+        const riftwii::ThemePackReader broken = [](std::size_t, std::uint8_t*, std::size_t) { return false; };
+        EXPECT_TRUE(!riftwii::parse_theme_pack(broken, text.size(), 0, themes, error));
+    }
     ThemePack pack;
     // Not a pack, cut short, or no end.
     EXPECT_TRUE(!parse("RIFTWII THEMES 2\nend\n", pack, error));

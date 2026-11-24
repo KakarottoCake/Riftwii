@@ -11,6 +11,7 @@
 #include <optional>
 #include <vector>
 
+#include "httpmem.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "netsock.hpp"
@@ -601,30 +602,28 @@ bool DownloadDatabase(const std::string& lang, std::string& error,
     const std::string temp = path + ".part";
     std::size_t size = 0;
     {
-        std::vector<std::uint8_t> body;
         HttpProgress progress = nullptr;
         if (received) progress = [&](std::size_t bytes) { received(bytes); };
-        if (!HttpGet(kWiitdbUrl + lang, body, error, kMaxZip, 30000, progress)) {
+        // Straight to the card as it arrives: a few MB held whole in memory
+        // ran a menu with hundreds of games out of it (2611-198, 351 games).
+        mkdir("sd:/riftwii", 0777);
+        FileDownload got;
+        if (!HttpDownloadToFile(kWiitdbUrl + lang, temp, kMaxZip, got, error, 30000, progress)) {
             logf("Game details: download failed: %s\n", error.c_str());
             return false;
         }
-        if (body.size() < (256u << 10) || Le(body.data(), 4) != 0x04034B50u) {
-            error = "GameTDB sent something that is not its database";
-            logf("Game details: %s (%u bytes)\n", error.c_str(), static_cast<unsigned>(body.size()));
-            return false;
-        }
-        mkdir("sd:/riftwii", 0777);
-        FILE* f = std::fopen(temp.c_str(), "wb");
-        const bool written = f && std::fwrite(body.data(), 1, body.size(), f) == body.size();
-        const bool closed = f && std::fclose(f) == 0;
-        if (!written || !closed) {
+        std::uint8_t magic[4] = {};
+        FILE* f = std::fopen(temp.c_str(), "rb");
+        const bool magic_read = f && std::fread(magic, 1, sizeof(magic), f) == sizeof(magic);
+        if (f) std::fclose(f);
+        if (got.length < (256u << 10) || !magic_read || Le(magic, 4) != 0x04034B50u) {
             std::remove(temp.c_str());
-            error = "could not write " + path + " (card full?)";
-            logf("Game details: %s\n", error.c_str());
+            error = "GameTDB sent something that is not its database";
+            logf("Game details: %s (%u bytes)\n", error.c_str(), static_cast<unsigned>(got.length));
             return false;
         }
-        size = body.size();
-    }  // the packed database out of memory before it is read
+        size = static_cast<std::size_t>(got.length);
+    }
     WiitdbScanner own({}, lang);
     if (!ScanZip(temp, scanner ? *scanner : own, error, checking)) {
         std::remove(temp.c_str());

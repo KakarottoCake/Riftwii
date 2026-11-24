@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -58,6 +59,15 @@ struct ThemePack {
 // (the next part of riftwii-update.pack).
 bool parse_theme_pack(const std::uint8_t* data, std::size_t size, ThemePack& out, std::string& error,
                       const char* header = kThemePackHeader, std::size_t* end = nullptr);
+
+// The same, for a pack too big to hold in memory (the in-app update's,
+// several MB, read from the SD card): `read` gives `count` bytes from
+// `at`, false when it can't. The part starts at `start` of the `size`
+// bytes; the files' offsets (and `end`) count from the very first byte, so
+// they are where the file's bytes are in what `read` reads.
+using ThemePackReader = std::function<bool(std::size_t at, std::uint8_t* out, std::size_t count)>;
+bool parse_theme_pack(const ThemePackReader& read, std::size_t size, std::size_t start, ThemePack& out,
+                      std::string& error, const char* header = kThemePackHeader, std::size_t* end = nullptr);
 
 // A theme's folder name or a file's name as a pack may use them: letters,
 // digits, space, '_', '-' and (files only) '.', not starting with a dot.

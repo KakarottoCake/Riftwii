@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "gameinfo.hpp"
+#include "httpmem.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "netsock.hpp"
@@ -35,6 +36,35 @@ bool HttpGet(const std::string& url, std::vector<std::uint8_t>& body, std::strin
         return false;
     }
     body = g_http_body;
+    return true;
+}
+
+// The database now goes straight to the card: the same answers, written
+// where the download asks (a failure leaves nothing there).
+bool HttpDownloadToFile(const std::string& url, const std::string& path, std::uint64_t max_bytes, FileDownload& got,
+                        std::string& error, int, const HttpProgress& progress, HttpRedirects) {
+    CHECK(g_http_expected);
+    g_http_url = url;
+    got = FileDownload{};
+    if (g_http_body.empty()) {
+        error = "no network";
+        return false;
+    }
+    if (g_http_body.size() > max_bytes) {
+        error = "too big";
+        return false;
+    }
+    std::ofstream file(path, std::ios::binary | std::ios::trunc);
+    file.write(reinterpret_cast<const char*>(g_http_body.data()), static_cast<std::streamsize>(g_http_body.size()));
+    file.close();
+    if (!file.good()) {
+        std::remove(path.c_str());
+        error = "cannot write " + path;
+        return false;
+    }
+    if (progress) progress(g_http_body.size());
+    got.length = g_http_body.size();
+    got.digest = sha256(g_http_body.data(), g_http_body.size());
     return true;
 }
 
