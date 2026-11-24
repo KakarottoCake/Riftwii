@@ -92,6 +92,9 @@ def main():
             files["sounds/" + f.name] = f.read_bytes()
         for png in sorted((gen / "templates").rglob("*.png")):
             files["templates/" + png.relative_to(gen / "templates").as_posix()] = png.read_bytes()
+        # The templates' icon_store.png is Lucide's bag (ISC; Feather, MIT):
+        # its license goes with them.
+        files["templates/LICENSE-Lucide.txt"] = (ROOT / "vendor-lucide/LICENSE").read_bytes()
         out.parent.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
             for name, data in files.items():

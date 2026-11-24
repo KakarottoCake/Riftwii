@@ -4317,8 +4317,11 @@ msgstr "Le programme est supprimé. Ses sauvegardes et réglages restent, sauf s
 msgid "Remove its saves too?"
 msgstr "Supprimer aussi ses sauvegardes ?"
 
-msgid "{1} left its saves and settings in {2}. Kept, they are there if you install it again."
-msgstr "{1} a laissé ses sauvegardes et réglages dans {2}. Gardés, ils seront là si vous la réinstallez."
+msgid "Remove them deletes everything in {1}: its saves and settings, and an emulator's games, covers and cheats if it keeps them there."
+msgstr "Les supprimer efface tout ce qui est dans {1} : sauvegardes et réglages, et les jeux, jaquettes et codes d'un émulateur s'il les y garde."
+
+msgid "The list has no apps."
+msgstr "La liste n'a aucune appli."
 
 msgid "Remove them"
 msgstr "Les supprimer"
@@ -4424,6 +4427,21 @@ msgstr "Tout le reste."
 
 msgid "{1} installed"
 msgstr "{1} installées"
+
+msgid "RiftWii is still reading the drives. Open the Rift Store again in a moment."
+msgstr "RiftWii lit encore les disques. Rouvrez le Rift Store dans un instant."
+
+msgid "Type the PIN to open the Rift Store."
+msgstr "Tapez le code PIN pour ouvrir le Rift Store."
+
+msgid "1 installed"
+msgstr "1 installée"
+
+msgid "No app in the list is marked as working without a Wii Remote. Press - to show them all."
+msgstr "Aucune appli de la liste n'indique fonctionner sans Wiimote. Appuyez sur - pour toutes les voir."
+
+msgid "Version {1}, for the Wii only"
+msgstr "Version {1}, pour la Wii seulement"
 
 msgid "Size"
 msgstr "Taille"

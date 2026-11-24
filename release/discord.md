@@ -9,7 +9,7 @@ markdown: at most 2000 characters once filled in (the workflow counts).
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-**The Rift Store is here:** Settings > Online > Rift Store. About 290 homebrew apps to install, update and remove right from RiftWii.
+**The Rift Store is here:** the bag button on Home's bar (also Settings > Online > Rift Store). About 290 homebrew apps to install, update and remove right from RiftWii.
 
 * Your saves stay: updates keep files the app changed, and Remove asks before deleting saves and settings
 * Controller pictures on each app, and a **Without a Wii Remote** filter (press −)

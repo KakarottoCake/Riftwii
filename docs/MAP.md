@@ -600,6 +600,7 @@ code comments cite.
 | `vendor-bearssl/` | TLS |
 | `vendor-nintendont-controllers/` | Nintendont's controller.ini files (used with its developers' permission, NOTICE.md); `tools/make_builtin_pads.py` turns them into `src/data/builtinpads_data.cpp`, the USB controller layouts RiftWii knows without a file on the SD card |
 | `vendor-kenney/input-prompts/` | Kenney's controller and button pictures (CC0); `tools/make_input_icons.py` turns them into `src/art/inputicons_data.cpp` |
+| `vendor-lucide/` | Lucide's `shopping-bag` icon (ISC; from Feather, MIT) and its license: the Rift Store's button on Home's bar, drawn by `src/art/skinpaint.cpp` |
 | `vendor-zstd/` | The Zstandard decoder (RVZ) |
 | `vendor-gecko/` | The Gecko code handler and its WiiRD debugger builds (USB Gecko in slot B or A), with their source |
 | `vendor-wwfc/` | WiiLink WFC's patcher pieces |

@@ -4317,8 +4317,11 @@ msgstr "프로그램을 지웁니다. 세이브와 설정은 지우라고 할 �
 msgid "Remove its saves too?"
 msgstr "세이브도 지울까요?"
 
-msgid "{1} left its saves and settings in {2}. Kept, they are there if you install it again."
-msgstr "{1}이(가) 세이브와 설정을 {2}에 남겼습니다. 남겨 두면 다시 설치할 때 그대로 있습니다."
+msgid "Remove them deletes everything in {1}: its saves and settings, and an emulator's games, covers and cheats if it keeps them there."
+msgstr "지우기를 고르면 {1} 안의 모든 것이 지워집니다. 세이브와 설정, 그리고 에뮬레이터가 거기 둔 게임, 커버, 치트도 지워집니다."
+
+msgid "The list has no apps."
+msgstr "목록에 앱이 없습니다."
 
 msgid "Remove them"
 msgstr "지우기"
@@ -4424,6 +4427,21 @@ msgstr "그 밖의 모든 것."
 
 msgid "{1} installed"
 msgstr "{1}개 설치됨"
+
+msgid "RiftWii is still reading the drives. Open the Rift Store again in a moment."
+msgstr "RiftWii가 아직 드라이브를 읽고 있습니다. 잠시 후 Rift Store를 다시 여세요."
+
+msgid "Type the PIN to open the Rift Store."
+msgstr "Rift Store를 열려면 PIN을 입력하세요."
+
+msgid "1 installed"
+msgstr "1개 설치됨"
+
+msgid "No app in the list is marked as working without a Wii Remote. Press - to show them all."
+msgstr "Wii 리모컨 없이 쓸 수 있다고 표시된 앱이 목록에 없습니다. -를 누르면 모두 보입니다."
+
+msgid "Version {1}, for the Wii only"
+msgstr "버전 {1}, Wii 전용"
 
 msgid "Size"
 msgstr "크기"

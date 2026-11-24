@@ -4317,8 +4317,11 @@ msgstr "O programa é apagado. Os saves e as configurações ficam, a não ser q
 msgid "Remove its saves too?"
 msgstr "Remover os saves também?"
 
-msgid "{1} left its saves and settings in {2}. Kept, they are there if you install it again."
-msgstr "{1} deixou os saves e as configurações em {2}. Se ficarem, estarão lá se você instalar de novo."
+msgid "Remove them deletes everything in {1}: its saves and settings, and an emulator's games, covers and cheats if it keeps them there."
+msgstr "Remover apaga tudo o que há em {1}: os saves e as configurações, e os jogos, capas e cheats de um emulador se ele os guarda ali."
+
+msgid "The list has no apps."
+msgstr "A lista não tem apps."
 
 msgid "Remove them"
 msgstr "Remover"
@@ -4424,6 +4427,21 @@ msgstr "Todo o resto."
 
 msgid "{1} installed"
 msgstr "{1} instalados"
+
+msgid "RiftWii is still reading the drives. Open the Rift Store again in a moment."
+msgstr "O RiftWii ainda está lendo as unidades. Abra a Rift Store de novo daqui a pouco."
+
+msgid "Type the PIN to open the Rift Store."
+msgstr "Digite o PIN para abrir a Rift Store."
+
+msgid "1 installed"
+msgstr "1 instalado"
+
+msgid "No app in the list is marked as working without a Wii Remote. Press - to show them all."
+msgstr "Nenhum app da lista diz funcionar sem Wii Remote. Aperte - para ver todos."
+
+msgid "Version {1}, for the Wii only"
+msgstr "Versão {1}, só para Wii"
 
 msgid "Size"
 msgstr "Tamanho"

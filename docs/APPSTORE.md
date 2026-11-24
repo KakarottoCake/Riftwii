@@ -50,7 +50,7 @@ Three pieces:
 | `license` | Optional; an SPDX id where there is one. |
 | `page` | The app's own page (https), shown as a QR code. |
 | `platforms` | Any of `wii`, `vwii`, `mini`. On a Wii U in Wii mode, an app without `vwii` is marked "Wii only" and the store asks before installing it. |
-| `controllers` | Optional: the controllers the app can be used with, any of `wiimote`, `nunchuk`, `classic`, `gamecube`, `keyboard` (a USB keyboard). Shown in the band of the app's page with the pictures a game's page shows for its controllers (none for a keyboard); an app with `classic` or `gamecube` passes the store front's "Without a Wii Remote" filter. A name RiftWii does not know is passed over. |
+| `controllers` | Optional: the controllers the app can be used with, any of `wiimote`, `nunchuk`, `classic`, `gamecube`, `keyboard` (a USB keyboard). Shown in the band of the app's page with the pictures a game's page shows for its controllers (none for a keyboard); an app with `classic` or `gamecube` passes the store front's "Without a Wii Remote" filter. A name RiftWii does not know is passed over, and a broken list (more than five names, or not strings) only leaves the pictures out: the app stays in the store. |
 | `newer` | Optional: the id of an app on the list that does the same job and is kept up better. The store points to it; both stay listed. |
 | `data_folders` | Folders at the card's root the app keeps its data in (at most 4). They must not be folders the Wii, RiftWii or other loaders own (`apps`, `riftwii`, `private`, `title`, `wbfs`, `games`, `nands`, ...). Files the store did not put there are never replaced in them, and removing the app asks before deleting them (they hold saves). |
 | `source` | `{"github": "owner/repo", "asset": "<pattern>"}`: the release file matching the pattern (`fnmatch`; exactly one must match). Add `"prerelease": true` to follow a nightly build: `update` then pins the newest release of any kind, so the builder must publish each build under its own tag (`nightly-YYYY-MM-DD-<commit>`) and keep the recent ones, never move one tag. Or `{"url": "https://...", "version": "1.0", "released": "YYYY-MM-DD"}` for a file elsewhere (`http://` too: the pin, not the connection, makes the file the approved one). |
@@ -144,7 +144,7 @@ release whose file was replaced) fails `build`, so it is never published.
 
 ## The store on the Wii
 
-Settings > Online > Rift Store opens the store (the Rift Store: its name in every language, and its logo, `docs/images/rift-store.png`, made by `tools/make_store_logo.py`). Its pages are the `appstore`
+The Rift Store button on Home's bar (the bag, left of Search) and Settings > Online > Rift Store open the store (the Rift Store: its name in every language, and its logo, `docs/images/rift-store.png`, made by `tools/make_store_logo.py`). Its pages are the `appstore`
 plugin's (`plugins/appstore/`, docs/PLUGINS.md), loaded only while the store
 is open, so the DOL carries none of them.
 

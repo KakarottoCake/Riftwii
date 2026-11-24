@@ -43,9 +43,9 @@ have it, or that haven't changed since the last release's tag.
 
 ### The Rift Store
 
-- **Settings > Online > Rift Store** lists about 290 homebrew apps by category: emulators, games, media players, loaders, system tools and more. Each app has its icon, a description, its size, date, license, the consoles it works on, and a QR code to its own page. **1** searches, **2** shows the apps on your SD card and their updates.
+- **The Rift Store button** on Home's bar (the bag, left of Search) opens it, and so does Settings > Online > Rift Store. It lists about 290 homebrew apps by category: emulators, games, media players, loaders, system tools and more. Each app has its icon, a description, its size, date, license, the consoles it works on, and a QR code to its own page. **1** searches, **2** shows the apps on your SD card and their updates.
 - **Install, Update and Remove** from the app's page. A download is checked against the file the list approved before anything is written, and an update puts all the new files in or none of them. If the SD card is too full, the store says how much room to make first.
-- **Your saves and settings stay.** An update replaces the app itself, but keeps any file the app or you changed since it was installed. Remove takes the app away, then asks whether to delete its saves and settings too (B keeps them).
+- **Your saves and settings stay.** An update replaces the app itself, but keeps any file the app or you changed since it was installed. Remove takes the app away, then asks whether to delete its saves and settings too. Keep them is the button that's lit, and A, B or HOME keep them.
 - **What each app works with:** the Wii Remote, Nunchuk, Classic Controller and GameCube controller pictures on its page. The **Without a Wii Remote** button on the store's front (−) shows only apps you can play with a Classic or GameCube controller.
 - **On a Wii U,** apps listed for the Wii only say "Wii only", and the store asks before installing one.
 - **Daily builds** of Snes9x RX, WiiStation and Nintendont are in the store, so you get their newest fixes.
