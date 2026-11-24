@@ -208,7 +208,7 @@ private:
     mutable Geometry stretched{};   // Geo()'s, when stretched
     mutable Geometry coverGeo{};    // Geo()'s for covers (their size follows the menu's width)
     mutable Geometry channelGeo{};  // Geo()'s for channels (in pixels: the icons drawn one texel to a pixel)
-    int CoverCaptionY() const;      // the lit cover's name, under the covers
+    int CoverCaptionY() const;      // the lit game's name, under the covers or channels
     int ArrowX(int dir) const;      // a page arrow's left edge (-1 left, +1 right)
     void DrawTilePicture(const riftwii::wii::skin::Tex& t, float x, float y, int alpha, float scale) const;
     int Cols() const { return Geo().cols; }
@@ -245,6 +245,12 @@ private:
     int ShoulderPage(GuiTrigger* t);
     float shelfStepHeldMs[4] = {};  // how long + or - has been held on the shelf, per controller
     bool letterUsed[4] = {};
+    // The letter a jump went to, shown large over the games for a moment
+    // so a press of B reads as "on to M" rather than a random hop.
+    void ShowLetter(int item);
+    void DrawLetter(int alpha);
+    GuiText* letterText = nullptr;
+    int letterFrames = 0;
     int SlotAt(int x, int y) const;
     // Moving a game (SetMovable). carryFrom is its index in the list,
     // carryTo the place it would land; the tiles between them shift by one.
@@ -367,8 +373,6 @@ private:
     bool channel_backdrop = false;
     bool roomy = false;  // grid_spacing = roomy
     IconDrawer iconDrawer;
-    bool iconShown[kPerPage] = {};  // channels: the tile drew its icon this frame
-    void DrawChannelLabel(int slot, int alpha);
     PictureSource pictureSource;
     int pictureSide = 0;
     const u8* ProfilePictureOf(int index) const;
@@ -389,7 +393,7 @@ private:
     int leavingPage = -1;
     bool pagePeek = false;
     GuiText* measure;
-    GuiText* caption;    // covers: the lit game's name
+    GuiText* caption;    // covers and channels: the lit game's name
     int captionFor = -1;
     GuiSound* soundOver;
     GuiSound* soundClick;

@@ -128,6 +128,12 @@ void operator delete(void* block) noexcept { release(block); }
 void operator delete[](void* block) noexcept { release(block); }
 void operator delete(void* block, std::size_t) noexcept { release(block); }
 void operator delete[](void* block, std::size_t) noexcept { release(block); }
+// The nothrow forms (std::stable_sort's buffer): null when the heap is
+// full, as malloc, instead of an escape.
+void* operator new(std::size_t bytes, const std::nothrow_t&) noexcept { return malloc(bytes); }
+void* operator new[](std::size_t bytes, const std::nothrow_t&) noexcept { return malloc(bytes); }
+void operator delete(void* block, const std::nothrow_t&) noexcept { release(block); }
+void operator delete[](void* block, const std::nothrow_t&) noexcept { release(block); }
 
 // ---- What libstdc++ would throw: nothing can be thrown here ----
 
@@ -195,6 +201,21 @@ size_t strnlen(const char* text, size_t most) {
 
 int tolower(int c) { return c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c; }
 
+int strcmp(const char* a, const char* b) {
+    while (*a != '\0' && *a == *b) {
+        ++a;
+        ++b;
+    }
+    return static_cast<unsigned char>(*a) - static_cast<unsigned char>(*b);
+}
+
+char* strcpy(char* to, const char* from) {
+    char* out = to;
+    while ((*out++ = *from++) != '\0') {
+    }
+    return to;
+}
+
 // The C library's strtol: leading spaces, a sign, base 0 (0x, 0 or
 // decimal), 2 to 36, clamped to LONG_MIN/LONG_MAX on overflow. No errno: a
 // plugin has none.
@@ -235,6 +256,53 @@ double floor(double x) {
     if (!(x == x) || x >= 4503599627370496.0 || x <= -4503599627370496.0) return x;  // NaN, or no fraction
     const double whole = static_cast<double>(static_cast<long long>(x));
     return whole > x ? whole - 1.0 : whole;
+}
+
+double trunc(double x) {
+    if (!(x == x) || x >= 4503599627370496.0 || x <= -4503599627370496.0) return x;  // NaN, or no fraction
+    return static_cast<double>(static_cast<long long>(x));
+}
+
+// pow for the PNG reader's gamma tables (riftwii/pngdecode.hpp): x^y as
+// 2^(y * log2 x), each by its series, good to about 1e-9 of the result,
+// far finer than the 8 and 16 bits it fills. Positive x only, as gamma
+// takes; x <= 0 gives 0 (and x^0 is 1).
+double pow(double x, double y) {
+    if (y == 0.0) return 1.0;
+    if (!(x > 0.0)) return 0.0;
+    // x = m * 2^e with m in [1, 2).
+    std::uint64_t bits;
+    std::memcpy(&bits, &x, sizeof(bits));
+    int exponent = static_cast<int>((bits >> 52) & 0x7FF) - 1023;
+    if (exponent == -1023) return 0.0;  // subnormal: nothing a gamma table meets
+    bits = (bits & 0x000FFFFFFFFFFFFFull) | (std::uint64_t(1023) << 52);
+    double mantissa;
+    std::memcpy(&mantissa, &bits, sizeof(mantissa));
+    // ln m = 2 (t + t^3/3 + t^5/5 + ...), t = (m - 1) / (m + 1) <= 1/3.
+    const double t = (mantissa - 1.0) / (mantissa + 1.0), t2 = t * t;
+    double term = t, ln_m = 0.0;
+    for (int k = 1; k < 40; k += 2) {
+        ln_m += term / k;
+        term *= t2;
+    }
+    ln_m *= 2.0;
+    constexpr double kLn2 = 0.69314718055994530942;
+    const double power = y * (exponent + ln_m / kLn2);  // log2 of the result
+    if (power > 1023.0) return 1.0e308;
+    if (power < -1022.0) return 0.0;
+    const double whole = floor(power);
+    // 2^f = e^(f ln 2) for f in [0, 1): its Taylor series.
+    const double z = (power - whole) * kLn2;
+    double sum = 1.0, part = 1.0;
+    for (int k = 1; k < 20; ++k) {
+        part *= z / k;
+        sum += part;
+    }
+    // Times 2^whole, by the exponent's bits.
+    const std::uint64_t scale_bits = std::uint64_t(static_cast<int>(whole) + 1023) << 52;
+    double scale;
+    std::memcpy(&scale, &scale_bits, sizeof(scale));
+    return sum * scale;
 }
 
 // The C library's heap: RiftWii's, as operator new's.

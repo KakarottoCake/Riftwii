@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <deque>
 #include <map>
 #include <string>
 #include <vector>
@@ -383,47 +384,53 @@ Tex HintBox(int w, int h) {
     return kept.back().tex;
 }
 
+namespace {
+
+// The pictures Init() reads, each into its Tex.
+struct Slot {
+    const char* name;
+    Tex* tex;
+};
+const Slot kSlots[] = {
+    {"background", &background}, {"tile", &tile}, {"tile_over", &tileOver}, {"tile_empty", &tileEmpty}, {"cover_tile", &coverTile},
+    {"cover_tile_over", &coverTileOver}, {"round_button", &roundBtn}, {"round_button_over", &roundBtnOver},
+    {"pill", &pill}, {"pill_over", &pillOver}, {"pill_primary", &pillPrimary},
+    {"pill_primary_over", &pillPrimaryOver}, {"home_button", &homeBtn}, {"home_button_over", &homeBtnOver},
+    {"chip_off", &chipOff}, {"chip_on", &chipOn}, {"row_focus", &rowFocus}, {"step_back", &stepBack},
+    {"step_back_over", &stepBackOver}, {"step_forward", &stepForward}, {"step_forward_over", &stepForwardOver},
+    {"switch_on", &switchOn}, {"switch_off", &switchOff}, {"panel_game", &panelGame},
+    {"panel_settings", &panelSettings}, {"popup", &popup}, {"bar", &bar}, {"banner_stripes", &bannerStripes},
+    {"arrow_left", &arrowLeft}, {"arrow_left_over", &arrowLeftOver}, {"arrow_right", &arrowRight},
+    {"arrow_right_over", &arrowRightOver}, {"scroll_up", &scrollUp}, {"scroll_up_over", &scrollUpOver},
+    {"scroll_down", &scrollDown}, {"scroll_down_over", &scrollDownOver}, {"icon_drives", &iconDrives},
+    {"icon_gear", &iconGear}, {"icon_search", &iconSearch}, {"icon_star", &iconStar}, {"icon_star_on", &iconStarOn}, {"icon_disc", &iconDisc}, {"disc_channel", &discChannel}, {"disc_channel_disc", &discChannelDisc}, {"disc_case", &discCase}, {"blank_cover", &blankCover}, {"pointer1", &hand[0]}, {"pointer2", &hand[1]},
+    {"pointer3", &hand[2]}, {"pointer4", &hand[3]}, {"shelf", &shelfPlank},
+    {"tile9", &tile9}, {"tile9_over", &tile9Over}, {"tile9_primary", &tile9Primary},
+    {"tile9_primary_over", &tile9PrimaryOver}, {"prompt_button", &promptButton}, {"icon_play", &iconPlay},
+    {"icon_mods", &iconMods}, {"icon_cheats", &iconCheats}, {"icon_saves", &iconSaves}, {"icon_info", &iconInfo},
+    {"icon_help", &iconHelp}, {"icon_picture", &iconPicture}, {"icon_controllers", &iconControllers},
+    {"icon_online", &iconOnline}, {"icon_home", &iconHome}, {"icon_sound", &iconSound}, {"icon_power", &iconPower},
+    {"icon_wii", &iconWii}, {"icon_gamecube", &iconGameCube},
+    {"background_wide", &backgroundWide}, {"bar_wide", &barWide},
+    {"background_shelf", &backgroundShelf}, {"background_shelf_wide", &backgroundShelfWide},
+    {"background_plain", &backgroundPlain}, {"background_plain_wide", &backgroundPlainWide},
+    {"background_channels", &backgroundChannels}, {"background_channels_wide", &backgroundChannelsWide},
+    {"layout_covers", &layoutIcons[0]}, {"layout_covers3d", &layoutIcons[1]},
+    {"layout_carousel", &layoutIcons[2]}, {"layout_shelf", &layoutIcons[3]},
+    {"layout_channels", &layoutIcons[4]}, {"layout_names", &layoutIcons[5]},
+};
+
+}  // namespace
+
 void Init() {
     if (g_ready) return;
     LoadMenuTheme();
     ApplyColors(MenuTheme());
     LoadBackdropLoop();
-    struct Slot {
-        const char* name;
-        Tex* tex;
-    };
-    const Slot slots[] = {
-        {"background", &background}, {"tile", &tile}, {"tile_over", &tileOver}, {"tile_empty", &tileEmpty}, {"cover_tile", &coverTile},
-        {"cover_tile_over", &coverTileOver}, {"round_button", &roundBtn}, {"round_button_over", &roundBtnOver},
-        {"pill", &pill}, {"pill_over", &pillOver}, {"pill_primary", &pillPrimary},
-        {"pill_primary_over", &pillPrimaryOver}, {"home_button", &homeBtn}, {"home_button_over", &homeBtnOver},
-        {"chip_off", &chipOff}, {"chip_on", &chipOn}, {"row_focus", &rowFocus}, {"step_back", &stepBack},
-        {"step_back_over", &stepBackOver}, {"step_forward", &stepForward}, {"step_forward_over", &stepForwardOver},
-        {"switch_on", &switchOn}, {"switch_off", &switchOff}, {"panel_game", &panelGame},
-        {"panel_settings", &panelSettings}, {"popup", &popup}, {"bar", &bar}, {"banner_stripes", &bannerStripes},
-        {"arrow_left", &arrowLeft}, {"arrow_left_over", &arrowLeftOver}, {"arrow_right", &arrowRight},
-        {"arrow_right_over", &arrowRightOver}, {"scroll_up", &scrollUp}, {"scroll_up_over", &scrollUpOver},
-        {"scroll_down", &scrollDown}, {"scroll_down_over", &scrollDownOver}, {"icon_drives", &iconDrives},
-        {"icon_gear", &iconGear}, {"icon_search", &iconSearch}, {"icon_star", &iconStar}, {"icon_star_on", &iconStarOn}, {"icon_disc", &iconDisc}, {"disc_channel", &discChannel}, {"disc_channel_disc", &discChannelDisc}, {"disc_case", &discCase}, {"blank_cover", &blankCover}, {"pointer1", &hand[0]}, {"pointer2", &hand[1]},
-        {"pointer3", &hand[2]}, {"pointer4", &hand[3]}, {"shelf", &shelfPlank},
-        {"tile9", &tile9}, {"tile9_over", &tile9Over}, {"tile9_primary", &tile9Primary},
-        {"tile9_primary_over", &tile9PrimaryOver}, {"prompt_button", &promptButton}, {"icon_play", &iconPlay},
-        {"icon_mods", &iconMods}, {"icon_cheats", &iconCheats}, {"icon_saves", &iconSaves}, {"icon_info", &iconInfo},
-        {"icon_help", &iconHelp}, {"icon_picture", &iconPicture}, {"icon_controllers", &iconControllers},
-        {"icon_online", &iconOnline}, {"icon_home", &iconHome}, {"icon_sound", &iconSound}, {"icon_power", &iconPower},
-        {"icon_wii", &iconWii}, {"icon_gamecube", &iconGameCube},
-        {"background_wide", &backgroundWide}, {"bar_wide", &barWide},
-        {"background_shelf", &backgroundShelf}, {"background_shelf_wide", &backgroundShelfWide},
-        {"background_plain", &backgroundPlain}, {"background_plain_wide", &backgroundPlainWide},
-        {"background_channels", &backgroundChannels}, {"background_channels_wide", &backgroundChannelsWide},
-        {"layout_covers", &layoutIcons[0]}, {"layout_covers3d", &layoutIcons[1]},
-        {"layout_carousel", &layoutIcons[2]}, {"layout_shelf", &layoutIcons[3]},
-        {"layout_channels", &layoutIcons[4]}, {"layout_names", &layoutIcons[5]},
-    };
     for (const ThemeImage& im : theme_images()) {
         // The walls: only the set the menu shows (EnsureBackgrounds).
         if (std::strncmp(im.name, "background", 10) == 0) continue;
-        for (const Slot& s : slots) {
+        for (const Slot& s : kSlots) {
             if (std::strcmp(s.name, im.name) == 0) *s.tex = Pick(im);
         }
     }
@@ -474,6 +481,27 @@ void Init() {
 // can show it. On a widescreen menu a wall's _wide picture when the theme
 // has one, else its 640 one; on a 4:3 menu the 640 one. Switching the
 // menu's shape (Settings) reads the other set then.
+const Tex& Picture(const std::string& name) {
+    static const Tex kNone;
+    for (const Slot& s : kSlots) {
+        if (name == s.name) return *s.tex;
+    }
+    // Pictures only a few pages use (the app store's) are read the first
+    // time they are asked for, and kept: the theme is read once.
+    static std::deque<std::pair<std::string, Tex>> loaded;  // a deque: its items never move
+    for (const auto& picture : loaded) {
+        if (picture.first == name) return picture.second;
+    }
+    // The walls are big and have their own loading (EnsureBackgrounds).
+    if (name.compare(0, 10, "background") == 0) return kNone;
+    for (const ThemeImage& im : theme_images()) {
+        if (name != im.name) continue;
+        loaded.emplace_back(name, Pick(im));
+        return loaded.back().second;
+    }
+    return kNone;
+}
+
 void EnsureBackgrounds() {
     if (g_loop.data) return;  // the loop is drawn on every screen instead
     struct Wall {

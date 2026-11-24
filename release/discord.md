@@ -1,26 +1,39 @@
-<!--
-The message to the testers' Discord channel for the next release, posted
-by the release workflow after the GitHub release is up. Discord's own
-markdown: at most 2000 characters once filled in (the workflow counts).
+<!--
+
+The message to the testers' Discord channel for the next release, posted
+
+by the release workflow after the GitHub release is up. Discord's own
+
+markdown: at most 2000 characters once filled in (the workflow counts).
+
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-What's new:
+**The Rift Store is here:** Settings > Online > Rift Store. About 290 homebrew apps to install, update and remove right from RiftWii.
 
-* Settings > Games > Manage emulated NAND: copy a WiiWare or VC game from USB Loader GX's emulated NAND on the hard drive (or WiiFlow's nands/default) to the SD card, where RiftWii plays it
-* GameCube games on PAL 60 no longer turn red
-* Mario Kart Wii Deluxe starts again (no more missing Race/Kart folder)
-* Missing-files message easier to read
-* Disc Channel tile like the Wii Menu's, in the theme's color
+* Your saves stay: updates keep files the app changed, and Remove asks before deleting saves and settings
+* Controller pictures on each app, and a **Without a Wii Remote** filter (press −)
+* On a Wii U, Wii-only apps are marked and ask first
+* Daily builds of Snes9x RX, WiiStation and Nintendont
 
-Not tried on a real Wii yet: the copy, and GameCube PAL 60 colors.
+Also new:
+
+* Search and Layout on Home's bar, and B shows the letter it jumps to
+* Wider game pages at 16:9, a tidier About and Settings
+* Install WAD files is under Settings > Games
+* WAD games go back to RiftWii on a Wii U (HOME > Wii Menu froze before)
+
+Not tried on a real Wii yet: the Rift Store, and the Wii U fix.
 
 To test, please:
 
-1. Copy a WiiWare or VC game from your emulated NAND to the SD card, then play it from Home
-2. A US or Japanese GameCube game on PAL 60: are the colors right?
-3. Mario Kart Wii Deluxe, or a pack that used to say files were missing
+1. Install an app from the store, start it, then remove it: does it ask about saves?
+2. Update an app whose settings you changed: are they kept?
+3. The Without a Wii Remote filter: are the apps right?
+4. Wii U: a WAD game, then HOME > Wii Menu
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![Copy to the SD card](docs/screenshots/2611-208-copy-to-sd.png)
+![The Rift Store](docs/screenshots/2611-229-store.png)
+![An app's page](docs/screenshots/2611-229-store-app.png)
+![What's new](docs/screenshots/2611-229-whats-new.png)

@@ -53,6 +53,7 @@
 #include "gui_flowlist.hpp"
 #include "gui_prompts.hpp"
 #include "gui_tiles.hpp"
+#include "textmarquee.hpp"
 #include "gui_busy.hpp"
 #include "artfolder.hpp"
 #include "homeremember.hpp"
@@ -100,6 +101,9 @@
 #include "riftwii/update.hpp"
 #include "gui_gamegrid.hpp"
 #include "gui_searchkeys.hpp"
+#include "pluginscreen.hpp"
+#include "plugins.hpp"
+#include "riftwii/plugin_appstore.h"
 #include "guiscript.hpp"
 #include "credits.hpp"
 #include "gcadapter.hpp"
@@ -770,8 +774,11 @@ void MenuWatchdogStop()
 	g_watchdogOn = false;
 }
 
+static void LendPluginScreenHelpers();
+
 void InitGUIThreads()
 {
+	LendPluginScreenHelpers();
 	dimAllowed = CONF_Init() >= 0 && CONF_GetScreenSaverMode() == 1;
 	SYS_SetPowerCallback(PowerPressed);
 	SYS_SetResetCallback(ResetPressed);
@@ -790,6 +797,22 @@ static void Place(GuiText& t, int x, int y, bool centre = false)
 {
 	t.SetAlignment(centre ? ALIGN_H::CENTRE : ALIGN_H::LEFT, ALIGN_V::TOP);
 	t.SetPosition(x, y);
+}
+
+// Keep the familiar 40-pixel inset at 4:3. Wider pages retain the TV's
+// five-percent margin plus eight pixels for the cards' soft shadows.
+struct PageBounds {
+	int left = 40, right = 600;
+	int Width() const { return right - left; }
+};
+
+static PageBounds WidePageBounds()
+{
+	f32 safeX, safeW;
+	Menu_SafeArea(&safeX, &safeW);
+	const int inset = static_cast<int>(std::ceil(safeW * 0.05f)) + 8;
+	return {static_cast<int>(std::ceil(safeX)) + inset,
+		static_cast<int>(std::floor(safeX + safeW)) - inset};
 }
 
 // The `n`th lowest set bit of `mask`, or 0.
@@ -1467,12 +1490,13 @@ static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered, b
 			{HomeEntry::Kind::App, i, "", apps[i].name + " " + apps[i].coder}, id, key, nullptr});
 	}
 	std::stable_sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
-		// A leading "The" is not sorted on (The Legend of Zelda under L).
-		const int by = strcasecmp(a.gameName.c_str() + riftwii::sort_name_start(a.gameName),
-			b.gameName.c_str() + riftwii::sort_name_start(b.gameName));
-		if (by != 0) return by < 0;
-		const int whole = strcasecmp(a.gameName.c_str(), b.gameName.c_str());
-		if (whole != 0) return whole < 0;
+		// A leading "The" is not sorted on (The Legend of Zelda under L),
+		// nor case or accents (Ōkami among the O's).
+		const std::string nameA = a.gameName.substr(riftwii::sort_name_start(a.gameName));
+		const std::string nameB = b.gameName.substr(riftwii::sort_name_start(b.gameName));
+		const std::string keyA = riftwii::sort_key(nameA), keyB = riftwii::sort_key(nameB);
+		if (keyA != keyB) return keyA < keyB;
+		if (a.gameName != b.gameName) return riftwii::sort_name_less(a.gameName, b.gameName);
 		// The game's own tile first, then its profiles by name.
 		if (a.entry.profile.empty() != b.entry.profile.empty()) return a.entry.profile.empty();
 		return strcasecmp(a.name.c_str(), b.name.c_str()) < 0;
@@ -1920,7 +1944,7 @@ public:
 		text.Draw();
 	}
 private:
-	static constexpr int kMaxText = 400;  // the box ends by x 555, clear of the search button (x 568)
+	static constexpr int kMaxText = 400;  // the box ends by x 555
 	GuiText text;
 	int lines = 1, textW = 0;
 	bool isError = false, on = false;
@@ -2472,11 +2496,17 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 	backBtn.button.SetVisible(false);
 	// + and - go to the next and previous game, as on the Wii Menu's
 	// channel screen (a tester's muscle memory); Start is A on it.
-	SkinButton goBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, kPairRightX, 384, tr("Start"),
+	// Settings and Start a little further apart than the usual pair, so
+	// Favourite fits between them: on the bar rather than in a corner of
+	// the banner, where it covered the banner's own art and text.
+	// The star in the middle of the gap between the two buttons, measured on
+	// a screenshot (at 293 it sat 4 pixels left of it).
+	constexpr int kBannerLeftX = 38, kBannerRightX = 358, kBannerStarX = 297;
+	SkinButton goBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, kBannerRightX, 384, tr("Start"),
 		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A | PAD_BUTTON_START, WIIDRC_BUTTON_A);
 	goBtn.text.SetColor(skin::kAccentInk);
 	// A pill like Start's, where the Wii Menu has its "Wii Menu" one.
-	SkinButton pageBtn(skin::pill, skin::pillOver, 4, kPairLeftX, 384, tr("Settings"),
+	SkinButton pageBtn(skin::pill, skin::pillOver, 4, kBannerLeftX, 384, tr("Settings"),
 		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_R, WIIDRC_BUTTON_Y);
 	// The arrows at the screen's sides, level with the banner's middle.
 	f32 safeX, safeW;
@@ -2488,9 +2518,9 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 	SkinButton nextBtn(skin::arrowRight, skin::arrowRightOver, 2, 570 + wide, 155, nullptr,
 		WPAD_BUTTON_RIGHT | WPAD_CLASSIC_BUTTON_RIGHT | WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_RIGHT,
 		WIIDRC_BUTTON_RIGHT | WIIDRC_BUTTON_PLUS);
-	// Favourite: a small round button in the top right corner (or 1), its
-	// star filled while the game shown is one.
-	SkinButton starBtn(skin::roundBtn, skin::roundBtnOver, 2, 560 + wide, 24, nullptr,
+	// Favourite: a small round button between Settings and Start (or 1),
+	// level with their middle, its star filled while the game shown is one.
+	SkinButton starBtn(skin::roundBtn, skin::roundBtnOver, 2, kBannerStarX, 387, nullptr,
 		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X, &skin::iconStar, 0.6f);
 	GuiImage starOn(skin::iconStarOn.data, skin::iconStarOn.w, skin::iconStarOn.h);
 	starOn.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::MIDDLE);
@@ -2865,20 +2895,29 @@ class NoteCard : public GuiElement {
 public:
 	static constexpr int kX = 40, kY = 316, kW = 560, kH = 86;  // four lines end by y 410, above the prompts (y 418)
 	static constexpr int kTextX = kX + 36, kTextY = kY + 10, kTextW = kW - 40, kLines = 4;
+	// Where its sign sits: the page's left edge (wider pages at 16:9) and
+	// its top (a page with more rows starts it lower). Both are named so a
+	// call can't mean one for the other.
+	explicit NoteCard(int x = kX, int top = kY) : x(x), top(top) {}
 	void Draw() override {
-		skin::Draw(skin::iconInfo, kX + 2, kY + 7, GetAlpha() / 2);
+		// At full strength: at half, a composite cable left it at 1.4:1.
+		skin::Draw(skin::iconInfo, x + 2, top + 7, GetAlpha());
 	}
+private:
+	int x;
+	int top;
 };
 
 // The icon left of a page's title: the one on the tile that opened it.
 class PageIcon : public GuiElement {
 public:
-	explicit PageIcon(const skin::Tex* icon) : icon(icon) {}
+	explicit PageIcon(const skin::Tex* icon, int x = 40) : icon(icon), x(x) {}
 	void Draw() override {
-		if (icon && icon->data) skin::Draw(*icon, 40, 32, GetAlpha());
+		if (icon && icon->data) skin::Draw(*icon, x, 32, GetAlpha());
 	}
 private:
 	const skin::Tex* icon;
+	int x;
 };
 
 // How much wider a popup (and the launch screen's card) is on each side:
@@ -2925,39 +2964,6 @@ private:
 	bool overshoot;
 	float ms;
 	u64 start = 0;
-};
-
-// The box behind a hover name, so it reads over covers: a rounded card
-// with a soft shadow in the theme's colours (skin::HintBox), sized to the
-// text and fading with it. `anchorX` is the text's centre (centred) or
-// its right end, `top` the text's top, both on screen.
-class HintChip : public GuiElement {
-public:
-	HintChip(GuiText& text, int anchorX, int top, bool centred)
-		: text_(text), anchorX_(anchorX), top_(top), centred_(centred) {}
-	void Draw() override {
-		if (!text_.IsVisible() || text_.GetAlpha() <= 0) return;
-		const int w = (text_.GetTextWidth() + 24 + 3) & ~3, h = 28;
-		const skin::Tex box = skin::HintBox(w, h);
-		if (box.data == nullptr) return;
-		int x = centred_ ? anchorX_ - w / 2 : anchorX_ - w + 12;
-		if (centred_) {
-			// A long name by a corner button stays on the screen (8 in from
-			// its edges, a widescreen menu's too), and its text with it.
-			f32 safeX, safeW;
-			Menu_SafeArea(&safeX, &safeW);
-			const int left = static_cast<int>(safeX) + 8, right = static_cast<int>(safeX + safeW) - 8;
-			x = std::max(left, std::min(x, right - w));
-			text_.SetPosition(x + w / 2 - 320, top_);
-		}
-		Menu_DrawImg(x - riftwii::kHintBoxMargin, top_ - 5 - riftwii::kHintBoxMargin, box.w, box.h, box.data, 0, 1, 1,
-			static_cast<u8>(text_.GetAlpha()));
-	}
-
-private:
-	GuiText& text_;
-	int anchorX_, top_;
-	bool centred_;
 };
 
 // Home with no games on either drive: where to put them, on a card over
@@ -3633,9 +3639,9 @@ public:
 			const TileSpec& tile = tiles_[index];
 			Menu_PushCamera(choices_.PressedScale(index), tile.x + tile.w / 2.0f, tile.y + tile.h / 2.0f);
 			const float lift = choices_.Lift(index);
-			const float grow = choices_.SwellScale(index);
-			const float w = tile.w * grow, h = tile.h * grow;
-			const float x = tile.x - (w - tile.w) / 2, y = tile.y - (h - tile.h) / 2;
+			// Lit, a tile keeps its size (as GuiTiles' do): its ring shows it.
+			const float w = tile.w, h = tile.h;
+			const float x = tile.x, y = tile.y;
 			const skin::Tex& base = index == current_ ? skin::tile9Primary : skin::tile9;
 			const skin::Tex& over = index == current_ ? skin::tile9PrimaryOver : skin::tile9Over;
 			skin::DrawNine(base, x - 8, y - 8, w + 16, h + 16, skin::kTileCorner);
@@ -4927,7 +4933,7 @@ static void RunUpdate(const std::string& latest)
 	SetHomeNotice(tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest}));
 }
 
-// Settings > Install WAD files: every .wad in sd:/wad into the emulated NAND
+// Settings > Games > Install WAD files: every .wad in sd:/wad into the emulated NAND
 // the channels are listed from (wii/storage/wadinstall.hpp), asked first,
 // with a progress bar. True when any was installed (Home reads them again).
 static bool InstallWads()
@@ -5277,12 +5283,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Home shows your games at once",
-	"Games start behind their box",
-	"Manage your emulated NAND",
-	"Own covers and favorites for homebrew",
-	"Import Nintendont controller layouts",
-	"Type your SteamGridDB key in Settings",
+	"The Rift Store: get homebrew apps",
+	"Search and Layout on Home's bar",
+	"Wider game pages at 16:9",
+	"Install WAD files is under Games",
+	"Names sort without case or accents",
+	"WAD games go back to RiftWii on a Wii U",
 };
 
 static std::string WhatsNewText()
@@ -5670,8 +5676,10 @@ static int RequireChannelUpdate(FrontendState& state)
 // Home's look for games runs on a thread of its own (homescan.hpp), so the
 // menu answers while a big USB drive is read: the SD card's games show as
 // soon as the card is read, the drive's after it. Until both are in, Home
-// reads no game image and starts no download, and a game picked meanwhile
-// opens once they are (g_openWhenScanned).
+// reads no game image and starts no download. A game picked meanwhile
+// opens once its drive is read when it needs no game page (a homebrew
+// app, an emulator's game, a channel's banner: OpensDuringScan), else once
+// both are (g_openWhenScanned, or Home's wait as it closes).
 static bool g_scanning = false;
 static bool g_sdScanOk = false;
 static std::string g_sdScanError;      // for WarnAboutDrives, once the USB drive is read too
@@ -5679,6 +5687,9 @@ static std::string g_openWhenScanned;  // the tile picked during the scan, by it
 // That tile was a game at random (B held on the search button): it starts
 // once the drives are read, as it would have straight away.
 static bool g_startWhenScanned = false;
+// The scan's SD part is in (Home took it): from then on the scan reads
+// only the USB drive, and what lives on the card or the Wii opens at once.
+static bool g_sdPartTaken = false;
 // Home's rescan: the profiles' pictures are looked for again once it is
 // done. Not before, as the tiles show the pictures read so far while the
 // drives are read (ProfilePictureIfRead).
@@ -5699,6 +5710,7 @@ static void StartScan()
 	g_sdScanError.clear();
 	g_openWhenScanned.clear();
 	g_startWhenScanned = false;
+	g_sdPartTaken = false;
 	g_scanning = true;
 	g_scanned = true;
 	// Mark the scan pending now, so old results and drive reads stay out.
@@ -5744,6 +5756,32 @@ static bool SdWatchRemountForMenu()
 	mkdir("sd:/riftwii", 0777);
 	riftwii::wii::LogReopen();
 	return true;
+}
+
+// Whether a tile can open while the scan still reads the USB drive: a
+// channel on the Wii or in an emulated NAND on the card, a homebrew app,
+// an emulator's game on the card. A game image's page checks the image
+// first, behind the USB drive's lock even for a game on the card
+// (check_image_game), and the disc's tile reads the drive the scan may be
+// asking: those wait. A game page opened meanwhile waits for the scan too
+// (Home waits for it when it closes).
+static bool OpensDuringScan(const FrontendState& state, const HomeEntry& entry)
+{
+	if (!g_sdPartTaken) return false;
+	switch (entry.kind) {
+	case HomeEntry::Kind::App:
+		return true;
+	case HomeEntry::Kind::Channel: {
+		if (entry.index >= state.channels.size()) return false;
+		const riftwii::wii::NandChannel& channel = state.channels[entry.index];
+		return !riftwii::is_usb_path(channel.emu_nand + "/") && !riftwii::is_usb_path(channel.wad_path);
+	}
+	case HomeEntry::Kind::Emulator:
+		return entry.index < state.emulators.games.size() &&
+		       state.emulators.games[entry.index].path.compare(0, 3, "sd:") == 0;
+	default:
+		return false;
+	}
 }
 
 // The SD card's part of the scan, with the GUI halted.
@@ -6004,9 +6042,10 @@ static void ClockText(std::string& clock, std::string& date)
 // characters that still lead to a game when typed next (see
 // GuiSearchKeys::SetAvailable); it returns the count line.
 static bool AskSearch(std::string& text,
-	const std::function<std::string(const std::string&, std::string& matches, std::string& next)>& typed)
+	const std::function<std::string(const std::string&, std::string& matches, std::string& next)>& typed,
+	const std::string& title = "")
 {
-	GuiSearchKeys keys(text);
+	GuiSearchKeys keys(text, title);
 	std::string matches, next;
 	keys.SetCount(typed(text, matches, next));
 	keys.SetMatches(matches);
@@ -6032,6 +6071,23 @@ static bool AskSearch(std::string& text,
 	mainWindow->SetState(STATE::DEFAULT);
 	if (keys.Result() > 0) text = keys.Text();
 	return keys.Result() > 0;
+}
+
+// A plugin's screen (wii/menu/pluginscreen.hpp, the app store) uses the
+// menu's own popup and search keyboard, and halts the GUI as the pages do.
+static void LendPluginScreenHelpers()
+{
+	riftwii::wii::pluginscreen::Hooks hooks;
+	hooks.halt = HaltGui;
+	hooks.resume = ResumeGui;
+	hooks.window = [] { return mainWindow; };
+	hooks.popup = [](const std::string& title, const std::string& body, const std::string& yes,
+		const std::string& no) { return ShowPopup(title, body, yes, no); };
+	hooks.search = [](std::string& text,
+		const std::function<std::string(const std::string&, std::string&, std::string&)>& typed) {
+		return AskSearch(text, typed, tr("Search apps"));
+	};
+	riftwii::wii::pluginscreen::SetHooks(hooks);
 }
 
 // Keep DI on this thread: the GUI and drive-scan threads must not share its
@@ -6080,25 +6136,28 @@ static bool ReadHomebrewTitlesNow()
 // labels are translated when the player's catalog knows them; otherwise
 // the author's text is shown as written.
 static bool EmulatorRowsPage(const std::string& title, std::vector<FlowRow>& rows,
-	const std::vector<std::string>& help, const std::function<bool(int, int)>& act)
+	const std::vector<std::string>& help, const std::function<bool(int, int)>& act, bool wide = false)
 {
+	const PageBounds page = wide ? WidePageBounds() : PageBounds{};
 	GuiText titleTxt(title.c_str(), 30, skin::kInk);
-	Place(titleTxt, 78, 28);
+	Place(titleTxt, page.left + 38, 28);
+	titleTxt.SetMaxWidth(page.Width() - 38);
 	TitleBand titleBand;
-	PageIcon pageIcon(&skin::iconGear);
-	NoteCard noteCard;
-	GuiFlowList list(40, 84, 560, 5);
+	PageIcon pageIcon(&skin::iconGear, page.left);
+	NoteCard noteCard(page.left);
+	GuiFlowList list(page.left, 84, page.Width(), 5);
 	list.SetCards(true);
 	list.SetRows(&rows);
 	GuiText noteTxt("", 15, skin::kInkSoft);
-	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
-	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
+	Place(noteTxt, page.left + 36, NoteCard::kTextY);
+	noteTxt.SetWrap(true, page.Width() - 40, NoteCard::kLines);
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
 	const int back = prompts.Add("B", tr("Back"));
-	const int choose = prompts.Add("A", tr("Open"));
+	const int choose = prompts.Add("A", tr("Open"), false);
+	prompts.SetRightEdge(page.right);
 	GuiWindow window(screenwidth, screenheight);
 	window.Append(&titleBand);
 	window.Append(&pageIcon);
@@ -6120,7 +6179,10 @@ static bool EmulatorRowsPage(const std::string& title, std::vector<FlowRow>& row
 			noteTxt.SetText(help[static_cast<std::size_t>(focused)].c_str());
 		if (focused >= 0 && static_cast<std::size_t>(focused) < rows.size()) {
 			const auto kind = rows[static_cast<std::size_t>(focused)].kind;
+			prompts.SetShown(choose, kind != FlowRow::Kind::Info);
 			prompts.SetAction(choose, kind == FlowRow::Kind::Option || kind == FlowRow::Kind::Toggle ? tr("Change") : tr("Open"));
+		} else {
+			prompts.SetShown(choose, false);
 		}
 		if (prompts.GetClicked() == back) backBtn.PressSilently();
 		if (backBtn.Clicked() || ExitRequested) break;
@@ -6229,14 +6291,15 @@ static void MenuEmulatedNandTitle(const std::string& folder, const riftwii::wii:
 		help.push_back(folder + "\n" + riftwii::emunand_title_text(title.id));
 		actions.push_back(action);
 	};
+	const bool protectedTitle = riftwii::emunand_delete_protected(title.id);
 	// The copy to the other drive, last: not one of emunand_manager_action's.
 	const std::string copyTo = title.emulated ? emunand_copy_destination(folder) : std::string();
 	if (title.real) add(tr("Copy save from Wii"), EmuNandAction::SaveToEmulated);
 	if (title.real && title.emulated) add(tr("Copy save to Wii"), EmuNandAction::SaveToWii);
-	if (title.emulated) {
+	if (title.emulated && !protectedTitle) {
 		add(tr("Delete emulated save"), EmuNandAction::DeleteSave);
 		add(tr("Delete emulated title"), EmuNandAction::DeleteTitle);
-	} else if (title.ticket_only) {
+	} else if (title.ticket_only && !protectedTitle) {
 		// Only its ticket is left: deleting the title removes that.
 		add(tr("Delete emulated title"), EmuNandAction::DeleteTitle);
 	}
@@ -6249,7 +6312,15 @@ static void MenuEmulatedNandTitle(const std::string& folder, const riftwii::wii:
 		rows.push_back(row);
 		help.push_back(tr("Copies this game, its save and its ticket to {1}. RiftWii plays WiiWare and Virtual Console games from an emulated NAND on the SD card.", {copyTo}));
 	}
+	if (protectedTitle) {
+		FlowRow row;
+		row.kind = FlowRow::Kind::Info;
+		row.label = tr("System titles cannot be deleted.");
+		rows.push_back(row);
+		help.push_back(folder);
+	}
 	EmulatorRowsPage(FlatCapped(EmulatedNandTitleLabel(title), 32), rows, help, [&](int clicked, int) {
+		if (rows[static_cast<std::size_t>(clicked)].kind == FlowRow::Kind::Info) return false;
 		if (!copyTo.empty() && static_cast<std::size_t>(clicked) == copyRow) {
 			RunEmulatedNandCopy(folder, copyTo, title.id, rows[copyRow].label);
 			return false;
@@ -6262,21 +6333,11 @@ static void MenuEmulatedNandTitle(const std::string& folder, const riftwii::wii:
 	});
 }
 
-// A title the banner gave no name (a disc game's save, a title only on
-// the Wii): its four-letter game code, and GameTDB's name for it when the
-// title list has one, rather than sixteen hex digits.
+// Names are resolved during the busy window, including the title list's
+// first read. Building the rows must not leave the screen blank again.
 static std::string EmulatedNandTitleLabel(const riftwii::wii::EmuNandTitle& title)
 {
-	if (title.name != riftwii::emunand_title_text(title.id)) return title.name;
-	std::string code;
-	for (int shift = 24; shift >= 0; shift -= 8) {
-		const char c = static_cast<char>((title.id >> shift) & 0xff);
-		if (!std::isalnum(static_cast<unsigned char>(c))) return title.name;
-		code += c;
-	}
-	std::string listed;
-	if (riftwii::wii::GameTitleListed(code, listed) && !listed.empty()) return listed + " (" + code + ")";
-	return code;
+	return title.name.empty() ? riftwii::emunand_title_code(title.id) : title.name;
 }
 
 static void MenuEmulatedNandFolder(const std::string& folder)
@@ -6285,19 +6346,34 @@ static void MenuEmulatedNandFolder(const std::string& folder)
 	std::vector<EmuNandTitle> titles;
 	std::vector<FlowRow> rows;
 	std::vector<std::string> help;
+	// Header rows have no title. Keep clicks tied to the title index even
+	// when a group is empty or a refresh adds/removes its heading.
+	std::vector<int> rowTitles;
 	bool sysconf = false;
 	bool settings = false;
 	std::string error;
 	const auto build = [&] {
 		rows.clear();
 		help.clear();
+		rowTitles.clear();
 		bool ok = false;
-		ResumeGui();
-		ok = emunand_manager_list(folder, titles, sysconf, settings, error);
-		HaltGui();
+		{
+			PopupBox box(tr("Emulated NAND"), tr("Reading titles..."));
+			ResumeGui();
+			ok = emunand_manager_list(folder, titles, sysconf, settings, error);
+			HaltGui();
+		}
 		if (!ok) {
 			logf("Emulated NAND: could not list %s because %s.\n", folder.c_str(), error.c_str());
 			ShowPopup(tr("Emulated NAND"), tr("The emulated NAND folder could not be read. See session.log for details."), tr("OK"));
+			return false;
+		}
+		// The bounded title list determines the space needed for rows,
+		// their help and the mapping past the three tools and five headers.
+		const std::size_t rowCount = titles.size() + 8;
+		if (!riftwii::try_reserve(rows, rowCount) || !riftwii::try_reserve(help, rowCount) ||
+			!riftwii::try_reserve(rowTitles, rowCount)) {
+			ShowPopup(tr("Emulated NAND"), tr("There is not enough free memory."), tr("OK"));
 			return false;
 		}
 		const auto add = [&](const std::string& label, const std::string& note) {
@@ -6306,14 +6382,52 @@ static void MenuEmulatedNandFolder(const std::string& folder)
 			row.label = label;
 			rows.push_back(row);
 			help.push_back(note);
+			rowTitles.push_back(-1);
 		};
 		add(tr("Miis from Wii"), folder);
 		add(tr("Miis to Wii"), folder);
 		add(tr("Remove Wii settings"), tr("SYSCONF: {1}; setting.txt: {2}",
 			{sysconf ? tr("Present") : tr("Missing"), settings ? tr("Present") : tr("Missing")}));
-		for (const EmuNandTitle& title : titles) {
-			add(FlatCapped(EmulatedNandTitleLabel(title), 42), riftwii::emunand_title_text(title.id) + "\n" +
-				(title.emulated || title.ticket_only ? folder : std::string(tr("Wii memory"))));
+		struct Group {
+			std::uint32_t type;
+			const char* label;
+		};
+		const Group groups[] = {
+			{0x00010000, tr("Disc game saves")},
+			{0x00010001, tr("Channels")},
+			{0x00010002, tr("System channels")},
+			{0x00010008, tr("Hidden titles")},
+			{0, tr("Other titles")},
+		};
+		for (const Group& group : groups) {
+			bool headingShown = false;
+			for (std::size_t index = 0; index < titles.size(); ++index) {
+				const EmuNandTitle& title = titles[index];
+				const std::uint32_t type = title.id >> 32;
+				const bool other = type != 0x00010000 && type != 0x00010001 &&
+					type != 0x00010002 && type != 0x00010008;
+				if (group.type == 0 ? !other : type != group.type) continue;
+				if (!headingShown) {
+					FlowRow heading;
+					heading.kind = FlowRow::Kind::Info;
+					heading.heading = true;
+					heading.label = group.label;
+					rows.push_back(heading);
+					help.push_back(folder);
+					rowTitles.push_back(-1);
+					headingShown = true;
+				}
+				const bool emulated = title.emulated || title.ticket_only;
+				std::string location = emulated ? folder : std::string();
+				if (title.real) {
+					if (!location.empty()) location += "\n";
+					location += tr("Wii memory");
+				}
+				add(FlatCapped(EmulatedNandTitleLabel(title), 42), riftwii::emunand_title_text(title.id) + "\n" + location);
+				rows.back().value = emulated && title.real ? tr("Emulated + Wii")
+					: emulated ? tr("Emulated NAND") : tr("Wii memory");
+				rowTitles.back() = static_cast<int>(index);
+			}
 		}
 		return true;
 	};
@@ -6324,7 +6438,9 @@ static void MenuEmulatedNandFolder(const std::string& folder)
 			RunEmulatedNandAction(folder, actions[clicked], 0, rows[static_cast<std::size_t>(clicked)].label);
 		} else {
 			// Copy the entry: refreshing this page invalidates the listing.
-			const EmuNandTitle title = titles[static_cast<std::size_t>(clicked - 3)];
+			const int titleIndex = rowTitles[static_cast<std::size_t>(clicked)];
+			if (titleIndex < 0) return false;
+			const EmuNandTitle title = titles[static_cast<std::size_t>(titleIndex)];
 			MenuEmulatedNandTitle(folder, title);
 		}
 		return !build();
@@ -6334,17 +6450,24 @@ static void MenuEmulatedNandFolder(const std::string& folder)
 static void MenuEmulatedNand()
 {
 	std::vector<std::string> folders;
-	ResumeGui();
-	folders = riftwii::wii::emunand_manager_folders();
-	HaltGui();
+	{
+		PopupBox box(tr("Emulated NAND"), tr("Reading folders..."));
+		ResumeGui();
+		folders = riftwii::wii::emunand_manager_folders();
+		HaltGui();
+	}
 	std::vector<FlowRow> rows;
+	// Each row says what opening it does (the help line repeated the
+	// folder's name, which the row already shows).
+	std::vector<std::string> help;
 	for (const std::string& folder : folders) {
 		FlowRow row;
 		row.kind = FlowRow::Kind::Action;
 		row.label = folder;
 		rows.push_back(row);
+		help.push_back(tr("See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings."));
 	}
-	EmulatorRowsPage(tr("Emulated NAND"), rows, folders, [&](int clicked, int) {
+	EmulatorRowsPage(tr("Emulated NAND"), rows, help, [&](int clicked, int) {
 		MenuEmulatedNandFolder(folders[static_cast<std::size_t>(clicked)]);
 		return false;
 	});
@@ -6886,8 +7009,11 @@ static int MenuSource(FrontendState& state)
 	// The Wii Menu's bar (it dips under the clock): the view and the page
 	// on its high sides, under its line; a bar that bumps: above it.
 	const bool dip = !skin::BarBump();
-	GuiText pageTxt("", dip ? 14 : 15, skin::kInkDim);
-	GuiText viewTxt("", dip ? 14 : 16, skin::kAccent);
+	// The page's ink and the accent's ink for text, a point larger, not the
+	// dim ink and the bright accent: those came to under 2:1 through a
+	// composite cable on the bar's grey.
+	GuiText pageTxt("", 15, skin::kInk);
+	GuiText viewTxt("", dip ? 15 : 16, skin::kAccentInk);
 	// The room each label has beside the dip; 0 on a bar that bumps, where
 	// the view's own cut-off below applies and the page has no limit.
 	int sideW = 0;
@@ -6911,41 +7037,34 @@ static int MenuSource(FrontendState& state)
 		Place(viewTxt, 40 - wide, 324);
 		viewTxt.SetMaxWidth(190 + wide);  // ends by x 230, clear of the clock; a longer one ends in "..."
 	}
-	// A name while the pointer rests on a round button. Layout and Search
-	// share the bar's status area so neither name covers a game's tile.
-	GuiText settingsHint(tr("Settings"), 17, skin::kInk),
-		actionHint("", 17, skin::kInk);
+	// A name while the pointer rests on a round button. Every one of them
+	// (Show, Layout, Search and the gear) shares the bar's status line, so
+	// no name covers a game's tile and none pops up anywhere else.
+	GuiText actionHint("", 17, skin::kInk);
 	std::string filterLabel;
 	std::string searchLabel;
+	std::string settingsLabel;
 	std::string shownActionLabel;
 	const auto setButtonHints = [&] {
-		const std::string settingsLabel = (g_homePadHints ? "Z: " : "") + std::string(tr("Settings"));
+		settingsLabel = (g_homePadHints ? "Z: " : "") + std::string(tr("Settings"));
 		searchLabel = (g_homePadHints ? "B: " : "") + std::string(tr("Search"));
-		settingsHint.SetText(settingsLabel.c_str());
 	};
 	setButtonHints();
-	// The gear's name stays above its button, centred on it.
-	settingsHint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	settingsHint.SetPosition(568 - 320 + wide, 344);
-	// The search button: in the top right corner, above the page arrow; in
-	// Channels, whose four icons at their own size reach the corner, on the
-	// bar left of the gear.
-	const bool channelsView = riftwii::wii::Settings().home_tiles == "channels";
-	const int searchX = channelsView ? 484 + wide : 568 + wide, searchY = channelsView ? 396 : 24;
-	const int layoutX = channelsView ? 120 - wide : 36 - wide;
+	// Search and Layout: small, on the bar beside the gear and Show, in
+	// every layout. Channels' icons reach the top corners, and buttons
+	// that moved there when the layout changed felt like a jump.
+	const int searchX = 484 + wide, searchY = 396;
+	const int layoutX = 120 - wide;
 	const int layoutY = searchY;
 	const int statusY = dip ? 434 : 392;
 	actionHint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 	actionHint.SetPosition(0, statusY);
-	actionHint.SetMaxWidth((channelsView ? 312 : 400) + 2 * wide);
+	actionHint.SetMaxWidth(312 + 2 * wide);
 	// The shared hint stays clear of All games, the clock and the date,
-	// and of the hand at either button, even in Channels.
-	HintChip settingsChip(settingsHint, 568 + wide, 344, true);
-	int settingsHintAlpha = 0, actionHintAlpha = 0;
-	for (GuiText* hint : {&settingsHint, &actionHint}) {
-		hint->SetAlpha(0);
-		hint->SetVisible(false);
-	}
+	// and of the hand at either button.
+	int actionHintAlpha = 0;
+	actionHint.SetAlpha(0);
+	actionHint.SetVisible(false);
 	std::string clock, date;
 	ClockText(clock, date);
 	// The Wii Menu's way (a bar that dips): the clock in the dip, the date
@@ -6961,11 +7080,12 @@ static int MenuSource(FrontendState& state)
 	Place(dateTxt, 0, dip ? 407 : 359, true);
 	// Ending by y 456, inside a TV's overscan: one line under the date on a
 	// bar that dips, three above the bottom on one that bumps.
-	GuiText statusTxt("", dip ? 15 : 17, skin::kInkSoft);
+	// The page's ink: the softer one came to 2:1 on composite.
+	GuiText statusTxt("", dip ? 15 : 17, skin::kInk);
 	Place(statusTxt, 0, statusY, true);
-	// Channels' small buttons end at x 156 and start at x 484. Keep
+	// The bar's small buttons end at x 156 and start at x 484. Keep
 	// the centred text inside x 164..476, with 8px of breathing room.
-	statusTxt.SetWrap(true, (channelsView ? 312 : 400) + 2 * wide, dip ? 1 : 3);
+	statusTxt.SetWrap(true, 312 + 2 * wide, dip ? 1 : 3);
 	EmptyHomeNote emptyNote;
 	emptyNote.SetVisible(false);
 	HomeEmptyState emptyState;
@@ -6980,9 +7100,8 @@ static int MenuSource(FrontendState& state)
 	SkinButton settingsBtn(skin::roundBtn, skin::roundBtnOver, 2, 530 + wide, 376, nullptr,
 		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_Z, WIIDRC_BUTTON_Y, &skin::iconGear);
 	// Search: B on a GameCube controller, ZL on a Classic Controller (a
-	// Wii Remote has no button left; point and press A). Small, in the top
-	// right corner above the page arrow, inside the overscan (ends at x 606,
-	// starts at y 24), so the gear's name has room; in Channels on the bar.
+	// Wii Remote has no button left; point and press A). Small, on the bar
+	// left of the gear.
 	SkinButton searchBtn(skin::roundBtn, skin::roundBtnOver, 2, searchX, searchY, nullptr,
 		WPAD_CLASSIC_BUTTON_ZL, PAD_BUTTON_B, 0, &skin::iconSearch, 0.5f);
 	searchBtn.backAction = false;
@@ -7022,8 +7141,6 @@ static int MenuSource(FrontendState& state)
 	w.Append(&bar);
 	w.Append(&pageTxt);
 	w.Append(&viewTxt);
-	w.Append(&settingsChip);
-	w.Append(&settingsHint);
 	w.Append(&actionHint);
 	w.Append(&clockTxt);
 	w.Append(&lcd);
@@ -7071,7 +7188,7 @@ static int MenuSource(FrontendState& state)
 	const auto setViewText = [&](const std::string& text) {
 		viewTxt.SetText(text.c_str());
 		if (sideW <= 0) return;
-		for (int size = 14; size >= 12; --size) {
+		for (int size = dip ? 15 : 16; size >= 12; --size) {
 			viewTxt.SetFontSize(size);
 			if (viewTxt.GetTextWidth() <= sideW) break;
 		}
@@ -7084,9 +7201,13 @@ static int MenuSource(FrontendState& state)
 		const bool sourceLimited = g_search.empty() && g_filter != Filter::Homebrew &&
 			riftwii::wii::Settings().home_source != "all";
 		if (sourceLimited) name += std::string(" · ") + HomeSourceName(riftwii::wii::Settings().home_source);
-		if (dip && sourceLimited) {
+		if (dip && sourceLimited && wide == 0 && !grid.Channels()) {
 			// The corner beside the clock is only 89px in 4:3. A scoped
 			// category gets the full line above the bar, below the tiles.
+			// A widescreen menu's corner has the room, and its covers'
+			// caption needs that line (they are taller); so does the
+			// Channels view's (its grid is taller), where the name is made
+			// smaller to fit the corner, or cut short.
 			Place(viewTxt, 0, 316, true);
 			viewTxt.SetFontSize(14);
 			viewTxt.SetMaxWidth(544 + 2 * wide);
@@ -7848,8 +7969,21 @@ static int MenuSource(FrontendState& state)
 				const std::string focused = focusedTile();
 				takePress();
 				TakeSdScanPart(state, part);
+				g_sdPartTaken = true;
 				refreshKeepingTile(focused, false);
 				putPressBack();
+				// A game picked while the card was read opens now, if it
+				// doesn't need the USB drive.
+				if (!g_openWhenScanned.empty()) {
+					const int waiting = findTile(g_openWhenScanned);
+					if (waiting >= 0 && static_cast<std::size_t>(waiting) < entries.size() &&
+					    OpensDuringScan(state, entries[static_cast<std::size_t>(waiting)])) {
+						openNow = g_openWhenScanned;
+						startOpenNow = g_startWhenScanned;
+						g_openWhenScanned.clear();
+						g_startWhenScanned = false;
+					}
+				}
 			}
 			if (riftwii::wii::TakeUsbScan(part)) {
 				const std::string focused = focusedTile();
@@ -7859,8 +7993,12 @@ static int MenuSource(FrontendState& state)
 				putPressBack();
 				g_gameInfoReadDue = true;
 				if (!askAfterLook()) return menu;
-				openNow = g_openWhenScanned;
-				startOpenNow = g_startWhenScanned;
+				// A game the SD card's part let open this same turn stays
+				// chosen: only a choice still waiting replaces it.
+				if (!g_openWhenScanned.empty()) {
+					openNow = g_openWhenScanned;
+					startOpenNow = g_startWhenScanned;
+				}
 				g_openWhenScanned.clear();
 				g_startWhenScanned = false;
 				// Covers, boxes and 3D covers that failed (or were never
@@ -8097,7 +8235,7 @@ static int MenuSource(FrontendState& state)
 			hint.SetAlpha(a);
 			hint.SetVisible(a > 0);
 		};
-		fade(settingsHint, settingsHintAlpha, settingsBtn.button.GetState() == STATE::SELECTED);
+		const bool settingsHovered = settingsBtn.button.GetState() == STATE::SELECTED;
 		const bool filterHovered = filterBtn.button.GetState() == STATE::SELECTED;
 		const bool layoutHovered = layoutBtn.button.GetState() == STATE::SELECTED;
 		const bool searchHovered = searchBtn.button.GetState() == STATE::SELECTED;
@@ -8105,11 +8243,12 @@ static int MenuSource(FrontendState& state)
 		if (layoutHovered) nextActionLabel = tr("Layout");
 		else if (searchHovered) nextActionLabel = searchLabel.c_str();
 		else if (filterHovered) nextActionLabel = filterLabel.c_str();
+		else if (settingsHovered) nextActionLabel = settingsLabel.c_str();
 		if (nextActionLabel && shownActionLabel != nextActionLabel) {
 			shownActionLabel = nextActionLabel;
 			actionHint.SetText(nextActionLabel);
 		}
-		fade(actionHint, actionHintAlpha, layoutHovered || searchHovered || filterHovered);
+		fade(actionHint, actionHintAlpha, layoutHovered || searchHovered || filterHovered || settingsHovered);
 		statusTxt.SetVisible(actionHintAlpha == 0);
 		// Not while the scan has the drives and the network: an update
 		// writes to the card and downloads.
@@ -8299,9 +8438,17 @@ static int MenuSource(FrontendState& state)
 			clicked = -1;
 			toast.Show(tr("Put the SD card back in first."), true);
 		}
-		// Opening a game reads its image, which the scan may be mounting:
-		// it waits for the scan, and Home answers meanwhile.
-		if (g_scanning && clicked >= 0 && static_cast<std::size_t>(clicked) < items.size()) {
+		// Opening a USB or disc game reads its image, which the scan may be
+		// mounting: it waits for the scan, and Home answers meanwhile.
+		// Games on the card or the Wii open once the card's part is in.
+		// A game on the card in the Channels view: its banner screen opens
+		// meanwhile when the card has the banner; going on from it, or no
+		// banner, waits as well (below, after ShowChannel).
+		const bool sdBannerNow = g_scanning && g_sdPartTaken && grid.Channels() && !randomStart &&
+			clicked >= 0 && static_cast<std::size_t>(clicked) < entries.size() &&
+			entries[static_cast<std::size_t>(clicked)].kind == HomeEntry::Kind::Sd;
+		if (g_scanning && clicked >= 0 && static_cast<std::size_t>(clicked) < items.size() && !sdBannerNow &&
+		    !(static_cast<std::size_t>(clicked) < entries.size() && OpensDuringScan(state, entries[static_cast<std::size_t>(clicked)]))) {
 			const GridItem& picked = items[static_cast<std::size_t>(clicked)];
 			g_openWhenScanned = tileIdentity(clicked);
 			g_startWhenScanned = randomStart;
@@ -8356,12 +8503,22 @@ static int MenuSource(FrontendState& state)
 					if (e.kind == HomeEntry::Kind::Disc || e.kind == HomeEntry::Kind::App) return false;
 					const std::string& id = items[static_cast<std::size_t>(i)].id;
 					// The banner already reads the card. Prepare this tile's
-					// choices and cached facts here so Settings uses memory.
-					riftwii::wii::PrepareGameChoices(state, id, e.profile);
+					// choices and cached facts here so Settings uses memory;
+					// not while the drives are read: the choices look in the
+					// USB drive's mod folders, behind the scan's lock (the
+					// page, which waits for the scan, prepares them then).
+					if (!g_scanning) riftwii::wii::PrepareGameChoices(state, id, e.profile);
 					riftwii::GameInfo info;
 					riftwii::wii::PeekGameInfo(id, info);
 					if (riftwii::wii::LoadBanner(id, bytes)) return true;
 					if (!riftwii::wii::BannerWanted(id)) return false;
+					// No game image is read while the drives are: reading one
+					// takes the USB drive's lock even for a game on the card,
+					// and a slow drive's mount would hold Home up. Without a
+					// banner the game goes on to its page, which waits for
+					// the scan (below); it is not marked as missing, so the
+					// banner is read from the image next time.
+					if (g_scanning) return false;
 					std::string why;
 					g_bannersTried.insert(id);
 					if (!StoreEntryBanner(state, e, why)) return false;
@@ -8384,6 +8541,28 @@ static int MenuSource(FrontendState& state)
 					grid.Focus(clicked);
 					if (!grid.TileRect(clicked, tile.x, tile.y, tile.w, tile.h)) tile = transition::Rect{};
 					g_openRect = tile;
+				}
+				// The arrows may have reached a USB game, or the player goes
+				// on from a game image's banner (its page checks the image):
+				// it opens once the drives are read, looked up again then by
+				// what it is (the USB drive's games may have come in or gone).
+				if (go && g_scanning && !OpensDuringScan(state, entries[static_cast<std::size_t>(clicked)])) {
+					g_openWhenScanned = tileIdentity(clicked);
+					g_startWhenScanned = choice == ChannelChoice::Start;
+					logf("Home: %s picked on its banner while the drives are read; it opens once they are\n",
+						g_openWhenScanned.c_str());
+					toast.Show(tr("{1} opens once RiftWii has finished reading the drives.",
+						{items[static_cast<std::size_t>(clicked)].title}), false);
+					state.prepared_choices = riftwii::wii::PreparedGameChoices{};
+					g_startOnOpen = false;
+					g_reopenBanner.clear();
+					transition::Begin(transition::Kind::ZoomOut, tile);
+					// Start left the banner up and playing (g_lingerBanner):
+					// Home comes back from under it; the game still starts
+					// once the drives are read (g_startWhenScanned).
+					DropLingerBanner();
+					ResumeGui();
+					continue;
 				}
 				if (!go) {
 					if (g_favoritesChanged && g_filter == Filter::Favorites) refresh(true);
@@ -8682,6 +8861,10 @@ static int MenuSource(FrontendState& state)
 		g_openWhenScanned.clear();
 		g_startWhenScanned = false;
 	}
+	// A game's page waits too, even a game on the card: the page lists the
+	// game's packs and saves their choices, and the USB drive's packs are
+	// in the catalog only once its part is in (a page opened before would
+	// save a list without them and lose their choices).
 	if (g_scanning && menu != MENU_OPTIONS && !rebuildingHome) {
 		logf("Home: closed while the drives are read; waiting for the scan\n");
 		while (!riftwii::wii::DriveScanDone()) {
@@ -8750,6 +8933,11 @@ public:
 			GX_SetScissor(0, 0, Menu_XfbWidth(), Menu_EfbHeight());
 		}
 		if (artShown > 0.0f) DrawArt();
+		// A shade over the hue, stripes and art, under the white text: on a
+		// composite cable a bright band (a green one most) left the name at
+		// about 2:1 and its outline blurred away; 40% darker, the name reads
+		// at 4:1 or more and the small lines above and under it at 2.5:1.
+		Menu_FillScreen(-1000, 1000 + kHeight - 4, (GXColor){0, 0, 0, 104});
 		for (int i = 0; i < 4; ++i) Menu_FillScreen(kHeight - 19 + 4 * i, 4, (GXColor){0, 0, 0, static_cast<u8>(10 + 10 * i)});
 		// Keep the game's art, with the same themed edge as the controls band.
 		Menu_FillScreen(kHeight - 3, 3, skin::kAccent);
@@ -8849,31 +9037,64 @@ public:
 		y = newY;
 		Place(text, x, y);
 	}
+	void SetMarquee(int width) {
+		marqueeWidth = width;
+		text.SetWrap(false);
+		text.SetMaxWidth(0);
+		text.SetScroll(SCROLL::NONE);
+		marquee.Reset();
+	}
+	void ResetMarquee() { marquee.Reset(); }
 	void Draw() override {
 		riftwii::wii::DrawTrace trace("the page's text");
+		if (marqueeWidth > 0) {
+			marquee.Draw(text, x, y, marqueeWidth, 24, [&](int drawX, int drawY, int alpha) {
+				DrawText(drawX, drawY, alpha);
+			});
+		} else {
+			DrawText(x, y, 255);
+		}
+	}
+private:
+	void DrawText(int drawX, int drawY, int alpha) {
 		text.SetColor((GXColor){0, 0, 0, 255});
 		// The shadow, softer and lower; then the outline: every offset
 		// within its radius (8 at 1, 20 at 2).
-		text.SetAlpha(110);
-		text.SetPosition(x + 1, y + outline + drop);
+		text.SetAlpha(110 * alpha / 255);
+		text.SetPosition(drawX + 1, drawY + outline + drop);
 		text.Draw();
-		text.SetAlpha(225);
+		// The outline is many copies laid over each other, so a faded one
+		// (a marquee's edge) gets each copy so faint that together they
+		// come to the fade: at the plain per-copy alpha they summed to
+		// nearly solid, and the edge read as a hard cut.
+		int layers = 0;
+		for (int dy = -outline; dy <= outline; ++dy)
+			for (int dx = -outline; dx <= outline; ++dx)
+				if (!(dx == 0 && dy == 0) && dx * dx + dy * dy <= outline * outline + 1) ++layers;
+		int layerAlpha = 225 * alpha / 255;
+		if (alpha < 255 && layers > 1) {
+			const float together = 225.0f / 255.0f * static_cast<float>(alpha) / 255.0f;
+			const float each = 1.0f - std::pow(1.0f - together, 1.0f / static_cast<float>(layers));
+			layerAlpha = static_cast<int>(each * 255.0f + 0.5f);
+		}
+		text.SetAlpha(layerAlpha);
 		for (int dy = -outline; dy <= outline; ++dy)
 			for (int dx = -outline; dx <= outline; ++dx) {
 				if ((dx == 0 && dy == 0) || dx * dx + dy * dy > outline * outline + 1) continue;
-				text.SetPosition(x + dx, y + dy);
+				text.SetPosition(drawX + dx, drawY + dy);
 				text.Draw();
 			}
 		text.SetColor(color);
-		text.SetAlpha(255);
-		text.SetPosition(x, y);
+		text.SetAlpha(alpha);
+		text.SetPosition(drawX, drawY);
 		text.Draw();
 	}
-private:
 	GuiText& text;
 	int x, y;
 	GXColor color;
 	int outline, drop;
+	int marqueeWidth = 0;
+	riftwii::wii::TextMarquee marquee;
 };
 
 // A white card at (x, y) drawn from a panel texture.
@@ -11068,9 +11289,7 @@ static std::vector<std::string> ListNamedGcCards(bool shiftJis)
 		if (names.size() < 200) names.push_back(name);
 	}
 	closedir(dir);
-	std::sort(names.begin(), names.end(), [](const std::string& a, const std::string& b) {
-		return LowerAscii(a) < LowerAscii(b);
-	});
+	std::sort(names.begin(), names.end(), riftwii::sort_name_less);
 	return names;
 }
 
@@ -12822,12 +13041,16 @@ static constexpr int kHeroX = 40, kHeroY = 80, kHeroW = 150, kHeroH = 206;
 // The tiles start 12 after the box, the gap between the tiles themselves.
 static constexpr int kTilesX = kHeroX + kHeroW + 12, kTilesRight = 600;  // 40 in from each side, as the box
 static constexpr int kTilesW = kTilesRight - kTilesX;
+// The tiles' first row starts 12 under the game's band, as the rows are
+// apart; a channel's card (no box) starts there too, level with Play.
+static constexpr int kTilesTop = 132;
 // The game's disc under its box (Settings > Disc art), at the left of
 // the space the Favourite tile has otherwise: as tall as fits between the
 // box's shadow and the status lines along the bottom, the Favourite tile
-// narrowed to its star beside it.
-static constexpr int kHeroDiscSize = 78, kHeroDiscY = 306;
-static constexpr int kFavoriteY = 310, kFavoriteH = 70;
+// narrowed to its star beside it. The lower row is as tall as the one
+// above it (Cheats, Saves), and the disc ends with it.
+static constexpr int kHeroDiscSize = 60, kHeroDiscY = 296;
+static constexpr int kFavoriteY = 298, kFavoriteH = 58;
 static constexpr int kStarX = kHeroX + kHeroDiscSize + 8, kStarW = kHeroX + kHeroW - kStarX;
 
 
@@ -12904,10 +13127,10 @@ public:
 		riftwii::wii::DrawTrace trace("the page's cover");
 		DrawDisc();
 		const float lit = litGrid && litTile >= 0 ? litGrid->Lift(litTile) : 0.0f;
-		const float grow = litGrid && litTile >= 0 ? litGrid->SwellScale(litTile) : 1.0f;
-		const float w = kHeroW * placeScale * grow, h = kHeroH * placeScale * grow;
-		// The cover already sits at the safe left edge: grow inward there.
-		const float x = placeX, y = placeY - (h - kHeroH * placeScale) / 2;
+		// Lit, the cover keeps its size, as the tiles do (grown, it stuck
+		// out past the Favourite tile under it): its ring shows it.
+		const float w = kHeroW * placeScale, h = kHeroH * placeScale;
+		const float x = placeX, y = placeY;
 		const auto ring = [&](float rx, float ry, float rw, float rh) {
 			if (lit <= 0.0f) return;
 			const GXColor c = skin::WithAlpha(skin::kAccent, static_cast<int>(255 * lit));
@@ -12932,7 +13155,12 @@ public:
 		// A channel's icon gets a card of its own shape (4:3, as the
 		// Channels view shows it), centred down the box's place, rather
 		// than the box's tall one with black above and below.
-		const float ch = icon ? (w - 8) * 3 / 4 + 8 : h, cy = y + (h - ch) / 2;
+		// Its top is 12 under the band, level with the page's first row
+		// (kTilesTop) at any size, rather than centred down the box's
+		// place, which left it 5 pixels above Play and, on About (a
+		// smaller box), over the band's edge.
+		const float ch = icon ? (w - 8) * 3 / 4 + 8 : h;
+		const float cy = icon ? y + (kTilesTop - kHeroY) : y;
 		skin::DrawNine(skin::card9, x - 8, cy - 8, w + 16, ch + 16, riftwii::kCardCorner);
 		ring(x, cy, w, ch);
 		const float ax = x + 4, ay = cy + 4, aw = w - 8, ah = ch - 8;
@@ -12969,7 +13197,7 @@ private:
 		const float size = kHeroDiscSize * (1.0f + 0.08f * lit);
 		const float k = size / std::max(discArt->w, discArt->h);
 		const float dw = discArt->w * k, dh = discArt->h * k;
-		const float dx = kHeroX + (kHeroDiscSize - dw) / 2, dy = kHeroDiscY + (kHeroDiscSize - dh) / 2;
+		const float dx = placeX + (kHeroDiscSize - dw) / 2, dy = kHeroDiscY + (kHeroDiscSize - dh) / 2;
 		// A round drop shadow, lit from above as the box's is.
 		if (skin::discShadow.data) {
 			constexpr float kDrop = 4.0f;
@@ -12977,7 +13205,7 @@ private:
 			// centre under the disc's.
 			const float scale = size / riftwii::kDiscShadowDisc;
 			const float half = riftwii::kDiscShadowSize / 2.0f;
-			const float cx = kHeroX + kHeroDiscSize / 2.0f, cy = kHeroDiscY + kHeroDiscSize / 2.0f;
+			const float cx = placeX + kHeroDiscSize / 2.0f, cy = kHeroDiscY + kHeroDiscSize / 2.0f;
 			skin::Draw(skin::discShadow, cx - half, cy - half + kDrop, 255, scale);
 		}
 		skin::DrawRgb5a3Part(discArt->data, discArt->w, discArt->h, 0.0f, 1.0f, dx, dy, dw, dh);
@@ -13092,7 +13320,8 @@ public:
 		const float bigW = kBigH * artW / artH, bigX = (screenwidth - bigW) / 2;
 		const float e = open * open * (3 - 2 * open);  // eased
 		const float w = kHeroW + (bigW - kHeroW) * e, h = kHeroH + (kBigH - kHeroH) * e;
-		const float x = kHeroX + (bigX - kHeroX) * e, y = kHeroY + (kBigY - kHeroY) * e;
+		const float fromX = WidePageBounds().left;
+		const float x = fromX + (bigX - fromX) * e, y = kHeroY + (kBigY - kHeroY) * e;
 		// Turned about its middle: narrower towards the half turn, where the
 		// side changes.
 		const float face = std::fabs(std::cos(turn * static_cast<float>(M_PI)));
@@ -13239,7 +13468,7 @@ public:
 		// As large as fits between the band's top and the prompts, in the
 		// picture's own shape; grown out of the page's disc.
 		const float e = open * open * (3 - 2 * open);  // eased
-		const float fromX = kHeroX + kHeroDiscSize / 2.0f, fromY = kHeroDiscY + kHeroDiscSize / 2.0f;
+		const float fromX = WidePageBounds().left + kHeroDiscSize / 2.0f, fromY = kHeroDiscY + kHeroDiscSize / 2.0f;
 		const float size = kHeroDiscSize + (kBigSize - kHeroDiscSize) * e;
 		const float cx = fromX + (screenwidth / 2.0f - fromX) * e;
 		const float cy = fromY + (kBigY + kBigSize / 2.0f - fromY) * e;
@@ -13399,31 +13628,35 @@ public:
 		std::string type, name;
 		bool required = false, seen = false, connected = false;
 	};
-	static constexpr int kGridX = kTilesX, kGridY = 132, kColGap = 14, kColW = (kTilesRight - kTilesX - kColGap) / 2, kRowH = 38;
-	static constexpr int kStoryX = 40, kStoryY = 326, kStoryW = 520, kStoryLines = 4, kLineH = 19;  // ends by y 402, clear of the prompts
-	static constexpr int kControlTextW = 560, kControlFont = 14, kControlLineH = kControlFont + 6;
+	static constexpr int kGridY = 132, kColGap = 14, kRowH = 30;
+	static constexpr int kStoryY = 302, kStoryLines = 5, kLineH = 19;
+	static constexpr int kControlY = 232, kControlTextY = 260;
+	static constexpr int kControlFont = 12;
 
 	AboutBody(std::vector<Fact> facts, std::vector<Control> controls, std::string rating, std::string ratingSystem,
 		const skin::Tex& ratingMark, const std::string& story)
 		: facts(std::move(facts)), controls(std::move(controls)), rating(std::move(rating)),
-		  ratingSystem(std::move(ratingSystem)), ratingMark(ratingMark)
+		  ratingSystem(std::move(ratingSystem)), ratingMark(ratingMark), page(WidePageBounds())
 	{
+		gridX = page.left + 132;
+		columnWidth = (page.right - gridX - kColGap) / 2;
+		storyWidth = page.Width() - 48;
 		width = screenwidth;
 		height = screenheight;
 		for (const Fact& f : this->facts) {
 			std::string upper = f.name;
 			for (char& ch : upper)
 				if (ch >= 'a' && ch <= 'z') ch = static_cast<char>(ch - 'a' + 'A');
-			names.emplace_back(new GuiText(upper.c_str(), 12, skin::kInkDim));
-			values.emplace_back(new GuiText(f.value.c_str(), 16, skin::kInk));
-			values.back()->SetMaxWidth(kColW - 4);
+			names.emplace_back(new GuiText(upper.c_str(), 11, skin::kInkDim));
+			values.emplace_back(new GuiText(f.value.c_str(), 15, skin::kInk));
+			values.back()->SetMaxWidth(columnWidth - 4);
 		}
 		playsWith.reset(new GuiText(Upper(tr("Plays with")).c_str(), 12, skin::kInkDim));
 		storyHead.reset(new GuiText(Upper(tr("Story")).c_str(), 12, skin::kInkDim));
 		ratingTxt.reset(new GuiText(this->rating.c_str(), 26, skin::kInk));
 		systemTxt.reset(new GuiText(this->ratingSystem.c_str(), 11, skin::kInkSoft));
-		// Names use the full width below the cover, with no shortened names
-		// or ellipsis. Measure the translated text in the active menu font.
+		// Controller names stay in the fixed area at the right. Long lists
+		// join the scrollable story instead of pushing it into the bar.
 		const auto joined = [&](bool required) {
 			std::string out;
 			for (const Control& c : this->controls)
@@ -13437,7 +13670,7 @@ public:
 		if (!also.empty()) controlBlocks.push_back(tr("Also works with: {1}", {also}));
 		for (const std::string& block : controlBlocks) {
 			// Even one character per row fits this limit, so no names are cut.
-			for (const std::string& line : ChunksFitting(block, kControlTextW, kControlFont, block.size())) {
+			for (const std::string& line : ChunksFitting(block, page.right - gridX, kControlFont, block.size())) {
 				controlNames.emplace_back(new GuiText(line.c_str(), kControlFont, skin::kInk));
 				controlNames.back()->SetParent(this);
 			}
@@ -13445,13 +13678,12 @@ public:
 		scrollHint.reset(new GuiText(tr("Up and Down scroll the story"), 12, skin::kInkDim));
 		scrollHint->SetParent(this);
 		WrapStory(story);
-		compactControls = controlNames.size() >= 4;
 		// Unusual controller names or a wider user font can need more room.
 		// Let the same read-only scroll area show every name before the story.
-		if (controlNames.size() > 4) {
+		if (controlNames.size() > 1) {
 			std::vector<std::string> details;
 			for (const std::string& block : controlBlocks) {
-				const auto wrapped = ChunksFitting(block, kStoryW, 15, block.size());
+				const auto wrapped = ChunksFitting(block, storyWidth, 15, block.size());
 				details.insert(details.end(), wrapped.begin(), wrapped.end());
 			}
 			if (!lines.empty()) {
@@ -13462,7 +13694,9 @@ public:
 			details.insert(details.end(), lines.begin(), lines.end());
 			lines = std::move(details);
 			controlNames.clear();
-			storyHead->SetText(Upper(tr("Plays with")).c_str());
+			// The box starts with the controllers' names, then the story:
+			// its heading says both, not "Plays with" again under the icons.
+			storyHead->SetText(Upper(tr("Controllers and story")).c_str());
 			scrollHint->SetText(tr("Up and Down scroll"));
 		}
 		for (int i = 0; i < kStoryLines; ++i) shown.emplace_back(new GuiText("", 15, skin::kInkSoft));
@@ -13482,56 +13716,42 @@ public:
 		const int alpha = GetAlpha();
 		// The facts, two to a row.
 		for (std::size_t i = 0; i < facts.size(); ++i) {
-			const int x = kGridX + static_cast<int>(i % 2) * (kColW + kColGap);
+			const int x = gridX + static_cast<int>(i % 2) * (columnWidth + kColGap);
 			const int y = kGridY + static_cast<int>(i / 2) * kRowH;
 			Place(*names[i], x, y);
 			names[i]->Draw();
-			Place(*values[i], x, y + 14);
+			Place(*values[i], x, y + 12);
 			values[i]->Draw();
 		}
 		// The controllers: needed ones first, at full strength; the ones
 		// that also work, fainter; a dot under each one that is connected.
-		const int rows = static_cast<int>((facts.size() + 1) / 2);
-		const int cy = kGridY + rows * kRowH + 4;
-		iconScale = compactControls ? 0.55f : 0.95f;
-		iconY = compactControls ? cy : cy + 18;
-		iconStart = compactControls ? kGridX + playsWith->GetTextWidth() + 12 : kGridX;
-		const int iconWidth = static_cast<int>(40 * iconScale);
-		iconStep = 46;
+		iconStart = gridX + playsWith->GetTextWidth() + 12;
+		iconStep = 40;
 		if (controls.size() > 1) {
-			const int availableWidth = kTilesRight - iconStart - iconWidth;
 			const int gaps = static_cast<int>(controls.size() - 1);
-			iconStep = std::min(iconStep, availableWidth / gaps);
+			iconStep = std::min(iconStep, (page.right - iconStart - 22) / gaps);
 		}
-		int controlBottom = 0;
 		if (!controls.empty()) {
-			Place(*playsWith, kGridX, cy);
+			Place(*playsWith, gridX, kControlY);
 			playsWith->Draw();
 			for (std::size_t i = 0; i < controls.size(); ++i) {
-				const Control& c = controls[i];
-				const float x = static_cast<float>(IconX(static_cast<int>(i)));
-				const int a = c.required ? alpha : alpha * 120 / 255;
-				// No lift on hover: the icons are read, not pressed, and the
-				// pointer's box must stay where the icon is drawn.
-				DrawScaledFromCorner(skin::ControlIcon(c.type), x, iconY, a, iconScale);
-				if (c.connected)
-					Menu_DrawRectangle(x + 40 * iconScale / 2 - 2, iconY + 40 * iconScale + 2, 4, 4,
+				const Control& control = controls[i];
+				const int x = IconX(static_cast<int>(i));
+				const int iconAlpha = control.required ? alpha : alpha * 120 / 255;
+				DrawScaledFromCorner(skin::ControlIcon(control.type), x, kControlY - 2, iconAlpha, kIconScale);
+				if (control.connected) {
+					Menu_DrawRectangle(x + 9, kControlY + 22, 4, 4,
 						skin::WithAlpha(skin::kAccent, alpha), 1);
+				}
 			}
-			// Six pixels after the connection dots and the cover, then six
-			// between text rows. Both one-group and two-group lists flow here.
-			controlBottom = static_cast<int>(iconY) + iconWidth + 6;
-			int textY = std::max(kHeroY + kHeroH + 6, controlBottom + 6);
-			for (auto& name : controlNames) {
-				Place(*name, kStoryX, textY);
-				name->Draw();
-				controlBottom = textY + kControlFont;
-				textY += kControlLineH;
+			if (!controlNames.empty()) {
+				Place(*controlNames.front(), gridX, kControlTextY);
+				controlNames.front()->Draw();
 			}
 		}
 		// The age rating: a badge in the band's top right corner.
 		if (HasRating()) {
-			const float bx = 548, by = 32, bw = 52, bh = 62;
+			const float bx = page.right - 52, by = 32, bw = 52, bh = 62;
 			skin::DrawNine(skin::card9, bx - 8, by - 8, bw + 16, bh + 16, riftwii::kCardCorner, alpha);
 			if (ratingMark.data) {
 				// The mark (64 high at most), centred on the card.
@@ -13549,30 +13769,28 @@ public:
 		}
 		// The story, a window of it at a time.
 		if (!lines.empty()) {
-			// Heading: 12 pixels high, with six pixels on either side. Keep
-			// the last 15-point story row six pixels above the prompts.
-			storyY = std::max(kStoryY, controlBottom + 6 + 12 + 6);
-			const int storyBottom = std::min(418, GuiPrompts::CardTop()) - 6;
-			storyLines = std::min(kStoryLines, 1 + (storyBottom - storyY - 15) / kLineH);
-			first = std::min(first, std::max(0, static_cast<int>(lines.size()) - storyLines));
-			Place(*storyHead, kStoryX, storyY - 18);
+			// Five fixed rows end at 402, with room for descenders and an
+			// eight-pixel gap before the controls band. Metadata never moves it.
+			Place(*storyHead, page.left, kStoryY - 18);
 			storyHead->Draw();
 			if (Scrolls() && scrollHint) {
-				Place(*scrollHint, kStoryX + storyHead->GetTextWidth() + 12, storyY - 18);
+				Place(*scrollHint, page.left + storyHead->GetTextWidth() + 12, kStoryY - 18);
 				scrollHint->Draw();
 			}
-			for (int i = 0; i < storyLines; ++i) {
+			Menu_Scissor(page.left, kStoryY - 4, storyWidth, 104);
+			for (int i = 0; i < kStoryLines; ++i) {
 				const std::size_t at = static_cast<std::size_t>(first + i);
 				shown[i]->SetText(at < lines.size() ? lines[at].c_str() : "");
-				Place(*shown[i], kStoryX, storyY + i * kLineH);
+				Place(*shown[i], page.left, kStoryY + i * kLineH);
 				shown[i]->Draw();
 			}
+			GX_SetScissor(0, 0, Menu_XfbWidth(), Menu_EfbHeight());
 			if (Scrolls()) {
-				if (first > 0) DrawScaledFromCorner(overUp ? skin::scrollUpOver : skin::scrollUp,
-					ArrowX(true), ArrowY(true), alpha, ArrowScale());
-				if (first + storyLines < static_cast<int>(lines.size()))
-					DrawScaledFromCorner(overDown ? skin::scrollDownOver : skin::scrollDown,
-						ArrowX(false), ArrowY(false), alpha, ArrowScale());
+				DrawScaledFromCorner(overUp ? skin::scrollUpOver : skin::scrollUp,
+					ArrowX(), ArrowY(true), first > 0 ? alpha : alpha / 3, kArrowScale);
+				const bool more = first + kStoryLines < static_cast<int>(lines.size());
+				DrawScaledFromCorner(overDown ? skin::scrollDownOver : skin::scrollDown,
+					ArrowX(), ArrowY(false), more ? alpha : alpha / 3, kArrowScale);
 			}
 		}
 	}
@@ -13580,7 +13798,7 @@ public:
 	void Update(GuiTrigger* t) override
 	{
 		if (!t) return;
-		const int most = std::max(0, static_cast<int>(lines.size()) - storyLines);
+		const int most = std::max(0, static_cast<int>(lines.size()) - kStoryLines);
 		if (t->Down() && first < most) ++first;
 		if (t->Up() && first > 0) --first;
 		if (!t->wpad || !t->wpad->ir.valid) {
@@ -13591,10 +13809,10 @@ public:
 		hoverControl = -1;
 		for (int i = 0; i < static_cast<int>(controls.size()); ++i) {
 			const int x = IconX(i);
-			if (px >= x && px < x + 40 * iconScale && py >= iconY && py < iconY + 40 * iconScale) hoverControl = i;
+			if (px >= x && px < x + 40 * kIconScale && py >= kControlY - 2 && py < kControlY - 2 + 40 * kIconScale) hoverControl = i;
 		}
 		overUp = first > 0 && OverArrow(px, py, true);
-		overDown = first + storyLines < static_cast<int>(lines.size()) && OverArrow(px, py, false);
+		overDown = first + kStoryLines < static_cast<int>(lines.size()) && OverArrow(px, py, false);
 		if (t->wpad->btns_d & (WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A)) {
 			if (overUp && first > 0) --first;
 			if (overDown && first < most) ++first;
@@ -13602,21 +13820,12 @@ public:
 	}
 
 private:
-	static constexpr int kArrowX = 572;
-	// With one or two story rows the full-size arrows would overlap.
-	float ArrowScale() const { return storyLines <= 2 ? 0.5f : 1.0f; }
-	int ArrowX(bool up) const {
-		if (storyLines <= 2) return up ? kArrowX - 6 : kArrowX + 17;
-		return kArrowX - 4;
-	}
-	int ArrowY(bool up) const {
-		if (storyLines <= 2) return storyY - 2;
-		return up ? storyY - 6 : storyY + storyLines * kLineH - 30;
-	}
+	static constexpr float kIconScale = 0.55f, kArrowScale = 0.8f;
+	int ArrowX() const { return page.right - 30; }
+	static int ArrowY(bool up) { return up ? 306 : 364; }
 	bool OverArrow(int x, int y, bool up) const {
-		const skin::Tex& arrow = up ? skin::scrollUp : skin::scrollDown;
-		return Scrolls() && x >= ArrowX(up) && x < ArrowX(up) + arrow.w * ArrowScale() &&
-			y >= ArrowY(up) && y < ArrowY(up) + arrow.h * ArrowScale();
+		return Scrolls() && x >= ArrowX() && x < ArrowX() + 28 &&
+			y >= ArrowY(up) && y < ArrowY(up) + 28;
 	}
 	static std::string Upper(std::string text)
 	{
@@ -13625,29 +13834,11 @@ private:
 		return text;
 	}
 	int IconX(int i) const { return iconStart + i * iconStep; }
-	bool Scrolls() const { return static_cast<int>(lines.size()) > storyLines; }
-	// The story in lines as wide as the column, measured in the menu's
-	// font, a word at a time.
+	bool Scrolls() const { return static_cast<int>(lines.size()) > kStoryLines; }
+	// Measure in the active menu font, including text without spaces.
 	void WrapStory(const std::string& text)
 	{
-		GuiText measure("", 15, skin::kInkSoft);
-		std::string line;
-		std::size_t i = 0;
-		while (i < text.size()) {
-			std::size_t j = text.find(' ', i);
-			if (j == std::string::npos) j = text.size();
-			const std::string word = text.substr(i, j - i);
-			const std::string tryLine = line.empty() ? word : line + " " + word;
-			measure.SetText(tryLine.c_str());
-			if (!line.empty() && measure.GetTextWidth() > kStoryW) {
-				lines.push_back(line);
-				line = word;
-			} else {
-				line = tryLine;
-			}
-			i = j + 1;
-		}
-		if (!line.empty()) lines.push_back(line);
+		lines = ChunksFitting(text, storyWidth, 15, text.size());
 	}
 
 	std::vector<Fact> facts;
@@ -13657,14 +13848,12 @@ private:
 	std::vector<std::unique_ptr<GuiText>> names, values, shown, controlNames;
 	std::unique_ptr<GuiText> playsWith, storyHead, ratingTxt, systemTxt;
 	std::unique_ptr<GuiText> scrollHint;
-	bool compactControls = false;
-	int iconStart = kGridX, iconStep = 46;
-	float iconScale = 0.95f;
-	int storyY = kStoryY, storyLines = kStoryLines;
+	PageBounds page;
+	int gridX = 0, columnWidth = 0, storyWidth = 0;
+	int iconStart = 0, iconStep = 40;
 	std::vector<std::string> lines;
 	int first = 0;
 	int hoverControl = -1;
-	float iconY = 0;
 	bool overUp = false, overDown = false;
 };
 
@@ -13722,9 +13911,12 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 		}
 	}
 
+	const PageBounds page = WidePageBounds();
+	const int titleX = page.left + 132;
 	const bool fromDisc = !state.use_usb && !state.use_sd && !state.use_channel;
 	GameBanner banner(skin::HueFor(state.game_id), state.game_id, fromDisc, PageCoverName(state));
 	HeroCover hero(state.game_id, PageCoverName(state), fromDisc, skin::HueFor(state.game_id), state.use_channel);
+	hero.MoveTo(page.left, kHeroY, 0.78f);
 	const skin::Tex& ratingMark = riftwii::wii::RatingBadge(info.rating_system, info.rating);
 	AboutBody body(facts, controls, info.rating, info.rating_system, ratingMark,
 		riftwii::plain_punctuation(info.synopsis));
@@ -13732,16 +13924,17 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 	std::string overline = tr("About this game");
 	for (char& ch : overline)
 		if (ch >= 'a' && ch <= 'z') ch = static_cast<char>(ch - 'a' + 'A');
-	GuiText whereTxt(overline.c_str(), 13, (GXColor){225, 228, 235, 255});
+	// 16 points: at 13 a composite cable blurred its strokes together.
+	GuiText whereTxt(overline.c_str(), 16, (GXColor){225, 228, 235, 255});
 	const std::string title = GameOwnTitle(state);
 	hero.SetMadeUpName(title, riftwii::emulator_cover_id(state.game_id) ? std::string() : state.game_id);
-	const int titleRoom = kTilesW - (body.HasRating() ? 70 : 0);
+	const int titleRoom = page.right - titleX - (body.HasRating() ? 70 : 0);
 	GuiText titleTxt(title.c_str(), 28, skin::kWhite);
 	int titleSize = 28;
 	while (titleSize > 20 && titleTxt.GetTextWidth() > titleRoom) titleTxt.SetFontSize(--titleSize);
 	if (titleTxt.GetTextWidth() > titleRoom) titleTxt.SetWrap(true, titleRoom, 2);
-	OutlinedText whereOutlined(whereTxt, kTilesX + 1, 34, (GXColor){225, 228, 235, 255}, 1, 1);
-	OutlinedText titleOutlined(titleTxt, kTilesX, 52, skin::kWhite, 2, 2);
+	OutlinedText whereOutlined(whereTxt, titleX + 1, 30, (GXColor){225, 228, 235, 255}, 1, 1);
+	OutlinedText titleOutlined(titleTxt, titleX, 52, skin::kWhite, 2, 2);
 
 	// The line at the foot: where the details come from, or the control
 	// the pointer is on.
@@ -13754,7 +13947,7 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 		sourceLine = tr("Game details of {1}", {date}) + " \xC2\xB7 GameTDB";
 	}
 	GuiText footTxt(sourceLine.c_str(), 14, skin::kInkDim);
-	Place(footTxt, 40, 428);
+	Place(footTxt, page.left, 424);
 	footTxt.SetMaxWidth(300);
 
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
@@ -13762,8 +13955,10 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 	HideButton(backBtn);
 	GuiPrompts prompts;
 	const int promptBack = prompts.Add("B", tr("Back"));
+	prompts.SetRightEdge(page.right);
 	const bool online = riftwii::wii::Settings().online;
 	const int promptUpdate = online ? prompts.Add("-", tr("Update")) : -1;
+	footTxt.SetMaxWidth(std::max(60, prompts.LeftEdge() - page.left - 16));
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
@@ -15330,6 +15525,10 @@ enum class GameTile { Play, Mods, Cheats, Saves, Favorite, Options, About, Cover
 static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& tiles, std::vector<GameTile>& what,
 	bool disc = false)
 {
+	const PageBounds page = WidePageBounds();
+	const int heroX = page.left;
+	const int tilesX = heroX + kHeroW + 12;
+	const int tilesWidth = page.right - tilesX;
 	tiles.clear();
 	what.clear();
 	const auto add = [&](GameTile kind, int x, int y, int w, int h, const std::string& label, const std::string& value,
@@ -15344,17 +15543,19 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 		t.icon = icon;
 		t.on = on;
 		t.primary = kind == GameTile::Play;
+		t.opensPage = kind == GameTile::Mods || kind == GameTile::Cheats || kind == GameTile::Saves ||
+			kind == GameTile::Options || kind == GameTile::About;
 		tiles.push_back(t);
 		what.push_back(kind);
 	};
 	const auto addCover = [&] {
 		if (state.game_id.empty()) return;
-		add(GameTile::Cover, kHeroX, kHeroY, kHeroW, kHeroH, "", "", nullptr, false);
+		add(GameTile::Cover, heroX, kHeroY, kHeroW, kHeroH, "", "", nullptr, false);
 		tiles.back().hidden = true;
 		// The disc under the box (drawn by HeroCover): A on it shows it
 		// up close.
 		if (disc) {
-			add(GameTile::Disc, kHeroX, kHeroDiscY, kHeroDiscSize, kHeroDiscSize, "", "", nullptr, false);
+			add(GameTile::Disc, heroX, kHeroDiscY, kHeroDiscSize, kHeroDiscSize, "", "", nullptr, false);
 			tiles.back().hidden = true;
 		}
 	};
@@ -15391,46 +15592,48 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 	}
 
 	// The lower rows: two tiles across the tiles' width, 12 apart.
-	constexpr int kHalfW = (kTilesW - 12) / 2, kRightX = kTilesRight - kHalfW;
+	const int halfWidth = (tilesWidth - 12) / 2;
+	const int rightX = page.right - halfWidth;
 	if (state.use_channel) {
 		// A WiiWare or Virtual Console game: no packs are made for them,
 		// and its saves stay where the Wii keeps them. Play across the
 		// row, the cheats and the game's settings under it.
-		add(GameTile::Play, kTilesX, 132, kTilesRight - kTilesX, 84, tr("Play"), "", &skin::iconPlay, false);
-		add(GameTile::Cheats, kTilesX, 228, kHalfW, 70, tr("Cheats"), cheats, &skin::iconCheats,
+		add(GameTile::Play, tilesX, kTilesTop, page.right - tilesX, 84, tr("Play"), "", &skin::iconPlay, false);
+		add(GameTile::Cheats, tilesX, 228, halfWidth, 58, tr("Cheats"), cheats, &skin::iconCheats,
 			game.cheats && !game.cheat_names.empty());
-		add(GameTile::Saves, kRightX, 228, kHalfW, 70, tr("Boot"), ChannelBootLabel(game.nand_source),
+		add(GameTile::Saves, rightX, 228, halfWidth, 58, tr("Boot"), ChannelBootLabel(game.nand_source),
 			&skin::iconSaves, game.nand_source != "auto");
-		add(GameTile::Options, kTilesX, 310, kHalfW, 70, tr("Options"),
+		add(GameTile::Options, tilesX, kFavoriteY, halfWidth, kFavoriteH, tr("Options"),
 			changed == 0 ? tr("Default") : tr("{1} changed", {std::to_string(changed)}), &skin::iconGear, changed != 0);
-		add(GameTile::Favorite, kHeroX, 310, kHeroW, 70, tr("Favourite"), favorite ? tr("On") : tr("Off"),
+		add(GameTile::Favorite, heroX, kFavoriteY, kHeroW, kFavoriteH, tr("Favourite"), favorite ? tr("On") : tr("Off"),
 			favorite ? &skin::iconStarOn : &skin::iconStar, favorite);
-		add(GameTile::About, kRightX, 310, kHalfW, 70, tr("Manage game"), "", &skin::iconGear, false);
+		add(GameTile::About, rightX, kFavoriteY, halfWidth, kFavoriteH, tr("Manage game"), "", &skin::iconGear, false);
 		addCover();
 		return;
 	}
-	add(GameTile::Play, kTilesX, 132, 252, 84, play, playValue, &skin::iconPlay, false);
+	const int playWidth = 252 + (tilesWidth - kTilesW) / 2;
+	add(GameTile::Play, tilesX, kTilesTop, playWidth, 84, play, playValue, &skin::iconPlay, false);
 	// "On" alone: the tile is narrow ("1 switched on" was cut to "1 switc..."),
 	// and Play beside it says how many.
-	add(GameTile::Mods, kTilesX + 264, 132, kTilesRight - kTilesX - 264, 84, tr("Mods"),
+	add(GameTile::Mods, tilesX + playWidth + 12, kTilesTop, tilesWidth - playWidth - 12, 84, tr("Mods"),
 		shown == 0 ? tr("None") : enabled == 0 ? tr("Off") : tr("On"),
 		&skin::iconMods, enabled != 0);
-	add(GameTile::Cheats, kTilesX, 228, kHalfW, 70, tr("Cheats"), cheats, &skin::iconCheats,
+	add(GameTile::Cheats, tilesX, 228, halfWidth, 58, tr("Cheats"), cheats, &skin::iconCheats,
 		game.cheats && !game.cheat_names.empty());
-	add(GameTile::Saves, kRightX, 228, kHalfW, 70, tr("Saves"), saves, &skin::iconSaves,
+	add(GameTile::Saves, rightX, 228, halfWidth, 58, tr("Saves"), saves, &skin::iconSaves,
 		!gamecube && (!CtgprSaveFolder(state).empty() || riftwii::wii::EffectiveSaveMode(state) != "nand"));
 	// A full card is a warning, in the theme's colour for one.
 	tiles.back().warn = cardFull;
 	if (disc) {
-		add(GameTile::Favorite, kStarX, kFavoriteY, kStarW, kFavoriteH, "", "",
+		add(GameTile::Favorite, heroX + kHeroDiscSize + 8, kFavoriteY, kStarW, kFavoriteH, "", "",
 			favorite ? &skin::iconStarOn : &skin::iconStar, favorite);
 	} else {
-		add(GameTile::Favorite, kHeroX, kFavoriteY, kHeroW, kFavoriteH, tr("Favourite"), favorite ? tr("On") : tr("Off"),
+		add(GameTile::Favorite, heroX, kFavoriteY, kHeroW, kFavoriteH, tr("Favourite"), favorite ? tr("On") : tr("Off"),
 			favorite ? &skin::iconStarOn : &skin::iconStar, favorite);
 	}
-	add(GameTile::Options, kTilesX, 310, kHalfW, 70, tr("Options"),
+	add(GameTile::Options, tilesX, kFavoriteY, halfWidth, kFavoriteH, tr("Options"),
 		changed == 0 ? tr("Default") : tr("{1} changed", {std::to_string(changed)}), &skin::iconGear, changed != 0);
-	add(GameTile::About, kRightX, 310, kHalfW, 70, tr("Manage game"), "", &skin::iconGear, false);
+	add(GameTile::About, rightX, kFavoriteY, halfWidth, kFavoriteH, tr("Manage game"), "", &skin::iconGear, false);
 	addCover();
 }
 
@@ -16010,7 +16213,7 @@ static bool MenuManageGame(FrontendState& state)
 		}
 		build();
 		return false;
-	});
+	}, true);
 }
 
 static int MenuHome(FrontendState& state)
@@ -16063,9 +16266,13 @@ static int MenuHome(FrontendState& state)
 	// A console's game page: the game's box on the left, over the band's
 	// edge; its name and a line of facts in the band; tiles to the right,
 	// Play first and largest. All inside a TV's overscan.
+	const PageBounds page = WidePageBounds();
+	const int tilesX = page.left + kHeroW + 12;
+	const int tilesWidth = page.right - tilesX;
 	const bool fromDisc = !state.use_usb && !state.use_sd && !state.use_channel;
 	GameBanner banner(skin::HueFor(state.game_id), state.game_id, fromDisc, PageCoverName(state));
 	HeroCover hero(state.game_id, PageCoverName(state), fromDisc, skin::HueFor(state.game_id), state.use_channel);
+	hero.MoveTo(page.left, kHeroY, 1.0f);
 	if (discArt.data) hero.SetDisc(&discArt);
 	// The band's text, as a store page heads a game: where it is as a small
 	// capital overline, the name large (as large as fits on one line, two
@@ -16076,9 +16283,11 @@ static int MenuHome(FrontendState& state)
 		if (ch >= 'a' && ch <= 'z') ch = static_cast<char>(ch - 'a' + 'A');
 	// Centred in the band (y 24, the overscan's edge, to 120), the facts
 	// ending some 16 above its lower edge.
-	constexpr int kWhereY = 30;
+	// The overline and the facts as large as fit: at 13 and 15 points a
+	// composite cable blurred their strokes together (under 2:1).
+	constexpr int kWhereY = 27;
 	const GXColor kWhereInk = {225, 228, 235, 255}, kFactsInk = {235, 237, 242, 255};
-	GuiText whereTxt(where.c_str(), 13, kWhereInk);
+	GuiText whereTxt(where.c_str(), 16, kWhereInk);
 	const std::string title = GameTitle(state);
 	hero.SetMadeUpName(title, riftwii::emulator_cover_id(state.game_id) ? std::string() : state.game_id);
 	GuiText titleTxt(title.c_str(), 28, skin::kWhite);
@@ -16086,12 +16295,12 @@ static int MenuHome(FrontendState& state)
 		titleTxt.SetWrap(false);
 		titleTxt.SetFontSize(28);
 		int titleSize = 28;
-		while (titleSize > 22 && titleTxt.GetTextWidth() > kTilesW) titleTxt.SetFontSize(--titleSize);
+		while (titleSize > 22 && titleTxt.GetTextWidth() > tilesWidth) titleTxt.SetFontSize(--titleSize);
 		// A long name gets two smaller lines and moves the facts below it.
-		const bool wraps = titleTxt.GetTextWidth() > kTilesW;
+		const bool wraps = titleTxt.GetTextWidth() > tilesWidth;
 		if (wraps) {
 			titleTxt.SetFontSize(19);
-			titleTxt.SetWrap(true, kTilesW, 2);
+			titleTxt.SetWrap(true, tilesWidth, 2);
 		}
 		return wraps;
 	};
@@ -16100,17 +16309,17 @@ static int MenuHome(FrontendState& state)
 	g_gamePageTiming.Step("building the banner text");
 	const std::string facts = GameFacts(state);
 	g_gamePageTiming.Step("checking cached game information");
-	GuiText factsTxt(facts.c_str(), 15, kFactsInk);
-	factsTxt.SetMaxWidth(kTilesW);
-	OutlinedText whereOutlined(whereTxt, kTilesX + 1, kWhereY, kWhereInk, 1, 1);
-	OutlinedText titleOutlined(titleTxt, kTilesX, titleY, skin::kWhite, 2, 2);
-	OutlinedText factsOutlined(factsTxt, kTilesX, factsY, kFactsInk, 1, 1);
+	GuiText factsTxt(facts.c_str(), 17, kFactsInk);
+	OutlinedText whereOutlined(whereTxt, tilesX + 1, kWhereY, kWhereInk, 1, 1);
+	OutlinedText titleOutlined(titleTxt, tilesX, titleY, skin::kWhite, 2, 2);
+	OutlinedText factsOutlined(factsTxt, tilesX, factsY, kFactsInk, 1, 1);
+	factsOutlined.SetMarquee(tilesWidth);
 
 	const auto refreshTitle = [&] {
 		titleTxt.SetText(GameTitle(state).c_str());
 		const bool wraps = sizeTitle();
-		titleOutlined.MoveTo(kTilesX, wraps ? 44 : 48);
-		factsOutlined.MoveTo(kTilesX, wraps ? 92 : 86);
+		titleOutlined.MoveTo(tilesX, wraps ? 44 : 48);
+		factsOutlined.MoveTo(tilesX, wraps ? 92 : 86);
 	};
 
 	if (riftwii::wii::g_gxWatch) logf("Game page: texts made\n");
@@ -16136,7 +16345,8 @@ static int MenuHome(FrontendState& state)
 	GuiPrompts prompts;
 	// B first: Back at the right end, as on every other page, then Select.
 	const int promptBack = prompts.Add("B", tr("Back"));
-	prompts.Add("A", tr("Select"));
+	prompts.Add("A", tr("Select"), false);
+	prompts.SetRightEdge(page.right);
 	// The same words as the Play tile: Build and play while the game is still
 	// to be made from its patch (rebuildTiles keeps it so).
 	const int promptPlay = prompts.Add("+", SelectedGcPatch(state) ? tr("Build and play") : tr("Play"));
@@ -16146,9 +16356,12 @@ static int MenuHome(FrontendState& state)
 	SkinButton reportBtn(skin::pill, skin::pillOver, 4, 0, 0, nullptr,
 		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X);
 	HideButton(reportBtn);
-	// Two lines over the prompts: a cIOS remedy or a compile error must
-	// stay readable in full. The second line is cut short of the prompts.
-	PromptsNote statusTxt(prompts, 40, 392, 568, 2, 15, skin::kInkSoft);
+	// Both help lines fit above the controls band, even at 4:3. Longer
+	// errors and translated help scroll through this same two-line area.
+	GuiText statusTxt("", 15, skin::kInkSoft);
+	Place(statusTxt, page.left, 366);
+	statusTxt.SetWrap(true, page.Width(), 2);
+	statusTxt.SetScroll(SCROLL::VERTICAL);
 	// Dump (a development aid) has no button: the Wii Remote's 2 or a
 	// GameCube pad's Z.
 	GuiTrigger trigDump;
@@ -16202,7 +16415,7 @@ static int MenuHome(FrontendState& state)
 	// GUI draws, set with the GUI halted, as the GUI thread reads the text.
 	const std::string modsNote = ModsNote(state, scanStatus);
 	HaltGui();
-	statusTxt.SetText(modsNote);
+	statusTxt.SetText(modsNote.c_str());
 	ResumeGui();
 	// Settings > Banner music on game pages: the game's banner sound, as
 	// the Channels view's banner screen plays it, for a page opened from
@@ -16273,7 +16486,7 @@ static int MenuHome(FrontendState& state)
 	std::string boxStartName = pageBoxWanted();
 	bool boxStart = !boxStartName.empty();
 
-	const auto say = [&](const std::string& text) { statusTxt.SetText(text); };
+	const auto say = [&](const std::string& text) { statusTxt.SetText(text.c_str()); };
 	// After About or Mods the tile may match another GameTDB entry: its own
 	// cover is asked for as at page entry, when no fetch is waiting.
 	const auto askTileCover = [&](const std::string& tileCover) {
@@ -16369,6 +16582,7 @@ static int MenuHome(FrontendState& state)
 		tileGrid.Refresh();
 		lightHero();
 		factsTxt.SetText(GameFacts(state).c_str());
+		factsOutlined.ResetMarquee();
 		prompts.SetAction(promptPlay, SelectedGcPatch(state) ? tr("Build and play") : tr("Play"));
 	};
 	bool discStart = discArtOn && !hero.HasDisc() && riftwii::wii::Settings().online && !riftwii::wii::NetFailed() &&
@@ -18290,6 +18504,31 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 }
 
 // ---------------------------------------------------------------------------
+// Rift Store (Settings > Online): the app store, which is the appstore
+// plugin's own screen (docs/APPSTORE.md), so the DOL carries none of its
+// pages. Called and returns with the GUI running; true when apps were
+// installed or removed.
+static bool MenuAppStore()
+{
+	rwp_appstore_request request;
+	std::memset(&request, 0, sizeof(request));
+	request.size = sizeof(request);
+	request.console = riftwii::wii::is_wii_u() ? RWP_CONSOLE_VWII : RWP_CONSOLE_WII;
+	std::string message;
+	const int32_t result = riftwii::wii::plugin::Launch("appstore", &request, sizeof(request), message);
+	// Its code and memory go back as soon as it is closed.
+	riftwii::wii::plugin::ShutdownAll("the app store closed");
+	if (result == RWP_LAUNCH_DONE) return request.changed != 0;
+	if (message.empty())
+		message = request.error[0] ? tr("The Rift Store could not open: {1}", {request.error}) : tr("The Rift Store could not open.");
+	logf("App store: %s\n", request.error[0] ? request.error : "it could not open");
+	HaltGui();
+	ShowPopup(tr("Rift Store"), message, tr("OK"));
+	ResumeGui();
+	return false;
+}
+
+// ---------------------------------------------------------------------------
 // My RiiTag (Settings > Online): the player's tag, the picture
 // riitag.t0g3pii.de draws for riitag_id in settings.txt, downloaded each
 // visit (wii/menu/riitagview.hpp). A downloads it again.
@@ -18605,7 +18844,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kEmuNandManager, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kLaunchLog, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kSteamGridKey, kSteamGridClear, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kNintendontImport, kUsbInput, kGcCard, kGcBackups, kLeaveButtons, kDiscLight, kNintendontSaves, kParental, kSdGames, kGameFolders, kIos, kNet, kResync, kWads, kDiscCopy,
+	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kEmuNandManager, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kLaunchLog, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kSteamGridKey, kSteamGridClear, kNetTest, kNames, kRiiTag, kAppStore, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kNintendontImport, kUsbInput, kGcCard, kGcBackups, kLeaveButtons, kDiscLight, kNintendontSaves, kParental, kSdGames, kGameFolders, kIos, kNet, kResync, kWads, kDiscCopy,
 		kMissingCovers, kRescan, kPartitionFailures, kUpdate, kReport, kTests, kGeckoLog, kWiirdDebugger, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -18653,6 +18892,16 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		option(tr("Emulated NAND"), EmuNandFolderName(settings.emunand_folder), settings.emunand_folder != "gx",
 			kEmuNandFolder);
 		option(tr("Manage emulated NAND"), tr("Open"), false, kEmuNandManager, FlowRow::Kind::Action);
+		// WiiWare and Virtual Console games from .wad files, into the
+		// emulated NAND RiftWii lists channels from.
+		const std::size_t wadCount = riftwii::wii::list_wad_files().size();
+		FlowRow wads;
+		wads.kind = FlowRow::Kind::Action;
+		wads.label = tr("Install WAD files");
+		wads.value = wadCount == 0 ? tr("None") : tr("{1} found", {std::to_string(wadCount)});
+		wads.dim = wadCount == 0;
+		rows.push_back(wads);
+		actions.push_back(kWads);
 		option(tr("NAND keeps"), EmuNandKeepsName(settings.emunand_keeps), settings.emunand_keeps != "saves",
 			kEmuNandKeeps);
 		option(tr("Show non-game channels"), settings.nand_non_games ? tr("On") : tr("Off"),
@@ -18833,16 +19082,6 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		resync.value = "Resync";
 		rows.push_back(resync);
 		actions.push_back(kResync);
-		// WiiWare and Virtual Console games from .wad files, into the
-		// emulated NAND RiftWii lists channels from.
-		const std::size_t wadCount = riftwii::wii::list_wad_files().size();
-		FlowRow wads;
-		wads.kind = FlowRow::Kind::Action;
-		wads.label = tr("Install WAD files");
-		wads.value = wadCount == 0 ? tr("None") : tr("{1} found", {std::to_string(wadCount)});
-		wads.dim = wadCount == 0;
-		rows.push_back(wads);
-		actions.push_back(kWads);
 		// A Wii disc to a .wbfs file on the USB drive or the SD card.
 		FlowRow discCopy;
 		discCopy.kind = FlowRow::Kind::Action;
@@ -18864,6 +19103,13 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		option(tr("SteamGridDB key"), steamGridKey ? tr("Ends in {1}", {steamGridSuffix}) : tr("No API key"),
 			false, kSteamGridKey, FlowRow::Kind::Action);
 		option(tr("Clear SteamGridDB key"), tr("Clear"), false, kSteamGridClear, FlowRow::Kind::Action);
+		FlowRow apps;
+		apps.kind = FlowRow::Kind::Action;
+		apps.label = tr("Rift Store");
+		apps.value = tr("Browse");
+		apps.dim = !settings.online;
+		rows.push_back(apps);
+		actions.push_back(kAppStore);
 		FlowRow names;
 		names.kind = FlowRow::Kind::Action;
 		names.label = tr("Get the latest game names");
@@ -18971,7 +19217,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			switch (a) {
 				case kWidth: case kDeflicker: case kBorders: case kVideoMode: case kAspect:
 					return SettingsSection::Picture;
-				case kEmulators: case kGameLanguage: case kGameCios: case kWiiSaves: case kEmuNandFolder: case kEmuNandKeeps: case kEmuNandManager: case kNonGames: case kReturnTo: case kLeaveButtons: case kShots: case kGcCard: case kGcBackups: case kDiscLight: case kNintendontSaves:
+				case kEmulators: case kGameLanguage: case kGameCios: case kWiiSaves: case kEmuNandFolder: case kEmuNandKeeps: case kEmuNandManager: case kWads: case kNonGames: case kReturnTo: case kLeaveButtons: case kShots: case kGcCard: case kGcBackups: case kDiscLight: case kNintendontSaves:
 				case kParental:
 					return SettingsSection::Games;
 				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest: case kGcCalibrate: case kNintendontImport: case kUsbInput:
@@ -18984,9 +19230,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kPageBannerSound: case kDiscArt:
 				case kIos: case kNone:
 					return SettingsSection::Look;
-				case kOnline: case kEmulatorCovers: case kSteamGridCovers: case kSteamGridKey: case kSteamGridClear: case kNetTest: case kNames: case kRiiTag: case kMissingCovers: case kServer: case kUpdate:
+				case kOnline: case kEmulatorCovers: case kSteamGridCovers: case kSteamGridKey: case kSteamGridClear: case kNetTest: case kNames: case kRiiTag: case kAppStore: case kMissingCovers: case kServer: case kUpdate:
 					return SettingsSection::Online;
-				case kSdGames: case kGameFolders: case kRescan: case kPartitionFailures: case kNet: case kResync: case kWads: case kDiscCopy:
+				case kSdGames: case kGameFolders: case kRescan: case kPartitionFailures: case kNet: case kResync: case kDiscCopy:
 					return SettingsSection::Finding;
 				case kHeading:
 				case kExit:  // the hub's Leave RiftWii tile
@@ -19126,6 +19372,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kNames: return tr("Downloads the newest game names from GameTDB.");
 			case kNetTest: return tr("Checks if network is online.");
 			case kRiiTag: return RiiTagNote(settings);
+			case kAppStore: return settings.online ? tr("Homebrew apps from a list the RiftWii team checks, installed to sd:/apps. RiftWii hosts none of them: each comes from its maker's own release.")
+				: tr("Downloads are off. Turn on Settings > Online > Downloads first.");
 			case kMissingCovers: return tr("Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one.");
 			case kGcAdapter: return AdapterNote(settings.gc_adapter);
 			case kGcRumble: return tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports.");
@@ -19706,6 +19954,27 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						: tr("The menu restarts to show it when you leave Settings."));
 					break;
 				}
+				case kAppStore: {
+					if (!settings.online) {
+						note(tr("Downloads are off. Turn on Settings > Online > Downloads first."));
+						break;
+					}
+					// The scan reads the card and the network the store uses.
+					WaitForDriveScan(noteTxt);
+					transition::Hold(transition::Kind::SlideForward);
+					mainWindow->Remove(&w);
+					ResumeGui();
+					const bool changed = MenuAppStore();
+					HaltGui();
+					if (changed) {
+						// Home's Homebrew view reads sd:/apps again.
+						riftwii::wii::ForgetAppIcons();
+						riftwii::wii::RescanHomebrewApps();
+					}
+					transition::Hold(transition::Kind::SlideBack);
+					mainWindow->Append(&w);
+					break;
+				}
 				case kRiiTag: {
 					if (!settings.online || settings.riitag_id.empty()) {
 						note(RiiTagNote(settings));
@@ -20209,48 +20478,40 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	return menu;
 }
 
-// Settings: a tile for each section, with what it is set to now; A opens
-// the section's short list. `focus`: the tile lit, kept between visits.
+// Settings: a tile for each section; A opens the section's short list.
+// `focus`: the tile lit, kept between visits.
 // -1 when the player goes back to Home, kLeaveRiftWii to leave RiftWii.
 static constexpr int kLeaveRiftWii = -3;
-static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
+static int SettingsHub(int& focus, bool fromSection)
 {
 	const riftwii::LoaderSettings& settings = riftwii::wii::Settings();
-	std::string theme = settings.theme == "default" ? std::string(tr("Default")) : settings.theme;
-	if (settings.theme == riftwii::kTimeThemeFolder) theme = "Would You Look at the Time";
-	for (const riftwii::wii::ThemeEntry& t : riftwii::wii::ListMenuThemes())
-		if (t.folder == settings.theme) theme = t.name;
-	const std::size_t games = state.usb_catalog.games.size() + state.sd_catalog.games.size();
-	const std::string tiles = HomeTilesName(settings.home_tiles);
-
 	struct Section {
 		SettingsSection id;
 		const skin::Tex* icon;
-		std::string value;
 		const char* about;
 	};
 	const Section sections[] = {
-		{SettingsSection::Picture, &skin::iconPicture, VideoModeName(settings.video_mode),
-			"How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio."},
-		{SettingsSection::Games, &skin::iconPlay, GameLanguageName(settings.game_language),
-			"The language games are told the console uses, the cIOS they run under, where you go when you quit a game, and in-game screenshots."},
-		{SettingsSection::Controllers, &skin::iconControllers, "",
-			"The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes."},
-		{SettingsSection::HomeScreen, &skin::iconHome, tiles,
-			"How Home shows your games: covers, a shelf or channels, from which drive, in what order, play history and the clock."},
-		{SettingsSection::Look, &skin::iconSound, theme,
-			"The menu's language, theme, letters, size on the TV, sounds and music."},
-		{SettingsSection::Online, &skin::iconOnline, settings.online ? tr("Downloads on") : tr("Downloads off"),
-			"Downloads of game names, covers and cheats, the online server for games, and RiftWii's updates."},
-		{SettingsSection::Finding, &skin::iconDrives, tr("{1} games", {std::to_string(games)}),
-			"Reading the SD card and the USB drive again, and mods from a PC on the network (RiiFS)."},
-		{SettingsSection::More, &skin::iconHelp, RIFTWII_VERSION,
-			"Problem reports, what's new, the tutorial, the RiftWii channel, resetting the settings and the credits."},
+		{SettingsSection::Picture, &skin::iconPicture,
+			"Game picture: width, flicker filter, borders, video mode and aspect ratio."},
+		{SettingsSection::Games, &skin::iconPlay,
+			"Game language, saves, emulated NAND, quitting and screenshots."},
+		{SettingsSection::Controllers, &skin::iconControllers,
+			"USB controllers, button layouts and controller rumble."},
+		{SettingsSection::HomeScreen, &skin::iconHome,
+			"Home layout, game order, drives, play history and clock."},
+		{SettingsSection::Look, &skin::iconSound,
+			"Menu language, theme, font, screen size, sounds and music."},
+		{SettingsSection::Online, &skin::iconOnline,
+			"Downloads, game servers and RiftWii updates."},
+		{SettingsSection::Finding, &skin::iconDrives,
+			"Find games and network packs, or copy a game disc."},
+		{SettingsSection::More, &skin::iconHelp,
+			"Problem reports, what's new, help, the RiftWii channel and credits."},
 		// Not a section: the HOME Menu's ways out, as a tile of its own.
-		{SettingsSection::Count, &skin::iconPower, "",
-			riftwii::parental_rules(settings).exits == riftwii::ParentalExits::Hidden ? "Pick where to go: the Wii Menu, or power off."
-			: HomeRestartsConsole() ? "Pick where to go: the Homebrew Channel, the Wii Menu, a restart of the console, or power off."
-				: "Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off."},
+		{SettingsSection::Count, &skin::iconPower,
+			riftwii::parental_rules(settings).exits == riftwii::ParentalExits::Hidden ? "Wii Menu or power off."
+			: HomeRestartsConsole() ? "Homebrew Channel, Wii Menu, restart or power off."
+				: "Homebrew Channel, Wii Menu, Priiloader or power off."},
 	};
 	// Three across, three down, inside a TV's overscan.
 	std::vector<TileSpec> tilesSpec;
@@ -20262,8 +20523,8 @@ static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
 		t.w = kW;
 		t.h = kH;
 		t.label = sections[i].id == SettingsSection::Count ? std::string(tr("Exit")) : SectionName(sections[i].id);
-		t.value = sections[i].value;
 		t.icon = sections[i].icon;
+		t.opensPage = true;
 		tilesSpec.push_back(t);
 	}
 
@@ -20281,9 +20542,11 @@ static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
 	HideButton(backBtn);
 	GuiPrompts prompts;
 	const int promptBack = prompts.Add("B", tr("Back"));
-	prompts.Add("A", tr("Open"));
-	// Three lines; the third is cut short of the prompts.
-	PromptsNote noteTxt(prompts, 40, 360, 560, 3, 16, skin::kInkSoft);
+	prompts.Add("A", tr("Open"), false);
+	// Lines beside the same info icon as list pages, below the grid; the
+	// last is cut short of the prompts.
+	NoteCard noteCard(NoteCard::kX, 350);
+	PromptsNote noteTxt(prompts, NoteCard::kTextX, 360, NoteCard::kTextW, 3, 16, skin::kInkSoft);
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
@@ -20291,6 +20554,7 @@ static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
 	w.Append(&titleTxt);
 	w.Append(&versionTxt);
 	w.Append(&tileGrid);
+	w.Append(&noteCard);
 	w.Append(&noteTxt);
 	w.Append(&backBtn.button);
 	w.Append(&prompts);
@@ -20334,7 +20598,7 @@ static int MenuSettings(FrontendState& state)
 	static int focus = 0;
 	bool fromSection = false;
 	for (;;) {
-		const int picked = SettingsHub(state, focus, fromSection);
+		const int picked = SettingsHub(focus, fromSection);
 		if (picked == kLeaveRiftWii) return MENU_EXIT;
 		if (picked < 0) return MENU_SOURCE;
 		bool backToHub = false;
@@ -20618,8 +20882,15 @@ int MainMenu(int menu, FrontendState& state)
 	logf("Screen: %s\n", ScreenName(currentMenu));
 	// Leaving the menu from Settings while the drives were still being read
 	// (a channel, HOME > exit): the scan is over before anything else takes
-	// the drives.
-	if (!riftwii::wii::DriveScanDone()) logf("Menu: waiting for the scan to finish reading the drives\n");
+	// the drives, the wait said on screen (a big USB drive takes seconds).
+	if (!riftwii::wii::DriveScanDone()) {
+		logf("Menu: waiting for the scan to finish reading the drives\n");
+		HaltGui();
+		PopupBox box(tr("Play"), tr("Waiting for RiftWii to finish reading the drives..."), {}, {});
+		ResumeGui();
+		riftwii::wii::WaitDriveScan();
+		HaltGui();
+	}
 	riftwii::wii::WaitDriveScan();
 	// The compiler and the game need this memory. After a failed launch,
 	// the next game page reads a fresh catalog when it sees this one empty.

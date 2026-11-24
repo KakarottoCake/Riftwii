@@ -11,6 +11,7 @@
 #include "covers.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
+#include "riftwii/titles.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -90,7 +91,7 @@ std::vector<ThemeEntry> ListMenuThemes() {
         out.push_back({folder, t.name.empty() ? folder : t.name});
     }
     closedir(d);
-    std::sort(out.begin(), out.end(), [](const ThemeEntry& a, const ThemeEntry& b) { return a.name < b.name; });
+    std::sort(out.begin(), out.end(), [](const ThemeEntry& a, const ThemeEntry& b) { return riftwii::sort_name_less(a.name, b.name); });
     return out;
 }
 

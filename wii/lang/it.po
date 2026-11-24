@@ -2640,12 +2640,6 @@ msgstr "Scegli"
 msgid "Controllers"
 msgstr "Controller"
 
-msgid "Downloads off"
-msgstr "Download disattivati"
-
-msgid "Downloads on"
-msgstr "Download attivi"
-
 msgid "Game settings"
 msgstr "Impostazioni del gioco"
 
@@ -2660,30 +2654,6 @@ msgstr "Immagine, lingua, server online e il resto solo per questo gioco. Ciò c
 
 msgid "{1} changed"
 msgstr "{1} modificati"
-
-msgid "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio."
-msgstr "Come i giochi appaiono sulla TV: larghezza dell'immagine, filtro antisfarfallio, bordi neri, modalità video e proporzioni."
-
-msgid "The language games are told the console uses, the cIOS they run under, where you go when you quit a game, and in-game screenshots."
-msgstr "La lingua comunicata ai giochi, il cIOS su cui girano, dove vai quando esci dal gioco e gli screenshot nel gioco."
-
-msgid "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes."
-msgstr "L'adattatore per controller GameCube per Wii U, e la vibrazione dei controller GameCube e dei telecomandi Wii."
-
-msgid "How Home shows your games: covers, a shelf or channels, from which drive, in what order, play history and the clock."
-msgstr "Come la home mostra i tuoi giochi: copertine, scaffale o canali, da quale unità, in che ordine, cronologia e orologio."
-
-msgid "The menu's language, theme, letters, size on the TV, sounds and music."
-msgstr "La lingua, il tema, i caratteri, la dimensione sulla TV, i suoni e la musica del menu."
-
-msgid "Downloads of game names, covers and cheats, the online server for games, and RiftWii's updates."
-msgstr "Download di nomi, copertine e trucchi, il server online dei giochi e gli aggiornamenti di RiftWii."
-
-msgid "Reading the SD card and the USB drive again, and mods from a PC on the network (RiiFS)."
-msgstr "Rileggere la scheda SD e l'unità USB, e mod da un PC in rete (RiiFS)."
-
-msgid "Problem reports, what's new, the tutorial, the RiftWii channel, resetting the settings and the credits."
-msgstr "Segnalazioni di problemi, novità, il tutorial, il canale RiftWii, il ripristino delle impostazioni e i crediti."
 
 msgid "About"
 msgstr "Info"
@@ -3903,6 +3873,9 @@ msgstr "Su e Giù scorrono il testo"
 msgid "Up and Down scroll the story"
 msgstr "Su e Giù scorrono la storia"
 
+msgid "Controllers and story"
+msgstr "Controller e storia"
+
 msgid "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons."
 msgstr "Impossibile leggere alcuni WAD. Nomi e motivi sono in sd:/riftwii/session.log."
 
@@ -4143,23 +4116,23 @@ msgstr "Premi un tasto qualsiasi per vedere cosa sta facendo RiftWii."
 msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
 msgstr "Confezione del gioco: la confezione del gioco mentre si avvia; premi un tasto qualsiasi per vedere cosa sta facendo RiftWii. Registro: ogni passo, riga per riga. Se l'avvio non riesce, il registro appare sempre."
 
-msgid "Home shows your games at once"
-msgstr "La Home mostra subito i tuoi giochi"
+msgid "The Rift Store: get homebrew apps"
+msgstr "Rift Store: scarica app homebrew"
 
-msgid "Games start behind their box"
-msgstr "I giochi partono dietro la confezione"
+msgid "Search and Layout on Home's bar"
+msgstr "Cerca e Layout nella barra della Home"
 
-msgid "Manage your emulated NAND"
-msgstr "Gestisci la NAND emulata"
+msgid "Wider game pages at 16:9"
+msgstr "Pagine dei giochi più larghe in 16:9"
 
-msgid "Own covers and favorites for homebrew"
-msgstr "Copertine proprie e preferiti per gli homebrew"
+msgid "Install WAD files is under Games"
+msgstr "Installa file WAD è in Giochi"
 
-msgid "Import Nintendont controller layouts"
-msgstr "Importa i controller di Nintendont"
+msgid "Names sort without case or accents"
+msgstr "Nomi ordinati senza maiuscole né accenti"
 
-msgid "Type your SteamGridDB key in Settings"
-msgstr "Inserisci la chiave SteamGridDB nelle Impostazioni"
+msgid "WAD games go back to RiftWii on a Wii U"
+msgstr "I giochi WAD tornano a RiftWii su Wii U"
 
 msgid "Manage game"
 msgstr "Gestisci gioco"
@@ -4250,6 +4223,237 @@ msgstr "Le scelte per questo gioco non possono essere salvate. Controlla che la 
 
 msgid "Play anyway?"
 msgstr "Giocare comunque?"
+
+msgid "Homebrew apps from a list the RiftWii team checks, installed to sd:/apps. RiftWii hosts none of them: each comes from its maker's own release."
+msgstr "App homebrew da un elenco controllato dal team di RiftWii, installate in sd:/apps. RiftWii non ne ospita nessuna: ognuna viene dalla versione pubblicata dal suo autore."
+
+msgid "Search apps"
+msgstr "Cerca app"
+
+msgid "System tools"
+msgstr "Strumenti di sistema"
+
+msgid "Game tools"
+msgstr "Strumenti per giochi"
+
+msgid "Creative"
+msgstr "Creatività"
+
+msgid "Demos and toys"
+msgstr "Demo e giocattoli"
+
+msgid "Media"
+msgstr "Multimedia"
+
+msgid "Internet"
+msgstr "Internet"
+
+msgid "Online services"
+msgstr "Servizi online"
+
+msgid "Loaders"
+msgstr "Loader"
+
+msgid "My apps"
+msgstr "Le mie app"
+
+msgid "Getting the list of apps..."
+msgstr "Download dell'elenco delle app..."
+
+msgid "Could not get the list of apps: {1}"
+msgstr "Impossibile ottenere l'elenco delle app: {1}"
+
+msgid "No app matches {1}."
+msgstr "Nessuna app corrisponde a {1}."
+
+msgid "No apps from here are on the SD card yet."
+msgstr "Sulla scheda SD non ci sono ancora app da qui."
+
+msgid "On the SD card"
+msgstr "Sulla scheda SD"
+
+msgid "Get it on a PC"
+msgstr "Scaricala da un PC"
+
+msgid "Its own page"
+msgstr "La sua pagina"
+
+msgid "{1} does the same and is kept up to date."
+msgstr "{1} fa lo stesso ed è aggiornata."
+
+msgid "Newer app"
+msgstr "App più recente"
+
+msgid "Next page"
+msgstr "Pagina successiva"
+
+msgid "Installed, version {1}"
+msgstr "Installata, versione {1}"
+
+msgid "Version {1}, {2}"
+msgstr "Versione {1}, {2}"
+
+msgid "It is on the SD card already. Put version {1} in its place."
+msgstr "È già sulla scheda SD. Metti la versione {1} al suo posto."
+
+msgid "The Wii can't unpack it: scan the code."
+msgstr "La Wii non può estrarla: scansiona il codice."
+
+msgid "To the SD card, {1}"
+msgstr "Sulla scheda SD, {1}"
+
+msgid "Finishing..."
+msgstr "Completamento..."
+
+msgid "Remove {1}?"
+msgstr "Rimuovere {1}?"
+
+msgid "This app is in sd:/apps already, not put there from here. Version {1} replaces its files; its own settings stay."
+msgstr "Questa app è già in sd:/apps, ma non è stata messa da qui. La versione {1} ne sostituisce i file; le sue impostazioni restano."
+
+msgid "Installed. Find it in Home's Homebrew view."
+msgstr "Installata. La trovi nella vista Homebrew della Home."
+
+msgid "Its program goes. Its saves and settings stay until you say otherwise."
+msgstr "Il programma viene eliminato. Salvataggi e impostazioni restano, a meno che tu non dica altrimenti."
+
+msgid "Remove its saves too?"
+msgstr "Rimuovere anche i salvataggi?"
+
+msgid "{1} left its saves and settings in {2}. Kept, they are there if you install it again."
+msgstr "{1} ha lasciato salvataggi e impostazioni in {2}. Se li tieni, li ritrovi quando la installi di nuovo."
+
+msgid "Remove them"
+msgstr "Rimuovili"
+
+msgid "Keep them"
+msgstr "Tienili"
+
+msgid "Removed. Its saves are kept."
+msgstr "Rimossa. I salvataggi restano."
+
+msgid "Without a Wii Remote"
+msgstr "Senza Wii Remote"
+
+msgid "Wii only"
+msgstr "Solo Wii"
+
+msgid "Install {1}?"
+msgstr "Installare {1}?"
+
+msgid "It is listed for the Wii only and may not work on a Wii U."
+msgstr "È indicata solo per Wii e potrebbe non funzionare su Wii U."
+
+msgid "Install anyway"
+msgstr "Installa comunque"
+
+msgid "Works with"
+msgstr "Funziona con"
+
+msgid "Listed for the Wii only, {1}"
+msgstr "Solo per Wii, {1}"
+
+msgid "{1} is removed."
+msgstr "{1} è stata rimossa."
+
+msgid "{1} was not installed"
+msgstr "{1} non è stata installata"
+
+msgid "{1} was not removed"
+msgstr "{1} non è stata rimossa"
+
+msgid "Search: {1}"
+msgstr "Ricerca: {1}"
+
+msgid "My apps ({1})"
+msgstr "Le mie app ({1})"
+
+msgid "Downloading..."
+msgstr "Download in corso..."
+
+msgid "Checking the file..."
+msgstr "Verifica del file..."
+
+msgid "Unpacking..."
+msgstr "Estrazione..."
+
+msgid "{1} of {2}"
+msgstr "{1} di {2}"
+
+msgid "{1} of {2} files"
+msgstr "{1} di {2} file"
+
+msgid "Another app is being installed. Try again when it is done."
+msgstr "È in corso l'installazione di un'altra app. Riprova quando ha finito."
+
+msgid "Games made by the homebrew community."
+msgstr "Giochi creati dalla comunità homebrew."
+
+msgid "Play games made for older consoles and computers."
+msgstr "Gioca ai giochi di vecchie console e computer."
+
+msgid "Look after the Wii itself: backups, storage and setup."
+msgstr "Cura la Wii stessa: backup, memoria e impostazioni."
+
+msgid "Save editors, mod tools and other help for games."
+msgstr "Editor di salvataggi, strumenti per mod e altri aiuti."
+
+msgid "Change how the Wii Menu looks and what it does."
+msgstr "Cambia l'aspetto e le funzioni del Menu Wii."
+
+msgid "Test, set up and use more kinds of controllers."
+msgstr "Prova, configura e usa più tipi di controller."
+
+msgid "Draw, paint, write and make music."
+msgstr "Disegna, dipingi, scrivi e fai musica."
+
+msgid "Small demos, toys and fun experiments."
+msgstr "Piccole demo, giocattoli ed esperimenti divertenti."
+
+msgid "Watch videos, play music and look at pictures."
+msgstr "Guarda video, ascolta musica e sfoglia foto."
+
+msgid "Browse, chat and read on the internet."
+msgstr "Naviga, chatta e leggi su internet."
+
+msgid "Bring the Wii's online play and channels back."
+msgstr "Riporta il gioco online e i canali della Wii."
+
+msgid "Start games and apps from USB drives and SD cards."
+msgstr "Avvia giochi e app da unità USB e schede SD."
+
+msgid "Everything else."
+msgstr "Tutto il resto."
+
+msgid "{1} installed"
+msgstr "{1} installate"
+
+msgid "Size"
+msgstr "Dimensione"
+
+msgid "Works on"
+msgstr "Funziona su"
+
+msgid "License"
+msgstr "Licenza"
+
+msgid "{1}.{2} MB"
+msgstr "{1},{2} MB"
+
+msgid "{1} KB"
+msgstr "{1} KB"
+
+msgid "The SD card is too full. Make {1} of room and try again."
+msgstr "La scheda SD è troppo piena. Libera {1} e riprova."
+
+msgid "Rift Store"
+msgstr "Rift Store"
+
+msgid "The Rift Store could not open."
+msgstr "Il Rift Store non si è aperto."
+
+msgid "The Rift Store could not open: {1}"
+msgstr "Il Rift Store non si è aperto: {1}"
 
 msgid "Disc slot light"
 msgstr "Luce del vano disco"
@@ -4736,3 +4940,60 @@ msgstr "Importato"
 
 msgid "Copied {1} to {2}. Restart RiftWii to use it."
 msgstr "{1} copiato in {2}. Riavvia RiftWii per usarlo."
+
+msgid "Game picture: width, flicker filter, borders, video mode and aspect ratio."
+msgstr "Immagine: larghezza, filtro sfarfallio, bordi, modalità video e proporzioni."
+
+msgid "Game language, saves, emulated NAND, quitting and screenshots."
+msgstr "Lingua dei giochi, salvataggi, NAND emulata, uscita e schermate."
+
+msgid "USB controllers, button layouts and controller rumble."
+msgstr "Controller USB, disposizione dei pulsanti e vibrazione."
+
+msgid "Home layout, game order, drives, play history and clock."
+msgstr "Aspetto di Home, ordine dei giochi, unità, cronologia e orologio."
+
+msgid "Menu language, theme, font, screen size, sounds and music."
+msgstr "Lingua del menu, tema, carattere, dimensione dello schermo, suoni e musica."
+
+msgid "Downloads, game servers and RiftWii updates."
+msgstr "Download, server dei giochi e aggiornamenti di RiftWii."
+
+msgid "Find games and network packs, or copy a game disc."
+msgstr "Trova giochi e pacchetti di rete, o copia un disco di gioco."
+
+msgid "Problem reports, what's new, help, the RiftWii channel and credits."
+msgstr "Segnalazioni, novità, aiuto, canale RiftWii e crediti."
+
+msgid "Wii Menu or power off."
+msgstr "Menu Wii o spegnimento."
+
+msgid "Homebrew Channel, Wii Menu, restart or power off."
+msgstr "Canale Homebrew, Menu Wii, riavvio o spegnimento."
+
+msgid "Homebrew Channel, Wii Menu, Priiloader or power off."
+msgstr "Canale Homebrew, Menu Wii, Priiloader o spegnimento."
+
+msgid "System titles cannot be deleted."
+msgstr "I titoli di sistema non possono essere eliminati."
+
+msgid "Reading titles..."
+msgstr "Lettura dei titoli..."
+
+msgid "Reading folders..."
+msgstr "Lettura delle cartelle..."
+
+msgid "Disc game saves"
+msgstr "Salvataggi dei giochi su disco"
+
+msgid "System channels"
+msgstr "Canali di sistema"
+
+msgid "Hidden titles"
+msgstr "Titoli nascosti"
+
+msgid "Other titles"
+msgstr "Altri titoli"
+
+msgid "Emulated + Wii"
+msgstr "Emulata + Wii"

@@ -42,12 +42,15 @@ constexpr std::size_t kMaskBytes = static_cast<std::size_t>(riftwii::kCoverWidth
 // Where the name goes on the drawn (2x) cover: under the blank cover's
 // band across the top, above its strip along the foot.
 constexpr int kTitleSize = 24;
+// A word too wide for the cover at kTitleSize steps the name down to this
+// size at the least, rather than being cut between its letters.
+constexpr int kTitleMinSize = 18;
 constexpr int kTitleLineGap = 27;
 constexpr int kTitleLines = 4;
 constexpr int kTitleMargin = 14;
 constexpr int kTitleTop = 50;
 constexpr int kTitleBottom = 190;
-constexpr int kIdSize = 17;
+constexpr int kIdSize = 20;  // 10 on screen: at 8 a composite cable blurred it away
 constexpr int kIdGap = 30;  // the ID's line under the name, a little apart
 
 enum class SlotState { Empty, Ready };
@@ -73,7 +76,9 @@ GuiText* g_text = nullptr;
 u8* g_mask = nullptr;  // I8: how much of each texel the rounded corners keep
 bool g_inkChosen = false;
 GXColor g_ink = {46, 49, 56, 255};
-GXColor g_inkDim = {118, 123, 133, 255};
+// The ID's ink, darker than a dim grey: a composite cable left that at
+// about 1.6:1 on the white cover.
+GXColor g_inkDim = {84, 88, 98, 255};
 bool g_spineInkChosen = false;
 GXColor g_spineInk = {46, 49, 56, 255};
 // Light ink on a blank cover darker than this (Rec. 601 brightness).
@@ -136,7 +141,7 @@ void ChooseInk() {
     g_inkChosen = true;
     if (!BlankIsLight(kTitleMargin, kDrawW - kTitleMargin, kTitleTop, kTitleBottom, 6)) {
         g_ink = {244, 244, 246, 255};
-        g_inkDim = {188, 191, 200, 255};
+        g_inkDim = {214, 216, 224, 255};
     }
 }
 
@@ -186,6 +191,57 @@ std::vector<std::string> WrapName(const std::string& text, int widthLimit, int l
     return out;
 }
 
+// The size the name is drawn at: kTitleSize, or smaller until each of its
+// words fits on a line ("WarioWare:" had been cut into "WarioWare" and a
+// line starting ": DIY"). A word is cut where WrapName may break a line:
+// at a space, or after a hyphen, which stays with the part before it.
+// Words in a script written without spaces (Japanese: three-byte UTF-8)
+// are cut by characters as before.
+int TitleSizeFor(const std::string& title, int widthLimit) {
+    std::vector<std::string> words;
+    std::size_t at = 0;
+    while (at < title.size()) {
+        std::size_t end = title.find_first_of(" -", at);
+        if (end == std::string::npos) end = title.size();
+        else if (title[end] == '-') ++end;
+        if (end > at) words.push_back(title.substr(at, end - at));
+        at = end < title.size() && title[end] == ' ' ? end + 1 : end;
+    }
+    // Kana, CJK ideographs, Hangul and full-width forms: the scripts written
+    // without spaces. Not every three-byte character (curly quotes, the
+    // trade mark sign), which a Latin word may hold.
+    const auto spaceless_script = [](const std::string& word) {
+        for (std::size_t i = 0; i + 2 < word.size(); ++i) {
+            const unsigned char lead = static_cast<unsigned char>(word[i]);
+            if ((lead & 0xF0) != 0xE0) continue;
+            const unsigned code = ((lead & 0x0Fu) << 12) |
+                                  ((static_cast<unsigned char>(word[i + 1]) & 0x3Fu) << 6) |
+                                  (static_cast<unsigned char>(word[i + 2]) & 0x3Fu);
+            const bool kana = code >= 0x3040 && code <= 0x30FF;
+            const bool ideograph = (code >= 0x3400 && code <= 0x9FFF) || (code >= 0xF900 && code <= 0xFAFF);
+            const bool hangul = code >= 0xAC00 && code <= 0xD7AF;
+            const bool full_width = code >= 0xFF00 && code <= 0xFFEF;
+            if (kana || ideograph || hangul || full_width) return true;
+        }
+        return false;
+    };
+    int size = kTitleSize;
+    for (; size > kTitleMinSize; --size) {
+        g_text->SetFontSize(size);
+        bool allFit = true;
+        for (const std::string& word : words) {
+            if (spaceless_script(word)) continue;
+            g_text->SetText(word.c_str());
+            if (g_text->GetTextWidth() > widthLimit) {
+                allFit = false;
+                break;
+            }
+        }
+        if (allFit) break;
+    }
+    return size;
+}
+
 void DrawCentred(const std::string& text, int size, GXColor colour, int top) {
     g_text->SetFontSize(size);
     g_text->SetColor(colour);
@@ -199,18 +255,21 @@ void DrawCentred(const std::string& text, int size, GXColor colour, int top) {
 // that corner afterwards (the backdrop fills the whole screen first).
 void Make(const Request& request, Slot& slot) {
     skin::Draw(skin::blankCover, 0, 0, 255, 1.0f);
-    g_text->SetFontSize(kTitleSize);
-    const std::vector<std::string> lines = WrapName(request.title, kDrawW - 2 * kTitleMargin, kTitleLines);
+    const int titleWidth = kDrawW - 2 * kTitleMargin;
+    const int titleSize = TitleSizeFor(request.title, titleWidth);
+    const int lineGap = kTitleLineGap * titleSize / kTitleSize;
+    g_text->SetFontSize(titleSize);
+    const std::vector<std::string> lines = WrapName(request.title, titleWidth, kTitleLines);
     // The name and the ID under it, together in the middle of the space
     // between the band and the foot (the covers view's badges sit there).
     const int idHeight = request.id.empty() ? 0 : kIdGap;
-    const int blockHeight = static_cast<int>(lines.size()) * kTitleLineGap + idHeight;
+    const int blockHeight = static_cast<int>(lines.size()) * lineGap + idHeight;
     int top = (kTitleTop + kTitleBottom - blockHeight) / 2;
     for (const std::string& line : lines) {
-        DrawCentred(line, kTitleSize, g_ink, top);
-        top += kTitleLineGap;
+        DrawCentred(line, titleSize, g_ink, top);
+        top += lineGap;
     }
-    if (!request.id.empty()) DrawCentred(request.id, kIdSize, g_inkDim, top + kIdGap - kTitleLineGap);
+    if (!request.id.empty()) DrawCentred(request.id, kIdSize, g_inkDim, top + kIdGap - lineGap);
 
     GX_SetTexCopySrc(0, 0, kDrawW, kDrawH);
     GX_SetTexCopyDst(riftwii::kCoverWidth, riftwii::kCoverHeight, GX_TF_RGB5A3, GX_TRUE);

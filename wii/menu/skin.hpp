@@ -45,6 +45,10 @@ extern Tex label9;
 // A controller's picture (Kenney's Input Prompts, riftwii/inputicons.hpp)
 // in the theme's glyph colour, 40x40; a game pad for one without its own.
 const Tex& ControlIcon(const std::string& type);
+// The theme's picture `name` (riftwii/theme.hpp's list): the theme's PNG or
+// RiftWii's own. One the menu does not load at start is read now and kept.
+// A Tex without data for an unknown name or a wall.
+const Tex& Picture(const std::string& name);
 // A button's picture ("A", "B", "+", "-", "1", "2", "HOME", "C", "Z") at
 // `size` x `size`, or a Tex without data for a button that has none.
 const Tex& ButtonIcon(const std::string& button, int size);                       // 48x44 a lit channel's name pill (riftwii::paint_label9), nine-sliced                  // 64x64 soft shadow (riftwii::paint_drop_shadow9), nine-sliced

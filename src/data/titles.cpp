@@ -57,6 +57,15 @@ const std::string* TitleTable::find_exact(const std::string& id) const {
     return it == titles_.end() ? nullptr : &it->second;
 }
 
+const std::string* TitleTable::find_code(const std::string& code) const {
+    if (code.size() != 4) return nullptr;
+    // The map is sorted: the code's own line, if any, comes first, then
+    // the IDs that start with it.
+    const auto it = titles_.lower_bound(code);
+    if (it == titles_.end() || it->first.compare(0, 4, code) != 0) return nullptr;
+    return &it->second;
+}
+
 std::string id_from_image_path(const std::string& path) {
     const std::size_t file_slash = path.find_last_of('/');
     const std::string file = file_slash == std::string::npos ? path : path.substr(file_slash + 1);
@@ -85,6 +94,80 @@ std::size_t sort_name_start(const std::string& title) {
     std::size_t at = 4;
     while (at < title.size() && title[at] == ' ') ++at;
     return at < title.size() ? at : 0;
+}
+
+namespace {
+
+// The plain letters of U+00C0 to U+00FF, one per code point. '*' keeps the
+// character as it is (the multiplication and division signs); the others
+// that stand for more than one letter: '1' "ae", '2' "th", '3' "ss".
+constexpr char kLatin1Letters[] =
+    "aaaaaa1ceeeeiiiidnooooo*ouuuuy23"
+    "aaaaaa1ceeeeiiiidnooooo*ouuuuy2y";
+// The same for U+0100 to U+017F (Latin Extended-A): '4' "ij", '5' "oe".
+constexpr char kLatinExtendedLetters[] =
+    "aaaaaacccccccc" "dddd" "eeeeeeeeee" "gggggggg" "hhhh" "iiiiiiiiii" "44" "jj" "kkk" "llllllllll"
+    "nnnnnnnnn" "oooooo" "55" "rrrrrr" "ssssssss" "tttttt" "uuuuuuuuuuuu" "ww" "yyy" "zzzzzz" "s";
+static_assert(sizeof kLatin1Letters == 65, "one letter for each of U+00C0 to U+00FF");
+static_assert(sizeof kLatinExtendedLetters == 129, "one letter for each of U+0100 to U+017F");
+
+// What one table letter stands for.
+const char* plain_letters(char letter) {
+    switch (letter) {
+    case '1': return "ae";
+    case '2': return "th";
+    case '3': return "ss";
+    case '4': return "ij";
+    case '5': return "oe";
+    default: return nullptr;
+    }
+}
+
+}  // namespace
+
+std::string sort_key(const std::string& name) {
+    std::string key;
+    key.reserve(name.size());
+    for (std::size_t i = 0; i < name.size(); ++i) {
+        const unsigned char c = static_cast<unsigned char>(name[i]);
+        if (c < 0x80) {
+            key += static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
+            continue;
+        }
+        // A two-byte UTF-8 character from U+00C0 to U+017F: lead byte C3,
+        // C4 or C5 and a continuation byte.
+        const bool two_bytes = (c == 0xC3 || c == 0xC4 || c == 0xC5) && i + 1 < name.size() &&
+                               (static_cast<unsigned char>(name[i + 1]) & 0xC0) == 0x80;
+        const unsigned code_point =
+            two_bytes ? ((c & 0x1Fu) << 6) | (static_cast<unsigned char>(name[i + 1]) & 0x3Fu) : 0;
+        char letter = '*';
+        if (code_point >= 0xC0 && code_point <= 0xFF) letter = kLatin1Letters[code_point - 0xC0];
+        else if (code_point >= 0x100 && code_point <= 0x17F) letter = kLatinExtendedLetters[code_point - 0x100];
+        if (letter == '*') {
+            key += static_cast<char>(c);
+            continue;
+        }
+        if (const char* letters = plain_letters(letter)) key += letters;
+        else key += letter;
+        ++i;  // the continuation byte
+    }
+    return key;
+}
+
+bool sort_name_less(const std::string& a, const std::string& b) {
+    const std::string key_a = sort_key(a);
+    const std::string key_b = sort_key(b);
+    if (key_a != key_b) return key_a < key_b;
+    return a < b;
+}
+
+char sort_letter(const std::string& title) {
+    const std::string key = sort_key(title.substr(sort_name_start(title)));
+    const char first = key.empty() ? 0 : key[0];
+    if (first >= 'a' && first <= 'z') return static_cast<char>(first - 'a' + 'A');
+    // Bytes from 0x80 sort after every ASCII letter: another script.
+    if (static_cast<unsigned char>(first) >= 0x80) return kOtherScriptLetter;
+    return '#';
 }
 
 std::string folder_title(const std::string& path, const std::string& id) {

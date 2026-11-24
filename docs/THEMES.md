@@ -223,6 +223,8 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `background_shelf` / `background_shelf_wide` | 640x480 / 856x480 | `background` / `background_wide` while Home shows the shelf, the carousel or 3D covers (Settings > Home tiles), for a background drawn to go with Home's rows of covers (optional) |
 | `background_plain` / `background_plain_wide` | 640x480 / 856x480 | `background` / `background_wide` on every screen but Home, for a background drawn around Home (Bookshelf: its wall without the shelves) (optional) |
 | `background_channels` / `background_channels_wide` | 640x480 / 856x480 | `background` / `background_wide` while Home shows Channels, for a background drawn to go with its three rows (Bookshelf: a shelf under each) (optional) |
+| `store_games`, `store_emulators`, `store_system`, `store_gametools`, `store_wiimenu`, `store_controllers`, `store_creative`, `store_toys`, `store_media`, `store_internet`, `store_online`, `store_loaders`, `store_more`, `store_logo` | 40x40 | The Rift Store's bag beside its name (`store_logo`) and its categories: their tiles on its front (drawn at 28x28 when the tiles are short), the band of a category's page, and an app's icon until its own is in. RiftWii's own are painted by the store's plugin in `glyph`, so they cost the menu nothing; a theme's PNG is read only when the store opens |
+| `store_size`, `store_date`, `store_console`, `store_license` | 28x28 | The facts along the bottom of an app's page in the store, drawn at 24x24: its download's size, its date, the consoles it works on, its license |
 
 ### Widescreen and screen size
 

@@ -98,7 +98,10 @@ bool ReadHeaders(const std::uint8_t* buffer, std::size_t used, Headers& h, std::
                 h.length = h.length * 10 + c - '0';
             }
         } else if (NameIs(line, size, "transfer-encoding")) {
-            h.chunked = std::string_view(line + 18, size - 18).find("chunked") != std::string_view::npos;
+            // Transfer codings are case-insensitive ("Chunked").
+            std::string coding(line + 18, size - 18);
+            for (char& c : coding) c = c >= 'A' && c <= 'Z' ? static_cast<char>(c + 32) : c;
+            h.chunked = coding.find("chunked") != std::string::npos;
         } else if (NameIs(line, size, "location")) {
             std::size_t from = 9;
             while (from < size && line[from] == ' ') ++from;
@@ -282,6 +285,142 @@ bool Exchange(const HttpUrl& url, MemoryGet& get, Headers& headers, std::string&
     return true;
 }
 
+// One GET of a streamed download. Only a 200's body goes to the sink; a
+// redirect or an error answer is left unread once its headers are here.
+bool StreamExchange(const HttpUrl& url, StreamGet& get, Headers& headers, std::string& error, int timeout_ms,
+                    const HttpProgress& progress) {
+    NetServer server;
+    if (!ResolveServer(url.host, url.port, server, error)) return false;
+    if (http_local_ipv4(server.ip)) {
+        error = url.host + " (" + server.label() + ") is an address on this network, not the internet; not used";
+        return false;
+    }
+    SocketTransport socket;
+    if (!socket.connect(server, timeout_ms, error)) return false;
+    // The headers get four times the timeout; the body then gets as long as
+    // its size takes at 16 KiB/s, so a trickle cannot hold the download forever.
+    std::uint64_t budget_ms = 4ull * static_cast<std::uint64_t>(timeout_ms);
+    const u64 started = gettime();
+    const auto too_slow = [&] {
+        error = url.host + " is answering too slowly; given up after " + std::to_string(budget_ms / 1000) + " s";
+        return false;
+    };
+    TlsStream tls;
+    tls.use_memory(get.tls_block, get.tls_bytes);
+    tls.set_deadline(started + millisecs_to_ticks(budget_ms));
+    if (url.tls && !tls.open(socket, url.host, error)) return tls.timed_out() ? too_slow() : false;
+    const std::string request =
+        get.user_agent && *get.user_agent ? http_get_request(url, get.user_agent) : http_get_request(url);
+    const bool sent = url.tls ? tls.send(request.data(), request.size()) : socket.send(request.data(), request.size());
+    if (!sent) {
+        error = "cannot send the request to " + url.host;
+        return false;
+    }
+    const auto too_big = [&] {
+        error = url.host + " sent more than the " + std::to_string(get.max_body) + " bytes RiftWii takes";
+        return false;
+    };
+    const auto sink_stopped = [&] {
+        if (error.empty()) error = "the download from " + url.host + " could not be saved";
+        return false;
+    };
+    headers = Headers{};
+    HttpChunkDecoder chunks(get.max_body);
+    std::size_t used = 0;          // bytes held in the window
+    std::uint64_t body_seen = 0;   // of a body that is not chunked
+    bool closed = false;
+    // A trickle is cut off: under 32 KiB in 30 s, the download has stalled
+    // (the time budget alone would let 128 MB take two hours).
+    constexpr std::uint64_t kStallMs = 30000;
+    constexpr std::uint64_t kStallBytes = 32u << 10;
+    u64 stall_since = gettime();
+    std::uint64_t stall_bytes = 0;
+    for (;;) {
+        if (ticks_to_millisecs(diff_ticks(started, gettime())) > budget_ms) return too_slow();
+        if (used == get.capacity) {
+            error = url.host + " sent HTTP headers too long for RiftWii's download window";
+            return false;
+        }
+        std::size_t got = 0;
+        const std::size_t room = std::min<std::size_t>(get.capacity - used, 4096);
+        const bool ok = url.tls ? tls.receive_some(get.buffer + used, room, got)
+                                : socket.receive_some(get.buffer + used, room, got);
+        if (!ok) {
+            if (url.tls && tls.timed_out()) return too_slow();
+            error = "no answer from " + url.host;
+            if (url.tls && tls.last_error() != 0) error += " (TLS error " + std::to_string(tls.last_error()) + ")";
+            return false;
+        }
+        if (got == 0) closed = true;
+        used += got;
+
+        if (!headers.whole) {
+            if (!ReadHeaders(get.buffer, used, headers, error)) return false;
+            if (!headers.whole) {
+                if (closed) {
+                    error = url.host + " sent an answer that is not HTTP";
+                    return false;
+                }
+                continue;
+            }
+            // Only a 200's body is wanted: HttpGetStream follows a redirect
+            // or reports the status without it.
+            if (headers.status != 200) return true;
+            if (!headers.chunked && headers.has_length && headers.length > get.max_body) return too_big();
+            const std::uint64_t expected = headers.has_length && !headers.chunked ? headers.length : get.max_body;
+            budget_ms = std::max<std::uint64_t>(budget_ms, expected / 16u);
+            tls.set_deadline(started + millisecs_to_ticks(budget_ms));
+            // The body's first bytes came with the headers: move them to the
+            // window's start, so `used` counts body bytes only from here on.
+            std::memmove(get.buffer, get.buffer + headers.body_at, used - headers.body_at);
+            used -= headers.body_at;
+        }
+
+        bool done = false;
+        if (headers.chunked) {
+            // Transfer-Encoding takes precedence over Content-Length.
+            std::size_t taken = 0;
+            const auto result = chunks.feed(get.buffer, used, taken, [&](const std::uint8_t* data, std::size_t size) {
+                return get.sink(data, size);
+            });
+            if (chunks.stopped()) return sink_stopped();
+            if (result == HttpChunkDecoder::Result::Bad) {
+                if (chunks.body() >= get.max_body) return too_big();
+                error = url.host + " sent a body that did not arrive whole";
+                return false;
+            }
+            std::memmove(get.buffer, get.buffer + taken, used - taken);
+            used -= taken;
+            get.body_length = chunks.body();
+            done = result == HttpChunkDecoder::Result::Done;
+        } else {
+            std::size_t take = used;
+            if (headers.has_length) take = static_cast<std::size_t>(std::min<std::uint64_t>(take, headers.length - body_seen));
+            if (!headers.has_length && take > get.max_body - body_seen) return too_big();
+            if (take > 0 && !get.sink(get.buffer, take)) return sink_stopped();
+            body_seen += take;
+            used = 0;  // anything past Content-Length is not part of the answer
+            get.body_length = body_seen;
+            done = headers.has_length && body_seen == headers.length;
+        }
+        if (progress && got > 0) progress(static_cast<std::size_t>(get.body_length));
+        if (headers.whole && ticks_to_millisecs(diff_ticks(stall_since, gettime())) >= kStallMs) {
+            if (get.body_length - stall_bytes < kStallBytes) {
+                error = url.host + " stopped sending (under 32 KB in 30 s); given up";
+                return false;
+            }
+            stall_since = gettime();
+            stall_bytes = get.body_length;
+        }
+        if (done) return true;
+        if (closed) {
+            if (!headers.chunked && !headers.has_length) return true;  // ends with the connection
+            error = url.host + " closed the connection before the download was whole";
+            return false;
+        }
+    }
+}
+
 }  // namespace
 
 bool HttpGetInMemory(const std::string& url, MemoryGet& get, std::string& error, int timeout_ms,
@@ -318,6 +457,42 @@ bool HttpGetInMemory(const std::string& url, MemoryGet& get, std::string& error,
     }
     // By host, as above: the path can hold a player's ID (RiiTag), and this
     // text reaches session.log.
+    error = "too many redirects from " + parsed.host;
+    return false;
+}
+
+bool HttpGetStream(const std::string& url, StreamGet& get, std::string& error, int timeout_ms,
+                   const HttpProgress& progress, HttpRedirects redirects) {
+    get.body_length = 0;
+    if (!get.sink || get.buffer == nullptr || get.capacity < kMaxHeaderBytes + 4096 || get.max_body == 0) {
+        error = "the download was not set up";
+        return false;
+    }
+    if (!NetStart(error)) return false;
+    HttpUrl parsed;
+    if (!parse_http_url(url, parsed, error)) return false;
+    for (int hop = 0; hop <= kRedirectHops; ++hop) {
+        Headers headers;
+        if (!StreamExchange(parsed, get, headers, error, timeout_ms, progress)) return false;
+        if (headers.status >= 300 && headers.status < 400 && !headers.location.empty()) {
+            HttpUrl next;
+            if (!http_redirect(parsed, headers.location, next, error)) {
+                error = parsed.host + " answered " + std::to_string(headers.status) + " (a redirect that cannot be followed)";
+                return false;
+            }
+            if (!http_redirect_allowed(redirects, parsed, next)) {
+                error = parsed.host + " answered " + std::to_string(headers.status) + " (a redirect not allowed for this download)";
+                return false;
+            }
+            parsed = next;
+            continue;
+        }
+        if (headers.status != 200) {
+            error = parsed.host + " answered " + std::to_string(headers.status);
+            return false;
+        }
+        return true;
+    }
     error = "too many redirects from " + parsed.host;
     return false;
 }

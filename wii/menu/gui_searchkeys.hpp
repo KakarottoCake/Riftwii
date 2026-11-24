@@ -34,7 +34,8 @@ class GuiSearchKeys : public GuiElement {
 public:
     static constexpr std::size_t kMaxLength = 32;
 
-    explicit GuiSearchKeys(const std::string& start);
+    // Home's search; `titleText` in place of "Search games" (the app store's).
+    explicit GuiSearchKeys(const std::string& start, const std::string& titleText = "");
     GuiSearchKeys(const std::string& start, const std::string& title, const std::string& note, std::size_t maxLength);
     // The name mode.
     GuiSearchKeys(const std::string& start, const std::string& title, std::size_t maxLength);

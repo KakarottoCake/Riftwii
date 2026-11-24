@@ -78,6 +78,110 @@ typedef struct rwp_sram {
  * PAL colour with its EuRGB60 filter (riftwii/launch.hpp's GcTvSignal). */
 #define RWP_TV_EURGB60 4u
 
+/* ---- The screen group's structures (screen_open, screen_frame). ---- */
+
+/* The view a plugin's screen draws in (screen_open), in menu units, 480
+ * high. 0 to 640 across is the 4:3 picture; a 16:9 menu reaches further
+ * out on both sides, from `left` (negative there) to `left + width`.
+ * Keep text and buttons in the safe area, [safe_x, safe_x + safe_w)
+ * across and 24 to 456 down: a TV's overscan hides the rest. */
+typedef struct rwp_screen_info {
+    int32_t left;
+    int32_t width;
+    int32_t safe_x;
+    int32_t safe_w;
+    uint32_t widescreen; /* 1 on a 16:9 menu */
+    uint32_t glyph;      /* the theme's icon colour, 0xRRGGBBAA, for pictures the plugin paints */
+} rwp_screen_info;
+
+/* The buttons of a frame's input, from any controller (Wii Remote,
+ * Classic Controller, GameCube controller, Wii U GamePad, USB pads): the
+ * menu maps them as it does for its own pages. */
+#define RWP_KEY_A 0x0001u
+#define RWP_KEY_B 0x0002u
+#define RWP_KEY_PLUS 0x0004u
+#define RWP_KEY_MINUS 0x0008u
+#define RWP_KEY_ONE 0x0010u
+#define RWP_KEY_TWO 0x0020u
+#define RWP_KEY_HOME 0x0040u
+#define RWP_KEY_UP 0x0100u
+#define RWP_KEY_DOWN 0x0200u
+#define RWP_KEY_LEFT 0x0400u
+#define RWP_KEY_RIGHT 0x0800u
+
+typedef struct rwp_input {
+    int32_t x, y;      /* where the Wii Remote points, in the view */
+    uint32_t pointer;  /* 1 when it points at the screen */
+    uint32_t pressed;  /* RWP_KEY_* pressed this frame */
+    uint32_t held;     /* RWP_KEY_* held down */
+    uint32_t frame;    /* frames since screen_open */
+} rwp_input;
+
+/* Draw commands, in the order they are drawn (later ones on top). */
+#define RWP_DRAW_CARD 1     /* the theme's card, x y w h; flags RWP_LIT: lit (focus ring) */
+#define RWP_DRAW_TEXT 2     /* text at x y: size, color, align; w > 0 cuts it with "..." at that
+                             * width, and with h > 0 wraps it into h lines */
+#define RWP_DRAW_TEXTURE 3  /* the texture `arg` scaled to x y w h */
+#define RWP_DRAW_RECT 4     /* a filled rectangle, x y w h in `color`; `arg` its corners' radius */
+#define RWP_DRAW_SKIN 5     /* the theme's picture `arg` (RWP_SKIN_*) at x y, w h where it stretches */
+#define RWP_DRAW_PROGRESS 6 /* a progress bar, x y w h, `arg` 0 to 1000 */
+#define RWP_DRAW_QR 7       /* a QR code of `text`, x y and w its side */
+#define RWP_DRAW_BUTTON 8   /* the face of button `arg` (RWP_KEY_*) for the controller in use, x y, h its size */
+#define RWP_DRAW_BACKGROUND 9 /* the theme's background, the whole screen */
+#define RWP_DRAW_PROMPT 10    /* one of the page's prompts on its bottom band, as the menu's pages
+                             * show them: `arg` the button (RWP_KEY_*), `text` what it does. The
+                             * first named is the rightmost. Pointed at and pressed, it is that button. */
+
+#define RWP_LIT 1u
+#define RWP_PRIMARY 2u   /* RWP_DRAW_CARD: the tinted card of a page's main action */
+#define RWP_ALIGN_LEFT 0u
+#define RWP_ALIGN_CENTER 1u
+#define RWP_ALIGN_RIGHT 2u
+
+/* The theme's pictures for RWP_DRAW_SKIN. */
+#define RWP_SKIN_BAR 1          /* the curved bottom bar, the full width */
+#define RWP_SKIN_ROUND 2        /* the round bar button (w = h its size) */
+#define RWP_SKIN_ROUND_LIT 3
+#define RWP_SKIN_PILL 4         /* the pill button, stretched to w x h */
+#define RWP_SKIN_PILL_LIT 5
+#define RWP_SKIN_ARROW_LEFT 6   /* the page arrows */
+#define RWP_SKIN_ARROW_RIGHT 7
+#define RWP_SKIN_TITLE_BAND 8   /* a page's title band, the full width, h high */
+#define RWP_SKIN_FOOTER 9       /* a page's bottom band, from y 410 down, where the prompts go */
+#define RWP_SKIN_PICTURE 10     /* the theme's own PNG named by `text` (docs/THEMES.md lists them,
+                                 * e.g. "store_games") at x y, w h its size; without one, the
+                                 * plugin's own texture `color` (painted in rwp_screen_info's glyph).
+                                 * "control_<type>" (wiimote, nunchuk, classiccontroller,
+                                 * gamecube): the controller picture a game's page shows */
+
+/* The theme's colours for RWP_DRAW_TEXT and RWP_DRAW_RECT, as `color`
+ * values; any other value is RGBA itself (0xRRGGBBAA). */
+#define RWP_COLOR_INK 1u        /* body text */
+#define RWP_COLOR_INK_SOFT 2u   /* secondary text, still readable on composite */
+#define RWP_COLOR_ACCENT 3u     /* the theme's accent */
+#define RWP_COLOR_ON_BAND 4u    /* text on a title band */
+#define RWP_COLOR_CARD 5u       /* a card's fill */
+#define RWP_COLOR_WARN 6u       /* the theme's warning colour (an update waiting, a caution) */
+#define RWP_COLOR_FIELD 7u      /* a recessed field, as an option chip that is off */
+
+/* The menu's sounds for sound(). */
+#define RWP_SOUND_HOVER 1u
+#define RWP_SOUND_CLICK 2u
+#define RWP_SOUND_BACK 3u
+
+typedef struct rwp_draw {
+    uint8_t kind;   /* RWP_DRAW_* */
+    uint8_t align;  /* RWP_ALIGN_* (text) */
+    uint8_t flags;  /* RWP_LIT */
+    uint8_t size;   /* text size, in pixels of the 480-high view */
+    int16_t x, y, w, h;
+    uint32_t color; /* RWP_COLOR_* or 0xRRGGBBAA */
+    uint32_t arg;
+    uint8_t alpha;  /* 0 to 255 */
+    uint8_t pad[3];
+    const char* text;
+} rwp_draw;
+
 /* What RiftWii gives a plugin's init. Every pointer is set: a function
  * the loader cannot offer is still there and reports a failure. */
 typedef struct rwp_host {
@@ -224,6 +328,85 @@ typedef struct rwp_host {
      * added), and the bar at `percent` (0 to 100; it never goes back).
      * Only before the SD card is handed over (sd_hand_over). */
     void (*progress)(const char* stage, int32_t percent);
+
+    /* ---- Added after progress (check RWP_HOST_HAS with screen_frame and
+     * so on): a screen of the plugin's own, drawn in the menu's look
+     * (the appstore plugin, docs/APPSTORE.md). Immediate mode: each frame
+     * the plugin hands RiftWii a list of rwp_draw commands and gets that
+     * frame's input back. Menu thread only, between screen_open and
+     * screen_close. ---- */
+
+    /* Takes the screen over from the menu (the menu's own page is hidden
+     * meanwhile). `out` says how wide the view is: 640, or more on a 16:9
+     * menu, where the safe area is wider too. 0, or -1 when it cannot. */
+    int32_t (*screen_open)(rwp_screen_info* out);
+    /* Draws `count` commands from the next frame on (the texts are copied,
+     * so they may be the plugin's own buffers), waits for that frame and
+     * fills `input`. 0, or -1 when the screen is not open. */
+    int32_t (*screen_frame)(const rwp_draw* commands, uint32_t count, rwp_input* input);
+    /* Gives the screen back to the menu and frees the textures left. */
+    void (*screen_close)(void);
+    /* A picture for RWP_DRAW_TEXTURE, from `rgba` (w x h, 8 bits a channel,
+     * any size up to 640 x 480; RiftWii keeps its own copy). Its handle, or
+     * 0 when there is no room. texture_free gives one back. */
+    uint32_t (*texture_create)(const uint8_t* rgba, uint32_t width, uint32_t height);
+    void (*texture_free)(uint32_t handle);
+    /* How wide `text` is in the menu's font at `size` pixels. */
+    int32_t (*text_width)(const char* text, uint32_t size);
+    /* The menu's translation of `english` (wii/lang), or `english` itself.
+     * The pointer stays valid while the plugin is loaded. */
+    const char* (*translate)(const char* english);
+    /* One of the menu's sounds (RWP_SOUND_*). */
+    void (*sound)(uint32_t which);
+    /* Home's search keyboard over the plugin's screen: `text` (`bytes`
+     * long, NUL included) is its start and its answer. Each time the entry
+     * changes, `typed(text, ...)` fills `line` (shown beside the entry:
+     * "12 apps"), `matches` (names shown above the keys, one a line) and
+     * `next` (the characters that still lead somewhere, the other keys
+     * dimmed; empty for all). 1 when the player confirmed, 0 when they
+     * backed out. */
+    int32_t (*ask_search)(char* text, uint32_t bytes,
+                          void (*typed)(const char* text, char* line, uint32_t line_bytes, char* matches,
+                                        uint32_t matches_bytes, char* next, uint32_t next_bytes, void* arg),
+                          void* arg);
+    /* The menu's popup: 1 for `yes`, 0 for `no` (or B). `no` may be NULL
+     * for a message with one button. */
+    int32_t (*ask_choice)(const char* title, const char* text, const char* yes, const char* no);
+
+    /* The network. Blocking: call them from a background job
+     * (background_start), never the menu thread. net_ready brings the
+     * network up (once a visit; it may take seconds): 1, or 0 with the
+     * reason. http_get: an https or http GET into `buffer` (redirects
+     * followed), 1 with `*length` the body's bytes, or 0 with the reason.
+     * http_download: the body streamed into the file `path` (written
+     * whole or removed), its SHA-256 into `sha256`, `progress(bytes so
+     * far, arg)` on the way (may be NULL); refused past `max_bytes`. */
+    int32_t (*net_ready)(char* error, uint32_t error_bytes);
+    int32_t (*http_get)(const char* url, uint8_t* buffer, uint32_t capacity, uint32_t* length, char* error,
+                        uint32_t error_bytes);
+    int32_t (*http_download)(const char* url, const char* path, uint32_t max_bytes, uint8_t sha256[32],
+                             void (*progress)(uint32_t done, void* arg), void* arg, char* error, uint32_t error_bytes);
+    /* One job at a time on RiftWii's network thread: `job(arg)` runs there.
+     * 0 started, -1 when one is still running. background_cancel makes
+     * the running network call give up within a tenth of a second. */
+    int32_t (*background_start)(void (*job)(void* arg), void* arg);
+    uint32_t (*background_running)(void);
+    void (*background_cancel)(void);
+
+    /* More files. remove_path: a file, or a folder that is empty; 0 or -1.
+     * rename_path: 0 or -1 (no overwrite). list_directory: `each(name,
+     * is_directory, arg)` once per entry ("." and ".." left out); the
+     * entries, or -1 when the folder cannot be read. */
+    int32_t (*remove_path)(const char* path);
+    int32_t (*rename_path)(const char* from, const char* to);
+    int32_t (*list_directory)(const char* path, void (*each)(const char* name, uint32_t is_directory, void* arg),
+                              void* arg);
+
+    /* Added after list_directory (check RWP_HOST_HAS). The SD card's free
+     * room in KiB (at most 0xFFFFFFFF) into *kib: 0, or -1 when it cannot be
+     * read. It may walk the whole FAT of a big card: call it from a
+     * background job, not from a frame. */
+    int32_t (*sd_free_kib)(uint32_t* kib);
 } rwp_host;
 
 /* What a plugin gives RiftWii: a constant table in its image, found by
@@ -248,7 +431,9 @@ typedef struct rwp_plugin {
     int32_t (*launch)(const void* request, uint32_t request_bytes);
 } rwp_plugin;
 
-/* launch's failures. */
+/* launch's failures, and the end of a plugin with a screen of its own
+ * (the appstore plugin's launch returns when the player leaves it). */
+#define RWP_LAUNCH_DONE 0
 #define RWP_LAUNCH_FAILED 1     /* the reason is in the request's error */
 #define RWP_LAUNCH_NO_MEMORY 2  /* the loader's heap had no room */
 

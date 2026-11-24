@@ -21,6 +21,7 @@ struct TileSpec {
     std::string value;                          // under the name, smaller; empty for none
     const riftwii::wii::skin::Tex* icon = nullptr;  // 28x28
     bool primary = false;
+    bool opensPage = false;  // opens another screen or a choice; a chevron at the right
     bool on = false;   // the value in the accent's colour (something switched on)
     bool dim = false;  // greyed: still lit and pressed, its page says why
     bool warn = false; // the value in the theme's warning colour (a memory card that is full)
@@ -44,7 +45,6 @@ public:
         return index >= 0 && index < static_cast<int>(lift.size()) ? lift[index] : 0.0f;
     }
     float PressedScale(int index) const { return index == pressedTile ? pressScale : 1.0f; }
-    float SwellScale(int index) const;
     void Draw() override;
     void Update(GuiTrigger* t) override;
 
@@ -64,7 +64,9 @@ private:
     std::vector<GuiText*> label;
     std::vector<GuiText*> value;
     std::vector<int> labelSize;  // the size Layout picked for each tile's name
+    std::vector<char> chevronShown;  // opensPage, unless the name needed its room
     bool dirty = true;
     GuiSound* soundOver;
     GuiSound* soundClick;
+    GuiText chevron;
 };

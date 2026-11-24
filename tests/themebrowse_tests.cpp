@@ -152,7 +152,11 @@ int main() {
         EXPECT_EQ(parse(list_json(longname)).count, 0u);
         std::string huge = theme_json("Indigo");
         huge.replace(huge.find("\"Indigo\",\"author\""), 8, "\"" + std::string(5000, 'n') + "\"");
-        EXPECT_TRUE(!parse(list_json(huge)).ok);
+        // Too long to keep: that theme is left out, the list is still read.
+        const auto huge_parsed = parse(list_json(huge + "," + theme_json("Plain")));
+        EXPECT_TRUE(huge_parsed.ok);
+        EXPECT_EQ(huge_parsed.count, 1u);
+        EXPECT_EQ(huge_parsed.skipped, 1u);
         std::string empty = theme_json("Indigo");
         empty.replace(empty.find("\"Indigo\",\"author\""), 8, "\"  \"");
         EXPECT_EQ(parse(list_json(empty)).count, 0u);

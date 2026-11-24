@@ -2491,6 +2491,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const bool test_reset = player_test_switch("reset");
     // And of a program switch, in a game that has none (gc_on_boot_dol).
     const bool test_exec = player_test_switch("exec");
+    // And of MEM2 still running code once the game's OS is up
+    // (gc_rt_cold.mem2_code, docs/GCMEM2.md).
+    const bool test_mem2_code = player_test_switch("mem2code");
     // And of a two-disc game's change, in a game that never asks for one
     // (GC_FLAG_DISC_TEST): on only when there is a second disc.
     const bool test_disc_change = player_test_switch("discchange");
@@ -2911,6 +2914,60 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const GcStackTop stack = find_gc_stack_top(read_code, dol.entry);
     const std::uint32_t arena_lo = find_gc_arena_lo(read_code, text_ranges);
     const std::uint32_t game_floor = std::max(stack.address, arena_lo);
+    // Test builds: sd:/riftwii/test_limits.txt's "game_mem1_kib = N" takes
+    // N KiB more off the top of the game's memory, as it does for a Wii game,
+    // to find out whether a game's crash is one of memory (docs/GCMEM2.md).
+    // Taken out above the FST, before the plan: the FST, BI2's copy and
+    // RiftWii's pieces all move down by it, so a game that reads its limit
+    // from the FST's address (libogc) or BI2's (boot arguments) sees it as
+    // well as one that reads ArenaHi. `squeeze` is what was asked for,
+    // `squeeze_room` the room above the FST that takes it from the arena's
+    // top: RiftWii's pieces fill gaps, so the two can differ.
+    std::uint32_t squeeze = 0;
+    std::uint32_t squeeze_room = 0;
+#ifdef RT_TEST_BUILD
+    if (std::FILE* limits = std::fopen("sd:/riftwii/test_limits.txt", "rb")) {
+        // Read by hand: the plugin has no fgets or sscanf.
+        char text[1024];
+        const std::size_t got = std::fread(text, 1, sizeof text - 1, limits);
+        std::fclose(limits);
+        text[got] = '\0';
+        unsigned squeeze_kib = 0;
+        // Line by line, as the Wii side reads the file (memlimits.cpp): a
+        // line counts only when it is "game_mem1_kib = N" from its start (past
+        // spaces), so "# game_mem1_kib = 0" is a comment. The last one wins.
+        static const char kKey[] = "game_mem1_kib";
+        const std::size_t key_length = sizeof kKey - 1;
+        for (const char* line = text; *line != '\0';) {
+            const char* at = line;
+            while (*at == ' ' || *at == '\t') ++at;
+            // Compared by hand: the plugin has no strncmp either.
+            std::size_t matched = 0;
+            while (matched < key_length && at[matched] == kKey[matched]) ++matched;
+            if (matched == key_length) {
+                at += key_length;
+                while (*at == ' ' || *at == '\t') ++at;
+                if (*at == '=') {
+                    ++at;
+                    while (*at == ' ' || *at == '\t') ++at;
+                    if (*at >= '0' && *at <= '9') {
+                        unsigned value = 0;
+                        // Digits up to a bound, so a long number can't wrap.
+                        while (*at >= '0' && *at <= '9' && value < 100000u) {
+                            const unsigned digit = unsigned(*at - '0');
+                            value = value * 10u + digit;
+                            ++at;
+                        }
+                        squeeze_kib = value;
+                    }
+                }
+            }
+            while (*line != '\0' && *line != '\n') ++line;
+            if (*line == '\n') ++line;
+        }
+        if (squeeze_kib != 0 && squeeze_kib < 16384) squeeze = squeeze_kib << 10;
+    }
+#endif
     enum Mem1Piece { kPieceBlob, kPieceCard, kPieceMoved, kPieceLeave, kPieceStubs, kPieceDiSlots, kMem1Pieces };
     std::vector<GcMem1Piece> mem1_pieces(kMem1Pieces);
     mem1_pieces[kPieceBlob].bytes = h.size;  // the biggest first: it packs best
@@ -2928,7 +2985,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // The layout for an FST room of `room`; true when it leaves the
     // arena's top above RiftWii's heap and the game's own floor.
     auto plan_mem1 = [&](std::uint32_t room) {
-        fst_addr = (kMem1Top - room) & ~31u;
+        fst_addr = (kMem1Top - room - squeeze_room) & ~31u;
         mem1 = plan_gc_mem1(fst_addr, mem1_pieces, kBi2Bytes);
         arena_hi = mem1.arena_hi;
         // A refused layout (arena top 0) stays refused: the libogc
@@ -2948,7 +3005,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         return arena_hi >= kLoaderCeiling && arena_hi >= game_floor;
     };
     // A two-disc game's room holds the larger FST; when no layout has room
-    // for that, disc 2 goes and disc 1's room is planned as before.
+    // for that, disc 2 goes and disc 1's room is planned as before. Decided
+    // without the squeeze below, which never costs a game its second disc.
     bool planned = false;
     if (second.on) {
         const std::uint32_t two_disc_room = gc_two_disc_fst_room(fst_max, second.boot.data());
@@ -2957,6 +3015,34 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         else drop_second("its FST leaves the game no room at the top of MEM1");
     }
     if (!planned) plan_mem1(fst_max);
+    // The room above the FST that lowers the arena's top by at least the
+    // squeeze, against this same layout (a two-disc game's too) without it:
+    // a gap RiftWii's pieces fill can swallow a small one. One that leaves
+    // no room, or needs 128 KiB more than asked, is left out and said so:
+    // the test then runs as a release build would, with the layout above.
+    if (squeeze != 0) {
+        const std::uint32_t base_arena = arena_hi;
+        bool reached = false;
+        for (squeeze_room = squeeze; squeeze_room <= squeeze + 0x20000; squeeze_room += 0x400) {
+            if (!plan_mem1(fst_max)) break;
+            if (base_arena - arena_hi >= squeeze) {
+                reached = true;
+                break;
+            }
+        }
+        if (reached) {
+            logf("GameCube: TEST BUILD: game_mem1_kib = %u: the arena's top 0x%08x, %u bytes under 0x%08x without it "
+                 "(FST 0x%08x; test_limits.txt)\n", static_cast<unsigned>(squeeze >> 10),
+                 static_cast<unsigned>(arena_hi), static_cast<unsigned>(base_arena - arena_hi),
+                 static_cast<unsigned>(base_arena), static_cast<unsigned>(fst_addr));
+        } else {
+            logf("GameCube: TEST BUILD: game_mem1_kib = %u left out: it would take the arena under the loader "
+                 "or the game's own floor\n", static_cast<unsigned>(squeeze >> 10));
+            squeeze = 0;
+            squeeze_room = 0;
+            plan_mem1(fst_max);
+        }
+    }
     const std::uint32_t blob_addr = mem1_pieces[kPieceBlob].address;
     const std::uint32_t card_addr = mem1_pieces[kPieceCard].address;
     const std::uint32_t moved_addr = mem1_pieces[kPieceMoved].address;
@@ -3037,6 +3123,16 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         return false;
     }
     ctx->cold = cold_addr;
+    if (test_mem2_code) {
+        // lis r3,"RU"; ori r3,r3,"N!"; blr: what the first pad read calls in MEM2.
+        auto* cold = static_cast<gc_rt_cold*>(staged(cold_addr));
+        cold->mem2_code[0] = 0x3C600000u | (GC_MEM2_CODE_RAN >> 16);
+        cold->mem2_code[1] = 0x60630000u | (GC_MEM2_CODE_RAN & 0xFFFFu);
+        cold->mem2_code[2] = 0x4E800020u;
+        logf("GameCube: TEST BUILD: the first pad read runs code in MEM2 at 0x%08x; a crash screen with an ISI "
+             "there means MEM2 no longer runs code once the game is up\n",
+             static_cast<unsigned>(cold_addr + offsetof(gc_rt_cold, mem2_code)));
+    }
     ctx->io_buffer = io_buffer_addr;
     fill_gc_runs(static_cast<gc_rt_run*>(staged(runs_addr)), placed, fst_copy_addr != 0 ? fst_copy_addr : fst_addr);
     if (fst_copy_addr != 0) std::memcpy(staged(fst_copy_addr), fst.data(), fst.size());
@@ -4613,6 +4709,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // and nothing reads the heap after.
     std::memmove(reinterpret_cast<void*>(mem2_from), mem2_image.data(), mem2_image.size());
     DCFlushRange(reinterpret_cast<void*>(mem2_from), mem2_image.size());
+    // MEM2's test code (gc_rt_cold.mem2_code) is fetched as instructions.
+    if (test_mem2_code) ICInvalidateRange(reinterpret_cast<void*>(cold_addr), sizeof(gc_rt_cold));
     reinterpret_cast<void (*)(std::uint32_t)>(blob_addr + h.trace_now)(GC_TRACE_JUMP);
     // Until the game's OS installs its own exception handlers, every
     // vector goes to the blob's crash screen (gc_on_fatal), so a crash in

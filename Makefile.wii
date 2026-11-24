@@ -57,6 +57,10 @@ EXCLUDES	+=	src/patching/patchstream.cpp
 EXCLUDES	+=	src/ctgpr/ctgpapply.cpp src/ctgpr/ctgpdsa.cpp src/ctgpr/ctgpefa.cpp src/ctgpr/ctgpfat.cpp src/ctgpr/ctgpfields.cpp src/ctgpr/ctgpfiles.cpp \
 				src/ctgpr/ctgphash.cpp src/ctgpr/ctgpimage.cpp src/ctgpr/ctgplaunch.cpp src/ctgpr/ctgpmmu.cpp src/ctgpr/ctgppackages.cpp src/ctgpr/ctgprowdata.cpp \
 				src/ctgpr/ctgpsign.cpp src/ctgpr/ctgpstage2.cpp src/ctgpr/ctgptables.cpp
+# The app store's list and rules live in the appstore plugin
+# (Makefile.plugin's appstore_SRC, docs/APPSTORE.md), loaded only while the
+# store is open. The host tests still build them (CMakeLists.txt).
+EXCLUDES	+=	src/net/applist.cpp src/net/appcatalog.cpp
 INCLUDES	:=	$(WII_DIRS) vendor-libgui/source include runtime runtime/resident runtime/pad runtime/gc runtime/shot runtime/fault runtime/vsd vendor-pugixml/src vendor-bearssl/inc vendor-wwfc vendor-zstd \
 				channel/common build-runtime
 DATA		:=	wii/assets wii/lang vendor-gecko vendor-libgui/source/images vendor-libgui/source/fonts vendor-libgui/source/sounds vendor-libgui/source/lang \

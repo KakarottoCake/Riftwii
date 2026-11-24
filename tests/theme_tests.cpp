@@ -7,6 +7,7 @@
 
 #include "riftwii/inputicons.hpp"
 #include "riftwii/skinpaint.hpp"
+#include "riftwii/storeicons.hpp"
 #include "riftwii/theme.hpp"
 
 static int g_failures = 0;
@@ -445,7 +446,7 @@ static void test_theme_color_keys() {
 
 static void test_theme_images() {
     const auto& images = theme_images();
-    EXPECT_EQ(images.size(), 84U);
+    EXPECT_EQ(images.size(), 102U);
 
     // Unique names.
     for (std::size_t i = 0; i < images.size(); ++i) {
@@ -512,18 +513,23 @@ static void test_case_insensitivity_and_boolean_formats() {
 }
 
 // Every picture a theme may replace is painted at the size theme_images()
-// lists, in the theme's colours; nothing else is.
+// lists, in the theme's colours; nothing else is. The app store's are
+// painted by its plugin (riftwii/storeicons.hpp), the rest by the menu.
 static void test_painted_images() {
     const Theme def = default_theme();
     for (const ThemeImage& im : theme_images()) {
         Canvas c(0, 0);
-        EXPECT_TRUE(paint_theme_image(im.name, def, c));
+        const bool store = std::string(im.name).compare(0, 6, "store_") == 0;
+        EXPECT_TRUE(store ? paint_store_icon(im.name, Rgba{255, 255, 255, 255}, c) : paint_theme_image(im.name, def, c));
+        EXPECT_FALSE(store && paint_theme_image(im.name, def, c));
         EXPECT_EQ(c.width(), im.w);
         EXPECT_EQ(c.height(), im.h);
     }
     Canvas none(0, 0);
     EXPECT_FALSE(paint_theme_image("tile2", def, none));
     EXPECT_FALSE(paint_theme_image("", def, none));
+    EXPECT_FALSE(paint_store_icon("store_nothing", Rgba{255, 255, 255, 255}, none));
+    EXPECT_FALSE(paint_store_icon("games", Rgba{255, 255, 255, 255}, none));
 
     // Each layout needs its own recognisable silhouette, with a clear
     // margin when it is enlarged on a card or shrunk onto a button.

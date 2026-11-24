@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstring>
 
 #include "riftwii/themepack.hpp"
 
@@ -19,6 +20,8 @@ constexpr std::size_t kLocalSize = 30;
 constexpr std::size_t kMaxNameBytes = 200;
 // How much of a stored entry is handed to the sink at once.
 constexpr std::size_t kChunk = 16384;
+// The most of a directory read at once: 8192 entries with long names fit.
+constexpr std::uint32_t kMaxDirectoryBytes = 8u << 20;
 
 std::uint16_t Le16(const std::uint8_t* p) { return static_cast<std::uint16_t>(p[0] | (p[1] << 8)); }
 std::uint32_t Le32(const std::uint8_t* p) {
@@ -56,37 +59,60 @@ std::uint32_t zip_crc32_update(std::uint32_t crc, const std::uint8_t* data, std:
 
 bool zip_read_directory(const std::uint8_t* data, std::size_t size, std::vector<ZipEntry>& entries,
                         std::string& error, std::size_t max_entries) {
+    const ZipReadAt from_memory = [&](std::uint64_t offset, std::uint8_t* out, std::size_t bytes) {
+        if (offset > size || bytes > size - offset) return false;
+        std::memcpy(out, data + offset, bytes);
+        return true;
+    };
+    return zip_read_directory_at(from_memory, size, entries, error, max_entries);
+}
+
+bool zip_read_directory_at(const ZipReadAt& read, std::uint64_t size, std::vector<ZipEntry>& entries,
+                           std::string& error, std::size_t max_entries) {
     entries.clear();
     if (size < kEndSize) return Fail(error, "the download is too short to be a zip file");
     // The end record is the last thing in the file, followed by at most a
     // 65535-byte comment.
-    const std::size_t window = std::min<std::size_t>(size, kEndSize + 65535);
-    std::size_t end = 0;
+    const std::size_t window = static_cast<std::size_t>(std::min<std::uint64_t>(size, kEndSize + 65535));
+    std::vector<std::uint8_t> tail(window);
+    if (!read(size - window, tail.data(), window)) return Fail(error, "the zip file could not be read");
+    std::size_t end_in_tail = 0;
     bool found = false;
     for (std::size_t back = 0; back + kEndSize <= window; ++back) {
-        end = size - kEndSize - back;
-        if (Le32(data + end) == kEndSignature) {
+        end_in_tail = window - kEndSize - back;
+        if (Le32(tail.data() + end_in_tail) == kEndSignature) {
             found = true;
             break;
         }
     }
     if (!found) return Fail(error, "the download is not a zip file");
-    const unsigned disk = Le16(data + end + 4), directory_disk = Le16(data + end + 6);
-    const unsigned here = Le16(data + end + 8), total = Le16(data + end + 10);
-    const std::uint32_t directory_size = Le32(data + end + 12), directory_offset = Le32(data + end + 16);
+    const std::uint8_t* e = tail.data() + end_in_tail;
+    const std::uint64_t end = size - window + end_in_tail;
+    const unsigned disk = Le16(e + 4), directory_disk = Le16(e + 6);
+    const unsigned here = Le16(e + 8), total = Le16(e + 10);
+    const std::uint32_t directory_size = Le32(e + 12), directory_offset = Le32(e + 16);
     if (disk != 0 || directory_disk != 0 || here != total) return Fail(error, "split zip files are not supported");
     if (total == 0xFFFF || directory_size == 0xFFFFFFFFu || directory_offset == 0xFFFFFFFFu)
         return Fail(error, "zip64 files are not supported");
     if (total > max_entries) return Fail(error, "the zip file has too many entries");
     if (directory_offset > end || directory_size > end - directory_offset)
         return Fail(error, "the zip file's directory is outside the file");
-
-    std::size_t at = directory_offset;
-    const std::size_t directory_end = std::size_t(directory_offset) + directory_size;
+    // Each entry takes at least its fixed record, so a directory longer
+    // than that allows for the names is damaged, not merely big.
+    if (directory_size > std::uint64_t(total) * (kCentralSize + 3u * 65535u))
+        return Fail(error, "the zip file's directory is damaged");
+    if (directory_size > kMaxDirectoryBytes) return Fail(error, "the zip file's directory is too big");
+    // Read a record at a time: each fixed part, then its name, so no block
+    // as big as the directory is ever needed (an 8 MB one would not find
+    // room in a fragmented heap).
+    std::uint8_t h[kCentralSize];
+    char name[kMaxNameBytes];
+    std::size_t at = 0;
+    const std::size_t directory_end = directory_size;
     for (unsigned i = 0; i < total; ++i) {
-        if (directory_end - at < kCentralSize || Le32(data + at) != kCentralSignature)
-            return Fail(error, "the zip file's directory is damaged");
-        const std::uint8_t* h = data + at;
+        if (directory_end - at < kCentralSize) return Fail(error, "the zip file's directory is damaged");
+        if (!read(std::uint64_t(directory_offset) + at, h, kCentralSize)) return Fail(error, "the zip file could not be read");
+        if (Le32(h) != kCentralSignature) return Fail(error, "the zip file's directory is damaged");
         const unsigned flags = Le16(h + 8);
         ZipEntry entry;
         entry.method = Le16(h + 10);
@@ -101,7 +127,9 @@ bool zip_read_directory(const std::uint8_t* data, std::size_t size, std::vector<
         if (flags & 1) return Fail(error, "encrypted zip files are not supported");
         if (entry.packed_size == 0xFFFFFFFFu || entry.unpacked_size == 0xFFFFFFFFu || local_offset == 0xFFFFFFFFu)
             return Fail(error, "zip64 files are not supported");
-        entry.name.assign(reinterpret_cast<const char*>(h + kCentralSize), name_size);
+        if (name_size > 0 && !read(std::uint64_t(directory_offset) + at + kCentralSize, reinterpret_cast<std::uint8_t*>(name), name_size))
+            return Fail(error, "the zip file could not be read");
+        entry.name.assign(name, name_size);
         entry.directory = !entry.name.empty() && entry.name.back() == '/';
         at += record;
         if (entry.directory) {
@@ -115,14 +143,15 @@ bool zip_read_directory(const std::uint8_t* data, std::size_t size, std::vector<
             return Fail(error, "the zip file's directory is damaged");
         // The local header repeats the name and has its own extra field; the
         // packed bytes follow it, and must lie inside the file, before the directory.
+        std::uint8_t local[kLocalSize];
         if (local_offset > directory_offset || directory_offset - local_offset < kLocalSize ||
-            Le32(data + local_offset) != kLocalSignature)
+            !read(local_offset, local, kLocalSize) || Le32(local) != kLocalSignature)
             return Fail(error, "the zip file's directory is damaged");
-        const std::size_t local_name = Le16(data + local_offset + 26), local_extra = Le16(data + local_offset + 28);
-        const std::size_t data_start = std::size_t(local_offset) + kLocalSize + local_name + local_extra;
+        const std::size_t local_name = Le16(local + 26), local_extra = Le16(local + 28);
+        const std::uint64_t data_start = std::uint64_t(local_offset) + kLocalSize + local_name + local_extra;
         if (data_start > directory_offset || entry.packed_size > directory_offset - data_start)
             return Fail(error, "the zip file's directory is damaged");
-        entry.data_offset = data_start;
+        entry.data_offset = static_cast<std::size_t>(data_start);
         entries.push_back(std::move(entry));
     }
     return true;
@@ -206,6 +235,57 @@ bool zip_extract(const std::uint8_t* data, std::size_t size, const ZipEntry& ent
     }
     if (sink_failed) return Fail(error, "a file could not be written");
     if (!ran) return Fail(error, "a file in the zip is damaged");
+    if (produced != entry.unpacked_size) return Fail(error, "a file in the zip is not the size it says");
+    if (crc != entry.crc) return Fail(error, "a file in the zip is damaged");
+    return true;
+}
+
+bool zip_extract_at(const ZipReadAt& read, const ZipEntry& entry, ZipInflateStream* inflater, const ZipSink& sink,
+                    std::string& error) {
+    std::uint64_t produced = 0;
+    std::uint32_t crc = 0;
+    bool sink_failed = false;
+    const ZipSink counted = [&](const std::uint8_t* bytes, std::size_t count) {
+        if (produced + count > entry.unpacked_size) return false;  // more than it said
+        crc = zip_crc32_update(crc, bytes, count);
+        produced += count;
+        if (!sink(bytes, count)) {
+            sink_failed = true;
+            return false;
+        }
+        return true;
+    };
+    if (entry.method != 0 && (inflater == nullptr || !inflater->begin()))
+        return Fail(error, "the zip file could not be unpacked");
+    std::vector<std::uint8_t> chunk(kChunk);
+    bool ran = true;
+    bool done = entry.method == 0;
+    for (std::uint32_t at = 0; ran && at < entry.packed_size; ) {
+        const std::size_t take = std::min<std::size_t>(kChunk, entry.packed_size - at);
+        if (!read(std::uint64_t(entry.data_offset) + at, chunk.data(), take)) {
+            if (entry.method != 0) inflater->end();
+            return Fail(error, "the zip file could not be read");
+        }
+        at += static_cast<std::uint32_t>(take);
+        if (entry.method == 0) {
+            ran = counted(chunk.data(), take);
+        } else {
+            const ZipInflateStream::Step step = inflater->feed(chunk.data(), take, counted);
+            ran = step != ZipInflateStream::Step::Bad;
+            // The deflate stream must end with its last packed byte.
+            if (step == ZipInflateStream::Step::Done) {
+                done = at == entry.packed_size;
+                ran = done;
+            }
+        }
+    }
+    if (entry.method != 0) {
+        inflater->end();
+        // An empty deflated file still has its end block.
+        if (entry.packed_size == 0) ran = false;
+    }
+    if (sink_failed) return Fail(error, "a file could not be written");
+    if (!ran || !done) return Fail(error, "a file in the zip is damaged");
     if (produced != entry.unpacked_size) return Fail(error, "a file in the zip is not the size it says");
     if (crc != entry.crc) return Fail(error, "a file in the zip is damaged");
     return true;

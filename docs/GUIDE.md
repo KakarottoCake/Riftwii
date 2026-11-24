@@ -917,7 +917,9 @@ in an emulated NAND keeps its saves in that folder.
 To play your own backed-up `.wad` files, put them in **`sd:/wiiware/`**
 or **`usb:/wiiware/`**. RiftWii also reads numbered USB partitions
 (`usb1:/wiiware/`, `usb2:/wiiware/`, and so on), on FAT32 or NTFS, and one
-level of subfolders. The games appear on Home with their own names,
+level of subfolders. WADs in your **Game folders** (Settings > Drives) are
+found too, so they can sit beside your other games (`sd:/roms/wiiware`).
+The games appear on Home with their own names,
 banners and icons. An SD card is needed even when the WAD is on USB.
 
 Press **Play**. The first start shows **Getting <game> ready, first time
@@ -940,7 +942,7 @@ source worked. Korean-key and vWii-key WADs are not supported by this key reader
 The regular d2x channel-launch requirements still apply.
 
 The old way also works: put `.wad` files in `sd:/wad/` (or `sd:/wads/`)
-and pick **Settings > Drives > Install WAD files**. These copies stay on
+and pick **Settings > Games > Install WAD files**. These copies stay on
 Home independently of the WAD. This installs into the same emulated NAND.
 
 For a game the Wii Menu moved to the SD card, RiftWii looks in
@@ -2211,11 +2213,17 @@ from USB Loader GX's settings, and folders found under `sd:/nands` and
 `usb:/nands`. USB changes need a FAT32 partition. A folder that is missing
 cannot be opened.
 
-Each title opens its save tools. Installed channels use their banner name
-when it can be read; otherwise the page shows the full title ID. Titles on
-the Wii are also listed so their saves can be copied into the emulated
-NAND. System software, including the Wii Menu and IOS, is hidden and cannot
-be deleted. **Delete emulated title** removes that title's program, save
+The list groups disc game saves, channels, system channels, hidden titles
+and other titles under separate headings. Each row shows whether it is in
+the emulated NAND, the Wii's memory or both. Names come from the game-name
+list or the channel's banner; otherwise the four-character code is shown.
+A busy window stays visible while the titles and their names are read.
+
+Each title opens its save tools. Titles on the Wii are also listed so their
+saves can be copied into the emulated NAND. The Wii Menu and IOS stay hidden.
+System channels, hidden titles and console tools such as the Wii Shop and
+Wii U transfer tools have no delete actions, with a reason on their page.
+**Delete emulated title** removes that title's program, save
 and ticket from the chosen folder. It keeps shared program files used by
 other titles. **Delete emulated save** removes only its save. Both ask first
 and cannot be undone. A WAD still in the `wad` folder remains available on
@@ -2253,6 +2261,11 @@ the destination again as far as possible; if the drive was taken out
 during the copy, part of the title can stay there. Put the drive back,
 open the destination folder in this manager and delete the title before
 copying it again. Home shows the copy after the drives are read again.
+A system channel, hidden title or console tool (those without delete
+actions) can't be removed here: on a PC, delete its folder
+`<destination>/title/<type>/<ID>` and its ticket
+`<destination>/ticket/<type>/<ID>.tik` (the 8-digit halves of its title
+ID, as the title's page shows it), then copy it again.
 
 **Remove Wii settings** shows whether the emulated folder contains
 `shared2/sys/SYSCONF` and `title/00000001/00000002/data/setting.txt`.
