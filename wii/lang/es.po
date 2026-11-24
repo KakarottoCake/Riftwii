@@ -2721,6 +2721,27 @@ msgstr "Crear una casilla de inicio con estos mods..."
 msgid "Rename this tile..."
 msgstr "Cambiar el nombre de esta casilla..."
 
+msgid "GameTDB entry"
+msgstr "Entrada de GameTDB"
+
+msgid "Current entry"
+msgstr "Entrada actual"
+
+msgid "Type an ID"
+msgstr "Escribir un código"
+
+msgid "Use the tile's name to look for a match."
+msgstr "Busca una entrada con el nombre de la casilla."
+
+msgid "Choose an entry for this tile's cover and About page."
+msgstr "Elige una entrada para la portada y la información de esta casilla."
+
+msgid "Enter six letters or numbers."
+msgstr "Escribe seis letras o números."
+
+msgid "This ID is not in the GameTDB data on the SD card."
+msgstr "Este código no está en los datos de GameTDB de la tarjeta SD."
+
 msgid "Remove this tile from Home"
 msgstr "Quitar esta casilla del inicio"
 

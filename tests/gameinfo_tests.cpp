@@ -507,6 +507,43 @@ void TestDiscsOnlyDatabaseIsReplaced() {
     fs::remove("sd:");
 }
 
+void TestTileIdOutsideTheModList() {
+    fs::create_directories("sd:/riftwii");
+    ForgetGameInfo();
+    const std::string xml =
+        "<datafile>\n<game name=\"Base\"><id>SMNE01</id></game>\n"
+        "<game name=\"Newer\"><id>SMNP03</id><type>CUSTOM</type><genre>platformer</genre>"
+        "<input players=\"4\"><control type=\"wiimote\" required=\"true\"/></input>"
+        "<locale lang=\"EN\"><title>Newer Super Mario Bros. Wii</title><synopsis>The mod's story.</synopsis></locale>"
+        "</game>\n</datafile>\n";
+    const auto zip = ziptest::make_zip({{"wiitdb.xml", xml, 0}});
+    Write(kZipPath, reinterpret_cast<const char*>(zip.data()), zip.size());
+    GameInfo old;
+    old.id = "SMNP03";
+    const std::string cache = serialize_game_infos({{old.id, old}});
+    Write(kCachePath, cache.data(), cache.size());
+    fs::last_write_time(kZipPath, fs::file_time_type::clock::now() - std::chrono::hours(24));
+
+    GameInfo info;
+    std::string error;
+    CHECK(FindGameInfo("SMNP03", {"SMNE01"}, info, error, nullptr, true) == GameInfoResult::Found);
+    CHECK(info.title == "Newer Super Mario Bros. Wii");
+    CHECK(info.synopsis == "The mod's story.");
+    CHECK(info.players == 4);
+    CHECK(info.genres == std::vector<std::string>{"platformer"});
+    CHECK(info.controls.size() == 1 && info.controls[0].required);
+    CHECK(FindGameInfo("SMNP99", {"SMNE01"}, info, error, nullptr, true) == GameInfoResult::NotListed);
+
+    ForgetGameInfo();
+    CHECK(PeekGameInfo("SMNP03", info) && info.title == "Newer Super Mario Bros. Wii");
+    fs::remove(kZipPath);
+    fs::remove(kCachePath);
+    fs::remove(kHomebrewPath);
+    fs::remove(kModTitlesPath);
+    fs::remove("sd:/riftwii");
+    fs::remove("sd:");
+}
+
 int main() {
     TestStoredTruncationPreservesCache();
     TestIncompleteXmlPreservesLists(false);
@@ -515,5 +552,6 @@ int main() {
     TestBackgroundHandoffAndRescan();
     TestCardReplacementDiscardsGameInfo();
     TestDiscsOnlyDatabaseIsReplaced();
+    TestTileIdOutsideTheModList();
     return failures ? 1 : 0;
 }

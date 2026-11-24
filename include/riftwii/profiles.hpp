@@ -23,9 +23,10 @@ namespace riftwii {
 constexpr std::size_t kMaxProfiles = 48;         // on the whole list
 constexpr std::size_t kMaxProfilesPerGame = 8;   // more than a page of one game's tiles is noise
 constexpr std::size_t kMaxProfileName = 32;      // bytes of UTF-8, as many as the keyboard takes
+constexpr std::size_t kMaxProfileEntryName = 96; // a GameTDB title can be longer than a typed name
 constexpr std::size_t kMaxProfileSlug = 24;
 constexpr std::size_t kMaxProfileArtPath = 200;
-constexpr std::size_t kMaxProfilesFile = 32 * 1024;  // 48 lines of at most ~270 bytes, with room
+constexpr std::size_t kMaxProfilesFile = 32 * 1024;  // room for all 48 lines at their longest
 
 // The choices file a problem report shows for the last launch: the tile
 // launched (sd:/riftwii/last_tile.txt, its key on the first line) when it
@@ -43,11 +44,15 @@ struct Profile {
     // sd:/riftwii/profiles: the picture of the pack it was made with
     // (riftwii/modart.hpp), or empty.
     std::string art;
+    std::string gametdb_id;  // empty to match by name
+    bool use_entry_name = false;  // false once the player supplies a name
     std::string key() const { return game_id + "@" + slug; }
 };
 
 // A game ID as the Wii writes them: 4 to 6 capital letters and digits.
 bool plausible_game_id(const std::string& id);
+// A typed GameTDB ID, folded to uppercase; empty when malformed.
+std::string normalize_gametdb_id(std::string id);
 // A slug profile_slug could have made.
 bool valid_profile_slug(const std::string& slug);
 // What Home keys a tile on (play history, favourites): a game ID, or a
@@ -85,10 +90,14 @@ public:
     const Profile* find(const std::string& key) const;
     // A new profile for `game_id` named `name` (cleaned), its slug made
     // unique among the game's ("retro-rewind-2"); `key` is set to its key.
-    AddResult add(const std::string& game_id, const std::string& name, const std::string& art, std::string& key);
+    AddResult add(const std::string& game_id, const std::string& name, const std::string& art, std::string& key,
+                  const std::string& entry_id = {}, bool use_entry_name = false);
     // The key and its files stay: only the name changes. False when there
     // is no such profile or the name cleans to nothing.
     bool rename(const std::string& key, const std::string& name);
+    // Automatic keeps the last label. An explicit choice changes the name only
+    // if the player has not supplied one; its ID must have been looked up first.
+    bool set_gametdb_entry(const std::string& key, const std::string& id, const std::string& title);
     bool remove(const std::string& key);
 
 private:

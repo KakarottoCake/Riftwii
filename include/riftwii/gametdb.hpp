@@ -28,6 +28,7 @@ struct GameControl {
 
 struct GameInfo {
     std::string id;
+    std::string title;
     std::string developer;
     std::string publisher;
     std::vector<std::string> genres;   // GameTDB's English words ("racing", "kart racing")

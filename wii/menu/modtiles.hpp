@@ -25,9 +25,11 @@ void ForgetProfiles();
 // its page now (mods, cheats, saves and options); its picture is the first
 // mod turned on that has one. `key` is set to the new tile's key. False
 // with `error` (said to the player) when it can't be made.
-bool CreateProfile(const FrontendState& state, const std::string& name, std::string& key, std::string& error);
+bool CreateProfile(const FrontendState& state, const std::string& name, const std::string& entry_id,
+                   bool use_entry_name, std::string& key, std::string& error);
 // The open profile's tile renamed (its files keep their names).
 bool RenameProfile(FrontendState& state, const std::string& name, std::string& error);
+bool SetProfileGameTdbEntry(FrontendState& state, const std::string& id, const std::string& title, std::string& error);
 // The open profile's tile removed with its choices file, its picture in
 // sd:/riftwii/profiles, its favourite and its plays; the page goes back to being the game's own (its choices are
 // read again by the caller, ScanPackages).

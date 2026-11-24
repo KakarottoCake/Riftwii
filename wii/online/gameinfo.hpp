@@ -30,9 +30,11 @@ enum class GameInfoResult { Found, NotListed, NoDatabase, Failed };
 // `id`'s details. When the cache does not have them, the database is read
 // for `id` and every game in `wanted` (the rest of the player's games, so
 // it is read once for all of them). `progress` gets the share done, 0 to
-// 1, and stops the reading by returning false.
+// 1, and stops the reading by returning false. `want_title` refreshes old
+// cached details without a title when the database is already on the card.
 GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& wanted, GameInfo& out,
-                            std::string& error, const std::function<bool(double done)>& progress = nullptr);
+                            std::string& error, const std::function<bool(double done)>& progress = nullptr,
+                            bool want_title = false);
 
 // `id`'s details when the cache already has them: the game page's line of
 // facts. Reads nothing but the cache file (once a session), never the

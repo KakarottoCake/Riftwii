@@ -325,7 +325,7 @@ bool GameInfoSource(std::string& path, std::time_t& written) {
 }
 
 GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& wanted, GameInfo& out,
-                            std::string& error, const std::function<bool(double done)>& progress) {
+                            std::string& error, const std::function<bool(double done)>& progress, bool want_title) {
     const std::string lang = MenuLocale();
     LoadCache(lang);
     std::string source;
@@ -334,9 +334,14 @@ GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& 
     const bool stale = have_source && !g_cache.read_now && source_time > g_cache.written;
     if (!stale) {
         const auto found = g_cache.games.find(id);
+        // Older caches did not keep titles. The tile picker needs the
+        // database once for an entry already cached without its name.
         if (found != g_cache.games.end()) {
-            out = found->second;
-            return GameInfoResult::Found;
+            const bool title_missing = want_title && found->second.title.empty();
+            if (!title_missing || !have_source || g_cache.read_now) {
+                out = found->second;
+                return GameInfoResult::Found;
+            }
         }
         if (g_cache.not_listed.count(id)) return GameInfoResult::NotListed;
     }

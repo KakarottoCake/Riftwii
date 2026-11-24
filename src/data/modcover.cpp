@@ -167,6 +167,19 @@ std::string mod_cover_id(const std::vector<CustomGame>& customs, const std::stri
     return stock_matches ? std::string() : found;
 }
 
+const CustomGame* find_gametdb_entry(const std::vector<CustomGame>& entries, const std::string& id) {
+    if (!is_custom_id(id)) return nullptr;
+    for (const CustomGame& entry : entries)
+        if (entry.id == id) return &entry;
+    return nullptr;
+}
+
+std::string profile_cover_id(const std::vector<CustomGame>& entries, const Profile& profile) {
+    // A typed entry may have been checked in the database rather than the mod index.
+    if (is_custom_id(profile.gametdb_id)) return profile.gametdb_id;
+    return mod_cover_id(entries, profile.game_id, profile.name);
+}
+
 bool is_tile_art_name(const std::string& name) {
     return name.find('@') != std::string::npos && valid_tile_key(name);
 }

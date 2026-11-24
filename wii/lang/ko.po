@@ -2721,6 +2721,27 @@ msgstr "이 MOD로 홈 타일 만들기..."
 msgid "Rename this tile..."
 msgstr "이 타일 이름 바꾸기..."
 
+msgid "GameTDB entry"
+msgstr "GameTDB 항목"
+
+msgid "Current entry"
+msgstr "현재 항목"
+
+msgid "Type an ID"
+msgstr "ID 입력"
+
+msgid "Use the tile's name to look for a match."
+msgstr "타일 이름으로 맞는 항목을 찾습니다."
+
+msgid "Choose an entry for this tile's cover and About page."
+msgstr "이 타일의 표지와 정보에 쓸 항목을 고릅니다."
+
+msgid "Enter six letters or numbers."
+msgstr "영문자나 숫자 6자를 입력하세요."
+
+msgid "This ID is not in the GameTDB data on the SD card."
+msgstr "SD 카드의 GameTDB 데이터에 이 ID가 없습니다."
+
 msgid "Remove this tile from Home"
 msgstr "홈에서 이 타일 제거"
 

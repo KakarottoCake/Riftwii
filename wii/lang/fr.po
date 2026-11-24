@@ -2721,6 +2721,27 @@ msgstr "Créer une tuile d'accueil avec ces mods..."
 msgid "Rename this tile..."
 msgstr "Renommer cette tuile..."
 
+msgid "GameTDB entry"
+msgstr "Fiche GameTDB"
+
+msgid "Current entry"
+msgstr "Fiche actuelle"
+
+msgid "Type an ID"
+msgstr "Saisir un code"
+
+msgid "Use the tile's name to look for a match."
+msgstr "Cherche une fiche d'après le nom de la tuile."
+
+msgid "Choose an entry for this tile's cover and About page."
+msgstr "Choisissez une fiche pour la jaquette et les infos de cette tuile."
+
+msgid "Enter six letters or numbers."
+msgstr "Saisissez six lettres ou chiffres."
+
+msgid "This ID is not in the GameTDB data on the SD card."
+msgstr "Ce code ne figure pas dans les données GameTDB de la carte SD."
+
 msgid "Remove this tile from Home"
 msgstr "Retirer cette tuile de l'accueil"
 

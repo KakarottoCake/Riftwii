@@ -2290,6 +2290,29 @@ T = {
         "このタイルの名前を変える...",
         "Renomear este bloco...",
         "Rinomina questo riquadro..."),
+    "GameTDB entry": ("Entrada de GameTDB", "GameTDBの項目", "Entrada do GameTDB", "Voce di GameTDB"),
+    "Current entry": ("Entrada actual", "今の項目", "Entrada atual", "Voce attuale"),
+    "Type an ID": ("Escribir un código", "IDを入力", "Digitar um código", "Inserisci un codice"),
+    "Use the tile's name to look for a match.": (
+        "Busca una entrada con el nombre de la casilla.",
+        "タイルの名前で項目を探します。",
+        "Procura uma entrada pelo nome do bloco.",
+        "Cerca una voce con il nome del riquadro."),
+    "Choose an entry for this tile's cover and About page.": (
+        "Elige una entrada para la portada y la información de esta casilla.",
+        "このタイルのカバーと詳細に使う項目を選びます。",
+        "Escolha uma entrada para a capa e os detalhes deste bloco.",
+        "Scegli una voce per la copertina e le informazioni del riquadro."),
+    "Enter six letters or numbers.": (
+        "Escribe seis letras o números.",
+        "英数字を6文字入力します。",
+        "Digite seis letras ou números.",
+        "Inserisci sei lettere o numeri."),
+    "This ID is not in the GameTDB data on the SD card.": (
+        "Este código no está en los datos de GameTDB de la tarjeta SD.",
+        "このIDはSDカードのGameTDBデータにありません。",
+        "Este código não está nos dados do GameTDB do cartão SD.",
+        "Questo codice non è nei dati di GameTDB sulla scheda SD."),
     "Remove this tile from Home": (
         "Quitar esta casilla del inicio",
         "このタイルをホームから消す",
@@ -4229,6 +4252,13 @@ KO = {
         "이 MOD로 홈 타일 만들기...",
     "Rename this tile...":
         "이 타일 이름 바꾸기...",
+    "GameTDB entry": "GameTDB 항목",
+    "Current entry": "현재 항목",
+    "Type an ID": "ID 입력",
+    "Use the tile's name to look for a match.": "타일 이름으로 맞는 항목을 찾습니다.",
+    "Choose an entry for this tile's cover and About page.": "이 타일의 표지와 정보에 쓸 항목을 고릅니다.",
+    "Enter six letters or numbers.": "영문자나 숫자 6자를 입력하세요.",
+    "This ID is not in the GameTDB data on the SD card.": "SD 카드의 GameTDB 데이터에 이 ID가 없습니다.",
     "Remove this tile from Home":
         "홈에서 이 타일 제거",
     "Puts this game on Home again as a tile of its own, which starts it with the mods and settings set here.":
@@ -6089,6 +6119,13 @@ FR = {
         "Créer une tuile d'accueil avec ces mods...",
     "Rename this tile...":
         "Renommer cette tuile...",
+    "GameTDB entry": "Fiche GameTDB",
+    "Current entry": "Fiche actuelle",
+    "Type an ID": "Saisir un code",
+    "Use the tile's name to look for a match.": "Cherche une fiche d'après le nom de la tuile.",
+    "Choose an entry for this tile's cover and About page.": "Choisissez une fiche pour la jaquette et les infos de cette tuile.",
+    "Enter six letters or numbers.": "Saisissez six lettres ou chiffres.",
+    "This ID is not in the GameTDB data on the SD card.": "Ce code ne figure pas dans les données GameTDB de la carte SD.",
     "Remove this tile from Home":
         "Retirer cette tuile de l'accueil",
     "Puts this game on Home again as a tile of its own, which starts it with the mods and settings set here.":

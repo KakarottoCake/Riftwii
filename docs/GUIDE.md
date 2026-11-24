@@ -318,9 +318,10 @@ a game GameTDB has no cover for shows its name. To use your own cover,
 put a PNG named after the game's ID in `riftwii/covers` on the SD card
 or the USB drive: `sd:/riftwii/covers/RMCE01.png`. For a mod's own Home
 tile, add its tile key: `sd:/riftwii/covers/RMCE01@retro-rewind.png`
-(a tile without one shows the game's cover). Some mods are on GameTDB
-as games of their own (Retro Rewind, Project+): a mod's tile named
-like one, and like no other, gets that cover, kept under the tile key.
+(a tile without cover art of its own shows the game's cover). Some mods are
+on GameTDB as games of their own (Retro Rewind, Project+). Pick a
+**GameTDB entry** for the tile, or let RiftWii find one clear match by name.
+That cover is kept under the tile key.
 Your own cover comes
 before GameTDB's, works offline and is never written over. Some games
 have a second cover on GameTDB: switch to it with **GameTDB cover** in
@@ -596,6 +597,17 @@ these mods...** adds a named tile with its own mods, cheats, saves and
 options. You can keep several setups for the same game. Open that tile's
 Mods page to **Rename this tile...** or **Remove this tile from Home**.
 Removing it keeps the game and the mod files.
+
+When making the tile, choose a **GameTDB entry** to give it that entry's
+cover, box, 3D cover and **About** details. Press OK to keep the suggested
+GameTDB name, or edit it to use your own. On an existing tile, open
+**Options > GameTDB entry** to change the choice. A name you typed or set
+with **Rename this tile...** always wins. **Automatic** keeps the tile's
+name, matches covers by that name as before, and shows the base game's
+details. **Type an ID** looks up a six-character code in the GameTDB data
+already on the SD card, even if the entry isn't in the list for this game.
+RiftWii saves the choice with the tile in `sd:/riftwii/profiles.txt`.
+It changes what the tile shows, not the game or mods it starts.
 
 In every list, hold A and move the Wii Remote to drag it (a quick flick
 keeps it going); the D-pad works too. A longer list has up and down

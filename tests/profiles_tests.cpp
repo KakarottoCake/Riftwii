@@ -163,6 +163,53 @@ static void test_parse_untrusted() {
 
 // Home shows a game's profiles only for a game on a drive: not for the
 // disc drive's tile or the Wii's channels.
+static void test_gametdb_choice() {
+    ProfileList list;
+    std::string key;
+    const std::string title = "New Super Mario Bros. Wii: A longer GameTDB name";
+    EXPECT_TRUE(list.add("SMNE01", title, "", key, "smnp03", true) == ProfileList::AddResult::Added);
+    const Profile* profile = list.find(key);
+    EXPECT_TRUE(profile != nullptr);
+    if (!profile) return;
+    EXPECT_EQ(profile->name, title);
+    EXPECT_EQ(profile->gametdb_id, std::string("SMNP03"));
+
+    ProfileList back;
+    back.parse(list.serialize());
+    profile = back.find(key);
+    EXPECT_TRUE(profile != nullptr);
+    if (!profile) return;
+    EXPECT_EQ(profile->name, title);
+    EXPECT_TRUE(profile->use_entry_name);
+    EXPECT_TRUE(back.set_gametdb_entry(key, "SMNE04", "Cannon Super Mario Bros. Wii"));
+    EXPECT_EQ(profile->name, std::string("Cannon Super Mario Bros. Wii"));
+    EXPECT_TRUE(back.rename(key, "Our Mario tile"));
+    EXPECT_EQ(profile->gametdb_id, std::string("SMNE04"));
+    EXPECT_TRUE(!profile->use_entry_name);
+    EXPECT_TRUE(back.set_gametdb_entry(key, "SMNE05", "Another Super Mario Bros. Wii"));
+    EXPECT_EQ(profile->name, std::string("Our Mario tile"));
+    EXPECT_TRUE(!back.set_gametdb_entry(key, "../bad", "Bad title"));
+    EXPECT_EQ(profile->gametdb_id, std::string("SMNE05"));
+    EXPECT_TRUE(back.set_gametdb_entry(key, "", ""));
+    EXPECT_TRUE(profile->gametdb_id.empty());
+    EXPECT_EQ(profile->name, std::string("Our Mario tile"));
+}
+
+static void test_gametdb_file_fields() {
+    ProfileList list;
+    list.parse("SMNE01@old\tOld tile\tsd:/mods/old.png\n"
+               "SMNE01@bad\tBad ID\t\t../../x\tgametdb\n"
+               "SMNE01@short\tShort ID\t\tSMNE\n"
+               "SMNE01@extra\tExtra field\t\tSMNE03\tgametdb\textra\n"
+               "SMNE01@automatic\tA title that came from GameTDB and is longer than 32 bytes\t\t\tgametdb\n");
+    EXPECT_EQ(list.all().size(), std::size_t(5));
+    for (const Profile& profile : list.all()) EXPECT_TRUE(profile.gametdb_id.empty());
+    EXPECT_EQ(list.all().front().art, std::string("sd:/mods/old.png"));
+    EXPECT_TRUE(!list.all()[1].use_entry_name);
+    EXPECT_TRUE(list.all().back().use_entry_name);
+    EXPECT_TRUE(list.all().back().name.size() > kMaxProfileName);
+}
+
 static void test_tiles_for() {
     ProfileList list;
     std::string key;
@@ -255,6 +302,8 @@ int main() {
     test_names_and_slugs();
     test_list();
     test_parse_untrusted();
+    test_gametdb_choice();
+    test_gametdb_file_fields();
     test_keyed_files();
     test_tiles_for();
     test_launched_choices_key();

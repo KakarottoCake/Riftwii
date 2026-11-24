@@ -18,11 +18,16 @@
 // single match counts. Never a guess: none, or more than one, is no cover.
 namespace riftwii {
 
+struct Profile;
+
 // One of GameTDB's custom games: its ID and its English title.
 struct CustomGame {
     std::string id;
     std::string title;
 };
+
+const CustomGame* find_gametdb_entry(const std::vector<CustomGame>& entries, const std::string& id);
+std::string profile_cover_id(const std::vector<CustomGame>& entries, const Profile& profile);
 
 // Network data, bounded: Mario Kart Wii alone had about 400 custom entries
 // in 2026, of about 60 bytes a line in the file below.

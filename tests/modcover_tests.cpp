@@ -9,6 +9,7 @@
 
 #include "riftwii/gametdb.hpp"
 #include "riftwii/modcover.hpp"
+#include "riftwii/profiles.hpp"
 
 static int g_failures = 0;
 #define EXPECT_TRUE(cond) do { if (!(cond)) { std::cerr << "FAILED: " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
@@ -340,11 +341,30 @@ static void TestPageBoxAsks() {
     EXPECT_TRUE(back.asked("RSBE01"));
 }
 
+static void TestPickedEntry() {
+    using namespace riftwii;
+    const std::vector<CustomGame> entries{{"SMNE03", "Newer Super Mario Bros. Wii"}, {"SMNP03", "Newer Super Mario Bros. Wii"}};
+    EXPECT_TRUE(find_gametdb_entry(entries, normalize_gametdb_id("smnp03")) == &entries.back());
+    EXPECT_TRUE(find_gametdb_entry(entries, "SMNE99") == nullptr);
+    EXPECT_TRUE(find_gametdb_entry(entries, "../bad") == nullptr);
+
+    Profile profile;
+    profile.game_id = "SMNE01";
+    profile.name = "Newer";
+    EXPECT_TRUE(profile_cover_id(entries, profile) == "SMNE03");
+    profile.gametdb_id = "SMNP03";
+    EXPECT_TRUE(profile_cover_id(entries, profile) == "SMNP03");
+    EXPECT_TRUE(profile_cover_id({}, profile) == "SMNP03");
+    profile.gametdb_id.clear();
+    EXPECT_TRUE(profile_cover_id(entries, profile) == "SMNE03");
+}
+
 int main() {
     TestWords();
     TestTileArt();
     TestPageBoxAsks();
     TestMatch();
+    TestPickedEntry();
     TestBlocks();
     TestFile();
     TestScanner();
