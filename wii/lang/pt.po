@@ -4221,6 +4221,141 @@ msgstr "As escolhas deste jogo não puderam ser guardadas. Verifica se o cartão
 msgid "Play anyway?"
 msgstr "Jogar mesmo assim?"
 
+msgid "Get apps"
+msgstr "Obter apps"
+
+msgid "Homebrew apps from a list the RiftWii team checks, installed to sd:/apps. RiftWii hosts none of them: each comes from its maker's own release."
+msgstr "Apps homebrew de uma lista que a equipe do RiftWii confere, instalados em sd:/apps. O RiftWii não hospeda nenhum: cada um vem da versão publicada pelo autor."
+
+msgid "Search apps"
+msgstr "Buscar apps"
+
+msgid "The app store could not open."
+msgstr "A loja de apps não pôde abrir."
+
+msgid "The app store could not open: {1}"
+msgstr "A loja de apps não pôde abrir: {1}"
+
+msgid "System tools"
+msgstr "Ferramentas"
+
+msgid "Game tools"
+msgstr "Para jogos"
+
+msgid "Creative"
+msgstr "Criatividade"
+
+msgid "Demos and toys"
+msgstr "Demos e brinquedos"
+
+msgid "Media"
+msgstr "Mídia"
+
+msgid "Internet"
+msgstr "Internet"
+
+msgid "Online services"
+msgstr "Serviços online"
+
+msgid "Loaders"
+msgstr "Carregadores"
+
+msgid "My apps"
+msgstr "Meus apps"
+
+msgid "My apps (1 update)"
+msgstr "Meus apps (1 atualização)"
+
+msgid "My apps ({1} updates)"
+msgstr "Meus apps ({1} atualizações)"
+
+msgid "{1} from here on the SD card"
+msgstr "{1} daqui no cartão SD"
+
+msgid "Getting the list of apps..."
+msgstr "Obtendo a lista de apps..."
+
+msgid "Could not get the list of apps: {1}"
+msgstr "Não foi possível obter a lista de apps: {1}"
+
+msgid "No app matches {1}."
+msgstr "Nenhum app corresponde a {1}."
+
+msgid "No apps from here are on the SD card yet."
+msgstr "Ainda não há apps daqui no cartão SD."
+
+msgid "On the SD card"
+msgstr "No cartão SD"
+
+msgid "Get it on a PC"
+msgstr "Obtenha num PC"
+
+msgid "Its own page"
+msgstr "Página dele"
+
+msgid "{1} does the same and is kept up to date."
+msgstr "{1} faz o mesmo e é mantido em dia."
+
+msgid "Newer app"
+msgstr "App mais novo"
+
+msgid "Next page"
+msgstr "Próxima página"
+
+msgid "Installed, version {1}"
+msgstr "Instalado, versão {1}"
+
+msgid "Version {1}, {2}"
+msgstr "Versão {1}, {2}"
+
+msgid "It is on the SD card already. Put version {1} in its place."
+msgstr "Já está no cartão SD. Coloque a versão {1} no lugar."
+
+msgid "It comes in a form the Wii cannot unpack. Scan the code."
+msgstr "Vem num formato que o Wii não consegue descompactar. Leia o código."
+
+msgid "To the SD card, {1}"
+msgstr "Para o cartão SD, {1}"
+
+msgid "Downloading: {1} of {2}"
+msgstr "Baixando: {1} de {2}"
+
+msgid "Checking that it is the approved file..."
+msgstr "Conferindo se é o arquivo aprovado..."
+
+msgid "Unpacking: {1} of {2} files"
+msgstr "Descompactando: {1} de {2} arquivos"
+
+msgid "Finishing..."
+msgstr "Terminando..."
+
+msgid "Remove {1}?"
+msgstr "Remover {1}?"
+
+msgid "Its folder in sd:/apps goes. Its saves and data folders stay."
+msgstr "A pasta dele em sd:/apps é apagada. Os saves e as pastas de dados ficam."
+
+msgid "This app is in sd:/apps already, not put there from here. Version {1} replaces its files; its own settings stay."
+msgstr "Este app já está em sd:/apps, mas não foi colocado daqui. A versão {1} substitui os arquivos; as configurações dele ficam."
+
+msgid "Another download is still running. Try again in a moment."
+msgstr "Outro download ainda está em andamento. Tente de novo em instantes."
+
+msgid "{1} is installed. Find it in Home's Homebrew view."
+msgstr "{1} foi instalado. Ele está na visão Homebrew da tela inicial."
+
+msgid "{1} is removed."
+msgstr "{1} foi removido."
+
+msgid "{1} was not installed"
+msgstr "{1} não foi instalado"
+
+msgid "{1} was not removed"
+msgstr "{1} não foi removido"
+
+msgid "Search: {1}"
+msgstr "Busca: {1}"
+
 msgid "Disc slot light"
 msgstr "Luz da entrada de discos"
 

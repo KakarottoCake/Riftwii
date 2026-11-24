@@ -399,6 +399,52 @@ only needed now and then (the menu font, translations, GPL) to MEM2. This
 document is about the other half: code that most launches never run can
 stay on the card until it is needed.
 
+## The appstore plugin
+
+The app store ([APPSTORE.md](APPSTORE.md)) is a plugin with a screen of its
+own: its `launch` takes `rwp_appstore_request`
+(`include/riftwii/plugin_appstore.h`), runs the store and returns
+`RWP_LAUNCH_DONE` when the player leaves; the menu (`MenuAppStore` in
+`wii/menu/rift_menu.cpp`) then calls `plugin::ShutdownAll`, so its code and
+arena go back at once.
+
+It uses the table's last group, added after `progress` (checked with
+`RWP_HOST_HAS(host, list_directory)`):
+
+| Group | Entries | Where RiftWii has them |
+| --- | --- | --- |
+| Screen | `screen_open`, `screen_frame`, `screen_close`, `texture_create`, `texture_free`, `text_width`, `translate`, `sound`, `ask_search`, `ask_choice` | `wii/menu/pluginscreen.cpp` |
+| Network | `net_ready`, `http_get`, `http_download`, `background_start`, `background_running`, `background_cancel` | `wii/core/pluginhost.cpp` |
+| Files | `remove_path`, `rename_path`, `list_directory` | `wii/core/pluginhost.cpp` |
+
+The screen is immediate mode: each frame the plugin hands over a list of
+`rwp_draw` commands (the theme's cards, pill and round buttons, bar, title
+band and page arrows; text in the theme's colours; pictures it made with
+`texture_create`; progress bars; QR codes; a controller's button faces)
+and gets that frame's input back (`rwp_input`: the pointer and the
+buttons of every controller, mapped as the menu maps them, with the
+menu's repeat on the directions). The GUI thread draws the last list and
+gathers the input; the plugin runs on the menu's thread, between
+`HaltGui` and `ResumeGui`. `screen_open` says how wide the view is
+(`rwp_screen_info`): 640 on a 4:3 menu, more on a 16:9 one, with the safe
+area inside a TV's overscan. Popups and the search keyboard are the
+menu's own (`ask_choice`, `ask_search`).
+
+The network calls block, so the plugin runs them as a job on RiftWii's
+network thread (`background_start`), one at a time, and looks at the
+answer once `background_running` says it ended. The plugin runs no escape
+window: an escape taken on the network thread would jump across threads.
+Its big buffers are taken on the menu thread before a job starts, and every
+count it allocates for is capped by the list's rules.
+
+| Piece | Where |
+| --- | --- |
+| The plugin | `plugins/appstore/`: `storeentry.cpp` (`rwp_init`, the table, `launch`, zlib on the host's), `storedata.cpp` (the list, icons, installs and removals as jobs), `storeui.cpp` (the pages) |
+| Its own copies | `src/net/applist.cpp`, `src/net/appcatalog.cpp`, `src/fs/zipread.cpp`, `src/art/pngdecode.cpp`, `src/data/sha256.cpp` and what they call (`Makefile.plugin`'s `appstore_SRC`) |
+| Out of the DOL | `Makefile.wii`: `src/net/applist.cpp` and `src/net/appcatalog.cpp` in `EXCLUDES` |
+| Its text | `tr("...")` in `plugins/appstore/`, translated through `translate`; `tools/lang_source.py` checks them with the menu's |
+| Updates | `tools/make_release_zip.py` and `tools/make_update_pack.py` require it beside `gamecube` and `ctgpr` |
+
 ## 1. Goals and non-goals
 
 Goals:

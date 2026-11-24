@@ -413,7 +413,9 @@ typedef struct rwp_plugin {
     int32_t (*launch)(const void* request, uint32_t request_bytes);
 } rwp_plugin;
 
-/* launch's failures. */
+/* launch's failures, and the end of a plugin with a screen of its own
+ * (the appstore plugin's launch returns when the player leaves it). */
+#define RWP_LAUNCH_DONE 0
 #define RWP_LAUNCH_FAILED 1     /* the reason is in the request's error */
 #define RWP_LAUNCH_NO_MEMORY 2  /* the loader's heap had no room */
 

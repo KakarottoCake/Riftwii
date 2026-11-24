@@ -1,4 +1,4 @@
-# The app store's list
+# The app store
 
 RiftWii's app store shows a curated list of homebrew apps and installs
 them on the SD card. RiftWii hosts none of the apps: the list points at
@@ -139,6 +139,40 @@ py -3.13 tools/app_list.py --check-tool build-host/app_list_check build <manifes
 `update` only moves pins forward for GitHub sources; the pull request it
 makes is the review. A file that changes behind an unchanged pin (a
 release whose file was replaced) fails `build`, so it is never published.
+
+## The store on the Wii
+
+Settings > Online > Get apps opens the store. Its pages are the `appstore`
+plugin's (`plugins/appstore/`, docs/PLUGINS.md), loaded only while the store
+is open, so the DOL carries none of them.
+
+| Page | What it shows |
+| --- | --- |
+| Store front | The categories with apps in them, as tiles with their counts (four across on a 16:9 menu, three on a 4:3 one); My apps (with the updates waiting) and Search in the band. |
+| A category, My apps, search results | The apps as tiles: each app's Homebrew Channel icon, its name, and its state (Installed, Update, On the SD card, Get it on a PC) or its author and version. Two rows a page; the D-pad turns the page at the edges, - and + too. |
+| An app | Laid out like a game's page: its facts in the band, its icon, one big action (Install, Update, Replace, Remove), the description, a QR code to its own page, and a note when `newer` names an app that does the same job (+ opens it). While it installs, the action shows each step and a bar; B stops it. |
+
+Search is Home's keyboard: the apps that match are named above it as you
+type, and keys that lead nowhere are dimmed (`app_matches`,
+`app_search_next` in `src/net/appcatalog.cpp`). All text is 18 pixels or
+larger, for small TVs and 480i.
+
+An install, on RiftWii's network thread:
+
+1. The download streams to `sd:/riftwii/apps/download.tmp`, hashed on the
+   way (`HttpGetStream`, `wii/online/httpmem.cpp`), up to 128 MB.
+2. Its SHA-256 must be the list's, or nothing is written.
+3. A `.dol` becomes `sd:/apps/<id>/boot.dol`. A zip's directory is read
+   from the card a piece at a time (`zip_read_directory_at`), the plan
+   checked as a whole (`app_plan_install`), then each file unpacked beside
+   its place (`<file>.part`) and put there, so none is ever half written.
+4. `sd:/riftwii/apps/<id>.txt` notes the version and SHA-256: an app whose
+   note differs from the list has an update. An app folder without a note
+   was put there some other way, and installing replaces its files.
+
+Remove deletes `sd:/apps/<id>` and the note; the app's data folders stay,
+since they hold its saves. Home's Homebrew view reads `sd:/apps` again
+when the store changed something.
 
 ## What gets in
 

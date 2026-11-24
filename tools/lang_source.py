@@ -8572,7 +8572,8 @@ def check(repo):
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/credits.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
                "wii/core/plugins.cpp", "wii/core/memlimits.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp",
-               "wii/menu/picturepicker.cpp", "wii/launch/ctgpr.cpp", "wii/launch/launchrun.cpp"]
+               "wii/menu/picturepicker.cpp", "wii/launch/ctgpr.cpp", "wii/launch/launchrun.cpp",
+               "plugins/appstore/storeui.cpp", "plugins/appstore/storedata.cpp", "plugins/appstore/storeentry.cpp", "src/net/appcatalog.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:
@@ -8781,6 +8782,144 @@ FR.update({
     "Choices for this game could not be saved. Check the SD card is not full or locked.": "Les choix pour ce jeu n'ont pas pu être enregistrés. Vérifiez que la carte SD n'est ni pleine ni verrouillée.",
     "Play anyway?": "Jouer quand même ?",
 })
+
+
+# The app store (plugins/appstore, docs/APPSTORE.md) and its Settings row.
+T['Get apps'] = ('Obtener apps', 'アプリを入手', 'Obter apps', 'Ottieni app')
+MORE["ko"]['Get apps'] = '앱 받기'
+MORE["fr"]['Get apps'] = 'Obtenir des applis'
+T["Homebrew apps from a list the RiftWii team checks, installed to sd:/apps. RiftWii hosts none of them: each comes from its maker's own release."] = ('Apps homebrew de una lista que revisa el equipo de RiftWii, instaladas en sd:/apps. RiftWii no aloja ninguna: cada una viene de la versión publicada por su autor.', 'RiftWiiチームが確認したリストのHomebrewアプリを、sd:/appsにインストールします。RiftWiiはアプリを置いていません。どれも作者が公開したものです。', 'Apps homebrew de uma lista que a equipe do RiftWii confere, instalados em sd:/apps. O RiftWii não hospeda nenhum: cada um vem da versão publicada pelo autor.', 'App homebrew da un elenco controllato dal team di RiftWii, installate in sd:/apps. RiftWii non ne ospita nessuna: ognuna viene dalla versione pubblicata dal suo autore.')
+MORE["ko"]["Homebrew apps from a list the RiftWii team checks, installed to sd:/apps. RiftWii hosts none of them: each comes from its maker's own release."] = 'RiftWii 팀이 확인한 목록의 홈브루 앱을 sd:/apps에 설치합니다. RiftWii는 앱을 직접 올려 두지 않습니다. 모두 만든 사람이 공개한 파일입니다.'
+MORE["fr"]["Homebrew apps from a list the RiftWii team checks, installed to sd:/apps. RiftWii hosts none of them: each comes from its maker's own release."] = "Des applis homebrew d'une liste vérifiée par l'équipe RiftWii, installées dans sd:/apps. RiftWii n'en héberge aucune : chacune vient de la version publiée par son auteur."
+T['Search apps'] = ('Buscar apps', 'アプリを検索', 'Buscar apps', 'Cerca app')
+MORE["ko"]['Search apps'] = '앱 검색'
+MORE["fr"]['Search apps'] = 'Rechercher des applis'
+T['The app store could not open.'] = ('La tienda de apps no se pudo abrir.', 'アプリストアを開けませんでした。', 'A loja de apps não pôde abrir.', 'Lo store delle app non si è aperto.')
+MORE["ko"]['The app store could not open.'] = '앱 스토어를 열 수 없습니다.'
+MORE["fr"]['The app store could not open.'] = "La boutique d'applis n'a pas pu s'ouvrir."
+T['The app store could not open: {1}'] = ('La tienda de apps no se pudo abrir: {1}', 'アプリストアを開けませんでした: {1}', 'A loja de apps não pôde abrir: {1}', 'Lo store delle app non si è aperto: {1}')
+MORE["ko"]['The app store could not open: {1}'] = '앱 스토어를 열 수 없습니다: {1}'
+MORE["fr"]['The app store could not open: {1}'] = "La boutique d'applis n'a pas pu s'ouvrir : {1}"
+T['System tools'] = ('Herramientas', 'システムツール', 'Ferramentas', 'Strumenti di sistema')
+MORE["ko"]['System tools'] = '시스템 도구'
+MORE["fr"]['System tools'] = 'Outils système'
+T['Game tools'] = ('Para juegos', 'ゲーム用ツール', 'Para jogos', 'Strumenti per giochi')
+MORE["ko"]['Game tools'] = '게임 도구'
+MORE["fr"]['Game tools'] = 'Outils de jeu'
+T['Creative'] = ('Creatividad', 'クリエイティブ', 'Criatividade', 'Creatività')
+MORE["ko"]['Creative'] = '창작'
+MORE["fr"]['Creative'] = 'Création'
+T['Demos and toys'] = ('Demos y juguetes', 'デモとおもちゃ', 'Demos e brinquedos', 'Demo e giocattoli')
+MORE["ko"]['Demos and toys'] = '데모와 장난감'
+MORE["fr"]['Demos and toys'] = 'Démos et jouets'
+T['Media'] = ('Multimedia', 'メディア', 'Mídia', 'Multimedia')
+MORE["ko"]['Media'] = '미디어'
+MORE["fr"]['Media'] = 'Médias'
+T['Internet'] = ('Internet', 'インターネット', 'Internet', 'Internet')
+MORE["ko"]['Internet'] = '인터넷'
+MORE["fr"]['Internet'] = 'Internet'
+T['Online services'] = ('Servicios en línea', 'オンラインサービス', 'Serviços online', 'Servizi online')
+MORE["ko"]['Online services'] = '온라인 서비스'
+MORE["fr"]['Online services'] = 'Services en ligne'
+T['Loaders'] = ('Cargadores', 'ローダー', 'Carregadores', 'Loader')
+MORE["ko"]['Loaders'] = '로더'
+MORE["fr"]['Loaders'] = 'Chargeurs'
+T['My apps'] = ('Mis apps', 'マイアプリ', 'Meus apps', 'Le mie app')
+MORE["ko"]['My apps'] = '내 앱'
+MORE["fr"]['My apps'] = 'Mes applis'
+T['My apps (1 update)'] = ('Mis apps (1 actualización)', 'マイアプリ(更新1件)', 'Meus apps (1 atualização)', 'Le mie app (1 aggiornamento)')
+MORE["ko"]['My apps (1 update)'] = '내 앱 (업데이트 1개)'
+MORE["fr"]['My apps (1 update)'] = 'Mes applis (1 mise à jour)'
+T['My apps ({1} updates)'] = ('Mis apps ({1} actualizaciones)', 'マイアプリ(更新{1}件)', 'Meus apps ({1} atualizações)', 'Le mie app ({1} aggiornamenti)')
+MORE["ko"]['My apps ({1} updates)'] = '내 앱 (업데이트 {1}개)'
+MORE["fr"]['My apps ({1} updates)'] = 'Mes applis ({1} mises à jour)'
+T['{1} from here on the SD card'] = ('{1} de aquí en la tarjeta SD', 'ここから入れたもの: SDカードに{1}個', '{1} daqui no cartão SD', '{1} da qui sulla scheda SD')
+MORE["ko"]['{1} from here on the SD card'] = '여기서 받은 앱: SD 카드에 {1}개'
+MORE["fr"]['{1} from here on the SD card'] = "{1} d'ici sur la carte SD"
+T['Getting the list of apps...'] = ('Obteniendo la lista de apps...', 'アプリのリストを取得中...', 'Obtendo a lista de apps...', "Download dell'elenco delle app...")
+MORE["ko"]['Getting the list of apps...'] = '앱 목록을 받는 중...'
+MORE["fr"]['Getting the list of apps...'] = 'Récupération de la liste des applis...'
+T['Could not get the list of apps: {1}'] = ('No se pudo obtener la lista de apps: {1}', 'アプリのリストを取得できませんでした: {1}', 'Não foi possível obter a lista de apps: {1}', "Impossibile ottenere l'elenco delle app: {1}")
+MORE["ko"]['Could not get the list of apps: {1}'] = '앱 목록을 받을 수 없습니다: {1}'
+MORE["fr"]['Could not get the list of apps: {1}'] = 'Impossible de récupérer la liste des applis : {1}'
+T['No app matches {1}.'] = ('Ninguna app coincide con {1}.', '{1}に合うアプリはありません。', 'Nenhum app corresponde a {1}.', 'Nessuna app corrisponde a {1}.')
+MORE["ko"]['No app matches {1}.'] = '{1}에 맞는 앱이 없습니다.'
+MORE["fr"]['No app matches {1}.'] = 'Aucune appli ne correspond à {1}.'
+T['No apps from here are on the SD card yet.'] = ('Aún no hay en la tarjeta SD apps de aquí.', 'ここから入れたアプリはまだSDカードにありません。', 'Ainda não há apps daqui no cartão SD.', 'Sulla scheda SD non ci sono ancora app da qui.')
+MORE["ko"]['No apps from here are on the SD card yet.'] = '아직 여기서 받은 앱이 SD 카드에 없습니다.'
+MORE["fr"]['No apps from here are on the SD card yet.'] = "Aucune appli d'ici n'est encore sur la carte SD."
+T['On the SD card'] = ('En la tarjeta SD', 'SDカードにあり', 'No cartão SD', 'Sulla scheda SD')
+MORE["ko"]['On the SD card'] = 'SD 카드에 있음'
+MORE["fr"]['On the SD card'] = 'Sur la carte SD'
+T['Get it on a PC'] = ('Consíguela en un PC', 'パソコンで入手', 'Obtenha num PC', 'Scaricala da un PC')
+MORE["ko"]['Get it on a PC'] = 'PC에서 받기'
+MORE["fr"]['Get it on a PC'] = 'À obtenir sur un PC'
+T['Its own page'] = ('Su página', '公式ページ', 'Página dele', 'La sua pagina')
+MORE["ko"]['Its own page'] = '공식 페이지'
+MORE["fr"]['Its own page'] = 'Sa page'
+T['{1} does the same and is kept up to date.'] = ('{1} hace lo mismo y se mantiene al día.', '{1}も同じことができ、更新が続いています。', '{1} faz o mesmo e é mantido em dia.', '{1} fa lo stesso ed è aggiornata.')
+MORE["ko"]['{1} does the same and is kept up to date.'] = '{1}도 같은 일을 하며 계속 업데이트됩니다.'
+MORE["fr"]['{1} does the same and is kept up to date.'] = '{1} fait la même chose et reste à jour.'
+T['Newer app'] = ('App más nueva', '新しいアプリ', 'App mais novo', 'App più recente')
+MORE["ko"]['Newer app'] = '새 앱'
+MORE["fr"]['Newer app'] = 'Appli plus récente'
+T['Next page'] = ('Página siguiente', '次のページ', 'Próxima página', 'Pagina successiva')
+MORE["ko"]['Next page'] = '다음 페이지'
+MORE["fr"]['Next page'] = 'Page suivante'
+T['Installed, version {1}'] = ('Instalada, versión {1}', 'インストール済み、バージョン{1}', 'Instalado, versão {1}', 'Installata, versione {1}')
+MORE["ko"]['Installed, version {1}'] = '설치됨, 버전 {1}'
+MORE["fr"]['Installed, version {1}'] = 'Installée, version {1}'
+T['Version {1}, {2}'] = ('Versión {1}, {2}', 'バージョン{1}、{2}', 'Versão {1}, {2}', 'Versione {1}, {2}')
+MORE["ko"]['Version {1}, {2}'] = '버전 {1}, {2}'
+MORE["fr"]['Version {1}, {2}'] = 'Version {1}, {2}'
+T['It is on the SD card already. Put version {1} in its place.'] = ('Ya está en la tarjeta SD. Pon la versión {1} en su lugar.', 'すでにSDカードにあります。バージョン{1}に置き換えます。', 'Já está no cartão SD. Coloque a versão {1} no lugar.', 'È già sulla scheda SD. Metti la versione {1} al suo posto.')
+MORE["ko"]['It is on the SD card already. Put version {1} in its place.'] = '이미 SD 카드에 있습니다. 버전 {1}(으)로 바꿉니다.'
+MORE["fr"]['It is on the SD card already. Put version {1} in its place.'] = 'Elle est déjà sur la carte SD. Mettre la version {1} à sa place.'
+T['It comes in a form the Wii cannot unpack. Scan the code.'] = ('Viene en un formato que la Wii no puede descomprimir. Escanea el código.', 'Wiiでは展開できない形式です。コードを読み取ってください。', 'Vem num formato que o Wii não consegue descompactar. Leia o código.', 'È in un formato che la Wii non può estrarre. Scansiona il codice.')
+MORE["ko"]['It comes in a form the Wii cannot unpack. Scan the code.'] = 'Wii에서 풀 수 없는 형식입니다. 코드를 스캔하세요.'
+MORE["fr"]['It comes in a form the Wii cannot unpack. Scan the code.'] = 'Elle est dans un format que la Wii ne sait pas décompresser. Scannez le code.'
+T['To the SD card, {1}'] = ('A la tarjeta SD, {1}', 'SDカードへ、{1}', 'Para o cartão SD, {1}', 'Sulla scheda SD, {1}')
+MORE["ko"]['To the SD card, {1}'] = 'SD 카드에, {1}'
+MORE["fr"]['To the SD card, {1}'] = 'Sur la carte SD, {1}'
+T['Downloading: {1} of {2}'] = ('Descargando: {1} de {2}', 'ダウンロード中: {1} / {2}', 'Baixando: {1} de {2}', 'Download: {1} di {2}')
+MORE["ko"]['Downloading: {1} of {2}'] = '다운로드 중: {1} / {2}'
+MORE["fr"]['Downloading: {1} of {2}'] = 'Téléchargement : {1} sur {2}'
+T['Checking that it is the approved file...'] = ('Comprobando que es el archivo aprobado...', '承認されたファイルか確認中...', 'Conferindo se é o arquivo aprovado...', 'Verifica che sia il file approvato...')
+MORE["ko"]['Checking that it is the approved file...'] = '승인된 파일인지 확인하는 중...'
+MORE["fr"]['Checking that it is the approved file...'] = "Vérification qu'il s'agit du fichier approuvé..."
+T['Unpacking: {1} of {2} files'] = ('Descomprimiendo: {1} de {2} archivos', '展開中: {1} / {2}ファイル', 'Descompactando: {1} de {2} arquivos', 'Estrazione: {1} di {2} file')
+MORE["ko"]['Unpacking: {1} of {2} files'] = '압축 해제 중: 파일 {1} / {2}'
+MORE["fr"]['Unpacking: {1} of {2} files'] = 'Décompression : {1} fichiers sur {2}'
+T['Finishing...'] = ('Terminando...', '仕上げ中...', 'Terminando...', 'Completamento...')
+MORE["ko"]['Finishing...'] = '마무리하는 중...'
+MORE["fr"]['Finishing...'] = 'Finalisation...'
+T['Remove {1}?'] = ('¿Quitar {1}?', '{1}を削除しますか?', 'Remover {1}?', 'Rimuovere {1}?')
+MORE["ko"]['Remove {1}?'] = '{1}을(를) 삭제할까요?'
+MORE["fr"]['Remove {1}?'] = 'Supprimer {1} ?'
+T['Its folder in sd:/apps goes. Its saves and data folders stay.'] = ('Se borra su carpeta de sd:/apps. Sus partidas y carpetas de datos se quedan.', 'sd:/appsのフォルダを削除します。セーブとデータのフォルダは残ります。', 'A pasta dele em sd:/apps é apagada. Os saves e as pastas de dados ficam.', 'La sua cartella in sd:/apps viene eliminata. I salvataggi e le cartelle dei dati restano.')
+MORE["ko"]['Its folder in sd:/apps goes. Its saves and data folders stay.'] = 'sd:/apps의 폴더를 지웁니다. 세이브와 데이터 폴더는 남습니다.'
+MORE["fr"]['Its folder in sd:/apps goes. Its saves and data folders stay.'] = 'Son dossier dans sd:/apps est supprimé. Ses sauvegardes et dossiers de données restent.'
+T['This app is in sd:/apps already, not put there from here. Version {1} replaces its files; its own settings stay.'] = ('Esta app ya está en sd:/apps, pero no se instaló desde aquí. La versión {1} reemplaza sus archivos; sus ajustes se quedan.', 'このアプリはすでにsd:/appsにありますが、ここから入れたものではありません。バージョン{1}でファイルを置き換えます。設定は残ります。', 'Este app já está em sd:/apps, mas não foi colocado daqui. A versão {1} substitui os arquivos; as configurações dele ficam.', 'Questa app è già in sd:/apps, ma non è stata messa da qui. La versione {1} ne sostituisce i file; le sue impostazioni restano.')
+MORE["ko"]['This app is in sd:/apps already, not put there from here. Version {1} replaces its files; its own settings stay.'] = '이 앱은 이미 sd:/apps에 있지만 여기서 설치한 것이 아닙니다. 버전 {1}이(가) 파일을 바꾸며 설정은 남습니다.'
+MORE["fr"]['This app is in sd:/apps already, not put there from here. Version {1} replaces its files; its own settings stay.'] = "Cette appli est déjà dans sd:/apps, sans avoir été installée d'ici. La version {1} remplace ses fichiers ; ses réglages restent."
+T['Another download is still running. Try again in a moment.'] = ('Otra descarga sigue en curso. Inténtalo de nuevo en un momento.', 'ほかのダウンロードが続いています。少ししてからもう一度試してください。', 'Outro download ainda está em andamento. Tente de novo em instantes.', 'Un altro download è ancora in corso. Riprova tra un momento.')
+MORE["ko"]['Another download is still running. Try again in a moment.'] = '다른 다운로드가 아직 진행 중입니다. 잠시 후 다시 시도하세요.'
+MORE["fr"]['Another download is still running. Try again in a moment.'] = 'Un autre téléchargement est en cours. Réessayez dans un instant.'
+T["{1} is installed. Find it in Home's Homebrew view."] = ('{1} está instalada. Búscala en la vista Homebrew de Inicio.', '{1}をインストールしました。ホームのHomebrew表示にあります。', '{1} foi instalado. Ele está na visão Homebrew da tela inicial.', '{1} è installata. La trovi nella vista Homebrew della Home.')
+MORE["ko"]["{1} is installed. Find it in Home's Homebrew view."] = '{1}을(를) 설치했습니다. 홈의 홈브루 보기에 있습니다.'
+MORE["fr"]["{1} is installed. Find it in Home's Homebrew view."] = "{1} est installée. Elle est dans la vue Homebrew de l'accueil."
+T['{1} is removed.'] = ('{1} se ha quitado.', '{1}を削除しました。', '{1} foi removido.', '{1} è stata rimossa.')
+MORE["ko"]['{1} is removed.'] = '{1}을(를) 삭제했습니다.'
+MORE["fr"]['{1} is removed.'] = '{1} est supprimée.'
+T['{1} was not installed'] = ('{1} no se instaló', '{1}はインストールされませんでした', '{1} não foi instalado', '{1} non è stata installata')
+MORE["ko"]['{1} was not installed'] = '{1}이(가) 설치되지 않았습니다'
+MORE["fr"]['{1} was not installed'] = "{1} n'a pas été installée"
+T['{1} was not removed'] = ('{1} no se quitó', '{1}は削除されませんでした', '{1} não foi removido', '{1} non è stata rimossa')
+MORE["ko"]['{1} was not removed'] = '{1}이(가) 삭제되지 않았습니다'
+MORE["fr"]['{1} was not removed'] = "{1} n'a pas été supprimée"
+T['Search: {1}'] = ('Buscar: {1}', '検索: {1}', 'Busca: {1}', 'Ricerca: {1}')
+MORE["ko"]['Search: {1}'] = '검색: {1}'
+MORE["fr"]['Search: {1}'] = 'Recherche : {1}'
 
 def main():
     repo = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")

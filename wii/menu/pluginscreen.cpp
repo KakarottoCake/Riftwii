@@ -287,7 +287,9 @@ private:
                 if (qr_.size == 0) break;
                 const int module = std::max(1, c.w / (qr_.size + 4));
                 const int side = (qr_.size + 4) * module;
-                Menu_DrawRectangle(x, y, side, side, skinns::WithAlpha(skinns::kWhite, alpha), 1);
+                // Whole pixels a module: the code is centred in the box asked for.
+                const float left = x + (c.w - side) / 2, top = y + (c.w - side) / 2;
+                Menu_DrawRectangle(left, top, side, side, skinns::WithAlpha(skinns::kWhite, alpha), 1);
                 const GXColor dark{0, 0, 0, static_cast<u8>(alpha)};
                 for (int r = 0; r < qr_.size; ++r) {
                     for (int col = 0; col < qr_.size;) {
@@ -297,7 +299,7 @@ private:
                         }
                         int end = col;
                         while (end < qr_.size && qr_.at(end, r)) ++end;
-                        Menu_DrawRectangle(x + 2 * module + col * module, y + 2 * module + r * module, (end - col) * module,
+                        Menu_DrawRectangle(left + 2 * module + col * module, top + 2 * module + r * module, (end - col) * module,
                                            module, dark, 1);
                         col = end;
                     }

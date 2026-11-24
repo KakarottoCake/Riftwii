@@ -4221,6 +4221,141 @@ msgstr "このゲームの設定を保存できませんでした。SDカード�
 msgid "Play anyway?"
 msgstr "それでもプレイしますか？"
 
+msgid "Get apps"
+msgstr "アプリを入手"
+
+msgid "Homebrew apps from a list the RiftWii team checks, installed to sd:/apps. RiftWii hosts none of them: each comes from its maker's own release."
+msgstr "RiftWiiチームが確認したリストのHomebrewアプリを、sd:/appsにインストールします。RiftWiiはアプリを置いていません。どれも作者が公開したものです。"
+
+msgid "Search apps"
+msgstr "アプリを検索"
+
+msgid "The app store could not open."
+msgstr "アプリストアを開けませんでした。"
+
+msgid "The app store could not open: {1}"
+msgstr "アプリストアを開けませんでした: {1}"
+
+msgid "System tools"
+msgstr "システムツール"
+
+msgid "Game tools"
+msgstr "ゲーム用ツール"
+
+msgid "Creative"
+msgstr "クリエイティブ"
+
+msgid "Demos and toys"
+msgstr "デモとおもちゃ"
+
+msgid "Media"
+msgstr "メディア"
+
+msgid "Internet"
+msgstr "インターネット"
+
+msgid "Online services"
+msgstr "オンラインサービス"
+
+msgid "Loaders"
+msgstr "ローダー"
+
+msgid "My apps"
+msgstr "マイアプリ"
+
+msgid "My apps (1 update)"
+msgstr "マイアプリ(更新1件)"
+
+msgid "My apps ({1} updates)"
+msgstr "マイアプリ(更新{1}件)"
+
+msgid "{1} from here on the SD card"
+msgstr "ここから入れたもの: SDカードに{1}個"
+
+msgid "Getting the list of apps..."
+msgstr "アプリのリストを取得中..."
+
+msgid "Could not get the list of apps: {1}"
+msgstr "アプリのリストを取得できませんでした: {1}"
+
+msgid "No app matches {1}."
+msgstr "{1}に合うアプリはありません。"
+
+msgid "No apps from here are on the SD card yet."
+msgstr "ここから入れたアプリはまだSDカードにありません。"
+
+msgid "On the SD card"
+msgstr "SDカードにあり"
+
+msgid "Get it on a PC"
+msgstr "パソコンで入手"
+
+msgid "Its own page"
+msgstr "公式ページ"
+
+msgid "{1} does the same and is kept up to date."
+msgstr "{1}も同じことができ、更新が続いています。"
+
+msgid "Newer app"
+msgstr "新しいアプリ"
+
+msgid "Next page"
+msgstr "次のページ"
+
+msgid "Installed, version {1}"
+msgstr "インストール済み、バージョン{1}"
+
+msgid "Version {1}, {2}"
+msgstr "バージョン{1}、{2}"
+
+msgid "It is on the SD card already. Put version {1} in its place."
+msgstr "すでにSDカードにあります。バージョン{1}に置き換えます。"
+
+msgid "It comes in a form the Wii cannot unpack. Scan the code."
+msgstr "Wiiでは展開できない形式です。コードを読み取ってください。"
+
+msgid "To the SD card, {1}"
+msgstr "SDカードへ、{1}"
+
+msgid "Downloading: {1} of {2}"
+msgstr "ダウンロード中: {1} / {2}"
+
+msgid "Checking that it is the approved file..."
+msgstr "承認されたファイルか確認中..."
+
+msgid "Unpacking: {1} of {2} files"
+msgstr "展開中: {1} / {2}ファイル"
+
+msgid "Finishing..."
+msgstr "仕上げ中..."
+
+msgid "Remove {1}?"
+msgstr "{1}を削除しますか?"
+
+msgid "Its folder in sd:/apps goes. Its saves and data folders stay."
+msgstr "sd:/appsのフォルダを削除します。セーブとデータのフォルダは残ります。"
+
+msgid "This app is in sd:/apps already, not put there from here. Version {1} replaces its files; its own settings stay."
+msgstr "このアプリはすでにsd:/appsにありますが、ここから入れたものではありません。バージョン{1}でファイルを置き換えます。設定は残ります。"
+
+msgid "Another download is still running. Try again in a moment."
+msgstr "ほかのダウンロードが続いています。少ししてからもう一度試してください。"
+
+msgid "{1} is installed. Find it in Home's Homebrew view."
+msgstr "{1}をインストールしました。ホームのHomebrew表示にあります。"
+
+msgid "{1} is removed."
+msgstr "{1}を削除しました。"
+
+msgid "{1} was not installed"
+msgstr "{1}はインストールされませんでした"
+
+msgid "{1} was not removed"
+msgstr "{1}は削除されませんでした"
+
+msgid "Search: {1}"
+msgstr "検索: {1}"
+
 msgid "Disc slot light"
 msgstr "ディスクスロットの光"
 
