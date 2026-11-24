@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // CTGP-R's update check and download (riftwii/ctgpcheck.hpp), against a
 // scripted server built from synthetic bytes.
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <iostream>

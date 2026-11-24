@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/ctgphash.hpp"
 #include "riftwii/ctgphashlookup.hpp"
 #include "riftwii/ctgppackwrite.hpp"
 #include "riftwii/ctgpupdater.hpp"
@@ -112,10 +113,18 @@ void test_pack_target_check() {
     riftwii::CtgpPackWriter pack;
     const auto list = make_list("CTGPR");
     riftwii::CtgpPackUpdateTarget target(pack, riftwii::CtgpDiscBase(), list, "ctgphashlookup_unused_");
+    target.skip_list_signature_for_tests();  // the lists here are made up, not signed
     std::string error;
     std::array<std::uint8_t, 20> other{};
     EXPECT_TRUE(target.check_file("/Race/Course/X.szs", true, sample_digest(), error));
+    // A file the list does vouch for, and one it need not name, are not "the
+    // list could not vouch" (the menu asks the server for newer lists only
+    // for that).
+    EXPECT_TRUE(!target.list_did_not_vouch());
+    EXPECT_TRUE(target.check_file("/changelog.bin", false, other, error));
+    EXPECT_TRUE(!target.list_did_not_vouch());
     EXPECT_TRUE(!target.check_file("/Race/Course/X.szs", true, other, error));
+    EXPECT_TRUE(target.list_did_not_vouch());
     EXPECT_TRUE(!target.check_file("/Race/Course/Y.szs", true, other, error));
     EXPECT_TRUE(target.check_file("/changelog.bin", false, other, error));
     EXPECT_TRUE(target.check_file("/Race/Course/X.szs", false, sample_digest(), error));
@@ -160,6 +169,7 @@ void test_pack_target_check() {
             return true;
         };
         riftwii::CtgpPackUpdateTarget with_disc(pack, disc, list, "ctgphashlookup_unused_");
+        with_disc.skip_list_signature_for_tests();
         std::uint32_t size = 1;
         EXPECT_TRUE(with_disc.base_unpacked_size("RMC", "/y.szs", true, size) && size == 0x10000);
         EXPECT_TRUE(with_disc.base_unpacked_size("RMC", "/p.bin", true, size) && size == 40);
@@ -177,13 +187,40 @@ void test_pack_target_check() {
     auto damaged = list;
     damaged.back() ^= 1;
     riftwii::CtgpPackUpdateTarget broken(pack, riftwii::CtgpDiscBase(), damaged, "ctgphashlookup_unused_");
+    broken.skip_list_signature_for_tests();
     EXPECT_TRUE(!broken.check_file("/changelog.bin", false, other, error));
+}
+
+// A list whose inner checksum is good and which names the file with the right
+// digest, but that CTGP-R did not sign (make_list has no signature), refuses
+// every file, listed or not, packed or not: its digests decide what is
+// written, so they are trusted only after the signature.
+void test_unsigned_list_refused() {
+    riftwii::CtgpPackWriter pack;
+    const auto list = make_list("CTGPR");
+    std::array<std::uint8_t, 20> digest{};
+    std::string error;
+    // The list itself reads fine: only the signature is missing.
+    EXPECT_TRUE(ctgp_hash_list_digest(list.data(), list.size(), "CTGPR", "/Race/Course/X.szs", digest, error));
+    EXPECT_TRUE(!riftwii::ctgp_hash_list_signature_ok(list.data(), list.size(), error));
+    EXPECT_TRUE(error.find("signature") != std::string::npos);
+
+    riftwii::CtgpPackUpdateTarget target(pack, riftwii::CtgpDiscBase(), list, "ctgphashlookup_unused_");
+    EXPECT_TRUE(!target.list_did_not_vouch());
+    EXPECT_TRUE(!target.check_file("/Race/Course/X.szs", true, sample_digest(), error));  // right digest
+    EXPECT_TRUE(error.find("signed") != std::string::npos);
+    EXPECT_TRUE(target.list_did_not_vouch());  // a newer, signed list may fix this
+    EXPECT_TRUE(!target.check_file("/changelog.bin", false, sample_digest(), error));      // unlisted, plain
+    EXPECT_TRUE(!target.check_file("/Race/Course/X.szs", false, sample_digest(), error));
+    // The refusal stays for the rest of the update.
+    EXPECT_TRUE(!target.check_file("/Race/Course/X.szs", true, sample_digest(), error));
 }
 
 }  // namespace
 
 int main() {
     test_lookup();
+    test_unsigned_list_refused();
     test_pack_target_check();
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)" << std::endl;

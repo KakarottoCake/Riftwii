@@ -15,7 +15,9 @@
 #include <vector>
 
 #include "riftwii/ctgppackwrite.hpp"
+#include "riftwii/ctgppackwrite.hpp"
 #include "riftwii/ctgpupdate.hpp"
+#include "riftwii/ctgpupdater.hpp"
 #include "riftwii/ctgpupdater.hpp"
 #include "riftwii/ctgpyaz0.hpp"
 #include "riftwii/sha1.hpp"
@@ -1119,6 +1121,80 @@ void test_update_plain_files() {
     }
 }
 
+// An update whose largest section is bigger than the memory a Wii could ever
+// give (the size is only what the file's table claims) stops with a normal
+// failure the player can retry: nothing is written, and the plugin's
+// emergency exit is not reached (checkedalloc.hpp).
+void test_apply_section_without_room() {
+    const std::vector<std::uint8_t> stream = {0x40, 'h', 'e', 'l', 'l', 'o'};
+    auto dia = make_dia(make_section(5, stream, "/Race/Course/NEW.szs"));
+    const std::uint32_t table_entry_size_at = 0x74 + 4;
+    const std::uint32_t first_section = be32_at(dia, 0x74);
+    const std::uint32_t huge = 0x20000000u;  // 512 MB
+    auto set32 = [&dia](std::size_t at, std::uint32_t value) {
+        for (int i = 0; i < 4; ++i) dia[at + i] = std::uint8_t(value >> (24 - 8 * i));
+    };
+    set32(table_entry_size_at, huge);
+    set32(4, first_section + huge);
+    // The file is only as long as its small real part; the rest reads as
+    // zeros (the prefix read can reach past it).
+    const CtgpUpdateRead read = [&dia](std::uint64_t offset, std::uint8_t* out, std::size_t length) {
+        for (std::size_t i = 0; i < length; ++i) out[i] = offset + i < dia.size() ? dia[offset + i] : 0;
+        return true;
+    };
+    MemoryTarget target;
+    CtgpUpdateFailure failure = CtgpUpdateFailure::None;
+    std::string error;
+    EXPECT_TRUE(!ctgp_update_apply(read, first_section + huge, target, nullptr, CtgpUpdateFileDone(), CtgpUpdateStep(),
+                                   failure, error));
+    EXPECT_TRUE(failure == CtgpUpdateFailure::Temporary);
+    EXPECT_TRUE(error.find("not enough free memory") != std::string::npos);
+    EXPECT_TRUE(target.stored.empty());
+}
+
+// A whole update whose list in jelly.bin has a good inner checksum but not
+// CTGP-R's signature: the file is rebuilt, the list refuses it, and the pack
+// is never written (store_file is not reached), however plain the file.
+class CountingPackTarget : public CtgpPackUpdateTarget {
+public:
+    using CtgpPackUpdateTarget::CtgpPackUpdateTarget;
+    bool store_file(const std::string&, const CtgpPieces&, const CtgpProgress&, std::string&) override {
+        ++stores;
+        return true;
+    }
+    int stores = 0;
+};
+
+void test_unsigned_hash_list_blocks_writes() {
+    CtgpPackWriter pack;
+    // Only the signature is wrong about this list: its header, name and body
+    // digest are in order, so the list's own checks would pass.
+    std::vector<std::uint8_t> list(0x60 + 12, 0);
+    list[0] = 'H'; list[1] = 'a'; list[2] = 'h'; list[3] = '0';
+    list[7] = std::uint8_t(list.size());
+    std::memcpy(list.data() + 0x20, "CTGPR", 5);
+    CountingPackTarget target(pack, CtgpDiscBase(), list, "ctgpupdate_unused_");
+    const auto dia = make_dia(make_section_flags(5, {0x40, 'h', 'e', 'l', 'l', 'o'}, "/changelog.bin", 0x00020000u, {}));
+    const CtgpUpdateRead read = [&dia](std::uint64_t offset, std::uint8_t* out, std::size_t length) {
+        if (offset + length > dia.size()) return false;
+        std::memcpy(out, dia.data() + offset, length);
+        return true;
+    };
+    CtgpUpdateFailure failure = CtgpUpdateFailure::None;
+    std::string error;
+    EXPECT_TRUE(!ctgp_update_apply(read, dia.size(), target, nullptr, CtgpUpdateFileDone(), CtgpUpdateStep(), failure,
+                                   error));
+    EXPECT_TRUE(error.find("signed") != std::string::npos);
+    EXPECT_EQ(target.stores, 0);
+    // With the signature check skipped (a test-only switch) the refusal, if
+    // any, is about something else, so the one above was the signature's.
+    CountingPackTarget allowed(pack, CtgpDiscBase(), list, "ctgpupdate_unused_");
+    allowed.skip_list_signature_for_tests();
+    error.clear();
+    ctgp_update_apply(read, dia.size(), allowed, nullptr, CtgpUpdateFileDone(), CtgpUpdateStep(), failure, error);
+    EXPECT_TRUE(error.find("signed") == std::string::npos);
+}
+
 int main() {
     test_dif_flags();
     test_update_step_by_bases();
@@ -1131,6 +1207,8 @@ int main() {
     test_apply_full_window();
     test_dia_signature();
     test_apply_failure_kind();
+    test_apply_section_without_room();
+    test_unsigned_hash_list_blocks_writes();
     test_update_apply();
     test_update_step_weighted();
     test_apply_rejects_bad_stream();

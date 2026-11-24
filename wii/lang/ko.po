@@ -5066,3 +5066,15 @@ msgstr "기타 타이틀"
 
 msgid "Emulated + Wii"
 msgstr "에뮬레이트 + Wii"
+
+msgid "CTGP-R's channel: how CTGP-R signs its update files and hash lists (what the signature covers and the 48-byte filler pattern that stands in for it), read as documentation of behavior. The pattern and CTGP-R's public signing key are carried as data; no code is copied."
+msgstr "CTGP-R 채널: CTGP-R이 업데이트 파일과 해시 목록에 서명하는 방식(서명이 다루는 범위와 서명 자리에 넣는 48바이트 고정 패턴)을 동작 문서로 참고했습니다. 이 패턴과 CTGP-R의 공개 서명 키는 데이터로 포함되어 있으며, 코드는 복사하지 않았습니다."
+
+msgid "The CTGP-R update on the SD card can't be checked against this card's hash lists, and RiftWii could not get newer ones ({1}). To finish updating, start CTGP-R through its own channel once: if ctgpnative.txt is next to boot.dol, delete it first. The channel brings the lists and installs the update. CTGP-R starts now without the update."
+msgstr "SD 카드의 CTGP-R 업데이트를 이 카드의 해시 목록으로 확인할 수 없고, RiftWii도 더 새로운 목록을 받지 못했습니다({1}). 업데이트를 끝내려면 CTGP-R 자체 채널로 CTGP-R을 한 번 실행하세요. ctgpnative.txt가 boot.dol 옆에 있으면 먼저 삭제하세요. 채널이 목록을 받아 업데이트를 설치합니다. CTGP-R은 업데이트 없이 지금 실행됩니다."
+
+msgid "The next CTGP-R update has to be installed by CTGP-R's channel, but RiftWii is starting CTGP-R itself, because ctgpnative.txt is next to boot.dol. To finish updating, delete ctgpnative.txt and start CTGP-R again. RiftWii now tries to start CTGP-R as it is."
+msgstr "다음 CTGP-R 업데이트는 CTGP-R 채널이 설치해야 하지만, ctgpnative.txt가 boot.dol 옆에 있어서 RiftWii가 CTGP-R을 직접 실행합니다. 업데이트를 끝내려면 ctgpnative.txt를 삭제하고 CTGP-R을 다시 실행하세요. RiftWii는 지금 상태 그대로 CTGP-R을 실행해 봅니다."
+
+msgid "CTGP-R was updated as far as RiftWii can take it. The next update has to be installed by CTGP-R's channel, but RiftWii is starting CTGP-R itself, because ctgpnative.txt is next to boot.dol. To finish updating, delete ctgpnative.txt and start CTGP-R again. RiftWii now tries to start CTGP-R as it is."
+msgstr "CTGP-R은 RiftWii가 할 수 있는 만큼 업데이트되었습니다. 다음 업데이트는 CTGP-R 채널이 설치해야 하지만, ctgpnative.txt가 boot.dol 옆에 있어서 RiftWii가 CTGP-R을 직접 실행합니다. 업데이트를 끝내려면 ctgpnative.txt를 삭제하고 CTGP-R을 다시 실행하세요. RiftWii는 지금 상태 그대로 CTGP-R을 실행해 봅니다."

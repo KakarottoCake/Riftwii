@@ -136,6 +136,12 @@ struct CtgpUpdRequest {
     // (CtgpUpdateFailure::Unsupported). Nothing of it is left on the card;
     // the DOL removes the file so the channel downloads it fresh.
     std::uint32_t channel_installs = 0;
+    // Install of a game update: 1 when the update could not go in because
+    // jelly.bin's hash list is older than the update, or does not vouch for
+    // a file the update rebuilds (or is not signed by CTGP-R). The update
+    // file may be fine: a newer list, from the update server, can make it
+    // install, so the DOL keeps the file and asks the server (once) for it.
+    std::uint32_t hash_list_trouble = 0;
     // 1 when the plugin left through its escape (no memory, or what would
     // have thrown): every heap block the operation held went back, the
     // strings above among them, so the DOL must not use or destroy them.

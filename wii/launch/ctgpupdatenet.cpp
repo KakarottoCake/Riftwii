@@ -124,6 +124,7 @@ bool CtgpUpdater::run(CtgpUpdRequest& request, std::string& error) {
     bad_update_ = false;
     channel_installs_ = false;
     channel_form_ = false;
+    hash_list_trouble_ = false;
     request.layout = ctgpupd_request_layout();
     request.update_path = kCtgpUpdatePath;
     request.part_path = kCtgpUpdatePartPath;
@@ -197,6 +198,7 @@ bool CtgpUpdater::run(CtgpUpdRequest& request, std::string& error) {
     bad_update_ = result != RWP_LAUNCH_NO_MEMORY && request.bad_update != 0;
     channel_installs_ = result != RWP_LAUNCH_NO_MEMORY && request.escaped == 0 && request.channel_installs != 0;
     channel_form_ = channel_installs_ && request.channel_installs == 2;
+    hash_list_trouble_ = result != RWP_LAUNCH_NO_MEMORY && request.escaped == 0 && request.hash_list_trouble != 0;
     return false;
 }
 

@@ -116,6 +116,11 @@ contains theirs names them in its file header, and
   **WiiDRC** by FIX94: the Wii U GamePad. **libwiiinput** by quatric: the
   USB keyboard, pen tablet and uDraw GameTablet drivers. **dolxz** by FIX94 (MIT): the
   idea of the packed DOL (RiftWii's own stub and format).
+- **CTGP-R's channel**: how CTGP-R signs its update files and hash
+  lists (what the signature covers and the 48-byte filler pattern that
+  stands in for it), read as documentation of behavior. The pattern and
+  CTGP-R's public signing key are carried as data; no code is copied
+  (details in NOTICE.md).
 - **Priiloader** by DacoTaco: how to tell it is installed, from its
   installer (read only; no code copied).
 - **Mario Party 4 community decompilation**: documentation of GameCube font

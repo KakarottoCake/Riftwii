@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/ctgpupdate.hpp"
 
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/ctgpdsa.hpp"
 #include "riftwii/ctgpyaz0.hpp"
 #include "riftwii/sha1.hpp"
@@ -1003,8 +1004,16 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
     for (const CtgpDiaSection& place : update.sections) {
         largest = std::max<std::size_t>(largest, place.size);
     }
+    // Its size comes from the update file, so the memory is asked for
+    // first: without room the install stops here with an error the player
+    // can retry (nothing is written yet), not at the plugin's emergency exit.
     std::vector<std::uint8_t> section;
-    section.reserve(largest);
+    if (!try_reserve(section, largest)) {
+        error = "there is not enough free memory to read the update's largest file (" + std::to_string(largest) +
+                " bytes); try again";
+        failure = CtgpUpdateFailure::Temporary;
+        return false;
+    }
     CtgpPieces packed;
     // The header's unpacked size is the sum of the sections': a section left
     // out of the table shows here, and the install is then rolled back.
@@ -1373,8 +1382,12 @@ bool ctgp_update_apply(const CtgpUpdateRead& read, std::uint64_t size, CtgpUpdat
     }
     return apply_sections(
         update,
-        [&read](const CtgpDiaSection& place, std::vector<std::uint8_t>& out, std::string&) {
-            out.resize(place.size);
+        [&read](const CtgpDiaSection& place, std::vector<std::uint8_t>& out, std::string& why) {
+            if (!try_resize(out, place.size)) {
+                why = "there is not enough free memory to read an update file of " + std::to_string(place.size) +
+                      " bytes; try again";
+                return false;
+            }
             return read(place.offset, out.data(), out.size());
         },
         read,
@@ -1417,7 +1430,12 @@ bool ctgp_dia_verify_signature(const CtgpUpdateRead& read, std::uint64_t size, c
     }
     std::uint8_t signature[0x30];
     std::memcpy(signature, chunk.data() + 0x24, length);
-    // What the channel puts in place of the signature before it hashes.
+    // What the channel puts in place of the signature before it hashes. The
+    // rule (a DSA signature of the SHA-1 of the whole file, length zeroed,
+    // these 48 bytes in the signature's place) and this pattern were learned
+    // from CTGP-R's own channel; the pattern is carried as data and the
+    // checking code is RiftWii's. Recorded in NOTICE.md, README.md's Credits
+    // and wii/menu/credits.cpp.
     static const std::uint8_t kFill[0x30] = {
         0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,
         0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x0F, 0x1E, 0x2D, 0x3C, 0x4B, 0x5A, 0x69, 0x78,

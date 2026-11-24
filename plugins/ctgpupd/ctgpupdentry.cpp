@@ -494,6 +494,7 @@ bool install_into(CtgpUpdRequest& request, riftwii::CtgpPackWriter& pack, const 
             // Short enough for the menu's notice (140 characters) to show whole.
             error = "CTGP-R's hash list in jelly.bin is for " + version_text(label) + ", older than this update (" +
                     version_text(dia.version) + "), so its files can't be checked";
+            request.hash_list_trouble = 1;
             return false;
         }
     }
@@ -513,6 +514,7 @@ bool install_into(CtgpUpdRequest& request, riftwii::CtgpPackWriter& pack, const 
         read_update, length, target, [&](const std::string& line) { log_line(request, line); },
         riftwii::CtgpUpdateFileDone(), request.step, failure, error);
     std::fclose(update_file);
+    if (!ok && target.list_did_not_vouch()) request.hash_list_trouble = 1;
     return ok && note_version(pack, dia.version, error);
 }
 

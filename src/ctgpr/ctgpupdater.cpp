@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/ctgpupdater.hpp"
 
+#include "riftwii/ctgphash.hpp"
 #include "riftwii/ctgphashlookup.hpp"
 #include "riftwii/sha1.hpp"
 
@@ -236,6 +237,24 @@ bool CtgpPackUpdateTarget::base_unpacked_size(const std::string& component, cons
 
 bool CtgpPackUpdateTarget::check_file(const std::string& path, bool packed,
                                       const std::array<std::uint8_t, 20>& digest, std::string& error) {
+    // The list's own checksum only says its parts agree with each other.
+    // CTGP-R's signature says CTGP-R made it, and it is checked before any
+    // digest from the list decides whether a file is written. Checked once;
+    // a refusal stays for every later file.
+    if (!list_signature_checked_ && list_signature_error_.empty()) {
+        std::string why_unsigned;
+        if (ctgp_hash_list_signature_ok(hash_list_.data(), hash_list_.size(), why_unsigned)) {
+            list_signature_checked_ = true;
+        } else {
+            list_signature_error_ = "CTGP-R's hash list in jelly.bin is not one CTGP-R signed (" + why_unsigned +
+                                    "), so no file can be checked against it";
+        }
+    }
+    if (!list_signature_checked_) {
+        list_refused_ = true;
+        error = list_signature_error_;
+        return false;
+    }
     std::array<std::uint8_t, 20> expected{};
     std::string why;
     bool unlisted = false;
@@ -263,12 +282,15 @@ bool CtgpPackUpdateTarget::check_file(const std::string& path, bool packed,
         if (unlisted && !packed) {
             error = path + " cannot be checked: CTGP-R's hash list does not name it, and it is rebuilt from the game "
                            "disc";
+            list_refused_ = true;
             return false;
         }
         error = path + " cannot be checked: " + why;
+        list_refused_ = true;
         return false;
     }
     if (digest != expected) {
+        list_refused_ = true;
         error = path + " was rebuilt, but does not match CTGP-R's hash list; nothing was written for it";
         return false;
     }

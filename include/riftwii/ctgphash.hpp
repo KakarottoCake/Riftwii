@@ -81,6 +81,15 @@ bool ctgp_core_digest_matches(const CtgpHashList& hashes, const std::string& fil
 // itself; CORE.HSH, which CTGP-R re-issues, need only be signed and vouch for it.
 bool ctgp_core_code_is_tested(const std::string& file, const std::array<std::uint8_t, 20>& digest);
 
+// Checks CTGP-R's DSA signature on a hash list's header (the first 0x2C bytes,
+// signed as the channel signs them) and nothing else: the one rule native
+// launch (ctgp_load_hash_list), the HASH installer and the game-update path
+// share. The list's own checksums say only that its parts agree with each
+// other; this says CTGP-R made it. `key` is only for tests (default: CTGP-R's
+// own public list-signing key). On failure `error` says why.
+bool ctgp_hash_list_signature_ok(const std::uint8_t* list, std::size_t size, std::string& error,
+                                 const CtgpDsaKey* key = nullptr);
+
 // Checks `file` as the list of package `package` (at most 8 characters) in the
 // version `version` (from PACKAGES.BIN): the DSA signature against CTGP-R's
 // public key, then the magic, the size, the name and the body's SHA-1. The

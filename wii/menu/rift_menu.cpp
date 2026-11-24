@@ -21095,6 +21095,15 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 	bool channel_rest = false;  // the next update is CTGP-R's channel's to install
 	bool channel_form = false;  // ...because RiftWii doesn't know its form (else: jelly.bin needs more room)
 	bool agreed = false;  // "Update CTGP-R" was chosen
+	// A waiting update that can't go in because jelly.bin's hash list is
+	// older than it (or doesn't vouch for its files) is kept, and the server
+	// is asked once, even though an update is waiting, for the lists it
+	// needs. If that doesn't fix it, the player is told how to finish the
+	// update through CTGP-R's channel (the summary below).
+	std::string list_trouble;  // why the update can't be checked; empty: no trouble open
+	bool asked_for_lists = false;
+	bool ask_server_anyway = false;
+	std::uint64_t waiting_bytes = 0;  // the size of the update that failed that way
 	// Nothing on the network may write to the card while a pack is being
 	// rewritten.
 	bool network_stopped = false;
@@ -21112,7 +21121,9 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 				{std::to_string(chain.steps().size())});
 			break;
 		}
-		if (!updateWaiting()) {
+		if (ask_server_anyway || !updateWaiting()) {
+			const bool asking_for_lists = ask_server_anyway;
+			ask_server_anyway = false;
 			// Asking the server is a download: it waits for the Downloads
 			// setting, like covers and cheats. An update already on the
 			// card installs either way.
@@ -21123,7 +21134,15 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 			riftwii::CtgpCheckReply reply;
 			if (!CheckCtgpUpdateServer(updater, reply)) break;
 			if (!reply.update_waiting) {
-				logf("CTGP-R update: the server has nothing newer: CTGP-R is current\n");
+				logf("CTGP-R update: the server has nothing newer%s\n",
+					asking_for_lists ? " (no newer hash lists for the waiting update)" : ": CTGP-R is current");
+				break;
+			}
+			if (asking_for_lists && reply.update_bytes == waiting_bytes) {
+				// The server offers the update that is already waiting, not
+				// the lists it needs: downloading it again would change
+				// nothing.
+				logf("CTGP-R update: the server offers the update that is already waiting, not newer hash lists\n");
 				break;
 			}
 			if (!agreed) {
@@ -21273,6 +21292,22 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 			channel_rest = true;
 			break;
 		}
+		if (!ok && updater.hash_list_trouble()) {
+			// The pack was put back and the file stays: it may be fine, and a
+			// newer list can make it install. The server is asked once; the
+			// download then replaces the file only when it is whole and checked.
+			logf("CTGP-R update: the hash lists can't vouch for the waiting update: %s\n", error.c_str());
+			list_trouble = error;
+			if (!asked_for_lists) {
+				asked_for_lists = true;
+				ask_server_anyway = true;
+				waiting_bytes = info.bytes;
+				logf("CTGP-R update: asking the server for the hash lists it needs\n");
+				continue;
+			}
+			failed = error;
+			break;
+		}
 		if (!ok) {
 			logf("CTGP-R update: FAILED: %s\n", error.c_str());
 			// The pack was put back; an update that can never install is set
@@ -21287,6 +21322,7 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 		logf("CTGP-R update: step %s done: %s is %s\n", number.c_str(), info.component.c_str(),
 			CtgpVersionText(info.version).c_str());
 		chain.installed(info.component, info.pack_version, info.version);
+		list_trouble.clear();
 		// The last update's file goes first: FAT does not rename onto a file
 		// that is there.
 		std::remove("sd:/ctgpr/update.dif.installed");
@@ -21302,7 +21338,23 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 	const std::string reached = chain.ctgpr_to() != 0 ? CtgpVersionText(chain.ctgpr_to()) : std::string();
 	if (done > 0) logf("CTGP-R update: the chain installed %zu update(s)%s%s\n", done, reached.empty() ? "" : ", CTGPR now ",
 		reached.c_str());
-	if (channel_rest) {
+	// With the native launch on, RiftWii itself starts CTGP-R, and nothing
+	// starts CTGP-R's channel: the player has to switch. CTGP-R's own channel
+	// is the launch otherwise (wii/launch/launchrun.cpp), and does start it.
+	const bool native_launch_on = riftwii::wii::CtgprNativeStandIn(state) && riftwii::wii::CtgprNativeOptedIn();
+	if (!list_trouble.empty() && !channel_rest) {
+		ShowPopup(tr("CTGP-R update failed"),
+			tr("The CTGP-R update on the SD card can't be checked against this card's hash lists, and RiftWii could not get newer ones ({1}). To finish updating, start CTGP-R through its own channel once: if ctgpnative.txt is next to boot.dol, delete it first. The channel brings the lists and installs the update. CTGP-R starts now without the update.",
+				{FlatCapped(list_trouble, 140)}),
+			tr("OK"));
+	} else if (channel_rest && native_launch_on) {
+		logf("CTGP-R update: CTGP-R's channel has to install the next update, but the native launch is on, so nothing starts the channel\n");
+		ShowPopup(tr("CTGP-R update"),
+			done == 0
+				? std::string(tr("The next CTGP-R update has to be installed by CTGP-R's channel, but RiftWii is starting CTGP-R itself, because ctgpnative.txt is next to boot.dol. To finish updating, delete ctgpnative.txt and start CTGP-R again. RiftWii now tries to start CTGP-R as it is."))
+				: std::string(tr("CTGP-R was updated as far as RiftWii can take it. The next update has to be installed by CTGP-R's channel, but RiftWii is starting CTGP-R itself, because ctgpnative.txt is next to boot.dol. To finish updating, delete ctgpnative.txt and start CTGP-R again. RiftWii now tries to start CTGP-R as it is.")),
+			tr("OK"));
+	} else if (channel_rest) {
 		ShowPopup(tr("CTGP-R update"),
 			done == 0 ? std::string(channel_form
 					? tr("The next CTGP-R update is in a form RiftWii can't install, so CTGP-R's channel installs it itself. CTGP-R starts now.")

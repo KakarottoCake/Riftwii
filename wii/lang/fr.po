@@ -5066,3 +5066,15 @@ msgstr "Autres titres"
 
 msgid "Emulated + Wii"
 msgstr "Émulée + Wii"
+
+msgid "CTGP-R's channel: how CTGP-R signs its update files and hash lists (what the signature covers and the 48-byte filler pattern that stands in for it), read as documentation of behavior. The pattern and CTGP-R's public signing key are carried as data; no code is copied."
+msgstr "Chaîne de CTGP-R : comment CTGP-R signe ses fichiers de mise à jour et ses listes de hachages (ce que couvre la signature et le motif de remplissage de 48 octets qui la remplace), consulté comme documentation du comportement. Le motif et la clé publique de signature de CTGP-R sont repris comme données ; aucun code n’a été copié."
+
+msgid "The CTGP-R update on the SD card can't be checked against this card's hash lists, and RiftWii could not get newer ones ({1}). To finish updating, start CTGP-R through its own channel once: if ctgpnative.txt is next to boot.dol, delete it first. The channel brings the lists and installs the update. CTGP-R starts now without the update."
+msgstr "La mise à jour de CTGP-R sur la carte SD ne peut pas être vérifiée avec les listes de hachages de cette carte, et RiftWii n'a pas pu en obtenir de plus récentes ({1}). Pour terminer la mise à jour, lancez CTGP-R une fois par sa propre chaîne : si ctgpnative.txt se trouve à côté de boot.dol, supprimez-le d'abord. La chaîne apporte les listes et installe la mise à jour. CTGP-R démarre maintenant sans la mise à jour."
+
+msgid "The next CTGP-R update has to be installed by CTGP-R's channel, but RiftWii is starting CTGP-R itself, because ctgpnative.txt is next to boot.dol. To finish updating, delete ctgpnative.txt and start CTGP-R again. RiftWii now tries to start CTGP-R as it is."
+msgstr "La prochaine mise à jour de CTGP-R doit être installée par la chaîne de CTGP-R, mais RiftWii lance CTGP-R lui-même, car ctgpnative.txt se trouve à côté de boot.dol. Pour terminer la mise à jour, supprimez ctgpnative.txt et relancez CTGP-R. RiftWii essaie maintenant de lancer CTGP-R tel quel."
+
+msgid "CTGP-R was updated as far as RiftWii can take it. The next update has to be installed by CTGP-R's channel, but RiftWii is starting CTGP-R itself, because ctgpnative.txt is next to boot.dol. To finish updating, delete ctgpnative.txt and start CTGP-R again. RiftWii now tries to start CTGP-R as it is."
+msgstr "CTGP-R a été mis à jour aussi loin que RiftWii le peut. La prochaine mise à jour doit être installée par la chaîne de CTGP-R, mais RiftWii lance CTGP-R lui-même, car ctgpnative.txt se trouve à côté de boot.dol. Pour terminer la mise à jour, supprimez ctgpnative.txt et relancez CTGP-R. RiftWii essaie maintenant de lancer CTGP-R tel quel."
