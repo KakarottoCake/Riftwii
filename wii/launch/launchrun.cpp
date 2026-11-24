@@ -209,6 +209,16 @@ void ClearIosReloadBlock(std::string& error) {
 bool Session::ensure_probe(std::string& error) {
     if (probed) return true;
     ProgressStage(source.kind == LaunchSource::Kind::Disc ? "Reading the disc" : "Opening the game image", 3);
+    // The pads plugin is read from where RiftWii runs (the USB drive or the
+    // SD card, wii/core/plugins.cpp), so it is loaded before anything takes
+    // that storage away: an image's activation and a disc's cIOS reload for
+    // packs on the USB drive close the drive and bring back only the SD
+    // card, and d2x's NAND emulation then takes the card for the game's
+    // saves. A launch that turns out to take no pad code lets it go
+    // (release_pads_plugin); one that needs it and can't have it stops
+    // with the loader's reason (fetch_pad_build).
+    const bool storage_goes = source.kind != LaunchSource::Kind::Disc || (usb_packs && MenuCiosSlot() == 0);
+    if (storage_goes && !pads_plugin) pads_plugin = std::make_shared<PadsPluginForLaunch>(LaunchMayTakePadCode());
     if (source.kind != LaunchSource::Kind::Disc) {
         bool active = false;
         // Saves on the SD card kept by d2x (wii/storage/d2xsave.hpp): the
@@ -283,11 +293,8 @@ bool Session::ensure_probe(std::string& error) {
         // emulation on only while no title runs. A game on the SD card
         // itself only with d2x on base 56 or 57 (USB Loader GX's rule:
         // the others cannot read the game and keep the save on one card).
-        // d2x's NAND emulation on the SD card takes the card from RiftWii
-        // (enable_d2x_saves), long before boot_game would load the pads
-        // plugin from it: the plugin is loaded now, while the card is ours.
-        if (d2x_ready && !own_saves_on_usb && !pads_plugin)
-            pads_plugin = std::make_shared<PadsPluginForLaunch>(LaunchMayTakePadCode());
+        // (The pads plugin was loaded at the start, while the card was
+        // RiftWii's.)
         if (d2x_ready) {
             const int base = d2x_base(used_slot);
             std::string why;
