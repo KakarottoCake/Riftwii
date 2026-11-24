@@ -242,7 +242,11 @@ $(BUILD): runtime-blob bearssl-lib
 	@IN_BUILD=1 PROJECT_ROOT="$(PROJECT_ROOT)" $(MAKE) --no-print-directory -C "$(BUILD)" -f ../Makefile.wii plugins
 	@IN_BUILD=1 PROJECT_ROOT="$(PROJECT_ROOT)" $(MAKE) --no-print-directory -C "$(BUILD)" -f ../Makefile.wii
 
-plugins:
+# Run on its own (make -f Makefile.wii plugins), the runtime's blobs come
+# first: the gamecube and pads plugins take them by .incbin from
+# build-runtime, empty on a clean checkout. (Here, at the project's root,
+# not in the build's recursive plugins below, which has no Makefile.runtime.)
+plugins: runtime-blob
 	@[ -d $(BUILD) ] || mkdir -p $(BUILD)
 	@IN_BUILD=1 PROJECT_ROOT="$(PROJECT_ROOT)" $(MAKE) --no-print-directory -C "$(BUILD)" -f ../Makefile.wii plugins
 
