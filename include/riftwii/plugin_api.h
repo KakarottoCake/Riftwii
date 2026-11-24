@@ -410,7 +410,8 @@ typedef struct rwp_host {
     /* Added after sd_free_kib (check RWP_HOST_HAS). The menu's popup for a
      * question whose second answer cannot be undone: `safe` is the first
      * button, lit when it opens, and A, B and HOME press it; `risky` needs
-     * the pointer on it. 1 for `risky`, 0 for `safe`. */
+     * the pointer on it and A, or + (START on a GameCube controller), as
+     * every such question in the menu does. 1 for `risky`, 0 for `safe`. */
     int32_t (*ask_risky)(const char* title, const char* text, const char* safe, const char* risky);
 } rwp_host;
 

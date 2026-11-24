@@ -4435,7 +4435,7 @@ msgid "1 installed"
 msgstr "1個インストール済み"
 
 msgid "No app in the list is marked as working without a Wii Remote. Press - to show them all."
-msgstr "Wiiリモコンなしで使えるアプリはリストにありません。-ですべて表示します。"
+msgstr "Wiiリモコンなしで使えると書かれたアプリはリストにありません。-ですべて表示します。"
 
 msgid "Version {1}, for the Wii only"
 msgstr "バージョン{1}、Wii専用"

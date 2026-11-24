@@ -922,7 +922,7 @@ private:
                 status_ = store_.finished_remove ? tr("{1} is removed.", name)
                                                  : tr("Installed. Find it in Home's Homebrew view.");
             // What the app wrote stays unless the player says so: Keep is
-            // lit, and A, B and HOME press it; Remove needs the pointer.
+            // lit, and A, B and HOME press it; Remove needs the pointer (or +).
             if (store_.finished_remove && !store_.finished_leftovers.empty()) {
                 std::string folders;
                 for (const std::string& folder : store_.finished_leftovers)
