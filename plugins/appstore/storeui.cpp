@@ -194,16 +194,17 @@ private:
         frame_.Skin(RWP_SKIN_FOOTER, info_.left, 0, info_.width, 0);
     }
 
-    // The page's band and title; `picture` (a theme picture's name) before it.
-    void Band(const std::string& title, int height = kBand, const std::string& picture = "") {
+    // The page's band and title; `picture` (a theme picture's name) before
+    // it, and `right` pixels kept free at the band's right end (for what a
+    // page puts there).
+    void Band(const std::string& title, int height = kBand, const std::string& picture = "", int right = 0) {
         frame_.Skin(RWP_SKIN_TITLE_BAND, info_.left, 0, info_.width, height);
         int x = left_;
         if (!picture.empty()) {
             Picture(picture, x, 16, 40);
             x += 52;
         }
-        // Room on the right for a grid's page and its arrows.
-        if (!title.empty()) frame_.Text(x, 20, kTitleSize, RWP_COLOR_ON_BAND, title, RWP_ALIGN_LEFT, right_ - x - 280);
+        if (!title.empty()) frame_.Text(x, 20, kTitleSize, RWP_COLOR_ON_BAND, title, RWP_ALIGN_LEFT, right_ - x - right);
     }
 
     // A theme picture (docs/THEMES.md), `size` pixels square: the theme's
@@ -242,7 +243,7 @@ private:
     // The store front: the categories as tiles, each with its icon, and a
     // line under them of what the lit one holds.
     void DrawFront() {
-        Band(tr("Get apps"));
+        Band(tr("Get apps"), kBand, "", 280);  // the counts on the right
         if (!ListReady()) return;
 
         CountCategories();
@@ -340,8 +341,9 @@ private:
     void DrawGrid() {
         std::string picture;
         if (grid_kind_ == GridKind::Category) picture = CategoryPicture(categories_[grid_category_]);
-        Band(grid_title_, kBand, picture);
         const int pages = PageCount();
+        // Room on the right for the page and its arrows, when there are pages.
+        Band(grid_title_, kBand, picture, pages > 1 ? 280 : 0);
         // The page and its arrows at the band's right.
         if (pages > 1) {
             const std::string text = tr("Page {1} of {2}", std::to_string(grid_page_ + 1), std::to_string(pages));
