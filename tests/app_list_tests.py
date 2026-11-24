@@ -137,6 +137,7 @@ class RuleTests(unittest.TestCase):
         self.assertIsNone(app_list.install_path(rules, "wii/gcmm/boot.dol"))
         # What "*" takes is checked as a written part is.
         self.assertIsNone(app_list.install_path(rules, "../wii/gcmm/boot.dol"))
+        self.assertIsNone(app_list.install_path(rules, "./wii/gcmm/boot.dol"))
         self.assertIsNone(app_list.install_path(rules, "..\\wii\\gcmm\\boot.dol"))
 
 
