@@ -4358,7 +4358,9 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
             if (card) {
                 logf("Wii channels: IOS%d rev %d runs now (%s); the SD card and boot.log are back%s\n", IOS_GetVersion(),
                      IOS_GetRevision(),
-                     reload == ReloadResult::AlreadyRunning ? "it was running already" : "reloaded for this try",
+                     reload == ReloadResult::AlreadyRunning
+                         ? "it was running already"
+                         : ("reloaded for this try: " + last_reload_detail()).c_str(),
                      files.emu_nand.empty() ? "" : ", next d2x's NAND emulation");
             }
             // After this try's reload, before ES_Identify marks a title as

@@ -66,7 +66,12 @@ constexpr int kIosStartTimeoutMs = 10000;  // libogc waits forever; a message be
 // window seen.
 constexpr int kMem2BackTimeoutMs = 500;
 constexpr int kMem2SteadyReads = 3;
-constexpr int kMem2MinWaitMs = 60;  // twice the window seen on a Wii
+constexpr int kMem2MinWaitMs = 60;  // twice the window seen on a Wii, counted from the call's return
+// MEM2 still reading wrong this long after the call returned is not the
+// start-up window: it is not coming back, whether or not the kernel has
+// announced itself, so the console stops there (with interrupts off, as
+// below) rather than waiting out the 10 s start-up limit.
+constexpr int kMem2WrongLimitMs = 500;
 constexpr u32 kCheckLine = 32;                  // one cache line of check words
 constexpr u32 kCheckBlock = 4096 + kCheckLine;  // a line at each end, a page apart
 volatile u32* g_check = nullptr;                // in MEM2, taken at start-up and kept
@@ -276,7 +281,11 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
     const u64 launched = gettime();
     raise_priority();
     res = ES_LaunchTitleBackground(title, &g_view);
-    const int returned_ms = ms_since(launched);
+    // The window is counted from here: the call can take a while (libogc
+    // waits for its reply inside it), and a wait counted from before it
+    // could end just after it returns, with the window still to come.
+    const u64 returned = gettime();
+    const int returned_ms = static_cast<int>(ticks_to_millisecs(returned - launched));
     if (res < 0) {
         restore_priority();
         error = "ES launch failed: " + std::to_string(res);
@@ -286,7 +295,7 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
     // Nothing else runs until MEM2 reads back (above). What follows up to
     // there touches only MEM1, the hardware registers and the check words
     // (uncached): no allocation, no log, no std::string. The window opened
-    // about 10 ms after the call returned on a Wii; the call returns at once.
+    // about 10 ms after the call returned on a Wii.
     u32 level;
     _CPU_ISR_Disable(level);
     int mem2_wrong_from = -1, mem2_wrong_to = -1;
@@ -317,6 +326,7 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
         if (!mem2_reads_back()) {
             if (mem2_wrong_from < 0) mem2_wrong_from = ms_since(launched);
             mem2_wrong_to = ms_since(launched);
+            if (ms_since(returned) >= kMem2WrongLimitMs) halt_mem2_wrong();
         }
         udelay(1000);
     }
@@ -325,7 +335,7 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
     int steady = 0;
     for (int waited = 0; waited <= kMem2BackTimeoutMs; ++waited) {
         if (mem2_reads_back()) {
-            if (++steady >= kMem2SteadyReads && ms_since(launched) >= kMem2MinWaitMs) {
+            if (++steady >= kMem2SteadyReads && ms_since(returned) >= kMem2MinWaitMs) {
                 mem2_back_ms = ms_since(launched);
                 break;
             }
@@ -333,6 +343,7 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
             steady = 0;
             if (mem2_wrong_from < 0) mem2_wrong_from = ms_since(launched);
             mem2_wrong_to = ms_since(launched);
+            if (ms_since(returned) >= kMem2WrongLimitMs) halt_mem2_wrong();
         }
         udelay(1000);
     }
@@ -358,8 +369,8 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
     }
     const std::string mem2_note =
         g_check == nullptr
-            ? "no MEM2 check words (no memory for them), waited " + std::to_string(mem2_back_ms) + " ms after the call"
-            : "MEM2 check words read back " + std::to_string(mem2_back_ms) + " ms after the call (" +
+            ? "no MEM2 check words (no memory for them), waited " + std::to_string(mem2_back_ms) + " ms after the call started"
+            : "MEM2 check words read back " + std::to_string(mem2_back_ms) + " ms after the call started (" +
                   (mem2_wrong_from >= 0 ? "seen wrong from " + std::to_string(mem2_wrong_from) + " to " +
                                               std::to_string(mem2_wrong_to) + " ms"
                                         : std::string("never seen wrong")) +
