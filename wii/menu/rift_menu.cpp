@@ -15876,6 +15876,10 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 	gameTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	// Right-aligned, so placed from the right edge of the page's window.
 	gameTxt.SetPosition(page.right - screenwidth, 40);
+	// A long name (a mod tile's GameTDB title) ends in "..." before the
+	// page's title rather than over it, at 4:3 most of all.
+	const int titleEnd = page.left + 38 + titleTxt.GetTextWidth();
+	gameTxt.SetMaxWidth(page.right - titleEnd - 24);
 	NoteCard noteCard(page.left);
 	GuiFlowList list(page.left, 84, page.Width(), 5);
 	list.SetCards(true);
