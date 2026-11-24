@@ -55,13 +55,21 @@ public:
                     std::string& error) override;
     bool store_file(const std::string& path, const CtgpPieces& packed, const CtgpProgress& progress,
                     std::string& error) override;
-    // True once a file was refused because the list could not vouch for it:
-    // its signature, no entry for a packed file, or a digest that differs.
-    // A newer list may let the same update install (CtgpUpdRequest::
-    // hash_list_trouble).
+    // The version the update brings. The list in jelly.bin must be labelled
+    // that version or newer (its label, at 0x28, is bound by the checks of
+    // ctgp_load_hash_list for native launch: the same list must not be an
+    // older signed one). 0: not checked (tests).
+    void set_required_list_version(std::uint32_t version) { required_version_ = version; }
+    // True once the list could not vouch for the update in a way a newer list
+    // may fix: it is not signed by CTGP-R, it is older than the update, or it
+    // is newer than the update and no longer matches (or names) a file the
+    // update rebuilds (the update is out of date). A digest that differs
+    // from a list of the update's own version is NOT this: that update or
+    // its base files are damaged, and another list would not help
+    // (CtgpUpdRequest::hash_list_trouble).
     bool list_did_not_vouch() const { return list_refused_; }
     // For tests only: lists made here carry no CTGP-R signature.
-    void skip_list_signature_for_tests() { list_signature_checked_ = true; }
+    void skip_list_signature_for_tests() { signature_skipped_ = true; }
     // Reads only a base file's first bytes (pack or disc), for the bar.
     bool base_unpacked_size(const std::string& component, const std::string& path, bool packed,
                             std::uint32_t& size) override;
@@ -75,6 +83,9 @@ private:
     std::string temp_prefix_;
     unsigned temp_number_ = 0;
     bool list_refused_ = false;
+    bool signature_skipped_ = false;       // tests only
+    std::uint32_t required_version_ = 0;
+    std::uint32_t list_label_ = 0;     // the list's version label, once read
     bool list_signature_checked_ = false;  // the list passed (or a test skipped) the signature check
     std::string list_signature_error_;     // why it did not; every file is then refused
     bool disc_base_ = false;  // the file being rebuilt has a base from the disc

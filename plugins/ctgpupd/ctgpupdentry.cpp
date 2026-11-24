@@ -499,6 +499,7 @@ bool install_into(CtgpUpdRequest& request, riftwii::CtgpPackWriter& pack, const 
         }
     }
     riftwii::CtgpPackUpdateTarget target(pack, borrow_disc(request), std::move(hash_list), request.scratch_prefix);
+    target.set_required_list_version(dia.version);
     log_line(request, "installing");
     std::FILE* update_file = std::fopen(request.update_path.c_str(), "rb");
     if (update_file == nullptr) {

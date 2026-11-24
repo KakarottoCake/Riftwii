@@ -60,7 +60,12 @@ bool ctgp_yaz0_decode_nintendo(const std::uint8_t* data, std::size_t size,
     }
 
     out.clear();
-    out.reserve(unpacked);
+    // The size is the file's own claim (bounded by kCtgpYaz0MaxBytes): ask
+    // for the memory first, so too little is an error, not an exit.
+    if (!try_reserve(out, unpacked)) {
+        error = "not enough free memory to unpack the Yaz0 file";
+        return false;
+    }
     std::array<std::uint8_t, kCtgpYaz0WindowBytes> window{};
     std::size_t position = 0;
     std::size_t offset = kCtgpYaz0HeaderSize;
@@ -379,7 +384,12 @@ bool ctgp_dia_parse_prefix(const std::uint8_t* data, std::size_t size, std::uint
     out.component = eight_byte_name(data + 0x10);
     out.version = be32(data + 0x18);
     out.signature.assign(data + 0x24, data + 0x24 + signature_length);
-    out.bases.reserve(base_count);
+    // The counts are bounded above (a few records), and still asked for
+    // through checkedalloc.hpp like every buffer sized by the file.
+    if (!try_reserve(out.bases, base_count)) {
+        error = "not enough free memory to read the DIA0 tables";
+        return false;
+    }
     for (std::uint32_t i = 0; i < base_count; ++i) {
         const std::uint8_t* record = data + base_offset + i * 16;
         CtgpDiaBase base;
@@ -387,7 +397,10 @@ bool ctgp_dia_parse_prefix(const std::uint8_t* data, std::size_t size, std::uint
         base.version = be32(record + 8);
         out.bases.push_back(base);
     }
-    out.sections.reserve(section_count);
+    if (!try_reserve(out.sections, section_count)) {
+        error = "not enough free memory to read the DIA0 tables";
+        return false;
+    }
     // The sections fill the rest of the file, in order and with no gap,
     // starting after the tables and ending at its last byte. A table that
     // lists fewer (or other) sections than the file holds leaves bytes over
@@ -473,7 +486,10 @@ bool ctgp_dif_parse(const std::uint8_t* data, std::size_t size, CtgpDif& out, bo
     out.header_size = header_size;
     out.path_table = path_table;
     out.unpacked_size = unpacked;
-    out.entries.reserve(count);
+    if (!try_reserve(out.entries, count)) {
+        error = "not enough free memory to read the DIF0 tables";
+        return false;
+    }
     for (std::uint32_t i = 0; i < count; ++i) {
         const std::uint8_t* entry = data + 0x20 + i * 16;
         CtgpDifEntry parsed;

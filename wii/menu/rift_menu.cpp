@@ -20983,17 +20983,19 @@ static bool InspectCtgpUpdate(riftwii::wii::CtgpUpdater& updater, riftwii::wii::
 // RiftWii installs it itself, before the game starts, so the installer's
 // disc read is never on the path. The work is done by the ctgpupd plugin,
 // loaded here and shut down when `updater` goes. Called and returns with the
-// GUI halted.
-static void InstallCtgpUpdateIfWaiting(FrontendState& state)
+// GUI halted. False only when the player chose Back from the notice that
+// the native launch can't finish the update (the caller then returns to the
+// menu instead of launching); true otherwise.
+static bool InstallCtgpUpdateIfWaiting(FrontendState& state)
 {
-	if (riftwii::wii::CtgprPackOn(state) == SIZE_MAX) return;
+	if (riftwii::wii::CtgprPackOn(state) == SIZE_MAX) return true;
 	const riftwii::wii::ImageGame& game = riftwii::wii::SelectedSource(state).game;
 	const riftwii::wii::LaunchSource::Kind kind = riftwii::wii::SelectedSource(state).kind;
 	if (kind == riftwii::wii::LaunchSource::Kind::Disc) {
 		// A retail disc's files are read through the menu's own DI path;
 		// the image path below is the one RiftWii launches from.
 		logf("CTGP-R update: the game runs from a disc, so its base files are not read here\n");
-		return;
+		return true;
 	}
 	const char* const update_path = riftwii::wii::kCtgpUpdatePath;
 	{
@@ -21003,7 +21005,7 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 				tr("An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer, then delete update-journal.bin and update-journal-jelly.bin from the ctgpr folder on the SD card.",
 					{FlatCapped(journal_error, 140)}),
 				tr("OK"));
-			return;
+			return true;
 		}
 	}
 	riftwii::wii::CtgpUpdater updater;
@@ -21042,7 +21044,7 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 			ShowPopup(tr("CTGP-R update"),
 				tr("The next CTGP-R update is in a form RiftWii can't install, so CTGP-R's channel installs it itself. CTGP-R starts now."),
 				tr("OK"));
-			return;
+			return true;
 		}
 		switch (riftwii::ctgp_pending_step(inspected, updater.bad_update(), info.pack_version, info.version,
 			info.base_version)) {
@@ -21050,7 +21052,7 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 			// The card, memory or the plugin: the file may be fine, so it stays.
 			logf("CTGP-R update: %s: %s\n", update_path, error.c_str());
 			ShowCtgpUpdateFailed(error);
-			return;
+			return true;
 		case riftwii::CtgpPendingStep::Retire:
 			logf("CTGP-R update: %s is %s, which is already installed\n", update_path,
 				CtgpVersionText(info.version).c_str());
@@ -21058,12 +21060,12 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 				ShowPopup(tr("CTGP-R update"),
 					tr("The CTGP-R update on the SD card is already installed, but it could not be moved aside. CTGP-R starts now."),
 					tr("OK"));
-				return;
+				return true;
 			}
 			break;
 		case riftwii::CtgpPendingStep::SetAside:
 			if (!inspected) {
-				if (!SetCtgpUpdateAside(error)) return;
+				if (!SetCtgpUpdateAside(error)) return true;
 				break;
 			}
 			logf("CTGP-R update: %s updates %s, but the pack is %s\n", update_path,
@@ -21073,7 +21075,7 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 					tr("The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, and it could not be moved aside. CTGP-R starts without it.",
 						{CtgpVersionText(info.base_version), CtgpVersionText(info.pack_version)}),
 					tr("OK"));
-				return;
+				return true;
 			}
 			logf("CTGP-R update: set aside as update.dif.bad\n");
 			ShowPopup(tr("CTGP-R update"),
@@ -21104,6 +21106,10 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 	bool asked_for_lists = false;
 	bool ask_server_anyway = false;
 	std::uint64_t waiting_bytes = 0;  // the size of the update that failed that way
+	// Why the lists were not got, for the words the player reads: 0 the
+	// server had nothing useful (nothing newer, the same file, or a second
+	// failure), 1 Downloads are off, 2 the server could not be asked.
+	int list_reason = 0;
 	// Nothing on the network may write to the card while a pack is being
 	// rewritten.
 	bool network_stopped = false;
@@ -21129,10 +21135,14 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 			// card installs either way.
 			if (!riftwii::wii::Settings().online) {
 				logf("CTGP-R update: Downloads are off, so the update server is not asked\n");
+				if (asking_for_lists) list_reason = 1;
 				break;
 			}
 			riftwii::CtgpCheckReply reply;
-			if (!CheckCtgpUpdateServer(updater, reply)) break;
+			if (!CheckCtgpUpdateServer(updater, reply)) {
+				if (asking_for_lists) list_reason = 2;
+				break;
+			}
 			if (!reply.update_waiting) {
 				logf("CTGP-R update: the server has nothing newer%s\n",
 					asking_for_lists ? " (no newer hash lists for the waiting update)" : ": CTGP-R is current");
@@ -21343,17 +21353,28 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 	// is the launch otherwise (wii/launch/launchrun.cpp), and does start it.
 	const bool native_launch_on = riftwii::wii::CtgprNativeStandIn(state) && riftwii::wii::CtgprNativeOptedIn();
 	if (!list_trouble.empty() && !channel_rest) {
+		// Only what is known: the update can't be checked against the lists
+		// on the card, why the server wasn't a way out, and that CTGP-R's
+		// own channel can update CTGP-R.
+		const std::string detail = FlatCapped(list_trouble, 140);
 		ShowPopup(tr("CTGP-R update failed"),
-			tr("The CTGP-R update on the SD card can't be checked against this card's hash lists, and RiftWii could not get newer ones ({1}). To finish updating, start CTGP-R through its own channel once: if ctgpnative.txt is next to boot.dol, delete it first. The channel brings the lists and installs the update. CTGP-R starts now without the update.",
-				{FlatCapped(list_trouble, 140)}),
+			list_reason == 1
+				? tr("The CTGP-R update on the SD card can't be checked against this card's hash lists ({1}). Downloads are off, so RiftWii did not ask the update server for newer ones. Turn Downloads on and play again, or start CTGP-R through its own channel, which can update CTGP-R (if ctgpnative.txt is next to boot.dol, delete it first). CTGP-R starts now without the update.", {detail})
+			: list_reason == 2
+				? tr("The CTGP-R update on the SD card can't be checked against this card's hash lists ({1}). RiftWii could not reach the update server to ask for newer ones. Try again later, or start CTGP-R through its own channel, which can update CTGP-R (if ctgpnative.txt is next to boot.dol, delete it first). CTGP-R starts now without the update.", {detail})
+				: tr("The CTGP-R update on the SD card can't be checked against this card's hash lists ({1}). The update server did not give RiftWii newer ones. CTGP-R's own channel can update CTGP-R: start CTGP-R through it once (if ctgpnative.txt is next to boot.dol, delete it first). CTGP-R starts now without the update.", {detail}),
 			tr("OK"));
 	} else if (channel_rest && native_launch_on) {
-		logf("CTGP-R update: CTGP-R's channel has to install the next update, but the native launch is on, so nothing starts the channel\n");
-		ShowPopup(tr("CTGP-R update"),
+		logf("CTGP-R update: CTGP-R's channel has to install the next update, but the native launch is on, so nothing starts the channel; the player chooses\n");
+		const bool play_anyway = ShowPopup(tr("CTGP-R update"),
 			done == 0
-				? std::string(tr("The next CTGP-R update has to be installed by CTGP-R's channel, but RiftWii is starting CTGP-R itself, because ctgpnative.txt is next to boot.dol. To finish updating, delete ctgpnative.txt and start CTGP-R again. RiftWii now tries to start CTGP-R as it is."))
-				: std::string(tr("CTGP-R was updated as far as RiftWii can take it. The next update has to be installed by CTGP-R's channel, but RiftWii is starting CTGP-R itself, because ctgpnative.txt is next to boot.dol. To finish updating, delete ctgpnative.txt and start CTGP-R again. RiftWii now tries to start CTGP-R as it is.")),
-			tr("OK"));
+				? std::string(tr("The next CTGP-R update has to be installed by CTGP-R's channel, but RiftWii is starting CTGP-R itself, because ctgpnative.txt is next to boot.dol. To finish updating, choose Back, delete ctgpnative.txt from the SD card, then start CTGP-R again. Or choose Play anyway to start CTGP-R as it is."))
+				: std::string(tr("CTGP-R was updated as far as RiftWii can take it. The next update has to be installed by CTGP-R's channel, but RiftWii is starting CTGP-R itself, because ctgpnative.txt is next to boot.dol. To finish updating, choose Back, delete ctgpnative.txt from the SD card, then start CTGP-R again. Or choose Play anyway to start CTGP-R as it is.")),
+			tr("Back"), tr("Play anyway")) != 0;
+		if (!play_anyway) {
+			logf("CTGP-R update: the player went back instead of starting CTGP-R without the rest of the update\n");
+			return false;
+		}
 	} else if (channel_rest) {
 		ShowPopup(tr("CTGP-R update"),
 			done == 0 ? std::string(channel_form
@@ -21379,6 +21400,7 @@ static void InstallCtgpUpdateIfWaiting(FrontendState& state)
 					{reached, FlatCapped(failed, 140)}),
 			tr("OK"));
 	}
+	return true;
 }
 
 int MainMenu(int menu, FrontendState& state)
@@ -21424,6 +21446,7 @@ int MainMenu(int menu, FrontendState& state)
 	                                ? "sd:/riftwii/guiscript.txt"
 	                                : "sd:/riftwii/guiscript-restart.txt");
 
+menu_loop:
 	ResumeGui();
 	while(currentMenu != MENU_EXIT && currentMenu != MENU_LAUNCH && currentMenu != MENU_BOOT && currentMenu != MENU_DUMP &&
 		currentMenu != MENU_CHANNEL && currentMenu != MENU_PLAY_CHANNEL && currentMenu != MENU_HOMEBREW)
@@ -21485,7 +21508,13 @@ int MainMenu(int menu, FrontendState& state)
 	// the next game page reads a fresh catalog when it sees this one empty.
 	state.package_catalog = riftwii::wii::PackageCatalog{};
 	state.prepared_choices = riftwii::wii::PreparedGameChoices{};
-	if (currentMenu == MENU_LAUNCH) InstallCtgpUpdateIfWaiting(state);
+	if (currentMenu == MENU_LAUNCH && !InstallCtgpUpdateIfWaiting(state)) {
+		// Back: no launch. The game page is shown again, as after a launch
+		// that failed (the catalog above was emptied for the same reason
+		// and is read afresh by the page).
+		currentMenu = MENU_HOME;
+		goto menu_loop;
+	}
 	if (currentMenu == MENU_LAUNCH || currentMenu == MENU_BOOT || currentMenu == MENU_DUMP || currentMenu == MENU_CHANNEL ||
 		currentMenu == MENU_PLAY_CHANNEL || currentMenu == MENU_HOMEBREW) {
 		if (currentMenu == MENU_LAUNCH) {
