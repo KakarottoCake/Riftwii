@@ -23,11 +23,11 @@ namespace {
 // pack's identity is known), the pack's identity (16 bytes), the number of
 // content samples (u32) and their checksums (u32 each, see below), checksum
 // (u32) over everything before it. Entry: offset (u64), length (u32), data,
-// checksum (u32) over offset, length and data. All big-endian. Version 1 had
-// no identity: such a journal is refused rather than played into a pack it
-// can't tell from another.
+// checksum (u32) over offset, length and data. All big-endian. Any other
+// version is refused: version 1 had no identity, and development builds
+// wrote a version 2 with a shorter header and no samples.
 constexpr std::uint32_t kMagic = 0x434A524Eu;
-constexpr std::uint32_t kVersion = 2;
+constexpr std::uint32_t kVersion = 3;
 constexpr std::uint32_t kFlagIdentity = 1;
 constexpr std::size_t kEntryOverhead = 12 + 4;
 
@@ -39,7 +39,10 @@ constexpr std::size_t kEntryOverhead = 12 + 4;
 // again and must match. Those chunks are untouched by this update: the
 // journal saves a chunk, and reads the entry back from the card, before the
 // pack is written there at all. A pack whose sampled bytes differ is another
-// pack. 128 sectors are 64 KiB to read, a moment on the Wii.
+// pack; one that differs only between the samples is not caught, so this is
+// a spot check. 128 sectors are 64 KiB to read, a moment on the Wii. Reading
+// more is not cheap: 4 KiB of every chunk of a 1 GiB pack is 128 MiB, some
+// 15 to 20 seconds on a Wii's SD card at every update and every replay.
 constexpr std::uint32_t kSamples = 128;
 constexpr std::uint32_t kSampleBytes = 512;
 constexpr std::size_t kSampleCountAt = 40;

@@ -33,7 +33,7 @@ namespace fs = std::filesystem;
 namespace {
 
 constexpr std::uint32_t kChunk = kCtgpJournalChunkBytes;
-constexpr std::size_t kHeader = 560;  // the journal's header (version 2, with 128 content samples)
+constexpr std::size_t kHeader = 560;  // the journal's header (version 3, with 128 content samples)
 
 // A pack behind a write cache, as blob.bin is on the Wii behind libfat's
 // (libdvm's): writes land in `cache`, and sync() copies them to `card`, except
@@ -506,6 +506,14 @@ int main() {
         v1.resize(v1.size() + 12 + 512 + 4, 0x11);
         spit(jp, v1);
         std::size_t n = 0;
+        EXPECT_TRUE(ctgp_journal_recover(jp, p.io(), size, p.sync(), n, err) == CtgpJournalRecovery::Failed);
+        EXPECT_TRUE(p.data == orig);
+        EXPECT_TRUE(exists(jp));
+        // The development builds' version 2 (a 44-byte header, no samples):
+        // refused too, however long the file.
+        v1[7] = 2;
+        v1.resize(4096, 0x22);
+        spit(jp, v1);
         EXPECT_TRUE(ctgp_journal_recover(jp, p.io(), size, p.sync(), n, err) == CtgpJournalRecovery::Failed);
         EXPECT_TRUE(p.data == orig);
         EXPECT_TRUE(exists(jp));
