@@ -4537,7 +4537,15 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     extras_context.gc_adapter = prepare_gc_pads(dol, adapter_wanted, gx_protected, {}, extras.pad);
     // Its code from the pads plugin while the card is still RiftWii's
     // (a channel is never a code build).
-    if (extras_context.gc_adapter && !fetch_pad_build(extras.pad, false, error)) return false;
+    if (extras_context.gc_adapter && !fetch_pad_build(extras.pad, false, error)) {
+        // d2x's NAND emulation holds the card for the game: it lets go now
+        // (writing out what it holds), as after a refused start, and the
+        // card comes back for the failure's log and the restart. If d2x
+        // won't let go, RiftWii stays off the card until IOS is reloaded.
+        if (emulated) release_d2x_saves();
+        card_again();
+        return false;
+    }
     if (!extras_context.gc_adapter) release_pads_plugin();
     extras_context.gx_protected = gx_protected;
     extras_context.clears_mem1_top = clears_mem1_top;
