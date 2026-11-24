@@ -15705,28 +15705,34 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 	std::vector<RowRef> refs;
 	BuildGameRows(state, rows, refs, true, false);
 
+	// As wide as the game page that opened it: at 16:9 the rows' names get
+	// the room the TV has past the 4:3 middle ("GameCube controllers" was
+	// cut beside its choice), and at 4:3 the page is as it always was.
+	const PageBounds page = WidePageBounds();
 	GuiText titleTxt(tr("Game settings"), 30, skin::kInk);
-	Place(titleTxt, 78, 28);
+	Place(titleTxt, page.left + 38, 28);
 	TitleBand titleBand;
-	PageIcon pageIcon(&skin::iconGear);
+	PageIcon pageIcon(&skin::iconGear, page.left);
 	const std::string gameName = FlatCapped(GameTitle(state), 40);
 	GuiText gameTxt(gameName.c_str(), 16, skin::kInkDim);
 	gameTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
-	gameTxt.SetPosition(-40, 40);
-	NoteCard noteCard;
-	GuiFlowList list(40, 84, 560, 5);
+	// Right-aligned, so placed from the right edge of the page's window.
+	gameTxt.SetPosition(page.right - screenwidth, 40);
+	NoteCard noteCard(page.left);
+	GuiFlowList list(page.left, 84, page.Width(), 5);
 	list.SetCards(true);
 	list.SetRows(&rows);
 	list.Select(1);
 	GuiText noteTxt("", 15, skin::kInkSoft);
-	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
-	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
+	Place(noteTxt, page.left + 36, NoteCard::kTextY);
+	noteTxt.SetWrap(true, page.Width() - 40, NoteCard::kLines);
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
 	const int promptBack = prompts.Add("B", tr("Back"));
 	const int promptChange = prompts.Add("A", tr("Change"));
+	prompts.SetRightEdge(page.right);
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
