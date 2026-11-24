@@ -185,6 +185,7 @@ contains theirs names them in its file header, and
   both SIL Open Font License 1.1, **Adobe and the Noto authors** for Noto Sans KR
   (the Korean font, SIL Open Font License 1.1), **Zane Little** for the menu
   music, **Kenney** (kenney.nl) for the controller and button pictures,
+  **Lucide** (lucide.dev, ISC; from Feather by Cole Bemis, MIT) for the Rift Store's bag,
   **Wikimedia Commons** for the age rating boards' marks (public domain).
 - **Animated GameCube banners**: the community's banners, hosted by
   RiiConnect24 (banner.rc24.xyz).

@@ -25,6 +25,9 @@ struct Hooks {
     // rift_menu.cpp's ShowPopup: 0 for the first button, 1 for the second. With the GUI halted.
     int (*popup)(const std::string& title, const std::string& body, const std::string& yes,
                  const std::string& no) = nullptr;
+    // rift_menu.cpp's ShowPopupSafeFirst: 0 for the safe (first) button, 1 for the risky one. With the GUI halted.
+    int (*popup_safe_first)(const std::string& title, const std::string& body, const std::string& safe,
+                            const std::string& risky) = nullptr;
     // rift_menu.cpp's AskSearch. With the GUI halted.
     bool (*search)(std::string& text,
                    const std::function<std::string(const std::string&, std::string& matches, std::string& next)>&
@@ -46,5 +49,6 @@ int32_t AskSearch(char* text, uint32_t bytes,
                                 uint32_t matches_bytes, char* next, uint32_t next_bytes, void* arg),
                   void* arg);
 int32_t AskChoice(const char* title, const char* text, const char* yes, const char* no);
+int32_t AskRisky(const char* title, const char* text, const char* safe, const char* risky);
 
 }  // namespace riftwii::wii::pluginscreen

@@ -4317,8 +4317,8 @@ msgstr "Se borra el programa. Sus partidas y ajustes se quedan, salvo que digas 
 msgid "Remove its saves too?"
 msgstr "¿Quitar también sus partidas?"
 
-msgid "{1} left its saves and settings in {2}. Kept, they are there if you install it again."
-msgstr "{1} dejó sus partidas y ajustes en {2}. Si los guardas, seguirán ahí si la vuelves a instalar."
+msgid "{1} left its saves and settings in {2}. An emulator may keep your games, covers and cheats there too: Remove them deletes everything in {2}."
+msgstr "{1} dejó sus partidas y ajustes en {2}. Un emulador puede guardar ahí también tus juegos, carátulas y trucos: Quitarlos elimina todo lo que hay en {2}."
 
 msgid "Remove them"
 msgstr "Quitarlos"
@@ -4424,6 +4424,21 @@ msgstr "Todo lo demás."
 
 msgid "{1} installed"
 msgstr "{1} instaladas"
+
+msgid "The Rift Store opens once RiftWii has finished reading the drives."
+msgstr "La Rift Store se abre cuando RiftWii termine de leer las unidades."
+
+msgid "Type the PIN to open the Rift Store."
+msgstr "Escribe el PIN para abrir la Rift Store."
+
+msgid "1 installed"
+msgstr "1 instalada"
+
+msgid "No app in the list is marked as working without a Wii Remote. Press - to show them all."
+msgstr "Ninguna app de la lista dice funcionar sin Wii Remote. Pulsa - para verlas todas."
+
+msgid "Version {1}, for the Wii only"
+msgstr "Versión {1}, solo para Wii"
 
 msgid "Size"
 msgstr "Tamaño"

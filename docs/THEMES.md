@@ -212,6 +212,7 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `icon_picture`, `icon_controllers`, `icon_online`, `icon_home`, `icon_sound`, `icon_power` | 28x28 | Settings' tiles: Picture, Controllers, Online, Home screen, Look and sound, Leave RiftWii |
 | `icon_wii`, `icon_gamecube` | 28x28 | Home's Show choices: Wii games, GameCube games |
 | `icon_disc` | 40x40 | Disc icon (name tiles) |
+| `icon_store` | 28x28 | The Rift Store's button on Home's bar, beside Search (drawn at half size, like Search and Layout) |
 | `disc_channel` | 64x64 | The Disc Channel's face in the Channels view when no disc is in: stretched over the whole tile, its corners cut to the tile's |
 | `disc_channel_disc` | 64x76 | The disc on that face: the disc in rows 0-63, its reflection in rows 66-75. The menu spins it now and then about its upright middle line, so keep it centred |
 | `disc_case` | 128x176 | The Disc drive's box: its cover tile, and its front and back on the shelf |

@@ -131,6 +131,7 @@ const char* const kCredits[] = {
     "Korean font: Noto Sans KR by Adobe and the Noto authors (SIL Open Font License 1.1), "
     "cut down and rounded for RiftWii; korean.ttf and Korean-OFL.txt beside boot.dol.",
     "Controller and button pictures: Input Prompts by Kenney (kenney.nl, CC0).",
+    "The Rift Store's bag: Lucide (lucide.dev, ISC), from Feather by Cole Bemis (MIT).",
     "Age rating marks: the ESRB's, PEGI's, CERO's, the GRAC's and the GSRR's, as drawn on Wikimedia "
     "Commons (public domain).",
     "",

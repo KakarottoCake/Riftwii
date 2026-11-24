@@ -4317,8 +4317,8 @@ msgstr "プログラムを削除します。セーブと設定は、消すと決
 msgid "Remove its saves too?"
 msgstr "セーブも削除しますか？"
 
-msgid "{1} left its saves and settings in {2}. Kept, they are there if you install it again."
-msgstr "{1}はセーブと設定を{2}に残しています。残しておけば、また入れたときにそのまま使えます。"
+msgid "{1} left its saves and settings in {2}. An emulator may keep your games, covers and cheats there too: Remove them deletes everything in {2}."
+msgstr "{1}はセーブと設定を{2}に残しています。エミュレーターなら、ゲームやカバー、チートもそこにあるかもしれません。「削除する」を選ぶと{2}の中身がすべて消えます。"
 
 msgid "Remove them"
 msgstr "削除する"
@@ -4424,6 +4424,21 @@ msgstr "そのほかすべて。"
 
 msgid "{1} installed"
 msgstr "{1}個インストール済み"
+
+msgid "The Rift Store opens once RiftWii has finished reading the drives."
+msgstr "RiftWiiがドライブを読み終えるとRift Storeが開きます。"
+
+msgid "Type the PIN to open the Rift Store."
+msgstr "Rift Storeを開くにはPINを入力してください。"
+
+msgid "1 installed"
+msgstr "1個インストール済み"
+
+msgid "No app in the list is marked as working without a Wii Remote. Press - to show them all."
+msgstr "Wiiリモコンなしで使えるアプリはリストにありません。-ですべて表示します。"
+
+msgid "Version {1}, for the Wii only"
+msgstr "バージョン{1}、Wii専用"
 
 msgid "Size"
 msgstr "サイズ"

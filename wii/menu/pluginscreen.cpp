@@ -641,4 +641,17 @@ int32_t AskChoice(const char* title, const char* text, const char* yes, const ch
     return answer == 0 ? 1 : 0;
 }
 
+int32_t AskRisky(const char* title, const char* text, const char* safe, const char* risky) {
+    if (!H().popup_safe_first || !safe || !risky) return 0;
+    H().halt();
+    if (g_canvas) g_canvas->SetState(STATE::DISABLED);
+    const int answer = H().popup_safe_first(title ? title : "", text ? text : "", safe, risky);
+    if (g_canvas) {
+        g_canvas->SetState(STATE::DEFAULT);
+        g_canvas->ForgetInput();
+    }
+    H().resume();
+    return answer == 1 ? 1 : 0;
+}
+
 }  // namespace riftwii::wii::pluginscreen
