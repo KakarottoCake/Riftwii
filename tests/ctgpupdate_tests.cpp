@@ -15,7 +15,9 @@
 #include <vector>
 
 #include "riftwii/ctgppackwrite.hpp"
+#include "riftwii/ctgppackwrite.hpp"
 #include "riftwii/ctgpupdate.hpp"
+#include "riftwii/ctgpupdater.hpp"
 #include "riftwii/ctgpupdater.hpp"
 #include "riftwii/ctgpyaz0.hpp"
 #include "riftwii/sha1.hpp"
@@ -1150,6 +1152,49 @@ void test_apply_section_without_room() {
     EXPECT_TRUE(target.stored.empty());
 }
 
+// A whole update whose list in jelly.bin has a good inner checksum but not
+// CTGP-R's signature: the file is rebuilt, the list refuses it, and the pack
+// is never written (store_file is not reached), however plain the file.
+class CountingPackTarget : public CtgpPackUpdateTarget {
+public:
+    using CtgpPackUpdateTarget::CtgpPackUpdateTarget;
+    bool store_file(const std::string&, const CtgpPieces&, const CtgpProgress&, std::string&) override {
+        ++stores;
+        return true;
+    }
+    int stores = 0;
+};
+
+void test_unsigned_hash_list_blocks_writes() {
+    CtgpPackWriter pack;
+    // Only the signature is wrong about this list: its header, name and body
+    // digest are in order, so the list's own checks would pass.
+    std::vector<std::uint8_t> list(0x60 + 12, 0);
+    list[0] = 'H'; list[1] = 'a'; list[2] = 'h'; list[3] = '0';
+    list[7] = std::uint8_t(list.size());
+    std::memcpy(list.data() + 0x20, "CTGPR", 5);
+    CountingPackTarget target(pack, CtgpDiscBase(), list, "ctgpupdate_unused_");
+    const auto dia = make_dia(make_section_flags(5, {0x40, 'h', 'e', 'l', 'l', 'o'}, "/changelog.bin", 0x00020000u, {}));
+    const CtgpUpdateRead read = [&dia](std::uint64_t offset, std::uint8_t* out, std::size_t length) {
+        if (offset + length > dia.size()) return false;
+        std::memcpy(out, dia.data() + offset, length);
+        return true;
+    };
+    CtgpUpdateFailure failure = CtgpUpdateFailure::None;
+    std::string error;
+    EXPECT_TRUE(!ctgp_update_apply(read, dia.size(), target, nullptr, CtgpUpdateFileDone(), CtgpUpdateStep(), failure,
+                                   error));
+    EXPECT_TRUE(error.find("signed") != std::string::npos);
+    EXPECT_EQ(target.stores, 0);
+    // With the signature check skipped (a test-only switch) the refusal, if
+    // any, is about something else, so the one above was the signature's.
+    CountingPackTarget allowed(pack, CtgpDiscBase(), list, "ctgpupdate_unused_");
+    allowed.skip_list_signature_for_tests();
+    error.clear();
+    ctgp_update_apply(read, dia.size(), allowed, nullptr, CtgpUpdateFileDone(), CtgpUpdateStep(), failure, error);
+    EXPECT_TRUE(error.find("signed") == std::string::npos);
+}
+
 int main() {
     test_dif_flags();
     test_update_step_by_bases();
@@ -1163,6 +1208,7 @@ int main() {
     test_dia_signature();
     test_apply_failure_kind();
     test_apply_section_without_room();
+    test_unsigned_hash_list_blocks_writes();
     test_update_apply();
     test_update_step_weighted();
     test_apply_rejects_bad_stream();
