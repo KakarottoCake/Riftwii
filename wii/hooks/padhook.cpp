@@ -201,8 +201,11 @@ bool blob_whole(int kind) {
     // read from it.
     const std::uint32_t header_bytes =
         kind < kBlobNoHome ? sizeof(rt_pad_header) : offsetof(rt_pad_header, hook_kpad);
+    // The context's end checked by subtraction, so a huge offset can't wrap
+    // round the sum and pass (CodeRabbit on #610); the build's own size must
+    // hold its header too.
     if (size < header_bytes || h.magic != RT_PAD_MAGIC || h.version != RT_PAD_VERSION || h.size > size ||
-        h.context_offset + context_bytes(kind) > h.size)
+        h.size < header_bytes || h.context_offset > h.size || context_bytes(kind) > h.size - h.context_offset)
         return false;
     return kind >= kBlobNoHome || (h.hook_kpad != 0 && h.hook_probe != 0 && h.hook_menu != 0 && h.hook_select != 0 &&
                                    h.hook_unified != 0);
