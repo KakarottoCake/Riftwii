@@ -1,29 +1,39 @@
-<!--
-The message to the testers' Discord channel for the next release, posted
-by the release workflow after the GitHub release is up. Discord's own
-markdown: at most 2000 characters once filled in (the workflow counts).
+<!--
+
+The message to the testers' Discord channel for the next release, posted
+
+by the release workflow after the GitHub release is up. Discord's own
+
+markdown: at most 2000 characters once filled in (the workflow counts).
+
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-What's new:
+**The Rift Store is here:** Settings > Online > Rift Store. About 290 homebrew apps to install, update and remove right from RiftWii.
 
-* Real GameCube memory cards work on a Wii (the menu's sound was blocking them)
-* WAD files in your Game folders show up too, not just in wiiware/
-* WiiWare/VC from a WAD: HOME > Wii Menu goes back to RiftWii instead of rebooting a Wii U
-* WADs work when USB Loader GX keeps its channels on the USB drive
-* Project+ no longer goes black with the GameCube adapter
-* 240p keeps PAL 60's colors on RGB SCART
-* LEGO Star Wars: The Complete Saga has the adapter and L+R+Z+Start back
+* Your saves stay: updates keep files the app changed, and Remove asks before deleting saves and settings
+* Controller pictures on each app, and a **Without a Wii Remote** filter (press −)
+* On a Wii U, Wii-only apps are marked and ask first
+* Daily builds of Snes9x RX, WiiStation and Nintendont
 
-Not tried on a real Wii yet: the way back from WAD games.
+Also new:
+
+* Search and Layout on Home's bar, and B shows the letter it jumps to
+* Wider game pages at 16:9, a tidier About and Settings
+* Install WAD files is under Settings > Games
+* WAD games go back to RiftWii on a Wii U (HOME > Wii Menu froze before)
+
+Not tried on a real Wii yet: the Rift Store, and the Wii U fix.
 
 To test, please:
 
-1. A real GameCube memory card with a GameCube game: does it save?
-2. A WAD in one of your Game folders: does it show on Home and start?
-3. A WAD game, then HOME > Wii Menu: back in RiftWii?
-4. Project+ with the GameCube adapter
+1. Install an app from the store, start it, then remove it: does it ask about saves?
+2. Update an app whose settings you changed: are they kept?
+3. The Without a Wii Remote filter: are the apps right?
+4. Wii U: a WAD game, then HOME > Wii Menu
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![What's new](docs/screenshots/2611-219-whats-new.png)
+![The Rift Store](docs/screenshots/2611-229-store.png)
+![An app's page](docs/screenshots/2611-229-store-app.png)
+![What's new](docs/screenshots/2611-229-whats-new.png)

@@ -8644,24 +8644,24 @@ MORE["ko"]["Game's box: the game's box while it starts; press any button to see 
 MORE["fr"]["Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."] = "Boîte du jeu : la boîte du jeu pendant son lancement ; appuyez sur un bouton pour voir ce que fait RiftWii. Journal : chaque étape, ligne par ligne. Un lancement qui échoue affiche toujours le journal."
 
 # What's new in the release after 2611-179.
-T['Real GameCube memory cards work'] = ('Las Memory Cards de GameCube funcionan', '本物のゲームキューブのメモリーカードが使える', 'Memory Cards reais de GameCube funcionam', 'Le Memory Card reali del GameCube funzionano')
-MORE["ko"]['Real GameCube memory cards work'] = '실제 게임큐브 메모리 카드 사용 가능'
-MORE["fr"]['Real GameCube memory cards work'] = 'Les vraies cartes mémoire GameCube marchent'
-T['WAD files in your Game folders'] = ('Archivos WAD en tus carpetas de juegos', 'ゲームフォルダのWADファイルも表示', 'Arquivos WAD nas suas pastas de jogos', 'File WAD nelle tue cartelle dei giochi')
-MORE["ko"]['WAD files in your Game folders'] = '게임 폴더의 WAD 파일도 표시'
-MORE["fr"]['WAD files in your Game folders'] = 'Fichiers WAD dans vos dossiers de jeux'
-T['WAD games go back to RiftWii'] = ('Los juegos WAD vuelven a RiftWii', 'WADのゲームからRiftWiiに戻れる', 'Jogos WAD voltam ao RiftWii', 'I giochi WAD tornano a RiftWii')
-MORE["ko"]['WAD games go back to RiftWii'] = 'WAD 게임에서 RiftWii로 돌아가기'
-MORE["fr"]['WAD games go back to RiftWii'] = 'Les jeux WAD reviennent à RiftWii'
-T['240p keeps PAL 60 colors'] = ('240p mantiene los colores de PAL 60', '240pでもPAL 60の色のまま', '240p mantém as cores do PAL 60', '240p mantiene i colori PAL 60')
-MORE["ko"]['240p keeps PAL 60 colors'] = '240p에서도 PAL 60 색상 유지'
-MORE["fr"]['240p keeps PAL 60 colors'] = 'Le 240p garde les couleurs PAL 60'
-T['Project+ starts with the GameCube adapter'] = ('Project+ arranca con el adaptador de GameCube', 'ゲームキューブ用アダプターでもProject+が起動', 'Project+ inicia com o adaptador de GameCube', "Project+ parte con l'adattatore GameCube")
-MORE["ko"]['Project+ starts with the GameCube adapter'] = '게임큐브 어댑터로도 Project+ 실행'
-MORE["fr"]['Project+ starts with the GameCube adapter'] = "Project+ démarre avec l'adaptateur GameCube"
-T['GameCube adapter back in LEGO Star Wars'] = ('El adaptador de GameCube vuelve a LEGO Star Wars', 'LEGO Star Warsでゲームキューブ用アダプターが使える', 'Adaptador de GameCube de volta em LEGO Star Wars', 'Adattatore GameCube di nuovo in LEGO Star Wars')
-MORE["ko"]['GameCube adapter back in LEGO Star Wars'] = 'LEGO Star Wars에서 게임큐브 어댑터 다시 사용'
-MORE["fr"]['GameCube adapter back in LEGO Star Wars'] = "L'adaptateur GameCube revient dans LEGO Star Wars"
+T['The Rift Store: get homebrew apps'] = ('Rift Store: consigue apps homebrew', 'Rift Store：homebrewアプリを入手', 'Rift Store: baixe apps homebrew', 'Rift Store: scarica app homebrew')
+MORE["ko"]['The Rift Store: get homebrew apps'] = 'Rift Store: 홈브루 앱 받기'
+MORE["fr"]['The Rift Store: get homebrew apps'] = 'Rift Store : des applis homebrew'
+T["Search and Layout on Home's bar"] = ('Buscar y Diseño en la barra de Inicio', '検索とレイアウトはホームのバーに', 'Buscar e Layout na barra do início', 'Cerca e Layout nella barra della Home')
+MORE["ko"]["Search and Layout on Home's bar"] = '검색과 레이아웃이 홈 바에'
+MORE["fr"]["Search and Layout on Home's bar"] = 'Recherche et Disposition sur la barre'
+T['Wider game pages at 16:9'] = ('Páginas de juego más anchas en 16:9', '16:9でゲームページが広く', 'Páginas de jogo mais largas em 16:9', 'Pagine dei giochi più larghe in 16:9')
+MORE["ko"]['Wider game pages at 16:9'] = '16:9에서 더 넓은 게임 페이지'
+MORE["fr"]['Wider game pages at 16:9'] = 'Pages de jeu plus larges en 16:9'
+T['Install WAD files is under Games'] = ('Instalar archivos WAD está en Juegos', 'WADのインストールは「ゲーム」に', 'Instalar WAD fica em Jogos', 'Installa file WAD è in Giochi')
+MORE["ko"]['Install WAD files is under Games'] = 'WAD 설치는 게임 메뉴에'
+MORE["fr"]['Install WAD files is under Games'] = 'Installer des WAD est dans Jeux'
+T['Names sort without case or accents'] = ('Los nombres se ordenan sin mayúsculas ni acentos', '名前は大文字小文字やアクセントを無視して並ぶ', 'Nomes ordenados sem maiúsculas nem acentos', 'Nomi ordinati senza maiuscole né accenti')
+MORE["ko"]['Names sort without case or accents'] = '이름을 대소문자·악센트 없이 정렬'
+MORE["fr"]['Names sort without case or accents'] = 'Noms triés sans casse ni accents'
+T['WAD games go back to RiftWii on a Wii U'] = ('Los juegos WAD vuelven a RiftWii en Wii U', 'Wii UでもWADのゲームからRiftWiiに戻れる', 'Jogos WAD voltam ao RiftWii no Wii U', 'I giochi WAD tornano a RiftWii su Wii U')
+MORE["ko"]['WAD games go back to RiftWii on a Wii U'] = 'Wii U에서도 WAD 게임에서 RiftWii로'
+MORE["fr"]['WAD games go back to RiftWii on a Wii U'] = 'Les jeux WAD reviennent à RiftWii sur Wii U'
 
 # Game management: own display names and visibility, never file renames.
 T['Manage game'] = ('Gestionar juego', 'ゲームの管理', 'Gerenciar jogo', 'Gestisci gioco')

@@ -1,47 +1,89 @@
-<!--
-The GitHub release notes for the next release. The release workflow
-(.github/workflows/release.yml) fills in the {{...}} names and drops these
-comments; docs/DEVELOPING.md (Releasing) says how to run it.
-
-  {{VERSION}}      2610-500            {{TAG}}        v2610-500
-  {{DOL_SHA256}}   the DOL's SHA-256   {{DOL_BYTES}}  the DOL's size
-  {{SCREENSHOTS}}  this tag's docs/screenshots/ on raw.githubusercontent.com,
-                   so ![...]({{SCREENSHOTS}}2610-500-menu.png) shows a
-                   screenshot committed before the release
-
-Only what a player notices goes in: leave out CI and workflows, review
-bots (CodeRabbit), tools/, tests, docs and refactors (docs/RELEASING.md).
-
-Rewrite the intro, What changed, What to test and Known issues for every
-release, then delete the line below: the workflow refuses notes that still
-have it, or that haven't changed since the last release's tag.
--->
-**RiftWii {{VERSION}}.** Real GameCube memory cards work on a Wii, WAD files can sit in your own game folders and WiiWare games started from them go back to RiftWii, and Project+ no longer goes black with the GameCube adapter. Every RiftWii offers this update by itself (Settings > Check for a new version).
+<!--
 
-![What's new in this version]({{SCREENSHOTS}}2611-219-whats-new.png)
+The GitHub release notes for the next release. The release workflow
+
+(.github/workflows/release.yml) fills in the {{...}} names and drops these
+
+comments; docs/DEVELOPING.md (Releasing) says how to run it.
+
+
+
+  {{VERSION}}      2610-500            {{TAG}}        v2610-500
+
+  {{DOL_SHA256}}   the DOL's SHA-256   {{DOL_BYTES}}  the DOL's size
+
+  {{SCREENSHOTS}}  this tag's docs/screenshots/ on raw.githubusercontent.com,
+
+                   so ![...]({{SCREENSHOTS}}2610-500-menu.png) shows a
+
+                   screenshot committed before the release
+
+
+
+Only what a player notices goes in: leave out CI and workflows, review
+
+bots (CodeRabbit), tools/, tests, docs and refactors (docs/RELEASING.md).
+
+
+
+Rewrite the intro, What changed, What to test and Known issues for every
+
+release, then delete the line below: the workflow refuses notes that still
+
+have it, or that haven't changed since the last release's tag.
+
+-->
+**RiftWii {{VERSION}}.** The Rift Store: homebrew apps to browse, install, update and remove from RiftWii itself, with your saves kept. Home's bar, the game page and Settings are tidier, and WAD games go back to RiftWii on a Wii U. Every RiftWii offers this update by itself (Settings > Check for a new version).
+
+![The Rift Store]({{SCREENSHOTS}}2611-229-store.png)
+![An app's page in the Rift Store]({{SCREENSHOTS}}2611-229-store-app.png)
+![What's new in this version]({{SCREENSHOTS}}2611-229-whats-new.png)
 
 ## What changed
 
-- **Real GameCube memory cards work on a Wii.** The menu's sound kept the card in slot A or B from being unlocked, so games couldn't see it, and a card that never answered could freeze the menu. Both are fixed.
-- **WAD files are found in your Game folders.** Until now only `wiiware/` on the SD card and the USB drive was read. Folders added in Settings > Drives > Game folders now count too (and one level of folders inside them), so WADs can sit next to your other games, for example in `sd:/roms/wii - wiiware`.
-- **WiiWare and Virtual Console games started from a WAD go back to RiftWii.** HOME > Wii Menu in such a game restarted a Wii U to its own menu, because the RiftWii channel wasn't in the emulated NAND the game runs in. RiftWii now copies its channel there before the game starts. Not tried on a real Wii or vWii yet.
-- **WADs work when USB Loader GX keeps its channels on the USB drive.** They were refused with "The WAD may be damaged". RiftWii plays channels only from the SD card, so it now prepares them in `sd:/nands/01`, and Settings > Install WAD files works the same way.
-- **Project+ no longer goes black with the GameCube adapter** when its virtual SD image is spread over thousands of pieces on the card. The list of pieces took too much of the game's memory; it now stays on the SD card and is read as needed.
-- **240p keeps PAL 60's colors.** A console set to PAL 60 on an RGB SCART cable showed games in 240p red. Wii games on a console set to PAL, and GameCube games when Video mode asks for PAL 60 or PAL 50, now keep PAL 60 in 240p. 480p stays as it was.
-- **LEGO Star Wars: The Complete Saga** has the GameCube adapter, screenshots, crash recording and cheats back, L, R, Z and Start held leaves it, and Reset keeps the controllers.
-- **For pack makers:** a pack made only of memory patches can give a Wii game GameCube controller support. RiftWii now finds a `PADRead` the pack writes into memory, as it does in a patched `main.dol`.
+### The Rift Store
+
+- **Settings > Online > Rift Store** lists about 290 homebrew apps by category: emulators, games, media players, loaders, system tools and more. Each app has its icon, a description, its size, date, license, the consoles it works on, and a QR code to its own page. **1** searches, **2** shows the apps on your SD card and their updates.
+- **Install, Update and Remove** from the app's page. A download is checked against the file the list approved before anything is written, and an update puts all the new files in or none of them. If the SD card is too full, the store says how much room to make first.
+- **Your saves and settings stay.** An update replaces the app itself, but keeps any file the app or you changed since it was installed. Remove takes the app away, then asks whether to delete its saves and settings too (B keeps them).
+- **What each app works with:** the Wii Remote, Nunchuk, Classic Controller and GameCube controller pictures on its page. The **Without a Wii Remote** button on the store's front (−) shows only apps you can play with a Classic or GameCube controller.
+- **On a Wii U,** apps listed for the Wii only say "Wii only", and the store asks before installing one.
+- **Daily builds** of Snes9x RX, WiiStation and Nintendont are in the store, so you get their newest fixes.
+- The store loads only while it's open and takes no memory from the rest of RiftWii. Themes can replace its pictures (docs/THEMES.md).
+
+### Home
+
+- **Search and Layout are on the bar** in every layout, next to Show and the gear, instead of moving to the top corners.
+- **The gear's name shows on the status line,** like the other buttons' names.
+- **B jumps to the next letter** and now shows that letter for a moment.
+- **Games on the SD card open sooner** while RiftWii is still reading the drives.
+- **The tiny labels (WII, GC, SD, USB, MODS) are thicker** and readable on every theme.
+- **Names sort without case or accents** everywhere: Home's A to Z, the folder pickers, the theme list and the GameCube card names.
+
+### Game page and Settings
+
+- **At 16:9, the game's page, Manage game and About use the whole width.** A subtitle that's too long scrolls instead of being cut, the help text has two full lines, and buttons that open another screen show an arrow.
+- **About** has a smaller cover, the controllers in the middle, and a story box that never runs into the bottom bar.
+- **Settings' buttons just say Picture, Games, Home...** and its help has the (i) like every other page.
+- **Install WAD files is under Settings > Games,** next to Manage emulated NAND.
+- **Manage emulated NAND groups its list** (game saves, channels, system channels, hidden titles), shows game names, says where each title is, and won't delete system titles.
+
+### WAD games on a Wii U
+
+- **HOME > Wii Menu in a WiiWare or Virtual Console game started from a WAD** froze a tester's Wii U on a black screen. RiftWii now also copies the IOS its channel starts on into the game's emulated NAND. Not tried on that Wii U yet.
 
 ## What to test
 
-1. **A real GameCube memory card** in slot A or B with a GameCube game: does the game see it and save?
-2. **A WAD in a folder from Settings > Drives > Game folders**: does it show on Home and start?
-3. **A WiiWare or VC game from a WAD**, then HOME > Wii Menu: does it go back to RiftWii?
-4. **Project+ with the GameCube adapter plugged in.**
-5. **240p on a console set to PAL 60** with an RGB SCART cable: are the colors right?
+1. **The Rift Store:** install an app, start it from Home's Homebrew view, then remove it. Does the store ask about its saves?
+2. **An update in the store** for an app whose settings you changed: are they kept?
+3. **The Without a Wii Remote filter** and an app's controller pictures: do they match what you know of the app?
+4. **On a Wii U:** a WiiWare or VC game from a WAD, then HOME > Wii Menu. Back in RiftWii?
+5. **Home's bar** in your usual layout, and B's letter jump.
 
 ## Known issues
 
-- **The way back from a WAD game** hasn't been tried on a real Wii or vWii yet.
+- **The way back from a WAD game** hasn't been tried on a real Wii or vWii yet, including this release's vWii fix.
+- **The Rift Store** hasn't been tried on a real Wii yet: its downloads, a full SD card, and Stop while files are being put in place.
 - **The GameCube crash screen doesn't go back to RiftWii** on A or HOME for some players; the console has to be turned off. It does in Dolphin. A photo of the screen helps.
 - **SpongeBob SquarePants: The Movie (PAL)** crashes at random for one tester. It's being looked into; it hasn't happened in Dolphin.
 - **Copying a game to the SD card** (Manage emulated NAND) has only been tried in Dolphin, and only with a game that has no shared files.
