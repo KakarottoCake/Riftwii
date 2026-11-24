@@ -19,7 +19,7 @@ markdown: at most 2000 characters once filled in (the workflow counts).
 Also new:
 
 * Search and Layout on Home's bar, and B shows the letter it jumps to
-* Wider game pages at 16:9, a tidier About and Settings
+* Wider game pages and Game settings at 16:9, a tidier About and Settings
 * Install WAD files is under Settings > Games
 * WAD games go back to RiftWii on a Wii U (HOME > Wii Menu froze before)
 
@@ -34,6 +34,7 @@ To test, please:
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![The Rift Store](docs/screenshots/2611-229-store.png)
+![The Rift Store button](docs/screenshots/2611-231-store-button.png)
+![The Rift Store](docs/screenshots/2611-231-store.png)
 ![An app's page](docs/screenshots/2611-229-store-app.png)
 ![What's new](docs/screenshots/2611-229-whats-new.png)
