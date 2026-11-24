@@ -117,7 +117,14 @@ void test_pack_target_check() {
     std::string error;
     std::array<std::uint8_t, 20> other{};
     EXPECT_TRUE(target.check_file("/Race/Course/X.szs", true, sample_digest(), error));
+    // A file the list does vouch for, and one it need not name, are not "the
+    // list could not vouch" (the menu asks the server for newer lists only
+    // for that).
+    EXPECT_TRUE(!target.list_did_not_vouch());
+    EXPECT_TRUE(target.check_file("/changelog.bin", false, other, error));
+    EXPECT_TRUE(!target.list_did_not_vouch());
     EXPECT_TRUE(!target.check_file("/Race/Course/X.szs", true, other, error));
+    EXPECT_TRUE(target.list_did_not_vouch());
     EXPECT_TRUE(!target.check_file("/Race/Course/Y.szs", true, other, error));
     EXPECT_TRUE(target.check_file("/changelog.bin", false, other, error));
     EXPECT_TRUE(target.check_file("/Race/Course/X.szs", false, sample_digest(), error));
@@ -199,8 +206,10 @@ void test_unsigned_list_refused() {
     EXPECT_TRUE(error.find("signature") != std::string::npos);
 
     riftwii::CtgpPackUpdateTarget target(pack, riftwii::CtgpDiscBase(), list, "ctgphashlookup_unused_");
+    EXPECT_TRUE(!target.list_did_not_vouch());
     EXPECT_TRUE(!target.check_file("/Race/Course/X.szs", true, sample_digest(), error));  // right digest
     EXPECT_TRUE(error.find("signed") != std::string::npos);
+    EXPECT_TRUE(target.list_did_not_vouch());  // a newer, signed list may fix this
     EXPECT_TRUE(!target.check_file("/changelog.bin", false, sample_digest(), error));      // unlisted, plain
     EXPECT_TRUE(!target.check_file("/Race/Course/X.szs", false, sample_digest(), error));
     // The refusal stays for the rest of the update.

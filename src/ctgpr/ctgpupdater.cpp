@@ -251,6 +251,7 @@ bool CtgpPackUpdateTarget::check_file(const std::string& path, bool packed,
         }
     }
     if (!list_signature_checked_) {
+        list_refused_ = true;
         error = list_signature_error_;
         return false;
     }
@@ -281,12 +282,15 @@ bool CtgpPackUpdateTarget::check_file(const std::string& path, bool packed,
         if (unlisted && !packed) {
             error = path + " cannot be checked: CTGP-R's hash list does not name it, and it is rebuilt from the game "
                            "disc";
+            list_refused_ = true;
             return false;
         }
         error = path + " cannot be checked: " + why;
+        list_refused_ = true;
         return false;
     }
     if (digest != expected) {
+        list_refused_ = true;
         error = path + " was rebuilt, but does not match CTGP-R's hash list; nothing was written for it";
         return false;
     }

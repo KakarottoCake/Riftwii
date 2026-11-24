@@ -60,6 +60,11 @@ public:
     // Why, when channel_installs(): the update is in a form RiftWii doesn't
     // know (otherwise it needs jelly.bin made larger).
     bool channel_installs_unknown_form() const { return channel_form_; }
+    // After a failed install() of a game update: true when jelly.bin's hash
+    // list was older than the update, or did not vouch for one of its files.
+    // The update file may be fine; a newer list (from the update server) can
+    // make it install. Nothing was written.
+    bool hash_list_trouble() const { return hash_list_trouble_; }
     // After a failed download(): true when the server, asked again, no
     // longer offers the update the player agreed to (none, or another size).
     bool offer_changed() const { return offer_changed_; }
@@ -89,6 +94,7 @@ private:
     bool bad_update_ = false;
     bool channel_installs_ = false;
     bool channel_form_ = false;
+    bool hash_list_trouble_ = false;
     bool offer_changed_ = false;
 };
 

@@ -5069,3 +5069,12 @@ msgstr "仮想NANDとWii"
 
 msgid "CTGP-R's channel: how CTGP-R signs its update files and hash lists (what the signature covers and the 48-byte filler pattern that stands in for it), read as documentation of behavior. The pattern and CTGP-R's public signing key are carried as data; no code is copied."
 msgstr "CTGP-Rのチャンネル：CTGP-Rが更新ファイルとハッシュ一覧に署名するしくみ（署名が対象とする範囲と、署名の代わりに入れる48バイトの固定パターン）を、動作の資料として参照しました。このパターンとCTGP-Rの公開署名キーはデータとして収録しています。コードはコピーしていません。"
+
+msgid "The CTGP-R update on the SD card can't be checked against this card's hash lists, and RiftWii could not get newer ones ({1}). To finish updating, start CTGP-R through its own channel once: if ctgpnative.txt is next to boot.dol, delete it first. The channel brings the lists and installs the update. CTGP-R starts now without the update."
+msgstr "SDカードにあるCTGP-Rの更新は、このカードのハッシュ一覧では確認できず、RiftWiiは新しい一覧を入手できませんでした（{1}）。更新を終えるには、CTGP-R自身のチャンネルからCTGP-Rを一度起動してください。ctgpnative.txtがboot.dolの隣にあるときは、先に削除します。チャンネルが一覧を取得して更新をインストールします。CTGP-Rは更新なしで起動します。"
+
+msgid "The next CTGP-R update has to be installed by CTGP-R's channel, but RiftWii is starting CTGP-R itself, because ctgpnative.txt is next to boot.dol. To finish updating, delete ctgpnative.txt and start CTGP-R again. RiftWii now tries to start CTGP-R as it is."
+msgstr "次のCTGP-Rの更新はCTGP-Rのチャンネルがインストールする必要がありますが、ctgpnative.txtがboot.dolの隣にあるため、RiftWiiがCTGP-Rを直接起動します。更新を終えるには、ctgpnative.txtを削除してCTGP-Rをもう一度起動してください。RiftWiiは今のままのCTGP-Rを起動します。"
+
+msgid "CTGP-R was updated as far as RiftWii can take it. The next update has to be installed by CTGP-R's channel, but RiftWii is starting CTGP-R itself, because ctgpnative.txt is next to boot.dol. To finish updating, delete ctgpnative.txt and start CTGP-R again. RiftWii now tries to start CTGP-R as it is."
+msgstr "CTGP-RはRiftWiiができるところまで更新されました。次の更新はCTGP-Rのチャンネルがインストールする必要がありますが、ctgpnative.txtがboot.dolの隣にあるため、RiftWiiがCTGP-Rを直接起動します。更新を終えるには、ctgpnative.txtを削除してCTGP-Rをもう一度起動してください。RiftWiiは今のままのCTGP-Rを起動します。"
