@@ -33,59 +33,32 @@ release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 
 -->
-**RiftWii {{VERSION}}.** The Rift Store: homebrew apps to browse, install, update and remove from RiftWii itself, with your saves kept. Home's bar, the game page and Settings are tidier, and WAD games go back to RiftWii on a Wii U. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** A tester's idea: a mod's own Home tile can now use its GameTDB entry (like Newer Super Mario Bros. Wii, SMNP03) for its name, cover and About page. Also two fixes from testers: USA games no longer crash on a Japanese Wii, and the Wii Remote's pointer works again after the Remote goes to sleep and wakes up. Everything from 2611-233 (the Rift Store and more) is in it too. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-![The Rift Store button on Home's bar]({{SCREENSHOTS}}2611-231-store-button.png)
-![The Rift Store]({{SCREENSHOTS}}2611-231-store.png)
-![An app's page in the Rift Store]({{SCREENSHOTS}}2611-229-store-app.png)
-![What's new in this version]({{SCREENSHOTS}}2611-229-whats-new.png)
+![What's new in this version]({{SCREENSHOTS}}2611-236-whats-new.png)
 
 ## What changed
 
-### The Rift Store
+- **Mod tiles can use a GameTDB entry.** Some mods are on GameTDB as games of their own (Newer Super Mario Bros. Wii, Retro Rewind, Project+). When you make a Home tile for a mod (Mods > Make a Home tile with these mods), pick its entry from a list, or type its six-character ID. The tile on Home then gets that entry's name, cover, box and 3D cover, and its About page shows the mod's own details. On an existing tile, it's under Options > GameTDB entry. The tile still starts the same game with the same mods. A name you typed yourself is never changed, and Automatic matches by the tile's name as before.
 
-- **The Rift Store button** on Home's bar (the bag, left of Search) opens it, and so does Settings > Online > Rift Store. It lists about 290 homebrew apps by category: emulators, games, media players, loaders, system tools and more. Each app has its icon, a description, its size, date, license, the consoles it works on, and a QR code to its own page. **1** searches, **2** shows the apps on your SD card and their updates.
-- **Install, Update and Remove** from the app's page. A download is checked against the file the list approved before anything is written, and an update puts all the new files in or none of them. If the SD card is too full, the store says how much room to make first.
-- **Your saves and settings stay.** An update replaces the app itself, but keeps any file the app or you changed since it was installed. Remove takes the app away, then asks whether to delete its saves and settings too. Keep them is the button that's lit, and A, B or HOME keep them.
-- **What each app works with:** the Wii Remote, Nunchuk, Classic Controller and GameCube controller pictures on its page. The **Without a Wii Remote** button on the store's front (−) shows only apps you can play with a Classic or GameCube controller.
-- **On a Wii U,** apps listed for the Wii only say "Wii only", and the store asks before installing one.
-- **Daily builds** of Snes9x RX, WiiStation and Nintendont are in the store, so you get their newest fixes.
-- The store loads only while it's open and takes no memory from the rest of RiftWii. Themes can replace its pictures (docs/THEMES.md).
+![Picking a mod tile's GameTDB entry]({{SCREENSHOTS}}2611-236-gametdb-entry.png)
 
-### Home
-
-- **Search and Layout are on the bar** in every layout, next to Show and the gear, instead of moving to the top corners.
-- **The gear's name shows on the status line,** like the other buttons' names.
-- **B jumps to the next letter** and now shows that letter for a moment.
-- **Games on the SD card open sooner** while RiftWii is still reading the drives.
-- **The tiny labels (WII, GC, SD, USB, MODS) are thicker** and readable on every theme.
-- **Names sort without case or accents** everywhere: Home's A to Z, the folder pickers, the theme list and the GameCube card names.
-
-### Game page and Settings
-
-- **At 16:9, the game's page, Manage game and About use the whole width.** A subtitle that's too long scrolls instead of being cut, the help text has two full lines, and buttons that open another screen show an arrow.
-- **About** has a smaller cover, the controllers in the middle, and a story box that never runs into the bottom bar.
-- **Settings' buttons just say Picture, Games, Home...** and its help has the (i) like every other page.
-- **Game settings (the game page's Options) is as wide as the game page at 16:9,** so long setting names fit beside their choice.
-- **Install WAD files is under Settings > Games,** next to Manage emulated NAND.
-- **Manage emulated NAND groups its list** (game saves, channels, system channels, hidden titles), shows game names, says where each title is, and won't delete system titles.
-
-### WAD games on a Wii U
-
-- **HOME > Wii Menu in a WiiWare or Virtual Console game started from a WAD** froze a tester's Wii U on a black screen. RiftWii now also copies the IOS its channel starts on into the game's emulated NAND. Not tried on that Wii U yet.
+- **USA games on a Japanese Wii** (and other games from another region) no longer crash at start, as Super Mario Galaxy 2 did with a green screen. When Game language is left on the Wii's own language and the game's region doesn't have that language, the game now gets its region's usual one instead (English for a USA game). A language you pick on the game's page is still used as it is.
+- **The Wii Remote's pointer** works again after the Remote times out and you wake it up. Before, it disappeared or drifted (with a Nunchuk plugged in) until RiftWii was restarted.
 
 ## What to test
 
-1. **The Rift Store:** install an app, start it from Home's Homebrew view, then remove it. Does the store ask about its saves?
-2. **An update in the store** for an app whose settings you changed: are they kept?
-3. **The Without a Wii Remote filter** and an app's controller pictures: do they match what you know of the app?
-4. **On a Wii U:** a WiiWare or VC game from a WAD, then HOME > Wii Menu. Back in RiftWii?
-5. **Home's bar** in your usual layout, and B's letter jump.
+1. **Make a Home tile for a mod** that has a GameTDB entry (Newer, Retro Rewind, CTGP...) and pick the entry: does Home show its name and cover, and its About page its details?
+2. **A game from another region**, for example a USA game on a Japanese Wii: does it start, and in English?
+3. **Leave the Wii Remote alone in the menu** until it turns off, then press A: does the pointer go where you aim?
 
 ## Known issues
 
 - **The way back from a WAD game** hasn't been tried on a real Wii or vWii yet, including this release's vWii fix.
 - **The Rift Store** hasn't been tried on a real Wii yet: its downloads, a full SD card, and Stop while files are being put in place.
+- **GameTDB entries for mod tiles** were checked in Dolphin only. The first start after updating reads the game details once more in the background, so mod covers can be found for every game on your drives.
+- **This release's two fixes** were checked in Dolphin only: a USA game on a real Japanese Wii, and a real Wii Remote waking up in the menu, are still to try.
+- **WiiWare and Virtual Console from another region** don't get the language fallback yet.
 - **The GameCube crash screen doesn't go back to RiftWii** on A or HOME for some players; the console has to be turned off. It does in Dolphin. A photo of the screen helps.
 - **SpongeBob SquarePants: The Movie (PAL)** crashes at random for one tester. It's being looked into; it hasn't happened in Dolphin.
 - **Copying a game to the SD card** (Manage emulated NAND) has only been tried in Dolphin, and only with a game that has no shared files.

@@ -8697,15 +8697,15 @@ MORE["fr"]["Search and Layout on Home's bar"] = 'Recherche et Disposition sur la
 T['Wider game pages at 16:9'] = ('Páginas de juego más anchas en 16:9', '16:9でゲームページが広く', 'Páginas de jogo mais largas em 16:9', 'Pagine dei giochi più larghe in 16:9')
 MORE["ko"]['Wider game pages at 16:9'] = '16:9에서 더 넓은 게임 페이지'
 MORE["fr"]['Wider game pages at 16:9'] = 'Pages de jeu plus larges en 16:9'
-T['Install WAD files is under Games'] = ('Instalar archivos WAD está en Juegos', 'WADのインストールは「ゲーム」に', 'Instalar WAD fica em Jogos', 'Installa file WAD è in Giochi')
-MORE["ko"]['Install WAD files is under Games'] = 'WAD 설치는 게임 메뉴에'
-MORE["fr"]['Install WAD files is under Games'] = 'Installer des WAD est dans Jeux'
-T['Names sort without case or accents'] = ('Los nombres se ordenan sin mayúsculas ni acentos', '名前は大文字小文字やアクセントを無視して並ぶ', 'Nomes ordenados sem maiúsculas nem acentos', 'Nomi ordinati senza maiuscole né accenti')
-MORE["ko"]['Names sort without case or accents'] = '이름을 대소문자·악센트 없이 정렬'
-MORE["fr"]['Names sort without case or accents'] = 'Noms triés sans casse ni accents'
-T['WAD games go back to RiftWii on a Wii U'] = ('Los juegos WAD vuelven a RiftWii en Wii U', 'Wii UでもWADのゲームからRiftWiiに戻れる', 'Jogos WAD voltam ao RiftWii no Wii U', 'I giochi WAD tornano a RiftWii su Wii U')
-MORE["ko"]['WAD games go back to RiftWii on a Wii U'] = 'Wii U에서도 WAD 게임에서 RiftWii로'
-MORE["fr"]['WAD games go back to RiftWii on a Wii U'] = 'Les jeux WAD reviennent à RiftWii sur Wii U'
+T['USA games play on a Japanese Wii'] = ('Los juegos de EE. UU. funcionan en una Wii japonesa', '北米版のゲームが日本のWiiで遊べる', 'Jogos dos EUA rodam num Wii japonês', 'I giochi USA funzionano su una Wii giapponese')
+MORE["ko"]['USA games play on a Japanese Wii'] = '미국판 게임이 일본 Wii에서 실행됨'
+MORE["fr"]['USA games play on a Japanese Wii'] = 'Les jeux US marchent sur une Wii japonaise'
+T['The pointer works after a Remote wakes up'] = ('El puntero funciona al despertar el mando', 'リモコンが復帰してもポインターが動く', 'O ponteiro funciona quando o Remote acorda', 'Il puntatore funziona quando il telecomando si riattiva')
+MORE["ko"]['The pointer works after a Remote wakes up'] = '리모컨이 다시 켜져도 포인터가 작동'
+MORE["fr"]['The pointer works after a Remote wakes up'] = 'Le pointeur marche quand la télécommande se réveille'
+T["Pick a mod tile's GameTDB entry"] = ('Elige la entrada de GameTDB de una casilla de mods', 'MODのタイルにGameTDBの項目を選べる', 'Escolha a entrada do GameTDB de um bloco de mods', 'Scegli la voce di GameTDB di un riquadro delle mod')
+MORE["ko"]["Pick a mod tile's GameTDB entry"] = 'MOD 타일의 GameTDB 항목 선택'
+MORE["fr"]["Pick a mod tile's GameTDB entry"] = "Choisissez la fiche GameTDB d'une tuile de mods"
 
 # Game management: own display names and visibility, never file renames.
 T['Manage game'] = ('Gestionar juego', 'ゲームの管理', 'Gerenciar jogo', 'Gestisci gioco')

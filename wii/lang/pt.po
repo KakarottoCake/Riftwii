@@ -4146,14 +4146,14 @@ msgstr "Buscar e Layout na barra do início"
 msgid "Wider game pages at 16:9"
 msgstr "Páginas de jogo mais largas em 16:9"
 
-msgid "Install WAD files is under Games"
-msgstr "Instalar WAD fica em Jogos"
+msgid "USA games play on a Japanese Wii"
+msgstr "Jogos dos EUA rodam num Wii japonês"
 
-msgid "Names sort without case or accents"
-msgstr "Nomes ordenados sem maiúsculas nem acentos"
+msgid "The pointer works after a Remote wakes up"
+msgstr "O ponteiro funciona quando o Remote acorda"
 
-msgid "WAD games go back to RiftWii on a Wii U"
-msgstr "Jogos WAD voltam ao RiftWii no Wii U"
+msgid "Pick a mod tile's GameTDB entry"
+msgstr "Escolha a entrada do GameTDB de um bloco de mods"
 
 msgid "Manage game"
 msgstr "Gerenciar jogo"

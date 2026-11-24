@@ -9,32 +9,24 @@ markdown: at most 2000 characters once filled in (the workflow counts).
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-**The Rift Store is here:** the bag button on Home's bar (also Settings > Online > Rift Store). About 290 homebrew apps to install, update and remove right from RiftWii.
+New, from a tester's idea:
 
-* Your saves stay: updates keep files the app changed, and Remove asks before deleting saves and settings
-* Controller pictures on each app, and a **Without a Wii Remote** filter (press −)
-* On a Wii U, Wii-only apps are marked and ask first
-* Daily builds of Snes9x RX, WiiStation and Nintendont
+* **Mod tiles can use their GameTDB entry** (like Newer Super Mario Bros. Wii, SMNP03). Pick it from a list, or type its ID, when you make a mod's Home tile (or later in its Options > GameTDB entry). The tile gets the mod's own name, cover and About page.
 
-Also new:
+And two fixes from your reports:
 
-* Search and Layout on Home's bar, and B shows the letter it jumps to
-* Wider game pages and Game settings at 16:9, a tidier About and Settings
-* Install WAD files is under Settings > Games
-* WAD games go back to RiftWii on a Wii U (HOME > Wii Menu froze before)
+* **USA games on a Japanese Wii** don't crash anymore (Super Mario Galaxy 2's green screen). A game from another region now gets a language it has when it's set to follow the Wii's language (not WiiWare or Virtual Console yet).
+* **The Wii Remote pointer** works again after the Remote times out and wakes up.
 
-Not tried on a real Wii yet: the Rift Store, and the Wii U fix.
+Everything from 2611-233 (the Rift Store and more) is in it too.
 
-To test, please:
+Tried in Dolphin only so far. To test, please:
 
-1. Install an app from the store, start it, then remove it: does it ask about saves?
-2. Update an app whose settings you changed: are they kept?
-3. The Without a Wii Remote filter: are the apps right?
-4. Wii U: a WAD game, then HOME > Wii Menu
+1. Make a Home tile for a mod with a GameTDB entry (Newer, Retro Rewind...) and pick the entry: right name, cover and About page?
+2. A game from another region (for example USA on a Japanese Wii): does it start, in English?
+3. Let the Wii Remote time out in the menu, then press A: does the pointer go where you aim?
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![The Rift Store button](docs/screenshots/2611-231-store-button.png)
-![The Rift Store](docs/screenshots/2611-231-store.png)
-![An app's page](docs/screenshots/2611-229-store-app.png)
-![What's new](docs/screenshots/2611-229-whats-new.png)
+![What's new](docs/screenshots/2611-236-whats-new.png)
+![GameTDB entry](docs/screenshots/2611-236-gametdb-entry.png)
