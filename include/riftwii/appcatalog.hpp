@@ -32,16 +32,56 @@ std::size_t app_category_index(const char* key);
 
 // ---- What the card has ----
 
+// One file an install put on the card, as it was then: its path under the
+// card's root ("apps/snes9xgx/boot.dol"), its size and its CRC-32. A file
+// that no longer matches was changed since (an app's settings, a save).
+struct AppRecordFile {
+    std::string path;
+    std::uint32_t size = 0;
+    std::uint32_t crc = 0;
+};
+
 // The store's note of an install, sd:/riftwii/apps/<id>.txt: which file
-// it installed, so an update is the list's SHA-256 changing.
+// it installed, so an update is the list's SHA-256 changing, and every file
+// it put on the card, so an update and a removal touch only those.
+// `removed`: the app's program files were removed and its saves and
+// settings kept; the note stays for them (a later install keeps them too).
 struct AppRecord {
     std::string version;
     std::string sha256;
+    bool removed = false;
+    bool has_files = false;  // a note from a store that did not list them has none
+    std::vector<AppRecordFile> files;
 };
-std::string app_record_text(const AppListing& app);
+constexpr std::size_t kAppRecordMaxBytes = 1u << 20;
+std::string app_record_text(const AppListing& app, const std::vector<AppRecordFile>& files = {}, bool removed = false);
 // False for text that is not a record (the app then counts as put on the
-// card some other way).
+// card some other way). File lines with a bad path are left out.
 bool app_record_parse(const std::string& text, AppRecord& out);
+// The record's file at `path`, or null.
+const AppRecordFile* app_record_find(const AppRecord& record, const std::string& path);
+
+// What the card has where an install would put a file.
+enum class AppFileOnCard {
+    Absent,       // nothing there
+    AsInstalled,  // the file the store put there, unchanged
+    Changed,      // the store put it there and it changed since (settings, saves)
+    NotOurs,      // a file the store's note does not list
+};
+// Whether an install or update puts its new file at `path` (under the
+// card's root) over what is there. The program (kAppProgramFiles in the
+// app's own folder) always is. Otherwise a file changed since the store put it
+// there is kept, and so is one the store never put there, except in the
+// app's own folder when the app is not the store's (a copy put there by
+// hand, which the player chose to replace) or its note lists no files.
+bool app_install_replaces(const AppListing& app, const std::string& path, AppFileOnCard on_card, const AppRecord* record);
+// The files a removal deletes: those of the record that are unchanged
+// (`on_card` says, in the record's order). With no file list, the app's
+// boot.dol, boot.elf, meta.xml and icon.png.
+std::vector<std::string> app_remove_files(const AppListing& app, const AppRecord* record,
+                                          const std::vector<AppFileOnCard>& on_card);
+// The program files a remove looks for without a record's file list.
+extern const char* const kAppProgramFiles[4];
 
 enum class AppState {
     Get,        // not on the card
@@ -50,9 +90,10 @@ enum class AppState {
     OnCard,     // sd:/apps/<id> is there, not put there by the store
     PcOnly,     // packed in a way the Wii cannot unpack (7z, rar, tar)
 };
-// `folder_exists`: sd:/apps/<id> is there; `record`: the store's note, or
-// null when there is none (or it could not be read).
-AppState app_state(const AppListing& app, bool folder_exists, const AppRecord* record);
+// `program_exists`: sd:/apps/<id>/boot.dol or boot.elf is there;
+// `record`: the store's note, or null when there is none (or it could not
+// be read).
+AppState app_state(const AppListing& app, bool program_exists, const AppRecord* record);
 // Whether the Wii can install the app's download (zip or dol).
 bool app_installable(const AppListing& app);
 

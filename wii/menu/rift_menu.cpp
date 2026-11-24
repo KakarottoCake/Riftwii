@@ -18513,6 +18513,7 @@ static bool MenuAppStore()
 	rwp_appstore_request request;
 	std::memset(&request, 0, sizeof(request));
 	request.size = sizeof(request);
+	request.console = riftwii::wii::is_wii_u() ? RWP_CONSOLE_VWII : RWP_CONSOLE_WII;
 	std::string message;
 	const int32_t result = riftwii::wii::plugin::Launch("appstore", &request, sizeof(request), message);
 	// Its code and memory go back as soon as it is closed.

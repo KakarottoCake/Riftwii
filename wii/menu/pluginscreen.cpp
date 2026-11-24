@@ -162,7 +162,10 @@ public:
             } else if (c.kind == RWP_DRAW_SKIN && c.arg == RWP_SKIN_PICTURE && c.text != nullptr) {
                 // Looked up now: the plugin's string is gone once the frame is handed over.
                 const std::string name(c.text, strnlen(c.text, 40));
-                const skinns::Tex* picture = &skinns::Picture(name);
+                // "control_<type>": the controller picture a game's page shows
+                // for that GameTDB type (Kenney's, in the theme's glyph colour).
+                const bool control = name.compare(0, 8, "control_") == 0;
+                const skinns::Tex* picture = control ? &skinns::ControlIcon(name.substr(8)) : &skinns::Picture(name);
                 if (picture->data) pictures_[i] = picture;
             } else if (c.kind == RWP_DRAW_PROMPT) {
                 if (c.text != nullptr && ButtonName(c.arg) != nullptr)

@@ -74,6 +74,19 @@ int32_t HttpGet(const char* url, uint8_t* buffer, uint32_t capacity, uint32_t* l
         CopyError("the download was not set up", error, error_bytes);
         return 0;
     }
+#ifdef RIFTWII_TEST_BUILD
+    // The test build only: a list on the card stands in for the store's
+    // (Dolphin tests of list fields the published list does not have yet).
+    if (std::strcmp(url, "https://riftwii.github.io/apps/apps.json") == 0) {
+        if (FILE* local = std::fopen("sd:/riftwii/test_apps.json", "rb")) {
+            const std::size_t read = std::fread(buffer, 1, capacity, local);
+            std::fclose(local);
+            logf("Test build: the app list is sd:/riftwii/test_apps.json (%u bytes)\n", static_cast<unsigned>(read));
+            *length = static_cast<uint32_t>(read);
+            return 1;
+        }
+    }
+#endif
     Block tls(TlsStream::memory_needed());
     if (tls.data == nullptr) {
         CopyError("not enough memory for a secure connection", error, error_bytes);

@@ -150,7 +150,9 @@ typedef struct rwp_input {
 #define RWP_SKIN_FOOTER 9       /* a page's bottom band, from y 410 down, where the prompts go */
 #define RWP_SKIN_PICTURE 10     /* the theme's own PNG named by `text` (docs/THEMES.md lists them,
                                  * e.g. "store_games") at x y, w h its size; without one, the
-                                 * plugin's own texture `color` (painted in rwp_screen_info's glyph) */
+                                 * plugin's own texture `color` (painted in rwp_screen_info's glyph).
+                                 * "control_<type>" (wiimote, nunchuk, classiccontroller,
+                                 * gamecube): the controller picture a game's page shows */
 
 /* The theme's colours for RWP_DRAW_TEXT and RWP_DRAW_RECT, as `color`
  * values; any other value is RGBA itself (0xRRGGBBAA). */

@@ -165,7 +165,7 @@ struct RawApp {
     std::string url, format, sha256;
     std::uint64_t size = 0, files = 0, unpacked_size = 0;
     bool have_size = false, have_files = false, have_unpacked = false, have_download = false;
-    std::vector<std::string> platforms, data_folders;
+    std::vector<std::string> platforms, controllers, data_folders;
     std::vector<std::pair<std::string, std::string>> install;
     bool malformed = false;  // a field of the wrong kind, too many entries
 };
@@ -300,6 +300,7 @@ bool read_app(JsonReader& r, RawApp& a) {
         else if (key == "icon") good = read_text(r, a, a.icon);
         else if (key == "newer") good = read_text(r, a, a.newer);
         else if (key == "platforms") good = read_strings(r, a, a.platforms, 3);
+        else if (key == "controllers") good = read_strings(r, a, a.controllers, 5);
         else if (key == "data_folders") good = read_strings(r, a, a.data_folders, kAppMaxDataFolders);
         else if (key == "download") good = read_download(r, a);
         else if (key == "install") good = read_install(r, a);
@@ -355,6 +356,16 @@ bool app_from_raw(RawApp& a, AppListing& out) {
         else if (p == "mini") platforms |= kAppOnWiiMini;
     }
     if (platforms == 0) return false;
+    // Controllers a later list may name and this RiftWii does not know are
+    // passed over: the field only adds pictures and a filter.
+    std::uint8_t controllers = 0;
+    for (const std::string& c : a.controllers) {
+        if (c == "wiimote") controllers |= kAppWiiRemote;
+        else if (c == "nunchuk") controllers |= kAppNunchuk;
+        else if (c == "classic") controllers |= kAppClassic;
+        else if (c == "gamecube") controllers |= kAppGameCube;
+        else if (c == "keyboard") controllers |= kAppKeyboard;
+    }
     for (const std::string& data : a.data_folders) {
         if (!app_data_folder_ok(data)) return false;
     }
@@ -396,6 +407,7 @@ bool app_from_raw(RawApp& a, AppListing& out) {
     out.files = static_cast<std::uint32_t>(a.files);
     out.unpacked_size = static_cast<std::uint32_t>(a.unpacked_size);
     out.platforms = platforms;
+    out.controllers = controllers;
     out.format = format;
     return true;
 }
