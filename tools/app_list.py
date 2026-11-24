@@ -163,7 +163,8 @@ def check_manifest(m, path):
          len(m["platforms"]) and set(m["platforms"]) <= PLATFORMS, "platforms must list some of wii, vwii, mini, once each")
     if "controllers" in m:
         c = m["controllers"]
-        need(isinstance(c, list) and 0 < len(c) <= len(CONTROLLERS) and len(set(c)) == len(c) and set(c) <= set(CONTROLLERS),
+        need(isinstance(c, list) and 0 < len(c) <= len(CONTROLLERS) and all(isinstance(x, str) for x in c) and
+             len(set(c)) == len(c) and set(c) <= set(CONTROLLERS),
              "controllers must list some of " + ", ".join(CONTROLLERS) + ", once each")
     if "released" in m.get("source", {}):
         need(re.fullmatch(r"\d{4}-\d{2}-\d{2}", m["source"]["released"]) is not None, "source.released is YYYY-MM-DD")

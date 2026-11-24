@@ -30,10 +30,9 @@ constexpr int kGap = 14;
 constexpr int kLine = 26;     // a line of body text
 constexpr int kFactRow = 28;  // a row of an app's facts
 
-constexpr std::uint32_t kWarn = 0xB45F06FFu;  // an update waiting, readable on the light cards
-constexpr std::uint32_t kNoteFill = 0xFDF3DCFFu;
-constexpr std::uint32_t kNoteInk = 0x6B4A06FFu;
-constexpr std::uint32_t kIconPlace = 0xD8E2ECFFu;
+// The theme's colours, so a dark theme's tiles read as well as a light one's.
+constexpr std::uint32_t kWarn = RWP_COLOR_WARN;        // an update waiting, Wii only
+constexpr std::uint32_t kIconPlace = RWP_COLOR_FIELD;  // where an icon goes until it is in
 
 // The frame's draw list. Texts are kept until the frame is handed over.
 class Frame {
@@ -262,12 +261,13 @@ private:
         const std::string filter = tr("Without a Wii Remote");
         const int filter_w = 10 + 20 + 8 + Width(filter, kSmallSize) + 14;
         const int filter_x = right_ - filter_w;
-        // From y 16, level with the title: higher would be in the TV's overscan.
-        frame_.Card(filter_x, 16, filter_w, 30, focus_ == kHitFilter, no_remote_);
-        frame_.Button(filter_x + 10, 21, 20, RWP_KEY_MINUS);
-        frame_.Text(filter_x + 38, 19, kSmallSize, RWP_COLOR_INK, filter);
-        hits_.push_back({filter_x, 16, filter_w, 30, kHitFilter});
-        frame_.Text(right_, 49, kSmallSize, RWP_COLOR_INK_SOFT, counts, RWP_ALIGN_RIGHT, 270);
+        // Level with the title: higher would be in the TV's overscan.
+        frame_.Card(filter_x, 14, filter_w, 28, focus_ == kHitFilter, no_remote_);
+        frame_.Button(filter_x + 10, 18, 20, RWP_KEY_MINUS);
+        frame_.Text(filter_x + 38, 16, kSmallSize, RWP_COLOR_INK, filter);
+        hits_.push_back({filter_x, 14, filter_w, 28, kHitFilter});
+        // Clear of the band's lower edge (Bookshelf's is a thick plank).
+        frame_.Text(right_, 44, kSmallSize, RWP_COLOR_INK_SOFT, counts, RWP_ALIGN_RIGHT, 270);
 
         // Four across on a 16:9 menu; three on a 4:3 one, where four would
         // cut the longer names ("Online services"). The tiles share the room
@@ -537,8 +537,9 @@ private:
             const int ny = below;
             below = ny + 40 + 12;
             const bool lit = focus_ == kHitNewer;
-            frame_.Rect(left_, ny, text_w, 40, lit ? 0xF7E3B0FFu : kNoteFill, true);
-            frame_.Text(left_ + 16, ny + 9, kSmallSize, kNoteInk,
+            // Pressed to open that app: a card, as every button is.
+            frame_.Card(left_, ny, text_w, 40, lit);
+            frame_.Text(left_ + 16, ny + 9, kSmallSize, RWP_COLOR_INK,
                         tr("{1} does the same and is kept up to date.", store_.apps[newer].listing->name), RWP_ALIGN_LEFT,
                         text_w - 32);
             hits_.push_back({left_, ny, text_w, 40, kHitNewer});
@@ -886,7 +887,8 @@ private:
             case AppState::Update:
                 break;
         }
-        if (app.state == AppState::Get && OtherConsole(*app.listing) &&
+        // Every install of a Wii-only app on a Wii U asks: Install, Update and Replace.
+        if (OtherConsole(*app.listing) &&
             Host().ask_choice(tr("Install {1}?", name).c_str(),
                               tr("It is listed for the Wii only and may not work on a Wii U.").c_str(),
                               tr("Install anyway").c_str(), tr("Cancel").c_str()) != 1)
@@ -972,7 +974,9 @@ private:
         if (typed.empty()) names.clear();
         std::snprintf(line, line_bytes, "%s", typed.empty() ? "" : Plural(found, "1 app", "{1} apps").c_str());
         std::snprintf(matches, matches_bytes, "%s", names.c_str());
-        const std::string keys = app_search_next(self->store_.listings.data(), self->store_.listings.size(), typed);
+        const auto no_remote = [](const AppListing& listing) { return app_needs_no_wii_remote(listing.controllers); };
+        const std::string keys = app_search_next(self->store_.listings.data(), self->store_.listings.size(), typed,
+                                                 self->no_remote_ ? +no_remote : nullptr);
         std::snprintf(next, next_bytes, "%s", keys.c_str());
     }
 

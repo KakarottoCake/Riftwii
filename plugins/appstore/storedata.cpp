@@ -98,20 +98,21 @@ bool RemoveTree(const std::string& folder, int depth = 0) {
 
 std::string RecordPath(const AppListing& app) { return std::string(kStoreFolder) + "/" + app.id + ".txt"; }
 
-// The store's note of `app`, read whole. False when there is none, or it
-// could not be read (then nothing is taken for the store's).
-bool ReadRecord(const AppListing& app, AppRecord& record) {
+// The store's note of `app`, read whole. Unreadable is kept apart from
+// Absent: a note that is there but cannot be read (a short read, no
+// memory, damaged text) must not make the app's files look like no one's.
+enum class Note { Absent, Read, Unreadable };
+Note ReadRecord(const AppListing& app, AppRecord& record) {
     const std::string path = RecordPath(app);
     rwp_path_info info;
-    if (Host().path_info(path.c_str(), &info) != 0 || info.is_directory || info.size == 0 ||
-        info.size > kAppRecordMaxBytes)
-        return false;
+    if (Host().path_info(path.c_str(), &info) != 0) return Note::Absent;
+    if (info.is_directory || info.size == 0 || info.size > kAppRecordMaxBytes) return Note::Unreadable;
     // The text and the list made of it.
-    if (!can_allocate(static_cast<std::size_t>(info.size) * 3)) return false;
+    if (!can_allocate(static_cast<std::size_t>(info.size) * 3)) return Note::Unreadable;
     std::string text(static_cast<std::size_t>(info.size), '\0');
     const std::int32_t read = Host().file_read(path.c_str(), 0, &text[0], static_cast<std::uint32_t>(text.size()));
-    if (read < 0 || static_cast<std::uint64_t>(read) != info.size) return false;
-    return app_record_parse(text, record);
+    if (read < 0 || static_cast<std::uint64_t>(read) != info.size) return Note::Unreadable;
+    return app_record_parse(text, record) ? Note::Read : Note::Unreadable;
 }
 
 bool WriteText(const std::string& path, const std::string& text) {
@@ -119,6 +120,31 @@ bool WriteText(const std::string& path, const std::string& text) {
     if (!file) return false;
     const bool written = std::fwrite(text.data(), 1, text.size(), file) == text.size();
     return std::fclose(file) == 0 && written;
+}
+
+// `path` replaced by `text` only once the new text is whole on the card:
+// written beside it first, then swapped in, the old one put back if the
+// swap fails (rename_path does not overwrite).
+bool ReplaceText(const std::string& path, const std::string& text) {
+    const std::string fresh = path + ".new", old = path + ".old";
+    Host().remove_path(fresh.c_str());
+    if (!WriteText(fresh, text)) {
+        Host().remove_path(fresh.c_str());
+        return false;
+    }
+    Host().remove_path(old.c_str());
+    const bool had_old = Exists(path);
+    if (had_old && Host().rename_path(path.c_str(), old.c_str()) != 0) {
+        Host().remove_path(fresh.c_str());
+        return false;
+    }
+    if (Host().rename_path(fresh.c_str(), path.c_str()) != 0) {
+        if (had_old) Host().rename_path(old.c_str(), path.c_str());
+        Host().remove_path(fresh.c_str());
+        return false;
+    }
+    Host().remove_path(old.c_str());
+    return true;
 }
 
 // The CRC-32 of a file on the card, as a zip lists it.
@@ -713,7 +739,11 @@ void Store::RunInstall() {
     // in a data folder the store never put there, is kept
     // (app_install_replaces). The note lists what the store put there.
     AppRecord old_record;
-    const bool has_old = ReadRecord(app, old_record);
+    const Note old_note = ReadRecord(app, old_record);
+    if (old_note == Note::Unreadable)
+        return fail("the store's note of this app could not be read, so nothing was changed",
+                    "its note in sd:/riftwii/apps could not be read");
+    const bool has_old = old_note == Note::Read;
     std::vector<Move> placed;
     std::vector<AppRecordFile> listed;
     for (std::size_t i = 0; i < moves.size(); ++i) {
@@ -737,12 +767,16 @@ void Store::RunInstall() {
             if (!there) listed.push_back(file);
         }
     }
+    // The note must hold all of it: an entry the reader would drop would
+    // leave that file behind at a removal.
+    const std::string record = app_record_text(app, listed);
+    if (listed.size() > kAppMaxFiles || record.size() > kAppRecordMaxBytes)
+        return fail("the app has more files than the store can keep track of", "its note would be too long");
     moves.swap(placed);
 
     // The store's note, staged with the files: which file this is, for
     // updates, and what it put on the card.
     const std::string note_staged = staging + "/note.part";
-    const std::string record = app_record_text(app, listed);
     FILE* note = std::fopen(note_staged.c_str(), "wb");
     const bool noted = note && std::fwrite(record.data(), 1, record.size(), note) == record.size();
     if ((note && std::fclose(note) != 0) || !noted) return fail("the SD card could not be written (is it full?)");
@@ -766,7 +800,14 @@ void Store::RunRemove() {
     // the app wrote (its saves, its settings) stays, and the player is
     // asked about it after (job_leftovers_).
     AppRecord record;
-    const bool has_record = ReadRecord(app, record);
+    const Note note = ReadRecord(app, record);
+    if (note == Note::Unreadable) {
+        // Without it the store cannot tell its files from the app's saves.
+        job_error_ = "the store's note of this app could not be read, so nothing was removed";
+        Host().log("%s was not removed: its note in sd:/riftwii/apps could not be read", app.id);
+        return;
+    }
+    const bool has_record = note == Note::Read;
     std::vector<AppFileOnCard> on_card;
     std::vector<AppRecordFile> kept;
     if (has_record) {
@@ -800,10 +841,10 @@ void Store::RunRemove() {
     }
     if (job_leftovers_.empty()) {
         Host().remove_path(RecordPath(app).c_str());
-    } else if (!WriteText(RecordPath(app), app_record_text(app, kept, true))) {
-        // Without the note a later install treats the kept files as the
-        // player's own, and keeps them all the same.
-        Host().log("%s: the note of its kept files could not be written", app.id);
+    } else if (!ReplaceText(RecordPath(app), app_record_text(app, kept, true))) {
+        // The old note stays whole: a later install still tells the kept
+        // files from its own by it.
+        Host().log("%s: the note of its kept files could not be written; the old one stays", app.id);
     }
     Host().log("%s removed (%u folders of saves and settings left)", app.id, static_cast<unsigned>(job_leftovers_.size()));
     job_ok_ = true;

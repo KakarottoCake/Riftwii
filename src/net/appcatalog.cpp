@@ -203,8 +203,14 @@ bool app_install_replaces(const AppListing& app, const std::string& path, AppFil
     // The program itself is always the new one: a boot.dol changed since
     // was put there by hand, and keeping it would leave the old version
     // under the new version's note.
+    // Case ignored, as app_plan_install does: FAT does not tell BOOT.DOL
+    // from boot.dol.
+    std::string lower = path;
+    for (char& c : lower) c = Lower(c);
     for (const char* name : kAppProgramFiles) {
-        if (path == OwnFolder(app) + name) return true;
+        std::string program = OwnFolder(app) + name;
+        for (char& c : program) c = Lower(c);
+        if (lower == program) return true;
     }
     switch (on_card) {
         case AppFileOnCard::Absent:
@@ -268,14 +274,15 @@ int app_match_rank(const AppListing& app, const std::string& typed) {
     return rank;
 }
 
-std::string app_search_next(const AppListing* apps, std::size_t count, const std::string& typed) {
+std::string app_search_next(const AppListing* apps, std::size_t count, const std::string& typed,
+                            bool (*keep)(const AppListing&)) {
     static const char kCandidates[] = "abcdefghijklmnopqrstuvwxyz0123456789-'. ";
     std::string next;
     for (const char* c = kCandidates; *c; ++c) {
         if (*c == ' ' && (typed.empty() || typed.back() == ' ')) continue;
         const std::string trial = typed + *c;
         for (std::size_t i = 0; i < count; ++i) {
-            if (app_matches(apps[i], trial)) {
+            if ((keep == nullptr || keep(apps[i])) && app_matches(apps[i], trial)) {
                 next += *c;
                 break;
             }

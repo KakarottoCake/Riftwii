@@ -95,6 +95,17 @@ void test_record_files_and_keeping() {
     using F = AppFileOnCard;
     EXPECT_TRUE(app_install_replaces(a, "apps/snes9xgx/boot.dol", F::Changed, &record));
     EXPECT_TRUE(app_install_replaces(a, "apps/snes9xgx/boot.dol", F::NotOurs, &record));
+    // Whatever its case: FAT does not tell BOOT.DOL from boot.dol.
+    EXPECT_TRUE(app_install_replaces(a, "apps/snes9xgx/BOOT.DOL", F::Changed, &record));
+    EXPECT_TRUE(app_install_replaces(a, "Apps/Snes9xGX/Meta.xml", F::Changed, &record));
+
+    // The search keyboard's next keys follow a filter.
+    AppListing pads[2] = {app("snes9xgx", "Snes9x GX"), app("sudoku", "Sudoku")};
+    pads[0].controllers = kAppWiiRemote | kAppClassic;
+    pads[1].controllers = kAppWiiRemote;
+    EXPECT_EQ(app_search_next(pads, 2, "s").find('u') != std::string::npos, true);
+    const auto no_remote = [](const AppListing& l) { return app_needs_no_wii_remote(l.controllers); };
+    EXPECT_EQ(app_search_next(pads, 2, "s", +no_remote).find('u') == std::string::npos, true);
     EXPECT_TRUE(app_install_replaces(a, "apps/snes9xgx/settings.xml", F::AsInstalled, &record));
     EXPECT_TRUE(app_install_replaces(a, "apps/snes9xgx/new.txt", F::Absent, &record));
     EXPECT_TRUE(!app_install_replaces(a, "apps/snes9xgx/settings.xml", F::Changed, &record));

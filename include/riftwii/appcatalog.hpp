@@ -108,7 +108,9 @@ bool app_matches(const AppListing& app, const std::string& typed);
 int app_match_rank(const AppListing& app, const std::string& typed);
 // The characters (lower case, ' ' for Space) that still lead to an app
 // when typed next, for the search keyboard's dimmed keys.
-std::string app_search_next(const AppListing* apps, std::size_t count, const std::string& typed);
+// `keep`, when given, leaves out the apps it says no to (a filter).
+std::string app_search_next(const AppListing* apps, std::size_t count, const std::string& typed,
+                            bool (*keep)(const AppListing&) = nullptr);
 
 // ---- An install ----
 

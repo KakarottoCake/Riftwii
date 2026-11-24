@@ -161,6 +161,8 @@ typedef struct rwp_input {
 #define RWP_COLOR_ACCENT 3u     /* the theme's accent */
 #define RWP_COLOR_ON_BAND 4u    /* text on a title band */
 #define RWP_COLOR_CARD 5u       /* a card's fill */
+#define RWP_COLOR_WARN 6u       /* the theme's warning colour (an update waiting, a caution) */
+#define RWP_COLOR_FIELD 7u      /* a recessed field, as an option chip that is off */
 
 /* The menu's sounds for sound(). */
 #define RWP_SOUND_HOVER 1u

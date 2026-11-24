@@ -75,6 +75,8 @@ GXColor Colour(uint32_t value, int alpha) {
         case RWP_COLOR_ACCENT: c = skinns::kAccent; break;
         case RWP_COLOR_ON_BAND: c = skinns::kInk; break;
         case RWP_COLOR_CARD: c = skinns::kCard; break;
+        case RWP_COLOR_WARN: c = skinns::kWarn; break;
+        case RWP_COLOR_FIELD: c = skinns::kChipOff; break;
         default:
             c = GXColor{static_cast<u8>(value >> 24), static_cast<u8>(value >> 16), static_cast<u8>(value >> 8),
                         static_cast<u8>(value)};
