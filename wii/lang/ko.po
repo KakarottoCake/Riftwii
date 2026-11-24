@@ -4263,12 +4263,6 @@ msgstr "로더"
 msgid "My apps"
 msgstr "내 앱"
 
-msgid "My apps (1 update)"
-msgstr "내 앱 (업데이트 1개)"
-
-msgid "My apps ({1} updates)"
-msgstr "내 앱 (업데이트 {1}개)"
-
 msgid "{1} from here on the SD card"
 msgstr "여기서 받은 앱: SD 카드에 {1}개"
 
@@ -4311,8 +4305,8 @@ msgstr "버전 {1}, {2}"
 msgid "It is on the SD card already. Put version {1} in its place."
 msgstr "이미 SD 카드에 있습니다. 버전 {1}(으)로 바꿉니다."
 
-msgid "It comes in a form the Wii cannot unpack. Scan the code."
-msgstr "Wii에서 풀 수 없는 형식입니다. 코드를 스캔하세요."
+msgid "The Wii can't unpack it: scan the code."
+msgstr "Wii에서 풀 수 없습니다. 코드를 스캔하세요."
 
 msgid "To the SD card, {1}"
 msgstr "SD 카드에, {1}"
@@ -4355,6 +4349,9 @@ msgstr "{1}이(가) 삭제되지 않았습니다"
 
 msgid "Search: {1}"
 msgstr "검색: {1}"
+
+msgid "My apps ({1})"
+msgstr "내 앱 ({1})"
 
 msgid "Disc slot light"
 msgstr "디스크 슬롯 표시등"

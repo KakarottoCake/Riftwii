@@ -412,6 +412,14 @@ void Store::Shutdown() {
 // ---- The jobs, on the network's thread ----
 
 void Store::RunList() {
+    // What a power cut in the middle of an install left: its download and
+    // its staged files. Backups are kept: they may be someone's only copy.
+    Host().remove_path(kDownloadFile);
+    const std::string staging = std::string(kStoreFolder) + "/staging";
+    if (IsFolder(staging)) {
+        RemoveTree(staging);
+        Host().log("removed the staged files of an install that did not finish");
+    }
     char error[200] = "";
     if (!Host().net_ready(error, sizeof(error))) {
         job_error_ = error;

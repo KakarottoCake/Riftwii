@@ -121,8 +121,6 @@ enum class Page { Front, Grid, App };
 enum class GridKind { Category, Search, Mine };
 
 // The ids of the things on a page that are not tiles.
-constexpr int kHitMine = 1000;
-constexpr int kHitSearch = 1001;
 constexpr int kHitPrevious = 1002;
 constexpr int kHitNext = 1003;
 constexpr int kHitAction = 1004;
@@ -186,20 +184,8 @@ private:
 
     void Band(const std::string& title, int height = kBand) {
         frame_.Skin(RWP_SKIN_TITLE_BAND, info_.left, 0, info_.width, height);
-        if (!title.empty()) frame_.Text(left_, 20, kTitleSize, RWP_COLOR_ON_BAND, title, RWP_ALIGN_LEFT, right_ - left_ - 260);
-    }
-
-    // A pill button in the band, from the right edge leftwards; returns its left.
-    int BandButton(int right, const std::string& label, std::uint32_t key, int id) {
-        const int text = Width(label, kNameSize);
-        const int w = text + 28 + 36;
-        const int x = right - w;
-        const bool lit = focus_ == id;
-        frame_.Skin(lit ? RWP_SKIN_PILL_LIT : RWP_SKIN_PILL, x, 18, w, 40);
-        frame_.Button(x + 12, 24, 28, key);
-        frame_.Text(x + 48, 26, kNameSize, RWP_COLOR_INK, label);
-        hits_.push_back({x, 18, w, 40, id});
-        return x;
+        // Room on the right for a grid's page and its arrows.
+        if (!title.empty()) frame_.Text(left_, 20, kTitleSize, RWP_COLOR_ON_BAND, title, RWP_ALIGN_LEFT, right_ - left_ - 280);
     }
 
     void Prompt(std::uint32_t key, const std::string& label) { prompts_.push_back({key, label}); }
@@ -218,10 +204,6 @@ private:
     void DrawFront() {
         Band(tr("Get apps"));
         if (!ListReady()) return;
-        int x = BandButton(right_, tr("Search"), RWP_KEY_ONE, kHitSearch);
-        const std::size_t updates = store_.UpdateCount();
-        BandButton(x - 12, updates ? Plural(updates, "My apps (1 update)", "My apps ({1} updates)") : tr("My apps"),
-                   RWP_KEY_TWO, kHitMine);
 
         CountCategories();
         // Four across on a 16:9 menu; three on a 4:3 one, where four would
@@ -252,9 +234,13 @@ private:
                     Plural(store_.apps.size(), "1 app", "{1} apps") + "  \xC2\xB7  " +
                         tr("{1} from here on the SD card", std::to_string(installed)),
                     RWP_ALIGN_CENTER);
+        // My apps and Search sit with the other buttons on the bottom band,
+        // not beside the title, where a longer translation covered it.
+        const std::size_t updates = store_.UpdateCount();
         Prompt(RWP_KEY_B, tr("Back"));
         Prompt(RWP_KEY_A, tr("Open"));
         Prompt(RWP_KEY_ONE, tr("Search"));
+        Prompt(RWP_KEY_TWO, updates ? tr("My apps ({1})", std::to_string(updates)) : tr("My apps"));
     }
 
     bool ListReady() {
@@ -401,17 +387,21 @@ private:
         }
 
         // What it is, its own page as a QR code, and a newer app that does the same.
-        constexpr int kQr = 108;
+        // Big enough for a phone to read off a small 480i TV.
+        constexpr int kQr = 132;
         const int text_w = right_ - left_ - kQr - 24;
         const int body_y = row + 92 + 18;
-        frame_.Text(left_, body_y, kBodySize, RWP_COLOR_INK, listing.description, RWP_ALIGN_LEFT, text_w, 2);
+        const std::size_t newer = listing.newer[0] ? store_.Find(listing.newer) : store_.apps.size();
+        const bool has_newer = newer < store_.apps.size();
+        // The list's descriptions are at most 159 bytes: four lines hold them;
+        // two when the note about a newer app needs the room below.
+        frame_.Text(left_, body_y, kBodySize, RWP_COLOR_INK, listing.description, RWP_ALIGN_LEFT, text_w, has_newer ? 2 : 4);
         if (listing.page[0]) {
             frame_.Qr(right_ - kQr, body_y - 6, kQr, listing.page);
-            frame_.Text(right_ - kQr / 2, body_y + kQr - 2, kSmallSize, RWP_COLOR_INK_SOFT, tr("Its own page"),
+            frame_.Text(right_ - kQr / 2, body_y + kQr - 4, kSmallSize, RWP_COLOR_INK_SOFT, tr("Its own page"),
                         RWP_ALIGN_CENTER);
         }
-        const std::size_t newer = listing.newer[0] ? store_.Find(listing.newer) : store_.apps.size();
-        if (newer < store_.apps.size()) {
+        if (has_newer) {
             const int ny = body_y + 64;
             const bool lit = focus_ == kHitNewer;
             frame_.Rect(left_, ny, text_w, 40, lit ? 0xF7E3B0FFu : kNoteFill, true);
@@ -420,7 +410,7 @@ private:
                         text_w - 32);
             hits_.push_back({left_, ny, text_w, 40, kHitNewer});
         }
-        if (!status_.empty()) frame_.Text(left_, body_y + 104, kSmallSize, RWP_COLOR_ACCENT, status_, RWP_ALIGN_LEFT, text_w);
+        if (!status_.empty()) frame_.Text(left_, body_y + 108, kSmallSize, RWP_COLOR_ACCENT, status_, RWP_ALIGN_LEFT, text_w);
         store_.WantIcons({app_index_}, input_.frame);
 
         if (running) {
@@ -450,7 +440,7 @@ private:
             case AppState::Installed: return tr("Installed, version {1}", app.listing->version);
             case AppState::Update: return tr("Version {1}, {2}", app.listing->version, size);
             case AppState::OnCard: return tr("It is on the SD card already. Put version {1} in its place.", app.listing->version);
-            case AppState::PcOnly: return tr("It comes in a form the Wii cannot unpack. Scan the code.");
+            case AppState::PcOnly: return tr("The Wii can't unpack it: scan the code.");
             case AppState::Get: break;
         }
         return tr("To the SD card, {1}", size);
@@ -527,20 +517,11 @@ private:
         if (pressed & RWP_KEY_TWO) return OpenMine(), false;
         const int count = static_cast<int>(shown_categories_.size());
         const int columns = FrontColumns();
-        if (focus_ < 0 || (focus_ >= count && focus_ != kHitMine && focus_ != kHitSearch)) Focus(0);
-        if (focus_ == kHitMine || focus_ == kHitSearch) {
-            if (pressed & RWP_KEY_DOWN) Focus(0);
-            if (pressed & RWP_KEY_LEFT) Focus(kHitMine);
-            if (pressed & RWP_KEY_RIGHT) Focus(kHitSearch);
-        } else {
-            MoveInGrid(pressed, count, columns, false);
-            if ((pressed & RWP_KEY_UP) && focus_ < columns) Focus(kHitMine);
-        }
+        if (focus_ < 0 || focus_ >= count) Focus(0);
+        MoveInGrid(pressed, count, columns, false);
         if (pressed & RWP_KEY_A) {
             Host().sound(RWP_SOUND_CLICK);
-            if (focus_ == kHitMine) OpenMine();
-            else if (focus_ == kHitSearch) Search();
-            else if (focus_ >= 0 && focus_ < count) OpenCategory(shown_categories_[focus_]);
+            if (focus_ >= 0 && focus_ < count) OpenCategory(shown_categories_[focus_]);
         }
         return false;
     }

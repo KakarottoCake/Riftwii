@@ -4263,12 +4263,6 @@ msgstr "Chargeurs"
 msgid "My apps"
 msgstr "Mes applis"
 
-msgid "My apps (1 update)"
-msgstr "Mes applis (1 mise à jour)"
-
-msgid "My apps ({1} updates)"
-msgstr "Mes applis ({1} mises à jour)"
-
 msgid "{1} from here on the SD card"
 msgstr "{1} d'ici sur la carte SD"
 
@@ -4311,8 +4305,8 @@ msgstr "Version {1}, {2}"
 msgid "It is on the SD card already. Put version {1} in its place."
 msgstr "Elle est déjà sur la carte SD. Mettre la version {1} à sa place."
 
-msgid "It comes in a form the Wii cannot unpack. Scan the code."
-msgstr "Elle est dans un format que la Wii ne sait pas décompresser. Scannez le code."
+msgid "The Wii can't unpack it: scan the code."
+msgstr "La Wii ne peut pas l'extraire : scannez le code."
 
 msgid "To the SD card, {1}"
 msgstr "Sur la carte SD, {1}"
@@ -4355,6 +4349,9 @@ msgstr "{1} n'a pas été supprimée"
 
 msgid "Search: {1}"
 msgstr "Recherche : {1}"
+
+msgid "My apps ({1})"
+msgstr "Mes applis ({1})"
 
 msgid "Disc slot light"
 msgstr "Lumière du lecteur de disques"

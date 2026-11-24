@@ -4263,12 +4263,6 @@ msgstr "Loader"
 msgid "My apps"
 msgstr "Le mie app"
 
-msgid "My apps (1 update)"
-msgstr "Le mie app (1 aggiornamento)"
-
-msgid "My apps ({1} updates)"
-msgstr "Le mie app ({1} aggiornamenti)"
-
 msgid "{1} from here on the SD card"
 msgstr "{1} da qui sulla scheda SD"
 
@@ -4311,8 +4305,8 @@ msgstr "Versione {1}, {2}"
 msgid "It is on the SD card already. Put version {1} in its place."
 msgstr "È già sulla scheda SD. Metti la versione {1} al suo posto."
 
-msgid "It comes in a form the Wii cannot unpack. Scan the code."
-msgstr "È in un formato che la Wii non può estrarre. Scansiona il codice."
+msgid "The Wii can't unpack it: scan the code."
+msgstr "La Wii non può estrarla: scansiona il codice."
 
 msgid "To the SD card, {1}"
 msgstr "Sulla scheda SD, {1}"
@@ -4355,6 +4349,9 @@ msgstr "{1} non è stata rimossa"
 
 msgid "Search: {1}"
 msgstr "Ricerca: {1}"
+
+msgid "My apps ({1})"
+msgstr "Le mie app ({1})"
 
 msgid "Disc slot light"
 msgstr "Luce del vano disco"

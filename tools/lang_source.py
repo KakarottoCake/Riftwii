@@ -8827,12 +8827,6 @@ MORE["fr"]['Loaders'] = 'Chargeurs'
 T['My apps'] = ('Mis apps', 'マイアプリ', 'Meus apps', 'Le mie app')
 MORE["ko"]['My apps'] = '내 앱'
 MORE["fr"]['My apps'] = 'Mes applis'
-T['My apps (1 update)'] = ('Mis apps (1 actualización)', 'マイアプリ(更新1件)', 'Meus apps (1 atualização)', 'Le mie app (1 aggiornamento)')
-MORE["ko"]['My apps (1 update)'] = '내 앱 (업데이트 1개)'
-MORE["fr"]['My apps (1 update)'] = 'Mes applis (1 mise à jour)'
-T['My apps ({1} updates)'] = ('Mis apps ({1} actualizaciones)', 'マイアプリ(更新{1}件)', 'Meus apps ({1} atualizações)', 'Le mie app ({1} aggiornamenti)')
-MORE["ko"]['My apps ({1} updates)'] = '내 앱 (업데이트 {1}개)'
-MORE["fr"]['My apps ({1} updates)'] = 'Mes applis ({1} mises à jour)'
 T['{1} from here on the SD card'] = ('{1} de aquí en la tarjeta SD', 'ここから入れたもの: SDカードに{1}個', '{1} daqui no cartão SD', '{1} da qui sulla scheda SD')
 MORE["ko"]['{1} from here on the SD card'] = '여기서 받은 앱: SD 카드에 {1}개'
 MORE["fr"]['{1} from here on the SD card'] = "{1} d'ici sur la carte SD"
@@ -8875,9 +8869,9 @@ MORE["fr"]['Version {1}, {2}'] = 'Version {1}, {2}'
 T['It is on the SD card already. Put version {1} in its place.'] = ('Ya está en la tarjeta SD. Pon la versión {1} en su lugar.', 'すでにSDカードにあります。バージョン{1}に置き換えます。', 'Já está no cartão SD. Coloque a versão {1} no lugar.', 'È già sulla scheda SD. Metti la versione {1} al suo posto.')
 MORE["ko"]['It is on the SD card already. Put version {1} in its place.'] = '이미 SD 카드에 있습니다. 버전 {1}(으)로 바꿉니다.'
 MORE["fr"]['It is on the SD card already. Put version {1} in its place.'] = 'Elle est déjà sur la carte SD. Mettre la version {1} à sa place.'
-T['It comes in a form the Wii cannot unpack. Scan the code.'] = ('Viene en un formato que la Wii no puede descomprimir. Escanea el código.', 'Wiiでは展開できない形式です。コードを読み取ってください。', 'Vem num formato que o Wii não consegue descompactar. Leia o código.', 'È in un formato che la Wii non può estrarre. Scansiona il codice.')
-MORE["ko"]['It comes in a form the Wii cannot unpack. Scan the code.'] = 'Wii에서 풀 수 없는 형식입니다. 코드를 스캔하세요.'
-MORE["fr"]['It comes in a form the Wii cannot unpack. Scan the code.'] = 'Elle est dans un format que la Wii ne sait pas décompresser. Scannez le code.'
+T["The Wii can't unpack it: scan the code."] = ('La Wii no puede descomprimirla: escanea el código.', 'Wiiでは展開できません。コードを読み取ってください。', 'O Wii não consegue descompactá-lo: leia o código.', 'La Wii non può estrarla: scansiona il codice.')
+MORE["ko"]["The Wii can't unpack it: scan the code."] = 'Wii에서 풀 수 없습니다. 코드를 스캔하세요.'
+MORE["fr"]["The Wii can't unpack it: scan the code."] = "La Wii ne peut pas l'extraire : scannez le code."
 T['To the SD card, {1}'] = ('A la tarjeta SD, {1}', 'SDカードへ、{1}', 'Para o cartão SD, {1}', 'Sulla scheda SD, {1}')
 MORE["ko"]['To the SD card, {1}'] = 'SD 카드에, {1}'
 MORE["fr"]['To the SD card, {1}'] = 'Sur la carte SD, {1}'
@@ -8920,6 +8914,10 @@ MORE["fr"]['{1} was not removed'] = "{1} n'a pas été supprimée"
 T['Search: {1}'] = ('Buscar: {1}', '検索: {1}', 'Busca: {1}', 'Ricerca: {1}')
 MORE["ko"]['Search: {1}'] = '검색: {1}'
 MORE["fr"]['Search: {1}'] = 'Recherche : {1}'
+
+T['My apps ({1})'] = ('Mis apps ({1})', 'マイアプリ({1})', 'Meus apps ({1})', 'Le mie app ({1})')
+MORE["ko"]['My apps ({1})'] = '내 앱 ({1})'
+MORE["fr"]['My apps ({1})'] = 'Mes applis ({1})'
 
 def main():
     repo = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
