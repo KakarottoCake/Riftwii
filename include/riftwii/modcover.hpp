@@ -50,7 +50,14 @@ bool parse_wiitdb_custom(const std::string& block, CustomGame& out);
 // goes past the bounds; the reader takes at most those.
 // `written`, when given: how many entries went in (fewer than given when
 // some were not valid or the bounds cut the list).
-std::string serialize_custom_games(const std::vector<CustomGame>& games, std::size_t* written = nullptr);
+// `made_for`: the games' first four characters the list was read for
+// (custom_prefixes of them), kept on a "# for:" comment line so a later
+// start can tell when a game it didn't cover has come (a drive mounted late).
+std::string serialize_custom_games(const std::vector<CustomGame>& games, std::size_t* written = nullptr,
+                                   const std::set<std::string>& made_for = {});
+// The "# for:" line's prefixes; false when the list has none (made by an
+// older RiftWii) or it isn't one the writer makes.
+bool custom_games_made_for(const std::string& text, std::set<std::string>& out);
 // `damaged`, when given: set when a line (not blank, not a comment) isn't
 // one the writer makes, or comes after the first kMaxCustomGames. The rest is still read, but a list with a line
 // missing could make one mod look like the only match.

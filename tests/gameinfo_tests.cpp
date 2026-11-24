@@ -12,6 +12,7 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <thread>
 
 static int failures;
 #define CHECK(condition) do { if (!(condition)) { std::cerr << "Line " << __LINE__ << ": " #condition "\n"; ++failures; } } while (0)
@@ -529,6 +530,8 @@ void TestTileIdOutsideTheModList() {
         "<game name=\"European box\"><id>SMNP01</id><locale lang=\"EN\"><title>NSMBW PAL</title></locale></game>\n"
         "<game name=\"Other region mod\"><id>SMNP04</id><type>CUSTOM</type></game>\n"
         "<game name=\"Unrelated mod\"><id>ZZZP02</id><type>CUSTOM</type></game>\n"
+        "<game name=\"Kart\"><id>RMCE01</id></game>\n"
+        "<game name=\"Kart mod\"><id>RMCETO</id><type>CUSTOM</type></game>\n"
         "</datafile>\n";
     const auto zip = ziptest::make_zip({{"wiitdb.xml", xml, 0}});
     Write(kZipPath, reinterpret_cast<const char*>(zip.data()), zip.size());
@@ -568,11 +571,22 @@ void TestTileIdOutsideTheModList() {
     CHECK(list.size() == 1 && list[0].id == "SMNE05");
     CHECK(PeekGameInfo("SMNP03", info) && info.title == "Newer Super Mario Bros. Wii");
     // A read without the drives' games (a headless start) leaves the list.
-    ForgetGameInfo();
-    fs::remove(kCachePath);
-    CHECK(FindGameInfo("SMNP04", {}, info, error) == GameInfoResult::Found);
+    CHECK(FindGameInfo("RMCE01", {}, info, error) == GameInfoResult::Found);
     CHECK(LoadModTitles(list));
     CHECK(list.size() == 1 && list[0].id == "SMNE05");
+    // A drive that mounts late: its game's details are kept already, but
+    // the list wasn't read for it, so it is read again, this time with
+    // that game's mods (#618).
+    ForgetGameInfo();
+    CHECK(StartGameInfoRead({"SMNE01"}, false) == GameInfoReadStart::NothingToRead);
+    CHECK(StartGameInfoRead({"SMNE01", "RMCE01"}, false) == GameInfoReadStart::Started);
+    bool changed = false;
+    while (!TakeGameInfoRead(changed)) std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    CHECK(LoadModTitles(list));
+    CHECK(list.size() == 2);
+    CHECK(StartGameInfoRead({"SMNE01", "RMCE01"}, false) == GameInfoReadStart::NothingToRead);
+    ForgetGameInfo();
+    CHECK(StartGameInfoRead({"SMNE01", "RMCE01"}, false) == GameInfoReadStart::NothingToRead);
     fs::remove(kZipPath);
     fs::remove(kCachePath);
     fs::remove(kHomebrewPath);

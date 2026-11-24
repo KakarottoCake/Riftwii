@@ -53,6 +53,10 @@ unsigned g_mod_titles_written = 0;
 bool g_mod_titles_read_here = false;
 // This card's list found readable this session (once, not on every visit).
 bool g_mod_titles_checked_here = false;
+// The games' prefixes the list on the card was read for ("# for:"), once
+// known this session: a wanted game outside them reads the database again.
+std::set<std::string> g_mod_titles_for;
+bool g_mod_titles_for_known = false;
 // The whole database's download, in place of an older RiftWii's discs-only
 // one, failed this session (GameTDB or the network down): not tried again
 // on every visit to Home, which keeps reading the old one meanwhile. A new
@@ -188,10 +192,14 @@ bool ReplaceListFile(const char* path, const std::string& text) {
 
 // Written even with no mods found, as the homebrew list is: the file says
 // the database was read for them.
-bool SaveModTitles(const std::vector<CustomGame>& games) {
+bool SaveModTitles(const std::vector<CustomGame>& games, const std::set<std::string>& made_for) {
     g_mod_titles_read_here = true;
+    // Known even when the write fails, so a card that can't take it isn't
+    // read again and again for the same games.
+    g_mod_titles_for = made_for;
+    g_mod_titles_for_known = true;
     std::size_t written = 0;
-    std::string text = serialize_custom_games(games, &written);
+    std::string text = serialize_custom_games(games, &written, made_for);
     // A list cut short (the scan's bound, or the file's) could make a tile's
     // name look like it matches one entry when a dropped one matches too:
     // then no list at all, so no tile gets a mod's cover by a guess.
@@ -199,7 +207,7 @@ bool SaveModTitles(const std::vector<CustomGame>& games) {
     if (cut) {
         logf("Mod covers: GameTDB lists more mods of your games than RiftWii keeps (%u); mod tiles keep their games' covers\n",
              static_cast<unsigned>(games.size()));
-        text = serialize_custom_games({});
+        text = serialize_custom_games({}, nullptr, made_for);
     }
     if (!ReplaceListFile(kModTitlesPath, text)) {
         // The older list stays, still usable; older than the database, it
@@ -373,7 +381,7 @@ GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& 
     if (!SaveHomebrewTitles(scanner.homebrew())) logf("Homebrew: %s could not be written\n", kHomebrewTitlesPath);
     // Without the drives' games (a headless start's parental check) the
     // mods found are one game's: the list made for all of them stays.
-    if (!wanted.empty()) SaveModTitles(scanner.customs());
+    if (!wanted.empty()) SaveModTitles(scanner.customs(), custom_prefixes(ModListGames(id, wanted)));
     g_cache.not_listed.clear();
     for (const std::string& wanted_id : ids)
         if (!g_cache.games.count(wanted_id)) g_cache.not_listed.insert(wanted_id);
@@ -738,6 +746,8 @@ void ForgetGameInfo() {
     ForgetHomebrewTitlesRead();
     g_mod_titles_read_here = false;
     g_mod_titles_checked_here = false;
+    g_mod_titles_for.clear();
+    g_mod_titles_for_known = false;
     g_full_download_failed = false;
 }
 
@@ -774,6 +784,24 @@ GameInfoReadStart StartGameInfoRead(const std::set<std::string>& wanted, bool do
             g_mod_titles_checked_here = !again;
         }
         if (again) missing = true;
+    }
+    // A game the list wasn't read for (on a drive that mounted late, or
+    // copied since): its mods are read too. Asked of the card once a session.
+    if (have_source && !missing) {
+        if (!g_mod_titles_for_known) {
+            std::string text;
+            if (stat(kModTitlesPath, &mods) == 0 && static_cast<std::uint64_t>(mods.st_size) <= kMaxCustomGamesBytes &&
+                try_resize(text, static_cast<std::size_t>(mods.st_size))) {
+                FILE* f = std::fopen(kModTitlesPath, "rb");
+                const bool whole = f && (text.empty() || std::fread(&text[0], 1, text.size(), f) == text.size());
+                if (f) std::fclose(f);
+                if (whole) custom_games_made_for(text, g_mod_titles_for);
+            }
+            g_mod_titles_for_known = true;
+        }
+        for (const std::string& prefix : custom_prefixes(wanted))
+            if (!g_mod_titles_for.count(prefix)) missing = true;
+        if (missing) logf("Mod covers: a game's mods aren't in %s yet: reading the database for them\n", kModTitlesPath);
     }
     if (!stale && !missing) return GameInfoReadStart::NothingToRead;
     BackgroundRead read;
@@ -818,7 +846,7 @@ bool TakeGameInfoRead(bool& changed) {
     // As with the About page's read, the same pass found the Homebrew
     // view's apps. Write on the menu's thread, after the complete scan.
     if (!SaveHomebrewTitles(read.homebrew)) logf("Homebrew: %s could not be written\n", kHomebrewTitlesPath);
-    SaveModTitles(read.customs);
+    SaveModTitles(read.customs, custom_prefixes(read.mod_games));
     g_cache.not_listed.clear();
     for (const std::string& id : read.ids)
         if (!g_cache.games.count(id)) g_cache.not_listed.insert(id);

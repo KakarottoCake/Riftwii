@@ -359,6 +359,22 @@ static void TestPickedEntry() {
     EXPECT_TRUE(profile_cover_id(entries, profile) == "SMNE03");
 }
 
+// The list says which games it was read for, so a game that comes later
+// (a drive mounted late) gets the list read again (#618).
+static void TestMadeFor() {
+    const std::string text = riftwii::serialize_custom_games({{"SMNE05", "Base mod"}}, nullptr, {"SMNE", "RMCE", "bad"});
+    std::set<std::string> prefixes;
+    EXPECT_TRUE(riftwii::custom_games_made_for(text, prefixes));
+    EXPECT_TRUE(prefixes == (std::set<std::string>{"RMCE", "SMNE"}));
+    bool damaged = true;
+    EXPECT_EQ(riftwii::parse_custom_games(text, &damaged).size(), std::size_t(1));
+    EXPECT_TRUE(!damaged);
+    EXPECT_TRUE(!riftwii::custom_games_made_for(riftwii::serialize_custom_games({{"SMNE05", "Base mod"}}), prefixes));
+    EXPECT_TRUE(prefixes.empty());
+    EXPECT_TRUE(!riftwii::custom_games_made_for("# for: SMNE ../x\n", prefixes));
+    EXPECT_TRUE(!riftwii::custom_games_made_for("SMNE05\tBase mod\n# for: SMNE\n", prefixes));
+}
+
 int main() {
     TestWords();
     TestTileArt();
@@ -368,6 +384,7 @@ int main() {
     TestBlocks();
     TestFile();
     TestScanner();
+    TestMadeFor();
     if (g_failures) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;
