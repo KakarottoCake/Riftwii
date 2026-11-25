@@ -338,6 +338,31 @@ def cmd_update(args):
     print(f"{changed} app(s) pinned to a new release")
 
 
+def own_icon(path, where):
+    """The icon kept beside the manifest (apps/<id>.png), or None.
+
+    For an app whose download has no icon RiftWii can take (a 7z, rar or
+    tar file, or a zip without one), or whose own icon needs replacing. It
+    must be a Homebrew Channel icon: a PNG of 128 x 48, at most MAX_ICON.
+    """
+    icon_path = os.path.splitext(path)[0] + ".png"
+    if not os.path.isfile(icon_path):
+        return None
+    if os.path.getsize(icon_path) > MAX_ICON:
+        raise AppError(f"{where}: {os.path.basename(icon_path)} is over {MAX_ICON} bytes")
+    with open(icon_path, "rb") as f:
+        icon = f.read()
+    # The PNG signature, then IHDR's width and height (big-endian).
+    if icon[:8] != b"\x89PNG\r\n\x1a\n" or icon[12:16] != b"IHDR":
+        raise AppError(f"{where}: {os.path.basename(icon_path)} is not a PNG")
+    width = int.from_bytes(icon[16:20], "big")
+    height = int.from_bytes(icon[20:24], "big")
+    if (width, height) != (128, 48):
+        raise AppError(f"{where}: {os.path.basename(icon_path)} is {width} x {height}; "
+                       "a Homebrew Channel icon is 128 x 48")
+    return icon
+
+
 def build_one(path, m, token, cache, icons):
     """The app's apps.json record, after checking its download."""
     check_manifest(m, path)
@@ -395,6 +420,8 @@ def build_one(path, m, token, cache, icons):
                     icon = entry.read(MAX_ICON + 1)
     else:
         icon = None
+    # An icon beside the manifest wins over the download's.
+    icon = own_icon(path, where) or icon
     record = {
         "id": m["id"], "name": m["name"], "author": m["author"], "version": version, "released": released,
         "category": m["category"], "description": m["description"], "page": m["page"],

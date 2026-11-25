@@ -60,6 +60,12 @@ Three pieces:
 | `icon_in_zip` | Optional: the entry to show as the app's icon; by default, whatever installs as `apps/<id>/icon.png`. |
 | `pin` | The approved file: its `sha256` (and, for GitHub, the release `tag`). Written by `app_list.py update`; changing it is what approves a new version. |
 
+An app's icon can also be a file beside its manifest, `<id>.png`: a
+Homebrew Channel icon (a PNG of 128 x 48, at most 64 KB). It wins over the
+download's, so it serves an app whose download has none RiftWii can take
+(a 7z, rar or tar file, or a zip without one) and one whose own icon needs
+replacing. Without either, the store shows the app's category picture.
+
 ### Categories
 
 | Key | Shown as |

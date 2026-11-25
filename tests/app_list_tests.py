@@ -141,5 +141,42 @@ class RuleTests(unittest.TestCase):
         self.assertIsNone(app_list.install_path(rules, "..\\wii\\gcmm\\boot.dol"))
 
 
+
+def _png(width, height):
+    """A PNG's signature and IHDR, all own_icon reads."""
+    return (b"\x89PNG\r\n\x1a\n" + (13).to_bytes(4, "big") + b"IHDR" + width.to_bytes(4, "big") +
+            height.to_bytes(4, "big") + b"\x08\x06\x00\x00\x00" + b"\x00" * 4)
+
+
+class OwnIconTests(unittest.TestCase):
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory()
+        self.manifest = Path(self.folder.name) / "x.json"
+        self.icon = Path(self.folder.name) / "x.png"
+
+    def tearDown(self):
+        self.folder.cleanup()
+
+    def test_no_file_means_no_icon(self):
+        self.assertIsNone(app_list.own_icon(str(self.manifest), "x.json"))
+
+    def test_a_homebrew_channel_icon_is_taken(self):
+        self.icon.write_bytes(_png(128, 48))
+        self.assertEqual(app_list.own_icon(str(self.manifest), "x.json"), _png(128, 48))
+
+    def test_other_sizes_and_non_pngs_are_refused(self):
+        self.icon.write_bytes(_png(256, 96))
+        with self.assertRaises(app_list.AppError):
+            app_list.own_icon(str(self.manifest), "x.json")
+        self.icon.write_bytes(b"GIF89a" + b"\x00" * 40)
+        with self.assertRaises(app_list.AppError):
+            app_list.own_icon(str(self.manifest), "x.json")
+
+    def test_a_file_over_the_cap_is_refused(self):
+        self.icon.write_bytes(_png(128, 48) + b"\x00" * app_list.MAX_ICON)
+        with self.assertRaises(app_list.AppError):
+            app_list.own_icon(str(self.manifest), "x.json")
+
+
 if __name__ == "__main__":
     unittest.main()
