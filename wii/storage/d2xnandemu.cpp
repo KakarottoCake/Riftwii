@@ -437,6 +437,8 @@ bool release_d2x_saves() {
 
 bool usb_held_by_d2x_fat() { return g_usb_emulation_on; }
 
+bool d2x_nand_emulation_on() { return g_emulation_on || g_usb_emulation_on; }
+
 bool packs_need_sd(const std::vector<std::string>& xml_paths) {
     for (const std::string& xml : xml_paths) {
         if (!riftwii::is_usb_path(xml)) return true;

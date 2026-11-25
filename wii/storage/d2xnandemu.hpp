@@ -83,6 +83,9 @@ bool enable_d2x_saves(const std::string& dir, std::string& error, D2xNandScope s
 bool release_d2x_saves();
 // Whether d2x's NAND emulation has the USB drive (#487).
 bool usb_held_by_d2x_fat();
+// Whether d2x's NAND emulation is on for this launch, from the SD card or
+// the USB drive: ES then reads tickets and titles from the emulated NAND.
+bool d2x_nand_emulation_on();
 
 // Whether a launch needs the SD card in the game, so d2x's NAND emulation
 // must stay off: a pack read from anywhere but the USB drive (the card's

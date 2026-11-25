@@ -272,7 +272,9 @@ void test_channel_mount_retry_still_runs() {
     CHECK(!mount_failures.ios[251]);
     CHECK(count_of("fat 0xF0") == 2);
     CHECK(console.held && !card_back);
+    CHECK(riftwii::wii::d2x_nand_emulation_on());
     CHECK(riftwii::wii::release_d2x_saves());
+    CHECK(!riftwii::wii::d2x_nand_emulation_on());
 }
 
 void test_channel_mount_failure_keeps_the_card_when_unmount_fails() {
@@ -629,6 +631,7 @@ void test_usb_folder_goes_through_the_usb_mount() {
     CHECK(console.libfat_mounted && console.log_open && !console.held);
     CHECK(count_of("fat 0xF0") == 0 && count_of("log close") == 0);
     CHECK(riftwii::wii::usb_held_by_d2x_fat());
+    CHECK(riftwii::wii::d2x_nand_emulation_on());
     CHECK(!console.usb_libfat);
 
     console.events.clear();
