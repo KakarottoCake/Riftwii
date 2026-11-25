@@ -138,7 +138,7 @@ The build compiles every folder into one, so no two files share a name.
 | `memlimits.cpp` | Keeps the app's heap out of memory a launch overwrites |
 | `restart.cpp` | Starting RiftWii again without the Homebrew Channel (after a game, or the channel) |
 | `stash.cpp` | The start-up stash: crt0's copy to MEM2, and finding the font, translations and GPL in it |
-| `mem1tail.c`, `mem1tail.h` | Home's scan stack, linked after every library so it is what spans `0x81000000`, which a real Wii overwrites at start-up (`docs/MEMORY.md`, "The 16 MiB line") |
+| `mem1tail.c`, `mem1tail.h` | Home's scan stack, linked after every library so it is what spans `0x81000000`, where libogc's start-up copies its DSP boot code (`docs/MEMORY.md`, "The 16 MiB line") |
 | `startuptrace.cpp` | The start-up note: the step each start reached before its log opened, reported by the next start as "The last start stopped at" (`include/riftwii/startupnote.hpp`, `tests/startupnote_tests.cpp`) |
 | `plugins.cpp` | The plugin loader: the file's checks, the arena at the top of MEM2, relocation, the table RiftWii gives a plugin, refusals, crash ranges, the test switch |
 | `pluginhost.cpp` | The plugin table's network and file entries: downloads into a buffer or streamed to the card with their SHA-256, the network thread's job, removing, renaming and listing |

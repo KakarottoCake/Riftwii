@@ -4,18 +4,19 @@
  * every library), so that it, not libogc's start-up data, spans
  * 0x81000000.
  *
- * On a real Wii something overwrites a few bytes just past 0x81000000
- * early in start-up, after libogc has set up its lists and before the
- * menu starts (what does it is not known yet; Dolphin never does it).
- * 2611-239 died on every console: about 3 KiB of new code moved libogc's
- * list of reset handlers (sys_reset_func_queue) from just under the line
- * to 0x81000014, and PAD_Init's SYS_RegisterResetFunc then followed a
- * garbage pointer (a DSI). In 236 the unused end of libogc's IPC heaps
- * happened to be there.
+ * libogc's SYS_Init, which crt0 runs before main, boots the DSP by
+ * copying 128 bytes of DSP code to 0x81000000 (the address the DSP
+ * starts from), and copies the old bytes back afterwards. On a real Wii
+ * that code was still there when libogc next used the memory (Dolphin
+ * never shows it). 2611-239 died on every console: about 3 KiB of new
+ * code moved libogc's list of reset handlers (sys_reset_func_queue) from
+ * just under the line to 0x81000014, and SYS_RegisterResetFunc then
+ * followed 0x029F0037, the DSP code's sixth word, as a pointer (a DSI).
+ * In 236 the unused end of libogc's IPC heaps happened to be there.
  *
  * A thread stack needs no starting contents, and this one's thread (Home's
- * drive scan, wii/menu/homescan.cpp) starts long after start-up, so
- * whatever was written there is overwritten by the stack's own use.
+ * drive scan, wii/menu/homescan.cpp) starts long after SYS_Init, so
+ * whatever is left there is overwritten by the stack's own use.
  * tools/check_mem1_line.py fails the build when 0x81000000 is not well
  * inside it. */
 #ifndef RIFTWII_WII_MEM1TAIL_H

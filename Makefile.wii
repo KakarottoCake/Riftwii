@@ -117,8 +117,8 @@ LDFLAGS		+=	-Wl,--wrap=printf,--wrap=fprintf,--wrap=vprintf,--wrap=vfprintf
 # USB mouse and keyboard scans.
 LIBS :=	-lbearssl -lz -lfat -lwiikeyboard -lwiiuse -lbte $(LIBOGC_LIB)/libmad.a -lasnd -logc -lvorbisidec -logg -lfreetype -lbz2
 # Linked after every library, so its .bss (Home's scan stack) is the last
-# in RiftWii's .bss and spans 0x81000000, which a real Wii overwrites at
-# start-up (wii/core/mem1tail.h). Checked after the link, below.
+# in RiftWii's .bss and spans 0x81000000, where libogc's start-up copies
+# its DSP boot code (wii/core/mem1tail.h). Checked after the link, below.
 MEM1_TAIL :=	mem1tail.o
 LIBS +=	$(MEM1_TAIL)
 #---------------------------------------------------------------------------------

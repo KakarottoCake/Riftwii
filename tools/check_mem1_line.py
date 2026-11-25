@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Fails the Wii build unless 0x81000000 lies well inside Home's scan stack.
 
-A real Wii overwrites a few bytes just past 0x81000000 early in start-up
+libogc's SYS_Init copies 128 bytes of DSP code to 0x81000000 at start-up
 (wii/core/mem1tail.h). 2611-239 died on every console because libogc's
 list of reset handlers had moved there. Makefile.wii links the stack
 last so it covers the line; this checks that it does, with room on both
@@ -16,8 +16,8 @@ import struct
 import sys
 
 LINE = 0x81000000
-# Room the stack must leave on each side of the line. Only a few bytes are
-# known to be hit; this is a wide margin.
+# Room the stack must leave on each side of the line. The DSP code takes
+# 128 bytes from the line up; this is a wide margin.
 MARGIN = 0x1000
 STACK = "riftwii_home_scan_stack"
 
@@ -65,7 +65,7 @@ def main():
         return 0
     near = sorted(s for s in syms if s[0] < high and s[0] + s[1] > low)
     print("check_mem1_line: 0x%08x must be at least 0x%x bytes inside %s (0x%08x-0x%08x), "
-          "or libogc's start-up data lands where a real Wii overwrites it (wii/core/mem1tail.h). "
+          "or libogc's start-up data lands where its DSP boot code is copied (wii/core/mem1tail.h). "
           "There now:" % (LINE, MARGIN, STACK, start, start + size), file=sys.stderr)
     for address, sym_size, name in near:
         print("  0x%08x %6d %s" % (address, sym_size, name), file=sys.stderr)
