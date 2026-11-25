@@ -253,16 +253,30 @@ def triangle(c, pts, rgb, a=1.0, ss=4):
 
 # --- sound -------------------------------------------------------------------
 
+def circular_convolve(x, kernel):
+    """np.convolve(x, kernel, mode="same") for a loop: the signal wraps round
+    at its ends, so the samples at the loop point are filtered like the rest."""
+    k = len(kernel)
+    n = len(x)
+    wrapped = np.concatenate([x[-k:], x, x[:k]])
+    return np.convolve(wrapped, kernel, mode="same")[k:k + n]
+
+
 def write_wav(path, samples, rate=32000, stereo=None):
-    """16-bit PCM WAV from float samples in -1..1 (mono, or `stereo` the
-    right channel)."""
+    """16-bit PCM WAV from float samples in -1..1: mono, or stereo with
+    `stereo` the right channel."""
     left = np.clip(samples, -1, 1)
-    right = left if stereo is None else np.clip(stereo, -1, 1)
-    data = np.empty(left.size * 2, np.int16)
-    data[0::2] = (left * 32000).astype(np.int16)
-    data[1::2] = (right * 32000).astype(np.int16)
+    if stereo is None:
+        data = (left * 32000).astype(np.int16)
+        channels = 1
+    else:
+        right = np.clip(stereo, -1, 1)
+        data = np.empty(left.size * 2, np.int16)
+        data[0::2] = (left * 32000).astype(np.int16)
+        data[1::2] = (right * 32000).astype(np.int16)
+        channels = 2
     with wavefile.open(str(path), "wb") as f:
-        f.setnchannels(2)
+        f.setnchannels(channels)
         f.setsampwidth(2)
         f.setframerate(rate)
         f.writeframes(data.tobytes())

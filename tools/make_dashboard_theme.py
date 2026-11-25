@@ -36,7 +36,9 @@ photo, texture, screenshot, logo, font or recording from anywhere else.
 
 The default out_dir is build-themes/Dashboard; the folder goes to the
 community themes repository (RiftWii/themes, themes/Dashboard) as it is.
-Naming pictures (or "sounds") repaints only those.
+A whole build needs a new or empty folder, so nothing from an older
+build is left in the theme; naming pictures (or "sounds") repaints only
+those in place, and an unknown name stops the run.
 """
 import math
 import pathlib
@@ -52,9 +54,9 @@ TAU = 2 * math.pi
 
 # The green glass: its body at the top and the foot. White text sits on the
 # middle, which stays dark enough for 4.5:1.
-GLASS_TOP = (56, 146, 30)
+GLASS_TOP = (38, 118, 20)
 GLASS_FOOT = (20, 86, 12)
-LIT_TOP = (66, 160, 34)
+LIT_TOP = (32, 108, 16)
 LIT_FOOT = (26, 102, 14)
 LIME = (178, 240, 96)
 GLOW = (206, 255, 150)
@@ -217,7 +219,7 @@ def background(W):
 # --- glass -----------------------------------------------------------------------
 
 def glass(cw, ch, x0, y0, w, h, r, *, lit=False, primary=False, silver=False, alpha=0.92, circle=False,
-          shadow=0.45, glow_size=3, gloss=0.16, bands=None, bezel=0.0):
+          shadow=0.45, glow_size=3, gloss=0.10, bands=None, bezel=0.0):
     """A glossy glass shape in a cw x ch canvas: a soft shadow; a green body
     (silver for `silver`), lighter at the top; a gloss cap over its upper
     third; a fine bright rim. Lit: a brighter body, a lime and white rim and
@@ -263,7 +265,9 @@ def glass(cw, ch, x0, y0, w, h, r, *, lit=False, primary=False, silver=False, al
     # The gloss cap: the upper third lit, ending in a soft line.
     cap_v = np.clip((y - y0 - bezel) / max(h - 2 * bezel, 1), 0, 1)
     cap = (1 - tp.smooth((cap_v - 0.30) / 0.10)) * tp.coverage(d_in - 1.5)
-    tp.over(c, (255, 255, 255), cap * (gloss * (1.25 if lit else 1.0)))
+    # Kept faint: RiftWii writes white titles over the top of a tile, and
+    # the lit one is marked by its rim and glow, not a brighter gloss.
+    tp.over(c, (255, 255, 255), cap * (gloss * (0.6 if lit else 1.0)))
     # A faint light pooled at the foot, as through coloured glass.
     foot_light = np.exp(-((cap_v - 0.92) / 0.10) ** 2) * tp.coverage(d_in - 1.0)
     tp.add_light(c, (90, 190, 50) if not silver else (255, 255, 255), foot_light * 0.12)
@@ -368,7 +372,9 @@ def blank_cover():
     x, y = tp.grid(W, H)
     c = tp.canvas(W, H)
     v = y / H
-    grey = tp.mix((168, 170, 168), (142, 144, 142), tp.smooth(v))
+    # Light enough for the ID RiftWii prints under the name in its dimmer
+    # dark ink, as well as for the name.
+    grey = tp.mix((228, 230, 228), (210, 212, 210), tp.smooth(v))
     c[..., :3] = grey
     c[..., 3] = 1.0
     # A soft light down the middle, as printed card under clear plastic.
@@ -401,7 +407,7 @@ def blank_back():
     W, H = 160, 224
     x, y = tp.grid(W, H)
     c = tp.canvas(W, H)
-    c[..., :3] = tp.mix((164, 166, 164), (136, 138, 136), tp.smooth(y / H))
+    c[..., :3] = tp.mix((224, 226, 224), (204, 206, 204), tp.smooth(y / H))
     c[..., 3] = 1.0
     tp.add_light(c, (255, 255, 255), 0.05 * np.exp(-((x - 60) / 60) ** 2))
     # A faint frame where the pictures go, as printed borders.
@@ -604,10 +610,7 @@ def sounds(out):
 
 def main():
     out = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else HERE.parent / "build-themes" / "Dashboard"
-    out.mkdir(parents=True, exist_ok=True)
     only = set(sys.argv[2:])
-    (out / "theme.ini").write_bytes(INI.replace("\n", "\r\n").encode("utf-8"))
-    (out / "LICENSE").write_bytes(LICENSE.encode("utf-8"))
     pictures = {
         "background": lambda: background(640),
         "background_wide": lambda: background(856),
@@ -655,6 +658,21 @@ def main():
         "blank_cover": blank_cover,
         "blank_back": blank_back,
     }
+    # Names that are neither a picture nor a part stop the run before
+    # anything is written: a typo would otherwise leave the old file in place.
+    unknown = sorted(only - set(pictures) - {"sounds"})
+    if unknown:
+        raise SystemExit("not a picture or part of this theme: " + ", ".join(unknown))
+    # A full build goes into an empty folder, so nothing left from an
+    # older build (a sound, a frame, music) ends up in the theme.
+    if not only and out.exists() and any(out.iterdir()):
+        raise SystemExit(f"{out} is not empty: build the whole theme into a new folder")
+    out.mkdir(parents=True, exist_ok=True)
+    # theme.ini and LICENSE: always on a full build; a run for some parts
+    # only adds them when they are missing.
+    for name, text in (("theme.ini", INI.replace("\n", "\r\n")), ("LICENSE", LICENSE)):
+        if not only or not (out / name).exists():
+            (out / name).write_bytes(text.encode("utf-8"))
     written = []
     for name, paint in pictures.items():
         if only and name not in only:

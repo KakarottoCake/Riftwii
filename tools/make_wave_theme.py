@@ -32,7 +32,9 @@ else):
 
 The default out_dir is build-themes/Wave in the repository; the folder goes
 to the community themes repository (RiftWii/themes, themes/Wave) as it is.
-Naming pictures (or "music", "sounds", "loop") repaints only those.
+A whole build needs a new or empty folder, so nothing from an older
+build is left in the theme; naming pictures (or "music", "sounds",
+"loop") repaints only those in place, and an unknown name stops the run.
 """
 import math
 import pathlib
@@ -422,7 +424,7 @@ def row_focus():
     c = tp.canvas(cw, ch)
     u = (x - 1) / 546
     v = (y - 1) / 42
-    fade = 0.55 + 0.45 * np.sin(np.clip(u, 0, 1) * math.pi) ** 0.6
+    fade = 0.55 + 0.45 * np.clip(np.sin(np.clip(u, 0, 1) * math.pi), 0, 1) ** 0.6
     body = tp.mix((86, 138, 222), (40, 84, 170), tp.smooth(v))
     body = tp.mix(body, (255, 255, 255), 0.16 * (1 - tp.smooth(v / 0.5)))
     tp.over(c, body, cov * 0.78 * fade)
@@ -639,7 +641,7 @@ def sounds(out):
     # A soft airy swell under the notes.
     rng = np.random.default_rng(9)
     air = rng.normal(0, 1, up.size)
-    air = np.convolve(air, np.ones(40) / 40, mode="same")
+    air = tp.circular_convolve(air, np.ones(40) / 40)
     swell = np.sin(np.linspace(0, math.pi, up.size)) ** 2
     up += 0.05 * air * swell
     down += 0.05 * air * swell
@@ -705,8 +707,9 @@ def music(out):
     right = right + 0.35 * wet_r
     # A gentle low-pass, and the level.
     kernel = np.ones(6) / 6
-    left = np.convolve(left, kernel, mode="same")
-    right = np.convolve(right, kernel, mode="same")
+    # Filtered round the loop point too, so the end runs into the start.
+    left = tp.circular_convolve(left, kernel)
+    right = tp.circular_convolve(right, kernel)
     peak = max(np.abs(left).max(), np.abs(right).max())
     left *= 0.55 / peak
     right *= 0.55 / peak
@@ -718,10 +721,7 @@ def music(out):
 
 def main():
     out = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else HERE.parent / "build-themes" / "Wave"
-    out.mkdir(parents=True, exist_ok=True)
     only = set(sys.argv[2:])
-    (out / "theme.ini").write_bytes(INI.replace("\n", "\r\n").encode("utf-8"))
-    (out / "LICENSE").write_bytes(LICENSE.encode("utf-8"))
     pictures = {
         "background": lambda: background(640),
         "background_wide": lambda: background(856),
@@ -769,6 +769,21 @@ def main():
         "blank_cover": blank_cover,
         "blank_back": blank_back,
     }
+    # Names that are neither a picture nor a part stop the run before
+    # anything is written: a typo would otherwise leave the old file in place.
+    unknown = sorted(only - set(pictures) - {"loop", "sounds", "music"})
+    if unknown:
+        raise SystemExit("not a picture or part of this theme: " + ", ".join(unknown))
+    # A full build goes into an empty folder, so nothing left from an
+    # older build (a sound, a frame, music) ends up in the theme.
+    if not only and out.exists() and any(out.iterdir()):
+        raise SystemExit(f"{out} is not empty: build the whole theme into a new folder")
+    out.mkdir(parents=True, exist_ok=True)
+    # theme.ini and LICENSE: always on a full build; a run for some parts
+    # only adds them when they are missing.
+    for name, text in (("theme.ini", INI.replace("\n", "\r\n")), ("LICENSE", LICENSE)):
+        if not only or not (out / name).exists():
+            (out / name).write_bytes(text.encode("utf-8"))
     written = []
     for name, paint in pictures.items():
         if only and name not in only:

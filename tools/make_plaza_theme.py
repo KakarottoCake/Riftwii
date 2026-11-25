@@ -36,8 +36,10 @@ anywhere else):
     py -3 tools/make_plaza_theme.py [out_dir [picture ...]]   (needs numpy, Pillow, ffmpeg)
 
 The default out_dir is build-themes/Plaza; the folder goes to the community
-themes repository (RiftWii/themes, themes/Plaza) as it is. Naming pictures
-(or "music", "sounds", "loop") repaints only those.
+themes repository (RiftWii/themes, themes/Plaza) as it is.
+A whole build needs a new or empty folder, so nothing from an older
+build is left in the theme; naming pictures (or "music", "sounds",
+"loop") repaints only those in place, and an unknown name stops the run.
 """
 import math
 import pathlib
@@ -635,6 +637,8 @@ def mallet(freq, dur, vol=1.0, rate=RATE):
          + 0.35 * np.sin(TAU * freq * 4.0 * t) * np.exp(-t / 0.05)
          + 0.12 * np.sin(TAU * freq * 2.0 * t) * np.exp(-t / 0.12))
     s *= np.clip(t / 0.003, 0, 1)
+    # A 10 ms release, so a note cut at `dur` ends at silence, not in a click.
+    s *= np.clip((n - 1 - np.arange(n)) / (rate * 0.010), 0, 1)
     return vol * s
 
 
@@ -748,10 +752,7 @@ def music(out):
 
 def main():
     out = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else HERE.parent / "build-themes" / "Plaza"
-    out.mkdir(parents=True, exist_ok=True)
     only = set(sys.argv[2:])
-    (out / "theme.ini").write_bytes(INI.replace("\n", "\r\n").encode("utf-8"))
-    (out / "LICENSE").write_bytes(LICENSE.encode("utf-8"))
     pictures = {
         "background": lambda: background(640),
         "background_wide": lambda: background(856),
@@ -799,6 +800,21 @@ def main():
         "blank_cover": blank_cover,
         "blank_back": blank_back,
     }
+    # Names that are neither a picture nor a part stop the run before
+    # anything is written: a typo would otherwise leave the old file in place.
+    unknown = sorted(only - set(pictures) - {"loop", "sounds", "music"})
+    if unknown:
+        raise SystemExit("not a picture or part of this theme: " + ", ".join(unknown))
+    # A full build goes into an empty folder, so nothing left from an
+    # older build (a sound, a frame, music) ends up in the theme.
+    if not only and out.exists() and any(out.iterdir()):
+        raise SystemExit(f"{out} is not empty: build the whole theme into a new folder")
+    out.mkdir(parents=True, exist_ok=True)
+    # theme.ini and LICENSE: always on a full build; a run for some parts
+    # only adds them when they are missing.
+    for name, text in (("theme.ini", INI.replace("\n", "\r\n")), ("LICENSE", LICENSE)):
+        if not only or not (out / name).exists():
+            (out / name).write_bytes(text.encode("utf-8"))
     written = []
     for name, paint in pictures.items():
         if only and name not in only:
