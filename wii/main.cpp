@@ -210,7 +210,11 @@ void StartChannel(u64 title) {
             riftwii::wii::halt_after_terminal_reload();
         }
     }
-    if (riftwii::wii::pads_plugin_stopped_launch()) {
+    // Only a channel that was tried (boot_channel, which starts each launch
+    // with no refusal): one whose files couldn't be read can't have been
+    // stopped by the pad code, whatever an earlier launch left (CodeRabbit
+    // CLI, #593).
+    if (read && riftwii::wii::pads_plugin_stopped_launch()) {
         // Without the pad code the system's own start would leave a player
         // whose only controllers are GameCube or USB ones with none: back
         // to RiftWii, which says why.
