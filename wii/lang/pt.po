@@ -4140,20 +4140,20 @@ msgstr "Caixa do jogo: a caixa do jogo enquanto ele inicia; aperte qualquer bot�
 msgid "The Rift Store: get homebrew apps"
 msgstr "Rift Store: baixe apps homebrew"
 
-msgid "Search and Layout on Home's bar"
-msgstr "Buscar e Layout na barra do início"
+msgid "Themes can draw the back of the box"
+msgstr "Temas podem desenhar o verso da caixa"
+
+msgid "The menu no longer freezes with big themes"
+msgstr "O menu não trava mais com temas grandes"
+
+msgid "Emulated NAND games go back to RiftWii"
+msgstr "Jogos com NAND emulada voltam ao RiftWii"
+
+msgid "The GameCube pointer hides when unplugged"
+msgstr "O ponteiro do GameCube some ao desconectar"
 
 msgid "Big libraries use less memory"
 msgstr "Bibliotecas grandes usam menos memória"
-
-msgid "USA games play on a Japanese Wii"
-msgstr "Jogos dos EUA rodam num Wii japonês"
-
-msgid "The pointer works after a Remote wakes up"
-msgstr "O ponteiro funciona quando o Remote acorda"
-
-msgid "Pick a mod tile's GameTDB entry"
-msgstr "Escolha a entrada do GameTDB de um bloco de mods"
 
 msgid "Manage game"
 msgstr "Gerenciar jogo"

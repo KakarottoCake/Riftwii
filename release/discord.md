@@ -7,16 +7,21 @@ by the release workflow after the GitHub release is up. Discord's own
 markdown: at most 2000 characters once filled in (the workflow counts).
 
 -->
-{{TESTER_ROLE}} RiftWii {{VERSION}} is out. It replaces 2611-239, which we took down because it gave a black screen or a DSI exception on every real Wii. Sorry about that! {{RELEASE_URL}}
+{{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-**If you updated to 239 and RiftWii won't start:** copy boot.dol from the zip to sd:/apps/riftwii/ (replace the old one). After that it updates itself as usual.
+* **Themes can draw the back of a game's box** (press Up on the shelf) and frame every cover. Three new themes use it: Dashboard, Wave and Plaza, in Settings > Themes > Get more themes.
+* **The menu no longer freezes on "Reading the SD card..."** with big themes.
+* **Games with emulated-NAND saves go back to RiftWii** with HOME > Wii Menu, instead of the Wii Menu. Checked in Dolphin only so far.
+* **A GameCube controller's pointer goes away** when you unplug it.
+* The Rift Store's list got icons for every app and new descriptions (that part is already live).
 
-* **RiftWii starts on a real Wii again.** The crash came from where things ended up in memory, and it never shows in Dolphin. The build now guards against it, and every release gets started on a real Wii before it goes out.
-* **Big game libraries use less memory.** Updates and game details download straight to the SD card, so RiftWii no longer runs out of memory and restarts with hundreds of games.
-* **Settings has new buttons**, in the Wii Menu's style.
+To test, please:
 
-To test: start RiftWii from the Homebrew Channel and from the RiftWii channel. Does the menu come up?
+1. A game with saves in an emulated NAND (the game page's Saves: SD, emulated NAND): HOME > Wii Menu. Do you get back to RiftWii?
+2. Install one of the new themes and turn a box around on the shelf.
+3. Unplug a GameCube controller while its pointer is on screen.
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here.
 
-![Settings](docs/screenshots/2611-239-settings.png)
+![Plaza](docs/screenshots/2611-249-plaza.png)
+![The back of a box](docs/screenshots/2611-249-box-back.png)

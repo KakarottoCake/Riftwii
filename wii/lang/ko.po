@@ -4140,20 +4140,20 @@ msgstr "게임 패키지: 게임이 시작되는 동안 게임 패키지를 보�
 msgid "The Rift Store: get homebrew apps"
 msgstr "Rift Store: 홈브루 앱 받기"
 
-msgid "Search and Layout on Home's bar"
-msgstr "검색과 레이아웃이 홈 바에"
+msgid "Themes can draw the back of the box"
+msgstr "테마가 케이스 뒷면도 그릴 수 있음"
+
+msgid "The menu no longer freezes with big themes"
+msgstr "큰 테마에서도 메뉴가 멈추지 않음"
+
+msgid "Emulated NAND games go back to RiftWii"
+msgstr "에뮬레이트 NAND 게임에서 RiftWii로 돌아옴"
+
+msgid "The GameCube pointer hides when unplugged"
+msgstr "게임큐브 컨트롤러를 빼면 포인터가 사라짐"
 
 msgid "Big libraries use less memory"
 msgstr "게임이 많아도 메모리를 덜 사용"
-
-msgid "USA games play on a Japanese Wii"
-msgstr "미국판 게임이 일본 Wii에서 실행됨"
-
-msgid "The pointer works after a Remote wakes up"
-msgstr "리모컨이 다시 켜져도 포인터가 작동"
-
-msgid "Pick a mod tile's GameTDB entry"
-msgstr "MOD 타일의 GameTDB 항목 선택"
 
 msgid "Manage game"
 msgstr "게임 관리"

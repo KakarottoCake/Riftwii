@@ -8691,21 +8691,21 @@ MORE["fr"]["Game's box: the game's box while it starts; press any button to see 
 T['The Rift Store: get homebrew apps'] = ('Rift Store: consigue apps homebrew', 'Rift Store：homebrewアプリを入手', 'Rift Store: baixe apps homebrew', 'Rift Store: scarica app homebrew')
 MORE["ko"]['The Rift Store: get homebrew apps'] = 'Rift Store: 홈브루 앱 받기'
 MORE["fr"]['The Rift Store: get homebrew apps'] = 'Rift Store : des applis homebrew'
-T["Search and Layout on Home's bar"] = ('Buscar y Diseño en la barra de Inicio', '検索とレイアウトはホームのバーに', 'Buscar e Layout na barra do início', 'Cerca e Layout nella barra della Home')
-MORE["ko"]["Search and Layout on Home's bar"] = '검색과 레이아웃이 홈 바에'
-MORE["fr"]["Search and Layout on Home's bar"] = 'Recherche et Disposition sur la barre'
+T['Themes can draw the back of the box'] = ('Los temas pueden dibujar el dorso de la caja', 'テーマでケースの裏も描ける', 'Temas podem desenhar o verso da caixa', 'I temi possono disegnare il retro della custodia')
+MORE["ko"]['Themes can draw the back of the box'] = '테마가 케이스 뒷면도 그릴 수 있음'
+MORE["fr"]['Themes can draw the back of the box'] = 'Les thèmes peuvent dessiner le dos de la boîte'
+T['The menu no longer freezes with big themes'] = ('El menú ya no se congela con temas grandes', '大きなテーマでもメニューが止まらない', 'O menu não trava mais com temas grandes', 'Il menu non si blocca più con i temi grandi')
+MORE["ko"]['The menu no longer freezes with big themes'] = '큰 테마에서도 메뉴가 멈추지 않음'
+MORE["fr"]['The menu no longer freezes with big themes'] = 'Le menu ne se fige plus avec les gros thèmes'
+T['Emulated NAND games go back to RiftWii'] = ('Los juegos con NAND emulada vuelven a RiftWii', 'エミュレートNANDのゲームからRiftWiiに戻れる', 'Jogos com NAND emulada voltam ao RiftWii', 'I giochi con NAND emulata tornano a RiftWii')
+MORE["ko"]['Emulated NAND games go back to RiftWii'] = '에뮬레이트 NAND 게임에서 RiftWii로 돌아옴'
+MORE["fr"]['Emulated NAND games go back to RiftWii'] = 'Les jeux en NAND émulée reviennent à RiftWii'
+T['The GameCube pointer hides when unplugged'] = ('El puntero de GameCube se oculta al desconectarlo', 'GCコントローラーを抜くとポインターが消える', 'O ponteiro do GameCube some ao desconectar', 'Il puntatore GameCube sparisce se scollegato')
+MORE["ko"]['The GameCube pointer hides when unplugged'] = '게임큐브 컨트롤러를 빼면 포인터가 사라짐'
+MORE["fr"]['The GameCube pointer hides when unplugged'] = 'Le pointeur GameCube disparaît une fois débranché'
 T['Big libraries use less memory'] = ('Las bibliotecas grandes usan menos memoria', 'ゲームが多くてもメモリが足りる', 'Bibliotecas grandes usam menos memória', 'Le librerie grandi usano meno memoria')
 MORE["ko"]['Big libraries use less memory'] = '게임이 많아도 메모리를 덜 사용'
 MORE["fr"]['Big libraries use less memory'] = 'Les grandes bibliothèques utilisent moins de mémoire'
-T['USA games play on a Japanese Wii'] = ('Los juegos de EE. UU. funcionan en una Wii japonesa', '北米版のゲームが日本のWiiで遊べる', 'Jogos dos EUA rodam num Wii japonês', 'I giochi USA funzionano su una Wii giapponese')
-MORE["ko"]['USA games play on a Japanese Wii'] = '미국판 게임이 일본 Wii에서 실행됨'
-MORE["fr"]['USA games play on a Japanese Wii'] = 'Les jeux US marchent sur une Wii japonaise'
-T['The pointer works after a Remote wakes up'] = ('El puntero funciona al despertar el mando', 'リモコンが復帰してもポインターが動く', 'O ponteiro funciona quando o Remote acorda', 'Il puntatore funziona quando il telecomando si riattiva')
-MORE["ko"]['The pointer works after a Remote wakes up'] = '리모컨이 다시 켜져도 포인터가 작동'
-MORE["fr"]['The pointer works after a Remote wakes up'] = 'Le pointeur marche quand la télécommande se réveille'
-T["Pick a mod tile's GameTDB entry"] = ('Elige la entrada de GameTDB de una casilla de mods', 'MODのタイルにGameTDBの項目を選べる', 'Escolha a entrada do GameTDB de um bloco de mods', 'Scegli la voce di GameTDB di un riquadro delle mod')
-MORE["ko"]["Pick a mod tile's GameTDB entry"] = 'MOD 타일의 GameTDB 항목 선택'
-MORE["fr"]["Pick a mod tile's GameTDB entry"] = "Choisissez la fiche GameTDB d'une tuile de mods"
 
 # Game management: own display names and visibility, never file renames.
 T['Manage game'] = ('Gestionar juego', 'ゲームの管理', 'Gerenciar jogo', 'Gestisci gioco')

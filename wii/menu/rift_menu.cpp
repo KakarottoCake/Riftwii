@@ -5295,12 +5295,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Big libraries use less memory",
-	"Pick a mod tile's GameTDB entry",
-	"USA games play on a Japanese Wii",
-	"The pointer works after a Remote wakes up",
+	"Themes can draw the back of the box",
+	"The menu no longer freezes with big themes",
+	"Emulated NAND games go back to RiftWii",
+	"The GameCube pointer hides when unplugged",
 	"The Rift Store: get homebrew apps",
-	"Search and Layout on Home's bar",
+	"Big libraries use less memory",
 };
 
 static std::string WhatsNewText()
