@@ -205,7 +205,11 @@ bool blob_whole(int kind) {
     // round the sum and pass (CodeRabbit on #610); the build's own size must
     // hold its header too.
     if (size < header_bytes || h.magic != RT_PAD_MAGIC || h.version != RT_PAD_VERSION || h.size > size ||
-        h.size < header_bytes || h.context_offset > h.size || context_bytes(kind) > h.size - h.context_offset)
+        h.size < header_bytes || h.context_offset > h.size || context_bytes(kind) > h.size - h.context_offset ||
+        // The context is read as an rt_pad_context: a damaged offset that
+        // isn't aligned for it is the damaged-add-on error too (CodeRabbit
+        // on #609).
+        h.context_offset % alignof(rt_pad_context) != 0)
         return false;
     return kind >= kBlobNoHome || (h.hook_kpad != 0 && h.hook_probe != 0 && h.hook_menu != 0 && h.hook_select != 0 &&
                                    h.hook_unified != 0);
