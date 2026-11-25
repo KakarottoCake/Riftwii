@@ -20770,7 +20770,11 @@ static int SettingsHub(int& focus, bool fromSection)
 		t.h = kH;
 		t.label = sections[i].id == SettingsSection::Count ? std::string(tr("Exit")) : SectionName(sections[i].id);
 		t.icon = sections[i].icon;
-		t.opensPage = true;
+		// Nine large tiles with a name each, as the Wii Menu's: the icon
+		// larger on top and the name centred under it. Every one opens a
+		// page, so no ">" (it looked like a list's, not a menu's).
+		t.stacked = true;
+		t.labelPoints = 20;
 		tilesSpec.push_back(t);
 	}
 
