@@ -272,14 +272,31 @@ std::vector<std::pair<u32, u32>> HeapPieces() {
 
 namespace {
 
-// 96 bytes around `at`, as hex and as text: an overrun shows what wrote it.
-void Dump(u32 at) {
-    const u32 from = (at - 48) & ~15u;
-    for (u32 line = from; line < from + 96; line += 16) {
-        if (!InHeap(line) && !InHeap(line + 15)) continue;
+// 96 bytes around a place in the heap, copied while malloc's lock is held
+// (Snap) and logged as hex and text after it is let go (LogSnap): an
+// overrun shows what wrote it, and the bytes are the ones the walk saw.
+struct HeapSnap {
+    u32 from = 0;      // 0: nothing copied
+    u8 bytes[96] = {};
+    bool in_heap[96] = {};
+};
+
+void Snap(HeapSnap& snap, u32 at) {
+    snap.from = (at - 48) & ~15u;
+    for (u32 i = 0; i < 96; ++i) {
+        const u32 address = snap.from + i;
+        snap.in_heap[i] = InHeap(address);
+        snap.bytes[i] = snap.in_heap[i] ? *reinterpret_cast<const u8*>(address) : 0;
+    }
+}
+
+void LogSnap(const HeapSnap& snap) {
+    if (!snap.from) return;
+    for (u32 line = 0; line < 96; line += 16) {
+        if (!snap.in_heap[line] && !snap.in_heap[line + 15]) continue;
         char hex[3 * 16 + 1], text[17];
         for (u32 i = 0; i < 16; ++i) {
-            const u8 b = InHeap(line + i) ? *reinterpret_cast<const u8*>(line + i) : 0;
+            const u8 b = snap.bytes[line + i];
             static const char kDigits[] = "0123456789abcdef";
             hex[3 * i] = kDigits[b >> 4];
             hex[3 * i + 1] = kDigits[b & 15];
@@ -288,7 +305,7 @@ void Dump(u32 at) {
         }
         hex[3 * 16] = 0;
         text[16] = 0;
-        logf("  %08x  %s %s\n", line, hex, text);
+        logf("  %08x  %s %s\n", snap.from + line, hex, text);
     }
 }
 
@@ -306,9 +323,11 @@ namespace {
 // logged after it is let go (CheckHeap).
 struct HeapWalk {
     char problem[160] = {};
-    u32 bad = 0;       // the damaged chunk, or 0
-    u32 after = 0;     // the chunk after it (an overrun from it shows there), or 0
-    u32 link = 0;      // a free list's bad link inside the heap, or 0
+    // The bytes round the damaged chunk, round the chunk after it (an
+    // overrun from the damaged one shows there) and round a free list's bad
+    // link, each copied under the lock; `after` is that next chunk, or 0.
+    HeapSnap bad, next, link;
+    u32 after = 0;
     u32 chunks = 0;
     u32 free_bytes = 0;
 };
@@ -329,12 +348,12 @@ bool CheckHeap(const char* when) {
     __malloc_unlock(_REENT);
     if (!ok) {
         logf("Heap check (%s): BROKEN: %s\n", when, walk.problem);
-        if (walk.bad) Dump(walk.bad);
+        LogSnap(walk.bad);
         if (walk.after) {
             logf("  the chunk after it, at 0x%08x:\n", walk.after);
-            Dump(walk.after);
+            LogSnap(walk.next);
         }
-        if (walk.link) Dump(walk.link);
+        LogSnap(walk.link);
         return false;
     }
     logf("Heap check (%s): OK, %u chunks in %u piece(s)%s, %u KiB free in the heap\n", when,
@@ -370,10 +389,13 @@ bool WalkHeap(HeapWalk& walk, bool with_total) {
                 std::snprintf(walk.problem, sizeof(walk.problem),
                               "%s at 0x%08x (size word 0x%08x, %u chunks in; the one before at 0x%08x)", why, p, word,
                               static_cast<unsigned>(chunks), before);
-                walk.bad = p;
+                Snap(walk.bad, p);
                 // A chunk counts as free by the next one's header: an
                 // overrun from this chunk's data shows there.
-                if (size >= 16 && p + size + 8 <= end) walk.after = p + size;
+                if (size >= 16 && p + size + 8 <= end) {
+                    walk.after = p + size;
+                    Snap(walk.next, walk.after);
+                }
                 return false;
             }
             before = p;
@@ -395,7 +417,7 @@ bool WalkHeap(HeapWalk& walk, bool with_total) {
             if (why) {
                 std::snprintf(walk.problem, sizeof(walk.problem), "%s: bin 0x%08x, link 0x%08x after %u step(s)", why,
                               bin, p, static_cast<unsigned>(steps));
-                if (InHeap(p)) walk.link = p;
+                if (InHeap(p)) Snap(walk.link, p);
                 return false;
             }
             p = *reinterpret_cast<const u32*>(p + 12);
