@@ -11,6 +11,7 @@
 
 #include "codebuilds.hpp"
 #include "log.hpp"
+#include "mem1tail.h"
 #include "sdwritecheck.hpp"
 #include "memlimits.hpp"
 #include "netpacks.hpp"
@@ -23,9 +24,8 @@ namespace {
 
 mutex_t g_lock = LWP_MUTEX_NULL;
 lwp_t g_thread = LWP_THREAD_NULL;
-// The scan reads FAT and NTFS volumes, parses pack XMLs (pugixml) and
-// looks for network packs: the menu thread's own depth, so a stack as big.
-alignas(32) u8 g_stack[128 * 1024];
+// The scan's stack, riftwii_home_scan_stack, is in wii/core/mem1tail.c:
+// linked last, it is what spans 0x81000000 (mem1tail.h says why).
 
 // Written by the scan thread, read by the menu's, under g_lock.
 std::string g_status;
@@ -153,7 +153,7 @@ void StartDriveScan() {
     logf("Home: looking for games on the SD card, then the USB drive, while the menu runs\n");
     // Below the GUI thread (70) and the menu's, as the cover loader is: the
     // scan mostly waits on the drives, and the menu answers meanwhile.
-    if (LWP_CreateThread(&g_thread, ScanMain, nullptr, g_stack, sizeof(g_stack), 40) < 0) {
+    if (LWP_CreateThread(&g_thread, ScanMain, nullptr, riftwii_home_scan_stack, sizeof(riftwii_home_scan_stack), 40) < 0) {
         g_thread = LWP_THREAD_NULL;
         logf("Home: no thread for the scan; the drives are read before the menu answers\n");
         ScanMain(nullptr);

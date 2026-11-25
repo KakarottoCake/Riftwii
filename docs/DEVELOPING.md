@@ -465,6 +465,10 @@ it. Off by default; a GX buffer that filled up is logged either way
 main's latest commit, with CI's pinned devkitPPC ([RELEASING.md](RELEASING.md)
 has every step, check and error in full). Before running it:
 
+0. Have a tester start the DOL CI built for that commit on a real Wii,
+   from the Homebrew Channel and from the RiftWii channel. Dolphin does
+   not model everything a console does at start-up: 2611-239 ran in
+   Dolphin and failed on every Wii (`docs/MEMORY.md`, "The 16 MiB line").
 1. Bump the version as in step 1 if the release line changes, run the
    checks of step 2, and commit the screenshots (step 4).
 2. Write `release/notes.md` (the GitHub release notes) and
