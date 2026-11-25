@@ -1069,6 +1069,9 @@ bool fetch_pad_build(PadHook& hook, bool code_build, std::string& message) {
     request.build = static_cast<std::uint32_t>(kind);
     request.out = g_build;
     request.capacity = bytes;
+    // Only what this launch's loader says reaches the player: an earlier
+    // value of the caller's string never does (CodeRabbit on #616).
+    message.clear();
     const std::int32_t result = plugin::Launch(kPadsPlugin, &request, sizeof(request), message);
     // The copy needs none of the plugin's code: its arena goes back to the
     // heap before anything else of the launch is placed.
@@ -1084,9 +1087,12 @@ bool fetch_pad_build(PadHook& hook, bool code_build, std::string& message) {
         return false;
     };
     if (result == -1) {
-        // The loader's own line says why; the player gets a sentence too,
-        // not whatever `message` held (CodeRabbit on #616).
-        message = tr("A part of RiftWii couldn't be used (the {1} add-on). Update RiftWii again.", {kPadsPlugin});
+        // plugin::Launch gives its own sentence for the player with -1 (a
+        // missing plugin: "A part of RiftWii is missing ..."): kept, with a
+        // general one only where it gave none (console, 24 Nov: the general
+        // one had replaced "missing").
+        if (message.empty())
+            message = tr("A part of RiftWii couldn't be used (the {1} add-on). Update RiftWii again.", {kPadsPlugin});
         return fail("the plugin could not be used (its own line above says why)", false);
     }
     if (result != RWP_PADS_COPIED)
