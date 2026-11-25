@@ -395,9 +395,10 @@ static void UpdatePadPointers()
 		// pointer on screen for good). The channel goes back to its
 		// Remote, if it has one, and the next controller starts afresh.
 		padGone[i] = padPlugged[i] || classic ? 0 : (padGone[i] < kGoneFrames ? padGone[i] + 1 : kGoneFrames);
-		if (padGone[i] >= kGoneFrames && (padHas[i] || dpadHas[i])) {
+		// The D-pad's mode is left alone: a Wii Remote's D-pad uses it too,
+		// with no controller plugged in, and it hides the pointer anyway.
+		if (padGone[i] >= kGoneFrames && padHas[i]) {
 			padHas[i] = false;
-			dpadHas[i] = false;
 			placed[i] = false;
 			if (!(remote && w->ir.valid)) w->ir.valid = 0;
 		}
