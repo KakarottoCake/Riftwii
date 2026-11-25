@@ -199,7 +199,7 @@ if(BUILD_TESTING)
     add_test(NAME textfile COMMAND textfile_tests)
     set_tests_properties(textfile PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/textfile-test")
     # The real drive-scan lifecycle, with workers and network jobs stepped by the test.
-    add_executable(homescan_tests tests/homescan_tests.cpp wii/menu/homescan.cpp)
+    add_executable(homescan_tests tests/homescan_tests.cpp wii/menu/homescan.cpp wii/core/mem1tail.c)
     target_include_directories(homescan_tests PRIVATE
         tests/homescan_mock tests/movedchannels_mock tests/wii_mock
         wii/menu wii/core wii/storage wii/online wii/launch runtime)
