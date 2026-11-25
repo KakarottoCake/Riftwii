@@ -57,8 +57,8 @@ LOOP_W, LOOP_H, LOOP_FRAMES, LOOP_FPS = 320, 180, 36, 8
 CYAN = (24, 176, 230)
 CYAN_DEEP = (6, 128, 186)
 CYAN_GLOW = (120, 220, 252)
-RIM = (172, 180, 190)
-RIM_DARK = (140, 148, 160)
+RIM = (150, 158, 170)
+RIM_DARK = (112, 120, 134)
 SKY = (52, 160, 208)
 SKY_DEEP = (26, 132, 190)
 GOLD = (246, 196, 40)
@@ -273,7 +273,7 @@ def background(W):
 # --- frosted glass bezels ------------------------------------------------------
 
 def frame(cw, ch, x0, y0, w, h, r, *, lit=False, primary=False, circle=False, thick=None, face=True,
-          shadow=0.30, glow_size=3, ring_w=3.0, bands=None, gloss=0.55):
+          shadow=0.42, glow_size=3, ring_w=3.0, bands=None, gloss=0.55):
     """A thick frosted glass bezel: a soft shadow; a rim of fine grey; the
     glass itself, white and a little see-through, bright at its top left and
     greyer at its bottom right; a gloss over its upper half; a fine dark line
@@ -302,7 +302,7 @@ def frame(cw, ch, x0, y0, w, h, r, *, lit=False, primary=False, circle=False, th
     if primary:
         body = tp.mix((132, 222, 252), (16, 150, 214), diag)
     else:
-        body = tp.mix((255, 255, 255), (218, 224, 232), diag)
+        body = tp.mix((255, 255, 255), (206, 214, 225), diag)
     if bands is not None:
         brgb, k = bands(v, y - y0)
         body = tp.mix(body, brgb, k)
@@ -312,13 +312,13 @@ def frame(cw, ch, x0, y0, w, h, r, *, lit=False, primary=False, circle=False, th
         fd = d - t
         fcov = tp.coverage(fd)
         fv = np.clip((y - y0 - t) / max(h - 2 * t, 1), 0, 1)
-        tp.over(c, tp.mix((240, 244, 248), (230, 235, 241), tp.smooth(fv)), fcov)
+        tp.over(c, tp.mix((238, 242, 247), (224, 230, 238), tp.smooth(fv)), fcov)
         # Sunk: a soft shade under the bezel's top edge inside, and the
         # fine dark line round the inside.
         tp.over(c, (120, 130, 144), np.exp(-np.maximum(fd, 0) / 2.5) * fcov * 0.22 * (1 - 0.6 * fv))
-        tp.over(c, (150, 158, 170), np.clip(1.0 - np.abs(fd - 0.3) / 0.8, 0, 1) * 0.75)
+        tp.over(c, (132, 140, 154), np.clip(1.3 - np.abs(fd - 0.4), 0, 1) * 0.9)
         # The bezel's inner bevel: light at its foot, as glass catching light.
-        tp.over(c, (255, 255, 255), np.clip(1.0 - np.abs(fd + 1.2) / 0.9, 0, 1) * v * 0.8)
+        tp.over(c, (255, 255, 255), np.clip(1.0 - np.abs(fd + 1.3) / 0.9, 0, 1) * 0.9)
     # The gloss: the upper half lit, ending in a soft curve.
     curve = 0.46 - 0.10 * (u - 0.5) ** 2 * 4
     gl = (1 - tp.smooth((v - curve) / 0.06)) * tp.coverage(d - 1.5)
@@ -327,8 +327,11 @@ def frame(cw, ch, x0, y0, w, h, r, *, lit=False, primary=False, circle=False, th
     tl = np.clip(1.0 - np.abs(d - 1.6) / 0.9, 0, 1) * cov * (1 - diag)
     tp.over(c, (255, 255, 255), tl * 0.9)
     # The rim: fine grey, darker at the bottom right.
-    rim_k = np.clip(1.0 - np.abs(d - 0.6) / 0.9, 0, 1) * cov
-    tp.over(c, tp.mix(RIM, RIM_DARK, diag) if not primary else CYAN_DEEP, rim_k * 0.95)
+    rim_k = np.clip(1.4 - np.abs(d - 0.8), 0, 1) * cov
+    tp.over(c, tp.mix(RIM, RIM_DARK, diag) if not primary else CYAN_DEEP, rim_k)
+    if primary:
+        # Aqua glass's own edge: a white line just inside the rim.
+        tp.over(c, (220, 248, 255), np.clip(1.0 - np.abs(d - 2.6) / 0.8, 0, 1) * cov * 0.8)
     if lit:
         ring = np.clip(ring_w + 0.5 - np.abs(d - ring_w / 2 - 0.2), 0, 1) * np.clip(d + 0.5, 0, 1)
         tp.over(c, CYAN, ring)
@@ -360,7 +363,7 @@ def bar(W):
 
 
 def tile(lit=False):
-    return img(frame(140, 100, 8, 7, 124, 84, 16, lit=lit, thick=7))
+    return img(frame(140, 100, 8, 7, 124, 84, 16, lit=lit, thick=8))
 
 
 def tile_empty():
@@ -377,30 +380,26 @@ def tile_empty():
 
 def cover_tile(lit=False):
     """96x128: the bezel round a cover (the cover, 80x112, fills its middle,
-    so the bezel is the 5 pixels round it; 3 clear outside, so neighbouring
+    so the bezel is the 6 pixels round it; 2 clear outside, so neighbouring
     covers' bezels keep a gap)."""
-    return img(frame(96, 128, 3, 3, 90, 122, 11, lit=lit, thick=5, glow_size=2, ring_w=2.2, shadow=0.25))
+    return img(frame(96, 128, 2, 2, 92, 124, 12, lit=lit, thick=6, glow_size=2, ring_w=2.4))
 
 
 def tile9(lit=False, primary=False):
-    return img(frame(64, 64, 8, 8, 48, 48, 13, lit=lit, primary=primary, thick=3.5, face=False, gloss=0.5))
+    return img(frame(64, 64, 8, 8, 48, 48, 13, lit=lit, primary=primary, thick=4.5, gloss=0.5))
 
 
 def pill(lit=False, primary=False):
-    return img(frame(252, 60, 4, 4, 244, 52, 26, lit=lit, primary=primary, face=False, shadow=0.25, glow_size=2))
+    return img(frame(252, 60, 4, 4, 244, 52, 26, lit=lit, primary=primary, thick=4.5, glow_size=2))
 
 
 def home_button(lit=False):
-    return img(frame(264, 88, 8, 8, 248, 72, 36, lit=lit, face=False, glow_size=3))
+    return img(frame(264, 88, 8, 8, 248, 72, 36, lit=lit, thick=6, glow_size=3))
 
 
 def round_button(lit=False):
     """80x80: a white glass disc with a grey rim and a deep gloss."""
-    c = frame(80, 80, 3, 3, 74, 74, 37, lit=lit, circle=True, face=False, shadow=0.28, glow_size=2, gloss=0.7)
-    x, y = tp.grid(80, 80)
-    # A faint ring inside, as the disc's raised middle.
-    d = 31.5 - np.hypot(x - 40, y - 40)
-    tp.over(c, (196, 204, 214), np.clip(1.0 - np.abs(d) / 0.8, 0, 1) * 0.5)
+    c = frame(80, 80, 3, 3, 74, 74, 37, lit=lit, circle=True, thick=6, glow_size=2, gloss=0.7)
     return img(c)
 
 
