@@ -30,6 +30,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
+import zlib
 
 SCHEMA = 1
 SITE = "https://riftwii.github.io/"
@@ -338,6 +339,92 @@ def cmd_update(args):
     print(f"{changed} app(s) pinned to a new release")
 
 
+def own_icon(path, where):
+    """The icon kept beside the manifest (apps/<id>.png), or None.
+
+    For an app whose download has no icon RiftWii can take (a 7z, rar or
+    tar file, or a zip without one), or whose own icon needs replacing. It
+    must be a Homebrew Channel icon: a PNG of 128 x 48, at most MAX_ICON.
+    """
+    icon_path = os.path.splitext(path)[0] + ".png"
+    if not os.path.isfile(icon_path):
+        return None
+    if os.path.getsize(icon_path) > MAX_ICON:
+        raise AppError(f"{where}: {os.path.basename(icon_path)} is over {MAX_ICON} bytes")
+    with open(icon_path, "rb") as f:
+        icon = f.read()
+    # The PNG signature, then IHDR's width and height (big-endian).
+    name = os.path.basename(icon_path)
+    problem = png_problem(icon)
+    if problem:
+        raise AppError(f"{where}: {name} is not a whole PNG ({problem})")
+    width = int.from_bytes(icon[16:20], "big")
+    height = int.from_bytes(icon[20:24], "big")
+    if (width, height) != (128, 48):
+        raise AppError(f"{where}: {name} is {width} x {height}; a Homebrew Channel icon is 128 x 48")
+    return icon
+
+
+def png_problem(data):
+    """What keeps `data` from being a whole PNG, or None.
+
+    Every chunk's length and CRC, IHDR first, a palette for a palette
+    image, the image data present and unpacking to the size IHDR gives,
+    and IEND last: the Wii's decoder refuses a file that stops early.
+    """
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        return "no PNG signature"
+    at, header, idat, palette, ended = 8, None, b"", False, False
+    while at < len(data):
+        if ended:
+            return "data after IEND"
+        if len(data) - at < 12:
+            return "it ends inside a chunk"
+        length = int.from_bytes(data[at:at + 4], "big")
+        kind = data[at + 4:at + 8]
+        if length > len(data) - at - 12:
+            return "it ends inside a chunk"
+        body = data[at + 8:at + 8 + length]
+        crc = int.from_bytes(data[at + 8 + length:at + 12 + length], "big")
+        if zlib.crc32(kind + body) != crc:
+            return f"the {kind.decode('latin-1')} chunk is damaged"
+        if header is None and kind != b"IHDR":
+            return "it does not start with IHDR"
+        if kind == b"IHDR":
+            if header is not None or length != 13:
+                return "a bad IHDR"
+            header = body
+        elif kind == b"PLTE":
+            palette = True
+        elif kind == b"IDAT":
+            idat += body
+        elif kind == b"IEND":
+            ended = True
+        at += 12 + length
+    if not ended:
+        return "no IEND"
+    if not idat:
+        return "no image data"
+    width = int.from_bytes(header[0:4], "big")
+    height = int.from_bytes(header[4:8], "big")
+    depth, colour, interlace = header[8], header[9], header[12]
+    channels = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}.get(colour)
+    if channels is None or depth not in (1, 2, 4, 8, 16) or interlace > 1:
+        return "an unsupported kind of PNG"
+    if colour == 3 and not palette:
+        return "a palette image without a palette"
+    try:
+        pixels = zlib.decompress(idat)
+    except zlib.error:
+        return "its image data does not unpack"
+    # Each row: a filter byte, then its samples. An interlaced image's
+    # seven passes are smaller and not counted here.
+    expected = height * (1 + (width * channels * depth + 7) // 8)
+    if interlace == 0 and len(pixels) != expected:
+        return f"its image data unpacks to {len(pixels)} bytes, not {expected}"
+    return None
+
+
 def build_one(path, m, token, cache, icons):
     """The app's apps.json record, after checking its download."""
     check_manifest(m, path)
@@ -395,6 +482,8 @@ def build_one(path, m, token, cache, icons):
                     icon = entry.read(MAX_ICON + 1)
     else:
         icon = None
+    # An icon beside the manifest wins over the download's.
+    icon = own_icon(path, where) or icon
     record = {
         "id": m["id"], "name": m["name"], "author": m["author"], "version": version, "released": released,
         "category": m["category"], "description": m["description"], "page": m["page"],

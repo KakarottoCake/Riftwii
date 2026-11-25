@@ -7,6 +7,7 @@ import io
 import tempfile
 import unittest
 import urllib.error
+import zlib
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -139,6 +140,61 @@ class RuleTests(unittest.TestCase):
         self.assertIsNone(app_list.install_path(rules, "../wii/gcmm/boot.dol"))
         self.assertIsNone(app_list.install_path(rules, "./wii/gcmm/boot.dol"))
         self.assertIsNone(app_list.install_path(rules, "..\\wii\\gcmm\\boot.dol"))
+
+
+
+def _chunk(kind, body):
+    return len(body).to_bytes(4, "big") + kind + body + zlib.crc32(kind + body).to_bytes(4, "big")
+
+
+def _png(width, height):
+    """A whole RGBA PNG of that size, every pixel clear."""
+    header = width.to_bytes(4, "big") + height.to_bytes(4, "big") + b"\x08\x06\x00\x00\x00"
+    rows = (b"\x00" + b"\x00" * width * 4) * height
+    return (b"\x89PNG\r\n\x1a\n" + _chunk(b"IHDR", header) + _chunk(b"IDAT", zlib.compress(rows)) +
+            _chunk(b"IEND", b""))
+
+
+class OwnIconTests(unittest.TestCase):
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory()
+        self.manifest = Path(self.folder.name) / "x.json"
+        self.icon = Path(self.folder.name) / "x.png"
+
+    def tearDown(self):
+        self.folder.cleanup()
+
+    def test_no_file_means_no_icon(self):
+        self.assertIsNone(app_list.own_icon(str(self.manifest), "x.json"))
+
+    def test_a_homebrew_channel_icon_is_taken(self):
+        self.icon.write_bytes(_png(128, 48))
+        self.assertEqual(app_list.own_icon(str(self.manifest), "x.json"), _png(128, 48))
+
+    def test_other_sizes_and_non_pngs_are_refused(self):
+        self.icon.write_bytes(_png(256, 96))
+        with self.assertRaises(app_list.AppError):
+            app_list.own_icon(str(self.manifest), "x.json")
+        self.icon.write_bytes(b"GIF89a" + b"\x00" * 40)
+        with self.assertRaises(app_list.AppError):
+            app_list.own_icon(str(self.manifest), "x.json")
+
+    def test_a_cut_or_damaged_png_is_refused(self):
+        whole = _png(128, 48)
+        cut = whole[:-12]  # no IEND
+        damaged = bytearray(whole)
+        damaged[40] ^= 0xFF  # inside IDAT: its CRC no longer matches
+        header_only = whole[:33]
+        short_data = (whole[:33] + _chunk(b"IDAT", zlib.compress(b"\x00" * 10)) + _chunk(b"IEND", b""))
+        for data in (cut, bytes(damaged), header_only, short_data):
+            self.icon.write_bytes(data)
+            with self.assertRaises(app_list.AppError):
+                app_list.own_icon(str(self.manifest), "x.json")
+
+    def test_a_file_over_the_cap_is_refused(self):
+        self.icon.write_bytes(_png(128, 48) + b"\x00" * app_list.MAX_ICON)
+        with self.assertRaises(app_list.AppError):
+            app_list.own_icon(str(self.manifest), "x.json")
 
 
 if __name__ == "__main__":
