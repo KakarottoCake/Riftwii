@@ -517,6 +517,9 @@ int main() {
     const riftwii::wii::RestartNote restart = riftwii::wii::TakeRestartNote();
     riftwii::wii::startup::Mark(Step::Crash);
     riftwii::wii::CrashInstall();
+    // Looked up now, on the console's own NAND, and remembered: a launch's
+    // d2x NAND emulation hides it later (channel.cpp, ChannelTitle).
+    riftwii::wii::ChannelTitle();
     bool sd_mounted = MountStartupSd();
     AdoptCtgprReturnPath(sd_mounted);
     riftwii::wii::startup::Mark(Step::TestLimits);
