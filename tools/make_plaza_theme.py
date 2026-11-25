@@ -1,26 +1,32 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 RiftWii contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Writes Plaza, a RiftWii menu theme: an airy, almost white wall with soft
-pale shapes drifting slowly across it, thick glossy white frames with a
-pale grey rim, and bright cyan for whatever is lit.
+"""Writes Plaza, a RiftWii menu theme in the spirit of the early-2010s
+console menus and their glossy "aero" look: an airy white wall with big
+faint ghost tiles and glossy aqua bubbles drifting on it, thick frosted
+glass bezels round every tile and cover, big glossy white arrows, and sky
+blue for game boxes, with bright cyan for whatever is lit.
 
 Every picture, sound and the music are worked out here from arithmetic
-alone (no photo, texture, screenshot, recording or picture from anywhere
-else):
+alone (no photo, texture, screenshot, logo, recording or picture from
+anywhere else):
 
 - backdrop_00.png ... : the looping wall, 320x180 frames that RiftWii scales
-  to cover the screen: soft rounded squares and circles, a shade off white,
-  drifting on small closed paths (whole turns a loop, so it has no seam);
+  to cover the screen: ghost tiles and rings, soft light and glass bubbles
+  bobbing on small closed paths (whole turns a loop, so it has no seam);
 - background.png / background_wide.png: the same wall, still, full size;
-- bar.png / bar_wide.png: Home's bottom bar, a bright glossy white strip
-  with a soft grey shadow along its top, dipping under the clock;
-- tiles, cover cards, the game page's and Settings' tiles, the wide and
-  round buttons, the HOME Menu's buttons: thick glossy white frames, a pale
-  grey rim, a fine inner bevel and a soft shadow; lit, a cyan ring;
-- option chips, the lit list row, the option and scroll arrows, switches,
-  panels, the popup, the banner's stripes, Home's page arrows, the shelf
-  and the blank cover in the same white and cyan;
+- bar.png / bar_wide.png: Home's bottom bar, a strip of frosted glass with a
+  bright rim, dipping under the clock;
+- tiles, cover cards, the game page's and Settings' tiles, the wide buttons,
+  the HOME Menu's buttons: thick frosted glass bezels, lit from the top
+  left, a gloss over their upper half, a fine dark line round the inside;
+  lit, a cyan rim and glow; the main button in aqua glass;
+- round buttons: white glass discs; Home's page arrows: big glossy white
+  triangles; option chips, the lit list row, switches, panels, the popup,
+  the banner's stripes and the shelf in the same glass;
+- blank_cover.png: the sleeve of a game without box art: sky blue with a
+  gold arc across the top; blank_back.png: its box's back, the same blue
+  with outlined info panels, a rating box and a barcode;
 - music.ogg: a light, bouncy original tune (soft mallets over a round bass
   and brushed beat), synthesised here and encoded with ffmpeg's Vorbis;
 - hover.wav, click.wav, home_open.wav, home_close.wav: soft synthesised
@@ -48,74 +54,78 @@ TAU = 2 * math.pi
 
 LOOP_W, LOOP_H, LOOP_FRAMES, LOOP_FPS = 320, 180, 36, 8
 
-CYAN = (30, 178, 232)
-CYAN_DEEP = (8, 134, 190)
-CYAN_GLOW = (110, 214, 250)
-WHITE = (255, 255, 255)
-RIM = (196, 202, 210)
-RIM_DARK = (160, 168, 178)
+CYAN = (24, 176, 230)
+CYAN_DEEP = (6, 128, 186)
+CYAN_GLOW = (120, 220, 252)
+RIM = (172, 180, 190)
+RIM_DARK = (140, 148, 160)
+SKY = (52, 160, 208)
+SKY_DEEP = (26, 132, 190)
+GOLD = (246, 196, 40)
 
 INI = """[theme]
 name = Plaza
 author = RiftWii contributors
 
 [shape]
-# Thick, well rounded glossy frames.
+# Thick, well rounded glass bezels, their gloss drawn in the pictures.
 corners = 1.3
-gloss = yes
+gloss = no
 bar = dip
 shelf_grain = no
 home_menu = wii
+# Every cover sits in its glass bezel (cover_tile.png), not only the lit one.
+cover_frames = yes
 
 [backdrop]
-# backdrop_00.png to backdrop_35.png: soft pale shapes drift on the white
-# wall, 4.5 seconds a loop. RiftWii versions without looping backdrops
-# show background.png.
+# backdrop_00.png to backdrop_35.png: ghost tiles and glass bubbles bob on
+# the white wall, 4.5 seconds a loop. RiftWii versions without looping
+# backdrops show background.png.
 stripes = no
 frames = 36
 fps = 8
 
 [colors]
 # Text: dark grey on white
-ink = #333840
-ink_soft = #4E5560
-ink_dim = #6C737E
-clock = #5E6570
+ink = #30353D
+ink_soft = #4A515C
+ink_dim = #646B76
+clock = #5A616C
 # Cyan marks what is lit; dark text on it
-accent = #1EB2E8
-accent_ink = #0A6E9A
-text_on_accent = #062A3C
+accent = #18B0E6
+accent_ink = #0A6A96
+text_on_accent = #05283A
 warn = #C0392B
 
-# Glossy white frames
-card = #FFFFFF
-card_edge = #C9CED6
-card_edge_strong = #AEB5BF
-shadow = #3C465024
-glow = #1EB2E860
-glyph = #5A616C
+# Frosted glass frames
+card = #F7F9FB
+card_edge = #C2C9D2
+card_edge_strong = #A6AEB9
+shadow = #3C465030
+glow = #18B0E670
+glyph = #59616C
 
 # Option chips and switches
 chip_on = #DDF3FC
-chip_off = #F4F6F8
-chip_off_edge = #CDD2DA
-switch_off = #CDD2DA
+chip_off = #F2F5F8
+chip_off_edge = #C9CFD8
+switch_off = #C9CFD8
 
 # Background and bars
-bar = #EEF1F4
-backdrop = #F3F5F7
-backdrop_stripe = #F3F5F7
+bar = #EDF1F5
+backdrop = #F1F4F7
+backdrop_stripe = #F1F4F7
 banner_stripe = #FFFFFF26
 # The games' own colours, kept
 banner_tint = #00000000
 
 # Lists and badges
-divider = #E3E7EC
-scroll_track = #E6E9EE
-scroll_thumb = #A9B0BA
-badge = #EDF0F3
-shelf = #FBFCFD
-shelf_edge = #D3D8DF
+divider = #E0E5EB
+scroll_track = #E3E7EC
+scroll_thumb = #A3ABB6
+badge = #EAEEF2
+shelf = #F8FAFC
+shelf_edge = #CDD3DB
 
 # Player pointers
 pointer1 = #3B8FD6
@@ -127,9 +137,9 @@ pointer4 = #D9A21B
 LICENSE = """License: CC0-1.0
 Author: RiftWii contributors
 
-Plaza, a theme for RiftWii: an airy, almost white wall with soft pale
-shapes drifting across it, thick glossy white frames with a pale grey rim,
-and bright cyan for what is lit.
+Plaza, a theme for RiftWii: an airy white wall with ghost tiles and glossy
+bubbles drifting across it, thick frosted glass bezels, big glossy arrows,
+sky blue game boxes and bright cyan for what is lit.
 
 To the extent possible under law, the author has waived all copyright and
 related or neighboring rights to this theme (theme.ini, every PNG picture,
@@ -139,14 +149,41 @@ Universal: https://creativecommons.org/publicdomain/zero/1.0/
 The pictures, including the looping backdrop's 36 frames, the music and the
 sounds were made by RiftWii's tools/make_plaza_theme.py
 (https://github.com/KakarottoCake/Riftwii) from arithmetic alone: no source
-images, textures, fonts, recordings or samples. The tune is an original
-composition.
+images, textures, logos, fonts, recordings or samples. The tune is an
+original composition.
 
 Third-party parts: none.
 """
 
 
 # --- the wall ----------------------------------------------------------------
+
+def bubble(c, x, y, cx, cy, r, a=1.0):
+    """A glass bubble: clear in the middle, aqua towards its rim (as glass
+    seen edge on), a bright rim, a big soft highlight at its top left and a
+    small reflected light at its foot."""
+    d = r - np.hypot(x - cx, y - cy)            # > 0 inside
+    cov = tp.coverage(d)
+    edge = np.clip(1 - d / r, 0, 1)
+    tp.over(c, (150, 214, 240), cov * a * (0.10 + 0.38 * edge ** 3))
+    tp.over(c, (255, 255, 255), np.clip(1.0 - np.abs(d - 0.8) / 1.0, 0, 1) * a * 0.75)
+    hx, hy = cx - 0.36 * r, cy - 0.40 * r
+    spec = np.exp(-(((x - hx) / (0.34 * r)) ** 2 + ((y - hy) / (0.22 * r)) ** 2))
+    tp.over(c, (255, 255, 255), spec * cov * a * 0.85)
+    foot = np.exp(-(((x - cx - 0.15 * r) / (0.45 * r)) ** 2 + ((y - cy - 0.62 * r) / (0.14 * r)) ** 2))
+    tp.add_light(c, (190, 240, 255), foot * cov * a * 0.35)
+
+
+def ghost_tile(c, x, y, cx, cy, half, blur, a):
+    """A big faint ghost of a tile: a thick soft white bezel with a grey
+    edge, as the menu's own tiles seen out of focus behind it."""
+    d, _, _ = tp.rrect(x, y, cx - half, cy - half, 2 * half, 2 * half, half * 0.30)
+    t = half * 0.16
+    ring = tp.smooth(d / blur + 0.5) * (1 - tp.smooth((d - t) / blur + 0.5))
+    tp.over(c, (255, 255, 255), ring * a)
+    tp.over(c, (196, 204, 214), np.exp(-(d / (blur * 1.2)) ** 2) * a * 0.5)
+    tp.over(c, (210, 216, 224), np.exp(-((d - t) / (blur * 1.2)) ** 2) * a * 0.4)
+
 
 def wall(W, H, t, u0=0.0, u1=1.0, scale=None):
     if scale is None:
@@ -155,52 +192,63 @@ def wall(W, H, t, u0=0.0, u1=1.0, scale=None):
     u = u0 + (u1 - u0) * x / W
     v = y / H
     c = tp.canvas(W, H)
-    base = tp.mix((250, 251, 252), (232, 236, 240), tp.smooth(v * 0.9 + 0.1 * np.abs(u - 0.5)))
-    vig = tp.smooth(((u - 0.5) / 0.8) ** 2 + ((v - 0.45) / 0.8) ** 2)
-    base = tp.mix(base, (214, 220, 228), 0.45 * vig)
+    # White at the top, a breath of sky blue towards the foot, a soft grey
+    # vignette; a broad light from the top left.
+    base = tp.mix((252, 253, 254), (226, 236, 244), tp.smooth(v * 0.85 + 0.15 * np.abs(u - 0.5)))
+    vig = tp.smooth(((u - 0.5) / 0.75) ** 2 + ((v - 0.45) / 0.8) ** 2)
+    base = tp.mix(base, (206, 214, 224), 0.40 * vig)
     c[..., :3] = base
     c[..., 3] = 1.0
-    # A faint square grid, as squared paper: fine light lines, a little
-    # darker every fourth one, fading out towards the floor.
-    cell = 20 * scale
-    gx = np.abs(((x + u0 * W / (u1 - u0)) % cell) - cell / 2)
-    gy = np.abs((y % cell) - cell / 2)
-    line = np.clip(1.2 - (cell / 2 - np.minimum(gx, gy)) / max(0.6 * scale, 0.6), 0, 1)
-    tp.over(c, (206, 213, 222), line * 0.22 * (1 - 0.6 * v))
+    ray = np.exp(-((u * 0.9 - v * 0.55 - 0.05) / 0.16) ** 2) * (1 - tp.smooth(v / 0.9))
+    tp.add_light(c, (255, 255, 255), 0.35 * ray)
     ph = TAU * t
-    rng = np.random.default_rng(1211)
-    count = 26
-    for j in range(count):
-        # Kept clear of the far edges, which RiftWii may mirror.
-        cu = 0.07 + rng.random() * 0.86
-        cv = rng.random() * 0.95
-        size = 0.035 + rng.random() * 0.085      # half-size, in screen heights
-        radius_turn = 0.008 + rng.random() * 0.02
-        turns = 1 if rng.random() < 0.7 else -1
+    rng = np.random.default_rng(2112)
+    # Ghost tiles and rings, large and out of focus.
+    for _ in range(9):
+        cu = 0.10 + rng.random() * 0.80
+        cv = 0.08 + rng.random() * 0.80
+        half = (0.10 + rng.random() * 0.10) * H
+        a = 0.30 + rng.random() * 0.20
         phase = rng.random() * TAU
-        rounded = rng.random() < 0.6
-        tint = (226, 232, 240) if rng.random() < 0.7 else (214, 236, 246)
-        depth = rng.random()
-        # A small closed path: a whole turn a loop.
-        pu = cu + radius_turn * math.cos(turns * ph + phase) * (H / W) * 1.6
-        pv = cv + radius_turn * math.sin(turns * ph + phase)
+        radius = 0.010 + rng.random() * 0.012
+        pu = cu + radius * math.cos(ph + phase) * (H / W) * 1.6
+        pv = cv + radius * math.sin(ph + phase)
         px = (pu - u0) / (u1 - u0) * W
-        py = pv * H
-        half = size * H
-        blur_px = (1.0 + 3.5 * depth) * scale
-        if rounded:
-            d, _, _ = tp.rrect(x, y, px - half, py - half, 2 * half, 2 * half, half * 0.32)
+        if rng.random() < 0.65:
+            ghost_tile(c, x, y, px, pv * H, half, (2.4 + 3.0 * rng.random()) * scale, a)
         else:
-            d = tp.circle(x, y, px, py, half)
-        a = tp.smooth(d / blur_px + 0.5) * (0.38 + 0.25 * (1 - depth))
-        # A light rim: the shapes are glassy, lit from above.
-        rim = np.exp(-((d - 1.5 * scale) / (1.2 * scale)) ** 2) * (0.25 * (1 - depth))
-        tp.over(c, tint, a)
-        tp.over(c, (255, 255, 255), rim * tp.smooth((py - y) / half + 0.6))
+            d = half - np.hypot(x - px, y - pv * H)
+            t_ring = half * 0.14
+            blur = 3.2 * scale
+            ring = tp.smooth(d / blur + 0.5) * (1 - tp.smooth((d - t_ring) / blur + 0.5))
+            tp.over(c, (255, 255, 255), ring * a)
+            tp.over(c, (200, 208, 218), np.exp(-(d / (blur * 1.2)) ** 2) * a * 0.45)
+    # Glossy swooshes of aqua light across the lower part, each a
+    # see-through band with a bright upper edge, waving a whole turn a loop.
+    for k, (base, amp, freq, thick, a) in enumerate(((0.70, 0.07, 0.8, 0.055, 0.30),
+                                                      (0.80, 0.05, 1.1, 0.040, 0.26),
+                                                      (0.62, 0.04, 0.6, 0.025, 0.20))):
+        mid = base + amp * np.sin(TAU * freq * u + 1.7 * k + ph * (1 if k % 2 == 0 else -1))
+        band = np.exp(-((v - mid) / thick) ** 2)
+        tint = (150, 222, 236) if k != 1 else (170, 230, 200)
+        tp.over(c, tint, band * a * 0.8)
+        top = np.exp(-((v - (mid - thick * 0.9)) / 0.006) ** 2)
+        tp.over(c, (255, 255, 255), top * a * 1.6)
+    # Glass bubbles, bobbing.
+    for _ in range(20):
+        cu = 0.06 + rng.random() * 0.88
+        cv = 0.06 + rng.random() * 0.88
+        r = (0.020 + rng.random() ** 2 * 0.085) * H
+        phase = rng.random() * TAU
+        turns = 1 if rng.random() < 0.6 else -1
+        amp = 0.010 + rng.random() * 0.016
+        pu = cu + 0.5 * amp * math.sin(turns * ph + phase) * (H / W)
+        pv = cv + amp * math.cos(turns * ph + phase)
+        bubble(c, x, y, (pu - u0) / (u1 - u0) * W, pv * H, r, a=0.55 + 0.4 * rng.random())
     return c
 
 
-def wall_smooth(W, H, t, u0=0.0, u1=1.0, ss=2):
+def wall_smooth(W, H, t, u0=0.0, u1=1.0, ss=3):
     big = wall(W * ss, H * ss, t, u0, u1, scale=H * ss / LOOP_H)
     out = tp.canvas(W, H)
     out[..., :3] = big[..., :3].reshape(H, ss, W, ss, 3).mean(axis=(1, 3))
@@ -222,15 +270,16 @@ def background(W):
     return tp.to_image(wall(W, 480, 0.0, u0, u0 + span, scale=480 / LOOP_H), opaque=True)
 
 
-# --- glossy white frames ---------------------------------------------------------
+# --- frosted glass bezels ------------------------------------------------------
 
-def frame(cw, ch, x0, y0, w, h, r, *, lit=False, primary=False, circle=False, thick=None, inner=True,
-          shadow=0.30, face=None, glow_size=3, ring_w=3.0, bands=None):
-    """A thick glossy white frame: a soft shadow, a white body with a gentle
-    top-to-bottom shade, a pale grey rim, a fine bevel inside it (the frame
-    a few pixels thick round a slightly greyer face) and a soft gloss on the
-    upper half; `primary` a cyan body; lit, a cyan ring and a faint cyan
-    glow."""
+def frame(cw, ch, x0, y0, w, h, r, *, lit=False, primary=False, circle=False, thick=None, face=True,
+          shadow=0.30, glow_size=3, ring_w=3.0, bands=None, gloss=0.55):
+    """A thick frosted glass bezel: a soft shadow; a rim of fine grey; the
+    glass itself, white and a little see-through, bright at its top left and
+    greyer at its bottom right; a gloss over its upper half; a fine dark line
+    round its inside edge and a pale face sunk inside it (`face`); the whole
+    shape solid glass when `face` is off. `primary`: aqua glass. Lit: a cyan
+    rim and a cyan glow round it."""
     x, y = tp.grid(cw, ch)
     if circle:
         d = tp.circle(x, y, x0 + w / 2, y0 + h / 2, w / 2)
@@ -246,42 +295,44 @@ def frame(cw, ch, x0, y0, w, h, r, *, lit=False, primary=False, circle=False, th
         g[..., :3] = CYAN_GLOW
         g[..., 3] = cov
         g = tp.blur(g, glow_size)
-        tp.over(c, CYAN_GLOW, g[..., 3] * 0.75)
+        tp.over(c, CYAN_GLOW, g[..., 3] * 0.85)
+    u = np.clip((x - x0) / w, 0, 1)
     v = np.clip((y - y0) / h, 0, 1)
+    diag = tp.smooth(0.35 * u + 0.65 * v)
     if primary:
-        body = tp.mix((96, 212, 250), (14, 150, 214), tp.smooth(v))
+        body = tp.mix((132, 222, 252), (16, 150, 214), diag)
     else:
-        body = tp.mix((255, 255, 255), (232, 236, 241), tp.smooth(v))
-    if face is not None:
-        body = tp.mix(body, face, 0.0)
+        body = tp.mix((255, 255, 255), (218, 224, 232), diag)
     if bands is not None:
         brgb, k = bands(v, y - y0)
         body = tp.mix(body, brgb, k)
-    tp.over(c, body, cov)
-    t = thick if thick is not None else max(3.0, min(w, h) * 0.07)
-    if inner:
-        # The face inside the frame: a touch greyer, sunk by a fine bevel
-        # (dark at its top edge, light at its foot).
+    tp.over(c, body, cov * 0.96)
+    t = thick if thick is not None else max(4.0, min(w, h) * 0.085)
+    if face and not primary:
         fd = d - t
         fcov = tp.coverage(fd)
-        face_rgb = tp.mix((246, 248, 250), (236, 240, 244), tp.smooth(v)) if not primary else \
-            tp.mix((70, 196, 244), (20, 160, 222), tp.smooth(v))
-        tp.over(c, face_rgb, fcov * 0.9)
-        bevel_dark = np.exp(-((fd - 0.4) / 0.8) ** 2) * (1 - v)
-        bevel_light = np.exp(-((fd - 0.4) / 0.8) ** 2) * v
-        tp.over(c, (150, 160, 172) if not primary else (6, 110, 160), bevel_dark * 0.45)
-        tp.over(c, (255, 255, 255), bevel_light * 0.8)
-    # The gloss: the upper half brighter, ending in a soft line.
-    gl = (1 - tp.smooth((v - 0.42) / 0.08)) * 0.35 * tp.coverage(d - 2)
-    tp.over(c, (255, 255, 255), gl * (0.55 if primary else 0.8))
-    # The rim: pale grey, darker towards the bottom.
-    rim_k = np.clip(1.0 - np.abs(d - 0.7) / 0.9, 0, 1) * cov
-    rim_rgb = tp.mix(RIM, RIM_DARK, tp.smooth(v))
-    tp.over(c, rim_rgb if not primary else CYAN_DEEP, rim_k * 0.95)
+        fv = np.clip((y - y0 - t) / max(h - 2 * t, 1), 0, 1)
+        tp.over(c, tp.mix((240, 244, 248), (230, 235, 241), tp.smooth(fv)), fcov)
+        # Sunk: a soft shade under the bezel's top edge inside, and the
+        # fine dark line round the inside.
+        tp.over(c, (120, 130, 144), np.exp(-np.maximum(fd, 0) / 2.5) * fcov * 0.22 * (1 - 0.6 * fv))
+        tp.over(c, (150, 158, 170), np.clip(1.0 - np.abs(fd - 0.3) / 0.8, 0, 1) * 0.75)
+        # The bezel's inner bevel: light at its foot, as glass catching light.
+        tp.over(c, (255, 255, 255), np.clip(1.0 - np.abs(fd + 1.2) / 0.9, 0, 1) * v * 0.8)
+    # The gloss: the upper half lit, ending in a soft curve.
+    curve = 0.46 - 0.10 * (u - 0.5) ** 2 * 4
+    gl = (1 - tp.smooth((v - curve) / 0.06)) * tp.coverage(d - 1.5)
+    tp.over(c, (255, 255, 255), gl * gloss * (0.55 if primary else 0.65))
+    # The top-left highlight just inside the rim.
+    tl = np.clip(1.0 - np.abs(d - 1.6) / 0.9, 0, 1) * cov * (1 - diag)
+    tp.over(c, (255, 255, 255), tl * 0.9)
+    # The rim: fine grey, darker at the bottom right.
+    rim_k = np.clip(1.0 - np.abs(d - 0.6) / 0.9, 0, 1) * cov
+    tp.over(c, tp.mix(RIM, RIM_DARK, diag) if not primary else CYAN_DEEP, rim_k * 0.95)
     if lit:
         ring = np.clip(ring_w + 0.5 - np.abs(d - ring_w / 2 - 0.2), 0, 1) * np.clip(d + 0.5, 0, 1)
         tp.over(c, CYAN, ring)
-        tp.over(c, (180, 236, 255), np.clip(1.0 - np.abs(d - ring_w - 0.4) / 0.7, 0, 1) * cov * 0.6)
+        tp.over(c, (200, 244, 255), np.clip(1.0 - np.abs(d - ring_w - 0.5) / 0.7, 0, 1) * cov * 0.7)
     return c
 
 
@@ -290,68 +341,76 @@ def img(c):
 
 
 def bar(W):
-    """W x 124: a glossy white strip with a soft grey shadow along its top
-    edge and a fine cyan line, dipping under the clock."""
+    """W x 124: a strip of frosted glass with a bright rim and a fine cyan
+    line along its curved top, a gloss under the edge, dipping under the
+    clock."""
     H = 124
     tops = tp.bar_tops(W)
     x, y = tp.grid(W, H)
     d = y - tops[None, :]
     c = tp.canvas(W, H)
-    tp.over(c, (60, 72, 88), 0.22 * np.exp(np.minimum(d, 0) / 4.0) * (d < 0.5))
+    tp.over(c, (60, 72, 88), 0.18 * np.exp(np.minimum(d, 0) / 4.0) * (d < 0.5))
     k = np.clip((y - 11) / (H - 11), 0, 1)
-    body = tp.mix((252, 253, 254), (226, 231, 237), tp.smooth(k))
-    tp.over(c, body, tp.coverage(d))
-    tp.over(c, (255, 255, 255), 0.7 * np.exp(-np.maximum(d - 2, 0) / 5.0) * (d > 1.5))
-    tp.over(c, RIM_DARK, np.clip(1.0 - np.abs(d - 0.6) / 0.9, 0, 1) * 0.9)
-    tp.over(c, CYAN, np.clip(1.0 - np.abs(d - 2.2) / 0.8, 0, 1) * 0.55)
+    body = tp.mix((250, 252, 254), (222, 230, 238), tp.smooth(k))
+    tp.over(c, body, tp.coverage(d) * 0.92)
+    tp.over(c, (255, 255, 255), 0.75 * np.exp(-np.maximum(d - 2, 0) / 7.0) * (d > 1.5))
+    tp.over(c, RIM, np.clip(1.0 - np.abs(d - 0.6) / 0.9, 0, 1) * 0.9)
+    tp.over(c, CYAN, np.clip(1.0 - np.abs(d - 2.2) / 0.8, 0, 1) * 0.45)
     return tp.to_image(c)
 
 
 def tile(lit=False):
-    return img(frame(140, 100, 8, 7, 124, 84, 14, lit=lit, thick=5))
+    return img(frame(140, 100, 8, 7, 124, 84, 16, lit=lit, thick=7))
 
 
 def tile_empty():
-    """An empty place: a faint sunken outline in the wall's white."""
+    """An empty place: a faint ghost of a bezel."""
     c = tp.canvas(140, 100)
     x, y = tp.grid(140, 100)
-    d, _, _ = tp.rrect(x, y, 8, 7, 124, 84, 14)
+    d, _, _ = tp.rrect(x, y, 8, 7, 124, 84, 16)
     cov = tp.coverage(d)
-    tp.over(c, (236, 240, 244), cov * 0.55)
-    top = np.exp(-((d - 0.8) / 1.0) ** 2) * cov
-    v = np.clip((y - 7) / 84, 0, 1)
-    tp.over(c, (170, 178, 190), top * (0.55 - 0.4 * v))
-    tp.over(c, (255, 255, 255), top * v * 0.8)
+    tp.over(c, (255, 255, 255), cov * 0.35)
+    tp.over(c, (180, 188, 198), np.clip(1.0 - np.abs(d - 0.8) / 0.9, 0, 1) * cov * 0.5)
+    tp.over(c, (190, 198, 208), np.clip(1.0 - np.abs(d - 7.3) / 0.8, 0, 1) * cov * 0.35)
     return tp.to_image(c)
 
 
 def cover_tile(lit=False):
-    return img(frame(96, 128, 6, 6, 84, 116, 10, lit=lit, thick=4, glow_size=2))
+    """96x128: the bezel round a cover (the cover, 80x112, fills its middle,
+    so the bezel is the 5 pixels round it; 3 clear outside, so neighbouring
+    covers' bezels keep a gap)."""
+    return img(frame(96, 128, 3, 3, 90, 122, 11, lit=lit, thick=5, glow_size=2, ring_w=2.2, shadow=0.25))
 
 
 def tile9(lit=False, primary=False):
-    return img(frame(64, 64, 8, 8, 48, 48, 12, lit=lit, primary=primary, thick=3, inner=False))
+    return img(frame(64, 64, 8, 8, 48, 48, 13, lit=lit, primary=primary, thick=3.5, face=False, gloss=0.5))
 
 
 def pill(lit=False, primary=False):
-    return img(frame(252, 60, 4, 4, 244, 52, 26, lit=lit, primary=primary, inner=False, shadow=0.25,
-                     glow_size=2))
+    return img(frame(252, 60, 4, 4, 244, 52, 26, lit=lit, primary=primary, face=False, shadow=0.25, glow_size=2))
 
 
 def home_button(lit=False):
-    return img(frame(264, 88, 8, 8, 248, 72, 36, lit=lit, inner=False, glow_size=3))
+    return img(frame(264, 88, 8, 8, 248, 72, 36, lit=lit, face=False, glow_size=3))
 
 
 def round_button(lit=False):
-    return img(frame(80, 80, 3, 3, 74, 74, 37, lit=lit, circle=True, thick=5, shadow=0.25, glow_size=2))
+    """80x80: a white glass disc with a grey rim and a deep gloss."""
+    c = frame(80, 80, 3, 3, 74, 74, 37, lit=lit, circle=True, face=False, shadow=0.28, glow_size=2, gloss=0.7)
+    x, y = tp.grid(80, 80)
+    # A faint ring inside, as the disc's raised middle.
+    d = 31.5 - np.hypot(x - 40, y - 40)
+    tp.over(c, (196, 204, 214), np.clip(1.0 - np.abs(d) / 0.8, 0, 1) * 0.5)
+    return img(c)
 
 
 def chip(on):
-    c = frame(212, 36, 2, 2, 208, 30, 10, inner=False, shadow=0.12)
+    c = frame(212, 36, 2, 2, 208, 30, 10, face=False, shadow=0.12, gloss=0.4)
     if on:
         x, y = tp.grid(212, 36)
         d, _, _ = tp.rrect(x, y, 2, 2, 208, 30, 10)
-        tp.over(c, (221, 243, 252), tp.coverage(d - 1.5) * 0.9)
+        tp.over(c, (210, 240, 252), tp.coverage(d - 1.5) * 0.85)
+        tp.over(c, (255, 255, 255), (1 - tp.smooth(((y - 2) / 30 - 0.45) / 0.06)) * tp.coverage(d - 1.5) * 0.4)
         tp.over(c, CYAN, np.clip(1.0 - np.abs(d - 0.8) / 0.9, 0, 1) * tp.coverage(d) * 0.9)
     return img(c)
 
@@ -363,17 +422,16 @@ def row_focus():
     cov = tp.coverage(d)
     c = tp.canvas(cw, ch)
     v = np.clip((y - 1.5) / 41, 0, 1)
-    tp.over(c, tp.mix((236, 249, 255), (204, 238, 252), tp.smooth(v)), cov)
-    tp.over(c, (255, 255, 255), cov * (1 - tp.smooth((v - 0.42) / 0.08)) * 0.45)
-    ring = np.clip(3.0 - np.abs(d - 1.3), 0, 1) * cov
-    tp.over(c, CYAN, ring)
+    tp.over(c, tp.mix((236, 250, 255), (196, 236, 252), tp.smooth(v)), cov)
+    tp.over(c, (255, 255, 255), cov * (1 - tp.smooth((v - 0.45) / 0.06)) * 0.55)
+    tp.over(c, CYAN, np.clip(3.0 - np.abs(d - 1.3), 0, 1) * cov)
     return tp.to_image(c)
 
 
 def round_arrow(direction, lit):
-    c = frame(44, 44, 4, 4, 34, 34, 17, lit=lit, circle=True, inner=False, shadow=0.22, glow_size=2, ring_w=2.4)
-    tp.chevron(c, 22, 21.5 if direction in ("left", "right") else 22, 12, direction,
-               rgb=CYAN_DEEP if lit else (110, 118, 130), width=2.8)
+    c = frame(44, 44, 4, 4, 34, 34, 17, lit=lit, circle=True, face=False, shadow=0.22, glow_size=2, ring_w=2.4,
+              gloss=0.6)
+    tp.chevron(c, 22, 22, 12, direction, rgb=CYAN_DEEP if lit else (104, 112, 124), width=2.8)
     return img(c)
 
 
@@ -384,111 +442,183 @@ def switch(on):
     d, _, _ = tp.rrect(x, y, 4, 6, 60, 28, 14)
     cov = tp.coverage(d)
     v = np.clip((y - 6) / 28, 0, 1)
-    if on:
-        body = tp.mix((96, 212, 250), (16, 156, 218), tp.smooth(v))
-    else:
-        body = tp.mix((214, 219, 226), (196, 202, 211), tp.smooth(v))
+    body = tp.mix((120, 220, 252), (16, 152, 216), tp.smooth(v)) if on else \
+        tp.mix((214, 220, 228), (192, 199, 208), tp.smooth(v))
     tp.over(c, body, cov)
     tp.over(c, (90, 100, 112), np.exp(-((d - 0.4) / 1.2) ** 2) * (1 - v) * cov * 0.4)
+    tp.over(c, (255, 255, 255), (1 - tp.smooth((v - 0.45) / 0.08)) * tp.coverage(d - 1.5) * 0.35)
     tp.over(c, CYAN_DEEP if on else RIM_DARK, np.clip(1.0 - np.abs(d - 0.7) / 0.9, 0, 1) * cov * 0.8)
     kx = 50 if on else 18
-    kd = tp.circle(x, y, kx, 20, 12.5)
-    kc = tp.coverage(kd)
+    kc = tp.coverage(tp.circle(x, y, kx, 20, 12.5))
     tp.over(c, (40, 52, 66), tp.shadow_of(kc, 2, 0.35)[..., 3])
     kv = np.clip((y - 7.5) / 25, 0, 1)
-    tp.over(c, tp.mix((255, 255, 255), (226, 231, 237), tp.smooth(kv)), kc)
-    tp.over(c, RIM, np.clip(1.0 - np.abs(kd - 0.7) / 0.9, 0, 1) * kc)
+    tp.over(c, tp.mix((255, 255, 255), (222, 228, 236), tp.smooth(kv)), kc)
+    tp.over(c, (255, 255, 255), (1 - tp.smooth((kv - 0.4) / 0.1)) * kc * 0.5)
+    tp.over(c, RIM, np.clip(1.0 - np.abs(tp.circle(x, y, kx, 20, 12.5) - 0.7) / 0.9, 0, 1) * kc)
     return tp.to_image(c)
 
 
 def panel(h):
-    return img(frame(580, h, 4, 4, 572, h - 8, 18, thick=6, shadow=0.25))
+    return img(frame(580, h, 4, 4, 572, h - 8, 20, thick=7, shadow=0.22, gloss=0.25))
 
 
 def popup():
     def bands(v, yy):
         head = yy < 44
         foot = yy > 276 - 18
-        rgb = np.where(head[..., None], np.asarray((238, 242, 246), np.float32),
-                       np.asarray((228, 233, 239), np.float32))
+        rgb = np.where(head[..., None], np.asarray((236, 242, 247), np.float32),
+                       np.asarray((226, 232, 239), np.float32))
         k = np.where(head | foot, 1.0, 0.0)
         line = np.abs(yy - 44) < 0.8
         rgb = np.where(line[..., None], np.asarray(CYAN, np.float32), rgb)
         k = np.where(line, 0.9, k)
         return rgb, k
-    return img(frame(580, 284, 4, 4, 572, 276, 18, inner=False, shadow=0.28, bands=bands))
+    return img(frame(580, 284, 4, 4, 572, 276, 20, face=False, shadow=0.28, bands=bands, gloss=0.2))
 
 
 def banner_stripes():
-    """640x192: a soft white veil with wide, faint diagonal light stripes
-    (spacing 32, which divides 640) over the game banner's colour."""
+    """640x192: a soft white veil with faint glossy diagonal light (spacing
+    32, which divides 640) over the game banner's colour."""
     W, H = 640, 192
     x, y = tp.grid(W, H)
     c = tp.canvas(W, H)
     band = (y < 128).astype(np.float32)
     k = tp.smooth(y / 122)
     tp.over(c, (255, 255, 255), band * (0.10 + 0.12 * k))
-    stripe = ((x + y) % 32) < 12
-    tp.over(c, (255, 255, 255), stripe * band * 0.10)
+    tp.over(c, (255, 255, 255), band * 0.16 * (1 - tp.smooth((y - 50) / 8)))
+    tp.over(c, (255, 255, 255), (((x + y) % 32) < 12) * band * 0.08)
     tp.over(c, (255, 255, 255), (np.abs(y - 122) < 1.0) * 0.8)
     return tp.to_image(c)
 
 
 def page_arrow(direction, lit):
-    """48x48: Home's page buttons, glossy white triangles with a grey rim; lit,
-    a cyan glow."""
-    c = tp.canvas(48, 48)
-    pts = ((34, 7), (12, 24), (34, 41)) if direction == "left" else ((14, 7), (36, 24), (14, 41))
+    """48x48: Home's page buttons: big glossy white triangles with rounded
+    corners, shaded grey towards their foot, a gloss on top; lit, a cyan
+    glow."""
+    S = 4
+    x, y = tp.grid(48 * S, 48 * S)
+    x = x / S
+    y = y / S
+    pts = ((35, 5), (9, 24), (35, 43)) if direction == "left" else ((13, 5), (39, 24), (13, 43))
+    # A rounded triangle: the distance inside the three edges, less a corner.
+    def inside(px, py):
+        ds = []
+        for i in range(3):
+            ax, ay = pts[i]
+            bx, by = pts[(i + 1) % 3]
+            nx, ny = by - ay, -(bx - ax)
+            ln = math.hypot(nx, ny)
+            cx3 = sum(p[0] for p in pts) / 3
+            cy3 = sum(p[1] for p in pts) / 3
+            sgn = 1 if ((cx3 - ax) * nx + (cy3 - ay) * ny) > 0 else -1
+            ds.append(sgn * ((px - ax) * nx + (py - ay) * ny) / ln)
+        return np.minimum(np.minimum(ds[0], ds[1]), ds[2])
+    d = inside(x, y) - 2.5
+    big = tp.canvas(48 * S, 48 * S)
+    cov = np.clip(d * S + 0.5, 0, 1)
     if lit:
-        g = tp.canvas(48, 48)
-        tp.triangle(g, pts, CYAN_GLOW, 1.0)
-        g = tp.blur(g, 3)
-        tp.over(c, CYAN_GLOW, g[..., 3] * 0.9)
-    sh = tp.canvas(48, 48)
-    tp.triangle(sh, [(px, py + 2.5) for px, py in pts], (40, 52, 66), 0.35)
-    sh = tp.blur(sh, 1)
-    tp.over(c, (40, 52, 66), sh[..., 3])
-    tp.triangle(c, pts, RIM_DARK, 1.0)
-    # A white body inset a pixel, glossy on top.
-    cx = sum(p[0] for p in pts) / 3
-    cy = sum(p[1] for p in pts) / 3
-    inner = [(cx + (px - cx) * 0.86, cy + (py - cy) * 0.86) for px, py in pts]
-    tp.triangle(c, inner, (255, 255, 255), 1.0)
-    shade = tp.canvas(48, 48)
-    tp.triangle(shade, inner, (220, 226, 234), 1.0)
-    x, y = tp.grid(48, 48)
-    tp.over(c, (220, 226, 234), shade[..., 3] * tp.smooth((y - 24) / 14))
+        g = tp.canvas(48 * S, 48 * S)
+        g[..., :3] = CYAN_GLOW
+        g[..., 3] = cov
+        g = tp.blur(g, 3 * S)
+        tp.over(big, CYAN_GLOW, g[..., 3] * 0.9)
+    sh = tp.shadow_of(cov, 2 * S, 0.3, dy=2 * S)
+    tp.over(big, (40, 52, 66), sh[..., 3])
+    v = np.clip((y - 5) / 38, 0, 1)
+    tp.over(big, tp.mix((255, 255, 255), (206, 212, 222), tp.smooth(v)), cov)
+    tp.over(big, (255, 255, 255), cov * 0.7 * (1 - tp.smooth((v - 0.42) / 0.06)) * np.clip(d - 1.5, 0, 1))
+    tp.over(big, RIM_DARK, np.clip(1.0 - np.abs(d - 0.3) / 0.5, 0, 1) * cov * 0.8)
     if lit:
-        tp.triangle(c, [(cx + (px - cx) * 0.5, cy + (py - cy) * 0.5) for px, py in pts], CYAN, 0.9)
-    return tp.to_image(c)
+        tp.over(big, CYAN, np.clip(1.0 - np.abs(d - 1.4) / 0.9, 0, 1) * cov)
+    # Down to 48x48, averaging the colours by their alpha.
+    blocks = big.reshape(48, S, 48, S, 4)
+    alpha = blocks[..., 3].mean(axis=(1, 3))
+    out = tp.canvas(48, 48)
+    out[..., :3] = (blocks[..., :3] * blocks[..., 3:4]).mean(axis=(1, 3)) / np.maximum(alpha, 1e-6)[..., None]
+    out[..., 3] = alpha
+    return tp.to_image(out)
 
 
 def shelf():
-    """256x64: a glossy white ledge: its top (rows 0-47) pale, brightening
-    to the front; its front edge (48-63) white with a grey shade under it."""
+    """256x64: a glossy glass ledge: its top (rows 0-47) pale, brightening to
+    the front; its front edge (48-63) white with a grey shade under it."""
     W, H = 256, 64
     x, y = tp.grid(W, H)
     c = tp.canvas(W, H)
     top = y < 48
-    k = y / 48
-    tp.over(c, tp.mix((226, 231, 237), (250, 251, 253), tp.smooth(k)), top * 0.95)
-    front = ~top
-    fk = (y - 48) / 16
-    tp.over(c, tp.mix((255, 255, 255), (196, 203, 212), tp.smooth(fk)), front)
+    tp.over(c, tp.mix((222, 230, 238), (250, 252, 254), tp.smooth(y / 48)), top * 0.92)
+    tp.over(c, tp.mix((255, 255, 255), (190, 200, 212), tp.smooth((y - 48) / 16)), ~top)
     tp.over(c, (255, 255, 255), (np.abs(y - 48.5) < 1.0))
+    tp.over(c, CYAN_GLOW, (np.abs(y - 50.5) < 0.6) * 0.5)
     return tp.to_image(c)
 
 
 def blank_cover():
-    """160x224: a clean white case: a soft grey frame, a pale face, a thin
-    cyan line near the top; the middle kept plain for the name."""
+    """160x224: the sleeve of a game without box art, as RiftWii's made-up
+    cover prints the name on it: sky blue, a little deeper at the foot, a
+    gold arc sweeping across the top with a white light along it, and a soft
+    sheen (dark enough that RiftWii writes the name in light ink). The arc
+    stays in the top 14 rows over the left edge, which RiftWii stretches down
+    the box's spine."""
     W, H = 160, 224
-    c = frame(W, H, 0, 0, W, H, 8, thick=7, shadow=0.0)
     x, y = tp.grid(W, H)
-    tp.over(c, CYAN, (np.abs(y - 22) < 1.2) * (x > 16) * (x < W - 16) * 0.8)
-    out = tp.to_image(c)
-    # The cover is opaque.
-    return out
+    c = tp.canvas(W, H)
+    v = y / H
+    c[..., :3] = tp.mix(SKY, SKY_DEEP, tp.smooth(v * 0.9 + 0.1 * (x / W)))
+    c[..., 3] = 1.0
+    tp.add_light(c, (110, 200, 240), 0.10 * np.exp(-((x * 0.7 - y + 60) / 50) ** 2))
+    # The arc: high at the left, sagging past the middle, rising again.
+    s = x / W
+    arc = 9.0 + 26.0 * np.clip(np.sin(np.clip(s * 1.05, 0, 1) * math.pi), 0, 1) ** 1.5 - 6.0 * s
+    tp.over(c, GOLD, np.clip(1.3 - np.abs(y - arc), 0, 1))
+    tp.over(c, (255, 244, 200), np.clip(1.0 - np.abs(y - arc + 1.6) / 0.7, 0, 1) * 0.7)
+    # A faint lighter blue above the arc.
+    tp.add_light(c, (90, 180, 230), 0.18 * (y < arc) * np.exp(-(arc - y) / 12))
+    return tp.to_image(c, opaque=True)
+
+
+def blank_back():
+    """160x224: the back of that game's box: the same sky blue, the cover's
+    crops set at the top by RiftWii (tp.BACK_PICTURES), and below them
+    rounded panels outlined in white with small print, a row of white
+    feature icons and an orange tile, a white panel, a rating box and a
+    barcode."""
+    W, H = 160, 224
+    x, y = tp.grid(W, H)
+    c = tp.canvas(W, H)
+    c[..., :3] = tp.mix(SKY, SKY_DEEP, tp.smooth(y / H))
+    c[..., 3] = 1.0
+    for x0, y0, x1, y1 in tp.BACK_PICTURES:
+        tp.box(c, x0 - 1, y0 - 1, x1 + 1, y1 + 1, (255, 255, 255), 0.85)
+        tp.box(c, x0, y0, x1, y1, (96, 184, 222))
+
+    def outlined(x0, y0, x1, y1):
+        tp.box(c, x0, y0, x1, y1, (255, 255, 255), r=2.5)
+        tp.box(c, x0 + 0.9, y0 + 0.9, x1 - 0.9, y1 - 0.9, (40, 150, 200), r=1.8)
+
+    # Players and features: a panel with white icons.
+    outlined(8, 154, 98, 167)
+    tp.box(c, 10.5, 156.5, 18, 164.5, (255, 255, 255), r=1.2)
+    for k in range(5):
+        x0 = 30 + k * 13.5
+        tp.box(c, x0, 157.5, x0 + 10, 163.5, (255, 255, 255), 0.9, r=1.5)
+    # The publisher's panel: an orange tile and lines.
+    outlined(101, 154, 152, 167)
+    tp.box(c, 103.5, 156, 112, 165, (244, 132, 34), r=1.5)
+    tp.text_lines(c, 115, 158, (32, 26), (255, 255, 255), a=0.85, gap=3, thick=0.9)
+    # Small print in a panel.
+    outlined(8, 170, 98, 186)
+    tp.text_lines(c, 11, 173, (84, 82, 84, 60), (255, 255, 255), a=0.85, gap=3, thick=0.8)
+    tp.box(c, 101, 170, 152, 186, (255, 255, 255), r=1.5)
+    tp.text_lines(c, 104, 174, (40, 34), (60, 70, 80), gap=3.4, thick=0.9)
+    # The rating box and the barcode.
+    tp.box(c, 10, 192, 30, 218, (20, 20, 20))
+    tp.box(c, 11.2, 193.2, 28.8, 216.8, (255, 255, 255))
+    tp.box(c, 13, 196, 27, 209, (20, 20, 20))
+    tp.box(c, 13, 211, 27, 215, (20, 20, 20))
+    tp.box(c, 40, 194, 54, 208, (255, 255, 255), 0.85, r=7)
+    tp.barcode(c, 96, 196, 150, 218, seed=11)
+    return tp.to_image(c, opaque=True)
 
 
 # --- sound -----------------------------------------------------------------------
@@ -667,6 +797,7 @@ def main():
         "arrow_right_over": lambda: page_arrow("right", True),
         "shelf": shelf,
         "blank_cover": blank_cover,
+        "blank_back": blank_back,
     }
     written = []
     for name, paint in pictures.items():
