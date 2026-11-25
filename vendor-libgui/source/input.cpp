@@ -29,6 +29,9 @@
 #include "wpadqueue.hpp"
 
 static void UpdatePadPointers();
+// Riftwii: whether a GameCube controller is on each channel this frame,
+// in the Wii's own port or the adapter's (UpdatePads, for the pointers).
+static bool padPlugged[4] = {false, false, false, false};
 
 static void ConfigureRemotePointer(int channel)
 {
@@ -48,7 +51,8 @@ static int rumbleCount[4] = {0,0,0,0};
 void UpdatePads()
 {
 	WPAD_ScanPads();
-	PAD_ScanPads();
+	// libogc's answer is a bit (1 << port) for each port with a controller.
+	const u32 portsPlugged = PAD_ScanPads();
 
 	// The Wii U GamePad is a single controller behind FIX94's direct-I2C
 	// driver; it reports on channel 0 when one is connected. Everywhere
@@ -94,6 +98,9 @@ void UpdatePads()
 	riftwii::wii::GcAdapterMenuPads(adapter);
 	for (int i = 0; i < 4; i++)
 	{
+		padPlugged[i] = (portsPlugged & (1u << i)) || adapter.present[i];
+		// A USB keyboard presses channel 1's pad buttons (usbinput.hpp).
+		if (i == 0 && riftwii::wii::UsbInputKeyboardConnected()) padPlugged[i] = true;
 		const u16 held = adapter.present[i] ? adapter.pads[i].buttons : 0;
 		userInput[i].pad.btns_d |= held & ~adapterHeld[i];
 		userInput[i].pad.btns_u |= adapterHeld[i] & ~held;
@@ -189,6 +196,8 @@ static void UpdatePadPointers()
 	const float kRemoteMove = 40.0f;
 	const int kSteadyFrames = 10;   // about a sixth of a second: a stray light never lasts that long
 	const int kPadHold = 90;        // a second and a half
+	const int kGoneFrames = 30;     // half a second without the controller: unplugged, not a missed read
+	static int padGone[4] = {0, 0, 0, 0};  // frames in a row with no controller on the channel
 	static int irSteady[4] = {0, 0, 0, 0};  // frames in a row with the Remote's own pointer valid
 	static int padQuiet[4] = {kPadHold, kPadHold, kPadHold, kPadHold};  // frames since the pad was last used
 	static float steadyX[4], steadyY[4], steadyA[4];  // the steadied Remote pointer, in menu units
@@ -381,6 +390,17 @@ static void UpdatePadPointers()
 			sy = userInput[i].WPAD_StickY(0) * 100 / 128;
 		}
 		const float r = sqrtf((float)(sx * sx + sy * sy));
+		// A controller unplugged takes its pointer with it (a tester: a
+		// controller moved from port 4 to port 1, then unplugged, left its
+		// pointer on screen for good). The channel goes back to its
+		// Remote, if it has one, and the next controller starts afresh.
+		padGone[i] = padPlugged[i] || classic ? 0 : (padGone[i] < kGoneFrames ? padGone[i] + 1 : kGoneFrames);
+		if (padGone[i] >= kGoneFrames && (padHas[i] || dpadHas[i])) {
+			padHas[i] = false;
+			dpadHas[i] = false;
+			placed[i] = false;
+			if (!(remote && w->ir.valid)) w->ir.valid = 0;
+		}
 		// The Wii Remote's own buttons are the low 16 bits; a Classic
 		// Controller's are the high ones.
 		const bool remotePressed = remote && (w->btns_d & 0xFFFF);
