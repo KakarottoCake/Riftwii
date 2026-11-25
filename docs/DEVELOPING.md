@@ -465,10 +465,6 @@ it. Off by default; a GX buffer that filled up is logged either way
 main's latest commit, with CI's pinned devkitPPC ([RELEASING.md](RELEASING.md)
 has every step, check and error in full). Before running it:
 
-0. Have a tester start the DOL CI built for that commit on a real Wii,
-   from the Homebrew Channel and from the RiftWii channel. Dolphin does
-   not model everything a console does at start-up: 2611-239 ran in
-   Dolphin and failed on every Wii (`docs/MEMORY.md`, "The 16 MiB line").
 1. Bump the version as in step 1 if the release line changes, run the
    checks of step 2, and commit the screenshots (step 4).
 2. Write `release/notes.md` (the GitHub release notes) and
@@ -485,6 +481,11 @@ has every step, check and error in full). Before running it:
    the run's summary shows the filled-in notes and Discord message, and
    its artifact holds the zip, `riftwii.dol`, `riftwii-update.pack` and
    both texts, for a last look (and a run in Dolphin) before they go out.
+   Then have a tester start that artifact's `riftwii.dol` on a real Wii,
+   from the Homebrew Channel and from the RiftWii channel, and publish
+   only once it reaches the menu. Dolphin does not model everything a
+   console does at start-up: 2611-239 ran in Dolphin and failed on every
+   Wii (`docs/MEMORY.md`, "The 16 MiB line").
 4. Run it again with **publish**. It makes the release `vYYMM-N`, titled
    "RiftWii YYMM-N", as the latest release, with the three files; then,
    unless the Discord box is unticked, it posts the message and its

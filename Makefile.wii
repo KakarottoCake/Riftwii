@@ -287,7 +287,7 @@ reload:
 #---------------------------------------------------------------------------------
 else
 
-DEPENDS	:=	$(OFILES:.o=.d)
+DEPENDS	:=	$(OFILES:.o=.d) $(MEM1_TAIL:.o=.d)
 
 #---------------------------------------------------------------------------------
 # main targets
@@ -330,9 +330,13 @@ else
 	@$(PYTHON) $(PROJECT_ROOT)/tools/pack_dol.py "$(UNPACKED)" "$(DOLPACK_STUB)" "$@" --zstd $(ZSTD)
 endif
 # The TLS library too, so new BearSSL flags (Makefile.bearssl) relink the DOL.
-# mem1tail.o is order-only: as a normal prerequisite it would be in $^,
-# linked before the libraries; it is in LIBS, after them.
-$(OUTPUT).elf: $(OFILES) $(PROJECT_ROOT)/build-bearssl/libbearssl.a | $(MEM1_TAIL)
+# devkitPro's link rule, except that mem1tail.o, a prerequisite so a
+# change to it relinks, is left out of $^: it is linked from LIBS, after
+# every library.
+$(OUTPUT).elf: $(OFILES) $(PROJECT_ROOT)/build-bearssl/libbearssl.a $(MEM1_TAIL)
+	$(SILENTMSG) linking ... $(notdir $@)
+	$(ADD_COMPILE_COMMAND) end
+	$(SILENTCMD)$(LD) $(filter-out $(MEM1_TAIL),$^) $(LDFLAGS) $(LIBPATHS) $(LIBS) -o $@
 
 # The plugins, built with this build's version and stamp (Makefile.plugin).
 .PHONY: plugins
