@@ -548,23 +548,26 @@ def shelf():
 
 
 def blank_cover():
-    """160x224: a game's cover without art: a deep blue card, a ribbon of
-    light low across it, the middle kept plain for the name."""
+    """160x224: the sleeve of a game without box art, as RiftWii's made-up
+    cover prints the name on it: a black band across the top with a fine
+    silver edge and a thin red line under it, then a blue that brightens
+    diagonally from the top left to the right, with a soft sheen (dark
+    enough that RiftWii writes the name in light ink)."""
     W, H = 160, 224
     x, y = tp.grid(W, H)
     c = tp.canvas(W, H)
-    v = y / H
-    c[..., :3] = tp.mix((40, 86, 176), (8, 24, 70), tp.smooth(v))
+    diag = np.clip((x / W) * 0.7 + (y / H) * 0.45, 0, 1)
+    c[..., :3] = tp.mix((6, 42, 126), (48, 128, 200), tp.smooth(diag))
     c[..., 3] = 1.0
-    for i in range(14):
-        f = i / 13 - 0.5
-        yy = 180 + 10 * np.sin(x / W * TAU * 0.7 + 1.0) + f * 22 * np.sin(x / W * TAU * 0.5 + 2.0)
-        tp.add_light(c, LINE, np.exp(-((y - yy) / 0.6) ** 2) * (0.12 + 0.18 * (1 - abs(2 * f))))
-    tp.add_light(c, (130, 180, 255), 0.10 * np.exp(-((y - 180) / 20) ** 2))
-    # A fine light edge round the card.
-    d, _, _ = tp.rrect(x, y, 0, 0, W, H, 4)
-    tp.over(c, RIM, np.clip(1.0 - np.abs(d - 0.8) / 0.9, 0, 1) * 0.5)
-    return tp.to_image(c)
+    # A broad soft sheen across the blue, leaning like the light on a case.
+    tp.add_light(c, (120, 180, 240), 0.10 * np.exp(-((x * 0.8 - y + 40) / 46) ** 2))
+    band_h = 22.0
+    band = np.clip(band_h - y + 0.5, 0, 1)
+    tp.over(c, tp.mix((22, 22, 26), (4, 4, 6), tp.smooth(y / band_h)), band)
+    # The band's edge: a fine silver line, then a thin red one.
+    tp.over(c, (170, 174, 182), np.clip(1.0 - np.abs(y - band_h - 0.4) / 0.7, 0, 1))
+    tp.over(c, (196, 22, 34), np.clip(1.6 - np.abs(y - band_h - 2.2), 0, 1))
+    return tp.to_image(c, opaque=True)
 
 
 # --- sound ---------------------------------------------------------------------
