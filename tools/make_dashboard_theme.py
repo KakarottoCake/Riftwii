@@ -1,513 +1,623 @@
+#!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 RiftWii contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Draw Dashboard's silver wall, square tiles and controls from scratch.
+"""Writes Dashboard, a RiftWii menu theme in the spirit of the mid-2000s
+"blades" console dashboards: a deep, glowing green wall framed by layered
+silver blades down both sides, glossy green glass panels and buttons with a
+bright rim, and game boxes in green plastic cases with a white strip across
+the top of the sleeve.
 
-    python tools/make_dashboard_theme.py [out_dir [picture ...]]
+Every picture and sound is worked out here from arithmetic alone: no
+photo, texture, screenshot, logo, font or recording from anywhere else.
 
-Needs Pillow and NumPy. The default output is themes/Dashboard. Picture
-names (without .png) limit a run to those pictures. The generated folder can
-go straight into the community themes repository or onto an SD card.
+- background.png / background_wide.png: the green wall, brightest behind
+  Home's tiles, with soft out-of-focus light swirls, and three silver blades
+  curving down each side (inside the TV's overscan margin);
+- bar.png / bar_wide.png: Home's bottom bar, a dark green glass footer with
+  a bright rim, dipping under the clock;
+- tiles, the game page's and Settings' tiles, the wide buttons, chips, the
+  lit list row, switches, panels and the popup: green glass with a gloss
+  cap and a fine bright rim; lit, a brighter body, a lime and white rim and
+  a soft glow;
+- round buttons: green glass orbs in a silver bezel; the HOME Menu's buttons
+  and the arrows: silver;
+- cover_tile*: a game box, a green plastic case round the cover;
+- blank_cover.png: the sleeve RiftWii prints a game's name on when it has
+  no box art: a white band across the top with green swooshes at its
+  right, silver-grey below;
+- the banner's stripes, the shelf, Home's page arrows;
+- hover.wav, click.wav, home_open.wav, home_close.wav: soft synthesised
+  glassy blips and sweeps;
+- theme.ini and LICENSE. The music is RiftWii's own.
+
+    py -3 tools/make_dashboard_theme.py [out_dir [picture ...]]   (needs numpy, Pillow)
+
+The default out_dir is build-themes/Dashboard; the folder goes to the
+community themes repository (RiftWii/themes, themes/Dashboard) as it is.
+Naming pictures (or "sounds") repaints only those.
 """
-import argparse
+import math
 import pathlib
 import subprocess
 import sys
 
 import numpy as np
-from PIL import Image, ImageColor, ImageDraw
+
+import themepaint as tp
 
 HERE = pathlib.Path(__file__).resolve().parent
+TAU = 2 * math.pi
 
-COLORS = {
-    "ink": "#202823",
-    "ink_soft": "#28332C",
-    "ink_dim": "#343F37",
-    "clock": "#35443A",
-    "accent": "#52B043",
-    "accent_ink": "#183921",
-    "text_on_accent": "#202823",
-    "warn": "#812027",
-    "card": "#F4F5F2",
-    "card_edge": "#C2C9C2",
-    "card_edge_strong": "#8C998E",
-    "shadow": "#20282330",
-    "glow": "#52B04330",
-    "glyph": "#27342B",
-    "chip_on": "#D5EDCF",
-    "chip_off": "#E9ECE8",
-    "chip_off_edge": "#BCC5BD",
-    "switch_off": "#6C786E",
-    "bar": "#DCE1DC",
-    "backdrop": "#CCD1CC",
-    "backdrop_stripe": "#CCD1CC",
-    "banner_stripe": "#D2F4CA17",
-    "banner_tint": "#26332A75",
-    "divider": "#C6CEC6",
-    "scroll_track": "#DEE4DE",
-    "scroll_thumb": "#637568",
-    "badge": "#E0E8DF",
-    "shelf": "#707B73",
-    "shelf_edge": "#303A33",
-    "pointer1": "#195F99",
-    "pointer2": "#A22C38",
-    "pointer3": "#216D2C",
-    "pointer4": "#875306",
-}
+# The green glass: its body at the top and the foot. White text sits on the
+# middle, which stays dark enough for 4.5:1.
+GLASS_TOP = (56, 146, 30)
+GLASS_FOOT = (20, 86, 12)
+LIT_TOP = (66, 160, 34)
+LIT_FOOT = (26, 102, 14)
+LIME = (178, 240, 96)
+GLOW = (206, 255, 150)
+RIM = (170, 226, 120)
+SILVER_TOP = (244, 247, 244)
+SILVER_FOOT = (160, 168, 162)
 
 INI = """[theme]
 name = Dashboard
 author = RiftWii contributors
 
 [shape]
-corners = 0
+# Rounded glass, its own gloss drawn in the pictures.
+corners = 0.9
 gloss = no
 bar = dip
 shelf_grain = no
 home_menu = wii
 
-[backdrop]
-stripes = no
-
 [colors]
-""" + "".join(f"{key} = {color}\n" for key, color in COLORS.items())
+# Text: white, and pale greens for the quieter levels
+ink = #FFFFFF
+ink_soft = #E2F4D6
+ink_dim = #C2E2AE
+clock = #FFFFFF
+# Lime marks what is lit; its text is dark
+accent = #9BE65A
+accent_ink = #CBF5A0
+text_on_accent = #10300A
+warn = #FFB4A8
+
+# Green glass tiles, buttons and panels
+card = #2A7A16
+card_edge = #8ECF62
+card_edge_strong = #D2F5B4
+shadow = #00000066
+glow = #D8FFB070
+glyph = #FFFFFF
+
+# Option chips and switches
+chip_on = #3E9A22
+chip_off = #1E5A10
+chip_off_edge = #6AAE46
+switch_off = #245E14
+
+# Background and bars
+bar = #1C5E0E
+backdrop = #2A7E16
+backdrop_stripe = #2A7E16
+banner_stripe = #FFFFFF14
+# The games' own colours, a little toward the green
+banner_tint = #1E6A0E30
+
+# Lists and badges
+divider = #5CA63A
+scroll_track = #18500E
+scroll_thumb = #B8E896
+badge = #1E5A10
+shelf = #3C9A22
+shelf_edge = #1C560E
+
+# Player pointers
+pointer1 = #3B8FD6
+pointer2 = #E05252
+pointer3 = #F2F2F2
+pointer4 = #E5AC24
+"""
 
 LICENSE = """License: CC0-1.0
 Author: RiftWii contributors
 
-Dashboard, a theme for RiftWii: silver walls, square green and white tiles,
-and flat charcoal frames.
+Dashboard, a theme for RiftWii: a glowing green wall framed by silver
+blades, glossy green glass buttons and panels, and game boxes in green
+plastic cases.
 
 To the extent possible under law, the author has waived all copyright and
-related or neighboring rights to this theme (theme.ini and every PNG
-picture in its folder), under Creative Commons CC0 1.0 Universal:
-https://creativecommons.org/publicdomain/zero/1.0/
+related or neighboring rights to this theme (theme.ini, every PNG picture
+and the WAV sounds in its folder), under Creative Commons CC0 1.0
+Universal: https://creativecommons.org/publicdomain/zero/1.0/
 
-The pictures were drawn by RiftWii's tools/make_dashboard_theme.py
-(https://github.com/KakarottoCake/Riftwii) from arithmetic alone: no
-source images, textures or fonts. The theme keeps RiftWii's own sounds and
-music.
+The pictures and sounds were made by RiftWii's
+tools/make_dashboard_theme.py (https://github.com/KakarottoCake/Riftwii)
+from arithmetic alone: no source images, textures, logos, fonts,
+recordings or samples. The music is RiftWii's own.
 
 Third-party parts: none.
 """
 
-WHITE = "#FFFFFF"
-CHARCOAL = "#2B2B2B"
-PANEL_RAIL = "#3C3C3C"
-DEEP_GREEN = "#107018"
-FOCUS_GREEN = "#167922"
-PRIMARY = "#59B84C"
-PRIMARY_LIT = "#67C257"
-LIGHT_LIT = "#FAFEF9"
+
+# --- the wall --------------------------------------------------------------------
+
+def blade(c, x, y, W, H, peak, bow, top_rgb, foot_rgb, *, rim_rgb, rim_a, shine, cast):
+    """One silver (or green) blade down the left edge of a W x H canvas, and
+    its mirror on the right: its inner edge bows towards the middle of the
+    screen, furthest at half height (`peak` pixels in), `bow` pixels less at
+    the top and the foot. Shaded as a curved sheet: a bright streak near its
+    inner edge, darker towards the screen's edge; a fine rim along the edge
+    and a soft shadow cast on whatever is inside it."""
+    yy = (y / H - 0.5) / 0.5
+    for side in (0, 1):
+        xs = x if side == 0 else (W - 1) - x
+        edge = peak - bow * yy ** 2
+        d = edge - xs                      # > 0 inside the blade
+        cov = tp.coverage(d)
+        # The shadow it casts inwards.
+        tp.over(c, (0, 18, 0), cast * np.exp(np.minimum(d, 0) / 9.0) * (d < 0.5))
+        across = np.clip(d / np.maximum(edge, 1.0), 0, 1)   # 0 at the edge, 1 at the screen's edge
+        body = tp.mix(top_rgb, foot_rgb, tp.smooth(np.abs(yy) * 0.8 + across * 0.35))
+        streak = np.exp(-((d - 5.0) / 3.2) ** 2)
+        body = tp.mix(body, (255, 255, 255), shine * streak)
+        tp.over(c, body, cov)
+        tp.over(c, rim_rgb, np.clip(1.0 - np.abs(d - 0.6) / 0.9, 0, 1) * rim_a)
 
 
-def pixel_grid(width, height):
-    return np.arange(width)[None, :] + 0.5, np.arange(height)[:, None] + 0.5
+def wall(W, H):
+    x, y = tp.grid(W, H)
+    u = x / W
+    v = y / H
+    c = tp.canvas(W, H)
+    # A deep green, glowing brightest behind Home's tiles (upper middle) and
+    # darker towards the foot, where RiftWii writes white text on it.
+    glow = np.exp(-(((u - 0.5) / 0.42) ** 2 + ((v - 0.30) / 0.36) ** 2))
+    base = tp.mix((14, 62, 8), (40, 128, 22), glow)
+    base = tp.mix(base, (82, 182, 42), 0.60 * glow ** 3)
+    base = tp.mix(base, (12, 52, 6), 0.35 * tp.smooth((v - 0.70) / 0.30))
+    c[..., :3] = base
+    c[..., 3] = 1.0
+    # Soft, out-of-focus swirls of lighter green light across the wall.
+    for k, (cy, amp, freq, phase, width, a) in enumerate((
+            (0.26, 0.10, 0.9, 0.4, 0.060, 0.16),
+            (0.40, 0.08, 1.3, 2.1, 0.040, 0.12),
+            (0.55, 0.12, 0.7, 4.0, 0.080, 0.10),
+            (0.18, 0.06, 1.6, 1.0, 0.030, 0.10))):
+        mid = cy + amp * np.sin(TAU * freq * u + phase)
+        band = np.exp(-((v - mid) / width) ** 2)
+        tp.add_light(c, (110, 200, 60), a * band * (0.4 + 0.6 * np.sin(math.pi * u) ** 2))
+    # A faint diagonal sheen, as on glass.
+    sheen = np.exp(-((u * 0.8 + v - 0.55) / 0.20) ** 2)
+    tp.add_light(c, (90, 170, 50), 0.06 * sheen)
+    # A soft vignette.
+    vig = tp.smooth(((u - 0.5) / 0.62) ** 2 + ((v - 0.42) / 0.72) ** 2)
+    c[..., :3] = tp.mix(c[..., :3], (6, 30, 4), 0.45 * vig)
+    # The blades, innermost first so the outer ones lie over them: a green
+    # one with a lime rim, a bright silver one, a dark steel one.
+    # Kept to the edges RiftWii leaves clear: a 4:3 menu's text and buttons
+    # start 40 pixels in, a widescreen one's about 50.
+    s = 1.0 if W >= 856 else 0.6
+    blade(c, x, y, W, H, 50 * s, 26 * s, (70, 168, 40), (24, 92, 14), rim_rgb=LIME, rim_a=0.9, shine=0.35, cast=0.40)
+    blade(c, x, y, W, H, 40 * s, 22 * s, (226, 232, 228), (128, 138, 132), rim_rgb=(255, 255, 255), rim_a=0.9,
+          shine=0.55, cast=0.45)
+    blade(c, x, y, W, H, 24 * s, 14 * s, (124, 132, 128), (62, 68, 66), rim_rgb=(210, 216, 212), rim_a=0.7,
+          shine=0.30, cast=0.40)
+    return c
 
 
-def smoothstep(fraction):
-    fraction = np.clip(fraction, 0, 1)
-    return fraction * fraction * (3 - 2 * fraction)
+def background(W):
+    return tp.to_image(wall(W, 480), opaque=True)
 
 
-def dither_wall(rgb):
-    """Dither at the shrinker's six-bit levels so the light stays smooth."""
-    threshold = np.zeros((1, 1), dtype=int)
-    for _ in range(3):
-        threshold = np.block([[4 * threshold, 4 * threshold + 2],
-                              [4 * threshold + 3, 4 * threshold + 1]])
-    height, width = rgb.shape[:2]
-    offsets = (threshold[np.arange(height)[:, None] % 8, np.arange(width) % 8] + 0.5) / 64
-    levels = np.floor(np.clip(rgb, 0, 255) * (63 / 255) + offsets[:, :, None])
-    return Image.fromarray(np.rint(levels * (255 / 63)).astype(np.uint8))
+# --- glass -----------------------------------------------------------------------
+
+def glass(cw, ch, x0, y0, w, h, r, *, lit=False, primary=False, silver=False, alpha=0.92, circle=False,
+          shadow=0.45, glow_size=3, gloss=0.16, bands=None, bezel=0.0):
+    """A glossy glass shape in a cw x ch canvas: a soft shadow; a green body
+    (silver for `silver`), lighter at the top; a gloss cap over its upper
+    third; a fine bright rim. Lit: a brighter body, a lime and white rim and
+    a soft glow round it. `bezel` adds a silver ring that many pixels wide
+    round the edge (the round buttons)."""
+    x, y = tp.grid(cw, ch)
+    if circle:
+        d = tp.circle(x, y, x0 + w / 2, y0 + h / 2, w / 2)
+    else:
+        d, _, _ = tp.rrect(x, y, x0, y0, w, h, r)
+    cov = tp.coverage(d)
+    c = tp.canvas(cw, ch)
+    if shadow > 0:
+        tp.over(c, (0, 0, 0), tp.shadow_of(cov, 2, shadow, dy=2)[..., 3])
+    if lit:
+        g = tp.canvas(cw, ch)
+        g[..., :3] = GLOW
+        g[..., 3] = cov
+        g = tp.blur(g, glow_size)
+        tp.over(c, GLOW, g[..., 3] * 0.95)
+    v = np.clip((y - y0) / h, 0, 1)
+    if silver:
+        top, foot = ((255, 255, 255), (196, 204, 198)) if lit else (SILVER_TOP, SILVER_FOOT)
+    elif lit:
+        top, foot = LIT_TOP, LIT_FOOT
+    elif primary:
+        top, foot = (60, 152, 26), (22, 92, 8)
+    else:
+        top, foot = GLASS_TOP, GLASS_FOOT
+    body = tp.mix(top, foot, tp.smooth(v))
+    if bands is not None:
+        brgb, k = bands(v, y - y0)
+        body = tp.mix(body, brgb, k)
+    tp.over(c, body, cov * (1.0 if silver else alpha))
+    if bezel > 0:
+        ring = tp.coverage(d) - tp.coverage(d - bezel)
+        bv = tp.smooth(v)
+        tp.over(c, tp.mix((250, 252, 250), (120, 130, 124), bv), ring)
+        tp.over(c, (60, 66, 62), np.clip(1.0 - np.abs(d - bezel) / 0.8, 0, 1) * cov * 0.6)
+        d_in = d - bezel
+    else:
+        d_in = d
+    # The gloss cap: the upper third lit, ending in a soft line.
+    cap_v = np.clip((y - y0 - bezel) / max(h - 2 * bezel, 1), 0, 1)
+    cap = (1 - tp.smooth((cap_v - 0.30) / 0.10)) * tp.coverage(d_in - 1.5)
+    tp.over(c, (255, 255, 255), cap * (gloss * (1.25 if lit else 1.0)))
+    # A faint light pooled at the foot, as through coloured glass.
+    foot_light = np.exp(-((cap_v - 0.92) / 0.10) ** 2) * tp.coverage(d_in - 1.0)
+    tp.add_light(c, (90, 190, 50) if not silver else (255, 255, 255), foot_light * 0.12)
+    # The rim.
+    rim = np.clip(1.0 - np.abs(d_in - 0.8) / 0.9, 0, 1) * cov
+    if silver:
+        tp.over(c, (255, 255, 255) if not lit else LIME, rim * (0.9 if not lit else 1.0))
+        if lit:
+            tp.over(c, (90, 200, 40), np.clip(2.4 - np.abs(d - 1.6), 0, 1) * cov)
+    elif lit:
+        tp.over(c, LIME, np.clip(2.6 - np.abs(d_in - 1.8), 0, 1) * cov)
+        tp.over(c, (255, 255, 255), np.clip(1.0 - np.abs(d_in - 0.7) / 0.8, 0, 1) * cov)
+    else:
+        tp.over(c, RIM, rim * (0.75 - 0.35 * v))
+        if primary:
+            tp.over(c, LIME, np.clip(1.6 - np.abs(d_in - 1.2), 0, 1) * cov * 0.9)
+    return c
 
 
-def ribbon(across, down, aspect, heights, reach, radius):
-    """Return softly tapered halo and core masks along a cubic sweep."""
-    left, right = reach
-    phase = np.clip((across - left) / (right - left), 0, 1)
-    remaining = 1 - phase
-    start, first_control, second_control, end = heights
-    center = (
-        start * remaining ** 3 + 3 * first_control * remaining ** 2 * phase
-        + 3 * second_control * remaining * phase ** 2 + end * phase ** 3
-    )
-    tangent = 3 * (
-        (first_control - start) * remaining ** 2
-        + 2 * (second_control - first_control) * remaining * phase
-        + (end - second_control) * phase ** 2
-    )
-    slope = tangent / ((right - left) * aspect)
-    distance = np.abs(down - center) / np.hypot(1, slope)
-
-    taper = np.sin(np.pi * phase)
-    half_width = radius * (0.19 + 0.81 * taper ** 0.65)
-    strength = smoothstep(np.minimum(phase, remaining) / 0.24)
-    halo = strength * (1 - smoothstep(distance / half_width))
-    core = strength * (1 - smoothstep(distance / (half_width * 0.40)))
-    return halo, core
+def img(c):
+    return tp.to_image(c)
 
 
-def add_light(rgb, mask, tint):
-    """Tint the glow without dimming any part of the wall behind the ink."""
-    return rgb + mask[:, :, None] * np.maximum(np.array(tint) - rgb, 0)
+# --- the pictures ------------------------------------------------------------------
+
+def bar(W):
+    """W x 124: a dark green glass footer, a bright rim along its curved top
+    and a gloss under it, dipping in the middle under the clock."""
+    H = 124
+    tops = tp.bar_tops(W)
+    x, y = tp.grid(W, H)
+    d = y - tops[None, :]
+    c = tp.canvas(W, H)
+    tp.over(c, (0, 0, 0), 0.40 * np.exp(np.minimum(d, 0) / 3.5) * (d < 0.5))
+    k = np.clip((y - 11) / (H - 11), 0, 1)
+    body = tp.mix((30, 104, 18), (10, 48, 6), tp.smooth(k))
+    tp.over(c, body, tp.coverage(d) * 0.94)
+    # The gloss: a lighter band just under the edge, fading down.
+    tp.over(c, (150, 220, 100), 0.22 * np.exp(-np.maximum(d - 2, 0) / 9.0) * (d > 1.5))
+    tp.over(c, (255, 255, 255), np.clip(1.0 - np.abs(d - 0.7) / 0.9, 0, 1) * 0.85)
+    tp.over(c, LIME, np.clip(1.0 - np.abs(d - 2.3) / 0.8, 0, 1) * 0.55)
+    return tp.to_image(c)
 
 
-def background(width):
-    horizontal, vertical = pixel_grid(width, 480)
-    across = horizontal / width
-    down = vertical / 480
-    center_light = np.sin(np.pi * across) ** 2
-    wall_light = center_light * (0.30 + 0.53 * np.sin(np.pi * down) ** 2)
-    wall_light += 0.17 * smoothstep(down / 0.65)
-    rgb = np.array((181, 184, 184)) + wall_light[:, :, None] * (39, 38, 38)
-
-    floor_pool = center_light * np.exp(-((down - 0.82) / 0.103) ** 2)
-    floor_sheen = center_light ** 2 * np.exp(-((down - 0.792) / 0.028) ** 2)
-    rgb = add_light(rgb, 0.66 * floor_pool + 0.15 * floor_sheen, (243, 249, 239))
-
-    # Both main paths start low and cross once. All three die away before the mirror joins.
-    aspect = width / 480
-    lower_halo, lower_core = ribbon(
-        across, down, aspect, (0.71, 0.80, 0.68, 0.47), (0.02, 0.98), radius=0.075
-    )
-    steep_halo, steep_core = ribbon(
-        across, down, aspect, (0.80, 0.89, 0.62, 0.22), (0.06, 0.99), radius=0.082
-    )
-    high_halo, high_core = ribbon(
-        across, down, aspect, (0.63, 0.48, 0.32, 0.24), (0.04, 0.90), radius=0.044
-    )
-
-    rgb = add_light(rgb, high_halo * 0.49, (217, 236, 205))
-    rgb = add_light(rgb, high_core * 0.54, (248, 253, 244))
-    rgb = add_light(rgb, np.maximum(lower_halo, steep_halo) * 0.95, (225, 244, 212))
-    rgb = add_light(rgb, np.maximum(lower_core, steep_core) * 0.96, (255, 255, 251))
-    return dither_wall(rgb)
+def tile(lit=False):
+    return img(glass(140, 100, 8, 8, 124, 84, 11, lit=lit))
 
 
-def bar(width):
-    """Match RiftWii's dip: 11-pixel shoulders, 62-pixel center."""
-    horizontal, vertical = pixel_grid(width, 124)
-    dip_width = width * 0.58
-    dip_left = (width - dip_width) / 2
-    phase = (horizontal - dip_left) / dip_width
-    depth = np.minimum(smoothstep(phase / 0.3), smoothstep((1 - phase) / 0.3))
-    distance = vertical - (11 + 51 * depth)
-    coverage = np.clip(distance + 0.5, 0, 1)
-    edge = np.clip(distance + 0.5, 0, 1) - np.clip(distance - 1.5, 0, 1)
-    silver = np.array(ImageColor.getrgb(COLORS["bar"]))
-    green = np.array(ImageColor.getrgb(COLORS["accent"]))
-    rgb = silver + edge[:, :, None] * (green - silver)
-    rgba = np.dstack((rgb, coverage * 255))
-    return Image.fromarray(np.rint(rgba).astype(np.uint8))
+def tile_empty():
+    c = tp.canvas(140, 100)
+    x, y = tp.grid(140, 100)
+    d, _, _ = tp.rrect(x, y, 8, 8, 124, 84, 11)
+    cov = tp.coverage(d)
+    tp.over(c, (6, 34, 4), cov * 0.35)
+    tp.over(c, RIM, np.clip(1.0 - np.abs(d - 0.8) / 0.9, 0, 1) * cov * 0.30)
+    return tp.to_image(c)
 
 
-def rectangle(draw, box, **style):
-    """Pillow's right and bottom edges are inclusive; asset boxes aren't."""
-    left, top, right, bottom = box
-    draw.rectangle((left, top, right - 1, bottom - 1), **style)
-
-
-def plate(size, box, fill, edge=None, border=1):
-    picture = Image.new("RGBA", size)
-    rectangle(ImageDraw.Draw(picture), box, fill=fill, outline=edge, width=border)
-    return picture
-
-
-def tile(size, box, *, over=False, primary=False):
-    if not primary:
-        fill = LIGHT_LIT if over else COLORS["card"]
-        edge = FOCUS_GREEN if over else COLORS["card_edge"]
-        return plate(size, box, fill, edge, 3 if over else 1)
-    if not over:
-        return plate(size, box, PRIMARY, DEEP_GREEN)
-
-    # White inside a dark keyline still reads against either silver or green.
-    picture = plate(size, box, PRIMARY_LIT, DEEP_GREEN)
-    left, top, right, bottom = box
-    inset = (left + 1, top + 1, right - 1, bottom - 1)
-    rectangle(ImageDraw.Draw(picture), inset, fill=PRIMARY_LIT, outline=WHITE, width=3)
-    return picture
-
-
-def focused_button(size, box, primary):
-    """Keep the focus frame readable when HOME shrinks Close to 62%."""
-    fill = PRIMARY_LIT if primary else "#E8F4E3"
-    frame_width = 5
-    picture = plate(size, box, fill, DEEP_GREEN, frame_width)
-    left, top, right, bottom = box
-    inset = (left + frame_width, top + frame_width, right - frame_width, bottom - frame_width)
-    inner_edge = WHITE if primary else COLORS["accent"]
-    rectangle(ImageDraw.Draw(picture), inset, fill=fill, outline=inner_edge, width=2)
-    return picture
-
-
-def empty_tile():
-    picture = plate((140, 100), (7, 7, 131, 91), "#DCE2DCCF", "#A7B2A8")
-    draw = ImageDraw.Draw(picture)
-    for left in (59, 72):
-        for top in (38, 51):
-            rectangle(draw, (left, top, left + 9, top + 9), fill="#A8B4A9")
-    return picture
-
-
-def panel(height, *, popup=False):
-    # The engine draws the same dark ink on the wall and on a panel. Keep
-    # the charcoal as a case around the light surface underneath the text.
-    picture = plate((580, height), (4, 4, 576, height - 4), CHARCOAL)
-    draw = ImageDraw.Draw(picture)
-    rectangle(draw, (8, 8, 572, height - 9), fill=PANEL_RAIL)
-    rectangle(draw, (11, 11, 569, height - 15), fill=COLORS["card"])
-    rectangle(draw, (11, 10, 569, 12), fill=COLORS["accent"])
-    if popup:
-        rectangle(draw, (11, 12, 569, 48), fill=COLORS["bar"])
-        rectangle(draw, (11, 47, 569, 48), fill=COLORS["divider"])
-        rectangle(draw, (11, height - 22, 569, height - 15), fill=COLORS["divider"])
-    return picture
-
-
-def banner_stripes():
-    horizontal, vertical = pixel_grid(640, 192)
-    phase = (horizontal + vertical - 0.5) % 80
-    diagonal = np.clip(2 - np.minimum(phase, 80 - phase), 0, 1)
-    foot = np.clip((124 - vertical) / 4, 0, 1)
-    red, green, blue, alpha = ImageColor.getcolor(COLORS["banner_stripe"], "RGBA")
-    pixels = np.empty((192, 640, 4), dtype=np.uint8)
-    pixels[:, :, :3] = (red, green, blue)
-    pixels[:, :, 3] = np.rint(diagonal * foot * alpha)
-    return Image.fromarray(pixels)
-
-
-def shelf():
-    picture = Image.new("RGB", (256, 64), COLORS["shelf"])
-    draw = ImageDraw.Draw(picture)
-    rectangle(draw, (0, 0, 256, 3), fill="#59645B")
-    rectangle(draw, (0, 44, 256, 48), fill="#859187")
-    rectangle(draw, (0, 48, 256, 64), fill=COLORS["shelf_edge"])
-    rectangle(draw, (0, 48, 256, 50), fill=COLORS["accent"])
-    return picture
+def cover_tile(lit=False):
+    """96x128: a game box. The cover (80x112) is drawn over its middle; the
+    case shows round it as green plastic with a moulded edge."""
+    W, H = 96, 128
+    x, y = tp.grid(W, H)
+    c = tp.canvas(W, H)
+    d, _, _ = tp.rrect(x, y, 2, 2, 92, 124, 7)
+    cov = tp.coverage(d)
+    tp.over(c, (0, 0, 0), tp.shadow_of(cov, 2, 0.45, dy=2)[..., 3])
+    if lit:
+        g = tp.canvas(W, H)
+        g[..., :3] = GLOW
+        g[..., 3] = cov
+        g = tp.blur(g, 2)
+        tp.over(c, GLOW, g[..., 3])
+    v = np.clip((y - 2) / 124, 0, 1)
+    case = tp.mix((88, 190, 44), (36, 122, 18), tp.smooth(v)) if lit else \
+        tp.mix((70, 168, 34), (26, 104, 12), tp.smooth(v))
+    tp.over(c, case, cov)
+    # The moulded edge: a highlight just inside the case's edge, and a
+    # brighter strip down its left, where the hinge is.
+    tp.over(c, (255, 255, 255), np.clip(1.0 - np.abs(d - 1.0) / 0.9, 0, 1) * cov * 0.55)
+    tp.over(c, (200, 255, 150), np.exp(-((x - 4.5) / 1.2) ** 2) * cov * 0.35)
+    # The sleeve under the clear front: plain and dark, for the rare tile
+    # without even a made-up cover (RiftWii writes the name on it in white).
+    sd, _, _ = tp.rrect(x, y, 8, 8, 80, 112, 1.5)
+    sleeve = tp.coverage(sd)
+    sv = np.clip((y - 8) / 112, 0, 1)
+    tp.over(c, tp.mix((70, 76, 70), (40, 46, 40), tp.smooth(sv)), sleeve)
+    # The clear front's sheen: a soft diagonal light.
+    tp.over(c, (255, 255, 255), np.exp(-((x * 0.6 + y - 46) / 10) ** 2) * sleeve * 0.07)
+    if lit:
+        tp.over(c, LIME, np.clip(2.4 - np.abs(d - 1.4), 0, 1) * cov)
+    return tp.to_image(c)
 
 
 def blank_cover():
-    picture = Image.new("RGB", (160, 224), COLORS["card"])
-    draw = ImageDraw.Draw(picture)
-    rectangle(draw, (0, 0, 160, 37), fill=COLORS["accent"])
-    rectangle(draw, (0, 188, 160, 224), fill="#DEE5DE")
-    rectangle(draw, (0, 188, 160, 190), fill=COLORS["card_edge"])
-    return picture
+    """160x224: the sleeve of a game without box art, as RiftWii's made-up
+    cover prints the name on it: a white band across the top with green
+    swooshes sweeping up at its right, a fine green line under it, and a
+    plain silver-grey below (light enough that RiftWii writes the name in
+    dark ink; the name sits from row 50 to 190, badges along the foot)."""
+    W, H = 160, 224
+    x, y = tp.grid(W, H)
+    c = tp.canvas(W, H)
+    v = y / H
+    grey = tp.mix((168, 170, 168), (142, 144, 142), tp.smooth(v))
+    c[..., :3] = grey
+    c[..., 3] = 1.0
+    # A soft light down the middle, as printed card under clear plastic.
+    tp.add_light(c, (255, 255, 255), 0.06 * np.exp(-((x - 70) / 50) ** 2))
+    band_h = 34.0
+    band = np.clip(band_h - y + 0.5, 0, 1)
+    tp.over(c, (252, 253, 252), band)
+    # The swooshes: bands between curves that lean right as they rise,
+    # dark green to lime to yellow-green, over a white-to-lime fade.
+    lean = (band_h - y) * 0.55
+    bow = 6.0 * np.sin(np.clip(y / band_h, 0, 1) * math.pi)
+    xs = x - lean + bow
+    tp.over(c, (196, 232, 150), np.clip((xs - 84) / 26, 0, 1) * band)
+    for left, rgb in ((104, (16, 110, 26)), (110, (60, 156, 30)), (118, (20, 96, 22)),
+                      (124, (96, 180, 34)), (133, (34, 130, 26)), (140, (150, 204, 40)),
+                      (149, (196, 220, 60))):
+        tp.over(c, rgb, np.clip(xs - left + 0.5, 0, 1) * band)
+    tp.over(c, (60, 156, 30), np.clip(1.2 - np.abs(y - band_h - 0.6), 0, 1))
+    return tp.to_image(c, opaque=True)
 
 
-class VectorArt:
-    """Draw fractional edges at four times size before resolving coverage."""
-
-    SCALE = 4
-
-    def __init__(self, size):
-        self.size = size
-        self.canvas = Image.new("RGBA", tuple(length * self.SCALE for length in size))
-        self.draw = ImageDraw.Draw(self.canvas)
-
-    def box(self, box, fill):
-        rectangle(self.draw, tuple(round(value * self.SCALE) for value in box), fill=fill)
-
-    def points(self, points):
-        return [(round(horizontal * self.SCALE), round(vertical * self.SCALE))
-                for horizontal, vertical in points]
-
-    def polygon(self, points, fill):
-        self.draw.polygon(self.points(points), fill=fill)
-
-    def line(self, points, fill, width):
-        self.draw.line(self.points(points), fill=fill, width=round(width * self.SCALE), joint="curve")
-
-    def circle(self, center, radius, fill, *, outline=None, width=1):
-        horizontal, vertical = center
-        box = ((horizontal - radius, vertical - radius), (horizontal + radius, vertical + radius))
-        self.draw.ellipse(self.points(box), fill=fill, outline=outline, width=round(width * self.SCALE))
-
-    def finish(self):
-        return self.canvas.resize(self.size, Image.Resampling.BOX)
+def tile9(lit=False, primary=False):
+    return img(glass(64, 64, 8, 8, 48, 48, 11, lit=lit, primary=primary))
 
 
-def arrow(direction, *, over=False, page=False):
-    size = 48 if page else 44
-    margin = 7 if page else 4
-    center = size / 2
-    normal = plate((size, size), (margin, margin, size - margin, size - margin),
-                   FOCUS_GREEN if over else CHARCOAL, WHITE if over else None, 3)
-    art = VectorArt((size, size))
-    art.polygon(((center - 4.5, center - 7), (center + 5.5, center),
-                 (center - 4.5, center + 7)), WHITE)
-    rotations = {"right": None, "left": Image.Transpose.FLIP_LEFT_RIGHT,
-                 "up": Image.Transpose.ROTATE_90, "down": Image.Transpose.ROTATE_270}
-    rotation = rotations[direction]
-    glyph = art.finish()
-    if rotation is not None:
-        glyph = glyph.transpose(rotation)
-    normal.alpha_composite(glyph)
-    return normal
+def pill(lit=False, primary=False):
+    return img(glass(252, 60, 4, 4, 244, 52, 22, lit=lit, primary=primary, glow_size=2, shadow=0.35))
+
+
+def home_button(lit=False):
+    # Silver: RiftWii writes the HOME Menu's labels in dark ink.
+    return img(glass(264, 88, 8, 8, 248, 72, 30, lit=lit, silver=True, glow_size=4, gloss=0.30))
+
+
+def round_button(lit=False):
+    return img(glass(80, 80, 3, 3, 74, 74, 37, lit=lit, circle=True, glow_size=2, shadow=0.35, bezel=5.5,
+                     gloss=0.20))
+
+
+def chip(on):
+    c = glass(212, 36, 2, 2, 208, 30, 9, primary=on, alpha=0.85, shadow=0.25, gloss=0.10)
+    return img(c)
+
+
+def row_focus():
+    """548x44: the lit row of a list: brighter green glass with a lime and
+    white rim."""
+    return img(glass(548, 44, 1.5, 1.5, 545, 41, 10, lit=True, shadow=0.0, glow_size=1))
+
+
+def round_arrow(direction, lit):
+    """44x44: a small silver orb with a green chevron."""
+    c = glass(44, 44, 4, 4, 34, 34, 17, lit=lit, silver=True, circle=True, glow_size=2, shadow=0.3, gloss=0.25)
+    tp.chevron(c, 22, 22, 12, direction, rgb=(30, 120, 20) if lit else (40, 96, 34), width=3.0)
+    return img(c)
 
 
 def switch(on):
-    track = DEEP_GREEN if on else COLORS["switch_off"]
-    picture = plate((68, 40), (3, 4, 63, 34), track, CHARCOAL)
-    draw = ImageDraw.Draw(picture)
-    knob_left = 36 if on else 6
-    rectangle(draw, (knob_left, 7, knob_left + 24, 31), fill=WHITE)
-    return picture
+    cw, ch = 68, 40
+    x, y = tp.grid(cw, ch)
+    c = tp.canvas(cw, ch)
+    d, _, _ = tp.rrect(x, y, 4, 6, 60, 28, 14)
+    cov = tp.coverage(d)
+    tp.over(c, (0, 0, 0), tp.shadow_of(cov, 2, 0.35)[..., 3])
+    v = np.clip((y - 6) / 28, 0, 1)
+    body = tp.mix((150, 226, 80), (62, 160, 28), tp.smooth(v)) if on else \
+        tp.mix((26, 70, 16), (12, 44, 8), tp.smooth(v))
+    tp.over(c, body, cov)
+    tp.over(c, (0, 0, 0), np.exp(-((d - 0.4) / 1.4) ** 2) * (1 - v) * cov * 0.35)
+    tp.over(c, RIM, np.clip(1.0 - np.abs(d - 0.8) / 0.9, 0, 1) * cov * 0.7)
+    kx = 50 if on else 18
+    kd = tp.circle(x, y, kx, 20, 12)
+    kc = tp.coverage(kd)
+    tp.over(c, (0, 0, 0), tp.shadow_of(kc, 2, 0.4)[..., 3])
+    kv = np.clip((y - 8) / 24, 0, 1)
+    tp.over(c, tp.mix(SILVER_TOP, SILVER_FOOT, tp.smooth(kv)), kc)
+    tp.over(c, (255, 255, 255), (1 - tp.smooth((kv - 0.35) / 0.1)) * tp.coverage(kd - 1.5) * 0.4)
+    tp.over(c, (255, 255, 255), np.clip(1.0 - np.abs(kd - 0.8) / 0.9, 0, 1) * kc * 0.8)
+    return tp.to_image(c)
 
 
-def pointer(color):
-    # A flat cursor without an embedded logo; its tip is the hot spot.
-    art = VectorArt((96, 96))
-    outline = ((48, 48), (51, 78), (57, 71), (64, 83), (72, 78), (64, 66), (74, 63))
-    fill = ((51, 53), (53, 72), (57, 67), (65, 79), (68, 77), (60, 64), (68, 62))
-    shadow = [(horizontal + 1, vertical + 2) for horizontal, vertical in outline]
-    art.polygon(shadow, "#20282342")
-    art.polygon(outline, color)
-    art.polygon(fill, WHITE)
-    return art.finish()
+def panel(h):
+    return img(glass(580, h, 4, 4, 572, h - 8, 16, alpha=0.70, gloss=0.07, shadow=0.40))
 
 
-def icon(name):
-    # These icons are shared by green Home controls and light menu cards.
-    # A deep-green square keeps the white glyph readable on both.
-    art = VectorArt((28, 28))
-    art.box((1, 1, 27, 27), DEEP_GREEN)
-    if name == "drives":
-        for top in (5, 15):
-            art.box((5, top, 23, top + 8), WHITE)
-            art.box((9, top + 2, 11, top + 5), DEEP_GREEN)
-            art.box((15, top + 3, 20, top + 5), DEEP_GREEN)
-    elif name == "gear":
-        for turn in range(8):
-            angle = turn * np.pi / 4
-            reach = 9.8
-            tip = (14 + reach * np.cos(angle), 14 + reach * np.sin(angle))
-            art.line(((14, 14), tip), WHITE, 3.6)
-        art.circle((14, 14), 7.75, WHITE)
-        art.circle((14, 14), 3.4, DEEP_GREEN)
-    elif name == "search":
-        art.circle((12, 12), 5, None, outline=WHITE, width=2)
-        art.line(((16, 16), (22, 22)), WHITE, 2.4)
-    elif name == "play":
-        art.polygon(((10, 6.5), (22, 14), (10, 21.5)), WHITE)
-    elif name == "store":
-        art.circle((14, 10), 4, None, outline=WHITE, width=1.75)
-        art.box((6, 10, 22, 22), WHITE)
-        art.box((11, 12, 17, 14), DEEP_GREEN)
-    elif name == "picture":
-        art.box((4, 6, 24, 20), WHITE)
-        art.box((6, 8, 22, 18), DEEP_GREEN)
-        art.box((9, 21, 19, 23), WHITE)
-    elif name == "controllers":
-        art.polygon(((6, 8), (22, 8), (25, 21), (21, 23), (17, 18),
-                     (11, 18), (7, 23), (3, 21)), WHITE)
-        art.box((7, 12, 13, 14), DEEP_GREEN)
-        art.box((9, 10, 11, 16), DEEP_GREEN)
-        art.circle((19, 13), 2, DEEP_GREEN)
-    elif name == "home":
-        art.polygon(((4, 12), (14, 4), (24, 12), (22, 12), (22, 23),
-                     (16, 23), (16, 16), (12, 16), (12, 23), (6, 23), (6, 12)), WHITE)
-    elif name == "sound":
-        art.polygon(((4, 10), (9, 10), (14, 6), (14, 22), (9, 18), (4, 18)), WHITE)
-        art.line(((17, 10), (19, 12), (19, 16), (17, 18)), WHITE, 1.5)
-        art.line(((20, 7), (23, 10), (23, 18), (20, 21)), WHITE, 1.5)
-    elif name == "online":
-        art.circle((14, 14), 9, None, outline=WHITE, width=1.6)
-        art.line(((5, 14), (23, 14)), WHITE, 1.6)
-        art.line(((14, 5), (10, 10), (10, 18), (14, 23), (18, 18), (18, 10), (14, 5)), WHITE, 1.6)
-    elif name == "help":
-        art.circle((14, 14), 9, None, outline=WHITE, width=1.6)
-        art.line(((11, 11), (11, 9), (16, 9), (17, 10), (17, 12), (14, 14), (14, 16)), WHITE, 1.5)
-        art.box((13, 18, 15, 20), WHITE)
-    elif name == "power":
-        art.circle((14, 14.5), 8, None, outline=WHITE, width=2)
-        art.box((10, 4, 18, 10), DEEP_GREEN)
-        art.box((13, 4, 15, 14), WHITE)
-    return art.finish()
+def popup():
+    def bands(v, yy):
+        head = yy < 44
+        foot = yy > 276 - 18
+        rgb = np.where(head[..., None], np.asarray((48, 140, 26), np.float32),
+                       np.asarray((14, 64, 8), np.float32))
+        k = np.where(head | foot, 0.9, 0.0)
+        line = np.abs(yy - 44) < 0.8
+        rgb = np.where(line[..., None], np.asarray(LIME, np.float32), rgb)
+        k = np.where(line, 0.85, k)
+        return rgb, k
+
+    return img(glass(580, 284, 4, 4, 572, 276, 16, alpha=0.95, gloss=0.08, shadow=0.45, bands=bands))
 
 
-def painters():
+def banner_stripes():
+    """640x192: over a game banner while it shows the game's colour: a green
+    veil, darker at the foot, with soft gloss on its upper part and a lime
+    line along the band's foot (plain across, so copies join)."""
+    W, H = 640, 192
+    x, y = tp.grid(W, H)
+    c = tp.canvas(W, H)
+    band = (y < 128).astype(np.float32)
+    k = tp.smooth(y / 122)
+    tp.over(c, tp.mix((60, 150, 30), (10, 50, 6), k), band * (0.22 + 0.30 * k))
+    tp.over(c, (255, 255, 255), band * 0.10 * (1 - tp.smooth((y - 40) / 12)))
+    tp.over(c, LIME, (np.abs(y - 122) < 1.0) * 0.8)
+    return tp.to_image(c)
+
+
+def page_arrow(direction, lit):
+    """48x48: Home's page buttons: glossy silver triangles; lit, a lime glow."""
+    c = tp.canvas(48, 48)
+    pts = ((34, 8), (13, 24), (34, 40)) if direction == "left" else ((14, 8), (35, 24), (14, 40))
+    if lit:
+        g = tp.canvas(48, 48)
+        tp.triangle(g, pts, GLOW, 1.0)
+        g = tp.blur(g, 3)
+        tp.over(c, GLOW, g[..., 3])
+    sh = tp.canvas(48, 48)
+    tp.triangle(sh, [(px, py + 2) for px, py in pts], (0, 0, 0), 0.5)
+    sh = tp.blur(sh, 1)
+    tp.over(c, (0, 0, 0), sh[..., 3])
+    body = tp.canvas(48, 48)
+    tp.triangle(body, pts, (255, 255, 255), 1.0)
+    x, y = tp.grid(48, 48)
+    shade = tp.mix((255, 255, 255) if lit else SILVER_TOP, (190, 200, 192) if lit else SILVER_FOOT,
+                   tp.smooth((y - 8) / 32))
+    tp.over(c, shade, body[..., 3])
+    tp.over(c, (255, 255, 255), body[..., 3] * 0.35 * (y < 24))
+    return tp.to_image(c)
+
+
+def shelf():
+    """256x64: a green glass shelf: its top (rows 0-47) lighter towards the
+    front, its front edge (48-63) a bright rim over dark green. Plain across."""
+    W, H = 256, 64
+    x, y = tp.grid(W, H)
+    c = tp.canvas(W, H)
+    top = y < 48
+    k = y / 48
+    tp.over(c, tp.mix((20, 80, 10), (70, 166, 36), tp.smooth(k)), top * (0.45 + 0.4 * k))
+    front = ~top
+    fk = (y - 48) / 16
+    tp.over(c, tp.mix((60, 150, 30), (8, 40, 4), tp.smooth(fk)), front * 0.95)
+    tp.over(c, (255, 255, 255), (np.abs(y - 48.5) < 1.0) * 0.85)
+    return tp.to_image(c)
+
+
+# --- sound -----------------------------------------------------------------------
+
+RATE = 32000
+
+
+def blip(freq, dur, sweep=0.0, decay=0.05, vol=1.0):
+    """A soft glassy tone: a sine and a quieter fifth, gliding by `sweep`
+    (a fraction of its pitch) as it fades."""
+    n = int(RATE * dur)
+    t = np.arange(n) / RATE
+    f = freq * (1.0 + sweep * t / dur)
+    phase = TAU * np.cumsum(f) / RATE
+    s = np.sin(phase) + 0.30 * np.sin(1.5 * phase) + 0.10 * np.sin(3 * phase)
+    env = np.clip(t / 0.004, 0, 1) * np.exp(-t / decay)
+    return vol * s * env
+
+
+def sounds(out):
+    hover = 0.22 * blip(1760, 0.07, sweep=0.08, decay=0.018)
+    click = 0.30 * blip(1175, 0.20, sweep=-0.10, decay=0.06)
+    click[640:640 + 4800] += 0.20 * blip(1760, 0.15, decay=0.05)[:4800]
+    up = np.zeros(int(RATE * 0.6))
+    down = np.zeros(int(RATE * 0.6))
+    for k, f in enumerate((880, 1109, 1319, 1760)):
+        note = 0.20 * blip(f, 0.35, decay=0.10)
+        up[k * 1800:k * 1800 + note.size] += note[:up.size - k * 1800]
+        g = (1760, 1319, 1109, 880)[k]
+        note = 0.20 * blip(g, 0.35, decay=0.10)
+        down[k * 1800:k * 1800 + note.size] += note[:down.size - k * 1800]
+    for name, s in (("hover", hover), ("click", click), ("home_open", up), ("home_close", down)):
+        tp.write_wav(out / f"{name}.wav", s, RATE)
+
+
+def main():
+    out = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else HERE.parent / "build-themes" / "Dashboard"
+    out.mkdir(parents=True, exist_ok=True)
+    only = set(sys.argv[2:])
+    (out / "theme.ini").write_bytes(INI.replace("\n", "\r\n").encode("utf-8"))
+    (out / "LICENSE").write_bytes(LICENSE.encode("utf-8"))
     pictures = {
         "background": lambda: background(640),
         "background_wide": lambda: background(856),
         "bar": lambda: bar(640),
         "bar_wide": lambda: bar(856),
-        "tile_empty": empty_tile,
-        "chip_off": lambda: plate((212, 36), (2, 2, 210, 32), COLORS["chip_off"], COLORS["chip_off_edge"]),
-        "chip_on": lambda: plate((212, 36), (2, 2, 210, 32), COLORS["chip_on"], FOCUS_GREEN, 2),
-        "row_focus": lambda: tile((548, 44), (1, 1, 547, 43), over=True),
-        "switch_off": lambda: switch(False),
+        "tile": lambda: tile(False),
+        "tile_over": lambda: tile(True),
+        "tile_empty": tile_empty,
+        "cover_tile": lambda: cover_tile(False),
+        "cover_tile_over": lambda: cover_tile(True),
+        "tile9": lambda: tile9(),
+        "tile9_over": lambda: tile9(lit=True),
+        "tile9_primary": lambda: tile9(primary=True),
+        "tile9_primary_over": lambda: tile9(lit=True, primary=True),
+        "pill": lambda: pill(),
+        "pill_over": lambda: pill(lit=True),
+        "pill_primary": lambda: pill(primary=True),
+        "pill_primary_over": lambda: pill(lit=True, primary=True),
+        "home_button": lambda: home_button(False),
+        "home_button_over": lambda: home_button(True),
+        "round_button": lambda: round_button(False),
+        "round_button_over": lambda: round_button(True),
+        "chip_off": lambda: chip(False),
+        "chip_on": lambda: chip(True),
+        "row_focus": row_focus,
+        "step_back": lambda: round_arrow("left", False),
+        "step_back_over": lambda: round_arrow("left", True),
+        "step_forward": lambda: round_arrow("right", False),
+        "step_forward_over": lambda: round_arrow("right", True),
+        "scroll_up": lambda: round_arrow("up", False),
+        "scroll_up_over": lambda: round_arrow("up", True),
+        "scroll_down": lambda: round_arrow("down", False),
+        "scroll_down_over": lambda: round_arrow("down", True),
         "switch_on": lambda: switch(True),
+        "switch_off": lambda: switch(False),
         "panel_game": lambda: panel(240),
         "panel_settings": lambda: panel(284),
-        "popup": lambda: panel(284, popup=True),
+        "popup": popup,
         "banner_stripes": banner_stripes,
+        "arrow_left": lambda: page_arrow("left", False),
+        "arrow_left_over": lambda: page_arrow("left", True),
+        "arrow_right": lambda: page_arrow("right", False),
+        "arrow_right_over": lambda: page_arrow("right", True),
         "shelf": shelf,
         "blank_cover": blank_cover,
     }
-
-    tile_specs = (
-        ("tile", (140, 100), (7, 7, 131, 91), False),
-        ("cover_tile", (96, 128), (6, 6, 90, 122), False),
-        ("tile9", (64, 64), (8, 8, 56, 56), False),
-        ("tile9_primary", (64, 64), (8, 8, 56, 56), True),
-        ("pill", (252, 60), (4, 4, 248, 56), False),
-        ("pill_primary", (252, 60), (4, 4, 248, 56), True),
-        ("home_button", (264, 88), (8, 8, 256, 80), False),
-        ("round_button", (80, 80), (4, 4, 76, 76), True),
-    )
-    for name, size, box, primary in tile_specs:
-        pictures[name] = lambda size=size, box=box, primary=primary: tile(size, box, primary=primary)
-        if name in ("pill", "pill_primary", "home_button"):
-            pictures[name + "_over"] = lambda size=size, box=box, primary=primary: focused_button(
-                size, box, primary)
-        else:
-            lit_primary = primary or name == "tile"
-            pictures[name + "_over"] = lambda size=size, box=box, primary=lit_primary: tile(
-                size, box, over=True, primary=primary)
-
-    arrow_specs = {"step_back": "left", "step_forward": "right", "arrow_left": "left",
-                   "arrow_right": "right", "scroll_up": "up", "scroll_down": "down"}
-    for name, direction in arrow_specs.items():
-        page = name.startswith("arrow_")
-        pictures[name] = lambda direction=direction, page=page: arrow(direction, page=page)
-        pictures[name + "_over"] = lambda direction=direction, page=page: arrow(direction, over=True, page=page)
-
-    for player in range(1, 5):
-        name = f"pointer{player}"
-        pictures[name] = lambda color=COLORS[name]: pointer(color)
-    icons = ("drives", "gear", "search", "play", "store", "picture", "controllers",
-             "home", "sound", "online", "help", "power")
-    for name in icons:
-        pictures[f"icon_{name}"] = lambda name=name: icon(name)
-    return pictures
-
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("out_dir", nargs="?", type=pathlib.Path, default=HERE.parent / "themes" / "Dashboard")
-    parser.add_argument("pictures", nargs="*", metavar="picture")
-    args = parser.parse_args()
-
-    pictures = painters()
-    unknown = sorted(set(args.pictures) - pictures.keys())
-    if unknown:
-        parser.error("unknown picture(s): " + ", ".join(unknown))
-
-    args.out_dir.mkdir(parents=True, exist_ok=True)
-    (args.out_dir / "theme.ini").write_bytes(INI.replace("\n", "\r\n").encode("utf-8"))
-    (args.out_dir / "LICENSE").write_text(LICENSE, encoding="utf-8", newline="\n")
     written = []
     for name, paint in pictures.items():
-        if args.pictures and name not in args.pictures:
+        if only and name not in only:
             continue
-        path = args.out_dir / f"{name}.png"
-        paint().save(path, optimize=True)
-        print(path, flush=True)
-        written.append(str(path))
-
-    subprocess.run([sys.executable, str(HERE / "shrink_theme_pictures.py"), "--", *written], check=True)
+        written.append(tp.save(paint(), out / (name + ".png")))
+        print(name)
+    if not only or "sounds" in only:
+        sounds(out)
+        print("sounds")
+    if written:
+        shrinker = str(HERE / "shrink_theme_pictures.py")
+        subprocess.run([sys.executable, shrinker, "--"] + written, check=True)
 
 
 if __name__ == "__main__":
