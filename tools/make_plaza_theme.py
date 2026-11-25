@@ -713,6 +713,8 @@ def music(out):
             dur = beat * 1.8
             tt = np.arange(int(rate * dur)) / rate
             env = np.clip(tt / 0.01, 0, 1) * np.exp(-tt / 0.6)
+            # A 20 ms release, so the note ends at silence, not in a click.
+            env *= np.clip((tt.size - 1 - np.arange(tt.size)) / (rate * 0.020), 0, 1)
             f = hz(bass[b % 4] if k == 0 else bass[b % 4] + 7)
             put(0.20 * env * (np.sin(TAU * f * tt) + 0.2 * np.sin(TAU * 2 * f * tt)), t0 + k * beat, pan=0.5)
         # Brushed hi-hat on the off-beats.

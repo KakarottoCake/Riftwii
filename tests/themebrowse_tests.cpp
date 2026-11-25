@@ -296,6 +296,29 @@ int main() {
         hard.max_file_size = 8;
         EXPECT_TRUE(!zip_plan_theme(entries, "Indigo", hard, plan, error));
     }
+    // The default cap: a theme with a looping backdrop (Plaza: 88 files)
+    // unpacks; 192 files do, 193 do not.
+    {
+        const auto plan_files = [](std::size_t count, std::size_t listed, std::vector<ZipThemeFile>& plan,
+                                   std::string& error) {
+            std::vector<TestFile> files;
+            // A theme.ini (every theme has one) and pictures up to `count` files.
+            files.push_back({"Plaza/theme.ini", "[theme]\nname=P\n", 0});
+            for (std::size_t i = 1; i < count; ++i) files.push_back({"Plaza/f" + std::to_string(i) + ".png", "P", 0});
+            const auto zip = make_zip(files);
+            std::vector<ZipEntry> entries;
+            if (!read(zip, entries, error)) return false;
+            return zip_plan_theme(entries, "Plaza", limits(listed, 1000), plan, error);
+        };
+        std::vector<ZipThemeFile> plan;
+        std::string error;
+        EXPECT_TRUE(plan_files(88, 88, plan, error));
+        EXPECT_EQ(plan.size(), 88u);
+        EXPECT_TRUE(plan_files(192, 192, plan, error));
+        EXPECT_EQ(plan.size(), 192u);
+        EXPECT_TRUE(!plan_files(193, 193, plan, error));
+        EXPECT_TRUE(error.find("more files than the theme list says") != std::string::npos);
+    }
     // Bad entries.
     {
         std::vector<ZipEntry> entries;
