@@ -33,7 +33,7 @@ https from riftwii.github.io only, and are treated as untrusted: the list
 is cut at 256 KB and 500 themes, a download must be exactly the size the
 list says and match its SHA-256, a zip holds one folder of plain file names
 (no paths that climb out, no more files or bytes than the list says, at
-most 64 files and 24 MB), and the unpacked theme is checked with RiftWii's own
+most 192 files and 24 MB), and the unpacked theme is checked with RiftWii's own
 theme loader in `sd:/riftwii/themes/.<name>.tmp` before it replaces the old
 copy. A failed download leaves nothing behind.
 

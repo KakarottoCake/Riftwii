@@ -90,6 +90,22 @@ int main() {
         EXPECT_TRUE(q.ok);
         EXPECT_EQ(std::string(q.themes[0].name), "Indigo !");
     }
+    // A theme with a looping backdrop has more than 64 files (Plaza: 88);
+    // past kThemeMaxFiles a theme is left out of the list.
+    {
+        std::string many = theme_json("Plaza");
+        many.replace(many.find("\"files\":27"), 10, "\"files\":88");
+        const Parsed p = parse(list_json(many));
+        EXPECT_TRUE(p.ok);
+        EXPECT_EQ(p.count, 1u);
+        EXPECT_EQ(p.themes[0].files, 88u);
+        std::string too_many = theme_json("Plaza");
+        too_many.replace(too_many.find("\"files\":27"), 10, "\"files\":" + std::to_string(kThemeMaxFiles + 1));
+        const Parsed q = parse(list_json(too_many));
+        EXPECT_TRUE(q.ok);
+        EXPECT_EQ(q.count, 0u);
+        EXPECT_EQ(q.skipped, 1u);
+    }
     EXPECT_TRUE(parse(list_json("")).ok);
     EXPECT_EQ(parse(list_json("")).count, 0u);
     // Not a list, wrong schema, no schema, broken text.
