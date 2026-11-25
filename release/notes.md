@@ -33,18 +33,21 @@ release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 
 -->
-**RiftWii {{VERSION}}.** A fix for big game libraries: with hundreds of games, RiftWii could run out of memory and restart, most often while it downloaded an update or the game details, so an update never finished. Everything from 2611-236 (GameTDB entries for mod tiles and more) is in it too. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** This replaces 2611-239, which was taken down because it showed a black screen or an "Exception (DSI)" screen on every real Wii. It has everything 239 had: big game libraries no longer run out of memory and restart, and Settings has new buttons. Everything from 2611-236 is in it too.
 
-If you have a big library and RiftWii keeps restarting when it updates, copy `boot.dol` from this release's zip to `sd:/apps/riftwii/` by hand once, or turn off Wii Menu sounds in Settings before you update.
+**If you updated to 239 and RiftWii no longer starts:** copy `boot.dol` from this release's zip to `sd:/apps/riftwii/` (replace the old one). After that, RiftWii updates itself as usual (Settings > Check for a new version).
 
 ## What changed
 
+- **RiftWii starts on a real Wii again.** At start-up, the Wii's system library briefly copies the audio chip's start-up code to a fixed spot in memory. In 239, the code that grew in that release pushed some of the library's own settings onto that spot, so the console crashed before the menu could appear. Dolphin doesn't show this, so it was missed. That spot is now always taken by memory nothing uses that early, and the build refuses to make a RiftWii where it isn't. From now on each release is also started on a real Wii before it goes out.
 - **Downloads go straight to the SD card.** The update (RiftWii and its plugins) and GameTDB's game details are written to the card as they arrive, instead of being held whole in memory first. An update now needs a few MB of free space on the card, and almost no memory.
 - **Covers take turns in big libraries.** RiftWii no longer keeps room for every game's cover at once: it leaves memory for the shelf's full covers and the rest of the menu, and covers you scroll back to are read again from the card. A library that fits works as before.
+- **Settings' buttons look like the Wii Menu's:** a larger picture on top and the name under it.
 
 ## What to test
 
-1. **A big library** (a few hundred games): scroll Home and the shelf with full covers, then update, or open a game's About page so its details download. Does RiftWii keep going?
+1. **Starting RiftWii** from the Homebrew Channel and from the RiftWii channel: does the menu come up?
+2. **A big library** (a few hundred games): scroll Home and the shelf with full covers, then update, or open a game's About page so its details download. Does RiftWii keep going?
 
 ## Known issues
 
