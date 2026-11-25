@@ -80,6 +80,10 @@ Controls the painted parts' shape:
 - `shelf_grain`: `yes` or `no`. Wood grain along Home's shelf (`yes`, as
   Bookshelf and Midnight), or a smooth shelf with a thin `accent` line along
   its front edge (`no`, the default). A theme's own `shelf.png` wins.
+- `cover_frames`: `yes` or `no`. Draws `cover_tile.png` round every cover
+  in Home's covers view (`yes`), for a theme whose covers sit in frames, or
+  only round the lit one (`no`, the default). The cover covers the
+  picture's middle 80x112, so the frame is the 8 pixels round it.
 
 ### [backdrop]
 

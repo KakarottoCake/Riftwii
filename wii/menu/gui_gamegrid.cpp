@@ -935,7 +935,9 @@ void GuiGameGrid::DrawCoverTile(int index, Slot* text, float x, float y, float s
         Menu_DrawImg(cx + kCardPadding * kx - t.w / 2.0f, cy + kCardPadding * ky - t.h / 2.0f, static_cast<u16>(t.w),
                      static_cast<u16>(t.h), t.data, 0, kx, ky, static_cast<u8>(cardAlpha > 255 ? 255 : cardAlpha));
     };
-    if (on || (!cover && !madeUp)) draw_card(skin::coverTile, alpha, on);
+    // A cover stands on its own (#422) unless the theme frames every one.
+    const bool framed = riftwii::wii::MenuTheme().cover_frames;
+    if (on || framed || (!cover && !madeUp)) draw_card(skin::coverTile, alpha, on);
     if (on) draw_card(skin::coverTileOver, static_cast<int>(alpha * riftwii::wii::transition::Pulse()), true);
     if (madeUp) {
         riftwii::wii::DrawMadeUpCover(madeUp, cx - riftwii::kCoverWidth / 2.0f, cy - riftwii::kCoverHeight / 2.0f, alpha,

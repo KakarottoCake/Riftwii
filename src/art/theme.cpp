@@ -338,6 +338,15 @@ Theme parse_theme(const std::string& text, std::vector<std::string>& notes) {
                 } else {
                     add_note(notes, line_num, "shelf_grain: \"" + val + "\" is not a boolean (yes/no/true/false/on/off/1/0); the default stays");
                 }
+            } else if (key == "cover_frames") {
+                const std::string lower_val = to_lower(val);
+                if (lower_val == "yes" || lower_val == "true" || lower_val == "on" || lower_val == "1") {
+                    theme.cover_frames = true;
+                } else if (lower_val == "no" || lower_val == "false" || lower_val == "off" || lower_val == "0") {
+                    theme.cover_frames = false;
+                } else {
+                    add_note(notes, line_num, "cover_frames: \"" + val + "\" is not a boolean (yes/no/true/false/on/off/1/0); the default stays");
+                }
             } else if (key == "home_menu") {
                 const std::string lower_val = to_lower(val);
                 if (lower_val == "ios6") theme.home_ios6 = true;
