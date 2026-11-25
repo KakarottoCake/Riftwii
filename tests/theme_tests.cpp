@@ -63,6 +63,13 @@ static void test_default_theme() {
     notes.clear();
     EXPECT_TRUE(parse_theme("[shape]\nbar = bump\n", notes).bar_bump);
     EXPECT_EQ(notes.size(), 0U);
+    // Covers stand on their own unless a theme frames them.
+    EXPECT_TRUE(!def.cover_frames);
+    EXPECT_TRUE(parse_theme("[shape]\ncover_frames = yes\n", notes).cover_frames);
+    EXPECT_EQ(notes.size(), 0U);
+    EXPECT_TRUE(!parse_theme("[shape]\ncover_frames = maybe\n", notes).cover_frames);
+    EXPECT_EQ(notes.size(), 1U);
+    notes.clear();
     // The HOME Menu is the Wii's unless a theme says ios6.
     EXPECT_TRUE(!def.home_ios6);
     EXPECT_TRUE(parse_theme("[shape]\nhome_menu = iOS6\n", notes).home_ios6);
@@ -446,7 +453,7 @@ static void test_theme_color_keys() {
 
 static void test_theme_images() {
     const auto& images = theme_images();
-    EXPECT_EQ(images.size(), 103U);
+    EXPECT_EQ(images.size(), 104U);
 
     // Unique names.
     for (std::size_t i = 0; i < images.size(); ++i) {

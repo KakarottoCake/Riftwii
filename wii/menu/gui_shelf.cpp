@@ -262,12 +262,37 @@ void DrawMadeUpBack(const Face& f, float light, u8 a) {
         Quad(q, lit(c), full, tex, riftwii::kCoverWidth, riftwii::kCoverHeight, tu0, tu1, tv0, tv1, false, false);
     };
     const GXColor white = {255, 255, 255, 255};
+    // A theme's own back (blank_back): its picture is the paper, band, text
+    // and all, and the cover's three crops go in the same places as below.
+    if (skin::blankBack.data) {
+        const V3 whole[4] = {at(0, 0), at(1, 0), at(1, 1), at(0, 1)};
+        Quad(whole, lit(white), full, skin::blankBack.data, skin::blankBack.w, skin::blankBack.h, 0, 1, 0, 1, true, false,
+             true);
+        if (f.art) {
+            // The cover's middle as the big picture: on a made-up cover,
+            // its name, set as the back's title.
+            rect(0.08f, 0.14f, 0.92f, 0.47f, white, f.art, 0.0f, 1.0f, 0.22f, 0.62f);
+            // Two crops of real box art as screenshots; a made-up cover's
+            // would be cut-off words, so the theme's own picture stays.
+            if (!riftwii::wii::IsMadeUpCover(f.art)) {
+                rect(0.08f, 0.51f, 0.48f, 0.66f, white, f.art, 0.05f, 0.50f, 0.58f, 0.86f);
+                rect(0.52f, 0.51f, 0.92f, 0.66f, white, f.art, 0.50f, 0.95f, 0.30f, 0.58f);
+            }
+        }
+        return;
+    }
     rect(0.0f, 0.0f, 1.0f, 0.085f, {206, 208, 212, 255});  // the Wii band
     rect(0.0f, 0.085f, 1.0f, 0.095f, f.accent);
-    if (f.art) {
+    if (f.art && !riftwii::wii::IsMadeUpCover(f.art)) {
         rect(0.08f, 0.14f, 0.92f, 0.47f, white, f.art, 0.0f, 1.0f, 0.22f, 0.62f);
         rect(0.08f, 0.51f, 0.48f, 0.66f, white, f.art, 0.05f, 0.50f, 0.58f, 0.86f);
         rect(0.52f, 0.51f, 0.92f, 0.66f, white, f.art, 0.50f, 0.95f, 0.30f, 0.58f);
+    } else if (f.art) {
+        // A made-up cover: its name as the big picture, plain places for
+        // the screenshots (its crops would be cut-off words).
+        rect(0.08f, 0.14f, 0.92f, 0.47f, white, f.art, 0.0f, 1.0f, 0.22f, 0.62f);
+        rect(0.08f, 0.51f, 0.48f, 0.66f, {150, 154, 160, 255});
+        rect(0.52f, 0.51f, 0.92f, 0.66f, {150, 154, 160, 255});
     } else {
         rect(0.08f, 0.14f, 0.92f, 0.47f, f.accent);
         rect(0.08f, 0.51f, 0.48f, 0.66f, {150, 154, 160, 255});

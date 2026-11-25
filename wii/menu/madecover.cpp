@@ -328,6 +328,14 @@ const u8* MadeUpCoverMade(const std::string& key) {
     return nullptr;
 }
 
+bool IsMadeUpCover(const u8* cover) {
+    if (!cover) return false;
+    for (const Slot& s : g_slots) {
+        if (s.data == cover) return true;
+    }
+    return false;
+}
+
 void MakeUpCovers() {
     ++g_frame;
     if (g_waiting.empty() || !PoolReady()) {

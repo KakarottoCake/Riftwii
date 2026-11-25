@@ -28,7 +28,10 @@ constexpr std::size_t kThemeListMaxBytes = 256u << 10;
 constexpr std::size_t kThemeListMaxThemes = 500;
 constexpr std::uint32_t kThemeZipMaxBytes = 16u << 20;
 constexpr std::size_t kThemePreviewMaxBytes = 256u << 10;
-constexpr std::uint32_t kThemeMaxFiles = 64;
+// Every picture RiftWii takes (about 105), a looping backdrop's 60 frames,
+// the sounds, the music, theme.ini and LICENSE, with room to spare: at 64
+// a theme with a looping backdrop could not be installed from the browser.
+constexpr std::uint32_t kThemeMaxFiles = 192;
 constexpr std::uint32_t kThemeMaxUnpackedBytes = 24u << 20;
 
 struct ThemeListing {

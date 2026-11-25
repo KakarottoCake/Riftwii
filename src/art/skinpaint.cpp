@@ -648,6 +648,36 @@ struct Painter {
         return c;
     }
 
+    // The back of a game's box without art, as the shelf lays it out when a
+    // theme has no blank_back: a grey band along the top, lines of text, a
+    // rating box and a barcode, and the three places the menu sets crops of
+    // the cover in (a big one, x 13-147 and y 31-105; two small ones, y
+    // 114-148, x 13-77 and 83-147) left as pale grey. The menu itself
+    // draws that layout in the game's colour; this is the theme kit's
+    // template for a theme that wants its own.
+    Canvas BlankBack() const {
+        constexpr int w = 160, h = 224;
+        Canvas c(w, h);
+        c.rounded_gradient(0, 0, w, h, 0, rgba(0xF8F8F7), rgba(0xEEEEEC));
+        c.rect(0, 0, w, 19, rgba(0xCED0D4));
+        c.rect(0, 19, w, 2, rgba(0x9EA3AC));
+        const Rgba place = rgba(0x969AA0);
+        c.rect(13, 31, 134, 74, place);
+        c.rect(13, 114, 64, 34, place);
+        c.rect(83, 114, 64, 34, place);
+        const Rgba text = rgba(0xB0B2B6);
+        c.rect(13, 159, 134, 3, text);
+        c.rect(13, 167, 134, 3, text);
+        c.rect(13, 175, 93, 3, text);
+        c.rect(13, 190, 19, 23, rgba(0x1E1E20));
+        c.rect(106, 193, 41, 18, rgba(0xFFFFFF));
+        for (int i = 0; i < 9; ++i) {
+            const float x = 108.0f + i * 4.2f;
+            c.rect(x, 195, i % 3 == 0 ? 2.0f : 1.0f, 14, rgba(0x181818));
+        }
+        return c;
+    }
+
     Canvas Gear() const {
         Canvas c(28, 28);
         for (int i = 0; i < 8; ++i) {
@@ -1390,6 +1420,7 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
         {"icon_gamecube", [](const Painter& q) { return q.GameCubePad(); }},
         {"disc_case", [](const Painter& q) { return q.DiscCase(); }},
         {"blank_cover", [](const Painter& q) { return q.BlankCover(); }},
+        {"blank_back", [](const Painter& q) { return q.BlankBack(); }},
         {"pointer1", [](const Painter& q) { return Painter::Hand(q.pointer[0]); }},
         {"pointer2", [](const Painter& q) { return Painter::Hand(q.pointer[1]); }},
         {"pointer3", [](const Painter& q) { return Painter::Hand(q.pointer[2]); }},

@@ -33,7 +33,7 @@ https from riftwii.github.io only, and are treated as untrusted: the list
 is cut at 256 KB and 500 themes, a download must be exactly the size the
 list says and match its SHA-256, a zip holds one folder of plain file names
 (no paths that climb out, no more files or bytes than the list says, at
-most 64 files and 24 MB), and the unpacked theme is checked with RiftWii's own
+most 192 files and 24 MB), and the unpacked theme is checked with RiftWii's own
 theme loader in `sd:/riftwii/themes/.<name>.tmp` before it replaces the old
 copy. A failed download leaves nothing behind.
 
@@ -80,6 +80,10 @@ Controls the painted parts' shape:
 - `shelf_grain`: `yes` or `no`. Wood grain along Home's shelf (`yes`, as
   Bookshelf and Midnight), or a smooth shelf with a thin `accent` line along
   its front edge (`no`, the default). A theme's own `shelf.png` wins.
+- `cover_frames`: `yes` or `no`. Draws `cover_tile.png` round every cover
+  in Home's covers view (`yes`), for a theme whose covers sit in frames, or
+  only round the lit one (`no`, the default). The cover covers the
+  picture's middle 80x112, so the frame is the 8 pixels round it.
 
 ### [backdrop]
 
@@ -216,7 +220,8 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `disc_channel` | 64x64 | The Disc Channel's face in the Channels view when no disc is in: stretched over the whole tile, its corners cut to the tile's |
 | `disc_channel_disc` | 64x76 | The disc on that face: the disc in rows 0-63, its reflection in rows 66-75. The menu spins it now and then about its upright middle line, so keep it centred |
 | `disc_case` | 128x176 | The Disc drive's box: its cover tile, and its front and back on the shelf |
-| `blank_cover` | 160x224 | A game's cover when there is no art for it: the menu prints the game's name and ID in its middle, in dark ink on a light picture and light ink on a dark one. Keep the middle plain; the covers view puts its badges along the bottom 30 pixels |
+| `blank_cover` | 160x224 | A game's cover when there is no art for it: the menu prints the game's name and ID in its middle, in dark ink on a light picture and light ink on a dark one. Keep the middle plain; the covers view puts its badges along the bottom 30 pixels. Its columns 3-15 are stretched down the box's spine on the shelf, with the name from row 16 to 190: keep a band across the top inside the first 14 rows there |
+| `blank_back` | 160x224 | The back of that game's box on the shelf, the carousel and 3D covers (optional): the menu sets crops of the cover on it, a big one at x 13-147, y 31-105 and, from real box art, two small ones at y 114-148, x 13-77 and 83-147 (for a made-up cover only the big one, with the name, so draw something in the small places); draw the rest (a band, lines of text, a barcode). Without it the menu lays out a back of its own in the game's colour |
 | `pointer1` to `pointer4` | 96x96 | Each player's pointer; the fingertip must be at the centre (48, 48) |
 | `shelf` | 256x64 | Home's shelf: rows 0-47 are its top (the far edge first), rows 48-63 its front edge. It repeats along the shelf, so make the left and right edges meet |
 | `background_wide` | 856x480 | `background` for a widescreen menu (optional) |

@@ -338,6 +338,15 @@ Theme parse_theme(const std::string& text, std::vector<std::string>& notes) {
                 } else {
                     add_note(notes, line_num, "shelf_grain: \"" + val + "\" is not a boolean (yes/no/true/false/on/off/1/0); the default stays");
                 }
+            } else if (key == "cover_frames") {
+                const std::string lower_val = to_lower(val);
+                if (lower_val == "yes" || lower_val == "true" || lower_val == "on" || lower_val == "1") {
+                    theme.cover_frames = true;
+                } else if (lower_val == "no" || lower_val == "false" || lower_val == "off" || lower_val == "0") {
+                    theme.cover_frames = false;
+                } else {
+                    add_note(notes, line_num, "cover_frames: \"" + val + "\" is not a boolean (yes/no/true/false/on/off/1/0); the default stays");
+                }
             } else if (key == "home_menu") {
                 const std::string lower_val = to_lower(val);
                 if (lower_val == "ios6") theme.home_ios6 = true;
@@ -529,6 +538,9 @@ const std::vector<ThemeImage>& theme_images() {
         {"layout_names", 28, 28},
         // A cover for games without one: the menu prints the name on it.
         {"blank_cover", 160, 224},
+        // The back of that game's box on the shelf, the carousel and the
+        // 3D covers: the menu sets three crops of the cover on it.
+        {"blank_back", 160, 224},
         // The app store's (plugins/appstore): each category's icon on its
         // front, and the icons of the facts on an app's page.
         {"store_games", 40, 40},
