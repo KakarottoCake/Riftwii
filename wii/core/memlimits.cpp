@@ -272,14 +272,31 @@ std::vector<std::pair<u32, u32>> HeapPieces() {
 
 namespace {
 
-// 96 bytes around `at`, as hex and as text: an overrun shows what wrote it.
-void Dump(u32 at) {
-    const u32 from = (at - 48) & ~15u;
-    for (u32 line = from; line < from + 96; line += 16) {
-        if (!InHeap(line) && !InHeap(line + 15)) continue;
+// 96 bytes around a place in the heap, copied while malloc's lock is held
+// (Snap) and logged as hex and text after it is let go (LogSnap): an
+// overrun shows what wrote it, and the bytes are the ones the walk saw.
+struct HeapSnap {
+    u32 from = 0;      // 0: nothing copied
+    u8 bytes[96] = {};
+    bool in_heap[96] = {};
+};
+
+void Snap(HeapSnap& snap, u32 at) {
+    snap.from = (at - 48) & ~15u;
+    for (u32 i = 0; i < 96; ++i) {
+        const u32 address = snap.from + i;
+        snap.in_heap[i] = InHeap(address);
+        snap.bytes[i] = snap.in_heap[i] ? *reinterpret_cast<const u8*>(address) : 0;
+    }
+}
+
+void LogSnap(const HeapSnap& snap) {
+    if (!snap.from) return;
+    for (u32 line = 0; line < 96; line += 16) {
+        if (!snap.in_heap[line] && !snap.in_heap[line + 15]) continue;
         char hex[3 * 16 + 1], text[17];
         for (u32 i = 0; i < 16; ++i) {
-            const u8 b = InHeap(line + i) ? *reinterpret_cast<const u8*>(line + i) : 0;
+            const u8 b = snap.bytes[line + i];
             static const char kDigits[] = "0123456789abcdef";
             hex[3 * i] = kDigits[b >> 4];
             hex[3 * i + 1] = kDigits[b & 15];
@@ -288,7 +305,7 @@ void Dump(u32 at) {
         }
         hex[3 * 16] = 0;
         text[16] = 0;
-        logf("  %08x  %s %s\n", line, hex, text);
+        logf("  %08x  %s %s\n", snap.from + line, hex, text);
     }
 }
 
@@ -302,21 +319,51 @@ extern "C" void __malloc_lock(struct _reent*);
 extern "C" void __malloc_unlock(struct _reent*);
 
 namespace {
-bool WalkHeap(const char* when, std::string* problem);
+// What a walk of the heap found, filled in while malloc's lock is held and
+// logged after it is let go (CheckHeap).
+struct HeapWalk {
+    char problem[160] = {};
+    // The bytes round the damaged chunk, round the chunk after it (an
+    // overrun from the damaged one shows there) and round a free list's bad
+    // link, each copied under the lock; `after` is that next chunk, or 0.
+    HeapSnap bad, next, link;
+    u32 after = 0;
+    u32 chunks = 0;
+    u32 free_bytes = 0;
+};
+bool WalkHeap(HeapWalk& walk, bool with_total);
 }
 
 bool CheckHeap(const char* when) {
     logf("Heap check (%s)\n", when);
-    // Other threads (the GUI's) allocate too: none while the walk runs.
+    // Other threads (the GUI's) allocate too: none while the walk runs. The
+    // walk only reads and fills `walk`; nothing is logged until the lock is
+    // let go, because logging writes to the SD card and the thread holding
+    // the card's lock may be waiting for malloc's: logging under malloc's
+    // lock hung the menu at start (Dolphin, a theme with a large music.ogg,
+    // the menu stopped on "Reading the SD card...").
+    HeapWalk walk;
     __malloc_lock(_REENT);
-    const bool ok = WalkHeap(when, nullptr);
+    const bool ok = WalkHeap(walk, true);
     __malloc_unlock(_REENT);
-    return ok;
+    if (!ok) {
+        logf("Heap check (%s): BROKEN: %s\n", when, walk.problem);
+        LogSnap(walk.bad);
+        if (walk.after) {
+            logf("  the chunk after it, at 0x%08x:\n", walk.after);
+            LogSnap(walk.next);
+        }
+        LogSnap(walk.link);
+        return false;
+    }
+    logf("Heap check (%s): OK, %u chunks in %u piece(s)%s, %u KiB free in the heap\n", when,
+         static_cast<unsigned>(walk.chunks), static_cast<unsigned>(g_segment_count), g_segments_lost ? " and more" : "",
+         Kib(walk.free_bytes));
+    return true;
 }
 
 namespace {
-bool WalkHeap(const char* when, std::string* problem) {
-    char text[160];
+bool WalkHeap(HeapWalk& walk, bool with_total) {
     const u32 top = Address(__malloc_av_[2]);
     const u32 bins_lo = Address(__malloc_av_) - 8, bins_hi = Address(__malloc_av_) + 258 * 4;
     const auto link_ok = [&](u32 p) { return InHeap(p) || (p >= bins_lo && p < bins_hi); };
@@ -339,19 +386,15 @@ bool WalkHeap(const char* when, std::string* problem) {
                 }
             }
             if (why) {
-                std::snprintf(text, sizeof(text), "%s at 0x%08x (size word 0x%08x, %u chunks in; the one before at 0x%08x)",
-                              why, p, word, static_cast<unsigned>(chunks), before);
-                if (problem) {
-                    *problem = text;
-                    return false;
-                }
-                logf("Heap check (%s): BROKEN: %s\n", when, text);
-                Dump(p);
+                std::snprintf(walk.problem, sizeof(walk.problem),
+                              "%s at 0x%08x (size word 0x%08x, %u chunks in; the one before at 0x%08x)", why, p, word,
+                              static_cast<unsigned>(chunks), before);
+                Snap(walk.bad, p);
                 // A chunk counts as free by the next one's header: an
                 // overrun from this chunk's data shows there.
                 if (size >= 16 && p + size + 8 <= end) {
-                    logf("  the chunk after it, at 0x%08x:\n", p + size);
-                    Dump(p + size);
+                    walk.after = p + size;
+                    Snap(walk.next, walk.after);
                 }
                 return false;
             }
@@ -360,6 +403,7 @@ bool WalkHeap(const char* when, std::string* problem) {
             ++chunks;
         }
     }
+    walk.chunks = chunks;
     // The free lists, as mallinfo walks them (each bin's back links until
     // they come round to the bin): a link into memory that is not a chunk
     // made mallinfo itself fault (a tester's Wii U, after an IOS249
@@ -371,32 +415,28 @@ bool WalkHeap(const char* when, std::string* problem) {
             if (!InHeap(p) || (p & 7) != 0) why = "a free list that leaves the heap";
             else if (++steps > (g_segments_lost ? 1u << 22 : chunks + 1)) why = "a free list longer than the heap";
             if (why) {
-                std::snprintf(text, sizeof(text), "%s: bin 0x%08x, link 0x%08x after %u step(s)", why, bin, p,
-                              static_cast<unsigned>(steps));
-                if (problem) {
-                    *problem = text;
-                    return false;
-                }
-                logf("Heap check (%s): BROKEN: %s\n", when, text);
-                if (InHeap(p)) Dump(p);
+                std::snprintf(walk.problem, sizeof(walk.problem), "%s: bin 0x%08x, link 0x%08x after %u step(s)", why,
+                              bin, p, static_cast<unsigned>(steps));
+                if (InHeap(p)) Snap(walk.link, p);
                 return false;
             }
             p = *reinterpret_cast<const u32*>(p + 12);
         }
     }
-    if (problem) return true;
-    const struct mallinfo info = mallinfo();
-    logf("Heap check (%s): OK, %u chunks in %u piece(s)%s, %u KiB free in the heap\n", when,
-         static_cast<unsigned>(chunks), static_cast<unsigned>(g_segment_count), g_segments_lost ? " and more" : "",
-         Kib(static_cast<u32>(info.fordblks)));
+    if (with_total) {
+        const struct mallinfo info = mallinfo();
+        walk.free_bytes = static_cast<u32>(info.fordblks);
+    }
     return true;
 }
 }  // namespace
 
 bool HeapIntact(std::string& problem) {
+    HeapWalk walk;
     __malloc_lock(_REENT);
-    const bool ok = WalkHeap("", &problem);
+    const bool ok = WalkHeap(walk, false);
     __malloc_unlock(_REENT);
+    if (!ok) problem = walk.problem;
     return ok;
 }
 
