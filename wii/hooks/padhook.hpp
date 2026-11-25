@@ -217,6 +217,10 @@ bool fetch_pad_build(PadHook& hook, bool code_build, std::string& message);
 // letting the system start it without RiftWii's extras (wii/main.cpp).
 bool pads_plugin_stopped_launch();
 
+// The sentence for the player when the launch stopped before the adapter's
+// handle was taken (the pads plugin couldn't be used), else empty.
+std::string pads_plugin_refusal();
+
 // A launch whose game takes no pad code after all (prepare_gc_pads turned
 // the adapter off): the plugin shut down now, before the resident runtime
 // and the extras are placed, rather than when the launch is over.

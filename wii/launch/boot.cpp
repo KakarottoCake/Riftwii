@@ -2683,6 +2683,12 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     GameExtras extras;
     gc_adapter = prepare_gc_pads(dol, gc_adapter, gx_protected, options.memory_patches, extras.pad);
     // Its code from the pads plugin while the card is still RiftWii's.
+    // Refused before the adapter's handle was taken (pads_plugin_usable): the
+    // launch stops here, the adapter left for the failure screen.
+    if (pads_plugin_stopped_launch()) {
+        error = pads_plugin_refusal();
+        return false;
+    }
     if (gc_adapter && !fetch_pad_build(extras.pad, code_build, error)) return false;
     if (!gc_adapter) release_pads_plugin();
 
@@ -4588,7 +4594,11 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     extras_context.gc_adapter = prepare_gc_pads(dol, adapter_wanted, gx_protected, {}, extras.pad);
     // Its code from the pads plugin while the card is still RiftWii's
     // (a channel is never a code build).
-    if (extras_context.gc_adapter && !fetch_pad_build(extras.pad, false, error)) {
+    // Refused before the adapter's handle was taken (pads_plugin_usable), or
+    // by the copy itself.
+    const bool refused_early = pads_plugin_stopped_launch();
+    if (refused_early) error = pads_plugin_refusal();
+    if (refused_early || (extras_context.gc_adapter && !fetch_pad_build(extras.pad, false, error))) {
         // d2x's NAND emulation holds the card for the game: it lets go now
         // (writing out what it holds), as after a refused start, and the
         // card comes back for the failure's log and the restart. If d2x
