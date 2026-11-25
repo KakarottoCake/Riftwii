@@ -330,10 +330,13 @@ void test_checks_on_their_own() {
     EXPECT_TRUE(!app_category_ok("game tools"));
     EXPECT_TRUE(app_data_folder_ok("fceugx"));
     EXPECT_TRUE(!app_data_folder_ok("NANDS"));
-    EXPECT_TRUE(app_download_url_ok("https://hbbarchive.oscwii.org/legacy/danbo.zip"));
+    EXPECT_TRUE(app_download_url_ok("https://static.wiidatabase.de/InspectMii.zip"));
+    // An archive.org copy spells the archived address's colon as %3A.
+    EXPECT_TRUE(app_download_url_ok(
+        "https://web.archive.org/web/20160810115829id_/http%3A//www.nongnu.org/tong/tong-wii.zip"));
     EXPECT_TRUE(app_download_url_ok("http://www.toxicbreakfast.com/cgi-bin/download?file=yahtzwii.zip"));
     EXPECT_TRUE(!app_page_url_ok("http://www.toxicbreakfast.com/"));
-    EXPECT_TRUE(!app_download_url_ok("https://hbbarchive.oscwii.org"));
+    EXPECT_TRUE(!app_download_url_ok("https://static.wiidatabase.de"));
     EXPECT_TRUE(!app_download_url_ok("https://.org/a"));
     EXPECT_TRUE(!app_download_url_ok("https://[::1]/a"));
     EXPECT_TRUE(app_icon_url_ok("https://riftwii.github.io/apps/icons/a.png"));
