@@ -4226,6 +4226,10 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
 
 bool boot_channel(ChannelBootFiles files, std::string& error) {
     DiscLightActivity discLight;
+    // Before anything can return: wii/main.cpp reads the refusal after a
+    // failed channel launch, and an early return here (a section in the
+    // loader's way) is never the pads plugin's (CodeRabbit on #593).
+    pads_plugin_forget_refusal();
     g_extras.game_id = files.game_id;
     NetStopForLaunch();
     const DolHeader& dol = files.program.dol;

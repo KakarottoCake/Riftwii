@@ -217,6 +217,10 @@ bool fetch_pad_build(PadHook& hook, bool code_build, std::string& message);
 // letting the system start it without RiftWii's extras (wii/main.cpp).
 bool pads_plugin_stopped_launch();
 
+// No refusal from an earlier launch: for a launch path that can stop before
+// PadsPluginForLaunch clears it (boot_channel's loader checks).
+void pads_plugin_forget_refusal();
+
 // The sentence for the player when the launch stopped before the adapter's
 // handle was taken (the pads plugin couldn't be used), else empty.
 std::string pads_plugin_refusal();
