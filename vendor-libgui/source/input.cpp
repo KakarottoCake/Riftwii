@@ -6,7 +6,7 @@
  * Wii/GameCube controller management
  ***************************************************************************/
 /* Changed for RiftWii (September and October 2026), under
- * GPL-3.0-or-later: the data format set on the four Wii Remote channels only (not the Balance Board's), Classic Controller stick as a pointer, the GameCube adapter's pads, the controller used last owns the pointer, the D-pad takes over from it, the Wii Remote's pointer kept on screen and in menu units under a display scale and steadied, steady repeat, and the Wii U GamePad scan (WiiDRC), and a USB keyboard, mouse and pen tablet (and the uDraw) on channel 1's controls.
+ * GPL-3.0-or-later: the data format set on the four Wii Remote channels only (not the Balance Board's), Classic Controller stick as a pointer, the GameCube adapter's pads, the controller used last owns the pointer, the D-pad takes over from it, the Wii Remote's pointer kept on screen and in menu units under a display scale and steadied, steady repeat, and the Wii U GamePad scan (WiiDRC), a USB keyboard, mouse and pen tablet (and the uDraw) on channel 1's controls, and a GameCube controller's pointer gone when it is unplugged.
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include <gccore.h>
