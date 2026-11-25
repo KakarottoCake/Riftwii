@@ -567,9 +567,10 @@ def blank_cover():
     c[..., :3] = tp.mix(SKY, SKY_DEEP, tp.smooth(v * 0.9 + 0.1 * (x / W)))
     c[..., 3] = 1.0
     tp.add_light(c, (110, 200, 240), 0.10 * np.exp(-((x * 0.7 - y + 60) / 50) ** 2))
-    # The arc: high at the left, sagging past the middle, rising again.
+    # The arc: high at both edges, dipping evenly to its lowest in the
+    # middle (about 12 rows down over the spine's strip, columns 3-15).
     s = x / W
-    arc = 9.0 + 26.0 * np.clip(np.sin(np.clip(s * 1.05, 0, 1) * math.pi), 0, 1) ** 1.5 - 6.0 * s
+    arc = 8.0 + 24.0 * np.clip(np.sin(s * math.pi), 0, 1) ** 1.5
     tp.over(c, GOLD, np.clip(1.3 - np.abs(y - arc), 0, 1))
     tp.over(c, (255, 244, 200), np.clip(1.0 - np.abs(y - arc + 1.6) / 0.7, 0, 1) * 0.7)
     # A faint lighter blue above the arc.
