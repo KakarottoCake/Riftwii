@@ -529,6 +529,9 @@ const std::vector<ThemeImage>& theme_images() {
         {"layout_names", 28, 28},
         // A cover for games without one: the menu prints the name on it.
         {"blank_cover", 160, 224},
+        // The back of that game's box on the shelf, the carousel and the
+        // 3D covers: the menu sets three crops of the cover on it.
+        {"blank_back", 160, 224},
         // The app store's (plugins/appstore): each category's icon on its
         // front, and the icons of the facts on an app's page.
         {"store_games", 40, 40},

@@ -30,7 +30,7 @@ Tex tile, tileOver, coverTile, coverTileOver, roundBtn, roundBtnOver, pill, pill
     stepBack, stepBackOver, stepForward, stepForwardOver, switchOn, switchOff,
     panelGame, panelSettings, popup, bar, bannerStripes, arrowLeft, arrowLeftOver, arrowRight, arrowRightOver, iconDrives,
     scrollUp, scrollUpOver, scrollDown, scrollDownOver,
-    iconGear, iconDisc, iconStore, discChannel, discChannelDisc, discCase, blankCover, iconSearch, iconStar, iconStarOn, hand[4];
+    iconGear, iconDisc, iconStore, discChannel, discChannelDisc, discCase, blankCover, blankBack, iconSearch, iconStar, iconStarOn, hand[4];
 
 // Textures and the menu font live below the MEM2 arena's low end, taken
 // once and never freed: the menu keeps them until the game replaces all of
@@ -283,6 +283,10 @@ Tex Pick(const ThemeImage& im) {
         std::vector<std::uint8_t> own;
         if (LoadThemeImage("bar", 640, 124, own)) return Tex();
     }
+    // A box's made-up back: only a theme's own. Without one the shelf lays
+    // the back out itself, in the game's colour (gui_shelf.cpp,
+    // DrawMadeUpBack); the painted one is the theme kit's template.
+    if (std::strcmp(im.name, "blank_back") == 0) return Tex();
     // The clock-dial theme paints its own wall, at 640 and natively at 856
     // (only the two: every screen's wall falls back to them, so the clocks
     // stay behind Settings and the game pages too).
@@ -403,7 +407,7 @@ const Slot kSlots[] = {
     {"arrow_left", &arrowLeft}, {"arrow_left_over", &arrowLeftOver}, {"arrow_right", &arrowRight},
     {"arrow_right_over", &arrowRightOver}, {"scroll_up", &scrollUp}, {"scroll_up_over", &scrollUpOver},
     {"scroll_down", &scrollDown}, {"scroll_down_over", &scrollDownOver}, {"icon_drives", &iconDrives},
-    {"icon_gear", &iconGear}, {"icon_search", &iconSearch}, {"icon_star", &iconStar}, {"icon_star_on", &iconStarOn}, {"icon_disc", &iconDisc}, {"icon_store", &iconStore}, {"disc_channel", &discChannel}, {"disc_channel_disc", &discChannelDisc}, {"disc_case", &discCase}, {"blank_cover", &blankCover}, {"pointer1", &hand[0]}, {"pointer2", &hand[1]},
+    {"icon_gear", &iconGear}, {"icon_search", &iconSearch}, {"icon_star", &iconStar}, {"icon_star_on", &iconStarOn}, {"icon_disc", &iconDisc}, {"icon_store", &iconStore}, {"disc_channel", &discChannel}, {"disc_channel_disc", &discChannelDisc}, {"disc_case", &discCase}, {"blank_cover", &blankCover}, {"blank_back", &blankBack}, {"pointer1", &hand[0]}, {"pointer2", &hand[1]},
     {"pointer3", &hand[2]}, {"pointer4", &hand[3]}, {"shelf", &shelfPlank},
     {"tile9", &tile9}, {"tile9_over", &tile9Over}, {"tile9_primary", &tile9Primary},
     {"tile9_primary_over", &tile9PrimaryOver}, {"prompt_button", &promptButton}, {"icon_play", &iconPlay},
