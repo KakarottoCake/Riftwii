@@ -935,7 +935,9 @@ void GuiGameGrid::DrawCoverTile(int index, Slot* text, float x, float y, float s
         Menu_DrawImg(cx + kCardPadding * kx - t.w / 2.0f, cy + kCardPadding * ky - t.h / 2.0f, static_cast<u16>(t.w),
                      static_cast<u16>(t.h), t.data, 0, kx, ky, static_cast<u8>(cardAlpha > 255 ? 255 : cardAlpha));
     };
-    if (on || (!cover && !madeUp)) draw_card(skin::coverTile, alpha, on);
+    // A cover stands on its own (#422) unless the theme frames every one.
+    const bool framed = riftwii::wii::MenuTheme().cover_frames;
+    if (on || framed || (!cover && !madeUp)) draw_card(skin::coverTile, alpha, on);
     if (on) draw_card(skin::coverTileOver, static_cast<int>(alpha * riftwii::wii::transition::Pulse()), true);
     if (madeUp) {
         riftwii::wii::DrawMadeUpCover(madeUp, cx - riftwii::kCoverWidth / 2.0f, cy - riftwii::kCoverHeight / 2.0f, alpha,
@@ -1139,9 +1141,10 @@ void GuiGameGrid::PrefetchCovers() {
     }
 }
 
-// Room for every game's cover, and the loader told to read them all, from
-// the page shown onwards: once read, no page waits for its covers. Again
-// when the list changes (a filter, a rescan).
+// Room for every game's cover (or as many as MEM2 spares, CoverReserve),
+// and the loader told to read them, from the page shown onwards: when they
+// all fit, no page waits for its covers. Again when the list changes (a
+// filter, a rescan).
 void GuiGameGrid::ReadAllCovers() {
     const std::string first = Count() > 0 ? (*items)[0].id : "", last = Count() > 0 ? (*items)[Count() - 1].id : "";
     if (items == readAllItems && Count() == readAllCount && first == readAllFirst && last == readAllLast) return;

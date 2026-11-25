@@ -90,6 +90,22 @@ int main() {
         EXPECT_TRUE(q.ok);
         EXPECT_EQ(std::string(q.themes[0].name), "Indigo !");
     }
+    // A theme with a looping backdrop has more than 64 files (Plaza: 88);
+    // past kThemeMaxFiles a theme is left out of the list.
+    {
+        std::string many = theme_json("Plaza");
+        many.replace(many.find("\"files\":27"), 10, "\"files\":88");
+        const Parsed p = parse(list_json(many));
+        EXPECT_TRUE(p.ok);
+        EXPECT_EQ(p.count, 1u);
+        EXPECT_EQ(p.themes[0].files, 88u);
+        std::string too_many = theme_json("Plaza");
+        too_many.replace(too_many.find("\"files\":27"), 10, "\"files\":" + std::to_string(kThemeMaxFiles + 1));
+        const Parsed q = parse(list_json(too_many));
+        EXPECT_TRUE(q.ok);
+        EXPECT_EQ(q.count, 0u);
+        EXPECT_EQ(q.skipped, 1u);
+    }
     EXPECT_TRUE(parse(list_json("")).ok);
     EXPECT_EQ(parse(list_json("")).count, 0u);
     // Not a list, wrong schema, no schema, broken text.
@@ -279,6 +295,29 @@ int main() {
         hard = limits(10, 1000);
         hard.max_file_size = 8;
         EXPECT_TRUE(!zip_plan_theme(entries, "Indigo", hard, plan, error));
+    }
+    // The default cap: a theme with a looping backdrop (Plaza: 88 files)
+    // unpacks; 192 files do, 193 do not.
+    {
+        const auto plan_files = [](std::size_t count, std::size_t listed, std::vector<ZipThemeFile>& plan,
+                                   std::string& error) {
+            std::vector<TestFile> files;
+            // A theme.ini (every theme has one) and pictures up to `count` files.
+            files.push_back({"Plaza/theme.ini", "[theme]\nname=P\n", 0});
+            for (std::size_t i = 1; i < count; ++i) files.push_back({"Plaza/f" + std::to_string(i) + ".png", "P", 0});
+            const auto zip = make_zip(files);
+            std::vector<ZipEntry> entries;
+            if (!read(zip, entries, error)) return false;
+            return zip_plan_theme(entries, "Plaza", limits(listed, 1000), plan, error);
+        };
+        std::vector<ZipThemeFile> plan;
+        std::string error;
+        EXPECT_TRUE(plan_files(88, 88, plan, error));
+        EXPECT_EQ(plan.size(), 88u);
+        EXPECT_TRUE(plan_files(192, 192, plan, error));
+        EXPECT_EQ(plan.size(), 192u);
+        EXPECT_TRUE(!plan_files(193, 193, plan, error));
+        EXPECT_TRUE(error.find("more files than the theme list says") != std::string::npos);
     }
     // Bad entries.
     {

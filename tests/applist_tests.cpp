@@ -161,9 +161,16 @@ void test_app_rules() {
     // Platforms: at least one the list knows.
     EXPECT_TRUE(left_out("\"platforms\":[\"wii\",\"vwii\"]", "\"platforms\":[]"));
     EXPECT_TRUE(left_out("\"platforms\":[\"wii\",\"vwii\"]", "\"platforms\":[\"switch\"]"));
-    // Controllers: no field is "not known"; more than five names is broken.
+    // Controllers: no field is "not known"; a broken list (more than five
+    // names, not strings) only loses the pictures, not the app.
     EXPECT_TRUE(!left_out("\"controllers\":[\"wiimote\",", "\"controllers2\":[\"wiimote\","));
-    EXPECT_TRUE(left_out("\"controllers\":[\"wiimote\",", "\"controllers\":[\"a\",\"b\",\"c\",\"wiimote\","));
+    for (const char* broken_list : {"\"controllers\":[\"a\",\"b\",\"c\",\"wiimote\",", "\"controllers\":[7,\"wiimote\","}) {
+        const Parsed broken = parse(list_json(app_json("snes9xgx", "\"controllers\":[\"wiimote\",", broken_list)));
+        EXPECT_TRUE(broken.ok);
+        EXPECT_EQ(broken.count, 1u);
+        EXPECT_EQ(broken.skipped, 0u);
+        if (broken.count == 1) EXPECT_EQ(broken.apps[0].controllers, 0u);
+    }
     // An app named as its own better replacement.
     EXPECT_TRUE(left_out("\"platforms\"", "\"newer\":\"snes9xgx\",\"platforms\""));
     EXPECT_TRUE(!left_out("\"platforms\"", "\"newer\":\"snes9xgx-ultimate\",\"platforms\""));

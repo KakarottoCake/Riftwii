@@ -2721,6 +2721,30 @@ msgstr "Crear una casilla de inicio con estos mods..."
 msgid "Rename this tile..."
 msgstr "Cambiar el nombre de esta casilla..."
 
+msgid "GameTDB entry"
+msgstr "Entrada de GameTDB"
+
+msgid "Current entry"
+msgstr "Entrada actual"
+
+msgid "Type an ID"
+msgstr "Escribir un código"
+
+msgid "Use the tile's name to look for a match."
+msgstr "Busca una entrada con el nombre de la casilla."
+
+msgid "Use the tile's name to look for a match. Now: {1}"
+msgstr "Busca una entrada con el nombre de la casilla. Ahora: {1}"
+
+msgid "Choose an entry for this tile's cover and About page."
+msgstr "Elige una entrada para la portada y la información de esta casilla."
+
+msgid "Enter six letters or numbers."
+msgstr "Escribe seis letras o números."
+
+msgid "This ID is not in the GameTDB data on the SD card."
+msgstr "Este código no está en los datos de GameTDB de la tarjeta SD."
+
 msgid "Remove this tile from Home"
 msgstr "Quitar esta casilla del inicio"
 
@@ -4125,17 +4149,17 @@ msgstr "Rift Store: consigue apps homebrew"
 msgid "Search and Layout on Home's bar"
 msgstr "Buscar y Diseño en la barra de Inicio"
 
-msgid "Wider game pages at 16:9"
-msgstr "Páginas de juego más anchas en 16:9"
+msgid "Big libraries use less memory"
+msgstr "Las bibliotecas grandes usan menos memoria"
 
-msgid "Install WAD files is under Games"
-msgstr "Instalar archivos WAD está en Juegos"
+msgid "USA games play on a Japanese Wii"
+msgstr "Los juegos de EE. UU. funcionan en una Wii japonesa"
 
-msgid "Names sort without case or accents"
-msgstr "Los nombres se ordenan sin mayúsculas ni acentos"
+msgid "The pointer works after a Remote wakes up"
+msgstr "El puntero funciona al despertar el mando"
 
-msgid "WAD games go back to RiftWii on a Wii U"
-msgstr "Los juegos WAD vuelven a RiftWii en Wii U"
+msgid "Pick a mod tile's GameTDB entry"
+msgstr "Elige la entrada de GameTDB de una casilla de mods"
 
 msgid "Manage game"
 msgstr "Gestionar juego"
@@ -4323,8 +4347,11 @@ msgstr "Se borra el programa. Sus partidas y ajustes se quedan, salvo que digas 
 msgid "Remove its saves too?"
 msgstr "¿Quitar también sus partidas?"
 
-msgid "{1} left its saves and settings in {2}. Kept, they are there if you install it again."
-msgstr "{1} dejó sus partidas y ajustes en {2}. Si los guardas, seguirán ahí si la vuelves a instalar."
+msgid "Remove them deletes everything in {1}: its saves and settings, and an emulator's games, covers and cheats if it keeps them there."
+msgstr "Quitarlos elimina todo lo que hay en {1}: sus partidas y ajustes, y los juegos, carátulas y trucos de un emulador si los guarda ahí."
+
+msgid "The list has no apps."
+msgstr "La lista no tiene apps."
 
 msgid "Remove them"
 msgstr "Quitarlos"
@@ -4430,6 +4457,21 @@ msgstr "Todo lo demás."
 
 msgid "{1} installed"
 msgstr "{1} instaladas"
+
+msgid "RiftWii is still reading the drives. Open the Rift Store again in a moment."
+msgstr "RiftWii aún está leyendo las unidades. Abre la Rift Store de nuevo en un momento."
+
+msgid "Type the PIN to open the Rift Store."
+msgstr "Escribe el PIN para abrir la Rift Store."
+
+msgid "1 installed"
+msgstr "1 instalada"
+
+msgid "No app in the list is marked as working without a Wii Remote. Press - to show them all."
+msgstr "Ninguna app de la lista dice funcionar sin Wii Remote. Pulsa - para verlas todas."
+
+msgid "Version {1}, for the Wii only"
+msgstr "Versión {1}, solo para Wii"
 
 msgid "Size"
 msgstr "Tamaño"

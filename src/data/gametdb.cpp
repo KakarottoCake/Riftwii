@@ -119,6 +119,9 @@ std::string raw_id(const std::string& block) {
 WiitdbScanner::WiitdbScanner(std::set<std::string> wanted, std::string lang)
     : wanted_(std::move(wanted)), prefixes_(custom_prefixes(wanted_)), lang_(std::move(lang)) {}
 
+WiitdbScanner::WiitdbScanner(std::set<std::string> wanted, std::string lang, const std::set<std::string>& mod_games)
+    : wanted_(std::move(wanted)), prefixes_(custom_prefixes(mod_games)), lang_(std::move(lang)) {}
+
 void WiitdbScanner::feed(const char* data, std::size_t size) {
     if (complete_) return;
     buffer_.append(data, size);
@@ -247,9 +250,13 @@ bool parse_wiitdb_game(const std::string& block, const std::string& lang, GameIn
         const std::string code = locale.attribute("lang").as_string();
         const std::string text = clean(locale.child_value("synopsis"), kMaxSynopsis, true);
         if (code == lang && !text.empty()) info.synopsis = text;
-        if (code == "EN") english = text;
+        if (code == "EN") {
+            english = text;
+            info.title = clean(locale.child_value("title"), kMaxCustomTitleBytes);
+        }
         if (first.empty()) first = text;
     }
+    if (info.title.empty()) info.title = clean(game.attribute("name").as_string(), kMaxCustomTitleBytes);
     if (info.synopsis.empty()) info.synopsis = english.empty() ? first : english;
     out = std::move(info);
     return true;
@@ -261,6 +268,7 @@ std::string serialize_game_infos(const std::map<std::string, GameInfo>& games) {
     for (const auto& [id, g] : games) {
         out += "[" + id + "]\n";
         if (g.custom) out += "type=custom\n";
+        if (!g.title.empty()) out += "title=" + escape(g.title) + "\n";
         if (!g.developer.empty()) out += "developer=" + escape(g.developer) + "\n";
         if (!g.publisher.empty()) out += "publisher=" + escape(g.publisher) + "\n";
         if (!g.genres.empty()) out += "genres=" + escape(join(g.genres)) + "\n";
@@ -298,6 +306,7 @@ bool parse_game_infos(const std::string& text, std::map<std::string, GameInfo>& 
         const std::string key = line.substr(0, eq);
         const std::string value = unescape(line.substr(eq + 1));
         if (key == "type") current->custom = value == "custom";
+        else if (key == "title") current->title = clean(value, kMaxCustomTitleBytes);
         else if (key == "developer") current->developer = clean(value, kMaxText);
         else if (key == "publisher") current->publisher = clean(value, kMaxText);
         else if (key == "genres") current->genres = split_list(value);

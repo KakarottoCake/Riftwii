@@ -24,6 +24,9 @@ constexpr int kSmallSize = 18;
 constexpr int kBodySize = 20;
 
 constexpr int kBand = 72;        // the title band's height
+// The store front's: the filter button and the counts under it, with room
+// between the counts and the band's lower edge.
+constexpr int kFrontBand = 82;
 constexpr int kAppBand = 118;    // an app page's band, with its facts
 constexpr int kBarTop = 404;     // where the page's bottom band (and its prompts) begins
 constexpr int kGap = 14;
@@ -243,18 +246,19 @@ private:
     // The store front: the categories as tiles, each with its icon, and a
     // line under them of what the lit one holds.
     void DrawFront() {
-        Band(tr("Rift Store"), kBand, "store_logo", 280);  // the counts on the right
+        Band(tr("Rift Store"), kFrontBand, "store_logo", 280);  // the counts on the right
         if (!ListReady()) return;
 
         CountCategories();
-        std::size_t installed = 0;
+        // Both counts are of the apps the filter lets through.
+        std::size_t shown = 0, installed = 0;
         for (const App& app : store_.apps) {
+            if (!Shown(app)) continue;
+            ++shown;
             if (app.state == AppState::Installed || app.state == AppState::Update) ++installed;
         }
-        std::size_t shown = 0;
-        for (const App& app : store_.apps) shown += Shown(app) ? 1 : 0;
         const std::string counts = Plural(shown, "1 app", "{1} apps") + "  \xC2\xB7  " +
-                                   tr("{1} installed", std::to_string(installed));
+                                   Plural(installed, "1 installed", "{1} installed");
         // The filter: a button at the band's right (- or pointed at and A),
         // filled while it is on; the counts under it are what it lets through.
         // Not a prompt: a fifth one did not fit a 4:3 menu's bottom band.
@@ -267,12 +271,24 @@ private:
         frame_.Text(filter_x + 38, 16, kSmallSize, RWP_COLOR_INK, filter);
         hits_.push_back({filter_x, 14, filter_w, 28, kHitFilter});
         // Clear of the band's lower edge (Bookshelf's is a thick plank).
-        frame_.Text(right_, 44, kSmallSize, RWP_COLOR_INK_SOFT, counts, RWP_ALIGN_RIGHT, 270);
+        frame_.Text(right_, 47, kSmallSize, RWP_COLOR_INK_SOFT, counts, RWP_ALIGN_RIGHT, 270);
+        if (shown == 0 && no_remote_) {
+            // The filter let nothing through: the list has no app marked
+            // as working without a Wii Remote (yet).
+            // Wrapped (on one line the longer translations were cut), so
+            // drawn from its left: the host centres only a single line.
+            frame_.Text(left_ + 20, 180, 22, RWP_COLOR_INK,
+                        tr("No app in the list is marked as working without a Wii Remote. Press - to show them all."),
+                        RWP_ALIGN_LEFT, right_ - left_ - 40, 3);
+        } else if (shown == 0) {
+            // A list that loaded but has no app this store can show.
+            Message(tr("The list has no apps."));
+        }
 
         // Four across on a 16:9 menu; three on a 4:3 one, where four would
         // cut the longer names ("Online services"). The tiles share the room
         // above the line; the icon is as big as their height lets it be.
-        constexpr int kTop = 88;
+        constexpr int kTop = kFrontBand + 14;
         constexpr int kAboutY = 368;
         const int columns = FrontColumns();
         const int rows = (static_cast<int>(shown_categories_.size()) + columns - 1) / columns;
@@ -650,7 +666,10 @@ private:
         const std::string size = SizeText(app.listing->size);
         switch (app.state) {
             case AppState::Installed: return tr("Installed, version {1}", app.listing->version);
-            case AppState::Update: return tr("Version {1}, {2}", app.listing->version, size);
+            case AppState::Update:
+                // The install question says the rest.
+                if (OtherConsole(*app.listing)) return tr("Version {1}, for the Wii only", app.listing->version);
+                return tr("Version {1}, {2}", app.listing->version, size);
             case AppState::OnCard: return tr("It is on the SD card already. Put version {1} in its place.", app.listing->version);
             case AppState::PcOnly: return tr("The Wii can't unpack it: scan the code.");
             case AppState::Get: break;
@@ -905,16 +924,26 @@ private:
             if (here)
                 status_ = store_.finished_remove ? tr("{1} is removed.", name)
                                                  : tr("Installed. Find it in Home's Homebrew view.");
-            // What the app wrote stays unless the player says so; B keeps it.
+            // What the app wrote stays unless the player says so: Keep is
+            // lit, and A, B and HOME press it; Remove needs the pointer (or +).
             if (store_.finished_remove && !store_.finished_leftovers.empty()) {
                 std::string folders;
                 for (const std::string& folder : store_.finished_leftovers)
                     folders += (folders.empty() ? "" : ", ") + folder;
-                if (Host().ask_choice(tr("Remove its saves too?").c_str(),
-                                      tr("{1} left its saves and settings in {2}. Kept, they are there if you install it again.", name, folders)
-                                          .c_str(),
-                                      tr("Remove them").c_str(), tr("Keep them").c_str()) == 1 &&
-                    store_.StartRemoveData(store_.finished_index) && here)
+                // The warning first and the folders once: a long list of
+                // folders cut the end of the text off on a 4:3 menu.
+                const std::string body = tr(
+                    "Remove them deletes everything in {1}: its saves and settings, and an emulator's games, covers and cheats if it keeps them there.",
+                    folders);
+                bool remove = false;
+                if (RWP_HOST_HAS(&Host(), ask_risky)) {
+                    remove = Host().ask_risky(tr("Remove its saves too?").c_str(), body.c_str(), tr("Keep them").c_str(),
+                                              tr("Remove them").c_str()) == 1;
+                } else {
+                    remove = Host().ask_choice(tr("Remove its saves too?").c_str(), body.c_str(),
+                                               tr("Remove them").c_str(), tr("Keep them").c_str()) == 1;
+                }
+                if (remove && store_.StartRemoveData(store_.finished_index) && here)
                     status_.clear();
                 else if (here)
                     status_ = tr("Removed. Its saves are kept.");

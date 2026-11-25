@@ -138,6 +138,7 @@ The build compiles every folder into one, so no two files share a name.
 | `memlimits.cpp` | Keeps the app's heap out of memory a launch overwrites |
 | `restart.cpp` | Starting RiftWii again without the Homebrew Channel (after a game, or the channel) |
 | `stash.cpp` | The start-up stash: crt0's copy to MEM2, and finding the font, translations and GPL in it |
+| `mem1tail.c`, `mem1tail.h` | Home's scan stack, linked after every library so it is what spans `0x81000000`, where libogc's start-up copies its DSP boot code (`docs/MEMORY.md`, "The 16 MiB line") |
 | `startuptrace.cpp` | The start-up note: the step each start reached before its log opened, reported by the next start as "The last start stopped at" (`include/riftwii/startupnote.hpp`, `tests/startupnote_tests.cpp`) |
 | `plugins.cpp` | The plugin loader: the file's checks, the arena at the top of MEM2, relocation, the table RiftWii gives a plugin, refusals, crash ranges, the test switch |
 | `pluginhost.cpp` | The plugin table's network and file entries: downloads into a buffer or streamed to the card with their SHA-256, the network thread's job, removing, renaming and listing |
@@ -555,6 +556,7 @@ and the `*_mock/` folders provide synthetic files, discs and hardware calls.
 | `rtreloc.py` | Relocations for the RVZ runtime blob |
 | `make_plugin.py` | Plugin files: built from the two links (header, image, relocations, SHA-256), checked against the DOL's build stamp, varied for refusal tests |
 | `dol_stash.py` | Adds the start-up stash (translations, GPL) to `riftwii.dol` above its BSS (`docs/MEMORY.md`) |
+| `check_mem1_line.py` | Fails the Wii build unless `0x81000000` is well inside Home's scan stack (`wii/core/mem1tail.h`) |
 | `pack_dol.py` | Packs `riftwii.dol` last: each section a Zstandard frame behind the `runtime/dolpack` stub, every frame checked before it is written (`PACK=0` skips it) |
 | `make_release_zip.py`, `make_update_pack.py`, `release_notes.py` | A release: the zip, the in-app update's pack, the notes and the Discord message (run by `.github/workflows/release.yml`) |
 | `size_report.py` | CI's size table: the DOL's sections, its program end and the stash's end, the runtime blobs, the plugins' share of their arena |
@@ -568,6 +570,7 @@ and the `*_mock/` folders provide synthetic files, discs and hardware calls.
 | `bannerdump.cpp` | Inspecting banner layouts, animation and textures |
 | `menusound_render.cpp` | Rendering a named Wii sound/sequence for inspection |
 | `make_bookshelf_theme.py`, `make_indigo_theme.py` | Generating the built-in themes' artwork |
+| `make_dashboard_theme.py`, `make_wave_theme.py`, `make_plaza_theme.py`, `themepaint.py` | Generating the Dashboard, Wave and Plaza community themes (RiftWii/themes) from arithmetic alone: pictures, looping backdrops, sounds and music; `themepaint.py` holds Wave's and Plaza's shared painting and sound helpers |
 | `shrink_theme_pictures.py` | Makes a theme's PNGs smaller with no visible change (6-bit colour; backdrop frames as the menu's RGB565) |
 | `make_case_colours.py`, `make_offline_games.py` | GameTDB-derived case-color and offline-game tables |
 | `make_input_icons.py`, `make_korean_font.py`, `korean_title_chars.txt` | Generated button artwork, the Korean font subset and its title characters |
@@ -600,6 +603,7 @@ code comments cite.
 | `vendor-bearssl/` | TLS |
 | `vendor-nintendont-controllers/` | Nintendont's controller.ini files (used with its developers' permission, NOTICE.md); `tools/make_builtin_pads.py` turns them into `src/data/builtinpads_data.cpp`, the USB controller layouts RiftWii knows without a file on the SD card |
 | `vendor-kenney/input-prompts/` | Kenney's controller and button pictures (CC0); `tools/make_input_icons.py` turns them into `src/art/inputicons_data.cpp` |
+| `vendor-lucide/` | Lucide's `shopping-bag` icon (ISC; from Feather, MIT) and its license: the Rift Store's button on Home's bar, drawn by `src/art/skinpaint.cpp` |
 | `vendor-zstd/` | The Zstandard decoder (RVZ) |
 | `vendor-gecko/` | The Gecko code handler and its WiiRD debugger builds (USB Gecko in slot B or A), with their source |
 | `vendor-wwfc/` | WiiLink WFC's patcher pieces |

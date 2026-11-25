@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <fstream>
+#include <iterator>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -136,6 +138,41 @@ void test_response_storage() {
     refused("HTTP/1.1 2000 OK\r\nContent-Length: 4\r\n\r\npack", 256, "answered 0");
 }
 
+// A download straight to a file (the update's DOL and pack, GameTDB's
+// database): the body arrives in pieces and lands whole, with its SHA-256;
+// one too long leaves no file behind.
+void test_download_to_file() {
+    using namespace riftwii::wii;
+    const char* path = "httpmem-download.bin";
+    const std::string body = "0123456789abcdefghij";
+    response = "HTTP/1.1 200 OK\r\nContent-Length: 20\r\n\r\n" + body;
+    read_size = 3;
+    FileDownload got;
+    std::string error;
+    expect(HttpDownloadToFile("http://example.com/file", path, 100, got, error), "The download to a file failed");
+    std::ifstream in(path, std::ios::binary);
+    const std::string written((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    in.close();
+    expect(written == body && got.length == body.size(), "The file does not hold the body");
+    const riftwii::Sha256Digest expected = riftwii::sha256(reinterpret_cast<const std::uint8_t*>(body.data()), body.size());
+    expect(got.digest == expected, "The download's SHA-256 is not the body's");
+    static const char hex[] = "0123456789abcdef";
+    std::string text;
+    for (const std::uint8_t byte : expected) {
+        text += hex[byte >> 4];
+        text += hex[byte & 15];
+    }
+    expect(DigestMatches(got.digest, text), "DigestMatches refused the right SHA-256");
+    text[0] = text[0] == '0' ? '1' : '0';
+    expect(!DigestMatches(got.digest, text), "DigestMatches took a wrong SHA-256");
+    expect(!DigestMatches(got.digest, "abc"), "DigestMatches took a short SHA-256");
+
+    response = "HTTP/1.1 200 OK\r\nContent-Length: 20\r\n\r\n" + body;
+    expect(!HttpDownloadToFile("http://example.com/file", path, 4, got, error), "A body past the limit was taken");
+    std::ifstream gone(path, std::ios::binary);
+    expect(!gone.good(), "A failed download left its file behind");
+}
+
 }  // namespace
 
 namespace riftwii::wii {
@@ -176,6 +213,7 @@ void TlsStream::use_memory(void* memory, std::size_t bytes) {
     tls_memory_bytes = bytes;
 }
 void TlsStream::set_deadline(std::uint64_t) {}
+std::size_t TlsStream::memory_needed() { return 64; }
 bool TlsStream::open(SocketTransport&, const std::string&, std::string&) { return true; }
 bool TlsStream::timed_out() const { return false; }
 bool TlsStream::send(const void*, std::size_t) { return true; }
@@ -193,5 +231,6 @@ int main() {
     test_body_limits();
     test_release_redirects();
     test_response_storage();
+    test_download_to_file();
     return failures ? 1 : 0;
 }

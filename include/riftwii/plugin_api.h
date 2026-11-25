@@ -407,6 +407,12 @@ typedef struct rwp_host {
      * read. It may walk the whole FAT of a big card: call it from a
      * background job, not from a frame. */
     int32_t (*sd_free_kib)(uint32_t* kib);
+    /* Added after sd_free_kib (check RWP_HOST_HAS). The menu's popup for a
+     * question whose second answer cannot be undone: `safe` is the first
+     * button, lit when it opens, and A, B and HOME press it; `risky` needs
+     * the pointer on it and A, or + (START on a GameCube controller), as
+     * every such question in the menu does. 1 for `risky`, 0 for `safe`. */
+    int32_t (*ask_risky)(const char* title, const char* text, const char* safe, const char* risky);
 } rwp_host;
 
 /* What a plugin gives RiftWii: a constant table in its image, found by

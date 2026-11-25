@@ -2967,6 +2967,22 @@ void TestGameLanguage() {
     EXPECT_FALSE(parse_game_language("EN", code));
     EXPECT_EQ(std::string(game_language_name(9)), "ko");
 
+    EXPECT_EQ(resolve_disc_language(-1, 0, 'E'), 1);  // Japanese Wii, US disc
+    EXPECT_EQ(resolve_disc_language(-1, 2, 'E'), 1);  // German Wii, US disc
+    EXPECT_EQ(resolve_disc_language(-1, 1, 'E'), -1);
+    EXPECT_EQ(resolve_disc_language(-1, 3, 'E'), -1);
+    EXPECT_EQ(resolve_disc_language(-1, 4, 'E'), -1);
+    EXPECT_EQ(resolve_disc_language(-1, 0, 'P'), 1);
+    EXPECT_EQ(resolve_disc_language(-1, 2, 'P'), -1);
+    EXPECT_EQ(resolve_disc_language(-1, 6, 'P'), -1);
+    EXPECT_EQ(resolve_disc_language(-1, 1, 'J'), 0);
+    EXPECT_EQ(resolve_disc_language(-1, 0, 'J'), -1);
+    EXPECT_EQ(resolve_disc_language(-1, 1, 'K'), 9);
+    EXPECT_EQ(resolve_disc_language(-1, 9, 'K'), -1);
+    EXPECT_EQ(resolve_disc_language(-1, 0, '\0'), -1);
+    EXPECT_EQ(resolve_disc_language(-1, -1, 'E'), -1);
+    EXPECT_EQ(resolve_disc_language(2, 0, 'E'), 2);  // explicit choice wins
+
     // SCGetLanguage's shape: the check, then the load a few words on.
     const std::uint32_t words[] = {0x60000000, 0x7C600775, 0x40820010, 0x38000000, 0x98010008,
                                    0x48000008, 0x60000000, 0x88610008, 0x4E800020, 0x88610008};

@@ -70,8 +70,10 @@ void ForgetProfiles() {
     g_profilesRead = false;
 }
 
-bool CreateProfile(const FrontendState& state, const std::string& name, std::string& key, std::string& error) {
-    switch (Profiles().add(state.game_id, name, FirstModPicture(state), key)) {
+bool CreateProfile(const FrontendState& state, const std::string& name, const std::string& entry_id,
+                   bool use_entry_name, const std::string& name_before_entry, std::string& key, std::string& error) {
+    switch (Profiles().add(state.game_id, name, FirstModPicture(state), key, entry_id, use_entry_name,
+                           name_before_entry)) {
         case ProfileList::AddResult::Added: break;
         case ProfileList::AddResult::NoName: error = tr("The tile needs a name."); return false;
         case ProfileList::AddResult::GameFull:
@@ -114,6 +116,22 @@ bool RenameProfile(FrontendState& state, const std::string& name, std::string& e
     }
     state.profile_name = Profiles().find(state.profile_key)->name;
     logf("Home tiles: %s renamed \"%s\"\n", state.profile_key.c_str(), state.profile_name.c_str());
+    return true;
+}
+
+bool SetProfileGameTdbEntry(FrontendState& state, const std::string& id, const std::string& title,
+                            const std::string& fallback_name, std::string& error) {
+    if (!Profiles().set_gametdb_entry(state.profile_key, id, title, fallback_name)) {
+        error = tr("This tile is not on the list any more.");
+        return false;
+    }
+    if (!SaveProfiles(error)) {
+        ForgetUnsaved();
+        return false;
+    }
+    state.profile_name = Profiles().find(state.profile_key)->name;
+    if (id.empty()) logf("Home tiles: %s matches GameTDB by name again.\n", state.profile_key.c_str());
+    else logf("Home tiles: %s uses GameTDB entry %s.\n", state.profile_key.c_str(), id.c_str());
     return true;
 }
 

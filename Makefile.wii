@@ -116,6 +116,11 @@ LDFLAGS		+=	-Wl,--wrap=printf,--wrap=fprintf,--wrap=vprintf,--wrap=vfprintf
 # Controller, one hides tablets and the GameCube adapter from libogc's own
 # USB mouse and keyboard scans.
 LIBS :=	-lbearssl -lz -lfat -lwiikeyboard -lwiiuse -lbte $(LIBOGC_LIB)/libmad.a -lasnd -logc -lvorbisidec -logg -lfreetype -lbz2
+# Linked after every library, so its .bss (Home's scan stack) is the last
+# in RiftWii's .bss and spans 0x81000000, where libogc's start-up copies
+# its DSP boot code (wii/core/mem1tail.h). Checked after the link, below.
+MEM1_TAIL :=	mem1tail.o
+LIBS +=	$(MEM1_TAIL)
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
 # include and lib
@@ -212,7 +217,7 @@ else
 endif
 
 export OFILES_BIN	:=	$(addsuffix .o,$(BINFILES))
-export OFILES_SOURCES := $(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(sFILES:.s=.o) $(SFILES:.S=.o)
+export OFILES_SOURCES := $(CPPFILES:.cpp=.o) $(filter-out $(MEM1_TAIL),$(CFILES:.c=.o)) $(sFILES:.s=.o) $(SFILES:.S=.o)
 export OFILES := $(OFILES_BIN) $(OFILES_SOURCES)
 
 export HFILES := $(addsuffix .h,$(subst .,_,$(BINFILES)))
@@ -287,7 +292,7 @@ reload:
 #---------------------------------------------------------------------------------
 else
 
-DEPENDS	:=	$(OFILES:.o=.d)
+DEPENDS	:=	$(OFILES:.o=.d) $(MEM1_TAIL:.o=.d)
 
 #---------------------------------------------------------------------------------
 # main targets
@@ -315,8 +320,10 @@ PACK		?=	1
 UNPACKED	:=	$(CURDIR)/riftwii-unpacked.dol
 DOLPACK_STUB	:=	$(PROJECT_ROOT)/build-runtime/dolpack.bin
 $(OUTPUT).dol: $(OUTPUT).elf $(STASHFILES) $(PROJECT_ROOT)/tools/dol_stash.py $(PROJECT_ROOT)/tools/make_plugin.py \
+		$(PROJECT_ROOT)/tools/check_mem1_line.py \
 		$(PROJECT_ROOT)/tools/pack_dol.py $(DOLPACK_STUB)
 	@echo output ... $(notdir $@)
+	@$(PYTHON) $(PROJECT_ROOT)/tools/check_mem1_line.py $<
 	@elf2dol $< "$(UNPACKED)"
 	@$(PYTHON) $(PROJECT_ROOT)/tools/dol_stash.py "$(UNPACKED)" --version "$(RIFTWII_VERSION)" --limit $(STASH_LIMIT) \
 		$(foreach f,$(STASHFILES),$(f)=$(f))
@@ -328,7 +335,13 @@ else
 	@$(PYTHON) $(PROJECT_ROOT)/tools/pack_dol.py "$(UNPACKED)" "$(DOLPACK_STUB)" "$@" --zstd $(ZSTD)
 endif
 # The TLS library too, so new BearSSL flags (Makefile.bearssl) relink the DOL.
-$(OUTPUT).elf: $(OFILES) $(PROJECT_ROOT)/build-bearssl/libbearssl.a
+# devkitPro's link rule, except that mem1tail.o, a prerequisite so a
+# change to it relinks, is left out of $^: it is linked from LIBS, after
+# every library.
+$(OUTPUT).elf: $(OFILES) $(PROJECT_ROOT)/build-bearssl/libbearssl.a $(MEM1_TAIL)
+	$(SILENTMSG) linking ... $(notdir $@)
+	$(ADD_COMPILE_COMMAND) end
+	$(SILENTCMD)$(LD) $(filter-out $(MEM1_TAIL),$^) $(LDFLAGS) $(LIBPATHS) $(LIBS) -o $@
 
 # The plugins, built with this build's version and stamp (Makefile.plugin).
 .PHONY: plugins

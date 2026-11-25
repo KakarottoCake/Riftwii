@@ -26,6 +26,13 @@ struct TileSpec {
     bool dim = false;  // greyed: still lit and pressed, its page says why
     bool warn = false; // the value in the theme's warning colour (a memory card that is full)
     bool hidden = false; // not drawn: lit and pressed as any other, drawn by its own element (the game page's box)
+    // The name's size in points before a long one steps down; 0 for the
+    // usual 20 (26 for a primary tile).
+    int labelPoints = 0;
+    // The icon larger, in the middle near the top, and the name centred
+    // under it, as the Wii Menu's own tiles (Settings' sections). For a
+    // tile with a name and no value.
+    bool stacked = false;
 };
 
 class GuiTiles : public GuiElement {
@@ -53,6 +60,7 @@ private:
     int TileAt(int x, int y) const;
     int Neighbour(int from, int dx, int dy) const;
     void Layout(int index);
+    void LayoutStacked(int index, int points);  // Layout for TileSpec::stacked
     void EvenTextSizes();
 
     const std::vector<TileSpec>* tiles = nullptr;

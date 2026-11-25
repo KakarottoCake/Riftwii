@@ -8,6 +8,7 @@
 #include <string>
 
 #include "online.hpp"
+#include "riftwii/sha256.hpp"
 
 // One https GET read straight into a buffer the caller owns, for the theme
 // browser (wii/menu/themestore.hpp): online.hpp's HttpGet builds its answer
@@ -64,5 +65,25 @@ struct StreamGet {
 };
 bool HttpGetStream(const std::string& url, StreamGet& get, std::string& error, int timeout_ms = 15000,
                    const HttpProgress& progress = nullptr, HttpRedirects redirects = HttpRedirects::Follow);
+
+// A download written straight to `path` as it arrives, with its SHA-256
+// worked out on the way: only a small window and the TLS state are held,
+// so a file of several MB (an update's DOL and pack, GameTDB's database)
+// needs no block of its size, which a menu with hundreds of games' covers
+// may not have (a tester's Wii ran out of memory in the update). At most
+// `max_bytes`; `length` and `digest` are what came. On failure `error`
+// says why in a plain sentence, and nothing of this download is left at
+// `path` (a stale file there is left when the download can't start: no
+// memory, or `path` can't be opened; the next one overwrites it).
+struct FileDownload {
+    std::uint64_t length = 0;
+    Sha256Digest digest{};
+};
+bool HttpDownloadToFile(const std::string& url, const std::string& path, std::uint64_t max_bytes, FileDownload& got,
+                        std::string& error, int timeout_ms = 15000, const HttpProgress& progress = nullptr,
+                        HttpRedirects redirects = HttpRedirects::Follow);
+// Whether `digest` is the SHA-256 written as `expected` (64 lowercase hex
+// digits, as GitHub gives it).
+bool DigestMatches(const Sha256Digest& digest, const std::string& expected);
 
 }  // namespace riftwii::wii

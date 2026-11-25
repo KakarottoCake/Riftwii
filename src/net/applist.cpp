@@ -300,7 +300,16 @@ bool read_app(JsonReader& r, RawApp& a) {
         else if (key == "icon") good = read_text(r, a, a.icon);
         else if (key == "newer") good = read_text(r, a, a.newer);
         else if (key == "platforms") good = read_strings(r, a, a.platforms, 3);
-        else if (key == "controllers") good = read_strings(r, a, a.controllers, 5);
+        else if (key == "controllers") {
+            // Only pictures and a filter hang on it: a wrong list (more than
+            // five names, not strings) leaves them out, not the whole app.
+            const bool malformed_before = a.malformed;
+            good = read_strings(r, a, a.controllers, 5);
+            if (a.malformed && !malformed_before) {
+                a.malformed = false;
+                a.controllers.clear();
+            }
+        }
         else if (key == "data_folders") good = read_strings(r, a, a.data_folders, kAppMaxDataFolders);
         else if (key == "download") good = read_download(r, a);
         else if (key == "install") good = read_install(r, a);

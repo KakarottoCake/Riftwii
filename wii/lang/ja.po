@@ -2721,6 +2721,30 @@ msgstr "このMODでホームにタイルを作る..."
 msgid "Rename this tile..."
 msgstr "このタイルの名前を変える..."
 
+msgid "GameTDB entry"
+msgstr "GameTDBの項目"
+
+msgid "Current entry"
+msgstr "今の項目"
+
+msgid "Type an ID"
+msgstr "IDを入力"
+
+msgid "Use the tile's name to look for a match."
+msgstr "タイルの名前で項目を探します。"
+
+msgid "Use the tile's name to look for a match. Now: {1}"
+msgstr "タイルの名前で項目を探します。今: {1}"
+
+msgid "Choose an entry for this tile's cover and About page."
+msgstr "このタイルのカバーと詳細に使う項目を選びます。"
+
+msgid "Enter six letters or numbers."
+msgstr "英数字を6文字入力します。"
+
+msgid "This ID is not in the GameTDB data on the SD card."
+msgstr "このIDはSDカードのGameTDBデータにありません。"
+
 msgid "Remove this tile from Home"
 msgstr "このタイルをホームから消す"
 
@@ -4125,17 +4149,17 @@ msgstr "Rift Store：homebrewアプリを入手"
 msgid "Search and Layout on Home's bar"
 msgstr "検索とレイアウトはホームのバーに"
 
-msgid "Wider game pages at 16:9"
-msgstr "16:9でゲームページが広く"
+msgid "Big libraries use less memory"
+msgstr "ゲームが多くてもメモリが足りる"
 
-msgid "Install WAD files is under Games"
-msgstr "WADのインストールは「ゲーム」に"
+msgid "USA games play on a Japanese Wii"
+msgstr "北米版のゲームが日本のWiiで遊べる"
 
-msgid "Names sort without case or accents"
-msgstr "名前は大文字小文字やアクセントを無視して並ぶ"
+msgid "The pointer works after a Remote wakes up"
+msgstr "リモコンが復帰してもポインターが動く"
 
-msgid "WAD games go back to RiftWii on a Wii U"
-msgstr "Wii UでもWADのゲームからRiftWiiに戻れる"
+msgid "Pick a mod tile's GameTDB entry"
+msgstr "MODのタイルにGameTDBの項目を選べる"
 
 msgid "Manage game"
 msgstr "ゲームの管理"
@@ -4323,8 +4347,11 @@ msgstr "プログラムを削除します。セーブと設定は、消すと決
 msgid "Remove its saves too?"
 msgstr "セーブも削除しますか？"
 
-msgid "{1} left its saves and settings in {2}. Kept, they are there if you install it again."
-msgstr "{1}はセーブと設定を{2}に残しています。残しておけば、また入れたときにそのまま使えます。"
+msgid "Remove them deletes everything in {1}: its saves and settings, and an emulator's games, covers and cheats if it keeps them there."
+msgstr "「削除する」を選ぶと{1}の中身がすべて消えます。セーブと設定、そしてエミュレーターがそこに置いたゲーム、カバー、チートもです。"
+
+msgid "The list has no apps."
+msgstr "リストにアプリがありません。"
 
 msgid "Remove them"
 msgstr "削除する"
@@ -4430,6 +4457,21 @@ msgstr "そのほかすべて。"
 
 msgid "{1} installed"
 msgstr "{1}個インストール済み"
+
+msgid "RiftWii is still reading the drives. Open the Rift Store again in a moment."
+msgstr "RiftWiiはまだドライブを読んでいます。少ししてからもう一度Rift Storeを開いてください。"
+
+msgid "Type the PIN to open the Rift Store."
+msgstr "Rift Storeを開くにはPINを入力してください。"
+
+msgid "1 installed"
+msgstr "1個インストール済み"
+
+msgid "No app in the list is marked as working without a Wii Remote. Press - to show them all."
+msgstr "Wiiリモコンなしで使えると書かれたアプリはリストにありません。-ですべて表示します。"
+
+msgid "Version {1}, for the Wii only"
+msgstr "バージョン{1}、Wii専用"
 
 msgid "Size"
 msgstr "サイズ"

@@ -167,6 +167,28 @@ would be overwritten in the middle of every disc launch. The other side of
 RiftWii's 8 MiB, its link address `0x80A00000`, is where game DOLs stop
 (ARCHITECTURE.md, "The loader's size and the game's room").
 
+### The 16 MiB line (`0x81000000`)
+
+libogc's `SYS_Init`, which crt0 runs before `main`, boots the DSP by
+copying 128 bytes of DSP code to `0x81000000` (where the DSP starts
+from) and copies the old bytes back afterwards. On a real Wii the code
+was still there when libogc next used that memory; Dolphin never shows
+it. 2611-239 died on every console: about 3 KiB of new code moved
+libogc's list of reset handlers (`sys_reset_func_queue`) from just under
+the line to `0x81000014`, and `SYS_RegisterResetFunc` then followed
+`0x029F0037`, the DSP code's sixth word, as a pointer (a DSI before the
+session log opened). The same code linked 3 KiB lower started normally
+on a tester's Wii.
+
+So the line must never be left to chance. `Makefile.wii` links
+`wii/core/mem1tail.o` after every library, which makes Home's 128 KiB
+scan stack the last thing in `.bss`, and `tools/check_mem1_line.py` fails
+the build unless the line is at least 4 KiB inside it. A stack needs no
+starting contents and that thread starts long after `SYS_Init`. The stack
+begins about 96 KiB below the line, so `.bss` can grow by that much
+before the check fails; then the stack's file must hold more of
+RiftWii's start-up-free buffers.
+
 ### Where the stash may load
 
 The stash is dead before a launch starts, so the apploader may overwrite

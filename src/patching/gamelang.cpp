@@ -42,6 +42,33 @@ bool parse_game_language(const std::string& s, int& code) {
     return false;
 }
 
+int resolve_disc_language(int choice, int console_language, char disc_region) {
+    if (choice >= 0) return choice;
+    if (console_language < 0 || console_language >= kGameLanguages) return -1;
+
+    constexpr int japanese = 0;
+    constexpr int english = 1;
+    constexpr int french = 3;
+    constexpr int spanish = 4;
+    constexpr int dutch = 6;
+    constexpr int korean = 9;
+    // These are region defaults, not the languages on any particular disc.
+    switch (disc_region) {
+    case 'J':
+        return console_language == japanese ? -1 : japanese;
+    case 'E':
+        if (console_language == english || console_language == french || console_language == spanish) return -1;
+        return english;
+    case 'P': case 'D': case 'F': case 'H': case 'I': case 'L': case 'M':
+    case 'R': case 'S': case 'U': case 'V': case 'X': case 'Y':
+        return console_language >= english && console_language <= dutch ? -1 : english;
+    case 'K': case 'Q': case 'T':
+        return console_language == korean ? -1 : korean;
+    default:
+        return -1;
+    }
+}
+
 unsigned patch_game_language(std::uint8_t* bytes, std::size_t size, int code) {
     if (code < 0 || code >= kGameLanguages) return 0;
     unsigned patched = 0;

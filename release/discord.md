@@ -7,33 +7,16 @@ by the release workflow after the GitHub release is up. Discord's own
 markdown: at most 2000 characters once filled in (the workflow counts).
 
 -->
-{{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
+{{TESTER_ROLE}} RiftWii {{VERSION}} is out. It replaces 2611-239, which we took down because it gave a black screen or a DSI exception on every real Wii. Sorry about that! {{RELEASE_URL}}
 
-**The Rift Store is here:** Settings > Online > Rift Store. About 290 homebrew apps to install, update and remove right from RiftWii.
+**If you updated to 239 and RiftWii won't start:** copy boot.dol from the zip to sd:/apps/riftwii/ (replace the old one). After that it updates itself as usual.
 
-* Your saves stay: updates keep files the app changed, and Remove asks before deleting saves and settings
-* Controller pictures on each app, and a **Without a Wii Remote** filter (press −)
-* On a Wii U, Wii-only apps are marked and ask first
-* Daily builds of Snes9x RX, WiiStation and Nintendont
+* **RiftWii starts on a real Wii again.** The crash came from where things ended up in memory, and it never shows in Dolphin. The build now guards against it, and every release gets started on a real Wii before it goes out.
+* **Big game libraries use less memory.** Updates and game details download straight to the SD card, so RiftWii no longer runs out of memory and restarts with hundreds of games.
+* **Settings has new buttons**, in the Wii Menu's style.
 
-Also new:
+To test: start RiftWii from the Homebrew Channel and from the RiftWii channel. Does the menu come up?
 
-* Search and Layout on Home's bar, and B shows the letter it jumps to
-* Wider game pages at 16:9, a tidier About and Settings
-* Install WAD files is under Settings > Games
-* WAD games go back to RiftWii on a Wii U (HOME > Wii Menu froze before)
+Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here.
 
-Not tried on a real Wii yet: the Rift Store, and the Wii U fix.
-
-To test, please:
-
-1. Install an app from the store, start it, then remove it: does it ask about saves?
-2. Update an app whose settings you changed: are they kept?
-3. The Without a Wii Remote filter: are the apps right?
-4. Wii U: a WAD game, then HOME > Wii Menu
-
-Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
-
-![The Rift Store](docs/screenshots/2611-229-store.png)
-![An app's page](docs/screenshots/2611-229-store-app.png)
-![What's new](docs/screenshots/2611-229-whats-new.png)
+![Settings](docs/screenshots/2611-239-settings.png)

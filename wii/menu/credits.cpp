@@ -43,7 +43,7 @@ const char* const kCredits[] = {
     "return-to-channel patch), Nuke (the language patch), crediar (Kirby's MetaFortress patch), dcx2, "
     "container12345, blackb0x and WiiPower. Read as a reference for its automatic cIOS choice, d2x's emulated "
     "NAND and USB device, the Wiinnertag file, the Wii Menu's fonts, the channel ticket layout, the video mode "
-    "tables and hooking a game's second executable.",
+    "tables, the disc language fallback and hooking a game's second executable.",
     "",
     "Gecko OS by Nuke, brkirch, Link and the Gecko authors: the cheat code handler and the WiiRD debugger "
     "(GPL-2.0-or-later).",
@@ -131,6 +131,7 @@ const char* const kCredits[] = {
     "Korean font: Noto Sans KR by Adobe and the Noto authors (SIL Open Font License 1.1), "
     "cut down and rounded for RiftWii; korean.ttf and Korean-OFL.txt beside boot.dol.",
     "Controller and button pictures: Input Prompts by Kenney (kenney.nl, CC0).",
+    "The Rift Store's bag: Lucide (lucide.dev, ISC), from Feather by Cole Bemis (MIT).",
     "Age rating marks: the ESRB's, PEGI's, CERO's, the GRAC's and the GSRR's, as drawn on Wikimedia "
     "Commons (public domain).",
     "",

@@ -5,6 +5,8 @@
 #include "riftwii/textlines.hpp"
 #include "riftwii/checkedalloc.hpp"
 
+#include <algorithm>
+
 namespace riftwii {
 
 bool theme_pack_name_ok(const std::string& name, bool file) {
@@ -38,16 +40,37 @@ bool apps_path_ok(const std::string& path) {
 
 bool parse_theme_pack(const std::uint8_t* data, std::size_t size, ThemePack& out, std::string& error,
                       const char* header, std::size_t* end) {
-    out = ThemePack{};
-    std::size_t at = 0;
-    // One text line from `at`, without its newline; false at the end.
-    const auto line = [&](std::string& text) {
-        std::size_t end = at;
-        while (end < size && data[end] != '\n') ++end;
-        if (end >= size || end - at > 1024) return false;
-        text.assign(reinterpret_cast<const char*>(data) + at, end - at);
-        at = end + 1;
+    const ThemePackReader read = [data, size](std::size_t at, std::uint8_t* to, std::size_t count) {
+        if (at > size || count > size - at) return false;
+        for (std::size_t i = 0; i < count; ++i) to[i] = data[at + i];
         return true;
+    };
+    return parse_theme_pack(read, size, 0, out, error, header, end);
+}
+
+bool parse_theme_pack(const ThemePackReader& read, std::size_t size, std::size_t start, ThemePack& out,
+                      std::string& error, const char* header, std::size_t* end) {
+    out = ThemePack{};
+    std::size_t at = start;
+    // One text line from `at`, without its newline; false at the end. A
+    // line is at most 1024 bytes, so one read of 1025 finds its end.
+    constexpr std::size_t kMaxLine = 1024;
+    std::uint8_t chunk[kMaxLine + 1];
+    const auto line = [&](std::string& text) {
+        if (at >= size) return false;
+        const std::size_t count = std::min(sizeof(chunk), size - at);
+        if (!read(at, chunk, count)) return false;
+        std::size_t length = 0;
+        while (length < count && chunk[length] != '\n') ++length;
+        if (length >= count) return false;
+        text.assign(reinterpret_cast<const char*>(chunk), length);
+        at += length + 1;
+        return true;
+    };
+    // Whether the byte at `where` is the newline a file's bytes end with.
+    const auto newline_at = [&](std::size_t where) {
+        std::uint8_t byte = 0;
+        return where < size && read(where, &byte, 1) && byte == '\n';
     };
     std::string text;
     if (!line(text) || text != header) {
@@ -104,7 +127,7 @@ bool parse_theme_pack(const std::uint8_t* data, std::size_t size, ThemePack& out
             }
             f.size = static_cast<std::size_t>(std::stoul(count));
             f.offset = at;
-            if (f.size > size - at || size - at - f.size < 1 || data[at + f.size] != '\n') {
+            if (f.size > size - at || size - at - f.size < 1 || !newline_at(at + f.size)) {
                 error = f.path + " is cut short";
                 return false;
             }

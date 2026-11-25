@@ -33,57 +33,30 @@ release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 
 -->
-**RiftWii {{VERSION}}.** The Rift Store: homebrew apps to browse, install, update and remove from RiftWii itself, with your saves kept. Home's bar, the game page and Settings are tidier, and WAD games go back to RiftWii on a Wii U. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** This replaces 2611-239, which was taken down because it showed a black screen or an "Exception (DSI)" screen on every real Wii. It has everything 239 had: big game libraries no longer run out of memory and restart, and Settings has new buttons. Everything from 2611-236 is in it too.
 
-![The Rift Store]({{SCREENSHOTS}}2611-229-store.png)
-![An app's page in the Rift Store]({{SCREENSHOTS}}2611-229-store-app.png)
-![What's new in this version]({{SCREENSHOTS}}2611-229-whats-new.png)
+**If you updated to 239 and RiftWii no longer starts:** copy `boot.dol` from this release's zip to `sd:/apps/riftwii/` (replace the old one). After that, RiftWii updates itself as usual (Settings > Check for a new version).
 
 ## What changed
 
-### The Rift Store
-
-- **Settings > Online > Rift Store** lists about 290 homebrew apps by category: emulators, games, media players, loaders, system tools and more. Each app has its icon, a description, its size, date, license, the consoles it works on, and a QR code to its own page. **1** searches, **2** shows the apps on your SD card and their updates.
-- **Install, Update and Remove** from the app's page. A download is checked against the file the list approved before anything is written, and an update puts all the new files in or none of them. If the SD card is too full, the store says how much room to make first.
-- **Your saves and settings stay.** An update replaces the app itself, but keeps any file the app or you changed since it was installed. Remove takes the app away, then asks whether to delete its saves and settings too (B keeps them).
-- **What each app works with:** the Wii Remote, Nunchuk, Classic Controller and GameCube controller pictures on its page. The **Without a Wii Remote** button on the store's front (−) shows only apps you can play with a Classic or GameCube controller.
-- **On a Wii U,** apps listed for the Wii only say "Wii only", and the store asks before installing one.
-- **Daily builds** of Snes9x RX, WiiStation and Nintendont are in the store, so you get their newest fixes.
-- The store loads only while it's open and takes no memory from the rest of RiftWii. Themes can replace its pictures (docs/THEMES.md).
-
-### Home
-
-- **Search and Layout are on the bar** in every layout, next to Show and the gear, instead of moving to the top corners.
-- **The gear's name shows on the status line,** like the other buttons' names.
-- **B jumps to the next letter** and now shows that letter for a moment.
-- **Games on the SD card open sooner** while RiftWii is still reading the drives.
-- **The tiny labels (WII, GC, SD, USB, MODS) are thicker** and readable on every theme.
-- **Names sort without case or accents** everywhere: Home's A to Z, the folder pickers, the theme list and the GameCube card names.
-
-### Game page and Settings
-
-- **At 16:9, the game's page, Manage game and About use the whole width.** A subtitle that's too long scrolls instead of being cut, the help text has two full lines, and buttons that open another screen show an arrow.
-- **About** has a smaller cover, the controllers in the middle, and a story box that never runs into the bottom bar.
-- **Settings' buttons just say Picture, Games, Home...** and its help has the (i) like every other page.
-- **Install WAD files is under Settings > Games,** next to Manage emulated NAND.
-- **Manage emulated NAND groups its list** (game saves, channels, system channels, hidden titles), shows game names, says where each title is, and won't delete system titles.
-
-### WAD games on a Wii U
-
-- **HOME > Wii Menu in a WiiWare or Virtual Console game started from a WAD** froze a tester's Wii U on a black screen. RiftWii now also copies the IOS its channel starts on into the game's emulated NAND. Not tried on that Wii U yet.
+- **RiftWii starts on a real Wii again.** At start-up, the Wii's system library briefly copies the audio chip's start-up code to a fixed spot in memory. In 239, the code that grew in that release pushed some of the library's own settings onto that spot, so the console crashed before the menu could appear. Dolphin doesn't show this, so it was missed. That spot is now always taken by memory nothing uses that early, and the build refuses to make a RiftWii where it isn't. From now on each release is also started on a real Wii before it goes out.
+- **Downloads go straight to the SD card.** The update (RiftWii and its plugins) and GameTDB's game details are written to the card as they arrive, instead of being held whole in memory first. An update now needs a few MB of free space on the card, and almost no memory.
+- **Covers take turns in big libraries.** RiftWii no longer keeps room for every game's cover at once: it leaves memory for the shelf's full covers and the rest of the menu, and covers you scroll back to are read again from the card. A library that fits works as before.
+- **Settings' buttons look like the Wii Menu's:** a larger picture on top and the name under it.
 
 ## What to test
 
-1. **The Rift Store:** install an app, start it from Home's Homebrew view, then remove it. Does the store ask about its saves?
-2. **An update in the store** for an app whose settings you changed: are they kept?
-3. **The Without a Wii Remote filter** and an app's controller pictures: do they match what you know of the app?
-4. **On a Wii U:** a WiiWare or VC game from a WAD, then HOME > Wii Menu. Back in RiftWii?
-5. **Home's bar** in your usual layout, and B's letter jump.
+1. **Starting RiftWii** from the Homebrew Channel and from the RiftWii channel: does the menu come up?
+2. **A big library** (a few hundred games): scroll Home and the shelf with full covers, then update, or open a game's About page so its details download. Does RiftWii keep going?
 
 ## Known issues
 
 - **The way back from a WAD game** hasn't been tried on a real Wii or vWii yet, including this release's vWii fix.
 - **The Rift Store** hasn't been tried on a real Wii yet: its downloads, a full SD card, and Stop while files are being put in place.
+- **Big libraries** were checked in Dolphin only (an update and a 400-game list with memory held back), not yet on a real Wii with a big drive.
+- **GameTDB entries for mod tiles** were checked in Dolphin only. The first start after updating reads the game details once more in the background, so mod covers can be found for every game on your drives.
+- **This release's two fixes** were checked in Dolphin only: a USA game on a real Japanese Wii, and a real Wii Remote waking up in the menu, are still to try.
+- **WiiWare and Virtual Console from another region** don't get the language fallback yet.
 - **The GameCube crash screen doesn't go back to RiftWii** on A or HOME for some players; the console has to be turned off. It does in Dolphin. A photo of the screen helps.
 - **SpongeBob SquarePants: The Movie (PAL)** crashes at random for one tester. It's being looked into; it hasn't happened in Dolphin.
 - **Copying a game to the SD card** (Manage emulated NAND) has only been tried in Dolphin, and only with a game that has no shared files.

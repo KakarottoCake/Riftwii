@@ -2721,6 +2721,30 @@ msgstr "이 MOD로 홈 타일 만들기..."
 msgid "Rename this tile..."
 msgstr "이 타일 이름 바꾸기..."
 
+msgid "GameTDB entry"
+msgstr "GameTDB 항목"
+
+msgid "Current entry"
+msgstr "현재 항목"
+
+msgid "Type an ID"
+msgstr "ID 입력"
+
+msgid "Use the tile's name to look for a match."
+msgstr "타일 이름으로 맞는 항목을 찾습니다."
+
+msgid "Use the tile's name to look for a match. Now: {1}"
+msgstr "타일 이름으로 맞는 항목을 찾습니다. 지금: {1}"
+
+msgid "Choose an entry for this tile's cover and About page."
+msgstr "이 타일의 표지와 정보에 쓸 항목을 고릅니다."
+
+msgid "Enter six letters or numbers."
+msgstr "영문자나 숫자 6자를 입력하세요."
+
+msgid "This ID is not in the GameTDB data on the SD card."
+msgstr "SD 카드의 GameTDB 데이터에 이 ID가 없습니다."
+
 msgid "Remove this tile from Home"
 msgstr "홈에서 이 타일 제거"
 
@@ -4125,17 +4149,17 @@ msgstr "Rift Store: 홈브루 앱 받기"
 msgid "Search and Layout on Home's bar"
 msgstr "검색과 레이아웃이 홈 바에"
 
-msgid "Wider game pages at 16:9"
-msgstr "16:9에서 더 넓은 게임 페이지"
+msgid "Big libraries use less memory"
+msgstr "게임이 많아도 메모리를 덜 사용"
 
-msgid "Install WAD files is under Games"
-msgstr "WAD 설치는 게임 메뉴에"
+msgid "USA games play on a Japanese Wii"
+msgstr "미국판 게임이 일본 Wii에서 실행됨"
 
-msgid "Names sort without case or accents"
-msgstr "이름을 대소문자·악센트 없이 정렬"
+msgid "The pointer works after a Remote wakes up"
+msgstr "리모컨이 다시 켜져도 포인터가 작동"
 
-msgid "WAD games go back to RiftWii on a Wii U"
-msgstr "Wii U에서도 WAD 게임에서 RiftWii로"
+msgid "Pick a mod tile's GameTDB entry"
+msgstr "MOD 타일의 GameTDB 항목 선택"
 
 msgid "Manage game"
 msgstr "게임 관리"
@@ -4323,8 +4347,11 @@ msgstr "프로그램을 지웁니다. 세이브와 설정은 지우라고 할 �
 msgid "Remove its saves too?"
 msgstr "세이브도 지울까요?"
 
-msgid "{1} left its saves and settings in {2}. Kept, they are there if you install it again."
-msgstr "{1}이(가) 세이브와 설정을 {2}에 남겼습니다. 남겨 두면 다시 설치할 때 그대로 있습니다."
+msgid "Remove them deletes everything in {1}: its saves and settings, and an emulator's games, covers and cheats if it keeps them there."
+msgstr "지우기를 고르면 {1} 안의 모든 것이 지워집니다. 세이브와 설정, 그리고 에뮬레이터가 거기 둔 게임, 커버, 치트도 지워집니다."
+
+msgid "The list has no apps."
+msgstr "목록에 앱이 없습니다."
 
 msgid "Remove them"
 msgstr "지우기"
@@ -4430,6 +4457,21 @@ msgstr "그 밖의 모든 것."
 
 msgid "{1} installed"
 msgstr "{1}개 설치됨"
+
+msgid "RiftWii is still reading the drives. Open the Rift Store again in a moment."
+msgstr "RiftWii가 아직 드라이브를 읽고 있습니다. 잠시 후 Rift Store를 다시 여세요."
+
+msgid "Type the PIN to open the Rift Store."
+msgstr "Rift Store를 열려면 PIN을 입력하세요."
+
+msgid "1 installed"
+msgstr "1개 설치됨"
+
+msgid "No app in the list is marked as working without a Wii Remote. Press - to show them all."
+msgstr "Wii 리모컨 없이 쓸 수 있다고 표시된 앱이 목록에 없습니다. -를 누르면 모두 보입니다."
+
+msgid "Version {1}, for the Wii only"
+msgstr "버전 {1}, Wii 전용"
 
 msgid "Size"
 msgstr "크기"
