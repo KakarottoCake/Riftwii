@@ -1316,7 +1316,10 @@ bool prepare_gc_pads(const DolHeader& dol, bool gc_adapter, bool gx_protected, c
             gc_adapter = false;
         }
     }
-    if (!gc_adapter) close_adapter_session();
+    // A launch the pads plugin refused keeps the menu's adapter session: the
+    // failure screen comes next and needs the adapter (console, 24 Nov: with
+    // the session closed, the screen's adapter answered -4 to everything).
+    if (!gc_adapter && !pads_plugin_stopped_launch()) close_adapter_session();
     // Settings > GameCube rumble Off: the SDK's PADControlMotor returns at
     // once, for the Wii's own ports and the adapter alike (the adapter's
     // hook is not put on it then).
