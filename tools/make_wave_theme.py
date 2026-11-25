@@ -302,7 +302,7 @@ def glass(cw, ch, x0, y0, w, h, r, *, lit=False, primary=False, alpha=0.62, shee
         g = tp.canvas(cw, ch)
         g[..., :3] = GLOW
         g[..., 3] = cov
-        g = tp.blur(g, glow_size or 3)
+        g = tp.blur(g, tp.fit_radius(cov, glow_size or 3))
         tp.over(c, GLOW, g[..., 3] * 0.9)
     v = np.clip((y - y0) / h, 0, 1)
     if pale:

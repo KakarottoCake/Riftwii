@@ -133,7 +133,9 @@ def supersample(paint, w, h, s=3):
 
 def blur(c, radius):
     """A cheap separable box blur, three passes (close to Gaussian), on a
-    premultiplied canvas."""
+    premultiplied canvas. Past the canvas's edges is empty, and what the
+    blur spreads fades out over the last pixels before them, so a shadow or
+    a glow never stops in a hard line at a picture's edge."""
     if radius <= 0:
         return c
     pm = np.dstack([c[..., :3] * c[..., 3:4], c[..., 3:4]])
@@ -142,7 +144,7 @@ def blur(c, radius):
         for axis in (0, 1):
             pad = [(0, 0)] * 3
             pad[axis] = (r, r)
-            p = np.pad(pm, pad, mode="edge")
+            p = np.pad(pm, pad, mode="constant")
             cs = np.cumsum(p, axis=axis, dtype=np.float64)
             zero = np.zeros_like(np.take(cs, [0], axis=axis))
             cs = np.concatenate([zero, cs], axis=axis)
@@ -150,14 +152,46 @@ def blur(c, radius):
             hi = np.take(cs, np.arange(2 * r + 1, 2 * r + 1 + n), axis=axis)
             lo = np.take(cs, np.arange(0, n), axis=axis)
             pm = ((hi - lo) / (2 * r + 1)).astype(np.float32)
-    a = pm[..., 3]
-    rgb = np.where(a[..., None] > 1e-6, pm[..., :3] / np.maximum(a[..., None], 1e-6), 0.0)
+    a = pm[..., 3] * edge_fade(pm.shape[1], pm.shape[0])
+    rgb = np.where(pm[..., 3:4] > 1e-6, pm[..., :3] / np.maximum(pm[..., 3:4], 1e-6), 0.0)
     return np.dstack([rgb, a]).astype(np.float32)
 
 
+def edge_fade(w, h, inset=2.0):
+    """1 inside a w x h picture, falling smoothly to 0 at its edges."""
+    x, y = grid(w, h)
+    dist = np.minimum(np.minimum(x + 0.5, w - 0.5 - x), np.minimum(y + 0.5, h - 0.5 - y))
+    return smooth(dist / inset)
+
+
+def free_margins(alpha, threshold=0.02):
+    """How many clear pixels a shape (an alpha mask) leaves at its picture's
+    top, bottom, left and right."""
+    rows = np.where(alpha.max(axis=1) > threshold)[0]
+    cols = np.where(alpha.max(axis=0) > threshold)[0]
+    if rows.size == 0:
+        return 0, 0, 0, 0
+    h, w = alpha.shape
+    return int(rows[0]), int(h - 1 - rows[-1]), int(cols[0]), int(w - 1 - cols[-1])
+
+
+def fit_radius(alpha, radius):
+    """A glow's blur radius cut down to what fits the margin round the shape:
+    RiftWii's pictures have fixed sizes, the shape a few pixels in from the
+    edges, and a three-pass blur spreads about 2.5 times its radius."""
+    top, bottom, left, right = free_margins(alpha)
+    room = min(top, bottom, left, right)
+    return max(0, min(int(radius), int(room / 2.5)))
+
+
 def shadow_of(shape_alpha, radius, strength, dy=2):
-    """A soft drop shadow (black) from an alpha mask, moved down by dy."""
+    """A soft drop shadow (black) from an alpha mask, moved down by dy, both
+    cut down to fit the clear margin under and beside the shape."""
     h, w = shape_alpha.shape
+    _, bottom, left, right = free_margins(shape_alpha)
+    dy = max(0, min(dy, bottom // 3))
+    room = min(bottom - dy, left + dy, right + dy)
+    radius = max(0, min(int(radius), int(room / 2.5)))
     c = np.zeros((h, w, 4), np.float32)
     c[..., 3] = np.roll(shape_alpha, dy, axis=0) * strength
     if dy > 0:

@@ -236,7 +236,7 @@ def glass(cw, ch, x0, y0, w, h, r, *, lit=False, primary=False, silver=False, al
         g = tp.canvas(cw, ch)
         g[..., :3] = GLOW
         g[..., 3] = cov
-        g = tp.blur(g, glow_size)
+        g = tp.blur(g, tp.fit_radius(cov, glow_size))
         tp.over(c, GLOW, g[..., 3] * 0.95)
     v = np.clip((y - y0) / h, 0, 1)
     if silver:
@@ -335,7 +335,7 @@ def cover_tile(lit=False):
         g = tp.canvas(W, H)
         g[..., :3] = GLOW
         g[..., 3] = cov
-        g = tp.blur(g, 2)
+        g = tp.blur(g, tp.fit_radius(cov, 2))
         tp.over(c, GLOW, g[..., 3])
     v = np.clip((y - 2) / 124, 0, 1)
     case = tp.mix((88, 190, 44), (36, 122, 18), tp.smooth(v)) if lit else \

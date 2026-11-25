@@ -294,7 +294,7 @@ def frame(cw, ch, x0, y0, w, h, r, *, lit=False, primary=False, circle=False, th
         g = tp.canvas(cw, ch)
         g[..., :3] = CYAN_GLOW
         g[..., 3] = cov
-        g = tp.blur(g, glow_size)
+        g = tp.blur(g, tp.fit_radius(cov, glow_size))
         tp.over(c, CYAN_GLOW, g[..., 3] * 0.85)
     u = np.clip((x - x0) / w, 0, 1)
     v = np.clip((y - y0) / h, 0, 1)
