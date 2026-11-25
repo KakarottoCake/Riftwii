@@ -507,9 +507,12 @@ void test_release_refused_keeps_the_hold() {
     put_fat32_card();
     std::string error;
     CHECK(riftwii::wii::enable_d2x_saves("sd:/nands/01", error));
+    CHECK(riftwii::wii::d2x_nand_emulation_on());
     console.unmount_answer = -1;
     CHECK(!riftwii::wii::release_d2x_saves());
     CHECK(console.held);
+    // d2x took mode 0, so ES no longer reads through the card's NAND.
+    CHECK(!riftwii::wii::d2x_nand_emulation_on());
     CHECK(logged("did not let go of the SD card (-1; emulation off: 0), so RiftWii stays off the card until it "
                  "restarts"));
 }
@@ -521,6 +524,10 @@ void test_release_keeps_the_backing_card_when_emulation_will_not_stop() {
     console.set_answer = -101;
     CHECK(!riftwii::wii::release_d2x_saves());
     CHECK(console.held);
+    CHECK(riftwii::wii::d2x_nand_emulation_on());
+    // An IOS reload ends it whatever d2x answered.
+    riftwii::wii::forget_d2x_nand_emulation();
+    CHECK(!riftwii::wii::d2x_nand_emulation_on());
     CHECK(count_of("fat 0xF1") == 0);
     CHECK(console.d2x_forgets == 0);
     CHECK(logged("NAND emulation could not be turned off (-101"));
@@ -639,6 +646,7 @@ void test_usb_folder_goes_through_the_usb_mount() {
     CHECK(console.set_mode == 0);
     CHECK(count_of("fat 0xF3") == 1 && count_of("usb libfat back") == 1);
     CHECK(!riftwii::wii::usb_held_by_d2x_fat());
+    CHECK(!riftwii::wii::d2x_nand_emulation_on());
     CHECK(console.usb_libfat);
 }
 

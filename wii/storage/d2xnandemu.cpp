@@ -64,6 +64,10 @@ bool g_emulation_on = false;
 // The same for an emulated NAND on the USB drive (#487): d2x's FAT module
 // has the drive mounted, and RiftWii's libfat is off it.
 bool g_usb_emulation_on = false;
+// Whether ES reads through the emulated NAND right now (d2x_nand_emulation_on):
+// off as soon as d2x accepts mode 0 or IOS is reloaded, even while the
+// flags above still say a release has work left to do.
+bool g_emulation_active = false;
 // The partition 0xF2 reads, aligned for IOS.
 s32 g_usb_partition ATTRIBUTE_ALIGN(32) = -1;
 ioctlv g_mount_vector[1] ATTRIBUTE_ALIGN(32);
@@ -167,6 +171,7 @@ bool enable_usb_saves(const std::string& dir, std::string& error, D2xNandScope s
     const s32 released = !emulating && mounted >= 0 ? IOS_Ioctlv(fat, kFatUnmountUsb, 0, 0, nullptr) : 0;
     IOS_Close(fat);
     g_usb_emulation_on = emulating;
+    g_emulation_active = emulating;
     if (!emulating) usb_libfat_back_from_d2x();
     std::snprintf(g_summary, sizeof(g_summary), "%s on IOS%d: USB partition %d; mount %d, set %d, mode 0x%x", dir.c_str(),
                   ios, static_cast<int>(partition), mounted, set, static_cast<unsigned>(wanted_mode));
@@ -286,6 +291,7 @@ bool enable_d2x_saves(const std::string& dir, std::string& error, D2xNandScope s
     }
     const bool emulating = mounted >= 0 && set >= 0;
     g_emulation_on = emulating;
+    g_emulation_active = emulating;
     // Without the emulation, d2x lets go of the card again, so RiftWii's
     // own save code is the only one writing to it while the game runs.
     // With d2x's own SD device (no release), a module that mounted but
@@ -388,6 +394,7 @@ bool release_d2x_saves() {
                  "stays off the drive until IOS is reloaded.\n", off, fs);
             return false;
         }
+        g_emulation_active = false;
         const s32 fat = IOS_Open("fat", 0);
         const s32 released = fat >= 0 ? IOS_Ioctlv(fat, kFatUnmountUsb, 0, 0, nullptr) : fat;
         if (fat >= 0) IOS_Close(fat);
@@ -413,6 +420,7 @@ bool release_d2x_saves() {
              off, fs);
         return false;
     }
+    if (off >= 0) g_emulation_active = false;
     // Then the module writes what it holds and lets go of the card. With
     // a game on the card through d2x's own device, the launch is over by
     // now (no game reads through it any more), so this is safe as well.
@@ -437,7 +445,9 @@ bool release_d2x_saves() {
 
 bool usb_held_by_d2x_fat() { return g_usb_emulation_on; }
 
-bool d2x_nand_emulation_on() { return g_emulation_on || g_usb_emulation_on; }
+bool d2x_nand_emulation_on() { return g_emulation_active; }
+
+void forget_d2x_nand_emulation() { g_emulation_active = false; }
 
 bool packs_need_sd(const std::vector<std::string>& xml_paths) {
     for (const std::string& xml : xml_paths) {
