@@ -246,3 +246,35 @@ def to_ogg(wav_path, ogg_path, quality=3):
     resampled here."""
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(wav_path), "-ar", "48000",
                     "-c:a", "libvorbis", "-q:a", str(quality), str(ogg_path)], check=True)
+
+
+# --- a box's back (blank_back) ---------------------------------------------------
+
+# Where RiftWii sets crops of the cover on a made-up back (160x224): keep
+# these clear of anything that should show.
+BACK_PICTURES = ((13, 31, 147, 105), (13, 114, 77, 148), (83, 114, 147, 148))
+
+
+def box(c, x0, y0, x1, y1, rgb, a=1.0, r=0.0):
+    """A filled box from (x0, y0) to (x1, y1), its corners rounded by r."""
+    x, y = grid(c.shape[1], c.shape[0])
+    d, _, _ = rrect(x, y, x0, y0, x1 - x0, y1 - y0, max(r, 0.01))
+    over(c, rgb, coverage(d) * a)
+
+
+def text_lines(c, x0, y0, widths, rgb, a=1.0, gap=3.0, thick=1.0):
+    """Lines standing in for small print: one per width, `gap` apart."""
+    for k, w in enumerate(widths):
+        box(c, x0, y0 + k * gap, x0 + w, y0 + k * gap + thick, rgb, a)
+
+
+def barcode(c, x0, y0, x1, y1, seed=7):
+    """A white label with black bars of uneven widths (no real code)."""
+    box(c, x0, y0, x1, y1, (255, 255, 255))
+    rng = np.random.default_rng(seed)
+    x = x0 + 2.0
+    while x < x1 - 3.0:
+        w = 0.6 + rng.random() * 1.2
+        box(c, x, y0 + 2, x + w, y1 - 4, (16, 16, 16))
+        x += w + 0.6 + rng.random() * 1.4
+    box(c, x0 + 2, y1 - 3, x1 - 2, y1 - 2.4, (90, 90, 90))

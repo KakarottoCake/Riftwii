@@ -561,12 +561,55 @@ def blank_cover():
     c[..., 3] = 1.0
     # A broad soft sheen across the blue, leaning like the light on a case.
     tp.add_light(c, (120, 180, 240), 0.10 * np.exp(-((x * 0.8 - y + 40) / 46) ** 2))
-    band_h = 22.0
+    # Inside the 14 rows RiftWii keeps clear on the box's spine (columns
+    # 3-15 stretched down it, the name from row 16).
+    band_h = 12.5
     band = np.clip(band_h - y + 0.5, 0, 1)
     tp.over(c, tp.mix((22, 22, 26), (4, 4, 6), tp.smooth(y / band_h)), band)
     # The band's edge: a fine silver line, then a thin red one.
     tp.over(c, (170, 174, 182), np.clip(1.0 - np.abs(y - band_h - 0.4) / 0.7, 0, 1))
     tp.over(c, (196, 22, 34), np.clip(1.6 - np.abs(y - band_h - 2.2), 0, 1))
+    return tp.to_image(c, opaque=True)
+
+
+def blank_back():
+    """160x224: the back of that game's box: a blue that brightens from the
+    left (the spine's side is the right), the cover's crops set at the top by
+    RiftWii (tp.BACK_PICTURES), a rounded panel of yellow feature tiles and a
+    smaller one of white tiles, and a white strip along the foot with small
+    print, a rating label and a barcode."""
+    W, H = 160, 224
+    x, y = tp.grid(W, H)
+    c = tp.canvas(W, H)
+    diag = np.clip((1 - x / W) * 0.55 + (y / H) * 0.25, 0, 1)
+    c[..., :3] = tp.mix((46, 124, 198), (6, 40, 122), tp.smooth(diag))
+    c[..., 3] = 1.0
+    tp.add_light(c, (120, 180, 240), 0.08 * np.exp(-((x * 0.8 - y + 30) / 50) ** 2))
+    for x0, y0, x1, y1 in tp.BACK_PICTURES:
+        tp.box(c, x0 - 1, y0 - 1, x1 + 1, y1 + 1, (10, 24, 60), 0.6)
+    # The feature panels: a pale rim round a darker inside, tiles in a row.
+    tp.box(c, 13, 154, 103, 172, (196, 206, 226), r=3)
+    tp.box(c, 14.2, 155.2, 101.8, 170.8, (40, 56, 110), r=2.4)
+    for k in range(6):
+        x0 = 16 + k * 14.4
+        tp.box(c, x0, 157, x0 + 12.6, 164, (246, 206, 40), r=0.8)
+        tp.box(c, x0 + 3, 158.6, x0 + 9.6, 162.6, (60, 50, 20), 0.85, r=0.6)
+        tp.box(c, x0, 165, x0 + 12.6, 169, (240, 242, 248), r=0.6)
+    tp.box(c, 106, 154, 147, 172, (196, 206, 226), r=3)
+    tp.box(c, 107.2, 155.2, 145.8, 170.8, (40, 56, 110), r=2.4)
+    for k in range(2):
+        x0 = 109.5 + k * 18.2
+        tp.box(c, x0, 157, x0 + 16, 169, (240, 242, 248), r=0.8)
+        tp.box(c, x0 + 4, 159, x0 + 12, 165, (60, 110, 200), 0.85, r=0.6)
+    # The white strip along the foot.
+    tp.box(c, 0, 178, 104, 224, (255, 255, 255))
+    tp.text_lines(c, 4, 182, (96, 94, 97, 90, 60), (90, 92, 96), gap=2.4, thick=0.8)
+    tp.text_lines(c, 4, 199, (96, 92, 95, 70), (90, 92, 96), gap=2.4, thick=0.8)
+    tp.barcode(c, 66, 206, 102, 222, seed=3)
+    # A rating label: white on the blue, a red block in it.
+    tp.box(c, 122, 186, 146, 216, (255, 255, 255))
+    tp.box(c, 124, 188, 144, 208, (214, 20, 30))
+    tp.text_lines(c, 124, 211, (20,), (40, 40, 40), thick=1.2)
     return tp.to_image(c, opaque=True)
 
 
@@ -724,6 +767,7 @@ def main():
         "arrow_right_over": lambda: page_arrow("right", True),
         "shelf": shelf,
         "blank_cover": blank_cover,
+        "blank_back": blank_back,
     }
     written = []
     for name, paint in pictures.items():

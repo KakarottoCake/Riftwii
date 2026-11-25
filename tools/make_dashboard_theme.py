@@ -25,6 +25,8 @@ photo, texture, screenshot, logo, font or recording from anywhere else.
 - blank_cover.png: the sleeve RiftWii prints a game's name on when it has
   no box art: a white band across the top with green swooshes at its
   right, silver-grey below;
+- blank_back.png: the back of that box on the shelf: silver-grey, feature
+  tags, small print, a rating box and a barcode round the cover's crops;
 - the banner's stripes, the shelf, Home's page arrows;
 - hover.wav, click.wav, home_open.wav, home_close.wav: soft synthesised
   glassy blips and sweeps;
@@ -371,13 +373,16 @@ def blank_cover():
     c[..., 3] = 1.0
     # A soft light down the middle, as printed card under clear plastic.
     tp.add_light(c, (255, 255, 255), 0.06 * np.exp(-((x - 70) / 50) ** 2))
-    band_h = 34.0
+    # The band is shallow over its left edge, which RiftWii stretches down
+    # the box's spine (columns 3-15, the name from row 16), and deepens
+    # towards the swooshes.
+    band_h = 13.0 + 19.0 * tp.smooth((x - 26.0) / 52.0)
     band = np.clip(band_h - y + 0.5, 0, 1)
     tp.over(c, (252, 253, 252), band)
     # The swooshes: bands between curves that lean right as they rise,
     # dark green to lime to yellow-green, over a white-to-lime fade.
-    lean = (band_h - y) * 0.55
-    bow = 6.0 * np.sin(np.clip(y / band_h, 0, 1) * math.pi)
+    lean = (32.0 - y) * 0.55
+    bow = 6.0 * np.sin(np.clip(y / 32.0, 0, 1) * math.pi)
     xs = x - lean + bow
     tp.over(c, (196, 232, 150), np.clip((xs - 84) / 26, 0, 1) * band)
     for left, rgb in ((104, (16, 110, 26)), (110, (60, 156, 30)), (118, (20, 96, 22)),
@@ -385,6 +390,49 @@ def blank_cover():
                       (149, (196, 220, 60))):
         tp.over(c, rgb, np.clip(xs - left + 0.5, 0, 1) * band)
     tp.over(c, (60, 156, 30), np.clip(1.2 - np.abs(y - band_h - 0.6), 0, 1))
+    return tp.to_image(c, opaque=True)
+
+
+def blank_back():
+    """160x224: the back of that game's box: the same silver-grey, the cover's
+    crops set at the top by RiftWii (tp.BACK_PICTURES), and below them two
+    rows of white feature tags with green and orange marks, lines of white
+    small print, a warning label, a rating box and a barcode."""
+    W, H = 160, 224
+    x, y = tp.grid(W, H)
+    c = tp.canvas(W, H)
+    c[..., :3] = tp.mix((164, 166, 164), (136, 138, 136), tp.smooth(y / H))
+    c[..., 3] = 1.0
+    tp.add_light(c, (255, 255, 255), 0.05 * np.exp(-((x - 60) / 60) ** 2))
+    # A faint frame where the pictures go, as printed borders.
+    # The picture places, printed as soft grey panels with a white edge;
+    # RiftWii covers them with box art, or the big one with the name.
+    for x0, y0, x1, y1 in tp.BACK_PICTURES:
+        tp.box(c, x0 - 1, y0 - 1, x1 + 1, y1 + 1, (244, 246, 244), 0.95)
+        tp.box(c, x0, y0, x1, y1, (150, 154, 150))
+        yy = np.clip((y - y0) / max(y1 - y0, 1), 0, 1)
+        tp.over(c, (120, 170, 96), 0.35 * tp.smooth(yy) * ((x >= x0) & (x < x1) & (y >= y0) & (y < y1)))
+    # Feature tags: white, each with a coloured line of "text".
+    row1 = ((13, 30, (60, 156, 30)), (34, 54, (214, 92, 30)))
+    row2 = ((13, 31, (60, 156, 30)), (34, 58, (60, 156, 30)), (61, 80, (60, 156, 30)),
+            (83, 101, (214, 92, 30)), (104, 122, (214, 92, 30)), (125, 147, (60, 156, 30)))
+    for row_y, row in ((153.0, row1), (161.0, row2)):
+        for x0, x1, rgb in row:
+            tp.box(c, x0, row_y, x1, row_y + 5.5, (250, 250, 250), r=0.8)
+            tp.box(c, x0 + 2, row_y + 2.2, x1 - 2, row_y + 3.4, rgb)
+    tp.text_lines(c, 13, 171, (134, 128, 131, 96), (246, 246, 246), a=0.85, gap=2.6, thick=0.9)
+    tp.text_lines(c, 13, 183, (70, 66), (246, 246, 246), a=0.7, gap=2.6, thick=0.9)
+    # The warning label: white, an orange tab with a dark triangle.
+    tp.box(c, 13, 204, 64, 216, (255, 255, 255))
+    tp.box(c, 13.5, 204.5, 26, 209.5, (236, 128, 28))
+    tp.triangle(c, ((16, 208.6), (18.8, 205.2), (21.6, 208.6)), (40, 30, 20))
+    tp.text_lines(c, 28, 206, (32, 34), (40, 40, 40), a=0.9, gap=3.2, thick=0.8)
+    # The rating box: a white card in a black frame, a black block in it.
+    tp.box(c, 68, 190, 92, 216, (20, 20, 20))
+    tp.box(c, 69.2, 191.2, 90.8, 214.8, (255, 255, 255))
+    tp.box(c, 71, 194, 86, 207, (20, 20, 20))
+    tp.box(c, 71, 209, 89, 213, (20, 20, 20))
+    tp.barcode(c, 98, 194, 147, 216, seed=360)
     return tp.to_image(c, opaque=True)
 
 
@@ -605,6 +653,7 @@ def main():
         "arrow_right_over": lambda: page_arrow("right", True),
         "shelf": shelf,
         "blank_cover": blank_cover,
+        "blank_back": blank_back,
     }
     written = []
     for name, paint in pictures.items():
