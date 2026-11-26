@@ -127,6 +127,12 @@ The list comes from the internet, so RiftWii reads it as untrusted
 - No app may take RiftWii's own folders (`apps/riftwii`, the channel
   installer's) as its id, and a path part may not end in a dot or space
   (FAT drops them) or be malformed UTF-8.
+- One entry may have the id `riftwii`, spelled exactly so: RiftWii
+  itself. The store lists it as installed (or with an update when the list
+  names a newer version than the one running) and never installs or
+  removes it: its page's button closes the store and runs RiftWii's own
+  update check, the one in Settings > Online, which also brings the
+  channel up to date. Older RiftWii versions leave the entry out.
 
 The SHA-256s live in the list, so they are only as good as the list: it
 must always be fetched over verified TLS (`kAppListUrl` is `https://`, and

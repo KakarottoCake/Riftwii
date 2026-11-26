@@ -242,9 +242,47 @@ std::vector<std::string> app_remove_files(const AppListing& app, const AppRecord
     return files;
 }
 
-bool app_installable(const AppListing& app) { return app.format == AppFormat::Zip || app.format == AppFormat::Dol; }
+bool app_installable(const AppListing& app) {
+    // RiftWii's own entry: installing over the running RiftWii would leave
+    // its channel and its old files behind; its own updater does that job.
+    if (app.riftwii) return false;
+    return app.format == AppFormat::Zip || app.format == AppFormat::Dol;
+}
+
+namespace {
+
+// "2611-252" as 2611 and 252; false for anything else. A test or dev
+// build's version carries its commit after another dash
+// ("2611-243-gc84f96e1"): only the release part before it counts.
+bool ParseRiftWiiVersion(const std::string& full, unsigned& month, unsigned& count) {
+    const std::size_t suffix = full.find('-', 5);
+    const std::string text = suffix == std::string::npos ? full : full.substr(0, suffix);
+    const std::size_t dash = text.find('-');
+    if (dash != 4 || text.size() < 6 || text.size() > 12) return false;
+    month = 0;
+    count = 0;
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        if (i == dash) continue;
+        const char c = text[i];
+        if (c < '0' || c > '9') return false;
+        unsigned& part = i < dash ? month : count;
+        part = part * 10 + static_cast<unsigned>(c - '0');
+    }
+    return true;
+}
+
+}  // namespace
+
+int riftwii_version_order(const std::string& a, const std::string& b) {
+    unsigned a_month, a_count, b_month, b_count;
+    if (!ParseRiftWiiVersion(a, a_month, a_count) || !ParseRiftWiiVersion(b, b_month, b_count)) return 0;
+    if (a_month != b_month) return a_month < b_month ? -1 : 1;
+    if (a_count != b_count) return a_count < b_count ? -1 : 1;
+    return 0;
+}
 
 AppState app_state(const AppListing& app, bool program_exists, const AppRecord* record) {
+    if (app.riftwii) return AppState::ThisRiftWii;
     // A note left for the saves of a removed app counts as no install.
     if (record != nullptr && record->removed) record = nullptr;
     if (record != nullptr && program_exists)

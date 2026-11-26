@@ -6912,7 +6912,8 @@ static bool CountDownLastGame(const std::string& title)
 	}
 }
 
-static bool MenuAppStore();  // the Rift Store (Home's bar, Settings > Online)
+static bool MenuAppStore(bool& checkUpdate);  // the Rift Store (Home's bar, Settings > Online)
+static void CheckForUpdateFromStore();
 
 static int MenuSource(FrontendState& state)
 {
@@ -8791,7 +8792,8 @@ static int MenuSource(FrontendState& state)
 				transition::Hold(transition::Kind::SlideForward);
 				mainWindow->Remove(&w);
 				ResumeGui();
-				const bool changed = MenuAppStore();
+				bool checkUpdate = false;
+				const bool changed = MenuAppStore(checkUpdate);
 				HaltGui();
 				if (changed) {
 					// Home's Homebrew view reads sd:/apps again.
@@ -8801,6 +8803,9 @@ static int MenuSource(FrontendState& state)
 				transition::Hold(transition::Kind::SlideBack);
 				mainWindow->Append(&w);
 				if (changed) refresh(true, false);
+				// Home's loop starts the new version if the player chose to
+				// (g_startUpdate).
+				if (checkUpdate) CheckForUpdateFromStore();
 				showStatus();
 			}
 		} else if (searchBtn.Clicked()) {
@@ -18753,9 +18758,11 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 // Rift Store (Settings > Online): the app store, which is the appstore
 // plugin's own screen (docs/APPSTORE.md), so the DOL carries none of its
 // pages. Called and returns with the GUI running; true when apps were
-// installed or removed.
-static bool MenuAppStore()
+// installed or removed. `checkUpdate`: RiftWii's own page in the store
+// asked for RiftWii's update check (CheckForUpdateFromStore runs it).
+static bool MenuAppStore(bool& checkUpdate)
 {
+	checkUpdate = false;
 	rwp_appstore_request request;
 	std::memset(&request, 0, sizeof(request));
 	request.size = sizeof(request);
@@ -18764,7 +18771,10 @@ static bool MenuAppStore()
 	const int32_t result = riftwii::wii::plugin::Launch("appstore", &request, sizeof(request), message);
 	// Its code and memory go back as soon as it is closed.
 	riftwii::wii::plugin::ShutdownAll("the app store closed");
-	if (result == RWP_LAUNCH_DONE) return request.changed != 0;
+	if (result == RWP_LAUNCH_DONE) {
+		checkUpdate = request.check_update != 0;
+		return request.changed != 0;
+	}
 	if (message.empty())
 		message = request.error[0] ? tr("The Rift Store could not open: {1}", {request.error}) : tr("The Rift Store could not open.");
 	logf("App store: %s\n", request.error[0] ? request.error : "it could not open");
@@ -18772,6 +18782,37 @@ static bool MenuAppStore()
 	ShowPopup(tr("Rift Store"), message, tr("OK"));
 	ResumeGui();
 	return false;
+}
+
+// RiftWii's own page in the Rift Store: the same check as Settings > Online >
+// Check for a new version, and the same install (RunUpdate, which brings the
+// channel up to date too). The store never installs RiftWii itself. Called
+// with the GUI halted; a restart into the new version is left in
+// g_startUpdate for Home or Settings to carry out.
+static void CheckForUpdateFromStore()
+{
+	std::string latest, error;
+	bool newer = false;
+	bool ok;
+	{
+		PopupBox box(tr("Rift Store"), tr("Asking GitHub..."));
+		BusyScope busy;
+		ResumeGui();
+		ok = riftwii::wii::CheckForUpdate(true, latest, newer, error);
+		HaltGui();
+		box.Close();
+	}
+	logf("Rift Store: RiftWii's update check from its page: %s\n",
+		!ok ? error.c_str() : newer ? latest.c_str() : "no newer version");
+	if (!ok) {
+		ShowPopup(tr("Rift Store"), tr("Could not check: {1}", {FlatCapped(error, 220)}), tr("OK"));
+	} else if (newer) {
+		RunUpdate(latest);
+	} else if (latest.empty()) {
+		ShowPopup(tr("Rift Store"), tr("No release is out yet. This is RiftWii {1}.", {RIFTWII_VERSION}), tr("OK"));
+	} else {
+		ShowPopup(tr("Rift Store"), tr("RiftWii {1} is the newest version.", {RIFTWII_VERSION}), tr("OK"));
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -20210,7 +20251,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					transition::Hold(transition::Kind::SlideForward);
 					mainWindow->Remove(&w);
 					ResumeGui();
-					const bool changed = MenuAppStore();
+					bool checkUpdate = false;
+					const bool changed = MenuAppStore(checkUpdate);
 					HaltGui();
 					if (changed) {
 						// Home's Homebrew view reads sd:/apps again.
@@ -20219,6 +20261,13 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					}
 					transition::Hold(transition::Kind::SlideBack);
 					mainWindow->Append(&w);
+					if (checkUpdate) {
+						CheckForUpdateFromStore();
+						if (g_startUpdate) {
+							g_startUpdate = false;
+							menu = MENU_HOMEBREW;
+						}
+					}
 					break;
 				}
 				case kRiiTag: {

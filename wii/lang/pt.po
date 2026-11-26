@@ -4293,6 +4293,12 @@ msgstr "Ainda não há apps daqui no cartão SD."
 msgid "On the SD card"
 msgstr "No cartão SD"
 
+msgid "You have RiftWii {1}."
+msgstr "Você tem o RiftWii {1}."
+
+msgid "Check for updates"
+msgstr "Procurar atualizações"
+
 msgid "Get it on a PC"
 msgstr "Obtenha num PC"
 

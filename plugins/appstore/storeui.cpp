@@ -187,6 +187,8 @@ public:
     }
 
     bool Changed() const { return store_.changed; }
+    // RiftWii's own page asked for its update check.
+    bool CheckUpdate() const { return check_update_; }
 
 private:
     // ---- Drawing ----
@@ -258,7 +260,9 @@ private:
         for (const App& app : store_.apps) {
             if (!Shown(app)) continue;
             ++shown;
-            if (app.state == AppState::Installed || app.state == AppState::Update) ++installed;
+            if (app.state == AppState::Installed || app.state == AppState::Update ||
+                app.state == AppState::ThisRiftWii)
+                ++installed;
         }
         const std::string counts = Plural(shown, "1 app", "{1} apps") + "  \xC2\xB7  " +
                                    Plural(installed, "1 installed", "{1} installed");
@@ -465,6 +469,13 @@ private:
             case AppState::PcOnly:
                 colour = RWP_COLOR_INK_SOFT;
                 return tr("Get it on a PC");
+            case AppState::ThisRiftWii:
+                if (UpdateWaiting(app)) {
+                    colour = kWarn;
+                    return tr("Update");
+                }
+                colour = RWP_COLOR_ACCENT;
+                return tr("Installed");
             case AppState::Get:
                 if (OtherConsole(*app.listing)) {
                     colour = kWarn;
@@ -660,6 +671,7 @@ private:
             case AppState::Update: return tr("Update");
             case AppState::OnCard: return tr("Replace");
             case AppState::PcOnly: return tr("Get it on a PC");
+            case AppState::ThisRiftWii: return UpdateWaiting(app) ? tr("Update") : tr("Check for updates");
             case AppState::Get: break;
         }
         return tr("Install");
@@ -675,6 +687,7 @@ private:
                 return tr("Version {1}, {2}", app.listing->version, size);
             case AppState::OnCard: return tr("It is on the SD card already. Put version {1} in its place.", app.listing->version);
             case AppState::PcOnly: return tr("The Wii can't unpack it: scan the code.");
+            case AppState::ThisRiftWii: return tr("You have RiftWii {1}.", Host().version());
             case AppState::Get: break;
         }
         // Short, as the card has one line; the warning is asked before installing.
@@ -752,7 +765,9 @@ private:
         switch (page_) {
             case Page::Front: return HandleFront(pressed);
             case Page::Grid: HandleGrid(pressed); return false;
-            case Page::App: HandleApp(pressed); return false;
+            case Page::App:
+                HandleApp(pressed);
+                return check_update_;
         }
         return false;
     }
@@ -897,6 +912,11 @@ private:
         switch (app.state) {
             case AppState::PcOnly:
                 return;
+            case AppState::ThisRiftWii:
+                // RiftWii's own updater, which also brings its channel up to
+                // date: the store closes and the menu runs the check.
+                check_update_ = true;
+                return;
             case AppState::Installed:
                 if (Host().ask_choice(tr("Remove {1}?", name).c_str(),
                                       tr("Its program goes. Its saves and settings stay until you say otherwise.").c_str(),
@@ -987,8 +1007,9 @@ private:
         for (int pass = 0; pass < 2; ++pass) {
             for (std::size_t i = 0; i < store_.apps.size(); ++i) {
                 const AppState state = store_.apps[i].state;
-                const bool update = state == AppState::Update;
-                const bool other = state == AppState::Installed || state == AppState::OnCard;
+                const bool update = UpdateWaiting(store_.apps[i]);
+                const bool other =
+                    !update && (state == AppState::Installed || state == AppState::OnCard || state == AppState::ThisRiftWii);
                 if ((pass == 0 && update) || (pass == 1 && other)) grid_.push_back(i);
             }
         }
@@ -1089,6 +1110,7 @@ private:
     Page back_page_ = Page::Grid;
     int back_focus_ = 0;
     std::string status_;
+    bool check_update_ = false;
 };
 
 }  // namespace
@@ -1102,13 +1124,16 @@ std::int32_t RunStore(rwp_appstore_request& request) {
     }
     std::int32_t result;
     bool changed;
+    bool check_update;
     {
         StoreScreen screen(info, request.console);
         result = screen.Run();
         changed = screen.Changed();
+        check_update = screen.CheckUpdate();
     }
     Host().screen_close();
     request.changed = changed ? 1 : 0;
+    request.check_update = check_update ? 1 : 0;
     return result;
 }
 

@@ -345,7 +345,30 @@ void test_sizes() {
 
 }  // namespace
 
+void test_riftwii_entry() {
+    AppListing self;
+    std::memset(&self, 0, sizeof(self));
+    self.format = AppFormat::Zip;
+    self.riftwii = true;
+    // Never installable, whatever is on the card or in a note.
+    EXPECT_TRUE(!app_installable(self));
+    EXPECT_TRUE(app_state(self, true, nullptr) == AppState::ThisRiftWii);
+    EXPECT_TRUE(app_state(self, false, nullptr) == AppState::ThisRiftWii);
+    EXPECT_TRUE(riftwii_version_order("2611-252", "2611-249") > 0);
+    EXPECT_TRUE(riftwii_version_order("2611-249", "2611-252") < 0);
+    EXPECT_TRUE(riftwii_version_order("2612-1", "2611-300") > 0);
+    EXPECT_TRUE(riftwii_version_order("2611-252", "2611-252") == 0);
+    // Not a version: no order, so nothing is called an update.
+    EXPECT_TRUE(riftwii_version_order("v2611-252", "2611-1") == 0);
+    EXPECT_TRUE(riftwii_version_order("2611-252", "") == 0);
+    EXPECT_TRUE(riftwii_version_order("26a1-2", "2611-1") == 0);
+    // A test or dev build's version: the commit part is not compared.
+    EXPECT_TRUE(riftwii_version_order("2611-260", "2611-243-gc84f96e1") > 0);
+    EXPECT_TRUE(riftwii_version_order("2611-243", "2611-243-gc84f96e1") == 0);
+}
+
 int main() {
+    test_riftwii_entry();
     test_categories();
     test_records_and_states();
     test_record_files_and_keeping();

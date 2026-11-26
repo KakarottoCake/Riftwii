@@ -290,6 +290,17 @@ void test_hostile_lists() {
     EXPECT_TRUE(!app_id_ok("RiftWii"));
     EXPECT_TRUE(!app_id_ok("riftwii_channel"));
     EXPECT_TRUE(left_out("\"id\":\"snes9xgx\"", "\"id\":\"RIFTWII\""));
+    EXPECT_TRUE(left_out("\"id\":\"snes9xgx\"", "\"id\":\"riftwii_channel\""));
+    // RiftWii's own entry, spelled exactly, is read and marked: the store
+    // shows it and never installs or removes it.
+    {
+        const Parsed self = parse(list_json(app_json(kRiftWiiAppId)));
+        EXPECT_TRUE(self.ok);
+        EXPECT_EQ(self.count, 1u);
+        EXPECT_TRUE(self.count == 1 && self.apps[0].riftwii);
+        const Parsed other = parse(list_json(app_json()));
+        EXPECT_TRUE(other.count == 1 && !other.apps[0].riftwii);
+    }
     // FAT drops a trailing dot or space: "boot.dol." would land on boot.dol.
     const Parsed p = parse(list_json(app_json()));
     std::string path;

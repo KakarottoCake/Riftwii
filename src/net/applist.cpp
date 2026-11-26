@@ -350,7 +350,10 @@ bool app_from_raw(RawApp& a, AppListing& out) {
     const bool texts = json_clean_text(a.name, sizeof(out.name)) && json_clean_text(a.author, sizeof(out.author)) &&
                        json_clean_text(a.version, sizeof(out.version)) &&
                        json_clean_text(a.description, sizeof(out.description));
-    if (!texts || !app_id_ok(a.id) || !app_category_ok(a.category) || !date_ok(a.released)) return false;
+    // RiftWii's own entry, written exactly so (kRiftWiiAppId); any other
+    // spelling of a reserved id is still left out.
+    const bool riftwii = a.id == kRiftWiiAppId;
+    if (!texts || !(riftwii || app_id_ok(a.id)) || !app_category_ok(a.category) || !date_ok(a.released)) return false;
     if (!a.license.empty() && !json_clean_text(a.license, sizeof(out.license))) return false;
     if (!app_page_url_ok(a.page)) return false;
     if (!a.icon.empty() && !app_icon_url_ok(a.icon)) return false;
@@ -418,6 +421,7 @@ bool app_from_raw(RawApp& a, AppListing& out) {
     out.platforms = platforms;
     out.controllers = controllers;
     out.format = format;
+    out.riftwii = riftwii;
     return true;
 }
 

@@ -37,6 +37,10 @@ struct App {
 
 enum class ListState { Loading, Ready, Failed };
 
+// An update waits: the list has a newer file than the one installed, or,
+// for RiftWii's own entry, a newer RiftWii than the one running.
+bool UpdateWaiting(const App& app);
+
 // Finish: the staged files being put in place, which Stop no longer interrupts.
 enum class InstallStage { Download, Check, Unpack, Finish, Done, Failed, Cancelled };
 // Written by the job, read by the page while it runs. The three fields go
