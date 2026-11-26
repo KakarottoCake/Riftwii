@@ -279,5 +279,14 @@ class SaveListTests(unittest.TestCase):
             save_list.checked_zip(data)
 
 
+class ExcludeTests(unittest.TestCase):
+    def test_ids_and_comments(self):
+        import save_gamebanana
+        with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as f:
+            f.write("# asked 2026-11-26 (issue 1)\n709787\n  12345  # another\nnot-an-id\n\n")
+        self.assertEqual(save_gamebanana.read_excluded(f.name), {709787, 12345})
+        self.assertEqual(save_gamebanana.read_excluded(None), set())
+
+
 if __name__ == "__main__":
     unittest.main()

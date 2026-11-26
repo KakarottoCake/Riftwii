@@ -346,6 +346,7 @@ def main():
     gamebanana.add_argument("output", type=Path)
     gamebanana.add_argument("--cache", type=Path, default=Path("build-host/save-gamebanana-cache"))
     gamebanana.add_argument("--refresh", action="store_true", help="refresh cached API pages; immutable file downloads stay cached")
+    gamebanana.add_argument("--exclude", type=Path, help="a file of GameBanana mod ids to leave out (makers who asked)")
     args = parser.parse_args()
     try:
         run(args)

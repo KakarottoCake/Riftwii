@@ -445,8 +445,22 @@ class Builder:
         return entries
 
 
+def read_excluded(path):
+    """GameBanana mod ids to leave out, one per line ("# ..." is a comment):
+    saves whose makers asked RiftWii/saves not to list them."""
+    if not path:
+        return set()
+    ids = set()
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        word = line.split("#", 1)[0].strip()
+        if word.isdigit():
+            ids.add(int(word))
+    return ids
+
+
 def build(args):
     args.output.mkdir(parents=True, exist_ok=True)
+    excluded = read_excluded(getattr(args, "exclude", None))
     log_path = args.output / "discovery.log"
     with log_path.open("w", encoding="utf-8", newline="\n") as log_file:
         def log(message):
@@ -459,6 +473,9 @@ def build(args):
         candidates = builder.discover()
         manifests = []
         for mod_id, (game, _) in sorted(candidates.items()):
+            if mod_id in excluded:
+                log(f"Skip {game} / {mod_id}: left out (exclude list)")
+                continue
             try:
                 for manifest in builder.entries(mod_id, game):
                     manifests.append((game, manifest))
