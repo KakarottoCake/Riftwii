@@ -73,21 +73,23 @@ The Wii's rules for mods: the XML must be in `riivolution/` and end in
 the game's ID and name in `rwp_appstore_request` (`plugin_appstore.h`). The
 store (`plugins/appstore/`) then downloads `mods.json` instead of the app
 list and opens straight on the game's mods; B there leaves the store. A
-mod installs, updates and removes as an app does: only files the store put
-on the card and nobody changed are replaced or removed, so a pack's saves
-and other mods' XMLs in `riivolution/` are never touched. What an install replaces:
+mod installs, updates and removes as an app does. What an install replaces:
 
 - the mod's own XML (`program`), always: an XML left from an older
   version would not match the files beside it;
 - files the store put there and nobody changed since;
-- in the mod's own folders, files the store didn't put there only when it
-  has no note of installing the mod (a copy put there by hand, after the
-  player answered Replace).
+- in the mod's own folders, a file the store didn't put there, when the
+  store has no note of installing the mod (or a note without its file
+  list). That is the case for a copy of the mod put there by hand (the
+  store then asks Replace first, since the mod's XML is there) and for a
+  first Install whose folders already hold files of the same name.
 
-Everything else is kept: a file the player changed, any file in
-`riivolution/` the store didn't put there (it may be another pack's), and
-anything in `riivolution/save/`, where Riivolution keeps the saves it
-redirects, which the store never writes.
+Everything else is kept: a file the player changed since the store put it
+there, any file in `riivolution/` the store didn't put there (it may be
+another pack's), and anything in `riivolution/save/`, where Riivolution
+keeps the saves it redirects, which the store never writes. A removal
+deletes only files the store put there and nobody changed.
+
 When the store
 closes, the game's packs are read again and a mod that is new on the card
 is switched on.
