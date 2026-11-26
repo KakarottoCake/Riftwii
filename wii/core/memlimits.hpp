@@ -53,10 +53,14 @@ constexpr u32 kLibraryBssBytes = 0x58000;
 // from where the DOL loads it, above .bss. mem2sections.ld checks it fits.
 constexpr u32 kReadOnlyData = kLibraryBss + kLibraryBssBytes;
 constexpr u32 kReadOnlyDataBytes = 0xD0000;
+// Above it: the program's code but libogc, the C library and restart.cpp,
+// copied there by crt0 the same way.
+constexpr u32 kProgramCode = kReadOnlyData + kReadOnlyDataBytes;
+constexpr u32 kProgramCodeBytes = 0x400000;
 // Above it: the start-up stash, copied there by crt0 (wii/core/stash.hpp),
 // up to 2 MiB; the heap's MEM2 part starts after it. Clear of the GameCube
 // runtime's MEM2 (0x91200000 up) and IOS at the top.
-constexpr u32 kStashArea = kReadOnlyData + kReadOnlyDataBytes;
+constexpr u32 kStashArea = kProgramCode + kProgramCodeBytes;
 
 // The heap's pieces as [start, end) addresses, for keeping a game's memory
 // patches off them while the loader still runs. When the table of pieces

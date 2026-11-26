@@ -23,10 +23,12 @@
 extern "C" {
 extern char __CTOR_LIST__[];
 extern char __sbss_start[];
-// libbte's and libwiiuse's buffers and the read-only data, in MEM2
-// (wii/core/mem2sections.ld).
+// libbte's and libwiiuse's buffers, the code and the read-only data, in
+// MEM2 (wii/core/mem2sections.ld).
 extern char __riftwii_mem2bss_start[];
 extern char __riftwii_mem2bss_end[];
+extern unsigned __riftwii_mem2text_start[];
+extern unsigned __riftwii_mem2text_end[];
 extern unsigned __riftwii_mem2rodata_start[];
 extern unsigned __riftwii_mem2rodata_end[];
 extern char __bss_end[];
@@ -74,22 +76,35 @@ RestartNote g_note;
 
 namespace {
 
-// The read-only data up to MEM2, from where the DOL loaded it just above
-// .bss (tools/dol_stash.py), before anything reads it: so no constants, no
-// library calls, words copied by hand. Its first two words are a marker and
-// its size; the MEM1 marker is erased after the copy, so a warm restart,
-// which finds heap leftovers there, keeps the copy from the first start.
+// The code and the read-only data up to MEM2, from where the DOL loaded
+// them just above .bss, in that order (tools/dol_stash.py), before anything
+// runs or reads them: so no constants, no calls but libogc's (in MEM1),
+// words copied by hand. Each one's first two words are a marker and its
+// size; the MEM1 marker is erased after the copy, so a warm restart, which
+// finds heap leftovers there, keeps the copies from the first start.
+constexpr unsigned kCodeMarker = 0x52575458;      // "RWTX"
 constexpr unsigned kReadOnlyMarker = 0x52575244;  // "RWRD"
 
-void take_read_only_data() {
-    unsigned* to = __riftwii_mem2rodata_start;
-    const unsigned words = static_cast<unsigned>(__riftwii_mem2rodata_end - __riftwii_mem2rodata_start);
-    unsigned* from = reinterpret_cast<unsigned*>((reinterpret_cast<unsigned>(__bss_end) + 31) & ~31u);
-    if (from[0] != kReadOnlyMarker || from[1] != words * 4) return;
+// Copies one section to `to` from `from` when the marker is there.
+// Returns where the next one loads.
+unsigned* take_section(unsigned* to, unsigned* to_end, unsigned* from, unsigned marker) {
+    const unsigned words = static_cast<unsigned>(to_end - to);
+    unsigned* next = reinterpret_cast<unsigned*>((reinterpret_cast<unsigned>(from + words) + 31) & ~31u);
+    if (from[0] != marker || from[1] != words * 4) return next;
     for (unsigned i = 0; i < words; ++i) to[i] = from[i];
     from[0] = 0;
-    // Hardware reads some of it by DMA (textures, sounds): out of the cache.
+    // Out of the data cache: hardware reads some of the data by DMA
+    // (textures, sounds), and the CPU fetches the code from memory.
     DCFlushRange(to, words * 4);
+    return next;
+}
+
+void take_mem2_sections() {
+    unsigned* mem1 = reinterpret_cast<unsigned*>((reinterpret_cast<unsigned>(__bss_end) + 31) & ~31u);
+    mem1 = take_section(__riftwii_mem2text_start, __riftwii_mem2text_end, mem1, kCodeMarker);
+    ICInvalidateRange(__riftwii_mem2text_start,
+                      static_cast<unsigned>(__riftwii_mem2text_end - __riftwii_mem2text_start) * 4);
+    take_section(__riftwii_mem2rodata_start, __riftwii_mem2rodata_end, mem1, kReadOnlyMarker);
 }
 
 }  // namespace
@@ -98,7 +113,7 @@ void take_read_only_data() {
 // before libogc is up: fixed addresses and memcpy only.
 extern "C" void __wrap___CheckARGV() {
     using namespace riftwii::wii;
-    take_read_only_data();
+    take_mem2_sections();
     startup::Begin();
     // Their .bss, which no loader clears, as crt0 clears the rest after this.
     std::memset(__riftwii_mem2bss_start, 0, static_cast<std::size_t>(__riftwii_mem2bss_end - __riftwii_mem2bss_start));

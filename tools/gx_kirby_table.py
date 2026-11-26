@@ -111,7 +111,9 @@ def main(source, out):
         lines.append("};")
     lines.append("")
     lines.append("const KirbyWord kKirbyWords[] = {")
-    for region, i, w in differing or [(0, 0, 0)]:  # region 0 matches none
+    # The array may not be empty: a placeholder in region 4, which kirby()
+    # never asks for (0 to 3 are SUKE01, SUKP01, SUKJ01, SUKK01).
+    for region, i, w in differing or [(4, 0, 0)]:
         lines.append("    {%d, %d, 0x%08Xu}," % (region, i, w))
     lines.append("};")
     lines.append("")

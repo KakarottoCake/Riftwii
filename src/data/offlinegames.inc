@@ -194,7 +194,7 @@ const char kPrefixes[] =
 "SW7" "\x03" "SW8" "\x23" "SW9" "\x03" "SX2" "\x02" "SX3" "\x07" "SX4" "\x07" "SX5" "\x01" "SX6" "\x04"
 "SX7" "\x03" "SX8" "\x03" "SX9" "\x02" "SY7" "\x02" "SY8" "\x02" "SZ2" "\x0b" "SZ3" "\x03" "SZ5" "\x03"
 "SZ7" "\x01"
-    ;
+    "";
 // Whole codes in the other regions, sorted.
 const char kOtherCodes[] =
 "R4RR" "R58I" "R58S" "R5IR" "R6KU" "R8HZ" "R8IS" "R8XZ" "RC4S" "REKU" "RF9R" "RFNW"

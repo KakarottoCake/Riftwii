@@ -94,7 +94,8 @@ def write_table(out, version, codes):
         f.write("const char kPrefixes[] =\n")
         for i in range(0, len(prefixes), 8):
             f.write(" ".join('"%s" "\\x%02x"' % (p, mask) for p, mask in prefixes[i:i + 8]) + "\n")
-        f.write("    ;\n")
+        # An empty literal last, so a table with no prefixes still compiles.
+        f.write('    "";\n')
         f.write("// Whole codes in the other regions, sorted.\n")
         f.write("const char kOtherCodes[] =\n")
         for i in range(0, len(others), 12):

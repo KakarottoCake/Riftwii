@@ -146,7 +146,7 @@ The build compiles every folder into one, so no two files share a name.
 | `sdwritecheck.cpp` | Home's once-per-start check that the SD card can be written (full, locked or faulty), through `src/fs/sdwrite.cpp` |
 | `streamprint.cpp` | Every `FILE` printf routed through `snprintf`'s formatter, so newlib's other formatting engines stay out of the DOL (`src/data/streamformat.cpp`) |
 | `mainstack.cpp` | The stacks crt0 sets up: the main thread's in MEM2 (`mem::kMainStack`), the exception stack in MEM1, in place of libogc's defaults |
-| `mem2sections.ld` | Added to libogc's linker script: libbte's and libwiiuse's zero-filled buffers in MEM2 (`mem::kLibraryBss`), zeroed by `restart.cpp` at every start, and the read-only data run from MEM2 (`mem::kReadOnlyData`), which `tools/dol_stash.py` loads above `.bss` and `restart.cpp` copies up |
+| `mem2sections.ld` | Added to libogc's linker script: libbte's and libwiiuse's zero-filled buffers in MEM2 (`mem::kLibraryBss`), zeroed by `restart.cpp` at every start, and the code and read-only data run from MEM2 (`mem::kProgramCode`, `mem::kReadOnlyData`), which `tools/dol_stash.py` loads above `.bss` and `restart.cpp` copies up |
 | `timezone.cpp` | newlib's time zone set-up without its `TZ` parser, which a Wii never needs (`--wrap=_tzset_unlocked_r`) |
 | `packedblobs.cpp`, `packedblobs.hpp` | Unpacks a zstd frame of runtime blobs made by `tools/pack_blobs.py`, for the time a launch needs them |
 
@@ -560,7 +560,7 @@ and the `*_mock/` folders provide synthetic files, discs and hardware calls.
 | `make_channel.py`, `make_channel_art.py`, `preview_channel.py` | The Wii Menu channel's WAD and art |
 | `rtreloc.py` | Relocations for the RVZ runtime blob |
 | `make_plugin.py` | Plugin files: built from the two links (header, image, relocations, SHA-256), checked against the DOL's build stamp, varied for refusal tests |
-| `dol_stash.py` | Makes `riftwii.dol` load its read-only data (linked to run from MEM2) just above its BSS, then adds the start-up stash (translations, GPL) after it (`docs/MEMORY.md`) |
+| `dol_stash.py` | Makes `riftwii.dol` load its code and read-only data (linked to run from MEM2) just above its BSS, then adds the start-up stash (translations, GPL) after it (`docs/MEMORY.md`) |
 | `check_mem1_line.py` | Fails the Wii build unless `0x81000000` is well above what libogc's start writes from the heap's start, where its DSP boot code cannot hit anything (`docs/MEMORY.md`) |
 | `pack_blobs.py` | Packs a set of runtime blobs (the Wii Remote logger, the WiiRD handlers, the mods' runtime and its RVZ build, the virtual SD card, screenshot and crash hooks) into one zstd frame the DOL embeds, their sizes in front (`wii/core/packedblobs.cpp`) |
 | `pack_dol.py` | Packs `riftwii.dol` last: each section a Zstandard frame behind the `runtime/dolpack` stub, every frame checked before it is written (`PACK=0` skips it) |

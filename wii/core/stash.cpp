@@ -12,9 +12,12 @@
 #include "riftwii/stashimage.hpp"
 
 // libogc's linker script: the end of .bss. The heap (__Arena1Lo) starts
-// at it rounded up to 32 bytes. tools/dol_stash.py puts the read-only data
-// bound for MEM2 there (wii/core/mem2sections.ld), then the stash.
+// at it rounded up to 32 bytes. tools/dol_stash.py puts the code and the
+// read-only data bound for MEM2 there (wii/core/mem2sections.ld), then the
+// stash.
 extern "C" char __bss_end[];
+extern "C" char __riftwii_mem2text_start[];
+extern "C" char __riftwii_mem2text_end[];
 extern "C" char __riftwii_mem2rodata_start[];
 extern "C" char __riftwii_mem2rodata_end[];
 
@@ -41,7 +44,9 @@ u8* image() { return reinterpret_cast<u8*>(mem::kStashArea + sizeof(Note)); }
 constexpr u32 kAvailable = kStashMaxBytes;
 
 u32 Mem1Address() {
-    const u32 read_only_data = (reinterpret_cast<u32>(__bss_end) + 31) & ~31u;
+    const u32 code = (reinterpret_cast<u32>(__bss_end) + 31) & ~31u;
+    const u32 code_bytes = static_cast<u32>(__riftwii_mem2text_end - __riftwii_mem2text_start);
+    const u32 read_only_data = (code + code_bytes + 31) & ~31u;
     const u32 read_only_bytes = static_cast<u32>(__riftwii_mem2rodata_end - __riftwii_mem2rodata_start);
     return (read_only_data + read_only_bytes + 31) & ~31u;
 }

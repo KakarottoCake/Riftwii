@@ -17,9 +17,12 @@ command line (__CheckARGV) and its 64 KiB kernel workspace
 (__lwp_wkspace_init) at the heap's start, __Arena1Lo; nothing else there
 is written until main's first malloc, which takes the memory as it finds
 it. Checked with the workspace, a command line of up to ARGV_ROOM and the
-margin below the line. Should the program ever grow back that far, link a
-buffer that no one uses before main last again, big enough to cover the
-line (git history: wii/core/mem1tail.c).
+margin below the line.
+
+Should the program ever grow back that far, a buffer that nothing uses
+before main can cover the line instead, as Home's scan stack did: name it
+riftwii_mem1_line_cover and link it after every library (git history:
+wii/core/mem1tail.c). It passes when the line is MARGIN inside it.
 
 It names what is at the line when this does not hold.
 
@@ -30,9 +33,10 @@ import struct
 import sys
 
 LINE = 0x81000000
-# Room left below the line. The DSP code takes 128 bytes from the line
-# up; this is a wide margin.
+# Room left below the line, and on both sides inside a covering buffer.
+# The DSP code takes 128 bytes from the line up; this is a wide margin.
 MARGIN = 0x1000
+COVER = "riftwii_mem1_line_cover"
 # What libogc writes from __Arena1Lo before SYS_Init boots the DSP: the
 # command line and argv[] (libogc's argv.c, far below this from any
 # loader), then the kernel workspace (system.c's KERNEL_HEAP).
@@ -76,6 +80,11 @@ def main():
 
     syms = symbols(args.elf)
     low, high = LINE - MARGIN, LINE + MARGIN
+    for start, size, name in syms:
+        if name == COVER and start <= low and start + size >= high:
+            print("MEM1 line: 0x%08x is 0x%x bytes into %s (0x%08x-0x%08x)"
+                  % (LINE, LINE - start, COVER, start, start + size))
+            return 0
     arena = [s for s in symbols(args.elf, sized=False) if s[2] == ARENA]
     if not arena:
         print("check_mem1_line: %s has no %s" % (args.elf, ARENA), file=sys.stderr)
@@ -92,8 +101,9 @@ def main():
           % (arena_lo, LINE, ARGV_ROOM + KERNEL_WORKSPACE), file=sys.stderr)
     for address, sym_size, name in near:
         print("  0x%08x %6d %s" % (address, sym_size, name), file=sys.stderr)
-    print("Free MEM1, or link a buffer unused before main last so that it covers the line "
-          "(this script's notes).", file=sys.stderr)
+    print("Free MEM1, or link a buffer unused before main, named %s, last so that it covers "
+          "the line with 0x%x bytes to spare on each side (this script's notes)." % (COVER, MARGIN),
+          file=sys.stderr)
     return 1
 
 if __name__ == "__main__":

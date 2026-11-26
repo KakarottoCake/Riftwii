@@ -689,9 +689,9 @@ of the settings that exist.
    plugin's own reason.
 
 Where the plugin goes in MEM2: the loader's MEM2 heap runs from
-above the start-up stash's copy (`0x90951000` up, after the restart
-snapshot, the main thread's stack, the Bluetooth buffers and the read-only
-data; MEMORY.md) to just under IOS at
+above the start-up stash's copy (`0x90D51000` up, after the restart
+snapshot, the main thread's stack, the Bluetooth buffers, the read-only
+data and the code; MEMORY.md) to just under IOS at
 `0x933E0000`. The current users inside it are the menu's covers and
 decoded art, the update pack and file downloads, the screenshot buffer
 and the game being read for a launch. A game launch then puts its own

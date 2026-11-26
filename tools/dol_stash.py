@@ -37,11 +37,12 @@ SECTION_COUNT = 18
 OFFSET_TABLE = 0x00
 ADDRESS_TABLE = 0x48
 SIZE_TABLE = 0x90
-# Above every MEM1 address: a DOL section here is the read-only data bound
-# for MEM2, loaded in MEM1 for crt0 to copy.
+# Above every MEM1 address: a DOL section here is the code or the read-only
+# data bound for MEM2, loaded in MEM1 for crt0 to copy.
 MEM2_START = 0x90000000
 BSS_ADDRESS = 0xD8
 BSS_SIZE = 0xDC
+ENTRY = 0xE0
 DOL_HEADER_BYTES = 0x100
 
 
@@ -104,9 +105,13 @@ def add_to_dol(dol, image, limit):
     # there instead, for crt0 to copy up (wii/core/restart.cpp), and the
     # stash right after it; wii/core/stash.cpp looks for it there.
     address = align(bss_address + bss_size, 32)
+    # The code (a text section, so first) then the read-only data: the order
+    # wii/core/restart.cpp copies them up in.
     in_mem2 = [i for i in range(SECTION_COUNT) if sizes[i] and addresses[i] >= MEM2_START]
-    if len(in_mem2) > 1:
-        raise ValueError("%d DOL sections in MEM2; only the read-only data may be" % len(in_mem2))
+    text_in_mem2 = [i for i in in_mem2 if i < TEXT_SECTIONS]
+    if len(text_in_mem2) > 1 or len(in_mem2) - len(text_in_mem2) > 1:
+        raise ValueError("DOL sections in MEM2: %d of code, %d of data; one of each at most"
+                         % (len(text_in_mem2), len(in_mem2) - len(text_in_mem2)))
     for i in in_mem2:
         addresses[i] = address
         address = align(address + sizes[i], 32)
@@ -125,6 +130,15 @@ def add_to_dol(dol, image, limit):
     offsets[slot] = file_offset
     addresses[slot] = address
     sizes[slot] = len(image)
+    # elf2dol lists the MEM2 code first, but the packed DOL's stub
+    # (runtime/dolpack) finds crt0's command-line block in text section 0:
+    # the section holding the entry point goes back there.
+    entry = struct.unpack_from(">I", header, ENTRY)[0]
+    with_entry = [i for i in range(TEXT_SECTIONS) if sizes[i] and addresses[i] <= entry < addresses[i] + sizes[i]]
+    if with_entry and with_entry[0] != 0:
+        j = with_entry[0]
+        for table in (offsets, addresses, sizes):
+            table[0], table[j] = table[j], table[0]
     struct.pack_into(">18I", header, OFFSET_TABLE, *offsets)
     struct.pack_into(">18I", header, ADDRESS_TABLE, *addresses)
     struct.pack_into(">18I", header, SIZE_TABLE, *sizes)

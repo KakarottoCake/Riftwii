@@ -327,12 +327,13 @@ for tools; those are not loaded into MEM1.
 
 ### The MEM2 copy
 
-The copy goes to `mem::kStashArea`, which is `0x90951000`, above the
+The copy goes to `mem::kStashArea`, which is `0x90D51000`, above the
 restart snapshot (`0x90800000`–`0x90809000`), the main thread's stack
 (`0x90809000`–`0x90829000`), libbte's and libwiiuse's buffers
-(`0x90829000`–`0x90881000`) and the read-only data
-(`0x90881000`–`0x90951000`). In MEM1 the DOL loads the read-only data
-first above `.bss`, then the stash. It is 32 bytes of notes plus the stash (314
+(`0x90829000`–`0x90881000`), the read-only data
+(`0x90881000`–`0x90951000`) and the code (`0x90951000`–`0x90D51000`). In
+MEM1 the DOL loads the code first above `.bss`, then the read-only data,
+then the stash. It is 32 bytes of notes plus the stash (314
 KiB today), and `mem::Init` starts arena 2 above it. Checked against the other users of MEM2:
 
 - **IOS reloads** write below `0x90800000`, so they never reach it.
@@ -505,10 +506,30 @@ In Dolphin the menu draws as before (screenshots before and after a warm
 restart from a deliberate crash, which kept the MEM2 copy), a Wii Remote
 connects, and a Mario Kart Wii launch with a pack runs.
 
-Still possible: the code (`.text`, 3.5 MiB) could go the same way, as
-libogc maps MEM2 for instructions too (IBAT4). Calls between MEM1 and MEM2
-are beyond a branch's reach, so the linker would have to add long-branch
-stubs, and libogc, crt0 and the start-up copy would stay in MEM1.
+A sixth pass moved it on to `0x80ADCCA0`, 3.2 MiB lower again (in
+Dolphin, 6972 KiB of MEM1 free at the start and 5744 KiB once the menu's
+threads run), by running the program's code from MEM2 the same way:
+
+| What | Before | Now | MEM1 kept |
+| --- | --- | --- | ---: |
+| `.text`: the program's code, but libogc, the C library, libgcc, crtbegin/crtend and `restart.o` | 3.3 MiB for the program's whole life | `mem::kProgramCode` (`0x90951000`, 4 MiB): linked there by `wii/core/mem2sections.ld`, loaded by the DOL just above `.bss` ahead of the read-only data, and copied up by `__wrap___CheckARGV` before it calls anything there (the instruction cache is cleared over the copy). libogc maps MEM2 for instructions as for data (IBAT4). Calls between the two halves are beyond a branch's reach; ld adds long-branch stubs | 3268 KiB |
+
+What stays in MEM1 and why: libogc runs before the copy (crt0's helpers)
+and under every thread, exception and interrupt; the C library and libgcc
+are called by it; `restart.o` makes the copy. crtbegin's and crtend's code
+is called from `.init`, where ld can only put a long-branch stub inline:
+the call then returns into the stub and runs the function again, forever
+(the first try hung in `__register_frame_info` this way).
+
+`tools/dol_stash.py` keeps the section holding the entry point as the DOL's
+first text section, as elf2dol lists the MEM2 code first: the packed DOL's
+stub finds crt0's command-line block (`_arg`) there, and without it another
+loader's arguments would be lost.
+
+In Dolphin the menu draws and plays its music as before (screenshots before
+and after a warm restart from a deliberate crash, which kept the MEM2
+copy), and a Mario Kart Wii launch with a pack installs the runtime and
+every hook and the game runs.
 
 ### `riftwii.elf`
 

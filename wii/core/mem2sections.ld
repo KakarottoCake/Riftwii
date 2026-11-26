@@ -20,6 +20,7 @@
 PHDRS {
 	mem2bss PT_NULL;
 	mem2rodata PT_LOAD;
+	mem2text PT_LOAD FLAGS(5);
 }
 
 SECTIONS {
@@ -59,9 +60,40 @@ SECTIONS {
 	. = __riftwii_mem1_resume2;
 } INSERT BEFORE .rodata;
 
+/*
+ * .mem2text: the program's code, run from mem::kProgramCode, loaded and
+ * copied up like .mem2rodata (tools/dol_stash.py puts it first above .bss,
+ * the read-only data after it), with the same marker and size in front.
+ * libogc maps MEM2 for instructions as for data (IBAT4). What runs before
+ * the copy or below everything else stays in MEM1: libogc (crt0's helpers,
+ * exceptions, interrupts, threads), the C library, libgcc and restart.o,
+ * whose __wrap___CheckARGV makes the copy. Calls between the two are
+ * beyond a branch's reach, and ld puts long-branch stubs in between.
+ * crtbegin.o's and crtend.o's code stays too: .init calls it, and ld can
+ * only put a stub inline there, where the call returns into the stub and
+ * runs the function again, forever.
+ */
+SECTIONS {
+	__riftwii_mem1_resume3 = .;
+	.mem2text 0x90951000 : {
+		__riftwii_mem2text_start = .;
+		LONG(0x52575458)
+		LONG(__riftwii_mem2text_end - __riftwii_mem2text_start)
+		/* EXCLUDE_FILE holds for the one pattern after it, hence three. */
+		*(EXCLUDE_FILE(*libogc.a:* *libgcc.a:* *libc.a:* *libm.a:* *libsysbase.a:* *crtbegin.o *crtend.o *restart.o) .text
+		  EXCLUDE_FILE(*libogc.a:* *libgcc.a:* *libc.a:* *libm.a:* *libsysbase.a:* *crtbegin.o *crtend.o *restart.o) .text.*
+		  EXCLUDE_FILE(*libogc.a:* *libgcc.a:* *libc.a:* *libm.a:* *libsysbase.a:* *crtbegin.o *crtend.o *restart.o) .gnu.linkonce.t.*)
+		. = ALIGN(32);
+		__riftwii_mem2text_end = .;
+	} :mem2text
+	. = __riftwii_mem1_resume3;
+} INSERT BEFORE .text;
+
 /* mem::kLibraryBss and kReadOnlyData, with their sizes: the start-up
  * stash's copy follows. */
 ASSERT(__riftwii_mem2bss_start == 0x90829000 && __riftwii_mem2bss_end <= 0x90881000,
        "libbte's and libwiiuse's buffers no longer fit mem::kLibraryBss (wii/core/memlimits.hpp)");
 ASSERT(__riftwii_mem2rodata_start == 0x90881000 && __riftwii_mem2rodata_end <= 0x90951000,
        "the read-only data no longer fits mem::kReadOnlyData (wii/core/memlimits.hpp)");
+ASSERT(__riftwii_mem2text_start == 0x90951000 && __riftwii_mem2text_end <= 0x90D51000,
+       "the code no longer fits mem::kProgramCode (wii/core/memlimits.hpp)");

@@ -2600,14 +2600,16 @@ bool check_d2x_usb_drive(const ImageGame& game, int cios_slot, std::string& erro
     }
     if (list.entries.empty()) return true;  // nothing to read; d2x's own probe judges it
     // One sector of any size, only for this check: a launch from USB looks
-    // once. Without the memory the check is left to d2x's own probe, as
-    // with no fragments.
+    // once. Without the memory the launch stops: nothing later compares the
+    // game's first sector, so it could start from a drive not yet ready or
+    // from another drive. Not a drive failure, so no other cIOS is tried.
     constexpr std::size_t kSectorBufferBytes = 32 * 1024;
     std::unique_ptr<std::uint8_t, decltype(&std::free)> sector_buffer(
         static_cast<std::uint8_t*>(memalign(32, kSectorBufferBytes)), &std::free);
     if (!sector_buffer) {
-        logf("USB (d2x): no memory to read the game's first sector; d2x's own probe judges the drive\n");
-        return true;
+        logf("USB (d2x): no memory to read the game's first sector, so the launch stops\n");
+        error = "there was not enough memory to check the game's USB drive; restart RiftWii and try again";
+        return false;
     }
     std::uint8_t* const first = sector_buffer.get();
     const std::uint32_t first_sector = list.entries[0].sector;
