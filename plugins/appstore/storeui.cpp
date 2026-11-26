@@ -135,7 +135,7 @@ std::string Plural(std::size_t count, const char* one, const char* many) {
 }
 
 enum class Page { Front, Grid, App };
-enum class GridKind { Category, Search, Mine };
+enum class GridKind { Category, Search, Mine, GameMods };
 
 // The ids of the things on a page that are not tiles.
 constexpr int kHitPrevious = 1002;
@@ -148,10 +148,17 @@ constexpr int kHitFilter = 1008;
 
 class StoreScreen {
 public:
-    StoreScreen(const rwp_screen_info& info, std::uint32_t console) : info_(info), console_(console) {
+    StoreScreen(const rwp_screen_info& info, std::uint32_t console, const char* game_id, const char* game_name)
+        : info_(info), console_(console) {
         left_ = info.safe_x + 8;
         right_ = info.safe_x + info.safe_w - 8;
         middle_ = info.left + info.width / 2;
+        // Opened from a game's Mods page: that game's Riivolution mods.
+        if (game_id != nullptr && game_id[0] != '\0') {
+            game_id_ = game_id;
+            game_name_ = game_name != nullptr && game_name[0] != '\0' ? game_name : game_id;
+            store_.SetListUrl(kModListUrl);
+        }
     }
 
     std::int32_t Run() {
@@ -169,6 +176,11 @@ public:
             if (Host().screen_frame(frame_.Data(), frame_.Count(), &input) != 0) break;
             input_ = input;
             leave = Handle();
+            // The mods' list is in: straight to the game's mods.
+            if (!game_id_.empty() && !opened_game_mods_ && store_.list_state == ListState::Ready) {
+                opened_game_mods_ = true;
+                OpenGameMods();
+            }
         }
         // An install still running is stopped (nothing of it is kept); a list,
         // an icon or a removal ends on its own. Its end is waited for with a
@@ -234,7 +246,11 @@ private:
         frame_.Picture(name, own, x, y, size, size);
     }
 
-    static std::string CategoryPicture(const AppCategory& category) { return std::string("store_") + category.key; }
+    static std::string CategoryPicture(const AppCategory& category) {
+        // Mods have the menu's own Mods picture (the game page's).
+        if (std::strcmp(category.key, kModCategory) == 0) return "icon_mods";
+        return std::string("store_") + category.key;
+    }
 
     void Prompt(std::uint32_t key, const std::string& label) { prompts_.push_back({key, label}); }
 
@@ -251,6 +267,11 @@ private:
     // The store front: the categories as tiles, each with its icon, and a
     // line under them of what the lit one holds.
     void DrawFront() {
+        if (!game_id_.empty()) {
+            Band(tr("Mods for {1}", game_name_), kBand, "icon_mods", 0);
+            if (ListReady()) Message(tr("Getting the list of mods..."));
+            return;
+        }
         Band(tr("Rift Store"), kFrontBand, "store_logo", 280);  // the counts on the right
         if (!ListReady()) return;
 
@@ -353,11 +374,13 @@ private:
     bool ListReady() {
         if (store_.list_state == ListState::Ready) return true;
         if (store_.list_state == ListState::Loading) {
-            Message(tr("Getting the list of apps..."));
+            Message(game_id_.empty() ? tr("Getting the list of apps...") : tr("Getting the list of mods..."));
             const std::uint32_t sweep = (input_.frame * 12) % 1000;
             frame_.Progress(middle_ - 140, 236, 280, 14, sweep);
         } else {
-            Message(tr("Could not get the list of apps: {1}", store_.list_error), 170);
+            Message(game_id_.empty() ? tr("Could not get the list of apps: {1}", store_.list_error)
+                                     : tr("Could not get the list of mods: {1}", store_.list_error),
+                    170);
             const int w = Width(tr("Try again"), kNameSize) + 64;
             const int x = middle_ - w / 2;
             frame_.Card(x, 260, w, 48, true);
@@ -394,6 +417,7 @@ private:
     void DrawGrid() {
         std::string picture;
         if (grid_kind_ == GridKind::Category) picture = CategoryPicture(categories_[grid_category_]);
+        if (grid_kind_ == GridKind::GameMods) picture = "icon_mods";
         const int pages = PageCount();
         // Room on the right for the page and its arrows, when there are pages.
         Band(grid_title_, kBand, picture, pages > 1 ? 280 : 0);
@@ -410,8 +434,11 @@ private:
             hits_.push_back({next_x, 14, 44, 44, kHitNext});
         }
         if (grid_.empty()) {
-            Message(grid_kind_ == GridKind::Search ? tr("No app matches {1}.", search_)
-                                                   : tr("No apps from here are on the SD card yet."));
+            if (grid_kind_ == GridKind::GameMods)
+                Message(tr("GameBanana has no Riivolution mods for this game yet."));
+            else
+                Message(grid_kind_ == GridKind::Search ? tr("No app matches {1}.", search_)
+                                                       : tr("No apps from here are on the SD card yet."));
         }
         const int columns = GridColumns();
         const int w = (right_ - left_ - (columns - 1) * kGap) / columns;
@@ -645,7 +672,7 @@ private:
         const Fact all[] = {
             {"store_size", tr("Size"), SizeText(listing.size)},
             {"store_date", tr("Released"), listing.released},
-            {"store_console", tr("Works on"), consoles},
+            listing.mod ? Fact{"store_console", tr("Game"), listing.game} : Fact{"store_console", tr("Works on"), consoles},
             {"store_license", tr("License"), listing.license},
         };
         std::vector<const Fact*> facts;
@@ -764,7 +791,9 @@ private:
         if (pressed & RWP_KEY_HOME) return true;
         switch (page_) {
             case Page::Front: return HandleFront(pressed);
-            case Page::Grid: HandleGrid(pressed); return false;
+            case Page::Grid:
+                HandleGrid(pressed);
+                return leave_;
             case Page::App:
                 HandleApp(pressed);
                 return check_update_;
@@ -847,6 +876,12 @@ private:
     void HandleGrid(std::uint32_t pressed) {
         if (pressed & RWP_KEY_B) {
             Host().sound(RWP_SOUND_BACK);
+            if (!game_id_.empty()) {
+                // A search goes back to the game's mods; they, out of the store.
+                if (grid_kind_ == GridKind::GameMods) leave_ = true;
+                else OpenGameMods();
+                return;
+            }
             page_ = Page::Front;
             focus_ = front_focus_;
             return;
@@ -952,7 +987,9 @@ private:
         if (store_.finished_ok) {
             if (here)
                 status_ = store_.finished_remove ? tr("{1} is removed.", name)
-                                                 : tr("Installed. Find it in Home's Homebrew view.");
+                                                 : store_.apps[store_.finished_index].listing->mod
+                                                       ? tr("Installed. It is on this game's Mods page.")
+                                                       : tr("Installed. Find it in Home's Homebrew view.");
             // What the app wrote stays unless the player says so: Keep is
             // lit, and A, B and HOME press it; Remove needs the pointer (or +).
             if (store_.finished_remove && !store_.finished_leftovers.empty()) {
@@ -998,6 +1035,20 @@ private:
         grid_kind_ = GridKind::Category;
         grid_title_ = tr(categories_[category].name);
         grid_category_ = category;
+        EnterGrid();
+    }
+
+    // The mods of the game the store was opened for, by the game IDs their
+    // XMLs name.
+    void OpenGameMods() {
+        grid_.clear();
+        for (std::size_t i = 0; i < store_.apps.size(); ++i) {
+            if (app_mod_for_game(*store_.apps[i].listing, game_id_.c_str())) grid_.push_back(i);
+        }
+        grid_kind_ = GridKind::GameMods;
+        // The game's name alone: beside the page arrows "Mods for ..." left
+        // little of it, and the band's Mods picture says what the page is.
+        grid_title_ = game_name_;
         EnterGrid();
     }
 
@@ -1111,6 +1162,10 @@ private:
     int back_focus_ = 0;
     std::string status_;
     bool check_update_ = false;
+    // Opened for one game's mods (a Mods page's "Get more mods").
+    std::string game_id_, game_name_;
+    bool opened_game_mods_ = false;
+    bool leave_ = false;
 };
 
 }  // namespace
@@ -1126,7 +1181,9 @@ std::int32_t RunStore(rwp_appstore_request& request) {
     bool changed;
     bool check_update;
     {
-        StoreScreen screen(info, request.console);
+        request.game_id[sizeof(request.game_id) - 1] = '\0';
+        request.game_name[sizeof(request.game_name) - 1] = '\0';
+        StoreScreen screen(info, request.console, request.game_id, request.game_name);
         result = screen.Run();
         changed = screen.Changed();
         check_update = screen.CheckUpdate();

@@ -6912,7 +6912,9 @@ static bool CountDownLastGame(const std::string& title)
 	}
 }
 
-static bool MenuAppStore(bool& checkUpdate);  // the Rift Store (Home's bar, Settings > Online)
+// The Rift Store (Home's bar, Settings > Online), or with a game ID the
+// Riivolution mods for that game (its Mods page).
+static bool MenuAppStore(bool& checkUpdate, const std::string& gameId = "", const std::string& gameName = "");
 static void CheckForUpdateFromStore();
 
 static int MenuSource(FrontendState& state)
@@ -9360,7 +9362,7 @@ struct RowRef {
 		RegionStrings, Language, Cios, NandSource, Server, Favorite, Pack, Option, Note, ResetOptions,
 		AddCodes, ForgetCodes, MakeImage, Cover, Memory, About, GcDiscReads, GcCard, GcProgressive, GcWidescreen,
 		GcSharp, GcWidth, GcSpeed, GcVolume, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile, CodeStart, CrashLogs,
-		CoverSet, CoverPick, GameTdbEntry } what = What::Note;
+		CoverSet, CoverPick, GameTdbEntry, GetMods } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -12833,6 +12835,14 @@ static void BuildModRows(const FrontendState& state, const std::string& scanStat
 			: tr("{1} XML files are for other games", {std::to_string(state.model.packages.size())});
 		add(hint, {RowRef::What::Note});
 	}
+	// Riivolution mods from GameBanana, in the Rift Store (docs/MODS.md): a
+	// Wii game's, matched by the game IDs the mods' XMLs name.
+	if (!state.game_id.empty() && !SelectedGcGame(state)) {
+		FlowRow get;
+		get.kind = FlowRow::Kind::Action;
+		get.label = tr("Get more mods...");
+		add(get, {RowRef::What::GetMods});
+	}
 	FlowRow pick;
 	pick.kind = FlowRow::Kind::Action;
 	pick.label = tr("Add a code build...");
@@ -15435,6 +15445,8 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 			} else if (ref.what == RowRef::What::CrashLogs) {
 				say(tr("Off: no crash report. On: saves a crash report to the SD card if {1} crashes, using about 4 KB of the game's memory (some mods freeze with it on).",
 				       {PackName(state.model.packages[ref.pkg].file)}));
+			} else if (ref.what == RowRef::What::GetMods) {
+				say(tr("Riivolution mods for this game from GameBanana: pick one and it is put on the SD card."));
 			} else if (ref.what == RowRef::What::AddCodes) {
 				say("For mods made of Gecko codes, like Project+ builds: pick the build's code file on the SD card.");
 			} else if (ref.what == RowRef::What::ForgetCodes) {
@@ -15583,6 +15595,34 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 					shownRow = 0;
 				} else {
 					say(error);
+				}
+			} else if (ref.what == RowRef::What::GetMods) {
+				if (!riftwii::wii::Settings().online) {
+					say(tr("Downloads are off. Turn on Settings > Online > Downloads first."));
+				} else {
+					// The drive scan has the network the store uses.
+					WaitForDriveScan(noteTxt);
+					std::vector<std::string> before;
+					for (const riftwii::LaunchPackage& p : state.model.packages) before.push_back(p.file);
+					transition::Hold(transition::Kind::SlideForward);
+					mainWindow->Remove(&w);
+					ResumeGui();
+					bool checkUpdate = false;
+					const bool installed = MenuAppStore(checkUpdate, state.game_id, GameOwnTitle(state));
+					HaltGui();
+					transition::Hold(transition::Kind::SlideBack);
+					mainWindow->Append(&w);
+					if (installed) {
+						scanStatus = riftwii::wii::ScanPackages(state);
+						// A mod just put on the card is turned on: it was
+						// picked for this game.
+						for (std::size_t i = 0; i < state.model.packages.size(); ++i) {
+							const riftwii::LaunchPackage& p = state.model.packages[i];
+							const bool isNew = std::find(before.begin(), before.end(), p.file) == before.end();
+							if (isNew && p.valid && !p.enabled && riftwii::show_package(p)) state.model.set_enabled(i, true);
+						}
+						changed = true;
+					}
 				}
 			} else if (ref.what == RowRef::What::AddCodes || ref.what == RowRef::What::ForgetCodes ||
 				   ref.what == RowRef::What::MakeImage) {
@@ -18760,13 +18800,15 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 // pages. Called and returns with the GUI running; true when apps were
 // installed or removed. `checkUpdate`: RiftWii's own page in the store
 // asked for RiftWii's update check (CheckForUpdateFromStore runs it).
-static bool MenuAppStore(bool& checkUpdate)
+static bool MenuAppStore(bool& checkUpdate, const std::string& gameId, const std::string& gameName)
 {
 	checkUpdate = false;
 	rwp_appstore_request request;
 	std::memset(&request, 0, sizeof(request));
 	request.size = sizeof(request);
 	request.console = riftwii::wii::is_wii_u() ? RWP_CONSOLE_VWII : RWP_CONSOLE_WII;
+	std::snprintf(request.game_id, sizeof(request.game_id), "%s", gameId.c_str());
+	std::snprintf(request.game_name, sizeof(request.game_name), "%s", gameName.c_str());
 	std::string message;
 	const int32_t result = riftwii::wii::plugin::Launch("appstore", &request, sizeof(request), message);
 	// Its code and memory go back as soon as it is closed.

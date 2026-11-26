@@ -15,6 +15,7 @@ The other pages are for people working on it.
 | [RELEASING.md](RELEASING.md) | The release workflow step by step: one-time setup, every release, test builds, its checks and errors, how it works |
 | [THEMES.md](THEMES.md) | Making themes, colour keys, picture sizes and music |
 | [APPSTORE.md](APPSTORE.md) | The app store's list: app manifests, apps.json and what the Wii accepts |
+| [MODS.md](MODS.md) | Riivolution mods from GameBanana: how mods.json is built, its format, and the store's mods mode |
 | [HARNESS.md](HARNESS.md) | The isolated Dolphin setup in detail |
 | [USB_HARDWARE_TEST.md](USB_HARDWARE_TEST.md) | Checking SD and USB image boot on a Wii with d2x |
 | [CTGPR.md](CTGPR.md) | CTGP-R 1.03: how it is started, d2x's IOS reload block, what a console test must show |

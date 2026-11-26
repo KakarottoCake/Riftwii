@@ -71,13 +71,17 @@ int32_t HttpGet(const char* url, uint8_t* buffer, uint32_t capacity, uint32_t* l
         return 0;
     }
 #ifdef RIFTWII_TEST_BUILD
-    // The test build only: a list on the card stands in for the store's
-    // (Dolphin tests of list fields the published list does not have yet).
-    if (std::strcmp(url, "https://riftwii.github.io/apps/apps.json") == 0) {
-        if (FILE* local = std::fopen("sd:/riftwii/test_apps.json", "rb")) {
+    // The test build only: a list on the card stands in for the store's or
+    // the mods' (Dolphin tests of list fields the published list does not
+    // have yet).
+    const char* local_list = std::strcmp(url, "https://riftwii.github.io/apps/apps.json") == 0   ? "sd:/riftwii/test_apps.json"
+                             : std::strcmp(url, "https://riftwii.github.io/mods/mods.json") == 0 ? "sd:/riftwii/test_mods.json"
+                                                                                                 : nullptr;
+    if (local_list != nullptr) {
+        if (FILE* local = std::fopen(local_list, "rb")) {
             const std::size_t read = std::fread(buffer, 1, capacity, local);
             std::fclose(local);
-            logf("Test build: the app list is sd:/riftwii/test_apps.json (%u bytes)\n", static_cast<unsigned>(read));
+            logf("Test build: the list is %s (%u bytes)\n", local_list, static_cast<unsigned>(read));
             *length = static_cast<uint32_t>(read);
             return 1;
         }

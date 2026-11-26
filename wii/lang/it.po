@@ -4416,6 +4416,33 @@ msgstr "{1} di {2} file"
 msgid "Another app is being installed. Try again when it is done."
 msgstr "È in corso l'installazione di un'altra app. Riprova quando ha finito."
 
+msgid "Get more mods..."
+msgstr "Scarica altre mod..."
+
+msgid "Riivolution mods for this game from GameBanana: pick one and it is put on the SD card."
+msgstr "Mod Riivolution per questo gioco da GameBanana: scegline una e viene copiata sulla scheda SD."
+
+msgid "Mods for {1}"
+msgstr "Mod per {1}"
+
+msgid "Getting the list of mods..."
+msgstr "Scaricamento dell'elenco delle mod..."
+
+msgid "Could not get the list of mods: {1}"
+msgstr "Impossibile scaricare l'elenco delle mod: {1}"
+
+msgid "GameBanana has no Riivolution mods for this game yet."
+msgstr "GameBanana non ha ancora mod Riivolution per questo gioco."
+
+msgid "Installed. It is on this game's Mods page."
+msgstr "Installata. È nella pagina Mod di questo gioco."
+
+msgid "Game"
+msgstr "Gioco"
+
+msgid "Riivolution mods for your games, from GameBanana."
+msgstr "Mod Riivolution per i tuoi giochi, da GameBanana."
+
 msgid "Games made by the homebrew community."
 msgstr "Giochi creati dalla comunità homebrew."
 

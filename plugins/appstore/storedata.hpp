@@ -110,6 +110,8 @@ public:
 
     // Starts the list's download (or another try after it failed).
     void StartList();
+    // The list to download: the apps' (the default) or the mods'.
+    void SetListUrl(const char* url) { list_url_ = url; }
     // Called every frame: takes a finished job's answer, starts the next icon.
     void Pump(std::uint32_t frame);
     // The icons of these apps are wanted now (the page shows them).
@@ -189,6 +191,7 @@ private:
 
     // The jobs' download buffers, taken on the menu thread before they start.
     std::vector<std::uint8_t> list_buffer_;
+    const char* list_url_ = kAppListUrl;
     std::vector<std::uint8_t> icon_buffer_;
     // The icon job's result: RGBA rows the menu thread turns into a texture.
     std::vector<std::uint8_t> icon_rgba_;

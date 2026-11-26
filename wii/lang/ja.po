@@ -4416,6 +4416,33 @@ msgstr "{1} / {2}ファイル"
 msgid "Another app is being installed. Try again when it is done."
 msgstr "ほかのアプリをインストール中です。終わってからもう一度試してください。"
 
+msgid "Get more mods..."
+msgstr "MODをさらに入手..."
+
+msgid "Riivolution mods for this game from GameBanana: pick one and it is put on the SD card."
+msgstr "GameBananaにあるこのゲームのRiivolution MOD。選ぶとSDカードに入ります。"
+
+msgid "Mods for {1}"
+msgstr "{1}のMOD"
+
+msgid "Getting the list of mods..."
+msgstr "MODの一覧を取得中..."
+
+msgid "Could not get the list of mods: {1}"
+msgstr "MODの一覧を取得できませんでした: {1}"
+
+msgid "GameBanana has no Riivolution mods for this game yet."
+msgstr "GameBananaにはこのゲームのRiivolution MODがまだありません。"
+
+msgid "Installed. It is on this game's Mods page."
+msgstr "入りました。このゲームのMODページにあります。"
+
+msgid "Game"
+msgstr "ゲーム"
+
+msgid "Riivolution mods for your games, from GameBanana."
+msgstr "GameBananaのRiivolution MOD。"
+
 msgid "Games made by the homebrew community."
 msgstr "ホームブリューのコミュニティが作ったゲーム。"
 
