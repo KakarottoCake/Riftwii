@@ -81,5 +81,14 @@ class TextTests(unittest.TestCase):
         self.assertEqual(mod_list.game_ids([xml, b"<id game='smn'/>", b'<id game="!!"/>']), ["RMG", "SMN"])
 
 
+class ExcludeTests(unittest.TestCase):
+    def test_ids_and_comments(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as f:
+            f.write("# asked 2026-11-26\n678330\n  12345  # another\nnot-an-id\n\n")
+        self.assertEqual(mod_list.read_excluded(f.name), {678330, 12345})
+        self.assertEqual(mod_list.read_excluded(None), set())
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -3,11 +3,14 @@
 """Builds the Rift Store's list of Riivolution mods (mods.json,
 docs/MODS.md) from GameBanana.
 
-  mod_list.py build <out> [--games-file F]   find Wii mods on GameBanana, keep
+  mod_list.py build <out> [--exclude F]     find Wii mods on GameBanana, keep
                                               the ones whose download really
                                               is a Riivolution pack, write
                                               <out>/mods.json and
                                               <out>/icons/<id>.png
+
+--exclude names a file of GameBanana mod ids to leave out, one per line
+(# starts a comment): mods whose authors asked not to be listed.
 
 GameBanana hosts the mods; RiftWii only lists them. Every listed file was
 downloaded here once and pinned by its SHA-256, so the Wii installs exactly
@@ -519,8 +522,22 @@ class Builder:
         return e
 
 
+def read_excluded(path):
+    """The mod ids in an exclude file: one per line, "# ..." a comment."""
+    if not path:
+        return set()
+    ids = set()
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            word = line.split("#", 1)[0].strip()
+            if word.isdigit():
+                ids.add(int(word))
+    return ids
+
+
 def build(args):
     os.makedirs(args.cache, exist_ok=True)
+    excluded = read_excluded(args.exclude)
     log_lines = []
 
     def log(line):
@@ -550,6 +567,9 @@ def build(args):
         else:
             log(f"[{number}/{len(games)}] {game_name}: {len(mods)} mods")
         for record in mods:
+            if record["_idRow"] in excluded:
+                log(f"  {record.get('_sName')}: left out (exclude list)")
+                continue
             for e in builder.entries(record, game_name):
                 if e["id"] in seen:
                     continue
@@ -605,6 +625,7 @@ def main():
     b = sub.add_parser("build")
     b.add_argument("out")
     b.add_argument("--only-game", action="append", help="only this GameBanana game name (for a quick try)")
+    b.add_argument("--exclude", help="a file of GameBanana mod ids to leave out")
     args = p.parse_args()
     if args.cmd == "build":
         return build(args)

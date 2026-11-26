@@ -88,4 +88,5 @@ roots; nothing is trusted that the right order wouldn't be.
 ## Asking for a mod to be taken off
 
 A mod's author can ask for it to be left out of the list by opening an
-issue in `RiftWii/mods`; the list then skips it by id.
+issue in `RiftWii/mods`. Its GameBanana id then goes in that repository's
+`excluded.txt`, which the nightly build passes as `--exclude`.
