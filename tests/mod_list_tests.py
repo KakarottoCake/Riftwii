@@ -116,11 +116,28 @@ class XmlTests(unittest.TestCase):
         texts = {"riivolution/A.xml": b"<id game='RMG'/>", "riivolution/B.xml": b"<id game='SB4'/>"}
         self.assertEqual(mod_list.game_ids(mod_list.read_pack_xmls(list(texts), texts.get).values()), ["RMG", "SB4"])
 
-    def test_old_cached_program_spelling(self):
-        self.assertEqual(mod_list.normalize_verdict({"program": "Riivolution/Newer.xml"})["program"],
-                         "riivolution/Newer.xml")
-        self.assertEqual(mod_list.normalize_verdict({"program": "riivolution/a.xml"})["program"], "riivolution/a.xml")
-        self.assertEqual(mod_list.normalize_verdict({"skip": "no xml"}), {"skip": "no xml"})
+    def test_verdicts_from_older_rules_are_looked_at_again(self):
+        # A pack listed before the version 2 rules: its game IDs may be partial.
+        old = {"format": "zip", "program": "Riivolution/Newer.xml", "games": ["SMN"]}
+        self.assertFalse(mod_list.cached_verdict_ok(old))
+        self.assertTrue(mod_list.cached_verdict_ok(dict(old, v=mod_list.VERDICT_VERSION)))
+        self.assertTrue(mod_list.cached_verdict_ok({"skip": "no riivolution/*.xml"}))
+
+    def test_file_verdict_drops_an_old_one(self):
+        builder = mod_list.Builder.__new__(mod_list.Builder)
+        builder.state = {"mods": {}, "files": {"7": {"format": "zip", "games": ["SMN"]}}}
+        looked = []
+
+        def look_inside(f):
+            looked.append(f["_idRow"])
+            return {"v": mod_list.VERDICT_VERSION, "format": "zip", "games": ["SMN", "SMNP"]}
+        builder.look_inside = look_inside
+        verdict = builder.file_verdict({"_idRow": 7})
+        self.assertEqual(looked, [7])
+        self.assertEqual(verdict["games"], ["SMN", "SMNP"])
+        # Now current: kept.
+        builder.file_verdict({"_idRow": 7})
+        self.assertEqual(looked, [7])
 
 
 class ExcludeTests(unittest.TestCase):

@@ -349,15 +349,17 @@ def make_icon(image_bytes):
     return None
 
 
-def normalize_verdict(verdict):
-    """A cached verdict as this version writes it: `program` always under
-    "riivolution/" (earlier runs kept the archive's spelling, "Riivolution/",
-    which the Wii refuses). Verdicts are cached for good, so old ones are
-    brought up to date when read."""
-    program = verdict.get("program")
-    if program and not program.startswith("riivolution/") and program.lower().startswith("riivolution/"):
-        verdict["program"] = "riivolution/" + program[len("riivolution/"):]
-    return verdict
+# The rules a listed file passed. A file's verdict is cached for good (the
+# file never changes), so when the rules for listing one change, this goes
+# up and the files listed under older rules are looked at again. 2: the XML
+# path is always under "riivolution/", and an XML too big to read whole
+# rejects its archive. A "skip" stays: a file that wasn't a pack still isn't.
+VERDICT_VERSION = 2
+
+
+def cached_verdict_ok(verdict):
+    """Whether a cached verdict can be used as it is."""
+    return "skip" in verdict or verdict.get("v", 0) >= VERDICT_VERSION
 
 
 class Builder:
@@ -449,8 +451,9 @@ class Builder:
     def file_verdict(self, f):
         """What a download is: a dict with the pack's layout, or a "skip"."""
         key = str(f["_idRow"])
+        if key in self.state["files"] and not cached_verdict_ok(self.state["files"][key]):
+            del self.state["files"][key]  # listed under older rules: looked at again
         if key in self.state["files"]:
-            normalize_verdict(self.state["files"][key])
             return self.state["files"][key]
         try:
             verdict = self.look_inside(f)
@@ -482,7 +485,7 @@ class Builder:
             data = self.web.download(url, MAX_LISTED_OTHER)
             names, xmls = other_names_and_xml(data, ext)
             root, riiv, xml_names, tops = pack_layout(names)
-            return {"format": ext, "size": len(data), "sha256": hashlib.sha256(data).hexdigest(),
+            return {"v": VERDICT_VERSION, "format": ext, "size": len(data), "sha256": hashlib.sha256(data).hexdigest(),
                     "root": root, "riivolution": riiv, "program": "riivolution/" + xml_names[0][len(root) + len(riiv):],
                     "folders": tops, "games": game_ids(xmls.values())}
         raise Skip(f"a .{ext} file")
@@ -511,7 +514,7 @@ class Builder:
         files, total = unpacked([(i.filename, i.file_size) for i in infos], root, set(tops) | {riiv[:-1]})
         if files == 0 or files > app_list.MAX_FILES or total > app_list.MAX_UNPACKED:
             raise Skip(f"{files} files, {total} bytes")
-        return {"format": "zip", "size": len(data), "sha256": hashlib.sha256(data).hexdigest(),
+        return {"v": VERDICT_VERSION, "format": "zip", "size": len(data), "sha256": hashlib.sha256(data).hexdigest(),
                 "root": root, "riivolution": riiv, "program": "riivolution/" + xml_names[0][len(root) + len(riiv):],
                 "folders": tops, "games": game_ids(xml_texts), "files": files, "unpacked": total}
 
