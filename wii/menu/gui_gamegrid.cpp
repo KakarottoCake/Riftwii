@@ -60,6 +60,7 @@ constexpr int kTitleSize = 15;       // names: the tile's two lines
 constexpr int kCoverTitleSize = 13;  // covers: a tile without a cover
 constexpr int kCaptionSize = 18;     // covers: the lit game's name
 constexpr int kCaptionY = 266;
+constexpr int kCaptionDescent = 6;   // below the caption's line: a g's or a y's tail
 constexpr int kShelfCaptionY = 276;  // under the shelf (wii/menu/gui_shelf.cpp)
 constexpr int kTextLeft = 11;
 constexpr int kCoverTextLeft = 6;
@@ -672,10 +673,13 @@ void GuiGameGrid::TurnPage(int delta) {
         f32 vx, vy, vw, vh;
         Menu_VisibleArea(&vx, &vy, &vw, &vh);
         const float top = static_cast<float>(TileY(0) - 16);
-        // Down past the lit game's name under the covers, all of it: an
-        // edge across it showed the old name's top over the new one's foot.
+        // Down past the lit game's name under the covers, all of it (an
+        // edge across it showed the old name's top over the new one's
+        // foot), its descenders included, and no further: 14 more took
+        // the top of Home's clock and the bar's line along in the picture,
+        // sliding over the ones that stay (a tester's video, Wave theme).
         const float bottom = static_cast<float>(
-            std::max(TileY(kPerPage - 1) + Geo().tileH + 30, covers || channels ? CoverCaptionY() + kCaptionSize + 14 : 0));
+            std::max(TileY(kPerPage - 1) + Geo().tileH + 30, covers || channels ? CoverCaptionY() + kCaptionSize + kCaptionDescent : 0));
         // Across the tiles' columns only (their lit edge included): the
         // page arrows stay out, or the sliding picture took a copy of them
         // along (a tester saw a button's ghost).

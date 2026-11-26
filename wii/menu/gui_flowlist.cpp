@@ -20,6 +20,7 @@ namespace {
 
 constexpr int kPad = 14;
 constexpr int kChipW = 208, kChipH = 30;  // skin::chipOn/chipOff
+constexpr int kOpensW = 20;                // an Action's lone ">" (FlowRow::opens)
 constexpr int kStep = 34;                 // skin::stepBack/stepForward
 constexpr int kGap = 6;
 constexpr int kSwitchW = 60;  // skin::switchOn/switchOff
@@ -48,12 +49,26 @@ bool Pressed(GuiTrigger* t, u32 wpad, u16 pad, u16 drc) {
     return (t->wpad && (t->wpad->btns_d & wpad)) || (t->pad.btns_d & pad) || (t->wiidrcdata.btns_d & drc);
 }
 
+// An Action with no value of its own that leads somewhere: just its ">".
+bool OpensScreen(const FlowRow& r) {
+    return r.kind == FlowRow::Kind::Action && r.value.empty() && r.opens && !r.dim;
+}
+
+// On cards, the rows whose value is drawn as plain text at their end
+// (everything but a live Option's stepper and a Toggle's switch).
+bool EndsInText(const FlowRow& r) {
+    if (r.kind == FlowRow::Kind::Toggle) return false;
+    return !(r.kind == FlowRow::Kind::Option && !r.dim);
+}
+
 // The width a row's control takes at its right.
 int ControlWidth(const FlowRow& r) {
     switch (r.kind) {
         case FlowRow::Kind::Option: return r.dim ? kChipW : kStepperW;
         case FlowRow::Kind::Toggle: return kSwitchW + 64;
         case FlowRow::Kind::Action:
+            if (r.value.empty()) return r.opens && !r.dim ? kOpensW : 0;
+            return kChipW;
         case FlowRow::Kind::Header: return r.value.empty() ? 0 : kChipW;
         case FlowRow::Kind::Info: return r.value.empty() ? 0 : kChipW;
     }
@@ -232,19 +247,17 @@ void GuiFlowList::Draw() {
             const bool note = r.kind == FlowRow::Kind::Info && r.value.empty();
             label[i]->SetFontSize(r.heading ? 20 : note ? 15 : 18);
             label[i]->SetColor(r.dim ? skin::kInkDim : r.indent ? skin::kInkSoft : skin::kInk);
-            const int control = ControlWidth(r);
-            label[i]->SetMaxWidth(ControlsRight() - x0 - kPad - (r.indent ? 22 : 0) - (r.icon_column ? kIconRoom : 0) -
-                                  (control ? control + kPad : 0));
-            detail[i]->SetText(r.detail.empty() ? nullptr : r.detail.c_str());
-            detail[i]->SetColor(skin::kInkDim);
-            detail[i]->SetMaxWidth(ControlsRight() - x0 - kPad - (r.indent ? 22 : 0) - (r.icon_column ? kIconRoom : 0) -
-                                   (control ? control + kPad : 0));
             // GuiText translates what it is given, but an action's value
             // gets the arrow first, and "Rescan  >" is no catalog key: the
             // value is translated here, before the arrow (issue 84). A value
             // already translated with tr() is no key either and stays as it is.
             std::string text = riftwii::wii::tr(r.value.c_str());
-            if (r.kind == FlowRow::Kind::Action && !r.dim) text += "  \xE2\x80\xBA";
+            if (r.kind == FlowRow::Kind::Action && !r.dim) {
+                if (!r.value.empty())
+                    text += "  \xE2\x80\xBA";
+                else if (r.opens)
+                    text = "\xE2\x80\xBA";
+            }
             value[i]->SetText(text.c_str());
             // A long value (a theme's name, a translation) keeps the
             // list's size and the chip cuts it off: one row in smaller
@@ -252,6 +265,17 @@ void GuiFlowList::Draw() {
             value[i]->SetFontSize(15);
             value[i]->SetColor(r.dim ? skin::kInkDim : r.on ? skin::kAccentInk : skin::kInkSoft);
             value[i]->SetMaxWidth(kChipW - 20);
+            // On cards a value is plain text at the row's end (endText), so
+            // the name may use the room up to it, not a whole chip's: "Get >"
+            // left a theme's name only "Dashb..." on a half-width list.
+            int control = ControlWidth(r);
+            if (cards && EndsInText(r) && !text.empty()) control = std::min(value[i]->GetTextWidth(), kChipW - 20);
+            label[i]->SetMaxWidth(ControlsRight() - x0 - kPad - (r.indent ? 22 : 0) - (r.icon_column ? kIconRoom : 0) -
+                                  (control ? control + kPad : 0));
+            detail[i]->SetText(r.detail.empty() ? nullptr : r.detail.c_str());
+            detail[i]->SetColor(skin::kInkDim);
+            detail[i]->SetMaxWidth(ControlsRight() - x0 - kPad - (r.indent ? 22 : 0) - (r.icon_column ? kIconRoom : 0) -
+                                   (control ? control + kPad : 0));
         }
     }
 
@@ -385,7 +409,7 @@ void GuiFlowList::Draw() {
                     skin::Draw(overFwd ? skin::stepForwardOver : skin::stepForward, fwdX - 4, by - 4, alpha);
                 }
                 chipText(chipX);
-            } else if (!r.value.empty()) {
+            } else if (!r.value.empty() || OpensScreen(r)) {
                 endText();
             }
             continue;
@@ -426,6 +450,8 @@ void GuiFlowList::Draw() {
                 if (!r.value.empty()) {
                     skin::Draw(r.on ? skin::chipOn : skin::chipOff, right - kChipW - 2, cy - 3, r.dim ? alpha / 2 : alpha);
                     chipText(right - kChipW);
+                } else if (OpensScreen(r)) {
+                    endText();
                 }
                 break;
             case FlowRow::Kind::Info:

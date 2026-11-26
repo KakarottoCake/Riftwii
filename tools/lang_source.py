@@ -9878,6 +9878,11 @@ FR.update({
 # Emulated NAND manager.
 T.update({
     'Manage emulated NAND': ('Gestionar NAND emulada', '仮想NANDの管理', 'Gerenciar NAND emulada', 'Gestisci NAND emulata'),
+    "Install WAD files, or see and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.": (
+        'Instala archivos WAD, o mira y cambia lo que hay en una NAND emulada: borra canales instalados en ella, copia la partida de un juego o los Mii entre ella y la Wii, o quita su copia de los ajustes de la Wii.',
+        'WADファイルをインストールしたり、仮想NANDの中身を見て変更したりします。インストールしたチャンネルの削除、ゲームのセーブやMiiのWiiとのコピー、Wiiの設定のコピーの削除ができます。',
+        'Instale arquivos WAD, ou veja e mude o que há numa NAND emulada: apague canais instalados nela, copie o save de um jogo ou os Miis entre ela e o Wii, ou remova a cópia das configurações do Wii.',
+        'Installa file WAD, oppure vedi e modifica il contenuto di una NAND emulata: elimina i canali installati, copia il salvataggio di un gioco o i Mii tra essa e la Wii, oppure rimuovi la sua copia delle impostazioni della Wii.'),
     "See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.": (
         'Mira y cambia lo que hay en una NAND emulada: borra canales instalados en ella, copia la partida de un juego o los Mii entre ella y la Wii, o quita su copia de los ajustes de la Wii.',
         '仮想NANDの中身を見て変更します。インストールしたチャンネルの削除、ゲームのセーブやMiiのWiiとのコピー、Wiiの設定のコピーの削除ができます。',
@@ -9915,6 +9920,7 @@ T.update({
 })
 KO.update({
     'Manage emulated NAND': '에뮬레이트 NAND 관리',
+    "Install WAD files, or see and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.": 'WAD 파일을 설치하거나 에뮬레이트 NAND의 내용을 보고 바꿉니다. 설치한 채널을 삭제하거나, 게임 세이브 데이터나 Mii를 Wii와 서로 복사하거나, Wii 설정 사본을 지울 수 있습니다.',
     "See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.": '에뮬레이트 NAND의 내용을 보고 바꿉니다. 설치한 채널을 삭제하거나, 게임 세이브 데이터나 Mii를 Wii와 서로 복사하거나, Wii 설정 사본을 지울 수 있습니다.',
     'Copy save from Wii': 'Wii에서 저장 데이터 복사',
     'Copy save to Wii': 'Wii로 저장 데이터 복사',
@@ -9948,6 +9954,7 @@ KO.update({
 })
 FR.update({
     'Manage emulated NAND': 'Gérer la NAND émulée',
+    "Install WAD files, or see and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.": "Installer des fichiers WAD, ou voir et modifier le contenu d'une NAND émulée : supprimer les chaînes qui y sont installées, copier la sauvegarde d'un jeu ou les Mii entre elle et la Wii, ou retirer sa copie des paramètres de la Wii.",
     "See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.": "Voir et modifier le contenu d'une NAND émulée : supprimer les chaînes qui y sont installées, copier la sauvegarde d'un jeu ou les Mii entre elle et la Wii, ou retirer sa copie des paramètres de la Wii.",
     'Copy save from Wii': 'Copier la sauvegarde depuis la Wii',
     'Copy save to Wii': 'Copier la sauvegarde vers la Wii',

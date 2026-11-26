@@ -5,7 +5,6 @@
 #include "drawtrace.hpp"
 #include "skin.hpp"
 #include "transition.hpp"
-#include "wiimenusounds.hpp"
 #include "video.h"
 #include "wiidrc.h"
 
@@ -16,14 +15,12 @@ namespace {
 constexpr int kBadge = 24;   // skin::promptButton
 constexpr int kGap = 10;     // between two prompts' buttons
 constexpr int kTextGap = 8;  // between a badge and its text
-// Each prompt can be pressed with the pointer, so it is a button: a small
-// card (the tiles' frame) round its badge and word, ringed when pointed at.
-// The same room each side of the badge and word, so they sit in its middle.
+// The room each side of a badge and its word (the cards they once sat on
+// kept this spacing, which the screens' layouts are measured against).
 constexpr int kPadLeft = 9, kPadRight = 9, kPadY = 4;
-constexpr int kShadow = 8;  // skin::tile9's margin
 
-// Physical buttons give the same visual response as pointing at a prompt.
-// This observes input only; each screen keeps handling its own action.
+// A button's press dips its prompt. This observes input only; each screen
+// handles its own buttons.
 bool PromptPressed(const std::string& name, const GuiTrigger& trigger) {
     struct Key {
         const char* name;
@@ -51,8 +48,6 @@ bool PromptPressed(const std::string& name, const GuiTrigger& trigger) {
 GuiPrompts::GuiPrompts() {
     width = screenwidth;
     height = screenheight;
-    soundOver = new GuiSound(button_over_pcm, button_over_pcm_size, SOUND::PCM);
-    soundClick = new GuiSound(button_click_pcm, button_click_pcm_size, SOUND::PCM);
 }
 
 GuiPrompts::~GuiPrompts() {
@@ -60,13 +55,10 @@ GuiPrompts::~GuiPrompts() {
         delete p.badge;
         delete p.text;
     }
-    delete soundOver;
-    delete soundClick;
 }
 
-int GuiPrompts::Add(const std::string& button, const std::string& action, bool clickable) {
+int GuiPrompts::Add(const std::string& button, const std::string& action) {
     Prompt p;
-    p.clickable = clickable;
     // In the card's colour on the glyph's: two-tone in every theme (a dark one
     // has a light glyph).
     p.badge = new GuiText(button.c_str(), 14, skin::kCard);
@@ -89,12 +81,6 @@ void GuiPrompts::SetAction(int index, const std::string& action) {
 
 void GuiPrompts::SetShown(int index, bool shown) {
     if (index >= 0 && index < static_cast<int>(prompts.size())) prompts[index].shown = shown;
-}
-
-int GuiPrompts::GetClicked() {
-    const int c = clicked;
-    clicked = -1;
-    return c;
 }
 
 // The theme's badge's letter, for a button without a picture of its own.
@@ -140,15 +126,8 @@ void GuiPrompts::Draw() {
         p.w = kBadge + kTextGap + textW;
         p.x = right - kPadRight - p.w;
         right = p.x - kPadLeft - kGap;
-        const bool lit = i == hover;
         const float pressScale = riftwii::wii::transition::PressScale(p.pressElapsed);
         Menu_PushCamera(pressScale, p.x + p.w / 2.0f, kY + kBadge / 2.0f);
-        const float bx = static_cast<float>(p.x - kPadLeft), by = static_cast<float>(kY - kPadY);
-        const float bw = static_cast<float>(kPadLeft + p.w + kPadRight), bh = static_cast<float>(kBadge + 2 * kPadY);
-        if (p.clickable) {
-            skin::DrawNine(lit ? skin::tile9Over : skin::tile9, bx - kShadow, by - kShadow,
-                           bw + 2 * kShadow, bh + 2 * kShadow, skin::kTileCorner, alpha);
-        }
         // The button's own picture (Kenney's Input Prompts); the theme's
         // badge with its name for one that has none.
         const skin::Tex& picture = skin::ButtonIcon(p.button, kBadge);
@@ -158,7 +137,7 @@ void GuiPrompts::Draw() {
             skin::Draw(skin::promptButton, static_cast<float>(p.x), static_cast<float>(kY), alpha);
             DrawBadgeText(p);
         }
-        p.text->SetColor(lit ? skin::kAccentInk : skin::kInkSoft);
+        p.text->SetColor(skin::kInkSoft);
         // One down from the top puts the word's capitals on the button's
         // middle (measured on a screenshot), with the badge's letter.
         p.text->SetPosition(p.x + kBadge + kTextGap, kY + 1);
@@ -170,39 +149,11 @@ void GuiPrompts::Draw() {
 
 void GuiPrompts::Update(GuiTrigger* t) {
     if (state == STATE::DISABLED || !t) return;
+    // While the Remote points, A presses whatever is under the pointer, not
+    // what the A prompt names, so A's prompt dips only without a pointer.
     const bool pointing = t->wpad && t->wpad->ir.valid;
-    // A button press dips its prompt whether or not the Remote points. While
-    // it points, A clicks whatever is under the pointer, so the A prompt
-    // dips only when the pointer is on it (below).
     for (Prompt& prompt : prompts) {
         const bool pointerOwnsA = pointing && prompt.button == "A";
-        if (prompt.shown && prompt.clickable && !pointerOwnsA && PromptPressed(prompt.button, *t))
-            prompt.pressElapsed = 0;
-    }
-    if (!pointing) {
-        bool pointerLive = false;
-        for (int channel = 0; channel < 4; ++channel)
-            pointerLive = pointerLive || (userInput[channel].wpad && userInput[channel].wpad->ir.valid);
-        if (!pointerLive) hover = -1;
-        return;
-    }
-    const int px = static_cast<int>(t->wpad->ir.x), py = static_cast<int>(t->wpad->ir.y);
-    int at = -1;
-    for (int i = 0; i < static_cast<int>(prompts.size()); ++i) {
-        const Prompt& p = prompts[i];
-        if (p.shown && p.clickable && p.w > 0 && px >= p.x - kPadLeft && px < p.x + p.w + kPadRight && py >= kY - kPadY &&
-            py < kY + kBadge + kPadY)
-            at = i;
-    }
-    if (at != hover && at >= 0) soundOver->Play();
-    hover = at;
-    // A from whichever controller owns the pointer: a GameCube controller's
-    // stick moves this same pointer, and its A used to miss the prompt and
-    // reach the page underneath (a tester's Search opened the lit category).
-    if (at >= 0 && PromptPressed("A", *t)) {
-        clicked = at;
-        prompts[at].pressElapsed = 0;
-        riftwii::wii::PlayMenuSound(prompts[at].button == "B" ? riftwii::wii::MenuSoundEvent::Back
-                                                            : riftwii::wii::MenuSoundEvent::Click);
+        if (prompt.shown && !pointerOwnsA && PromptPressed(prompt.button, *t)) prompt.pressElapsed = 0;
     }
 }

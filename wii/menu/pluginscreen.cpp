@@ -197,13 +197,11 @@ public:
         rwp_input input = input_;
         input.frame = frames_;
         input_.pressed = 0;
-        aFromPrompt_ = false;
         return input;
     }
     void ForgetInput() {
         input_.pressed = 0;
         input_.held = 0;
-        aFromPrompt_ = false;
     }
     uint32_t Frames() const { return frames_; }
 
@@ -236,17 +234,9 @@ public:
         if (t->Right()) input_.pressed |= RWP_KEY_RIGHT;
         if (prompts_) {
             prompts_->Update(t);
-            // A prompt pointed at and pressed is its button, A's press not.
-            const int clicked = prompts_->GetClicked();
-            if (clicked >= 0 && static_cast<std::size_t>(clicked) < promptList_.size()) {
-                input_.pressed &= ~RWP_KEY_A;
-                input_.pressed |= promptList_[clicked].first;
-                aFromPrompt_ = promptList_[clicked].first == RWP_KEY_A;
-            } else if (input_.pointer && input_.y >= GuiPrompts::CardTop() && !aFromPrompt_) {
-                // A on the prompts' band but on none of them presses
-                // nothing, rather than the page's lit item.
-                input_.pressed &= ~RWP_KEY_A;
-            }
+            // The prompts are hints, not buttons: A with the pointer on
+            // their band presses nothing, rather than the page's lit item.
+            if (input_.pointer && input_.y >= GuiPrompts::CardTop()) input_.pressed &= ~RWP_KEY_A;
         }
     }
 
@@ -469,7 +459,6 @@ private:
     // The A waiting in input_.pressed is the A prompt's: kept until the plugin
     // takes its input, so a later controller's update (or a later frame with
     // the pointer still on the prompt) does not drop it.
-    bool aFromPrompt_ = false;
     volatile uint32_t frames_ = 0;
 };
 
