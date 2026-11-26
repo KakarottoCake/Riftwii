@@ -361,6 +361,16 @@ bool game_id_ok(const std::string& id) {
     return true;
 }
 
+// Whether `card_path` is in riivolution/save/ (case ignored, as FAT does).
+bool is_riivolution_save(const std::string& card_path) {
+    const std::string save = "riivolution/save/";
+    if (card_path.size() < save.size()) return false;
+    for (std::size_t i = 0; i < save.size(); ++i) {
+        if (std::tolower(static_cast<unsigned char>(card_path[i])) != save[i]) return false;
+    }
+    return true;
+}
+
 bool ends_with_xml(const std::string& path) {
     if (path.size() < 5) return false;
     std::string end = path.substr(path.size() - 4);
@@ -619,6 +629,9 @@ bool app_install_path(const AppListing& app, const std::string& raw_entry, std::
             if (rest.back() == '/') return false;
             if (!relative_path_ok(rest, false)) return false;
             card_path = to + rest;
+            // Riivolution keeps the saves it redirects in riivolution/save:
+            // the player's, whatever a mod's archive brings.
+            if (app.mod && is_riivolution_save(card_path)) return false;
         } else {
             if (zip_entry != from) continue;
             card_path = to;

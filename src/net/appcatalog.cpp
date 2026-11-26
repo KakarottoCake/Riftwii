@@ -158,12 +158,13 @@ bool IsProgramFile(const AppListing& app, const std::string& lower) {
     return false;
 }
 
-// Whether `path` is where the app's own files go: apps/<id>/, or for a mod
-// sd:/riivolution and its folders (a copy of the mod put there by hand,
-// which the player chose to replace).
+// Whether `path` is where the app's own files go: apps/<id>/, or a mod's
+// own folders (a copy of the mod put there by hand, which the player chose
+// to replace). Not riivolution/: every pack keeps its XMLs there, so a file
+// the store did not put there may be another pack's, and is kept (the
+// mod's own XML is its program, replaced before this is asked).
 bool InOwnFolders(const AppListing& app, const std::string& path) {
     if (!app.mod) return path.compare(0, OwnFolder(app).size(), OwnFolder(app)) == 0;
-    if (path.compare(0, 12, "riivolution/") == 0) return true;
     for (std::uint8_t i = 0; i < app.data_folder_count; ++i) {
         const std::string data = std::string(app.data_folders[i]) + "/";
         if (path.compare(0, data.size(), data) == 0) return true;

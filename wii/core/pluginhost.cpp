@@ -75,7 +75,7 @@ int32_t HttpGet(const char* url, uint8_t* buffer, uint32_t capacity, uint32_t* l
     // the mods' (Dolphin tests of list fields the published list does not
     // have yet).
     const char* local_list = std::strcmp(url, "https://riftwii.github.io/apps/apps.json") == 0   ? "sd:/riftwii/test_apps.json"
-                             : std::strcmp(url, "https://riftwii.github.io/mods/mods.json") == 0 ? "sd:/riftwii/test_mods.json"
+                             : std::strcmp(url, "https://riftwii.com/mods/mods.json") == 0       ? "sd:/riftwii/test_mods.json"
                                                                                                  : nullptr;
     if (local_list != nullptr) {
         if (FILE* local = std::fopen(local_list, "rb")) {

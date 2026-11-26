@@ -28,7 +28,8 @@ constexpr const char* kAppListUrl = "https://riftwii.github.io/apps/apps.json";
 // The Riivolution mods from GameBanana (docs/MODS.md, tools/mod_list.py):
 // the same schema, each entry with "kind":"mod". A game's Mods page opens
 // the store on this list, showing that game's mods.
-constexpr const char* kModListUrl = "https://riftwii.github.io/mods/mods.json";
+// Straight from riftwii.com, where riftwii.github.io redirects.
+constexpr const char* kModListUrl = "https://riftwii.com/mods/mods.json";
 // A mod's category key; only mods may have it.
 constexpr const char* kModCategory = "mods";
 // The game IDs a mod's XML names ("RMG", "SMNE"), at most this many.

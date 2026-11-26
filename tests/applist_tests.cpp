@@ -421,6 +421,9 @@ void test_mods() {
     EXPECT_EQ(path, "BetaPlanets/ObjectData/Planet.arc");
     EXPECT_TRUE(!app_install_path(m, "riivolution/BetaPlanets.xml", path));  // outside the root
     EXPECT_TRUE(!app_install_path(m, "Beta Planets v1/readme.txt", path));
+    // Riivolution's redirected saves are never written.
+    EXPECT_TRUE(!app_install_path(m, "Beta Planets v1/riivolution/save/RMGE/GameData.bin", path));
+    EXPECT_TRUE(!app_install_path(m, "Beta Planets v1/riivolution/Save/x.bin", path));
     // An app is never a mod: apps may not write riivolution/ or use "mods".
     EXPECT_TRUE(left_out("\"to\":\"snes9xgx/\"", "\"to\":\"riivolution/\""));
     EXPECT_TRUE(left_out("\"category\":\"emulators\"", "\"category\":\"mods\""));

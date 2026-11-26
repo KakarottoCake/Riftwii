@@ -272,7 +272,12 @@ unsigned CheckInOrder(ChainSorter& c, const std::size_t* order) {
 
 unsigned SorterEndChain(const br_x509_class** ctx) {
     ChainSorter& c = Sorter(ctx);
-    if (c.too_big) return BR_ERR_X509_LIMIT_EXCEEDED;
+    if (c.too_big) {
+        logf("TLS: %s sent more certificates than RiftWii keeps (%u, at most %u KB)\n",
+             c.has_name ? c.server_name : "a server", static_cast<unsigned>(ChainSorter::kMaxCerts),
+             static_cast<unsigned>(ChainSorter::kMaxBytes / 1024));
+        return BR_ERR_X509_LIMIT_EXCEEDED;
+    }
     if (c.count == 0) return BR_ERR_X509_EMPTY_CHAIN;
     std::size_t order[ChainSorter::kMaxCerts];
     for (std::size_t i = 0; i < c.count; ++i) order[i] = i;

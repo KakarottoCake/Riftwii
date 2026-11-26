@@ -15,8 +15,9 @@ its author is credited and its description, updates and comments live.
 
 `tools/mod_list.py build <out>` writes `<out>/mods.json` and
 `<out>/icons/<id>.png`. The `RiftWii/mods` repository runs it every night
-and publishes the result at `https://riftwii.github.io/mods/mods.json`
-(served from riftwii.com). How it finds the mods:
+and publishes the result at `https://riftwii.com/mods/mods.json`
+(the repository's GitHub Pages; RiftWii fetches it from riftwii.com
+itself, where riftwii.github.io redirects). How it finds the mods:
 
 1. **Which games.** Every game a GameBanana search for "riivolution" names,
    and a list of Wii games with modding scenes (`SEED_GAMES`).
@@ -74,7 +75,11 @@ store (`plugins/appstore/`) then downloads `mods.json` instead of the app
 list and opens straight on the game's mods; B there leaves the store. A
 mod installs, updates and removes as an app does: only files the store put
 on the card and nobody changed are replaced or removed, so a pack's saves
-and other mods' XMLs in `riivolution/` are never touched. When the store
+and other mods' XMLs in `riivolution/` are never touched. A file in
+`riivolution/` that the store didn't put there is never replaced (it may
+be another pack's), except the mod's own XML, and nothing is ever written
+in `riivolution/save/`, where Riivolution keeps the saves it redirects.
+When the store
 closes, the game's packs are read again and a mod that is new on the card
 is switched on.
 

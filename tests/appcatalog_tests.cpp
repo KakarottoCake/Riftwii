@@ -386,8 +386,12 @@ void test_mod_files() {
     record.has_files = true;
     EXPECT_TRUE(!app_install_replaces(mod, "BetaPlanets/a.arc", AppFileOnCard::NotOurs, &record));
     EXPECT_TRUE(!app_install_replaces(mod, "BetaPlanets/save.bin", AppFileOnCard::Changed, &record));
-    // Never another folder.
+    // Never another folder, nor another pack's file in the shared riivolution/.
     EXPECT_TRUE(!app_install_replaces(mod, "OtherPack/a.arc", AppFileOnCard::NotOurs, nullptr));
+    EXPECT_TRUE(!app_install_replaces(mod, "riivolution/Other.xml", AppFileOnCard::NotOurs, nullptr));
+    EXPECT_TRUE(!app_install_replaces(mod, "riivolution/config/RMGE.xml", AppFileOnCard::NotOurs, nullptr));
+    // Its own files there (put there by the store, unchanged) are.
+    EXPECT_TRUE(app_install_replaces(mod, "riivolution/config/RMGE.xml", AppFileOnCard::AsInstalled, &record));
     // A remove without a note takes the XML only.
     const std::vector<std::string> files = app_remove_files(mod, nullptr, {});
     EXPECT_TRUE(files.size() == 1 && files[0] == "riivolution/BetaPlanets.xml");
