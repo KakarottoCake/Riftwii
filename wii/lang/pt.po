@@ -2406,7 +2406,7 @@ msgstr "Instalar arquivos WAD"
 msgid "{1} found"
 msgstr "{1} encontrados"
 
-msgid "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed."
+msgid "Installs the .wad files in the wad folder of the SD card into the emulated NAND where USB Loader GX keeps its channels, and lists them on Home. The Wii itself is not changed."
 msgstr "Instala os arquivos .wad da pasta wad do cartão SD na NAND emulada onde o USB Loader GX guarda seus canais, e os mostra no Início. O próprio Wii não muda."
 
 msgid "No .wad files in the wad folder of the SD card."
@@ -4844,6 +4844,9 @@ msgstr "O RiftWii não consegue guardar ficheiros novos, pelo que as opções, a
 
 msgid "Manage emulated NAND"
 msgstr "Gerenciar NAND emulada"
+
+msgid "Install WAD files, or see and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings."
+msgstr "Instale arquivos WAD, ou veja e mude o que há numa NAND emulada: apague canais instalados nela, copie o save de um jogo ou os Miis entre ela e o Wii, ou remova a cópia das configurações do Wii."
 
 msgid "See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings."
 msgstr "Veja e mude o que há numa NAND emulada: apague canais instalados nela, copie o save de um jogo ou os Miis entre ela e o Wii, ou remova a cópia das configurações do Wii."

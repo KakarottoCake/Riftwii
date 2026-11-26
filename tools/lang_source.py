@@ -2134,7 +2134,7 @@ T = {
     # Wii channels (WiiWare and Virtual Console)
     "Install WAD files": ("Instalar archivos WAD", "WADファイルをインストール", "Instalar arquivos WAD", "Installa file WAD"),
     "{1} found": ("{1} encontrados", "{1}個", "{1} encontrados", "{1} trovati"),
-    "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.": ("Instala los archivos .wad de la carpeta wad de la tarjeta SD en la NAND emulada donde USB Loader GX guarda sus canales, y los muestra en Inicio. La propia Wii no cambia.", "SDカードのwadフォルダにある.wadファイルを、USB Loader GXがチャンネルを置くエミュレートNANDにインストールし、ホームに表示します。Wii本体は変わりません。", "Instala os arquivos .wad da pasta wad do cartão SD na NAND emulada onde o USB Loader GX guarda seus canais, e os mostra no Início. O próprio Wii não muda.", "Installa i file .wad della cartella wad della scheda SD nella NAND emulata dove USB Loader GX tiene i suoi canali, e li mostra nella Home. La Wii stessa non cambia."),
+    "Installs the .wad files in the wad folder of the SD card into the emulated NAND where USB Loader GX keeps its channels, and lists them on Home. The Wii itself is not changed.": ("Instala los archivos .wad de la carpeta wad de la tarjeta SD en la NAND emulada donde USB Loader GX guarda sus canales, y los muestra en Inicio. La propia Wii no cambia.", "SDカードのwadフォルダにある.wadファイルを、USB Loader GXがチャンネルを置くエミュレートNANDにインストールし、ホームに表示します。Wii本体は変わりません。", "Instala os arquivos .wad da pasta wad do cartão SD na NAND emulada onde o USB Loader GX guarda seus canais, e os mostra no Início. O próprio Wii não muda.", "Installa i file .wad della cartella wad della scheda SD nella NAND emulata dove USB Loader GX tiene i suoi canali, e li mostra nella Home. La Wii stessa non cambia."),
     "No .wad files in the wad folder of the SD card.": ("No hay archivos .wad en la carpeta wad de la tarjeta SD.", "SDカードのwadフォルダに.wadファイルがありません。", "Não há arquivos .wad na pasta wad do cartão SD.", "Nessun file .wad nella cartella wad della scheda SD."),
     "Install {1} WAD file(s) into {2}? The Wii itself is not changed.": ("¿Instalar {1} archivo(s) WAD en {2}? La propia Wii no cambia.", "{1}個のWADファイルを{2}にインストールしますか？Wii本体は変わりません。", "Instalar {1} arquivo(s) WAD em {2}? O próprio Wii não muda.", "Installare {1} file WAD in {2}? La Wii stessa non cambia."),
     "Install": ("Instalar", "インストール", "Instalar", "Installa"),
@@ -4051,7 +4051,7 @@ KO = {
         "WAD 파일 설치",
     "{1} found":
         "{1}개",
-    "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.":
+    "Installs the .wad files in the wad folder of the SD card into the emulated NAND where USB Loader GX keeps its channels, and lists them on Home. The Wii itself is not changed.":
         "SD 카드의 wad 폴더에 있는 .wad 파일을 USB Loader GX가 채널을 두는 에뮬레이트 NAND에 설치하고 홈에 표시합니다. Wii 본체는 바뀌지 않습니다.",
     "No .wad files in the wad folder of the SD card.":
         "SD 카드의 wad 폴더에 .wad 파일이 없습니다.",
@@ -5919,7 +5919,7 @@ FR = {
         "Installer des fichiers WAD",
     "{1} found":
         "{1} trouvés",
-    "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.":
+    "Installs the .wad files in the wad folder of the SD card into the emulated NAND where USB Loader GX keeps its channels, and lists them on Home. The Wii itself is not changed.":
         "Installe les fichiers .wad du dossier wad de la carte SD dans la NAND émulée où USB Loader GX garde ses chaînes, et les affiche dans l'Accueil. La Wii elle-même ne change pas.",
     "No .wad files in the wad folder of the SD card.":
         "Aucun fichier .wad dans le dossier wad de la carte SD.",
@@ -9878,6 +9878,11 @@ FR.update({
 # Emulated NAND manager.
 T.update({
     'Manage emulated NAND': ('Gestionar NAND emulada', '仮想NANDの管理', 'Gerenciar NAND emulada', 'Gestisci NAND emulata'),
+    "Install WAD files, or see and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.": (
+        'Instala archivos WAD, o mira y cambia lo que hay en una NAND emulada: borra canales instalados en ella, copia la partida de un juego o los Mii entre ella y la Wii, o quita su copia de los ajustes de la Wii.',
+        'WADファイルをインストールしたり、仮想NANDの中身を見て変更したりします。インストールしたチャンネルの削除、ゲームのセーブやMiiのWiiとのコピー、Wiiの設定のコピーの削除ができます。',
+        'Instale arquivos WAD, ou veja e mude o que há numa NAND emulada: apague canais instalados nela, copie o save de um jogo ou os Miis entre ela e o Wii, ou remova a cópia das configurações do Wii.',
+        'Installa file WAD, oppure vedi e modifica il contenuto di una NAND emulata: elimina i canali installati, copia il salvataggio di un gioco o i Mii tra essa e la Wii, oppure rimuovi la sua copia delle impostazioni della Wii.'),
     "See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.": (
         'Mira y cambia lo que hay en una NAND emulada: borra canales instalados en ella, copia la partida de un juego o los Mii entre ella y la Wii, o quita su copia de los ajustes de la Wii.',
         '仮想NANDの中身を見て変更します。インストールしたチャンネルの削除、ゲームのセーブやMiiのWiiとのコピー、Wiiの設定のコピーの削除ができます。',
@@ -9915,6 +9920,7 @@ T.update({
 })
 KO.update({
     'Manage emulated NAND': '에뮬레이트 NAND 관리',
+    "Install WAD files, or see and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.": 'WAD 파일을 설치하거나 에뮬레이트 NAND의 내용을 보고 바꿉니다. 설치한 채널을 삭제하거나, 게임 세이브 데이터나 Mii를 Wii와 서로 복사하거나, Wii 설정 사본을 지울 수 있습니다.',
     "See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.": '에뮬레이트 NAND의 내용을 보고 바꿉니다. 설치한 채널을 삭제하거나, 게임 세이브 데이터나 Mii를 Wii와 서로 복사하거나, Wii 설정 사본을 지울 수 있습니다.',
     'Copy save from Wii': 'Wii에서 저장 데이터 복사',
     'Copy save to Wii': 'Wii로 저장 데이터 복사',
@@ -9948,6 +9954,7 @@ KO.update({
 })
 FR.update({
     'Manage emulated NAND': 'Gérer la NAND émulée',
+    "Install WAD files, or see and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.": "Installer des fichiers WAD, ou voir et modifier le contenu d'une NAND émulée : supprimer les chaînes qui y sont installées, copier la sauvegarde d'un jeu ou les Mii entre elle et la Wii, ou retirer sa copie des paramètres de la Wii.",
     "See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.": "Voir et modifier le contenu d'une NAND émulée : supprimer les chaînes qui y sont installées, copier la sauvegarde d'un jeu ou les Mii entre elle et la Wii, ou retirer sa copie des paramètres de la Wii.",
     'Copy save from Wii': 'Copier la sauvegarde depuis la Wii',
     'Copy save to Wii': 'Copier la sauvegarde vers la Wii',

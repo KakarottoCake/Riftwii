@@ -3730,8 +3730,8 @@ static int PickHomeChoice(const char* name, std::vector<TileSpec>& tiles, int cu
 	HideButton(back);
 	GuiPrompts prompts;
 	// B first: Back at the right end, as on every other page.
-	const int backPrompt = prompts.Add("B", tr("Back"));
-	const int choosePrompt = prompts.Add("A", tr("Choose"));
+	prompts.Add("B", tr("Back"));
+	prompts.Add("A", tr("Choose"));
 	ShiftWindow window(0.86f, 0, true);
 	window.Append(&dim);
 	window.Append(&panel);
@@ -3752,10 +3752,8 @@ static int PickHomeChoice(const char* name, std::vector<TileSpec>& tiles, int cu
 		usleep(20000);
 		RestartIfOutOfMemory();
 		HaltGui();
-		const int prompt = prompts.GetClicked();
-		if (back.Clicked() || prompt == backPrompt) break;
+		if (back.Clicked()) break;
 		picked = choices.GetClicked();
-		if (prompt == choosePrompt) picked = choices.Selected();
 		if (picked >= 0) break;
 		ResumeGui();
 	}
@@ -4953,7 +4951,7 @@ static void RunUpdate(const std::string& latest)
 	SetHomeNotice(tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest}));
 }
 
-// Settings > Games > Install WAD files: every .wad in sd:/wad into the emulated NAND
+// Settings > Games > Manage emulated NAND > Install WAD files: every .wad in sd:/wad into the emulated NAND
 // the channels are listed from (wii/storage/wadinstall.hpp), asked first,
 // with a progress bar. True when any was installed (Home reads them again).
 static bool InstallWads()
@@ -6178,8 +6176,8 @@ static bool EmulatorRowsPage(const std::string& title, std::vector<FlowRow>& row
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
-	const int back = prompts.Add("B", tr("Back"));
-	const int choose = prompts.Add("A", tr("Open"), false);
+	prompts.Add("B", tr("Back"));
+	const int choose = prompts.Add("A", tr("Open"));
 	prompts.SetRightEdge(page.right);
 	GuiWindow window(screenwidth, screenheight);
 	window.Append(&titleBand);
@@ -6207,7 +6205,6 @@ static bool EmulatorRowsPage(const std::string& title, std::vector<FlowRow>& row
 		} else {
 			prompts.SetShown(choose, false);
 		}
-		if (prompts.GetClicked() == back) backBtn.PressSilently();
 		if (backBtn.Clicked() || ExitRequested) break;
 		int clicked = list.GetClicked();
 		int direction = 1;
@@ -6306,10 +6303,12 @@ static void MenuEmulatedNandTitle(const std::string& folder, const riftwii::wii:
 	std::vector<FlowRow> rows;
 	std::vector<std::string> help;
 	std::vector<EmuNandAction> actions;
+	// Each asks before it acts: a ">" says so (FlowRow::opens).
 	const auto add = [&](const char* label, EmuNandAction action) {
 		FlowRow row;
 		row.kind = FlowRow::Kind::Action;
 		row.label = label;
+		row.opens = true;
 		rows.push_back(row);
 		help.push_back(folder + "\n" + riftwii::emunand_title_text(title.id));
 		actions.push_back(action);
@@ -6332,6 +6331,7 @@ static void MenuEmulatedNandTitle(const std::string& folder, const riftwii::wii:
 		row.kind = FlowRow::Kind::Action;
 		// The folder by name: two on the same card would read alike.
 		row.label = tr("Copy to {1}", {copyTo});
+		row.opens = true;
 		rows.push_back(row);
 		help.push_back(tr("Copies this game, its save and its ticket to {1}. RiftWii plays WiiWare and Virtual Console games from an emulated NAND on the SD card.", {copyTo}));
 	}
@@ -6403,6 +6403,7 @@ static void MenuEmulatedNandFolder(const std::string& folder)
 			FlowRow row;
 			row.kind = FlowRow::Kind::Action;
 			row.label = label;
+			row.opens = true;  // a tool asks first; a title opens its page
 			rows.push_back(row);
 			help.push_back(note);
 			rowTitles.push_back(-1);
@@ -6422,9 +6423,27 @@ static void MenuEmulatedNandFolder(const std::string& folder)
 			{0x00010008, tr("Hidden titles")},
 			{0, tr("Other titles")},
 		};
+		// Each group A to Z by the name its row shows, as Home sorts games:
+		// a leading "The", case and accents aside. A title with no name is
+		// filed by its code (RXYZ among the R's).
+		std::vector<std::size_t> order;
+		if (!riftwii::try_reserve(order, titles.size())) {
+			ShowPopup(tr("Emulated NAND"), tr("There is not enough free memory."), tr("OK"));
+			return false;
+		}
+		for (std::size_t index = 0; index < titles.size(); ++index) order.push_back(index);
+		std::stable_sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) {
+			const std::string nameA = EmulatedNandTitleLabel(titles[a]);
+			const std::string nameB = EmulatedNandTitleLabel(titles[b]);
+			const std::string keyA = riftwii::sort_key(nameA.substr(riftwii::sort_name_start(nameA)));
+			const std::string keyB = riftwii::sort_key(nameB.substr(riftwii::sort_name_start(nameB)));
+			if (keyA != keyB) return keyA < keyB;
+			if (nameA != nameB) return riftwii::sort_name_less(nameA, nameB);
+			return titles[a].id < titles[b].id;
+		});
 		for (const Group& group : groups) {
 			bool headingShown = false;
-			for (std::size_t index = 0; index < titles.size(); ++index) {
+			for (const std::size_t index : order) {
 				const EmuNandTitle& title = titles[index];
 				const std::uint32_t type = title.id >> 32;
 				const bool other = type != 0x00010000 && type != 0x00010001 &&
@@ -6473,25 +6492,48 @@ static void MenuEmulatedNandFolder(const std::string& folder)
 static void MenuEmulatedNand()
 {
 	std::vector<std::string> folders;
-	{
-		PopupBox box(tr("Emulated NAND"), tr("Reading folders..."));
-		ResumeGui();
-		folders = riftwii::wii::emunand_manager_folders();
-		HaltGui();
-	}
 	std::vector<FlowRow> rows;
 	// Each row says what opening it does (the help line repeated the
 	// folder's name, which the row already shows).
 	std::vector<std::string> help;
-	for (const std::string& folder : folders) {
-		FlowRow row;
-		row.kind = FlowRow::Kind::Action;
-		row.label = folder;
-		rows.push_back(row);
-		help.push_back(tr("See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings."));
-	}
+	// WiiWare and Virtual Console games from .wad files go into an emulated
+	// NAND, so installing them is here with the rest (it was in Settings >
+	// Games; a tester asked for it here), first, the folders after it. Read
+	// again after an install: the count changes, and the first install
+	// makes the folder it went into.
+	const auto build = [&] {
+		{
+			PopupBox box(tr("Emulated NAND"), tr("Reading folders..."));
+			ResumeGui();
+			folders = riftwii::wii::emunand_manager_folders();
+			HaltGui();
+		}
+		rows.clear();
+		help.clear();
+		const std::size_t wadCount = riftwii::wii::list_wad_files().size();
+		FlowRow wads;
+		wads.kind = FlowRow::Kind::Action;
+		wads.label = tr("Install WAD files");
+		wads.value = wadCount == 0 ? tr("None") : tr("{1} found", {std::to_string(wadCount)});
+		wads.dim = wadCount == 0;
+		rows.push_back(wads);
+		help.push_back(tr("Installs the .wad files in the wad folder of the SD card into the emulated NAND where USB Loader GX keeps its channels, and lists them on Home. The Wii itself is not changed."));
+		for (const std::string& folder : folders) {
+			FlowRow row;
+			row.kind = FlowRow::Kind::Action;
+			row.label = folder;
+			row.opens = true;
+			rows.push_back(row);
+			help.push_back(tr("See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings."));
+		}
+	};
+	build();
 	EmulatorRowsPage(tr("Emulated NAND"), rows, help, [&](int clicked, int) {
-		MenuEmulatedNandFolder(folders[static_cast<std::size_t>(clicked)]);
+		if (clicked == 0) {
+			if (InstallWads()) build();
+			return false;
+		}
+		MenuEmulatedNandFolder(folders[static_cast<std::size_t>(clicked - 1)]);
 		return false;
 	});
 }
@@ -6535,8 +6577,8 @@ static int PickOwnPicture(const char* title, const std::string& path, riftwii::w
 		GuiText heading(title, 30, skin::kInk);
 		Place(heading, 78, 28);
 		GuiPrompts prompts;
-		const int back = prompts.Add("B", tr("Back"));
-		const int choose = prompts.Add("A", tr("Choose"));
+		prompts.Add("B", tr("Back"));
+		prompts.Add("A", tr("Choose"));
 		GuiWindow window(screenwidth, screenheight);
 		window.Append(&band);
 		window.Append(&heading);
@@ -6547,9 +6589,7 @@ static int PickOwnPicture(const char* title, const std::string& path, riftwii::w
 		while (true) {
 			usleep(10000);
 			HaltGui();
-			const int prompt = prompts.GetClicked();
-			if (prompt == back || ExitRequested) picker.Back();
-			else if (prompt == choose) picker.Accept();
+			if (ExitRequested) picker.Back();
 			picker.Pump();
 			if (picker.Choice() != GuiPicturePicker::Result::Waiting) break;
 			ResumeGui();
@@ -11082,7 +11122,7 @@ static void RunRowPage(const std::string& title, const std::string& subtitle, st
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
-	const int promptBack = prompts.Add("B", tr("Back"));
+	prompts.Add("B", tr("Back"));
 	prompts.Add("A", tr("Select"));
 
 	HaltGui();
@@ -11128,14 +11168,12 @@ static void RunRowPage(const std::string& title, const std::string& subtitle, st
 			// this page's: B there must not also leave this one.
 			list.GetClicked();
 			list.GetClickedBack();
-			prompts.GetClicked();
 			backBtn.button.ResetState();
 			if (status) statusTxt.SetText(status().c_str());
 			list.Refresh();
 			if (!rows.empty()) list.Select(std::min<int>(acted, static_cast<int>(rows.size()) - 1));
 			shownRow = -1;
 		}
-		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		if (backBtn.Clicked()) done = true;
 		ResumeGui();
 	}
@@ -13778,17 +13816,15 @@ static void MenuCoverCloseup(const std::string& game_id, const std::string& cove
 	while (!closeup.Closed()) {
 		usleep(10000);
 		HaltGui();
-		const int prompt = prompts.GetClicked();
 		if (closing) {
 			// shrinking back: no more presses
-		} else if (closeup.TakeBack() || prompt == promptClose) {
+		} else if (closeup.TakeBack()) {
 			closeup.Close();
 			closing = true;
 			prompts.SetShown(promptClose, false);
 		} else if (closeup.HasBack()) {
 			if (closeup.TakeDown()) closeup.ShowBack(true);
 			if (closeup.TakeUp()) closeup.ShowBack(false);
-			if (prompt == promptTurn) closeup.ShowBack(!closeup.ShowingBack());
 		}
 		// Down for the back, or Up for the front: the other side's name.
 		const bool turnShown = closeup.HasBack() && !closing;
@@ -13984,15 +14020,12 @@ static void MenuDiscCloseup(const riftwii::wii::DiscArt* art)
 	while (!closeup.Closed()) {
 		usleep(10000);
 		HaltGui();
-		const int prompt = prompts.GetClicked();
-		if (!closing && (closeup.TakeBack() || prompt == promptClose)) {
+		if (!closing && closeup.TakeBack()) {
 			closeup.Close();
 			closing = true;
 			prompts.SetShown(promptClose, false);
 			prompts.SetShown(promptSpin, false);
 		}
-		// A press on Spin needs no handling here: DiscCloseup::Update already
-		// flicks on the A press itself, so flicking again would double it.
 		ResumeGui();
 	}
 	HaltGui();
@@ -14145,13 +14178,16 @@ public:
 		// The age rating: a badge in the band's top right corner.
 		if (HasRating()) {
 			const float bx = page.right - 52, by = 32, bw = 52, bh = 62;
-			skin::DrawNine(skin::card9, bx - 8, by - 8, bw + 16, bh + 16, riftwii::kCardCorner, alpha);
 			if (ratingMark.data) {
-				// The mark (64 high at most), centred on the card.
+				// The board's own mark is a badge with its own border: on its
+				// own, without the card, which showed round an ESRB mark
+				// (44 x 64, taller than the card) as a second frame. Centred
+				// where the card would be.
 				const float mx = bx + (bw - ratingMark.w) / 2.0f;
 				const float my = by + (bh - ratingMark.h) / 2.0f;
 				skin::Draw(ratingMark, mx, my, alpha);
 			} else {
+				skin::DrawNine(skin::card9, bx - 8, by - 8, bw + 16, bh + 16, riftwii::kCardCorner, alpha);
 				ratingTxt->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 				ratingTxt->SetPosition(static_cast<int>(bx + bw / 2) - screenwidth / 2, static_cast<int>(by + 8));
 				ratingTxt->Draw();
@@ -14347,7 +14383,7 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
-	const int promptBack = prompts.Add("B", tr("Back"));
+	prompts.Add("B", tr("Back"));
 	prompts.SetRightEdge(page.right);
 	const bool online = riftwii::wii::Settings().online;
 	const int promptUpdate = online ? prompts.Add("-", tr("Update")) : -1;
@@ -14395,9 +14431,6 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 				(userInput[i].pad.btns_d & PAD_TRIGGER_L);
 			if (minus) update = true;
 		}
-		const int pressed = prompts.GetClicked();
-		if (pressed == promptBack) backBtn.PressSilently();
-		if (pressed >= 0 && pressed == promptUpdate) update = true;
 		if (backBtn.Clicked() || update) done = true;
 		ResumeGui();
 	}
@@ -14606,7 +14639,7 @@ static void MenuCheats(FrontendState& state)
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
-	const int promptBack = prompts.Add("B", tr("Back"));
+	prompts.Add("B", tr("Back"));
 	prompts.Add("A", tr("Select"));
 
 	HaltGui();
@@ -14765,7 +14798,6 @@ static void MenuCheats(FrontendState& state)
 				shownRow = -1;
 			}
 		}
-		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		if (backBtn.Clicked()) done = true;
 		ResumeGui();
 	}
@@ -14868,7 +14900,7 @@ static bool MenuPickCodes(const FrontendState& state, std::string& key)
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
-	const int promptBack = prompts.Add("B", tr("Back"));
+	prompts.Add("B", tr("Back"));
 	prompts.Add("A", tr("Select"));
 
 	HaltGui();
@@ -14924,7 +14956,6 @@ static bool MenuPickCodes(const FrontendState& state, std::string& key)
 				noteTxt.SetText(help.c_str());
 			}
 		}
-		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		if (backBtn.Clicked()) done = true;
 		ResumeGui();
 	}
@@ -15029,7 +15060,7 @@ static bool MenuPickMusic(std::string& choice)
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
-	const int promptBack = prompts.Add("B", tr("Back"));
+	prompts.Add("B", tr("Back"));
 	prompts.Add("A", tr("Select"));
 
 	HaltGui();
@@ -15100,7 +15131,6 @@ static bool MenuPickMusic(std::string& choice)
 				noteTxt.SetText(help.c_str());
 			}
 		}
-		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		if (backBtn.Clicked()) done = true;
 		ResumeGui();
 	}
@@ -15212,7 +15242,7 @@ static bool MenuPickFolder(std::string& picked)
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
-	const int promptBack = prompts.Add("B", tr("Back"));
+	prompts.Add("B", tr("Back"));
 	prompts.Add("A", tr("Select"));
 
 	HaltGui();
@@ -15275,7 +15305,6 @@ static bool MenuPickFolder(std::string& picked)
 				noteTxt.SetText(help.c_str());
 			}
 		}
-		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		if (backBtn.Clicked()) done = true;
 		ResumeGui();
 	}
@@ -15351,7 +15380,7 @@ static bool MenuGameFolders(std::vector<std::string>& folders)
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
-	const int promptBack = prompts.Add("B", tr("Back"));
+	prompts.Add("B", tr("Back"));
 	prompts.Add("A", tr("Select"));
 
 	HaltGui();
@@ -15426,7 +15455,6 @@ static bool MenuGameFolders(std::vector<std::string>& folders)
 			list.Refresh();
 			list.Select(std::min<int>(select, static_cast<int>(rows.size()) - 1));
 		}
-		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		if (backBtn.Clicked()) done = true;
 		ResumeGui();
 	}
@@ -15558,7 +15586,7 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
-	const int promptBack = prompts.Add("B", tr("Back"));
+	prompts.Add("B", tr("Back"));
 	prompts.Add("A", tr("Select"));
 	ModPicturePopup picture(state.game_id);
 
@@ -15862,7 +15890,6 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 				shownRow = ctgprSaid ? acted : -1;  // the answer stays up
 			}
 		}
-		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		if (backBtn.Clicked()) done = true;
 		ResumeGui();
 	}
@@ -16124,7 +16151,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
-	const int promptBack = prompts.Add("B", tr("Back"));
+	prompts.Add("B", tr("Back"));
 	const int promptChange = prompts.Add("A", tr("Change"));
 	prompts.SetRightEdge(page.right);
 
@@ -16515,7 +16542,6 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				shownRow = ref.what == RowRef::What::GcCard && riftwii::wii::is_wii_u() ? acted : -1;
 			}
 		}
-		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		if (backBtn.Clicked()) done = true;
 		ResumeGui();
 	}
@@ -16574,10 +16600,13 @@ static bool MenuManageGame(FrontendState& state)
 		rows.clear();
 		help.clear();
 		actions.clear();
+		// Hide and Restore name act at once; the others open a page, the
+		// keyboard or a question first, and end in ">" to show it.
 		const auto add = [&](Action action, const std::string& label, const std::string& note) {
 			FlowRow row;
 			row.kind = FlowRow::Kind::Action;
 			row.label = label;
+			row.opens = action == About || action == Rename || action == Delete;
 			rows.push_back(row);
 			help.push_back(note);
 			actions.push_back(action);
@@ -16821,15 +16850,15 @@ static int MenuHome(FrontendState& state)
 	HideButton(startBtn);
 	GuiPrompts prompts;
 	// B first: Back at the right end, as on every other page, then Select.
-	const int promptBack = prompts.Add("B", tr("Back"));
-	prompts.Add("A", tr("Select"), false);
+	prompts.Add("B", tr("Back"));
+	prompts.Add("A", tr("Select"));
 	prompts.SetRightEdge(page.right);
 	// The same words as the Play tile: Build and play while the game is still
 	// to be made from its patch (rebuildTiles keeps it so).
 	const int promptPlay = prompts.Add("+", SelectedGcPatch(state) ? tr("Build and play") : tr("Play"));
 	// 1: the compatibility list's report form, as a code (ShowCompatReport).
 	// One short word: the row has no room to spare beside "Build and play".
-	const int promptReport = prompts.Add("1", tr("Report"));
+	prompts.Add("1", tr("Report"));
 	SkinButton reportBtn(skin::pill, skin::pillOver, 4, 0, 0, nullptr,
 		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X);
 	HideButton(reportBtn);
@@ -17388,11 +17417,6 @@ static int MenuHome(FrontendState& state)
 				}
 			}
 		}
-		const int prompt = prompts.GetClicked();
-		if (prompt == promptBack) backBtn.PressSilently();
-		else if (prompt == promptPlay) startBtn.PressSilently();
-		else if (prompt == promptReport) reportBtn.PressSilently();
-
 		if (backBtn.Clicked()) {
 			std::string error;
 			if (SaveChoices(state, error)) {
@@ -17749,7 +17773,7 @@ static void GcAdapterTestPage()
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
-	const int promptBack = prompts.Add("B", tr("Back"));
+	prompts.Add("B", tr("Back"));
 	// Which IOS reaches the adapter: games run on a d2x cIOS, the menu on
 	// IOS 58 (a Wii U's front ports work in the menu only).
 	SkinButton checkBtn(skin::pill, skin::pillOver, 4, 56, 380, tr("Check each cIOS"),
@@ -17825,7 +17849,6 @@ static void GcAdapterTestPage()
 				portTxt[p].SetText(line.c_str());
 			}
 		}
-		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		if (backBtn.Clicked()) done = true;
 		ResumeGui();
 	}
@@ -18141,15 +18164,7 @@ static void GcCalibratePage()
 		HaltGui();
 		ClearStaleButtons({&backBtn.button, &calibrateBtn.button, &nextBtn.button, &resetBtn.button, &lessBtn.button,
 			&moreBtn.button});
-		// What was pressed this frame: a prompt the pointer pressed counts
-		// as its button.
-		const int clickedPrompt = prompts.GetClicked();
-		if (clickedPrompt == promptBack) backBtn.PressSilently();
-		if (clickedPrompt == promptNext) nextBtn.PressSilently();
-		if (clickedPrompt == promptCalibrate) calibrateBtn.PressSilently();
-		if (clickedPrompt == promptReset) resetBtn.PressSilently();
-		if (clickedPrompt == promptLess) lessBtn.PressSilently();
-		if (clickedPrompt == promptMore) moreBtn.PressSilently();
+		// What was pressed this frame.
 		const bool backAsked = backBtn.Clicked();
 		const bool nextAsked = nextBtn.Clicked();
 		const bool calibrateAsked = calibrateBtn.Clicked();
@@ -18344,7 +18359,7 @@ static void CreditsPage()
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
-	const int promptBack = prompts.Add("B", tr("Back"));
+	prompts.Add("B", tr("Back"));
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
@@ -18368,7 +18383,6 @@ static void CreditsPage()
 		ClearStaleButtons({&backBtn.button});
 		list.GetClicked();
 		list.GetClickedBack();
-		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		if (backBtn.Clicked()) done = true;
 		if (!done && !readItAll && list.AtEnd()) {
 			readItAll = true;
@@ -18761,7 +18775,7 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 			const themes::Installed state = themes::InstalledState(i);
 			FlowRow row;
 			row.kind = FlowRow::Kind::Action;
-			row.label = FlatCapped(listing[i].name, 26);
+			row.label = FlatCapped(listing[i].name, 48);
 			row.value = statusName(state);
 			row.on = state == themes::Installed::Current;
 			rows.push_back(row);
@@ -18797,7 +18811,7 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
-	const int promptBack = prompts.Add("B", tr("Back"));
+	prompts.Add("B", tr("Back"));
 	prompts.Add("A", tr("Select"));
 
 	build();
@@ -18950,7 +18964,6 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 					// What was pressed in the popup is not this page's.
 					list.GetClicked();
 					list.GetClickedBack();
-					prompts.GetClicked();
 					backBtn.button.ResetState();
 					rebuild(acted);
 					shownRow = acted;  // the note below stays
@@ -18963,14 +18976,12 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 							tr("{1} could not be installed: {2}. Nothing was changed.", {name, FlatCapped(error, 120)}), tr("OK"));
 						list.GetClicked();
 						list.GetClickedBack();
-						prompts.GetClicked();
 						backBtn.button.ResetState();
 						say(tr("{1} was not installed.", {name}));
 					}
 				}
 			}
 		}
-		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		if (backBtn.Clicked()) done = true;
 		ResumeGui();
 	}
@@ -19106,8 +19117,8 @@ static void MenuRiiTag(const std::string& discordId)
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
-	const int promptBack = prompts.Add("B", tr("Back"));
-	const int promptRefresh = prompts.Add("A", tr("Refresh"));
+	prompts.Add("B", tr("Back"));
+	prompts.Add("A", tr("Refresh"));
 	SkinButton refreshBtn(skin::pill, skin::pillOver, 4, 0, 0, nullptr,
 		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A);
 	HideButton(refreshBtn);
@@ -19158,9 +19169,6 @@ static void MenuRiiTag(const std::string& discordId)
 
 		bool refresh = refreshBtn.Clicked();
 		refreshBtn.button.ResetState();
-		const int pressed = prompts.GetClicked();
-		if (pressed == promptBack) backBtn.PressSilently();
-		if (pressed >= 0 && pressed == promptRefresh) refresh = true;
 		if (backBtn.Clicked()) done = true;
 		else if (refresh && state != riitag::TagState::Loading) startAsked = true;
 		ResumeGui();
@@ -19360,7 +19368,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kEmuNandManager, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kLaunchLog, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kSteamGridKey, kSteamGridClear, kNetTest, kNames, kRiiTag, kAppStore, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kNintendontImport, kUsbInput, kGcCard, kGcBackups, kLeaveButtons, kDiscLight, kNintendontSaves, kParental, kSdGames, kGameFolders, kIos, kNet, kResync, kWads, kDiscCopy,
+	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kEmuNandManager, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kLaunchLog, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kSteamGridKey, kSteamGridClear, kNetTest, kNames, kRiiTag, kAppStore, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kNintendontImport, kUsbInput, kGcCard, kGcBackups, kLeaveButtons, kDiscLight, kNintendontSaves, kParental, kSdGames, kGameFolders, kIos, kNet, kResync, kDiscCopy,
 		kMissingCovers, kRescan, kPartitionFailures, kUpdate, kReport, kTests, kGeckoLog, kWiirdDebugger, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -19408,16 +19416,6 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		option(tr("Emulated NAND"), EmuNandFolderName(settings.emunand_folder), settings.emunand_folder != "gx",
 			kEmuNandFolder);
 		option(tr("Manage emulated NAND"), tr("Open"), false, kEmuNandManager, FlowRow::Kind::Action);
-		// WiiWare and Virtual Console games from .wad files, into the
-		// emulated NAND RiftWii lists channels from.
-		const std::size_t wadCount = riftwii::wii::list_wad_files().size();
-		FlowRow wads;
-		wads.kind = FlowRow::Kind::Action;
-		wads.label = tr("Install WAD files");
-		wads.value = wadCount == 0 ? tr("None") : tr("{1} found", {std::to_string(wadCount)});
-		wads.dim = wadCount == 0;
-		rows.push_back(wads);
-		actions.push_back(kWads);
 		option(tr("NAND keeps"), EmuNandKeepsName(settings.emunand_keeps), settings.emunand_keeps != "saves",
 			kEmuNandKeeps);
 		option(tr("Show non-game channels"), settings.nand_non_games ? tr("On") : tr("Off"),
@@ -19733,7 +19731,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			switch (a) {
 				case kWidth: case kDeflicker: case kBorders: case kVideoMode: case kAspect:
 					return SettingsSection::Picture;
-				case kEmulators: case kGameLanguage: case kGameCios: case kWiiSaves: case kEmuNandFolder: case kEmuNandKeeps: case kEmuNandManager: case kWads: case kNonGames: case kReturnTo: case kLeaveButtons: case kShots: case kGcCard: case kGcBackups: case kDiscLight: case kNintendontSaves:
+				case kEmulators: case kGameLanguage: case kGameCios: case kWiiSaves: case kEmuNandFolder: case kEmuNandKeeps: case kEmuNandManager: case kNonGames: case kReturnTo: case kLeaveButtons: case kShots: case kGcCard: case kGcBackups: case kDiscLight: case kNintendontSaves:
 				case kParental:
 					return SettingsSection::Games;
 				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest: case kGcCalibrate: case kNintendontImport: case kUsbInput:
@@ -19804,7 +19802,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
-	const int promptBack = prompts.Add("B", tr("Back"));
+	prompts.Add("B", tr("Back"));
 	const int promptChange = prompts.Add("A", tr("Change"));
 
 	HaltGui();
@@ -19916,8 +19914,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					: "Only servers named by <network> in an XML on the card are used.";
 			case kResync: return "The next launch copies every file of its network packs again.";
 			case kDiscCopy: return tr("Copies the Wii disc in the drive to the wbfs folder of a FAT32 USB drive or the SD card, with every partition of the disc, so the game plays without the disc. Needs a d2x cIOS.");
-			case kEmuNandManager: return tr("See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.");
-			case kWads: return tr("Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.");
+			case kEmuNandManager: return tr("Install WAD files, or see and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.");
 			case kSdGames: return tr("Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work.");
 			case kGameFolders: return tr("More folders to look for games in, on the SD card or the USB drive, besides wbfs and games.");
 			case kRescan: return tr("Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers.");
@@ -19958,7 +19955,6 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				ShowPopup(tr("Network Test"), tr(networkTest.error.c_str()), tr("OK"));
 		}
 		ClearStaleButtons({&backBtn.button});
-		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		const int focused = list.Selected();
 		if (focused >= 0 && static_cast<std::size_t>(focused) < actions.size()) {
 			const FlowRow& row = rows[static_cast<std::size_t>(focused)];
@@ -19967,7 +19963,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				verb = tr("About this");
 			else if (row.kind == FlowRow::Kind::Action) {
 				const RowAction action = actions[static_cast<std::size_t>(focused)];
-				if (action == kMusicFile || action == kWads || action == kWiiChannel || action == kPartitionFailures ||
+				if (action == kMusicFile || action == kWiiChannel || action == kPartitionFailures ||
 				    action == kGameFolders)
 					verb = tr("Open");
 				else
@@ -20849,17 +20845,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					MenuEmulatedNand();
 					transition::Hold(transition::Kind::SlideBack);
 					mainWindow->Append(&w);
-					// A deleted channel leaves Home: read the drives again there.
+					// A deleted or installed channel: read the drives again on Home.
 					g_scanned = false;
 					rebuild();
-					break;
-				case kWads:
-					// The scan lists the emulated NAND's channels the install writes.
-					WaitForDriveScan(noteTxt);
-					if (InstallWads()) {
-						g_scanned = false;
-						menu = MENU_SOURCE;
-					}
 					break;
 				case kUpdate: {
 					if (!settings.online) {
@@ -21069,8 +21057,8 @@ static int SettingsHub(int& focus, bool fromSection)
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
-	const int promptBack = prompts.Add("B", tr("Back"));
-	prompts.Add("A", tr("Open"), false);
+	prompts.Add("B", tr("Back"));
+	prompts.Add("A", tr("Open"));
 	// Lines beside the same info icon as list pages, below the grid; the
 	// last is cut short of the prompts.
 	NoteCard noteCard(NoteCard::kX, 350);
@@ -21111,7 +21099,6 @@ static int SettingsHub(int& focus, bool fromSection)
 			focus = clicked;
 			picked = clicked;
 		}
-		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		if (picked == -2 && backBtn.Clicked()) picked = -1;
 		ResumeGui();
 	}
