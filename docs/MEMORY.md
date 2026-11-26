@@ -179,25 +179,24 @@ the line to `0x81000014`, and `SYS_RegisterResetFunc` then followed
 session log opened). The same code linked 3 KiB lower started normally
 on a tester's Wii.
 
-So the line must never be left to chance. `Makefile.wii` links
-`wii/core/mem1tail.o` after every library, which makes Home's 128 KiB
-scan stack the last thing in `.bss`. A stack needs no starting contents
-and that thread starts long after `SYS_Init`.
+So the line must never be left to chance. `Makefile.wii` used to link
+`wii/core/mem1tail.o` after every library, which made Home's 128 KiB
+scan stack the last thing in `.bss` and put the line inside it.
 
-Since the pass below, the program ends about 500 KiB under the line, so
-the stack cannot reach it and the line is in the heap. That is as safe:
-before `SYS_Init` copies the DSP code, libogc writes only two things from
-the heap's start (`__Arena1Lo`, the end of `.bss`): the command line and
-`argv[]` (`__CheckARGV`), then its 64 KiB kernel workspace
-(`__lwp_wkspace_init`). Nothing else above them is written before main's
-first `malloc`, which hands the memory out as it finds it, as it already
-does the start-up stash's dead MEM1 copy right there.
-`tools/check_mem1_line.py` fails the build unless the line is at least
-4 KiB inside the stack, or at least 4 KiB above the end of `.bss` plus
-128 KiB (64 KiB for the command line, which no loader comes near, and the
-workspace). Growth of about 370 KiB would bring the end back near the
-line: then the stack's file must hold more of RiftWii's start-up-free
-buffers until the stack covers it again.
+Since the passes below, the program ends about 770 KiB under the line,
+and the line is in the heap. That is as safe: before `SYS_Init` copies
+the DSP code, libogc writes only two things from the heap's start
+(`__Arena1Lo`, the end of `.bss`): the command line and `argv[]`
+(`__CheckARGV`), then its 64 KiB kernel workspace (`__lwp_wkspace_init`).
+Nothing else above them is written before main's first `malloc`, which
+hands the memory out as it finds it, as it already does the start-up
+stash's dead MEM1 copy right there. So Home's scan stack now comes from
+MEM2 at the first scan. `tools/check_mem1_line.py` fails the build unless
+the line is at least 4 KiB above the end of `.bss` plus 128 KiB (64 KiB
+for the command line, which no loader comes near, and the workspace).
+Growth of about 640 KiB would bring the end back near the line: then a
+buffer that nothing uses before `main` must be linked last again, big
+enough to cover it (as `mem1tail.c` did; see the script's notes).
 
 ### Where the stash may load
 
@@ -445,6 +444,13 @@ Still in MEM1 and left as they are:
   `boot.cpp`'s `g_tmd`: the launch's DMA buffers, used after the menu's
   heap is no longer trusted.
 - The crash screen's fallback stack: it must exist when the heap is broken.
+- Prebuilt libraries' tables: libmad's `rq_table` (32 KiB, in `.data`),
+  Tremor's windows (`vwin*`, 30 KiB) and libogg's `crc_lookup` (8 KiB).
+  Only rebuilding those libraries would move them.
+- The Wiimmfi game list (`vendor-wwfc`, 12 KiB) and the embedded sounds
+  (Ogg already, and `button_over_pcm`, 8 KiB, which zstd brings to 5.5).
+- Floating-point `printf` (`_svfprintf_r`, `_dtoa_r`): the menu prints
+  sizes and times with `%.1f`.
 
 A second pass moved the program's end on to `0x80F6D480`, 86 KiB lower
 again:
@@ -456,6 +462,19 @@ again:
 | The three Wii Remote logger builds (`riftwii_wlog*.bin`) | 23 KiB in `.rodata` | One zstd frame (`riftwii_wlogs.bin`, 10 KiB), unpacked while a launch plans the hook | 13 KiB |
 | The two WiiRD debugger handlers (`vendor-gecko/codehandler*.bin`) | 8.4 KiB in `.rodata` | One zstd frame (`riftwii_wiird.bin`, 2.7 KiB), unpacked only when a USB Gecko answers | 5.5 KiB |
 | The list of games with no online play (`src/data/offlinegames.inc`) | 11.6 KiB, four characters a code | Three characters and a byte with a bit per region, plus the codes of other regions whole | 5 KiB |
+
+A third pass moved it on to `0x80F3F1A0`, 185 KiB lower again (in
+Dolphin, 2480 KiB of MEM1 free at the start and 1256 KiB once the menu's
+threads run):
+
+| What | Before | Now | MEM1 kept |
+| --- | --- | --- | ---: |
+| Home's scan stack (`wii/menu/homescan.cpp`) | 128 KiB in `.bss`, linked last to cover the 16 MiB line | From MEM2 at the first scan, kept; the line is in the heap (above) | 128 KiB |
+| The mods' runtime and its RVZ build (`riftwii_rt*.bin`) | Two zstd frames, 24 and 35 KiB | One frame of both (`riftwii_rts.bin`, 38 KiB): they share most of their code. A launch unpacks both for its time | 21 KiB |
+| The virtual SD card, screenshot and crash hooks (`riftwii_vsd`, `_shot`, `_fault.bin`) | 17 KiB uncompressed | One zstd frame (`riftwii_hooks.bin`, 10 KiB), unpacked while each hook plans; the install reads the header back from the copied blob | 7.5 KiB |
+| The pad hook's two working copies of the USB controller catalog (`plan_pad_hook`) | 11.5 KiB of statics | Taken for the plan | 11.5 KiB |
+| Three 4 KiB read buffers: the USB drive's first block, twice (`usbcatalog.cpp`), and a title's TMD view (`reportsend.cpp`) | 12 KiB in `.bss` | Taken for the read | 12 KiB |
+| The shelf themes' backdrop textures (`gui_shelf.cpp`) | 5.5 KiB in `.bss` | From MEM2 at the first backdrop | 5.5 KiB |
 
 ### `riftwii.elf`
 

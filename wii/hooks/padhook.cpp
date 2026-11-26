@@ -16,6 +16,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
+#include <new>
 
 #include "hidsession.hpp"
 #include "i18n.hpp"

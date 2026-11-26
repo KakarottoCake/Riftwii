@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <memory>
 #include <new>
 #include <string>
 #include <vector>
@@ -118,11 +119,13 @@ void save_asked(const std::string& stamp) {
 // A title's version and content count from its TMD view; false when the
 // title is not installed.
 bool title_version(u64 title, unsigned& version, unsigned& contents) {
-    static u8 view[0x1000] ATTRIBUTE_ALIGN(32);
+    // Taken for this read only: a report is rare.
+    constexpr u32 kViewBytes = 0x1000;
     u32 size = 0;
-    if (ES_GetTMDViewSize(title, &size) < 0 || size < sizeof(tmd_view) || size > sizeof(view)) return false;
-    if (ES_GetTMDView(title, reinterpret_cast<tmd_view*>(view), size) < 0) return false;
-    const tmd_view* v = reinterpret_cast<const tmd_view*>(view);
+    if (ES_GetTMDViewSize(title, &size) < 0 || size < sizeof(tmd_view) || size > kViewBytes) return false;
+    std::unique_ptr<u8, decltype(&std::free)> view(static_cast<u8*>(memalign(32, size)), &std::free);
+    if (!view || ES_GetTMDView(title, reinterpret_cast<tmd_view*>(view.get()), size) < 0) return false;
+    const tmd_view* v = reinterpret_cast<const tmd_view*>(view.get());
     version = v->title_version;
     contents = v->num_contents;
     return true;

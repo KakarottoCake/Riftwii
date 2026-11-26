@@ -194,20 +194,22 @@ ZSTDFLAGS := -Os -mcpu=750 -meabi -msoft-float -msdata=none \
              -DRT_TARGET_PPC -DRT_RVZ -DZSTD_NO_INTRINSICS -DZSTD_DISABLE_ASM -DZSTD_NO_TRACE \
              -DXXH_NO_XXHASH_WARNINGS -I$(SRC) -Iruntime -Ivendor-zstd
 PYTHON  ?= python3
-# The loader embeds the two runtime blobs zstd-compressed (about half their
-# size, which is MEM1 the menu keeps) and unpacks the one a game needs when
-# it starts (wii/launch/resident.cpp). zstd is the command-line tool.
+# zstd is the command-line tool.
 ZSTD    ?= zstd
-BLOBZST := $(OUT)/riftwii_rt.zst
 # Builds of one blob as the DOL embeds them: their sizes, then one zstd
 # frame of them all (tools/pack_blobs.py; wii/core/packedblobs.cpp
 # unpacks). The Wii Remote
 # logger's three (wii/hooks/wpadhook.cpp: full, trace only, translate only),
 # and the WiiRD debugger's two code handlers (wii/launch/boot.cpp: USB Gecko
-# in slot B, slot A), vendor-gecko's files unchanged.
+# in slot B, slot A), vendor-gecko's files unchanged. The mods' runtime and
+# its RVZ build (wii/launch/resident.cpp) share most of their code, so one
+# frame of both is 38 KiB where each in its own was 24 and 35. The three
+# hooks most launches load, the virtual SD card, screenshots and the crash
+# recorder, in one more (wii/hooks/vsdhook.cpp, shothook.cpp, faulthook.cpp).
+RTSBIN  := $(OUT)/riftwii_rts.bin
+HOOKSBIN := $(OUT)/riftwii_hooks.bin
 WLOGSBIN := $(OUT)/riftwii_wlogs.bin
 WIIRDBIN := $(OUT)/riftwii_wiird.bin
-RVZZST  := $(OUT)/riftwii_rt_rvz.zst
 GCRVZZST := $(OUT)/riftwii_gc_rvz.zst
 
 # The packed DOL's stub (runtime/dolpack, tools/pack_dol.py): a small
@@ -265,7 +267,7 @@ $(PADSIZES): $(PADBUILDS)
 	   echo '}'; } > $@.tmp && mv $@.tmp $@
 
 .PHONY: all clean
-all: $(BLOB) $(PADBLOB) $(PADABLOB) $(PADPBLOB) $(PADNOHOME) $(PADSIZES) $(GCBLOB) $(SHOTBLOB) $(FAULTBLOB) $(WLOGBLOB) $(WLOGTRACEBLOB) $(WLOGTRANSLATEBLOB) $(VSDBLOB) $(RVZBLOB) $(BLOBZST) $(WLOGSBIN) $(WIIRDBIN) $(RVZZST) \
+all: $(BLOB) $(PADBLOB) $(PADABLOB) $(PADPBLOB) $(PADNOHOME) $(PADSIZES) $(GCBLOB) $(SHOTBLOB) $(FAULTBLOB) $(WLOGBLOB) $(WLOGTRACEBLOB) $(WLOGTRANSLATEBLOB) $(VSDBLOB) $(RVZBLOB) $(RTSBIN) $(HOOKSBIN) $(WLOGSBIN) $(WIIRDBIN) \
      $(GCRVZBLOB) $(GCRVZZST) $(DOLPACK) $(STUBBLOB)
 
 $(DPOUT):
@@ -308,6 +310,10 @@ $(WLOGSBIN): tools/pack_blobs.py $(WLOGBLOB) $(WLOGTRACEBLOB) $(WLOGTRANSLATEBLO
 	@$(PYTHON) tools/pack_blobs.py $@ $(ZSTD) $(filter-out %.py,$^)
 
 $(WIIRDBIN): tools/pack_blobs.py vendor-gecko/codehandler.bin vendor-gecko/codehandlerslota.bin | $(OUT)
+	@$(PYTHON) tools/pack_blobs.py $@ $(ZSTD) $(filter-out %.py,$^)
+$(RTSBIN): tools/pack_blobs.py $(BLOB) $(RVZBLOB)
+	@$(PYTHON) tools/pack_blobs.py $@ $(ZSTD) $(filter-out %.py,$^)
+$(HOOKSBIN): tools/pack_blobs.py $(VSDBLOB) $(SHOTBLOB) $(FAULTBLOB)
 	@$(PYTHON) tools/pack_blobs.py $@ $(ZSTD) $(filter-out %.py,$^)
 
 $(OUT)/%.zst: $(OUT)/%.bin

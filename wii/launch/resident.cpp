@@ -12,12 +12,11 @@
 #include <vector>
 
 #include "log.hpp"
+#include "packedblobs.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/symsearch.hpp"
 #include "riftwii_rt_rvz_rel.h"
-#include "riftwii_rt_rvz_zst.h"
-#include "riftwii_rt_zst.h"
-#include "zstd.h"
+#include "riftwii_rts_bin.h"
 #include "rt_hook.h"
 #include "rtfs.h"
 
@@ -64,21 +63,10 @@ const char* ipc_entry_name(std::uint32_t entry) {
     return entry < RT_IPC_ENTRIES ? names[entry] : "?";
 }
 
-// A runtime blob out of its zstd frame (which records its size).
-bool unpack_blob(const std::uint8_t* packed, std::size_t size, std::vector<std::uint8_t>& out, std::string& error) {
-    const unsigned long long bytes = ZSTD_getFrameContentSize(packed, size);
-    if (bytes == ZSTD_CONTENTSIZE_UNKNOWN || bytes == ZSTD_CONTENTSIZE_ERROR || bytes > (1u << 20)) {
-        error = "the runtime blob in this build is damaged";
-        return false;
-    }
-    out.resize(static_cast<std::size_t>(bytes));
-    const std::size_t got = ZSTD_decompress(out.data(), out.size(), packed, size);
-    if (ZSTD_isError(got) || got != out.size()) {
-        error = "the runtime blob in this build is damaged";
-        return false;
-    }
-    return true;
-}
+// The two builds in riftwii_rts.bin (Makefile.runtime), in this order.
+constexpr int kRuntimePlain = 0;
+constexpr int kRuntimeRvz = 1;
+constexpr int kRuntimeBuilds = 2;
 
 }  // namespace
 
@@ -130,14 +118,17 @@ bool resident_can_hook_restart(const DolHeader& dol, std::uint32_t os_restart, s
 bool install_resident(const DolHeader& dol, const ResidentOptions& options, ResidentInstall& out,
                       std::string& error) {
     const bool rvz = options.rvz.enabled;
-    // The blob is embedded zstd-compressed (Makefile.runtime).
-    std::vector<std::uint8_t> blob_bytes;
-    if (!unpack_blob(rvz ? riftwii_rt_rvz_zst : riftwii_rt_zst, rvz ? riftwii_rt_rvz_zst_size : riftwii_rt_zst_size,
-                     blob_bytes, error)) {
+    // Both builds are embedded in one zstd frame (Makefile.runtime), and
+    // both are unpacked here for the time of the launch.
+    PackedBlobs builds;
+    if (!builds.unpack(riftwii_rts_bin, riftwii_rts_bin_size, kRuntimeBuilds)) {
+        error = "the runtime blob in this build is damaged, or there is no memory to unpack it";
         return false;
     }
+    const int build = rvz ? kRuntimeRvz : kRuntimePlain;
+    const std::uint8_t* blob_bytes = builds.blob(build);
     ResidentBlob blob;
-    if (!parse_resident_blob(blob_bytes.data(), blob_bytes.size(), blob, error)) return false;
+    if (!parse_resident_blob(blob_bytes, builds.size(build), blob, error)) return false;
 
     // 1. Find the SDK's IPC entry points in the text the apploader loaded.
     std::vector<CodeRange> text;
@@ -415,7 +406,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     // 4. Copy the blob and the payload, fill in the context and the
     //    loader-patched slots: each hooked function's displaced words and
     //    the jump back into it.
-    std::memcpy(reinterpret_cast<void*>(code_now(place.code_base)), blob_bytes.data(), blob.size);
+    std::memcpy(reinterpret_cast<void*>(code_now(place.code_base)), blob_bytes, blob.size);
     if (rvz && !apply_resident_relocs(reinterpret_cast<std::uint8_t*>(code_now(place.code_base)), blob.size,
                                       riftwii_rt_rvz_rel, riftwii_rt_rvz_rel_size, place.code_base, error)) {
         return false;

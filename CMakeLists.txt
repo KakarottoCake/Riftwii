@@ -199,7 +199,7 @@ if(BUILD_TESTING)
     add_test(NAME textfile COMMAND textfile_tests)
     set_tests_properties(textfile PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/textfile-test")
     # The real drive-scan lifecycle, with workers and network jobs stepped by the test.
-    add_executable(homescan_tests tests/homescan_tests.cpp wii/menu/homescan.cpp wii/core/mem1tail.c)
+    add_executable(homescan_tests tests/homescan_tests.cpp wii/menu/homescan.cpp)
     target_include_directories(homescan_tests PRIVATE
         tests/homescan_mock tests/movedchannels_mock tests/wii_mock
         wii/menu wii/core wii/storage wii/online wii/launch runtime)
@@ -324,8 +324,7 @@ if(BUILD_TESTING)
     add_test(NAME gcrealcard_nomem1 COMMAND gcrealcard_io_tests no-mem1)
     # Exercise the menu's real budget calculation without requiring a Wii
     # build. These headers stand in for bin2o's generated blob declarations.
-    set(memorybudget_blobs riftwii_fault_bin riftwii_pad_sizes riftwii_rt_rvz_zst
-        riftwii_rt_zst riftwii_shot_bin riftwii_vsd_bin)
+    set(memorybudget_blobs riftwii_hooks_bin riftwii_pad_sizes riftwii_rts_bin)
     foreach(blob IN LISTS memorybudget_blobs)
         file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/memorybudget_mock/${blob}.h"
             CONTENT "#include \"memorybudget_blobs.hpp\"\n")

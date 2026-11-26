@@ -8,11 +8,11 @@
 
 namespace riftwii::wii {
 
-// Runtime blobs that ship as builds of one program (the Wii Remote
-// logger's three, the WiiRD handlers' two) embedded together, as tools/pack_blobs.py
-// writes them: each blob's size as a big-endian word, then one zstd frame
-// of the blobs in that order. They share most of their code, so the frame
-// keeps a fraction of the MEM1 they took apart. Unpacked only while a
+// Runtime blobs embedded together, as tools/pack_blobs.py writes them: each
+// blob's size as a big-endian word, then one zstd frame of the blobs in
+// that order. Builds of one program (the Wii Remote
+// logger's three, the mods' runtime and its RVZ build) share most of their
+// code, so the frame keeps a fraction of the MEM1 they took apart. Unpacked only while a
 // launch reads them, into a buffer that goes with its owner.
 class PackedBlobs {
 public:
@@ -31,5 +31,10 @@ private:
     std::uint32_t offsets_[kMaxBlobs] = {};
     std::uint32_t sizes_[kMaxBlobs] = {};
 };
+
+// riftwii_hooks.bin (Makefile.runtime): the hooks most launches load, each
+// unpacking the three while it plans (vsdhook.cpp, shothook.cpp,
+// faulthook.cpp).
+enum HookBlob { kHookVsd = 0, kHookShot = 1, kHookFault = 2, kHookBlobs = 3 };
 
 }  // namespace riftwii::wii

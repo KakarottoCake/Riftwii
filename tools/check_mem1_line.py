@@ -3,21 +3,25 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Fails the Wii build unless 0x81000000 lies where libogc's start leaves nothing.
 
-libogc's SYS_Init copies 128 bytes of DSP code to 0x81000000 at start-up
-(wii/core/mem1tail.h). 2611-239 died on every console because libogc's
-list of reset handlers had moved there. Two places are safe:
+libogc's SYS_Init, which crt0 runs before main, boots the DSP by copying
+128 bytes of DSP code to 0x81000000 and copies the old bytes back
+afterwards. On a real Wii that code was still there when libogc next used
+the memory (Dolphin never shows it). 2611-239 died on every console: new
+code had moved libogc's list of reset handlers to 0x81000014, and
+SYS_RegisterResetFunc followed the DSP code's sixth word as a pointer.
 
-- Home's scan stack, which Makefile.wii links last so that, while the
-  program reaches past the line, it covers it. Checked with room on both
-  sides.
-- The heap, once the program ends far enough below the line. Before the
-  DSP code is copied, libogc puts only the command line (__CheckARGV) and
-  its 64 KiB kernel workspace (__lwp_wkspace_init) at the heap's start,
-  __Arena1Lo; nothing else there is written until main's first malloc,
-  which takes the memory as it finds it. Checked with the workspace, a
-  command line of up to ARGV_ROOM and the margin below the line.
+Home's scan stack was linked last, after every library, so that it covered
+the line. Since the program ends far below it, the line is in the heap,
+which is as safe: before the DSP code is copied, libogc puts only the
+command line (__CheckARGV) and its 64 KiB kernel workspace
+(__lwp_wkspace_init) at the heap's start, __Arena1Lo; nothing else there
+is written until main's first malloc, which takes the memory as it finds
+it. Checked with the workspace, a command line of up to ARGV_ROOM and the
+margin below the line. Should the program ever grow back that far, link a
+buffer that no one uses before main last again, big enough to cover the
+line (git history: wii/core/mem1tail.c).
 
-It names what is at the line when neither holds.
+It names what is at the line when this does not hold.
 
 Usage: check_mem1_line.py riftwii.elf
 """
@@ -26,10 +30,9 @@ import struct
 import sys
 
 LINE = 0x81000000
-# Room the stack must leave on each side of the line. The DSP code takes
-# 128 bytes from the line up; this is a wide margin.
+# Room left below the line. The DSP code takes 128 bytes from the line
+# up; this is a wide margin.
 MARGIN = 0x1000
-STACK = "riftwii_home_scan_stack"
 # What libogc writes from __Arena1Lo before SYS_Init boots the DSP: the
 # command line and argv[] (libogc's argv.c, far below this from any
 # loader), then the kernel workspace (system.c's KERNEL_HEAP).
@@ -72,37 +75,26 @@ def main():
     args = parser.parse_args()
 
     syms = symbols(args.elf)
-    stack = [s for s in syms if s[2] == STACK]
-    if not stack:
-        print("check_mem1_line: %s has no %s" % (args.elf, STACK), file=sys.stderr)
-        return 1
-    start, size, _ = stack[0]
     low, high = LINE - MARGIN, LINE + MARGIN
-    if start <= low and start + size >= high:
-        print("MEM1 line: 0x%08x is 0x%x bytes into Home's scan stack (0x%08x-0x%08x)"
-              % (LINE, LINE - start, start, start + size))
-        return 0
     arena = [s for s in symbols(args.elf, sized=False) if s[2] == ARENA]
-    if arena:
-        arena_lo = (arena[0][0] + 31) & ~31
-        untouched = arena_lo + ARGV_ROOM + KERNEL_WORKSPACE
-        if start + size <= arena_lo and untouched <= low:
-            print("MEM1 line: 0x%08x is in the heap, 0x%x bytes past what libogc's start writes "
-                  "(the program ends at 0x%08x)" % (LINE, low + MARGIN - untouched, arena_lo))
-            return 0
+    if not arena:
+        print("check_mem1_line: %s has no %s" % (args.elf, ARENA), file=sys.stderr)
+        return 1
+    arena_lo = (arena[0][0] + 31) & ~31
+    untouched = arena_lo + ARGV_ROOM + KERNEL_WORKSPACE
+    if untouched <= low:
+        print("MEM1 line: 0x%08x is in the heap, 0x%x bytes past what libogc's start writes "
+              "(the program ends at 0x%08x)" % (LINE, low + MARGIN - untouched, arena_lo))
+        return 0
     near = sorted(s for s in syms if s[0] < high and s[0] + s[1] > low)
-    print("check_mem1_line: 0x%08x must be at least 0x%x bytes inside %s (0x%08x-0x%08x), "
-          "or libogc's start-up data lands where its DSP boot code is copied (wii/core/mem1tail.h). "
-          "There now:" % (LINE, MARGIN, STACK, start, start + size), file=sys.stderr)
+    print("check_mem1_line: the program ends at 0x%08x, too close to 0x%08x: libogc's start-up "
+          "writes 0x%x bytes from there, and its DSP boot code is copied to the line. There now:"
+          % (arena_lo, LINE, ARGV_ROOM + KERNEL_WORKSPACE), file=sys.stderr)
     for address, sym_size, name in near:
         print("  0x%08x %6d %s" % (address, sym_size, name), file=sys.stderr)
-    if start > low:
-        print("The program ends too close to the line: below it by less than libogc's start-up "
-              "writes (0x%x bytes) and the margin, or above it with the stack not covering it. "
-              "Make the stack's file bigger or link more of RiftWii's start-up-free buffers "
-              "after the libraries." % (ARGV_ROOM + KERNEL_WORKSPACE), file=sys.stderr)
+    print("Free MEM1, or link a buffer unused before main last so that it covers the line "
+          "(this script's notes).", file=sys.stderr)
     return 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

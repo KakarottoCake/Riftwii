@@ -596,9 +596,11 @@ bool ensure_usb(std::string& error) {
     bool wbfs_drive = false;
     if (!g_libfat_mounted && __io_usbstorage_sector_size == 512) {
         // Room for a 4 KiB sector all the same: the size is the driver's
-        // word until libfat has asked the drive.
-        static std::uint8_t block0[4096] ATTRIBUTE_ALIGN(32);
-        wbfs_drive = usb_read(0, 1, block0) && classify_drive_block0(block0) == DriveBlock0::Wbfs;
+        // word until libfat has asked the drive. Only for this look.
+        std::unique_ptr<std::uint8_t, decltype(&std::free)> block0(
+            static_cast<std::uint8_t*>(memalign(32, 4096)), &std::free);
+        wbfs_drive = block0 && usb_read(0, 1, block0.get()) &&
+                     classify_drive_block0(block0.get()) == DriveBlock0::Wbfs;
         if (wbfs_drive) logf("USB: a WBFS drive; read raw without trying libfat\n");
     }
     if (!g_libfat_mounted && !wbfs_drive) {
@@ -1683,12 +1685,17 @@ bool usb_d2x_nand_partition(const std::string& usb_folder, std::int32_t& index, 
     std::uint64_t lba = 0;
     if (!usb_fat32_volume(usb_folder, lba, why)) return false;
     // A 4 KiB sector's room: d2x's FatFs reads the drive's own sector size.
-    static std::uint8_t block0[4096] ATTRIBUTE_ALIGN(32);
-    if (!usb_read(0, 1, block0)) {
+    std::unique_ptr<std::uint8_t, decltype(&std::free)> block0(
+        static_cast<std::uint8_t*>(memalign(32, 4096)), &std::free);
+    if (!block0) {
+        why = "there is no memory to read the USB drive's first block";
+        return false;
+    }
+    if (!usb_read(0, 1, block0.get())) {
         why = "the USB drive's first block could not be read";
         return false;
     }
-    return d2x_usb_partition(block0, lba, index, why);
+    return d2x_usb_partition(block0.get(), lba, index, why);
 }
 
 bool mount_usb_nand_folder(const std::string& usb_folder, std::string& writable, std::string& why) {
