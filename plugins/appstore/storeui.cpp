@@ -738,7 +738,13 @@ private:
         const int pointed = PointedAt();
         if (pointed >= 0) Focus(pointed);
         // A prompt pointed at and pressed comes as its button (the host's).
-        const std::uint32_t pressed = input_.pressed;
+        std::uint32_t pressed = input_.pressed;
+        // With the pointer on screen, A presses what it is on and nothing
+        // else: on empty space it used to open the lit tile, which the
+        // pointer had left. The lit tile takes A only while the pointer is
+        // hidden (the D-pad's way). The bottom band is the host's: an A
+        // there is the "Open" prompt's, or the host already dropped it.
+        if ((pressed & RWP_KEY_A) && input_.pointer && pointed < 0 && input_.y < kBarTop) pressed &= ~RWP_KEY_A;
         if (pressed & RWP_KEY_HOME) return true;
         switch (page_) {
             case Page::Front: return HandleFront(pressed);

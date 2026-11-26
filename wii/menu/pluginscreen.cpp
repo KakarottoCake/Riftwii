@@ -219,6 +219,7 @@ public:
             // A new frame's input starts with the first controller.
             input_.held = 0;
             input_.pointer = 0;
+            aFromPrompt_ = false;
         }
         if (t->wpad && t->wpad->ir.valid && !input_.pointer) {
             input_.pointer = 1;
@@ -239,6 +240,11 @@ public:
             if (clicked >= 0 && static_cast<std::size_t>(clicked) < promptList_.size()) {
                 input_.pressed &= ~RWP_KEY_A;
                 input_.pressed |= promptList_[clicked].first;
+                aFromPrompt_ = promptList_[clicked].first == RWP_KEY_A;
+            } else if (input_.pointer && input_.y >= GuiPrompts::CardTop() && !aFromPrompt_) {
+                // A on the prompts' band but on none of them presses
+                // nothing, rather than the page's lit item.
+                input_.pressed &= ~RWP_KEY_A;
             }
         }
     }
@@ -454,6 +460,7 @@ private:
     std::vector<std::pair<uint32_t, std::string>> promptList_;
     int promptEdge_ = 600;
     rwp_input input_{};
+    bool aFromPrompt_ = false;  // this frame's A is the A prompt's (kept on the later channels)
     volatile uint32_t frames_ = 0;
 };
 
