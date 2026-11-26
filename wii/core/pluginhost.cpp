@@ -77,6 +77,15 @@ int32_t HttpGet(const char* url, uint8_t* buffer, uint32_t capacity, uint32_t* l
     const char* local_list = std::strcmp(url, "https://riftwii.github.io/apps/apps.json") == 0   ? "sd:/riftwii/test_apps.json"
                              : std::strcmp(url, "https://riftwii.com/mods/mods.json") == 0       ? "sd:/riftwii/test_mods.json"
                                                                                                  : nullptr;
+    // A mod's picture (tools/mod_list.py's icons/ folder) from
+    // sd:/riftwii/test_icons/, for Dolphin runs before the site has them.
+    constexpr const char* kModIcons = "https://riftwii.github.io/mods/icons/";
+    std::string local_icon;
+    if (local_list == nullptr && std::strncmp(url, kModIcons, std::strlen(kModIcons)) == 0 &&
+        std::strchr(url + std::strlen(kModIcons), '/') == nullptr) {
+        local_icon = std::string("sd:/riftwii/test_icons/") + (url + std::strlen(kModIcons));
+        local_list = local_icon.c_str();
+    }
     if (local_list != nullptr) {
         if (FILE* local = std::fopen(local_list, "rb")) {
             const std::size_t read = std::fread(buffer, 1, capacity, local);

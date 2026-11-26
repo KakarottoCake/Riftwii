@@ -130,6 +130,30 @@ struct Hit {
 
 int Width(const std::string& text, int size) { return Host().text_width(text.c_str(), static_cast<std::uint32_t>(size)); }
 
+// The largest size from `largest` down to `smallest` (2 at a time) at which
+// `text` fits `width`; `smallest` when none does (the text is cut there).
+// Mod names from GameBanana run long ("Kaizo Mario Galaxy: Legacy Edition").
+int FitSize(const std::string& text, int width, int largest, int smallest) {
+    for (int size = largest; size > smallest; size -= 2) {
+        if (Width(text, size) <= width) return size;
+    }
+    return smallest;
+}
+
+// `text` cut at a space into a first line that fits `width` at `size` and the
+// rest. False when it has no such space (one long word): it stays one line.
+bool SplitInTwo(const std::string& text, int size, int width, std::string& first, std::string& second) {
+    std::size_t best = std::string::npos;
+    for (std::size_t at = text.find(' '); at != std::string::npos; at = text.find(' ', at + 1)) {
+        if (Width(text.substr(0, at), size) > width) break;
+        best = at;
+    }
+    if (best == std::string::npos) return false;
+    first = text.substr(0, best);
+    second = text.substr(best + 1);
+    return true;
+}
+
 std::string Plural(std::size_t count, const char* one, const char* many) {
     return count == 1 ? tr(one) : tr(many, std::to_string(count));
 }
@@ -224,7 +248,12 @@ private:
             Picture(picture, x, 16, 40);
             x += 52;
         }
-        if (!title.empty()) frame_.Text(x, 20, kTitleSize, RWP_COLOR_ON_BAND, title, RWP_ALIGN_LEFT, right_ - x - right);
+        if (!title.empty()) {
+            const int room = right_ - x - right;
+            const int size = FitSize(title, room, kTitleSize, 22);
+            // Smaller text moves down by half the difference, to stay centred.
+            frame_.Text(x, 20 + (kTitleSize - size) / 2, size, RWP_COLOR_ON_BAND, title, RWP_ALIGN_LEFT, room);
+        }
     }
 
     // A theme picture (docs/THEMES.md), `size` pixels square: the theme's
@@ -419,11 +448,14 @@ private:
         if (grid_kind_ == GridKind::Category) picture = CategoryPicture(categories_[grid_category_]);
         if (grid_kind_ == GridKind::GameMods) picture = "icon_mods";
         const int pages = PageCount();
-        // Room on the right for the page and its arrows, when there are pages.
-        Band(grid_title_, kBand, picture, pages > 1 ? 280 : 0);
+        const std::string page_text =
+            pages > 1 ? tr("Page {1} of {2}", std::to_string(grid_page_ + 1), std::to_string(pages)) : std::string();
+        // Room on the right for the page and its two arrows, when there are pages.
+        const int page_room = pages > 1 ? Width(page_text, kNameSize) + 2 * 44 + 3 * 12 + 16 : 0;
+        Band(grid_title_, kBand, picture, page_room);
         // The page and its arrows at the band's right.
         if (pages > 1) {
-            const std::string text = tr("Page {1} of {2}", std::to_string(grid_page_ + 1), std::to_string(pages));
+            const std::string& text = page_text;
             const int text_w = Width(text, kNameSize);
             const int next_x = right_ - 44;
             const int previous_x = next_x - 12 - text_w - 12 - 44;
@@ -451,17 +483,36 @@ private:
             shown.push_back(index);
             const int tx = left_ + (k % columns) * (w + kGap), ty = 92 + (k / columns) * (h + kGap);
             frame_.Card(tx, ty, w, h, focus_ == k);
-            Icon(app, tx + w / 2 - 64, ty + 12);
-            frame_.Text(tx + w / 2, ty + 68, kNameSize, RWP_COLOR_INK, app.listing->name, RWP_ALIGN_CENTER, w - 16);
+            const std::string name = app.listing->name;
+            const int room = w - 16;
+            const int size = FitSize(name, room, kNameSize, kSmallSize);
+            std::string first, second;
+            const bool two_lines = Width(name, size) > room && SplitInTwo(name, kSmallSize, room, first, second);
             std::uint32_t colour = RWP_COLOR_INK_SOFT;
             const std::string note = StateNote(app, colour);
-            frame_.Text(tx + w / 2, ty + 94, kSmallSize, colour, note, RWP_ALIGN_CENTER, w - 16);
+            if (two_lines) {
+                // The icon moves up a little to make room for the second line.
+                Icon(app, tx + w / 2 - 64, ty + 6);
+                frame_.Text(tx + w / 2, ty + 56, kSmallSize, RWP_COLOR_INK, first, RWP_ALIGN_CENTER, room);
+                frame_.Text(tx + w / 2, ty + 76, kSmallSize, RWP_COLOR_INK, second, RWP_ALIGN_CENTER, room);
+                frame_.Text(tx + w / 2, ty + 98, kSmallSize, colour, note, RWP_ALIGN_CENTER, room);
+            } else {
+                Icon(app, tx + w / 2 - 64, ty + 12);
+                frame_.Text(tx + w / 2, ty + 68 + (kNameSize - size) / 2, size, RWP_COLOR_INK, name, RWP_ALIGN_CENTER, room);
+                frame_.Text(tx + w / 2, ty + 94, kSmallSize, colour, note, RWP_ALIGN_CENTER, room);
+            }
             hits_.push_back({tx, ty, w, h, k});
         }
         // What the lit app is, under the tiles.
         if (focus_ >= 0 && focus_ < static_cast<int>(shown.size())) {
-            frame_.Text(middle_, 92 + 2 * (h + kGap) + 2, kSmallSize, RWP_COLOR_INK_SOFT,
-                        store_.apps[shown[focus_]].listing->description, RWP_ALIGN_CENTER, right_ - left_);
+            const AppListing& lit = *store_.apps[shown[focus_]].listing;
+            std::string line = lit.description;
+            if (grid_kind_ == GridKind::GameMods) {
+                line = lit.name;
+                if (lit.author[0]) line += std::string("  \xC2\xB7  ") + lit.author;
+            }
+            frame_.Text(middle_, 92 + 2 * (h + kGap) + 2, kSmallSize, RWP_COLOR_INK_SOFT, line, RWP_ALIGN_CENTER,
+                        right_ - left_);
         }
         store_.WantIcons(shown, input_.frame);
         Prompt(RWP_KEY_B, tr("Back"));
@@ -522,7 +573,9 @@ private:
         const AppCategory* categories = app_categories(count);
         Band("", kAppBand);
         frame_.Text(left_, 14, kSmallSize, RWP_COLOR_INK_SOFT, tr(categories[app_category_index(listing.category)].name));
-        frame_.Text(left_, 38, kTitleSize, RWP_COLOR_ON_BAND, listing.name, RWP_ALIGN_LEFT, right_ - left_);
+        const int title_size = FitSize(listing.name, right_ - left_, kTitleSize, 22);
+        frame_.Text(left_, 38 + (kTitleSize - title_size) / 2, title_size, RWP_COLOR_ON_BAND, listing.name,
+                    RWP_ALIGN_LEFT, right_ - left_);
         std::string byline = listing.author;
         if (listing.version[0]) byline += std::string("  \xC2\xB7  ") + listing.version;
         // The controllers it works with, at the band's right, as the list
