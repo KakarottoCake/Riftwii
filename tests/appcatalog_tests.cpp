@@ -48,7 +48,7 @@ AppListing app(const char* id, const char* name, const char* author = "Tantric",
 void test_categories() {
     std::size_t count = 0;
     const AppCategory* list = app_categories(count);
-    EXPECT_EQ(count, 13u);
+    EXPECT_EQ(count, 14u);  // "mods" too
     EXPECT_EQ(std::string(list[0].key), "games");
     EXPECT_EQ(std::string(list[count - 1].key), "more");
     EXPECT_EQ(app_category_index("emulators"), 1u);
@@ -367,7 +367,38 @@ void test_riftwii_entry() {
     EXPECT_TRUE(riftwii_version_order("2611-243", "2611-243-gc84f96e1") == 0);
 }
 
+void test_mod_files() {
+    AppListing mod;
+    std::memset(&mod, 0, sizeof(mod));
+    std::strcpy(mod.id, "gb678330");
+    std::strcpy(mod.program, "riivolution/BetaPlanets.xml");
+    std::strcpy(mod.data_folders[0], "BetaPlanets");
+    mod.data_folder_count = 1;
+    mod.format = AppFormat::Zip;
+    mod.mod = true;
+    // Its XML is its program: always the new one.
+    EXPECT_TRUE(app_install_replaces(mod, "riivolution/BetaPlanets.xml", AppFileOnCard::Changed, nullptr));
+    EXPECT_TRUE(app_install_replaces(mod, "riivolution/betaplanets.xml", AppFileOnCard::NotOurs, nullptr));
+    // A copy put there by hand is replaced when the player chose Replace (no note);
+    // with a note, files the store did not put there are kept.
+    EXPECT_TRUE(app_install_replaces(mod, "BetaPlanets/a.arc", AppFileOnCard::NotOurs, nullptr));
+    AppRecord record;
+    record.has_files = true;
+    EXPECT_TRUE(!app_install_replaces(mod, "BetaPlanets/a.arc", AppFileOnCard::NotOurs, &record));
+    EXPECT_TRUE(!app_install_replaces(mod, "BetaPlanets/save.bin", AppFileOnCard::Changed, &record));
+    // Never another folder, nor another pack's file in the shared riivolution/.
+    EXPECT_TRUE(!app_install_replaces(mod, "OtherPack/a.arc", AppFileOnCard::NotOurs, nullptr));
+    EXPECT_TRUE(!app_install_replaces(mod, "riivolution/Other.xml", AppFileOnCard::NotOurs, nullptr));
+    EXPECT_TRUE(!app_install_replaces(mod, "riivolution/config/RMGE.xml", AppFileOnCard::NotOurs, nullptr));
+    // Its own files there (put there by the store, unchanged) are.
+    EXPECT_TRUE(app_install_replaces(mod, "riivolution/config/RMGE.xml", AppFileOnCard::AsInstalled, &record));
+    // A remove without a note takes the XML only.
+    const std::vector<std::string> files = app_remove_files(mod, nullptr, {});
+    EXPECT_TRUE(files.size() == 1 && files[0] == "riivolution/BetaPlanets.xml");
+}
+
 int main() {
+    test_mod_files();
     test_riftwii_entry();
     test_categories();
     test_records_and_states();

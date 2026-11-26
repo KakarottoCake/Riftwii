@@ -167,6 +167,8 @@ struct RawApp {
     bool have_size = false, have_files = false, have_unpacked = false, have_download = false;
     std::vector<std::string> platforms, controllers, data_folders;
     std::vector<std::pair<std::string, std::string>> install;
+    std::string kind, root, game, program;  // a mod's ("kind":"mod")
+    std::vector<std::string> games;
     bool malformed = false;  // a field of the wrong kind, too many entries
 };
 
@@ -313,6 +315,11 @@ bool read_app(JsonReader& r, RawApp& a) {
         else if (key == "data_folders") good = read_strings(r, a, a.data_folders, kAppMaxDataFolders);
         else if (key == "download") good = read_download(r, a);
         else if (key == "install") good = read_install(r, a);
+        else if (key == "kind") good = read_text(r, a, a.kind);
+        else if (key == "root") good = read_text(r, a, a.root);
+        else if (key == "game") good = read_text(r, a, a.game);
+        else if (key == "program") good = read_text(r, a, a.program);
+        else if (key == "games") good = read_strings(r, a, a.games, kModMaxGames);
         else good = r.skip_value(1);
         if (!good) return false;  // broken text: the reader cannot go on
         if (r.take(',')) continue;
@@ -336,11 +343,53 @@ bool rule_target_ok(const RawApp& a, const std::string& from, const std::string&
     if (from.size() >= sizeof(AppInstallRule::from) || to.size() >= sizeof(AppInstallRule::to)) return false;
     const std::string own = "apps/" + a.id + "/";
     if (to.compare(0, own.size(), own) == 0) return true;
+    // A mod's XMLs go to sd:/riivolution, where every pack keeps its own.
+    if (a.kind == "mod" && to.compare(0, 12, "riivolution/") == 0) return true;
     for (const std::string& data : a.data_folders) {
         const std::string mine = data + "/";
         if (to.compare(0, mine.size(), mine) == 0) return true;
     }
     return false;
+}
+
+// A game ID as a Riivolution XML names it: 3 to 6 capital letters and digits.
+bool game_id_ok(const std::string& id) {
+    if (id.size() < 3 || id.size() > 6) return false;
+    for (char c : id) {
+        if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) return false;
+    }
+    return true;
+}
+
+// Whether `card_path` is in riivolution/save/ (case ignored, as FAT does).
+bool is_riivolution_save(const std::string& card_path) {
+    const std::string save = "riivolution/save/";
+    if (card_path.size() < save.size()) return false;
+    for (std::size_t i = 0; i < save.size(); ++i) {
+        if (std::tolower(static_cast<unsigned char>(card_path[i])) != save[i]) return false;
+    }
+    return true;
+}
+
+bool ends_with_xml(const std::string& path) {
+    if (path.size() < 5) return false;
+    std::string end = path.substr(path.size() - 4);
+    for (char& c : end) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return end == ".xml";
+}
+
+// A mod's own fields: its game's name, its XML in riivolution/, the folder
+// in the archive its files are under, the game IDs.
+bool mod_fields_ok(RawApp& a) {
+    if (a.game.empty() || !json_clean_text(a.game, sizeof(AppListing::game))) return false;
+    if (a.program.size() >= sizeof(AppListing::program) || a.program.compare(0, 12, "riivolution/") != 0 ||
+        !ends_with_xml(a.program) || !relative_path_ok(a.program, false) || is_riivolution_save(a.program))
+        return false;
+    if (!a.root.empty() && (a.root.size() >= sizeof(AppListing::root) || !relative_path_ok(a.root, true))) return false;
+    for (const std::string& id : a.games) {
+        if (!game_id_ok(id)) return false;
+    }
+    return true;
 }
 
 // Checks an app as read; on success, fills `out`.
@@ -354,6 +403,11 @@ bool app_from_raw(RawApp& a, AppListing& out) {
     // spelling of a reserved id is still left out.
     const bool riftwii = a.id == kRiftWiiAppId;
     if (!texts || !(riftwii || app_id_ok(a.id)) || !app_category_ok(a.category) || !date_ok(a.released)) return false;
+    // A kind this RiftWii does not know is left out; "mods" is for mods only.
+    const bool mod = a.kind == "mod";
+    if (!a.kind.empty() && !mod) return false;
+    if (mod != (a.category == kModCategory)) return false;
+    if (mod && !mod_fields_ok(a)) return false;
     if (!a.license.empty() && !json_clean_text(a.license, sizeof(out.license))) return false;
     if (!app_page_url_ok(a.page)) return false;
     if (!a.icon.empty() && !app_icon_url_ok(a.icon)) return false;
@@ -422,6 +476,14 @@ bool app_from_raw(RawApp& a, AppListing& out) {
     out.controllers = controllers;
     out.format = format;
     out.riftwii = riftwii;
+    out.mod = mod;
+    if (mod) {
+        copy_field(out.root, sizeof(out.root), a.root);
+        copy_field(out.game, sizeof(out.game), a.game);
+        copy_field(out.program, sizeof(out.program), a.program);
+        for (std::size_t i = 0; i < a.games.size(); ++i) copy_field(out.games[i], sizeof(out.games[i]), a.games[i]);
+        out.game_count = static_cast<std::uint8_t>(a.games.size());
+    }
     return true;
 }
 
@@ -549,6 +611,14 @@ bool app_install_path(const AppListing& app, const std::string& raw_entry, std::
     for (char& c : zip_entry) {
         if (c == '\\') c = '/';
     }
+    // A mod's rules are under its root, the folder in the archive that
+    // holds riivolution/: what is outside it is not installed.
+    const std::string root = app.mod ? app.root : "";
+    if (!root.empty()) {
+        if (zip_entry.compare(0, root.size(), root) != 0) return false;
+        zip_entry = zip_entry.substr(root.size());
+        if (zip_entry.empty()) return false;
+    }
     for (std::size_t i = 0; i < app.install_count; ++i) {
         const std::string from = app.install[i].from;
         const std::string to = app.install[i].to;
@@ -563,7 +633,23 @@ bool app_install_path(const AppListing& app, const std::string& raw_entry, std::
             if (zip_entry != from) continue;
             card_path = to;
         }
+        // Riivolution keeps the saves it redirects in riivolution/save: the
+        // player's, whatever a mod's archive brings, by a folder rule or a
+        // single-file one.
+        if (app.mod && is_riivolution_save(card_path)) return false;
         return card_path.size() <= kMaxCardPath;
+    }
+    return false;
+}
+
+bool app_mod_for_game(const AppListing& app, const char* game_id) {
+    if (!app.mod || game_id == nullptr) return false;
+    // Compared by hand: the store plugin has no strncmp.
+    for (std::uint8_t i = 0; i < app.game_count && i < kModMaxGames; ++i) {
+        const char* want = app.games[i];
+        std::size_t n = 0;
+        while (want[n] != '\0' && game_id[n] == want[n]) ++n;
+        if (n > 0 && want[n] == '\0') return true;
     }
     return false;
 }

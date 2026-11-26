@@ -41,6 +41,7 @@ headers, generated data and assets with the code that uses them.
 | Downloading themes (Settings > Theme > Get more themes) | `wii/menu/themestore.cpp`, `wii/online/httpmem.cpp`, `src/art/themelist.cpp` (themes.json), `src/fs/zipread.cpp` (the zip), `tests/themebrowse_tests.cpp`, [THEMES.md](THEMES.md) |
 | The theme kit download | `tools/theme_kit.cpp`, `tools/make_theme_kit.py`, `themes/kit/README.txt` |
 | The app store's list (apps.json) | `src/net/applist.cpp`, `include/riftwii/jsonreader.hpp`, `tools/app_list.py`, `tools/app_list_check.cpp`, `tests/applist_tests.cpp`, [APPSTORE.md](APPSTORE.md) |
+| Riivolution mods from GameBanana (a game's Mods page > Get more mods) | `tools/mod_list.py` (builds mods.json), `tests/mod_list_tests.py`, the mod fields in `src/net/applist.cpp`, the store's mods mode in `plugins/appstore/storeui.cpp`, MenuMods in `wii/menu/rift_menu.cpp`, the chain order fix in `wii/online/tls.cpp`, [MODS.md](MODS.md) |
 | The Rift Store, the app store (Settings > Online > Rift Store) | The `appstore` plugin: `plugins/appstore/` (pages, jobs), `src/net/appcatalog.cpp` (categories, state, search, the install plan), `src/fs/zipread.cpp` (`zip_read_directory_at`, `zip_extract_at`), `src/art/storeicons.cpp` (its icons, painted by the plugin; `plugins/appstore/storemath.cpp` has the float functions they need); its screen and network in the DOL: `wii/menu/pluginscreen.cpp`, `wii/core/pluginhost.cpp`, `HttpGetStream` in `wii/online/httpmem.cpp`; `tests/appcatalog_tests.cpp`, `tests/httpchunk_tests.cpp`, [APPSTORE.md](APPSTORE.md) |
 | Menu text and its translations | `tools/lang_source.py` (the table), `wii/core/i18n.cpp`, `wii/lang/*.po` |
 | The entire menu font from `font.ttf` on the card, kept in MEM2 | `tools/make_menu_font.py`, `wii/menu/fullfont.cpp`, `SetMissingGlyphSource` in `vendor-libgui/source/FreeTypeGX.cpp`, `tests/menufont_tests.cpp` |
@@ -564,6 +565,7 @@ and the `*_mock/` folders provide synthetic files, discs and hardware calls.
 | `ipcscan.cpp`, `rvzstub.cpp` | Host tools: the IPC search on a game's DOL; an RVZ's stub disc for Dolphin |
 | `theme_kit.cpp`, `make_theme_kit.py` | The theme kit zip: template pictures, a starter theme.ini, the guide |
 | `app_list.py`, `app_list_check.cpp` | The app store's list: pins each app's release, checks its download and writes apps.json; reads it back as the Wii does |
+| `mod_list.py` | The Riivolution mods list: finds GameBanana mods that really are Riivolution packs and writes mods.json and their icons (docs/MODS.md) |
 | `rvz/make_test_disc.py` | The RVZ test fixtures |
 | `dolphin/` | Dolphin test harness: `run.sh`, the USB Gecko log reader, a RiiFS test server, movie and screenshot helpers (see `docs/HARNESS.md`) |
 | `attribution_audit.py`, `ci_rules.py` | Code-attribution comparison and the project rules checked by CI |

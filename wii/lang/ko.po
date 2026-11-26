@@ -4416,6 +4416,36 @@ msgstr "파일 {1} / {2}"
 msgid "Another app is being installed. Try again when it is done."
 msgstr "다른 앱을 설치하는 중입니다. 끝난 뒤 다시 시도하세요."
 
+msgid "Get more mods..."
+msgstr "모드 더 받기..."
+
+msgid "Riivolution mods for this game from GameBanana: pick one and it is put on the SD card."
+msgstr "GameBanana의 이 게임용 Riivolution 모드입니다. 고르면 SD 카드에 들어갑니다."
+
+msgid "Mods for {1}"
+msgstr "{1} 모드"
+
+msgid "Getting the list of mods..."
+msgstr "모드 목록을 받는 중..."
+
+msgid "Could not get the list of mods: {1}"
+msgstr "모드 목록을 받지 못했습니다: {1}"
+
+msgid "GameBanana has no Riivolution mods for this game yet."
+msgstr "GameBanana에 아직 이 게임의 Riivolution 모드가 없습니다."
+
+msgid "This mod is on the SD card already, not put there from here. Version {1} replaces its XML and the files in its folders."
+msgstr "이 모드는 여기서 넣은 것이 아니라 이미 SD 카드에 있습니다. 버전 {1}이(가) XML과 폴더의 파일을 바꿉니다."
+
+msgid "Installed. It is on this game's Mods page."
+msgstr "설치했습니다. 이 게임의 모드 페이지에 있습니다."
+
+msgid "Game"
+msgstr "게임"
+
+msgid "Riivolution mods for your games, from GameBanana."
+msgstr "GameBanana의 Riivolution 모드."
+
 msgid "Games made by the homebrew community."
 msgstr "홈브루 커뮤니티가 만든 게임."
 

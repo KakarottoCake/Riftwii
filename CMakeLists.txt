@@ -229,6 +229,12 @@ if(BUILD_TESTING)
     add_executable(startupnote_tests tests/startupnote_tests.cpp)
     target_link_libraries(startupnote_tests PRIVATE riftwii)
     add_test(NAME startupnote COMMAND startupnote_tests)
+    # The mods list builder's offline tests (tools/mod_list.py), when a
+    # Python 3 is around; they never reach GameBanana.
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME mod_list COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/mod_list_tests.py)
+    endif()
     add_executable(nandpermissions_tests tests/nandpermissions_tests.cpp wii/launch/nandpermissions.cpp)
     target_include_directories(nandpermissions_tests PRIVATE
         tests/installer_mock tests/movedchannels_mock tests/wii_mock wii/launch wii/core)

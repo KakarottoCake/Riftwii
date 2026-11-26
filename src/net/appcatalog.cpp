@@ -24,6 +24,8 @@ constexpr AppCategory kCategories[] = {
     {"internet", "Internet", "Browse, chat and read on the internet."},
     {"online", "Online services", "Bring the Wii's online play and channels back."},
     {"loaders", "Loaders", "Start games and apps from USB drives and SD cards."},
+    // Mods come from their own list, opened from a game's Mods page.
+    {"mods", "Mods", "Riivolution mods for your games, from GameBanana."},
     {"more", "More", "Everything else."},
 };
 constexpr std::size_t kCategoryCount = sizeof(kCategories) / sizeof(kCategories[0]);
@@ -142,6 +144,34 @@ bool ReadRecordNumbers(const std::string& value, std::uint32_t& size, std::uint3
 // The app's own folder on the card, "apps/<id>/".
 std::string OwnFolder(const AppListing& app) { return std::string("apps/") + app.id + "/"; }
 
+// Whether `path` (lower case) is one of the app's program files: a mod's
+// XML, or an app's boot.dol, boot.elf, meta.xml and icon.png.
+bool IsProgramFile(const AppListing& app, const std::string& lower) {
+    std::vector<std::string> programs;
+    if (app.mod) programs.push_back(app.program);
+    else
+        for (const char* name : kAppProgramFiles) programs.push_back(OwnFolder(app) + name);
+    for (std::string program : programs) {
+        for (char& c : program) c = Lower(c);
+        if (lower == program) return true;
+    }
+    return false;
+}
+
+// Whether `path` is where the app's own files go: apps/<id>/, or a mod's
+// own folders (a copy of the mod put there by hand, which the player chose
+// to replace). Not riivolution/: every pack keeps its XMLs there, so a file
+// the store did not put there may be another pack's, and is kept (the
+// mod's own XML is its program, replaced before this is asked).
+bool InOwnFolders(const AppListing& app, const std::string& path) {
+    if (!app.mod) return path.compare(0, OwnFolder(app).size(), OwnFolder(app)) == 0;
+    for (std::uint8_t i = 0; i < app.data_folder_count; ++i) {
+        const std::string data = std::string(app.data_folders[i]) + "/";
+        if (path.compare(0, data.size(), data) == 0) return true;
+    }
+    return false;
+}
+
 }  // namespace
 
 std::string app_record_text(const AppListing& app, const std::vector<AppRecordFile>& files, bool removed) {
@@ -207,11 +237,7 @@ bool app_install_replaces(const AppListing& app, const std::string& path, AppFil
     // from boot.dol.
     std::string lower = path;
     for (char& c : lower) c = Lower(c);
-    for (const char* name : kAppProgramFiles) {
-        std::string program = OwnFolder(app) + name;
-        for (char& c : program) c = Lower(c);
-        if (lower == program) return true;
-    }
+    if (IsProgramFile(app, lower)) return true;
     switch (on_card) {
         case AppFileOnCard::Absent:
         case AppFileOnCard::AsInstalled:
@@ -224,8 +250,8 @@ bool app_install_replaces(const AppListing& app, const std::string& path, AppFil
     // A file the store did not put there: in a data folder it is the
     // player's (a save, a setting), always kept. In the app's own folder it
     // is replaced only when the store has no list of what it installed.
-    const bool own = path.compare(0, OwnFolder(app).size(), OwnFolder(app)) == 0;
-    if (!own) return false;
+    // A mod's own folders are its pack's (and riivolution/).
+    if (!InOwnFolders(app, path)) return false;
     return record == nullptr || !record->has_files;
 }
 
@@ -233,6 +259,10 @@ std::vector<std::string> app_remove_files(const AppListing& app, const AppRecord
                                           const std::vector<AppFileOnCard>& on_card) {
     std::vector<std::string> files;
     if (record == nullptr || !record->has_files) {
+        if (app.mod) {
+            files.push_back(app.program);
+            return files;
+        }
         for (const char* name : kAppProgramFiles) files.push_back(OwnFolder(app) + name);
         return files;
     }
@@ -354,10 +384,11 @@ bool app_plan_install(const AppListing& app, const std::vector<ZipEntry>& entrie
         total += entry.unpacked_size;
         if (plan.size() + 1 > max_files) return Fail(error, "the zip file holds more files than the app list says");
         if (total > max_bytes) return Fail(error, "the zip file unpacks to more than the app list says");
-        if (key == own + "boot.dol" || key == own + "boot.elf") has_boot = true;
+        if (IsProgramFile(app, key) && (app.mod || key == own + "boot.dol" || key == own + "boot.elf")) has_boot = true;
         plan.push_back({i, path});
     }
-    if (!has_boot) return Fail(error, "the zip file has no boot.dol for the app");
+    if (!has_boot) return Fail(error, app.mod ? "the zip file has no Riivolution XML for the mod"
+                                              : "the zip file has no boot.dol for the app");
     return true;
 }
 

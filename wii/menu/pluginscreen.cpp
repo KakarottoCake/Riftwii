@@ -269,7 +269,12 @@ private:
             look.size = size;
             look.width = c.w;
             look.lines = lines;
-            text->SetText(wanted.c_str());
+            // Shown as it is: the plugin translated its own words already,
+            // and a mod or app name that happens to match a menu string
+            // ("Quiet") must not be translated by the menu's catalogue.
+            wchar_t* wide = charToWideChar(wanted.c_str());
+            text->SetWText(wide);
+            delete[] wide;
             text->SetFontSize(size);
             if (lines > 0) {
                 text->SetWrap(true, c.w, lines);
@@ -590,7 +595,10 @@ int32_t TextWidth(const char* text, uint32_t size) {
     // The font is shared with the GUI thread, which must not draw meanwhile.
     if (g_canvas) H().halt();
     GuiText probe(nullptr, clamped, skinns::kInk);
-    probe.SetText(key.c_str() + key.find(':') + 1);
+    // As Canvas::Text draws it: as it is, not through the menu's catalogue.
+    wchar_t* wide = charToWideChar(key.c_str() + key.find(':') + 1);
+    probe.SetWText(wide);
+    delete[] wide;
     const int width = probe.GetTextWidth();
     if (g_canvas) H().resume();
     if (g_widths.size() >= kMaxWidthCache) g_widths.clear();

@@ -370,6 +370,91 @@ void test_theme_list_still_reads() {
 
 }  // namespace
 
+// A Riivolution mod as tools/mod_list.py writes it.
+std::string mod_json(const std::string& replace_from = "", const std::string& replace_to = "") {
+    std::string text =
+        "{\"id\":\"gb678330\",\"kind\":\"mod\",\"name\":\"Beta Planets\",\"author\":\"someone\","
+        "\"version\":\"1.0\",\"released\":\"2026-05-18\",\"category\":\"mods\",\"game\":\"Super Mario Galaxy\","
+        "\"games\":[\"RMG\"],\"description\":\"Good Egg Galaxy with the demo's planets.\","
+        "\"page\":\"https://gamebanana.com/mods/678330\",\"platforms\":[\"wii\",\"vwii\"],"
+        "\"download\":{\"url\":\"https://gamebanana.com/dl/1705368\",\"format\":\"zip\",\"size\":1838758,"
+        "\"sha256\":\"" + std::string(kSha) + "\",\"files\":12,\"unpacked_size\":4000000},"
+        "\"program\":\"riivolution/BetaPlanets.xml\",\"root\":\"Beta Planets v1/\",\"data_folders\":[\"BetaPlanets\"],"
+        "\"install\":[{\"from\":\"riivolution/\",\"to\":\"riivolution/\"},"
+        "{\"from\":\"BetaPlanets/\",\"to\":\"BetaPlanets/\"}]}";
+    if (!replace_from.empty()) {
+        const std::size_t at = text.find(replace_from);
+        if (at == std::string::npos) {
+            std::cerr << "test bug: no " << replace_from << std::endl;
+            g_failures++;
+        } else {
+            text.replace(at, replace_from.size(), replace_to);
+        }
+    }
+    return text;
+}
+
+bool mod_left_out(const std::string& from, const std::string& to) {
+    const Parsed p = parse(list_json(mod_json(from, to)));
+    return p.ok && p.count == 0 && p.skipped == 1;
+}
+
+void test_mods() {
+    const Parsed p = parse(list_json(mod_json()));
+    EXPECT_TRUE(p.ok);
+    EXPECT_EQ(p.count, 1u);
+    if (p.count != 1) return;
+    const AppListing& m = p.apps[0];
+    EXPECT_TRUE(m.mod);
+    EXPECT_EQ(std::string(m.root), "Beta Planets v1/");
+    EXPECT_EQ(std::string(m.game), "Super Mario Galaxy");
+    EXPECT_EQ(std::string(m.program), "riivolution/BetaPlanets.xml");
+    EXPECT_EQ(m.game_count, 1);
+    EXPECT_TRUE(app_mod_for_game(m, "RMGE01"));
+    EXPECT_TRUE(app_mod_for_game(m, "RMGP01"));
+    EXPECT_TRUE(!app_mod_for_game(m, "SB4E01"));
+    // Its files come from under its root, into riivolution/ and its folder.
+    std::string path;
+    EXPECT_TRUE(app_install_path(m, "Beta Planets v1/riivolution/BetaPlanets.xml", path));
+    EXPECT_EQ(path, "riivolution/BetaPlanets.xml");
+    EXPECT_TRUE(app_install_path(m, "Beta Planets v1/BetaPlanets/ObjectData/Planet.arc", path));
+    EXPECT_EQ(path, "BetaPlanets/ObjectData/Planet.arc");
+    EXPECT_TRUE(!app_install_path(m, "riivolution/BetaPlanets.xml", path));  // outside the root
+    EXPECT_TRUE(!app_install_path(m, "Beta Planets v1/readme.txt", path));
+    // Riivolution's redirected saves are never written.
+    EXPECT_TRUE(!app_install_path(m, "Beta Planets v1/riivolution/save/RMGE/GameData.bin", path));
+    EXPECT_TRUE(!app_install_path(m, "Beta Planets v1/riivolution/Save/x.bin", path));
+    // ... nor by a single-file rule, nor named as the mod's XML.
+    AppListing single = m;
+    std::snprintf(single.install[single.install_count].from, sizeof(single.install[0].from), "payload.xml");
+    std::snprintf(single.install[single.install_count].to, sizeof(single.install[0].to), "riivolution/save/profile.xml");
+    ++single.install_count;
+    EXPECT_TRUE(!app_install_path(single, "Beta Planets v1/payload.xml", path));
+    const Parsed saved = parse(list_json(mod_json("riivolution/BetaPlanets.xml", "riivolution/save/BetaPlanets.xml")));
+    EXPECT_TRUE(saved.ok && saved.count == 0 && saved.skipped == 1);
+    // An app is never a mod: apps may not write riivolution/ or use "mods".
+    EXPECT_TRUE(left_out("\"to\":\"snes9xgx/\"", "\"to\":\"riivolution/\""));
+    EXPECT_TRUE(left_out("\"category\":\"emulators\"", "\"category\":\"mods\""));
+    EXPECT_TRUE(!parse(list_json(app_json())).apps[0].mod);
+    // A mod's own rules.
+    EXPECT_TRUE(mod_left_out("\"category\":\"mods\"", "\"category\":\"games\""));
+    EXPECT_TRUE(mod_left_out("\"kind\":\"mod\"", "\"kind\":\"theme\""));
+    EXPECT_TRUE(mod_left_out("\"program\":\"riivolution/BetaPlanets.xml\"", "\"program\":\"BetaPlanets/x.xml\""));
+    EXPECT_TRUE(mod_left_out("\"program\":\"riivolution/BetaPlanets.xml\"", "\"program\":\"riivolution/../boot.dol\""));
+    EXPECT_TRUE(mod_left_out("\"program\":\"riivolution/BetaPlanets.xml\"", "\"program\":\"riivolution/a.txt\""));
+    EXPECT_TRUE(mod_left_out("\"root\":\"Beta Planets v1/\"", "\"root\":\"../\""));
+    EXPECT_TRUE(mod_left_out("\"root\":\"Beta Planets v1/\"", "\"root\":\"Beta Planets v1\""));
+    EXPECT_TRUE(mod_left_out("\"games\":[\"RMG\"]", "\"games\":[\"rmg\"]"));
+    EXPECT_TRUE(mod_left_out("\"game\":\"Super Mario Galaxy\"", "\"game\":\"\""));
+    EXPECT_TRUE(mod_left_out("\"to\":\"BetaPlanets/\"", "\"to\":\"apps/\""));
+    EXPECT_TRUE(mod_left_out("\"data_folders\":[\"BetaPlanets\"]", "\"data_folders\":[\"private\"]"));
+    // A mod without game IDs is read, and matches no game.
+    const Parsed none = parse(list_json(mod_json("\"games\":[\"RMG\"]", "\"games\":[]")));
+    EXPECT_TRUE(none.count == 1 && !app_mod_for_game(none.apps[0], "RMGE01"));
+    // An unknown kind is left out (a later list's).
+    EXPECT_TRUE(left_out("\"id\":\"snes9xgx\"", "\"id\":\"snes9xgx\",\"kind\":\"theme\""));
+}
+
 int main() {
     test_reads_an_app();
     test_list_level_errors();
@@ -380,6 +465,7 @@ int main() {
     test_duplicates_and_room();
     test_install_paths();
     test_hostile_lists();
+    test_mods();
     test_checks_on_their_own();
     test_theme_list_still_reads();
     if (g_failures) {
