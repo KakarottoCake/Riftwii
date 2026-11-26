@@ -561,6 +561,7 @@ and the `*_mock/` folders provide synthetic files, discs and hardware calls.
 | `rtreloc.py` | Relocations for the RVZ runtime blob |
 | `make_plugin.py` | Plugin files: built from the two links (header, image, relocations, SHA-256), checked against the DOL's build stamp, varied for refusal tests |
 | `dol_stash.py` | Makes `riftwii.dol` load its code and read-only data (linked to run from MEM2) just above its BSS, then adds the start-up stash (translations, GPL) after it (`docs/MEMORY.md`) |
+| `split_po.py` | Splits `wii/lang/*.po` for the start-up stash: the English lines once (`msgids.zst`), each language's translations alone (`<lang>.str.zst`); checks every file lists the same entries. `wii/core/i18n.cpp` pairs them up again |
 | `check_mem1_line.py` | Fails the Wii build unless `0x81000000` is well above what libogc's start writes from the heap's start, where its DSP boot code cannot hit anything (`docs/MEMORY.md`) |
 | `pack_blobs.py` | Packs a set of runtime blobs (the Wii Remote logger, the WiiRD handlers, the mods' runtime and its RVZ build, the virtual SD card, screenshot and crash hooks) into one zstd frame the DOL embeds, their sizes in front (`wii/core/packedblobs.cpp`) |
 | `pack_dol.py` | Packs `riftwii.dol` last: each section a Zstandard frame behind the `runtime/dolpack` stub, every frame checked before it is written (`PACK=0` skips it) |

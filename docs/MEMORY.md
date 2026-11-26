@@ -124,7 +124,7 @@ Japanese with RiftWii's font.
 | Item | KiB in MEM1 | Used | Choice | MEM1 saved |
 | --- | ---: | --- | --- | ---: |
 | Menu font (`wii/font/menu.ttf`) | 0 | Read from `apps/riftwii/font.ttf` once at start | **External file**, copied completely into MEM2, no font bytes in the DOL or stash. Replaces the former 310,920-byte core plus 384 KiB stream pool; see `wii/menu/fullfont.hpp`. | 750 |
-| Six translations (`wii/lang/*.po`, zstd) | 166 | At start and when the language changes, one catalog | **Start-up stash** (built) | 165 |
+| Six translations (`wii/lang/*.po`, zstd; since the ninth pass the English lines once and each language's translations alone, 179 KiB for six where whole files took 303) | 166 | At start and when the language changes, one catalog | **Start-up stash** (built) | 165 |
 | The GPL (`LICENSE`, zstd) | 11 | On the credits page | **Start-up stash** (built) | 11 |
 | Menu sounds (`button_click`, `button_over`, `home_open`, `home_close`, raw PCM) | 226 | Played from memory by the DSP whenever the menu makes a sound | Stash next (played straight from the MEM2 copy, as theme sounds already are), not built: `vendor-libgui` names the sounds as linked arrays | 217 (all but the 8 KiB hover tick, which could stay) |
 | Runtime blobs (`riftwii_rt`, `_rvz`, `_gc`, `_gc_rvz`, pad, shot, fault, wlog, vsd, code handler) | 173 | Copied into the game at a launch | The GameCube ones (`riftwii_gc.bin`, `riftwii_gc_rvz.zst` and `.rel`, 73 KiB) are the `gamecube` plugin's since stage (b) ([PLUGINS.md](PLUGINS.md)), and the six pad builds the `pads` plugin's (the DOL copies the one a game takes at the launch, [PLUGINS.md](PLUGINS.md#the-pads-plugin)); the rest stay: their MEM2 copy would have to survive everything a launch does in MEM2 | 73 (with the GameCube loader's code: 196 KiB in all) |
@@ -334,7 +334,7 @@ and RiftWii's own, which follow the code and the read-only data back to
 back from `0x90829000` (the end moves with each build; the linker checks it
 stays below `0x90E00000`). In
 MEM1 the DOL loads the code first above `.bss`, then the read-only data,
-then the stash. It is 32 bytes of notes plus the stash (314
+then the stash. It is 32 bytes of notes plus the stash (191
 KiB today), and `mem::Init` starts arena 2 above it. Checked against the other users of MEM2:
 
 - **IOS reloads** write below `0x90800000`, so they never reach it.
@@ -556,6 +556,19 @@ linker's `__riftwii_mem2_end`). The launch keeps patches off that one
 range. libogc's thread blocks and lock tables, its memory card, EXI and
 IPC bookkeeping, and the C library's, libsysbase's and libstdc++'s
 zero-filled data joined RiftWii's in MEM2.
+
+A ninth pass took 123 KiB off the start-up stash, which stays in MEM2 for
+the whole run (in Dolphin, 5404 KiB of MEM2 taken at the start, down from
+5528; the stash is 191 KiB, down from 314). The six `.po` files list the
+same English entries in the same order, so the stash held the English text
+six times. `tools/split_po.py` now keeps the English lines once
+(`msgids.zst`) and each language's translated lines alone
+(`<lang>.str.zst`); `wii/core/i18n.cpp` pairs the two up again into .po
+text for the same parser. The build, and CI, fail if a language stops
+listing the same entries. Using the English text as a zstd dictionary as
+well would save only 6 KiB more. The checks that this compiler's Wii
+settings already pass `-ffunction-sections`, `-fdata-sections` and
+`--gc-sections` were done too: nothing unreached is left to drop that way.
 
 Still in MEM1 after these passes, about 350 KiB: the GX FIFO (256 KiB, see
 above), libasnd's buffers (25 KiB, read by the DSP), the exception stack

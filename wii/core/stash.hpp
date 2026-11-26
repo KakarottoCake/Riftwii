@@ -26,7 +26,7 @@ bool FreshStart();
 // 2 starts above it.
 u32 ReservedEnd();
 
-// An entry ("es.po.zst", "licence.zst"); false when the
+// An entry ("es.str.zst", "licence.zst"); false when the
 // stash is missing (riftwii.elf started directly has none) or damaged.
 bool Find(const char* name, const u8*& data, u32& size);
 

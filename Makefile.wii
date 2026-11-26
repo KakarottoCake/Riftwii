@@ -198,9 +198,11 @@ BINFILES	+=	riftwii_rts.bin riftwii_rt_rvz.rel riftwii_hooks.bin riftwii_wlogs.b
 # The start-up stash (wii/core/stash.hpp): not linked, but added to the
 # DOL as a section above .bss that crt0 copies to MEM2, so its MEM1 is
 # the heap's after the start. The GPL's text (credits) and translations
-# (wii/lang/*.po), zstd-compressed. All menu fonts are external files.
-export STASHFILES	:=	licence.zst \
-					$(foreach dir,$(DATA),$(addsuffix .zst,$(notdir $(wildcard $(dir)/*.po))))
+# (wii/lang/*.po), zstd-compressed: the English lines once (msgids.zst),
+# then each language's translated lines alone (<lang>.str.zst), as
+# tools/split_po.py splits them. All menu fonts are external files.
+export STASHFILES	:=	licence.zst msgids.zst \
+					$(foreach dir,$(DATA),$(addsuffix .str.zst,$(basename $(notdir $(wildcard $(dir)/*.po)))))
 
 #---------------------------------------------------------------------------------
 # use CXX for linking C++ projects, CC for standard C
@@ -380,9 +382,16 @@ $(TEST_USERS): $(TEST_STAMP)
 # The menu's translations (wii/core/i18n.cpp) and the GPL
 # (credits.cpp) are zstd-compressed into the start-up stash (above) and
 # unpacked when needed: none of them takes MEM1 after the start.
-%.po.zst : %.po
+LANG_PO_FILES := $(foreach dir,$(DATA),$(wildcard $(PROJECT_ROOT)/$(dir)/*.po))
+msgids.zst : $(LANG_PO_FILES) $(PROJECT_ROOT)/tools/split_po.py
 	@echo $(notdir $@)
-	@zstd -q -19 -f -o $@ $<
+	@$(PYTHON) $(PROJECT_ROOT)/tools/split_po.py ids $(LANG_PO_FILES) > msgids.txt
+	@zstd -q -19 -f -o $@ msgids.txt
+
+%.str.zst : %.po $(PROJECT_ROOT)/tools/split_po.py
+	@echo $(notdir $@)
+	@$(PYTHON) $(PROJECT_ROOT)/tools/split_po.py strings $< > $*.str
+	@zstd -q -19 -f -o $@ $*.str
 
 licence.zst : $(PROJECT_ROOT)/LICENSE
 	@echo $(notdir $@)
