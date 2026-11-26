@@ -5076,11 +5076,11 @@ msgstr "세이브를 설치하지 못했습니다: {1}"
 msgid "The save is installed."
 msgstr "세이브가 설치되었습니다."
 
-msgid "The save is installed. Your previous save is kept at {1}."
-msgstr "세이브가 설치되었습니다. 이전 세이브는 {1}에 보관됩니다."
+msgid "The save is installed. Your previous save is kept next to it as {1}."
+msgstr "세이브가 설치되었습니다. 이전 세이브는 옆에 {1}(으)로 보관됩니다."
 
 msgid "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first."
 msgstr "디스크 게임은 USB 드라이브의 에뮬레이트 NAND를 사용할 수 없습니다. 먼저 SD 카드의 세이브 위치를 선택하세요."
 
-msgid "The save is installed. The memory card was backed up to {1}."
-msgstr "세이브가 설치되었습니다. 메모리 카드는 {1}에 백업했습니다."
+msgid "The save is installed. The memory card was backed up first ({1})."
+msgstr "세이브가 설치되었습니다. 먼저 메모리 카드를 백업했습니다 ({1})."

@@ -5076,11 +5076,11 @@ msgstr "セーブをインストールできませんでした: {1}"
 msgid "The save is installed."
 msgstr "セーブをインストールしました。"
 
-msgid "The save is installed. Your previous save is kept at {1}."
-msgstr "セーブをインストールしました。前のセーブは{1}に残しています。"
+msgid "The save is installed. Your previous save is kept next to it as {1}."
+msgstr "セーブをインストールしました。前のセーブは{1}として隣に残しています。"
 
 msgid "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first."
 msgstr "ディスクのゲームはUSBドライブのエミュNANDを使えません。先にSDカードのセーブ場所を選んでください。"
 
-msgid "The save is installed. The memory card was backed up to {1}."
-msgstr "セーブをインストールしました。メモリーカードは{1}にバックアップしました。"
+msgid "The save is installed. The memory card was backed up first ({1})."
+msgstr "セーブをインストールしました。先にメモリーカードをバックアップしました ({1})。"

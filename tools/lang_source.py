@@ -10359,21 +10359,21 @@ T.update({
         "Não foi possível instalar o save: {1}",
         "Impossibile installare il salvataggio: {1}"),
     "The save is installed.": ("La partida está instalada.", "セーブをインストールしました。", "O save foi instalado.", "Il salvataggio è installato."),
-    "The save is installed. Your previous save is kept at {1}.": (
-        "La partida está instalada. La anterior se conserva en {1}.",
-        "セーブをインストールしました。前のセーブは{1}に残しています。",
-        "O save foi instalado. O anterior está guardado em {1}.",
-        "Il salvataggio è installato. Quello precedente è conservato in {1}."),
+    "The save is installed. Your previous save is kept next to it as {1}.": (
+        "La partida está instalada. La anterior se conserva a su lado como {1}.",
+        "セーブをインストールしました。前のセーブは{1}として隣に残しています。",
+        "O save foi instalado. O anterior está guardado ao lado como {1}.",
+        "Il salvataggio è installato. Quello precedente è conservato accanto come {1}."),
     "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first.": (
         "Un juego en disco no puede usar una NAND emulada en la unidad USB. Elige primero una ubicación de partidas en la tarjeta SD.",
         "ディスクのゲームはUSBドライブのエミュNANDを使えません。先にSDカードのセーブ場所を選んでください。",
         "Um jogo em disco não pode usar uma NAND emulada na unidade USB. Escolha primeiro um local de saves no cartão SD.",
         "Un gioco su disco non può usare una NAND emulata sull'unità USB. Scegli prima una posizione dei salvataggi sulla scheda SD."),
-    "The save is installed. The memory card was backed up to {1}.": (
-        "La partida está instalada. Se hizo una copia de la tarjeta de memoria en {1}.",
-        "セーブをインストールしました。メモリーカードは{1}にバックアップしました。",
-        "O save foi instalado. Foi feita uma cópia do cartão de memória em {1}.",
-        "Il salvataggio è installato. La memory card è stata copiata in {1}."),
+    "The save is installed. The memory card was backed up first ({1}).": (
+        "La partida está instalada. Antes se hizo una copia de la tarjeta de memoria ({1}).",
+        "セーブをインストールしました。先にメモリーカードをバックアップしました ({1})。",
+        "O save foi instalado. Antes foi feita uma cópia do cartão de memória ({1}).",
+        "Il salvataggio è installato. Prima è stata fatta una copia della memory card ({1})."),
 })
 KO.update({
     "Get a save": "세이브 받기",
@@ -10388,8 +10388,8 @@ KO.update({
     "Install {1} in {2}? Any save it replaces is backed up first.": "{1}을(를) {2}에 설치할까요? 교체할 세이브는 먼저 백업합니다.",
     "The save could not be installed: {1}": "세이브를 설치하지 못했습니다: {1}",
     "The save is installed.": "세이브가 설치되었습니다.",
-    "The save is installed. Your previous save is kept at {1}.": "세이브가 설치되었습니다. 이전 세이브는 {1}에 보관됩니다.",
-    "The save is installed. The memory card was backed up to {1}.": "세이브가 설치되었습니다. 메모리 카드는 {1}에 백업했습니다.",
+    "The save is installed. Your previous save is kept next to it as {1}.": "세이브가 설치되었습니다. 이전 세이브는 옆에 {1}(으)로 보관됩니다.",
+    "The save is installed. The memory card was backed up first ({1}).": "세이브가 설치되었습니다. 먼저 메모리 카드를 백업했습니다 ({1}).",
     "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first.": "디스크 게임은 USB 드라이브의 에뮬레이트 NAND를 사용할 수 없습니다. 먼저 SD 카드의 세이브 위치를 선택하세요.",
 })
 FR.update({
@@ -10405,8 +10405,8 @@ FR.update({
     "Install {1} in {2}? Any save it replaces is backed up first.": "Installer {1} dans {2} ? Une copie de toute sauvegarde remplacée est conservée avant.",
     "The save could not be installed: {1}": "Impossible d'installer la sauvegarde : {1}",
     "The save is installed.": "La sauvegarde est installée.",
-    "The save is installed. Your previous save is kept at {1}.": "La sauvegarde est installée. La précédente est conservée dans {1}.",
-    "The save is installed. The memory card was backed up to {1}.": "La sauvegarde est installée. La carte mémoire a été copiée dans {1}.",
+    "The save is installed. Your previous save is kept next to it as {1}.": "La sauvegarde est installée. La précédente est conservée à côté sous le nom {1}.",
+    "The save is installed. The memory card was backed up first ({1}).": "La sauvegarde est installée. La carte mémoire a d'abord été copiée ({1}).",
     "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first.": "Un jeu sur disque ne peut pas utiliser une NAND émulée sur le disque USB. Choisissez d'abord un emplacement de sauvegarde sur la carte SD.",
 })
 

@@ -12717,11 +12717,14 @@ static void MenuGetSave(FrontendState& state)
 				logf("Saves: installation failed: %s.\n", error.c_str());
 				ShowPopup(tr("Get a save"), tr("The save could not be installed: {1}", {error}), tr("OK"));
 			} else {
+				// Only the backup's own name: its full path is too long for the
+				// popup (it ran off both sides), and the log keeps the path.
+				const std::string backupName = backup.substr(backup.rfind('/') + 1);
 				std::string done = tr("The save is installed.");
 				if (!backup.empty() && gamecube)
-					done = tr("The save is installed. The memory card was backed up to {1}.", {backup});
+					done = tr("The save is installed. The memory card was backed up first ({1}).", {backupName});
 				else if (!backup.empty())
-					done = tr("The save is installed. Your previous save is kept at {1}.", {backup});
+					done = tr("The save is installed. Your previous save is kept next to it as {1}.", {backupName});
 				ShowPopup(tr("Get a save"), done, tr("OK"));
 			}
 			return false;

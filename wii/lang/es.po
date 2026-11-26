@@ -5076,11 +5076,11 @@ msgstr "No se pudo instalar la partida: {1}"
 msgid "The save is installed."
 msgstr "La partida está instalada."
 
-msgid "The save is installed. Your previous save is kept at {1}."
-msgstr "La partida está instalada. La anterior se conserva en {1}."
+msgid "The save is installed. Your previous save is kept next to it as {1}."
+msgstr "La partida está instalada. La anterior se conserva a su lado como {1}."
 
 msgid "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first."
 msgstr "Un juego en disco no puede usar una NAND emulada en la unidad USB. Elige primero una ubicación de partidas en la tarjeta SD."
 
-msgid "The save is installed. The memory card was backed up to {1}."
-msgstr "La partida está instalada. Se hizo una copia de la tarjeta de memoria en {1}."
+msgid "The save is installed. The memory card was backed up first ({1})."
+msgstr "La partida está instalada. Antes se hizo una copia de la tarjeta de memoria ({1})."
