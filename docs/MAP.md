@@ -139,7 +139,7 @@ The build compiles every folder into one, so no two files share a name.
 | `memlimits.cpp` | Keeps the app's heap out of memory a launch overwrites |
 | `restart.cpp` | Starting RiftWii again without the Homebrew Channel (after a game, or the channel) |
 | `stash.cpp` | The start-up stash: crt0's copy to MEM2, and finding the font, translations and GPL in it |
-| `mem1tail.c`, `mem1tail.h` | Home's scan stack, linked after every library so it is what spans `0x81000000`, where libogc's start-up copies its DSP boot code (`docs/MEMORY.md`, "The 16 MiB line") |
+| `mem1tail.c`, `mem1tail.h` | Home's scan stack (and the music thread's after it), linked after every library so it is what spans `0x81000000`, where libogc's start-up copies its DSP boot code (`docs/MEMORY.md`, "The 16 MiB line") |
 | `startuptrace.cpp` | The start-up note: the step each start reached before its log opened, reported by the next start as "The last start stopped at" (`include/riftwii/startupnote.hpp`, `tests/startupnote_tests.cpp`) |
 | `plugins.cpp` | The plugin loader: the file's checks, the arena at the top of MEM2, relocation, the table RiftWii gives a plugin, refusals, crash ranges, the test switch |
 | `pluginhost.cpp` | The plugin table's network and file entries: downloads into a buffer or streamed to the card with their SHA-256, the network thread's job, removing, renaming and listing |
@@ -436,6 +436,7 @@ reader helpers stay beside their source.
 | `profiles` | `profiles.txt`: a game's extra Home tiles with their own mods; their names, keys and limits |
 | `namekeys` | The Shift of the keyboard a tile's name is typed on: what each key types with Shift off, on by itself (capitals) or pressed (capitals and symbols), and how Shift follows the name |
 | `homeorder` | `order.txt`: Home's own order (Settings > Home order: Your order) |
+| `miidb` | The Wii's Mii database (`RFL_DB.dat`): its check, its Miis by name and ID, one Mii copied in or taken out (Manage emulated NAND > Miis) |
 | `homelist` | `homelist.txt`: the games Home found the last time it read the drives, shown at the next start until each drive is read again |
 | `foldernames` | A folder's file names kept as hashes, to answer "is this file there?" for many files from one listing |
 | `padcal` | `gccalibration.txt`: each GameCube controller's calibration (Settings > Controllers), and the stretch a game applies, worked out ahead (`runtime/rtpadcal.h`) |

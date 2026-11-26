@@ -4887,12 +4887,6 @@ msgstr "スロット{1}のメモリーカードが応答しません。抜いて
 msgid "This title is already in {1}. Delete it there first to copy it again."
 msgstr "このタイトルはすでに{1}にあります。もう一度コピーするには、先にそちらを削除してください。"
 
-msgid "Miis from Wii"
-msgstr "WiiからMiiをコピー"
-
-msgid "Miis to Wii"
-msgstr "WiiへMiiをコピー"
-
 msgid "Remove Wii settings"
 msgstr "Wii設定のコピーを削除"
 
@@ -5117,3 +5111,75 @@ msgstr "ディスクのゲームはUSBドライブのエミュNANDを使えま�
 
 msgid "The save is installed. The memory card was backed up first ({1})."
 msgstr "セーブをインストールしました。先にメモリーカードをバックアップしました ({1})。"
+
+msgid "Copy all"
+msgstr "すべてコピー"
+
+msgid "(no name)"
+msgstr "(名前なし)"
+
+msgid "A Mii in the emulated NAND. Press A to copy it to the Wii or remove it."
+msgstr "仮想NANDのMiiです。Aボタンで、Wiiへコピーするか削除できます。"
+
+msgid "A Mii on the Wii. Press A to copy it to the emulated NAND."
+msgstr "Wii本体のMiiです。Aボタンで仮想NANDへコピーします。"
+
+msgid "Copy to the Wii"
+msgstr "Wiiへコピー"
+
+msgid "Copy to the emulated NAND"
+msgstr "仮想NANDへコピー"
+
+msgid "In the emulated NAND"
+msgstr "仮想NAND"
+
+msgid "Miis"
+msgstr "Mii"
+
+msgid "No Miis"
+msgstr "Miiがいません"
+
+msgid "Other side"
+msgstr "反対側"
+
+msgid "Puts this Mii in the Wii's own memory, or updates its copy there. Your other Miis stay."
+msgstr "このMiiをWii本体のメモリーに入れるか、そこにあるコピーを更新します。ほかのMiiはそのままです。"
+
+msgid "Puts this Mii in the emulated NAND, or updates its copy there. The Wii's own Miis are not changed."
+msgstr "このMiiを仮想NANDに入れるか、そこにあるコピーを更新します。Wii本体のMiiは変わりません。"
+
+msgid "Reading Miis..."
+msgstr "Miiを読み込んでいます..."
+
+msgid "Remove from the emulated NAND"
+msgstr "仮想NANDから削除"
+
+msgid "Replaces all the Wii's Miis with the emulated NAND's. A backup is kept first."
+msgstr "Wii本体のMiiをすべて仮想NANDのMiiに置き換えます。先にバックアップを保存します。"
+
+msgid "Replaces all the emulated NAND's Miis with the Wii's. A backup is kept first."
+msgstr "仮想NANDのMiiをすべてWii本体のMiiに置き換えます。先にバックアップを保存します。"
+
+msgid "Takes this Mii out of the emulated NAND. The Wii's own Miis are not changed."
+msgstr "このMiiを仮想NANDから削除します。Wii本体のMiiは変わりません。"
+
+msgid "The Mii could not be changed. See session.log for the reason."
+msgstr "Miiを変更できませんでした。理由はsession.logを確認してください。"
+
+msgid "The Miis could not be read. See session.log for the reason."
+msgstr "Miiを読み込めませんでした。理由はsession.logを確認してください。"
+
+msgid "The Wii has no Miis."
+msgstr "Wii本体にMiiがいません。"
+
+msgid "The Wii's Miis and this emulated NAND's side by side: copy one or all of them either way."
+msgstr "Wii本体とこの仮想NANDのMiiを並べて表示します。1人ずつでも全員でも、どちらの向きにもコピーできます。"
+
+msgid "The emulated NAND has no Miis yet."
+msgstr "仮想NANDにはまだMiiがいません。"
+
+msgid "This writes {1} into the Wii's own memory. A backup of the Wii's Miis is kept in the emulated NAND folder first. Keep the Wii turned on until it finishes."
+msgstr "{1}をWii本体のメモリーに書き込みます。先にWii本体のMiiのバックアップを仮想NANDのフォルダに保存します。終わるまでWiiの電源を切らないでください。"
+
+msgid "{1} is taken out of the emulated NAND. A backup of its Miis is kept first."
+msgstr "{1}を仮想NANDから削除します。先にMiiのバックアップを保存します。"

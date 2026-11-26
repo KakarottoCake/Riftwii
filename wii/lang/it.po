@@ -4887,12 +4887,6 @@ msgstr "La memory card nello slot {1} non ha risposto. Toglila, reinseriscila e 
 msgid "This title is already in {1}. Delete it there first to copy it again."
 msgstr "Questo titolo è già in {1}. Eliminalo prima lì per copiarlo di nuovo."
 
-msgid "Miis from Wii"
-msgstr "Mii dalla Wii"
-
-msgid "Miis to Wii"
-msgstr "Mii sulla Wii"
-
 msgid "Remove Wii settings"
 msgstr "Rimuovi impostazioni Wii"
 
@@ -5117,3 +5111,75 @@ msgstr "Un gioco su disco non può usare una NAND emulata sull'unità USB. Scegl
 
 msgid "The save is installed. The memory card was backed up first ({1})."
 msgstr "Il salvataggio è installato. Prima è stata fatta una copia della memory card ({1})."
+
+msgid "Copy all"
+msgstr "Copia tutti"
+
+msgid "(no name)"
+msgstr "(senza nome)"
+
+msgid "A Mii in the emulated NAND. Press A to copy it to the Wii or remove it."
+msgstr "Un Mii della NAND emulata. Premi A per copiarlo sulla Wii o rimuoverlo."
+
+msgid "A Mii on the Wii. Press A to copy it to the emulated NAND."
+msgstr "Un Mii della Wii. Premi A per copiarlo nella NAND emulata."
+
+msgid "Copy to the Wii"
+msgstr "Copia sulla Wii"
+
+msgid "Copy to the emulated NAND"
+msgstr "Copia nella NAND emulata"
+
+msgid "In the emulated NAND"
+msgstr "Nella NAND emulata"
+
+msgid "Miis"
+msgstr "Mii"
+
+msgid "No Miis"
+msgstr "Nessun Mii"
+
+msgid "Other side"
+msgstr "Altro lato"
+
+msgid "Puts this Mii in the Wii's own memory, or updates its copy there. Your other Miis stay."
+msgstr "Mette questo Mii nella memoria della Wii, o ne aggiorna la copia lì. Gli altri Mii restano."
+
+msgid "Puts this Mii in the emulated NAND, or updates its copy there. The Wii's own Miis are not changed."
+msgstr "Mette questo Mii nella NAND emulata, o ne aggiorna la copia lì. I Mii della Wii non cambiano."
+
+msgid "Reading Miis..."
+msgstr "Lettura dei Mii..."
+
+msgid "Remove from the emulated NAND"
+msgstr "Rimuovi dalla NAND emulata"
+
+msgid "Replaces all the Wii's Miis with the emulated NAND's. A backup is kept first."
+msgstr "Sostituisce tutti i Mii della Wii con quelli della NAND emulata. Prima viene salvata una copia."
+
+msgid "Replaces all the emulated NAND's Miis with the Wii's. A backup is kept first."
+msgstr "Sostituisce tutti i Mii della NAND emulata con quelli della Wii. Prima viene salvata una copia."
+
+msgid "Takes this Mii out of the emulated NAND. The Wii's own Miis are not changed."
+msgstr "Rimuove questo Mii dalla NAND emulata. I Mii della Wii non cambiano."
+
+msgid "The Mii could not be changed. See session.log for the reason."
+msgstr "Impossibile modificare il Mii. Vedi session.log per il motivo."
+
+msgid "The Miis could not be read. See session.log for the reason."
+msgstr "Impossibile leggere i Mii. Vedi session.log per il motivo."
+
+msgid "The Wii has no Miis."
+msgstr "La Wii non ha Mii."
+
+msgid "The Wii's Miis and this emulated NAND's side by side: copy one or all of them either way."
+msgstr "I Mii della Wii e quelli di questa NAND emulata affiancati: copiane uno o tutti in entrambe le direzioni."
+
+msgid "The emulated NAND has no Miis yet."
+msgstr "La NAND emulata non ha ancora Mii."
+
+msgid "This writes {1} into the Wii's own memory. A backup of the Wii's Miis is kept in the emulated NAND folder first. Keep the Wii turned on until it finishes."
+msgstr "Questo scrive {1} nella memoria della Wii. Prima viene salvata una copia dei Mii della Wii nella cartella della NAND emulata. Lascia la Wii accesa fino alla fine."
+
+msgid "{1} is taken out of the emulated NAND. A backup of its Miis is kept first."
+msgstr "{1} viene rimosso dalla NAND emulata. Prima viene salvata una copia dei suoi Mii."

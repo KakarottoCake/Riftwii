@@ -56,6 +56,10 @@ public:
     // ending in ">". What is only read (an Info row: a note, or a fact
     // with a value) is plain text, never lit.
     void SetCards(bool on) { cards = on; }
+    // Two lists side by side (the Miis page): only the active one answers
+    // the D-pad and A, and shows its lit row without the pointer. The
+    // pointer works on both. On by default.
+    void SetKeysActive(bool on) { keysActive = on; }
     void Refresh();                                  // after the rows changed
     void Select(int index);
     int Selected() const { return focus; }
@@ -114,6 +118,7 @@ private:
     int textFirst = -1;
     bool dirty = true;
     bool cards = false;
+    bool keysActive = true;
     int rowH = kRowHeight;
     int CardLeft(const FlowRow& r) const;
     int CardRight() const;
