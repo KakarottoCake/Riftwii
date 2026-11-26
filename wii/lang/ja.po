@@ -4434,6 +4434,9 @@ msgstr "MODの一覧を取得できませんでした: {1}"
 msgid "GameBanana has no Riivolution mods for this game yet."
 msgstr "GameBananaにはこのゲームのRiivolution MODがまだありません。"
 
+msgid "This mod is on the SD card already, not put there from here. Version {1} replaces its XML and the files in its folders."
+msgstr "このMODはここから入れたものではなく、すでにSDカードにあります。バージョン{1}がXMLとフォルダ内のファイルを置き換えます。"
+
 msgid "Installed. It is on this game's Mods page."
 msgstr "入りました。このゲームのMODページにあります。"
 

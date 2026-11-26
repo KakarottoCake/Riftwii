@@ -4434,6 +4434,9 @@ msgstr "모드 목록을 받지 못했습니다: {1}"
 msgid "GameBanana has no Riivolution mods for this game yet."
 msgstr "GameBanana에 아직 이 게임의 Riivolution 모드가 없습니다."
 
+msgid "This mod is on the SD card already, not put there from here. Version {1} replaces its XML and the files in its folders."
+msgstr "이 모드는 여기서 넣은 것이 아니라 이미 SD 카드에 있습니다. 버전 {1}이(가) XML과 폴더의 파일을 바꿉니다."
+
 msgid "Installed. It is on this game's Mods page."
 msgstr "설치했습니다. 이 게임의 모드 페이지에 있습니다."
 

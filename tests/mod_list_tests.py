@@ -141,6 +141,45 @@ class XmlTests(unittest.TestCase):
         self.assertEqual(looked, [7])
 
 
+
+class ReviewLimitTests(unittest.TestCase):
+    def test_program_must_fit_the_wii(self):
+        self.assertEqual(mod_list.checked_program("a.xml"), "riivolution/a.xml")
+        with self.assertRaises(mod_list.Skip):
+            mod_list.checked_program("A" * 80 + ".xml")
+
+    def test_xml_count_and_total_caps(self):
+        many = {f"riivolution/{i}.xml": b"<x/>" for i in range(mod_list.MAX_PACK_XMLS + 1)}
+        with self.assertRaises(mod_list.Skip):
+            mod_list.read_pack_xmls(list(many), many.get)
+        big = {f"riivolution/{i}.xml": b"x" * (mod_list.MAX_XML - 1) for i in range(5)}
+        with self.assertRaises(mod_list.Skip):
+            mod_list.read_pack_xmls(list(big), big.get)
+
+    def test_unreadable_xml_rejects_the_archive(self):
+        out = io.BytesIO()
+        with zipfile.ZipFile(out, "w") as z:
+            z.writestr("riivolution/a.xml", b'<id game="RMG"/>')
+            z.writestr("Pack/a.arc", b"x" * 10)
+        data = bytearray(out.getvalue())
+        # Mark every entry as compressed with method 99 (AES), which Python's zipfile can't read.
+        for sig, off in ((b"PK\x03\x04", 8), (b"PK\x01\x02", 10)):
+            at = data.find(sig)
+            while at >= 0:
+                data[at + off:at + off + 2] = (99).to_bytes(2, "little")
+                at = data.find(sig, at + 4)
+        with self.assertRaises(mod_list.Skip):
+            mod_list.zip_layout(bytes(data))
+
+    def test_next_file_when_the_best_makes_no_entry(self):
+        builder = mod_list.Builder.__new__(mod_list.Builder)
+        builder.log = lambda line: None
+        files = [{"_idRow": 1, "_tsDateAdded": 200}, {"_idRow": 2, "_tsDateAdded": 100}]
+        builder.profile = lambda record: {"_aFiles": [dict(f, _sDownloadUrl="x") for f in files]}
+        builder.file_verdict = lambda f: {"format": "zip"}
+        builder.entry = lambda p, f, v, game: None if f["_idRow"] == 1 else {"id": "gb1", "from": f["_idRow"]}
+        self.assertEqual(builder.entries({"_idRow": 1}, "Game"), [{"id": "gb1", "from": 2}])
+
 class ExcludeTests(unittest.TestCase):
     def test_ids_and_comments(self):
         import tempfile

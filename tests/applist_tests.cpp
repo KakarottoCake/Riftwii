@@ -424,6 +424,14 @@ void test_mods() {
     // Riivolution's redirected saves are never written.
     EXPECT_TRUE(!app_install_path(m, "Beta Planets v1/riivolution/save/RMGE/GameData.bin", path));
     EXPECT_TRUE(!app_install_path(m, "Beta Planets v1/riivolution/Save/x.bin", path));
+    // ... nor by a single-file rule, nor named as the mod's XML.
+    AppListing single = m;
+    std::snprintf(single.install[single.install_count].from, sizeof(single.install[0].from), "payload.xml");
+    std::snprintf(single.install[single.install_count].to, sizeof(single.install[0].to), "riivolution/save/profile.xml");
+    ++single.install_count;
+    EXPECT_TRUE(!app_install_path(single, "Beta Planets v1/payload.xml", path));
+    const Parsed saved = parse(list_json(mod_json("riivolution/BetaPlanets.xml", "riivolution/save/BetaPlanets.xml")));
+    EXPECT_TRUE(saved.ok && saved.count == 0 && saved.skipped == 1);
     // An app is never a mod: apps may not write riivolution/ or use "mods".
     EXPECT_TRUE(left_out("\"to\":\"snes9xgx/\"", "\"to\":\"riivolution/\""));
     EXPECT_TRUE(left_out("\"category\":\"emulators\"", "\"category\":\"mods\""));

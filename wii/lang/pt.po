@@ -4434,6 +4434,9 @@ msgstr "Não foi possível obter a lista de mods: {1}"
 msgid "GameBanana has no Riivolution mods for this game yet."
 msgstr "O GameBanana ainda não tem mods de Riivolution para este jogo."
 
+msgid "This mod is on the SD card already, not put there from here. Version {1} replaces its XML and the files in its folders."
+msgstr "Este mod já está no cartão SD, não foi colocado daqui. A versão {1} substitui o XML e os arquivos das pastas dele."
+
 msgid "Installed. It is on this game's Mods page."
 msgstr "Instalado. Está na página Mods deste jogo."
 

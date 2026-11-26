@@ -58,6 +58,10 @@ PAUSE = 0.35
 MAX_DOWNLOAD = app_list.MAX_DOWNLOAD       # what the Wii takes (128 MB)
 MAX_LISTED_OTHER = 64 << 20                # 7z/rar downloaded to look inside, at most
 MAX_DESCRIPTION = 159
+MAX_API = 8 << 20          # one GameBanana API answer (a page of 50 mods is ~100 KB)
+MAX_PACK_XMLS = 64         # Riivolution XMLs read from one archive
+MAX_PACK_XML_BYTES = 4 << 20  # and all of them together
+MAX_PROGRAM = 95           # AppListing::program is char[96]
 MAX_GAMES = 4
 # A game with more mods than this (Mario Kart Wii, Brawl: thousands, nearly
 # all single-file replacements) has only the mods a search for Riivolution
@@ -127,7 +131,9 @@ class Web:
         query = urllib.parse.urlencode(params)
         for attempt in range(3):
             with self.open(API + path + ("?" + query if query else "")) as r:
-                body = r.read()
+                body = r.read(MAX_API + 1)
+            if len(body) > MAX_API:
+                raise Skip(f"GameBanana's answer to {path} is over {MAX_API} bytes")
             try:
                 return json.loads(body)
             except ValueError:
@@ -216,15 +222,30 @@ def run_capped(args, limit):
     return bytes(out) if child.returncode == 0 else None
 
 
+def checked_program(name_in_riivolution):
+    """The pack's XML as the list names it ("riivolution/<name>"), refused
+    when it is longer than the Wii's field holds (it would skip the mod)."""
+    program = "riivolution/" + name_in_riivolution
+    if len(program.encode()) > MAX_PROGRAM:
+        raise Skip(f"its XML's name is too long for the Wii ({program})")
+    return program
+
+
 def read_pack_xmls(names, read):
     """The text of each XML, by `read(name)` (bytes, or None when it is over
     MAX_XML or unreadable). One XML that can't be read whole rejects the
     archive: its game IDs would be missing from the list."""
+    if len(names) > MAX_PACK_XMLS:
+        raise Skip(f"{len(names)} Riivolution XMLs (at most {MAX_PACK_XMLS} are read)")
     texts = {}
+    total = 0
     for name in names:
         text = read(name)
         if text is None or len(text) > MAX_XML:
             raise Skip(f"its XML {name} is over {MAX_XML} bytes or unreadable")
+        total += len(text)
+        if total > MAX_PACK_XML_BYTES:
+            raise Skip(f"its XMLs are over {MAX_PACK_XML_BYTES} bytes together")
         texts[name] = text
     return texts
 
@@ -353,8 +374,9 @@ def make_icon(image_bytes):
 # file never changes), so when the rules for listing one change, this goes
 # up and the files listed under older rules are looked at again. 2: the XML
 # path is always under "riivolution/", and an XML too big to read whole
-# rejects its archive. A "skip" stays: a file that wasn't a pack still isn't.
-VERDICT_VERSION = 2
+# rejects its archive. 3: the XML's path fits the Wii's 96-byte field.
+# A "skip" stays: a file that wasn't a pack still isn't.
+VERDICT_VERSION = 3
 
 
 def cached_verdict_ok(verdict):
@@ -377,13 +399,22 @@ def zip_layout(data):
     for top in tops:
         if not app_list.data_folder_ok(top):
             raise Skip(f"its folder {top!r} is one RiftWii or the Wii owns")
-    xml_texts = list(read_pack_xmls(
-        xml_names, lambda name: z.read(name) if z.getinfo(name).file_size <= MAX_XML else None).values())
     files, total = unpacked([(i.filename, i.file_size) for i in infos], root, set(tops) | {riiv[:-1]})
     if files == 0 or files > app_list.MAX_FILES or total > app_list.MAX_UNPACKED:
         raise Skip(f"{files} files, {total} bytes")
+
+    def read_xml(name):
+        if z.getinfo(name).file_size > MAX_XML:
+            return None
+        try:
+            return z.read(name)
+        except (NotImplementedError, RuntimeError, zipfile.BadZipFile, zlib.error, EOFError):
+            return None  # an unsupported method, encrypted, damaged: the archive is refused
+
+    xml_texts = list(read_pack_xmls(xml_names, read_xml).values())
+    program = checked_program(xml_names[0][len(root) + len(riiv):])
     return {"v": VERDICT_VERSION, "format": "zip", "size": len(data), "sha256": hashlib.sha256(data).hexdigest(),
-            "root": root, "riivolution": riiv, "program": "riivolution/" + xml_names[0][len(root) + len(riiv):],
+            "root": root, "riivolution": riiv, "program": program,
             "folders": tops, "games": game_ids(xml_texts), "files": files, "unpacked": total}
 
 
@@ -591,7 +622,7 @@ class Builder:
             names, xmls = other_names_and_xml(data, ext)
             root, riiv, xml_names, tops = pack_layout(names)
             return {"v": VERDICT_VERSION, "format": ext, "size": len(data), "sha256": hashlib.sha256(data).hexdigest(),
-                    "root": root, "riivolution": riiv, "program": "riivolution/" + xml_names[0][len(root) + len(riiv):],
+                    "root": root, "riivolution": riiv, "program": checked_program(xml_names[0][len(root) + len(riiv):]),
                     "folders": tops, "games": game_ids(xmls.values())}
         raise Skip(f"a .{ext} file")
 
@@ -661,9 +692,13 @@ class Builder:
         # on GameBanana; under the same id the store shows it as an update
         # and keeps the install's note, which an id per file would lose.
         out.sort(key=lambda fv: (fv[1]["format"] == "zip", int(fv[0].get("_tsDateAdded") or 0)), reverse=True)
-        f, v = out[0]
-        entry = self.entry(p, f, v, game_name)
-        return [entry] if entry else []
+        # The first that makes an entry (a newer zip can still fail later
+        # checks, e.g. a folder too long, while an older one is fine).
+        for f, v in out:
+            entry = self.entry(p, f, v, game_name)
+            if entry:
+                return [entry]
+        return []
 
     def entry(self, p, f, v, game_name):
         mod_id = p["_idRow"]

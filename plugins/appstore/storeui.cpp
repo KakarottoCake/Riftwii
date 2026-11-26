@@ -1026,14 +1026,20 @@ private:
                                       tr("Remove").c_str(), tr("Keep it").c_str()) == 1)
                     store_.StartRemove(app_index_);
                 return;
-            case AppState::OnCard:
-                if (Host().ask_choice(tr("Replace {1}?", name).c_str(),
-                                      tr("This app is in sd:/apps already, not put there from here. Version {1} replaces its files; its own settings stay.",
-                                        app.listing->version)
-                                          .c_str(),
-                                      tr("Replace").c_str(), tr("Keep it").c_str()) != 1)
+            case AppState::OnCard: {
+                // A mod's files (its XML and its folders, settings included)
+                // are replaced whole; an app keeps its own settings.
+                const std::string body =
+                    app.listing->mod
+                        ? tr("This mod is on the SD card already, not put there from here. Version {1} replaces its XML and the files in its folders.",
+                             app.listing->version)
+                        : tr("This app is in sd:/apps already, not put there from here. Version {1} replaces its files; its own settings stay.",
+                             app.listing->version);
+                if (Host().ask_choice(tr("Replace {1}?", name).c_str(), body.c_str(), tr("Replace").c_str(),
+                                      tr("Keep it").c_str()) != 1)
                     return;
                 break;
+            }
             case AppState::Get:
             case AppState::Update:
                 break;
@@ -1143,8 +1149,13 @@ private:
         const std::string typed = text;
         std::size_t found = 0;
         std::string names;
+        // Opened for one game's mods: the counts, names and next letters
+        // come from that game's mods only, as the results do.
+        const auto in_scope = [self](const AppListing& listing) {
+            return self->game_id_.empty() || app_mod_for_game(listing, self->game_id_.c_str());
+        };
         for (const App& app : self->store_.apps) {
-            if (!self->Shown(app) || !app_matches(*app.listing, typed)) continue;
+            if (!self->Shown(app) || !in_scope(*app.listing) || !app_matches(*app.listing, typed)) continue;
             if (found < 5) names += (names.empty() ? "" : ", ") + std::string(app.listing->name);
             ++found;
         }
@@ -1153,8 +1164,17 @@ private:
         std::snprintf(line, line_bytes, "%s", typed.empty() ? "" : Plural(found, "1 app", "{1} apps").c_str());
         std::snprintf(matches, matches_bytes, "%s", names.c_str());
         const auto no_remote = [](const AppListing& listing) { return app_needs_no_wii_remote(listing.controllers); };
-        const std::string keys = app_search_next(self->store_.listings.data(), self->store_.listings.size(), typed,
-                                                 self->no_remote_ ? +no_remote : nullptr);
+        std::string keys;
+        if (self->game_id_.empty()) {
+            keys = app_search_next(self->store_.listings.data(), self->store_.listings.size(), typed,
+                                   self->no_remote_ ? +no_remote : nullptr);
+        } else {
+            std::vector<AppListing> scoped;
+            for (const AppListing& listing : self->store_.listings) {
+                if (in_scope(listing)) scoped.push_back(listing);
+            }
+            keys = app_search_next(scoped.data(), scoped.size(), typed, self->no_remote_ ? +no_remote : nullptr);
+        }
         std::snprintf(next, next_bytes, "%s", keys.c_str());
     }
 

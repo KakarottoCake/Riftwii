@@ -383,7 +383,7 @@ bool ends_with_xml(const std::string& path) {
 bool mod_fields_ok(RawApp& a) {
     if (a.game.empty() || !json_clean_text(a.game, sizeof(AppListing::game))) return false;
     if (a.program.size() >= sizeof(AppListing::program) || a.program.compare(0, 12, "riivolution/") != 0 ||
-        !ends_with_xml(a.program) || !relative_path_ok(a.program, false))
+        !ends_with_xml(a.program) || !relative_path_ok(a.program, false) || is_riivolution_save(a.program))
         return false;
     if (!a.root.empty() && (a.root.size() >= sizeof(AppListing::root) || !relative_path_ok(a.root, true))) return false;
     for (const std::string& id : a.games) {
@@ -629,13 +629,14 @@ bool app_install_path(const AppListing& app, const std::string& raw_entry, std::
             if (rest.back() == '/') return false;
             if (!relative_path_ok(rest, false)) return false;
             card_path = to + rest;
-            // Riivolution keeps the saves it redirects in riivolution/save:
-            // the player's, whatever a mod's archive brings.
-            if (app.mod && is_riivolution_save(card_path)) return false;
         } else {
             if (zip_entry != from) continue;
             card_path = to;
         }
+        // Riivolution keeps the saves it redirects in riivolution/save: the
+        // player's, whatever a mod's archive brings, by a folder rule or a
+        // single-file one.
+        if (app.mod && is_riivolution_save(card_path)) return false;
         return card_path.size() <= kMaxCardPath;
     }
     return false;
