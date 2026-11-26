@@ -46,9 +46,10 @@ constexpr u32 kNandPermissionNote = kRestartArea + 0x8900;
 constexpr u32 kMainStack = kMem2Floor + kRestartBytes;
 constexpr u32 kMainStackBytes = 0x20000;
 // Above it: the zero-filled buffers of libbte and libwiiuse (Bluetooth and
-// the Wii Remotes), placed by wii/core/mem2sections.ld, which checks they fit.
+// the Wii Remotes) and RiftWii's own, placed by wii/core/mem2sections.ld,
+// which checks they fit.
 constexpr u32 kLibraryBss = kMainStack + kMainStackBytes;
-constexpr u32 kLibraryBssBytes = 0x58000;
+constexpr u32 kLibraryBssBytes = 0x90000;
 // Above them: the program's read-only data, copied there by crt0 (restart.cpp)
 // from where the DOL loads it, above .bss. mem2sections.ld checks it fits.
 constexpr u32 kReadOnlyData = kLibraryBss + kLibraryBssBytes;

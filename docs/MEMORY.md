@@ -327,11 +327,11 @@ for tools; those are not loaded into MEM1.
 
 ### The MEM2 copy
 
-The copy goes to `mem::kStashArea`, which is `0x90D51000`, above the
+The copy goes to `mem::kStashArea`, which is `0x90D89000`, above the
 restart snapshot (`0x90800000`–`0x90809000`), the main thread's stack
 (`0x90809000`–`0x90829000`), libbte's and libwiiuse's buffers
-(`0x90829000`–`0x90881000`), the read-only data
-(`0x90881000`–`0x90951000`) and the code (`0x90951000`–`0x90D51000`). In
+and RiftWii's own (`0x90829000`–`0x908B9000`), the read-only data
+(`0x908B9000`–`0x90989000`) and the code (`0x90989000`–`0x90D89000`). In
 MEM1 the DOL loads the code first above `.bss`, then the read-only data,
 then the stash. It is 32 bytes of notes plus the stash (314
 KiB today), and `mem::Init` starts arena 2 above it. Checked against the other users of MEM2:
@@ -442,12 +442,11 @@ Still in MEM1 and left as they are:
 - libogc's and libasnd's own buffers (`__conf_buffer`, `audio_buf`, 16 KiB
   each): prebuilt, and the sound library's are read by the DSP.
 - libwiigui's GX FIFO (`gp_fifo`, 256 KiB). A smaller FIFO stalls the CPU
-  sooner instead of breaking, so 128 KiB would likely work, but how much
-  the menu's frame time suffers needs a Wii to measure.
-- `wii::g_bounce` (`d2xsd.cpp`) and `di::g_bounce`, 32 KiB each, and
-  `boot.cpp`'s `g_tmd`: the launch's DMA buffers, used after the menu's
-  heap is no longer trusted.
-- The crash screen's fallback stack: it must exist when the heap is broken.
+  sooner instead of breaking, but the welcome dialog alone writes 97 KiB
+  into it in one frame (measured in Dolphin from the FIFO's write pointer),
+  so 128 KiB would leave little room on busier screens, and how much the
+  menu's frame time suffers needs a Wii to measure. The graphics processor
+  reads it, so it does not go to MEM2 untried either.
 - Prebuilt libraries' tables: libmad's `rq_table` (32 KiB, in `.data`),
   Tremor's windows (`vwin*`, 30 KiB) and libogg's `crc_lookup` (8 KiB).
   Only rebuilding those libraries would move them.
@@ -530,6 +529,20 @@ In Dolphin the menu draws and plays its music as before (screenshots before
 and after a warm restart from a deliberate crash, which kept the MEM2
 copy), and a Mario Kart Wii launch with a pack installs the runtime and
 every hook and the game runs.
+
+A seventh pass moved it on to `0x80A57C00`, 532 KiB lower again (in
+Dolphin, 7504 KiB of MEM1 free at the start and 6276 KiB once the menu's
+threads run):
+
+| What | Before | Now | MEM1 kept |
+| --- | --- | --- | ---: |
+| libogc's, the C library's, libm's and libgcc's code | 313 KiB, kept in MEM1 wholesale | In `mem::kProgramCode` with the rest. libogc's exception entry turns translation back on before it calls a handler, so only what runs before the copy or is called from `.init` stays: `restart.o`, libogc's `cache.o`, `early_init.o`, `exception.o`, `interrupt.o`, `thread.o`, `system.o` and its assembly, `memset`, crtbegin and crtend (18 KiB). `osrestart.o` had been kept by accident too: `*restart.o` matched it | 313 KiB |
+| RiftWii's own zero-filled buffers: the disc and SD bounce buffers, the launch's TMD, the cover pool, the crash screen's fallback stack and report, and about a hundred smaller ones | 190 KiB in `.bss` | `.mem2bss`, zeroed at every start with libbte's. IOS reads and writes MEM2 as it does MEM1. Not the GX FIFO (`video.o`) or the exception stack (`mainstack.o`) | 190 KiB |
+| libogc's buffers that only the CPU or IOS touch: `conf.o`, `wiilaunch.o`, `usbmouse.o`, `network_wii.o`, `gx.o` | 27 KiB in `.bss` | `.mem2bss`. Its EXI, SD Gecko and thread buffers stay, and so do libasnd's, which the DSP reads | 27 KiB |
+
+`mem::kLibraryBss` grew from 352 to 576 KiB for them, which moves the
+read-only data, the code and the stash's copy up by 224 KiB; all of it still
+ends below `0x91000000`.
 
 ### `riftwii.elf`
 

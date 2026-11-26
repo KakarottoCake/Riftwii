@@ -6,10 +6,13 @@
  * (wii/core/memlimits.hpp has the layout).
  *
  * .mem2bss: the zero-filled buffers of the prebuilt Bluetooth stack (libbte, 290 KiB of
- * packet pools) and of the Wii Remote library (libwiiuse) go to MEM2, to
- * mem::kLibraryBss (wii/core/memlimits.hpp), instead of MEM1. IOS reads
- * and writes MEM2 as it does MEM1, and both libraries flush the cache
- * around what they hand it.
+ * packet pools), of the Wii Remote library (libwiiuse) and RiftWii's own
+ * go to MEM2, to mem::kLibraryBss (wii/core/memlimits.hpp), instead of
+ * MEM1. IOS reads and writes MEM2 as it does MEM1 (the disc, SD and USB
+ * bounce buffers too), and the code flushes the cache around what it hands
+ * it. The other prebuilt libraries' stay in MEM1: libogc's and libasnd's
+ * include buffers the DSP and the EXI bus read, and the GX FIFO stays as
+ * the graphics processor reads it.
  *
  * Their segment is not a loadable one (PT_NULL), so elf2dol leaves it out
  * of the DOL (it reads only PT_LOAD segments, and would otherwise take this
@@ -28,6 +31,18 @@ SECTIONS {
 	.mem2bss 0x90829000 (NOLOAD) : {
 		*libbte.a:*(.bss .bss.* COMMON)
 		*libwiiuse.a:*(.bss .bss.* COMMON)
+		/* libogc's that only the CPU or IOS touch: the console's settings,
+		 * the NAND boot record, the USB mouse thread's stack, a network
+		 * buffer and the graphics registers' shadow copy. */
+		*libogc.a:conf.o(.bss .bss.* COMMON)
+		*libogc.a:wiilaunch.o(.bss .bss.* COMMON)
+		*libogc.a:usbmouse.o(.bss .bss.* COMMON)
+		*libogc.a:network_wii.o(.bss .bss.* COMMON)
+		*libogc.a:gx.o(.bss .bss.* COMMON)
+		/* RiftWii's own buffers but libwiigui's GX FIFO (video.o), the
+		 * exception stack (mainstack.o) and what start-up runs before it
+		 * is zeroed. */
+		*(EXCLUDE_FILE(*.a:* video.o mainstack.o restart.o *crtbegin.o *crtend.o) .bss EXCLUDE_FILE(*.a:* video.o mainstack.o restart.o *crtbegin.o *crtend.o) .bss.* EXCLUDE_FILE(*.a:* video.o mainstack.o restart.o *crtbegin.o *crtend.o) COMMON)
 		. = ALIGN(32);
 	} :mem2bss
 	__riftwii_mem2bss_start = ADDR(.mem2bss);
@@ -48,7 +63,7 @@ SECTIONS {
  */
 SECTIONS {
 	__riftwii_mem1_resume2 = .;
-	.mem2rodata 0x90881000 : {
+	.mem2rodata 0x908B9000 : {
 		__riftwii_mem2rodata_start = .;
 		LONG(0x52575244)
 		LONG(__riftwii_mem2rodata_end - __riftwii_mem2rodata_start)
@@ -64,25 +79,31 @@ SECTIONS {
  * .mem2text: the program's code, run from mem::kProgramCode, loaded and
  * copied up like .mem2rodata (tools/dol_stash.py puts it first above .bss,
  * the read-only data after it), with the same marker and size in front.
- * libogc maps MEM2 for instructions as for data (IBAT4). What runs before
- * the copy or below everything else stays in MEM1: libogc (crt0's helpers,
- * exceptions, interrupts, threads), the C library, libgcc and restart.o,
- * whose __wrap___CheckARGV makes the copy. Calls between the two are
- * beyond a branch's reach, and ld puts long-branch stubs in between.
- * crtbegin.o's and crtend.o's code stays too: .init calls it, and ld can
- * only put a stub inline there, where the call returns into the stub and
- * runs the function again, forever.
+ * libogc maps MEM2 for instructions as for data (IBAT4), and its exception
+ * entry turns translation back on before it calls a handler, so libogc,
+ * the C library and libgcc run from MEM2 like the rest. What stays in MEM1:
+ * - restart.o, whose __wrap___CheckARGV makes the copy, and libogc's
+ *   cache.o, which it calls before the copy is there;
+ * - everything crt0's .init calls (early_init.o, exception.o, interrupt.o,
+ *   thread.o, system.o, memset, crtbegin's and crtend's code): ld can only
+ *   put a long-branch stub inline in .init, where the call returns into
+ *   the stub and runs the function again, forever;
+ * - libogc's assembly (*_asm.o): the exception and interrupt entries and
+ *   the thread switch, which run with translation off for a moment.
+ * Calls between the two halves are beyond a branch's reach, and ld puts
+ * long-branch stubs in between. restart.o is named alone: *restart.o would
+ * keep osrestart.o too.
  */
 SECTIONS {
 	__riftwii_mem1_resume3 = .;
-	.mem2text 0x90951000 : {
+	.mem2text 0x90989000 : {
 		__riftwii_mem2text_start = .;
 		LONG(0x52575458)
 		LONG(__riftwii_mem2text_end - __riftwii_mem2text_start)
 		/* EXCLUDE_FILE holds for the one pattern after it, hence three. */
-		*(EXCLUDE_FILE(*libogc.a:* *libgcc.a:* *libc.a:* *libm.a:* *libsysbase.a:* *crtbegin.o *crtend.o *restart.o) .text
-		  EXCLUDE_FILE(*libogc.a:* *libgcc.a:* *libc.a:* *libm.a:* *libsysbase.a:* *crtbegin.o *crtend.o *restart.o) .text.*
-		  EXCLUDE_FILE(*libogc.a:* *libgcc.a:* *libc.a:* *libm.a:* *libsysbase.a:* *crtbegin.o *crtend.o *restart.o) .gnu.linkonce.t.*)
+		*(EXCLUDE_FILE(*libogc.a:early_init.o *libogc.a:cache.o *libogc.a:*_asm.o *libogc.a:exception.o *libogc.a:interrupt.o *libogc.a:thread.o *libogc.a:system.o *libc.a:libc_a-memset.o *crtbegin.o *crtend.o restart.o) .text
+		  EXCLUDE_FILE(*libogc.a:early_init.o *libogc.a:cache.o *libogc.a:*_asm.o *libogc.a:exception.o *libogc.a:interrupt.o *libogc.a:thread.o *libogc.a:system.o *libc.a:libc_a-memset.o *crtbegin.o *crtend.o restart.o) .text.*
+		  EXCLUDE_FILE(*libogc.a:early_init.o *libogc.a:cache.o *libogc.a:*_asm.o *libogc.a:exception.o *libogc.a:interrupt.o *libogc.a:thread.o *libogc.a:system.o *libc.a:libc_a-memset.o *crtbegin.o *crtend.o restart.o) .gnu.linkonce.t.*)
 		. = ALIGN(32);
 		__riftwii_mem2text_end = .;
 	} :mem2text
@@ -91,9 +112,9 @@ SECTIONS {
 
 /* mem::kLibraryBss and kReadOnlyData, with their sizes: the start-up
  * stash's copy follows. */
-ASSERT(__riftwii_mem2bss_start == 0x90829000 && __riftwii_mem2bss_end <= 0x90881000,
-       "libbte's and libwiiuse's buffers no longer fit mem::kLibraryBss (wii/core/memlimits.hpp)");
-ASSERT(__riftwii_mem2rodata_start == 0x90881000 && __riftwii_mem2rodata_end <= 0x90951000,
+ASSERT(__riftwii_mem2bss_start == 0x90829000 && __riftwii_mem2bss_end <= 0x908B9000,
+       "the buffers bound for MEM2 no longer fit mem::kLibraryBss (wii/core/memlimits.hpp)");
+ASSERT(__riftwii_mem2rodata_start == 0x908B9000 && __riftwii_mem2rodata_end <= 0x90989000,
        "the read-only data no longer fits mem::kReadOnlyData (wii/core/memlimits.hpp)");
-ASSERT(__riftwii_mem2text_start == 0x90951000 && __riftwii_mem2text_end <= 0x90D51000,
+ASSERT(__riftwii_mem2text_start == 0x90989000 && __riftwii_mem2text_end <= 0x90D89000,
        "the code no longer fits mem::kProgramCode (wii/core/memlimits.hpp)");
