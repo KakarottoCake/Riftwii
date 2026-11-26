@@ -62,7 +62,15 @@ class AppError(Exception):
 
 # ---------------------------------------------------------------- rules ---
 
+# RiftWii's own entry: the one reserved id the list may use, spelled exactly
+# so. The store shows it and never installs or removes it (its page runs
+# RiftWii's own updater); kRiftWiiAppId in include/riftwii/applist.hpp.
+RIFTWII_ID = "riftwii"
+
+
 def id_ok(text):
+    if text == RIFTWII_ID:
+        return True
     return (0 < len(text) <= LIMITS["id"] and text[0] not in ". " and text[-1] not in ". "
             and re.fullmatch(r"[A-Za-z0-9\-_ .+()!]+", text) is not None and text.lower() not in RESERVED_IDS)
 

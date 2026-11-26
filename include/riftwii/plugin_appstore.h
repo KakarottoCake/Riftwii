@@ -18,6 +18,7 @@ typedef struct rwp_appstore_request {
     uint32_t changed;   /* out: apps were installed or removed (Home's Homebrew view reads the card again) */
     uint32_t console;   /* in: RWP_CONSOLE_* */
     char error[200];    /* out: why the store could not open */
+    uint32_t check_update; /* out: RiftWii's own page asked for its update check (the menu runs it) */
 } rwp_appstore_request;
 
 #endif

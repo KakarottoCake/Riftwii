@@ -89,6 +89,7 @@ enum class AppState {
     Update,     // installed from the store, and the list has a newer file
     OnCard,     // sd:/apps/<id> is there, not put there by the store
     PcOnly,     // packed in a way the Wii cannot unpack (7z, rar, tar)
+    ThisRiftWii,  // the list's entry for RiftWii: never installed or removed here
 };
 // `program_exists`: sd:/apps/<id>/boot.dol or boot.elf is there;
 // `record`: the store's note, or null when there is none (or it could not
@@ -96,6 +97,9 @@ enum class AppState {
 AppState app_state(const AppListing& app, bool program_exists, const AppRecord* record);
 // Whether the Wii can install the app's download (zip or dol).
 bool app_installable(const AppListing& app);
+// Orders two RiftWii versions ("2611-252"): below 0 when `a` is older, 0 when
+// they are the same or either is not a version, above 0 when `a` is newer.
+int riftwii_version_order(const std::string& a, const std::string& b);
 
 // ---- Search ----
 

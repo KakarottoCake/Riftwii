@@ -515,10 +515,15 @@ void Store::Refresh(std::size_t index) {
     apps[index].state = app_state(app, program, has_record ? &record : nullptr);
 }
 
+bool UpdateWaiting(const App& app) {
+    if (app.state == AppState::ThisRiftWii) return riftwii_version_order(app.listing->version, Host().version()) > 0;
+    return app.state == AppState::Update;
+}
+
 std::size_t Store::UpdateCount() const {
     std::size_t count = 0;
     for (const App& app : apps) {
-        if (app.state == AppState::Update) ++count;
+        if (UpdateWaiting(app)) ++count;
     }
     return count;
 }
@@ -536,13 +541,14 @@ bool Store::StartInstall(std::size_t index) {
 }
 
 bool Store::StartRemove(std::size_t index) {
-    if (job_ != Job::None || index >= apps.size()) return false;
+    // RiftWii's own entry: removing it would delete the running RiftWii.
+    if (job_ != Job::None || index >= apps.size() || apps[index].listing->riftwii) return false;
     Start(Job::Remove, index);
     return job_ == Job::Remove;
 }
 
 bool Store::StartRemoveData(std::size_t index) {
-    if (job_ != Job::None || index >= apps.size()) return false;
+    if (job_ != Job::None || index >= apps.size() || apps[index].listing->riftwii) return false;
     Start(Job::RemoveData, index);
     return job_ == Job::RemoveData;
 }

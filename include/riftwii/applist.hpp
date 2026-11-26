@@ -67,6 +67,12 @@ struct AppInstallRule {
     char to[64];
 };
 
+// The list's entry for RiftWii itself. Its id is otherwise reserved (an
+// app's folder may never be RiftWii's own, apps/riftwii); this one entry is
+// read so the store can show RiftWii, and is never installed or removed by
+// it: its page asks RiftWii's own updater instead (AppState::ThisRiftWii).
+constexpr const char* kRiftWiiAppId = "riftwii";
+
 struct AppListing {
     char id[48];            // the app's folder: sd:/apps/<id> (app_id_ok)
     char name[64];          // for the menu: printable, no control characters
@@ -92,6 +98,7 @@ struct AppListing {
     std::uint8_t platforms;       // kAppOn* bits
     std::uint8_t controllers;     // kApp* controller bits, 0: not known
     AppFormat format;
+    bool riftwii;  // the entry for RiftWii itself (kRiftWiiAppId)
 };
 
 // Whether `id` may be an app's id, and so its folder under sd:/apps: one

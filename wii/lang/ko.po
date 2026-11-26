@@ -4293,6 +4293,12 @@ msgstr "아직 여기서 받은 앱이 SD 카드에 없습니다."
 msgid "On the SD card"
 msgstr "SD 카드에 있음"
 
+msgid "You have RiftWii {1}."
+msgstr "RiftWii {1} 사용 중입니다."
+
+msgid "Check for updates"
+msgstr "업데이트 확인"
+
 msgid "Get it on a PC"
 msgstr "PC에서 받기"
 
