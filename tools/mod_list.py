@@ -64,7 +64,9 @@ MAX_GAMES = 4
 # finds looked at; reading every one would take a night. Smaller games have
 # every mod looked at.
 BIG_GAME = 600
-SEARCHES = ["riivolution", "riivo", "riivolution xml", "riivolution pack"]
+# Only precise words: "riivolution xml" or "riivolution pack" match about a
+# thousand loosely related mods each, and their deep pages come back empty.
+SEARCHES = ["riivolution", "riivo"]
 MAX_ROOT = 127  # AppListing::root, the folder in the archive that holds the pack
 # The Wii games whose GameBanana mods are looked at, besides every game a
 # "riivolution" search finds. Names as GameBanana writes them.
@@ -374,7 +376,11 @@ class Builder:
         for words in SEARCHES:
             page = 1
             while page <= 40:
-                found = self.web.api("Util/Search/Results", _sModelName="Mod", _sSearchString=words, _nPage=page)
+                try:
+                    found = self.web.api("Util/Search/Results", _sModelName="Mod", _sSearchString=words,
+                                         _nPage=page)
+                except (Skip, urllib.error.URLError, OSError):
+                    break  # an empty or failed page ends this search, not the build
                 records = found.get("_aRecords", [])
                 for record in records:
                     game = record.get("_aGame") or {}
