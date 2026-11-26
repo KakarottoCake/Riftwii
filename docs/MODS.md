@@ -87,8 +87,13 @@ mod installs, updates and removes as an app does. What an install replaces:
 Everything else is kept: a file the player changed since the store put it
 there, any file in `riivolution/` the store didn't put there (it may be
 another pack's), and anything in `riivolution/save/`, where Riivolution
-keeps the saves it redirects, which the store never writes. A removal
-deletes only files the store put there and nobody changed.
+keeps the saves it redirects, which the store never writes.
+
+A removal deletes the files the store put there that nobody changed since.
+Two exceptions: when the store's note of the install has no file list (an
+older note), it deletes the mod's XML whatever its state; and when the
+player then also answers **Remove them** to the question about the mod's
+folders, those folders are deleted whole, with everything in them.
 
 When the store
 closes, the game's packs are read again and a mod that is new on the card

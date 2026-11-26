@@ -216,6 +216,19 @@ def run_capped(args, limit):
     return bytes(out) if child.returncode == 0 else None
 
 
+def read_pack_xmls(names, read):
+    """The text of each XML, by `read(name)` (bytes, or None when it is over
+    MAX_XML or unreadable). One XML that can't be read whole rejects the
+    archive: its game IDs would be missing from the list."""
+    texts = {}
+    for name in names:
+        text = read(name)
+        if text is None or len(text) > MAX_XML:
+            raise Skip(f"its XML {name} is over {MAX_XML} bytes or unreadable")
+        texts[name] = text
+    return texts
+
+
 def other_names_and_xml(data, ext):
     """Entry names of a 7z or rar download, and the text of its Riivolution
     XMLs, through the 7z command."""
@@ -231,12 +244,8 @@ def other_names_and_xml(data, ext):
             raise Skip(f"7z could not read the .{ext}")
         text = listing.decode("utf-8", "replace")
         names = [line[7:].replace("\\", "/") for line in text.splitlines() if line.startswith("Path = ")]
-        xmls = {}
-        for name in names:
-            if RIIVOLUTION_XML.search(name):
-                got = run_capped([tool, "e", "-so", path, name], MAX_XML)
-                if got is not None:
-                    xmls[name] = got
+        wanted = [name for name in names if RIIVOLUTION_XML.search(name)]
+        xmls = read_pack_xmls(wanted, lambda name: run_capped([tool, "e", "-so", path, name], MAX_XML))
         return names, xmls
 
 
@@ -340,6 +349,17 @@ def make_icon(image_bytes):
     return None
 
 
+def normalize_verdict(verdict):
+    """A cached verdict as this version writes it: `program` always under
+    "riivolution/" (earlier runs kept the archive's spelling, "Riivolution/",
+    which the Wii refuses). Verdicts are cached for good, so old ones are
+    brought up to date when read."""
+    program = verdict.get("program")
+    if program and not program.startswith("riivolution/") and program.lower().startswith("riivolution/"):
+        verdict["program"] = "riivolution/" + program[len("riivolution/"):]
+    return verdict
+
+
 class Builder:
     def __init__(self, web, cache, log):
         self.web = web
@@ -430,6 +450,7 @@ class Builder:
         """What a download is: a dict with the pack's layout, or a "skip"."""
         key = str(f["_idRow"])
         if key in self.state["files"]:
+            normalize_verdict(self.state["files"][key])
             return self.state["files"][key]
         try:
             verdict = self.look_inside(f)
@@ -485,10 +506,8 @@ class Builder:
         for top in tops:
             if not app_list.data_folder_ok(top):
                 raise Skip(f"its folder {top!r} is one RiftWii or the Wii owns")
-        xml_texts = []
-        for name in xml_names:
-            if z.getinfo(name).file_size < (1 << 20):
-                xml_texts.append(z.read(name))
+        xml_texts = list(read_pack_xmls(
+            xml_names, lambda name: z.read(name) if z.getinfo(name).file_size <= MAX_XML else None).values())
         files, total = unpacked([(i.filename, i.file_size) for i in infos], root, set(tops) | {riiv[:-1]})
         if files == 0 or files > app_list.MAX_FILES or total > app_list.MAX_UNPACKED:
             raise Skip(f"{files} files, {total} bytes")

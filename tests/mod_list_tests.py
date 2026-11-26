@@ -103,6 +103,26 @@ class CappedTests(unittest.TestCase):
         self.assertIsNone(mod_list.run_capped([sys.executable, "-c", "raise SystemExit(3)"], 100))
 
 
+class XmlTests(unittest.TestCase):
+    def test_an_oversized_xml_rejects_the_archive(self):
+        texts = {"riivolution/A.xml": b"<id game='RMG'/>", "riivolution/B.xml": None}
+        with self.assertRaises(mod_list.Skip):
+            mod_list.read_pack_xmls(list(texts), texts.get)
+        big = {"riivolution/A.xml": b"<id game='RMG'/>", "riivolution/B.xml": b"x" * (mod_list.MAX_XML + 1)}
+        with self.assertRaises(mod_list.Skip):
+            mod_list.read_pack_xmls(list(big), big.get)
+
+    def test_all_xmls_read(self):
+        texts = {"riivolution/A.xml": b"<id game='RMG'/>", "riivolution/B.xml": b"<id game='SB4'/>"}
+        self.assertEqual(mod_list.game_ids(mod_list.read_pack_xmls(list(texts), texts.get).values()), ["RMG", "SB4"])
+
+    def test_old_cached_program_spelling(self):
+        self.assertEqual(mod_list.normalize_verdict({"program": "Riivolution/Newer.xml"})["program"],
+                         "riivolution/Newer.xml")
+        self.assertEqual(mod_list.normalize_verdict({"program": "riivolution/a.xml"})["program"], "riivolution/a.xml")
+        self.assertEqual(mod_list.normalize_verdict({"skip": "no xml"}), {"skip": "no xml"})
+
+
 class ExcludeTests(unittest.TestCase):
     def test_ids_and_comments(self):
         import tempfile
