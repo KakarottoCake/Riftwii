@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <limits>
 #include <set>
 
 #include "riftwii/checkedalloc.hpp"
@@ -43,7 +44,7 @@ bool read_size(JsonReader& reader, std::uint32_t& field, bool& valid) {
     std::uint64_t number = 0;
     bool whole = false;
     if (!reader.number(number, whole)) return false;
-    if (!whole) valid = false;
+    if (!whole || number > std::numeric_limits<std::uint32_t>::max()) valid = false;
     else field = static_cast<std::uint32_t>(number);
     return true;
 }
@@ -73,10 +74,15 @@ bool read_game_ids(JsonReader& reader, SaveListing& save, bool& valid) {
         return true;
     }
     for (;;) {
-        // Fail closed before reading an unbounded region list.
-        if (save.game_id_count == kSaveMaxGameIds) return false;
-        if (!read_path(reader, save.game_ids[save.game_id_count], valid)) return false;
-        ++save.game_id_count;
+        // A list longer than we keep makes this record unusable, not the
+        // catalogue: the extra entries are read past and the record skipped.
+        if (save.game_id_count == kSaveMaxGameIds) {
+            valid = false;
+            if (!reader.skip_value(2)) return false;
+        } else {
+            if (!read_path(reader, save.game_ids[save.game_id_count], valid)) return false;
+            ++save.game_id_count;
+        }
         if (reader.take(',')) continue;
         return reader.take(']');
     }

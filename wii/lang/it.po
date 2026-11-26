@@ -5078,3 +5078,6 @@ msgstr "Il salvataggio è installato."
 
 msgid "The save is installed. Your previous save is kept at {1}."
 msgstr "Il salvataggio è installato. Quello precedente è conservato in {1}."
+
+msgid "The save is installed. The memory card was backed up to {1}."
+msgstr "Il salvataggio è installato. La memory card è stata copiata in {1}."

@@ -5078,3 +5078,6 @@ msgstr "セーブをインストールしました。"
 
 msgid "The save is installed. Your previous save is kept at {1}."
 msgstr "セーブをインストールしました。前のセーブは{1}に残しています。"
+
+msgid "The save is installed. The memory card was backed up to {1}."
+msgstr "セーブをインストールしました。メモリーカードは{1}にバックアップしました。"

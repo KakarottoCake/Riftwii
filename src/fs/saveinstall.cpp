@@ -225,8 +225,19 @@ bool save_install_wii_zip(const SaveListing& save, const std::string& root, cons
     const std::string target = title + "/data";
     const std::string stage = title + "/data.download";
     if (exists(stage)) {
-        error = "an earlier save download is still at " + stage + "; keep or remove it on a PC first";
-        return false;
+        // An earlier download stopped before it finished (power cut, card
+        // pulled). Its files are kept under a unique name, as backups are,
+        // so nothing is lost and this download can carry on.
+        std::string aside;
+        for (unsigned serial = 1; serial <= 999; ++serial) {
+            aside = title + "/data.download-" + timestamp + "-" + std::to_string(serial);
+            if (!exists(aside)) break;
+            aside.clear();
+        }
+        if (aside.empty() || std::rename(stage.c_str(), aside.c_str()) != 0) {
+            error = "an earlier save download is still at " + stage + " and could not be moved aside";
+            return false;
+        }
     }
     const bool had_save = exists(target);
     if (had_save && !replace) {

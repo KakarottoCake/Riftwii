@@ -10364,6 +10364,11 @@ T.update({
         "セーブをインストールしました。前のセーブは{1}に残しています。",
         "O save foi instalado. O anterior está guardado em {1}.",
         "Il salvataggio è installato. Quello precedente è conservato in {1}."),
+    "The save is installed. The memory card was backed up to {1}.": (
+        "La partida está instalada. Se hizo una copia de la tarjeta de memoria en {1}.",
+        "セーブをインストールしました。メモリーカードは{1}にバックアップしました。",
+        "O save foi instalado. Foi feita uma cópia do cartão de memória em {1}.",
+        "Il salvataggio è installato. La memory card è stata copiata in {1}."),
 })
 KO.update({
     "Get a save": "세이브 받기",
@@ -10379,6 +10384,7 @@ KO.update({
     "The save could not be installed: {1}": "세이브를 설치하지 못했습니다: {1}",
     "The save is installed.": "세이브가 설치되었습니다.",
     "The save is installed. Your previous save is kept at {1}.": "세이브가 설치되었습니다. 이전 세이브는 {1}에 보관됩니다.",
+    "The save is installed. The memory card was backed up to {1}.": "세이브가 설치되었습니다. 메모리 카드는 {1}에 백업했습니다.",
 })
 FR.update({
     "Get a save": "Obtenir une sauvegarde",
@@ -10394,6 +10400,7 @@ FR.update({
     "The save could not be installed: {1}": "Impossible d'installer la sauvegarde : {1}",
     "The save is installed.": "La sauvegarde est installée.",
     "The save is installed. Your previous save is kept at {1}.": "La sauvegarde est installée. La précédente est conservée dans {1}.",
+    "The save is installed. The memory card was backed up to {1}.": "La sauvegarde est installée. La carte mémoire a été copiée dans {1}.",
 })
 
 if __name__ == "__main__":

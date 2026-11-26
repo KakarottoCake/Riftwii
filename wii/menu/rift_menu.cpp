@@ -12692,8 +12692,12 @@ static void MenuGetSave(FrontendState& state)
 				logf("Saves: installation failed: %s.\n", error.c_str());
 				ShowPopup(tr("Get a save"), tr("The save could not be installed: {1}", {error}), tr("OK"));
 			} else {
-				ShowPopup(tr("Get a save"), backup.empty() ? tr("The save is installed.")
-					: tr("The save is installed. Your previous save is kept at {1}.", {backup}), tr("OK"));
+				std::string done = tr("The save is installed.");
+				if (!backup.empty() && gamecube)
+					done = tr("The save is installed. The memory card was backed up to {1}.", {backup});
+				else if (!backup.empty())
+					done = tr("The save is installed. Your previous save is kept at {1}.", {backup});
+				ShowPopup(tr("Get a save"), done, tr("OK"));
 			}
 			return false;
 		}, nullptr, 56);

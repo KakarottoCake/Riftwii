@@ -66,7 +66,7 @@ void parser_tests() {
     CHECK(!parse(list(record).substr(0, list(record).size() - 2)) && count == 0);
     CHECK(!parse("{\"schema\":1,\"saves\":[],\"saves\":[]}"));
     for (const auto& bad : std::vector<std::pair<std::string, std::string>>{
-        {"GAAE01", "GAAE/1"}, {"gamecube", "wii"}, {"8256", "4294967296"},
+        {"GAAE01", "GAAE/1"}, {"gamecube", "wii"}, {"8256", "4294967296"}, {"8256", "4294975552"},
         {"8256", "-1"}, {"8256", "1.5"}, {"8256", "0"}, {"gci", "raw"},
         {"https://example.org/save.gci", "http://example.org/save.gci"},
         {"https://example.org/save.gci", "https://user@example.org/save.gci"},
@@ -104,7 +104,10 @@ void parser_tests() {
     CHECK(extend("\"game_ids\":[\"GAAE01\"]") && count == 1);
     CHECK(extend("\"game_ids\":[]") && count == 0);
     CHECK(extend("\"game_ids\":\"GAAE01\"") && count == 0);
-    CHECK(!extend("\"game_ids\":[\"GAAE01\",\"GAAE01\",\"GAAE01\",\"GAAE01\",\"GAAE01\",\"GAAE01\",\"GAAE01\",\"GAAE01\",\"GAAE01\"]"));
+    // Nine IDs (one past what is kept): that record is skipped, the rest stays.
+    const std::string nine_ids = "\"game_ids\":[\"GAAE01\",\"GAAP01\",\"GAAJ01\",\"GAAK01\",\"GAAW01\",\"GAAD01\",\"GAAF01\",\"GAAS01\",\"GAAI01\"]";
+    CHECK(parse(list(record.substr(0, record.size() - 1) + "," + nine_ids + "}," + record)));
+    CHECK(count == 1 && skipped == 1);
 
     std::string wii_record = record;
     wii_record.replace(wii_record.find("GAAE01"), 6, "RAAE01");
@@ -422,8 +425,10 @@ void wii_install_tests() {
     CHECK(read_text("sd:/nands/02" + save_wii_title_path(save.game_id) + "/data/sub/save.dat") == "new-save!");
     fs::create_directories(title + "/data.download");
     std::ofstream(title + "/data.download/keep") << "interrupted";
-    CHECK(!install(true) && read_text(title + "/data.download/keep") == "interrupted");
-    fs::remove_all(title + "/data.download");
+    // An interrupted download's folder is moved aside and kept; the install goes on.
+    CHECK(install(true) && read_text(data + "/sub/save.dat") == "new-save!");
+    CHECK(read_text(title + "/data.download-20261126-120000-1/keep") == "interrupted");
+    CHECK(!fs::exists(title + "/data.download"));
     // An incorrect CRC must discard staging without moving the live save.
     archive[30 + std::string("data/banner.bin").size()] ^= 1;
     CHECK(!install(true) && read_text(data + "/sub/save.dat") == "new-save!");
