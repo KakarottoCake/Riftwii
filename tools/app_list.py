@@ -69,8 +69,6 @@ RIFTWII_ID = "riftwii"
 
 
 def id_ok(text):
-    if text == RIFTWII_ID:
-        return True
     return (0 < len(text) <= LIMITS["id"] and text[0] not in ". " and text[-1] not in ". "
             and re.fullmatch(r"[A-Za-z0-9\-_ .+()!]+", text) is not None and text.lower() not in RESERVED_IDS)
 
@@ -160,7 +158,9 @@ def check_manifest(m, path):
     def need(cond, why):
         if not cond:
             raise AppError(f"{where}: {why}")
-    need(id_ok(m.get("id", "")), "id must be a plain folder name (letters, digits, -_ .+()!), at most 47 bytes")
+    # RiftWii's own entry is the one exception, and only as a manifest's id:
+    # no app can name it as its `newer` (the Wii leaves such an entry out).
+    need(m.get("id") == RIFTWII_ID or id_ok(m.get("id", "")), "id must be a plain folder name (letters, digits, -_ .+()!), at most 47 bytes")
     need(os.path.splitext(where)[0] == m["id"], "the file must be named <id>.json")
     for key in ("name", "author", "description"):
         need(isinstance(m.get(key), str) and text_ok(m[key], LIMITS[key]), f"{key} must be plain text, at most {LIMITS[key]} bytes")

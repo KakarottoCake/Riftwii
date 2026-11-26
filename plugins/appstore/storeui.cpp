@@ -260,7 +260,9 @@ private:
         for (const App& app : store_.apps) {
             if (!Shown(app)) continue;
             ++shown;
-            if (app.state == AppState::Installed || app.state == AppState::Update) ++installed;
+            if (app.state == AppState::Installed || app.state == AppState::Update ||
+                app.state == AppState::ThisRiftWii)
+                ++installed;
         }
         const std::string counts = Plural(shown, "1 app", "{1} apps") + "  \xC2\xB7  " +
                                    Plural(installed, "1 installed", "{1} installed");

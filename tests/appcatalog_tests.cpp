@@ -362,6 +362,9 @@ void test_riftwii_entry() {
     EXPECT_TRUE(riftwii_version_order("v2611-252", "2611-1") == 0);
     EXPECT_TRUE(riftwii_version_order("2611-252", "") == 0);
     EXPECT_TRUE(riftwii_version_order("26a1-2", "2611-1") == 0);
+    // A test or dev build's version: the commit part is not compared.
+    EXPECT_TRUE(riftwii_version_order("2611-260", "2611-243-gc84f96e1") > 0);
+    EXPECT_TRUE(riftwii_version_order("2611-243", "2611-243-gc84f96e1") == 0);
 }
 
 int main() {

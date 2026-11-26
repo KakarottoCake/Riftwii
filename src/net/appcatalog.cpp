@@ -251,8 +251,12 @@ bool app_installable(const AppListing& app) {
 
 namespace {
 
-// "2611-252" as 2611 and 252; false for anything else.
-bool ParseRiftWiiVersion(const std::string& text, unsigned& month, unsigned& count) {
+// "2611-252" as 2611 and 252; false for anything else. A test or dev
+// build's version carries its commit after another dash
+// ("2611-243-gc84f96e1"): only the release part before it counts.
+bool ParseRiftWiiVersion(const std::string& full, unsigned& month, unsigned& count) {
+    const std::size_t suffix = full.find('-', 5);
+    const std::string text = suffix == std::string::npos ? full : full.substr(0, suffix);
     const std::size_t dash = text.find('-');
     if (dash != 4 || text.size() < 6 || text.size() > 12) return false;
     month = 0;

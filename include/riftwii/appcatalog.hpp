@@ -97,7 +97,8 @@ enum class AppState {
 AppState app_state(const AppListing& app, bool program_exists, const AppRecord* record);
 // Whether the Wii can install the app's download (zip or dol).
 bool app_installable(const AppListing& app);
-// Orders two RiftWii versions ("2611-252"): below 0 when `a` is older, 0 when
+// Orders two RiftWii versions ("2611-252", or a build's "2611-252-g1a2b3c4d",
+// whose commit part is not compared): below 0 when `a` is older, 0 when
 // they are the same or either is not a version, above 0 when `a` is newer.
 int riftwii_version_order(const std::string& a, const std::string& b);
 

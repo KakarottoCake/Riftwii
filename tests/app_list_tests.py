@@ -116,6 +116,19 @@ class RuleTests(unittest.TestCase):
         self.assertFalse(app_list.id_ok("RiftWii"))
         self.assertTrue(app_list.id_ok("snes9xgx"))
 
+    def test_riftwii_only_as_its_own_manifest(self):
+        # RiftWii's own entry may use the id; no app may name it as `newer`.
+        self.assertFalse(app_list.id_ok("riftwii"))
+        manifest = {"id": "riftwii", "name": "RiftWii", "author": "RiftWii contributors",
+                    "description": "A loader.", "category": "loaders", "page": "https://riftwii.com/",
+                    "platforms": ["wii"], "source": {"github": "a/b", "asset": "*.zip"},
+                    "install": [{"from": "apps/riftwii/", "to": "apps/riftwii/"}]}
+        app_list.check_manifest(manifest, "riftwii.json")
+        other = dict(manifest, id="snes9xgx", newer="riftwii",
+                     install=[{"from": "apps/snes9xgx/", "to": "apps/snes9xgx/"}])
+        with self.assertRaises(app_list.AppError):
+            app_list.check_manifest(other, "snes9xgx.json")
+
     def test_trailing_dots_and_spaces(self):
         self.assertFalse(app_list.part_ok("boot.dol."))
         self.assertFalse(app_list.part_ok("boot.dol "))
