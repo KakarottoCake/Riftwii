@@ -231,6 +231,11 @@ bool blob_whole(int kind) {
         // on #609).
         h.context_offset % alignof(rt_pad_context) != 0)
         return false;
+    // The copy's context must be one too (plan_pad_hook reads the same
+    // bytes): a damaged one is refused here, with the damaged-add-on
+    // error, not left to turn the pads off later (CodeRabbit on #593).
+    if (reinterpret_cast<const rt_pad_context*>(blob(kind) + h.context_offset)->magic != RT_PAD_CONTEXT_MAGIC)
+        return false;
     return kind >= kBlobNoHome || (h.hook_kpad != 0 && h.hook_probe != 0 && h.hook_menu != 0 && h.hook_select != 0 &&
                                    h.hook_unified != 0);
 }
