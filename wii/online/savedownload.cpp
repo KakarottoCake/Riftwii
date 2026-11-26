@@ -252,13 +252,16 @@ bool install_save() {
         [](std::size_t bytes) {
             g_percent.store(static_cast<unsigned>(std::min<std::uint64_t>(100, bytes * 100ull / g_pick.size)));
         })) return false;
+    g_percent.store(0);
     g_stage.store(Stage::Check);
     if (stopped() || got.length != g_pick.size || !DigestMatches(got.digest, g_pick.sha256)) {
         g_error = "the save download was stopped or did not match its approved size and SHA-256";
         return false;
     }
-    g_stage.store(Stage::Install);
+    // The percent first: the menu reads the stage, then the percent, and must
+    // never pair the new stage with the download's 100.
     g_percent.store(0);
+    g_stage.store(Stage::Install);
     return g_pick.format == SaveFormat::Gci ? install_gci() : install_wii();
 }
 
