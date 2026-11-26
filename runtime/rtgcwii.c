@@ -122,7 +122,7 @@ static inline __attribute__((always_inline)) void rtgcwii_shape(struct rtgcwii* 
     rtshape_pointing(&w->shape, channel, &p, out);
 #else
     if (sideways) {
-        rtshape_sideways(&w->shape, channel, &p, out);
+        rtshape_sideways(&w->shape, channel, &p, now, out);
     } else {
         rtshape_nunchuk(&w->shape, channel, &p, now, out);
     }
@@ -134,8 +134,8 @@ void rtgcwii_nunchuk(struct rtgcwii* w, uint32_t channel, uint32_t now, struct r
     rtgcwii_shape(w, channel, now, out, RTGCWII_TAKE_WORDS | RTGCWII_TAKE_STEP, 0);
 }
 
-void rtgcwii_sideways(struct rtgcwii* w, uint32_t channel, struct rtshape_out* out) {
-    rtgcwii_shape(w, channel, 0, out, RTGCWII_TAKE_WORDS | RTGCWII_TAKE_STEP, 1);
+void rtgcwii_sideways(struct rtgcwii* w, uint32_t channel, uint32_t now, struct rtshape_out* out) {
+    rtgcwii_shape(w, channel, now, out, RTGCWII_TAKE_WORDS | RTGCWII_TAKE_STEP, 1);
 }
 
 #ifdef RT_PAD_FORM_POINTING

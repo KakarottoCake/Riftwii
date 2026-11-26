@@ -1613,11 +1613,11 @@ T = {
         "Ogni controller GameCube gioca come un telecomando Wii con Nunchuk (la porta 1 come il telecomando Wii 1 e così via): X lo scuote, la levetta C muove il puntatore."),
     "Sideways Wii Remote": ("Mando de Wii de lado", "横持ちWiiリモコン", "Wii Remote na horizontal",
         "Telecomando Wii in orizzontale"),
-    "Each GameCube controller plays as a Wii Remote held sideways (port 1 as Wii Remote 1 and so on): A is 2, B is 1, the control stick is its D-pad, the C-stick tilts it, R shakes it.": (
-        "Cada mando de GameCube juega como un mando de Wii en horizontal (el puerto 1 como el mando de Wii 1, y así sucesivamente): A es 2, B es 1, la palanca de control es su cruceta, la palanca C lo inclina, R lo agita.",
-        "各ゲームキューブコントローラーが横に持ったWiiリモコンとして動きます（ポート1はWiiリモコン1、以下同様）。Aが2、Bが1、コントロールスティックが十字ボタン、Cスティックで傾け、Rで振ります。",
-        "Cada controle de GameCube joga como um Wii Remote segurado na horizontal (a porta 1 como o Wii Remote 1 e assim por diante): A é o 2, B é o 1, o control stick é o seu direcional, o C-stick o inclina, R o sacode.",
-        "Ogni controller GameCube gioca come un telecomando Wii tenuto in orizzontale (la porta 1 come il telecomando Wii 1 e così via): A è il 2, B è l'1, la levetta di controllo è la sua croce direzionale, la levetta C lo inclina, R lo scuote."),
+    "Each GameCube controller plays as a Wii Remote held sideways (port 1 as Wii Remote 1 and so on): A is 2, B is 1, the control stick is its D-pad, the C-stick tilts it or moves its pointer, L keeps the pointer on screen, R shakes it.": (
+        "Cada mando de GameCube juega como un mando de Wii en horizontal (el puerto 1 como el mando de Wii 1, y así sucesivamente): A es 2, B es 1, la palanca de control es su cruceta, la palanca C lo inclina o mueve su puntero, L deja el puntero en pantalla, R lo agita.",
+        "各ゲームキューブコントローラーが横に持ったWiiリモコンとして動きます（ポート1はWiiリモコン1、以下同様）。Aが2、Bが1、コントロールスティックが十字ボタン、Cスティックで傾けるかポインターを動かし、Lでポインターを画面に出したままにし、Rで振ります。",
+        "Cada controle de GameCube joga como um Wii Remote segurado na horizontal (a porta 1 como o Wii Remote 1 e assim por diante): A é o 2, B é o 1, o control stick é o seu direcional, o C-stick o inclina ou move o seu ponteiro, L mantém o ponteiro na tela, R o sacode.",
+        "Ogni controller GameCube gioca come un telecomando Wii tenuto in orizzontale (la porta 1 come il telecomando Wii 1 e così via): A è il 2, B è l'1, la levetta di controllo è la sua croce direzionale, la levetta C lo inclina o ne muove il puntatore, L tiene il puntatore sullo schermo, R lo scuote."),
     "Pointing Wii Remote": ("Mando de Wii apuntando", "画面に向けたWiiリモコン", "Wii Remote apontado",
         "Telecomando Wii puntato"),
     "Each GameCube controller plays as a Wii Remote pointed at the screen (port 1 as Wii Remote 1 and so on): the control stick moves the pointer, X is 1, Y is 2, the C-stick tilts it, R shakes it.": (
@@ -3520,8 +3520,8 @@ KO = {
         "각 게임큐브 컨트롤러가 눈차크를 연결한 Wii 리모컨으로 작동합니다(포트 1은 Wii 리모컨 1 등). X로 흔들기, C스틱으로 포인터 이동.",
     "Sideways Wii Remote":
         "가로로 든 Wii 리모컨",
-    "Each GameCube controller plays as a Wii Remote held sideways (port 1 as Wii Remote 1 and so on): A is 2, B is 1, the control stick is its D-pad, the C-stick tilts it, R shakes it.":
-        "각 게임큐브 컨트롤러가 가로로 든 Wii 리모컨으로 작동합니다(포트 1은 Wii 리모컨 1 등). A는 2, B는 1, 컨트롤 스틱은 십자 버튼, C 스틱으로 기울이고 R로 흔듭니다.",
+    "Each GameCube controller plays as a Wii Remote held sideways (port 1 as Wii Remote 1 and so on): A is 2, B is 1, the control stick is its D-pad, the C-stick tilts it or moves its pointer, L keeps the pointer on screen, R shakes it.":
+        "각 게임큐브 컨트롤러가 가로로 든 Wii 리모컨으로 작동합니다(포트 1은 Wii 리모컨 1 등). A는 2, B는 1, 컨트롤 스틱은 십자 버튼, C 스틱으로 기울이거나 포인터를 움직이고, L로 포인터를 화면에 계속 표시하며, R로 흔듭니다.",
     "A code build doesn't use it.":
         "코드 빌드에서는 사용되지 않습니다.",
     "Pointing Wii Remote":
@@ -5424,8 +5424,8 @@ FR = {
         "Chaque manette GameCube joue comme une Télécommande Wii avec un Nunchuk (le port 1 comme la Télécommande Wii 1, et ainsi de suite) : X la secoue, le stick C déplace le pointeur.",
     "Sideways Wii Remote":
         "Télécommande Wii à l'horizontale",
-    "Each GameCube controller plays as a Wii Remote held sideways (port 1 as Wii Remote 1 and so on): A is 2, B is 1, the control stick is its D-pad, the C-stick tilts it, R shakes it.":
-        "Chaque manette GameCube joue comme une Télécommande Wii tenue à l'horizontale (le port 1 comme la Télécommande Wii 1, et ainsi de suite) : A est le 2, B est le 1, le stick de contrôle est sa croix directionnelle, le stick C l'incline, R la secoue.",
+    "Each GameCube controller plays as a Wii Remote held sideways (port 1 as Wii Remote 1 and so on): A is 2, B is 1, the control stick is its D-pad, the C-stick tilts it or moves its pointer, L keeps the pointer on screen, R shakes it.":
+        "Chaque manette GameCube joue comme une Télécommande Wii tenue à l'horizontale (le port 1 comme la Télécommande Wii 1, et ainsi de suite) : A est le 2, B est le 1, le stick de contrôle est sa croix directionnelle, le stick C l'incline ou déplace son pointeur, L garde le pointeur à l'écran, R la secoue.",
     "A code build doesn't use it.":
         "Une build de code ne l'utilise pas.",
     "Pointing Wii Remote":

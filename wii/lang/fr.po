@@ -1581,8 +1581,8 @@ msgstr "Chaque manette GameCube joue comme une Télécommande Wii avec un Nunchu
 msgid "Sideways Wii Remote"
 msgstr "Télécommande Wii à l'horizontale"
 
-msgid "Each GameCube controller plays as a Wii Remote held sideways (port 1 as Wii Remote 1 and so on): A is 2, B is 1, the control stick is its D-pad, the C-stick tilts it, R shakes it."
-msgstr "Chaque manette GameCube joue comme une Télécommande Wii tenue à l'horizontale (le port 1 comme la Télécommande Wii 1, et ainsi de suite) : A est le 2, B est le 1, le stick de contrôle est sa croix directionnelle, le stick C l'incline, R la secoue."
+msgid "Each GameCube controller plays as a Wii Remote held sideways (port 1 as Wii Remote 1 and so on): A is 2, B is 1, the control stick is its D-pad, the C-stick tilts it or moves its pointer, L keeps the pointer on screen, R shakes it."
+msgstr "Chaque manette GameCube joue comme une Télécommande Wii tenue à l'horizontale (le port 1 comme la Télécommande Wii 1, et ainsi de suite) : A est le 2, B est le 1, le stick de contrôle est sa croix directionnelle, le stick C l'incline ou déplace son pointeur, L garde le pointeur à l'écran, R la secoue."
 
 msgid "Pointing Wii Remote"
 msgstr "Télécommande Wii pointée"

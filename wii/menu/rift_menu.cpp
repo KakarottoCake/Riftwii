@@ -16864,7 +16864,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 					                : gameSettings.gc_controllers == "pointing"
 					                    ? tr("Each GameCube controller plays as a Wii Remote pointed at the screen (port 1 as Wii Remote 1 and so on): the control stick moves the pointer, X is 1, Y is 2, the C-stick tilts it, R shakes it.")
 					                : gameSettings.gc_controllers == "sideways"
-					                    ? tr("Each GameCube controller plays as a Wii Remote held sideways (port 1 as Wii Remote 1 and so on): A is 2, B is 1, the control stick is its D-pad, the C-stick tilts it, R shakes it.")
+					                    ? tr("Each GameCube controller plays as a Wii Remote held sideways (port 1 as Wii Remote 1 and so on): A is 2, B is 1, the control stick is its D-pad, the C-stick tilts it or moves its pointer, L keeps the pointer on screen, R shakes it.")
 					                    : tr("Each GameCube controller plays as a Classic Controller (port 1 as Wii Remote 1 and so on), for games that take one.")) +
 					    " " + tr("A code build doesn't use it.") + " " +
 					    tr("In a game with no GameCube controller code, only the adapter's controllers play."));

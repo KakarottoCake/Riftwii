@@ -846,10 +846,12 @@ static void pad_gcwii_read_pads(struct rt_pad_context* c) {
 
 /* The permanent stand-in's status on `chan`: a Wii Remote with a Nunchuk
  * (rtgcwii_nunchuk), its stick, both accelerometers (still, or the Wii
- * Remote shaking while X is held) and the pointer, shown while the C-stick
- * moves it and for a while after; or a sideways Wii Remote
- * (rtgcwii_sideways), tilted or shaking, its pointer while the game has
- * the camera on. Every other field 0, as pad_classic_status. */
+ * Remote shaking while X is held) and the pointer, shown while the game
+ * has the camera on (or has no switch for it) and for a while after the
+ * C-stick moves it; or a sideways Wii Remote (rtgcwii_sideways), tilted or
+ * shaking, with the camera on its pointer, shown while L's switch has it
+ * on or just after the C-stick moved it. Every other field 0, as
+ * pad_classic_status. */
 /* KPAD's camera switch for `chan`, as the game set it, noted in the
  * stand-in (rtgcwii_camera): before the KPAD status and the raw status
  * alike, so their format doesn't depend on which the game reads first
@@ -863,9 +865,15 @@ static void pad_gcwii_camera_now(struct rt_pad_context* c, uint32_t chan) {
             return;
         }
     }
-#ifdef RT_PAD_FORM_POINTING
+#if defined(RT_PAD_FORM_POINTING) || defined(RT_PAD_FORM_NUNCHUK)
     /* KPAD's camera switch not found, or this channel's isn't in RAM: a
-     * pointing game wants its pointer, so the camera counts as on. */
+     * pointing game wants its pointer, so the camera counts as on. So does
+     * a Wii Remote + Nunchuk game's: the 2006 KPAD has no switch (its
+     * camera works whenever the game's data format has it), and Red Steel's
+     * fish, Rayman Raving Rabbids' profile list and Trauma Center: Second
+     * Opinion's sutures need the pointer to stay where the C-stick left it,
+     * not to go 2 s after (the new-games sweep, 26 Nov). The sideways form
+     * keeps its tilt. */
     rtgcwii_camera(w, chan, 1u);
 #endif
 }
@@ -1605,10 +1613,10 @@ void pad_on_wpad_read(struct rt_pad_context* c, int32_t chan, uint8_t* status) {
      * WPADProbe finds one); otherwise the stand-in's report goes in only
      * if the channel is still its after the poll (rtgcwii_wpad_status). */
     if (real) return;
-#ifdef RT_PAD_FORM_POINTING
-    /* The pointing form with no camera switch found (or not in RAM): the
-     * camera counts as on, as at a KPAD read (pad_gcwii_camera_now;
-     * CodeRabbit CLI, fork #24). */
+#if defined(RT_PAD_FORM_POINTING) || defined(RT_PAD_FORM_NUNCHUK)
+    /* The pointing and Nunchuk forms with no camera switch found (or not
+     * in RAM): the camera counts as on, as at a KPAD read
+     * (pad_gcwii_camera_now; CodeRabbit CLI, fork #24). */
     camera = 1;
 #endif
     if (w->kpad_dpd != 0) {

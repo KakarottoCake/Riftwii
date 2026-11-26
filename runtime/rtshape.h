@@ -75,6 +75,17 @@ struct rtshape {
      * In every build, so the state's layout is the same for all of them. */
     uint32_t pointer_at[RTSHAPE_PORTS];
     int32_t pointer_rest[RTSHAPE_PORTS][2];
+    /* The sideways form's pointer: a real sideways Wii Remote isn't aimed
+     * at the screen, so with the camera on its pointer is off screen unless
+     * the player wants it (Super Paper Mario's Tippi and Metroid: Other M's
+     * first person come on whenever the pointer is seen). L tapped alone
+     * turns it on to stay (pointer_on) and off again; the C-stick shows it
+     * for pointer_show ticks after it moves. pointer_l: L is down, and
+     * pointer_l_spoiled: something else was pressed with it (the GameCube
+     * combo), so letting go doesn't turn it. One bit each. In every build. */
+    uint32_t pointer_on;
+    uint32_t pointer_l;
+    uint32_t pointer_l_spoiled;
 };
 
 /* A Wii controller at one moment, in the Wii's own terms: the buttons,
@@ -108,7 +119,8 @@ struct rtshape_out {
  * D-pad and the control stick (past half way) as the Wii Remote's D-pad
  * turned as the screen shows it held sideways (D-pad on the left: screen
  * left is the remote's Up, right its Down, up its Right, down its Left);
- * R is the shake, L nothing. */
+ * R is the shake, L the pointer's switch (rtshape_step; no Wii Remote
+ * button). */
 uint32_t rtshape_classic_buttons(const struct rtsrc_sample* p);
 uint32_t rtshape_nunchuk_buttons(const struct rtsrc_sample* p);
 uint32_t rtshape_sideways_buttons(const struct rtsrc_sample* p);
@@ -126,8 +138,9 @@ uint32_t rtshape_pointing_buttons(const struct rtsrc_sample* p);
 
 /* Once a sample, the build's shape's motion on `port`: the pointer follows
  * the C-stick (in the sideways shape only while the game has the camera
- * on: else the C-stick tilts), and the shake counts while its button is
- * held. Nothing in the Classic shape. */
+ * on: else the C-stick tilts, and L tapped alone switches the pointer on
+ * and off), and the shake counts while its button is held. Nothing in the
+ * Classic shape. */
 void rtshape_step(struct rtshape* sh, uint32_t port, const struct rtsrc_sample* p, uint32_t now);
 
 /* `port`'s controller unplugged: its shake and pointer's last move are
@@ -154,10 +167,13 @@ void rtshape_rest(struct rtshape_out* out);
 void rtshape_nunchuk(const struct rtshape* sh, uint32_t port, const struct rtsrc_sample* p, uint32_t now,
                      struct rtshape_out* out);
 
-/* The sideways Wii Remote's on `port`: the pointer while the game has the
- * camera on, else the tilt the C-stick gives; the shake while its button is
- * held. The Nunchuk's fields stay at rest. */
-void rtshape_sideways(const struct rtshape* sh, uint32_t port, const struct rtsrc_sample* p, struct rtshape_out* out);
+/* The sideways Wii Remote's on `port` at `now`: while the game has the
+ * camera on, the pointer the C-stick moves, seen only while L's switch has
+ * it on or for pointer_show ticks after the C-stick moved it (off screen
+ * otherwise); with the camera off, the tilt the C-stick gives; the shake
+ * while its button is held. The Nunchuk's fields stay at rest. */
+void rtshape_sideways(const struct rtshape* sh, uint32_t port, const struct rtsrc_sample* p, uint32_t now,
+                      struct rtshape_out* out);
 
 #ifdef RT_PAD_FORM_POINTING
 /* The pointing Wii Remote on `port`: at rest, tilted any way by the C-stick

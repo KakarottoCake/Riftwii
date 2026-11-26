@@ -1017,6 +1017,9 @@ void find_home_menu(const DolHeader& dol, const std::vector<CodeRange>& text, co
                  "has no KPADEnableDPD): the pointer shows while it's on\n",
                  out.kpad_dpd.base, out.kpad_dpd.stride, out.kpad_dpd.offset, out.kpad_dpd.enable);
     }
+    if (out.kpad_dpd.enable == 0)
+        logf("GameCube adapter: no KPAD camera switch (the 2006 KPAD has none): the pointing and Nunchuk forms keep "
+             "the pointer on, the sideways form tilts\n");
     // Optional: where the game has it (Mario Kart Wii), it reads a Classic
     // Controller's buttons from there, and the stand-in fills it too.
     const KpadUnified unified = find_kpad_unified(text);

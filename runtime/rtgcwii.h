@@ -50,8 +50,9 @@ struct rtgcwii {
     struct rtshape shape;  /* each slot's shape's motion: shake, pointer, camera (rtshape.h) */
     /* Where KPAD keeps each channel's camera switch (KPADEnableDPD's
      * code): the byte at kpad_dpd + channel * kpad_dpd_stride +
-     * kpad_dpd_offset, 0: not found (the pointer shows only after the
-     * C-stick moves). Loader-filled. */
+     * kpad_dpd_offset, 0: not found (the 2006 KPAD has none: the camera
+     * counts as on in the pointing and Nunchuk forms, off in the sideways
+     * form). Loader-filled. */
     uint32_t kpad_dpd, kpad_dpd_stride, kpad_dpd_offset;
     /* A 2006 KPAD game's WPADGetInfoAsync callback, answered for the
      * stand-in and told at the game's next KPAD read on that channel (as a
@@ -126,7 +127,7 @@ void rtgcwii_wii_remote(struct rtgcwii* w, uint32_t channel, uint32_t now, struc
  * (rtshape_nunchuk) or the sideways one (rtshape_sideways), whatever the
  * build's form: the host tests take each. */
 void rtgcwii_nunchuk(struct rtgcwii* w, uint32_t channel, uint32_t now, struct rtshape_out* out);
-void rtgcwii_sideways(struct rtgcwii* w, uint32_t channel, struct rtshape_out* out);
+void rtgcwii_sideways(struct rtgcwii* w, uint32_t channel, uint32_t now, struct rtshape_out* out);
 #ifdef RT_PAD_FORM_POINTING
 /* The pointing Wii Remote on `channel` for the game's KPAD read (the words
  * taken, the shake's step too): rtshape_pointing's state, all 0 where the

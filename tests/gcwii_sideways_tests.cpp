@@ -62,7 +62,7 @@ std::uint32_t map(std::uint32_t buttons, int stick_x = 0, int stick_y = 0) {
 }
 
 // The buttons, one by one: A 2, B 1, X A, Y B, Z -, Start +; L and R
-// nothing (R is the shake).
+// nothing (R is the shake, L the pointer's switch).
 void TestButtons() {
     const struct {
         std::uint32_t gc, wii;
@@ -96,13 +96,13 @@ void TestTilt() {
     std::uint8_t* s = p.plug(0);
     rtgcwii_pads(&w, p.s, 1);
     rtshape_out f;
-    rtgcwii_sideways(&w, 0, &f);
+    rtgcwii_sideways(&w, 0, 0, &f);
     EXPECT_EQ(f.acc[0], 0);
     EXPECT_EQ(f.acc[1], -RTHOME_AXIS_FULL);
     EXPECT_EQ(f.acc[2], 0);
     s[4] = 72;  // C-stick full right
     rtgcwii_pads(&w, p.s, 17);
-    rtgcwii_sideways(&w, 0, &f);
+    rtgcwii_sideways(&w, 0, 0, &f);
     EXPECT_EQ(f.acc[0], 0);
     EXPECT_EQ(f.acc[2], -RTGCWII_TILT_SIN);
     EXPECT_TRUE(f.acc[1] < 0);
@@ -112,11 +112,11 @@ void TestTilt() {
     EXPECT_EQ(f.pointer_shown, 0);
     s[4] = static_cast<std::uint8_t>(-72);  // full left
     rtgcwii_pads(&w, p.s, 33);
-    rtgcwii_sideways(&w, 0, &f);
+    rtgcwii_sideways(&w, 0, 0, &f);
     EXPECT_EQ(f.acc[2], RTGCWII_TILT_SIN);
     s[4] = static_cast<std::uint8_t>(-36);  // half left: about half as far
     rtgcwii_pads(&w, p.s, 49);
-    rtgcwii_sideways(&w, 0, &f);
+    rtgcwii_sideways(&w, 0, 0, &f);
     EXPECT_TRUE(f.acc[2] > 0 && f.acc[2] < RTGCWII_TILT_SIN);
     // The Nunchuk's fields stay at rest in this form.
     EXPECT_EQ(f.stick[0], 0);
@@ -134,17 +134,110 @@ void TestCamera() {
     rtgcwii_pads(&w, p.s, 1);
     rtgcwii_pads(&w, p.s, 17);
     rtshape_out f;
-    rtgcwii_sideways(&w, 0, &f);
+    rtgcwii_sideways(&w, 0, 17, &f);
     EXPECT_EQ(f.pointer_shown, 1);
     EXPECT_EQ(f.pointer[0], 2 * RTGCWII_POINTER_STEP);
     EXPECT_EQ(f.acc[2], 0);
     EXPECT_EQ(f.acc[1], -RTHOME_AXIS_FULL);
     rtgcwii_camera(&w, 0, 0);
     rtgcwii_pads(&w, p.s, 33);
-    rtgcwii_sideways(&w, 0, &f);
+    rtgcwii_sideways(&w, 0, 0, &f);
     EXPECT_EQ(f.pointer_shown, 0);
     EXPECT_EQ(f.acc[2], -RTGCWII_TILT_SIN);
     EXPECT_EQ(f.pointer[0], 0);  // hidden: not reported
+}
+
+// The camera on but the pointer not wanted (Super Paper Mario and Metroid:
+// Other M change their controls whenever the pointer is seen): off screen
+// until the C-stick moves it, then seen for pointer_show ticks after it
+// last moved; L tapped alone keeps it on until tapped again; L with
+// anything else (the GameCube combo) or L with the camera off leaves the
+// switch alone. The tilt stays off while the camera is on.
+void TestPointerOnDemand() {
+    rtgcwii w = fresh();
+    Pads p;
+    std::uint8_t* s = p.plug(0);
+    rtgcwii_camera(&w, 0, 1);
+    rtgcwii_pads(&w, p.s, 1);
+    rtshape_out f;
+    rtgcwii_sideways(&w, 0, 1, &f);
+    EXPECT_EQ(f.pointer_shown, 0);  // the camera on, nothing asked: off screen
+    EXPECT_EQ(f.acc[2], 0);
+    s[4] = 72;
+    rtgcwii_pads(&w, p.s, 101);
+    rtgcwii_sideways(&w, 0, 101, &f);
+    EXPECT_EQ(f.pointer_shown, 1);  // the C-stick moved it
+    EXPECT_EQ(f.pointer[0], RTGCWII_POINTER_STEP);
+    s[4] = 0;
+    rtgcwii_pads(&w, p.s, 1000);
+    rtgcwii_sideways(&w, 0, 1000, &f);
+    EXPECT_EQ(f.pointer_shown, 1);  // still, within pointer_show
+    rtgcwii_pads(&w, p.s, 2101);
+    rtgcwii_sideways(&w, 0, 2101, &f);
+    EXPECT_EQ(f.pointer_shown, 0);  // gone after it
+    // L tapped alone: on to stay, where it was left.
+    p.plug(0, kGcL);
+    rtgcwii_pads(&w, p.s, 2200);
+    rtgcwii_sideways(&w, 0, 2200, &f);
+    EXPECT_EQ(f.pointer_shown, 0);  // turns as it is let go
+    EXPECT_EQ(f.hold, 0u);          // L is no Wii Remote button
+    p.plug(0, 0);
+    rtgcwii_pads(&w, p.s, 2300);
+    rtgcwii_sideways(&w, 0, 2300, &f);
+    EXPECT_EQ(f.pointer_shown, 1);
+    EXPECT_EQ(f.pointer[0], RTGCWII_POINTER_STEP);
+    rtgcwii_pads(&w, p.s, 60000);
+    rtgcwii_sideways(&w, 0, 60000, &f);
+    EXPECT_EQ(f.pointer_shown, 1);
+    // The analog L past a third taps it too: off again.
+    s[6] = 200;
+    rtgcwii_pads(&w, p.s, 60100);
+    s[6] = 0;
+    rtgcwii_pads(&w, p.s, 60200);
+    rtgcwii_sideways(&w, 0, 60200, &f);
+    EXPECT_EQ(f.pointer_shown, 0);
+    // L with the combo's other buttons: the switch stays as it was.
+    p.plug(0, kGcL);
+    rtgcwii_pads(&w, p.s, 60300);
+    p.plug(0, kGcL | kGcR | kGcZ | kGcStart);
+    rtgcwii_pads(&w, p.s, 60400);
+    p.plug(0, kGcL);
+    rtgcwii_pads(&w, p.s, 60500);
+    p.plug(0, 0);
+    rtgcwii_pads(&w, p.s, 60600);
+    rtgcwii_sideways(&w, 0, 60600, &f);
+    EXPECT_EQ(f.pointer_shown, 0);
+    // Let go of L and A on the same sample: not alone, nothing turns.
+    p.plug(0, kGcL | kGcA);
+    rtgcwii_pads(&w, p.s, 60700);
+    p.plug(0, 0);
+    rtgcwii_pads(&w, p.s, 60800);
+    rtgcwii_sideways(&w, 0, 60800, &f);
+    EXPECT_EQ(f.pointer_shown, 0);
+    // The camera off: L counts for nothing, and the C-stick tilts.
+    rtgcwii_camera(&w, 0, 0);
+    p.plug(0, kGcL);
+    rtgcwii_pads(&w, p.s, 60900);
+    p.plug(0, 0);
+    rtgcwii_pads(&w, p.s, 61000);
+    rtgcwii_camera(&w, 0, 1);
+    rtgcwii_pads(&w, p.s, 61100);
+    rtgcwii_sideways(&w, 0, 61100, &f);
+    EXPECT_EQ(f.pointer_shown, 0);
+    // On, then the controller unplugged and back: off again.
+    p.plug(0, kGcL);
+    rtgcwii_pads(&w, p.s, 61200);
+    p.plug(0, 0);
+    rtgcwii_pads(&w, p.s, 61300);
+    rtgcwii_sideways(&w, 0, 61300, &f);
+    EXPECT_EQ(f.pointer_shown, 1);
+    Pads none;
+    rtgcwii_pads(&w, none.s, 61300 + 2 * kGrace);
+    rtgcwii_pads(&w, p.s, 62000);
+    rtgcwii_pads(&w, p.s, 62100);
+    rtgcwii_sideways(&w, 0, 62100, &f);
+    EXPECT_EQ(rtgcwii_on(&w, 0), 1);
+    EXPECT_EQ(f.pointer_shown, 0);
 }
 
 // R (or its analog trigger past a third) shakes it; X doesn't.
@@ -154,25 +247,25 @@ void TestShake() {
     std::uint8_t* s = p.plug(0, kGcX);
     rtgcwii_pads(&w, p.s, 1);
     rtshape_out f;
-    rtgcwii_sideways(&w, 0, &f);
+    rtgcwii_sideways(&w, 0, 0, &f);
     EXPECT_EQ(f.acc_value, RTHOME_AXIS_FULL);
     p.plug(0, kGcR);
     rtgcwii_pads(&w, p.s, 17);
-    rtgcwii_sideways(&w, 0, &f);
+    rtgcwii_sideways(&w, 0, 0, &f);
     EXPECT_EQ(f.acc_value, RTGCWII_SHAKE_VALUE);
     EXPECT_EQ(f.acc[0], -RTGCWII_SHAKE_G);
     p.plug(0, 0);
     rtgcwii_pads(&w, p.s, 33);
-    rtgcwii_sideways(&w, 0, &f);
+    rtgcwii_sideways(&w, 0, 0, &f);
     EXPECT_EQ(f.acc_value, RTHOME_AXIS_FULL);
     s[7] = 200;  // the analog R pulled
     rtgcwii_pads(&w, p.s, 49);
-    rtgcwii_sideways(&w, 0, &f);
+    rtgcwii_sideways(&w, 0, 0, &f);
     EXPECT_EQ(f.acc_value, RTGCWII_SHAKE_VALUE);
     // Shaking wins over tilt (the swing's next count, on its ramp).
     s[4] = 72;
     rtgcwii_pads(&w, p.s, 65);
-    rtgcwii_sideways(&w, 0, &f);
+    rtgcwii_sideways(&w, 0, 0, &f);
     EXPECT_EQ(f.acc_speed, RTGCWII_SHAKE_SPEED);
     EXPECT_EQ(f.acc[1], f.acc[0]);
     EXPECT_EQ(f.acc[2], -f.acc[0]);
@@ -186,9 +279,9 @@ void TestWords() {
     rtgcwii_pads(&w, p.s, 1);
     rtgcwii_pads(&w, p.s, 17);
     rtshape_out f;
-    rtgcwii_sideways(&w, 0, &f);
+    rtgcwii_sideways(&w, 0, 0, &f);
     EXPECT_EQ(f.hold, kWr2 | kWrUp);
-    rtgcwii_sideways(&w, 1, &f);
+    rtgcwii_sideways(&w, 1, 0, &f);
     EXPECT_EQ(f.hold, 0u);
     EXPECT_EQ(f.acc[1], -RTHOME_AXIS_FULL);
     EXPECT_EQ(f.pointer_shown, 0);
@@ -229,6 +322,16 @@ void TestWpadStatus() {
     w.format[0] = 2;
     rtgcwii_pads(&w, p.s, 33);
     rtgcwii_wpad_status(&w, 0, out, 33, 0);
+    // The camera on, the pointer not wanted yet: no dots seen.
+    EXPECT_EQ(s16_at(out + 12), 0);
+    EXPECT_EQ(s16_at(out + 20), 0);
+    // L tapped alone: the pointer on.
+    s[0] = 0;
+    s[1] = static_cast<std::uint8_t>(kGcL);
+    rtgcwii_pads(&w, p.s, 34);
+    s[1] = 0;
+    rtgcwii_pads(&w, p.s, 35);
+    rtgcwii_wpad_status(&w, 0, out, 35, 0);
     EXPECT_EQ(s16_at(out + 8), 512 + RTGCWII_DOT_APART / 2 + 1);
     EXPECT_EQ(s16_at(out + 10), 384);
     EXPECT_EQ(s16_at(out + 12), static_cast<int>(RTGCWII_DOT_SIZE));
@@ -265,19 +368,19 @@ void TestWpadStatus() {
         p2.plug(0, 0);
         rtgcwii_pads(&w2, p2.s, 1);
         rtshape_out f;
-        rtgcwii_sideways(&w2, 0, &f);
+        rtgcwii_sideways(&w2, 0, 0, &f);
         p2.plug(0, kGcX);
         rtgcwii_pads(&w2, p2.s, 17);
         rtgcwii_wpad_status(&w2, 0, out, 17, 0);
         EXPECT_EQ((out[0] << 8) | out[1], static_cast<int>(kWrA));
         // The same sample: the KPAD read still sees A as new.
-        rtgcwii_sideways(&w2, 0, &f);
+        rtgcwii_sideways(&w2, 0, 0, &f);
         EXPECT_EQ(f.trig, kWrA);
         // A raw read on a later sample, X still held, then the KPAD read
         // works its words out again: no new press, nothing lost or doubled.
         rtgcwii_pads(&w2, p2.s, 33);
         rtgcwii_wpad_status(&w2, 0, out, 33, 0);
-        rtgcwii_sideways(&w2, 0, &f);
+        rtgcwii_sideways(&w2, 0, 0, &f);
         EXPECT_EQ(f.hold, kWrA);
         EXPECT_EQ(f.trig, 0u);
     }
@@ -290,7 +393,7 @@ void TestWpadStatus() {
         p3.plug(0, 0);
         rtgcwii_pads(&w3, p3.s, 1);
         rtshape_out f;
-        rtgcwii_sideways(&w3, 0, &f);
+        rtgcwii_sideways(&w3, 0, 0, &f);
         p3.plug(0, kGcX);
         rtgcwii_pads(&w3, p3.s, 17);
         // The raw read itself works and gives the press (CodeRabbit on #650).
@@ -299,7 +402,7 @@ void TestWpadStatus() {
         EXPECT_EQ(rtgcwii_wpad_status(&w3, 0, raw, 17, 0), RTGCWII_WPAD_CORE_BYTES);
         EXPECT_TRUE((((raw[0] << 8) | raw[1]) & kWrA) != 0);
         rtgcwii_pads(&w3, p3.s, 33);
-        rtgcwii_sideways(&w3, 0, &f);
+        rtgcwii_sideways(&w3, 0, 0, &f);
         EXPECT_EQ(f.trig, kWrA);
     }
 }
@@ -405,6 +508,7 @@ int main() {
     TestTurnedDpad();
     TestTilt();
     TestCamera();
+    TestPointerOnDemand();
     TestShake();
     TestWords();
     TestWpadStatus();

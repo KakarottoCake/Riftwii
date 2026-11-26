@@ -1581,8 +1581,8 @@ msgstr "Cada mando de GameCube juega como un mando de Wii con Nunchuk (el puerto
 msgid "Sideways Wii Remote"
 msgstr "Mando de Wii de lado"
 
-msgid "Each GameCube controller plays as a Wii Remote held sideways (port 1 as Wii Remote 1 and so on): A is 2, B is 1, the control stick is its D-pad, the C-stick tilts it, R shakes it."
-msgstr "Cada mando de GameCube juega como un mando de Wii en horizontal (el puerto 1 como el mando de Wii 1, y así sucesivamente): A es 2, B es 1, la palanca de control es su cruceta, la palanca C lo inclina, R lo agita."
+msgid "Each GameCube controller plays as a Wii Remote held sideways (port 1 as Wii Remote 1 and so on): A is 2, B is 1, the control stick is its D-pad, the C-stick tilts it or moves its pointer, L keeps the pointer on screen, R shakes it."
+msgstr "Cada mando de GameCube juega como un mando de Wii en horizontal (el puerto 1 como el mando de Wii 1, y así sucesivamente): A es 2, B es 1, la palanca de control es su cruceta, la palanca C lo inclina o mueve su puntero, L deja el puntero en pantalla, R lo agita."
 
 msgid "Pointing Wii Remote"
 msgstr "Mando de Wii apuntando"

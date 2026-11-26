@@ -169,6 +169,30 @@ static void rtshape_pointing_step(struct rtshape* sh, uint32_t i, const struct r
 }
 #endif
 
+#ifdef RT_PAD_FORM_SIDEWAYS
+/* The sideways form's pointer switch: L (its click, or the analog trigger
+ * past a third) tapped alone turns it on or off as it is let go. Anything
+ * else pressed while L is down (the GameCube combo: L, R, Z and Start)
+ * leaves it as it was. */
+static void rtshape_pointer_switch(struct rtshape* sh, uint32_t i, const struct rtsrc_sample* s) {
+    const uint32_t bit = 1u << i;
+    const int l = (s->buttons & RTSRC_L) || s->trigger[0] >= RTSHAPE_TRIGGER_ON;
+    const int other = (s->buttons & ~RTSRC_L) != 0 || s->trigger[1] >= RTSHAPE_TRIGGER_ON;
+    if (l) {
+        if (!(sh->pointer_l & bit)) {
+            sh->pointer_l |= bit;
+            sh->pointer_l_spoiled &= ~bit;
+        }
+        if (other) sh->pointer_l_spoiled |= bit;
+        return;
+    }
+    if (sh->pointer_l & bit) {
+        sh->pointer_l &= ~bit;
+        if (!(sh->pointer_l_spoiled & bit) && !other) sh->pointer_on ^= bit;
+    }
+}
+#endif
+
 void rtshape_step(struct rtshape* sh, uint32_t i, const struct rtsrc_sample* s, uint32_t now) {
 #if defined(RT_PAD_FORM_POINTING)
     if (i < RTSHAPE_PORTS) rtshape_pointing_step(sh, i, s, now);
@@ -181,7 +205,13 @@ void rtshape_step(struct rtshape* sh, uint32_t i, const struct rtsrc_sample* s, 
     /* R, also from the analog trigger. */
     shaking = (s->buttons & RTSRC_R) || s->trigger[1] >= RTSHAPE_TRIGGER_ON;
     rtshape_count_shake(sh, i, shaking, now);
-    if (!((sh->camera >> i) & 1u)) return;
+    if (!((sh->camera >> i) & 1u)) {
+        /* Camera off: L's tap counts for nothing (no half-pressed switch
+         * waits for the camera). */
+        sh->pointer_l &= ~(1u << i);
+        return;
+    }
+    rtshape_pointer_switch(sh, i, s);
 #else
     shaking = s->buttons & RTSRC_X;
 #endif
@@ -220,6 +250,9 @@ void rtshape_reset(struct rtshape* sh, uint32_t i) {
     sh->shake_from[i] = 0;
     sh->shake_jump &= ~(1u << i);
     sh->pointer_moved[i] = 0;
+    sh->pointer_on &= ~(1u << i);
+    sh->pointer_l &= ~(1u << i);
+    sh->pointer_l_spoiled &= ~(1u << i);
 #else
     (void)sh;
     (void)i;
@@ -324,14 +357,20 @@ void rtshape_nunchuk(const struct rtshape* sh, uint32_t port, const struct rtsrc
     }
 }
 
-void rtshape_sideways(const struct rtshape* sh, uint32_t port, const struct rtsrc_sample* p, struct rtshape_out* out) {
+void rtshape_sideways(const struct rtshape* sh, uint32_t port, const struct rtsrc_sample* p, uint32_t now,
+                      struct rtshape_out* out) {
     int32_t s;
     rtshape_rest(out);
     if (port >= RTSHAPE_PORTS) return;
     if ((sh->camera >> port) & 1u) {
+        /* The camera on: the C-stick is the pointer (no tilt), seen only
+         * while L's switch has it on or just after the C-stick moved it; a
+         * sideways Wii Remote isn't aimed at the screen (rtshape.h). */
         out->pointer[0] = sh->pointer[port][0];
         out->pointer[1] = sh->pointer[port][1];
-        out->pointer_shown = 1;
+        out->pointer_shown =
+            ((sh->pointer_on >> port) & 1u) ||
+            (sh->pointer_moved[port] != 0 && rtshape_elapsed(now, sh->pointer_moved[port]) < sh->pointer_show);
     } else {
         /* Tilt: the C-stick held right steers right, gravity turning from
          * -Y towards -Z, its length staying 1 g. */
