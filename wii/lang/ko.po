@@ -5042,3 +5042,39 @@ msgstr "기타 타이틀"
 
 msgid "Emulated + Wii"
 msgstr "에뮬레이트 + Wii"
+
+msgid "Get a save"
+msgstr "세이브 받기"
+
+msgid "Download a save for this game. The current save is backed up first."
+msgstr "이 게임의 세이브를 받습니다. 현재 세이브는 먼저 백업합니다."
+
+msgid "Installing the save..."
+msgstr "세이브 설치 중..."
+
+msgid "The save list could not be downloaded. Check the connection and try again."
+msgstr "세이브 목록을 받지 못했습니다. 연결을 확인하고 다시 시도하세요."
+
+msgid "There are no saves listed for this version of the game yet."
+msgstr "이 버전의 게임에 맞는 세이브가 아직 목록에 없습니다."
+
+msgid "This save needs to be extracted on a PC first. Source: {1}"
+msgstr "이 세이브는 먼저 PC에서 압축을 풀어야 합니다. 출처: {1}"
+
+msgid "Choose a RiftWii SD memory card in Options before installing a download."
+msgstr "다운로드를 설치하기 전에 옵션에서 RiftWii SD 메모리 카드를 선택하세요."
+
+msgid "Downloads go only to emulated NAND, never to the Wii. Choose an SD or emulated NAND save location first."
+msgstr "다운로드는 에뮬레이트 NAND에만 저장하며 Wii에는 쓰지 않습니다. 먼저 SD 또는 에뮬레이트 NAND 세이브 위치를 선택하세요."
+
+msgid "Install {1} in {2}? Any save it replaces is backed up first."
+msgstr "{1}을(를) {2}에 설치할까요? 교체할 세이브는 먼저 백업합니다."
+
+msgid "The save could not be installed: {1}"
+msgstr "세이브를 설치하지 못했습니다: {1}"
+
+msgid "The save is installed."
+msgstr "세이브가 설치되었습니다."
+
+msgid "The save is installed. Your previous save is kept at {1}."
+msgstr "세이브가 설치되었습니다. 이전 세이브는 {1}에 보관됩니다."

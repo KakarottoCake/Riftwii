@@ -5042,3 +5042,39 @@ msgstr "Autres titres"
 
 msgid "Emulated + Wii"
 msgstr "Émulée + Wii"
+
+msgid "Get a save"
+msgstr "Obtenir une sauvegarde"
+
+msgid "Download a save for this game. The current save is backed up first."
+msgstr "Télécharger une sauvegarde pour ce jeu. Une copie de l'actuelle est conservée avant."
+
+msgid "Installing the save..."
+msgstr "Installation de la sauvegarde..."
+
+msgid "The save list could not be downloaded. Check the connection and try again."
+msgstr "Impossible de télécharger la liste des sauvegardes. Vérifiez la connexion et réessayez."
+
+msgid "There are no saves listed for this version of the game yet."
+msgstr "Aucune sauvegarde n'est encore proposée pour cette version du jeu."
+
+msgid "This save needs to be extracted on a PC first. Source: {1}"
+msgstr "Cette sauvegarde doit d'abord être extraite sur PC. Source : {1}"
+
+msgid "Choose a RiftWii SD memory card in Options before installing a download."
+msgstr "Choisissez une carte mémoire RiftWii sur SD dans Options avant d'installer un téléchargement."
+
+msgid "Downloads go only to emulated NAND, never to the Wii. Choose an SD or emulated NAND save location first."
+msgstr "Les téléchargements vont uniquement dans la NAND émulée, jamais sur la Wii. Choisissez d'abord un emplacement sur SD ou NAND émulée."
+
+msgid "Install {1} in {2}? Any save it replaces is backed up first."
+msgstr "Installer {1} dans {2} ? Une copie de toute sauvegarde remplacée est conservée avant."
+
+msgid "The save could not be installed: {1}"
+msgstr "Impossible d'installer la sauvegarde : {1}"
+
+msgid "The save is installed."
+msgstr "La sauvegarde est installée."
+
+msgid "The save is installed. Your previous save is kept at {1}."
+msgstr "La sauvegarde est installée. La précédente est conservée dans {1}."
