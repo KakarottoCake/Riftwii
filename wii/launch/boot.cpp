@@ -3244,11 +3244,9 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         // Bluetooth and Wii Remote libraries' buffers, the read-only data
         // and the code.
         exclusions.push_back(MemoryRegion{mem::kMainStack, mem::kMainStackBytes});
-        exclusions.push_back(MemoryRegion{mem::kLibraryBss, mem::kLibraryBssBytes});
-        exclusions.push_back(MemoryRegion{mem::kReadOnlyData, mem::kReadOnlyDataBytes});
-        exclusions.push_back(MemoryRegion{mem::kProgramCode, mem::kProgramCodeBytes});
+        exclusions.push_back(MemoryRegion{mem::kProgramArea, mem::ProgramAreaEnd() - mem::kProgramArea});
         // The start-up stash's copy: a restart after a failed launch reads the menu's font from it.
-        exclusions.push_back(MemoryRegion{mem::kStashArea, stash::ReservedEnd() - mem::kStashArea});
+        exclusions.push_back(MemoryRegion{mem::StashArea(), stash::ReservedEnd() - mem::StashArea()});
         for (const auto& piece : mem::HeapPieces()) {
             if (piece.second > piece.first) exclusions.push_back(MemoryRegion{piece.first, piece.second - piece.first});
         }

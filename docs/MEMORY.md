@@ -327,11 +327,12 @@ for tools; those are not loaded into MEM1.
 
 ### The MEM2 copy
 
-The copy goes to `mem::kStashArea`, which is `0x90D89000`, above the
+The copy goes to `mem::StashArea()`, about `0x90CF7000`, above the
 restart snapshot (`0x90800000`–`0x90809000`), the main thread's stack
 (`0x90809000`–`0x90829000`), libbte's and libwiiuse's buffers
-and RiftWii's own (`0x90829000`–`0x908B9000`), the read-only data
-(`0x908B9000`–`0x90989000`) and the code (`0x90989000`–`0x90D89000`). In
+and RiftWii's own, which follow the code and the read-only data back to
+back from `0x90829000` (the end moves with each build; the linker checks it
+stays below `0x90E00000`). In
 MEM1 the DOL loads the code first above `.bss`, then the read-only data,
 then the stash. It is 32 bytes of notes plus the stash (314
 KiB today), and `mem::Init` starts arena 2 above it. Checked against the other users of MEM2:
@@ -543,6 +544,26 @@ threads run):
 `mem::kLibraryBss` grew from 352 to 576 KiB for them, which moves the
 read-only data, the code and the stash's copy up by 224 KiB; all of it still
 ends below `0x91000000`.
+
+An eighth pass gave back 584 KiB of MEM2 (in Dolphin, 5528 KiB of MEM2
+taken at the start, down from 6112) and 7 KiB more of MEM1. The code, the
+read-only data and the zero-filled buffers each had a fixed slot with room
+to spare (4 MiB for 3.5 MiB of code); they now sit back to back from
+`mem::kProgramArea` in that order, each section's address taken from the
+end of the one before it in `wii/core/mem2sections.ld`, and the stash's
+copy starts at the 4 KiB boundary after them (`mem::ProgramAreaEnd()`, the
+linker's `__riftwii_mem2_end`). The launch keeps patches off that one
+range. libogc's thread blocks and lock tables, its memory card, EXI and
+IPC bookkeeping, and the C library's, libsysbase's and libstdc++'s
+zero-filled data joined RiftWii's in MEM2.
+
+Still in MEM1 after these passes, about 350 KiB: the GX FIFO (256 KiB, see
+above), libasnd's buffers (25 KiB, read by the DSP), the exception stack
+(16 KiB, which `__wrap___CheckARGV` runs on while it clears the MEM2
+buffers), `.data` and `.sdata` (22 KiB, which a warm restart puts back from
+its snapshot), libogc's SD Gecko buffers (EXI), and 18 KiB of code. The two
+framebuffers (about 600 KiB each) also come from MEM1 when the menu starts,
+as the video interface scans them out.
 
 ### `riftwii.elf`
 

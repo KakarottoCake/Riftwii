@@ -689,7 +689,7 @@ of the settings that exist.
    plugin's own reason.
 
 Where the plugin goes in MEM2: the loader's MEM2 heap runs from
-above the start-up stash's copy (`0x90D89000` up, after the restart
+above the start-up stash's copy (about `0x90CF7000` up, after the restart
 snapshot, the main thread's stack, the Bluetooth buffers, the read-only
 data and the code; MEMORY.md) to just under IOS at
 `0x933E0000`. The current users inside it are the menu's covers and

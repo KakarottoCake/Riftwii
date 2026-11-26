@@ -916,10 +916,8 @@ ID, including this change, consistently.
 | `0x90000000`–`0x90800000` | Left alone by the loader: an IOS reload stages its kernel here |
 | `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/core/restart.hpp`) |
 | `0x90809000`–`0x90829000` | The main thread's stack (`wii/core/mainstack.cpp`) |
-| `0x90829000`–`0x908B9000` | Zero-filled buffers: the Bluetooth and Wii Remote libraries', some of libogc's and RiftWii's own but the GX FIFO (`wii/core/mem2sections.ld`) |
-| `0x908B9000`–`0x90989000` | The program's read-only data, copied there at every fresh start from where the DOL loads it, above `.bss` (`wii/core/mem2sections.ld`, `wii/core/restart.cpp`) |
-| `0x90989000`–`0x90D89000` | The program's code but the start-up copy and what crt0's `.init` calls, copied there at every fresh start like the read-only data (`wii/core/mem2sections.ld`, `wii/core/restart.cpp`) |
-| `0x90D89000`–about `0x90DD8000` | The start-up stash's copy: translations and GPL, zstd; no font data (`wii/core/stash.hpp`, [MEMORY.md](MEMORY.md)); arena 2 starts above it |
+| `0x90829000`–about `0x90CF7000` | Back to back, as `wii/core/mem2sections.ld` lays them out (the end moves with each build): the program's code but the start-up copy and what crt0's `.init` calls, then its read-only data, both copied there at every fresh start from where the DOL loads them above `.bss` (`wii/core/restart.cpp`), then the zero-filled buffers of the Bluetooth and Wii Remote libraries, some of libogc's and the C library's, and RiftWii's own but the GX FIFO |
+| From there (4 KiB-aligned), about 314 KiB | The start-up stash's copy: translations and GPL, zstd; no font data (`wii/core/stash.hpp`, [MEMORY.md](MEMORY.md)); arena 2 starts above it |
 | From the end of `.bss` (start-up only) | The code, the read-only data, then the start-up stash, as `boot.dol` loads them, until crt0 has copied them to MEM2; then the MEM1 heap |
 | Bottom of the game's MEM2 arena | Resident runtime data, its code first for code builds and Brawl (or the virtual SD card's code and state, about 49 KB plus 12 bytes for each piece of the image on its card), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB), then the Reset's request block (about 1.5 KB) |
 | `0x90000000`–`0x91000000` | A GameCube game's ARAM (in a GameCube game only) |

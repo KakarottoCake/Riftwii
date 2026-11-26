@@ -7,7 +7,7 @@
  *
  * .mem2bss: the zero-filled buffers of the prebuilt Bluetooth stack (libbte, 290 KiB of
  * packet pools), of the Wii Remote library (libwiiuse) and RiftWii's own
- * go to MEM2, to mem::kLibraryBss (wii/core/memlimits.hpp), instead of
+ * go to MEM2, after the read-only data (wii/core/memlimits.hpp), instead of
  * MEM1. IOS reads and writes MEM2 as it does MEM1 (the disc, SD and USB
  * bounce buffers too), and the code flushes the cache around what it hands
  * it. The other prebuilt libraries' stay in MEM1: libogc's and libasnd's
@@ -28,7 +28,7 @@ PHDRS {
 
 SECTIONS {
 	__riftwii_mem1_resume = .;
-	.mem2bss 0x90829000 (NOLOAD) : {
+	.mem2bss __riftwii_mem2rodata_end (NOLOAD) : {
 		*libbte.a:*(.bss .bss.* COMMON)
 		*libwiiuse.a:*(.bss .bss.* COMMON)
 		/* libogc's that only the CPU or IOS touch: the console's settings,
@@ -39,6 +39,17 @@ SECTIONS {
 		*libogc.a:usbmouse.o(.bss .bss.* COMMON)
 		*libogc.a:network_wii.o(.bss .bss.* COMMON)
 		*libogc.a:gx.o(.bss .bss.* COMMON)
+		/* The kernel's thread blocks and lock tables, the memory card's and
+		 * the EXI bus's bookkeeping (not their DMA buffers), IPC's heap
+		 * list; the C library's files and exit list. */
+		*libogc.a:thread.o(.bss .bss.* COMMON)
+		*libogc.a:lwpc_*.o(.bss .bss.* COMMON)
+		*libogc.a:card.o(.bss .bss.* COMMON)
+		*libogc.a:exi.o(.bss .bss.* COMMON)
+		*libogc.a:ipc.o(.bss .bss.* COMMON)
+		*libc.a:*(.bss .bss.* COMMON)
+		*libsysbase.a:*(.bss .bss.* COMMON)
+		*libstdc++.a:*(.bss .bss.* COMMON)
 		/* RiftWii's own buffers but libwiigui's GX FIFO (video.o), the
 		 * exception stack (mainstack.o) and what start-up runs before it
 		 * is zeroed. */
@@ -47,11 +58,13 @@ SECTIONS {
 	} :mem2bss
 	__riftwii_mem2bss_start = ADDR(.mem2bss);
 	__riftwii_mem2bss_end = ADDR(.mem2bss) + SIZEOF(.mem2bss);
+	/* mem::ProgramAreaEnd(): the start-up stash's copy goes here. */
+	__riftwii_mem2_end = ALIGN(__riftwii_mem2bss_end, 4096);
 	. = __riftwii_mem1_resume;
 } INSERT BEFORE .sbss;
 
 /*
- * .mem2rodata: the program's read-only data, run from mem::kReadOnlyData.
+ * .mem2rodata: the program's read-only data, run from MEM2 right after the code.
  * It cannot be loaded there: the packed DOL's stub runs before libogc maps
  * MEM2. tools/dol_stash.py moves its DOL section to load just above .bss
  * instead (the start-up stash follows it), and restart.cpp's
@@ -63,7 +76,7 @@ SECTIONS {
  */
 SECTIONS {
 	__riftwii_mem1_resume2 = .;
-	.mem2rodata 0x908B9000 : {
+	.mem2rodata __riftwii_mem2text_end : {
 		__riftwii_mem2rodata_start = .;
 		LONG(0x52575244)
 		LONG(__riftwii_mem2rodata_end - __riftwii_mem2rodata_start)
@@ -76,7 +89,7 @@ SECTIONS {
 } INSERT BEFORE .rodata;
 
 /*
- * .mem2text: the program's code, run from mem::kProgramCode, loaded and
+ * .mem2text: the program's code, run from mem::kProgramArea, loaded and
  * copied up like .mem2rodata (tools/dol_stash.py puts it first above .bss,
  * the read-only data after it), with the same marker and size in front.
  * libogc maps MEM2 for instructions as for data (IBAT4), and its exception
@@ -96,7 +109,7 @@ SECTIONS {
  */
 SECTIONS {
 	__riftwii_mem1_resume3 = .;
-	.mem2text 0x90989000 : {
+	.mem2text 0x90829000 : {
 		__riftwii_mem2text_start = .;
 		LONG(0x52575458)
 		LONG(__riftwii_mem2text_end - __riftwii_mem2text_start)
@@ -110,11 +123,11 @@ SECTIONS {
 	. = __riftwii_mem1_resume3;
 } INSERT BEFORE .text;
 
-/* mem::kLibraryBss and kReadOnlyData, with their sizes: the start-up
- * stash's copy follows. */
-ASSERT(__riftwii_mem2bss_start == 0x90829000 && __riftwii_mem2bss_end <= 0x908B9000,
-       "the buffers bound for MEM2 no longer fit mem::kLibraryBss (wii/core/memlimits.hpp)");
-ASSERT(__riftwii_mem2rodata_start == 0x908B9000 && __riftwii_mem2rodata_end <= 0x90989000,
-       "the read-only data no longer fits mem::kReadOnlyData (wii/core/memlimits.hpp)");
-ASSERT(__riftwii_mem2text_start == 0x90989000 && __riftwii_mem2text_end <= 0x90D89000,
-       "the code no longer fits mem::kProgramCode (wii/core/memlimits.hpp)");
+/* The three back to back from mem::kProgramArea, code first (in this
+ * order, each section's address only refers back to one laid out before
+ * it), with 2 MiB left for the start-up stash below 0x91000000, the end of
+ * what a GameCube game uses before its jump. */
+ASSERT(__riftwii_mem2text_start == 0x90829000,
+       "the code no longer starts at mem::kProgramArea (wii/core/memlimits.hpp)");
+ASSERT(__riftwii_mem2_end <= 0x90E00000,
+       "the code, read-only data and buffers bound for MEM2 no longer leave room for the stash")

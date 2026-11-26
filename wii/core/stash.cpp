@@ -39,8 +39,8 @@ constexpr u32 kTakenNow = 1;            // copied from the DOL's section this st
 constexpr u32 kKept = 2;                // none in MEM1: the copy from an earlier start (a warm restart)
 constexpr u32 kMem1Top = 0x81800000;
 
-Note* note() { return reinterpret_cast<Note*>(mem::kStashArea); }
-u8* image() { return reinterpret_cast<u8*>(mem::kStashArea + sizeof(Note)); }
+Note* note() { return reinterpret_cast<Note*>(mem::StashArea()); }
+u8* image() { return reinterpret_cast<u8*>(mem::StashArea() + sizeof(Note)); }
 constexpr u32 kAvailable = kStashMaxBytes;
 
 u32 Mem1Address() {
@@ -92,8 +92,8 @@ void Check() {
 
 u32 ReservedEnd() {
     Check();
-    if (g_total == 0) return mem::kStashArea;
-    return (mem::kStashArea + sizeof(Note) + g_total + 0xFFF) & ~0xFFFu;
+    if (g_total == 0) return mem::StashArea();
+    return (mem::StashArea() + sizeof(Note) + g_total + 0xFFF) & ~0xFFFu;
 }
 
 bool Find(const char* name, const u8*& data, u32& size) {

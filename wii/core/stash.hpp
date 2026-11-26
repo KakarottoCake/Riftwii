@@ -9,7 +9,7 @@
 // carries as one more section just above .bss, where the heap grows.
 //
 // crt0 calls TakeStash (from __wrap___CheckARGV, before .bss is cleared):
-// a fresh image there is copied to mem::kStashArea in MEM2 and its magic
+// a fresh image there is copied to mem::StashArea() in MEM2 and its magic
 // erased, so its MEM1 bytes can become heap. On a warm restart those bytes
 // are heap leftovers and the copy in MEM2 from the first start is used.
 extern "C" void riftwii_take_stash();
@@ -22,7 +22,7 @@ void Check();
 // Available before BSS initialization, immediately after take_stash.
 bool FreshStart();
 
-// The end of the copy in MEM2 when it is good, else mem::kStashArea: arena
+// The end of the copy in MEM2 when it is good, else mem::StashArea(): arena
 // 2 starts above it.
 u32 ReservedEnd();
 
