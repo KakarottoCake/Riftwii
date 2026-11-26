@@ -149,5 +149,50 @@ class ExcludeTests(unittest.TestCase):
         self.assertEqual(mod_list.read_excluded(None), set())
 
 
+class HostedTests(unittest.TestCase):
+    ITEM = {"id": "rw-test-galaxy", "name": "Test Galaxy", "game": "Super Mario Galaxy 2",
+            "makers": "Alpha; Beta Gamma; Delta", "page": "https://lumasworkshop.com/mods/",
+            "released": "2024-05-01", "url": "https://github.com/RiftWii/mods/releases/download/files/test.zip"}
+
+    def pack(self):
+        out = io.BytesIO()
+        with zipfile.ZipFile(out, "w") as z:
+            z.writestr("Test Galaxy v1/riivolution/test.xml", b'<wiidisc><id game="SB4"/></wiidisc>')
+            z.writestr("Test Galaxy v1/TestGalaxy/files/a.arc", b"x" * 10)
+        return out.getvalue()
+
+    def test_entry_credits_every_maker(self):
+        v = mod_list.zip_layout(self.pack())
+        e = mod_list.hosted_entry(dict(self.ITEM), v, print)
+        self.assertEqual(e["author"], "Alpha, Beta Gamma, Delta")
+        self.assertEqual(e["description"], "By Alpha, Beta Gamma, Delta.")
+        self.assertEqual(e["games"], ["SB4"])
+        self.assertEqual(e["root"], "Test Galaxy v1/")
+        self.assertEqual(e["install"], [{"from": "riivolution/", "to": "riivolution/"},
+                                        {"from": "TestGalaxy/", "to": "TestGalaxy/"}])
+        self.assertEqual(e["download"]["url"], self.ITEM["url"])
+
+    def test_long_credits_end_with_and_others(self):
+        item = dict(self.ITEM, makers="; ".join(f"Maker number {i}" for i in range(12)))
+        e = mod_list.hosted_entry(item, mod_list.zip_layout(self.pack()), print)
+        self.assertTrue(e["author"].endswith(" and others"))
+        self.assertLessEqual(len(e["author"].encode()), 63)
+
+    def test_list_rules(self):
+        import json
+        import tempfile
+
+        def read(items):
+            with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
+                json.dump(items, f)
+            return mod_list.read_hosted(f.name)
+
+        self.assertEqual(len(read([self.ITEM])), 1)
+        for bad in ({"id": "gb1"}, {"url": "http://example.org/a.zip"}, {"makers": ""},
+                    {"page": "https://web.archive.org/web/2014/http://example.org/"}):
+            with self.assertRaises(SystemExit):
+                read([dict(self.ITEM, **bad)])
+
+
 if __name__ == "__main__":
     unittest.main()

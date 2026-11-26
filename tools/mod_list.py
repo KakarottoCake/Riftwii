@@ -362,6 +362,98 @@ def cached_verdict_ok(verdict):
     return "skip" in verdict or verdict.get("v", 0) >= VERDICT_VERSION
 
 
+def zip_layout(data):
+    """A pack zip's layout as the Wii will install it, or Skip."""
+    z = zipfile.ZipFile(io.BytesIO(data))
+    infos = [i for i in z.infolist()]
+    names = [i.filename for i in infos]
+    for name in names:
+        parts = [p for p in name.split("/") if p]
+        if any(not app_list.part_ok(p) for p in parts):
+            raise Skip(f"an entry the Wii won't write: {name!r}")
+    root, riiv, xml_names, tops = pack_layout(names)
+    if len(tops) > 4:
+        raise Skip(f"{len(tops)} folders beside riivolution/ (the store takes 4)")
+    for top in tops:
+        if not app_list.data_folder_ok(top):
+            raise Skip(f"its folder {top!r} is one RiftWii or the Wii owns")
+    xml_texts = list(read_pack_xmls(
+        xml_names, lambda name: z.read(name) if z.getinfo(name).file_size <= MAX_XML else None).values())
+    files, total = unpacked([(i.filename, i.file_size) for i in infos], root, set(tops) | {riiv[:-1]})
+    if files == 0 or files > app_list.MAX_FILES or total > app_list.MAX_UNPACKED:
+        raise Skip(f"{files} files, {total} bytes")
+    return {"v": VERDICT_VERSION, "format": "zip", "size": len(data), "sha256": hashlib.sha256(data).hexdigest(),
+            "root": root, "riivolution": riiv, "program": "riivolution/" + xml_names[0][len(root) + len(riiv):],
+            "folders": tops, "games": game_ids(xml_texts), "files": files, "unpacked": total}
+
+
+def read_hosted(path):
+    """The rehosted mods (RiftWii/mods' hosted.json): each a dict with id,
+    name, makers ("A; B; C"), game, page, released, url, and optionally
+    picture, description, version and replaces (GameBanana mod ids the
+    entry stands in for)."""
+    if not path:
+        return []
+    with open(path, encoding="utf-8") as f:
+        items = json.load(f)
+    for item in items:
+        for key in ("id", "name", "makers", "game", "page", "released", "url"):
+            if not isinstance(item.get(key), str) or not item[key]:
+                raise SystemExit(f"hosted.json: {item.get('id', '?')} has no {key}")
+        if not app_list.https_url_ok(item["url"], app_list.LIMITS["url"]) or not item["id"].startswith("rw-"):
+            raise SystemExit(f"hosted.json: {item['id']} needs an rw- id and an https URL")
+        # The page as the Wii reads it (an archive.org link, with its "http://"
+        # inside, is one it refuses): the original page or Luma's Workshop's.
+        if not app_list.https_url_ok(item["page"], app_list.LIMITS["page"]):
+            raise SystemExit(f"hosted.json: {item['id']}'s page is not a link the Wii takes")
+    return items
+
+
+def hosted_entry(item, v, log):
+    """A rehosted mod's entry: its makers credited (the author field takes as
+    many as fit, then "and others"; the description names them all)."""
+    makers = [m.strip() for m in item["makers"].split(";") if m.strip()]
+    author = ""
+    for count in range(len(makers), 0, -1):
+        candidate = ", ".join(makers[:count]) + ("" if count == len(makers) else " and others")
+        if len(candidate.encode()) <= app_list.LIMITS["author"]:
+            author = candidate
+            break
+    author = author or cut(makers[0], app_list.LIMITS["author"])
+    description = item.get("description") or ("By " + ", ".join(makers) + ".")
+    e = {
+        "id": item["id"],
+        "kind": "mod",
+        "name": cut(item["name"], app_list.LIMITS["name"]),
+        "author": author,
+        "version": cut(item.get("version") or item["released"], app_list.LIMITS["version"]),
+        "released": item["released"],
+        "category": "mods",
+        "game": cut(item["game"], app_list.LIMITS["author"]),
+        "games": v.get("games", []),
+        "description": cut(plain_text(description, 2000), MAX_DESCRIPTION),
+        "page": item["page"],
+        "platforms": ["wii", "vwii"],
+        "download": {"url": item["url"], "format": "zip", "size": v["size"], "sha256": v["sha256"],
+                     "files": v["files"], "unpacked_size": v["unpacked"]},
+        "program": v["program"],
+        "data_folders": v["folders"],
+    }
+    if v["root"]:
+        if len(v["root"].encode()) > MAX_ROOT:
+            log(f"  {item['name']}: its folder in the archive is too long ({v['root']})")
+            return None
+        e["root"] = v["root"]
+    rules = [{"from": v["riivolution"], "to": "riivolution/"}]
+    rules += [{"from": top + "/", "to": top + "/"} for top in v["folders"]]
+    for rule in rules:
+        if len(rule["from"].encode()) > app_list.LIMITS["rule"]:
+            log(f"  {item['name']}: a path too long for the store ({rule['from']})")
+            return None
+    e["install"] = rules
+    return e
+
+
 class Builder:
     def __init__(self, web, cache, log):
         self.web = web
@@ -496,27 +588,37 @@ class Builder:
         md5 = f.get("_sMd5Checksum")
         if md5 and hashlib.md5(data).hexdigest() != md5.lower():
             raise Skip("the download's MD5 is not GameBanana's")
-        z = zipfile.ZipFile(io.BytesIO(data))
-        infos = [i for i in z.infolist()]
-        names = [i.filename for i in infos]
-        for name in names:
-            parts = [p for p in name.split("/") if p]
-            if any(not app_list.part_ok(p) for p in parts):
-                raise Skip(f"an entry the Wii won't write: {name!r}")
-        root, riiv, xml_names, tops = pack_layout(names)
-        if len(tops) > 4:
-            raise Skip(f"{len(tops)} folders beside riivolution/ (the store takes 4)")
-        for top in tops:
-            if not app_list.data_folder_ok(top):
-                raise Skip(f"its folder {top!r} is one RiftWii or the Wii owns")
-        xml_texts = list(read_pack_xmls(
-            xml_names, lambda name: z.read(name) if z.getinfo(name).file_size <= MAX_XML else None).values())
-        files, total = unpacked([(i.filename, i.file_size) for i in infos], root, set(tops) | {riiv[:-1]})
-        if files == 0 or files > app_list.MAX_FILES or total > app_list.MAX_UNPACKED:
-            raise Skip(f"{files} files, {total} bytes")
-        return {"v": VERDICT_VERSION, "format": "zip", "size": len(data), "sha256": hashlib.sha256(data).hexdigest(),
-                "root": root, "riivolution": riiv, "program": "riivolution/" + xml_names[0][len(root) + len(riiv):],
-                "folders": tops, "games": game_ids(xml_texts), "files": files, "unpacked": total}
+        return zip_layout(data)
+
+    # -- mods in RiftWii/mods' own release (hosted.json) --
+
+    def hosted_entries(self, hosted):
+        """The rehosted mods' entries: each zip downloaded once (its verdict
+        cached by URL; a new file gets a new URL) and checked as a
+        GameBanana one is."""
+        cache = self.state.setdefault("hosted", {})
+        out = []
+        for item in hosted:
+            verdict = cache.get(item["url"])
+            if verdict is None or not cached_verdict_ok(verdict):
+                try:
+                    data = self.web.download(item["url"], MAX_DOWNLOAD)
+                    verdict = zip_layout(data)
+                    verdict.update({"v": VERDICT_VERSION})
+                except Skip as why:
+                    verdict = {"skip": str(why)}
+                except (urllib.error.URLError, OSError, zipfile.BadZipFile, ValueError) as e:
+                    self.log(f"  {item['name']}: not reachable now ({e})")
+                    continue
+                cache[item["url"]] = verdict
+            if "skip" in verdict:
+                self.log(f"  {item['name']}: {verdict['skip']}")
+                continue
+            entry = hosted_entry(item, verdict, self.log)
+            if entry:
+                out.append(entry)
+                self.log(f"  + {entry['name']} (RiftWii/mods, {', '.join(entry['games']) or 'no id'})")
+        return out
 
     # -- the entry --
 
@@ -615,6 +717,8 @@ def read_excluded(path):
 def build(args):
     os.makedirs(args.cache, exist_ok=True)
     excluded = read_excluded(args.exclude)
+    hosted = read_hosted(args.hosted)
+    excluded |= {int(i) for item in hosted for i in item.get("replaces", [])}
     log_lines = []
 
     def log(line):
@@ -658,6 +762,14 @@ def build(args):
                 entries.append(e)
                 log(f"  + {e['name']} ({e['download']['format']}, {', '.join(e['games']) or 'no id'})")
         builder.save_state()
+    if hosted:
+        log(f"{len(hosted)} mod(s) kept in RiftWii/mods' release")
+        for e in builder.hosted_entries(hosted):
+            if e["id"] not in seen:
+                seen.add(e["id"])
+                entries.append(e)
+        builder.save_state()
+    pictures = {item["id"]: item.get("picture") for item in hosted}
     # Icons: from each mod's first picture, kept in the cache by mod.
     out_icons = os.path.join(args.out, "icons")
     os.makedirs(out_icons, exist_ok=True)
@@ -665,7 +777,7 @@ def build(args):
     os.makedirs(icon_cache, exist_ok=True)
     for e in entries:
         mod_key = e["id"][2:]
-        picture = builder.state["mods"].get(mod_key, {}).get("profile", {}).get("_sPicture")
+        picture = pictures.get(e["id"]) or builder.state["mods"].get(mod_key, {}).get("profile", {}).get("_sPicture")
         cached = os.path.join(icon_cache, e["id"] + ".png")
         if not os.path.exists(cached) and picture:
             try:
@@ -707,6 +819,7 @@ def main():
     b.add_argument("out")
     b.add_argument("--only-game", action="append", help="only this GameBanana game name (for a quick try)")
     b.add_argument("--exclude", help="a file of GameBanana mod ids to leave out")
+    b.add_argument("--hosted", help="hosted.json: mods kept in RiftWii/mods' own release")
     args = p.parse_args()
     if args.cmd == "build":
         return build(args)

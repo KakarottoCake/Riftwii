@@ -6,10 +6,19 @@ Install, and it goes on the SD card; back on the Mods page it is listed and
 switched on. Mods packed as 7z or rar can't be unpacked on the Wii: they
 show **Get it on a PC**, with a QR code to the mod's GameBanana page.
 
-RiftWii hosts no mod. Every mod is downloaded from GameBanana's own
-servers; RiftWii publishes only the list of them and small preview icons.
-The mod's page in the store links (QR code) to its GameBanana page, where
-its author is credited and its description, updates and comments live.
+GameBanana's mods are downloaded from GameBanana's own servers; RiftWii
+publishes only the list of them and small preview icons. The mod's page in
+the store links (QR code) to its GameBanana page, where its author is
+credited and its description, updates and comments live.
+
+A few Super Mario Galaxy and Galaxy 2 mods are shared only on MEGA, Google
+Drive or MediaFire, which a Wii can't download from. With their makers'
+agreement through Luma's Workshop, `RiftWii/mods` keeps a copy of each in
+its `files` release and lists it in `hosted.json` (`--hosted`): every
+maker credited, the page linking to the mod's own page or trailer. Their
+ids start with `rw-`; one can stand in for a GameBanana listing the Wii
+can't install (`replaces`, e.g. a rar). The RiftWii/mods README says how
+to add one.
 
 ## The list
 
