@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 // Cheat files: the plain-text Gecko code format the GeckoCodes archive
@@ -132,16 +133,17 @@ std::vector<std::uint8_t> join_gct(const std::vector<std::uint8_t>& first, const
 // Whether every code in `gct` may run once before the game starts, when
 // nothing of the game is set up yet: writes (00, 02, 04, 06) on fixed
 // addresses, inserted instructions (C2) and E0 or E2 (which set the base
-// address), every write inside MEM1 or MEM2 and none anywhere from
-// `keep_out_start` to `keep_out_end` (the loader, still running; given as
-// cached addresses, the uncached ones are checked as the same memory).
+// address), every write inside MEM1 or MEM2 and none in any of the
+// [start, end) ranges of `keep_out` (the loader, still running: its MEM1
+// image and heap, its MEM2 stack, code and heap; given as cached
+// addresses, the uncached ones are checked as the same memory).
 // Not a condition (20 to 2E: it would read memory the game hasn't set up,
 // and a write it let through by chance would stay), a code that runs
 // instructions itself (C0), works through a pointer the game sets up (po
 // codes, the 4x loads), searches memory and keeps what it found (F6), or
 // anything else. False for a list that is not valid.
-bool gct_runs_before_start(const std::vector<std::uint8_t>& gct, std::uint32_t keep_out_start,
-                           std::uint32_t keep_out_end);
+bool gct_runs_before_start(const std::vector<std::uint8_t>& gct,
+                           const std::vector<std::pair<std::uint32_t, std::uint32_t>>& keep_out);
 
 // A code that was switched off by switch_off_slot_b_codes: where its
 // instructions went and how many lines they took.

@@ -229,7 +229,7 @@ void test_runs_before_start() {
                              0x70040020, 0x60000000, 0x00000000, 0x0451E468, 0x38000001});
     // The loader's range, kept out of the codes' writes.
     const std::uint32_t lo = 0x80A00000, hi = 0x81800000;
-    const auto runs = [&](const Bytes& list) { return gct_runs_before_start(list, lo, hi); };
+    const auto runs = [&](const Bytes& list) { return gct_runs_before_start(list, {{lo, hi}}); };
     EXPECT_TRUE(runs(remap));
     // A string write and an E2.
     EXPECT_TRUE(runs(gct({0x06001000, 0x00000005, 0x11223344, 0x55000000, 0xE2000001, 0x00000000})));
@@ -238,6 +238,18 @@ void test_runs_before_start() {
     EXPECT_TRUE(runs(gct({})));
     // Runs instructions itself.
     EXPECT_FALSE(runs(gct({0xC0000000, 0x00000001, 0x4E800020, 0x00000000})));
+    // With the loader's MEM2 (0x90800000 up: its stack, code and heap) kept
+    // out too: an E0 that moves the base to MEM2, then 64 KiB of zeros at
+    // 0x90819000, over the main thread's stack, waits for the game; the
+    // same write low in MEM2, where the game's arena starts, still runs.
+    const auto runs_both = [&](const Bytes& list) {
+        return gct_runs_before_start(list, {{lo, hi}, {0x90800000u, 0x94000000u}});
+    };
+    const Bytes over_stack = gct({0xE0000000, 0x90000000, 0x00819000, 0xFFFF0000});
+    EXPECT_TRUE(runs(over_stack));
+    EXPECT_FALSE(runs_both(over_stack));
+    EXPECT_TRUE(runs_both(gct({0xE0000000, 0x90000000, 0x00001000, 0x00FF0000})));
+    EXPECT_TRUE(runs_both(remap));
     // A write through the pointer, and a load of it from the game's memory.
     EXPECT_FALSE(runs(gct({0x14000010, 0x00000001})));
     EXPECT_FALSE(runs(gct({0x48000000, 0x80001234})));
@@ -461,17 +473,17 @@ void test_slot_b_codes() {
     // Switching a code off keeps the list runnable before the game starts:
     // the goto is understood there, and the lines it skips don't run.
     list = list_of({rex_flag, rex_log}, {flag_words, log_words});
-    EXPECT_TRUE(gct_runs_before_start(list, 0x80A00000u, 0x81800000u));
+    EXPECT_TRUE(gct_runs_before_start(list, {{0x80A00000u, 0x81800000u}}));
     EXPECT_EQ(switch_off_slot_b_codes(list).size(), 1u);
-    EXPECT_TRUE(gct_runs_before_start(list, 0x80A00000u, 0x81800000u));
+    EXPECT_TRUE(gct_runs_before_start(list, {{0x80A00000u, 0x81800000u}}));
     // Only that goto counts: none with no lines, one past the end of the
     // list, or one with anything in its second word.
     const std::uint32_t goto_none[] = {0x66200000, 0x00000000};
     const std::uint32_t goto_past[] = {0x66200003, 0x00000000, 0x60000000, 0x60000000};
     const std::uint32_t goto_value[] = {0x66200001, 0x00000001, 0x60000000, 0x60000000};
-    EXPECT_FALSE(gct_runs_before_start(list_of({goto_none}, {2}), 0x80A00000u, 0x81800000u));
-    EXPECT_FALSE(gct_runs_before_start(list_of({goto_past}, {4}), 0x80A00000u, 0x81800000u));
-    EXPECT_FALSE(gct_runs_before_start(list_of({goto_value}, {4}), 0x80A00000u, 0x81800000u));
+    EXPECT_FALSE(gct_runs_before_start(list_of({goto_none}, {2}), {{0x80A00000u, 0x81800000u}}));
+    EXPECT_FALSE(gct_runs_before_start(list_of({goto_past}, {4}), {{0x80A00000u, 0x81800000u}}));
+    EXPECT_FALSE(gct_runs_before_start(list_of({goto_value}, {4}), {{0x80A00000u, 0x81800000u}}));
 
     // A C0 code (it runs where it is) has no address of its own.
     std::uint32_t rex_log_c0[sizeof(rex_log) / 4];

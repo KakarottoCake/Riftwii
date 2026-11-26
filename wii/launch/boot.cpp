@@ -480,10 +480,11 @@ bool codes_run_first(bool debugger_handler, bool start_file_pending) {
         logf("Codes: the cheats start with the game, after its start file is in place\n");
     } else if (g_extras.cheat_gct.empty()) {
         // No cheats (the WiiRD setting on, no USB Gecko): nothing to run.
-    } else if (!gct_runs_before_start(g_extras.cheat_gct, kLoaderStart, kMem1End)) {
+    } else if (!gct_runs_before_start(g_extras.cheat_gct, {{kLoaderStart, kMem1End}, {mem::kMem2Floor, kMem2End}})) {
         // Before the game nothing of it is set up: a code that runs
         // instructions or follows the game's pointers could fault, and this
-        // loader (its code, data and stack, up to MEM1's end) still runs.
+        // loader still runs: its image and heap up to MEM1's end, and its
+        // stack, code, data and heap from mem::kMem2Floor up.
         logf("Codes: the cheats start with the game: one of them runs code, follows the game's pointers, "
              "searches memory or writes where RiftWii's loader still runs\n");
     } else {
@@ -663,6 +664,15 @@ bool overlaps_loader(std::uint32_t start, std::uint32_t length) {
     const std::uint64_t end = std::uint64_t(start) + length;
     const std::uint32_t loader_end = reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi());
     return start < loader_end && end > kLoaderStart;
+}
+
+// The loader's MEM2 (wii/core/memlimits.hpp): from mem::kMem2Floor up, its
+// restart notes, main stack, code, read-only data, buffers and heap, with
+// IOS above. It runs from there until the jump, so nothing of a game may be
+// written there before it; no game or start file puts anything there.
+bool overlaps_loader_mem2(std::uint32_t start, std::uint32_t length) {
+    const std::uint64_t end = std::uint64_t(start) + length;
+    return start < kMem2End && end > mem::kMem2Floor;
 }
 
 bool make_directories(const std::string& sd_path) {
@@ -2443,6 +2453,12 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         }
         const std::uint32_t len = static_cast<std::uint32_t>(length);
         const std::uint32_t woff = static_cast<std::uint32_t>(word_offset);
+        if (overlaps_loader_mem2(dest, len)) {
+            char where[64];
+            std::snprintf(where, sizeof(where), "0x%08x-0x%08x", dest, dest + len);
+            error = std::string("the game's DOL section ") + where + " is in MEM2 where RiftWii's loader runs";
+            return false;
+        }
         if (overlaps_loader(dest, len)) {
             char where[96];
             std::snprintf(where, sizeof(where), "0x%08x-0x%08x overlaps the loader at 0x%08x-0x%08x", dest,
@@ -2539,6 +2555,19 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         }
         if (start_dol.bss_size != 0 && !in_ram(start_dol.bss_address, start_dol.bss_size)) {
             error = "the start file's BSS is not in RAM";
+            return false;
+        }
+        // Checked before anything is written: these go straight to memory.
+        for (const DolSection& sec : start_dol.sections) {
+            if (sec.used() && overlaps_loader_mem2(sec.address, sec.size)) {
+                char where[64];
+                std::snprintf(where, sizeof(where), "0x%08x-0x%08x", sec.address, sec.address + sec.size);
+                error = std::string("the start file's section ") + where + " is in MEM2 where RiftWii's loader runs";
+                return false;
+            }
+        }
+        if (start_dol.bss_size != 0 && overlaps_loader_mem2(start_dol.bss_address, start_dol.bss_size)) {
+            error = "the start file's BSS is in MEM2 where RiftWii's loader runs";
             return false;
         }
         // Its BSS first (data sections inside it keep their bytes); the

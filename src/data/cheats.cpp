@@ -603,12 +603,12 @@ std::vector<std::uint8_t> join_gct(const std::vector<std::uint8_t>& first, const
     return out;
 }
 
-bool gct_runs_before_start(const std::vector<std::uint8_t>& gct, std::uint32_t keep_out_start,
-                           std::uint32_t keep_out_end) {
+bool gct_runs_before_start(const std::vector<std::uint8_t>& gct,
+                           const std::vector<std::pair<std::uint32_t, std::uint32_t>>& keep_out) {
     if (!valid_gct(gct)) return false;
     const std::size_t end = gct.size() - 8;
     // Whether `bytes` written at `address` land in MEM1 or MEM2 and stay
-    // clear of the kept-out range (64-bit, so nothing wraps round). An
+    // clear of every kept-out range (64-bit, so nothing wraps round). An
     // uncached address (0xC0000000 up, 0xD0000000 up) is the same memory
     // as the cached one 0x40000000 below it; anything else is no memory,
     // and a write there would fault before the game starts.
@@ -618,7 +618,10 @@ bool gct_runs_before_start(const std::vector<std::uint8_t>& gct, std::uint32_t k
         const bool mem1 = address >= 0x80000000u && last <= 0x81800000u;
         const bool mem2 = address >= 0x90000000u && last <= 0x94000000u;
         if (!mem1 && !mem2) return false;
-        return last <= keep_out_start || address >= keep_out_end;
+        for (const auto& range : keep_out) {
+            if (last > range.first && address < range.second) return false;
+        }
+        return true;
     };
     // The handler's base address, which ba codes add to: 0x80000000 until
     // an E0 or E2 sets another. The handler keeps only its top seven bits
