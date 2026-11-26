@@ -196,7 +196,10 @@ void GuiPrompts::Update(GuiTrigger* t) {
     }
     if (at != hover && at >= 0) soundOver->Play();
     hover = at;
-    if (at >= 0 && (t->wpad->btns_d & (WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A))) {
+    // A from whichever controller owns the pointer: a GameCube controller's
+    // stick moves this same pointer, and its A used to miss the prompt and
+    // reach the page underneath (a tester's Search opened the lit category).
+    if (at >= 0 && PromptPressed("A", *t)) {
         clicked = at;
         prompts[at].pressElapsed = 0;
         riftwii::wii::PlayMenuSound(prompts[at].button == "B" ? riftwii::wii::MenuSoundEvent::Back
