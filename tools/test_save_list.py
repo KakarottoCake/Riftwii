@@ -286,6 +286,20 @@ class ExcludeTests(unittest.TestCase):
             f.write("# asked 2026-11-26 (issue 1)\n709787\n  12345  # another\nnot-an-id\n\n")
         self.assertEqual(save_gamebanana.read_excluded(f.name), {709787, 12345})
         self.assertEqual(save_gamebanana.read_excluded(None), set())
+        Path(f.name).unlink()
+
+    def test_bom_and_odd_lines(self):
+        import save_gamebanana
+        with tempfile.NamedTemporaryFile("wb", suffix=".txt", delete=False) as f:
+            f.write(b"ï»¿709787
+Â²
+# café (Latin-1)
+12345
+")
+        try:
+            self.assertEqual(save_gamebanana.read_excluded(f.name), {709787, 12345})
+        finally:
+            Path(f.name).unlink()
 
 
 if __name__ == "__main__":

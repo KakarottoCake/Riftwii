@@ -451,9 +451,12 @@ def read_excluded(path):
     if not path:
         return set()
     ids = set()
-    for line in Path(path).read_text(encoding="utf-8").splitlines():
+    # utf-8-sig: a file saved by a Windows editor may start with a BOM,
+    # which would otherwise hide the first id. A stray byte in a comment
+    # must not stop the night's catalogue; only plain ASCII digits are ids.
+    for line in Path(path).read_text(encoding="utf-8-sig", errors="replace").splitlines():
         word = line.split("#", 1)[0].strip()
-        if word.isdigit():
+        if word.isascii() and word.isdigit():
             ids.add(int(word))
     return ids
 
