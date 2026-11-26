@@ -2907,8 +2907,8 @@ msgstr "テーマを追加"
 msgid "Browse"
 msgstr "見る"
 
-msgid "Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes."
-msgstr "みんなが作ったテーマをriftwii.github.ioから入手します。プレビュー付きで、sd:/riftwii/themesに保存されます。"
+msgid "Themes made by the community, from riftwii.com, each with a preview. They are put in sd:/riftwii/themes."
+msgstr "みんなが作ったテーマをriftwii.comから入手します。プレビュー付きで、sd:/riftwii/themesに保存されます。"
 
 msgid "The theme in use was deleted, so the menu goes back to the default look. It restarts when you leave Settings."
 msgstr "使っていたテーマを削除したので、メニューは標準の見た目に戻ります。設定を出ると再起動します。"

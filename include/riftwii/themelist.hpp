@@ -7,7 +7,7 @@
 #include <string>
 
 // The list of downloadable themes behind Settings > Theme > Get more themes
-// (wii/menu/themestore.hpp): themes.json on riftwii.github.io, schema 1,
+// (wii/menu/themestore.hpp): themes.json on riftwii.com, schema 1,
 //
 //   {"schema":1,"commit":"...","themes":[{"folder","name","author",
 //    "license","size","sha256","files","unpacked_size","has_music",
@@ -16,13 +16,20 @@
 // It comes from the internet, so it is read as untrusted: its size, its
 // theme count and the length of every string are bounded, and a theme that
 // breaks a rule (a folder name that is not one plain name, an address off
-// riftwii.github.io, a size over the caps) is left out, never trusted.
+// RiftWii's site, a size over the caps) is left out, never trusted.
 // The records are fixed-size so the Wii keeps the whole list in one block
 // of MEM2 instead of one heap piece per string.
 namespace riftwii {
 
-constexpr const char* kThemeSiteUrl = "https://riftwii.github.io/";
-constexpr const char* kThemeListUrl = "https://riftwii.github.io/themes/themes.json";
+// RiftWii's site moved from riftwii.github.io to riftwii.com, and the old
+// address now answers every request with a redirect to the new one. The
+// browser fetches from riftwii.com itself: it follows no redirect to
+// another server, so through the old address no theme could be listed or
+// downloaded. themes.json may still name riftwii.github.io for each zip and
+// preview; those addresses are taken and fetched from riftwii.com.
+constexpr const char* kThemeSiteUrl = "https://riftwii.com/";
+constexpr const char* kThemeOldSiteUrl = "https://riftwii.github.io/";
+constexpr const char* kThemeListUrl = "https://riftwii.com/themes/themes.json";
 
 constexpr std::size_t kThemeListMaxBytes = 256u << 10;
 constexpr std::size_t kThemeListMaxThemes = 500;
@@ -40,7 +47,7 @@ struct ThemeListing {
     char author[64];
     char license[32];
     char sha256[65];     // of the zip, 64 lower-case hex digits
-    char zip[200];       // https://riftwii.github.io/...
+    char zip[200];       // https://riftwii.com/... or https://riftwii.github.io/...
     char preview[200];
     // No initializers, so a block of these is plain memory a caller zeroes.
     std::uint32_t size;           // the zip's bytes
@@ -55,9 +62,13 @@ struct ThemeListing {
 bool theme_folder_ok(const std::string& folder);
 
 // Whether `url` is an address RiftWii may fetch for a theme: https:// on
-// riftwii.github.io, a path of plain characters, no user info, no port, no
-// query or fragment, at most 199 bytes.
+// riftwii.com or riftwii.github.io, a path of plain characters, no user
+// info, no port, no query or fragment, at most 199 bytes.
 bool theme_url_ok(const std::string& url);
+
+// The address to fetch for `url`: the same path on riftwii.com when it names
+// riftwii.github.io (see kThemeOldSiteUrl), otherwise `url` unchanged.
+std::string theme_fetch_url(const std::string& url);
 
 // Reads the list into `out` (room for `max` records). `count` is how many
 // themes it holds; `skipped` how many entries were left out for breaking a

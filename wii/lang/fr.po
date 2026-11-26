@@ -2907,8 +2907,8 @@ msgstr "Obtenir d'autres thèmes"
 msgid "Browse"
 msgstr "Parcourir"
 
-msgid "Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes."
-msgstr "Des thèmes créés par la communauté, depuis riftwii.github.io, chacun avec un aperçu. Ils sont placés dans sd:/riftwii/themes."
+msgid "Themes made by the community, from riftwii.com, each with a preview. They are put in sd:/riftwii/themes."
+msgstr "Des thèmes créés par la communauté, depuis riftwii.com, chacun avec un aperçu. Ils sont placés dans sd:/riftwii/themes."
 
 msgid "The theme in use was deleted, so the menu goes back to the default look. It restarts when you leave Settings."
 msgstr "Le thème utilisé a été supprimé, le menu revient donc à l'aspect par défaut. Il redémarre quand vous quittez les Réglages."

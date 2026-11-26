@@ -19581,7 +19581,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kWidescreen: return tr("On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting.");
 			case kScreenSize: return tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.");
 			case kTheme: return tr("The menu's colors and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).");
-			case kThemeBrowse: return settings.online ? tr("Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes.")
+			case kThemeBrowse: return settings.online ? tr("Themes made by the community, from riftwii.com, each with a preview. They are put in sd:/riftwii/themes.")
 				: tr("Downloads are off. Turn on Settings > Online > Downloads first.");
 			case kNoClock: return tr("Turns off the clock on Home.");
 			case kClockFormat: return tr("How Home's clock writes the time: 12-hour (with AM and PM) or 24-hour. Automatic writes it as the menu's language does.");

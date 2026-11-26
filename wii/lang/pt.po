@@ -2907,8 +2907,8 @@ msgstr "Baixar mais temas"
 msgid "Browse"
 msgstr "Ver"
 
-msgid "Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes."
-msgstr "Temas feitos pela comunidade, de riftwii.github.io, cada um com uma prévia. Eles ficam em sd:/riftwii/themes."
+msgid "Themes made by the community, from riftwii.com, each with a preview. They are put in sd:/riftwii/themes."
+msgstr "Temas feitos pela comunidade, de riftwii.com, cada um com uma prévia. Eles ficam em sd:/riftwii/themes."
 
 msgid "The theme in use was deleted, so the menu goes back to the default look. It restarts when you leave Settings."
 msgstr "O tema em uso foi apagado, então o menu volta ao visual padrão. Ele reinicia quando você sair das Configurações."

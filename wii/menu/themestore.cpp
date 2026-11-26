@@ -292,16 +292,17 @@ std::string HexOf(const Sha256Digest& digest) {
 
 // ---- Jobs (on the network's background thread) ----
 
-// The only way the browser reaches the network: https://riftwii.github.io/
-// and nothing else, however the address came to be in the list (HttpGetInMemory
-// then follows redirects on that same server only).
+// The only way the browser reaches the network: RiftWii's own site and
+// nothing else, however the address came to be in the list (HttpGetInMemory
+// then follows redirects on that same server only). An address on the old
+// riftwii.github.io is fetched from riftwii.com, where it now redirects.
 bool Fetch(const std::string& url, MemoryGet& get, std::string& error, int timeout_ms = 15000,
            const HttpProgress& progress = nullptr) {
     if (url != kThemeListUrl && !theme_url_ok(url)) {
         error = "RiftWii only fetches themes from " + std::string(kThemeSiteUrl);
         return false;
     }
-    return HttpGetInMemory(url, get, error, timeout_ms, progress);
+    return HttpGetInMemory(theme_fetch_url(url), get, error, timeout_ms, progress);
 }
 
 std::string Short(const std::string& text) { return text.size() <= 120 ? text : text.substr(0, 117) + "..."; }
