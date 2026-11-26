@@ -17,8 +17,16 @@
  * A thread stack needs no starting contents, and this one's thread (Home's
  * drive scan, wii/menu/homescan.cpp) starts long after SYS_Init, so
  * whatever is left there is overwritten by the stack's own use.
- * tools/check_mem1_line.py fails the build when 0x81000000 is not well
- * inside it. */
+ *
+ * Once the program ends well below the line, the stack cannot reach it,
+ * and the line is in the heap instead. That is as safe: before the DSP
+ * code is copied, libogc writes only the command line and its 64 KiB
+ * kernel workspace at the heap's start (__Arena1Lo), and every byte
+ * above them is first written by whoever main's malloc hands it to. The
+ * start-up stash's dead copy already lies there and is handed out the
+ * same way (docs/MEMORY.md).
+ * tools/check_mem1_line.py fails the build unless 0x81000000 is well
+ * inside the stack, or well above what libogc's start writes. */
 #ifndef RIFTWII_WII_MEM1TAIL_H
 #define RIFTWII_WII_MEM1TAIL_H
 

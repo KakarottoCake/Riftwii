@@ -25,10 +25,9 @@ map (`build_wii/riftwii.elf.map`). Since then the menu font left the DOL
 (an external `font.ttf`, 750 KiB), most of the unwinding and exception
 tables went (`-fno-exceptions`, "Linked out" below), and the GameCube loader moved into its
 plugin. For today's numbers, read the "Size report" step of CI's Wii build
-(`tools/size_report.py`) or run the same commands on a fresh build. Of the
-items still in MEM1, the largest that could move are the menu sounds (226
-KiB, below) and the controller button pictures (`src/art/inputicons_data.cpp`,
-56 KiB of uncompressed alpha masks that zstd shrinks to about 3 KiB).
+(`tools/size_report.py`) or run the same commands on a fresh build. The
+controller button pictures and the other items "Kept out of MEM1 until
+used" (below) have since left too.
 
 ## The sections
 
@@ -182,12 +181,23 @@ on a tester's Wii.
 
 So the line must never be left to chance. `Makefile.wii` links
 `wii/core/mem1tail.o` after every library, which makes Home's 128 KiB
-scan stack the last thing in `.bss`, and `tools/check_mem1_line.py` fails
-the build unless the line is at least 4 KiB inside it. A stack needs no
-starting contents and that thread starts long after `SYS_Init`. The stack
-begins about 96 KiB below the line, so `.bss` can grow by that much
-before the check fails; then the stack's file must hold more of
-RiftWii's start-up-free buffers.
+scan stack the last thing in `.bss`. A stack needs no starting contents
+and that thread starts long after `SYS_Init`.
+
+Since the pass below, the program ends about 500 KiB under the line, so
+the stack cannot reach it and the line is in the heap. That is as safe:
+before `SYS_Init` copies the DSP code, libogc writes only two things from
+the heap's start (`__Arena1Lo`, the end of `.bss`): the command line and
+`argv[]` (`__CheckARGV`), then its 64 KiB kernel workspace
+(`__lwp_wkspace_init`). Nothing else above them is written before main's
+first `malloc`, which hands the memory out as it finds it, as it already
+does the start-up stash's dead MEM1 copy right there.
+`tools/check_mem1_line.py` fails the build unless the line is at least
+4 KiB inside the stack, or at least 4 KiB above the end of `.bss` plus
+128 KiB (64 KiB for the command line, which no loader comes near, and the
+workspace). Growth of about 370 KiB would bring the end back near the
+line: then the stack's file must hold more of RiftWii's start-up-free
+buffers until the stack covers it again.
 
 ### Where the stash may load
 
@@ -383,6 +393,57 @@ permission note a magic and a checksum over the IOS number, the patched
 word's address (inside IOS's code) and the instruction word before and
 after, and the next start restores it only when the live word is exactly
 the one RiftWii wrote.
+
+### Kept out of MEM1 until used
+
+A pass over what `.bss` and `.rodata` kept for the menu's whole life,
+measured on the release DOL (devkitPPC 16.1.0) against `main` at
+`4ef74f54`. The program's end moved from `0x81009360` to `0x80F82DE0`
+(`.bss` 392 KiB smaller, `.rodata` 157 KiB, `.text` 30 KiB), 537 KiB
+lower:
+
+| What | Before | Now | MEM1 kept |
+| --- | --- | --- | ---: |
+| The six pad blobs (`riftwii_pad*.bin`) | 133 KiB uncompressed in `.rodata` | One zstd frame, their sizes in front (`tools/pack_pad_blobs.py`), unpacked by `PadBlobs` in `wii/hooks/padhook.cpp` only while a launch plans and copies the hook; `install_pad_hook` reads the header back from the copied blob, as `log_pad_diagnostics` already did | 107 KiB |
+| The MP3 player (libogc's `mp3player.o`) | 120 KiB of buffers and stack in `.bss` | RiftWii's own, `wii/menu/mp3stream.cpp`, on libmad's decoder: one MEM2 block taken at the first MP3 and kept | 125 KiB with its code |
+| The Ogg player's decoder state and stack (`vendor-libgui/source/oggplayer.c`) | 57 KiB in `.bss` | One heap block at the first `PlayOgg`, kept for the next song | 57 KiB |
+| The controller button pictures (`src/art/inputicons_data.cpp`) | 56 KiB of alpha masks | (count, value) runs, unpacked per drawing | 48 KiB |
+| The Wii Menu music's player and producer stack (`wiimenusounds.cpp`) | 43 KiB in `.bss` | In the MEM2 block its stream buffers already used, taken when the theme first plays it | 43 KiB |
+| The d2x USB check's sector (`check_d2x_usb_drive`) and the USB DVD drive's bounce buffer (`UsbRawDisc`) | 64 KiB in `.bss` | The check's for the check alone; the bounce buffer at the first read from a USB DVD drive | 64 KiB |
+| The cover loader's and box art reader's stacks | 32 KiB in `.bss` | From MEM2 when each thread first starts | 32 KiB |
+| One-off reads: the other loader's settings lines (`sharednandfind.cpp`), SYSCONF (`ReadPadPairings`), the entropy reads (`entropy.cpp`, still wiped before they are freed), a controller file's text (`hidpads.cpp`), the start-up button sampler's stack | 67 KiB in `.bss` | Taken for the read or the start-up and given back | 67 KiB |
+
+In Dolphin, on the same card (the menu with Ogg music, then with an MP3
+picked in Settings), `session.log` reads:
+
+```
+main (4ef74f54):  Memory (start): MEM1 260 KiB taken, 1672 KiB free
+                  Memory (threads started): MEM1 1484 KiB taken, 448 KiB free
+this pass:        Memory (start): MEM1 260 KiB taken, 2208 KiB free
+                  Memory (threads started): MEM1 1484 KiB taken, 984 KiB free
+```
+
+Dolphin's audio dumps of both menus have the same tone at the same level
+as `main`'s (440 Hz Ogg, 660 Hz MP3, the MP3's RMS 835.8 in both), no gap
+but the 0.12 s where the lone MP3 ends and starts again (0.115 s on
+`main`). A Mario Kart Wii launch with `gc_adapter = demo` logs the same
+lines as `main`'s (`blob 18848 bytes at 0x817e9de0`, `hooked`) and the
+game runs. Not tested on a Wii: the line in the heap (Dolphin never
+showed the DSP problem), a USB DVD drive and a d2x USB launch.
+
+Still in MEM1 and left as they are:
+
+- libogc's and libbte's own buffers (`memb_mem_pool_pbufs` 201 KiB,
+  `s_mainStack` 128 KiB, `ram_block` 64 KiB, `__wpdcb` 34 KiB): prebuilt.
+- libwiigui's GX FIFO (`gp_fifo`, 256 KiB). A smaller FIFO stalls the CPU
+  sooner instead of breaking, so 128 KiB would likely work, but how much
+  the menu's frame time suffers needs a Wii to measure.
+- `wii::g_bounce` (`d2xsd.cpp`) and `di::g_bounce`, 32 KiB each, and
+  `boot.cpp`'s `g_tmd`: the launch's DMA buffers, used after the menu's
+  heap is no longer trusted.
+- The crash screen's fallback stack: it must exist when the heap is broken.
+- The Kirby fix's four tables (`src/patching/gxkirby.inc`, 22 KiB) could
+  be stored as address deltas for about half that.
 
 ### `riftwii.elf`
 

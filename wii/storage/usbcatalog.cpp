@@ -476,14 +476,18 @@ class UsbRawDisc final : public ByteSource {
 public:
     std::uint64_t size() const override { return 0x230480000ull; }  // a dual-layer Wii disc
     bool read(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const override {
-        static std::uint8_t bounce[32 * 1024] ATTRIBUTE_ALIGN(32);
+        // Taken at the first read and kept: only a disc in a USB DVD drive
+        // is read this way, so other menus never spend its 32 KiB.
+        constexpr std::size_t kBounceBytes = 32 * 1024;
+        static std::uint8_t* bounce = nullptr;
+        if (bounce == nullptr) bounce = static_cast<std::uint8_t*>(memalign(32, kBounceBytes));
         const std::uint32_t bytes = __io_usbstorage_sector_size;
-        if (bytes == 0 || bytes > sizeof(bounce)) return false;
+        if (bounce == nullptr || bytes == 0 || bytes > kBounceBytes) return false;
         while (length > 0) {
             const std::uint64_t sector = offset / bytes;
             const std::size_t skip = static_cast<std::size_t>(offset % bytes);
             const std::uint32_t count = static_cast<std::uint32_t>(
-                std::min<std::uint64_t>((skip + length + bytes - 1) / bytes, sizeof(bounce) / bytes));
+                std::min<std::uint64_t>((skip + length + bytes - 1) / bytes, kBounceBytes / bytes));
             if (sector > 0xFFFFFFFFull || !usb_read_sectors(static_cast<sec_t>(sector), count, bounce)) return false;
             const std::size_t take = std::min<std::size_t>(length, count * bytes - skip);
             std::memcpy(destination, bounce + skip, take);
@@ -2588,7 +2592,17 @@ bool check_d2x_usb_drive(const ImageGame& game, int cios_slot, std::string& erro
              static_cast<unsigned>(f.offset), static_cast<unsigned>(f.count), static_cast<unsigned>(f.sector));
     }
     if (list.entries.empty()) return true;  // nothing to read; d2x's own probe judges it
-    static std::uint8_t first[32 * 1024] ATTRIBUTE_ALIGN(32);  // one sector of any size
+    // One sector of any size, only for this check: a launch from USB looks
+    // once. Without the memory the check is left to d2x's own probe, as
+    // with no fragments.
+    constexpr std::size_t kSectorBufferBytes = 32 * 1024;
+    std::unique_ptr<std::uint8_t, decltype(&std::free)> sector_buffer(
+        static_cast<std::uint8_t*>(memalign(32, kSectorBufferBytes)), &std::free);
+    if (!sector_buffer) {
+        logf("USB (d2x): no memory to read the game's first sector; d2x's own probe judges the drive\n");
+        return true;
+    }
+    std::uint8_t* const first = sector_buffer.get();
     const std::uint32_t first_sector = list.entries[0].sector;
     bool read = false;
     std::string last_why;

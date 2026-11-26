@@ -138,7 +138,7 @@ The build compiles every folder into one, so no two files share a name.
 | `memlimits.cpp` | Keeps the app's heap out of memory a launch overwrites |
 | `restart.cpp` | Starting RiftWii again without the Homebrew Channel (after a game, or the channel) |
 | `stash.cpp` | The start-up stash: crt0's copy to MEM2, and finding the font, translations and GPL in it |
-| `mem1tail.c`, `mem1tail.h` | Home's scan stack, linked after every library so it is what spans `0x81000000`, where libogc's start-up copies its DSP boot code (`docs/MEMORY.md`, "The 16 MiB line") |
+| `mem1tail.c`, `mem1tail.h` | Home's scan stack, linked after every library so it is what spans `0x81000000` while the program reaches past it, where libogc's start-up copies its DSP boot code; once the program ends well below the line, the line is in the heap instead (`docs/MEMORY.md`, "The 16 MiB line") |
 | `startuptrace.cpp` | The start-up note: the step each start reached before its log opened, reported by the next start as "The last start stopped at" (`include/riftwii/startupnote.hpp`, `tests/startupnote_tests.cpp`) |
 | `plugins.cpp` | The plugin loader: the file's checks, the arena at the top of MEM2, relocation, the table RiftWii gives a plugin, refusals, crash ranges, the test switch |
 | `pluginhost.cpp` | The plugin table's network and file entries: downloads into a buffer or streamed to the card with their SHA-256, the network thread's job, removing, renaming and listing |
@@ -164,6 +164,7 @@ The build compiles every folder into one, so no two files share a name.
 | `pluginscreen.cpp` | A plugin's own screen (the app store): its draw commands drawn in the theme, the controllers' input gathered for it, its textures, the menu's popup and search keyboard lent to it |
 | `themestore.cpp` | The theme browser's engine (Settings > Theme > Get more themes): the list, the previews, the download and safe install, all in MEM2 on the network's background thread; the page is `MenuThemeBrowser` in `rift_menu.cpp` |
 | `riitagview.cpp` | Settings > Online > My RiiTag: the player's tag picture (`riitag_id`) downloaded on the network's background thread, decoded and shrunk in MEM2; the page is `MenuRiiTag` in `rift_menu.cpp` |
+| `mp3stream.cpp`, `mp3stream.hpp` | The menu's MP3 player: libmad decodes into two buffers ASND voice 0 plays, its state, buffers and stack one MEM2 block taken at the first MP3 |
 | `menumusic.cpp` | The background music: the player's own pick (an Ogg or MP3 song, a playlist or a shuffled folder, Settings > Music file), theme/card Ogg or the selected Wii Menu source |
 | `wiimenucontent.cpp`, `wiimenunand.cpp` | The System Menu's contents (font, sounds, music) read through ES, or from their NAND files when ES refuses them |
 | `wiimenusounds.cpp` | Reads the console's System Menu sound archive through IOS, renders bounded effects in MEM2 and streams sequence music; no disk cache |
@@ -413,7 +414,7 @@ reader helpers stay beside their source.
 | `qrcode` | QR codes |
 | `pngencode` | Writing screenshot PNGs |
 | `casecolour`, `casecolours.inc` | Game cases' colors and the generated game-ID table |
-| `inputicons`, `inputicons_data.cpp` | Controller button pictures and their generated image data |
+| `inputicons`, `inputicons_data.cpp` | Controller button pictures and their generated image data (alpha masks as (count, value) runs) |
 | `modart` | Candidate picture paths for XML packs, code builds and virtual SD images |
 | `ratingmark` | Choosing the age-rating board's picture from a game's rating |
 | `themelist`, `themepack` | Community theme listings and the built-in themes/apps update-pack format |
@@ -556,7 +557,8 @@ and the `*_mock/` folders provide synthetic files, discs and hardware calls.
 | `rtreloc.py` | Relocations for the RVZ runtime blob |
 | `make_plugin.py` | Plugin files: built from the two links (header, image, relocations, SHA-256), checked against the DOL's build stamp, varied for refusal tests |
 | `dol_stash.py` | Adds the start-up stash (translations, GPL) to `riftwii.dol` above its BSS (`docs/MEMORY.md`) |
-| `check_mem1_line.py` | Fails the Wii build unless `0x81000000` is well inside Home's scan stack (`wii/core/mem1tail.h`) |
+| `check_mem1_line.py` | Fails the Wii build unless `0x81000000` is well inside Home's scan stack, or well above what libogc's start writes at the heap's start (`wii/core/mem1tail.h`) |
+| `pack_pad_blobs.py` | Packs the six pad blobs into the one zstd frame the DOL embeds, their sizes in front (`wii/hooks/padhook.cpp`, `PadBlobs`) |
 | `pack_dol.py` | Packs `riftwii.dol` last: each section a Zstandard frame behind the `runtime/dolpack` stub, every frame checked before it is written (`PACK=0` skips it) |
 | `make_release_zip.py`, `make_update_pack.py`, `release_notes.py` | A release: the zip, the in-app update's pack, the notes and the Discord message (run by `.github/workflows/release.yml`) |
 | `size_report.py` | CI's size table: the DOL's sections, its program end and the stash's end, the runtime blobs, the plugins' share of their arena |

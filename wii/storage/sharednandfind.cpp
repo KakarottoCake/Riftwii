@@ -4,9 +4,11 @@
 
 #include <cstdio>
 #include <cstring>
+#include <vector>
 
 #include "loadersettings.hpp"
 #include "log.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/sharednand.hpp"
 
 namespace riftwii::wii {
@@ -21,7 +23,6 @@ const char* const kSettingsFolders[] = {"sd:/apps/usbloader_gx/", "usb:/apps/usb
 constexpr std::size_t kLineBytes = 20 * 1024;
 // A settings file bigger than this is not read past it.
 constexpr long kMaxFileBytes = 4L * 1024 * 1024;
-char g_line[kLineBytes];
 
 // Calls `take` with each whole line of `path` (its end kept), until `take`
 // returns true. False when the file does not open.
@@ -29,7 +30,15 @@ template <typename Take>
 bool each_line(const std::string& path, Take take) {
     FILE* file = std::fopen(path.c_str(), "rb");
     if (file == nullptr) return false;
-    char* const line = g_line;
+    // Only while a file is read: a launch looks once, and most cards have
+    // no other loader's settings at all.
+    std::vector<char> buffer;
+    if (!try_resize(buffer, kLineBytes)) {
+        std::fclose(file);
+        logf("Saves: no memory to read %s, so it is skipped\n", path.c_str());
+        return false;
+    }
+    char* const line = buffer.data();
     bool at_line_start = true;
     long read = 0;
     while (read < kMaxFileBytes && std::fgets(line, static_cast<int>(kLineBytes), file) != nullptr) {

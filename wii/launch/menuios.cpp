@@ -4,6 +4,7 @@
 
 #include <fat.h>
 #include <gccore.h>
+#include <malloc.h>
 #include <ogc/isfs.h>
 #include <ogc/machine/processor.h>
 #include <sdcard/wiisd_io.h>
@@ -11,6 +12,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 
 #include "boot.hpp"
 #include "ios_reload.hpp"
@@ -177,30 +179,35 @@ bool StartMenuIos(bool sd_mounted, bool fresh, int session_slot, const char* ses
 
 PadPairings ReadPadPairings() {
     PadPairings out;
-    static std::uint8_t conf[kSysconfBytes] ATTRIBUTE_ALIGN(32);
+    // Only while it is read (at the start and after an IOS reload): ISFS
+    // needs a 32-byte-aligned buffer, and SYSCONF is 16 KiB.
+    std::unique_ptr<std::uint8_t, decltype(&std::free)> buffer(
+        static_cast<std::uint8_t*>(memalign(32, kSysconfBytes)), &std::free);
+    if (!buffer) return out;
+    std::uint8_t* const conf = buffer.get();
     // Opened and closed per read: an IOS reload in between leaves a kept
     // /dev/fs handle dead, and nothing else here uses ISFS.
     if (NandOpen() < 0) return out;
     const s32 fd = ISFS_Open("/shared2/sys/SYSCONF", ISFS_OPEN_READ);
     s32 got = -1;
     if (fd >= 0) {
-        got = ISFS_Read(fd, conf, sizeof(conf));
+        got = ISFS_Read(fd, conf, kSysconfBytes);
         ISFS_Close(fd);
     }
     NandClose();
-    if (got != static_cast<s32>(sizeof(conf)) || std::memcmp(conf, "SCv0", 4) != 0) return out;
+    if (got != static_cast<s32>(kSysconfBytes) || std::memcmp(conf, "SCv0", 4) != 0) return out;
     const unsigned count = be16(conf + 4);
     static const char kName[] = "BT.DINF";
     const std::size_t name_len = sizeof(kName) - 1;
-    for (unsigned i = 0; i < count && 6 + 2 * i + 2 <= sizeof(conf); ++i) {
+    for (unsigned i = 0; i < count && 6 + 2 * i + 2 <= kSysconfBytes; ++i) {
         const std::size_t at = be16(conf + 6 + 2 * i);
-        if (at + 1 + name_len + 2 > sizeof(conf)) continue;
+        if (at + 1 + name_len + 2 > kSysconfBytes) continue;
         const std::uint8_t head = conf[at];
         if ((head >> 5) != kTypeBigArray || (head & 0x1F) + 1u != name_len) continue;
         if (std::memcmp(conf + at + 1, kName, name_len) != 0) continue;
         const std::size_t data = at + 1 + name_len + 2;
         const std::size_t length = be16(conf + at + 1 + name_len) + 1u;
-        if (length < 1 + kPadEntryBytes * kPadEntries || data + length > sizeof(conf)) return out;
+        if (length < 1 + kPadEntryBytes * kPadEntries || data + length > kSysconfBytes) return out;
         const int registered = conf[data];
         out.registered = registered > kPadEntries ? kPadEntries : registered;
         for (int e = 0; e < out.registered; ++e) {

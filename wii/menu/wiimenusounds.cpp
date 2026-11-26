@@ -15,6 +15,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <new>
 #include <string>
 #include <vector>
 
@@ -59,7 +60,14 @@ bool g_archive_ready = false;
 bool g_effects_tried = false;
 bool g_music_tried = false;
 std::size_t g_resident_bytes = 0;
-WiiSoundPlayer g_music_player;
+// The Wii Menu's music, only once a theme plays it: the player (11 KiB of
+// tracks and voices), its two stream buffers and its producer thread's
+// stack share one MEM2 block, so none of them takes MEM1 in a menu that
+// plays its own music or none.
+constexpr std::size_t kMusicStackBytes = 32768;
+constexpr std::size_t kPlayerBytes = (sizeof(WiiSoundPlayer) + 31) & ~std::size_t(31);
+constexpr std::size_t kMusicBlockBytes = kPlayerBytes + kStreamBytes * 2 + kMusicStackBytes;
+WiiSoundPlayer* g_music_player = nullptr;
 bool g_music_ready = false;
 u8* g_stream = nullptr;
 lwp_t g_music_thread = LWP_THREAD_NULL;
@@ -67,7 +75,7 @@ std::atomic<bool> g_running{false};
 std::atomic<bool> g_paused{false};
 std::atomic<bool> g_failed{false};
 std::atomic<int> g_volume{110};
-alignas(32) u8 g_music_stack[32768];
+u8* g_music_stack = nullptr;
 
 bool ReadArchive(std::string& why) {
     WiiMenuContentReader reader("Wii Menu sounds");
@@ -198,8 +206,8 @@ void* MusicThread(void*) {
 #ifdef RIFTWII_TEST_BUILD
         const u64 render_start = gettime();
 #endif
-        if (!g_music_player.render(reinterpret_cast<std::int16_t*>(data), kStreamFrames)) {
-            logf("Wii Menu music: playback stopped because %s; RiftWii's own music is used\n", g_music_player.error().c_str());
+        if (!g_music_player->render(reinterpret_cast<std::int16_t*>(data), kStreamFrames)) {
+            logf("Wii Menu music: playback stopped because %s; RiftWii's own music is used\n", g_music_player->error().c_str());
             g_failed.store(true, std::memory_order_release);
             g_running.store(false, std::memory_order_release);
             break;
@@ -305,30 +313,34 @@ void PlayMenuSound(MenuSoundEvent event) {
     fallback.Play();
 }
 
-std::size_t WiiMenuSoundBytes() { return g_resident_bytes + g_music_player.sample_bytes(); }
+std::size_t WiiMenuSoundBytes() { return g_resident_bytes + (g_music_player ? g_music_player->sample_bytes() : 0); }
 
 bool WiiMenuMusicFound() {
     if (g_music_tried) return g_music_ready;
     g_music_tried = true;
     if (!ArchiveReady()) return false;
+    u8* block = skin::Mem2Alloc(kMusicBlockBytes);
+    if (!block) {
+        logf("Wii Menu music: there is no MEM2 for the player and its stream buffers; RiftWii's own music is used\n");
+        return false;
+    }
+    g_music_player = new (block) WiiSoundPlayer();
     std::string why;
-    if (!g_music_player.prepare(g_archive, "WIPL_BGM_MENU", true, why)) {
+    if (!g_music_player->prepare(g_archive, "WIPL_BGM_MENU", true, why)) {
         logf("Wii Menu music: %s; RiftWii's own music is used\n", why.c_str());
-        g_music_player = {};
+        g_music_player->~WiiSoundPlayer();
+        g_music_player = nullptr;
+        skin::Mem2Release(block, kMusicBlockBytes);
         return false;
     }
-    g_stream = skin::Mem2Alloc(kStreamBytes * 2);
-    if (!g_stream) {
-        logf("Wii Menu music: there is no MEM2 for the stream buffers; RiftWii's own music is used\n");
-        g_music_player = {};
-        return false;
-    }
+    g_stream = block + kPlayerBytes;
+    g_music_stack = g_stream + kStreamBytes * 2;
     g_resident_bytes += kStreamBytes * 2;
     g_music_ready = true;
     logf("Wii Menu music: loaded WIPL_BGM_MENU (%u decoded sample bytes, %u stream bytes, %u Hz)\n",
-         static_cast<unsigned>(g_music_player.sample_bytes()), static_cast<unsigned>(kStreamBytes * 2), WiiSoundPlayer::kRate);
+         static_cast<unsigned>(g_music_player->sample_bytes()), static_cast<unsigned>(kStreamBytes * 2), WiiSoundPlayer::kRate);
     logf("Wii Menu music: memory budget has %u resident archive, sample, effect and stream bytes; the producer stack is %u bytes\n",
-         static_cast<unsigned>(WiiMenuSoundBytes()), static_cast<unsigned>(sizeof g_music_stack));
+         static_cast<unsigned>(WiiMenuSoundBytes()), static_cast<unsigned>(kMusicStackBytes));
     mem::LogUsage("Wii Menu music loaded");
     return true;
 }
@@ -336,8 +348,8 @@ bool WiiMenuMusicFound() {
 bool WiiMenuMusicStart() {
     if (!WiiMenuMusicFound()) return false;
     WiiMenuMusicStop();
-    if (!g_music_player.render(reinterpret_cast<std::int16_t*>(g_stream), kStreamFrames)) {
-        logf("Wii Menu music: %s; RiftWii's own music is used\n", g_music_player.error().c_str());
+    if (!g_music_player->render(reinterpret_cast<std::int16_t*>(g_stream), kStreamFrames)) {
+        logf("Wii Menu music: %s; RiftWii's own music is used\n", g_music_player->error().c_str());
         g_music_ready = false;
         return false;
     }
@@ -348,7 +360,7 @@ bool WiiMenuMusicStart() {
     const int volume = g_volume.load();
     if (ASND_SetVoice(0, VOICE_STEREO_16BIT, WiiSoundPlayer::kRate, 0, g_stream, kStreamBytes,
                       volume, volume, StreamCallback) != SND_OK ||
-        LWP_CreateThread(&g_music_thread, MusicThread, nullptr, g_music_stack, sizeof g_music_stack, 60) < 0) {
+        LWP_CreateThread(&g_music_thread, MusicThread, nullptr, g_music_stack, kMusicStackBytes, 60) < 0) {
         g_running.store(false);
         ASND_StopVoice(0);
         logf("Wii Menu music: the audio thread could not start; RiftWii's own music is used\n");
