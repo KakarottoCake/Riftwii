@@ -4,6 +4,7 @@
 no request reaches GameBanana."""
 import importlib.util
 import io
+import os
 import sys
 import unittest
 import zipfile
@@ -147,6 +148,16 @@ class ExcludeTests(unittest.TestCase):
             f.write("# asked 2026-11-26\n678330\n  12345  # another\nnot-an-id\n\n")
         self.assertEqual(mod_list.read_excluded(f.name), {678330, 12345})
         self.assertEqual(mod_list.read_excluded(None), set())
+        os.unlink(f.name)
+
+    def test_bom_and_odd_lines(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile("wb", suffix=".txt", delete=False) as f:
+            f.write(b"\xef\xbb\xbf678330\n\xc2\xb2\n# caf\xe9 (Latin-1)\n12345\n")
+        try:
+            self.assertEqual(mod_list.read_excluded(f.name), {678330, 12345})
+        finally:
+            os.unlink(f.name)
 
 
 class HostedTests(unittest.TestCase):
