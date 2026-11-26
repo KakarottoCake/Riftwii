@@ -88,6 +88,55 @@ void parser_tests() {
     CHECK(!save_id_ok("../bad"));
     CHECK(save_wii_title_path("RAAE01") == "/title/00010000/52414145");
     CHECK(save_wii_title_path("../bad").empty());
+
+    const auto extend = [&](const std::string& fields) {
+        return parse(list(record.substr(0, record.size() - 1) + "," + fields + "}"));
+    };
+    CHECK(extend("\"member\":\"shared/progress.gci\"") && count == 1);
+    CHECK(std::string(out[0].member) == "shared/progress.gci");
+    for (const char* bad : {"../progress.gci", "/progress.gci", "save//progress.gci", "save/progress.gci.",
+                            "save/progress.gci/", "save/a:b.gci", "save/progress.dat", "save/\\u0009progress.gci"}) {
+        CHECK(extend("\"member\":\"" + std::string(bad) + "\"") && count == 0 && skipped == 1);
+    }
+    CHECK(extend("\"root\":\"folder/\"") && count == 0);
+    CHECK(extend("\"game_ids\":[\"GAAE01\",\"GAAP01\"]") && count == 0);
+    CHECK(extend("\"game_ids\":[\"GAAE01\",\"GAAE01\"]") && count == 0);
+    CHECK(extend("\"game_ids\":[\"GAAE01\"]") && count == 1);
+    CHECK(extend("\"game_ids\":[]") && count == 0);
+    CHECK(extend("\"game_ids\":\"GAAE01\"") && count == 0);
+    CHECK(!extend("\"game_ids\":[\"GAAE01\",\"GAAE01\",\"GAAE01\",\"GAAE01\",\"GAAE01\",\"GAAE01\",\"GAAE01\",\"GAAE01\",\"GAAE01\"]"));
+
+    std::string wii_record = record;
+    wii_record.replace(wii_record.find("GAAE01"), 6, "RAAE01");
+    wii_record.replace(wii_record.find("gamecube"), 8, "wii");
+    wii_record.replace(wii_record.find("\"gci\""), 5, "\"wii-zip\"");
+    wii_record.pop_back();
+    wii_record += ",\"files\":2,\"unpacked_size\":13,";
+    CHECK(parse(list(wii_record + "\"root\":\"private/wii/title/RAAE/\",\"game_ids\":[\"RAAE01\",\"RAAP01\"]}")));
+    CHECK(count == 1 && skipped == 0 && out[0].has_root && out[0].game_id_count == 2);
+    CHECK(parse(list(wii_record + "\"root\":\"\"}")) && count == 1 && out[0].has_root);
+    CHECK(parse(list(wii_record + "\"root\":\"../unsafe/\"}")) && count == 0);
+    CHECK(parse(list(wii_record + "\"root\":\"folder/\\u0009/\"}")) && count == 0);
+    CHECK(parse(list(wii_record + "\"root\":\"" + std::string(128, 'x') + "/\"}")) && count == 0);
+    CHECK(parse(list(wii_record + "\"game_ids\":[\"RAAA01\",\"RAAB01\",\"RAAC01\",\"RAAE01\",\"RAAJ01\",\"RAAK01\",\"RAAP01\",\"RAAW01\"]}")));
+    CHECK(count == 1 && out[0].game_id_count == kSaveMaxGameIds);
+
+    SaveListing regions = listing();
+    regions.game_id_count = 2;
+    std::strcpy(regions.game_ids[0], "RAAE01");
+    std::strcpy(regions.game_ids[1], "RAAP01");
+    CHECK(save_listing_ok(regions));
+    CHECK(save_matches(regions, "RAAP01", SavePlatform::Wii));
+    CHECK(!save_matches(regions, "RAAJ01", SavePlatform::Wii));
+    SaveListing selected;
+    CHECK(save_select_game(regions, "RAAP01", SavePlatform::Wii, selected));
+    CHECK(std::string(selected.game_id) == "RAAP01" && save_listing_ok(selected));
+    CHECK(save_wii_title_path(selected.game_id) == "/title/00010000/52414150");
+    CHECK(!save_select_game(regions, "RAAJ01", SavePlatform::Wii, selected));
+    std::strcpy(regions.game_ids[1], "RBAP01");
+    CHECK(!save_listing_ok(regions));
+    regions.game_id_count = kSaveMaxGameIds + 1;
+    CHECK(!save_listing_ok(regions));
 }
 
 void path_tests() {
@@ -114,6 +163,25 @@ void path_tests() {
     entries[1].name = "data/save.dat";
     ++save.unpacked_size;
     CHECK(!save_plan_wii_zip(save, entries, plan, error));
+    --save.unpacked_size;
+    save.has_root = true;
+    std::strcpy(save.root, "private/wii/title/RAAE/");
+    entries[0].name = std::string(save.root) + "banner.bin";
+    entries[1].name = std::string(save.root) + "save.dat";
+    CHECK(save_plan_wii_zip(save, entries, plan, error) && plan.size() == 2);
+    CHECK(save_wii_zip_relative(save, entries[1].name, relative) && relative == "save.dat");
+    entries.push_back({});
+    entries.back().name = "README.txt";
+    CHECK(save_plan_wii_zip(save, entries, plan, error) && plan.size() == 2);
+    entries.back().name = "private/wii/title/RAAE/banner.bin/child";
+    CHECK(!save_plan_wii_zip(save, entries, plan, error));
+    entries.pop_back();
+    std::strcpy(save.root, "private/../RAAE/");
+    CHECK(!save_listing_ok(save));
+    save.root[0] = '\0';
+    entries[0].name = "banner.bin";
+    entries[1].name = "save.dat";
+    CHECK(save_plan_wii_zip(save, entries, plan, error));
 }
 
 std::vector<std::uint8_t> gci_file(const char* name = "progress") {
@@ -276,6 +344,44 @@ std::string read_text(const std::string& path) {
     return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
 }
 
+void zipped_gci_tests() {
+    const auto fixture = gci_file();
+    const std::string contents(reinterpret_cast<const char*>(fixture.data()), fixture.size());
+    SaveListing save = listing(true);
+    std::strcpy(save.member, "Finished Save/progress.gci");
+    auto archive = archive_for({{save.member, contents}, {"README.txt", "Instructions"}}, true);
+    save.size = archive.size();
+    const ZipReadAt read = [&](std::uint64_t at, std::uint8_t* out, std::size_t count) {
+        if (at > archive.size() || count > archive.size() - at) return false;
+        std::memcpy(out, archive.data() + at, count);
+        return true;
+    };
+    std::vector<std::uint8_t> gci, card;
+    std::string error;
+    SaveZipInflater inflater;
+    CHECK(save_read_gci(save, read, &inflater, gci, error) && gci == fixture);
+    gc_card_format(card, {});
+    CHECK(save_apply_gci(save, gci, card, false, error));
+    const auto installed = card;
+    gci[0] = 'X';
+    CHECK(!save_apply_gci(save, gci, card, true, error) && card == installed);
+    gci.clear();
+    CHECK(!save_apply_gci(save, gci, card, true, error) && card == installed);
+    for (const char* second : {"other.gci", "Finished Save/PROGRESS.GCI", "../escape", "Finished Save/progress.gci/sub"}) {
+        archive = archive_for({{save.member, contents}, {second, contents}});
+        save.size = archive.size();
+        CHECK(!save_read_gci(save, read, nullptr, gci, error) && gci.empty());
+    }
+    archive = archive_for({{"other.gci", contents}});
+    save.size = archive.size();
+    CHECK(!save_read_gci(save, read, nullptr, gci, error));
+    archive = archive_for({{save.member, contents}});
+    save.size = archive.size();
+    CHECK(save_read_gci(save, read, nullptr, gci, error) && gci == fixture);
+    archive[30 + std::strlen(save.member)] ^= 1;
+    CHECK(!save_read_gci(save, read, nullptr, gci, error) && gci.empty());
+}
+
 void wii_install_tests() {
     const fs::path previous = fs::current_path();
     const fs::path scratch = fs::temp_directory_path() / ("riftwii-saves-" + std::to_string(
@@ -351,6 +457,31 @@ void wii_install_tests() {
     SaveZipInflater cancelled([] { return true; });
     CHECK(!save_install_wii_zip(save, "sd:/nands/04", read, &cancelled, false, "20261126-120000", backup, error));
     CHECK(!fs::exists("sd:/nands/04" + save_wii_title_path(save.game_id) + "/data"));
+
+    // Named roots are removed before writing. Bind an approved portable
+    // payload to PAL, rather than writing the listing's primary US title.
+    save.has_root = true;
+    std::strcpy(save.root, "private/wii/title/RAAE/");
+    save.game_id_count = 2;
+    std::strcpy(save.game_ids[0], "RAAE01");
+    std::strcpy(save.game_ids[1], "RAAP01");
+    archive = archive_for({{std::string(save.root) + "banner.bin", "WIBN"},
+                           {std::string(save.root) + "save.dat", "portable!"}, {"README.txt", "Read me"}}, true);
+    save.size = archive.size();
+    save.unpacked_size = 13;
+    SaveListing selected;
+    CHECK(save_select_game(save, "RAAP01", SavePlatform::Wii, selected));
+    const std::string named_root = "sd:/nands/05";
+    CHECK(save_install_wii_zip(selected, named_root, read, &inflater, false, "20261126-120000", backup, error));
+    const std::string pal_data = named_root + save_wii_title_path("RAAP01") + "/data";
+    CHECK(read_text(pal_data + "/save.dat") == "portable!");
+    CHECK(!fs::exists(named_root + save_wii_title_path("RAAE01")));
+    CHECK(!fs::exists(pal_data + "/private") && !fs::exists(pal_data + "/README.txt"));
+    archive = archive_for({{std::string(save.root) + "banner.bin", "FAIL"},
+                           {std::string(save.root) + "save.dat", "portable!"}});
+    selected.size = archive.size();
+    CHECK(!save_install_wii_zip(selected, named_root, read, nullptr, true, "20261126-120000", backup, error));
+    CHECK(read_text(pal_data + "/save.dat") == "portable!");
     fs::current_path(previous);
     fs::remove_all(scratch);
 }
@@ -361,6 +492,7 @@ int main() {
     parser_tests();
     path_tests();
     gci_tests();
+    zipped_gci_tests();
     publish_tests();
     wii_install_tests();
     if (failures) std::cerr << failures << " save check(s) failed\n";

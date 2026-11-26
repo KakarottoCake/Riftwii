@@ -48,6 +48,40 @@ bool read_size(JsonReader& reader, std::uint32_t& field, bool& valid) {
     return true;
 }
 
+// Paths are exact archive names. Never trim or clean control characters as
+// we do for display text: that could select a different archive entry.
+template <std::size_t N>
+bool read_path(JsonReader& reader, char (&field)[N], bool& valid) {
+    if (reader.peek() != '"') {
+        valid = false;
+        return reader.skip_value(2);
+    }
+    std::string text;
+    if (!reader.string(text)) return false;
+    if (reader.last_overlong() || text.size() >= N || text.find('\0') != std::string::npos) valid = false;
+    else std::memcpy(field, text.c_str(), text.size() + 1);
+    return true;
+}
+
+bool read_game_ids(JsonReader& reader, SaveListing& save, bool& valid) {
+    if (!reader.take('[')) {
+        valid = false;
+        return reader.skip_value(2);
+    }
+    if (reader.take(']')) {
+        valid = false;
+        return true;
+    }
+    for (;;) {
+        // Fail closed before reading an unbounded region list.
+        if (save.game_id_count == kSaveMaxGameIds) return false;
+        if (!read_path(reader, save.game_ids[save.game_id_count], valid)) return false;
+        ++save.game_id_count;
+        if (reader.take(',')) continue;
+        return reader.take(']');
+    }
+}
+
 bool read_save(JsonReader& reader, SaveListing& save, bool& valid) {
     if (!reader.take('{')) return false;
     std::set<std::string> keys;
@@ -62,6 +96,12 @@ bool read_save(JsonReader& reader, SaveListing& save, bool& valid) {
             bool good;
             if (key == "id") good = read_text(reader, save.id, valid);
             else if (key == "game_id") good = read_text(reader, save.game_id, valid);
+            else if (key == "game_ids") good = read_game_ids(reader, save, valid);
+            else if (key == "root") {
+                save.has_root = true;
+                good = read_path(reader, save.root, valid);
+            }
+            else if (key == "member") good = read_path(reader, save.member, valid);
             else if (key == "title") good = read_text(reader, save.title, valid);
             else if (key == "description") good = read_text(reader, save.description, valid);
             else if (key == "author") good = read_text(reader, save.author, valid);
@@ -141,13 +181,32 @@ bool save_listing_ok(const SaveListing& save) {
         !save_url_ok(save.page) || !sha256_hex_ok(save.sha256) || save.size == 0 ||
         save.size > kSaveDownloadMaxBytes || save.title[0] == '\0' || save.author[0] == '\0' ||
         save.description[0] == '\0') return false;
-    if (save.platform == SavePlatform::GameCube) {
-        return save.format == SaveFormat::Gci && save.size >= 64 + 8192 &&
-               save.size <= 64 + 2043u * 8192 && (save.size - 64) % 8192 == 0 &&
-               save.files == 0 && save.unpacked_size == 0;
+    if (save.game_id_count > kSaveMaxGameIds) return false;
+    bool includes_primary = save.game_id_count == 0;
+    for (std::size_t i = 0; i < save.game_id_count; ++i) {
+        const std::string id = save.game_ids[i];
+        if (!save_game_id_ok(id)) return false;
+        // Only regions of the same title and maker can share a Wii save.
+        if (id.compare(0, 3, save.game_id, 3) != 0 || id.compare(4, 2, save.game_id + 4, 2) != 0) return false;
+        if (id == save.game_id) includes_primary = true;
+        for (std::size_t j = 0; j < i; ++j) {
+            if (id == save.game_ids[j]) return false;
+        }
     }
-    if (save.platform != SavePlatform::Wii) return false;
-    if (save.format == SaveFormat::DataBin) return save.files == 0 && save.unpacked_size == 0;
+    if (!includes_primary) return false;
+    if (save.platform == SavePlatform::GameCube) {
+        if (save.format != SaveFormat::Gci || save.has_root || save.game_id_count > 1 ||
+            save.files != 0 || save.unpacked_size != 0) return false;
+        if (save.member[0]) {
+            const std::string member = lower_path(save.member);
+            return save_archive_path_ok(member, false) && member.size() >= 4 &&
+                   member.compare(member.size() - 4, 4, ".gci") == 0;
+        }
+        return save.size >= 64 + 8192 && save.size <= 64 + 2043u * 8192 && (save.size - 64) % 8192 == 0;
+    }
+    if (save.platform != SavePlatform::Wii || save.member[0]) return false;
+    if (save.format == SaveFormat::DataBin) return !save.has_root && save.files == 0 && save.unpacked_size == 0;
+    if (save.has_root && save.root[0] && !save_archive_path_ok(save.root, true)) return false;
     return save.format == SaveFormat::WiiZip && save.files > 0 && save.files <= kSaveMaxFiles &&
            save.unpacked_size > 0 && save.unpacked_size <= kSaveMaxUnpackedBytes;
 }
@@ -210,7 +269,50 @@ bool parse_save_list(const char* text, std::size_t bytes, SaveListing* out, std:
 }
 
 bool save_matches(const SaveListing& save, const std::string& game_id, SavePlatform platform) {
-    return save.platform == platform && save_game_id_ok(game_id) && game_id == save.game_id;
+    if (save.platform != platform || !save_game_id_ok(game_id) || save.game_id_count > kSaveMaxGameIds) return false;
+    if (game_id == save.game_id) return true;
+    for (std::size_t i = 0; i < save.game_id_count; ++i) {
+        if (game_id == save.game_ids[i]) return true;
+    }
+    return false;
+}
+
+bool save_select_game(const SaveListing& save, const std::string& game_id, SavePlatform platform,
+                      SaveListing& selected) {
+    if (!save_listing_ok(save) || !save_matches(save, game_id, platform)) return false;
+    selected = save;
+    std::memcpy(selected.game_id, game_id.c_str(), game_id.size() + 1);
+    return true;
+}
+
+bool save_archive_path_ok(const std::string& name, bool directory) {
+    if (name.empty() || name.size() >= sizeof(SaveListing::member)) return false;
+    std::string body = name;
+    if (directory) {
+        if (body.back() != '/') return false;
+        body.pop_back();
+    }
+    std::size_t start = 0;
+    unsigned depth = 0;
+    while (start <= body.size()) {
+        const std::size_t slash = body.find('/', start);
+        const std::string part = body.substr(start, slash - start);
+        if (part.empty() || part.front() == '.' || part.back() == '.' || part.back() == ' ' || ++depth > 16) return false;
+        for (unsigned char c : part) {
+            if (c < 32 || c >= 127 || c == '\\' || c == ':' || c == '*' || c == '?' ||
+                c == '"' || c == '<' || c == '>' || c == '|') return false;
+        }
+        if (slash == std::string::npos) break;
+        start = slash + 1;
+    }
+    return true;
+}
+
+bool save_wii_zip_relative(const SaveListing& save, const std::string& name, std::string& relative) {
+    relative.clear();
+    const std::string prefix = save.has_root ? save.root : "data/";
+    if (name.compare(0, prefix.size(), prefix) != 0) return false;
+    return save_wii_zip_path("data/" + name.substr(prefix.size()), relative);
 }
 
 std::string save_wii_title_path(const std::string& game_id) {
@@ -266,25 +368,34 @@ bool save_plan_wii_zip(const SaveListing& save, const std::vector<ZipEntry>& ent
     }
     std::set<std::string> names, file_names;
     std::uint64_t total = 0;
+    std::uint64_t archive_total = 0;
     bool banner = false;
     for (std::size_t i = 0; i < entries.size(); ++i) {
         const ZipEntry& entry = entries[i];
+        if (!save_archive_path_ok(entry.name, entry.directory)) return bad();
         std::string name = entry.name;
         if (entry.directory) {
-            if (name == "data/") {
-                if (!names.insert("data").second) return bad();
-                continue;
-            }
             if (name.empty() || name.back() != '/' || entry.unpacked_size != 0) return bad();
             name.pop_back();
         }
-        std::string relative;
-        if (!save_wii_zip_path(name, relative)) return bad();
         const std::string folded = lower_path(name);
         if (!names.insert(folded).second) return bad();
+        const std::string prefix = save.has_root ? save.root : "data/";
+        if (entry.directory && name + "/" == prefix) continue;
+        std::string relative;
+        const bool inside = name.compare(0, prefix.size(), prefix) == 0;
+        if (!inside && !save.has_root) return bad();
+        if (inside && !save_wii_zip_relative(save, name, relative)) return bad();
         if (!entry.directory) {
             if (entry.method != 0 && entry.method != 8) return bad();
             file_names.insert(folded);
+            archive_total += entry.unpacked_size;
+            if (archive_total > kSaveMaxUnpackedBytes || file_names.size() > kSaveMaxFiles) return bad();
+            if (!inside) {
+                // Companion files are never written. The original data/ layout
+                // stays strict; named roots may have safe siblings.
+                continue;
+            }
             total += entry.unpacked_size;
             if (total > save.unpacked_size || files.size() >= save.files) return bad();
             files.push_back(i);

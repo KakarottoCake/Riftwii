@@ -8,6 +8,11 @@
 
 namespace riftwii {
 
+// Read a loose GCI or the single GCI named by member in a pinned ZIP.
+// The caller checks the download's size and SHA-256 before calling this.
+bool save_read_gci(const SaveListing& save, const ZipReadAt& read, ZipInflateStream* inflater,
+                   std::vector<std::uint8_t>& gci, std::string& error);
+
 // Work on a copy; failure (including a full card) leaves card unchanged.
 // Only a matching game/maker/file-name entry is replaced. Other saves,
 // including a second save belonging to this game, are retained.

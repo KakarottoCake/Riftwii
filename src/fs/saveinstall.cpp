@@ -6,6 +6,7 @@
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
+#include <set>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -57,10 +58,85 @@ void discard_stage(const std::string& stage, const std::vector<std::string>& wri
 
 }  // namespace
 
+bool save_read_gci(const SaveListing& save, const ZipReadAt& read, ZipInflateStream* inflater,
+                   std::vector<std::uint8_t>& gci, std::string& error) {
+    gci.clear();
+    if (!save_listing_ok(save) || save.format != SaveFormat::Gci) {
+        error = "the download is not a listed GameCube save";
+        return false;
+    }
+    if (!save.member[0]) {
+        if (!try_resize(gci, save.size) || !read(0, gci.data(), gci.size())) {
+            gci.clear();
+            error = "the downloaded GCI could not be read into memory";
+            return false;
+        }
+        return true;
+    }
+    std::vector<ZipEntry> entries;
+    if (!zip_read_directory_at(read, save.size, entries, error, kSaveMaxFiles * 2)) return false;
+    std::set<std::string> names, regular;
+    std::size_t chosen = entries.size();
+    unsigned gci_count = 0;
+    std::uint64_t total = 0;
+    const auto bad = [&] {
+        gci.clear();
+        error = "the save ZIP has unsafe paths, conflicting files or more than one GCI";
+        return false;
+    };
+    for (std::size_t i = 0; i < entries.size(); ++i) {
+        const ZipEntry& entry = entries[i];
+        if (!save_archive_path_ok(entry.name, entry.directory)) return bad();
+        std::string folded = entry.name;
+        if (entry.directory) folded.pop_back();
+        for (char& c : folded) {
+            if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+        }
+        if (!names.insert(folded).second) return bad();
+        if (entry.directory) continue;
+        regular.insert(folded);
+        total += entry.unpacked_size;
+        if (total > kSaveMaxUnpackedBytes || regular.size() > kSaveMaxFiles) return bad();
+        if (folded.size() >= 4 && folded.compare(folded.size() - 4, 4, ".gci") == 0) ++gci_count;
+        if (entry.name == save.member) chosen = i;
+    }
+    for (const std::string& name : names) {
+        for (std::size_t slash = name.find('/'); slash != std::string::npos; slash = name.find('/', slash + 1)) {
+            if (regular.count(name.substr(0, slash))) return bad();
+        }
+    }
+    if (gci_count != 1 || chosen == entries.size()) return bad();
+    const ZipEntry& entry = entries[chosen];
+    std::string member = save.member;
+    for (char& c : member) {
+        if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+    }
+    if (member.size() < 4 || member.compare(member.size() - 4, 4, ".gci") != 0 ||
+        entry.unpacked_size < 64 + 8192 || entry.unpacked_size > 64 + 2043u * 8192 ||
+        (entry.unpacked_size - 64) % 8192 != 0) return bad();
+    if (!try_resize(gci, entry.unpacked_size)) {
+        error = "there is not enough memory to unpack the GameCube save";
+        return false;
+    }
+    std::size_t written = 0;
+    const bool ok = zip_extract_at(read, entry, inflater, [&](const std::uint8_t* bytes, std::size_t count) {
+        if (count > gci.size() - written) return false;
+        std::memcpy(gci.data() + written, bytes, count);
+        written += count;
+        return true;
+    }, error);
+    if (!ok || written != gci.size()) {
+        gci.clear();
+        return false;
+    }
+    return true;
+}
+
 bool save_apply_gci(const SaveListing& save, const std::vector<std::uint8_t>& gci,
                      std::vector<std::uint8_t>& card, bool replace, std::string& error) {
     if (!save_listing_ok(save) || save.platform != SavePlatform::GameCube || save.format != SaveFormat::Gci ||
-        gci.size() != save.size || std::memcmp(gci.data(), save.game_id, 6) != 0) {
+        gci.size() < 64 + 8192 || gci.size() > 64 + 2043u * 8192 ||
+        (!save.member[0] && gci.size() != save.size) || std::memcmp(gci.data(), save.game_id, 6) != 0) {
         error = "the downloaded GCI does not belong to this game or has the wrong size";
         return false;
     }
@@ -178,7 +254,7 @@ bool save_install_wii_zip(const SaveListing& save, const std::string& root, cons
     for (std::size_t index : plan) {
         const ZipEntry& entry = entries[index];
         std::string relative;
-        save_wii_zip_path(entry.name, relative);
+        save_wii_zip_relative(save, entry.name, relative);
         written.push_back(relative);
         const std::string path = stage + "/" + relative;
         const std::size_t slash = path.rfind('/');

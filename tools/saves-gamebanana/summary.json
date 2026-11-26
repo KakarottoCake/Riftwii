@@ -1,0 +1,318 @@
+{
+  "formats": {
+    "wii-zip": 2,
+    "data.bin": 1,
+    "gci": 1
+  },
+  "games": {
+    "Go Vacation (Wii)": 1,
+    "Kirby's Return to Dream Land": 1,
+    "Luigi's Mansion": 1,
+    "Sonic Unleashed (Wii)": 1
+  },
+  "coverage": {
+    "Super Mario Galaxy": {
+      "mods": 21,
+      "candidates": 2,
+      "searched_candidates": 3,
+      "game_row": 5950,
+      "found": true
+    },
+    "Super Mario Galaxy 2": {
+      "mods": 48,
+      "candidates": 1,
+      "searched_candidates": 5,
+      "game_row": 6867,
+      "found": true
+    },
+    "New Super Mario Bros. Wii": {
+      "mods": 228,
+      "candidates": 6,
+      "searched_candidates": 17,
+      "game_row": 6247,
+      "found": true
+    },
+    "Mario Kart Wii": {
+      "mods": 2269,
+      "candidates": 1,
+      "searched_candidates": 33,
+      "game_row": 5896,
+      "found": true
+    },
+    "Super Smash Bros. Brawl": {
+      "mods": 2884,
+      "candidates": 2,
+      "searched_candidates": 36,
+      "game_row": 5678,
+      "found": true
+    },
+    "Super Mario Sunshine": {
+      "mods": 61,
+      "candidates": 1,
+      "searched_candidates": 7,
+      "game_row": 5798,
+      "found": true
+    },
+    "Kirby's Return to Dream Land": {
+      "mods": 481,
+      "candidates": 1,
+      "searched_candidates": 13,
+      "game_row": 6231,
+      "found": true
+    },
+    "Wii Sports Resort": {
+      "mods": 34,
+      "candidates": 0,
+      "searched_candidates": 12,
+      "game_row": 6332,
+      "found": true
+    },
+    "Donkey Kong Country Returns": {
+      "mods": 0,
+      "candidates": 0,
+      "searched_candidates": 0,
+      "game_row": 9731,
+      "found": true
+    },
+    "The Legend of Zelda: Twilight Princess": {
+      "mods": 81,
+      "candidates": 1,
+      "searched_candidates": 5,
+      "game_row": 6167,
+      "found": true
+    },
+    "Super Smash Bros. Melee": {
+      "mods": 498,
+      "candidates": 1,
+      "searched_candidates": 14,
+      "game_row": 5706,
+      "found": true
+    },
+    "Mario Kart: Double Dash!!": {
+      "mods": 40,
+      "candidates": 1,
+      "searched_candidates": 2,
+      "game_row": 6555,
+      "found": true
+    },
+    "Paper Mario: The Thousand Year Door": {
+      "mods": 83,
+      "candidates": 1,
+      "searched_candidates": 8,
+      "game_row": 7030,
+      "found": true
+    },
+    "Wii Sports": {
+      "mods": 59,
+      "candidates": 1,
+      "searched_candidates": 4,
+      "game_row": 6532,
+      "found": true
+    },
+    "Wii Play": {
+      "mods": 11,
+      "candidates": 1,
+      "searched_candidates": 4,
+      "game_row": 6333,
+      "found": true
+    },
+    "Super Paper Mario": {
+      "mods": 44,
+      "candidates": 1,
+      "searched_candidates": 4,
+      "game_row": 6576,
+      "found": true
+    },
+    "Mario Party 8": {
+      "mods": 9,
+      "candidates": 1,
+      "searched_candidates": 1,
+      "game_row": 6569,
+      "found": true
+    },
+    "Mario Party 9": {
+      "mods": 92,
+      "candidates": 0,
+      "searched_candidates": 1,
+      "game_row": 6248,
+      "found": true
+    },
+    "The Legend of Zelda: Skyward Sword": {
+      "mods": 10,
+      "candidates": 1,
+      "searched_candidates": 1,
+      "game_row": 6305,
+      "found": true
+    },
+    "Kirby's Epic Yarn": {
+      "mods": 1,
+      "candidates": 1,
+      "searched_candidates": 1,
+      "game_row": 7108,
+      "found": true
+    },
+    "Sonic Colors": {
+      "mods": 86,
+      "candidates": 1,
+      "searched_candidates": 5,
+      "game_row": 6243,
+      "found": true
+    },
+    "Animal Crossing: City Folk": {
+      "mods": 5,
+      "candidates": 0,
+      "searched_candidates": 1,
+      "game_row": 6491,
+      "found": true
+    },
+    "Luigi's Mansion": {
+      "mods": 29,
+      "candidates": 1,
+      "searched_candidates": 5,
+      "game_row": 7120,
+      "found": true
+    },
+    "Sonic Adventure 2": {
+      "mods": 2095,
+      "candidates": 4,
+      "searched_candidates": 85,
+      "game_row": 5855,
+      "found": true
+    },
+    "Sonic Adventure DX": {
+      "mods": 748,
+      "candidates": 4,
+      "searched_candidates": 52,
+      "game_row": 5892,
+      "found": true
+    },
+    "Pikmin 2": {
+      "mods": 37,
+      "candidates": 0,
+      "searched_candidates": 4,
+      "game_row": 5788,
+      "found": true
+    },
+    "Metroid Prime": {
+      "mods": 4,
+      "candidates": 0,
+      "searched_candidates": 1,
+      "game_row": 7801,
+      "found": true
+    },
+    "F-Zero GX": {
+      "mods": 105,
+      "candidates": 0,
+      "searched_candidates": 5,
+      "game_row": 5899,
+      "found": true
+    },
+    "Animal Crossing": {
+      "mods": 13,
+      "candidates": 1,
+      "searched_candidates": 7,
+      "game_row": 6533,
+      "found": true
+    },
+    "Kirby Air Ride": {
+      "mods": 50,
+      "candidates": 1,
+      "searched_candidates": 17,
+      "game_row": 5776,
+      "found": true
+    },
+    "The Legend of Zelda: The Wind Waker": {
+      "mods": 131,
+      "candidates": 1,
+      "searched_candidates": 12,
+      "game_row": 6173,
+      "found": true
+    },
+    "Pikmin": {
+      "mods": 3,
+      "candidates": 1,
+      "searched_candidates": 1,
+      "game_row": 7122,
+      "found": true
+    },
+    "Super Mario Strikers": {
+      "mods": 2,
+      "candidates": 1,
+      "searched_candidates": 1,
+      "game_row": 6995,
+      "found": true
+    },
+    "Star Fox Adventures": {
+      "mods": 5,
+      "candidates": 1,
+      "searched_candidates": 1,
+      "game_row": 10530,
+      "found": true
+    },
+    "Metroid Prime 3: Corruption": {
+      "mods": 2,
+      "candidates": 1,
+      "searched_candidates": 1,
+      "game_row": 23926,
+      "found": true
+    },
+    "Metroid Prime: Trilogy": {
+      "mods": 2,
+      "candidates": 1,
+      "searched_candidates": 1,
+      "game_row": 23937,
+      "found": true
+    },
+    "Kirby's Dream Collection: Special Edition": {
+      "mods": 5,
+      "candidates": 1,
+      "searched_candidates": 1,
+      "game_row": 7284,
+      "found": true
+    },
+    "Mario Super Sluggers": {
+      "mods": 9,
+      "candidates": 1,
+      "searched_candidates": 1,
+      "game_row": 7032,
+      "found": true
+    },
+    "Mario Sports Mix": {
+      "mods": 48,
+      "candidates": 1,
+      "searched_candidates": 2,
+      "game_row": 6978,
+      "found": true
+    },
+    "Mario Strikers Charged": {
+      "mods": 4,
+      "candidates": 1,
+      "searched_candidates": 1,
+      "game_row": 6982,
+      "found": true
+    },
+    "Mario & Sonic at the Olympic Winter Games": {
+      "mods": 3,
+      "candidates": 3,
+      "searched_candidates": 3,
+      "game_row": 6974,
+      "found": true
+    },
+    "Sonic Unleashed (Wii)": {
+      "mods": 60,
+      "candidates": 2,
+      "searched_candidates": 2,
+      "game_row": 9598,
+      "found": true
+    },
+    "Go Vacation (Wii)": {
+      "mods": 1,
+      "candidates": 1,
+      "searched_candidates": 1,
+      "game_row": 20539,
+      "found": true
+    }
+  },
+  "requests": 1,
+  "entries": 4
+}

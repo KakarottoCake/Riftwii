@@ -17,6 +17,7 @@ constexpr std::size_t kSaveListMaxEntries = 512;
 constexpr std::uint32_t kSaveDownloadMaxBytes = 32u << 20;
 constexpr std::uint32_t kSaveMaxFiles = 512;
 constexpr std::uint32_t kSaveMaxUnpackedBytes = 64u << 20;
+constexpr std::size_t kSaveMaxGameIds = 8;
 
 enum class SavePlatform : std::uint8_t { Wii, GameCube };
 enum class SaveFormat : std::uint8_t { Gci, WiiZip, DataBin };
@@ -25,6 +26,11 @@ enum class SaveFormat : std::uint8_t { Gci, WiiZip, DataBin };
 struct SaveListing {
     char id[48]{};
     char game_id[7]{};
+    char game_ids[kSaveMaxGameIds][7]{};
+    std::uint8_t game_id_count = 0;
+    char root[128]{};
+    char member[200]{};
+    bool has_root = false;
     char title[80]{};
     char description[240]{};
     char author[64]{};
@@ -47,12 +53,17 @@ bool save_listing_ok(const SaveListing& save);
 bool parse_save_list(const char* text, std::size_t bytes, SaveListing* out, std::size_t capacity,
                      std::size_t& count, std::size_t& skipped, std::string& error);
 
-// No region or maker guessing: all six characters must match.
+// No region or maker guessing: match an explicitly listed six-byte ID.
 bool save_matches(const SaveListing& save, const std::string& game_id, SavePlatform platform);
+// Bind a multi-region Wii listing to the game actually selected in the menu.
+bool save_select_game(const SaveListing& save, const std::string& game_id, SavePlatform platform,
+                      SaveListing& selected);
+bool save_archive_path_ok(const std::string& name, bool directory);
 
-// Exactly data/<relative NAND filename>, with the NAND's filename and path
-// limits. banner.bin lives inside data too. No other title or content files.
+// The legacy data/<relative NAND filename> layout uses NAND path limits.
+// save_wii_zip_relative removes an explicit root (or the default data/).
 bool save_wii_zip_path(const std::string& name, std::string& relative);
+bool save_wii_zip_relative(const SaveListing& save, const std::string& name, std::string& relative);
 bool save_plan_wii_zip(const SaveListing& save, const std::vector<ZipEntry>& entries,
                        std::vector<std::size_t>& files, std::string& error);
 // The disc title ID uses the first four ASCII bytes of the full game ID.

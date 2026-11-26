@@ -11155,12 +11155,15 @@ static void MenuWiiSaves(FrontendState& state)
 	// picked here (RunLaunch), so the page is shown as a pack's that keeps its own.
 	const std::string ctgprFolder = CtgprSaveFolder(state);
 	const bool kept = !state.model.pack_save_owner().empty() || !ctgprFolder.empty();
+	// Get a save first, where it is seen; the locations under it (row
+	// i + 1 is kModes[i]).
+	constexpr int kGetRow = 0;
 	std::vector<FlowRow> rows(kModeCount + 1);
 	for (FlowRow& row : rows) row.kind = FlowRow::Kind::Action;
-	rows[kModeCount].label = tr("Get a save");
+	rows[kGetRow].label = tr("Get a save");
 	for (int i = 0; i < kModeCount; ++i) {
-		rows[static_cast<std::size_t>(i)].label = SaveValue(kModes[i]);
-		rows[static_cast<std::size_t>(i)].dim = kept;
+		rows[static_cast<std::size_t>(i + 1)].label = SaveValue(kModes[i]);
+		rows[static_cast<std::size_t>(i + 1)].dim = kept;
 	}
 	int current = 0;
 	while (current < kModeCount && state.model.save_mode != kModes[current]) ++current;
@@ -11172,29 +11175,30 @@ static void MenuWiiSaves(FrontendState& state)
 			r.on = false;
 			r.value.clear();
 		}
-		rows[static_cast<std::size_t>(inUse)].on = true;
-		rows[static_cast<std::size_t>(inUse)].value = tr("In use");
+		rows[static_cast<std::size_t>(inUse + 1)].on = true;
+		rows[static_cast<std::size_t>(inUse + 1)].value = tr("In use");
 	};
 	if (!kept) mark(current);
 	// Read the shared-saves folder from this SD card now: the card may have
 	// been swapped since it was last looked up.
 	if (!kept) SharedNandFor(state.game_id, true);
 	const auto note = [&](int row) -> std::string {
-		if (row == kModeCount) return tr("Download a save for this game. The current save is backed up first.");
+		if (row == kGetRow) return tr("Download a save for this game. The current save is backed up first.");
 		if (!ctgprFolder.empty())
 			return tr("CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none.", {ctgprFolder});
 		if (kept) return tr("This pack keeps its own saves. Turn it off to choose here.");
-		const std::string shown = kModes[row];
-		const bool fresh = row == current;
+		const std::string shown = kModes[row - 1];
+		const bool fresh = row - 1 == current;
 		return SaveNote(state.model, state.game_id, !fresh, &shown) + " " + tr("Changing this never moves or deletes saves already made.");
 	};
 	RunRowPage(tr("Save location"), GameTitle(state), rows, note, [&](int pickedRow, const PageAside& aside) {
-		if (pickedRow == kModeCount) {
+		if (pickedRow == kGetRow) {
 			aside([&] { MenuGetSave(state); });
 			return false;
 		}
 		if (kept) return false;
-		const std::string picked = kModes[pickedRow];
+		const int mode = pickedRow - 1;
+		const std::string picked = kModes[mode];
 		const std::string previous = state.model.save_mode;
 		state.model.save_mode = picked;
 		std::string error;
@@ -11204,11 +11208,11 @@ static void MenuWiiSaves(FrontendState& state)
 			ShowPopup(tr("Save location"), tr("Could not save the settings to the SD card."), tr("OK"));
 			return false;
 		}
-		mark(pickedRow);
-		current = pickedRow;
+		mark(mode);
+		current = mode;
 		logf("Save location: %s picked for %s, earlier saves stay where they are\n", picked.c_str(), state.game_id.c_str());
 		return false;
-	}, nullptr, 0, current);
+	}, nullptr, 0, current + 1);
 }
 
 // The .gci files in sd:/riftwii/gc/saves, sorted, at most 200.
@@ -12680,7 +12684,10 @@ static void MenuGetSave(FrontendState& state)
 			if (ShowPopup(tr("Get a save"),
 				tr("Install {1} in {2}? Any save it replaces is backed up first.", {save.title, destination}),
 				tr("Install"), tr("Cancel")) != 0) return false;
-			const bool ok = RunSaveDownload(&save, destination, backup, error);
+			riftwii::SaveListing selected;
+			if (!riftwii::save_select_game(save, state.game_id,
+				gamecube ? riftwii::SavePlatform::GameCube : riftwii::SavePlatform::Wii, selected)) return false;
+			const bool ok = RunSaveDownload(&selected, destination, backup, error);
 			if (!ok) {
 				logf("Saves: installation failed: %s.\n", error.c_str());
 				ShowPopup(tr("Get a save"), tr("The save could not be installed: {1}", {error}), tr("OK"));

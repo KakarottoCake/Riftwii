@@ -69,12 +69,24 @@ bool read_file(const std::string& path, std::size_t limit, std::vector<std::uint
 }
 
 bool fetch_list() {
-    FileDownload got;
-    if (!HttpDownloadToFile(kSaveListUrl, kList, kSaveListMaxBytes, got, g_error, 15000, {},
-                            HttpRedirects::SameHost)) return false;
     std::vector<std::uint8_t> text;
-    const bool read = read_file(kList, kSaveListMaxBytes, text);
-    std::remove(kList);
+    bool read = false;
+#ifdef RIFTWII_TEST_BUILD
+    // The test build only: a list on the card stands in for the published
+    // one (Dolphin tests before the catalogue is up, or of records it lacks).
+    if (read_file("sd:/riftwii/test_saves.json", kSaveListMaxBytes, text)) {
+        logf("Test build: the save list is sd:/riftwii/test_saves.json (%u bytes)\n",
+             static_cast<unsigned>(text.size()));
+        read = true;
+    }
+#endif
+    if (!read) {
+        FileDownload got;
+        if (!HttpDownloadToFile(kSaveListUrl, kList, kSaveListMaxBytes, got, g_error, 15000, {},
+                                HttpRedirects::SameHost)) return false;
+        read = read_file(kList, kSaveListMaxBytes, text);
+        std::remove(kList);
+    }
     if (!read || stopped()) {
         g_error = "the save list could not be read or was stopped";
         return false;
@@ -101,8 +113,21 @@ bool install_gci() {
     std::vector<std::uint8_t> card, gci;
     struct stat status;
     const bool existed = stat(g_destination.c_str(), &status) == 0;
-    if (!read_file(kDownload, g_pick.size, gci) ||
-        (existed && !read_file(g_destination, kGcBackupMaxBytes, card))) {
+    FILE* download = std::fopen(kDownload, "rb");
+    if (!download) {
+        g_error = "the downloaded GameCube save could not be opened";
+        return false;
+    }
+    const ZipReadAt read = [&](std::uint64_t at, std::uint8_t* out, std::size_t bytes) {
+        return !stopped() && at <= g_pick.size && bytes <= g_pick.size - at &&
+               std::fseek(download, static_cast<long>(at), SEEK_SET) == 0 &&
+               std::fread(out, 1, bytes, download) == bytes;
+    };
+    SaveZipInflater inflater(stopped);
+    const bool got_gci = save_read_gci(g_pick, read, &inflater, gci, g_error);
+    std::fclose(download);
+    if (!got_gci) return false;
+    if (existed && !read_file(g_destination, kGcBackupMaxBytes, card)) {
         g_error = "the downloaded save or the memory card could not be read";
         return false;
     }

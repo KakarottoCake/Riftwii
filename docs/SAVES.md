@@ -23,11 +23,12 @@ No third-party save manager implementation or Riivolution source was read.
 | [GitHub: wii-inspect](https://github.com/Aaron98990/wii-inspect) | An example of a game-specific save analysis project, using a player's own Wii Sports Resort data.bin. | GitHub is suitable hosting for reviewed submissions and immutable release assets, but a code license does not automatically cover uploaded game data. No general permission-cleared Wii/GameCube completion-save API was established in this research. |
 | [WiiBrew: Savegame Files](https://wiibrew.org/wiki/Savegame_Files) | Public description of the encrypted SD export and save banner. | Confirms why data.bin needs conversion. This feature does not decrypt it or contain any SD key. |
 
-Decision: maintain a **RiftWii-owned, human-reviewed catalogue** like the
+Decision: maintain a **RiftWii-owned catalogue** like the
 Rift Store, published over verified HTTPS at
 `https://riftwii.com/saves/saves.json`. Each save has a full game ID, an
 author, permission evidence and an approved file pinned by size and
-SHA-256. There is no scraping or automatic approval. External downloads
+SHA-256. Ordinary submissions require human review. The GameBanana source
+below follows an explicitly authorized linking policy. External downloads
 remain possible, and explicitly authorized files can be hosted by the
 catalogue repository. An unavailable source fails without changing a save.
 
@@ -36,8 +37,75 @@ particular legal status. Review each submission: the contributor must
 have authority to share it; remove personal information and exclude keys,
 console dumps, game programs, exploit payloads and unauthorized assets.
 Do not copy a site wholesale or assume its hosting grants mirror rights.
-Only manifests are included in this code repository. Downloaded examples
-were read in memory; their save bytes were not added here.
+Only catalogue records and evidence are included in this code repository.
+GameBanana downloads are cached under ignored build-host/; no save payloads
+are included in the generated site or added to the repository.
+
+### GameBanana saves
+
+GameBanana uploads count as their makers' permission to share **from
+GameBanana**. RiftWii links to GameBanana's own downloads; it does not
+re-host the saves or claim a mirror license. This source policy was
+explicitly authorized for this catalogue. It does not approve arbitrary
+third-party manifests or remove their existing human-review requirement.
+
+```text
+py -3.13 tools/save_list.py --check-tool build-host/save_list_check.exe gamebanana tools/saves-gamebanana
+```
+
+The source is implemented in `tools/save_gamebanana.py`. It searches for
+`save file`, `100% save` and `savegame` globally; scans each seeded game's
+complete mod index for save names and categories; and searches `save`,
+`100%` and `savegame` within each game. The full description is checked on
+each candidate's profile. This covers saves filed under Maps, Game files,
+Other/Misc and Save Files, without treating every mod as a save. The seed
+table includes the thirteen requested Wii/GameCube games and thirty more.
+Unknown games or regions are omitted rather than guessed.
+
+The API and file cache defaults to `build-host/save-gamebanana-cache/`.
+Requests include a User-Agent, run one at a time with at least 0.35 seconds
+between them, and retry HTTP 429 and server failures. ZIP central
+directories are screened with a range request before a complete download.
+API pages, ZIP tails and complete payloads are cached; `--refresh` updates
+API pages while retaining immutable file-ID downloads. Cached downloads
+are checked against GameBanana's size and MD5 again; published records pin
+the complete original download with SHA-256. No certificate checking is
+disabled. Transient failures and unsupported submissions are logged.
+
+Only a loose GCI, a ZIP containing exactly one GCI, a ZIP containing one
+extracted Wii save, or a ZIP containing one data.bin export is accepted.
+RAR/7z archives, multiple-save bundles, missing IDs, restricted/removed
+submissions and non-clean virus scans are left out. Safe companion files,
+including readmes, title metadata and an SD export of the same save, may
+remain outside the selected save folder; they are never installed. A
+companion export must identify that same save's title and region.
+`data.bin` records remain PC-only even
+when the source file is a ZIP. They are never fetched by the Wii.
+
+A GCI's six ID bytes are authoritative and must belong to the listed title
+family. A disc hack's own full ID is retained, including its maker code;
+it is never retagged as the stock game. The lookup table's factual IDs were
+checked against [GameTDB's title list](https://www.gametdb.com/wiitdb.txt?LANG=EN).
+For data.bin, the source can read the plain backup header's title ID at
+offset 0xF124, after checking its size and Bk/version markers, as documented
+in [WiiBrew's file format](https://www.wiibrew.org/wiki/Savegame_Files).
+This needs no key and does not decrypt or install the export. A missing
+backup marker or a header identifying a different game is rejected.
+For extracted saves, Wii title paths, full
+IDs or 8/16-digit hexadecimal title folders identify a region; failing
+those, the author must name an unambiguous region. The known-ID table is a lookup, never a default
+region. Multiple Wii IDs require the author's explicit region-free/all
+regions statement. The source records that evidence; this is not proof of
+in-game portability. GCI headers cannot be retagged for another region.
+
+The generated `saves.json` contains only the Wii's published fields.
+`evidence.json` records the GameBanana page and ID evidence for each
+approved source record; `summary.json` gives counts and discovery coverage;
+`discovery.log` explains every accepted or omitted candidate file. To
+publish, merge these records with other approved manifests, check unique
+IDs and the combined 512-record/1-MiB limits, run `save_list_check`, and
+serve the combined list at the existing catalogue endpoint. This command
+does not publish or change the Wii's URL.
 
 ## Published format
 
@@ -70,14 +138,18 @@ size- and hash-pinned research candidates are in `tools/saves-example/`.
 | Field | Rules |
 | --- | --- |
 | `id` | 1–47 ASCII letters, digits, `_` or `-`; unique ignoring case. |
-| `game_id` | Exactly six uppercase ASCII letters/digits; no cross-region fallback. Wii disc title IDs use the first four bytes; GameCube checks all six against the GCI header too. |
+| `game_id` | Exactly six uppercase ASCII letters/digits. Wii disc title IDs use the first four bytes; GameCube checks all six against the GCI header too. |
+| `game_ids` | Optional array of 1–8 unique full IDs, including `game_id`. All must share the three-byte title family and two-byte maker. Wii only may list multiple regions, with explicit portability evidence. The menu binds installation to the selected ID; unlisted regions never match. GameCube permits only its one exact header ID. |
 | `platform` | `wii` or `gamecube`. |
 | `title`, `author`, `description` | Nonempty UTF-8; respectively at most 79, 63, 239 bytes. No layout commands; control characters are cleaned by the Wii parser. |
 | `page`, `url` | HTTPS, at most 299 ASCII bytes; plain hostname, no user, port, numeric IP, backslash, fragment or whitespace. File redirects may stay on HTTPS across hosts; list redirects must stay on the same host. |
 | `format` | `gci` for GameCube; `wii-zip` for extracted Wii saves; `data.bin` for a Wii entry that is shown as **Get it on a PC** and is never downloaded or installed by the Wii. |
-| `size`, `sha256` | Exact approved byte length (1–32 MiB) and 64 lowercase hex digits. A GCI must be 64 bytes plus 1–2043 blocks of 8192 bytes. The byte length and digest must both match before installation. |
+| `root` | Optional for `wii-zip`: exact folder prefix ending in `/`, at most 127 ASCII bytes; `""` means the archive root. Absent means `data/` for older catalogues. It is stripped before applying the NAND filename rules. Never a destination path. |
+| `member` | Optional for `gci`: exact path of the sole GCI inside the source ZIP, at most 199 ASCII bytes. Without it the source must be a loose GCI. No other format uses it. |
+| `size`, `sha256` | Exact approved byte length (1–32 MiB) and 64 lowercase hex digits. An unpacked GCI must be 64 bytes plus 1–2043 blocks of 8192 bytes. ZIP pins describe the whole source ZIP. The byte length and digest must both match before installation. |
 | `files`, `unpacked_size` | Required for `wii-zip`, respectively 1–512 and 1–64 MiB. Exact totals of regular files. Must be absent or zero for other formats. |
 
+More than eight region IDs rejects the list before reading further.
 Unknown fields are skipped with bounded nesting; duplicate JSON keys and
 structurally broken lists are rejected. Bad individual records are left
 out and logged. Repeated record IDs keep the first. More than 512 records
@@ -97,15 +169,28 @@ data/<the game's actual save files>
 data/<optional subfolders>/<files>
 ```
 
-Include the complete data folder, with its original banner.bin (WIBN
-header). Nothing else: no title.tmd, tickets, UID list, shared contents,
+An explicit `root`, such as `private/wii/title/RMGE/`, can select the
+folder holding banner.bin instead. Generic archive paths must be relative,
+printable ASCII, under 200 bytes and at most sixteen components, with no
+empty/dot/hidden components, backslashes, drive prefixes, FAT special
+characters or trailing dots/spaces. These rules apply to roots, members
+and all archive entries, including safe unused readmes. Root and member
+strings are read exactly, without trimming or cleaning control characters.
+Case aliases, duplicate entries and file/directory conflicts are rejected
+throughout the archive. At most 1024 entries, 512 regular files and 64 MiB
+total expansion are permitted, even for files outside a selected root.
+
+Include the complete save folder, with its original banner.bin (WIBN
+header) and save files. The selected folder must contain no title.tmd,
+tickets, UID list, shared contents,
 NAND settings or other titles. A path component is 1–12 printable ASCII
 bytes, cannot start with a dot, end in a dot/space, or contain separators,
 drive prefixes or FAT special characters. The full NAND path must fit
 63 bytes, at most eight components below data. Paths, case aliases,
 duplicate entries, file/directory conflicts, totals, ZIP CRCs and banner
-magic are checked before the save becomes live. The entire archive is
-validated, including entries that a general unzip might skip.
+magic are checked before the save becomes live. All entry paths and
+metadata are checked, including entries that are
+not installed. CRC and actual expansion checks apply to installed files.
 
 For an approved data.bin submission, have the author extract their own
 save using a tool they already use and package the resulting data folder.
@@ -124,8 +209,9 @@ reserve room for the download and the new files beside existing ones.
 
 **GameCube:** use the current game's RiftWii SD card (own, shared, named,
 or SD slot A with a real card in B). Other card modes ask the player to
-choose a RiftWii card first. The GCI must match the selected game and the
-card's text encoding. The card is changed in memory first; a full card or
+choose a RiftWii card first. A ZIP GCI is streamed into a checked, bounded buffer, checked for its
+exact length and CRC, then follows the same import flow as a loose GCI.
+The GCI must match the selected game and the card's text encoding. The card is changed in memory first; a full card or
 malformed GCI leaves it unchanged. An entry with the same game, maker and
 internal filename is replaced; other entries are kept. Confirmation is
 always required. The old card is backed up through the existing backup

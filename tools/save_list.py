@@ -8,7 +8,8 @@
     py -3.13 tools/save_list.py build manifests site
 
 Pinning never changes approval. Example candidates can be checked with
-`check --allow-pending`; build always requires a recorded human approval.
+`check --allow-pending`; manifest builds require a recorded human approval.
+The GameBanana source follows the separate linking policy in docs/SAVES.md.
 """
 
 import argparse
@@ -30,7 +31,7 @@ MAX_FILES = 512
 MAX_LIST = 1 << 20
 FIELDS = (
     "id", "game_id", "platform", "title", "description", "author", "page",
-    "format", "url", "size", "sha256", "files", "unpacked_size",
+    "format", "url", "size", "sha256", "files", "unpacked_size", "root", "member", "game_ids",
 )
 
 
@@ -116,60 +117,127 @@ def save_path(name):
     return relative
 
 
+def archive_path(name, directory=False):
+    require(isinstance(name, str) and 0 < len(name.encode("utf-8")) < 200, "invalid archive path length")
+    if directory:
+        require(name.endswith("/"), "directory needs a trailing slash")
+        name = name[:-1]
+    parts = name.split("/")
+    require(len(parts) <= 16, "archive path is too deep")
+    for part in parts:
+        require(part and not part.startswith(".") and not part.endswith((".", " ")), "unsafe archive path")
+        require(all(32 <= ord(c) < 127 and c not in '\\:*?"<>|' for c in part), "unsafe archive filename")
+
+
+def checked_zip(data):
+    end = data.rfind(b"PK\x05\x06")
+    require(end >= 0 and end + 22 <= len(data), "ZIP has no end record")
+    disk, cd_disk, here, count, directory_size, directory_offset, comment = struct.unpack_from("<HHHHIIH", data, end + 4)
+    require(disk == 0 and cd_disk == 0 and here == count, "split ZIP files are not supported")
+    require(count != 0xFFFF and directory_size != 0xFFFFFFFF and directory_offset != 0xFFFFFFFF,
+            "ZIP64 files are not supported")
+    require(end + 22 + comment == len(data) and directory_offset + directory_size == end, "ZIP directory is outside the file")
+    archive = zipfile.ZipFile(io.BytesIO(data))
+    try:
+        entries = archive.infolist()
+        require(len(entries) <= MAX_FILES * 2, "ZIP has too many entries")
+        names = set()
+        regular = set()
+        total = 0
+        file_count = 0
+        for entry in entries:
+            require(entry.filename == entry.orig_filename, "ZIP path contains a null character")
+            archive_path(entry.filename, entry.is_dir())
+            name = entry.filename.rstrip("/").lower()
+            require(name not in names, f"ZIP repeats a name: {entry.filename}")
+            names.add(name)
+            require(not entry.flag_bits & 1 and entry.compress_type in (0, 8), "ZIP is encrypted or uses an unsupported method")
+            require(entry.compress_type != 0 or entry.compress_size == entry.file_size, "stored ZIP entry has different sizes")
+            kind = (entry.external_attr >> 16) & 0o170000
+            require(kind in (0, 0o040000, 0o100000), "ZIP contains a link or special file")
+            require(entry.file_size < 0xFFFFFFFF and entry.header_offset < 0xFFFFFFFF and
+                    entry.extract_version < 45, "ZIP64 files are not supported")
+            if entry.is_dir():
+                require(entry.file_size == 0, "ZIP directory holds file data")
+            else:
+                regular.add(name)
+                file_count += 1
+                total += entry.file_size
+                require(total <= MAX_UNPACKED and file_count <= MAX_FILES, "save exceeds unpack limits")
+        for name in names:
+            parts = name.split("/")
+            for end in range(1, len(parts)):
+                require("/".join(parts[:end]) not in regular, "ZIP uses a file as a directory")
+        return archive
+    except Exception:
+        archive.close()
+        raise
+
+
+def manifest_game_ids(manifest):
+    primary = manifest.get("game_id", "")
+    require(isinstance(primary, str) and re.fullmatch("[A-Z0-9]{6}", primary),
+            "game_id must have six uppercase letters or digits")
+    ids = manifest.get("game_ids", [primary])
+    require(isinstance(ids, list) and 1 <= len(ids) <= 8 and primary in ids, "invalid game_ids")
+    require(all(isinstance(value, str) and re.fullmatch("[A-Z0-9]{6}", value) for value in ids), "invalid game_ids")
+    require(len(set(ids)) == len(ids), "duplicate game_ids")
+    require(all(value[:3] == primary[:3] and value[4:] == primary[4:] for value in ids), "game_ids must name regions of one title")
+    require(manifest.get("platform") != "gamecube" or ids == [primary], "GCI regions must match the header exactly")
+    return ids
+
+
 def inspect_payload(manifest, data):
     format_name = manifest.get("format")
     platform = manifest.get("platform")
-    game_id = manifest.get("game_id", "")
-    require(isinstance(game_id, str) and re.fullmatch("[A-Z0-9]{6}", game_id), "game_id must have six uppercase letters or digits")
+    manifest_game_ids(manifest)
+    game_id = manifest["game_id"]
     if format_name == "gci":
-        require(platform == "gamecube", "GCI saves need platform gamecube")
+        require(platform == "gamecube" and "root" not in manifest, "GCI saves need platform gamecube and no root")
+        if manifest.get("member"):
+            with checked_zip(data) as archive:
+                gcis = [entry for entry in archive.infolist() if not entry.is_dir() and entry.filename.lower().endswith(".gci")]
+                require(len(gcis) == 1 and gcis[0].filename == manifest["member"], "ZIP must hold exactly the named GCI")
+                require(8256 <= gcis[0].file_size <= 64 + 2043 * 8192, "GCI member is too large or too short")
+                data = archive.read(gcis[0])
         require(len(data) >= 8256 and data[:6] == game_id.encode("ascii"), "GCI belongs to a different game or is too short")
         blocks = struct.unpack_from(">H", data, 0x38)[0]
         require(0 < blocks <= 2043 and len(data) == 64 + blocks * 8192, "GCI block count and size disagree")
         return {}
-    require(platform == "wii", "Wii saves need platform wii")
+    require(platform == "wii" and "member" not in manifest, "Wii saves need platform wii and no member")
     if format_name == "data.bin":
+        require("root" not in manifest, "data.bin does not use root")
         # Listed for a PC only. No decryption, key or claim of in-game validity.
         return {}
     require(format_name == "wii-zip", "unknown save format")
+    root = manifest.get("root", "data/")
+    require(isinstance(root, str) and len(root.encode("utf-8")) < 128, "invalid root")
+    if root:
+        archive_path(root, True)
     files = 0
     unpacked = 0
-    names = set()
-    file_names = set()
     banner = False
-    with zipfile.ZipFile(io.BytesIO(data)) as archive:
-        entries = archive.infolist()
-        require(len(entries) <= MAX_FILES * 2, "ZIP has too many entries")
-        for entry in entries:
-            name = entry.filename.rstrip("/") if entry.is_dir() else entry.filename
-            if name != "data" or not entry.is_dir():
-                save_path(name)
-            folded = name.lower()
-            require(folded not in names, f"ZIP repeats a name: {name}")
-            names.add(folded)
-            require(not entry.flag_bits & 1 and entry.compress_type in (0, 8), "ZIP is encrypted or uses an unsupported method")
-            # Reject symlinks and device files, even though the Wii's writer
-            # would only create ordinary files from their bytes.
-            kind = (entry.external_attr >> 16) & 0o170000
-            require(kind in (0, 0o040000, 0o100000), "ZIP contains a link or special file")
+    with checked_zip(data) as archive:
+        for entry in archive.infolist():
+            name = entry.filename
+            if entry.is_dir() and name == root:
+                continue
+            if not name.startswith(root):
+                require("root" in manifest, f"outside data/: {name}")
+                continue
+            relative = name[len(root):].rstrip("/") if entry.is_dir() else name[len(root):]
+            save_path("data/" + relative)
             if entry.is_dir():
-                require(entry.file_size == 0, "ZIP directory holds file data")
                 continue
             files += 1
             unpacked += entry.file_size
-            file_names.add(folded)
             require(files <= MAX_FILES and unpacked <= MAX_UNPACKED, "save exceeds unpack limits")
-            # Reading checks CRC and the actual expansion, not only metadata.
             contents = archive.read(entry)
             require(len(contents) == entry.file_size, "ZIP entry has the wrong size")
-            if name == "data/banner.bin":
+            if relative == "banner.bin":
                 require(contents.startswith(b"WIBN"), "banner.bin has no Wii banner header")
                 banner = True
-        for name in names:
-            parts = name.split("/")
-            for end in range(1, len(parts)):
-                require("/".join(parts[:end]) not in file_names, "ZIP uses a file as a directory")
-    require(banner and files > 0 and unpacked > 0, "ZIP needs data/banner.bin and save files")
+    require(banner and files > 0 and unpacked > 0, "ZIP needs banner.bin and save files under root")
     return {"files": files, "unpacked_size": unpacked}
 
 
@@ -219,6 +287,10 @@ def run(args):
         path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print(f"Pinned {manifest['id']}; approval unchanged")
         return
+    if args.command == "gamebanana":
+        from save_gamebanana import build
+        build(args)
+        return
     require(web_url(args.base_url + "saves.json") and args.base_url.endswith("/"), "invalid site base URL")
     paths = sorted(args.manifests.glob("*.json"))
     require(0 < len(paths) <= 512, "expected between 1 and 512 manifest files")
@@ -251,6 +323,9 @@ def run(args):
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--check-tool", type=Path, help="host save_list_check executable; use this in CI")
     parser.add_argument("--base-url", default="https://riftwii.com/saves/")
@@ -264,6 +339,10 @@ def main():
             sub.add_argument("output", type=Path)
         else:
             sub.add_argument("--allow-pending", action="store_true", help="validate example candidates without approving them")
+    gamebanana = commands.add_parser("gamebanana", help="index supported saves hosted by GameBanana")
+    gamebanana.add_argument("output", type=Path)
+    gamebanana.add_argument("--cache", type=Path, default=Path("build-host/save-gamebanana-cache"))
+    gamebanana.add_argument("--refresh", action="store_true", help="refresh cached API pages; immutable file downloads stay cached")
     args = parser.parse_args()
     try:
         run(args)
