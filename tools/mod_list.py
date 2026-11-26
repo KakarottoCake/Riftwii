@@ -120,9 +120,17 @@ class Web:
                 raise
 
     def api(self, path, **params):
+        """GameBanana's answer as JSON. An answer that isn't JSON (GameBanana
+        sometimes sends an empty one) is asked again, then raises Skip."""
         query = urllib.parse.urlencode(params)
-        with self.open(API + path + ("?" + query if query else "")) as r:
-            return json.load(r)
+        for attempt in range(3):
+            with self.open(API + path + ("?" + query if query else "")) as r:
+                body = r.read()
+            try:
+                return json.loads(body)
+            except ValueError:
+                time.sleep(5 * (attempt + 1))
+        raise Skip(f"GameBanana's answer to {path} was not JSON")
 
     def tail(self, url, size, count=65536):
         """The last `count` bytes of a file, by a range request."""
@@ -350,7 +358,10 @@ class Builder:
     # -- finding games and mods --
 
     def find_game(self, name):
-        found = self.web.api("Util/Search/Results", _sModelName="Game", _sSearchString=name, _nPage=1)
+        try:
+            found = self.web.api("Util/Search/Results", _sModelName="Game", _sSearchString=name, _nPage=1)
+        except (Skip, urllib.error.URLError, OSError):
+            return None
         for record in found.get("_aRecords", []):
             if record.get("_sName", "").lower() == name.lower():
                 return record["_idRow"], record["_sName"]
@@ -482,7 +493,12 @@ class Builder:
     # -- the entry --
 
     def entries(self, record, game_name):
-        p = self.profile(record)
+        try:
+            p = self.profile(record)
+        except (Skip, urllib.error.URLError, OSError) as why:
+            # Not cached: asked again on the next run.
+            self.log(f"  {record.get('_sName')}: its page could not be read now ({why})")
+            return []
         if p.get("_bIsPrivate") or p.get("_bIsTrashed") or p.get("_bIsWithheld"):
             return []
         if p.get("_sInitialVisibility") not in (None, "show"):
@@ -591,7 +607,11 @@ def build(args):
         games = {k: v for k, v in games.items() if v in args.only_game}
     entries, seen = [], set()
     for number, (game_id, game_name) in enumerate(sorted(games.items(), key=lambda g: g[1].lower()), 1):
-        mods = builder.game_mods(game_id)
+        try:
+            mods = builder.game_mods(game_id)
+        except (Skip, urllib.error.URLError, OSError) as why:
+            log(f"[{number}/{len(games)}] {game_name}: its mods could not be listed now ({why})")
+            continue
         if len(mods) > BIG_GAME:
             log(f"[{number}/{len(games)}] {game_name}: {len(mods)} mods, only the "
                 f"{len(searched.get(game_id, {}))} a Riivolution search finds are looked at")
