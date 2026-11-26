@@ -13,6 +13,7 @@
 #include "entropy.hpp"
 #include "log.hpp"
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/datetext.hpp"
 #include "riftwii/http.hpp"
 
 extern "C" {
@@ -78,10 +79,8 @@ std::time_t g_server_offset = 0;  // the server's date minus the Wii's clock
 
 std::string DateText(std::time_t when) {
     std::tm parts = {};
-    char text[32];
-    if (::gmtime_r(&when, &parts) == nullptr || std::strftime(text, sizeof(text), "%Y-%m-%d %H:%M", &parts) == 0)
-        return "an unknown date";
-    return text;
+    if (::gmtime_r(&when, &parts) == nullptr) return "an unknown date";
+    return date_text(parts, DateParts::Minutes);
 }
 
 // The Date header of a HEAD request to `host` over plain HTTP.

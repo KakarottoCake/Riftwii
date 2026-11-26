@@ -42,6 +42,7 @@
 #include "menuios.hpp"
 #include "menumusic.hpp"
 #include "log.hpp"
+#include "packedblobs.hpp"
 #include "disclight.hpp"
 #include "memlimits.hpp"
 #include "nandchannels.hpp"
@@ -66,8 +67,7 @@
 #include "wfc.hpp"
 #include "riftwii/ctgpfiles.hpp"
 #include "codehandleronly_bin.h"
-#include "codehandler_bin.h"
-#include "codehandlerslota_bin.h"
+#include "riftwii_wiird_bin.h"
 #include "gecko.hpp"
 #include "riftwii/cardlog.hpp"
 #include "riftwii/cheats.hpp"
@@ -248,23 +248,31 @@ struct CodeHandler {
 // would not expect. `low_veneers`: this launch's veneers are at
 // kCodeVeneers, inside the debugger handler's longer body (it runs to
 // 0x800028C0), so only the plain one fits.
-CodeHandler choose_code_handler(bool low_veneers) {
+// The two debugger handlers are embedded packed (riftwii_wiird_bin: slot B's,
+// then slot A's; tools/pack_blobs.py) and unpacked into `debuggers`, which
+// the caller keeps until the handler is copied.
+CodeHandler choose_code_handler(bool low_veneers, PackedBlobs& debuggers) {
     const CodeHandler plain{codehandleronly_bin, codehandleronly_bin_size, kCodeListAddress, false, "the code handler"};
     if (!g_extras.wiird_debugger) return plain;
+    // The debugger handlers run past the veneers (4288 bytes from
+    // kCodeHandlerAddress); the plain one ends before them.
     static_assert(kCodeHandlerAddress + codehandleronly_bin_size <= kCodeVeneers, "the plain handler must end before the veneers");
-    static_assert(kCodeHandlerAddress + codehandler_bin_size > kCodeVeneers, "the debugger handler runs past them");
     if (low_veneers) {
         logf("WiiRD debugger: off for this game: RiftWii's hooks use the memory right after the code handler "
              "(0x%08x), where the debugger's handler would run on\n", kCodeVeneers);
         return plain;
     }
-    if (GeckoInSlot(EXI_CHANNEL_1)) {
-        return CodeHandler{codehandler_bin, codehandler_bin_size, kDebuggerCodeListAddress, true,
-                           "the WiiRD debugger's code handler for slot B"};
-    }
-    if (GeckoInSlot(EXI_CHANNEL_0)) {
-        return CodeHandler{codehandlerslota_bin, codehandlerslota_bin_size, kDebuggerCodeListAddress, true,
-                           "the WiiRD debugger's code handler for slot A"};
+    const bool slot_b = GeckoInSlot(EXI_CHANNEL_1);
+    if (slot_b || GeckoInSlot(EXI_CHANNEL_0)) {
+        if (!debuggers.unpack(riftwii_wiird_bin, riftwii_wiird_bin_size, 2)) {
+            logf("WiiRD debugger: its code handler could not be unpacked (no memory, or this build is damaged), so "
+                 "the game starts without the debugger\n");
+            return plain;
+        }
+        const int which = slot_b ? 0 : 1;
+        return CodeHandler{debuggers.blob(which), debuggers.size(which), kDebuggerCodeListAddress, true,
+                           slot_b ? "the WiiRD debugger's code handler for slot B"
+                                  : "the WiiRD debugger's code handler for slot A"};
     }
     logf("WiiRD debugger: no USB Gecko answers in slot B or slot A, so the game starts without the debugger\n");
     return plain;
@@ -337,7 +345,8 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
         why = room;
         return false;
     }
-    const CodeHandler chosen = choose_code_handler(low_veneers);
+    PackedBlobs debuggers;
+    const CodeHandler chosen = choose_code_handler(low_veneers, debuggers);
     if (debugger_handler) *debugger_handler = chosen.debugger;
     const std::uint32_t list = moved ? g_extras.code_list_start : chosen.list;
     // A low-memory return stub owns the last 32 bytes of the ordinary

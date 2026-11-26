@@ -199,6 +199,14 @@ PYTHON  ?= python3
 # it starts (wii/launch/resident.cpp). zstd is the command-line tool.
 ZSTD    ?= zstd
 BLOBZST := $(OUT)/riftwii_rt.zst
+# Builds of one blob as the DOL embeds them: their sizes, then one zstd
+# frame of them all (tools/pack_blobs.py; wii/core/packedblobs.cpp
+# unpacks). The Wii Remote
+# logger's three (wii/hooks/wpadhook.cpp: full, trace only, translate only),
+# and the WiiRD debugger's two code handlers (wii/launch/boot.cpp: USB Gecko
+# in slot B, slot A), vendor-gecko's files unchanged.
+WLOGSBIN := $(OUT)/riftwii_wlogs.bin
+WIIRDBIN := $(OUT)/riftwii_wiird.bin
 RVZZST  := $(OUT)/riftwii_rt_rvz.zst
 GCRVZZST := $(OUT)/riftwii_gc_rvz.zst
 
@@ -257,7 +265,7 @@ $(PADSIZES): $(PADBUILDS)
 	   echo '}'; } > $@.tmp && mv $@.tmp $@
 
 .PHONY: all clean
-all: $(BLOB) $(PADBLOB) $(PADABLOB) $(PADPBLOB) $(PADNOHOME) $(PADSIZES) $(GCBLOB) $(SHOTBLOB) $(FAULTBLOB) $(WLOGBLOB) $(WLOGTRACEBLOB) $(WLOGTRANSLATEBLOB) $(VSDBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST) \
+all: $(BLOB) $(PADBLOB) $(PADABLOB) $(PADPBLOB) $(PADNOHOME) $(PADSIZES) $(GCBLOB) $(SHOTBLOB) $(FAULTBLOB) $(WLOGBLOB) $(WLOGTRACEBLOB) $(WLOGTRANSLATEBLOB) $(VSDBLOB) $(RVZBLOB) $(BLOBZST) $(WLOGSBIN) $(WIIRDBIN) $(RVZZST) \
      $(GCRVZBLOB) $(GCRVZZST) $(DOLPACK) $(STUBBLOB)
 
 $(DPOUT):
@@ -295,6 +303,12 @@ $(STUBOUT)/riftwii_stub.elf: $(STUBOBJS) $(STUBSRC)/stub.ld
 $(STUBBLOB): $(STUBOUT)/riftwii_stub.elf
 	$(OBJCOPY) -O binary -j .text -j .rodata -j .data $< $@
 	@echo "return stub: $$(stat -c %s $@) bytes"
+
+$(WLOGSBIN): tools/pack_blobs.py $(WLOGBLOB) $(WLOGTRACEBLOB) $(WLOGTRANSLATEBLOB)
+	@$(PYTHON) tools/pack_blobs.py $@ $(ZSTD) $(filter-out %.py,$^)
+
+$(WIIRDBIN): tools/pack_blobs.py vendor-gecko/codehandler.bin vendor-gecko/codehandlerslota.bin | $(OUT)
+	@$(PYTHON) tools/pack_blobs.py $@ $(ZSTD) $(filter-out %.py,$^)
 
 $(OUT)/%.zst: $(OUT)/%.bin
 	$(ZSTD) -q -19 -f -o $@ $<

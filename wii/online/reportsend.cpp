@@ -33,6 +33,7 @@
 #include "plugins.hpp"
 #include "restart.hpp"
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/datetext.hpp"
 #include "riftwii/gamefault.hpp"
 #include "riftwii/gccrash.hpp"
 #include "riftwii/http.hpp"
@@ -154,9 +155,9 @@ std::string describe_ios() {
 }
 
 std::string describe_system(const std::string& reason) {
-    char when[64] = "unknown time";
+    std::string when = "unknown time";
     const std::time_t now = std::time(nullptr);
-    if (const std::tm* t = std::localtime(&now)) std::strftime(when, sizeof(when), "%Y-%m-%d %H:%M:%S", t);
+    if (const std::tm* t = std::localtime(&now)) when = date_text(*t, DateParts::Seconds);
     unsigned menu_version = 0, menu_contents = 0;
     const bool menu = title_version(0x100000002ull, menu_version, menu_contents);
     std::string s = "RiftWii problem report\n";

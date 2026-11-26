@@ -9,14 +9,13 @@
 #include <cstring>
 
 #include "log.hpp"
+#include "packedblobs.hpp"
 #include "hidpads.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/returnto.hpp"
 #include "riftwii/symsearch.hpp"
 #include "riftwii/wpadlog.hpp"
-#include "riftwii_wlog_bin.h"
-#include "riftwii_wlog_trace_bin.h"
-#include "riftwii_wlog_translate_bin.h"
+#include "riftwii_wlogs_bin.h"
 #include "wlog/wlog_hook.h"
 
 namespace riftwii::wii {
@@ -33,15 +32,14 @@ constexpr std::uint32_t kNop = 0x60000000;
 
 std::uint32_t align_up(std::uint32_t v) { return (v + 31) & ~31u; }
 
-struct WlogImage {
-    const unsigned char* data;
-    std::uint32_t bytes;
-};
-
-WlogImage image_for(bool record, bool translate) {
-    if (!record) return {riftwii_wlog_translate_bin, riftwii_wlog_translate_bin_size};
-    if (!translate) return {riftwii_wlog_trace_bin, riftwii_wlog_trace_bin_size};
-    return {riftwii_wlog_bin, riftwii_wlog_bin_size};
+// The logger's three builds, packed together (riftwii_wlogs_bin;
+// tools/pack_blobs.py): the full one, one that only records, one that only
+// translates.
+enum WlogBuild { kWlogFull = 0, kWlogTrace = 1, kWlogTranslate = 2, kWlogBuilds = 3 };
+int build_for(bool record, bool translate) {
+    if (!record) return kWlogTranslate;
+    if (!translate) return kWlogTrace;
+    return kWlogFull;
 }
 
 std::uint32_t load_word(std::uint32_t address) { return *reinterpret_cast<const volatile std::uint32_t*>(address); }
@@ -176,10 +174,18 @@ bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         why = "the game lacks IOS_IoctlvAsync for Pro Controller translation";
         return false;
     }
-    const WlogImage image = image_for(record, out.translate);
-    const rt_wlog_header& h = *reinterpret_cast<const rt_wlog_header*>(image.data);
-    if (image.bytes < sizeof(rt_wlog_header) || h.magic != RT_WLOG_MAGIC ||
-        h.version != RT_WLOG_VERSION || h.size > image.bytes || h.size < RT_WLOG_CONTEXT_BYTES ||
+    // Unpacked only for the copy below, and gone with this function.
+    PackedBlobs blobs;
+    if (!blobs.unpack(riftwii_wlogs_bin, riftwii_wlogs_bin_size, kWlogBuilds)) {
+        why = "the embedded Wii Remote log blob is damaged or there is no memory to unpack it";
+        return false;
+    }
+    const int build = build_for(record, out.translate);
+    const std::uint8_t* image = blobs.blob(build);
+    const std::uint32_t image_bytes = blobs.size(build);
+    const rt_wlog_header& h = *reinterpret_cast<const rt_wlog_header*>(image);
+    if (image_bytes < sizeof(rt_wlog_header) || h.magic != RT_WLOG_MAGIC ||
+        h.version != RT_WLOG_VERSION || h.size > image_bytes || h.size < RT_WLOG_CONTEXT_BYTES ||
         h.context_offset > h.size - RT_WLOG_CONTEXT_BYTES) {
         why = "the embedded Wii Remote log blob is damaged";
         return false;
@@ -215,7 +221,7 @@ bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     //    nothing now (MEM2's bottom is still this loader's until the
     //    jump): the blob writes its header at its first use.
     std::memset(reinterpret_cast<void*>(out.code_base), 0, out.code_bytes);
-    std::memcpy(reinterpret_cast<void*>(out.code_base), image.data, h.size);
+    std::memcpy(reinterpret_cast<void*>(out.code_base), image, h.size);
     rt_wlog_context* ctx = reinterpret_cast<rt_wlog_context*>(out.code_base + h.context_offset);
     if (ctx->magic != RT_WLOG_CONTEXT_MAGIC) {
         why = "the Wii Remote log blob's context is not where its header says";

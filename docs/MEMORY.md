@@ -271,8 +271,12 @@ main 21172fe0 the program's end went from `0x80ED37A0` to `0x80EC8280`):
 - libc's `sscanf` and `fscanf`, 28 KiB: newlib's formatted input, for a
   handful of one-line files and an IP address. Those are read by hand
   now and RiftWii calls no scanf; the first call would bring about 13
-  KiB back for `sscanf` and 13 more for `fscanf`. (`siscanf` stays:
-  libfat's `mktime` reads the time zone with it.)
+  KiB back for `sscanf` and 13 more for `fscanf`. `siscanf` went too:
+  newlib's time zone set-up read the `TZ` variable with it, which a Wii
+  never has (`wii/core/timezone.cpp`, linked with
+  `--wrap=_tzset_unlocked_r`).
+- libc's `strftime`, which brought `sniprintf`'s formatter along: the
+  five places that wrote a date use `date_text` (`src/data/datetext.cpp`).
 
 Build 2610-734 (`213eb368`), measured with devkitPPC 16.1.0, had brought
 `sscanf` back through the moved channel's cleanup-list reader. A further
@@ -404,7 +408,6 @@ lower:
 
 | What | Before | Now | MEM1 kept |
 | --- | --- | --- | ---: |
-| The six pad blobs (`riftwii_pad*.bin`) | 133 KiB uncompressed in `.rodata` | One zstd frame, their sizes in front (`tools/pack_pad_blobs.py`), unpacked by `PadBlobs` in `wii/hooks/padhook.cpp` only while a launch plans and copies the hook; `install_pad_hook` reads the header back from the copied blob, as `log_pad_diagnostics` already did | 107 KiB |
 | The MP3 player (libogc's `mp3player.o`) | 120 KiB of buffers and stack in `.bss` | RiftWii's own, `wii/menu/mp3stream.cpp`, on libmad's decoder: one MEM2 block taken at the first MP3 and kept | 125 KiB with its code |
 | The Ogg player's decoder state and stack (`vendor-libgui/source/oggplayer.c`) | 57 KiB in `.bss` | One heap block at the first `PlayOgg`, kept for the next song | 57 KiB |
 | The controller button pictures (`src/art/inputicons_data.cpp`) | 56 KiB of alpha masks | (count, value) runs, unpacked per drawing | 48 KiB |
@@ -442,8 +445,17 @@ Still in MEM1 and left as they are:
   `boot.cpp`'s `g_tmd`: the launch's DMA buffers, used after the menu's
   heap is no longer trusted.
 - The crash screen's fallback stack: it must exist when the heap is broken.
-- The Kirby fix's four tables (`src/patching/gxkirby.inc`, 22 KiB) could
-  be stored as address deltas for about half that.
+
+A second pass moved the program's end on to `0x80F6D480`, 86 KiB lower
+again:
+
+| What | Before | Now | MEM1 kept |
+| --- | --- | --- | ---: |
+| newlib's time zone parser and `strftime` | `siscanf`'s input engine, the multibyte reader, a 14 KiB Unicode table and `sniprintf`'s formatter | A fixed "no `TZ`" set-up (`wii/core/timezone.cpp`) and `date_text` (`src/data/datetext.cpp`) | 48 KiB |
+| The Kirby fix's four tables (`src/patching/gxkirby.inc`) | 22 KiB, every word of every region | Super Kirby Clash's US words whole; the other regions as runs that shift them, and the one word that differs | 15 KiB |
+| The three Wii Remote logger builds (`riftwii_wlog*.bin`) | 23 KiB in `.rodata` | One zstd frame (`riftwii_wlogs.bin`, 10 KiB), unpacked while a launch plans the hook | 13 KiB |
+| The two WiiRD debugger handlers (`vendor-gecko/codehandler*.bin`) | 8.4 KiB in `.rodata` | One zstd frame (`riftwii_wiird.bin`, 2.7 KiB), unpacked only when a USB Gecko answers | 5.5 KiB |
+| The list of games with no online play (`src/data/offlinegames.inc`) | 11.6 KiB, four characters a code | Three characters and a byte with a bit per region, plus the codes of other regions whole | 5 KiB |
 
 ### `riftwii.elf`
 

@@ -146,6 +146,8 @@ The build compiles every folder into one, so no two files share a name.
 | `disclight.cpp` | The disc slot light's pulse while a game loads or a disc is copied; dark while a cIOS runs and at every IOS reload |
 | `sdwritecheck.cpp` | Home's once-per-start check that the SD card can be written (full, locked or faulty), through `src/fs/sdwrite.cpp` |
 | `streamprint.cpp` | Every `FILE` printf routed through `snprintf`'s formatter, so newlib's other formatting engines stay out of the DOL (`src/data/streamformat.cpp`) |
+| `timezone.cpp` | newlib's time zone set-up without its `TZ` parser, which a Wii never needs (`--wrap=_tzset_unlocked_r`) |
+| `packedblobs.cpp`, `packedblobs.hpp` | Unpacks a zstd frame of runtime blobs made by `tools/pack_blobs.py`, for the time a launch needs them |
 
 ### `wii/menu/`: the menu: screens, lists, artwork, themes, music, banners, covers
 
@@ -429,6 +431,7 @@ reader helpers stay beside their source.
 | `cheats` | Cheat files and GCT building |
 | `ghcheats` | GameHacking.org's archive: picking the newest Wii zip from its listing, the bounds on the zip, the game ID index and its file |
 | `titles` | Game names |
+| `datetext` | A date and time as `2026-01-05 07:03:09`, without newlib's `strftime` |
 | `settingsfile` | `settings.txt` |
 | `parental` | Parental controls: the age a rating is for, and the PIN kept as a salted PBKDF2 hash |
 | `langfile` | Translation files |
@@ -558,7 +561,7 @@ and the `*_mock/` folders provide synthetic files, discs and hardware calls.
 | `make_plugin.py` | Plugin files: built from the two links (header, image, relocations, SHA-256), checked against the DOL's build stamp, varied for refusal tests |
 | `dol_stash.py` | Adds the start-up stash (translations, GPL) to `riftwii.dol` above its BSS (`docs/MEMORY.md`) |
 | `check_mem1_line.py` | Fails the Wii build unless `0x81000000` is well inside Home's scan stack, or well above what libogc's start writes at the heap's start (`wii/core/mem1tail.h`) |
-| `pack_pad_blobs.py` | Packs the six pad blobs into the one zstd frame the DOL embeds, their sizes in front (`wii/hooks/padhook.cpp`, `PadBlobs`) |
+| `pack_blobs.py` | Packs a set of runtime blobs (the Wii Remote logger, the WiiRD handlers) into one zstd frame the DOL embeds, their sizes in front (`wii/core/packedblobs.cpp`) |
 | `pack_dol.py` | Packs `riftwii.dol` last: each section a Zstandard frame behind the `runtime/dolpack` stub, every frame checked before it is written (`PACK=0` skips it) |
 | `make_release_zip.py`, `make_update_pack.py`, `release_notes.py` | A release: the zip, the in-app update's pack, the notes and the Discord message (run by `.github/workflows/release.yml`) |
 | `size_report.py` | CI's size table: the DOL's sections, its program end and the stash's end, the runtime blobs, the plugins' share of their arena |
