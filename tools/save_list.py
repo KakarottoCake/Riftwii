@@ -288,6 +288,9 @@ def run(args):
         print(f"Pinned {manifest['id']}; approval unchanged")
         return
     if args.command == "gamebanana":
+        # Beside this file: run as `python3 -I` (as the nightly build does),
+        # Python leaves the script's own folder off the import path.
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
         from save_gamebanana import build
         build(args)
         return
