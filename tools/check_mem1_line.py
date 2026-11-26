@@ -20,6 +20,9 @@ LINE = 0x81000000
 # 128 bytes from the line up; this is a wide margin.
 MARGIN = 0x1000
 STACK = "riftwii_home_scan_stack"
+# Moved after the scan stack to give the line room (wii/core/mem1tail.c);
+# before it, it would push the scan stack up again.
+AFTER = "riftwii_music_stack"
 
 
 def symbols(path):
@@ -58,6 +61,12 @@ def main():
         print("check_mem1_line: %s has no %s" % (args.elf, STACK), file=sys.stderr)
         return 1
     start, size, _ = stack[0]
+    after = [s for s in syms if s[2] == AFTER]
+    if after and after[0][0] < start + size:
+        print("check_mem1_line: %s (0x%08x) must come after %s (0x%08x-0x%08x), or the scan stack "
+              "moves up and leaves the line less room (wii/core/mem1tail.c)"
+              % (AFTER, after[0][0], STACK, start, start + size), file=sys.stderr)
+        return 1
     low, high = LINE - MARGIN, LINE + MARGIN
     if start <= low and start + size >= high:
         print("MEM1 line: 0x%08x is 0x%x bytes into Home's scan stack (0x%08x-0x%08x)"

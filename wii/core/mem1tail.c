@@ -7,7 +7,7 @@
 /* The Wii Menu music thread's stack, which must lie after the scan stack
  * (mem1tail.h says why). GCC lays this file's buffers out in the reverse
  * of their order here, so it comes first; tools/check_mem1_line.py fails
- * the build if that ever changes. */
+ * the build if the music stack ever ends up before the scan stack. */
 __attribute__((aligned(32))) unsigned char riftwii_music_stack[RIFTWII_MUSIC_STACK_BYTES];
 
 /* The scan reads FAT and NTFS volumes, parses pack XMLs (pugixml) and

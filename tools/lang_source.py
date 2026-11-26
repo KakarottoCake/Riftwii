@@ -10444,6 +10444,7 @@ FR.update({
 
 # Manage emulated NAND > Miis: the two-sided Mii page.
 T.update({
+    "{1} is copied into the emulated NAND, where it replaces its own older copy if there is one. A backup of the emulated NAND's Miis is kept first.": ('{1} se copia en la NAND emulada, donde sustituye su copia anterior si la hay. Antes se guarda una copia de los Miis de la NAND emulada.', '{1}を仮想NANDにコピーします。古いコピーがあれば置き換えます。先に仮想NANDのMiiのバックアップを保存します。', '{1} é copiado para a NAND emulada, onde substitui a cópia antiga dele, se houver. Uma cópia dos Miis da NAND emulada é guardada antes.', "{1} viene copiato nella NAND emulata, dove sostituisce la sua copia precedente se c'è. Prima viene salvata una copia dei Mii della NAND emulata."),
     'Copy all': ('Copiar todos', 'すべてコピー', 'Copiar todos', 'Copia tutti'),
     '(no name)': ('(sin nombre)', '(名前なし)', '(sem nome)', '(senza nome)'),
     'A Mii in the emulated NAND. Press A to copy it to the Wii or remove it.': ('Un Mii de la NAND emulada. Pulsa A para copiarlo a la Wii o quitarlo.', '仮想NANDのMiiです。Aボタンで、Wiiへコピーするか削除できます。', 'Um Mii da NAND emulada. Aperte A para copiá-lo para o Wii ou removê-lo.', 'Un Mii della NAND emulata. Premi A per copiarlo sulla Wii o rimuoverlo.'),
@@ -10470,6 +10471,7 @@ T.update({
     '{1} is taken out of the emulated NAND. A backup of its Miis is kept first.': ('{1} se quita de la NAND emulada. Antes se guarda una copia de sus Miis.', '{1}を仮想NANDから削除します。先にMiiのバックアップを保存します。', '{1} é removido da NAND emulada. Uma cópia dos Miis dela é guardada antes.', '{1} viene rimosso dalla NAND emulata. Prima viene salvata una copia dei suoi Mii.'),
 })
 KO.update({
+    "{1} is copied into the emulated NAND, where it replaces its own older copy if there is one. A backup of the emulated NAND's Miis is kept first.": '{1}을(를) 에뮬레이트 NAND에 복사합니다. 이전 사본이 있으면 바꿉니다. 먼저 에뮬레이트 NAND의 Mii 백업을 보관합니다.',
     'Copy all': '모두 복사',
     '(no name)': '(이름 없음)',
     'A Mii in the emulated NAND. Press A to copy it to the Wii or remove it.': '에뮬레이트 NAND의 Mii입니다. A 버튼으로 Wii에 복사하거나 삭제합니다.',
@@ -10496,6 +10498,7 @@ KO.update({
     '{1} is taken out of the emulated NAND. A backup of its Miis is kept first.': '{1}을(를) 에뮬레이트 NAND에서 삭제합니다. 먼저 Mii 백업을 보관합니다.',
 })
 FR.update({
+    "{1} is copied into the emulated NAND, where it replaces its own older copy if there is one. A backup of the emulated NAND's Miis is kept first.": "{1} est copié dans la NAND émulée, où il remplace son ancienne copie s'il y en a une. Une copie des Mii de la NAND émulée est gardée avant.",
     'Copy all': 'Tout copier',
     '(no name)': '(sans nom)',
     'A Mii in the emulated NAND. Press A to copy it to the Wii or remove it.': 'Un Mii de la NAND émulée. Appuyez sur A pour le copier sur la Wii ou le retirer.',

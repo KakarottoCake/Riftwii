@@ -6394,9 +6394,12 @@ static bool MenuOneMii(const std::string& folder, const std::string& name, std::
 	EmulatorRowsPage(FlatCapped(name, 32), rows, help, [&](int clicked, int) {
 		const MiiChange change = changes[static_cast<std::size_t>(clicked)];
 		const std::string& label = rows[static_cast<std::size_t>(clicked)].label;
-		// Into the Wii's own memory, or out of the emulated NAND: the safe
-		// answer is the lit one, as for the other changes to a NAND.
-		if (change == MiiChange::CopyToWii) {
+		// Every change asks first (a copy may replace an older one). Into the
+		// Wii's own memory, or out of the emulated NAND: the safe answer is
+		// the lit one, as for the other changes to a NAND.
+		if (change == MiiChange::CopyToEmulated) {
+			if (ShowPopup(label, tr("{1} is copied into the emulated NAND, where it replaces its own older copy if there is one. A backup of the emulated NAND's Miis is kept first.", {name}), tr("Copy"), tr("Cancel")) != 0) return false;
+		} else if (change == MiiChange::CopyToWii) {
 			if (ShowPopupSafeFirst(label, tr("This writes {1} into the Wii's own memory. A backup of the Wii's Miis is kept in the emulated NAND folder first. Keep the Wii turned on until it finishes.", {name}),
 				tr("Cancel"), tr("Write to Wii")) != 1) return false;
 		} else if (change == MiiChange::RemoveFromEmulated) {

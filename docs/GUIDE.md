@@ -2267,7 +2267,8 @@ Mii on the other side, as the old Miis from Wii and Miis to Wii did.
 Before a change, the database being changed is backed up next to the
 emulated copy as `shared2/menu/FaceLib/RFL_DB.dat.bak0`, or
 `RFL_DB.dat.wii.bak0` for the Wii's. Later backups use the next free
-number. Writing to the Wii asks twice. A damaged database (its check
+number. Every change asks first. Copy all to the Wii asks twice; a single
+Mii copied to the Wii asks once, with Cancel lit. A damaged database (its check
 does not match) is not changed. An emulated NAND with no Miis yet gets a
 database made from the Wii's, with its Miis taken out.
 

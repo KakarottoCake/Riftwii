@@ -5112,6 +5112,9 @@ msgstr "Un jeu sur disque ne peut pas utiliser une NAND émulée sur le disque U
 msgid "The save is installed. The memory card was backed up first ({1})."
 msgstr "La sauvegarde est installée. La carte mémoire a d'abord été copiée ({1})."
 
+msgid "{1} is copied into the emulated NAND, where it replaces its own older copy if there is one. A backup of the emulated NAND's Miis is kept first."
+msgstr "{1} est copié dans la NAND émulée, où il remplace son ancienne copie s'il y en a une. Une copie des Mii de la NAND émulée est gardée avant."
+
 msgid "Copy all"
 msgstr "Tout copier"
 
