@@ -291,11 +291,7 @@ class ExcludeTests(unittest.TestCase):
     def test_bom_and_odd_lines(self):
         import save_gamebanana
         with tempfile.NamedTemporaryFile("wb", suffix=".txt", delete=False) as f:
-            f.write(b"ï»¿709787
-Â²
-# café (Latin-1)
-12345
-")
+            f.write(b"\xef\xbb\xbf709787\n\xc2\xb2\n# caf\xe9 (Latin-1)\n12345\n")
         try:
             self.assertEqual(save_gamebanana.read_excluded(f.name), {709787, 12345})
         finally:
