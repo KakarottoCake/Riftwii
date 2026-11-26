@@ -143,11 +143,25 @@ int FitSize(const std::string& text, int width, int largest, int smallest) {
 // `text` cut at a space into a first line that fits `width` at `size` and the
 // rest. False when it has no such space (one long word): it stays one line.
 bool SplitInTwo(const std::string& text, int size, int width, std::string& first, std::string& second) {
-    std::size_t best = std::string::npos;
+    // The space nearest the middle among those where both halves fit, so
+    // "The Extraordinarily Long-Named..." doesn't leave "The" alone; else
+    // the last space whose first half fits (the second is cut).
+    std::size_t last_fit = std::string::npos;
+    std::size_t balanced = std::string::npos;
+    std::size_t balanced_off = std::string::npos;
+    const std::size_t middle = text.size() / 2;
     for (std::size_t at = text.find(' '); at != std::string::npos; at = text.find(' ', at + 1)) {
         if (Width(text.substr(0, at), size) > width) break;
-        best = at;
+        last_fit = at;
+        if (Width(text.substr(at + 1), size) <= width) {
+            const std::size_t off = at > middle ? at - middle : middle - at;
+            if (off < balanced_off) {
+                balanced = at;
+                balanced_off = off;
+            }
+        }
     }
+    const std::size_t best = balanced != std::string::npos ? balanced : last_fit;
     if (best == std::string::npos) return false;
     first = text.substr(0, best);
     second = text.substr(best + 1);
@@ -495,12 +509,13 @@ private:
                 Icon(app, tx + w / 2 - 64, ty + 6);
                 frame_.Text(tx + w / 2, ty + 56, kSmallSize, RWP_COLOR_INK, first, RWP_ALIGN_CENTER, room);
                 frame_.Text(tx + w / 2, ty + 76, kSmallSize, RWP_COLOR_INK, second, RWP_ALIGN_CENTER, room);
-                frame_.Text(tx + w / 2, ty + 98, kSmallSize, colour, note, RWP_ALIGN_CENTER, room);
             } else {
                 Icon(app, tx + w / 2 - 64, ty + 12);
                 frame_.Text(tx + w / 2, ty + 68 + (kNameSize - size) / 2, size, RWP_COLOR_INK, name, RWP_ALIGN_CENTER, room);
-                frame_.Text(tx + w / 2, ty + 94, kSmallSize, colour, note, RWP_ALIGN_CENTER, room);
             }
+            // The maker (or state) line at one height on every tile, so a row
+            // mixing one- and two-line names keeps it straight.
+            frame_.Text(tx + w / 2, ty + 97, kSmallSize, colour, note, RWP_ALIGN_CENTER, room);
             hits_.push_back({tx, ty, w, h, k});
         }
         // What the lit app is, under the tiles.
