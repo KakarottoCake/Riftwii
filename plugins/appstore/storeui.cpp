@@ -29,6 +29,9 @@ constexpr int kBand = 72;        // the title band's height
 constexpr int kFrontBand = 82;
 constexpr int kAppBand = 118;    // an app page's band, with its facts
 constexpr int kBarTop = 404;     // where the page's bottom band (and its prompts) begins
+// The top of the host's prompt buttons (GuiPrompts::CardTop): an A with the
+// pointer below it is a prompt's, or the host has already dropped it.
+constexpr int kPromptTop = 418;
 constexpr int kGap = 14;
 constexpr int kLine = 26;     // a line of body text
 constexpr int kFactRow = 28;  // a row of an app's facts
@@ -742,9 +745,9 @@ private:
         // With the pointer on screen, A presses what it is on and nothing
         // else: on empty space it used to open the lit tile, which the
         // pointer had left. The lit tile takes A only while the pointer is
-        // hidden (the D-pad's way). The bottom band is the host's: an A
-        // there is the "Open" prompt's, or the host already dropped it.
-        if ((pressed & RWP_KEY_A) && input_.pointer && pointed < 0 && input_.y < kBarTop) pressed &= ~RWP_KEY_A;
+        // hidden (the D-pad's way). The prompt buttons' row is the host's:
+        // an A there is the "Open" prompt's, or the host already dropped it.
+        if ((pressed & RWP_KEY_A) && input_.pointer && pointed < 0 && input_.y < kPromptTop) pressed &= ~RWP_KEY_A;
         if (pressed & RWP_KEY_HOME) return true;
         switch (page_) {
             case Page::Front: return HandleFront(pressed);

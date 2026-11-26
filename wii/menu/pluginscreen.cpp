@@ -197,11 +197,13 @@ public:
         rwp_input input = input_;
         input.frame = frames_;
         input_.pressed = 0;
+        aFromPrompt_ = false;
         return input;
     }
     void ForgetInput() {
         input_.pressed = 0;
         input_.held = 0;
+        aFromPrompt_ = false;
     }
     uint32_t Frames() const { return frames_; }
 
@@ -219,7 +221,6 @@ public:
             // A new frame's input starts with the first controller.
             input_.held = 0;
             input_.pointer = 0;
-            aFromPrompt_ = false;
         }
         if (t->wpad && t->wpad->ir.valid && !input_.pointer) {
             input_.pointer = 1;
@@ -460,7 +461,10 @@ private:
     std::vector<std::pair<uint32_t, std::string>> promptList_;
     int promptEdge_ = 600;
     rwp_input input_{};
-    bool aFromPrompt_ = false;  // this frame's A is the A prompt's (kept on the later channels)
+    // The A waiting in input_.pressed is the A prompt's: kept until the plugin
+    // takes its input, so a later controller's update (or a later frame with
+    // the pointer still on the prompt) does not drop it.
+    bool aFromPrompt_ = false;
     volatile uint32_t frames_ = 0;
 };
 
