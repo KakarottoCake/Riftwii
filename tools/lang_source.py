@@ -8688,9 +8688,12 @@ MORE["ko"]["Game's box: the game's box while it starts; press any button to see 
 MORE["fr"]["Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."] = "Boîte du jeu : la boîte du jeu pendant son lancement ; appuyez sur un bouton pour voir ce que fait RiftWii. Journal : chaque étape, ligne par ligne. Un lancement qui échoue affiche toujours le journal."
 
 # What's new in the release after 2611-179.
-T['The Rift Store: get homebrew apps'] = ('Rift Store: consigue apps homebrew', 'Rift Store：homebrewアプリを入手', 'Rift Store: baixe apps homebrew', 'Rift Store: scarica app homebrew')
-MORE["ko"]['The Rift Store: get homebrew apps'] = 'Rift Store: 홈브루 앱 받기'
-MORE["fr"]['The Rift Store: get homebrew apps'] = 'Rift Store : des applis homebrew'
+T['Get more themes works again'] = ('Obtener más temas vuelve a funcionar', 'テーマの追加がまた使える', 'Obter mais temas funciona de novo', 'Scarica altri temi funziona di nuovo')
+MORE["ko"]['Get more themes works again'] = '테마 받기가 다시 작동함'
+MORE["fr"]['Get more themes works again'] = 'Obtenir d\'autres thèmes refonctionne'
+T['A only presses what the pointer is on'] = ('A solo pulsa lo que señala el puntero', 'Aはポインターが指すものだけを押す', 'A só aperta o que o ponteiro aponta', 'A preme solo ciò che indica il puntatore')
+MORE["ko"]['A only presses what the pointer is on'] = 'A는 포인터가 가리키는 것만 누름'
+MORE["fr"]['A only presses what the pointer is on'] = 'A n\'appuie que sur ce que vise le pointeur'
 T['Themes can draw the back of the box'] = ('Los temas pueden dibujar el dorso de la caja', 'テーマでケースの裏も描ける', 'Temas podem desenhar o verso da caixa', 'I temi possono disegnare il retro della custodia')
 MORE["ko"]['Themes can draw the back of the box'] = '테마가 케이스 뒷면도 그릴 수 있음'
 MORE["fr"]['Themes can draw the back of the box'] = 'Les thèmes peuvent dessiner le dos de la boîte'
@@ -8703,9 +8706,6 @@ MORE["fr"]['Emulated NAND games go back to RiftWii'] = 'Les jeux en NAND émulé
 T['The GameCube pointer hides when unplugged'] = ('El puntero de GameCube se oculta al desconectarlo', 'GCコントローラーを抜くとポインターが消える', 'O ponteiro do GameCube some ao desconectar', 'Il puntatore GameCube sparisce se scollegato')
 MORE["ko"]['The GameCube pointer hides when unplugged'] = '게임큐브 컨트롤러를 빼면 포인터가 사라짐'
 MORE["fr"]['The GameCube pointer hides when unplugged'] = 'Le pointeur GameCube disparaît une fois débranché'
-T['Big libraries use less memory'] = ('Las bibliotecas grandes usan menos memoria', 'ゲームが多くてもメモリが足りる', 'Bibliotecas grandes usam menos memória', 'Le librerie grandi usano meno memoria')
-MORE["ko"]['Big libraries use less memory'] = '게임이 많아도 메모리를 덜 사용'
-MORE["fr"]['Big libraries use less memory'] = 'Les grandes bibliothèques utilisent moins de mémoire'
 
 # Game management: own display names and visibility, never file renames.
 T['Manage game'] = ('Gestionar juego', 'ゲームの管理', 'Gerenciar jogo', 'Gestisci gioco')

@@ -33,33 +33,27 @@ release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 
 -->
-**RiftWii {{VERSION}}.** Themes can draw the back of a game's box and frame every cover, the menu no longer freezes with big themes, games with emulated-NAND saves go back to RiftWii, and a GameCube controller's pointer goes away when it's unplugged. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** Get more themes works again, and A only presses what the pointer is on. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-![The Plaza theme on Home]({{SCREENSHOTS}}2611-249-plaza.png)
+![Get more themes, with Dashboard just installed]({{SCREENSHOTS}}2611-252-themes.png)
 
-![A box turned to its back on the shelf, drawn by the Plaza theme]({{SCREENSHOTS}}2611-249-box-back.png)
-
-![What's new]({{SCREENSHOTS}}2611-249-whats-new.png)
+![What's new]({{SCREENSHOTS}}2611-252-whats-new.png)
 
 ## What changed
 
-- **Themes can draw the back of a game's box.** On the shelf, Up turns the box around. A theme can now give that back its own picture (`blank_back`), and the game's screenshots go on it as on a real case. Without one, the back is drawn as before.
-- **Themes can frame every cover on Home**, not only the lit one (`cover_frames = yes` in the theme).
-- **Bigger themes install from the theme browser.** It takes themes of up to 192 files, so themes with a looping backdrop fit. Three new community themes use all of this: Dashboard, Wave and Plaza (Settings > Themes > Get more themes). An older RiftWii shows them with its own box back.
-- **The menu no longer freezes on "Reading the SD card...".** A memory check could wait for the SD card while holding a lock the card's own reading needed, so both waited forever. It showed up with a theme with large music, but could have happened anywhere.
-- **Games with saves in an emulated NAND go back to RiftWii.** On a vWii, HOME > Wii Menu went to the Wii Menu. RiftWii lost track of its channel once d2x's NAND emulation was on, and the game itself then looked for the channel in the emulated NAND and restarted the console. Both are fixed. Checked in our Dolphin build that emulates d2x, not yet on a real Wii or vWii.
-- **A GameCube controller's pointer goes away** half a second after it's unplugged, from the Wii's port or the adapter, and the next controller's pointer starts in the middle of the screen. Before, swapping ports could leave a pointer on screen for good.
-- **The Rift Store's list** (already live for every RiftWii, since it's online): every app has an icon now, each app's link goes to its own page, the descriptions are rewritten, and apps whose download is gone are off the list.
+- **Get more themes works again.** RiftWii's website moved from riftwii.github.io to riftwii.com in mid-November, and the old address now sends everything on to the new one. For safety the theme browser doesn't follow a server sending it somewhere else, so the list never loaded, on every version since the move. RiftWii now gets themes from riftwii.com itself.
+- **Wave's preview shows in the theme browser** (already live for this version, since it's on the website): it was bigger than RiftWii takes.
+- **A only presses what the pointer is on.** In the Rift Store, A with the pointer on empty space opened the lit item, and a GameCube controller's A on a button at the bottom (Search, for one) went to the page underneath instead. Now, with the pointer on screen, A presses what it points at and nothing else; with the pointer hidden, A presses the lit item as before.
 
 ## What to test
 
-1. **A game with saves in an emulated NAND** (the game page's Saves: SD, emulated NAND), from USB or SD: HOME > Wii Menu. Do you come back to RiftWii?
-2. **A new theme**: Settings > Themes > Get more themes, install Plaza, Wave or Dashboard. Look at Home and the shelf, and press Up on a box to see its back.
-3. **A GameCube controller**: unplug it while its pointer is on screen, then plug one into another port.
+1. **Settings > Menu > Get more themes**: does the list load, and does a theme install?
+2. **The Rift Store with a GameCube controller**: point at Search and press A. Does the keyboard open?
+3. **A on empty space** in the Rift Store: nothing should happen.
 
 ## Known issues
 
-- **The way back from a WAD game or a game with emulated-NAND saves** hasn't been tried on a real Wii or vWii yet, including this release's fix.
+- **The way back from a WAD game or a game with emulated-NAND saves** hasn't been tried on a real Wii or vWii yet, including 2611-249's fix.
 - **The Rift Store** hasn't been tried on a real Wii yet: its downloads, a full SD card, and Stop while files are being put in place.
 - **Big libraries** were checked in Dolphin only (an update and a 400-game list with memory held back), not yet on a real Wii with a big drive.
 - **GameTDB entries for mod tiles** were checked in Dolphin only. The first start after updating reads the game details once more in the background, so mod covers can be found for every game on your drives.

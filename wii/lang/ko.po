@@ -4137,8 +4137,11 @@ msgstr "아무 버튼이나 누르면 RiftWii가 하는 일을 볼 수 있습니
 msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
 msgstr "게임 패키지: 게임이 시작되는 동안 게임 패키지를 보여 줍니다. 아무 버튼이나 누르면 RiftWii가 하는 일을 볼 수 있습니다. 로그: 모든 단계를 한 줄씩 보여 줍니다. 실행에 실패하면 항상 로그가 나타납니다."
 
-msgid "The Rift Store: get homebrew apps"
-msgstr "Rift Store: 홈브루 앱 받기"
+msgid "Get more themes works again"
+msgstr "테마 받기가 다시 작동함"
+
+msgid "A only presses what the pointer is on"
+msgstr "A는 포인터가 가리키는 것만 누름"
 
 msgid "Themes can draw the back of the box"
 msgstr "테마가 케이스 뒷면도 그릴 수 있음"
@@ -4151,9 +4154,6 @@ msgstr "에뮬레이트 NAND 게임에서 RiftWii로 돌아옴"
 
 msgid "The GameCube pointer hides when unplugged"
 msgstr "게임큐브 컨트롤러를 빼면 포인터가 사라짐"
-
-msgid "Big libraries use less memory"
-msgstr "게임이 많아도 메모리를 덜 사용"
 
 msgid "Manage game"
 msgstr "게임 관리"

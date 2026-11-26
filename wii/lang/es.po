@@ -4137,8 +4137,11 @@ msgstr "Pulsa cualquier botón para ver qué está haciendo RiftWii."
 msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
 msgstr "Caja del juego: la caja del juego mientras se inicia; pulsa cualquier botón para ver qué está haciendo RiftWii. Registro: cada paso, línea por línea. Si el inicio falla, el registro siempre se muestra."
 
-msgid "The Rift Store: get homebrew apps"
-msgstr "Rift Store: consigue apps homebrew"
+msgid "Get more themes works again"
+msgstr "Obtener más temas vuelve a funcionar"
+
+msgid "A only presses what the pointer is on"
+msgstr "A solo pulsa lo que señala el puntero"
 
 msgid "Themes can draw the back of the box"
 msgstr "Los temas pueden dibujar el dorso de la caja"
@@ -4151,9 +4154,6 @@ msgstr "Los juegos con NAND emulada vuelven a RiftWii"
 
 msgid "The GameCube pointer hides when unplugged"
 msgstr "El puntero de GameCube se oculta al desconectarlo"
-
-msgid "Big libraries use less memory"
-msgstr "Las bibliotecas grandes usan menos memoria"
 
 msgid "Manage game"
 msgstr "Gestionar juego"
