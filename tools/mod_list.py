@@ -387,6 +387,11 @@ def zip_layout(data):
             "folders": tops, "games": game_ids(xml_texts), "files": files, "unpacked": total}
 
 
+HOSTED_URL = re.compile(r"https://(github\.com/RiftWii/mods/releases/download/files/[\w.-]+\.zip"
+                        r"|github\.com/[\w.-]+/[\w.-]+/releases/download/[^/]+/[^/]+\.zip"
+                        r"|[\w-]+\.github\.io/.+\.zip)$")
+
+
 def read_hosted(path):
     """The rehosted mods (RiftWii/mods' hosted.json): each a dict with id,
     name, makers ("A; B; C"), game, page, released, url, and optionally
@@ -402,6 +407,14 @@ def read_hosted(path):
                 raise SystemExit(f"hosted.json: {item.get('id', '?')} has no {key}")
         if not app_list.https_url_ok(item["url"], app_list.LIMITS["url"]) or not item["id"].startswith("rw-"):
             raise SystemExit(f"hosted.json: {item['id']} needs an rw- id and an https URL")
+        # Only RiftWii/mods' own release, or a maker's own GitHub release or
+        # GitHub Pages site (two mods are linked where their makers put
+        # them): a slip in hosted.json can't send the Wii anywhere else.
+        if not HOSTED_URL.match(item["url"]):
+            raise SystemExit(f"hosted.json: {item['id']}'s url is not RiftWii/mods' release or a maker's GitHub")
+        replaces = item.get("replaces", [])
+        if not isinstance(replaces, list) or not all(isinstance(i, int) and i > 0 for i in replaces):
+            raise SystemExit(f"hosted.json: {item['id']}'s replaces is not a list of GameBanana mod ids")
         # The page as the Wii reads it (an archive.org link, with its "http://"
         # inside, is one it refuses): the original page or Luma's Workshop's.
         if not app_list.https_url_ok(item["page"], app_list.LIMITS["page"]):

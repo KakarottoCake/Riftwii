@@ -199,8 +199,12 @@ class HostedTests(unittest.TestCase):
             return mod_list.read_hosted(f.name)
 
         self.assertEqual(len(read([self.ITEM])), 1)
+        maker = "https://github.com/Syreyup/BattleFortSMG2/releases/download/v1.0/Battle.Fort.v1.0.zip"
+        self.assertEqual(len(read([dict(self.ITEM, url=maker, replaces=[376852])])), 1)
+        self.assertEqual(len(read([dict(self.ITEM, url="https://heyimheroic.github.io/files/mods/DesertSnake-SMG2.zip")])), 1)
         for bad in ({"id": "gb1"}, {"url": "http://example.org/a.zip"}, {"makers": ""},
-                    {"page": "https://web.archive.org/web/2014/http://example.org/"}):
+                    {"page": "https://web.archive.org/web/2014/http://example.org/"},
+                    {"url": "https://example.org/mod.zip"}, {"replaces": ["388863"]}, {"replaces": 388863}):
             with self.assertRaises(SystemExit):
                 read([dict(self.ITEM, **bad)])
 
