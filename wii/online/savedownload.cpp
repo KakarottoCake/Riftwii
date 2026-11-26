@@ -25,6 +25,7 @@
 #include "riftwii/gcreal.hpp"
 #include "riftwii/saveinstall.hpp"
 #include "riftwii/saveinflate.hpp"
+#include "riftwii/sha256.hpp"
 #include "riftwii/sharednand.hpp"
 
 namespace riftwii::wii::saves {
@@ -68,6 +69,37 @@ bool read_file(const std::string& path, std::size_t limit, std::vector<std::uint
     ok = std::fclose(file) == 0 && ok;
     return ok;
 }
+
+#ifdef RIFTWII_TEST_BUILD
+// A save at https://riftwii.test/<name>: sd:/riftwii/test_files/<name> copied
+// to the download's place, with its length and SHA-256 as a download has.
+bool read_test_file(const std::string& url, FileDownload& got) {
+    constexpr const char* kTestHost = "https://riftwii.test/";
+    if (url.compare(0, std::strlen(kTestHost), kTestHost) != 0) return false;
+    const std::string name = url.substr(std::strlen(kTestHost));
+    if (name.empty() || name.find('/') != std::string::npos || name.find("..") != std::string::npos) return false;
+    FILE* from = std::fopen(("sd:/riftwii/test_files/" + name).c_str(), "rb");
+    if (!from) return false;
+    FILE* to = std::fopen(kDownload, "wb");
+    if (!to) {
+        std::fclose(from);
+        return false;
+    }
+    Sha256 hash;
+    std::uint8_t chunk[4096];
+    std::size_t read;
+    got.length = 0;
+    while ((read = std::fread(chunk, 1, sizeof(chunk), from)) > 0) {
+        hash.update(chunk, read);
+        std::fwrite(chunk, 1, read, to);
+        got.length += read;
+    }
+    std::fclose(from);
+    std::fclose(to);
+    got.digest = hash.finish();
+    return true;
+}
+#endif
 
 bool fetch_list() {
     std::vector<std::uint8_t> text;
@@ -248,6 +280,15 @@ bool install_save() {
         return false;
     }
     FileDownload got;
+#ifdef RIFTWII_TEST_BUILD
+    // The test build only: a save at https://riftwii.test/<name> is read from
+    // sd:/riftwii/test_files/<name>, so a Dolphin test can install a save
+    // (one from Dolphin's own NAND, with its Mii names) that must not be
+    // put online. Checked against the list's size and SHA-256 as a download is.
+    if (read_test_file(g_pick.url, got)) {
+        logf("Test build: the save is %s on the SD card\n", g_pick.url);
+    } else
+#endif
     if (!HttpDownloadToFile(g_pick.url, kDownload, g_pick.size, got, g_error, 15000,
         [](std::size_t bytes) {
             g_percent.store(static_cast<unsigned>(std::min<std::uint64_t>(100, bytes * 100ull / g_pick.size)));
