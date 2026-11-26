@@ -212,6 +212,16 @@ bool install_wii() {
     localtime_r(&now, &local);
     char timestamp[32];
     std::strftime(timestamp, sizeof(timestamp), "%Y%m%d-%H%M%S", &local);
+    // An earlier download that stopped halfway leaves data.download; the
+    // installer moves it aside (data.download-<time>-N) and carries on.
+    // Say so here, so a tester knows the folder can be tidied away.
+    const std::string title = root + save_wii_title_path(g_pick.game_id,
+                                                         save_wii_title_type(root, g_pick.game_id, g_title_id));
+    struct stat leftover;
+    if (stat((title + "/data.download").c_str(), &leftover) == 0) {
+        logf("Saves: an earlier download of this save stopped halfway; its files are kept beside the save as "
+             "data.download-%s-N and can be deleted on a PC.\n", timestamp);
+    }
     SaveZipInflater inflater(stopped);
     const bool ok = save_install_wii_zip(g_pick, root, read, &inflater, true, timestamp, g_backup, g_error,
         [](std::uint64_t done, std::uint64_t total) {
