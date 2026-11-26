@@ -183,7 +183,7 @@ So the line must never be left to chance. `Makefile.wii` used to link
 `wii/core/mem1tail.o` after every library, which made Home's 128 KiB
 scan stack the last thing in `.bss` and put the line inside it.
 
-Since the passes below, the program ends about 770 KiB under the line,
+Since the passes below, the program ends about 1.2 MiB under the line,
 and the line is in the heap. That is as safe: before `SYS_Init` copies
 the DSP code, libogc writes only two things from the heap's start
 (`__Arena1Lo`, the end of `.bss`): the command line and `argv[]`
@@ -194,7 +194,7 @@ stash's dead MEM1 copy right there. So Home's scan stack now comes from
 MEM2 at the first scan. `tools/check_mem1_line.py` fails the build unless
 the line is at least 4 KiB above the end of `.bss` plus 128 KiB (64 KiB
 for the command line, which no loader comes near, and the workspace).
-Growth of about 640 KiB would bring the end back near the line: then a
+Growth of about 1.1 MiB would bring the end back near the line: then a
 buffer that nothing uses before `main` must be linked last again, big
 enough to cover it (as `mem1tail.c` did; see the script's notes).
 
@@ -327,10 +327,11 @@ for tools; those are not loaded into MEM1.
 
 ### The MEM2 copy
 
-The copy goes to `mem::kStashArea`, which is `0x90809000`, right above the
-restart snapshot (`0x90800000`–`0x90809000`). It is 32 bytes of notes plus
-927 KiB of stash, and `mem::Init` starts arena 2 above it (`0x908ED000`
-today). Checked against the other users of MEM2:
+The copy goes to `mem::kStashArea`, which is `0x90881000`, above the
+restart snapshot (`0x90800000`–`0x90809000`), the main thread's stack
+(`0x90809000`–`0x90829000`) and libbte's and libwiiuse's buffers
+(`0x90829000`–`0x90881000`). It is 32 bytes of notes plus the stash (314
+KiB today), and `mem::Init` starts arena 2 above it. Checked against the other users of MEM2:
 
 - **IOS reloads** write below `0x90800000`, so they never reach it.
 - **The menu's MEM2 heap**, covers and textures come from arena 2, which
@@ -435,8 +436,8 @@ showed the DSP problem), a USB DVD drive and a d2x USB launch.
 
 Still in MEM1 and left as they are:
 
-- libogc's and libbte's own buffers (`memb_mem_pool_pbufs` 201 KiB,
-  `s_mainStack` 128 KiB, `ram_block` 64 KiB, `__wpdcb` 34 KiB): prebuilt.
+- libogc's and libasnd's own buffers (`__conf_buffer`, `audio_buf`, 16 KiB
+  each): prebuilt, and the sound library's are read by the DSP.
 - libwiigui's GX FIFO (`gp_fifo`, 256 KiB). A smaller FIFO stalls the CPU
   sooner instead of breaking, so 128 KiB would likely work, but how much
   the menu's frame time suffers needs a Wii to measure.
@@ -475,6 +476,20 @@ threads run):
 | The pad hook's two working copies of the USB controller catalog (`plan_pad_hook`) | 11.5 KiB of statics | Taken for the plan | 11.5 KiB |
 | Three 4 KiB read buffers: the USB drive's first block, twice (`usbcatalog.cpp`), and a title's TMD view (`reportsend.cpp`) | 12 KiB in `.bss` | Taken for the read | 12 KiB |
 | The shelf themes' backdrop textures (`gui_shelf.cpp`) | 5.5 KiB in `.bss` | From MEM2 at the first backdrop | 5.5 KiB |
+
+A fourth pass moved it on to `0x80ECCEC0`, 456 KiB lower again (in
+Dolphin, 2936 KiB of MEM1 free at the start and 1712 KiB once the menu's
+threads run), by putting what prebuilt libraries kept in MEM1 into MEM2:
+
+| What | Before | Now | MEM1 kept |
+| --- | --- | --- | ---: |
+| The main thread's stack (libogc's `default_stacks.o`) | 128 KiB in `.bss` | `mem::kMainStack` in MEM2: `wii/core/mainstack.cpp` defines the two weak pointers crt0 reads, so libogc's file is not linked. The exception stack stays in MEM1 (16 KiB), as exceptions begin without address translation | 128 KiB |
+| libbte's packet pools and libwiiuse's state (`memb_mem_pool_pbufs`, `ram_block`, `__wpdcb`, ...) | 329 KiB in `.bss` | `mem::kLibraryBss` in MEM2: `wii/core/mem2bss.ld`, added to libogc's linker script, places their `.bss` there in a segment the DOL leaves out, and `__wrap___CheckARGV` zeroes it at every start | 329 KiB |
+
+Both are above `kMem2Floor`, where an IOS reload never writes, and a
+launch keeps memory patches off them (`boot.cpp`). In Dolphin a Wii Remote
+connects through the stack as before, and a Mario Kart Wii launch with a
+pack installs the runtime and every hook and the game runs.
 
 ### `riftwii.elf`
 

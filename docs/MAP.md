@@ -145,6 +145,8 @@ The build compiles every folder into one, so no two files share a name.
 | `disclight.cpp` | The disc slot light's pulse while a game loads or a disc is copied; dark while a cIOS runs and at every IOS reload |
 | `sdwritecheck.cpp` | Home's once-per-start check that the SD card can be written (full, locked or faulty), through `src/fs/sdwrite.cpp` |
 | `streamprint.cpp` | Every `FILE` printf routed through `snprintf`'s formatter, so newlib's other formatting engines stay out of the DOL (`src/data/streamformat.cpp`) |
+| `mainstack.cpp` | The stacks crt0 sets up: the main thread's in MEM2 (`mem::kMainStack`), the exception stack in MEM1, in place of libogc's defaults |
+| `mem2bss.ld` | Added to libogc's linker script: libbte's and libwiiuse's zero-filled buffers in MEM2 (`mem::kLibraryBss`), zeroed by `restart.cpp` at every start |
 | `timezone.cpp` | newlib's time zone set-up without its `TZ` parser, which a Wii never needs (`--wrap=_tzset_unlocked_r`) |
 | `packedblobs.cpp`, `packedblobs.hpp` | Unpacks a zstd frame of runtime blobs made by `tools/pack_blobs.py`, for the time a launch needs them |
 

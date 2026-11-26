@@ -23,6 +23,9 @@
 extern "C" {
 extern char __CTOR_LIST__[];
 extern char __sbss_start[];
+// libbte's and libwiiuse's buffers in MEM2 (wii/core/mem2bss.ld).
+extern char __riftwii_mem2bss_start[];
+extern char __riftwii_mem2bss_end[];
 extern void __app_start();
 void __real___CheckARGV();
 void __wrap___CheckARGV();
@@ -70,6 +73,8 @@ RestartNote g_note;
 extern "C" void __wrap___CheckARGV() {
     using namespace riftwii::wii;
     startup::Begin();
+    // Their .bss, which no loader clears, as crt0 clears the rest after this.
+    std::memset(__riftwii_mem2bss_start, 0, static_cast<std::size_t>(__riftwii_mem2bss_end - __riftwii_mem2bss_start));
     // First: libogc's __CheckARGV moves the command line to the heap's
     // start, where the start-up stash still lies (stash.hpp).
     riftwii_take_stash();
