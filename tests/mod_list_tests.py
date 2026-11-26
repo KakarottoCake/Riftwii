@@ -36,6 +36,18 @@ class ZipTailTests(unittest.TestCase):
         # Only the last 30 bytes: the directory is not in them.
         self.assertIsNone(mod_list.zip_names_from_tail(data[-30:], len(data)))
 
+    def test_a_damaged_directory_record(self):
+        # A record that claims more than the directory holds.
+        record = b"PK\x01\x02" + b"\0" * 24 + b"\xff\x00\0\0\0\0" + b"\0" * 16
+        eocd = b"PK\x05\x06" + b"\0" * 4 + (1).to_bytes(2, "little") * 2 + len(record).to_bytes(4, "little") + \
+            (0).to_bytes(4, "little") + b"\0\0"
+        data = record + eocd
+        self.assertIsNone(mod_list.zip_names_from_tail(data, len(data)))
+        # And a directory too short for one record's fixed part.
+        short = b"PK\x01\x02" + b"PK\x05\x06" + b"\0" * 4 + (1).to_bytes(2, "little") * 2 + \
+            (4).to_bytes(4, "little") + (0).to_bytes(4, "little") + b"\0\0"
+        self.assertIsNone(mod_list.zip_names_from_tail(short, len(short)))
+
     def test_not_a_zip(self):
         self.assertIsNone(mod_list.zip_names_from_tail(b"Rar!\x1a\x07\x00" + b"\0" * 100, 107))
 
@@ -79,6 +91,16 @@ class TextTests(unittest.TestCase):
     def test_game_ids(self):
         xml = b'<wiidisc version="1"><id game="RMG"><region type="E"/></id></wiidisc>'
         self.assertEqual(mod_list.game_ids([xml, b"<id game='smn'/>", b'<id game="!!"/>']), ["RMG", "SMN"])
+
+
+class CappedTests(unittest.TestCase):
+    def test_output_over_the_cap_stops_the_command(self):
+        writes_a_lot = [sys.executable, "-c", "import sys; sys.stdout.write('x' * 300000)"]
+        self.assertIsNone(mod_list.run_capped(writes_a_lot, 100000))
+        self.assertEqual(len(mod_list.run_capped(writes_a_lot, 400000)), 300000)
+
+    def test_a_failing_command(self):
+        self.assertIsNone(mod_list.run_capped([sys.executable, "-c", "raise SystemExit(3)"], 100))
 
 
 class ExcludeTests(unittest.TestCase):

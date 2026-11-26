@@ -156,12 +156,16 @@ def zip_names_from_tail(tail, size):
     start = cd_offset - base
     if start < 0 or start + cd_size > len(tail):
         return None
-    names, at = [], start
+    names, at, end = [], start, start + cd_size
     for _ in range(count):
-        if tail[at:at + 4] != b"PK\x01\x02":
+        # A record's fixed 46 bytes, then its name, extra and comment, all
+        # inside the directory: a damaged one is "can't tell", not a crash.
+        if at + 46 > end or tail[at:at + 4] != b"PK\x01\x02":
             return None
         flags = struct.unpack_from("<H", tail, at + 8)[0]
         name_len, extra_len, comment_len = struct.unpack_from("<HHH", tail, at + 28)
+        if at + 46 + name_len + extra_len + comment_len > end:
+            return None
         raw = tail[at + 46:at + 46 + name_len]
         names.append(raw.decode("utf-8" if flags & 0x800 else "cp437", "replace"))
         at += 46 + name_len + extra_len + comment_len
@@ -177,6 +181,31 @@ def seven_zip():
     return windows if os.path.exists(windows) else None
 
 
+MAX_LISTING = 4 << 20   # 7z's listing of one archive, at most
+MAX_XML = 1 << 20       # one Riivolution XML, at most
+
+
+def run_capped(args, limit):
+    """A command's output, or None when it fails or writes more than
+    `limit` bytes (the command is stopped there: a small archive can unpack
+    to gigabytes)."""
+    child = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    out = bytearray()
+    try:
+        while True:
+            chunk = child.stdout.read(65536)
+            if not chunk:
+                break
+            out += chunk
+            if len(out) > limit:
+                child.kill()
+                return None
+    finally:
+        child.stdout.close()
+        child.wait()
+    return bytes(out) if child.returncode == 0 else None
+
+
 def other_names_and_xml(data, ext):
     """Entry names of a 7z or rar download, and the text of its Riivolution
     XMLs, through the 7z command."""
@@ -187,16 +216,17 @@ def other_names_and_xml(data, ext):
         path = os.path.join(folder, "mod." + ext)
         with open(path, "wb") as f:
             f.write(data)
-        out = subprocess.run([tool, "l", "-slt", "-ba", path], capture_output=True, text=True, errors="replace")
-        if out.returncode != 0:
+        listing = run_capped([tool, "l", "-slt", "-ba", path], MAX_LISTING)
+        if listing is None:
             raise Skip(f"7z could not read the .{ext}")
-        names = [line[7:].replace("\\", "/") for line in out.stdout.splitlines() if line.startswith("Path = ")]
+        text = listing.decode("utf-8", "replace")
+        names = [line[7:].replace("\\", "/") for line in text.splitlines() if line.startswith("Path = ")]
         xmls = {}
         for name in names:
             if RIIVOLUTION_XML.search(name):
-                got = subprocess.run([tool, "e", "-so", path, name], capture_output=True)
-                if got.returncode == 0 and len(got.stdout) < (1 << 20):
-                    xmls[name] = got.stdout
+                got = run_capped([tool, "e", "-so", path, name], MAX_XML)
+                if got is not None:
+                    xmls[name] = got
         return names, xmls
 
 
@@ -415,7 +445,7 @@ class Builder:
             names, xmls = other_names_and_xml(data, ext)
             root, riiv, xml_names, tops = pack_layout(names)
             return {"format": ext, "size": len(data), "sha256": hashlib.sha256(data).hexdigest(),
-                    "root": root, "riivolution": riiv, "program": riiv + xml_names[0][len(root) + len(riiv):],
+                    "root": root, "riivolution": riiv, "program": "riivolution/" + xml_names[0][len(root) + len(riiv):],
                     "folders": tops, "games": game_ids(xmls.values())}
         raise Skip(f"a .{ext} file")
 
@@ -446,7 +476,7 @@ class Builder:
         if files == 0 or files > app_list.MAX_FILES or total > app_list.MAX_UNPACKED:
             raise Skip(f"{files} files, {total} bytes")
         return {"format": "zip", "size": len(data), "sha256": hashlib.sha256(data).hexdigest(),
-                "root": root, "riivolution": riiv, "program": riiv + xml_names[0][len(root) + len(riiv):],
+                "root": root, "riivolution": riiv, "program": "riivolution/" + xml_names[0][len(root) + len(riiv):],
                 "folders": tops, "games": game_ids(xml_texts), "files": files, "unpacked": total}
 
     # -- the entry --
@@ -465,18 +495,21 @@ class Builder:
                 self.log(f"  {p.get('_sName')}: {f.get('_sFile')}: {verdict['skip']}")
                 continue
             out.append((f, verdict))
-        entries = []
-        for f, v in out:
-            entries.append(self.entry(p, f, v, game_name, several=len(out) > 1))
-        return [e for e in entries if e]
+        if not out:
+            return []
+        # One entry per mod, always "gb<mod id>": its newest file the Wii can
+        # install (else its newest listed one). A new version is a new file
+        # on GameBanana; under the same id the store shows it as an update
+        # and keeps the install's note, which an id per file would lose.
+        out.sort(key=lambda fv: (fv[1]["format"] == "zip", int(fv[0].get("_tsDateAdded") or 0)), reverse=True)
+        f, v = out[0]
+        entry = self.entry(p, f, v, game_name)
+        return [entry] if entry else []
 
-    def entry(self, p, f, v, game_name, several):
+    def entry(self, p, f, v, game_name):
         mod_id = p["_idRow"]
-        app_id = f"gb{mod_id}" if not several else f"gb{mod_id}-{f['_idRow']}"
-        name = p.get("_sName") or ""
-        if several:
-            name = f"{name} ({os.path.splitext(f.get('_sFile', ''))[0]})"
-        name = cut(plain_text(name, 200), app_list.LIMITS["name"])
+        app_id = f"gb{mod_id}"
+        name = cut(plain_text(p.get("_sName") or "", 200), app_list.LIMITS["name"])
         author = cut(plain_text(p["_aSubmitter"].get("_sName", ""), 200), app_list.LIMITS["author"]) or "GameBanana"
         version = cut(plain_text(p.get("_sVersion") or "", 60), app_list.LIMITS["version"])
         if not version:
@@ -583,7 +616,7 @@ def build(args):
     icon_cache = os.path.join(args.cache, "icons")
     os.makedirs(icon_cache, exist_ok=True)
     for e in entries:
-        mod_key = e["id"].split("-")[0][2:]
+        mod_key = e["id"][2:]
         picture = builder.state["mods"].get(mod_key, {}).get("profile", {}).get("_sPicture")
         cached = os.path.join(icon_cache, e["id"] + ".png")
         if not os.path.exists(cached) and picture:

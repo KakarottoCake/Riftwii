@@ -75,10 +75,19 @@ store (`plugins/appstore/`) then downloads `mods.json` instead of the app
 list and opens straight on the game's mods; B there leaves the store. A
 mod installs, updates and removes as an app does: only files the store put
 on the card and nobody changed are replaced or removed, so a pack's saves
-and other mods' XMLs in `riivolution/` are never touched. A file in
-`riivolution/` that the store didn't put there is never replaced (it may
-be another pack's), except the mod's own XML, and nothing is ever written
-in `riivolution/save/`, where Riivolution keeps the saves it redirects.
+and other mods' XMLs in `riivolution/` are never touched. What an install replaces:
+
+- the mod's own XML (`program`), always: an XML left from an older
+  version would not match the files beside it;
+- files the store put there and nobody changed since;
+- in the mod's own folders, files the store didn't put there only when it
+  has no note of installing the mod (a copy put there by hand, after the
+  player answered Replace).
+
+Everything else is kept: a file the player changed, any file in
+`riivolution/` the store didn't put there (it may be another pack's), and
+anything in `riivolution/save/`, where Riivolution keeps the saves it
+redirects, which the store never writes.
 When the store
 closes, the game's packs are read again and a mod that is new on the card
 is switched on.

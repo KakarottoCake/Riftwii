@@ -1101,6 +1101,8 @@ private:
         std::vector<std::pair<int, std::size_t>> ranked;
         for (std::size_t i = 0; i < store_.apps.size(); ++i) {
             if (!Shown(store_.apps[i])) continue;
+            // Opened for one game's mods: a search stays within them.
+            if (!game_id_.empty() && !app_mod_for_game(*store_.apps[i].listing, game_id_.c_str())) continue;
             const int rank = app_match_rank(*store_.apps[i].listing, search_);
             if (rank > 0) ranked.emplace_back(-rank, i);  // the best first, then by name
         }
