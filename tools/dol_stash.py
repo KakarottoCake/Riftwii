@@ -37,6 +37,9 @@ SECTION_COUNT = 18
 OFFSET_TABLE = 0x00
 ADDRESS_TABLE = 0x48
 SIZE_TABLE = 0x90
+# Above every MEM1 address: a DOL section here is the read-only data bound
+# for MEM2, loaded in MEM1 for crt0 to copy.
+MEM2_START = 0x90000000
 BSS_ADDRESS = 0xD8
 BSS_SIZE = 0xDC
 DOL_HEADER_BYTES = 0x100
@@ -96,11 +99,19 @@ def add_to_dol(dol, image, limit):
     addresses = list(struct.unpack_from(">18I", header, ADDRESS_TABLE))
     sizes = list(struct.unpack_from(">18I", header, SIZE_TABLE))
     bss_address, bss_size = struct.unpack_from(">II", header, BSS_ADDRESS)
-    # libogc's __Arena1Lo is the BSS's end rounded up to 32 bytes; the
-    # stash starts there, and wii/core/stash.cpp looks for it there.
+    # libogc's __Arena1Lo is the BSS's end rounded up to 32 bytes. The
+    # read-only data that runs from MEM2 (wii/core/mem2sections.ld) loads
+    # there instead, for crt0 to copy up (wii/core/restart.cpp), and the
+    # stash right after it; wii/core/stash.cpp looks for it there.
     address = align(bss_address + bss_size, 32)
-    highest = max([addresses[i] + sizes[i] for i in range(SECTION_COUNT) if sizes[i]] + [0])
-    if highest > address:
+    in_mem2 = [i for i in range(SECTION_COUNT) if sizes[i] and addresses[i] >= MEM2_START]
+    if len(in_mem2) > 1:
+        raise ValueError("%d DOL sections in MEM2; only the read-only data may be" % len(in_mem2))
+    for i in in_mem2:
+        addresses[i] = address
+        address = align(address + sizes[i], 32)
+    highest = max([addresses[i] + sizes[i] for i in range(SECTION_COUNT) if sizes[i] and i not in in_mem2] + [0])
+    if highest > align(bss_address + bss_size, 32):
         raise ValueError("a section already ends above the BSS (0x%08x): stash added twice?" % highest)
     end = address + len(image)
     if end > limit:

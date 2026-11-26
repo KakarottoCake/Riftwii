@@ -86,7 +86,7 @@ CXXFLAGS	+=	-DPUGIXML_NO_EXCEPTIONS
 CXXFLAGS	+=	-DPUGIXML_NO_STL
 # Linked high so the game's DOL (0x80004000 up) and apploader (0x81200000)
 # can be loaded while this program is still running; see wii/main.cpp.
-LDFLAGS		=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map -Wl,--section-start,.init=0x80a00000 -Wl,-T,$(PROJECT_ROOT)/wii/core/mem2bss.ld -Wl,--wrap=_sbrk_r -Wl,--wrap=_tzset_unlocked_r -Wl,--wrap=__CheckARGV -Wl,--wrap=dvmUnmountVolume -Wl,--wrap=wiiuse_init_cmd_queue \
+LDFLAGS		=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map -Wl,--section-start,.init=0x80a00000 -Wl,-T,$(PROJECT_ROOT)/wii/core/mem2sections.ld -Wl,--wrap=_sbrk_r -Wl,--wrap=_tzset_unlocked_r -Wl,--wrap=__CheckARGV -Wl,--wrap=dvmUnmountVolume -Wl,--wrap=wiiuse_init_cmd_queue \
 				-Wl,--wrap=classic_ctrl_handshake,--wrap=parse_event,--wrap=USB_GetDeviceList
 # No .eh_frame_hdr: the sorted index of the unwinding tables the prebuilt
 # libraries still carry. libgcc's unwinder here would find frames through
@@ -330,9 +330,10 @@ else
 	@$(PYTHON) $(PROJECT_ROOT)/tools/pack_dol.py "$(UNPACKED)" "$(DOLPACK_STUB)" "$@" --zstd $(ZSTD)
 endif
 # The TLS library too, so new BearSSL flags (Makefile.bearssl) relink the DOL.
-# devkitPro's link rule. The script that puts libbte's and libwiiuse's
-# buffers in MEM2 relinks when it changes; it reaches ld through LDFLAGS.
-$(OUTPUT).elf: $(OFILES) $(PROJECT_ROOT)/build-bearssl/libbearssl.a $(PROJECT_ROOT)/wii/core/mem2bss.ld
+# devkitPro's link rule. The script that puts the read-only data and
+# libbte's and libwiiuse's buffers in MEM2 relinks when it changes; it
+# reaches ld through LDFLAGS.
+$(OUTPUT).elf: $(OFILES) $(PROJECT_ROOT)/build-bearssl/libbearssl.a $(PROJECT_ROOT)/wii/core/mem2sections.ld
 	$(SILENTMSG) linking ... $(notdir $@)
 	$(ADD_COMPILE_COMMAND) end
 	$(SILENTCMD)$(LD) $(filter-out %.ld,$^) $(LDFLAGS) $(LIBPATHS) $(LIBS) -o $@

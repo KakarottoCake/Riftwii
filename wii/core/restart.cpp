@@ -23,9 +23,13 @@
 extern "C" {
 extern char __CTOR_LIST__[];
 extern char __sbss_start[];
-// libbte's and libwiiuse's buffers in MEM2 (wii/core/mem2bss.ld).
+// libbte's and libwiiuse's buffers and the read-only data, in MEM2
+// (wii/core/mem2sections.ld).
 extern char __riftwii_mem2bss_start[];
 extern char __riftwii_mem2bss_end[];
+extern unsigned __riftwii_mem2rodata_start[];
+extern unsigned __riftwii_mem2rodata_end[];
+extern char __bss_end[];
 extern void __app_start();
 void __real___CheckARGV();
 void __wrap___CheckARGV();
@@ -68,10 +72,33 @@ RestartNote g_note;
 }  // namespace
 }  // namespace riftwii::wii
 
+namespace {
+
+// The read-only data up to MEM2, from where the DOL loaded it just above
+// .bss (tools/dol_stash.py), before anything reads it: so no constants, no
+// library calls, words copied by hand. Its first two words are a marker and
+// its size; the MEM1 marker is erased after the copy, so a warm restart,
+// which finds heap leftovers there, keeps the copy from the first start.
+constexpr unsigned kReadOnlyMarker = 0x52575244;  // "RWRD"
+
+void take_read_only_data() {
+    unsigned* to = __riftwii_mem2rodata_start;
+    const unsigned words = static_cast<unsigned>(__riftwii_mem2rodata_end - __riftwii_mem2rodata_start);
+    unsigned* from = reinterpret_cast<unsigned*>((reinterpret_cast<unsigned>(__bss_end) + 31) & ~31u);
+    if (from[0] != kReadOnlyMarker || from[1] != words * 4) return;
+    for (unsigned i = 0; i < words; ++i) to[i] = from[i];
+    from[0] = 0;
+    // Hardware reads some of it by DMA (textures, sounds): out of the cache.
+    DCFlushRange(to, words * 4);
+}
+
+}  // namespace
+
 // Runs inside crt0, on the exception stack, before .bss is cleared and
 // before libogc is up: fixed addresses and memcpy only.
 extern "C" void __wrap___CheckARGV() {
     using namespace riftwii::wii;
+    take_read_only_data();
     startup::Begin();
     // Their .bss, which no loader clears, as crt0 clears the rest after this.
     std::memset(__riftwii_mem2bss_start, 0, static_cast<std::size_t>(__riftwii_mem2bss_end - __riftwii_mem2bss_start));

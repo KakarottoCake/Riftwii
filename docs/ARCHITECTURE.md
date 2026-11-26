@@ -916,9 +916,10 @@ ID, including this change, consistently.
 | `0x90000000`–`0x90800000` | Left alone by the loader: an IOS reload stages its kernel here |
 | `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/core/restart.hpp`) |
 | `0x90809000`–`0x90829000` | The main thread's stack (`wii/core/mainstack.cpp`) |
-| `0x90829000`–`0x90881000` | The Bluetooth and Wii Remote libraries' zero-filled buffers (`wii/core/mem2bss.ld`) |
-| `0x90881000`–about `0x908D0000` | The start-up stash's copy: translations and GPL, zstd; no font data (`wii/core/stash.hpp`, [MEMORY.md](MEMORY.md)); arena 2 starts above it |
-| From the end of `.bss` (start-up only) | The start-up stash as `boot.dol` loads it, until crt0 has copied it to MEM2; then the MEM1 heap |
+| `0x90829000`–`0x90881000` | The Bluetooth and Wii Remote libraries' zero-filled buffers (`wii/core/mem2sections.ld`) |
+| `0x90881000`–`0x90951000` | The program's read-only data, copied there at every fresh start from where the DOL loads it, above `.bss` (`wii/core/mem2sections.ld`, `wii/core/restart.cpp`) |
+| `0x90951000`–about `0x909A0000` | The start-up stash's copy: translations and GPL, zstd; no font data (`wii/core/stash.hpp`, [MEMORY.md](MEMORY.md)); arena 2 starts above it |
+| From the end of `.bss` (start-up only) | The read-only data, then the start-up stash, as `boot.dol` loads them, until crt0 has copied both to MEM2; then the MEM1 heap |
 | Bottom of the game's MEM2 arena | Resident runtime data, its code first for code builds and Brawl (or the virtual SD card's code and state, about 49 KB plus 12 bytes for each piece of the image on its card), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB), then the Reset's request block (about 1.5 KB) |
 | `0x90000000`–`0x91000000` | A GameCube game's ARAM (in a GameCube game only) |
 | `0x91000000`–`0x91200000` | A GameCube game's memory card image |

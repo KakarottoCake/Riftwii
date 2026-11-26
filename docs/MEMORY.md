@@ -183,7 +183,7 @@ So the line must never be left to chance. `Makefile.wii` used to link
 `wii/core/mem1tail.o` after every library, which made Home's 128 KiB
 scan stack the last thing in `.bss` and put the line inside it.
 
-Since the passes below, the program ends about 1.2 MiB under the line,
+Since the passes below, the program ends about 1.9 MiB under the line,
 and the line is in the heap. That is as safe: before `SYS_Init` copies
 the DSP code, libogc writes only two things from the heap's start
 (`__Arena1Lo`, the end of `.bss`): the command line and `argv[]`
@@ -194,7 +194,7 @@ stash's dead MEM1 copy right there. So Home's scan stack now comes from
 MEM2 at the first scan. `tools/check_mem1_line.py` fails the build unless
 the line is at least 4 KiB above the end of `.bss` plus 128 KiB (64 KiB
 for the command line, which no loader comes near, and the workspace).
-Growth of about 1.1 MiB would bring the end back near the line: then a
+Growth of about 1.8 MiB would bring the end back near the line: then a
 buffer that nothing uses before `main` must be linked last again, big
 enough to cover it (as `mem1tail.c` did; see the script's notes).
 
@@ -327,10 +327,12 @@ for tools; those are not loaded into MEM1.
 
 ### The MEM2 copy
 
-The copy goes to `mem::kStashArea`, which is `0x90881000`, above the
+The copy goes to `mem::kStashArea`, which is `0x90951000`, above the
 restart snapshot (`0x90800000`–`0x90809000`), the main thread's stack
-(`0x90809000`–`0x90829000`) and libbte's and libwiiuse's buffers
-(`0x90829000`–`0x90881000`). It is 32 bytes of notes plus the stash (314
+(`0x90809000`–`0x90829000`), libbte's and libwiiuse's buffers
+(`0x90829000`–`0x90881000`) and the read-only data
+(`0x90881000`–`0x90951000`). In MEM1 the DOL loads the read-only data
+first above `.bss`, then the stash. It is 32 bytes of notes plus the stash (314
 KiB today), and `mem::Init` starts arena 2 above it. Checked against the other users of MEM2:
 
 - **IOS reloads** write below `0x90800000`, so they never reach it.
@@ -484,12 +486,29 @@ threads run), by putting what prebuilt libraries kept in MEM1 into MEM2:
 | What | Before | Now | MEM1 kept |
 | --- | --- | --- | ---: |
 | The main thread's stack (libogc's `default_stacks.o`) | 128 KiB in `.bss` | `mem::kMainStack` in MEM2: `wii/core/mainstack.cpp` defines the two weak pointers crt0 reads, so libogc's file is not linked. The exception stack stays in MEM1 (16 KiB), as exceptions begin without address translation | 128 KiB |
-| libbte's packet pools and libwiiuse's state (`memb_mem_pool_pbufs`, `ram_block`, `__wpdcb`, ...) | 329 KiB in `.bss` | `mem::kLibraryBss` in MEM2: `wii/core/mem2bss.ld`, added to libogc's linker script, places their `.bss` there in a segment the DOL leaves out, and `__wrap___CheckARGV` zeroes it at every start | 329 KiB |
+| libbte's packet pools and libwiiuse's state (`memb_mem_pool_pbufs`, `ram_block`, `__wpdcb`, ...) | 329 KiB in `.bss` | `mem::kLibraryBss` in MEM2: `wii/core/mem2sections.ld`, added to libogc's linker script, places their `.bss` there in a segment the DOL leaves out, and `__wrap___CheckARGV` zeroes it at every start | 329 KiB |
 
 Both are above `kMem2Floor`, where an IOS reload never writes, and a
 launch keeps memory patches off them (`boot.cpp`). In Dolphin a Wii Remote
 connects through the stack as before, and a Mario Kart Wii launch with a
 pack installs the runtime and every hook and the game runs.
+
+A fifth pass moved it on to `0x80E0D520`, 766 KiB lower again (in
+Dolphin, 3704 KiB of MEM1 free at the start and 2480 KiB once the menu's
+threads run), by running the program's read-only data from MEM2:
+
+| What | Before | Now | MEM1 kept |
+| --- | --- | --- | ---: |
+| `.rodata`: strings, tables, embedded pictures, sounds and blobs | 768 KiB for the program's whole life | `mem::kReadOnlyData`: linked there by `wii/core/mem2sections.ld`; `tools/dol_stash.py` makes the DOL load it just above `.bss` (the packed DOL's stub runs before libogc maps MEM2), and `__wrap___CheckARGV` copies it up before anything reads it, so its MEM1 bytes become the heap's. A marker and its size in its first two words tell a fresh start from a warm restart, which keeps the copy. libasnd's stays in MEM1 | 766 KiB |
+
+In Dolphin the menu draws as before (screenshots before and after a warm
+restart from a deliberate crash, which kept the MEM2 copy), a Wii Remote
+connects, and a Mario Kart Wii launch with a pack runs.
+
+Still possible: the code (`.text`, 3.5 MiB) could go the same way, as
+libogc maps MEM2 for instructions too (IBAT4). Calls between MEM1 and MEM2
+are beyond a branch's reach, so the linker would have to add long-branch
+stubs, and libogc, crt0 and the start-up copy would stay in MEM1.
 
 ### `riftwii.elf`
 

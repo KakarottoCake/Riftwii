@@ -3240,10 +3240,11 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         // restart snapshot when the launch fails): its heap's pieces and the
         // snapshot are not the game's to patch, wherever in MEM2 they are.
         exclusions.push_back(MemoryRegion{mem::kRestartArea, mem::kRestartBytes});
-        // The main thread's stack, which this code is running on, and the
-        // Bluetooth and Wii Remote libraries' buffers.
+        // The main thread's stack, which this code is running on, the
+        // Bluetooth and Wii Remote libraries' buffers and the read-only data.
         exclusions.push_back(MemoryRegion{mem::kMainStack, mem::kMainStackBytes});
         exclusions.push_back(MemoryRegion{mem::kLibraryBss, mem::kLibraryBssBytes});
+        exclusions.push_back(MemoryRegion{mem::kReadOnlyData, mem::kReadOnlyDataBytes});
         // The start-up stash's copy: a restart after a failed launch reads the menu's font from it.
         exclusions.push_back(MemoryRegion{mem::kStashArea, stash::ReservedEnd() - mem::kStashArea});
         for (const auto& piece : mem::HeapPieces()) {
