@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cstring>
 
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/themepack.hpp"
 
 namespace riftwii {
@@ -74,7 +75,8 @@ bool zip_read_directory_at(const ZipReadAt& read, std::uint64_t size, std::vecto
     // The end record is the last thing in the file, followed by at most a
     // 65535-byte comment.
     const std::size_t window = static_cast<std::size_t>(std::min<std::uint64_t>(size, kEndSize + 65535));
-    std::vector<std::uint8_t> tail(window);
+    std::vector<std::uint8_t> tail;
+    if (!try_resize(tail, window)) return Fail(error, "there is not enough memory to read the ZIP directory");
     if (!read(size - window, tail.data(), window)) return Fail(error, "the zip file could not be read");
     std::size_t end_in_tail = 0;
     bool found = false;
@@ -95,6 +97,7 @@ bool zip_read_directory_at(const ZipReadAt& read, std::uint64_t size, std::vecto
     if (total == 0xFFFF || directory_size == 0xFFFFFFFFu || directory_offset == 0xFFFFFFFFu)
         return Fail(error, "zip64 files are not supported");
     if (total > max_entries) return Fail(error, "the zip file has too many entries");
+    if (!try_reserve(entries, total)) return Fail(error, "there is not enough memory for the ZIP's file list");
     if (directory_offset > end || directory_size > end - directory_offset)
         return Fail(error, "the zip file's directory is outside the file");
     // Each entry takes at least its fixed record, so a directory longer
@@ -255,9 +258,10 @@ bool zip_extract_at(const ZipReadAt& read, const ZipEntry& entry, ZipInflateStre
         }
         return true;
     };
+    std::vector<std::uint8_t> chunk;
+    if (!try_resize(chunk, kChunk)) return Fail(error, "there is not enough memory to unpack the ZIP file");
     if (entry.method != 0 && (inflater == nullptr || !inflater->begin()))
         return Fail(error, "the zip file could not be unpacked");
-    std::vector<std::uint8_t> chunk(kChunk);
     bool ran = true;
     bool done = entry.method == 0;
     for (std::uint32_t at = 0; ran && at < entry.packed_size; ) {

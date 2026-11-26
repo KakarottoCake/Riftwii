@@ -5042,3 +5042,45 @@ msgstr "Otros títulos"
 
 msgid "Emulated + Wii"
 msgstr "Emulada + Wii"
+
+msgid "Get a save"
+msgstr "Descargar partida"
+
+msgid "Download a save for this game. The current save is backed up first."
+msgstr "Descarga una partida para este juego. Primero se guarda una copia de la actual."
+
+msgid "Installing the save..."
+msgstr "Instalando la partida..."
+
+msgid "The save list could not be downloaded. Check the connection and try again."
+msgstr "No se pudo descargar la lista de partidas. Comprueba la conexión e inténtalo de nuevo."
+
+msgid "There are no saves listed for this version of the game yet."
+msgstr "Aún no hay partidas en la lista para esta versión del juego."
+
+msgid "This save needs to be extracted on a PC first. Source: {1}"
+msgstr "Esta partida se debe extraer primero en un PC. Fuente: {1}"
+
+msgid "Choose a RiftWii SD memory card in Options before installing a download."
+msgstr "Elige una tarjeta de memoria de RiftWii en SD en Opciones antes de instalar una descarga."
+
+msgid "Downloads go only to emulated NAND, never to the Wii. Choose an SD or emulated NAND save location first."
+msgstr "Las descargas solo van a la NAND emulada, nunca a la Wii. Elige primero una ubicación de partidas en SD o NAND emulada."
+
+msgid "Install {1} in {2}? Any save it replaces is backed up first."
+msgstr "¿Instalar {1} en {2}? Primero se guarda una copia de cualquier partida que se reemplace."
+
+msgid "The save could not be installed: {1}"
+msgstr "No se pudo instalar la partida: {1}"
+
+msgid "The save is installed."
+msgstr "La partida está instalada."
+
+msgid "The save is installed. Your previous save is kept next to it as {1}."
+msgstr "La partida está instalada. La anterior se conserva a su lado como {1}."
+
+msgid "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first."
+msgstr "Un juego en disco no puede usar una NAND emulada en la unidad USB. Elige primero una ubicación de partidas en la tarjeta SD."
+
+msgid "The save is installed. The memory card was backed up first ({1})."
+msgstr "La partida está instalada. Antes se hizo una copia de la tarjeta de memoria ({1})."

@@ -10313,5 +10313,102 @@ FR.update({
     'Emulated + Wii': 'Émulée + Wii',
 })
 
+# Downloaded saves. Keep these messages short enough for the existing row
+# pages and progress popups on both television aspect ratios.
+T.update({
+    "Get a save": ("Descargar partida", "セーブをダウンロード", "Baixar um save", "Scarica un salvataggio"),
+    "Download a save for this game. The current save is backed up first.": (
+        "Descarga una partida para este juego. Primero se guarda una copia de la actual.",
+        "このゲームのセーブをダウンロードします。今のセーブは先にコピーを残します。",
+        "Baixe um save para este jogo. Uma cópia do atual é guardada antes.",
+        "Scarica un salvataggio per questo gioco. Prima viene conservata una copia di quello attuale."),
+    "Installing the save...": ("Instalando la partida...", "セーブをインストール中...", "Instalando o save...", "Installazione del salvataggio..."),
+    "The save list could not be downloaded. Check the connection and try again.": (
+        "No se pudo descargar la lista de partidas. Comprueba la conexión e inténtalo de nuevo.",
+        "セーブの一覧をダウンロードできませんでした。接続を確認して、もう一度お試しください。",
+        "Não foi possível baixar a lista de saves. Verifique a conexão e tente de novo.",
+        "Impossibile scaricare l'elenco dei salvataggi. Controlla la connessione e riprova."),
+    "There are no saves listed for this version of the game yet.": (
+        "Aún no hay partidas en la lista para esta versión del juego.",
+        "このバージョンのゲームのセーブはまだ一覧にありません。",
+        "Ainda não há saves na lista para esta versão do jogo.",
+        "Non ci sono ancora salvataggi per questa versione del gioco."),
+    "This save needs to be extracted on a PC first. Source: {1}": (
+        "Esta partida se debe extraer primero en un PC. Fuente: {1}",
+        "このセーブは先にPCで展開する必要があります。入手先: {1}",
+        "Este save precisa ser extraído em um PC primeiro. Fonte: {1}",
+        "Questo salvataggio va prima estratto su PC. Fonte: {1}"),
+    "Choose a RiftWii SD memory card in Options before installing a download.": (
+        "Elige una tarjeta de memoria de RiftWii en SD en Opciones antes de instalar una descarga.",
+        "インストールする前に、オプションでRiftWiiのSDメモリーカードを選んでください。",
+        "Escolha um cartão de memória do RiftWii no SD em Opções antes de instalar um download.",
+        "Scegli una scheda di memoria RiftWii su SD nelle Opzioni prima di installare un download."),
+    "Downloads go only to emulated NAND, never to the Wii. Choose an SD or emulated NAND save location first.": (
+        "Las descargas solo van a la NAND emulada, nunca a la Wii. Elige primero una ubicación de partidas en SD o NAND emulada.",
+        "ダウンロード先は仮想NANDのみで、Wii本体には書き込みません。先にSDか仮想NANDをセーブ先に選んでください。",
+        "Downloads vão apenas para a NAND emulada, nunca para o Wii. Primeiro escolha um local de saves no SD ou na NAND emulada.",
+        "I download vanno solo nella NAND emulata, mai sulla Wii. Scegli prima una posizione dei salvataggi su SD o NAND emulata."),
+    "Install {1} in {2}? Any save it replaces is backed up first.": (
+        "¿Instalar {1} en {2}? Primero se guarda una copia de cualquier partida que se reemplace.",
+        "{1}を{2}にインストールしますか？置き換えるセーブは先にコピーを残します。",
+        "Instalar {1} em {2}? Uma cópia de qualquer save substituído é guardada antes.",
+        "Installare {1} in {2}? Prima viene conservata una copia dei salvataggi sostituiti."),
+    "The save could not be installed: {1}": (
+        "No se pudo instalar la partida: {1}",
+        "セーブをインストールできませんでした: {1}",
+        "Não foi possível instalar o save: {1}",
+        "Impossibile installare il salvataggio: {1}"),
+    "The save is installed.": ("La partida está instalada.", "セーブをインストールしました。", "O save foi instalado.", "Il salvataggio è installato."),
+    "The save is installed. Your previous save is kept next to it as {1}.": (
+        "La partida está instalada. La anterior se conserva a su lado como {1}.",
+        "セーブをインストールしました。前のセーブは{1}として隣に残しています。",
+        "O save foi instalado. O anterior está guardado ao lado como {1}.",
+        "Il salvataggio è installato. Quello precedente è conservato accanto come {1}."),
+    "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first.": (
+        "Un juego en disco no puede usar una NAND emulada en la unidad USB. Elige primero una ubicación de partidas en la tarjeta SD.",
+        "ディスクのゲームはUSBドライブのエミュNANDを使えません。先にSDカードのセーブ場所を選んでください。",
+        "Um jogo em disco não pode usar uma NAND emulada na unidade USB. Escolha primeiro um local de saves no cartão SD.",
+        "Un gioco su disco non può usare una NAND emulata sull'unità USB. Scegli prima una posizione dei salvataggi sulla scheda SD."),
+    "The save is installed. The memory card was backed up first ({1}).": (
+        "La partida está instalada. Antes se hizo una copia de la tarjeta de memoria ({1}).",
+        "セーブをインストールしました。先にメモリーカードをバックアップしました ({1})。",
+        "O save foi instalado. Antes foi feita uma cópia do cartão de memória ({1}).",
+        "Il salvataggio è installato. Prima è stata fatta una copia della memory card ({1})."),
+})
+KO.update({
+    "Get a save": "세이브 받기",
+    "Download a save for this game. The current save is backed up first.": "이 게임의 세이브를 받습니다. 현재 세이브는 먼저 백업합니다.",
+    "Checking the download...": "다운로드 확인 중...",
+    "Installing the save...": "세이브 설치 중...",
+    "The save list could not be downloaded. Check the connection and try again.": "세이브 목록을 받지 못했습니다. 연결을 확인하고 다시 시도하세요.",
+    "There are no saves listed for this version of the game yet.": "이 버전의 게임에 맞는 세이브가 아직 목록에 없습니다.",
+    "This save needs to be extracted on a PC first. Source: {1}": "이 세이브는 먼저 PC에서 압축을 풀어야 합니다. 출처: {1}",
+    "Choose a RiftWii SD memory card in Options before installing a download.": "다운로드를 설치하기 전에 옵션에서 RiftWii SD 메모리 카드를 선택하세요.",
+    "Downloads go only to emulated NAND, never to the Wii. Choose an SD or emulated NAND save location first.": "다운로드는 에뮬레이트 NAND에만 저장하며 Wii에는 쓰지 않습니다. 먼저 SD 또는 에뮬레이트 NAND 세이브 위치를 선택하세요.",
+    "Install {1} in {2}? Any save it replaces is backed up first.": "{1}을(를) {2}에 설치할까요? 교체할 세이브는 먼저 백업합니다.",
+    "The save could not be installed: {1}": "세이브를 설치하지 못했습니다: {1}",
+    "The save is installed.": "세이브가 설치되었습니다.",
+    "The save is installed. Your previous save is kept next to it as {1}.": "세이브가 설치되었습니다. 이전 세이브는 옆에 {1}(으)로 보관됩니다.",
+    "The save is installed. The memory card was backed up first ({1}).": "세이브가 설치되었습니다. 먼저 메모리 카드를 백업했습니다 ({1}).",
+    "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first.": "디스크 게임은 USB 드라이브의 에뮬레이트 NAND를 사용할 수 없습니다. 먼저 SD 카드의 세이브 위치를 선택하세요.",
+})
+FR.update({
+    "Get a save": "Obtenir une sauvegarde",
+    "Download a save for this game. The current save is backed up first.": "Télécharger une sauvegarde pour ce jeu. Une copie de l'actuelle est conservée avant.",
+    "Checking the download...": "Vérification du téléchargement...",
+    "Installing the save...": "Installation de la sauvegarde...",
+    "The save list could not be downloaded. Check the connection and try again.": "Impossible de télécharger la liste des sauvegardes. Vérifiez la connexion et réessayez.",
+    "There are no saves listed for this version of the game yet.": "Aucune sauvegarde n'est encore proposée pour cette version du jeu.",
+    "This save needs to be extracted on a PC first. Source: {1}": "Cette sauvegarde doit d'abord être extraite sur PC. Source : {1}",
+    "Choose a RiftWii SD memory card in Options before installing a download.": "Choisissez une carte mémoire RiftWii sur SD dans Options avant d'installer un téléchargement.",
+    "Downloads go only to emulated NAND, never to the Wii. Choose an SD or emulated NAND save location first.": "Les téléchargements vont uniquement dans la NAND émulée, jamais sur la Wii. Choisissez d'abord un emplacement sur SD ou NAND émulée.",
+    "Install {1} in {2}? Any save it replaces is backed up first.": "Installer {1} dans {2} ? Une copie de toute sauvegarde remplacée est conservée avant.",
+    "The save could not be installed: {1}": "Impossible d'installer la sauvegarde : {1}",
+    "The save is installed.": "La sauvegarde est installée.",
+    "The save is installed. Your previous save is kept next to it as {1}.": "La sauvegarde est installée. La précédente est conservée à côté sous le nom {1}.",
+    "The save is installed. The memory card was backed up first ({1}).": "La sauvegarde est installée. La carte mémoire a d'abord été copiée ({1}).",
+    "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first.": "Un jeu sur disque ne peut pas utiliser une NAND émulée sur le disque USB. Choisissez d'abord un emplacement de sauvegarde sur la carte SD.",
+})
+
 if __name__ == "__main__":
     main()

@@ -125,6 +125,7 @@
 #include "themesounds.hpp"
 #include "wiimenusounds.hpp"
 #include "themestore.hpp"
+#include "savedownload.hpp"
 #include "screenshot.hpp"
 #include "boot.hpp"
 #include "di.hpp"
@@ -163,6 +164,7 @@
 #include "riitagview.hpp"
 #include "channel.hpp"
 #include "riftwii/settingsfile.hpp"
+#include "riftwii/sharednand.hpp"
 #include "riftwii/gamepage.hpp"
 #include "gamefiles.hpp"
 #include "riftwii/textlines.hpp"
@@ -3281,6 +3283,12 @@ public:
 		unknown = false;
 	}
 	void SetUnknown() { unknown = true; }
+	// Empty again, for the next stage of a job (Set only moves forward).
+	void Restart()
+	{
+		fraction = 0;
+		shown = 0;
+	}
 	void Draw() override
 	{
 		if (!IsVisible()) return;
@@ -11144,6 +11152,8 @@ static std::string SaveNoteFor(const FrontendState& state, bool read_again = fal
 // Where new Wii saves go. The tile opens this page instead of cycling:
 // the current choice is lit, A picks it and stays, B leaves it unchanged.
 // Saves already made stay where they are.
+static void MenuGetSave(FrontendState& state);
+
 static void MenuWiiSaves(FrontendState& state)
 {
 	static const char* const kModes[] = {"global", "nand", "separate", "fresh", "emunand"};
@@ -11152,11 +11162,15 @@ static void MenuWiiSaves(FrontendState& state)
 	// picked here (RunLaunch), so the page is shown as a pack's that keeps its own.
 	const std::string ctgprFolder = CtgprSaveFolder(state);
 	const bool kept = !state.model.pack_save_owner().empty() || !ctgprFolder.empty();
-	std::vector<FlowRow> rows(kModeCount);
+	// Get a save first, where it is seen; the locations under it (row
+	// i + 1 is kModes[i]).
+	constexpr int kGetRow = 0;
+	std::vector<FlowRow> rows(kModeCount + 1);
 	for (FlowRow& row : rows) row.kind = FlowRow::Kind::Action;
+	rows[kGetRow].label = tr("Get a save");
 	for (int i = 0; i < kModeCount; ++i) {
-		rows[static_cast<std::size_t>(i)].label = SaveValue(kModes[i]);
-		rows[static_cast<std::size_t>(i)].dim = kept;
+		rows[static_cast<std::size_t>(i + 1)].label = SaveValue(kModes[i]);
+		rows[static_cast<std::size_t>(i + 1)].dim = kept;
 	}
 	int current = 0;
 	while (current < kModeCount && state.model.save_mode != kModes[current]) ++current;
@@ -11168,24 +11182,30 @@ static void MenuWiiSaves(FrontendState& state)
 			r.on = false;
 			r.value.clear();
 		}
-		rows[static_cast<std::size_t>(inUse)].on = true;
-		rows[static_cast<std::size_t>(inUse)].value = tr("In use");
+		rows[static_cast<std::size_t>(inUse + 1)].on = true;
+		rows[static_cast<std::size_t>(inUse + 1)].value = tr("In use");
 	};
 	if (!kept) mark(current);
 	// Read the shared-saves folder from this SD card now: the card may have
 	// been swapped since it was last looked up.
 	if (!kept) SharedNandFor(state.game_id, true);
 	const auto note = [&](int row) -> std::string {
+		if (row == kGetRow) return tr("Download a save for this game. The current save is backed up first.");
 		if (!ctgprFolder.empty())
 			return tr("CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none.", {ctgprFolder});
 		if (kept) return tr("This pack keeps its own saves. Turn it off to choose here.");
-		const std::string shown = kModes[row];
-		const bool fresh = row == current;
+		const std::string shown = kModes[row - 1];
+		const bool fresh = row - 1 == current;
 		return SaveNote(state.model, state.game_id, !fresh, &shown) + " " + tr("Changing this never moves or deletes saves already made.");
 	};
-	RunRowPage(tr("Save location"), GameTitle(state), rows, note, [&](int pickedRow, const auto&) {
+	RunRowPage(tr("Save location"), GameTitle(state), rows, note, [&](int pickedRow, const PageAside& aside) {
+		if (pickedRow == kGetRow) {
+			aside([&] { MenuGetSave(state); });
+			return false;
+		}
 		if (kept) return false;
-		const std::string picked = kModes[pickedRow];
+		const int mode = pickedRow - 1;
+		const std::string picked = kModes[mode];
 		const std::string previous = state.model.save_mode;
 		state.model.save_mode = picked;
 		std::string error;
@@ -11195,11 +11215,11 @@ static void MenuWiiSaves(FrontendState& state)
 			ShowPopup(tr("Save location"), tr("Could not save the settings to the SD card."), tr("OK"));
 			return false;
 		}
-		mark(pickedRow);
-		current = pickedRow;
+		mark(mode);
+		current = mode;
 		logf("Save location: %s picked for %s, earlier saves stay where they are\n", picked.c_str(), state.game_id.c_str());
 		return false;
-	}, nullptr, 0, current);
+	}, nullptr, 0, current + 1);
 }
 
 // The .gci files in sd:/riftwii/gc/saves, sorted, at most 200.
@@ -12520,21 +12540,24 @@ static void MenuGcCard(FrontendState& state)
 	const std::string used = EffectiveGcCard(state);
 	const bool real = GcCardIsRealSlotA(used);
 	const bool noSlots = riftwii::wii::is_wii_u();
-	std::vector<FlowRow> rows(3);
+	std::vector<FlowRow> rows(4);
 	for (FlowRow& row : rows) row.kind = FlowRow::Kind::Action;
 	rows[0].label = tr("Memory Card");
 	rows[0].value = "SD";
 	rows[0].dim = real;
 	rows[1].label = tr("Copy from a memory card in the Wii");
 	rows[2].label = tr("Save a copy of the whole card");
+	rows[3].label = tr("Get a save");
 	rows[1].dim = rows[2].dim = noSlots;
 	const auto note = [&](int row) -> std::string {
+		if (row == 3) return tr("Download a save for this game. The current save is backed up first.");
 		if (row > 0 && noSlots) return tr("Wii U has no GameCube memory card slots.");
 		if (real) return GcRealSlotANote(used);
 		return tr("Nothing is written to the card. Copies go to the SD card.");
 	};
 	RunRowPage(tr("Memory Card"), GameTitle(state), rows, note, [&](int row, const PageAside& aside) {
-		if (row == 0 && !real) aside([&] { MenuGcSdCard(state); });
+		if (row == 3) aside([&] { MenuGetSave(state); });
+		else if (row == 0 && !real) aside([&] { MenuGcSdCard(state); });
 		else if (row > 0 && !noSlots) aside([&] {
 			// The copy asks for its room before it reads or writes anything
 			// (gc_real_have_room) and says when there is not enough.
@@ -12542,6 +12565,170 @@ static void MenuGcCard(FrontendState& state)
 		});
 		return false;
 	});
+}
+
+// The network thread owns all download and install work. The menu only
+// reads atomic progress and consumes the result after that thread ended.
+static bool RunSaveDownload(const riftwii::SaveListing* save, const std::string& destination,
+	std::uint64_t title_id, std::string& backup, std::string& error)
+{
+	namespace saves = riftwii::wii::saves;
+	ProgressBar bar(56, 280, 528);
+	PopupBox box(tr("Get a save"), tr("Downloading..."), "", tr("Cancel"));
+	box.CenterCancel();
+	box.AddProgress(&bar);
+	bar.SetUnknown();
+	const riftwii::wii::CardWriteHold hold;
+	const bool started = save ? saves::StartInstall(*save, destination, title_id) : saves::StartList();
+	if (!started) {
+		error = "the save downloader could not start (not enough memory or the network is busy)";
+		return false;
+	}
+	bool success = false;
+	bool cancelled = false;
+	int shown = -1;
+	saves::Stage shownStage = saves::Stage::Download;
+	ResumeGui();
+	for (;;) {
+		usleep(50000);
+		HaltGui();
+		lastActive = gettime();
+		const saves::Progress progress = saves::CurrentProgress();
+		const int change = static_cast<int>(progress.stage) * 101 + progress.percent;
+		if (change != shown && !cancelled) {
+			shown = change;
+			// Each stage counts from 0 again: the bar starts over with it.
+			if (progress.stage != shownStage) {
+				shownStage = progress.stage;
+				bar.Restart();
+			}
+			if (!save || (progress.stage == saves::Stage::Download && progress.percent == 0)) bar.SetUnknown();
+			else bar.Set(progress.percent / 100.0);
+			const char* stage = progress.stage == saves::Stage::Check ? "Checking the download..."
+				: progress.stage == saves::Stage::Install ? "Installing the save..."
+				: progress.stage == saves::Stage::Finish ? "Finishing..." : "Downloading...";
+			box.SetBody(tr(stage));
+		}
+		if (!cancelled && box.Pressed()) {
+			cancelled = true;
+			saves::Cancel();
+			box.SetBody(tr("Stopping..."));
+		}
+		if (saves::TakeResult(success, backup, error)) break;
+		ResumeGui();
+	}
+	return success;
+}
+
+static void MenuGetSave(FrontendState& state)
+{
+	namespace saves = riftwii::wii::saves;
+	const bool gamecube = SelectedGcGame(state) != nullptr;
+	if (!riftwii::save_game_id_ok(state.game_id) || state.use_channel) return;
+	// Finish earlier cover work and scans before taking ownership of mounts.
+	riftwii::wii::NetCancelBackground();
+	ResumeGui();
+	riftwii::wii::WaitDriveScan();
+	riftwii::wii::NetWaitForBackground();
+	HaltGui();
+	std::string backup, error;
+	if (!saves::HaveList() && !RunSaveDownload(nullptr, "", 0, backup, error)) {
+		logf("Saves: the list could not be downloaded: %s.\n", error.c_str());
+		ShowPopup(tr("Get a save"), tr("The save list could not be downloaded. Check the connection and try again."), tr("OK"));
+		return;
+	}
+	std::size_t count = 0;
+	const riftwii::SaveListing* listing = saves::Listing(count);
+	std::vector<std::size_t> matches;
+	std::vector<FlowRow> rows;
+	for (std::size_t i = 0; i < count; ++i) {
+		if (!riftwii::save_matches(listing[i], state.game_id,
+			gamecube ? riftwii::SavePlatform::GameCube : riftwii::SavePlatform::Wii)) continue;
+		FlowRow row;
+		row.kind = FlowRow::Kind::Action;
+		row.label = FlatCapped(listing[i].title, 38);
+		row.detail = FlatCapped(listing[i].author, 32);
+		if (listing[i].format == riftwii::SaveFormat::DataBin) row.value = tr("Get it on a PC");
+		rows.push_back(row);
+		matches.push_back(i);
+	}
+	if (rows.empty()) {
+		ShowPopup(tr("Get a save"), tr("There are no saves listed for this version of the game yet."), tr("OK"));
+		return;
+	}
+	RunRowPage(tr("Get a save"), GameTitle(state), rows,
+		[&](int row) { return std::string(listing[matches[row]].description); },
+		[&](int row, const PageAside&) {
+			const riftwii::SaveListing& save = listing[matches[row]];
+			if (save.format == riftwii::SaveFormat::DataBin) {
+				ShowPopup(tr("Get it on a PC"), tr("This save needs to be extracted on a PC first. Source: {1}", {save.page}), tr("OK"));
+				return false;
+			}
+			std::string destination;
+			if (gamecube) {
+				const std::string card = EffectiveGcCard(state);
+				if (card != "own" && card != "shared" && card != "named" && card != "real_b") {
+					ShowPopup(tr("Get a save"), tr("Choose a RiftWii SD memory card in Options before installing a download."), tr("OK"));
+					return false;
+				}
+				destination = GcCardPath(state);
+			} else {
+				if (!state.model.pack_save_owner().empty() || !CtgprSaveFolder(state).empty()) {
+					ShowPopup(tr("Get a save"), tr("This pack keeps its own saves. Turn it off to choose here."), tr("OK"));
+					return false;
+				}
+				const std::string mode = riftwii::wii::EffectiveSaveMode(state);
+				if (mode == "nand") {
+					ShowPopup(tr("Get a save"), tr("Downloads go only to emulated NAND, never to the Wii. Choose an SD or emulated NAND save location first."), tr("OK"));
+					return false;
+				}
+				std::string shared;
+				if (mode == "emunand") {
+					const auto& found = SharedNandFor(state.game_id, true);
+					if (!found.usable) {
+						ShowPopup(tr("Get a save"), SaveNoteFor(state, true), tr("OK"));
+						return false;
+					}
+					shared = found.folder;
+				}
+				destination = riftwii::resolve_save_override(mode, "", state.game_id, shared).dir;
+				if (destination.empty()) return false;
+				// A disc's saves stay on the SD card (the launch refuses a USB
+				// emulated NAND for it), so a save put there would not be read.
+				if (!state.use_sd && !state.use_usb && riftwii::shared_nand_on_usb(destination)) {
+					ShowPopup(tr("Get a save"), tr("A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first."), tr("OK"));
+					return false;
+				}
+			}
+			if (ShowPopup(tr("Get a save"),
+				tr("Install {1} in {2}? Any save it replaces is backed up first.", {save.title, destination}),
+				tr("Install"), tr("Cancel")) != 0) return false;
+			riftwii::SaveListing selected;
+			if (!riftwii::save_select_game(save, state.game_id,
+				gamecube ? riftwii::SavePlatform::GameCube : riftwii::SavePlatform::Wii, selected)) return false;
+			// Its title ID from the image's TMD, when the scan read it.
+			std::uint64_t titleId = 0;
+			if (state.use_sd && state.sd_index < state.sd_catalog.games.size())
+				titleId = state.sd_catalog.games[state.sd_index].title_id;
+			else if (state.use_usb && state.usb_index < state.usb_catalog.games.size())
+				titleId = state.usb_catalog.games[state.usb_index].title_id;
+			const bool ok = RunSaveDownload(&selected, destination, titleId, backup, error);
+			if (!ok) {
+				logf("Saves: installation failed: %s.\n", error.c_str());
+				ShowPopup(tr("Get a save"), tr("The save could not be installed: {1}", {error}), tr("OK"));
+			} else {
+				// Only the backup's own name: its full path is too long for the
+				// popup (it ran off both sides), and the log keeps the path.
+				const std::string backupName = backup.substr(backup.rfind('/') + 1);
+				std::string done = tr("The save is installed.");
+				if (!backup.empty() && gamecube)
+					done = tr("The save is installed. The memory card was backed up first ({1}).", {backupName});
+				else if (!backup.empty())
+					done = tr("The save is installed. Your previous save is kept next to it as {1}.", {backupName});
+				ShowPopup(tr("Get a save"), done, tr("OK"));
+			}
+			return false;
+		}, nullptr, 56);
 }
 
 // A GameCube game's crash screen (gcplugin.hpp's SetGcCrashScreen, laid

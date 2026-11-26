@@ -5042,3 +5042,45 @@ msgstr "Altri titoli"
 
 msgid "Emulated + Wii"
 msgstr "Emulata + Wii"
+
+msgid "Get a save"
+msgstr "Scarica un salvataggio"
+
+msgid "Download a save for this game. The current save is backed up first."
+msgstr "Scarica un salvataggio per questo gioco. Prima viene conservata una copia di quello attuale."
+
+msgid "Installing the save..."
+msgstr "Installazione del salvataggio..."
+
+msgid "The save list could not be downloaded. Check the connection and try again."
+msgstr "Impossibile scaricare l'elenco dei salvataggi. Controlla la connessione e riprova."
+
+msgid "There are no saves listed for this version of the game yet."
+msgstr "Non ci sono ancora salvataggi per questa versione del gioco."
+
+msgid "This save needs to be extracted on a PC first. Source: {1}"
+msgstr "Questo salvataggio va prima estratto su PC. Fonte: {1}"
+
+msgid "Choose a RiftWii SD memory card in Options before installing a download."
+msgstr "Scegli una scheda di memoria RiftWii su SD nelle Opzioni prima di installare un download."
+
+msgid "Downloads go only to emulated NAND, never to the Wii. Choose an SD or emulated NAND save location first."
+msgstr "I download vanno solo nella NAND emulata, mai sulla Wii. Scegli prima una posizione dei salvataggi su SD o NAND emulata."
+
+msgid "Install {1} in {2}? Any save it replaces is backed up first."
+msgstr "Installare {1} in {2}? Prima viene conservata una copia dei salvataggi sostituiti."
+
+msgid "The save could not be installed: {1}"
+msgstr "Impossibile installare il salvataggio: {1}"
+
+msgid "The save is installed."
+msgstr "Il salvataggio è installato."
+
+msgid "The save is installed. Your previous save is kept next to it as {1}."
+msgstr "Il salvataggio è installato. Quello precedente è conservato accanto come {1}."
+
+msgid "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first."
+msgstr "Un gioco su disco non può usare una NAND emulata sull'unità USB. Scegli prima una posizione dei salvataggi sulla scheda SD."
+
+msgid "The save is installed. The memory card was backed up first ({1})."
+msgstr "Il salvataggio è installato. Prima è stata fatta una copia della memory card ({1})."

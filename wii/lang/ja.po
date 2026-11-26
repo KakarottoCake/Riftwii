@@ -5042,3 +5042,45 @@ msgstr "その他のタイトル"
 
 msgid "Emulated + Wii"
 msgstr "仮想NANDとWii"
+
+msgid "Get a save"
+msgstr "セーブをダウンロード"
+
+msgid "Download a save for this game. The current save is backed up first."
+msgstr "このゲームのセーブをダウンロードします。今のセーブは先にコピーを残します。"
+
+msgid "Installing the save..."
+msgstr "セーブをインストール中..."
+
+msgid "The save list could not be downloaded. Check the connection and try again."
+msgstr "セーブの一覧をダウンロードできませんでした。接続を確認して、もう一度お試しください。"
+
+msgid "There are no saves listed for this version of the game yet."
+msgstr "このバージョンのゲームのセーブはまだ一覧にありません。"
+
+msgid "This save needs to be extracted on a PC first. Source: {1}"
+msgstr "このセーブは先にPCで展開する必要があります。入手先: {1}"
+
+msgid "Choose a RiftWii SD memory card in Options before installing a download."
+msgstr "インストールする前に、オプションでRiftWiiのSDメモリーカードを選んでください。"
+
+msgid "Downloads go only to emulated NAND, never to the Wii. Choose an SD or emulated NAND save location first."
+msgstr "ダウンロード先は仮想NANDのみで、Wii本体には書き込みません。先にSDか仮想NANDをセーブ先に選んでください。"
+
+msgid "Install {1} in {2}? Any save it replaces is backed up first."
+msgstr "{1}を{2}にインストールしますか？置き換えるセーブは先にコピーを残します。"
+
+msgid "The save could not be installed: {1}"
+msgstr "セーブをインストールできませんでした: {1}"
+
+msgid "The save is installed."
+msgstr "セーブをインストールしました。"
+
+msgid "The save is installed. Your previous save is kept next to it as {1}."
+msgstr "セーブをインストールしました。前のセーブは{1}として隣に残しています。"
+
+msgid "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first."
+msgstr "ディスクのゲームはUSBドライブのエミュNANDを使えません。先にSDカードのセーブ場所を選んでください。"
+
+msgid "The save is installed. The memory card was backed up first ({1})."
+msgstr "セーブをインストールしました。先にメモリーカードをバックアップしました ({1})。"
